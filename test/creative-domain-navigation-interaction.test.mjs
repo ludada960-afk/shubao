@@ -13,13 +13,14 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
   assert.match(component, /creative-nav-mobile-backdrop[\s\S]*document\.body/);
   assert.match(shellCss, /\.creative-nav-viewport\s*\{[\s\S]*position:\s*fixed/);
   assert.match(shellCss, /\.creative-nav-viewport-bridge\s*\{/);
-  assert.match(component, /creative-nav-panel-heading/);
+  assert.doesNotMatch(component, /creative-nav-panel-heading/);
   assert.match(component, /creative-nav-item-icon/);
+  assert.match(component, /creative-nav-glyph-part/);
   assert.doesNotMatch(component, /creative-nav-domain-mark/);
   assert.doesNotMatch(component, /creative-nav-link-index/);
   assert.doesNotMatch(component, /is-single-destination/);
   assert.match(component, /creative-nav-arrow-left/);
-  assert.match(shellCss, /\.creative-nav-panel-heading\s*\{/);
+  assert.match(shellCss, /\.creative-nav-panel--items-4/);
   assert.match(shellCss, /\.creative-nav-item-icon\s*\{/);
   assert.doesNotMatch(shellCss, /\.creative-nav-link-index\s*\{/);
   assert.doesNotMatch(shellCss, /\.creative-nav-panel-intro\s*\{/);
@@ -52,10 +53,10 @@ test('pointer transitions and outside interaction keep the viewport usable', () 
 });
 
 test('destination motion is explicit, pointer-safe, and supports reduced motion', () => {
-  assert.match(component, /creative-nav-item-motion/);
+  assert.match(component, /creative-nav-glyph-part/);
   assert.match(component, /item\.motion/);
-  assert.match(shellCss, /\.creative-nav-link--layers/);
-  assert.match(shellCss, /\.creative-nav-link--magic/);
+  assert.match(shellCss, /creative-nav-fragment-assemble/);
+  assert.match(shellCss, /creative-nav-orbit-pulse/);
   assert.match(shellCss, /@media \(hover:\s*hover\) and \(pointer:\s*fine\)/);
   assert.match(shellCss, /prefers-reduced-motion/);
 });

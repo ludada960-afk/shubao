@@ -18,7 +18,8 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(app, /const canAdmin = state\.accountAccess\?\.role === 'owner'/);
   assert.match(shellCss, /\.creative-nav-desktop \{/);
   assert.match(shellCss, /\.creative-nav-panel \{/);
-  assert.match(shellCss, /\.creative-nav-panel\s*\{[\s\S]*?width:\s*min\(760px, calc\(100vw - 32px\)\)/);
+  assert.match(shellCss, /\.creative-nav-panel\s*\{[\s\S]*?width:\s*100%/);
+  assert.match(shellCss, /\.creative-nav-panel--items-4\s+\.creative-nav-panel-links/);
   assert.match(shellCss, /\.creative-nav-panel-links\s*\{[\s\S]*?border-left:\s*0/);
   assert.doesNotMatch(shellCss, /\.creative-nav-signature\s*\{/);
   assert.doesNotMatch(shellCss, /\.creative-nav-panel-intro\s*\{/);

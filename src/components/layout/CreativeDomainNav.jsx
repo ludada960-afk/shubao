@@ -63,6 +63,23 @@ const DOMAIN_THEMES = Object.freeze({
   workspace: 'workspace',
 });
 
+function CreativeNavGlyph({ Icon, motion, size = 25 }) {
+  return (
+    <span className={`creative-nav-glyph creative-nav-glyph--${motion}`} aria-hidden="true">
+      <span className="creative-nav-glyph-orbit" />
+      <span className="creative-nav-glyph-part creative-nav-glyph-part--a" />
+      <span className="creative-nav-glyph-part creative-nav-glyph-part--b" />
+      <span className="creative-nav-glyph-part creative-nav-glyph-part--c" />
+      <span className="creative-nav-glyph-part creative-nav-glyph-part--d" />
+      <Icon className="creative-nav-glyph-core" size={size} weight="duotone" />
+    </span>
+  );
+}
+
+function getDesktopPanelWidth(group) {
+  return Math.min(720, Math.max(360, 300 + group.items.length * 96));
+}
+
 function isProtectedTarget(action) {
   return action?.type === 'OPEN_CANVAS' || (action?.type === 'NAVIGATE' && action.page === 'video-studio');
 }
@@ -128,9 +145,12 @@ function CreativeDomainNav() {
     const updatePanelPosition = () => {
       const trigger = triggerRefs.current[openGroupId];
       if (!trigger) return;
+      const group = CREATIVE_NAV_GROUPS.find(entry => entry.id === openGroupId);
+      if (!group) return;
       const rect = trigger.getBoundingClientRect();
-      const width = Math.min(760, Math.max(320, window.innerWidth - 32));
-      const left = Math.max(16, (window.innerWidth - width) / 2);
+      const width = Math.min(getDesktopPanelWidth(group), window.innerWidth - 32);
+      const triggerCenter = rect.left + rect.width / 2;
+      const left = Math.max(16, Math.min(window.innerWidth - width - 16, triggerCenter - width / 2));
       const arrowLeft = Math.max(30, Math.min(width - 30, rect.left + rect.width / 2 - left));
       setPanelPosition({ left, top: rect.bottom, width, arrowLeft });
     };
@@ -272,9 +292,8 @@ function CreativeDomainNav() {
   const renderGroupPanel = group => {
     const theme = DOMAIN_THEMES[group.id] || 'commerce';
     return (
-      <div className={`creative-nav-panel creative-nav-panel--${theme}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
+      <div className={`creative-nav-panel creative-nav-panel--${theme} creative-nav-panel--items-${group.items.length}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
         <div className="creative-nav-panel-links">
-          <div className="creative-nav-panel-heading"><span>{group.label}</span><small>选择创作方向</small></div>
           {group.items.map((item, index) => {
             const ItemIcon = ITEM_ICONS[item.icon] || Sparkles;
             return (
@@ -286,16 +305,12 @@ function CreativeDomainNav() {
                 onClick={() => runTarget(group.id, item.id)}
                 onKeyDown={event => handlePanelKeyDown(event, group.id, index)}
               >
-                <span className="creative-nav-item-icon" aria-hidden="true">
-                  <span className="creative-nav-item-motion" />
-                  <ItemIcon size={25} weight="duotone" />
-                </span>
+                <span className="creative-nav-item-icon"><CreativeNavGlyph Icon={ItemIcon} motion={item.motion} /></span>
                 <span className="creative-nav-link-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
                 <span className="creative-nav-link-action"><small>进入</small><ArrowRight size={18} /></span>
               </button>
             );
           })}
-          <div className="creative-nav-panel-note"><Sparkles size={13} /> 所有结果都可以继续进入画布编辑</div>
         </div>
       </div>
     );
@@ -353,7 +368,7 @@ function CreativeDomainNav() {
                   }}
                   onKeyDown={event => handleTriggerKeyDown(event, group.id)}
                 >
-                  <Icon size={17} weight="duotone" /> <span>{group.label}</span><ChevronDown size={13} className="creative-nav-chevron" />
+                  <span className="creative-nav-trigger-glyph"><Icon size={18} weight="duotone" /></span><span className="creative-nav-trigger-label">{group.label}</span><ChevronDown size={13} className="creative-nav-chevron" />
                 </button>
               </div>
             );
@@ -378,7 +393,7 @@ function CreativeDomainNav() {
                 return (
                   <section className={`creative-nav-mobile-group${expanded ? ' is-expanded' : ''}`} key={group.id}>
                     <button type="button" className="creative-nav-mobile-group-button" aria-expanded={expanded} onClick={() => setMobileGroupId(expanded ? null : group.id)}><Icon size={19} weight="duotone" /><span>{group.label}</span><ChevronDown size={16} /></button>
-                    {expanded && <div className="creative-nav-mobile-links">{group.items.map(item => { const ItemIcon = ITEM_ICONS[item.icon] || Sparkles; return <button type="button" className={`creative-nav-mobile-link creative-nav-link--${item.motion}`} key={item.id} onClick={() => runTarget(group.id, item.id)}><span className="creative-nav-item-icon" aria-hidden="true"><ItemIcon size={21} weight="duotone" /></span><span><strong>{item.label}</strong><small>{item.description}</small></span><ArrowRight size={15} /></button>; })}</div>}
+                    {expanded && <div className="creative-nav-mobile-links">{group.items.map(item => { const ItemIcon = ITEM_ICONS[item.icon] || Sparkles; return <button type="button" className={`creative-nav-mobile-link creative-nav-link--${item.motion}`} key={item.id} onClick={() => runTarget(group.id, item.id)}><span className="creative-nav-item-icon"><CreativeNavGlyph Icon={ItemIcon} motion={item.motion} size={21} /></span><span><strong>{item.label}</strong><small>{item.description}</small></span><ArrowRight size={15} /></button>; })}</div>}
                   </section>
                 );
               })}
