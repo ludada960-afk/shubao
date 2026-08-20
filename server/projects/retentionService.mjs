@@ -15,6 +15,7 @@ function assetFromRow(row) {
   return {
     id: row.id,
     assetId: row.asset_id,
+    ownerEmail: String(row.owner_email || '').trim().toLowerCase(),
     projectId: row.project_id,
     stableUrl: row.stable_url,
     expiresAt: row.expires_at,
@@ -37,6 +38,8 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
   };
   const effectiveGraceMs = Number.isFinite(graceMs) && graceMs > 0 ? graceMs : GRACE_MS;
   const hasTable = name => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+  const hasColumn = (table, column) => hasTable(table)
+    && db.prepare(`PRAGMA table_info(${table})`).all().some(entry => entry.name === column);
   const protectedByReference = (asset, current) => {
     const canvas = db.prepare(`SELECT 1 FROM canvas_sessions
       WHERE project_id = ? AND status IN ('active', 'saved') AND expires_at > ?
@@ -47,8 +50,14 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
       WHERE project_id = ? AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled') LIMIT 1`)
       .get(asset.projectId);
     if (run) return true;
-    const work = hasTable('works') && db.prepare("SELECT 1 FROM works WHERE COALESCE(deleted_at, '') = '' AND payload LIKE ? LIMIT 1")
-      .get(`%${asset.stableUrl}%`);
+    let work = null;
+    if (hasTable('works')) {
+      work = hasColumn('works', 'owner_email')
+        ? db.prepare("SELECT 1 FROM works WHERE owner_email = ? AND COALESCE(deleted_at, '') = '' AND payload LIKE ? LIMIT 1")
+          .get(asset.ownerEmail, `%${asset.stableUrl}%`)
+        : db.prepare("SELECT 1 FROM works WHERE COALESCE(deleted_at, '') = '' AND payload LIKE ? LIMIT 1")
+          .get(`%${asset.stableUrl}%`);
+    }
     if (work) return true;
     const composition = db.prepare(`SELECT 1 FROM composition_revisions revision
       JOIN composition_documents document ON document.id = revision.document_id

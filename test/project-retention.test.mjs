@@ -161,3 +161,18 @@ test('a non-deleted Work keeps its referenced binary available beyond the nomina
   }), { expiresAt: null, preserved: true, expired: false });
   db.close();
 });
+
+test('a Work from another owner cannot protect an expired project asset', () => {
+  const { db, removed, retention } = createHarness();
+  db.exec(`CREATE TABLE works (owner_email TEXT, deleted_at TEXT, payload TEXT)`);
+  insertAsset(db, { id: 'owner-isolated', retentionState: 'marked' });
+  db.prepare("INSERT INTO works (owner_email, deleted_at, payload) VALUES ('other@example.com', '', ?)")
+    .run(JSON.stringify({ images: [{ url: '/api/generated-assets/owner-isolated.png' }] }));
+
+  const report = retention.isolateMarked();
+
+  assert.deepEqual(report.protectedAssetIds, []);
+  assert.deepEqual(report.isolatedAssetIds, ['owner-isolated']);
+  assert.deepEqual(removed, []);
+  db.close();
+});
