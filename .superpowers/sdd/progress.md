@@ -2226,3 +2226,10 @@
 - 主线程继续验证媒体资产恢复链路，发现项目素材导入时虽然使用了短期 `playbackUrl`，但 Canvas 会话从数据库创建、读取或保存后只返回持久化的 `stableUrl`；浏览器媒体元素恢复视频/音频时无法携带自定义 session header，存在空白预览风险。
 - 修复：Canvas 会话路由在 owner 校验后对快照中的 canonical 视频/音频 `stableUrl` 动态补发 playback capability；数据库快照和 Works 仍只保留 `stableUrl`。客户端恢复保留运行时播放地址，下一次 `createCanvasSnapshot` 会再次去除 transient 字段。播放 ID 从受信任的应用内 URL 推导，不依赖客户端额外字段。
 - 创建、读取、保存恢复回归与 Canvas 模型定向测试 `26/26` 通过；本轮不触发供应商、真实生成、账务或生产部署。
+
+## 2026-08-20 Works Media Playback Recovery Boundary
+
+- 主线程审计发现 `/api/works` 之前只恢复顶层 `video_url`，嵌套的 `video`、`audio`、`projectAssetRefs` 等记录仍可能把 canonical `stableUrl` 直接交给浏览器，导致从 Works 导入或恢复媒体时出现空白预览。
+- 新增 `server/projects/workMediaPlayback.mjs`，对 owner 已授权的 Works 响应做读取时装饰：视频和音频统一保留 `stableUrl`，动态补发短期 `playbackUrl` 并把运行时 `url` 指向播放地址；图片和非媒体 URL 不受影响，签发失败则保留可读 metadata。原始 Work 对象不被改写，短期 token 不会持久化。
+- `/api/works` 已接入该装饰器，并继续用未装饰的原始 Work 计算 retention，避免 transient URL 改变保留判断。新增嵌套视频/音频、跨层 project asset ref、非媒体和失败回退回归；聚焦回归 `30/30` 通过。
+- 本轮仍未触发供应商、真实生成、账务或生产部署；代码尚未进入线上 release。后续需完成提交前审查、全量测试、构建、协作检查和差异检查，再决定是否进入 full production gate。
