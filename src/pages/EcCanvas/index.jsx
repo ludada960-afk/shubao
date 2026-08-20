@@ -56,7 +56,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasSnapshot } from './canvasSessionModel.js';
-import { buildCanvasImportResult, canvasOutputImages, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
@@ -667,6 +667,7 @@ export default function EcCanvas() {
       return () => { cancelled = true; };
     }
     draftReadyRef.current = false;
+    const videoAsset = canvasVideoAsset(result);
     const session = imageList.length > 0
       ? createFreshCanvasSession({
         work: result,
@@ -675,7 +676,7 @@ export default function EcCanvas() {
       })
       : {
         nodes: createUploadedVideoNodes({
-          assets: [{
+          assets: [videoAsset || {
             id: result.id || result.taskId || `video-${Date.now()}`,
             name: result.product_name || result.prompt || '视频作品',
             url: resultVideoUrl,

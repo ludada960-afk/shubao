@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   buildCanvasImportResult,
+  canvasVideoAsset,
   canvasWorkCategory,
   canvasOutputImages,
   canvasWorkOutputFingerprint,
@@ -11,6 +12,8 @@ import {
   filterCanvasWorks,
   normalizeCanvasWorkPanel,
 } from '../src/pages/EcCanvas/canvasWorkModel.js';
+import { createUploadedVideoNodes } from '../src/pages/EcCanvas/canvasStudioModel.js';
+import { createCanvasSnapshot } from '../src/pages/EcCanvas/canvasSessionModel.js';
 
 test('video works remain visible without image thumbnails and filter as video', () => {
   const works = normalizeCanvasWorkPanel({
@@ -39,6 +42,29 @@ test('video works remain visible without image thumbnails and filter as video', 
   assert.equal(filterCanvasWorks(works, 'video').length, 1);
   assert.equal(works[0].projectAssetRefs[0].projectAssetId, 'video-result-1');
   assert.equal(buildCanvasImportResult(works[0], { importId: 'video-import' }).projectAssetRefs[0].mediaKind, 'video');
+});
+
+test('VideoStudio handoff binds the canonical project asset to the Canvas runtime playback node', () => {
+  const asset = canvasVideoAsset({
+    id: 'video-job-1',
+    videoUrl: '/api/video/media/output-1?purpose=playback&expires=123&signature=test',
+    projectAssetRefs: [{
+      projectId: 'video-project-1',
+      projectAssetId: 'video-result-1',
+      assetId: 'output-1.mp4',
+      stableUrl: '/api/video/assets/output-1.mp4',
+      contentHash: 'a'.repeat(64),
+      mimeType: 'video/mp4',
+      role: 'generated_video',
+    }],
+  });
+  const node = createUploadedVideoNodes({ assets: [asset] })[0];
+  assert.equal(node.url, asset.url);
+  assert.equal(node.assetRef.stableUrl, '/api/video/assets/output-1.mp4');
+  assert.equal(node.assetRef.projectAssetId, 'video-result-1');
+  const durable = createCanvasSnapshot({ nodes: [node] });
+  assert.equal(durable.nodes[0].url, '/api/video/assets/output-1.mp4');
+  assert.equal('playbackUrl' in durable.nodes[0], false);
 });
 
 test('Canvas work panel keeps only the signed owner local works and preserves server metadata', () => {

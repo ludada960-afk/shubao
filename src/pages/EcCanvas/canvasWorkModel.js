@@ -33,6 +33,30 @@ function workVideoUrl(work = {}) {
   return cleanString(work.video_url || work.videoUrl || work.video?.url || work._videoResult?.url);
 }
 
+function projectVideoAssetRef(work = {}) {
+  const candidates = [
+    work.projectAssetRef,
+    work.video?.projectAssetRef,
+    ...(Array.isArray(work.projectAssetRefs) ? work.projectAssetRefs : []),
+  ];
+  return candidates.find(ref => ref && typeof ref === 'object' && cleanString(ref.stableUrl) && cleanString(ref.contentHash) && cleanString(ref.mimeType)) || null;
+}
+
+export function canvasVideoAsset(work = {}) {
+  const url = workVideoUrl(work);
+  if (!url) return null;
+  const ref = projectVideoAssetRef(work);
+  const assetId = cleanString(ref?.assetId || work.videoAssetId || work.assetId || work.id || work.taskId);
+  return {
+    ...(ref || {}),
+    id: assetId,
+    assetId,
+    url,
+    ...(ref ? { playbackUrl: url } : {}),
+    name: cleanString(work.product_name || work.title || work.name || work.prompt) || '视频作品',
+  };
+}
+
 export function canvasWorkCategory(work = {}) {
   return inferWorkType(work);
 }
