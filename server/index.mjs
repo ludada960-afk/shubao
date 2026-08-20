@@ -80,6 +80,7 @@ import { createVideoProjectBridge } from './videoProjectBridge.mjs';
 import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
 import { createVideoWorkbenchRollout } from './videoWorkbenchRollout.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
+import { decorateOwnedWorkPlayback } from './projects/workMediaPlayback.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
 import { createPixelLayers } from './composition/layerService.mjs';
@@ -2472,15 +2473,14 @@ mountWorkRoutes(app, {
   },
   mapError: contentBillingHttpError,
   listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => {
-    const stableVideoUrl = String(work.video_url || work.video?.url || '');
-    const assetId = /^\/api\/video\/assets\/([^/?#]+)$/.exec(stableVideoUrl)?.[1] || '';
-    const playbackUrl = assetId ? videoGeneration.playbackUrlForAsset(assetId, ownerEmail) : '';
+    const decorated = decorateOwnedWorkPlayback(work, {
+      ownerEmail,
+      resolveAssetPlaybackUrl: ({ asset, ownerEmail: owner }) => (
+        videoGeneration.playbackUrlForAsset(asset.assetId, owner)
+      ),
+    });
     return {
-      ...work,
-      ...(playbackUrl ? {
-        video_url: playbackUrl,
-        video: { ...(work.video || {}), url: playbackUrl },
-      } : {}),
+      ...decorated,
       retention: retentionService.describeWork({ ownerEmail, work }),
     };
   }),

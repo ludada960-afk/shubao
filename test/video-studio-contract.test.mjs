@@ -107,7 +107,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(server, /videoGeneration\.readAsset\(id, req\._userEmail\)/);
   assert.match(server, /app\.get\('\/api\/video\/media\/:id'/);
   assert.match(server, /videoGeneration\.readSignedAsset/);
-  assert.match(server, /videoGeneration\.playbackUrlForAsset\(assetId, ownerEmail\)/);
+  assert.match(server, /decorateOwnedWorkPlayback\(work,/);
+  assert.match(server, /videoGeneration\.playbackUrlForAsset\(asset\.assetId, owner\)/);
   assert.match(server, /video_plan_analysis/);
   assert.match(videoService, /export function analyzeVideoPlan/);
   assert.match(assetAnalysis, /videoMetadata/);
