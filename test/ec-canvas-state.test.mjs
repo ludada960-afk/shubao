@@ -282,6 +282,14 @@ test('Canvas automatically archives stable generated images into the project ass
   assert.match(canvasSource, /attachCanvasProjectAssetRef\(candidate, existing\.asset\)/);
 });
 
+test('Canvas project asset library exposes a server-backed long-term retention control', () => {
+  assert.match(canvasSource, /setProjectAssetRetention/);
+  assert.match(canvasSource, /projectAssetRetentionBusy/);
+  assert.match(canvasSource, /handleToggleProjectAssetRetention/);
+  assert.match(canvasSource, /asset\.retentionPinned \? `取消长期保留/);
+  assert.match(canvasSource, /updated\.retentionPinned \? '已长期保留此素材'/);
+});
+
 test('Canvas Work projection preserves media-only sources for later recovery', () => {
   assert.match(canvasSource, /collectCanvasMediaAssets/);
   assert.match(canvasSource, /const resultMediaAssets = collectCanvasMediaAssets\(result\)/);

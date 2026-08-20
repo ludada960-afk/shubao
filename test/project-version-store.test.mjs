@@ -116,6 +116,42 @@ test('creates and lists canonical project assets with owner isolation and idempo
   assert.throws(() => store.createProjectAsset({ ...input, assetId: 'external', stableUrl: '//cdn.example.com/video.mp4' }), /stableUrl must be an owned application asset URL/);
 });
 
+test('pins a canonical project asset for long-term reuse and restores its prior retention class', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'retention-owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '长期素材' });
+  const asset = store.createProjectAsset({
+    ownerEmail,
+    projectId: project.id,
+    assetId: 'generated-product',
+    stableUrl: '/api/generated-assets/generated-product.webp',
+    contentHash: 'generated-product-hash',
+    mimeType: 'image/webp',
+    retentionClass: 'generated',
+  });
+
+  const pinned = store.setProjectAssetRetention({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true });
+  const replayed = store.setProjectAssetRetention({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true });
+
+  assert.equal(pinned.retentionPinned, true);
+  assert.equal(pinned.retentionClass, 'permanent');
+  assert.equal(pinned.retentionState, 'active');
+  assert.equal(replayed.retentionClass, 'permanent');
+  assert.equal(db.prepare('SELECT retention_class_before_pin FROM project_assets WHERE id = ?').get(asset.projectAssetId).retention_class_before_pin, 'generated');
+
+  const unpinned = store.setProjectAssetRetention({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, pinned: false });
+
+  assert.equal(unpinned.retentionPinned, false);
+  assert.equal(unpinned.retentionClass, 'generated');
+  assert.equal(unpinned.retentionState, 'active');
+  assert.equal(db.prepare('SELECT retention_class_before_pin FROM project_assets WHERE id = ?').get(asset.projectAssetId).retention_class_before_pin, null);
+  assert.throws(
+    () => store.setProjectAssetRetention({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true }),
+    error => error?.code === 'PROJECT_NOT_FOUND',
+  );
+});
+
 test('lists a display-safe owner project asset library across projects with server filters', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

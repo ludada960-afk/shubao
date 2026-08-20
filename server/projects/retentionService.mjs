@@ -20,6 +20,7 @@ function assetFromRow(row) {
     stableUrl: row.stable_url,
     expiresAt: row.expires_at,
     retentionState: row.retention_state,
+    retentionPinned: Number(row.retention_pinned) === 1 || row.retention_class === 'permanent',
     expired: row.retention_state === 'deleted',
   };
 }
@@ -41,6 +42,7 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
   const hasColumn = (table, column) => hasTable(table)
     && db.prepare(`PRAGMA table_info(${table})`).all().some(entry => entry.name === column);
   const protectedByReference = (asset, current) => {
+    if (asset.retentionPinned) return true;
     const canvas = db.prepare(`SELECT 1 FROM canvas_sessions
       WHERE owner_email = ? AND project_id = ? AND status IN ('active', 'saved') AND expires_at > ?
         AND (snapshot LIKE ? OR snapshot LIKE ?) LIMIT 1`)
@@ -98,7 +100,7 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
 
   function markExpired() {
     const current = clock();
-    const rows = db.prepare("SELECT * FROM project_assets WHERE deleted_at IS NULL AND retention_state = 'active'").all();
+    const rows = db.prepare("SELECT * FROM project_assets WHERE deleted_at IS NULL AND retention_state = 'active' AND COALESCE(retention_pinned, 0) = 0 AND retention_class <> 'permanent'").all();
     const marked = [];
     for (const row of rows) {
       const asset = assetFromRow(row);

@@ -25,6 +25,9 @@ test('schema migrates legacy project assets before creating the retention index'
 
   const columns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   assert.ok(columns.includes('retention_state'));
+  assert.ok(columns.includes('retention_class_before_pin'));
+  assert.ok(columns.includes('retention_pinned'));
+  assert.ok(columns.includes('expires_at_before_pin'));
   assert.ok(columns.includes('marked_at'));
   assert.ok(columns.includes('isolated_at'));
   const indexes = db.prepare('PRAGMA index_list(project_assets)').all().map(index => index.name);
@@ -236,6 +239,23 @@ test('a video replay manifest reference protects its canonical project asset', (
   assert.deepEqual(report.protectedAssetIds, ['video-manifest-reference']);
   assert.deepEqual(report.isolatedAssetIds, []);
   assert.deepEqual(removed, []);
+  db.close();
+});
+
+test('a pinned asset stays active and is never marked by retention cleanup', () => {
+  const { db, removed, retention } = createHarness();
+  insertAsset(db, { id: 'pinned-reference', retentionState: 'active' });
+  db.prepare(`UPDATE project_assets
+    SET retention_class = 'permanent', retention_pinned = 1
+    WHERE asset_id = 'pinned-reference'`).run();
+
+  const report = retention.sweep();
+
+  assert.deepEqual(report.markedAssetIds, []);
+  assert.deepEqual(report.isolatedAssetIds, []);
+  assert.deepEqual(report.deletedAssetIds, []);
+  assert.deepEqual(removed, []);
+  assert.equal(db.prepare("SELECT retention_state FROM project_assets WHERE asset_id = 'pinned-reference'").get().retention_state, 'active');
   db.close();
 });
 

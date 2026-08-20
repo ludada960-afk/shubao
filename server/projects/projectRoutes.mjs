@@ -12,6 +12,9 @@ function routeError(error, res) {
   if (code === 'PROJECT_ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '未找到该项目素材' });
   }
+  if (code === 'PROJECT_ASSET_RETENTION_INVALID') {
+    return res.status(400).json({ code, error: '素材保留设置无效' });
+  }
   if (code === 'VIDEO_ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '素材不存在或不属于当前账号' });
   }
@@ -215,6 +218,18 @@ export function mountProjectRoutes(app, {
       });
       if (!lineage) return res.status(404).json({ code: 'PROJECT_ASSET_NOT_FOUND', error: '未找到该项目素材' });
       return res.json({ lineage });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.patch('/api/projects/:projectId/assets/:assetId/retention', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const asset = projectStore.setProjectAssetRetention({
+        ownerEmail,
+        projectId: req.params.projectId,
+        projectAssetId: req.params.assetId,
+        pinned: req.body?.pinned,
+      });
+      return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
     } catch (error) { return routeError(error, res); }
   });
   app.get('/api/projects/:projectId/assets/:assetId', (req, res) => {

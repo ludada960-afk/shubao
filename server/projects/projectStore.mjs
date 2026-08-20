@@ -41,6 +41,7 @@ function projectAssetFromRow(row) {
     height: row.height,
     expiresAt: row.expires_at,
     retentionClass: row.retention_class,
+    retentionPinned: Number(row.retention_pinned) === 1 || row.retention_class === 'permanent',
     retentionState: row.retention_state,
     metadata: parse(row.metadata_json, {}),
     createdAt: row.created_at,
@@ -422,6 +423,41 @@ export function createProjectStore(db, {
       return projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
         WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`)
         .get(projectAssetId, project.ownerEmail, project.id));
+    },
+
+    setProjectAssetRetention({ ownerEmail, projectId, projectAssetId, pinned }) {
+      if (typeof pinned !== 'boolean') throw codedError('PROJECT_ASSET_RETENTION_INVALID', 'pinned must be a boolean');
+      return db.transaction(() => {
+        const project = requireProject(ownerEmail, projectId);
+        const row = db.prepare(`SELECT * FROM project_assets
+          WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(
+          projectAssetId, project.ownerEmail, project.id,
+        );
+        if (!row) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
+        const currentlyPinned = Number(row.retention_pinned) === 1 || row.retention_class === 'permanent';
+        if (pinned) {
+          const previousClass = row.retention_class_before_pin
+            || (row.retention_class === 'permanent' ? null : row.retention_class || 'completed');
+          db.prepare(`UPDATE project_assets
+            SET retention_class = 'permanent', retention_class_before_pin = ?, retention_pinned = 1,
+                expires_at_before_pin = expires_at, expires_at = NULL,
+                retention_state = 'active', marked_at = NULL, isolated_at = NULL
+            WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).run(
+            previousClass, row.id, project.ownerEmail, project.id,
+          );
+        } else if (currentlyPinned) {
+          const restoredClass = row.retention_class_before_pin && row.retention_class_before_pin !== 'permanent'
+            ? row.retention_class_before_pin : 'completed';
+          db.prepare(`UPDATE project_assets
+            SET retention_class = ?, retention_class_before_pin = NULL, retention_pinned = 0,
+                expires_at = expires_at_before_pin, expires_at_before_pin = NULL,
+                retention_state = 'active', marked_at = NULL, isolated_at = NULL
+            WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).run(
+            restoredClass, row.id, project.ownerEmail, project.id,
+          );
+        }
+        return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(row.id));
+      })();
     },
 
     getProjectAssetLineage({ ownerEmail, projectId, projectAssetId }) {

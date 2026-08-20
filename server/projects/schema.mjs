@@ -135,6 +135,9 @@ export function ensureProjectSchema(db) {
       metadata_json TEXT NOT NULL DEFAULT '{}',
       expires_at TEXT,
       retention_class TEXT NOT NULL,
+      retention_class_before_pin TEXT,
+      retention_pinned INTEGER NOT NULL DEFAULT 0,
+      expires_at_before_pin TEXT,
       created_at TEXT NOT NULL,
       deleted_at TEXT,
       retention_state TEXT NOT NULL DEFAULT 'active',
@@ -166,6 +169,9 @@ export function ensureProjectSchema(db) {
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");
   if (!assetColumns.includes('metadata_json')) db.exec("ALTER TABLE project_assets ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'");
   if (!assetColumns.includes('retention_state')) db.exec("ALTER TABLE project_assets ADD COLUMN retention_state TEXT NOT NULL DEFAULT 'active'");
+  if (!assetColumns.includes('retention_class_before_pin')) db.exec('ALTER TABLE project_assets ADD COLUMN retention_class_before_pin TEXT');
+  if (!assetColumns.includes('retention_pinned')) db.exec('ALTER TABLE project_assets ADD COLUMN retention_pinned INTEGER NOT NULL DEFAULT 0');
+  if (!assetColumns.includes('expires_at_before_pin')) db.exec('ALTER TABLE project_assets ADD COLUMN expires_at_before_pin TEXT');
   if (!assetColumns.includes('marked_at')) db.exec('ALTER TABLE project_assets ADD COLUMN marked_at TEXT');
   if (!assetColumns.includes('isolated_at')) db.exec('ALTER TABLE project_assets ADD COLUMN isolated_at TEXT');
   db.exec(`CREATE INDEX IF NOT EXISTS idx_project_assets_retention

@@ -16,6 +16,7 @@ import {
   importVideoAssetToProject,
   registerGeneratedAssetToProject,
   listProjectAssetLibrary,
+  setProjectAssetRetention,
   listProjects,
   listRecoveryCheckpoints,
   saveCanvasSession,
@@ -214,6 +215,23 @@ test('project asset lineage client encodes both IDs and uses the signed session'
 
   const lineage = await getProjectAssetLineage('project one', 'asset/one');
   assert.equal(lineage.asset.projectAssetId, 'asset/one');
+});
+
+test('project asset retention client uses a signed patch and boolean body', async t => {
+  installSession('signed-retention-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%20one/assets/asset%2Fone/retention');
+    assert.equal(options.method, 'PATCH');
+    assert.equal(options.headers.Authorization, 'Bearer signed-retention-token');
+    assert.deepEqual(JSON.parse(options.body), { pinned: true });
+    return jsonResponse({ asset: { projectAssetId: 'asset/one', retentionPinned: true, retentionClass: 'permanent' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const asset = await setProjectAssetRetention('project one', 'asset/one', true);
+  assert.equal(asset.retentionPinned, true);
+  await assert.rejects(setProjectAssetRetention('project one', 'asset/one', 'true'), /请选择有效的素材保留设置/);
 });
 
 test('project media import client uses signed owner context and never sends owner authority', async t => {

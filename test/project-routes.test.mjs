@@ -332,6 +332,45 @@ test('unified project asset library is signed, filtered, and display-safe', asyn
   assert.deepEqual(denied.body.assets, []);
 });
 
+test('project asset retention changes are signed, owner-scoped, and idempotent', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'retention-route-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '素材保留' });
+  const asset = projectStore.createProjectAsset({
+    ownerEmail: owner,
+    projectId: project.id,
+    assetId: 'retention-route-image',
+    stableUrl: '/api/generated-assets/retention-route-image.webp',
+    contentHash: 'retention-route-hash',
+    mimeType: 'image/webp',
+    retentionClass: 'generated',
+  });
+
+  const pinned = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/retention', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id, assetId: asset.projectAssetId },
+    body: { pinned: true },
+  });
+  const denied = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/retention', {
+    headers: signedHeaders(sessionTokens, 'other@example.com'),
+    params: { projectId: project.id, assetId: asset.projectAssetId },
+    body: { pinned: true },
+  });
+  const invalid = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/retention', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id, assetId: asset.projectAssetId },
+    body: { pinned: 'true' },
+  });
+
+  assert.equal(pinned.statusCode, 200);
+  assert.equal(pinned.body.asset.retentionPinned, true);
+  assert.equal(pinned.body.asset.retentionClass, 'permanent');
+  assert.equal(denied.statusCode, 404);
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.body.code, 'PROJECT_ASSET_RETENTION_INVALID');
+});
+
 test('project asset playback URLs are transient and never replace the canonical stable URL', async t => {
   const { app, db, projectStore, sessionTokens } = createHarness();
   t.after(() => db.close());

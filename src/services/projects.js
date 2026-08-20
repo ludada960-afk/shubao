@@ -200,6 +200,17 @@ export async function getProjectAssetLineage(projectId, projectAssetId) {
   return response.lineage;
 }
 
+export async function setProjectAssetRetention(projectId, projectAssetId, pinned) {
+  if (typeof pinned !== 'boolean') throw new Error('请选择有效的素材保留设置');
+  const response = await requestJson(
+    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}/retention`,
+    { method: 'PATCH', ...jsonBody({ pinned }) },
+    '暂时无法更新素材保留设置',
+  );
+  if (!response?.asset?.projectAssetId) throw new Error('素材保留状态暂时不可用，请稍后重试');
+  return response.asset;
+}
+
 export async function createProjectVersion(projectId, payload = {}) {
   const { idempotencyKey = '', ...versionPayload } = payload || {};
   const headers = {
