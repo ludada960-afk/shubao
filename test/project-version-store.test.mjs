@@ -61,6 +61,7 @@ test('creates and lists canonical project assets with owner isolation and idempo
   assert.equal(store.listProjectAssets({ ownerEmail, projectId: project.id, mediaKind: 'video' }).length, 1);
   assert.throws(() => store.listProjectAssets({ ownerEmail: 'other@example.com', projectId: project.id }), error => error?.code === 'PROJECT_NOT_FOUND');
   assert.throws(() => store.getProjectAsset({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: first.projectAssetId }), error => error?.code === 'PROJECT_NOT_FOUND');
+  assert.throws(() => store.createProjectAsset({ ...input, assetId: 'external', stableUrl: '//cdn.example.com/video.mp4' }), /stableUrl must be an owned application asset URL/);
 });
 
 test('lists a display-safe owner project asset library across projects with server filters', t => {

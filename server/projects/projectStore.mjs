@@ -333,7 +333,7 @@ export function createProjectStore(db, {
       const hash = cleanProjectAssetValue(contentHash, 'contentHash', 256);
       const type = cleanProjectAssetValue(mimeType, 'mimeType', 160).toLowerCase();
       const metadataJson = JSON.stringify(normalizeProjectAssetMetadata(metadata));
-      if (/^https?:\/\//i.test(url)) throw new TypeError('stableUrl must be an owned application asset URL');
+      if (!isOwnedApplicationAssetUrl(url)) throw new TypeError('stableUrl must be an owned application asset URL');
       if (versionId) requireVersion(project.id, versionId);
       if (parentAssetId) {
         const parent = db.prepare(`SELECT id FROM project_assets
