@@ -2239,3 +2239,10 @@
 - 继续审计发现项目素材库接口虽然已经返回 transient `playbackUrl`，Canvas 右侧项目素材预览卡片却仍直接使用 canonical `stableUrl` 渲染视频；导入动作正确，导入前预览仍可能因浏览器无法携带 session header 而空白。
 - 修正 Canvas 项目素材卡片采用 `asset.playbackUrl || asset.stableUrl`，图片缩略图代理和 canonical asset ref 保持不变；保存快照仍由已有 durable snapshot 逻辑去除 transient playback 字段。
 - Canvas 跨域资产、项目路由和会话恢复定向回归 `26/26`，提交 `ab097e8`；随后全量回归 `1936/1936`、生产构建 `6524` modules 通过。本轮未触发供应商、真实生成、账务或生产部署。
+
+## 2026-08-20 VideoStudio Canvas Canonical Handoff
+
+- 继续沿 VideoStudio 到 Canvas 的真实交接链路审计，发现视频工作台传入的是短期播放 URL，但 Canvas 初始化视频节点时只保留 `id/name/url`，会丢掉 `projectAssetRef`；后续保存或恢复无法可靠关联 canonical `project_assets`。
+- 修正 `canvasVideoAsset`：优先提取带稳定 URL、内容哈希和 MIME 的 canonical 视频资产引用，同时把短期 URL 仅作为运行时 playback capability 传入 Canvas。durable snapshot 仍由既有边界还原稳定 URL并移除 transient playback 字段，旧版没有 canonical ref 的视频继续兼容旧路径。
+- 新增 VideoStudio handoff 回归，验证运行时播放 URL、canonical project asset identity 与持久化快照三者边界；全量 `npm test` `1937/1937`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮没有触发供应商、真实生成、账务或生产部署；代码尚未进入线上 release，视频线程文件保持未修改、未暂存。
