@@ -362,6 +362,36 @@ test('derives ecommerce asset identity from the stable URL before accepting snap
   assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp' });
 });
 
+test('rejects an external ecommerce result URL before accepting the project result', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = store.ensureEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-external-result',
+    title: '外链结果',
+    inputSnapshot: {},
+    planSnapshot: {},
+  });
+
+  assert.throws(() => store.completeEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-external-result',
+    resultInputSnapshot: {
+      assets: [{
+        assetId: 'hero',
+        state: 'completed',
+        stableUrl: 'https://provider.example.com/result.png',
+        contentHash: 'provider-hash',
+        mimeType: 'image/png',
+      }],
+    },
+    resultPlanSnapshot: {},
+  }), error => error?.code === 'ECOMMERCE_ASSET_NOT_READY');
+
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_versions WHERE project_id = ?').get(input.project.id).count, 1);
+  assert.equal(store.getProject({ ownerEmail: 'asset-owner@example.com', projectId: input.project.id }).status, 'running');
+});
+
 test('does not fabricate a video source asset hash when the source is not verified', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

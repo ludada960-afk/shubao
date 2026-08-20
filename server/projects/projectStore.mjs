@@ -151,6 +151,11 @@ function stableAssetMimeType(value) {
   return extension === 'jpg' ? 'image/jpeg' : extension === 'webp' ? 'image/webp' : extension === 'png' ? 'image/png' : '';
 }
 
+function isOwnedApplicationAssetUrl(value) {
+  const url = String(value || '').trim();
+  return /^\/api\//.test(url) && !/[\u0000-\u001F\u007F]/.test(url);
+}
+
 function terminalConflict(currentStatus, requestedStatus) {
   return codedError(
     'GENERATION_RUN_TERMINAL_CONFLICT',
@@ -859,6 +864,9 @@ export function createProjectStore(db, {
         for (const resultAsset of Array.isArray(resultInputSnapshot?.assets) ? resultInputSnapshot.assets : []) {
           if (String(resultAsset?.state || '') !== 'completed') continue;
           const stableUrl = String(resultAsset?.stableUrl || '').trim();
+          if (!isOwnedApplicationAssetUrl(stableUrl)) {
+            throw codedError('ECOMMERCE_ASSET_NOT_READY', 'ecommerce result asset is not an owned application asset');
+          }
           const assetId = stableAssetIdFromUrl(stableUrl);
           if (!assetId) continue;
           const contentHash = stableAssetContentHash(stableUrl)
