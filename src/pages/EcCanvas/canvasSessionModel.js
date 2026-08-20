@@ -43,6 +43,39 @@ function normalizedViewport(viewport = {}) {
   };
 }
 
+function canonicalMediaRef(value = {}) {
+  const ref = buildCanvasAssetRef(value?.assetRef || value?.projectAssetRef || value);
+  return ref && ['video', 'audio'].includes(ref.mediaKind) ? ref : null;
+}
+
+export function canvasMediaAssetRefs(nodes = []) {
+  const refs = [];
+  const seen = new Set();
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    const ref = canonicalMediaRef(node);
+    const key = canvasProjectAssetRefKey(ref || {});
+    if (!ref || !key || seen.has(key)) continue;
+    seen.add(key);
+    refs.push(ref);
+  }
+  return refs;
+}
+
+export function restoreCanvasMediaPlayback(nodes = [], assets = []) {
+  const playbackByKey = new Map();
+  for (const asset of Array.isArray(assets) ? assets : []) {
+    const ref = canonicalMediaRef(asset);
+    const playbackUrl = typeof asset?.playbackUrl === 'string' ? asset.playbackUrl.trim() : '';
+    const key = canvasProjectAssetRefKey(ref || {});
+    if (ref && key && playbackUrl) playbackByKey.set(key, playbackUrl);
+  }
+  return (Array.isArray(nodes) ? nodes : []).map(node => {
+    const ref = canonicalMediaRef(node);
+    const playbackUrl = playbackByKey.get(canvasProjectAssetRefKey(ref || {}));
+    return playbackUrl ? { ...node, url: playbackUrl, playbackUrl } : node;
+  });
+}
+
 export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {} } = {}) {
   return {
     nodes: durableCanvasValue(clone(Array.isArray(nodes) ? nodes : [], [])),

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  canvasMediaAssetRefs,
   createCanvasSnapshot,
   createFreshCanvasSession,
+  restoreCanvasMediaPlayback,
   restoreCanvasSnapshot,
 } from '../src/pages/EcCanvas/canvasSessionModel.js';
 
@@ -126,4 +128,41 @@ test('restoring a server Canvas snapshot preserves transient media playback whil
   assert.equal(restored.nodes[0].playbackUrl, source.nodes[0].playbackUrl);
   assert.equal(durable.nodes[0].url, source.nodes[0].assetRef.stableUrl);
   assert.equal('playbackUrl' in durable.nodes[0], false);
+});
+
+test('local Canvas drafts remint media playback from canonical project asset references', () => {
+  const nodes = [{
+    id: 'video-draft-1',
+    kind: 'video',
+    url: '/api/video/assets/video-1',
+    projectAssetRef: {
+      projectId: 'project-1',
+      projectAssetId: 'asset-1',
+      assetId: 'video-1',
+      contentHash: 'hash-1',
+      stableUrl: '/api/video/assets/video-1',
+      mimeType: 'video/mp4',
+    },
+  }, {
+    id: 'audio-draft-1',
+    kind: 'audio',
+    url: '/api/video/assets/audio-1',
+    assetRef: {
+      projectId: 'project-1',
+      projectAssetId: 'asset-2',
+      assetId: 'audio-1',
+      contentHash: 'hash-2',
+      stableUrl: '/api/video/assets/audio-1',
+      mimeType: 'audio/mpeg',
+    },
+  }];
+  assert.deepEqual(canvasMediaAssetRefs(nodes).map(ref => ref.projectAssetId), ['asset-1', 'asset-2']);
+  const recovered = restoreCanvasMediaPlayback(nodes, [
+    { ...nodes[0].projectAssetRef, playbackUrl: '/api/video/media/video-1?purpose=playback&cap=one' },
+    { ...nodes[1].assetRef, playbackUrl: '/api/video/media/audio-1?purpose=playback&cap=two' },
+  ]);
+  assert.equal(recovered[0].url, '/api/video/media/video-1?purpose=playback&cap=one');
+  assert.equal(recovered[1].url, '/api/video/media/audio-1?purpose=playback&cap=two');
+  assert.equal(recovered[0].projectAssetRef.stableUrl, '/api/video/assets/video-1');
+  assert.equal(recovered[1].assetRef.stableUrl, '/api/video/assets/audio-1');
 });

@@ -51,11 +51,11 @@ import {
 } from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, getProjectAssetLineage, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
+import { createCanvasSession, getProjectAsset, getProjectAssetLineage, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
-import { createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasSnapshot } from './canvasSessionModel.js';
+import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
@@ -701,6 +701,17 @@ export default function EcCanvas() {
     setCanvasSession(result.canvasSession?.id
       ? result.canvasSession
       : result.canvasSessionId ? { id: result.canvasSessionId, revision: result.canvasSessionRevision || 1 } : null);
+    if (draft && initialSnapshot?.nodes?.length) {
+      const mediaRefs = canvasMediaAssetRefs(initialSnapshot.nodes);
+      if (mediaRefs.length) {
+        void Promise.all(mediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))).then(assets => {
+          if (cancelled) return;
+          const resolvedAssets = assets.filter(Boolean);
+          if (!resolvedAssets.length) return;
+          setNodes(previous => restoreCanvasMediaPlayback(previous, resolvedAssets).map(normalizeCanvasNode));
+        });
+      }
+    }
     const persistedSessionId = result.canvasSession?.id || result.canvasSessionId;
     if (!draft && persistedSessionId) {
       void loadCanvasSession(persistedSessionId).then(remoteSession => {
