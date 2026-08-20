@@ -33,6 +33,7 @@ test('every destination has semantic icon and motion metadata while video stays 
   for (const item of items) {
     assert.match(item.icon, /^[a-z-]+$/);
     assert.match(item.motion, /^[a-z-]+$/);
+    assert.match(item.hint, /^.{2,8}$/);
   }
   assert.equal(new Set(items.map(item => item.motion)).size, items.length);
 });

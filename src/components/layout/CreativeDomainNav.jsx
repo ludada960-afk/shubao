@@ -67,6 +67,8 @@ function CreativeNavGlyph({ Icon, motion, size = 25 }) {
   return (
     <span className={`creative-nav-glyph creative-nav-glyph--${motion}`} aria-hidden="true">
       <span className="creative-nav-glyph-orbit" />
+      <span className="creative-nav-glyph-signal creative-nav-glyph-signal--a" />
+      <span className="creative-nav-glyph-signal creative-nav-glyph-signal--b" />
       <span className="creative-nav-glyph-part creative-nav-glyph-part--a" />
       <span className="creative-nav-glyph-part creative-nav-glyph-part--b" />
       <span className="creative-nav-glyph-part creative-nav-glyph-part--c" />
@@ -307,7 +309,7 @@ function CreativeDomainNav() {
               >
                 <span className="creative-nav-item-icon"><CreativeNavGlyph Icon={ItemIcon} motion={item.motion} /></span>
                 <span className="creative-nav-link-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
-                <span className="creative-nav-link-action"><small>进入</small><ArrowRight size={18} /></span>
+                <span className="creative-nav-link-action"><small>{item.hint}</small><ArrowRight size={18} /></span>
               </button>
             );
           })}
