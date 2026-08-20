@@ -192,6 +192,63 @@ test('project asset playback URLs are transient and never replace the canonical 
   assert.match(response.body.assets[0].playbackUrl, /^\/api\/video\/media\/preview-video\?/);
 });
 
+test('Canvas session recovery remints transient media playback without changing the persisted identity', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'canvas-playback-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'video', title: 'Canvas 播放恢复' });
+  const version = projectStore.createVersion({ ownerEmail: owner, projectId: project.id, reason: 'generation' });
+  const asset = projectStore.createProjectAsset({
+    ownerEmail: owner,
+    projectId: project.id,
+    versionId: version.id,
+    assetId: 'canvas-video',
+    stableUrl: '/api/video/assets/canvas-video',
+    contentHash: 'canvas-video-hash',
+    mimeType: 'video/mp4',
+  });
+  const snapshot = {
+    nodes: [{
+      id: 'video-node',
+      kind: 'video',
+      url: asset.stableUrl,
+      assetRef: {
+        projectId: project.id,
+        projectAssetId: asset.projectAssetId,
+        contentHash: asset.contentHash,
+        stableUrl: asset.stableUrl,
+        mediaKind: 'video',
+        role: asset.role,
+      },
+    }],
+    connections: [],
+    viewport: { x: 0, y: 0, scale: 1 },
+  };
+
+  const created = await invoke(app, 'POST', '/api/canvas-sessions', {
+    headers: signedHeaders(sessionTokens, owner),
+    body: { projectId: project.id, baseVersionId: version.id, snapshot },
+  });
+  const restored = await invoke(app, 'GET', '/api/canvas-sessions/:sessionId', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { sessionId: created.body.session.id },
+  });
+  const saved = await invoke(app, 'POST', '/api/canvas-sessions/:sessionId/save', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { sessionId: created.body.session.id },
+    body: { expectedRevision: restored.body.session.revision, snapshot },
+  });
+
+  assert.equal(created.statusCode, 201);
+  assert.match(created.body.session.snapshot.nodes[0].playbackUrl, /^\/api\/video\/media\/canvas-video\?/);
+  assert.equal(created.body.session.snapshot.nodes[0].url, created.body.session.snapshot.nodes[0].playbackUrl);
+  assert.equal(created.body.session.snapshot.nodes[0].assetRef.stableUrl, asset.stableUrl);
+  assert.match(restored.body.session.snapshot.nodes[0].playbackUrl, /^\/api\/video\/media\/canvas-video\?/);
+  assert.match(saved.body.session.snapshot.nodes[0].playbackUrl, /^\/api\/video\/media\/canvas-video\?/);
+  assert.equal(saved.body.session.revision, restored.body.session.revision + 1);
+  assert.deepEqual(projectStore.getCanvasSession({ ownerEmail: owner, sessionId: created.body.session.id }).snapshot, snapshot);
+});
+
 test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {
   const { app, db, sessionTokens } = createHarness();
   t.after(() => db.close());

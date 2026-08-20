@@ -52,7 +52,11 @@ export function createCanvasSnapshot({ nodes = [], connections = [], viewport = 
 }
 
 export function restoreCanvasSnapshot(snapshot = {}) {
-  return createCanvasSnapshot(snapshot);
+  return {
+    nodes: clone(Array.isArray(snapshot.nodes) ? snapshot.nodes : [], []),
+    connections: clone(Array.isArray(snapshot.connections) ? snapshot.connections : [], []),
+    viewport: normalizedViewport(snapshot.viewport),
+  };
 }
 
 function audioNodeFromAsset(asset, ref, position, now) {
@@ -83,7 +87,7 @@ function audioNodeFromAsset(asset, ref, position, now) {
 }
 
 export function importProjectAssetToCanvas({ asset = {}, session = {}, source = 'project-library' } = {}) {
-  const snapshot = createCanvasSnapshot(session);
+  const snapshot = restoreCanvasSnapshot(session);
   const ref = buildCanvasAssetRef(asset);
   if (!ref) return { added: false, reason: 'invalid-project-asset', session: snapshot };
 

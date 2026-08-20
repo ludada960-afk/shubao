@@ -41,6 +41,26 @@ function withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl } = {
   }
 }
 
+function withCanvasSessionPlayback(session, { ownerEmail, req, resolveAssetPlaybackUrl } = {}) {
+  if (!session?.snapshot || !Array.isArray(session.snapshot.nodes)
+    || typeof resolveAssetPlaybackUrl !== 'function') return session;
+  const nodes = session.snapshot.nodes.map(node => {
+    const ref = node?.assetRef || node?.projectAssetRef;
+    const stableUrl = typeof ref?.stableUrl === 'string' ? ref.stableUrl.trim() : '';
+    if (!stableUrl) return node;
+    const mediaMatch = /^\/api\/video\/(?:assets|media)\/([^/?#]+)$/i.exec(stableUrl);
+    const asset = {
+      ...ref,
+      stableUrl,
+      ...(ref?.assetId || !mediaMatch ? {} : { assetId: decodeURIComponent(mediaMatch[1]) }),
+    };
+    const decorated = withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl });
+    const playbackUrl = typeof decorated?.playbackUrl === 'string' ? decorated.playbackUrl.trim() : '';
+    return playbackUrl ? { ...node, url: playbackUrl, playbackUrl } : node;
+  });
+  return { ...session, snapshot: { ...session.snapshot, nodes } };
+}
+
 export function createSessionHandler({ authenticateOwner }) {
   return (req, res) => {
     try {
@@ -179,38 +199,50 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner, resol
   });
   app.post('/api/canvas-sessions', (req, res) => {
     try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
       const session = projectStore.createCanvasSession({
-        ownerEmail: ownerFor(req, authenticateOwner), projectId: req.body?.projectId,
+        ownerEmail, projectId: req.body?.projectId,
         baseVersionId: req.body?.baseVersionId, snapshot: req.body?.snapshot || {},
       });
-      return res.status(201).json({ session });
+      return res.status(201).json({ session: withCanvasSessionPlayback(session, {
+        ownerEmail, req, resolveAssetPlaybackUrl,
+      }) });
     } catch (error) { return routeError(error, res); }
   });
   app.get('/api/canvas-sessions/:sessionId', (req, res) => {
     try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
       const session = projectStore.getCanvasSession({
-        ownerEmail: ownerFor(req, authenticateOwner), sessionId: req.params.sessionId,
+        ownerEmail, sessionId: req.params.sessionId,
       });
       if (!session) return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该画布会话' });
-      return res.json({ session });
+      return res.json({ session: withCanvasSessionPlayback(session, {
+        ownerEmail, req, resolveAssetPlaybackUrl,
+      }) });
     } catch (error) { return routeError(error, res); }
   });
   app.post('/api/canvas-sessions/:sessionId/save', (req, res) => {
     try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
       const session = projectStore.saveCanvasSession({
-        ownerEmail: ownerFor(req, authenticateOwner), sessionId: req.params.sessionId,
+        ownerEmail, sessionId: req.params.sessionId,
         expectedRevision: req.body?.expectedRevision, snapshot: req.body?.snapshot || {},
       });
-      return res.json({ session });
+      return res.json({ session: withCanvasSessionPlayback(session, {
+        ownerEmail, req, resolveAssetPlaybackUrl,
+      }) });
     } catch (error) { return routeError(error, res); }
   });
   app.patch('/api/canvas-sessions/:sessionId', (req, res) => {
     try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
       const session = projectStore.saveCanvasSession({
-        ownerEmail: ownerFor(req, authenticateOwner), sessionId: req.params.sessionId,
+        ownerEmail, sessionId: req.params.sessionId,
         expectedRevision: req.body?.expectedRevision, snapshot: req.body?.snapshot || {},
       });
-      return res.json({ session });
+      return res.json({ session: withCanvasSessionPlayback(session, {
+        ownerEmail, req, resolveAssetPlaybackUrl,
+      }) });
     } catch (error) { return routeError(error, res); }
   });
 }

@@ -101,3 +101,29 @@ test('explicit Canvas snapshots preserve nodes, connections, and a valid viewpor
   });
   assert.notEqual(restored.nodes, snapshot.nodes);
 });
+
+test('restoring a server Canvas snapshot preserves transient media playback while durable snapshots remove it', () => {
+  const source = {
+    nodes: [{
+      id: 'video-1',
+      kind: 'video',
+      url: '/api/video/media/video-1?purpose=playback&expires=123',
+      playbackUrl: '/api/video/media/video-1?purpose=playback&expires=123',
+      assetRef: {
+        projectId: 'project-1',
+        projectAssetId: 'asset-1',
+        contentHash: 'hash-1',
+        stableUrl: '/api/video/assets/video-1',
+        mediaKind: 'video',
+      },
+    }],
+  };
+
+  const restored = restoreCanvasSnapshot(source);
+  const durable = createCanvasSnapshot(restored);
+
+  assert.equal(restored.nodes[0].url, source.nodes[0].playbackUrl);
+  assert.equal(restored.nodes[0].playbackUrl, source.nodes[0].playbackUrl);
+  assert.equal(durable.nodes[0].url, source.nodes[0].assetRef.stableUrl);
+  assert.equal('playbackUrl' in durable.nodes[0], false);
+});
