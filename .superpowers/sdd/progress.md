@@ -2220,3 +2220,9 @@
 
 - 主线程继续审计 retention 的引用保护查询，发现 Canvas 会话保护条件只按 `project_id` 和快照内容匹配，没有同时约束会话 owner；这对正常 UUID 项目通常不显现，但会让历史迁移或异常数据污染资产保留判断。
 - 提交前修复：Canvas retention 保护现在要求 `owner_email + project_id` 同时匹配；新增跨 owner Canvas 会话回归，确保不会延长其他账号项目资产的生命周期。定向 retention 回归 `11/11` 通过。
+
+## 2026-08-20 Canvas Session Media Recovery Boundary
+
+- 主线程继续验证媒体资产恢复链路，发现项目素材导入时虽然使用了短期 `playbackUrl`，但 Canvas 会话从数据库创建、读取或保存后只返回持久化的 `stableUrl`；浏览器媒体元素恢复视频/音频时无法携带自定义 session header，存在空白预览风险。
+- 修复：Canvas 会话路由在 owner 校验后对快照中的 canonical 视频/音频 `stableUrl` 动态补发 playback capability；数据库快照和 Works 仍只保留 `stableUrl`。客户端恢复保留运行时播放地址，下一次 `createCanvasSnapshot` 会再次去除 transient 字段。播放 ID 从受信任的应用内 URL 推导，不依赖客户端额外字段。
+- 创建、读取、保存恢复回归与 Canvas 模型定向测试 `26/26` 通过；本轮不触发供应商、真实生成、账务或生产部署。
