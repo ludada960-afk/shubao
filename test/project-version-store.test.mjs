@@ -447,6 +447,52 @@ test('rejects malformed video source entries instead of silently dropping them',
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 0);
 });
 
+test('rejects external video asset URLs at the canonical project boundary', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  assert.throws(() => store.ensureVideoGeneration({
+    ownerEmail: 'video-owner@example.com',
+    generationRunId: 'video-external-source',
+    title: '外部视频源',
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: [{
+      assetId: 'upload-1',
+      stableUrl: 'https://cdn.example.com/upload-1.mp4',
+      mimeType: 'video/mp4',
+      contentHash: 'verified-source-hash',
+    }],
+  }), error => error?.code === 'VIDEO_ASSET_NOT_READY');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 0);
+});
+
+test('creates a fresh source lineage row when a later video run reuses an asset id', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'video-owner@example.com';
+  const first = store.ensureVideoGeneration({
+    ownerEmail,
+    generationRunId: 'video-reuse-first',
+    title: '复用素材项目',
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: [{ assetId: 'source-1', stableUrl: '/api/video/assets/source-1', mimeType: 'image/png', contentHash: 'source-hash-1' }],
+  });
+  const second = store.ensureVideoGeneration({
+    ownerEmail,
+    generationRunId: 'video-reuse-second',
+    projectId: first.project.id,
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: [{ assetId: 'source-1', stableUrl: '/api/video/assets/source-1', mimeType: 'image/png', contentHash: 'source-hash-1' }],
+  });
+  const sourceRows = db.prepare(`SELECT version_id FROM project_assets
+    WHERE project_id = ? AND asset_id = ? ORDER BY created_at ASC`).all(first.project.id, 'source-1');
+  assert.equal(sourceRows.length, 2);
+  assert.equal(sourceRows[0].version_id, first.sourceVersion.id);
+  assert.equal(sourceRows[1].version_id, second.sourceVersion.id);
+});
+
 test('records a partial ecommerce result version without claiming the project is completed', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

@@ -611,13 +611,15 @@ export function createProjectStore(db, {
           const stableUrl = String(asset?.stableUrl || '').trim();
           const contentHash = String(asset?.contentHash || '').trim();
           const mimeType = String(asset?.mimeType || '').trim().toLowerCase();
-          if (!assetId || !stableUrl || !contentHash || !/^(?:image|video|audio)\//.test(mimeType)) {
+          if (!assetId || !stableUrl || /^https?:\/\//i.test(stableUrl)
+            || /[\u0000-\u001F\u007F]/.test(stableUrl)
+            || !contentHash || !/^(?:image|video|audio)\//.test(mimeType)) {
             throw codedError('VIDEO_ASSET_NOT_READY', 'video source asset is not durably verified');
           }
           db.prepare(`INSERT OR IGNORE INTO project_assets
             (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'source', ?)`).run(
-            `${project.id}:${assetId}:source`, assetId, owner, project.id, sourceVersionId, runId,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'source', ?)`).run(
+            `${project.id}:${sourceVersionId}:${assetId}:source`, assetId, owner, project.id, sourceVersionId, runId,
               String(asset?.role || 'reference'), contentHash, stableUrl, mimeType, createdAt,
           );
         }
@@ -646,7 +648,8 @@ export function createProjectStore(db, {
       const contentHash = String(outputAsset?.contentHash || '').trim();
       const mimeType = String(outputAsset?.mimeType || '').trim().toLowerCase();
       if (!outputAssetId || !stableUrl) throw new TypeError('outputAsset is required');
-      if (!contentHash || !mimeType.startsWith('video/')) {
+      if (/^https?:\/\//i.test(stableUrl) || /[\u0000-\u001F\u007F]/.test(stableUrl)
+        || !contentHash || !mimeType.startsWith('video/')) {
         throw codedError('VIDEO_ASSET_NOT_READY', 'video output asset is not durably verified');
       }
       return db.transaction(() => {
