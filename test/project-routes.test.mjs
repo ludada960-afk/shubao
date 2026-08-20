@@ -326,11 +326,13 @@ test('Canvas session recovery remints transient media playback without changing 
     contentHash: 'canvas-video-hash',
     mimeType: 'video/mp4',
   });
+  const playbackUrl = `/api/video/media/canvas-video?owner=${encodeURIComponent(owner)}&cap=test-capability`;
   const snapshot = {
     nodes: [{
       id: 'video-node',
       kind: 'video',
-      url: asset.stableUrl,
+      url: playbackUrl,
+      playbackUrl,
       assetRef: {
         projectId: project.id,
         projectAssetId: asset.projectAssetId,
@@ -365,7 +367,10 @@ test('Canvas session recovery remints transient media playback without changing 
   assert.match(restored.body.session.snapshot.nodes[0].playbackUrl, /^\/api\/video\/media\/canvas-video\?/);
   assert.match(saved.body.session.snapshot.nodes[0].playbackUrl, /^\/api\/video\/media\/canvas-video\?/);
   assert.equal(saved.body.session.revision, restored.body.session.revision + 1);
-  assert.deepEqual(projectStore.getCanvasSession({ ownerEmail: owner, sessionId: created.body.session.id }).snapshot, snapshot);
+  const persisted = projectStore.getCanvasSession({ ownerEmail: owner, sessionId: created.body.session.id }).snapshot;
+  assert.equal(persisted.nodes[0].url, asset.stableUrl);
+  assert.equal(persisted.nodes[0].playbackUrl, undefined);
+  assert.equal(persisted.nodes[0].assetRef.stableUrl, asset.stableUrl);
 });
 
 test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { stripTransientWorkPlayback } from '../../shared/workPlayback.mjs';
 
 const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog', 'video']);
 const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration']);
@@ -819,14 +820,15 @@ export function createProjectStore(db, {
     createCanvasSession({ ownerEmail, projectId, baseVersionId, snapshot = {}, expiresAt = null }) {
       const project = requireProject(ownerEmail, projectId);
       requireVersion(project.id, baseVersionId);
-      assertCanvasSnapshotAssets(project.ownerEmail, snapshot);
+      const durableSnapshot = stripTransientWorkPlayback(snapshot || {});
+      assertCanvasSnapshotAssets(project.ownerEmail, durableSnapshot);
       const created = timestamp();
       const expiry = expiresAt ? new Date(expiresAt) : new Date(created.getTime() + canvasTtlMs);
       const id = randomUUID();
       db.prepare(`INSERT INTO canvas_sessions
         (id, owner_email, project_id, base_version_id, status, revision, snapshot, expires_at, created_at, updated_at)
         VALUES (?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)`).run(
-        id, project.ownerEmail, project.id, baseVersionId, JSON.stringify(snapshot || {}), expiry.toISOString(), created.toISOString(), created.toISOString(),
+        id, project.ownerEmail, project.id, baseVersionId, JSON.stringify(durableSnapshot), expiry.toISOString(), created.toISOString(), created.toISOString(),
       );
       return api.getCanvasSession({ ownerEmail: project.ownerEmail, sessionId: id });
     },
@@ -840,12 +842,13 @@ export function createProjectStore(db, {
       const owner = normalizeOwner(ownerEmail);
       const current = db.prepare('SELECT project_id FROM canvas_sessions WHERE id = ? AND owner_email = ?').get(sessionId, owner);
       if (!current) throw codedError('PROJECT_NOT_FOUND', 'canvas session not found');
-      assertCanvasSnapshotAssets(owner, snapshot);
+      const durableSnapshot = stripTransientWorkPlayback(snapshot || {});
+      assertCanvasSnapshotAssets(owner, durableSnapshot);
       const updatedAt = timestamp().toISOString();
       const changed = db.prepare(`UPDATE canvas_sessions
         SET snapshot = ?, revision = revision + 1, status = 'saved', updated_at = ?
         WHERE id = ? AND owner_email = ? AND revision = ? AND status IN ('active', 'saved')`)
-        .run(JSON.stringify(snapshot || {}), updatedAt, sessionId, owner, expectedRevision).changes;
+        .run(JSON.stringify(durableSnapshot), updatedAt, sessionId, owner, expectedRevision).changes;
       if (changed !== 1) throw codedError('VERSION_CONFLICT', 'canvas session revision changed');
       return api.getCanvasSession({ ownerEmail, sessionId });
     },
