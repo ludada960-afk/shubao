@@ -269,10 +269,23 @@ test('Canvas Work projection preserves media-only sources for later recovery', (
   assert.match(canvasSource, /hasCurrent = imageList\.length > 0 \|\| Boolean\(resultVideoUrl\) \|\| resultMediaAssets\.length > 0/);
   assert.match(canvasSource, /createFreshCanvasSession\(\{ work: result, mediaAssets: resultMediaAssets \}\)/);
   assert.match(canvasSource, /const canvasWorkMediaFields = useCallback/);
-  assert.match(canvasSource, /mediaAssets,\s*projectAssetRefs/);
+  const mediaFieldsBlock = canvasSource.match(/const canvasMediaFields = useCallback[\s\S]*?const canvasWorkMediaFields/)?.[0] || '';
+  assert.match(mediaFieldsBlock, /mediaAssets/);
+  assert.match(mediaFieldsBlock, /projectAssetRefs/);
   assert.match(canvasSource, /const saveKey = result\._saveKey \|\| canvasGeneratedWorkKeyRef\.current/);
   assert.match(canvasSource, /\$\{work\.mediaAssets\?\.length \|\| 0\} 个媒体素材/);
   assert.match(canvasSource, /MdMusicNote size=\{20\}/);
+});
+
+test('project library imports create a durable Canvas work context before switching tabs', () => {
+  const importBlock = canvasSource.match(/const handleImportProjectAsset = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(importBlock, /ensureCanvasMediaProject/);
+  assert.match(importBlock, /saveWork\(/);
+  assert.match(importBlock, /canvasWorkMediaFields/);
+  assert.match(importBlock, /SET_RESULT/);
+  assert.match(importBlock, /不会产生生成或扣费/);
+  assert.match(canvasSource, /const mediaAssets = collectCanvasMediaAssets\(work, currentNodes\);[\s\S]*?const projectAssetRefs = collectCanvasProjectAssetRefs/);
+  assert.match(canvasSource, /!work\.videoUrl && !work\.images\?\.length && work\.productAssets\?\.length/);
 });
 
 test('double-click image preview is a keyboard-accessible dialog', () => {

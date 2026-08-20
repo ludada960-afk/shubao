@@ -2306,3 +2306,16 @@
 - Work 持久化前会移除短期 `playbackUrl`，只保存 canonical stable URL 和媒体身份；已有 owner-scoped playback decorator 在读取 Works 或 Canvas 时重新签发运行时播放能力。Canvas 初始化不再为纯媒体 Work 制造无效的空图片源节点；有图片输出但无产品源时仍保留布局锚点以兼容历史 output-only Work。
 - 新增 Canvas work model/session 回归及静态组件契约，覆盖媒体去重、durable/runtime URL 边界、音频节点恢复和媒体-only Works 面板呈现。最终全量 `npm test` `1954/1954`、`npm run build` `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 本轮只修改主线程 Canvas/项目资产投影及测试文件；视频线程的工作台、渲染器、音轨和导航运行态改动未修改、未暂存。未触发供应商、真实生成、账务或生产部署；线上仍为 `c98be11`，本地提交需另行通过 full production gate 后才能发布。
+
+## 2026-08-20 Project Library Canvas Recovery
+
+- 修复项目素材库导入的真实恢复缺口：从 Works 的 owner-scoped 项目素材库把 canonical 图片、视频或音频加入空白 Canvas 时，现在会幂等创建非计费项目/基础版本、绑定 Canvas 结果上下文并保存 Work；项目创建或归档失败时仍保留本地草稿并明确提示，不宣称已完成远端归档。
+- image-only canonical Work 不再因为没有 `images` 缩略图被丢弃；其 `projectAssetRefs` 会投影为恢复用 `productAssets`，重新打开 Work 时会生成带 canonical asset ref 的图片源节点。Works 卡片对这类源素材显示真实缩略图，视频/音频路径保持原有媒体卡片和播放能力。
+- 新增项目库导入和 image-only Work 回归；聚焦 Canvas/项目/Works `127/127`、全量 `npm test` `1956/1956`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮只修改主线程 `EcCanvas` 及其测试/账本；视频线程文件和用户运行态未修改、未暂存。没有供应商调用、真实生成、账务变更或生产部署；线上仍为 `c98be11`，本地提交必须另行通过 full production gate。
+
+## 2026-08-20 Creative Navigation Motion Refresh Production Release
+
+- 导航动态交互已通过唯一入口 `scripts/deploy-production.ps1 -ValidationProfile frontend` 发布至 `https://shuimg.cn/`；线上 `current` 指向 `/var/www/shubao/releases/20260820-130655-e823283`，PM2 `shubao-production` 在线，健康接口返回 `200/ready`，部署锁已释放。
+- 发布前全量 `npm test` `1954/1954`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 通过；公网图库 `117` 张、公开视频契约 `2` 个产品、认证非计费视频 canary 和 `600` 秒生产 canary 通过。前端专项发布按规范跳过真实电商红苹果验收，未产生付费生成。
+- 本次发布包按归档时的共享工作树打包；导航提交为 `e823283`，共享线程随后完成 `f521363` Canvas 媒体持久化提交。发布后 curl/SSH 复核线上首页与健康接口 `200`、PM2 PID `4159840` 在线。远端磁盘约 `95%` 使用率，未阻断本次发布但需要后续清理备份/发布物并建立容量门禁。

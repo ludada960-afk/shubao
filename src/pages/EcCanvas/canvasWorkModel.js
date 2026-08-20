@@ -37,6 +37,20 @@ function mediaAssetCandidates(work = {}, nodes = []) {
   ];
 }
 
+function canonicalImageInputs(work = {}, projectAssetRefs = []) {
+  const existing = normalizeWorkImages(work.productAssets || work.product_assets || work.productImages || work.source_images || work.sourceImages);
+  if (existing.length) return existing;
+  if (allWorkImages(work).length) return [];
+  return projectAssetRefs
+    .filter(ref => ref?.mediaKind === 'image')
+    .map(ref => ({
+      ...ref,
+      url: ref.stableUrl,
+      stableUrl: ref.stableUrl,
+      projectAssetId: ref.projectAssetId,
+    }));
+}
+
 export function collectCanvasMediaAssets(work = {}, nodes = []) {
   const seen = new Set();
   return mediaAssetCandidates(work, nodes).map(candidate => {
@@ -133,7 +147,8 @@ function normalizePanelWork(work = {}) {
   const workType = canvasWorkCategory(work);
   const videoUrl = workVideoUrl(work);
   const mediaAssets = collectCanvasMediaAssets(work);
-  if (!images.length && !videoUrl && !mediaAssets.length) return null;
+  const projectAssetRefs = collectCanvasProjectAssetRefs({ work });
+  if (!images.length && !videoUrl && !mediaAssets.length && !projectAssetRefs.length) return null;
   return {
     ...work,
     id: work.id || work.taskId || work._saveKey || images[0]?.url || videoUrl || Date.now(),
@@ -143,7 +158,8 @@ function normalizePanelWork(work = {}) {
     images,
     videoUrl,
     video: work.video || (videoUrl ? { url: videoUrl } : null),
-    projectAssetRefs: collectCanvasProjectAssetRefs({ work }),
+    projectAssetRefs,
+    productAssets: canonicalImageInputs(work, projectAssetRefs),
     mediaAssets,
     createdAt: work.createdAt || work.at || '',
     workType,
@@ -164,6 +180,7 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
   const imageRecords = allWorkImages(work);
   const mediaAssets = collectCanvasMediaAssets(work);
   const videoUrl = workVideoUrl(work);
+  const projectAssetRefs = collectCanvasProjectAssetRefs({ work });
   const images = Object.fromEntries(imageRecords.map((image, index) => [
     image.key || image.label || `image_${index + 1}`,
     image.url,
@@ -176,7 +193,7 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     video_url: videoUrl,
     video: work.video || (videoUrl ? { url: videoUrl } : null),
     mediaAssets,
-    productAssets: normalizeWorkImages(work.productAssets || work.product_assets || work.productImages || work.source_images || work.sourceImages),
+    productAssets: canonicalImageInputs(work, projectAssetRefs),
     product_name: displayName(work),
     _ecResult: true,
     workType: canvasWorkCategory(work),

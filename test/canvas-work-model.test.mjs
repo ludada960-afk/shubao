@@ -95,6 +95,31 @@ test('media-only Works retain canonical video and audio sources for Canvas recov
   assert.equal(imported.canvasImportId, 'media-import');
 });
 
+test('image-only Canvas source Works retain canonical image inputs for recovery', () => {
+  const source = {
+    _saveKey: 'canvas-image-source-work',
+    product_name: '项目图片素材',
+    projectId: 'project-image-source',
+    sourceVersionId: 'version-image-source',
+    projectAssetRefs: [{
+      projectId: 'project-image-source',
+      projectAssetId: 'image-source-1',
+      assetId: 'source.webp',
+      stableUrl: '/api/generated-assets/source.webp',
+      contentHash: 'hash-image-source',
+      mimeType: 'image/webp',
+      role: 'product',
+    }],
+  };
+  const panel = normalizeCanvasWorkPanel({ serverWorks: [source], ownerEmail: 'owner@example.com' });
+  assert.equal(panel.length, 1);
+  assert.equal(panel[0].projectAssetRefs[0].projectAssetId, 'image-source-1');
+  const imported = buildCanvasImportResult(panel[0]);
+  assert.equal(imported.productAssets[0].projectAssetId, 'image-source-1');
+  const session = createFreshCanvasSession({ work: imported, productAssets: imported.productAssets });
+  assert.equal(session.nodes.some(node => node.projectAssetId === 'image-source-1'), true);
+});
+
 test('Canvas recovery session materializes media-only Work sources as reusable nodes', () => {
   const session = createFreshCanvasSession({
     work: { id: 'media-work', projectId: 'media-project-1' },

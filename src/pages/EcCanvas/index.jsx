@@ -658,7 +658,7 @@ export default function EcCanvas() {
     }, 3000);
   }, []);
 
-  const ensureCanvasMediaProject = useCallback(async (title = 'Canvas 媒体项目') => {
+  const ensureCanvasMediaProject = useCallback(async (title = 'Canvas 媒体项目', kind = 'video') => {
     if (!state.logged) return null;
     const existingProjectId = String(result.projectId || '').trim();
     const existingVersionId = String(result.resultVersionId || result.sourceVersionId || '').trim();
@@ -675,7 +675,7 @@ export default function EcCanvas() {
     let projectId = existingProjectId;
     if (!projectId) {
       const project = await createProject({
-        kind: 'video',
+        kind: kind === 'ecommerce' ? 'ecommerce' : 'video',
         title: String(title || '').trim() || 'Canvas 媒体项目',
         idempotencyKey: `canvas-media:${canvasSaveKeyRef.current}`,
       });
@@ -741,13 +741,13 @@ export default function EcCanvas() {
 
   const canvasMediaFields = useCallback((work, currentNodes) => {
     const mediaAssets = collectCanvasMediaAssets(work, currentNodes);
-    if (!mediaAssets.length) return {};
+    const projectAssetRefs = collectCanvasProjectAssetRefs({
+      work: { ...work, mediaAssets },
+      nodes: currentNodes,
+    });
     return {
-      mediaAssets,
-      projectAssetRefs: collectCanvasProjectAssetRefs({
-        work: { ...work, mediaAssets },
-        nodes: currentNodes,
-      }),
+      ...(mediaAssets.length ? { mediaAssets } : {}),
+      ...(projectAssetRefs.length ? { projectAssetRefs } : {}),
     };
   }, []);
 
@@ -3458,7 +3458,7 @@ export default function EcCanvas() {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     setTab('canvas');
   };
-  const handleImportProjectAsset = useCallback((asset) => {
+  const handleImportProjectAsset = useCallback(async (asset) => {
     const imported = importProjectAssetToCanvas({
       asset,
       source: 'project-library',
@@ -3469,15 +3469,42 @@ export default function EcCanvas() {
       if (imported.nodeId) setSelected(imported.nodeId);
       return;
     }
+    const mediaKind = String(asset?.mediaKind || asset?.media_kind || '').toLowerCase();
+    const label = asset?.metadata?.displayName || asset?.assetId || asset?.role || '项目素材';
+    let projectContext = null;
+    if (state.logged && !result.browserQa) {
+      try {
+        projectContext = await ensureCanvasMediaProject(`${label} Canvas 项目`, mediaKind === 'image' ? 'ecommerce' : 'video');
+      } catch {
+        projectContext = null;
+      }
+    }
     draftReadyRef.current = true;
     canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `project-asset-${Date.now()}` });
+    canvasGeneratedWorkKeyRef.current ||= canvasSaveKeyRef.current;
+    const nextResult = {
+      ...result,
+      ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
+      _saveKey: result._saveKey || canvasGeneratedWorkKeyRef.current,
+    };
+    if (projectContext) dispatch({ type: 'SET_RESULT', result: nextResult });
     setNodes(imported.session.nodes);
     setConnections(imported.session.connections);
     setSelected(imported.node.id);
     setMultiSelected(new Set([imported.node.id]));
+    if (state.logged) {
+      const workResult = {
+        ...nextResult,
+        product_name: nextResult.product_name || label,
+        images: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: imported.session.nodes }),
+        imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: imported.session.nodes }),
+        ...canvasWorkMediaFields(nextResult, imported.session.nodes),
+      };
+      await saveWork(workResult, phone);
+    }
     setTab('canvas');
-    showToast('项目素材已加入画布，不会产生生成或扣费', 'success');
-  }, [connections, nodes, result, showToast, viewport]);
+    showToast(projectContext ? '项目素材已加入画布并保存，不会产生生成或扣费' : '项目素材已加入画布，本地草稿已保留', projectContext ? 'success' : 'info');
+  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, nodes, phone, result, showToast, state.logged, viewport]);
   const handleInspectProjectAsset = useCallback(async (asset) => {
     if (!asset?.projectId || !asset?.projectAssetId) return;
     setProjectAssetLineage({ asset, loading: true, error: '', data: null });
@@ -4288,7 +4315,11 @@ export default function EcCanvas() {
                         <ResponsiveImage src={img} variant="thumb" ratio="1:1" alt={img.label || `作品图片 ${i + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     ))}
-                    {!work.videoUrl && !work.images?.length && work.mediaAssets?.length ? work.mediaAssets.map((asset, index) => (
+                    {!work.videoUrl && !work.images?.length && work.productAssets?.length ? work.productAssets.map((asset, index) => (
+                      <button key={`${asset.projectAssetId || asset.assetId || index}`} type="button" onClick={() => openImagePreview({ url: proxyImg(asset.url || asset.stableUrl), label: asset.name || asset.label || `项目图片 ${index + 1}` })} style={{ width: 180, height: 72, padding: 0, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
+                        <ResponsiveImage src={proxyImg(asset.url || asset.stableUrl)} variant="thumb" ratio="1:1" alt={asset.name || asset.label || `项目图片 ${index + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
+                      </button>
+                    )) : !work.videoUrl && !work.images?.length && work.mediaAssets?.length ? work.mediaAssets.map((asset, index) => (
                       <div key={`${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 180, height: 72, display: 'flex', alignItems: 'center', gap: 9, padding: '0 12px', boxSizing: 'border-box', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569' }}>
                         <MdMusicNote size={20} />
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{asset.name || asset.displayName || asset.role || `音频素材 ${index + 1}`}</span>
