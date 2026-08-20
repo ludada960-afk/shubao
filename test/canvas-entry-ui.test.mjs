@@ -76,6 +76,16 @@ test('Canvas trash stores stable media identity instead of transient playback UR
   assert.match(deleteBlock, /const trashItem = stripTransientWorkPlayback\(\{ \.\.\.work, deletedAt: Date\.now\(\) \}\)/);
 });
 
+test('Canvas sanitizes legacy Works and trash caches before restoring them', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(source, /localWorks = Array\.isArray\(parsed\) \? parsed\.map\(stripTransientWorkPlayback\) : \[\]/);
+  assert.match(source, /localTrash = \(\(\) => \{[\s\S]*?Array\.isArray\(parsed\) \? parsed\.map\(stripTransientWorkPlayback\) : \[\]/);
+  const deleteBlock = source.match(/const deleteWork = async \(id\) => \{[\s\S]*?\n  \};/)?.[0] || '';
+  const restoreBlock = source.match(/const restoreDeletedWork = async \(work\) => \{[\s\S]*?\n  \};/)?.[0] || '';
+  assert.match(deleteBlock, /const durableTrash = Array\.isArray\(localTrash\) \? localTrash\.map\(stripTransientWorkPlayback\) : \[\]/);
+  assert.match(restoreBlock, /const durableTrash = Array\.isArray\(localTrash\) \? localTrash\.map\(stripTransientWorkPlayback\) : \[\]/);
+});
+
 test('browser segmentation reports progress on the transient workflow node and edge', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');

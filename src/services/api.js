@@ -1575,7 +1575,8 @@ export async function saveWork(work, phone, { signal } = {}) {
   try {
     if (ownerEmail) {
       const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
-      const ownerWorks = filterWorksForOwner(local, ownerEmail);
+      const durableLocal = Array.isArray(local) ? local.map(stripTransientWorkPlayback) : [];
+      const ownerWorks = filterWorksForOwner(durableLocal, ownerEmail);
       const saveKey = localWork._saveKey;
       if (saveKey != null) {
         const idx = ownerWorks.findIndex(x => String(x._saveKey) === String(saveKey));
@@ -1585,7 +1586,7 @@ export async function saveWork(work, phone, { signal } = {}) {
         ownerWorks.unshift({ ...localWork, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
       }
       localStorage.setItem('sb-works', JSON.stringify(
-        replaceCachedWorksForOwner(local, ownerEmail, ownerWorks),
+        replaceCachedWorksForOwner(durableLocal, ownerEmail, ownerWorks),
       ));
     }
   } catch (e) { /* ignore */ }
@@ -1604,11 +1605,12 @@ export async function saveWork(work, phone, { signal } = {}) {
       if (saved._saveKey && !work._saveKey) {
         try {
           const next = JSON.parse(localStorage.getItem('sb-works') || '[]');
-          const item = next.find(x => x.title === localWork.title
+          const durableNext = Array.isArray(next) ? next.map(stripTransientWorkPlayback) : [];
+          const item = durableNext.find(x => x.title === localWork.title
             && String(x._phone || '').trim().toLowerCase() === ownerEmail
             && !x._saveKey);
           if (item) item._saveKey = saved._saveKey;
-          localStorage.setItem('sb-works', JSON.stringify(next));
+          localStorage.setItem('sb-works', JSON.stringify(durableNext));
         } catch { /* ignore local cache repair */ }
       }
       return saved;

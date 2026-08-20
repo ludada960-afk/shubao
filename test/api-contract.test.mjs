@@ -52,6 +52,45 @@ function ecommerceStorage(owner = 'owner@example.com') {
   };
 }
 
+test('saving a Work repairs legacy cached media without re-persisting playback URLs', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  const transientUrl = '/api/video/media/legacy-video?purpose=playback&signature=expired';
+  storage.setItem('sb-works', JSON.stringify([{
+    _saveKey: 'legacy-media-work',
+    _phone: 'owner@example.com',
+    video_url: transientUrl,
+    video: {
+      stableUrl: '/api/video/assets/legacy-video',
+      playbackUrl: transientUrl,
+      url: transientUrl,
+    },
+  }]));
+  globalThis.localStorage = storage;
+  globalThis.fetch = async () => new Response(JSON.stringify({ _saveKey: 'saved-media-work' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { saveWork } = await import(`../src/services/api.js?save-work-cache=${Date.now()}`);
+  await saveWork({
+    title: '新作品',
+    video_url: transientUrl,
+    video: { stableUrl: '/api/video/assets/new-video', playbackUrl: transientUrl, url: transientUrl },
+  }, 'owner@example.com');
+
+  const cached = JSON.parse(storage.getItem('sb-works'));
+  const legacy = cached.find(work => work._saveKey === 'legacy-media-work');
+  assert.equal(legacy.video_url, '/api/video/assets/legacy-video');
+  assert.equal(legacy.video.url, '/api/video/assets/legacy-video');
+  assert.equal(legacy.video.playbackUrl, undefined);
+});
+
 function ecommerceTaskResponse(task, status = 200) {
   return new Response(JSON.stringify({ task }), {
     status,

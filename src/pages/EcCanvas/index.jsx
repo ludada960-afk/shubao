@@ -1071,7 +1071,7 @@ export default function EcCanvas() {
         let serverWorks = [];
         try {
           const parsed = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
-          localWorks = Array.isArray(parsed) ? parsed : [];
+          localWorks = Array.isArray(parsed) ? parsed.map(stripTransientWorkPlayback) : [];
         } catch {}
         const cachedWorks = loadCachedWorks(phone);
         if (!cancelled && cachedWorks.length) {
@@ -1082,7 +1082,10 @@ export default function EcCanvas() {
         } catch {}
         if (cancelled) return;
         const localTrash = (() => {
-          try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
+          try {
+            const parsed = JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]');
+            return Array.isArray(parsed) ? parsed.map(stripTransientWorkPlayback) : [];
+          } catch { return []; }
         })();
         const serverTrash = await loadTrash(phone);
         if (cancelled) return;
@@ -3637,10 +3640,11 @@ export default function EcCanvas() {
     const next = pastWorks.filter(x => x.id !== id);
     setPastWorks(next);
     setTrashWorks(prev => [trashItem, ...prev.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))]);
-    localStorage.setItem('shubao_ec_works', JSON.stringify(next));
+    localStorage.setItem('shubao_ec_works', JSON.stringify(next.map(stripTransientWorkPlayback)));
     try {
       const localTrash = JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]');
-      localStorage.setItem('shubao_ec_trash', JSON.stringify([trashItem, ...localTrash.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))]));
+      const durableTrash = Array.isArray(localTrash) ? localTrash.map(stripTransientWorkPlayback) : [];
+      localStorage.setItem('shubao_ec_trash', JSON.stringify([trashItem, ...durableTrash.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))]));
     } catch {}
     showToast('已移入回收站，可恢复', 'success');
   };
@@ -3655,7 +3659,8 @@ export default function EcCanvas() {
     setTrashWorks(prev => prev.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id)));
     try {
       const localTrash = JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]');
-      localStorage.setItem('shubao_ec_trash', JSON.stringify(localTrash.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))));
+      const durableTrash = Array.isArray(localTrash) ? localTrash.map(stripTransientWorkPlayback) : [];
+      localStorage.setItem('shubao_ec_trash', JSON.stringify(durableTrash.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))));
     } catch {}
     showToast('作品已恢复', 'success');
   };
