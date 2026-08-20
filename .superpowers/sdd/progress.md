@@ -2278,4 +2278,10 @@
 - 继续审计发现首次打开本地缓存的 AI 视频 Work 时可能没有 Canvas 草稿，旧逻辑因此不会进入草稿媒体恢复分支，直接以 durable `stableUrl` 初始化媒体节点。
 - 调整 Canvas 初始化：无论节点来自本地草稿还是缓存 Work 的新建 session，都先提取 canonical 媒体引用，再通过 owner-scoped `getProjectAsset` 获取临时播放能力；异步回写只替换匹配节点的运行时 URL，不覆盖用户编辑或 canonical ref。
 - 新增“无本地草稿打开缓存视频 Work”回归；Canvas/项目定向回归 `17/17`，构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+
+## 2026-08-20 Cross-domain Audio And Upload Audit
+
+- 主线程复核了视频项目的音频链路：已确认的 voice/music 版本通过 owner/project 校验进入 `video_audio_tracks`，并由时间线、字幕、导出清单和 replay manifest 持久化；工作台读取时会为音频版本重新签发短期播放能力，Canvas 导入音频也保留 canonical project asset ref。当前没有发现需要主线程修改视频领域表或音轨契约的缺口。
+- 发现并记录一个独立的长期边界：Canvas 直接上传但尚未进入视频生成/项目导入的视频或音频，当前仍是 `video_assets` 摄取记录，尚未建立 `project_assets` 身份。现有生成前视频桥接会在任务进入项目时创建 canonical source asset，因此不改变本轮已验证链路；后续如要让“仅上传到 Canvas 也能长期作为项目资产复用”，必须由主线程和视频线程先定义带项目上下文的服务端摄取/幂等接口，再单独实现和验收，不能在客户端伪造 project asset ref。
+- 本轮全量回归 `npm test` `1944/1944`、`npm run check`、`npm run collab:check`、`git diff --check` 均通过；未触发供应商、真实生成、账务或生产部署。线上仍为 `c98be11`，本地 Canvas/Works 恢复提交不在生产 release 内。
 - 联合工作树全量测试仍受并行 creative-navigation 改动的 `4` 个既有合同断言影响，主线程未修改或暂存其文件；本轮不进入生产发布。
