@@ -35,7 +35,7 @@ async function invoke(app, method, path, request = {}) {
   return res;
 }
 
-function createHarness({ importVideoAsset = null } = {}) {
+function createHarness({ importVideoAsset = null, importImageAsset = null } = {}) {
   const db = new Database(':memory:');
   ensureProjectSchema(db);
   let sequence = 0;
@@ -48,6 +48,7 @@ function createHarness({ importVideoAsset = null } = {}) {
   mountProjectRoutes(app, {
     projectStore,
     importVideoAsset,
+    importImageAsset,
     resolveAssetPlaybackUrl({ asset, ownerEmail }) {
       return asset.mediaKind === 'video'
         ? `/api/video/media/${asset.assetId}?owner=${encodeURIComponent(ownerEmail)}&cap=test-capability`
@@ -223,6 +224,44 @@ test('media import is unavailable instead of accepting a raw client asset id', a
   });
   assert.equal(response.statusCode, 503);
   assert.equal(response.body.code, 'PROJECT_MEDIA_IMPORT_UNAVAILABLE');
+});
+
+test('imports an owner-scoped ecommerce image into the project asset library', async t => {
+  const imported = [];
+  const { app, db, projectStore, sessionTokens } = createHarness({
+    importImageAsset: async input => {
+      imported.push(input);
+      return projectStore.createProjectAsset({
+        ownerEmail: input.ownerEmail,
+        projectId: input.projectId,
+        assetId: input.imageAssetId,
+        role: input.role,
+        stableUrl: `/api/generated-assets/${input.imageAssetId}`,
+        contentHash: 'c'.repeat(64),
+        mimeType: 'image/png',
+        metadata: input.metadata,
+      });
+    },
+  });
+  t.after(() => db.close());
+  const owner = 'owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '上传图片' });
+  const response = await invoke(app, 'POST', '/api/projects/:projectId/assets/import-media', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id },
+    body: {
+      sourceKind: 'image',
+      imageAssetId: `${'d'.repeat(64)}.png`,
+      role: 'product',
+      metadata: { displayName: '主商品图' },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.asset.mediaKind, 'image');
+  assert.equal(imported.length, 1);
+  assert.equal(imported[0].ownerEmail, owner);
+  assert.equal(imported[0].imageAssetId, `${'d'.repeat(64)}.png`);
 });
 
 test('unified project asset library is signed, filtered, and display-safe', async t => {

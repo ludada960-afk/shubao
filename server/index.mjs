@@ -77,6 +77,7 @@ import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createVideoProjectAssetImporter } from './projects/projectVideoAssetImport.mjs';
+import { createImageProjectAssetImporter } from './projects/projectImageAssetImport.mjs';
 import { createVideoProjectBridge } from './videoProjectBridge.mjs';
 import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
 import { createVideoWorkbenchRollout } from './videoWorkbenchRollout.mjs';
@@ -290,6 +291,15 @@ const importVideoAssetToProject = createVideoProjectAssetImporter({
   projectStore,
   readVideoAsset: videoGeneration.readAsset,
 });
+let imageProjectAssetImporter = null;
+const importImageAssetToProject = input => {
+  imageProjectAssetImporter ||= createImageProjectAssetImporter({
+    projectStore,
+    assetUploadService: ecommerceAssetUploadService,
+    readGeneratedAsset: generatedAssetStore.read,
+  });
+  return imageProjectAssetImporter(input);
+};
 const videoUploadService = createVideoUploadService({
   db,
   directory: resolve(__dirname, 'video-upload-staging'),
@@ -612,6 +622,7 @@ const adminRouteHandlers = mountAdminRoutes(app, {
 mountProjectRoutes(app, {
   projectStore,
   importVideoAsset: importVideoAssetToProject,
+  importImageAsset: importImageAssetToProject,
   resolveAssetPlaybackUrl({ asset, ownerEmail, req }) {
     const match = /^\/api\/video\/(?:assets|media)\/([^/?#]+)$/i.exec(String(asset?.stableUrl || '').trim());
     if (!match) return '';

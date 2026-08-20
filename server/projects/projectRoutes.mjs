@@ -21,6 +21,15 @@ function routeError(error, res) {
   if (code === 'VIDEO_ASSET_METADATA_INVALID') {
     return res.status(400).json({ code, error: '素材元数据无效' });
   }
+  if (code === 'IMAGE_ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '图片素材不存在或不属于当前账号' });
+  }
+  if (code === 'IMAGE_ASSET_NOT_READY') {
+    return res.status(409).json({ code, error: '图片素材尚未完成持久化校验，请稍后重试' });
+  }
+  if (code === 'IMAGE_ASSET_METADATA_INVALID') {
+    return res.status(400).json({ code, error: '素材元数据无效' });
+  }
   if (code === 'PROJECT_MEDIA_IMPORT_UNAVAILABLE') {
     return res.status(503).json({ code, error: '当前暂不支持把该媒体加入项目，请稍后重试' });
   }
@@ -93,6 +102,7 @@ export function mountProjectRoutes(app, {
   authenticateOwner,
   resolveAssetPlaybackUrl = null,
   importVideoAsset = null,
+  importImageAsset = null,
 } = {}) {
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
@@ -148,14 +158,18 @@ export function mountProjectRoutes(app, {
   });
   app.post('/api/projects/:projectId/assets/import-media', async (req, res) => {
     try {
-      if (typeof importVideoAsset !== 'function') {
+      const sourceKind = String(req.body?.sourceKind || req.body?.mediaKind || '').trim().toLowerCase();
+      const importer = sourceKind === 'image' ? importImageAsset : importVideoAsset;
+      if (typeof importer !== 'function') {
         throw Object.assign(new Error('media import is unavailable'), { code: 'PROJECT_MEDIA_IMPORT_UNAVAILABLE' });
       }
       const ownerEmail = ownerFor(req, authenticateOwner);
-      const asset = await importVideoAsset({
+      const asset = await importer({
         ownerEmail,
         projectId: req.params.projectId,
-        videoAssetId: req.body?.videoAssetId,
+        ...(sourceKind === 'image'
+          ? { imageAssetId: req.body?.imageAssetId || req.body?.assetId }
+          : { videoAssetId: req.body?.videoAssetId }),
         role: req.body?.role,
         metadata: req.body?.metadata,
         req,

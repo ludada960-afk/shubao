@@ -263,6 +263,16 @@ test('Canvas promotes uploaded video and audio into the owner-scoped project ass
   assert.doesNotMatch(canvasSource, /importVideoAssetToProject\([\s\S]{0,220}ownerEmail/);
 });
 
+test('Canvas promotes uploaded images into the owner-scoped project asset library', () => {
+  assert.match(canvasSource, /importImageAssetToProject/);
+  assert.match(canvasSource, /importCanvasImageAssets/);
+  assert.match(canvasSource, /handleCanvasSourceUpload[\s\S]*?ensureCanvasMediaProject\(files\[0\]?\.name || 'Canvas 图片项目', 'ecommerce'\)/);
+  assert.match(canvasSource, /attachCanvasProjectAssetRef\(\{ \.\.\.node, \.\.\.persisted, url: persisted\.url/);
+  const uploadBlock = canvasSource.match(/const persistenceGeneration = canvasPersistenceGenerationRef\.current;[\s\S]*?void persistCanvasUploadAssets\([\s\S]*?\n      \}\);/)?.[0] || '';
+  assert.match(uploadBlock, /const persistenceGeneration = canvasPersistenceGenerationRef\.current/);
+  assert.match(uploadBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
+});
+
 test('Canvas Work projection preserves media-only sources for later recovery', () => {
   assert.match(canvasSource, /collectCanvasMediaAssets/);
   assert.match(canvasSource, /const resultMediaAssets = collectCanvasMediaAssets\(result\)/);

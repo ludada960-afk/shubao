@@ -12,6 +12,7 @@ import {
   loadCanvasSession,
   getProject,
   getProjectAssetLineage,
+  importImageAssetToProject,
   importVideoAssetToProject,
   listProjectAssetLibrary,
   listProjects,
@@ -238,6 +239,33 @@ test('project media import client uses signed owner context and never sends owne
     metadata: { displayName: '产品视频' },
   });
   assert.equal(asset.projectAssetId, 'canonical-1');
+});
+
+test('project image import client uses a typed source and signed owner context', async t => {
+  installSession('signed-image-import-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%20one/assets/import-media');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.headers.Authorization, 'Bearer signed-image-import-token');
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body, {
+      sourceKind: 'image',
+      imageAssetId: `${'a'.repeat(64)}.png`,
+      role: 'product',
+      metadata: { displayName: '主商品图' },
+    });
+    assert.equal('ownerEmail' in body, false);
+    return jsonResponse({ asset: { projectAssetId: 'canonical-image-1', mediaKind: 'image' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const asset = await importImageAssetToProject('project one', {
+    imageAssetId: `${'a'.repeat(64)}.png`,
+    role: 'product',
+    metadata: { displayName: '主商品图' },
+  });
+  assert.equal(asset.projectAssetId, 'canonical-image-1');
 });
 
 test('Canvas session client creates, saves, and restores an encoded owner session', async t => {

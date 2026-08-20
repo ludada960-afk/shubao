@@ -146,6 +146,30 @@ export async function importVideoAssetToProject(projectId, {
   return response.asset;
 }
 
+export async function importImageAssetToProject(projectId, {
+  imageAssetId,
+  role = 'reference',
+  metadata = {},
+} = {}) {
+  const normalizedProjectId = projectPathSegment(projectId);
+  const normalizedImageAssetId = pathSegment(imageAssetId, '请选择有效的图片素材');
+  const response = await requestJson(
+    `/api/projects/${normalizedProjectId}/assets/import-media`,
+    {
+      method: 'POST',
+      ...jsonBody({
+        sourceKind: 'image',
+        imageAssetId: decodeURIComponent(normalizedImageAssetId),
+        role,
+        metadata,
+      }),
+    },
+    '暂时无法把图片加入项目',
+  );
+  if (!response?.asset?.projectAssetId) throw new Error('项目图片暂时不可用，请稍后重试');
+  return response.asset;
+}
+
 export async function getProjectAssetLineage(projectId, projectAssetId) {
   const response = await requestJson(
     `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}/lineage`,
