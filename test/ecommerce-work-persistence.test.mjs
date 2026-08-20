@@ -69,6 +69,27 @@ test('persists one prompt record per generated image for future case replay', as
   assert.deepEqual(saved.image_prompts, work.image_prompts);
 });
 
+test('persists stable media identity instead of transient playback capability', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-media-playback-work-test-'));
+  t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });
+  initDB(join(dir, 'works.db'));
+
+  upsertWork({
+    _saveKey: 'media-work-1',
+    video_url: '/api/video/media/output-1?purpose=playback&signature=temporary',
+    video: {
+      stableUrl: '/api/video/assets/output-1',
+      playbackUrl: '/api/video/media/output-1?purpose=playback&signature=temporary',
+      url: '/api/video/media/output-1?purpose=playback&signature=temporary',
+    },
+  }, { ownerEmail: 'owner@example.com' });
+
+  const saved = getAllWorks({ ownerEmail: 'owner@example.com' })[0];
+  assert.equal(saved.video_url, '/api/video/assets/output-1');
+  assert.equal(saved.video.url, '/api/video/assets/output-1');
+  assert.equal(saved.video.playbackUrl, undefined);
+});
+
 test('moves works to a recoverable trash state instead of deleting data', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-ec-trash-test-'));
   t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });

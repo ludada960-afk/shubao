@@ -50,6 +50,7 @@ import {
   CanvasTextToolbar,
 } from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
+import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
@@ -3632,7 +3633,7 @@ export default function EcCanvas() {
     if (!work) return;
     const deleted = work._saveKey ? await softDeleteWork(work._saveKey) : true;
     if (!deleted) return showToast('移入回收站失败，请重试', 'error');
-    const trashItem = { ...work, deletedAt: Date.now() };
+    const trashItem = stripTransientWorkPlayback({ ...work, deletedAt: Date.now() });
     const next = pastWorks.filter(x => x.id !== id);
     setPastWorks(next);
     setTrashWorks(prev => [trashItem, ...prev.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))]);

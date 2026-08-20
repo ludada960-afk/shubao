@@ -18,6 +18,7 @@ import {
   filterWorksForOwner,
   mergeWorkCollections,
   replaceCachedWorksForOwner,
+  stripTransientWorkPlayback,
   withWorkType,
 } from '../utils/workRecords.js';
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
@@ -1568,7 +1569,7 @@ export async function regenerateCanvasText({ prompt, referenceImages = [], refer
 export async function saveWork(work, phone, { signal } = {}) {
   if (signal?.aborted) return null;
   const ownerEmail = String(phone || getSessionEmail() || '').trim().toLowerCase();
-  const typedWork = withWorkType(work);
+  const typedWork = stripTransientWorkPlayback(withWorkType(work));
   const localWork = ownerEmail ? { ...typedWork, _phone: ownerEmail } : typedWork;
   // 本地先存
   try {
@@ -1908,7 +1909,7 @@ export async function loadWorks(ownerEmail = getSessionEmail()) {
       // Local data only fills a genuinely unsynced work or supports offline use.
       const data = mergeWorkCollections(serverWorks, local).slice(0, 50);
       localStorage.setItem('sb-works', JSON.stringify(
-        replaceCachedWorksForOwner(cached, owner, data),
+        replaceCachedWorksForOwner(cached, owner, data.map(stripTransientWorkPlayback)),
       ));
       data.sort((a, b) => (b.id || 0) - (a.id || 0));
       return data;
@@ -1920,14 +1921,15 @@ export async function loadWorks(ownerEmail = getSessionEmail()) {
     return mergeWorkCollections([], filterWorksForOwner(
       JSON.parse(localStorage.getItem('sb-works') || '[]'),
       owner,
-    ));
+    )).map(stripTransientWorkPlayback);
   } catch { return []; }
 }
 
 export function loadCachedWorks(ownerEmail = getSessionEmail()) {
   try {
     const owner = String(ownerEmail || '').trim().toLowerCase();
-    return filterWorksForOwner(JSON.parse(localStorage.getItem('sb-works') || '[]'), owner);
+    return filterWorksForOwner(JSON.parse(localStorage.getItem('sb-works') || '[]'), owner)
+      .map(stripTransientWorkPlayback);
   } catch {
     return [];
   }

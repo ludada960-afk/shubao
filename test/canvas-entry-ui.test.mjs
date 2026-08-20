@@ -69,6 +69,13 @@ test('Works only updates local trash after the server confirms deletion', async 
   assert.doesNotMatch(deleteBlock, /softDeleteWork\(work\._saveKey\)[\s\S]*?setPastWorks[\s\S]*?if \(!/);
 });
 
+test('Canvas trash stores stable media identity instead of transient playback URLs', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const deleteBlock = source.match(/const deleteWork = async \(id\) => \{[\s\S]*?\n  \};/)?.[0] || '';
+  assert.match(source, /stripTransientWorkPlayback/);
+  assert.match(deleteBlock, /const trashItem = stripTransientWorkPlayback\(\{ \.\.\.work, deletedAt: Date\.now\(\) \}\)/);
+});
+
 test('browser segmentation reports progress on the transient workflow node and edge', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');

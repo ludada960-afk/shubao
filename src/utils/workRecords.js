@@ -1,4 +1,5 @@
 import { normalizeWorkImages } from './workImages.js';
+export { stripTransientWorkPlayback } from '../../shared/workPlayback.mjs';
 
 const PERSISTENT_GENERATED_IMAGE = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)(?:\?.*)?$/i;
 const UNSAFE_ECOMMERCE_IMAGE = /^(?:blob:|data:)|(?:^|\/)(?:temp_uploads?|uploads?|ec-temp-img)(?:\/|$)/i;

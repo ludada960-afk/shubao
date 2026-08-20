@@ -7,6 +7,7 @@ import {
   isPersistentEcommerceImageUrl,
   mergeWorkCollections,
   replaceCachedWorksForOwner,
+  stripTransientWorkPlayback,
   stableWorkKey,
 } from '../src/utils/workRecords.js';
 
@@ -43,6 +44,28 @@ test('keeps only durable ecommerce image URLs in saved work records', () => {
   assert.equal(isPersistentEcommerceImageUrl('data:image/png;base64,abc'), false);
   assert.equal(isPersistentEcommerceImageUrl('/api/ec-temp-img/source.png'), false);
   assert.equal(isPersistentEcommerceImageUrl('/uploads/source.png'), false);
+});
+
+test('strips transient media playback from durable Work records while preserving stable identity', () => {
+  const durable = stripTransientWorkPlayback({
+    video_url: '/api/video/media/output-1?purpose=playback&signature=temporary',
+    video: {
+      stableUrl: '/api/video/assets/output-1',
+      playbackUrl: '/api/video/media/output-1?purpose=playback&signature=temporary',
+      url: '/api/video/media/output-1?purpose=playback&signature=temporary',
+    },
+    projectAssetRefs: [{
+      stableUrl: '/api/video/assets/output-1',
+      playbackUrl: '/api/video/media/output-1?purpose=playback&signature=temporary',
+      url: '/api/video/media/output-1?purpose=playback&signature=temporary',
+    }],
+  });
+
+  assert.equal(durable.video_url, '/api/video/assets/output-1');
+  assert.equal(durable.video.url, '/api/video/assets/output-1');
+  assert.equal(durable.video.playbackUrl, undefined);
+  assert.equal(durable.projectAssetRefs[0].url, '/api/video/assets/output-1');
+  assert.equal(durable.projectAssetRefs[0].playbackUrl, undefined);
 });
 
 test('uses server works first and deduplicates stale local ecommerce copies by task and stable images', () => {
