@@ -170,6 +170,26 @@ export async function importImageAssetToProject(projectId, {
   return response.asset;
 }
 
+export async function registerGeneratedAssetToProject(projectId, {
+  versionId = null,
+  assetId,
+  stableUrl,
+  role = 'generated',
+  metadata = {},
+} = {}) {
+  const normalizedProjectId = projectPathSegment(projectId);
+  const response = await requestJson(
+    `/api/projects/${normalizedProjectId}/assets/register-generated`,
+    {
+      method: 'POST',
+      ...jsonBody({ versionId, assetId, stableUrl, role, metadata }),
+    },
+    '暂时无法归档生成图片',
+  );
+  if (!response?.asset?.projectAssetId) throw new Error('生成图片项目资产暂时不可用，请稍后重试');
+  return response.asset;
+}
+
 export async function getProjectAssetLineage(projectId, projectAssetId) {
   const response = await requestJson(
     `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}/lineage`,

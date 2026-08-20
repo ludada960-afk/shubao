@@ -52,7 +52,7 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
+import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
@@ -573,6 +573,8 @@ export default function EcCanvas() {
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
   const projectAssetImportBusyRef = useRef(false);
+  const generatedAssetRegistrationRef = useRef(new Map());
+  const generatedProjectEnsureRef = useRef(null);
   const canvasPersistenceGenerationRef = useRef(0);
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
@@ -792,6 +794,60 @@ export default function EcCanvas() {
       mediaAssets: durableCanvasMediaAssets(work, currentNodes),
     };
   }, [canvasMediaFields]);
+
+  useEffect(() => {
+    if (!state.logged || result.browserQa) return undefined;
+    const candidates = nodes.filter(node => {
+      if (!['image', 'output', 'image-composer'].includes(node?.kind)) return false;
+      if (!['ready', 'success'].includes(node?.status)) return false;
+      if (node?.projectAssetId || node?.assetRef || node?.projectAssetRef) return false;
+      return Boolean(generatedAssetIdFromUrl(node?.url));
+    });
+    if (!candidates.length) return undefined;
+
+    const projectId = String(result.projectId || '').trim();
+    const versionId = String(result.resultVersionId || result.sourceVersionId || '').trim();
+    if (!projectId || !versionId) {
+      if (!generatedProjectEnsureRef.current) {
+        generatedProjectEnsureRef.current = ensureCanvasMediaProject('Canvas 图片创作项目', 'ecommerce')
+          .catch(() => null)
+          .finally(() => { generatedProjectEnsureRef.current = null; });
+      }
+      return undefined;
+    }
+
+    for (const node of candidates) {
+      const assetId = generatedAssetIdFromUrl(node.url);
+      const key = `${projectId}:${versionId}:${assetId}`;
+      const existing = generatedAssetRegistrationRef.current.get(key);
+      if (existing?.asset) {
+        setNodes(previous => previous.map(candidate => candidate.url === node.url && !candidate.assetRef
+          ? attachCanvasProjectAssetRef(candidate, existing.asset)
+          : candidate));
+        continue;
+      }
+      if (existing?.pending) continue;
+      generatedAssetRegistrationRef.current.set(key, { pending: true });
+      void registerGeneratedAssetToProject(projectId, {
+        versionId,
+        assetId,
+        stableUrl: node.url,
+        role: node.role || 'canvas-output',
+        metadata: {
+          source: 'canvas',
+          displayName: node.name || node.displayLabel || 'Canvas 图片',
+        },
+      }).then(asset => {
+        generatedAssetRegistrationRef.current.set(key, { asset });
+        setNodes(previous => previous.map(candidate => candidate.url === node.url && !candidate.assetRef
+          ? attachCanvasProjectAssetRef(candidate, asset)
+          : candidate));
+      }).catch(() => {
+        generatedAssetRegistrationRef.current.delete(key);
+      });
+    }
+    return undefined;
+  }, [ensureCanvasMediaProject, nodes, result.browserQa, result.projectId, result.resultVersionId, result.sourceVersionId, state.logged]);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);

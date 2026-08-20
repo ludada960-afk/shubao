@@ -33,6 +33,12 @@ function routeError(error, res) {
   if (code === 'PROJECT_MEDIA_IMPORT_UNAVAILABLE') {
     return res.status(503).json({ code, error: '当前暂不支持把该媒体加入项目，请稍后重试' });
   }
+  if (code === 'GENERATED_ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '生成图片不存在或不是应用内稳定资产' });
+  }
+  if (code === 'GENERATED_ASSET_NOT_READY') {
+    return res.status(409).json({ code, error: '生成图片尚未完成归档校验，请稍后重试' });
+  }
   if (code === 'VERSION_CONFLICT') {
     return res.status(409).json({ code, error: '内容已在其他位置更新，请刷新后重试' });
   }
@@ -103,6 +109,7 @@ export function mountProjectRoutes(app, {
   resolveAssetPlaybackUrl = null,
   importVideoAsset = null,
   importImageAsset = null,
+  registerGeneratedAsset = null,
 } = {}) {
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
@@ -154,6 +161,27 @@ export function mountProjectRoutes(app, {
       return res.json({ assets: projectStore.listProjectAssets({
         ownerEmail, projectId: req.params.projectId, mediaKind: req.query?.mediaKind,
       }).map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/projects/:projectId/assets/register-generated', async (req, res) => {
+    try {
+      if (typeof registerGeneratedAsset !== 'function') {
+        throw Object.assign(new Error('generated asset registration is unavailable'), { code: 'PROJECT_MEDIA_IMPORT_UNAVAILABLE' });
+      }
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const asset = await registerGeneratedAsset({
+        ownerEmail,
+        projectId: req.params.projectId,
+        versionId: req.body?.versionId || null,
+        assetId: req.body?.assetId,
+        stableUrl: req.body?.stableUrl,
+        role: req.body?.role,
+        metadata: req.body?.metadata,
+      });
+      if (!asset?.projectAssetId) {
+        throw Object.assign(new Error('registered project asset is invalid'), { code: 'GENERATED_ASSET_NOT_FOUND' });
+      }
+      return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
     } catch (error) { return routeError(error, res); }
   });
   app.post('/api/projects/:projectId/assets/import-media', async (req, res) => {

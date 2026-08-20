@@ -273,6 +273,15 @@ test('Canvas promotes uploaded images into the owner-scoped project asset librar
   assert.match(uploadBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
 });
 
+test('Canvas automatically archives stable generated images into the project asset library', () => {
+  assert.match(canvasSource, /registerGeneratedAssetToProject/);
+  assert.match(canvasSource, /generatedAssetRegistrationRef = useRef\(new Map\(\)\)/);
+  assert.match(canvasSource, /const candidates = nodes\.filter\(node => \{[\s\S]*?generatedAssetIdFromUrl\(node\?\.url\)/);
+  assert.match(canvasSource, /ensureCanvasMediaProject\('Canvas 图片创作项目', 'ecommerce'\)/);
+  assert.match(canvasSource, /stableUrl: node\.url/);
+  assert.match(canvasSource, /attachCanvasProjectAssetRef\(candidate, existing\.asset\)/);
+});
+
 test('Canvas Work projection preserves media-only sources for later recovery', () => {
   assert.match(canvasSource, /collectCanvasMediaAssets/);
   assert.match(canvasSource, /const resultMediaAssets = collectCanvasMediaAssets\(result\)/);

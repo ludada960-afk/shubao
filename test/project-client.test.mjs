@@ -14,6 +14,7 @@ import {
   getProjectAssetLineage,
   importImageAssetToProject,
   importVideoAssetToProject,
+  registerGeneratedAssetToProject,
   listProjectAssetLibrary,
   listProjects,
   listRecoveryCheckpoints,
@@ -266,6 +267,36 @@ test('project image import client uses a typed source and signed owner context',
     metadata: { displayName: '主商品图' },
   });
   assert.equal(asset.projectAssetId, 'canonical-image-1');
+});
+
+test('generated project asset registration uses stable asset identity and signed owner context', async t => {
+  installSession('signed-generated-asset-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%20one/assets/register-generated');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.headers.Authorization, 'Bearer signed-generated-asset-token');
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body, {
+      versionId: 'version-1',
+      assetId: `${'a'.repeat(64)}.png`,
+      stableUrl: `/api/generated-assets/${'a'.repeat(64)}.png`,
+      role: 'canvas-output',
+      metadata: { source: 'canvas' },
+    });
+    assert.equal('ownerEmail' in body, false);
+    return jsonResponse({ asset: { projectAssetId: 'canonical-generated-1', mediaKind: 'image' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const asset = await registerGeneratedAssetToProject('project one', {
+    versionId: 'version-1',
+    assetId: `${'a'.repeat(64)}.png`,
+    stableUrl: `/api/generated-assets/${'a'.repeat(64)}.png`,
+    role: 'canvas-output',
+    metadata: { source: 'canvas' },
+  });
+  assert.equal(asset.projectAssetId, 'canonical-generated-1');
 });
 
 test('Canvas session client creates, saves, and restores an encoded owner session', async t => {

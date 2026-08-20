@@ -35,7 +35,7 @@ async function invoke(app, method, path, request = {}) {
   return res;
 }
 
-function createHarness({ importVideoAsset = null, importImageAsset = null } = {}) {
+function createHarness({ importVideoAsset = null, importImageAsset = null, registerGeneratedAsset = null } = {}) {
   const db = new Database(':memory:');
   ensureProjectSchema(db);
   let sequence = 0;
@@ -49,6 +49,7 @@ function createHarness({ importVideoAsset = null, importImageAsset = null } = {}
     projectStore,
     importVideoAsset,
     importImageAsset,
+    registerGeneratedAsset,
     resolveAssetPlaybackUrl({ asset, ownerEmail }) {
       return asset.mediaKind === 'video'
         ? `/api/video/media/${asset.assetId}?owner=${encodeURIComponent(ownerEmail)}&cap=test-capability`
@@ -60,6 +61,50 @@ function createHarness({ importVideoAsset = null, importImageAsset = null } = {}
   });
   return { app, db, projectStore, sessionTokens };
 }
+
+test('registers a verified generated image through the signed project asset route', async t => {
+  const calls = [];
+  const { app, db, projectStore, sessionTokens } = createHarness({
+    registerGeneratedAsset: async input => {
+      calls.push(input);
+      return {
+        projectAssetId: 'project-asset-generated',
+        projectId: input.projectId,
+        assetId: input.assetId,
+        stableUrl: input.stableUrl,
+        mediaKind: 'image',
+      };
+    },
+  });
+  t.after(() => db.close());
+  const owner = 'generated-route-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '生成资产归档' });
+  const version = projectStore.createVersion({ ownerEmail: owner, projectId: project.id, reason: 'manual_save' });
+  const assetId = `${'a'.repeat(64)}.png`;
+  const response = await invoke(app, 'POST', '/api/projects/:projectId/assets/register-generated', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id },
+    body: {
+      versionId: version.id,
+      assetId,
+      stableUrl: `/api/generated-assets/${assetId}`,
+      role: 'canvas-output',
+      metadata: { source: 'canvas' },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.asset.projectAssetId, 'project-asset-generated');
+  assert.deepEqual(calls, [{
+    ownerEmail: owner,
+    projectId: project.id,
+    versionId: version.id,
+    assetId,
+    stableUrl: `/api/generated-assets/${assetId}`,
+    role: 'canvas-output',
+    metadata: { source: 'canvas' },
+  }]);
+});
 
 function signedHeaders(sessionTokens, email, idempotencyKey = '') {
   return {
