@@ -1122,6 +1122,41 @@ export function createProjectStore(db, {
       return api.getProject({ ownerEmail: project.ownerEmail, projectId: project.id });
     },
 
+    reviewProject({ ownerEmail, projectId, reviewedVersionId, generationRunId = null }) {
+      const project = requireProject(ownerEmail, projectId);
+      requireVersion(project.id, reviewedVersionId);
+      const runId = generationRunId == null ? '' : String(generationRunId).trim();
+      if (generationRunId != null && !runId) throw new TypeError('generationRunId is invalid');
+      const reviewedAt = timestamp().toISOString();
+      db.transaction(() => {
+        const runRow = runId
+          ? db.prepare(`SELECT * FROM project_generation_runs
+              WHERE id = ? AND project_id = ? AND owner_email = ?`).get(runId, project.id, project.ownerEmail)
+          : null;
+        if (runId && !runRow) throw codedError('GENERATION_RUN_NOT_FOUND', 'generation run not found');
+        if (runRow) {
+          const run = runFromRow(runRow);
+          if (ECOMMERCE_TERMINAL_RUN_STATUSES.has(run.status)) {
+            if (run.status !== 'needs_review' || run.resultVersionId !== reviewedVersionId) {
+              throw terminalConflict(run.status, 'needs_review');
+            }
+          } else {
+            const runUpdate = db.prepare(`UPDATE project_generation_runs
+              SET status = 'needs_review', result_version_id = ?, completed_at = ?
+              WHERE id = ? AND project_id = ? AND owner_email = ?
+                AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled')`).run(
+              reviewedVersionId, reviewedAt, run.id, project.id, project.ownerEmail,
+            );
+            if (runUpdate.changes !== 1) throw terminalConflict(run.status, 'needs_review');
+          }
+        }
+        db.prepare(`UPDATE projects SET status = 'needs_review', accepted_version_id = NULL,
+          head_version_id = ?, completed_at = NULL, updated_at = ?
+          WHERE id = ? AND owner_email = ?`).run(reviewedVersionId, reviewedAt, project.id, project.ownerEmail);
+      }).immediate();
+      return api.getProject({ ownerEmail: project.ownerEmail, projectId: project.id });
+    },
+
     migrateLegacyWork({ ownerEmail, legacyWorkKey, title = '历史作品', assets = [] }) {
       const owner = normalizeOwner(ownerEmail);
       const key = String(legacyWorkKey || '').trim();

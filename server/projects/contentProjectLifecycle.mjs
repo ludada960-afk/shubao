@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const CONTENT_PROJECT_KINDS = Object.freeze({
   xhs: 'xiaohongshu',
   plog: 'plog',
@@ -48,12 +50,13 @@ function asProjectRef(asset) {
   };
 }
 
-export function createContentProjectLifecycle({ projectStore } = {}) {
+export function createContentProjectLifecycle({ projectStore, readGeneratedAsset } = {}) {
   const required = [
     'createProjectIdempotent', 'createVersion', 'linkGenerationRun', 'getGenerationRun', 'getGenerationRunIdentity',
-    'createProjectAsset', 'completeProject', 'terminateGeneration',
+    'createProjectAsset', 'completeProject', 'reviewProject', 'terminateGeneration',
   ];
-  if (!projectStore || required.some(name => typeof projectStore[name] !== 'function')) {
+  if (!projectStore || required.some(name => typeof projectStore[name] !== 'function')
+    || typeof readGeneratedAsset !== 'function') {
     throw new TypeError('projectStore content lifecycle methods are required');
   }
 
@@ -65,6 +68,19 @@ export function createContentProjectLifecycle({ projectStore } = {}) {
     const existingIdentity = projectStore.getGenerationRunIdentity({ generationRunId: runId });
     if (existingIdentity && existingIdentity.ownerEmail !== owner) {
       throw Object.assign(new Error('content generation belongs to another owner'), { code: 'CONTENT_PROJECT_OWNER_MISMATCH' });
+    }
+    const existingRun = projectStore.getGenerationRun({ ownerEmail: owner, generationRunId: runId });
+    if (existingRun) {
+      if (existingRun.kind !== kind) {
+        throw Object.assign(new Error('content generation mode conflicts with the existing project'), { code: 'CONTENT_PROJECT_CONFLICT' });
+      }
+      return {
+        projectId: existingRun.projectId,
+        projectKind: kind,
+        sourceVersionId: existingRun.sourceVersionId,
+        generationRunId: existingRun.id,
+        ...(existingRun.resultVersionId ? { resultVersionId: existingRun.resultVersionId } : {}),
+      };
     }
     const projectResponse = projectStore.createProjectIdempotent({
       ownerEmail: owner,
@@ -81,16 +97,13 @@ export function createContentProjectLifecycle({ projectStore } = {}) {
       planSnapshot: { source: 'content-generation' },
       idempotencyKey: `content-source:${runId}`,
     });
-    let run = projectStore.getGenerationRun({ ownerEmail: owner, generationRunId: runId });
-    if (!run) {
-      run = projectStore.linkGenerationRun({
-        ownerEmail: owner,
-        projectId: project.id,
-        sourceVersionId: sourceVersion.id,
-        generationRunId: runId,
-        kind,
-      });
-    }
+    const run = projectStore.linkGenerationRun({
+      ownerEmail: owner,
+      projectId: project.id,
+      sourceVersionId: sourceVersion.id,
+      generationRunId: runId,
+      kind,
+    });
     if (run.projectId !== project.id || run.sourceVersionId !== sourceVersion.id || run.kind !== kind) {
       throw Object.assign(new Error('content project generation run does not match'), { code: 'CONTENT_PROJECT_CONFLICT' });
     }
@@ -108,6 +121,19 @@ export function createContentProjectLifecycle({ projectStore } = {}) {
     if (!context?.projectId || !context?.sourceVersionId || !assets.length) {
       throw Object.assign(new Error('content result is not projectable'), { code: 'CONTENT_PROJECT_RESULT_INVALID' });
     }
+    const verifiedAssets = [];
+    for (const asset of assets) {
+      const stored = await readGeneratedAsset(asset.assetId);
+      const actualHash = stored?.buffer && Buffer.isBuffer(stored.buffer)
+        ? createHash('sha256').update(stored.buffer).digest('hex')
+        : '';
+      const actualMime = clean(stored?.contentType).toLowerCase();
+      if (!stored || actualHash !== asset.contentHash
+        || !actualMime.startsWith('image/')) {
+        throw Object.assign(new Error('content result asset is not durably verified'), { code: 'CONTENT_PROJECT_ASSET_NOT_READY' });
+      }
+      verifiedAssets.push({ ...asset, mimeType: actualMime });
+    }
     const resultVersion = projectStore.createVersion({
       ownerEmail: owner,
       projectId: context.projectId,
@@ -118,10 +144,10 @@ export function createContentProjectLifecycle({ projectStore } = {}) {
         mode: context.projectKind === 'plog' ? 'plog' : 'xhs',
         title: clean(delivery?.title || delivery?.caption),
       },
-      planSnapshot: { assetCount: assets.length },
+      planSnapshot: { assetCount: verifiedAssets.length },
       idempotencyKey: `content-result:${context.generationRunId}`,
     });
-    const refs = assets.map(asset => asProjectRef(projectStore.createProjectAsset({
+    const refs = verifiedAssets.map(asset => asProjectRef(projectStore.createProjectAsset({
       ownerEmail: owner,
       projectId: context.projectId,
       versionId: resultVersion.id,
@@ -152,6 +178,17 @@ export function createContentProjectLifecycle({ projectStore } = {}) {
     return context;
   }
 
+  async function review({ ownerEmail, context } = {}) {
+    if (!context?.resultVersionId) throw new TypeError('content review version is required');
+    projectStore.reviewProject({
+      ownerEmail: clean(ownerEmail).toLowerCase(),
+      projectId: context.projectId,
+      reviewedVersionId: context.resultVersionId,
+      generationRunId: context.generationRunId,
+    });
+    return context;
+  }
+
   async function terminate({ ownerEmail, context, status = 'failed' } = {}) {
     if (!context?.projectId || !context?.generationRunId) return null;
     return projectStore.terminateGeneration({
@@ -161,5 +198,22 @@ export function createContentProjectLifecycle({ projectStore } = {}) {
     });
   }
 
-  return { begin, prepareResult, complete, terminate };
+  async function reconcile({ ownerEmail, generationId, billing = {}, delivery = {} } = {}) {
+    const owner = clean(ownerEmail).toLowerCase();
+    const run = projectStore.getGenerationRun({ ownerEmail: owner, generationRunId: generationId });
+    if (!run) return null;
+    const context = {
+      projectId: clean(delivery.projectId) || run.projectId,
+      projectKind: clean(delivery.projectKind) || run.kind,
+      sourceVersionId: clean(delivery.sourceVersionId) || run.sourceVersionId,
+      resultVersionId: clean(delivery.resultVersionId) || run.resultVersionId,
+      generationRunId: run.id,
+    };
+    if (billing.status === 'settled' && context.resultVersionId) return complete({ ownerEmail: owner, context });
+    if (billing.status === 'needs_review' && context.resultVersionId) return review({ ownerEmail: owner, context });
+    if (billing.status === 'released' || billing.status === 'failed') return terminate({ ownerEmail: owner, context });
+    return null;
+  }
+
+  return { begin, prepareResult, complete, review, terminate, reconcile };
 }

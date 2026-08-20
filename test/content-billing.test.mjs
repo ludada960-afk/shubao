@@ -957,6 +957,40 @@ test('billed SSE runner completes durably after disconnect and replays without u
   assert.equal(replayEvent.billing.status, 'settled');
 });
 
+test('billed SSE replay invokes recovery without rerunning upstream and survives recovery errors', async t => {
+  const harness = createDurableHarness();
+  t.after(() => harness.db.close());
+  const recoveries = [];
+  const runner = createBilledSseRunner({
+    ...harness.service,
+    onRecovery: async ({ begun }) => {
+      recoveries.push({ generationId: begun.generationId, status: begun.billing.status });
+      if (recoveries.length === 2) throw new Error('recovery observer failed');
+    },
+  });
+  const generationId = 'runner-recovery-1';
+  await runner({
+    res: new FakeResponse(), ownerEmail: OWNER, generationId, mode: 'xhs',
+    generate: async () => delivery(),
+  });
+  const firstReplay = await runner({
+    res: new FakeResponse(), ownerEmail: OWNER, generationId, mode: 'xhs',
+    generate: async () => { throw new Error('replay must not call upstream'); },
+  });
+  const secondResponse = new FakeResponse();
+  const secondReplay = await runner({
+    res: secondResponse, ownerEmail: OWNER, generationId, mode: 'xhs',
+    generate: async () => { throw new Error('replay must not call upstream'); },
+  });
+  assert.equal(firstReplay.action, 'replay');
+  assert.equal(secondReplay.action, 'replay');
+  assert.deepEqual(recoveries, [
+    { generationId, status: 'settled' },
+    { generationId, status: 'settled' },
+  ]);
+  assert.equal(parsedSseEvents(secondResponse).find(event => event.type === 'complete').billing.status, 'settled');
+});
+
 test('write false or throw closes only transport while durable completion continues', async t => {
   for (const [label, response] of [
     ['write false', new FakeResponse({ writeResult: false })],

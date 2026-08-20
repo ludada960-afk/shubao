@@ -358,6 +358,7 @@ export function createBilledSseRunner({
   prepareDelivery = null,
   onComplete = null,
   onFailure = null,
+  onRecovery = null,
   onReleaseError = error => console.error('[content-billing] release failed:', error.message),
   now = Date.now,
   heartbeatMs = null,
@@ -454,6 +455,13 @@ export function createBilledSseRunner({
       });
     }
     if (begun.action === 'terminal') {
+      if (typeof onRecovery === 'function') {
+        try {
+          await onRecovery({ ownerEmail, begun });
+        } catch (recoveryError) {
+          onReleaseError(recoveryError, begun.error);
+        }
+      }
       return sendJson(res, 409, {
         error: begun.error?.message || '该生成任务已失败，请使用新的 generationId 重试',
         code: begun.error?.code || 'CONTENT_GENERATION_TERMINAL',
@@ -468,6 +476,13 @@ export function createBilledSseRunner({
     const transport = createSseTransport(res);
     transport.open();
     if (begun.action === 'replay') {
+      if (typeof onRecovery === 'function') {
+        try {
+          await onRecovery({ ownerEmail, begun });
+        } catch (recoveryError) {
+          onReleaseError(recoveryError, null);
+        }
+      }
       transport.send('complete', completedEvent(begun, true));
       transport.end();
       return begun;

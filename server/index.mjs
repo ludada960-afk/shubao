@@ -256,7 +256,10 @@ const generatedAssetStore = createGeneratedAssetStore({
   },
 });
 const projectStore = createProjectStore(db);
-const contentProjectLifecycle = createContentProjectLifecycle({ projectStore });
+const contentProjectLifecycle = createContentProjectLifecycle({
+  projectStore,
+  readGeneratedAsset: assetId => generatedAssetStore.read(assetId),
+});
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
 videoWorkbenchStore = videoWorkbenchEnabled
   ? createVideoWorkbenchStore({ db, projectStore })
@@ -355,8 +358,14 @@ const runBilledContentSse = createBilledSseRunner({
   })),
   onComplete: ({ ownerEmail, completed, context }) => completed.jobStatus === 'completed'
     ? contentProjectLifecycle.complete({ ownerEmail, context })
-    : contentProjectLifecycle.terminate({ ownerEmail, context, status: 'needs_review' }),
+    : contentProjectLifecycle.review({ ownerEmail, context }),
   onFailure: ({ ownerEmail, context }) => contentProjectLifecycle.terminate({ ownerEmail, context }),
+  onRecovery: ({ ownerEmail, begun }) => contentProjectLifecycle.reconcile({
+    ownerEmail,
+    generationId: begun.generationId,
+    billing: begun.billing,
+    delivery: begun.delivery,
+  }),
 });
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
