@@ -380,6 +380,73 @@ test('does not fabricate a video source asset hash when the source is not verifi
   }), error => error?.code === 'VIDEO_ASSET_NOT_READY');
 });
 
+test('does not fabricate a video output asset hash or MIME type', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = {
+    ownerEmail: 'video-owner@example.com',
+    generationRunId: 'video-unverified-output',
+    title: '未校验视频输出',
+    inputSnapshot: {},
+    planSnapshot: {},
+  };
+  const created = store.ensureVideoGeneration(input);
+
+  assert.throws(() => store.completeVideoGeneration({
+    ownerEmail: input.ownerEmail,
+    generationRunId: input.generationRunId,
+    outputAsset: {
+      assetId: 'output-1',
+      stableUrl: '/api/video/assets/output-1',
+      contentHash: '',
+      mimeType: '',
+    },
+  }), error => error?.code === 'VIDEO_ASSET_NOT_READY');
+
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_assets WHERE project_id = ?').get(created.project.id).count, 0);
+  assert.equal(store.getProject({ ownerEmail: input.ownerEmail, projectId: created.project.id }).status, 'running');
+});
+
+test('rejects unverified video source MIME types before creating project state', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  assert.throws(() => store.ensureVideoGeneration({
+    ownerEmail: 'video-owner@example.com',
+    generationRunId: 'video-invalid-source-type',
+    title: '错误视频源类型',
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: [{
+      assetId: 'upload-1',
+      stableUrl: '/api/video/assets/upload-1',
+      mimeType: 'application/octet-stream',
+      contentHash: 'verified-source-hash',
+    }],
+  }), error => error?.code === 'VIDEO_ASSET_NOT_READY');
+
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 0);
+});
+
+test('rejects malformed video source entries instead of silently dropping them', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  assert.throws(() => store.ensureVideoGeneration({
+    ownerEmail: 'video-owner@example.com',
+    generationRunId: 'video-malformed-source',
+    title: '缺少稳定素材标识',
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: [{
+      assetId: '',
+      stableUrl: '',
+      mimeType: 'video/mp4',
+      contentHash: 'verified-source-hash',
+    }],
+  }), error => error?.code === 'VIDEO_ASSET_NOT_READY');
+
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 0);
+});
+
 test('records a partial ecommerce result version without claiming the project is completed', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

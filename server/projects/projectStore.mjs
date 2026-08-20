@@ -610,15 +610,16 @@ export function createProjectStore(db, {
           const assetId = String(asset?.assetId || '').trim();
           const stableUrl = String(asset?.stableUrl || '').trim();
           const contentHash = String(asset?.contentHash || '').trim();
-          if (!assetId || !stableUrl) continue;
-          if (!contentHash) throw codedError('VIDEO_ASSET_NOT_READY', 'video source asset is not durably verified');
+          const mimeType = String(asset?.mimeType || '').trim().toLowerCase();
+          if (!assetId || !stableUrl || !contentHash || !/^(?:image|video|audio)\//.test(mimeType)) {
+            throw codedError('VIDEO_ASSET_NOT_READY', 'video source asset is not durably verified');
+          }
           db.prepare(`INSERT OR IGNORE INTO project_assets
             (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'source', ?)`).run(
-              `${project.id}:${assetId}:source`, assetId, owner, project.id, sourceVersionId, runId,
-              String(asset?.role || 'reference'), contentHash || assetId, stableUrl,
-              String(asset?.mimeType || 'application/octet-stream'), createdAt,
-            );
+            `${project.id}:${assetId}:source`, assetId, owner, project.id, sourceVersionId, runId,
+              String(asset?.role || 'reference'), contentHash, stableUrl, mimeType, createdAt,
+          );
         }
         return {
           project: requireProject(owner, project.id),
@@ -642,7 +643,12 @@ export function createProjectStore(db, {
       if (!runId) throw new TypeError('generationRunId is required');
       const outputAssetId = String(outputAsset?.assetId || '').trim();
       const stableUrl = String(outputAsset?.stableUrl || '').trim();
+      const contentHash = String(outputAsset?.contentHash || '').trim();
+      const mimeType = String(outputAsset?.mimeType || '').trim().toLowerCase();
       if (!outputAssetId || !stableUrl) throw new TypeError('outputAsset is required');
+      if (!contentHash || !mimeType.startsWith('video/')) {
+        throw codedError('VIDEO_ASSET_NOT_READY', 'video output asset is not durably verified');
+      }
       return db.transaction(() => {
         const runRow = db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner);
         if (!runRow) throw codedError('GENERATION_RUN_NOT_FOUND', 'generation run not found');
@@ -672,8 +678,7 @@ export function createProjectStore(db, {
           (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
           VALUES (?, ?, ?, ?, ?, ?, 'generated_video', ?, ?, ?, 'completed', ?)`).run(
           targetProjectAssetId, outputAssetId, owner, project.id, resultVersionId, runId,
-          String(outputAsset?.contentHash || outputAssetId), stableUrl,
-          String(outputAsset?.mimeType || 'video/mp4'), completedAt,
+          contentHash, stableUrl, mimeType, completedAt,
         );
         for (const sourceAssetId of new Set(Array.isArray(sourceAssetIds) ? sourceAssetIds : [])) {
           const sourceProjectAsset = db.prepare(`SELECT id FROM project_assets
