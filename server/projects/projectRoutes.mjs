@@ -12,6 +12,9 @@ function routeError(error, res) {
   if (code === 'PROJECT_ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '未找到该项目素材' });
   }
+  if (code === 'PROJECT_ASSET_NOT_REUSABLE') {
+    return res.status(409).json({ code, error: '该素材已不适合新的创作，请先长期保留后再使用' });
+  }
   if (code === 'PROJECT_ASSET_RETENTION_INVALID') {
     return res.status(400).json({ code, error: '素材保留设置无效' });
   }
@@ -237,7 +240,10 @@ export function mountProjectRoutes(app, {
     try {
       const ownerEmail = ownerFor(req, authenticateOwner);
       const asset = withPlaybackUrl(projectStore.getProjectAsset({
-        ownerEmail, projectId: req.params.projectId, projectAssetId: req.params.assetId,
+        ownerEmail,
+        projectId: req.params.projectId,
+        projectAssetId: req.params.assetId,
+        purpose: String(req.query?.purpose || 'read').trim().toLowerCase() || 'read',
       }), { ownerEmail, req, resolveAssetPlaybackUrl });
       if (!asset) return res.status(404).json({ code: 'PROJECT_ASSET_NOT_FOUND', error: '未找到该项目素材' });
       return res.json({ asset });

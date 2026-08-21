@@ -3610,8 +3610,19 @@ export default function EcCanvas() {
     }
     projectAssetImportBusyRef.current = true;
     try {
+      let reusableAsset = asset;
+      if (state.logged && !result.browserQa && asset?.projectId && asset?.projectAssetId) {
+        try {
+          reusableAsset = await getProjectAsset(asset.projectId, asset.projectAssetId, 'reuse');
+        } catch (error) {
+          showToast(error?.code === 'PROJECT_ASSET_NOT_REUSABLE'
+            ? '素材已到期或待清理，请先长期保留后再使用'
+            : (error?.message || '素材暂时无法加入画布，请稍后重试'), 'info');
+          return;
+        }
+      }
       const imported = importProjectAssetToCanvas({
-        asset,
+        asset: reusableAsset,
         source: 'project-library',
         session: { nodes, connections, viewport },
       });
@@ -3620,8 +3631,8 @@ export default function EcCanvas() {
         if (imported.nodeId) setSelected(imported.nodeId);
         return;
       }
-      const mediaKind = String(asset?.mediaKind || asset?.media_kind || '').toLowerCase();
-      const label = asset?.metadata?.displayName || asset?.assetId || asset?.role || '项目素材';
+      const mediaKind = String(reusableAsset?.mediaKind || reusableAsset?.media_kind || '').toLowerCase();
+      const label = reusableAsset?.metadata?.displayName || reusableAsset?.assetId || reusableAsset?.role || '项目素材';
       let projectContext = null;
       if (state.logged && !result.browserQa) {
         try {

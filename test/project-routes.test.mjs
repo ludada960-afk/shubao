@@ -217,6 +217,38 @@ test('project asset read routes are owner-scoped and support media filtering', a
   assert.equal(deniedLineage.body.code, 'PROJECT_NOT_FOUND');
 });
 
+test('project asset reuse reads enforce retention while default reads preserve recovery', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'reuse-route-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '素材复用边界' });
+  const asset = projectStore.createProjectAsset({
+    ownerEmail: owner,
+    projectId: project.id,
+    assetId: 'reuse-route-image',
+    stableUrl: '/api/generated-assets/reuse-route-image.webp',
+    contentHash: 'reuse-route-hash',
+    mimeType: 'image/webp',
+    retentionClass: 'generated',
+  });
+  db.prepare('UPDATE project_assets SET retention_state = ? WHERE id = ?').run('marked', asset.projectAssetId);
+
+  const recovery = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id, assetId: asset.projectAssetId },
+  });
+  const reuse = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id, assetId: asset.projectAssetId },
+    query: { purpose: 'reuse' },
+  });
+
+  assert.equal(recovery.statusCode, 200);
+  assert.equal(recovery.body.asset.projectAssetId, asset.projectAssetId);
+  assert.equal(reuse.statusCode, 409);
+  assert.equal(reuse.body.code, 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
 test('imports an owner-scoped uploaded media asset into the project asset library', async t => {
   const imported = [];
   const { app, db, projectStore, sessionTokens } = createHarness({

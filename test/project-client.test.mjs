@@ -11,6 +11,7 @@ import {
   dismissRecoveryCheckpoint,
   loadCanvasSession,
   getProject,
+  getProjectAsset,
   getProjectAssetLineage,
   importImageAssetToProject,
   importVideoAssetToProject,
@@ -201,6 +202,20 @@ test('project asset library client sends signed URL-encoded filters', async t =>
 
   const assets = await listProjectAssetLibrary({ projectKind: 'ecommerce', mediaKind: 'image', query: 'hero image', limit: 20 });
   assert.equal(assets[0].projectAssetId, 'asset-1');
+});
+
+test('project asset client can request an explicit reuse read', async t => {
+  installSession('signed-reuse-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%2F1/assets/asset%2F1?purpose=reuse');
+    assert.equal(options.headers.Authorization, 'Bearer signed-reuse-token');
+    return jsonResponse({ asset: { projectAssetId: 'asset-1' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const asset = await getProjectAsset('project/1', 'asset/1', 'reuse');
+  assert.equal(asset.projectAssetId, 'asset-1');
 });
 
 test('project asset lineage client encodes both IDs and uses the signed session', async t => {

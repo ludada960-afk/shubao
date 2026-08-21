@@ -118,9 +118,11 @@ export async function listProjectAssetLibrary({ projectId = '', projectKind = ''
   return Array.isArray(response?.assets) ? response.assets : [];
 }
 
-export async function getProjectAsset(projectId, projectAssetId) {
+export async function getProjectAsset(projectId, projectAssetId, purpose = 'read') {
+  const normalizedPurpose = String(purpose || 'read').trim().toLowerCase() || 'read';
+  const query = normalizedPurpose === 'read' ? '' : `?purpose=${encodeURIComponent(normalizedPurpose)}`;
   const response = await requestJson(
-    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}`,
+    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}${query}`,
     {},
     '暂时无法读取项目素材',
   );

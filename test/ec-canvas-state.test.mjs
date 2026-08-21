@@ -338,6 +338,12 @@ test('project library imports are single-flight and do not duplicate project ver
   assert.match(importBlock, /projectAssetImportBusyRef\.current = false/);
 });
 
+test('project library imports revalidate the canonical asset before mutating Canvas', () => {
+  const importBlock = canvasSource.match(/const handleImportProjectAsset = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(importBlock, /getProjectAsset\(asset\.projectId, asset\.projectAssetId, 'reuse'\)/);
+  assert.match(importBlock, /importProjectAssetToCanvas\(\{[\s\S]*?asset: reusableAsset/);
+});
+
 test('project library imports distinguish local recovery from remote archive failure', () => {
   const importBlock = canvasSource.match(/const handleImportProjectAsset = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
   assert.match(importBlock, /let savedWork = null/);
