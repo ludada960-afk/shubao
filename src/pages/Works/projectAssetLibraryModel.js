@@ -4,9 +4,20 @@ function clean(value) {
   return String(value || '').trim();
 }
 
+function searchableMetadata(value) {
+  if (!value || typeof value !== 'object') return '';
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '';
+  }
+}
+
 function searchableText(asset) {
   return [
+    asset?.projectAssetId,
     asset?.metadata?.displayName,
+    searchableMetadata(asset?.metadata),
     asset?.assetId,
     asset?.role,
     asset?.projectId,

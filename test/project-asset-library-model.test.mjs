@@ -36,10 +36,12 @@ test('reports actionable retention states for pinned, managed, and expiring asse
 
 test('filters asset library by metadata, project, and retention state', () => {
   const assets = [
-    { projectAssetId: 'image-1', projectId: 'project-1', contentHash: 'a', mediaKind: 'image', metadata: { displayName: '白色水杯' }, retentionPinned: true },
+    { projectAssetId: 'image-1', projectId: 'project-1', contentHash: 'a', mediaKind: 'image', metadata: { displayName: '白色水杯', campaign: '春季上新' }, retentionPinned: true },
     { projectAssetId: 'audio-1', projectId: 'project-2', contentHash: 'b', mediaKind: 'audio', role: '配乐', retentionState: 'active' },
   ];
   assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { query: '水杯' })), ['image-1']);
+  assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { query: '春季上新' })), ['image-1']);
+  assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { query: 'image-1' })), ['image-1']);
   assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { query: 'project-2', retentionFilter: 'managed' })), ['audio-1']);
   assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { retentionFilter: 'pinned' })), ['image-1']);
 });
