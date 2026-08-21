@@ -228,7 +228,9 @@ test('project asset client rejects unknown access purposes before fetching', asy
   };
   t.after(() => { globalThis.fetch = originalFetch; });
 
-  await assert.rejects(getProjectAsset('project-1', 'asset-1', 'preview'), /素材访问意图无效/);
+  await assert.rejects(getProjectAsset('project-1', 'asset-1', 'preview'), error => (
+    error?.code === 'PROJECT_ASSET_PURPOSE_INVALID' && /素材访问意图无效/.test(error.message)
+  ));
   assert.equal(called, false);
 });
 

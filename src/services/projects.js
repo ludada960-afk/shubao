@@ -120,7 +120,9 @@ export async function listProjectAssetLibrary({ projectId = '', projectKind = ''
 
 export async function getProjectAsset(projectId, projectAssetId, purpose = 'read') {
   const normalizedPurpose = String(purpose || 'read').trim().toLowerCase() || 'read';
-  if (!['read', 'reuse'].includes(normalizedPurpose)) throw new Error('素材访问意图无效');
+  if (!['read', 'reuse'].includes(normalizedPurpose)) {
+    throw Object.assign(new Error('素材访问意图无效'), { code: 'PROJECT_ASSET_PURPOSE_INVALID' });
+  }
   const query = normalizedPurpose === 'read' ? '' : `?purpose=${encodeURIComponent(normalizedPurpose)}`;
   const response = await requestJson(
     `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}${query}`,
