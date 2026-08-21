@@ -15,7 +15,7 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
   assert.match(shellCss, /\.creative-nav-viewport-bridge\s*\{/);
   assert.doesNotMatch(component, /creative-nav-panel-heading/);
   assert.match(component, /creative-nav-item-icon/);
-  assert.match(component, /creative-nav-glyph-part/);
+  assert.match(component, /creative-nav-glyph-stack/);
   assert.doesNotMatch(component, /creative-nav-domain-mark/);
   assert.doesNotMatch(component, /creative-nav-link-index/);
   assert.doesNotMatch(component, /is-single-destination/);
@@ -54,9 +54,9 @@ test('pointer transitions and outside interaction keep the viewport usable', () 
 });
 
 test('destination motion is explicit, pointer-safe, and supports reduced motion', () => {
-  assert.match(component, /creative-nav-glyph-part/);
+  assert.match(component, /creative-nav-glyph-stack/);
   assert.match(component, /item\.motion/);
-  assert.match(shellCss, /creative-nav-fragment-assemble/);
+  assert.match(shellCss, /creative-nav-stack-assemble/);
   assert.match(shellCss, /creative-nav-orbit-pulse/);
   assert.match(shellCss, /@media \(hover:\s*hover\) and \(pointer:\s*fine\)/);
   assert.match(shellCss, /prefers-reduced-motion/);

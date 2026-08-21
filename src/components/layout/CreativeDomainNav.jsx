@@ -67,19 +67,23 @@ function CreativeNavGlyph({ Icon, motion, size = 25 }) {
   return (
     <span className={`creative-nav-glyph creative-nav-glyph--${motion}`} aria-hidden="true">
       <span className="creative-nav-glyph-orbit" />
-      <span className="creative-nav-glyph-signal creative-nav-glyph-signal--a" />
-      <span className="creative-nav-glyph-signal creative-nav-glyph-signal--b" />
-      <span className="creative-nav-glyph-part creative-nav-glyph-part--a" />
-      <span className="creative-nav-glyph-part creative-nav-glyph-part--b" />
-      <span className="creative-nav-glyph-part creative-nav-glyph-part--c" />
-      <span className="creative-nav-glyph-part creative-nav-glyph-part--d" />
+      <span className="creative-nav-glyph-stack creative-nav-glyph-stack--back" />
+      <span className="creative-nav-glyph-stack creative-nav-glyph-stack--front" />
       <Icon className="creative-nav-glyph-core" size={size} weight="duotone" />
     </span>
   );
 }
 
+const DESKTOP_PANEL_WIDTHS = Object.freeze({
+  commerce: 500,
+  video: 420,
+  content: 500,
+  visual: 700,
+  workspace: 500,
+});
+
 function getDesktopPanelWidth(group) {
-  return Math.min(720, Math.max(360, 300 + group.items.length * 96));
+  return DESKTOP_PANEL_WIDTHS[group.id] || 520;
 }
 
 function isProtectedTarget(action) {
