@@ -15,6 +15,9 @@ function routeError(error, res) {
   if (code === 'PROJECT_ASSET_NOT_REUSABLE') {
     return res.status(409).json({ code, error: '该素材已不适合新的创作，请先长期保留后再使用' });
   }
+  if (code === 'PROJECT_ASSET_PURPOSE_INVALID') {
+    return res.status(400).json({ code, error: '素材访问意图无效' });
+  }
   if (code === 'PROJECT_ASSET_RETENTION_INVALID') {
     return res.status(400).json({ code, error: '素材保留设置无效' });
   }

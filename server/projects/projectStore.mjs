@@ -104,6 +104,14 @@ function isReusableProjectAsset(asset, now) {
   return Number.isFinite(expiresAt.getTime()) && expiresAt > now;
 }
 
+function normalizeProjectAssetPurpose(value) {
+  const purpose = String(value || 'read').trim().toLowerCase() || 'read';
+  if (!['read', 'reuse'].includes(purpose)) {
+    throw codedError('PROJECT_ASSET_PURPOSE_INVALID', 'project asset purpose is invalid');
+  }
+  return purpose;
+}
+
 function externalProjectAssetRefs(asset) {
   const metadata = asset?.metadata && typeof asset.metadata === 'object' ? asset.metadata : {};
   const candidates = [metadata.sourceProjectAssetRef, metadata.importedFromProjectAsset]
@@ -439,11 +447,12 @@ export function createProjectStore(db, {
     },
 
     getProjectAsset({ ownerEmail, projectId, projectAssetId, purpose = 'read' }) {
+      const normalizedPurpose = normalizeProjectAssetPurpose(purpose);
       const project = requireProject(ownerEmail, projectId);
       const asset = projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
         WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`)
         .get(projectAssetId, project.ownerEmail, project.id));
-      if (purpose === 'reuse' && asset && !isReusableProjectAsset(asset, timestamp())) {
+      if (normalizedPurpose === 'reuse' && asset && !isReusableProjectAsset(asset, timestamp())) {
         throw codedError('PROJECT_ASSET_NOT_REUSABLE', 'project asset is not available for new reuse');
       }
       return asset;

@@ -184,6 +184,20 @@ test('keeps historical reads available while reuse reads fail closed for expired
   assert.equal(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, purpose: 'reuse' }).projectAssetId, asset.projectAssetId);
 });
 
+test('rejects unknown project asset purposes instead of silently granting a read', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const project = store.createProject({ ownerEmail: 'purpose-owner@example.com', kind: 'ecommerce', title: '访问意图' });
+  const asset = store.createProjectAsset({
+    ownerEmail: 'purpose-owner@example.com', projectId: project.id, assetId: 'purpose-asset',
+    stableUrl: '/api/generated-assets/purpose-asset.webp', contentHash: 'purpose-hash', mimeType: 'image/webp',
+  });
+  assert.throws(
+    () => store.getProjectAsset({ ownerEmail: 'purpose-owner@example.com', projectId: project.id, projectAssetId: asset.projectAssetId, purpose: 'preview' }),
+    error => error?.code === 'PROJECT_ASSET_PURPOSE_INVALID',
+  );
+});
+
 test('lists a display-safe owner project asset library across projects with server filters', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

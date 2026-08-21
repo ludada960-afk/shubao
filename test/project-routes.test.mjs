@@ -249,6 +249,24 @@ test('project asset reuse reads enforce retention while default reads preserve r
   assert.equal(reuse.body.code, 'PROJECT_ASSET_NOT_REUSABLE');
 });
 
+test('project asset routes reject unknown access purposes', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'purpose-route-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '访问意图路由' });
+  const asset = projectStore.createProjectAsset({
+    ownerEmail: owner, projectId: project.id, assetId: 'purpose-route-asset',
+    stableUrl: '/api/generated-assets/purpose-route-asset.webp', contentHash: 'purpose-route-hash', mimeType: 'image/webp',
+  });
+  const response = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id, assetId: asset.projectAssetId },
+    query: { purpose: 'preview' },
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.body.code, 'PROJECT_ASSET_PURPOSE_INVALID');
+});
+
 test('imports an owner-scoped uploaded media asset into the project asset library', async t => {
   const imported = [];
   const { app, db, projectStore, sessionTokens } = createHarness({

@@ -218,6 +218,20 @@ test('project asset client can request an explicit reuse read', async t => {
   assert.equal(asset.projectAssetId, 'asset-1');
 });
 
+test('project asset client rejects unknown access purposes before fetching', async t => {
+  installSession('signed-purpose-token');
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    return jsonResponse({ asset: { projectAssetId: 'unexpected' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await assert.rejects(getProjectAsset('project-1', 'asset-1', 'preview'), /素材访问意图无效/);
+  assert.equal(called, false);
+});
+
 test('project asset lineage client encodes both IDs and uses the signed session', async t => {
   installSession('signed-lineage-token');
   const originalFetch = globalThis.fetch;
