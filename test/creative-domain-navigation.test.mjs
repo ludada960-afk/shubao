@@ -7,9 +7,12 @@ import {
   isNavigationGroupActive,
 } from '../src/components/layout/creativeDomainNavigation.js';
 
-test('navigation exposes the five confirmed product domains', () => {
+test('navigation exposes the four confirmed creation domains in product order', () => {
   assert.deepEqual(CREATIVE_NAV_GROUPS.map(group => group.id), [
-    'commerce', 'video', 'content', 'visual', 'workspace',
+    'commerce', 'video', 'content', 'visual',
+  ]);
+  assert.deepEqual(CREATIVE_NAV_GROUPS.map(group => group.label), [
+    '电商生图', '视频生成', '小红书', '图文自由创作',
   ]);
 });
 
@@ -29,8 +32,6 @@ test('free visual navigation names the supported visual skills', () => {
 
 test('navigation targets reuse existing app actions', () => {
   assert.deepEqual(getNavigationTarget('video', 'video-studio'), { type: 'NAVIGATE', page: 'video-studio' });
-  assert.deepEqual(getNavigationTarget('workspace', 'canvas'), { type: 'OPEN_CANVAS' });
-  assert.deepEqual(getNavigationTarget('workspace', 'works'), { type: 'OPEN_CANVAS', tab: 'works' });
   assert.deepEqual(getNavigationTarget('content', 'content-xhs'), { type: 'SET_MODE', mode: 'content' });
 });
 
@@ -44,6 +45,5 @@ test('active state follows the current page or creation mode', () => {
   assert.equal(isNavigationGroupActive('video', { page: 'video-studio', mode: 'ecommerce' }), true);
   assert.equal(isNavigationGroupActive('content', { page: 'home', mode: 'content' }), true);
   assert.equal(isNavigationGroupActive('visual', { page: 'home', mode: 'visual' }), true);
-  assert.equal(isNavigationGroupActive('workspace', { page: 'ec-canvas' }), true);
   assert.equal(isNavigationGroupActive('commerce', { page: 'home', mode: 'ecommerce' }), true);
 });

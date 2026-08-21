@@ -19,7 +19,7 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(shellCss, /\.creative-nav-desktop \{/);
   assert.match(shellCss, /\.creative-nav-panel \{/);
   assert.match(shellCss, /\.creative-nav-panel\s*\{[\s\S]*?width:\s*100%/);
-  assert.match(shellCss, /\.creative-nav-panel--items-4\s+\.creative-nav-panel-links/);
+  assert.match(shellCss, /\.creative-nav-panel-links\s*\{[\s\S]*?flex-direction:\s*column/);
   assert.match(shellCss, /\.creative-nav-panel-links\s*\{[\s\S]*?border-left:\s*0/);
   assert.doesNotMatch(shellCss, /\.creative-nav-signature\s*\{/);
   assert.doesNotMatch(shellCss, /\.creative-nav-panel-intro\s*\{/);

@@ -66,6 +66,7 @@ const DOMAIN_THEMES = Object.freeze({
 function CreativeNavGlyph({ Icon, motion, size = 25 }) {
   return (
     <span className={`creative-nav-glyph creative-nav-glyph--${motion}`} aria-hidden="true">
+      <span className="creative-nav-glyph-glow" />
       <span className="creative-nav-glyph-orbit" />
       <span className="creative-nav-glyph-stack creative-nav-glyph-stack--back" />
       <span className="creative-nav-glyph-stack creative-nav-glyph-stack--front" />
@@ -75,11 +76,10 @@ function CreativeNavGlyph({ Icon, motion, size = 25 }) {
 }
 
 const DESKTOP_PANEL_WIDTHS = Object.freeze({
-  commerce: 500,
-  video: 420,
-  content: 500,
-  visual: 700,
-  workspace: 500,
+  commerce: 430,
+  video: 430,
+  content: 460,
+  visual: 520,
 });
 
 function getDesktopPanelWidth(group) {

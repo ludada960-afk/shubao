@@ -20,7 +20,7 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
   assert.doesNotMatch(component, /creative-nav-link-index/);
   assert.doesNotMatch(component, /is-single-destination/);
   assert.match(component, /creative-nav-arrow-left/);
-  assert.match(shellCss, /\.creative-nav-panel--items-4/);
+  assert.match(shellCss, /\.creative-nav-panel-links\s*\{[\s\S]*?flex-direction:\s*column/);
   assert.match(shellCss, /\.creative-nav-item-icon\s*\{/);
   assert.doesNotMatch(shellCss, /\.creative-nav-link-index\s*\{/);
   assert.doesNotMatch(shellCss, /\.creative-nav-panel-intro\s*\{/);
@@ -29,7 +29,7 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
 test('every destination has semantic icon and motion metadata while video stays a single entry', () => {
   const items = CREATIVE_NAV_GROUPS.flatMap(group => group.items);
   assert.equal(CREATIVE_NAV_GROUPS.find(group => group.id === 'video')?.items.length, 1);
-  assert.ok(items.length >= 12);
+  assert.ok(items.length >= 10);
   for (const item of items) {
     assert.match(item.icon, /^[a-z-]+$/);
     assert.match(item.motion, /^[a-z-]+$/);
