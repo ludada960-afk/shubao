@@ -173,7 +173,10 @@ test('keeps historical reads available while reuse reads fail closed for expired
     WHERE id = ?`).run('2026-08-19T00:00:00.000Z', asset.projectAssetId);
 
   assert.equal(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId }).retentionState, 'marked');
-  assert.equal(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, purpose: 'reuse' }), null);
+  assert.throws(
+    () => store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, purpose: 'reuse' }),
+    error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE',
+  );
 
   db.prepare(`UPDATE project_assets
     SET retention_state = 'active', retention_pinned = 1, retention_class = 'permanent'

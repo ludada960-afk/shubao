@@ -443,7 +443,9 @@ export function createProjectStore(db, {
       const asset = projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
         WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`)
         .get(projectAssetId, project.ownerEmail, project.id));
-      if (purpose === 'reuse' && !isReusableProjectAsset(asset, timestamp())) return null;
+      if (purpose === 'reuse' && asset && !isReusableProjectAsset(asset, timestamp())) {
+        throw codedError('PROJECT_ASSET_NOT_REUSABLE', 'project asset is not available for new reuse');
+      }
       return asset;
     },
 
