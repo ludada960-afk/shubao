@@ -95,6 +95,15 @@ function projectAssetLineageRefFromRow(row) {
   };
 }
 
+function isReusableProjectAsset(asset, now) {
+  if (!asset) return false;
+  if (asset.retentionPinned || asset.retentionClass === 'permanent') return true;
+  if (asset.retentionState !== 'active') return false;
+  if (!asset.expiresAt) return true;
+  const expiresAt = new Date(asset.expiresAt);
+  return Number.isFinite(expiresAt.getTime()) && expiresAt > now;
+}
+
 function externalProjectAssetRefs(asset) {
   const metadata = asset?.metadata && typeof asset.metadata === 'object' ? asset.metadata : {};
   const candidates = [metadata.sourceProjectAssetRef, metadata.importedFromProjectAsset]
@@ -429,11 +438,13 @@ export function createProjectStore(db, {
       return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(id));
     },
 
-    getProjectAsset({ ownerEmail, projectId, projectAssetId }) {
+    getProjectAsset({ ownerEmail, projectId, projectAssetId, purpose = 'read' }) {
       const project = requireProject(ownerEmail, projectId);
-      return projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
+      const asset = projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
         WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`)
         .get(projectAssetId, project.ownerEmail, project.id));
+      if (purpose === 'reuse' && !isReusableProjectAsset(asset, timestamp())) return null;
+      return asset;
     },
 
     setProjectAssetRetention({ ownerEmail, projectId, projectAssetId, pinned }) {

@@ -154,6 +154,33 @@ test('pins a canonical project asset for long-term reuse and restores its prior 
   );
 });
 
+test('keeps historical reads available while reuse reads fail closed for expired assets', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'reuse-boundary@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '复用边界' });
+  const asset = store.createProjectAsset({
+    ownerEmail,
+    projectId: project.id,
+    assetId: 'expired-source',
+    stableUrl: '/api/video/assets/expired-source',
+    contentHash: 'expired-source-hash',
+    mimeType: 'video/mp4',
+    retentionClass: 'completed',
+  });
+  db.prepare(`UPDATE project_assets
+    SET retention_state = 'marked', expires_at = ?
+    WHERE id = ?`).run('2026-08-19T00:00:00.000Z', asset.projectAssetId);
+
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId }).retentionState, 'marked');
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, purpose: 'reuse' }), null);
+
+  db.prepare(`UPDATE project_assets
+    SET retention_state = 'active', retention_pinned = 1, retention_class = 'permanent'
+    WHERE id = ?`).run(asset.projectAssetId);
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, purpose: 'reuse' }).projectAssetId, asset.projectAssetId);
+});
+
 test('lists a display-safe owner project asset library across projects with server filters', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
