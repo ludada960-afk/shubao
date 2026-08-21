@@ -1167,20 +1167,22 @@ export default function EcCanvas() {
     let cancelled = false;
     setProjectAssetLibraryLoading(true);
     setProjectAssetLibraryError('');
-    void (async () => {
-      try {
-        const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, query: projectAssetQuery, limit: 500 });
-        if (cancelled) return;
-        setProjectAssetLibrary(normalizeProjectAssetLibrary(library, { currentProjectId: result.projectId }));
-      } catch (error) {
-        if (cancelled) return;
-        setProjectAssetLibrary([]);
-        setProjectAssetLibraryError(error?.message || '项目素材暂时无法读取');
-      } finally {
-        if (!cancelled) setProjectAssetLibraryLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, query: projectAssetQuery, limit: 500 });
+          if (cancelled) return;
+          setProjectAssetLibrary(normalizeProjectAssetLibrary(library, { currentProjectId: result.projectId }));
+        } catch (error) {
+          if (cancelled) return;
+          setProjectAssetLibrary([]);
+          setProjectAssetLibraryError(error?.message || '项目素材暂时无法读取');
+        } finally {
+          if (!cancelled) setProjectAssetLibraryLoading(false);
+        }
+      })();
+    }, 180);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [projectAssetMediaFilter, projectAssetQuery, result?.browserQa, result?.projectId, state.logged, tab]);
 
   const visibleProjectAssetLibrary = useMemo(() => filterProjectAssetLibrary(projectAssetLibrary, {
