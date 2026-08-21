@@ -49,10 +49,17 @@ test('XHS reuses the ecommerce upload cards and localizes only the content label
 
 test('XHS workbench keeps the ecommerce spacing and full article body', () => {
   assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-composer \{ padding: 8px 10px 10px/);
-  assert.match(showcaseStyles, /\.xhs-template-tools \{ display: flex/);
-  assert.match(showcaseStyles, /justify-self: start;/);
-  assert.match(showcaseStyles, /width: fit-content; max-width: 100%;/);
-  assert.match(showcaseStyles, /padding: 10px 2px 10px/);
+  assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-prompt \{ display: flex; height: 92px; min-height: 92px;/);
+  assert.match(showcaseStyles, /textarea\.xhs-prompt-field \{ display: block; width: 100%; min-height: 0; flex: 1 1 auto;/);
+  assert.match(showcaseStyles, /\.xhs-template-tools \{ display: flex !important; justify-self: auto; width: auto; max-width: none; flex: 1 1 auto !important;/);
+  assert.match(showcaseStyles, /\.xhs-template-actions \{ position: relative; margin: 0; padding: 0;/);
+  assert.match(showcaseStyles, /\.xhs-template-actions \.ec-workbench-primary-row \{ display: flex; height: 52px; min-height: 52px; align-items: center; gap: 6px;/);
+  assert.match(showcaseStyles, /\.xhs-template-actions \.ec-workbench-next \{ height: 38px; min-width: 0; padding: 0 22px;.*border-radius: 12px;/);
+  assert.match(showcaseStyles, /\.xhs-template-option-slot \{ position: relative; display: flex; width: fit-content; height: 52px;/);
+  assert.doesNotMatch(showcaseStyles, /\.xhs-input-template \.ec-xhs-prompt \{[^}]*min-height: 156px/);
+  assert.doesNotMatch(showcaseStyles, /\.xhs-input-template \.ec-xhs-prompt textarea\.xhs-prompt-field \{[^}]*min-height: 116px/);
+  assert.doesNotMatch(showcaseStyles, /min-height: 56px/);
+  assert.doesNotMatch(showcaseStyles, /\.xhs-template-actions \.ec-workbench-next \{ min-width/);
   assert.match(showcaseStyles, /\.creation-showcase-content-image-media img/);
   assert.match(showcaseStyles, /\.xhs-ability-selector \.ec-ability-selector-fan-card \{ top: 50%; width: 56px; height: 74px/);
   assert.match(showcaseStyles, /\.xhs-workbench-card \{ margin: 0; padding: 0; border: 0/);
