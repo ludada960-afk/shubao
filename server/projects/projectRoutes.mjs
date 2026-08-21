@@ -147,6 +147,7 @@ export function mountProjectRoutes(app, {
         projectId: req.query?.projectId,
         projectKind: req.query?.projectKind,
         mediaKind: req.query?.mediaKind,
+        query: req.query?.query,
         limit: req.query?.limit,
       }).map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
     } catch (error) { return routeError(error, res); }

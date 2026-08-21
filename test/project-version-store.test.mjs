@@ -161,13 +161,16 @@ test('lists a display-safe owner project asset library across projects with serv
   const ecommerce = store.createProject({ ownerEmail, kind: 'ecommerce', title: '商品项目' });
   const video = store.createProject({ ownerEmail, kind: 'video', title: '视频项目' });
   const other = store.createProject({ ownerEmail: 'other@example.com', kind: 'ecommerce', title: '不应出现' });
-  store.createProjectAsset({ ownerEmail, projectId: ecommerce.id, assetId: 'product-image', stableUrl: '/api/generated-assets/product-image.webp', contentHash: 'product-hash', mimeType: 'image/webp' });
+  store.createProjectAsset({ ownerEmail, projectId: ecommerce.id, assetId: 'product-image', role: 'hero', stableUrl: '/api/generated-assets/product-image.webp', contentHash: 'product-hash', mimeType: 'image/webp', metadata: { displayName: '春季主图' } });
   store.createProjectAsset({ ownerEmail, projectId: video.id, assetId: 'video-clip', stableUrl: '/api/video/assets/video-clip', contentHash: 'video-hash', mimeType: 'video/mp4' });
   store.createProjectAsset({ ownerEmail: 'other@example.com', projectId: other.id, assetId: 'foreign-image', stableUrl: '/api/generated-assets/foreign.webp', contentHash: 'foreign-hash', mimeType: 'image/webp' });
 
   const all = store.listProjectAssetLibrary({ ownerEmail, limit: 20 });
   const videos = store.listProjectAssetLibrary({ ownerEmail, mediaKind: 'video', limit: 20 });
   const commerce = store.listProjectAssetLibrary({ ownerEmail, projectKind: 'ecommerce', limit: 20 });
+  const byAssetId = store.listProjectAssetLibrary({ ownerEmail, query: 'PRODUCT-IMAGE', limit: 20 });
+  const byMetadata = store.listProjectAssetLibrary({ ownerEmail, query: '春季主图', limit: 20 });
+  const byRole = store.listProjectAssetLibrary({ ownerEmail, query: 'HERO', limit: 20 });
 
   assert.equal(all.length, 2);
   assert.equal(all.some(asset => 'ownerEmail' in asset), false);
@@ -176,7 +179,12 @@ test('lists a display-safe owner project asset library across projects with serv
   assert.equal(videos[0].project.kind, 'video');
   assert.equal(commerce.length, 1);
   assert.equal(commerce[0].mediaKind, 'image');
+  assert.equal(byAssetId.length, 1);
+  assert.equal(byAssetId[0].assetId, 'product-image');
+  assert.equal(byMetadata.length, 1);
+  assert.equal(byRole.length, 1);
   assert.throws(() => store.listProjectAssetLibrary({ ownerEmail, mediaKind: 'document' }), /unknown mediaKind/);
+  assert.throws(() => store.listProjectAssetLibrary({ ownerEmail, query: 'x'.repeat(121) }), /query is invalid/);
 });
 
 test('persists structured media metadata without weakening canonical asset identity', t => {

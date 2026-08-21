@@ -1169,7 +1169,7 @@ export default function EcCanvas() {
     setProjectAssetLibraryError('');
     void (async () => {
       try {
-        const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, limit: 200 });
+        const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, query: projectAssetQuery, limit: 500 });
         if (cancelled) return;
         setProjectAssetLibrary(normalizeProjectAssetLibrary(library, { currentProjectId: result.projectId }));
       } catch (error) {
@@ -1181,7 +1181,7 @@ export default function EcCanvas() {
       }
     })();
     return () => { cancelled = true; };
-  }, [projectAssetMediaFilter, result?.browserQa, result?.projectId, state.logged, tab]);
+  }, [projectAssetMediaFilter, projectAssetQuery, result?.browserQa, result?.projectId, state.logged, tab]);
 
   const visibleProjectAssetLibrary = useMemo(() => filterProjectAssetLibrary(projectAssetLibrary, {
     query: projectAssetQuery,

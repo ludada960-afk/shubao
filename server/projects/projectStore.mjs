@@ -120,6 +120,17 @@ function cleanProjectAssetValue(value, name, max = 2000) {
   return normalized;
 }
 
+function normalizeAssetLibraryQuery(value) {
+  const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
+  if (!normalized) return '';
+  if (normalized.length > 120 || /[\u0000-\u001F\u007F]/.test(normalized)) throw new TypeError('query is invalid');
+  return normalized.toLowerCase();
+}
+
+function escapeLikePattern(value) {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 function normalizeProjectAssetMetadata(value) {
   if (value == null) return {};
   if (typeof value !== 'object' || Array.isArray(value)) throw new TypeError('metadata must be an object');
@@ -563,12 +574,13 @@ export function createProjectStore(db, {
       return kind ? assets.filter(asset => asset.mediaKind === kind) : assets;
     },
 
-    listProjectAssetLibrary({ ownerEmail, projectId = '', projectKind = '', mediaKind = '', limit = 200 } = {}) {
+    listProjectAssetLibrary({ ownerEmail, projectId = '', projectKind = '', mediaKind = '', query = '', limit = 200 } = {}) {
       const owner = normalizeOwner(ownerEmail);
       if (!owner) throw new TypeError('ownerEmail is required');
       const normalizedProjectId = String(projectId || '').trim();
       const normalizedProjectKind = String(projectKind || '').trim().toLowerCase();
       const normalizedMediaKind = String(mediaKind || '').trim().toLowerCase();
+      const normalizedQuery = normalizeAssetLibraryQuery(query);
       if (normalizedProjectKind && !PROJECT_KINDS.has(normalizedProjectKind)) throw new TypeError('unknown projectKind');
       if (normalizedMediaKind && !['image', 'video', 'audio'].includes(normalizedMediaKind)) throw new TypeError('unknown mediaKind');
       const boundedLimit = Number.isSafeInteger(Number(limit))
@@ -592,6 +604,18 @@ export function createProjectStore(db, {
       if (normalizedMediaKind) {
         clauses.push('pa.mime_type LIKE ?');
         params.push(`${normalizedMediaKind}/%`);
+      }
+      if (normalizedQuery) {
+        const pattern = `%${escapeLikePattern(normalizedQuery)}%`;
+        clauses.push(`(
+          LOWER(pa.id) LIKE ? ESCAPE '\\'
+          OR LOWER(pa.asset_id) LIKE ? ESCAPE '\\'
+          OR LOWER(pa.role) LIKE ? ESCAPE '\\'
+          OR LOWER(pa.metadata_json) LIKE ? ESCAPE '\\'
+          OR LOWER(p.id) LIKE ? ESCAPE '\\'
+          OR LOWER(COALESCE(p.title, '')) LIKE ? ESCAPE '\\'
+        )`);
+        params.push(pattern, pattern, pattern, pattern, pattern, pattern);
       }
       params.push(boundedLimit);
       return db.prepare(`SELECT pa.*, p.kind AS project_kind, p.title AS project_title,

@@ -317,7 +317,7 @@ test('unified project asset library is signed, filtered, and display-safe', asyn
   projectStore.createProjectAsset({ ownerEmail: owner, projectId: project.id, assetId: 'library-image', stableUrl: '/api/generated-assets/library-image.webp', contentHash: 'library-image-hash', mimeType: 'image/webp' });
   const listed = await invoke(app, 'GET', '/api/project-assets', {
     headers: signedHeaders(sessionTokens, owner),
-    query: { mediaKind: 'image', projectKind: 'ecommerce', limit: '20' },
+    query: { mediaKind: 'image', projectKind: 'ecommerce', query: '统一', limit: '20' },
   });
   const denied = await invoke(app, 'GET', '/api/project-assets', {
     headers: signedHeaders(sessionTokens, 'other@example.com'),

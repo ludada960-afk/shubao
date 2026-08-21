@@ -106,13 +106,14 @@ export async function listProjectAssets(projectId, mediaKind = '') {
   return Array.isArray(response?.assets) ? response.assets : [];
 }
 
-export async function listProjectAssetLibrary({ projectId = '', projectKind = '', mediaKind = '', limit = 200 } = {}) {
-  const query = new URLSearchParams();
-  if (projectId) query.set('projectId', projectId);
-  if (projectKind) query.set('projectKind', projectKind);
-  if (mediaKind) query.set('mediaKind', mediaKind);
-  if (limit != null) query.set('limit', String(limit));
-  const suffix = query.toString() ? `?${query.toString()}` : '';
+export async function listProjectAssetLibrary({ projectId = '', projectKind = '', mediaKind = '', query = '', limit = 200 } = {}) {
+  const searchParams = new URLSearchParams();
+  if (projectId) searchParams.set('projectId', projectId);
+  if (projectKind) searchParams.set('projectKind', projectKind);
+  if (mediaKind) searchParams.set('mediaKind', mediaKind);
+  if (query) searchParams.set('query', query);
+  if (limit != null) searchParams.set('limit', String(limit));
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
   const response = await requestJson(`/api/project-assets${suffix}`, {}, '暂时无法读取项目素材库');
   return Array.isArray(response?.assets) ? response.assets : [];
 }
