@@ -282,12 +282,27 @@ export async function selectShotCandidate(projectId, shotId, payload = {}) {
   return response;
 }
 
+export async function applyShotCandidateToTimeline(projectId, shotId, payload = {}) {
+  const response = await requestJson(`${shotBase(projectId, shotId)}/apply-candidate`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法把视频候选加入时间线');
+  return requireValue(response, 'application', '时间线应用结果暂时不可用，请稍后重试');
+}
+
 export async function createShotRecoveryPlan(projectId, shotId, payload = {}) {
   const response = await requestJson(`${shotBase(projectId, shotId)}/recovery-plans`, {
     method: 'POST',
     ...jsonBody(payload),
   }, '暂时无法建立镜头恢复计划');
   return requireValue(response, 'plan', '镜头恢复计划暂时不可用，请稍后重试');
+}
+
+export async function prepareShotRecoveryExecution(projectId, planId) {
+  const response = await requestJson(`${workbenchBase(projectId)}/recovery-plans/${pathSegment(planId, '请选择有效的镜头恢复计划')}/prepare`, {
+    method: 'POST',
+  }, '暂时无法校验镜头执行草稿');
+  return requireValue(response, 'execution', '镜头执行草稿暂时不可用，请稍后重试');
 }
 
 export async function addTimelineClip(projectId, payload = {}) {

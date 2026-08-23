@@ -8,9 +8,12 @@ import {
   audioTrackForAsset,
   availableUploadedAssets,
   candidateJobsForProject,
+  normalizeSubtitleCues,
   nextShotPosition,
   nextTimelinePosition,
+  reusableProjectAssets,
   selectedCandidateForShot,
+  subtitleCueDrafts,
   videoProjects,
   workbenchStageSummary,
 } from '../src/pages/VideoStudio/videoProjectWorkbenchModel.js';
@@ -37,6 +40,29 @@ test('audio track helpers keep duplicate detection and bounded timeline duration
   assert.equal(audioTrackDurationMs({ timelineClips: [] }), 500);
 });
 
+test('subtitle cue drafts normalize seconds to bounded sorted milliseconds', () => {
+  assert.deepEqual(normalizeSubtitleCues([
+    { start: '0.2', end: '1.4', text: '开场' },
+    { start: '1.4', end: '2.8', text: '展示细节' },
+  ], 3000), [
+    { startMs: 200, endMs: 1400, text: '开场' },
+    { startMs: 1400, endMs: 2800, text: '展示细节' },
+  ]);
+  assert.throws(() => normalizeSubtitleCues([
+    { start: '1.5', end: '1.2', text: '倒序' },
+  ], 3000), /字幕时间范围无效/);
+  assert.throws(() => normalizeSubtitleCues([
+    { start: '0', end: '3.1', text: '超出音轨' },
+  ], 3000), /字幕时间范围无效/);
+});
+
+test('subtitle cue drafts provide stable editable values without mutating persisted cues', () => {
+  const persisted = [{ startMs: 250, endMs: 1250, text: '先讲重点' }];
+  assert.deepEqual(subtitleCueDrafts(persisted), [{ start: '0.25', end: '1.25', text: '先讲重点' }]);
+  assert.deepEqual(persisted, [{ startMs: 250, endMs: 1250, text: '先讲重点' }]);
+  assert.deepEqual(subtitleCueDrafts([]), []);
+});
+
 test('video projects are filtered and deterministically ordered without reshuffling', () => {
   const projects = videoProjects([
     { id: 'image', kind: 'ecommerce', status: 'active', updatedAt: '2026-08-15T12:00:00Z' },
@@ -57,6 +83,25 @@ test('only completed supported uploads with authoritative assets are offered onc
     { status: 'completed', asset: { id: 'audio-1', kind: 'audio', fileName: 'voice.wav' } },
   ]);
   assert.deepEqual(result.map(item => item.asset.id), ['image-1', 'audio-1']);
+});
+
+test('all reusable media project assets enter the video import list', () => {
+  const base = {
+    project: { id: 'commerce-1', kind: 'ecommerce', title: '商品项目' },
+    mediaKind: 'image', projectAssetId: 'asset-1', contentHash: 'hash-1',
+  };
+  const result = reusableProjectAssets([
+    { ...base, retentionState: 'active' },
+    { ...base, projectAssetId: 'asset-marked', contentHash: 'hash-marked', retentionState: 'marked' },
+    { ...base, projectAssetId: 'asset-isolated', contentHash: 'hash-isolated', retentionState: 'isolated' },
+    { ...base, project: { id: 'video-1', kind: 'video' }, projectAssetId: 'asset-video', contentHash: 'hash-video' },
+    { ...base, project: null, projectAssetId: 'asset-no-project', contentHash: 'hash-no-project' },
+    { ...base, projectAssetId: '', contentHash: 'hash-no-id' },
+    { ...base, projectAssetId: 'asset-no-hash', contentHash: '' },
+  ]);
+  assert.deepEqual(result.map(asset => asset.projectAssetId), ['asset-1', 'asset-video']);
+  assert.equal(result[0].sourceProject.id, 'commerce-1');
+  assert.equal(result[1].sourceProject.kind, 'video');
 });
 
 test('approved versions and selected candidates are derived from authoritative ids', () => {

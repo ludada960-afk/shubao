@@ -107,3 +107,17 @@ test('AppContext gates every billing refresh and invalidates requests on SET_LOG
     'fetchCredits must return the legacy credits selector',
   );
 });
+
+test('SET_LOGGED false clears owner-bound creative state and returns to the public home route', () => {
+  const logoutBranch = appContextSource.match(/case 'SET_LOGGED':[\s\S]*?\n    case 'SET_ACCOUNT_ACCESS':/i)?.[0] || '';
+  assert.match(logoutBranch, /page:\s*'home'/, 'logout must leave protected workspaces');
+  for (const field of ['result', 'genState', 'galleryItem', 'works', 'creationLaunch', 'loginIntent']) {
+    assert.match(logoutBranch, new RegExp(`${field}:`), `logout must clear ${field}`);
+  }
+});
+
+test('session restore ignores a response captured before logout or account switch', () => {
+  const restoreEffect = appContextSource.match(/\/\/ 页面加载时从 localStorage 恢复登录状态[\s\S]*?\n  }, \[refreshBillingBalance, refreshBillingCatalog, state\.browserQa\]\);/)?.[0] || '';
+  assert.match(restoreEffect, /sessionRequestGate\.capture\(\)/, 'session restore must capture its request epoch');
+  assert.match(restoreEffect, /sessionRequestGate\.isCurrent\(requestEpoch\)/, 'session restore must reject stale responses');
+});

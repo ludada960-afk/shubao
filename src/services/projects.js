@@ -22,6 +22,10 @@ function projectPathSegment(projectId) {
   return pathSegment(projectId, '请选择有效的项目');
 }
 
+function productProfilePathSegment(profileId) {
+  return pathSegment(profileId, '请选择有效的商品档案');
+}
+
 function canvasSessionPathSegment(sessionId) {
   return pathSegment(sessionId, '请选择有效的画布会话');
 }
@@ -87,6 +91,64 @@ export async function listProjects() {
   return Array.isArray(response?.projects) ? response.projects : [];
 }
 
+function productProfileFromResponse(response) {
+  if (!response?.profile?.profileId) throw new Error('商品档案暂时不可用，请稍后重试');
+  return response.profile;
+}
+
+export async function listProductProfiles({ status = '', limit = 100 } = {}) {
+  const searchParams = new URLSearchParams();
+  if (status) searchParams.set('status', status);
+  if (limit != null) searchParams.set('limit', String(limit));
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+  const response = await requestJson(`/api/product-profiles${suffix}`, {}, '暂时无法读取商品档案');
+  return Array.isArray(response?.profiles) ? response.profiles : [];
+}
+
+export async function createProductProfile({ name, category = '', facts = {}, variants = [], assets = [], idempotencyKey } = {}) {
+  const key = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
+  if (!key) throw new Error('商品档案创建标识缺失，请重试');
+  const response = await requestJson('/api/product-profiles', {
+    method: 'POST',
+    headers: { ...jsonBody().headers, 'Idempotency-Key': key },
+    body: JSON.stringify({ name, category, facts, variants, assets }),
+  }, '暂时无法创建商品档案');
+  return productProfileFromResponse(response);
+}
+
+export async function getProductProfile(profileId) {
+  const response = await requestJson(
+    `/api/product-profiles/${productProfilePathSegment(profileId)}`,
+    {},
+    '暂时无法读取商品档案',
+  );
+  return productProfileFromResponse(response);
+}
+
+export async function updateProductProfile(profileId, { idempotencyKey, ...patch } = {}) {
+  const key = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
+  if (!key) throw new Error('商品档案更新标识缺失，请重试');
+  const response = await requestJson(
+    `/api/product-profiles/${productProfilePathSegment(profileId)}`,
+    {
+      method: 'PATCH',
+      headers: { ...jsonBody().headers, 'Idempotency-Key': key },
+      body: JSON.stringify(patch),
+    },
+    '暂时无法更新商品档案',
+  );
+  return productProfileFromResponse(response);
+}
+
+export async function archiveProductProfile(profileId) {
+  const response = await requestJson(
+    `/api/product-profiles/${productProfilePathSegment(profileId)}/archive`,
+    { method: 'POST' },
+    '暂时无法归档商品档案',
+  );
+  return productProfileFromResponse(response);
+}
+
 export async function getProject(projectId) {
   const response = await requestJson(
     `/api/projects/${projectPathSegment(projectId)}`,
@@ -106,11 +168,12 @@ export async function listProjectAssets(projectId, mediaKind = '') {
   return Array.isArray(response?.assets) ? response.assets : [];
 }
 
-export async function listProjectAssetLibrary({ projectId = '', projectKind = '', mediaKind = '', query = '', limit = 200 } = {}) {
+export async function listProjectAssetLibrary({ projectId = '', projectKind = '', mediaKind = '', productionState = '', query = '', limit = 200 } = {}) {
   const searchParams = new URLSearchParams();
   if (projectId) searchParams.set('projectId', projectId);
   if (projectKind) searchParams.set('projectKind', projectKind);
   if (mediaKind) searchParams.set('mediaKind', mediaKind);
+  if (productionState) searchParams.set('productionState', productionState);
   if (query) searchParams.set('query', query);
   if (limit != null) searchParams.set('limit', String(limit));
   const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
@@ -214,6 +277,23 @@ export async function setProjectAssetRetention(projectId, projectAssetId, pinned
     '暂时无法更新素材保留设置',
   );
   if (!response?.asset?.projectAssetId) throw new Error('素材保留状态暂时不可用，请稍后重试');
+  return response.asset;
+}
+
+export async function setProjectAssetProductionState(projectId, projectAssetId, productionState) {
+  const normalizedState = String(productionState || '').trim().toLowerCase();
+  if (!['draft', 'candidate', 'delivered', 'archived'].includes(normalizedState)) {
+    throw new Error('请选择有效的素材生产状态');
+  }
+  if (normalizedState === 'delivered') {
+    throw Object.assign(new Error('已交付状态由系统确认，不能手动设置'), { code: 'PROJECT_ASSET_PRODUCTION_STATE_SYSTEM_ONLY' });
+  }
+  const response = await requestJson(
+    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}/production-state`,
+    { method: 'PATCH', ...jsonBody({ productionState: normalizedState }) },
+    '暂时无法更新素材生产状态',
+  );
+  if (!response?.asset?.projectAssetId) throw new Error('素材生产状态暂时不可用，请稍后重试');
   return response.asset;
 }
 

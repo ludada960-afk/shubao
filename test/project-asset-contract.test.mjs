@@ -40,6 +40,33 @@ test('canonical references are matched to the owner-scoped project asset row', (
   }, { id: 'a1', project_id: 'p1', content_hash: 'h1', mime_type: 'video/mp4' }), /does not belong/);
 });
 
+test('canonical references project only safe delivery metadata', () => {
+  const ref = assertCanonicalProjectAssetRef({
+    projectId: 'p1', projectAssetId: 'a1', role: 'generated-video', expectedContentHash: 'h1',
+  }, {
+    id: 'a1', project_id: 'p1', content_hash: 'h1', mime_type: 'video/mp4', stable_url: '/api/video/assets/a1',
+    metadata: {
+      displayName: '商品短片',
+      role: 'generated-video',
+      durationMs: 8_000,
+      aigc: { generated: true, provenanceVersion: 'aigc-v1', provider: 'private-provider' },
+      provenance: { route: 'video', generatedAt: '2026-08-21T08:00:00.000Z', sourceAssetIds: ['source-1'] },
+      prompt: 'private prompt',
+      ownerEmail: 'private-owner@example.com',
+    },
+  });
+
+  assert.deepEqual(ref.metadata, {
+    displayName: '商品短片',
+    role: 'generated-video',
+    durationMs: 8_000,
+    aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+    provenance: { route: 'video', generatedAt: '2026-08-21T08:00:00.000Z', sourceAssetIds: ['source-1'] },
+  });
+  assert.equal(ref.metadata.prompt, undefined);
+  assert.equal(ref.metadata.ownerEmail, undefined);
+});
+
 test('client references stay display-safe and use a stable identity key', () => {
   const ref = normalizeClientProjectAssetRef({
     projectId: 'p1', projectAssetId: 'a1', role: 'product', contentHash: 'hash-1',

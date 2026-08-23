@@ -94,6 +94,11 @@ function reducer(state, action) {
         galleryItem: null,
         result: state.result || createEmptyCanvasResult(),
       };
+    case 'SET_CANVAS_ENTRY_TAB':
+      return {
+        ...state,
+        canvasEntryTab: ['canvas', 'assets', 'works', 'trash'].includes(action.tab) ? action.tab : state.canvasEntryTab,
+      };
     case 'NEW_WORK':
       return { ...state, page: 'home', genState: 'idle', result: null, galleryItem: null, _workVersion: (state._workVersion || 0) + 1 };
     case 'SET_MODE':
@@ -118,6 +123,17 @@ function reducer(state, action) {
         logged: Boolean(action.logged),
         phone: Object.prototype.hasOwnProperty.call(action, 'phone') ? action.phone : state.phone,
         ...(action.logged ? {} : {
+          page: 'home',
+          genState: 'idle',
+          genStage: 0,
+          result: null,
+          galleryItem: null,
+          works: [],
+          creationLaunch: null,
+          loginIntent: null,
+          inputText: '',
+          scrollPos: 0,
+          canvasEntryTab: 'canvas',
           ecPoints: 0,
           contentSets: 0,
           credits: 0,
@@ -128,6 +144,8 @@ function reducer(state, action) {
           billingLedger: [],
           accountAccess: null,
           pendingPaidAction: null,
+          priceReason: null,
+          showPrice: false,
         }),
       };
     case 'SET_ACCOUNT_ACCESS':
@@ -248,7 +266,9 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (state.browserQa) return undefined;
     const restore = async () => {
+      const requestEpoch = sessionRequestGate.capture();
       const session = await getSession();
+      if (!sessionRequestGate.isCurrent(requestEpoch)) return;
       if (session?.token) {
         dispatch({ type: 'SET_LOGGED', logged: true, phone: session.email || '' });
         const pendingPaidAction = loadPendingPaidAction(session.email);
@@ -261,7 +281,7 @@ export function AppProvider({ children }) {
   }, [refreshBillingBalance, refreshBillingCatalog, state.browserQa]);
 
   useEffect(() => {
-    if (!state.logged) return undefined;
+    if (!state.logged || state.browserQa) return undefined;
     let active = true;
     fetchAccountAccess()
       .then((result) => {
@@ -271,7 +291,7 @@ export function AppProvider({ children }) {
         if (active) dispatch({ type: 'SET_ACCOUNT_ACCESS', account: null });
       });
     return () => { active = false; };
-  }, [state.logged, dispatch]);
+  }, [state.logged, state.browserQa, dispatch]);
 
   useEffect(() => onSessionInvalid(() => {
     dispatch({ type: 'SET_LOGGED', logged: false, phone: '' });

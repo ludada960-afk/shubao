@@ -1,9 +1,45 @@
 import { createHash } from 'node:crypto';
 
 import { sanitizeSnapshot } from './jobStore.mjs';
+import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sourceAssetIdsFromPlan(plan = {}) {
+  const ids = [
+    plan.productAssetIds,
+    plan.styleReferenceIds,
+    plan.proofAssetIds,
+    plan.protectionAssetIds,
+  ].flatMap(value => Array.isArray(value) ? value : []);
+  return [...new Set(ids.map(cleanString).filter(Boolean))].slice(0, 64);
+}
+
+function resultAssetMetadata(asset = {}) {
+  const requestSnapshot = isRecord(asset.requestSnapshot) ? asset.requestSnapshot : {};
+  const plan = isRecord(requestSnapshot.assetPlanItem) ? requestSnapshot.assetPlanItem : null;
+  if (!plan) return {};
+  const delivery = ecommerceDeliveryMetadataForPlan(plan);
+  const sourceAssetIds = sourceAssetIdsFromPlan(plan);
+  return {
+    ...delivery,
+    source: 'ecommerce-generation',
+    aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+    provenance: {
+      type: 'ai-generated',
+      route: 'ecommerce',
+      planItemId: cleanString(plan.id),
+      ...(sourceAssetIds.length
+        ? { sourceAssetIds }
+        : {}),
+    },
+  };
 }
 
 function resultAssetSnapshot(asset = {}) {
@@ -13,6 +49,8 @@ function resultAssetSnapshot(asset = {}) {
   const snapshot = { assetId, state };
   const stableUrl = cleanString(asset.stableUrl);
   if (state === 'completed' && stableUrl) snapshot.stableUrl = stableUrl;
+  const metadata = resultAssetMetadata(asset);
+  if (Object.keys(metadata).length) snapshot.metadata = metadata;
   return snapshot;
 }
 
@@ -37,6 +75,7 @@ export function createEcommerceProjectLifecycle({ projectStore } = {}) {
         planSnapshot: sanitizeSnapshot({ fingerprint, items: assetPlan }),
         quoteId: cleanString(job.payload?.billing_quote_id) || null,
         holdId: cleanString(holdId) || null,
+        assets: job.payload?.assets || {},
       });
       return {
         projectId: linked.project.id,

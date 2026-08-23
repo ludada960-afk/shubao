@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addTimelineClip,
+  applyShotCandidateToTimeline,
   approveVideoWorkbenchPlan,
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
@@ -172,6 +173,28 @@ test('video workbench client applies a selected replacement candidate with optim
   assert.equal(request.options.method, 'POST');
   assert.equal(request.options.headers.Authorization, 'Bearer signed-replacement-session');
   assert.deepEqual(JSON.parse(request.options.body), { expectedRevision: 2, candidateId: 'candidate-b' });
+});
+
+test('video workbench client applies a candidate to the timeline with shot revision', async t => {
+  installSession('signed-apply-session');
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (path, options = {}) => {
+    request = { path, options };
+    return jsonResponse({ application: { status: 'applied', timelineClip: { id: 'clip-1' } } }, 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const application = await applyShotCandidateToTimeline('project / 1', 'shot / 1', {
+    candidateId: 'candidate / 1', expectedShotRevision: 2, position: 0,
+    trimStartMs: 0, trimEndMs: 3000, muted: false,
+  });
+  assert.equal(application.status, 'applied');
+  assert.equal(request.path, '/api/video/projects/project%20%2F%201/workbench/shots/shot%20%2F%201/apply-candidate');
+  assert.equal(request.options.method, 'POST');
+  assert.deepEqual(JSON.parse(request.options.body), {
+    candidateId: 'candidate / 1', expectedShotRevision: 2, position: 0,
+    trimStartMs: 0, trimEndMs: 3000, muted: false,
+  });
 });
 
 test('video workbench client confirms a plan with its immutable hash', async t => {

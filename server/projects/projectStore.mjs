@@ -1,17 +1,48 @@
 import crypto from 'node:crypto';
 import { stripTransientWorkPlayback } from '../../shared/workPlayback.mjs';
+import { normalizeCanvasPendingProjectAssetImports } from '../../shared/canvasPendingArchive.mjs';
+import { sanitizeCanvasSnapshotMedia } from '../../shared/canvasSnapshotMedia.mjs';
+import {
+  normalizeProductProfileInput,
+  normalizeProductProfilePatch,
+} from './productProfileContract.mjs';
 
 const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog', 'video']);
 const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration']);
 const CHECKPOINT_REASONS = new Set(['payment_required', 'generation_interrupted', 'session_interrupted']);
+const PROJECT_ASSET_PRODUCTION_STATES = new Set(['draft', 'candidate', 'delivered', 'archived']);
+const USER_PROJECT_ASSET_PRODUCTION_TRANSITIONS = Object.freeze({
+  draft: new Set(['draft', 'candidate', 'archived']),
+  candidate: new Set(['candidate', 'draft', 'archived']),
+  delivered: new Set(['delivered', 'archived']),
+  archived: new Set(['archived', 'draft']),
+});
 const ECOMMERCE_TERMINAL_RUN_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function normalizeOwner(value) {
   return String(value || '').trim().toLowerCase();
 }
+function normalizeProductionState(value) {
+  const state = String(value || 'draft').trim().toLowerCase() || 'draft';
+  if (!PROJECT_ASSET_PRODUCTION_STATES.has(state)) throw codedError('PROJECT_ASSET_PRODUCTION_STATE_INVALID', 'unknown project asset production state');
+  return state;
+}
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
 function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+
+function normalizeCanvasSnapshot(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const snapshot = sanitizeCanvasSnapshotMedia(stripTransientWorkPlayback(value));
+  const pending = normalizeCanvasPendingProjectAssetImports(snapshot?.pendingProjectAssetImports);
+  const normalized = { ...snapshot };
+  if (pending.length) normalized.pendingProjectAssetImports = pending;
+  else delete normalized.pendingProjectAssetImports;
+  return normalized;
 }
 
 function mediaKindFromMimeType(value) {
@@ -43,6 +74,7 @@ function projectAssetFromRow(row) {
     retentionClass: row.retention_class,
     retentionPinned: Number(row.retention_pinned) === 1 || row.retention_class === 'permanent',
     retentionState: row.retention_state,
+    productionState: row.production_state || 'draft',
     metadata: parse(row.metadata_json, {}),
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
@@ -81,6 +113,7 @@ function projectAssetLineageRefFromRow(row) {
     height: row.lineage_height,
     retentionClass: row.lineage_retention_class,
     retentionState: row.lineage_retention_state,
+    productionState: row.lineage_production_state || 'draft',
     createdAt: row.lineage_asset_created_at,
     relation: row.lineage_relation,
     relationGenerationRunId: row.lineage_relation_generation_run_id,
@@ -184,6 +217,15 @@ function canvasAssetReferences(snapshot) {
   return references;
 }
 
+function canvasAssetReferenceKey(reference = {}) {
+  const projectId = String(reference?.projectId || reference?.project_id || '').trim();
+  const projectAssetId = String(reference?.projectAssetId || reference?.project_asset_id || '').trim();
+  const contentHash = String(reference?.contentHash || reference?.content_hash || '').trim();
+  return projectId && projectAssetId && contentHash
+    ? `${projectId}:${projectAssetId}:${contentHash}`
+    : '';
+}
+
 function codedError(code, message) {
   return Object.assign(new Error(message), { code });
 }
@@ -203,6 +245,33 @@ function stableSerialize(value) {
     return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
   }
   return JSON.stringify(value ?? null);
+}
+
+function productProfileVariantFromRow(row) {
+  return {
+    label: row.label,
+    color: row.color,
+    spec: row.spec,
+    size: row.size,
+    capacity: row.capacity,
+    dimLabel: row.dim_label,
+    count: row.count,
+  };
+}
+
+function productProfileFromRow(row) {
+  if (!row) return null;
+  return {
+    profileId: row.id,
+    name: row.name,
+    category: row.category,
+    facts: parse(row.facts_json, {}),
+    status: row.status,
+    variants: [],
+    assets: [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function stableAssetIdFromUrl(value) {
@@ -288,7 +357,7 @@ function canvasFromRow(row) {
     baseVersionId: row.base_version_id,
     status: row.status,
     revision: row.revision,
-    snapshot: stripTransientWorkPlayback(parse(row.snapshot, {})),
+    snapshot: normalizeCanvasSnapshot(parse(row.snapshot, {})),
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -336,7 +405,8 @@ export function createProjectStore(db, {
     if (!version) throw codedError('VERSION_NOT_FOUND', 'project version not found');
     return version;
   };
-  const assertCanvasSnapshotAssets = (ownerEmail, snapshot) => {
+  const assertCanvasSnapshotAssets = (ownerEmail, snapshot, { allowExistingReferences = new Set() } = {}) => {
+    const current = timestamp();
     for (const reference of canvasAssetReferences(snapshot)) {
       const referencedProjectId = String(reference?.projectId || reference?.project_id || '').trim();
       const projectAssetId = String(reference?.projectAssetId || reference?.project_asset_id || '').trim();
@@ -345,7 +415,7 @@ export function createProjectStore(db, {
       if (!referencedProjectId || !projectAssetId || !contentHash || !stableUrl) {
         throw codedError('CANVAS_ASSET_NOT_FOUND', 'canvas asset reference is incomplete');
       }
-      const row = db.prepare(`SELECT pa.id
+      const row = db.prepare(`SELECT pa.*
         FROM project_assets pa
         JOIN projects p ON p.id = pa.project_id AND p.owner_email = pa.owner_email AND p.deleted_at IS NULL
         WHERE pa.id = ? AND pa.owner_email = ? AND pa.project_id = ?
@@ -353,6 +423,10 @@ export function createProjectStore(db, {
         projectAssetId, normalizeOwner(ownerEmail), referencedProjectId, contentHash, stableUrl,
       );
       if (!row) throw codedError('CANVAS_ASSET_NOT_FOUND', 'canvas asset reference is not owned or authoritative');
+      const key = canvasAssetReferenceKey(reference);
+      if (!allowExistingReferences.has(key) && !isReusableProjectAsset(projectAssetFromRow(row), current)) {
+        throw codedError('PROJECT_ASSET_NOT_REUSABLE', 'project asset is not available for new reuse');
+      }
     }
   };
   const hydrateCheckpoint = row => {
@@ -371,6 +445,70 @@ export function createProjectStore(db, {
     db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, 'editing', ?, ?)`).run(id, owner, kind, String(title || '').trim(), createdAt, createdAt);
     return projectFromRow(db.prepare('SELECT * FROM projects WHERE id = ?').get(id));
+  };
+
+  const requireProductProfile = (ownerEmail, profileId) => {
+    const owner = normalizeOwner(ownerEmail);
+    const id = String(profileId || '').trim();
+    const row = db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner);
+    if (!row) throw codedError('PRODUCT_PROFILE_NOT_FOUND', 'product profile not found');
+    return row;
+  };
+
+  const hydrateProductProfile = row => {
+    const profile = productProfileFromRow(row);
+    if (!profile) return null;
+    profile.variants = db.prepare(`SELECT * FROM product_profile_variants
+      WHERE profile_id = ? ORDER BY ordinal ASC`).all(row.id).map(productProfileVariantFromRow);
+    profile.assets = db.prepare(`SELECT project_id, project_asset_id, role, expected_content_hash
+      FROM product_profile_assets WHERE profile_id = ?
+      ORDER BY created_at ASC, project_asset_id ASC`).all(row.id).map(asset => ({
+      projectId: asset.project_id,
+      projectAssetId: asset.project_asset_id,
+      role: asset.role,
+      expectedContentHash: asset.expected_content_hash,
+    }));
+    return profile;
+  };
+
+  const validateProductProfileAssets = (ownerEmail, assets) => {
+    const owner = normalizeOwner(ownerEmail);
+    const current = timestamp();
+    for (const asset of assets) {
+      const row = db.prepare(`SELECT pa.*, p.owner_email AS project_owner_email
+        FROM project_assets pa
+        JOIN projects p ON p.id = pa.project_id AND p.deleted_at IS NULL
+        WHERE pa.id = ? AND pa.project_id = ? AND pa.deleted_at IS NULL`).get(
+        asset.projectAssetId, asset.projectId,
+      );
+      if (!row || row.content_hash !== asset.expectedContentHash) {
+        throw codedError('PRODUCT_PROFILE_ASSET_NOT_FOUND', 'product profile asset reference is not authoritative');
+      }
+      if (row.owner_email !== owner || row.project_owner_email !== owner
+        || !isReusableProjectAsset(projectAssetFromRow(row), current)) {
+        throw codedError('PRODUCT_PROFILE_ASSET_NOT_REUSABLE', 'product profile asset is not available for reuse');
+      }
+    }
+  };
+
+  const insertProductProfileVariants = (profileId, variants, createdAt) => {
+    const insert = db.prepare(`INSERT INTO product_profile_variants
+      (id, profile_id, ordinal, label, color, spec, size, capacity, dim_label, count, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    variants.forEach((variant, ordinal) => insert.run(
+      randomUUID(), profileId, ordinal, variant.label, variant.color, variant.spec,
+      variant.size, variant.capacity, variant.dimLabel, variant.count, createdAt,
+    ));
+  };
+
+  const insertProductProfileAssets = (profileId, ownerEmail, assets, createdAt) => {
+    const insert = db.prepare(`INSERT INTO product_profile_assets
+      (profile_id, owner_email, project_id, project_asset_id, role, expected_content_hash, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    assets.forEach(asset => insert.run(
+      profileId, ownerEmail, asset.projectId, asset.projectAssetId, asset.role,
+      asset.expectedContentHash, createdAt,
+    ));
   };
 
   const api = {
@@ -393,6 +531,120 @@ export function createProjectStore(db, {
       })();
     },
 
+    createProductProfile({ ownerEmail, idempotencyKey, name, category = '', facts = {}, variants = [], assets = [] }) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const key = normalizeOptionalIdempotencyKey(idempotencyKey);
+      if (!key) throw codedError('IDEMPOTENCY_KEY_REQUIRED', 'idempotency key is required');
+      const input = normalizeProductProfileInput({ name, category, facts, variants, assets });
+      const fingerprint = stableSerialize(input);
+      return db.transaction(() => {
+        const route = 'POST /api/product-profiles';
+        const previous = db.prepare(`SELECT response FROM product_profile_idempotency_keys
+          WHERE owner_email = ? AND route = ? AND idempotency_key = ?`).get(owner, route, key);
+        if (previous) {
+          const stored = parse(previous.response, {});
+          if (stored.fingerprint !== fingerprint) throw codedError('IDEMPOTENCY_CONFLICT', 'idempotency key belongs to another request');
+          return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?')
+            .get(stored.profileId, owner));
+        }
+        validateProductProfileAssets(owner, input.assets);
+        const profileId = randomUUID();
+        const createdAt = timestamp().toISOString();
+        db.prepare(`INSERT INTO product_profiles
+          (id, owner_email, name, category, facts_json, status, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`).run(
+          profileId, owner, input.name, input.category, JSON.stringify(input.facts), createdAt, createdAt,
+        );
+        insertProductProfileVariants(profileId, input.variants, createdAt);
+        insertProductProfileAssets(profileId, owner, input.assets, createdAt);
+        db.prepare(`INSERT INTO product_profile_idempotency_keys
+          (owner_email, route, idempotency_key, response, created_at)
+          VALUES (?, ?, ?, ?, ?)`).run(owner, route, key, JSON.stringify({ profileId, fingerprint }), createdAt);
+        return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ?').get(profileId));
+      }).immediate();
+    },
+
+    listProductProfiles({ ownerEmail, status = '', limit = 100 } = {}) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const normalizedStatus = String(status || '').trim();
+      if (normalizedStatus && !['active', 'archived'].includes(normalizedStatus)) {
+        throw codedError('PRODUCT_PROFILE_STATUS_INVALID', 'product profile status is invalid');
+      }
+      const parsedLimit = Number(limit);
+      const boundedLimit = Math.min(Math.max(Number.isSafeInteger(parsedLimit) ? parsedLimit : 100, 1), 200);
+      const rows = normalizedStatus
+        ? db.prepare(`SELECT * FROM product_profiles WHERE owner_email = ? AND status = ?
+          ORDER BY updated_at DESC, id DESC LIMIT ?`).all(owner, normalizedStatus, boundedLimit)
+        : db.prepare(`SELECT * FROM product_profiles WHERE owner_email = ?
+          ORDER BY updated_at DESC, id DESC LIMIT ?`).all(owner, boundedLimit);
+      return rows.map(hydrateProductProfile);
+    },
+
+    getProductProfile({ ownerEmail, profileId }) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const row = db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(String(profileId || '').trim(), owner);
+      return hydrateProductProfile(row);
+    },
+
+    updateProductProfile({ ownerEmail, profileId, idempotencyKey, patch = {} }) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const key = normalizeOptionalIdempotencyKey(idempotencyKey);
+      if (!key) throw codedError('IDEMPOTENCY_KEY_REQUIRED', 'idempotency key is required');
+      const normalizedPatch = normalizeProductProfilePatch(patch);
+      const id = String(profileId || '').trim();
+      const fingerprint = stableSerialize({ profileId: id, patch: normalizedPatch });
+      return db.transaction(() => {
+        const current = requireProductProfile(owner, id);
+        const route = 'PATCH /api/product-profiles/:profileId';
+        const previous = db.prepare(`SELECT response FROM product_profile_idempotency_keys
+          WHERE owner_email = ? AND route = ? AND idempotency_key = ?`).get(owner, route, key);
+        if (previous) {
+          const stored = parse(previous.response, {});
+          if (stored.fingerprint !== fingerprint || stored.profileId !== id) {
+            throw codedError('IDEMPOTENCY_CONFLICT', 'idempotency key belongs to another request');
+          }
+          return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner));
+        }
+        if (Object.hasOwn(normalizedPatch, 'assets')) validateProductProfileAssets(owner, normalizedPatch.assets);
+        const updatedAt = timestamp().toISOString();
+        const assignments = [];
+        const values = [];
+        if (Object.hasOwn(normalizedPatch, 'name')) { assignments.push('name = ?'); values.push(normalizedPatch.name); }
+        if (Object.hasOwn(normalizedPatch, 'category')) { assignments.push('category = ?'); values.push(normalizedPatch.category); }
+        if (Object.hasOwn(normalizedPatch, 'facts')) { assignments.push('facts_json = ?'); values.push(JSON.stringify(normalizedPatch.facts)); }
+        if (Object.hasOwn(normalizedPatch, 'status')) { assignments.push('status = ?'); values.push(normalizedPatch.status); }
+        assignments.push('updated_at = ?');
+        values.push(updatedAt, id, owner);
+        db.prepare(`UPDATE product_profiles SET ${assignments.join(', ')} WHERE id = ? AND owner_email = ?`).run(...values);
+        if (Object.hasOwn(normalizedPatch, 'variants')) {
+          db.prepare('DELETE FROM product_profile_variants WHERE profile_id = ?').run(id);
+          insertProductProfileVariants(id, normalizedPatch.variants, updatedAt);
+        }
+        if (Object.hasOwn(normalizedPatch, 'assets')) {
+          db.prepare('DELETE FROM product_profile_assets WHERE profile_id = ?').run(id);
+          insertProductProfileAssets(id, owner, normalizedPatch.assets, updatedAt);
+        }
+        db.prepare(`INSERT INTO product_profile_idempotency_keys
+          (owner_email, route, idempotency_key, response, created_at)
+          VALUES (?, ?, ?, ?, ?)`).run(owner, route, key, JSON.stringify({ profileId: id, fingerprint }), updatedAt);
+        return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner));
+      }).immediate();
+    },
+
+    archiveProductProfile({ ownerEmail, profileId }) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const id = String(profileId || '').trim();
+      requireProductProfile(owner, id);
+      db.prepare(`UPDATE product_profiles SET status = 'archived', updated_at = ?
+        WHERE id = ? AND owner_email = ?`).run(timestamp().toISOString(), id, owner);
+      return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner));
+    },
+
     getProject({ ownerEmail, projectId }) {
       return projectFromRow(db.prepare('SELECT * FROM projects WHERE id = ? AND owner_email = ? AND deleted_at IS NULL').get(projectId, normalizeOwner(ownerEmail)));
     },
@@ -412,6 +664,7 @@ export function createProjectStore(db, {
       parentAssetId = null,
       retentionClass = 'source',
       metadata = {},
+      productionState = 'draft',
     }) {
       const owner = normalizeOwner(ownerEmail);
       const project = requireProject(owner, projectId);
@@ -420,6 +673,14 @@ export function createProjectStore(db, {
       const url = cleanProjectAssetValue(stableUrl, 'stableUrl');
       const hash = cleanProjectAssetValue(contentHash, 'contentHash', 256);
       const type = cleanProjectAssetValue(mimeType, 'mimeType', 160).toLowerCase();
+      const normalizedProductionState = normalizeProductionState(productionState);
+      if (normalizedProductionState !== 'draft') {
+        throw codedError('PROJECT_ASSET_PRODUCTION_STATE_SYSTEM_ONLY', 'project asset production state is server-derived');
+      }
+      const normalizedRetentionClass = cleanProjectAssetValue(retentionClass, 'retentionClass', 40);
+      const derivedProductionState = normalizedRetentionClass === 'generated' && normalizedRole === 'generated-video'
+        ? 'candidate'
+        : normalizedProductionState;
       const metadataJson = JSON.stringify(normalizeProjectAssetMetadata(metadata));
       if (!isOwnedApplicationAssetUrl(url)) throw new TypeError('stableUrl must be an owned application asset URL');
       if (versionId) requireVersion(project.id, versionId);
@@ -428,22 +689,33 @@ export function createProjectStore(db, {
           WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(parentAssetId, owner, project.id);
         if (!parent) throw codedError('PROJECT_ASSET_NOT_FOUND', 'parent project asset not found');
       }
-      const existing = db.prepare(`SELECT * FROM project_assets
-        WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND content_hash = ?
-          AND stable_url = ? AND deleted_at IS NULL
-        ORDER BY created_at DESC LIMIT 1`).get(owner, project.id, externalAssetId, hash, url);
-      if (existing) return projectAssetFromRow(existing);
-      const id = crypto.randomUUID();
-      const createdAt = timestamp().toISOString();
-      db.prepare(`INSERT INTO project_assets
-        (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, parent_asset_id,
-         content_hash, stable_url, mime_type, width, height, metadata_json, retention_class, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        id, externalAssetId, owner, project.id, versionId, generationRunId, normalizedRole, parentAssetId,
-        hash, url, type, Number.isSafeInteger(width) ? width : null, Number.isSafeInteger(height) ? height : null,
-        metadataJson, cleanProjectAssetValue(retentionClass, 'retentionClass', 40), createdAt,
-      );
-      return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(id));
+      const persist = db.transaction(() => {
+        const existing = db.prepare(`SELECT * FROM project_assets
+          WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND content_hash = ?
+            AND stable_url = ? AND deleted_at IS NULL AND retention_state = 'active'
+          ORDER BY created_at DESC LIMIT 1`).get(owner, project.id, externalAssetId, hash, url);
+        if (existing) {
+          if (derivedProductionState === 'candidate' && existing.production_state === 'draft') {
+            db.prepare(`UPDATE project_assets SET production_state = 'candidate'
+              WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).run(
+              existing.id, owner, project.id,
+            );
+          }
+          return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(existing.id));
+        }
+        const id = crypto.randomUUID();
+        const createdAt = timestamp().toISOString();
+        db.prepare(`INSERT INTO project_assets
+          (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, parent_asset_id,
+           content_hash, stable_url, mime_type, width, height, metadata_json, retention_class, production_state, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          id, externalAssetId, owner, project.id, versionId, generationRunId, normalizedRole, parentAssetId,
+          hash, url, type, Number.isSafeInteger(width) ? width : null, Number.isSafeInteger(height) ? height : null,
+          metadataJson, normalizedRetentionClass, derivedProductionState, createdAt,
+        );
+        return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(id));
+      });
+      return persist.immediate();
     },
 
     getProjectAsset({ ownerEmail, projectId, projectAssetId, purpose = 'read' }) {
@@ -495,6 +767,30 @@ export function createProjectStore(db, {
       })();
     },
 
+    setProjectAssetProductionState({ ownerEmail, projectId, projectAssetId, productionState }) {
+      const project = requireProject(ownerEmail, projectId);
+      const normalizedState = normalizeProductionState(productionState);
+      const current = db.prepare(`SELECT production_state FROM project_assets
+        WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(
+        projectAssetId, project.ownerEmail, project.id,
+      );
+      if (!current) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
+      const currentState = normalizeProductionState(current.production_state);
+      if (normalizedState === 'delivered' && currentState !== 'delivered') {
+        throw codedError('PROJECT_ASSET_PRODUCTION_STATE_SYSTEM_ONLY', 'delivered production state is server-derived');
+      }
+      if (!USER_PROJECT_ASSET_PRODUCTION_TRANSITIONS[currentState]?.has(normalizedState)) {
+        throw codedError('PROJECT_ASSET_PRODUCTION_STATE_TRANSITION_INVALID', 'project asset production state transition is invalid');
+      }
+      const result = db.prepare(`UPDATE project_assets
+        SET production_state = ?
+        WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).run(
+        normalizedState, projectAssetId, project.ownerEmail, project.id,
+      );
+      if (result.changes !== 1) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
+      return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(projectAssetId));
+    },
+
     getProjectAssetLineage({ ownerEmail, projectId, projectAssetId }) {
       const project = requireProject(ownerEmail, projectId);
       const assetRow = db.prepare(`SELECT pa.*, p.kind AS project_kind, p.title AS project_title,
@@ -524,6 +820,7 @@ export function createProjectStore(db, {
         linked.height AS lineage_height,
         linked.retention_class AS lineage_retention_class,
         linked.retention_state AS lineage_retention_state,
+        linked.production_state AS lineage_production_state,
         linked.created_at AS lineage_asset_created_at,
         p.id AS lineage_project_id,
         p.kind AS lineage_project_kind,
@@ -596,15 +893,17 @@ export function createProjectStore(db, {
       return kind ? assets.filter(asset => asset.mediaKind === kind) : assets;
     },
 
-    listProjectAssetLibrary({ ownerEmail, projectId = '', projectKind = '', mediaKind = '', query = '', limit = 200 } = {}) {
+    listProjectAssetLibrary({ ownerEmail, projectId = '', projectKind = '', mediaKind = '', productionState = '', query = '', limit = 200 } = {}) {
       const owner = normalizeOwner(ownerEmail);
       if (!owner) throw new TypeError('ownerEmail is required');
       const normalizedProjectId = String(projectId || '').trim();
       const normalizedProjectKind = String(projectKind || '').trim().toLowerCase();
       const normalizedMediaKind = String(mediaKind || '').trim().toLowerCase();
+      const normalizedProductionState = String(productionState || '').trim().toLowerCase();
       const normalizedQuery = normalizeAssetLibraryQuery(query);
       if (normalizedProjectKind && !PROJECT_KINDS.has(normalizedProjectKind)) throw new TypeError('unknown projectKind');
       if (normalizedMediaKind && !['image', 'video', 'audio'].includes(normalizedMediaKind)) throw new TypeError('unknown mediaKind');
+      if (normalizedProductionState && !PROJECT_ASSET_PRODUCTION_STATES.has(normalizedProductionState)) throw codedError('PROJECT_ASSET_PRODUCTION_STATE_INVALID', 'unknown project asset production state');
       const boundedLimit = Number.isSafeInteger(Number(limit))
         ? Math.min(500, Math.max(1, Number(limit)))
         : 200;
@@ -626,6 +925,10 @@ export function createProjectStore(db, {
       if (normalizedMediaKind) {
         clauses.push('pa.mime_type LIKE ?');
         params.push(`${normalizedMediaKind}/%`);
+      }
+      if (normalizedProductionState) {
+        clauses.push('pa.production_state = ?');
+        params.push(normalizedProductionState);
       }
       if (normalizedQuery) {
         const pattern = `%${escapeLikePattern(normalizedQuery)}%`;
@@ -844,6 +1147,30 @@ export function createProjectStore(db, {
         }
         const resultVersionId = randomUUID();
         const completedAt = timestamp().toISOString();
+        const plannedDurationSeconds = Number(resultPlanSnapshot?.format?.duration);
+        const plannedDurationMs = Number.isSafeInteger(Math.round(plannedDurationSeconds * 1000))
+          && plannedDurationSeconds > 0
+          ? Math.round(plannedDurationSeconds * 1000)
+          : null;
+        const sourceProjectAssetIds = [];
+        for (const sourceAssetId of new Set(Array.isArray(sourceAssetIds) ? sourceAssetIds : [])) {
+          const sourceProjectAsset = db.prepare(`SELECT id FROM project_assets
+            WHERE project_id = ? AND owner_email = ? AND asset_id = ? AND version_id = ?`).get(
+            project.id, owner, String(sourceAssetId || ''), sourceVersion.id,
+          );
+          if (sourceProjectAsset) sourceProjectAssetIds.push(sourceProjectAsset.id);
+        }
+        const canonicalMetadata = {
+          source: 'video-generation',
+          ...(plannedDurationMs ? { durationMs: plannedDurationMs } : {}),
+          aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+          provenance: {
+            type: 'ai-generated',
+            route: 'video',
+            generatedAt: completedAt,
+            ...(sourceProjectAssetIds.length ? { sourceAssetIds: sourceProjectAssetIds } : {}),
+          },
+        };
         const sequence = db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM project_versions WHERE project_id = ?').get(project.id).value;
         db.prepare(`INSERT INTO project_versions
           (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
@@ -853,20 +1180,17 @@ export function createProjectStore(db, {
         );
         const targetProjectAssetId = `${project.id}:${outputAssetId}:result`;
         db.prepare(`INSERT INTO project_assets
-          (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, 'generated_video', ?, ?, ?, 'completed', ?)`).run(
+          (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, metadata_json, retention_class, production_state, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, 'generated_video', ?, ?, ?, ?, 'completed', 'delivered', ?)`).run(
           targetProjectAssetId, outputAssetId, owner, project.id, resultVersionId, runId,
-          contentHash, stableUrl, mimeType, completedAt,
+          contentHash, stableUrl, mimeType, JSON.stringify(canonicalMetadata), completedAt,
         );
-        for (const sourceAssetId of new Set(Array.isArray(sourceAssetIds) ? sourceAssetIds : [])) {
-          const sourceProjectAsset = db.prepare(`SELECT id FROM project_assets
-            WHERE project_id = ? AND asset_id = ? AND version_id = ?`).get(project.id, String(sourceAssetId || ''), sourceVersion.id);
-          if (!sourceProjectAsset) continue;
+        for (const sourceProjectAssetId of sourceProjectAssetIds) {
           db.prepare(`INSERT OR IGNORE INTO project_asset_lineage
             (project_id, source_asset_id, target_asset_id, relation, generation_run_id, created_at)
             VALUES (?, ?, ?, 'generated_from', ?, ?)`).run(
-              project.id, sourceProjectAsset.id, targetProjectAssetId, runId, completedAt,
-            );
+            project.id, sourceProjectAssetId, targetProjectAssetId, runId, completedAt,
+          );
         }
         db.prepare(`UPDATE project_generation_runs SET status = 'completed', result_version_id = ?, completed_at = ?
           WHERE id = ? AND project_id = ? AND owner_email = ?`).run(resultVersionId, completedAt, runId, project.id, owner);
@@ -904,7 +1228,7 @@ export function createProjectStore(db, {
     createCanvasSession({ ownerEmail, projectId, baseVersionId, snapshot = {}, expiresAt = null }) {
       const project = requireProject(ownerEmail, projectId);
       requireVersion(project.id, baseVersionId);
-      const durableSnapshot = stripTransientWorkPlayback(snapshot || {});
+      const durableSnapshot = normalizeCanvasSnapshot(snapshot || {});
       assertCanvasSnapshotAssets(project.ownerEmail, durableSnapshot);
       const created = timestamp();
       const expiry = expiresAt ? new Date(expiresAt) : new Date(created.getTime() + canvasTtlMs);
@@ -924,10 +1248,11 @@ export function createProjectStore(db, {
     saveCanvasSession({ ownerEmail, sessionId, expectedRevision, snapshot }) {
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new TypeError('expectedRevision must be a positive integer');
       const owner = normalizeOwner(ownerEmail);
-      const current = db.prepare('SELECT project_id FROM canvas_sessions WHERE id = ? AND owner_email = ?').get(sessionId, owner);
+      const current = db.prepare('SELECT project_id, snapshot FROM canvas_sessions WHERE id = ? AND owner_email = ?').get(sessionId, owner);
       if (!current) throw codedError('PROJECT_NOT_FOUND', 'canvas session not found');
-      const durableSnapshot = stripTransientWorkPlayback(snapshot || {});
-      assertCanvasSnapshotAssets(owner, durableSnapshot);
+      const durableSnapshot = normalizeCanvasSnapshot(snapshot || {});
+      const existingReferences = new Set(canvasAssetReferences(parse(current.snapshot, {})).map(canvasAssetReferenceKey).filter(Boolean));
+      assertCanvasSnapshotAssets(owner, durableSnapshot, { allowExistingReferences: existingReferences });
       const updatedAt = timestamp().toISOString();
       const changed = db.prepare(`UPDATE canvas_sessions
         SET snapshot = ?, revision = revision + 1, status = 'saved', updated_at = ?
@@ -952,6 +1277,7 @@ export function createProjectStore(db, {
       planSnapshot = {},
       quoteId = null,
       holdId = null,
+      assets = {},
     }) {
       const owner = normalizeOwner(ownerEmail);
       const runId = String(generationRunId || '').trim();
@@ -986,6 +1312,67 @@ export function createProjectStore(db, {
           VALUES (?, ?, ?, ?, 'ecommerce', 'queued', ?, ?, '{}', ?)`).run(
           runId, project.id, sourceVersionId, owner, quoteId, holdId, createdAt,
         );
+        const sourceEntries = [];
+        for (const [group, values] of Object.entries(assets && typeof assets === 'object' ? assets : {})) {
+          if (!['product', 'reference', 'items', 'person', 'scene', 'proof', 'protection'].includes(group)) continue;
+          for (const value of Array.isArray(values) ? values : []) {
+            const assetId = String(value?.assetId || '').trim();
+            const stableUrl = String(value?.url || value?.stableUrl || '').trim();
+            if (!assetId || !stableUrl || !isOwnedApplicationAssetUrl(stableUrl)) {
+              throw codedError('ECOMMERCE_ASSET_NOT_READY', 'ecommerce source asset is not durably verified');
+            }
+            const refValue = value?.projectAssetRef;
+            let sourceRef = null;
+            let canonical = null;
+            if (refValue && typeof refValue === 'object' && !Array.isArray(refValue)) {
+              const projectId = String(refValue.projectId || '').trim();
+              const projectAssetId = String(refValue.projectAssetId || '').trim();
+              const expectedContentHash = String(refValue.expectedContentHash || '').trim();
+              const role = String(refValue.role || group).trim();
+              if (!projectId || !projectAssetId || !expectedContentHash || !role) {
+                throw codedError('PROJECT_ASSET_REF_INVALID', 'ecommerce source asset reference is incomplete');
+              }
+              canonical = api.getProjectAsset({
+                ownerEmail: owner,
+                projectId,
+                projectAssetId,
+                purpose: 'reuse',
+              });
+              if (!canonical || canonical.contentHash !== expectedContentHash
+                || canonical.stableUrl !== stableUrl || canonical.assetId !== assetId) {
+                throw codedError('PROJECT_ASSET_REF_INVALID', 'ecommerce source asset reference does not match its canonical asset');
+              }
+              sourceRef = { projectId, projectAssetId, role, expectedContentHash };
+            }
+            const contentHash = String(value?.contentHash || '').trim() || stableAssetContentHash(stableUrl);
+            const mimeType = String(value?.mimeType || '').trim().toLowerCase() || stableAssetMimeType(stableUrl);
+            if (!contentHash || !mimeType.startsWith('image/')) {
+              throw codedError('ECOMMERCE_ASSET_NOT_READY', 'ecommerce source asset has no authoritative hash or image MIME');
+            }
+            const key = `${assetId}\u0000${contentHash}\u0000${stableUrl}`;
+            if (sourceEntries.some(entry => entry.key === key)) continue;
+            sourceEntries.push({
+              key,
+              assetId: canonical?.assetId || assetId,
+              stableUrl: canonical?.stableUrl || stableUrl,
+              contentHash: canonical?.contentHash || contentHash,
+              mimeType: canonical?.mimeType || mimeType,
+              role: String(value?.role || sourceRef?.role || group).trim() || group,
+              metadata: sourceRef ? { sourceProjectAssetRef: sourceRef } : {},
+            });
+          }
+        }
+        for (const entry of sourceEntries) {
+          db.prepare(`INSERT INTO project_assets
+            (id, asset_id, owner_email, project_id, version_id, generation_run_id, role,
+             content_hash, stable_url, mime_type, metadata_json, retention_class, production_state, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'source', 'draft', ?)`)
+            .run(
+              `${project.id}:${sourceVersionId}:${entry.assetId}:source`, entry.assetId, owner,
+              project.id, sourceVersionId, runId, entry.role, entry.contentHash, entry.stableUrl,
+              entry.mimeType, JSON.stringify(entry.metadata), createdAt,
+            );
+        }
         return {
           project: requireProject(owner, project.id),
           sourceVersion: requireVersion(project.id, sourceVersionId),
@@ -1052,11 +1439,54 @@ export function createProjectStore(db, {
           const mimeType = stableAssetMimeType(stableUrl)
             || String(resultAsset?.mimeType || '').trim().toLowerCase()
             || 'image/png';
+          const metadata = normalizeProjectAssetMetadata(resultAsset?.metadata);
+          const canonicalMetadata = Object.keys(metadata).length
+            ? {
+              ...metadata,
+              source: 'ecommerce-generation',
+              aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+              provenance: {
+                ...(isRecord(metadata.provenance) ? metadata.provenance : {}),
+                type: 'ai-generated',
+                route: 'ecommerce',
+                generatedAt: completedAt,
+              },
+            }
+            : {};
+          const role = cleanProjectAssetValue(canonicalMetadata.role || 'generated', 'role', 80);
           db.prepare(`INSERT OR IGNORE INTO project_assets
-            (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'generated', ?, ?, ?, ?, ?)`)
-            .run(`${project.id}:${assetId}`, assetId, owner, project.id, resultVersionId, runId, contentHash, stableUrl,
-              mimeType, resultStatus === 'completed' ? 'completed' : 'unfinished', completedAt);
+            (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, metadata_json, retention_class, production_state, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            .run(
+              `${project.id}:${assetId}`,
+              assetId,
+              owner,
+              project.id,
+              resultVersionId,
+              runId,
+              role,
+              contentHash,
+              stableUrl,
+              mimeType,
+              JSON.stringify(canonicalMetadata),
+              resultStatus === 'completed' ? 'completed' : 'unfinished',
+              resultStatus === 'completed' ? 'delivered' : 'candidate',
+              completedAt,
+            );
+          const sourceAssetIds = Array.isArray(canonicalMetadata?.provenance?.sourceAssetIds)
+            ? [...new Set(canonicalMetadata.provenance.sourceAssetIds.map(value => String(value || '').trim()).filter(Boolean))]
+            : [];
+          for (const sourceAssetId of sourceAssetIds) {
+            const sourceRow = db.prepare(`SELECT id FROM project_assets
+              WHERE project_id = ? AND owner_email = ? AND version_id = ? AND asset_id = ?
+                AND deleted_at IS NULL`).get(project.id, owner, sourceVersion.id, sourceAssetId);
+            if (!sourceRow) continue;
+            db.prepare(`INSERT OR IGNORE INTO project_asset_lineage
+              (project_id, source_asset_id, target_asset_id, relation, generation_run_id, created_at)
+              VALUES (?, ?, ?, 'generated_from', ?, ?)`).run(
+              project.id, sourceRow.id, `${project.id}:${assetId}`, runId, completedAt,
+            );
+          }
         }
         if (resultStatus === 'completed') {
           db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
@@ -1200,9 +1630,14 @@ export function createProjectStore(db, {
         }
         db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
           WHERE id = ? AND owner_email = ?`).run(acceptedVersionId, acceptedVersionId, completedAt, completedAt, project.id, project.ownerEmail);
-        db.prepare(`UPDATE project_assets SET retention_class = 'completed'
+        db.prepare(`UPDATE project_assets SET retention_class = 'completed',
+          production_state = CASE WHEN production_state = 'archived' THEN 'archived' ELSE 'delivered' END
           WHERE project_id = ? AND owner_email = ? AND version_id = ? AND deleted_at IS NULL
             AND retention_class = 'unfinished'`).run(project.id, project.ownerEmail, acceptedVersionId);
+        db.prepare(`UPDATE project_assets SET production_state = 'delivered'
+          WHERE project_id = ? AND owner_email = ? AND version_id = ? AND deleted_at IS NULL
+            AND retention_class IN ('unfinished', 'completed')
+            AND production_state IN ('draft', 'candidate')`).run(project.id, project.ownerEmail, acceptedVersionId);
         db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
           .run(project.id, project.ownerEmail);
       }).immediate();
@@ -1240,6 +1675,10 @@ export function createProjectStore(db, {
         db.prepare(`UPDATE projects SET status = 'needs_review', accepted_version_id = NULL,
           head_version_id = ?, completed_at = NULL, updated_at = ?
           WHERE id = ? AND owner_email = ?`).run(reviewedVersionId, reviewedAt, project.id, project.ownerEmail);
+        db.prepare(`UPDATE project_assets SET production_state = 'candidate'
+          WHERE project_id = ? AND owner_email = ? AND version_id = ? AND deleted_at IS NULL
+            AND retention_class IN ('unfinished', 'completed')
+            AND production_state IN ('draft', 'candidate')`).run(project.id, project.ownerEmail, reviewedVersionId);
       }).immediate();
       return api.getProject({ ownerEmail: project.ownerEmail, projectId: project.id });
     },
@@ -1277,8 +1716,8 @@ export function createProjectStore(db, {
             || String(asset?.mimeType || '').trim().toLowerCase()
             || 'image/png';
           db.prepare(`INSERT OR IGNORE INTO project_assets
-            (id, asset_id, owner_email, project_id, version_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
-            VALUES (?, ?, ?, ?, ?, 'generated', ?, ?, ?, 'completed', ?)`)
+            (id, asset_id, owner_email, project_id, version_id, role, content_hash, stable_url, mime_type, retention_class, production_state, created_at)
+            VALUES (?, ?, ?, ?, ?, 'generated', ?, ?, ?, 'completed', 'delivered', ?)`)
             .run(`${project.id}:${assetId}`, assetId, owner, project.id, version.id, contentHash, stableUrl, mimeType, createdAt);
         }
         const completed = api.completeProject({ ownerEmail: owner, projectId: project.id, acceptedVersionId: version.id });

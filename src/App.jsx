@@ -5,7 +5,7 @@ import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
-import { FolderOpen, LayoutGrid, ShieldCheck, Sparkles, SquarePlay } from 'lucide-react';
+import { FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles, SquarePlay } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -33,8 +33,12 @@ import CreativeDomainNav from './components/layout/CreativeDomainNav.jsx';
 function SideNav() {
   const { state, dispatch } = useApp();
   const { page } = state;
-  const requestLogin = destination => {
-    dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination, source: state.page } });
+  const requestLogin = target => {
+    const destination = typeof target === 'string' ? target : target?.type === 'OPEN_CANVAS' ? 'ec-canvas' : target?.page;
+    dispatch({
+      type: 'SET_LOGIN_INTENT',
+      intent: { destination, source: state.page, ...(typeof target === 'object' && target?.tab ? { canvasTab: target.tab } : {}) },
+    });
     dispatch({ type: 'SHOW_LOGIN', show: true });
   };
   const items = [
@@ -74,6 +78,16 @@ function SideNav() {
       onClick: () => {
         if (!state.logged) return requestLogin('works');
         dispatch({ type: 'OPEN_CANVAS', tab: 'works' });
+      },
+    },
+    {
+      icon: Images,
+      motion: 'assets',
+      label: '素材',
+      active: page === 'ec-canvas' && state.canvasEntryTab === 'assets',
+      onClick: () => {
+        if (!state.logged) return requestLogin({ type: 'OPEN_CANVAS', tab: 'assets' });
+        dispatch({ type: 'OPEN_CANVAS', tab: 'assets' });
       },
     },
   ];

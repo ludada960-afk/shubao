@@ -3,6 +3,8 @@ import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { createUploadedImageNodes, createUploadedVideoNodes } from './canvasStudioModel.js';
 import { attachCanvasProjectAssetRef, buildCanvasAssetRef, canvasProjectAssetRefKey } from './canvasAssetReferenceModel.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
+import { normalizeCanvasPendingProjectAssetImports } from '../../../shared/canvasPendingArchive.mjs';
+import { sanitizeCanvasSnapshotMedia } from '../../../shared/canvasSnapshotMedia.mjs';
 
 function safeId(value, fallback) {
   const normalized = String(value || '').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -33,7 +35,7 @@ function durableCanvasValue(value) {
     next.url = stableUrl;
     delete next.playbackUrl;
   }
-  return stripTransientWorkPlayback(next);
+  return sanitizeCanvasSnapshotMedia(stripTransientWorkPlayback(next));
 }
 
 function normalizedViewport(viewport = {}) {
@@ -43,6 +45,8 @@ function normalizedViewport(viewport = {}) {
     scale: Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1,
   };
 }
+
+export { normalizeCanvasPendingProjectAssetImports as normalizePendingProjectAssetImports } from '../../../shared/canvasPendingArchive.mjs';
 
 function canonicalMediaRef(value = {}) {
   const ref = buildCanvasAssetRef(value?.assetRef || value?.projectAssetRef || value);
@@ -86,20 +90,26 @@ export function restoreCanvasMediaPlayback(nodes = [], assets = []) {
   });
 }
 
-export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {} } = {}) {
-  return {
+export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {}, pendingProjectAssetImports = [] } = {}) {
+  const snapshot = {
     nodes: durableCanvasValue(clone(Array.isArray(nodes) ? nodes : [], [])),
     connections: clone(Array.isArray(connections) ? connections : [], []),
     viewport: normalizedViewport(viewport),
   };
+  const pending = normalizeCanvasPendingProjectAssetImports(pendingProjectAssetImports);
+  if (pending.length) snapshot.pendingProjectAssetImports = pending;
+  return snapshot;
 }
 
 export function restoreCanvasSnapshot(snapshot = {}) {
-  return {
+  const restored = {
     nodes: clone(Array.isArray(snapshot.nodes) ? snapshot.nodes : [], []),
     connections: clone(Array.isArray(snapshot.connections) ? snapshot.connections : [], []),
     viewport: normalizedViewport(snapshot.viewport),
   };
+  const pending = normalizeCanvasPendingProjectAssetImports(snapshot.pendingProjectAssetImports);
+  if (pending.length) restored.pendingProjectAssetImports = pending;
+  return restored;
 }
 
 function audioNodeFromAsset(asset, ref, position, now) {

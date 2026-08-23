@@ -23,6 +23,7 @@ const NOT_FOUND_CODES = new Set([
   'MEMORY_ASSET_NOT_FOUND',
   'AUDIO_TRACK_NOT_FOUND',
   'TIMELINE_CLIP_NOT_FOUND',
+  'SHOT_RECOVERY_NOT_FOUND',
 ]);
 
 function ownerFor(req, authenticateOwner) {
@@ -64,6 +65,9 @@ function routeError(error, res) {
   if (code === 'SHOT_RECOVERY_INVALID') {
     return res.status(400).json({ code, error: error.message || '镜头恢复计划参数无效' });
   }
+  if (code === 'SHOT_RECOVERY_STALE') {
+    return res.status(409).json({ code, error: error.message || '镜头恢复计划已过期，请重新建立' });
+  }
   if (code === 'VIDEO_PREFLIGHT_INPUT_INVALID') {
     return res.status(400).json({ code, error: error.message || '视频提交前预检参数无效' });
   }
@@ -76,6 +80,21 @@ function routeError(error, res) {
   }
   if (code === 'VIDEO_JOB_NOT_READY') {
     return res.status(409).json({ code, error: '视频仍在生成或交付结果尚未校验完成' });
+  }
+  if (code === 'PROJECT_ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '未找到该项目素材' });
+  }
+  if (code === 'PROJECT_ASSET_NOT_REUSABLE') {
+    return res.status(409).json({ code, error: '该素材已不适合新的创作，请先长期保留后再使用' });
+  }
+  if (code === 'PROJECT_ASSET_PURPOSE_INVALID') {
+    return res.status(400).json({ code, error: '素材访问意图无效' });
+  }
+  if (code === 'PROJECT_ASSET_REF_INVALID') {
+    return res.status(400).json({ code, error: '项目素材引用校验失败，请刷新后重试' });
+  }
+  if (code === 'PROJECT_ASSET_BRIDGE_UNAVAILABLE') {
+    return res.status(503).json({ code, error: '项目素材服务暂时不可用，请稍后重试' });
   }
   if (code === 'VIDEO_ASSET_NOT_READY') {
     return res.status(409).json({ code, error: '素材尚未完成持久化校验，请稍后重试' });
@@ -97,6 +116,9 @@ function routeError(error, res) {
   }
   if (code === 'INVALID_TIMELINE_CANDIDATE') {
     return res.status(409).json({ code, error: '候选版本已变化，请刷新镜头后再应用' });
+  }
+  if (code === 'INVALID_POSITION') {
+    return res.status(409).json({ code, error: '时间线位置已被其他镜头占用，请刷新后重试' });
   }
   if (code === 'INVALID_VIDEO_EXPORT') {
     return res.status(400).json({ code, error: error.message || '视频导出清单参数无效，请检查时间线和音轨' });
@@ -412,6 +434,9 @@ export function mountVideoWorkbenchRoutes(app, {
       cameraLanguage: req.body?.cameraLanguage,
       prompt: req.body?.prompt,
       direction: req.body?.direction,
+      firstFrameRef: req.body?.firstFrameRef,
+      lastFrameRef: req.body?.lastFrameRef,
+      modelIntent: req.body?.modelIntent,
     })
   ), { status: 201, key: 'shot' }));
 
@@ -451,13 +476,36 @@ export function mountVideoWorkbenchRoutes(app, {
     })
   )));
 
+  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/apply-candidate', (req, res) => dispatch(
+    req, res, 'candidate.timeline.apply', request => store.applyCandidateToTimeline({
+      ...request,
+      shotId: req.params.shotId,
+      candidateId: req.body?.candidateId,
+      expectedShotRevision: req.body?.expectedShotRevision,
+      expectedClipRevision: req.body?.expectedClipRevision,
+      position: req.body?.position,
+      trimStartMs: req.body?.trimStartMs,
+      trimEndMs: req.body?.trimEndMs,
+      muted: req.body?.muted,
+    }), { key: 'application', status: value => (value?.replayed ? 200 : 201) },
+  ));
+
   app.post('/api/video/projects/:projectId/workbench/shots/:shotId/recovery-plans', (req, res) => dispatch(
     req, res, 'shot.recovery-plan.create', request => store.createShotRecoveryPlan({
       ...request,
       shotId: req.params.shotId,
       reason: req.body?.reason,
       mode: req.body?.mode,
+      extensionMs: req.body?.extensionMs,
+      region: req.body?.region,
     }), { status: value => (value?.replayed ? 200 : 201), key: 'plan' },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/recovery-plans/:planId/prepare', (req, res) => dispatch(
+    req, res, 'shot.recovery-plan.prepare', request => store.prepareShotRecoveryExecution({
+      ...request,
+      planId: req.params.planId,
+    }), { key: 'execution', transform: value => value?.execution || value },
   ));
 
   app.post('/api/video/projects/:projectId/workbench/timeline/clips', (req, res) => dispatch(req, res, 'timeline.clip.create', request => (

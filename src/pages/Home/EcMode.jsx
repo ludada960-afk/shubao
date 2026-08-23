@@ -22,12 +22,16 @@ import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
 import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
+import ProductProfileShelf from './ec/ProductProfileShelf.jsx';
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
+import { archiveProductProfile, createProductProfile, getProjectAsset, listProductProfiles } from '../../services/projects.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
 import { createEcommerceGenerationPreconditionError, createEcommerceGenerationToken, ecommerceLoginPreflight, invalidateEcommerceGenerationRequest, isEcommerceGenerationTokenCurrent } from './ec/ecommerceTaskProgressModel.js';
 import { restoreCheckpointIntoEditor } from './ec/projectLifecycleModel.js';
+import { applyProductProfileToEcState, buildProductProfileSaveRequest } from './ec/productProfileShelfModel.js';
+import { buildProductProfileMediaState } from './ec/productProfileModel.js';
 import { getEcommerceAbilityRecipe } from '../../../shared/ecommerceAbilityRecipes.mjs';
 import { createAbilityEditorState, switchAbilityRecipe } from './ec/workbenchState.js';
 
@@ -83,10 +87,22 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   const ownerEmail = String(state.email || state.phone || '')
     .trim()
     .toLowerCase();
+  const profileAccess = Boolean(state.logged && ownerEmail);
   const workVersion = Number(state._workVersion || 0);
   const [draftId, setDraftId] = useState(createEcommerceDraftId);
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
+  const profileSaveNonceRef = useRef(0);
+  const profileLoadNonceRef = useRef(0);
+  const profileApplyNonceRef = useRef(0);
+  const [productProfiles, setProductProfiles] = useState([]);
+  const [productProfilesOpen, setProductProfilesOpen] = useState(false);
+  const [productProfilesLoading, setProductProfilesLoading] = useState(false);
+  const [productProfileSaving, setProductProfileSaving] = useState(false);
+  const [productProfileApplying, setProductProfileApplying] = useState('');
+  const [productProfileError, setProductProfileError] = useState('');
+  const profileAccessRef = useRef({ allowed: profileAccess, ownerEmail });
+  profileAccessRef.current = { allowed: profileAccess, ownerEmail };
   const generationIdentityRef = useRef({ ownerEmail, draftId });
   generationIdentityRef.current = { ownerEmail, draftId };
   const beginGeneration = () => {
@@ -100,6 +116,135 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       ownerEmail: generationIdentityRef.current.ownerEmail,
       draftId: generationIdentityRef.current.draftId
     });
+
+  const refreshProductProfiles = useCallback(async () => {
+    const loadNonce = profileLoadNonceRef.current + 1;
+    profileLoadNonceRef.current = loadNonce;
+    const accessAtStart = { ...profileAccessRef.current };
+    if (!profileAccess) {
+      setProductProfiles([]);
+      return;
+    }
+    setProductProfilesLoading(true);
+    setProductProfileError('');
+    try {
+      const profiles = await listProductProfiles({ status: 'active', limit: 100 });
+      const access = profileAccessRef.current;
+      if (profileLoadNonceRef.current !== loadNonce
+        || !access.allowed
+        || access.ownerEmail !== accessAtStart.ownerEmail) return;
+      setProductProfiles(profiles);
+    } catch (error) {
+      setProductProfileError(error?.message || '暂时无法读取商品档案');
+    } finally {
+      setProductProfilesLoading(false);
+    }
+  }, [ownerEmail, profileAccess]);
+
+  useEffect(() => {
+    refreshProductProfiles();
+  }, [refreshProductProfiles]);
+
+  const currentProductProfileEditor = () => ({
+    description,
+    productParams,
+    skus,
+    copywriting,
+    productImages,
+    referenceImages: refImages,
+    roleImages,
+    platform,
+    sizing,
+    genSettings,
+  });
+
+  const saveCurrentProductProfile = async () => {
+    if (!profileAccess) {
+      setProductProfileError('请先登录后保存商品档案');
+      return;
+    }
+    setProductProfileSaving(true);
+    setProductProfileError('');
+    try {
+      profileSaveNonceRef.current += 1;
+      const profile = await createProductProfile(buildProductProfileSaveRequest({
+        draftId,
+        editor: currentProductProfileEditor(),
+        saveNonce: profileSaveNonceRef.current,
+      }));
+      setProductProfiles(previous => [profile, ...previous.filter(item => item.profileId !== profile.profileId)]);
+      setProductProfilesOpen(true);
+    } catch (error) {
+      setProductProfileError(error?.message || '商品档案保存失败，请稍后重试');
+    } finally {
+      setProductProfileSaving(false);
+    }
+  };
+
+  const applySavedProductProfile = async profile => {
+    const applyNonce = profileApplyNonceRef.current + 1;
+    profileApplyNonceRef.current = applyNonce;
+    const accessAtStart = { ...profileAccessRef.current };
+    setProductProfileApplying(profile?.profileId || 'profile');
+    setProductProfileError('');
+    const next = applyProductProfileToEcState(profile, currentProductProfileEditor());
+    setDescription(next.description);
+    setProductParams(next.productParams);
+    setSkus(next.skus);
+    setCopywriting(next.copywriting);
+    try {
+      const profileAssets = Array.isArray(profile?.assets) ? profile.assets : [];
+      const resolvedAssets = (await Promise.all(profileAssets.map(async profileAsset => {
+        if (!profileAsset?.projectId || !profileAsset?.projectAssetId || !profileAsset?.expectedContentHash) return null;
+        try {
+          const asset = await getProjectAsset(profileAsset.projectId, profileAsset.projectAssetId, 'reuse');
+          return { profileAsset, asset };
+        } catch {
+          return null;
+        }
+      }))).filter(Boolean);
+      const access = profileAccessRef.current;
+      if (profileApplyNonceRef.current !== applyNonce
+        || !access.allowed
+        || access.ownerEmail !== accessAtStart.ownerEmail) return;
+      const media = buildProductProfileMediaState(profile, resolvedAssets);
+      if (abilityRecipeId === 'anything_tryon') {
+        setProductImages(current => current.length ? current : media.productImages);
+        setRoleImages(current => ({
+          ...current,
+          items: current.items?.length ? current.items : media.roleImages.items,
+          person: current.person?.length ? current.person : media.roleImages.person,
+          scene: current.scene?.length ? current.scene : media.roleImages.scene,
+        }));
+      } else {
+        setProductImages(current => current.length ? current : media.productImages);
+        setRefImages(current => current.length ? current : media.referenceImages);
+      }
+      const requestedCount = profileAssets.length;
+      const hydratedCount = media.productImages.length + media.referenceImages.length
+        + media.roleImages.person.length + media.roleImages.scene.length;
+      if (requestedCount > hydratedCount) {
+        setProductProfileError('商品信息已应用，部分素材已过期或暂不可复用');
+      }
+    } catch (error) {
+      if (profileApplyNonceRef.current === applyNonce) {
+        setProductProfileError(error?.message || '商品信息已应用，但素材暂时无法带入');
+      }
+    } finally {
+      if (profileApplyNonceRef.current === applyNonce) setProductProfileApplying('');
+    }
+  };
+
+  const archiveSavedProductProfile = async profile => {
+    if (!profile?.profileId || !profileAccessRef.current.allowed) return;
+    setProductProfileError('');
+    try {
+      await archiveProductProfile(profile.profileId);
+      setProductProfiles(previous => previous.filter(item => item.profileId !== profile.profileId));
+    } catch (error) {
+      setProductProfileError(error?.message || '商品档案归档失败，请稍后重试');
+    }
+  };
 
   useEffect(() => {
     invalidateEcommerceGenerationRequest({
@@ -802,6 +947,22 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           position: 'relative'
         }}
       >
+        <ProductProfileShelf
+          open={productProfilesOpen}
+          profiles={productProfiles}
+          loading={productProfilesLoading}
+          saving={productProfileSaving}
+          applying={productProfileApplying}
+          error={productProfileError}
+          onToggle={() => {
+            setProductProfilesOpen(open => !open);
+            if (!productProfilesOpen) refreshProductProfiles();
+          }}
+          onRefresh={refreshProductProfiles}
+          onSave={saveCurrentProductProfile}
+          onApply={applySavedProductProfile}
+          onArchive={archiveSavedProductProfile}
+        />
         <EcommerceWorkbench
           productImages={productImages}
           refImages={refImages}
@@ -1228,7 +1389,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         {/* ═══ 配置按钮行（相对定位容器，面板在此内部绝对定位）═══ */}
         <div
           ref={btnRowRef}
-          className="ec-workbench-actions"
+          className="ec-workbench-actions ec-commerce-workbench-actions"
           style={{
             padding: '12px 2px 14px',
             position: 'relative',

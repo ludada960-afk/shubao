@@ -219,6 +219,7 @@ export function createVideoProjectBridge({ db, projectStore, now = () => new Dat
         mimeType: asset.mimeType,
         width: asset.width,
         height: asset.height,
+        metadata: asset.metadata,
         durationMs: Number.isSafeInteger(asset.metadata?.durationMs) ? asset.metadata.durationMs : null,
         generationRunId: asset.generationRunId,
         retentionClass: asset.retentionClass,

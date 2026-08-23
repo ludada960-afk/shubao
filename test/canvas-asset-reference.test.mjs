@@ -43,6 +43,46 @@ test('image and video node factories preserve canonical refs without exposing ow
   assert.equal('ownerEmail' in image.assetRef, false);
 });
 
+test('Canvas nodes preserve only safe project asset metadata for delivery provenance', () => {
+  const image = createUploadedImageNodes({ assets: [{
+    ...reference,
+    name: '商品识别图',
+    metadata: {
+      displayName: '商品识别图',
+      role: 'main_text',
+      width: 1200,
+      height: 1200,
+      aigc: { generated: true, provenanceVersion: 'aigc-v1', provider: 'private-provider' },
+      provenance: {
+        route: 'ecommerce',
+        planItemId: 'plan-main',
+        generatedAt: '2026-08-21T08:00:00.000Z',
+        sourceAssetIds: ['source-1'],
+        prompt: 'private prompt must not enter Canvas',
+      },
+      prompt: 'private prompt',
+      providerJobId: 'private-job',
+      ownerEmail: 'owner@example.com',
+    },
+  }] })[0];
+
+  assert.deepEqual(image.metadata, {
+    displayName: '商品识别图',
+    role: 'main_text',
+    width: 1200,
+    height: 1200,
+    aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+    provenance: {
+      route: 'ecommerce',
+      planItemId: 'plan-main',
+      generatedAt: '2026-08-21T08:00:00.000Z',
+      sourceAssetIds: ['source-1'],
+    },
+  });
+  assert.equal(image.metadata.prompt, undefined);
+  assert.equal(image.metadata.ownerEmail, undefined);
+});
+
 test('work import and Canvas output persistence retain one deduplicated canonical ref list', () => {
   const imported = buildCanvasImportResult({
     projectId: reference.projectId,

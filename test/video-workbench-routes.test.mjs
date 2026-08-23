@@ -720,6 +720,42 @@ test('workbench route imports a same-owner project asset with server-resolved me
   assert.equal(imported.body.version.metadata.sourceProjectAssetRef.contentHash, sourceAsset.contentHash);
 });
 
+test('workbench route preserves canonical project asset reuse errors for the client', async t => {
+  const { app, db, project, projectStore, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const sourceProject = projectStore.createProject({ ownerEmail, kind: 'xiaohongshu', title: '已过期内容素材' });
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail,
+    projectId: sourceProject.id,
+    assetId: 'expired-xhs-image',
+    role: 'reference',
+    stableUrl: '/api/generated-assets/expired-xhs-image',
+    contentHash: 'expired-xhs-image-hash',
+    mimeType: 'image/png',
+  });
+  db.prepare(`UPDATE project_assets SET retention_state = 'marked', expires_at = ? WHERE id = ?`)
+    .run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+  const target = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id }, body: { kind: 'style', name: '内容参考' },
+  });
+  const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets/:assetId/versions', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, assetId: target.body.asset.id },
+    body: { sourceProjectAssetRef: {
+      projectId: sourceProject.id,
+      projectAssetId: sourceAsset.projectAssetId,
+      role: 'style',
+      expectedContentHash: sourceAsset.contentHash,
+    } },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.deepEqual(response.body, {
+    code: 'PROJECT_ASSET_NOT_REUSABLE',
+    error: '该素材已不适合新的创作，请先长期保留后再使用',
+  });
+});
+
 test('audio continuity routes create and update owner-scoped tracks', async t => {
   const { app, db, project, store, sessionTokens, ownerEmail } = harness();
   t.after(() => db.close());
@@ -828,6 +864,33 @@ test('timeline clip replacement route applies only the selected replacement cand
   });
   assert.equal(staleRevision.statusCode, 409);
   assert.equal(staleRevision.body.code, 'VERSION_CONFLICT');
+});
+
+test('candidate timeline application route atomically inserts or replays a selected candidate', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '路由应用', durationMs: 4000 });
+  const candidate = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'route-apply-a', stableUrl: '/api/video/assets/route-apply-a',
+    contentHash: 'route-apply-a-hash', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: shot.revision });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const body = { candidateId: candidate.id, expectedShotRevision: shot.revision + 1,
+    position: 0, trimStartMs: 0, trimEndMs: 4000, muted: false };
+  const first = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/apply-candidate', {
+    headers, params: { projectId: project.id, shotId: shot.id }, body,
+  });
+  assert.equal(first.statusCode, 201);
+  assert.equal(first.body.application.status, 'applied');
+  assert.equal(first.body.application.providerSubmission, false);
+  assert.equal(first.body.application.billingMutation, false);
+  const replay = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/apply-candidate', {
+    headers, params: { projectId: project.id, shotId: shot.id }, body,
+  });
+  assert.equal(replay.statusCode, 200);
+  assert.equal(replay.body.application.status, 'replayed');
 });
 
 test('workbench routes validate shot duration at the HTTP boundary', async t => {
@@ -952,6 +1015,34 @@ test('shot recovery route rejects unsupported modes without creating a plan', as
   assert.equal(response.statusCode, 400);
   assert.equal(response.body.code, 'SHOT_RECOVERY_INVALID');
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_recovery_plans').get().count, 0);
+});
+
+test('shot recovery prepare route returns a read-only execution draft', async t => {
+  const { app, db, project, projectStore, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const canonical = projectStore.createProjectAsset({ ownerEmail, projectId: project.id,
+    assetId: 'route-recovery-source', role: 'generated-video', stableUrl: '/api/video/assets/route-recovery-source',
+    contentHash: 'route-recovery-source-hash', mimeType: 'video/mp4' });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '镜头', durationMs: 3000, prompt: '动作' });
+  const candidate = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'route-recovery-source', stableUrl: canonical.stableUrl,
+    contentHash: canonical.contentHash, mimeType: canonical.mimeType,
+    projectAssetRef: { projectId: project.id, projectAssetId: canonical.projectAssetId,
+      assetId: canonical.assetId, stableUrl: canonical.stableUrl, contentHash: canonical.contentHash,
+      mimeType: canonical.mimeType, role: 'generated-video', expectedContentHash: canonical.contentHash } });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: shot.revision });
+  store.addTimelineClip({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  const plan = store.createShotRecoveryPlan({ ownerEmail, projectId: project.id, shotId: shot.id, mode: 'reshoot_shot' });
+  const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/recovery-plans/:planId/prepare', {
+    headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id, planId: plan.id }, body: {},
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.execution.sourceCandidate.projectAssetRef.projectAssetId, canonical.projectAssetId);
+  assert.equal(response.body.execution.providerSubmission, false);
+  assert.equal(response.body.execution.billingMutation, false);
 });
 
 test('workbench read projects ephemeral playback capabilities without persisting them', async t => {

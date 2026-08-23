@@ -66,6 +66,23 @@ test('builds a bounded per-shot quote for a valid three-shot plan', () => {
   assert.equal(plan.quote.points, 206);
   assert.equal(plan.quote.maximumPoints, 206);
   assert.ok(plan.quote.lineItems.every(item => item.points > 0));
+  assert.equal(plan.routeRecommendation.status, 'ready');
+  assert.equal(plan.routeRecommendation.selected.productId, 'seedance_standard');
+  assert.equal(plan.routeRecommendation.providerSubmission, false);
+  assert.equal(plan.routeRecommendation.billingMutation, false);
+});
+
+test('exposes a deterministic route recommendation for the longest shot segment', () => {
+  const plan = buildVideoWorkbenchPlan(workbench({
+    assets: [asset('product-1')],
+    shots: [shot('shot-1', 1, { durationMs: 120000 })],
+  }), { routingObjective: 'speed' });
+
+  assert.equal(plan.options.routingObjective, 'speed');
+  assert.equal(plan.routeRecommendation.request.durationSec, 15);
+  assert.equal(plan.routeRecommendation.selected.productId, 'seedance_standard');
+  assert.equal(plan.routeRecommendation.candidates[0].productId, 'seedance_fast');
+  assert.match(plan.routeRecommendation.warnings.join(' '), /不会提交供应商/);
 });
 
 test('keeps a real quote while carrying a normalized budget cap into the plan fingerprint', () => {

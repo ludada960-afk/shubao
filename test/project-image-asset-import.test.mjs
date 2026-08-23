@@ -103,6 +103,18 @@ test('rejects preview, missing, or integrity-mismatched image records before pro
   }
 });
 
+test('keeps the server-owned content reference source separate from ecommerce imports', async () => {
+  const { importer, calls } = createHarness();
+  await importer({
+    ownerEmail: OWNER,
+    projectId: PROJECT,
+    imageAssetId: ASSET_ID,
+    projectSource: 'content-reference',
+    metadata: { source: 'forged-client-value' },
+  });
+  assert.equal(calls[0].metadata.source, 'content-reference');
+});
+
 test('requires signed owner context and validates bounded metadata', async () => {
   const { importer } = createHarness();
   await assert.rejects(importer({ projectId: PROJECT, imageAssetId: ASSET_ID }), /ownerEmail/);

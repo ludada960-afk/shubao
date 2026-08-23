@@ -260,6 +260,7 @@ const projectStore = createProjectStore(db);
 const contentProjectLifecycle = createContentProjectLifecycle({
   projectStore,
   readGeneratedAsset: assetId => generatedAssetStore.read(assetId),
+  importImageAsset: input => importImageAssetToProject(input),
 });
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
 videoWorkbenchStore = videoWorkbenchEnabled
@@ -341,10 +342,11 @@ const runBilledContentSse = createBilledSseRunner({
   beginContentGeneration,
   completeContentGeneration,
   failContentGeneration,
-  onStart: ({ ownerEmail, begun }) => contentProjectLifecycle.begin({
+  onStart: ({ ownerEmail, begun, input }) => contentProjectLifecycle.begin({
     ownerEmail,
     generationId: begun.generationId,
     mode: begun.mode,
+    referenceGroups: input?.referenceGroups,
   }),
   prepareDelivery: ({ ownerEmail, delivery, context }) => contentProjectLifecycle.prepareResult({
     ownerEmail,
@@ -783,7 +785,7 @@ const IMG_AUTH_STRATEGY = String(process.env.IMAGE_AUTH_STRATEGY || 'bearer').tr
 const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'native-tasks').trim().toLowerCase();
 const NANO_BANANA_KEY = process.env.NANO_BANANA_API_KEY || '';
 const NANO_BANANA_BASE = (process.env.NANO_BANANA_BASE_URL || 'https://api.change2pro.com').replace(/\/+$/, '');
-const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || 'gemini-3.1-flash-image';
+const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || 'gemini-2.5-flash-image';
 const NANO_BANANA_PRO_MODEL = process.env.NANO_BANANA_PRO_MODEL || 'gemini-3-pro-image';
 
 // Vision API — 商品图和参考图分析
@@ -2360,6 +2362,19 @@ async function generateXhsContentSet({ text, images, referenceGroups, send, gene
   return delivery;
 }
 
+function contentProjectReferenceGroups({ referenceAssets, referenceAssetIds } = {}) {
+  const valid = value => /^[a-f0-9]{64}\.(?:jpg|png|webp)$/i.test(String(value || '').trim())
+    ? String(value).trim()
+    : '';
+  const unique = values => [...new Set((Array.isArray(values) ? values : []).map(valid).filter(Boolean))];
+  const groups = referenceAssets && typeof referenceAssets === 'object' ? referenceAssets : {};
+  const fallback = unique(referenceAssetIds);
+  return {
+    style: unique(Array.isArray(groups.style) ? groups.style : fallback),
+    source: unique(groups.source),
+  };
+}
+
 app.post('/api/generate', async (req, res) => {
   const { text, images, referenceAssetIds, referenceAssets } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
@@ -2382,6 +2397,7 @@ app.post('/api/generate', async (req, res) => {
     ownerEmail: req._userEmail,
     generationId: req.body?.generationId,
     mode: 'xhs',
+    projectInput: { referenceGroups: contentProjectReferenceGroups({ referenceAssets, referenceAssetIds }) },
     generate: context => generateXhsContentSet({ ...context, text: text.trim(), referenceGroups: resolvedReferenceGroups }),
   });
 });
@@ -5102,6 +5118,7 @@ app.post('/api/plog-generate', async (req, res) => {
     ownerEmail: req._userEmail,
     generationId: req.body?.generationId,
     mode: 'plog',
+    projectInput: { referenceGroups: contentProjectReferenceGroups({ referenceAssets, referenceAssetIds }) },
     generate: context => generatePlogContentSet({
       ...context,
       text: text.trim(),

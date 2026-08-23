@@ -91,6 +91,20 @@ test('rejects invalid trim, duplicate positions, and malformed audio metadata', 
   const audio = workbench();
   audio.audioTracks[0].subtitleCues = [{ startMs: 0, endMs: 10, text: '' }];
   assert.throws(() => buildVideoExportManifest({ workbench: audio }), /字幕/);
+  const overlap = workbench();
+  overlap.audioTracks[0].subtitleCues = [
+    { startMs: 0, endMs: 1200, text: '第一句' },
+    { startMs: 1100, endMs: 1800, text: '重叠句' },
+  ];
+  assert.throws(() => buildVideoExportManifest({ workbench: overlap }), /字幕/);
+  const outOfTrack = workbench();
+  outOfTrack.audioTracks[0].subtitleCues = [{ startMs: 0, endMs: 5001, text: '超出轨道' }];
+  assert.throws(() => buildVideoExportManifest({ workbench: outOfTrack }), /字幕/);
+  const tooMany = workbench();
+  tooMany.audioTracks[0].subtitleCues = Array.from({ length: 201 }, (_, index) => ({
+    startMs: index * 10, endMs: index * 10 + 5, text: '字幕',
+  }));
+  assert.throws(() => buildVideoExportManifest({ workbench: tooMany }), /字幕/);
 });
 
 test('normalizes bounded delivery options and rejects unsupported values', () => {

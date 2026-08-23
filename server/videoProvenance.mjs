@@ -29,6 +29,7 @@ export function normalizeVideoProvenance(input = null, fallbackStatus = 'planned
   const costCny = finiteCost(source.costCny);
   const generatedAt = cleanDate(source.generatedAt);
   const provenanceSource = clean(source.source, 80);
+  const recoveryCommitHash = clean(source.recoveryCommitHash, 128).toLowerCase();
   const sourceProjectAssetRef = source.projectAssetRef && typeof source.projectAssetRef === 'object'
     && !Array.isArray(source.projectAssetRef) ? source.projectAssetRef : null;
   const projectAssetRef = sourceProjectAssetRef
@@ -52,6 +53,7 @@ export function normalizeVideoProvenance(input = null, fallbackStatus = 'planned
   if (costCny !== null) value.costCny = costCny;
   if (generatedAt) value.generatedAt = generatedAt;
   if (provenanceSource) value.source = provenanceSource;
+  if (/^[a-f0-9]{64}$/.test(recoveryCommitHash)) value.recoveryCommitHash = recoveryCommitHash;
   if (projectAssetRef) value.projectAssetRef = projectAssetRef;
 
   if (status === 'verified') {

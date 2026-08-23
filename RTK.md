@@ -360,6 +360,18 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 部署后本地出现的 `90c919d` 是独立 XHS 展示提交，不属于本次 AI 视频 release；12 个 extension task 删除项、
   `.tmp/`、诊断脚本和可视化临时文件继续保留，不能误恢复、误删除或误暂存。
 
+## 2026-08-19 AI Video Asset Delivery And Provenance Hardening
+
+- 规划工作台仍保持 `VIDEO_PLATFORM_P1_PLANNING=true`、实时渲染 `VIDEO_PLATFORM_P1_WORKBENCH=false`；本轮没有供应商调用、
+  视频生成、上传、钱包 hold、结算或 usage 变更。
+- 视频资产读取现在支持 `ETag`、`Last-Modified`、`If-Range`、条件 `304`、无正文 `HEAD`、标准 `206/416` 区间响应和安全
+  inline 文件名，保持 owner 鉴权与私有缓存不变。
+- `video_shot_candidates` 保存 immutable provenance 快照并在 UI 展示 `规划候选`、`候选来源未核验`、`来源已核验`；历史记录
+  缺少完整 attempt 时 fail closed，不编造 provider/model。
+- 新 B 站 `BV1p7gP6CErH` 的 360p 只读视频、30 帧和章节元数据，以及飞书 Seedance 2.5 正文方法已经写入路线图/研究文档；
+  隐藏附件和不可稳定读取的“屿帆AI”公众号正文仍明确标记为不可验证，未虚构结论。
+- 本轮 focused evidence `32/32` + UI `2/2` 已通过；full test/build/deploy/public canary remains pending until command evidence is recorded.
+
 ## 2026-08-19 AI Video Planning And Media Recovery Gate
 
 - 新增 provider-neutral 规划工作台门禁：`VIDEO_PLATFORM_P1_PLANNING=true`，实时渲染仍为
@@ -370,3 +382,33 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 视频资产 Range 下载新增标准后缀区间解析和 `416 Content-Range` 契约，防止断点预览从错误位置恢复；新增测试后全量回归
   `1830/1830`、生产构建 `6520` 模块、构建检查、协作门禁与本地无付费验证均通过。明确排除 12 个运行态任务删除项、
   `.tmp/`、诊断脚本和可视化临时文件。
+
+## 2026-08-19 AI Video Release Gate Result
+
+- 本轮最终本地证据已齐：全量回归 `1840/1840`、生产构建 `6520` modules、`npm run check`、协作门禁、无付费视频验证、
+  renderer reconciliation dry-run、40 操作规划试点和本地生产审计 `27/27` 均通过；试点记录
+  `providerSubmissions=0`、`billingMutated=false`。
+- 正式部署脚本已执行到远端连接前的最后门禁，但因当前执行环境无法读取
+  `C:\Users\SHEJI\.ssh\shubao_deploy_ed25519`，服务器返回 `Permission denied (publickey,password)`；远端 helper 目录和部署锁
+  均未创建，因此本轮没有线上文件、PM2、Nginx、账务或供应商任务变更，也没有 600 秒公网 Canary 证据。
+- 不得把本地 planning/workbench 证据或此前线上 `9225816` 基础版本误报为本轮改动已上线。恢复发布时仍只能使用
+  `scripts/deploy-production.ps1 -CanarySeconds 600 -PublicWarmupSeconds 60`，并重新获取公网健康、资产、视频契约、账务隔离和
+  Canary 证据；视频供应商和计费继续保持关闭。
+
+## 2026-08-22 Video Thread Recovery Checkpoint
+
+- 视频线程恢复会话已建立：读取根目录与工作树 RTK.md，确认 git worktree 状态，运行视频专项测试子集 162/162 通过（video-model-router / video-renderer-worker-batch / video-workbench-store / video-workbench-routes / video-shot-recovery / video-workbench-plan / video-workbench-client / video-project-bridge / video-skill-run / video-export-manifest / video-project-workbench-model / video-project-workbench-ui）。
+- 最近完成的视频里程碑是「候选进入时间线」的原子事务边界（shot-execution-contract 计划 Task 1-8，全部收口）：服务端、专属路由、客户端服务、工作台按钮全部接上；候选进入时间线是视频域内原子、可重放的键控事务，同一镜头下旧候选的活动片段会标记 stale。
+- 当前工作树是共享工作树：未提交变更混合了视频域文件与主线程共享资产/Canvas/Works/导航/商品档案/ecommerce 文件（projectStore、projectAssetContract、Canvas 等）。视频文件依赖未提交的共享层函数（如 videoProjectBridge 引入 projectAssetContract 的 assertCanonicalProjectAssetRef），因此不能只提交视频文件，需统一归档后由主线程按唯一入口执行 full production gate。
+- 下一步待办：选择仍完全独立于共享资产层的视频域下一项工作（候选建议 VID-P1-04 计划审批门禁或 VID-P1-02 分镜细化），实现、测试、更新本记录。
+- 全程未部署、未触发真实生成、未消耗视频生成费用。
+
+## 2026-08-23 Video Storyboard Shot Model Enrichment (Video Thread)
+
+- 视频线程在分镜卡片模型上补齐 VID-P1-02 字段：video_storyboard_shots 表新增 first_frame_ref/last_frame_ref/model_intent 三列（additive 迁移）；createShot/updateShot 接受并持久化，首/末帧引用经 purpose reuse 的 canonical 项目资产校验，外主/伪造哈希/缺失资产均 fail closed。
+
+- 分镜卡片 UI 展示「意图」与「首末帧已绑定」标识，新建/编辑表单支持输入模型意图；路由 shot.create 透传新字段，客户端服务经 jsonBody 自动透传。
+
+- 聚焦视频回归：video-workbench-store 42/42（+2 分镜字段测试）、routes/client/model/ui 62/62、视频域完整子集 188/188；全量 npm test 2117/2117；collab READY、git diff --check 通过。
+
+- 未调用供应商、未触发真实生成、未改变账务、未部署。线上仍为 e673c10；工作树为共享工作树，视频改动与主线程 Canvas/资产改动混合未提交，后续由主线程按唯一入口 full production gate 统一归档后发布。

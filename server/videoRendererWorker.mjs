@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { reconcileVideoRendererAttempt } from './videoRendererReconciliation.mjs';
 
 function coded(code, message = code) {
@@ -38,6 +39,29 @@ function shouldFailClosed(code) {
     'RENDER_PREFLIGHT_STALE',
     'RENDER_PREFLIGHT_REQUIRED',
   ]).has(code);
+}
+
+function boundedBatchLimit(value) {
+  const requested = Number(value);
+  return Number.isFinite(requested) ? Math.max(1, Math.min(20, Math.floor(requested))) : 1;
+}
+
+function publicBatchError(error) {
+  return {
+    errorCode: String(error?.code || 'RENDERER_WORKER_FAILED').slice(0, 120),
+    errorMessage: String(error?.message || error?.code || 'renderer worker failed').slice(0, 240),
+  };
+}
+
+function publicBatchJob(job, extra = {}) {
+  return {
+    jobId: String(job?.id || ''),
+    state: String(job?.state || 'unknown'),
+    attempt: Number.isFinite(Number(job?.attempt)) ? Number(job.attempt) : 0,
+    providerSubmission: Boolean(job?.providerSubmission),
+    billingMutation: Boolean(job?.billingMutation),
+    ...extra,
+  };
 }
 
 /**
@@ -175,4 +199,124 @@ export async function runVideoRendererWorkerOnce({
     }
     throw error;
   }
+}
+
+/**
+ * Process a bounded set of waiting renderer jobs for one owner/project scope.
+ * This is orchestration only: all state transitions, leases, retries and
+ * output persistence remain owned by the existing single-job worker/store.
+ * Failed jobs are intentionally excluded so retry remains an explicit action.
+ */
+export async function runVideoRendererWorkerBatch({
+  store,
+  ownerEmail,
+  projectId,
+  adapter,
+  workerId,
+  limit = 1,
+  leaseMs = 30_000,
+  now,
+  pollAt = [],
+  deadlineAt = '',
+  retryAt = '',
+  autoRecoverExpired = true,
+  requirePreflight = false,
+  leaseTokenFactory,
+} = {}) {
+  if (!store || typeof store.listExportJobs !== 'function'
+    || typeof store.getExportJob !== 'function') {
+    throw coded('RENDER_RECONCILIATION_INVALID', 'renderer batch store contract is incomplete');
+  }
+  const owner = requiredString(ownerEmail, '账号');
+  const project = requiredString(projectId, '项目');
+  const worker = requiredString(workerId, 'worker');
+  if (!adapter || typeof adapter.submit !== 'function') {
+    throw coded('RENDER_RECONCILIATION_INVALID', 'renderer adapter 未配置');
+  }
+
+  // Inspect a bounded page before selecting work. The page is deliberately
+  // larger than the execution limit so terminal/failed jobs do not starve
+  // older waiting jobs, while the store still caps the query at 50 rows.
+  const inspectedJobs = store.listExportJobs({ ownerEmail: owner, projectId: project, limit: 50 });
+  if (!Array.isArray(inspectedJobs)) {
+    throw coded('RENDER_RECONCILIATION_INVALID', 'renderer batch store returned an invalid job list');
+  }
+  const waitingJobs = inspectedJobs.filter(job => job?.state === 'waiting_renderer');
+  const executionLimit = boundedBatchLimit(limit);
+  const selectedJobs = waitingJobs.slice(0, executionLimit);
+  const selectedIds = new Set(selectedJobs.map(job => job.id));
+  const skippedJobs = inspectedJobs
+    .filter(job => !selectedIds.has(job.id))
+    .map(job => publicBatchJob(job, {
+      reason: job.state === 'waiting_renderer' ? 'batch_limit' : 'state_not_eligible',
+    }));
+  const results = [];
+  let providerCalls = 0;
+  let providerSubmission = false;
+  let billingMutated = false;
+
+  for (let index = 0; index < selectedJobs.length; index += 1) {
+    const candidate = selectedJobs[index];
+    try {
+      // Keep token generation inside the per-job boundary. A broken injected
+      // token source must not abort the rest of a bounded batch or claim work.
+      const token = typeof leaseTokenFactory === 'function'
+        ? leaseTokenFactory({ job: candidate, index })
+        : randomUUID();
+      const result = await runVideoRendererWorkerOnce({
+        store,
+        ownerEmail: owner,
+        projectId: project,
+        jobId: candidate.id,
+        adapter,
+        workerId: worker,
+        leaseToken: token,
+        leaseMs,
+        now,
+        pollAt,
+        deadlineAt,
+        retryAt,
+        autoRecoverExpired,
+        requirePreflight,
+      });
+      const current = result.job || store.getExportJob({
+        ownerEmail: owner, projectId: project, jobId: candidate.id,
+      });
+      const calls = Number(result.providerCalls || 0);
+      providerCalls += Number.isFinite(calls) && calls > 0 ? calls : 0;
+      providerSubmission = providerSubmission || Boolean(current.providerSubmission);
+      billingMutated = billingMutated || Boolean(current.billingMutation);
+      results.push(publicBatchJob(current, {
+        providerCalls: Number.isFinite(calls) && calls > 0 ? calls : 0,
+        externalJobId: String(result.externalJobId || ''),
+        errorCode: String(current.errorCode || ''),
+      }));
+    } catch (error) {
+      const failure = publicBatchError(error);
+      let current = candidate;
+      try {
+        current = store.getExportJob({ ownerEmail: owner, projectId: project, jobId: candidate.id });
+      } catch {
+        // Keep the pre-claim snapshot; the original error remains the result.
+      }
+      providerSubmission = providerSubmission || Boolean(current.providerSubmission);
+      billingMutated = billingMutated || Boolean(current.billingMutation);
+      results.push(publicBatchJob(current, {
+        ...failure,
+        providerCalls: 0,
+      }));
+    }
+  }
+
+  return {
+    inspected: inspectedJobs.length,
+    eligible: waitingJobs.length,
+    processed: results.length,
+    skipped: skippedJobs.length,
+    skippedJobs,
+    results,
+    providerCalls,
+    providerSubmission,
+    billingMutated,
+  };
 }

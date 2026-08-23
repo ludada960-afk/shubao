@@ -231,7 +231,14 @@ function CreativeDomainNav() {
   };
 
   const requestLogin = action => {
-    dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: action.type === 'OPEN_CANVAS' ? 'ec-canvas' : action.page, source: state.page } });
+    dispatch({
+      type: 'SET_LOGIN_INTENT',
+      intent: {
+        destination: action.type === 'OPEN_CANVAS' ? 'ec-canvas' : action.page,
+        source: state.page,
+        ...(action.type === 'OPEN_CANVAS' && action.tab ? { canvasTab: action.tab } : {}),
+      },
+    });
     dispatch({ type: 'SHOW_LOGIN', show: true });
   };
 

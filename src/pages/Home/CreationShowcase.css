@@ -157,11 +157,10 @@
 .xhs-template-option-icon { display: inline-grid; flex: 0 0 auto; place-items: center; color: #6254e7; }
 .xhs-template-actions .ec-workbench-primary-row { display: flex; height: 52px; min-height: 52px; align-items: center; gap: 6px; }
 .xhs-template-actions .ec-config-trigger { cursor: pointer; }
-.xhs-template-actions .ec-workbench-next { height: 38px; min-width: 0; padding: 0 22px; border: none; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 700; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all .2s; flex: 0 0 auto; box-shadow: 0 4px 16px rgba(124,58,237,.3); }
-.xhs-template-actions .ec-workbench-next:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 6px 24px rgba(124,58,237,.4); }
+.xhs-template-actions .ec-workbench-next { height: 38px; min-width: 0; padding: 0 22px; border-radius: 12px; }
 .xhs-template-options { margin: 0; padding: 14px 16px; border: 1px solid rgba(255,255,255,.86); border-radius: 8px; color: #554941; background: rgba(252,252,253,.96); font-size: 12px; box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06); backdrop-filter: blur(24px) saturate(135%); }
-.xhs-template-options--upward { position: absolute; left: 50%; bottom: calc(100% + 10px); z-index: 20; width: min(520px, calc(100vw - 32px)); transform: translateX(-50%); }
-.xhs-template-options--upward::after { position: absolute; left: 50%; bottom: -6px; width: 11px; height: 11px; border-right: 1px solid rgba(255,255,255,.9); border-bottom: 1px solid rgba(255,255,255,.9); background: rgba(252,252,253,.96); content: ''; transform: translateX(-50%) rotate(45deg); }
+.xhs-template-options--upward { position: absolute; left: 0; bottom: calc(100% + 10px); z-index: 20; width: min(520px, calc(100vw - 32px)); }
+.xhs-template-options--upward::after { position: absolute; left: 73px; bottom: -6px; width: 11px; height: 11px; border-right: 1px solid rgba(255,255,255,.9); border-bottom: 1px solid rgba(255,255,255,.9); background: rgba(252,252,253,.96); content: ''; transform: translateX(-50%) rotate(45deg); }
 .xhs-template-options p { margin: 7px 0 0; color: #7b6d64; line-height: 1.7; }
 .xhs-option-heading { margin-top: 13px; color: #9b7561; font-size: 11px; font-weight: 800; }
 .xhs-option-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
@@ -197,12 +196,177 @@
   .xhs-template-tools,
   .xhs-template-tools:has(.xhs-template-option-slot:nth-child(2)) { width: auto; max-width: none; overflow-x: auto !important; }
   .xhs-template-option-slot { position: static; }
-  .xhs-template-options--upward { left: 50%; width: min(520px, calc(100vw - 28px)); transform: translateX(-50%); }
-  .xhs-template-options--upward::after { left: 50%; transform: translateX(-50%) rotate(45deg); }
+  .xhs-template-options--upward { left: 0; width: min(520px, calc(100vw - 28px)); }
+  .xhs-template-options--upward::after { left: 73px; transform: translateX(-50%) rotate(45deg); }
   .creation-showcase-content-body { grid-template-columns: 1fr; min-height: 0; }
   .creation-showcase-content-copy-shell { min-height: 0; padding-bottom: 4px; }
   .creation-showcase-content-visual { min-height: 290px; }
   .xhs-case-showcase .creation-showcase-content-copy-shell { min-height: 0; padding: 20px; }
   .xhs-case-showcase .creation-showcase-content-visual { min-height: 236px; padding: 12px 8px 16px; }
   .xhs-case-showcase .creation-showcase-content-images { width: 100%; min-height: 0; aspect-ratio: 1 / 1; }
+}
+
+/* XHS uses the ecommerce workbench shell and measurements. Only the copy and
+   the small set of content-specific controls remain different. */
+.xhs-main-card {
+  position: relative;
+  margin: 0 16px;
+  padding: 16px 20px 20px;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.xhs-main-card .xhs-content-surface {
+  width: 100%;
+  padding: 0;
+}
+
+.xhs-main-card .ec-ability-selector-option {
+  min-height: 102px;
+  gap: 14px;
+  padding: 9px 38px 9px 10px;
+}
+
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan,
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan.is-empty {
+  width: 126px;
+  height: 44px;
+  flex-basis: 126px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan-card {
+  top: 50%;
+  width: 54px;
+  height: auto;
+  max-height: 42px;
+  aspect-ratio: var(--case-ratio);
+  border: 2px solid #fff;
+  border-radius: 5px;
+  box-shadow: 0 4px 10px rgba(45, 36, 30, .12);
+  transform-origin: 50% 100%;
+}
+
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan-card.fan-card-0 {
+  left: 4px;
+  transform: translateY(-50%) rotate(-7deg);
+}
+
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan-card.fan-card-1 {
+  left: 37px;
+  transform: translateY(-52%);
+}
+
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan-card.fan-card-2 {
+  right: 3px;
+  transform: translateY(-50%) rotate(7deg);
+}
+
+.xhs-main-card .xhs-ability-selector .ec-ability-selector-fan-empty {
+  color: #a66d84;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.xhs-main-card .xhs-case-heading {
+  margin: 0 0 12px;
+}
+
+.xhs-main-card .xhs-input-template .ec-xhs-composer {
+  min-height: 310px;
+  padding: 8px 10px 10px;
+  border-radius: 16px;
+}
+
+.xhs-main-card .xhs-input-template .ec-xhs-prompt {
+  height: 104px;
+  min-height: 104px;
+  padding: 6px 0;
+}
+
+.xhs-main-card .xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field {
+  min-height: 104px;
+  padding: 8px 18px;
+  font-size: 15px;
+  line-height: 28px;
+}
+
+.xhs-main-card .xhs-template-actions {
+  min-height: 79px;
+  padding: 12px 2px 14px;
+  border-top: 1px solid rgba(28, 25, 23, .08);
+  background: #fff;
+}
+
+.xhs-main-card .xhs-template-actions .ec-workbench-primary-row {
+  height: 52px;
+  min-height: 52px;
+}
+
+.xhs-main-card .xhs-template-actions .ec-workbench-next {
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 12px;
+}
+
+.xhs-main-card .xhs-template-actions .ec-config-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xhs-main-card .xhs-template-chevron {
+  flex: 0 0 auto;
+  opacity: .4;
+  color: var(--text-muted);
+  transition: transform .22s ease, opacity .2s ease;
+}
+
+.xhs-main-card .xhs-template-chevron.is-open {
+  opacity: .8;
+  transform: rotate(180deg);
+}
+
+@media (max-width: 760px) {
+  .xhs-main-card {
+    margin: 0;
+    padding: 14px 10px 12px;
+    padding-bottom: max(84px, calc(72px + env(safe-area-inset-bottom)));
+    border-radius: 16px;
+  }
+
+  .xhs-main-card .xhs-content-surface {
+    width: 100%;
+  }
+
+  .xhs-main-card .ec-ability-selector-option {
+    min-height: 84px;
+    gap: 10px;
+    padding: 7px 34px 7px 8px;
+  }
+
+  .xhs-main-card .xhs-ability-selector .ec-ability-selector-fan,
+  .xhs-main-card .xhs-ability-selector .ec-ability-selector-fan.is-empty {
+    width: 104px;
+    height: 44px;
+    flex-basis: 104px;
+  }
+
+  .xhs-main-card .xhs-input-template .ec-xhs-composer {
+    min-height: 0;
+  }
+
+  .xhs-main-card .xhs-input-template .ec-xhs-prompt,
+  .xhs-main-card .xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field {
+    height: 92px;
+    min-height: 92px;
+  }
+
+  .xhs-main-card .xhs-template-actions {
+    min-height: 0;
+    padding: 8px 2px 10px;
+  }
 }

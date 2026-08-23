@@ -141,6 +141,7 @@ export function ensureProjectSchema(db) {
       created_at TEXT NOT NULL,
       deleted_at TEXT,
       retention_state TEXT NOT NULL DEFAULT 'active',
+      production_state TEXT NOT NULL DEFAULT 'draft',
       marked_at TEXT,
       isolated_at TEXT,
       FOREIGN KEY(project_id) REFERENCES projects(id)
@@ -164,11 +165,66 @@ export function ensureProjectSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_project_asset_lineage_target
       ON project_asset_lineage(project_id, target_asset_id);
+
+    CREATE TABLE IF NOT EXISTS product_profiles (
+      id TEXT PRIMARY KEY,
+      owner_email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT '',
+      facts_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_profiles_owner_status
+      ON product_profiles(owner_email, status, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS product_profile_variants (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      ordinal INTEGER NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT '',
+      spec TEXT NOT NULL DEFAULT '',
+      size TEXT NOT NULL DEFAULT '',
+      capacity TEXT NOT NULL DEFAULT '',
+      dim_label TEXT NOT NULL DEFAULT '',
+      count INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      UNIQUE(profile_id, ordinal),
+      FOREIGN KEY(profile_id) REFERENCES product_profiles(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_profile_variants_profile
+      ON product_profile_variants(profile_id, ordinal);
+
+    CREATE TABLE IF NOT EXISTS product_profile_assets (
+      profile_id TEXT NOT NULL,
+      owner_email TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      project_asset_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      expected_content_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(profile_id, project_id, project_asset_id, role),
+      FOREIGN KEY(profile_id) REFERENCES product_profiles(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_profile_assets_owner_asset
+      ON product_profile_assets(owner_email, project_id, project_asset_id);
+
+    CREATE TABLE IF NOT EXISTS product_profile_idempotency_keys (
+      owner_email TEXT NOT NULL,
+      route TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      response TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(owner_email, route, idempotency_key)
+    );
   `);
   const assetColumns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");
   if (!assetColumns.includes('metadata_json')) db.exec("ALTER TABLE project_assets ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'");
   if (!assetColumns.includes('retention_state')) db.exec("ALTER TABLE project_assets ADD COLUMN retention_state TEXT NOT NULL DEFAULT 'active'");
+  if (!assetColumns.includes('production_state')) db.exec("ALTER TABLE project_assets ADD COLUMN production_state TEXT NOT NULL DEFAULT 'draft'");
   if (!assetColumns.includes('retention_class_before_pin')) db.exec('ALTER TABLE project_assets ADD COLUMN retention_class_before_pin TEXT');
   if (!assetColumns.includes('retention_pinned')) db.exec('ALTER TABLE project_assets ADD COLUMN retention_pinned INTEGER NOT NULL DEFAULT 0');
   if (!assetColumns.includes('expires_at_before_pin')) db.exec('ALTER TABLE project_assets ADD COLUMN expires_at_before_pin TEXT');

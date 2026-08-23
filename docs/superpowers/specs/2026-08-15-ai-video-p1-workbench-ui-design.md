@@ -78,6 +78,7 @@ Every request derives the owner from the signed session. A missing or foreign pr
 ### Asset shelf
 
 - Shows completed local uploads that can be imported and semantic assets already in the project.
+- The reusable project library is owner-scoped and media-agnostic: verified image, video, and audio assets from any same-owner project type, including video projects, may be imported as a new reference; marked, isolated, expired, deleted, or incomplete assets remain visible only to historical/recovery reads and are excluded from new imports.
 - Semantic kind is explicit: product, person, wardrobe, scene, prop, style, voice, or music.
 - A version is visibly `Draft` or `Approved`; approval is a deliberate command.
 - A source uploaded for immediate preview remains visible while durable import runs.

@@ -68,13 +68,13 @@ function normalizeOptions(options = {}, projectTitle = '') {
 
 function normalizeSubtitleCues(cues) {
   if (cues === undefined || cues === null) return [];
-  if (!Array.isArray(cues)) throw invalid('字幕数据无效');
+  if (!Array.isArray(cues) || cues.length > 200) throw invalid('字幕数据无效');
   let previousEnd = -1;
   return cues.map((cue) => {
     if (!cue || typeof cue !== 'object') throw invalid('字幕数据无效');
     const startMs = finiteNumber(cue.startMs, '字幕起点', { min: 0, integer: true });
     const endMs = finiteNumber(cue.endMs, '字幕终点', { min: 1, integer: true });
-    const text = typeof cue.text === 'string' ? cue.text.trim() : '';
+    const text = typeof cue.text === 'string' ? cue.text.trim().slice(0, 240) : '';
     if (!text || endMs <= startMs || startMs < previousEnd) throw invalid('字幕时间或文本无效');
     previousEnd = endMs;
     return { startMs, endMs, text };
@@ -144,7 +144,10 @@ function normalizeAudioTrack(track, assets) {
     language,
     voiceAnchor,
     beatMarkers: normalizeBeatMarkers(track.beatMarkers),
-    subtitleCues: normalizeSubtitleCues(track.subtitleCues),
+    subtitleCues: normalizeSubtitleCues(track.subtitleCues).map((cue) => {
+      if (cue.endMs > durationMs) throw invalid('字幕超出音频轨道时长');
+      return cue;
+    }),
   };
 }
 

@@ -69,7 +69,7 @@ const routes = [
     health: '复用生产图片通道', notes: '3/5/9 张套装按等级一次结算。',
   }),
   route({
-    id: 'change-nano-flash', providerId: 'change2pro', model: 'gemini-3.1-flash-image', status: 'connected',
+    id: 'change-nano-flash', providerId: 'change2pro', model: 'gemini-2.5-flash-image', status: 'connected',
     purpose: 'Nano Banana 生图', billingUnit: '每张', unitPriceCny: 0.06,
     appSkus: ['ec_nano_flash_1k', 'ec_nano_flash_2k', 'ec_nano_flash_4k', 'ec_nano_pro_1k', 'ec_nano_pro_2k', 'ec_nano_pro_4k'],
     health: '13 次账户请求均成功；无独立监控', notes: '生产密钥位于特惠组；1K/2K/4K 当前同价。',
@@ -95,7 +95,7 @@ const routes = [
   route({ id: '65535-gpt-image-2-eco', providerId: 'relay_65535', model: 'gpt-image-2-eco', purpose: '原生 4K 候选', billingUnit: '每张', unitPriceCny: 0.10, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-gpt-image-2-auto', providerId: 'relay_65535', model: 'gpt-image-2-auto', purpose: '分辨率分级候选', billingUnit: '1K / 2K / 4K 每张', unitPriceText: '¥0.045 / ¥0.065 / ¥0.095', notes: '候选通道，当前未接入。' }),
   route({ id: '65535-gemini-pro-image', providerId: 'relay_65535', model: 'gemini-3-pro-image', purpose: 'Google 图片候选', billingUnit: '每张', unitPriceCny: 0.18, notes: '候选通道，当前未接入。' }),
-  route({ id: '65535-gemini-flash-image', providerId: 'relay_65535', model: 'gemini-3.1-flash-image', purpose: 'Google 图片候选', billingUnit: '每张', unitPriceCny: 0.15, notes: '候选通道，当前未接入。' }),
+  route({ id: '65535-gemini-flash-image', providerId: 'relay_65535', model: 'gemini-2.5-flash-image', purpose: 'Google 图片候选', billingUnit: '每张', unitPriceCny: 0.15, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-seedvr2', providerId: 'relay_65535', model: 'seedvr2-7b', purpose: '图片超分候选', billingUnit: '每 1MP', unitPriceCny: 0.006, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-seedance-fast', providerId: 'relay_65535', model: 'seedance-2.0-fast-std', purpose: '视频备用路由', billingUnit: '480P / 720P 每秒', unitPriceText: '¥0.35 / ¥0.50', health: '新路由，样本不足', notes: '建议独立视频密钥后作为备援，避免与图片流量混账。' }),
   route({ id: '65535-seedance-standard', providerId: 'relay_65535', model: 'seedance-2.0-std', purpose: '视频备用路由', billingUnit: '480P / 720P / 1080P 每秒', unitPriceText: '¥0.40 / ¥0.60 / ¥0.95', health: '近 4 小时 100%，平均约 341 秒', notes: '长视频成本明显高于 IP233 按条路由。' }),

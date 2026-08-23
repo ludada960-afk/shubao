@@ -293,8 +293,24 @@ test('completed video jobs converge through billing, project lineage, works proj
   assert.equal(completed.projectAssetRef.role, 'generated_video');
   assert.equal(completed.projectAssetRef.mimeType, 'video/mp4');
   assert.equal(completed.projectAssetRef.contentHash.length, 64);
+  assert.equal(completed.projectAssetRef.durationMs, 5_000);
+  assert.deepEqual(completed.projectAssetRef.metadata.aigc, { generated: true, provenanceVersion: 'aigc-v1' });
   assert.equal(projectedWork.projectAssetRefs[0].projectAssetId, completed.projectAssetRef.projectAssetId);
   assert.equal(projectedWork.projectAssetRefs[0].contentHash, completed.projectAssetRef.contentHash);
+  const outputMetadata = db.prepare('SELECT metadata_json FROM project_assets WHERE role = ?').get('generated_video');
+  assert.deepEqual(JSON.parse(outputMetadata.metadata_json), {
+    source: 'video-generation',
+    aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+    provenance: {
+      type: 'ai-generated',
+      route: 'video',
+      generatedAt: '2026-08-15T07:00:00.000Z',
+      sourceAssetIds: [
+        ...db.prepare('SELECT id FROM project_assets WHERE version_id = ? ORDER BY id').all(completed.sourceVersionId).map(row => row.id),
+      ],
+    },
+    durationMs: 5_000,
+  });
   assert.equal(settlementCalls, 1);
   assert.equal(projectedWorks, 1);
   assert.equal(db.prepare('SELECT COUNT(*) AS value FROM projects').get().value, 1);

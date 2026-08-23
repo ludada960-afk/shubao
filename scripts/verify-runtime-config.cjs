@@ -14,7 +14,7 @@ const EXPECTED_RUNTIME_CONFIG = Object.freeze({
   MINI_BASE_URL: 'https://api2.65535.space',
   MINI_MODEL: 'gpt-5.6-luna',
   NANO_BANANA_BASE_URL: 'https://api.change2pro.com',
-  NANO_BANANA_FLASH_MODEL: 'gemini-3.1-flash-image',
+  NANO_BANANA_FLASH_MODEL: 'gemini-2.5-flash-image',
   NANO_BANANA_PRO_MODEL: 'gemini-3-pro-image',
   IP233_VIDEO_BASE_URL: 'https://api-new.ip233.com/v1',
   IP233_VIDEO_MODEL: 'sd5-seedance-2.0',

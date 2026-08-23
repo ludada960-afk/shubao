@@ -12,7 +12,7 @@ test('navigation exposes the four confirmed creation domains in product order', 
     'commerce', 'video', 'content', 'visual',
   ]);
   assert.deepEqual(CREATIVE_NAV_GROUPS.map(group => group.label), [
-    '电商生图', '视频生成', '小红书', '图文自由创作',
+    '电商生图', '视频生成', '小红书图文', '自由创作',
   ]);
 });
 

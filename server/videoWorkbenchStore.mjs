@@ -32,7 +32,15 @@ import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoW
 import { assertVideoRendererPreflightIntegrity } from './videoRendererPreflight.mjs';
 import { normalizeShotDirection } from './videoShotDirection.mjs';
 import { normalizeVideoProvenance, verifiedVideoProvenance } from './videoProvenance.mjs';
-import { assertShotRecoveryPlanIntegrity, buildShotRecoveryPlan } from './videoShotRecovery.mjs';
+import {
+  assertShotRecoveryPlanIntegrity,
+  buildShotRecoveryApplication,
+  buildShotRecoveryPlan,
+  compileShotRecoveryExecution,
+  buildShotRecoveryDeliveryReceipt,
+  compileShotRecoveryCommit,
+  compileShotRecoveryCommitPreflight,
+} from './videoShotRecovery.mjs';
 import { assertCanonicalProjectAssetRef } from './projects/projectAssetContract.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
@@ -40,7 +48,7 @@ const BINDING_ROLES = new Set([
   'subject', 'product', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music',
   'first_frame', 'last_frame', 'motion_reference',
 ]);
-const SHOT_PATCH_FIELDS = new Set(['position', 'purpose', 'durationMs', 'cameraLanguage', 'prompt', 'direction']);
+const SHOT_PATCH_FIELDS = new Set(['position', 'purpose', 'durationMs', 'cameraLanguage', 'prompt', 'direction', 'firstFrameRef', 'lastFrameRef', 'modelIntent']);
 const SOURCE_MEDIA_MIME_PREFIX = Object.freeze({
   image: 'image/',
   video: 'video/',
@@ -57,6 +65,24 @@ function normalizeOwner(value) {
 
 function clean(value, max = 1000) {
   return String(value ?? '').trim().slice(0, max);
+}
+
+function normalizeAudioSubtitleCues(cues, durationMs, errorCode = 'INVALID_AUDIO_TRACK') {
+  if (!Array.isArray(cues) || cues.length > 200) {
+    throw coded(errorCode, 'audio subtitle cues are invalid');
+  }
+  let previousEnd = -1;
+  return cues.map((cue) => {
+    const startMs = cue?.startMs;
+    const endMs = cue?.endMs;
+    const text = clean(cue?.text, 240);
+    if (!cue || !Number.isSafeInteger(startMs) || !Number.isSafeInteger(endMs)
+      || startMs < 0 || endMs <= startMs || endMs > durationMs || startMs < previousEnd || !text) {
+      throw coded(errorCode, 'audio subtitle cues are invalid');
+    }
+    previousEnd = endMs;
+    return { startMs, endMs, text };
+  });
 }
 
 function projectAssetIdFromRef(value) {
@@ -408,6 +434,38 @@ function versionFromRow(row) {
   };
 }
 
+function parseShotFrameRef(value) {
+  if (!value) return null;
+  const parsed = parseJson(value, null);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const ref = {
+    projectId: clean(parsed.projectId, 128),
+    projectAssetId: clean(parsed.projectAssetId, 256),
+    assetId: clean(parsed.assetId, 256),
+    contentHash: clean(parsed.contentHash, 256),
+    stableUrl: clean(parsed.stableUrl, 2000),
+    mimeType: clean(parsed.mimeType, 160).toLowerCase(),
+    width: Number.isSafeInteger(parsed.width) ? parsed.width : null,
+    height: Number.isSafeInteger(parsed.height) ? parsed.height : null,
+  };
+  return ref.projectAssetId && ref.contentHash ? ref : null;
+}
+
+function serializeShotFrameRef(canonical, role) {
+  const ref = canonical?.ref || null;
+  if (!ref?.projectAssetId) throw coded('PROJECT_ASSET_REF_INVALID', `${role} frame reference is invalid`);
+  return {
+    projectId: clean(ref.projectId, 128),
+    projectAssetId: clean(ref.projectAssetId, 256),
+    assetId: clean(ref.assetId, 256),
+    contentHash: clean(ref.contentHash, 256),
+    stableUrl: clean(ref.stableUrl, 2000),
+    mimeType: clean(ref.mimeType, 160).toLowerCase(),
+    width: Number.isSafeInteger(ref.width) ? ref.width : null,
+    height: Number.isSafeInteger(ref.height) ? ref.height : null,
+  };
+}
+
 function shotFromRow(row) {
   if (!row) return null;
   const cameraLanguage = row.camera_language || '';
@@ -421,6 +479,9 @@ function shotFromRow(row) {
     cameraLanguage,
     direction: normalizeShotDirection(parseJson(row.direction_json, {}), cameraLanguage),
     prompt: row.prompt,
+    firstFrameRef: parseShotFrameRef(row.first_frame_ref),
+    lastFrameRef: parseShotFrameRef(row.last_frame_ref),
+    modelIntent: clean(row.model_intent, 2000),
     status: row.status,
     selectedCandidateId: row.selected_candidate_id,
     revision: row.revision,
@@ -635,6 +696,7 @@ function ensureSchema(db) {
       position INTEGER NOT NULL, purpose TEXT NOT NULL, duration_ms INTEGER NOT NULL,
       camera_language TEXT NOT NULL DEFAULT '', prompt TEXT NOT NULL DEFAULT '', direction_json TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'draft', selected_candidate_id TEXT,
+      first_frame_ref TEXT NOT NULL DEFAULT '', last_frame_ref TEXT NOT NULL DEFAULT '', model_intent TEXT NOT NULL DEFAULT '',
       revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       UNIQUE(project_id, position), FOREIGN KEY(project_id) REFERENCES projects(id)
     );
@@ -798,6 +860,13 @@ function ensureSchema(db) {
   if (!shotColumns.some(column => column.name === 'direction_json')) {
     db.exec(`ALTER TABLE video_storyboard_shots ADD COLUMN direction_json TEXT NOT NULL DEFAULT '{}'`);
   }
+  for (const [name, definition] of [
+    ['first_frame_ref', "TEXT NOT NULL DEFAULT ''"],
+    ['last_frame_ref', "TEXT NOT NULL DEFAULT ''"],
+    ['model_intent', "TEXT NOT NULL DEFAULT ''"],
+  ]) {
+    if (!shotColumns.some(column => column.name === name)) db.exec(`ALTER TABLE video_storyboard_shots ADD COLUMN ${name} ${definition}`);
+  }
   const exportJobColumns = db.prepare(`PRAGMA table_info(video_export_jobs)`).all();
   const exportJobColumnNames = new Set(exportJobColumns.map(column => column.name));
   for (const [name, definition] of [
@@ -850,19 +919,42 @@ export function createVideoWorkbenchStore({
     if (!project || project.kind !== 'video') throw coded('PROJECT_NOT_FOUND', 'video project not found');
     return { owner, project };
   };
-  const requireCanonicalProjectAsset = ({ ownerEmail, projectId, projectAssetId, expectedContentHash, role = 'reference' }) => {
+  const requireCanonicalProjectAsset = ({ ownerEmail, projectId, projectAssetId, expectedContentHash,
+    role = 'reference', purpose = 'read' }) => {
     if (typeof canonicalAssetStore?.getProjectAsset !== 'function') {
       throw coded('PROJECT_ASSET_BRIDGE_UNAVAILABLE', 'canonical project asset bridge is unavailable');
     }
     const canonicalId = projectAssetIdFromRef(projectAssetId);
     if (!canonicalId) throw coded('PROJECT_ASSET_REF_INVALID', 'projectAssetId is required');
-    const asset = canonicalAssetStore.getProjectAsset({ ownerEmail, projectId, projectAssetId: canonicalId });
+    const asset = canonicalAssetStore.getProjectAsset({
+      ownerEmail,
+      projectId,
+      projectAssetId: canonicalId,
+      purpose,
+    });
     if (!asset) throw coded('PROJECT_ASSET_NOT_FOUND', 'canonical project asset not found');
     try {
       return { asset, ref: publicProjectAssetRef(asset, { role, expectedContentHash }) };
     } catch (error) {
       throw coded('PROJECT_ASSET_REF_INVALID', error?.message || 'canonical project asset reference is invalid');
     }
+  };
+  const requireShotFrameRef = ({ owner, project, value, role }) => {
+    if (value === undefined || value === null || value === '') return null;
+    const input = typeof value === 'string'
+      ? (() => { try { return JSON.parse(value); } catch { return {}; } })()
+      : (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+    const projectAssetId = projectAssetIdFromRef(input.projectAssetId || input.id);
+    if (!projectAssetId) throw coded('PROJECT_ASSET_REF_INVALID', role + ' frame reference requires a projectAssetId');
+    const canonical = requireCanonicalProjectAsset({
+      ownerEmail: owner,
+      projectId: project.id,
+      projectAssetId,
+      expectedContentHash: clean(input.contentHash, 256),
+      role,
+      purpose: 'reuse',
+    });
+    return serializeShotFrameRef(canonical, role);
   };
   const createCanonicalProjectAsset = ({ ownerEmail, projectId, assetId, role, stableUrl, contentHash, mimeType,
     width = null, height = null, durationMs = null, aspectRatio = null, thumbnailProjectAssetId = null,
@@ -898,10 +990,11 @@ export function createVideoWorkbenchStore({
       role,
     });
   };
-  const lookupCanonicalProjectAsset = ({ ownerEmail, projectId, projectAssetId, expectedContentHash, role = 'reference' }) => {
+  const lookupCanonicalProjectAsset = ({ ownerEmail, projectId, projectAssetId, expectedContentHash,
+    role = 'reference', purpose = 'read' }) => {
     if (!projectAssetId) return null;
     try {
-      return requireCanonicalProjectAsset({ ownerEmail, projectId, projectAssetId, expectedContentHash, role });
+      return requireCanonicalProjectAsset({ ownerEmail, projectId, projectAssetId, expectedContentHash, role, purpose });
     } catch (error) {
       if (['PROJECT_ASSET_NOT_FOUND', 'PROJECT_ASSET_REF_INVALID'].includes(error?.code)) return null;
       throw error;
@@ -917,6 +1010,21 @@ export function createVideoWorkbenchStore({
     const version = versionFromRow(db.prepare(`SELECT * FROM video_workbench_asset_versions
       WHERE id = ? AND asset_id = ? AND owner_email = ? AND project_id = ?`).get(versionId, assetId, owner, projectId));
     if (!version) throw coded('ASSET_VERSION_NOT_FOUND', 'asset version not found');
+    return version;
+  };
+  const requireReusableVersion = (owner, projectId, assetId, versionId, role) => {
+    const version = requireVersion(owner, projectId, assetId, versionId);
+    if (!version.sourceProjectAssetId) {
+      throw coded('PROJECT_ASSET_REF_INVALID', 'asset version has no canonical project asset');
+    }
+    requireCanonicalProjectAsset({
+      ownerEmail: owner,
+      projectId,
+      projectAssetId: version.sourceProjectAssetId,
+      expectedContentHash: version.contentHash,
+      role,
+      purpose: 'reuse',
+    });
     return version;
   };
   const hydrateVersion = version => {
@@ -943,6 +1051,21 @@ export function createVideoWorkbenchStore({
     const candidate = candidateFromRow(db.prepare(`SELECT * FROM video_shot_candidates
       WHERE id = ? AND shot_id = ? AND owner_email = ? AND project_id = ?`).get(candidateId, shotId, owner, projectId));
     if (!candidate) throw coded('CANDIDATE_NOT_FOUND', 'candidate not found');
+    return candidate;
+  };
+  const requireReusableCandidate = (owner, projectId, shotId, candidateId) => {
+    const candidate = requireCandidate(owner, projectId, shotId, candidateId);
+    const ref = candidate.projectAssetRef;
+    if (ref?.projectAssetId) {
+      requireCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId,
+        projectAssetId: ref.projectAssetId,
+        expectedContentHash: ref.expectedContentHash || candidate.contentHash,
+        role: ref.role || 'generated-video',
+        purpose: 'reuse',
+      });
+    }
     return candidate;
   };
   const hydrateCandidate = candidate => {
@@ -1008,11 +1131,7 @@ export function createVideoWorkbenchStore({
         || (index > 0 && item <= beatMarkers[index - 1]))) {
       throw coded('INVALID_AUDIO_TRACK', 'audio beat markers must be sorted within the track');
     }
-    if (!Array.isArray(subtitleCues) || subtitleCues.length > 200 || subtitleCues.some(cue => (
-      !cue || !Number.isSafeInteger(cue.startMs) || !Number.isSafeInteger(cue.endMs)
-      || cue.startMs < 0 || cue.endMs <= cue.startMs || cue.endMs > durationMs
-      || !clean(cue.text, 240)
-    ))) throw coded('INVALID_AUDIO_TRACK', 'audio subtitle cues are invalid');
+    normalizeAudioSubtitleCues(subtitleCues, durationMs);
     if (clean(language, 32).length > 32 || clean(voiceAnchor, 240).length > 240) {
       throw coded('INVALID_AUDIO_TRACK', 'audio continuity metadata is too long');
     }
@@ -1044,6 +1163,7 @@ export function createVideoWorkbenchStore({
           projectAssetId: projectAssetRef,
           expectedContentHash: contentHash,
           role: projectAssetRef?.role || 'reference',
+          purpose: 'reuse',
         })
         : null;
       const requestedUrl = clean(stableUrl, 2000);
@@ -1059,6 +1179,7 @@ export function createVideoWorkbenchStore({
           projectAssetId: sourceProjectAssetId,
           expectedContentHash: requestedHash,
           role: suppliedMetadata.role || 'reference',
+          purpose: 'reuse',
         });
         if (!canonical) {
           canonical = createCanonicalProjectAsset({
@@ -1174,6 +1295,7 @@ export function createVideoWorkbenchStore({
         ownerEmail: owner,
         projectId: sourceProject.id,
         projectAssetId: sourceProjectAssetId,
+        purpose: 'reuse',
       });
       if (!sourceAsset) throw coded('PROJECT_ASSET_NOT_FOUND', 'source project asset not found');
       let sourceRef;
@@ -1249,7 +1371,8 @@ export function createVideoWorkbenchStore({
       })();
     },
 
-    createShot({ ownerEmail, projectId, position, purpose, durationMs, cameraLanguage = '', prompt = '', direction = {} }) {
+    createShot({ ownerEmail, projectId, position, purpose, durationMs, cameraLanguage = '', prompt = '', direction = {},
+      firstFrameRef = null, lastFrameRef = null, modelIntent = '' }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       validatePosition(position);
       validateDuration(durationMs);
@@ -1257,12 +1380,18 @@ export function createVideoWorkbenchStore({
       const createdAt = timestamp();
       const normalizedCameraLanguage = clean(cameraLanguage, 2000);
       const normalizedDirection = normalizeShotDirection(direction, normalizedCameraLanguage);
+      const normalizedFirstFrameRef = requireShotFrameRef({ owner, project, value: firstFrameRef, role: 'first_frame' });
+      const normalizedLastFrameRef = requireShotFrameRef({ owner, project, value: lastFrameRef, role: 'last_frame' });
+      const normalizedModelIntent = clean(modelIntent, 2000);
       try {
         db.prepare(`INSERT INTO video_storyboard_shots
-          (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt, direction_json, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt, direction_json,
+           first_frame_ref, last_frame_ref, model_intent, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
           id, owner, project.id, position, clean(purpose, 500), durationMs,
-          normalizedCameraLanguage, clean(prompt, 8000), JSON.stringify(normalizedDirection), createdAt, createdAt,
+          normalizedCameraLanguage, clean(prompt, 8000), JSON.stringify(normalizedDirection),
+          JSON.stringify(normalizedFirstFrameRef), JSON.stringify(normalizedLastFrameRef), normalizedModelIntent,
+          createdAt, createdAt,
         );
       } catch (error) {
         if (/UNIQUE constraint failed/i.test(error.message)) throw coded('INVALID_POSITION', 'shot position already exists');
@@ -1281,13 +1410,20 @@ export function createVideoWorkbenchStore({
         const next = { ...shot, ...patch };
         next.direction = normalizeShotDirection(patch.direction ?? shot.direction, patch.cameraLanguage ?? shot.cameraLanguage);
         next.cameraLanguage = next.direction.cameraLanguage;
+        const framePatch = (value, role) => (role in patch ? requireShotFrameRef({ owner, project, value, role }) : value);
+        const nextFirstFrameRef = framePatch(next.firstFrameRef, 'first_frame');
+        const nextLastFrameRef = framePatch(next.lastFrameRef, 'last_frame');
+        const nextModelIntent = clean(next.modelIntent, 2000);
         validatePosition(next.position);
         validateDuration(next.durationMs);
         try {
           db.prepare(`UPDATE video_storyboard_shots SET position = ?, purpose = ?, duration_ms = ?,
-            camera_language = ?, prompt = ?, direction_json = ?, revision = revision + 1, updated_at = ? WHERE id = ?`)
+            camera_language = ?, prompt = ?, direction_json = ?, first_frame_ref = ?, last_frame_ref = ?, model_intent = ?,
+            revision = revision + 1, updated_at = ? WHERE id = ?`)
             .run(next.position, clean(next.purpose, 500), next.durationMs, clean(next.cameraLanguage, 2000),
-              clean(next.prompt, 8000), JSON.stringify(next.direction), timestamp(), shot.id);
+              clean(next.prompt, 8000), JSON.stringify(next.direction),
+              JSON.stringify(nextFirstFrameRef), JSON.stringify(nextLastFrameRef), nextModelIntent,
+              timestamp(), shot.id);
         } catch (error) {
           if (/UNIQUE constraint failed/i.test(error.message)) throw coded('INVALID_POSITION', 'shot position already exists');
           throw error;
@@ -1300,8 +1436,8 @@ export function createVideoWorkbenchStore({
       const { owner, project } = requireProject(ownerEmail, projectId);
       requireShot(owner, project.id, shotId);
       requireAsset(owner, project.id, assetId);
-      requireVersion(owner, project.id, assetId, assetVersionId);
       if (!BINDING_ROLES.has(role)) throw coded('INVALID_BINDING', 'unknown shot asset role');
+      requireReusableVersion(owner, project.id, assetId, assetVersionId, role);
       const createdAt = timestamp();
       db.prepare(`INSERT INTO video_shot_asset_bindings
         (shot_id, asset_id, asset_version_id, owner_email, project_id, role, created_at)
@@ -1328,9 +1464,16 @@ export function createVideoWorkbenchStore({
       if (existing) return existing;
       const id = randomUUID();
       const provenanceStatus = generationJobId ? 'unverified-legacy' : 'planned';
+      const normalizedProjectAssetRef = projectAssetRef && typeof projectAssetRef === 'object'
+        ? {
+          ...projectAssetRef,
+          role: projectAssetRef.role || 'generated-video',
+          expectedContentHash: projectAssetRef.expectedContentHash || normalizedHash,
+        }
+        : null;
       const normalizedProvenance = normalizeVideoProvenance({
         ...(provenance && typeof provenance === 'object' ? provenance : {}),
-        ...(projectAssetRef ? { projectAssetRef } : {}),
+        ...(normalizedProjectAssetRef ? { projectAssetRef: normalizedProjectAssetRef } : {}),
       }, provenanceStatus);
       db.prepare(`INSERT INTO video_shot_candidates
         (id, owner_email, project_id, shot_id, generation_job_id, output_asset_id,
@@ -1428,7 +1571,7 @@ export function createVideoWorkbenchStore({
       const { owner, project } = requireProject(ownerEmail, projectId);
       return db.transaction(() => {
         const shot = requireShot(owner, project.id, shotId);
-        const candidate = requireCandidate(owner, project.id, shot.id, candidateId);
+        const candidate = requireReusableCandidate(owner, project.id, shot.id, candidateId);
         if (shot.revision !== expectedRevision) throw coded('VERSION_CONFLICT', 'shot revision conflict', shot);
         const changedAt = timestamp();
         db.prepare(`UPDATE video_shot_candidates SET status = 'available'
@@ -1457,7 +1600,7 @@ export function createVideoWorkbenchStore({
       const { owner, project } = requireProject(ownerEmail, projectId);
       validatePosition(position);
       const shot = requireShot(owner, project.id, shotId);
-      requireCandidate(owner, project.id, shot.id, candidateId);
+      requireReusableCandidate(owner, project.id, shot.id, candidateId);
       if (shot.status === 'stale' || shot.selectedCandidateId !== candidateId) {
         throw coded('INVALID_TIMELINE_CANDIDATE', 'timeline clip must use the current candidate of a non-stale shot');
       }
@@ -1479,6 +1622,114 @@ export function createVideoWorkbenchStore({
         throw error;
       }
       return clipFromRow(db.prepare('SELECT * FROM video_timeline_clips WHERE id = ?').get(id));
+    },
+
+    applyCandidateToTimeline({ ownerEmail, projectId, shotId, candidateId,
+      expectedShotRevision, expectedClipRevision, position, trimStartMs = 0, trimEndMs, muted = false }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      validatePosition(position);
+      return db.transaction(() => {
+        const shot = requireShot(owner, project.id, shotId);
+        const candidate = requireReusableCandidate(owner, project.id, shot.id, candidateId);
+        const positionClip = clipFromRow(db.prepare(`SELECT * FROM video_timeline_clips
+          WHERE owner_email = ? AND project_id = ? AND position = ?`).get(owner, project.id, position));
+        if (positionClip && positionClip.shotId !== shot.id) {
+          throw coded('INVALID_POSITION', 'timeline position already belongs to another shot');
+        }
+        const currentClip = positionClip;
+        if (!Number.isSafeInteger(trimStartMs) || trimStartMs < 0
+          || !Number.isSafeInteger(trimEndMs) || trimEndMs <= trimStartMs
+          || trimEndMs > shot.durationMs) {
+          throw coded('INVALID_DURATION', 'timeline trim is outside shot duration');
+        }
+        const replayMatches = shot.revision === expectedShotRevision + 1
+          && shot.selectedCandidateId === candidate.id
+          && currentClip
+          && currentClip.status === 'active'
+          && currentClip.candidateId === candidate.id
+          && currentClip.position === position
+          && currentClip.trimStartMs === trimStartMs
+          && currentClip.trimEndMs === trimEndMs
+          && currentClip.muted === Boolean(muted)
+          && (expectedClipRevision === undefined || currentClip.revision === expectedClipRevision + 1);
+        if (replayMatches) {
+          return {
+            status: 'replayed',
+            replayed: true,
+            shot,
+            candidate: hydrateCandidate(candidate),
+            timelineClip: currentClip,
+            providerSubmission: false,
+            billingMutation: false,
+          };
+        }
+        if (shot.revision !== expectedShotRevision) throw coded('VERSION_CONFLICT', 'shot revision conflict', shot);
+        if (currentClip && expectedClipRevision === undefined) {
+          throw coded('VERSION_CONFLICT', 'timeline clip revision is required when replacing an existing clip', currentClip);
+        }
+        if (currentClip && currentClip.revision !== expectedClipRevision) {
+          throw coded('VERSION_CONFLICT', 'timeline clip revision conflict', currentClip);
+        }
+        if (currentClip && currentClip.status !== 'active') {
+          throw coded('INVALID_TIMELINE_CLIP', 'timeline clip is not active');
+        }
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_shot_candidates SET status = 'available'
+          WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND status = 'selected'`).run(
+          owner, project.id, shot.id,
+        );
+        db.prepare(`UPDATE video_shot_candidates SET status = 'selected'
+          WHERE id = ? AND owner_email = ? AND project_id = ? AND shot_id = ?`).run(
+          candidate.id, owner, project.id, shot.id,
+        );
+        db.prepare(`UPDATE video_timeline_clips SET status = 'stale', revision = revision + 1, updated_at = ?
+          WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND status = 'active' AND candidate_id <> ?
+            AND (id <> ? OR ? IS NULL)`)
+          .run(changedAt, owner, project.id, shot.id, candidate.id, currentClip?.id ?? null, currentClip?.id ?? null);
+        if (currentClip) {
+          db.prepare(`UPDATE video_timeline_clips SET candidate_id = ?, position = ?, trim_start_ms = ?,
+            trim_end_ms = ?, muted = ?, status = 'active', revision = revision + 1, updated_at = ?
+            WHERE id = ? AND owner_email = ? AND project_id = ? AND revision = ? AND status = 'active'`).run(
+            candidate.id, position, trimStartMs, trimEndMs, muted ? 1 : 0, changedAt,
+            currentClip.id, owner, project.id, expectedClipRevision,
+          );
+          if (db.prepare('SELECT changes() AS count').get().count !== 1) {
+            throw coded('VERSION_CONFLICT', 'timeline clip revision conflict', currentClip);
+          }
+        } else {
+          const clipId = randomUUID();
+          db.prepare(`INSERT INTO video_timeline_clips
+            (id, owner_email, project_id, shot_id, candidate_id, position, trim_start_ms, trim_end_ms,
+             muted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+            clipId, owner, project.id, shot.id, candidate.id, position, trimStartMs, trimEndMs,
+            muted ? 1 : 0, changedAt, changedAt,
+          );
+        }
+        const hasOutdatedBinding = Boolean(db.prepare(`SELECT 1 FROM video_shot_asset_bindings b
+          JOIN video_workbench_assets a ON a.id = b.asset_id
+          WHERE b.owner_email = ? AND b.project_id = ? AND b.shot_id = ?
+            AND (a.approved_version_id IS NULL OR a.approved_version_id <> b.asset_version_id) LIMIT 1`)
+          .get(owner, project.id, shot.id));
+        const nextStatus = shot.status === 'stale' || hasOutdatedBinding ? 'stale' : 'approved';
+        db.prepare(`UPDATE video_storyboard_shots SET selected_candidate_id = ?, status = ?,
+          revision = revision + 1, updated_at = ? WHERE id = ? AND owner_email = ? AND project_id = ? AND revision = ?`)
+          .run(candidate.id, nextStatus, changedAt, shot.id, owner, project.id, expectedShotRevision);
+        if (db.prepare('SELECT changes() AS count').get().count !== 1) {
+          throw coded('VERSION_CONFLICT', 'shot revision conflict', shot);
+        }
+        return {
+          status: 'applied',
+          replayed: false,
+          shot: requireShot(owner, project.id, shot.id),
+          candidate: hydrateCandidate(requireCandidate(owner, project.id, shot.id, candidate.id)),
+          timelineClip: clipFromRow(db.prepare(`SELECT * FROM video_timeline_clips
+            WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND position = ?`).get(
+            owner, project.id, shot.id, position,
+          )),
+          providerSubmission: false,
+          billingMutation: false,
+        };
+      })();
     },
 
     updateTimelineClip({ ownerEmail, projectId, clipId, expectedRevision, patch = {} }) {
@@ -1534,7 +1785,7 @@ export function createVideoWorkbenchStore({
           throw coded('VERSION_CONFLICT', 'timeline clip revision conflict', current);
         }
         const shot = requireShot(owner, project.id, current.shotId);
-        const candidate = requireCandidate(owner, project.id, shot.id, candidateId);
+        const candidate = requireReusableCandidate(owner, project.id, shot.id, candidateId);
         if (shot.status === 'stale' || shot.selectedCandidateId !== candidate.id) {
           throw coded('INVALID_TIMELINE_CANDIDATE', 'timeline clip replacement must use the current candidate of a non-stale shot');
         }
@@ -1562,14 +1813,12 @@ export function createVideoWorkbenchStore({
       beatMarkers = [], subtitleCues = [] }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const asset = requireAsset(owner, project.id, assetId);
-      const version = requireVersion(owner, project.id, assetId, assetVersionId);
       const normalizedKind = clean(kind, 20);
+      const version = requireReusableVersion(owner, project.id, assetId, assetVersionId, normalizedKind);
       const normalizedLanguage = clean(language, 32);
       const normalizedAnchor = clean(voiceAnchor, 240);
       const normalizedBeats = Array.isArray(beatMarkers) ? beatMarkers.slice() : beatMarkers;
-      const normalizedCues = Array.isArray(subtitleCues) ? subtitleCues.map(cue => ({
-        startMs: cue?.startMs, endMs: cue?.endMs, text: clean(cue?.text, 240),
-      })) : subtitleCues;
+      const normalizedCues = normalizeAudioSubtitleCues(subtitleCues, durationMs);
       validateAudioShape({ kind: normalizedKind, asset, version, startMs, durationMs,
         volume: Number(volume), language: normalizedLanguage, voiceAnchor: normalizedAnchor,
         beatMarkers: normalizedBeats, subtitleCues: normalizedCues });
@@ -1600,13 +1849,14 @@ export function createVideoWorkbenchStore({
         if (current.revision !== expectedRevision) throw coded('VERSION_CONFLICT', 'audio track revision conflict', current);
         const next = { ...current, ...patch };
         const asset = requireAsset(owner, project.id, next.assetId);
-        const version = requireVersion(owner, project.id, next.assetId, next.assetVersionId);
+        const versionChanged = current.assetId !== next.assetId || current.assetVersionId !== next.assetVersionId;
+        const version = versionChanged
+          ? requireReusableVersion(owner, project.id, next.assetId, next.assetVersionId, next.kind)
+          : requireVersion(owner, project.id, next.assetId, next.assetVersionId);
         const normalizedLanguage = clean(next.language, 32);
         const normalizedAnchor = clean(next.voiceAnchor, 240);
         const normalizedBeats = Array.isArray(next.beatMarkers) ? next.beatMarkers.slice() : next.beatMarkers;
-        const normalizedCues = Array.isArray(next.subtitleCues) ? next.subtitleCues.map(cue => ({
-          startMs: cue?.startMs, endMs: cue?.endMs, text: clean(cue?.text, 240),
-        })) : next.subtitleCues;
+        const normalizedCues = normalizeAudioSubtitleCues(next.subtitleCues, next.durationMs);
         validateAudioShape({ kind: clean(next.kind, 20), asset, version, startMs: next.startMs,
           durationMs: next.durationMs, volume: Number(next.volume), language: normalizedLanguage,
           voiceAnchor: normalizedAnchor, beatMarkers: normalizedBeats, subtitleCues: normalizedCues });
@@ -1642,6 +1892,7 @@ export function createVideoWorkbenchStore({
           if (asset.approved_version_id !== ref.assetVersionId) {
             throw coded('MEMORY_ASSET_VERSION_NOT_APPROVED', 'memory asset version is not approved');
           }
+          requireReusableVersion(owner, project.id, ref.assetId, ref.assetVersionId, ref.role || 'reference');
         }
         const currentRow = db.prepare(`SELECT * FROM video_project_memory_facts
           WHERE owner_email = ? AND project_id = ? AND fact_key = ?`).get(owner, project.id, normalized.key);
@@ -2340,7 +2591,11 @@ export function createVideoWorkbenchStore({
           const durationMs = Number.isSafeInteger(track.durationMs) ? track.durationMs : 0;
           if (startMs < 0 || durationMs < 500) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'audio track timing is invalid');
           const beatMarkers = Array.isArray(track.beatMarkers) ? track.beatMarkers : [];
-          const subtitleCues = Array.isArray(track.subtitleCues) ? track.subtitleCues : [];
+          const subtitleCues = normalizeAudioSubtitleCues(
+            track.subtitleCues,
+            durationMs,
+            'REPLAY_MANIFEST_CLONE_INVALID',
+          );
           db.prepare(`INSERT INTO video_audio_tracks
             (id, owner_email, project_id, kind, asset_id, asset_version_id, start_ms, duration_ms,
              volume, muted, language, voice_anchor, beat_markers_json, subtitle_cues_json,
@@ -2569,9 +2824,11 @@ export function createVideoWorkbenchStore({
       };
     },
 
-    createShotRecoveryPlan({ ownerEmail, projectId, shotId, reason = '', mode = 'replace_candidate' }) {
+    createShotRecoveryPlan({ ownerEmail, projectId, shotId, reason = '', mode = 'replace_candidate', extensionMs, region }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
-      const plan = buildShotRecoveryPlan(api.listWorkbench({ ownerEmail: owner, projectId: project.id }), { shotId, reason, mode });
+      const plan = buildShotRecoveryPlan(api.listWorkbench({ ownerEmail: owner, projectId: project.id }), {
+        shotId, reason, mode, extensionMs, region,
+      });
       assertShotRecoveryPlanIntegrity(plan);
       const existing = db.prepare(`SELECT * FROM video_shot_recovery_plans
         WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND plan_hash = ?`)
@@ -2584,6 +2841,304 @@ export function createVideoWorkbenchStore({
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(id, owner, project.id, plan.shot.id, plan.planHash, plan.status, 1, JSON.stringify(plan), createdAt, createdAt);
       return { ...shotRecoveryPlanFromRow(db.prepare('SELECT * FROM video_shot_recovery_plans WHERE id = ?').get(id)), replayed: false };
+    },
+
+    prepareShotRecoveryExecution({ ownerEmail, projectId, planId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_shot_recovery_plans
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(planId, owner, project.id);
+      if (!row) throw coded('SHOT_RECOVERY_NOT_FOUND', 'shot recovery plan not found');
+      const plan = shotRecoveryPlanFromRow(row);
+      assertShotRecoveryPlanIntegrity(plan);
+      const execution = compileShotRecoveryExecution(plan, api.listWorkbench({ ownerEmail: owner, projectId: project.id }));
+      return {
+        execution: {
+          ...execution,
+          application: buildShotRecoveryApplication(execution),
+        },
+        replayed: false,
+      };
+    },
+
+    /**
+     * Validate a trusted renderer delivery against the current recovery plan.
+     * This is intentionally read-only: registering a candidate, selecting it,
+     * and changing timeline clips remain separate owner-scoped transactions.
+     */
+    validateShotRecoveryDelivery({ ownerEmail, projectId, planId, delivery }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_shot_recovery_plans
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(planId, owner, project.id);
+      if (!row) throw coded('SHOT_RECOVERY_NOT_FOUND', 'shot recovery plan not found');
+      const plan = shotRecoveryPlanFromRow(row);
+      assertShotRecoveryPlanIntegrity(plan);
+      const execution = compileShotRecoveryExecution(plan, api.listWorkbench({
+        ownerEmail: owner, projectId: project.id,
+      }));
+      const application = buildShotRecoveryApplication(execution);
+      const receipt = buildShotRecoveryDeliveryReceipt(application, delivery, {
+        ownerEmail: owner, projectId: project.id,
+      });
+      return { executionHash: execution.executionHash, application, receipt, replayed: false };
+    },
+
+    /**
+     * Compile a validated renderer result into a guarded candidate/timeline
+     * commit draft. This remains read-only; the eventual transaction must
+     * re-check the canonical asset and revisions before writing anything.
+     */
+    prepareShotRecoveryCommit({ ownerEmail, projectId, planId, delivery }) {
+      const validated = api.validateShotRecoveryDelivery({ ownerEmail, projectId, planId, delivery });
+      const commit = compileShotRecoveryCommit(validated.receipt, { projectId });
+      return { ...validated, commit };
+    },
+
+    /**
+     * Revalidate a compiled recovery commit immediately before persistence.
+     * This is deliberately read-only. The eventual candidate/timeline
+     * transaction must consume this result and repeat the same guards while
+     * holding its write boundary.
+     */
+    preflightShotRecoveryCommit({ ownerEmail, projectId, planId, commit }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_shot_recovery_plans
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(planId, owner, project.id);
+      if (!row) throw coded('SHOT_RECOVERY_NOT_FOUND', 'shot recovery plan not found');
+      const plan = shotRecoveryPlanFromRow(row);
+      assertShotRecoveryPlanIntegrity(plan);
+      if (!commit || commit.planId !== row.id
+        || (commit.planHash && commit.planHash !== plan.planHash)) {
+        throw coded('SHOT_RECOVERY_STALE', '镜头提交草稿与当前恢复计划不匹配，请重新建立提交草稿');
+      }
+      const workbench = api.listWorkbench({ ownerEmail: owner, projectId: project.id });
+      const preflight = compileShotRecoveryCommitPreflight(commit, workbench, { projectId: project.id });
+      const shot = workbench.shots.find(item => item?.id === commit.candidate.shotId);
+      const sourceCandidate = shot?.candidates?.find(item => item?.id === commit.candidate.expectedCandidateId);
+      if (!sourceCandidate?.projectAssetRef?.projectAssetId) {
+        throw coded('PROJECT_ASSET_REF_INVALID', '镜头源候选缺少已核验的项目素材引用');
+      }
+      const source = requireCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        projectAssetId: sourceCandidate.projectAssetRef.projectAssetId,
+        expectedContentHash: sourceCandidate.contentHash || sourceCandidate.projectAssetRef.contentHash,
+        role: sourceCandidate.projectAssetRef.role || 'reference',
+        purpose: 'reuse',
+      });
+      const target = requireCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        projectAssetId: commit.candidate.projectAssetRef.projectAssetId,
+        expectedContentHash: commit.candidate.contentHash,
+        role: commit.candidate.projectAssetRef.role || 'generated-video',
+        purpose: 'reuse',
+      });
+      return {
+        ...preflight,
+        sourceProjectAssetRef: source.ref,
+        targetProjectAssetRef: target.ref,
+      };
+    },
+
+    /**
+     * Apply a validated shot-recovery commit inside the video workbench's
+     * own transaction boundary. This does not call a provider, create a
+     * canonical asset, or mutate billing. A delivery is idempotent by the
+     * output asset id plus commit hash; an already-applied commit is replayed
+     * without inserting a second candidate or timeline clip.
+     */
+    applyShotRecoveryCommit({ ownerEmail, projectId, planId, commit }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const planRow = db.prepare(`SELECT * FROM video_shot_recovery_plans
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(planId, owner, project.id);
+      if (!planRow) throw coded('SHOT_RECOVERY_NOT_FOUND', 'shot recovery plan not found');
+      const plan = shotRecoveryPlanFromRow(planRow);
+      assertShotRecoveryPlanIntegrity(plan);
+      if (!commit || commit.planId !== planRow.id
+        || (commit.planHash && commit.planHash !== plan.planHash)) {
+        throw coded('SHOT_RECOVERY_STALE', '镜头提交草稿与当前恢复计划不匹配，请重新建立提交草稿');
+      }
+
+      const candidateDraft = commit.candidate;
+      const targetProjectAssetId = candidateDraft?.projectAssetRef?.projectAssetId;
+      const targetAsset = requireCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        projectAssetId: targetProjectAssetId,
+        expectedContentHash: candidateDraft?.contentHash,
+        role: candidateDraft?.projectAssetRef?.role || 'generated-video',
+        purpose: 'reuse',
+      });
+
+      const snapshot = api.listWorkbench({ ownerEmail: owner, projectId: project.id });
+      const snapshotShot = snapshot.shots.find(item => item?.id === candidateDraft?.shotId);
+      const snapshotSourceCandidate = snapshotShot?.candidates?.find(
+        item => item?.id === candidateDraft?.expectedCandidateId,
+      );
+      if (!snapshotSourceCandidate?.projectAssetRef?.projectAssetId) {
+        throw coded('PROJECT_ASSET_REF_INVALID', '镜头源候选缺少已核验的项目素材引用');
+      }
+      const sourceAsset = requireCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        projectAssetId: snapshotSourceCandidate.projectAssetRef.projectAssetId,
+        expectedContentHash: snapshotSourceCandidate.contentHash
+          || snapshotSourceCandidate.projectAssetRef.expectedContentHash,
+        role: snapshotSourceCandidate.projectAssetRef.role || 'reference',
+        purpose: 'reuse',
+      });
+
+      const targetOutputAssetId = clean(candidateDraft?.outputAssetId, 256);
+      if (!targetOutputAssetId) throw coded('SHOT_RECOVERY_DELIVERY_INVALID', '镜头提交草稿缺少输出资产幂等键');
+
+      const existingTarget = db.prepare(`SELECT * FROM video_shot_candidates
+        WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND output_asset_id = ?`)
+        .get(owner, project.id, candidateDraft.shotId, targetOutputAssetId);
+      if (existingTarget) {
+        const existing = candidateFromRow(existingTarget);
+        const existingRef = existing.projectAssetRef;
+        const sameDelivery = existing.provenance?.recoveryCommitHash === String(commit.commitHash).toLowerCase()
+          && existing.stableUrl === candidateDraft.stableUrl
+          && existing.contentHash === candidateDraft.contentHash
+          && existing.mimeType === candidateDraft.mimeType
+          && existingRef?.projectAssetId === targetProjectAssetId;
+        if (!sameDelivery) {
+          throw coded('SHOT_RECOVERY_COMMIT_CONFLICT', '相同输出资产已绑定到另一份镜头提交');
+        }
+        const replayShot = requireShot(owner, project.id, candidateDraft.shotId);
+        const replayedClips = commit.timelineActions.map(action => requireClip(owner, project.id, action.clipId));
+        const fullyApplied = replayShot.selectedCandidateId === existing.id
+          && replayShot.revision === candidateDraft.expectedShotRevision + 1
+          && replayedClips.every((clip, index) => clip.status === 'active'
+            && clip.candidateId === existing.id
+            && clip.revision === commit.timelineActions[index].expectedRevision + 1);
+        if (!fullyApplied) throw coded('SHOT_RECOVERY_STALE', '镜头提交草稿已部分变化，请重新建立提交草稿');
+        return {
+          status: 'replayed',
+          replayed: true,
+          commitHash: commit.commitHash,
+          sourceProjectAssetRef: sourceAsset.ref,
+          targetProjectAssetRef: targetAsset.ref,
+          candidate: hydrateCandidate(existing),
+          shot: replayShot,
+          timelineClips: replayedClips,
+          providerSubmission: false,
+          billingMutation: false,
+        };
+      }
+
+      const preflight = api.preflightShotRecoveryCommit({
+        ownerEmail: owner, projectId: project.id, planId: planRow.id, commit,
+      });
+      return db.transaction(() => {
+        const shot = requireShot(owner, project.id, candidateDraft.shotId);
+        if (shot.revision !== candidateDraft.expectedShotRevision
+          || (shot.selectedCandidateId || null) !== (candidateDraft.expectedSelectedCandidateId || null)) {
+          throw coded('SHOT_RECOVERY_STALE', '镜头修订或选定候选已变化，请重新建立提交草稿');
+        }
+        const sourceCandidate = requireCandidate(owner, project.id, shot.id, candidateDraft.expectedCandidateId);
+        if (sourceCandidate.projectAssetRef?.projectAssetId !== snapshotSourceCandidate.projectAssetRef.projectAssetId) {
+          throw coded('SHOT_RECOVERY_STALE', '镜头源候选已变化，请重新建立提交草稿');
+        }
+        requireCanonicalProjectAsset({
+          ownerEmail: owner,
+          projectId: project.id,
+          projectAssetId: sourceCandidate.projectAssetRef.projectAssetId,
+          expectedContentHash: sourceCandidate.contentHash || sourceCandidate.projectAssetRef.expectedContentHash,
+          role: sourceCandidate.projectAssetRef.role || 'reference',
+          purpose: 'reuse',
+        });
+        requireCanonicalProjectAsset({
+          ownerEmail: owner,
+          projectId: project.id,
+          projectAssetId: targetProjectAssetId,
+          expectedContentHash: candidateDraft.contentHash,
+          role: candidateDraft.projectAssetRef.role || 'generated-video',
+          purpose: 'reuse',
+        });
+
+        const currentTarget = db.prepare(`SELECT * FROM video_shot_candidates
+          WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND output_asset_id = ?`)
+          .get(owner, project.id, shot.id, targetOutputAssetId);
+        if (currentTarget) throw coded('SHOT_RECOVERY_STALE', '镜头提交目标已被其他请求写入');
+        const provenance = normalizeVideoProvenance({
+          ...(commit.provider && typeof commit.provider === 'object' ? commit.provider : {}),
+          source: 'recovery-commit',
+          recoveryCommitHash: commit.commitHash,
+          projectAssetRef: {
+            ...candidateDraft.projectAssetRef,
+            role: candidateDraft.projectAssetRef.role || 'generated-video',
+            expectedContentHash: candidateDraft.contentHash,
+          },
+        }, 'planned');
+        const targetCandidateId = randomUUID();
+        db.prepare(`INSERT INTO video_shot_candidates
+          (id, owner_email, project_id, shot_id, output_asset_id, stable_url, content_hash,
+           mime_type, status, provenance_status, provenance_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?, ?)`)
+          .run(targetCandidateId, owner, project.id, shot.id, targetOutputAssetId,
+            clean(candidateDraft.stableUrl, 2000), clean(candidateDraft.contentHash, 256),
+            clean(candidateDraft.mimeType, 160).toLowerCase(), provenance.status,
+            JSON.stringify(provenance), timestamp());
+        const targetCandidate = requireCandidate(owner, project.id, shot.id, targetCandidateId);
+
+        let targetDurationMs = shot.durationMs;
+        for (const action of commit.timelineActions) {
+          const clip = requireClip(owner, project.id, action.clipId);
+          if (clip.shotId !== shot.id || clip.status !== 'active'
+            || clip.revision !== action.expectedRevision
+            || clip.candidateId !== action.expectedCandidateId) {
+            throw coded('SHOT_RECOVERY_STALE', '时间线片段已变化，请重新建立提交草稿');
+          }
+          if (Number.isSafeInteger(action.targetDurationMs)) targetDurationMs = Math.max(targetDurationMs, action.targetDurationMs);
+        }
+        if (targetDurationMs !== shot.durationMs) validateDuration(targetDurationMs);
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_shot_candidates SET status = 'available'
+          WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND status = 'selected'`)
+          .run(owner, project.id, shot.id);
+        db.prepare(`UPDATE video_shot_candidates SET status = 'selected' WHERE id = ?`).run(targetCandidate.id);
+        const timelineClips = [];
+        for (const action of commit.timelineActions) {
+          const nextEnd = Number.isSafeInteger(action.targetDurationMs)
+            ? action.targetDurationMs : null;
+          const clip = requireClip(owner, project.id, action.clipId);
+          db.prepare(`UPDATE video_timeline_clips SET candidate_id = ?, status = 'active',
+            trim_end_ms = CASE WHEN ? IS NULL THEN trim_end_ms ELSE ? END,
+            revision = revision + 1, updated_at = ?
+            WHERE id = ? AND owner_email = ? AND project_id = ? AND revision = ? AND status = 'active'`)
+            .run(targetCandidate.id, nextEnd, nextEnd, changedAt, clip.id, owner, project.id, action.expectedRevision);
+          if (db.prepare('SELECT changes() AS count').get().count !== 1) {
+            throw coded('SHOT_RECOVERY_STALE', '时间线片段已变化，请重新建立提交草稿');
+          }
+          timelineClips.push(requireClip(owner, project.id, clip.id));
+        }
+        const hasOutdatedBinding = Boolean(db.prepare(`SELECT 1 FROM video_shot_asset_bindings b
+          JOIN video_workbench_assets a ON a.id = b.asset_id
+          WHERE b.owner_email = ? AND b.project_id = ? AND b.shot_id = ?
+            AND (a.approved_version_id IS NULL OR a.approved_version_id <> b.asset_version_id) LIMIT 1`)
+          .get(owner, project.id, shot.id));
+        const nextStatus = shot.status === 'stale' || hasOutdatedBinding ? 'stale' : 'approved';
+        db.prepare(`UPDATE video_storyboard_shots SET selected_candidate_id = ?, status = ?,
+          duration_ms = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?`)
+          .run(targetCandidate.id, nextStatus, targetDurationMs, changedAt, shot.id, candidateDraft.expectedShotRevision);
+        if (db.prepare('SELECT changes() AS count').get().count !== 1) {
+          throw coded('SHOT_RECOVERY_STALE', '镜头已变化，请重新建立提交草稿');
+        }
+        return {
+          status: 'applied',
+          replayed: false,
+          commitHash: commit.commitHash,
+          preflightHash: preflight.preflightHash,
+          sourceProjectAssetRef: sourceAsset.ref,
+          targetProjectAssetRef: targetAsset.ref,
+          candidate: hydrateCandidate(requireCandidate(owner, project.id, shot.id, targetCandidate.id)),
+          shot: requireShot(owner, project.id, shot.id),
+          timelineClips,
+          providerSubmission: false,
+          billingMutation: false,
+        };
+      })();
     },
 
     getGenerationPlanApproval({ ownerEmail, projectId }) {

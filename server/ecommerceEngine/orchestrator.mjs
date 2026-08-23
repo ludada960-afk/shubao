@@ -339,6 +339,26 @@ function normalizeFormalAsset(value, label) {
   if (!SAFE_ID_RE.test(assetId)) {
     throw invalidVisualAssetInput(`${label} asset ID is invalid`);
   }
+  const ref = own(value, 'projectAssetRef');
+  if (ref !== undefined) {
+    if (!isRecord(ref)
+      || !cleanString(own(ref, 'projectId'))
+      || !cleanString(own(ref, 'projectAssetId'))
+      || !cleanString(own(ref, 'role'))
+      || !cleanString(own(ref, 'expectedContentHash'))) {
+      throw invalidVisualAssetInput(`${label} project asset reference is invalid`);
+    }
+    return {
+      assetId,
+      url,
+      projectAssetRef: {
+        projectId: cleanString(own(ref, 'projectId')),
+        projectAssetId: cleanString(own(ref, 'projectAssetId')),
+        role: cleanString(own(ref, 'role')),
+        expectedContentHash: cleanString(own(ref, 'expectedContentHash')),
+      },
+    };
+  }
   return { assetId, url };
 }
 

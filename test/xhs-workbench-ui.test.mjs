@@ -28,15 +28,15 @@ test('XHS compact workbench puts content and Plog in the shared top selector', (
 });
 
 test('XHS option trigger points upward while its panel is open', () => {
-  assert.match(xhs, /activeOption === key \? <ChevronDown/);
-  assert.match(xhs, /: <ChevronUp/);
+  assert.match(xhs, /xhs-template-chevron/);
+  assert.match(xhs, /activeOption === key \? ' is-open' : ''/);
   assert.match(xhs, /xhs-template-options--upward/);
 });
 
 test('XHS selector styles keep the fan cards and mobile panel inside the workbench', () => {
   assert.match(showcaseStyles, /\.xhs-ability-selector \.ec-ability-selector-fan\.is-empty/);
   assert.match(showcaseStyles, /\.xhs-workbench-card/);
-  assert.match(showcaseStyles, /\.xhs-template-options--upward \{ left: 50%;/);
+  assert.match(showcaseStyles, /\.xhs-template-options--upward \{ left: 0;/);
 });
 
 test('XHS reuses the ecommerce upload cards and localizes only the content labels', () => {
@@ -73,7 +73,8 @@ test('XHS workbench keeps the ecommerce spacing and full article body', () => {
 test('XHS prompt owns a visible native caret and focuses from its full surface', () => {
   assert.match(xhs, /onClick=\{event => \{ if \(event\.target !== promptRef\.current\) promptRef\.current\?\.focus\(\); \}\}/);
   assert.match(xhs, /className="xhs-prompt-field"/);
-  assert.match(xhs, /placeholder=\{plog \? '描述你想记录的生活瞬间' : '写什么？一句话就够了'\}/);
+  assert.match(xhs, /ec-xhs-prompt-hints/);
+  assert.match(xhs, /aria-describedby=\{`xhs-prompt-placeholder-/);
   assert.doesNotMatch(xhs, /className=\{!text \? 'ec-empty' : ''\}/);
   assert.doesNotMatch(showcaseStyles, /textarea\.ec-empty\s*\{\s*caret-color/);
 });

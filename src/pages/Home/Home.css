@@ -1816,6 +1816,24 @@
   .ec-workbench-next { margin-left: 0 !important; height: 40px !important; padding-inline: 16px !important; }
   .ec-workbench-heading { padding-inline: 2px; }
   .ec-workbench-heading strong { font-size: 16px; }
+  .ec-commerce-workbench-actions .ec-workbench-primary-row {
+    grid-template-columns: 1fr;
+  }
+  .ec-commerce-workbench-actions .ec-workbench-tools {
+    display: grid !important;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    flex-wrap: initial;
+    padding: 2px 0 4px;
+  }
+  .ec-commerce-workbench-actions .ec-workbench-tools > button {
+    width: 100%;
+    min-width: 0 !important;
+  }
+  .ec-commerce-workbench-actions .ec-workbench-submit-actions {
+    justify-content: flex-end;
+  }
   .ec-xhs-composer { padding: 7px 4px 8px; }
   .ec-xhs-media-column { padding-inline: 0; }
   .ec-xhs-media-strip { gap: 9px; padding-inline: 7px; }

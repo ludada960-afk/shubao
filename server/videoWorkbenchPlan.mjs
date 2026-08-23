@@ -9,6 +9,7 @@ import { quoteFeature } from './billing/catalog.mjs';
 import crypto from 'node:crypto';
 import { normalizeShotDirection, reviewShotContinuity } from './videoShotDirection.mjs';
 import { buildVideoRendererPreflight } from './videoRendererPreflight.mjs';
+import { recommendVideoRoute } from './videoModelRouter.mjs';
 
 const MAX_SHOTS = 30;
 const MAX_TOTAL_DURATION_MS = 30 * 60 * 1000;
@@ -60,7 +61,23 @@ function normalizeOptions(options = {}) {
   const mode = text(options.mode, 40).toLowerCase() || 'smart';
   const resolution = text(options.resolution, 20).toLowerCase() || '720p';
   const generateAudio = options.generateAudio !== false;
-  return { productId, mode, resolution, generateAudio, budgetCapPoints: normalizeBudgetCap(options.budgetCapPoints) };
+  const routingObjective = text(options.routingObjective, 20).toLowerCase() || 'balanced';
+  return { productId, mode, resolution, generateAudio, routingObjective, budgetCapPoints: normalizeBudgetCap(options.budgetCapPoints) };
+}
+
+function referenceCounts(workbench, shots) {
+  const assets = new Map((Array.isArray(workbench?.assets) ? workbench.assets : []).map(asset => [asset.id, asset]));
+  const referencedIds = new Set(shots.flatMap(shot => (Array.isArray(shot?.bindings) ? shot.bindings : []).map(binding => binding.assetId)).filter(Boolean));
+  const counts = { images: 0, videos: 0, audios: 0 };
+  for (const assetId of referencedIds) {
+    const asset = assets.get(assetId);
+    const mediaKind = String(asset?.mediaKind || '').toLowerCase();
+    const assetKind = String(asset?.kind || '').toLowerCase();
+    if (mediaKind === 'audio' || ['music', 'voice', 'audio'].includes(assetKind)) counts.audios += 1;
+    else if (mediaKind === 'video' || ['video', 'motion'].includes(assetKind)) counts.videos += 1;
+    else counts.images += 1;
+  }
+  return counts;
 }
 
 function quoteForShot(productId, durationMs) {
@@ -136,6 +153,18 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     };
   });
   const continuityReview = reviewShotContinuity(normalizedShots);
+  const longestShotDurationMs = normalizedShots.reduce((max, shot) => Math.max(max, shot.durationMs), 0);
+  const routeRecommendation = recommendVideoRoute({
+    request: {
+      preferredProductId: normalized.productId,
+      mode: normalized.mode,
+      resolution: normalized.resolution,
+      durationSec: Math.max(4, Math.min(15, Math.ceil((longestShotDurationMs || 8000) / 1000))),
+      generateAudio: normalized.generateAudio,
+      referenceCounts: referenceCounts(workbench, shots),
+      objective: normalized.routingObjective,
+    },
+  });
 
   if (normalized.generateAudio && !Array.isArray(workbench.audioTracks)) {
     warnings.push('当前项目没有音轨记录，将按视频产品默认声音设置报价。');
@@ -157,6 +186,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     shots: normalizedShots,
     continuityReview,
     totalDurationMs,
+    routeRecommendation,
     budgetPolicy,
     blockers,
     warnings,

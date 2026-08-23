@@ -36,6 +36,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /analyzeVideoPlan/);
   assert.match(page, /inspectVideoPlanningFiles/);
   assert.match(page, /plannedUploads/);
+  assert.match(page, /if \(!state\.logged \|\| state\.browserQa\) \{/);
+  assert.match(page, /\}, \[state\.logged, state\.browserQa\]\);/);
   assert.match(page, /reusable = plannedUploads/);
   assert.doesNotMatch(page, /不调用上游，也不会扣积分/);
   assert.match(page, /planReviewed/);
@@ -114,7 +116,7 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(assetAnalysis, /videoMetadata/);
   assert.match(assetAnalysis, /audioMetadata/);
   assert.match(assetAnalysis, /frameTimes/);
-  assert.match(page, /if \(!state\.logged\)[\s\S]*?setHistory\(\[\]\)/);
+  assert.match(page, /if \(!state\.logged \|\| state\.browserQa\)[\s\S]*?setHistory\(\[\]\)/);
   assert.match(page, /\}, \[state\.logged\]\);/);
   assert.match(home, /entry-video\.png/);
   assert.match(canvas, /CanvasVideoComposer/);

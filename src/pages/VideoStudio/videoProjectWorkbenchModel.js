@@ -1,3 +1,5 @@
+import { canReuseProjectAsset } from '../Works/projectAssetLibraryModel.js';
+
 const SUPPORTED_UPLOAD_KINDS = new Set(['image', 'video', 'audio']);
 
 function timeValue(value) {
@@ -37,6 +39,14 @@ export function availableUploadedAssets(uploadRecords = []) {
   });
 }
 
+export function reusableProjectAssets(assets = []) {
+  return (Array.isArray(assets) ? assets : [])
+    .filter(asset => SUPPORTED_UPLOAD_KINDS.has(asset?.mediaKind)
+      && Boolean(asset?.project?.id && asset?.projectAssetId && asset?.contentHash)
+      && canReuseProjectAsset(asset))
+    .map(asset => ({ ...asset, sourceProject: asset.project }));
+}
+
 export function approvedAssetVersions(workbench) {
   const assets = Array.isArray(workbench?.assets) ? workbench.assets : [];
   return assets.flatMap(asset => {
@@ -62,6 +72,36 @@ export function audioTrackDurationMs(workbench) {
   const duration = clips.filter(clip => clip?.status === 'active').reduce((max, clip) =>
     Math.max(max, Number(clip?.trimEndMs) || 0), 0);
   return Math.min(120000, Math.max(500, duration || 500));
+}
+
+export function subtitleCueDrafts(cues = []) {
+  return (Array.isArray(cues) ? cues : []).map(cue => ({
+    start: (Number(cue?.startMs || 0) / 1000).toString(),
+    end: (Number(cue?.endMs || 0) / 1000).toString(),
+    text: String(cue?.text || ''),
+  }));
+}
+
+export function normalizeSubtitleCues(cues = [], durationMs) {
+  if (!Array.isArray(cues) || cues.length > 200) throw new Error('字幕条目数量无效');
+  const maxDuration = Number(durationMs);
+  if (!Number.isSafeInteger(maxDuration) || maxDuration < 500) throw new Error('音轨时长无效');
+  const normalized = cues.map(cue => {
+    const startMs = Math.round(Number(cue?.start) * 1000);
+    const endMs = Math.round(Number(cue?.end) * 1000);
+    const text = String(cue?.text || '').trim().slice(0, 240);
+    if (!Number.isSafeInteger(startMs) || !Number.isSafeInteger(endMs)
+      || startMs < 0 || endMs <= startMs || endMs > maxDuration || !text) {
+      throw new Error('字幕时间范围无效');
+    }
+    return { startMs, endMs, text };
+  });
+  normalized.forEach((cue, index) => {
+    if (index > 0 && cue.startMs < normalized[index - 1].endMs) {
+      throw new Error('字幕时间范围无效');
+    }
+  });
+  return normalized;
 }
 
 function nextPosition(items = []) {

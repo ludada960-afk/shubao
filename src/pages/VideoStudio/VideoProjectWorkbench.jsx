@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import {
-  addTimelineClip,
+  applyShotCandidateToTimeline,
   approveVideoWorkbenchPlan,
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
@@ -34,6 +34,7 @@ import {
   createVideoAudioTrack,
   createVideoWorkbenchGenerationDraft,
   createShotRecoveryPlan,
+  prepareShotRecoveryExecution,
   createVideoReplayManifest,
   createVideoExportManifest,
   cloneVideoReplayManifest,
@@ -72,7 +73,10 @@ import {
   candidateJobsForProject,
   nextShotPosition,
   nextTimelinePosition,
+  normalizeSubtitleCues,
+  reusableProjectAssets,
   selectedCandidateForShot,
+  subtitleCueDrafts,
   videoProjects,
   workbenchStageSummary,
 } from './videoProjectWorkbenchModel.js';
@@ -201,17 +205,24 @@ function mediaKind(upload) {
   return upload?.asset?.kind || upload?.kind || 'image';
 }
 
+function reusableAssetsFromLibrary(assets) {
+  return reusableProjectAssets(assets);
+}
+
+function sourceProjectLabel(project) {
+  if (project?.title) return project.title;
+  if (project?.kind === 'video') return '视频项目';
+  if (project?.kind === 'ecommerce') return '电商项目';
+  if (project?.kind === 'xiaohongshu') return '小红书项目';
+  if (project?.kind === 'plog') return 'PLOG 项目';
+  return '其他项目';
+}
+
 function displayError(error) {
   if (error?.status === 409 || error?.code === 'VERSION_CONFLICT') {
     return '内容已在其他位置更新，已刷新项目，请检查后重试。';
   }
   return error?.message || '操作没有完成，请刷新后重试。';
-}
-
-function reusableAssetsFromLibrary(assets) {
-  return (Array.isArray(assets) ? assets : [])
-    .filter(asset => ['image', 'video', 'audio'].includes(asset.mediaKind) && asset.project?.kind !== 'video')
-    .map(asset => ({ ...asset, sourceProject: asset.project }));
 }
 
 function normalizeBudgetCapInput(value) {
@@ -287,6 +298,10 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [bindingChoices, setBindingChoices] = useState({});
   const [shotEdits, setShotEdits] = useState({});
   const [clipDrafts, setClipDrafts] = useState({});
+  const [subtitleDrafts, setSubtitleDrafts] = useState({});
+  const [recoveryModes, setRecoveryModes] = useState({});
+  const [recoveryExtensions, setRecoveryExtensions] = useState({});
+  const [recoveryExecutions, setRecoveryExecutions] = useState({});
   const [replayManifest, setReplayManifest] = useState(null);
   const [replayManifests, setReplayManifests] = useState([]);
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
@@ -982,20 +997,31 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
   function handleCreateShotRecoveryPlan(shot) {
     if (!shot?.id || busy) return;
+    const mode = recoveryModes[shot.id] || 'replace_candidate';
+    const extensionMs = mode === 'extend_shot' ? Math.round(Number(recoveryExtensions[shot.id] || 2.5) * 1000) : undefined;
     void runMutation(`recovery:${shot.id}`, () => createShotRecoveryPlan(projectId, shot.id, {
-      mode: 'replace_candidate',
+      mode,
+      ...(extensionMs ? { extensionMs } : {}),
       reason: shot.selectedCandidateId
         ? '当前镜头候选需要单镜头重拍，保留其他镜头与时间线。'
         : '当前镜头尚无可交付候选，建立单镜头恢复计划。',
     }));
   }
 
+  function handlePrepareShotRecoveryExecution(shot, plan) {
+    if (!shot?.id || !plan?.id || busy) return;
+    void runMutation(`recovery-prepare:${shot.id}`, async () => {
+      const execution = await prepareShotRecoveryExecution(projectId, plan.id);
+      setRecoveryExecutions(current => ({ ...current, [shot.id]: { planId: plan.id, execution } }));
+    });
+  }
+
   function handleAddTimeline(shot) {
     const candidate = selectedCandidateForShot(shot);
     if (!candidate) return;
-    void runMutation(`timeline:${shot.id}`, () => addTimelineClip(projectId, {
-      shotId: shot.id,
+    void runMutation(`timeline:${shot.id}`, () => applyShotCandidateToTimeline(projectId, shot.id, {
       candidateId: candidate.id,
+      expectedShotRevision: shot.revision,
       position: nextTimelinePosition(workbench?.timelineClips),
       trimStartMs: 0,
       trimEndMs: shot.durationMs,
@@ -1091,6 +1117,57 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       expectedRevision: track.revision,
       patch: { volume },
     }));
+  }
+
+  function subtitleDraftFor(track) {
+    return subtitleDrafts[track.id] || subtitleCueDrafts(track.subtitleCues);
+  }
+
+  function handleUpdateSubtitleCue(track, index, key, value) {
+    const current = subtitleDraftFor(track);
+    const next = current.map((cue, cueIndex) => cueIndex === index ? { ...cue, [key]: value } : cue);
+    setSubtitleDrafts(drafts => ({ ...drafts, [track.id]: next }));
+  }
+
+  function handleAddSubtitleCue(track) {
+    const current = subtitleDraftFor(track);
+    const previous = current[current.length - 1];
+    const start = previous ? Number(previous.end) : 0;
+    const end = Math.min(track.durationMs / 1000, start + 1);
+    if (!(end > start)) {
+      setError('音轨时长不足，无法继续添加字幕。');
+      return;
+    }
+    setSubtitleDrafts(drafts => ({
+      ...drafts,
+      [track.id]: [...current, { start: start.toString(), end: end.toString(), text: '' }],
+    }));
+  }
+
+  function handleRemoveSubtitleCue(track, index) {
+    const next = subtitleDraftFor(track).filter((_, cueIndex) => cueIndex !== index);
+    setSubtitleDrafts(drafts => ({ ...drafts, [track.id]: next }));
+  }
+
+  function handleSaveSubtitleCues(track) {
+    let subtitleCues;
+    try {
+      subtitleCues = normalizeSubtitleCues(subtitleDraftFor(track), track.durationMs);
+    } catch (subtitleError) {
+      setError(subtitleError.message);
+      return;
+    }
+    void runMutation(`audio:subtitles:${track.id}`, async () => {
+      await updateVideoAudioTrack(projectId, track.id, {
+        expectedRevision: track.revision,
+        patch: { subtitleCues },
+      });
+      setSubtitleDrafts(drafts => {
+        const next = { ...drafts };
+        delete next[track.id];
+        return next;
+      });
+    });
   }
 
   function parseMemoryValue(text) {
@@ -1251,6 +1328,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           ? '未设上限'
           : `${workbenchPlan.quote?.points || 0} / ${workbenchPlan.budgetPolicy.requestedCapPoints} AI 积分`}</strong></div>
       </div>
+      {workbenchPlan.routeRecommendation && <section className={`video-project-route-recommendation ${workbenchPlan.routeRecommendation.status === 'ready' ? 'is-ready' : 'is-blocked'}`} aria-label="模型路线建议">
+        <header>
+          <div><small>模型路线建议</small><strong>{workbenchPlan.routeRecommendation.status === 'ready' ? workbenchPlan.routeRecommendation.selected?.label : '当前请求暂无可用公开路线'}</strong></div>
+          <span>{workbenchPlan.routeRecommendation.status === 'ready' ? `按${workbenchPlan.routeRecommendation.request?.objective === 'speed' ? '速度' : workbenchPlan.routeRecommendation.request?.objective === 'quality' ? '质量' : workbenchPlan.routeRecommendation.request?.objective === 'cost' ? '成本' : '综合能力'}排序 · 仅建议，不会自动切换产品` : '请调整时长、清晰度或参考素材数量'}</span>
+        </header>
+        {workbenchPlan.routeRecommendation.status === 'ready' && <div className="video-project-route-candidates">
+          {workbenchPlan.routeRecommendation.candidates?.slice(0, 3).map(candidate => <div key={candidate.productId} className={candidate.productId === workbenchPlan.routeRecommendation.selected?.productId ? 'is-selected' : ''}><span>{candidate.label}</span><strong>{candidate.eligible ? `${candidate.estimatedPoints} 积分起` : '不满足约束'}</strong></div>)}
+        </div>}
+        {!!workbenchPlan.routeRecommendation.blockers?.length && <ul>{workbenchPlan.routeRecommendation.blockers.slice(0, 3).map(blocker => <li key={blocker.code}><CircleAlert size={12} />{blocker.detail}</li>)}</ul>}
+      </section>}
       {continuityReview && (workbenchPlan.shots?.length || 0) > 0 && <section className={`video-project-continuity-review ${continuityReview.status === 'review' ? 'is-review' : 'is-clear'}`} aria-label="镜头连续性检查">
         <header>
           <div><small>导演检查</small><strong>{continuityReview.status === 'review' ? <><CircleAlert size={14} />需要复核</> : <><Check size={14} />连续性通过</>}</strong></div>
@@ -1330,6 +1417,14 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           <div><span>已完成</span><strong>{skillRunExecutionPreview?.completedStepIds?.length || 0} 个</strong></div>
           <div><span>预估积分</span><strong>{Number(skillRunExecutionPreview?.estimatedPoints || 0)}（预览）</strong></div>
         </div>
+        {skillRunExecutionPreview?.executionPolicy && <div className="video-project-skill-policy" aria-label="SkillRun 执行策略">
+          <div className="video-project-skill-policy-heading"><strong>执行策略</strong><span>先按最坏情况估算预算，实际执行仍需经过确认节点。</span></div>
+          <div className="video-project-skill-policy-grid">
+            <div><span>重试</span><strong>{skillRunExecutionPreview.executionPolicy.retry?.enabled ? `启用 · 每步最多 ${skillRunExecutionPreview.executionPolicy.retry.maxAttemptsPerStep} 次` : '不自动重试'}</strong></div>
+            <div><span>重试预留</span><strong>{Number(skillRunExecutionPreview.retryAllowancePoints || 0)} 积分</strong></div>
+            <div><span>失败补偿</span><strong>{skillRunExecutionPreview.executionPolicy.compensation?.onProviderFailure || 'release_hold'} / {skillRunExecutionPreview.executionPolicy.compensation?.onPersistenceFailure || 'reconcile'}</strong></div>
+          </div>
+        </div>}
         {(skillRun.plan?.checkpoints || []).length > 0 && <div className="video-project-skill-checkpoints" aria-label="SkillRun 确认节点">
           {(skillRun.plan?.checkpoints || []).map(checkpoint => {
             const confirmed = skillRun.confirmedCheckpointIds?.includes(checkpoint.id)
@@ -1386,7 +1481,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           {!uploads.length && <p className="video-project-inline-empty">先在上方上传图片、视频或音频；上传完成后会出现在这里。</p>}
         </div>
         {!!reusableProjectAssets.length && <div className="video-project-library">
-          <div className="video-project-library-heading"><strong>已有项目素材</strong><span>从你自己的图片项目导入，导入只建立引用和版本，不会生成或扣积分。</span></div>
+          <div className="video-project-library-heading"><strong>已有项目素材</strong><span>从你的其他项目导入，导入只建立引用和版本，不会生成或扣积分。</span></div>
           <div className="video-project-upload-list">
             {reusableProjectAssets.map(sourceAsset => {
               const sourceId = sourceAsset.projectAssetId;
@@ -1394,7 +1489,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
               const label = sourceAsset.metadata?.displayName || sourceAsset.assetId || '已有项目素材';
               return <article key={`${sourceAsset.sourceProject.id}:${sourceId}`}>
                 <div className="video-project-library-media"><ProjectMedia version={sourceAsset} name={label} /></div>
-                <div><strong>{label}</strong><small>{sourceAsset.sourceProject.title || '图片项目'} · {sourceAsset.mediaKind === 'video' ? '视频' : sourceAsset.mediaKind === 'audio' ? '音频' : '图片'}</small></div>
+                <div><strong>{label}</strong><small>{sourceProjectLabel(sourceAsset.sourceProject)} · {sourceAsset.mediaKind === 'video' ? '视频' : sourceAsset.mediaKind === 'audio' ? '音频' : '图片'}</small></div>
                 <select aria-label={`设置已有素材${label}的素材类型`} disabled={Boolean(busy) || imported} value={assetKinds[sourceId] || (sourceAsset.mediaKind === 'video' ? 'scene' : sourceAsset.mediaKind === 'audio' ? 'music' : 'style')} onChange={event => setAssetKinds(current => ({ ...current, [sourceId]: event.target.value }))}>
                   {ASSET_KINDS.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}
                 </select>
@@ -1440,12 +1535,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <div className="video-project-shot-list">{(workbench?.shots || []).map((shot, index) => {
           const selected = selectedCandidateForShot(shot);
           const recoveryPlan = (workbench?.recoveryPlans || []).find(plan => plan.shotId === shot.id);
+          const recoveryExecution = recoveryExecutions[shot.id]?.planId === recoveryPlan?.id
+            ? recoveryExecutions[shot.id].execution : null;
           const edit = shotEdits[shot.id];
           const existingJobIds = new Set((shot.candidates || []).map(candidate => candidate.generationJobId));
           const bindingValue = bindingChoices[shot.id] || '';
           return <article key={shot.id} className={shot.status === 'stale' ? 'is-stale' : ''}>
             <header><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{shot.purpose || '未命名镜头'}</strong><small><Clock3 size={12} />{(shot.durationMs / 1000).toFixed(1)} 秒 · {shot.cameraLanguage || '未设置镜头语言'}</small></div>{shot.status === 'stale' && <em>需重新确认</em>}</header>
             <p>{shot.prompt || '未填写镜头提示'}</p>
+            {shot.modelIntent && <p className="video-project-shot-intent"><Sparkles size={12} /> 意图：{shot.modelIntent}</p>}
+            {(shot.firstFrameRef || shot.lastFrameRef) && <p className="video-project-shot-frames">{[shot.firstFrameRef && '首帧已绑定', shot.lastFrameRef && '末帧已绑定'].filter(Boolean).join(' · ')}</p>}
             <div className="video-project-bind-row">
               <select aria-label={`为镜头${index + 1}绑定素材`} disabled={Boolean(busy) || !approved.length} value={bindingValue} onChange={event => {
                 const value = event.target.value;
@@ -1479,10 +1578,22 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
               {!shot.candidates?.length && <p className="video-project-inline-empty">当前镜头还没有候选。先在上方完成一次属于本项目的视频任务，再导入这里。</p>}
             </section>
             <div className="video-project-recovery-row">
+              <select aria-label={`镜头${index + 1}恢复方式`} disabled={Boolean(busy)} value={recoveryModes[shot.id] || 'replace_candidate'} onChange={event => setRecoveryModes(current => ({ ...current, [shot.id]: event.target.value }))}>
+                <option value="replace_candidate">替换候选</option>
+                <option value="reshoot_shot">完整重拍</option>
+                <option value="extend_shot">延长镜头</option>
+              </select>
+              {(recoveryModes[shot.id] || 'replace_candidate') === 'extend_shot' && <label className="video-project-recovery-extension"><span>延长</span><input aria-label={`镜头${index + 1}延长秒数`} type="number" min="0.5" max="30" step="0.5" value={recoveryExtensions[shot.id] ?? 2.5} disabled={Boolean(busy)} onChange={event => setRecoveryExtensions(current => ({ ...current, [shot.id]: event.target.value }))} /><small>秒</small></label>}
               <button type="button" className="video-project-recovery-action" disabled={Boolean(busy)} onClick={() => handleCreateShotRecoveryPlan(shot)}>
                 {busy === `recovery:${shot.id}` ? <><LoaderCircle size={14} className="is-spinning" />保存中</> : <><RefreshCw size={14} />建立单镜头重拍计划</>}
               </button>
-              {recoveryPlan && <span className="video-project-recovery-status"><ShieldCheck size={13} />已保存 · 不调用供应商 · 不扣积分 · {recoveryPlan.planHash?.slice(0, 10)}</span>}
+              {recoveryPlan && <>
+                <button type="button" className="video-project-recovery-prepare" disabled={Boolean(busy)} onClick={() => handlePrepareShotRecoveryExecution(shot, recoveryPlan)}>
+                  {busy === `recovery-prepare:${shot.id}` ? <><LoaderCircle size={14} className="is-spinning" />校验中</> : <><ShieldCheck size={14} />校验执行草稿</>}
+                </button>
+                <span className="video-project-recovery-status"><ShieldCheck size={13} />已保存 · 不调用供应商 · 不扣积分 · {recoveryPlan.planHash?.slice(0, 10)}</span>
+                {recoveryExecution && <span className="video-project-recovery-status is-verified"><Check size={13} />已校验 · {recoveryExecution.edit?.operation || 'replace'} · {recoveryExecution.executionHash?.slice(0, 10)}</span>}
+              </>}
             </div>
             <button type="button" className="video-project-timeline-action" disabled={Boolean(busy) || !selected || activeClipShotIds.has(shot.id) || shot.status === 'stale'} onClick={() => handleAddTimeline(shot)}>{activeClipShotIds.has(shot.id) ? <><Check size={15} />已加入时间线</> : '把选定版本加入时间线'}</button>
           </article>;
@@ -1532,6 +1643,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
             <span className="video-project-audio-track-icon">{track.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</span>
             <div><strong>{audioSources.find(({ asset }) => asset.id === track.assetId)?.asset.name || '项目音轨'}</strong><small>{track.kind === 'voice' ? '声线' : '配乐'} · {(track.durationMs / 1000).toFixed(1)} 秒 · 音量 {Math.round(track.volume * 100)}%</small><label className="video-project-audio-volume"><span>音量</span><input type="range" min="0" max="2" step="0.05" value={track.volume} aria-label={`调整${track.kind === 'voice' ? '声线' : '配乐'}音量`} disabled={Boolean(busy)} onChange={event => handleSetAudioVolume(track, event)} /></label></div>
             <button type="button" className="video-project-audio-toggle" disabled={Boolean(busy)} onClick={() => handleToggleAudioTrack(track)}>{track.muted ? '取消静音' : '静音'}</button>
+            <div className="video-project-subtitle-editor" aria-label="编辑字幕">
+              <div className="video-project-subtitle-header"><span>字幕 · {subtitleDraftFor(track).length} 条</span><div><button type="button" disabled={Boolean(busy)} onClick={() => handleAddSubtitleCue(track)}><Plus size={12} />新增</button><button type="button" disabled={Boolean(busy)} onClick={() => handleSaveSubtitleCues(track)}>{busy === `audio:subtitles:${track.id}` ? <LoaderCircle className="is-spinning" size={12} /> : <Save size={12} />}保存</button></div></div>
+              {subtitleDraftFor(track).map((cue, index) => <div className="video-project-subtitle-row" key={`${track.id}-subtitle-${index}`}>
+                <label><span>起</span><input type="number" min="0" max={track.durationMs / 1000} step="0.1" value={cue.start} disabled={Boolean(busy)} onChange={event => handleUpdateSubtitleCue(track, index, 'start', event.target.value)} /></label>
+                <label><span>止</span><input type="number" min="0" max={track.durationMs / 1000} step="0.1" value={cue.end} disabled={Boolean(busy)} onChange={event => handleUpdateSubtitleCue(track, index, 'end', event.target.value)} /></label>
+                <input className="video-project-subtitle-text" maxLength={240} value={cue.text} placeholder="字幕文案" disabled={Boolean(busy)} onChange={event => handleUpdateSubtitleCue(track, index, 'text', event.target.value)} />
+                <button type="button" aria-label="删除字幕" title="删除字幕" disabled={Boolean(busy)} onClick={() => handleRemoveSubtitleCue(track, index)}><Trash2 size={12} /></button>
+              </div>)}
+              {!subtitleDraftFor(track).length && <small className="video-project-subtitle-empty">暂无字幕，可按镜头时间添加。</small>}
+            </div>
           </article>)}
           {!audioTracks.length && <p className="video-project-inline-empty">时间线加入镜头后，可从上方已确认素材中选择声音。</p>}
         </div>

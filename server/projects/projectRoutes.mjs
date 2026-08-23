@@ -21,6 +21,15 @@ function routeError(error, res) {
   if (code === 'PROJECT_ASSET_RETENTION_INVALID') {
     return res.status(400).json({ code, error: '素材保留设置无效' });
   }
+  if (code === 'PROJECT_ASSET_PRODUCTION_STATE_INVALID') {
+    return res.status(400).json({ code, error: '素材生产状态无效' });
+  }
+  if (code === 'PROJECT_ASSET_PRODUCTION_STATE_SYSTEM_ONLY') {
+    return res.status(409).json({ code, error: '已交付状态只能由系统根据实际结果确认' });
+  }
+  if (code === 'PROJECT_ASSET_PRODUCTION_STATE_TRANSITION_INVALID') {
+    return res.status(409).json({ code, error: '该素材当前不能回退到此生产状态' });
+  }
   if (code === 'VIDEO_ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '素材不存在或不属于当前账号' });
   }
@@ -59,6 +68,21 @@ function routeError(error, res) {
   }
   if (code === 'IDEMPOTENCY_CONFLICT') {
     return res.status(409).json({ code, error: '请求标识已用于其他项目，请重新操作' });
+  }
+  if (code === 'PRODUCT_PROFILE_NOT_FOUND') {
+    return res.status(404).json({ code, error: '未找到该商品档案' });
+  }
+  if (code === 'PRODUCT_PROFILE_ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '商品档案引用的素材不存在或已变化' });
+  }
+  if (code === 'PRODUCT_PROFILE_ASSET_NOT_REUSABLE') {
+    return res.status(409).json({ code, error: '商品档案引用的素材已不适合新的创作，请先长期保留后再使用' });
+  }
+  if (code === 'PRODUCT_PROFILE_STATUS_INVALID') {
+    return res.status(400).json({ code, error: '商品档案状态无效' });
+  }
+  if (code === 'PRODUCT_PROFILE_INVALID' || code === 'PRODUCT_PROFILE_ASSET_REF_INVALID') {
+    return res.status(400).json({ code, error: '商品档案参数无效' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -145,6 +169,57 @@ export function mountProjectRoutes(app, {
       return res.status(201).json(value);
     } catch (error) { return routeError(error, res); }
   });
+  app.get('/api/product-profiles', (req, res) => {
+    try {
+      return res.json({ profiles: projectStore.listProductProfiles({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        status: req.query?.status,
+        limit: req.query?.limit,
+      }) });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/product-profiles', (req, res) => {
+    try {
+      const profile = projectStore.createProductProfile({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        idempotencyKey: req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'],
+        name: req.body?.name,
+        category: req.body?.category,
+        facts: req.body?.facts,
+        variants: req.body?.variants || req.body?.skus,
+        assets: req.body?.assets,
+      });
+      return res.status(201).json({ profile });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.get('/api/product-profiles/:profileId', (req, res) => {
+    try {
+      const profile = projectStore.getProductProfile({
+        ownerEmail: ownerFor(req, authenticateOwner), profileId: req.params.profileId,
+      });
+      if (!profile) return res.status(404).json({ code: 'PRODUCT_PROFILE_NOT_FOUND', error: '未找到该商品档案' });
+      return res.json({ profile });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.patch('/api/product-profiles/:profileId', (req, res) => {
+    try {
+      const profile = projectStore.updateProductProfile({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        profileId: req.params.profileId,
+        idempotencyKey: req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'],
+        patch: req.body,
+      });
+      return res.json({ profile });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/product-profiles/:profileId/archive', (req, res) => {
+    try {
+      const profile = projectStore.archiveProductProfile({
+        ownerEmail: ownerFor(req, authenticateOwner), profileId: req.params.profileId,
+      });
+      return res.json({ profile });
+    } catch (error) { return routeError(error, res); }
+  });
   app.get('/api/project-assets', (req, res) => {
     try {
       const ownerEmail = ownerFor(req, authenticateOwner);
@@ -153,6 +228,7 @@ export function mountProjectRoutes(app, {
         projectId: req.query?.projectId,
         projectKind: req.query?.projectKind,
         mediaKind: req.query?.mediaKind,
+        productionState: req.query?.productionState,
         query: req.query?.query,
         limit: req.query?.limit,
       }).map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
@@ -235,6 +311,18 @@ export function mountProjectRoutes(app, {
         projectId: req.params.projectId,
         projectAssetId: req.params.assetId,
         pinned: req.body?.pinned,
+      });
+      return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.patch('/api/projects/:projectId/assets/:assetId/production-state', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const asset = projectStore.setProjectAssetProductionState({
+        ownerEmail,
+        projectId: req.params.projectId,
+        projectAssetId: req.params.assetId,
+        productionState: req.body?.productionState,
       });
       return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
     } catch (error) { return routeError(error, res); }

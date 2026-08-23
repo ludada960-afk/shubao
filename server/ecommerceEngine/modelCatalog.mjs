@@ -71,7 +71,7 @@ export function normalizeImageModel(value) {
 
 export function selectGenerationModel(input = {}) {
   const imageModel = normalizeImageModel(input.imageModel);
-  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2) return 'gemini-3.1-flash-image';
+  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2) return 'gemini-2.5-flash-image';
   if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO) return 'gemini-3-pro-image';
   const assetCount = input.assetCount;
   const eligibleBatch = Number.isInteger(assetCount)

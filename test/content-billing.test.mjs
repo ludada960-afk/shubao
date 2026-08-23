@@ -861,6 +861,28 @@ test('active billed runner renews its lease so retries stay in progress without 
   assert.equal(scheduler.activeCount, 0);
 });
 
+test('billed SSE runner forwards non-authoritative project input only to the lifecycle hook', async t => {
+  const harness = createDurableHarness();
+  t.after(() => harness.db.close());
+  const observed = [];
+  const runner = createBilledSseRunner({
+    ...harness.service,
+    onStart: ({ input }) => {
+      observed.push(input);
+      return null;
+    },
+  });
+  await runner({
+    res: new FakeResponse(),
+    ownerEmail: OWNER,
+    generationId: 'runner-project-input-1',
+    mode: 'xhs',
+    projectInput: { referenceGroups: { style: ['style-id'], source: ['source-id'] } },
+    generate: async () => delivery(),
+  });
+  assert.deepEqual(observed, [{ referenceGroups: { style: ['style-id'], source: ['source-id'] } }]);
+});
+
 test('needs-review and failed jobs persist replayable terminal state without duplicate billing', async t => {
   await t.test('needs review', () => {
     const harness = createDurableHarness();

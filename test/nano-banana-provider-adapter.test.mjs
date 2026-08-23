@@ -10,7 +10,7 @@ test('validates the model, sends Gemini image options, and persists before deliv
     apiKey: 'test-key-that-is-long-enough', baseUrl: 'https://provider.example', publicBaseUrl: 'http://127.0.0.1:3002',
     fetchImpl: async (url, options = {}) => {
       calls.push({ url, options });
-      if (url.endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'gemini-3.1-flash-image' }] }), { status: 200 });
+      if (url.endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'gemini-2.5-flash-image' }] }), { status: 200 });
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: Buffer.from('image').toString('base64') } }] } }] }), { status: 200 });
     },
     generatedAssetStore: {
@@ -20,7 +20,7 @@ test('validates the model, sends Gemini image options, and persists before deliv
   });
   const submitted = await adapter.submitEdit({
     idempotencyKey: 'nano-one', prompt: 'Create a product image',
-    modelRoute: { imageModel: 'nano-banana-2', model: 'gemini-3.1-flash-image', resolution: '2K', ratio: '3:4' },
+    modelRoute: { imageModel: 'nano-banana-2', model: 'gemini-2.5-flash-image', resolution: '2K', ratio: '3:4' },
     inputAssets: [{ buffer: Buffer.from('reference'), contentType: 'image/png' }],
   });
   const completed = await adapter.pollUntilReady(submitted.jobId);

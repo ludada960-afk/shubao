@@ -50,6 +50,8 @@ test('content generation gets an owner-scoped project and canonical output refs'
   assert.equal(store.getGenerationRun({ ownerEmail: 'owner@example.com', generationRunId: 'content-1' }).status, 'completed');
   assert.equal(store.listProjectAssets({ ownerEmail: 'owner@example.com', projectId: context.projectId })
     .every(asset => asset.retentionClass === 'completed'), true);
+  assert.equal(store.listProjectAssets({ ownerEmail: 'owner@example.com', projectId: context.projectId })
+    .every(asset => asset.productionState === 'delivered'), true);
 });
 
 test('content lifecycle is idempotent and isolates owners', async t => {
@@ -108,6 +110,7 @@ test('needs-review keeps the result version and recovery completes a settled pro
   assert.equal(reviewRun.status, 'needs_review');
   assert.equal(reviewRun.resultVersionId, reviewed.resultVersionId);
   assert.equal(store.listProjectAssets({ ownerEmail: 'owner@example.com', projectId: reviewed.projectId })[0].retentionClass, 'unfinished');
+  assert.equal(store.listProjectAssets({ ownerEmail: 'owner@example.com', projectId: reviewed.projectId })[0].productionState, 'candidate');
 
   const recoveryContext = await lifecycle.begin({ ownerEmail: 'owner@example.com', generationId: 'recovery-1', mode: 'xhs' });
   const recoveryPrepared = await lifecycle.prepareResult({
@@ -123,4 +126,58 @@ test('needs-review keeps the result version and recovery completes a settled pro
   });
   assert.equal(store.getProject({ ownerEmail: 'owner@example.com', projectId: recoveryPrepared.projectId }).status, 'completed');
   assert.equal(store.getGenerationRun({ ownerEmail: 'owner@example.com', generationRunId: 'recovery-1' }).status, 'completed');
+});
+
+test('content references are imported into the source version and linked to generated results', async t => {
+  const { db, store, bytes } = createHarness();
+  t.after(() => db.close());
+  const sourceBytes = Buffer.from('reference-bytes');
+  const sourceAssetId = assetUrl(sourceBytes, 'png').slice(assetUrl(sourceBytes, 'png').lastIndexOf('/') + 1);
+  bytes.set(sourceAssetId, { buffer: sourceBytes, contentType: 'image/png' });
+  bytes.set(cover.slice(cover.lastIndexOf('/') + 1), { buffer: coverBytes, contentType: 'image/png' });
+  bytes.set(page.slice(page.lastIndexOf('/') + 1), { buffer: pageBytes, contentType: 'image/webp' });
+  const importedRoles = [];
+  const lifecycle = createContentProjectLifecycle({
+    projectStore: store,
+    readGeneratedAsset: async assetId => bytes.get(assetId) || null,
+    importImageAsset: async ({ ownerEmail, projectId, versionId, imageAssetId, role, metadata }) => {
+      importedRoles.push({ ownerEmail, projectId, versionId, imageAssetId, role, metadata });
+      return store.createProjectAsset({
+        ownerEmail,
+        projectId,
+        versionId,
+        assetId: imageAssetId,
+        role,
+        stableUrl: `/api/generated-assets/${imageAssetId}`,
+        contentHash: imageAssetId.slice(0, 64),
+        mimeType: 'image/png',
+        metadata,
+        retentionClass: 'source',
+      });
+    },
+  });
+  const context = await lifecycle.begin({
+    ownerEmail: 'owner@example.com',
+    generationId: 'content-lineage-1',
+    mode: 'xhs',
+    referenceGroups: { style: [sourceAssetId], source: [sourceAssetId] },
+  });
+  assert.equal(importedRoles.length, 1);
+  assert.equal(importedRoles[0].role, 'style-reference');
+  assert.equal(importedRoles[0].versionId, context.sourceVersionId);
+  assert.equal(context.sourceProjectAssetIds.length, 1);
+
+  const prepared = await lifecycle.prepareResult({
+    ownerEmail: 'owner@example.com',
+    context,
+    delivery: { title: '带参考的内容', cover_url: cover, image_urls: [page] },
+  });
+  const lineage = store.getProjectAssetLineage({
+    ownerEmail: 'owner@example.com',
+    projectId: context.projectId,
+    projectAssetId: prepared.projectAssetRefs[0].projectAssetId,
+  });
+  assert.equal(lineage.parents.length, 1);
+  assert.equal(lineage.parents[0].projectAssetId, context.sourceProjectAssetIds[0]);
+  assert.deepEqual(lineage.asset.metadata.provenance.sourceAssetIds, context.sourceProjectAssetIds);
 });

@@ -82,7 +82,8 @@ export function LoginModal() {
       dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
       setTimeout(() => { fetchCredits(user.email); }, 100);
       if (state.loginIntent?.destination) {
-        dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
+        if (state.loginIntent.canvasTab) dispatch({ type: 'OPEN_CANVAS', tab: state.loginIntent.canvasTab });
+        else dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
         dispatch({ type: 'SET_LOGIN_INTENT', intent: null });
       }
       close();
@@ -220,15 +221,23 @@ export function PricingModal() {
     if (!saved) return;
     const plan = plans.find(candidate => candidate.sku === saved.productSku);
     if (!plan) return;
+    paymentAbortRef.current?.abort();
+    const controller = new AbortController();
+    paymentAbortRef.current = controller;
+    let active = true;
     const restoreKey = `${saved.orderId}:${saved.productSku}`;
-    if (restoredPaymentKeyRef.current === restoreKey) return;
+    if (restoredPaymentKeyRef.current === restoreKey) {
+      controller.abort();
+      return undefined;
+    }
     restoredPaymentKeyRef.current = restoreKey;
     paymentCheckoutRef.current = saved.checkout || null;
     setPayModal(plan);
     setPaymentOrder(saved);
     setPaymentStatus('检测到未完成订单，正在恢复订单状态；当前工作已保留。');
-    fetchBillingOrder(saved.orderId)
+    fetchBillingOrder(saved.orderId, { signal: controller.signal })
       .then(response => {
+        if (!active || controller.signal.aborted) return;
         const order = response?.order || response;
         if (!order || typeof order !== 'object') return;
         const checkout = order.checkout || saved.checkout;
@@ -253,9 +262,40 @@ export function PricingModal() {
         setPaymentStatus('订单仍待支付，完成支付后会自动确认到账；当前工作不会丢失。');
       })
       .catch(error => {
-        if (error?.name !== 'AbortError') setPaymentStatus('订单状态暂时无法确认，可重新打开支付页或稍后刷新。');
+        if (active && error?.name !== 'AbortError') setPaymentStatus('订单状态暂时无法确认，可重新打开支付页或稍后刷新。');
       });
+    return () => {
+      active = false;
+      controller.abort();
+      if (paymentAbortRef.current === controller) paymentAbortRef.current = null;
+    };
   }, [plans, refreshBillingBalance, state.logged, state.phone, state.showPrice]);
+
+  useEffect(() => {
+    if (state.logged) return undefined;
+    paymentAbortRef.current?.abort();
+    paymentAbortRef.current = null;
+    setPayLoading(false);
+    setPayModal(null);
+    setPaymentOrder(null);
+    setPaymentStatus('');
+    paymentCheckoutRef.current = null;
+    restoredPaymentKeyRef.current = '';
+    return undefined;
+  }, [state.logged, state.phone]);
+
+  useEffect(() => {
+    if (state.showPrice) return undefined;
+    paymentAbortRef.current?.abort();
+    paymentAbortRef.current = null;
+    setPayLoading(false);
+    setPayModal(null);
+    setPaymentOrder(null);
+    setPaymentStatus('');
+    paymentCheckoutRef.current = null;
+    restoredPaymentKeyRef.current = '';
+    return undefined;
+  }, [state.showPrice]);
 
   useEffect(() => () => paymentAbortRef.current?.abort(), []);
 

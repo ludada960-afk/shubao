@@ -51,6 +51,35 @@ test('mobile canvas stacks the header and keeps bottom controls separate', async
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-bottom-dock \{ left: auto; right: 8px;[\s\S]*?transform: none/);
 });
 
+test('Canvas exposes a dedicated asset library view without mixing it with Works', async () => {
+  const [source, chrome] = await Promise.all([
+    readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8'),
+  ]);
+  assert.match(chrome, /\['assets', '素材库'\]/);
+  assert.match(source, /tab === 'assets'/);
+  assert.match(source, /tab === 'assets' && state\.logged/);
+  assert.match(source, /tab !== 'assets'/);
+  assert.match(source, /tab === 'works' \|\| tab === 'trash'/);
+  assert.match(source, /tab === 'assets' && !state\.logged/);
+  assert.match((await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8')), /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-tabs \{[^}]*display: flex;[^}]*overflow-x: auto/);
+});
+
+test('Canvas follows a top-level tab request while the page is already mounted', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(source, /const requestedTab = state\.canvasEntryTab/);
+  assert.match(source, /requestedTab && requestedTab !== tab/);
+  assert.match(source, /setTab\(requestedTab\)/);
+});
+
+test('Canvas asset library resets its account boundary before loading the next owner', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const effect = source.match(/if \(tab !== 'assets' \|\| !state\.logged \|\| result\?\.browserQa\)[\s\S]*?\}, \[[^\]]*phone[^\]]*\]\);/)?.[0] || '';
+  assert.match(effect, /setProjectAssetLibrary\(\[\]\)/);
+  assert.match(effect, /setSelectedProjectAssetKeys\(new Set\(\)\)/);
+  assert.match(effect, /phone/);
+});
+
 test('Works actions are keyboard-accessible and named for assistive technology', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   assert.match(source, /<button type="button" aria-label=\{`打开\$\{work\.name\}`\}/);
@@ -101,7 +130,7 @@ test('browser segmentation reports progress on the transient workflow node and e
   assert.match(source, /ec-canvas-edge-processing/);
   assert.match(source, /segmentationAbortRef\.current\.values\(\)/);
   assert.match(source, /segmentationAbortRef\.current\.clear\(\)/);
-  assert.match(source, /createCanvasSnapshot\(\{ nodes, connections, viewport \}\)/);
+  assert.match(source, /createCanvasSnapshot\(\{ nodes, connections, viewport(?:, pendingProjectAssetImports)? \}\)/);
   assert.doesNotMatch(source, /createCanvasSnapshot\(\{[^}]*segmentationJobs/);
   assert.match(css, /\.ec-canvas-generation-node\.is-processing \{[^}]*border-style: dashed/);
   assert.match(css, /\.ec-canvas-edge-processing \{/);

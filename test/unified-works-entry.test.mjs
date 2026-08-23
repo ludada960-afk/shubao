@@ -14,7 +14,13 @@ test('legacy Works navigation resolves to the Canvas work collection', () => {
   assert.match(nav, /id: 'works'[\s\S]*?OPEN_CANVAS[\s\S]*?tab: 'works'/);
   assert.match(store, /action\.page === 'works'/);
   assert.match(store, /canvasEntryTab:\s*'works'/);
+  assert.match(store, /SET_CANVAS_ENTRY_TAB/);
   assert.match(canvas, /useState\(state\.canvasEntryTab \|\| 'canvas'\)/);
+});
+
+test('asset library navigation resolves directly to the Canvas asset collection', () => {
+  assert.match(app, /label: '素材'/);
+  assert.match(app, /OPEN_CANVAS', tab: 'assets'/);
 });
 
 test('Canvas work collection exposes extensible category filters', () => {

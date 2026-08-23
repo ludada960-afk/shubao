@@ -25,7 +25,7 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
   }),
   Object.freeze({
     id: 'content',
-    label: '小红书',
+    label: '小红书图文',
     eyebrow: 'Xiaohongshu creation',
     description: '把素材整理成适合发布的小红书图文和生活记录。',
     icon: 'notebook-pen',
@@ -37,7 +37,7 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
   }),
   Object.freeze({
     id: 'visual',
-    label: '图文自由创作',
+    label: '自由创作',
     eyebrow: 'Open visual creation',
     description: '从一句想法或参考图开始，发展出可继续编辑的视觉。',
     icon: 'wand-sparkles',

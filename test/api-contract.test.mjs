@@ -1170,3 +1170,14 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
   assert.match(pricingModalOnly, /#0f766e|#14b8a6/i);
   assert.doesNotMatch(constants, /PRICING_EC[\s\S]{0,900}(?:price|sets|credits|grantUnits|validityDays)\s*:/);
 });
+
+test('pricing order restoration is cancelled when its owner or modal session changes', async () => {
+  const pricingModal = await fs.readFile(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');
+  const pricingModalOnly = pricingModal.slice(pricingModal.indexOf('export function PricingModal()'));
+  const restoreEffect = pricingModalOnly.match(/useEffect\(\(\) => \{[\s\S]*?loadPendingPaymentOrder\(state\.phone\)[\s\S]*?\n  \}, \[plans, refreshBillingBalance, state\.logged, state\.phone, state\.showPrice\]\);/)?.[0] || '';
+  assert.match(restoreEffect, /new AbortController\(\)/, 'payment restore must own an abort controller');
+  assert.match(restoreEffect, /fetchBillingOrder\(saved\.orderId,\s*\{\s*signal:/, 'payment restore must pass its abort signal');
+  assert.match(restoreEffect, /return \(\) => \{[\s\S]*?abort\(\)/, 'owner/modal changes must abort the restore request');
+  assert.match(pricingModalOnly, /if \(state\.logged\) return undefined;[\s\S]{0,180}paymentAbortRef\.current\?\.abort\(\)/, 'logout must abort an active payment poll');
+  assert.match(pricingModalOnly, /if \(state\.showPrice\) return undefined;[\s\S]{0,180}paymentAbortRef\.current\?\.abort\(\)/, 'closing the modal must abort the restore request');
+});

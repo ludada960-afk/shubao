@@ -192,7 +192,7 @@ test('an all-rejected task never creates an empty needs-review work record', asy
   assert.deepEqual(writes, []);
 });
 
-test('project result versions keep only public asset delivery fields', async () => {
+test('project result versions keep public asset delivery metadata without private provider fields', async () => {
   let completionInput = null;
   const lifecycle = createEcommerceProjectLifecycle({
     projectStore: {
@@ -221,7 +221,18 @@ test('project result versions keep only public asset delivery fields', async () 
         stableUrl: URL_A,
         outputUrl: 'https://provider.example/main.png',
         providerJobId: 'provider-main',
-        requestSnapshot: { prompt: 'private request' },
+        requestSnapshot: {
+          prompt: 'private request',
+          assetPlanItem: {
+            id: 'main-1',
+            role: 'main_text',
+            purpose: '商品识别主图',
+            ratio: '1:1',
+            generationSize: '2048x2048',
+            productAssetIds: ['product-front', 'product-side'],
+            styleReferenceIds: ['style-1'],
+          },
+        },
       },
       {
         assetId: 'detail-1',
@@ -236,7 +247,56 @@ test('project result versions keep only public asset delivery fields', async () 
 
   assert.equal(completionInput.terminalStatus, 'needs_review');
   assert.deepEqual(completionInput.resultInputSnapshot.assets, [
-    { assetId: 'main-1', state: 'completed', stableUrl: URL_A },
+    {
+      assetId: 'main-1',
+      state: 'completed',
+      stableUrl: URL_A,
+      metadata: {
+        label: '商品识别主图',
+        displayName: '商品识别主图',
+        name: '商品识别主图',
+        role: 'main_text',
+        group: '主图',
+        ratio: '1:1',
+        size: '2048x2048',
+        width: 2048,
+        height: 2048,
+        source: 'ecommerce-generation',
+        aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+        provenance: {
+          type: 'ai-generated',
+          route: 'ecommerce',
+          planItemId: 'main-1',
+          sourceAssetIds: ['product-front', 'product-side', 'style-1'],
+        },
+      },
+    },
     { assetId: 'detail-1', state: 'needs_review' },
   ]);
+});
+
+test('project lifecycle forwards input asset identity into the canonical project boundary', async () => {
+  let beginInput = null;
+  const lifecycle = createEcommerceProjectLifecycle({
+    projectStore: {
+      ensureEcommerceGeneration(input) {
+        beginInput = input;
+        return {
+          project: { id: 'project-1' },
+          sourceVersion: { id: 'source-version-1' },
+          run: { id: 'task-123' },
+        };
+      },
+      terminateEcommerceGeneration() {},
+      completeEcommerceGeneration() {},
+    },
+  });
+
+  await lifecycle.begin({
+    job: job(),
+    assetPlan: [{ id: 'main-1' }],
+    holdId: 'hold-1',
+  });
+
+  assert.deepEqual(beginInput.assets, job().payload.assets);
 });

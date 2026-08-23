@@ -104,6 +104,75 @@ test('explicit Canvas snapshots preserve nodes, connections, and a valid viewpor
   assert.notEqual(restored.nodes, snapshot.nodes);
 });
 
+test('Canvas snapshots preserve only safe pending project archive identities for recovery', () => {
+  const snapshot = createCanvasSnapshot({
+    pendingProjectAssetImports: [{
+      kind: 'image',
+      sourceAssetId: 'a'.repeat(64) + '.png',
+      role: 'product',
+      displayName: '商品图',
+      nodeIds: ['upload-1'],
+      asset: {
+        assetId: 'a'.repeat(64) + '.png',
+        url: 'data:image/png;base64,not-for-storage',
+        stableUrl: '/api/generated-assets/' + 'a'.repeat(64) + '.png',
+        file: { name: 'secret.png' },
+        name: '商品图',
+        width: 1200,
+        height: 1200,
+      },
+    }, {
+      kind: 'video',
+      sourceAssetId: 'video-1',
+      role: 'reference-video',
+      displayName: '参考视频',
+      nodeIds: ['video-1'],
+      asset: {
+        id: 'video-1',
+        url: '/api/video/media/video-1?purpose=playback&signature=temporary',
+        stableUrl: '/api/video/assets/video-1',
+        duration: 4,
+      },
+    }, {
+      kind: 'video',
+      sourceAssetId: 'video-1',
+      nodeIds: ['duplicate-node'],
+      asset: { id: 'video-1', stableUrl: '/api/video/assets/video-1' },
+    }],
+  });
+
+  assert.equal(snapshot.pendingProjectAssetImports.length, 2);
+  assert.equal(snapshot.pendingProjectAssetImports[0].asset.url, '/api/generated-assets/' + 'a'.repeat(64) + '.png');
+  assert.equal('file' in snapshot.pendingProjectAssetImports[0].asset, false);
+  assert.equal(snapshot.pendingProjectAssetImports[1].asset.url, '/api/video/assets/video-1');
+  assert.equal(snapshot.pendingProjectAssetImports[1].asset.url.includes('signature'), false);
+  assert.deepEqual(restoreCanvasSnapshot(snapshot).pendingProjectAssetImports, snapshot.pendingProjectAssetImports);
+});
+
+test('Canvas snapshots retain a generated-asset registration intent without treating it as a source upload', () => {
+  const assetId = 'b'.repeat(64) + '.webp';
+  const snapshot = createCanvasSnapshot({
+    pendingProjectAssetImports: [{
+      kind: 'image',
+      operation: 'register-generated',
+      sourceAssetId: assetId,
+      role: 'canvas-output',
+      displayName: '画布生成图',
+      nodeIds: ['generated-output-1'],
+      asset: {
+        assetId,
+        stableUrl: `/api/generated-assets/${assetId}`,
+        url: `data:image/webp;base64,not-for-storage`,
+      },
+    }],
+  });
+
+  assert.equal(snapshot.pendingProjectAssetImports.length, 1);
+  assert.equal(snapshot.pendingProjectAssetImports[0].operation, 'register-generated');
+  assert.equal(snapshot.pendingProjectAssetImports[0].asset.url, `/api/generated-assets/${assetId}`);
+  assert.deepEqual(restoreCanvasSnapshot(snapshot).pendingProjectAssetImports, snapshot.pendingProjectAssetImports);
+});
+
 test('durable Canvas snapshots strip transient media URLs even for legacy nodes without a project ref', () => {
   const playbackUrl = '/api/video/media/legacy-output?purpose=playback&signature=expired';
   const snapshot = createCanvasSnapshot({
@@ -113,6 +182,29 @@ test('durable Canvas snapshots strip transient media URLs even for legacy nodes 
   assert.equal(snapshot.nodes[0].url, '/api/video/assets/legacy-output');
   assert.equal(snapshot.nodes[0].stableUrl, '/api/video/assets/legacy-output');
   assert.equal(snapshot.nodes[0].playbackUrl, undefined);
+});
+
+test('durable Canvas snapshots keep canonical media identity and drop raw upload payloads', () => {
+  const snapshot = createCanvasSnapshot({
+    nodes: [{
+      id: 'pending-image',
+      kind: 'image',
+      url: 'data:image/png;base64,raw-pixels',
+      src: 'blob:http://localhost/raw-preview',
+      file: { name: 'original.png', bytes: 'raw' },
+      projectAssetRef: {
+        projectId: 'project-1',
+        projectAssetId: 'asset-1',
+        contentHash: 'hash-1',
+        stableUrl: '/api/generated-assets/asset-1.png',
+        mimeType: 'image/png',
+      },
+    }],
+  });
+
+  assert.equal(snapshot.nodes[0].url, '/api/generated-assets/asset-1.png');
+  assert.equal(snapshot.nodes[0].src, undefined);
+  assert.equal(snapshot.nodes[0].file, undefined);
 });
 
 test('restoring a server Canvas snapshot preserves transient media playback while durable snapshots remove it', () => {

@@ -249,6 +249,33 @@ test('project asset reuse reads enforce retention while default reads preserve r
   assert.equal(reuse.body.code, 'PROJECT_ASSET_NOT_REUSABLE');
 });
 
+test('project asset production state route is owner-scoped and fail-closed', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'production-route-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '生产状态路由' });
+  const asset = projectStore.createProjectAsset({ ownerEmail: owner, projectId: project.id, assetId: 'production-route-asset', stableUrl: '/api/generated-assets/production-route-asset.webp', contentHash: 'production-route-hash', mimeType: 'image/webp' });
+  const candidate = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/production-state', {
+    headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id, assetId: asset.projectAssetId }, body: { productionState: 'candidate' },
+  });
+  const denied = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/production-state', {
+    headers: signedHeaders(sessionTokens, 'other@example.com'), params: { projectId: project.id, assetId: asset.projectAssetId }, body: { productionState: 'archived' },
+  });
+  const invalid = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/production-state', {
+    headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id, assetId: asset.projectAssetId }, body: { productionState: 'published' },
+  });
+  const forgedDelivery = await invoke(app, 'PATCH', '/api/projects/:projectId/assets/:assetId/production-state', {
+    headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id, assetId: asset.projectAssetId }, body: { productionState: 'delivered' },
+  });
+  assert.equal(candidate.statusCode, 200);
+  assert.equal(candidate.body.asset.productionState, 'candidate');
+  assert.equal(denied.statusCode, 404);
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.body.code, 'PROJECT_ASSET_PRODUCTION_STATE_INVALID');
+  assert.equal(forgedDelivery.statusCode, 409);
+  assert.equal(forgedDelivery.body.code, 'PROJECT_ASSET_PRODUCTION_STATE_SYSTEM_ONLY');
+});
+
 test('project asset routes reject unknown access purposes', async t => {
   const { app, db, projectStore, sessionTokens } = createHarness();
   t.after(() => db.close());

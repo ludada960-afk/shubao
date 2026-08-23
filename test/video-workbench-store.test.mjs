@@ -25,6 +25,160 @@ test('verified video provenance requires the request hash binding', () => {
   assert.equal(normalizeVideoProvenance({ ...base, requestHash: 'hash-a' }).status, 'verified');
 });
 
+test('shot recovery commit applies candidate and timeline atomically and replays idempotently', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const source = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'commit-source', role: 'generated-video',
+    stableUrl: '/api/video/assets/commit-source', contentHash: 'commit-source-hash', mimeType: 'video/mp4',
+  });
+  const target = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'commit-target', role: 'generated-video',
+    stableUrl: '/api/video/assets/commit-target', contentHash: 'commit-target-hash', mimeType: 'video/mp4',
+  });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '镜头恢复提交', durationMs: 3000, prompt: '保持主体连续并完成补拍' });
+  const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: source.assetId, stableUrl: source.stableUrl, contentHash: source.contentHash,
+    mimeType: source.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+      stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: source.mimeType,
+      role: 'generated-video', expectedContentHash: source.contentHash,
+    } });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: shot.revision });
+  const clip = store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  const plan = store.createShotRecoveryPlan({ ownerEmail: OWNER, projectId: project.id,
+    shotId: shot.id, mode: 'reshoot_shot' });
+  const delivery = {
+    status: 'completed', projectId: project.id, candidateId: 'commit-candidate', outputAssetId: target.assetId,
+    provider: 'provider-test', model: 'model-test', requestId: 'commit-request',
+    projectAssetRef: {
+      projectId: project.id, projectAssetId: target.projectAssetId, assetId: target.assetId,
+      stableUrl: target.stableUrl, contentHash: target.contentHash, mimeType: target.mimeType,
+    },
+  };
+  const prepared = store.prepareShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, delivery });
+  const beforeCandidates = db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count;
+  const beforeClips = db.prepare('SELECT COUNT(*) AS count FROM video_timeline_clips').get().count;
+  const applied = store.applyShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, commit: prepared.commit });
+  assert.equal(applied.status, 'applied');
+  assert.equal(applied.replayed, false);
+  assert.equal(applied.providerSubmission, false);
+  assert.equal(applied.billingMutation, false);
+  assert.equal(applied.targetProjectAssetRef.projectAssetId, target.projectAssetId);
+  assert.equal(applied.candidate.outputAssetId, target.assetId);
+  assert.equal(applied.candidate.provenance.recoveryCommitHash, prepared.commit.commitHash);
+  assert.equal(applied.shot.selectedCandidateId, applied.candidate.id);
+  assert.equal(applied.timelineClips.length, 1);
+  assert.equal(applied.timelineClips[0].id, clip.id);
+  assert.equal(applied.timelineClips[0].candidateId, applied.candidate.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count, beforeCandidates + 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_timeline_clips').get().count, beforeClips);
+
+  const replayed = store.applyShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, commit: prepared.commit });
+  assert.equal(replayed.status, 'replayed');
+  assert.equal(replayed.replayed, true);
+  assert.equal(replayed.candidate.id, applied.candidate.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count, beforeCandidates + 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_timeline_clips').get().count, beforeClips);
+
+  store.updateShot({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    expectedRevision: applied.shot.revision, patch: { purpose: '镜头恢复提交 · 已变化' } });
+  const candidatesAfterMutation = db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count;
+  assert.throws(() => store.applyShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, commit: prepared.commit }), error => error.code === 'SHOT_RECOVERY_STALE');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count, candidatesAfterMutation);
+});
+
+test('candidate timeline application is atomic, owner-scoped, and idempotent', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const source = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'timeline-source', role: 'generated-video',
+    stableUrl: '/api/video/assets/timeline-source', contentHash: 'timeline-source-hash', mimeType: 'video/mp4',
+  });
+  const replacement = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'timeline-replacement', role: 'generated-video',
+    stableUrl: '/api/video/assets/timeline-replacement', contentHash: 'timeline-replacement-hash', mimeType: 'video/mp4',
+  });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '候选确认', durationMs: 4000, prompt: '保持节奏连续' });
+  const first = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: source.assetId, stableUrl: source.stableUrl, contentHash: source.contentHash,
+    mimeType: source.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+      stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: source.mimeType,
+      role: 'generated-video', expectedContentHash: source.contentHash,
+    } });
+  const second = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: replacement.assetId, stableUrl: replacement.stableUrl, contentHash: replacement.contentHash,
+    mimeType: replacement.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: replacement.projectAssetId, assetId: replacement.assetId,
+      stableUrl: replacement.stableUrl, contentHash: replacement.contentHash, mimeType: replacement.mimeType,
+      role: 'generated-video', expectedContentHash: replacement.contentHash,
+    } });
+  const selected = store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, expectedRevision: shot.revision });
+  const clip = store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, position: 0, trimStartMs: 0, trimEndMs: 4000 });
+  const before = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id });
+  const applied = store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: second.id, expectedShotRevision: selected.shot.revision, expectedClipRevision: clip.revision,
+    position: 0, trimStartMs: 0, trimEndMs: 3500, muted: true });
+  assert.equal(applied.status, 'applied');
+  assert.equal(applied.replayed, false);
+  assert.equal(applied.providerSubmission, false);
+  assert.equal(applied.billingMutation, false);
+  assert.equal(applied.shot.selectedCandidateId, second.id);
+  assert.equal(applied.timelineClip.candidateId, second.id);
+  assert.equal(applied.timelineClip.trimEndMs, 3500);
+  assert.equal(applied.timelineClip.muted, true);
+  assert.equal(applied.shot.revision, selected.shot.revision + 1);
+  const afterApply = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id });
+  assert.equal(afterApply.timelineClips.length, before.timelineClips.length);
+  assert.equal(afterApply.shots[0].candidates.filter(item => item.status === 'selected').length, 1);
+
+  const replayed = store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: second.id, expectedShotRevision: selected.shot.revision, expectedClipRevision: clip.revision,
+    position: 0, trimStartMs: 0, trimEndMs: 3500, muted: true });
+  assert.equal(replayed.status, 'replayed');
+  assert.equal(replayed.replayed, true);
+  assert.equal(replayed.timelineClip.id, clip.id);
+  assert.equal(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).timelineClips.length, before.timelineClips.length);
+
+  assert.throws(() => store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, expectedShotRevision: selected.shot.revision, expectedClipRevision: clip.revision,
+    position: 0, trimStartMs: 0, trimEndMs: 4000 }), error => error.code === 'VERSION_CONFLICT');
+  assert.throws(() => store.applyCandidateToTimeline({ ownerEmail: 'other@example.com', projectId: project.id,
+    shotId: shot.id, candidateId: first.id, expectedShotRevision: selected.shot.revision,
+    position: 0, trimStartMs: 0, trimEndMs: 4000 }), error => error.code === 'PROJECT_NOT_FOUND');
+
+  const insertedShot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 1,
+    purpose: '片尾候选', durationMs: 3000, prompt: '自然收束' });
+  const insertedCandidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id,
+    shotId: insertedShot.id, outputAssetId: 'timeline-inserted', stableUrl: replacement.stableUrl,
+    contentHash: replacement.contentHash, mimeType: replacement.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: replacement.projectAssetId, assetId: replacement.assetId,
+      stableUrl: replacement.stableUrl, contentHash: replacement.contentHash, mimeType: replacement.mimeType,
+      role: 'generated-video', expectedContentHash: replacement.contentHash,
+    } });
+  const inserted = store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id,
+    shotId: insertedShot.id, candidateId: insertedCandidate.id,
+    expectedShotRevision: insertedShot.revision, position: 1, trimStartMs: 0, trimEndMs: 3000 });
+  assert.equal(inserted.status, 'applied');
+  assert.equal(inserted.timelineClip.position, 1);
+  assert.equal(inserted.timelineClip.revision, 1);
+  const insertedReplay = store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id,
+    shotId: insertedShot.id, candidateId: insertedCandidate.id,
+    expectedShotRevision: insertedShot.revision, position: 1, trimStartMs: 0, trimEndMs: 3000 });
+  assert.equal(insertedReplay.status, 'replayed');
+});
+
 function harness() {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
@@ -167,6 +321,237 @@ test('imports an owner-scoped project asset into video without trusting browser 
     expectedContentHash: 'tampered-hash',
   }), error => error.code === 'PROJECT_ASSET_REF_INVALID');
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'wallet_transactions'").get().count, 0);
+});
+
+test('keeps historical project-asset reads but rejects marked assets for new video reuse', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceProject = projectStore.createProject({ ownerEmail: OWNER, kind: 'ecommerce', title: '历史素材' });
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: sourceProject.id,
+    assetId: 'marked-video-source',
+    role: 'reference',
+    stableUrl: '/api/generated-assets/marked-video-source.webp',
+    contentHash: 'marked-video-source-hash',
+    mimeType: 'image/webp',
+    retentionClass: 'completed',
+  });
+  db.prepare(`UPDATE project_assets
+    SET retention_state = 'marked', expires_at = ?
+    WHERE id = ?`).run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+
+  const historical = projectStore.getProjectAsset({
+    ownerEmail: OWNER,
+    projectId: sourceProject.id,
+    projectAssetId: sourceAsset.projectAssetId,
+  });
+  assert.equal(historical.projectAssetId, sourceAsset.projectAssetId);
+
+  const workbenchAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'product', name: '历史素材导入' });
+  assert.throws(() => store.addAssetVersionFromProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectId: sourceProject.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    expectedContentHash: sourceAsset.contentHash,
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
+test('shot bindings revalidate project asset reuse after import', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: 'binding-reuse-source',
+    role: 'product',
+    stableUrl: '/api/generated-assets/binding-reuse-source.webp',
+    contentHash: 'binding-reuse-source-hash',
+    mimeType: 'image/webp',
+  });
+  const workbenchAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'product', name: '绑定复用素材' });
+  const version = store.addAssetVersion({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    stableUrl: sourceAsset.stableUrl,
+    contentHash: sourceAsset.contentHash,
+    mimeType: sourceAsset.mimeType,
+  });
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: workbenchAsset.id, versionId: version.id, expectedRevision: workbenchAsset.revision });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '商品亮相', durationMs: 3000, prompt: '产品进入画面' });
+  db.prepare(`UPDATE project_assets SET retention_state = 'marked', expires_at = ? WHERE id = ?`)
+    .run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+
+  assert.throws(() => store.bindShotAssetVersion({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    shotId: shot.id,
+    assetId: workbenchAsset.id,
+    assetVersionId: version.id,
+    role: 'product',
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
+test('candidate selection revalidates generated project asset reuse', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: 'candidate-reuse-source',
+    role: 'generated-video',
+    stableUrl: '/api/video/assets/candidate-reuse-source',
+    contentHash: 'candidate-reuse-source-hash',
+    mimeType: 'video/mp4',
+  });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 3000, prompt: '产品进入画面' });
+  const candidate = store.registerCandidate({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    shotId: shot.id,
+    outputAssetId: sourceAsset.assetId,
+    stableUrl: sourceAsset.stableUrl,
+    contentHash: sourceAsset.contentHash,
+    mimeType: sourceAsset.mimeType,
+    projectAssetRef: {
+      projectId: project.id,
+      projectAssetId: sourceAsset.projectAssetId,
+      assetId: sourceAsset.assetId,
+      stableUrl: sourceAsset.stableUrl,
+      contentHash: sourceAsset.contentHash,
+      mimeType: sourceAsset.mimeType,
+      role: 'generated-video',
+      expectedContentHash: sourceAsset.contentHash,
+    },
+  });
+  db.prepare(`UPDATE project_assets SET retention_state = 'marked', expires_at = ? WHERE id = ?`)
+    .run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+
+  assert.throws(() => store.selectCandidate({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    shotId: shot.id,
+    candidateId: candidate.id,
+    expectedRevision: shot.revision,
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
+test('audio tracks and project memory revalidate asset reuse after approval', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: 'audio-reuse-source',
+    role: 'voice',
+    stableUrl: '/api/video/assets/audio-reuse-source',
+    contentHash: 'audio-reuse-source-hash',
+    mimeType: 'audio/mpeg',
+  });
+  const workbenchAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'voice', name: '旁白' });
+  const version = store.addAssetVersion({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    stableUrl: sourceAsset.stableUrl,
+    contentHash: sourceAsset.contentHash,
+    mimeType: sourceAsset.mimeType,
+  });
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: workbenchAsset.id, versionId: version.id, expectedRevision: workbenchAsset.revision });
+  db.prepare(`UPDATE project_assets SET retention_state = 'marked', expires_at = ? WHERE id = ?`)
+    .run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+
+  assert.throws(() => store.createAudioTrack({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    kind: 'voice',
+    assetId: workbenchAsset.id,
+    assetVersionId: version.id,
+    durationMs: 3000,
+    subtitleCues: [],
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+  assert.throws(() => store.setProjectMemoryFact({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    key: 'voiceIdentity',
+    value: { label: '品牌旁白' },
+    assetRefs: [{ assetId: workbenchAsset.id, assetVersionId: version.id }],
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
+test('rejects marked project asset refs when creating a new video version', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: 'marked-version-source',
+    role: 'reference',
+    stableUrl: '/api/generated-assets/marked-version-source.webp',
+    contentHash: 'marked-version-source-hash',
+    mimeType: 'image/webp',
+    retentionClass: 'completed',
+  });
+  db.prepare(`UPDATE project_assets
+    SET retention_state = 'marked', expires_at = ?
+    WHERE id = ?`).run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+
+  const workbenchAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'product', name: '已标记素材' });
+  assert.throws(() => store.addAssetVersion({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    projectAssetRef: {
+      projectAssetId: sourceAsset.projectAssetId,
+      role: 'reference',
+      expectedContentHash: sourceAsset.contentHash,
+    },
+    stableUrl: sourceAsset.stableUrl,
+    contentHash: sourceAsset.contentHash,
+    mimeType: sourceAsset.mimeType,
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
+test('rejects marked source project asset ids when creating a new video version', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: 'marked-source-id',
+    role: 'reference',
+    stableUrl: '/api/generated-assets/marked-source-id.webp',
+    contentHash: 'marked-source-id-hash',
+    mimeType: 'image/webp',
+    retentionClass: 'completed',
+  });
+  db.prepare(`UPDATE project_assets
+    SET retention_state = 'marked', expires_at = ?
+    WHERE id = ?`).run('2026-08-14T00:00:00.000Z', sourceAsset.projectAssetId);
+
+  const workbenchAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'product', name: '已标记 source id' });
+  assert.throws(() => store.addAssetVersion({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    stableUrl: sourceAsset.stableUrl,
+    contentHash: sourceAsset.contentHash,
+    mimeType: sourceAsset.mimeType,
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
 });
 
 test('skill runs preview declarative plans, append confirmation events, and stay non-billing', t => {
@@ -797,6 +1182,7 @@ test('completed generation jobs are imported as candidates from authoritative de
   assert.equal(canonical.assetId, 'output-1');
   assert.equal(canonical.mimeType, 'video/mp4');
   assert.equal(canonical.generationRunId, 'job-1');
+  assert.equal(canonical.productionState, 'candidate');
   assert.deepEqual(canonical.metadata.sourceProjectAssetIds, [sourceVersion.sourceProjectAssetId]);
   assert.equal(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).shots[0].candidates[0].projectAssetRefStatus, 'verified');
   assert.equal(store.registerCandidateFromJob({
@@ -982,6 +1368,21 @@ test('audio continuity tracks require approved voice or music versions and prese
   assert.throws(() => store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
     kind: 'music', assetId: music.id, assetVersionId: musicVersion.id, durationMs: 4000,
     beatMarkers: [100, 90] }), error => error.code === 'INVALID_AUDIO_TRACK');
+  assert.throws(() => store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'voice', assetId: voice.id, assetVersionId: voiceVersion.id, durationMs: 4000,
+    subtitleCues: [
+      { startMs: 0, endMs: 1200, text: '第一句' },
+      { startMs: 1100, endMs: 1800, text: '重叠句' },
+    ],
+  }), error => error.code === 'INVALID_AUDIO_TRACK');
+  assert.throws(() => store.updateAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    trackId: track.id, expectedRevision: 2, patch: {
+      subtitleCues: [
+        { startMs: 800, endMs: 1400, text: '后出现' },
+        { startMs: 200, endMs: 700, text: '先出现' },
+      ],
+    },
+  }), error => error.code === 'INVALID_AUDIO_TRACK');
 });
 
 test('shot recovery plans persist idempotently and never create provider or billing records', t => {
@@ -1024,4 +1425,167 @@ test('shot recovery plans persist idempotently and never create provider or bill
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_recovery_plans WHERE project_id = ?').get(project.id).count, 1);
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
   assert.deepEqual(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).recoveryPlans.map(plan => plan.id), [created.id]);
+});
+
+test('shot recovery execution is a read-only canonical draft and rejects stale plans', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const source = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'video-source', role: 'generated-video',
+    stableUrl: '/api/video/assets/video-source', contentHash: 'video-source-hash', mimeType: 'video/mp4',
+  });
+  const asset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'style', name: '镜头候选' });
+  const version = store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: asset.id,
+    sourceProjectAssetId: source.projectAssetId, stableUrl: source.stableUrl,
+    contentHash: source.contentHash, mimeType: source.mimeType });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000, prompt: '灯光亮起' });
+  const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'video-source', stableUrl: source.stableUrl, contentHash: source.contentHash,
+    mimeType: source.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+      stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: source.mimeType,
+      role: 'generated-video', expectedContentHash: source.contentHash,
+    } });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: shot.revision });
+  store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  const plan = store.createShotRecoveryPlan({ ownerEmail: OWNER, projectId: project.id,
+    shotId: shot.id, mode: 'reshoot_shot' });
+  const prepared = store.prepareShotRecoveryExecution({ ownerEmail: OWNER, projectId: project.id, planId: plan.id });
+  assert.equal(prepared.execution.sourceCandidate.projectAssetRef.projectAssetId, source.projectAssetId);
+  assert.equal(prepared.execution.providerSubmission, false);
+  assert.equal(prepared.execution.billingMutation, false);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
+  store.updateShot({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    expectedRevision: shot.revision + 1, patch: { purpose: '开场 · 更新' } });
+  assert.throws(() => store.prepareShotRecoveryExecution({ ownerEmail: OWNER, projectId: project.id, planId: plan.id }),
+    error => error.code === 'SHOT_RECOVERY_STALE');
+  assert.throws(() => store.prepareShotRecoveryExecution({ ownerEmail: 'other@example.com', projectId: project.id, planId: plan.id }),
+    error => error.code === 'PROJECT_NOT_FOUND');
+  assert.equal(version.sourceProjectAssetId, source.projectAssetId);
+});
+
+test('shot recovery delivery validation is owner-scoped and does not persist a result', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const source = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'delivery-source', role: 'generated-video',
+    stableUrl: '/api/video/assets/delivery-source', contentHash: 'delivery-source-hash', mimeType: 'video/mp4',
+  });
+  const asset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'style', name: '恢复结果' });
+  store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: asset.id,
+    sourceProjectAssetId: source.projectAssetId, stableUrl: source.stableUrl,
+    contentHash: source.contentHash, mimeType: source.mimeType });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '结果校验', durationMs: 3000, prompt: '完成结果' });
+  const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: source.assetId, stableUrl: source.stableUrl, contentHash: source.contentHash,
+    mimeType: source.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+      stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: source.mimeType,
+      role: 'generated-video', expectedContentHash: source.contentHash,
+    } });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: shot.revision });
+  store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  const plan = store.createShotRecoveryPlan({ ownerEmail: OWNER, projectId: project.id,
+    shotId: shot.id, mode: 'reshoot_shot' });
+  const beforeCandidates = db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count;
+  const beforeClips = db.prepare('SELECT COUNT(*) AS count FROM video_timeline_clips').get().count;
+  const validated = store.validateShotRecoveryDelivery({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, delivery: {
+      status: 'completed', projectId: project.id, candidateId: 'candidate-delivery', outputAssetId: 'output-delivery',
+      provider: 'provider-test', model: 'model-test', requestId: 'request-delivery',
+      projectAssetRef: {
+        projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+        stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: 'video/mp4',
+      },
+    } });
+  assert.equal(validated.receipt.status, 'ready');
+  assert.equal(validated.receipt.candidate.outputAssetId, 'output-delivery');
+  assert.equal(validated.receipt.providerSubmission, false);
+  assert.equal(validated.receipt.billingMutation, false);
+  const prepared = store.prepareShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, delivery: {
+      status: 'completed', projectId: project.id, candidateId: 'candidate-delivery', outputAssetId: 'output-delivery',
+      provider: 'provider-test', model: 'model-test', requestId: 'request-delivery',
+      projectAssetRef: {
+        projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+        stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: 'video/mp4',
+      },
+    } });
+  assert.equal(prepared.commit.status, 'ready');
+  assert.equal(prepared.commit.projectId, project.id);
+  assert.equal(prepared.commit.candidate.requestedCandidateId, 'candidate-delivery');
+  assert.equal(prepared.commit.timelineActions[0].expectedRevision, 1);
+  const preflight = store.preflightShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, commit: prepared.commit });
+  assert.equal(preflight.status, 'ready');
+  assert.equal(preflight.sourceProjectAssetRef.projectAssetId, source.projectAssetId);
+  assert.equal(preflight.targetProjectAssetRef.projectAssetId, source.projectAssetId);
+  assert.ok(projectStore.getProjectAsset({ ownerEmail: OWNER, projectId: project.id,
+    projectAssetId: source.projectAssetId }));
+  db.prepare('UPDATE project_assets SET retention_state = ? WHERE id = ?')
+    .run('marked', source.projectAssetId);
+  assert.throws(() => store.preflightShotRecoveryCommit({ ownerEmail: OWNER, projectId: project.id,
+    planId: plan.id, commit: prepared.commit }), error => error.code === 'PROJECT_ASSET_NOT_REUSABLE');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_candidates').get().count, beforeCandidates);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_timeline_clips').get().count, beforeClips);
+  assert.throws(() => store.validateShotRecoveryDelivery({ ownerEmail: 'other@example.com', projectId: project.id,
+    planId: plan.id, delivery: { status: 'completed', projectId: project.id, projectAssetRef: {
+      projectId: project.id, projectAssetId: source.projectAssetId, stableUrl: source.stableUrl,
+      contentHash: source.contentHash, mimeType: 'video/mp4',
+    } } }), error => error.code === 'PROJECT_NOT_FOUND');
+});
+
+test('storyboard shots persist first/last frame refs and model intent', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const first = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'frame-first', role: 'image',
+    stableUrl: '/api/generated-assets/frame-first.webp', contentHash: 'frame-first-hash', mimeType: 'image/webp',
+  });
+  const last = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'frame-last', role: 'image',
+    stableUrl: '/api/generated-assets/frame-last.webp', contentHash: 'frame-last-hash', mimeType: 'image/webp',
+  });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000, prompt: '产品亮相',
+    firstFrameRef: { projectAssetId: first.projectAssetId, contentHash: first.contentHash },
+    lastFrameRef: { projectAssetId: last.projectAssetId, contentHash: last.contentHash },
+    modelIntent: 'product-hero' });
+  const hydrated = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).shots[0];
+  assert.equal(hydrated.modelIntent, 'product-hero');
+  assert.equal(hydrated.firstFrameRef.projectAssetId, first.projectAssetId);
+  assert.equal(hydrated.firstFrameRef.contentHash, first.contentHash);
+  assert.equal(hydrated.firstFrameRef.mimeType, 'image/webp');
+  assert.equal(hydrated.lastFrameRef.projectAssetId, last.projectAssetId);
+  assert.equal(hydrated.lastFrameRef.contentHash, last.contentHash);
+
+  const updated = store.updateShot({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    expectedRevision: hydrated.revision, patch: { modelIntent: 'hero-closeup', lastFrameRef: null } });
+  assert.equal(updated.modelIntent, 'hero-closeup');
+  assert.equal(updated.lastFrameRef, null);
+  assert.equal(updated.firstFrameRef.projectAssetId, first.projectAssetId);
+});
+
+test('storyboard shot frame refs fail closed on invalid or foreign canonical assets', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const otherProject = projectStore.createProject({ ownerEmail: 'other@example.com', kind: 'video', title: '别人的项目' });
+  const foreign = projectStore.createProjectAsset({
+    ownerEmail: 'other@example.com', projectId: otherProject.id, assetId: 'foreign-frame', role: 'image',
+    stableUrl: '/api/generated-assets/foreign-frame.webp', contentHash: 'foreign-frame-hash', mimeType: 'image/webp',
+  });
+  assert.throws(() => store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 5,
+    purpose: '开场', durationMs: 3000, prompt: 'x',
+    firstFrameRef: { projectAssetId: foreign.projectAssetId, contentHash: 'tampered-hash' } }),
+    error => error.code === 'PROJECT_ASSET_NOT_FOUND' || error.code === 'PROJECT_ASSET_REF_INVALID');
+  assert.throws(() => store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 6,
+    purpose: '开场', durationMs: 3000, prompt: 'x',
+    lastFrameRef: { projectAssetId: 'missing-id', contentHash: 'x' } }),
+    error => error.code === 'PROJECT_ASSET_NOT_FOUND' || error.code === 'PROJECT_ASSET_REF_INVALID');
 });

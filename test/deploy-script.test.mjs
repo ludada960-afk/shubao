@@ -405,7 +405,7 @@ test('production runtime verifier fails closed without exposing secret values', 
 });
 
 test('Nano Banana gateway probe validates stable production aliases without exposing credentials', () => {
-  assert.match(nanoGatewayProbe, /gemini-3\.1-flash-image/);
+  assert.match(nanoGatewayProbe, /gemini-2\.5-flash-image/);
   assert.match(nanoGatewayProbe, /gemini-3-pro-image/);
   assert.match(nanoGatewayProbe, /--generate/);
   assert.doesNotMatch(nanoGatewayProbe, /console\.(?:log|error)\([^\n]*(?:apiKey|NANO_BANANA_API_KEY)/);

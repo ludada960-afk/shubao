@@ -18,7 +18,7 @@ test('mobile ecommerce workbench reserves space above the fixed navigation', () 
 test('mobile ecommerce actions stay compact and remain in flow below the composer', () => {
   const mobileRules = homeCss.match(/@media \(max-width: 639px\) \{([\s\S]*?)\n\}/)?.[1] || '';
 
-  assert.match(ecommerceModeSource, /className="ec-workbench-actions"/);
+  assert.match(ecommerceModeSource, /className="ec-workbench-actions(?:\s|\")/);
   assert.match(ecommerceModeSource, /className="ec-workbench-tools"/);
   assert.match(ecommerceModeSource, /className="ec-workbench-next"/);
   assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*position:\s*relative[^}]*bottom:\s*auto/);

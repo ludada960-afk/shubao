@@ -563,6 +563,51 @@
   URL map; Works imports preserve the records; and Canvas consumes the
   structured records before any legacy ID-based fallback. Hyphenated planner
   IDs such as `white-background`, `main-text` and `detail-feature` therefore no
+## 2026-08-23 Unified Archive Decision (video thread completed)
+
+- 视频线程（会话 B, 019ff647-...）已完成 VID-P1-02 分镜卡片字段增强（video_storyboard_shots 新增 first_frame_ref/last_frame_ref/model_intent 三列，additive 迁移；createShot/updateShot 持久化，首/末帧引用经 purpose reuse 的 canonical 项目资产校验；UI 展示意图与首末帧绑定标识；新增 2 个分镜字段测试）。
+- 已核实：视频线程在账本追加了条目（第2657-2671行，含重复段落，无碍）；全量 npm test 2117/2117 通过；视频子集 188/188。
+- 依赖确认：server/videoWorkbenchStore.mjs 与 server/videoProjectBridge.mjs 均 import 主线程未提交的 server/projects/projectAssetContract.mjs 的 assertCanonicalProjectAssetRef。因此视频文件不能单独提交（会破坏跨文件依赖），必须由主线程统一归档主线程+视频线程的混合改动。视频线程已明确授权主线程统一归档。
+- 统一归档范围：主线程（server/projects、server/billing、server/db、server/index、server/ecommerceEngine、src/EcCanvas、src/Works、src/services、src/store、src/App.jsx、src/components、src/Home、shared/ 3 模块、商品档案、对应 test）+ 视频线程（server/video*.mjs、server/videoModelRouter.mjs、src/VideoStudio、src/services/videoWorkbench.js、test/video-*）+ 双方文档（docs/research、docs/superpowers/plans、docs/deploy-2026-08-23-checklist.md）。
+- 排除项（绝不提交）：12 个 server/extension_tasks 删除项、.tmp/、scripts/diagnose-recent-ecommerce-jobs.cjs、.tmp_patch_responsive.py、dist-codex-build-* 全部构建产物、全部截图（.tmp-*、xhs-*、visual-*、canvas-qa-*、ec-canvas-*、home-* 等）。
+- 下一步：对干净 HEAD 跑 full production gate（含 verify:video-acceptance 零付费），再通过唯一入口 scripts/deploy-production.ps1 部署，等待真实账务/生图/Canary/健康审计验证后上报「已上线」。
+## 2026-08-23 Video Thread Completion Merge-Deploy Checklist
+
+待视频线程（会话 B, 019ff647-...）完成其清单全部步骤后，主线程按此清单执行合并部署（提高上线效率）：
+
+1. 确认视频线程完成：VID-P1-04 实现、测试+聚焦回归通过、已在 RTK.md/progress.md 记录最终状态。
+2. 按归属拆分提交：只归档主线程资产/项目/Canvas 改动 + shared 模块（shared/canvasPendingArchive.mjs、canvasSnapshotMedia.mjs、workPersistence.mjs）+ 主线程文档（docs/research/2026-08-19-ai-visual-content-business-research.md、docs/superpowers/plans/2026-08-21-visual-product-workspace.md）。
+3. 排除文件（绝不提交）：12 个 server/extension_tasks 删除项、.tmp/、scripts/diagnose-recent-ecommerce-jobs.cjs、.tmp_patch_responsive.py、dist-codex-build-* 全部构建产物、全部截图（.tmp-*、xhs-*、visual-*、canvas-qa-*、ec-canvas-*、home-* 等）、视频线程文件（server/video*.mjs、server/videoModelRouter.mjs、src/pages/VideoStudio/*、test/video-*、src/services/videoWorkbench.js、docs/superpowers/plans/2026-08-21-video-shot-execution-contract.md 与 2026-08-22-video-storyboard-shot-enrichment.md）。
+4. 对干净 HEAD 跑 full production gate：全量 npm test、npm run build、npm run check、npm run collab:check、git diff --check、npm run verify:video-acceptance（providerSubmissions=0/billingMutated=false/paidGenerationRequested=false）。
+5. 部署：唯一入口 scripts/deploy-production.ps1（默认 auto 会按提交范围自动判定 full/frontend，涉及 server/project/asset 路径则 full）。
+6. 等待真实验证后上报：真实账务、生图、600 秒 Canary、独立健康接口/审计验证通过后再报「已上线」。
+7. 完成部署后：更新 RTK.md 与进度账本最终状态，确认运行态排除项仍未被误暂存/误删。
+## 2026-08-23 Current Coordination State (awaiting video thread)
+
+- 视频线程（会话 B, 019ff647-...，工作树 F:/da/shubao/.worktrees/video-integration）正在实现 VID-P1-04 计划审批门（建基线已完，剩余：实现→测试+聚焦回归→更新 RTK.md/progress.md 最终状态）。
+- 主线程本地验收已完成并记录；部署脚本辅助文件 13/13 齐备；主线程待部署文件清单已梳理（shared/ 3 文件 + 商品档案相关 + 主线程文档；视频线程的 docs/superpowers/plans/2026-08-21-video-shot-execution-contract.md 与 2026-08-22-video-storyboard-shot-enrichment.md 将在提交时按归属拆出）。
+- 主线程在视频线程完成全部清单步骤并确认可安全快照前，不部署共享工作树（部署脚本打包 working dir 会推上未完成改动，违反「不得发布未验证/半成品」「必须按文件归属拆分」的规定）。
+- 准备中的待部署清单：先按归属拆分提交→跑 full production gate（真实账务、生图、Canary、独立健康/审计验证）→部署上线→等真实验证完成后再报「已上线」。
+## 2026-08-23 Video Thread Safety Snapshot Assessment
+
+- 视频线程（会话 B, 019ff647-...）任务清单：建基线→理解未提交混合与视频所有权边界→在 RTK.md 记录检查点→设计+实现 VID-P1-04 计划审批门→测试+聚焦回归→更新 RTK.md/progress.md 最终状态。
+- 评估：第1步建基线已完成（video subset 162/162, full suite 2115/2115 green）；但第5/6步（测试+聚焦回归、更新账本最终状态）均未体现——共享工作树和视频线程独立工作树（video-integration, HEAD aa81a32/08-18, 账本停 08-18）都无 VID-P1-04 实现记录。
+- 结论：视频线程的 VID-P1-04 实现仍在进行中，未到可安全快照的稳定检查点。共享工作树里 12 文件 1451 行+3 未跟踪文件的 video 改动是未提交、未测试、未记账的进行中工作。
+- 部署风险：deploy-production.ps1 打包共享工作树 working dir（server/shared/dist），会把这些未完成改动推上真实站点，违反 RTK.md「不得发布未验证/半成品」和「必须按文件归属拆分」的规定。
+- 建议方案（按推荐序）：(A) 请视频线程把改动提交到其独立工作树 video-integration 分支，使共享树干净后再部署主线程已验收的 Canvas 资产恢复部分；(B) 主线程暂存(stash)视频线程改动后部署再恢复（有风险）；(C) 用户在 DSH GUI 里把视频线程作为可通信 subagent 拉起（若它在界面可见），我即可直接发消息确认其工作进展。
+- 用户未确认视频线程是否可安全快照，也未确认它是否已作为 subagent 可通信。在收到视频线程稳定确认前，主线程不会部署含其未完成改动的共享工作树。
+## 2026-08-23 Main-Thread Deployment Blocker Assessment
+
+- 主线程确认视频线程（会话 B, 019ff647-...）的独立工作树 `F:/da/shubao/.worktrees/video-integration`：分支 `codex/video-integration`，HEAD `aa81a32`（2026-08-18 提交），文件也停留 08-18，当前不活跃。
+- 共享工作树 `codex-ecommerce-stability` 里的 video 文件改动（12 文件 1451 行 + 3 个未跟踪文件，含 `videoShotRecovery.mjs` +500、`videoWorkbenchStore.mjs` +533）是**未提交的、与视频集成分支不一致的残留改动**，不在任何提交里，只是 working dir 的未暂存状态。
+- 部署脚本打包共享工作树的 working dir（`server/ shared/ dist/`），会把上述未提交残留改动一并推上真实站点。这违反 RTK.md「不得发布未验证/半成品」和「工作树含混合未提交内容不能直接归档/发布，必须按文件归属拆分」的规定。
+- 因此在本轮收到视频线程将其共享树 video 改动提交到 `codex/ecommerce-stability` 分支（或清理）的确认前，主线程不会部署共享工作树。主线程本地验收（全量 2115/2115、build 成功、video-acceptance 零付费）已全部完成并已记录。
+## 2026-08-23 Main-Thread Deployment Coordination Request (TO: Video Thread 019ff647-2893-7cd3-828c-b894c01cad21)
+
+- 主线程已完成 Canvas 生成图归档失败恢复闭环的本地验收（全量 2115/2115、build 成功、video-acceptance 零付费、check/collab/diff 全通过）并已在本账本记录。
+- 用户已确认走最稳妥上线路径：先与视频线程协调到稳定可快照点，再按归属拆分工作树改动，对干净 HEAD 执行 full production gate 后部署。
+- 请视频线程确认：其 `server/video*.mjs`、`src/pages/VideoStudio/*`、`test/video-*.test.mjs`、`server/videoModelRouter.mjs` 等未提交改动是否已到可安全快照/提交的稳定检查点，或仍需继续工作暂不可打包。确认后主线程将按归属拆分（只归档主线程资产/项目/Canvas 改动与 shared 模块，排除运行态/构建产物/截图/视频线程文件）并部署。
+- 在本轮收到视频线程稳定确认前，主线程不会把含视频线程进行中改动的共享工作树直接推上线。
   longer collapse into the generic material lane. Focused regression passed
   135/135 and the complete gate passed 936/936 tests, the 6,430-module Vite
   production build, post-build asset checks, collaboration policy, syntax
@@ -2320,6 +2365,12 @@
 - 发布前全量 `npm test` `1954/1954`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 通过；公网图库 `117` 张、公开视频契约 `2` 个产品、认证非计费视频 canary 和 `600` 秒生产 canary 通过。前端专项发布按规范跳过真实电商红苹果验收，未产生付费生成。
 - 本次发布包按归档时的共享工作树打包；导航提交为 `e823283`，共享线程随后完成 `f521363` Canvas 媒体持久化提交。发布后 curl/SSH 复核线上首页与健康接口 `200`、PM2 PID `4159840` 在线。远端磁盘约 `95%` 使用率，未阻断本次发布但需要后续清理备份/发布物并建立容量门禁。
 
+## 2026-08-20 Creative Navigation Adaptive Motion Revision
+
+- 根据视觉复核重构导航面板：面板宽度按入口数量自适应并以触发按钮中心为锚点；两项和四项入口使用紧凑双列，三项入口保持单列，移除重复的一级标题和底部说明，一级导航与目的地列表形成明确层级。
+- 目的地图标改为复合 glyph：语义 Phosphor 核心图标外增加四个可拆解角部和轨道层，悬停/键盘聚焦触发错峰散开、轨道脉冲与回收锁定；不同入口保留不同轨道形态，减少动态偏好时关闭动画与变换。
+- 定向导航回归 `6/6`、全量 `npm test` `1968/1968`、生产构建 `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 通过。待使用 `scripts/deploy-production.ps1 -ValidationProfile frontend` 发布。
+
 ## 2026-08-20 Project Library Canvas Import Single-Flight
 
 - 收口项目素材库导入的并发边界：Canvas 导入现在由组件级 single-flight 锁保护整个异步流程，重复点击不会并行创建多个非计费项目版本或覆盖彼此的导入状态；无效素材分支也会在 finally 中释放锁。
@@ -2346,3 +2397,285 @@
 - 手动保存现在区分画布会话和作品归档两个结果：会话成功后立即同步 session ref 与远端快照指纹，避免重复自动保存；作品归档失败时保留本地草稿并明确提示“云端作品暂未保存”，不再无条件宣称完整成功。
 - 新增两条回归契约；聚焦 Canvas 代际/归档测试 `6/6`，全量 `npm test` `1968/1968`，隔离 Vite 构建 `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 均通过。标准 `npm run build` 仍受既有 5174 Vite 进程占用 `dist/images` 的 Windows `ENOTEMPTY` 影响，本轮未停止并行服务。
 - 本轮只修改主线程 Canvas 和对应回归测试；视频线程、导航线程、用户运行态及未跟踪研究/截图未修改、未暂存。未调用供应商、真实生成、账务或生产部署；线上仍为 `e823283`，本地改动涉及 asset/project/Canvas 路径，发布前必须通过 full production gate。
+
+## 2026-08-20 Creative Navigation Adaptive Motion Revision Production Release
+
+- 导航视觉重构已通过唯一入口 `scripts/deploy-production.ps1 -ValidationProfile frontend` 发布至 `https://shuimg.cn/`；线上 `current` 指向 `/var/www/shubao/releases/20260820-142005-c668bca`，PM2 `shubao-production` PID `4177559` 在线，健康接口返回 `200/ready`，部署锁已释放。
+- 面板按入口数量自适应宽度并锚定触发器中心；两项/四项目的地使用紧凑双列，重复一级标题和底部说明移除；复合 glyph 使用核心语义图标、四角分片和轨道层，悬停/聚焦触发拆解、脉冲与重组。浏览器桌面、移动端、键盘和减弱动态偏好均完成验证。
+- 发布前全量 `npm test` `1972/1972`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 通过；公网图库 `117` 张、公开视频契约 `2` 个产品、认证非计费视频 canary 和 `600` 秒生产 canary 通过。前端专项发布跳过真实电商红苹果验收，未产生付费生成。
+- 本次导航提交为 `c668bca`，发布后共享线程继续产生 `a0f80b3` 等 Canvas 提交；并行工作树文件未被本次导航提交回退。远端磁盘约 `95%`，没有阻断本次发布，仍需后续治理历史 release/backup 容量。
+
+## 2026-08-21 Unified Project Asset Search And Reuse Contract
+
+- 主线程提交 `a635704`：项目素材库支持 owner-scoped 服务端检索，覆盖资产 ID、角色、项目 ID/标题和结构化元数据；Canvas 搜索输入会把查询传到服务端，并将无查询上限提升到服务端允许的 500 条，避免只在前 200 条结果上本地筛选。
+- 主线程提交 `ac5f362`：前端二次过滤与服务端搜索字段保持一致，补充 `projectAssetId` 和完整可序列化元数据搜索；异常元数据只降级搜索，不阻断素材库读取。素材库、路由、项目存储及 Canvas 相关回归和最终构建均通过。
+- 主线程提交 `e4203c0`、`77dff6e`：canonical project store 新增 `getProjectAsset({ purpose: 'reuse' })` 复用读取边界。默认 `read` 仍支持历史 Canvas/Works 恢复；显式复用只接受 active、未到期或 pinned 资产，marked/isolated/已过期资产 fail closed，并返回明确的 `PROJECT_ASSET_NOT_REUSABLE`，避免上层把生命周期限制误报成不存在。项目 retention/路由/Canvas 定向回归 `76/76` 通过。
+- 本轮最终全量回归 `2012/2012`、生产构建 `6526` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 通过；未调用供应商、真实生成、账务或生产部署。视频线程已收到一次排队式契约通知，但尚未将其跨项目导入调用切换到 `purpose: 'reuse'`；在其正式交接前不得声称视频复用边界已完整落地。
+- 随后联合工作树新增视频路由改动后，最新 `npm test` 为 `2019` 项、`2017` 通过、`2` 项失败，均在视频线程的 `test/video-workbench-plan.test.mjs`：speed objective 的 route recommendation 实际选择 `seedance_standard` 而测试期望 `seedance_fast`。主线程已一次性通知视频线程并未修改其文件；本轮构建 `6526` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 仍通过，因此不进入生产发布。
+
+## 2026-08-21 Canonical Project Asset Reuse Revalidation
+
+- 主线程提交 `29f27c1`：Canvas 项目素材库检索增加 180ms 防抖和取消保护，连续输入不会为每个字符发起请求，旧响应不会覆盖新查询；项目素材搜索相关回归通过。
+- 主线程提交 `3ed5931`：项目资产读取接口支持显式 `purpose=reuse`，服务端在复用入口重新执行 canonical retention 校验；默认读取仍保留历史 Canvas/Works 恢复能力。Canvas 点击“加入”前会重新获取 owner-scoped 可复用资产，过期/待清理竞态返回 `409 PROJECT_ASSET_NOT_REUSABLE`，不会先写入画布或归档作品。
+- 新增项目路由、客户端和 Canvas 回归；本轮全量 `npm test` `2022/2022`、生产构建 `6526` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。未调用供应商、真实生成、账务或生产部署；视频线程继续保留其独立工作范围。
+
+## 2026-08-21 Asset Access Purpose Fail-Closed Contract
+
+- 主线程提交 `f554664`：canonical project asset 访问意图现在只允许 `read` 与 `reuse`；未知 purpose 不再静默降级为普通读取，服务端返回 `PROJECT_ASSET_PURPOSE_INVALID`，客户端在发请求前拒绝，避免未来跨域消费者意外绕过复用生命周期。
+- 项目存储、项目路由、客户端、Canvas/Works 相关回归通过；本轮全量 `npm test` `2025/2025`、生产构建 `6526` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 均通过。未调用供应商、真实生成、账务或生产部署。
+- 视频线程已收到一次完整交接：其跨项目导入必须将 `getProjectAsset` 切换为 `purpose: 'reuse'` 并覆盖不可复用资产回归；在该领域改动正式交接前，视频跨域复用仍标记为未完成。
+- 随后提交 `f59dcca`：客户端对未知访问意图抛出与服务端一致的 `PROJECT_ASSET_PURPOSE_INVALID`，保持参数错误、资产缺失和生命周期限制的错误语义可区分；客户端回归通过。
+
+## 2026-08-21 Canvas Pending Project Archive Recovery
+
+- Canvas 上传后的项目归档失败现在会保留 owner-scoped 原始资产身份、素材类型、角色和对应节点 ID，显示持续存在的“待归档素材”状态，并提供单飞“重试归档”入口；图片、视频、音频均通过既有项目导入器重试，服务端仍重新校验所有权、哈希和生命周期。
+- 重试成功后只回填对应节点的 canonical `projectAssetRef`、播放地址和 ready 状态，成功记录从待处理队列移除；失败记录保留，作品切换时清空，避免跨作品污染或误报归档成功。未改变计费和供应商调用路径。
+- 新增 Canvas 恢复契约测试；本轮全量 `npm test` `2034/2034`、生产构建 `6526` modules、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。未调用真实生成、账务或生产部署；本地改动仍未上线，线上不包含本轮 Canvas/资产恢复改动。
+
+## 2026-08-21 Video Candidate Provenance Contract Revalidation
+
+- 视频线程在 `registerCandidate` 边界补齐可由当前交付事实确定的 `projectAssetRef.role` 与 `expectedContentHash`，再交给 `normalizeVideoProvenance`；没有放宽恢复执行对服务端核验引用的要求，也没有信任浏览器提交的媒体事实。
+- 视频恢复/工作台 focused 回归 `41/41` 通过，Canvas/XHS focused 回归 `18/18` 通过；`git diff --check`、`npm run check`、`npm run collab:check` 通过，稳定复跑等价全量测试 `2039/2039` 通过。隔离 Vite 构建 `6527` modules 与产物引用检查通过；标准 `npm run build` 仍受并行 Vite 进程占用 `dist/images` 的 Windows `ENOTEMPTY` 影响。未调用真实生成、账务或生产部署；该修复仍属于共享工作树待归档变更，不能视为已上线。
+
+## 2026-08-21 Durable Media Payload And Recovery Draft Boundary
+
+- Canvas 浏览器快照和服务端项目版本现在统一移除 `data:`、`blob:`、`filesystem:` URL 以及 `file`/`rawData` 等原始上传载荷；已有 canonical `projectAssetRef.stableUrl` 会恢复为可持久化地址，没有稳定身份的媒体节点会标记为 unavailable，不会把不可恢复的原始媒体写进 durable snapshot。
+- Works 的 `payload` 持久化沿用同一媒体边界，防止图片/封面原始数据进入 SQLite；新增 Canvas、项目版本和 Works 回归覆盖有稳定引用与无稳定引用两条路径。
+- 视频镜头恢复合同合并了共享工作树中的并行函数声明冲突：恢复应用只生成候选/时间线操作草稿和哈希，保持 provider/billing 均为 `false`，并对过期片段及不完整项目素材引用 fail closed。视频恢复与路由聚焦回归 `41/41` 通过。
+- 本轮串行全量回归 `2045/2045` 通过；隔离 Vite 构建 `6528` modules、产物检查、`npm run check`、`npm run collab:check`、`git diff --check` 通过。标准 `npm run build` 未抢占并行 Vite 进程占用的 `dist/images`，因此没有删除或停止任何共享运行态。
+- 未调用供应商、真实生成、账务或生产部署。`e673c10` 已在线上，但本轮 Canvas/Works 媒体边界和恢复草稿合并属于当前共享工作树待归档变更，不能视为已上线；涉及 asset/project/video/server 的后续发布必须走 full production gate。
+
+## 2026-08-21 Project Asset Batch Canvas Intake
+
+- 项目素材库新增基于 `projectId:projectAssetId:contentHash` 的多选入口，图片、视频、音频沿用同一 canonical 身份；已到期或待清理素材不能被选入批次，保留状态变化后会自动从选择集中清除。
+- 批量加入采用逐项 `purpose: 'reuse'` 服务端复验，并在本地累积同一个 Canvas session 后一次性更新节点、选区和作品归档；重复素材、复验失败素材分别统计跳过，不会用旧闭包覆盖先前加入的节点，也不会触发供应商、生成或扣费。
+- 单个加入与批量加入共用 single-flight 和忙碌态，批量完成后清空选择并明确反馈云端归档是否成功；未改变视频工作台的数据表或恢复合同，视频素材仅通过统一项目资产引用进入 Canvas。
+- 资产选择模型与 Canvas 合同聚焦回归 `87/87` 通过；串行全量回归 `2048/2048`、隔离 Vite 构建 `6528` modules、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；本轮 Canvas/资产库批量接入属于共享工作树待归档变更，涉及 asset/project/Canvas 路径，后续发布必须走 full production gate。
+
+## 2026-08-21 Ecommerce Project Asset Delivery Metadata
+
+- 电商生成结果现在从服务端持久化的 Asset Plan 派生安全的交付元数据，并随项目结果版本进入 canonical `project_assets`；覆盖 `label`、`displayName`、`name`、`role`、`group`、比例、尺寸和电商生成 provenance，避免依赖浏览器或供应商私有字段。
+- `project_assets` 保存派生 `metadata_json` 与角色，同时继续由服务端确定稳定资产 ID、content hash、MIME 和应用内 stable URL；私有 prompt、provider job、外链地址和模型信息不会进入共享资产库。这为 Works、Canvas 和视频工作台按同一资产身份发现并复用电商产物提供了基础，但不宣称已完成全部监管可见 AIGC 标识能力。
+- 电商任务、项目版本、资产库、Canvas 和跨域资产合同 focused 回归 `118/118`，串行全量回归 `2049/2049`，隔离 Vite 构建 `6528` modules，`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；本轮 `server/ecommerceEngine/projectLifecycle.mjs`、`server/projects/projectStore.mjs` 及相关测试仍属于共享工作树待归档改动，涉及 server/project/asset 路径，后续发布必须走 full production gate。
+
+## 2026-08-21 Ecommerce Asset Provenance Hardening
+
+- 电商结果的 canonical 项目资产现在由服务端补齐内部 AIGC provenance：`generatedAt` 由完成事务生成，`aigc.generated` 与 `provenance.type/route` 由服务端覆盖，不能被客户端提交的同名字段伪造；Asset Plan 中的产品、风格、证明和保护素材 ID 会去重后进入 `provenance.sourceAssetIds`。
+- 该 provenance 会随项目素材库返回，并在视频跨项目导入时沿用已有的源资产元数据复制路径；本轮没有修改视频生成、账务或 provider 逻辑，也没有把内部 provenance 误称为完整的显式/元数据合规标识方案。
+- provenance focused 回归 `152/152`、构建 `6528` modules、`npm run check`、`npm run collab:check`、`git diff --check` 通过。全量回归当前为 `2041` 项、`2040` 通过、`1` 个共享视频文件级失败：`test/video-shot-recovery.test.mjs` 导入的 `buildShotRecoveryDeliveryReceipt` 尚未从 `server/videoShotRecovery.mjs` 导出；已一次性交接给视频线程，主线程未改视频文件。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；本轮改动尚未上线，涉及 server/project/asset 路径，必须等视频合同恢复后重新跑 full production gate。
+
+## 2026-08-21 Unified Visual Delivery Provenance And Canvas Manifest
+
+- 电商结果的 server-derived AIGC provenance 已完成闭环：服务端事务覆盖客户端同名字段，固定 `generatedAt`、`aigc.generated`、`provenance.type/route`，并从 Asset Plan 派生去重后的源素材 ID；私有 prompt、provider job、外链和模型字段不会进入 canonical project assets。
+- Canvas 多图 ZIP 现在包含受白名单约束的 `manifest.json`，记录文件名、资产身份、角色、尺寸、AIGC 和 provenance，名称优先级固定为 `displayName > label > name`；不会把 URL、blob、原始文件、prompt 或 provider 私有信息带入交付包。单文件保存与单文件下载行为保持不变。
+- 视频交付引用已恢复兼容归一化：服务端可确定的 `role=generated-video` 与 `expectedContentHash` 会在严格校验前补齐；跨项目归属、视频 MIME、内容哈希不一致、过期/未核验引用以及 provider/billing 仍 fail closed。视频恢复与导航定向验收 `28/28` 通过。
+- 本轮最终串行全量回归 `2051/2051`、隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`，本轮 asset/project/video/server/Canvas 改动仍未上线，后续发布必须走 full production gate。
+
+## 2026-08-21 Video Asset Reuse Boundary At Mutation Entrances
+
+- 修复视频工作台的生命周期绕过：历史版本列表继续使用 `purpose: read`，但镜头素材绑定、候选选定/进入时间线、音频轨道创建或切换、项目记忆素材引用现在统一重新执行 `purpose: reuse` 的 owner-scoped canonical project asset 校验。
+- 被标记、隔离、过期或缺少 canonical 身份的版本不能再进入新的镜头、音频或记忆写入；已经存在的历史记录仍可读取和恢复，避免把 retention 清理误报成数据丢失。provider、billing、上传和生成路径未改变。
+- 新增 3 条回归覆盖绑定、生成候选选定、音频/记忆引用在导入后资产状态变化的 fail-closed 行为。相关视频、路由、导出、渲染器和 retention focused 回归 `101/101`，串行全量回归 `2055/2055`，隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。本轮改动尚未上线，涉及 video/project/asset/server 路径，后续必须走 full production gate。
+
+## 2026-08-21 Canvas Project Asset Metadata Projection
+
+- 项目素材库导入 Canvas 节点时现在保留受控的展示与交付 provenance：`displayName`、角色/分组/比例、尺寸、AIGC 标记以及来源资产 ID；不会把完整项目资产对象或 owner、prompt、provider、外链等私有字段带进节点。
+- 图片、视频和音频节点共用同一安全白名单投影，持久化快照继续沿用 durable media 边界，后续 Canvas ZIP `manifest.json` 可以读取可审计的资产信息而不泄露生成内部字段。
+- 新增 Canvas 节点 metadata 回归；Canvas、Works、资产库和交付 focused 回归 `58/58`，串行全量回归 `2056/2056`，隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。本轮改动仍属于共享工作树待归档变更，涉及 Canvas/asset/project/video 交付边界，后续发布必须走 full production gate。
+
+## 2026-08-21 Canvas Reuse Retention Boundary
+
+- Canvas 服务端保存校验现在区分“新复用”和“历史恢复”：创建会话或保存时新增的项目素材引用必须仍处于可复用状态（active 且未过期，或 permanent/pinned）；owner、项目、哈希和稳定 URL 仍逐项核验。
+- 已存在于当前 Canvas 快照的引用，即使后来进入 retention marked，也允许继续保存和恢复，避免用户打开旧作品时被误报为素材丢失；新增同一过期/标记素材仍 fail closed，并返回 `PROJECT_ASSET_NOT_REUSABLE`。
+- 新增 retention 回归覆盖创建拒绝、历史会话恢复和保存时新增引用拒绝。项目版本与路由 focused 回归 `59/59`，串行全量回归 `2057/2057`，隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。本轮修改涉及 Canvas/asset/project 服务端边界，仍属于共享工作树待归档变更，后续发布必须走 full production gate。
+
+## 2026-08-21 Video Canonical Asset Provenance Projection
+
+- 旧 VideoStudio 项目桥接完成视频交付时，现在由服务端在 canonical `project_assets.metadata_json` 写入 `source: video-generation`、AIGC 标记、`provenance.type/route/generatedAt`、实际参与该视频项目的 canonical 来源资产 ID，以及任务计划中的 `durationMs`。
+- 视频交付引用会携带受控 metadata 到 Works/Canvas；没有可靠媒体探测证据的宽高继续保持空值，不用比例或分辨率猜测像素尺寸；provider task、prompt、外部 URL 等私有字段不会进入 canonical 资产。
+- 视频项目桥接 focused 回归 `7/7`，跨域项目/Canvas 回归 `112/112`，串行全量回归 `2058/2058`，隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。本轮修改涉及 server/project/video/asset 跨域边界，仍属于共享工作树待归档变更，后续发布必须走 full production gate。
+
+## 2026-08-21 Canonical Reference Metadata Whitelist
+
+- `assertCanonicalProjectAssetRef` 现在统一投影安全 metadata：展示名、角色/分组/比例、尺寸/时长、AIGC 标记和 provenance；视频工作台、VideoStudio、Canvas 和其他 canonical ref 消费方共享该结果，不再各自决定是否暴露原始 metadata。
+- prompt、owner、provider 等私有字段，以及未在白名单中的任意扩展字段不会进入引用；身份仍由 owner/project/asset/content hash/stable URL 服务端校验，metadata 不参与授权判断。
+- canonical asset contract、视频工作台、视频桥接 focused 回归 `50/50`，串行全量回归 `2059/2059`，隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。本轮修改仍属于共享工作树待归档变更，涉及 asset/project/video 跨域边界，后续发布必须走 full production gate。
+
+## 2026-08-21 Local Browser QA Boundaries And Responsive Works Filters
+
+- 本地 QA fixture 的合成登录态不再触发 VideoStudio `/api/video/jobs`、Canvas 账户权限或计费刷新请求；视频工作台仍对真实会话保持原有鉴权边界，浏览器 QA 不会伪造登录后的网络状态。
+- 修复移动端作品集分类筛选条的实际截断：筛选容器在 620px 以下改为内容列内的可换行布局，按钮允许收缩；移动端实测 `x=72..370`，桌面端 `x=72..628`，两者均无横向溢出。
+- focused 回归 `70/70`、本地浏览器 QA（首页、电商工作台、Canvas、作品集、视频工作台）通过；未上传素材、调用供应商、真实生成、账务或生产部署，线上仍为 `e673c10`。
+
+## 2026-08-21 Project Asset Production Lifecycle
+
+- 统一项目资产新增服务端维护的 `productionState`：`draft`、`candidate`、`delivered`、`archived`；它与 retention 独立，表示素材是否进入候选、交付和归档流程，不改变资产身份、复用资格或播放能力。
+- 项目资产库新增 owner-scoped 状态查询与更新路由、状态筛选和单素材状态操作；图片、视频和音频共用同一合同，旧数据库通过默认 `draft` 迁移，非法状态 fail closed。视频线程无需修改渲染、计费、provider 或 provenance 逻辑。
+- 生产生命周期、路由、客户端、Canvas 资产库和移动筛选 focused 回归 `146/146`，串行全量回归 `2069/2069`，隔离 Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；本轮涉及 `server/projects`、资产服务和 Canvas/Works UI，仍属于共享工作树待归档变更，后续发布必须走唯一入口的 full production gate。
+
+## 2026-08-21 Project Asset Production State Derivation
+
+- 修复统一项目资产生命周期的服务端写入缺口：电商 `completed` 结果和视频交付结果现在事务内直接进入 `delivered`，电商 `needs_review` 结果进入 `candidate`，不会再因数据库默认值回落为 `draft`。
+- `completeProject` 会把被接受版本的 `draft/candidate` 资产收敛为 `delivered`，但保留已归档资产；`reviewProject` 会把待审核版本的未归档资产推进为 `candidate`；历史作品迁移也显式写入 `delivered`。来源/上传资产仍保持 `draft`，客户端不能伪造交付状态。
+- 新增状态派生回归，项目/资产/视频共享 focused 回归 `216/216`，串行全量回归 `2071/2071`，Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；本轮涉及 `server/projects`、asset/project/video 共享边界，仍属于当前工作树待归档变更，后续必须通过唯一入口的 full production gate 后才能发布。
+
+## 2026-08-21 Project Asset Production State Contract Hardening
+
+- 收紧统一项目资产的生产状态写入合同：浏览器和 signed API 只能在 `draft/candidate/archived` 之间执行允许的人工转换，`delivered` 只能由服务端根据真实完成结果、项目完成事务或历史迁移写入；客户端伪造交付状态返回明确的 `409`，非法回退也 fail closed。
+- Canvas 素材库的状态菜单现在按当前状态给出允许选项，视频工作台注册的 canonical `generated-video` 资产由服务端自动进入 `candidate`；项目完成/审核只推进结果资产，不会把同一版本的来源、上传或参考资产错误标成交付。
+- 状态机、路由、客户端、Works/Canvas 模型以及视频候选接入回归通过 `167/167`；Canvas 合同回归 `61/61`；串行全量回归 `2074/2074`；Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；当前工作树仍含并行视频及其他未提交变更，本轮修改涉及 server/project/asset/video/Canvas 路径，后续必须按唯一入口执行 full production gate 后才能发布。
+
+## 2026-08-21 Durable Product Profile Foundation
+
+- 在现有电商 SKU UI 之上新增 owner-scoped 商品档案基础：保存规范化商品事实、变体和 canonical 项目资产引用，不重复创建 SKU 生成器，也不保存 raw URL、blob/data 媒体、provider 信息或账务字段。
+- `product_profiles`、变体、资产引用和独立幂等表采用 additive schema；创建/更新事务会按 owner、project、asset、content hash 和 retention 状态重新验证引用，跨用户、哈希不一致和 marked/不可复用素材均 fail closed。归档只改变档案状态，不删除 canonical assets。
+- 新增签名 API 与客户端服务：列表、创建、详情、更新、归档；请求体中的 owner 不参与授权。新增纯前端适配模型，把当前 Ecommerce editor 的商品描述、参数、SKU 和已确认资产映射为可复用档案，并在应用时保留平台、尺寸和生成设置。
+- retention 现在只保护仍被 active 商品档案引用的资产；档案归档后恢复普通清理策略。图片、视频、音频统一沿用同一 project asset identity，未改变视频 provider、billing 或生成路径。
+- 商品档案/资产生命周期聚焦回归 `30` 个客户端与路由测试、全套项目/视频/Canvas 跨域回归 `144/144`，串行全量回归 `2089/2089`；Vite 构建 `6528` modules、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用供应商、真实生成、账务或生产部署。线上仍为 `e673c10`；本轮商品档案代码与共享工作树中的视频、Canvas、资产改动均未发布，涉及 server/project/asset/video/Canvas 的后续发布必须按唯一入口执行 full production gate。
+
+## 2026-08-21 Product Profile Workbench Integration
+
+- 商品档案已从后端基础能力接入现有电商工作台：新增可收起 shelf，支持按 signed owner 列表、保存当前商品、应用已有档案、归档档案和刷新；现有 `SkuPanel` 仍保留，档案不是 SKU UI 的替代品。
+- 保存只提取商品描述、确认过的参数、SKU 变体和文案要点；应用只恢复商品事实和变体，保留本轮本地图片/参考图、平台、尺寸方案、生成设置和其他编辑状态，避免把 blob/data 媒体当成 durable asset。
+- 桌面本地浏览器确认档案入口、空列表、未登录保存错误和面板布局；390px 视口确认入口整行布局、面板不产生横向溢出；未触发 provider、生成、billing 或真实 API 写入。新增 shelf model/UI 合同 `5/5` 通过，相关客户端/模型回归 `25/25` 通过，构建 `6532` modules。
+- 本轮仍未部署，线上仍为 `e673c10`；工作树包含共享视频/Canvas/资产改动，需统一归档并完成 full production gate 后再发布。
+
+## 2026-08-21 Product Profile Auth And Final QA
+
+- 商品档案读取与保存现在共同受 `state.logged && ownerEmail` 保护；未登录但残留本地身份字段时不会自动请求 signed product-profile API，保存仍给出明确登录提示。
+- 先红后绿补充 UI 合同回归；商品档案 shelf/model/UI `5/5`、全量串行测试 `2094/2094`、Vite 构建 `6532` modules、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 本地浏览器最终验收：桌面 `1440px` 下页面 `scrollWidth=1436`、档案面板宽 `1128px`；移动 `390px` 下 `scrollWidth=386`、面板宽 `346px`，无横向溢出或面板内遮挡。未调用供应商、真实生成、账务或生产部署。
+- 线上仍为 `e673c10`；当前工作树继续包含并行视频、Canvas、资产和导航未提交改动。本轮商品档案集成尚未单独提交或发布，后续必须统一归档并按唯一入口执行 full production gate。
+
+## 2026-08-21 Product Profile Canonical Media Reuse And Video Contract Recovery
+
+- 商品档案应用现在会以 signed `purpose=reuse` 逐项读取项目素材，只接受 owner-scoped、未标记、`mediaKind=image` 且 `contentHash` 与档案引用完全一致的 canonical 图片；已有本地图片不覆盖，空槽才带入，失效引用显示部分素材不可复用。
+- 新增纯模型回归覆盖 product/reference/person/video/hash-mismatch 过滤；商品档案聚焦回归 `9/9`。桌面与 390px 浏览器检查确认新提示、空状态和面板尺寸稳定，未登录页面没有自动读取档案。
+- 共享视频工作树曾因 `applyCandidateToTimeline` 缺失导致全量回归失败；已按既有 revision/canonical reuse/owner 事务模式恢复候选切换与时间线更新的幂等方法，视频 focused `40/40`，全量回归 `2096/2096`。
+- 构建 `6532` modules、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过；未调用 provider、真实生成、billing 或生产部署。线上仍为 `e673c10`，当前共享工作树仍未统一提交，后续发布必须走 full production gate。
+
+## 2026-08-21 Product Profile Session Boundary Hardening
+
+- 商品档案列表读取和异步素材带入新增账号/请求代际校验：退出登录、切换账号或发起新的带入操作后，旧请求结果不能回写当前编辑器；带入期间归档动作互斥，避免档案状态在素材解析中途发生变化。
+- 商品档案 focused 回归 `15/15`、全量回归 `2096/2096`、Vite 构建 `6532` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 全部通过。
+- 本轮浏览器自动化服务无法连接本机调试端口，未虚报新的浏览器证据；此前 1440px/390px 商品档案布局验收仍有效。未调用 provider、真实生成、billing 或生产部署，线上仍为 `e673c10`，共享工作树仍待统一归档并按 full production gate 发布。
+
+## 2026-08-21 Ecommerce Input Asset Lineage Completion
+
+- 商品档案带入的 canonical `projectAssetRef` 现在会经过客户端透传、能力请求边界保留和服务端 owner/项目/哈希/复用状态复核；伪造、跨用户、哈希或稳定 URL 不匹配的引用会在项目事务创建前 fail closed。
+- 电商生成开始时，项目源版本会登记产品、参考、上身角色和证明素材的受控输入资产快照；电商交付结果会根据计划中的 `sourceAssetIds` 在同一项目内写入 `generated_from` lineage，Works/Canvas 可以沿项目资产链追溯来源。
+- 新增源资产、生命周期透传、结果 lineage 和前端请求合同回归；相关 focused 回归通过，全量回归 `2100/2100`，构建 `6532` modules、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- 未调用 provider、真实生成、billing 或生产部署；线上仍为 `e673c10`。共享工作树仍含视频/Canvas/资产/导航等混合未提交改动，后续必须先完成按归属的统一归档，再按唯一入口执行 full production gate。
+
+## 2026-08-21 Cross-Domain Zero-Paid Video Gate
+
+- `npm run verify:video-acceptance` 通过，平台、渲染对账和工作台三段均通过；`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。
+- `npm run collab:check` 仍为 `READY`，`git diff --check` 通过；本轮没有调用供应商、真实生成、账务或生产部署，线上仍为 `e673c10`。
+- 共享工作树仍含视频、Canvas、资产、导航和构建产物等混合未提交内容，不能直接归档或发布；后续必须按文件归属拆分，再对涉及 server/project/asset/video/Canvas 的归档执行 full production gate。
+
+## 2026-08-21 Content Input Asset Lineage Completion
+
+- 小红书与 Plog 的已上传风格/主体参考图现在会在内容项目源版本中创建 owner-scoped canonical `project_assets`，导入器重新校验原始资产所有权、字节哈希和 MIME；无参考图、预览和旧客户端路径保持兼容。
+- 内容生成结果写入受控 `aigc`/`provenance` metadata，并为每个结果与实际输入源建立幂等 `generated_from` lineage；账务 SSE runner 只把受控输入传给项目生命周期，不把客户端字段当作授权依据。
+- 新增内容生命周期输入血缘、runner 透传和导入器版本绑定回归；定向内容/项目/资产回归 `140/140`，全量回归 `2102/2102`，构建 `6532 modules`、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- `npm run verify:video-acceptance` 通过，`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。
+- 当前共享工作树仍含视频/Canvas/资产/导航和历史构建产物等混合未提交内容，本轮不得直接发布；后续必须按归属拆分后统一执行 full production gate。
+
+## 2026-08-21 Content Lineage And Video Contract Gate
+
+- 内容参考资产血缘修复后的完整门禁再次通过：全量串行回归 `2103/2103`，Vite 构建 `6532 modules`，导出校验、`npm run check`、`npm run collab:check` 和 `git diff --check` 全部通过。
+- 视频工作台 UI 合同同步到当前原子 `applyShotCandidateToTimeline` 接口；视频工作台 UI、模型、Studio 合同和存储 focused 回归全部通过，候选应用的版本校验与幂等重放保持有效。
+- `npm run verify:video-acceptance` 通过：`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`；未调用供应商、真实生成或账务。
+- 未部署，线上仍为 `e673c10`。当前共享工作树仍包含多线程视频、Canvas、资产、导航及历史构建产物等混合未提交内容；任何发布都必须先按归属拆分，再按唯一入口执行 full production gate。
+
+## 2026-08-21 Dedicated Project Asset Library Surface
+
+- Canvas 顶部导航新增独立的“素材库”入口，与“作品集”和“回收站”分离；素材库复用既有 owner-scoped 素材搜索、保留状态、生产状态、批量复用和来源关系能力，不新增生成、供应商或账务路径。
+- 修正素材库与 Works 的渲染边界：登录态素材库不会再重复渲染作品列表，未登录素材库有独立登录状态；素材接口只在素材库打开时请求，移动端顶部标签保持横向可达。
+- Canvas UI focused `10/10`、串行全量回归 `2106/2106`；隔离 Vite 构建 `6532 modules`、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 全部通过。
+- `npm run verify:video-acceptance` 通过：`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。
+- 当前共享工作树仍含视频、Canvas、资产、导航和其他混合未提交改动，不能直接把本轮视为已发布；涉及 server/project/asset/video/Canvas 的后续发布必须按文件归属拆分后走唯一入口的 full production gate。
+
+## 2026-08-22 Top-Level Asset Library Entry And Canvas Tab Sync
+
+- 进度修正：本轮完整回归实际为 `2109/2109`，此前同节记录的 `2108/2108` 为旧计数。
+
+- 左侧快捷导航新增一级“素材”入口，登录用户直接进入 Canvas 素材库；未登录用户的登录意图携带 `canvasTab=assets`，验证成功后恢复到素材库而不是默认画布。顶部创作导航的 Canvas 目标也统一透传 tab 意图。
+- Canvas 内部 tab 切换现在写回共享 `canvasEntryTab`，从全局导航切换素材库、作品集、回收站或当前画布时，已挂载的 Canvas 页面会同步更新本地视图；素材库与 Works 的互斥渲染和请求边界保持不变。
+- 导航/Canvas focused 回归 `84/84`；本轮完整回归 `2108/2108`；隔离 Vite 构建 `6532 modules`、导出校验、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- `npm run verify:video-acceptance` 通过：`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。
+- 当前共享工作树仍含视频、Canvas、资产、导航和历史构建产物等混合未提交内容；本轮未将其视为已上线，后续涉及 server/project/asset/video/Canvas 的整合发布必须按文件归属拆分并走唯一入口的 full production gate。
+
+## 2026-08-22 Cross-Domain Asset Reuse Audit
+
+- 复核素材库到视频工作台的真实链路：图片、视频、音频均通过 owner-scoped project asset library 展示，导入视频项目时服务端以 `purpose=reuse` 重新校验项目归属、生命周期、稳定地址、MIME 和内容哈希，再建立工作台版本；Canvas/Works 继续保留 canonical asset identity 和独立 playback capability。
+- 现有合同已覆盖过期/待清理素材拒绝、跨用户拒绝、哈希不一致拒绝、跨项目引用、幂等恢复和失败反馈；没有发现需要主线程重复添加的跨域入口或裸 URL 复制路径。
+- 发现一个留给视频线程的后续可靠性项：工作台导入采用“创建素材记录 → 导入版本 → 确认版本”三步流程，第二步或第三步失败时应避免留下可见的空工作台素材，并在重试时复用同一导入意图。该项属于视频工作台内部写入边界，本轮不越权修改视频线程专属文件。
+- 本轮本地证据：全量回归 `2109/2109`；Vite 构建 `6532` modules；`npm run check`、`npm run collab:check`（READY）和 `git diff --check` 通过。未部署、未调用真实生图/视频供应商、未改变账务。
+
+## 2026-08-22 Canvas Asset Library Account Boundary
+
+- 修复 Canvas 素材库的账号切换边界：请求依赖当前 signed owner identity，账号变化时立即清空上一账号的素材列表和批量选择；旧请求仍由取消标记阻止回写。
+- 新增素材库账号边界 UI 合同回归；Canvas/状态聚焦回归 `73/73`。本轮未改变资产格式、服务端授权、生成或账务路径，未部署。
+- 最终本地门禁：全量回归 `2110/2110`，Vite 构建 `6532` modules，`npm run check`、`npm run collab:check`（READY）、`git diff --check` 和 `npm run verify:video-acceptance` 通过；零供应商提交、零账务变化、零付费视频请求。
+
+## 2026-08-22 Logout Owner-State Boundary
+
+- 修复 `SET_LOGGED(false)` 的账号边界：退出或会话失效时清空旧账号的结果、生成状态、作品集、画布入口、作品启动意图、登录意图和输入内容，并回到公开首页；同时关闭遗留付费面板状态，避免新账号登录前看到旧账号创作内容。
+- 先红后绿新增登出状态回归契约；聚焦登录/账务/Canvas/视频相关回归 `44/44`，串行全量回归 `2111/2111`，生产构建 `6532` modules、`npm run check`、`npm run collab:check`（READY）和 `git diff --check` 通过。
+- `npm run verify:video-acceptance` 通过：`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。
+- 本轮只修改主线程 `AppContext` 与对应回归测试；共享工作树仍包含视频、Canvas、资产、导航及构建产物等混合未提交变更，不能视为已上线。后续统一归档时需按文件归属拆分，涉及 server/project/asset/video/Canvas 的发布必须走唯一入口的 full production gate。
+
+## 2026-08-22 Session Restore Generation Boundary
+
+- 修复页面启动 `getSession()` 的旧会话回写竞态：恢复请求开始时捕获 `sessionRequestGate` 代际，返回后只有仍属于当前会话才允许写入登录状态、挂起付费动作和余额刷新；退出或切换账号期间返回的旧 session 会被丢弃。
+- 先红后绿补充会话恢复回归契约；相关聚焦回归 `7/7`，串行全量回归 `2112/2112`，生产构建 `6532` modules、`npm run check`、`npm run collab:check`（READY）和 `git diff --check` 全部通过。
+- `npm run verify:video-acceptance` 通过：`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。未调用供应商、真实生成、账务或生产部署；线上仍为 `e673c10`。
+- 本轮只修改主线程 `AppContext` 与对应回归测试；共享工作树仍包含视频、Canvas、资产、导航及构建产物等混合未提交变更，不能视为已上线。后续统一归档时需按文件归属拆分，涉及 server/project/asset/video/Canvas 的发布必须走唯一入口的 full production gate。
+
+## 2026-08-22 Payment Restore Owner And Modal Boundary
+
+- 支付订单恢复现在拥有独立 `AbortController`，请求携带 abort signal；账号退出、支付面板关闭、恢复 effect 清理时都会中止旧请求并清空临时支付视图与恢复 key，避免旧账号或旧面板状态回写当前用户。
+- 恢复同一订单仍保持幂等；关闭后重新打开允许重新读取订单。新增支付合同回归覆盖 owner/modal 会话变化，聚焦 `33/33`，串行全量回归 `2113/2113`。
+- 本轮新鲜门禁：Vite 构建 `6532 modules`、`npm run check`、`npm run collab:check`（READY）、`git diff --check` 均通过；`npm run verify:video-acceptance` 通过，`providerSubmissions=0`、`billingMutated=false`、`paidGenerationRequested=false`。
+- 正确的视频线程是 `019ff647-2893-7cd3-828c-b894c01cad21`，工作树 `F:/da/shubao/.worktrees/video-integration`；它继续负责视频工作台内部领域开发。跨域审计发现的“三步导入失败留下空素材”仅交由该线程处理，主线程不重复打断或越权修改。
+- 本轮未提交、未部署、未调用真实供应商或账务；线上仍为 `e673c10`。当前工作树仍含并行视频、Canvas、资产和导航混合改动，后续必须按文件归属拆分后再走唯一入口的 full production gate。
+## 2026-08-23 Canvas Generated-Image Archive Recovery Complete Local Acceptance
+
+- 完成 Canvas 生成图「归档失败可恢复闭环」的完整本地验收：给待归档记录区分受控操作类型 `import-source`（原图导入）与 `register-generated`（生成结果注册），避免归一化把生成结果误当用户上传原图；仅持久化稳定资产 ID、角色和节点 ID，不保存 URL 以外的媒体数据、提示词或账务信息。队列键包含操作类型，同一稳定图片既可能是原图导入也可能是生成结果注册，不会互相覆盖；已进入待归档队列的生成图不能被其他画布状态变化反复自动请求注册，只能由用户显式「重试归档」恢复。
+- 新增 `shared/canvasPendingArchive.mjs`、`shared/canvasSnapshotMedia.mjs`、`shared/workPersistence.mjs` 三个共享资产边界模块，并在主线程 `server/projects/projectStore.mjs` 与 `src/pages/EcCanvas/canvasSessionModel.js` 接入：快照持久化移除 data/blob/filesystem 等瞬时媒体载荷，无稳定身份节点标记为 `unavailable` 并提供重试归档提示。
+- 本地验收证据：聚焦 Canvas/项目/资产恢复回归 `162/162` 通过；串行全量 `npm test` `2115/2115` 通过；`npm run check` 通过、`npm run collab:check` READY（0 处 peer 所有权冲突）、`git diff --check` 通过。
+- 已确认本轮未触及视频线程边界：视频工作台领域文件（`server/video*.mjs`、`src/pages/VideoStudio/*`、`test/video-*.test.mjs`、`server/videoModelRouter.mjs`）为并行视频线程（`019ff647-2893-7cd3-828c-b894c01cad21`，工作树 `F:/da/shubao/.worktrees/video-integration`）的同步改动，主线程未修改、未暂存这些文件，与本次验收的 Canvas/资产改动完全不相交。
+- 本轮未调用供应商、未触发真实生成、未改变账务、未部署；线上仍为 `e673c10`。涉及 server/project/asset/Canvas 的后续发布必须按唯一入口 `scripts/deploy-production.ps1` 执行 full production gate，并等待真实账务、生图、Canary 与独立健康/审计验证完成后再报「已上线」。
+
+## 2026-08-23 Video Storyboard Shot Model Enrichment
+
+- 视频线程在分镜（storyboard）卡片模型上补齐 VID-P1-02 的字段：video_storyboard_shots 表新增 first_frame_ref/last_frame_ref/model_intent 三列，采用 additive 迁移；createShot/updateShot 接受并持久化这三项，首/末帧引用经 purpose reuse 的 canonical 项目资产校验，外主、伪造哈希、缺失资产均 fail closed。
+
+- 分镜卡片 UI 在卡片上展示新增的「意图」与「首末帧已绑定」标识；新建/编辑表单支持输入模型意图并随请求透传。路由（shot.create）透传新字段，客户端服务经 jsonBody 自动透传。
+
+- 聚焦视频回归：video-workbench-store 42/42（新增 2 个分镜字段测试）、routes/client/model/ui 62/62、视频域完整子集 188/188；串行全量 npm test 2117/2117（含 2 个新测试）；npm run collab:check READY（0 peer 冲突）、git diff --check 通过。
+
+- 未调用供应商、未触发真实生成、未改变账务、未部署。线上仍为 e673c10；工作树仍为共享工作树，视频改动与主线程 Canvas/资产改动混合未提交，后续发布必须由主线程按唯一入口 scripts/deploy-production.ps1 执行 full production gate 后统一归档。
+
+## 2026-08-23 Video Storyboard Shot Model Enrichment
+
+- 视频线程在分镜（storyboard）卡片模型上补齐 VID-P1-02 的字段：video_storyboard_shots 表新增 first_frame_ref/last_frame_ref/model_intent 三列，采用 additive 迁移；createShot/updateShot 接受并持久化这三项，首/末帧引用经 purpose reuse 的 canonical 项目资产校验，外主、伪造哈希、缺失资产均 fail closed。
+
+- 分镜卡片 UI 在卡片上展示新增的「意图」与「首末帧已绑定」标识；新建/编辑表单支持输入模型意图并随请求透传。路由（shot.create）透传新字段，客户端服务经 jsonBody 自动透传。
+
+- 聚焦视频回归：video-workbench-store 42/42（新增 2 个分镜字段测试）、routes/client/model/ui 62/62、视频域完整子集 188/188；串行全量 npm test 2117/2117（含 2 个新测试）；npm run collab:check READY（0 peer 冲突）、git diff --check 通过。
+
+- 未调用供应商、未触发真实生成、未改变账务、未部署。线上仍为 e673c10；工作树仍为共享工作树，视频改动与主线程 Canvas/资产改动混合未提交，后续发布必须由主线程按唯一入口 scripts/deploy-production.ps1 执行 full production gate 后统一归档。

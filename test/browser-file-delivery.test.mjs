@@ -141,11 +141,31 @@ test('an open writable stream is aborted when writing fails', async () => {
 
 test('fallback delivery writes validated blobs through ZIP or a single object URL', async t => {
   const prepared = [
-    { filename: '主图.png', blob: new Blob(['one'], { type: 'image/png' }), size: 3, contentType: 'image/png' },
-    { filename: '详情图.png', blob: new Blob(['two'], { type: 'image/png' }), size: 3, contentType: 'image/png' },
+    {
+      id: 'main-1',
+      filename: '主图.png',
+      blob: new Blob(['one'], { type: 'image/png' }),
+      size: 3,
+      contentType: 'image/png',
+      metadata: {
+        displayName: '商品识别主图',
+        role: 'main_text',
+        ratio: '1:1',
+        aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+        provenance: { route: 'ecommerce', sourceAssetIds: ['product-1'] },
+      },
+    },
+    {
+      id: 'detail-1',
+      filename: '详情图.png',
+      blob: new Blob(['two'], { type: 'image/png' }),
+      size: 3,
+      contentType: 'image/png',
+      metadata: { displayName: '材质细节', role: 'detail_slice_material' },
+    },
   ];
 
-  await t.test('ZIP fallback contains image files only', async () => {
+  await t.test('ZIP fallback contains images and a safe delivery manifest', async () => {
     const files = [];
     const downloads = [];
     const destination = { strategy: 'zip', name: '水杯-电商图片.zip', filename: '水杯-电商图片.zip' };
@@ -156,7 +176,25 @@ test('fallback delivery writes validated blobs through ZIP or a single object UR
       }),
       downloadBlob: (blob, filename) => downloads.push([blob, filename]),
     });
-    assert.deepEqual(files.map(([name]) => name), ['主图.png', '详情图.png']);
+    assert.deepEqual(files.map(([name]) => name), ['主图.png', '详情图.png', 'manifest.json']);
+    const manifest = JSON.parse(files[2][1]);
+    assert.deepEqual(manifest, {
+      schemaVersion: 1,
+      assets: [{
+        id: 'main-1',
+        filename: '主图.png',
+        displayName: '商品识别主图',
+        role: 'main_text',
+        ratio: '1:1',
+        aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+        provenance: { route: 'ecommerce', sourceAssetIds: ['product-1'] },
+      }, {
+        id: 'detail-1',
+        filename: '详情图.png',
+        displayName: '材质细节',
+        role: 'detail_slice_material',
+      }],
+    });
     assert.equal(downloads[0][1], '水杯-电商图片.zip');
     assert.equal(result.count, 2);
     assert.equal(result.verification, 'download-started');

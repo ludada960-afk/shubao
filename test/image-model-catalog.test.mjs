@@ -12,7 +12,7 @@ test('normalizes public image model choices and keeps smart on the existing Imag
 
 test('routes Nano Banana choices to stable Gemini models with independent resolution metadata', () => {
   assert.deepEqual(buildModelRoute({ imageModel: 'nano-banana-2', resolution: '2K', ratio: '9:16' }), {
-    imageModel: 'nano-banana-2', provider: 'nano-banana', model: 'gemini-3.1-flash-image',
+    imageModel: 'nano-banana-2', provider: 'nano-banana', model: 'gemini-2.5-flash-image',
     resolution: '2K', ratio: '9:16', imageSize: '2K', size: '1152x2048', async: true, mode: 'edit',
   });
   assert.equal(buildModelRoute({ imageModel: 'nano-banana-pro', resolution: '4K' }).model, 'gemini-3-pro-image');

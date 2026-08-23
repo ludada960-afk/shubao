@@ -72,8 +72,20 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
             WHERE id = ? AND owner_email = ? AND project_id = ? AND content_hash = ? AND deleted_at IS NULL LIMIT 1`)
             .get(asset.id, asset.ownerEmail, projectId, expectedContentHash));
         });
-      });
+    });
     if (importedSource) return true;
+    if (hasTable('product_profile_assets') && hasTable('product_profiles')) {
+      const profileReference = db.prepare(`SELECT 1
+        FROM product_profile_assets reference
+        JOIN product_profiles profile ON profile.id = reference.profile_id
+        WHERE profile.owner_email = ? AND profile.status = 'active'
+          AND reference.owner_email = ? AND reference.project_id = ?
+          AND reference.project_asset_id = ? AND reference.expected_content_hash = ?
+        LIMIT 1`).get(
+        asset.ownerEmail, asset.ownerEmail, asset.projectId, asset.id, asset.contentHash,
+      );
+      if (profileReference) return true;
+    }
     const canvas = db.prepare(`SELECT 1 FROM canvas_sessions
       WHERE owner_email = ? AND project_id = ? AND status IN ('active', 'saved') AND expires_at > ?
         AND (snapshot LIKE ? OR snapshot LIKE ?) LIMIT 1`)

@@ -273,12 +273,12 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [state.logged]);
 
   useEffect(() => {
-    if (!state.logged) {
+    if (!state.logged || state.browserQa) {
       setHistory([]);
       return;
     }
     listVideoJobs().then(result => setHistory(result.jobs || [])).catch(() => {});
-  }, [state.logged]);
+  }, [state.logged, state.browserQa]);
 
   useEffect(() => {
     let active = true;

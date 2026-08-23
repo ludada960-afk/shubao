@@ -5,6 +5,7 @@ const CONTENT_PROJECT_KINDS = Object.freeze({
   plog: 'plog',
 });
 const STABLE_GENERATED_ASSET = /^\/api\/generated-assets\/([a-f0-9]{64})\.(jpg|png|webp)$/i;
+const REFERENCE_ASSET_ID = /^[a-f0-9]{64}\.(jpg|png|webp)$/i;
 
 function clean(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -14,6 +15,34 @@ function contentKind(mode) {
   const kind = CONTENT_PROJECT_KINDS[clean(mode).toLowerCase()];
   if (!kind) throw new TypeError('content mode is invalid');
   return kind;
+}
+
+function referenceEntries(referenceGroups = {}) {
+  const groups = referenceGroups && typeof referenceGroups === 'object' ? referenceGroups : {};
+  const entries = [];
+  const seen = new Set();
+  for (const [group, role] of [['style', 'style-reference'], ['source', 'source-reference']]) {
+    const values = Array.isArray(groups[group]) ? groups[group] : [];
+    for (const value of values) {
+      const assetId = clean(value);
+      if (!assetId) continue;
+      if (!REFERENCE_ASSET_ID.test(assetId)) {
+        throw Object.assign(new Error('content reference asset is invalid'), { code: 'CONTENT_PROJECT_REFERENCE_INVALID' });
+      }
+      if (seen.has(assetId)) continue;
+      seen.add(assetId);
+      entries.push({ assetId, role });
+    }
+  }
+  return entries.slice(0, 9);
+}
+
+function sourceProjectAssetIds(projectStore, ownerEmail, projectId, versionId) {
+  if (typeof projectStore?.listProjectAssets !== 'function') return [];
+  return projectStore.listProjectAssets({ ownerEmail, projectId })
+    .filter(asset => asset.versionId === versionId && asset.metadata?.source === 'content-reference')
+    .map(asset => clean(asset.projectAssetId))
+    .filter(Boolean);
 }
 
 function assetFromUrl(url, index) {
@@ -50,7 +79,7 @@ function asProjectRef(asset) {
   };
 }
 
-export function createContentProjectLifecycle({ projectStore, readGeneratedAsset } = {}) {
+export function createContentProjectLifecycle({ projectStore, readGeneratedAsset, importImageAsset = null } = {}) {
   const required = [
     'createProjectIdempotent', 'createVersion', 'linkGenerationRun', 'getGenerationRun', 'getGenerationRunIdentity',
     'createProjectAsset', 'completeProject', 'reviewProject', 'terminateGeneration',
@@ -60,7 +89,7 @@ export function createContentProjectLifecycle({ projectStore, readGeneratedAsset
     throw new TypeError('projectStore content lifecycle methods are required');
   }
 
-  async function begin({ ownerEmail, generationId, mode, title = '' } = {}) {
+  async function begin({ ownerEmail, generationId, mode, title = '', referenceGroups = {} } = {}) {
     const owner = clean(ownerEmail).toLowerCase();
     const runId = clean(generationId);
     const kind = contentKind(mode);
@@ -79,6 +108,7 @@ export function createContentProjectLifecycle({ projectStore, readGeneratedAsset
         projectKind: kind,
         sourceVersionId: existingRun.sourceVersionId,
         generationRunId: existingRun.id,
+        sourceProjectAssetIds: sourceProjectAssetIds(projectStore, owner, existingRun.projectId, existingRun.sourceVersionId),
         ...(existingRun.resultVersionId ? { resultVersionId: existingRun.resultVersionId } : {}),
       };
     }
@@ -107,11 +137,35 @@ export function createContentProjectLifecycle({ projectStore, readGeneratedAsset
     if (run.projectId !== project.id || run.sourceVersionId !== sourceVersion.id || run.kind !== kind) {
       throw Object.assign(new Error('content project generation run does not match'), { code: 'CONTENT_PROJECT_CONFLICT' });
     }
+    const importedSourceProjectAssetIds = [];
+    if (typeof importImageAsset === 'function') {
+      try {
+        for (const entry of referenceEntries(referenceGroups)) {
+          const imported = await importImageAsset({
+            ownerEmail: owner,
+            projectId: project.id,
+            versionId: sourceVersion.id,
+            imageAssetId: entry.assetId,
+            role: entry.role,
+            projectSource: 'content-reference',
+            metadata: { source: 'content-reference', referenceRole: entry.role },
+          });
+          if (!imported?.projectAssetId) {
+            throw Object.assign(new Error('content reference asset was not canonicalized'), { code: 'CONTENT_PROJECT_REFERENCE_INVALID' });
+          }
+          importedSourceProjectAssetIds.push(imported.projectAssetId);
+        }
+      } catch (error) {
+        projectStore.terminateGeneration({ ownerEmail: owner, generationRunId: runId, terminalStatus: 'failed' });
+        throw error;
+      }
+    }
     return {
       projectId: project.id,
       projectKind: kind,
       sourceVersionId: sourceVersion.id,
       generationRunId: runId,
+      sourceProjectAssetIds: importedSourceProjectAssetIds,
     };
   }
 
@@ -147,6 +201,13 @@ export function createContentProjectLifecycle({ projectStore, readGeneratedAsset
       planSnapshot: { assetCount: verifiedAssets.length },
       idempotencyKey: `content-result:${context.generationRunId}`,
     });
+    const sourceIds = [...new Set((Array.isArray(context.sourceProjectAssetIds) ? context.sourceProjectAssetIds : [])
+      .map(clean).filter(Boolean))];
+    const provenance = {
+      type: 'ai-generated',
+      route: context.projectKind === 'plog' ? 'plog' : 'xiaohongshu',
+      ...(sourceIds.length ? { sourceAssetIds: sourceIds } : {}),
+    };
     const refs = verifiedAssets.map(asset => asProjectRef(projectStore.createProjectAsset({
       ownerEmail: owner,
       projectId: context.projectId,
@@ -158,8 +219,27 @@ export function createContentProjectLifecycle({ projectStore, readGeneratedAsset
       contentHash: asset.contentHash,
       mimeType: asset.mimeType,
       retentionClass: 'unfinished',
-      metadata: { source: 'content-generation', generationId: context.generationRunId },
+      metadata: {
+        source: 'content-generation',
+        generationId: context.generationRunId,
+        aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+        provenance,
+      },
     })));
+    if (sourceIds.length && typeof projectStore.linkProjectAsset === 'function') {
+      for (const target of refs) {
+        for (const sourceProjectAssetId of sourceIds) {
+          projectStore.linkProjectAsset({
+            ownerEmail: owner,
+            projectId: context.projectId,
+            sourceProjectAssetId,
+            targetProjectAssetId: target.projectAssetId,
+            relation: 'generated_from',
+            generationRunId: context.generationRunId,
+          });
+        }
+      }
+    }
     return {
       ...context,
       resultVersionId: resultVersion.id,

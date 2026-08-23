@@ -44,14 +44,17 @@ export function createImageProjectAssetImporter({ projectStore, assetUploadServi
   return async function importImageProjectAsset({
     ownerEmail,
     projectId,
+    versionId = null,
     imageAssetId,
     role = 'reference',
     metadata = {},
+    projectSource = 'ecommerce-upload',
   } = {}) {
     const owner = clean(ownerEmail, 320).toLowerCase();
     const targetProjectId = clean(projectId, 256);
     const sourceId = sourceAssetId(imageAssetId);
     const normalizedRole = clean(role, 80);
+    const normalizedProjectSource = projectSource === 'content-reference' ? 'content-reference' : 'ecommerce-upload';
     if (!owner) throw new TypeError('ownerEmail is required');
     if (!targetProjectId) throw new TypeError('projectId is required');
     if (!sourceId) throw coded('IMAGE_ASSET_NOT_FOUND', '图片素材不存在或不是可归档原图');
@@ -83,6 +86,7 @@ export function createImageProjectAssetImporter({ projectStore, assetUploadServi
     return projectStore.createProjectAsset({
       ownerEmail: owner,
       projectId: targetProjectId,
+      ...(versionId ? { versionId } : {}),
       assetId: sourceId.id,
       role: normalizedRole,
       stableUrl: `/api/generated-assets/${sourceId.id}`,
@@ -92,7 +96,7 @@ export function createImageProjectAssetImporter({ projectStore, assetUploadServi
       height: Number.isSafeInteger(source.height) ? source.height : null,
       metadata: {
         ...userMetadata,
-        source: 'ecommerce-upload',
+        source: normalizedProjectSource,
         sourceImageAssetId: sourceId.id,
         width: Number.isSafeInteger(source.width) ? source.width : null,
         height: Number.isSafeInteger(source.height) ? source.height : null,

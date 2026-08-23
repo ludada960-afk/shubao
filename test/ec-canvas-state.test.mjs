@@ -274,6 +274,12 @@ test('Canvas project asset library exposes local discovery and retention state c
   assert.match(canvasSource, /没有符合当前搜索或筛选条件的素材/);
 });
 
+test('Canvas works category filters stay inside the mobile content column', () => {
+  assert.match(canvasCss, /\.ec-canvas-work-filters\s*\{[\s\S]*?box-sizing:\s*border-box/);
+  assert.match(canvasCss, /@media\s*\(max-width:\s*620px\)[\s\S]*?\.ec-canvas-work-filters\s*\{[\s\S]*?width:\s*100%[\s\S]*?flex-wrap:\s*wrap/);
+  assert.match(canvasCss, /@media\s*\(max-width:\s*620px\)[\s\S]*?\.ec-canvas-work-filters button\s*\{[\s\S]*?min-width:\s*0/);
+});
+
 test('Canvas promotes uploaded images into the owner-scoped project asset library', () => {
   assert.match(canvasSource, /importImageAssetToProject/);
   assert.match(canvasSource, /importCanvasImageAssets/);
@@ -282,6 +288,20 @@ test('Canvas promotes uploaded images into the owner-scoped project asset librar
   const uploadBlock = canvasSource.match(/const persistenceGeneration = canvasPersistenceGenerationRef\.current;[\s\S]*?void persistCanvasUploadAssets\([\s\S]*?\n      \}\);/)?.[0] || '';
   assert.match(uploadBlock, /const persistenceGeneration = canvasPersistenceGenerationRef\.current/);
   assert.match(uploadBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
+});
+
+test('Canvas keeps failed project asset archives actionable and retries them against durable upload identities', () => {
+  assert.match(canvasSource, /pendingProjectAssetImports/);
+  assert.match(canvasSource, /retryPendingProjectAssetImports/);
+  assert.match(canvasSource, /sourceAssetId/);
+  assert.match(canvasSource, /setPendingProjectAssetImports/);
+  assert.match(canvasSource, /importImageAssetToProject/);
+  assert.match(canvasSource, /importVideoAssetToProject/);
+  assert.match(canvasSource, /attachCanvasProjectAssetRef\(\{ \.\.\.node/);
+  assert.match(canvasSource, /待归档素材/);
+  assert.match(canvasSource, /重试归档/);
+  assert.match(canvasSource, /createCanvasSnapshot\(\{ nodes, connections, viewport, pendingProjectAssetImports \}\)/);
+  assert.match(canvasSource, /normalizePendingProjectAssetImports\(snapshot\.pendingProjectAssetImports\)/);
 });
 
 test('Canvas automatically archives stable generated images into the project asset library', () => {
@@ -293,12 +313,30 @@ test('Canvas automatically archives stable generated images into the project ass
   assert.match(canvasSource, /attachCanvasProjectAssetRef\(candidate, existing\.asset\)/);
 });
 
+test('Canvas keeps a failed generated-asset registration recoverable without misclassifying it as an upload', () => {
+  const generatedRegistration = canvasSource.match(/useEffect\(\(\) => \{\n    if \(!state\.logged \|\| result\.browserQa\)[\s\S]*?\n  \}, \[enqueuePendingProjectAssetImports, ensureCanvasMediaProject, nodes, result\.browserQa, result\.projectId, result\.resultVersionId, result\.sourceVersionId, state\.logged\]\);/)?.[0] || '';
+  assert.match(generatedRegistration, /enqueuePendingProjectAssetImports\(\[\{[\s\S]*?operation:\s*'register-generated'/);
+  assert.match(generatedRegistration, /generatedAssetRegistrationRef\.current\.set\(key, \{ queued: true \}\)/);
+  assert.match(generatedRegistration, /if \(existing\?\.pending \|\| existing\?\.queued\) continue;/);
+  assert.match(canvasSource, /return `\$\{record\.operation \|\| 'import-source'\}:\$\{record\.kind \|\| 'media'\}:/);
+  const retryHandler = canvasSource.match(/const retryPendingProjectAssetImports = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[dispatch, ensureCanvasMediaProject, result, showToast, state\.logged\]\);/)?.[0] || '';
+  assert.match(retryHandler, /record\.operation === 'register-generated'[\s\S]*?registerGeneratedAssetToProject\(/);
+  assert.doesNotMatch(retryHandler, /record\.operation === 'register-generated'[\s\S]{0,220}importImageAssetToProject\(/);
+});
+
 test('Canvas project asset library exposes a server-backed long-term retention control', () => {
   assert.match(canvasSource, /setProjectAssetRetention/);
   assert.match(canvasSource, /projectAssetRetentionBusy/);
   assert.match(canvasSource, /handleToggleProjectAssetRetention/);
   assert.match(canvasSource, /asset\.retentionPinned \? `取消长期保留/);
   assert.match(canvasSource, /updated\.retentionPinned \? '已长期保留此素材'/);
+});
+
+test('Canvas project asset library exposes production delivery lifecycle controls', () => {
+  assert.match(canvasSource, /setProjectAssetProductionState/);
+  assert.match(canvasSource, /筛选素材生产状态/);
+  assert.match(canvasSource, /更新\$\{label\}的生产状态/);
+  assert.match(canvasSource, /PROJECT_ASSET_PRODUCTION_STATES/);
 });
 
 test('Canvas Work projection preserves media-only sources for later recovery', () => {
@@ -336,6 +374,18 @@ test('project library imports are single-flight and do not duplicate project ver
   assert.match(importBlock, /if \(projectAssetImportBusyRef\.current\) return/);
   assert.match(importBlock, /projectAssetImportBusyRef\.current = true/);
   assert.match(importBlock, /projectAssetImportBusyRef\.current = false/);
+});
+
+test('project library batch imports revalidate each asset and persist one accumulated Canvas session', () => {
+  const batchBlock = canvasSource.match(/const handleImportProjectAssets = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(canvasSource, /selectedProjectAssetKeys/);
+  assert.match(canvasSource, /加入所选/);
+  assert.match(batchBlock, /setProjectAssetBatchBusy\(true\)/);
+  assert.match(batchBlock, /getProjectAsset\(asset\.projectId, asset\.projectAssetId, 'reuse'\)/);
+  assert.match(batchBlock, /session = imported\.session/);
+  assert.match(batchBlock, /saveWork\(workResult, phone\)/);
+  assert.match(batchBlock, /setSelectedProjectAssetKeys\(new Set\(\)\)/);
+  assert.doesNotMatch(batchBlock, /generateImage|generateVideo|charge|debit/);
 });
 
 test('project library imports revalidate the canonical asset before mutating Canvas', () => {

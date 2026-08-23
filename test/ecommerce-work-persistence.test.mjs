@@ -90,6 +90,23 @@ test('persists stable media identity instead of transient playback capability', 
   assert.equal(saved.video.playbackUrl, undefined);
 });
 
+test('does not persist raw image payloads in a durable Work', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-raw-work-payload-test-'));
+  t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });
+  initDB(join(dir, 'works.db'));
+
+  upsertWork({
+    _saveKey: 'raw-work-1',
+    images: [{ key: 'upload', url: 'data:image/png;base64,raw-pixels', file: { name: 'raw.png' } }],
+    cover_url: 'blob:https://shuimg.cn/raw-cover',
+  }, { ownerEmail: 'owner@example.com' });
+
+  const saved = getAllWorks({ ownerEmail: 'owner@example.com' })[0];
+  assert.equal(saved.images[0].url, undefined);
+  assert.equal(saved.images[0].file, undefined);
+  assert.equal(saved.cover_url, '');
+});
+
 test('moves works to a recoverable trash state instead of deleting data', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-ec-trash-test-'));
   t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });

@@ -10,6 +10,7 @@ import { createWalletService } from './billing/walletService.mjs';
 import { ensureProjectSchema } from './projects/schema.mjs';
 import { bootstrapDefaultAccountAccess } from './accessControl.mjs';
 import { stripTransientWorkPlayback } from '../shared/workPlayback.mjs';
+import { sanitizeDurableWork } from '../shared/workPersistence.mjs';
 
 const BETA_CREDIT_BOOTSTRAP_ID = 'beta-credit-bootstrap-2026-08-11';
 
@@ -197,7 +198,7 @@ export function getWorkBySaveKey(saveKey, { ownerEmail = null } = {}) {
 export function upsertWork(work, { ownerEmail = null } = {}) {
   if (!db) initDB();
   const owner = normalizeWorkOwner(ownerEmail ?? work?._phone);
-  const record = stripTransientWorkPlayback(owner ? { ...work, _phone: owner } : work);
+  const record = sanitizeDurableWork(stripTransientWorkPlayback(owner ? { ...work, _phone: owner } : work));
   const saveKey = record._saveKey || String(Date.now() + Math.random());
   const stmt = db.prepare(`
     INSERT INTO works (_saveKey, owner_email, title, body_text, hashtags, category, pages,

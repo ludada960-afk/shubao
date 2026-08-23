@@ -15,6 +15,9 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(app, /function SideNav\(\)/);
   assert.match(app, /className="app-side-nav"/);
   assert.match(app, /page !== 'ec-canvas' && <SideNav \/>/);
+  assert.match(app, /label: '素材'/);
+  assert.match(app, /OPEN_CANVAS[\s\S]*?tab: 'assets'/);
+  assert.match(app, /Images/);
   assert.match(app, /const canAdmin = state\.accountAccess\?\.role === 'owner'/);
   assert.match(shellCss, /\.creative-nav-desktop \{/);
   assert.match(shellCss, /\.creative-nav-panel \{/);
@@ -28,4 +31,13 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(shellCss, /\.creative-nav-trigger:focus-visible/);
   assert.match(shellCss, /@media \(max-width:\s*639px\)[\s\S]*?\.creative-nav-mobile-trigger/);
   assert.match(shellCss, /@media \(prefers-reduced-motion:\s*reduce\)/);
+});
+
+test('asset navigation keeps its intended Canvas tab through login', () => {
+  const modals = readFileSync(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');
+  const nav = readFileSync(new URL('../src/components/layout/CreativeDomainNav.jsx', import.meta.url), 'utf8');
+  assert.match(app, /canvasTab: target\.tab/);
+  assert.match(modals, /state\.loginIntent\.canvasTab/);
+  assert.match(modals, /dispatch\(\{ type: 'OPEN_CANVAS', tab: state\.loginIntent\.canvasTab \}\)/);
+  assert.match(nav, /canvasTab: action\.tab/);
 });

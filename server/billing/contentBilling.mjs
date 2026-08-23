@@ -433,6 +433,7 @@ export function createBilledSseRunner({
     generationId,
     mode,
     generate,
+    projectInput = {},
   } = {}) {
     if (typeof generate !== 'function') throw new TypeError('generate callback is required');
     let begun;
@@ -502,7 +503,7 @@ export function createBilledSseRunner({
       let delivery;
       try {
         if (typeof onStart === 'function') {
-          lifecycleContext = await onStart({ ownerEmail, begun });
+          lifecycleContext = await onStart({ ownerEmail, begun, input: projectInput });
         }
         delivery = await generate({
           send: (type, data) => transport.send(type, data),

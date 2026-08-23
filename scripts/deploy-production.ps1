@@ -89,6 +89,7 @@ $archive = Join-Path $env:TEMP "shubao-deploy-$commit-$stamp.tgz"
 $target = "$User@$HostName"
 $ssh = @(
   "-i", $KeyPath,
+  "-T",
   "-o", "BatchMode=yes",
   "-o", "StrictHostKeyChecking=accept-new",
   "-o", "ConnectTimeout=15",

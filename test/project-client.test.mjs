@@ -18,7 +18,13 @@ import {
   registerGeneratedAssetToProject,
   listProjectAssetLibrary,
   setProjectAssetRetention,
+  setProjectAssetProductionState,
   listProjects,
+  listProductProfiles,
+  createProductProfile,
+  getProductProfile,
+  updateProductProfile,
+  archiveProductProfile,
   listRecoveryCheckpoints,
   saveCanvasSession,
 } from '../src/services/projects.js';
@@ -204,6 +210,19 @@ test('project asset library client sends signed URL-encoded filters', async t =>
   assert.equal(assets[0].projectAssetId, 'asset-1');
 });
 
+test('project asset library client can send a production state filter', async t => {
+  installSession('signed-production-filter');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/project-assets?productionState=delivered&limit=20');
+    assert.equal(options.headers.Authorization, 'Bearer signed-production-filter');
+    return jsonResponse({ assets: [] });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await listProjectAssetLibrary({ productionState: 'delivered', limit: 20 });
+});
+
 test('project asset client can request an explicit reuse read', async t => {
   installSession('signed-reuse-token');
   const originalFetch = globalThis.fetch;
@@ -263,6 +282,72 @@ test('project asset retention client uses a signed patch and boolean body', asyn
   const asset = await setProjectAssetRetention('project one', 'asset/one', true);
   assert.equal(asset.retentionPinned, true);
   await assert.rejects(setProjectAssetRetention('project one', 'asset/one', 'true'), /请选择有效的素材保留设置/);
+});
+
+test('project asset production state client uses a signed patch and strict values', async t => {
+  installSession('signed-production-state-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%20one/assets/asset%2Fone/production-state');
+    assert.equal(options.method, 'PATCH');
+    assert.equal(options.headers.Authorization, 'Bearer signed-production-state-token');
+    assert.deepEqual(JSON.parse(options.body), { productionState: 'candidate' });
+    return jsonResponse({ asset: { projectAssetId: 'asset/one', productionState: 'candidate' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const asset = await setProjectAssetProductionState('project one', 'asset/one', 'candidate');
+  assert.equal(asset.productionState, 'candidate');
+  await assert.rejects(setProjectAssetProductionState('project one', 'asset/one', 'delivered'), /已交付状态由系统确认/);
+  await assert.rejects(setProjectAssetProductionState('project one', 'asset/one', 'published'), /请选择有效的素材生产状态/);
+});
+
+test('product profile client keeps the owner in the session and uses encoded profile paths', async t => {
+  installSession('signed-product-profile-token');
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (path, options = {}) => {
+    calls.push({ path, options });
+    if (path === '/api/product-profiles?status=active&limit=20') {
+      assert.equal(options.headers.Authorization, 'Bearer signed-product-profile-token');
+      return jsonResponse({ profiles: [{ profileId: 'profile/one', name: '商品' }] });
+    }
+    if (path === '/api/product-profiles') {
+      assert.equal(options.method, 'POST');
+      assert.equal(options.headers.Authorization, 'Bearer signed-product-profile-token');
+      assert.equal(options.headers['Idempotency-Key'], 'profile-create-key');
+      assert.equal(JSON.parse(options.body).ownerEmail, undefined);
+      return jsonResponse({ profile: { profileId: 'profile/one', name: '商品' } }, 201);
+    }
+    if (path === '/api/product-profiles/profile%2Fone' && options.method === 'PATCH') {
+      assert.equal(options.method, 'PATCH');
+      assert.equal(options.headers.Authorization, 'Bearer signed-product-profile-token');
+      return jsonResponse({ profile: { profileId: 'profile/one', name: '新商品' } });
+    }
+    if (path === '/api/product-profiles/profile%2Fone/archive') {
+      assert.equal(options.method, 'POST');
+      return jsonResponse({ profile: { profileId: 'profile/one', status: 'archived' } });
+    }
+    if (path === '/api/product-profiles/profile%2Fone') {
+      assert.equal(options.method, undefined);
+      return jsonResponse({ profile: { profileId: 'profile/one', name: '商品' } });
+    }
+    throw new Error(`unexpected request: ${path}`);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const listed = await listProductProfiles({ status: 'active', limit: 20 });
+  const created = await createProductProfile({ name: '商品', idempotencyKey: 'profile-create-key' });
+  const read = await getProductProfile('profile/one');
+  const updated = await updateProductProfile('profile/one', { name: '新商品', idempotencyKey: 'profile-update-key' });
+  const archived = await archiveProductProfile('profile/one');
+
+  assert.equal(listed[0].profileId, 'profile/one');
+  assert.equal(created.profileId, 'profile/one');
+  assert.equal(read.profileId, 'profile/one');
+  assert.equal(updated.name, '新商品');
+  assert.equal(archived.status, 'archived');
+  assert.equal(calls.length, 5);
 });
 
 test('project media import client uses signed owner context and never sends owner authority', async t => {

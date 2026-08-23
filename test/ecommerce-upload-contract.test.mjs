@@ -235,6 +235,12 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
       url: `/api/generated-assets/${'c'.repeat(64)}.png`,
       previewUrl: `/api/generated-assets/${'d'.repeat(64)}.webp`,
       role: 'product',
+      projectAssetRef: {
+        projectId: 'ecommerce-source-project',
+        projectAssetId: 'source-project-asset',
+        role: 'product',
+        expectedContentHash: 'c'.repeat(64),
+      },
     }],
     refImgs: [{
       assetId: `${'e'.repeat(64)}.jpg`,
@@ -264,6 +270,12 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
     product: [{
       assetId: `${'c'.repeat(64)}.png`,
       url: `/api/generated-assets/${'c'.repeat(64)}.png`,
+      projectAssetRef: {
+        projectId: 'ecommerce-source-project',
+        projectAssetId: 'source-project-asset',
+        role: 'product',
+        expectedContentHash: 'c'.repeat(64),
+      },
     }],
     reference: [{
       assetId: `${'e'.repeat(64)}.jpg`,

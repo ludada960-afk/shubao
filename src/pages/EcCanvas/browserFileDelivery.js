@@ -122,6 +122,9 @@ export async function prepareImageDeliverables(items, {
       blob,
       contentType: blobType,
       size: blob.size,
+      metadata: item.metadata && typeof item.metadata === 'object' && !Array.isArray(item.metadata)
+        ? item.metadata
+        : {},
     });
     onProgress({ completed: index + 1, total: items.length, phase: 'preparing' });
   }
@@ -138,6 +141,62 @@ function validatePrepared(prepared) {
     const type = String(item.contentType || item.blob.type || '').toLowerCase();
     if (!type.startsWith('image/')) throw new Error(`第 ${index + 1} 个文件不是有效图片`);
   }
+}
+
+function cleanManifestText(value, max = 240) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized || normalized.length > max || /[\u0000-\u001F\u007F]/.test(normalized)) return '';
+  return normalized;
+}
+
+function safeManifestMetadata(metadata = {}) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {};
+  const safe = {};
+  const displayName = cleanManifestText(metadata.displayName)
+    || cleanManifestText(metadata.label)
+    || cleanManifestText(metadata.name);
+  if (displayName) safe.displayName = displayName;
+  for (const key of ['role', 'group', 'ratio', 'size']) {
+    const value = cleanManifestText(metadata[key]);
+    if (value) safe[key] = value;
+  }
+  for (const key of ['width', 'height']) {
+    if (Number.isSafeInteger(metadata[key]) && metadata[key] > 0) safe[key] = metadata[key];
+  }
+  if (metadata.aigc && typeof metadata.aigc === 'object' && !Array.isArray(metadata.aigc)) {
+    const aigc = {};
+    if (metadata.aigc.generated === true) aigc.generated = true;
+    const version = cleanManifestText(metadata.aigc.provenanceVersion, 64);
+    if (version) aigc.provenanceVersion = version;
+    if (Object.keys(aigc).length) safe.aigc = aigc;
+  }
+  if (metadata.provenance && typeof metadata.provenance === 'object' && !Array.isArray(metadata.provenance)) {
+    const provenance = {};
+    for (const key of ['route', 'planItemId', 'generatedAt']) {
+      const value = cleanManifestText(metadata.provenance[key], 320);
+      if (value) provenance[key] = value;
+    }
+    if (Array.isArray(metadata.provenance.sourceAssetIds)) {
+      const sourceAssetIds = [...new Set(metadata.provenance.sourceAssetIds
+        .map(value => cleanManifestText(value, 256))
+        .filter(Boolean))].slice(0, 64);
+      if (sourceAssetIds.length) provenance.sourceAssetIds = sourceAssetIds;
+    }
+    if (Object.keys(provenance).length) safe.provenance = provenance;
+  }
+  return safe;
+}
+
+export function buildDeliveryManifest(prepared = []) {
+  validatePrepared(prepared);
+  return {
+    schemaVersion: 1,
+    assets: prepared.map(item => ({
+      ...(item.id ? { id: cleanManifestText(item.id, 256) } : {}),
+      filename: item.filename,
+      ...safeManifestMetadata(item.metadata),
+    })),
+  };
 }
 
 async function writeToHandle(handle, blob) {
@@ -194,6 +253,7 @@ export async function writePreparedDeliverables(destination, prepared, {
   } else if (destination.strategy === 'zip') {
     const zip = zipFactory();
     for (const item of prepared) zip.file(item.filename, item.blob);
+    zip.file('manifest.json', JSON.stringify(buildDeliveryManifest(prepared), null, 2));
     const blob = await zip.generateAsync({ type: 'blob' });
     if (!Number(blob?.size)) throw new Error('压缩包内容为空');
     deliverBlob(blob, destination.filename || destination.name || '电商图片.zip');

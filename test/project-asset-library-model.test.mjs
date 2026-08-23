@@ -5,7 +5,14 @@ import {
   canReuseProjectAsset,
   filterProjectAssetLibrary,
   normalizeProjectAssetLibrary,
+  normalizeProjectAssetSelection,
   projectAssetRetentionStatus,
+  projectAssetProductionStatus,
+  projectAssetProductionOptions,
+  PROJECT_ASSET_PRODUCTION_STATES,
+  PROJECT_ASSET_PRODUCTION_FILTERS,
+  projectAssetSelectionKey,
+  toggleProjectAssetSelection,
 } from '../src/pages/Works/projectAssetLibraryModel.js';
 
 const now = new Date('2026-08-20T00:00:00.000Z');
@@ -44,6 +51,38 @@ test('filters asset library by metadata, project, and retention state', () => {
   assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { query: 'image-1' })), ['image-1']);
   assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { query: 'project-2', retentionFilter: 'managed' })), ['audio-1']);
   assert.deepEqual(normalizedIds(filterProjectAssetLibrary(assets, { retentionFilter: 'pinned' })), ['image-1']);
+});
+
+test('filters and labels the production lifecycle independently from retention', () => {
+  assert.deepEqual(PROJECT_ASSET_PRODUCTION_FILTERS.map(option => option.id), ['all', 'draft', 'candidate', 'delivered', 'archived']);
+  assert.equal(projectAssetProductionStatus({ productionState: 'delivered' }).label, '已交付');
+  assert.equal(projectAssetProductionStatus({ productionState: 'unknown' }).id, 'draft');
+  const assets = [
+    { projectAssetId: 'candidate', productionState: 'candidate' },
+    { projectAssetId: 'delivered', productionState: 'delivered' },
+  ];
+  assert.deepEqual(filterProjectAssetLibrary(assets, { productionFilter: 'candidate' }).map(asset => asset.projectAssetId), ['candidate']);
+  assert.equal(PROJECT_ASSET_PRODUCTION_STATES.length, 4);
+  assert.deepEqual(projectAssetProductionOptions({ productionState: 'draft' }).map(option => option.id), ['draft', 'candidate', 'archived']);
+  assert.deepEqual(projectAssetProductionOptions({ productionState: 'candidate' }).map(option => option.id), ['candidate', 'draft', 'archived']);
+  assert.deepEqual(projectAssetProductionOptions({ productionState: 'delivered' }).map(option => option.id), ['delivered', 'archived']);
+  assert.deepEqual(projectAssetProductionOptions({ productionState: 'archived' }).map(option => option.id), ['archived', 'draft']);
+});
+
+test('batch selection is keyed by canonical identity and excludes expired assets', () => {
+  const reusable = { projectId: 'project-1', projectAssetId: 'asset-1', contentHash: 'hash-1', mediaKind: 'image' };
+  const expired = { projectId: 'project-1', projectAssetId: 'asset-2', contentHash: 'hash-2', mediaKind: 'image', retentionState: 'marked' };
+  const first = toggleProjectAssetSelection(new Set(), reusable, now);
+  assert.deepEqual([...first], ['project-1:asset-1:hash-1']);
+  assert.deepEqual([...toggleProjectAssetSelection(first, reusable, now)], []);
+  assert.deepEqual([...toggleProjectAssetSelection(first, expired, now)], [...first]);
+  assert.equal(projectAssetSelectionKey(reusable), 'project-1:asset-1:hash-1');
+});
+
+test('normalizes a selection after search/filter changes without retaining hidden or stale assets', () => {
+  const visible = [{ projectId: 'project-1', projectAssetId: 'asset-1', contentHash: 'hash-1', mediaKind: 'image' }];
+  const selected = new Set(['project-1:asset-1:hash-1', 'project-2:asset-2:hash-2']);
+  assert.deepEqual([...normalizeProjectAssetSelection(selected, visible, now)], ['project-1:asset-1:hash-1']);
 });
 
 function normalizedIds(value) {

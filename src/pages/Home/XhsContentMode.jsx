@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Palette, LayoutPanelTop } from 'lucide-react';
+import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, Eye, RotateCcw as RotateIcon, Palette, LayoutPanelTop } from 'lucide-react';
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
@@ -168,15 +168,16 @@ function XhsInputTemplate({
             ref={promptRef}
             value={text}
             onChange={onTextChange}
-            className="xhs-prompt-field"
-            placeholder={plog ? '描述你想记录的生活瞬间' : '写什么？一句话就够了'}
+            className={`xhs-prompt-field${text ? '' : ' ec-empty'}`}
+            placeholder=""
             aria-label={plog ? '描述生活碎片' : '描述小红书图文主题'}
-            aria-describedby={`xhs-prompt-hints-${plog ? 'plog' : 'content'}`}
+            aria-describedby={`xhs-prompt-placeholder-${plog ? 'plog' : 'content'}`}
           />
-          <div id={`xhs-prompt-hints-${plog ? 'plog' : 'content'}`} className="xhs-prompt-hints" aria-hidden="true">
-            <span>{plog ? '例：周末午后，阳光洒进房间，猫趴在窗台打盹' : '例：厦门 3 天 2 夜旅游攻略，适合第一次去'}</span>
-            <span>{plog ? '例：下班路上买了一束花，回家插在玻璃瓶里' : '例：平价好用的防晒霜推荐，学生党预算'}</span>
-          </div>
+          {!text && <div id={`xhs-prompt-placeholder-${plog ? 'plog' : 'content'}`} className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints" aria-hidden="true">
+            <span className="ec-placeholder-line">{plog ? '描述你想记录的生活瞬间，一句话就够了' : '写什么？一句话就够了'}</span>
+            <span className="ec-placeholder-line ec-xhs-example-first">{plog ? '例：周末午后，阳光洒进房间，猫趴在窗台打盹' : '例：厦门 3 天 2 夜旅游攻略，适合第一次去'}</span>
+            <span className="ec-placeholder-line">{plog ? '例：下班路上买了一束花，回家插在玻璃瓶里' : '例：平价好用的防晒霜推荐，学生党预算'}</span>
+          </div>}
         </div>
         <div className="ec-workbench-mention-row"><ImageMentionPicker images={mentionImages} selectionMode="insert" onToggle={onMention} /></div>
       </div>
@@ -186,7 +187,7 @@ function XhsInputTemplate({
             {options.map(([key, label, value, icon]) => {
               return <div className="xhs-template-option-slot" key={key}>
                 <button type="button" className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}`} onClick={() => onOptionToggle(key)} aria-expanded={activeOption === key} aria-controls={`xhs-option-panel-${key}`}>
-                  <span className="xhs-template-option-icon" aria-hidden="true">{icon}</span><span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{activeOption === key ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronUp size={13} aria-hidden="true" />}
+                  <span className="xhs-template-option-icon" aria-hidden="true">{icon}</span><span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span><ChevronDown size={13} aria-hidden="true" className={`xhs-template-chevron${activeOption === key ? ' is-open' : ''}`} />
                 </button>
                 {activeOption === key && optionPanels?.[key] && <div id={`xhs-option-panel-${key}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[key]}</div>}
               </div>;
@@ -947,10 +948,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   /* ═════ compactMode: 纯 XHS 输入表单（灵图AI下拉面板风格）═════ */
   if (compactMode) {
     return (
-      <div className="xhs-content-surface">
-        <XhsModeSelector value={xhsSubMode} onChange={setXhsSubMode} />
-        <CreationShowcase mode="content" subMode={xhsSubMode} />
-        <div className="xhs-workbench-card">
+      <div className="ec-main-card xhs-main-card">
+        <div className="xhs-content-surface">
+          <XhsModeSelector value={xhsSubMode} onChange={setXhsSubMode} />
+          <CreationShowcase mode="content" subMode={xhsSubMode} />
+          <div className="xhs-workbench-card">
           {xhsSubMode === 'content' ? (
             <XhsInputTemplate
               text={inputText}
@@ -992,7 +994,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               }}
             />
           )}
-          {err && <div className="error-bar">{err}</div>}
+            {err && <div className="error-bar">{err}</div>}
+          </div>
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote, MdPushPin } from 'react-icons/md';
+import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote, MdPushPin, MdRefresh } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
@@ -52,15 +52,15 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetRetention } from '../../services/projects.js';
+import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
-import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
+import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
-import { canReuseProjectAsset, filterProjectAssetLibrary, normalizeProjectAssetLibrary, projectAssetRetentionStatus, PROJECT_ASSET_RETENTION_FILTERS } from '../Works/projectAssetLibraryModel.js';
+import { canReuseProjectAsset, filterProjectAssetLibrary, normalizeProjectAssetLibrary, normalizeProjectAssetSelection, projectAssetProductionOptions, projectAssetProductionStatus, projectAssetRetentionStatus, projectAssetSelectionKey, PROJECT_ASSET_PRODUCTION_FILTERS, PROJECT_ASSET_PRODUCTION_STATES, PROJECT_ASSET_RETENTION_FILTERS, toggleProjectAssetSelection } from '../Works/projectAssetLibraryModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
@@ -117,6 +117,16 @@ function canvasVideoInputFiles(composer = {}, sourceNodes = []) {
 
 function generatedAssetIdFromUrl(url = '') {
   return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
+}
+
+function canvasImportSourceId(kind, asset = {}) {
+  return String(kind === 'image'
+    ? asset.assetId || asset.id || ''
+    : asset.id || asset.videoAssetId || asset.assetId || '').trim();
+}
+
+function pendingProjectAssetImportKey(record = {}) {
+  return `${record.operation || 'import-source'}:${record.kind || 'media'}:${record.sourceAssetId || canvasImportSourceId(record.kind, record.asset)}`;
 }
 
 function compositionSizeForNode(node = {}) {
@@ -492,16 +502,21 @@ export default function EcCanvas() {
   const phone = state.phone || '';
 
   useEffect(() => {
-    if (state.logged) refreshBillingBalance().catch(() => {});
-  }, [state.logged, refreshBillingBalance]);
+    if (state.logged && !state.browserQa) refreshBillingBalance().catch(() => {});
+  }, [state.logged, state.browserQa, refreshBillingBalance]);
   const [viewport, setViewport] = useState({ x: 80, y: 40, scale: 1 });
   const [nodes, setNodes] = useState([]);
   const nodesRef = useRef([]);
+  const [pendingProjectAssetImports, setPendingProjectAssetImports] = useState([]);
+  const [pendingProjectAssetImportsBusy, setPendingProjectAssetImportsBusy] = useState(false);
+  const pendingProjectAssetImportsRef = useRef([]);
+  const pendingProjectAssetImportsBusyRef = useRef(false);
   const [selected, setSelected] = useState(null);
   const [multiSelected, setMultiSelected] = useState(new Set());
   const [connections, setConnections] = useState([]);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { pendingProjectAssetImportsRef.current = pendingProjectAssetImports; }, [pendingProjectAssetImports]);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [pointerMode, setPointerMode] = useState(null);
   const [activeTool, setActiveTool] = useState('select');
@@ -541,12 +556,21 @@ export default function EcCanvas() {
   const [projectAssetLibraryLoading, setProjectAssetLibraryLoading] = useState(false);
   const [projectAssetLibraryError, setProjectAssetLibraryError] = useState('');
   const [projectAssetRetentionBusy, setProjectAssetRetentionBusy] = useState('');
+  const [projectAssetProductionBusy, setProjectAssetProductionBusy] = useState('');
   const [projectAssetQuery, setProjectAssetQuery] = useState('');
   const [projectAssetRetentionFilter, setProjectAssetRetentionFilter] = useState('all');
+  const [projectAssetProductionFilter, setProjectAssetProductionFilter] = useState('all');
+  const [selectedProjectAssetKeys, setSelectedProjectAssetKeys] = useState(() => new Set());
+  const [projectAssetBatchBusy, setProjectAssetBatchBusy] = useState(false);
   const [projectAssetLineage, setProjectAssetLineage] = useState(null);
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const requestedTab = state.canvasEntryTab;
+    if (requestedTab && requestedTab !== tab) setTab(requestedTab);
+  }, [state.canvasEntryTab, tab]);
   const [promptLoading, setPromptLoading] = useState(false);
   const [editingTextNodeId, setEditingTextNodeId] = useState(null);
   const [activeComposerSurface, setActiveComposerSurface] = useState('');
@@ -597,6 +621,9 @@ export default function EcCanvas() {
     workOutputFingerprintRef.current = '';
     remoteSnapshotRef.current = '';
     canvasPersistenceGenerationRef.current += 1;
+    setPendingProjectAssetImports([]);
+    pendingProjectAssetImportsBusyRef.current = false;
+    setPendingProjectAssetImportsBusy(false);
   }, [result.id, result._saveKey, result.canvasImportId]);
 
   useEffect(() => {
@@ -799,6 +826,130 @@ export default function EcCanvas() {
     };
   }, [canvasMediaFields]);
 
+  const enqueuePendingProjectAssetImports = useCallback(records => {
+    const nextRecords = (Array.isArray(records) ? records : []).filter(record => (
+      ['image', 'video', 'audio'].includes(record?.kind)
+      && record?.asset
+      && canvasImportSourceId(record.kind, record.asset)
+      && Array.isArray(record.nodeIds)
+      && record.nodeIds.length
+    ));
+    if (!nextRecords.length) return;
+    setPendingProjectAssetImports(previous => {
+      const byKey = new Map(previous.map(record => [pendingProjectAssetImportKey(record), record]));
+      nextRecords.forEach(record => {
+        const key = pendingProjectAssetImportKey(record);
+        const existing = byKey.get(key);
+        byKey.set(key, existing
+          ? { ...existing, ...record, nodeIds: [...new Set([...(existing.nodeIds || []), ...(record.nodeIds || [])])] }
+          : { ...record, sourceAssetId: canvasImportSourceId(record.kind, record.asset) });
+      });
+      return [...byKey.values()];
+    });
+  }, []);
+
+  const retryPendingProjectAssetImports = useCallback(async () => {
+    if (pendingProjectAssetImportsBusyRef.current) return;
+    const pending = pendingProjectAssetImportsRef.current;
+    if (!pending.length) return;
+    if (!state.logged || result.browserQa) {
+      showToast('请登录后再归档待处理素材', 'info');
+      return;
+    }
+    pendingProjectAssetImportsBusyRef.current = true;
+    setPendingProjectAssetImportsBusy(true);
+    try {
+      const hasVideo = pending.some(record => ['video', 'audio'].includes(record.kind));
+      const projectContext = await ensureCanvasMediaProject(
+        hasVideo ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目',
+        hasVideo ? 'video' : 'ecommerce',
+      );
+      if (!projectContext) throw new Error('项目归档不可用，请稍后重试');
+      const completed = [];
+      const failed = [];
+      for (const record of pending) {
+        try {
+          const canonical = record.operation === 'register-generated'
+            ? await registerGeneratedAssetToProject(projectContext.projectId, {
+              versionId: projectContext.baseVersionId,
+              assetId: record.sourceAssetId,
+              stableUrl: record.asset?.stableUrl || record.asset?.url,
+              role: record.role || 'canvas-output',
+              metadata: {
+                source: 'canvas',
+                displayName: record.displayName || 'Canvas 图片',
+              },
+            })
+            : record.kind === 'image'
+            ? await importImageAssetToProject(projectContext.projectId, {
+              imageAssetId: record.sourceAssetId,
+              role: record.role || 'reference',
+              metadata: { displayName: record.displayName || 'Canvas 图片素材' },
+            })
+            : await importVideoAssetToProject(projectContext.projectId, {
+              videoAssetId: record.sourceAssetId,
+              role: record.role || 'reference-video',
+              metadata: { displayName: record.displayName || 'Canvas 媒体素材' },
+            });
+          const sourceAssetId = record.sourceAssetId || canvasImportSourceId(record.kind, record.asset);
+          const playbackUrl = canonical.playbackUrl || canonical.stableUrl || record.asset.url || record.asset.stableUrl || '';
+          completed.push({
+            record,
+            asset: {
+              ...record.asset,
+              ...canonical,
+              ...(record.kind === 'image'
+                ? { assetId: sourceAssetId, url: playbackUrl, stableUrl: canonical.stableUrl || record.asset.stableUrl || record.asset.url }
+                : { id: sourceAssetId, videoAssetId: sourceAssetId, url: playbackUrl, playbackUrl }),
+            },
+          });
+        } catch (error) {
+          failed.push({ record, error });
+        }
+      }
+      if (completed.length) {
+        const completedByNodeId = new Map();
+        completed.forEach(item => (item.record.nodeIds || []).forEach(nodeId => completedByNodeId.set(nodeId, item.asset)));
+        setNodes(previous => previous.map(node => {
+          const asset = completedByNodeId.get(node.id);
+          if (!asset) return node;
+          return attachCanvasProjectAssetRef({
+            ...node,
+            ...asset,
+            url: asset.url || asset.playbackUrl || asset.stableUrl || node.url,
+            status: 'ready',
+            uploadError: '',
+          }, asset);
+        }));
+        const projectAssetRefs = collectCanvasProjectAssetRefs({
+          work: result,
+          nodes: [...nodesRef.current, ...completed.map(item => item.asset)],
+        });
+        dispatch({
+          type: 'SET_RESULT',
+          result: {
+            ...result,
+            projectId: projectContext.projectId,
+            sourceVersionId: projectContext.baseVersionId,
+            ...(projectAssetRefs.length ? { projectAssetRefs } : {}),
+          },
+        });
+      }
+      const completedKeys = new Set(completed.map(item => pendingProjectAssetImportKey(item.record)));
+      setPendingProjectAssetImports(previous => previous.filter(record => !completedKeys.has(pendingProjectAssetImportKey(record))));
+      if (failed.length) {
+        showToast(`${completed.length ? `已归档 ${completed.length} 个素材，` : ''}${failed.length} 个素材仍待归档，请稍后重试`, 'info');
+      } else if (completed.length) {
+        showToast(`已归档 ${completed.length} 个待处理素材，可继续引用生成`, 'success');
+      }
+    } catch (error) {
+      showToast(error.message || '项目归档失败，请稍后重试', 'error');
+    } finally {
+      pendingProjectAssetImportsBusyRef.current = false;
+      setPendingProjectAssetImportsBusy(false);
+    }
+  }, [dispatch, ensureCanvasMediaProject, result, showToast, state.logged]);
+
   useEffect(() => {
     if (!state.logged || result.browserQa) return undefined;
     const candidates = nodes.filter(node => {
@@ -830,7 +981,7 @@ export default function EcCanvas() {
           : candidate));
         continue;
       }
-      if (existing?.pending) continue;
+      if (existing?.pending || existing?.queued) continue;
       generatedAssetRegistrationRef.current.set(key, { pending: true });
       void registerGeneratedAssetToProject(projectId, {
         versionId,
@@ -847,11 +998,25 @@ export default function EcCanvas() {
           ? attachCanvasProjectAssetRef(candidate, asset)
           : candidate));
       }).catch(() => {
-        generatedAssetRegistrationRef.current.delete(key);
+        generatedAssetRegistrationRef.current.set(key, { queued: true });
+        enqueuePendingProjectAssetImports([{
+          operation: 'register-generated',
+          kind: 'image',
+          sourceAssetId: assetId,
+          role: node.role || 'canvas-output',
+          displayName: node.name || node.displayLabel || 'Canvas 图片',
+          nodeIds: [node.id],
+          asset: {
+            assetId,
+            url: node.url,
+            stableUrl: node.url,
+            name: node.name || node.displayLabel || 'Canvas 图片',
+          },
+        }]);
       });
     }
     return undefined;
-  }, [ensureCanvasMediaProject, nodes, result.browserQa, result.projectId, result.resultVersionId, result.sourceVersionId, state.logged]);
+  }, [enqueuePendingProjectAssetImports, ensureCanvasMediaProject, nodes, result.browserQa, result.projectId, result.resultVersionId, result.sourceVersionId, state.logged]);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -893,6 +1058,7 @@ export default function EcCanvas() {
     const draft = result.browserQa ? null : loadCanvasDraft(draftKey);
     const initialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
     const newNodes = (initialSnapshot?.nodes?.length ? initialSnapshot.nodes : session.nodes).map(normalizeCanvasNode);
+    setPendingProjectAssetImports(normalizePendingProjectAssetImports(initialSnapshot?.pendingProjectAssetImports));
     setNodes(newNodes);
     setConnections((initialSnapshot?.connections?.length ? initialSnapshot.connections : session.connections).map(normalizeCanvasConnection));
     setSelected(null);
@@ -920,6 +1086,7 @@ export default function EcCanvas() {
       void loadCanvasSession(persistedSessionId).then(remoteSession => {
         if (cancelled) return;
         const remoteSnapshot = restoreCanvasSnapshot(remoteSession.snapshot);
+        setPendingProjectAssetImports(normalizePendingProjectAssetImports(remoteSnapshot.pendingProjectAssetImports));
         setNodes(remoteSnapshot.nodes.map(normalizeCanvasNode));
         setConnections(remoteSnapshot.connections.map(normalizeCanvasConnection));
         setViewport(remoteSnapshot.viewport);
@@ -968,10 +1135,10 @@ export default function EcCanvas() {
 
   useEffect(() => {
     if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
-    const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
+    const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
     const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
     return () => clearTimeout(timer);
-  }, [connections, nodes, pointerMode?.kind, viewport]);
+  }, [connections, nodes, pendingProjectAssetImports, pointerMode?.kind, viewport]);
 
   useEffect(() => {
     if (!draftReadyRef.current || result.browserQa || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
@@ -1017,7 +1184,7 @@ export default function EcCanvas() {
     const projectId = result.projectId;
     const baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) return undefined;
-    const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
+    const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
     const fingerprint = JSON.stringify(snapshot);
     if (fingerprint === remoteSnapshotRef.current) return undefined;
 
@@ -1055,7 +1222,7 @@ export default function EcCanvas() {
       }
     }, 1200);
     return () => clearTimeout(remoteSaveTimerRef.current);
-  }, [canvasSessionBusy, canvasWorkMediaFields, connections, dispatch, nodes, phone, pointerMode?.kind, result, viewport]);
+  }, [canvasSessionBusy, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, pointerMode?.kind, result, viewport]);
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
@@ -1158,13 +1325,16 @@ export default function EcCanvas() {
   }, [phone, result?.browserQa]);
 
   useEffect(() => {
-    if (tab !== 'works' || !state.logged || result?.browserQa) {
+    if (tab !== 'assets' || !state.logged || result?.browserQa) {
       setProjectAssetLibrary([]);
+      setSelectedProjectAssetKeys(new Set());
       setProjectAssetLibraryError('');
       setProjectAssetLibraryLoading(false);
       return undefined;
     }
     let cancelled = false;
+    setProjectAssetLibrary([]);
+    setSelectedProjectAssetKeys(new Set());
     setProjectAssetLibraryLoading(true);
     setProjectAssetLibraryError('');
     const timer = setTimeout(() => {
@@ -1183,12 +1353,16 @@ export default function EcCanvas() {
       })();
     }, 180);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [projectAssetMediaFilter, projectAssetQuery, result?.browserQa, result?.projectId, state.logged, tab]);
+  }, [phone, projectAssetMediaFilter, projectAssetQuery, result?.browserQa, result?.projectId, state.logged, tab]);
 
   const visibleProjectAssetLibrary = useMemo(() => filterProjectAssetLibrary(projectAssetLibrary, {
     query: projectAssetQuery,
     retentionFilter: projectAssetRetentionFilter,
-  }), [projectAssetLibrary, projectAssetQuery, projectAssetRetentionFilter]);
+    productionFilter: projectAssetProductionFilter,
+  }), [projectAssetLibrary, projectAssetProductionFilter, projectAssetQuery, projectAssetRetentionFilter]);
+  useEffect(() => {
+    setSelectedProjectAssetKeys(current => normalizeProjectAssetSelection(current, projectAssetLibrary));
+  }, [projectAssetLibrary]);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
@@ -3421,6 +3595,14 @@ export default function EcCanvas() {
           });
         }
         setNodes(previous => previous.map(node => canonicalNodes.find(next => next.id === node.id) || node));
+        const failedImageIds = new Set(imported.failed.map(item => canvasImportSourceId('image', item.asset)));
+        enqueuePendingProjectAssetImports(persistedAssets.map((asset, index) => ({
+          asset,
+          kind: 'image',
+          role: 'product',
+          displayName: asset.name || 'Canvas 图片素材',
+          nodeIds: failedImageIds.has(canvasImportSourceId('image', asset)) || !projectContext ? [uploadedNodes[index]?.id].filter(Boolean) : [],
+        })));
         if (imported.failed.length || !projectContext) {
           showToast(`图片已保存，但 ${imported.failed.length || persistedAssets.length} 张尚未归档到项目`, 'info');
         }
@@ -3472,6 +3654,14 @@ export default function EcCanvas() {
       setNodes(previous => [...previous, ...uploadedNodes]);
       setSelected(uploadedNodes[0]?.id || null);
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
+      const failedVideoIds = new Set(imported.failed.map(item => canvasImportSourceId('video', item.asset)));
+      enqueuePendingProjectAssetImports(assets.map((asset, index) => ({
+        asset,
+        kind: 'video',
+        role: 'reference-video',
+        displayName: asset.name || 'Canvas 视频素材',
+        nodeIds: failedVideoIds.has(canvasImportSourceId('video', asset)) || !projectContext ? [uploadedNodes[index]?.id].filter(Boolean) : [],
+      })));
       const failedCount = imported.failed.length + (!projectContext ? assets.length : 0);
       showToast(failedCount
         ? `已加入 ${uploadedNodes.length} 个视频，但 ${failedCount} 个素材尚未归档到项目，可稍后重试`
@@ -3558,6 +3748,32 @@ export default function EcCanvas() {
       setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
+      const failedImageIds = new Set(importedImages.failed.map(item => canvasImportSourceId('image', item.asset)));
+      const failedVideoIds = new Set(importedVideos.failed.map(item => canvasImportSourceId('video', item.asset)));
+      const failedAudioIds = new Set(importedAudios.failed.map(item => canvasImportSourceId('audio', item.asset)));
+      enqueuePendingProjectAssetImports([
+        ...persistedAssets.map((asset, index) => ({
+          asset,
+          kind: 'image',
+          role,
+          displayName: asset.name || 'Canvas 图片素材',
+          nodeIds: failedImageIds.has(canvasImportSourceId('image', asset)) || !projectContext ? [imageNodes[index]?.id].filter(Boolean) : [],
+        })),
+        ...videoAssets.map((asset, index) => ({
+          asset,
+          kind: 'video',
+          role: 'reference-video',
+          displayName: asset.name || 'Canvas 视频素材',
+          nodeIds: failedVideoIds.has(canvasImportSourceId('video', asset)) || !projectContext ? [videoNodes[index]?.id].filter(Boolean) : [],
+        })),
+        ...audioAssets.map((asset, index) => ({
+          asset,
+          kind: 'audio',
+          role: 'reference-audio',
+          displayName: asset.name || 'Canvas 音频素材',
+          nodeIds: failedAudioIds.has(canvasImportSourceId('audio', asset)) || !projectContext ? [audioNodes[index]?.id].filter(Boolean) : [],
+        })),
+      ]);
       const durableImportFailures = importedImages.failed.length + importedVideos.failed.length + importedAudios.failed.length;
       const unarchivedCount = durableImportFailures + (!projectContext ? persistedAssets.length + videoAssets.length + audioAssets.length : 0);
       showToast(unarchivedCount
@@ -3566,7 +3782,7 @@ export default function EcCanvas() {
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
     }
-  }, [canvasMediaFields, dispatch, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, nodes, result, showToast]);
+  }, [canvasMediaFields, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, nodes, result, showToast]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
@@ -3597,10 +3813,14 @@ export default function EcCanvas() {
           : appendImageMention(node.prompt, image?.label),
     } : node));
   }, []);
+  const handleTabChange = useCallback(nextTab => {
+    setTab(nextTab);
+    dispatch({ type: 'SET_CANVAS_ENTRY_TAB', tab: nextTab });
+  }, [dispatch]);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
-    setTab('canvas');
+    handleTabChange('canvas');
   };
   const handleImportProjectAsset = useCallback(async (asset) => {
     if (projectAssetImportBusyRef.current) return;
@@ -3609,6 +3829,7 @@ export default function EcCanvas() {
       return;
     }
     projectAssetImportBusyRef.current = true;
+    setProjectAssetBatchBusy(true);
     try {
       let reusableAsset = asset;
       if (state.logged && !result.browserQa && asset?.projectId && asset?.projectAssetId) {
@@ -3669,7 +3890,7 @@ export default function EcCanvas() {
           savedWork = null;
         }
       }
-      setTab('canvas');
+      handleTabChange('canvas');
       const remoteArchived = Boolean(savedWork?._saveKey);
       showToast(
         projectContext && remoteArchived
@@ -3681,8 +3902,108 @@ export default function EcCanvas() {
       );
     } finally {
       projectAssetImportBusyRef.current = false;
+      setProjectAssetBatchBusy(false);
     }
-  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, nodes, phone, result, showToast, state.logged, viewport]);
+  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, handleTabChange, nodes, phone, result, showToast, state.logged, viewport]);
+  const handleImportProjectAssets = useCallback(async (assets = []) => {
+    if (projectAssetImportBusyRef.current) return;
+    const candidates = (Array.isArray(assets) ? assets : []).filter(asset => canReuseProjectAsset(asset));
+    if (!candidates.length) {
+      showToast('素材已到期或待清理，请先长期保留后再使用', 'info');
+      return;
+    }
+    projectAssetImportBusyRef.current = true;
+    setProjectAssetBatchBusy(true);
+    try {
+      let session = { nodes, connections, viewport };
+      const importedNodes = [];
+      let skipped = 0;
+      let failed = 0;
+      for (const asset of candidates) {
+        let reusableAsset = asset;
+        if (state.logged && !result.browserQa && asset?.projectId && asset?.projectAssetId) {
+          try {
+            reusableAsset = await getProjectAsset(asset.projectId, asset.projectAssetId, 'reuse');
+          } catch {
+            failed += 1;
+            continue;
+          }
+        }
+        const imported = importProjectAssetToCanvas({ asset: reusableAsset, source: 'project-library', session });
+        if (!imported.added) {
+          if (imported.nodeId) setSelected(imported.nodeId);
+          skipped += 1;
+          continue;
+        }
+        session = imported.session;
+        importedNodes.push(imported.node);
+      }
+      if (!importedNodes.length) {
+        showToast(failed ? '所选素材暂时无法加入画布，请刷新后重试' : '所选素材已经在当前画布中', 'info');
+        return;
+      }
+      const firstAsset = candidates[0];
+      const mediaKind = candidates.some(asset => ['video', 'audio'].includes(String(asset?.mediaKind || asset?.media_kind || '').toLowerCase()))
+        ? 'video'
+        : 'image';
+      const label = firstAsset?.metadata?.displayName || firstAsset?.assetId || firstAsset?.role || '项目素材';
+      let projectContext = null;
+      if (state.logged && !result.browserQa) {
+        try {
+          projectContext = await ensureCanvasMediaProject(`${label} Canvas 项目`, mediaKind === 'image' ? 'ecommerce' : 'video');
+        } catch {
+          projectContext = null;
+        }
+      }
+      draftReadyRef.current = true;
+      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `project-assets-${Date.now()}` });
+      canvasGeneratedWorkKeyRef.current ||= canvasSaveKeyRef.current;
+      const nextResult = {
+        ...result,
+        ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
+        _saveKey: result._saveKey || canvasGeneratedWorkKeyRef.current,
+      };
+      if (projectContext) dispatch({ type: 'SET_RESULT', result: nextResult });
+      setNodes(session.nodes);
+      setConnections(session.connections);
+      const importedIds = importedNodes.map(node => node.id).filter(Boolean);
+      setSelected(importedIds[importedIds.length - 1] || null);
+      setMultiSelected(new Set(importedIds));
+      let savedWork = null;
+      if (state.logged) {
+        const workResult = {
+          ...nextResult,
+          product_name: nextResult.product_name || label,
+          images: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: session.nodes }),
+          imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: session.nodes }),
+          ...canvasWorkMediaFields(nextResult, session.nodes),
+        };
+        try { savedWork = await saveWork(workResult, phone); } catch { savedWork = null; }
+      }
+      setSelectedProjectAssetKeys(new Set());
+      handleTabChange('canvas');
+      const skippedSummary = skipped || failed ? `（跳过 ${skipped + failed} 个）` : '';
+      const batchSummary = importedNodes.length > 1 ? `已加入 ${importedNodes.length} 个项目素材` : '项目素材已加入画布';
+      showToast(
+        projectContext && savedWork?._saveKey
+          ? `${batchSummary}${skippedSummary}并保存，不会产生生成或扣费`
+          : projectContext
+            ? `${batchSummary}${skippedSummary}，本地草稿已保留，云端作品暂未保存`
+            : `${batchSummary}${skippedSummary}，本地草稿已保留`,
+        projectContext && savedWork?._saveKey ? 'success' : 'info',
+      );
+    } finally {
+      projectAssetImportBusyRef.current = false;
+      setProjectAssetBatchBusy(false);
+    }
+  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, handleTabChange, nodes, phone, result, showToast, state.logged, viewport]);
+  const handleToggleProjectAssetSelection = useCallback(asset => {
+    setSelectedProjectAssetKeys(current => toggleProjectAssetSelection(current, asset));
+  }, []);
+  const handleBatchImportProjectAssets = useCallback(() => {
+    const selected = projectAssetLibrary.filter(asset => selectedProjectAssetKeys.has(projectAssetSelectionKey(asset)));
+    void handleImportProjectAssets(selected);
+  }, [handleImportProjectAssets, projectAssetLibrary, selectedProjectAssetKeys]);
   const handleInspectProjectAsset = useCallback(async (asset) => {
     if (!asset?.projectId || !asset?.projectAssetId) return;
     setProjectAssetLineage({ asset, loading: true, error: '', data: null });
@@ -3713,6 +4034,24 @@ export default function EcCanvas() {
       setProjectAssetRetentionBusy('');
     }
   }, [projectAssetRetentionBusy, showToast]);
+  const handleSetProjectAssetProductionState = useCallback(async (asset, productionState) => {
+    if (!asset?.projectId || !asset?.projectAssetId || !productionState || projectAssetProductionBusy) return;
+    const key = `${asset.projectId}:${asset.projectAssetId}`;
+    setProjectAssetProductionBusy(key);
+    try {
+      const updated = await setProjectAssetProductionState(asset.projectId, asset.projectAssetId, productionState);
+      setProjectAssetLibrary(current => current.map(item => (
+        item.projectId === updated.projectId && item.projectAssetId === updated.projectAssetId
+          ? { ...item, ...updated }
+          : item
+      )));
+      showToast(`已标记为${projectAssetProductionStatus(updated).label}`, 'success');
+    } catch (error) {
+      showToast(error?.message || '素材生产状态更新失败，请重试', 'error');
+    } finally {
+      setProjectAssetProductionBusy('');
+    }
+  }, [projectAssetProductionBusy, showToast]);
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
@@ -3915,7 +4254,7 @@ export default function EcCanvas() {
     const persistenceGeneration = canvasPersistenceGenerationRef.current;
     setCanvasSessionBusy(true);
     try {
-      const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
+      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
       const session = canvasSession?.id
         ? await saveCanvasSession(canvasSession.id, { expectedRevision: canvasSession.revision, snapshot })
         : await createCanvasSession({ projectId, baseVersionId, snapshot });
@@ -3958,7 +4297,7 @@ export default function EcCanvas() {
     } finally {
       setCanvasSessionBusy(false);
     }
-  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, phone, result, showToast, viewport]);
+  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
 
   const handleCanvasSessionRestore = useCallback(async () => {
     const sessionId = canvasSession?.id || result.canvasSessionId;
@@ -3974,6 +4313,7 @@ export default function EcCanvas() {
       const snapshot = restoreCanvasSnapshot(session.snapshot);
       setNodes(snapshot.nodes.map(normalizeCanvasNode));
       setConnections(snapshot.connections.map(normalizeCanvasConnection));
+      setPendingProjectAssetImports(normalizePendingProjectAssetImports(snapshot.pendingProjectAssetImports));
       setViewport(snapshot.viewport);
       setSelected(null);
       setMultiSelected(new Set());
@@ -4017,10 +4357,10 @@ export default function EcCanvas() {
   return (
     <div className="ec-canvas-page">
       <CanvasTopBar
-        title={tab === 'canvas' ? (result.product_name || '电商画布') : tab === 'trash' ? '回收站' : '我的作品集'}
-        meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
+        title={tab === 'canvas' ? (result.product_name || '电商画布') : tab === 'assets' ? '项目素材库' : tab === 'trash' ? '回收站' : '我的作品集'}
+        meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : tab === 'assets' ? `${visibleProjectAssetLibrary.length} 个可用素材` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
         tab={tab}
-        onTabChange={setTab}
+        onTabChange={handleTabChange}
         activeFilter={activeFilter}
         filters={['全部', ...ASSET_GROUPS]}
         onFilterChange={setActiveFilter}
@@ -4073,7 +4413,7 @@ export default function EcCanvas() {
               setAddMenuOpen(false);
               if (actionId === 'upload') sourceUploadRef.current?.click();
               else if (actionId === 'upload-video') videoUploadRef.current?.click();
-              else if (actionId === 'works') setTab('works');
+              else if (actionId === 'works') handleTabChange('works');
               else if (actionId === 'text-generation') addCanvasComposer('text');
               else if (actionId === 'image') addCanvasComposer('image');
               else if (actionId === 'ecommerce') addCanvasComposer('suite');
@@ -4111,7 +4451,7 @@ export default function EcCanvas() {
                 <div className="ec-canvas-empty-actions">
                   <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdAddPhotoAlternate size={15} />上传图片</button>
                   <button type="button" onClick={() => videoUploadRef.current?.click()}><MdVideoLibrary size={15} />上传视频</button>
-                  <button type="button" onClick={() => setTab('works')}><MdCollections size={15} />从我的作品导入</button>
+                  <button type="button" onClick={() => handleTabChange('works')}><MdCollections size={15} />从我的作品导入</button>
                   <button type="button" onClick={() => addCanvasComposer('suite')}><MdAutoFixHigh size={15} />生成电商套图</button>
                   <button type="button" onClick={() => addCanvasComposer('video')}><MdVideoLibrary size={15} />生成视频</button>
                 </div>
@@ -4438,16 +4778,26 @@ export default function EcCanvas() {
               onClick={() => setWorkCategory(option.id)}
             >{option.label}<span>{workCategoryCounts[option.id]}</span></button>)}
           </div>}
-          {tab === 'works' && state.logged && (
+          {tab === 'assets' && state.logged && (
             <section aria-labelledby="canvas-project-assets-title" style={{ marginBottom: 22 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                 <div>
                   <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3, color: '#1f2937' }}>项目素材</h2>
                   <div style={{ marginTop: 4, color: '#8a929d', fontSize: 11 }}>图片、视频和音频 · 可搜索、可长期保留、可继续使用</div>
                 </div>
-                <span style={{ color: '#9aa1aa', fontSize: 11 }}>{visibleProjectAssetLibrary.length}{visibleProjectAssetLibrary.length !== projectAssetLibrary.length ? ` / ${projectAssetLibrary.length}` : ''} 个</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#9aa1aa', fontSize: 11 }}>{visibleProjectAssetLibrary.length}{visibleProjectAssetLibrary.length !== projectAssetLibrary.length ? ` / ${projectAssetLibrary.length}` : ''} 个</span>
+                  {selectedProjectAssetKeys.size > 0 && <button
+                    type="button"
+                    disabled={projectAssetBatchBusy || projectAssetImportBusyRef.current}
+                    onClick={handleBatchImportProjectAssets}
+                    aria-label={`加入所选 ${selectedProjectAssetKeys.size} 个素材到画布`}
+                    title="加入所选素材到画布"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 28, padding: '0 8px', border: '1px solid #bfdbfe', borderRadius: 7, background: '#eff6ff', color: '#2563eb', fontSize: 11, cursor: 'pointer' }}
+                  ><MdAdd size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto', gap: 8, marginBottom: 9 }}>
+              <div className="ec-project-asset-filters" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto auto', gap: 8, marginBottom: 9 }}>
                 <label style={{ position: 'relative', minWidth: 0 }}>
                   <span className="sr-only">搜索项目素材</span>
                   <input
@@ -4466,6 +4816,14 @@ export default function EcCanvas() {
                   style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid #e1e5eb', borderRadius: 8, background: '#fff', color: '#475569', fontSize: 11 }}
                 >
                   {PROJECT_ASSET_RETENTION_FILTERS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+                <select
+                  aria-label="筛选素材生产状态"
+                  value={projectAssetProductionFilter}
+                  onChange={event => setProjectAssetProductionFilter(event.target.value)}
+                  style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid #e1e5eb', borderRadius: 8, background: '#fff', color: '#475569', fontSize: 11 }}
+                >
+                  {PROJECT_ASSET_PRODUCTION_FILTERS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
                 </select>
               </div>
               <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -4489,7 +4847,10 @@ export default function EcCanvas() {
                     const label = asset.metadata?.displayName || asset.assetId || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
                     const projectTitle = asset.project?.title || asset.projectTitle || '未命名项目';
                     const retention = projectAssetRetentionStatus(asset);
+                    const production = projectAssetProductionStatus(asset);
                     const reusable = canReuseProjectAsset(asset);
+                    const selectionKey = projectAssetSelectionKey(asset);
+                    const selectedForBatch = selectedProjectAssetKeys.has(selectionKey);
                     return <article
                       key={`${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`}
                       style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 10, background: '#fff', color: '#26313c', cursor: 'pointer' }}
@@ -4505,11 +4866,32 @@ export default function EcCanvas() {
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>{label}</div>
                         <div style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#8a929d' }}>{projectTitle}</div>
                         <div title={retention.detail} style={{ display: 'inline-flex', maxWidth: '100%', marginTop: 6, padding: '2px 5px', borderRadius: 4, background: retention.tone === 'pinned' ? '#eff6ff' : retention.tone === 'attention' ? '#fff7ed' : '#f8fafc', color: retention.tone === 'pinned' ? '#2563eb' : retention.tone === 'attention' ? '#b45309' : '#64748b', fontSize: 9, lineHeight: 1.3 }}>{retention.label}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
+                          <span title={production.detail} style={{ display: 'inline-flex', padding: '2px 5px', borderRadius: 4, background: production.tone === 'delivered' ? '#ecfdf3' : production.tone === 'candidate' ? '#eff6ff' : production.tone === 'archived' ? '#f3f4f6' : '#fff7ed', color: production.tone === 'delivered' ? '#047857' : production.tone === 'candidate' ? '#2563eb' : production.tone === 'archived' ? '#6b7280' : '#b45309', fontSize: 9, lineHeight: 1.3 }}>{production.label}</span>
+                          <select
+                            aria-label={`更新${label}的生产状态`}
+                            value={production.id}
+                            disabled={projectAssetProductionBusy === `${asset.projectId}:${asset.projectAssetId}`}
+                            onChange={event => handleSetProjectAssetProductionState(asset, event.target.value)}
+                            style={{ minWidth: 0, maxWidth: '100%', height: 22, padding: '0 3px', border: '1px solid #edf0f3', borderRadius: 4, color: '#64748b', background: '#fff', fontSize: 9 }}
+                          >
+                            {projectAssetProductionOptions(asset).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                          </select>
+                        </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px', borderTop: '1px solid #f1f3f5' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px', borderTop: '1px solid #f1f3f5' }}>
                         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#9aa1aa' }}>{asset.role || '稳定引用'}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                          <button
+                            type="button"
+                            disabled={!reusable || !selectionKey || projectAssetBatchBusy}
+                            aria-label={selectedForBatch ? `取消选择${label}` : `选择${label}`}
+                            aria-pressed={selectedForBatch}
+                            title={selectedForBatch ? '取消选择' : reusable ? '选择加入批次' : '素材已到期或待清理'}
+                            onClick={() => handleToggleProjectAssetSelection(asset)}
+                            style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${selectedForBatch ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 6, background: selectedForBatch ? '#dbeafe' : '#fff', color: selectedForBatch ? '#2563eb' : reusable ? '#94a3b8' : '#d1d5db', cursor: reusable ? 'pointer' : 'not-allowed' }}
+                          >{selectedForBatch ? <MdCheckBox size={16} /> : <MdCheckBoxOutlineBlank size={16} />}</button>
                           <button type="button" aria-label={asset.retentionPinned ? `取消长期保留${label}` : `长期保留${label}`} aria-pressed={Boolean(asset.retentionPinned)} title={asset.retentionPinned ? '取消长期保留' : '长期保留'} disabled={projectAssetRetentionBusy === `${asset.projectId}:${asset.projectAssetId}`} onClick={() => handleToggleProjectAssetRetention(asset)} style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${asset.retentionPinned ? '#bfdbfe' : '#e5e7eb'}`, borderRadius: 6, background: asset.retentionPinned ? '#eff6ff' : '#fff', color: asset.retentionPinned ? '#2563eb' : '#94a3b8', cursor: 'pointer' }}><MdPushPin size={13} /></button>
                           <button type="button" disabled={!reusable} aria-label={reusable ? `加入当前画布${label}` : `先长期保留${label}`} title={reusable ? '加入当前画布' : '素材已到期或待清理，请先长期保留'} onClick={() => handleImportProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: `1px solid ${reusable ? '#dbeafe' : '#e5e7eb'}`, borderRadius: 6, background: reusable ? '#eff6ff' : '#f8fafc', color: reusable ? '#2563eb' : '#98a2b3', fontSize: 10, cursor: reusable ? 'pointer' : 'not-allowed' }}>{reusable ? '加入' : '先保留'}</button>
                           <button type="button" aria-label={`查看${label}的来源和派生关系`} title="查看来源和派生关系" onClick={() => handleInspectProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>关系</button>
@@ -4523,14 +4905,22 @@ export default function EcCanvas() {
               )}
             </section>
           )}
-          {!state.logged && tab === 'works' ? (
+          {tab === 'assets' && !state.logged && (
+            <div className="ec-canvas-work-empty">
+              <MdGridOn size={42} />
+              <strong>登录后查看素材库</strong>
+              <span>登录后管理图片、视频和音频素材，并继续用于新的创作。</span>
+              <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
+            </div>
+          )}
+          {(tab === 'works' || tab === 'trash') && (!state.logged ? (
             <div className="ec-canvas-work-empty">
               <MdCollections size={42} />
               <strong>登录后查看作品</strong>
               <span>你的电商套图、小红书图文、AI 视频、自由创作和画布内容都会保存在这里</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
             </div>
-          ) : worksLoading && (tab === 'works' || tab === 'trash') ? (
+          ) : worksLoading ? (
             <div role="status" style={{ textAlign: 'center', padding: '80px 20px', color: '#8a929d', fontSize: 13 }}>正在读取作品</div>
           ) : ((tab === 'trash' ? trashWorks : visibleWorks).length === 0) ? (
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>
@@ -4588,7 +4978,7 @@ export default function EcCanvas() {
                 </div>
               ))}
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -4743,6 +5133,22 @@ export default function EcCanvas() {
         <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: 10001, overflow: 'hidden', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
+        </div>
+      )}
+
+      {pendingProjectAssetImports.length > 0 && (
+        <div className="ec-canvas-pending-imports" role="status" aria-live="polite">
+          <span>有 {pendingProjectAssetImports.length} 个待归档素材</span>
+          <button
+            type="button"
+            className="ec-canvas-pending-imports-action"
+            onClick={retryPendingProjectAssetImports}
+            disabled={pendingProjectAssetImportsBusy}
+            title="重试归档待处理素材"
+          >
+            <MdRefresh size={15} aria-hidden="true" />
+            {pendingProjectAssetImportsBusy ? '归档中' : '重试归档'}
+          </button>
         </div>
       )}
 

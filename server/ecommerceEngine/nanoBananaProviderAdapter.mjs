@@ -34,7 +34,7 @@ async function responseJson(response) {
 export function createNanoBananaProviderAdapter({
   apiKey,
   baseUrl = 'https://api.change2pro.com',
-  flashModel = 'gemini-3.1-flash-image',
+  flashModel = 'gemini-2.5-flash-image',
   proModel = 'gemini-3-pro-image',
   generatedAssetStore,
   publicBaseUrl = 'http://127.0.0.1:3002',

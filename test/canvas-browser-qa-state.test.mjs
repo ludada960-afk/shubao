@@ -5,6 +5,7 @@ import test from 'node:test';
 import { createCanvasBrowserQaState } from '../src/pages/EcCanvas/canvasBrowserQaState.js';
 
 const canvasPage = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+const appContext = readFileSync(new URL('../src/store/AppContext.jsx', import.meta.url), 'utf8');
 
 test('canvas browser QA state is unavailable outside local development', () => {
   assert.equal(createCanvasBrowserQaState({ enabled: false, search: '?qa=ec-canvas' }), null);
@@ -37,6 +38,11 @@ test('canvas browser QA state supplies one source and all commerce asset lanes',
 test('canvas browser QA fixture does not make unauthorized works requests', () => {
   assert.match(canvasPage, /if \(result\?\.browserQa\) \{/);
   assert.match(canvasPage, /setPastWorks\(\[\]\);\s*setTrashWorks\(\[\]\);\s*return;/);
+});
+
+test('browser QA does not turn its synthetic logged state into authenticated API noise', () => {
+  assert.match(appContext, /if \(!state\.logged \|\| state\.browserQa\) return undefined;[\s\S]*?fetchAccountAccess\(\)/);
+  assert.match(canvasPage, /if \(state\.logged && !state\.browserQa\) refreshBillingBalance\(\)\.catch\(\(\) => \{\}\);/);
 });
 
 test('Works loading does not flash an empty state or accept a stale account response', () => {

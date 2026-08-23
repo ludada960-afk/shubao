@@ -8,6 +8,50 @@ function integerOrNull(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
+function safeMetadataText(value, max = 320) {
+  const normalized = clean(value);
+  return normalized && normalized.length <= max && !/[\u0000-\u001F\u007F]/.test(normalized)
+    ? normalized : '';
+}
+
+export function normalizeCanvasAssetMetadata(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const metadata = {};
+  const displayName = safeMetadataText(value.displayName)
+    || safeMetadataText(value.label)
+    || safeMetadataText(value.name);
+  if (displayName) metadata.displayName = displayName;
+  for (const key of ['role', 'group', 'ratio', 'size', 'aspectRatio']) {
+    const text = safeMetadataText(value[key], 120);
+    if (text) metadata[key] = text;
+  }
+  for (const key of ['width', 'height', 'durationMs']) {
+    if (Number.isSafeInteger(value[key]) && value[key] > 0) metadata[key] = value[key];
+  }
+  if (value.aigc && typeof value.aigc === 'object' && !Array.isArray(value.aigc)) {
+    const aigc = {};
+    if (value.aigc.generated === true) aigc.generated = true;
+    const version = safeMetadataText(value.aigc.provenanceVersion, 64);
+    if (version) aigc.provenanceVersion = version;
+    if (Object.keys(aigc).length) metadata.aigc = aigc;
+  }
+  if (value.provenance && typeof value.provenance === 'object' && !Array.isArray(value.provenance)) {
+    const provenance = {};
+    for (const key of ['route', 'planItemId', 'generatedAt']) {
+      const text = safeMetadataText(value.provenance[key]);
+      if (text) provenance[key] = text;
+    }
+    if (Array.isArray(value.provenance.sourceAssetIds)) {
+      const sourceAssetIds = [...new Set(value.provenance.sourceAssetIds
+        .map(item => safeMetadataText(item, 256))
+        .filter(Boolean))].slice(0, 64);
+      if (sourceAssetIds.length) provenance.sourceAssetIds = sourceAssetIds;
+    }
+    if (Object.keys(provenance).length) metadata.provenance = provenance;
+  }
+  return metadata;
+}
+
 function mediaKindFor(value = {}) {
   const mimeType = clean(value.mimeType || value.mime_type).toLowerCase();
   if (mimeType.startsWith('image/')) return 'image';
@@ -57,6 +101,10 @@ export function canvasProjectAssetRefKey(value = {}) {
 export function attachCanvasProjectAssetRef(target = {}, asset = {}, options = {}) {
   const ref = normalizeCanvasProjectAssetRef(asset, options);
   if (!ref) return { ...target };
+  const metadata = {
+    ...normalizeCanvasAssetMetadata(target.metadata),
+    ...normalizeCanvasAssetMetadata(asset.metadata),
+  };
   return {
     ...target,
     projectId: target.projectId || ref.projectId,
@@ -64,6 +112,7 @@ export function attachCanvasProjectAssetRef(target = {}, asset = {}, options = {
     assetId: target.assetId || ref.assetId,
     url: target.url || ref.stableUrl,
     assetRef: ref,
+    ...(Object.keys(metadata).length ? { metadata } : {}),
   };
 }
 

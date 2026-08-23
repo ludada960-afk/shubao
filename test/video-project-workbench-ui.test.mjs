@@ -57,8 +57,8 @@ test('project workbench exposes real persisted stages without provider controls 
     'bindShotAssetVersion',
     'importJobCandidate',
     'selectShotCandidate',
+    'applyShotCandidateToTimeline',
     'replaceTimelineClipCandidate',
-    'addTimelineClip',
     'updateTimelineClip',
     'upsertVideoProjectMemoryFact',
     'removeVideoProjectMemoryFact',
@@ -116,9 +116,19 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /加入音轨/);
   assert.match(component, /取消静音|静音/);
   assert.match(component, /handleSetAudioVolume/);
+  assert.match(component, /编辑字幕/);
+  assert.match(component, /subtitleCueDrafts/);
+  assert.match(component, /normalizeSubtitleCues/);
+  assert.match(component, /字幕文案/);
+  assert.match(component, /新增/);
+  assert.match(component, /删除字幕/);
+  assert.match(component, /audio:subtitles:/);
+  assert.match(component, /patch:\s*\{ subtitleCues \}/);
+  assert.match(component, /expectedRevision:\s*track\.revision/);
   assert.match(component, /handleMoveTimelineClip/);
   assert.match(component, /handleToggleTimelineClip/);
   assert.match(component, /handleReplaceTimelineClip/);
+  assert.match(component, /applyShotCandidateToTimeline\(projectId, shot\.id/);
   assert.match(component, /应用新候选/);
   assert.match(component, /起点/);
   assert.match(component, /终点/);
@@ -165,6 +175,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /本次预算上限/);
   assert.match(component, /预算上限/);
   assert.match(styles, /video-project-budget-field/);
+  assert.match(styles, /video-project-subtitle-editor/);
+  assert.match(styles, /video-project-subtitle-row/);
   assert.match(component, /版权\/使用权|版权确认/);
   assert.match(component, /不会调用供应商，也不会扣除积分/);
   assert.match(component, /先看清步骤，再决定是否生成/);
@@ -172,6 +184,9 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /不会调用供应商、不扣积分/);
   assert.match(component, /参考视频重构需要至少一个视频素材和一个替换图片素材/);
   assert.match(component, /skillRunExecutionPreview/);
+  assert.match(component, /executionPolicy/);
+  assert.match(component, /retryAllowancePoints/);
+  assert.match(component, /失败补偿/);
   assert.match(component, /skillRun\.plan\?\.steps/);
   assert.match(component, /handleConfirmSkillCheckpoint/);
   assert.match(component, /确认节点/);
@@ -196,6 +211,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(styles, /video-project-generation-draft-meta/);
   assert.match(styles, /video-project-recovery-row/);
   assert.match(styles, /video-project-recovery-status/);
+  assert.match(component, /reshoot_shot/);
+  assert.match(component, /extend_shot/);
+  assert.match(component, /recoveryExtensions/);
+  assert.match(styles, /video-project-recovery-extension/);
   assert.match(styles, /video-project-preflight/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);

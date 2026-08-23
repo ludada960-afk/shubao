@@ -116,6 +116,34 @@ test('creates and lists canonical project assets with owner isolation and idempo
   assert.throws(() => store.createProjectAsset({ ...input, assetId: 'external', stableUrl: '//cdn.example.com/video.mp4' }), /stableUrl must be an owned application asset URL/);
 });
 
+test('does not let a marked canonical asset block a fresh archive of the same durable bytes', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'asset-refresh@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '素材重新归档' });
+  const input = {
+    ownerEmail,
+    projectId: project.id,
+    assetId: 'same-durable-video',
+    role: 'reference',
+    stableUrl: '/api/video/assets/same-durable-video',
+    contentHash: 'same-durable-video-hash',
+    mimeType: 'video/mp4',
+    retentionClass: 'source',
+  };
+  const previous = store.createProjectAsset(input);
+  db.prepare(`UPDATE project_assets
+    SET retention_state = 'marked', marked_at = ?
+    WHERE id = ?`).run('2026-08-20T00:00:00.000Z', previous.projectAssetId);
+
+  const refreshed = store.createProjectAsset(input);
+
+  assert.notEqual(refreshed.projectAssetId, previous.projectAssetId);
+  assert.equal(refreshed.retentionState, 'active');
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM project_assets
+    WHERE project_id = ? AND asset_id = ? AND deleted_at IS NULL`).get(project.id, input.assetId).count, 2);
+});
+
 test('pins a canonical project asset for long-term reuse and restores its prior retention class', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
@@ -152,6 +180,105 @@ test('pins a canonical project asset for long-term reuse and restores its prior 
     () => store.setProjectAssetRetention({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true }),
     error => error?.code === 'PROJECT_NOT_FOUND',
   );
+});
+
+test('updates a canonical asset production state with owner isolation', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'production-state-owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '交付状态' });
+  const asset = store.createProjectAsset({
+    ownerEmail, projectId: project.id, assetId: 'production-state-image',
+    stableUrl: '/api/generated-assets/production-state-image.webp', contentHash: 'production-state-hash', mimeType: 'image/webp',
+  });
+  assert.equal(asset.productionState, 'draft');
+  const candidate = store.setProjectAssetProductionState({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, productionState: 'candidate' });
+  assert.equal(candidate.productionState, 'candidate');
+  const archived = store.setProjectAssetProductionState({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, productionState: 'archived' });
+  assert.equal(archived.productionState, 'archived');
+  const restored = store.setProjectAssetProductionState({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, productionState: 'draft' });
+  assert.equal(restored.productionState, 'draft');
+  assert.throws(
+    () => store.setProjectAssetProductionState({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, productionState: 'delivered' }),
+    error => error?.code === 'PROJECT_ASSET_PRODUCTION_STATE_SYSTEM_ONLY',
+  );
+  assert.throws(() => store.setProjectAssetProductionState({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, productionState: 'published' }), error => error?.code === 'PROJECT_ASSET_PRODUCTION_STATE_INVALID');
+  assert.throws(() => store.setProjectAssetProductionState({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: asset.projectAssetId, productionState: 'archived' }), error => error?.code === 'PROJECT_NOT_FOUND');
+});
+
+test('manual production state changes cannot downgrade an authoritative delivery', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = store.ensureEcommerceGeneration({
+    ownerEmail: 'authoritative-delivery-owner@example.com',
+    generationRunId: 'authoritative-delivery-run',
+    title: '系统交付状态',
+    inputSnapshot: {},
+    planSnapshot: {},
+  });
+  const contentHash = 'a'.repeat(64);
+  store.completeEcommerceGeneration({
+    ownerEmail: 'authoritative-delivery-owner@example.com',
+    generationRunId: 'authoritative-delivery-run',
+    resultInputSnapshot: {
+      assets: [{
+        assetId: 'authoritative-delivery-image',
+        state: 'completed',
+        stableUrl: `/api/generated-assets/${contentHash}.webp`,
+        contentHash,
+        mimeType: 'image/webp',
+      }],
+    },
+    resultPlanSnapshot: {},
+  });
+  const asset = store.listProjectAssets({ ownerEmail: 'authoritative-delivery-owner@example.com', projectId: input.project.id })[0];
+  assert.equal(asset.productionState, 'delivered');
+  assert.throws(
+    () => store.setProjectAssetProductionState({
+      ownerEmail: 'authoritative-delivery-owner@example.com',
+      projectId: input.project.id,
+      projectAssetId: asset.projectAssetId,
+      productionState: 'candidate',
+    }),
+    error => error?.code === 'PROJECT_ASSET_PRODUCTION_STATE_TRANSITION_INVALID',
+  );
+});
+
+test('project review and completion only derive states for result assets', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'production-result-boundary@example.com';
+  const completedProject = store.createProject({ ownerEmail, kind: 'ecommerce', title: '结果交付边界' });
+  const completedVersion = store.createVersion({ ownerEmail, projectId: completedProject.id, reason: 'accepted_result' });
+  const completedSource = store.createProjectAsset({
+    ownerEmail, projectId: completedProject.id, versionId: completedVersion.id, assetId: 'completed-source',
+    role: 'product', stableUrl: '/api/generated-assets/completed-source.webp', contentHash: 'completed-source-hash', mimeType: 'image/webp',
+    retentionClass: 'source',
+  });
+  const completedOutput = store.createProjectAsset({
+    ownerEmail, projectId: completedProject.id, versionId: completedVersion.id, assetId: 'completed-output',
+    role: 'generated', stableUrl: '/api/generated-assets/completed-output.webp', contentHash: 'completed-output-hash', mimeType: 'image/webp',
+    retentionClass: 'unfinished',
+  });
+  store.completeProject({ ownerEmail, projectId: completedProject.id, acceptedVersionId: completedVersion.id });
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: completedProject.id, projectAssetId: completedSource.projectAssetId }).productionState, 'draft');
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: completedProject.id, projectAssetId: completedOutput.projectAssetId }).productionState, 'delivered');
+
+  const reviewProject = store.createProject({ ownerEmail, kind: 'xiaohongshu', title: '结果审核边界' });
+  const reviewVersion = store.createVersion({ ownerEmail, projectId: reviewProject.id, reason: 'manual_save' });
+  const reviewSource = store.createProjectAsset({
+    ownerEmail, projectId: reviewProject.id, versionId: reviewVersion.id, assetId: 'review-source',
+    role: 'reference', stableUrl: '/api/generated-assets/review-source.webp', contentHash: 'review-source-hash', mimeType: 'image/webp',
+    retentionClass: 'source',
+  });
+  const reviewOutput = store.createProjectAsset({
+    ownerEmail, projectId: reviewProject.id, versionId: reviewVersion.id, assetId: 'review-output',
+    role: 'generated', stableUrl: '/api/generated-assets/review-output.webp', contentHash: 'review-output-hash', mimeType: 'image/webp',
+    retentionClass: 'unfinished',
+  });
+  store.reviewProject({ ownerEmail, projectId: reviewProject.id, reviewedVersionId: reviewVersion.id });
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: reviewProject.id, projectAssetId: reviewSource.projectAssetId }).productionState, 'draft');
+  assert.equal(store.getProjectAsset({ ownerEmail, projectId: reviewProject.id, projectAssetId: reviewOutput.projectAssetId }).productionState, 'candidate');
 });
 
 test('keeps historical reads available while reuse reads fail closed for expired assets', t => {
@@ -392,6 +519,74 @@ test('saves canvas sessions with optimistic revisions and supports explicit disc
   assert.equal(store.discardCanvasSession({ ownerEmail: 'owner@example.com', sessionId: session.id }).status, 'discarded');
 });
 
+test('Canvas session storage normalizes pending archive metadata and strips transient upload fields', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const project = store.createProject({ ownerEmail: 'owner@example.com', kind: 'ecommerce' });
+  const version = store.createVersion({ ownerEmail: 'owner@example.com', projectId: project.id, reason: 'canvas_save' });
+  const session = store.createCanvasSession({
+    ownerEmail: 'owner@example.com',
+    projectId: project.id,
+    baseVersionId: version.id,
+    snapshot: {
+      nodes: [],
+      pendingProjectAssetImports: [{
+        kind: 'image',
+        sourceAssetId: 'a'.repeat(64) + '.png',
+        role: 'product',
+        displayName: '商品图',
+        nodeIds: ['upload-1'],
+        asset: {
+          assetId: 'a'.repeat(64) + '.png',
+          stableUrl: '/api/generated-assets/' + 'a'.repeat(64) + '.png',
+          url: 'data:image/png;base64,secret',
+          file: { name: 'secret.png', bytes: 'should-not-persist' },
+          unexpected: 'drop-me',
+        },
+      }],
+    },
+  });
+
+  assert.deepEqual(session.snapshot.pendingProjectAssetImports, [{
+    kind: 'image',
+    sourceAssetId: 'a'.repeat(64) + '.png',
+    role: 'product',
+    displayName: '商品图',
+    nodeIds: ['upload-1'],
+    asset: {
+      assetId: 'a'.repeat(64) + '.png',
+      url: '/api/generated-assets/' + 'a'.repeat(64) + '.png',
+      stableUrl: '/api/generated-assets/' + 'a'.repeat(64) + '.png',
+    },
+  }]);
+});
+
+test('server Canvas snapshots never persist raw media payloads without a stable asset identity', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'canvas-raw-payload@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '原始媒体清理' });
+  const version = store.createVersion({ ownerEmail, projectId: project.id, reason: 'canvas_save' });
+  const session = store.createCanvasSession({
+    ownerEmail,
+    projectId: project.id,
+    baseVersionId: version.id,
+    snapshot: {
+      nodes: [{
+        id: 'raw-upload',
+        kind: 'image',
+        url: 'data:image/png;base64,raw-pixels',
+        src: 'blob:http://localhost/raw-preview',
+        file: { name: 'original.png', bytes: 'raw' },
+      }],
+    },
+  });
+
+  assert.equal(session.snapshot.nodes[0].url, undefined);
+  assert.equal(session.snapshot.nodes[0].src, undefined);
+  assert.equal(session.snapshot.nodes[0].file, undefined);
+});
+
 test('rejects a Canvas snapshot that references another owner project asset', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
@@ -503,6 +698,66 @@ test('rejects saving a Canvas snapshot that introduces another owner project ass
   assert.deepEqual(restored.snapshot, { nodes: [{ id: 'safe-node', type: 'text' }] });
 });
 
+test('Canvas rejects new reuse of marked assets but preserves an existing session for recovery', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'canvas-retention-owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '画布素材保留' });
+  const version = store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save' });
+  const markedBeforeImport = store.createProjectAsset({
+    ownerEmail, projectId: project.id, assetId: 'marked-before-import',
+    stableUrl: '/api/generated-assets/marked-before-import.webp', contentHash: 'marked-before-import-hash', mimeType: 'image/webp',
+    retentionClass: 'generated',
+  });
+  db.prepare('UPDATE project_assets SET retention_state = ? WHERE id = ?').run('marked', markedBeforeImport.projectAssetId);
+
+  assert.throws(() => store.createCanvasSession({
+    ownerEmail, projectId: project.id, baseVersionId: version.id,
+    snapshot: { nodes: [{ assetRef: {
+      projectId: project.id,
+      projectAssetId: markedBeforeImport.projectAssetId,
+      stableUrl: markedBeforeImport.stableUrl,
+      contentHash: markedBeforeImport.contentHash,
+      mimeType: markedBeforeImport.mimeType,
+    } }] },
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+
+  const existing = store.createProjectAsset({
+    ownerEmail, projectId: project.id, assetId: 'marked-after-import',
+    stableUrl: '/api/generated-assets/marked-after-import.webp', contentHash: 'marked-after-import-hash', mimeType: 'image/webp',
+    retentionClass: 'generated',
+  });
+  const existingReference = {
+    projectId: project.id,
+    projectAssetId: existing.projectAssetId,
+    stableUrl: existing.stableUrl,
+    contentHash: existing.contentHash,
+    mimeType: existing.mimeType,
+  };
+  const session = store.createCanvasSession({
+    ownerEmail, projectId: project.id, baseVersionId: version.id,
+    snapshot: { nodes: [{ assetRef: existingReference }] },
+  });
+  db.prepare('UPDATE project_assets SET retention_state = ? WHERE id = ?').run('marked', existing.projectAssetId);
+
+  const recovered = store.saveCanvasSession({
+    ownerEmail, sessionId: session.id, expectedRevision: session.revision,
+    snapshot: { nodes: [{ assetRef: existingReference }, { id: 'recovery-note', kind: 'text' }] },
+  });
+  assert.equal(recovered.revision, session.revision + 1);
+
+  assert.throws(() => store.saveCanvasSession({
+    ownerEmail, sessionId: recovered.id, expectedRevision: recovered.revision,
+    snapshot: { nodes: [{ assetRef: existingReference }, { assetRef: {
+      projectId: project.id,
+      projectAssetId: markedBeforeImport.projectAssetId,
+      stableUrl: markedBeforeImport.stableUrl,
+      contentHash: markedBeforeImport.contentHash,
+      mimeType: markedBeforeImport.mimeType,
+    } }] },
+  }), error => error?.code === 'PROJECT_ASSET_NOT_REUSABLE');
+});
+
 test('links a generation run and completes a project with an accepted result version', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
@@ -566,6 +821,114 @@ test('atomically ensures and completes an ecommerce generation lifecycle idempot
   assert.equal(completedReplay.resultVersion.id, completed.resultVersion.id);
 });
 
+test('persists ecommerce source assets with verified canonical lineage', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const sourceProject = store.createProject({ ownerEmail: 'source-owner@example.com', kind: 'ecommerce', title: '原始商品素材' });
+  const sourceHash = '1'.repeat(64);
+  const source = store.createProjectAsset({
+    ownerEmail: 'source-owner@example.com',
+    projectId: sourceProject.id,
+    assetId: `${sourceHash}.png`,
+    role: 'product',
+    stableUrl: `/api/generated-assets/${sourceHash}.png`,
+    contentHash: sourceHash,
+    mimeType: 'image/png',
+  });
+
+  const created = store.ensureEcommerceGeneration({
+    ownerEmail: 'source-owner@example.com',
+    generationRunId: 'ecommerce-source-lineage',
+    title: '带输入来源的套图',
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: {
+      product: [{
+        assetId: source.assetId,
+        url: source.stableUrl,
+        projectAssetRef: {
+          projectId: source.projectId,
+          projectAssetId: source.projectAssetId,
+          role: 'product',
+          expectedContentHash: source.contentHash,
+        },
+      }],
+    },
+  });
+
+  const row = db.prepare(`SELECT asset_id, role, content_hash, stable_url, mime_type,
+    version_id, production_state, metadata_json
+    FROM project_assets WHERE project_id = ?`).get(created.project.id);
+  assert.deepEqual(row, {
+    asset_id: source.assetId,
+    role: 'product',
+    content_hash: source.contentHash,
+    stable_url: source.stableUrl,
+    mime_type: 'image/png',
+    version_id: created.sourceVersion.id,
+    production_state: 'draft',
+    metadata_json: JSON.stringify({
+      sourceProjectAssetRef: {
+        projectId: source.projectId,
+        projectAssetId: source.projectAssetId,
+        role: 'product',
+        expectedContentHash: source.contentHash,
+      },
+    }),
+  });
+});
+
+test('rejects forged or foreign ecommerce source asset references before creating a project', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const sourceProject = store.createProject({ ownerEmail: 'source-owner@example.com', kind: 'ecommerce', title: '私有素材' });
+  const sourceHash = '2'.repeat(64);
+  const source = store.createProjectAsset({
+    ownerEmail: 'source-owner@example.com',
+    projectId: sourceProject.id,
+    assetId: `${sourceHash}.png`,
+    stableUrl: `/api/generated-assets/${sourceHash}.png`,
+    contentHash: sourceHash,
+    mimeType: 'image/png',
+  });
+
+  assert.throws(() => store.ensureEcommerceGeneration({
+    ownerEmail: 'other-owner@example.com',
+    generationRunId: 'ecommerce-foreign-source',
+    assets: {
+      product: [{
+        assetId: source.assetId,
+        url: source.stableUrl,
+        projectAssetRef: {
+          projectId: source.projectId,
+          projectAssetId: source.projectAssetId,
+          role: 'product',
+          expectedContentHash: source.contentHash,
+        },
+      }],
+    },
+  }), error => error?.code === 'PROJECT_NOT_FOUND' || error?.code === 'PROJECT_ASSET_NOT_FOUND');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 1);
+
+  assert.throws(() => store.ensureEcommerceGeneration({
+    ownerEmail: 'source-owner@example.com',
+    generationRunId: 'ecommerce-mismatched-source',
+    assets: {
+      product: [{
+        assetId: source.assetId,
+        url: source.stableUrl,
+        projectAssetRef: {
+          projectId: source.projectId,
+          projectAssetId: source.projectAssetId,
+          role: 'product',
+          expectedContentHash: 'f'.repeat(64),
+        },
+      }],
+    },
+  }), error => error?.code === 'PROJECT_ASSET_REF_INVALID');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects').get().count, 1);
+});
+
 test('stores the authoritative hash and MIME for each ecommerce result asset', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
@@ -588,8 +951,154 @@ test('stores the authoritative hash and MIME for each ecommerce result asset', t
     resultPlanSnapshot: { fingerprint: 'authoritative-plan' },
   });
 
-  const row = db.prepare('SELECT content_hash, mime_type, stable_url FROM project_assets WHERE project_id = ?').get(input.project.id);
-  assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp', stable_url: stableUrl });
+  const row = db.prepare('SELECT content_hash, mime_type, stable_url, role, metadata_json FROM project_assets WHERE project_id = ?').get(input.project.id);
+  assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp', stable_url: stableUrl, role: 'generated', metadata_json: '{}' });
+});
+
+test('derives delivered and candidate production states from ecommerce terminal status', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const contentHash = 'e'.repeat(64);
+  const completedInput = store.ensureEcommerceGeneration({
+    ownerEmail: 'production-terminal-owner@example.com', generationRunId: 'production-terminal-completed', title: '已交付套图', inputSnapshot: {}, planSnapshot: {},
+  });
+  store.completeEcommerceGeneration({
+    ownerEmail: 'production-terminal-owner@example.com', generationRunId: 'production-terminal-completed',
+    resultInputSnapshot: { assets: [{ assetId: 'hero-completed', state: 'completed', stableUrl: `/api/generated-assets/${contentHash}.webp`, contentHash, mimeType: 'image/webp' }] },
+    resultPlanSnapshot: {},
+  });
+  const completedState = db.prepare('SELECT production_state FROM project_assets WHERE project_id = ?').get(completedInput.project.id).production_state;
+
+  const reviewHash = 'f'.repeat(64);
+  const reviewInput = store.ensureEcommerceGeneration({
+    ownerEmail: 'production-terminal-owner@example.com', generationRunId: 'production-terminal-review', title: '待审核套图', inputSnapshot: {}, planSnapshot: {},
+  });
+  store.completeEcommerceGeneration({
+    ownerEmail: 'production-terminal-owner@example.com', generationRunId: 'production-terminal-review', terminalStatus: 'needs_review',
+    resultInputSnapshot: { assets: [{ assetId: 'hero-review', state: 'completed', stableUrl: `/api/generated-assets/${reviewHash}.webp`, contentHash: reviewHash, mimeType: 'image/webp' }] },
+    resultPlanSnapshot: {},
+  });
+  const reviewState = db.prepare('SELECT production_state FROM project_assets WHERE project_id = ?').get(reviewInput.project.id).production_state;
+
+  assert.equal(completedState, 'delivered');
+  assert.equal(reviewState, 'candidate');
+});
+
+test('derives delivered production state for a completed video output', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = store.ensureVideoGeneration({ ownerEmail: 'video-production-owner@example.com', generationRunId: 'video-production-completed', title: '已交付视频', inputSnapshot: {}, planSnapshot: {} });
+  store.completeVideoGeneration({
+    ownerEmail: 'video-production-owner@example.com', generationRunId: 'video-production-completed',
+    outputAsset: { assetId: 'video-output', stableUrl: '/api/video/assets/video-output', contentHash: 'video-output-hash', mimeType: 'video/mp4' },
+  });
+  assert.equal(db.prepare('SELECT production_state FROM project_assets WHERE project_id = ?').get(input.project.id).production_state, 'delivered');
+});
+
+test('stores server-derived ecommerce delivery metadata on reusable project assets', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = store.ensureEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-delivery-metadata',
+    title: '带交付元数据',
+    inputSnapshot: {},
+    planSnapshot: { fingerprint: 'metadata-plan', items: [{ id: 'hero' }] },
+  });
+  const contentHash = 'd'.repeat(64);
+  const stableUrl = `/api/generated-assets/${contentHash}.png`;
+
+  store.completeEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-delivery-metadata',
+    resultInputSnapshot: {
+      assets: [{
+        assetId: 'hero',
+        state: 'completed',
+        stableUrl,
+        metadata: {
+          label: '商品识别主图',
+          displayName: '商品识别主图',
+          role: 'main_text',
+          group: '主图',
+          ratio: '1:1',
+          width: 2048,
+          height: 2048,
+          source: 'ecommerce-generation',
+          aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+          provenance: {
+            type: 'ai-generated',
+            route: 'ecommerce',
+            planItemId: 'hero',
+            generatedAt: 'client-forged',
+          },
+        },
+      }],
+    },
+    resultPlanSnapshot: { fingerprint: 'metadata-plan' },
+  });
+
+  const row = db.prepare('SELECT role, metadata_json FROM project_assets WHERE project_id = ?').get(input.project.id);
+  assert.equal(row.role, 'main_text');
+  assert.deepEqual(JSON.parse(row.metadata_json), {
+    label: '商品识别主图',
+    displayName: '商品识别主图',
+    role: 'main_text',
+    group: '主图',
+    ratio: '1:1',
+    width: 2048,
+    height: 2048,
+    source: 'ecommerce-generation',
+    aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+    provenance: {
+      type: 'ai-generated',
+      route: 'ecommerce',
+      planItemId: 'hero',
+      generatedAt: '2026-07-27T10:00:00.000Z',
+    },
+  });
+});
+
+test('links ecommerce result assets to the project source assets they used', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const sourceHash = '3'.repeat(64);
+  const input = store.ensureEcommerceGeneration({
+    ownerEmail: 'lineage-owner@example.com',
+    generationRunId: 'ecommerce-lineage-result',
+    title: '带结果血缘的套图',
+    assets: {
+      product: [{
+        assetId: `${sourceHash}.png`,
+        url: `/api/generated-assets/${sourceHash}.png`,
+      }],
+    },
+  });
+  const resultHash = '4'.repeat(64);
+  store.completeEcommerceGeneration({
+    ownerEmail: 'lineage-owner@example.com',
+    generationRunId: 'ecommerce-lineage-result',
+    resultInputSnapshot: {
+      assets: [{
+        assetId: 'hero',
+        state: 'completed',
+        stableUrl: `/api/generated-assets/${resultHash}.png`,
+        metadata: {
+          provenance: { sourceAssetIds: [`${sourceHash}.png`] },
+        },
+      }],
+    },
+  });
+
+  const source = db.prepare(`SELECT id FROM project_assets
+    WHERE project_id = ? AND asset_id = ?`).get(input.project.id, `${sourceHash}.png`);
+  const result = db.prepare(`SELECT id FROM project_assets
+    WHERE project_id = ? AND asset_id = ?`).get(input.project.id, `${resultHash}.png`);
+  const lineage = db.prepare(`SELECT relation, source_asset_id, target_asset_id
+    FROM project_asset_lineage WHERE project_id = ?`).get(input.project.id);
+  assert.equal(lineage.relation, 'generated_from');
+  assert.equal(lineage.source_asset_id, source.id);
+  assert.equal(lineage.target_asset_id, result.id);
 });
 
 test('derives ecommerce asset identity from the stable URL before accepting snapshot metadata', t => {

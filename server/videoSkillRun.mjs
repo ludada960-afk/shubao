@@ -44,7 +44,7 @@ function normalizeExecutionPolicies(spec) {
     const policy = spec.retryPolicy;
     if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw coded('retryPolicy must be an object');
     const maxAttemptsPerStep = policy.maxAttemptsPerStep === undefined ? 1 : Number(policy.maxAttemptsPerStep);
-    if (!Number.isSafeInteger(maxAttemptsPerStep) || maxAttemptsPerStep < 0 || maxAttemptsPerStep > 3) throw coded('retryPolicy maxAttemptsPerStep is invalid');
+    if (!Number.isSafeInteger(maxAttemptsPerStep) || maxAttemptsPerStep < 1 || maxAttemptsPerStep > 3) throw coded('retryPolicy maxAttemptsPerStep is invalid');
     const retryableKinds = policy.retryableKinds === undefined ? [] : policy.retryableKinds;
     if (!Array.isArray(retryableKinds) || retryableKinds.length > MAX_RETRY_KINDS) throw coded('retryPolicy retryableKinds is invalid');
     const normalizedKinds = retryableKinds.map(value => boundedText(value, 'retryable kind', 64));
@@ -202,14 +202,23 @@ export function buildSkillRunExecutionPreview(spec, {
     if (!missingGuard && dependenciesReady) readyStepIds.push(step.id);
     if (!dependenciesReady) blockedStepIds.push(step.id);
   }
-  const estimatedPoints = steps
-    .filter(step => !completed.has(step.id))
+  const remainingSteps = steps.filter(step => !completed.has(step.id));
+  const baseEstimatedPoints = remainingSteps
     .reduce((total, step) => total + (Number(stepCosts[step.id]) || 0), 0);
+  const retryPolicy = spec.retryPolicy;
+  const retryableKinds = Array.isArray(retryPolicy?.retryableKinds) ? [...retryPolicy.retryableKinds] : [];
+  const maxAttemptsPerStep = Number.isSafeInteger(retryPolicy?.maxAttemptsPerStep)
+    ? retryPolicy.maxAttemptsPerStep : 1;
+  const retryEnabled = retryableKinds.length > 0 && maxAttemptsPerStep > 1;
+  const retryAllowancePoints = retryEnabled
+    ? baseEstimatedPoints * (maxAttemptsPerStep - 1)
+    : 0;
+  const estimatedPoints = baseEstimatedPoints + retryAllowancePoints;
   const maxPoints = Number.isSafeInteger(spec.budgetPolicy?.maxPoints) ? spec.budgetPolicy.maxPoints : null;
   const withinLimit = maxPoints === null || estimatedPoints <= maxPoints;
   const remainingPoints = maxPoints === null ? null : Math.max(0, maxPoints - estimatedPoints);
   const status = completed.size === steps.length ? 'complete' : readyStepIds.length && withinLimit ? 'ready' : 'blocked';
-  return {
+  const preview = {
     completedStepIds: plan.completedStepIds,
     readyStepIds,
     blockedStepIds,
@@ -218,4 +227,21 @@ export function buildSkillRunExecutionPreview(spec, {
     budget: { maxPoints, remainingPoints, withinLimit },
     status,
   };
+  if (spec.retryPolicy !== undefined || spec.compensation !== undefined) {
+    preview.baseEstimatedPoints = baseEstimatedPoints;
+    preview.retryAllowancePoints = retryAllowancePoints;
+    preview.executionPolicy = {
+      retry: {
+        enabled: retryEnabled,
+        maxAttemptsPerStep,
+        retryableKinds,
+        appliesToStepIds: retryEnabled ? remainingSteps.map(step => step.id) : [],
+      },
+      compensation: {
+        onProviderFailure: spec.compensation?.onProviderFailure || 'release_hold',
+        onPersistenceFailure: spec.compensation?.onPersistenceFailure || 'reconcile',
+      },
+    };
+  }
+  return preview;
 }

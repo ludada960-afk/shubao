@@ -57,9 +57,52 @@ test('rejects unsafe SkillRun execution policies before persistence', () => {
   }), error => error.code === 'INVALID_SKILL_RUN');
   assert.throws(() => normalizeSkillRunSpec({
     skillId: 'x', skillVersion: 1,
+    retryPolicy: { maxAttemptsPerStep: 0 },
+  }), error => error.code === 'INVALID_SKILL_RUN');
+  assert.throws(() => normalizeSkillRunSpec({
+    skillId: 'x', skillVersion: 1,
     guards: [{ id: 'g', kind: 'rights-confirmed', label: 'x' }],
     steps: [{ id: 's', kind: 'plan', label: 'x', guards: ['missing'] }],
   }), error => error.code === 'INVALID_SKILL_RUN');
+});
+
+test('execution preview exposes retry/compensation policy and prices worst-case retries', () => {
+  const spec = normalizeSkillRunSpec({
+    skillId: 'policy-preview',
+    skillVersion: 1,
+    retryPolicy: { maxAttemptsPerStep: 3, retryableKinds: ['provider_timeout'] },
+    compensation: { onProviderFailure: 'retry_or_release', onPersistenceFailure: 'release_hold' },
+    steps: [
+      { id: 'render', kind: 'render', label: 'Render' },
+      { id: 'export', kind: 'export', label: 'Export', requires: ['render'] },
+    ],
+  });
+
+  assert.deepEqual(buildSkillRunExecutionPreview(spec, {
+    stepCosts: { render: 4, export: 6 },
+  }), {
+    completedStepIds: [],
+    readyStepIds: ['render'],
+    blockedStepIds: ['export'],
+    guardBlockedStepIds: [],
+    baseEstimatedPoints: 10,
+    retryAllowancePoints: 20,
+    estimatedPoints: 30,
+    budget: { maxPoints: null, remainingPoints: null, withinLimit: true },
+    executionPolicy: {
+      retry: {
+        enabled: true,
+        maxAttemptsPerStep: 3,
+        retryableKinds: ['provider_timeout'],
+        appliesToStepIds: ['render', 'export'],
+      },
+      compensation: {
+        onProviderFailure: 'retry_or_release',
+        onPersistenceFailure: 'release_hold',
+      },
+    },
+    status: 'ready',
+  });
 });
 
 test('rejects invalid or oversized skill run specs', () => {

@@ -476,7 +476,20 @@ function ownedAssetReference(image) {
   if (!image || typeof image !== 'object') return null;
   const assetId = typeof image.assetId === 'string' ? image.assetId.trim() : '';
   const url = imageValue(image);
-  return assetId && /^\/api\/generated-assets\//i.test(url) ? { assetId, url } : null;
+  if (!assetId || !/^\/api\/generated-assets\//i.test(url)) return null;
+  const candidate = image.projectAssetRef || image.assetRef;
+  const projectId = typeof candidate?.projectId === 'string' ? candidate.projectId.trim() : '';
+  const projectAssetId = typeof candidate?.projectAssetId === 'string' ? candidate.projectAssetId.trim() : '';
+  const expectedContentHash = typeof candidate?.expectedContentHash === 'string'
+    ? candidate.expectedContentHash.trim() : '';
+  const role = typeof candidate?.role === 'string' ? candidate.role.trim() : '';
+  return {
+    assetId,
+    url,
+    ...(projectId && projectAssetId && expectedContentHash && role
+      ? { projectAssetRef: { projectId, projectAssetId, role, expectedContentHash } }
+      : {}),
+  };
 }
 
 function imageReferenceMetadata(images = []) {

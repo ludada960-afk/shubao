@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { createNanoBananaProviderAdapter } from '../server/ecommerceEngine/nanoBananaProviderAdapter.mjs';
 
 const BASE_URL = 'https://api.change2pro.com';
-const FLASH_MODEL = 'gemini-3.1-flash-image';
+const FLASH_MODEL = 'gemini-2.5-flash-image';
 const PRO_MODEL = 'gemini-3-pro-image';
 
 function validatedSecret(value) {
