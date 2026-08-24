@@ -444,3 +444,7 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 ## 2026-08-23 VID-P3-01 Time-Range Reshoot
 
 - reshoot_range 模式：有界区间校验(≥500ms)+preserve_untouched_ranges intent+fallbackToWholeShot 回退标记；复用既有 reshoot 执行通路零改下游；store/routes/client/UI 四层接线（下拉「区间重拍」+起止秒输入）。恢复测试 15/15、全链路 121/121、视频域子集 212/212、diff 干净。P3-02/P3-03 经核验既有 extend_shot/track_replace 已达标。
+
+## 2026-08-23 P3-03 Mask Preview + 视频线程独立提交
+
+- P3-06 候选学习完成（显式选择才计偏好：video_candidate_selections 表 + selectCandidate/applyCandidateToTimeline 记账 + listCandidateSelections 有界查询 + videoCandidateLearning 纯函数聚合）。P3-03 UI 补齐区域追踪替换四轴输入+16:9 蒙版预览。视频域全部改动已由视频线程自行提交：836d154（P3 主批）+ 后续 mask 小提交，父链 9899645。主线程可直接部署。视频域子集 216+/216+ 持续全绿。

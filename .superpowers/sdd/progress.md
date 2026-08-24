@@ -2962,3 +2962,11 @@ projectImageAssetImport（画布上传素材）和 projectVideoAssetImport（视
 - 验证证据：video-shot-recovery 15/15（2 个新用例：intent/非法矩阵/无时长拒绝/整镜头回退/execution 编译链路）、全链路回归 121/121、视频域完整子集 212/212、git diff --check 干净。改动 server/videoShotRecovery.mjs(+24)、test/video-shot-recovery.test.mjs(+64) 另含 store/routes/UI 各少量接线。无供应商提交、无账务变更、未部署；线上仍为 e673c10。
 
 - P1-07 结算守卫与 P2 六项核验此前已闭环；P3-05 数据驱动路由全线贯通。P3 剩余：P3-02 延长已核验达标（extend_shot 显式时长+上限）、P3-03 追踪替换已核验达标（track_replace 归一化区域）；下一项按序推进 P3-04 参考-到视频动作控制或 P3-06 候选学习。
+
+## 2026-08-23 VID-P3-03 Previewable Mask + UI Tracked Replacement + Video Thread Commit
+
+- P3-03 补齐最后缺口：UI 恢复下拉新增「区域追踪替换」，归一化 x/y/width/height 四轴输入（0~1、step0.05、clamp01+越界收缩），16:9 示意预览框内 CSS 蒙版实时叠加（dashed 边框+半透明蓝），满足「previewable masks and normalized coordinates」验收。
+
+- 协作记录：主线程部署 gate 失败根因是视频线程未提交改动；视频线程将 P3 全部增量（P3-05 路由/P3-01 区间重拍/P3-06 候选学习/P1-07 守卫）以提交 836d154（父=9899645）完整入库，视频域工作树清空。本轮 mask 切片随后单独提交。
+
+- 验证证据：video-project-workbench-ui 2/2（含 track_replace/recoveryRegions/蒙版断言）、视频域完整子集回归绿、git diff --check 干净。无供应商提交、无账务变更、未部署。

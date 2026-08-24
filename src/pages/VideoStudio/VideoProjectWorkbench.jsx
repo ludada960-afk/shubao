@@ -302,6 +302,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [recoveryModes, setRecoveryModes] = useState({});
   const [recoveryExtensions, setRecoveryExtensions] = useState({});
 const [recoveryRanges, setRecoveryRanges] = useState({});
+const [recoveryRegions, setRecoveryRegions] = useState({});
   const [recoveryExecutions, setRecoveryExecutions] = useState({});
   const [replayManifest, setReplayManifest] = useState(null);
   const [replayManifests, setReplayManifests] = useState([]);
@@ -1013,10 +1014,19 @@ const [recoveryRanges, setRecoveryRanges] = useState({});
     const rangeSeconds = recoveryRanges[shot.id] || {};
     const rangeStartMs = mode === 'reshoot_range' ? Math.max(0, Math.round(Number(rangeSeconds.start ?? 1) * 1000)) : undefined;
     const rangeEndMs = mode === 'reshoot_range' ? Math.round(Number(rangeSeconds.end ?? Math.min(3, (shot.durationMs || 3000) / 1000)) * 1000) : undefined;
+    const regionValues = recoveryRegions[shot.id] || {};
+    const clamp01 = value => Math.min(1, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0));
+    const region = mode === 'track_replace' ? {
+      x: clamp01(regionValues.x ?? 0.3),
+      y: clamp01(regionValues.y ?? 0.25),
+      width: Math.min(1 - clamp01(regionValues.x ?? 0.3), Math.max(0.05, clamp01(regionValues.width ?? 0.4))),
+      height: Math.min(1 - clamp01(regionValues.y ?? 0.25), Math.max(0.05, clamp01(regionValues.height ?? 0.5))),
+    } : undefined;
     void runMutation(`recovery:${shot.id}`, () => createShotRecoveryPlan(projectId, shot.id, {
       mode,
       ...(extensionMs ? { extensionMs } : {}),
       ...(mode === 'reshoot_range' ? { rangeStartMs, rangeEndMs } : {}),
+      ...(mode === 'track_replace' ? { region } : {}),
       reason: shot.selectedCandidateId
         ? '当前镜头候选需要单镜头重拍，保留其他镜头与时间线。'
         : '当前镜头尚无可交付候选，建立单镜头恢复计划。',
@@ -1610,9 +1620,12 @@ const [recoveryRanges, setRecoveryRanges] = useState({});
                 <option value="reshoot_shot">完整重拍</option>
                 <option value="reshoot_range">区间重拍</option>
                 <option value="extend_shot">延长镜头</option>
+                <option value="track_replace">区域追踪替换</option>
               </select>
               {(recoveryModes[shot.id] || 'replace_candidate') === 'extend_shot' && <label className="video-project-recovery-extension"><span>延长</span><input aria-label={`镜头${index + 1}延长秒数`} type="number" min="0.5" max="30" step="0.5" value={recoveryExtensions[shot.id] ?? 2.5} disabled={Boolean(busy)} onChange={event => setRecoveryExtensions(current => ({ ...current, [shot.id]: event.target.value }))} /><small>秒</small></label>}
               {(recoveryModes[shot.id] || 'replace_candidate') === 'reshoot_range' && <label className="video-project-recovery-extension"><span>区间</span><input aria-label={`镜头${index + 1}重拍起始秒`} type="number" min="0" step="0.5" value={recoveryRanges[shot.id]?.start ?? 1} disabled={Boolean(busy)} onChange={event => setRecoveryRanges(current => ({ ...current, [shot.id]: { ...current[shot.id], start: Number(event.target.value) } }))} />至<input aria-label={`镜头${index + 1}重拍结束秒`} type="number" min="0.5" step="0.5" value={recoveryRanges[shot.id]?.end ?? 3} disabled={Boolean(busy)} onChange={event => setRecoveryRanges(current => ({ ...current, [shot.id]: { ...current[shot.id], end: Number(event.target.value) } }))} /><small>秒</small></label>}
+              {(recoveryModes[shot.id] || 'replace_candidate') === 'track_replace' && <span className="video-project-recovery-extension video-project-region-editor"><span className="video-project-region-preview" aria-label={`镜头${index + 1}追踪替换区域预览`} role="img"><span className="video-project-region-mask" aria-hidden="true" style={{ left: `${(((recoveryRegions[shot.id]?.x ?? 0.3)) * 100).toFixed(1)}%`, top: `${((recoveryRegions[shot.id]?.y ?? 0.25) * 100).toFixed(1)}%`, width: `${((recoveryRegions[shot.id]?.width ?? 0.4) * 100).toFixed(1)}%`, height: `${((recoveryRegions[shot.id]?.height ?? 0.5) * 100).toFixed(1)}%` }} /></span></span>}
+              {(recoveryModes[shot.id] || 'replace_candidate') === 'track_replace' && ['x', 'y', 'width', 'height'].map(axis => <label key={axis} className="video-project-region-axis"><small>{`区域${axis}`}</small><input aria-label={`镜头${index + 1}追踪替换区域${axis}`} type="number" min="0" max="1" step="0.05" value={recoveryRegions[shot.id]?.[axis] ?? (axis === 'x' ? 0.3 : axis === 'y' ? 0.25 : axis === 'width' ? 0.4 : 0.5)} disabled={Boolean(busy)} onChange={event => setRecoveryRegions(current => ({ ...current, [shot.id]: { ...current[shot.id], [axis]: Number(event.target.value) } }))} /></label>)}
               <button type="button" className="video-project-recovery-action" disabled={Boolean(busy)} onClick={() => handleCreateShotRecoveryPlan(shot)}>
                 {busy === `recovery:${shot.id}` ? <><LoaderCircle size={14} className="is-spinning" />保存中</> : <><RefreshCw size={14} />建立单镜头重拍计划</>}
               </button>

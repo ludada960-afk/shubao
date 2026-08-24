@@ -222,6 +222,12 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /onError=\{\(\) => setFailed\(true\)\}/);
   assert.match(component, /视频预览不可用/);
   assert.match(component, /候选来源未核验|来源已核验|规划候选/);
+  assert.match(component, /track_replace/);
+  assert.match(component, /recoveryRegions/);
+  assert.match(component, /追踪替换区域预览/);
+  assert.match(component, /video-project-region-mask/);
+  assert.match(styles, /video-project-region-preview/);
+  assert.match(styles, /video-project-region-mask/);
   assert.match(component, /provenanceStatus/);
   assert.match(styles, /aspect-ratio/);
   assert.match(styles, /video-project-candidate-media\.is-unavailable/);

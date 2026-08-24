@@ -500,6 +500,44 @@
   font-size: 12px;
 }
 
+.video-project-region-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.video-project-region-preview {
+  position: relative;
+  display: inline-block;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 4px;
+  background:
+    linear-gradient(to right, transparent calc(50% - 0.5px), rgba(148,163,184,.45) 50%, transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(50% - 0.5px), rgba(148,163,184,.45) 50%, transparent calc(50% + 0.5px)),
+    #f8fafc;
+}
+
+.video-project-region-mask {
+  position: absolute;
+  border: 1px dashed #2563eb;
+  background: rgba(37,99,235,.18);
+  pointer-events: none;
+}
+
+.video-project-region-axis {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+}
+
+.video-project-region-axis input {
+  width: 56px;
+}
+
 .video-project-shot-frames {
   margin: 0 0 8px; color: #8a7f6f; font-size: 10px; line-height: 1.4;
 }
