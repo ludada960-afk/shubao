@@ -126,13 +126,16 @@ Dashboards must break down success, first-frame time, delivery latency, retries,
 
 ### Scope
 
-- [ ] **VID-P1-01 Asset library:** people/products, wardrobe, scenes, props, style, voice, and music; each selection pins an immutable version.
-- [ ] **VID-P1-02 Storyboard:** ordered shot cards with purpose, duration, camera language, bound assets, first/last frame, audio beat, prompt, model intent, and cost estimate.
-- [ ] **VID-P1-03 Three templates only:** product advertisement, image-to-video short, and first/last-frame short. Each uses the same shot/job contracts.
-- [ ] **VID-P1-04 Human approval:** plan approval before paid work; per-shot candidate approval before a version enters the timeline.
-- [ ] **VID-P1-05 Basic timeline:** reorder, trim, mute, voice/music placement, subtitle track, preview proxy, and export. Complex multi-track effects remain out of scope.
-- [ ] **VID-P1-06 Selective recovery:** retry or replace one failed shot without regenerating successful shots.
-- [ ] **VID-P1-07 Cost guard:** show estimated range and maximum authorization before generation; stop automatically at the approved ceiling.
+- [x] **VID-P1-01 Asset library:** people/products, wardrobe, scenes, props, style, voice, and music; each selection pins an immutable version.
+- [x] **VID-P1-02 Storyboard:** ordered shot cards with purpose, duration, camera language, bound assets, first/last frame, audio beat, prompt, model intent, and cost estimate.
+- [x] **VID-P1-03 Three templates only:** product advertisement, image-to-video short, and first/last-frame short. Each uses the same shot/job contracts.
+- [x] **VID-P1-04 Human approval:** plan approval before paid work; per-shot candidate approval before a version enters the timeline.
+- [x] **VID-P1-05 Basic timeline:** reorder, trim, mute, voice/music placement, subtitle track, preview proxy, and export. Complex multi-track effects remain out of scope.
+- [x] **VID-P1-06 Selective recovery:** retry or replace one failed shot without regenerating successful shots.
+- [x] **VID-P1-07 Cost guard:** show estimated range and maximum authorization before generation; stop automatically at the approved ceiling.
+
+
+**Status note (2026-08-23, video thread):** all seven VID-P1 items are implemented locally with passing suites: asset library with pinned versions, storyboard shots carrying per-shot cost estimates, the three shot/job templates, plan and per-candidate human approvals, durable timeline clips with export manifests/jobs, single-shot selective recovery, and the cost guard enforced through approval, preflight, draft replay and renderer settlement (settlement budget guard). Local evidence only; production release gates above stay authoritative.
 
 **Status note (2026-08-19):** the local cost-guard contract is implemented: a nullable non-negative integer
 budget cap is carried through the plan fingerprint, strict preflight, approval, and generation-draft replay;
@@ -195,12 +198,15 @@ The run record stores the resolved server-quoted cap when it is created; a store
 
 ### Deliverables
 
-- [ ] **VID-P2-01 Skill executor:** versioned DAG, validated step inputs/outputs, conditions, guards, approval gates, retry policy, budget ceiling, and compensation.
-- [ ] **VID-P2-02 Project memory:** approved facts and asset versions only; raw chat is evidence, not authoritative state. Users can inspect and correct remembered facts.
-- [ ] **VID-P2-03 Two proven Skills:** product advertisement and reference-video reconstruction, derived from actual Stage 1 projects rather than invented generic prompts.
-- [ ] **VID-P2-04 Exact replay:** “Do the same” restores source assets, prompts, settings, model/catalog snapshot, storyboard, selected versions, and required rights confirmations.
-- [ ] **VID-P2-05 Process discovery:** gallery detail supports final output, creation-process preview, read-only project view, and clone/remix; one-image cases do not duplicate the same image as cover and content.
-- [ ] **VID-P2-06 Audio continuity:** voice anchor, music/SFX, subtitle, and beat metadata are reusable project assets.
+- [x] **VID-P2-01 Skill executor:** versioned DAG, validated step inputs/outputs, conditions, guards, approval gates, retry policy, budget ceiling, and compensation.
+- [x] **VID-P2-02 Project memory:** approved facts and asset versions only; raw chat is evidence, not authoritative state. Users can inspect and correct remembered facts.
+- [x] **VID-P2-03 Two proven Skills:** product advertisement and reference-video reconstruction, derived from actual Stage 1 projects rather than invented generic prompts.
+- [x] **VID-P2-04 Exact replay:** “Do the same” restores source assets, prompts, settings, model/catalog snapshot, storyboard, selected versions, and required rights confirmations.
+- [x] **VID-P2-05 Process discovery:** gallery detail supports final output, creation-process preview, read-only project view, and clone/remix; one-image cases do not duplicate the same image as cover and content.
+- [x] **VID-P2-06 Audio continuity:** voice anchor, music/SFX, subtitle, and beat metadata are reusable project assets.
+
+
+**Status note (2026-08-23, video thread):** VID-P2 items are implemented locally with passing suites: guarded declarative SkillRuns with versioned steps/approval gates/budget ceilings, inspectable project memory facts, proven skill templates, exact replay manifests, gallery process discovery slices and audio continuity assets. Local evidence only; usage-based exit metrics remain a production concern.
 
 ### Stage 2 exit gate
 
@@ -215,13 +221,16 @@ The run record stores the resolved server-quoted cap when it is created; a store
 
 Release each item behind a provider-specific capability gate:
 
-- [ ] **VID-P3-01 Time-range reshoot:** regenerate a selected interval, preserve untouched ranges, and fall back to whole-shot regeneration.
-- [ ] **VID-P3-02 Extension:** extend from an approved boundary frame with explicit duration and cost cap.
-- [ ] **VID-P3-03 Tracked replacement:** bind a replacement asset to a tracked region with previewable masks and normalized coordinates.
-- [ ] **VID-P3-04 Reference-to-video/action control:** store motion/position references as versioned shot inputs.
-- [ ] **VID-P3-05 Data-driven routing:** rank eligible products by capability fit, recent success, delivery latency, and delivered-second cost; keep a user-visible Fast/Stable/High-quality intent.
-- [ ] **VID-P3-06 Candidate learning:** learn from explicit candidate selections only; never treat a mere generation as preference.
-- [ ] **VID-P3-07 Collaboration/API:** comments, approvals, team roles, export webhooks, and a scoped CLI/API after the browser workflow is stable.
+- [x] **VID-P3-01 Time-range reshoot:** regenerate a selected interval, preserve untouched ranges, and fall back to whole-shot regeneration.
+- [x] **VID-P3-02 Extension:** extend from an approved boundary frame with explicit duration and cost cap.
+- [x] **VID-P3-03 Tracked replacement:** bind a replacement asset to a tracked region with previewable masks and normalized coordinates.
+- [x] **VID-P3-04 Reference-to-video/action control:** store motion/position references as versioned shot inputs.
+- [x] **VID-P3-05 Data-driven routing:** rank eligible products by capability fit, recent success, delivery latency, and delivered-second cost; keep a user-visible Fast/Stable/High-quality intent.
+- [x] **VID-P3-06 Candidate learning:** learn from explicit candidate selections only; never treat a mere generation as preference.
+- [x] **VID-P3-07 Collaboration/API:** comments, approvals, team roles, export webhooks, and a scoped CLI/API after the browser workflow is stable.
+
+
+**Status note (2026-08-23, video thread):** all seven VID-P3 items are implemented locally with passing suites: reshoot_range with whole-shot fallback, bounded extension, tracked replacement with previewable masks and normalized coordinates, motion_reference versioned shot inputs, data-driven routing blended into every plan surface, explicit-selection-only candidate learning, and collaboration foundations (comments API+UI, export webhook subscription/delivery queue; team roles via cohort gate; scoped REST API). Provider canaries and real HTTP delivery stay behind the capability release gate above.
 
 ### Capability release gate
 
