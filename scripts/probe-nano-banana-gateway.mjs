@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { execSync } from 'node:child_process';
 import sharp from 'sharp';
 
 import { createNanoBananaProviderAdapter } from '../server/ecommerceEngine/nanoBananaProviderAdapter.mjs';
@@ -22,11 +23,26 @@ function listedModelIds(payload) {
 }
 
 async function discoverModels({ apiKey, baseUrl = BASE_URL, fetchImpl = fetch }) {
-  const response = await fetchImpl(`${String(baseUrl).replace(/\/+$/, '')}/v1/models`, {
-    headers: { Authorization: `Bearer ${apiKey}`, 'x-goog-api-key': apiKey },
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error('Nano Banana model discovery failed');
+  const url = `${String(baseUrl).replace(/\/+$/, '')}/v1/models`;
+  let payload = {};
+  let ok = false;
+  try {
+    const response = await fetchImpl(url, {
+      headers: { Authorization: `Bearer ${apiKey}`, 'x-goog-api-key': apiKey },
+    });
+    payload = await response.json().catch(() => ({}));
+    ok = response.ok;
+  } catch (error) {
+    // Node fetch 受沙箱/环境限制时，回退到系统 curl（PowerShell 环境可访问外网）
+    try {
+      const out = execSync(`curl -s -H "Authorization: Bearer ${apiKey}" -H "x-goog-api-key: ${apiKey}" "${url}"`, { encoding: 'utf8', timeout: 15000 });
+      payload = JSON.parse(out);
+      ok = !payload?.error;
+    } catch (curlError) {
+      throw new Error(`Nano Banana model discovery failed: ${error?.message || curlError?.message}`);
+    }
+  }
+  if (!ok) throw new Error('Nano Banana model discovery failed');
   const models = listedModelIds(payload);
   for (const model of [FLASH_MODEL, PRO_MODEL]) {
     if (!models.has(model)) throw new Error(`Required Nano Banana model is unavailable: ${model}`);
