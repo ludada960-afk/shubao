@@ -208,24 +208,35 @@ export function createContentProjectLifecycle({ projectStore, readGeneratedAsset
       route: context.projectKind === 'plog' ? 'plog' : 'xiaohongshu',
       ...(sourceIds.length ? { sourceAssetIds: sourceIds } : {}),
     };
-    const refs = verifiedAssets.map(asset => asProjectRef(projectStore.createProjectAsset({
-      ownerEmail: owner,
-      projectId: context.projectId,
-      versionId: resultVersion.id,
-      generationRunId: context.generationRunId,
-      assetId: asset.assetId,
-      role: asset.role,
-      stableUrl: asset.stableUrl,
-      contentHash: asset.contentHash,
-      mimeType: asset.mimeType,
-      retentionClass: 'unfinished',
-      metadata: {
-        source: 'content-generation',
-        generationId: context.generationRunId,
-        aigc: { generated: true, provenanceVersion: 'aigc-v1' },
-        provenance,
-      },
-    })));
+    const refs = verifiedAssets.map(asset => {
+      const created = projectStore.createProjectAsset({
+        ownerEmail: owner,
+        projectId: context.projectId,
+        versionId: resultVersion.id,
+        generationRunId: context.generationRunId,
+        assetId: asset.assetId,
+        role: asset.role,
+        stableUrl: asset.stableUrl,
+        contentHash: asset.contentHash,
+        mimeType: asset.mimeType,
+        retentionClass: 'unfinished',
+        metadata: {
+          source: 'content-generation',
+          generationId: context.generationRunId,
+          aigc: { generated: true, provenanceVersion: 'aigc-v1' },
+          provenance,
+        },
+      });
+      if (created?.projectAssetId && typeof projectStore.setProjectAssetVisibleInLibrary === 'function') {
+        projectStore.setProjectAssetVisibleInLibrary({
+          ownerEmail: owner,
+          projectId: context.projectId,
+          projectAssetId: created.projectAssetId,
+          visibleInLibrary: false,
+        });
+      }
+      return asProjectRef(created);
+    });
     if (sourceIds.length && typeof projectStore.linkProjectAsset === 'function') {
       for (const target of refs) {
         for (const sourceProjectAssetId of sourceIds) {

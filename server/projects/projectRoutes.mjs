@@ -327,6 +327,29 @@ export function mountProjectRoutes(app, {
       return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
     } catch (error) { return routeError(error, res); }
   });
+  app.post('/api/projects/:projectId/assets/:assetId/library', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const asset = projectStore.setProjectAssetVisibleInLibrary({
+        ownerEmail,
+        projectId: req.params.projectId,
+        projectAssetId: req.params.assetId,
+        visibleInLibrary: req.body?.visibleInLibrary !== false,
+      });
+      return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/projects/:projectId/library', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const assets = projectStore.setProjectAssetsVisibleInLibrary({
+        ownerEmail,
+        projectId: req.params.projectId,
+        visibleInLibrary: req.body?.visibleInLibrary !== false,
+      });
+      return res.json({ assets: assets.map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
+    } catch (error) { return routeError(error, res); }
+  });
   app.get('/api/projects/:projectId/assets/:assetId', (req, res) => {
     try {
       const ownerEmail = ownerFor(req, authenticateOwner);

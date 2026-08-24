@@ -665,6 +665,7 @@ export function createProjectStore(db, {
       retentionClass = 'source',
       metadata = {},
       productionState = 'draft',
+      visibleInLibrary = undefined,
     }) {
       const owner = normalizeOwner(ownerEmail);
       const project = requireProject(owner, projectId);
@@ -681,7 +682,8 @@ export function createProjectStore(db, {
       const derivedProductionState = normalizedRetentionClass === 'generated' && normalizedRole === 'generated-video'
         ? 'candidate'
         : normalizedProductionState;
-      const metadataJson = JSON.stringify(normalizeProjectAssetMetadata(metadata));
+      const normalizedMetadata = { ...normalizeProjectAssetMetadata(metadata) };
+      const metadataJson = JSON.stringify(normalizedMetadata);
       if (!isOwnedApplicationAssetUrl(url)) throw new TypeError('stableUrl must be an owned application asset URL');
       if (versionId) requireVersion(project.id, versionId);
       if (parentAssetId) {
@@ -789,6 +791,39 @@ export function createProjectStore(db, {
       );
       if (result.changes !== 1) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
       return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(projectAssetId));
+    },
+
+    setProjectAssetVisibleInLibrary({ ownerEmail, projectId, projectAssetId, visibleInLibrary = true }) {
+      const project = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT metadata_json, id FROM project_assets
+        WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(
+        projectAssetId, project.ownerEmail, project.id,
+      );
+      if (!row) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
+      const metadata = parse(row.metadata_json, {});
+      metadata.visibleInLibrary = Boolean(visibleInLibrary);
+      db.prepare(`UPDATE project_assets SET metadata_json = ? WHERE id = ?`).run(
+        JSON.stringify(metadata), row.id,
+      );
+      return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(row.id));
+    },
+
+    setProjectAssetsVisibleInLibrary({ ownerEmail, projectId, visibleInLibrary = true }) {
+      const project = requireProject(ownerEmail, projectId);
+      const rows = db.prepare(`SELECT metadata_json, id FROM project_assets
+        WHERE owner_email = ? AND project_id = ? AND deleted_at IS NULL`).all(
+        project.ownerEmail, project.id,
+      );
+      const updated = [];
+      for (const row of rows) {
+        const metadata = parse(row.metadata_json, {});
+        metadata.visibleInLibrary = Boolean(visibleInLibrary);
+        db.prepare(`UPDATE project_assets SET metadata_json = ? WHERE id = ?`).run(
+          JSON.stringify(metadata), row.id,
+        );
+        updated.push(projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(row.id)));
+      }
+      return updated;
     },
 
     getProjectAssetLineage({ ownerEmail, projectId, projectAssetId }) {
@@ -912,6 +947,7 @@ export function createProjectStore(db, {
         'pa.deleted_at IS NULL',
         'p.owner_email = pa.owner_email',
         'p.deleted_at IS NULL',
+        'json_extract(pa.metadata_json, \'$.visibleInLibrary\') IS NOT false',
       ];
       const params = [owner];
       if (normalizedProjectId) {

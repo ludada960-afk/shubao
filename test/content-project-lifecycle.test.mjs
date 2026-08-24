@@ -44,7 +44,7 @@ test('content generation gets an owner-scoped project and canonical output refs'
   assert.equal(prepared.projectKind, 'xiaohongshu');
   assert.equal(prepared.projectAssetRefs.length, 2);
   assert.equal(prepared.projectAssetRefs[0].mediaKind, 'image');
-  assert.equal(store.listProjectAssetLibrary({ ownerEmail: 'owner@example.com', projectKind: 'xiaohongshu' }).length, 2);
+  assert.equal(store.listProjectAssetLibrary({ ownerEmail: 'owner@example.com', projectKind: 'xiaohongshu' }).length, 0); // 新语义：生成结果默认不在素材库(visibleInLibrary=false)，需用户显式加入素材库
   await lifecycle.complete({ ownerEmail: 'owner@example.com', context: prepared });
   assert.equal(store.getProject({ ownerEmail: 'owner@example.com', projectId: context.projectId }).status, 'completed');
   assert.equal(store.getGenerationRun({ ownerEmail: 'owner@example.com', generationRunId: 'content-1' }).status, 'completed');

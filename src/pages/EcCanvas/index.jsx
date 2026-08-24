@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote, MdPushPin, MdRefresh } from 'react-icons/md';
+import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdMovieCreation, MdGridView, MdVideoCameraFront, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote, MdPushPin, MdRefresh, MdLibraryAdd } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
@@ -52,7 +52,7 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention } from '../../services/projects.js';
+import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
@@ -4052,6 +4052,31 @@ export default function EcCanvas() {
       setProjectAssetProductionBusy('');
     }
   }, [projectAssetProductionBusy, showToast]);
+  const handleAddWorkToLibrary = useCallback(async (work) => {
+    const refs = Array.isArray(work?.projectAssetRefs) ? work.projectAssetRefs : [];
+    if (!refs.length) return showToast('该作品暂无可加入素材库的项目素材', 'info');
+    let added = 0;
+    let failed = 0;
+    const seen = new Set();
+    for (const ref of refs) {
+      const projectId = ref?.projectId || ref?.project_id;
+      const projectAssetId = ref?.projectAssetId || ref?.project_asset_id;
+      const key = `${projectId}:${projectAssetId}`;
+      if (!projectId || !projectAssetId || seen.has(key)) continue;
+      seen.add(key);
+      try {
+        await addToProjectAssetLibrary(projectId, projectAssetId, true);
+        added += 1;
+      } catch (error) {
+        failed += 1;
+      }
+    }
+    if (added) {
+      showToast(failed ? `已加入 ${added} 个素材，${failed} 个失败` : `已加入 ${added} 个素材到素材库`, 'success');
+    } else {
+      showToast(failed ? '素材加入素材库失败，请重试' : '作品素材已全部在素材库中', failed ? 'error' : 'info');
+    }
+  }, [showToast]);
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
@@ -4449,11 +4474,11 @@ export default function EcCanvas() {
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
                 <p>从商品素材开始，继续生成套图、文案和营销视频</p>
                 <div className="ec-canvas-empty-actions">
-                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdAddPhotoAlternate size={15} />上传图片</button>
-                  <button type="button" onClick={() => videoUploadRef.current?.click()}><MdVideoLibrary size={15} />上传视频</button>
-                  <button type="button" onClick={() => handleTabChange('works')}><MdCollections size={15} />从我的作品导入</button>
-                  <button type="button" onClick={() => addCanvasComposer('suite')}><MdAutoFixHigh size={15} />生成电商套图</button>
-                  <button type="button" onClick={() => addCanvasComposer('video')}><MdVideoLibrary size={15} />生成视频</button>
+                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdImage size={16} strokeWidth={1.5} />上传图片</button>
+                  <button type="button" onClick={() => videoUploadRef.current?.click()}><MdVideoCameraFront size={16} strokeWidth={1.5} />上传视频</button>
+                  <button type="button" onClick={() => handleTabChange('works')}><MdGridView size={16} strokeWidth={1.5} />从我的作品导入</button>
+                  <button type="button" onClick={() => addCanvasComposer('suite')}><MdAutoFixHigh size={16} strokeWidth={1.5} />生成电商套图</button>
+                  <button type="button" onClick={() => addCanvasComposer('video')}><MdMovieCreation size={16} strokeWidth={1.5} />生成视频</button>
                 </div>
               </div>
             </div>
@@ -4945,6 +4970,7 @@ export default function EcCanvas() {
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdOpenInNew size={14} /></button>
+                      <button type="button" aria-label={`将${work.name}加入素材库`} title="加入素材库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdLibraryAdd size={14} /></button>
                       {tab === 'trash' ? (
                         <button type="button" aria-label="恢复作品" onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</button>
                       ) : (

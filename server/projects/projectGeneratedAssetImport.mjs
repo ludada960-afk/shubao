@@ -60,7 +60,7 @@ export function createGeneratedProjectAssetImporter({ projectStore, readGenerate
     const actualHash = crypto.createHash('sha256').update(stored.buffer).digest('hex');
     if (actualHash !== source.hash) throw coded('GENERATED_ASSET_NOT_READY', '生成图片完整性校验失败');
 
-    return projectStore.createProjectAsset({
+    const created = projectStore.createProjectAsset({
       ownerEmail: owner,
       projectId: targetProjectId,
       versionId,
@@ -72,5 +72,14 @@ export function createGeneratedProjectAssetImporter({ projectStore, readGenerate
       retentionClass: 'generated',
       metadata,
     });
+    if (created?.projectAssetId && typeof projectStore.setProjectAssetVisibleInLibrary === 'function') {
+      projectStore.setProjectAssetVisibleInLibrary({
+        ownerEmail: owner,
+        projectId: targetProjectId,
+        projectAssetId: created.projectAssetId,
+        visibleInLibrary: false,
+      });
+    }
+    return created;
   };
 }

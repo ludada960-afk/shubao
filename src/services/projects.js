@@ -280,6 +280,17 @@ export async function setProjectAssetRetention(projectId, projectAssetId, pinned
   return response.asset;
 }
 
+export async function addToProjectAssetLibrary(projectId, projectAssetId, visibleInLibrary = true) {
+  const pid = pathSegment(projectId, '请选择有效的项目');
+  const aid = pathSegment(projectAssetId, '请选择有效的项目素材');
+  const response = await requestJson(`/api/projects/${pid}/assets/${aid}/library`, {
+    method: 'POST',
+    ...jsonBody({ visibleInLibrary }),
+  }, '暂时无法加入素材库');
+  if (!response?.asset?.projectAssetId) throw new Error('素材暂时无法加入素材库，请稍后重试');
+  return response.asset;
+}
+
 export async function setProjectAssetProductionState(projectId, projectAssetId, productionState) {
   const normalizedState = String(productionState || '').trim().toLowerCase();
   if (!['draft', 'candidate', 'delivered', 'archived'].includes(normalizedState)) {
