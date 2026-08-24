@@ -2980,3 +2980,11 @@ projectImageAssetImport（画布上传素材）和 projectVideoAssetImport（视
 - 核验达标项：team roles=既有 authorizeCohort.requireEligible cohort 门禁；scoped API=既有 owner-scoped REST dispatch（每端点 operationName 审计）。approvals=既有生成计划审批指纹机制。
 
 - 验证证据：video-collaboration 2/2、含协作模块的视频域完整子集 219/219、git diff --check 干净。提交 e319801。无供应商提交、无账务变更、未部署。
+
+## 2026-08-23 VID-P3-07 Webhook Delivery Queue
+
+- 订阅 CRUD：saveExportWebhook（normalizeWebhookUrl 公网 https 门禁、同项目同 URL 幂等重放）、listExportWebhooks、removeExportWebhook。
+
+- 投递队列：video_export_webhook_deliveries 表（UNIQUE job_id+webhook_id 天然幂等）；queueExportWebhookDelivery 在导出完成事件上对每个订阅构造确定性 payload 入 pending（重复调用零新增）；claimPendingExportWebhookDeliveries 事务内认领置 claimed（worker 全局可领）；reportExportWebhookDelivery 回报 delivered/failed（非认领态拒绝）。真实 HTTP POST 由部署侧 worker 执行本接口即可，代码路径全部就绪且不产生任何实际网络调用于测试中。
+
+- 验证证据：store+协作 49/49（新用例覆盖订阅幂等/入队幂等/认领/回报/删除全流程）、视频域完整子集 220/220、git diff --check 干净。无供应商提交、无账务变更、未部署。

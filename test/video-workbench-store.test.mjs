@@ -1702,3 +1702,39 @@ test('project comments are bounded, owner-scoped and optionally shot-linked', t 
   // 有界查询
   assert.equal(store.listProjectComments({ ownerEmail: OWNER, projectId: project.id, limit: 1 }).length, 1);
 });
+test('export webhooks subscribe, queue on completion and hand off for delivery', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const saved = store.saveExportWebhook({ ownerEmail: OWNER, projectId: project.id,
+    url: 'https://ops.example.com/hooks/video' });
+  assert.match(saved.id, /^whk-/);
+  assert.throws(() => store.saveExportWebhook({ ownerEmail: OWNER, projectId: project.id,
+    url: 'http://insecure.example.com/hook' }), error => error.code === 'VIDEO_WEBHOOK_URL_INVALID');
+  // 同项目同 URL 幂等
+  const again = store.saveExportWebhook({ ownerEmail: OWNER, projectId: project.id,
+    url: 'https://ops.example.com/hooks/video' });
+  assert.equal(again.id, saved.id, 'duplicate subscription replays the stored row');
+  assert.equal(store.listExportWebhooks({ ownerEmail: OWNER, projectId: project.id }).length, 1);
+
+  const job = { id: 'job-9', projectId: project.id, state: 'completed', manifestHash: 'm1',
+    outputAssetId: 'asset-9', completedAt: '2026-08-23T09:00:00Z' };
+  const queued = store.queueExportWebhookDelivery({ ownerEmail: OWNER, projectId: project.id, job });
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].state, 'pending');
+  assert.deepEqual(queued[0].payload, {
+    type: 'video.export.completed', jobId: 'job-9', projectId: project.id, state: 'completed',
+    manifestHash: 'm1', outputAssetId: 'asset-9', completedAt: '2026-08-23T09:00:00Z',
+  });
+  const requeued = store.queueExportWebhookDelivery({ ownerEmail: OWNER, projectId: project.id, job });
+  assert.equal(requeued.length, 0, 'same job never queues twice');
+
+  const claimed = store.claimPendingExportWebhookDeliveries({ limit: 10 });
+  assert.equal(claimed.length, 1);
+  assert.equal(claimed[0].url, 'https://ops.example.com/hooks/video');
+  assert.ok(claimed[0].payload);
+  store.reportExportWebhookDelivery({ id: claimed[0].id, delivered: true });
+  assert.equal(store.claimPendingExportWebhookDeliveries({ limit: 10 }).length, 0, 'reported rows leave the queue');
+
+  store.removeExportWebhook({ ownerEmail: OWNER, projectId: project.id, id: saved.id });
+  assert.equal(store.listExportWebhooks({ ownerEmail: OWNER, projectId: project.id }).length, 0);
+});

@@ -452,3 +452,7 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 ## 2026-08-23 P3-07 协作/API 切片
 
 - comments：video_project_comments 表+add/list 方法+GET/POST /workbench/comments 端点（owner-scoped）。export webhooks：videoExportWebhooks.mjs（公网 https 白名单式校验+确定性负载构造器），HTTP 投递留给 worker。roles/approvals/scoped-API 以既有 cohort 门禁、计划审批指纹、dispatch 审计核验达标。子集 219/219 全绿。
+
+## 2026-08-23 P3-07 Webhook 投递队列
+
+- 订阅 CRUD（公网 https 门禁+同 URL 幂等）→ 导出完成入队（UNIQUE job+webhook 幂等）→ claimPending 事务认领 → report 回报 delivered/failed；真实 HTTP POST 留给部署侧 worker 调本接口即可。store+协作 49/49、视频域子集 220/220 全绿。

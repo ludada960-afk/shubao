@@ -42,6 +42,7 @@ import {
   compileShotRecoveryCommitPreflight,
 } from './videoShotRecovery.mjs';
 import { assertCanonicalProjectAssetRef } from './projects/projectAssetContract.mjs';
+import { buildExportWebhookPayload, normalizeWebhookUrl } from './videoExportWebhooks.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -871,6 +872,19 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_project_comments_project
       ON video_project_comments(owner_email, project_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS video_export_webhooks (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      url TEXT NOT NULL, created_at TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, url),
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE TABLE IF NOT EXISTS video_export_webhook_deliveries (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      job_id TEXT NOT NULL, webhook_id TEXT NOT NULL, url TEXT NOT NULL,
+      payload_json TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(job_id, webhook_id)
+    );
   `);
   const shotColumns = db.prepare(`PRAGMA table_info(video_storyboard_shots)`).all();
   if (!shotColumns.some(column => column.name === 'direction_json')) {
@@ -2822,6 +2836,87 @@ export function createVideoWorkbenchStore({
         VALUES (?, ?, ?, ?, ?, ?, ?)`)
         .run(id, owner, project.id, linkedShotId, owner, trimmed, createdAt);
       return { id, projectId: project.id, shotId: linkedShotId, authorEmail: owner, body: trimmed, createdAt };
+    },
+
+    saveExportWebhook({ ownerEmail, projectId, url }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const check = normalizeWebhookUrl(url);
+      if (!check.ok) {
+        throw Object.assign(new Error('export webhook url must be a public https url'), { code: 'VIDEO_WEBHOOK_URL_INVALID' });
+      }
+      const existing = db.prepare(`SELECT id FROM video_export_webhooks
+        WHERE owner_email = ? AND project_id = ? AND url = ?`).get(owner, project.id, check.url);
+      if (existing) return { id: existing.id, replayed: true };
+      const id = `whk-${randomUUID()}`;
+      db.prepare('INSERT INTO video_export_webhooks (id, owner_email, project_id, url, created_at) VALUES (?, ?, ?, ?, ?)')
+        .run(id, owner, project.id, check.url, timestamp());
+      return { id, url: check.url };
+    },
+
+    listExportWebhooks({ ownerEmail, projectId } = {}) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return db.prepare(`SELECT id, url, created_at AS createdAt FROM video_export_webhooks
+        WHERE owner_email = ? AND project_id = ? ORDER BY created_at, id`).all(owner, project.id);
+    },
+
+    removeExportWebhook({ ownerEmail, projectId, id }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      db.prepare('DELETE FROM video_export_webhooks WHERE id = ? AND owner_email = ? AND project_id = ?')
+        .run(String(id ?? ''), owner, project.id);
+      return { removed: true };
+    },
+
+    queueExportWebhookDelivery({ ownerEmail, projectId, job }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const payload = buildExportWebhookPayload(job);
+      if (!payload || payload.projectId !== project.id) {
+        throw Object.assign(new Error('export webhook payload must reference this project'), { code: 'VIDEO_WEBHOOK_PAYLOAD_INVALID' });
+      }
+      const subscriptions = db.prepare(`SELECT id, url FROM video_export_webhooks
+        WHERE owner_email = ? AND project_id = ?`).all(owner, project.id);
+      const queued = [];
+      const now = timestamp();
+      for (const subscription of subscriptions) {
+        const id = `dlv-${randomUUID()}`;
+        const inserted = db.prepare(`INSERT OR IGNORE INTO video_export_webhook_deliveries
+          (id, owner_email, project_id, job_id, webhook_id, url, payload_json, state, attempts, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`)
+          .run(id, owner, project.id, payload.jobId, subscription.id, subscription.url,
+            JSON.stringify(payload), now, now);
+        if (Number(inserted.changes) === 1) {
+          queued.push({ id, jobId: payload.jobId, url: subscription.url, state: 'pending', payload });
+        }
+      }
+      return queued;
+    },
+
+    claimPendingExportWebhookDeliveries({ limit = 50 } = {}) {
+      const boundedLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50;
+      return db.transaction(() => {
+        const rows = db.prepare(`SELECT id, owner_email AS ownerEmail, project_id AS projectId,
+          job_id AS jobId, url, payload_json AS payloadJson FROM video_export_webhook_deliveries
+          WHERE state = 'pending' ORDER BY created_at, id LIMIT ?`).all(boundedLimit);
+        for (const row of rows) {
+          db.prepare(`UPDATE video_export_webhook_deliveries
+            SET state = 'claimed', attempts = attempts + 1, updated_at = ? WHERE id = ? AND state = 'pending'`)
+            .run(timestamp(), row.id);
+        }
+        return rows.map(row => ({
+          id: row.id, ownerEmail: row.ownerEmail, projectId: row.projectId,
+          jobId: row.jobId, url: row.url, payload: JSON.parse(row.payloadJson),
+        }));
+      })();
+    },
+
+    reportExportWebhookDelivery({ id, delivered }) {
+      const state = delivered ? 'delivered' : 'failed';
+      const result = db.prepare(`UPDATE video_export_webhook_deliveries
+        SET state = ?, attempts = attempts + 1, updated_at = ? WHERE id = ? AND state IN ('pending', 'claimed')`)
+        .run(state, timestamp(), String(id ?? ''));
+      if (Number(result.changes) !== 1) {
+        throw Object.assign(new Error('webhook delivery not claimable'), { code: 'VIDEO_WEBHOOK_DELIVERY_UNKNOWN' });
+      }
+      return { id: String(id), state };
     },
 
     listProjectComments({ ownerEmail, projectId, shotId = null, limit = 200 } = {}) {
