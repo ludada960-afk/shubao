@@ -35,6 +35,8 @@ import {
   createVideoWorkbenchGenerationDraft,
   createShotRecoveryPlan,
   prepareShotRecoveryExecution,
+  listProjectComments,
+  addProjectComment,
   createVideoReplayManifest,
   createVideoExportManifest,
   cloneVideoReplayManifest,
@@ -303,6 +305,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [recoveryExtensions, setRecoveryExtensions] = useState({});
 const [recoveryRanges, setRecoveryRanges] = useState({});
 const [recoveryRegions, setRecoveryRegions] = useState({});
+const [projectComments, setProjectComments] = useState([]);
+const [commentDraft, setCommentDraft] = useState('');
   const [recoveryExecutions, setRecoveryExecutions] = useState({});
   const [replayManifest, setReplayManifest] = useState(null);
   const [replayManifests, setReplayManifests] = useState([]);
@@ -523,6 +527,7 @@ const [recoveryRegions, setRecoveryRegions] = useState({});
       void loadWorkbench(projectId);
       void loadReplayManifests(projectId);
       void loadExportManifests(projectId);
+      void loadProjectComments(projectId);
       void loadExportJobs(projectId);
     } else {
       setWorkbench(null);
@@ -1007,6 +1012,27 @@ const [recoveryRegions, setRecoveryRegions] = useState({});
     }));
   }
 
+  async function loadProjectComments(targetProjectId) {
+    if (!targetProjectId) return;
+    try {
+      const rows = await listProjectComments(targetProjectId, { limit: 50 });
+      setProjectComments(rows);
+    } catch (loadError) {
+      setError(displayError(loadError));
+    }
+  }
+
+  function handleAddProjectComment() {
+    const body = commentDraft.trim();
+    if (!body || !projectId || busy) return;
+    void runMutation('project-comment', async () => {
+      const created = await addProjectComment(projectId, { body });
+      setProjectComments(current => [created, ...current].slice(0, 50));
+      setCommentDraft('');
+      return created;
+    });
+  }
+
   function handleCreateShotRecoveryPlan(shot) {
     if (!shot?.id || busy) return;
     const mode = recoveryModes[shot.id] || 'replace_candidate';
@@ -1362,6 +1388,20 @@ const [recoveryRegions, setRecoveryRegions] = useState({});
           {workbenchPlan.routeRecommendation.candidates?.slice(0, 3).map(candidate => <div key={candidate.productId} className={candidate.productId === workbenchPlan.routeRecommendation.selected?.productId ? 'is-selected' : ''}><span>{candidate.label}</span><strong>{candidate.eligible ? `${candidate.estimatedPoints} 积分起` : '不满足约束'}</strong></div>)}
         </div>}
         {!!workbenchPlan.routeRecommendation.blockers?.length && <ul>{workbenchPlan.routeRecommendation.blockers.slice(0, 3).map(blocker => <li key={blocker.code}><CircleAlert size={12} />{blocker.detail}</li>)}</ul>}
+      </section>}
+      {projectId && logged && <section className="video-project-comments" aria-label="项目协作评论">
+        <header><small>项目协作评论</small></header>
+        <div className="video-project-comments-composer">
+          <input aria-label="新评论内容" type="text" maxLength={2000} placeholder="记录评审意见，仅项目内可见"
+            value={commentDraft} disabled={Boolean(busy)}
+            onChange={event => setCommentDraft(event.target.value)}
+            onKeyDown={event => { if (event.key === 'Enter') handleAddProjectComment(); }} />
+          <button type="button" disabled={Boolean(busy) || !commentDraft.trim()} onClick={handleAddProjectComment}>发布</button>
+        </div>
+        <ul className="video-project-comments-list">
+          {projectComments.slice(0, 10).map(comment => <li key={comment.id}><span>{comment.body}</span><small>{comment.createdAt}</small></li>)}
+          {!projectComments.length && <li className="is-empty">暂无评论，发布第一条评审意见吧。</li>}
+        </ul>
       </section>}
       {continuityReview && (workbenchPlan.shots?.length || 0) > 0 && <section className={`video-project-continuity-review ${continuityReview.status === 'review' ? 'is-review' : 'is-clear'}`} aria-label="镜头连续性检查">
         <header>

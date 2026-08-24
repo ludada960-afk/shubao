@@ -228,6 +228,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /video-project-region-mask/);
   assert.match(styles, /video-project-region-preview/);
   assert.match(styles, /video-project-region-mask/);
+  assert.match(component, /listProjectComments/);
+  assert.match(component, /addProjectComment/);
+  assert.match(component, /项目协作评论/);
+  assert.match(styles, /video-project-comments/);
   assert.match(component, /provenanceStatus/);
   assert.match(styles, /aspect-ratio/);
   assert.match(styles, /video-project-candidate-media\.is-unavailable/);

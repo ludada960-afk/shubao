@@ -2988,3 +2988,11 @@ projectImageAssetImport（画布上传素材）和 projectVideoAssetImport（视
 - 投递队列：video_export_webhook_deliveries 表（UNIQUE job_id+webhook_id 天然幂等）；queueExportWebhookDelivery 在导出完成事件上对每个订阅构造确定性 payload 入 pending（重复调用零新增）；claimPendingExportWebhookDeliveries 事务内认领置 claimed（worker 全局可领）；reportExportWebhookDelivery 回报 delivered/failed（非认领态拒绝）。真实 HTTP POST 由部署侧 worker 执行本接口即可，代码路径全部就绪且不产生任何实际网络调用于测试中。
 
 - 验证证据：store+协作 49/49（新用例覆盖订阅幂等/入队幂等/认领/回报/删除全流程）、视频域完整子集 220/220、git diff --check 干净。无供应商提交、无账务变更、未部署。
+
+## 2026-08-23 VID-P3-07 Comments UI Panel
+
+- client 层新增 listProjectComments/addProjectComment（scoped workbench API 包装，shotId/limit 查询参数化）；UI 工作台新增「项目协作评论」面板——输入框（≤2000、Enter/按钮发布、busy 禁用）+ 最近 50 条倒序列表（展示前 10，空态提示），projectId 切换时自动重载；配套 video-project-comments 样式族。
+
+- P3-07 五要素至此全部用户可见或核验达标：comments=API+UI 双层、approvals=计划审批指纹、team roles=cohort 门禁、export webhooks=订阅+投递队列、scoped API=owner-scoped dispatch。
+
+- 验证证据：client/UI/routes 52/52、视频域完整子集 221/221、git diff --check 干净。无供应商提交、无账务变更、未部署。

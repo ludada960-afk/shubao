@@ -35,6 +35,8 @@ import {
   replaceTimelineClipCandidate,
   createVideoAudioTrack,
   updateVideoAudioTrack,
+  listProjectComments,
+  addProjectComment,
 } from '../src/services/videoWorkbench.js';
 import { onSessionInvalid } from '../src/services/auth.js';
 
@@ -445,4 +447,21 @@ test('video audio continuity client signs create and update routes', async t => 
   assert.equal(requests[1].path, '/api/video/projects/project-1/workbench/audio-tracks/track-1');
   assert.equal(requests[1].options.method, 'PATCH');
   assert.deepEqual(JSON.parse(requests[1].options.body), { expectedRevision: 1, patch: { volume: 0.8 } });
+});
+test('project comments list and create through the scoped workbench API', async t => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path: String(path), options });
+    return jsonResponse(
+      options.method === 'POST' ? { comment: { id: 'cmt-1', body: 'ok' } } : { comments: [{ id: 'cmt-1', body: 'ok' }] },
+      options.method === 'POST' ? 201 : 200);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const rows = await listProjectComments('proj-1', { shotId: 'shot-1' });
+  assert.equal(rows[0].id, 'cmt-1');
+  assert.match(requests[0].path, /\/comments\?shotId=shot-1$/);
+  const created = await addProjectComment('proj-1', { body: 'ok' });
+  assert.equal(created.id, 'cmt-1');
+  assert.equal(requests[1].options.method, 'POST');
 });

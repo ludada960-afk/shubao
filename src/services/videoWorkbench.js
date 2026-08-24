@@ -539,3 +539,19 @@ export async function completeVideoSkillRunStep(projectId, runId, stepId, expect
   );
   return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
 }
+export async function listProjectComments(projectId, { shotId, limit } = {}) {
+  const params = new URLSearchParams();
+  if (shotId) params.set('shotId', String(shotId));
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  const response = await requestJson(`${workbenchBase(projectId)}/comments${query ? `?${query}` : ''}`, {}, '暂时无法加载项目评论');
+  return Array.isArray(response?.comments) ? response.comments : [];
+}
+
+export async function addProjectComment(projectId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/comments`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法保存项目评论');
+  return requireValue(response, 'comment', '项目评论暂时不可用，请稍后重试');
+}
