@@ -412,3 +412,35 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 聚焦视频回归：video-workbench-store 42/42（+2 分镜字段测试）、routes/client/model/ui 62/62、视频域完整子集 188/188；全量 npm test 2117/2117；collab READY、git diff --check 通过。
 
 - 未调用供应商、未触发真实生成、未改变账务、未部署。线上仍为 e673c10；工作树为共享工作树，视频改动与主线程 Canvas/资产改动混合未提交，后续由主线程按唯一入口 full production gate 统一归档后发布。
+
+## 2026-08-23 Video Storyboard Shot Enrichment - UI & Build Closure
+
+- 分镜字段前端闭环已补齐：新建/编辑分镜表单新增「模型意图」输入（shotDraft/edit 均透传）；编辑表单新增「首帧素材」/「末帧素材」两个下拉，从项目素材库（reusableProjectAssets 的 image 素材）选择 canonical 引用，提交时经 purpose:reuse 由服务端权威校验内容哈希（UI 不传播 contentHash/stableUrl/mimeType，符合 UI 测试契约）。
+
+- vite build 22.46s 成功、check-build 通过（dist 产物完整）、video-project-workbench-ui/model 13/13、视频域完整子集 182/182、全量 npm test 2117/2117、collab READY、git diff --check 干净。
+
+- 未调用供应商、未触发真实生成、未改变账务、未部署。线上仍为 e673c10；共享工作树待主线程统一归档后按唯一入口执行 full production gate。
+
+## 2026-08-23 Per-Shot Cost Estimate + Material Library Collaboration
+
+- 视频计划层：buildVideoWorkbenchPlan 给每个 normalizedShot 附带 cost 字段（{units, points}），基于 quoteForShot 按视频产品SKU和分镜时长算出每镜头积分估算；UI 分镜卡片 header 直接展示约X积分；plan 测试新增每镜头成本断言并验证通过。
+
+- 主线程协作：已读取主线程素材库调研结论（progress.md 566-577行），从视频线程视角回应4个问题——视频上传组合素材刚需素材库应自动入库、视频成片进作品集不自动塞素材库、first/last frame 引用依赖 canonical project asset 身份（改入库策略会影响视频首末帧绑定，用户需先加入素材库再引用）；回应已写回 progress.md（2756行）。
+
+- 验证证据：视频域完整子集 188/188、plan 测试 11/11、UI+model 13/13、全量 npm test 2117/2117、vite build 22.46s 成功、check-build 通过、collab READY、git diff --check 干净。未部署、未触发真实生成、未改变账务。
+## 2026-08-23 Renderer Settlement Budget Guard (P1-07 closure)
+
+- videoRendererAdapter 响应规范化新增 settlementUsage：供应商响应携带 usage.points 时强制校验安全非负整数且 ≤ 预检证明的 maximumPoints/requestedCapPoints，超限 RENDER_SETTLEMENT_BUDGET_EXCEEDED fail closed；无 usage 中间状态向后兼容。adapter 测试 10/10（4 新用例）、渲染器家族 38/38、视频域子集 203/203、verify:video-acceptance ok。
+- 全量 2120/2121，唯一失败 content-project-lifecycle 第47行为主线程域并行改动回归（已在共享账本留精确证据，视频线程不越权修复）。未部署、未触发真实生成、未变账务；线上仍 e673c10。
+
+## 2026-08-23 VID-P3-05 Data-Driven Routing History Slice
+
+- videoModelRouter：normalizeRouteHistory + buildRouteHistoryStats + recommendVideoRoute 可选 history 混入有界加性调整（成功率±15、时延惩罚≤10，minAttempts=3），historySummary 透明暴露；无历史行为与旧契约逐字节一致。router 9/9、下游 40/40、视频域子集 207/207、diff 干净。纯路由层，store/UI 接线留待后续增量。
+
+## 2026-08-23 VID-P3-05 Full Wiring (Slice 2)
+
+- store.recentRouteHistory（sqlite_master 防御+有界+productId 解析）→ routes 四处统一 routeHistoryFor 注入（预览/批准/预检/草稿指纹一致）→ plan options.routeHistory 透传 router → UI 路线卡展示「已结合近期 X 次交付记录」。store 44/44、routes/client/model/ui 62/62、plan 12/12、视频域子集 210/210、diff 干净。P3-05 数据链路全线贯通。
+
+## 2026-08-23 VID-P3-01 Time-Range Reshoot
+
+- reshoot_range 模式：有界区间校验(≥500ms)+preserve_untouched_ranges intent+fallbackToWholeShot 回退标记；复用既有 reshoot 执行通路零改下游；store/routes/client/UI 四层接线（下拉「区间重拍」+起止秒输入）。恢复测试 15/15、全链路 121/121、视频域子集 212/212、diff 干净。P3-02/P3-03 经核验既有 extend_shot/track_replace 已达标。

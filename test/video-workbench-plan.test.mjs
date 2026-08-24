@@ -66,6 +66,8 @@ test('builds a bounded per-shot quote for a valid three-shot plan', () => {
   assert.equal(plan.quote.points, 206);
   assert.equal(plan.quote.maximumPoints, 206);
   assert.ok(plan.quote.lineItems.every(item => item.points > 0));
+  assert.ok(plan.shots.every(entry => entry.cost && entry.cost.points > 0 && entry.cost.units > 0));
+  assert.equal(plan.shots[0].cost.points, plan.quote.lineItems[0].points);
   assert.equal(plan.routeRecommendation.status, 'ready');
   assert.equal(plan.routeRecommendation.selected.productId, 'seedance_standard');
   assert.equal(plan.routeRecommendation.providerSubmission, false);
@@ -209,4 +211,27 @@ test('returns a structured blocker for an unknown product instead of throwing', 
   assert.equal(plan.blockers[0].code, 'PRODUCT_OPTIONS_INVALID');
   assert.equal(plan.product.id, 'missing-product');
   assert.equal(plan.quote.points, 0);
+});
+test('route recommendation carries history signals only when provided', () => {
+  const attemptRow = (productId, state, createdAt, updatedAt) =>
+    ({ provider: 'seedance', model: 'fast-v1', state, productId, createdAt, updatedAt });
+  const base = buildVideoWorkbenchPlan(workbench({
+    assets: [asset('product-1')],
+    shots: [shot('shot-1', 1)],
+  }));
+  assert.equal(base.routeRecommendation.historySummary, undefined);
+  assert.ok(base.routeRecommendation.candidates.every(candidate => candidate.historyApplied === false));
+
+  const history = Array.from({ length: 9 }, (_, i) =>
+    attemptRow('seedance_fast', i % 3 === 2 ? 'failed' : 'delivered', '2026-08-20T08:00:00Z', '2026-08-20T08:00:40Z'));
+  const driven = buildVideoWorkbenchPlan(workbench({
+    assets: [asset('product-1')],
+    shots: [shot('shot-1', 1)],
+  }), { routeHistory: history });
+  assert.ok(driven.routeRecommendation.historySummary);
+  assert.equal(driven.routeRecommendation.historySummary.attemptsConsidered, 9);
+  const fastDriven = driven.routeRecommendation.candidates.find(candidate => candidate.productId === 'seedance_fast');
+  const fastBase = base.routeRecommendation.candidates.find(candidate => candidate.productId === 'seedance_fast');
+  assert.equal(fastDriven.historyApplied, true);
+  assert.ok(fastDriven.score > fastBase.score);
 });

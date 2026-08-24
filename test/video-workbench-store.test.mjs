@@ -1589,3 +1589,93 @@ test('storyboard shot frame refs fail closed on invalid or foreign canonical ass
     lastFrameRef: { projectAssetId: 'missing-id', contentHash: 'x' } }),
     error => error.code === 'PROJECT_ASSET_NOT_FOUND' || error.code === 'PROJECT_ASSET_REF_INVALID');
 });
+test('recent route history stays empty before the attempts table exists', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  assert.deepEqual(store.recentRouteHistory({ ownerEmail: OWNER, projectId: project.id }), []);
+});
+
+test('recent route history returns bounded newest-first rows with parsed product ids', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS video_job_attempts (
+      id TEXT PRIMARY KEY, job_id TEXT NOT NULL, attempt_number INTEGER NOT NULL,
+      submission_key TEXT NOT NULL, request_hash TEXT NOT NULL,
+      provider TEXT NOT NULL, model TEXT NOT NULL,
+      capability_json TEXT NOT NULL DEFAULT '{}',
+      provider_task_id TEXT NOT NULL DEFAULT '', state TEXT NOT NULL,
+      error_class TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+    );
+  `);
+  const insert = db.prepare(`INSERT INTO video_job_attempts
+    (id, job_id, attempt_number, submission_key, request_hash, provider, model, capability_json, state, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  insert.run('a1', 'j1', 1, 'k1', 'h1', 'seedance', 'fast-v1', JSON.stringify({ productId: 'seedance_fast' }), 'delivered', '2026-08-20T08:00:00Z', '2026-08-20T08:01:00Z');
+  insert.run('a2', 'j2', 1, 'k2', 'h2', 'seedance', 'std-v1', JSON.stringify({ productId: 'seedance_standard' }), 'failed', '2026-08-21T08:00:00Z', '2026-08-21T08:00:10Z');
+  insert.run('a3', 'j3', 1, 'k3', 'h3', 'other', 'm1', '{not-json', 'accepted', '2026-08-19T08:00:00Z', '2026-08-19T08:00:05Z');
+  const rows = store.recentRouteHistory({ ownerEmail: OWNER, projectId: project.id });
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].productId, 'seedance_standard');
+  assert.equal(rows[0].state, 'failed');
+  assert.equal(rows[1].productId, 'seedance_fast');
+  assert.equal(rows[2].productId, '', 'unparseable capability degrades to empty product id');
+  const limited = store.recentRouteHistory({ ownerEmail: OWNER, projectId: project.id, limit: 1 });
+  assert.deepEqual(limited.map(row => row.id), ['a2']);
+})
+test('explicit candidate selections are recorded once and listed for learning', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const source = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'learn-source', role: 'generated-video',
+    stableUrl: '/api/video/assets/learn-source', contentHash: 'learn-source-hash', mimeType: 'video/mp4',
+  });
+  const replacement = projectStore.createProjectAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: 'learn-replacement', role: 'generated-video',
+    stableUrl: '/api/video/assets/learn-replacement', contentHash: 'learn-replacement-hash', mimeType: 'video/mp4',
+  });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '学习信号', durationMs: 4000, prompt: '显式选择才计入偏好' });
+  const first = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: source.assetId, stableUrl: source.stableUrl, contentHash: source.contentHash,
+    mimeType: source.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: source.projectAssetId, assetId: source.assetId,
+      stableUrl: source.stableUrl, contentHash: source.contentHash, mimeType: source.mimeType,
+      role: 'generated-video', expectedContentHash: source.contentHash,
+    } });
+  const second = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: replacement.assetId, stableUrl: replacement.stableUrl, contentHash: replacement.contentHash,
+    mimeType: replacement.mimeType, projectAssetRef: {
+      projectId: project.id, projectAssetId: replacement.projectAssetId, assetId: replacement.assetId,
+      stableUrl: replacement.stableUrl, contentHash: replacement.contentHash, mimeType: replacement.mimeType,
+      role: 'generated-video', expectedContentHash: replacement.contentHash,
+    } });
+  const selected = store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, expectedRevision: shot.revision });
+  const clip = store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, position: 0, trimStartMs: 0, trimEndMs: 4000 });
+  store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: second.id, expectedShotRevision: selected.shot.revision, expectedClipRevision: clip.revision,
+    position: 0, trimStartMs: 0, trimEndMs: 3500, muted: true });
+  const rows = store.listCandidateSelections({ ownerEmail: OWNER, projectId: project.id });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].operation, 'apply_candidate_to_timeline', 'newest first');
+  assert.equal(rows[0].candidateId, second.id);
+  assert.equal(rows[1].operation, 'select_shot_candidate');
+  assert.equal(rows[1].candidateId, first.id);
+  // 重放不再记账
+  const appliedOnce = store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: second.id, expectedShotRevision: selected.shot.revision, expectedClipRevision: clip.revision,
+    position: 0, trimStartMs: 0, trimEndMs: 3500, muted: true });
+  assert.equal(appliedOnce.status, 'replayed', 'identical retry hits the idempotent replay branch');
+  store.applyCandidateToTimeline({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: second.id, expectedShotRevision: appliedOnce.shot.revision - 1,
+    expectedClipRevision: appliedOnce.timelineClip.revision - 1,
+    position: 0, trimStartMs: 0, trimEndMs: 3500, muted: true });
+  const afterReplay = store.listCandidateSelections({ ownerEmail: OWNER, projectId: project.id });
+  assert.equal(afterReplay.length, 2, 'replayed application must not double-count');
+  // 有界查询
+  const limited = store.listCandidateSelections({ ownerEmail: OWNER, projectId: project.id, limit: 1 });
+  assert.equal(limited.length, 1);
+});

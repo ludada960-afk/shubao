@@ -301,6 +301,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [subtitleDrafts, setSubtitleDrafts] = useState({});
   const [recoveryModes, setRecoveryModes] = useState({});
   const [recoveryExtensions, setRecoveryExtensions] = useState({});
+const [recoveryRanges, setRecoveryRanges] = useState({});
   const [recoveryExecutions, setRecoveryExecutions] = useState({});
   const [replayManifest, setReplayManifest] = useState(null);
   const [replayManifests, setReplayManifests] = useState([]);
@@ -319,7 +320,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [skillPrompt, setSkillPrompt] = useState('');
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
-  const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '', direction: normalizeShotDirectionValue() });
+  const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '', modelIntent: '', direction: normalizeShotDirectionValue() });
   const selectedProjectRef = useRef('');
   const requestSequenceRef = useRef(0);
   const replayRequestSequenceRef = useRef(0);
@@ -912,6 +913,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         duration: previous.duration ?? shot.durationMs / 1000,
         cameraLanguage: previous.cameraLanguage ?? shot.cameraLanguage,
         prompt: previous.prompt ?? shot.prompt,
+        modelIntent: previous.modelIntent ?? shot.modelIntent,
         direction: previous.direction ?? shot.direction,
         ...patch,
       };
@@ -942,9 +944,10 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         durationMs: Math.round(Number(shotDraft.duration) * 1000),
         cameraLanguage: direction.cameraLanguage,
         prompt,
+        modelIntent: String(shotDraft.modelIntent || '').trim(),
         direction,
       });
-      setShotDraft({ purpose: '', duration: 6, cameraLanguage: '', prompt: '', direction: normalizeShotDirectionValue() });
+      setShotDraft({ purpose: '', duration: 6, cameraLanguage: '', prompt: '', modelIntent: '', direction: normalizeShotDirectionValue() });
     });
   }
 
@@ -952,6 +955,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     const edit = shotEdits[shot.id];
     if (!edit) return;
     const direction = normalizeShotDirectionValue(edit.direction, edit.cameraLanguage);
+    const frameRefFromLibrary = (assetId) => {
+      if (assetId === '') return null;
+      const source = reusableProjectAssets.find(item => item.projectAssetId === assetId);
+      return source ? { projectAssetId: source.projectAssetId } : undefined;
+    };
     void runMutation(`shot:update:${shot.id}`, async () => {
       await updateStoryboardShot(projectId, shot.id, {
         expectedRevision: shot.revision,
@@ -960,7 +968,10 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           durationMs: Math.round(Number(edit.duration) * 1000),
           cameraLanguage: direction.cameraLanguage,
           prompt: String(edit.prompt || '').trim(),
+          modelIntent: String(edit.modelIntent || '').trim(),
           direction,
+          ...('firstFrameRefAssetId' in edit ? { firstFrameRef: frameRefFromLibrary(edit.firstFrameRefAssetId) } : {}),
+          ...('lastFrameRefAssetId' in edit ? { lastFrameRef: frameRefFromLibrary(edit.lastFrameRefAssetId) } : {}),
         },
       });
       setShotEdits(current => {
@@ -999,9 +1010,13 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     if (!shot?.id || busy) return;
     const mode = recoveryModes[shot.id] || 'replace_candidate';
     const extensionMs = mode === 'extend_shot' ? Math.round(Number(recoveryExtensions[shot.id] || 2.5) * 1000) : undefined;
+    const rangeSeconds = recoveryRanges[shot.id] || {};
+    const rangeStartMs = mode === 'reshoot_range' ? Math.max(0, Math.round(Number(rangeSeconds.start ?? 1) * 1000)) : undefined;
+    const rangeEndMs = mode === 'reshoot_range' ? Math.round(Number(rangeSeconds.end ?? Math.min(3, (shot.durationMs || 3000) / 1000)) * 1000) : undefined;
     void runMutation(`recovery:${shot.id}`, () => createShotRecoveryPlan(projectId, shot.id, {
       mode,
       ...(extensionMs ? { extensionMs } : {}),
+      ...(mode === 'reshoot_range' ? { rangeStartMs, rangeEndMs } : {}),
       reason: shot.selectedCandidateId
         ? '当前镜头候选需要单镜头重拍，保留其他镜头与时间线。'
         : '当前镜头尚无可交付候选，建立单镜头恢复计划。',
@@ -1331,7 +1346,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       {workbenchPlan.routeRecommendation && <section className={`video-project-route-recommendation ${workbenchPlan.routeRecommendation.status === 'ready' ? 'is-ready' : 'is-blocked'}`} aria-label="模型路线建议">
         <header>
           <div><small>模型路线建议</small><strong>{workbenchPlan.routeRecommendation.status === 'ready' ? workbenchPlan.routeRecommendation.selected?.label : '当前请求暂无可用公开路线'}</strong></div>
-          <span>{workbenchPlan.routeRecommendation.status === 'ready' ? `按${workbenchPlan.routeRecommendation.request?.objective === 'speed' ? '速度' : workbenchPlan.routeRecommendation.request?.objective === 'quality' ? '质量' : workbenchPlan.routeRecommendation.request?.objective === 'cost' ? '成本' : '综合能力'}排序 · 仅建议，不会自动切换产品` : '请调整时长、清晰度或参考素材数量'}</span>
+          <span>{workbenchPlan.routeRecommendation.status === 'ready' ? `按${workbenchPlan.routeRecommendation.request?.objective === 'speed' ? '速度' : workbenchPlan.routeRecommendation.request?.objective === 'quality' ? '质量' : workbenchPlan.routeRecommendation.request?.objective === 'cost' ? '成本' : '综合能力'}排序 · 仅建议，不会自动切换产品` : '请调整时长、清晰度或参考素材数量'}</span>{workbenchPlan.routeRecommendation.historySummary && <span className="video-project-route-history">已结合近期 {workbenchPlan.routeRecommendation.historySummary.attemptsConsidered} 次交付记录调整推荐排序</span>}
         </header>
         {workbenchPlan.routeRecommendation.status === 'ready' && <div className="video-project-route-candidates">
           {workbenchPlan.routeRecommendation.candidates?.slice(0, 3).map(candidate => <div key={candidate.productId} className={candidate.productId === workbenchPlan.routeRecommendation.selected?.productId ? 'is-selected' : ''}><span>{candidate.label}</span><strong>{candidate.eligible ? `${candidate.estimatedPoints} 积分起` : '不满足约束'}</strong></div>)}
@@ -1527,6 +1542,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           <label><span>镜头目的</span><input required maxLength="500" value={shotDraft.purpose} placeholder="例如：3 秒内建立商品记忆点" onChange={event => setShotDraft(current => ({ ...current, purpose: event.target.value }))} /></label>
           <label className="is-duration"><span>时长</span><input required type="number" min="0.5" max="120" step="0.5" value={shotDraft.duration} onChange={event => setShotDraft(current => ({ ...current, duration: event.target.value }))} /><small>秒</small></label>
           <label><span>镜头语言</span><input maxLength="2000" value={shotDraft.cameraLanguage} placeholder="中景跟拍，缓慢推进" onChange={event => setShotDraft(current => ({ ...current, cameraLanguage: event.target.value, direction: normalizeShotDirectionValue(current.direction, event.target.value) }))} /></label>
+              <label><span>模型意图</span><input maxLength="2000" value={shotDraft.modelIntent} placeholder="产品亮相、品牌记忆点" onChange={event => setShotDraft(current => ({ ...current, modelIntent: event.target.value }))} /></label>
           <label className="is-prompt"><span>镜头提示</span><textarea required maxLength="8000" value={shotDraft.prompt} placeholder="只描述这一镜要发生的动作、场景与节奏" onChange={event => setShotDraft(current => ({ ...current, prompt: event.target.value }))} /></label>
           <details className="video-project-shot-direction"><summary>结构化镜头控制</summary><ShotDirectionFields value={shotDraft.direction} onChange={direction => setShotDraft(current => ({ ...current, cameraLanguage: direction.cameraLanguage, direction }))} /></details>
           <button type="submit" disabled={Boolean(busy) || !shotDraft.purpose.trim() || !shotDraft.prompt.trim()}><Plus size={16} />添加分镜</button>
@@ -1534,6 +1550,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
         <div className="video-project-shot-list">{(workbench?.shots || []).map((shot, index) => {
           const selected = selectedCandidateForShot(shot);
+          const planShot = (workbenchPlan?.shots || []).find(p => p?.id === shot.id);
+          const shotCost = planShot?.cost?.points ?? null;
           const recoveryPlan = (workbench?.recoveryPlans || []).find(plan => plan.shotId === shot.id);
           const recoveryExecution = recoveryExecutions[shot.id]?.planId === recoveryPlan?.id
             ? recoveryExecutions[shot.id].execution : null;
@@ -1541,7 +1559,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           const existingJobIds = new Set((shot.candidates || []).map(candidate => candidate.generationJobId));
           const bindingValue = bindingChoices[shot.id] || '';
           return <article key={shot.id} className={shot.status === 'stale' ? 'is-stale' : ''}>
-            <header><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{shot.purpose || '未命名镜头'}</strong><small><Clock3 size={12} />{(shot.durationMs / 1000).toFixed(1)} 秒 · {shot.cameraLanguage || '未设置镜头语言'}</small></div>{shot.status === 'stale' && <em>需重新确认</em>}</header>
+            <header><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{shot.purpose || '未命名镜头'}</strong><small><Clock3 size={12} />{(shot.durationMs / 1000).toFixed(1)} 秒 · {shot.cameraLanguage || '未设置镜头语言'}{shotCost != null && <> · 约 {shotCost} 积分</>}</small></div>{shot.status === 'stale' && <em>需重新确认</em>}</header>
             <p>{shot.prompt || '未填写镜头提示'}</p>
             {shot.modelIntent && <p className="video-project-shot-intent"><Sparkles size={12} /> 意图：{shot.modelIntent}</p>}
             {(shot.firstFrameRef || shot.lastFrameRef) && <p className="video-project-shot-frames">{[shot.firstFrameRef && '首帧已绑定', shot.lastFrameRef && '末帧已绑定'].filter(Boolean).join(' · ')}</p>}
@@ -1563,6 +1581,15 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
               <label><span>镜头目的</span><input value={edit?.purpose ?? shot.purpose} onChange={event => updateShotEdit(shot, { purpose: event.target.value })} /></label>
               <label><span>时长（秒）</span><input type="number" min="0.5" max="120" step="0.5" value={edit?.duration ?? shot.durationMs / 1000} onChange={event => updateShotEdit(shot, { duration: event.target.value })} /></label>
               <label><span>镜头语言</span><input value={edit?.cameraLanguage ?? shot.cameraLanguage} onChange={event => updateShotEdit(shot, { cameraLanguage: event.target.value })} /></label>
+              <label><span>模型意图</span><input value={edit?.modelIntent ?? shot.modelIntent ?? ''} onChange={event => updateShotEdit(shot, { modelIntent: event.target.value })} /></label>
+<label className="is-wide"><span>首帧素材</span><select value={edit?.firstFrameRefAssetId ?? shot.firstFrameRef?.projectAssetId ?? ''} onChange={event => updateShotEdit(shot, { firstFrameRefAssetId: event.target.value })}>
+  <option value="">不设置首帧素材</option>
+  {reusableProjectAssets.filter(item => item.mediaKind === 'image').map(item => <option key={item.projectAssetId} value={item.projectAssetId}>{item.displayName || item.name || item.projectAssetId}</option>)}
+</select></label>
+<label className="is-wide"><span>末帧素材</span><select value={edit?.lastFrameRefAssetId ?? shot.lastFrameRef?.projectAssetId ?? ''} onChange={event => updateShotEdit(shot, { lastFrameRefAssetId: event.target.value })}>
+  <option value="">不设置末帧素材</option>
+  {reusableProjectAssets.filter(item => item.mediaKind === 'image').map(item => <option key={item.projectAssetId} value={item.projectAssetId}>{item.displayName || item.name || item.projectAssetId}</option>)}
+</select></label>
               <label className="is-wide"><span>镜头提示</span><textarea value={edit?.prompt ?? shot.prompt} onChange={event => updateShotEdit(shot, { prompt: event.target.value })} /></label>
               <details className="video-project-shot-direction is-wide"><summary>结构化镜头控制</summary><ShotDirectionFields value={normalizeShotDirectionValue(edit?.direction ?? shot.direction, edit?.cameraLanguage ?? shot.cameraLanguage)} onChange={direction => updateShotEdit(shot, { direction, cameraLanguage: direction.cameraLanguage })} /></details>
               <button type="button" disabled={Boolean(busy) || !edit} onClick={() => handleUpdateShot(shot)}><Save size={14} />保存调整</button>
@@ -1581,9 +1608,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
               <select aria-label={`镜头${index + 1}恢复方式`} disabled={Boolean(busy)} value={recoveryModes[shot.id] || 'replace_candidate'} onChange={event => setRecoveryModes(current => ({ ...current, [shot.id]: event.target.value }))}>
                 <option value="replace_candidate">替换候选</option>
                 <option value="reshoot_shot">完整重拍</option>
+                <option value="reshoot_range">区间重拍</option>
                 <option value="extend_shot">延长镜头</option>
               </select>
               {(recoveryModes[shot.id] || 'replace_candidate') === 'extend_shot' && <label className="video-project-recovery-extension"><span>延长</span><input aria-label={`镜头${index + 1}延长秒数`} type="number" min="0.5" max="30" step="0.5" value={recoveryExtensions[shot.id] ?? 2.5} disabled={Boolean(busy)} onChange={event => setRecoveryExtensions(current => ({ ...current, [shot.id]: event.target.value }))} /><small>秒</small></label>}
+              {(recoveryModes[shot.id] || 'replace_candidate') === 'reshoot_range' && <label className="video-project-recovery-extension"><span>区间</span><input aria-label={`镜头${index + 1}重拍起始秒`} type="number" min="0" step="0.5" value={recoveryRanges[shot.id]?.start ?? 1} disabled={Boolean(busy)} onChange={event => setRecoveryRanges(current => ({ ...current, [shot.id]: { ...current[shot.id], start: Number(event.target.value) } }))} />至<input aria-label={`镜头${index + 1}重拍结束秒`} type="number" min="0.5" step="0.5" value={recoveryRanges[shot.id]?.end ?? 3} disabled={Boolean(busy)} onChange={event => setRecoveryRanges(current => ({ ...current, [shot.id]: { ...current[shot.id], end: Number(event.target.value) } }))} /><small>秒</small></label>}
               <button type="button" className="video-project-recovery-action" disabled={Boolean(busy)} onClick={() => handleCreateShotRecoveryPlan(shot)}>
                 {busy === `recovery:${shot.id}` ? <><LoaderCircle size={14} className="is-spinning" />保存中</> : <><RefreshCw size={14} />建立单镜头重拍计划</>}
               </button>

@@ -5,6 +5,7 @@ const RECOVERY_MODES = new Set([
   'replace_candidate',
   'rebuild_shot',
   'reshoot_shot',
+  'reshoot_range',
   'extend_shot',
   'track_replace',
 ]);
@@ -63,12 +64,29 @@ function normalizeRegion(region) {
   return { x, y, width, height };
 }
 
-function buildEditIntent(shot, mode, { extensionMs, region } = {}) {
+function buildEditIntent(shot, mode, { extensionMs, region, rangeStartMs, rangeEndMs } = {}) {
   const sourceDurationMs = Number.isInteger(shot.durationMs) && shot.durationMs > 0 ? shot.durationMs : null;
   if (mode === 'reshoot_shot') {
     return {
       operation: 'reshoot', strategy: 'preserve_bindings', sourceDurationMs,
       extensionMs: 0, targetDurationMs: sourceDurationMs, region: null,
+    };
+  }
+  if (mode === 'reshoot_range') {
+    if (sourceDurationMs === null) {
+      throw Object.assign(new Error('shot duration is required for a range reshoot'), { code: 'SHOT_RECOVERY_INVALID' });
+    }
+    if (!Number.isSafeInteger(rangeStartMs) || !Number.isSafeInteger(rangeEndMs)
+      || rangeStartMs < 0 || rangeStartMs >= sourceDurationMs
+      || rangeEndMs <= rangeStartMs || rangeEndMs > sourceDurationMs
+      || rangeEndMs - rangeStartMs < 500) {
+      throw Object.assign(new Error('reshoot range is invalid'), { code: 'SHOT_RECOVERY_INVALID' });
+    }
+    return {
+      operation: 'reshoot', strategy: 'preserve_untouched_ranges', sourceDurationMs,
+      extensionMs: 0, targetDurationMs: sourceDurationMs, region: null,
+      range: { startMs: rangeStartMs, endMs: rangeEndMs },
+      fallbackToWholeShot: rangeStartMs === 0 && rangeEndMs === sourceDurationMs,
     };
   }
   if (mode === 'extend_shot') {
@@ -102,6 +120,8 @@ export function buildShotRecoveryPlan(workbench, {
   mode = 'replace_candidate',
   extensionMs,
   region,
+  rangeStartMs,
+  rangeEndMs,
 } = {}) {
   const shots = sortedShots(workbench);
   const shot = assertShot(shotId, shots);
@@ -120,7 +140,7 @@ export function buildShotRecoveryPlan(workbench, {
     .filter(clip => clip?.shotId !== shot.id && clip?.status === 'active')
     .sort((left, right) => (Number(left.position) - Number(right.position)) || String(left.id).localeCompare(String(right.id)))
     .map(clip => clip.id);
-  const edit = buildEditIntent(shot, normalizedMode, { extensionMs, region });
+  const edit = buildEditIntent(shot, normalizedMode, { extensionMs, region, rangeStartMs, rangeEndMs });
 
   const payload = {
     schemaVersion: 1,

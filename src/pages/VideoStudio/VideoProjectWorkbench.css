@@ -492,6 +492,14 @@
   margin: 0 0 6px; display: inline-flex; align-items: center; gap: 5px;
   color: #6b5cc4; font-size: 11px; line-height: 1.4;
 }
+.video-project-route-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted, #6b7280);
+  font-size: 12px;
+}
+
 .video-project-shot-frames {
   margin: 0 0 8px; color: #8a7f6f; font-size: 10px; line-height: 1.4;
 }

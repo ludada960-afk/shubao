@@ -60,7 +60,7 @@ test('shot recovery plan supports rebuilding a shot without accepting unknown mo
   assert.throws(() => buildShotRecoveryPlan(workbench, { shotId: 'missing' }),
     error => error.code === 'SHOT_NOT_FOUND');
   assert.deepEqual(videoShotRecoveryLimits.modes.sort(), [
-    'extend_shot', 'rebuild_shot', 'replace_candidate', 'reshoot_shot', 'track_replace',
+    'extend_shot', 'rebuild_shot', 'replace_candidate', 'reshoot_range', 'reshoot_shot', 'track_replace',
   ]);
 });
 
@@ -345,3 +345,65 @@ function stableValueForTest(value) {
   if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableValueForTest(value[key])}`).join(',')}}`;
   return JSON.stringify(value);
 }
+test('reshoot range preserves untouched ranges with a bounded window', () => {
+  const timedWorkbench = {
+    ...workbench,
+    shots: [
+      { id: 'shot-b', position: 1, selectedCandidateId: 'candidate-b', revision: 3 },
+      { id: 'shot-a', position: 0, selectedCandidateId: 'candidate-a', revision: 2, durationMs: 4000 },
+    ],
+  };
+  const plan = buildShotRecoveryPlan(timedWorkbench, {
+    shotId: 'shot-a', mode: 'reshoot_range', rangeStartMs: 1000, rangeEndMs: 2500,
+  });
+  assert.equal(plan.mode, 'reshoot_range');
+  assert.deepEqual(plan.edit, {
+    operation: 'reshoot', strategy: 'preserve_untouched_ranges', sourceDurationMs: 4000,
+    extensionMs: 0, targetDurationMs: 4000, region: null,
+    range: { startMs: 1000, endMs: 2500 }, fallbackToWholeShot: false,
+  });
+  assert.strictEqual(assertShotRecoveryPlanIntegrity(plan), plan);
+
+  for (const bad of [
+    { rangeStartMs: -1, rangeEndMs: 1000 },
+    { rangeStartMs: 2000, rangeEndMs: 2000 },
+    { rangeStartMs: 3000, rangeEndMs: 5000 },
+    { rangeStartMs: 0, rangeEndMs: 400 },
+    {},
+  ]) {
+    assert.throws(() => buildShotRecoveryPlan(timedWorkbench, { shotId: 'shot-a', mode: 'reshoot_range', ...bad }),
+      error => error.code === 'SHOT_RECOVERY_INVALID');
+  }
+  assert.throws(() => buildShotRecoveryPlan(workbench, {
+    shotId: 'shot-a', mode: 'reshoot_range', rangeStartMs: 0, rangeEndMs: 1000,
+  }), error => error.code === 'SHOT_RECOVERY_INVALID');
+
+  const whole = buildShotRecoveryPlan(timedWorkbench, {
+    shotId: 'shot-a', mode: 'reshoot_range', rangeStartMs: 0, rangeEndMs: 4000,
+  });
+  assert.equal(whole.edit.fallbackToWholeShot, true);
+});
+
+test('reshoot range compiles through the existing reshoot execution path', () => {
+  const graph = {
+    shots: [{
+      id: 'shot-a', position: 0, selectedCandidateId: 'candidate-a', revision: 2, durationMs: 4000,
+      candidates: [{
+        id: 'candidate-a', contentHash: 'video-hash', mimeType: 'video/mp4', stableUrl: '/api/video/assets/video-a',
+        projectAssetRefStatus: 'verified',
+        projectAssetRef: { projectId: 'project-a', projectAssetId: 'project-asset-a', assetId: 'video-a', contentHash: 'video-hash', mimeType: 'video/mp4', stableUrl: '/api/video/assets/video-a' },
+      }],
+    }],
+    timelineClips: [{ id: 'clip-a', shotId: 'shot-a', candidateId: 'candidate-a', position: 0, trimStartMs: 0, trimEndMs: 4000, muted: false, revision: 1, status: 'active' }],
+  };
+  const plan = buildShotRecoveryPlan(graph, {
+    shotId: 'shot-a', mode: 'reshoot_range', rangeStartMs: 1500, rangeEndMs: 3000,
+  });
+  const execution = compileShotRecoveryExecution({ ...plan, id: 'plan-range' }, graph);
+  assert.equal(execution.planId, 'plan-range');
+  assert.equal(execution.providerSubmission, false);
+  assert.equal(execution.billingMutation, false);
+  assert.match(execution.executionHash, /^[a-f0-9]{64}$/);
+  const application = buildShotRecoveryApplication(execution, graph);
+  assert.ok(application);
+});

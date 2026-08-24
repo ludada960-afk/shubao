@@ -62,7 +62,17 @@ function normalizeOptions(options = {}) {
   const resolution = text(options.resolution, 20).toLowerCase() || '720p';
   const generateAudio = options.generateAudio !== false;
   const routingObjective = text(options.routingObjective, 20).toLowerCase() || 'balanced';
-  return { productId, mode, resolution, generateAudio, routingObjective, budgetCapPoints: normalizeBudgetCap(options.budgetCapPoints) };
+  return {
+    productId,
+    mode,
+    resolution,
+    generateAudio,
+    routingObjective,
+    budgetCapPoints: normalizeBudgetCap(options.budgetCapPoints),
+    // VID-P3-05: bounded recent attempt rows handed to the router untouched;
+    // the router owns normalization and drops invalid entries.
+    routeHistory: Array.isArray(options.routeHistory) ? options.routeHistory.slice(0, 500) : null,
+  };
 }
 
 function referenceCounts(workbench, shots) {
@@ -150,6 +160,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
       direction,
       bindingCount: bindings.length,
       status: shot?.status || 'draft',
+      cost: quote ? { units: quote.units, points: quote.points } : null,
     };
   });
   const continuityReview = reviewShotContinuity(normalizedShots);
@@ -164,6 +175,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
       referenceCounts: referenceCounts(workbench, shots),
       objective: normalized.routingObjective,
     },
+    history: normalized.routeHistory ?? undefined,
   });
 
   if (normalized.generateAudio && !Array.isArray(workbench.audioTracks)) {

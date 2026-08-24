@@ -167,3 +167,55 @@ test('adapter rejects a provider submit callback that carries a mismatched reque
     error => error.code === 'RENDERER_RESPONSE_INVALID',
   );
 });
+
+function preflightRequest() {
+  const claimed = claimVideoExportJob(preflightJob(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  return buildVideoRendererRequest({ job: claimed, manifest, now: claimed.updatedAt });
+}
+
+test('settlement usage within the attested budget passes through the adapter', async () => {
+  const request = preflightRequest();
+  const adapter = createVideoRendererAdapter({
+    name: 'settling-renderer',
+    submit: async () => ({ externalJobId: 'remote-ok', status: 'completed', usage: { points: 62 } }),
+  });
+  const settled = await adapter.submit(request);
+  assert.deepEqual(settled.usage, { currency: 'ai_points', points: 62 });
+});
+
+test('settlement usage above the attested maximum fails closed', async () => {
+  const request = preflightRequest();
+  const adapter = createVideoRendererAdapter({
+    name: 'over-budget-renderer',
+    submit: async () => ({ externalJobId: 'remote-over', status: 'completed', usage: { points: 63 } }),
+  });
+  await assert.rejects(adapter.submit(request), error => error.code === 'RENDER_SETTLEMENT_BUDGET_EXCEEDED');
+});
+
+test('settlement usage must be a safe non-negative integer', async () => {
+  const request = preflightRequest();
+  for (const bad of [-1, 1.5, 'abc']) {
+    const adapter = createVideoRendererAdapter({
+      name: 'bad-usage-renderer',
+      submit: async () => ({ externalJobId: 'remote-bad', status: 'completed', usage: { points: bad } }),
+    });
+    await assert.rejects(adapter.submit(request), error => error.code === 'RENDERER_RESPONSE_INVALID');
+  }
+});
+
+test('a legal usage declaration is accepted even without a budget contract', async () => {
+  const claimed = claimVideoExportJob(job(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  const request = buildVideoRendererRequest({ job: claimed, manifest });
+  const adapter = createVideoRendererAdapter({
+    name: 'free-renderer',
+    submit: async () => ({ externalJobId: 'remote-free', status: 'completed', usage: { points: 10 } }),
+  });
+  const settled = await adapter.submit(request);
+  assert.deepEqual(settled.usage, { currency: 'ai_points', points: 10 });
+});

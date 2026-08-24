@@ -855,6 +855,14 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_shot_recovery_plans_project
       ON video_shot_recovery_plans(owner_email, project_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS video_candidate_selections (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      shot_id TEXT NOT NULL, candidate_id TEXT NOT NULL, operation TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(project_id) REFERENCES projects(id), FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_candidate_selections_project
+      ON video_candidate_selections(owner_email, project_id, created_at DESC);
   `);
   const shotColumns = db.prepare(`PRAGMA table_info(video_storyboard_shots)`).all();
   if (!shotColumns.some(column => column.name === 'direction_json')) {
@@ -1589,6 +1597,11 @@ export function createVideoWorkbenchStore({
         const status = shot.status === 'stale' || hasOutdatedBinding ? 'stale' : 'approved';
         db.prepare(`UPDATE video_storyboard_shots SET selected_candidate_id = ?, status = ?,
           revision = revision + 1, updated_at = ? WHERE id = ?`).run(candidate.id, status, changedAt, shot.id);
+        // VID-P3-06: only this explicit selection is a preference signal.
+        db.prepare(`INSERT INTO video_candidate_selections
+          (id, owner_email, project_id, shot_id, candidate_id, operation, created_at)
+          VALUES (?, ?, ?, ?, ?, 'select_shot_candidate', ?)`)
+          .run(randomUUID(), owner, project.id, shot.id, candidate.id, changedAt);
         return {
           shot: requireShot(owner, project.id, shot.id),
           candidate: requireCandidate(owner, project.id, shot.id, candidate.id),
@@ -1705,6 +1718,12 @@ export function createVideoWorkbenchStore({
             muted ? 1 : 0, changedAt, changedAt,
           );
         }
+        // VID-P3-06: an explicit timeline application is also a preference signal;
+        // the replay branch returned earlier so it never double-counts.
+        db.prepare(`INSERT INTO video_candidate_selections
+          (id, owner_email, project_id, shot_id, candidate_id, operation, created_at)
+          VALUES (?, ?, ?, ?, ?, 'apply_candidate_to_timeline', ?)`)
+          .run(randomUUID(), owner, project.id, shot.id, candidate.id, changedAt);
         const hasOutdatedBinding = Boolean(db.prepare(`SELECT 1 FROM video_shot_asset_bindings b
           JOIN video_workbench_assets a ON a.id = b.asset_id
           WHERE b.owner_email = ? AND b.project_id = ? AND b.shot_id = ?
@@ -2778,6 +2797,43 @@ export function createVideoWorkbenchStore({
       })();
     },
 
+    listCandidateSelections({ ownerEmail, projectId, limit = 1000 } = {}) {
+      requireProject(ownerEmail, projectId);
+      const boundedLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 1000) : 1000;
+      return db.prepare(`SELECT id, shot_id AS shotId, candidate_id AS candidateId,
+        operation, created_at AS selectedAt
+        FROM video_candidate_selections
+        WHERE owner_email = ? AND project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`)
+        .all(ownerEmail, projectId, boundedLimit);
+    },
+
+    recentRouteHistory({ ownerEmail, projectId, limit = 200 } = {}) {
+      requireProject(ownerEmail, projectId);
+      const boundedLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 500) : 200;
+      const tableExists = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'video_job_attempts'"
+      ).get();
+      if (!tableExists) return [];
+      return db.prepare(`
+        SELECT id, provider, model, state, capability_json AS capabilityJson,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM video_job_attempts ORDER BY created_at DESC, id DESC LIMIT ?
+      `).all(boundedLimit).map(row => {
+        let productId = '';
+        try {
+          const capability = JSON.parse(row.capabilityJson || '{}');
+          if (capability && typeof capability === 'object' && !Array.isArray(capability)) {
+            productId = String(capability.productId ?? '').trim().slice(0, 80);
+          }
+        } catch {
+          productId = '';
+        }
+        return {
+          id: row.id, provider: row.provider, model: row.model, state: row.state,
+          productId, createdAt: row.createdAt, updatedAt: row.updatedAt,
+        };
+      });
+    },
     listWorkbench({ ownerEmail, projectId }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const assets = db.prepare(`SELECT * FROM video_workbench_assets
@@ -2824,10 +2880,10 @@ export function createVideoWorkbenchStore({
       };
     },
 
-    createShotRecoveryPlan({ ownerEmail, projectId, shotId, reason = '', mode = 'replace_candidate', extensionMs, region }) {
+    createShotRecoveryPlan({ ownerEmail, projectId, shotId, reason = '', mode = 'replace_candidate', extensionMs, region, rangeStartMs, rangeEndMs }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const plan = buildShotRecoveryPlan(api.listWorkbench({ ownerEmail: owner, projectId: project.id }), {
-        shotId, reason, mode, extensionMs, region,
+        shotId, reason, mode, extensionMs, region, rangeStartMs, rangeEndMs,
       });
       assertShotRecoveryPlanIntegrity(plan);
       const existing = db.prepare(`SELECT * FROM video_shot_recovery_plans

@@ -50,8 +50,10 @@ function budgetCap(value) {
 
 /**
  * Pull the immutable quote and cap from the strict preflight stored on the
- * export job. This is an attestation for the provider-neutral handoff, not a
- * provider billing result; actual usage settlement remains a later contract.
+ * export job. This is an attestation for the provider-neutral handoff. When
+ * a provider later reports actual usage on its response, settlementUsage
+ * enforces the same attested ceiling before anything downstream may treat
+ * the attempt as settled.
  */
 function budgetPolicyFromPreflight(job) {
   if (!job?.preflightHash) return null;
@@ -96,6 +98,35 @@ function validBudgetPolicy(value) {
     return false;
   }
   return true;
+}
+
+/**
+ * Enforce the attested budget ceiling against a provider-reported usage
+ * declaration at settlement time. Fails closed: an over-cap or malformed
+ * usage never normalizes into an accepted renderer response.
+ */
+function settlementUsage(value, request) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw coded('RENDERER_RESPONSE_INVALID', '渲染器用量声明无效');
+  }
+  const raw = value.points;
+  const points = typeof raw === 'number'
+    ? raw
+    : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(points) || points < 0) {
+    throw coded('RENDERER_RESPONSE_INVALID', '渲染器用量积分无效');
+  }
+  const policy = request?.budgetPolicy;
+  if (policy) {
+    const capPoints = policy.requestedCapPoints === null
+      ? policy.maximumPoints
+      : Math.min(policy.maximumPoints, policy.requestedCapPoints);
+    if (points > capPoints) {
+      throw coded('RENDER_SETTLEMENT_BUDGET_EXCEEDED', `实际消耗 ${points} 积分超过预算上限 ${capPoints} 积分`);
+    }
+  }
+  return { currency: 'ai_points', points };
 }
 
 function payloadWithoutHash(request) {
@@ -208,6 +239,8 @@ function normalizeProviderResponse(response, request) {
   for (const field of ['outputAssetId', 'outputUrl', 'errorCode', 'errorMessage']) {
     if (response[field] !== undefined) normalized[field] = String(response[field] || '').trim();
   }
+  const usage = settlementUsage(response.usage, request);
+  if (usage) normalized.usage = usage;
   return normalized;
 }
 

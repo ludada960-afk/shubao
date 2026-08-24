@@ -236,6 +236,12 @@ export function mountVideoWorkbenchRoutes(app, {
     throw new TypeError('app must provide get, post and patch');
   }
 
+  // VID-P3-05: every plan build consumes the same bounded recent-history query
+  // so preview, approval, preflight and drafts stay fingerprint-consistent.
+  const routeHistoryFor = request => {
+    if (typeof store.recentRouteHistory !== 'function') return {};
+    return { routeHistory: store.recentRouteHistory(request) };
+  };
   const input = req => {
     const ownerEmail = ownerFor(req, authenticateOwner);
     authorizeCohort.requireEligible(ownerEmail);
@@ -277,6 +283,7 @@ export function mountVideoWorkbenchRoutes(app, {
         resolution: req.query?.resolution,
         generateAudio: req.query?.generateAudio !== 'false',
         budgetCapPoints: req.query?.budgetCapPoints,
+        ...routeHistoryFor(request),
         });
         plan.planHash = videoWorkbenchPlanFingerprint(plan);
         const approval = typeof store.getGenerationPlanApproval === 'function'
@@ -302,6 +309,7 @@ export function mountVideoWorkbenchRoutes(app, {
         moderation: req.body?.moderation,
         storage: req.body?.storage,
         budgetCapPoints: req.body?.budgetCapPoints,
+        ...routeHistoryFor(request),
       };
       const plan = buildVideoWorkbenchPlan(store.listWorkbench(request), options);
       return {
@@ -321,6 +329,7 @@ export function mountVideoWorkbenchRoutes(app, {
         resolution: req.body?.resolution,
         generateAudio: req.body?.generateAudio !== false,
         budgetCapPoints: req.body?.budgetCapPoints,
+        ...routeHistoryFor(request),
       });
       assertVideoWorkbenchBudget(plan);
       const planHash = videoWorkbenchPlanFingerprint(plan);
@@ -339,6 +348,7 @@ export function mountVideoWorkbenchRoutes(app, {
         resolution: req.body?.resolution,
         generateAudio: req.body?.generateAudio !== false,
         budgetCapPoints: req.body?.budgetCapPoints,
+        ...routeHistoryFor(request),
       };
       const workbench = store.listWorkbench(request);
       const plan = buildVideoWorkbenchPlan(workbench, options);
@@ -498,6 +508,8 @@ export function mountVideoWorkbenchRoutes(app, {
       mode: req.body?.mode,
       extensionMs: req.body?.extensionMs,
       region: req.body?.region,
+      rangeStartMs: req.body?.rangeStartMs,
+      rangeEndMs: req.body?.rangeEndMs,
     }), { status: value => (value?.replayed ? 200 : 201), key: 'plan' },
   ));
 
