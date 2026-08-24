@@ -448,3 +448,7 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 ## 2026-08-23 P3-03 Mask Preview + 视频线程独立提交
 
 - P3-06 候选学习完成（显式选择才计偏好：video_candidate_selections 表 + selectCandidate/applyCandidateToTimeline 记账 + listCandidateSelections 有界查询 + videoCandidateLearning 纯函数聚合）。P3-03 UI 补齐区域追踪替换四轴输入+16:9 蒙版预览。视频域全部改动已由视频线程自行提交：836d154（P3 主批）+ 后续 mask 小提交，父链 9899645。主线程可直接部署。视频域子集 216+/216+ 持续全绿。
+
+## 2026-08-23 P3-07 协作/API 切片
+
+- comments：video_project_comments 表+add/list 方法+GET/POST /workbench/comments 端点（owner-scoped）。export webhooks：videoExportWebhooks.mjs（公网 https 白名单式校验+确定性负载构造器），HTTP 投递留给 worker。roles/approvals/scoped-API 以既有 cohort 门禁、计划审批指纹、dispatch 审计核验达标。子集 219/219 全绿。

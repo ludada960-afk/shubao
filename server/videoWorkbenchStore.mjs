@@ -863,6 +863,14 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_candidate_selections_project
       ON video_candidate_selections(owner_email, project_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS video_project_comments (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      shot_id TEXT, author_email TEXT NOT NULL, body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_project_comments_project
+      ON video_project_comments(owner_email, project_id, created_at DESC);
   `);
   const shotColumns = db.prepare(`PRAGMA table_info(video_storyboard_shots)`).all();
   if (!shotColumns.some(column => column.name === 'direction_json')) {
@@ -2795,6 +2803,40 @@ export function createVideoWorkbenchStore({
         );
         return requireSkillRun(owner, project.id, runId).run;
       })();
+    },
+
+    addProjectComment({ ownerEmail, projectId, shotId = null, body }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const trimmed = String(body ?? '').trim();
+      if (!trimmed || trimmed.length > 2000) {
+        throw Object.assign(new Error('comment body must be 1..2000 characters'), { code: 'VIDEO_COMMENT_INVALID' });
+      }
+      let linkedShotId = null;
+      if (shotId !== undefined && shotId !== null && shotId !== '') {
+        linkedShotId = requireShot(owner, project.id, shotId).id;
+      }
+      const id = `cmt-${randomUUID()}`;
+      const createdAt = timestamp();
+      db.prepare(`INSERT INTO video_project_comments
+        (id, owner_email, project_id, shot_id, author_email, body, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, owner, project.id, linkedShotId, owner, trimmed, createdAt);
+      return { id, projectId: project.id, shotId: linkedShotId, authorEmail: owner, body: trimmed, createdAt };
+    },
+
+    listProjectComments({ ownerEmail, projectId, shotId = null, limit = 200 } = {}) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const boundedLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 500) : 200;
+      const rows = shotId
+        ? db.prepare(`SELECT id, shot_id AS shotId, author_email AS authorEmail, body, created_at AS createdAt
+            FROM video_project_comments
+            WHERE owner_email = ? AND project_id = ? AND shot_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`)
+            .all(owner, project.id, shotId, boundedLimit)
+        : db.prepare(`SELECT id, shot_id AS shotId, author_email AS authorEmail, body, created_at AS createdAt
+            FROM video_project_comments
+            WHERE owner_email = ? AND project_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`)
+            .all(owner, project.id, boundedLimit);
+      return rows;
     },
 
     listCandidateSelections({ ownerEmail, projectId, limit = 1000 } = {}) {

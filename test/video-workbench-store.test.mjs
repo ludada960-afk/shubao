@@ -1679,3 +1679,26 @@ test('explicit candidate selections are recorded once and listed for learning', 
   const limited = store.listCandidateSelections({ ownerEmail: OWNER, projectId: project.id, limit: 1 });
   assert.equal(limited.length, 1);
 });
+test('project comments are bounded, owner-scoped and optionally shot-linked', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '评审', durationMs: 4000, prompt: '评论锚点镜头' });
+  const general = store.addProjectComment({ ownerEmail: OWNER, projectId: project.id, body: '整体节奏不错' });
+  const targeted = store.addProjectComment({ ownerEmail: OWNER, projectId: project.id,
+    shotId: shot.id, body: '这一镜的转场再快一点' });
+  assert.match(general.id, /^cmt-/);
+  assert.equal(targeted.shotId, shot.id);
+  const rows = store.listProjectComments({ ownerEmail: OWNER, projectId: project.id });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].body, '这一镜的转场再快一点', 'newest first');
+  const shotRows = store.listProjectComments({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id });
+  assert.deepEqual(shotRows.map(row => row.body), ['这一镜的转场再快一点']);
+  // 空 body / 超长 body 拒绝
+  assert.throws(() => store.addProjectComment({ ownerEmail: OWNER, projectId: project.id, body: '  ' }),
+    error => error.code === 'VIDEO_COMMENT_INVALID');
+  assert.throws(() => store.addProjectComment({ ownerEmail: OWNER, projectId: project.id,
+    body: 'x'.repeat(2001) }), error => error.code === 'VIDEO_COMMENT_INVALID');
+  // 有界查询
+  assert.equal(store.listProjectComments({ ownerEmail: OWNER, projectId: project.id, limit: 1 }).length, 1);
+});

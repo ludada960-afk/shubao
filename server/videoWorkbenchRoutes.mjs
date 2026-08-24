@@ -274,6 +274,26 @@ export function mountVideoWorkbenchRoutes(app, {
     projectPlayableMedia(store.listWorkbench(request), request.ownerEmail, req, playbackUrlForAsset)
   )));
 
+  app.get('/api/video/projects/:projectId/workbench/comments', (req, res) => dispatch(
+    req, res, 'workbench.comments.read', request => ({
+      comments: store.listProjectComments({
+        ...request,
+        shotId: req.query?.shotId || null,
+        ...(req.query?.limit ? { limit: Number(req.query.limit) } : {}),
+      }),
+    }),
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/comments', (req, res) => dispatch(
+    req, res, 'workbench.comments.write', request => ({
+      comment: store.addProjectComment({
+        ...request,
+        shotId: req.body?.shotId ?? null,
+        body: req.body?.body,
+      }),
+    }), { status: 201, key: 'comment' },
+  ));
+
   app.get('/api/video/projects/:projectId/workbench/plan', (req, res) => dispatch(
     req, res, 'workbench.plan.read', request => ({
       ...(() => {

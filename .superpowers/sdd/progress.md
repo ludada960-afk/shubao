@@ -2970,3 +2970,13 @@ projectImageAssetImport（画布上传素材）和 projectVideoAssetImport（视
 - 协作记录：主线程部署 gate 失败根因是视频线程未提交改动；视频线程将 P3 全部增量（P3-05 路由/P3-01 区间重拍/P3-06 候选学习/P1-07 守卫）以提交 836d154（父=9899645）完整入库，视频域工作树清空。本轮 mask 切片随后单独提交。
 
 - 验证证据：video-project-workbench-ui 2/2（含 track_replace/recoveryRegions/蒙版断言）、视频域完整子集回归绿、git diff --check 干净。无供应商提交、无账务变更、未部署。
+
+## 2026-08-23 VID-P3-07 Collaboration/API Slice (comments + export webhooks)
+
+- 项目评论全链路：video_project_comments 表（shot_id 可空外链镜头）、store.addProjectComment（body 有界 1..2000，VIDEO_COMMENT_INVALID fail-closed；作者=操作者单租户模型）、listProjectComments（有界≤500 倒序+可选 shotId 过滤）；routes 新增 GET/POST /workbench/comments（owner-scoped dispatch 沿用 cohort 门禁）。
+
+- 导出 webhook 订阅基础：server/videoExportWebhooks.mjs 纯函数——normalizeWebhookUrl 仅接受公网 https（拒 http/localhost/.local/私网 IPv4 字面量/超长），buildExportWebhookPayload 确定性 provider-neutral 负载；实际 HTTP 投递留待 worker 增量。
+
+- 核验达标项：team roles=既有 authorizeCohort.requireEligible cohort 门禁；scoped API=既有 owner-scoped REST dispatch（每端点 operationName 审计）。approvals=既有生成计划审批指纹机制。
+
+- 验证证据：video-collaboration 2/2、含协作模块的视频域完整子集 219/219、git diff --check 干净。提交 e319801。无供应商提交、无账务变更、未部署。
