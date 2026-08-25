@@ -7,6 +7,7 @@ import {
 } from './accessControl.mjs';
 import { buildUpstreamCostLedger } from './billing/upstreamLedger.mjs';
 import { buildUnitEconomicsCatalog } from './billing/unitEconomicsCatalog.mjs';
+import { VIDEO_PRODUCTS } from './videoCatalog.mjs';
 
 const CURRENCIES = ['ec_points', 'content_sets'];
 const MAX_CREDIT_ADJUSTMENT = 100_000_000;
@@ -51,8 +52,8 @@ const SKU_CLASSIFICATIONS = Object.freeze({
   video_seedance_fast_long: { feature: 'video_generation', provider: 'IP233' },
   video_seedance_standard_short: { feature: 'video_generation', provider: 'IP233' },
   video_seedance_standard_long: { feature: 'video_generation', provider: 'IP233' },
-  video_minimax_h3_2k_short: { feature: 'video_generation', provider: 'IP233' },
-  video_minimax_h3_2k_long: { feature: 'video_generation', provider: 'IP233' },
+  video_minimax_h3_2k_short: { feature: 'video_generation', provider: 'Poke' },
+  video_minimax_h3_2k_long: { feature: 'video_generation', provider: 'Poke' },
   video_plan_analysis: { feature: 'video_generation', provider: '65535' },
   ec_ai_assistant: { feature: 'visual_creation', provider: '65535' },
   ec_reverse_prompt: { feature: 'ecommerce_image', provider: '65535' },
@@ -504,6 +505,74 @@ export function createAdminOperations({
     return { operation, currency: selectedCurrency, units, balance: after, wallet: walletResult };
   }
 
+  // 视频成本看板：今日 / 近 7 日（UTC 口径，与 usage_events 的 datetime('now') 一致）。
+  // 毛利口径与既有 theoretical_contribution_cny 相同：积分面值收入 − 上游成本。
+  function videoCostBoard() {
+    const windows = {
+      today: "created_at >= datetime('now', 'start of day')",
+      last7Days: "created_at >= datetime('now', '-7 days')",
+    };
+    const queryWindow = where => db.prepare(`
+      SELECT
+        COALESCE(NULLIF(sku, ''), 'unclassified') AS sku,
+        COUNT(*) AS actions,
+        COALESCE(SUM(charged_units + shadow_units), 0) AS points_consumed,
+        COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
+        COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
+        COALESCE(SUM(provider_cost_cny), 0) AS provider_cost_cny
+      FROM usage_events
+      WHERE substr(sku, 1, 6) = 'video_' AND ${where}
+      GROUP BY sku
+    `).all();
+    const totalsOf = rows => rows.reduce((acc, row) => ({
+      calls: acc.calls + Number(row.actions || 0),
+      pointsConsumed: acc.pointsConsumed + Number(row.points_consumed || 0),
+      theoreticalRevenueCny: acc.theoreticalRevenueCny + Number(row.theoretical_revenue || 0),
+      cashRevenueCny: acc.cashRevenueCny + Number(row.cash_revenue || 0),
+      providerCostCny: acc.providerCostCny + Number(row.provider_cost_cny || 0),
+    }), { calls: 0, pointsConsumed: 0, theoreticalRevenueCny: 0, cashRevenueCny: 0, providerCostCny: 0 });
+    const withGrossProfit = totals => ({
+      ...totals,
+      theoreticalRevenueCny: roundMoney(totals.theoreticalRevenueCny),
+      cashRevenueCny: roundMoney(totals.cashRevenueCny),
+      providerCostCny: roundMoney(totals.providerCostCny),
+      grossProfitCny: roundMoney(totals.theoreticalRevenueCny - totals.providerCostCny),
+    });
+    const todayRows = queryWindow(windows.today);
+    const weekRows = queryWindow(windows.last7Days);
+    const todayBySku = new Map(todayRows.map(row => [row.sku, row]));
+    const byModel = weekRows.map(row => {
+      const productId = String(row.sku).replace(/^video_/, '').replace(/_(short|long)$/, '');
+      const product = VIDEO_PRODUCTS[productId];
+      const todayRow = todayBySku.get(row.sku);
+      const revenue = Number(row.theoretical_revenue || 0);
+      const cost = Number(row.provider_cost_cny || 0);
+      const actions = Number(row.actions || 0);
+      return {
+        productId,
+        label: product?.label || productId,
+        provider: SKU_CLASSIFICATIONS[row.sku]?.provider || (productId.startsWith('minimax') ? 'Poke' : 'IP233'),
+        skus: [row.sku],
+        callsToday: Number(todayRow?.actions || 0),
+        calls7d: actions,
+        pointsConsumed7d: Number(row.points_consumed || 0),
+        theoreticalRevenueCny7d: roundMoney(revenue),
+        cashRevenueCny7d: roundMoney(Number(row.cash_revenue || 0)),
+        providerCostCny7d: roundMoney(cost),
+        avgCostPerCallCny7d: actions > 0 ? roundMoney(cost / actions) : null,
+        grossProfitCny7d: roundMoney(revenue - cost),
+        theoreticalMargin7d: revenue > 0 ? Number(((revenue - cost) / revenue).toFixed(4)) : null,
+      };
+    }).sort((left, right) => right.providerCostCny7d - left.providerCostCny7d || right.calls7d - left.calls7d);
+    return {
+      timezoneNote: 'utc',
+      grossProfitFormula: 'credit_face_value_cny - provider_cost_cny',
+      today: withGrossProfit(totalsOf(todayRows)),
+      last7Days: withGrossProfit(totalsOf(weekRows)),
+      byModel,
+    };
+  }
+
   function summary(input = {}) {
     const usageWhere = whereForUsage(input);
     const row = db.prepare(`
@@ -579,6 +648,7 @@ export function createAdminOperations({
       bySku,
       unitEconomicsCatalog: buildUnitEconomicsCatalog(),
       upstreamLedger: buildUpstreamCostLedger({ bySku, localSettledCostCny: providerCost }),
+      videoCost: videoCostBoard(),
       jobs,
     };
   }

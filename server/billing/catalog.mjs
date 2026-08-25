@@ -29,12 +29,18 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
   // Video products are priced against the least favorable point package and
   // include the payment-cost allowance in the contribution-margin gate.
-  video_seedance_fast_short: { units: 40000, providerCostCny: 2.47 },
-  video_seedance_fast_long: { units: 46000, providerCostCny: 2.47 },
-  video_seedance_standard_short: { units: 62000, providerCostCny: 3.64 },
-  video_seedance_standard_long: { units: 72000, providerCostCny: 3.64 },
-  video_minimax_h3_2k_short: { units: 68000, providerCostCny: 3.25, public: false },
-  video_minimax_h3_2k_long: { units: 78000, providerCostCny: 3.25, public: false },
+  // 成本口径（2026-09 核定）：
+  // - Seedance（IP233 按条计费）：720p ¥5.07/条；1080p ¥6.37/条（1080p 产品未上架，先留档）。
+  // - MiniMax H3 经 Poke 中转（0.2× 折扣后 input $0.42–0.84、output $1.68–3.36 /1M token）。
+  //   每条估算：典型任务 prompt≈600 字 + 2 张参考图（≈2.6k 输入 token）、2K 约 300k 输出 token
+  //   （≈50k token/秒 × 6 秒），按中位价 (2.6×0.63 + 300×2.52)/1000 ≈ $0.758 ≈ ¥5.45（汇率 7.2）。
+  //   该值为估算（cost_confidence=low），待首张真实账单校准；输入端封顶 ≤¥0.15/条，误差主要在输出 token 单耗。
+  video_seedance_fast_short: { units: 40000, providerCostCny: 5.07 },
+  video_seedance_fast_long: { units: 46000, providerCostCny: 5.07 },
+  video_seedance_standard_short: { units: 62000, providerCostCny: 5.07 },
+  video_seedance_standard_long: { units: 72000, providerCostCny: 5.07 },
+  video_minimax_h3_2k_short: { units: 68000, providerCostCny: 5.45, public: false },
+  video_minimax_h3_2k_long: { units: 78000, providerCostCny: 5.45, public: false },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.

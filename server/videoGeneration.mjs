@@ -722,6 +722,9 @@ export function createVideoGeneration({
           catalogVersion: job.catalog_version,
           resolution: job.resolution,
           duration: job.duration,
+          feature: 'video_generation',
+          provider: job.provider_route.startsWith('minimax') ? 'Poke' : 'IP233',
+          model: job.provider_route,
         },
       });
       db.transaction(() => {

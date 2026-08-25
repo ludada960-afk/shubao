@@ -8,7 +8,7 @@ test('upstream ledger contains the audited CNY snapshots and source state', () =
   assert.equal(ledger.version, UPSTREAM_LEDGER_VERSION);
   assert.match(ledger.currencyPolicy, /人民币 1:1/);
   assert.equal(ledger.providerReportedSpendCny, 25.7005);
-  assert.deepEqual(ledger.providers.map(provider => provider.id), ['relay_65535', 'change2pro', 'ip233']);
+  assert.deepEqual(ledger.providers.map(provider => provider.id), ['relay_65535', 'change2pro', 'ip233', 'poke']);
   assert.equal(ledger.providers[0].balanceCny, 6.6);
   assert.equal(ledger.providers[0].reportedSpendCny, 24.9205);
   assert.equal(ledger.providers[1].reportedSpendCny, 0.78);
@@ -16,10 +16,15 @@ test('upstream ledger contains the audited CNY snapshots and source state', () =
 
   const fast = ledger.routes.find(route => route.id === 'ip233-sd5-fast');
   assert.equal(fast.providerLabel, 'IP233 Media API');
-  assert.equal(fast.unitPriceCny, 2.47);
+  assert.equal(fast.unitPriceCny, 5.07);
   assert.equal(fast.status, 'connected');
   assert.match(fast.health, /库存/);
   assert.equal(fast.appActions.find(action => action.sku === 'video_seedance_fast_short').points, 40);
+
+  const minimax = ledger.routes.find(route => route.id === 'poke-minimax-h3');
+  assert.equal(minimax.providerLabel, 'Poke 中转（MiniMax）');
+  assert.equal(minimax.unitPriceCny, 5.45);
+  assert.equal(minimax.status, 'configured');
 });
 
 test('upstream ledger reconciles local settled cost by SKU without changing source totals', () => {
