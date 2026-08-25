@@ -46,6 +46,9 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('edit-text', '编辑文字', ['selection'], null, false, {
     type: 'inspector', handler: 'edit-text',
   }, { description: '识别并编辑画面中的文字' }),
+  action('add-text', '添加文字', ['selection'], null, false, {
+    type: 'local', handler: 'add-text',
+  }, { description: '在画布上添加可直接编辑的文字' }),
   action('grid-split', '宫格切分', ['selection'], 'grid-split', false, {
     type: 'focused-editor', handler: 'grid-split',
   }),

@@ -151,10 +151,12 @@ import {
 } from './generationRouteGuard.mjs';
 import {
   buildCanvasTransformPrompt,
+  canvasAnnotationSvg,
   cropRectForRatio,
   gridRects,
   gridRectsFromGuides,
   parseVisionTextBlocks,
+  resolveGridDimensions,
 } from './canvasTools.mjs';
 import { segmentUniformBackground } from './canvasSegmentation.mjs';
 import { generateCompleteImageSet } from './contentImageGeneration.mjs';
@@ -4430,39 +4432,6 @@ function canvasSplitRects(width, height, direction, splitPosition) {
   ];
 }
 
-function canvasAnnotationSvg(width, height, annotations, legacyText) {
-  const safeColor = value => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : '#ef4444';
-  const safeNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-  const list = Array.isArray(annotations) ? annotations.slice(0, 80) : [];
-  if (!list.length && String(legacyText || '').trim()) {
-    list.push({ tool: 'text', x: 0.06, y: 0.9, text: String(legacyText).trim().slice(0, 120), color: '#ef4444', width: 3 });
-  }
-  if (!list.length) throw new TypeError('请先在图片上完成标注');
-  const definitions = [];
-  const elements = list.map((shape, index) => {
-    const color = safeColor(shape.color);
-    const stroke = Math.max(1, Math.min(24, safeNumber(shape.width, 3) * Math.max(1, width / 1000)));
-    const x = clampCanvasUnit(shape.x) * width;
-    const y = clampCanvasUnit(shape.y) * height;
-    if (shape.tool === 'pen') {
-      const points = (shape.points || []).slice(0, 500).map(point => `${clampCanvasUnit(point.x) * width},${clampCanvasUnit(point.y) * height}`).join(' ');
-      return points ? `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>` : '';
-    }
-    if (shape.tool === 'rectangle') {
-      return `<rect x="${x}" y="${y}" width="${clampCanvasUnit(shape.w) * width}" height="${clampCanvasUnit(shape.h) * height}" fill="none" stroke="${color}" stroke-width="${stroke}"/>`;
-    }
-    if (shape.tool === 'arrow') {
-      const markerId = `arrow-${index}`;
-      definitions.push(`<marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${color}"/></marker>`);
-      return `<line x1="${clampCanvasUnit(shape.x1) * width}" y1="${clampCanvasUnit(shape.y1) * height}" x2="${clampCanvasUnit(shape.x2) * width}" y2="${clampCanvasUnit(shape.y2) * height}" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" marker-end="url(#${markerId})"/>`;
-    }
-    const text = escapeXml(String(shape.text || legacyText || '标注').trim().slice(0, 120));
-    const fontSize = Math.max(18, Math.min(96, stroke * 8));
-    return `<text x="${x}" y="${y}" fill="${color}" font-size="${fontSize}" font-family="sans-serif" font-weight="700">${text}</text>`;
-  }).join('');
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><defs>${definitions.join('')}</defs>${elements}</svg>`;
-}
-
 // 画布二次处理：像素级工具与 AI 工具统一返回稳定素材地址。
 app.post('/api/canvas/transform', async (req, res) => {
   const {
@@ -4476,6 +4445,8 @@ app.post('/api/canvas/transform', async (req, res) => {
     annotation = '',
     annotations = [],
     grid = 2,
+    grid_rows: gridRows,
+    grid_columns: gridColumns,
     grid_vertical: gridVertical,
     grid_horizontal: gridHorizontal,
     direction = 'vertical',
@@ -4518,12 +4489,20 @@ app.post('/api/canvas/transform', async (req, res) => {
       const metadata = await sharp(sourceBuffer).metadata();
       const width = metadata.width || 1;
       const height = metadata.height || 1;
-      const gridSize = Math.max(2, Math.min(5, Math.round(Number(grid) || 2)));
-      if (width < gridSize || height < gridSize) {
-        return res.status(400).json({ error: `图片尺寸过小，无法拆分为 ${gridSize * gridSize} 张独立切片` });
+      // 行列已拆分为独立维度：优先取显式 grid_rows/grid_columns，其次从可拖拽分割线数量推导，最后回退旧 N×N 档位。
+      const legacyGridSize = Math.max(2, Math.min(5, Math.round(Number(grid) || 2)));
+      const { columns, rows } = resolveGridDimensions({
+        grid: legacyGridSize,
+        rows: gridRows,
+        columns: gridColumns,
+        horizontalPositions: gridHorizontal,
+        verticalPositions: gridVertical,
+      });
+      if (width < columns || height < rows) {
+        return res.status(400).json({ error: `图片尺寸过小，无法拆分为 ${rows * columns} 张独立切片` });
       }
       const urls = [];
-      for (const [index, rect] of gridRectsFromGuides(width, height, gridSize, gridSize, gridVertical, gridHorizontal).entries()) {
+      for (const [index, rect] of gridRectsFromGuides(width, height, columns, rows, gridVertical, gridHorizontal).entries()) {
         const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
         const asset = await generatedAssetStore.persistBuffer({
           buffer: output,
@@ -4532,7 +4511,7 @@ app.post('/api/canvas/transform', async (req, res) => {
         });
         urls.push({ url: asset.url, index });
       }
-      return res.json({ urls, count: urls.length, columns: gridSize, rows: gridSize });
+      return res.json({ urls, count: urls.length, columns, rows });
     }
 
     if (action === 'split-image') {

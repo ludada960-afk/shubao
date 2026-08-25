@@ -39,6 +39,7 @@ import {
   Square,
   Sparkles,
   Trash2,
+  Type,
   Ungroup,
   Undo2,
   WandSparkles,
@@ -68,6 +69,7 @@ import { VIDEO_CREATION_MODES, hasRequiredVideoInputs } from '../../VideoStudio/
 import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
 
 const ACTION_ICONS = {
+  'add-text': Type,
   'edit-text': FileText,
   'grid-split': Grid2X2,
   'layer-edit': Layers3,
@@ -93,6 +95,9 @@ const ADD_ACTIONS = [
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },
   { id: 'video', label: '生成视频', description: '用提示词、图片或视频创建营销成片', icon: ImagePlay },
 ];
+
+// 宫格行列各自可独立选择的档位（与服务端 GRID 上界一致）。
+const GRID_DIMENSION_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8];
 
 const LABELED_TOOLBAR_ACTIONS = new Set([
   'edit-text',
@@ -712,6 +717,9 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   const gestureRef = useRef(null);
   const stageRef = useRef(null);
   const [annotationTextDraft, setAnnotationTextDraft] = useState(null);
+  // 草稿双写：state 驱动输入框渲染，ref 保证「点完成」等离散事件能同步读到最新文字。
+  const annotationTextDraftRef = useRef(null);
+  const [customGridOpen, setCustomGridOpen] = useState(false);
   useEffect(() => {
     if (mode !== 'annotation') return undefined;
     const handleKeyDown = event => {
@@ -739,8 +747,10 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   const isAnnotation = mode === 'annotation';
   const isMoveScale = mode === 'move-scale';
   const grid = Number(options.grid) || 3;
-  const verticalGuides = getGridGuidePositions(grid, options.gridVertical);
-  const horizontalGuides = getGridGuidePositions(grid, options.gridHorizontal);
+  const gridRows = Number(options.gridRows ?? grid);
+  const gridCols = Number(options.gridCols ?? grid);
+  const verticalGuides = getGridGuidePositions(gridCols, options.gridVertical);
+  const horizontalGuides = getGridGuidePositions(gridRows, options.gridHorizontal);
   const ratios = mode === 'crop' ? ['原比例', '自由', '1:1', '3:4', '4:3', '9:16'] : [];
   const annotations = options.annotations || [];
   const cropRect = normalizeCanvasCropRect(options.cropRect || { x: 0.08, y: 0.08, w: 0.84, h: 0.84 });
@@ -763,17 +773,19 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
     annotationFuture: [],
   });
   const commitAnnotationText = () => {
-    if (!annotationTextDraft) return;
-    const text = String(annotationTextDraft.text || '').trim();
-    if (text) {
-      const shape = createCanvasAnnotation('text', annotationTextDraft, {
-        color: options.annotationColor,
-        width: options.annotationWidth,
-        text,
-      });
-      commitAnnotations([...annotations, shape]);
-    }
+    // flush 兜底：先清 ref 再提交，保证 blur / Enter / 点完成 多路触发时只落一次笔迹。
+    const draft = annotationTextDraftRef.current;
+    annotationTextDraftRef.current = null;
     setAnnotationTextDraft(null);
+    if (!draft) return;
+    const text = String(draft.text || '').trim();
+    if (!text) return;
+    const shape = createCanvasAnnotation('text', draft, {
+      color: options.annotationColor,
+      width: options.annotationWidth,
+      text,
+    });
+    commitAnnotations([...annotations, shape]);
   };
   const undoAnnotation = () => {
     const history = [...(options.annotationHistory || [])];
@@ -800,13 +812,40 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
       : { x: (1 - target / source) / 2, y: 0, w: target / source, h: 1 };
     onOptionChange?.({ ...options, ratio, cropRect: normalizeCanvasCropRect(rect) });
   };
+  // 宫格行列拆分：预设保持 N×N，自定义时行列各自独立（1~8），分割线拖拽复用 moveGridGuide。
+  const gridIsPreset = [2, 3, 4, 5].includes(gridRows) && gridRows === gridCols;
+  const applyGridPreset = value => {
+    setCustomGridOpen(false);
+    onOptionChange?.({
+      ...options,
+      grid: value,
+      gridRows: value,
+      gridCols: value,
+      gridVertical: getGridGuidePositions(value),
+      gridHorizontal: getGridGuidePositions(value),
+    });
+  };
+  const applyGridDimension = (axis, value) => {
+    const rows = axis === 'rows' ? value : gridRows;
+    const cols = axis === 'cols' ? value : gridCols;
+    onOptionChange?.({
+      ...options,
+      grid: Math.max(rows, cols),
+      gridRows: rows,
+      gridCols: cols,
+      gridVertical: getGridGuidePositions(cols, options.gridVertical),
+      gridHorizontal: getGridGuidePositions(rows, options.gridHorizontal),
+    });
+  };
   const onStagePointerDown = event => {
     event.stopPropagation();
     const point = pointFromEvent(event);
     if (isAnnotation) {
       const tool = options.annotationTool || 'pen';
       if (tool === 'text') {
-        setAnnotationTextDraft({ ...point, text: '' });
+        const draft = { ...point, text: '' };
+        annotationTextDraftRef.current = draft;
+        setAnnotationTextDraft(draft);
       } else {
         const shape = createCanvasAnnotation(tool, point, { color: options.annotationColor, width: options.annotationWidth });
         commitAnnotations([...annotations, shape]);
@@ -958,7 +997,11 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
         value={annotationTextDraft.text}
         style={{ left: `${annotationTextDraft.x * 100}%`, top: `${annotationTextDraft.y * 100}%`, color: options.annotationColor || '#ef4444' }}
         onPointerDown={event => event.stopPropagation()}
-        onChange={event => setAnnotationTextDraft(current => ({ ...current, text: event.target.value }))}
+        onChange={event => {
+          const next = { ...(annotationTextDraftRef.current || {}), text: event.target.value };
+          annotationTextDraftRef.current = next;
+          setAnnotationTextDraft(next);
+        }}
         onBlur={commitAnnotationText}
         onKeyDown={event => {
           if (event.key === 'Enter') { event.preventDefault(); commitAnnotationText(); }
@@ -969,7 +1012,12 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
     <div className="ec-canvas-focused-toolbar" role="toolbar" aria-label={FOCUSED_EDITOR_LABELS[mode]}>
       <strong>{FOCUSED_EDITOR_LABELS[mode]}</strong>
       {ratios.map(ratio => <button key={ratio} type="button" className={(options.ratio || '原比例') === ratio ? 'is-active' : ''} onClick={() => setCropRatio(ratio)}>{ratio}</button>)}
-      {isGrid && [2, 3, 4, 5].map(value => <button key={value} type="button" className={grid === value ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, grid: value, gridVertical: getGridGuidePositions(value), gridHorizontal: getGridGuidePositions(value) })}>{value} x {value}</button>)}
+      {isGrid && [2, 3, 4, 5].map(value => <button key={value} type="button" className={!customGridOpen && gridIsPreset && gridRows === value ? 'is-active' : ''} onClick={() => applyGridPreset(value)}>{value} x {value}</button>)}
+      {isGrid && <button type="button" className={!gridIsPreset || customGridOpen ? 'is-active' : ''} onClick={() => setCustomGridOpen(true)}>自定义</button>}
+      {isGrid && (customGridOpen || !gridIsPreset) && <>
+        <label className="ec-canvas-focused-field"><span>行</span><select aria-label="宫格行数" value={gridRows} onChange={event => applyGridDimension('rows', Number(event.target.value))}>{GRID_DIMENSION_CHOICES.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label className="ec-canvas-focused-field"><span>列</span><select aria-label="宫格列数" value={gridCols} onChange={event => applyGridDimension('cols', Number(event.target.value))}>{GRID_DIMENSION_CHOICES.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+      </>}
       {isSplit && ['vertical', 'horizontal'].map(direction => <button key={direction} type="button" className={(options.direction || 'vertical') === direction ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, direction })}>{direction === 'vertical' ? '垂直分割' : '水平分割'}</button>)}
       {isAnnotation && <>
         {[
@@ -994,7 +1042,7 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
       </>}
       <i />
       <button type="button" onClick={onCancel}><X size={15} />取消</button>
-      <button type="button" className="is-primary" disabled={isMoveScale && (!hasMoveSource || !hasMoveTarget)} onClick={onConfirm}><Check size={15} />完成</button>
+      <button type="button" className="is-primary" disabled={isMoveScale && (!hasMoveSource || !hasMoveTarget)} onPointerDown={() => { if (isAnnotation && annotationTextDraftRef.current) commitAnnotationText(); }} onClick={onConfirm}><Check size={15} />完成</button>
     </div>
   </div>;
 }

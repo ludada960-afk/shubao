@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, gridRectsFromGuides, normalizeCanvasLayerPlan, parseVisionLayers, parseVisionTextBlocks } from '../server/canvasTools.mjs';
+import { analyzeSceneCapabilities, buildCanvasTransformPrompt, canvasAnnotationSvg, cropRectForRatio, gridRects, gridRectsFromGuides, normalizeCanvasLayerPlan, parseVisionLayers, parseVisionTextBlocks, resolveGridDimensions } from '../server/canvasTools.mjs';
 import { segmentUniformBackground } from '../server/canvasSegmentation.mjs';
 
 test('builds action-specific canvas prompts without losing product identity rules', () => {
@@ -51,6 +51,34 @@ test('builds non-uniform grid rectangles from draggable guide positions', () => 
     { left: 750, top: 480, width: 250, height: 320 },
   ]);
   assert.equal(rects.reduce((sum, rect) => sum + rect.width * rect.height, 0), 1000 * 800);
+});
+
+test('grid dimensions relax to independent rows and columns bounded by eight', () => {
+  assert.deepEqual(resolveGridDimensions({ grid: 3 }), { columns: 3, rows: 3 });
+  assert.deepEqual(resolveGridDimensions({ grid: 3, verticalPositions: [], horizontalPositions: [0.2, 0.4, 0.6, 0.8] }), { columns: 1, rows: 5 });
+  assert.deepEqual(resolveGridDimensions({ grid: 2, verticalPositions: [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875], horizontalPositions: [0.5] }), { columns: 8, rows: 2 });
+  assert.deepEqual(resolveGridDimensions({ grid: 99, rows: 2, columns: 7 }), { columns: 7, rows: 2 });
+  assert.deepEqual(resolveGridDimensions({ grid: 4, columns: 99, rows: null }), { columns: 8, rows: 4 });
+  const tall = gridRectsFromGuides(1000, 1000, 1, 3, [], [1 / 3, 2 / 3]);
+  assert.equal(tall.length, 3);
+  assert.ok(tall.every(rect => rect.width === 1000 && rect.height > 300));
+  const wide = gridRectsFromGuides(1600, 900, 8, 1, Array.from({ length: 7 }, (_, index) => (index + 1) / 8), []);
+  assert.equal(wide.length, 8);
+  assert.equal(wide.reduce((sum, rect) => sum + rect.width * rect.height, 0), 1600 * 900);
+});
+
+test('annotation SVG embeds the Chinese font for text shapes and escapes content', () => {
+  const svg = canvasAnnotationSvg(1000, 800, [{ tool: 'text', x: 0.1, y: 0.2, text: '限时五折', color: '#ef4444', width: 3 }]);
+  assert.match(svg, /@font-face/);
+  assert.match(svg, /Noto Sans CJK SC/);
+  assert.match(svg, /data:font\/otf;base64,/);
+  assert.match(svg, /限时五折/);
+  const escaped = canvasAnnotationSvg(1000, 800, [{ tool: 'text', x: 0.1, y: 0.2, text: '<b>&"x', color: '#ef4444', width: 3 }]);
+  assert.match(escaped, /&lt;b&gt;&amp;&quot;x/);
+  const penOnly = canvasAnnotationSvg(1000, 800, [{ tool: 'pen', x: 0.1, y: 0.1, points: [{ x: 0.1, y: 0.1 }, { x: 0.4, y: 0.6 }] }]);
+  assert.doesNotMatch(penOnly, /@font-face/);
+  assert.doesNotMatch(penOnly, /<text /);
+  assert.throws(() => canvasAnnotationSvg(1000, 800, []), /请先在图片上完成标注/);
 });
 
 test('parses valid vision layer JSON and rejects invented wrapper text', () => {

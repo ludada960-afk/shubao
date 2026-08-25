@@ -31,6 +31,7 @@ test('selection exposes the complete commerce image toolbar in observed order', 
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
       'edit-text',
+      'add-text',
       'grid-split',
       'layer-edit',
       'remove-background',
@@ -105,6 +106,17 @@ test('ready image outputs expose deep workflow actions while running outputs sta
 
 test('outpaint records its required ratio and prompt before a quote can run', () => {
   assert.deepEqual(getCanvasAction('outpaint').execute.requires, { ratio: true, prompt: true });
+});
+
+test('add-text is a free local action reserved for real inline text editing', () => {
+  const action = getCanvasAction('add-text');
+  assert.ok(action);
+  assert.equal(action.label, '添加文字');
+  assert.deepEqual(action.execute, { type: 'local', handler: 'add-text', requires: {} });
+  assert.equal(action.priceFeature, null);
+  assert.equal(action.priceLabel, '免费');
+  assert.equal(actionsForSurface({ surface: 'selection', node: completedOutput }).filter(item => item.id === 'add-text').length, 1);
+  assert.deepEqual(actionsForSurface({ surface: 'context', node: completedOutput }).filter(item => item.id === 'add-text'), []);
 });
 
 test('workflow view models contain no fallback command registry', () => {

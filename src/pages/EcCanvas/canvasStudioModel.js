@@ -67,7 +67,8 @@ export function resizeCanvasNode(node = {}, { width } = {}) {
 }
 
 function gridSize(value, fallback = 3) {
-  return Math.min(5, Math.max(2, Math.round(finite(value, fallback))));
+  // 行列拆分后允许 1~8 独立档位（1 表示该轴不切分）。
+  return Math.min(8, Math.max(1, Math.round(finite(value, fallback))));
 }
 
 export function getGridGuidePositions(grid = 3, positions) {
