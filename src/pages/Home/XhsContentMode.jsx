@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import ProjectAssetPicker from '../../components/ProjectAssetPicker.jsx';
 import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, Eye, RotateCcw as RotateIcon, Palette, LayoutPanelTop } from 'lucide-react';
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
@@ -108,9 +109,10 @@ function XhsModeSelector({ value, onChange }) {
   );
 }
 
-function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = false }) {
+function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = false, onPickLibraryUrls }) {
   const sourceInputRef = useRef(null);
   const styleInputRef = useRef(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const handleFile = (role, event) => {
     if (event.target.files?.length) onAdd(role, event.target.files);
     event.target.value = '';
@@ -123,9 +125,25 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
         <span className="ec-xhs-multiply" aria-hidden="true">×</span>
         {styleImages.map((url, index) => <EcommerceImageCard key={`${url}-${index}`} role="reference" image={{ url, status: 'loaded' }} label={`风格参考 ${index + 1}`} index={index} onRemove={() => onRemove('style', index)} />)}
         {styleImages.length < 3 && <EcommerceAddCard role="reference" label="风格参考" meta="构图或色调" optional title="添加风格参考" onClick={() => styleInputRef.current?.click()} />}
+        {onPickLibraryUrls && (
+          <button type="button" onClick={() => setLibraryOpen(true)} aria-label="从素材库选择" style={{ minWidth: 92, minHeight: 110, padding: '8px 6px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <span style={{ fontSize: 17 }}>🗂️</span>
+            <span>素材库</span>
+          </button>
+        )}
       </div>
       <input ref={sourceInputRef} type="file" accept="image/*" multiple hidden onChange={event => handleFile('source', event)} />
       <input ref={styleInputRef} type="file" accept="image/*" multiple hidden onChange={event => handleFile('style', event)} />
+      {onPickLibraryUrls && (
+        <ProjectAssetPicker
+          open={libraryOpen}
+          onClose={() => setLibraryOpen(false)}
+          onPick={assets => onPickLibraryUrls(assets.map(asset => asset.stableUrl).filter(Boolean))}
+          mediaKind="image"
+          multi
+          title="从素材库选择图片"
+        />
+      )}
     </div>
   );
 }
@@ -924,6 +942,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     addRefImage(files, style ? setRefImages : setXhsSourceImages, style ? refImages : xhsSourceImages, style ? 3 : 6);
   };
 
+  const handlePickLibraryUrls = urls => {
+    (Array.isArray(urls) ? urls : []).slice(0, 6).forEach(url => {
+      if (!url) return;
+      setXhsSourceImages(current => current.length >= 6 ? current : [...current, url]);
+    });
+  };
+
   const removeRoleImage = (role, index) => {
     const style = role === 'style';
     (style ? setRefImages : setXhsSourceImages)(current => current.filter((_, itemIndex) => itemIndex !== index));
@@ -935,6 +960,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     if (style) setHomePlogReferenceAssetIds([]);
     else setHomePlogSourceAssetIds([]);
     addRefImage(files, style ? setPlogStyleImages : setPlogSourceImages, style ? plogStyleImages : plogSourceImages, style ? 3 : 6);
+  };
+
+  const handlePickPlogLibraryUrls = urls => {
+    (Array.isArray(urls) ? urls : []).slice(0, 6).forEach(url => {
+      if (!url) return;
+      setPlogSourceImages(current => current.length >= 6 ? current : [...current, url]);
+    });
   };
 
   const removePlogRoleImage = (role, index) => {
@@ -1073,7 +1105,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
               <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
                 <div style={{ gridColumn:'1 / -1' }}>
-                  <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onRemove={removeRoleImage} />
+                  <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onPickLibraryUrls={handlePickLibraryUrls} onRemove={removeRoleImage} />
                 </div>
                 <div className="ec-textarea-wrap xhs-legacy-prompt" onClick={event => { if (event.target !== xhsPromptRef.current) xhsPromptRef.current?.focus(); }}>
                   <textarea ref={xhsPromptRef} value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
@@ -1104,7 +1136,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
               <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
                 <div style={{ gridColumn:'1 / -1' }}>
-                  <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onRemove={removePlogRoleImage} />
+                  <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onPickLibraryUrls={handlePickPlogLibraryUrls} onRemove={removePlogRoleImage} />
                 </div>
                 <div className="ec-textarea-wrap xhs-legacy-prompt" onClick={event => { if (event.target !== plogPromptRef.current) plogPromptRef.current?.focus(); }}>
                   <textarea ref={plogPromptRef} value={plogText} onChange={e => setPlogText(e.target.value)}
@@ -1373,7 +1405,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         <div className="ph-sub">例如：厦门3天2夜旅游攻略、百元蓝牙耳机测评</div>
                       </div>
                     </div>
-                    <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onRemove={removeRoleImage} />
+                    <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onPickLibraryUrls={handlePickLibraryUrls} onRemove={removeRoleImage} />
                     <div className="ref-images-row">
                       <ImageMentionPicker
                         images={xhsMentionImages}
@@ -1403,7 +1435,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         <div className="ph-sub">例如：独居日常｜周末宅家看书喝咖啡</div>
                       </div>
                     </div>
-                    <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onRemove={removePlogRoleImage} />
+                    <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onPickLibraryUrls={handlePickPlogLibraryUrls} onRemove={removePlogRoleImage} />
                     <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'#FAFBFC', borderTop:'1.5px solid var(--border)' }}>
                       <ImageMentionPicker
                         images={plogMentionImages}

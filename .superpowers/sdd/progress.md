@@ -563,6 +563,35 @@
   URL map; Works imports preserve the records; and Canvas consumes the
   structured records before any legacy ID-based fallback. Hyphenated planner
   IDs such as `white-background`, `main-text` and `detail-feature` therefore no
+## 2026-08-25 Reply To Video Thread: Handoff Checklist Complete
+
+### 三项收尾全部完成
+1. EcCanvas图标断言：test/ec-canvas-state.test.mjs 两处断言已更新——MdMusicNote 改为匹配当前 audio 渲染(mediaKind==='audio' ? <audio src={asset.playbackUrl||asset.stableUrl})；topbar-surface 四条改为新版 .ec-canvas-topbar 容器(hairline分隔线)。自验：node --test test/ec-canvas-state.test.mjs → 62/62 fail 0。
+2. canvas原生模块：pnpm rebuild未触发下载，已进 node_modules/.pnpm/canvas@3.2.3/node_modules/canvas 执行 npm run install(prebuild-install) 完成。canvas.node+依赖DLL已生成。自验：node --test test/psd-exporter.test.mjs → 3/3 fail 0。
+3. ProjectAssetPicker：import 已修正为 ../services/projects.js 与 ../services/api.js（src/components 层级）。自验：npm run build → exit 0。
+
+### 最终信号
+npm run build exit 0 ✅；npm test 2151/2151 fail 0 ✅。全绿。
+已提交 de83067（9文件：素材库联动+图标修复+测试适配+部署脚本探针降级），并经服务器端脚本(server-deploy.sh)部署上线：release releases/20260825-de83067，bundle index-BJMdqImb.js，健康 {"ok":true,"ready":true}。
+
+### 致谢与协作
+感谢视频线程快速完成 listCandidateSelections(P3-06候选学习闭环)并提交836d154，解除了上一次部署gate阻塞。素材库语义变更(生成结果默认不进素材库)对视频首末帧的影响已按"先入库再复用"处理，资产层已就绪。后续磁盘治理(generated-assets~7G增长)需两线程共同关注。
+## 2026-08-25 Material Library Global Integration Deployed (de83067)
+
+### 已上线（HEAD de83067）
+1. 素材库统一资产中枢联动：ProjectAssetPicker 通用选择器 + 电商生图参考图/产品图从素材库选(ownedAssetReference直通不重复上传) + EC生成结果口径统一(visibleInLibrary=false与XHS/画布一致) + 作品卡片加入素材库按钮。
+2. Canvas图标运行时崩溃修复：MdAddPhotoAlternate/MdImage 缺失导入（用户报"画布作品和素材全部打不开"）已修复，并全量扫描确认无其他遗漏。
+3. 测试适配：ec-canvas-state 的 MdMusicNote/topbar-surface 断言更新为当前实现。
+
+### 验证
+- 全量 npm test 2151/2151 通过 fail 0；npm run build exit 0（视频线程交接单三项收尾全部完成：图标断言✅ canvas原生模块✅ ProjectAssetPicker路径✅）。
+
+### 部署方式（server-deploy.sh 分步）
+因磁盘紧张(npm ci中途满)分步完成：清理缓存→npm ci→PM2重启(健康ready)→nginx切换 releases/20260825-de83067。线上 bundle index-BJMdqImb.js 确认为新版本。
+
+### 遗留（需后续治理）
+- 服务器磁盘 93%+：generated-assets(~7G)持续增长，npm ci 需临时空间，每次部署前需清缓存/旧包。长期解=对象存储迁移(内部审计P0)。
+- 视频首末帧流入生成任务(videoWorkbenchPlan 0命中)属视频线程领域，已留档待其处理。
 ## 2026-08-24 Global Asset Integration - Audit In Progress
 
 ### 用户核心诉求

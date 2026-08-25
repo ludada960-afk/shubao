@@ -61,9 +61,16 @@ test('P0 video platform flags default on while live workbench remains default-of
   const defaults = readVideoPlatformFlags({});
   assert.deepEqual(Object.keys(defaults).sort(), [...VIDEO_PLATFORM_FLAG_NAMES].sort());
   assert.equal(defaults.VIDEO_PLATFORM_P1_WORKBENCH, false);
+  // UI/工作台类 flag（未过QA前）允许默认关闭；数据链路类 flag 必须默认开启
+  const uiFlags = new Set(['VIDEO_PLATFORM_P1_WORKBENCH', 'VIDEO_PLATFORM_DIRECTOR_UI']);
   assert.ok(Object.entries(defaults)
-    .filter(([name]) => name !== 'VIDEO_PLATFORM_P1_WORKBENCH')
+    .filter(([name]) => !uiFlags.has(name))
     .every(([, enabled]) => enabled));
+  for (const uiFlag of uiFlags) {
+    if (Object.prototype.hasOwnProperty.call(defaults, uiFlag)) {
+      assert.equal(defaults[uiFlag], false, uiFlag + ' should default off until QA signs off');
+    }
+  }
 
   const rolledBack = readVideoPlatformFlags({
     VIDEO_PLATFORM_OWNER_READS: 'false',
