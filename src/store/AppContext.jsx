@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
-import { getSession, onSessionInvalid } from '../services/auth';
+import {
+  getSession,
+  onSessionInvalid,
+  onSessionRestored,
+  adoptOauthBootstrap,
+  startSessionAutoRefresh,
+  stopSessionAutoRefresh,
+} from '../services/auth';
 import { fetchBillingBalance, fetchBillingCatalog, fetchBillingLedger } from '../services/billing';
 import { fetchAccountAccess } from '../services/admin.js';
 import { clearPendingPaidAction, loadPendingPaidAction } from '../utils/pendingPaidAction.js';
@@ -267,6 +274,8 @@ export function AppProvider({ children }) {
     if (state.browserQa) return undefined;
     const restore = async () => {
       const requestEpoch = sessionRequestGate.capture();
+      // OAuth 回调引导页会把会话暂存到 localStorage，先领取再走常规校验。
+      adoptOauthBootstrap();
       const session = await getSession();
       if (!sessionRequestGate.isCurrent(requestEpoch)) return;
       if (session?.token) {
@@ -296,6 +305,18 @@ export function AppProvider({ children }) {
   useEffect(() => onSessionInvalid(() => {
     dispatch({ type: 'SET_LOGGED', logged: false, phone: '' });
     dispatch({ type: 'SHOW_LOGIN', show: true });
+  }), [dispatch]);
+
+  // P2：登录期间静默续期 access token（定时 tick，临期 5 分钟内才真正发起 refresh）。
+  useEffect(() => {
+    if (!state.logged || state.browserQa) return undefined;
+    startSessionAutoRefresh();
+    return () => stopSessionAutoRefresh();
+  }, [state.logged, state.browserQa]);
+
+  // P2：静默刷新/OAuth 引导恢复会话后，把 UI 拉回已登录态。
+  useEffect(() => onSessionRestored(session => {
+    if (session?.email) dispatch({ type: 'SET_LOGGED', logged: true, phone: session.email });
   }), [dispatch]);
 
   return (

@@ -13,8 +13,12 @@ import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
 import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
-import { sendVerificationCode, verifyCode } from './mailService.mjs';
+import { canSendMail, sendVerificationEmail, sendPasswordResetEmail } from './mailService.mjs';
 import { resolveAuthSessionSecret } from './authSessionSecret.mjs';
+import { createAuthService, createDualModeSessionTokens } from './auth/authService.mjs';
+import { mountAuthRoutes } from './authRoutes.mjs';
+import { createOAuthStore } from './auth/oauthStore.mjs';
+import { createProviderRegistry } from './auth/providerRegistry.mjs';
 import { buildOutline, IMAGE_TYPE_INFO } from './ecommercePromptEngine.mjs';
 import {
   PLOG_STYLES, PLOG_CATEGORIES, SCENE_LENSES, LAYOUT_TEMPLATES, COVER_VARIANTS,
@@ -235,7 +239,18 @@ const authSessionSecret = resolveAuthSessionSecret({
   envSecret: process.env.AUTH_SESSION_SECRET,
   filePath: process.env.AUTH_SESSION_SECRET_FILE || resolve(__dirname, '.auth-session-secret'),
 });
-const contentSessionTokens = createSessionTokenService({ secret: authSessionSecret });
+// P1 认证底座：v2 可吊销会话（jti + refresh 轮换）为主，存量 HMAC token 走
+// legacy 分支——30 天宽限期内命中即换发新 session（见 authService.mjs）。
+const legacyContentSessionTokens = createSessionTokenService({ secret: authSessionSecret });
+const authService = createAuthService({ db, secret: authSessionSecret });
+const oauthStore = createOAuthStore(db, {
+  ensureUserByEmail: (email, options) => authService.ensureUserByEmail(email, options),
+});
+const authProviderRegistry = createProviderRegistry({ db });
+const contentSessionTokens = createDualModeSessionTokens({
+  authService,
+  legacy: legacyContentSessionTokens,
+});
 const billingQuoteService = createBillingQuoteService({ secret: authSessionSecret });
 const canvasSegmentationPlanTokens = createCanvasSegmentationPlanTokenService({ secret: authSessionSecret });
 const contentBilling = createContentBilling({ db, contentEntitlements, walletService });
@@ -617,6 +632,17 @@ app.use((req, res, next) => {
   return continueWithRateLimit();
 });
 
+// legacy token 命中后换发的 v2 会话通过响应头旁路下发（客户端可选择性采用）。
+app.use((req, res, next) => {
+  const renewal = req._sessionRenewal;
+  if (renewal?.accessToken) {
+    res.setHeader('x-shubao-access-token', renewal.accessToken);
+    res.setHeader('x-shubao-refresh-token', renewal.refreshToken || '');
+    res.setHeader('x-shubao-session-renewed', '1');
+  }
+  next();
+});
+
 function betaAccessMiddleware(req, res, next, guardedPath = normalizeGuardedPath(req.path)) {
   if (CONTENT_PREVIEW_ROUTES.has(guardedPath) && req.body?.preview === true) {
     req._contentPreview = true;
@@ -643,9 +669,17 @@ function betaAccessMiddleware(req, res, next, guardedPath = normalizeGuardedPath
       return res.status(mapped.status).json(mapped.body);
     }
   }
-  const access = authorizeAccountEmail(req.body?.email);
-  if (!access.ok) return res.status(access.status).json({ error: access.error });
-  req._userEmail = access.email;
+  // P1 认证底座：废除 req.body.email 自报授权，其余受限 POST 路由同样
+  // 只接受签名会话（v2 可吊销会话或宽限期内的存量 HMAC legacy token）。
+  try {
+    req._userEmail = authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  } catch (error) {
+    const mapped = contentBillingHttpError(error);
+    return res.status(mapped.status).json(mapped.body);
+  }
   next();
 }
 
@@ -4852,32 +4886,18 @@ app.post('/api/canvas/psd-export', authenticateEcommerceRequest, async (req, res
   }
 });
 
-// ── 邮箱验证码 ──
-app.post('/api/auth/send-code', async (req, res) => {
-  const email = normalizeEmail(req.body?.email);
-  if (!email || !email.includes('@')) return res.status(400).json({ error: '请输入正确的邮箱' });
-  const access = authorizeAccountEmail(email);
-  if (!access.ok) return res.status(access.status).json({ error: access.error });
-  try {
-    const result = await sendVerificationCode(access.email);
-    res.json(result);
-  } catch (e) {
-    res.status(e.statusCode || 429).json({ error: e.message });
-  }
-});
-
-app.post('/api/auth/verify-code', (req, res) => {
-  const email = normalizeEmail(req.body?.email);
-  const { code } = req.body || {};
-  if (!email || !code) return res.status(400).json({ error: '参数不完整' });
-  const access = authorizeAccountEmail(email);
-  if (!access.ok) return res.status(access.status).json({ error: access.error });
-  const result = verifyCode(access.email, code);
-  if (result.ok) {
-    const session = contentSessionTokens.issue(access.email);
-    res.json({ ok: true, email: access.email, token: session.token, expiresAt: session.expiresAt });
-  }
-  else res.status(400).json(result);
+// ── P1 认证底座：验证码 / 密码 / 找回密码 / 会话刷新与换发 ──
+mountAuthRoutes(app, {
+  authService,
+  requireAccess: authorizeAccountEmail,
+  legacyTokens: legacyContentSessionTokens,
+  providers: authProviderRegistry,
+  oauthStore,
+  mailer: {
+    canSend: canSendMail,
+    sendVerificationCodeMail: ({ to, code }) => sendVerificationEmail({ to, code }),
+    sendPasswordResetMail: ({ to, resetToken }) => sendPasswordResetEmail({ to, resetToken }),
+  },
 });
 
 // ============================================================

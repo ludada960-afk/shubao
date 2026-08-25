@@ -1,11 +1,19 @@
 import React, { useReducer, useState, useEffect, useMemo, useRef } from 'react';
-import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose } from 'react-icons/md';
+import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose, MdLockOutline } from 'react-icons/md';
+import { FaGithub } from 'react-icons/fa';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import { IMAGES } from '../../constants/images';
 import { PRICING_PLANS } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
-import { sendOTP, verifyOTP } from '../../services/auth';
+import {
+  sendOTP,
+  verifyOTP,
+  fetchAuthProviders,
+  beginOAuthLogin,
+  forgotPassword,
+} from '../../services/auth';
+import DevicesPanel from './DevicesPanel.jsx';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
 import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
@@ -36,6 +44,11 @@ export function LoginModal() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [now, setNow] = useState(Date.now());
+  const [oauthProviders, setOauthProviders] = useState([]);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMsg, setForgotMsg] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
 
@@ -45,13 +58,102 @@ export function LoginModal() {
     return () => clearInterval(timer);
   }, [state.showLogin, resendSeconds]);
 
+  // P2：弹窗打开时拉取可用第三方登录方式（未配置凭据的服务端不返回对应按钮）。
+  useEffect(() => {
+    if (!state.showLogin) return undefined;
+    let active = true;
+    fetchAuthProviders()
+      .then(list => { if (active) setOauthProviders(Array.isArray(list) ? list : []); })
+      .catch(() => { if (active) setOauthProviders([]); });
+    return () => { active = false; };
+  }, [state.showLogin]);
+
   if (!state.showLogin) return null;
+
+  // ── P2：忘记密码子流程（输邮箱 → forgot-password，响应恒定防枚举）──
+  if (forgotMode) {
+    return (
+      <Modal onClose={close}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <CharImg src={IMAGES.wave} size={64} />
+          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-bold)', marginTop: 10 }}>
+            找回密码
+          </div>
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 4 }}>
+            输入注册邮箱，我们将发送重置链接
+          </div>
+        </div>
+
+        {err && <div style={{
+          background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 'var(--radius-md)',
+          padding: '8px 14px', marginBottom: 12, fontSize: 'var(--text-sm)', color: '#C53030',
+        }}>{err}</div>}
+
+        <input
+          placeholder="邮箱地址"
+          autoFocus
+          value={forgotEmail}
+          onChange={e => setForgotEmail(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleForgotSubmit(); }}
+          style={{
+            width: '100%', padding: '12px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
+            fontSize: 'var(--text-base)', marginBottom: 12,
+            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', opacity: 1,
+          }}
+        />
+
+        <Button primary full onClick={handleForgotSubmit} disabled={forgotLoading}>
+          {forgotLoading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLockOutline size={15} />}
+          {forgotLoading ? ' 发送中…' : ' 发送重置链接'}
+        </Button>
+
+        {forgotMsg && (
+          <div role="status" style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 'var(--radius-md)',
+            background: '#F0FFF4', border: '1px solid #C6F6D5', color: '#276749',
+            fontSize: 'var(--text-sm)', lineHeight: 1.6,
+          }}>{forgotMsg}</div>
+        )}
+
+        <button type="button"
+          onClick={() => { setForgotMode(false); setForgotMsg(''); setErr(''); }}
+          style={{ width: '100%', marginTop: 14, border: 0, background: 'transparent', color: 'var(--command)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+          返回登录
+        </button>
+      </Modal>
+    );
+  }
 
   const close = () => {
     dispatch({ type: 'SHOW_LOGIN', show: false });
     updateOtp({ type: 'RESET' });
     setLoading(false);
     setErr('');
+    setForgotMode(false);
+    setForgotEmail('');
+    setForgotMsg('');
+    setForgotLoading(false);
+  };
+
+  const handleGithubLogin = () => {
+    beginOAuthLogin('github').catch(e => setErr(e?.message || 'GitHub 登录暂不可用'));
+  };
+
+  const handleForgotSubmit = async () => {
+    if (!forgotEmail.trim() || !forgotEmail.includes('@')) {
+      setForgotMsg('请输入正确的邮箱地址');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotMsg('');
+    try {
+      await forgotPassword(forgotEmail.trim());
+      setForgotMsg('如果该邮箱已注册，重置链接已发送，请前往邮箱查收。');
+    } catch (e) {
+      setForgotMsg(e?.message || '提交失败，请稍后再试');
+    }
+    setForgotLoading(false);
   };
 
   const handleSendCode = async () => {
@@ -144,6 +246,35 @@ export function LoginModal() {
         {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
         {step === 'email' ? ' 发送验证码' : ' 登录'}
       </Button>
+
+      <button type="button" onClick={() => { setErr(''); setForgotMode(true); }}
+        style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+        忘记密码？
+      </button>
+
+      {oauthProviders.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 10px', color: 'var(--text-invisible)', fontSize: 11 }}>
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            或使用以下方式继续
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {oauthProviders.map(provider => provider.id === 'github' ? (
+              <button key={provider.id} type="button" onClick={handleGithubLogin}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: '11px 0', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
+                  background: '#24292f', color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                <FaGithub size={16} />
+                使用 GitHub 继续
+              </button>
+            ) : null)}
+          </div>
+        </>
+      )}
 
       {step === 'code' && (
         <button type="button" onClick={resendSeconds > 0 ? undefined : handleSendCode} disabled={loading || resendSeconds > 0}
@@ -498,6 +629,13 @@ export function PricingModal() {
               ecommercePoints={state.ecPoints}
               unlimited={state.unlimited}
             />
+          </div>
+        )}
+
+        {/* P2 设备管理：我的设备折叠区块 */}
+        {state.logged && (
+          <div style={{ marginBottom: 18 }}>
+            <DevicesPanel />
           </div>
         )}
 
