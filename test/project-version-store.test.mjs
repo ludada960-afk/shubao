@@ -952,7 +952,8 @@ test('stores the authoritative hash and MIME for each ecommerce result asset', t
   });
 
   const row = db.prepare('SELECT content_hash, mime_type, stable_url, role, metadata_json FROM project_assets WHERE project_id = ?').get(input.project.id);
-  assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp', stable_url: stableUrl, role: 'generated', metadata_json: '{}' });
+  // 9899645 起 generated 图默认不进素材库，服务端落 visibleInLibrary:false
+  assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp', stable_url: stableUrl, role: 'generated', metadata_json: JSON.stringify({ visibleInLibrary: false }) });
 });
 
 test('derives delivered and candidate production states from ecommerce terminal status', t => {
@@ -1056,6 +1057,7 @@ test('stores server-derived ecommerce delivery metadata on reusable project asse
       planItemId: 'hero',
       generatedAt: '2026-07-27T10:00:00.000Z',
     },
+    visibleInLibrary: false,
   });
 });
 
