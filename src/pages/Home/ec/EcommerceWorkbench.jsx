@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Maximize2, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
@@ -52,22 +52,28 @@ function TryOnShowcase({ personMode }) {
   const [activeSlide, setActiveSlide] = useState(personMode === 'reference' ? 1 : 0);
   const [manualRevision, setManualRevision] = useState(0);
   const [previewItem, setPreviewItem] = useState(null);
-  const angleCase = productionCaseById('tryon-angles');
-  const referenceCase = productionCaseById('tryon-reference');
   const slides = [
     {
       id: 'angles',
       eyebrow: '多视角成片',
       title: '一套穿搭，拍出完整时尚角度',
       description: '正面、四分之三、侧面与背面都保留完整造型，适合商品页和广告投放。',
-      banner: angleCase.assets.find(asset => asset.displayRole === 'workflowBanner'),
+      source: { src: '/images/home/tryon-showcase/product-flatlay.png', label: '平铺穿搭' },
+      results: [
+        { src: '/images/home/tryon-showcase/angle-front.png', label: '正面街拍' },
+        { src: '/images/home/tryon-showcase/angle-motion.png', label: '动态街拍' },
+        { src: '/images/home/tryon-showcase/angle-side.png', label: '侧面街拍' },
+        { src: '/images/home/tryon-showcase/angle-back.png', label: '背面街拍' },
+      ],
     },
     {
       id: 'reference',
       eyebrow: '场景上身',
       title: '让完整穿搭进入真实街拍场景',
       description: '从头到脚保留商品版型与搭配关系，用动态姿态呈现可投放的时尚画面。',
-      banner: referenceCase.assets.find(asset => asset.displayRole === 'workflowBanner'),
+      source: { src: '/images/home/tryon-showcase/reference-flatlay.png', label: '平铺穿搭' },
+      reference: { src: '/images/home/tryon-showcase/reference-person.png', label: '模特街拍原图' },
+      results: [{ src: '/images/home/tryon-showcase/reference-result.png', label: '上身效果街拍' }],
     },
   ];
 
@@ -91,7 +97,7 @@ function TryOnShowcase({ personMode }) {
     const changePreview = direction => setPreviewItem(current => {
       if (!current) return current;
       const nextIndex = (current.index + direction + current.items.length) % current.items.length;
-      return { ...current.items[nextIndex], index: nextIndex, items: current.items, title: current.title, description: current.description };
+      return { ...current.items[nextIndex], index: nextIndex, items: current.items };
     });
     const close = event => {
       if (event.key === 'Escape') setPreviewItem(null);
@@ -103,23 +109,27 @@ function TryOnShowcase({ personMode }) {
   }, [previewItem]);
 
   const slide = slides[activeSlide];
-  const previewItems = slides.map(item => ({ ...item.banner, title: item.title, description: item.description })).filter(item => item.src);
+  const previewItems = slides
+    .flatMap(item => [item.source, ...(item.reference ? [item.reference] : []), ...item.results])
+    .filter(Boolean);
   const chooseSlide = index => {
     setActiveSlide(index);
     setManualRevision(revision => revision + 1);
   };
   const openPreview = item => {
-    const index = previewItems.findIndex(preview => preview.id === item.id);
+    const index = previewItems.findIndex(preview => preview.src === item.src);
     setPreviewItem({ ...previewItems[index], index, items: previewItems });
   };
   const movePreview = direction => setPreviewItem(current => {
     const nextIndex = (current.index + direction + current.items.length) % current.items.length;
-    return { ...current.items[nextIndex], index: nextIndex, items: current.items, title: current.title, description: current.description };
+    return { ...current.items[nextIndex], index: nextIndex, items: current.items };
   });
-  const renderCard = (item, className, alt) => (
-    <button key={item.id || item.src} type="button" className={`ec-tryon-showcase-card ${className}`} style={{ '--case-ratio': item.ratio.replace(':', ' / ') }} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
-      <ResponsiveImage src={item.src} variant="display" ratio={item.ratio} alt={alt || item.label} imgStyle={{ objectFit: 'contain' }} />
-      <span>{item.label}</span><Maximize2 size={14} />
+  // 基准版式卡片：原始整图直接呈现，object-fit: contain，不裁剪。
+  const renderCard = (item, className) => (
+    <button key={item.id || item.src} type="button" className={className} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
+      <img src={item.src} alt={item.label} loading="lazy" />
+      <span>{item.label}</span>
+      <Maximize2 size={13} />
     </button>
   );
   return (
@@ -134,7 +144,25 @@ function TryOnShowcase({ personMode }) {
           </div>
         </div>
         <div className={`ec-tryon-showcase-visual is-${slide.id}`} aria-live="polite">
-          {renderCard(slide.banner, 'ec-tryon-workflow-banner', slide.banner.label)}
+          {/* 基准版式：平铺穿搭 → ＋ → 模特街拍原图 → 弧形箭头 → 上身效果街拍 */}
+          <div className="ec-tryon-flow">
+            {renderCard(slide.source, 'ec-tryon-flow-card is-source')}
+            {slide.reference && (
+              <>
+                <span className="ec-tryon-flow-plus" aria-hidden="true"><Plus size={14} /></span>
+                {renderCard(slide.reference, 'ec-tryon-flow-card is-reference')}
+              </>
+            )}
+            <span className="ec-tryon-flow-arrow" aria-hidden="true">
+              <svg viewBox="0 0 52 30" fill="none">
+                <path d="M3 25 C 17 9, 33 6, 47 13.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                <path d="M39.5 8.5 L47.5 14 L38.5 18.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <div className={`ec-tryon-flow-results count-${slide.results.length}`}>
+              {slide.results.map((result, index) => renderCard(result, `ec-tryon-flow-card is-result result-${index}`))}
+            </div>
+          </div>
         </div>
       </section>
       {previewItem && (
@@ -142,9 +170,9 @@ function TryOnShowcase({ personMode }) {
           <div className="ec-tryon-preview-dialog">
             <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewItem(null)} aria-label="关闭大图"><X size={20} /></button>
             <button type="button" className="ec-tryon-preview-previous" onClick={() => movePreview(-1)} aria-label="查看上一张"><ArrowLeft size={20} /></button>
-            <ResponsiveImage src={previewItem.src} variant="display" ratio={previewItem.ratio} alt={`${previewItem.label}大图`} imgStyle={{ objectFit: 'contain' }} />
+            <img src={previewItem.src} alt={`${previewItem.label}大图`} />
             <button type="button" className="ec-tryon-preview-next" onClick={() => movePreview(1)} aria-label="查看下一张"><ArrowRight size={20} /></button>
-            <div><strong>{previewItem.label}</strong><span>{previewItem.description}</span></div>
+            <div><strong>{previewItem.label}</strong><span>作品库原图 · 放大查看完整画面</span></div>
           </div>
         </div>
       )}

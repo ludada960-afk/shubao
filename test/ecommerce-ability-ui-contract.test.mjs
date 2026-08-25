@@ -41,7 +41,7 @@ test('try-on showcase uses deliberate dwell and a keyboard-accessible gallery', 
   assert.match(workbench, /TRYON_AUTO_DWELL_MS/);
   assert.match(workbench, /TRYON_MANUAL_DWELL_MS/);
   assert.match(workbench, /ec-tryon-preview-modal/);
-  assert.match(workbench, /ec-tryon-showcase-card/);
+  assert.match(workbench, /ec-tryon-flow-card/);
   assert.match(workbench, /ArrowLeft/);
   assert.match(workbench, /ArrowRight/);
   assert.match(workbench, /event\.key === 'ArrowLeft'/);
@@ -50,14 +50,21 @@ test('try-on showcase uses deliberate dwell and a keyboard-accessible gallery', 
   assert.match(workbench, /ec-tryon-preview-next/);
 });
 
-test('try-on showcase renders complete zoomable workflow banners without re-cropping portrait sources', () => {
-  assert.match(workbench, /productionCaseById\('tryon-angles'\)/);
-  assert.match(workbench, /productionCaseById\('tryon-reference'\)/);
-  assert.match(workbench, /displayRole === 'workflowBanner'/);
-  assert.match(workbench, /ec-tryon-workflow-banner/);
+test('try-on showcase restores the baseline flow composition with uncropped originals', () => {
+  // 基准版式：平铺穿搭 → ＋ → 模特街拍原图 → 弧形箭头 → 上身效果街拍
+  assert.match(workbench, /product-flatlay\.png/);
+  assert.match(workbench, /reference-flatlay\.png/);
+  assert.match(workbench, /reference-person\.png/);
+  assert.match(workbench, /reference-result\.png/);
+  assert.match(workbench, /ec-tryon-flow-plus/);
+  assert.match(workbench, /ec-tryon-flow-arrow/);
+  // 单张合成 banner 已下线，不再进入工作台页头（目录资产仍供 CreationShowcase 兜底）
+  assert.doesNotMatch(workbench, /displayRole === 'workflowBanner'/);
+  assert.doesNotMatch(workbench, /ec-tryon-workflow-banner/);
   assert.doesNotMatch(workbench, /--tryon-image|sourcePosition|referencePosition/);
-  assert.match(styles, /\.ec-tryon-workflow-banner\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9/);
-  assert.match(styles, /\.ec-tryon-workflow-banner img\s*\{[^}]*object-fit:\s*contain/);
+  const cardRule = styles.match(/\.ec-tryon-flow-card img\s*\{[^}]*\}/g)?.[0] || '';
+  assert.match(cardRule, /object-fit:\s*contain/);
+  assert.doesNotMatch(cardRule, /object-fit:\s*cover/);
 });
 
 test('try-on preview modal remains centered while respecting viewport bounds', () => {

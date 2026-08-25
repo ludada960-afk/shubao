@@ -3204,25 +3204,10 @@
   background: rgba(24, 22, 21, .66);
 }
 
-.ec-tryon-workflow-banner {
-  width: min(660px, 100%);
-  aspect-ratio: 16 / 9;
-  transform: none;
-  border-radius: 8px;
-}
-
-.ec-tryon-workflow-banner .responsive-image,
-.ec-tryon-workflow-banner img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain;
-}
-
 @media (max-width: 640px) {
   .ec-product-suite-showcase,
   .ec-product-suite-showcase-visual { min-height: 320px; }
   .ec-product-suite-final { width: min(100%, 88vw); }
-  .ec-tryon-workflow-banner { width: 100%; border-width: 3px; }
 }
 
 /* Shared production frame: both ability stories occupy the same desktop footprint. */
@@ -3251,12 +3236,6 @@
   width: min(520px, 100%);
   max-height: 100%;
   aspect-ratio: 4 / 3;
-}
-
-.ec-tryon-workflow-banner {
-  width: min(620px, 100%);
-  max-height: 100%;
-  aspect-ratio: 16 / 9;
 }
 
 .ec-tryon-preview-modal {
@@ -3301,8 +3280,68 @@
   .ec-product-suite-final {
     width: min(100%, 88vw);
   }
-
-  .ec-tryon-workflow-banner {
-    width: 100%;
-  }
 }
+
+/* ── 万物上身页头 · 基准版式还原 ─────────────────────────────────
+   平铺穿搭 → ＋ → 模特街拍原图 → 弧形箭头(小而弱化) → 上身效果街拍。
+   全部使用原始整图资源，img 高度固定、宽度按原始比例自适应，
+   object-fit: contain，任何断点都不裁剪、不拉伸。 ─────────────── */
+.ec-tryon-flow { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 12px; }
+.ec-tryon-flow-card { position: relative; display: block; flex: 0 0 auto; overflow: hidden; padding: 0; border: 4px solid #fff; border-radius: 12px; background: #f4efe9; box-shadow: 0 10px 22px rgba(51, 40, 32, .14); cursor: zoom-in; transition: transform .25s ease, box-shadow .25s ease; }
+.ec-tryon-flow-card:hover,
+.ec-tryon-flow-card:focus-visible { z-index: 6; outline: none; transform: translateY(-4px); box-shadow: 0 16px 30px rgba(51, 40, 32, .2); }
+.ec-tryon-flow-card img { display: block; width: auto; height: 208px; object-fit: contain; }
+.ec-tryon-flow-card.is-source img,
+.ec-tryon-flow-card.is-reference img { height: 216px; }
+.ec-tryon-flow-card.is-result img { height: 200px; }
+.ec-tryon-flow-card > span { position: absolute; z-index: 2; right: 7px; bottom: 7px; padding: 3px 6px; border-radius: 5px; color: #fff; background: rgba(24, 22, 21, .72); font-size: 10px; font-weight: 800; }
+.ec-tryon-flow-card > svg { position: absolute; z-index: 2; top: 7px; right: 7px; padding: 3px; box-sizing: content-box; border-radius: 50%; color: #fff; background: rgba(24, 22, 21, .6); }
+.ec-tryon-flow-results { display: flex; min-width: 0; align-items: center; }
+.ec-tryon-flow-results .result-0 { transform: rotate(-4deg); }
+.ec-tryon-flow-results .result-1 { transform: rotate(-1deg) translateY(-4px); z-index: 2; }
+.ec-tryon-flow-results .result-2 { transform: rotate(2deg) translateY(-3px); z-index: 3; }
+.ec-tryon-flow-results .result-3 { transform: rotate(5deg); }
+.ec-tryon-flow-results.count-4 .ec-tryon-flow-card.is-result img { height: 188px; }
+.ec-tryon-flow-results.count-4 .ec-tryon-flow-card + .ec-tryon-flow-card { margin-left: -16px; }
+.ec-tryon-flow-results.count-1 .ec-tryon-flow-card { transform: rotate(2deg); }
+.ec-tryon-flow-plus { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid rgba(112, 87, 215, .25); border-radius: 50%; color: #684dd0; background: #f4efff; }
+/* 弧形箭头：缩小并弱化，只承担流向提示 */
+.ec-tryon-flow-arrow { display: grid; place-items: center; color: #a593ee; opacity: .78; }
+.ec-tryon-flow-arrow svg { width: 46px; height: 26px; }
+
+@media (max-width: 980px) {
+  .ec-tryon-flow { gap: 8px; }
+  .ec-tryon-flow-card img { height: 150px; }
+  .ec-tryon-flow-card.is-source img,
+  .ec-tryon-flow-card.is-reference img { height: 156px; }
+  .ec-tryon-flow-card.is-result img { height: 142px; }
+  .ec-tryon-flow-results.count-4 .ec-tryon-flow-card.is-result img { height: 134px; }
+  .ec-tryon-flow-arrow svg { width: 36px; height: 20px; }
+}
+
+@media (max-width: 640px) {
+  .ec-tryon-flow { gap: 6px; }
+  .ec-tryon-flow-card { border-width: 3px; }
+  .ec-tryon-flow-card img { height: 108px; }
+  .ec-tryon-flow-card.is-source img,
+  .ec-tryon-flow-card.is-reference img { height: 112px; }
+  .ec-tryon-flow-card.is-result img { height: 100px; }
+  .ec-tryon-flow-results.count-4 .ec-tryon-flow-card.is-result img { height: 92px; }
+  .ec-tryon-flow-results.count-4 .ec-tryon-flow-card + .ec-tryon-flow-card { margin-left: -10px; }
+  .ec-tryon-flow-plus { width: 22px; height: 22px; flex-basis: 22px; }
+  .ec-tryon-flow-plus svg { width: 12px; height: 12px; }
+  .ec-tryon-flow-arrow svg { width: 28px; height: 16px; }
+}
+
+/* 大图预览：整图呈现（历史规则面向 responsive-image，这里补齐原生 img 路径） */
+.ec-tryon-preview-dialog > img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 66vh;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+
