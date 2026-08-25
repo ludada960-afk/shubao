@@ -776,7 +776,18 @@ if (fs.existsSync(distPath)) {
     if (req.path === '/') res.set('Cache-Control', 'no-store, must-revalidate');
     next();
   });
-  app.use(express.static(distPath));
+  // 指纹化构建产物可长期缓存；/images、/gallery 素材更新依赖发布或 ?v= 查询串，
+  // 给予一周强缓存 + 过期后协商（etag/Last-Modified 仍由 express.static 提供）。
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      const normalized = String(filePath).replaceAll('\\', '/');
+      if (normalized.includes('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (/\/(?:images|gallery)\//.test(normalized)) {
+        res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+      }
+    },
+  }));
   console.log(`  → 静态文件: ${distPath}`);
 }
 
@@ -5174,6 +5185,9 @@ const recoverEcommerceStartup = createEcommerceStartupRecovery({
   retryDelayMs: 250,
   maxFollowUpScans: 40,
   followUpDelayMs: 30_000,
+  // 启动恢复的有限次跟进结束后，继续周期接管租约过期仍卡在
+  // queued/analyzing/generating 的任务，防止用户停止轮询后任务永久卡住。
+  sweepIntervalMs: Number(process.env.ECOMMERCE_RECOVERY_SWEEP_MS) || 120_000,
   onAttemptError(error, attempt) {
     console.error(`[ecommerce] 启动恢复扫描失败 (${attempt}/3):`, error.message);
   },
