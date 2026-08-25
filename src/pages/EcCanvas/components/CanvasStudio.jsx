@@ -86,6 +86,24 @@ const ACTION_ICONS = {
   delete: Trash2,
 };
 
+/* Panel entrance gate: each floating-panel family plays its ecPanelIn spring
+   once per page load; remounts (tab round-trips, selection churn) are stamped
+   data-mounted in the ref callback (commit phase, pre-paint), so the intro
+   never replays and the icons never flicker back in. */
+const PANEL_INTRO_PLAYED = new Set();
+
+function usePanelIntroGate(name) {
+  const gateRef = useRef(null);
+  if (!gateRef.current) {
+    gateRef.current = element => {
+      if (!element) return;
+      if (PANEL_INTRO_PLAYED.has(name)) element.setAttribute('data-mounted', '');
+      else PANEL_INTRO_PLAYED.add(name);
+    };
+  }
+  return gateRef.current;
+}
+
 const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImageUp },
   { id: 'upload-video', label: '上传视频', description: '加入已有成片或参考视频', icon: FileVideo },
@@ -114,22 +132,25 @@ export function isCompactCanvasToolbarAction(actionId) {
 }
 
 export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
+  const introGateRef = usePanelIntroGate('add-menu');
   if (!open) return null;
-  return <div className="ec-canvas-add-menu" style={position} role="menu" aria-label="添加节点">
+  return <div ref={introGateRef} className="ec-canvas-add-menu" style={position} role="menu" aria-label="添加节点">
     <div className="ec-canvas-menu-heading"><strong>添加节点</strong><button type="button" aria-label="关闭添加菜单" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button></div>
     {ADD_ACTIONS.map(item => <button key={item.id} type="button" role="menuitem" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(item.id); }}>
-      <span><item.icon size={17} /></span>
+      <span><item.icon /></span>
       <span><strong>{item.label}</strong><small>{item.description}</small></span>
     </button>)}
   </div>;
 }
 
 export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction }) {
+  const introGateRef = usePanelIntroGate('object-toolbar');
   if (!node || !actions.length) return null;
   const estimatedWidth = Math.min(820, 18 + actions.reduce((width, action) => (
     width + (isCompactCanvasToolbarAction(action.id) ? 38 : Math.max(72, action.label.length * 13 + 30))
   ), 0));
   return <div
+    ref={introGateRef}
     className="ec-canvas-object-toolbar"
     role="toolbar"
     aria-label={`${node.name || node.displayLabel || '对象'}工具`}
@@ -155,13 +176,14 @@ const DERIVE_ICONS = Object.freeze({
 });
 
 export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用当前素材生成', onBack, onClose, onSelect }) {
+  const introGateRef = usePanelIntroGate('derive-menu');
   const { x, y, ...positionStyle } = position || {};
   const menuStyle = {
     ...positionStyle,
     ...(x != null ? { left: x } : {}),
     ...(y != null ? { top: y } : {}),
   };
-  return <div className="ec-canvas-derive-menu" style={menuStyle} role="menu" aria-label="从当前素材继续创作">
+  return <div ref={introGateRef} className="ec-canvas-derive-menu" style={menuStyle} role="menu" aria-label="从当前素材继续创作">
     <div className="ec-canvas-menu-heading">
       <span>{onBack && <button type="button" aria-label="返回创作类型" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onBack?.(); }}><ArrowLeft size={14} /></button>}{title}</span>
       <button type="button" aria-label="关闭派生菜单" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
@@ -169,7 +191,7 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     {actions.map(action => {
       const Icon = DERIVE_ICONS[action.id] || Sparkles;
       return <button key={action.id} type="button" role="menuitem" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
-        <span><Icon size={17} /></span>
+        <span><Icon /></span>
         <span><strong>{action.label}</strong><small>{action.description}</small></span>
       </button>;
     })}
@@ -216,12 +238,13 @@ const MULTI_ICONS = {
 };
 
 export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(), viewport, bounds: containerBounds, onAction }) {
+  const introGateRef = usePanelIntroGate('multi-toolbar');
   const bounds = selectedCanvasBounds(nodes, selectedIds);
   const count = selectedIds instanceof Set ? selectedIds.size : (selectedIds || []).length;
   if (!bounds || count < 2) return null;
   const actions = multiSelectionActionsForNodes(nodes, selectedIds);
   const estimatedWidth = 76 + actions.reduce((total, action) => total + Math.max(56, action.label.length * 12 + 34), 0);
-  return <div className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: estimatedWidth, height: 42 })}>
+  return <div ref={introGateRef} className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: estimatedWidth, height: 42 })}>
     <strong>{count} 个已选中</strong>
     {actions.map(action => {
       const Icon = MULTI_ICONS[action.id] || WandSparkles;

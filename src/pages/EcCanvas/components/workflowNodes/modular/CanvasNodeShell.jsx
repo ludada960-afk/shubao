@@ -38,7 +38,7 @@ export default function CanvasNodeShell({
       {showOutput && <CanvasPortHandle side="right" role="output" visible={selected} onPointerDown={event => onPortPointerDown?.(event, 'out')} onPointerUp={event => onPortPointerUp?.(event, 'out')} />}
       <header className={styles.nodeHeader}>
         <div className={styles.nodeTitleGroup}>
-          <span className={styles.nodeIcon}><Icon size={17} /></span>
+          <span className={styles.nodeIcon}><Icon /></span>
           <div>
             <h3 className={styles.nodeTitle}>{title}</h3>
             {subtitle && <p className={styles.nodeSubtitle}>{subtitle}</p>}

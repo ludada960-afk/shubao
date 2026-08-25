@@ -6,6 +6,17 @@
 .ec-canvas-icon-button.is-active svg[class*='lucide'],
 .ec-canvas-tabs button.is-active svg[class*='lucide'] { stroke-width: 2; }
 
+/* Icon sizes ride the token ladder instead of scattered JSX size props;
+   CSS width/height wins over the SVG attribute defaults. */
+.workflow-node-icon svg,
+.workflow-picker-item-icon svg,
+.workflow-upload-tile > svg:first-child,
+.ec-canvas-add-menu > button > span:first-child svg,
+.ec-canvas-derive-menu > button > span:first-child svg,
+.ec-canvas-page [data-canvas-node-check] svg { width: var(--ec-icon-inline, 17px); height: var(--ec-icon-inline, 17px); }
+.ec-canvas-bottom-toolbar .ec-canvas-icon-button svg { width: var(--ec-icon-tool, 18px); height: var(--ec-icon-tool, 18px); }
+.ec-canvas-left-rail .ec-canvas-rail-add svg { width: var(--ec-icon-hero, 22px); height: var(--ec-icon-hero, 22px); }
+
 .ec-canvas-page {
   --canvas-bg: #fafbfc;
   --canvas-surface: #fff;
@@ -31,6 +42,12 @@
   --ec-ease-spring: cubic-bezier(.34, 1.56, .64, 1);
   --ec-hover-lift: -1px;
   --ec-press-drop: 0;
+  /* Icon size ladder: inline glyphs (menu rows / node headers / node checks),
+     tool buttons, hero rail glyph. Components stop hardcoding px props so
+     retuning happens once, here. */
+  --ec-icon-inline: 17px;
+  --ec-icon-tool: 18px;
+  --ec-icon-hero: 22px;
   --ec-canvas-control-height: 32px;
   --ec-canvas-topbar-control-height: 38px;
   --ec-canvas-action-font: 12px;
@@ -99,7 +116,7 @@
   color: #5f6670;
   transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring), box-shadow var(--ec-motion-fast) var(--ec-ease-out);
 }
-.ec-canvas-icon-button:hover:not(:disabled) { color: var(--canvas-ink); background: #eef1f4; }
+.ec-canvas-icon-button:hover:not(:disabled) { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-icon-button:active:not(:disabled) { transform: translateY(1px); background: #e4e8ec; }
 .ec-canvas-icon-button.is-active { color: #fff; background: var(--canvas-command); }
 .ec-canvas-icon-button:disabled { opacity: .38; cursor: not-allowed; }
@@ -109,10 +126,11 @@
 .ec-canvas-tabs button:focus-visible,
 .ec-canvas-filter select:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 2px; }
 
-.ec-canvas-command { height: var(--ec-canvas-topbar-control-height); justify-content: center; gap: 7px; padding: 0 12px; border: 0; border-radius: var(--ec-radius-sm); background: #f5f6f8; color: #34393f; font-size: 12px; font-weight: 700; transition: background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring), border-color var(--ec-motion-fast) var(--ec-ease-out), box-shadow var(--ec-motion-fast) var(--ec-ease-out); }
+.ec-canvas-command { height: var(--ec-canvas-topbar-control-height); justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-sm); background: #f5f6f8; color: #34393f; font-size: 12px; font-weight: 700; transition: background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring), border-color var(--ec-motion-fast) var(--ec-ease-out), box-shadow var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-command:hover:not(:disabled) { background: #e3e7eb; }
+.ec-canvas-command:not(.is-primary):not(.is-dark):hover:not(:disabled) { border-color: rgba(37, 99, 235, .38); }
 .ec-canvas-command:active:not(:disabled) { transform: translateY(1px); }
-.ec-canvas-command.is-primary { background: var(--canvas-command); color: #fff; }
+.ec-canvas-command.is-primary { border-color: transparent; background: var(--canvas-command); color: #fff; }
 .ec-canvas-command.is-primary:hover:not(:disabled) { background: var(--canvas-command-hover); }
 .ec-canvas-command.is-dark { border-color: #15171a; background: #15171a; color: #fff; }
 .ec-canvas-command.is-dark:hover { background: #2b2e33; }
@@ -164,7 +182,7 @@
 .ec-canvas-layers-panel button { border: 0; background: transparent; color: #69717b; }
 .ec-canvas-layers-panel > header button,
 .ec-canvas-layer-row > button:not(.ec-canvas-layer-main) { width: 30px; height: 30px; flex: 0 0 30px; display: inline-grid; place-items: center; border-radius: 6px; }
-.ec-canvas-layers-panel button:hover { color: var(--canvas-command); background: #eef4ff; }
+.ec-canvas-layers-panel button:hover { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-layer-list { min-height: 80px; overflow: auto; padding: 6px; }
 .ec-canvas-layer-list > p { margin: 26px 0; color: #8b929b; text-align: center; font-size: 11px; }
 .ec-canvas-layer-row { min-height: 46px; display: flex; align-items: center; gap: 2px; border-radius: 7px; }
@@ -192,10 +210,7 @@
 .ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; width: min(760px, calc(100vw - 32px)); pointer-events: auto; }
 .ec-canvas-empty-state strong { font-size: 16px; font-weight: 750; letter-spacing: .01em; }
 .ec-canvas-empty-state p { margin: 6px 0 20px; color: var(--canvas-muted); font-size: 12px; }
-.ec-canvas-empty-actions { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 900px) {
-  .ec-canvas-empty-actions { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
-}
+.ec-canvas-empty-actions { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(max-content, 1fr)); gap: 10px; }
 .ec-canvas-empty-actions button { min-width: 0; height: 48px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 0 13px; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-lg); background: var(--canvas-surface); color: #2a3040; box-shadow: var(--ec-shadow-1); font-size: 12px; font-weight: 700; letter-spacing: .005em; white-space: nowrap; cursor: pointer; position: relative; transition: transform var(--ec-motion-fast) var(--ec-ease-spring), box-shadow var(--ec-motion-fast) var(--ec-ease-out), border-color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-empty-actions button svg { width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: calc(var(--ec-radius-lg) - 4px); background: #eef3ff; color: var(--canvas-command); flex-shrink: 0; transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-empty-actions button:hover:not(:disabled) { transform: translateY(var(--ec-hover-lift)); border-color: rgba(37, 99, 235, .38); box-shadow: var(--ec-shadow-2), var(--ec-ring-inset); background: #fdfdff; }
@@ -258,7 +273,7 @@
 
 .ec-canvas-selection-bar { position: absolute; z-index: 70; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--ec-radius-sm); background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); white-space: nowrap; }
 .ec-canvas-selection-bar button { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: calc(var(--ec-radius-sm) - 2px); background: transparent; color: #454d58; font-size: 11px; font-weight: 650; transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring); }
-.ec-canvas-selection-bar button:hover { color: var(--canvas-command); background: #eef4ff; }
+.ec-canvas-selection-bar button:hover { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-selection-bar button:active { transform: translateY(1px); }
 .ec-canvas-selection-bar button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 1px; }
 
@@ -1151,5 +1166,16 @@
 .ec-canvas-icon-button:hover:not(:disabled) svg { stroke-width: 2; }
 /* 菜单/浮动工具条 spring 入场（P3-lite：350ms spring 弹性）*/
 @keyframes ecPanelIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
-.ec-canvas-add-menu, .ec-canvas-derive-menu, .ec-canvas-object-toolbar, .ec-canvas-multi-selection-toolbar { animation: ecPanelIn 350ms var(--ec-ease-spring,cubic-bezier(.34,1.56,.64,1)) backwards; }
-@media (prefers-reduced-motion: reduce) { .ec-canvas-icon-button:hover:not(:disabled) { transform: none; } .ec-canvas-generation-node.is-processing::before { animation: none; } .ec-canvas-add-menu, .ec-canvas-derive-menu, .ec-canvas-object-toolbar, .ec-canvas-multi-selection-toolbar { animation: none; } }
+/* Entrance plays once per panel family per page load: components stamp
+   data-mounted on remounts (usePanelIntroGate in CanvasStudio.jsx), so tab
+   round-trips never replay the spring and flash the icons back in. The multi
+   toolbar joins the family under its real class name. */
+.ec-canvas-add-menu, .ec-canvas-derive-menu, .ec-canvas-object-toolbar, .ec-canvas-multi-toolbar { animation: ecPanelIn 350ms var(--ec-ease-spring,cubic-bezier(.34,1.56,.64,1)) backwards; }
+.ec-canvas-add-menu[data-mounted], .ec-canvas-derive-menu[data-mounted], .ec-canvas-object-toolbar[data-mounted], .ec-canvas-multi-toolbar[data-mounted] { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-icon-button:hover:not(:disabled) { transform: none; }
+  .ec-canvas-generation-node.is-processing::before { animation: none; }
+  .ec-canvas-add-menu, .ec-canvas-derive-menu, .ec-canvas-object-toolbar, .ec-canvas-multi-toolbar { animation: none; }
+  .ec-canvas-page .ec-canvas-command:hover svg[class*='lucide-plus'],
+  .ec-canvas-page .ec-canvas-command:hover svg[class*='lucide-refresh-cw'] { transform: none; }
+}

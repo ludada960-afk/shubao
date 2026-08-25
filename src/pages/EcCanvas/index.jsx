@@ -321,11 +321,12 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
     >
       <button
         type="button"
+        data-canvas-node-check="true"
         aria-label={selected ? '取消选择' : '选择节点'}
         onPointerDown={e => { e.stopPropagation(); onToggleSelect?.(e, node.id); }}
         style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? '#7c3aed' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(0,0,0,.16)' }}
       >
-        {selected ? <SquareCheck size={17} /> : <Square size={17} />}
+        {selected ? <SquareCheck /> : <Square />}
       </button>
       {hovered && hoverActions.length > 0 && <div style={{ position: 'absolute', zIndex: 4, top: 8, right: 8, display: 'flex', gap: 5 }}>
         {hoverActions.map(action => {
@@ -524,6 +525,14 @@ export default function EcCanvas() {
   const [pointerMode, setPointerMode] = useState(null);
   const [activeTool, setActiveTool] = useState('select');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // JS anchoring for the add-node menu: measured from the rail button's live
+  // rect (CSS centering drifts once the topbar/rail metrics change).
+  const [addMenuAnchor, setAddMenuAnchor] = useState(null);
+  const syncAddMenuAnchor = useCallback(() => {
+    const rect = containerRef.current?.querySelector('.ec-canvas-rail-add')?.getBoundingClientRect();
+    if (!rect || !rect.width) return;
+    setAddMenuAnchor({ position: 'fixed', left: Math.round(rect.right + 12), top: Math.round(rect.top + rect.height / 2), transform: 'translateY(-50%)' });
+  }, []);
   const [layersPanelOpen, setLayersPanelOpen] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
@@ -1064,8 +1073,16 @@ export default function EcCanvas() {
     setPendingProjectAssetImports(normalizePendingProjectAssetImports(initialSnapshot?.pendingProjectAssetImports));
     setNodes(newNodes);
     setConnections((initialSnapshot?.connections?.length ? initialSnapshot.connections : session.connections).map(normalizeCanvasConnection));
-    setSelected(null);
-    setMultiSelected(new Set());
+    // Keep-selection rebuild: re-entering the canvas replays this session
+    // effect; dropping selection here unmounts the floating toolbars and
+    // flashes their icons. Preserve only ids that survive the rebuild.
+    const rebuiltNodeIds = new Set(newNodes.map(node => node.id));
+    setSelected(previous => (previous && rebuiltNodeIds.has(previous)) ? previous : null);
+    setMultiSelected(previous => {
+      if (!previous.size) return previous;
+      const next = new Set([...previous].filter(id => rebuiltNodeIds.has(id)));
+      return next.size === previous.size ? previous : next;
+    });
     setConnectionDraft(null);
     setConnectionPicker(null);
     const nextCanvasSession = result.canvasSession?.id
@@ -1134,7 +1151,7 @@ export default function EcCanvas() {
       draftReadyRef.current = true;
     });
     return () => { cancelled = true; };
-  }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, result.browserQa, imageList.length, resultVideoUrl]);
+  }, [result.id, result._saveKey]);
 
   useEffect(() => {
     if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
@@ -4446,11 +4463,11 @@ export default function EcCanvas() {
           <input ref={videoUploadRef} type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={handleCanvasVideoUpload} style={{ display: 'none' }} />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
-            onAddMenuToggle={() => setAddMenuOpen(open => !open)}
+            onAddMenuToggle={() => { syncAddMenuAnchor(); setAddMenuOpen(open => !open); }}
           />
           <CanvasAddMenu
             open={addMenuOpen}
-            position={{ position: 'fixed', left: 68, top: '50%', transform: 'translateY(-50%)' }}
+            position={addMenuAnchor || { position: 'fixed', left: 68, top: '50%', transform: 'translateY(-50%)' }}
             onClose={() => setAddMenuOpen(false)}
             onSelect={actionId => {
               setAddMenuOpen(false);

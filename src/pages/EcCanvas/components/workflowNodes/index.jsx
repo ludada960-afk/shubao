@@ -63,7 +63,7 @@ export function CanvasNodeShell({ title, subtitle, icon: Icon = MdAutoFixHigh, s
       <CanvasPortHandle side="right" role="output" visible={selected} onPointerDown={event => onPortPointerDown?.(event, 'out')} onPointerUp={event => onPortPointerUp?.(event, 'out')} />
       <header className="workflow-node-header">
         <div className="workflow-node-title-group">
-          <span className="workflow-node-icon"><Icon size={17} /></span>
+          <span className="workflow-node-icon"><Icon /></span>
           <div>
             <h3>{title}</h3>
             {subtitle && <p>{subtitle}</p>}
@@ -106,7 +106,7 @@ export function CanvasNodeActionPicker({ actions = [], onSelect, onClose, positi
             {items.map(action => {
               const Icon = ICONS[action.id] || MdAutoFixHigh;
               return <button type="button" className="workflow-picker-item" key={action.id} onClick={() => onSelect?.(action)}>
-                <span className="workflow-picker-item-icon"><Icon size={17} /></span>
+                <span className="workflow-picker-item-icon"><Icon /></span>
                 <span><strong>{action.label}</strong><small>{action.description}</small></span>
                 <em className="workflow-picker-price">{action.priceLabel}</em>
                 <MdChevronRight size={16} />
@@ -131,7 +131,7 @@ function ImageRail({ label, hint, images = [], onAdd, onRemove }) {
           <button type="button" aria-label={`移除${label}`} onClick={() => onRemove?.(image, index)}><MdClose size={12} /></button>
         </div>)}
         <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd?.([...event.target.files]); event.target.value = ''; }} />
-        <button type="button" className="workflow-upload-tile" onClick={() => inputRef.current?.click()}><MdUpload size={17} /><span>添加</span></button>
+        <button type="button" className="workflow-upload-tile" onClick={() => inputRef.current?.click()}><MdUpload /><span>添加</span></button>
       </div>
     </div>
   );

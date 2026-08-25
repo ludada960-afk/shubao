@@ -15,7 +15,8 @@ test('empty canvas presents image, video, works, and generation entrypoints', as
   assert.doesNotMatch(source, /CanvasSourceImportSheet|sourceImportOpen|product_original|style_reference|general_material/);
   assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);
   assert.match(css, /\.ec-canvas-empty-state > div \{[^}]*pointer-events: auto;/);
-  assert.match(css, /\.ec-canvas-empty-actions \{[^}]*grid-template-columns:\s*repeat\(5/);
+  assert.match(css, /\.ec-canvas-empty-actions \{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(max-content,\s*1fr\)\)/);
+  assert.doesNotMatch(css, /@media \(max-width: 900px\)\s*\{\s*\.ec-canvas-empty-actions/);
 });
 
 test('commerce canvas uses a quiet professional shell and contextual world panels', async () => {

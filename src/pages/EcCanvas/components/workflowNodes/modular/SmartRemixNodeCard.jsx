@@ -15,7 +15,7 @@ function ImageRail({ label, hint, images = [], onAdd, onRemove }) {
         <button type="button" aria-label={`移除${label}`} onClick={() => onRemove?.(image, index)}><MdClose size={12} /></button>
       </div>)}
       <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd?.([...event.target.files]); event.target.value = ''; }} />
-      <button type="button" className={styles.uploadTile} onClick={() => inputRef.current?.click()}><MdUpload size={17} /><span>添加</span></button>
+      <button type="button" className={styles.uploadTile} onClick={() => inputRef.current?.click()}><MdUpload /><span>添加</span></button>
     </div>
   </div>;
 }
