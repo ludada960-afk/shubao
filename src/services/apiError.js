@@ -19,11 +19,17 @@ export async function createApiError(response, fallbackMessage = '请求失败')
   const raw = await response.text().catch(() => '');
   let payload = null;
   try { payload = raw ? JSON.parse(raw) : null; } catch {}
-  const message = payload?.error || payload?.message || raw || response.statusText || fallbackMessage;
+  const status = Number(response.status || 0);
+  const structuredMessage = payload?.error || payload?.message || '';
+  // 5xx 且响应体不是结构化 JSON（典型：dev 代理指向未启动的后端、网关错误页）时，
+  // 不把「Internal Server Error」这类英文原文透给用户，回退到业务方传入的中文提示。
+  const message = structuredMessage
+    || (status >= 500 ? '' : (raw || response.statusText || ''))
+    || fallbackMessage;
   return new ApiError(String(message).slice(0, 300), {
-    status: Number(response.status || 0),
+    status,
     code: payload?.code || 'API_ERROR',
-    payload,
+    payload: payload ?? (status >= 500 && raw && !structuredMessage ? { rawBody: raw.slice(0, 500) } : payload),
     resumeable: payload?.resumeable,
     retryable: payload?.retryable,
     retryAfter: Number.isFinite(payload?.retryAfter) ? payload.retryAfter : null,
