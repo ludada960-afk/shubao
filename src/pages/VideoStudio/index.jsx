@@ -93,6 +93,29 @@ function MediaPreview({ file, upload }) {
   return <span className="video-media-audio-preview"><FileAudio size={25} /><small>{kind === 'audio' ? '音频' : '素材'}</small></span>;
 }
 
+
+function MediaLightbox({ entry, onClose }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    if (!entry) { setUrl(''); return undefined; }
+    if (entry.upload?.asset?.url) { setUrl(entry.upload.asset.url); return undefined; }
+    const preview = createImmediateMediaPreview(entry.file);
+    setUrl(preview.url);
+    return () => preview.revoke();
+  }, [entry]);
+  if (!entry) return null;
+  const kind = fileKind(entry.file);
+  return <div className="video-lightbox" role="dialog" aria-modal="true" onClick={onClose}>
+    <div className="video-lightbox-body" onClick={event => event.stopPropagation()}>
+      <header><strong>{entry.file.name}</strong><button type="button" className="video-lightbox-close" aria-label="关闭预览" onClick={onClose}><X size={16} /></button></header>
+      {kind === 'image' && url ? <img src={url} alt={entry.file.name} /> : null}
+      {kind === 'video' && url ? <video src={url} controls autoPlay /> : null}
+      {kind === 'audio' && url ? <div className="video-lightbox-audio"><FileAudio size={42} /><audio src={url} controls autoPlay /></div> : null}
+      <footer>Esc 或点击空白处关闭</footer>
+    </div>
+  </div>;
+}
+
 function UploadStatus({ upload, onRetry }) {
   if (!upload) return null;
   if (upload.status === 'uploading') return <span className="video-upload-status is-uploading">
@@ -103,13 +126,13 @@ function UploadStatus({ upload, onRetry }) {
     event.stopPropagation();
     onRetry?.();
   }}><RefreshCw size={11} />重试上传</button>;
-  if (upload.status === 'completed') return <span className="video-upload-status is-completed"><Check size={11} />已上传</span>;
+  if (upload.status === 'completed') return <span className="video-upload-status is-completed" title="已上传"><Check size={11} /></span>;
   return null;
 }
 
-function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef, upload, onRetry }) {
+function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef, upload, onRetry, onPreview }) {
   const file = files[0];
-  return <div className={`video-media-card video-media-picker${file ? ' has-file' : ''}`}>
+  return <div className={`video-media-card video-media-picker${file ? ' has-file' : ''}`} title={file ? '双击预览' : undefined} onDoubleClick={() => { if (file && onPreview) onPreview({ file }); }}>
     <label className="video-media-picker-control">
       <input ref={inputRef} type="file" accept={accept} multiple={multiple} onChange={event => {
         onChange(Array.from(event.target.files || []));
@@ -426,6 +449,7 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [startUpload]);
 
   const uploadFor = useCallback(file => uploadsRef.current.get(file), []);
+  const [lightboxEntry, setLightboxEntry] = useState(null);
   const uploadRecords = useMemo(() => Array.from(uploadsRef.current.values()), [uploadRevision]);
 
   useEffect(() => {
@@ -700,8 +724,8 @@ export default function VideoStudioPage({ embedded = false }) {
   const renderAssetPickers = () => {
     if (mode === 'frame') {
       return <div className="video-media-deck is-frame">
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} upload={uploadFor(files.first[0])} onRetry={() => retryUpload(files.first[0], 'image')} />
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} upload={uploadFor(files.last[0])} onRetry={() => retryUpload(files.last[0], 'image')} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} upload={uploadFor(files.first[0])} onRetry={() => retryUpload(files.first[0], 'image')} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} upload={uploadFor(files.last[0])} onRetry={() => retryUpload(files.last[0], 'image')} />
         <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
     }
@@ -724,7 +748,12 @@ export default function VideoStudioPage({ embedded = false }) {
         </label>)}
       </div>
       {materialEntries.length > 0 && <div className="video-media-deck">
-        {materialEntries.map(item => <article key={`${item.key}-${item.index}-${item.file.name}`} className={`video-media-card video-media-preview-card is-${item.kind}`}>
+        {materialEntries.map(item => <article
+          key={`${item.key}-${item.index}-${item.file.name}`}
+          className={`video-media-card video-media-preview-card is-${item.kind}`}
+          title="双击预览大图 / 播放"
+          onDoubleClick={() => setLightboxEntry({ file: item.file, upload: uploadFor(item.file) })}
+        >
           <MediaPreview file={item.file} upload={uploadFor(item.file) || {}} />
           <span className="video-media-type">{item.label}</span>
           <span className="video-media-caption">{item.name}</span>
@@ -749,7 +778,7 @@ export default function VideoStudioPage({ embedded = false }) {
       <button type="button" className={`video-sound-choice${sound ? ' is-selected' : ''}`} onClick={() => { setPlanReviewed(false); setSound(current => !current); }}>
         <span><Volume2 size={20} /><strong>生成同期声音</strong><small>根据画面内容生成环境声和动作声音</small></span><i aria-hidden="true" />
       </button>
-      {mode !== 'frame' && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} upload={uploadFor(files.audios[0])} onRetry={() => retryUpload(files.audios[0], 'audio')} /></div>}
+      {mode !== 'frame' && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" onPreview={setLightboxEntry} icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} upload={uploadFor(files.audios[0])} onRetry={() => retryUpload(files.audios[0], 'audio')} /></div>}
     </>;
     if (activePanel === 'settings') return <>
       <div className="video-panel-section"><strong>清晰度</strong><div className="video-resolution-grid">
@@ -794,6 +823,7 @@ export default function VideoStudioPage({ embedded = false }) {
   };
 
   return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`}>
+    <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
     <section className="video-composer" aria-label="视频生成工作区">
