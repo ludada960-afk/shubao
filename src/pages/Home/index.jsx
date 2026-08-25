@@ -16,6 +16,33 @@ import { loadWorks } from '../../services/api';
  * 薯包AI 首页 — 灵图结构精确复刻
  * 白色卡片 → {干净内容区 + 底栏} 平行同级
  */
+// 模式卡入口图：直接使用已入库的 .thumbs WebP 预览（约 20-35KB），加载失败回退 PNG 原图。
+// width/height 提供内在尺寸（420×360），让浏览器在样式就绪前即可锁定比例，避免占位塌陷。
+const MODE_CARD_THUMB_PATTERN = /^\/images\/(.+)\.(?:png|jpe?g)$/i;
+
+function modeCardThumb(src) {
+  const match = String(src || '').match(MODE_CARD_THUMB_PATTERN);
+  return match ? '/images/.thumbs/' + match[1] + '.webp' : '';
+}
+
+function ModeCardImage({ src, alt, priority = false }) {
+  const thumb = modeCardThumb(src);
+  return (
+    <img
+      src={thumb || src}
+      alt={alt}
+      width="420"
+      height="360"
+      loading="eager"
+      decoding="async"
+      fetchpriority={priority ? 'high' : 'auto'}
+      onError={event => {
+        const image = event.currentTarget;
+        if (thumb && image.getAttribute('src') === thumb) image.setAttribute('src', src);
+      }}
+    />
+  );
+}
 export default function HomePage() {
   const { state, dispatch } = useApp();
   const { mode } = state;
@@ -159,7 +186,7 @@ export default function HomePage() {
                   >
                     <span className="homepage-mode-card-title"><ModeIcon size={16} />{option.title}</span>
                     <span className="homepage-mode-card-visual">
-                      <img src={option.src} alt={`${option.title}案例`} loading="eager" />
+                      <ModeCardImage src={option.src} alt={`${option.title}案例`} priority={index === 0} />
                     </span>
                   </button>
                 );

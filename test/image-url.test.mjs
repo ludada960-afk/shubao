@@ -55,3 +55,13 @@ test('web-ready public assets bypass the image API on first paint', () => {
     '',
   );
 });
+
+test('card variant previews reuse checked-in local thumbnails like thumb cards', () => {
+  assert.deepEqual(
+    responsiveImageCandidates('/images/home/workspace-video-v2.png', 'card'),
+    [
+      '/images/.thumbs/home/workspace-video-v2.webp',
+      '/images/home/workspace-video-v2.png',
+    ],
+  );
+});

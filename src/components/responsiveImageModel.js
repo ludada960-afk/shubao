@@ -27,7 +27,9 @@ export function responsiveImageCandidates(source, variant = 'thumb') {
   // a checked-in 720px WebP first. If a legacy asset has no thumbnail the
   // component falls back to the source without involving another service.
   if (isDirectPublicAsset(raw)) {
-    const thumbnail = variant === 'thumb' ? localPublicThumbnail(raw) : '';
+    // 'card' 与 'thumb' 一样只用于卡片预览，同样优先走已入库的 .thumbs WebP，
+    // 避免展示型卡位直接拉取数 MB 的源 PNG；放大/画布等场景仍取原图。
+    const thumbnail = variant === 'thumb' || variant === 'card' ? localPublicThumbnail(raw) : '';
     return [...new Set([thumbnail, raw].filter(Boolean))];
   }
   const candidates = [proxyImg(raw, variant), proxyImg(raw, 'full')];
