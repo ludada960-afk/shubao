@@ -209,6 +209,7 @@ function normalizeLayerItems(layers, nodeId) {
 }
 
 const ACTION_ICONS = {
+  'add-text': Type,
   'adjust-requirements': Pencil,
   regenerate: RefreshCw,
   download: Download,
@@ -2477,6 +2478,11 @@ export default function EcCanvas() {
     }
     if (handler.startsWith('create:')) {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
+      return;
+    }
+    if (handler === 'add-text') {
+      // 添加文字：复用 handleAddTextNode 在选中图片右侧落一个真实可编辑文本节点。
+      handleAddTextNode({ x: node.x + node.w + 28, y: node.y });
       return;
     }
     if (handler === 'copy-url') {
