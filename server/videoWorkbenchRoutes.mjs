@@ -507,6 +507,20 @@ export function mountVideoWorkbenchRoutes(app, {
     })
   ), { status: 201, key: 'binding' }));
 
+  // VID-R6: batch orchestration intent + progress aggregation (never bills).
+  app.post('/api/video/projects/:projectId/workbench/shot-batches', (req, res) => dispatch(
+    req, res, 'shot-batch.create', request => store.createShotBatch({
+      ...request,
+      shotIds: req.body?.shotIds,
+    }), { status: 201, key: 'batch' }));
+
+  app.get('/api/video/projects/:projectId/workbench/shot-batches/:batchId', (req, res) => dispatch(
+    req, res, 'shot-batch.read', request => store.getShotBatch({
+      ...request,
+      batchId: req.params.batchId,
+    })
+  ));
+
   app.post('/api/video/projects/:projectId/workbench/shots/:shotId/candidates', (req, res) => dispatch(req, res, 'candidate.create', request => (
     store.registerCandidateFromJob({
       ...request,

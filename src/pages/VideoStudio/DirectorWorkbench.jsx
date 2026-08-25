@@ -24,6 +24,8 @@ import {
   unlockWorkbenchAssetVersion,
   updateStoryboardShot,
   getVideoWorkbenchPreflight,
+  createVideoShotBatch,
+  getVideoShotBatch,
 } from '../../services/videoWorkbench.js';
 import ShotTableEditor from './ShotTableEditor.jsx';
 import DirectorAssistant from './DirectorAssistant.jsx';
@@ -125,6 +127,31 @@ export default function DirectorWorkbench({ capabilities }) {
       setChecking(false);
     }
   }, [checking, projectId]);
+  const [shotBatch, setShotBatch] = useState(null);
+  const [batchBusy, setBatchBusy] = useState('');
+
+  const startBatchProgress = useCallback(async () => {
+    if (!projectId || !shots.length || batchBusy) return;
+    setBatchBusy('creating');
+    setError('');
+    try {
+      const batch = await createVideoShotBatch(projectId, shots.map(shot => shot.id));
+      setShotBatch(batch);
+    } catch (cause) {
+      setError(cause?.message || '创建批次失败');
+    } finally {
+      setBatchBusy('');
+    }
+  }, [batchBusy, projectId, shots]);
+
+  const refreshBatchProgress = useCallback(async () => {
+    if (!projectId || !shotBatch?.id) return;
+    try {
+      const next = await getVideoShotBatch(projectId, shotBatch.id);
+      setShotBatch(next);
+    } catch { /* keep last snapshot on transient failure */ }
+  }, [projectId, shotBatch?.id]);
+
   const toggleLock = useCallback(async (asset) => {
     if (!asset?.id || lockBusy) return;
     const versions = Array.isArray(asset.versions) ? asset.versions : [];
@@ -259,6 +286,23 @@ export default function DirectorWorkbench({ capabilities }) {
                       {clips.map((clip, index) => <li key={clip.id || index}><strong>T{index + 1}</strong><span>{clip.shotId || clip.candidateId || '片段'}</span><small>{Number(clip.durationSeconds || clip.duration) || 0}s</small></li>)}
                     </ol>
                   ) : <div className="dw-placeholder"><Film size={22} /><strong>时间线还没有内容</strong><span>批准候选镜头后会自动装配到这里。</span></div>
+                )}
+                {stage === 'storyboard' && (
+                  <div className="dw-batch-bar">
+                    <button type="button" className="dw-check-btn" disabled={!!batchBusy || !shots.length} onClick={() => void startBatchProgress()}>
+                      {batchBusy === 'creating' ? '创建中…' : (shotBatch ? '重建全量批次' : '批量生成进度 · 全部镜头')}
+                    </button>
+                    {shotBatch && (
+                      <span className="dw-batch-items">
+                        {shotBatch.items.map(item => (
+                          <span key={item.shotId} className={`dw-batch-chip is-${item.state}`} title={item.state}>
+                            S{String((shots.findIndex(x => x.id === item.shotId) + 1) || (shotBatch.shotIds.indexOf(item.shotId) + 1)).padStart(2, '0')}
+                          </span>
+                        ))}
+                        <button type="button" className="dw-ps-add" onClick={() => void refreshBatchProgress()}>刷新进度</button>
+                      </span>
+                    )}
+                  </div>
                 )}
                 {stage === 'storyboard' && selectedShot && (
                   <ShotTableEditor

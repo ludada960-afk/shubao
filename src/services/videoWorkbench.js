@@ -266,6 +266,21 @@ export async function createStoryboardShot(projectId, payload = {}) {
   return requireValue(response, 'shot', '分镜信息暂时不可用，请稍后重试');
 }
 
+
+export async function createVideoShotBatch(projectId, shotIds) {
+  const response = await requestJson(`${workbenchBase(projectId)}/shot-batches`, {
+    method: 'POST',
+    ...jsonBody({ shotIds }),
+  }, '暂时无法创建分镜批次');
+  return requireValue(response, 'batch', '分镜批次暂时不可用，请稍后重试');
+}
+
+export async function getVideoShotBatch(projectId, batchId) {
+  const response = await requestJson(`${workbenchBase(projectId)}/shot-batches/${encodeURIComponent(batchId)}`, {},
+    '暂时无法读取分镜批次进度');
+  return requireValue(response, 'batch', '分镜批次暂时不可用，请稍后重试');
+}
+
 export async function updateStoryboardShot(projectId, shotId, payload = {}) {
   const response = await requestJson(shotBase(projectId, shotId), {
     method: 'PATCH',

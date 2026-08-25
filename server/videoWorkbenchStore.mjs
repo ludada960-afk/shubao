@@ -718,6 +718,13 @@ function ensureSchema(db) {
       created_at TEXT NOT NULL, UNIQUE(shot_id, output_asset_id),
       FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id)
     );
+    CREATE TABLE IF NOT EXISTS video_shot_batches (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      shot_ids_json TEXT NOT NULL, created_at TEXT NOT NULL,
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_shot_batches_project
+      ON video_shot_batches(owner_email, project_id, created_at);
     CREATE TABLE IF NOT EXISTS video_timeline_clips (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       shot_id TEXT NOT NULL, candidate_id TEXT NOT NULL, position INTEGER NOT NULL,
@@ -1661,6 +1668,61 @@ export function createVideoWorkbenchStore({
         provenance,
         projectAssetRef: canonical.ref,
       });
+    },
+
+    // VID-R6: batch orchestration intent. Recording a batch never touches the
+    // wallet — real per-shot jobs still go through the approved paid pipeline.
+    createShotBatch({ ownerEmail, projectId, shotIds }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const requested = Array.isArray(shotIds) ? shotIds : [];
+      const unique = [...new Set(requested.map(id => clean(id, 200)).filter(Boolean))];
+      if (!unique.length) throw coded('VIDEO_BATCH_EMPTY', 'at least one shot is required');
+      if (unique.length > 30) throw coded('VIDEO_BATCH_TOO_LARGE', 'a batch holds at most 30 shots');
+      const known = new Set(db.prepare('SELECT id FROM video_storyboard_shots WHERE owner_email = ? AND project_id = ?')
+        .all(owner, project.id).map(row => row.id));
+      const missing = unique.filter(id => !known.has(id));
+      if (missing.length) throw coded('VIDEO_SHOT_NOT_FOUND', 'some shots do not belong to this project', { missing });
+      const id = crypto.randomUUID();
+      db.prepare(`INSERT INTO video_shot_batches (id, owner_email, project_id, shot_ids_json, created_at)
+        VALUES (?, ?, ?, ?, ?)`).run(id, owner, project.id, JSON.stringify(unique), timestamp());
+      return this.getShotBatch({ ownerEmail: owner, projectId: project.id, batchId: id });
+    },
+
+    getShotBatch({ ownerEmail, projectId, batchId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare('SELECT id, shot_ids_json, created_at FROM video_shot_batches WHERE id = ? AND owner_email = ? AND project_id = ?').get(clean(batchId, 200), owner, project.id);
+      if (!row) throw coded('VIDEO_BATCH_NOT_FOUND', 'shot batch not found');
+      const shotIds = parseJson(row.shot_ids_json, []);
+      if (!tableExists(db, 'video_jobs')) {
+        const counts = new Map(db.prepare('SELECT shot_id, COUNT(*) AS n FROM video_shot_candidates WHERE owner_email = ? AND project_id = ? GROUP BY shot_id')
+          .all(owner, project.id).map(row => [row.shot_id, row.n]));
+        const items = shotIds.map(shotId => ({ shotId, state: 'not_started', candidateCount: counts.get(shotId) || 0, jobStatus: null, updatedAt: null }));
+        return { id: row.id, projectId: project.id, shotIds, createdAt: row.created_at, items, summary: { not_started: items.length } };
+      }
+      const rows = db.prepare(`SELECT c.shot_id, c.status AS candidate_status, j.id AS job_id,
+          j.status AS job_status, j.updated_at AS job_updated_at
+        FROM video_shot_candidates c LEFT JOIN video_jobs j ON j.id = c.generation_job_id
+        WHERE c.owner_email = ? AND c.project_id = ? AND c.shot_id IN (${shotIds.map(() => '?').join(',') || "''"})`)
+        .all(owner, project.id, ...shotIds);
+      const byShot = new Map();
+      for (const entry of shotIds) {
+        byShot.set(entry, { shotId: entry, state: 'not_started', candidateCount: 0, jobStatus: null, updatedAt: null });
+      }
+      for (const item of rows) {
+        const slot = byShot.get(item.shot_id);
+        if (!slot) continue;
+        slot.candidateCount += 1;
+        const jobStatus = item.job_status || null;
+        if (jobStatus === 'completed' && item.candidate_status === 'available') slot.state = 'candidate_ready';
+        else if (['queued', 'running'].includes(jobStatus)) slot.state = jobStatus === 'running' ? 'running' : 'queued';
+        else if (['failed', 'cancelled'].includes(jobStatus)) slot.state = slot.state === 'candidate_ready' ? slot.state : 'failed';
+        else if (jobStatus && slot.state === 'not_started') slot.state = 'in_flight';
+        slot.jobStatus = jobStatus;
+        slot.updatedAt = item.job_updated_at || slot.updatedAt;
+      }
+      const items = [...byShot.values()];
+      const summary = items.reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
+      return { id: row.id, projectId: project.id, shotIds, createdAt: row.created_at, items, summary };
     },
 
     selectCandidate({ ownerEmail, projectId, shotId, candidateId, expectedRevision }) {
