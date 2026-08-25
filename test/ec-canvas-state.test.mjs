@@ -350,7 +350,7 @@ test('Canvas Work projection preserves media-only sources for later recovery', (
   assert.match(mediaFieldsBlock, /projectAssetRefs/);
   assert.match(canvasSource, /const saveKey = result\._saveKey \|\| canvasGeneratedWorkKeyRef\.current/);
   assert.match(canvasSource, /\$\{work\.mediaAssets\?\.length \|\| 0\} 个媒体素材/);
-  assert.match(canvasSource, /MdMusicNote size=\{20\}/);
+  assert.match(canvasSource, /mediaKind === 'audio' \? <audio src=\{asset\.playbackUrl \|\| asset\.stableUrl\}/);
   assert.match(canvasSource, /const mediaUrl = asset\.playbackUrl \|\| asset\.url \|\| asset\.stableUrl/);
   assert.match(canvasSource, /asset\.mediaKind === 'video' \? <video[\s\S]*?src=\{mediaUrl\}/);
   assert.match(canvasSource, /asset\.mediaKind === 'audio' \? \([\s\S]*?<audio[\s\S]*?src=\{mediaUrl\}/);
@@ -420,11 +420,8 @@ test('Canvas top navigation uses one spacious control rhythm and consistent surf
   assert.match(canvasCss, /--ec-canvas-topbar-control-height:\s*38px/);
   assert.match(canvasCss, /\.ec-canvas-topbar\s*\{[\s\S]*?height:\s*62px;[\s\S]*?flex:\s*0 0 62px;/);
   assert.match(canvasCss, /\.ec-canvas-topbar-actions\s*\{\s*gap:\s*9px;/);
-  assert.match(canvasCss, /\.ec-canvas-topbar-surface[\s\S]*?border:\s*1px solid var\(--canvas-hairline\);[\s\S]*?box-shadow:\s*0 2px 7px rgba\(21, 23, 26, \.08\);/);
-  assert.match(canvasCss, /\.ec-canvas-topbar-surface:hover:not\(:disabled\)[\s\S]*?transform:\s*translateY\(-1px\);/);
-  assert.match(canvasChromeSource, /className="ec-canvas-tabs ec-canvas-topbar-surface"/);
-  assert.match(canvasChromeSource, /className="ec-canvas-command ec-canvas-topbar-surface"/);
-  assert.match(canvasChromeSource, /className="ec-canvas-filter ec-canvas-topbar-surface"/);
+  // 新版导航重构后 surface 反馈收敛到 .ec-canvas-topbar 容器（hairline 分隔线），不再使用 per-widget topbar-surface 类
+  assert.match(canvasCss, /\.ec-canvas-topbar\s*\{[\s\S]*?border-bottom:\s*1px solid var\(--canvas-hairline\);/);
 });
 
 test('image information opens an editable product dialog and saves node metadata', () => {

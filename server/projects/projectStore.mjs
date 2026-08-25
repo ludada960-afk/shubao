@@ -1490,6 +1490,8 @@ export function createProjectStore(db, {
             }
             : {};
           const role = cleanProjectAssetValue(canonicalMetadata.role || 'generated', 'role', 80);
+          // 统一口径：所有AI生成结果默认不进素材库(visibleInLibrary=false)，需用户显式加入；与XHS/画布生成物一致
+          const libraryMetadata = { ...canonicalMetadata, visibleInLibrary: false };
           db.prepare(`INSERT OR IGNORE INTO project_assets
             (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, metadata_json, retention_class, production_state, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -1504,7 +1506,7 @@ export function createProjectStore(db, {
               contentHash,
               stableUrl,
               mimeType,
-              JSON.stringify(canonicalMetadata),
+              JSON.stringify(libraryMetadata),
               resultStatus === 'completed' ? 'completed' : 'unfinished',
               resultStatus === 'completed' ? 'delivered' : 'candidate',
               completedAt,

@@ -649,6 +649,26 @@ export async function uploadEcommerceAsset({ data, file, role = 'product', signa
   return parseEcommerceUploadResponse(res, role);
 }
 
+// 把素材库(project_assets)记录转换为电商生成可直接使用的"已拥有资产引用"(不再重复上传)
+export function projectAssetToEcommerceImage(asset, role = 'reference') {
+  if (!asset?.projectAssetId || !asset?.projectId) return null;
+  const stableUrl = String(asset.stableUrl || '').trim();
+  if (!/^\/api\/generated-assets\//i.test(stableUrl)) return null;
+  return {
+    assetId: String(asset.assetId || ''),
+    url: stableUrl,
+    previewUrl: stableUrl,
+    name: String(asset.metadata?.displayName || asset.role || '项目素材'),
+    role,
+    projectAssetRef: {
+      projectId: String(asset.projectId),
+      projectAssetId: String(asset.projectAssetId),
+      role,
+      expectedContentHash: String(asset.contentHash || ''),
+    },
+  };
+}
+
 export async function uploadEcommerceAssets(images, role = 'product', { signal } = {}) {
   if (signal?.aborted) throw ecommerceUploadAbortError();
   return Promise.all((Array.isArray(images) ? images : []).map(async image => {

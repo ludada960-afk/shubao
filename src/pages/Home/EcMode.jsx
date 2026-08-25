@@ -24,7 +24,7 @@ import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import ProductProfileShelf from './ec/ProductProfileShelf.jsx';
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
-import { uploadEcommerceAssets } from '../../services/api.js';
+import { uploadEcommerceAssets, projectAssetToEcommerceImage } from '../../services/api.js';
 import { archiveProductProfile, createProductProfile, getProjectAsset, listProductProfiles } from '../../services/projects.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
@@ -966,6 +966,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         <EcommerceWorkbench
           productImages={productImages}
           refImages={refImages}
+          onPickFromLibrary={(role, picked) => {
+            const converted = (Array.isArray(picked) ? picked : [])
+              .map(asset => projectAssetToEcommerceImage(asset, 'reference'))
+              .filter(Boolean);
+            if (!converted.length) return showToast('所选素材暂不能用于生成，请重新选择', 'error');
+            setRefImages(current => {
+              const seen = new Set(current.map(img => img.url || img.previewUrl || ''));
+              const additions = converted.filter(img => !seen.has(img.url));
+              return [...current, ...additions].slice(0, 9);
+            });
+            showToast('已从素材库加入' + converted.length + '张参考图', 'success');
+          }}
           roleImages={roleImages}
           unmappedImages={unmappedImages}
           abilityRecipeId={abilityRecipeId}

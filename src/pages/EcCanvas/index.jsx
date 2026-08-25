@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdMovieCreation, MdGridView, MdVideoCameraFront, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote, MdPushPin, MdRefresh, MdLibraryAdd } from 'react-icons/md';
+import { ArrowDown, ArrowUp, Clapperboard, Crop, Download, ExternalLink, FileDown, FolderPlus, Grid3x3, Image, Images, Languages, Layers, LayoutGrid, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shapes, Shuffle, SlidersHorizontal, Sparkles, Square, SquareCheck, Trash2, Type, Video, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
@@ -207,22 +207,22 @@ function normalizeLayerItems(layers, nodeId) {
 }
 
 const ACTION_ICONS = {
-  'adjust-requirements': MdEdit,
-  regenerate: MdAutoFixHigh,
-  download: MdDownload,
-  'image-info': MdCategory,
-  'add-reference': MdAddPhotoAlternate,
-  delete: MdDelete,
-  'product-remix': MdImageSearch,
-  outpaint: MdAspectRatio,
-  inpaint: MdTune,
-  'remove-background': MdAutoFixHigh,
-  'layer-edit': MdLayers,
-  translate: MdTranslate,
-  upscale: MdHighQuality,
-  crop: MdCrop,
-  'grid-split': MdGridOn,
-  annotation: MdTextFields,
+  'adjust-requirements': Pencil,
+  regenerate: Sparkles,
+  download: Download,
+  'image-info': Shapes,
+  'add-reference': ImagePlus,
+  delete: Trash2,
+  'product-remix': Shuffle,
+  outpaint: Ratio,
+  inpaint: SlidersHorizontal,
+  'remove-background': Sparkles,
+  'layer-edit': Layers,
+  translate: Languages,
+  upscale: Maximize2,
+  crop: Crop,
+  'grid-split': Grid3x3,
+  annotation: Type,
 };
 
 const PLATFORM_PRESETS = {
@@ -322,11 +322,11 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         onPointerDown={e => { e.stopPropagation(); onToggleSelect?.(e, node.id); }}
         style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? '#7c3aed' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(0,0,0,.16)' }}
       >
-        {selected ? <MdCheckBox size={17} /> : <MdCheckBoxOutlineBlank size={17} />}
+        {selected ? <SquareCheck size={17} /> : <Square size={17} />}
       </button>
       {hovered && hoverActions.length > 0 && <div style={{ position: 'absolute', zIndex: 4, top: 8, right: 8, display: 'flex', gap: 5 }}>
         {hoverActions.map(action => {
-          const Icon = ACTION_ICONS[action.id] || MdAutoFixHigh;
+          const Icon = ACTION_ICONS[action.id] || Sparkles;
           return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 7, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
@@ -4474,11 +4474,11 @@ export default function EcCanvas() {
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
                 <p>从商品素材开始，继续生成套图、文案和营销视频</p>
                 <div className="ec-canvas-empty-actions">
-                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdImage size={16} strokeWidth={1.5} />上传图片</button>
-                  <button type="button" onClick={() => videoUploadRef.current?.click()}><MdVideoCameraFront size={16} strokeWidth={1.5} />上传视频</button>
-                  <button type="button" onClick={() => handleTabChange('works')}><MdGridView size={16} strokeWidth={1.5} />从我的作品导入</button>
-                  <button type="button" onClick={() => addCanvasComposer('suite')}><MdAutoFixHigh size={16} strokeWidth={1.5} />生成电商套图</button>
-                  <button type="button" onClick={() => addCanvasComposer('video')}><MdMovieCreation size={16} strokeWidth={1.5} />生成视频</button>
+                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><Image size={16} strokeWidth={1.5} />上传图片</button>
+                  <button type="button" onClick={() => videoUploadRef.current?.click()}><Video size={16} strokeWidth={1.5} />上传视频</button>
+                  <button type="button" onClick={() => handleTabChange('works')}><LayoutGrid size={16} strokeWidth={1.5} />从我的作品导入</button>
+                  <button type="button" onClick={() => addCanvasComposer('suite')}><Sparkles size={16} strokeWidth={1.5} />生成电商套图</button>
+                  <button type="button" onClick={() => addCanvasComposer('video')}><Clapperboard size={16} strokeWidth={1.5} />生成视频</button>
                 </div>
               </div>
             </div>
@@ -4819,7 +4819,7 @@ export default function EcCanvas() {
                     aria-label={`加入所选 ${selectedProjectAssetKeys.size} 个素材到画布`}
                     title="加入所选素材到画布"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 28, padding: '0 8px', border: '1px solid #bfdbfe', borderRadius: 7, background: '#eff6ff', color: '#2563eb', fontSize: 11, cursor: 'pointer' }}
-                  ><MdAdd size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
+                  ><Plus size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
                 </div>
               </div>
               <div className="ec-project-asset-filters" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto auto', gap: 8, marginBottom: 9 }}>
@@ -4885,7 +4885,7 @@ export default function EcCanvas() {
                         {mediaKind === 'image' ? <ResponsiveImage src={proxyImg(asset.stableUrl)} variant="thumb" ratio="1:1" alt="" style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                           : mediaKind === 'video' ? <video src={asset.playbackUrl || asset.stableUrl} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : mediaKind === 'audio' ? <audio src={asset.playbackUrl || asset.stableUrl} controls preload="metadata" aria-label={label} style={{ width: 'calc(100% - 16px)', height: 36 }} />
-                              : <MdMusicNote size={28} color="#64748b" />}
+                              : <Music size={28} color="#64748b" />}
                         </div>
                         <div style={{ padding: '8px 9px 4px' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>{label}</div>
@@ -4916,8 +4916,8 @@ export default function EcCanvas() {
                             title={selectedForBatch ? '取消选择' : reusable ? '选择加入批次' : '素材已到期或待清理'}
                             onClick={() => handleToggleProjectAssetSelection(asset)}
                             style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${selectedForBatch ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 6, background: selectedForBatch ? '#dbeafe' : '#fff', color: selectedForBatch ? '#2563eb' : reusable ? '#94a3b8' : '#d1d5db', cursor: reusable ? 'pointer' : 'not-allowed' }}
-                          >{selectedForBatch ? <MdCheckBox size={16} /> : <MdCheckBoxOutlineBlank size={16} />}</button>
-                          <button type="button" aria-label={asset.retentionPinned ? `取消长期保留${label}` : `长期保留${label}`} aria-pressed={Boolean(asset.retentionPinned)} title={asset.retentionPinned ? '取消长期保留' : '长期保留'} disabled={projectAssetRetentionBusy === `${asset.projectId}:${asset.projectAssetId}`} onClick={() => handleToggleProjectAssetRetention(asset)} style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${asset.retentionPinned ? '#bfdbfe' : '#e5e7eb'}`, borderRadius: 6, background: asset.retentionPinned ? '#eff6ff' : '#fff', color: asset.retentionPinned ? '#2563eb' : '#94a3b8', cursor: 'pointer' }}><MdPushPin size={13} /></button>
+                          >{selectedForBatch ? <SquareCheck size={16} /> : <Square size={16} />}</button>
+                          <button type="button" aria-label={asset.retentionPinned ? `取消长期保留${label}` : `长期保留${label}`} aria-pressed={Boolean(asset.retentionPinned)} title={asset.retentionPinned ? '取消长期保留' : '长期保留'} disabled={projectAssetRetentionBusy === `${asset.projectId}:${asset.projectAssetId}`} onClick={() => handleToggleProjectAssetRetention(asset)} style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${asset.retentionPinned ? '#bfdbfe' : '#e5e7eb'}`, borderRadius: 6, background: asset.retentionPinned ? '#eff6ff' : '#fff', color: asset.retentionPinned ? '#2563eb' : '#94a3b8', cursor: 'pointer' }}><Pin size={13} /></button>
                           <button type="button" disabled={!reusable} aria-label={reusable ? `加入当前画布${label}` : `先长期保留${label}`} title={reusable ? '加入当前画布' : '素材已到期或待清理，请先长期保留'} onClick={() => handleImportProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: `1px solid ${reusable ? '#dbeafe' : '#e5e7eb'}`, borderRadius: 6, background: reusable ? '#eff6ff' : '#f8fafc', color: reusable ? '#2563eb' : '#98a2b3', fontSize: 10, cursor: reusable ? 'pointer' : 'not-allowed' }}>{reusable ? '加入' : '先保留'}</button>
                           <button type="button" aria-label={`查看${label}的来源和派生关系`} title="查看来源和派生关系" onClick={() => handleInspectProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>关系</button>
                         </div>
@@ -4932,7 +4932,7 @@ export default function EcCanvas() {
           )}
           {tab === 'assets' && !state.logged && (
             <div className="ec-canvas-work-empty">
-              <MdGridOn size={42} />
+              <Grid3x3 size={42} />
               <strong>登录后查看素材库</strong>
               <span>登录后管理图片、视频和音频素材，并继续用于新的创作。</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
@@ -4940,7 +4940,7 @@ export default function EcCanvas() {
           )}
           {(tab === 'works' || tab === 'trash') && (!state.logged ? (
             <div className="ec-canvas-work-empty">
-              <MdCollections size={42} />
+              <Images size={42} />
               <strong>登录后查看作品</strong>
               <span>你的电商套图、小红书图文、AI 视频、自由创作和画布内容都会保存在这里</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
@@ -4969,12 +4969,12 @@ export default function EcCanvas() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdOpenInNew size={14} /></button>
-                      <button type="button" aria-label={`将${work.name}加入素材库`} title="加入素材库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdLibraryAdd size={14} /></button>
+                      <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><ExternalLink size={14} /></button>
+                      <button type="button" aria-label={`将${work.name}加入素材库`} title="加入素材库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><FolderPlus size={14} /></button>
                       {tab === 'trash' ? (
                         <button type="button" aria-label="恢复作品" onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</button>
                       ) : (
-                        <button type="button" aria-label="移入回收站" onClick={() => deleteWork(work.id)} title="移入回收站" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><MdDelete size={14} /></button>
+                        <button type="button" aria-label="移入回收站" onClick={() => deleteWork(work.id)} title="移入回收站" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={14} /></button>
                       )}
                     </div>
                   </div>
@@ -4995,7 +4995,7 @@ export default function EcCanvas() {
                       const label = asset.name || asset.displayName || asset.role || `${asset.mediaKind === 'video' ? '视频' : '音频'}素材 ${index + 1}`;
                       return asset.mediaKind === 'video' ? <video key={`media-${asset.projectAssetId || asset.assetId || index}`} src={mediaUrl} controls playsInline preload="metadata" aria-label={label} style={{ width: 220, height: 124, objectFit: 'contain', borderRadius: 8, background: '#111827', flexShrink: 0 }} /> : asset.mediaKind === 'audio' ? (
                         <div key={`media-${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 240, height: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, padding: '0 10px', boxSizing: 'border-box', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569', flexShrink: 0 }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}><MdMusicNote size={20} />{label}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}><Music size={20} />{label}</span>
                           <audio src={mediaUrl} controls preload="metadata" aria-label={label} style={{ width: '100%', height: 30 }} />
                         </div>
                       ) : null;
@@ -5028,7 +5028,7 @@ export default function EcCanvas() {
                 <div id="canvas-image-info-title" style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>图片信息</div>
                 <div style={{ marginTop: 3, fontSize: 11, color: '#6b7280' }}>名称与用途会显示在画布和交付信息中</div>
               </div>
-              <button type="button" aria-label="关闭图片信息" onClick={() => setImageInfoNode(null)} style={{ width: 30, height: 30, border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><MdClose size={17} /></button>
+              <button type="button" aria-label="关闭图片信息" onClick={() => setImageInfoNode(null)} style={{ width: 30, height: 30, border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>
             </div>
             <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
               图片名称
@@ -5104,8 +5104,8 @@ export default function EcCanvas() {
                 {orderedDetailNodes.map((node, index) => <div key={node.id} style={{ minHeight: 44, display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 30px 30px', alignItems: 'center', gap: 7, padding: '5px 6px', border: '1px solid #e4e7eb', borderRadius: 7, background: '#fafbfc' }}>
                   <img src={proxyImg(node.url)} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 4, background: '#eef0f2' }} />
                   <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: '#343a43' }}>{index + 1}. {node.name || node.role || '详情图'}</span>
-                  <button type="button" aria-label={`上移${node.name || '详情图'}`} title="上移" disabled={index === 0} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index - 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? .35 : 1 }}><MdArrowUpward size={15} /></button>
-                  <button type="button" aria-label={`下移${node.name || '详情图'}`} title="下移" disabled={index === orderedDetailNodes.length - 1} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index + 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === orderedDetailNodes.length - 1 ? 'not-allowed' : 'pointer', opacity: index === orderedDetailNodes.length - 1 ? .35 : 1 }}><MdArrowDownward size={15} /></button>
+                  <button type="button" aria-label={`上移${node.name || '详情图'}`} title="上移" disabled={index === 0} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index - 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? .35 : 1 }}><ArrowUp size={15} /></button>
+                  <button type="button" aria-label={`下移${node.name || '详情图'}`} title="下移" disabled={index === orderedDetailNodes.length - 1} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index + 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === orderedDetailNodes.length - 1 ? 'not-allowed' : 'pointer', opacity: index === orderedDetailNodes.length - 1 ? .35 : 1 }}><ArrowDown size={15} /></button>
                 </div>)}
                 {orderedDetailNodes.length < 2 && <div style={{ padding: '10px 11px', borderRadius: 7, background: '#fff7ed', color: '#9a5b13', fontSize: 12 }}>请至少选择 2 张已生成的详情图。</div>}
               </div>
@@ -5119,7 +5119,7 @@ export default function EcCanvas() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
               <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>{exportDelivery.status === 'success' ? '完成' : '取消'}</button>
               <button type="button" disabled={isExportDeliveryBusy(exportDelivery) || !exportScope.deliverables.length || (exportMode === 'long-detail' && !canExportLongDetail)} onClick={handleChooseExportDestination} style={{ border: '1px solid #d7dde5', borderRadius: 8, padding: '9px 13px', background: '#fff', color: '#374151', fontWeight: 700, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer' }}>{exportDelivery.destination ? '更改保存位置' : '选择保存位置'}</button>
-              {exportDelivery.destination && <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={handleStartExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .55 : 1 }}><MdFileDownload size={14} /> {exportDelivery.status === 'success' ? '再次导出' : '开始导出'}</button>}
+              {exportDelivery.destination && <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={handleStartExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .55 : 1 }}><FileDown size={14} /> {exportDelivery.status === 'success' ? '再次导出' : '开始导出'}</button>}
             </div>
           </div>
         </div>
@@ -5133,7 +5133,7 @@ export default function EcCanvas() {
                 <h2 id="project-asset-lineage-title" style={{ margin: 0, color: '#1f2937', fontSize: 17 }}>素材关系</h2>
                 <div style={{ marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#667085', fontSize: 12 }}>{projectAssetLineage.asset?.metadata?.displayName || projectAssetLineage.asset?.assetId || '项目素材'}</div>
               </div>
-              <button type="button" aria-label="关闭素材关系" title="关闭" onClick={() => setProjectAssetLineage(null)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 auto', border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><MdClose size={17} /></button>
+              <button type="button" aria-label="关闭素材关系" title="关闭" onClick={() => setProjectAssetLineage(null)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 auto', border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>
             </header>
             <div style={{ padding: '16px 20px 20px' }}>
               {projectAssetLineage.loading ? <div style={{ color: '#667085', fontSize: 13 }}>正在读取素材关系</div> : projectAssetLineage.error ? <div role="alert" style={{ padding: 12, border: '1px solid #fecaca', borderRadius: 8, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLineage.error}</div> : (
@@ -5172,7 +5172,7 @@ export default function EcCanvas() {
             disabled={pendingProjectAssetImportsBusy}
             title="重试归档待处理素材"
           >
-            <MdRefresh size={15} aria-hidden="true" />
+            <RefreshCw size={15} aria-hidden="true" />
             {pendingProjectAssetImportsBusy ? '归档中' : '重试归档'}
           </button>
         </div>

@@ -180,6 +180,8 @@ function ProductSuiteShowcase() {
   </div>}</>;
 }
 
+import ProjectAssetPicker from '../../../components/ProjectAssetPicker.jsx';
+
 export default function EcommerceWorkbench({
   productImages,
   refImages,
@@ -194,6 +196,7 @@ export default function EcommerceWorkbench({
   onAbilityRecipeChange,
   onRoleUpload,
   onRoleRemove,
+  onPickFromLibrary,
   personMode = 'smart',
   onPersonModeChange,
   showAbilitySelector = true,
@@ -209,6 +212,7 @@ export default function EcommerceWorkbench({
   const sceneInputRef = useRef(null);
   const promptFieldRef = useRef(null);
   const [mentionedIds, setMentionedIds] = useState([]);
+  const [libraryPickerRole, setLibraryPickerRole] = useState(null);
   const isTryOn = abilityRecipeId === 'anything_tryon';
   const deck = buildUploadDeck({ productImages, refImages });
   const nextSlot = nextProductSlot(productImages.length);
@@ -288,6 +292,13 @@ export default function EcommerceWorkbench({
               <span className="ec-xhs-multiply" aria-hidden="true">×</span>
               {deck.referenceRail.map((image, index) => <ImageCard key={`reference-${image.url}-${index}`} role="reference" image={image} label={`参考图 ${index + 1}`} index={index} onRemove={onRemoveReference} />)}
               <AddCard role="reference" label="参考图" meta={refImages.length ? '继续添加' : '竞品或风格'} title="可上传竞品主图、详情图、店铺视觉或希望借鉴的风格图片" onClick={() => referenceInputRef.current?.click()} />
+              {onPickFromLibrary && (
+                <button type="button" onClick={() => setLibraryPickerRole('library')} aria-label="从素材库选择" style={{ minWidth: 96, height: '100%', minHeight: 120, padding: '10px 8px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 18 }}>🗂️</span>
+                  <span>素材库</span>
+                  <span style={{ fontSize: 9, color: '#a78bfa', fontWeight: 500 }}>复用已有图片</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -304,6 +315,16 @@ export default function EcommerceWorkbench({
       <input ref={itemsInputRef} type="file" accept="image/*" multiple hidden onChange={event => onRoleUpload?.('items', event)} />
       <input ref={personInputRef} type="file" accept="image/*" hidden onChange={event => onRoleUpload?.('person', event)} />
       <input ref={sceneInputRef} type="file" accept="image/*" hidden onChange={event => onRoleUpload?.('scene', event)} />
+      {onPickFromLibrary && (
+        <ProjectAssetPicker
+          open={libraryPickerRole === 'library'}
+          onClose={() => setLibraryPickerRole(null)}
+          onPick={assets => onPickFromLibrary('library', assets)}
+          mediaKind="image"
+          multi
+          title="从素材库选择商品/参考图"
+        />
+      )}
     </section>
   );
 }

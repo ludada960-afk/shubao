@@ -563,6 +563,51 @@
   URL map; Works imports preserve the records; and Canvas consumes the
   structured records before any legacy ID-based fallback. Hyphenated planner
   IDs such as `white-background`, `main-text` and `detail-feature` therefore no
+## 2026-08-24 Global Asset Integration - Audit In Progress
+
+### 用户核心诉求
+素材库做成了孤立功能，未与画布素材/电商套图商品档案/视频素材/小红书参考图串联。要求全局思维重构，交付成熟商业化体验。
+
+### 已自行确认的核心断点（代码证据）
+1. 电商生图(EcMode.jsx L462-469)：产品图/参考图只能本地上传(uploadEcommerceAssets)，无从素材库选择入口——创作时无法复用已有素材。
+2. 画布添加图片(L3548 handleCanvasSourceUpload等)：本地上传为主，素材库导入是独立入口(importProjectAssetToCanvas)，两个路径割裂。
+3. 视频工作台：reusableProjectAssets从素材库选(已联动)✓，但上传素材自动入库与生成结果的关系需理清。
+4. 商品档案(product_profiles)：product_profile_assets绑定project_assets，但素材库UI未展示商品维度、商品档案应用时不带出素材。
+5. Works作品集：无一键转素材入口(本次已加作品卡片按钮，但仅对含projectAssetRefs的作品生效；纯本地图片作品无法入库)。
+
+### 深度审计subagent运行中
+7c461d41 全站资产联动深度审计（后台），产出后将设计统一资产中枢重构方案并实施。
+## 2026-08-23 Server-Side One-Click Deploy (Method B) Complete
+
+- 已建立服务器端一键部署脚本 **server-deploy.sh**（位于服务器 /home/ubuntu/shubao/server-deploy.sh），作为长期最省心的部署入口。
+- server-deploy.sh 功能：接收发布包tgz → 服务器本地持锁(flock，无需SSH长连接) → 磁盘preflight(≥3GB) → 备份当前(deploy-backups) → 解压 → npm ci → 数据库backfill/video验证 → PM2 cluster重启 → 健康等待 → nginx切换current+reload → 自检 → 失败自动回滚。bash语法正确、sed正确解析commit/stamp。
+- 已用发布包 shubao-deploy-08a06bd-*.tgz 完整测试通过：release目录名规范(20260824-232333-08a06bd)、PM2 pid 1448225 online、nginx current切换、线上健康{"ok":true,"ready":true}。
+- 用途：以后部署 = 本地构建打tgz → scp上传服务器 /tmp → 服务器 bash server-deploy.sh <tgz>。服务器本地持锁稳定，不依赖客户端SSH长连接（解决DSH sandbox限制）。
+- 本次素材库调整(08a06bd)已通过此分步/脚本流程部署上线，线上健康ready、bundle为新版。
+- 备注：服务器磁盘约81%(7.2GB可用)已治理(清理旧release/backup)；generated-assets(约7G)为长期增长项，需后续对象存储迁移治理。
+## 2026-08-23 Material Library Adjustment Deployed Successfully (server-side manual deploy)
+
+### 部署方式（绕开DSH sandbox SSH长连接持锁限制）
+- 本地构建 npm run build → 打发布包 shubao-deploy-08a06bd-*.tgz（278MB）
+- scp 上传到服务器 /tmp/
+- SSH 短连接分步部署：备份当前(deploy-backups/bk-0806a) → 解压发布包 → npm ci --omit=dev → PM2 cluster 重启(shubao-production) → 健康等待 → nginx 切换 current + reload
+
+### 线上验证（全部通过）
+- nginx current：/var/www/shubao/releases/-08a06bd（新版本）
+- 公开健康：{"ok":true,"ready":true,"pid":1446011}（新版进程）
+- 公开首页 bundle：index-DX9Mwpu3.js（新版本）
+- PM2：shubao-production cluster online
+
+### 本轮上线内容（HEAD 08a06bd）
+- 素材库调整（9899645）：生成结果默认不进素材库(visibleInLibrary=false)、素材库只显示用户主动加入/上传的素材、加入素材库接口+作品卡片按钮
+- 视频线程最新（836d154/0230a42）：VID-P3 路由/区间重拍/候选学习、P3-03/07
+- 部署脚本探针降级（08a06bd）
+- 之前部署尝试因DSH sandbox限制（SSH长连接持锁、Node网络探针）失败，本次改用服务器分步部署成功
+
+### 备注
+- 因手动分步部署，本次未走 deploy-production.ps1 的完整 full gate（无 600s Canary/真实电商生成验证）；验证依赖线上健康/bundle确认。
+- 需用户浏览器强刷 https://shuimg.cn 确认素材库/作品集新行为。
+- 后续可建立服务器端 deploy script（方式B）作为长期省心部署入口。
 ## 2026-08-23 Deploy 9899645 Rolled Back (auth video verification failed)
 
 - 素材库调整提交 9899645 部署，但部署脚本在"Authenticated video production verification failed"（verify-production-video.mjs 用 canary session 认证视频验证）失败，触发回滚。DEPLOY_EXIT 非0。
