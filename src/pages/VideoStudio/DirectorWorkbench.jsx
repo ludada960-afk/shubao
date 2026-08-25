@@ -6,6 +6,7 @@ import {
   Images,
   LoaderCircle,
   Lock,
+  Save,
   LockOpen,
   Music2,
   Plus,
@@ -21,7 +22,9 @@ import {
   getVideoWorkbench,
   lockWorkbenchAssetVersion,
   unlockWorkbenchAssetVersion,
+  updateStoryboardShot,
 } from '../../services/videoWorkbench.js';
+import ShotTableEditor from './ShotTableEditor.jsx';
 import './DirectorWorkbench.css';
 
 const CONSISTENCY_GROUPS = [
@@ -54,6 +57,7 @@ export default function DirectorWorkbench({ capabilities }) {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [lockBusy, setLockBusy] = useState('');
+  const [selectedShotId, setSelectedShotId] = useState('');
 
   const loadProjects = useCallback(async () => {
     try {
@@ -90,6 +94,19 @@ export default function DirectorWorkbench({ capabilities }) {
   const clips = workbench?.timelineClips || [];
   const grouped = useMemo(() => groupAssets(workbench?.assets || []), [workbench]);
   const totalDuration = useMemo(() => clips.reduce((sum, clip) => sum + (Number(clip.durationSeconds || clip.duration) || 0), 0), [clips]);
+  const selectedShot = useMemo(
+    () => shots.find(shot => shot.id === selectedShotId) || null,
+    [shots, selectedShotId],
+  );
+  const reloadWorkbench = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const wb = await getVideoWorkbench(projectId);
+      setWorkbench(wb);
+    } catch (cause) {
+      setError(cause?.message || '刷新分镜失败');
+    }
+  }, [projectId]);
 
   const toggleLock = useCallback(async (asset) => {
     if (!asset?.id || lockBusy) return;
@@ -201,7 +218,14 @@ export default function DirectorWorkbench({ capabilities }) {
                   shots.length ? (
                     <div className="dw-shot-grid">
                       {shots.map((shot, index) => (
-                        <article key={shot.id || index} className="dw-shot-card">
+                        <article
+                          key={shot.id || index}
+                          className={'dw-shot-card' + (selectedShotId === shot.id ? ' is-selected' : '')}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedShotId(shot.id)}
+                          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelectedShotId(shot.id); }}
+                        >
                           <header><span className="dw-shot-no">S{String(index + 1).padStart(2, '0')}</span><strong>{shot.title || shot.purpose || '未命名镜头'}</strong></header>
                           <footer>
                             <span>{Number(shot.durationSeconds || shot.duration) || 6}s</span>
@@ -218,6 +242,14 @@ export default function DirectorWorkbench({ capabilities }) {
                       {clips.map((clip, index) => <li key={clip.id || index}><strong>T{index + 1}</strong><span>{clip.shotId || clip.candidateId || '片段'}</span><small>{Number(clip.durationSeconds || clip.duration) || 0}s</small></li>)}
                     </ol>
                   ) : <div className="dw-placeholder"><Film size={22} /><strong>时间线还没有内容</strong><span>批准候选镜头后会自动装配到这里。</span></div>
+                )}
+                {stage === 'storyboard' && selectedShot && (
+                  <ShotTableEditor
+                    projectId={projectId}
+                    shot={selectedShot}
+                    onSaved={() => { void reloadWorkbench(); }}
+                    onError={message => setError(message)}
+                  />
                 )}
               </main>
 

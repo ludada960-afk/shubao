@@ -55,4 +55,27 @@
 .dw-error{color:#b3403a}
 .dw-spin{animation:dw-rotate 1s linear infinite}
 @keyframes dw-rotate{to{transform:rotate(360deg)}}
+
+/* VID-R3: six-column shot table editor */
+.dw-shot-card{cursor:pointer}
+.dw-shot-card.is-selected{border-color:#5b64d8;box-shadow:0 0 0 2px rgba(91,100,216,.18)}
+.dw-shot-editor{margin-top:14px;border-top:1px dashed #e4e6ec;padding-top:12px}
+.dw-shot-editor h3{display:flex;align-items:center;gap:6px;margin:0 0 10px;font-size:13px}
+.dw-shot-editor h3 small{color:#9aa0ab;font-weight:500}
+.dw-saved-flag{font-style:normal;color:#177a45;font-size:11px;margin-left:auto}
+.dw-field{display:flex;flex-direction:column;gap:3px;min-width:130px;flex:1}
+.dw-field-wide{width:100%;margin-bottom:9px}
+.dw-field span{font-size:11px;color:#767b87}
+.dw-field input,.dw-field textarea,.dw-field select{padding:5px 8px;border:1px solid #dfe2e9;border-radius:7px;font-size:12px;font-family:inherit}
+.dw-field-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.dw-per-second{margin-bottom:9px}
+.dw-per-second h4{margin:0 0 6px;font-size:11.5px;color:#565b66}
+.dw-ps-row{display:flex;gap:5px;margin-bottom:5px}
+.dw-ps-row input{flex:1;min-width:0;padding:4px 7px;border:1px solid #e0e2e9;border-radius:6px;font-size:11.5px}
+.dw-ps-row .dw-ps-t{flex:.55!important;max-width:74px}
+.dw-ps-remove{flex:none;width:24px;border:none;background:#f5f6f9;border-radius:6px;color:#a04440;cursor:pointer;font-size:14px;line-height:1}
+.dw-ps-add{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px dashed #c9cdd8;border-radius:7px;background:#fafbfd;font-size:11px;color:#5b64d8;cursor:pointer}
+.dw-editor-actions{display:flex;justify-content:flex-end;margin-top:4px}
+.dw-save-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border:none;border-radius:8px;background:#3f49b8;color:#fff;font-size:12px;cursor:pointer}
+.dw-save-btn:disabled{opacity:.6}
 @media (max-width:1080px){.dw-columns{grid-template-columns:1fr}}

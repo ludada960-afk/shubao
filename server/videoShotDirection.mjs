@@ -6,6 +6,9 @@ const AXIS = new Set(['neutral', 'screen_left_to_right', 'screen_right_to_left']
 const GAZE = new Set(['neutral', 'screen_left', 'screen_right', 'toward_camera', 'away']);
 const SCREEN_DIRECTIONS = new Set(['stationary', 'left_to_right', 'right_to_left']);
 const TRANSITIONS = new Set(['cut', 'match_cut', 'dissolve', 'whip_pan', 'continuous']);
+// VID-R3: MiniMax-H3 style six-column shot table vocabulary.
+const HOOK_TYPES = new Set(['visual-joke', 'reversal', 'suspense', 'tender', 'chase', 'reveal', 'callback', 'expression-beat']);
+const MAX_PER_SECOND_ENTRIES = 30;
 
 function clean(value, max = 240) {
   return String(value ?? '').trim().slice(0, max);
@@ -24,6 +27,47 @@ function enumValue(value, allowed, fallback) {
  * Keep director controls structured while retaining the legacy free-form camera field.
  * Invalid model output falls back to deterministic neutral values instead of inventing facts.
  */
+function perSecondList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, MAX_PER_SECOND_ENTRIES).map(entry => {
+    const source = object(entry);
+    return {
+      t: clean(source.t, 24),
+      action: clean(source.action, 400),
+      camera: clean(source.camera, 200),
+      space: clean(source.space, 300),
+      audio: clean(source.audio, 200),
+      handoff: clean(source.handoff, 300),
+    };
+  }).filter(entry => entry.t || entry.action || entry.camera || entry.space || entry.audio || entry.handoff);
+}
+
+/**
+ * VID-R3: H3 six-column shot table fields. Every field is optional and
+ * normalized defensively so legacy direction_json keeps round-tripping.
+ */
+function shotTableFields(source) {
+  const refs = object(source.refs);
+  const audioTrack = object(source.audioTrack);
+  return {
+    hookType: enumValue(source.hookType, HOOK_TYPES, ''),
+    continuityLink: clean(source.continuityLink, 600),
+    refs: {
+      landmark: clean(refs.landmark, 200),
+      characterPositions: clean(refs.characterPositions, 300),
+      exits: clean(refs.exits, 300),
+      lightingBaseline: clean(refs.lightingBaseline, 200),
+    },
+    perSecond: perSecondList(source.perSecond),
+    audioTrack: {
+      narration: clean(audioTrack.narration, 500),
+      dialogue: clean(audioTrack.dialogue, 500),
+      sfx: clean(audioTrack.sfx, 400),
+      performanceNotes: clean(audioTrack.performanceNotes, 400),
+    },
+  };
+}
+
 export function normalizeShotDirection(value = {}, legacyCamera = '') {
   const source = object(value);
   const continuity = object(source.continuity);
@@ -41,6 +85,7 @@ export function normalizeShotDirection(value = {}, legacyCamera = '') {
       transition: enumValue(continuity.transition, TRANSITIONS, 'cut'),
     },
     negativePrompt: clean(source.negativePrompt, 400),
+    ...shotTableFields(source),
   };
 }
 

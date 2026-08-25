@@ -144,6 +144,12 @@ test('carries structured director controls into each shot plan without provider 
       transition: 'match_cut',
     },
     negativePrompt: '不要多余手指，不要漂浮物',
+    // VID-R3 six-column shot table defaults
+    hookType: '',
+    continuityLink: '',
+    refs: { landmark: '', characterPositions: '', exits: '', lightingBaseline: '' },
+    perSecond: [],
+    audioTrack: { narration: '', dialogue: '', sfx: '', performanceNotes: '' },
   });
 });
 
