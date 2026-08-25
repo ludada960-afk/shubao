@@ -39,6 +39,7 @@ import {
 import { buildVideoPlan } from './videoPlanModel.js';
 import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
 import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
+import DirectorWorkbench from './DirectorWorkbench.jsx';
 import './VideoStudio.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -876,7 +877,8 @@ export default function VideoStudioPage({ embedded = false }) {
           </button>) : <p className="video-history-empty">暂无视频任务</p>}
         </div>
       </div></section>}
-    {!embedded && capabilities.workbenchEnabled && state.logged && <VideoProjectWorkbench
+    {!embedded && capabilities.directorUi === true && state.logged && <DirectorWorkbench capabilities={capabilities} />}
+    {!embedded && capabilities.directorUi !== true && capabilities.workbenchEnabled && state.logged && <VideoProjectWorkbench
       enabled={capabilities.workbenchEnabled}
       logged={state.logged}
       mode={capabilities.workbenchMode}

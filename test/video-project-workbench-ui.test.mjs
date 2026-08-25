@@ -16,7 +16,8 @@ test('standalone video studio gates the project workbench and passes durable inp
   assert.match(page, /workbenchMode/);
   assert.match(page, /workbenchPlanningOnly/);
   assert.match(page, /\}, \[state\.logged\]\);/);
-  assert.match(page, /!embedded && capabilities\.workbenchEnabled && state\.logged/);
+  assert.match(page, /!embedded && capabilities\.directorUi !== true && capabilities\.workbenchEnabled && state\.logged/);
+  assert.match(page, /!embedded && capabilities\.directorUi === true && state\.logged && <DirectorWorkbench/);
   assert.match(page, /<VideoProjectWorkbench/);
   assert.match(page, /uploadRecords=\{uploadRecords\}/);
   assert.match(page, /jobs=\{history\}/);

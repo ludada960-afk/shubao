@@ -14,6 +14,9 @@ const DEFAULT_FLAG_VALUES = Object.freeze({
   // Planning is provider-neutral: it persists projects, assets, shots and
   // replayable plans, but it never submits a renderer job or mutates billing.
   VIDEO_PLATFORM_P1_PLANNING: true,
+  // Director workbench UI (R1): three-pane workspace shell over the existing
+  // planning-mode workbench APIs. Off by default until it passes full QA.
+  VIDEO_PLATFORM_DIRECTOR_UI: false,
 });
 
 const TRUE_VALUES = new Set(['1', 'true', 'on', 'yes', 'enabled']);

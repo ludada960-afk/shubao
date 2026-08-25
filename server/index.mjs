@@ -4147,6 +4147,7 @@ app.get('/api/video/capabilities', (req, res) => {
     })),
     workbenchMode: videoWorkbenchRollout.mode,
     workbenchPlanningOnly: videoWorkbenchRollout.planningOnly,
+    directorUi: videoPlatformFlags.VIDEO_PLATFORM_DIRECTOR_UI === true,
   });
 });
 app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
