@@ -7,6 +7,9 @@ export const VIDEO_PLATFORM_FLAG_NAMES = Object.freeze([
   'VIDEO_PLATFORM_READ_NEW_STATE',
   'VIDEO_PLATFORM_P1_WORKBENCH',
   'VIDEO_PLATFORM_P1_PLANNING',
+  // VID-R1: director workbench shell. Registered so the env override works;
+  // default stays false (see DEFAULT_FLAG_VALUES) until QA signs off.
+  'VIDEO_PLATFORM_DIRECTOR_UI',
 ]);
 
 const DEFAULT_FLAG_VALUES = Object.freeze({
