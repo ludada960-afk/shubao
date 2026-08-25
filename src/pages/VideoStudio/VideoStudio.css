@@ -205,11 +205,18 @@
 .video-submit-row > div { min-width: 112px; display: grid; gap: 3px; }
 .video-submit-row strong { font-size: 12px; }
 .video-submit-row span { color: #928b84; font-size: 10px; white-space: nowrap; }
-.video-submit-actions { min-width: 0 !important; display: flex !important; align-items: center; gap: 7px; }
-.video-submit-row button { min-height: 44px; padding: 0 18px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 11px; background: linear-gradient(135deg,#7454f3 0%,#d14db5 55%,#f28b44 100%); box-shadow: 0 8px 20px rgba(116,84,243,.22); color: #fff; font: 800 13px/1 inherit; cursor: pointer; }
+.video-submit-actions { min-width: 0 !important; display: flex !important; align-items: stretch; gap: 8px; }
+.video-submit-row button { min-height: 44px; padding: 0 18px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 11px; background: linear-gradient(135deg,#7454f3 0%,#d14db5 55%,#f28b44 100%); box-shadow: 0 8px 20px rgba(116,84,243,.22); color: #fff; font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
+.video-submit-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(116,84,243,.3); }
+.video-submit-row button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 16px rgba(116,84,243,.24); }
 .video-submit-row button:disabled { background: #e5e3e0; box-shadow: none; color: #a8a39e; cursor: not-allowed; }
-.video-submit-row .video-plan-trigger { min-height: 38px; padding: 0 11px; border: 1px solid rgba(116,84,243,.25); border-radius: 9px; background: #faf7ff; box-shadow: none; color: #6842dc; font-size: 11px; }
-.video-submit-row .video-plan-trigger:hover { border-color: #7957f5; background: #f3edff; }
+/* 次按钮：与主按钮同高，渐变描边区分主次层级 */
+.video-submit-row .video-plan-trigger { min-height: 44px; padding: 0 15px; border: 1px solid transparent; border-radius: 11px; background: linear-gradient(#fffdfa,#fffdfa) padding-box, linear-gradient(135deg, rgba(116,84,243,.65), rgba(209,77,181,.55)) border-box; box-shadow: none; color: #6842dc; font-size: 12px; }
+.video-submit-row .video-plan-trigger:hover:not(:disabled), .video-submit-row .video-plan-trigger:focus-visible { background: linear-gradient(#f6f1ff,#f6f1ff) padding-box, linear-gradient(135deg, #7454f3, #d14db5) border-box; box-shadow: 0 6px 16px rgba(116,84,243,.18); }
+.video-submit-row .video-generate-trigger.is-armed { box-shadow: 0 8px 20px rgba(116,84,243,.22), 0 0 0 3px rgba(116,84,243,.16); }
+.video-submit-row .video-generate-trigger.is-armed > svg:first-child { color: #ffe9c9; }
+.video-submit-row button.is-busy > svg:first-child { animation: video-spin .9s linear infinite; }
+@keyframes video-spin { to { transform: rotate(360deg); } }
 
 .video-plan-backdrop { position: fixed; z-index: 1500; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(35, 28, 24, .32); backdrop-filter: blur(8px); animation: video-plan-fade .16s ease-out; }
 .video-plan-modal { width: min(720px, 100%); max-height: min(780px, calc(100vh - 40px)); overflow: auto; border: 1px solid rgba(68,55,43,.12); border-radius: 18px; background: #fffdfa; box-shadow: 0 28px 90px rgba(42,32,24,.28); animation: video-plan-rise .2s ease-out; }
@@ -392,6 +399,7 @@
 @media(prefers-reduced-motion:reduce) {
   .video-config-panel { animation: none; }
   .video-plan-backdrop,.video-plan-modal { animation: none; }
+  .video-submit-row button.is-busy > svg:first-child { animation: none; }
   .video-config-trigger,.video-sound-choice > i,.video-sound-choice > i::after,.video-media-card { transition: none; }
 }
 

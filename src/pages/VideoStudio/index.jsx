@@ -8,6 +8,7 @@ import {
   Clapperboard,
   FileAudio,
   ImagePlus,
+  Lock,
   Mic2,
   Play,
   RefreshCw,
@@ -886,7 +887,7 @@ export default function VideoStudioPage({ embedded = false }) {
             })}
             </div>
           </div>
-          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions"><button type="button" className="video-plan-trigger" disabled={planning} onClick={openVideoPlan}><Aperture size={15} />{planning ? '正在分析素材' : planReviewed ? '方案已确认' : activeAnalysis ? '查看生成方案' : '分析并生成方案'}</button><button type="button" disabled={!canGenerate} onClick={handleGenerate}><Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></div></div>
+          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions"><button type="button" className={`video-plan-trigger${planning ? ' is-busy' : ''}`} disabled={planning} onClick={openVideoPlan}><Aperture size={15} />{planning ? '正在分析素材' : planReviewed ? '方案已确认' : activeAnalysis ? '查看生成方案' : '分析并生成方案'}</button><button type="button" className={`video-generate-trigger${planReviewed && quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{planReviewed && quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></div></div>
         </footer>
       </section>
     </section>
