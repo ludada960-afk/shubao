@@ -85,7 +85,7 @@ export function CanvasTopBar({
         <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onExport}><Download size={16} />导出整套图片</button>
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}
-      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}><Sparkles size={16} />新建生图</button>
+      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}><Plus size={16} />新建生图</button>
     </div>
   </header>;
 }

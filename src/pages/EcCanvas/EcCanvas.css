@@ -1,3 +1,11 @@
+/* Lucide icons arrive with stroke-width=2; the canvas language draws them a
+   touch lighter so 16px glyphs sit next to 12px/650 text without buzzing.
+   Active/selected tools gain the full 2.0 weight back: icon weight tracks the
+   emphasis of the semibold label next to it (weight mirrors hierarchy). */
+.ec-canvas-page svg[class*='lucide'] { stroke-width: 1.75; }
+.ec-canvas-icon-button.is-active svg[class*='lucide'],
+.ec-canvas-tabs button.is-active svg[class*='lucide'] { stroke-width: 2; }
+
 .ec-canvas-page {
   --canvas-bg: #fafbfc;
   --canvas-surface: #fff;
@@ -7,6 +15,22 @@
   --canvas-command: var(--command);
   --canvas-command-hover: var(--command-hover);
   --canvas-focus: var(--focus-ring);
+  /* Design-language tokens: one radius scale, one elevation ladder, one motion
+     vocabulary. Every hover/press/focus in the canvas reads from these so the
+     surfaces feel like one system instead of per-widget decisions. */
+  --ec-radius-sm: 7px;
+  --ec-radius-md: 9px;
+  --ec-radius-lg: 12px;
+  --ec-shadow-1: 0 1px 2px rgba(21, 23, 26, .05), 0 1px 3px rgba(21, 23, 26, .07);
+  --ec-shadow-2: 0 2px 4px rgba(21, 23, 26, .05), 0 6px 16px rgba(21, 23, 26, .09);
+  --ec-shadow-3: 0 4px 10px rgba(21, 23, 26, .08), 0 16px 36px rgba(21, 23, 26, .16);
+  --ec-ring-inset: inset 0 0 0 1px rgba(37, 99, 235, .28);
+  --ec-motion-fast: 130ms;
+  --ec-motion-base: 200ms;
+  --ec-ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ec-ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ec-hover-lift: -1px;
+  --ec-press-drop: 0;
   --ec-canvas-control-height: 32px;
   --ec-canvas-topbar-control-height: 38px;
   --ec-canvas-action-font: 12px;
@@ -59,10 +83,10 @@
 .ec-canvas-project-title i { width: 6px; height: 6px; border-radius: 50%; background: #27864b; }
 .ec-canvas-project-title i.is-saving { background: #b76a00; animation: ecCanvasPulse 1s ease-in-out infinite; }
 
-.ec-canvas-tabs { height: var(--ec-canvas-topbar-control-height); gap: 2px; padding: 2px; border-radius: 8px; background: #f4f5f7; }
-.ec-canvas-tabs button { height: 32px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #737981; font-size: 12px; font-weight: 650; }
+.ec-canvas-tabs { height: var(--ec-canvas-topbar-control-height); gap: 2px; padding: 2px; border-radius: var(--ec-radius-sm); background: #f4f5f7; }
+.ec-canvas-tabs button { height: 32px; padding: 0 12px; border: 0; border-radius: calc(var(--ec-radius-sm) - 2px); background: transparent; color: #737981; font-size: 12px; font-weight: 650; transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), box-shadow var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-tabs button:hover { color: var(--canvas-ink); background: #e9ecef; }
-.ec-canvas-tabs button.is-active { color: var(--canvas-ink); background: #fff; box-shadow: 0 1px 3px rgba(21, 23, 26, .1); }
+.ec-canvas-tabs button.is-active { color: var(--canvas-ink); background: #fff; box-shadow: var(--ec-shadow-1); }
 
 .ec-canvas-icon-button {
   width: var(--ec-canvas-control-height);
@@ -70,10 +94,10 @@
   flex: 0 0 var(--ec-canvas-control-height);
   justify-content: center;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--ec-radius-sm);
   background: transparent;
   color: #5f6670;
-  transition: color 160ms ease-out, background 160ms ease-out, transform 160ms ease-out;
+  transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring), box-shadow var(--ec-motion-fast) var(--ec-ease-out);
 }
 .ec-canvas-icon-button:hover:not(:disabled) { color: var(--canvas-ink); background: #eef1f4; }
 .ec-canvas-icon-button:active:not(:disabled) { transform: translateY(1px); background: #e4e8ec; }
@@ -85,7 +109,7 @@
 .ec-canvas-tabs button:focus-visible,
 .ec-canvas-filter select:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 2px; }
 
-.ec-canvas-command { height: var(--ec-canvas-topbar-control-height); justify-content: center; gap: 7px; padding: 0 12px; border: 0; border-radius: 8px; background: #f5f6f8; color: #34393f; font-size: 12px; font-weight: 700; transition: background 160ms ease-out, color 160ms ease-out, transform 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out; }
+.ec-canvas-command { height: var(--ec-canvas-topbar-control-height); justify-content: center; gap: 7px; padding: 0 12px; border: 0; border-radius: var(--ec-radius-sm); background: #f5f6f8; color: #34393f; font-size: 12px; font-weight: 700; transition: background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring), border-color var(--ec-motion-fast) var(--ec-ease-out), box-shadow var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-command:hover:not(:disabled) { background: #e3e7eb; }
 .ec-canvas-command:active:not(:disabled) { transform: translateY(1px); }
 .ec-canvas-command.is-primary { background: var(--canvas-command); color: #fff; }
@@ -100,22 +124,22 @@
 .ec-canvas-topbar-surface {
   box-sizing: border-box;
   border: 1px solid var(--canvas-hairline);
-  box-shadow: 0 2px 7px rgba(21, 23, 26, .08);
-  transition: color 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out, transform 160ms ease-out;
+  box-shadow: var(--ec-shadow-1);
+  transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), border-color var(--ec-motion-fast) var(--ec-ease-out), box-shadow var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring);
 }
-.ec-canvas-topbar-surface:hover:not(:disabled) { border-color: #cbd1d8; box-shadow: 0 5px 14px rgba(21, 23, 26, .12); transform: translateY(-1px); }
-.ec-canvas-topbar-surface:active:not(:disabled) { box-shadow: 0 1px 4px rgba(21, 23, 26, .1); transform: translateY(0); }
+.ec-canvas-topbar-surface:hover:not(:disabled) { border-color: #cbd1d8; box-shadow: var(--ec-shadow-2); transform: translateY(-1px); }
+.ec-canvas-topbar-surface:active:not(:disabled) { box-shadow: var(--ec-shadow-1); transform: translateY(0); }
 
 .ec-canvas-stage { flex: 1; position: relative; overflow: clip; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
 
 .ec-canvas-left-rail,
-.ec-canvas-zoom-controls { position: absolute; z-index: 58; display: flex; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .12); }
+.ec-canvas-zoom-controls { position: absolute; z-index: 58; display: flex; background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); }
 .ec-canvas-left-rail { left: 12px; top: 50%; transform: translateY(-50%); width: 52px; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 8px; }
 .ec-canvas-left-rail .ec-canvas-rail-add { width: 40px; height: 40px; flex: 0 0 40px; margin-bottom: 2px; color: #fff; background: var(--canvas-command); }
 .ec-canvas-left-rail .ec-canvas-rail-add:hover:not(:disabled),
 .ec-canvas-left-rail .ec-canvas-rail-add.is-active { color: #fff; background: var(--canvas-command-hover); }
 .ec-canvas-bottom-dock { position: absolute; z-index: 58; left: 50%; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); }
-.ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .12); }
+.ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: var(--ec-radius-sm); background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); }
 .ec-canvas-toast { position: fixed; z-index: 10003; left: 50%; bottom: 24px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 13px; transform: translateX(-50%); border-radius: 8px; background: #475569; color: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, .22); font-size: 12px; font-weight: 650; animation: toastIn .2s ease; }
 .ec-canvas-toast.is-error { background: #c9362e; }
 .ec-canvas-toast.is-success { background: #087f5b; }
@@ -127,14 +151,14 @@
 .ec-canvas-pending-imports-action { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; flex: 0 0 auto; padding: 0 9px; border: 1px solid #d99b27; border-radius: 6px; background: #fff; color: #704d09; font-size: 12px; font-weight: 750; cursor: pointer; }
 .ec-canvas-pending-imports-action:hover:not(:disabled) { background: #fff1c9; }
 .ec-canvas-pending-imports-action:disabled { cursor: wait; opacity: .65; }
-.ec-canvas-zoom-controls { left: 12px; bottom: 14px; align-items: center; gap: 1px; padding: 3px; border-radius: 8px; }
+.ec-canvas-zoom-controls { left: 12px; bottom: 14px; align-items: center; gap: 1px; padding: 3px; border-radius: var(--ec-radius-sm); }
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button,
-.ec-canvas-zoom-controls .ec-canvas-icon-button { width: 34px; height: 34px; flex-basis: 34px; }
+.ec-canvas-zoom-controls .ec-canvas-icon-button { width: 34px; height: 34px; flex-basis: 34px; border-radius: calc(var(--ec-radius-sm) - 1px); }
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button:hover:not(:disabled),
 .ec-canvas-zoom-controls .ec-canvas-icon-button:hover:not(:disabled) { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-zoom-controls span { min-width: 46px; text-align: center; color: #4d5662; font-size: 11px; font-weight: 700; }
 
-.ec-canvas-layers-panel { position: absolute; z-index: 95; left: 72px; bottom: 70px; width: 288px; max-height: min(460px, calc(100% - 140px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--canvas-hairline); border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(21, 23, 26, .16); }
+.ec-canvas-layers-panel { position: absolute; z-index: 95; left: 72px; bottom: 70px; width: 288px; max-height: min(460px, calc(100% - 140px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-md); background: #fff; box-shadow: var(--ec-shadow-3); }
 .ec-canvas-layers-panel > header { height: 42px; flex: 0 0 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 12px; border-bottom: 1px solid #edf0f3; }
 .ec-canvas-layers-panel > header span { display: inline-flex; align-items: center; gap: 7px; color: #31363d; font-size: 12px; }
 .ec-canvas-layers-panel button { border: 0; background: transparent; color: #69717b; }
@@ -152,27 +176,95 @@
 .ec-canvas-layer-main small { color: #8a919a; font-size: 9px; }
 .ec-canvas-layer-mark { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; border-radius: 6px; background: #eef1f4; color: #68717c; }
 
+/* Empty-state hero: the reference surface for the canvas design language.
+   Hierarchy comes from one filled primary + four quiet siblings; feedback
+   comes from the shared lift/border/shadow ladder, never from per-button
+   improvisation. The panel is real frosted glass over the dot grid — small
+   area, single layer, saturate+blur — with an opaque fallback for engines
+   without backdrop-filter. Cursor spotlight tracks via two custom props. */
 .ec-canvas-empty-state { position: absolute; z-index: 10; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; width: min(720px, calc(100vw - 32px)); padding: 24px; pointer-events: auto; }
-.ec-canvas-empty-state strong { font-size: 15px; font-weight: 750; letter-spacing: 0; }
-.ec-canvas-empty-state p { margin: 6px 0 17px; color: var(--canvas-muted); font-size: 12px; }
-.ec-canvas-empty-actions { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.ec-canvas-empty-actions button { min-width: 0; height: 44px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 0 14px; border: 1px solid rgba(127, 149, 255, 0.18); border-radius: 11px; background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,248,255,0.95)); color: #2a3040; box-shadow: 0 3px 10px rgba(21, 23, 26, 0.06); font-size: 12px; font-weight: 700; white-space: nowrap; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease; position: relative; }
-.ec-canvas-empty-actions button svg { width: 18px; height: 18px; padding: 3px; border-radius: 6px; background: linear-gradient(180deg, rgba(127,149,255,0.16), rgba(127,149,255,0.06)); color: var(--canvas-command); flex-shrink: 0; transition: transform 0.15s ease; }
-.ec-canvas-empty-actions button:hover { transform: translateY(-2px); border-color: rgba(127, 149, 255, 0.45); box-shadow: 0 8px 20px rgba(21, 23, 26, 0.12); background: linear-gradient(180deg, #ffffff, #f2f5ff); }
-.ec-canvas-empty-actions button:hover svg { transform: scale(1.1); }
-.ec-canvas-empty-actions button.is-primary { color: #fff; background: linear-gradient(180deg, var(--canvas-command), color-mix(in srgb, var(--canvas-command) 82%, #000)); border-color: transparent; }
-.ec-canvas-empty-actions button.is-primary svg { color: #fff; background: rgba(255,255,255,0.16); }
+.ec-canvas-empty-state > div { position: relative; overflow: hidden; border-radius: var(--ec-radius-lg); background: rgba(255, 255, 255, .55); border: 1px solid rgba(255, 255, 255, .85); box-shadow: var(--ec-shadow-2); padding: 26px 24px 24px; backdrop-filter: blur(10px) saturate(150%); -webkit-backdrop-filter: blur(10px) saturate(150%); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ec-canvas-empty-state > div { background: rgba(252, 253, 254, .92); }
+}
+.ec-canvas-empty-state > div::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; background: radial-gradient(300px circle at var(--ec-spot-x, 50%) var(--ec-spot-y, 30%), rgba(37, 99, 235, .07), transparent 68%); opacity: 0; transition: opacity var(--ec-motion-base) var(--ec-ease-out); pointer-events: none; }
+.ec-canvas-empty-state > div:hover::before { opacity: 1; }
+.ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; width: min(760px, calc(100vw - 32px)); pointer-events: auto; }
+.ec-canvas-empty-state strong { font-size: 16px; font-weight: 750; letter-spacing: .01em; }
+.ec-canvas-empty-state p { margin: 6px 0 20px; color: var(--canvas-muted); font-size: 12px; }
+.ec-canvas-empty-actions { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 900px) {
+  .ec-canvas-empty-actions { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+}
+.ec-canvas-empty-actions button { min-width: 0; height: 48px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 0 13px; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-lg); background: var(--canvas-surface); color: #2a3040; box-shadow: var(--ec-shadow-1); font-size: 12px; font-weight: 700; letter-spacing: .005em; white-space: nowrap; cursor: pointer; position: relative; transition: transform var(--ec-motion-fast) var(--ec-ease-spring), box-shadow var(--ec-motion-fast) var(--ec-ease-out), border-color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out); }
+.ec-canvas-empty-actions button svg { width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: calc(var(--ec-radius-lg) - 4px); background: #eef3ff; color: var(--canvas-command); flex-shrink: 0; transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out); }
+.ec-canvas-empty-actions button:hover:not(:disabled) { transform: translateY(var(--ec-hover-lift)); border-color: rgba(37, 99, 235, .38); box-shadow: var(--ec-shadow-2), var(--ec-ring-inset); background: #fdfdff; }
+.ec-canvas-empty-actions button:hover:not(:disabled) svg { transform: scale(1.08); background: #e3edff; }
+.ec-canvas-empty-actions button:active:not(:disabled) { transform: translateY(var(--ec-press-drop)); box-shadow: var(--ec-shadow-1); transition-duration: var(--ec-motion-fast); }
+.ec-canvas-empty-actions button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 2px; }
+.ec-canvas-empty-actions button.is-primary { color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--canvas-command) 94%, #fff), var(--canvas-command) 58%, color-mix(in srgb, var(--canvas-command) 86%, #000)); border-color: transparent; box-shadow: var(--ec-shadow-1), inset 0 1px 0 rgba(255, 255, 255, .18); }
+.ec-canvas-empty-actions button.is-primary svg { color: #fff; background: rgba(255, 255, 255, .17); }
+.ec-canvas-empty-actions button.is-primary:hover:not(:disabled) { border-color: transparent; background: linear-gradient(180deg, var(--canvas-command), var(--canvas-command-hover)); box-shadow: var(--ec-shadow-2); }
+.ec-canvas-empty-actions button.is-primary:hover:not(:disabled) svg { background: rgba(255, 255, 255, .24); }
+.ec-canvas-empty-actions button { animation: ecHeroRise var(--ec-motion-base) var(--ec-ease-out) backwards; }
+.ec-canvas-empty-actions button:nth-child(1) { --ec-stagger: 20ms; animation-delay: var(--ec-stagger); }
+.ec-canvas-empty-actions button:nth-child(2) { --ec-stagger: 60ms; animation-delay: var(--ec-stagger); }
+.ec-canvas-empty-actions button:nth-child(3) { --ec-stagger: 100ms; animation-delay: var(--ec-stagger); }
+.ec-canvas-empty-actions button:nth-child(4) { --ec-stagger: 140ms; animation-delay: var(--ec-stagger); }
+.ec-canvas-empty-actions button:nth-child(5) { --ec-stagger: 180ms; animation-delay: var(--ec-stagger); }
+.ec-canvas-empty-actions button:nth-child(n) .ec-hero-glyph { animation-delay: calc(var(--ec-stagger, 0ms) + var(--ec-motion-base)); }
+@keyframes ecHeroRise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-empty-actions button,
+  .ec-canvas-empty-actions button .ec-hero-glyph,
+  .ec-canvas-page button svg[class*='lucide'] { animation: none !important; transition-duration: 1ms !important; }
+  .ec-hero-glyph { opacity: 1 !important; }
+}
 
-.ec-canvas-selection-bar { position: absolute; z-index: 70; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .16); white-space: nowrap; }
-.ec-canvas-selection-bar button { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: #454d58; font-size: 11px; font-weight: 650; transition: color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
+/* Icon micro-motion: every glyph shares one spring transition; the direction
+   of travel encodes the verb (bring-in lifts up, export nudges down, AI
+   actions twinkle). Transform-only so it never touches layout, and the
+   reduced-motion overrides above neutralize all of it. */
+.ec-canvas-page button svg[class*='lucide'] { transition: transform var(--ec-motion-fast) var(--ec-ease-spring); }
+/* Hero glyphs are alive: while their host button is hovered each verb
+   family runs its own ambient loop — bring bobs upward (the asset being
+   lifted in), magic twinkles (AI at work), pull nudges sideways (importing).
+   Loops are hover-scoped, transform-only, and die under reduced motion.
+   On first paint each glyph rises in after its host button lands, so the
+   row reads drawn-on-demand instead of stamped. */
+/* Entrance uses `backwards` fill ONLY: the resting state stays opacity 1,
+   so hover loops can replace this animation without dropping the glyph back
+   to invisible (the forwards-fill bug that made icons vanish on hover). */
+.ec-hero-glyph { animation: ecGlyphIn var(--ec-motion-base) var(--ec-ease-out) backwards; animation-delay: calc(var(--ec-motion-base) + 120ms); }
+@keyframes ecGlyphIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-bring { animation: ecGlyphBob 1.2s var(--ec-ease-out) infinite; }
+.ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-magic { animation: ecGlyphTwinkle 900ms var(--ec-ease-out) infinite; }
+.ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-pull { animation: ecGlyphPull 1s var(--ec-ease-out) infinite; }
+@keyframes ecGlyphBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes ecGlyphTwinkle { 0%, 100% { transform: rotate(0deg) scale(1); } 40% { transform: rotate(-8deg) scale(1.12); } 70% { transform: rotate(6deg) scale(1.04); } }
+@keyframes ecGlyphPull { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-2px); } }
+.ec-canvas-page .ec-canvas-command:hover svg[class*='lucide-plus'] { transform: rotate(90deg); }
+.ec-canvas-page .ec-canvas-command:hover svg[class*='lucide-refresh-cw'] { transform: rotate(-45deg); }
+.ec-canvas-selection-bar button:hover svg[class*='lucide-download'],
+.ec-canvas-bottom-toolbar button:hover svg[class*='lucide-file-down'] { transform: translateY(1px); }
+
+/* Tab switches ride the View Transitions API when available; keep the
+   cross-fade on our base duration and ease instead of browser default. */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: var(--ec-motion-base); animation-timing-function: var(--ec-ease-out); }
+
+.ec-canvas-selection-bar { position: absolute; z-index: 70; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--ec-radius-sm); background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); white-space: nowrap; }
+.ec-canvas-selection-bar button { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: calc(var(--ec-radius-sm) - 2px); background: transparent; color: #454d58; font-size: 11px; font-weight: 650; transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring); }
 .ec-canvas-selection-bar button:hover { color: var(--canvas-command); background: #eef4ff; }
 .ec-canvas-selection-bar button:active { transform: translateY(1px); }
 .ec-canvas-selection-bar button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 1px; }
 
 .ec-canvas-composer { position: absolute; z-index: 72; padding: 12px; border-radius: 8px; background: #fff; box-shadow: 0 5px 8px rgba(21, 23, 26, .18); }
 
-.ec-canvas-text-node { position: absolute; z-index: 15; box-sizing: border-box; display: flex; flex-direction: column; overflow: visible; border: 1px solid #d8dde5; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(21,23,26,.10); transition: opacity 160ms ease-out, box-shadow 160ms ease-out, border-color 160ms ease-out; }
+.ec-canvas-text-node { position: absolute; z-index: 15; box-sizing: border-box; display: flex; flex-direction: column; overflow: visible; border: 1px solid #d8dde5; border-radius: var(--ec-radius-sm); background: #fff; box-shadow: var(--ec-shadow-1); transition: opacity var(--ec-motion-base) var(--ec-ease-out), box-shadow var(--ec-motion-fast) var(--ec-ease-out), border-color var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-text-node.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.12), 0 4px 8px rgba(21,23,26,.12); }
 .ec-canvas-text-node header { height: 34px; display: flex; align-items: center; padding: 0 11px; border-bottom: 1px solid #edf0f3; color: #4b515a; font-size: 10px; font-weight: 750; cursor: grab; }
 .ec-canvas-text-node textarea { flex: 1; min-height: 112px; padding: 10px 11px; border: 0; outline: 0; resize: none; background: transparent; color: #20242a; font: 12px/1.6 inherit; }

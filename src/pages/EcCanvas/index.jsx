@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Clapperboard, Crop, Download, ExternalLink, FileDown, FolderPlus, Grid3x3, Image, ImagePlus, Images, Languages, Layers, LayoutGrid, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shapes, Shuffle, SlidersHorizontal, Sparkles, Square, SquareCheck, Trash2, Type, Video, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, ImagePlus, Images, Info, Languages, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Trash2, Type, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
+import { flushSync } from 'react-dom';
+import { HeroGlyph } from './components/HeroIcons';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
@@ -208,16 +210,16 @@ function normalizeLayerItems(layers, nodeId) {
 
 const ACTION_ICONS = {
   'adjust-requirements': Pencil,
-  regenerate: Sparkles,
+  regenerate: RefreshCw,
   download: Download,
-  'image-info': Shapes,
+  'image-info': Info,
   'add-reference': ImagePlus,
   delete: Trash2,
   'product-remix': Shuffle,
   outpaint: Ratio,
   inpaint: SlidersHorizontal,
-  'remove-background': Sparkles,
-  'layer-edit': Layers,
+  'remove-background': Eraser,
+  'layer-edit': SquarePen,
   translate: Languages,
   upscale: Maximize2,
   crop: Crop,
@@ -3814,8 +3816,18 @@ export default function EcCanvas() {
     } : node));
   }, []);
   const handleTabChange = useCallback(nextTab => {
-    setTab(nextTab);
-    dispatch({ type: 'SET_CANVAS_ENTRY_TAB', tab: nextTab });
+    // Cross-fade canvas tabs through the View Transitions API when the
+    // browser offers it; reduced-motion users get an instant swap instead.
+    const apply = () => {
+      setTab(nextTab);
+      dispatch({ type: 'SET_CANVAS_ENTRY_TAB', tab: nextTab });
+    };
+    const reduceMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion && typeof document !== 'undefined' && typeof document.startViewTransition === 'function') {
+      document.startViewTransition(() => flushSync(apply));
+      return;
+    }
+    apply();
   }, [dispatch]);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
@@ -4470,15 +4482,25 @@ export default function EcCanvas() {
           />
           {!nodes.length && (
             <div className="ec-canvas-empty-state">
-              <div>
+              <div
+                className="ec-canvas-hero-panel"
+                onMouseMove={(event) => {
+                  // Cursor spotlight: the glow follows the pointer via CSS
+                  // custom properties; pure paint, no layout, no listeners.
+                  const el = event.currentTarget;
+                  const rect = el.getBoundingClientRect();
+                  el.style.setProperty('--ec-spot-x', (((event.clientX - rect.left) / Math.max(1, rect.width)) * 100).toFixed(2) + '%');
+                  el.style.setProperty('--ec-spot-y', (((event.clientY - rect.top) / Math.max(1, rect.height)) * 100).toFixed(2) + '%');
+                }}
+              >
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
                 <p>从商品素材开始，继续生成套图、文案和营销视频</p>
                 <div className="ec-canvas-empty-actions">
-                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><Image size={16} strokeWidth={1.5} />上传图片</button>
-                  <button type="button" onClick={() => videoUploadRef.current?.click()}><Video size={16} strokeWidth={1.5} />上传视频</button>
-                  <button type="button" onClick={() => handleTabChange('works')}><LayoutGrid size={16} strokeWidth={1.5} />从我的作品导入</button>
-                  <button type="button" onClick={() => addCanvasComposer('suite')}><Sparkles size={16} strokeWidth={1.5} />生成电商套图</button>
-                  <button type="button" onClick={() => addCanvasComposer('video')}><Clapperboard size={16} strokeWidth={1.5} />生成视频</button>
+                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
+                  <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
+                  <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
+                  <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
+                  <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
                 </div>
               </div>
             </div>
