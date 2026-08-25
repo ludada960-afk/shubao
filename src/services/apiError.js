@@ -40,6 +40,9 @@ export async function createApiError(response, fallbackMessage = '请求失败')
 }
 
 export function isInsufficientCreditsError(error) {
-  return error?.status === 402 || error?.code === 'INSUFFICIENT_CREDITS';
+  // 后端钱包服务使用 BILLING_INSUFFICIENT_CREDITS，部分任务级错误只带 code 不带 status。
+  return error?.status === 402
+    || error?.code === 'INSUFFICIENT_CREDITS'
+    || error?.code === 'BILLING_INSUFFICIENT_CREDITS';
 }
 import { handleSessionResponse } from './auth.js';

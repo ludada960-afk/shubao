@@ -301,6 +301,17 @@ export function createProviderAdapter(config = {}) {
   const pollIntervalMs = Number.isFinite(config.pollIntervalMs) && config.pollIntervalMs >= 0
     ? config.pollIntervalMs
     : 1_500;
+  // 显式请求截止时间：上游悬挂时不能无限占用生成槽位。
+  // 提交（含多模态图片上传）允许更长时间；轮询是轻量 GET。0 表示禁用。
+  const submitTimeoutMs = Number.isSafeInteger(config.submitTimeoutMs) && config.submitTimeoutMs >= 0
+    ? config.submitTimeoutMs
+    : 120_000;
+  const pollTimeoutMs = Number.isSafeInteger(config.pollTimeoutMs) && config.pollTimeoutMs >= 0
+    ? config.pollTimeoutMs
+    : 20_000;
+  if (submitTimeoutMs > 0 || pollTimeoutMs > 0) {
+    if (typeof AbortController === 'undefined') throw new TypeError('AbortController is required for request deadlines');
+  }
   const maxSubmitAttempts = Number.isSafeInteger(config.maxSubmitAttempts) && config.maxSubmitAttempts > 0
     ? config.maxSubmitAttempts
     : 3;
@@ -328,6 +339,28 @@ export function createProviderAdapter(config = {}) {
     return { ...auth.headers, ...extra };
   }
 
+  async function fetchWithDeadline(url, options = {}, timeoutMs) {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+      return fetchImpl(url, options);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    timer.unref?.();
+    try {
+      return await fetchImpl(url, { ...options, signal: controller.signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw providerError(`provider request exceeded the ${Math.round(timeoutMs / 1_000)}s deadline`, {
+          retryable: true,
+          code: 'PROVIDER_NETWORK_ERROR',
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function submitEdit(request) {
     const { form, body, idempotencyKey } = protocol === 'native-tasks'
       ? await buildNativeTask(request)
@@ -335,7 +368,7 @@ export function createProviderAdapter(config = {}) {
     let lastError;
     for (let attempt = 1; attempt <= maxSubmitAttempts; attempt += 1) {
       try {
-        const response = await fetchImpl(`${baseUrl}${submitPath}`, {
+        const response = await fetchWithDeadline(`${baseUrl}${submitPath}`, {
           method: 'POST',
           headers: headers(protocol === 'native-tasks'
             ? {
@@ -347,7 +380,7 @@ export function createProviderAdapter(config = {}) {
               'Idempotency-Key': idempotencyKey,
             }),
           body: protocol === 'native-tasks' ? body : form,
-        });
+        }, submitTimeoutMs);
         const responseBody = await readBody(response);
         const jobId = extractJobId(responseBody);
         const status = extractStatus(responseBody);
@@ -394,10 +427,10 @@ export function createProviderAdapter(config = {}) {
     const path = typeof pollPath === 'function'
       ? pollPath(jobId)
       : pollPath.replace('{id}', encodeURIComponent(jobId));
-    const response = await fetchImpl(`${baseUrl}${path}`, {
+    const response = await fetchWithDeadline(`${baseUrl}${path}`, {
       method: 'GET',
       headers: headers(),
-    });
+    }, pollTimeoutMs);
     const body = await readBody(response);
     const providerJobId = extractJobId(body);
     const responseJobId = providerJobId || jobId;

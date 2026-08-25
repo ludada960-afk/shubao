@@ -2496,8 +2496,14 @@ export function createEcommerceStartupRecovery({
   retryDelayMs = 250,
   maxFollowUpScans = 3,
   followUpDelayMs = 30_000,
+  // 周期巡检间隔：>0 时在进程生命周期内持续接管「租约过期仍卡在
+  // queued/analyzing/generating」的任务（例如用户关闭页面后后台重试耗尽），
+  // 避免任务永远停留在非终态。默认 0 保持仅启动/有限次跟进的历史行为。
+  sweepIntervalMs = 0,
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
   onAttemptError = () => {},
 } = {}) {
   if (!orchestrator || typeof orchestrator.resumeJobs !== 'function') {
@@ -2518,6 +2524,9 @@ export function createEcommerceStartupRecovery({
   if (typeof setTimeoutFn !== 'function' || typeof clearTimeoutFn !== 'function') {
     throw new TypeError('setTimeoutFn and clearTimeoutFn must be functions');
   }
+  if (!Number.isSafeInteger(sweepIntervalMs) || sweepIntervalMs < 0) {
+    throw new TypeError('sweepIntervalMs must be a non-negative safe integer');
+  }
   if (typeof onAttemptError !== 'function') {
     throw new TypeError('onAttemptError must be a function');
   }
@@ -2525,6 +2534,7 @@ export function createEcommerceStartupRecovery({
   let activeScanPromise = null;
   let followUpTimer = null;
   let followUpScans = 0;
+  let sweepTimer = null;
   let stopped = false;
 
   function scan() {
@@ -2563,12 +2573,23 @@ export function createEcommerceStartupRecovery({
     followUpTimer?.unref?.();
   }
 
+  function scheduleSweep() {
+    if (stopped || sweepTimer || sweepIntervalMs <= 0) return;
+    if (typeof setIntervalFn !== 'function' || typeof clearIntervalFn !== 'function') return;
+    sweepTimer = setIntervalFn(() => {
+      if (stopped) return;
+      scan().catch(() => {});
+    }, sweepIntervalMs);
+    sweepTimer?.unref?.();
+  }
+
   function recoverEcommerceStartup() {
     if (recoveryPromise) return recoveryPromise;
     recoveryPromise = scan()
       .catch(() => [])
       .then(results => {
         scheduleFollowUp();
+        scheduleSweep();
         return results;
       });
     return recoveryPromise;
@@ -2579,6 +2600,10 @@ export function createEcommerceStartupRecovery({
     if (followUpTimer) {
       clearTimeoutFn(followUpTimer);
       followUpTimer = null;
+    }
+    if (sweepTimer) {
+      clearIntervalFn(sweepTimer);
+      sweepTimer = null;
     }
   };
   return recoverEcommerceStartup;

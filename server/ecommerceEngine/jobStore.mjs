@@ -208,7 +208,7 @@ export function createEcommerceJobStore(db, {
     recoverable: db.prepare(`
       SELECT * FROM ecommerce_job_assets
       WHERE state IN (
-        'submitted', 'polling', 'downloading', 'quality_check',
+        'queued', 'submitted', 'polling', 'downloading', 'quality_check',
         'repairing', 'verified', 'settling', 'releasing'
       )
       ORDER BY updated_at, job_id, asset_id
