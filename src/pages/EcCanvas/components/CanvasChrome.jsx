@@ -6,6 +6,7 @@ import {
   EyeOff,
   Hand,
   ImagePlus,
+  ImageUp,
   Layers3,
   Lock,
   LockOpen,
@@ -100,7 +101,7 @@ export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText,
   const tools = [
     { id: 'select', label: '选择工具：拖拽框选 / Shift+点击多选', icon: MousePointer2 },
     { id: 'hand', label: '抓手', icon: Hand },
-    { id: 'image', label: '添加图片', icon: ImagePlus, onClick: onImage },
+    { id: 'image', label: '添加图片', icon: ImageUp, onClick: onImage },
     { id: 'text', label: '添加文本', icon: Type, onClick: onText },
     { id: 'layers', label: '图层', icon: Layers3, onClick: onLayers },
   ];

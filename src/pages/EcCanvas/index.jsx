@@ -4681,6 +4681,21 @@ export default function EcCanvas() {
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
             {!focusedEditor && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {!focusedEditor && !connectionPicker && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind) && <CanvasDeriveMenu
+              actions={portCreationActions}
+              position={clampCanvasPickerPosition({ world: { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y }, viewport, bounds: containerRef.current?.getBoundingClientRect() })}
+              title="引用当前素材生成"
+              onClose={() => setSelected(null)}
+              onSelect={action => {
+                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
+                if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
+                else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'video-upload') videoUploadRef.current?.click();
+                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
+                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+              }}
+            />}
             {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
