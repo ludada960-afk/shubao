@@ -5,6 +5,19 @@ function isReadyImage(node = {}) {
   return ['image', 'layer-group'].includes(node.kind) && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status);
 }
 
+/* Local tier: every handler that opens a purely client-side surface (crop
+   frame, grid guides, move-scale stage, download, inline text drop) can run
+   on the local preview the moment a node exists — an uploaded image keeps
+   its data-URL preview while the durable copy persists in the background.
+   Gating these on the persisted status is what left freshly uploaded
+   selections with no object toolbar at all. Server-round-trip actions
+   (OCR, layer analysis, background removal, reverse prompt) stay gated on
+   the stable URL below. */
+function canRunLocally(node = {}) {
+  if (node.kind === 'output') return isReadyImage(node);
+  return ['image', 'layer-group'].includes(node.kind) && Boolean(node.url);
+}
+
 function isReadyMedia(node = {}) {
   return isReadyImage(node) || (node.kind === 'video' && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status));
 }
@@ -48,10 +61,10 @@ export const CANVAS_ACTIONS = Object.freeze([
   }, { description: '识别并编辑画面中的文字' }),
   action('add-text', '添加文字', ['selection'], null, false, {
     type: 'local', handler: 'add-text',
-  }, { description: '在画布上添加可直接编辑的文字' }),
+  }, { description: '在画布上添加可直接编辑的文字', canRun: canRunLocally }),
   action('grid-split', '宫格切分', ['selection'], 'grid-split', false, {
     type: 'focused-editor', handler: 'grid-split',
-  }),
+  }, { canRun: canRunLocally }),
   action('layer-edit', '智能分层', ['selection'], 'layers', false, {
     type: 'node', handler: 'create:layer-edit', nodeActionId: 'layer-edit', nodeKind: 'layer-workbench', route: '/api/canvas/analyze-layers',
   }, { description: '分析画面区域并进入图层工作台', group: '电商处理', canRun: canCreateWorkflowFromNode }),
@@ -60,7 +73,7 @@ export const CANVAS_ACTIONS = Object.freeze([
   }, { description: '生成透明背景商品素材', group: '电商处理', canRun: canCreateWorkflowFromNode }),
   action('move-scale', '移动缩放', ['selection'], null, false, {
     type: 'focused-editor', handler: 'move-scale',
-  }, { description: '框选商品并调整在画面中的位置与大小' }),
+  }, { description: '框选商品并调整在画面中的位置与大小', canRun: canRunLocally }),
   action('reverse-prompt', '反推提示词', ['selection'], 'reverse-prompt', false, {
     type: 'node', handler: 'reverse-prompt', route: '/api/reverse-prompt',
   }, { description: '创建可继续编辑和派生的画面描述' }),
@@ -69,13 +82,13 @@ export const CANVAS_ACTIONS = Object.freeze([
   }),
   action('crop', '裁剪', ['selection'], 'crop', false, {
     type: 'focused-editor', handler: 'crop',
-  }),
+  }, { canRun: canRunLocally }),
   action('split-image', '分割图片', ['selection'], null, false, {
     type: 'focused-editor', handler: 'split-image',
-  }),
+  }, { canRun: canRunLocally }),
   action('download', '导出图片', ['selection'], null, false, {
     type: 'local', handler: 'download',
-  }),
+  }, { canRun: canRunLocally }),
   action('copy', '复制', ['context'], null, false, {
     type: 'local', handler: 'copy',
   }, { canRun: node => Boolean(node?.id) }),
@@ -112,7 +125,9 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('export-object', '导出', ['context'], null, false, {
     type: 'local', handler: 'download',
   }, { canRun: isReadyImage }),
-  action('delete', '删除', ['selection', 'context'], null, false, {
+  /* 删除只留在 context 菜单：选中态已有顶栏删除与键盘 Delete，selection
+     工具条不再渲染孤立垃圾桶（用户反馈的冗余按钮）。 */
+  action('delete', '删除', ['context'], null, false, {
     type: 'local', handler: 'delete',
   }, { canRun: node => Boolean(node?.id) }),
   action('product-remix', '商品图改造', ['image-editor'], 'smart-remix', true, {

@@ -180,7 +180,7 @@ test('Canvas reverse prompt uses the formal ecommerce vision gateway with an edi
 test('Canvas pixel layering and PSD export are signed composition routes', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const pixelRoute = extractCanvasRoute(source, '/api/canvas/pixel-layers', '// 画布 PSD 导出');
-  const psdRoute = extractCanvasRoute(source, '/api/canvas/psd-export', '// ── 邮箱验证码');
+  const psdRoute = extractCanvasRoute(source, '/api/canvas/psd-export', '// ── P1 认证底座');
 
   assert.match(pixelRoute, /authenticateEcommerceRequest/);
   assert.match(pixelRoute, /createPixelLayers\(\{[\s\S]*?generatedAssetStore/);

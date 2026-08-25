@@ -41,9 +41,38 @@ test('selection exposes the complete commerce image toolbar in observed order', 
       'crop',
       'split-image',
       'download',
-      'delete',
     ],
   );
+});
+
+test('selection never offers delete — top bar and keyboard Delete own it', () => {
+  const nodes = [
+    completedOutput,
+    { id: 'image-1', kind: 'image', status: 'ready', url: '/product.png' },
+    { id: 'upload-1', kind: 'image', status: 'uploading', url: 'data:image/jpeg;base64,preview' },
+  ];
+  for (const node of nodes) {
+    assert.equal(
+      actionsForSurface({ surface: 'selection', node }).some(action => action.id === 'delete'),
+      false,
+      node.id,
+    );
+  }
+});
+
+test('fresh uploads keep local tools immediately from their preview url', () => {
+  const uploading = { id: 'upload-1', kind: 'image', status: 'uploading', url: 'data:image/jpeg;base64,preview' };
+  // 双面板齐张：上传落选的第一帧就有完整本地工具，而不是只剩（或没有）垃圾桶
+  assert.deepEqual(
+    actionsForSurface({ surface: 'selection', node: uploading }).map(action => action.id),
+    ['add-text', 'grid-split', 'move-scale', 'crop', 'split-image', 'download'],
+  );
+  // 服务端往返动作仍然等待持久化完成
+  for (const gatedId of ['edit-text', 'layer-edit', 'remove-background', 'reverse-prompt']) {
+    assert.equal(actionsForSurface({ surface: 'selection', node: uploading }).some(action => action.id === gatedId), false, gatedId);
+  }
+  const failed = { id: 'upload-2', kind: 'image', status: 'upload-error', url: '' };
+  assert.deepEqual(actionsForSurface({ surface: 'selection', node: failed }), []);
 });
 
 test('context menu exposes complete object operations without duplicating selection tools', () => {
@@ -67,7 +96,7 @@ test('context menu exposes complete object operations without duplicating select
   );
   const selection = new Set(actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id));
   const context = actionsForSurface({ surface: 'context', node: completedOutput }).map(action => action.id);
-  assert.deepEqual(context.filter(id => selection.has(id)), ['delete']);
+  assert.deepEqual(context.filter(id => selection.has(id)), []);
   assert.equal(getCanvasAction('rename'), null);
   assert.equal(getCanvasAction('classify'), null);
 });

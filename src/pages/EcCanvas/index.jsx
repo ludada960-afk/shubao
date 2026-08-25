@@ -4408,6 +4408,13 @@ export default function EcCanvas() {
       priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
     };
   });
+  /* 契约：派生菜单与对象工具条共享同一选中谓词——"选中即双面板齐张"。
+     两个面板各自内部再决定渲染什么内容（工具条动作不足时自行收窄），
+     但出现/消失必须永远同步。 */
+  const selectionPanelsVisible = !focusedEditor && !connectionPicker && multiSelected.size <= 1
+    && Boolean(selectedNode)
+    && selectedNode.kind !== 'text'
+    && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind);
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -4703,8 +4710,8 @@ export default function EcCanvas() {
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
-            {!focusedEditor && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
-            {!focusedEditor && !connectionPicker && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind) && <CanvasDeriveMenu
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {selectionPanelsVisible && <CanvasDeriveMenu
               actions={portCreationActions}
               position={clampCanvasPickerPosition({ world: { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y }, viewport, bounds: containerRef.current?.getBoundingClientRect() })}
               title="引用当前素材生成"

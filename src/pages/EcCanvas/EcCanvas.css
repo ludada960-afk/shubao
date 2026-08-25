@@ -227,14 +227,14 @@
 .ec-canvas-empty-actions button:nth-child(3) { --ec-stagger: 100ms; animation-delay: var(--ec-stagger); }
 .ec-canvas-empty-actions button:nth-child(4) { --ec-stagger: 140ms; animation-delay: var(--ec-stagger); }
 .ec-canvas-empty-actions button:nth-child(5) { --ec-stagger: 180ms; animation-delay: var(--ec-stagger); }
-.ec-canvas-empty-actions button:nth-child(n) .ec-hero-glyph { animation-delay: calc(var(--ec-stagger, 0ms) + var(--ec-motion-base)); }
+.ec-canvas-empty-actions button:nth-child(n) .ec-hero-glyph-slot { animation-delay: calc(var(--ec-stagger, 0ms) + var(--ec-motion-base)); }
 @keyframes ecHeroRise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ec-canvas-empty-actions button,
-  .ec-canvas-empty-actions button .ec-hero-glyph,
+  .ec-canvas-empty-actions button .ec-hero-glyph-slot,
   .ec-canvas-page button svg[class*='lucide'] { animation: none !important; transition-duration: 1ms !important; }
   .ec-hero-glyph { opacity: 1 !important; }
 }
@@ -250,10 +250,15 @@
    Loops are hover-scoped, transform-only, and die under reduced motion.
    On first paint each glyph rises in after its host button lands, so the
    row reads drawn-on-demand instead of stamped. */
-/* Entrance uses `backwards` fill ONLY: the resting state stays opacity 1,
-   so hover loops can replace this animation without dropping the glyph back
-   to invisible (the forwards-fill bug that made icons vanish on hover). */
-.ec-hero-glyph { animation: ecGlyphIn var(--ec-motion-base) var(--ec-ease-out) backwards; animation-delay: calc(var(--ec-motion-base) + 120ms); }
+/* Two motion channels on two elements, so hover can never replay the
+   entrance: the wrapper slot owns ecGlyphIn (plays exactly once on mount);
+   the svg owns only the ambient loops. Replacing the shorthand on one
+   element made hover-off restart ecGlyphIn — its backwards fill paints
+   opacity 0 through the whole stagger delay, which is why icons vanished
+   for a beat whenever the pointer left a hero button. The loops carry no
+   opacity keyframes at all, so glyph visibility can never fall back. */
+.ec-hero-glyph-slot { display: inline-flex; animation: ecGlyphIn var(--ec-motion-base) var(--ec-ease-out) backwards; animation-delay: calc(var(--ec-motion-base) + 120ms); }
+.ec-hero-glyph { display: block; }
 @keyframes ecGlyphIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-bring { animation: ecGlyphBob 1.2s var(--ec-ease-out) infinite; }
 .ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-magic { animation: ecGlyphTwinkle 900ms var(--ec-ease-out) infinite; }
@@ -319,6 +324,18 @@
 .ec-canvas-derive-menu strong { display: block; font-size: 13px; font-weight: 700; }
 .ec-canvas-add-menu small,
 .ec-canvas-derive-menu small { display: block; overflow: hidden; margin-top: 3px; color: #7d8692; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 引用当前素材生成菜单：卡片式平衡行（图标芯片 | 两行文案 | 价格徽标+箭头）。
+   三段栅格 38px/1fr/auto 让每行左右重量对称；沿用既有 token 与灰阶。 */
+.ec-canvas-derive-menu { width: 324px; }
+.ec-canvas-derive-menu > button { grid-template-columns: 38px minmax(0, 1fr) auto; column-gap: 12px; padding: 8px 9px; border-radius: 9px; }
+.ec-canvas-derive-menu > button > span:first-child { width: 38px; height: 38px; border-radius: 9px; color: #47546c; background: #eef2f8; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .05); transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out); }
+.ec-canvas-derive-copy { min-width: 0; }
+.ec-canvas-derive-meta { display: inline-flex; align-items: center; gap: 6px; color: #9aa3af; transition: color var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring); }
+.ec-canvas-derive-meta em { padding: 2px 7px; border-radius: 999px; background: #f1f4f8; color: #6b7686; font-size: 10px; font-weight: 750; font-style: normal; white-space: nowrap; }
+.ec-canvas-derive-menu > button:hover > .ec-canvas-derive-chip { color: var(--canvas-command); background: #e3edff; }
+.ec-canvas-derive-menu > button:hover > .ec-canvas-derive-meta { color: var(--canvas-command); transform: translateX(1px); }
+.ec-canvas-derive-menu > button:focus-visible > .ec-canvas-derive-chip { color: var(--canvas-command); background: #e3edff; }
 
 .ec-canvas-media-node,
 .ec-canvas-source-node,

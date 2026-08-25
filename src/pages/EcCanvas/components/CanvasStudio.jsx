@@ -183,6 +183,9 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     ...(x != null ? { left: x } : {}),
     ...(y != null ? { top: y } : {}),
   };
+  /* 卡片式信息架构（参考流影 AI 的平衡行）：左侧动词图标芯片、中间两行
+     文案、右侧价格徽标 + 前进箭头。三段栅格让每行左右重量对称，不再
+     文字全堆左边、右侧留白。徽标只在非免费动作上出现，避免一排"免费"。 */
   return <div ref={introGateRef} className="ec-canvas-derive-menu" style={menuStyle} role="menu" aria-label="从当前素材继续创作">
     <div className="ec-canvas-menu-heading">
       <span>{onBack && <button type="button" aria-label="返回创作类型" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onBack?.(); }}><ArrowLeft size={14} /></button>}{title}</span>
@@ -190,9 +193,11 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     </div>
     {actions.map(action => {
       const Icon = DERIVE_ICONS[action.id] || Sparkles;
-      return <button key={action.id} type="button" role="menuitem" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
-        <span><Icon /></span>
-        <span><strong>{action.label}</strong><small>{action.description}</small></span>
+      const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
+      return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
+        <span className="ec-canvas-derive-chip"><Icon /></span>
+        <span className="ec-canvas-derive-copy"><strong>{action.label}</strong><small>{action.description}</small></span>
+        <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
       </button>;
     })}
   </div>;
