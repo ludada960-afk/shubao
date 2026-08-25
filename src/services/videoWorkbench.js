@@ -240,6 +240,24 @@ export async function approveWorkbenchAssetVersion(projectId, assetId, payload =
   return requireValue(response, 'asset', '项目素材暂时不可用，请稍后重试');
 }
 
+export async function lockWorkbenchAssetVersion(projectId, assetId, payload = {}) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/assets/${assetSegment(assetId)}/lock`,
+    { method: 'POST', ...jsonBody(payload) },
+    '暂时无法锁定一致性版本',
+  );
+  return requireValue(response, 'lock', '一致性锁定暂时不可用，请稍后重试');
+}
+
+export async function unlockWorkbenchAssetVersion(projectId, assetId, payload = {}) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/assets/${assetSegment(assetId)}/unlock`,
+    { method: 'POST', ...jsonBody(payload) },
+    '暂时无法解除一致性锁定',
+  );
+  return requireValue(response, 'asset', '一致性锁定暂时不可用，请稍后重试');
+}
+
 export async function createStoryboardShot(projectId, payload = {}) {
   const response = await requestJson(`${workbenchBase(projectId)}/shots`, {
     method: 'POST',

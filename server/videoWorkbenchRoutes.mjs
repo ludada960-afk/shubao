@@ -455,6 +455,24 @@ export function mountVideoWorkbenchRoutes(app, {
     })
   ), { key: 'asset' }));
 
+  // VID-R2: consistency anchor lock/unlock for character/scene cards.
+  app.post('/api/video/projects/:projectId/workbench/assets/:assetId/lock', (req, res) => dispatch(req, res, 'asset.lock', request => (
+    store.lockAssetVersion({
+      ...request,
+      assetId: req.params.assetId,
+      versionId: req.body?.versionId,
+      expectedRevision: req.body?.expectedRevision,
+    })
+  ), { key: 'lock' }));
+
+  app.post('/api/video/projects/:projectId/workbench/assets/:assetId/unlock', (req, res) => dispatch(req, res, 'asset.unlock', request => (
+    store.unlockAssetVersion({
+      ...request,
+      assetId: req.params.assetId,
+      expectedRevision: req.body?.expectedRevision,
+    })
+  ), { key: 'asset' }));
+
   app.post('/api/video/projects/:projectId/workbench/shots', (req, res) => dispatch(req, res, 'shot.create', request => (
     store.createShot({
       ...request,

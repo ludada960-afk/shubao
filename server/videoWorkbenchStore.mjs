@@ -431,6 +431,7 @@ function versionFromRow(row) {
     metadata: parseJson(row.metadata_json, {}),
     projectAssetRef: null,
     projectAssetRefStatus: row.source_project_asset_id ? 'unverified-legacy' : 'missing',
+    lockedAt: row.locked_at || null,
     createdAt: row.created_at,
   };
 }
@@ -914,6 +915,13 @@ function ensureSchema(db) {
     ['provenance_json', "TEXT NOT NULL DEFAULT '{}'"],
   ]) {
     if (!candidateColumns.has(name)) db.exec(`ALTER TABLE video_shot_candidates ADD COLUMN ${name} ${definition}`);
+  }
+  // VID-R2: consistency-lock marks one immutable version per asset as the
+  // director-approved visual anchor (character/scene cards). Locking implies
+  // approval and propagates staleness to shots bound to other versions.
+  const assetVersionColumns = new Set(db.prepare('PRAGMA table_info(video_workbench_asset_versions)').all().map(column => column.name));
+  if (!assetVersionColumns.has('locked_at')) {
+    db.exec(`ALTER TABLE video_workbench_asset_versions ADD COLUMN locked_at TEXT`);
   }
 }
 
@@ -1399,6 +1407,64 @@ export function createVideoWorkbenchStore({
         }
         return requireAsset(owner, project.id, assetId);
       })();
+    },
+
+    // VID-R2: lock a version as the asset's consistency anchor. Locking is
+    // stronger than approving: it also stamps the version itself so the UI
+    // can show the locked anchor, and it keeps the approved_version_id pointer
+    // (and therefore staleness propagation) in sync.
+    lockAssetVersion({ ownerEmail, projectId, assetId, versionId, expectedRevision }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return db.transaction(() => {
+        const asset = requireAsset(owner, project.id, assetId);
+        const version = requireVersion(owner, project.id, assetId, versionId);
+        if (asset.revision !== expectedRevision) throw coded('VERSION_CONFLICT', 'asset revision conflict', asset);
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_workbench_assets SET approved_version_id = ?, status = 'approved',
+          revision = revision + 1, updated_at = ? WHERE id = ?`).run(version.id, changedAt, assetId);
+        db.prepare(`UPDATE video_workbench_asset_versions SET locked_at = NULL
+          WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND locked_at IS NOT NULL`)
+          .run(owner, project.id, assetId);
+        db.prepare(`UPDATE video_workbench_asset_versions SET locked_at = ? WHERE id = ?`)
+          .run(changedAt, version.id);
+        const staleIds = db.prepare(`SELECT DISTINCT shot_id FROM video_shot_asset_bindings
+          WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND asset_version_id <> ?`)
+          .all(owner, project.id, assetId, version.id).map(row => row.shot_id);
+        if (staleIds.length) {
+          const placeholders = staleIds.map(() => '?').join(',');
+          db.prepare(`UPDATE video_storyboard_shots SET status = 'stale', revision = revision + 1, updated_at = ?
+            WHERE owner_email = ? AND project_id = ? AND id IN (${placeholders})`)
+            .run(changedAt, owner, project.id, ...staleIds);
+          db.prepare(`UPDATE video_timeline_clips SET status = 'stale', revision = revision + 1, updated_at = ?
+            WHERE owner_email = ? AND project_id = ? AND status = 'active' AND shot_id IN (${placeholders})`)
+            .run(changedAt, owner, project.id, ...staleIds);
+        }
+        return { asset: requireAsset(owner, project.id, assetId), version: versionFromRow(db.prepare('SELECT * FROM video_workbench_asset_versions WHERE id = ?').get(version.id)) };
+      })();
+    },
+
+    unlockAssetVersion({ ownerEmail, projectId, assetId, expectedRevision }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return db.transaction(() => {
+        const asset = requireAsset(owner, project.id, assetId);
+        if (asset.revision !== expectedRevision) throw coded('VERSION_CONFLICT', 'asset revision conflict', asset);
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_workbench_asset_versions SET locked_at = NULL
+          WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND locked_at IS NOT NULL`)
+          .run(owner, project.id, assetId);
+        db.prepare(`UPDATE video_workbench_assets SET revision = revision + 1, updated_at = ? WHERE id = ?`)
+          .run(changedAt, assetId);
+        return requireAsset(owner, project.id, assetId);
+      })();
+    },
+
+    getAssetVersionLock({ ownerEmail, projectId, assetId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      requireAsset(owner, project.id, assetId);
+      const row = db.prepare(`SELECT * FROM video_workbench_asset_versions
+        WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND locked_at IS NOT NULL
+        ORDER BY sequence DESC LIMIT 1`).get(owner, project.id, assetId);
+      return row ? versionFromRow(row) : null;
     },
 
     createShot({ ownerEmail, projectId, position, purpose, durationMs, cameraLanguage = '', prompt = '', direction = {},

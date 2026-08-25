@@ -5,6 +5,8 @@ import {
   FolderKanban,
   Images,
   LoaderCircle,
+  Lock,
+  LockOpen,
   Music2,
   Plus,
   ShieldCheck,
@@ -17,6 +19,8 @@ import { createProject, listProjects } from '../../services/projects.js';
 import {
   getVideoSkillTemplates,
   getVideoWorkbench,
+  lockWorkbenchAssetVersion,
+  unlockWorkbenchAssetVersion,
 } from '../../services/videoWorkbench.js';
 import './DirectorWorkbench.css';
 
@@ -49,6 +53,7 @@ export default function DirectorWorkbench({ capabilities }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [lockBusy, setLockBusy] = useState('');
 
   const loadProjects = useCallback(async () => {
     try {
@@ -86,6 +91,32 @@ export default function DirectorWorkbench({ capabilities }) {
   const grouped = useMemo(() => groupAssets(workbench?.assets || []), [workbench]);
   const totalDuration = useMemo(() => clips.reduce((sum, clip) => sum + (Number(clip.durationSeconds || clip.duration) || 0), 0), [clips]);
 
+  const toggleLock = useCallback(async (asset) => {
+    if (!asset?.id || lockBusy) return;
+    const versions = Array.isArray(asset.versions) ? asset.versions : [];
+    const approvedVersion = versions.find(v => v.id === asset.approvedVersionId)
+      || versions[versions.length - 1];
+    const lockedNow = Boolean(approvedVersion?.lockedAt);
+    setLockBusy(asset.id);
+    setError('');
+    try {
+      if (lockedNow) {
+        await unlockWorkbenchAssetVersion(projectId, asset.id, { expectedRevision: asset.revision });
+      } else {
+        if (!approvedVersion?.id) throw new Error('该资产还没有可锁定的版本，请先上传素材');
+        await lockWorkbenchAssetVersion(projectId, asset.id, {
+          versionId: approvedVersion.id,
+          expectedRevision: asset.revision,
+        });
+      }
+      const wb = await getVideoWorkbench(projectId);
+      setWorkbench(wb);
+    } catch (cause) {
+      setError(cause?.message || '一致性锁定操作失败');
+    } finally {
+      setLockBusy('');
+    }
+  }, [lockBusy, projectId]);
   const handleCreateProject = useCallback(async () => {
     if (creating) return;
     setCreating(true);
@@ -132,9 +163,26 @@ export default function DirectorWorkbench({ capabilities }) {
                     <div key={group.key} className="dw-group">
                       <h3><Icon size={13} /> {group.label}<small>{items.length}</small></h3>
                       <p className="dw-group-hint">{group.hint}</p>
-                      {items.length ? <ul>{items.slice(0, 6).map(item => (
-                        <li key={item.id || item.assetId}>{item.name || item.title || item.label || (item.kind || '资产')}</li>
-                      ))}{items.length > 6 && <li className="dw-more">…共 {items.length} 项</li>}</ul> : <p className="dw-none">暂无</p>}
+                      {items.length ? <ul>{items.slice(0, 6).map(item => {
+                        const versions = Array.isArray(item.versions) ? item.versions : [];
+                        const approvedVersion = versions.find(v => v.id === item.approvedVersionId) || versions[versions.length - 1];
+                        const locked = Boolean(approvedVersion?.lockedAt);
+                        return (
+                          <li key={item.id || item.assetId} className="dw-asset-item">
+                            <span className="dw-asset-name">{item.name || item.title || item.label || (item.kind || '资产')}</span>
+                            <button
+                              type="button"
+                              className={'dw-lock-btn' + (locked ? ' is-locked' : '')}
+                              disabled={lockBusy === item.id}
+                              title={locked ? '解除一致性锁定' : '锁定当前批准版本为一致性锚'}
+                              onClick={() => void toggleLock(item)}
+                            >
+                              {lockBusy === item.id ? <LoaderCircle size={12} className="dw-spin" /> : locked ? <Lock size={12} /> : <LockOpen size={12} />}
+                              {locked ? '已锁' : '锁定'}
+                            </button>
+                          </li>
+                        );
+                      })}{items.length > 6 && <li className="dw-more">…共 {items.length} 项</li>}</ul> : <p className="dw-none">暂无</p>}
                     </div>
                   );
                 })}
