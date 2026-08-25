@@ -4,7 +4,7 @@
  * 浏览器插件提取图片 → AI 分析展示 → 用户替换商品 → 重新生成
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MdArrowBack, MdAutoAwesome, MdRefresh, MdDownload } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 const EXT_API = '';
@@ -32,6 +32,22 @@ function extensionActionId(value) {
 
 export default function RemakePage() {
   const { dispatch } = useApp();
+  // 轮询定时器统一登记到 ref：重开前先清旧，卸载时兜底清理，避免离开页面后仍轮询/setState。
+  const pollTimerRef = useRef(null);
+  const stopPollTimer = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+  const startPollTimer = getTaskId => {
+    stopPollTimer();
+    pollTimerRef.current = setInterval(async () => {
+      const result = await pollTask(getTaskId());
+      if (result?.status === 'completed' || result?.status === 'failed') stopPollTimer();
+    }, 2000);
+  };
+  useEffect(() => () => stopPollTimer(), []);
 
   // Task state
   const [taskId, setTaskId] = useState('');
@@ -95,15 +111,10 @@ export default function RemakePage() {
   // Start polling when taskId is set
   useEffect(() => {
     if (!taskId) return;
-    const interval = setInterval(async () => {
-      const result = await pollTask(taskId);
-      if (result?.status === 'completed' || result?.status === 'failed') {
-        clearInterval(interval);
-      }
-    }, 2000);
+    startPollTimer(() => taskId);
     // Immediate first poll
     pollTask(taskId);
-    return () => clearInterval(interval);
+    return () => stopPollTimer();
   }, [taskId, pollTask]);
 
   // 触发 AI 分析
@@ -153,16 +164,9 @@ export default function RemakePage() {
       if (!data.ok) {
         setError(data.error || '生成失败');
       } else {
-        // 开始轮询
+        // 开始轮询（复用统一的定时器管理，避免与旧轮询叠加或泄漏）
         setGenerated(false);
-        // Re-trigger polling
-        const interval = setInterval(async () => {
-          const result = await pollTask(taskId);
-          if (result?.status === 'completed' || result?.status === 'failed') {
-            clearInterval(interval);
-            setGenerating(false);
-          }
-        }, 2000);
+        startPollTimer(() => taskId);
       }
     } catch (err) {
       const accessResult = handleGenerationAccessError(err, dispatch, {
