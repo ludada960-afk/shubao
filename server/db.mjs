@@ -11,6 +11,7 @@ import { ensureProjectSchema } from './projects/schema.mjs';
 import { bootstrapDefaultAccountAccess } from './accessControl.mjs';
 import { stripTransientWorkPlayback } from '../shared/workPlayback.mjs';
 import { sanitizeDurableWork } from '../shared/workPersistence.mjs';
+import { getRegisteredWorkDeleteCascade, isWorkAssetCascadeEnabled } from './workAssetCascade.mjs';
 
 const BETA_CREDIT_BOOTSTRAP_ID = 'beta-credit-bootstrap-2026-08-11';
 
@@ -252,13 +253,23 @@ export function upsertWork(work, { ownerEmail = null } = {}) {
   return saveKey;
 }
 
-/** 删除作品 */
+/** 删除作品；WORK_ASSET_CASCADE 默认 on 时在同一事务内联动素材保留降级（workAssetCascade.mjs） */
 export function softDeleteWork(saveKey, { ownerEmail = null } = {}) {
   if (!db) initDB();
   const owner = ownerEmail === null ? null : normalizeWorkOwner(ownerEmail);
-  const result = db.prepare(`UPDATE works SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE _saveKey = ?${owner === null ? '' : ' AND owner_email = ?'}`)
-    .run(...(owner === null ? [saveKey] : [saveKey, owner]));
-  return result.changes > 0;
+  const deleteRow = () => {
+    const result = db.prepare(`UPDATE works SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE _saveKey = ?${owner === null ? '' : ' AND owner_email = ?'}`)
+      .run(...(owner === null ? [saveKey] : [saveKey, owner]));
+    return result.changes > 0;
+  };
+  // flag=off 或未注册联动钩子时与历史行为逐字节一致：不包事务、不读素材引用。
+  const cascade = isWorkAssetCascadeEnabled() ? getRegisteredWorkDeleteCascade() : null;
+  if (!cascade) return deleteRow();
+  return db.transaction(() => {
+    const deleted = deleteRow();
+    if (deleted) cascade({ saveKey });
+    return deleted;
+  })();
 }
 
 export function restoreWork(saveKey, { ownerEmail = null } = {}) {

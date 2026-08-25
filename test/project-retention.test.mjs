@@ -143,7 +143,7 @@ test('work retention reflects the earliest durable asset expiry and rejects an i
   insertAsset(db, { id: 'work-asset', retentionState: 'active', markedAt: null, isolatedAt: null });
   const expired = retention.describeWork({
     ownerEmail: 'owner@example.com',
-    work: { images: [{ url: '/api/generated-assets/work-asset.png' }] },
+    work: { image_urls: ['/api/generated-assets/work-asset.png'] },
   });
 
   assert.equal(expired.expired, true);
@@ -156,12 +156,30 @@ test('a non-deleted Work keeps its referenced binary available beyond the nomina
   const { db, retention } = createHarness();
   insertAsset(db, { id: 'preserved-work', retentionState: 'active', markedAt: null, isolatedAt: null });
   db.exec(`CREATE TABLE works (deleted_at TEXT, payload TEXT)`);
-  db.prepare("INSERT INTO works (deleted_at, payload) VALUES ('', ?)").run(JSON.stringify({ images: [{ url: '/api/generated-assets/preserved-work.png' }] }));
+  db.prepare("INSERT INTO works (deleted_at, payload) VALUES ('', ?)").run(JSON.stringify({ image_urls: ['/api/generated-assets/preserved-work.png'] }));
 
   assert.deepEqual(retention.describeWork({
     ownerEmail: 'owner@example.com',
-    work: { images: [{ url: '/api/generated-assets/preserved-work.png' }] },
+    work: { image_urls: ['/api/generated-assets/preserved-work.png'] },
   }), { expiresAt: null, preserved: true, expired: false });
+  db.close();
+});
+
+test('describeWork reads durable image_urls and ignores the removed legacy images field', () => {
+  const { db, retention } = createHarness();
+  insertAsset(db, { id: 'image-urls-asset', retentionState: 'active', markedAt: null, isolatedAt: null });
+  db.exec(`CREATE TABLE works (deleted_at TEXT, payload TEXT)`);
+  db.prepare("INSERT INTO works (deleted_at, payload) VALUES ('', ?)")
+    .run(JSON.stringify({ image_urls: ['/api/generated-assets/image-urls-asset.png'] }));
+
+  assert.deepEqual(retention.describeWork({
+    ownerEmail: 'owner@example.com',
+    work: { image_urls: ['/api/generated-assets/image-urls-asset.png'] },
+  }), { expiresAt: null, preserved: true, expired: false }, 'live works listed under image_urls preserve their assets');
+  assert.equal(retention.describeWork({
+    ownerEmail: 'owner@example.com',
+    work: { images: [{ url: '/api/generated-assets/image-urls-asset.png' }] },
+  }), null, 'the legacy images field must not be misread as durable work media');
   db.close();
 });
 

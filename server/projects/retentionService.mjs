@@ -122,6 +122,8 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
       ['video_export_manifests', 'manifest_json'],
       ['video_generation_drafts', 'draft_json'],
       ['video_project_memory_facts', 'asset_refs_json'],
+      ['video_storyboard_shots', 'first_frame_ref'],
+      ['video_storyboard_shots', 'last_frame_ref'],
     ]) {
       if (!hasTable(table) || !hasColumn(table, column)) continue;
       const videoReference = db.prepare(`SELECT 1 FROM ${table}
@@ -211,6 +213,11 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
     markExpired,
     isolateMarked,
     deleteIsolated,
+    // 引用保护集（含分镜首末帧与视频表检查、billing disputed 判定）的唯一对外只读入口；
+    // 作品删除联动素材回收必须经此复用完整判定，禁止另写简化判定。
+    isProtectedByReference(row, current = clock()) {
+      return protectedByReference(assetFromRow(row), current);
+    },
     sweep() {
       const marked = markExpired();
       const isolated = isolateMarked();
@@ -226,7 +233,7 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
       return db.prepare('SELECT * FROM project_assets WHERE project_id = ? ORDER BY created_at DESC').all(projectId).map(assetFromRow);
     },
     describeWork({ ownerEmail, work } = {}) {
-      const urls = (Array.isArray(work?.images) ? work.images : Object.values(work?.images || {}))
+      const urls = (Array.isArray(work?.image_urls) ? work.image_urls : Object.values(work?.image_urls || {}))
         .map(image => typeof image === 'string' ? image : image?.url)
         .map(url => String(url || '').trim())
         .filter(Boolean);

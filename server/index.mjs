@@ -84,6 +84,7 @@ import { createVideoProjectBridge } from './videoProjectBridge.mjs';
 import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
 import { createVideoWorkbenchRollout } from './videoWorkbenchRollout.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
+import { createWorkAssetCascade, registerWorkDeleteCascade } from './workAssetCascade.mjs';
 import { decorateOwnedWorkPlayback } from './projects/workMediaPlayback.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
@@ -387,6 +388,8 @@ const retentionService = createRetentionService({
     },
   },
 });
+// 作品删除联动素材回收（WORK_ASSET_CASCADE=on 默认；off 时 softDeleteWork 保持历史行为）。
+registerWorkDeleteCascade(createWorkAssetCascade({ db, retention: retentionService }));
 // cache_img 外链代理缓存 TTL 清理：跟随每日 retention sweep 调度（默认 72h，PROXY_CACHE_TTL_HOURS 可调）。
 imageDelivery.pruneProxyCache().then(result => {
   if (result.deletedFiles > 0) console.log('[proxy-cache] 启动清理过期缓存文件 ' + result.deletedFiles + ' 个，释放 ' + (result.deletedBytes / (1024 * 1024)).toFixed(1) + ' MB');
