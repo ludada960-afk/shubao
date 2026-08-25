@@ -15,6 +15,7 @@
     "verify:video-renderer-reconciliation-dry-run": "node scripts/verify-video-renderer-reconciliation-dry-run.mjs",
     "verify:video-acceptance": "node scripts/verify-ai-video-acceptance.mjs",
     "collab:check": "node scripts/collaboration-policy.mjs",
+    "images:thumbs": "node scripts/generate-image-thumbs.mjs",
     "preview": "vite preview",
     "start": "concurrently \"npm run server\" \"npm run dev\""
   },
