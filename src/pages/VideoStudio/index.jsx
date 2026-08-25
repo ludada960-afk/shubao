@@ -40,6 +40,7 @@ import {
 import { buildVideoPlan } from './videoPlanModel.js';
 import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
 import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
+import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import './VideoStudio.css';
 
@@ -910,15 +911,29 @@ export default function VideoStudioPage({ embedded = false }) {
         </div>
       </div></section>}
     {!embedded && capabilities.directorUi === true && state.logged && <DirectorWorkbench capabilities={capabilities} />}
-    {!embedded && capabilities.directorUi !== true && capabilities.workbenchEnabled && state.logged && <VideoProjectWorkbench
-      enabled={capabilities.workbenchEnabled}
-      logged={state.logged}
-      mode={capabilities.workbenchMode}
-      planningOnly={capabilities.workbenchPlanningOnly}
-      uploadRecords={uploadRecords}
-      jobs={history}
-      onProjectChange={setActiveVideoProjectId}
-      onPlanApprovalChange={setActiveVideoPlanHash}
-    />}
+    {!embedded && capabilities.directorUi !== true && capabilities.workbenchEnabled && state.logged && (
+      // 瀑布三段式默认下线：仅当服务端显式打开 waterfallWorkbench 时回退旧布局。
+      capabilities.waterfallWorkbench === true
+        ? <VideoProjectWorkbench
+          enabled={capabilities.workbenchEnabled}
+          logged={state.logged}
+          mode={capabilities.workbenchMode}
+          planningOnly={capabilities.workbenchPlanningOnly}
+          uploadRecords={uploadRecords}
+          jobs={history}
+          onProjectChange={setActiveVideoProjectId}
+          onPlanApprovalChange={setActiveVideoPlanHash}
+        />
+        : <VideoCanvasWorkbench
+          enabled={capabilities.workbenchEnabled}
+          logged={state.logged}
+          planningOnly={capabilities.workbenchPlanningOnly}
+          uploadRecords={uploadRecords}
+          jobs={history}
+          products={products}
+          onProjectChange={setActiveVideoProjectId}
+          onPlanApprovalChange={setActiveVideoPlanHash}
+        />
+    )}
   </main>;
 }
