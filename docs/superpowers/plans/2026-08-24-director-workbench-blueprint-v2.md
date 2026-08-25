@@ -86,3 +86,13 @@
 1. VideoStudio/index.jsx 现状读盘 → 抽出可保留的数据 hooks；
 2. 新建 DirectorWorkbench 布局组件（三栏+双模式中央区），feature flag `VIDEO_PLATFORM_DIRECTOR_UI`(默认 false) 灰度；
 3. 旧布局保留在 flag 关闭路径，直至新 UI 通过全部测试与人工验收后再切换默认值。
+
+
+---
+
+## 八、实施交付记录（R1–R6 全部落地）
+
+| 阶段 | 提交 | 内容 |
+|---|---|---|
+| R1 | 5afcbdc | 三栏骨架（一致性库/分镜板⇄时间线/导演助手），flag VIDEO_PLATFORM_DIRECTOR_UI 灰度，旧布局保留在关闭路径 |
+| R2 | 
