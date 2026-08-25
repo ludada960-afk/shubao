@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Clapperboard, Crop, Download, ExternalLink, FileDown, FolderPlus, Grid3x3, Image, Images, Languages, Layers, LayoutGrid, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shapes, Shuffle, SlidersHorizontal, Sparkles, Square, SquareCheck, Trash2, Type, Video, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clapperboard, Crop, Download, ExternalLink, FileDown, FolderPlus, Grid3x3, Image, ImagePlus, Images, Languages, Layers, LayoutGrid, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shapes, Shuffle, SlidersHorizontal, Sparkles, Square, SquareCheck, Trash2, Type, Video, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
