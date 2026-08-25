@@ -26,6 +26,7 @@ import {
   getVideoWorkbenchPreflight,
 } from '../../services/videoWorkbench.js';
 import ShotTableEditor from './ShotTableEditor.jsx';
+import DirectorAssistant from './DirectorAssistant.jsx';
 import './DirectorWorkbench.css';
 
 const CONSISTENCY_GROUPS = [
@@ -270,17 +271,14 @@ export default function DirectorWorkbench({ capabilities }) {
               </main>
 
               <aside className="dw-pane dw-assistant" aria-label="导演助手">
-                <h2><Sparkles size={14} /> 导演技能</h2>
-                {templates.length ? (
-                  <ul className="dw-template-list">
-                    {templates.slice(0, 8).map(tpl => (
-                      <li key={tpl.id || tpl.templateId}>
-                        <strong>{tpl.name || tpl.templateId}</strong>
-                        {tpl.description && <p>{String(tpl.description).slice(0, 70)}</p>}
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="dw-none">当前项目暂无可用模板。</p>}
+                <h2><Sparkles size={14} /> 导演助手</h2>
+                <DirectorAssistant
+                  projectId={projectId}
+                  templates={templates}
+                  runs={workbench?.skillRuns || []}
+                  onRefresh={() => void reloadWorkbench()}
+                  onError={message => setError(message)}
+                />
                 <div className="dw-selfcheck">
                   <button type="button" className="dw-check-btn" disabled={checking || !projectId} onClick={() => void runSelfCheck()}>
                     {checking ? '自检中…' : (selfCheck ? (selfCheck.passed ? '✅ 自检通过' : `⚠ ${selfCheck.issues.length} 项建议`) : '运行镜头表自检')}

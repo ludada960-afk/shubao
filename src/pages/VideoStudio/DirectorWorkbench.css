@@ -86,4 +86,22 @@
 .dw-check-issues li{border:1px solid #f0e2c0;background:#fffaf0;border-radius:8px;padding:7px 9px}
 .dw-check-issues strong{font-size:10.5px;color:#a86a12;letter-spacing:.03em}
 .dw-check-issues p{margin:2px 0 0;font-size:11px;color:#6d7280;line-height:1.45}
+
+/* VID-R5 director assistant */
+.dw-template-list li{border:none;padding:0}
+.dw-template-toggle{display:flex;align-items:center;gap:4px;width:100%;padding:7px 8px;border:1px solid #eceef3;border-radius:9px;background:#fafbfd;font-size:12.5px;text-align:left;cursor:pointer}
+.dw-template-toggle:hover{background:#f2f3fa}
+.dw-intake{margin-top:7px;padding:9px;border:1px solid #e8eaf1;border-radius:10px;display:flex;flex-direction:column;gap:7px;background:#fcfcfe}
+.dw-intake-semantics{margin:0;font-size:11px;color:#8b909c;line-height:1.45}
+.dw-spec-preview{margin-top:8px;padding:9px;border:1px dashed #c9cdd8;border-radius:9px;background:#fff}
+.dw-spec-preview ol{margin:0 0 8px;padding-left:18px;font-size:11.5px;color:#565b66;display:flex;flex-direction:column;gap:2px}
+.dw-run-card{margin-top:12px;border:1px solid #dfe3f2;border-radius:11px;padding:10px;background:#fbfcff}
+.dw-run-card h4{margin:0 0 8px;font-size:12px;display:flex;align-items:center;gap:6px}
+.dw-run-steps{list-style:none;margin:0 0 9px;padding:0;display:flex;flex-direction:column;gap:5px}
+.dw-run-steps li{display:flex;align-items:center;gap:7px;font-size:11.5px;padding:5px 8px;border-radius:8px;background:#fff;border:1px solid #eceef3}
+.dw-run-steps li.is-done{opacity:.65}.dw-run-steps li.is-done .dw-step-state{color:#177a45}.dw-run-steps li.is-ready .dw-step-state{color:#3f49b8}.dw-run-steps li.is-blocked{opacity:.5}
+.dw-step-state{width:14px;flex:none;text-align:center}
+.dw-step-label{flex:1;min-width:0}
+.dw-checkpoint{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:6px 8px;margin-top:5px;border:1px solid #efe3c2;background:#fffbef;border-radius:8px;font-size:11.5px}
+.dw-assistant-error{padding:6px 0;font-size:11px}
 @media (max-width:1080px){.dw-columns{grid-template-columns:1fr}}
