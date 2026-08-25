@@ -520,3 +520,31 @@ test('owner and full beta tester accounts share the testing rate limit without d
   assert.deepEqual(getGenerationRateLimit('240485042@qq.com'), { max: 10, windowMs: 60_000 });
   assert.deepEqual(getGenerationRateLimit('someone@example.com'), { max: 10, windowMs: 60_000 });
 });
+
+test('video plan analysis route requires a signed owner session instead of body email', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const signedRoutes = extractSignedGenerationRoutes(source);
+  assert.equal(signedRoutes.has('/api/video/plans'), true, '/api/video/plans must use the signed session branch');
+  assert.equal(getGenerationRouteFeature('/api/video/plans'), 'video_generation');
+
+  const harness = createUnsignedCanvasGuardHarness(source);
+  let downstreamCalls = 0;
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+  harness.guard({
+    method: 'POST',
+    path: '/api/video/plans',
+    body: {},
+    headers: {},
+  }, response, () => { downstreamCalls += 1; });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.body.code, 'AUTH_SESSION_REQUIRED');
+  assert.equal(downstreamCalls, 0, 'unsigned plan requests must never reach handlers or body-email auth');
+  assert.equal(harness.counts().bodyAuthCalls, 0);
+});
+

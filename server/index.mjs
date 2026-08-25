@@ -556,6 +556,9 @@ const SIGNED_GENERATION_ROUTES = new Set([
   '/api/generate-ecommerce',
   '/api/ecommerce/auto-recognize',
   '/api/ecommerce/design-directions',
+  // 视频方案分析必须走会话签名分支；落入 body-email 旧分支会对已登录用户
+  // 返回 ACCOUNT_NOT_ALLOWED「当前账号暂时无法使用此功能」。
+  '/api/video/plans',
   '/api/polish-ec-text',
   '/api/canvas/regenerate',
   '/api/canvas/transform',
