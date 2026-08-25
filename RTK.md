@@ -29,6 +29,8 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 4. 运行时边界
 
+**包管理器双态（2026-08-25 裁决）**：本地 node_modules 为 pnpm 安装态（pnpm-lock.yaml / pnpm-workspace.yaml 已入库）；生产 deploy 链唯一走 npm（package-lock.json，server 端 npm ci 要求与 package.json 同步）。allowBuilds 显式关闭了 canvas / better-sqlite3 / esbuild / protobufjs 的构建脚本——新环境 pnpm install 后 canvas.node、better_sqlite3.node 缺失属预期，需进包手动执行安装脚本（canvas: npm run install 即 prebuild-install）。长期收敛为单管理器需协调重装，未获授权前勿单方面切换。
+
 以下内容永远不进入提交：
 
 - `dist/` 构建产物；部署时由 `npm run build` 重新生成。
