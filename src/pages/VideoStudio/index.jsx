@@ -848,6 +848,7 @@ export default function VideoStudioPage({ embedded = false }) {
             value={prompt}
             mentions={mentionedAssets}
             onChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, 1200)); }}
+            onFilesPasted={files => appendQuickFiles(files)}
             placeholder={promptPlaceholder}
             className="video-prompt-mentions"
           />

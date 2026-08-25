@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { insertImageMentionAt } from './imageMentionModel.js';
+import { extractPastedMediaFiles } from './promptPaste.js';
 import './MentionPromptField.css';
 
 function escapeHtml(value) {
@@ -72,6 +73,7 @@ const MentionPromptField = forwardRef(function MentionPromptField({
   value = '',
   mentions = [],
   onChange,
+  onFilesPasted,
   placeholder = '描述你想生成的内容',
   className = '',
   ...props
@@ -136,6 +138,12 @@ const MentionPromptField = forwardRef(function MentionPromptField({
       rememberSelection();
       lastSyncKey.current = '';
       if (!composingRef.current && !event.nativeEvent?.isComposing) onChange?.(event.currentTarget.textContent || '');
+    }}
+    onPaste={event => {
+      const files = extractPastedMediaFiles(event.clipboardData);
+      if (!files.length) return;
+      event.preventDefault();
+      onFilesPasted?.(files);
     }}
     onBeforeInput={rememberSelection}
     onCompositionStart={() => { composingRef.current = true; }}

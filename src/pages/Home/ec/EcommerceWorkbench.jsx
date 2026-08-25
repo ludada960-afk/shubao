@@ -243,6 +243,11 @@ export default function EcommerceWorkbench({
   };
 
   const selectRecipe = id => onAbilityRecipeChange?.(id);
+  // 粘贴图片进提示词 → 归位到商品素材槽，而不是留在输入框。
+  const handlePromptFilesPasted = files => {
+    if (!files?.length) return;
+    onProductUpload?.({ target: { files, value: '' } });
+  };
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
       {showAbilitySelector && (
@@ -305,7 +310,7 @@ export default function EcommerceWorkbench({
 
         <div className="ec-textarea-wrap ec-xhs-prompt" onClick={() => promptFieldRef.current?.focus()}>
           {!description && <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints"><span className="ec-placeholder-line">{isTryOn ? '描述人物、穿搭关系和使用场景，一句话就够了' : promptTitle}</span>{(isTryOn ? ['例：年轻女性穿着整套搭配，在城市街区自然行走', '例：保留商品颜色与版型，生成 3 张不同姿态'] : promptExamples).slice(0, 2).map((example, index) => <span key={example} className={`ec-placeholder-line ${index === 0 ? 'ec-xhs-example-first' : ''}`}>{example}</span>)}</div>}
-          <MentionPromptField ref={promptFieldRef} value={description} mentions={selectedMentionImages} onChange={value => onDescriptionChange(value)} className={!description ? 'ec-empty' : ''} placeholder="" aria-label="补充商品信息和生成要求" />
+          <MentionPromptField ref={promptFieldRef} value={description} mentions={selectedMentionImages} onChange={value => onDescriptionChange(value)} onFilesPasted={handlePromptFilesPasted} className={!description ? 'ec-empty' : ''} placeholder="" aria-label="补充商品信息和生成要求" />
         </div>
         <div className="ec-workbench-mention-row"><ImageMentionPicker images={mentionImages} selectedImages={selectedMentionImages} selectionMode="insert" onToggle={handleMentionToggle} /></div>
       </div>

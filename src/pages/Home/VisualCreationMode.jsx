@@ -783,6 +783,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             value={prompt}
             mentions={mentionOptions}
             onChange={value => setPrompt(String(value || '').slice(0, 3000))}
+            onFilesPasted={files => { if (!busy) appendFiles(files); }}
             placeholder={`描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
             aria-label="画面描述"
             className={busy ? 'is-disabled' : ''}
