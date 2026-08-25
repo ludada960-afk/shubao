@@ -387,8 +387,13 @@ const retentionService = createRetentionService({
     },
   },
 });
+// cache_img 外链代理缓存 TTL 清理：跟随每日 retention sweep 调度（默认 72h，PROXY_CACHE_TTL_HOURS 可调）。
+imageDelivery.pruneProxyCache().then(result => {
+  if (result.deletedFiles > 0) console.log('[proxy-cache] 启动清理过期缓存文件 ' + result.deletedFiles + ' 个，释放 ' + (result.deletedBytes / (1024 * 1024)).toFixed(1) + ' MB');
+}).catch(error => console.warn('[proxy-cache] startup prune failed:', error?.message || error));
 try { retentionService.sweep(); } catch (error) { console.warn('[retention] startup sweep failed:', error.message); }
 const retentionSweep = setInterval(() => {
+  imageDelivery.pruneProxyCache().catch(error => console.warn('[proxy-cache] prune failed:', error?.message || error));
   try { retentionService.sweep(); } catch (error) { console.warn('[retention] sweep failed:', error.message); }
 }, 24 * 60 * 60 * 1000);
 retentionSweep.unref();

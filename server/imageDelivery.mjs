@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import sharp from 'sharp';
 
@@ -13,6 +13,20 @@ const VARIANTS = Object.freeze({
 });
 const VARIANT_ALIASES = Object.freeze({ thumb: 'w640', canvas: 'w960', display: 'w1600' });
 const OUTPUT_FORMATS = new Set(['webp', 'avif']);
+const HOUR_MS = 60 * 60 * 1000;
+const DEFAULT_DERIVATIVES_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const DEFAULT_PROXY_CACHE_TTL_MS = 72 * HOUR_MS;
+const DERIVATIVE_SWEEP_MIN_INTERVAL_MS = 30_000;
+
+export function resolveDerivativesMaxBytes(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_DERIVATIVES_MAX_BYTES;
+}
+
+export function resolveProxyCacheTtlMs(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed * HOUR_MS) : DEFAULT_PROXY_CACHE_TTL_MS;
+}
 
 function safeAssetId(assetId = '') {
   const id = basename(String(assetId));
@@ -93,12 +107,18 @@ export function createImageDelivery({
   proxyCacheRoot,
   fetchImpl = fetch,
   maxProxyBytes = MAX_PROXY_BYTES,
+  derivativesMaxBytes = resolveDerivativesMaxBytes(process.env.DERIVATIVES_MAX_BYTES),
 } = {}) {
   if (!assetRoot || !proxyCacheRoot) throw new Error('assetRoot and proxyCacheRoot are required');
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
   const generatedRoot = resolve(assetRoot);
   const proxyRoot = resolve(proxyCacheRoot);
+  const derivativeRoot = join(generatedRoot, '.derivatives');
+  const derivativesCapBytes = resolveDerivativesMaxBytes(derivativesMaxBytes);
   const pending = new Map();
+
+  let derivativeSweepChain = Promise.resolve();
+  let derivativeSweepLastRunAt = 0;
 
   async function fileMetadata(filePath) {
     try { return await stat(filePath); } catch (error) {
@@ -117,6 +137,95 @@ export function createImageDelivery({
     const promise = Promise.resolve().then(work).finally(() => pending.delete(key));
     pending.set(key, promise);
     return promise;
+  }
+
+  // 原子落盘：先写临时文件再 rename，读方永远不会看到半张图，跨进程并发也安全。
+  async function writeAtomic(filePath, buffer) {
+    const tempPath = filePath + '.tmp-' + process.pid + '-' + crypto.randomBytes(6).toString('hex');
+    try {
+      await writeFile(tempPath, buffer, { flag: 'wx' });
+      await rename(tempPath, filePath);
+    } finally {
+      await rm(tempPath, { force: true }).catch(() => {});
+    }
+  }
+
+  async function collectDerivativeEntries(rootDir) {
+    const entries = [];
+    const walk = async dir => {
+      let dirents;
+      try {
+        dirents = await readdir(dir, { withFileTypes: true });
+      } catch (error) {
+        if (error?.code === 'ENOENT') return;
+        throw error;
+      }
+      for (const dirent of dirents) {
+        const childPath = join(dir, dirent.name);
+        if (dirent.isDirectory()) {
+          await walk(childPath);
+          continue;
+        }
+        if (!dirent.isFile()) continue;
+        const stats = await stat(childPath).catch(error => (error?.code === 'ENOENT' ? null : Promise.reject(error)));
+        if (stats) entries.push({ path: childPath, size: stats.size, mtimeMs: stats.mtimeMs });
+      }
+    };
+    await walk(rootDir);
+    return entries;
+  }
+
+  // .derivatives 容量上限（DERIVATIVES_MAX_BYTES）：超出时按 mtime 从旧到新删除，永远保留最新一个文件。
+  async function enforceDerivativesBudget() {
+    const entries = await collectDerivativeEntries(derivativeRoot);
+    const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
+    const summary = { fileCount: entries.length, totalBytes, removedFiles: 0, reclaimedBytes: 0 };
+    if (totalBytes <= derivativesCapBytes || entries.length <= 1) return summary;
+    const oldestFirst = [...entries].sort((left, right) => left.mtimeMs - right.mtimeMs || (left.path < right.path ? -1 : 1));
+    let remainingBytes = totalBytes;
+    for (let index = 0; index < oldestFirst.length - 1 && remainingBytes > derivativesCapBytes; index += 1) {
+      const entry = oldestFirst[index];
+      try {
+        await rm(entry.path, { force: true });
+      } catch {
+        continue;
+      }
+      remainingBytes -= entry.size;
+      summary.removedFiles += 1;
+      summary.reclaimedBytes += entry.size;
+    }
+    return summary;
+  }
+
+  // 写入路径惰性触发；节流避免每次派生都全目录扫描。
+  function scheduleDerivativesBudgetSweep() {
+    const nowMs = Date.now();
+    if (nowMs - derivativeSweepLastRunAt < DERIVATIVE_SWEEP_MIN_INTERVAL_MS) return;
+    derivativeSweepLastRunAt = nowMs;
+    derivativeSweepChain = derivativeSweepChain.then(() => enforceDerivativesBudget()).catch(() => {});
+  }
+
+  // cache_img 外链代理缓存 TTL 清理（PROXY_CACHE_TTL_HOURS），由 index.mjs 的每日 retention sweep 调用。
+  async function pruneProxyCache({ maxAgeMs = resolveProxyCacheTtlMs(process.env.PROXY_CACHE_TTL_HOURS), nowMs = Date.now() } = {}) {
+    const requestedMaxAgeMs = Number(maxAgeMs);
+    const ageLimitMs = Number.isFinite(requestedMaxAgeMs) && requestedMaxAgeMs > 0
+      ? Math.floor(requestedMaxAgeMs)
+      : DEFAULT_PROXY_CACHE_TTL_MS;
+    const cutoffMs = Number(nowMs) - ageLimitMs;
+    const entries = await collectDerivativeEntries(proxyRoot);
+    const result = { scannedFiles: entries.length, scannedBytes: 0, deletedFiles: 0, deletedBytes: 0 };
+    for (const entry of entries) {
+      result.scannedBytes += entry.size;
+      if (entry.mtimeMs >= cutoffMs) continue;
+      try {
+        await rm(entry.path, { force: true });
+      } catch {
+        continue;
+      }
+      result.deletedFiles += 1;
+      result.deletedBytes += entry.size;
+    }
+    return result;
   }
 
   async function renderVariant(buffer, variant, format = 'webp') {
@@ -156,7 +265,8 @@ export function createImageDelivery({
       const original = await readFile(originalPath);
       const rendered = await renderVariant(original, canonical, outputFormat);
       await mkdir(derivativeRoot, { recursive: true });
-      await writeOnce(derivativePath, rendered.buffer);
+      await writeAtomic(derivativePath, rendered.buffer);
+      scheduleDerivativesBudgetSweep();
       return rendered;
     });
   }
@@ -281,5 +391,13 @@ export function createImageDelivery({
     });
   }
 
-  return { readGeneratedVariant, prewarmGeneratedVariants, readLocalVariant, prewarmLocalVariants, readProxyVariant };
+  return {
+    readGeneratedVariant,
+    prewarmGeneratedVariants,
+    readLocalVariant,
+    prewarmLocalVariants,
+    readProxyVariant,
+    enforceDerivativesBudget,
+    pruneProxyCache,
+  };
 }
