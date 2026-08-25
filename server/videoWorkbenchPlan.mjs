@@ -8,6 +8,7 @@ import {
 import { quoteFeature } from './billing/catalog.mjs';
 import crypto from 'node:crypto';
 import { normalizeShotDirection, reviewShotContinuity } from './videoShotDirection.mjs';
+import { reviewShotTable } from './videoShotSelfCheck.mjs';
 import { buildVideoRendererPreflight } from './videoRendererPreflight.mjs';
 import { recommendVideoRoute } from './videoModelRouter.mjs';
 
@@ -164,6 +165,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     };
   });
   const continuityReview = reviewShotContinuity(normalizedShots);
+  const shotTableReview = reviewShotTable(normalizedShots);
   const longestShotDurationMs = normalizedShots.reduce((max, shot) => Math.max(max, shot.durationMs), 0);
   const routeRecommendation = recommendVideoRoute({
     request: {
@@ -197,6 +199,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     options: normalized,
     shots: normalizedShots,
     continuityReview,
+    shotTableReview,
     totalDurationMs,
     routeRecommendation,
     budgetPolicy,

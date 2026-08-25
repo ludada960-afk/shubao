@@ -78,4 +78,12 @@
 .dw-editor-actions{display:flex;justify-content:flex-end;margin-top:4px}
 .dw-save-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border:none;border-radius:8px;background:#3f49b8;color:#fff;font-size:12px;cursor:pointer}
 .dw-save-btn:disabled{opacity:.6}
+/* VID-R4 self-check report */
+.dw-selfcheck{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.dw-check-btn{padding:6px 12px;border:1px solid #c3c9f5;border-radius:9px;background:#f4f6ff;color:#3f49b8;font-size:11.5px;cursor:pointer}
+.dw-check-btn:disabled{opacity:.6}
+.dw-check-issues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+.dw-check-issues li{border:1px solid #f0e2c0;background:#fffaf0;border-radius:8px;padding:7px 9px}
+.dw-check-issues strong{font-size:10.5px;color:#a86a12;letter-spacing:.03em}
+.dw-check-issues p{margin:2px 0 0;font-size:11px;color:#6d7280;line-height:1.45}
 @media (max-width:1080px){.dw-columns{grid-template-columns:1fr}}

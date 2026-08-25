@@ -23,6 +23,7 @@ import {
   lockWorkbenchAssetVersion,
   unlockWorkbenchAssetVersion,
   updateStoryboardShot,
+  getVideoWorkbenchPreflight,
 } from '../../services/videoWorkbench.js';
 import ShotTableEditor from './ShotTableEditor.jsx';
 import './DirectorWorkbench.css';
@@ -58,6 +59,8 @@ export default function DirectorWorkbench({ capabilities }) {
   const [creating, setCreating] = useState(false);
   const [lockBusy, setLockBusy] = useState('');
   const [selectedShotId, setSelectedShotId] = useState('');
+  const [selfCheck, setSelfCheck] = useState(null);
+  const [checking, setChecking] = useState(false);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -108,6 +111,19 @@ export default function DirectorWorkbench({ capabilities }) {
     }
   }, [projectId]);
 
+  const runSelfCheck = useCallback(async () => {
+    if (!projectId || checking) return;
+    setChecking(true);
+    setError('');
+    try {
+      const plan = await getVideoWorkbenchPreflight(projectId);
+      setSelfCheck(plan?.shotTableReview || null);
+    } catch (cause) {
+      setError(cause?.message || '自检暂时不可用');
+    } finally {
+      setChecking(false);
+    }
+  }, [checking, projectId]);
   const toggleLock = useCallback(async (asset) => {
     if (!asset?.id || lockBusy) return;
     const versions = Array.isArray(asset.versions) ? asset.versions : [];
@@ -265,6 +281,16 @@ export default function DirectorWorkbench({ capabilities }) {
                     ))}
                   </ul>
                 ) : <p className="dw-none">当前项目暂无可用模板。</p>}
+                <div className="dw-selfcheck">
+                  <button type="button" className="dw-check-btn" disabled={checking || !projectId} onClick={() => void runSelfCheck()}>
+                    {checking ? '自检中…' : (selfCheck ? (selfCheck.passed ? '✅ 自检通过' : `⚠ ${selfCheck.issues.length} 项建议`) : '运行镜头表自检')}
+                  </button>
+                  {selfCheck && !selfCheck.passed && (
+                    <ul className="dw-check-issues">{selfCheck.issues.map((item, index) => (
+                      <li key={index}><strong>{item.code}</strong><p>{item.detail}</p></li>
+                    ))}</ul>
+                  )}
+                </div>
                 <div className="dw-assistant-note">
                   <ShieldCheck size={13} />
                   <p>导演台遵循「先锁一致性 → 再拆分镜 → 自检通过才生成」的流程。规划模式下一切只读不扣费。</p>
