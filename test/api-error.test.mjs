@@ -69,3 +69,10 @@ test('preserves retry and durable Canvas task metadata from structured failures'
   assert.equal(error.providerJobId, 'provider-task-1');
   assert.equal(error.reQuoteRequired, false);
 });
+
+
+test('recognises the wallet BILLING_INSUFFICIENT_CREDITS code even without a 402 status', () => {
+  assert.equal(isInsufficientCreditsError({ code: 'BILLING_INSUFFICIENT_CREDITS' }), true);
+  assert.equal(isInsufficientCreditsError({ code: 'INSUFFICIENT_CREDITS' }), true);
+  assert.equal(isInsufficientCreditsError({ code: 'API_ERROR', status: 500 }), false);
+});

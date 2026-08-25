@@ -426,3 +426,54 @@ test('pollUntilReady stops at completion and never resubmits the edit', async ()
   assert.equal(pollCalls, 2);
   assert.equal(completed.outputUrl, 'https://cdn.example.test/final.webp');
 });
+
+
+test('aborts a hanging submit at the configured deadline and retries as a network error', async () => {
+  const attempts = [];
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://provider.example',
+    bearerToken: 'token',
+    submitTimeoutMs: 40,
+    pollTimeoutMs: 0,
+    maxSubmitAttempts: 2,
+    sleep: () => Promise.resolve(),
+    fetchImpl: (url, options = {}) => {
+      attempts.push(String(url));
+      if (attempts.length === 1) {
+        // 第一次：悬挂到截止时间被 AbortController 打断。
+        return new Promise((resolve, reject) => {
+          options.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true });
+        });
+      }
+      // 第二次：上游恢复，立即返回任务号。
+      return Promise.resolve(new Response(JSON.stringify({ id: 'job-after-deadline', status: 'queued' }), { status: 200 }));
+    },
+  });
+  const result = await adapter.submitEdit({
+    prompt: 'p',
+    modelRoute: { model: 'gpt-image-2', size: '1024x1024' },
+    inputAssets: [{ buffer: Buffer.from('x'), contentType: 'image/png' }],
+    idempotencyKey: 'deadline-one',
+  });
+  assert.equal(result.jobId, 'job-after-deadline');
+  assert.equal(attempts.length, 2, 'first attempt hit the deadline and was retried once');
+});
+
+test('poll deadline converts a hanging poll into a retryable failure', async () => {
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://provider.example',
+    bearerToken: 'token',
+    pollTimeoutMs: 30,
+    fetchImpl: (url, options = {}) => new Promise((resolve, reject) => {
+      options.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true });
+    }),
+  });
+  await assert.rejects(
+    () => adapter.poll('job-one'),
+    error => {
+      assert.equal(error.code, 'PROVIDER_NETWORK_ERROR');
+      assert.equal(error.retryable, true);
+      return true;
+    },
+  );
+});

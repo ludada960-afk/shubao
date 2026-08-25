@@ -309,3 +309,12 @@ test('allows a repairing asset to persist a new provider job without duplicate r
     leaseToken: lease.leaseToken,
   }), /already submitted|provider job/i);
 });
+
+
+test('includes still-queued assets in restart recovery so abandoned jobs resume', t => {
+  const { store } = createHarness(t);
+  store.createAsset({ jobId: 'job-queued', assetId: 'main', requestSnapshot: { prompt: 'p' } });
+
+  const restarted = store.recoverInterrupted();
+  assert.deepEqual(restarted.map(item => [item.assetId, item.state]), [['main', 'queued']]);
+});
