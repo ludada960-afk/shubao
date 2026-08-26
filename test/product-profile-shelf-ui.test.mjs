@@ -45,6 +45,18 @@ test('profile rail renders as a floating overlay drawer that never squeezes the 
   assert.match(css, /@media \(max-width: 1100px\)[\s\S]*\.ec-profile-rail\s*\{[\s\S]*?min\(320px,\s*86vw\)/);
 });
 
+test('drawer z-index sits between page overlays and global modals (site-wide audit)', () => {
+  // 2026-08-26 全站浮层 z-index 审计结论（src 全量 grep 定值依据）：
+  //   页面内浮层 ≤1200 —— surface-card 4、creative-nav 120、app-side-nav 200、
+  //   ContentResultWorkspace 900、VisualCreationMode 弹层 1104、VideoStudio 面板 1200；
+  //   全局模态 ≥1500 —— VideoStudio 导出弹层 1500、tryon 预览 1800、
+  //   app-shell 提示/命令 2200 与 3200、NoteModal 9998、图库 lightbox 9999+。
+  // 商品档案抽屉定值 1300：高于一切页面浮层，低于一切全局模态；
+  // scrim 用 z-index:-1 留在抽屉自身的 1300 层叠上下文内，不参与全局竞争。
+  const values = [...css.matchAll(/z-index:\s*(-?\d+)/g)].map(m => Number(m[1]));
+  assert.deepStrictEqual(values.sort((a, b) => b - a), [1300, -1]);
+});
+
 test('bottom generation settings bar keeps a persistent current-product chip with selector', () => {
   assert.match(ecMode, /<ProductChip[\s\S]*?profile=\{activeProductProfile\}/);
   assert.match(ecMode, /onSelect=\{selectActiveProductProfile\}/);
