@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../src/pages/Home/CreationShowcase.jsx', import.meta.url), 'utf8');
+const showcaseCss = await readFile(new URL('../src/pages/Home/CreationShowcase.css', import.meta.url), 'utf8');
 
 test('XHS showcase reuses the shared publish modal contract', () => {
   assert.match(source, /import NoteModal from '\.\.\/\.\.\/NoteModal\.jsx'/);
@@ -16,6 +17,17 @@ test('XHS showcase reuses the shared publish modal contract', () => {
   assert.match(source, /案例暂未入库/);
   assert.doesNotMatch(source, /creation-showcase-content-facts/);
   assert.doesNotMatch(source, /creation-showcase-content-tabs/);
+});
+
+test('XHS case copy block aligns with ecommerce suite copy (centered, slightly low)', () => {
+  // 对齐电商生图商品套图文案区的排版：纵向居中且顶部留白大于底部（46/28），
+  // 文字块不贴顶；移动端保持同一节奏（34/20）。
+  const rule = showcaseCss.match(/\.xhs-case-showcase \.creation-showcase-content-copy-shell \{[^}]*\}/)?.[0] || '';
+  assert.match(rule, /display: flex;/);
+  assert.match(rule, /flex-direction: column;/);
+  assert.match(rule, /justify-content: center;/);
+  assert.match(rule, /padding: 46px 26px 28px;/);
+  assert.match(showcaseCss, /gap: 7px; padding: 34px 20px 20px;/);
 });
 
 test('XHS case section drops the single-case promotional headline', () => {
