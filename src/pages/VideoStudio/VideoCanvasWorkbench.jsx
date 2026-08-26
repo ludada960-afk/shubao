@@ -167,6 +167,10 @@ export default function VideoCanvasWorkbench({
 
   const stageRef = useRef(null);
   const [flowOn] = useState(() => { try { return typeof localStorage !== 'undefined' && localStorage.getItem('shubao_flow_canvas') === '1'; } catch { return false; } });
+  // W2 持久化（本地快照级）：按项目记忆画布摆位，刷新不丢
+  useEffect(() => {
+    try { localStorage.setItem('shubao_vcb_positions_' + (projectId || 'default'), JSON.stringify(positions)); } catch {}
+  }, [positions, projectId]);
   const requestSequenceRef = useRef(0);
   const attachedJobIdsRef = useRef(new Set());
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
@@ -246,7 +250,7 @@ export default function VideoCanvasWorkbench({
       if (sequence !== requestSequenceRef.current) return;
       setWorkbench(next);
       setError('');
-      setPositions({});
+      setPositions((() => { try { return JSON.parse(localStorage.getItem('shubao_vcb_positions_' + (id || 'default')) || '{}') || {}; } catch { return {}; } })());
       setSelectedIds([]);
     } catch (loadError) {
       if (sequence !== requestSequenceRef.current) return;
