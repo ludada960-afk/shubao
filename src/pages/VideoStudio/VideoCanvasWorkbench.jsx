@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
+import VideoCanvasFlowCanvas from './VideoCanvasFlowCanvas.jsx';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import { quoteBillingAction } from '../../services/billing.js';
 import { createVideoJob, getVideoJob } from '../../services/video.js';
@@ -165,6 +166,7 @@ export default function VideoCanvasWorkbench({
   const [exportBusy, setExportBusy] = useState(false);
 
   const stageRef = useRef(null);
+  const [flowOn] = useState(() => { try { return typeof localStorage !== 'undefined' && localStorage.getItem('shubao_flow_canvas') === '1'; } catch { return false; } });
   const requestSequenceRef = useRef(0);
   const attachedJobIdsRef = useRef(new Set());
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
@@ -912,12 +914,13 @@ export default function VideoCanvasWorkbench({
       </aside>
 
       <div
-        className="vcb-stage"
+        className={'vcb-stage' + (flowOn ? ' is-flow' : '')}
         ref={stageRef}
         onPointerDown={handleStagePointerDown}
         role="application"
         aria-label="中央无限画布：拖拽摆位卡片，框选素材浮出生成条，连线表达续写与首尾帧关系"
       >
+        {flowOn && <VideoCanvasFlowCanvas domainNodes={nodes} domainEdges={edges} workbenchShots={shots || []} />}
         <svg className="vcb-edge-layer" aria-hidden="true">
           {edgeGeometry.map(({ edge, x1, y1, x2, y2 }) => <g key={edge.id}>
             <line className={'vcb-edge is-' + edge.kind} x1={x1} y1={y1} x2={x2} y2={y2} />

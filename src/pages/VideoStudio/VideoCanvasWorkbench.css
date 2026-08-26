@@ -237,3 +237,11 @@
   .vcb-left { border-right: none; border-bottom: 1px solid rgba(61, 50, 41, .08); }
   .vcb-stage { height: 520px; }
 }
+
+/* React Flow 实验视图（shubao_flow_canvas=1） */
+.vcb-stage.is-flow > *:not(.vcb-flow-root) { display: none; }
+.vcb-stage.is-flow .vcb-flow-root { position: absolute; inset: 0; z-index: 5; }
+.vcb-flow-root .react-flow__node { font-family: inherit; }
+.vcb-flow-root .vcb-node { pointer-events: auto; }
+.vcb-flow-hint { position: absolute; left: 10px; bottom: 8px; z-index: 6; color: #64748b; font-size: 11px; }
+
