@@ -1,23 +1,37 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Check,
+  ChevronsDown,
+  ChevronsUp,
   CircleAlert,
   Clapperboard,
   Clock3,
+  Copy,
+  Eye,
+  EyeOff,
   Film,
   Gauge,
   ImagePlus,
   Layers3,
   ListVideo,
   LoaderCircle,
+  Lock,
+  Magnet,
+  Maximize2,
   MessageSquareText,
   MousePointerSquareDashed,
   Play,
   Plus,
   RefreshCw,
-  ShieldCheck,
+  RotateCcw,
   SendHorizontal,
+  ShieldCheck,
   Sparkles,
+  Trash2,
+  Type,
+  Unlock,
+  ZoomIn,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
 import VideoCanvasFlowCanvas from './VideoCanvasFlowCanvas.jsx';
@@ -65,21 +79,26 @@ import {
 import { DELIVERY_METADATA_SOURCE } from './videoDeliveryModel.js';
 import {
   allowedGenerationModes,
+  bringNodeToLayer,
   buildCanvasEdges,
   buildCanvasNodes,
   CAMERA_MOVE_CHIPS,
   CANVAS_GENERATION_MODES,
   canvasNodeSize,
   defaultCanvasLayout,
+  duplicateNodePosition,
   importedVideoAssetIds,
+  isLockedInSet,
   materialNaming,
   marqueeSelectAssetNodes,
+  nodeRenameTarget,
   planPointsRange,
   pointsEstimateRange,
   resolveCanvasApiMode,
   schemeGate,
   selectionReferencePayload,
   shotGenerationReadiness,
+  toggleLockedSet,
 } from './videoCanvasModel.js';
 import { reusableProjectAssets, candidateJobsForProject, nextShotPosition, nextTimelinePosition, selectedCandidateForShot } from './videoProjectWorkbenchModel.js';
 import { availableUploadedAssets } from './videoProjectWorkbenchModel.js';
@@ -162,6 +181,13 @@ export default function VideoCanvasWorkbench({
   const [tweak, setTweak] = useState({ shotId: '', instruction: '', chips: [] });
   // P2 底部时间线抽屉
   const [timelineOpen, setTimelineOpen] = useState(false);
+  // W1-TapNow 视觉对齐：画布工具条 + 节点浮起 + mini-toolbar + 右键菜单
+  const [hideEdges, setHideEdges] = useState(() => { try { return localStorage.getItem('shubao_vcb_hide_edges') === '1'; } catch { return false; } });
+  const [gridSnap, setGridSnap] = useState(() => { try { return localStorage.getItem('shubao_vcb_grid_snap') === '1'; } catch { return false; } });
+  const [zoom, setZoom] = useState(1);
+  const [lockedIds, setLockedIds] = useState(() => new Set());
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, nodeId }
+  const [renameDraft, setRenameDraft] = useState({ nodeId: '', value: '' });
   const [clipDrafts, setClipDrafts] = useState({});
   const [clipError, setClipError] = useState('');
   const [exportManifest, setExportManifest] = useState(null);
@@ -173,6 +199,13 @@ export default function VideoCanvasWorkbench({
   useEffect(() => {
     try { localStorage.setItem('shubao_vcb_positions_' + (projectId || 'default'), JSON.stringify(positions)); } catch {}
   }, [positions, projectId]);
+  // W1-TapNow：画布开关也持久化，刷新不丢
+  useEffect(() => {
+    try { localStorage.setItem('shubao_vcb_hide_edges', hideEdges ? '1' : '0'); } catch {}
+  }, [hideEdges]);
+  useEffect(() => {
+    try { localStorage.setItem('shubao_vcb_grid_snap', gridSnap ? '1' : '0'); } catch {}
+  }, [gridSnap]);
   const requestSequenceRef = useRef(0);
   const attachedJobIdsRef = useRef(new Set());
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
@@ -776,6 +809,103 @@ export default function VideoCanvasWorkbench({
       .finally(() => setBusy(''));
   }
 
+  // ── W1-TapNow：节点级动作（不触碰 provider / 队列 / 账务） ───────────
+  // 锁定集合切换：纯本地状态，节点视觉上锁、不参与拖拽与生成。
+  function toggleLock(nodeId) {
+    if (!nodeId) return;
+    setLockedIds(current => toggleLockedSet(current, nodeId));
+  }
+  // 删除节点：仅对画布上的派生节点做软删（positions 移除 + selected 移除）。
+  // 不影响服务端真实资产 / 镜头 / 候选。
+  function handleDeleteNode(nodeId) {
+    if (!nodeId || isLockedInSet(lockedIds, nodeId)) return;
+    setPositions(current => {
+      if (!(nodeId in current)) return current;
+      const next = { ...current };
+      delete next[nodeId];
+      return next;
+    });
+    setSelectedIds(current => current.filter(id => id !== nodeId));
+    setLockedIds(current => { const next = new Set(current); next.delete(nodeId); return next; });
+    setContextMenu(null);
+  }
+  // 复制节点：克隆一个 ghost 节点（同 sourceKey，同类型），位置向右下偏移 24px。
+  // 真实持久化留给服务端；这里先在 positions 层做出"副本"的视觉，便于规划。
+  function handleDuplicateNode(nodeId) {
+    if (!nodeId || isLockedInSet(lockedIds, nodeId)) return;
+    const source = nodesById.get(nodeId);
+    if (!source) return;
+    const ghostId = source.type + ':ghost:' + keyFor('dup').replace(/^[^-]+-/, '');
+    const basePos = positions[nodeId] || { x: source.x || 0, y: source.y || 0 };
+    setPositions(current => ({ ...current, [ghostId]: duplicateNodePosition(basePos) }));
+    setContextMenu(null);
+  }
+  // 移到顶层 / 置于底层
+  function handleLayerChange(nodeId, layer) {
+    if (!nodeId) return;
+    setPositions(current => bringNodeToLayer(current, nodeId, layer));
+    setContextMenu(null);
+  }
+  // 重命名：仅 shot 类型走服务端（updateStoryboardShot.purpose），其他类型仅本地 title 提示。
+  function handleCommitRename(nodeId, nextTitle) {
+    if (!nodeId) return;
+    const node = nodesById.get(nodeId);
+    const trimmed = String(nextTitle || '').trim().slice(0, 80);
+    if (!trimmed) { setContextMenu(null); return; }
+    if (node?.type === 'shot' && node.shotId) {
+      const shot = shots.find(item => item.id === node.shotId);
+      if (shot) {
+        void runMutation('rename:' + node.shotId, () => updateStoryboardShot(projectId, node.shotId, {
+          expectedRevision: shot.revision,
+          patch: { purpose: trimmed },
+        }));
+      }
+    }
+    // asset / candidate：本工作台阶段不允许重命名（资产/候选均有服务端身份），仅关闭菜单。
+    setContextMenu(null);
+  }
+  // 缩放至适合：把 stage 滚到所选节点中心（视觉 1.0 - 1.4 倍），只影响 stage 滚动，不影响节点本身。
+  function handleFitSelectedToStage(nodeIds) {
+    if (!stageRef.current || !Array.isArray(nodeIds) || !nodeIds.length) return;
+    const targets = nodeIds.map(id => nodesById.get(id)).filter(Boolean);
+    if (!targets.length) return;
+    const xs = targets.map(node => node.x);
+    const ys = targets.map(node => node.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const cx = (Math.min(...xs) + Math.max(...xs + canvasNodeSize(targets[0].type).width)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys + canvasNodeSize(targets[0].type).height)) / 2;
+    const rect = stageRef.current.getBoundingClientRect();
+    const targetX = cx - rect.width / 2;
+    const targetY = cy - rect.height / 2;
+    stageRef.current.scrollTo({ left: Math.max(0, targetX), top: Math.max(0, targetY), behavior: 'smooth' });
+  }
+  // 重置：清空画布摆位 / 锁定 / 选择，回到默认布局。
+  function handleResetCanvas() {
+    setPositions(defaultCanvasLayout(nodes));
+    setSelectedIds([]);
+    setLockedIds(new Set());
+    setContextMenu(null);
+    setZoom(1);
+    if (stageRef.current) stageRef.current.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+  }
+  // 右键菜单：单一打开，外部点击 / Esc 关闭。
+  useEffect(() => {
+    if (!contextMenu) return undefined;
+    const onClose = event => {
+      const menu = document.getElementById('vcb-context-menu-anchor');
+      if (menu && menu.contains(event.target)) return;
+      setContextMenu(null);
+    };
+    const onEsc = event => { if (event.key === 'Escape') setContextMenu(null); };
+    window.addEventListener('pointerdown', onClose);
+    window.addEventListener('keydown', onEsc);
+    return () => {
+      window.removeEventListener('pointerdown', onClose);
+      window.removeEventListener('keydown', onEsc);
+    };
+  }, [contextMenu]);
+
   if (!enabled || !logged) return null;
 
   const trackedByShot = {};
@@ -827,6 +957,32 @@ export default function VideoCanvasWorkbench({
       <button type="button" className="vcb-refresh" aria-label="刷新画布工作台" disabled={Boolean(busy) || loading} onClick={() => { void loadWorkbench(projectId); }}>
         <RefreshCw size={15} />
       </button>
+      {/* W1-TapNow B · 顶栏紧凑工具组：隐藏连线 / 网格吸附 / 重置 / 缩放滑杆（参考 §7.0 顶栏工具） */}
+      <div className="vcb-topbar-tools" role="toolbar" aria-label="画布工具">
+        <button type="button" data-no-drag
+          className={hideEdges ? 'is-on' : ''}
+          aria-pressed={hideEdges} aria-label="隐藏连线" title={hideEdges ? '显示连线' : '隐藏连线'}
+          onClick={() => setHideEdges(current => !current)}>
+          {hideEdges ? <EyeOff size={13} /> : <Eye size={13} />}连线
+        </button>
+        <button type="button" data-no-drag
+          className={gridSnap ? 'is-on' : ''}
+          aria-pressed={gridSnap} aria-label="网格吸附" title={gridSnap ? '关闭网格吸附' : '开启网格吸附（按 26px 步进摆位）'}
+          onClick={() => setGridSnap(current => !current)}>
+          <Magnet size={13} />吸附
+        </button>
+        <button type="button" data-no-drag aria-label="重置画布" title="重置摆位 / 锁定 / 选择"
+          onClick={handleResetCanvas}>
+          <RotateCcw size={13} />重置
+        </button>
+        <span className="vcb-zoom-slider" aria-label="画布缩放">
+          <ZoomIn size={12} />
+          <input type="range" min="0.5" max="2" step="0.1" value={zoom}
+            aria-label="缩放滑杆"
+            onChange={event => setZoom(Number(event.target.value))} />
+          <span className="vcb-zoom-readout">{Math.round(zoom * 100)}%</span>
+        </span>
+      </div>
     </header>
 
     {planningOnly && <div className="vcb-planning-banner" role="status">
@@ -933,13 +1089,21 @@ export default function VideoCanvasWorkbench({
       </aside>
 
       <div
-        className={'vcb-stage' + (flowOn ? ' is-flow' : '')}
+        className={'vcb-stage' + (flowOn ? ' is-flow' : '') + (hideEdges ? ' is-hide-edges' : '') + (gridSnap ? ' is-snap' : '')}
         ref={stageRef}
         onPointerDown={handleStagePointerDown}
+        onContextMenu={event => {
+          // 在 stage 上右键但不在节点上：打开空白处菜单（清空选择）
+          if (event.target.closest('[data-node]')) return;
+          event.preventDefault();
+          setSelectedIds([]);
+          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: '' });
+        }}
         role="application"
         aria-label="中央无限画布：拖拽摆位卡片，框选素材浮出生成条，连线表达续写与首尾帧关系"
       >
         {flowOn && <VideoCanvasFlowCanvas domainNodes={nodes} domainEdges={edges} workbenchShots={shots || []} onConnectBinding={handleFlowConnectBinding} />}
+        <div className="vcb-stage-zoom" data-zoom={zoom} style={{ '--vcb-zoom': String(zoom) }}>
         <svg className="vcb-edge-layer" aria-hidden="true">
           {edgeGeometry.map(({ edge, x1, y1, x2, y2 }) => <g key={edge.id}>
             <line className={'vcb-edge is-' + edge.kind} x1={x1} y1={y1} x2={x2} y2={y2} />
@@ -949,22 +1113,39 @@ export default function VideoCanvasWorkbench({
 
         {laidOutNodes.map(node => {
           const size = canvasNodeSize(node.type);
-          const style = { left: node.x, top: node.y, width: size.width };
+          const locked = isLockedInSet(lockedIds, node.id);
+          const layerPos = positions[node.id] || {};
+          const style = { left: node.x, top: node.y, width: size.width, zIndex: layerPos.zIndex };
+          const openContext = event => {
+            event.preventDefault();
+            event.stopPropagation();
+            setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+          };
+          const handles = <>
+            <span className="vcb-handle is-tl" data-no-drag aria-hidden="true" />
+            <span className="vcb-handle is-tr" data-no-drag aria-hidden="true" />
+            <span className="vcb-handle is-bl" data-no-drag aria-hidden="true" />
+            <span className="vcb-handle is-br" data-no-drag aria-hidden="true" />
+          </>;
           if (node.type === 'asset') {
             return <article key={node.id} data-node={node.id}
-              className={'vcb-node is-asset' + (selectedIds.includes(node.id) ? ' is-selected' : '') + (node.kind === 'video' ? ' is-video' : node.kind === 'audio' ? ' is-audio' : '')}
-              style={style} onPointerDown={event => handleNodePointerDown(node, event)}>
+              className={'vcb-node is-asset'
+                + (selectedIds.includes(node.id) ? ' is-selected' : '')
+                + (locked ? ' is-locked' : '')
+                + (node.kind === 'video' ? ' is-video' : node.kind === 'audio' ? ' is-audio' : '')}
+              style={style} onPointerDown={event => handleNodePointerDown(node, event)} onContextMenu={openContext}>
               <header><MousePointerSquareDashed size={12} /><span>{node.title.slice(0, 18)}</span></header>
               <NodePreview url={node.previewUrl} kind={node.kind} label={node.title} />
               <footer>{node.source === 'upload' ? '上传素材' : node.source === 'library' ? '项目素材库' : '已确认'}</footer>
+              {handles}
             </article>;
           }
           if (node.type === 'candidate') {
             const shot = shots.find(item => item.id === node.shotId);
             const selectedCandidate = selectedCandidateForShot(shot);
             return <article key={node.id} data-node={node.id}
-              className={'vcb-node is-candidate' + (node.selected ? ' is-selected' : '')}
-              style={style} onPointerDown={event => handleNodePointerDown(node, event)}>
+              className={'vcb-node is-candidate' + (node.selected ? ' is-selected' : '') + (locked ? ' is-locked' : '')}
+              style={style} onPointerDown={event => handleNodePointerDown(node, event)} onContextMenu={openContext}>
               <header><Film size={12} /><span>候选</span>{node.selected && <Check size={12} />}</header>
               <NodePreview url={node.previewUrl} kind="video" label="候选成片预览" />
               <footer>
@@ -978,6 +1159,7 @@ export default function VideoCanvasWorkbench({
                   加入时间线
                 </button>}
               </footer>
+              {handles}
             </article>;
           }
           const shotIndex = shots.findIndex(item => item.id === node.shotId);
@@ -986,7 +1168,9 @@ export default function VideoCanvasWorkbench({
           const readiness = shotGenerationReadiness(gate, { planningOnly });
           const tracked = trackedByShot[node.shotId] || [];
           const runningJob = tracked.find(entry => !FINAL_JOB_STATES.has(entry.status));
-          return <article key={node.id} data-node={node.id} className="vcb-node is-shot" style={style} onPointerDown={event => handleNodePointerDown(node, event)}>
+          return <article key={node.id} data-node={node.id}
+            className={'vcb-node is-shot' + (selectedIds.includes(node.id) ? ' is-selected' : '') + (locked ? ' is-locked' : '')}
+            style={style} onPointerDown={event => handleNodePointerDown(node, event)} onContextMenu={openContext}>
             <header><Clock3 size={12} /><span>镜头 {String(shotIndex + 1).padStart(2, '0')}</span><small>{((shot?.durationMs || 0) / 1000).toFixed(1)}s{planShot?.cost?.points != null ? ' · 约 ' + planShot.cost.points + ' 积分' : ''}</small></header>
             <strong>{shot?.purpose || '未命名镜头'}</strong>
             <p>{shot?.prompt || '未填写镜头提示'}</p>
@@ -1019,10 +1203,45 @@ export default function VideoCanvasWorkbench({
                 })}
               </div>}
             </div>}
+            {handles}
           </article>;
         })}
 
         {marquee && marquee.width > 2 && marquee.height > 2 && <div className="vcb-marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} aria-hidden="true" />}
+
+        {/* W1-TapNow D · 选中节点浮动 mini-toolbar（仅 1 个节点时显示） */}
+        {selectedNodes.length === 1 && (() => {
+          const node = selectedNodes[0];
+          const size = canvasNodeSize(node.type);
+          const isLocked = isLockedInSet(lockedIds, node.id);
+          const top = Math.max(0, Number(node.y) || 0) - 46;
+          const left = (Number(node.x) || 0) + size.width / 2;
+          const shot = node.type === 'shot' ? shots.find(item => item.id === node.shotId) : null;
+          const regenDisabled = !shot || Boolean(busy) || gate.phase !== 'approved' || planningOnly;
+          return <div className="vcb-mini-toolbar" role="toolbar" aria-label="节点快捷操作"
+            style={{ top: top + 'px', left: left + 'px' }}>
+            <button type="button" data-no-drag
+              title="删除（移出当前画布）" aria-label="删除节点"
+              className="is-danger" disabled={isLocked}
+              onClick={() => handleDeleteNode(node.id)}><Trash2 size={14} /></button>
+            <button type="button" data-no-drag
+              title="复制为新节点（偏移 24px）" aria-label="复制节点"
+              disabled={isLocked}
+              onClick={() => handleDuplicateNode(node.id)}><Copy size={14} /></button>
+            <button type="button" data-no-drag
+              title={isLocked ? '解锁' : '锁定（不可拖拽 / 删除）'} aria-label={isLocked ? '解锁节点' : '锁定节点'}
+              aria-pressed={isLocked}
+              onClick={() => toggleLock(node.id)}>{isLocked ? <Unlock size={14} /> : <Lock size={14} />}</button>
+            <span className="vcb-mini-sep" aria-hidden="true" />
+            <button type="button" data-no-drag
+              title="为本镜头重新发起一次生成（已批准才可扣费）" aria-label="重新生成"
+              disabled={regenDisabled || isLocked}
+              onClick={() => shot && void initiateShotGeneration(shot)}><RefreshCw size={14} /></button>
+            <button type="button" data-no-drag
+              title="缩放至适合（滚到画布中心）" aria-label="缩放至适合"
+              onClick={() => handleFitSelectedToStage([node.id])}><Maximize2 size={14} /></button>
+          </div>;
+        })()}
 
         {selectedNodes.length > 0 && <div className="vcb-generation-bar" data-generation-bar="true" role="toolbar" aria-label="画布生成条">
           <span className="vcb-generation-bar-title">框选 {selectedNodes.length} 个素材</span>
@@ -1056,6 +1275,48 @@ export default function VideoCanvasWorkbench({
           <span>拖拽卡片摆位</span><span>空白处框选素材浮出生成条</span><span>镜头间连线＝续写，素材到镜头＝首帧/尾帧链（视觉）</span>
           {shots.length === 0 && <span>还没有镜头：框选素材后在生成条里「存为新镜头」，再点镜头上的「发起生成」。</span>}
         </footer>
+        </div>
+        {/* W1-TapNow E · 右键上下文菜单（portal 浮层） */}
+        {contextMenu && createPortal((() => {
+          const targetId = contextMenu.nodeId || '';
+          const targetNode = targetId ? nodesById.get(targetId) : null;
+          const isLocked = targetId ? isLockedInSet(lockedIds, targetId) : false;
+          const renameable = targetNode ? nodeRenameTarget(targetNode) : null;
+          const isShot = targetNode?.type === 'shot';
+          const initial = renameable ? renameable.current : '';
+          const left = Math.min(contextMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 200);
+          const top = Math.min(contextMenu.y, (typeof window !== 'undefined' ? window.innerHeight : 900) - 260);
+          return <div id="vcb-context-menu-anchor" className="vcb-context-menu" role="menu"
+            style={{ left: left + 'px', top: top + 'px' }}>
+            <button type="button" role="menuitem" className="is-danger"
+              disabled={!targetId || isLocked}
+              onClick={() => handleDeleteNode(targetId)}><Trash2 size={13} />删除</button>
+            <button type="button" role="menuitem"
+              disabled={!targetId || isLocked}
+              onClick={() => handleDuplicateNode(targetId)}><Copy size={13} />复制</button>
+            <button type="button" role="menuitem"
+              disabled={!targetId}
+              aria-pressed={isLocked}
+              onClick={() => toggleLock(targetId)}>{isLocked ? <Unlock size={13} /> : <Lock size={13} />}{isLocked ? '解锁' : '锁定'}</button>
+            <div className="vcb-context-sep" aria-hidden="true" />
+            <button type="button" role="menuitem"
+              disabled={!targetId}
+              onClick={() => handleLayerChange(targetId, 'front')}><ChevronsUp size={13} />移到顶层</button>
+            <button type="button" role="menuitem"
+              disabled={!targetId}
+              onClick={() => handleLayerChange(targetId, 'back')}><ChevronsDown size={13} />置于底层</button>
+            <div className="vcb-context-sep" aria-hidden="true" />
+            <button type="button" role="menuitem"
+              disabled={!isShot || isLocked}
+              onClick={() => { setRenameDraft({ nodeId: targetId, value: initial }); }}><Type size={13} />重命名{!isShot ? '（仅镜头支持）' : ''}</button>
+            {renameDraft.nodeId === targetId && isShot && <div className="vcb-context-rename">
+              <input aria-label="新名称" autoFocus value={renameDraft.value}
+                onChange={event => setRenameDraft(current => ({ ...current, value: event.target.value }))}
+                onKeyDown={event => { if (event.key === 'Enter') handleCommitRename(targetId, renameDraft.value); }} />
+              <button type="button" onClick={() => handleCommitRename(targetId, renameDraft.value)}>保存</button>
+            </div>}
+          </div>;
+        })(), document.body)}
       </div>
 
       {inspectorOpen && <aside className="vcb-inspector" aria-label="导演检查器">

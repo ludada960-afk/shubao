@@ -272,6 +272,51 @@ function refEdgeLabel(refKey) {
   return refKey === 'firstFrameRef' ? '首帧链' : '尾帧';
 }
 
+// ── W1-TapNow 工具：节点级纯函数（不触碰 provider / 账务） ──────────────
+// 计算复制后的摆位偏移，避免覆盖原节点（沿用 TapNow 拖拽复制的体感）。
+export const DUPLICATE_OFFSET = Object.freeze({ x: 24, y: 24 });
+
+export function duplicateNodePosition(original = {}) {
+  return {
+    x: Math.max(0, Number(original.x) || 0) + DUPLICATE_OFFSET.x,
+    y: Math.max(0, Number(original.y) || 0) + DUPLICATE_OFFSET.y,
+  };
+}
+
+// 节点可重命名：asset→title (派生自 asset.name)，shot→title (purpose)，candidate→固定「候选」
+// 返回 null 表示该类型不支持重命名。
+export function nodeRenameTarget(node) {
+  if (!node || typeof node !== 'object') return null;
+  if (node.type === 'asset') return { field: 'title', current: String(node.title || ''), kind: 'asset' };
+  if (node.type === 'shot') return { field: 'title', current: String(node.title || ''), kind: 'shot' };
+  return null;
+}
+
+// z-order 调整：返回新的 positions map，只调整目标节点 + 周围节点。
+// 这里只调整 zIndex 字段（CSS 用 z-index），不改变 x/y。
+export function bringNodeToLayer(currentPositions = {}, targetId, layer) {
+  const out = { ...currentPositions };
+  const target = out[targetId];
+  if (!target) return out;
+  if (layer === 'front') {
+    out[targetId] = { ...target, zIndex: 10 };
+  } else if (layer === 'back') {
+    out[targetId] = { ...target, zIndex: 1 };
+  }
+  return out;
+}
+
+// 锁定集合：纯函数化 helper，便于 React state 直接使用。
+export function toggleLockedSet(set, id) {
+  const next = new Set(set || []);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  return next;
+}
+
+export function isLockedInSet(set, id) {
+  return Boolean(set && typeof set.has === 'function' && set.has(id));
+}
+
 // 连线表达续写与首尾帧关系（P1 仅视觉，逻辑绑定后置）。
 export function buildCanvasEdges(workbench = null) {
   const edges = [];

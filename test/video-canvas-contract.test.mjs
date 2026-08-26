@@ -159,7 +159,7 @@ test('canvas workbench component wires the minimal P1 surface without touching E
   // 三类卡片 + 拖拽摆位
   assert.match(component, /type === 'asset'/);
   assert.match(component, /type === 'candidate'/);
-  assert.match(component, /className={?"?vcb-node is-shot/);
+  assert.match(component, /className=\{['\"]?vcb-node is-shot/);
   assert.match(styles, /\.vcb-node\.is-shot \{/);
   assert.match(component, /setInteraction\(\{ kind: 'drag'/);
   assert.match(component, /handleNodePointerDown/);
