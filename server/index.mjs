@@ -50,6 +50,7 @@ import { createPaymentService } from './billing/paymentService.mjs';
 import { createPaymentChannelRegistry } from './billing/paymentChannels.mjs';
 import { assertCatalogMarginGates } from './billing/catalog.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
+import { visionRouter } from './routes/visionRouter.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
 import { createAdminOperations } from './adminOperations.mjs';
@@ -741,6 +742,8 @@ mountBillingRoutes(app, {
     });
   },
 });
+
+app.use('/api/vision', visionRouter);
 
 const adminRouteHandlers = mountAdminRoutes(app, {
   operations: adminOperations,

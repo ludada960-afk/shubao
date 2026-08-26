@@ -21,6 +21,7 @@ const EcStudioPage = React.lazy(() => import('./pages/EcStudio/index'));
 const EcAutoPage = React.lazy(() => import('./pages/EcAuto/index'));
 const VideoStudioPage = React.lazy(() => import('./pages/VideoStudio/index'));
 const AdminConsolePage = React.lazy(() => import('./pages/AdminConsole/index.jsx'));
+const VisionFeedbackPage = React.lazy(() => import('./pages/VisionFeedback/index.jsx'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
@@ -222,6 +223,9 @@ function AppRouter() {
     if (hash.startsWith('#/remake')) {
       dispatch({ type: 'NAVIGATE', page: 'remake' });
     }
+    if (hash.startsWith('#/vision')) {
+      dispatch({ type: 'NAVIGATE', page: 'vision-feedback' });
+    }
   }, []);
 
   // B3: 全局 resize 节流 — 防止高频重排导致崩溃
@@ -278,6 +282,7 @@ function AppRouter() {
     'ec-auto': EcAutoPage,
     'video-studio': VideoStudioPage,
     admin: AdminConsolePage,
+    'vision-feedback': VisionFeedbackPage,
   };
   const PageComponent = page === 'admin' && !canAdmin
     ? HomePage
