@@ -59,3 +59,53 @@
 9. 不可证待实测：四档月费美元数字与年付折扣%(前端动态渲染不入静态 HTML)、逐模型完整价目表、付费档并发上限、节点参数面板全集。
 10. 旁证[中]：Chrome 应用商店无官方扩展(搜索仅无关结果)；DDG 快照确认 app.tapnow.ai 定位语 "Your Agentic Creative Canvas"、中文站自称"你的智能体创意画布"。
 
+
+## 7 实测补全(2026-08-26 登录实测)
+
+> 实测环境：用户 Chrome 已登录 app.tapnow.ai，账号 ludada960；画布=Creative OS 新手教程(canvas/293277aa)；viewport 2048x970。截图存 docs/reports/tapnow-shots/。纪律：未点任何最终"生成"扣费按钮、未删除内容、未改设置。
+
+### 7.0 初始布局（00-initial-canvas.png）
+- 左侧竖栏 5 图标（节点搜索+4 无文字图标）；顶部左：返回工作空间/画布名(Creative OS 新手教程 可重命名)/切换画布；右上：积分按钮(显示200)/社区/头像。
+- 画布空态中央：提示"双击 画布自由生成,或查看模板"+一行 5 个动作芯片：文字生视频 | 图片换背景 | 首帧生成视频 | 音频生视频 | 模板（y≈508 一字排开）。
+- 画布右下工具条：隐藏节点连线 / 网格吸附 / 重置 / 缩放 slider；右下角另有独立按钮。
+- 右侧 AI 对话面板：Hi ludada960! 欢迎语 + 2 张"新功能"建议卡(创建 Agent Skill / MiniMax H3 多模态) + Refresh suggestions；输入区含 随心输入 placeholder、添加/手动确认 按钮、模型选择器默认 Gemini 3.7 Flash。
+
+### 7.1 ①双击画布空白 → "添加节点"快速面板（01-dblclick-blank.png）
+- 双击空白处弹出轻量"添加节点"浮层（跟随点击位置），三组分栏：
+  - 添加节点：文本(脚本、广告词、品牌文案)｜图片(宣传图、海报、封面)｜视频(宣传视频、动画、电影)｜音频(音乐、配音、音效)｜3D(生成 3D 场景与对象)，默认选中"文本"
+  - 辅助工具：剪辑时间线(Beta·时间轴串联多段素材)｜3D 片场(布置场景、角色与镜头调度)
+  - 添加资源：上传(支持图片、视频、音频和 3D 资产)
+- 不是模板库；模板入口在中央芯片"模板"里。Esc 可关闭。
+
+### 7.2 ②中央芯片=一键插入示例节点对（02a-text2video.png）
+- 点"文字生视频"芯片不是开表单，而是直接在画布插入一对示例节点：Text 节点(预填英文示例 prompt：雨夜黑车漂移追逐戏) + 空 video 节点，且自动连好 Edge(text→video)。教程画布内置 demo 内容。
+- 其余芯片预期同机制（图片换背景/首帧生成视频/音频生视频各插对应节点对，模板开模板库）。
+
+### 7.3 ③左键选中 video 节点 → 节点内联参数面板（03-node-video-selected.png）
+- 节点卡片即参数面板，字段全集：标题输入框(请输入标题)；说明文案"根据文字描述生成视频。"；模型选择器(默认 doubao-seedance-pro / Seedance 1.0 Pro)；设置芯片「首尾帧 · 16:9 · 1080p · 5s」(首尾帧参考+比例+分辨率+时长)；张数步进器(Generate 1 variations，1×)；**Tapies 预估价直接显示在生成按钮旁：Seedance 1.0 Pro 16:9 1080p 5s ×1 = 81 Tapies**；最右 Generate 按钮（实测未点击）。
+- Text 节点未选中时仅显示标题+正文预览+2 个角标图标；选中后展开编辑态。
+- 右侧 AI 对话面板顶部同步出现一行上下文按钮组（节点选中时）。
+
+### 7.4 video 节点模型下拉全集（03b-node-model-dropdown.png，共 44+ 条目）
+- 视频模型（分辨率/时长档）：Seedance 2.0 Mini(720P·4-15S)、Seedance 2.0(1080P·4-15S)、Seedance 2.0 Fast(720P·4-15S)、Seedance 2.5(NEW·1080P·4-30S)、Seedance 1.5 Pro(1080P·5-10S)、Seedance 1.0 Pro(1080P·5-10S)、Wan 3.0(NEW·1080P·2-30S)、Wan 2.6(1080P·2-15S)、Hailuo-02(1080P·6-10S)、Vidu Q2(1080P·1-8S)、Vidu Q3(1080P·1-16S)、Kling 3.0 Omni(4K·3-15S)、Kling 3.0(4K·3-15S)、Kling O1(1080P·5-10S)、MiniMax H3(NEW·4折·2K·4-15S)、FLUX 3(NEW·1080P·5-20S)、Gemini Omni Flash(NEW·3-10S)、HappyHorse 1.0/1.1(1080P·3-15S,1.1 NEW)、VEO3.1-Lite(1080P·4-8S)/Fast(6.7折·4K·4-8S)/VEO3.1(4K·4-8S)、Kling 2.6(5-10S)、Hailuo-2.3(1080P·6-10S) 及 Fast 档、VEO3/Fast、Sora 2(720P)/Pro(1080P) 4-12S、Grok Imagine(NEW·720P·1-15S)/1.5(NEW·1080P)、MJ Video(720P)、PixVerse 5.5/5.0、Wan 2.2/2.5/Flash、编辑类：HappyHorse 1.0 视频编辑、Kling 3.0 Omni 视频编辑、Kling O1 视频编辑、Kling 2.6 动作迁移、OmniHuman 1.5(数字人)。比第 5 节静态抓取多出：FLUX 3 视频、Gemini Omni Flash、HappyHorse 系、Grok Imagine 系、OmniHuman 1.5、Kling 2.6 动作迁移等新品。
+
+### 7.5 设置芯片弹层（03c-node-settings-popover.png）
+- 「首尾帧 · 16:9 · 1080p · 5s」点开为四段式弹层：生成方式(首尾帧按钮)｜比例：21:9/16:9/4:3/1:1/3:4/9:16/9:21 共 7 档｜清晰度：480p/720p/1080p｜生成时长：5s/10s。Esc 关闭会把节点选择一并取消（面板收起）。
+
+### 7.6 ④右键菜单（04a-rightclick-node.png / 04b-rightclick-blank.png）
+- 右键节点：保存到素材库｜复制(Ctrl+C)｜粘贴(Ctrl+V)｜副本｜删除(⌫/Del，实测未点)｜反馈问题。无"重命名/锁定/导出"项。
+- 右键空白：上传｜添加资产｜添加节点｜添加辅助工具｜撤销(Ctrl+Z)｜重做(Shift+Ctrl+Z)｜粘贴(Ctrl+V)。即空白右键=资源+创建+历史操作三组。
+- 两类菜单均为 listbox 形态（aria Suggestions），与双击"添加节点"面板同体系。
+
+### 7.7 ⚠️实测 Bug：右键菜单关不掉
+- 右键空白弹出的菜单在 Esc、左键点空白/点节点/双击、键盘 Ctrl+Z、合成 pointerdown 等操作后均不关闭（DOM 持续可见，截图 05c-menu-stuck-check.png）。后续连线拖拽测试被迫中断，靠 reload 恢复。移植时应验证我们菜单的关闭路径全覆盖。
+
+
+### 7.8 ⑤连线实测（05a-edge-hover.png / 05b-edge-reconnected.png)
+- 节点四侧各有圆形连线手柄(.react-flow__handle，data-handlepos=left/right/top/bottom)，hover 节点边缘即显现。
+- 从手柄按下拖到另一节点松手 → 成功创建 Edge（aria-label="Edge from text-… to video-…"），白色 37.6% 透明度贝塞尔曲线，selectable；无文字语义提示浮层，纯视觉连线。
+- 连线=引用关系：与第 2 节文档推定一致，下游生成可引用上游内容。CLI 快速 drag 偶发 daemon timeout 但事件已生效。
+
+
+### 7.9 画布清理确认
+- 实测插入的 Text+video 节点对已全部删除（右键菜单删除项×1 + 选中后 Delete 键×1），nodes=0，空态提示"画布自由生成"恢复，画布回到实测前原始空态。注：节点右键菜单点删除项可正常关闭菜单（与 7.7 空白菜单卡死形成对比）。
