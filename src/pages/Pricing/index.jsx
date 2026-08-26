@@ -216,9 +216,7 @@ function PackCard({ plan, canPurchase, onSelect }) {
         </span>
         <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>{plan.name}</span>
         {plan.recommended && (
-          <span className="pricing-recommend-badge" style={{ position: 'static', top: 'auto', right: 'auto' }}>
-            推荐
-          </span>
+          <span className="pricing-recommend-badge">推荐</span>
         )}
       </div>
       <div className="pricing-price-row">
