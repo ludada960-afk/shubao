@@ -607,3 +607,12 @@
     transform: none !important;
   }
 }
+
+/* 滚动感知紧凑态：板块切换 + 积分始终可见 */
+.app-topbar { position: sticky; top: 0; transition: padding .18s ease, background .18s ease, box-shadow .18s ease; }
+.app-topbar.is-compact { padding-top: 8px; background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 1px 0 rgba(15,23,42,0.06); }
+.app-topbar.is-compact .topbar-row { padding-block: 4px; }
+.app-topbar.is-compact .topbar-logo { font-size: 14px; }
+.app-topbar.is-compact .topbar-brand-mark { width: 24px; height: 24px; }
+.app-topbar.is-compact .creative-nav-panel { padding-block: 4px; }
+@media (prefers-reduced-motion: reduce) { .app-topbar { transition: none; } }

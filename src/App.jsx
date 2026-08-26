@@ -122,6 +122,20 @@ function TopBar() {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
   const canAdmin = state.accountAccess?.role === 'owner';
+  const [compact, setCompact] = React.useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; setCompact((window.scrollY || 0) > 120); });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     if (!logged || state.browserQa) return undefined;
@@ -134,7 +148,7 @@ function TopBar() {
   }, [logged, refreshBillingBalance, state.browserQa]);
 
   return (
-    <div className="app-topbar" style={{ zIndex: 100, userSelect: 'none' }}>
+    <div className={'app-topbar' + (compact ? ' is-compact' : '')} style={{ zIndex: 1100, userSelect: 'none' }}>
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
       <div className="topbar-row">
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
