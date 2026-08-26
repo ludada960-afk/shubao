@@ -37,14 +37,63 @@ function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function isSafeRemoteImageUrl(value) {
+function isPrivateIpv4(value) {
+  const parts = String(value).split('.');
+  if (parts.length !== 4
+    || parts.some(part => !/^\d{1,3}$/.test(part)
+      || Number(part) > 255
+      || (part.length > 1 && part.startsWith('0')))) return true; // 非规范点分十进制一律拒绝
+  const [a, b] = parts.map(Number);
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT 100.64/10
+  return false;
+}
+
+/** 展开为 8 个十六位组；非法返回 null。WHATWG URL 会把 ::ffff:a.b.c.d 序列化成十六进制（::ffff:7f00:1）。 */
+function expandIpv6Hextets(value) {
+  const sections = value.split('::');
+  if (sections.length > 2) return null;
+  const parseGroup = part => part.split(':').map(hextet => /^[0-9a-f]{1,4}$/i.test(hextet) ? parseInt(hextet, 16) : Number.NaN);
+  const head = parseGroup(sections[0] || '0');
+  const tail = sections.length === 2 ? parseGroup(sections[1] || '0') : [];
+  if ([...head, ...tail].some(hextet => Number.isNaN(hextet))) return null;
+  if (sections.length === 2) {
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    return [...head, ...Array(missing).fill(0), ...tail];
+  }
+  return head.length === 8 ? head : null;
+}
+
+function isPrivateIpv6(host) {
+  if (host === '::' || host === '::1') return true;
+  const hextets = expandIpv6Hextets(host);
+  if (!hextets) return true; // 无法解析的 IPv6 一律拒绝
+  const [h0, h1, h2, h3, h4, h5, h6, h7] = hextets;
+  if ((h0 | h1 | h2 | h3 | h4) === 0 && h5 === 0xffff) {
+    // IPv4-mapped ::ffff:0:0/96（如 ::ffff:7f00:1）→ 还原 IPv4 后复用内网判定
+    return isPrivateIpv4(`${(h6 >> 8) & 0xff}.${h6 & 0xff}.${(h7 >> 8) & 0xff}.${h7 & 0xff}`);
+  }
+  if ((h0 | h1 | h2 | h3 | h4 | h5 | h6) === 0) return true; // 未指定 / IPv4-compatible（已废弃）
+  if ((h0 & 0xfe00) === 0xfc00) return true;   // 唯一本地 fc00::/7
+  if ((h0 & 0xffc0) === 0xfe80) return true; // 链路本地 fe80::/10
+  return false;
+}
+
+export function isSafeRemoteImageUrl(value) {
   let url;
   try { url = new URL(value); } catch { return false; }
   if (!['http:', 'https:'].includes(url.protocol)) return false;
-  const host = url.hostname.toLowerCase();
-  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1') return false;
-  if (/^(?:0|127)\./.test(host) || /^169\.254\./.test(host) || /^10\./.test(host)) return false;
-  if (/^192\.168\./.test(host) || /^172\.(?:1[6-9]|2\d|3[01])\./.test(host)) return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host || host.includes('%')) return false;
+  if (host.includes(':')) return !isPrivateIpv6(host);
+  if (/^0x/i.test(host) || /^\d+$/.test(host)) return false; // 十六进制/整数型 IP 编码一律拒绝
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
+  if (/^[\d.]+$/.test(host)) return !isPrivateIpv4(host);
   return true;
 }
 

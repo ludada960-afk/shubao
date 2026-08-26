@@ -24,6 +24,11 @@ const EC_TIERS = [
 const EC_PLATFORMS = ['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'];
 const EXTENSION_SKUS = { basic: 'ec_extension_basic', standard: 'ec_extension_standard', complete: 'ec_extension_complete' };
 
+// 轮询硬上限：150 次 × 2s ≈ 5 分钟；连续 5 次网络失败也终止，均给出用户可见失败态。
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 150;
+const POLL_MAX_CONSECUTIVE_FAILURES = 5;
+
 function extensionActionId(value) {
   let hash = 2166136261;
   for (const char of String(value || '')) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
@@ -33,19 +38,50 @@ function extensionActionId(value) {
 export default function RemakePage() {
   const { dispatch } = useApp();
   // 轮询定时器统一登记到 ref：重开前先清旧，卸载时兜底清理，避免离开页面后仍轮询/setState。
+  // 2026-08-26 加硬上限：150 次 × 2s ≈ 5 分钟；连续 5 次网络失败也终止，均给出用户可见失败态。
   const pollTimerRef = useRef(null);
+  const pollAttemptsRef = useRef(0);
+  const pollFailStreakRef = useRef(0);
   const stopPollTimer = () => {
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current);
       pollTimerRef.current = null;
     }
   };
+  const resetPollCounters = () => {
+    pollAttemptsRef.current = 0;
+    pollFailStreakRef.current = 0;
+  };
   const startPollTimer = getTaskId => {
     stopPollTimer();
     pollTimerRef.current = setInterval(async () => {
+      pollAttemptsRef.current += 1;
       const result = await pollTask(getTaskId());
-      if (result?.status === 'completed' || result?.status === 'failed') stopPollTimer();
-    }, 2000);
+      if (result?.status === 'completed' || result?.status === 'failed') {
+        stopPollTimer();
+        setPolling(false);
+        if (result?.status === 'failed') {
+          setError(result?.error ? `生成失败：${result.error}` : '生成失败，请调整素材后重新发起');
+        }
+        return;
+      }
+      if (result == null) {
+        pollFailStreakRef.current += 1;
+        if (pollFailStreakRef.current >= POLL_MAX_CONSECUTIVE_FAILURES) {
+          stopPollTimer();
+          setPolling(false);
+          setError('任务状态查询连续失败，请检查网络后刷新页面重试');
+          return;
+        }
+      } else {
+        pollFailStreakRef.current = 0;
+      }
+      if (pollAttemptsRef.current >= POLL_MAX_ATTEMPTS) {
+        stopPollTimer();
+        setPolling(false);
+        setError('任务处理超时：超过 5 分钟仍未完成，已停止自动刷新。请稍后手动刷新查看结果，或重新发起生成');
+      }
+    }, POLL_INTERVAL_MS);
   };
   useEffect(() => () => stopPollTimer(), []);
 
@@ -111,6 +147,7 @@ export default function RemakePage() {
   // Start polling when taskId is set
   useEffect(() => {
     if (!taskId) return;
+    resetPollCounters();
     startPollTimer(() => taskId);
     // Immediate first poll
     pollTask(taskId);
@@ -164,8 +201,10 @@ export default function RemakePage() {
       if (!data.ok) {
         setError(data.error || '生成失败');
       } else {
-        // 开始轮询（复用统一的定时器管理，避免与旧轮询叠加或泄漏）
+        // 开始轮询（复用统一的定时器管理，避免与旧轮询叠加或泄漏；重置轮询计数）
         setGenerated(false);
+        setError('');
+        resetPollCounters();
         startPollTimer(() => taskId);
       }
     } catch (err) {

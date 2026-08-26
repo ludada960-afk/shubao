@@ -559,8 +559,32 @@ function captureWebhookBody(req, _res, buffer) {
   }
 }
 
-app.use(express.json({ limit: '30mb', verify: captureWebhookBody }));
-app.use(express.urlencoded({ limit: '2mb', extended: false, verify: captureWebhookBody }));
+// ── Body 大小分层（2026-08-26 收紧）：全局默认 100kb，仅 base64 图片直传路由放开到 15mb ──
+// 大体解析器必须先于全局注册：express.json 解析后写入 req._body，后续同名解析器自动跳过。
+// 名单口径：路由 body 中存在按设计可传 data:image base64 的字段（imageInput DATA_IMAGE_RE 直读）。
+const LARGE_BODY_ROUTES = new Set([
+  '/api/analyze',              // 插件 base64Images（≤3张竞品图）
+  '/api/bookmarklet-extract',  // 插件 base64Images
+  '/api/ec-temp-upload',       // images[] 全 base64 data URI
+  '/api/generate',             // images/reference 兼容 data URI
+  '/api/plog-generate',        // refImage
+  '/api/canvas/transform',     // image_url
+  '/api/canvas/regenerate',    // image_url
+  '/api/canvas/segmentation-plan', // image_url
+  '/api/canvas/analyze-layers',// image_url
+  '/api/canvas/ocr',           // image_url
+  '/api/canvas/replace-text',  // image_url
+  '/api/remove-bg',            // image_url
+  '/api/reverse-prompt',       // image_url
+  '/api/ecommerce/auto-recognize', // refShots
+  '/api/ecommerce/stitch-long',    // imageUrls 兼容 data URI
+]);
+const largeJsonBodyParser = express.json({ limit: '15mb', verify: captureWebhookBody });
+for (const largeBodyRoute of LARGE_BODY_ROUTES) {
+  app.use(largeBodyRoute, largeJsonBodyParser);
+}
+app.use(express.json({ limit: '100kb', verify: captureWebhookBody }));
+app.use(express.urlencoded({ limit: '100kb', extended: false, verify: captureWebhookBody }));
 
 app.get('/api/generated-assets/:id', async (req, res) => {
   const asset = await imageDelivery.readGeneratedVariant(
@@ -2647,8 +2671,31 @@ mountWorkRoutes(app, {
   restoreOwnedWork: (saveKey, ownerEmail) => restoreWork(saveKey, { ownerEmail }),
 });
 
+// ── 公开图片路由限频：/api/proxy-image 与 /api/public-image 属公开展示设计（无会话语义），
+// 不改语义，仅按 IP 限频防盗刷；loopback 豁免（服务器内部 /api/image-proxy 自调用走 localhost）。
+const IMAGE_ROUTE_RATE_LIMIT = { max: 240, windowMs: 60_000 };
+const imageRouteRateStore = new Map();
+function imageRouteRateLimiter(req, res, next) {
+  const ip = getClientIp(req);
+  if (/^(?:127\.|::1$|::ffff:127\.)/i.test(ip)) return next();
+  const bucket = Math.floor(Date.now() / IMAGE_ROUTE_RATE_LIMIT.windowMs);
+  const key = `${ip}:${bucket}`;
+  const count = (imageRouteRateStore.get(key) || 0) + 1;
+  imageRouteRateStore.set(key, count);
+  if (imageRouteRateStore.size > 20000) {
+    for (const storeKey of imageRouteRateStore.keys()) {
+      if (bucket - Number(storeKey.split(':').pop()) > 2) imageRouteRateStore.delete(storeKey);
+    }
+  }
+  if (count > IMAGE_ROUTE_RATE_LIMIT.max) {
+    console.warn(`[rate-limit] ${ip} 超限 ${count}/${IMAGE_ROUTE_RATE_LIMIT.max} on ${req.path}`);
+    return res.status(429).end('too many requests');
+  }
+  return next();
+}
+
 // 图片代理：远端图片只下载一次，并为列表与画布提供 WebP 派生尺寸。
-app.get('/api/proxy-image', async (req, res) => {
+app.get('/api/proxy-image', imageRouteRateLimiter, async (req, res) => {
   const url = String(req.query.url || '');
   const variant = String(req.query.variant || 'full');
   const format = String(req.query.format || 'webp');
@@ -2711,7 +2758,7 @@ app.get('/api/gallery-image', async (req, res) => {
   }
 });
 
-app.get('/api/public-image', async (req, res) => {
+app.get('/api/public-image', imageRouteRateLimiter, async (req, res) => {
   const requestedPath = String(req.query.path || '').replaceAll('\\', '/');
   if (!requestedPath.startsWith('/images/') || requestedPath.includes('\0')) {
     return res.status(400).end('invalid image path');

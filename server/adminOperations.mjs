@@ -279,10 +279,19 @@ export function createAdminOperations({
       active: result.active + service.active,
       completed: result.completed + service.completed,
       failed: result.failed + service.failed,
-    }), { total: 0, active: 0, completed: 0, failed: 0 });
+      billingRejected: result.billingRejected + Number(service.billingRejected || 0),
+    }), { total: 0, active: 0, completed: 0, failed: 0, billingRejected: 0 });
     const terminal = totals.completed + totals.failed;
+    const systemFailed = Math.max(totals.failed - totals.billingRejected, 0);
+    const systemTerminal = totals.completed + systemFailed;
     return {
-      totals: { ...totals, failureRate: terminal ? Number((totals.failed / terminal).toFixed(4)) : 0 },
+      totals: {
+        ...totals,
+        systemFailed,
+        failureRate: terminal ? Number((totals.failed / terminal).toFixed(4)) : 0,
+        // 剔除「积分不足」等业务性拒绝后的真实系统失败率；admin 看板 >10% 阈值高亮用。
+        systemFailureRate: systemTerminal ? Number((systemFailed / systemTerminal).toFixed(4)) : 0,
+      },
       services,
     };
   }

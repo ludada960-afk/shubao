@@ -435,3 +435,24 @@ test('production verifier uses the project Node TLS stack with bounded retries',
   assert.match(nodeVerify, /maxAttempts\s*=\s*3/);
   assert.match(nodeVerify, /Production verification passed/);
 });
+test('server disk cleanup script is a read-only inventory with explicit keep/candidate classes', () => {
+  const diskCleanupPath = fileURLToPath(new URL('../scripts/server-disk-cleanup.cjs', import.meta.url));
+  const diskCleanup = readFileSync(diskCleanupPath, 'utf8');
+  // 只读承诺：建议命令只出现在字符串模板里，脚本本体不得调用 unlink/write 等破坏性 API。
+  assert.doesNotMatch(diskCleanup, /unlinkSync|rmSync|rmdirSync|writeFileSync\([^\n]*entries/);
+  assert.match(diskCleanup, /只读盘点/);
+  assert.match(diskCleanup, /本脚本不会执行任何删除/);
+  // 分级口径：用户数据禁删；部署遗留与缓存列为候选。
+  assert.match(diskCleanup, /never-delete/);
+  assert.match(diskCleanup, /generated-assets/, 'user asset data must be inventoried');
+  assert.match(diskCleanup, /shubao-deploy-/);
+  assert.match(diskCleanup, /_cacache/);
+  assert.match(diskCleanup, /KEEP_RELEASES/);
+  // 实际执行一遍（缺省 root 不存在时也必须安全退出 0）。
+  const smoke = spawnSync(process.execPath, [diskCleanupPath, '--json'], { encoding: 'utf8', timeout: 30_000 });
+  assert.equal(smoke.status, 0);
+  const report = JSON.parse(smoke.stdout);
+  assert.equal(report.readonly, true);
+  assert.equal(report.keepReleases >= 0, true);
+  assert.ok(Array.isArray(report.candidateCommands));
+});

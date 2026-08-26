@@ -186,13 +186,16 @@ function MonitoringPanel({ monitoring }) {
   const workbenchOperations = videoWorkbench.operations24h || {};
   const workbenchGate = videoWorkbench.gate || {};
   const workbenchReady = workbenchGate.ready === true;
+  // 告警阈值标记：剔除业务性拒绝后的系统失败率 >10% 时高亮终态失败率卡片。
+  const systemFailureRate = Number(jobs.systemFailureRate || 0);
+  const systemFailureAlert = systemFailureRate > 0.1;
   return <section className="admin-monitoring-band" aria-labelledby="admin-monitoring-title">
     <div className="admin-band-heading"><div><span>运行监控</span><h2 id="admin-monitoring-title">生成服务实时状态</h2></div><small>{monitoring?.generatedAt ? `更新于 ${dateTime(monitoring.generatedAt)}` : '暂无运行数据'}</small></div>
     <div className="admin-runtime-grid">
       <article><span className="admin-runtime-icon image"><Image size={16} /></span><div><small>图片队列</small><strong>{queueValue(runtime.imageQueue, 'active')} 处理中</strong><span>{queueValue(runtime.imageQueue, 'queued')} 个排队 · 并发 {queueValue(runtime.imageQueue, 'concurrency')}</span></div></article>
       <article><span className="admin-runtime-icon ecommerce"><Activity size={16} /></span><div><small>电商任务</small><strong>{queueValue(runtime.ecommerce, 'activeJobs')} 个运行中</strong><span>{queueValue(jobs.active, 'active')} 个全局活跃任务</span></div></article>
       <article><span className="admin-runtime-icon video"><Video size={16} /></span><div><small>视频队列</small><strong>{queueValue(videoQueue, 'running')} 处理中</strong><span>{queueValue(videoQueue, 'queued')} 个排队 · {queueValue(routes, 'length')} 条路由</span></div></article>
-      <article><span className="admin-runtime-icon failure"><Ban size={16} /></span><div><small>终态失败率</small><strong>{((Number(jobs.failureRate || 0)) * 100).toFixed(1)}%</strong><span>{Number(jobs.failed || 0).toLocaleString('zh-CN')} 个失败 / {Number(jobs.completed || 0).toLocaleString('zh-CN')} 个完成</span></div></article>
+      <article style={systemFailureAlert ? { outline: '2px solid #dc2626', borderRadius: 'var(--radius-md, 12px)' } : undefined} aria-label={systemFailureAlert ? '系统失败率超过10%阈值' : undefined}><span className="admin-runtime-icon failure"><Ban size={16} /></span><div><small>终态失败率{systemFailureAlert ? ' · ⚠ 系统异常' : ''}</small><strong style={systemFailureAlert ? { color: '#dc2626' } : undefined}>{((Number(jobs.failureRate || 0)) * 100).toFixed(1)}%</strong><span>系统失败率 {(systemFailureRate * 100).toFixed(1)}%（剔除积分不足等业务拒绝） · {Number(jobs.failed || 0).toLocaleString('zh-CN')} 个失败 / {Number(jobs.completed || 0).toLocaleString('zh-CN')} 个完成</span></div></article>
     </div>
     <div className={`admin-workbench-pilot-strip ${workbenchReady ? 'is-ready' : ''}`} aria-label="视频工作台试运行状态">
       <div><span>视频工作台 · 站长试运行</span><strong>{workbenchReady ? '10 项目门禁已满足' : '默认关闭，等待验收'}</strong></div>

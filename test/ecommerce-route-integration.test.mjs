@@ -507,7 +507,8 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.match(server, /protocol:\s*['"]legacy-edits['"]/);
   assert.match(server, /IMAGE_LEGACY_TASK_PATH\s*\|\|\s*['"]\/v1\/images\/tasks\/\{id\}['"]/);
   assert.doesNotMatch(server, /IMAGE_PRIMARY_BASE_URL\s*\|\|\s*process\.env\.IMAGE_BASE_URL/);
-  assert.match(server, /app\.post\('\/api\/generate-ecommerce',\s*ecommerceRouteHandlers\.generate\)/);
+  // 2026-08-26 演练加固：入口先过网关 fail-fast 守卫（未配置上游直接 503），再进入编排处理器。
+  assert.match(server, /app\.post\('\/api\/generate-ecommerce', \(req, res, next\) => \{[\s\S]{0,400}?ecommerceRouteHandlers\.generate\);/);
   assert.match(server, /authenticateContentRequest\(req,\s*\{[\s\S]{0,200}sessionTokens:\s*contentSessionTokens/);
   assert.match(server, /createEcommerceStartupRecovery\(/);
   assert.match(server, /maxFollowUpScans:\s*40/);

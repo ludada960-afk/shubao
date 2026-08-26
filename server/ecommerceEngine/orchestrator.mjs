@@ -218,6 +218,22 @@ function withDeterministicRepairCount(asset) {
   };
 }
 
+function assetRunCount(asset) {
+  const count = own(own(own(asset, 'requestSnapshot'), 'executionCount'), 'assetRuns');
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function withAssetRunCount(asset, runNumber) {
+  const requestSnapshot = own(asset, 'requestSnapshot') || {};
+  return {
+    ...requestSnapshot,
+    executionCount: {
+      ...own(requestSnapshot, 'executionCount'),
+      assetRuns: runNumber,
+    },
+  };
+}
+
 function providerSubmissionEntries(assets) {
   return assets.flatMap(asset => {
     const count = providerSubmissionCount(asset);
@@ -974,6 +990,12 @@ export function createEcommerceOrchestrator(deps = {}) {
     || qualityUnavailableRetryDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)) {
     throw new TypeError('qualityUnavailableRetryDelaysMs must contain non-negative safe integers');
   }
+  // 每资产重试硬闸（2026-08-26 生产演练裁定）：同一资产的可重试失败（上游不可达等）累计超过
+  // 该次数后不再无限重试，转为终态 failed 并走 release 自动退费。sweep 周期接管场景同样计数。
+  const maxAssetRunAttempts = Number.isSafeInteger(own(deps, 'maxAssetRunAttempts'))
+    && own(deps, 'maxAssetRunAttempts') > 0
+    ? own(deps, 'maxAssetRunAttempts')
+    : 5;
   const sleep = typeof own(deps, 'sleep') === 'function'
     ? own(deps, 'sleep')
     : delay => new Promise(resolve => setTimeout(resolve, delay));
@@ -1340,6 +1362,18 @@ export function createEcommerceOrchestrator(deps = {}) {
     let compiledRequest = null;
     let stable = null;
     let qualityUnavailableAttempts = 0;
+    // 本次是该资产第几次执行（含 sweep 接管重跑）；用于超限硬闸判定。
+    let runAttemptNumber = assetRunCount(current) + 1;
+    if (!ASSET_FINAL_STATES.has(current.state)) {
+      try {
+        current = store.checkpointAsset(job.id, item.id, {
+          requestSnapshot: withAssetRunCount(current, runAttemptNumber),
+          leaseToken,
+        });
+      } catch {
+        // 计数落库失败按尽力而为处理；租约异常会在后续状态推进中自然暴露。
+      }
+    }
 
     const requestForItem = async () => {
       if (!compiledRequest) {
@@ -1721,7 +1755,12 @@ export function createEcommerceOrchestrator(deps = {}) {
       return current;
     } catch (error) {
       current = store.getAsset(job.id, item.id);
-      if (error?.retryable === true) {
+      // 每资产重试硬闸：可重试失败累计超过上限后，不再释放租约等待下一轮 sweep，
+      // 而是落入下方终态路径——release 自动退费 + 资产终态 failed。settling 完整性优先，保持原语义。
+      const retryBudgetExhausted = runAttemptNumber >= maxAssetRunAttempts;
+      if (error?.retryable === true && !(retryBudgetExhausted
+        && current
+        && !ASSET_FINAL_STATES.has(current.state))) {
         try { store.releaseLease(job.id, item.id, leaseToken); } catch {}
         throw error;
       }
@@ -1737,7 +1776,7 @@ export function createEcommerceOrchestrator(deps = {}) {
               ...current.requestSnapshot,
               release: {
                 targetState: 'failed',
-                reason: `generation_failed:${errorMessage(error)}`,
+                reason: `${retryBudgetExhausted ? 'asset_retry_exhausted' : 'generation_failed'}:${errorMessage(error)}`,
                 error: errorMessage(error),
               },
             },

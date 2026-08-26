@@ -113,3 +113,41 @@ test('video cost board stays empty-safe before any generation settles', () => {
     db.close();
   }
 });
+
+test('monitoring totals separate billing rejections and expose aggregate systemFailureRate for the >10% alert', () => {
+  const { db, walletService } = harness();
+  try {
+    db.exec(`
+      CREATE TABLE ecommerce_jobs (
+        id TEXT PRIMARY KEY,
+        owner_email TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued',
+        payload TEXT NOT NULL DEFAULT '{}',
+        output TEXT NOT NULL DEFAULT '{}',
+        error TEXT NOT NULL DEFAULT '',
+        progress TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    const insert = db.prepare(
+      "INSERT INTO ecommerce_jobs (id, owner_email, status, error) VALUES (?, 'tester@example.com', ?, ?)",
+    );
+    for (let index = 0; index < 7; index += 1) insert.run(`ec-ok-${index}`, 'completed', '');
+    insert.run('ec-billing-rejected', 'failed', 'AI 积分不足，请购买套餐后继续');
+    insert.run('ec-system-1', 'failed', 'upstream unreachable');
+    insert.run('ec-system-2', 'failed', 'asset_retry_exhausted:upstream unreachable');
+
+    const operations = createAdminOperations({ db, walletService });
+    const totals = operations.summary({}).jobs.totals;
+    assert.equal(totals.completed, 7);
+    assert.equal(totals.failed, 3);
+    assert.equal(totals.billingRejected, 1);
+    assert.equal(totals.systemFailed, 2);
+    // 表观失败率 3/10；剔除业务拒绝后的真实系统失败率 2/9 ≈ 22.22% → 超过 10% 阈值应高亮。
+    assert.equal(totals.failureRate, 0.3);
+    assert.equal(totals.systemFailureRate, Number((2 / 9).toFixed(4)));
+  } finally {
+    db.close();
+  }
+});

@@ -1140,6 +1140,39 @@ test('direct generation screens cannot bypass the authenticated API payload help
   assert.match(remake, /if \(!res\.ok\) throw await createApiError\(res,/);
 });
 
+test('stability hardening keeps body tiers, image-route rate limits, and polling caps wired', async () => {
+  const [server, remake] = await Promise.all([
+    fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8'),
+    fs.readFile(new URL('../src/pages/Remake/index.jsx', import.meta.url), 'utf8'),
+  ]);
+
+  // ② Body 大小分层：全局默认 100kb，仅 base64 图片直传路由单独放开 15mb。
+  assert.match(server, /LARGE_BODY_ROUTES = new Set\(\[/);
+  assert.match(server, /express\.json\(\{ limit: '15mb', verify: captureWebhookBody \}\)/);
+  assert.match(server, /app\.use\(express\.json\(\{ limit: '100kb', verify: captureWebhookBody \}\)\)/);
+  assert.match(server, /for \(const largeBodyRoute of LARGE_BODY_ROUTES\)/);
+  // 大体名单覆盖关键 base64 直传入口；ec-temp-upload 必须在列。
+  assert.match(server, /'\/api\/ec-temp-upload',/);
+
+  // ③ 公开图片路由：限频中间件挂到 proxy-image 与 public-image。
+  assert.match(server, /IMAGE_ROUTE_RATE_LIMIT = \{ max: 240/);
+  assert.match(server, /function imageRouteRateLimiter/);
+  assert.match(server, /app\.get\('\/api\/proxy-image', imageRouteRateLimiter,/);
+  assert.match(server, /app\.get\('\/api\/public-image', imageRouteRateLimiter,/);
+
+  // ④ Remake 轮询硬上限与用户可见失败态。
+  assert.match(remake, /POLL_MAX_ATTEMPTS = 150/);
+  assert.match(remake, /POLL_MAX_CONSECUTIVE_FAILURES = 5/);
+  assert.match(remake, /任务处理超时：超过 5 分钟仍未完成/);
+  assert.match(remake, /任务状态查询连续失败/);
+
+  // ⑤ admin 看板系统失败率阈值标记（>10% 高亮）。
+  const adminPage = await fs.readFile(new URL('../src/pages/AdminConsole/index.jsx', import.meta.url), 'utf8');
+  assert.match(adminPage, /const systemFailureAlert = systemFailureRate > 0\.1/);
+  assert.match(adminPage, /系统异常/);
+  assert.match(adminPage, /systemFailureRate \* 100/);
+});
+
 test('pricing page exposes no legacy or clickable payment-provider path while providers are unavailable', async () => {
   const pricing = await fs.readFile(new URL('../src/pages/Pricing/index.jsx', import.meta.url), 'utf8');
   const pricingModal = await fs.readFile(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');

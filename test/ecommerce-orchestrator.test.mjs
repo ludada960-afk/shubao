@@ -3738,3 +3738,51 @@ test('returns owner-scoped durable job progress and rejects another owner', asyn
     error => error?.status === 403,
   );
 });
+
+test('per-asset retry hard gate ends in terminal failed with automatic hold release', async t => {
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    orchestratorOptions: { maxAssetRunAttempts: 3 },
+    poll: async () => {
+      // 模拟上游持续不可达：每次资产执行都在 poll 阶段抛可重试错误。
+      throw Object.assign(new Error('upstream unreachable'), { retryable: true });
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-asset-retry-hard-gate'));
+
+  // 第 1、2 次执行：预算未耗尽，保持历史语义——释放租约并等待下一轮 sweep 接管。
+  await assert.rejects(() => orchestrator.runJob(created.id), /upstream unreachable/);
+  assert.equal(calls.release.length, 0);
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'polling');
+  assert.equal(jobs.get(created.id).status, 'generating');
+
+  await assert.rejects(() => orchestrator.runJob(created.id), /upstream unreachable/);
+  assert.equal(calls.release.length, 0);
+
+  // 第 3 次执行：达到 maxAssetRunAttempts 硬闸 → 走终态路径：release 自动退费 + 资产 failed。
+  const finished = await orchestrator.runJob(created.id);
+  assert.equal(finished.status, 'failed');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'failed');
+  assert.equal(calls.release.length, 1);
+  assert.match(String(calls.release[0]?.reason || ''), /^asset_retry_exhausted:upstream unreachable$/);
+  assert.ok((finished.output?.errors || []).some(item => item.state === 'failed'));
+});
+
+test('per-asset retry hard gate keeps settling integrity when over budget', async t => {
+  let settleAttempts = 0;
+  const { orchestrator } = await createHarness(t, {
+    orchestratorOptions: { maxAssetRunAttempts: 1 },
+    settle: async () => {
+      settleAttempts += 1;
+      throw Object.assign(new Error('settlement ledger busy'), { retryable: true });
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-settle-over-budget'));
+
+  // 已验证资产在结算阶段失败时，即使超出预算也必须保持 retryable（退费完整性优先）。
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    /settlement ledger busy/,
+  );
+  assert.equal(settleAttempts, 1);
+  assert.equal(orchestrator.getJob(created.id, { ownerEmail: OWNER }).status, 'generating');
+});
