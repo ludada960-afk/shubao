@@ -728,3 +728,40 @@ test('rolls back the provider event and order status if wallet persistence fails
   assert.equal(service.getOrder(order.id).status, 'pending');
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM credit_lots').get().count, 0);
 });
+test('orders reserve a payment channel reference for the upcoming online channels', () => {
+  const { calls, service } = createHarness();
+
+  const referenced = service.createOrder({
+    ownerEmail: 'buyer@example.com',
+    productSku: 'ec_starter_29',
+    provider: 'stripe',
+    idempotencyKey: 'channel-ref-order',
+    channelRef: 'wechat_qr',
+  });
+  assert.equal(referenced.channelRef, 'wechat_qr');
+  assert.equal(calls.createOrder[0].channelRef, 'wechat_qr');
+
+  const defaulted = createStripeOrder(service);
+  assert.equal(defaulted.channelRef, '', 'legacy orders keep an empty channel reference');
+});
+
+test('channel references are normalized and validated server-side only', () => {
+  const { service } = createHarness();
+
+  const order = service.createOrder({
+    ownerEmail: 'buyer@example.com',
+    productSku: 'ec_starter_29',
+    provider: 'stripe',
+    idempotencyKey: 'channel-ref-normalized',
+    channelRef: ' WeChat_QR ',
+  });
+  assert.equal(order.channelRef, 'wechat_qr');
+
+  assert.throws(() => service.createOrder({
+    ownerEmail: 'buyer@example.com',
+    productSku: 'ec_starter_29',
+    provider: 'stripe',
+    idempotencyKey: 'channel-ref-invalid',
+    channelRef: '../etc-passwd',
+  }), /channelRef/i);
+});

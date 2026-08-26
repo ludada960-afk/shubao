@@ -63,8 +63,9 @@ test('builds a bounded per-shot quote for a valid three-shot plan', () => {
   assert.equal(plan.shots.length, 3);
   assert.equal(plan.totalDurationMs, 30000);
   assert.equal(plan.quote.catalogVersion, 'video-products-2026-08-12-v3');
-  assert.equal(plan.quote.points, 206);
-  assert.equal(plan.quote.maximumPoints, 206);
+  // 2026-08-26 终案后标准档积分：短(≤8s)=46 分、长(>8s)=57 分；46+57+57=160。
+  assert.equal(plan.quote.points, 160);
+  assert.equal(plan.quote.maximumPoints, 160);
   assert.ok(plan.quote.lineItems.every(item => item.points > 0));
   assert.ok(plan.shots.every(entry => entry.cost && entry.cost.points > 0 && entry.cost.units > 0));
   assert.equal(plan.shots[0].cost.points, plan.quote.lineItems[0].points);

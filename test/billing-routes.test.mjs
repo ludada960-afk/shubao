@@ -56,7 +56,7 @@ async function invoke(app, method, path, request = {}) {
   return { req, res };
 }
 
-function createHarness({ isUnlimited = () => false, providers = {}, walletOverride } = {}) {
+function createHarness({ isUnlimited = () => false, providers = {}, walletOverride, paymentChannelRegistry } = {}) {
   const db = new Database(':memory:');
   ensureBillingSchema(db);
   const walletService = walletOverride ?? createWalletService(db, { isUnlimited });
@@ -67,6 +67,7 @@ function createHarness({ isUnlimited = () => false, providers = {}, walletOverri
   mountBillingRoutes(app, {
     walletService,
     paymentService,
+    paymentChannelRegistry,
     quoteService,
     authenticateOwner(req) {
       return authenticateContentRequest(req, {
@@ -575,4 +576,38 @@ test('legacy credits require a signed owner and ignore spoofed email', async t =
     heldUnits: 0,
     unlimited: false,
   });
+});
+test('public catalog exposes the payment channel registry without internal switch details', async t => {
+  const { createPaymentChannelRegistry } = await import('../server/billing/paymentChannels.mjs');
+  const registry = createPaymentChannelRegistry({ env: {} });
+  const { app, db } = createHarness({ paymentChannelRegistry: registry });
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'GET', '/api/billing/catalog');
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.paymentChannels.map(channel => [channel.id, channel.status]), [
+    ['balance', 'active'],
+    ['wechat_qr', 'unavailable'],
+    ['alipay', 'unavailable'],
+  ]);
+  assert.deepEqual(
+    res.body.paymentChannels.find(channel => channel.id === 'wechat_qr').availabilityNote,
+    '即将开通',
+  );
+  assert.doesNotMatch(JSON.stringify(res.body), /PAYMENT_CHANNEL_|launchEnv/, 'launch switches never leak to clients');
+});
+
+test('video retail anchors ride the public feature catalog for the pricing page', async t => {
+  const { app, db } = createHarness();
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'GET', '/api/billing/catalog');
+  assert.equal(res.statusCode, 200);
+  const standardShort = res.body.features.find(feature => feature.sku === 'video_seedance_standard_short');
+  assert.deepEqual(standardShort, { sku: 'video_seedance_standard_short', units: 46000, currency: 'ec_points', priceFen: 1190 });
+  // 未上架的 1080p 与 MiniMax 不进入公开目录。
+  assert.equal(res.body.features.some(feature => feature.sku === 'video_seedance_1080p'), false);
+  // 无零售锚的普通能力保持原有形状（不破坏既有契约）。
+  const layerPsd = res.body.features.find(feature => feature.sku === 'ec_layer_psd');
+  assert.deepEqual(layerPsd, { sku: 'ec_layer_psd', units: 3000, currency: 'ec_points' });
 });

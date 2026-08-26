@@ -8,6 +8,12 @@ const PAYMENT_PROVIDER_LABELS = Object.freeze({
   stripe: '银行卡支付',
 });
 
+const PAYMENT_CHANNEL_LABELS = Object.freeze({
+  balance: '余额充值',
+  wechat_qr: '微信支付',
+  alipay: '支付宝',
+});
+
 function publicProductMap(catalog) {
   const products = Array.isArray(catalog?.products) ? catalog.products : [];
   return new Map(products.map(product => [product?.sku, product]));
@@ -39,6 +45,8 @@ export function buildPricingPlans(catalog, metadata, currency) {
       validityDays: product.validityDays,
       currency: product.currency,
       enabled: product.enabled !== false,
+      // 预付月卡礼包：一次性买断积分+赠分（无自动续订），赠分随服务端目录下发。
+      giftUnits: Number.isSafeInteger(product.giftUnits) && product.giftUnits > 0 ? product.giftUnits : null,
     }];
   });
 }
@@ -89,10 +97,13 @@ export function formatCatalogPrice(priceFen) {
 }
 
 export function formatCatalogGrant(product) {
-  if (product?.currency === 'ec_points') {
-    return `${new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 }).format(Number(product.grantUnits || 0) / 1000)} AI 积分`;
+  if (product?.currency !== 'ec_points') {
+    return `${Number(product?.grantUnits || 0)} 创作套数`;
   }
-  return `${Number(product?.grantUnits || 0)} 创作套数`;
+  const total = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 }).format(Number(product.grantUnits || 0) / 1000);
+  if (!product.giftUnits) return `${total} AI 积分`;
+  const gift = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 }).format(product.giftUnits / 1000);
+  return `${total} AI 积分（含赠 ${gift}）`;
 }
 
 function fallbackUuid(cryptoImpl) {
@@ -115,4 +126,87 @@ export function createOrderRequest(input, cryptoImpl = globalThis.crypto) {
     ? cryptoImpl.randomUUID()
     : fallbackUuid(cryptoImpl));
   return { productSku, provider, idempotencyKey };
+}
+// 支付区视图：微信/支付宝置灰「即将开通」，仅余额充值通道可点。
+export function listPaymentChannels(catalog) {
+  const channels = Array.isArray(catalog?.paymentChannels) ? catalog.paymentChannels : [];
+  return channels
+    .filter(channel => SAFE_PROVIDER_ID.test(channel?.id || ''))
+    .map(channel => ({
+      id: channel.id,
+      label: PAYMENT_CHANNEL_LABELS[channel.id] || channel.label || '在线支付',
+      kind: channel.kind === 'external' ? 'external' : 'internal',
+      status: channel.status === 'active' ? 'active' : 'unavailable',
+      enabled: channel.enabled === true,
+      availabilityNote: typeof channel.availabilityNote === 'string' ? channel.availabilityNote : '',
+      description: typeof channel.description === 'string' ? channel.description : '',
+    }));
+}
+
+// ── 视频按量档位视图（2026-08-26 终案）──
+// 价格与积分来自服务端目录（features[].priceFen / units），此处只承载展示元数据；
+// comingSoon 的档位（1080p / H3-2K 未上架）在目录中不出现，页面以「即将上线」呈现。
+export const VIDEO_TIER_METADATA = Object.freeze([
+  {
+    sku: 'video_seedance_fast_short',
+    eyebrow: 'FAST',
+    name: '快试',
+    tagline: '5 秒试稿钩子，跑通节奏再上正式档',
+    comingSoon: false,
+    bullets: ['单条 ≤ 5 秒', '每日最多 3 条', '仅快速通道出片'],
+  },
+  {
+    sku: 'video_seedance_standard_short',
+    eyebrow: 'STANDARD',
+    name: '标准',
+    tagline: '720P 正式交付的主力档',
+    comingSoon: false,
+    bullets: ['≤8 秒短片', '商品/人物/场景通用', '失败不计费'],
+  },
+  {
+    sku: 'video_seedance_standard_long',
+    eyebrow: 'PREMIUM',
+    name: '高品质',
+    badge: '含 1 次免费重跑',
+    tagline: '长时长交付，结果不满意免费重做一次',
+    comingSoon: false,
+    bullets: ['>8 秒长片', '含 1 次免费重跑', '失败不计费'],
+  },
+  {
+    sku: 'video_seedance_1080p',
+    eyebrow: 'FULL HD',
+    name: '1080P',
+    tagline: '全高清交付，适合投放主视觉',
+    comingSoon: true,
+    bullets: ['1080P 全高清', '上线前公示最终价格'],
+  },
+  {
+    sku: 'video_minimax_h3_2k_short',
+    eyebrow: 'H3 · 2K',
+    name: 'H3 2K 精制',
+    tagline: '2K 精修路线，多模态与首尾帧',
+    comingSoon: true,
+    bullets: ['2K 分辨率', '支持首尾帧', '白名单逐步开放'],
+  },
+]);
+
+export function buildVideoTiers(catalog) {
+  const features = Array.isArray(catalog?.features) ? catalog.features : [];
+  const bySku = new Map(features.map(feature => [feature.sku, feature]));
+  const imageUnits = bySku.get('ec_image_2k')?.units || 1000;
+  return VIDEO_TIER_METADATA.map(meta => {
+    const feature = bySku.get(meta.sku);
+    if (!feature || !Number.isSafeInteger(feature.units)) {
+      return { ...meta, available: false, priceFen: null, points: null, imageEquivalent: null };
+    }
+    const points = feature.units / 1000;
+    return {
+      ...meta,
+      available: meta.comingSoon !== true,
+      priceFen: Number.isSafeInteger(feature.priceFen) ? feature.priceFen : null,
+      points,
+      // 「能买什么」换算：同等积分可兑换的 2K 商品图数量（用真实 SKU 折算）。
+      imageEquivalent: Math.floor((points * 1000) / imageUnits),
+    };
+  });
 }

@@ -44,7 +44,7 @@ function currency(value) {
   return normalized;
 }
 
-function publicCatalog(paymentService) {
+function publicCatalog(paymentService, paymentChannelRegistry) {
   const products = Object.values(PRODUCTS)
     // Keep old content-set SKUs available to server-side compatibility code,
     // but never advertise them as purchasable commercial plans.
@@ -56,6 +56,21 @@ function publicCatalog(paymentService) {
       sku,
       units: feature.units,
       currency: feature.currency ?? 'ec_points',
+      // 视频按量终案：零售现金锚随目录下发，价格页据此展示「能买什么」。
+      ...(Number.isSafeInteger(feature.priceFen) ? { priceFen: feature.priceFen } : {}),
+    }));
+  const paymentChannels = (typeof paymentChannelRegistry?.listChannels === 'function'
+    ? paymentChannelRegistry.listChannels()
+    : [])
+    .filter(channel => SAFE_IDENTIFIER.test(channel?.id || ''))
+    .map(({ id, label, kind, status, enabled, description, availabilityNote }) => ({
+      id,
+      label,
+      kind,
+      status,
+      enabled: enabled === true,
+      ...(description ? { description } : {}),
+      ...(availabilityNote ? { availabilityNote } : {}),
     }));
   const paymentProviders = (typeof paymentService?.listProviders === 'function'
     ? paymentService.listProviders()
@@ -67,6 +82,7 @@ function publicCatalog(paymentService) {
     products,
     features,
     paymentProviders,
+    paymentChannels,
   };
 }
 
@@ -92,6 +108,7 @@ function publicOrder(order) {
     grantUnits: order.grantUnits,
     provider: order.provider,
     providerOrderId: order.providerOrderId,
+    channelRef: order.channelRef || '',
     status: order.status,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -194,7 +211,7 @@ function handler(fn) {
   };
 }
 
-export function createBillingRouteHandlers({ walletService, paymentService, quoteService, authenticateOwner } = {}) {
+export function createBillingRouteHandlers({ walletService, paymentService, quoteService, authenticateOwner, paymentChannelRegistry } = {}) {
   if (!walletService || typeof walletService.getBalance !== 'function' || typeof walletService.listLedger !== 'function') {
     throw new TypeError('walletService with getBalance and listLedger is required');
   }
@@ -216,7 +233,7 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
       }
     },
 
-    catalog: handler((_req, res) => res.json(publicCatalog(paymentService))),
+    catalog: handler((_req, res) => res.json(publicCatalog(paymentService, paymentChannelRegistry))),
 
     legacyPaymentDisabled: handler((_req, res) => (
       res.status(503).json({ ...LEGACY_PAYMENT_DISABLED_BODY })

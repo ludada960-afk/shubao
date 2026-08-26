@@ -146,6 +146,7 @@ const SKU_LABELS = {
 const PRODUCT_LABELS = {
   ec_trial_990: '体验包 · ¥9.90 / 30 积分', ec_starter_29: '入门包 · ¥29 / 105 积分',
   ec_growth_79: '进阶包 · ¥79 / 295 积分', ec_studio_199: '工作室包 · ¥199 / 760 积分',
+  ec_monthpack_39: '月卡礼包·轻 · ¥39 / 175 积分（含赠25）', ec_monthpack_59: '月卡礼包·Pro · ¥59 / 270 积分（含赠40）',
 };
 const ECONOMICS_FEATURES = [
   'ec_image_2k', 'ec_image_4k', 'ec_nano_flash_1k', 'ec_nano_flash_2k', 'ec_nano_flash_4k',

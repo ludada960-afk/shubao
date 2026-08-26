@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FEATURE_SKUS, PRODUCTS, getProduct, quoteFeature, assertContributionMargin } from '../server/billing/catalog.mjs';
+import {
+  FEATURE_SKUS,
+  PRODUCTS,
+  assertCatalogMarginGates,
+  assertContributionMargin,
+  catalogMarginGateAlerts,
+  contributionMarginOf,
+  getProduct,
+  pointsFaceAnchorCny,
+  quoteFeature,
+  videoMarginGateReport,
+} from '../server/billing/catalog.mjs';
 
 test('client cannot choose the price or grant amount', () => {
   const product = getProduct('ec_starter_29');
@@ -33,83 +44,114 @@ test('quotes ecommerce outputs from server feature weights', () => {
   assert.equal(quoteFeature('ec_image_4k', 2).totalUnits, 4000);
 });
 
-test('video quotes are fixed per successful generation', () => {
+test('video quotes follow the approved 2026-08-26 retail tiers', () => {
+  // 终案零售锚（1元=100分）：Fast ¥6.9（限5s每日3次仅fast）/ 标准 ¥11.9 /
+  // 高品质 ¥14.9 含1次免费重跑 / 1080p ¥18.9（留档未上架）/ H3-2K ¥14.9。
+  // units=⌈现金价 ÷ 常规包面值锚⌉ 向上取整，记账成本维持核定口径不变。
+  const anchor = pointsFaceAnchorCny();
   const expected = {
-    video_seedance_fast_short: [40000, 5.07, true],
-    video_seedance_fast_long: [46000, 5.07, true],
-    video_seedance_standard_short: [62000, 5.07, true],
-    video_seedance_standard_long: [72000, 5.07, true],
-    video_minimax_h3_2k_short: [68000, 0.76, false],
-    video_minimax_h3_2k_long: [78000, 0.76, false],
-    video_plan_analysis: [1000, 0.05, true],
+    video_seedance_fast_short: { units: 27000, priceFen: 690, providerCostCny: 5.07, isPublic: true },
+    video_seedance_fast_long: { units: 27000, priceFen: 690, providerCostCny: 5.07, isPublic: true },
+    video_seedance_standard_short: { units: 46000, priceFen: 1190, providerCostCny: 5.07, isPublic: true },
+    video_seedance_standard_long: { units: 57000, priceFen: 1490, providerCostCny: 5.07, isPublic: true },
+    video_seedance_1080p: { units: 73000, priceFen: 1890, providerCostCny: 6.37, isPublic: false },
+    video_minimax_h3_2k_short: { units: 57000, priceFen: 1490, providerCostCny: 0.76, isPublic: false },
+    video_minimax_h3_2k_long: { units: 57000, priceFen: 1490, providerCostCny: 0.76, isPublic: false },
   };
-  for (const [sku, [units, providerCostCny, isPublic]] of Object.entries(expected)) {
-    assert.equal(quoteFeature(sku, 1).totalUnits, units);
-    assert.equal(quoteFeature(sku, 1).providerCostCny, providerCostCny);
-    assert.equal(FEATURE_SKUS[sku].public !== false, isPublic);
+  for (const [sku, tier] of Object.entries(expected)) {
+    const feature = FEATURE_SKUS[sku];
+    assert.equal(quoteFeature(sku, 1).totalUnits, tier.units, sku + ' keeps its approved point charge');
+    assert.equal(feature.priceFen, tier.priceFen, sku + ' keeps its approved cash anchor');
+    assert.equal(feature.providerCostCny, tier.providerCostCny, sku + ' books the settled cost');
+    assert.equal(feature.public !== false, tier.isPublic, sku + ' public visibility');
+    // 实付面值不得低于终案现金价（向上取整保证）。
+    assert.ok(feature.units * anchor >= tier.priceFen / 100 - 1e-9, sku + ' face value covers the cash price');
   }
+  // 快试档权益口径：限5s、每日3次、仅fast、无重跑；高品质档含 1 次免费重跑。
+  for (const sku of ['video_seedance_fast_short', 'video_seedance_fast_long']) {
+    assert.equal(FEATURE_SKUS[sku].maxDurationSeconds, 5);
+    assert.equal(FEATURE_SKUS[sku].dailyLimitPerUser, 3);
+    assert.equal(FEATURE_SKUS[sku].routeRestriction, 'fast-only');
+    assert.equal(FEATURE_SKUS[sku].subsidizedTeaser, true);
+    assert.equal(FEATURE_SKUS[sku].freeReruns, 0);
+  }
+  assert.equal(FEATURE_SKUS.video_seedance_standard_long.freeReruns, 1);
+
+  assert.equal(quoteFeature('video_plan_analysis', 1).providerCostCny, 0.05);
   for (const legacy of ['video_seedance_480p_short', 'video_seedance_720p_long']) {
     assert.throws(() => quoteFeature(legacy, 1), /unknown feature sku/i);
   }
 });
 
-test('video prices still clearing the 70% margin gate after the 2026-09 provider cost reset', () => {
-  const unitPriceCny = Math.min(...Object.values(PRODUCTS)
-    .filter(product => product.currency === 'ec_points')
-    .map(product => (product.priceFen / 100) / product.grantUnits));
-  // Seedance 按条成本涨到 ¥5.07 后仅长时长档守住 70% 线；
-  // MiniMax H3 成本定案（2026-09 用户实测确认 1:1）为 ¥0.76/条后，两档均远高于门禁。
-  const aboveGate = ['video_seedance_standard_long', 'video_minimax_h3_2k_short', 'video_minimax_h3_2k_long'];
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 7);
-  for (const sku of aboveGate) {
-    const feature = FEATURE_SKUS[sku];
-    assert.ok(assertContributionMargin(feature, feature.units * unitPriceCny) >= 0.70,
-      sku + ' is expected to stay above the 70% gate');
+test('tiered margin gates clear at load under the approved 2026-08-26 tiers', () => {
+  // 分层门禁：引流≥40%、主力≥60%、高端≥70%；快试补贴档按频控+成本上限受管豁免。
+  assert.doesNotThrow(assertCatalogMarginGates, 'catalog must boot only when every band floor holds');
+
+  const report = videoMarginGateReport();
+  const bySku = new Map(report.map(row => [row.sku, row]));
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 8);
+
+  assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
+  assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);
+  for (const [sku, floor] of [
+    ['video_seedance_standard_long', 0.60],
+    ['video_seedance_1080p', 0.60],
+    ['video_minimax_h3_2k_short', 0.70],
+    ['video_minimax_h3_2k_long', 0.70],
+  ]) {
+    const row = bySku.get(sku);
+    assert.equal(row.status, 'ok', sku + ' clears its band');
+    assert.ok(row.margin >= floor, sku + ' margin ' + row.margin + ' clears floor ' + floor);
   }
+
+  // 快试两档为受管补贴：正贡献、必须带频控字段，并持续产生 admin 告警直至通道收敛。
+  for (const sku of ['video_seedance_fast_short', 'video_seedance_fast_long']) {
+    const row = bySku.get(sku);
+    assert.equal(row.status, 'teaser_subsidy');
+    assert.ok(row.margin > 0, sku + ' stays contribution-positive');
+  }
+  const alertCodes = new Map(catalogMarginGateAlerts().map(alert => [alert.sku, alert.code]));
+  assert.equal(alertCodes.get('video_seedance_fast_short'), 'TEASER_SUBSIDY');
+  assert.equal(alertCodes.get('video_seedance_standard_long'), 'FREE_RERUN_EXPOSURE');
 });
 
-test('video tiers priced below the 70% gate are locked to their audited margins pending repricing', () => {
-  const unitPriceCny = Math.min(...Object.values(PRODUCTS)
-    .filter(product => product.currency === 'ec_points')
-    .map(product => (product.priceFen / 100) / product.grantUnits));
-  // 已核定的真实口径缺口：这些档位低于 0.70 门禁，属已知定价风险；
-  // 上调积分售价需要产品决策，此处锁定当前毛利防止成本口径被静默改动。
-  const belowGateExpectations = {
-    video_seedance_fast_short: 0.4859,
-    video_seedance_fast_long: 0.5491,
-    video_seedance_standard_short: 0.6577,
+test('audited margins are locked against silent cost drift under the tiered bands', () => {
+  const anchor = pointsFaceAnchorCny();
+  const auditedMargins = {
+    video_seedance_fast_short: 0.2529,
+    video_seedance_standard_short: 0.5491,
+    video_seedance_standard_long: 0.6303,
+    video_seedance_1080p: 0.6368,
   };
-  const marginOf = (feature, unitPrice) =>
-    (unitPrice - unitPrice * 0.03 - feature.providerCostCny) / unitPrice;
-  for (const [sku, expectedMargin] of Object.entries(belowGateExpectations)) {
+  for (const [sku, expected] of Object.entries(auditedMargins)) {
     const feature = FEATURE_SKUS[sku];
-    const margin = marginOf(feature, feature.units * unitPriceCny);
-    assert.ok(Math.abs(margin - expectedMargin) < 0.001,
-      sku + ' margin drifted: ' + margin.toFixed(4) + ' vs audited ' + expectedMargin);
-    assert.ok(margin < 0.70, sku + ' moved above the gate - move it to the aboveGate list');
+    const margin = contributionMarginOf(feature, feature.units * anchor);
+    assert.ok(Math.abs(margin - expected) < 0.001,
+      sku + ' margin drifted: ' + margin.toFixed(4) + ' vs audited ' + expected);
   }
+  // 高品质档免费重跑全额兑现时的敞口也被钉住，防止成本口径静默变化。
+  const rerunExposure = contributionMarginOf(
+    { providerCostCny: FEATURE_SKUS.video_seedance_standard_long.providerCostCny * 2 },
+    FEATURE_SKUS.video_seedance_standard_long.units * anchor,
+  );
+  assert.ok(Math.abs(rerunExposure - 0.2905) < 0.001, 'free-rerun exposure drifted: ' + rerunExposure.toFixed(4));
 });
 
 test('minimax h3 cost is finalized at the user-confirmed 1:1 CNY rate of ¥0.76 per video', () => {
-  const unitPriceCny = Math.min(...Object.values(PRODUCTS)
-    .filter(product => product.currency === 'ec_points')
-    .map(product => (product.priceFen / 100) / product.grantUnits));
+  const anchor = pointsFaceAnchorCny();
   // 成本定案（2026-09）：用户在 poke2api 充值实测确认美元余额按人民币 1:1 核算，
-  // 原双情景（1:1 ≈¥0.76 / 7.15 ¥5.45）收敛为单值 ¥0.76/条落库。锁定定案口径：
-  // 两档毛利均远高于 70% 门禁；是否因毛利过高下调售价属产品决策，测试不擅动价格。
-  const marginOf = feature =>
-    ((feature.units * unitPriceCny) * 0.97 - feature.providerCostCny) / (feature.units * unitPriceCny);
+  // 单值 ¥0.76/条落库。终案定价 ¥14.9 后两档毛利仍远高于高端档 70% 地板。
   const auditedMargins = {
-    video_minimax_h3_2k_short: 0.9273,
-    video_minimax_h3_2k_long: 0.9328,
+    video_minimax_h3_2k_short: 0.9191,
+    video_minimax_h3_2k_long: 0.9191,
   };
   for (const [sku, expectedMargin] of Object.entries(auditedMargins)) {
     const feature = FEATURE_SKUS[sku];
     assert.equal(feature.providerCostCny, 0.76, sku + ' books the user-confirmed 1:1 cost');
-    const margin = marginOf(feature);
+    const margin = contributionMarginOf(feature, feature.units * anchor);
     assert.ok(Math.abs(margin - expectedMargin) < 0.001,
       sku + ' margin drifted: ' + margin.toFixed(4) + ' vs audited ' + expectedMargin);
-    assert.ok(margin > 0.70, sku + ' should clear the 70% gate by a wide margin at the settled cost');
+    assert.ok(margin >= 0.70, sku + ' should clear the premium band floor by a wide margin');
   }
 });
 
@@ -188,5 +230,43 @@ test('prices and provider costs must be positive finite numbers', () => {
   }
   for (const providerCostCny of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(() => assertContributionMargin({ providerCostCny }, 0.1), /cost/i);
+  }
+});
+
+test('prepaid month packs grant base-plus-gift points with no auto renewal', () => {
+  // 终案：一次性买断积分+赠分。基础分按常规包最优锚向上取整；赠分按毛利≥60%反推。
+  assert.deepEqual(getProduct('ec_monthpack_39'), {
+    sku: 'ec_monthpack_39',
+    priceFen: 3900,
+    currency: 'ec_points',
+    grantUnits: 175000,
+    baseUnits: 150000,
+    giftUnits: 25000,
+    validityDays: null,
+  });
+  assert.deepEqual(getProduct('ec_monthpack_59'), {
+    sku: 'ec_monthpack_59',
+    priceFen: 5900,
+    currency: 'ec_points',
+    grantUnits: 270000,
+    baseUnits: 230000,
+    giftUnits: 40000,
+    validityDays: null,
+  });
+});
+
+test('month pack gift ratios are derived from a blended redemption cost at a 60 percent margin floor', () => {
+  // 反推口径：混合核销成本 ¥0.08/积分（图片类 ¥0.038–0.06/分 与视频类 ¥0.087–0.19/分 按 7:3 保守混合），
+  // m = 1 − 3%支付费 − 总分×0.08/售价 ≥ 60%。总分上限：¥39→180 分 / ¥59→273 分。
+  const BLENDED_REDEMPTION_COST_PER_POINT = 0.08;
+  for (const [sku, totalPointsCeiling] of [['ec_monthpack_39', 180], ['ec_monthpack_59', 273]]) {
+    const pack = getProduct(sku);
+    const totalPoints = pack.grantUnits / 1000;
+    assert.ok(totalPoints <= totalPointsCeiling, sku + ' grants more points than the 60% derivation allows');
+    const giftPoints = pack.giftUnits / 1000;
+    const basePoints = pack.baseUnits / 1000;
+    assert.equal(giftPoints + basePoints, totalPoints, sku + ' base plus gift equals the granted total');
+    const margin = 1 - 0.03 - (totalPoints * BLENDED_REDEMPTION_COST_PER_POINT) / (pack.priceFen / 100);
+    assert.ok(margin >= 0.60, sku + ' pack margin ' + margin.toFixed(4) + ' falls below the 60% floor');
   }
 });

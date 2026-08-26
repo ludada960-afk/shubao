@@ -47,6 +47,8 @@ import {
 } from './accessControl.mjs';
 import { createWalletService } from './billing/walletService.mjs';
 import { createPaymentService } from './billing/paymentService.mjs';
+import { createPaymentChannelRegistry } from './billing/paymentChannels.mjs';
+import { assertCatalogMarginGates } from './billing/catalog.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
@@ -233,6 +235,10 @@ const adminOperations = createAdminOperations({
     ...(videoWorkbenchStore?.operationalMetrics?.() || { unavailable: true }),
   }),
 });
+// 分层毛利门禁启动断言（2026-08-26 终案）：任一 SKU 跌破档位地板即拒绝启动（fail closed）。
+assertCatalogMarginGates();
+// 支付通道注册表：wechat_qr/alipay 为 unavailable 占位 + 上线开关位；balance 保持 active。
+const paymentChannelRegistry = createPaymentChannelRegistry({ env: process.env });
 const paymentService = createPaymentService(db, walletService);
 const contentEntitlements = createContentEntitlements(db, walletService);
 const authSessionSecret = resolveAuthSessionSecret({
@@ -726,6 +732,7 @@ function betaAccessMiddleware(req, res, next, guardedPath = normalizeGuardedPath
 mountBillingRoutes(app, {
   walletService,
   paymentService,
+  paymentChannelRegistry,
   quoteService: billingQuoteService,
   authenticateOwner(req) {
     return authenticateContentRequest(req, {

@@ -19,7 +19,7 @@ test('upstream ledger contains the audited CNY snapshots and source state', () =
   assert.equal(fast.unitPriceCny, 5.07);
   assert.equal(fast.status, 'connected');
   assert.match(fast.health, /库存/);
-  assert.equal(fast.appActions.find(action => action.sku === 'video_seedance_fast_short').points, 40);
+  assert.equal(fast.appActions.find(action => action.sku === 'video_seedance_fast_short').points, 27);
 
   const minimax = ledger.routes.find(route => route.id === 'poke-minimax-h3');
   assert.equal(minimax.providerLabel, 'Poke 中转（MiniMax）');

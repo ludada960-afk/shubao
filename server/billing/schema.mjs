@@ -103,6 +103,7 @@ export function ensureBillingSchema(db) {
       grant_units INTEGER NOT NULL,
       provider TEXT NOT NULL,
       provider_order_id TEXT NOT NULL DEFAULT '',
+      channel_ref TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL,
       idempotency_key TEXT NOT NULL UNIQUE,
       checkout_payload TEXT NOT NULL DEFAULT '',
@@ -129,6 +130,10 @@ export function ensureBillingSchema(db) {
   const paymentOrderColumns = db.prepare("PRAGMA table_info(payment_orders)").all().map(column => column.name);
   if (!paymentOrderColumns.includes('checkout_payload')) {
     db.exec("ALTER TABLE payment_orders ADD COLUMN checkout_payload TEXT NOT NULL DEFAULT ''");
+  }
+  // 支付通道引用（2026-08-26 终案预留）：wechat_qr/alipay 上线时记录成交通道；balance/内部通道留空串。
+  if (!paymentOrderColumns.includes('channel_ref')) {
+    db.exec("ALTER TABLE payment_orders ADD COLUMN channel_ref TEXT NOT NULL DEFAULT ''");
   }
   const usageEventColumns = db.prepare("PRAGMA table_info(usage_events)").all().map(column => column.name);
   const usageColumns = [

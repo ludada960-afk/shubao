@@ -67,7 +67,7 @@ test('public products omit hidden routes and private provider details', () => {
   assert.equal(products.find(product => product.id === 'seedance_fast').providerLabel, '字节跳动');
   assert.match(products.find(product => product.id === 'seedance_standard').limitations, /高峰期/);
   assert.deepEqual(products.find(product => product.id === 'seedance_fast').quotes.short, {
-    sku: 'video_seedance_fast_short', units: 40000, points: 40,
+    sku: 'video_seedance_fast_short', units: 27000, points: 27,
   });
   assert.deepEqual(
     publicVideoProducts({ includeHidden: true }).map(product => product.id),

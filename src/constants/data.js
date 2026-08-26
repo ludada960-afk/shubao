@@ -34,9 +34,11 @@ export const QUICK_HINTS = [
 /* ═══════ 定价方案 ═══════ */
 export const PRICING_PLANS = [
   { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用薯包 AI 创作' },
-  { sku:'ec_starter_29', name:'入门包', pop:true, desc:'适合日常创作与素材补充' },
+  { sku:'ec_starter_29', name:'入门包', desc:'适合日常创作与素材补充' },
   { sku:'ec_growth_79', name:'成长包', desc:'适合稳定更新和多主题创作' },
   { sku:'ec_studio_199', name:'工作室包', desc:'适合团队批量创作与二次编辑' },
+  { sku:'ec_monthpack_39', name:'月卡礼包 · 轻', desc:'一次买断积分礼包，含加赠积分，无自动续订' },
+  { sku:'ec_monthpack_59', name:'月卡礼包 · Pro', pop:true, desc:'大额度一次买断，含加赠积分，无自动续订' },
 ];
 
 /* ═══════ 功能亮点 ═══════ */

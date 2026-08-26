@@ -24,11 +24,23 @@ function normalizeProvider(value) {
   return nonEmptyString(value, 'provider').toLowerCase();
 }
 
+const SAFE_CHANNEL_REF = /^[a-z0-9][a-z0-9_-]{0,127}$/i;
+
+function normalizeChannelRef(value) {
+  if (value === undefined || value === null || value === '') return '';
+  const normalized = nonEmptyString(value, 'channelRef').toLowerCase();
+  if (!SAFE_CHANNEL_REF.test(normalized)) {
+    throw new TypeError('channelRef must match /^[a-z0-9][a-z0-9_-]{0,127}$/i');
+  }
+  return normalized;
+}
+
 function normalizeCreateInput(input = {}) {
   return {
     ownerEmail: normalizeOwnerEmail(input.ownerEmail),
     productSku: nonEmptyString(input.productSku, 'productSku'),
     provider: normalizeProvider(input.provider),
+    channelRef: normalizeChannelRef(input.channelRef),
     idempotencyKey: nonEmptyString(input.idempotencyKey, 'idempotencyKey'),
   };
 }
@@ -77,6 +89,7 @@ function orderFromRow(row) {
     grantUnits: row.grant_units,
     provider: row.provider,
     providerOrderId: row.provider_order_id,
+    channelRef: row.channel_ref || '',
     status: row.status,
     idempotencyKey: row.idempotency_key,
     ...(checkout ? { checkout } : {}),
@@ -199,9 +212,9 @@ export function createPaymentService(db, walletService, providers = {}) {
     insertOrder: db.prepare(`
       INSERT INTO payment_orders (
         id, owner_email, product_sku, catalog_version, amount_cny,
-        grant_currency, grant_units, provider, provider_order_id, status,
+        grant_currency, grant_units, provider, provider_order_id, channel_ref, status,
         idempotency_key, checkout_payload, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', 'pending', ?, '', ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, 'pending', ?, '', ?, ?)
     `),
     insertCatalogSnapshot: db.prepare(`
       INSERT INTO billing_catalog (sku, version, payload, enabled, effective_at)
@@ -315,6 +328,7 @@ export function createPaymentService(db, walletService, providers = {}) {
         product.currency,
         product.grantUnits,
         input.provider,
+        input.channelRef,
         input.idempotencyKey,
         now,
         now,
