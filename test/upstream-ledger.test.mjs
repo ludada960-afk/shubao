@@ -23,8 +23,17 @@ test('upstream ledger contains the audited CNY snapshots and source state', () =
 
   const minimax = ledger.routes.find(route => route.id === 'poke-minimax-h3');
   assert.equal(minimax.providerLabel, 'Poke 中转（MiniMax）');
+  // 汇率修正（2026-09）：账面单价保持保守上界 ¥5.45，注释按双情景标注（1:1 情景为倾向情景）。
   assert.equal(minimax.unitPriceCny, 5.45);
   assert.equal(minimax.status, 'configured');
+  assert.match(minimax.notes, /1:1 情景 ≈¥0\.76/);
+  assert.match(minimax.notes, /待充值实测定案/);
+  const pokeProvider = ledger.providers.find(provider => provider.id === 'poke');
+  assert.match(pokeProvider.currencyPolicy, /双情景/);
+  assert.match(pokeProvider.reconciliationNote, /1:1 情景/);
+
+  const nativeRoute = ledger.routes.find(route => route.id === '65535-seedance-native');
+  assert.match(nativeRoute.notes, /×1 读/, 'seedance-native 类报价必须注明按 ×1 读');
 });
 
 test('upstream ledger reconciles local settled cost by SKU without changing source totals', () => {

@@ -284,6 +284,11 @@ const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
 videoWorkbenchStore = videoWorkbenchEnabled
   ? createVideoWorkbenchStore({ db, projectStore })
   : null;
+// 视频上游路由策略（2026-09 汇率修正后留档，仅注释不改行为）：
+// 国内 $ 计价中转（65535 类）的美元余额已实证按人民币 ×1 核算，Seedance 类视频折算单条成本
+// 相对 IP233 按条价（¥5.07/720p）低约 7 倍。建议路由权重：国内中转优先、IP233 作按条兜底。
+// 当前代码尚无动态权重/优先级机制（产品与上游为静态绑定），接入权重属行为改动，需另行评审；
+// 届时 MINIMAX/IP233 的 baseUrl 与 key 装配处即本段下方配置。
 const videoGeneration = createVideoGeneration({
   db,
   walletService,

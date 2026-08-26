@@ -68,6 +68,11 @@ const SKU_CLASSIFICATIONS = Object.freeze({
   ec_layer_psd: { feature: 'visual_creation', provider: '65535' },
 });
 
+// 汇率修正（2026-09）：MiniMax H3 成本双情景——1:1 情景 ≈¥0.76/条（倾向，同源 65535 已实证 $ 按 ×1 读）
+// 与 7.15 情景 ¥5.45/条。落库口径仍取保守上界 ¥5.45，待 poke2api 充值实测到账比例后定案；
+// 看板对 H3 行同时给出区间毛利，避免只按 ¥5.45 展示造成误导。
+const MINIMAX_H3_COST_SCENARIO_CNY = Object.freeze({ favorable: 0.76, conservative: 5.45 });
+
 function classifyUsageRow(item) {
   const fallback = SKU_CLASSIFICATIONS[item.sku] || {};
   return {
@@ -548,7 +553,7 @@ export function createAdminOperations({
       const revenue = Number(row.theoretical_revenue || 0);
       const cost = Number(row.provider_cost_cny || 0);
       const actions = Number(row.actions || 0);
-      return {
+      const rowBase = {
         productId,
         label: product?.label || productId,
         provider: SKU_CLASSIFICATIONS[row.sku]?.provider || (productId.startsWith('minimax') ? 'Poke' : 'IP233'),
@@ -562,6 +567,23 @@ export function createAdminOperations({
         avgCostPerCallCny7d: actions > 0 ? roundMoney(cost / actions) : null,
         grossProfitCny7d: roundMoney(revenue - cost),
         theoreticalMargin7d: revenue > 0 ? Number(((revenue - cost) / revenue).toFixed(4)) : null,
+      };
+      if (!productId.startsWith('minimax')) return rowBase;
+      // H3 行：毛利按双情景区间展示（保守=落库 ¥5.45 口径；倾向=1:1 情景 ≈¥0.76），
+      // theoreticalMargin7d/grossProfitCny7d 保持落库口径不变，区间仅作补充，避免按 ¥5.45 单点展示造成误导。
+      const favorableGrossProfit = revenue - actions * MINIMAX_H3_COST_SCENARIO_CNY.favorable;
+      return {
+        ...rowBase,
+        costScenarioNote: '双情景成本：1:1 情景 ≈¥0.76/条（倾向）/ 7.15 情景 ¥5.45/条；账面取保守上界，待充值实测定案',
+        grossProfitRangeCny7d: actions > 0
+          ? [roundMoney(revenue - cost), roundMoney(favorableGrossProfit)]
+          : null,
+        theoreticalMarginRange7d: revenue > 0 && actions > 0
+          ? [
+              Number(((revenue - cost) / revenue).toFixed(4)),
+              Number((favorableGrossProfit / revenue).toFixed(4)),
+            ]
+          : null,
       };
     }).sort((left, right) => right.providerCostCny7d - left.providerCostCny7d || right.calls7d - left.calls7d);
     return {

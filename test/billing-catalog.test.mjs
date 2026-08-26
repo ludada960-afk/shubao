@@ -57,7 +57,8 @@ test('video prices still clearing the 70% margin gate after the 2026-09 provider
   const unitPriceCny = Math.min(...Object.values(PRODUCTS)
     .filter(product => product.currency === 'ec_points')
     .map(product => (product.priceFen / 100) / product.grantUnits));
-  // Seedance 按条成本涨到 ¥5.07、MiniMax 估算 ¥5.45 后，仅长时长档仍守住 70% 设计毛利线。
+  // Seedance 按条成本涨到 ¥5.07；MiniMax H3 按 7.15 汇率情景 ¥5.45 记账（1:1 情景 ≈¥0.76 待充值实测）后，
+  // 仅长时长档仍守住 70% 设计毛利线。
   const aboveGate = ['video_seedance_standard_long', 'video_minimax_h3_2k_long'];
   assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 7);
   for (const sku of aboveGate) {
@@ -88,6 +89,29 @@ test('video tiers priced below the 70% gate are locked to their audited margins 
       sku + ' margin drifted: ' + margin.toFixed(4) + ' vs audited ' + expectedMargin);
     assert.ok(margin < 0.70, sku + ' moved above the gate - move it to the aboveGate list');
   }
+});
+
+test('minimax h3 margins carry a dual-scenario FX band pending real-billing calibration', () => {
+  const unitPriceCny = Math.min(...Object.values(PRODUCTS)
+    .filter(product => product.currency === 'ec_points')
+    .map(product => (product.priceFen / 100) / product.grantUnits));
+  // 汇率修正（2026-09）：poke2api 计价口径未证实，H3 成本按双情景标注——
+  // 1:1 情景 ≈¥0.76/条（倾向，同源 65535 已实证 $ 按 ×1 读）/ 7.15 情景 ¥5.45/条；
+  // 落库仍取保守上界 ¥5.45。锁定口径不变：保守情景短档 <70%、长档 ≥70%；
+  // 倾向情景两档都应远高于门禁——¥5.45 只是上界，不得据此断言 H3 档保底亏损。
+  const marginAtCost = (feature, costCny) =>
+    ((feature.units * unitPriceCny) * 0.97 - costCny) / (feature.units * unitPriceCny);
+  for (const sku of ['video_minimax_h3_2k_short', 'video_minimax_h3_2k_long']) {
+    const feature = FEATURE_SKUS[sku];
+    assert.equal(feature.providerCostCny, 5.45, sku + ' keeps booking the conservative upper bound');
+    assert.ok(marginAtCost(feature, 0.76) > 0.70,
+      sku + ' favorable 1:1 scenario should clear the 70% gate by a wide margin');
+  }
+  // 双情景区间宽度必须显著（>18 个百分点），否则单点展示不会误导、区间化就没有必要。
+  const shortFeature = FEATURE_SKUS.video_minimax_h3_2k_short;
+  const spread = marginAtCost(shortFeature, 0.76) - marginAtCost(shortFeature, 5.45);
+  assert.ok(spread > 0.18,
+    'dual-scenario margin spread should stay material: ' + spread.toFixed(4));
 });
 
 test('quotes an explicit design-direction refresh as one AI point', () => {

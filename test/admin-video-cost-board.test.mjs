@@ -40,7 +40,8 @@ function insertUsageEvent(db, { sku, units, providerCostCny, createdAt }) {
 test('admin summary exposes a video cost board with today/7-day windows and per-model margin', () => {
   const { db, walletService } = harness();
   try {
-    // 今日：两条标准档（¥5.07/条）；近 7 日另含一条 MiniMax 估算（¥5.45）；
+    // 今日：两条标准档（¥5.07/条）；近 7 日另含一条 MiniMax 落库成本（保守上界 ¥5.45，
+    // 双情景：1:1 情景 ≈¥0.76 倾向 / 7.15 情景 ¥5.45，待充值实测定案）；
     // 10 天前的 fast 档与非视频 SKU 不应进入窗口。
     const now = new Date();
     const stamp = offsetDays => new Date(now.getTime() - offsetDays * 86_400_000)
@@ -79,7 +80,21 @@ test('admin summary exposes a video cost board with today/7-day windows and per-
     assert.equal(minimax.provider, 'Poke');
     assert.equal(minimax.callsToday, 0);
     assert.equal(minimax.calls7d, 1);
+    // 落库口径仍按保守上界 ¥5.45 结算；H3 行额外携带双情景区间毛利，避免单点展示误导。
     assert.equal(minimax.avgCostPerCallCny7d, 5.45);
+    assert.match(minimax.costScenarioNote, /双情景/);
+    const minimaxRevenue = Number((68000 * UNIT_REVENUE_CNY).toFixed(6));
+    assert.deepEqual(minimax.grossProfitRangeCny7d, [
+      Number((minimaxRevenue - 5.45).toFixed(6)),
+      Number((minimaxRevenue - 0.76).toFixed(6)),
+    ]);
+    assert.deepEqual(minimax.theoreticalMarginRange7d, [
+      Number(((minimaxRevenue - 5.45) / minimaxRevenue).toFixed(4)),
+      Number(((minimaxRevenue - 0.76) / minimaxRevenue).toFixed(4)),
+    ]);
+    // 非 H3 行不携带区间字段。
+    assert.equal(standard.grossProfitRangeCny7d, undefined);
+    assert.equal(standard.costScenarioNote, undefined);
     assert.equal(board.byModel.some(row => row.productId === 'seedance_fast'), false,
       'generations older than 7 days stay out of the window');
   } finally {

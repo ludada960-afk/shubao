@@ -54,11 +54,13 @@ const providers = [
     reportedSpendCny: 0,
     todaySpendCny: 0,
     reportedRequests: 0,
-    currencyPolicy: '美元标价按 0.2× 折扣后计：input $0.42–0.84、output $1.68–3.36 /1M token',
+    // 汇率修正（2026-09）：poke2api 计价口径未证实（40–50% 置信），按双情景标注；
+    // 同源 65535 已实锤美元余额按人民币 ×1 核算，故 1:1 情景为倾向情景。
+    currencyPolicy: '美元标价按 0.2× 折扣后计：input $0.42–0.84、output $1.68–3.36 /1M token；双情景：1:1 情景 ≈¥0.76/条（倾向）/ 7.15 情景 ¥5.45/条，待充值实测定案',
     concurrency: null,
     accountEvidence: 'MiniMax H3 密钥经 poke2api 中转；尚未出账，成本为估算口径',
     monitoring: { tone: 'unknown', label: '未提供独立监控', detail: '稳定性验收中，仅对内部白名单开放' },
-    reconciliationNote: '首张真实账单出来前，每条 ¥5.45 为中位估算值，误差主要在输出 token 单耗。',
+    reconciliationNote: '首张真实账单出来前按双情景记账：1:1 情景 ≈¥0.76/条（倾向）/ 7.15 情景 ¥5.45/条；落库暂取保守上界 ¥5.45，待充值实测后定案，误差主要在输出 token 单耗。',
   },
 ];
 
@@ -69,7 +71,8 @@ const routes = [
     id: '65535-gpt-image-2', providerId: 'relay_65535', model: 'gpt-image-2', status: 'connected',
     purpose: '电商生图与小红书套图', billingUnit: '每张', unitPriceCny: 0.038,
     appSkus: ['ec_image_2k', 'ec_image_4k', 'xhs_image_set_2k'],
-    health: '近 4 小时 97.70%，首字节约 44.8 秒', notes: '当前生产路由；2K/4K 同价，小红书一套按 9 张结算。',
+    health: '近 4 小时 97.70%，首字节约 44.8 秒',
+    notes: '当前生产路由；2K/4K 同价，小红书一套按 9 张结算。记账成本区间 ¥0.038–¥0.04+/张（¥0.038 为 65535 现行价下沿，另有 ¥0.04 级通道报价），对账时注意通道差异。',
   }),
   route({
     id: '65535-gpt-5.6-luna', providerId: 'relay_65535', model: 'gpt-5.6-luna', status: 'connected',
@@ -104,7 +107,8 @@ const routes = [
     id: 'poke-minimax-h3', providerId: 'poke', model: 'minimax-h3-2k', status: 'configured',
     purpose: 'MiniMax H3 2K', billingUnit: '每条（token 折算估算）', unitPriceCny: 5.45,
     appSkus: ['video_minimax_h3_2k_short', 'video_minimax_h3_2k_long'],
-    health: '暂无本账户实测与账单', notes: '经 poke2api 中转（0.2× 折扣）；估算成本待首张账单校准，未向普通账号开放。',
+    health: '暂无本账户实测与账单',
+    notes: '经 poke2api 中转（0.2× 折扣）；成本双情景：1:1 情景 ≈¥0.76（倾向）/ 7.15 情景 ¥5.45，待充值实测定案；unitPriceCny 为保守上界，未向普通账号开放。',
   }),
   route({ id: '65535-gpt-image-2-eco', providerId: 'relay_65535', model: 'gpt-image-2-eco', purpose: '原生 4K 候选', billingUnit: '每张', unitPriceCny: 0.10, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-gpt-image-2-auto', providerId: 'relay_65535', model: 'gpt-image-2-auto', purpose: '分辨率分级候选', billingUnit: '1K / 2K / 4K 每张', unitPriceText: '¥0.045 / ¥0.065 / ¥0.095', notes: '候选通道，当前未接入。' }),
@@ -113,7 +117,9 @@ const routes = [
   route({ id: '65535-seedvr2', providerId: 'relay_65535', model: 'seedvr2-7b', purpose: '图片超分候选', billingUnit: '每 1MP', unitPriceCny: 0.006, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-seedance-fast', providerId: 'relay_65535', model: 'seedance-2.0-fast-std', purpose: '视频备用路由', billingUnit: '480P / 720P 每秒', unitPriceText: '¥0.35 / ¥0.50', health: '新路由，样本不足', notes: '建议独立视频密钥后作为备援，避免与图片流量混账。' }),
   route({ id: '65535-seedance-standard', providerId: 'relay_65535', model: 'seedance-2.0-std', purpose: '视频备用路由', billingUnit: '480P / 720P / 1080P 每秒', unitPriceText: '¥0.40 / ¥0.60 / ¥0.95', health: '近 4 小时 100%，平均约 341 秒', notes: '长视频成本明显高于 IP233 按条路由。' }),
-  route({ id: '65535-seedance-native', providerId: 'relay_65535', model: 'seedance-2.0-native', purpose: '原生视频候选', billingUnit: '每秒', unitPriceCny: 0.80, notes: '候选通道，当前未接入。' }),
+  // 65535 seedance-native 类 token/秒路由：站点美元报价一律按 ×1 读（$ 余额与人民币 1:1 已实证，2026-09），
+  // 无需再做汇率换算。
+  route({ id: '65535-seedance-native', providerId: 'relay_65535', model: 'seedance-2.0-native', purpose: '原生视频候选', billingUnit: '每秒', unitPriceCny: 0.80, notes: '候选通道，当前未接入；65535 报价按 ×1 读（$≈¥ 已实证）。' }),
   route({ id: '65535-seedance-pro', providerId: 'relay_65535', model: 'seedance-2.0-pro', purpose: '高质量视频候选', billingUnit: '每秒', unitPriceCny: 0.80, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-seedance-25-native', providerId: 'relay_65535', model: 'seedance-2.5-native', purpose: 'Seedance 2.5 候选', billingUnit: '每秒', unitPriceCny: 1.20, health: '近 4 小时 100%，平均约 202 秒', notes: '候选通道，当前未接入。' }),
   route({ id: '65535-seedance-25-std', providerId: 'relay_65535', model: 'seedance-2.5-std', purpose: 'Seedance 2.5 候选', billingUnit: '每秒', unitPriceCny: 0.60, health: '近 4 小时 100%，平均约 917 秒', notes: '候选通道，当前未接入。' }),

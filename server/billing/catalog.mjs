@@ -19,6 +19,8 @@ export const PRODUCTS = freezeCatalog({
 
 export const FEATURE_SKUS = freezeCatalog({
   // Both middle-station dashboards label balances with "$" but settle these prices in CNY.
+  // gpt-image-2 记账成本区间：¥0.038–¥0.04+/张（65535 现行 ¥0.038/张为下沿；另有 ¥0.04 级通道报价，
+  // 如 auto 档 ¥0.045 起）。记账统一取 ¥0.038，对账时注意不同通道的 ¥0.04 级差异，勿据单一报价断言成本漂移。
   ec_image_2k: { units: 1000, providerCostCny: 0.038 },
   ec_image_4k: { units: 2000, providerCostCny: 0.038 },
   ec_nano_flash_1k: { units: 1000, providerCostCny: 0.06 },
@@ -29,12 +31,15 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
   // Video products are priced against the least favorable point package and
   // include the payment-cost allowance in the contribution-margin gate.
-  // 成本口径（2026-09 核定）：
+  // 成本口径（2026-09 核定；同月汇率修正复核）：
   // - Seedance（IP233 按条计费）：720p ¥5.07/条；1080p ¥6.37/条（1080p 产品未上架，先留档）。
-  // - MiniMax H3 经 Poke 中转（0.2× 折扣后 input $0.42–0.84、output $1.68–3.36 /1M token）。
-  //   每条估算：典型任务 prompt≈600 字 + 2 张参考图（≈2.6k 输入 token）、2K 约 300k 输出 token
-  //   （≈50k token/秒 × 6 秒），按中位价 (2.6×0.63 + 300×2.52)/1000 ≈ $0.758 ≈ ¥5.45（汇率 7.2）。
-  //   该值为估算（cost_confidence=low），待首张真实账单校准；输入端封顶 ≤¥0.15/条，误差主要在输出 token 单耗。
+  // - MiniMax H3 经 Poke 中转（0.2× 折扣后 input $0.42–0.84、output $1.68–3.36 /1M token），成本按双情景标注：
+  //   典型任务 prompt≈600 字 + 2 张参考图（≈2.6k 输入 token）、2K 约 300k 输出 token
+  //   （≈50k token/秒 × 6 秒），按中位价 (2.6×0.63 + 300×2.52)/1000 ≈ $0.758/条。
+  //   ① 1:1 情景 ≈¥0.76/条（倾向：同源 65535 已实锤美元余额按人民币 ×1 核算，~90% 置信）；
+  //   ② 7.15 情景 ¥5.45/条（若 poke2api 实为美元现汇结算才成立）。落库 providerCostCny 暂保守取上界 ¥5.45，
+  //   待充值实测（建议在 poke2api 充最小额度验证到账比例）定案；定案前不得据 ¥5.45 断言该档保底亏损，
+  //   真实成本大概率显著低于该值。输入端封顶 ≤¥0.15/条，误差主要在输出 token 单耗。
   video_seedance_fast_short: { units: 40000, providerCostCny: 5.07 },
   video_seedance_fast_long: { units: 46000, providerCostCny: 5.07 },
   video_seedance_standard_short: { units: 62000, providerCostCny: 5.07 },
