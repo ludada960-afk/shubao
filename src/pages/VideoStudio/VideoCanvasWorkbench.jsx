@@ -8,6 +8,7 @@ import {
   Gauge,
   ImagePlus,
   Layers3,
+  ListVideo,
   LoaderCircle,
   MessageSquareText,
   MousePointerSquareDashed,
