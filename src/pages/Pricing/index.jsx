@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { MdAutoAwesome } from 'react-icons/md';
+import { MdAutoAwesome, MdCheck } from 'react-icons/md';
+import './Pricing.css';
 import { useApp } from '../../store/AppContext';
 import { PRICING_PLANS } from '../../constants/data';
 import Footer from '../../components/layout/Footer';
@@ -101,17 +102,7 @@ function VideoTierCard({ tier, onUse }) {
           </span>
         )}
         {!tier.available && (
-          <span style={{
-            fontSize: 10,
-            fontWeight: 900,
-            color: 'var(--text-muted)',
-            background: 'var(--bg-hover)',
-            borderRadius: 999,
-            padding: '3px 9px',
-          }}
-          >
-            即将上线
-          </span>
+          <span className="pricing-soon-pill">即将上线</span>
         )}
       </div>
       <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--accent)' }}>{tier.name}</div>
@@ -119,11 +110,11 @@ function VideoTierCard({ tier, onUse }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
         {tier.priceFen ? (
           <>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>¥</span>
-            <span style={{ fontSize: 28, fontWeight: 900, color: 'var(--accent)', lineHeight: 1 }}>
-              {formatCatalogPrice(tier.priceFen)}
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>/条</span>
+            <div className="pricing-price-row">
+            <span className="pricing-price-symbol">¥</span>
+            <span className="pricing-price-number">{formatCatalogPrice(tier.priceFen)}</span>
+            <span className="pricing-price-unit">/条</span>
+          </div>
           </>
         ) : (
           <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--text-hint)' }}>价格待公布</span>
@@ -134,10 +125,12 @@ function VideoTierCard({ tier, onUse }) {
           {tier.points} 积分/条{tier.imageEquivalent ? ` · 约合 ${tier.imageEquivalent} 张 2K 商品图` : ''}
         </div>
       )}
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 5 }}>
+      <ul className="pricing-bullet-list">
         {tier.bullets.map(bullet => (
-          <li key={bullet} style={{ display: 'flex', gap: 7, fontSize: 12, color: 'var(--text-secondary)' }}>
-            <span aria-hidden style={{ width: 4, height: 4, borderRadius: 999, background: 'var(--text-ghost)', marginTop: 7, flexShrink: 0 }} />
+          <li key={bullet} className="pricing-bullet">
+            <span aria-hidden className="pricing-bullet-dot">
+              <MdCheck size={10} />
+            </span>
             <span>{bullet}</span>
           </li>
         ))}
@@ -195,9 +188,11 @@ function PackCard({ plan, canPurchase, onSelect }) {
     gap: 8,
     padding: 18,
     borderRadius: 18,
-    border: highlighted ? '2px solid var(--accent)' : '1px solid var(--border)',
+    border: highlighted ? '1px solid var(--accent)' : '1px solid var(--border)',
     background: '#fff',
-    boxShadow: highlighted ? 'var(--shadow-md)' : 'none',
+    boxShadow: highlighted
+      ? '0 0 0 1px rgba(12, 10, 9, 0.06), 0 14px 36px rgba(57, 45, 26, 0.10)'
+      : 'var(--shadow-sm)',
     boxSizing: 'border-box',
     textAlign: 'left',
     fontFamily: 'inherit',
@@ -221,30 +216,17 @@ function PackCard({ plan, canPurchase, onSelect }) {
         </span>
         <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>{plan.name}</span>
         {plan.recommended && (
-          <span style={{
-            marginLeft: 'auto',
-            fontSize: 9,
-            fontWeight: 900,
-            color: '#fff',
-            background: 'var(--accent)',
-            padding: '3px 9px',
-            borderRadius: 999,
-          }}
-          >
+          <span className="pricing-recommend-badge" style={{ position: 'static', top: 'auto', right: 'auto' }}>
             推荐
           </span>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>¥</span>
-        <span style={{ fontSize: 26, fontWeight: 900, color: 'var(--accent)', lineHeight: 1 }}>
-          {formatCatalogPrice(plan.priceFen)}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>一次买断</span>
+      <div className="pricing-price-row">
+        <span className="pricing-price-symbol">¥</span>
+        <span className="pricing-price-number">{formatCatalogPrice(plan.priceFen)}</span>
+        <span className="pricing-price-unit">一次买断</span>
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', fontWeight: 700 }}>
-        {formatCatalogGrant(plan)}
-      </div>
+      <div className="pricing-grant-chip">{formatCatalogGrant(plan)}</div>
       <div style={{ fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.55 }}>
         {plan.description}
         {' · '}
@@ -263,10 +245,15 @@ function PackCard({ plan, canPurchase, onSelect }) {
     </>
   );
   if (!plan.enabled) {
-    return <article aria-disabled="true" style={{ ...style, opacity: 0.6 }}>{body}</article>;
+    return <article aria-disabled="true" className="pricing-card is-off" style={style}>{body}</article>;
   }
   return (
-    <button type="button" onClick={() => onSelect(plan)} style={{ ...style, cursor: 'pointer' }}>
+    <button
+      type="button"
+      onClick={() => onSelect(plan)}
+      className={'pricing-card' + (highlighted ? ' is-recommended' : '')}
+      style={{ ...style, cursor: 'pointer' }}
+    >
       {body}
     </button>
   );
@@ -604,53 +591,22 @@ export default function PricingPage() {
                 key={channel.id}
                 type="button"
                 onClick={scrollToPacks}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 10,
-                  padding: '13px 16px',
-                  borderRadius: 14,
-                  border: '1px solid var(--border)',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  textAlign: 'left',
-                }}
+                className="pricing-pay-row"
               >
-                <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>{channel.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--green)' }}>
-                  {channel.description || '当前可用'}
+                <span className="pricing-pay-row-label">
+                  <span className="pricing-pay-dot" />
+                  {channel.label}
                 </span>
+                <span className="pricing-pay-row-status">{channel.description || '当前可用'}</span>
               </button>
             ) : (
               <div
                 key={channel.id}
                 aria-disabled="true"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 10,
-                  padding: '13px 16px',
-                  borderRadius: 14,
-                  border: '1px solid var(--border-light)',
-                  background: 'rgba(255,255,255,0.55)',
-                  opacity: 0.62,
-                }}
+                className="pricing-pay-row is-off"
               >
-                <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-muted)' }}>{channel.label}</span>
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 900,
-                  color: 'var(--text-muted)',
-                  background: 'var(--bg-hover)',
-                  borderRadius: 999,
-                  padding: '3px 10px',
-                }}
-                >
-                  {channel.availabilityNote || '即将开通'}
-                </span>
+                <span className="pricing-pay-row-label" style={{ color: 'var(--text-muted)' }}>{channel.label}</span>
+                <span className="pricing-pay-pill is-off">{channel.availabilityNote || '即将开通'}</span>
               </div>
             )
           )) : (
@@ -660,18 +616,12 @@ export default function PricingPage() {
           )}
         </div>
 
-        <div style={{ maxWidth: 640, margin: '44px auto 0', textAlign: 'left' }}>
-          <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 16, textAlign: 'center', color: 'var(--accent)' }}>
-            常见问题
-          </div>
+        <div className="pricing-faq-wrap">
+          <div className="pricing-faq-title">常见问题</div>
           {FAQ_CONTENT.map(faq => (
-            <details key={faq.q} style={{ borderBottom: '1px solid var(--border)', padding: '14px 0', fontSize: 14 }}>
-              <summary style={{ fontWeight: 700, cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'inherit' }}>
-                {faq.q}
-              </summary>
-              <p style={{ margin: '8px 0 0', color: 'var(--text-hint)', lineHeight: 1.7, fontSize: 13 }}>
-                {faq.a}
-              </p>
+            <details key={faq.q} className="pricing-faq">
+              <summary>{faq.q}</summary>
+              <p className="pricing-faq-answer">{faq.a}</p>
             </details>
           ))}
         </div>
@@ -682,21 +632,12 @@ export default function PricingPage() {
           role="dialog"
           aria-modal="true"
           aria-label="购买套餐"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
+          className="pricing-modal-overlay"
           onClick={closePurchase}
         >
-          <div style={{ background: '#fff', borderRadius: 20, maxWidth: 380, width: '100%', padding: 26, textAlign: 'center' }} onClick={event => event.stopPropagation()}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{selectedPlan.name}</h2>
-            <p style={{ color: 'var(--text-muted)' }}>
+          <div className="pricing-modal-panel" onClick={event => event.stopPropagation()}>
+            <h2 className="pricing-modal-title">{selectedPlan.name}</h2>
+            <p className="pricing-modal-sub">
               ¥{formatCatalogPrice(selectedPlan.priceFen)} · {formatCatalogGrant(selectedPlan)}
             </p>
             {providers.length > 0 ? (
@@ -705,9 +646,9 @@ export default function PricingPage() {
                   <button
                     key={provider.id}
                     type="button"
+                    className="pricing-modal-btn"
                     disabled={Boolean(orderingProvider) || paymentOrder?.status === 'pending' || paymentOrder?.status === 'paid'}
                     onClick={() => createOrder(provider)}
-                    style={{ minHeight: 44, border: '1px solid #1A1614', borderRadius: 12, background: '#1A1614', color: '#fff', cursor: orderingProvider ? 'wait' : 'pointer' }}
                   >
                     {orderingProvider === provider.id ? '正在创建安全订单…' : '使用 ' + formatPaymentProviderLabel(provider.id)}
                   </button>
@@ -742,11 +683,15 @@ export default function PricingPage() {
               </div>
             )}
             {paymentOrder?.checkout?.url && (
-              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid #1A1614', borderRadius: 10, background: '#fff', color: '#1A1614', cursor: 'pointer', fontWeight: 700 }}>
+              <button
+                type="button"
+                className="pricing-modal-secondary"
+                onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')}
+              >
                 重新打开支付页
               </button>
             )}
-            {orderStatus && <p role="status" style={{ color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10, fontSize: 12 }}>{orderStatus}</p>}
+            {orderStatus && <p role="status" className="pricing-modal-status">{orderStatus}</p>}
           </div>
         </div>
       )}

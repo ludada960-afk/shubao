@@ -517,3 +517,94 @@ button.pricing-pay-row:hover {
     animation: none !important;
   }
 }
+
+
+/* ── Bullet list container (used by VideoTierCard) ── */
+.pricing-bullet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+/* ── "即将上线" pill: 暖色细环 + 浅底,替代冷灰胶囊 ── */
+.pricing-soon-pill {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #B8862C;
+  background: rgba(201, 162, 90, 0.10);
+  border: 1px solid rgba(201, 162, 90, 0.32);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+/* ── 支付行:左标签 + 右侧 status 的清晰节奏 ── */
+.pricing-pay-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.pricing-pay-row-status {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--green);
+  white-space: nowrap;
+}
+.pricing-pay-row.is-off .pricing-pay-row-label {
+  color: var(--text-muted);
+}
+
+/* ── FAQ wrap + title ── */
+.pricing-faq-wrap {
+  max-width: 640px;
+  margin: 44px auto 0;
+  text-align: left;
+}
+.pricing-faq-title {
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 4px;
+  text-align: center;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+.pricing-faq-title::after {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1.5px;
+  background: var(--accent);
+  opacity: 0.5;
+  margin: 8px auto 16px;
+  border-radius: 2px;
+}
+
+/* ── Modal: title / sub / status 收紧 ── */
+.pricing-modal-title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+.pricing-modal-sub {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.pricing-modal-status {
+  margin: 12px 0 0;
+  color: #73510D;
+  background: #FFF8E7;
+  border: 1px solid #F4E3B5;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+}
