@@ -52,15 +52,16 @@ test('try-on showcase uses deliberate dwell and a keyboard-accessible gallery', 
 
 test('try-on showcase restores the baseline flow composition with uncropped originals', () => {
   // 基准版式：平铺穿搭 → ＋ → 模特街拍原图 → 弧形箭头 → 上身效果街拍。
-  // 尺寸审计(2026-08)：旧 reference-*.png 为 315~390×1254 裁剪条图（三张同高、极端比例），
-  // 头图一律改用完整生产原图：场景上身 slide 用 editorial-*-v3.webp(1086×1448) 三联，
-  // 多角度 slide 源卡仍为完整平铺原图 product-flatlay.png。
-  assert.match(workbench, /product-flatlay\.png/);
+  // 尺寸审计(2026-08 二次复核)：product-flatlay.png(475×1254，1:2.64) 与旧 reference-*.png
+  //(315~390×1254) 同为裁剪条图（同高、极端比例），头图一律禁用；
+  // 头图全部使用完整生产原图：多角度 slide 源卡用同套 editorial-flatlay-matched-v1.webp(720×900，4:5)，
+  // 场景上身 slide 用 editorial-*-v3.webp(1086×1448) 三联。
+  assert.match(workbench, /editorial-flatlay-matched-v1\.webp/);
   assert.match(workbench, /editorial-flatlay-v3\.webp/);
   assert.match(workbench, /editorial-model-v3\.webp/);
   assert.match(workbench, /editorial-street-result-v3\.webp/);
   // 裁剪条图禁止回流头图
-  assert.doesNotMatch(workbench, /reference-flatlay\.png|reference-person\.png|reference-result\.png/);
+  assert.doesNotMatch(workbench, /product-flatlay\.png|reference-flatlay\.png|reference-person\.png|reference-result\.png/);
   // 四张角度照片组按参考顺序标注：正面/四分之三/侧面/背面
   assert.match(workbench, /label: '正面'/);
   assert.match(workbench, /label: '四分之三'/);

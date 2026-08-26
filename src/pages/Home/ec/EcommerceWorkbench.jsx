@@ -76,7 +76,9 @@ function TryOnShowcase({ personMode }) {
       eyebrow: '多视角成片',
       title: '一套穿搭，拍出完整时尚角度',
       description: '正面、四分之三、侧面与背面都保留完整造型，适合商品页和广告投放。',
-      source: { src: '/images/home/tryon-showcase/product-flatlay.png', label: '平铺穿搭' },
+      // 尺寸审计(2026-08 二次复核)：旧竖条平铺源图(475×1254，1:2.64)为裁剪条图，禁止上屏；
+      // 源卡改用同套完整平铺原图 editorial-flatlay-matched-v1.webp(720×900，4:5)，与四角度街拍同套服饰。
+      source: { src: '/images/home/tryon-showcase/editorial-flatlay-matched-v1.webp', label: '平铺穿搭' },
       // 四张角度照片组：正面 / 四分之三 / 侧面 / 背面（全部为完整原图，contain 不裁剪）
       results: [
         { src: '/images/home/tryon-showcase/angle-front.png', label: '正面' },

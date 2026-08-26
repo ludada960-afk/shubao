@@ -43,7 +43,9 @@ test('reference try-on preserves the complete product, model, and generated resu
   const stages = item.assets.filter(asset => asset.displayRole !== 'workflowBanner');
   assert.deepEqual(stages.map(asset => asset.role), ['source', 'reference', 'result']);
   assert.deepEqual(stages.map(asset => asset.label), ['完整商品与穿搭', '完整参考模特', '时尚街拍上身结果']);
-  assert.deepEqual(stages.map(asset => asset.ratio), ['3:8', '1:4', '9:16']);
+  assert.deepEqual(stages.map(asset => asset.ratio), ['3:4', '3:4', '9:16']);
+  // 裁剪条图(product-flatlay/reference-*，同高1254px极端比例)禁止进入任何生产案例资产
+  assert.doesNotMatch(item.assets.map(asset => asset.src).join('\n'), /product-flatlay|reference-flatlay|reference-person|reference-result/);
   assert.equal(item.assets.find(asset => asset.displayRole === 'workflowBanner').ratio, '16:9');
 });
 

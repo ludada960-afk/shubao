@@ -104,7 +104,7 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
     id: 'tryon-angles',
     status: 'production',
     assets: Object.freeze([
-      asset({ id: 'tryon-product-flatlay', src: '/images/home/tryon-showcase/product-flatlay.png', label: '完整服饰套装', role: 'source', ratio: '3:8', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '完整保留炭灰长大衣、橄榄绿针织、米色长裤、帽子、包袋和鞋履的材质、颜色、数量与搭配关系。' }),
+      asset({ id: 'tryon-product-flatlay', src: '/images/home/tryon-showcase/editorial-flatlay-matched-v1.webp', label: '完整服饰套装', role: 'source', ratio: '4:5', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '完整保留炭灰长大衣、橄榄绿针织、米色长裤、帽子、包袋和鞋履的材质、颜色、数量与搭配关系。' }),
       asset({ id: 'tryon-angle-front', src: '/images/home/tryon-showcase/angle-front.png', label: '街拍正面', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的正面街拍，保留全身比例与商品细节。' }),
       asset({ id: 'tryon-angle-motion', src: '/images/home/tryon-showcase/angle-motion.png', label: '动态行走', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的动态行走姿态，具有时尚感且不裁切。' }),
       asset({ id: 'tryon-angle-side', src: '/images/home/tryon-showcase/angle-side.png', label: '侧面版型', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的侧面版型视图，展示衣摆、裤型与配饰关系。' }),
@@ -117,8 +117,10 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
     id: 'tryon-reference',
     status: 'production',
     assets: Object.freeze([
-      asset({ id: 'tryon-reference-product', src: '/images/home/tryon-showcase/product-flatlay.png', label: '完整商品与穿搭', role: 'source', ratio: '3:8', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '完整保留服饰套装的材质、颜色、数量与搭配关系。' }),
-      asset({ id: 'tryon-reference-person', src: '/images/home/tryon-showcase/reference-person.png', label: '完整参考模特', role: 'reference', ratio: '1:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '参考成年模特的完整全身比例、姿态与镜头高度。' }),
+      // 尺寸审计(2026-08 二次复核)：product-flatlay.png/reference-person.png 为裁剪条图，禁止上屏；
+      // 改用同套完整生产原图 editorial-flatlay-v3.webp / editorial-model-v3.webp(均 1086×1448，3:4)。
+      asset({ id: 'tryon-reference-product', src: '/images/home/tryon-showcase/editorial-flatlay-v3.webp', label: '完整商品与穿搭', role: 'source', ratio: '3:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '完整保留服饰套装的材质、颜色、数量与搭配关系。' }),
+      asset({ id: 'tryon-reference-person', src: '/images/home/tryon-showcase/editorial-model-v3.webp', label: '完整参考模特', role: 'reference', ratio: '3:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '参考成年模特的完整全身比例、姿态与镜头高度。' }),
       asset({ id: 'tryon-reference-result', src: '/images/home/tryon-showcase/angle-motion.png', label: '时尚街拍上身结果', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '将完整服饰套装自然穿到参考模特身上，保持人物与商品关系清晰。' }),
       asset({ id: 'tryon-reference-workflow', src: '/images/home/tryon-showcase/tryon-reference-workflow.png', label: '商品与参考模特精准上身', role: 'result', ratio: '16:9', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', provenance: 'production-composite', displayRole: 'workflowBanner', prompt: '完整展示商品、参考模特与正式生产上身结果的关系。' }),
     ]),
