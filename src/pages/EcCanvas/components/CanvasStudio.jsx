@@ -143,12 +143,16 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
   </div>;
 }
 
-export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction }) {
+export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction, videoDelivery = null }) {
   const introGateRef = usePanelIntroGate('object-toolbar');
   if (!node || !actions.length) return null;
+  // P2 跨域投递：选中套图产物/节点 → 「发往视频项目」（唯一注入点，逻辑由 index 提供）。
+  const delivery = videoDelivery && typeof videoDelivery.onSend === 'function' && videoDelivery.enabled !== false
+    ? videoDelivery
+    : null;
   const estimatedWidth = Math.min(820, 18 + actions.reduce((width, action) => (
     width + (isCompactCanvasToolbarAction(action.id) ? 38 : Math.max(72, action.label.length * 13 + 30))
-  ), 0));
+  ), 0) + (delivery ? 116 : 0));
   return <div
     ref={introGateRef}
     className="ec-canvas-object-toolbar"
@@ -164,6 +168,9 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
         {!compact && <span>{action.label}</span>}
       </button>;
     })}
+    {delivery && <button type="button" data-video-delivery="true" aria-label="发往视频项目" title={delivery.hint || '把该素材发往视频项目，可绑为镜头首帧'} onPointerDown={event => event.stopPropagation()} onClick={() => delivery.onSend?.(node)}>
+      <Clapperboard size={16} /><span>发往视频项目</span>
+    </button>}
   </div>;
 }
 

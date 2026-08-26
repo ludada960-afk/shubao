@@ -5,23 +5,29 @@ import {
   Clapperboard,
   Clock3,
   Film,
+  Gauge,
   ImagePlus,
   Layers3,
   LoaderCircle,
+  MessageSquareText,
   MousePointerSquareDashed,
   Play,
   Plus,
   RefreshCw,
   ShieldCheck,
+  SendHorizontal,
   Sparkles,
 } from 'lucide-react';
+import { useApp } from '../../store/AppContext.jsx';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import { quoteBillingAction } from '../../services/billing.js';
 import { createVideoJob, getVideoJob } from '../../services/video.js';
 import {
+  applyShotCandidateToTimeline,
   approveVideoWorkbenchPlan,
   approveWorkbenchAssetVersion,
   createStoryboardShot,
+  createVideoExportManifest,
   createVideoWorkbenchGenerationDraft,
   createWorkbenchAsset,
   getVideoWorkbench,
@@ -29,11 +35,31 @@ import {
   importJobCandidate,
   importProjectAssetVersion,
   importWorkbenchAssetVersion,
+  replaceTimelineClipCandidate,
   selectShotCandidate,
   updateStoryboardShot,
+  updateTimelineClip,
 } from '../../services/videoWorkbench.js';
-import { reusableProjectAssets, candidateJobsForProject, nextShotPosition, selectedCandidateForShot } from './videoProjectWorkbenchModel.js';
-import { quoteForVideoProduct } from './videoStudioModel.js';
+import {
+  CHAT_TWEAK_CHIPS,
+  composeTweakPrompt,
+  confirmedDecisionPromptParts,
+  decisionQueueItems,
+  emptyDecisionState,
+  shotEventGroups,
+  tweakRegenerationReady,
+} from './directorPanelModel.js';
+import {
+  activeTimelineClips,
+  clampTrimPatch,
+  clipDurationMs,
+  clipRebindOptions,
+  clipTrimBounds,
+  exportManifestSummary,
+  exportReadiness,
+  timelineTotalDurationMs,
+} from './timelineDrawerModel.js';
+import { DELIVERY_METADATA_SOURCE } from './videoDeliveryModel.js';
 import {
   allowedGenerationModes,
   buildCanvasEdges,
@@ -52,7 +78,9 @@ import {
   selectionReferencePayload,
   shotGenerationReadiness,
 } from './videoCanvasModel.js';
+import { reusableProjectAssets, candidateJobsForProject, nextShotPosition, nextTimelinePosition, selectedCandidateForShot } from './videoProjectWorkbenchModel.js';
 import { availableUploadedAssets } from './videoProjectWorkbenchModel.js';
+import { quoteForVideoProduct } from './videoStudioModel.js';
 import './VideoCanvasWorkbench.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -125,6 +153,16 @@ export default function VideoCanvasWorkbench({
   const [shotDrafts, setShotDrafts] = useState({});
   const [shotErrors, setShotErrors] = useState({});
   const [trackedJobs, setTrackedJobs] = useState({});
+  // P2 右栏导演检查器：决策卡 / 改稿对话
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [decisions, setDecisions] = useState(emptyDecisionState);
+  const [tweak, setTweak] = useState({ shotId: '', instruction: '', chips: [] });
+  // P2 底部时间线抽屉
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [clipDrafts, setClipDrafts] = useState({});
+  const [clipError, setClipError] = useState('');
+  const [exportManifest, setExportManifest] = useState(null);
+  const [exportBusy, setExportBusy] = useState(false);
 
   const stageRef = useRef(null);
   const requestSequenceRef = useRef(0);
@@ -175,6 +213,18 @@ export default function VideoCanvasWorkbench({
     (Array.isArray(asset?.versions) ? asset.versions : [])
       .map(version => version?.metadata?.sourceProjectAssetRef?.projectAssetId)
       .filter(Boolean))), [workbench]);
+  // P2 接收侧：其他画布/电商套图「发往视频项目」送达的素材（按投递元数据识别）。
+  const deliveredAssets = useMemo(() => (Array.isArray(workbench?.assets) ? workbench.assets : []).filter(asset =>
+    (Array.isArray(asset?.versions) ? asset.versions : []).some(version => version?.metadata?.source === DELIVERY_METADATA_SOURCE)), [workbench]);
+  // P2 右栏检查器派生数据
+  const decisionItems = useMemo(() => decisionQueueItems(decisions), [decisions]);
+  const decisionPromptParts = useMemo(() => confirmedDecisionPromptParts(decisions), [decisions]);
+  const eventGroups = useMemo(() => shotEventGroups({ shots, trackedJobs, planShots: plan?.shots || [] }), [shots, trackedJobs, plan]);
+  // P2 时间线抽屉派生数据
+  const timelineClips = useMemo(() => activeTimelineClips(workbench), [workbench]);
+  const timelineTotalMs = useMemo(() => timelineTotalDurationMs(timelineClips), [timelineClips]);
+  const exportReady = useMemo(() => exportReadiness(workbench), [workbench]);
+  const manifestSummary = useMemo(() => exportManifestSummary(exportManifest), [exportManifest]);
 
   const setShotError = useCallback((shotId, message) => {
     setShotErrors(current => ({ ...current, [shotId]: message }));
@@ -315,7 +365,7 @@ export default function VideoCanvasWorkbench({
   }, [busy, plan, projectId]);
 
   // ── 单镜流：镜头节点发起生成（复用现有 provider-neutral 生成链）─────────
-  const initiateShotGeneration = useCallback(async (shot) => {
+  const initiateShotGeneration = useCallback(async (shot, { promptOverride = '', extraPromptParts = [] } = {}) => {
     if (!projectId || !shot?.id) return;
     const readiness = shotGenerationReadiness(gate, { planningOnly });
     if (!readiness.ok) {
@@ -343,9 +393,10 @@ export default function VideoCanvasWorkbench({
       const apiMode = resolveCanvasApiMode(intent.mode, referenceNodes);
       const cameraChip = CAMERA_MOVE_CHIPS.find(chip => chip[0] === intent.cameraMove);
       const promptParts = [
-        shot.prompt || intent.goal || ('围绕「' + (shot.purpose || '商品短片') + '」完成这一镜'),
+        promptOverride || shot.prompt || intent.goal || ('围绕「' + (shot.purpose || '商品短片') + '」完成这一镜'),
         intent.sellingPoints ? ('卖点：' + intent.sellingPoints) : '',
         cameraChip ? ('运镜：' + cameraChip[1]) : '',
+        ...extraPromptParts,
       ].filter(Boolean);
       const created = await createVideoJob({
         projectId,
@@ -560,6 +611,121 @@ export default function VideoCanvasWorkbench({
     void runMutation('import:' + job.id, () => importJobCandidate(projectId, shot.id, { generationJobId: job.id }));
   }
 
+  // ── P2 右栏导演检查器：决策卡 / 任务事件流 / 改稿对话 ───────────────────
+  function toggleDecisionOption(cardId, value) {
+    setDecisions(current => ({
+      ...current,
+      values: { ...current.values, [cardId]: current.values[cardId] === value ? '' : value },
+      confirmed: { ...current.confirmed, [cardId]: false },
+    }));
+  }
+
+  function confirmDecision(cardId) {
+    setDecisions(current => ({ ...current, confirmed: { ...current.confirmed, [cardId]: true } }));
+  }
+
+  function toggleTweakChip(chipId) {
+    setTweak(current => ({
+      ...current,
+      chips: current.chips.includes(chipId)
+        ? current.chips.filter(id => id !== chipId)
+        : [...current.chips, chipId],
+    }));
+  }
+
+  function handleTweakSubmit(shot) {
+    if (!projectId || !shot?.id) return;
+    const composed = composeTweakPrompt({ basePrompt: shot.prompt || '', instruction: tweak.instruction, chipIds: tweak.chips });
+    const readinessCheck = shotGenerationReadiness(gate, { planningOnly });
+    if (!readinessCheck.ok && !planningOnly) {
+      setShotError(shot.id, readinessCheck.reason);
+      return;
+    }
+    const regen = tweakRegenerationReady({ prompt: composed, gatePhase: gate.phase });
+    if (!regen.ok && !planningOnly) {
+      setShotError(shot.id, regen.reason);
+      return;
+    }
+    void runMutation('tweak:' + shot.id, async () => {
+      await updateStoryboardShot(projectId, shot.id, {
+        expectedRevision: shot.revision,
+        patch: { prompt: composed.slice(0, 4000) },
+      });
+      await loadWorkbench(projectId, { quiet: true });
+      if (!planningOnly) {
+        await initiateShotGeneration({ ...shot, prompt: composed }, {
+          promptOverride: composed,
+          extraPromptParts: decisionPromptParts,
+        });
+      }
+    });
+    setTweak(current => ({ ...current, instruction: '' }));
+  }
+
+  // ── P2 时间线抽屉：trim 手柄接字段 / 候选换绑 / 导出清单 ─────────────────
+  function updateClipDraft(clip, field, value) {
+    setClipDrafts(current => ({
+      ...current,
+      [clip.id]: {
+        start: current[clip.id]?.start ?? clip.trimStartMs / 1000,
+        end: current[clip.id]?.end ?? clip.trimEndMs / 1000,
+        [field]: value,
+      },
+    }));
+  }
+
+  function handleSaveClipTrim(clip) {
+    const draft = clipDrafts[clip.id];
+    if (!draft || !projectId) return;
+    const shot = shots.find(item => item.id === clip.shotId);
+    let patch;
+    try {
+      patch = clampTrimPatch({ clip, shot, trimStartMs: Number(draft.start) * 1000, trimEndMs: Number(draft.end) * 1000 });
+    } catch (trimError) {
+      setClipError(trimError.message);
+      return;
+    }
+    setClipError('');
+    void runMutation('timeline:trim:' + clip.id, () => updateTimelineClip(projectId, clip.id, {
+      expectedRevision: clip.revision,
+      patch,
+    }));
+  }
+
+  function handleReplaceTimelineClipCandidate(clip, candidateId) {
+    if (!projectId || !candidateId) return;
+    void runMutation('timeline:replace:' + clip.id, () => replaceTimelineClipCandidate(projectId, clip.id, {
+      expectedRevision: clip.revision,
+      candidateId,
+    }));
+  }
+
+  function handleAddClipToTimeline(shot, candidate) {
+    if (!projectId || !shot?.id || !candidate?.id) return;
+    void runMutation('timeline:add:' + shot.id, () => applyShotCandidateToTimeline(projectId, shot.id, {
+      candidateId: candidate.id,
+      expectedShotRevision: shot.revision,
+      position: nextTimelinePosition(workbench?.timelineClips),
+      trimStartMs: 0,
+      trimEndMs: shot.durationMs,
+      muted: false,
+    }));
+  }
+
+  async function handleCreateExportManifest() {
+    if (!projectId || exportBusy || !exportReady.ok) return;
+    setExportBusy(true);
+    setError('');
+    try {
+      const manifest = await createVideoExportManifest(projectId);
+      setExportManifest(manifest);
+    } catch (exportError) {
+      setError(displayError(exportError));
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
   function handleCreateShot() {
     if (!projectId) return;
     const purpose = (intent.goal || '新镜头').slice(0, 120);
@@ -631,6 +797,12 @@ export default function VideoCanvasWorkbench({
         <input value={newProjectTitle} maxLength={80} placeholder="新项目名称" onChange={event => setNewProjectTitle(event.target.value)} />
         <button type="submit" disabled={Boolean(busy) || !newProjectTitle.trim()}><Plus size={14} />建立</button>
       </form>
+      <button type="button" className={'vcb-drawer-toggle' + (inspectorOpen ? ' is-open' : '')} aria-label="切换导演检查器" aria-pressed={inspectorOpen} onClick={() => setInspectorOpen(current => !current)}>
+        <Gauge size={15} />导演检查器
+      </button>
+      <button type="button" className={'vcb-drawer-toggle' + (timelineOpen ? ' is-open' : '')} aria-label="切换时间线抽屉" aria-pressed={timelineOpen} onClick={() => setTimelineOpen(current => !current)}>
+        <ListVideo size={15} />时间线{timelineClips.length ? ' · ' + timelineClips.length : ''}
+      </button>
       <button type="button" className="vcb-refresh" aria-label="刷新画布工作台" disabled={Boolean(busy) || loading} onClick={() => { void loadWorkbench(projectId); }}>
         <RefreshCw size={15} />
       </button>
@@ -643,7 +815,7 @@ export default function VideoCanvasWorkbench({
 
     {!projectId && <div className="vcb-empty"><Clapperboard size={26} /><strong>先选择或建立一个视频项目</strong><span>项目承载素材版本、分镜、候选与时间线。</span></div>}
 
-    {projectId && <div className="vcb-columns">
+    {projectId && <div className={'vcb-columns' + (inspectorOpen ? ' has-inspector' : '')}>
       <aside className="vcb-left" aria-label="输入与方案">
         <section className="vcb-card" aria-labelledby="vcb-assets-heading">
           <h3 id="vcb-assets-heading"><ImagePlus size={15} />素材带入</h3>
@@ -676,6 +848,15 @@ export default function VideoCanvasWorkbench({
             {!namedUploads.length && !namedLibrary.length && <li className="is-empty">先在上方快速生成区上传素材，或从项目素材库导入。</li>}
           </ul>
           {!!workbench?.assets?.length && <p className="vcb-approved-count"><Check size={13} />已确认素材 {workbench.assets.length} 个已作为画布素材卡展示。</p>}
+          {deliveredAssets.length > 0 && <div className="vcb-received" data-testid="canvas-delivery-inbox">
+            <span className="vcb-received-title"><SendHorizontal size={13} />从画布发来 · {deliveredAssets.length}</span>
+            <ul>
+              {deliveredAssets.slice(0, 6).map(asset => <li key={asset.id}>
+                <strong>{asset.name || '投递素材'}</strong>
+                <small>{(asset.versions || []).find(version => version?.metadata?.source === DELIVERY_METADATA_SOURCE)?.metadata?.sourceSurface === 'ecommerce-workbench' ? '来自电商套图' : '来自画布'}</small>
+              </li>)}
+            </ul>
+          </div>}
         </section>
 
         <section className="vcb-card" aria-labelledby="vcb-intent-heading">
@@ -769,6 +950,11 @@ export default function VideoCanvasWorkbench({
                   onClick={() => handleSelectCandidate(shot, { id: node.sourceKey })}>
                   {selectedCandidate?.id === node.sourceKey ? '已选定' : '选用此版'}
                 </button>
+                {node.selected && <button type="button" data-no-drag disabled={Boolean(busy)}
+                  title={planningOnly ? 'PLANNING 模式不装配时间线' : '把该候选按镜头时长加入时间线'}
+                  onClick={() => handleAddClipToTimeline(shot, shot?.candidates?.find(item => item.id === node.sourceKey))}>
+                  加入时间线
+                </button>}
               </footer>
             </article>;
           }
@@ -849,6 +1035,150 @@ export default function VideoCanvasWorkbench({
           {shots.length === 0 && <span>还没有镜头：框选素材后在生成条里「存为新镜头」，再点镜头上的「发起生成」。</span>}
         </footer>
       </div>
+
+      {inspectorOpen && <aside className="vcb-inspector" aria-label="导演检查器">
+        {/* 分区一：决策卡队列——未确认不写入提示词、不产生扣费任务 */}
+        <section className="vcb-card vcb-decisions" data-testid="decision-card-queue" aria-labelledby="vcb-decisions-heading">
+          <h3 id="vcb-decisions-heading"><Gauge size={15} />决策卡队列</h3>
+          <p className="vcb-card-hint">视角 / 风格 / 节奏 / 镜权重。确认后才并入镜头提示词；确认前不产生任何扣费。</p>
+          {decisionItems.map(item => <div key={item.id} className={'vcb-decision' + (item.confirmed ? ' is-confirmed' : '')}>
+            <header><strong>{item.title}</strong>
+              {item.confirmed
+                ? <small className="is-ok">已确认{item.valueLabel ? ' · ' + item.valueLabel : ''}</small>
+                : <small>{item.value ? '待确认（未确认不扣费）' : '未选择'}</small>}
+            </header>
+            <div className="vcb-decision-options">
+              {item.options.map(([value, label]) => (
+                <button key={value} type="button" data-no-drag
+                  className={item.value === value ? 'is-selected' : ''}
+                  onClick={() => toggleDecisionOption(item.id, value)}>{label}</button>
+              ))}
+            </div>
+            {!!item.value && !item.confirmed && <button type="button" data-no-drag className="vcb-decision-confirm" onClick={() => confirmDecision(item.id)}>
+              <Check size={12} />确认{item.title}
+            </button>}
+          </div>)}
+          {!!decisionPromptParts.length && <p className="vcb-gate-hint is-ok">已确认决策将并入每次生成的提示词：{decisionPromptParts.join('；')}</p>}
+        </section>
+
+        {/* 分区二：任务事件流按镜分组——就近重试 + 显示扣费（预估） */}
+        <section className="vcb-card vcb-events" data-testid="task-event-stream" aria-labelledby="vcb-events-heading">
+          <h3 id="vcb-events-heading"><Clock3 size={15} />任务事件流</h3>
+          {!eventGroups.length && <p className="vcb-card-hint">还没有任务。批准方案后点镜头上的「发起生成」，事件会按镜分组显示在这里。</p>}
+          {eventGroups.map(group => <div key={group.shotId} className="vcb-event-group">
+            <header><strong>{group.label}</strong><small>{group.purpose || '—'}{group.points != null ? ` · 约 ${group.points} 积分（预估）` : ''}</small></header>
+            <ul>
+              {group.events.map(event => <li key={event.jobId} className={'is-' + event.tone}>
+                <span>{event.text}</span>
+                {event.retryable && <button type="button" data-no-drag onClick={() => {
+                  const shot = shots.find(item => item.id === group.shotId);
+                  if (shot) void initiateShotGeneration(shot, { extraPromptParts: decisionPromptParts });
+                }}>就近重试</button>}
+              </li>)}
+            </ul>
+          </div>)}
+        </section>
+
+        {/* 分区三：改稿对话——运镜词 chips 注入重生成 */}
+        <section className="vcb-card vcb-tweaks" data-testid="chat-tweaks" aria-labelledby="vcb-tweaks-heading">
+          <h3 id="vcb-tweaks-heading"><MessageSquareText size={15} />改稿对话</h3>
+          <label><span>改哪一镜</span>
+            <select value={tweak.shotId} onChange={event => setTweak(current => ({ ...current, shotId: event.target.value }))} disabled={Boolean(busy) || !shots.length}>
+              <option value="">自动选第一镜</option>
+              {shots.map((shot, index) => <option key={shot.id} value={shot.id}>镜头 {String(index + 1).padStart(2, '0')} · {shot.purpose || '未命名'}</option>)}
+            </select>
+          </label>
+          <div className="vcb-camera-chips" aria-label="改稿运镜 chips">
+            {CHAT_TWEAK_CHIPS.map(chip => (
+              <button key={chip[0]} type="button" data-no-drag
+                className={tweak.chips.includes(chip[0]) ? 'is-selected' : ''}
+                onClick={() => toggleTweakChip(chip[0])}>{chip[1]}</button>
+            ))}
+          </div>
+          <label><span>自然语言微调</span>
+            <textarea rows={2} maxLength={600} value={tweak.instruction} placeholder="例如：产品再亮一点，结尾停在logo"
+              onChange={event => setTweak(current => ({ ...current, instruction: event.target.value }))} />
+          </label>
+          <button type="button" data-no-drag className="vcb-tweak-send" disabled={Boolean(busy) || !shots.length}
+            title={planningOnly ? 'PLANNING 模式只改写提示词，不发起扣费重生成' : '保存新提示词并就地重生成这一镜'}
+            onClick={() => {
+              const shot = shots.find(item => item.id === tweak.shotId) || shots[0];
+              if (shot) handleTweakSubmit(shot);
+            }}>
+            <SendHorizontal size={13} />{planningOnly ? '应用改稿（仅改写）' : '注入并重生成'}
+          </button>
+          <small className="vcb-gate-hint">重生成走既有审批门与账务：未批准方案时只会保存提示词，不会创建扣费任务。</small>
+        </section>
+      </aside>}
     </div>}
+
+    {projectId && timelineOpen && <section className="vcb-timeline" data-testid="timeline-drawer" aria-label="时间线抽屉">
+      <header>
+        <strong><ListVideo size={14} />时间线</strong>
+        <small>{timelineClips.length} 个片段 · 共 {(timelineTotalMs / 1000).toFixed(1)} 秒（按裁剪后计）</small>
+        <span className="vcb-timeline-note">导出先产出清单；ffmpeg 真渲染在 P3 接入。</span>
+      </header>
+      {!timelineClips.length && <p className="vcb-card-hint">时间线还没有片段：点候选卡上的「加入时间线」，把选定候选装配成片。</p>}
+      <ul className="vcb-clip-list">
+        {timelineClips.map(clip => {
+          const shot = shots.find(item => item.id === clip.shotId);
+          const bounds = clipTrimBounds(clip, shot);
+          const draft = clipDrafts[clip.id] || { start: bounds.startMs / 1000, end: bounds.endMs / 1000 };
+          const rebindOptions = clipRebindOptions(workbench, clip);
+          return <li key={clip.id} className="vcb-clip">
+            <div className="vcb-clip-head">
+              <strong>{shot?.purpose || '镜头片段'}</strong>
+              <small>{(clipDurationMs(clip) / 1000).toFixed(1)}s{clip.muted ? ' · 静音' : ''}</small>
+            </div>
+            {/* trim 手柄接字段：入点/出点手柄与数字字段双向绑定 trimStartMs / trimEndMs */}
+            <div className="vcb-trim" role="group" aria-label={'裁剪' + (shot?.purpose || '片段')}>
+              <label><span>入点</span>
+                <input type="number" min={bounds.minMs / 1000} max={bounds.maxMs / 1000} step={0.1}
+                  value={draft.start}
+                  onChange={event => updateClipDraft(clip, 'start', Number(event.target.value))} />
+              </label>
+              <input className="vcb-trim-handle is-start" type="range" aria-label="入点手柄"
+                min={bounds.minMs / 1000} max={bounds.maxMs / 1000} step={0.1}
+                value={Math.min(Number(draft.start) || bounds.startMs / 1000, Number(draft.end) || bounds.endMs / 1000)}
+                onChange={event => updateClipDraft(clip, 'start', Number(event.target.value))} />
+              <input className="vcb-trim-handle is-end" type="range" aria-label="出点手柄"
+                min={bounds.minMs / 1000} max={bounds.maxMs / 1000} step={0.1}
+                value={Math.max(Number(draft.end) || bounds.endMs / 1000, Number(draft.start) || bounds.startMs / 1000)}
+                onChange={event => updateClipDraft(clip, 'end', Number(event.target.value))} />
+              <label><span>出点</span>
+                <input type="number" min={bounds.minMs / 1000} max={bounds.maxMs / 1000} step={0.1}
+                  value={draft.end}
+                  onChange={event => updateClipDraft(clip, 'end', Number(event.target.value))} />
+              </label>
+              <button type="button" data-no-drag disabled={Boolean(busy)} onClick={() => handleSaveClipTrim(clip)}>应用裁剪</button>
+            </div>
+            {!!rebindOptions.length && <div className="vcb-rebind" aria-label="换绑候选">
+              <span>换绑：</span>
+              {rebindOptions.slice(0, 3).map(option => <button key={option.candidateId} type="button" data-no-drag
+                disabled={Boolean(busy)}
+                title={option.isCurrentSelected ? '当前选定候选' : option.label}
+                onClick={() => handleReplaceTimelineClipCandidate(clip, option.candidateId)}>{option.label}</button>)}
+            </div>}
+          </li>;
+        })}
+      </ul>
+      {clipError && <p className="vcb-clip-error" role="alert"><CircleAlert size={13} />{clipError}</p>}
+      <footer className="vcb-export" data-testid="export-manifest-panel">
+        <button type="button" data-no-drag className="vcb-export-btn" disabled={!exportReady.ok || exportBusy || Boolean(busy)}
+          title={exportReady.ok ? '生成可交接的导出清单（含字幕与音轨）' : exportReady.reason}
+          onClick={() => void handleCreateExportManifest()}>
+          {exportBusy ? <LoaderCircle size={14} className="is-spinning" /> : <Layers3 size={14} />}生成导出清单
+        </button>
+        {manifestSummary && <div className="vcb-manifest-summary" role="status">
+          <strong>清单已生成{manifestSummary.replayed ? '（复用既有清单）' : ''}</strong>
+          <ul>
+            <li>{manifestSummary.clipCount} 个片段 · {(manifestSummary.totalDurationMs / 1000).toFixed(1)} 秒</li>
+            <li>{manifestSummary.options.resolution?.toUpperCase()} · {String(manifestSummary.options.fps || '')}fps · {String(manifestSummary.options.format || '').toUpperCase()}</li>
+            <li>音轨 {manifestSummary.audioTrackCount} 条 · 字幕 {manifestSummary.subtitleCueCount} 条</li>
+            <li>哈希 {manifestSummary.manifestHash.slice(0, 12)}… · 渲染器 {manifestSummary.renderer}{manifestSummary.rendered === false ? '（P3 真渲染接入前不产出成片）' : ''}</li>
+          </ul>
+        </div>}
+      </footer>
+    </section>}
   </section>;
 }

@@ -85,6 +85,8 @@ import { quoteBillingAction } from '../../services/billing.js';
 import { analyzeVideoPlan, createVideoJob, getVideoJob, uploadVideoAsset } from '../../services/video.js';
 import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
 import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/videoStudioModel.js';
+import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
+import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
 import './EcCanvas.css';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
@@ -558,6 +560,7 @@ export default function EcCanvas() {
   const [detailOrderIds, setDetailOrderIds] = useState([]);
   const [connectionPicker, setConnectionPicker] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
+  const [videoDelivery, setVideoDelivery] = useState(null); // P2: 发往视频项目对话框状态 {refs, surface}
   const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
   const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
@@ -4112,6 +4115,17 @@ export default function EcCanvas() {
       showToast(failed ? '素材加入素材库失败，请重试' : '作品素材已全部在素材库中', failed ? 'error' : 'info');
     }
   }, [showToast]);
+  // P2 跨域投递入口 a：选中套图产物/节点 → 「发往视频项目」。
+  const selectedNodeVideoDelivery = useMemo(() => deliverableRefFromNodes(selectedNode ? [selectedNode] : []), [selectedNode]);
+  const handleSendSelectedToVideoProject = useCallback(node => {
+    const refs = deliverableRefFromNodes(node ? [node] : []);
+    if (!refs.length) return showToast('该节点尚未登记为项目素材，暂不能跨域投递', 'info');
+    setVideoDelivery({ refs, surface: DELIVERY_SOURCE_SURFACES.ecCanvas });
+  }, [showToast]);
+  const handleVideoDelivered = useCallback(({ projectId }) => {
+    setVideoDelivery(null);
+    showToast(`已发往视频项目，可在视频创作工作台「从画布发来」查看（项目 ${String(projectId).slice(-6)}）`, 'success');
+  }, [showToast]);
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
@@ -4710,7 +4724,7 @@ export default function EcCanvas() {
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
-            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
             {selectionPanelsVisible && <CanvasDeriveMenu
               actions={portCreationActions}
               position={clampCanvasPickerPosition({ world: { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y }, viewport, bounds: containerRef.current?.getBoundingClientRect() })}
@@ -5086,6 +5100,15 @@ export default function EcCanvas() {
           onAction={handleToolAction}
         />
       )}
+
+      {/* P2: 跨域投递对话框（EcCanvas → 视频项目） */}
+      <VideoProjectDeliveryDialog
+        open={Boolean(videoDelivery)}
+        refs={videoDelivery?.refs || []}
+        surface={videoDelivery?.surface || ''}
+        onClose={() => setVideoDelivery(null)}
+        onDelivered={handleVideoDelivered}
+      />
 
       {imageInfoNode && (
         <div role="dialog" aria-modal="true" aria-labelledby="canvas-image-info-title" style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.38)', display: 'grid', placeItems: 'center', padding: 20 }}>

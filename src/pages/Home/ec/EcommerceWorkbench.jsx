@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Clapperboard, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
 import { buildImageMentions, removeImageMention } from '../../../components/creation/imageMentionModel.js';
+import VideoProjectDeliveryDialog from '../../VideoStudio/VideoProjectDeliveryDialog.jsx';
+import { DELIVERY_SOURCE_SURFACES, deliverableRefFrom } from '../../VideoStudio/videoDeliveryModel.js';
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 import { productionCaseById } from '../productionCaseCatalog.js';
@@ -35,6 +37,22 @@ function AbilitySelectorFan({ recipeId }) {
 
 const ImageCard = EcommerceImageCard;
 const AddCard = EcommerceAddCard;
+
+// P2 跨域投递入口 b：电商套图成图卡 → 「发往视频项目」。
+// 仅当图片带 canonical 引用（projectId + projectAssetId + 内容哈希，
+// 如素材库/商品档案带入的图）时浮出按钮；投递链路复用既有 API。
+function DeliverableImageCard({ image, deliverLabel, onRemove, onSendToVideo }) {
+  const ref = deliverableRefFrom(image);
+  if (!ref) return <ImageCard role={deliverLabel.role} image={image} label={deliverLabel.label} index={deliverLabel.index} onRemove={onRemove} />;
+  return (
+    <span className="ec-xhs-card-deliver-wrap" data-video-delivery-card="true">
+      <ImageCard role={deliverLabel.role} image={image} label={deliverLabel.label} index={deliverLabel.index} onRemove={onRemove} />
+      <button type="button" className="ec-xhs-card-send-video" aria-label={`发往视频项目：${deliverLabel.label}`} title="把这张成图发往视频项目（可绑镜头首帧）" onClick={() => onSendToVideo?.(ref)}>
+        <Clapperboard size={11} /><span>发往视频</span>
+      </button>
+    </span>
+  );
+}
 
 function TryOnImageStack({ images, label, role, onRemove, onAdd, max = 5 }) {
   return (
@@ -240,6 +258,8 @@ export default function EcommerceWorkbench({
   const sceneInputRef = useRef(null);
   const promptFieldRef = useRef(null);
   const [mentionedIds, setMentionedIds] = useState([]);
+  const [videoDelivery, setVideoDelivery] = useState(null); // P2: {refs, surface}
+  const handleSendToVideoProject = ref => setVideoDelivery({ refs: [ref], surface: DELIVERY_SOURCE_SURFACES.ecommerceWorkbench });
   const [libraryPickerRole, setLibraryPickerRole] = useState(null);
   const isTryOn = abilityRecipeId === 'anything_tryon';
   const deck = buildUploadDeck({ productImages, refImages });
@@ -320,10 +340,10 @@ export default function EcommerceWorkbench({
             </div>
           ) : (
             <div className="ec-xhs-media-strip">
-              {deck.productRail.map((image, index) => <ImageCard key={`product-${image.url}-${index}`} role="product" image={image} label={nextProductSlot(index).label} index={index} onRemove={onRemoveProduct} />)}
+              {deck.productRail.map((image, index) => <DeliverableImageCard key={`product-${image.url}-${index}`} image={image} deliverLabel={{ role: 'product', label: nextProductSlot(index).label, index }} onRemove={onRemoveProduct} onSendToVideo={handleSendToVideoProject} />)}
               <AddCard role="product" label={productImages.length ? nextSlot.label : '产品图'} meta={productImages.length ? '建议补充' : '清晰商品图'} title={nextSlot.hint} onClick={() => productInputRef.current?.click()} />
               <span className="ec-xhs-multiply" aria-hidden="true">×</span>
-              {deck.referenceRail.map((image, index) => <ImageCard key={`reference-${image.url}-${index}`} role="reference" image={image} label={`参考图 ${index + 1}`} index={index} onRemove={onRemoveReference} />)}
+              {deck.referenceRail.map((image, index) => <DeliverableImageCard key={`reference-${image.url}-${index}`} image={image} deliverLabel={{ role: 'reference', label: `参考图 ${index + 1}`, index }} onRemove={onRemoveReference} onSendToVideo={handleSendToVideoProject} />)}
               <AddCard role="reference" label="参考图" meta={refImages.length ? '继续添加' : '竞品或风格'} title="可上传竞品主图、详情图、店铺视觉或希望借鉴的风格图片" onClick={() => referenceInputRef.current?.click()} />
               {onPickFromLibrary && (
                 <button type="button" onClick={() => setLibraryPickerRole('library')} aria-label="从素材库选择" style={{ minWidth: 96, height: '100%', minHeight: 120, padding: '10px 8px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
@@ -358,6 +378,14 @@ export default function EcommerceWorkbench({
           title="从素材库选择商品/参考图"
         />
       )}
+
+      {/* P2: 跨域投递对话框（电商套图 → 视频项目） */}
+      <VideoProjectDeliveryDialog
+        open={Boolean(videoDelivery)}
+        refs={videoDelivery?.refs || []}
+        surface={videoDelivery?.surface || ''}
+        onClose={() => setVideoDelivery(null)}
+      />
     </section>
   );
 }
