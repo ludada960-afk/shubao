@@ -31,6 +31,12 @@ test('profile rail renders as a floating overlay drawer that never squeezes the 
   assert.match(rail, /ec-profile-rail-scrim/);
   assert.match(rail, /aria-label="关闭商品档案抽屉"/);
   assert.match(rail, /event\.key === 'Escape'/);
+  // 层级契约：抽屉必须 Portal 到 body。若留在 .surface-card(z-index:4) 子树内，
+  // fixed z-1300 被祖先层叠上下文封顶，会被 app-side-nav(z-200) 等页面浮层盖住
+  // （浏览器 elementFromPoint 实证）。Portal 后高于页面浮层、低于全局模态。
+  assert.match(rail, /createPortal\(rail, document\.body\)/);
+  assert.doesNotMatch(css, /z-index:\s*(?:1[4-9]\d{3}|[2-9]\d{3,})/); // 不靠堆更高数字硬压全局模态
+  assert.match(css, /\.ec-profile-rail\s*\{[^}]*z-index:\s*1300;/);
   assert.match(ecMode, /setProductProfilesOpen\] = useState\(false\)/);
   assert.doesNotMatch(css, /\.ec-profile-rail\.is-collapsed/);
   // 入口唯一性：组件与样式层面都不再存在任何独立入口钮。

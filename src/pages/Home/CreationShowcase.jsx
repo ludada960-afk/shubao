@@ -62,7 +62,7 @@ function ContentPreview({ entry, plog = false, onOpen }) {
   return (
     <div className="creation-showcase-content-preview">
       <div className="creation-showcase-content-images">
-        {pages.map(page => <button type="button" className={`creation-showcase-content-image image-${page.index + 1}`} key={`${page.src}-${page.index}`} onClick={() => onOpen?.(page.index)} aria-label={`放大查看${page.alt}`}><ResponsiveImage className="creation-showcase-content-image-media" src={page.src} variant="thumb" ratio="auto" alt={page.alt} loading="eager" fetchPriority={page.index === 0 ? 'high' : 'auto'} style={{ width: '100%', height: '100%' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
+        {pages.map(page => <button type="button" className={`creation-showcase-content-image image-${page.index + 1}`} key={`${page.src}-${page.index}`} onClick={() => onOpen?.(page.index)} aria-label={`放大查看${page.alt}`}><ResponsiveImage className="creation-showcase-content-image-media" src={page.src} variant="thumb" ratio="auto" alt={page.alt} priority={page.index === 0} loading={page.index === 0 ? 'eager' : 'lazy'} fetchPriority={page.index === 0 ? 'high' : 'auto'} style={{ width: '100%', height: '100%' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
       </div>
       <div className="creation-showcase-content-copy">
         <span className="creation-showcase-content-platform">小红书 · {source.cat || '图文笔记'}</span>
@@ -104,8 +104,8 @@ function ContentShowcase({ entry, subMode = 'content' }) {
       }
     : {
         eyebrow: '小红书图文 · 真实案例',
-        title: '厦门 3 天 2 夜，一套图文直接发布',
-        description: '从一句旅行主题开始，统一生成封面、行程图片、标题、正文和标签，用户可以直接检查和编辑。',
+        title: '一句话，到一套能直接发布的图文',
+        description: '封面、配图、标题、正文和标签一次成套生成。下方为真实生成的成品案例，可逐张检查、编辑后直接发布。',
         entry: entry || GALLERY.find(item => item.id === 'xm'),
       };
   return (

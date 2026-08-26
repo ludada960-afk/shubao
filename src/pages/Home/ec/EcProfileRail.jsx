@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Archive,
   BookOpen,
@@ -32,6 +33,10 @@ function groupLabel(role) {
  * 抽屉从左缘覆盖在编辑区之上，不参与 flex 布局，编辑区宽度零影响；
  * 唯一入口是底部生成设置栏的「当前商品」chip（ProductChip），本组件不再渲染任何独立入口钮。
  * 列表 tab = 档案卡片；详情 tab = 档案事实 + 素材聚合。
+ * 层级契约：抽屉必须 Portal 到 body。若留在 .surface-card(z-index:4) 子树内，
+ * fixed+z-index 会被祖先层叠上下文封顶，被 app-side-nav(200)/creative-nav(120)
+ * 等页面浮层盖住（回归实证）；Portal 后抽屉 z-1300 高于页面浮层、低于全局模态
+ * （tryon 预览 1800 / 图库 lightbox 9998+）。
  */
 export default function EcProfileRail({
   open = true,
@@ -69,7 +74,8 @@ export default function EcProfileRail({
     detailMedia.filter(item => item.role === role),
   ]).filter(([, items]) => items.length > 0);
 
-  return (
+  // Portal 到 body：脱离 .surface-card 等祖先层叠上下文，保证 fixed 层级不被封顶。
+  const rail = (
     <aside
       id="ec-profile-rail"
       className={`ec-profile-rail${open ? ' is-open' : ' is-closed'}`}
@@ -206,4 +212,7 @@ export default function EcProfileRail({
       )}
     </aside>
   );
+
+  if (typeof document === 'undefined') return rail;
+  return createPortal(rail, document.body);
 }
