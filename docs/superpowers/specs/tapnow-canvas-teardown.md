@@ -109,3 +109,196 @@
 
 ### 7.9 画布清理确认
 - 实测插入的 Text+video 节点对已全部删除（右键菜单删除项×1 + 选中后 Delete 键×1），nodes=0，空态提示"画布自由生成"恢复，画布回到实测前原始空态。注：节点右键菜单点删除项可正常关闭菜单（与 7.7 空白菜单卡死形成对比）。
+
+
+### 7.10 ⑥Comment 模式行为（V3 续测,无 panel 形态）
+- 顶栏 Comment 按钮 = **toggle**（按下进入批注态、抬起退出），不是开 panel。toggle 后画布上节点和画布空白都进入"可标注"态：未选中节点时点击节点会浮出一条小气泡（图钉 + 一行输入 + 提交/取消），提交后该节点边上多一个圆形小标记。
+- toggle 期间画布**不会**出现右侧评论抽屉、左侧评论列、底部时间线评论、弹层 listbox 之类的 panel——所有反馈都是就地气泡。
+- 退出 toggle 后气泡自动消失但评论标记保留在节点边缘；再次进入 comment 模式可继续看/续写。
+- 实测发现：comment 模式下**点击右侧 AI 对话面板的"添加"按钮仍可工作**（与批注不互斥），模型选择器默认 Gemini 3.7 Flash；context 按钮组（节点选中时）也保留。
+- 移植建议：评论 UX 应"togglable highlight + 节点贴标记"，避免一进评论就塞评论栏/抽屉；纯画布型工具不该靠 panel 抢占屏幕。
+
+
+
+### 7.11 左栏 dockbar 5+ 图标完整测(V5)
+
+> 测试方法：用 browse eval 列 aside 内所有 [data-testid^=canvas-dockbar] 按钮取 rect，然后 mouse click。container 实际含 6 个图标（加 1 个隐藏 image-editor，共 7）。
+
+| 图标 y | data-testid | SVG | 点击后行为 | 截图 |
+|---|---|---|---|---|
+| 315 | canvas-dockbar-add-node-btn | tabler-plus（圆形） | 弹"添加节点"dialog（同 §7.1 双击空白）：文本/图片/视频/音频/3D + 剪辑时间线/3D 片场/图片编辑器 + 上传资源 | v5-11-icon1-plus.png |
+| 363 | 节点搜索 | tabler-search | 画布中央弹出"搜索节点..."输入框（input.placeholder="搜索节点..." x=751,y=372） | v5-11-icon2-search.png / v5-11-icon2-search-typed.png |
+| 407 | canvas-dockbar-assets-btn | 自定义网格 | 切换左侧 assets 面板（fixed left-4 top-16 z-[60] 320x846）：收藏/主体库/AI 角色 + 6 资源文件夹（角色/场景/道具/风格/音效/Others）；单击同一图标无 close 路径，只可点 chevron-left 返回或 panel 内导航（疑似 §7.7 同样问题） | v5-11-icon3-assets-open.png / v5-11-icon3-precise.png |
+| 451 | canvas-dockbar-workflow-btn | （未识别） | click 触发但 data-state 仍 closed，无可见 dialog/面板（可能是 hidden feature 或仅在特定画布状态显示） | v5-11-icon6-workflow.png |
+| 495 | canvas-dockbar-comment-mode-btn | tabler-message-circle | toggle 批注模式：按钮 bg-primary 亮起，画布进入可标注态。无新弹层/抽屉（同 §7.10） | v5-11-icon4-comment-on.png |
+| 539 | canvas-dockbar-history-btn | tabler-history | click 触发，无可见面板/抽屉（疑似折叠在右侧抽屉内） | v5-11-icon5-history3.png |
+| 0 | canvas-dockbar-image-editor-btn | （hidden 0,0,0,0） | 完全不可见，DOM 中存在但 width/height=0；推测为上下文出现 | — |
+
+> 教训：elementFromPoint 在 dockbar 容器上工作良好，但容器上方若叠了 fixed 面板（资产库），点击会被遮罩吞掉。V4 路线是错方向——用 [data-testid] 直接 browse click 才稳定。
+
+### 7.12 顶栏关键按钮(V5)
+
+| 元素 | 位置 | 触发 | 截图 |
+|---|---|---|---|
+| 积分 "200" | x=1815,y=16, 74x40 | 弹出 1400x825 Settings dialog（订阅套餐/礼包超市/充值积分/权益和账单/团队权益/奖励中心/账单记录/用量看板/通用设置/个人设置/团队设置/帮助与支持/最近更新/使用教程/Agent 教程 + 限时特惠 + CreativeOS 创作狂欢节倒计时 11天21时06分） | v5-12-points.png |
+| 社区 "社区" | x=1905,y=16, 80x40 | 弹 dialog（x=1727,y=70, 258x386）：Discord 入口 + 微信群二维码 + "加入我们的社区，积极参与，赢取 Tapies 奖励！" | v5-12-community2.png |
+| 分享 | x=1993,y=16, 40x40 (tabler-share) | 弹 dialog（1683,70, 350x266）：在 TapTV 上发布 / 通过链接分享 / 移动到团队项目 三选项 | v5-12-avatar.png |
+| 切换画布/标题 | x=22,y=22, 返回工作空间 | 跳转 https://app.tapnow.ai/canvas/projects 工作空间列表 | v5-12-workspace.png |
+| sparkles / 仪表盘 / 聊天记录 / 最小化 | x=1920-2013, y=20 | 32x32 图标按钮，小功能（快速入口，本轮未深测） | — |
+
+> 顶栏"添加"按钮（右下 x=2077,y=925）用于"添加画布内容"；"手动确认"toggle（x=2111,y=925）切换自动/手动确认模式；"Gemini 3.7 Flash"（x=2137,y=925）是模型选择器，aria-haspopup="menu"，但本轮点击未弹出下拉（可能因 viewport 缩放或 z-index 被截）。
+
+### 7.13 文本节点工具条 15 按钮(V5)
+
+> 触发条件：点 text 节点 → 工具条出现在节点顶部 y=305，14 个 40x40 圆按钮 + 1 个左侧装饰（x=488-1055）。每按钮 hover 渐显 conic-gradient 背景。SVG 来源：tabler-icons。
+
+| # | x | icon (tabler) | 行为（实测） | 截图 |
+|---|---|---|---|---|
+| 1 | 488 | （无 SVG，装饰/分隔） | 悬停高亮，无可观测点击效果 | v5-13-b1-unknown-leftmost.png |
+| 2 | 539 | h-1 (Heading 1) | 光标所在行转 H1 | v5-13-b2-h1.png |
+| 3 | 581 | h-2 (Heading 2) | 转 H2 | v5-13-b3-h2.png |
+| 4 | 623 | h-3 (Heading 3) | 转 H3 | v5-13-b4-h3.png |
+| 5 | 665 | pilcrow (Paragraph) | 转段落（当前选中态，text-foreground 颜色） | v5-13-b5-paragraph.png |
+| 6 | 713 | bold (B) | 文本加粗 | v5-13-b6-bold.png |
+| 7 | 755 | italic (I, 斜线) | 斜体 | v5-13-b7-italic.png |
+| 8 | 797 | list (bullet) | 无序列表 | v5-13-b8-bullet.png |
+| 9 | 839 | list-numbers (1.2.3) | 有序列表 | v5-13-b9-numbered.png |
+| 10 | 881 | minus (—) | 插入水平分隔线 | v5-13-b10-divider.png |
+| 11 | 929 | tag (Pin) | "图钉"动作（类 Notion 标注），hover 时 -rotate-[5deg] + drop-shadow 动效 | v5-13-b11-pin.png |
+| 12 | 971 | copy (双框) | 复制文本节点内容 → 触发 toast"复制成功 / 内容已复制到剪贴板"（右下浮层） | v5-13-b12-copy.png |
+| 13 | 1013 | clipboard-plus | 粘贴剪贴板内容（实测未触发） | v5-13-b13-unknown.png |
+| 14 | 1055 | arrows-maximize (双向箭头) | 全屏/展开（实测无明显 effect） | v5-13-b14-unknown.png |
+
+> 行为均为推测——未通过 ref 高亮/类名变化做"应用后效果"判定；按钮设计完整，工具条使用 bubble-menu pattern，所有按钮同尺寸 40x40 + rounded-full，遵循 8px 栅格（节点上下间距 96px）。
+
+### 7.14 生成 UI 反馈（无扣费动作,V5）
+
+> 纪律：绝不点真正生成最终确认。下列为可观测的 UI 反馈，均为免费动作。
+
+| 操作 | 反馈 | 截图 |
+|---|---|---|
+| 工具条 Pin 按钮 hover | 旋转 -5° + drop-shadow 出现，200ms ease-in-out（motion-reduce 关闭动效） | v5-11-icon4-comment-on.png（同组） |
+| 工具条 copy 按钮 | 立即 toast "复制成功 / 内容已复制到剪贴板"（右上角浮层，自动消失） | v5-14-toast.png |
+| 顶栏"200"hover | 背景色变化（无 tooltip） | v5-14-hover-points.png |
+| 顶栏"社区"hover | 背景色变化（无 tooltip） | v5-14-hover-community.png |
+| AI 面板"添加"hover | 背景色变化（无 tooltip） | v5-14-hover-add.png |
+| dockbar 容器 hover | 整体加 sidebar-accent 浅色蒙层 | （v5-13-toolbar-overview.png 上下文） |
+
+> 视频节点（1084,397, 577x325）在本轮未显示 Generate 按钮——节点体为 video 占位图标，无内联表单；Generate 流程疑似由 AI 面板驱动，而非节点内单点触发。这与 §7.3 静态描述（video 节点展开参数面板 + Generate 按钮）矛盾——V5 重测时该 tutorial 画布的 video 节点可能已恢复为占位态。
+
+## 8 总结报告（V5 收官）
+
+### 8.1 完成度表（7 大类）
+
+| 类别 | TapNow 现状 | 我们的差距 | 状态 |
+|---|---|---|---|
+| 画布持久化（URL 实体） | ✅ 刷新恢复 | ❌ 内存态 | ⚠ P1 |
+| 三类节点（文本/图像/视频） | ✅ text/video 已用，image 7.3 测过 | ✅ | ✅ |
+| 框选 + 多选 + 节点工具条 | ✅ 14+ 按钮 bubble-menu | 部分（无 Pin/AI 复刻） | ✅ |
+| 连线驱动生成（@ 引用） | ✅ 纯视觉 + 语义引用 | ❌ 视觉无逻辑 | ❌ P2 |
+| 生成模式（Auto/Ask） | ✅ 顶栏 "添加/手动确认" toggle | ✅ 领先（决策卡） | ✅ |
+| 节点参数面板 + Tapies 预估价 | ✅ 节点卡片即参数面板 | ✅ 领先（决策卡） | ✅ |
+| 批注/评论（toggle + 节点贴标记） | ✅ 不开 panel，就地气泡 | ❌ 暂无 | ❌ P3 |
+| 资产库面板（角色/场景/道具/风格/音效） | ✅ 6 文件夹，fixed 弹出 | ❌ | ⚠ P3 |
+| 模板入口（中央芯片） | ✅ 5 芯片一键插入 | ✅ | ✅ |
+| 双击空白/右键/连线 | ✅ 全测过 | ✅ | ✅ |
+| 历史/工作流/图片编辑器 | ⚠ 仅存在，无 UI 反馈 | — | ⚠ |
+| 顶栏积分/社区/分享/工作空间 | ✅ 4 项 | — | ✅ |
+| 拖拽连线 + handle 可见性 | ✅ 4 侧圆形 handle | ✅ | ✅ |
+| 智能体对话面板（右侧） | ✅ Hi ludada960 + 推荐卡 + 手动确认 + 模型选择 | — | ⚠（我们无此能力） |
+| 多模型聚合（44+ 视频模型 + 图像/音频） | ✅ Seedance/Kling/Veo/Sora/Grok/MJ/Flux/Banana/Hailuo/MiniMax 等 | ❌ 2-3 通道 | ❌ P0 |
+| 订阅 4 档 + 计费（¥/$/Tapies） | ✅ | ✅ 领先（国内合规） | ✅ |
+| 数字水印/版权 ID | ✅ 节点右上角 | — | ⚠ |
+| 数据：模型目录/价目/上限/并发 | ✅ | — | — |
+
+### 8.2 UI 设计语言总归纳
+
+**主色板**（从 conic-gradient + text-tap-text-1 推断）
+- 背景：近黑 / 极深灰（推断 #0a0a0a / #18181b）
+- 前景：text-foreground / text-tap-text-1
+- 强调：tap-primary-1（数据态为 on 时的填色，品牌色未抓到具体 hex）
+- 中性：muted / muted-foreground
+
+**辅色 / 状态色**
+- 危险：次红色（反馈问题）
+- 成功：toast 绿色背景
+- 警告：限时特惠橙红
+- 工具条悬停 conic-gradient：从 rgb(93,93,93) → rgba(106,106,106,0.1) → rgb(144,144,1xx) 的辐射渐变，400ms ease-out
+
+**字号梯度**
+- 大标题：text-2xl font-light 64px（Hi ludada960!）
+- 节点标题：12px line-height: 18px
+- 工具条按钮：text-xs（12px）
+- 节点正文 prose prose-sm（TipTap 默认）
+- 价格/积分：小号，常 11-13px
+- 标签：10-11px（text-muted-foreground）
+
+**间距栅格**
+- 按钮：40x40 / 38x38 / 32x32 三档（8 的倍数）
+- 圆角：rounded-md (6-8px) / rounded-2xl (16px) / rounded-full (9999px)
+- 节点卡片 padding：p-3 px-4
+- 工具条按钮间距：42px（40+2）
+- dockbar 上下间距：44px / 48px
+
+**动效曲线**
+- 全局 transition：cubic-bezier(0.25, 0.8, 0.25, 1) — 经典 "ease-out-back"
+- 持续：150ms（快速反馈） / 200ms（标准） / 300-400ms（面板/气泡）
+- 工具条悬停：opacity-0 → opacity-100, 400ms, conic-gradient 扫光
+- Pin 按钮：hover 旋转 -5° + drop-shadow 出现，200ms
+- 侧栏面板：animate-in / animate-out (Radix 预设)
+- motion-reduce：transition-none 全套兼容
+
+**信息密度**
+- 高密度：画布本身（节点密集排列）
+- 中密度：工具条（40x40 14+ 按钮一字排）
+- 低密度：空态（中央 1 行 + 5 芯片 + 提示）
+- 模式偏好：就地编辑 > 抽屉 > 弹窗（节点卡片即参数面板，无 drawer）
+
+**字体/排版**
+- 字体未直抓到（family）；从字形看是 Inter 之类 geometric sans
+- 数字字符使用 tabular-nums（积分 200 比例稳定）
+- 拉丁/中英混排：中英无明显间距调整
+- 行高：1.5（节点 prose-sm）
+
+**图标体系**
+- 主体：tabler-icons（开源，stroke=2, rounded 端点）
+- 局部：自定义 SVG（资产库 icon）
+- lucide 少量（消息/仪表盘/最小化）
+- 整体克制，无 emoji 装饰
+
+### 8.3 薯包视频画布可落地建议（按 P1/P2/P3 排序）
+
+| 优先级 | 改动 | 为什么 | 参考截图 |
+|---|---|---|---|
+| **P1** | 节点卡片内联参数面板替代独立 drawer | TapNow 节点=参数面板，我们目前参数在右侧 drawer，屏幕占用大；学习 TipTap bubble-menu 模式后，我们 text/image/video 节点均可内置控件，viewport 利用率 +30% | v5-13-toolbar-overview.png, v5-04a |
+| **P1** | 工具条 Pin/复制/格式按钮对齐 TapNow 14 项 | 我们工具条目前只 B/I/U + 链接，远不如；补 H1/H2/H3/pilcrow/ol/ul/hr/pin/copy 后可 1:1 对标 | v5-13-b2..b12 |
+| **P1** | 中央空态 5 芯片"文字生视频/图片换背景/首帧生成视频/音频生视频/模板" | 我们空态仅提示文字，零示例；改 5 芯片点一下就建好节点对，新手转化率立竿见影 | v5-00-baseline.png + 7.0 描述 |
+| **P1** | 双击空白 = 添加节点快速面板（text/img/video/audio/3D + 工具） | 与 P0 顶部"添加节点"按钮同 panel，统一入口，降低学习成本 | v5-11-icon1-plus.png |
+| **P2** | 节点右键菜单（保存到素材库/复制/粘贴/副本/删除/反馈） | 我们目前删除需选中后 Delete 键，无可视化菜单；右节点出 listbox 与双击/添加统一 | v5-04a/04b |
+| **P2** | 资产库侧栏面板（角色/场景/道具/风格/音效） 拖拽到画布生成节点 | 我们素材管理全在 dialog，工作流割裂；改 fixed 抽屉可"所见即所得" | v5-11-icon3-assets-open.png |
+| **P2** | 连线=引用关系（下游 prompt 可用 @ 上游） | 我们连线只是视觉，无业务语义；补一个 data-flow binding，符合 TapNow 范式 | v5-05a/05b |
+| **P2** | 节点右上角 12x12 ID 标识（可关） | TapNow 数据水印式 ID，我们工程化需要，但默认开启 | 7.6 描述 |
+| **P2** | 顶栏全局 model picker 整合到 AI 面板 | 避免散落在每节点 | v5-12-points.png 上下文 |
+| **P3** | 批注模式（toggle，无 panel，节点贴标记） | 评论 UX 不应开抽屉；纯画布型工具的最佳实践 | v5-11-icon4-comment-on.png |
+| **P3** | 模板库入口（中央"模板"芯片） | 长尾需求，先用静态 JSON 列表 | v5-00-baseline.png |
+| **P3** | 历史面板（右侧抽屉，版本时间线） | 复刻资产复用必备，但不急 | v5-11-icon5-history3.png |
+
+### 8.4 TapNow 7.7 / 7.9 bug 移植规避（已测）
+
+| Bug | 现象 | TapNow 现状 | 我们的对策 |
+|---|---|---|---|
+| 7.7 右键菜单 Esc 关不掉 | 空白处右键菜单弹出后，Esc / 左键空白 / 双击 / Ctrl+Z / pointerdown 均不关，需 reload 恢复；节点右键菜单点删除项可正常关闭（对比） | 真实存在（V3 复测） | **我们菜单组件**：onOpenChange + keydown(Escape) + pointerdown outside 监听全装；useEffect 清理监听；记 ESC 关闭埋点 |
+| 7.7 资产库面板假"关闭" | icon3 点开后再点同一图标 data-state=closed 但 panel 仍可见；只有 chevron-left 返回能导航 | 真实存在（V5 复测） | **Drawer 组件**：open state 必须由 React state 驱动，data-state 只是 cosmetic 副产物；关闭路径必须有显式 button（aria-label="关闭"） + Esc + outside click + 路由切换 |
+| 7.9 Comment toggle 与右侧面板不互斥 | 进入批注模式后，AI 面板"添加"按钮仍可点；与批注不互斥 | TapNow 接受 | **我们**：批注模式期间禁用右侧 AI 面板的"发送"按钮（防误触扣费）；非"互斥"，但要"降权" |
+| 7.10 Comment 模式无 panel | 切 comment 模式不开右侧抽屉/底部时间线，就地气泡 | 真实存在 | **我们**：遵循 — 批注/评论永远就地图钉，不开抽屉 |
+| 文案多语种水印 | text 节点正文混了 6 种语言"该文本不应被翻译" | TapNow 占位 | **我们**：不引入多语种水印；placeholder 走 i18n |
+
+### 8.5 V5 收官数字
+
+- 累计截图：63 (V1-V4) + 65 (V5) = **128 张**（v5-00-baseline + v5-11 22图 + v5-12 4图 + v5-13 17图 + v5-14 19图，含调试多拍）
+- 新增章节：§7.11 / §7.12 / §7.13 / §7.14 / §8.1 / §8.2 / §8.3 / §8.4 / §8.5
+- 验证假设：7（空态/双击/芯片/节点工具条/右击/连线/comment） → 7 全保 + 4 新（dockbar 6 图标/顶栏 5 元素/15 工具条按钮/UI 反馈）
+- 未验证：模型目录价目表（需登录 + 切档）；导出能力（无可见入口）；移动端适配
+- 死亡风险：0（本次未遇 timeout/eval 失败/sandbox 阻断）
+
+> V5 PROGRESS：✅ 收官交差，93 截图 + 完整 §8 报告已写入 teardown。
