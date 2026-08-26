@@ -7,6 +7,7 @@ import {
   uploadEcommerceAssets,
 } from '../../../services/api';
 import { quoteBillingAction } from '../../../services/billing.js';
+import { attachProductProfileImages } from '../../../services/projects.js';
 import {
   createBoundedRequestLifecycle,
   requestFailureMessage,
@@ -625,6 +626,16 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             assetRoles: semanticAssetRoles,
           } : {}),
         });
+
+        // 生成完成后新资产自动挂到当前商品档案，形成越用越全的闭环；归档失败不阻断交付。
+        const archiveProfileId = String(params?.activeProductProfileId || '').trim();
+        if (archiveProfileId && Array.isArray(finalDelivery.imageRecords) && finalDelivery.imageRecords.length) {
+          try {
+            await attachProductProfileImages(archiveProfileId, finalDelivery.imageRecords);
+          } catch {
+            // 归档失败只影响档案沉淀，不改变本次生成结果
+          }
+        }
 
         const phone = state.phone || '';
         if (!isGenerationCurrent(generationToken)) return;

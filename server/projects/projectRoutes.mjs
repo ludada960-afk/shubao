@@ -220,6 +220,16 @@ export function mountProjectRoutes(app, {
       return res.json({ profile });
     } catch (error) { return routeError(error, res); }
   });
+  app.post('/api/product-profiles/:profileId/assets/attach', (req, res) => {
+    try {
+      const result = projectStore.attachProductProfileAssets({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        profileId: req.params.profileId,
+        assets: req.body?.assets,
+      });
+      return res.json(result);
+    } catch (error) { return routeError(error, res); }
+  });
   app.get('/api/project-assets', (req, res) => {
     try {
       const ownerEmail = ownerFor(req, authenticateOwner);

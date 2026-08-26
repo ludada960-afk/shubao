@@ -5,6 +5,7 @@ import { sanitizeCanvasSnapshotMedia } from '../../shared/canvasSnapshotMedia.mj
 import {
   normalizeProductProfileInput,
   normalizeProductProfilePatch,
+  normalizeProductProfileAssetRef,
 } from './productProfileContract.mjs';
 
 const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog', 'video']);
@@ -643,6 +644,66 @@ export function createProjectStore(db, {
       db.prepare(`UPDATE product_profiles SET status = 'archived', updated_at = ?
         WHERE id = ? AND owner_email = ?`).run(timestamp().toISOString(), id, owner);
       return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner));
+    },
+
+    // 把生成结果追加挂到商品档案：弱关联标签(product_profile_assets)只增不删，
+    // 引用必须能解析到本主名下可复用的 project_assets，避免档案引用悬空。
+    attachProductProfileAssets({ ownerEmail, profileId, assets = [] }) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const id = String(profileId || '').trim();
+      const incoming = Array.isArray(assets) ? assets : [];
+      return db.transaction(() => {
+        requireProductProfile(owner, id);
+        const resolvedRefs = [];
+        const seen = new Set();
+        for (const item of incoming.slice(0, 128)) {
+          let ref;
+          if (isRecord(item) && String(item.projectId || '').trim()
+            && String(item.projectAssetId || '').trim() && String(item.expectedContentHash || '').trim()) {
+            ref = normalizeProductProfileAssetRef(item);
+          } else {
+            const assetKey = String(isRecord(item) ? (item.assetId || '') : item || '').trim();
+            if (!assetKey) throw codedError('PRODUCT_PROFILE_ASSET_REF_INVALID', 'asset reference must carry an asset id');
+            const row = db.prepare(`SELECT pa.*, p.owner_email AS project_owner_email
+              FROM project_assets pa
+              JOIN projects p ON p.id = pa.project_id AND p.deleted_at IS NULL
+              WHERE pa.owner_email = ? AND pa.asset_id = ? AND pa.deleted_at IS NULL
+              ORDER BY pa.created_at DESC, pa.id DESC LIMIT 1`).get(owner, assetKey.slice(0, 256));
+            if (!row) throw codedError('PRODUCT_PROFILE_ASSET_NOT_FOUND', 'generated asset is not an owned project asset');
+            const rawRole = String(item?.role || '').trim().toLowerCase();
+            const role = ['product', 'reference', 'person', 'scene', 'generated'].includes(rawRole) ? rawRole : 'generated';
+            ref = normalizeProductProfileAssetRef({
+              projectId: row.project_id,
+              projectAssetId: row.id,
+              role,
+              expectedContentHash: row.content_hash,
+            });
+          }
+          validateProductProfileAssets(owner, [ref]);
+          const key = `${ref.projectId}\u0000${ref.projectAssetId}\u0000${ref.role}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          resolvedRefs.push(ref);
+        }
+        let added = 0;
+        const createdAt = timestamp().toISOString();
+        for (const ref of resolvedRefs) {
+          const result = db.prepare(`INSERT OR IGNORE INTO product_profile_assets
+            (profile_id, owner_email, project_id, project_asset_id, role, expected_content_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+            id, owner, ref.projectId, ref.projectAssetId, ref.role, ref.expectedContentHash, createdAt,
+          );
+          added += Number(result.changes);
+        }
+        if (added > 0) {
+          db.prepare('UPDATE product_profiles SET updated_at = ? WHERE id = ? AND owner_email = ?').run(createdAt, id, owner);
+        }
+        return {
+          profile: hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner)),
+          added,
+        };
+      }).immediate();
     },
 
     getProject({ ownerEmail, projectId }) {

@@ -22,9 +22,10 @@ import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
 import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
-import ProductProfileShelf from './ec/ProductProfileShelf.jsx';
+import EcProfileRail from './ec/EcProfileRail.jsx';
+import ProductChip from './ec/ProductChip.jsx';
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
-import { uploadEcommerceAssets, projectAssetToEcommerceImage } from '../../services/api.js';
+import { uploadEcommerceAssets } from '../../services/api.js';
 import { archiveProductProfile, createProductProfile, getProjectAsset, listProductProfiles } from '../../services/projects.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
@@ -95,8 +96,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   const profileSaveNonceRef = useRef(0);
   const profileLoadNonceRef = useRef(0);
   const profileApplyNonceRef = useRef(0);
+  const profileDetailNonceRef = useRef(0);
   const [productProfiles, setProductProfiles] = useState([]);
-  const [productProfilesOpen, setProductProfilesOpen] = useState(false);
+  // 商品档案体系：左侧栏 tab 化承载列表+详情+素材聚合；activeProfileId 即全局生效的「当前商品」。
+  const [productProfilesOpen, setProductProfilesOpen] = useState(true);
+  const [profileRailTab, setProfileRailTab] = useState('list');
+  const [activeProfileId, setActiveProfileId] = useState('');
+  const [detailProfileId, setDetailProfileId] = useState('');
+  const [detailMedia, setDetailMedia] = useState([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [productProfilesLoading, setProductProfilesLoading] = useState(false);
   const [productProfileSaving, setProductProfileSaving] = useState(false);
   const [productProfileApplying, setProductProfileApplying] = useState('');
@@ -173,6 +181,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         saveNonce: profileSaveNonceRef.current,
       }));
       setProductProfiles(previous => [profile, ...previous.filter(item => item.profileId !== profile.profileId)]);
+      setActiveProfileId(profile.profileId);
+      setProfileRailTab('list');
       setProductProfilesOpen(true);
     } catch (error) {
       setProductProfileError(error?.message || '商品档案保存失败，请稍后重试');
@@ -232,6 +242,45 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       }
     } finally {
       if (profileApplyNonceRef.current === applyNonce) setProductProfileApplying('');
+    }
+  };
+
+  // 「当前商品」全局生效：选中档案即带入商品事实，并自动把主图填入商品槽位。
+  const selectActiveProductProfile = async profile => {
+    if (!profile?.profileId) return;
+    setActiveProfileId(profile.profileId);
+    await applySavedProductProfile(profile);
+  };
+
+  // 档案详情：把该商品名下全部弱关联素材逐一解析成可预览 URL 后聚合展示。
+  const openProfileDetail = async profile => {
+    const profileId = String(profile?.profileId || '').trim();
+    if (!profileId || !profileAccessRef.current.allowed) return;
+    const nonce = ++profileDetailNonceRef.current;
+    setProfileRailTab('detail');
+    setDetailProfileId(profileId);
+    setDetailMedia([]);
+    setDetailLoading(true);
+    try {
+      const refs = Array.isArray(profile?.assets) ? profile.assets : [];
+      const resolved = (await Promise.all(refs.map(async ref => {
+        if (!ref?.projectId || !ref?.projectAssetId || !ref?.expectedContentHash) return null;
+        try {
+          const asset = await getProjectAsset(ref.projectId, ref.projectAssetId, 'reuse');
+          const url = asset.stableUrl || asset.url;
+          if (!url || (asset.mediaKind && asset.mediaKind !== 'image')) return null;
+          const role = ['product', 'generated', 'reference', 'person', 'scene'].includes(ref.role) ? ref.role : 'product';
+          return { role, url, label: asset.metadata?.displayName || '' };
+        } catch {
+          return null;
+        }
+      }))).filter(Boolean);
+      if (profileDetailNonceRef.current !== nonce) return;
+      setDetailMedia(resolved);
+    } catch {
+      if (profileDetailNonceRef.current === nonce) setDetailMedia([]);
+    } finally {
+      if (profileDetailNonceRef.current === nonce) setDetailLoading(false);
     }
   };
 
@@ -410,6 +459,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     genSettings,
     commerceContext: { platform, contentType, targetLanguage }
   });
+  const activeProductProfile = productProfiles.find(profile => profile.profileId === activeProfileId) || null;
   const activeAbilityRecipe = getEcommerceAbilityRecipe(abilityRecipeId);
   const activeItemImages = abilityRecipeId === 'anything_tryon' ? roleImages.items : productImages;
   const canGen = abilityRecipeId === 'anything_tryon'
@@ -481,6 +531,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       })));
       onStepChange?.({
         draftId,
+        activeProductProfileId: activeProfileId,
         productName: description.trim() || '商品',
         description: description.trim(),
         category: effectiveParams.category || '其他',
@@ -947,37 +998,34 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           position: 'relative'
         }}
       >
-        <ProductProfileShelf
+        <div className="ec-mode-columns">
+        <EcProfileRail
           open={productProfilesOpen}
+          tab={profileRailTab}
           profiles={productProfiles}
           loading={productProfilesLoading}
           saving={productProfileSaving}
           applying={productProfileApplying}
           error={productProfileError}
+          activeProfileId={activeProfileId}
+          detailProfileId={detailProfileId}
+          detailMedia={detailMedia}
+          detailLoading={detailLoading}
           onToggle={() => {
             setProductProfilesOpen(open => !open);
             if (!productProfilesOpen) refreshProductProfiles();
           }}
+          onTabChange={setProfileRailTab}
           onRefresh={refreshProductProfiles}
           onSave={saveCurrentProductProfile}
-          onApply={applySavedProductProfile}
+          onSelect={selectActiveProductProfile}
+          onOpenDetail={openProfileDetail}
           onArchive={archiveSavedProductProfile}
         />
+        <div className="ec-mode-main">
         <EcommerceWorkbench
           productImages={productImages}
           refImages={refImages}
-          onPickFromLibrary={(role, picked) => {
-            const converted = (Array.isArray(picked) ? picked : [])
-              .map(asset => projectAssetToEcommerceImage(asset, 'reference'))
-              .filter(Boolean);
-            if (!converted.length) return showToast('所选素材暂不能用于生成，请重新选择', 'error');
-            setRefImages(current => {
-              const seen = new Set(current.map(img => img.url || img.previewUrl || ''));
-              const additions = converted.filter(img => !seen.has(img.url));
-              return [...current, ...additions].slice(0, 9);
-            });
-            showToast('已从素材库加入' + converted.length + '张参考图', 'success');
-          }}
           roleImages={roleImages}
           unmappedImages={unmappedImages}
           abilityRecipeId={abilityRecipeId}
@@ -1412,6 +1460,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         >
           <div className="ec-workbench-primary-row">
             <div className="ec-workbench-tools">
+              {/* ═══ 常驻「当前商品」chip：点击弹出档案选择器，选中后全局生效 ═══ */}
+              <ProductChip
+                profile={activeProductProfile}
+                profiles={productProfiles}
+                loading={productProfilesLoading}
+                onSelect={selectActiveProductProfile}
+              />
               {/* ═══ 面板渲染（Portal 到 body）═══ */}
               {renderPanel()}
               {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
@@ -1586,6 +1641,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
               </button>
             </div>
           </div>
+        </div>
+        </div>
         </div>
       </div>
     </div>

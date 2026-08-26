@@ -149,6 +149,25 @@ export async function archiveProductProfile(profileId) {
   return productProfileFromResponse(response);
 }
 
+// 生成完成后把新资产追加挂到当前商品档案（只增弱关联，重复挂载自动去重）。
+export async function attachProductProfileImages(profileId, images = []) {
+  const assets = (Array.isArray(images) ? images : [])
+    .map(image => ({
+      assetId: String(image?.assetId || image?.id || '').trim(),
+      role: String(image?.role || '').trim(),
+    }))
+    .filter(asset => asset.assetId)
+    .slice(0, 128);
+  if (!assets.length) throw new Error('没有可归档到商品档案的新素材');
+  const response = await requestJson(
+    `/api/product-profiles/${productProfilePathSegment(profileId)}/assets/attach`,
+    { method: 'POST', ...jsonBody({ assets }) },
+    '暂时无法归档到商品档案',
+  );
+  if (!response?.profile?.profileId) throw new Error('商品档案暂时不可用，请稍后重试');
+  return response;
+}
+
 export async function getProject(projectId) {
   const response = await requestJson(
     `/api/projects/${projectPathSegment(projectId)}`,
