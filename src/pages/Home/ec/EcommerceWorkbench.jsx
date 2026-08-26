@@ -77,11 +77,12 @@ function TryOnShowcase({ personMode }) {
       title: '一套穿搭，拍出完整时尚角度',
       description: '正面、四分之三、侧面与背面都保留完整造型，适合商品页和广告投放。',
       source: { src: '/images/home/tryon-showcase/product-flatlay.png', label: '平铺穿搭' },
+      // 四张角度照片组：正面 / 四分之三 / 侧面 / 背面（全部为完整原图，contain 不裁剪）
       results: [
-        { src: '/images/home/tryon-showcase/angle-front.png', label: '正面街拍' },
-        { src: '/images/home/tryon-showcase/angle-motion.png', label: '动态街拍' },
-        { src: '/images/home/tryon-showcase/angle-side.png', label: '侧面街拍' },
-        { src: '/images/home/tryon-showcase/angle-back.png', label: '背面街拍' },
+        { src: '/images/home/tryon-showcase/angle-front.png', label: '正面' },
+        { src: '/images/home/tryon-showcase/angle-side.png', label: '四分之三' },
+        { src: '/images/home/tryon-showcase/angle-motion.png', label: '侧面' },
+        { src: '/images/home/tryon-showcase/angle-back.png', label: '背面' },
       ],
     },
     {
@@ -89,9 +90,11 @@ function TryOnShowcase({ personMode }) {
       eyebrow: '场景上身',
       title: '让完整穿搭进入真实街拍场景',
       description: '从头到脚保留商品版型与搭配关系，用动态姿态呈现可投放的时尚画面。',
-      source: { src: '/images/home/tryon-showcase/reference-flatlay.png', label: '平铺穿搭' },
-      reference: { src: '/images/home/tryon-showcase/reference-person.png', label: '模特街拍原图' },
-      results: [{ src: '/images/home/tryon-showcase/reference-result.png', label: '上身效果街拍' }],
+      // 审计结论：旧 reference-*.png(315~390×1254) 为裁剪条图，不得再上头图；
+      // 改用同套生产原图（1086×1448，完整输出）：平铺穿搭 → ＋ → 模特街拍原图 → 弧箭头 → 上身效果。
+      source: { src: '/images/home/tryon-showcase/editorial-flatlay-v3.webp', label: '平铺穿搭' },
+      reference: { src: '/images/home/tryon-showcase/editorial-model-v3.webp', label: '模特街拍原图' },
+      results: [{ src: '/images/home/tryon-showcase/editorial-street-result-v3.webp', label: '上身效果街拍' }],
     },
   ];
 
@@ -171,10 +174,18 @@ function TryOnShowcase({ personMode }) {
                 {renderCard(slide.reference, 'ec-tryon-flow-card is-reference')}
               </>
             )}
+            {/* 细弧箭头：细线 + 沿流向渐显（尾淡头浓），弱化不抢戏 */}
             <span className="ec-tryon-flow-arrow" aria-hidden="true">
-              <svg viewBox="0 0 52 30" fill="none">
-                <path d="M3 25 C 17 9, 33 6, 47 13.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-                <path d="M39.5 8.5 L47.5 14 L38.5 18.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <svg viewBox="0 0 64 32" fill="none">
+                <defs>
+                  <linearGradient id="ec-tryon-arrow-fade" x1="3" y1="27" x2="60" y2="10" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stopColor="currentColor" stopOpacity="0.12" />
+                    <stop offset="0.55" stopColor="currentColor" stopOpacity="0.5" />
+                    <stop offset="1" stopColor="currentColor" stopOpacity="0.95" />
+                  </linearGradient>
+                </defs>
+                <path d="M3 27 C 20 23, 42 19, 58.5 10.5" stroke="url(#ec-tryon-arrow-fade)" strokeWidth="1.7" strokeLinecap="round" />
+                <path d="M51 7 L59.5 10 L55.5 17.5" stroke="currentColor" strokeOpacity="0.9" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
             <div className={`ec-tryon-flow-results count-${slide.results.length}`}>

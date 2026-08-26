@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Archive,
   BookOpen,
@@ -28,8 +28,9 @@ function groupLabel(role) {
 }
 
 /**
- * 电商套图页左侧栏：tab 化承载完整商品档案。
- * 列表 tab = 档案卡片；详情 tab = 档案事实 + 该商品下所有素材聚合。
+ * 商品档案悬浮抽屉（基准：WeShop 工作台左缘滑出面板）：
+ * 抽屉从左缘覆盖在编辑区之上，不参与 flex 布局，编辑区宽度零影响；
+ * 收起时只在左缘保留一个竖排入口钮。列表 tab = 档案卡片；详情 tab = 档案事实 + 素材聚合。
  */
 export default function EcProfileRail({
   open = true,
@@ -51,6 +52,16 @@ export default function EcProfileRail({
   onOpenDetail,
   onArchive,
 } = {}) {
+  // 悬浮抽屉：开启期间 Esc 直接收回，对齐头部平台的抽屉交互。
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = event => {
+      if (event.key === 'Escape') onToggle?.();
+    };
+    globalThis.addEventListener?.('keydown', onKey);
+    return () => globalThis.removeEventListener?.('keydown', onKey);
+  }, [open, onToggle]);
+
   const detailProfile = profiles.find(profile => profile.profileId === detailProfileId) || null;
   const grouped = PROFILE_MEDIA_GROUPS.map(([role, label]) => [
     label,
@@ -60,15 +71,16 @@ export default function EcProfileRail({
   return (
     <aside
       id="ec-profile-rail"
-      className={`ec-profile-rail${open ? ' is-open' : ' is-collapsed'}`}
+      className={`ec-profile-rail${open ? ' is-open' : ' is-closed'}`}
       aria-label="商品档案侧栏"
     >
       {!open && (
-        <button type="button" className="ec-profile-rail-expand" onClick={onToggle} aria-expanded={false} aria-controls="ec-profile-rail-panel">
+        <button type="button" className="ec-profile-rail-expand" onClick={onToggle} aria-expanded={false} aria-controls="ec-profile-rail-panel" title="展开商品档案抽屉">
           <BookOpen size={16} aria-hidden="true" />
           <span>商品档案</span>
         </button>
       )}
+      {open && <button type="button" className="ec-profile-rail-scrim" aria-label="关闭商品档案抽屉" title="点击空白处收起" onClick={onToggle} />}
       {open && (
         <div id="ec-profile-rail-panel" className="ec-profile-rail-panel">
           <div className="ec-profile-rail-head">
@@ -77,7 +89,7 @@ export default function EcProfileRail({
             <button type="button" className="ec-profile-rail-icon-button" onClick={onRefresh} disabled={loading} title="刷新商品档案" aria-label="刷新商品档案">
               <RefreshCw size={14} className={loading ? 'is-spinning' : ''} />
             </button>
-            <button type="button" className="ec-profile-rail-icon-button" onClick={onToggle} title="收起商品档案侧栏" aria-label="收起商品档案侧栏">
+            <button type="button" className="ec-profile-rail-icon-button" onClick={onToggle} title="收起商品档案抽屉" aria-label="收起商品档案抽屉">
               <ChevronRight size={15} />
             </button>
           </div>

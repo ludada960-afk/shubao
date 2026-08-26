@@ -6,6 +6,8 @@ import { productProfileSummary } from './productProfileModel.js';
 /**
  * 底部生成设置栏的常驻「当前商品」chip：可见、可点，弹出档案选择器。
  * 选中后全局生效（主图槽位/生成后自动归档）。
+ * 视觉规格对齐邻近按钮体系：复用 .ec-config-trigger 的尺寸/圆角/描边/hover/展开 token，
+ * has-profile → is-adjusted（已设置态），open → is-open（面板展开态）。
  */
 export default function ProductChip({ profile = null, profiles = [], loading = false, onSelect }) {
   const [open, setOpen] = useState(false);
@@ -40,19 +42,28 @@ export default function ProductChip({ profile = null, profiles = [], loading = f
       <button
         ref={chipRef}
         type="button"
-        className={`ec-product-chip${profile ? ' has-profile' : ''}`}
+        className={`ec-config-trigger ec-product-chip${profile ? ' is-adjusted' : ''}${open ? ' is-open' : ''}`}
         aria-label={profile ? `当前商品：${profile.name}，点击切换` : '当前商品：未选择，点击选择商品档案'}
         aria-expanded={open}
         aria-haspopup="listbox"
         data-testid="ec-current-product-chip"
         onClick={() => setOpen(previous => !previous)}
       >
-        <PackageSearch size={14} aria-hidden="true" />
-        <span className="ec-product-chip-copy">
+        <PackageSearch size={15} strokeWidth={1.8} aria-hidden="true" />
+        <span className="ec-config-trigger-copy">
           <span>当前商品</span>
           <strong>{loading ? '读取中…' : profile ? profile.name : '未选择'}</strong>
         </span>
-        <ChevronDown size={12} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .18s ease' }} />
+        <ChevronDown
+          size={13}
+          style={{
+            opacity: open ? 0.8 : 0.4,
+            color: profile ? '#7162de' : 'var(--text-muted)',
+            flexShrink: 0,
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.22s ease, opacity 0.2s',
+          }}
+        />
       </button>
       {open && createPortal(
         <div
@@ -62,7 +73,7 @@ export default function ProductChip({ profile = null, profiles = [], loading = f
           aria-label="选择当前商品档案"
           style={{ left: popLeft, bottom: popBottom }}
         >
-          {!profiles.length && <div className="ec-product-chip-empty">还没有商品档案；在左侧「商品档案」保存一次即可复用。</div>}
+          {!profiles.length && <div className="ec-product-chip-empty">还没有商品档案；打开左侧「商品档案」抽屉保存一次即可复用。</div>}
           {profiles.map(item => (
             <button
               key={item.profileId}

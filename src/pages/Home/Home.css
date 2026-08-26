@@ -3305,9 +3305,9 @@
 .ec-tryon-flow-results.count-4 .ec-tryon-flow-card + .ec-tryon-flow-card { margin-left: -16px; }
 .ec-tryon-flow-results.count-1 .ec-tryon-flow-card { transform: rotate(2deg); }
 .ec-tryon-flow-plus { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid rgba(112, 87, 215, .25); border-radius: 50%; color: #684dd0; background: #f4efff; }
-/* 弧形箭头：缩小并弱化，只承担流向提示 */
-.ec-tryon-flow-arrow { display: grid; place-items: center; color: #a593ee; opacity: .78; }
-.ec-tryon-flow-arrow svg { width: 46px; height: 26px; }
+/* 弧形箭头：细弧线 + 渐变弱化，只承担流向提示 */
+.ec-tryon-flow-arrow { display: grid; place-items: center; color: #8b74e8; opacity: .85; flex: 0 0 auto; }
+.ec-tryon-flow-arrow svg { width: 54px; height: 27px; }
 
 @media (max-width: 980px) {
   .ec-tryon-flow { gap: 8px; }

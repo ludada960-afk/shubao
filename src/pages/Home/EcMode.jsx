@@ -98,8 +98,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   const profileApplyNonceRef = useRef(0);
   const profileDetailNonceRef = useRef(0);
   const [productProfiles, setProductProfiles] = useState([]);
-  // 商品档案体系：左侧栏 tab 化承载列表+详情+素材聚合；activeProfileId 即全局生效的「当前商品」。
-  const [productProfilesOpen, setProductProfilesOpen] = useState(true);
+  // 商品档案体系：悬浮抽屉承载列表+详情+素材聚合（默认收起，编辑区宽度零影响）。
+  const [productProfilesOpen, setProductProfilesOpen] = useState(false);
   const [profileRailTab, setProfileRailTab] = useState('list');
   const [activeProfileId, setActiveProfileId] = useState('');
   const [detailProfileId, setDetailProfileId] = useState('');

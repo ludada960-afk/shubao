@@ -51,13 +51,27 @@ test('try-on showcase uses deliberate dwell and a keyboard-accessible gallery', 
 });
 
 test('try-on showcase restores the baseline flow composition with uncropped originals', () => {
-  // 基准版式：平铺穿搭 → ＋ → 模特街拍原图 → 弧形箭头 → 上身效果街拍
+  // 基准版式：平铺穿搭 → ＋ → 模特街拍原图 → 弧形箭头 → 上身效果街拍。
+  // 尺寸审计(2026-08)：旧 reference-*.png 为 315~390×1254 裁剪条图（三张同高、极端比例），
+  // 头图一律改用完整生产原图：场景上身 slide 用 editorial-*-v3.webp(1086×1448) 三联，
+  // 多角度 slide 源卡仍为完整平铺原图 product-flatlay.png。
   assert.match(workbench, /product-flatlay\.png/);
-  assert.match(workbench, /reference-flatlay\.png/);
-  assert.match(workbench, /reference-person\.png/);
-  assert.match(workbench, /reference-result\.png/);
+  assert.match(workbench, /editorial-flatlay-v3\.webp/);
+  assert.match(workbench, /editorial-model-v3\.webp/);
+  assert.match(workbench, /editorial-street-result-v3\.webp/);
+  // 裁剪条图禁止回流头图
+  assert.doesNotMatch(workbench, /reference-flatlay\.png|reference-person\.png|reference-result\.png/);
+  // 四张角度照片组按参考顺序标注：正面/四分之三/侧面/背面
+  assert.match(workbench, /label: '正面'/);
+  assert.match(workbench, /label: '四分之三'/);
+  assert.match(workbench, /label: '侧面'/);
+  assert.match(workbench, /label: '背面'/);
   assert.match(workbench, /ec-tryon-flow-plus/);
   assert.match(workbench, /ec-tryon-flow-arrow/);
+  // 箭头质感对齐参考：细弧线 + 沿流向渐变弱化
+  assert.match(workbench, /ec-tryon-arrow-fade/);
+  assert.match(workbench, /stopOpacity="0\.12"/);
+  assert.match(styles, /\.ec-tryon-flow-arrow svg\s*\{[^}]*width:\s*54px/);
   // 单张合成 banner 已下线，不再进入工作台页头（目录资产仍供 CreationShowcase 兜底）
   assert.doesNotMatch(workbench, /displayRole === 'workflowBanner'/);
   assert.doesNotMatch(workbench, /ec-tryon-workflow-banner/);
