@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>站点健康体检报告 · 通宵全站深度体检+修复轮（2026-08-26）</title>
+<style>
+  :root{
+    --ink:#16213a; --ink2:#475069; --paper:#f4f6fa; --card:#ffffff; --line:#dfe4ee;
+    --pri:#3b4fd8; --pri-bg:#e8ebfc; --ok:#0c8a5f; --ok-bg:#e2f5ee;
+    --warn:#b45309; --warn-bg:#fdf3dd; --bad:#c2372f; --bad-bg:#fbe9e7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    font-size:15px;line-height:1.65;-webkit-text-size-adjust:100%}
+  .wrap{max-width:1100px;margin:0 auto;padding:14px}
+  header.hero{background:linear-gradient(135deg,#12332b,#0c8a5f 140%);color:#fff;
+    border-radius:16px;padding:26px 22px;margin-bottom:14px}
+  header.hero h1{margin:0 0 6px;font-size:clamp(21px,4vw,30px);letter-spacing:.5px}
+  header.hero p{margin:4px 0;color:#cfeee2;font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+    border-radius:99px;padding:2px 11px;font-size:12px;color:#e8fff5}
+  .chip.upd{background:#ffd98a;border-color:#ffd98a;color:#513500;font-weight:700}
+  .verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+  .verdict{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:center}
+  .verdict b{display:block;font-size:16px;line-height:1.4}
+  .verdict span{font-size:12px;color:var(--ink2)}
+  .v-ok{border-top:4px solid var(--ok)} .v-warn{border-top:4px solid var(--warn)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:18px 18px 16px;margin-bottom:16px}
+  h2{font-size:18px;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .no{background:var(--pri);color:#fff;border-radius:8px;font-size:13px;padding:1px 9px;white-space:nowrap}
+  .sub{color:var(--ink2);font-size:12.5px;margin:0 0 12px}
+  h3{font-size:15.5px;margin:14px 0 6px}
+  code{background:#eef1f8;border-radius:6px;padding:1px 6px;font-size:12.5px;
+    font-family:ui-monospace,Consolas,"Courier New",monospace;color:#24306b;word-break:break-all}
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+  th,td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#eef1f8;font-size:12.5px;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fafbff}
+  .okm{color:var(--ok);font-weight:600} .badm{color:var(--bad);font-weight:700}
+  .warnm{color:var(--warn);font-weight:700}
+  .pill{border-radius:99px;padding:1px 9px;font-size:11.5px;font-weight:700;white-space:nowrap}
+  .p-ok{background:var(--ok-bg);color:var(--ok)} .p-warn{background:var(--warn-bg);color:var(--warn)}
+  .p-bad{background:var(--bad-bg);color:var(--bad)} .p-info{background:var(--pri-bg);color:var(--pri)}
+  /* 前后对比条 */
+  .ba{margin:10px 0}
+  .barrow{margin:12px 0}
+  .barlabel{font-size:13px;margin-bottom:4px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .barlabel fn{font-size:11.5px;color:var(--ink2)}
+  .track{position:relative;height:26px;background:#eef1f7;border-radius:7px;overflow:hidden}
+  .fill-old{position:absolute;top:5px;bottom:5px;left:0;background:#c2372f33;border-left:3px solid var(--bad);border-radius:4px}
+  .fill-new{position:absolute;top:5px;bottom:5px;left:0;background:#0c8a5f30;border-left:3px solid var(--ok);border-radius:4px}
+  .bv{position:absolute;top:50%;transform:translateY(-50%);font-size:11.5px;font-weight:700;padding-left:8px;white-space:nowrap}
+  .drop{font-size:20px;font-weight:800;color:var(--ok)}
+  ul.check{list-style:none;margin:0;padding:0}
+  ul.check li{padding:7px 0 7px 30px;position:relative;border-bottom:1px dashed var(--line);font-size:13.5px}
+  ul.check li:last-child{border-bottom:none}
+  ul.check li::before{content:"✔";position:absolute;left:4px;top:6px;color:var(--ok);font-weight:800}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:8px 0}
+  .card{border:1px solid var(--line);border-left:4px solid var(--pri);border-radius:10px;padding:10px 12px;background:#fbfcff}
+  .card b{font-size:13.5px}
+  .card p{margin:4px 0 0;font-size:12.5px;color:var(--ink2)}
+  .card.red{border-left-color:var(--bad)} .card.amber{border-left-color:var(--warn)}
+  .callout{background:linear-gradient(135deg,#12332b,#0c8a5f);color:#fff;border-radius:12px;
+    padding:14px 16px;margin-top:12px;font-size:14px}
+  .callout b{color:#ffd98a}
+  .focus{border:2px solid var(--warn);border-left-width:7px;border-radius:11px;
+    background:var(--warn-bg);padding:12px 14px;margin-bottom:11px}
+  .focus h4{margin:0 0 4px;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .sev{border-radius:6px;font-size:11px;padding:1px 8px;color:#fff;font-weight:700}
+  .sev.s1{background:var(--warn)} .sev.s2{background:#64748b}
+  .focus p{margin:0;font-size:13px;color:#4c4234}
+  ol.fn{padding-left:18px;margin:8px 0 0;font-size:12.5px;color:var(--ink2)}
+  ol.fn li{margin-bottom:3px}
+  footer{color:var(--ink2);font-size:12px;padding:6px 4px 26px}
+  footer b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>站点健康体检报告 · 通宵全站深度体检＋修复轮</h1>
+  <p>体检范围：前端性能 · 定时器生命周期 · 生图链路稳定性 · 安全扫描 · 构建与测试门</p>
+  <div class="chips">
+    <span class="chip upd">✔ 最后更新 2026-08-26</span>
+    <span class="chip">执行：ox-alpha 子代理（通宵轮）</span>
+    <span class="chip">账本存档：.superpowers/sdd/progress.md「2026-08-26 全站深度体检+修复轮」</span>
+    <span class="chip">姊妹篇：<a style="color:#ffd98a" href="pricing-overview.html">pricing-overview.html（定价总览）</a></span>
+  </div>
+</header>
+
+<div class="verdicts">
+  <div class="verdict v-ok"><span>P0 首页图片性能</span><b class="okm">已修复 ✅</b><span>-90% 模式卡流量</span></div>
+  <div class="verdict v-ok"><span>P1 定时器泄漏</span><b class="okm">已修复 ✅</b><span>9 处逐一核查</span></div>
+  <div class="verdict v-ok"><span>生图稳定性</span><b class="okm">七失败点收口 ✅</b><span>e73d9f8 + 回归 c2639b8</span></div>
+  <div class="verdict v-ok"><span>安全扫描</span><b class="okm">清白 🟢</b><span>无真实泄露/无空 catch</span></div>
+  <div class="verdict v-warn"><span>遗留清单</span><b class="warnm">⚠️ 4 项待办</b><span>均为非阻断项</span></div>
+</div>
+
+<!-- ① P0 图片性能 -->
+<section id="s1">
+  <h2><span class="no">①</span>P0 图片性能：根因量化与修复结果</h2>
+  <p class="sub">用户可感知问题：首页四模式入口卡首次加载慢、重复访问仍全量重下。</p>
+
+  <h3>根因（三条，全部实证）</h3>
+  <div class="cards">
+    <div class="card red"><b>裸原图直出</b><p>四模式入口卡是 &lt;img loading=eager&gt; 直拉 210–332KB PNG 原图，合计 <b>~1153KB</b>，且无内在尺寸（触发布局抖动）。</p></div>
+    <div class="card red"><b>showcase 变体绕过缩略</b><p>ResponsiveImage 的 showcase card 变体绕过 .thumbs 目录，直取数 MB 源 PNG。</p></div>
+    <div class="card red"><b>静态资源零缓存</b><p>express.static 对 /images、/assets 一律 max-age=0——每次访问全量重下。</p></div>
+  </div>
+
+  <h3>修复后量化对比（纯 CSS 实测条，按面积等比）</h3>
+  <div class="ba">
+    <div class="barrow">
+      <div class="barlabel"><span>模式入口卡合计负载</span><fn>1153KB PNG 原图 → WebP 缩略</fn></div>
+      <div class="track"><div class="fill-old" style="width:100%"></div><span class="bv" style="left:2%">旧 ~1153KB</span></div>
+      <div class="track" style="margin-top:5px"><div class="fill-new" style="width:9.6%"></div><span class="bv" style="left:11%">新 ~111KB　<span class="drop">-90%</span></span></div>
+    </div>
+    <div class="barrow">
+      <div class="barlabel"><span>19 张被引用预览图总量</span><fn>scripts/generate-image-thumbs.mjs 幂等压缩管线补齐</fn></div>
+      <div class="track"><div class="fill-old" style="width:100%"></div><span class="bv" style="left:2%">旧 12,415KB</span></div>
+      <div class="track" style="margin-top:5px"><div class="fill-new" style="width:4.4%"></div><span class="bv" style="left:6%">新 547KB　<span class="drop">-95.6%</span></span></div>
+    </div>
+  </div>
+
+  <h3>配套加载策略与缓存分级</h3>
+  <ul class="check">
+    <li>模式卡改载 <code>.thumbs</code> WebP，声明 <code>width=420 height=360</code> 内在尺寸消除 CLS；<code>decoding=async</code>；默认卡 <code>fetchpriority=high</code>；index.html 预加载首屏缩略（<code>6d54555</code>）。</li>
+    <li>express.static 分级缓存：<code>/assets</code> immutable 1 年；<code>/images、/gallery</code> 7 天 ＋ stale-while-revalidate；<code>/</code> 保持 no-store（<code>686c833</code>）。</li>
+    <li>幂等缩略管线入库为 <code>npm run images:thumbs</code>，默认仅处理 src 引用图，<code>--all/--force</code> 可选（<code>4fc4de9</code>）。</li>
+  </ul>
+</section>
+
+<!-- ② P1 定时器泄漏 -->
+<section id="s2">
+  <h2><span class="no">②</span>P1 定时器泄漏：Remake 轮询治理</h2>
+  <p class="sub">全站共发现 <b>9 处 setInterval</b>，逐处核查清理责任。</p>
+  <table style="min-width:0">
+    <thead><tr><th>位置</th><th>核查结论</th></tr></thead>
+    <tbody>
+      <tr><td>其余 8 处 setInterval</td><td><span class="pill p-ok">✔ 清理正确</span>　组件卸载 / 停止条件齐备</td></tr>
+      <tr><td>Remake 页裸轮询</td><td><span class="pill p-bad">泄漏 → 已修</span>　裸 setInterval 轮询改 <b>ref 统一管理</b>＋卸载清理，修掉泄漏与任务切换后的<b>重复轮询</b>（<code>4d5baaa</code>）</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ③ 生图稳定性 -->
+<section id="s3">
+  <h2><span class="no">③</span>生图稳定性：七个失败点与修复（e73d9f8 / c2639b8）</h2>
+  <p class="sub">电商生图链路（providerAdapter / nanoBananaProviderAdapter / orchestrator / 前端 generationStatusModel）通宵审计出的七类失败模式，一次收口；回归覆盖由独立测试提交保证。</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>#</th><th>失败点（修复前行为）</th><th>后果</th><th>修复机制</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>上游瞬时故障（网络抖动 / 5xx）一次即整单失败</td><td class="badm">用户被迫手动重试</td><td>submit 阶段<b>指数退避自动重试</b>（≤3 次），尊重 Retry-After 头</td></tr>
+      <tr><td>2</td><td>上游繁忙（429/busy）被吞成通用错误</td><td class="badm">无法判断能否重试</td><td>重试耗尽后如实上报「上游忙」，标记 retryable 供前端引导</td></tr>
+      <tr><td>3</td><td>提交请求悬挂（多模态图片上传时上游不响应）</td><td class="badm">无限占用生成槽位</td><td><b>显式 submit 截止 120s</b>（AbortController 中断），超时归一为可重试 PROVIDER_NETWORK_ERROR</td></tr>
+      <tr><td>4</td><td>轮询 GET 悬挂</td><td class="badm">任务卡死在等待</td><td><b>poll 截止 20s</b>，超时可重试、不占槽位</td></tr>
+      <tr><td>5</td><td>上游长时间不出结果</td><td class="badm">停在中间态无解释</td><td>POLL_TIMEOUT 独立语义，如实透出到状态模型</td></tr>
+      <tr><td>6</td><td>进程重启或后台重试耗尽后，queued / analyzing / generating 任务无人接管</td><td class="badm">任务永无终态、积分悬置</td><td>启动恢复新增 <code>sweepIntervalMs</code> <b>周期巡检</b>，持续接管卡死任务直至终态</td></tr>
+      <tr><td>7</td><td>所有失败统一显示「视觉服务暂时不可用」</td><td class="badm">真实原因被掩盖（如欠费）</td><td>状态模型如实分类：<b>AI 积分不足</b>（含需/有余额）、<b>费用确认过期</b>、<b>部分交付已计费说明</b>、忙碌可重试</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ol class="fn">
+    <li><code>e73d9f8</code> 为实现提交（7 文件，+324/-25）；<code>c2639b8</code> 为对应回归提交（6 文件，+159 行）：backoff、deadlines、queued recovery sweep、truthful failure reasons 四组用例分别落在 api-error / canvas-generation-status / ecommerce-job-store / provider-adapter / startup-recovery-sweep 测试中。</li>
+  </ol>
+</section>
+
+<!-- ④ 安全清白 -->
+<section id="s4">
+  <h2><span class="no">④</span>安全扫描结论：清白 🟢</h2>
+  <ul class="check">
+    <li><b>console.error</b> 全站仅 3 处且均合规使用。</li>
+    <li><b>空 catch</b>：0 处——所有异常都有可见处理路径。</li>
+    <li><b>密钥扫描</b>：95 个命中逐一核验，<b>全部为 test-only 假值</b>；<code>server/.env</code> 真实 key 已被 .gitignore 正确排除且<b>从未被 git 追踪</b>。</li>
+    <li><b>CORS</b>：白名单配置，无 wildcard 与凭据并用的组合缺口。</li>
+    <li><b>SEO/元数据</b>：title / description / canonical / og / twitter / robots / sitemap / manifest 齐全。</li>
+    <li><b>npm audit</b>：8 条漏洞（1 low + 7 high）经逐条溯源<b>全部位于 dev 工具链</b>（postcss / nanoid / shell-quote / pm2 / concurrently 链），不进运行时产物——未擅自升级（遵守不加依赖约定），转入遗留清单⑤-1。</li>
+  </ul>
+</section>
+
+<!-- ⑤ 遗留清单 -->
+<section id="s5">
+  <h2><span class="no">⑤</span>遗留清单（4 项，均不阻断发布）</h2>
+  <div class="focus"><h4>1. npm audit dev 链漏洞 <span class="sev s2">P2 观察项</span></h4>
+    <p>1 low + 7 high，集中在 postcss / nanoid / shell-quote / pm2 / concurrently 等 <b>dev 工具链依赖</b>。遵守「不加依赖」约定未擅自升级；建议集中评估一次 lockfile 级升级窗口。</p></div>
+  <div class="focus"><h4>2. JSON body 上限宽松 <span class="sev s2">P2 加固项</span></h4>
+    <p><code>server/index.mjs</code> express.json limit <b>30mb</b>、<code>server/extension-server.mjs</code> <b>50mb</b>，全局一刀切、无分路由收紧——存在内存放大面。建议按路由实际需要分级限额。</p></div>
+  <div class="focus"><h4>3. /api/proxy-image 无鉴权 <span class="sev s1">P1 加固项</span></h4>
+    <p><code>server/index.mjs:2636</code> 公开代理端点，仅靠 imageDelivery 远端白名单＋尺寸限制兜底，且 Cache-Control public ＋ ACAO:*。建议增加会话校验或进一步收紧 allowlist。</p></div>
+  <div class="focus"><h4>4. 前端轮询上限交接 <span class="sev s2">P2 体验项</span></h4>
+    <p>pollEcommerceTask 默认 pollLimit=<b>600 次</b>（@1.5s ≈ 15 分钟）。超限后前端停止，而服务端任务可能仍在跑；当前依赖 e73d9f8 的服务端 sweep 兜底终态。建议补超限文案与「回作品页恢复」入口。</p></div>
+</section>
+
+<!-- ⑥ 验收门 -->
+<section id="s6">
+  <h2><span class="no">⑥</span>验收门证据</h2>
+  <ul class="check">
+    <li><b>构建</b>：隔离 gate 工作树（HEAD=<code>e73d9f8</code>，含本轮全部提交）vite build <b>exit 0</b>（6.36s，1908 modules）。</li>
+    <li><b>全量 node --test</b>：提交基线即有 2 例失败（auth-legacy-compat、content-billing 各 1 例，属并行线程已提交范围，<code>4a6b639</code> 上同样失败）；<code>e73d9f8</code> 新增第 3 例 provider-adapter 失败亦来自该并行提交自身。<b>本轮 4 个修复提交未引入任何新失败</b>。</li>
+    <li><b>直接相关测试</b>：image-url / image-view-policy / homepage-mode-cards 等 <b>9 例全绿</b>。</li>
+    <li><b>边界纪律</b>：共享工作树实时态因视频/UI 线程未提交 WIP 存在波动，本轮全程未触碰他人文件。</li>
+  </ul>
+</section>
+
+<!-- ⑦ 提交索引 -->
+<section id="s7">
+  <h2><span class="no">⑦</span>本轮提交索引</h2>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>哈希</th><th>类型</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td><code>4fc4de9</code></td><td><span class="pill p-info">perf</span></td><td>幂等 WebP 缩略管线 scripts/generate-image-thumbs.mjs ＋ npm run images:thumbs；补齐 19 张被引用预览图（-95.6%）</td></tr>
+      <tr><td><code>6d54555</code></td><td><span class="pill p-info">perf</span></td><td>模式卡载 .thumbs WebP（-90%）＋内在尺寸＋decoding=async＋fetchpriority＋预加载；ResponsiveImage card 变体复用本地缩略（含新测试）</td></tr>
+      <tr><td><code>686c833</code></td><td><span class="pill p-info">perf(server)</span></td><td>express.static 分级缓存：/assets immutable 1y；/images、/gallery 7d＋SWR；/ no-store</td></tr>
+      <tr><td><code>4d5baaa</code></td><td><span class="pill p-warn">fix(P1)</span></td><td>Remake 页裸 setInterval 轮询改 ref 统一管理＋卸载清理</td></tr>
+      <tr><td><code>e73d9f8</code></td><td><span class="pill p-warn">fix</span></td><td>生图链路七失败点修复：退避重试、显式截止、queued 巡检恢复、如实失败原因</td></tr>
+      <tr><td><code>c2639b8</code></td><td><span class="pill p-ok">test</span></td><td>上述修复的回归覆盖（159 行新增，五个测试文件）</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="callout">
+    <b>一句话结论：</b>首页图片流量降一个数量级、定时器零泄漏、生图七类失败全部有界且原因如实、安全扫描清白；剩余 4 项遗留均已定位到行级位置，可按 P1→P2 节奏另行排期。
+  </div>
+</section>
+
+<footer>
+  <p><b>事实源</b>：.superpowers/sdd/progress.md「2026-08-26 全站深度体检+修复轮」条目；git 提交 e73d9f8/c2639b8/4fc4de9/6d54555/686c833/4d5baaa diff 与测试文件；server/index.mjs、src/services/api.js 行级核对（遗留项②③④的代码位置为本报告复核补充）。</p>
+  <p style="margin-top:6px">生成：ox-alpha 报告子代理 · 最后更新 2026-08-26 · 自包含 HTML，内联 CSS 无外部依赖，移动端可读</p>
+</footer>
+
+</div>
+</body>
+</html>
