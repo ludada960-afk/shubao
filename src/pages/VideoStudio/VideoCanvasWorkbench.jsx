@@ -27,6 +27,7 @@ import {
   applyShotCandidateToTimeline,
   approveVideoWorkbenchPlan,
   approveWorkbenchAssetVersion,
+  bindShotAssetVersion,
   createStoryboardShot,
   createVideoExportManifest,
   createVideoWorkbenchGenerationDraft,
@@ -176,6 +177,19 @@ export default function VideoCanvasWorkbench({
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
   const [interaction, setInteraction] = useState(null);
 
+  const handleFlowConnectBinding = useCallback(async ({ shotId, videoAssetId, error }) => {
+    if (error || !projectId) return;
+    setBusy('bind:' + shotId);
+    try {
+      await bindShotAssetVersion(projectId, shotId, { videoAssetId, role: 'binding' });
+      await loadWorkbench(projectId, { quiet: true });
+      setError('');
+    } catch (bindError) {
+      setError(displayError(bindError));
+    } finally {
+      setBusy('');
+    }
+  }, [loadWorkbench, projectId]);
   const uploads = useMemo(() => availableUploadedAssets(uploadRecords), [uploadRecords]);
   const libraryAssets = useMemo(() => reusableProjectAssets(libraryRows), [libraryRows]);
   const nodes = useMemo(() => buildCanvasNodes({ uploads, libraryAssets, workbench }), [uploads, libraryAssets, workbench]);
@@ -924,7 +938,7 @@ export default function VideoCanvasWorkbench({
         role="application"
         aria-label="中央无限画布：拖拽摆位卡片，框选素材浮出生成条，连线表达续写与首尾帧关系"
       >
-        {flowOn && <VideoCanvasFlowCanvas domainNodes={nodes} domainEdges={edges} workbenchShots={shots || []} />}
+        {flowOn && <VideoCanvasFlowCanvas domainNodes={nodes} domainEdges={edges} workbenchShots={shots || []} onConnectBinding={handleFlowConnectBinding} />}
         <svg className="vcb-edge-layer" aria-hidden="true">
           {edgeGeometry.map(({ edge, x1, y1, x2, y2 }) => <g key={edge.id}>
             <line className={'vcb-edge is-' + edge.kind} x1={x1} y1={y1} x2={x2} y2={y2} />

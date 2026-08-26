@@ -35,7 +35,7 @@ const NODE_TYPES = Object.freeze({
   shubaoCandidate: ShubaoCandidateNode,
 });
 
-function FlowCanvasInner({ domainNodes = [], domainEdges = [], workbenchShots = [] }) {
+function FlowCanvasInner({ domainNodes = [], domainEdges = [], workbenchShots = [], onConnectBinding } = {}) {
   const initialNodes = useMemo(() => toFlowNodes(domainNodes), [domainNodes]);
   const knownIds = useMemo(() => new Set(initialNodes.map(n => n.id)), [initialNodes]);
   const initialEdges = useMemo(() => toFlowEdges(domainEdges, knownIds), [domainEdges, knownIds]);
@@ -51,6 +51,17 @@ function FlowCanvasInner({ domainNodes = [], domainEdges = [], workbenchShots = 
         edges={initialEdges}
         nodeTypes={NODE_TYPES}
         isValidConnection={candidate => canvasIsValidConnection(candidate, { nodes: initialNodes })}
+        onConnect={connection => {
+          if (typeof onConnectBinding !== 'function') return;
+          const sourceNode = initialNodes.find(node => node.id === connection.source);
+          const targetNode = initialNodes.find(node => node.id === connection.target);
+          if (!sourceNode || !targetNode) return;
+          if (sourceNode.data?.type !== 'asset' || targetNode.data?.type !== 'shot') return;
+          const videoAssetId = sourceNode.data.videoAssetId || '';
+          const shotId = targetNode.data.shotId || '';
+          if (!videoAssetId || !shotId) { if (typeof onConnectBinding === 'function') onConnectBinding({ error: 'missing-ref' }); return; }
+          onConnectBinding({ shotId, videoAssetId });
+        }}
         fitView
         minZoom={0.2}
         proOptions={{ hideAttribution: false }}
