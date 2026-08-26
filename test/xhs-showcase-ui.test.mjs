@@ -18,6 +18,14 @@ test('XHS showcase reuses the shared publish modal contract', () => {
   assert.doesNotMatch(source, /creation-showcase-content-tabs/);
 });
 
+test('XHS case section drops the single-case promotional headline', () => {
+  // 案例区宣讲标题不得再绑定「厦门3天2夜」单案例；改为能力向通用文案，
+  // 具体案例内容只出现在下方真实成品卡（GALLERY 数据本身）里。
+  assert.doesNotMatch(source, /厦门\s*3\s*天\s*2\s*夜[^'\n]*发布/);
+  assert.match(source, /title: '一句话，到一套能直接发布的图文'/);
+  assert.match(source, /description: '封面、配图、标题、正文和标签一次成套生成。下方为真实生成的成品案例，可逐张检查、编辑后直接发布。'/);
+});
+
 test('XHS case images stream thumbnails so the real case is visible within 1-2s', () => {
   // 真实案例图走 /api/gallery-image 的 thumb 派生（服务端 w640 WebP，约百 KB、
   // 首跳 ~130ms，Cache-Control immutable），等价于公共 /images/.thumbs 缩略管线
