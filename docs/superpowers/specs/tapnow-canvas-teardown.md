@@ -45,3 +45,17 @@
 - W4(音频节点)：TTS/上传音频入画布，接时间线音轨
 - W5(导出)：ffmpeg 渲染 MVP
 - 每波验收锚：全程画布内完成 图→镜头→候选→连镜→配乐→导出
+## 6 公开资料补充证据
+> 本节为浏览器会话路线失败后的 PowerShell 直抓轮补充证据汇总（未登录、无头浏览器禁用）。来源代号：[P]=tapnow.ai/pricing 页内嵌 JSON | [H]=tapnow.ai 首页源码 | [A]=app.tapnow.ai 标题 | [D]=docs.tapnow.ai 对应文档页 | [S]=第三方/搜索。抓取原件存 .tmp-tapnow/*.html|txt。
+
+1. 画布形态=node-edge 无限画布：首页源码含 React Flow 无障碍文案("select a node…select an edge…arrow keys/delete")。[H][高]
+2. 连线语义=引用关系而非执行管道；下游节点 Prompt 用 @ 引用上游节点参与生成。[D:canvas/understand-nodes-and-connections][高]
+3. 节点类型：文本/图像/视频/音频/上传文档/3D(3D Studio 可加角色·物体·相机，Viewfinder 截图回投画布)；图像 Toolbar(crop/redraw/relight/outpaint/cut out/enhance)、视频 Toolbar(trim/换删物体/continue/retake/抽帧)。[D:canvas/*][高]
+4. 生成模式 Auto(就绪即生成)/Ask(确认卡审模型·比例·时长·张数·参考后再跑)；Ask 只延迟扣费不免单。[D:agent/choose-a-generation-mode][高]
+5. 模型目录([P]JSON)：图像 Banana Pro/Banana、Seedream 4.0/4.5、MJ V7/Niji7、Flux Kontext Max、Flux 2 Pro、GPT Image、Imagen 4.0、Grok2 Image；视频 Kling 3.0 Omni/Edit/2.6/O1、Seedance 2.0/1.5 Pro/Pro/Lite、Veo 3.1(Fast)/3(Fast)/2、Sora 2 Standard/Pro、Hailuo 2.3(Fast)、Wanxiang 2.6、Vidu Q3、Pixverse V5.5/V5、Midjourney Video；音频 Seed audio 1.0/ElevenLabs V3/MiniMax Music 2.6/Mureka V8·O2/Sonilo Music。[D:generate-and-edit-audio][高]
+6. 计价实证：Kling 3.0 Omni "price":"15/s"=15 Tapies/秒；Omni Reference 上限 30图+10视频+10音频。[P][D:video][高]
+7. Tapies 规则：随模型/分辨率/时长/张数/复杂度浮动，生成前显预估、按完成结算；Agent 任务与 Apps 调用亦耗 Tapies，纯画布操作不扣。[D:account/manage-tapies-and-plans][高]
+8. 订阅四档([P])：Free(Pay as you go，每周送 40 Tapies，充 $1=95，1 并发)/Standard 1500 月($1=100)/Professional 6000 月($1=107)/Ultimate 30000 月($1=115，页面另处写 116 原文不一致)+Enterprise(销售定制：席位/共享 credits/SOC 2 Type II/AES-256)。
+9. 不可证待实测：四档月费美元数字与年付折扣%(前端动态渲染不入静态 HTML)、逐模型完整价目表、付费档并发上限、节点参数面板全集。
+10. 旁证[中]：Chrome 应用商店无官方扩展(搜索仅无关结果)；DDG 快照确认 app.tapnow.ai 定位语 "Your Agentic Creative Canvas"、中文站自称"你的智能体创意画布"。
+
