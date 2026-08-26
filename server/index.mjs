@@ -504,6 +504,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// 套图方案（design-directions）降级遥测：演练(2026-08-26)发现 PLANNER_TIMEOUT 高频
+// 降级只留日志、不可观测，这里进程内计数并随 /health 暴露，供告警与巡检使用。
+const designDirectionTelemetry = {
+  served: 0,
+  plannerFallbacks: 0,
+  degraded: 0,
+  lastFallbackAt: null,
+  lastDegradedAt: null,
+};
+
 // 轻量健康检查：供 PM2、反向代理和部署脚本判断进程是否真的能响应。
 app.get('/health', (req, res) => {
   const ready = !shuttingDown;
@@ -515,6 +525,7 @@ app.get('/health', (req, res) => {
     uptime: Math.round(process.uptime()),
     imageQueue: imageGenerationPool.stats(),
     ecommerceRuntime: orchestrator.runtimeStats(),
+    designDirections: { ...designDirectionTelemetry },
   });
 });
 
@@ -850,6 +861,10 @@ const NANO_BANANA_KEY = process.env.NANO_BANANA_API_KEY || '';
 const NANO_BANANA_BASE = (process.env.NANO_BANANA_BASE_URL || 'https://api.change2pro.com').replace(/\/+$/, '');
 const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || 'gemini-2.5-flash-image';
 const NANO_BANANA_PRO_MODEL = process.env.NANO_BANANA_PRO_MODEL || 'gemini-3-pro-image';
+// 演练加固(2026-08-26)：生图网关是否至少配置了一条可用路由。
+// 未配置时必须在受理前拒绝，否则任务会以 retryable 方式无限重试、
+// 用户积分被无限期冻结且前端永远等待（本地 dev 实测复现）。
+const ecommerceImageProviderReady = () => Boolean((IMG_BASE && IMG_KEY) || NANO_BANANA_KEY);
 
 // Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
@@ -3941,13 +3956,18 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
       return res.json({ ...billed.result, billing: billed.billing });
     }
     const result = await generateDesignDirections(req.body, { signal: deadline.signal });
+    designDirectionTelemetry.served += 1;
     if (result.planner_fallback) {
+      designDirectionTelemetry.plannerFallbacks += 1;
+      designDirectionTelemetry.lastFallbackAt = new Date().toISOString();
       console.warn('[design-directions] planner fallback:', {
         reason: 'PLANNER_TIMEOUT',
         analysisStatus: result.analysis?.status,
       });
     }
     if (result.degraded) {
+      designDirectionTelemetry.degraded += 1;
+      designDirectionTelemetry.lastDegradedAt = new Date().toISOString();
       console.warn('[design-directions] 降级:', {
         reasons: result.degradedReasons,
         analysisStatus: result.analysis?.status,
@@ -4151,7 +4171,15 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
 });
 
 // 电商正式生成只注册持久化编排路由；旧同步 Contact Sheet 流程已移除。
-app.post('/api/generate-ecommerce', ecommerceRouteHandlers.generate);
+app.post('/api/generate-ecommerce', (req, res, next) => {
+  if (!ecommerceImageProviderReady()) {
+    return res.status(503).json({
+      error: '图片生成服务暂未配置，请联系管理员或稍后再试',
+      code: 'IMAGE_PROVIDER_UNAVAILABLE',
+    });
+  }
+  next();
+}, ecommerceRouteHandlers.generate);
 
 function authenticateEcommerceRequest(req, res, next) {
   try {

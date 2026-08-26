@@ -235,14 +235,43 @@ export function createAdminOperations({
       const completed = count(config.completed);
       const failed = count(config.failed);
       const terminal = completed + failed;
+
+      // 演练加固(2026-08-26)：业务性拒绝（如积分不足）与系统性失败分开统计，
+      // 并给出全时段 TOP 错误分组，避免口径混淆掩盖真实故障信号。
+      let billingRejected = 0;
+      const topErrors = [];
+      if (tableExists(config.table) && ['ecommerce_jobs', 'video_jobs'].includes(config.table)) {
+        const guard = db.prepare(`
+          SELECT COUNT(*) AS n FROM ${config.table} j ${where.sql ? where.sql + ' AND ' : 'WHERE '}
+            j.status = 'failed' AND (j.error LIKE '%积分不足%' OR j.error LIKE '%购买套餐%')
+        `).get(...where.params);
+        billingRejected = Number(guard?.n || 0);
+        topErrors.push(...db.prepare(`
+          SELECT COALESCE(NULLIF(j.error, ''), '(no error)') AS error, COUNT(*) AS count,
+            MAX(j.updated_at) AS latestAt
+          FROM ${config.table} j ${where.sql ? where.sql + ' AND ' : 'WHERE '}
+            j.status IN ('failed', 'cancelled')
+          GROUP BY error ORDER BY count DESC, latestAt DESC LIMIT 5
+        `).all(...where.params).map(row => ({
+          error: String(row.error || '').slice(0, 200),
+          count: Number(row.count || 0),
+          latestAt: row.latestAt,
+        })));
+      }
+      const systemFailed = Math.max(failed - billingRejected, 0);
+      const systemTerminal = completed + systemFailed;
       return {
         service: config.service,
         total: rows.reduce((total, row) => total + row.count, 0),
         active,
         completed,
         failed,
+        billingRejected,
+        systemFailed,
         failureRate: terminal ? Number((failed / terminal).toFixed(4)) : 0,
+        systemFailureRate: systemTerminal ? Number((systemFailed / systemTerminal).toFixed(4)) : 0,
         byStatus: rows,
+        topErrors,
       };
     });
     const totals = services.reduce((result, service) => ({

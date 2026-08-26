@@ -1,5 +1,5 @@
 import { quoteFeature } from '../billing/catalog.mjs';
-import { normalizeImageModel } from './modelCatalog.mjs';
+import { IMAGE_MODEL_IDS, buildModelRoute, normalizeImageModel } from './modelCatalog.mjs';
 
 const FOUR_K_SIZES = new Set(['2880x2880', '2448x3264', '3264x2448', '2160x3840']);
 const ONE_K_SIZES = new Set(['1024x1024', '768x1024', '1024x768', '576x1024']);
@@ -15,6 +15,21 @@ function reQuoteError(code, message) {
   error.reQuoteRequired = true;
   error.retryable = false;
   return error;
+}
+
+// usage_events 的 feature/provider/model 遥测：结算时随 metadata 写入，
+// 否则 walletService 落库为空串，成本与失败无法按供应商归因（2026-08-26 演练发现）。
+function usageTelemetryForItem(item) {
+  try {
+    const route = buildModelRoute({
+      imageModel: item?.imageModel,
+      ratio: item?.ratio,
+      size: item?.generationSize,
+    });
+    return { feature: 'ecommerce_image', provider: route.provider, model: route.model };
+  } catch {
+    return { feature: 'ecommerce_image', provider: '', model: normalizeImageModel(item?.imageModel) };
+  }
 }
 
 export function ecommerceFeatureForItem(item) {
@@ -111,6 +126,7 @@ export function createEcommerceBilling({ walletService, quoteService } = {}) {
           generationSize: item.generationSize,
           imageModel: normalizeImageModel(item.imageModel),
           qualityConfidence: quality?.confidence || '',
+          ...usageTelemetryForItem(item),
         },
       });
     },
