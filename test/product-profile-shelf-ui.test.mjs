@@ -24,7 +24,8 @@ test('ecommerce suite page hosts the tabbed profile rail instead of the mixed-in
 });
 
 test('profile rail renders as a floating overlay drawer that never squeezes the workbench', () => {
-  // 基准：WeShop 工作台左缘滑出抽屉——覆盖而非挤压，收起后仅剩左缘入口钮。
+  // 基准：WeShop 工作台左缘滑出抽屉——覆盖而非挤压；唯一入口是「当前商品」chip，
+  // 左缘竖排入口钮已废除（贴边 x≈0 无法命中）。
   assert.match(css, /\.ec-profile-rail\s*\{[^}]*position:\s*fixed/);
   assert.match(css, /\.ec-profile-rail\s*\{[^}]*width:\s*min\(340px,\s*88vw\)/);
   assert.match(rail, /ec-profile-rail-scrim/);
@@ -32,6 +33,9 @@ test('profile rail renders as a floating overlay drawer that never squeezes the 
   assert.match(rail, /event\.key === 'Escape'/);
   assert.match(ecMode, /setProductProfilesOpen\] = useState\(false\)/);
   assert.doesNotMatch(css, /\.ec-profile-rail\.is-collapsed/);
+  // 入口唯一性：组件与样式层面都不再存在任何独立入口钮。
+  assert.doesNotMatch(rail, /ec-profile-rail-expand/);
+  assert.doesNotMatch(css, /ec-profile-rail-expand/);
   assert.match(css, /@media \(max-width: 1100px\)[\s\S]*\.ec-profile-rail\s*\{[\s\S]*?min\(320px,\s*86vw\)/);
 });
 
@@ -40,12 +44,18 @@ test('bottom generation settings bar keeps a persistent current-product chip wit
   assert.match(ecMode, /onSelect=\{selectActiveProductProfile\}/);
   assert.match(chip, /data-testid="ec-current-product-chip"/);
   assert.match(chip, /当前商品/);
-  assert.match(chip, /role="listbox"/);
+  // 入口收敛：chip 不再自带选择器弹层，点击直接呼出档案抽屉（唯一入口）。
+  assert.doesNotMatch(chip, /createPortal/);
+  assert.doesNotMatch(chip, /role="listbox"/);
+  assert.match(chip, /aria-haspopup="dialog"/);
+  assert.match(ecMode, /onOpen=\{openProfileDrawer\}/);
   assert.match(css, /\.ec-product-chip \{/);
-  // chip 视觉规格并入邻近按钮体系：复用 .ec-config-trigger token（尺寸/圆角/hover/展开态）
+  // chip 视觉规格并入邻近按钮体系：复用 .ec-config-trigger token（尺寸/圆角/hover/展开态），
+  // 行内 flex 布局由 .ec-product-chip 自身补齐（邻近按钮的 flex 来自 BTN_BASE 内联样式）。
   assert.match(chip, /ec-config-trigger ec-product-chip/);
   assert.match(chip, /profile \? ' is-adjusted' : ''/);
-  assert.match(chip, /open \? ' is-open' : ''/);
+  assert.match(css, /\.ec-product-chip \{[^}]*display:\s*inline-flex/);
+  assert.match(css, /\.ec-product-chip \{[^}]*align-items:\s*center/);
   assert.doesNotMatch(css, /border-radius:\s*19px/);
 });
 

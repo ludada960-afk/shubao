@@ -409,7 +409,9 @@
   margin: 0 auto;
 }
 .video-studio-page.is-embedded {
-  width: min(1240px, calc(100vw - 32px));
+  /* 宽度归一：嵌入首页时以宿主 surface-card-inner 为基准充满（100%），
+     不再用 100vw 视口宽度越出父容器；独立路由（无 is-embedded）不受影响。 */
+  width: min(1240px, 100%);
   margin: 0 auto;
   padding: 0;
   background: transparent;

@@ -30,7 +30,8 @@ function groupLabel(role) {
 /**
  * 商品档案悬浮抽屉（基准：WeShop 工作台左缘滑出面板）：
  * 抽屉从左缘覆盖在编辑区之上，不参与 flex 布局，编辑区宽度零影响；
- * 收起时只在左缘保留一个竖排入口钮。列表 tab = 档案卡片；详情 tab = 档案事实 + 素材聚合。
+ * 唯一入口是底部生成设置栏的「当前商品」chip（ProductChip），本组件不再渲染任何独立入口钮。
+ * 列表 tab = 档案卡片；详情 tab = 档案事实 + 素材聚合。
  */
 export default function EcProfileRail({
   open = true,
@@ -74,12 +75,7 @@ export default function EcProfileRail({
       className={`ec-profile-rail${open ? ' is-open' : ' is-closed'}`}
       aria-label="商品档案侧栏"
     >
-      {!open && (
-        <button type="button" className="ec-profile-rail-expand" onClick={onToggle} aria-expanded={false} aria-controls="ec-profile-rail-panel" title="展开商品档案抽屉">
-          <BookOpen size={16} aria-hidden="true" />
-          <span>商品档案</span>
-        </button>
-      )}
+      {/* 入口收敛：抽屉不再提供左缘竖排入口钮，唯一入口是底部「当前商品」chip。 */}
       {open && <button type="button" className="ec-profile-rail-scrim" aria-label="关闭商品档案抽屉" title="点击空白处收起" onClick={onToggle} />}
       {open && (
         <div id="ec-profile-rail-panel" className="ec-profile-rail-panel">

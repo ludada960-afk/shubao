@@ -153,6 +153,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     refreshProductProfiles();
   }, [refreshProductProfiles]);
 
+  // 「当前商品」chip 是商品档案抽屉的唯一入口：点击即呼出左缘抽屉并刷新列表。
+  const openProfileDrawer = useCallback(() => {
+    setProfileRailTab('list');
+    setProductProfilesOpen(true);
+    refreshProductProfiles();
+  }, [refreshProductProfiles]);
+
   const currentProductProfileEditor = () => ({
     description,
     productParams,
@@ -992,13 +999,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         className="ec-main-card"
         style={{
           borderRadius: 20,
-          margin: '0 16px',
           background: '#fff',
           padding: '16px 20px 20px',
           position: 'relative'
         }}
       >
-        <div className="ec-mode-columns">
         <EcProfileRail
           open={productProfilesOpen}
           tab={profileRailTab}
@@ -1460,12 +1465,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         >
           <div className="ec-workbench-primary-row">
             <div className="ec-workbench-tools">
-              {/* ═══ 常驻「当前商品」chip：点击弹出档案选择器，选中后全局生效 ═══ */}
+              {/* ═══ 常驻「当前商品」chip：商品档案抽屉唯一入口，选中后全局生效 ═══ */}
               <ProductChip
                 profile={activeProductProfile}
-                profiles={productProfiles}
                 loading={productProfilesLoading}
-                onSelect={selectActiveProductProfile}
+                onOpen={openProfileDrawer}
               />
               {/* ═══ 面板渲染（Portal 到 body）═══ */}
               {renderPanel()}
@@ -1641,7 +1645,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
               </button>
             </div>
           </div>
-        </div>
         </div>
         </div>
       </div>

@@ -210,7 +210,8 @@
    the small set of content-specific controls remain different. */
 .xhs-main-card {
   position: relative;
-  margin: 0 16px;
+  /* 宽度归一：与电商/AI视频/自由创作同以 surface-card-inner 为基准（无额外侧边距） */
+  margin: 0;
   padding: 16px 20px 20px;
   border-radius: 20px;
   background: #fff;

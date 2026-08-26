@@ -1,101 +1,38 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Check, ChevronDown, PackageSearch } from 'lucide-react';
-import { productProfileSummary } from './productProfileModel.js';
+import React from 'react';
+import { ChevronDown, PackageSearch } from 'lucide-react';
 
 /**
- * 底部生成设置栏的常驻「当前商品」chip：可见、可点，弹出档案选择器。
- * 选中后全局生效（主图槽位/生成后自动归档）。
- * 视觉规格对齐邻近按钮体系：复用 .ec-config-trigger 的尺寸/圆角/描边/hover/展开 token，
- * has-profile → is-adjusted（已设置态），open → is-open（面板展开态）。
+ * 底部生成设置栏常驻「当前商品」chip —— 商品档案抽屉的唯一入口。
+ * 点击不再弹自带选择器（旧双入口已废），而是呼出 WeShop 式左缘抽屉
+ * （列表/详情/素材聚合统一在抽屉里，见 EcProfileRail）。
+ * 视觉规格对齐邻近按钮体系：复用 .ec-config-trigger 的尺寸/圆角/描边/hover token，
+ * has-profile → is-adjusted（已设置态）；行内 flex 布局由 .ec-product-chip 自身补齐，
+ * 保证图标-文字-箭头与邻近触发钮完全同构。
  */
-export default function ProductChip({ profile = null, profiles = [], loading = false, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const chipRef = useRef(null);
-  const popRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = event => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    const onClick = event => {
-      if (chipRef.current?.contains(event.target)) return;
-      if (popRef.current?.contains(event.target)) return;
-      setOpen(false);
-    };
-    globalThis.addEventListener?.('keydown', onKey);
-    const timer = setTimeout(() => globalThis.addEventListener?.('mousedown', onClick), 0);
-    return () => {
-      globalThis.removeEventListener?.('keydown', onKey);
-      globalThis.removeEventListener?.('mousedown', onClick);
-      clearTimeout(timer);
-    };
-  }, [open]);
-
-  const rect = chipRef.current?.getBoundingClientRect();
-  const popLeft = rect ? Math.max(8, Math.min(rect.left, (globalThis.innerWidth || 0) - 292)) : 0;
-  const popBottom = rect ? (globalThis.innerHeight || 0) - rect.top + 8 : 0;
-
+export default function ProductChip({ profile = null, loading = false, onOpen }) {
   return (
-    <>
-      <button
-        ref={chipRef}
-        type="button"
-        className={`ec-config-trigger ec-product-chip${profile ? ' is-adjusted' : ''}${open ? ' is-open' : ''}`}
-        aria-label={profile ? `当前商品：${profile.name}，点击切换` : '当前商品：未选择，点击选择商品档案'}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        data-testid="ec-current-product-chip"
-        onClick={() => setOpen(previous => !previous)}
-      >
-        <PackageSearch size={15} strokeWidth={1.8} aria-hidden="true" />
-        <span className="ec-config-trigger-copy">
-          <span>当前商品</span>
-          <strong>{loading ? '读取中…' : profile ? profile.name : '未选择'}</strong>
-        </span>
-        <ChevronDown
-          size={13}
-          style={{
-            opacity: open ? 0.8 : 0.4,
-            color: profile ? '#7162de' : 'var(--text-muted)',
-            flexShrink: 0,
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.22s ease, opacity 0.2s',
-          }}
-        />
-      </button>
-      {open && createPortal(
-        <div
-          ref={popRef}
-          className="ec-product-chip-pop"
-          role="listbox"
-          aria-label="选择当前商品档案"
-          style={{ left: popLeft, bottom: popBottom }}
-        >
-          {!profiles.length && <div className="ec-product-chip-empty">还没有商品档案；打开左侧「商品档案」抽屉保存一次即可复用。</div>}
-          {profiles.map(item => (
-            <button
-              key={item.profileId}
-              type="button"
-              role="option"
-              aria-selected={item.profileId === profile?.profileId}
-              className={item.profileId === profile?.profileId ? 'is-active' : ''}
-              onClick={() => {
-                onSelect?.(item);
-                setOpen(false);
-              }}
-            >
-              <span className="ec-product-chip-item-copy">
-                <strong>{item.name}</strong>
-                <span>{productProfileSummary(item)}</span>
-              </span>
-              {item.profileId === profile?.profileId && <Check size={13} />}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </>
+    <button
+      type="button"
+      className={`ec-config-trigger ec-product-chip${profile ? ' is-adjusted' : ''}`}
+      aria-label={profile ? `当前商品：${profile.name}，点击打开商品档案` : '当前商品：未选择，点击打开商品档案'}
+      aria-haspopup="dialog"
+      aria-expanded={false}
+      data-testid="ec-current-product-chip"
+      onClick={onOpen}
+    >
+      <PackageSearch size={15} strokeWidth={1.8} aria-hidden="true" />
+      <span className="ec-config-trigger-copy">
+        <span>当前商品</span>
+        <strong>{loading ? '读取中…' : profile ? profile.name : '未选择'}</strong>
+      </span>
+      <ChevronDown
+        size={13}
+        style={{
+          opacity: 0.4,
+          color: profile ? '#7162de' : 'var(--text-muted)',
+          flexShrink: 0,
+        }}
+      />
+    </button>
   );
 }
