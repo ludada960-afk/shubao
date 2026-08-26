@@ -1,0 +1,519 @@
+/* ═══ Pricing 页视觉打磨层 ═══ */
+/* 全部颜色 / 阴影 / 圆角 / 动效均取自 src/styles/design-tokens.css（暖白轻奢体系），不引入新色板、新依赖。
+   只承载 hover/focus/开合动画/响应式等伪类与媒体查询；静态布局仍在 index.jsx 内联，便于与逻辑同处审阅。 */
+
+.pricing-page {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.pricing-shell {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 20px 32px;
+}
+
+/* ── Hero ── */
+.pricing-hero-title {
+  font-size: clamp(26px, 4vw, 34px);
+  letter-spacing: -0.02em;
+  line-height: var(--leading-tight);
+}
+.pricing-hero-rule {
+  width: 56px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.8;
+  margin: 16px auto 0;
+}
+
+/* ── 小节眉标：前置短划线，建立编辑感节奏 ── */
+.pricing-section-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.5;
+  margin-right: 8px;
+  vertical-align: 3px;
+}
+
+/* ── 卡片基底：与全站 .card-white 及 Home 页 translateY(-2px)+shadow-md 手法同源 ── */
+.pricing-card {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--duration-normal) var(--ease),
+    box-shadow var(--duration-normal) var(--ease),
+    border-color var(--duration-normal) var(--ease);
+}
+button.pricing-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* 推荐卡：静态微升 + 近黑细环 + 顶部 1px 高光金线 + 浅角散光，刻意不用大面积渐变 */
+.pricing-card.is-recommended {
+  border: 1px solid var(--accent);
+  box-shadow:
+    0 0 0 1px rgba(12, 10, 9, 0.06),
+    0 14px 36px rgba(57, 45, 26, 0.10);
+  transform: translateY(-3px);
+  position: relative;
+  overflow: hidden;
+}
+.pricing-card.is-recommended::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(201, 162, 90, 0.55) 50%, transparent 100%);
+  pointer-events: none;
+}
+.pricing-card.is-recommended::after {
+  content: '';
+  position: absolute;
+  top: -28px;
+  right: -28px;
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  background: radial-gradient(circle at center, rgba(201, 162, 90, 0.10) 0%, transparent 70%);
+  pointer-events: none;
+}
+button.pricing-card.is-recommended:hover {
+  transform: translateY(-5px);
+  box-shadow:
+    0 0 0 1px rgba(12, 10, 9, 0.08),
+    0 20px 48px rgba(57, 45, 26, 0.16);
+}
+
+/* 推荐角标：浮出卡沿的近黑胶囊 */
+.pricing-recommend-badge {
+  position: absolute;
+  top: -11px;
+  right: 14px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: var(--accent);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 停用 / 未上线态：虚线 + 整体退后，不参与 hover 抬升 */
+.pricing-card.is-off {
+  border: 1px dashed var(--border-hover);
+  box-shadow: none;
+  opacity: 0.75;
+}
+.pricing-card.is-off,
+.pricing-card.is-off:hover {
+  transform: none;
+}
+
+/* ── 价格排版：大数 + 小单位的字阶对比 ── */
+.pricing-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.pricing-price-symbol {
+  font-size: 14px;
+  font-weight: 800;
+  align-self: flex-start;
+  margin-top: 6px;
+  color: var(--accent);
+}
+.pricing-price-number {
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.pricing-price-unit {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  font-weight: 600;
+  margin-left: 1px;
+  align-self: flex-end;
+  margin-bottom: 5px;
+}
+
+/* 权益列表：软底圆形勾选标记，统一图标节奏 */
+.pricing-bullet {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  align-items: flex-start;
+}
+.pricing-bullet-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 3px;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--accent);
+  line-height: 1;
+}
+.pricing-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+/* 加赠积分强调胶囊：只放大既有信息，不加新文案 */
+.pricing-grant-chip {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+/* ── 按钮：对齐全站 .btn-primary 的克制微动效 ── */
+.pricing-btn-primary {
+  margin-top: auto;
+  min-height: 38px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
+}
+.pricing-btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.pricing-btn-primary:active {
+  transform: translateY(0) scale(0.985);
+}
+.pricing-btn-muted {
+  margin-top: auto;
+  min-height: 38px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: not-allowed;
+}
+
+/* ── 对照表 ── */
+.pricing-table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-card-solid);
+  box-shadow: var(--shadow-sm);
+}
+.pricing-table {
+  min-width: 640px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pricing-table thead th {
+  background: rgba(12, 10, 9, 0.035);
+  padding: 13px 18px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.pricing-table tbody tr {
+  border-top: 1px solid var(--border-light);
+}
+.pricing-table tbody tr:first-child {
+  border-top: none;
+}
+.pricing-table tbody tr:nth-child(odd) {
+  background: rgba(245, 239, 228, 0.45);
+}
+.pricing-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+.pricing-table tbody th {
+  padding: 12px 18px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.pricing-table tbody td {
+  padding: 12px 18px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 支付通道行 ── */
+.pricing-pay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  text-align: left;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg-card-solid);
+  font-family: inherit;
+  transition:
+    transform var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease);
+}
+button.pricing-pay-row:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+.pricing-pay-row.is-off {
+  border: 1px dashed var(--border-hover);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(245, 239, 228, 0.55) 0,
+      rgba(245, 239, 228, 0.55) 8px,
+      rgba(245, 239, 228, 0.30) 8px,
+      rgba(245, 239, 228, 0.30) 16px
+    );
+  opacity: 0.7;
+}
+.pricing-pay-pill.is-off {
+  color: var(--text-secondary);
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-light);
+}
+.pricing-pay-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-bg);
+  flex-shrink: 0;
+}
+.pricing-pay-pill {
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+/* ── FAQ 手风琴 ── */
+.pricing-faq {
+  border-bottom: 1px solid var(--border-light);
+}
+.pricing-faq:last-child {
+  border-bottom-color: transparent;
+}
+.pricing-faq summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 2px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--duration-fast) var(--ease);
+  position: relative;
+}
+.pricing-faq summary::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  width: 2px;
+  height: 0;
+  background: var(--accent);
+  border-radius: 2px;
+  transform: translateY(-50%);
+  transition: height var(--duration-normal) var(--ease);
+}
+.pricing-faq[open] summary::before {
+  height: 14px;
+}
+.pricing-faq summary::-webkit-details-marker {
+  display: none;
+}
+.pricing-faq summary::after {
+  content: '';
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--text-hint);
+  border-bottom: 1.5px solid var(--text-hint);
+  transform: rotate(45deg) translateY(-1px);
+  transition:
+    transform var(--duration-normal) var(--ease),
+    border-color var(--duration-fast) var(--ease);
+}
+.pricing-faq[open] summary::after {
+  transform: rotate(225deg) translateY(-1px);
+  border-color: var(--accent);
+}
+.pricing-faq summary:hover,
+.pricing-faq[open] summary {
+  color: var(--accent);
+}
+.pricing-faq-answer {
+  animation: pricingFaqReveal var(--duration-slow) var(--ease-out);
+}
+@keyframes pricingFaqReveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── 购买弹层 ── */
+.pricing-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(12, 10, 9, 0.46);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.pricing-modal-panel {
+  background: var(--bg-elevated);
+  border-radius: 20px;
+  max-width: 380px;
+  width: 100%;
+  padding: 26px;
+  text-align: center;
+  box-shadow: var(--shadow-xl);
+  animation: pricingScaleIn var(--duration-normal) var(--ease-out);
+}
+@keyframes pricingScaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.pricing-modal-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  transition:
+    transform var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease),
+    box-shadow var(--duration-fast) var(--ease);
+}
+.pricing-modal-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.pricing-modal-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+}
+.pricing-modal-btn:disabled {
+  cursor: wait;
+  opacity: 0.85;
+}
+.pricing-modal-secondary {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+  font-family: inherit;
+  transition: background var(--duration-fast) var(--ease);
+}
+.pricing-modal-secondary:hover {
+  background: var(--accent-bg);
+}
+
+/* ── 焦点可见性 ── */
+.pricing-page :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── 移动端单列节奏 ── */
+@media (max-width: 640px) {
+  .pricing-shell {
+    padding: 40px 16px 28px;
+  }
+  .pricing-card.is-recommended {
+    transform: none;
+  }
+  button.pricing-card.is-recommended:hover {
+    transform: translateY(-2px);
+  }
+  .pricing-price-number {
+    font-size: 28px;
+  }
+  .pricing-modal-panel {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+}
+
+/* ── 动效偏好降级 ── */
+@media (prefers-reduced-motion: reduce) {
+  .pricing-page *,
+  .pricing-page *::before,
+  .pricing-page *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
