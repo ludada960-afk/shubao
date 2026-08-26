@@ -33,19 +33,18 @@ export const FEATURE_SKUS = freezeCatalog({
   // include the payment-cost allowance in the contribution-margin gate.
   // 成本口径（2026-09 核定；同月汇率修正复核）：
   // - Seedance（IP233 按条计费）：720p ¥5.07/条；1080p ¥6.37/条（1080p 产品未上架，先留档）。
-  // - MiniMax H3 经 Poke 中转（0.2× 折扣后 input $0.42–0.84、output $1.68–3.36 /1M token），成本按双情景标注：
+  // - MiniMax H3 经 Poke 中转（0.2× 折扣后 input $0.42–0.84、output $1.68–3.36 /1M token）：
   //   典型任务 prompt≈600 字 + 2 张参考图（≈2.6k 输入 token）、2K 约 300k 输出 token
   //   （≈50k token/秒 × 6 秒），按中位价 (2.6×0.63 + 300×2.52)/1000 ≈ $0.758/条。
-  //   ① 1:1 情景 ≈¥0.76/条（倾向：同源 65535 已实锤美元余额按人民币 ×1 核算，~90% 置信）；
-  //   ② 7.15 情景 ¥5.45/条（若 poke2api 实为美元现汇结算才成立）。落库 providerCostCny 暂保守取上界 ¥5.45，
-  //   待充值实测（建议在 poke2api 充最小额度验证到账比例）定案；定案前不得据 ¥5.45 断言该档保底亏损，
-  //   真实成本大概率显著低于该值。输入端封顶 ≤¥0.15/条，误差主要在输出 token 单耗。
+  //   成本已定案（2026-09）：用户充值实测确认 poke2api 美元余额按人民币 1:1 核算，
+  //   落库 providerCostCny = ¥0.76/条（原双情景 1:1 ≈¥0.76 / 7.15 ¥5.45 收敛为单值）。
+  //   输入端封顶 ≤¥0.15/条，误差主要在输出 token 单耗，待首张真实账单对账校准。
   video_seedance_fast_short: { units: 40000, providerCostCny: 5.07 },
   video_seedance_fast_long: { units: 46000, providerCostCny: 5.07 },
   video_seedance_standard_short: { units: 62000, providerCostCny: 5.07 },
   video_seedance_standard_long: { units: 72000, providerCostCny: 5.07 },
-  video_minimax_h3_2k_short: { units: 68000, providerCostCny: 5.45, public: false },
-  video_minimax_h3_2k_long: { units: 78000, providerCostCny: 5.45, public: false },
+  video_minimax_h3_2k_short: { units: 68000, providerCostCny: 0.76, public: false },
+  video_minimax_h3_2k_long: { units: 78000, providerCostCny: 0.76, public: false },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.

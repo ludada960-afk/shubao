@@ -40,8 +40,8 @@ function insertUsageEvent(db, { sku, units, providerCostCny, createdAt }) {
 test('admin summary exposes a video cost board with today/7-day windows and per-model margin', () => {
   const { db, walletService } = harness();
   try {
-    // 今日：两条标准档（¥5.07/条）；近 7 日另含一条 MiniMax 落库成本（保守上界 ¥5.45，
-    // 双情景：1:1 情景 ≈¥0.76 倾向 / 7.15 情景 ¥5.45，待充值实测定案）；
+    // 今日：两条标准档（¥5.07/条）；近 7 日另含一条 MiniMax 历史落库成本（旧保守上界 ¥5.45；
+    // 成本已于 2026-09 定案为 1:1 口径 ¥0.76/条，看板展示层应按定案值重算单值毛利）；
     // 10 天前的 fast 档与非视频 SKU 不应进入窗口。
     const now = new Date();
     const stamp = offsetDays => new Date(now.getTime() - offsetDays * 86_400_000)
@@ -80,21 +80,18 @@ test('admin summary exposes a video cost board with today/7-day windows and per-
     assert.equal(minimax.provider, 'Poke');
     assert.equal(minimax.callsToday, 0);
     assert.equal(minimax.calls7d, 1);
-    // 落库口径仍按保守上界 ¥5.45 结算；H3 行额外携带双情景区间毛利，避免单点展示误导。
-    assert.equal(minimax.avgCostPerCallCny7d, 5.45);
-    assert.match(minimax.costScenarioNote, /双情景/);
+    // 历史落库仍为旧上界 ¥5.45；H3 行展示层按定案成本 ¥0.76 重算单值毛利，无区间字段。
+    assert.equal(minimax.providerCostCny7d, 0.76);
+    assert.equal(minimax.avgCostPerCallCny7d, 0.76);
+    assert.match(minimax.costNote, /成本已定案/);
+    assert.ok(!('grossProfitRangeCny7d' in minimax), 'range fields are gone after finalization');
+    assert.ok(!('theoreticalMarginRange7d' in minimax), 'range fields are gone after finalization');
     const minimaxRevenue = Number((68000 * UNIT_REVENUE_CNY).toFixed(6));
-    assert.deepEqual(minimax.grossProfitRangeCny7d, [
-      Number((minimaxRevenue - 5.45).toFixed(6)),
-      Number((minimaxRevenue - 0.76).toFixed(6)),
-    ]);
-    assert.deepEqual(minimax.theoreticalMarginRange7d, [
-      Number(((minimaxRevenue - 5.45) / minimaxRevenue).toFixed(4)),
-      Number(((minimaxRevenue - 0.76) / minimaxRevenue).toFixed(4)),
-    ]);
-    // 非 H3 行不携带区间字段。
-    assert.equal(standard.grossProfitRangeCny7d, undefined);
-    assert.equal(standard.costScenarioNote, undefined);
+    assert.equal(minimax.grossProfitCny7d, Number((minimaxRevenue - 0.76).toFixed(6)));
+    assert.equal(minimax.theoreticalMargin7d, Number(((minimaxRevenue - 0.76) / minimaxRevenue).toFixed(4)));
+    // 非 H3 行不受影响、不带定案注记。
+    assert.equal(standard.avgCostPerCallCny7d, 5.07);
+    assert.equal(standard.costNote, undefined);
     assert.equal(board.byModel.some(row => row.productId === 'seedance_fast'), false,
       'generations older than 7 days stay out of the window');
   } finally {

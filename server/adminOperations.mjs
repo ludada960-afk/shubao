@@ -68,10 +68,10 @@ const SKU_CLASSIFICATIONS = Object.freeze({
   ec_layer_psd: { feature: 'visual_creation', provider: '65535' },
 });
 
-// 汇率修正（2026-09）：MiniMax H3 成本双情景——1:1 情景 ≈¥0.76/条（倾向，同源 65535 已实证 $ 按 ×1 读）
-// 与 7.15 情景 ¥5.45/条。落库口径仍取保守上界 ¥5.45，待 poke2api 充值实测到账比例后定案；
-// 看板对 H3 行同时给出区间毛利，避免只按 ¥5.45 展示造成误导。
-const MINIMAX_H3_COST_SCENARIO_CNY = Object.freeze({ favorable: 0.76, conservative: 5.45 });
+// 成本定案（2026-09）：用户在 poke2api 充值实测确认美元余额按人民币 1:1 核算，
+// MiniMax H3 单条成本从双情景（1:1 ≈¥0.76 / 7.15 ¥5.45）收敛为单值 ≈¥0.76/条落库；
+// 看板 H3 行一律按该定案成本重算毛利，历史若按旧保守上界 ¥5.45 落库也在展示层修正。
+const MINIMAX_H3_SETTLED_COST_CNY = 0.76;
 
 function classifyUsageRow(item) {
   const fallback = SKU_CLASSIFICATIONS[item.sku] || {};
@@ -569,21 +569,16 @@ export function createAdminOperations({
         theoreticalMargin7d: revenue > 0 ? Number(((revenue - cost) / revenue).toFixed(4)) : null,
       };
       if (!productId.startsWith('minimax')) return rowBase;
-      // H3 行：毛利按双情景区间展示（保守=落库 ¥5.45 口径；倾向=1:1 情景 ≈¥0.76），
-      // theoreticalMargin7d/grossProfitCny7d 保持落库口径不变，区间仅作补充，避免按 ¥5.45 单点展示造成误导。
-      const favorableGrossProfit = revenue - actions * MINIMAX_H3_COST_SCENARIO_CNY.favorable;
+      // H3 行：成本已定案（用户实测确认 1:1），看板按 ¥0.76/条 重算单值毛利，不再输出区间字段；
+      // today/last7Days 账面合计保持落库原值，H3 行展示层按定案口径修正历史保守落库值。
+      const settledCost = roundMoney(actions * MINIMAX_H3_SETTLED_COST_CNY);
       return {
         ...rowBase,
-        costScenarioNote: '双情景成本：1:1 情景 ≈¥0.76/条（倾向）/ 7.15 情景 ¥5.45/条；账面取保守上界，待充值实测定案',
-        grossProfitRangeCny7d: actions > 0
-          ? [roundMoney(revenue - cost), roundMoney(favorableGrossProfit)]
-          : null,
-        theoreticalMarginRange7d: revenue > 0 && actions > 0
-          ? [
-              Number(((revenue - cost) / revenue).toFixed(4)),
-              Number((favorableGrossProfit / revenue).toFixed(4)),
-            ]
-          : null,
+        providerCostCny7d: settledCost,
+        avgCostPerCallCny7d: actions > 0 ? MINIMAX_H3_SETTLED_COST_CNY : null,
+        grossProfitCny7d: roundMoney(revenue - settledCost),
+        theoreticalMargin7d: revenue > 0 ? Number(((revenue - settledCost) / revenue).toFixed(4)) : null,
+        costNote: '成本已定案：用户充值实测确认 poke2api 美元余额按人民币 1:1 核算，H3 单条成本 ¥0.76',
       };
     }).sort((left, right) => right.providerCostCny7d - left.providerCostCny7d || right.calls7d - left.calls7d);
     return {

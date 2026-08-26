@@ -54,13 +54,12 @@ const providers = [
     reportedSpendCny: 0,
     todaySpendCny: 0,
     reportedRequests: 0,
-    // 汇率修正（2026-09）：poke2api 计价口径未证实（40–50% 置信），按双情景标注；
-    // 同源 65535 已实锤美元余额按人民币 ×1 核算，故 1:1 情景为倾向情景。
-    currencyPolicy: '美元标价按 0.2× 折扣后计：input $0.42–0.84、output $1.68–3.36 /1M token；双情景：1:1 情景 ≈¥0.76/条（倾向）/ 7.15 情景 ¥5.45/条，待充值实测定案',
+    // 成本定案（2026-09）：用户在 poke2api 充值实测确认美元余额按人民币 1:1 核算。
+    currencyPolicy: '美元标价按 0.2× 折扣后计：input $0.42–0.84、output $1.68–3.36 /1M token；用户实测确认 1:1，折合 ≈¥0.76/条',
     concurrency: null,
-    accountEvidence: 'MiniMax H3 密钥经 poke2api 中转；尚未出账，成本为估算口径',
+    accountEvidence: 'MiniMax H3 密钥经 poke2api 中转；计价口径已经用户充值实测确认为 1:1',
     monitoring: { tone: 'unknown', label: '未提供独立监控', detail: '稳定性验收中，仅对内部白名单开放' },
-    reconciliationNote: '首张真实账单出来前按双情景记账：1:1 情景 ≈¥0.76/条（倾向）/ 7.15 情景 ¥5.45/条；落库暂取保守上界 ¥5.45，待充值实测后定案，误差主要在输出 token 单耗。',
+    reconciliationNote: '成本定案（用户实测确认 1:1）：≈¥0.76/条；首张真实账单出来后仍须对账校准输出 token 单耗误差。',
   },
 ];
 
@@ -105,10 +104,10 @@ const routes = [
   }),
   route({
     id: 'poke-minimax-h3', providerId: 'poke', model: 'minimax-h3-2k', status: 'configured',
-    purpose: 'MiniMax H3 2K', billingUnit: '每条（token 折算估算）', unitPriceCny: 5.45,
+    purpose: 'MiniMax H3 2K', billingUnit: '每条', unitPriceCny: 0.76,
     appSkus: ['video_minimax_h3_2k_short', 'video_minimax_h3_2k_long'],
-    health: '暂无本账户实测与账单',
-    notes: '经 poke2api 中转（0.2× 折扣）；成本双情景：1:1 情景 ≈¥0.76（倾向）/ 7.15 情景 ¥5.45，待充值实测定案；unitPriceCny 为保守上界，未向普通账号开放。',
+    health: '暂无本账户出账记录',
+    notes: '经 poke2api 中转（0.2× 折扣）；成本定案（用户实测确认 1:1）：≈¥0.76/条；未向普通账号开放。',
   }),
   route({ id: '65535-gpt-image-2-eco', providerId: 'relay_65535', model: 'gpt-image-2-eco', purpose: '原生 4K 候选', billingUnit: '每张', unitPriceCny: 0.10, notes: '候选通道，当前未接入。' }),
   route({ id: '65535-gpt-image-2-auto', providerId: 'relay_65535', model: 'gpt-image-2-auto', purpose: '分辨率分级候选', billingUnit: '1K / 2K / 4K 每张', unitPriceText: '¥0.045 / ¥0.065 / ¥0.095', notes: '候选通道，当前未接入。' }),
