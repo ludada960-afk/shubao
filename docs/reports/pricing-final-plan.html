@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>终版定价方案 · 图+视频全生态（2026-08-26 定案稿）</title>
+<style>
+  :root{
+    --ink:#16213a; --ink2:#475069; --paper:#f4f6fa; --card:#fff; --line:#dfe4ee;
+    --pri:#3b4fd8; --pri-bg:#e8ebfc; --ok:#0c8a5f; --ok-bg:#e2f5ee;
+    --warn:#b45309; --warn-bg:#fdf3dd; --bad:#c2372f; --bad-bg:#fbe9e7;
+    --gold:#d99a06; --gate-a:#b45309; --gate-b:#1d4ed8; --gate-c:#6d28d9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    font-size:15px;line-height:1.65}
+  .wrap{max-width:1100px;margin:0 auto;padding:14px}
+  header.hero{background:linear-gradient(135deg,#182448,#3b4fd8 130%);color:#fff;
+    border-radius:16px;padding:24px 22px;margin-bottom:14px}
+  header.hero h1{margin:0 0 6px;font-size:clamp(20px,4vw,29px)}
+  header.hero p{margin:4px 0;color:#c9d4f5;font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+    border-radius:99px;padding:2px 11px;font-size:12px;color:#eaf0ff}
+  .chip.upd{background:#ffd98a;border-color:#ffd98a;color:#513500;font-weight:700}
+  nav.toc{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;margin-bottom:14px;font-size:13px;display:flex;flex-wrap:wrap;gap:6px 14px}
+  nav.toc a{color:var(--pri);text-decoration:none;white-space:nowrap}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+  .kpi b{display:block;font-size:19px;line-height:1.3}
+  .kpi span{font-size:12px;color:var(--ink2)}
+  .up{color:var(--ok)} .dn{color:var(--bad)} .wn{color:var(--warn)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:18px 18px 16px;margin-bottom:16px}
+  h2{font-size:18px;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .no{background:var(--pri);color:#fff;border-radius:8px;font-size:13px;padding:1px 9px;white-space:nowrap}
+  .sub{color:var(--ink2);font-size:12.5px;margin:0 0 12px}
+  h3.blk{font-size:15px;margin:16px 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  h3.blk:first-of-type{margin-top:2px}
+  .tag{border-radius:6px;font-size:11px;padding:1px 8px;font-weight:700;color:#fff;white-space:nowrap}
+  .tag.fix{background:var(--ok)} .tag.tbd{background:var(--warn)} .tag.p0{background:var(--bad)}
+  .sumgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+  .sumcard{border-radius:12px;padding:12px 14px;background:#fbfcff;border:1px solid var(--line)}
+  .sumcard h4{margin:0 0 6px;font-size:14.5px}
+  .sumcard p{margin:4px 0 0;font-size:13px;color:var(--ink2)}
+  .sumcard b{color:var(--ink)} .sumcard b.big{font-size:16px}
+  .sumcard.ok{border-left:5px solid var(--ok)}
+  .sumcard.pri{border-left:5px solid var(--pri)}
+  .sumcard.gold{border-left:5px solid var(--gold);background:#fffaf0}
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+  th,td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+  th{background:#eef1f8;font-size:12.5px}
+  tr.grp td{background:#1d2a4d;color:#fff;font-weight:700;font-size:12.5px;letter-spacing:1px}
+  tbody tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fafbff}
+  td.wrapv,td.wrapv span{white-space:normal}
+  .g{border-radius:99px;padding:1px 9px;font-size:11.5px;white-space:nowrap;font-weight:600}
+  .ga{background:var(--warn-bg);color:var(--gate-a)}
+  .gb{background:var(--pri-bg);color:var(--gate-b)}
+  .gc{background:#ede9fe;color:var(--gate-c)}
+  .gd{background:#f1f2f6;color:var(--ink2)}
+  .okm{color:var(--ok);font-weight:600} .warnm{color:var(--warn);font-weight:700} .badm{color:var(--bad);font-weight:700}
+  .mut{color:var(--ink2);font-size:12px}
+  fn,.fn{font-size:11.5px;color:var(--ink2)}
+  ol.fn,p.fn{padding-left:18px;margin:8px 0 0} ol.fn li{margin-bottom:3px}
+  .callout{background:linear-gradient(135deg,#1d2a4d,#3b4fd8);color:#fff;border-radius:12px;
+    padding:13px 16px;margin-top:12px;font-size:14px}
+  .callout b{color:#ffd98a}
+  /* 图表 */
+  .chart{margin-top:6px}
+  .crow{display:grid;grid-template-columns:168px 1fr;gap:8px;align-items:center;margin:9px 0}
+  @media(max-width:600px){.crow{grid-template-columns:1fr;gap:3px}}
+  .clabel{font-size:12.5px;color:var(--ink2);text-align:right}
+  @media(max-width:600px){.clabel{text-align:left}}
+  .track{position:relative;height:30px;background:#eef1f7;border-radius:7px}
+  .band{position:absolute;top:7px;bottom:7px;border-radius:5px;min-width:3px}
+  .mk{position:absolute;top:-3px;bottom:-3px;width:2.5px;background:var(--bad);border-radius:2px}
+  .ticks{display:flex;justify-content:space-between;font-size:10.5px;color:#9aa3ba;padding:3px 0 0 176px}
+  @media(max-width:600px){.ticks{padding-left:0}}
+  .bval{position:absolute;top:50%;transform:translateY(-50%);font-size:11px;white-space:nowrap;
+    color:var(--ink);font-weight:600;padding-left:6px}
+  /* 竞品卡 */
+  .compgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+  .ccard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfcff;display:flex;flex-direction:column}
+  .ccard h4{margin:0 0 2px;font-size:14.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .ccard .pos{font-size:11.5px;color:var(--ink2);margin:0 0 8px}
+  .ccard dl{margin:0;font-size:12.5px}
+  .ccard dt{float:left;clear:left;width:62px;color:#8a93ab;font-weight:600}
+  .ccard dd{margin:0 0 4px 70px}
+  .ccard .learn{margin-top:auto;background:var(--ok-bg);color:#0a5c41;border-radius:8px;
+    padding:7px 10px;font-size:12.5px;margin-top:9px}
+  .ccard .learn b{color:#0a5c41}
+  /* 风险/拍板 */
+  .focus{border:2px solid var(--warn);border-left-width:7px;border-radius:11px;
+    background:var(--warn-bg);padding:11px 14px;margin-bottom:10px}
+  .focus.p0{border-color:var(--bad);background:var(--bad-bg)}
+  .focus.info{border-color:var(--pri);background:#f2f4ff}
+  .focus h4{margin:0 0 4px;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .focus p{margin:0;font-size:13px;color:#4c4234}
+  .focus.p0 p{color:#5a3030} .focus.info p{color:#333d5e}
+  .chk{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+  .chk li{border:1px dashed var(--warn);border-radius:11px;background:#fffdf5;padding:11px 13px;font-size:13px}
+  .chk li b{display:block;margin-bottom:3px}
+  .chk li .opt{color:var(--ink2);font-size:12.5px}
+  footer{color:var(--ink2);font-size:12px;padding:6px 4px 26px}
+  footer b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>终版定价方案 · 图 + 视频全生态</h1>
+  <p>核算基准日 2026-08-26 ｜ H3 成本已实测定案（1:1）｜ 终案收口稿 · 供老板离线细读</p>
+  <div class="chips">
+    <span class="chip upd">✔ 终价定案：视频六档 + 月卡礼包 · 图片全线不动价</span>
+    <span class="chip">源① 2026-08-26-pricing-full-ecosystem.md（80 行核算）</span>
+    <span class="chip">源② tool-platform-benchmark.md（平台对标 2026-02 直抓）</span>
+    <span class="chip">源③ pricing-overview.html（总览 · H3 定案与汇率小节）</span>
+    <span class="chip">口径：1积分=1000units · 面值锚 ¥0.2618/积分 · m=1−3%支付费−成本/售价</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <b>✅ 已批准（2026-08-26）：本方案即最终执行价。⑥ 清单中各项按现状生效——标准档维持 ¥11.9、H3-2K 长档随档发布时再定价、Fast 限次按现行配置。</b><br>
+  <b>目录：</b>
+  <a href="#s1">① 一页总览卡</a>
+  <a href="#s2">② 成本全景表</a>
+  <a href="#s3">③ 三参照系对比图</a>
+  <a href="#s4">④ 竞品策略页</a>
+  <a href="#s5">⑤ 财务视角</a>
+  <a href="#s6">⑥ 待拍板清单</a>
+</nav>
+
+<div class="kpis">
+  <div class="kpi"><span>综合毛利（情景估算）</span><b class="up">≈72–75%</b></div>
+  <div class="kpi"><span>图片加权毛利（不动价）</span><b>≈82%</b></div>
+  <div class="kpi"><span>视频加权毛利（情景）</span><b class="wn">57–63%</b></div>
+  <div class="kpi"><span>H3-2K 单条毛利 @¥14.9</span><b class="up">91.9%</b></div>
+  <div class="kpi"><span>月卡礼包（无自动续订）</span><b>¥39 · ¥59</b></div>
+  <div class="kpi"><span>抗涨价韧性底线</span><b class="up">≥60%</b></div>
+</div>
+
+<!-- ① -->
+<section id="s1">
+  <h2><span class="no">①</span>一页总览卡 <span class="tag fix">终案</span></h2>
+  <p class="sub">30 秒读完三条主线：图片守住利润基本盘不动价；视频用六档阶梯换入口转化与高端溢价；月卡礼包用预付+赠分锁定现金流。</p>
+
+  <div class="sumgrid">
+    <div class="sumcard ok">
+      <h4>🖼️ 图片：全线不动价 <span class="tag fix">定案</span></h4>
+      <p><b>理由：</b>① 全系毛利带 <b>71–90%</b>，三层门禁全部达标，没有调价动机；② 零售端显著低于成品工具带（¥0.3–3/张）与人工外包（¥50–500/套），9 图套局面值 <b>¥2.36</b> 让利叙事充分，无需压毛利换增长；③ 抗涨价靠 <b>failover 预案</b>（IP233 廉价通道可再降边际成本 30–50%）而非动价。<br>唯一例外：<b>nano 2K 与 1K 同价异常</b>修至 1.5 积分（¥0.262→¥0.393），堵隐性补贴漏洞（列入⑥待确认）。</p>
+    </div>
+    <div class="sumcard pri">
+      <h4>🎬 视频：六档终价阶梯 <span class="tag fix">定案（1 项待定）</span></h4>
+      <p><b>Fast ¥6.9</b>（锁 5s＋每日限次）→ <b>标准 ¥11.9</b> → <b>高品质 ¥14.9</b>（含 1 次免费重跑）→ <b>1080p ¥18.9</b> → <b>H3-2K 短 ¥14.9</b>（成本 1:1 定案后由 ¥22.9 主动下调换放量）；H3-2K 长待拍板。相对现行折现价：入口降 27–34%、高品质升 24%、1080p 持平、2K 降 16%。</p>
+    </div>
+    <div class="sumcard gold">
+      <h4>💎 月卡礼包 ¥39 / ¥59 <span class="tag fix">定案结构 · 细则待定</span></h4>
+      <p><b>¥39 = 预付 150 积分 ＋ 赠 50 积分 = 200 积分</b>（赠比 33%）；<b>¥59 = 预付 225 ＋ 赠 125 = 350 积分</b>（赠比 56%）。<b>无自动续订</b>。赠比按「综合毛利 ≥60%」反推：即使按偏重视频的消耗篮子测算上限 77.9%，两档赠比均留足安全垫，实际毛利 <b>64.7–74.9%</b>。赠分限图片/工具类使用（全视频兑换情景反推为负、不可行）。</p>
+    </div>
+  </div>
+
+  <h3 class="blk">视频六档终价表</h3>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>档位</th><th>规格与权益</th><th>现行折现¥</th><th>终价¥</th><th>上游真实成本¥</th><th>毛利%</th><th>门禁层</th></tr></thead>
+    <tbody>
+      <tr><td><b>Fast 尝鲜</b></td><td class="wrapv">≤5s · 仅 fast 模型 · <b>每日限次 N 次</b>（示例 N=3）</td><td>10.47（40积分·≤8s）</td><td><b class="big">¥6.9</b> <fn>−34%</fn></td><td>≈3.2（5s 折算；满 8s 为 5.07）<br><fn>IP233 直标折算</fn></td><td><span class="warnm">50.6%</span><br><fn>不限时长仅 23.5% → 锁 5s 是硬前提</fn></td><td><span class="g ga">引流 40–55%</span></td></tr>
+      <tr><td><b>720p 标准</b></td><td class="wrapv">5s · 720p · Seedance 标准档</td><td>16.23（62积分）</td><td><b class="big">¥11.9</b> <fn>−27%</fn></td><td>5.07<br><fn>IP233 直标 · 高置信</fn></td><td><span class="badm">54.4%</span> <span class="tag p0">P0 破主力下限</span><br><fn>见⑤风险②</fn></td><td><span class="g gb">主力 60–70%（未达）</span></td></tr>
+      <tr><td><b>高品质</b></td><td class="wrapv">fast 长档升级 · <b>含 1 次免费重跑</b></td><td>12.04（46积分）</td><td><b class="big">¥14.9</b> <fn>+24%</fn></td><td>5.07（触发重跑 ×2）<br><fn>IP233 直标</fn></td><td><span class="okm">63.0%</span> 名义 / <span class="warnm">52.8%</span> @重跑率30%</td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr><td><b>1080p</b></td><td class="wrapv">5s · 1080p · Seedance 标准长档</td><td>18.85（72积分）</td><td><b class="big">¥18.9</b> <fn>持平</fn></td><td>6.37<br><fn>IP233 直标</fn></td><td><span class="okm">63.3%</span></td><td><span class="g gb">主力 60–70% ▲</span></td></tr>
+      <tr><td><b>H3-2K 短</b></td><td class="wrapv">MiniMax H3 · 2K · 由隐藏档转公开</td><td>17.80（68积分）</td><td><b class="big">¥14.9</b> <fn>−16%</fn> <span class="tag fix">定案</span></td><td><b>0.76</b><br><fn>poke2api 充值实测 1:1 定案</fn></td><td><span class="okm">91.9%</span></td><td><span class="g gc">高端 ≥70%（远超）</span></td></tr>
+      <tr><td><b>H3-2K 长</b></td><td class="wrapv">MiniMax H3 · 2K 长时长 · 随档发布</td><td>20.42（78积分）</td><td><b class="big">待拍板</b> <fn>参考折算 ≈¥16.9</fn> <span class="tag tbd">待定</span></td><td>0.76<br><fn>长条单耗待首账单校准</fn></td><td><fn>≈92.5% @16.9</fn></td><td><span class="g gc">高端 ≥70%</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ol class="fn">
+    <li>六档由原 6 个计费 SKU 归并：fast_short→Fast 尝鲜；standard_short→720p 标准；fast_long→高品质（升级附赠重跑）；standard_long→1080p；h3_2k 短/长→末两行。</li>
+    <li>H3-2K 由总览稿拟价 ¥22.9 下调至 ¥14.9：依据 tool-platform-benchmark §三建议与 1:1 成本定案（成本仅 ¥0.76，降价换 H3 档放量与转化，毛利百分比仍达 91.9%）。</li>
+    <li>毛利公式 m = 1 − 3%支付费 − 成本/售价；现行折现按最优惠档面值 ¥0.2618/积分。</li>
+  </ol>
+
+  <h3 class="blk">月卡礼包：赠分比例反推（毛利 ≥60% 约束）</h3>
+  <div class="tbl-scroll">
+  <table style="min-width:680px">
+    <thead><tr><th>消耗篮子情景（赠分可用范围内）</th><th>成本占面值比 c</th><th>赠比上限 r<sub>max</sub>=0.37/c−1</th><th>判定</th></tr></thead>
+    <tbody>
+      <tr><td class="wrapv">纯图片/工具类（图片加权毛利 82% → c=1−3%−82%=15%）</td><td>0.150</td><td>+146.7%</td><td><span class="okm">上限极宽</span></td></tr>
+      <tr><td class="wrapv">图片 95% ＋ 视频 5%（视频按高品质期望成本 0.442）</td><td>0.165</td><td>+124.2%</td><td><span class="okm">宽裕</span></td></tr>
+      <tr><td class="wrapv">图片 80% ＋ 视频 20%（重度视频渗透压力测试）</td><td>0.208</td><td><b>+77.9%</b></td><td><span class="okm">仍宽裕 → 取此为设计上限</span></td></tr>
+      <tr><td class="wrapv"><b>全部兑换视频（面值直兑）</b></td><td>0.442</td><td><b class="badm">−15.9%（不可行）</b></td><td><span class="badm">→ 赠分必须禁止视频面值直兑</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <table style="min-width:620px;margin-top:10px">
+    <thead><tr><th>档位</th><th>定价</th><th>预付积分</th><th>赠分</th><th>到手合计</th><th>赠比（vs 上限 77.9%）</th><th>有效单价</th><th>情景毛利（篮子B / 篮子C）</th></tr></thead>
+    <tbody>
+      <tr><td><b>体验月卡</b></td><td><b class="big">¥39</b></td><td>150</td><td>+50</td><td><b>200 积分</b>（面值≈¥52.4）</td><td>33%（不足上限一半）</td><td>¥0.195/积分（74 折）</td><td><span class="okm">74.9%</span> / <span class="okm">69.1%</span></td></tr>
+      <tr><td><b>主力月卡</b></td><td><b class="big">¥59</b></td><td>225</td><td>+125</td><td><b>350 积分</b>（面值≈¥91.6）</td><td>56%（留 22pt 安全垫）</td><td>¥0.169/积分（64.4 折）</td><td><span class="okm">71.5%</span> / <span class="okm">64.7%</span></td></tr>
+    </tbody>
+  </table>
+  <ol class="fn">
+    <li>反推逻辑：礼包毛利 = 1 − 3%支付费 − c×(1+赠比)；令 ≥60% 解出赠比上限，再取营销友好整数并留安全垫。</li>
+    <li>规则：<b>无自动续订</b>（降低扣款投诉与退款争议，放弃强绑定的 LTV 换口碑）；赠分限图片/工具类功能；视频以零售价直购或另发专用券（细则见⑥）。对齐行业习惯可叠加每日签到小额免费额度（TapNow 每周 40 点 / 小云雀每日 60–100 积分先例）。</li>
+  </ol>
+</section>
+
+<!-- ② -->
+<section id="s2">
+  <h2><span class="no">②</span>成本全景表：每 SKU 上游真实成本 → 售价 → 毛利% → 分层门禁归属</h2>
+  <p class="sub">成本口径：<b>IP233 直标</b>=new.ip233.com 公开价 API 实抓（高置信）；<b>中转站 1:1 口径</b>=美元余额按人民币 ×1 核算（65535 生产口径中置信 / poke2api 已由用户充值实测定案）。底色行 = 终案有变动项。</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>SKU</th><th>售价 ¥</th><th>上游真实成本 ¥</th><th>成本口径</th><th>毛利 %</th><th>分层门禁归属</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="6">图片类（1 积分 ≈ ¥0.2618 面值；除标注外全部不动价）</td></tr>
+      <tr><td>ec_image_2k（生图主力）</td><td>0.262（1积分）</td><td>0.038</td><td>65535 中转 1:1（$0.038/次）</td><td><span class="okm">82.5%</span></td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr><td>ec_image_4k</td><td>0.524（2积分）</td><td>0.038</td><td>65535 中转 1:1</td><td><span class="okm">89.7%</span></td><td><span class="g gc">高端 ≥70%</span></td></tr>
+      <tr><td>nano flash/pro · 1K</td><td>0.262（1积分）</td><td>0.060</td><td>change2pro 特惠组（存续中低置信）</td><td><span class="okm">74.1%</span></td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr style="background:var(--warn-bg)"><td>nano flash/pro · <b>2K</b>（同价异常修复）</td><td>0.262 → <b>0.393（1.5积分）</b></td><td>0.060</td><td>特惠组 / IP233 情景 0.143</td><td>74.1% → <span class="okm">81.7%</span> / <span class="warnm">60.6%</span>†</td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr><td>nano flash/pro · 4K</td><td>0.524（2积分）</td><td>0.060</td><td>特惠组 / IP233 情景</td><td><span class="okm">85.5%</span></td><td><span class="g gc">高端 ≥70%</span></td></tr>
+      <tr><td>xhs_image_set_2k（封面+8图）</td><td>2.357（9积分）</td><td>0.342</td><td>65535 中转 1:1</td><td><span class="okm">82.5%</span></td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr><td>extension 扩图 analysis/basic/std/complete</td><td>0.393 / 0.786 / 1.309 / 2.357</td><td>0.09 / 0.114 / 0.19 / 0.342</td><td>65535 中转 1:1</td><td><span class="okm">74.1–82.5%</span></td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr><td>ai_assistant / reverse_prompt / canvas_ocr</td><td>0.052（0.2积分）</td><td>0.010</td><td>65535 中转 1:1</td><td><span class="okm">77.9%</span></td><td><span class="g ga">引流 40–55%</span></td></tr>
+      <tr><td>remove_bg 抠图</td><td>0.131（0.5积分）</td><td>0.030</td><td>65535 中转 1:1</td><td><span class="okm">74.1%</span></td><td><span class="g ga">引流 40–55%</span></td></tr>
+      <tr><td>direction_refresh / video_plan_analysis</td><td>0.262（1积分）</td><td>0.050</td><td>65535 中转 1:1</td><td><span class="okm">77.9%</span></td><td><span class="g ga">引流 40–55%</span></td></tr>
+      <tr><td>smart_layer / layer_psd 智能分层</td><td>0.786（3积分）</td><td>0.200</td><td>65535 中转 1:1</td><td><span class="okm">71.5%</span></td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr><td>XHS 内容套餐（单套零售 ¥6.33/4.90/3.96/3.32）</td><td>3/10/25/60 套档</td><td>≈0.36/套</td><td>gpt-image-2 系＋文案 token</td><td><span class="okm">&gt;94%</span></td><td><span class="g gd">引流钩子 · 暂不动价</span></td></tr>
+
+      <tr class="grp"><td colspan="6">视频类（终案零售价直购；积分体系并行）</td></tr>
+      <tr style="background:var(--warn-bg)"><td><b>Fast 尝鲜</b></td><td><b>6.9</b></td><td>≈3.2（5s）/ 5.07（满8s）</td><td>IP233 直标折算</td><td><span class="warnm">50.6%</span>（锁 5s+限次）</td><td><span class="g ga">引流 40–55%</span></td></tr>
+      <tr style="background:var(--warn-bg)"><td><b>720p 标准</b></td><td><b>11.9</b></td><td>5.07</td><td><b>IP233 直标 · 高置信</b></td><td><span class="badm">54.4%</span> ⚠</td><td><span class="g gb">主力 60–70%（未达 · P0）</span></td></tr>
+      <tr style="background:var(--warn-bg)"><td><b>高品质（含 1 次重跑）</b></td><td><b>14.9</b></td><td>5.07（重跑 ×2）</td><td>IP233 直标</td><td><span class="okm">63.0%</span> / 52.8%@重跑30%</td><td><span class="g gb">主力 60–70%</span></td></tr>
+      <tr style="background:var(--warn-bg)"><td><b>1080p</b></td><td><b>18.9</b></td><td>6.37</td><td><b>IP233 直标</b></td><td><span class="okm">63.3%</span></td><td><span class="g gb">主力 60–70% ▲</span></td></tr>
+      <tr style="background:var(--warn-bg)"><td><b>H3-2K 短</b></td><td><b>14.9</b></td><td><b>0.76</b></td><td><b>poke2api 1:1 实测定案</b></td><td><span class="okm">91.9%</span></td><td><span class="g gc">高端 ≥70%</span></td></tr>
+      <tr style="background:var(--warn-bg)"><td><b>H3-2K 长</b></td><td>待拍板（≈16.9）</td><td>0.76</td><td>poke2api 1:1（长条单耗待校准）</td><td><fn>≈92.5% @16.9</fn></td><td><span class="g gc">高端 ≥70%</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <ol class="fn">
+    <li>† IP233 情景＝change2pro 特惠组失效、切换 IP233 分辨率档（nano-banana2 2k ¥0.143/张）；两种上游情景同时达标才稳健。</li>
+    <li>门禁三层：<span class="g ga">引流 40–55%</span>（单次成本≤¥0.05、视频≤¥3.2，配绝对成本上限＋频控防白嫖）｜ <span class="g gb">主力 60–70%</span>（收入主体，内化重试损耗与 ±30% 上游波动）｜ <span class="g gc">高端 ≥70%（目标 75%+）</span>（稀缺产能贡献溢价与涨价缓冲垫）。执行位：catalog 加载断言 ＋ admin 看板告警双保险，不再只在测试层。</li>
+    <li>⚠ 标准档 ¥11.9 为全场唯一破 60% 主力下限的在售主力 SKU，处理方案见⑤/⑥。</li>
+  </ol>
+</section>
+
+<!-- ③ -->
+<section id="s3">
+  <h2><span class="no">③</span>三类参照系对比（纯 CSS 条形图，标出我方位置）</h2>
+
+  <p class="sub" style="margin-top:2px"><b>A · 图片单张市场带</b>（坐标 0–¥2.0；人工外包 ≈¥5.6–55/张 远超量程不入图）</p>
+  <div class="chart">
+    <div class="crow"><div class="clabel">海外旗舰摊薄带<br><fn>Krea/Recraft/Photoroom/Canva国际 订阅摊薄 ¥0.01–0.07</fn></div>
+      <div class="track"><div class="band" style="left:0.5%;width:3%;background:#8b5cf6"></div><div class="bval" style="left:4%">0.01–0.07</div></div></div>
+    <div class="crow"><div class="clabel">第三方 API 转售带<br><fn>IP233 实价 ¥0.02–0.25</fn></div>
+      <div class="track"><div class="band" style="left:1%;width:11.5%;background:#0c8a5f"></div><div class="bval" style="left:13%">0.02–0.25</div></div></div>
+    <div class="crow"><div class="clabel">国内工具平台零售带<br><fn>WeShop 0.08 – 美图成品级 1.65（中枢 0.15–0.8）</fn></div>
+      <div class="track"><div class="band" style="left:4%;width:78.5%;background:#93a5ee"></div><div class="bval" style="left:44%">0.08 – 1.65</div></div></div>
+    <div class="crow"><div class="clabel">我们 · 图片点位<br><fn>主力 0.262 / nano2K 新 0.393 / 4K 0.524</fn></div>
+      <div class="track">
+        <div class="band" style="left:13.1%;width:13.1%;background:#3b4fd8"></div>
+        <div class="mk" style="left:13.1%"></div><div class="mk" style="left:19.7%"></div><div class="mk" style="left:26.2%"></div>
+        <div class="bval" style="left:27.2%">¥0.262–0.524：高于 API 带、落在国内带中枢下方</div>
+      </div></div>
+    <div class="ticks"><span>¥0</span><span>0.5</span><span>1.0</span><span>1.5</span><span>¥2.0</span></div>
+  </div>
+
+  <p class="sub" style="margin-top:16px"><b>B · 视频单条市场带</b>（坐标 0–¥20，5s 等效；红竖线 = 终案各档位置）</p>
+  <div class="chart">
+    <div class="crow"><div class="clabel">第三方 API 转售带<br><fn>Seedance 720p 5.07 / 1080p 6.37 ＋ H3 0.76（1:1）</fn></div>
+      <div class="track"><div class="band" style="left:3.8%;width:1.5%;background:#0c8a5f"></div>
+        <div class="band" style="left:25.4%;width:6.5%;background:#0c8a5f"></div><div class="bval" style="left:33%">5.07–6.37 ＋ H3 0.76</div></div></div>
+    <div class="crow"><div class="clabel">海外旗舰带<br><fn>Veo/Grok 类 $0.18/s ≈ ¥6.5/5s（未验证参考·低置信）；可灵会员 ¥46/月起旁证</fn></div>
+      <div class="track"><div class="mk" style="left:32.5%;background:#8b5cf6;width:3px"></div><div class="bval" style="left:35%">≈6.5（单点参考）</div></div></div>
+    <div class="crow"><div class="clabel">国内工具平台零售带<br><fn>小云雀 4.2–4.8 ～ 绘蛙入门 10.4（TapNow 5s≈8.7 在带内）</fn></div>
+      <div class="track"><div class="band" style="left:21%;width:31%;background:#93a5ee"></div><div class="bval" style="left:53%">4.2 – 10.4</div></div></div>
+    <div class="crow"><div class="clabel">我们 · 终案六档<br><fn>6.9 / 11.9 / 14.9（高品质=H3短）/ 18.9 / H3长≈16.9</fn></div>
+      <div class="track">
+        <div class="band" style="left:34.5%;width:60%;background:#3b4fd8"></div>
+        <div class="mk" style="left:34.5%;background:#b45309"></div><div class="mk" style="left:59.5%;background:#b45309"></div><div class="mk" style="left:74.5%;background:#b45309"></div><div class="mk" style="left:84.5%;background:#b45309"></div><div class="mk" style="left:94.5%;background:#b45309"></div>
+        <div class="bval" style="left:2%">¥6.9 ┉ ¥18.9</div>
+      </div></div>
+    <div class="ticks"><span>¥0</span><span>5</span><span>10</span><span>15</span><span>¥20</span></div>
+  </div>
+  <p class="fn">读法：图片侧我们卡在「API 转售之上、国内成品工具中枢之下」，让利叙事成立；视频侧 Fast ¥6.9 贴国内带上沿（比 TapNow 同规格 ¥8.7 低 21%），中高档 ¥11.9–18.9 高于国内带 1.1–4.5 倍——溢价只能建立在识图方案＋逐图编辑＋重跑保障＋导演台的<b>成品交付</b>上，而非裸生成比价（benchmark 关键事实）。</p>
+</section>
+
+<!-- ④ -->
+<section id="s4">
+  <h2><span class="no">④</span>竞品策略页：九家模式一览 ＋ 我们可借鉴点</h2>
+  <p class="sub">数据来自 tool-platform-benchmark.md（官网直抓＋二手补充，抓取时点价，置信度随卡片标注）；fal / Replicate 为上游 API 平台，仅作成本参照（定位性描述，非本轮直抓）。</p>
+  <div class="compgrid">
+    <div class="ccard"><h4>绘蛙 <span class="tag tbd">电商商拍</span></h4><p class="pos">ihuiwa.com · 服装商拍/种草全链路</p>
+      <dl><dt>计费</dt><dd>算力点随档发放；生图折 ¥0.30–1.56/张，视频入门 ≈¥10.4/条（¥259/25条）</dd>
+      <dt>订阅</dt><dd>¥259 / ¥959 / ¥1999 三档＋企业 1166–16666 元/月；7 天低价试用</dd>
+      <dt>卖点</dt><dd>商品上身＋种草文案＋批量商拍打包成高客单订阅</dd></dl>
+      <div class="learn"><b>借鉴：</b>把「商品图＋文案＋批量」打包成场景订阅卖高价；其 ¥10.4/条 是我方 Fast ¥6.9 与标准 ¥11.9 的直接对照锚。</div></div>
+    <div class="ccard"><h4>美图设计室 <span class="tag tbd">双轨制</span></h4><p class="pos">会员管编辑、美豆管 AI，分开售卖</p>
+      <dl><dt>计费</dt><dd>美豆 ¥0.045–0.11/豆；AI 图 ¥0.7–1.65/张（官方口径）；30s 视频 ¥8.1–19.8（5s 等效 ¥1.4–3.3）</dd>
+      <dt>订阅</dt><dd>会员与美豆分离售卖；<b>明确不做无限生图档</b></dd>
+      <dt>卖点</dt><dd>AI 商品套图 / AI 详情页 / 品牌套件 / AI Agent（2–15 豆）</dd></dl>
+      <div class="learn"><b>借鉴：</b>「订阅管工具＋点数管 AI」双轨防成本失控——与我方月卡赠分限图片类同一逻辑；其成品级单张上沿 ¥1.65 佐证品质溢价空间。</div></div>
+    <div class="ccard"><h4>TapNow <span class="tag tbd">快手 · Agentic</span></h4><p class="pos">Agentic 创意无限画布＋Agent 代跑</p>
+      <dl><dt>计费</dt><dd>充值 95 Tapies/$1 ≈¥0.076/点；Seedance 720p 24 点/秒 → 5s ≈¥8.7</dd>
+      <dt>订阅</dt><dd>Basic 1500 点 / Pro 6000 / Ultimate 3 万 等 9 档（≈$15/$56/$259 推算）；注册送 200 点＋每周 40 点</dd>
+      <dt>卖点</dt><dd>多模型聚合＋Agent 代跑的画布工作流</dd></dl>
+      <div class="learn"><b>借鉴：</b>每周小额免费额度的节奏感（防囤积套利）；我方 ¥6.9 对其同规格 ¥8.7 有 21% 入口价差，可在对比场景中显性化。</div></div>
+    <div class="ccard"><h4>小云雀 <span class="tag tbd">字节 · 低价走量</span></h4><p class="pos">数字人/剧本/批量创作一站式（二手评测 2026-07）</p>
+      <dl><dt>计费</dt><dd>10 元≈105–127 积分；视频 10 积分/秒 → ¥0.84–0.95/s，5s 条 ≈¥4.2–4.8</dd>
+      <dt>订阅</dt><dd>¥79 / ¥209 / ¥529 / ¥4299 四档（830–54600 分/月）；每日领 60–100 积分＋新人免费体验</dd>
+      <dt>卖点</dt><dd>字节流量与补贴能力，数字人带货量产</dd></dl>
+      <div class="learn"><b>借鉴：</b>它是视频零售带下沿锚——我方 Fast ¥6.9 立于其上方，靠限次＋成品链路差异化而非拼裸价；每日签到领分机制值得跟进对齐行业习惯。</div></div>
+    <div class="ccard"><h4>WeShop 唯象 <span class="tag tbd">蘑菇街 · 最低价</span></h4><p class="pos">电商图价格屠夫（二手表格 2026）</p>
+      <dl><dt>计费</dt><dd>包月 ¥29.8 = 2000 点 ≈¥0.08–0.15/张（宣传成品 2–3 元/张）</dd>
+      <dt>订阅</dt><dd>¥29.8 连包 / ¥49.8 单月；算力包 ¥298/598/1598；API ¥1500/月；试用 200 点</dd>
+      <dt>卖点</dt><dd>AI 模特试衣 / 场景打光 / 扩图 / 高清增强</dd></dl>
+      <div class="learn"><b>借鉴：</b>¥29.8 是月卡定价下沿参照——我方 ¥39 留出品质差、避开最低价绞杀；「算力加油包＋企业 API」双线是第二曲线模板。</div></div>
+    <div class="ccard"><h4>Krea <span class="tag tbd">实时画布</span></h4><p class="pos">realtime 画布＋工作流编辑器（官网价格 JSON 直抓）</p>
+      <dl><dt>计费</dt><dd>units 制，摊薄 ≈¥0.01–0.05/张</dd>
+      <dt>订阅</dt><dd>Free / Basic $9 / Pro $35 / Max $70（年付约 6 折，5k/20k/60k units 月）；Free 档无限慢速生成</dd>
+      <dt>卖点</dt><dd>实时生成体验＋自定义训练＋多模型聚合</dd></dl>
+      <div class="learn"><b>借鉴：</b>「Free 无限慢速」是高级转化钩子——对应我方 Fast 限次尝鲜；年付 6 折锁现金流的思路可在无自动续订约束下改为买断年卡（见⑥）。</div></div>
+    <div class="ccard"><h4>Canva 可画 <span class="tag tbd">全能套件</span></h4><p class="pos">设计套件打包 AI，中英双站直抓</p>
+      <dl><dt>计费</dt><dd>按次额度制；Magic Media 含在订阅内</dd>
+      <dt>订阅</dt><dd>中国版 Pro ¥168 / 商业版 ¥499 每人每年；全球版 $180/$250 每年</dd>
+      <dt>卖点</dt><dd>Magic Studio 全家桶＋品牌套件；Free 永久（Magic Media 终身免费 50 次）</dd></dl>
+      <div class="learn"><b>借鉴：</b>「AI 含在订阅内」抬高感知价值；终身免费次数作获客钩子——我方月卡话术可捆绑少量图片额度强化「超值感」。</div></div>
+    <div class="ccard"><h4>fal <span class="tag tbd">上游参照</span></h4><p class="pos">Serverless 模型推理云（定位描述，非本轮直抓）</p>
+      <dl><dt>计费</dt><dd>按生成/按秒纯用量计费，无订阅、开发者充值制</dd>
+      <dt>订阅</dt><dd>无订阅结构</dd>
+      <dt>卖点</dt><dd>海量模型即开即用、单价透明、弹性扩缩</dd></dl>
+      <div class="learn"><b>借鉴：</b>透明单价适合纳入上游成本基准池与 failover 备选路由；也是判断 IP233/中转站报价是否偏离市场的标尺。</div></div>
+    <div class="ccard"><h4>Replicate <span class="tag tbd">上游参照</span></h4><p class="pos">开源模型市场＋按秒计费（定位描述，非本轮直抓）</p>
+      <dl><dt>计费</dt><dd>按 CPU/GPU 运行秒数＋按输出计费，无订阅</dd>
+      <dt>订阅</dt><dd>无订阅结构</dd>
+      <dt>卖点</dt><dd>开源模型社区，一行代码部署任意模型</dd></dl>
+      <div class="learn"><b>借鉴：</b>开源模型自部署是对冲上游涨价的长期选项（尤其视频成本波动）；可作为 H3/Seedance 之外的第三条技术路线储备。</div></div>
+  </div>
+  <div class="callout"><b>共性结论：</b>头部平台靠海量摊薄把裸单价压进 1 元内，「比我便宜」不是可持续叙事；我方定价主线必须是<b>成品交付溢价</b>——识图方案、逐镜工作流、一致性锁定、重跑保障、导演台，缺一样，¥11.9 以上的视频档就只剩裸模型比价。</div>
+</section>
+
+<!-- ⑤ -->
+<section id="s5">
+  <h2><span class="no">⑤</span>财务视角：情景毛利 · 月卡现金流 · 放量前风险</h2>
+
+  <h3 class="blk">综合毛利情景估算 <span class="tag tbd">中低置信 · 本地库无 usage_events，上线后以 admin bySku 校准</span></h3>
+  <div class="tbl-scroll">
+  <table style="min-width:720px">
+    <thead><tr><th>情景（视频销量混合比）</th><th>Fast 6.9</th><th>标准 11.9</th><th>高品质 14.9</th><th>1080p 18.9</th><th>H3-2K 14.9</th><th>视频加权毛利</th><th>综合毛利（图60:视40）</th></tr></thead>
+    <tbody>
+      <tr><td class="wrapv"><b>A 引流放量期</b><br><fn>40/30/18/7/5</fn></td><td>40%</td><td>30%</td><td>18%</td><td>7%</td><td>5%</td><td><span class="wn">56.9%</span></td><td><span class="wn">72.0%</span></td></tr>
+      <tr><td class="wrapv"><b>B 稳态经营</b><br><fn>25/30/22/13/10</fn></td><td>25%</td><td>30%</td><td>22%</td><td>13%</td><td>10%</td><td><span class="okm">60.3%</span></td><td><span class="okm">73.3%</span></td></tr>
+      <tr><td class="wrapv"><b>C 结构优化</b><br><fn>15/28/25/17/15</fn></td><td>15%</td><td>28%</td><td>25%</td><td>17%</td><td>15%</td><td><span class="okm">63.1%</span></td><td><span class="okm">74.5%</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="fn" style="margin-top:8px">与总览稿对比的诚实披露：旧终案宣称综合 ≈76% 基于 H3@¥22.9 与较轻的 Fast 权重；本终案主动下调 H3 至 ¥14.9 换转化，综合回落至 <b>72–75%</b>，换来入口竞争力（Fast ¥6.9）与 H3 档放量弹性（毛利百分比仍高达 91.9%）。图片加权 ≈82% 不变，月卡礼包毛利 64.7–74.9% 与大盘相当。</p>
+
+  <h3 class="blk">月卡对现金流的帮助</h3>
+  <div class="sumgrid">
+    <div class="sumcard pri"><h4>前置回款</h4><p>¥39/¥59 在服务交付前全额到账，预付积分形成<b>递延收入池</b>，按消耗确认；放量期每 1000 张月卡 ≈ <b>¥3.9–5.9 万</b>即时现金缓冲。</p></div>
+    <div class="sumcard ok"><h4>无续订负债</h4><p>不做自动续订 → 无扣款投诉、退款争议与代扣合规暴露；代价是弱于订阅的 LTV 锁定，可用<b>买断式年卡</b>补偿（待拍板）。</p></div>
+    <div class="sumcard gold"><h4>损耗率红利</h4><p>积分设有效期（建议 30 天）后，未消耗部分的沉没面值直接转为毛利上行；行业经验损耗率 10–30%，我方情景表未计入此项，属保守余量。</p></div>
+  </div>
+
+  <h3 class="blk">放量前风险清单</h3>
+  <div class="focus p0"><h4>① H3-2K 解锁前置：首账单对账 <span class="sev tag p0">流程红线</span></h4>
+    <p>成本 ¥0.76 已由 poke2api 充值实测 1:1 定案，但公开解锁 H3-2K 档（¥14.9）之前，仍必须以首张真实账单对账校准长条输出 token 单耗——顺序不能反。</p></div>
+  <div class="focus p0"><h4>② 标准档 ¥11.9 毛利 54.4%，全场唯一破主力门禁的在售主力 SKU</h4>
+    <p>该价卡「&lt;¥12 心理带」但成本 5.07 决定了 60% 需要 ≤¥4.40 成本、当前不可能达到。两个补齐前提：¥11.9 vs ¥12.9 价格敏感度/转化率验证；IP233 廉价通道或重跑率控制何时把毛利拉回 60%。缺一即建议上调 ¥12.9（毛利 57.7%，仍差一线，需与降本联动）。</p></div>
+  <div class="focus"><h4>③ 上游涨价韧性的 ≥60% 依据与薄弱点</h4>
+    <p>图片侧：双上游情景（特惠组存续 / IP233 直标切换）下全系毛利区间 <b>60.6–89.7%</b>，≥60% 底线成立——这是「不动价也能抗涨价」的量化依据。视频侧：H3-2K 是缓冲垫（成本可涨至 ¥5.51 仍保 60%，即吸收 <b>7.25 倍</b>涨价）；1080p 余量 9.8%；但<b>标准档零余量、高品质被重跑击穿</b>，且 IP233 旧降级路由（fast ¥3.77 / mini ¥3.12 / 2.5 系列）已从价表消失、failover 必须重建，nano 特惠组存续为中低置信。</p></div>
+  <div class="focus"><h4>④ 成品价值不成型则中高档转化承压</h4>
+    <p>对标显示国内工具平台摊薄单价更低（生图中枢 ¥0.15–0.8、视频 5s 带 ¥4.2–10.4），我方 ¥11.9–18.9 为带的 1.1–4.5 倍。benchmark 结论明确：坚持中高价的前提是把导演台/一致性锁定/重跑保障/品牌套件打包成不可替代成品价值，否则应预备降价预案（见⑥）。</p></div>
+  <div class="focus"><h4>⑤ 引流补贴封顶与价格战</h4>
+    <p>字节系（小云雀每日送分）与快手系（TapNow 每周送点）有持续补贴能力；我方 Fast 档靠四道闸门（锁 5s / 每日限次 / 仅 fast 模型 / 频控）把人均日补贴封顶在可预算区间（N=3 时 ≤¥9.6/人/日），绝不能被套利成免费 API 接口。</p></div>
+  <div class="focus"><h4>⑥ 月卡赠分滥用防线</h4>
+    <p>全视频面值兑换情景的赠比上限为负（−15.9%），数学上不可行——赠分限图片/工具类必须是产品硬限制（catalog 层拦截），不能只写在文案里。</p></div>
+</section>
+
+<!-- ⑥ -->
+<section id="s6">
+  <h2><span class="no">⑥</span>待用户拍板清单</h2>
+  <ul class="chk">
+    <li><b>1 · H3-2K 长档定价 <span class="tag tbd">阻塞发布</span></b>短档已定 ¥14.9；长档参考原积分比 78:68 折算 ≈<b>¥16.9</b>，或与短档同价简化心智。<span class="opt">默认建议：¥16.9。</span></li>
+    <li><b>2 · 标准档 ¥11.9 vs ¥12.9 <span class="tag p0">P0</span></b>毛利 54.4% 破主力下限。选项：维持 11.9 换转化（接受门禁豁免挂账）／上调 12.9 并绑定降本路径。<span class="opt">默认建议：先 A/B 转化率验证两周再定。</span></li>
+    <li><b>3 · nano 2K 修复是否随本次上线</b>1→1.5 积分（¥0.262→¥0.393），全场唯一图片动价项。<span class="opt">默认建议：随本次一并执行。</span></li>
+    <li><b>4 · 竞争降价预案触发线</b>benchmark 曾建议更低价锚（图 2.9/4.9/6.9、1080p ¥9.9）。是否预设「转化率连续 4 周低于阈值即启用促销价」的触发机制。<span class="opt">默认建议：预设但不公布。</span></li>
+    <li><b>5 · 月卡细则</b>积分有效期（建议 30 天当月制）；赠分范围硬限制（图片/工具类）；是否叠加买断年卡（如 ¥399）；签到免费额度是否引入。<span class="opt">默认建议：30 天＋硬限制先行，年卡观察一季度。</span></li>
+    <li><b>6 · Fast 每日限次 N 值</b>N=3 时人均日补贴 ≤¥9.6；N 越大转化越好、补贴越厚。<span class="opt">默认建议：上线 N=2，稳定后放宽至 3。</span></li>
+    <li><b>7 · H3-2K 公开解锁时序</b>确认「首账单对账 → 再上架公开档」顺序；对账前是否先以邀请制灰度。<span class="opt">默认建议：灰度邀请制过渡。</span></li>
+    <li><b>8 · XHS 套餐 studio 档 60→50 套</b>变相提价 20% 的内容钩子调整是否执行。<span class="opt">默认建议：执行，但保留老用户价格 60 天。</span></li>
+  </ul>
+</section>
+
+<footer>
+  <p><b>口径与置信度</b>：毛利公式 m = 1 − 3%支付费 − 成本/售价；面值锚 ¥199/76万积分 ≈ ¥0.2618/积分；本地 works.db 无 usage_events，综合/加权毛利均为情景估算（中低置信）。<b>高置信</b>：IP233 全量直标、Seedance ¥5.07/¥6.37、poke2api 1:1 定案（H3 ¥0.76）、门禁与代码现状 ｜ <b>中置信</b>：65535 ¥0.038 存续性、成品工具会员折算、情景综合毛利 ｜ <b>低置信</b>：change2pro 特惠组倍率、H3 长条 token 单耗、小云雀/WeShop 二手价位、Veo $0.18/s 参考值、真实用量混合比。</p>
+  <p><b>数据源</b>：docs/superpowers/specs/2026-08-26-pricing-full-ecosystem.md（80 行核算）· docs/reports/tool-platform-benchmark.md（平台对标）· docs/reports/pricing-overview.html（总览·H3 定案与汇率小节）· docs/superpowers/specs/2026-08-25-video-benchmark-blueprint.md（对标蓝图）。</p>
+  <p style="margin-top:6px">生成：ox-alpha 终版定价方案子代理 · 2026-08-26 · 自包含 HTML，无外部依赖，支持移动端阅读与离线打印</p>
+</footer>
+
+</div>
+</body>
+</html>
