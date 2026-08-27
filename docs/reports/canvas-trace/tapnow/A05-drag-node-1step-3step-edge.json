@@ -1,0 +1,110 @@
+{
+  "id": "tapnow-A05-drag-node-1step-3step-edge",
+  "ts_iso": "2026-08-27T04:51:52.668Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "drag text node: 1 step (50px), 3 step (180px), to left edge",
+  "before": {
+    "state": "text node selected at (268, 323) 325x325, transform translate(702.637px, 393.68px)",
+    "textNodeRect": {
+      "x": 268,
+      "y": 323,
+      "w": 325,
+      "h": 325
+    },
+    "textNodeTransform": "translate(702.637px, 393.68px)"
+  },
+  "drag1step": {
+    "from": {
+      "x": 430,
+      "y": 485
+    },
+    "to": {
+      "x": 480,
+      "y": 485
+    },
+    "deltaRequested": 50,
+    "traceEvents": 27,
+    "duration_ms": 32191,
+    "intermediateMoves": 7,
+    "intermediateDelay_ms": [
+      5015,
+      10071,
+      15079,
+      20088,
+      25101,
+      30104,
+      32145
+    ],
+    "final": {
+      "rect": {
+        "x": 310,
+        "y": 318
+      },
+      "transform": "translate(735px, 390px)"
+    },
+    "actualDeltaX": 42,
+    "observed_anomaly": "Requested 50px drag → 42px actual movement (8px loss). May indicate grid snap or initial click offset."
+  },
+  "drag3step": {
+    "from": {
+      "x": 480,
+      "y": 485
+    },
+    "to": {
+      "x": 660,
+      "y": 485
+    },
+    "deltaRequested": 180,
+    "final": {
+      "rect": {
+        "x": 466,
+        "y": 318
+      },
+      "transform": "translate(855px, 390px)"
+    },
+    "actualDeltaX": 156,
+    "cumulativeDeltaFromOriginal": 198,
+    "observed_anomaly": "Requested 180px drag → 156px actual. 24px loss (cumulative)."
+  },
+  "dragToEdge": {
+    "from": {
+      "x": 628,
+      "y": 480
+    },
+    "to": {
+      "x": 350,
+      "y": 480
+    },
+    "deltaRequested": 278,
+    "final": {
+      "rect": {
+        "x": 212,
+        "y": 318
+      },
+      "transform": "translate(660px, 390px)"
+    },
+    "actualDeltaX": -254,
+    "edgeProximity": "Node now at x=212, which is past the 340px sidebar (sidebar is 0-340). Node overlaps sidebar.",
+    "snapBehavior": "No visible snap lines or auto-alignment. V2 §10.4 mentioned 网格吸附 toggle in bottom toolbar, but it was off during this test."
+  },
+  "interpretation": {
+    "dragTiming": "Each ~5s the driver sends one pointermove. Total drag 1step = 32s. The TapNow React Flow processes all moves correctly without drops.",
+    "lossAnalysis": "First drag: 50→42 (8px). Second drag: 180→156 (24px). Each request loses 8-24px. Pattern suggests **edge clamping or initial-position offset**, NOT grid snap (which would snap to multiples). The first pixel after pointerdown is consumed by 'selecting' before drag starts.",
+    "edgeBehavior": "No snap, no bounce, no wall. Text node can be dragged past sidebar (overlaps) and presumably off-screen. **No bounds enforcement in TapNow** = true infinite canvas.",
+    "noSnapLine": "No `.react-flow__snapline` or snap class found. Snap-to-grid toggle exists in toolbar (V2 §10.4) but defaults to OFF. V3 confirms: no implicit snap.",
+    "css_evidence": "Node position is stored as CSS transform translate(x, y), not React state. The drag is React Flow's internal pointermove handler that updates transform style directly."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/05-drag-step1.png",
+    "docs/reports/canvas-shots/tapnow-v3/05-drag-step3.png",
+    "docs/reports/canvas-shots/tapnow-v3/05-drag-edge.png",
+    "docs/reports/canvas-shots/tapnow-v3/05-drag-edge2.png"
+  ],
+  "eval_snippets": {
+    "hook": "window.addEventListener for pointerdown/move/up + mousemove/up with capture:true",
+    "beforeAfter": "el.getBoundingClientRect() + el.style.transform before/after each drag",
+    "intermediateLog": "All pointermove events captured with timestamp (Date.now() - dragStart)"
+  }
+}
