@@ -1,0 +1,129 @@
+{
+  "id": "liblib-A01-A02-add-node-panel-and-公共模板",
+  "ts_iso": "2026-08-27T05:33:33.080Z",
+  "site": "liblib",
+  "url": "https://www.liblib.tv/canvas?spaceId=6634922&projectId=55b6ad19479546a187bc68824b2612c8",
+  "user": "未命名工作区, 100 积分",
+  "action": "click left toolbar 添加节点 button (the liblib equivalent of 中央 公共模板/模板)",
+  "context": "liblib does NOT have a central '公共模板' chip like TapNow. Instead, it has a left toolbar with 8 buttons (V2 §10.1). The 1st button is '添加节点' which opens a categorized panel.",
+  "before": {
+    "state": "canvas with pre-existing workflow (INS 风格自拍生成, MJ Prompt随机生成器, 换脸, 最终视频, etc.)",
+    "leftToolbarButtons": [
+      {
+        "y": 315,
+        "tooltip": "添加节点 (not yet captured)"
+      },
+      {
+        "y": 363,
+        "tooltip": "节点搜索"
+      },
+      {
+        "y": 407,
+        "tooltip": "(unknown)"
+      },
+      {
+        "y": 495,
+        "tooltip": "打开评论模式"
+      },
+      {
+        "y": 539,
+        "tooltip": "(unknown)"
+      }
+    ]
+  },
+  "clickTarget": {
+    "x": 42,
+    "y": 335
+  },
+  "after": {
+    "panelOpened": true,
+    "panelStructure": {
+      "section1": {
+        "title": "添加节点",
+        "items": [
+          {
+            "label": "文本",
+            "desc": "脚本、广告词、品牌文案",
+            "x": 133,
+            "y": 356
+          },
+          {
+            "label": "图片",
+            "desc": "宣传图、海报、封面",
+            "x": 133,
+            "y": 422
+          },
+          {
+            "label": "视频",
+            "desc": "宣传视频、动画、电影",
+            "x": 133,
+            "y": 478
+          },
+          {
+            "label": "音频",
+            "desc": "音乐、配音、音效",
+            "x": 133,
+            "y": 534
+          },
+          {
+            "label": "3D",
+            "desc": "生成 3D 场景与对象",
+            "x": 133,
+            "y": 590
+          }
+        ]
+      },
+      "section2": {
+        "title": "辅助工具",
+        "items": [
+          {
+            "label": "时间轴",
+            "badge": "Beta",
+            "desc": "时间轴串联多段素材",
+            "x": 133,
+            "y": 670
+          },
+          {
+            "label": "3D 片场",
+            "desc": "布置场景、角色与镜头调度",
+            "x": 133,
+            "y": 726
+          },
+          {
+            "label": "图片编辑器",
+            "desc": "编辑和处理图片",
+            "x": 133,
+            "y": 782
+          }
+        ]
+      },
+      "section3": {
+        "title": "添加资源",
+        "items": [
+          {
+            "label": "上传",
+            "desc": "支持图片、视频、音频和 3D 资产",
+            "x": 133,
+            "y": 862
+          }
+        ]
+      }
+    },
+    "totalItems": 9,
+    "panelPosition": "right side of left toolbar"
+  },
+  "interpretation": {
+    "contrast_to_tapnow": "**liblib 实现了 V1 §9.2 假设的 '+ 加号菜单'** — 9 个分类项目 (TapNow 没有这个菜单)。liblib 的 '+' 心智 = 添加节点 = 9 大类型可选。",
+    "structureAnalysis": "3 sections: 节点 (5种) + 辅助工具 (3种) + 资源 (1种)。这是真正的'画布工具箱'。",
+    "tapnowDifference": "TapNow 用 hero chip 注入工作流；liblib 用菜单让用户选择具体类型。两种设计哲学的对比。",
+    "no_公共模板_entry": "**liblib 没有 '公共模板' 按钮**。V1 §9.1 假设的 '10 个官方模板' 实际位置在'工具箱'(V2 §10.5 描述的 25 个预设视频模板)。",
+    "css_evidence": "每个 item 是 SPAN (label) + P (description) 的双行布局。说明 liblib 想给用户充分的类型说明。"
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/liblib-v3/00-baseline.png",
+    "docs/reports/canvas-shots/liblib-v3/01-add-node-panel.png"
+  ],
+  "eval_snippets": {
+    "findPanel": "filter for elements at x=80-300, y=300-900, after clicking left toolbar"
+  }
+}

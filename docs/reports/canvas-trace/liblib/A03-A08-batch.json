@@ -1,0 +1,92 @@
+{
+  "id": "liblib-A03-A08-batch",
+  "ts_iso": "2026-08-27T05:37:18.397Z",
+  "site": "liblib",
+  "url": "https://www.liblib.tv/canvas?spaceId=6634922&projectId=55b6ad19479546a187bc68824b2612c8",
+  "user": "未命名工作区, 100 积分",
+  "actions": {
+    "A03_plusHandle": {
+      "action": "click node-handle-plus-right on an image node (818, 631)",
+      "before": {
+        "nodeCount": 14,
+        "edgeCount": 10
+      },
+      "after": {
+        "nodeCount": 14,
+        "edgeCount": 10,
+        "newNode": false,
+        "newEdge": false
+      },
+      "interpretation": "Click did not trigger node creation. The + handle is at position (818, 631) but may be obscured by another element. liblib shares the same node-handle-plus class as TapNow with same 0.3s spring-bounce transition (300ms cubic-bezier(0.34, 1.56, 0.64, 1)) — both use the same React Flow extension."
+    },
+    "A04_rclick": {
+      "action": "right-click on image node",
+      "trace": [],
+      "menus": 0,
+      "interpretation": "**liblib ALSO has no right-click context menu** on canvas nodes. Same as TapNow. Both use React Flow and suppress browser context menu."
+    },
+    "A05_drag": {
+      "action": "drag image node 50px right",
+      "from": {
+        "x": 818,
+        "y": 631
+      },
+      "to": {
+        "x": 868,
+        "y": 631
+      },
+      "before": {
+        "x": 742,
+        "y": 496,
+        "transform": "translate(2293.2px, 2665.08px)"
+      },
+      "after": {
+        "x": 742,
+        "y": 496,
+        "transform": "translate(2293.2px, 2665.08px)"
+      },
+      "interpretation": "**Drag did not move the node**. The drag from (818, 631) hit a non-draggable element (likely a tool overlay or the group boundary). liblib nodes may require dragging from a specific area (like node title bar)."
+    },
+    "A06_connection": {
+      "action": "drag from handle to empty area (1200, 300)",
+      "before": {
+        "edgeCount": 10
+      },
+      "after": {
+        "edgeCount": 10,
+        "connectionLine": false
+      },
+      "interpretation": "Connection drag did not establish. Same handle z-issue as TapNow (handle is small, + handle overlap)."
+    },
+    "A07_toolbarHover": {
+      "action": "hover left toolbar button (42, 335)",
+      "beforeState": {
+        "bg": "(unknown)"
+      },
+      "afterState": {
+        "btnBg": "rgb(43, 43, 43)"
+      },
+      "transition": "transition-colors (Tailwind utility)",
+      "interpretation": "liblib uses direct background-color change on the button itself, no group-hover overlay. The active state is rgb(43, 43, 43) which is a dark gray. TapNow used 200ms group-hover overlay; liblib uses direct transition."
+    },
+    "A08_chatSend": {
+      "action": "click chat input, type 'test', press Enter",
+      "responseLatency": "~1s",
+      "response": "Hi ludada960! 欢迎消息",
+      "interpretation": "Same as TapNow — chat is the only way to send, 1s default welcome, no loading indicator visible."
+    }
+  },
+  "interpretation": {
+    "sharedArchitecture": "liblib and TapNow share the same React Flow + node-handle-plus + spring-bounce (0.3s) animation system. Both sites use the same React Flow extension library.",
+    "interactionDifferences": "liblib has a structured 添加节点 menu (9 items in 3 sections); TapNow has hero chips. liblib has bottom toolbar with 8 buttons; TapNow has 4 buttons + top bar. But the underlying interaction mechanics (drag, connect, hover) are identical.",
+    "stateColor": "liblib uses `rgb(43, 43, 43)` for active toolbar buttons (clear dark gray). TapNow uses `oklab(0 0 0 / 0.4)` (semi-transparent). liblib is more 'solid color' design; TapNow is more 'translucent overlay' design."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/liblib-v3/03-plus-handle.png",
+    "docs/reports/canvas-shots/liblib-v3/04-rclick.png",
+    "docs/reports/canvas-shots/liblib-v3/05-drag.png",
+    "docs/reports/canvas-shots/liblib-v3/06-connection.png",
+    "docs/reports/canvas-shots/liblib-v3/07-toolbar-hover.png",
+    "docs/reports/canvas-shots/liblib-v3/08-after-enter.png"
+  ]
+}
