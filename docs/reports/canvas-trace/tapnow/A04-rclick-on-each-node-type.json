@@ -1,0 +1,119 @@
+{
+  "id": "tapnow-A04-rclick-on-each-node-type",
+  "ts_iso": "2026-08-27T04:46:45.210Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "right-click on each node type: text, video, command",
+  "before": {
+    "state": "3 nodes: text (268,323 325x325) + video (723,323 577x325) + command (602,493 1x1)",
+    "nodeRects": {
+      "text": {
+        "x": 268,
+        "y": 323,
+        "w": 325,
+        "h": 325,
+        "centerX": 430,
+        "centerY": 485
+      },
+      "video": {
+        "x": 723,
+        "y": 323,
+        "w": 577,
+        "h": 325,
+        "centerX": 1011,
+        "centerY": 485
+      },
+      "command": {
+        "x": 602,
+        "y": 493,
+        "w": 1,
+        "h": 1
+      }
+    }
+  },
+  "attempts": [
+    {
+      "nodeType": "text",
+      "point": {
+        "x": 430,
+        "y": 485
+      },
+      "hitElement": "P (text content <p>)",
+      "trace": [
+        "pointermove btn:-1 (45ms before click)",
+        "pointerdown btn:2",
+        "mousedown btn:2",
+        "pointerup btn:2",
+        "mouseup btn:2",
+        "contextmenu"
+      ],
+      "elapsed": 47,
+      "menuAppeared": false
+    },
+    {
+      "nodeType": "video",
+      "point": {
+        "x": 1011,
+        "y": 485
+      },
+      "hitElement": "path (SVG path inside video node)",
+      "trace": [
+        "pointermove",
+        "pointerdown btn:2",
+        "mousedown btn:2",
+        "pointerup btn:2",
+        "mouseup btn:2",
+        "contextmenu"
+      ],
+      "elapsed": 2,
+      "menuAppeared": false
+    },
+    {
+      "nodeType": "command",
+      "point": {
+        "x": 602,
+        "y": 493
+      },
+      "hitElement": "DIV w-px h-px (1x1 placeholder)",
+      "clickFirst": "selected via left-click at 602,493 (47ms before right-click)",
+      "rightClickElement": "svg",
+      "trace": [
+        "pointermove (L)",
+        "pointerdown btn:0",
+        "mousedown btn:0",
+        "pointerup btn:0",
+        "mouseup btn:0",
+        "click (L)",
+        "(2.2s wait for selection)",
+        "pointermove (R)",
+        "pointerdown btn:2",
+        "mousedown btn:2",
+        "pointerup btn:2",
+        "mouseup btn:2",
+        "contextmenu"
+      ],
+      "menuAppeared": false
+    }
+  ],
+  "after": {
+    "state": "3 nodes, all 3 right-clicks fired contextmenu but no menu appeared",
+    "totalNodeCount": 3
+  },
+  "interpretation": {
+    "observed": "TapNow canvas **completely suppresses the default right-click context menu** for all node types (text, video, command) AND for empty canvas areas. The browser's contextmenu event fires but no UI appears.",
+    "v1_correction": "V1 §9.1 §10.5 §10.6 §11.4 documented various 'node right-click' behaviors. V3 confirms: **right-click has no UI affordance** in TapNow. Selection and node operations are bound to: (1) left-click select (2) bottom floating action bar (V2 §10.8) for the 2-button node action (3) drag for move (4) keyboard for some operations.",
+    "v2_confirmation": "V2 §11.4 was correct: no React Flow context menu observed. V3 deepens this with 3 node types tested.",
+    "css_evidence": "Browser's default context menu is suppressed by an event listener that calls preventDefault() OR React Flow + TapNow doesn't bind onContextMenu handler. The contextmenu event still fires (so allowDefault is true), but the menu simply isn't rendered.",
+    "tapnow_design_choice": "Right-click is intentionally dead. TapNow uses (1) bottom floating action bar (2) Pin button (3) + handle (4) chip-based hero. **No context menu anywhere in the canvas UI**."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/04-rclick-text.png",
+    "docs/reports/canvas-shots/tapnow-v3/04-rclick-video.png",
+    "docs/reports/canvas-shots/tapnow-v3/04-rclick-command.png"
+  ],
+  "eval_snippets": {
+    "hook": "addEventListener(['contextmenu', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) on window with capture:true",
+    "probe": "scan for [role=menu], [class*=ContextMenu], [class*=context]"
+  }
+}
