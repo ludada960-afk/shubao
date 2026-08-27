@@ -11,6 +11,8 @@ import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import { DialogProvider, useDialog } from './components/ui/DialogProvider.jsx';
+import { LongTaskProvider } from './components/ui/LongTaskProvider.jsx';
+import { LongTaskOverlay } from './components/ui/LongTaskOverlay.jsx';
 import './styles/app-shell.css';
 const HomePage = React.lazy(() => import('./pages/Home/index'));
 const PricingPage = React.lazy(() => import('./pages/Pricing/index'));
@@ -340,9 +342,23 @@ function AppRouter() {
     )}
     <LoginModal />
     <PricingModal />
+    {/* V4 P0-3 (D2) 长任务全屏进度条 overlay, 由 LongTaskProvider 驱动 */}
+    <LongTaskOverlay />
   </>);
 }
 
 export default function App() {
-  return (<AppProvider><TaskProvider><DialogProvider><ErrorBoundary><AppRouter /></ErrorBoundary></DialogProvider></TaskProvider></AppProvider>);
+  return (
+    <AppProvider>
+      <TaskProvider>
+        <DialogProvider>
+          <LongTaskProvider>
+            <ErrorBoundary>
+              <AppRouter />
+            </ErrorBoundary>
+          </LongTaskProvider>
+        </DialogProvider>
+      </TaskProvider>
+    </AppProvider>
+  );
 }

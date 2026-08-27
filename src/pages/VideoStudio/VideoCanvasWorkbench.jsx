@@ -37,6 +37,7 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
+import { useLongTask } from '../../components/ui/LongTaskProvider.jsx';
 import VideoCanvasFlowCanvas from './VideoCanvasFlowCanvas.jsx';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import { quoteBillingAction } from '../../services/billing.js';
@@ -170,6 +171,8 @@ export default function VideoCanvasWorkbench({
   onPlanApprovalChange,
 }) {
   const { dispatch, refreshBillingBalance } = useApp();
+  // V4 P0-3 (D2) 长任务全屏进度条 hook, 导出清单等长任务用它驱动 overlay
+  const { startLongTask, updateLongTask, stopLongTask } = useLongTask();
   const [projects, setProjects] = useState([]);
   const [libraryRows, setLibraryRows] = useState([]);
   const [projectId, setProjectId] = useState('');
@@ -889,12 +892,20 @@ export default function VideoCanvasWorkbench({
     if (!projectId || exportBusy || !exportReady.ok) return;
     setExportBusy(true);
     setError('');
+    // V4 P0-3 (D2) 启动长任务全屏进度条: 3 步 (准备资源 → 合并字幕与音轨 → 写入清单)
+    const taskId = `export-manifest:${projectId}`;
+    startLongTask({ id: taskId, title: '生成导出清单', totalSteps: 3, stage: '正在准备资源…' });
     try {
+      updateLongTask(taskId, { progress: 33, stage: '正在合并字幕与音轨…' });
       const manifest = await createVideoExportManifest(projectId);
+      updateLongTask(taskId, { progress: 90, stage: '正在写入清单…' });
       setExportManifest(manifest);
+      updateLongTask(taskId, { progress: 100, stage: '清单已生成' });
     } catch (exportError) {
       setError(displayError(exportError));
     } finally {
+      // 保留 overlay 显示 300ms 让用户感知"完成"状态, 再隐藏
+      setTimeout(() => stopLongTask(taskId), 300);
       setExportBusy(false);
     }
   }
