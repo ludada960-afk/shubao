@@ -107,9 +107,12 @@ export const FEATURE_SKUS = freezeCatalog({
     priceFen: 1490, marginBand: 'premium',
     freeReruns: 0, public: false,
   },
+  // 2026-08-26 §6 #1 H3-2K 长档定价：短档 ¥14.9 毛利 91.9%；长档若与短同价则两档重叠，
+  // 按 78:68 积分比折算 ¥16.9 毛利 92.5% 仍稳，保留 5 毛溢价区隔短长。priceFen 1690 = ¥16.9，
+  // 1 元 = 100 分锚。units 仍按工作室包面值 199/760000 反推后向上取整为 57000。
   video_minimax_h3_2k_long: {
     units: 57000, providerCostCny: 0.76,
-    priceFen: 1490, marginBand: 'premium',
+    priceFen: 1690, marginBand: 'premium',
     freeReruns: 0, public: false,
   },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
