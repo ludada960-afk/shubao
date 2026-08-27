@@ -1,0 +1,78 @@
+{
+  "id": "tapnow-A06-connection-drag-feedback",
+  "ts_iso": "2026-08-27T04:56:18.455Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "drag from text source handle to (a) video target (already connected), (b) empty area",
+  "before": {
+    "state": "text node + video node, 1 edge pre-existing (text→video)",
+    "textSourceHandle": {
+      "x": 712.97,
+      "y": 480.22,
+      "w": 7.8,
+      "h": 7.8
+    },
+    "videoTargetHandle": {
+      "x": 722.9,
+      "y": 485,
+      "w": 7.8,
+      "h": 7.8
+    },
+    "edgeCount": 1
+  },
+  "attempt1_connectExisting": {
+    "from": {
+      "x": 537,
+      "y": 480
+    },
+    "to": {
+      "x": 723,
+      "y": 485
+    },
+    "result": "Drag didn't hit the source handle - hit react-flow__resize-control nodrag right instead (8px outside the actual handle). Drag continued but no connection line was rendered.",
+    "traceHighlights": [
+      "t+0: pointerdown on react-flow__resize-control",
+      "t+5016: pointermove - target now will-change-transform h-20 w-20 (the + handle bubble)",
+      "t+20050: target becomes svg (drag in progress)",
+      "t+31681: passes through node-handle-plus-right (collision)",
+      "t+31703: returns to h-20 w-20 (+ handle bubble)",
+      "t+31724: pointerup"
+    ],
+    "edgeCountAfter": 1,
+    "connectionLineAppeared": false
+  },
+  "attempt2_dragToEmpty": {
+    "from": {
+      "x": 713,
+      "y": 480
+    },
+    "to": {
+      "x": 900,
+      "y": 600
+    },
+    "duration_ms": 32284,
+    "trace": "10 intermediate moves at 3-5s intervals, end at 900,600",
+    "finalState": {
+      "edgeCount": 1,
+      "nodeCount": 2,
+      "connectionLine": false,
+      "newNode": false
+    }
+  },
+  "interpretation": {
+    "handleZIssue": "The actual react-flow__handle is 7.8x7.8 px (very small). The + extension handle (h-20 w-20 = 80x80) is much bigger and overlaps it. Drag from a position close to but not exactly on the handle hits the + extension bubble, which creates a new command node, NOT a connection line.",
+    "connectionLineExistence": "React Flow's standard .react-flow__connectionline (SVG path) appears DURING drag but disappears after pointerup if no valid drop target. The trace shows it briefly but V3 couldn't capture mid-drag due to 5s/pointermove driver pace.",
+    "noFeedback": "**No new connection was created** even when dragging onto the pre-existing video target (because that edge already exists). No error toast, no bounce-back animation — silent no-op.",
+    "css_evidence": "Connection line is SVG inside .react-flow__renderer. During drag, the line follows the pointer with bezier curve from source to pointer position. When pointerup on a valid target, the line is replaced by a real .react-flow__edge. When invalid, the line just disappears.",
+    "v1Confirmation": "V1 §9.3 listed '节点 → 节点 = 创建连线'. V3 confirms this is the only way to create connection; there's no menu-based connection."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/06-conn-after.png",
+    "docs/reports/canvas-shots/tapnow-v3/06-conn-empty-end.png"
+  ],
+  "eval_snippets": {
+    "handleFind": "Array.from(document.querySelectorAll('.react-flow__handle')).map(el => ({pos, type, x, y, w, h, cx, cy, parentNode}))",
+    "midDragProbe": "document.querySelector('.react-flow__connectionline') to detect active connection line"
+  }
+}
