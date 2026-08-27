@@ -4,27 +4,36 @@ import '@xyflow/react/dist/style.css';
 import { toFlowNodes, toFlowEdges, canvasIsValidConnection } from './videoCanvasFlowModel.js';
 
 function ShubaoAssetNode({ data }) {
+  // V4 P0-2 (D6): 中文 a11y - quantv 风格, 屏幕阅读器友好
+  const isAudio = data.kind === 'audio';
+  const a11yLabel = isAudio ? `音频素材 ${data.title || ''}` : `素材 ${data.title || ''}, 从此处拉出连线`;
   return (
-    <article className={'vcb-node is-asset' + (data.kind === 'video' ? ' is-video' : data.kind === 'audio' ? ' is-audio' : '')}>
+    <article className={'vcb-node is-asset' + (data.kind === 'video' ? ' is-video' : data.kind === 'audio' ? ' is-audio' : '')}
+      role="group"
+      aria-label={a11yLabel}>
       <header><span>{String(data.title || '素材').slice(0, 18)}</span></header>
-      {data.previewUrl ? <img src={data.previewUrl} alt="" loading="lazy" /> : null}
+      {data.previewUrl ? <img src={data.previewUrl} alt={a11yLabel} loading="lazy" /> : null}
       <footer>{data.source === 'upload' ? '上传素材' : data.source === 'library' ? '项目素材库' : '已确认'}</footer>
     </article>
   );
 }
 function ShubaoShotNode({ data }) {
+  // V4 P0-2 (D6): 中文 a11y - 镜头节点, 接受连线输入
+  const a11yLabel = `视频镜头 ${data.title || ''}, 连接素材入口`;
   return (
-    <article className="vcb-node is-shot">
+    <article className="vcb-node is-shot" role="group" aria-label={a11yLabel}>
       <header><span>{String(data.title || '镜头').slice(0, 18)}</span></header>
       <footer>{'镜头 #' + String(data.shotId || '').slice(0, 8)}</footer>
     </article>
   );
 }
 function ShubaoCandidateNode({ data }) {
+  // V4 P0-2 (D6): 中文 a11y - 候选成片
+  const a11yLabel = `成片候选, ${data.title || '镜头预览'}`;
   return (
-    <article className="vcb-node is-candidate">
+    <article className="vcb-node is-candidate" role="group" aria-label={a11yLabel}>
       <header><span>候选</span></header>
-      {data.previewUrl ? <img src={data.previewUrl} alt="" loading="lazy" /> : null}
+      {data.previewUrl ? <img src={data.previewUrl} alt={a11yLabel} loading="lazy" /> : null}
     </article>
   );
 }
@@ -45,7 +54,7 @@ function FlowCanvasInner({ domainNodes = [], domainEdges = [], workbenchShots = 
   })();
   void setNodes; void onNodesChange;
   return (
-    <div className="vcb-flow-root" role="application" aria-label="React Flow 画布视图（实验）">
+    <div className="vcb-flow-root" role="application" aria-label="React Flow 画布视图（实验）：拖动素材到此镜头连线">
       <ReactFlow
         nodes={initialNodes}
         edges={initialEdges}
