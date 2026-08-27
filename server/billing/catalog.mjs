@@ -54,10 +54,13 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_image_2k: { units: 1000, providerCostCny: 0.038 },
   ec_image_4k: { units: 2000, providerCostCny: 0.038 },
   ec_nano_flash_1k: { units: 1000, providerCostCny: 0.06 },
-  ec_nano_flash_2k: { units: 1000, providerCostCny: 0.06 },
+  // 2026-08-26 §6 #3 nano 2K 修复：图片动价 1→1.5 积分。零售端 ¥0.262→¥0.393（+50%），
+  // 终结同价异常（与 1K/4K 单价 ¥0.262 vs ¥0.131 不一致的隐性补贴）。
+  // providerCostCny ¥0.06 保持不变；units 1000→1500 反映 1.5 积分扣费。
+  ec_nano_flash_2k: { units: 1500, providerCostCny: 0.06 },
   ec_nano_flash_4k: { units: 2000, providerCostCny: 0.06 },
   ec_nano_pro_1k: { units: 1000, providerCostCny: 0.06 },
-  ec_nano_pro_2k: { units: 1000, providerCostCny: 0.06 },
+  ec_nano_pro_2k: { units: 1500, providerCostCny: 0.06 },
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
   // ── 视频按量终案（2026-08-26 已批准）：零售锚 priceFen（1元=100分）+ 积分扣费 units 双轨 ──
   // 积分折算锚 = 工作室包面值 ¥199/760000units ≈ ¥0.00026184/unit（见 pointsFaceAnchorCny）。
