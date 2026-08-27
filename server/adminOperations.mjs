@@ -14,6 +14,10 @@ import {
   listExperimentVariants,
 } from './billing/priceExperiment.mjs';
 import {
+  buildDefenseSummary,
+  isoWeekStartUtc as defenseIsoWeekStartUtc,
+} from './billing/priceDefensePlan.mjs';
+import {
   batchCreateH3InviteCodes,
   exportH3InviteCodesCsv,
   listH3InviteCodes,
@@ -701,6 +705,40 @@ export function createAdminOperations({
     })).sort((a, b) => b.paidAmountCny - a.paidAmountCny || b.orders - a.orders);
   }
 
+  // 2026-08-26 §6 #4 降价预案：把过去 N 周的注册→付费转化率按周汇总，
+  // 给 priceDefensePlan.evaluateDefensePlan 喂数据；N 至少 6 周（streak 4 周 + 缓冲 2 周）。
+  function weeklyConversionRows({ weeks = 6 } = {}) {
+    const limit = Math.max(1, Math.min(26, Number(weeks) || 6));
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='account_access'").get()) {
+      return [];
+    }
+    const hasPaymentOrders = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='payment_orders'").get();
+    // 注册按 account_access.created_at UTC 周一分桶，付费按 payment_orders.created_at 周一分桶。
+    const signups = db.prepare(`
+      SELECT date(datetime(created_at, 'weekday 1', '-7 days')) AS week_start,
+        COUNT(*) AS signups
+      FROM account_access
+      GROUP BY week_start
+      ORDER BY week_start DESC
+      LIMIT ?
+    `).all(limit);
+    const paying = hasPaymentOrders ? db.prepare(`
+      SELECT date(datetime(created_at, 'weekday 1', '-7 days')) AS week_start,
+        COUNT(DISTINCT customer_email) AS paying_users
+      FROM payment_orders
+      WHERE status = 'paid' AND customer_email IS NOT NULL AND customer_email != ''
+      GROUP BY week_start
+      ORDER BY week_start DESC
+      LIMIT ?
+    `).all(limit) : [];
+    const payingMap = new Map(paying.map(row => [row.week_start, Number(row.paying_users || 0)]));
+    return signups.map(row => ({
+      weekStart: row.week_start,
+      signups: Number(row.signups || 0),
+      payingUsers: payingMap.get(row.week_start) || 0,
+    })).sort((left, right) => left.weekStart.localeCompare(right.weekStart));
+  }
+
   function summary(input = {}) {
     const usageWhere = whereForUsage(input);
     const row = db.prepare(`
@@ -791,6 +829,10 @@ export function createAdminOperations({
       byFeature: breakdownBy(bySku, 'feature'),
       bySku,
       byVariant,
+      defensePlan: buildDefenseSummary(bySku, {
+        weeklyRows: weeklyConversionRows({ weeks: 6 }),
+        env: process.env,
+      }),
       byChannel: byChannelRevenue(input),
       pricingExperiment: {
         flag: PRICING_EXPERIMENT.flag,
