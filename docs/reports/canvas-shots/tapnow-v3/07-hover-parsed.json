@@ -1,0 +1,37 @@
+[
+  {
+    "label": "tool-default",
+    "before": {},
+    "after": {}
+  },
+  {
+    "label": "hide-edges",
+    "before": {},
+    "after": {}
+  },
+  {
+    "label": "grid-snap",
+    "before": {},
+    "after": {}
+  },
+  {
+    "label": "reset",
+    "before": {},
+    "after": {}
+  },
+  {
+    "label": "chat-add",
+    "before": {},
+    "after": {}
+  },
+  {
+    "label": "manual-confirm",
+    "before": {},
+    "after": {}
+  },
+  {
+    "label": "model-selector",
+    "before": {},
+    "after": {}
+  }
+]

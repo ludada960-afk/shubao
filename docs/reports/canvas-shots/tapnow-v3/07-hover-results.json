@@ -1,0 +1,317 @@
+[
+  {
+    "label": "tool-default",
+    "before": {
+      "label": "tool-default",
+      "point": {
+        "x": 37,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "0",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "tool-default",
+      "point": {
+        "x": 37,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "1",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    }
+  },
+  {
+    "label": "hide-edges",
+    "before": {
+      "label": "hide-edges",
+      "point": {
+        "x": 73,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "0",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "hide-edges",
+      "point": {
+        "x": 73,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "1",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    }
+  },
+  {
+    "label": "grid-snap",
+    "before": {
+      "label": "grid-snap",
+      "point": {
+        "x": 109,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "1",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "grid-snap",
+      "point": {
+        "x": 109,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "1",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    }
+  },
+  {
+    "label": "reset",
+    "before": {
+      "label": "reset",
+      "point": {
+        "x": 145,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "0",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "reset",
+      "point": {
+        "x": 145,
+        "y": 935
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#E6E"
+      },
+      "hovery": [
+        {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-data-[active]",
+          "opacity": "1",
+          "bg": "oklab(0 0 0 / 0.4)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    }
+  },
+  {
+    "label": "chat-add",
+    "before": {
+      "label": "chat-add",
+      "point": {
+        "x": 1598,
+        "y": 937
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "relative flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/10 p-0 text-for"
+      },
+      "hovery": [
+        {
+          "tag": "BUTTON",
+          "cls": "relative flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/10 p-0 text-foreground cursor-point",
+          "opacity": "1",
+          "bg": "oklab(0.999994 0.0000455678 0.0000200868 / 0.1)",
+          "color": "rgb(245, 245, 245)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "chat-add",
+      "point": {
+        "x": 1598,
+        "y": 937
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "relative flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/10 p-0 text-for"
+      },
+      "hovery": [
+        {
+          "tag": "BUTTON",
+          "cls": "relative flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/10 p-0 text-foreground cursor-point",
+          "opacity": "1",
+          "bg": "oklab(0.999994 0.0000455678 0.0000200868 / 0.15)",
+          "color": "rgb(245, 245, 245)",
+          "transform": "none"
+        }
+      ]
+    }
+  },
+  {
+    "label": "manual-confirm",
+    "before": {
+      "label": "manual-confirm",
+      "point": {
+        "x": 1632,
+        "y": 937
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "flex h-[26px] min-w-[26px] shrink-0 items-center overflow-hidden rounded-full cursor-pointer px-[5px"
+      },
+      "hovery": [
+        {
+          "tag": "BUTTON",
+          "cls": "flex h-[26px] min-w-[26px] shrink-0 items-center overflow-hidden rounded-full cursor-pointer px-[5px] text-sm font-mediu",
+          "opacity": "1",
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "oklab(0.970145 0.0000441968 0.0000194311 / 0.9)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "manual-confirm",
+      "point": {
+        "x": 1632,
+        "y": 937
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "flex h-[26px] min-w-[26px] shrink-0 items-center overflow-hidden rounded-full cursor-pointer px-[5px"
+      },
+      "hovery": [
+        {
+          "tag": "BUTTON",
+          "cls": "flex h-[26px] min-w-[26px] shrink-0 items-center overflow-hidden rounded-full cursor-pointer px-[5px] text-sm font-mediu",
+          "opacity": "1",
+          "bg": "oklab(0.970145 0.0000441968 0.0000194311 / 0.1)",
+          "color": "oklab(0.970145 0.0000441968 0.0000194311 / 0.9)",
+          "transform": "none"
+        }
+      ]
+    }
+  },
+  {
+    "label": "model-selector",
+    "before": {
+      "label": "model-selector",
+      "point": {
+        "x": 1884,
+        "y": 937
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "flex h-[26px] min-w-[26px] items-center overflow-hidden rounded-md max-w-[188px] shrink-0 px-2 sm:ma"
+      },
+      "hovery": [
+        {
+          "tag": "BUTTON",
+          "cls": "flex h-[26px] min-w-[26px] items-center overflow-hidden rounded-md max-w-[188px] shrink-0 px-2 sm:max-w-[228px] bg-trans",
+          "opacity": "1",
+          "bg": "rgba(0, 0, 0, 0)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    },
+    "after": {
+      "label": "model-selector",
+      "point": {
+        "x": 1884,
+        "y": 937
+      },
+      "button": {
+        "tag": "BUTTON",
+        "cls": "flex h-[26px] min-w-[26px] items-center overflow-hidden rounded-md max-w-[188px] shrink-0 px-2 sm:ma"
+      },
+      "hovery": [
+        {
+          "tag": "BUTTON",
+          "cls": "flex h-[26px] min-w-[26px] items-center overflow-hidden rounded-md max-w-[188px] shrink-0 px-2 sm:max-w-[228px] bg-trans",
+          "opacity": "1",
+          "bg": "rgb(64, 64, 64)",
+          "color": "rgb(230, 230, 230)",
+          "transform": "none"
+        }
+      ]
+    }
+  }
+]

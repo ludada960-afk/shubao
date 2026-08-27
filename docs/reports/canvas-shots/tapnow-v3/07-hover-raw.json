@@ -1,0 +1,37 @@
+[
+  {
+    "label": "tool-default",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  },
+  {
+    "label": "hide-edges",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  },
+  {
+    "label": "grid-snap",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  },
+  {
+    "label": "reset",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  },
+  {
+    "label": "chat-add",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  },
+  {
+    "label": "manual-confirm",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  },
+  {
+    "label": "model-selector",
+    "before": "{\r\r\n",
+    "after": "{\r\r\n"
+  }
+]
