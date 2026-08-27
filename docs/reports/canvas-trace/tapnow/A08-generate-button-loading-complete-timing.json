@@ -1,0 +1,112 @@
+{
+  "id": "tapnow-A08-generate-button-loading-complete-timing",
+  "ts_iso": "2026-08-27T05:23:22.263Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "send 'test' message via chat input send button (arrow-up icon), observe timing",
+  "before": {
+    "state": "empty chat input",
+    "sendButton": {
+      "x": 1999,
+      "y": 921,
+      "w": 32,
+      "h": 32,
+      "bg": "rgba(0,0,0,0)",
+      "disabled": false,
+      "class": "inline-flex h-8 w-8 items-center justify-center rounded-md cursor-pointer transition-colors"
+    },
+    "sendButtonIcon": "lucide-arrow-up",
+    "sendButtonTransition": "transition-colors",
+    "generateButton": "NOT FOUND - TapNow canvas has no dedicated 生成/Run/Start button visible. Generation is triggered by chat input send button or 中央 hero chip (which auto-injects nodes without generation)"
+  },
+  "states": [
+    {
+      "phase": "empty",
+      "inputText": "",
+      "sendBtn": {
+        "bg": "rgba(0,0,0,0)",
+        "disabled": false
+      }
+    },
+    {
+      "phase": "typed",
+      "inputText": "test",
+      "sendBtn": {
+        "bg": "rgba(0,0,0,0)",
+        "disabled": false
+      }
+    },
+    {
+      "phase": "clicked",
+      "t_offset": "immediate",
+      "inputText": "test",
+      "sendBtn": {
+        "bg": "rgba(0,0,0,0)",
+        "disabled": false
+      },
+      "note": "click did NOT send (input still has text)"
+    },
+    {
+      "phase": "enter-pressed",
+      "t_offset": 200,
+      "inputText": "null (cleared)",
+      "note": "Enter triggered send, input cleared"
+    },
+    {
+      "phase": "loading",
+      "t_offset": 400,
+      "hasThinkingIndicator": false,
+      "note": "No visible spinner or thinking dots in chat area"
+    },
+    {
+      "phase": "loading",
+      "t_offset": 600,
+      "hasThinkingIndicator": false
+    },
+    {
+      "phase": "loading",
+      "t_offset": 800,
+      "hasThinkingIndicator": false
+    },
+    {
+      "phase": "complete",
+      "t_offset": 1000,
+      "responseText": "你好！我是 TapNow 创作助手。系统已就绪，请告诉我你想要创作的视觉项目、画面构思或具体需求，我们可以随时开始！",
+      "responseTime": "1s (处理了 1s)"
+    }
+  ],
+  "response": {
+    "latency": "1000ms (1s)",
+    "responseClass": "flex flex-col gap-4 transition-opacity duration-300",
+    "responseTransition": "300ms opacity transition for the message bubble",
+    "messageType": "is-assistant",
+    "actions": "复制 / 好评 / 差评 / 分支对话",
+    "note": "Welcome response (not a meaningful answer to 'test') - the chat has a default welcome behavior"
+  },
+  "after": {
+    "state": "1 user message + 1 assistant message in chat",
+    "sendButtonState": "back to disabled visual (input empty)",
+    "networkUsage": "1 chat request to AI backend (text only, no image generation)"
+  },
+  "interpretation": {
+    "noDedicatedButton": "TapNow canvas has NO separate \"生成\" (generate) button. The only way to trigger AI processing is via the chat input (Enter key or arrow-up send button).",
+    "fastResponse": "Response latency = 1s for the default welcome (likely a canned response). For real generation, latency would be higher (image gen typically 3-10s, video 30s+).",
+    "noLoadingSpinner": "During the 1s response, no spinner/thinking dots appeared. TapNow shows the user message immediately, then the assistant message appears with 300ms opacity transition.",
+    "quotaImpact": "Sending 'test' triggered 1 chat request to backend but did NOT consume image generation quota (the response was a text-only welcome message).",
+    "transition": "300ms opacity transition for new message bubbles (`transition-opacity duration-300`).",
+    "v2_correction": "V2 §10.9 documented 'Gemini 3.7 Flash' model selector could not open dropdown. V3 confirms: same behavior, model selector button does not respond to click (it's a display element, not a dropdown trigger). The real model selection must be in another location."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/08-btn-states.png",
+    "docs/reports/canvas-shots/tapnow-v3/08-btn-typed.png",
+    "docs/reports/canvas-shots/tapnow-v3/08-after-click.png",
+    "docs/reports/canvas-shots/tapnow-v3/08-btn-200ms.png",
+    "docs/reports/canvas-shots/tapnow-v3/08-chat-typed.png",
+    "docs/reports/canvas-shots/tapnow-v3/08-chat-after-enter.png"
+  ],
+  "eval_snippets": {
+    "stateProbe": "input text + sendBtn bg/disabled/class",
+    "intervalCapture": "setTimeout / setInterval to sample state at 200ms, 400ms, 600ms, 800ms, 1000ms"
+  }
+}
