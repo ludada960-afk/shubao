@@ -1,0 +1,129 @@
+{
+  "id": "tapnow-A01-dblclick-empty-canvas",
+  "ts_iso": "2026-08-27T04:32:29.210Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/293277aa-5287-46c8-be5a-3ff5a66efb60",
+  "user": "ludada960",
+  "action": "double-click on empty canvas area (800, 700)",
+  "before": {
+    "state": "2 nodes (text+video connected) + 1 edge from earlier V2 chip click",
+    "elementFromPoint": {
+      "tag": "DIV",
+      "cls": "react-flow__pane selection",
+      "x": 800,
+      "y": 700
+    },
+    "nodeCount": 2,
+    "edgeCount": 1,
+    "paneTransition": "all"
+  },
+  "during": {
+    "traceEvents": [
+      {
+        "t_offset_ms": 0,
+        "type": "pointermove",
+        "target": "react-flow__pane selection"
+      },
+      {
+        "t_offset_ms": 1,
+        "type": "pointerdown",
+        "btn": 0,
+        "target": "react-flow__pane"
+      },
+      {
+        "t_offset_ms": 7,
+        "type": "mousedown"
+      },
+      {
+        "t_offset_ms": 8,
+        "type": "pointerup"
+      },
+      {
+        "t_offset_ms": 8,
+        "type": "mouseup"
+      },
+      {
+        "t_offset_ms": 9,
+        "type": "click"
+      },
+      {
+        "t_offset_ms": 12,
+        "type": "pane:click"
+      },
+      {
+        "t_offset_ms": 13,
+        "type": "pointerdown (2nd click)",
+        "gap_from_first": 12
+      },
+      {
+        "t_offset_ms": 15,
+        "type": "mousedown (2nd)"
+      },
+      {
+        "t_offset_ms": 15,
+        "type": "pointerup (2nd)"
+      },
+      {
+        "t_offset_ms": 15,
+        "type": "mouseup (2nd)"
+      },
+      {
+        "t_offset_ms": 15,
+        "type": "click (2nd)"
+      },
+      {
+        "t_offset_ms": 18,
+        "type": "pane:click (2nd)"
+      },
+      {
+        "t_offset_ms": 41,
+        "type": "dblclick",
+        "delay_from_2nd_click": 23
+      },
+      {
+        "t_offset_ms": 41,
+        "type": "pane:dblclick"
+      }
+    ],
+    "interClickDelay": 12,
+    "dblClickDelay": 23,
+    "dblClickTotal": 41
+  },
+  "after": {
+    "state": "3 nodes (text+video+new command), 1 edge, 0 dialogs",
+    "elementFromPoint": {
+      "tag": "DIV",
+      "cls": "react-flow__pane selection",
+      "x": 800,
+      "y": 700
+    },
+    "nodeCount": 3,
+    "newNode": {
+      "id": "command-0ff16cde-caaf-421c-807e-1eb59751c862",
+      "type": "command",
+      "x": 801,
+      "y": 699,
+      "w": 0,
+      "h": 0,
+      "classes": "react-flow__node react-flow__node-command selectable",
+      "text": "",
+      "transform": "matrix(1, 0, 0, 1, 180, 1755)",
+      "transition": "all",
+      "animation": "none"
+    }
+  },
+  "interpretation": {
+    "observed": "Double-click on empty react-flow__pane creates a 'command' type node (likely a free-form prompt/generation command) at the exact click position. The node is created at 0x0 dimensions — it's a placeholder waiting for content. No dialog or popup was shown.",
+    "contrast_to_v1": "V1 §11.3 guessed 'double-click creates a free-form generation node but requires idle model'. V3 confirms: it always works, regardless of model state, but creates a 'command' type not a generic 'text' type. Initial size is 0x0 (collapsed state).",
+    "css_animation": "transition: 'all' on the new node suggests a transition will fire when it expands. The animation property is 'none' on initial render — no entrance animation, just a position transform."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/01-dblclick-00-before.png",
+    "docs/reports/canvas-shots/tapnow-v3/01-dblclick-01-after.png"
+  ],
+  "eval_snippets": {
+    "hook_install": "window.__v3trace = []; addEventListener for pointer/click/dblclick/contextmenu with capture: true",
+    "before_probe": "elementFromPoint(800,700) + nodeCount/edgeCount + transition CSS",
+    "after_probe": "elementFromPoint + newNodeList + dialogCount + window.__v3trace"
+  }
+}
