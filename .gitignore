@@ -46,3 +46,6 @@ dist/
 .superpowers/sdd/*-task-*-report.md
 .superpowers/sdd/review-*.diff
 .superpowers/sdd/review-*.md
+
+# local-only vision keyring
+.env.d/

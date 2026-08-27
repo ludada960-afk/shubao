@@ -462,3 +462,8 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 ## 2026-08-23 P3-07 Webhook 投递队列
 
 - 订阅 CRUD（公网 https 门禁+同 URL 幂等）→ 导出完成入队（UNIQUE job+webhook 幂等）→ claimPending 事务认领 → report 回报 delivered/failed；真实 HTTP POST 留给部署侧 worker 调本接口即可。store+协作 49/49、视频域子集 220/220 全绿。
+
+
+## 跨模型图像协作能力
+
+详细方案见 `docs/superpowers/specs/cross-model-vision-bridge.md` (provider-agnostic 视觉桥 + 浏览器批注面板 + 跨模型结构化文本注入)。不论切到哪个 LLM, 纯文本模型都能看到图。
