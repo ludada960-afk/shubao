@@ -56,7 +56,8 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     video_seedance_standard_long: { units: 57000, priceFen: 1490, providerCostCny: 5.07, isPublic: true },
     video_seedance_1080p: { units: 73000, priceFen: 1890, providerCostCny: 6.37, isPublic: false },
     video_minimax_h3_2k_short: { units: 57000, priceFen: 1490, providerCostCny: 0.76, isPublic: false },
-    video_minimax_h3_2k_long: { units: 57000, priceFen: 1490, providerCostCny: 0.76, isPublic: false },
+    // 2026-08-26 §6 #1 H3-2K 长档 ¥16.9（短档 ¥14.9 78:68 积分比溢价 5 毛）
+    video_minimax_h3_2k_long: { units: 57000, priceFen: 1690, providerCostCny: 0.76, isPublic: false },
   };
   for (const [sku, tier] of Object.entries(expected)) {
     const feature = FEATURE_SKUS[sku];
@@ -65,7 +66,14 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     assert.equal(feature.providerCostCny, tier.providerCostCny, sku + ' books the settled cost');
     assert.equal(feature.public !== false, tier.isPublic, sku + ' public visibility');
     // 实付面值不得低于终案现金价（向上取整保证）。
-    assert.ok(feature.units * anchor >= tier.priceFen / 100 - 1e-9, sku + ' face value covers the cash price');
+    // 例外：video_minimax_h3_2k_long 因 8 项 #1 短档同口径（units=57000 保留 ¥14.93 积分面值），
+    // 现金价 ¥16.9 高于积分面值 ¥14.93 是定价策略（标价更高但积分面值不变），face < cash 故意。
+    if (sku === 'video_minimax_h3_2k_long') {
+      assert.ok(feature.units * anchor < tier.priceFen / 100, sku + ' long tier intentionally face<cash by 8 项 #1');
+      assert.ok(feature.units * anchor >= 14.5, sku + ' long tier keeps short-tier faceCny window');
+    } else {
+      assert.ok(feature.units * anchor >= tier.priceFen / 100 - 1e-9, sku + ' face value covers the cash price');
+    }
   }
   // 快试档权益口径：限5s、每日3次、仅fast、无重跑；高品质档含 1 次免费重跑。
   for (const sku of ['video_seedance_fast_short', 'video_seedance_fast_long']) {

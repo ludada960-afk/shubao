@@ -6,7 +6,8 @@ import { createPaymentChannelRegistry } from '../server/billing/paymentChannels.
 test('channel registry keeps balance active and online channels unavailable by default', () => {
   const registry = createPaymentChannelRegistry({ env: {} });
 
-  assert.deepEqual(registry.ids(), ['balance', 'wechat_qr', 'alipay']);
+  // 2026-08-26 §6 #5 月卡通道默认开,active 排在 balance 之后
+  assert.deepEqual(registry.ids(), ['balance', 'balance_monthpack', 'wechat_qr', 'alipay']);
   assert.equal(registry.isActive('balance'), true);
   assert.equal(registry.isActive('wechat_qr'), false);
   assert.equal(registry.isActive('alipay'), false);
@@ -18,6 +19,15 @@ test('channel registry keeps balance active and online channels unavailable by d
       status: 'active',
       enabled: true,
       description: '账户余额与积分套餐直接结算，当前可用',
+    },
+    // 2026-08-26 §6 #5 月卡通道：active 默认开 (skus/validityDays/giftRuleFlag 是 def 内部元数据, listChannels 不透出)
+    {
+      id: 'balance_monthpack',
+      label: '月卡礼包',
+      kind: 'internal',
+      status: 'active',
+      enabled: true,
+      description: '月卡礼包通道：30 天有效期 + 赠分限图/工具类目',
     },
     {
       id: 'wechat_qr',

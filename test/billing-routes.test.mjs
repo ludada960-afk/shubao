@@ -585,8 +585,10 @@ test('public catalog exposes the payment channel registry without internal switc
 
   const { res } = await invoke(app, 'GET', '/api/billing/catalog');
   assert.equal(res.statusCode, 200);
+  // 2026-08-26 §6 #5 月卡通道 active 默认开,排序在 balance 之后
   assert.deepEqual(res.body.paymentChannels.map(channel => [channel.id, channel.status]), [
     ['balance', 'active'],
+    ['balance_monthpack', 'active'],
     ['wechat_qr', 'unavailable'],
     ['alipay', 'unavailable'],
   ]);

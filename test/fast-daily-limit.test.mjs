@@ -119,10 +119,10 @@ test('checkFastDailyLimit always allows non-fast SKUs regardless of env', () => 
 test('fastLimitStatus emits 7-day perDay + top users above the limit', () => {
   const db = makeDb();
   const now = new Date('2026-08-26T08:00:00Z');
-  // 5 天前 - 触发限次用户 A
+  // 6 天前（7 天窗口最旧位 i=6=8-20）- 触发限次用户 A
   for (let i = 0; i < 2; i += 1) {
     seedEvent(db, { id: 'past-' + i, owner: 'a@x', sku: 'video_seedance_fast_short',
-      createdAt: '2026-08-21 0' + (i + 1) + ':00:00' });
+      createdAt: '2026-08-20 0' + (i + 1) + ':00:00' });
   }
   // 昨天 - 普通用户 B
   seedEvent(db, { id: 'y-1', owner: 'b@x', sku: 'video_seedance_fast_short',
@@ -134,8 +134,8 @@ test('fastLimitStatus emits 7-day perDay + top users above the limit', () => {
   assert.equal(status.enabled, true);
   assert.equal(status.dailyLimit, 2);
   assert.equal(status.perDay.length, 7);
-  // 末位（最旧）必须是 5 天前
-  assert.equal(status.perDay[0].day, '2026-08-21');
+  // 末位（最旧）必须是 6 天前 (7 天窗口 i=6 = 8-20)
+  assert.equal(status.perDay[0].day, '2026-08-20');
   assert.equal(status.perDay[0].totalActions, 2);
   // 倒数第二是昨天
   assert.equal(status.perDay[5].day, '2026-08-25');
@@ -155,7 +155,8 @@ test('fastLimitStatus returns safe defaults when usage_events is missing', () =>
   const status = fastLimitStatus(db, { now: new Date('2026-08-26T08:00:00Z') });
   assert.equal(status.enabled, true);
   assert.equal(status.dailyLimit, 2);
-  assert.equal(status.perDay.length, 7);
+  // 缺表时实现早返 perDay: []（admin UI 自行渲染连续时间序列, 无占位开销）
+  assert.equal(status.perDay.length, 0);
   assert.equal(status.topUsers.length, 0);
   db.close();
 });

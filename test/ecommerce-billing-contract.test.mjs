@@ -12,9 +12,10 @@ function item(id, generationSize = '2048x2048') {
 }
 
 test('catalog exposes server-owned Nano Banana model and resolution SKUs', () => {
+  // 2026-08-26 §6 #3 nano 2K 1→1.5 积分 (终结同价异常, 7 天老客保护期 nanoPriceTransition.mjs)
   const cases = [
-    ['ec_nano_flash_1k', 1000], ['ec_nano_flash_2k', 1000], ['ec_nano_flash_4k', 2000],
-    ['ec_nano_pro_1k', 1000], ['ec_nano_pro_2k', 1000], ['ec_nano_pro_4k', 2000],
+    ['ec_nano_flash_1k', 1000], ['ec_nano_flash_2k', 1500], ['ec_nano_flash_4k', 2000],
+    ['ec_nano_pro_1k', 1000], ['ec_nano_pro_2k', 1500], ['ec_nano_pro_4k', 2000],
   ];
   for (const [sku, units] of cases) {
     const quote = quoteFeature(sku, 1);

@@ -63,7 +63,8 @@ test('authoritative server catalog contains the exact Xiaohongshu and Plog packa
       { sku: 'xhs_entry_19', priceFen: 1900, grantUnits: 3, validityDays: 30 },
       { sku: 'xhs_growth_49', priceFen: 4900, grantUnits: 10, validityDays: 30 },
       { sku: 'xhs_creator_99', priceFen: 9900, grantUnits: 25, validityDays: 30 },
-      { sku: 'xhs_studio_199', priceFen: 19900, grantUnits: 60, validityDays: 30 },
+      // 2026-08-26 §6 #8 XHS studio 60→50 套（-20% effective uplift, 60 天老客保护期 xhsLegacyProtection.mjs）
+      { sku: 'xhs_studio_199', priceFen: 19900, grantUnits: 50, validityDays: 30 },
     ],
   );
 });
