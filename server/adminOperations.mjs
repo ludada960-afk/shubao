@@ -8,6 +8,11 @@ import {
 import { buildUpstreamCostLedger } from './billing/upstreamLedger.mjs';
 import { buildUnitEconomicsCatalog } from './billing/unitEconomicsCatalog.mjs';
 import { VIDEO_PRODUCTS } from './videoCatalog.mjs';
+import {
+  PRICING_EXPERIMENT,
+  breakdownByVariant,
+  listExperimentVariants,
+} from './billing/priceExperiment.mjs';
 
 const CURRENCIES = ['ec_points', 'content_sets'];
 const MAX_CREDIT_ADJUSTMENT = 100_000_000;
@@ -656,6 +661,7 @@ export function createAdminOperations({
         COALESCE(NULLIF(feature, ''), 'unclassified') AS feature,
         COALESCE(NULLIF(provider, ''), 'unknown') AS provider,
         COALESCE(NULLIF(model, ''), '') AS model,
+        COALESCE(NULLIF(json_extract(u.metadata, '$.variantKey'), ''), 'unknown') AS variantKey,
         COUNT(*) AS actions,
         COALESCE(SUM(charged_units), 0) AS points_consumed,
         COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
@@ -665,7 +671,8 @@ export function createAdminOperations({
       GROUP BY COALESCE(NULLIF(sku, ''), 'unclassified'),
         COALESCE(NULLIF(feature, ''), 'unclassified'),
         COALESCE(NULLIF(provider, ''), 'unknown'),
-        COALESCE(NULLIF(model, ''), '')
+        COALESCE(NULLIF(model, ''), ''),
+        COALESCE(NULLIF(json_extract(u.metadata, '$.variantKey'), ''), 'unknown')
       ORDER BY provider_cost_cny DESC, actions DESC
       LIMIT 100
     `).all(...usageWhere.params).map(item => ({
@@ -678,6 +685,20 @@ export function createAdminOperations({
         ? Number(((Number(item.theoretical_revenue) - Number(item.provider_cost_cny || 0)) / Number(item.theoretical_revenue)).toFixed(4))
         : null,
     })).map(classifyUsageRow);
+    // 2026-08-26 §6 #2 标准档 A/B 实验：bySku 同一 sku 现在按 variantKey 二次分组，
+    // byVariant 把控 SKU 的实验行单独聚合给 admin 看板，实验 SKU 之外仍按 sku 整体聚合。
+    const experimentSku = PRICING_EXPERIMENT.sku;
+    const experimentRows = bySku.filter(row => row.sku === experimentSku);
+    const byVariant = experimentRows.length > 0
+      ? breakdownByVariant(experimentRows).map(row => ({
+        ...row,
+        experimentFlag: PRICING_EXPERIMENT.flag,
+        // 单一 variant 转化率 = 该 variant 占比，无 baseline 时退到 null。
+        shareOfSku: experimentRows.reduce((sum, r) => sum + Number(r.actions || 0), 0) > 0
+          ? Number((row.actions / experimentRows.reduce((sum, r) => sum + Number(r.actions || 0), 0)).toFixed(4))
+          : null,
+      }))
+      : [];
     return {
       metrics: {
         accountsTotal: accountCounts.total,
@@ -701,6 +722,14 @@ export function createAdminOperations({
       byProvider: breakdownBy(bySku, 'provider'),
       byFeature: breakdownBy(bySku, 'feature'),
       bySku,
+      byVariant,
+      pricingExperiment: {
+        flag: PRICING_EXPERIMENT.flag,
+        sku: PRICING_EXPERIMENT.sku,
+        variants: listExperimentVariants(),
+        split: PRICING_EXPERIMENT.split,
+        enabled: true,
+      },
       unitEconomicsCatalog: buildUnitEconomicsCatalog(),
       upstreamLedger: buildUpstreamCostLedger({ bySku, localSettledCostCny: providerCost }),
       videoCost: videoCostBoard(),
