@@ -1,0 +1,3 @@
+{
+  "tree": "[0-2] RootWebArea: Creative OS 新手教程 | TapNow｜你的智能体创意画布\n  [0-2282] scrollable, html\n    [0-2399] body\n      [0-2402] main\n        [0-2403] region: Notifications alt+T\n        [0-2407] div\n          [0-2409] application\n          [0-2667] div\n            [0-2671] div\n            [0-3608] div\n            [0-2716] div\n      [0-11928] dialog: Settings\n        [0-11922] heading: Settings\n        [0-11923] paragraph\n          [0-11983] StaticText: Settings\n        [0-11925] div\n          [0-11916] div\n            [0-11572] navigation\n            [0-11573] button: v2.13.21\n            [0-11574] button: 登出账号\n          [0-11915] scrollable, div\n            [0-11914] div\n正在使用 TapNow\n        [0-11926] button: Close"
+}

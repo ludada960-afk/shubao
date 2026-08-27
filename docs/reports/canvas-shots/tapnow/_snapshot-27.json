@@ -1,0 +1,3 @@
+{
+  "tree": "[0-2] RootWebArea: Creative OS 新手教程 | TapNow｜你的智能体创意画布\n  [0-2282] scrollable, html\n    [0-2399] body\n      [0-2402] main\n        [0-2403] region: Notifications alt+T\n        [0-2407] div\n          [0-2408] div\n            [0-2409] application\n            [0-15183] div\n            [0-2572] div\n            [0-2619] div\n            [0-2645] div\n            [0-3753] button\n          [0-2667] div\n            [0-2671] div\n            [0-3608] div\n            [0-2716] div\n      [0-15616] div\n        [0-15619] StaticText: 添加\n        [0-15615] tooltip: 添加"
+}
