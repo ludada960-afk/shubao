@@ -1,0 +1,8 @@
+task-*-brief.md
+task-*-report.md
+*-task-*-brief.md
+*-task-*-report.md
+review-*.diff
+review-*.md
+.tmp/
+.DS_Store
