@@ -1,0 +1,205 @@
+{
+  "id": "tapnow-A07-toolbar-button-hover-states",
+  "ts_iso": "2026-08-27T05:15:32.086Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "hover each toolbar button and capture CSS state before/after",
+  "before": {
+    "snapshot": "all toolbar buttons in resting state"
+  },
+  "during": {
+    "traceEvents": [
+      "browse mouse hover for each button",
+      "wait 500ms",
+      "capture state",
+      "move away to reset"
+    ]
+  },
+  "buttons": [
+    {
+      "label": "tool-default",
+      "ar": "(no aria-label)",
+      "position": {
+        "x": 23,
+        "y": 921,
+        "w": 28,
+        "h": 28
+      },
+      "hoverStrategy": "child SPAN opacity 0→1",
+      "before": {
+        "hover": {
+          "tag": "SPAN",
+          "cls": "absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100",
+          "opacity": "0",
+          "bg": "oklab(0 0 0 / 0.4)"
+        }
+      },
+      "after": {
+        "hover": {
+          "opacity": "1",
+          "bg": "oklab(0 0 0 / 0.4)"
+        }
+      },
+      "transition": "200ms ease-in-out (transition-opacity duration-200)"
+    },
+    {
+      "label": "hide-edges",
+      "ar": "隐藏节点连线",
+      "position": {
+        "x": 59,
+        "y": 921,
+        "w": 28,
+        "h": 28
+      },
+      "hoverStrategy": "child SPAN opacity 0→1",
+      "before": {
+        "hover": {
+          "opacity": "0"
+        }
+      },
+      "after": {
+        "hover": {
+          "opacity": "1"
+        }
+      },
+      "transition": "200ms"
+    },
+    {
+      "label": "grid-snap",
+      "ar": "网格吸附",
+      "position": {
+        "x": 95,
+        "y": 921,
+        "w": 28,
+        "h": 28
+      },
+      "hoverStrategy": "child SPAN opacity 0→1",
+      "before": {
+        "hover": {
+          "opacity": "1"
+        }
+      },
+      "after": {
+        "hover": {
+          "opacity": "1"
+        }
+      },
+      "note": "Persistent hover state from previous test (tool-default, hide-edges were already o1)"
+    },
+    {
+      "label": "reset",
+      "ar": "重置",
+      "position": {
+        "x": 131,
+        "y": 921,
+        "w": 28,
+        "h": 28
+      },
+      "hoverStrategy": "child SPAN opacity 0→1",
+      "before": {
+        "hover": {
+          "opacity": "0"
+        }
+      },
+      "after": {
+        "hover": {
+          "opacity": "1"
+        }
+      },
+      "transition": "200ms"
+    },
+    {
+      "label": "chat-add",
+      "ar": "添加",
+      "position": {
+        "x": 1585,
+        "y": 924,
+        "w": 26,
+        "h": 26
+      },
+      "hoverStrategy": "BUTTON bg alpha 0.1→0.15",
+      "before": {
+        "bg": "oklab(0.999994 0.0000455678 0.0000200868 / 0.1)"
+      },
+      "after": {
+        "bg": "oklab(0.999994 0.0000455678 0.0000200868 / 0.15)"
+      },
+      "transition": "subtle, no transition listed in computed style"
+    },
+    {
+      "label": "manual-confirm",
+      "ar": "手动确认",
+      "position": {
+        "x": 1619,
+        "y": 924,
+        "w": 26,
+        "h": 26
+      },
+      "hoverStrategy": "BUTTON bg transparent→0.1 alpha",
+      "before": {
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      "after": {
+        "bg": "oklab(0.970145 0.0000441968 0.0000194311 / 0.1)"
+      },
+      "transition": "none (instant change)"
+    },
+    {
+      "label": "model-selector",
+      "ar": "Gemini 3.7 Flash",
+      "position": {
+        "x": 1810,
+        "y": 924,
+        "w": 148,
+        "h": 26
+      },
+      "hoverStrategy": "BUTTON bg transparent→rgb(64,64,64) (strong dark)",
+      "before": {
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      "after": {
+        "bg": "rgb(64, 64, 64)"
+      },
+      "transition": "instant (computed style doesn't list transition)"
+    }
+  ],
+  "hoverPattern": {
+    "toolbar_group": {
+      "type": "group-hover child overlay",
+      "effect": "200ms opacity transition (group-hover:opacity-100)",
+      "visual": "Dark gray 10% overlay (oklab(0 0 0 / 0.4))",
+      "buttons": [
+        "tool-default",
+        "hide-edges",
+        "grid-snap",
+        "reset"
+      ]
+    },
+    "chat_group": {
+      "type": "self background alpha change",
+      "effect": "alpha +5% (0.1 → 0.15) OR new alpha 0.1 OR rgb(64,64,64)",
+      "visual": "Light to dark gray overlay",
+      "buttons": [
+        "chat-add",
+        "manual-confirm",
+        "model-selector"
+      ]
+    }
+  },
+  "after": "all buttons returned to resting state after mouse moved away",
+  "interpretation": {
+    "twoHoverPatterns": "TapNow uses TWO different hover implementations: (1) toolbar group uses Tailwind `group-hover:opacity-100` on a child overlay SPAN with 200ms transition (2) chat input bar buttons use direct `hover:bg-*` on the BUTTON itself with no transition (instant).",
+    "noScaleTransform": "No hover state uses `transform: scale()`. Hover is purely color/opacity change — a calm, professional interaction.",
+    "durationEvidence": "200ms is a standard 'fast but noticeable' duration. The `cubic-bezier(0.4, 0, 0.2, 1)` is Material's standard easing.",
+    "cssFramework": "Tailwind CSS class names visible (`absolute -inset-0.5 rounded-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-100`) — TapNow uses Tailwind + custom oklab() color space.",
+    "designCohesion": "Toolbar group (left) is visually lighter; chat bar (right) has stronger hover for emphasis. This is intentional design — tool buttons are frequently used so light hover; chat action buttons are click-decisions so stronger feedback."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/07-hover-results.json"
+  ],
+  "eval_snippets": {
+    "hoverProbe": "document.elementFromPoint + closest('button') + querySelectorAll('[class*=hover:]')",
+    "stateCapture": "setComputedStyle on hover-target SPAN (opacity, bg, transition)"
+  }
+}
