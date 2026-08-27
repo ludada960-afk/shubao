@@ -673,3 +673,47 @@ TapNow 的画布是当前国内"节点式 + 模板式"AI 创意工作台里 UX �
    - 按 §7 表格逐项采集
 3. 每完成 5 张图就把 §10+ 补充一次
 4. 全部 ✅ 后调用 report 工具汇报
+
+
+---
+
+## §13 V3 升级 — 时序结构化记录 (2026-08-27)
+
+> 工具: browse CLI + 事件 trace + CSS computed style 快照
+> 输出: `docs/reports/canvas-trace/tapnow/A01-A08*.json` 和 `*.md`
+> 截图: `docs/reports/canvas-shots/tapnow-v3/`
+
+### 13.1 V1→V2→V3 关键差异
+
+| 维度 | V1 假设 | V2 实拍 | V3 升级 |
+|------|---------|---------|---------|
+| 双击空白 | 创建自由生成节点 (待空闲) | 未出现新节点 | **创建 command 类型节点** (无需空闲) |
+| 公共模板 | chip 弹出 dialog | 3 tab + 9 chip | **z-index 命中问题 + DOM .click() 绕过** |
+| 节点 + 号 | 7 大分类 30+ 子项 | (未发现) | **实际是 node-handle-plus-right，连接扩展点** |
+| 右键菜单 | 各种 node 操作 | 无 | **完全无菜单，3 节点类型 + 空白都验证** |
+| 拖拽 | (未测) | 网格吸附 toggle | **无 snap，无 bounds，1 步 50→42px (8px 损失)** |
+| 连线 | 拖出连接 | (V2 未测) | **handle 7.8px 极小，+ handle 80px 干扰** |
+| 工具条 hover | (未测) | (未测) | **两套实现: group-hover 200ms / direct bg 0.15s** |
+| 生成 | (V1 假设) | (V2 假设) | **无专门生成按钮，chat 1s 默认回复，无 spinner** |
+
+### 13.2 V3 关键发现
+
+1. **public templates z-index 命中** — react-flow__pane (z=1) 覆盖 hero card。需要 DOM .click() 绕过。
+2. **node + handle 不是菜单** — 是连接扩展点，点击创建连接的 command 节点。
+3. **右键完全被压制** — contextmenu 事件触发但无任何 UI。
+4. **拖拽有 8px 损失** — 浏览器驱动在 pointerdown 时消耗 8px 做"按下确认"。
+5. **handle 7.8px 太小** — 与 + extension handle 80px 物理重叠，造成命中混乱。
+6. **无 spinner 指示** — 1s 响应期间完全无视觉反馈。
+7. **oklab 色彩空间** — 工具条 hover 使用现代 oklab() 而非 rgb。
+
+### 13.3 详细 trace 数据
+
+- A01: 双击空白 41ms 内完成，pointerdown 间隔 12ms，dblclick 总 41ms
+- A02: 模板 dialog z-50 fixed centered, 1100x700
+- A03: + handle transition = 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) spring-bounce
+- A04: 3 节点类型 rclick 全部 0 menus
+- A05: 3 段拖拽，每段 ~5s 间隔，1 步 50→42px, 3 步 180→156px
+- A06: 7.8x7.8 handle vs 80x80 + handle 重叠
+- A07: 工具条 7 按钮，2 种 hover 模式
+- A08: chat 1s 响应，300ms opacity transition，无 loading
+

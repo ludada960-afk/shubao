@@ -599,3 +599,36 @@ click 全能参考视频2.0 - mini → 视频模型选择器未展开。
 3. 按 §7 表格逐项采集
 4. 每 5 张图更新 §10+
 5. 全部 ✅ 后报告
+
+
+---
+
+## §15 V3 升级 — 时序结构化记录 (2026-08-27)
+
+> 输出: `docs/reports/canvas-trace/quantv/A01-A08*.json` 和 `*.md`
+> 截图: `docs/reports/canvas-shots/quantv-v3/`
+
+### 15.1 quantv 关键差异 — **自研画布 (非 React Flow)**
+
+| 维度 | TapNow | liblib | quantv |
+|------|--------|--------|--------|
+| 画布引擎 | React Flow | React Flow | **自研** |
+| 节点 class | `react-flow__node-text` | `react-flow__node-text` | `canvas-node is-text-node` |
+| + handle | `node-handle-plus-right` | `node-handle-plus-right` | `.connector.connector-out` |
+| 拖拽位移存储 | CSS transform | CSS transform | **class `is-selected is-selected-active`** |
+| aria-label | 英文 | 英文 | **中文 (`从此处拉出连线`)** |
+
+### 15.2 quantv 独特设计
+
+1. **无 chat 面板** = 底部 action bar 直接配置 (模型/格式/时长/价格)
+2. **明确中文 aria-label** = 业界最友好的 a11y
+3. **预计成本可见** = "预计 5.18 积分" 直接显示
+4. **拖拽用 class 切换** = 不是 transform，便于状态管理
+
+### 15.3 V3 关键发现 (quantv 特别)
+
+- 添加节点菜单只有 7 项 (5 节点 + 2 资源)，比 liblib 简单
+- 无右键菜单（与其他 2 站一致）
+- 无 chat，无 spinner（与其他 2 站一致）
+- 拖拽工作但有 8px 损失（与 TapNow 一致）
+

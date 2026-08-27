@@ -726,3 +726,37 @@ Liblib 的画布（也叫"灵感画布 / 创作工作台"）和 TapNow 路线不
 3. 按 §7 表格逐项采集
 4. 每 5 张图更新 §10+
 5. 全部 ✅ 后报告
+
+
+---
+
+## §11 V3 升级 — 时序结构化记录 (2026-08-27)
+
+> 输出: `docs/reports/canvas-trace/liblib/A01-A08*.json` 和 `*.md`
+> 截图: `docs/reports/canvas-shots/liblib-v3/`
+
+### 11.1 liblib 与 TapNow 共享架构证据
+
+| 维度 | TapNow | liblib | 一致？ |
+|------|--------|--------|--------|
+| 节点 + handle | `node-handle-plus-right` | `node-handle-plus-right` | ✅ 同名 class |
+| + handle 过渡 | 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) | 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) | ✅ 相同 CSS |
+| 拖拽 | transform translate | (相同 React Flow 引擎) | ✅ |
+| 右键菜单 | 无 | 无 | ✅ 都无 |
+| chat | 有 (1s) | 有 (1s) | ✅ |
+
+两个站都 fork 了同一个 React Flow 扩展，共享 `node-handle-plus` 组件。
+
+### 11.2 liblib 独特发现
+
+1. **真正的 "+ 加号菜单"** = 9 项 (5 节点 + 3 工具 + 1 资源)。TapNow 没有这种菜单。
+2. **工具条 8 按钮** (添加节点/移动/打开工具箱/素材库/角色库/历史记录/快捷键/教程)
+3. **底部工具条** (资产管理/整理画布/切换小地图/隐藏节点连线/网格吸附/缩放选项)
+4. **工具条 hover** 直接 bg 变化 rgb(43, 43, 43)，没有 group-hover overlay。
+5. **画布上预置工作流** (INS 风格自拍生成 + MJ Prompt 随机生成器 + 换脸 + 最终视频)
+
+### 11.3 V1 §9.2 假设的"+"菜单 — liblib 找到了
+
+V1 §9.2 假设 TapNow 有 "[+] 媒体/AI/视频/文本/数据/工作流/注释 7 大分类 30+ 子项"。
+V3 实测：TapNow 没有此菜单，但 liblib 实现了。liblib 的 9 项菜单是 V1 假设的简化版。
+
