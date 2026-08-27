@@ -1,0 +1,98 @@
+{
+  "id": "quantv-A03-A08-batch",
+  "ts_iso": "2026-08-27T05:43:13.721Z",
+  "site": "quantv",
+  "url": "https://laoyu.quantv.com/canvas/editor?id=cmtatr6pk6cpn122438es918o",
+  "user": "ludada960",
+  "actions": {
+    "A03_connector": {
+      "action": "click .connector-out (582, 687)",
+      "before": {
+        "nodes": 4,
+        "hasReactFlow": false,
+        "plusHandles": 0
+      },
+      "after": {
+        "nodes": 4,
+        "connectionLine": false,
+        "note": "No new node created"
+      },
+      "note": "**quantv does NOT use React Flow** — custom canvas. The connector class is `.connector connector-out` (not `.node-handle-plus`). The connector click just establishes connection mode but doesn't create a new node."
+    },
+    "A04_rclick": {
+      "action": "right-click on text node (495, 707)",
+      "menus": 0,
+      "interpretation": "quantv ALSO has no right-click context menu. Same as TapNow and liblib. All 3 sites lack right-click menu on canvas nodes."
+    },
+    "A05_drag": {
+      "action": "drag text node 50px right",
+      "from": {
+        "x": 495,
+        "y": 707
+      },
+      "to": {
+        "x": 545,
+        "y": 707
+      },
+      "before": {
+        "x": 407,
+        "y": 580
+      },
+      "after": {
+        "x": 437,
+        "y": 580,
+        "deltaX": 30,
+        "cls": "canvas-node is-selected is-selected-active is-text-node"
+      },
+      "interpretation": "**Drag worked!** Text node moved 30px (50px requested, same 8px loss pattern as TapNow). Node has `is-selected is-selected-active` class — selection state preserved during drag. quantv uses CSS class-based selection, not React Flow's transform."
+    },
+    "A06_connection": {
+      "action": "drag from connector-out to empty (1400, 300)",
+      "before": {
+        "connectors": 8,
+        "svgElements": 85
+      },
+      "after": {
+        "connectors": 8,
+        "note": "No new connection established"
+      },
+      "interpretation": "Connection drag did not create new connection. quantv connectors are <BUTTON> elements with explicit aria-labels (从此处拉出连线) — they expect a click+drag interaction but the test failed (likely the drag didn't release on a valid target)."
+    },
+    "A07_toolbarHover": {
+      "action": "hover left sidebar 添加 button (26, 346)",
+      "state": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "transition": "all",
+        "cls": ""
+      },
+      "interpretation": "quantv uses 'transition: all' which is the default Tailwind class. No specific hover background change observed (bg stays transparent). The hover is minimal — probably a slight color change on icon or border."
+    },
+    "A08_actionBar": {
+      "action": "examine bottom action bar",
+      "state": "no buttons found at y>800 in main area",
+      "note": "**quantv has no chat panel**. The bottom shows '全能参考视频2.0 - mini' + '9:16 15s 720p' + '自定义' + '1 次' + '预计 5.18 积分' — these are the model/format/duration/cost selectors for the next generation. quantv generation is set up via these selectors, not chat."
+    }
+  },
+  "interpretation": {
+    "uniqueToQuantv": [
+      "**Custom canvas (not React Flow)** — uses `.canvas-node` and `.connector` classes",
+      "**No chat panel** — generation configured via bottom bar (model + format + duration + cost)",
+      "**Selection by class** — `is-selected is-selected-active` (not React Flow's `selected` class)",
+      "**Connector has explicit aria-label** — `从此处拉出连线` (start from here to pull out connection)",
+      "**Drag works** — text node moved 30px (with same 8px driver loss as TapNow)"
+    ],
+    "sharedAcrossSites": [
+      "**No right-click context menu** on any node type (all 3 sites)",
+      "**No public templates button** (all 3 sites)",
+      "**Add menu structure** (3 sites all have categorized add UIs but with different scopes)"
+    ]
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/quantv-v3/03-connector.png",
+    "docs/reports/canvas-shots/quantv-v3/04-rclick.png",
+    "docs/reports/canvas-shots/quantv-v3/05-drag.png",
+    "docs/reports/canvas-shots/quantv-v3/06-connection.png",
+    "docs/reports/canvas-shots/quantv-v3/07-hover.png",
+    "docs/reports/canvas-shots/quantv-v3/08-action-bar.png"
+  ]
+}

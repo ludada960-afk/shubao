@@ -1,0 +1,78 @@
+{
+  "id": "quantv-A01-A02-add-node-panel",
+  "ts_iso": "2026-08-27T05:40:11.004Z",
+  "site": "quantv",
+  "url": "https://laoyu.quantv.com/canvas/editor?id=cmtatr6pk6cpn122438es918o",
+  "user": "ludada960",
+  "action": "click left sidebar 添加 button (26, 346)",
+  "context": "quantv does NOT use react-flow — it has a custom canvas implementation with `canvas-node` class. Left sidebar at x=26 has 6 buttons: 添加/选择/移动/便签/历史/帮助. V2 §13/14 had details.",
+  "before": {
+    "state": "canvas with 2 nodes + connections",
+    "leftSidebar": "6 buttons"
+  },
+  "clickTarget": {
+    "x": 26,
+    "y": 346,
+    "button": "添加"
+  },
+  "after": {
+    "panelOpened": true,
+    "panelStructure": {
+      "section1": {
+        "title": "添加节点",
+        "items": [
+          {
+            "label": "文本",
+            "x": 85,
+            "y": 356
+          },
+          {
+            "label": "图片",
+            "x": 85,
+            "y": 402
+          },
+          {
+            "label": "视频",
+            "x": 85,
+            "y": 448
+          },
+          {
+            "label": "音频",
+            "x": 85,
+            "y": 494
+          },
+          {
+            "label": "应用",
+            "x": 85,
+            "y": 540
+          }
+        ]
+      },
+      "section2": {
+        "title": "添加资源",
+        "items": [
+          {
+            "label": "从本地上传",
+            "x": 85,
+            "y": 638
+          },
+          {
+            "label": "从资产库选择",
+            "x": 85,
+            "y": 684
+          }
+        ]
+      }
+    },
+    "totalItems": 7
+  },
+  "interpretation": {
+    "contrast_to_others": "quantv has the SIMPLEST add menu: 5 node types + 2 resource types. No tool categories (no time axis, no 3D, etc.). This matches quantv's narrow focus on电商视频生成.",
+    "no_public_templates": "**quantv has no '公共模板' button**. The closest is the 工作流 (workflow) concept but it's not in the add panel.",
+    "pattern": "All 3 sites have **structured add menus** but with different scopes:\n- TapNow: 5 hero chips (no menu, but chips with preset workflows)\n- liblib: 9-item menu (5 nodes + 3 tools + 1 upload)\n- quantv: 7-item menu (5 nodes + 2 resources)"
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/quantv-v3/00-baseline.png",
+    "docs/reports/canvas-shots/quantv-v3/01-add-panel.png"
+  ]
+}
