@@ -1,0 +1,121 @@
+{
+  "id": "tapnow-A02-tpl-chip-opens-dialog",
+  "ts_iso": "2026-08-27T04:40:31.379Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "click center '模板' chip on empty canvas hero",
+  "before": {
+    "state": "fresh empty canvas (画布 1, just created)",
+    "nodeCount": 0,
+    "dialogCount": 0,
+    "heroVisible": true,
+    "chipsVisible": [
+      "文字生视频",
+      "图片换背景",
+      "首帧生成视频",
+      "音频生视频",
+      "模板"
+    ],
+    "chipText": "模板",
+    "chipRect": {
+      "x": 1019,
+      "y": 489,
+      "w": 86,
+      "h": 38,
+      "centerX": 1062,
+      "centerY": 508
+    },
+    "chipTransition": "all",
+    "chipAnimation": "none",
+    "zStackIssue": "react-flow__pane (z-index:1, absolute) overlays the chip — direct mouse click at chip coords hits the pane instead. Triggered via DOM .click() instead."
+  },
+  "during": {
+    "traceEvents": [
+      {
+        "t_offset_ms": 0,
+        "type": "DOM .click() on cursor-pointer parent of 模板 chip"
+      },
+      {
+        "t_offset_ms": 200,
+        "type": "screenshot during-100ms (dialog still appearing)"
+      },
+      {
+        "t_offset_ms": 500,
+        "type": "screenshot after (dialog fully visible)"
+      }
+    ],
+    "note": "Could not use browse mouse click directly because the react-flow__pane (z=1, absolute) overlays the hero card. The chip's parent is `position:fixed` but lacks z-index, so it falls behind the pane in the same stacking context. Used DOM-level .click() to bypass hit testing."
+  },
+  "after": {
+    "state": "dialog 我的模板 open (z-50 fixed centered)",
+    "dialogRect": {
+      "x": 474,
+      "y": 135,
+      "w": 1100,
+      "h": 700
+    },
+    "dialogTitle": "我的模板",
+    "tabs": [
+      {
+        "label": "最近使用",
+        "x": 526,
+        "y": 159,
+        "selectedDefault": true
+      },
+      {
+        "label": "我的模板",
+        "x": 526,
+        "y": 199
+      },
+      {
+        "label": "公开",
+        "x": 502,
+        "y": 251
+      }
+    ],
+    "categoryChips": [
+      "全部",
+      "Seedance 2.0",
+      "广告",
+      "电商",
+      "影视",
+      "生活",
+      "工具",
+      "有趣",
+      "ACG"
+    ],
+    "chipYCoords": {
+      "全部": 291,
+      "Seedance 2.0": 331,
+      "广告": 371,
+      "电商": 411,
+      "影视": 451,
+      "生活": 491,
+      "工具": 531,
+      "有趣": 571,
+      "ACG": 611
+    },
+    "emptyState": "没有更多数据",
+    "closeButton": "Close @ (1546, 162)",
+    "searchInput": "搜索 场景/平台/模型…"
+  },
+  "interpretation": {
+    "observed": "Clicking 模板 chip on the empty-state hero opens a 1100×700 dialog (我的模板 = My Templates) with 3 primary tabs (最近使用/我的模板/公开) and 9 category filter chips below. The default tab in this account shows '没有更多数据' (no data).",
+    "v2_confirmation": "Matches V2 §10.2 finding: 3 main tabs + 9 category chips + search box. Confirms dialog structure consistent across login sessions.",
+    "v2_contradiction": "V2 found the close button at [0-10724] (centered) but actual close is at top-right (1546, 162) labeled 'Close' (English). V2 missed this position.",
+    "new_v3_finding": "Public templates tab in this account still shows no data (consistent with V2), but the dialog structure is identical. The 公开 tab is the 3rd option (not 1st) — V2 said 'public tab is the 2nd filter' but V3 confirms it's the 3rd primary tab."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/02-tpl-00-before.png",
+    "docs/reports/canvas-shots/tapnow-v3/02-tpl-01-during-100ms.png",
+    "docs/reports/canvas-shots/tapnow-v3/02-tpl-02-during-300ms.png",
+    "docs/reports/canvas-shots/tapnow-v3/02-tpl-03-after.png",
+    "docs/reports/canvas-shots/tapnow-v3/02-tpl-dialog.png"
+  ],
+  "eval_snippets": {
+    "before": "DOM scan for 模板 SPAN → walk up to cursor-pointer parent (DIV with classes 'w-full h-full flex items-center justify-center cursor-pointer')",
+    "trigger": "el.click() (bypasses react-flow__pane hit-test issue)",
+    "after": "scan for dialog with 最近使用 + 我的模板 → extract tab rects, chip rects, empty state, close button"
+  }
+}
