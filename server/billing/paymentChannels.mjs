@@ -3,6 +3,8 @@
  *
  * 只维护通道状态与上线开关位，不接入任何真实支付 SDK：
  * - balance：现有余额/积分充值通道，保持 active（积分套餐购买即余额充值）。
+ * - balance_monthpack：月卡礼包通道（2026-08-26 §6 #5），按 30 天当月制发放基础分+赠分，
+ *   赠分限图/工具类目，详见 server/billing/xcardWhitelist.mjs。
  * - wechat_qr / alipay：unavailable 占位；环境变量开关位置预留
  *   （PAYMENT_CHANNEL_WECHAT_QR_ENABLED=1 / PAYMENT_CHANNEL_ALIPAY_ENABLED=1），
  *   接入真实 SDK 时新增对应 adapter 并把状态切为 active 即可，订单侧 channelRef 字段已就绪。
@@ -14,6 +16,18 @@ const CHANNEL_DEFS = Object.freeze([
     kind: 'internal',
     defaultStatus: 'active',
     description: '账户余额与积分套餐直接结算，当前可用',
+  }),
+  // 2026-08-26 §6 #5 月卡细则：30 天当月制 + 赠分限图。environment gated（默认开），
+  // 关闭时回退到 balance 走单笔积分购买流程。sku 一一对应 catalog.PRODUCTS 里的月卡 SKU。
+  Object.freeze({
+    id: 'balance_monthpack',
+    label: '月卡礼包',
+    kind: 'internal',
+    defaultStatus: 'active',
+    description: '月卡礼包通道：30 天有效期 + 赠分限图/工具类目',
+    skus: Object.freeze(['ec_monthpack_39', 'ec_monthpack_59']),
+    validityDays: 30,
+    giftRuleFlag: 'xcard_gift_2026_08_26',
   }),
   Object.freeze({
     id: 'wechat_qr',

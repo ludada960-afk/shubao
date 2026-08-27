@@ -639,6 +639,68 @@ export function createAdminOperations({
     };
   }
 
+  // 2026-08-26 §6 #5 月卡细则：admin byChannel 收入看板。
+  // 通过解析 payment_orders.channel_ref 字段（balance / balance_monthpack / wechat_qr / alipay）
+  // 聚合最近订单，与 usage_events.cash_revenue_cny 互补（积分扣费对账不计入通道收入）。
+  function byChannelRevenue(input = {}) {
+    const range = dateFilter(input);
+    const where = [];
+    const params = [];
+    if (range.from) { where.push('created_at >= ?'); params.push(range.from); }
+    if (range.to) { where.push('created_at < ?'); params.push(range.to); }
+    const sql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='payment_orders'").get()) {
+      return [];
+    }
+    const rows = db.prepare(`
+      SELECT COALESCE(NULLIF(channel_ref, ''), 'unknown') AS channel,
+        COALESCE(NULLIF(product_sku, ''), 'unknown') AS sku,
+        COALESCE(NULLIF(grant_currency, ''), 'unknown') AS grantCurrency,
+        COUNT(*) AS orders,
+        COALESCE(SUM(amount_cny), 0) AS amount_fen,
+        COALESCE(SUM(grant_units), 0) AS grant_units,
+        SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid_orders,
+        SUM(CASE WHEN status = 'paid' THEN amount_cny ELSE 0 END) AS paid_amount_fen
+      FROM payment_orders ${sql}
+      GROUP BY COALESCE(NULLIF(channel_ref, ''), 'unknown'),
+        COALESCE(NULLIF(product_sku, ''), 'unknown'),
+        COALESCE(NULLIF(grant_currency, ''), 'unknown')
+      ORDER BY paid_amount_fen DESC, orders DESC
+      LIMIT 50
+    `).all(...params).map(row => ({
+      channel: row.channel,
+      sku: row.sku,
+      grantCurrency: row.grantCurrency,
+      orders: Number(row.orders || 0),
+      paidOrders: Number(row.paid_orders || 0),
+      amountCny: roundMoney(Number(row.amount_fen || 0) / 100),
+      paidAmountCny: roundMoney(Number(row.paid_amount_fen || 0) / 100),
+      grantUnits: Number(row.grant_units || 0),
+    }));
+    // 跨 sku 汇总到 channel 级别：给 admin 看板直接展示「balance / balance_monthpack」总览。
+    const channelMap = new Map();
+    for (const row of rows) {
+      const current = channelMap.get(row.channel) || {
+        channel: row.channel,
+        orders: 0, paidOrders: 0, amountCny: 0, paidAmountCny: 0, grantUnits: 0,
+        skus: new Set(), giftCurrencies: new Set(),
+      };
+      current.orders += row.orders;
+      current.paidOrders += row.paidOrders;
+      current.amountCny = roundMoney(current.amountCny + row.amountCny);
+      current.paidAmountCny = roundMoney(current.paidAmountCny + row.paidAmountCny);
+      current.grantUnits += row.grantUnits;
+      current.skus.add(row.sku);
+      current.giftCurrencies.add(row.grantCurrency);
+      channelMap.set(row.channel, current);
+    }
+    return [...channelMap.values()].map(channel => ({
+      ...channel,
+      skus: [...channel.skus].sort(),
+      giftCurrencies: [...channel.giftCurrencies].sort(),
+    })).sort((a, b) => b.paidAmountCny - a.paidAmountCny || b.orders - a.orders);
+  }
+
   function summary(input = {}) {
     const usageWhere = whereForUsage(input);
     const row = db.prepare(`
@@ -729,6 +791,7 @@ export function createAdminOperations({
       byFeature: breakdownBy(bySku, 'feature'),
       bySku,
       byVariant,
+      byChannel: byChannelRevenue(input),
       pricingExperiment: {
         flag: PRICING_EXPERIMENT.flag,
         sku: PRICING_EXPERIMENT.sku,
