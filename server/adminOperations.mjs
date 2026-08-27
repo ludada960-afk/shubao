@@ -13,6 +13,12 @@ import {
   breakdownByVariant,
   listExperimentVariants,
 } from './billing/priceExperiment.mjs';
+import {
+  batchCreateH3InviteCodes,
+  exportH3InviteCodesCsv,
+  listH3InviteCodes,
+  H3_INVITE,
+} from './billing/h3InviteCodes.mjs';
 
 const CURRENCIES = ['ec_points', 'content_sets'];
 const MAX_CREDIT_ADJUSTMENT = 100_000_000;
@@ -824,6 +830,45 @@ export function createAdminOperations({
     return result;
   }
 
+  // 2026-08-26 §6 #7 H3 灰度邀请：列表 + 批量生成；admin 才能调用，CSV 导出走
+  // exportH3InviteCodesCsv 纯函数，路由层负责 content-type。
+  function listH3Invites(input = {}) {
+    const { limit, offset } = pageOptions(input);
+    const rows = listH3InviteCodes(db, { limit, offset });
+    return { limit, offset, total: db.prepare(`SELECT COUNT(*) AS n FROM ${H3_INVITE.table}`).get().n, codes: rows };
+  }
+
+  function createH3Invites(actorEmail, input = {}) {
+    const actor = getAccountAccess(db, actorEmail);
+    if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
+    const idempotencyKey = nonEmpty(input.idempotencyKey, 'idempotencyKey');
+    const reason = nonEmpty(input.reason, 'reason');
+    const count = input.count ?? H3_INVITE.defaultBatchSize;
+    const maxUses = input.maxUses ?? H3_INVITE.defaultMaxUses;
+    const cohort = input.cohort ?? H3_INVITE.defaultCohort;
+    const note = input.note ?? '';
+    const result = batchCreateH3InviteCodes(db, {
+      count, maxUses, cohort, note,
+      actorEmail: normalizeAccountEmail(actorEmail),
+      expiresAt: input.expiresAt,
+    });
+    recordAudit({
+      actorEmail,
+      action: 'h3.invites.create',
+      targetEmail: actorEmail,
+      reason,
+      before: null,
+      after: { count: result.count, maxUses, cohort },
+      idempotencyKey: `admin-audit:h3-invites:${idempotencyKey}`,
+    });
+    return result;
+  }
+
+  function exportH3InvitesCsv() {
+    const rows = listH3InviteCodes(db, { limit: 1000, offset: 0 });
+    return exportH3InviteCodesCsv(rows);
+  }
+
   async function operateVideoJob(actorEmail, jobId, input = {}) {
     const service = resolveVideoOperations();
     if (!service?.operate) throw Object.assign(new Error('视频运维服务暂不可用'), { code: 'VIDEO_OPERATION_UNAVAILABLE', status: 503 });
@@ -856,5 +901,8 @@ export function createAdminOperations({
     videoOperationsMetrics,
     runVideoReconciliation,
     operateVideoJob,
+    listH3Invites,
+    createH3Invites,
+    exportH3InvitesCsv,
   };
 }

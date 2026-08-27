@@ -83,6 +83,17 @@ export function createAdminRouteHandlers({ operations, authenticateOwner, author
     operateVideoJob: wrap(async (req, res) => res.json({
       result: await operations.operateVideoJob(req.adminActorEmail, req.params.id, req.body),
     })),
+    // 2026-08-26 §6 #7 H3 灰度邀请：admin 端列表 / 批量生成 / CSV 导出。
+    listH3Invites: wrap((req, res) => res.json(operations.listH3Invites(req.query))),
+    createH3Invites: wrap(async (req, res) => res.status(201).json({
+      result: await operations.createH3Invites(req.adminActorEmail, req.body),
+    })),
+    exportH3Invites: wrap((req, res) => {
+      const csv = operations.exportH3InvitesCsv();
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="h3-invite-codes.csv"');
+      return res.send(csv);
+    }),
   };
 }
 
@@ -103,5 +114,9 @@ export function mountAdminRoutes(app, deps) {
   app.get('/api/admin/video-operations', handlers.requireAdmin, handlers.videoOperations);
   app.post('/api/admin/video-operations/reconcile', handlers.requireAdmin, handlers.reconcileVideos);
   app.post('/api/admin/video-jobs/:id/actions', handlers.requireAdmin, handlers.operateVideoJob);
+  // 2026-08-26 §6 #7 H3 灰度邀请：列表 / 批量生成 / CSV 导出。
+  app.get('/api/admin/h3-invites', handlers.requireAdmin, handlers.listH3Invites);
+  app.post('/api/admin/h3-invites', handlers.requireAdmin, handlers.createH3Invites);
+  app.get('/api/admin/h3-invites.csv', handlers.requireAdmin, handlers.exportH3Invites);
   return handlers;
 }

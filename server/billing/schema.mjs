@@ -1,4 +1,5 @@
 import { ensureAccessSchema } from '../accessControl.mjs';
+import { ensureH3InviteSchema } from './h3InviteCodes.mjs';
 
 export function ensureBillingSchema(db) {
   db.exec(`
@@ -152,5 +153,7 @@ export function ensureBillingSchema(db) {
       db.exec(`ALTER TABLE usage_events ADD COLUMN ${name} ${definition}`);
     }
   }
+  // 2026-08-26 §6 #7 H3 灰度邀请表（独立 sqlite migration，幂等）。
+  ensureH3InviteSchema(db);
   ensureAccessSchema(db);
 }
