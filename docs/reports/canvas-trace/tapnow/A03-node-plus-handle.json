@@ -1,0 +1,94 @@
+{
+  "id": "tapnow-A03-node-plus-handle",
+  "ts_iso": "2026-08-27T04:43:27.316Z",
+  "site": "tapnow",
+  "url": "https://app.tapnow.ai/canvas/38d9f403-7dfb-49af-b83f-7b679c8fdec7",
+  "user": "ludada960",
+  "action": "click right + handle on selected text node",
+  "context": "V1 §9.2 documented '+ 加号菜单' as having 7 categories with 30+ subitems. V2 §10.7 noted text node has 4 internal list buttons + Pin. V3 discovered the actual '+' is the **node-handle-plus-right** which creates a new connected command node, NOT a menu.",
+  "before": {
+    "state": "text node (text-d6f0994e-...) selected, plus handle visible (opacity:1)",
+    "plusRect": {
+      "x": 625,
+      "y": 469,
+      "w": 31,
+      "h": 31,
+      "centerX": 640,
+      "centerY": 484
+    },
+    "plusClass": "node-handle-plus node-handle-plus-right",
+    "innerElClass": "will-change-transform h-20 w-20 rounded-full absolute top-1/2",
+    "plusTransition": "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+    "plusAnimation": "none",
+    "nodeCount": 2
+  },
+  "during": {
+    "traceEvents": [
+      {
+        "t_offset_ms": 0,
+        "type": "pointermove",
+        "target": "h-20 w-20 rounded-full absolute top-1/2 (the + visual bubble)"
+      },
+      {
+        "t_offset_ms": 1,
+        "type": "pointerdown"
+      },
+      {
+        "t_offset_ms": 2,
+        "type": "mousedown"
+      },
+      {
+        "t_offset_ms": 2,
+        "type": "pointerup"
+      },
+      {
+        "t_offset_ms": 2,
+        "type": "mouseup"
+      },
+      {
+        "t_offset_ms": 5,
+        "type": "click"
+      }
+    ],
+    "note": "All 6 events fire in 5ms — TapNow does not open any menu. The + handle is a connection-extender, not a button."
+  },
+  "after": {
+    "state": "3 nodes (text + video + new command)",
+    "newNode": {
+      "type": "command",
+      "id": "command-351ff2bf-7d23-4d7c-8869-9046df26c2a5"
+    },
+    "menus": "none",
+    "nodeCount": 3
+  },
+  "leftPlusHandle": {
+    "rect": {
+      "x": 235,
+      "y": 469,
+      "w": 31,
+      "h": 31
+    },
+    "class": "node-handle-plus node-handle-plus-left node-handle-plus-force-hidden",
+    "opacity": 0,
+    "note": "Hidden by class 'force-hidden' (probably only visible when node is on left edge of canvas)"
+  },
+  "interpretation": {
+    "observed": "The + handle is a connection-extender. Clicking it creates a new 'command' node connected to the source. No menu opens.",
+    "v1_correction": "V1 §9.2's '+ 加号菜单' with 7 categories is **wrong** for TapNow canvas. The TapNow canvas has NO + menu at the node level. Adding nodes is done via: (1) 中央 hero chip (only in empty state) (2) + handle (creates connected command node) (3) 中央 '+ 文字生视频' style chip auto-injects workflows (V2 §10.7)",
+    "v2_correction": "V2 §10.7 found 4 'list buttons' inside the text node — these are actually 4 capability cards (the text node content UI), not a + menu.",
+    "css_timing": "Transition is `transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)` — a 300ms spring-bounce ease for the + handle's hover transform (likely scales on hover).",
+    "user_intent": "User asked about '节点右下 +号'. In TapNow the equivalent is `node-handle-plus-right` which sits at the right-MIDDLE of the node (not bottom-right), and it's a connection-point not a menu trigger."
+  },
+  "screenshot_paths": [
+    "docs/reports/canvas-shots/tapnow-v3/03-tapnow-textvideo.png",
+    "docs/reports/canvas-shots/tapnow-v3/03-plus-00-before.png",
+    "docs/reports/canvas-shots/tapnow-v3/03-plus-01-during.png",
+    "docs/reports/canvas-shots/tapnow-v3/03-plus-02-during.png",
+    "docs/reports/canvas-shots/tapnow-v3/03-plus-03-after.png"
+  ],
+  "eval_snippets": {
+    "findPlus": "document.querySelectorAll('.node-handle-plus, [class*=Plus], [class*=plus]')",
+    "before": "getComputedStyle of plus handle (transition / opacity / class)",
+    "after": "node count + scan for [role=menu], [class*=menu], [class*=popover]"
+  }
+}
