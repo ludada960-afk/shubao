@@ -21,6 +21,7 @@ import {
   Maximize2,
   MessageSquareText,
   MousePointerSquareDashed,
+  Music,
   Play,
   Plus,
   RefreshCw,
@@ -31,6 +32,8 @@ import {
   Trash2,
   Type,
   Unlock,
+  Volume2,
+  VolumeX,
   ZoomIn,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
@@ -44,6 +47,7 @@ import {
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
   createStoryboardShot,
+  createVideoAudioTrack,
   createVideoExportManifest,
   createVideoWorkbenchGenerationDraft,
   createWorkbenchAsset,
@@ -56,6 +60,7 @@ import {
   selectShotCandidate,
   updateStoryboardShot,
   updateTimelineClip,
+  updateVideoAudioTrack,
 } from '../../services/videoWorkbench.js';
 import {
   CHAT_TWEAK_CHIPS,
@@ -108,6 +113,15 @@ import './VideoCanvasWorkbench.css';
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 const FINAL_JOB_STATES = new Set(['completed', 'failed', 'needs_review']);
 const DEFAULT_PRODUCT_ID = 'seedance_standard';
+const AUDIO_TRACK_MAX_START_MS = 600_000;
+
+function nextAudioTrackStartMs(tracks) {
+  if (!Array.isArray(tracks) || !tracks.length) return 0;
+  // 找到当前所有音轨的最大 end 位置, 后面追加避免重叠; 永远保留 0..600000 范围
+  const endPositions = tracks.map(track => Number(track.startMs || 0) + Number(track.durationMs || 0));
+  const lastEnd = Math.max(0, ...endPositions);
+  return Math.min(AUDIO_TRACK_MAX_START_MS, lastEnd);
+}
 
 function displayError(error) {
   if (error?.status === 409 || error?.code === 'VERSION_CONFLICT') {
@@ -298,7 +312,74 @@ export default function VideoCanvasWorkbench({
       if (sequence !== requestSequenceRef.current) return;
       setWorkbench(next);
       setError('');
-      setPositions((() => { try { return JSON.parse(localStorage.getItem('shubao_vcb_positions_' + (id || 'default')) || '{}') || {}; } catch { return {}; } })());
+      setPositions((() => { try { return JSON.parse(localStorage.getItem('shubao_vcb_positions_' + (id || 'default')) || '{}') || {};
+
+  // W4 音频节点: 把音频资产加入时间线音轨
+  const handleAddAudioTrack = async (node) => {
+    if (!projectId || busy) return;
+    if (!node?.sourceAssetId || !node?.sourceAssetVersionId) {
+      setError('音频资产缺少 version 引用, 无法加入音轨');
+      return;
+    }
+    const kind = node.audioKind === 'voice' ? 'voice' : 'music';
+    setBusy('audio-track:' + node.sourceAssetId);
+    setError('');
+    try {
+      await createVideoAudioTrack(projectId, {
+        kind,
+        assetId: node.sourceAssetId,
+        assetVersionId: node.sourceAssetVersionId,
+        startMs: 0,
+        durationMs: 0,
+        volume: 1,
+      });
+      await loadWorkbench(projectId);
+    } catch (audioError) {
+      setError(displayError(audioError));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // W4 音轨: 静音切换 (乐观 revision)
+  const handleToggleAudioMute = async (track, muted) => {
+    if (!projectId || busy) return;
+    setBusy('audio-mute:' + track.id);
+    setError('');
+    try {
+      await updateVideoAudioTrack(projectId, track.id, {
+        expectedRevision: track.revision,
+        muted,
+      });
+      await loadWorkbench(projectId);
+    } catch (muteError) {
+      setError(displayError(muteError));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // W4 音轨: 音量调整 (0..2)
+  const handleUpdateAudioVolume = async (track, volume) => {
+    if (!projectId || busy) return;
+    setBusy('audio-volume:' + track.id);
+    setError('');
+    try {
+      await updateVideoAudioTrack(projectId, track.id, {
+        expectedRevision: track.revision,
+        volume,
+      });
+      // 不在每次调整都 loadWorkbench (音量会高频滑), 改用乐观更新本地 state
+      setWorkbench(current => current ? {
+        ...current,
+        audioTracks: (current.audioTracks || []).map(t => t.id === track.id ? { ...t, volume, revision: (t.revision || 0) + 1 } : t),
+      } : current);
+    } catch (volumeError) {
+      setError(displayError(volumeError));
+    } finally {
+      setBusy('');
+    }
+  }; } catch { return {}; } })());
       setSelectedIds([]);
     } catch (loadError) {
       if (sequence !== requestSequenceRef.current) return;
@@ -766,6 +847,44 @@ export default function VideoCanvasWorkbench({
     }));
   }
 
+  // ── W4 音频节点：把画布里已确认的 audio 类素材加入音轨抽屉 ─────────────
+  // 复用 timeline:add 的乐观 revision 模式: busy 锁 + runMutation + loadWorkbench 刷新
+  function handleAddAudioTrack(node) {
+    if (!projectId || !node || node.kind !== 'audio' || !node.sourceAssetId || !node.sourceAssetVersionId) return;
+    const asset = (workbench?.assets || []).find(item => item?.id === node.sourceAssetId);
+    if (!asset) return;
+    const version = (asset.versions || []).find(item => item?.id === node.sourceAssetVersionId);
+    const durationMs = Number(version?.durationMs) > 0 && Number(version.durationMs) <= 120000 ? Math.round(Number(version.durationMs)) : 8000;
+    const startMs = nextAudioTrackStartMs(workbench?.audioTracks);
+    void runMutation('audio-track:add:' + node.sourceAssetId, () => createVideoAudioTrack(projectId, {
+      kind: asset.kind === 'voice' ? 'voice' : 'music',
+      assetId: asset.id,
+      assetVersionId: node.sourceAssetVersionId,
+      startMs,
+      durationMs,
+      volume: 1,
+      muted: false,
+    }));
+  }
+
+  function handleToggleAudioMute(track) {
+    if (!projectId || !track?.id) return;
+    void runMutation('audio-track:mute:' + track.id, () => updateVideoAudioTrack(projectId, track.id, {
+      expectedRevision: track.revision,
+      patch: { muted: !track.muted },
+    }));
+  }
+
+  function handleChangeAudioVolume(track, nextVolume) {
+    if (!projectId || !track?.id) return;
+    const clamped = Math.max(0, Math.min(2, Number(nextVolume) || 0));
+    if (Math.abs(clamped - Number(track.volume || 0)) < 0.001) return;
+    void runMutation('audio-track:volume:' + track.id, () => updateVideoAudioTrack(projectId, track.id, {
+      expectedRevision: track.revision,
+      patch: { volume: clamped },
+    }));
+  }
+
   async function handleCreateExportManifest() {
     if (!projectId || exportBusy || !exportReady.ok) return;
     setExportBusy(true);
@@ -1136,7 +1255,18 @@ export default function VideoCanvasWorkbench({
               style={style} onPointerDown={event => handleNodePointerDown(node, event)} onContextMenu={openContext}>
               <header><MousePointerSquareDashed size={12} /><span>{node.title.slice(0, 18)}</span></header>
               <NodePreview url={node.previewUrl} kind={node.kind} label={node.title} />
-              <footer>{node.source === 'upload' ? '上传素材' : node.source === 'library' ? '项目素材库' : '已确认'}</footer>
+              <footer>
+                <span className="vcb-asset-source">{node.source === 'upload' ? '上传素材' : node.source === 'library' ? '项目素材库' : '已确认'}</span>
+                {node.kind === 'audio' && node.sourceAssetId && node.sourceAssetVersionId && (
+                  <button type="button" data-no-drag
+                    className="vcb-add-audio-track"
+                    disabled={Boolean(busy) || (workbench?.audioTracks || []).some(track => track.assetId === node.sourceAssetId)}
+                    title="把这个音频资产加入时间线音轨"
+                    onClick={() => void handleAddAudioTrack(node)}>
+                    <Plus size={11} />加入音轨
+                  </button>
+                )}
+              </footer>
               {handles}
             </article>;
           }
@@ -1446,6 +1576,79 @@ export default function VideoCanvasWorkbench({
         })}
       </ul>
       {clipError && <p className="vcb-clip-error" role="alert"><CircleAlert size={13} />{clipError}</p>}
+
+      <section className="vcb-audio-tracks" data-testid="audio-tracks-drawer" aria-label="音轨抽屉">
+        <header>
+          <strong>音轨</strong>
+          <small>{(workbench?.audioTracks || []).length} 条 · 总时长 {((workbench?.audioTracks || []).reduce((acc, t) => acc + (Number(t.durationMs) || 0), 0) / 1000).toFixed(1)} 秒</small>
+          <span className="vcb-timeline-note">W4 增量: 画布里 audio 类资产先点「加入音轨」, 然后这里可单独静音和 0..2 音量调节。</span>
+        </header>
+        {!(workbench?.audioTracks || []).length && <p className="vcb-card-hint">音轨还没加入: 在画布里点「确认素材」把音频资产变成画布节点, 再在 footer 点「加入音轨」。</p>}
+        <ul className="vcb-audio-track-list">
+          {(workbench?.audioTracks || []).map(track => {
+            const asset = (workbench?.assets || []).find(item => item?.id === track.assetId);
+            const trackBusy = busy === ('audio-track:mute:' + track.id) || busy === ('audio-track:volume:' + track.id);
+            const volumePct = Math.round((Number(track.volume || 0) / 2) * 100);
+            return <li key={track.id} className={'vcb-audio-track' + (track.muted ? ' is-muted' : '')} data-testid={'audio-track-' + track.id}>
+              <div className="vcb-audio-track-head">
+                <strong>{asset?.name || (track.kind === 'voice' ? '旁白' : 'BGM')}</strong>
+                <small>{(Number(track.durationMs) / 1000).toFixed(1)}s · 起点 {(Number(track.startMs) / 1000).toFixed(1)}s</small>
+                <button type="button" data-no-drag
+                  className={'vcb-audio-mute' + (track.muted ? ' is-muted' : '')}
+                  disabled={Boolean(busy)}
+                  title={track.muted ? '恢复这段音轨' : '静音这段音轨(乐观 revision 写入)'}
+                  onClick={() => handleToggleAudioMute(track)}>
+                  {track.muted ? '已静音' : '静音'}
+                </button>
+              </div>
+              <label className="vcb-audio-meter" aria-label={'音量 · 当前 ' + (Number(track.volume || 0)).toFixed(2)}>
+                <span>音量 {(Number(track.volume || 0)).toFixed(2)}×</span>
+                <input type="range" min={0} max={2} step={0.05} value={Number(track.volume || 0)}
+                  disabled={Boolean(busy)}
+                  onChange={event => handleChangeAudioVolume(track, Number(event.target.value))} />
+                <small className="vcb-audio-meter-bar" aria-hidden="true">
+                  <span style={{ width: volumePct + '%' }} data-no-drag />
+                </small>
+              </label>
+              {trackBusy && <small className="vcb-audio-track-status" role="status">乐观写入中…</small>}
+            </li>;
+          })}
+        </ul>
+        {(workbench?.audioTracks || []).length > 0 && <section className="vcb-audio-tracks" data-testid="audio-tracks-panel" aria-label="音轨">
+          <header><strong><Music size={14} />音轨 ({workbench.audioTracks.length})</strong></header>
+          <ul>
+            {workbench.audioTracks.map(track => {
+              const isMuted = Boolean(track.muted);
+              const volume = Number(track.volume ?? 1);
+              return <li key={track.id} className="vcb-audio-track" data-track={track.id}>
+                <div className="vcb-audio-track-head">
+                  <span className="vcb-audio-track-kind">{track.kind === 'voice' ? '旁白' : '配乐'}</span>
+                  <span className="vcb-audio-track-name">{track.assetName || track.assetId}</span>
+                  <span className="vcb-audio-track-dur">{((Number(track.durationMs) || 0) / 1000).toFixed(1)}s</span>
+                </div>
+                <div className="vcb-audio-track-actions">
+                  <button type="button" data-no-drag
+                    className={isMuted ? 'vcb-mute-toggle is-on' : 'vcb-mute-toggle'}
+                    aria-pressed={isMuted}
+                    disabled={Boolean(busy)}
+                    title={isMuted ? '取消静音' : '静音'}
+                    onClick={() => void handleToggleAudioMute(track, !isMuted)}>
+                    {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}{isMuted ? '已静音' : '正常'}
+                  </button>
+                  <label className="vcb-volume-slider">
+                    <span>音量</span>
+                    <input type="range" min="0" max="2" step="0.1" value={volume}
+                      aria-label="音量"
+                      onChange={event => void handleUpdateAudioVolume(track, Number(event.target.value))} />
+                    <span className="vcb-volume-readout">{volume.toFixed(1)}×</span>
+                  </label>
+                </div>
+              </li>;
+            })}
+          </ul>
+        </section>}
+      </section>
+
       <footer className="vcb-export" data-testid="export-manifest-panel">
         <button type="button" data-no-drag className="vcb-export-btn" disabled={!exportReady.ok || exportBusy || Boolean(busy)}
           title={exportReady.ok ? '生成可交接的导出清单（含字幕与音轨）' : exportReady.reason}

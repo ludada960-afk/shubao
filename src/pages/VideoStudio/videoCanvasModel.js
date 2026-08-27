@@ -85,8 +85,12 @@ export function buildCanvasNodes({ uploads = [], libraryAssets = [], workbench =
       source: 'workbench',
       sourceKey: asset.id,
       kind: asset.kind === 'voice' || asset.kind === 'music' ? 'audio' : 'image',
+      audioKind: asset.kind === 'voice' ? 'voice' : asset.kind === 'music' ? 'music' : null,
       previewUrl: version.playbackUrl || version.stableUrl || '',
       title: asset.name || '已确认素材',
+      // W4 音频节点：把 workbench asset + approved version id 透出到节点, 让 footer 按钮可以发起音轨 POST
+      sourceAssetId: asset.id,
+      sourceAssetVersionId: asset.approvedVersionId || version.id,
     });
   });
   (Array.isArray(workbench?.shots) ? workbench.shots : []).forEach(shot => {

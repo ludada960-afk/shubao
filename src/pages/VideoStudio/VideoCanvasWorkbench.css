@@ -208,6 +208,41 @@
 .vcb-timeline header small { color: #756f69; font-size: 11.5px; }
 .vcb-timeline-note { margin-left: auto; color: #938c84; font-size: 10.5px; }
 .vcb-clip-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+
+/* W4 音频节点: 音频资产卡 + "加入音轨" 按钮 */
+.vcb-asset.is-audio .vcb-asset-source { color: var(--vcb-accent, #6b4eff); }
+.vcb-asset.is-audio footer { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.vcb-add-audio-track {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 6px; border: 1px solid var(--vcb-accent, #6b4eff);
+  border-radius: 4px; background: transparent; color: var(--vcb-accent, #6b4eff);
+  font-size: 11px; cursor: pointer;
+}
+.vcb-add-audio-track:hover:not(:disabled) { background: var(--vcb-accent, #6b4eff); color: #fff; }
+.vcb-add-audio-track:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* W4 音轨区 */
+.vcb-audio-tracks { border-top: 1px solid var(--vcb-divider, #e5e7eb); padding-top: 8px; }
+.vcb-audio-tracks header { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.vcb-audio-track {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px 8px; border: 1px solid var(--vcb-divider, #e5e7eb);
+  border-radius: 4px; margin-bottom: 4px;
+}
+.vcb-audio-track-head { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.vcb-audio-track-kind { color: var(--vcb-accent, #6b4eff); font-weight: 600; }
+.vcb-audio-track-name { flex: 1; }
+.vcb-audio-track-dur { color: var(--vcb-text-muted, #6b7280); font-size: 11px; }
+.vcb-audio-track-actions { display: flex; gap: 8px; align-items: center; }
+.vcb-mute-toggle {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 6px; border: 1px solid var(--vcb-divider, #e5e7eb);
+  border-radius: 4px; background: transparent; font-size: 11px; cursor: pointer;
+}
+.vcb-mute-toggle.is-on { background: var(--vcb-danger, #dc2626); color: #fff; border-color: var(--vcb-danger, #dc2626); }
+.vcb-volume-slider { display: inline-flex; align-items: center; gap: 4px; flex: 1; font-size: 11px; }
+.vcb-volume-slider input[type=range] { flex: 1; max-width: 120px; }
+.vcb-volume-readout { color: var(--vcb-text-muted, #6b7280); font-family: monospace; }
 .vcb-clip { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid rgba(61, 50, 41, .1); border-radius: 11px; background: #fff; }
 .vcb-clip-head { display: flex; align-items: baseline; gap: 8px; }
 .vcb-clip-head strong { font-size: 12.5px; color: #3d3732; }
@@ -222,6 +257,31 @@
 .vcb-rebind button { padding: 3px 9px; border: 1px solid rgba(70, 54, 184, .35); border-radius: 999px; background: #f6f4fd; color: #4636b8; font-size: 10.5px; cursor: pointer; }
 .vcb-clip-error { display: flex; align-items: center; gap: 6px; margin: 0; color: #93392e; font-size: 11.5px; }
 .vcb-export { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding-top: 4px; border-top: 1px dashed rgba(61, 50, 41, .12); }
+
+/* W4 音频节点: 画布 asset footer 的"加入音轨"按钮 + 音轨抽屉的卡片/电平/静音 */
+.vcb-asset-source { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #756f69; }
+.vcb-add-audio-track { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid rgba(70, 54, 184, .35); border-radius: 999px; background: #f6f4fd; color: #4636b8; font-size: 10.5px; font-weight: 600; cursor: pointer; }
+.vcb-add-audio-track:hover:not(:disabled) { background: #ece6fb; }
+.vcb-add-audio-track:disabled { opacity: .55; cursor: not-allowed; }
+.vcb-audio-tracks { display: grid; gap: 8px; padding: 10px 0 4px; border-top: 1px dashed rgba(61, 50, 41, .12); }
+.vcb-audio-tracks > header { display: flex; align-items: baseline; gap: 8px; }
+.vcb-audio-tracks > header strong { font-size: 12.5px; color: #3d3732; }
+.vcb-audio-tracks > header small { color: #756f69; font-size: 11px; }
+.vcb-audio-track-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.vcb-audio-track { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid rgba(70, 54, 184, .22); border-radius: 10px; background: #fbf9ff; }
+.vcb-audio-track.is-muted { opacity: .65; background: #f6f4f6; border-color: rgba(61, 50, 41, .12); }
+.vcb-audio-track-head { display: flex; align-items: center; gap: 8px; }
+.vcb-audio-track-head strong { font-size: 12px; color: #3d3732; }
+.vcb-audio-track-head small { color: #756f69; font-size: 10.5px; }
+.vcb-audio-mute { margin-left: auto; padding: 3px 8px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: #fff; color: #3d3732; font-size: 10.5px; cursor: pointer; }
+.vcb-audio-mute.is-muted { background: #e9e1d7; color: #93392e; border-color: rgba(147, 57, 46, .35); }
+.vcb-audio-mute:disabled { opacity: .55; cursor: not-allowed; }
+.vcb-audio-meter { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; }
+.vcb-audio-meter > span { font-size: 10.5px; color: #756f69; }
+.vcb-audio-meter input[type='range'] { width: 100%; accent-color: #4636b8; }
+.vcb-audio-meter-bar { position: relative; height: 4px; background: rgba(70, 54, 184, .15); border-radius: 999px; overflow: hidden; grid-column: 1 / -1; }
+.vcb-audio-meter-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #4636b8, #7568e0); transition: width .18s ease; }
+.vcb-audio-track-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: #4636b8; }
 .vcb-export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid #4636b8; border-radius: 10px; background: #4636b8; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
 .vcb-export-btn:disabled { opacity: .55; cursor: not-allowed; }
 .vcb-manifest-summary { display: grid; gap: 4px; font-size: 11.5px; color: #3d3732; }
