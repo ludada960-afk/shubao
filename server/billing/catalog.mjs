@@ -44,7 +44,9 @@ export const PRODUCTS = freezeCatalog({
   xhs_entry_19: { sku: 'xhs_entry_19', priceFen: 1900, currency: 'content_sets', grantUnits: 3, validityDays: 30, regenPerWork: 5 },
   xhs_growth_49: { sku: 'xhs_growth_49', priceFen: 4900, currency: 'content_sets', grantUnits: 10, validityDays: 30, regenPerWork: 8 },
   xhs_creator_99: { sku: 'xhs_creator_99', priceFen: 9900, currency: 'content_sets', grantUnits: 25, validityDays: 30, regenPerWork: 15 },
-  xhs_studio_199: { sku: 'xhs_studio_199', priceFen: 19900, currency: 'content_sets', grantUnits: 60, validityDays: 30, regenPerWork: 30 },
+  // 2026-08-26 §6 #8 XHS studio 60→50 套：grantUnits 60→50 收紧变相提价 20%；
+  // 老客 60 天保护期由 server/billing/xhsLegacyProtection.mjs 负责（按 userId 写入 legacy_user_snapshot）。
+  xhs_studio_199: { sku: 'xhs_studio_199', priceFen: 19900, currency: 'content_sets', grantUnits: 50, validityDays: 30, regenPerWork: 30 },
 });
 
 export const FEATURE_SKUS = freezeCatalog({

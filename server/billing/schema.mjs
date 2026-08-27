@@ -1,5 +1,6 @@
 import { ensureAccessSchema } from '../accessControl.mjs';
 import { ensureH3InviteSchema } from './h3InviteCodes.mjs';
+import { ensureXhsLegacySchema } from './xhsLegacyProtection.mjs';
 
 export function ensureBillingSchema(db) {
   db.exec(`
@@ -155,5 +156,7 @@ export function ensureBillingSchema(db) {
   }
   // 2026-08-26 §6 #7 H3 灰度邀请表（独立 sqlite migration，幂等）。
   ensureH3InviteSchema(db);
+  // 2026-08-26 §6 #8 XHS studio 60→50 套 60 天老客保护快照表（独立 sqlite migration，幂等）。
+  ensureXhsLegacySchema(db);
   ensureAccessSchema(db);
 }
