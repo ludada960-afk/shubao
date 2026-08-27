@@ -448,6 +448,41 @@ test('video audio continuity client signs create and update routes', async t => 
   assert.equal(requests[1].options.method, 'PATCH');
   assert.deepEqual(JSON.parse(requests[1].options.body), { expectedRevision: 1, patch: { volume: 0.8 } });
 });
+
+test('video audio track client serialises mute toggle with current revision', async t => {
+  installSession('signed-mute-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path: String(path), options });
+    return jsonResponse({ track: { id: 'track-2', revision: 4, muted: true } }, 200);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await updateVideoAudioTrack('project-2', 'track-2', { expectedRevision: 3, patch: { muted: true } });
+  assert.equal(requests[0].path, '/api/video/projects/project-2/workbench/audio-tracks/track-2');
+  assert.equal(requests[0].options.method, 'PATCH');
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-mute-session');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { expectedRevision: 3, patch: { muted: true } });
+});
+
+test('video audio track client preserves volume field within 0..2 range', async t => {
+  installSession('signed-volume-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path: String(path), options });
+    return jsonResponse({ track: { id: 'track-3', revision: 5, volume: 1.5 } }, 200);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await updateVideoAudioTrack('project-3', 'track-3', { expectedRevision: 4, patch: { volume: 1.5 } });
+  assert.equal(requests[0].path, '/api/video/projects/project-3/workbench/audio-tracks/track-3');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { expectedRevision: 4, patch: { volume: 1.5 } });
+  // 客户端不做 clamp, 服务端 0..2 fail-closed: 仍然原样发送
+  await updateVideoAudioTrack('project-3', 'track-3', { expectedRevision: 5, patch: { volume: 2.5 } });
+  assert.equal(requests[1].options.headers.Authorization, 'Bearer signed-volume-session');
+  assert.deepEqual(JSON.parse(requests[1].options.body), { expectedRevision: 5, patch: { volume: 2.5 } });
+});
+
 test('project comments list and create through the scoped workbench API', async t => {
   const originalFetch = globalThis.fetch;
   const requests = [];

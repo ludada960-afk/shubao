@@ -788,6 +788,87 @@ test('audio continuity routes create and update owner-scoped tracks', async t =>
   assert.equal(denied.statusCode, 404);
 });
 
+test('audio track POST rejects unsupported kind and unapproved version fail-closed', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  // product 类素材 (kind=product) 不能当音轨: validateAudioShape 必为 voice|music
+  const product = store.createAsset({ ownerEmail, projectId: project.id, kind: 'product', name: '耳机' });
+  const productVersion = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: product.id,
+    stableUrl: '/api/video/assets/route-product', contentHash: 'route-product-audio', mimeType: 'image/webp' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: product.id, versionId: productVersion.id, expectedRevision: 1 });
+  const badKind = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/audio-tracks', {
+    headers, params: { projectId: project.id }, body: {
+      kind: 'product', assetId: product.id, assetVersionId: productVersion.id, startMs: 0, durationMs: 2000,
+    },
+  });
+  assert.equal(badKind.statusCode, 400);
+  assert.equal(badKind.body?.code, 'INVALID_AUDIO_TRACK');
+  // voice 资产但 mime 是 image/, 也会被 fail-closed
+  const voice = store.createAsset({ ownerEmail, projectId: project.id, kind: 'voice', name: '旁白' });
+  const wrongMime = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: voice.id,
+    stableUrl: '/api/video/assets/route-voice-wrong', contentHash: 'route-voice-wrong', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: voice.id, versionId: wrongMime.id, expectedRevision: 1 });
+  const wrongMimeResp = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/audio-tracks', {
+    headers, params: { projectId: project.id }, body: {
+      kind: 'voice', assetId: voice.id, assetVersionId: wrongMime.id, startMs: 0, durationMs: 2000,
+    },
+  });
+  assert.equal(wrongMimeResp.statusCode, 400);
+  assert.equal(wrongMimeResp.body?.code, 'INVALID_AUDIO_TRACK');
+});
+
+test('audio track PATCH enforces optimistic revision and rejects out-of-range volume/start', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const music = store.createAsset({ ownerEmail, projectId: project.id, kind: 'music', name: 'BGM' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: music.id,
+    stableUrl: '/api/video/assets/route-music', contentHash: 'route-music-hash', mimeType: 'audio/mpeg' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: music.id, versionId: version.id, expectedRevision: 1 });
+  const created = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/audio-tracks', {
+    headers, params: { projectId: project.id }, body: {
+      kind: 'music', assetId: music.id, assetVersionId: version.id, startMs: 0, durationMs: 4000,
+    },
+  });
+  assert.equal(created.statusCode, 201);
+  const track = created.body.track;
+  assert.equal(track.kind, 'music');
+  assert.equal(track.volume, 1);
+  // 过期 revision 直接 409
+  const stale = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/audio-tracks/:trackId', {
+    headers, params: { projectId: project.id, trackId: track.id }, body: { expectedRevision: 99, patch: { volume: 0.5 } },
+  });
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body?.code, 'VERSION_CONFLICT');
+  // volume 越界 3.0 -> 400 INVALID_AUDIO_TRACK
+  const tooLoud = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/audio-tracks/:trackId', {
+    headers, params: { projectId: project.id, trackId: track.id }, body: { expectedRevision: 1, patch: { volume: 3.0 } },
+  });
+  assert.equal(tooLoud.statusCode, 400);
+  assert.equal(tooLoud.body?.code, 'INVALID_AUDIO_TRACK');
+  // startMs 越界 600001 -> 400
+  const tooLate = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/audio-tracks/:trackId', {
+    headers, params: { projectId: project.id, trackId: track.id }, body: { expectedRevision: 1, patch: { startMs: 600001 } },
+  });
+  assert.equal(tooLate.statusCode, 400);
+  assert.equal(tooLate.body?.code, 'INVALID_AUDIO_TRACK');
+  // 合法静音切换 + volume 0..2 边界
+  const muteResp = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/audio-tracks/:trackId', {
+    headers, params: { projectId: project.id, trackId: track.id }, body: { expectedRevision: 1, patch: { muted: true, volume: 2 } },
+  });
+  assert.equal(muteResp.statusCode, 200);
+  assert.equal(muteResp.body.track.revision, 2);
+  assert.equal(muteResp.body.track.muted, true);
+  assert.equal(muteResp.body.track.volume, 2);
+  // 不支持的字段 (例如 id) 也会被拒
+  const badField = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/audio-tracks/:trackId', {
+    headers, params: { projectId: project.id, trackId: track.id }, body: { expectedRevision: 2, patch: { id: 'evil' } },
+  });
+  assert.equal(badField.statusCode, 400);
+  assert.equal(badField.body?.code, 'INVALID_AUDIO_TRACK');
+});
+
 test('timeline clip route persists trim, reorder, and mute changes with revision checks', async t => {
   const { app, db, project, store, sessionTokens, ownerEmail } = harness();
   t.after(() => db.close());
