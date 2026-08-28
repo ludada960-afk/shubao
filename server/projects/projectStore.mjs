@@ -7,6 +7,7 @@ import {
   normalizeProductProfilePatch,
   normalizeProductProfileAssetRef,
 } from './productProfileContract.mjs';
+import { recordProductProfileHistory, listProductProfileHistory } from './productProfileHistory.mjs';
 
 const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog', 'video']);
 const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration']);
@@ -590,7 +591,7 @@ export function createProjectStore(db, {
       return hydrateProductProfile(row);
     },
 
-    updateProductProfile({ ownerEmail, profileId, idempotencyKey, patch = {} }) {
+    updateProductProfile({ ownerEmail, profileId, idempotencyKey, patch = {}, actorEmail = '' } = {}) {
       const owner = normalizeOwner(ownerEmail);
       if (!owner) throw new TypeError('ownerEmail is required');
       const key = normalizeOptionalIdempotencyKey(idempotencyKey);
@@ -612,6 +613,22 @@ export function createProjectStore(db, {
         }
         if (Object.hasOwn(normalizedPatch, 'assets')) validateProductProfileAssets(owner, normalizedPatch.assets);
         const updatedAt = timestamp().toISOString();
+        // 续命 P2：PATCH 不覆盖，先把当前 profile 的完整前态写到 history，
+        // payload 记录 change_kind='update' + 变更的 patch 字段，actor 记录触发人。
+        const previousSnapshot = hydrateProductProfile(current);
+        recordProductProfileHistory(db, {
+          profileId: id,
+          ownerEmail: owner,
+          changeKind: 'update',
+          payload: {
+            previous: previousSnapshot,
+            patch: normalizedPatch,
+            previousUpdatedAt: current.updated_at,
+          },
+          actorEmail,
+          createdAt: updatedAt,
+          idFactory: randomUUID,
+        });
         const assignments = [];
         const values = [];
         if (Object.hasOwn(normalizedPatch, 'name')) { assignments.push('name = ?'); values.push(normalizedPatch.name); }
@@ -636,14 +653,39 @@ export function createProjectStore(db, {
       }).immediate();
     },
 
-    archiveProductProfile({ ownerEmail, profileId }) {
+    archiveProductProfile({ ownerEmail, profileId, actorEmail = '' } = {}) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const id = String(profileId || '').trim();
+      const current = requireProductProfile(owner, id);
+      const archivedAt = timestamp().toISOString();
+      return db.transaction(() => {
+        // 续命 P2：归档也算一次历史，前态保留。
+        const previousSnapshot = hydrateProductProfile(current);
+        recordProductProfileHistory(db, {
+          profileId: id,
+          ownerEmail: owner,
+          changeKind: 'archive',
+          payload: {
+            previous: previousSnapshot,
+            previousUpdatedAt: current.updated_at,
+          },
+          actorEmail,
+          createdAt: archivedAt,
+          idFactory: randomUUID,
+        });
+        db.prepare(`UPDATE product_profiles SET status = 'archived', updated_at = ?
+          WHERE id = ? AND owner_email = ?`).run(archivedAt, id, owner);
+        return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner));
+      }).immediate();
+    },
+
+    listProductProfileHistory({ ownerEmail, profileId, limit = 50 } = {}) {
       const owner = normalizeOwner(ownerEmail);
       if (!owner) throw new TypeError('ownerEmail is required');
       const id = String(profileId || '').trim();
       requireProductProfile(owner, id);
-      db.prepare(`UPDATE product_profiles SET status = 'archived', updated_at = ?
-        WHERE id = ? AND owner_email = ?`).run(timestamp().toISOString(), id, owner);
-      return hydrateProductProfile(db.prepare('SELECT * FROM product_profiles WHERE id = ? AND owner_email = ?').get(id, owner));
+      return listProductProfileHistory(db, { profileId: id, limit });
     },
 
     // 把生成结果追加挂到商品档案：弱关联标签(product_profile_assets)只增不删，

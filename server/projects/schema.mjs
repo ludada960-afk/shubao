@@ -219,6 +219,19 @@ export function ensureProjectSchema(db) {
       created_at TEXT NOT NULL,
       PRIMARY KEY(owner_email, route, idempotency_key)
     );
+
+    CREATE TABLE IF NOT EXISTS product_profile_history (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      owner_email TEXT NOT NULL,
+      change_kind TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      actor_email TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(profile_id) REFERENCES product_profiles(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_profile_history_profile
+      ON product_profile_history(profile_id, created_at DESC);
   `);
   const assetColumns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");

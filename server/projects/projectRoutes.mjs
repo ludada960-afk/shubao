@@ -208,8 +208,19 @@ export function mountProjectRoutes(app, {
         profileId: req.params.profileId,
         idempotencyKey: req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'],
         patch: req.body,
+        actorEmail: ownerFor(req, authenticateOwner),
       });
       return res.json({ profile });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.get('/api/product-profiles/:profileId/history', (req, res) => {
+    try {
+      const entries = projectStore.listProductProfileHistory({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        profileId: req.params.profileId,
+        limit: req.query?.limit,
+      });
+      return res.json({ entries });
     } catch (error) { return routeError(error, res); }
   });
   app.post('/api/product-profiles/:profileId/archive', (req, res) => {
