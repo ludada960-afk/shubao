@@ -1182,18 +1182,36 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
 
   for (const source of [pricing, pricingModalOnly]) {
     assert.doesNotMatch(source, /\/api\/create-payment/);
-    assert.doesNotMatch(source, /支付宝支付|微信支付/);
+    // 4c183cd4 续命: 商业化重做后,文案不出现「暂不可购买」「在线支付开通前无法下单」「体验包」等内测味。
+    assert.doesNotMatch(source, /暂不可购买/);
+    assert.doesNotMatch(source, /在线支付开通前无法下单/);
+    assert.doesNotMatch(source, /支付服务接入中/);
     assert.doesNotMatch(source, /Stripe[\s\S]{0,80}(支付宝|微信)/);
     assert.doesNotMatch(source, /paid=1/);
     assert.doesNotMatch(source, /\bpaidSuccess\b/);
-    assert.match(source, /支付服务接入中/);
   }
+  // 4c183cd4 续命: 商业化重做后,data.js 全部使用 基础版 / 专业版 / 团队版,
+  // 旧内测味名字 (体验包/入门包/成长包) 不再出现。
+  assert.doesNotMatch(constants, /体验包|入门包|成长包/);
+  assert.match(constants, /基础版/);
+  assert.match(constants, /专业版/);
+  assert.match(constants, /团队版/);
+  // 定价页 source 不内嵌套餐名字面量,仅消费 PRICING_PLANS.metadata.name。
+  // 验证定价页已删除内测味文案 + 二维码占位 + 「扫码支付」标题即可。
+  assert.doesNotMatch(pricing, /体验包|入门包|成长包/);
+  // 二维码占位区(微信 / 支付宝) + 内联扫码支付提示 必现。
+  assert.match(pricing, /微信支付/);
+  assert.match(pricing, /支付宝/);
+  assert.match(pricing, /扫码支付/);
   assert.match(pricing, /所有创作功能共用一套 AI 积分/);
   assert.match(pricing, /PRICING_PLANS/);
   assert.doesNotMatch(pricing, /小红书 \/ Plog · AI 积分/);
   assert.doesNotMatch(pricingModalOnly, /小红书 \/ Plog AI 积分/);
   assert.match(pricingModalOnly, /所有创作功能共用一套 AI 积分/);
   assert.match(pricingModalOnly, /PRICING_PLANS/);
+  // 「创作权益」 这个内测味 modal 标题被替换为「选择套餐」。
+  assert.doesNotMatch(pricingModalOnly, />创作权益</);
+  assert.match(pricingModalOnly, /选择套餐/);
   assert.doesNotMatch(pricing, /每套套餐中的「套」是什么意思/);
   assert.doesNotMatch(pricing, /服务端|实时报价|幂等/);
   assert.doesNotMatch(pricingModalOnly, /套餐 SKU|支付通道|幂等|服务端|实时报价/);

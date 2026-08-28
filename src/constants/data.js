@@ -32,13 +32,17 @@ export const QUICK_HINTS = [
 ];
 
 /* ═══════ 定价方案 ═══════ */
+// 4c183cd4 续命: 商业化市场化重做, 删除内测味 (体验/入门/成长) → 基础版/专业版/团队版/工作室版。
+// desc 直接给出「能生成多少张图 / 多少个视频」具体数字, 与 server/billing/catalog.mjs 单位经济锚一致:
+//   - 1 张 2K 商品图 = 1 积分;  1 条快试视频 (≤5s) = 27 积分;  1 条标准视频 (≤8s) = 46 积分;
+//   - 1 条高品质视频 (>8s, 含 1 次免费重跑) = 57 积分。
 export const PRICING_PLANS = [
-  { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用薯包 AI 创作' },
-  { sku:'ec_starter_29', name:'入门包', desc:'适合日常创作与素材补充' },
-  { sku:'ec_growth_79', name:'成长包', desc:'适合稳定更新和多主题创作' },
-  { sku:'ec_studio_199', name:'工作室包', desc:'适合团队批量创作与二次编辑' },
-  { sku:'ec_monthpack_39', name:'月卡礼包 · 轻', desc:'一次买断积分礼包，含加赠积分，无自动续订' },
-  { sku:'ec_monthpack_59', name:'月卡礼包 · Pro', pop:true, desc:'大额度一次买断，含加赠积分，无自动续订' },
+  { sku:'ec_trial_990', name:'基础版', desc:'约 30 张 2K 商品图, 或 1 条快试视频 + 多张图' },
+  { sku:'ec_starter_29', name:'专业版', desc:'约 105 张 2K 商品图, 或 2 条标准视频 + 13 张图' },
+  { sku:'ec_growth_79', name:'团队版', desc:'约 295 张 2K 商品图, 或 6 条标准视频 + 19 张图' },
+  { sku:'ec_studio_199', name:'工作室版', desc:'约 760 张 2K 商品图, 或 16 条标准视频 + 24 张图' },
+  { sku:'ec_monthpack_39', name:'月卡礼包 · 轻', desc:'175 积分 (含赠 25), 约 175 张图, 一次买断, 无自动续订' },
+  { sku:'ec_monthpack_59', name:'月卡礼包 · Pro', pop:true, desc:'270 积分 (含赠 40), 约 270 张图, 一次买断, 无自动续订' },
 ];
 
 /* ═══════ 功能亮点 ═══════ */
