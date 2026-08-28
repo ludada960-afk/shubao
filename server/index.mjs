@@ -2508,6 +2508,19 @@ function contentProjectReferenceGroups({ referenceAssets, referenceAssetIds } = 
 }
 
 app.post('/api/generate', async (req, res) => {
+
+
+// 4c183cd4 续命 P1 月卡签到
+app.post('/api/billing/checkin', async (req, res) => {
+  try {
+    const ownerEmail = req.body?.ownerEmail;
+    if (!ownerEmail) return res.status(400).json({ ok: false, reason: 'missing-ownerEmail' });
+    const result = await dailyCheckin({ ownerEmail });
+    res.status(result.ok ? 200 : 409).json(result);
+  } catch (e) {
+    res.status(500).json({ ok: false, reason: e.message });
+  }
+});
   const { text, images, referenceAssetIds, referenceAssets } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   if (req._contentPreview === true) return runXhsPreview(req, res);
