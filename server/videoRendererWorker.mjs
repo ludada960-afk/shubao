@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { reconcileVideoRendererAttempt } from './videoRendererReconciliation.mjs';
+import { renderVideo } from './videoExportRender.mjs';
 
 function coded(code, message = code) {
   return Object.assign(new Error(message), { code });
@@ -319,4 +320,82 @@ export async function runVideoRendererWorkerBatch({
     providerSubmission,
     billingMutated,
   };
+}
+
+/**
+ * Build a renderer adapter that runs the local ffmpeg pipeline via
+ * `renderVideo(manifest)`. This is the W5 ffmpeg integration point:
+ * the worker contract is provider-neutral, so a local renderer is just
+ * another adapter that returns a `completed` response synchronously after
+ * ffmpeg finishes, or a `failed` shape on error. Billing is never mutated
+ * and the adapter never reports `providerSubmission`.
+ *
+ * 4c183cd4 续命 P0-A 续: wires `videoExportRender.mjs::renderVideo` into
+ * `videoRendererWorker.mjs` so the local-ffmpeg render path can be picked
+ * up by the same `runVideoRendererWorkerOnce` / `runVideoRendererWorkerBatch`
+ * reconciliation pipeline used by external providers.
+ */
+export function createLocalFfmpegRendererAdapter() {
+  async function submit(request) {
+    if (!request || typeof request !== 'object') {
+      throw coded('RENDER_REQUEST_INVALID', '渲染请求无效');
+    }
+    const timeline = request.timeline && Array.isArray(request.timeline.clips)
+      ? request.timeline
+      : null;
+    if (!timeline || timeline.clips.length === 0) {
+      throw coded('EXPORT_JOB_OUTPUT_REQUIRED', 'no clips in render request timeline');
+    }
+    const manifest = {
+      timeline,
+      options: request.options || {},
+      audio: request.audio || { tracks: [] },
+    };
+    const result = await renderVideo(manifest);
+    if (result?.error || !result?.path) {
+      const message = String(result?.error || 'local ffmpeg render failed').slice(0, 500);
+      throw coded('RENDERER_LOCAL_FFMPEG_FAILED', message);
+    }
+    return {
+      externalJobId: `local-ffmpeg:${request.jobId}:attempt:${request.attempt}`,
+      status: 'completed',
+      requestId: request.requestId,
+      requestHash: request.requestHash,
+      outputAssetId: result.path,
+      outputUrl: result.path,
+      usage: { currency: 'ai_points', points: 0 },
+    };
+  }
+  async function poll(request, externalJobId) {
+    // Local ffmpeg is synchronous within submit; once submitted, the job is
+    // already in a terminal state. We still echo the request ids so the
+    // reconciliation loop can pass identity checks if it ever polls.
+    if (!request || typeof request !== 'object') {
+      throw coded('RENDER_REQUEST_INVALID', '渲染请求无效');
+    }
+    return {
+      externalJobId: String(externalJobId || ''),
+      status: 'completed',
+      requestId: request.requestId,
+      requestHash: request.requestHash,
+    };
+  }
+  async function cancel(request, externalJobId) {
+    if (!request || typeof request !== 'object') {
+      throw coded('RENDER_REQUEST_INVALID', '渲染请求无效');
+    }
+    return {
+      externalJobId: String(externalJobId || ''),
+      status: 'canceled',
+      requestId: request.requestId,
+      requestHash: request.requestHash,
+    };
+  }
+  return Object.freeze({
+    name: 'local-ffmpeg',
+    capabilities: { local: true, ffmpeg: true },
+    submit,
+    poll,
+    cancel,
+  });
 }
