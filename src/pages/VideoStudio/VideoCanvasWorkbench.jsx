@@ -851,6 +851,49 @@ export default function VideoCanvasWorkbench({
     }));
   }
 
+  // V2 P1 视频时间线 trim 0.1s 精修 (4c183cd4 续命) ────────────────────
+  // << / < / > / >> 步进按钮, 0.1s 精修和 1.0s 粗调。
+  // 步进规则与 clampTrimPatch 共享: 0 ≤ start < end, end - start ≥ 0.2s,
+  // end ≤ shot.durationMs; 越界/间隔不足时停在合法边界, 不抛错、不提交。
+  // 返回 0.1s 步长常量, 暴露给 UI 显示用, 也方便回归测试引用。
+  const TRIM_STEP_FINE = 0.1;
+  const TRIM_STEP_COARSE = 1.0;
+  const TRIM_MIN_GAP_SECONDS = 0.2;
+  function stepClipDraftValue(currentValue, field, deltaSeconds, boundsSeconds) {
+    const minSec = Math.max(0, Number(boundsSeconds?.min) || 0);
+    const maxSec = Math.max(minSec, Number(boundsSeconds?.max) || minSec);
+    const startSec = Math.max(minSec, Number(boundsSeconds?.start) || minSec);
+    const endSec = Math.max(startSec, Number(boundsSeconds?.end) || startSec);
+    const current = Math.max(minSec, Math.min(maxSec, Number(currentValue) || 0));
+    const next = Math.round((current + Number(deltaSeconds) || 0) * 10) / 10;
+    if (field === 'start') {
+      // 入点不能晚于出点 - 0.2s 间隔, 也不能晚于 maxMs。
+      const upper = Math.max(minSec, Math.min(maxSec, endSec - TRIM_MIN_GAP_SECONDS));
+      return Math.max(minSec, Math.min(upper, next));
+    }
+    if (field === 'end') {
+      // 出点不能早于入点 + 0.2s, 也不能晚于 maxMs。
+      const lower = Math.min(maxSec, startSec + TRIM_MIN_GAP_SECONDS);
+      return Math.max(lower, Math.min(maxSec, next));
+    }
+    return current;
+  }
+  function handleStepClipTrim(clip, field, deltaSeconds) {
+    const shot = shots.find(item => item.id === clip.shotId);
+    const bounds = clipTrimBounds(clip, shot);
+    const draft = clipDrafts[clip.id] || { start: bounds.startMs / 1000, end: bounds.endMs / 1000 };
+    const boundsSeconds = { min: bounds.minMs / 1000, max: bounds.maxMs / 1000, start: bounds.startMs / 1000, end: bounds.endMs / 1000 };
+    const currentValue = draft[field];
+    const nextValue = stepClipDraftValue(currentValue, field, deltaSeconds, boundsSeconds);
+    if (nextValue === currentValue) {
+      // 已到合法边界, 不抖动本地 draft, 但清掉旧错误防止误导。
+      setClipError('');
+      return;
+    }
+    setClipError('');
+    updateClipDraft(clip, field, nextValue);
+  }
+
   function handleReplaceTimelineClipCandidate(clip, candidateId) {
     if (!projectId || !candidateId) return;
     void runMutation('timeline:replace:' + clip.id, () => replaceTimelineClipCandidate(projectId, clip.id, {
@@ -1610,6 +1653,24 @@ export default function VideoCanvasWorkbench({
                   value={draft.end}
                   onChange={event => updateClipDraft(clip, 'end', Number(event.target.value))} />
               </label>
+              {/* V2 P1 视频时间线 trim 0.1s 精修 (4c183cd4 续命): << / < / 0.1s / > / >> 步进按钮, 让用户用键盘就能精修 trim, 不必拖 */}
+              <button type="button" data-no-drag
+                title="入点 -1.0 秒" aria-label="入点减 1.0 秒"
+                disabled={Boolean(busy)}
+                onClick={() => handleStepClipTrim(clip, 'start', -TRIM_STEP_COARSE)}>«</button>
+              <button type="button" data-no-drag
+                title="入点 -0.1 秒" aria-label="入点减 0.1 秒"
+                disabled={Boolean(busy)}
+                onClick={() => handleStepClipTrim(clip, 'start', -TRIM_STEP_FINE)}>‹</button>
+              <span aria-hidden="true" style={{ fontSize: 10.5, color: '#756f69', alignSelf: 'center', minWidth: 28, textAlign: 'center' }}>{TRIM_STEP_FINE.toFixed(1)}s</span>
+              <button type="button" data-no-drag
+                title="出点 +0.1 秒" aria-label="出点加 0.1 秒"
+                disabled={Boolean(busy)}
+                onClick={() => handleStepClipTrim(clip, 'end', TRIM_STEP_FINE)}>›</button>
+              <button type="button" data-no-drag
+                title="出点 +1.0 秒" aria-label="出点加 1.0 秒"
+                disabled={Boolean(busy)}
+                onClick={() => handleStepClipTrim(clip, 'end', TRIM_STEP_COARSE)}>»</button>
               <button type="button" data-no-drag disabled={Boolean(busy)} onClick={() => handleSaveClipTrim(clip)}>应用裁剪</button>
             </div>
             {!!rebindOptions.length && <div className="vcb-rebind" aria-label="换绑候选">
