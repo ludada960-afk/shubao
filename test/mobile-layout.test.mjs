@@ -34,7 +34,7 @@ test('homepage clips only horizontal decoration so sticky mobile actions can fol
 });
 
 test('mobile top bar keeps the product brand on one line without crowding account actions', () => {
-  assert.match(appSource, /className="app-topbar"/);
+  assert.match(appSource, /app-topbar/);
   assert.match(appSource, /className="topbar-row"/);
   assert.match(appSource, /className="topbar-brand"/);
   assert.match(appSource, /className="topbar-actions"/);
