@@ -138,6 +138,9 @@ export function authenticateContentRequest(req = {}, { sessionTokens, authorizeE
     throw codedError('AUTH_SESSION_REQUIRED', 'A signed session token is required');
   }
   const session = sessionTokens.verify(token.trim());
+  if (session?.renewal) {
+    req._sessionRenewal = session.renewal;
+  }
   if (typeof authorizeEmail !== 'function') return session.email;
   const access = authorizeEmail(session.email);
   if (!access?.ok) {

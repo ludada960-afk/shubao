@@ -724,9 +724,9 @@ export function createAdminOperations({
     `).all(limit);
     const paying = hasPaymentOrders ? db.prepare(`
       SELECT date(datetime(created_at, 'weekday 1', '-7 days')) AS week_start,
-        COUNT(DISTINCT customer_email) AS paying_users
+        COUNT(DISTINCT owner_email) AS paying_users
       FROM payment_orders
-      WHERE status = 'paid' AND customer_email IS NOT NULL AND customer_email != ''
+      WHERE status = 'paid' AND owner_email IS NOT NULL AND owner_email != ''
       GROUP BY week_start
       ORDER BY week_start DESC
       LIMIT ?

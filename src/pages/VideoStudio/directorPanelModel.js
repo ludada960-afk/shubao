@@ -106,6 +106,18 @@ export const CHAT_TWEAK_CHIPS = Object.freeze([
   ['dolly_out', '拉远'], ['tracking', '跟拍'], ['orbit', '环绕'],
 ]);
 
+// 改稿对话 chip 图标映射: lucide-react 已有, 简单 icon 名 + 占位 (VideoCanvasWorkbench 那边按需 import 真实组件)
+// 我们用字符串 icon name, 让 Workbench 按 name 渲染 lucide 图标
+export const CHAT_TWEAK_ICONS = Object.freeze({
+  static: 'Square',
+  pan: 'MoveHorizontal',
+  tilt: 'MoveVertical',
+  dolly_in: 'ZoomIn',
+  dolly_out: 'ZoomOut',
+  tracking: 'Crosshair',
+  orbit: 'RotateCw',
+});
+
 // 改稿指令合成：运镜词 chips + 自然语言微调 → 新的镜头提示词。
 export function composeTweakPrompt({ basePrompt = '', instruction = '', chipIds = [] } = {}) {
   const chipLabels = (Array.isArray(chipIds) ? chipIds : [])
