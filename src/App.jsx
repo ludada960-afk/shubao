@@ -24,6 +24,7 @@ const EcAutoPage = React.lazy(() => import('./pages/EcAuto/index'));
 const VideoStudioPage = React.lazy(() => import('./pages/VideoStudio/index'));
 const AdminConsolePage = React.lazy(() => import('./pages/AdminConsole/index.jsx'));
 const VisionFeedbackPage = React.lazy(() => import('./pages/VisionFeedback/index.jsx'));
+const ProductArchivePage = React.lazy(() => import('./pages/ProductArchive/index.jsx'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
@@ -32,6 +33,7 @@ import { shouldShowNoteModal } from './routing/resultRouting';
 import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
 import AccountEntitlementControl from './components/billing/AccountEntitlementControl.jsx';
 import CreativeDomainNav from './components/layout/CreativeDomainNav.jsx';
+import ThemeSwitcher from './components/layout/ThemeSwitcher.jsx';
 
 function SideNav() {
   const { state, dispatch } = useApp();
@@ -169,6 +171,7 @@ function TopBar() {
 
         {/* Right: 按钮组 */}
         <div className="topbar-actions">
+          <ThemeSwitcher />
           {canAdmin && (
             <button
               type="button"
@@ -228,6 +231,11 @@ function AppRouter() {
     if (hash.startsWith('#/vision')) {
       dispatch({ type: 'NAVIGATE', page: 'vision-feedback' });
     }
+    // V2 P3：商品档案独立页（P3 · 4c183cd4 续命），URL 由独立页组件自己从 hash 解析，
+    // 这里只需把当前 page 切到 product-archive，让路由表正确挂载独立页。
+    if (/^#?\/?product-archives\/[^/?#\s]+/i.test(hash)) {
+      dispatch({ type: 'NAVIGATE', page: 'product-archive' });
+    }
   }, []);
 
   // B3: 全局 resize 节流 — 防止高频重排导致崩溃
@@ -285,6 +293,7 @@ function AppRouter() {
     'video-studio': VideoStudioPage,
     admin: AdminConsolePage,
     'vision-feedback': VisionFeedbackPage,
+    'product-archive': ProductArchivePage,
   };
   const PageComponent = page === 'admin' && !canAdmin
     ? HomePage

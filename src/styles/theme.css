@@ -1,0 +1,160 @@
+/* ═══════ 薯包AI Theme (P3 双主题 light + dark, 4c183cd4 续命) ═══════ */
+/* 复用 design-tokens.css 的 CSS 变量, 在 [data-theme="dark"] 下整体覆盖.
+   任何新增 token 必须先在 design-tokens.css 声明 light 值, 再在本文件给 dark 值. */
+
+:root {
+  color-scheme: light;
+}
+
+/* ── Dark 主题: 整体覆盖 design-tokens ──
+   设计目标:
+   - 暖白米色 → 深灰近黑 (近黑极简, 跟 light 主色 --accent 一致)
+   - 文字对比度保持 AA (>= 4.5:1)
+   - 阴影从暖棕色投影切换为深色透明叠加
+   - 红色/绿色/蓝色状态色提亮一档, 保持可见 */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* 基础色 */
+  --bg: #0F0E0D;
+  --bg-card: rgba(28, 26, 24, 0.78);
+  --bg-card-solid: #1C1A18;
+  --bg-elevated: #232120;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+
+  /* 强调色 (近黑 → 暖白, 反色保持高对比) */
+  --accent: #F5EFE4;
+  --accent-hover: #FFFFFF;
+  --accent-muted: #B0AAA0;
+  --accent-bg: rgba(245, 239, 228, 0.10);
+
+  /* 红色 (状态色提亮) */
+  --red: #FF6B5E;
+  --red-hover: #FF8678;
+  --red-bg: rgba(232, 84, 75, 0.16);
+  --red-shadow: rgba(255, 107, 94, 0.22);
+
+  /* 绿色 */
+  --green: #6BC07A;
+  --green-bg: rgba(92, 168, 108, 0.16);
+
+  /* 蓝色 */
+  --blue: #7B95E0;
+  --blue-bg: rgba(82, 117, 204, 0.18);
+
+  /* 文字层级 (深底白字) */
+  --text-primary: #F5EFE4;
+  --text-secondary: #D8D2C8;
+  --text-muted: #9A9490;
+  --text-hint: #7A746E;
+  --text-faint: #5C5651;
+  --text-ghost: #3D3835;
+  --text-invisible: #2A2521;
+
+  /* 边框 & 分割 */
+  --border: rgba(245, 239, 228, 0.10);
+  --border-light: rgba(245, 239, 228, 0.06);
+  --border-hover: rgba(245, 239, 228, 0.20);
+
+  /* 阴影 (暖棕 → 深色透明叠加) */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 28px 90px rgba(0, 0, 0, 0.65);
+  --shadow-float: 0 28px 90px rgba(0, 0, 0, 0.65);
+}
+
+/* ── 系统设置自动探测: 当用户没有显式选择时, 跟随系统 ──
+   注意: 我们用 data-theme="auto" + prefers-color-scheme 而不是纯媒体查询,
+   是因为 data-theme 已经被 ThemeSwitcher 用来表示"跟随系统",
+   跟 [data-theme="dark"] / [data-theme="light"] 一起覆盖同一组 token. */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    color-scheme: dark;
+    --bg: #0F0E0D;
+    --bg-card: rgba(28, 26, 24, 0.78);
+    --bg-card-solid: #1C1A18;
+    --bg-elevated: #232120;
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --accent: #F5EFE4;
+    --accent-hover: #FFFFFF;
+    --accent-muted: #B0AAA0;
+    --accent-bg: rgba(245, 239, 228, 0.10);
+    --red: #FF6B5E;
+    --red-hover: #FF8678;
+    --red-bg: rgba(232, 84, 75, 0.16);
+    --red-shadow: rgba(255, 107, 94, 0.22);
+    --green: #6BC07A;
+    --green-bg: rgba(92, 168, 108, 0.16);
+    --blue: #7B95E0;
+    --blue-bg: rgba(82, 117, 204, 0.18);
+    --text-primary: #F5EFE4;
+    --text-secondary: #D8D2C8;
+    --text-muted: #9A9490;
+    --text-hint: #7A746E;
+    --text-faint: #5C5651;
+    --text-ghost: #3D3835;
+    --text-invisible: #2A2521;
+    --border: rgba(245, 239, 228, 0.10);
+    --border-light: rgba(245, 239, 228, 0.06);
+    --border-hover: rgba(245, 239, 228, 0.20);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.55);
+    --shadow-xl: 0 28px 90px rgba(0, 0, 0, 0.65);
+    --shadow-float: 0 28px 90px rgba(0, 0, 0, 0.65);
+  }
+}
+
+/* ── 滚动条 (与 design-tokens.css 保持对称) ── */
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #3D3835; }
+[data-theme="dark"] ::selection { background: var(--accent-bg); color: var(--accent); }
+
+/* ── 主题切换过渡: 仅在显式切换时, 避免页面初次加载时整页闪动 ── */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease !important;
+}
+
+/* ── ThemeSwitcher 自身样式 ── */
+.theme-switcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-normal) var(--ease),
+              color var(--duration-normal) var(--ease),
+              border-color var(--duration-normal) var(--ease),
+              transform var(--duration-fast) var(--ease);
+  flex-shrink: 0;
+}
+.theme-switcher:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+  border-color: var(--border-hover);
+}
+.theme-switcher:active {
+  transform: scale(0.94);
+}
+.theme-switcher:focus-visible {
+  outline: 2px solid var(--focus-ring, #2563eb);
+  outline-offset: 2px;
+}
+.theme-switcher-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 240ms var(--ease);
+}
+.theme-switcher:hover .theme-switcher-icon {
+  transform: rotate(20deg);
+}
