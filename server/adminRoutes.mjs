@@ -120,6 +120,8 @@ export function createAdminRouteHandlers({ operations, authenticateOwner, author
     // 续命 P2 用户列表 (admin dashboard 用, admin+owner 都能访问)
     listUsers: wrap((req, res) => res.json(operations.listUsers(req.query))),
     userCostReport: wrap((req, res) => res.json(operations.getUserCostReport({ ...req.query, email: req.params.email }))),
+    // 4c183cd4 续命 P2 成本核算精确化：全站毛利 + 异常用量预警
+    costSummary: wrap((req, res) => res.json(operations.costSummary({ ...req.query }))),
     exportH3Invites: wrap((req, res) => {
       const csv = operations.exportH3InvitesCsv();
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -156,6 +158,8 @@ export function mountAdminRoutes(app, deps) {
   // 续命 P2 用户列表: admin dashboard 用, admin+owner 都能访问
   app.get('/api/admin/users', handlers.requireAdminRole, handlers.listUsers);
   app.get('/api/admin/users/:email/cost-report', handlers.requireAdminRole, handlers.userCostReport);
+  // 4c183cd4 续命 P2 成本核算精确化：全站毛利 + 异常用量预警
+  app.get('/api/admin/cost-summary', handlers.requireAdminRole, handlers.costSummary);
   app.post('/api/admin/h3-invites', handlers.requireAdmin, handlers.createH3Invites);
   app.get('/api/admin/h3-invites.csv', handlers.requireAdmin, handlers.exportH3Invites);
   return handlers;

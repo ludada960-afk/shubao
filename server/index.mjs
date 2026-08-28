@@ -741,6 +741,12 @@ mountBillingRoutes(app, {
       authorizeEmail: authorizeAccountEmail,
     });
   },
+  // 4c183cd4 续命 P2：账务域内的 admin 鉴权（/api/billing/cost-summary 用）
+  authorizeAdmin(email) {
+    return requireAdminAccess(db, email);
+  },
+  // 4c183cd4 续命 P2：复用 adminOperations.costSummary，避免再开第二条 SQL 路径
+  costSummary: adminOperations.costSummary,
 });
 
 app.use('/api/vision', visionRouter);

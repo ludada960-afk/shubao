@@ -761,6 +761,160 @@ export function createAdminOperations({
     };
   }
 
+  // 4c183cd4 续命 P2 成本核算精确化：全站毛利监控 / 异常用量预警
+  // - totals: 跨用户汇总 theoretical_revenue / provider_cost / gross / margin
+  // - bySku: 按 SKU 拆分的毛利，附 costSource 分布
+  // - anomalies: 毛利 < marginFloor 或 health=breach 的用量预警
+  // - costBySource: costSource 分布 (catalog_fixed / live_compute / upstream_override)
+  function costSummary(input = {}) {
+    if (!tableExists("usage_events")) {
+      return {
+        generatedAt: new Date().toISOString(),
+        days: 0,
+        totals: emptyUserCostTotals(),
+        bySku: [],
+        costBySource: [],
+        anomalies: [],
+        topExpensive: [],
+      };
+    }
+    const days = safeInteger(input.days ?? 30, "days", { min: 1, max: 365 });
+    const cutoff = new Date(Date.now() - days * 86400_000).toISOString();
+    const marginFloor = Number.isFinite(Number(input.marginFloor))
+      ? Number(input.marginFloor)
+      : 0.0; // 默认 0：只标记负毛利
+    const topN = safeInteger(input.topN ?? 20, "topN", { min: 1, max: 100 });
+    const totals = db.prepare(`
+      SELECT
+        COUNT(*) AS action_count,
+        COALESCE(SUM(charged_units), 0) AS charged_units,
+        COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
+        COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
+        COALESCE(SUM(promo_subsidy_cny), 0) AS promo_subsidy,
+        COALESCE(SUM(provider_cost_cny), 0) AS provider_cost
+      FROM usage_events
+      WHERE datetime(created_at) >= datetime(?)
+    `).get(cutoff);
+    const bySku = db.prepare(`
+      SELECT
+        COALESCE(NULLIF(sku, ''), 'unclassified') AS sku,
+        COALESCE(NULLIF(provider, ''), 'unknown') AS provider,
+        COALESCE(NULLIF(model, ''), 'unknown') AS model,
+        COALESCE(NULLIF(cost_source, ''), 'catalog_fixed') AS cost_source,
+        COUNT(*) AS actions,
+        COALESCE(SUM(charged_units), 0) AS charged_units,
+        COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
+        COALESCE(SUM(provider_cost_cny), 0) AS provider_cost
+      FROM usage_events
+      WHERE datetime(created_at) >= datetime(?)
+      GROUP BY sku, provider, model, cost_source
+      ORDER BY provider_cost DESC, actions DESC
+    `).all(cutoff).map(row => {
+      const revenue = Number(row.theoretical_revenue) || 0;
+      const cost = Number(row.provider_cost) || 0;
+      const gross = revenue - cost;
+      return {
+        sku: row.sku,
+        provider: row.provider,
+        model: row.model,
+        costSource: row.cost_source,
+        actions: Number(row.actions || 0),
+        chargedUnits: Number(row.charged_units || 0),
+        theoreticalRevenueCny: roundMoney(revenue),
+        providerCostCny: roundMoney(cost),
+        grossProfitCny: roundMoney(gross),
+        margin: revenue > 0 ? Number((gross / revenue).toFixed(4)) : (cost > 0 ? null : 1),
+      };
+    });
+    const costBySource = bySku.reduce((acc, row) => {
+      const cur = acc.get(row.costSource) || { costSource: row.costSource, actions: 0, providerCostCny: 0, theoreticalRevenueCny: 0 };
+      cur.actions += row.actions;
+      cur.providerCostCny = roundMoney(cur.providerCostCny + row.providerCostCny);
+      cur.theoreticalRevenueCny = roundMoney(cur.theoreticalRevenueCny + row.theoreticalRevenueCny);
+      acc.set(row.costSource, cur);
+      return acc;
+    }, new Map());
+    const anomalies = db.prepare(`
+      SELECT id, owner_email AS ownerEmail, sku, provider, model, cost_source AS costSource,
+        charged_units AS chargedUnits,
+        credit_face_value_cny AS theoreticalPriceCny,
+        provider_cost_cny AS actualCostCny,
+        json_extract(metadata, '$.billingAccounting.margin') AS margin,
+        json_extract(metadata, '$.billingAccounting.health') AS health,
+        created_at AS createdAt
+      FROM usage_events
+      WHERE datetime(created_at) >= datetime(?)
+        AND (
+          (credit_face_value_cny > 0 AND provider_cost_cny > credit_face_value_cny)
+          OR json_extract(metadata, '$.billingAccounting.health') = 'breach'
+          OR (json_extract(metadata, '$.billingAccounting.margin') IS NOT NULL
+            AND CAST(json_extract(metadata, '$.billingAccounting.margin') AS REAL) < ?)
+        )
+      ORDER BY (provider_cost_cny - credit_face_value_cny) DESC
+      LIMIT ?
+    `).all(cutoff, marginFloor, topN).map(row => ({
+      usageEventId: row.id,
+      ownerEmail: row.ownerEmail,
+      sku: row.sku,
+      provider: row.provider,
+      model: row.model,
+      costSource: row.costSource,
+      chargedUnits: Number(row.chargedUnits || 0),
+      theoreticalPriceCny: roundMoney(row.theoreticalPriceCny),
+      actualCostCny: roundMoney(row.actualCostCny),
+      margin: row.margin === null || row.margin === undefined ? null : Number(row.margin),
+      health: row.health || (row.actualCostCny > row.theoreticalPriceCny ? 'breach' : 'healthy'),
+      createdAt: row.createdAt,
+    }));
+    const topExpensive = db.prepare(`
+      SELECT id, owner_email AS ownerEmail, sku, provider, model,
+        provider_cost_cny AS actualCostCny,
+        credit_face_value_cny AS theoreticalPriceCny,
+        cost_source AS costSource,
+        created_at AS createdAt
+      FROM usage_events
+      WHERE datetime(created_at) >= datetime(?)
+      ORDER BY provider_cost_cny DESC
+      LIMIT ?
+    `).all(cutoff, topN).map(row => ({
+      usageEventId: row.id,
+      ownerEmail: row.ownerEmail,
+      sku: row.sku,
+      provider: row.provider,
+      model: row.model,
+      actualCostCny: roundMoney(row.actualCostCny),
+      theoreticalPriceCny: roundMoney(row.theoreticalPriceCny),
+      costSource: row.costSource,
+      createdAt: row.createdAt,
+    }));
+    const theoreticalRevenue = roundMoney(totals?.theoretical_revenue);
+    const providerCost = roundMoney(totals?.provider_cost);
+    const grossProfit = roundMoney(theoreticalRevenue - providerCost);
+    return {
+      generatedAt: new Date().toISOString(),
+      days,
+      from: cutoff,
+      to: new Date().toISOString(),
+      marginFloor,
+      totals: {
+        actionCount: Number(totals?.action_count || 0),
+        pointsConsumed: Number(totals?.charged_units || 0),
+        theoreticalRevenueCny: theoreticalRevenue,
+        cashRevenueCny: roundMoney(totals?.cash_revenue),
+        promoSubsidyCny: roundMoney(totals?.promo_subsidy),
+        providerCostCny: providerCost,
+        grossProfitCny: grossProfit,
+        theoreticalMargin: theoreticalRevenue > 0
+          ? Number((grossProfit / theoreticalRevenue).toFixed(4))
+          : (providerCost > 0 ? null : 1),
+        skuCount: bySku.length,
+      },
+      bySku,
+      costBySource: [...costBySource.values()],
+      anomalies,
+      topExpensive,
+    };
+  }
 
   function createAccount(actorEmail, input = {}) {
     const actor = getAccountAccess(db, actorEmail);
@@ -1330,6 +1484,8 @@ export function createAdminOperations({
     // 续命 P2 用户列表 + 成本核算
     listUsers,
     getUserCostReport,
+    // 4c183cd4 续命 P2 成本核算精确化：全站毛利 + 异常用量监控
+    costSummary,
     bindAuthService,
   };
 }

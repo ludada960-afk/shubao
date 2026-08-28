@@ -211,7 +211,7 @@ function handler(fn) {
   };
 }
 
-export function createBillingRouteHandlers({ walletService, paymentService, quoteService, authenticateOwner, paymentChannelRegistry } = {}) {
+export function createBillingRouteHandlers({ walletService, paymentService, quoteService, authenticateOwner, paymentChannelRegistry, authorizeAdmin, costSummary: costSummaryFn } = {}) {
   if (!walletService || typeof walletService.getBalance !== 'function' || typeof walletService.listLedger !== 'function') {
     throw new TypeError('walletService with getBalance and listLedger is required');
   }
@@ -232,6 +232,34 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
         return sendMappedError(res, error);
       }
     },
+    // 4c183cd4 续命 P2 成本核算精确化：账务域内的管理员鉴权，复用 admin 角色检查
+    requireAdmin(req, res, next) {
+      try {
+        const actorEmail = authenticateOwner(req);
+        if (typeof authorizeAdmin !== 'function') {
+          throw codedError('ADMIN_AUTH_UNAVAILABLE');
+        }
+        const access = authorizeAdmin(actorEmail);
+        if (!access?.ok) {
+          throw Object.assign(new Error(access?.error || 'admin access denied'), {
+            code: 'AUTH_SESSION_UNAUTHORIZED',
+            status: 403,
+          });
+        }
+        req.billingOwnerEmail = actorEmail;
+        return next();
+      } catch (error) {
+        return sendMappedError(res, error);
+      }
+    },
+    // 4c183cd4 续命 P2：账务域内"全站毛利 + 异常用量预警"端点
+    costSummary: handler((req, res) => {
+      if (typeof costSummaryFn !== 'function') {
+        throw Object.assign(new Error('cost summary 暂不可用'), { code: 'COST_SUMMARY_UNAVAILABLE', status: 503 });
+      }
+      const query = { ...req.query };
+      return res.json(costSummaryFn(query));
+    }),
 
     catalog: handler((_req, res) => res.json(publicCatalog(paymentService, paymentChannelRegistry))),
 
@@ -336,6 +364,8 @@ export function mountBillingRoutes(app, deps) {
   app.get('/api/billing/orders/:id', handlers.requireUser, handlers.order);
   app.post('/api/billing/webhooks/:provider', handlers.providerWebhook);
   app.get('/api/billing/ledger', handlers.requireUser, handlers.ledger);
+  // 4c183cd4 续命 P2 成本核算精确化：admin-only 全站毛利 + 异常用量预警
+  app.get('/api/billing/cost-summary', handlers.requireAdmin, handlers.costSummary);
   app.post('/api/create-payment', handlers.legacyPaymentDisabled);
   app.get('/api/payment/success', handlers.legacyPaymentDisabled);
   app.post('/api/payment/webhook', handlers.legacyPaymentDisabled);

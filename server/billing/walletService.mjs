@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { computeCostSnapshot } from './costBasis.mjs';
+import { FEATURE_SKUS } from './catalog.mjs';
 
 const INTERNAL_METADATA_KEY = '_walletService';
 const INTERNAL_METADATA_VERSION = 1;
@@ -1130,20 +1132,56 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     const nextStatus = holdStatus(hold.total_units, settledUnits, hold.released_units);
     statements.updateHold.run(nextStatus, settledUnits, hold.released_units, hold.id);
 
+    // 4c183cd4 续命 P2 成本核算精确化：用 costBasis 实时算 actualCostCny / theoreticalPriceCny / margin，
+    //   旧 providerCostCny 入参作为"上游实报"override 优先；没有 override 时按 token+gpu+platformCut 算，
+    //   仍算不出时回退到 catalog 的 providerCostCny。
+    const catalogProviderCostCny = Number(FEATURE_SKUS?.[item.sku]?.providerCostCny) || 0;
+    const costMeta = {
+      ...(input.metadata?.cost || {}),
+      // 调用方已显式传 providerCostCny 视为上游实报
+      providerCostCnyOverride: Number.isFinite(Number(input.providerCostCny))
+        ? Number(input.providerCostCny)
+        : (input.metadata?.cost?.providerCostCnyOverride),
+      model: input.metadata?.model || '',
+      provider: input.metadata?.provider || '',
+    };
+    const costSnapshot = computeCostSnapshot({
+      sku: item.sku,
+      currency: hold.currency,
+      itemUnits: item.units,
+      cost: costMeta,
+      catalogProviderCostCny,
+    });
+    const actualProviderCostCny = costSnapshot.actualCostCny;
     const usageAccounting = {
       ...buildUsageAccounting({
         allocation,
         currency: hold.currency,
         itemUnits: item.units,
       }),
-      costSource: input.metadata?.cost?.source || 'catalog_fixed',
-      costConfidence: input.metadata?.cost?.confidence || 'medium',
+      costSource: costSnapshot.source,
+      costConfidence: input.metadata?.cost?.confidence || (costSnapshot.usedOverride ? 'high' : 'medium'),
       feature: input.metadata?.feature || '',
-      provider: input.metadata?.provider || '',
-      model: input.metadata?.model || '',
+      provider: input.metadata?.provider || costMeta.provider || '',
+      model: input.metadata?.model || costMeta.model || '',
       catalogVersion: Number.isSafeInteger(input.metadata?.catalogVersion)
         ? input.metadata.catalogVersion
         : 0,
+      // P2 毛利/告警字段
+      actualCostCny: costSnapshot.actualCostCny,
+      theoreticalPriceCny: costSnapshot.theoreticalPriceCny,
+      grossProfitCny: costSnapshot.grossProfitCny,
+      margin: costSnapshot.margin,
+      health: costSnapshot.health,
+      costBreakdown: {
+        tokenCostCny: costSnapshot.tokenCostCny,
+        gpuCostCny: costSnapshot.gpuCostCny,
+        platformCutCny: costSnapshot.platformCutCny,
+        computedProviderCostCny: costSnapshot.computedProviderCostCny,
+        fallbackCatalogProviderCostCny: costSnapshot.fallbackCatalogProviderCostCny,
+        usedOverride: costSnapshot.usedOverride,
+        source: costSnapshot.source,
+      },
     };
     const accountingMetadata = {
       ...(input.metadata || {}),
@@ -1157,7 +1195,7 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
       item.sku,
       unlimited ? 0 : item.units,
       unlimited ? item.units : 0,
-      input.providerCostCny,
+      actualProviderCostCny,
       usageAccounting.creditFaceValueCny,
       usageAccounting.cashRevenueCny,
       usageAccounting.promoSubsidyCny,
