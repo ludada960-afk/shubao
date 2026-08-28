@@ -745,6 +745,26 @@ mountBillingRoutes(app, {
 
 app.use('/api/vision', visionRouter);
 
+// 4c183cd4 续命 P0-D 飞书可视化 webhook 入站路由
+import { handleFeishuChallenge, dispatchFeishuEvent } from './feishu/webhook.mjs';
+app.get('/feishu/events', (req, res) => {
+  const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
+  const result = handleFeishuChallenge(verificationToken, req.query);
+  if (result) return res.json(result);
+  res.status(401).json({ error: 'invalid verification token' });
+});
+app.post('/feishu/events', express.raw({ type: '*/*' }), (req, res) => {
+  // 简化: 假定 body 是 JSON (实际生产应验签 + 解密)
+  try {
+    const event = JSON.parse(req.body.toString('utf-8'));
+    const result = dispatchFeishuEvent(event, {
+      eventCallback: (e) => { /* TODO: 写 taskProgress / exception 卡 */ return 'ok'; },
+    });
+    res.json({ code: 0, msg: 'ok', data: result });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
 const adminRouteHandlers = mountAdminRoutes(app, {
   operations: adminOperations,
   authenticateOwner(req) {
