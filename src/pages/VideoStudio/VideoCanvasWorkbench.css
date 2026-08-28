@@ -90,7 +90,12 @@
   #f5f3f7; touch-action: none; user-select: none; }
 
 .vcb-edge-layer { position: absolute; inset: 0; width: 3200px; height: 2400px; pointer-events: none; }
-.vcb-edge { stroke-width: 2; fill: none; }
+.vcb-edge {
+  stroke-width: 2;
+  fill: none;
+  /* P1 · spring 0.3s：连线/边 hover 反馈弹性 */
+  transition: stroke 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), stroke-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 .vcb-edge.is-continuation { stroke: #8f86f2; stroke-dasharray: 7 6; }
 .vcb-edge.is-binding { stroke: #b7afa6; }
 .vcb-edge.is-first_frame { stroke: #2f9e6c; }
@@ -423,7 +428,8 @@
   /* C · 平滑缩放/浮起过渡（沿用 --duration） */
   transform-origin: center;
   transition:
-    transform var(--duration-normal, .2s) var(--ease-out, cubic-bezier(0,0,.2,1)),
+    /* P1 · TapNow 0.3s spring-bounce 弹性曲线（节点浮起/缩放手感） */
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow var(--duration-normal, .2s) var(--ease, ease),
     border-color var(--duration-fast, .12s) var(--ease, ease);
 }
@@ -511,7 +517,10 @@
   background: var(--accent, #0C0A09);
   opacity: 0;
   pointer-events: auto;
-  transition: opacity var(--duration-fast, .12s) var(--ease, ease), transform var(--duration-fast, .12s) var(--ease, ease);
+  /* P1 · handle 弹入用 spring 0.3s，opacity 沿用快速淡入 */
+  transition:
+    opacity var(--duration-fast, .12s) var(--ease, ease),
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .vcb-handle.is-tl { top: -4px; left: -4px; cursor: nwse-resize; }
 .vcb-handle.is-tr { top: -4px; right: -4px; cursor: nesw-resize; }
@@ -519,7 +528,8 @@
 .vcb-handle.is-br { bottom: -4px; right: -4px; cursor: nwse-resize; }
 .vcb-node:hover .vcb-handle,
 .vcb-node.is-selected .vcb-handle { opacity: .85; }
-.vcb-handle:hover { opacity: 1 !important; transform: scale(1.4); }
+/* P1 · handle hover 弹性放大 1.4x 走 spring 0.3s（在基础 transition 限定内） */
+.vcb-handle:hover { opacity: 1 !important; transform: scale(1.4); transition-duration: 0.3s; }
 
 /* ── D · 选中节点浮动 mini-toolbar ── */
 .vcb-mini-toolbar {
@@ -534,7 +544,8 @@
   background: var(--bg-elevated, #fff);
   box-shadow: var(--shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
   pointer-events: auto;
-  animation: vcbMiniToolbarIn var(--duration-slow, .35s) var(--ease-out, cubic-bezier(0,0,.2,1));
+  /* P1 · mini-toolbar 弹入用 spring 0.3s（选中后浮起的弹性手感） */
+  animation: vcbMiniToolbarIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .vcb-mini-toolbar::after {
   content: '';
@@ -661,3 +672,23 @@
   .vcb-topbar-tools .vcb-zoom-readout { display: none; }
   .vcb-topbar-tools .vcb-zoom-slider input[type="range"] { width: 70px; }
 }
+
+/* ── P1 · spring cubic-bezier (TapNow 0.3s 弹性曲线) ──────────────── */
+/* 调研发现 TapNow 节点/连线/handle 的 spring-bounce 手感来自
+   cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s。P1 续命把同一条曲线
+   套到 VideoCanvasWorkbench 的 5 个核心元素上：
+     · .vcb-node        — 节点缩放/浮起
+     · .vcb-edge        — 连线颜色/线宽
+     · .vcb-handle      — 连接点弹入/放大
+     · .vcb-mini-toolbar — 选中后浮起工具栏进入
+   下方提供 .vcb-spring-transition utility class，方便后续给未在
+   上述列表中的元素（如节点占位/分组框）快速启用。*/
+
+.vcb-spring-transition {
+  transition:
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* 4c183cd4 V3 调研 · 抄 TapNow：节点/连线/handle 走 spring 0.3s */
