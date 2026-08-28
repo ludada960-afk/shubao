@@ -115,7 +115,7 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
             const optionMeta = selectedSkill.control.optionMeta?.find(item => item.value === option);
             return (
               <button type="button" key={option} className={`visual-choice-card${optionMeta ? ' visual-style-option' : ''}${selected ? ' is-selected' : ''}`} onClick={() => !busy && updateSkillControl(option)} disabled={busy} aria-pressed={selected}>
-                {optionMeta ? <img className="visual-style-option-image" src={optionMeta.image} alt="" loading="lazy" /> : <span className="visual-choice-icon"><Icon /></span>}
+                {optionMeta ? <img className="visual-style-option-image" src={optionMeta.image} alt="" width="48" height="48" loading="lazy" decoding="async" fetchpriority="auto" /> : <span className="visual-choice-icon"><Icon /></span>}
                 <span className="visual-choice-copy"><strong>{option}</strong><small>{optionMeta?.description || VISUAL_OPTION_HINTS[option] || `为${selectedSkill.title}选择更明确的${selectedSkill.control.label}倾向`}</small></span>
                 {selected && <Check className="visual-choice-check" />}
               </button>
@@ -743,7 +743,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           <div className="visual-reference-list">
             {references.map((reference, index) => (
               <figure className={`visual-reference-item visual-reference-item-${index % 3}`} key={reference.id}>
-                <img src={reference.previewUrl} alt={`参考图 ${index + 1}`} />
+                <img src={reference.previewUrl} alt={`参考图 ${index + 1}`} width="160" height="160" loading="lazy" decoding="async" fetchpriority="auto" />
                 <figcaption>参考图 {index + 1}</figcaption>
                 <button
                   type="button"
@@ -865,7 +865,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             {run.slots.map((slot, index) => (
               <article className={`visual-result-item is-${slot.status}`} key={slot.id}>
                 {slot.url ? (
-                  <img src={slot.url} alt={`${selectedSkill.title}结果 ${index + 1}`} />
+                  <img src={slot.url} alt={`${selectedSkill.title}结果 ${index + 1}`} width="512" height="512" loading="lazy" decoding="async" fetchpriority="auto" />
                 ) : slot.status === 'failed' ? (
                   <div className="visual-result-state"><MdErrorOutline /><span>{slot.error}</span></div>
                 ) : (
@@ -895,7 +895,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               <button type="button" className="visual-preview-previous" aria-label="查看上一张" title="上一张" onClick={() => setPreviewItem(current => { const index = previewItems.findIndex(item => item.src === current?.src); return previewItems[(index - 1 + previewItems.length) % previewItems.length]; })}><MdChevronLeft /></button>
               <button type="button" className="visual-preview-next" aria-label="查看下一张" title="下一张" onClick={() => setPreviewItem(current => { const index = previewItems.findIndex(item => item.src === current?.src); return previewItems[(index + 1) % previewItems.length]; })}><MdChevronRight /></button>
             </>}
-            <img src={previewItem.src} alt={previewItem.alt || previewItem.label} />
+            <img src={previewItem.src} alt={previewItem.alt || previewItem.label} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" />
             <strong>{previewItem.label}</strong>
           </div>
         </div>

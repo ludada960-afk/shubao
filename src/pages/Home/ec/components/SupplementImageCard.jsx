@@ -94,6 +94,11 @@ export default function SupplementImageCard({
       <img
         src={image.url}
         alt={suggestion?.label || '图片'}
+        width="80"
+        height="80"
+        loading="lazy"
+        decoding="async"
+        fetchpriority="auto"
         onError={() => setLoadError(true)}
         onClick={handlePreview}
         style={{

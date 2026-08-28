@@ -96,7 +96,7 @@ function XhsModeSelector({ value, onChange }) {
           >
             <span className={`ec-ability-selector-fan${mode.images.length === 0 ? ' is-empty' : ''}`} aria-hidden="true">
               {mode.images.length > 0
-                ? mode.images.map((image, index) => <span className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': '3 / 4' }} key={`${image.src}-${index}`}><img src={image.src} alt="" /></span>)
+                ? mode.images.map((image, index) => <span className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': '3 / 4' }} key={`${image.src}-${index}`}><img src={image.src} alt="" width="120" height="160" loading="lazy" decoding="async" fetchpriority="auto" /></span>)
                 : <span className="ec-ability-selector-fan-empty">案例暂未入库</span>}
             </span>
             <span className="ec-ability-selector-copy"><small>{mode.eyebrow}</small><strong>{mode.label}</strong><span>{mode.description}</span></span>
@@ -1566,7 +1566,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       {ecRefImgs.map((src, i) => (
                         <div key={i} style={{ position:'relative', width:68, height:68, borderRadius:8, overflow:'hidden', border:'1px solid #e0e0e0', flexShrink:0, cursor:'pointer' }}
                           onClick={() => setEcPreviewLightbox(src)}>
-                          <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                          <img
+                            src={src}
+                            alt=""
+                            width="68"
+                            height="68"
+                            loading="lazy"
+                            decoding="async"
+                            fetchpriority="auto"
+                            style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                           <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
                             style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}>×</div>
                         </div>
@@ -1602,6 +1610,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'center', marginTop:12 }}>
                         {Object.values(inProgressPreview).map(image => (
                           <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                            width="74" height="74" loading="lazy" decoding="async" fetchpriority="auto"
                             style={{ width:74, height:74, objectFit:'cover', borderRadius:8 }} />
                         ))}
                       </div>
@@ -1614,6 +1623,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                       {Object.values(inProgressPreview).map(image => (
                         <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                          width="82" height="82" loading="lazy" decoding="async" fetchpriority="auto"
                           style={{ width:82, height:82, objectFit:'cover', borderRadius:8 }} />
                       ))}
                     </div>
@@ -1641,7 +1651,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     <div key={label} style={{ background:'#f8f8f8', borderRadius:8, overflow:'hidden', border:'1px solid #f0f0f0' }}>
                       <div style={{ aspectRatio:'1/1', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', cursor:'pointer' }}
                         onClick={() => setEcLightbox(url)}>
-                        <img src={proxyImg(url)} alt={label} style={{ width:'100%', height:'100%', objectFit:'contain' }} loading="lazy" />
+                        <img
+                          src={proxyImg(url)}
+                          alt={label}
+                          width="160"
+                          height="160"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="auto"
+                          style={{ width:'100%', height:'100%', objectFit:'contain' }} />
                       </div>
                       <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid #f0f0f0' }}>
                         <span style={{ fontSize:10, fontWeight:600, color:'#666' }}>{ecLabel(baseKey(label))}</span>
@@ -1656,7 +1674,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 {ecLightbox && (
                   <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
                     onClick={() => setEcLightbox(null)}>
-                    <img src={ecLightbox} style={{ maxWidth:'90%', maxHeight:'90vh', objectFit:'contain', borderRadius:8 }} alt="" />
+                    <img
+                      src={ecLightbox}
+                      alt=""
+                      width="1024"
+                      height="1024"
+                      loading="eager"
+                      decoding="async"
+                      fetchpriority="high"
+                      style={{ maxWidth:'90%', maxHeight:'90vh', objectFit:'contain', borderRadius:8 }} />
                   </div>
                 )}
               </div>
@@ -1677,7 +1703,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} onClick={() => setEcPreviewLightbox(null)}>
           <div className="ec-lightbox-content" onClick={e => e.stopPropagation()}>
             <button className="ec-lightbox-close" onClick={() => setEcPreviewLightbox(null)}>×</button>
-            <img src={ecPreviewLightbox} alt="参考图放大" className="ec-lightbox-img" />
+            <img
+              src={ecPreviewLightbox}
+              alt="参考图放大"
+              width="1024"
+              height="1024"
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+              className="ec-lightbox-img" />
             <div className="ec-lightbox-hint">点击空白处关闭</div>
           </div>
         </div>
@@ -1722,7 +1756,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     {ecRefImgs.map((src, i) => (
                       <div key={i} style={{ position:'relative', aspectRatio:'1/1', borderRadius:8, overflow:'hidden', border:'1px solid #e8e8e8', cursor:'pointer' }}
                         onClick={() => setEcPreviewLightbox(src)}>
-                        <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        <img
+                          src={src}
+                          alt=""
+                          width="120"
+                          height="120"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="auto"
+                          style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                         <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
                           style={{ position:'absolute', top:-4, right:-4, width:20, height:20, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700, lineHeight:1 }}>×</div>
                       </div>

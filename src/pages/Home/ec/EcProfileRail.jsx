@@ -179,7 +179,7 @@ export default function EcProfileRail({
                       <div className="ec-profile-media-grid">
                         {items.map((item, index) => (
                           <figure key={`${item.url}-${index}`}>
-                            <img src={item.url} alt={`${label}${index + 1}`} loading="lazy" />
+                            <img src={item.url} alt={`${label}${index + 1}`} width="120" height="120" loading="lazy" decoding="async" fetchpriority="auto" />
                             <figcaption>{item.label || groupLabel(item.role) || item.role}</figcaption>
                           </figure>
                         ))}

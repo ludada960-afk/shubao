@@ -45,7 +45,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true })
                 background: active ? 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(255,255,255,0.94))' : '#fff',
                 boxShadow: active ? '0 3px 12px rgba(124,58,237,0.13)' : 'none',
               }}>
-                <img src={model.visual} alt="" style={{ width: 72, height: 52, borderRadius: 7, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(0,0,0,0.06)' }} />
+                <img src={model.visual} alt="" width="72" height="52" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 72, height: 52, borderRadius: 7, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(0,0,0,0.06)' }} />
                 <span style={{ minWidth: 0, flex: 1 }}>
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <strong style={{ fontSize: 12, color: active ? '#6d28d9' : 'var(--text-primary)' }}>{model.label}</strong>

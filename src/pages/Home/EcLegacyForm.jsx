@@ -231,7 +231,15 @@ export default function EcLegacyForm() {
           {images.map(([label, url]) => (
             <div key={label} style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <div style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>{label}</div>
-              <img src={url?.startsWith('data:') ? url : proxyImg(url)} alt={label} style={{ width: '100%', display: 'block', aspectRatio: '1/1', objectFit: 'cover' }} />
+              <img
+                src={url?.startsWith('data:') ? url : proxyImg(url)}
+                alt={label}
+                width="1024"
+                height="1024"
+                loading="lazy"
+                decoding="async"
+                fetchpriority="auto"
+                style={{ width: '100%', display: 'block', aspectRatio: '1/1', objectFit: 'cover' }} />
               <button onClick={() => downloadImg(url, label)} style={{ width: '100%', padding: '8px 0', border: 'none', borderTop: '1px solid #f0f0f0', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', background: '#fff', color: '#666' }}>⬇ 下载</button>
             </div>
           ))}
@@ -282,7 +290,15 @@ export default function EcLegacyForm() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {refImgs.map((src, i) => (
             <div key={i} style={{ position: 'relative', width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '2px solid #f0f0f0' }}>
-              <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img
+                src={src}
+                alt=""
+                width="60"
+                height="60"
+                loading="lazy"
+                decoding="async"
+                fetchpriority="auto"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div onClick={() => setRefImgs(p => p.filter((_, j) => j !== i))}
                 style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#FF4757', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid #fff', fontWeight: 700 }}>×</div>
             </div>
@@ -454,6 +470,7 @@ export default function EcLegacyForm() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.values(inProgressPreview).map(image => (
               <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                width="82" height="82" loading="lazy" decoding="async" fetchpriority="auto"
                 style={{ width: 82, height: 82, objectFit: 'cover', borderRadius: 8 }} />
             ))}
           </div>

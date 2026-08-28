@@ -150,7 +150,7 @@ function TryOnShowcase({ personMode }) {
   // 基准版式卡片：原始整图直接呈现，object-fit: contain，不裁剪。
   const renderCard = (item, className) => (
     <button key={item.id || item.src} type="button" className={className} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
-      <img src={item.src} alt={item.label} loading="lazy" />
+      <img src={item.src} alt={item.label} width="160" height="160" loading="lazy" decoding="async" fetchpriority="auto" />
       <span>{item.label}</span>
       <Maximize2 size={13} />
     </button>
@@ -201,7 +201,7 @@ function TryOnShowcase({ personMode }) {
           <div className="ec-tryon-preview-dialog">
             <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewItem(null)} aria-label="关闭大图"><X size={20} /></button>
             <button type="button" className="ec-tryon-preview-previous" onClick={() => movePreview(-1)} aria-label="查看上一张"><ArrowLeft size={20} /></button>
-            <img src={previewItem.src} alt={`${previewItem.label}大图`} />
+            <img src={previewItem.src} alt={`${previewItem.label}大图`} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" />
             <button type="button" className="ec-tryon-preview-next" onClick={() => movePreview(1)} aria-label="查看下一张"><ArrowRight size={20} /></button>
             <div><strong>{previewItem.label}</strong><span>作品库原图 · 放大查看完整画面</span></div>
           </div>

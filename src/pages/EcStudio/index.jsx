@@ -549,7 +549,7 @@ export default function EcStudioPage() {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <img src={IMAGES.appicon} alt="" style={{ width: 36, height: 36, borderRadius: 8 }} />
+                      <img src={IMAGES.appicon} alt="" width="36" height="36" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 36, height: 36, borderRadius: 8 }} />
                       <div>
                         <div style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
                           安装薯包AI提取插件
@@ -1043,7 +1043,7 @@ export default function EcStudioPage() {
                       }}
                       onClick={() => setLb(s)}
                     >
-                      <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={s} alt="" width="120" height="120" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   ))}
                 </div>
@@ -1116,7 +1116,7 @@ export default function EcStudioPage() {
             {Object.keys(inProgressPreview).length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
                 {Object.values(inProgressPreview).map(image => (
-                  <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id} style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #D1FAE5' }} />
+                  <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id} width="76" height="76" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #D1FAE5' }} />
                 ))}
               </div>
             )}

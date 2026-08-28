@@ -1138,6 +1138,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                       >
                         <img
                           src={img.url}
+                          width="92"
+                          height="92"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="auto"
                           style={{
                             width: '100%',
                             height: '100%',
@@ -1356,6 +1361,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                       >
                         <img
                           src={img.url}
+                          width="92"
+                          height="92"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="auto"
                           style={{
                             width: '100%',
                             height: '100%',

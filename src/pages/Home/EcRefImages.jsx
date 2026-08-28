@@ -71,7 +71,15 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
               border: '1px solid var(--border)',
               flexShrink: 0,
             }}>
-              <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img
+                src={src}
+                alt=""
+                width="80"
+                height="80"
+                loading="lazy"
+                decoding="async"
+                fetchpriority="auto"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div onClick={() => onRemove(i)}
                 style={{
                   position: 'absolute', top: 2, right: 2,

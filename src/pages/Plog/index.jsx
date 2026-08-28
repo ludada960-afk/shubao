@@ -230,7 +230,7 @@ export default function PlogPage() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             border: '3px solid white',
           }}>
-          <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+          <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
         </div>
       ))}
     </div>
@@ -254,7 +254,7 @@ export default function PlogPage() {
               boxShadow: '0 3px 10px rgba(0,0,0,0.12)',
             }}>
               <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0ebe0' }}>
-                <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
               </div>
             </div>
           </div>
@@ -274,7 +274,7 @@ export default function PlogPage() {
             position: 'relative',
           }}>
             <div style={{ aspectRatio: '3/4', maxHeight: 260, margin: '0 auto', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+              <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
             </div>
             {/* 底部字幕条 */}
             <div style={{
@@ -325,7 +325,7 @@ export default function PlogPage() {
                   boxShadow: '1px 2px 6px rgba(0,0,0,0.08)',
                 }}>
                   <div style={{ aspectRatio: '3/4', overflow: 'hidden' }}>
-                    <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                    <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
                   </div>
                 </div>
                 {/* 贴纸 */}
@@ -380,7 +380,7 @@ export default function PlogPage() {
             background: '#f8f8f8', borderRadius: 8, overflow: 'hidden',
           }}>
             <div style={{ aspectRatio: '3/4', maxHeight: 340 }}>
-              <img src={cover.url} alt="封面" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+              <img src={cover.url} alt="封面" style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="320" height="400" loading="lazy" decoding="async" fetchpriority="auto" />
             </div>
             {/* 杂志风格大标题覆盖 */}
             <div style={{
@@ -405,7 +405,7 @@ export default function PlogPage() {
                 aspectRatio: '3/4', overflow: 'hidden', borderRadius: 4,
                 boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
               }}>
-                <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
               </div>
               {/* 极小页码 */}
               <div style={{
@@ -647,7 +647,7 @@ export default function PlogPage() {
               <div onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx + 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
                 style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 20, zIndex: 1 }}>›</div>
             )}
-            <img src={lightbox} style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 6 }} alt="" />
+            <img src={lightbox} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 6 }} alt="" />
           </div>
         )}
 
