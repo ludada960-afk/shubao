@@ -85,6 +85,7 @@ import {
 import { DELIVERY_METADATA_SOURCE } from './videoDeliveryModel.js';
 import {
   allowedGenerationModes,
+  autoLayoutNodes,
   bringNodeToLayer,
   buildCanvasEdges,
   buildCanvasNodes,
@@ -223,6 +224,19 @@ export default function VideoCanvasWorkbench({
   useEffect(() => {
     try { localStorage.setItem('shubao_vcb_grid_snap', gridSnap ? '1' : '0'); } catch {}
   }, [gridSnap]);
+
+  // V2 P1 1-click 派生: Alt+Shift+F 自动布局
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.altKey && event.shiftKey && (event.key === 'F' || event.key === 'f')) {
+        event.preventDefault();
+        const newPositions = autoLayoutNodes(nodes, { columnWidth: 320, rowHeight: 220 });
+        setPositions(current => ({ ...current, ...newPositions }));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [nodes]);
   const requestSequenceRef = useRef(0);
   const attachedJobIdsRef = useRef(new Set());
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
@@ -1101,7 +1115,11 @@ export default function VideoCanvasWorkbench({
           onClick={() => setGridSnap(current => !current)}>
           <Magnet size={13} />吸附
         </button>
-        <button type="button" data-no-drag aria-label="重置画布" title="重置摆位 / 锁定 / 选择"
+                <button type="button" data-no-drag className="vcb-auto-layout" aria-label="自动布局 (Alt+Shift+F)" title="按 x 坐标排序 + 行折叠 (抄 liblib)"
+          onClick={() => { const newPositions = autoLayoutNodes(nodes, { columnWidth: 320, rowHeight: 220 }); setPositions(current => ({ ...current, ...newPositions })); }}>
+          <Magnet size={13} />布局
+        </button>
+<button type="button" data-no-drag aria-label="重置画布" title="重置摆位 / 锁定 / 选择"
           onClick={handleResetCanvas}>
           <RotateCcw size={13} />重置
         </button>

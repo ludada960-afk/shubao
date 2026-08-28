@@ -146,6 +146,25 @@ export function defaultCanvasLayout(nodes = []) {
   return positions;
 }
 
+
+
+/**
+ * V2 P1 1-click 派生: 按 x 坐标排序, y 坐标按行折叠
+ * 抄 liblib Alt+Shift+F (V3 调研 §10.1 1-click 自动布局)
+ */
+export function autoLayoutNodes(nodes, options = {}) {
+  if (!Array.isArray(nodes) || nodes.length === 0) return {};
+  const { columnWidth = 320, rowHeight = 220, startX = 32, startY = 32, columnsPerRow = 4 } = options;
+  const sorted = [...nodes].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const positions = {};
+  for (let i = 0; i < sorted.length; i++) {
+    const col = i % columnsPerRow;
+    const row = Math.floor(i / columnsPerRow);
+    positions[sorted[i].id] = { x: startX + col * columnWidth, y: startY + row * rowHeight };
+  }
+  return positions;
+}
+
 export function marqueeSelectAssetNodes(nodes = [], rect = null) {
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) return [];
   return (Array.isArray(nodes) ? nodes : [])
