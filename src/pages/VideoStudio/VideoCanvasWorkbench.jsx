@@ -35,6 +35,12 @@ import {
   Volume2,
   VolumeX,
   ZoomIn,
+  ZoomOut,
+  Crosshair,
+  Square,
+  MoveHorizontal,
+  MoveVertical,
+  RotateCw,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
 import { useLongTask } from '../../components/ui/LongTaskProvider.jsx';
@@ -65,6 +71,7 @@ import {
 } from '../../services/videoWorkbench.js';
 import {
   CHAT_TWEAK_CHIPS,
+  CHAT_TWEAK_ICONS,
   composeTweakPrompt,
   confirmedDecisionPromptParts,
   decisionQueueItems,
@@ -1535,11 +1542,18 @@ export default function VideoCanvasWorkbench({
             </select>
           </label>
           <div className="vcb-camera-chips" aria-label="改稿运镜 chips">
-            {CHAT_TWEAK_CHIPS.map(chip => (
-              <button key={chip[0]} type="button" data-no-drag
-                className={tweak.chips.includes(chip[0]) ? 'is-selected' : ''}
-                onClick={() => toggleTweakChip(chip[0])}>{chip[1]}</button>
-            ))}
+            {CHAT_TWEAK_CHIPS.map(chip => {
+              const Icon = CHAT_TWEAK_ICONS[chip[0]];
+              return (
+                <button key={chip[0]} type="button" data-no-drag
+                  className={tweak.chips.includes(chip[0]) ? 'is-selected' : ''}
+                  onClick={() => toggleTweakChip(chip[0])}
+                  title={chip[1]}>
+                  {Icon ? <Icon size={11} aria-hidden="true" /> : null}
+                  <span>{chip[1]}</span>
+                </button>
+              );
+            })}
           </div>
           <label><span>自然语言微调</span>
             <textarea rows={2} maxLength={600} value={tweak.instruction} placeholder="例如：产品再亮一点，结尾停在logo"

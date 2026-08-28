@@ -145,7 +145,7 @@
 .vcb-generation-modes button.is-selected { border-color: #4636b8; background: #4636b8; color: #fff; font-weight: 700; }
 .vcb-camera-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .vcb-camera-chips::before { content: '运镜'; font-size: 10.5px; color: #938c84; margin-right: 2px; }
-.vcb-camera-chips button { padding: 3px 9px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: #faf9fb; font-size: 10.5px; color: #5c554e; cursor: pointer; }
+.vcb-camera-chips button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: #faf9fb; font-size: 10.5px; color: #5c554e; cursor: pointer; }
 .vcb-camera-chips button.is-selected { border-color: #2f9e6c; background: #edf7f0; color: #256b45; font-weight: 700; }
 .vcb-generation-bar > div:last-of-type { display: flex; }
 .vcb-bar-create { display: inline-flex; align-items: center; gap: 5px; margin-right: 6px; padding: 6px 11px; border: 1px solid rgba(47, 158, 108, .5); border-radius: 9px; background: #edf7f0; color: #256b45; font-size: 11.5px; font-weight: 700; cursor: pointer; }
