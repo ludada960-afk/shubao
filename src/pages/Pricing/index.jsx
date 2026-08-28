@@ -227,8 +227,9 @@ function PackCard({ plan, canPurchase, onSelect }) {
       <div className="pricing-grant-chip">{formatCatalogGrant(plan)}</div>
       <div style={{ fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.55 }}>
         {plan.description}
-        {' · '}
-        {plan.validityDays ? `${plan.validityDays} 天有效` : '永久有效'}
+      </div>
+      <div style={{ fontSize: 10.5, color: 'var(--text-hint)', lineHeight: 1.5, marginTop: 2 }}>
+        {plan.validityDays ? `${plan.validityDays} 天有效` : '积分永久有效 · 一次买断, 无自动续订'}
       </div>
       <div style={{
         marginTop: 'auto',
@@ -238,7 +239,7 @@ function PackCard({ plan, canPurchase, onSelect }) {
         color: plan.enabled ? 'var(--accent)' : 'var(--text-faint)',
       }}
       >
-        {plan.enabled ? (canPurchase ? '选择套餐 →' : '选择支付方式') : '套餐已停用'}
+        {plan.enabled ? (canPurchase ? '选择套餐 →' : '扫码支付 →') : '暂时停用'}
       </div>
     </>
   );
@@ -462,13 +463,13 @@ export default function PricingPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '48px 20px 24px' }}>
         <div style={{ marginBottom: 22, textAlign: 'center' }}>
-          <div style={{ ...sectionEyebrow, marginBottom: 8 }}>Shubao · 定价</div>
+          <div style={{ ...sectionEyebrow, marginBottom: 8 }}>Shubao · 商业化定价</div>
           <h1 style={{ fontSize: 30, fontWeight: 900, color: 'var(--accent)', marginBottom: 6 }}>
-            为结果付费，不为失败买单
+            一次买断，按量结算，永久有效
           </h1>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500, lineHeight: 1.7 }}>
-            图片能力照旧按量计费，视频按条定价；
-            所有创作功能共用一套 AI 积分，失败任务冻结额度全额释放。
+            下方三档面向日常商业化用户,月卡礼包适合稳定出量团队;
+            所有创作功能共用一套 AI 积分,失败任务冻结额度全额释放。
           </p>
         </div>
 
@@ -478,23 +479,6 @@ export default function PricingPage() {
               ecommercePoints={state.ecPoints}
               unlimited={state.unlimited}
             />
-          </div>
-        )}
-
-        {providers.length === 0 && (
-          <div role="status" style={{
-            marginBottom: 14,
-            padding: 14,
-            borderRadius: 14,
-            border: '1px solid #E9C46A',
-            background: '#FFF7D6',
-            color: '#7A5600',
-            fontSize: 13,
-            lineHeight: 1.6,
-          }}
-          >
-            <strong>支付服务接入中</strong>
-            <div>在线购买暂未开放，当前可先查看套餐内容与额度。</div>
           </div>
         )}
 
@@ -581,37 +565,70 @@ export default function PricingPage() {
           所有创作功能共用一套 AI 积分，按实际使用量结算。
         </div>
 
-        <SectionHead eyebrow="Pay · 支付" title="支付方式" hint="在线通道上线前，可先了解各通道状态" />
-        <div style={{ display: 'grid', gap: 8 }}>
-          {channels.length > 0 ? channels.map(channel => (
-            channel.enabled ? (
-              <button
-                key={channel.id}
-                type="button"
-                onClick={scrollToPacks}
-                className="pricing-pay-row"
-              >
-                <span className="pricing-pay-row-label">
-                  <span className="pricing-pay-dot" />
-                  {channel.label}
-                </span>
-                <span className="pricing-pay-row-status">{channel.description || '当前可用'}</span>
-              </button>
-            ) : (
-              <div
-                key={channel.id}
-                aria-disabled="true"
-                className="pricing-pay-row is-off"
-              >
-                <span className="pricing-pay-row-label" style={{ color: 'var(--text-muted)' }}>{channel.label}</span>
-                <span className="pricing-pay-pill is-off">{channel.availabilityNote || '即将开通'}</span>
-              </div>
-            )
-          )) : (
-            <div role="status" style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '4px 2px' }}>
-              各支付通道状态加载中，当前可通过积分套餐补充额度。
+        <SectionHead
+          eyebrow="Pay · 支付"
+          title="扫码支付"
+          hint="下月公司备案后,微信与支付宝将正式接入,二维码即将上线"
+        />
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 12,
+        }}>
+          <div style={{
+            padding: 20,
+            borderRadius: 18,
+            border: '1px solid var(--border)',
+            background: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <div style={{
+              width: 96, height: 96, borderRadius: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg, #07C160, #06AD56)',
+              color: '#fff', fontSize: 11, fontWeight: 800,
+              letterSpacing: 0.5,
+            }}>
+              微信支付
             </div>
-          )}
+            <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--text-primary)' }}>微信支付</div>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center' }}>
+              待接入 · 备案完成后即可扫码
+            </div>
+          </div>
+          <div style={{
+            padding: 20,
+            borderRadius: 18,
+            border: '1px solid var(--border)',
+            background: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <div style={{
+              width: 96, height: 96, borderRadius: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg, #1677FF, #0958D9)',
+              color: '#fff', fontSize: 11, fontWeight: 800,
+              letterSpacing: 0.5,
+            }}>
+              支付宝
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--text-primary)' }}>支付宝</div>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'center' }}>
+              待接入 · 备案完成后即可扫码
+            </div>
+          </div>
+        </div>
+        <div style={{
+          marginTop: 10, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.7,
+        }}>
+          当前为商业化定价预览,正式上线后将通过微信支付 / 支付宝完成订单;
+          任何支付通道启用都会以本页面顶部公告为准,历史订单不受影响。
         </div>
 
         <div className="pricing-faq-wrap">
@@ -671,12 +688,14 @@ export default function PricingPage() {
                       {channel.label}
                     </span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: channel.enabled ? 'var(--green)' : 'var(--text-faint)' }}>
-                      {channel.enabled ? '可用' : (channel.availabilityNote || '即将开通')}
+                      {channel.enabled ? '当前可用' : (channel.availabilityNote || '下月接入')}
                     </span>
                   </div>
                 ))}
-                <div role="status" style={{ padding: 10, borderRadius: 10, background: '#FFF7D6', color: '#7A5600', fontSize: 12, lineHeight: 1.6 }}>
-                  在线支付开通前无法下单；已有订单仍可继续查询，套餐内容随时可回看。
+                <div role="status" style={{ padding: 12, borderRadius: 10, background: 'rgba(12,10,9,0.04)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>公司备案完成后,微信支付与支付宝将同步上线。</strong>
+                  备案通过后,本页订单会直接通过微信 / 支付宝完成,届时欢迎再次下单。
+                  已生成的订单均会保留并按计划结清。
                 </div>
               </div>
             )}

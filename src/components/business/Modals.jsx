@@ -616,10 +616,10 @@ export function PricingModal() {
             color: 'var(--accent)',
             marginBottom: 4,
           }}>
-            创作权益
+            选择套餐
           </h3>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
-            按需补充额度，关闭后当前工作仍会保留
+            一次买断,按量结算,关闭后当前工作仍会保留
           </p>
         </div>
 
@@ -644,9 +644,9 @@ export function PricingModal() {
         </div>
 
         {providers.length === 0 && (
-          <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, border: '1px solid #E9C46A', background: '#FFF7D6', color: '#7A5600', fontSize: 13, lineHeight: 1.6 }}>
-            <strong>支付服务接入中</strong>
-            <div>在线购买暂未开放，当前可先查看套餐内容与额度。</div>
+          <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(12,10,9,0.04)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
+            公司备案完成后,微信支付与支付宝将同步上线;
+            届时欢迎回到此页面扫码完成支付,已生成的订单会自动恢复。
           </div>
         )}
 
@@ -719,7 +719,7 @@ export function PricingModal() {
                     ¥{formatCatalogPrice(p.priceFen)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {p.enabled ? (providers.length > 0 ? '选择套餐' : '暂不可购买') : '套餐已停用'}
+                    {p.enabled ? (providers.length > 0 ? '选择套餐' : '即将开放') : '套餐已停用'}
                   </div>
                 </div>
               </div>
@@ -763,8 +763,8 @@ export function PricingModal() {
                   {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: '#FFF7D6', color: '#7A5600', fontSize: 12 }}>
-              当前支付渠道暂时不可用，但已创建的订单仍可继续查询。
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: 'rgba(12,10,9,0.04)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 }}>
+              公司备案完成后,微信支付与支付宝将同步上线,届时欢迎再次下单。
             </div>}
 
             <div style={{
