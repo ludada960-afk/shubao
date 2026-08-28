@@ -11,6 +11,7 @@ import {
   createContentDraftId,
 } from '../contentGenerationModel.js';
 import SupplementAssetDeck from '../Home/ec/components/SupplementAssetDeck.jsx';
+import ProductProfilePicker, { applyProductProfileFactsToPlog, useProductProfiles } from '../Home/ec/crossModeProductProfile.jsx';
 
 // ── 风格包 ──
 const PLOG_STYLES = {
@@ -82,6 +83,12 @@ export default function PlogPage() {
   const [plogDraftId, setPlogDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'plog' }));
   const [referenceAssetIds, setReferenceAssetIds] = useState([]);
   const [sourceAssetIds, setSourceAssetIds] = useState([]);
+
+  // 跨 mode 商品档案 (P2 续命 4c183cd4): 同一份 product_profile 覆盖 Plog 模式,
+  // 选中档案后把 name + 卖点 + 规格 + 材质/颜色 拼到 text 尾部, 不再要求用户在 Plog
+  // 模式下重新输入商品事实。
+  const plogProfile = useProductProfiles({ status: 'active', limit: 50, autoLoad: Boolean(state.logged) });
+  const [activePlogProfileId, setActivePlogProfileId] = useState('');
 
   useEffect(() => {
     setPlogDraftId(createContentDraftId({ ownerEmail, source: 'plog' }));
@@ -462,6 +469,24 @@ export default function PlogPage() {
                 {p}
               </div>
             ))}
+          </div>
+          {/* 跨 mode 商品档案 (P2 续命 4c183cd4): 从电商工作台已保存的档案里选用一个,
+              选中后把 name + 卖点 + 规格 + 材质/颜色 拼到 text 尾部, Plog 也复用同一份事实。 */}
+          <div style={{ marginTop: 10 }}>
+            <ProductProfilePicker
+              profiles={plogProfile.profiles}
+              loading={plogProfile.loading}
+              error={plogProfile.error}
+              activeProfileId={activePlogProfileId}
+              onRefresh={plogProfile.refresh}
+              onSelect={profile => {
+                const ok = applyProductProfileFactsToPlog(profile, setText);
+                if (ok) setActivePlogProfileId(profile.profileId);
+              }}
+              accentColor="#be185d"
+              triggerLabel="当前商品"
+              emptyHint="暂未保存商品档案, 请先在电商工作台保存一个商品档案"
+            />
           </div>
         </div>
 

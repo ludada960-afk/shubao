@@ -1,0 +1,252 @@
+/* 跨 mode 复用的商品档案选择器 (XHS / Plog / 未来的视频 mode)
+   设计原则: 轻量 inline chip + popover, 不复用电商工作台的 portal 抽屉
+   (z-index 1300 与浮层互相干扰, 跨 mode 嵌入不可靠)。色板沿用 .ec-profile-rail 的
+   紫调 (#7c3aed) 与米色 (1f2937/8a8378), 让用户跨 mode 切换时仍然认出同源控件。 */
+
+.cm-profile-picker {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.cm-profile-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(28, 25, 23, 0.12);
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.cm-profile-picker-trigger:hover {
+  border-color: rgba(124, 58, 237, 0.45);
+  color: #7c3aed;
+}
+
+.cm-profile-picker-trigger.is-active {
+  border-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.04);
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.12);
+}
+
+.cm-profile-picker-copy {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  max-width: 240px;
+}
+
+.cm-profile-picker-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #8a8378;
+}
+
+.cm-profile-picker-copy strong {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.cm-profile-picker-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 220;
+  width: 320px;
+  max-width: 88vw;
+  background: #fff;
+  border: 1px solid rgba(28, 25, 23, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 14px 38px rgba(62, 43, 26, 0.16);
+  padding: 10px 10px 8px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: cmPickerFade 0.16s ease;
+}
+
+@keyframes cmPickerFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cm-profile-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.cm-profile-picker-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.cm-profile-picker-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.cm-profile-picker-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(28, 25, 23, 0.05);
+  color: #6b625a;
+  cursor: pointer;
+}
+
+.cm-profile-picker-icon + .cm-profile-picker-icon { margin-left: 4px; }
+.cm-profile-picker-icon:last-child { margin-left: auto; }
+.cm-profile-picker-icon:hover { background: rgba(124, 58, 237, 0.1); color: #7c3aed; }
+.cm-profile-picker-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cm-profile-picker-error {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.cm-profile-picker-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1px dashed rgba(199, 185, 245, 0.9);
+  border-radius: 10px;
+  color: #8a8378;
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.cm-profile-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.cm-profile-picker-item button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  color: #1f2937;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cm-profile-picker-item button:hover {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.04);
+}
+
+.cm-profile-picker-item.is-current button {
+  border-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.06);
+}
+
+.cm-profile-picker-avatar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ede9fe, #fce7f3);
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.cm-profile-picker-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cm-profile-picker-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-profile-picker-title em {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.cm-profile-picker-summary {
+  font-size: 10px;
+  color: #8a8378;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-spinning { animation: cmPickerSpin 0.8s linear infinite; }
+@keyframes cmPickerSpin { to { transform: rotate(360deg); } }

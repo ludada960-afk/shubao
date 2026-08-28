@@ -49,6 +49,7 @@ import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx
 import { EcommerceAddCard, EcommerceImageCard } from './ec/components/EcommerceAssetCards.jsx';
 import { buildXhsPublishPages } from './xhsPublishPreviewModel.js';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
+import ProductProfilePicker, { applyProductProfileFactsToXhs, useProductProfiles } from './ec/crossModeProductProfile.jsx';
 import './Home.css';
 
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
@@ -234,6 +235,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [xhsSubModeInternal, setXhsSubModeInternal] = useState('content');
   const xhsSubMode = xhsSubModeProp !== undefined ? xhsSubModeProp : xhsSubModeInternal;
   const setXhsSubMode = setXhsSubModeProp || setXhsSubModeInternal;
+
+  // 跨 mode 商品档案 (P2 续命 4c183cd4): 同一份 product_profile 覆盖 XHS 电商子模式与 Plog 模式,
+  // 选中档案后自动注入 productName / 类目 / 卖点 / 材质, 不再要求用户重复填写。
+  const xhsProfile = useProductProfiles({ status: 'active', limit: 50, autoLoad: Boolean(logged) });
+  const [activeXhsProfileId, setActiveXhsProfileId] = useState('');
 
   // Plog 专属状态
   const [plogText, setPlogText] = useState('');
@@ -1521,6 +1527,29 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       {p === '淘宝' ? '🟠' : p === '京东' ? '🛒' : p === '拼多多' ? '🟢' : p === '抖音' ? '🎵' : p === '小红书' ? '📕' : '🌐'} {p}
                     </span>
                   ))}
+                  <ProductProfilePicker
+                    profiles={xhsProfile.profiles}
+                    loading={xhsProfile.loading}
+                    error={xhsProfile.error}
+                    activeProfileId={activeXhsProfileId}
+                    onRefresh={xhsProfile.refresh}
+                    onSelect={profile => {
+                      const result = applyProductProfileFactsToXhs(profile, {
+                        setEcName,
+                        setEcCat,
+                        setEcProductPoints,
+                        setEcMaterial,
+                        setEcTargetAudience,
+                        setEcRestrictions,
+                      });
+                      if (result.ok) {
+                        setActiveXhsProfileId(profile.profileId);
+                        setToast({ type: 'success', message: `已带入商品档案「${profile.name}」· ${result.applied.length} 项事实` });
+                      }
+                    }}
+                    accentColor="#4338CA"
+                    emptyHint="暂未保存商品档案, 请先在电商工作台保存一个商品档案"
+                  />
                   <span style={{ marginLeft:'auto', fontSize:12, color:'#4338CA', cursor:'pointer', whiteSpace:'nowrap', padding:'5px 12px', borderRadius:6, background:'#EEF2FF', fontWeight:500, transition:'all 0.12s', border:'1px solid #C7D2FE', flexShrink:0 }}
                     onClick={() => dispatch({ type:'NAVIGATE', page:'ec-studio' })}
                     onMouseEnter={e => { e.currentTarget.style.background = '#C7D2FE'; e.currentTarget.style.borderColor = '#818CF8'; }}
