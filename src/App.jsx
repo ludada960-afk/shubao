@@ -25,6 +25,7 @@ const VideoStudioPage = React.lazy(() => import('./pages/VideoStudio/index'));
 const AdminConsolePage = React.lazy(() => import('./pages/AdminConsole/index.jsx'));
 const VisionFeedbackPage = React.lazy(() => import('./pages/VisionFeedback/index.jsx'));
 const ProductArchivePage = React.lazy(() => import('./pages/ProductArchive/index.jsx'));
+const PublicTemplatesPage = React.lazy(() => import('./pages/PublicTemplates/index.jsx'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
@@ -236,6 +237,10 @@ function AppRouter() {
     if (/^#?\/?product-archives\/[^/?#\s]+/i.test(hash)) {
       dispatch({ type: 'NAVIGATE', page: 'product-archive' });
     }
+    // V2 P3：公共模板社区页（4c183cd4 续命），hash 形式 #/public-templates 进入。
+    if (/^#?\/?public-templates(\?.*)?$/i.test(hash) || /^#?\/?public-templates\/?$/i.test(hash)) {
+      dispatch({ type: 'NAVIGATE', page: 'public-templates' });
+    }
   }, []);
 
   // B3: 全局 resize 节流 — 防止高频重排导致崩溃
@@ -294,6 +299,7 @@ function AppRouter() {
     admin: AdminConsolePage,
     'vision-feedback': VisionFeedbackPage,
     'product-archive': ProductArchivePage,
+    'public-templates': PublicTemplatesPage,
   };
   const PageComponent = page === 'admin' && !canAdmin
     ? HomePage

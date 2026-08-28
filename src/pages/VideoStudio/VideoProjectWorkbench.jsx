@@ -512,7 +512,22 @@ const [commentDraft, setCommentDraft] = useState('');
       if (!active) return;
       setReusableProjectAssets(reusableAssetsFromLibrary(library));
       const jobProjectId = jobs.find(item => item?.projectId && next.some(project => project.id === item.projectId))?.projectId;
-      const target = jobProjectId || next[0]?.id || '';
+      // V2 P3: 公共模板复制后跳转, 优先从 sessionStorage 取 preferredId.
+      let sessionPreferred = '';
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = window.sessionStorage?.getItem('video.project.to.open');
+          if (stored && next.some(project => project.id === stored)) {
+            sessionPreferred = stored;
+            window.sessionStorage.removeItem('video.project.to.open');
+          } else if (stored) {
+            // 项目不在列表里 (可能刚创建但还没持久化到 listProjects 结果),
+            // 也清掉避免一直走 fallback
+            window.sessionStorage.removeItem('video.project.to.open');
+          }
+        } catch (_) { /* sessionStorage 不可用时忽略 */ }
+      }
+      const target = sessionPreferred || jobProjectId || next[0]?.id || '';
       selectedProjectRef.current = target;
       setProjectId(target);
     }).catch(loadError => {

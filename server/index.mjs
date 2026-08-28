@@ -99,6 +99,7 @@ import { createPixelLayers } from './composition/layerService.mjs';
 import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import { mountVideoWorkbenchRoutes } from './videoWorkbenchRoutes.mjs';
+import { mountPublicTemplateRoutes, loadDefaultUsageStats } from './templates/publicTemplates.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
   createCanvasGenerationStatusHandler,
@@ -811,6 +812,20 @@ mountProjectRoutes(app, {
       authorizeEmail: authorizeAccountEmail,
     });
   },
+});
+
+// 4c183cd4 续命 P3 模板社区: 公开模板目录 + 复制到画布
+const publicTemplateUsageStats = loadDefaultUsageStats({ rootDir: __dirname });
+mountPublicTemplateRoutes(app, {
+  projectStore,
+  usageStats: publicTemplateUsageStats,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+  runtime: { log: console.log.bind(console) },
 });
 
 mountVideoWorkbenchRoutes(app, {
