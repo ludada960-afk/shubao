@@ -198,3 +198,114 @@ export function useLongTask() {
   if (!ctx) throw new Error('useLongTask must be inside <LongTaskProvider>');
   return ctx;
 }
+
+/**
+ * useWorkflowSteps — V2 P3 创意工作流 Automation (4c183cd4 续命)
+ *
+ * 把"手动 markStep 三件套"压成 0 步操作的自动化 hook:
+ *
+ *   const { run } = useWorkflowSteps();
+ *
+ *   // 客户端代码只剩业务流, 进度条全自动驱动
+ *   const manifest = await run(
+ *     { id: 'export-manifest', title: '生成导出清单',
+ *       stages: ['正在准备资源…', '正在合并字幕与音轨…', '清单已生成'] },
+ *     async (advance) => {
+ *       advance();
+ *       const data = await prepareResources();
+ *       advance();
+ *       const merged = await mergeSubtitles(data);
+ *       advance();
+ *       return writeManifest(merged);
+ *     }
+ *   );
+ *
+ * 设计要点:
+ * - 内部复用 LongTaskContext 的 startLongTask / markStep / stopLongTask
+ * - run(work) 自动: startLongTask(id, totalSteps=stages.length) → 按调用顺序 markStep → 收尾 stopLongTask
+ * - 任意阶段抛错都会进入 finally, stopLongTask 兜底, 不会卡 overlay
+ * - 不重写 markStep 契约, 是 P0-3 真进度条的上层糖
+ * - 用户看不到 3 次手动 markStep, 只看到 run({...}, asyncWork) 一行
+ */
+export function useWorkflowSteps() {
+  const ctx = useContext(LongTaskContext);
+  if (!ctx) {
+    throw new Error('useWorkflowSteps must be inside <LongTaskProvider>');
+  }
+  const { startLongTask, markStep, stopLongTask, updateLongTask } = ctx;
+
+  // run({ id, title, stages }, asyncWork) => Promise<result>
+  // 客户端拿到一个 advance(stage) 工具函数, 在业务流里"自然"调用即可
+  const run = useCallback(({ id, title, stages } = {}, asyncWork) => {
+    if (!id || typeof asyncWork !== 'function') {
+      return Promise.reject(new Error('useWorkflowSteps.run 缺少 id 或 asyncWork'));
+    }
+    const stageList = Array.isArray(stages) && stages.length
+      ? stages
+      : ['准备中…', '执行中…', '收尾中…'];
+    const total = stageList.length;
+    let cancelled = false;
+    let lastStepIdx = -1;
+
+    // 启动: 进 overlay, 心跳自启
+    const stop = startLongTask({
+      id,
+      title: title || '长任务',
+      totalSteps: total,
+      stage: stageList[0] || '准备中…',
+    });
+
+    // advance(stageLabel?): 用户每完成一阶段调用一次, 触发 markStep
+    // 索引顺序按调用顺序, 不依赖传入 label; 传入 label 仅用于覆盖 stage 文本
+    const advance = (stageLabel) => {
+      if (cancelled) return;
+      const nextIdx = Math.min(lastStepIdx + 1, total - 1);
+      lastStepIdx = nextIdx;
+      markStep(id, nextIdx, stageLabel || stageList[nextIdx] || `步骤 ${nextIdx + 1}`);
+    };
+
+    // 收尾: 末步 100 → 保留 600ms 完成态 → stop
+    const finalize = (result) => {
+      if (cancelled) return result;
+      cancelled = true;
+      lastStepIdx = total - 1;
+      updateLongTask(id, { progress: 100, stage: stageList[total - 1] || '已完成' });
+      // 保留 600ms 让用户感知"完成"状态, 再 stop (心跳也会自动停)
+      setTimeout(() => {
+        stop();
+        stopLongTask(id);
+      }, 600);
+      return result;
+    };
+
+    // 主链: 调用户的 asyncWork, 拿到它的 promise,
+    // .then 拿结果, .catch 兜错 (确保 stop + reject)
+    let userPromise;
+    try {
+      userPromise = asyncWork(advance);
+    } catch (syncError) {
+      cancelled = true;
+      stop();
+      stopLongTask(id);
+      return Promise.reject(syncError);
+    }
+
+    if (!userPromise || typeof userPromise.then !== 'function') {
+      // 同步返回: 立即 finalize
+      finalize(userPromise);
+      return Promise.resolve(userPromise);
+    }
+
+    return userPromise.then(
+      (value) => finalize(value),
+      (error) => {
+        cancelled = true;
+        stop();
+        stopLongTask(id);
+        throw error;
+      },
+    );
+  }, [startLongTask, markStep, stopLongTask, updateLongTask]);
+
+  return { run };
+}
