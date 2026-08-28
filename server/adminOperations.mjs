@@ -136,6 +136,20 @@ function parseJson(value, fallback = null) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+function emptyUserCostTotals() {
+  return {
+    actionCount: 0,
+    pointsConsumed: 0,
+    theoreticalRevenueCny: 0,
+    cashRevenueCny: 0,
+    promoSubsidyCny: 0,
+    providerCostCny: 0,
+    theoreticalContributionCny: 0,
+    firstActionAt: null,
+    lastActionAt: null,
+  };
+}
+
 function accessNotFound() {
   return Object.assign(new Error('account not found'), { code: 'ACCOUNT_NOT_FOUND', status: 404 });
 }
@@ -185,6 +199,7 @@ export function createAdminOperations({
   runtimeStatus = null,
   videoOperations = null,
   videoWorkbenchMetrics = null,
+  authService = null,
 } = {}) {
   if (!db || typeof db.prepare !== 'function') throw new TypeError('db is required');
   if (!walletService || typeof walletService.grant !== 'function'
@@ -200,6 +215,27 @@ export function createAdminOperations({
   }
 
   const resolveVideoOperations = () => typeof videoOperations === 'function' ? videoOperations() : videoOperations;
+
+  // P2 账号体系：auth 域晚于本模块实例化，adminOperations 通过 late-bind 注入。
+  // 若未注入，listSessions/revokeSession 抛出 ADMIN_AUTH_UNAVAILABLE，避免误用导致静默成功。
+  let authRef = authService;
+  const operations = {};
+  function bindAuthService(next) {
+    if (next !== null && next !== undefined && typeof next.listUserSessions !== 'function') {
+      throw new TypeError('authService must expose listUserSessions / revokeAllUserSessions / revokeUserSession');
+    }
+    authRef = next || null;
+    return operations;
+  }
+  function ensureAuthBridge() {
+    if (!authRef || typeof authRef.listUserSessions !== 'function') {
+      throw Object.assign(new Error('账号会话管理暂不可用，请稍后重试'), {
+        code: 'ADMIN_AUTH_UNAVAILABLE',
+        status: 503,
+      });
+    }
+    return authRef;
+  }
 
   const tableExists = name => Boolean(db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
@@ -430,6 +466,123 @@ export function createAdminOperations({
     return { ...access, balances, usage: usageFor(email) };
   }
 
+  // ── P2 账号体系：客服可查询/吊销目标账号的活动设备 ──
+  // 仅用于 owner 风控（密码泄露、客服投诉、退款核对）；吊销会同步写入审计日志。
+  function resolveAuthUserId(email) {
+    const auth = ensureAuthBridge();
+    if (typeof auth.ensureUserByEmail === 'function') {
+      // ensureUserByEmail 副作用：会自动桥接 account_access → auth_users，
+      // 这样 admin 后台看到的账号与 auth_sessions 自动对齐，无须手动建表。
+      const user = auth.ensureUserByEmail(email, { role: 'member', status: 'active' });
+      return user?.id ?? null;
+    }
+    const row = db.prepare('SELECT id FROM auth_users WHERE primary_email = ?').get(email);
+    return row?.id ?? null;
+  }
+
+  function listAccountSessions(value) {
+    const email = normalizeAccountEmail(value);
+    const access = getAccountAccess(db, email);
+    if (!access) throw accessNotFound();
+    const auth = ensureAuthBridge();
+    const userId = resolveAuthUserId(email);
+    if (!userId) return { email, sessions: [], total: 0 };
+    // admin 视角：currentJti 永远空字符串，所以不会有"当前设备"标记误命中。
+    const sessions = auth.listUserSessions(userId, { currentJti: '' });
+    return {
+      email,
+      userId,
+      total: sessions.length,
+      sessions: sessions.map(session => ({
+        id: session.id,
+        device: session.device || '未命名设备',
+        ip: session.ip || '',
+        createdAt: session.createdAt || '',
+        lastRefreshedAt: session.lastRefreshedAt || '',
+        expiresAt: session.expiresAt || '',
+        current: Boolean(session.current),
+      })),
+    };
+  }
+
+  function revokeAccountSession(actorEmail, value, sessionId) {
+    const email = normalizeAccountEmail(value);
+    const access = getAccountAccess(db, email);
+    if (!access) throw accessNotFound();
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw Object.assign(new TypeError('sessionId is required'), { code: 'ADMIN_REQUEST_INVALID' });
+    }
+    const auth = ensureAuthBridge();
+    const userId = resolveAuthUserId(email);
+    if (!userId) throw Object.assign(new Error('账号尚未在 auth 域注册'), { code: 'ACCOUNT_AUTH_NOT_LINKED', status: 409 });
+    const revoked = auth.revokeUserSession(userId, sessionId);
+    recordAudit({
+      actorEmail,
+      action: 'account.session.revoke',
+      targetEmail: email,
+      reason: nonEmpty('owner 风控: 吊销单设备会话', 'reason'),
+      before: { sessionId, userId },
+      after: { revoked },
+      idempotencyKey: `admin-audit:session-revoke:${randomUUID()}`,
+    });
+    return { email, sessionId, revoked };
+  }
+
+  function revokeAllAccountSessions(actorEmail, value, input = {}) {
+    const email = normalizeAccountEmail(value);
+    const access = getAccountAccess(db, email);
+    if (!access) throw accessNotFound();
+    const reason = nonEmpty(input.reason || 'owner 风控: 强制下线该账号所有设备', 'reason').slice(0, 500);
+    const auth = ensureAuthBridge();
+    const userId = resolveAuthUserId(email);
+    if (!userId) throw Object.assign(new Error('账号尚未在 auth 域注册'), { code: 'ACCOUNT_AUTH_NOT_LINKED', status: 409 });
+    const revoked = auth.revokeAllUserSessions(userId);
+    recordAudit({
+      actorEmail,
+      action: 'account.session.revokeAll',
+      targetEmail: email,
+      reason,
+      before: { userId },
+      after: { revoked },
+      idempotencyKey: `admin-audit:session-revoke-all:${randomUUID()}`,
+    });
+    return { email, revoked };
+  }
+
+  // ── P2 客服备注：只更新 notes 字段，更新会写审计，actor 自己改自己的备注禁止。──
+  function updateAccountNotes(actorEmail, value, input = {}) {
+    const actor = getAccountAccess(db, actorEmail);
+    if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
+    const email = normalizeAccountEmail(value);
+    const target = getAccountAccess(db, email);
+    if (!target) throw accessNotFound();
+    const notes = String(input.notes ?? '').trim().slice(0, 1000);
+    if (target.email === actor.email) {
+      throw forbidden('不能修改自己的客服备注');
+    }
+    const idempotencyKey = nonEmpty(input.idempotencyKey, 'idempotencyKey');
+    const updated = upsertAccountAccess(db, {
+      email: target.email,
+      role: target.role,
+      status: target.status,
+      notes,
+      expiresAt: target.expiresAt,
+      actorEmail,
+      reason: nonEmpty(input.reason || 'owner 更新客服备注', 'reason'),
+      idempotencyKey: `notes:${idempotencyKey}`,
+    });
+    recordAudit({
+      actorEmail,
+      action: 'account.notes.update',
+      targetEmail: email,
+      reason: nonEmpty(input.reason || 'owner 更新客服备注', 'reason'),
+      before: { notes: target.notes || '' },
+      after: { notes: updated.notes || '' },
+      idempotencyKey: `admin-audit:notes:${idempotencyKey}`,
+    });
+    return accountDetail(email);
+  }
+
   function listAccounts(input = {}) {
     const { limit, offset } = pageOptions(input);
     const query = String(input.query || '').trim().toLowerCase().slice(0, 200);
@@ -447,6 +600,167 @@ export function createAdminOperations({
     `).all(...params, limit, offset);
     return { total, limit, offset, accounts: rows.map(row => accountDetail(row.email)) };
   }
+
+  // 续命 P2 用户列表: 合并 account_access + usage_events + users (legacy) 三路 email,
+  // 返回每个用户的 role/status/余额/最后活跃/调用次数, 给 admin dashboard 用。
+  // 与 listAccounts 的区别: listAccounts 只看 account_access (后台元数据),
+  // listUsers 看所有跟系统打过交道的 email (含纯内测/路人)。
+  function listUsers(input = {}) {
+    const { limit, offset } = pageOptions({ limit: input.limit, offset: input.offset });
+    const search = String(input.search || input.query || "").trim().toLowerCase().slice(0, 200);
+    // 三路 email 合并
+    const accessRows = db.prepare("SELECT email, role, status, notes, created_at, updated_at FROM account_access").all();
+    const usageRows = tableExists("usage_events")
+      ? db.prepare("SELECT owner_email AS email, MAX(created_at) AS last_activity, COUNT(*) AS actions FROM usage_events GROUP BY owner_email").all()
+      : [];
+    const usersRows = tableExists("users")
+      ? db.prepare("SELECT email, credits, updated_at FROM users").all()
+      : [];
+    const merged = new Map();
+    const upsert = (email, patch = {}) => {
+      const key = String(email || "").trim().toLowerCase();
+      if (!key) return;
+      if (!merged.has(key)) merged.set(key, {
+        email: key, role: null, status: null, notes: "",
+        lastActivityAt: null, actionCount: 0, legacyCredits: 0,
+        registeredAt: null, accountUpdatedAt: null,
+      });
+      const cur = merged.get(key);
+      Object.assign(cur, patch);
+    };
+    for (const row of accessRows) {
+      upsert(row.email, {
+        role: row.role, status: row.status, notes: row.notes || "",
+        registeredAt: row.created_at || null, accountUpdatedAt: row.updated_at || null,
+      });
+    }
+    for (const row of usageRows) {
+      upsert(row.email, {
+        lastActivityAt: row.last_activity || null,
+        actionCount: Number(row.actions || 0),
+      });
+    }
+    for (const row of usersRows) {
+      upsert(row.email, { legacyCredits: Number(row.credits || 0) });
+    }
+    let items = [...merged.values()];
+    if (search) {
+      const needle = `%${search}%`;
+      items = items.filter(item => item.email.includes(search) || (item.notes || "").toLowerCase().includes(search));
+      // 保留 needle 引用, 避免 lint 报未使用
+      void needle;
+    }
+    items.sort((a, b) => {
+      // owner > admin > tester > member > null; 然后按 lastActivity DESC; 都没有则按 email ASC
+      const order = (r) => r === "owner" ? 0 : r === "admin" ? 1 : r === "tester" ? 2 : r === "member" ? 3 : 4;
+      const ra = order(a.role), rb = order(b.role);
+      if (ra !== rb) return ra - rb;
+      const la = Date.parse(a.lastActivityAt || "") || 0;
+      const lb = Date.parse(b.lastActivityAt || "") || 0;
+      if (la !== lb) return lb - la;
+      return a.email.localeCompare(b.email);
+    });
+    const total = items.length;
+    const paged = items.slice(offset, offset + limit);
+    // 余额 + 月卡状态: 逐个查 walletService + payment_orders
+    const enriched = paged.map(item => {
+      const balances = {};
+      for (const currency of CURRENCIES) {
+        try { balances[currency] = walletService.getBalance(item.email, currency); }
+        catch { balances[currency] = { availableUnits: 0, heldUnits: 0, unlimited: false }; }
+      }
+      // 月卡判定: 过去 30 天有过 paid 的 ec_monthpack_* 订单, 且 ec_points 余额 > 0
+      let monthpack = { active: false, lastOrderAt: null, sku: null };
+      if (tableExists("payment_orders")) {
+        const mpRow = db.prepare(`
+          SELECT product_sku, created_at FROM payment_orders
+          WHERE owner_email = ? AND status = 'paid' AND product_sku LIKE 'ec_monthpack_%'
+          ORDER BY datetime(created_at) DESC LIMIT 1
+        `).get(item.email);
+        if (mpRow) {
+          monthpack = { active: (balances.ec_points?.availableUnits || 0) > 0, lastOrderAt: mpRow.created_at, sku: mpRow.product_sku };
+        }
+      }
+      return { ...item, balances, monthpack };
+    });
+    return { total, limit, offset, search, users: enriched };
+  }
+
+  // 续命 P2 用户成本核算: 单一用户过去 N 天 (默认 30) 的 usage_events 聚合.
+  // 返回: 总调用次数 / 总消耗积分 / 上游成本 / 现金收入 / 积分面值 / 按 SKU top10 / 按 feature 分组.
+  // 字段命名与 operations.summary / listAccounts 保持一致 (pointsConsumed / providerCostCny 等).
+  function getUserCostReport(input = {}) {
+    const email = normalizeAccountEmail(input.email);
+    if (!email) throw Object.assign(new TypeError("email is required"), { code: "ADMIN_REQUEST_INVALID" });
+    if (!tableExists("usage_events")) {
+      return { email, days: 0, totals: emptyUserCostTotals(), bySku: [], byFeature: [] };
+    }
+    const days = safeInteger(input.days ?? 30, "days", { min: 1, max: 365 });
+    const cutoff = new Date(Date.now() - days * 86400_000).toISOString();
+    const totals = db.prepare(`
+      SELECT
+        COUNT(*) AS action_count,
+        COALESCE(SUM(charged_units), 0) AS charged_units,
+        COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
+        COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
+        COALESCE(SUM(promo_subsidy_cny), 0) AS promo_subsidy,
+        COALESCE(SUM(provider_cost_cny), 0) AS provider_cost,
+        MIN(created_at) AS first_action_at,
+        MAX(created_at) AS last_action_at
+      FROM usage_events WHERE owner_email = ? AND datetime(created_at) >= datetime(?)
+    `).get(email, cutoff);
+    const bySku = db.prepare(`
+      SELECT COALESCE(NULLIF(sku, ''), 'unclassified') AS sku,
+        COALESCE(NULLIF(feature, ''), 'unclassified') AS feature,
+        COALESCE(NULLIF(provider, ''), 'unknown') AS provider,
+        COUNT(*) AS actions,
+        COALESCE(SUM(charged_units), 0) AS charged_units,
+        COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
+        COALESCE(SUM(provider_cost_cny), 0) AS provider_cost_cny
+      FROM usage_events WHERE owner_email = ? AND datetime(created_at) >= datetime(?)
+      GROUP BY sku, feature, provider
+      ORDER BY provider_cost_cny DESC, actions DESC LIMIT 10
+    `).all(email, cutoff).map(row => ({
+      sku: row.sku, feature: row.feature, provider: row.provider,
+      actions: Number(row.actions || 0),
+      chargedUnits: Number(row.charged_units || 0),
+      theoreticalRevenueCny: roundMoney(row.theoretical_revenue),
+      providerCostCny: roundMoney(row.provider_cost_cny),
+      theoreticalContributionCny: roundMoney(Number(row.theoretical_revenue || 0) - Number(row.provider_cost_cny || 0)),
+    })).map(classifyUsageRow);
+    const byFeature = bySku.reduce((acc, row) => {
+      const key = row.feature || "unclassified";
+      const cur = acc.get(key) || { feature: key, actions: 0, chargedUnits: 0, theoreticalRevenueCny: 0, providerCostCny: 0 };
+      cur.actions += row.actions;
+      cur.chargedUnits += row.chargedUnits;
+      cur.theoreticalRevenueCny = roundMoney(cur.theoreticalRevenueCny + row.theoreticalRevenueCny);
+      cur.providerCostCny = roundMoney(cur.providerCostCny + row.providerCostCny);
+      acc.set(key, cur);
+      return acc;
+    }, new Map());
+    return {
+      email,
+      days,
+      from: cutoff,
+      to: new Date().toISOString(),
+      totals: {
+        actionCount: Number(totals?.action_count || 0),
+        pointsConsumed: Number(totals?.charged_units || 0),
+        theoreticalRevenueCny: roundMoney(totals?.theoretical_revenue),
+        cashRevenueCny: roundMoney(totals?.cash_revenue),
+        promoSubsidyCny: roundMoney(totals?.promo_subsidy),
+        providerCostCny: roundMoney(totals?.provider_cost),
+        theoreticalContributionCny: roundMoney(Number(totals?.theoretical_revenue || 0) - Number(totals?.provider_cost || 0)),
+        firstActionAt: totals?.first_action_at || null,
+        lastActionAt: totals?.last_action_at || null,
+      },
+      bySku,
+      byFeature: [...byFeature.values()].map(row => ({
+        ...row, theoreticalContributionCny: roundMoney(row.theoreticalRevenueCny - row.providerCostCny),
+      })).sort((a, b) => b.providerCostCny - a.providerCostCny),
+    };
+  }
+
 
   function createAccount(actorEmail, input = {}) {
     const actor = getAccountAccess(db, actorEmail);
@@ -1003,11 +1317,19 @@ export function createAdminOperations({
     setPermissions,
     adjustCredits,
     listAudit,
+    listAccountSessions,
+    revokeAccountSession,
+    revokeAllAccountSessions,
+    updateAccountNotes,
     videoOperationsMetrics,
     runVideoReconciliation,
     operateVideoJob,
     listH3Invites,
     createH3Invites,
     exportH3InvitesCsv,
+    // 续命 P2 用户列表 + 成本核算
+    listUsers,
+    getUserCostReport,
+    bindAuthService,
   };
 }

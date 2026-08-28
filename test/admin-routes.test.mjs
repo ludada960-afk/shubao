@@ -14,6 +14,7 @@ function createFakeApp() {
     get(path, ...handlers) { routes.set(`GET ${path}`, handlers); },
     post(path, ...handlers) { routes.set(`POST ${path}`, handlers); },
     put(path, ...handlers) { routes.set(`PUT ${path}`, handlers); },
+    delete(path, ...handlers) { routes.set(`DELETE ${path}`, handlers); },
     routes,
   };
 }

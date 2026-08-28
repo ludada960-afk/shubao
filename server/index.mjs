@@ -776,7 +776,15 @@ const adminRouteHandlers = mountAdminRoutes(app, {
   authorizeAdmin(email) {
     return requireAdminAccess(db, email);
   },
+  // 续命 P2: 用户列表/成本核算 admin 也能访问, 走 requireAccountAccess 拿完整 access (含 role)
+  authorizeAccount(email) {
+    return requireAccountAccess(db, email);
+  },
 });
+
+// P2 账号体系：adminOperations 之前在 authService 之前实例化，
+// 现把 auth 域句柄 late-bind 进去，让 listSessions/revokeSession 可用。
+adminOperations.bindAuthService(authService);
 
 mountProjectRoutes(app, {
   projectStore,
