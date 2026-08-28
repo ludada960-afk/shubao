@@ -978,6 +978,40 @@ export default function VideoCanvasWorkbench({
     }
   }
 
+
+
+  // 4c183cd4 续命 P2 画布发往视频项目: 把当前画布节点转换 initial assets, 跳到 VideoProjectWorkbench
+  async function handleExportToVideoProject() {
+    if (!projectId || busy) return;
+    setBusy('export-to-video');
+    setError('');
+    try {
+      const initialAssets = (nodes || []).map(function (node) {
+        return {
+          kind: node.kind === 'audio' ? 'audio' : (node.kind === 'video' ? 'video' : 'image'),
+          url: node.previewUrl || node.url || '',
+          title: node.title || '',
+          projectAssetId: node.sourceAssetId || '',
+        };
+      }).filter(function (a) { return a.url; });
+      if (!initialAssets.length) {
+        setError('当前画布没有可导出的素材节点');
+        return;
+      }
+      const manifest = await createVideoExportManifest(projectId, { initialAssets });
+      setExportManifest(manifest);
+      const newId = manifest && manifest.id;
+      if (newId) {
+        window.location.hash = '#/video-studio/' + newId;
+        window.location.reload();
+      }
+    } catch (e) {
+      setError(displayError(e));
+    } finally {
+      setBusy('');
+    }
+  }
+
   function handleCreateShot() {
     if (!projectId) return;
     const purpose = (intent.goal || '新镜头').slice(0, 120);
@@ -1762,6 +1796,11 @@ export default function VideoCanvasWorkbench({
           title={exportReady.ok ? '生成可交接的导出清单（含字幕与音轨）' : exportReady.reason}
           onClick={() => void handleCreateExportManifest()}>
           {exportBusy ? <LoaderCircle size={14} className="is-spinning" /> : <Layers3 size={14} />}生成导出清单
+        </button>
+        <button type="button" data-no-drag className="vcb-export-btn" disabled={!projectId || Boolean(busy)}
+          title="把当前画布节点 (image/text/asset) 转换为视频项目 initial assets, 跳到 VideoStudioWorkbench"
+          onClick={() => void handleExportToVideoProject()}>
+          <SendHorizontal size={14} />导出到视频项目
         </button>
         {manifestSummary && <div className="vcb-manifest-summary" role="status">
           <strong>清单已生成{manifestSummary.replayed ? '（复用既有清单）' : ''}</strong>
