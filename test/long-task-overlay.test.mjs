@@ -90,8 +90,8 @@ test('VideoCanvasWorkbench.jsx 接入 useLongTask + handleCreateExportManifest �
   const src = readFileSync(workbenchPath, 'utf-8');
   // import useLongTask
   assert.match(src, /import \{ useLongTask \} from '\.\.\/\.\.\/components\/ui\/LongTaskProvider\.jsx'/);
-  // hook 解构
-  assert.match(src, /const \{ startLongTask, updateLongTask, stopLongTask \} = useLongTask\(\)/);
+  // hook 解构 (V2 P0-3 增量允许额外字段如 markStep, 只要前 3 个都在)
+  assert.match(src, /const \{ startLongTask, updateLongTask, stopLongTask[\s\S]*?\} = useLongTask\(\)/);
   // handleCreateExportManifest 内启动长任务
   const handlerMatch = src.match(/async function handleCreateExportManifest\(\)[\s\S]*?\n  \}/);
   assert.ok(handlerMatch, 'handleCreateExportManifest 函数未找到');

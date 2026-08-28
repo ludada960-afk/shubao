@@ -173,7 +173,7 @@ export default function VideoCanvasWorkbench({
 }) {
   const { dispatch, refreshBillingBalance } = useApp();
   // V4 P0-3 (D2) 长任务全屏进度条 hook, 导出清单等长任务用它驱动 overlay
-  const { startLongTask, updateLongTask, stopLongTask } = useLongTask();
+  const { startLongTask, updateLongTask, stopLongTask, markStep } = useLongTask();
   const [projects, setProjects] = useState([]);
   const [libraryRows, setLibraryRows] = useState([]);
   const [projectId, setProjectId] = useState('');
@@ -907,19 +907,23 @@ export default function VideoCanvasWorkbench({
     setExportBusy(true);
     setError('');
     // V4 P0-3 (D2) 启动长任务全屏进度条: 3 步 (准备资源 → 合并字幕与音轨 → 写入清单)
+    // V2 P0-3 增量: 事件驱动 markStep + Provider 200ms 心跳兜底, 进度条 0→100 真动态
     const taskId = `export-manifest:${projectId}`;
     startLongTask({ id: taskId, title: '生成导出清单', totalSteps: 3, stage: '正在准备资源…' });
     try {
-      updateLongTask(taskId, { progress: 33, stage: '正在合并字幕与音轨…' });
+      markStep(taskId, 0, '正在准备资源…');
+      // 短停顿让"准备资源"阶段可见
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      markStep(taskId, 1, '正在合并字幕与音轨…');
       const manifest = await createVideoExportManifest(projectId);
-      updateLongTask(taskId, { progress: 90, stage: '正在写入清单…' });
-      setExportManifest(manifest);
+      markStep(taskId, 2, '清单已生成');
       updateLongTask(taskId, { progress: 100, stage: '清单已生成' });
+      setExportManifest(manifest);
     } catch (exportError) {
       setError(displayError(exportError));
     } finally {
-      // 保留 overlay 显示 300ms 让用户感知"完成"状态, 再隐藏
-      setTimeout(() => stopLongTask(taskId), 300);
+      // 保留 overlay 显示 600ms 让用户感知"完成"状态, 再隐藏 (心跳也会自动停)
+      setTimeout(() => stopLongTask(taskId), 600);
       setExportBusy(false);
     }
   }
