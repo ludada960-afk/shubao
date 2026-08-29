@@ -10,7 +10,8 @@ import {
 import { recordProductProfileHistory, listProductProfileHistory } from './productProfileHistory.mjs';
 
 const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog', 'video']);
-const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration']);
+// 4c183cd4 续命 P-C 1-click 派生: clone (项目级 Clone) 加入合法 reason
+const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration', 'clone']);
 const CHECKPOINT_REASONS = new Set(['payment_required', 'generation_interrupted', 'session_interrupted']);
 const PROJECT_ASSET_PRODUCTION_STATES = new Set(['draft', 'candidate', 'delivered', 'archived']);
 const USER_PROJECT_ASSET_PRODUCTION_TRANSITIONS = Object.freeze({

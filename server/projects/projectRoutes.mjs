@@ -54,6 +54,13 @@ function routeError(error, res) {
   if (code === 'GENERATED_ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '生成图片不存在或不是应用内稳定资产' });
   }
+  // 4c183cd4 续命 P-C 1-click 派生: 项目级 Clone 错误码
+  if (code === 'CLONE_MODE_INVALID') {
+    return res.status(400).json({ code, error: 'cloneMode 必须是 same-style / change-style / change-angle' });
+  }
+  if (code === 'CLONE_OWNER_REQUIRED' || code === 'CLONE_PROJECT_REQUIRED') {
+    return res.status(400).json({ code, error: 'clone 请求缺少必要参数' });
+  }
   if (code === 'GENERATED_ASSET_NOT_READY') {
     return res.status(409).json({ code, error: '生成图片尚未完成归档校验，请稍后重试' });
   }
@@ -143,6 +150,7 @@ export function mountProjectRoutes(app, {
   importVideoAsset = null,
   importImageAsset = null,
   registerGeneratedAsset = null,
+  cloneService = null, // 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone Service
 } = {}) {
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
@@ -483,6 +491,27 @@ export function mountProjectRoutes(app, {
       return res.json({ session: withCanvasSessionPlayback(session, {
         ownerEmail, req, resolveAssetPlaybackUrl,
       }) });
+    } catch (error) { return routeError(error, res); }
+  });
+
+  // 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone 路由
+  // POST /api/projects/:projectId/clone
+  // body: { cloneMode: 'same-style' | 'change-style' | 'change-angle', targetKind?, titleHint? }
+  // 返回: { project, sourceProject, cloneMode, assetCount, assetMap, version, clonedAt }
+  app.post('/api/projects/:projectId/clone', (req, res) => {
+    if (!cloneService || typeof cloneService.cloneProject !== 'function') {
+      return res.status(503).json({ code: 'CLONE_SERVICE_UNAVAILABLE', error: '当前未启用项目克隆服务' });
+    }
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const result = cloneService.cloneProject({
+        ownerEmail,
+        projectId: req.params.projectId,
+        cloneMode: req.body?.cloneMode,
+        targetKind: req.body?.targetKind,
+        titleHint: req.body?.titleHint,
+      });
+      return res.status(201).json(result);
     } catch (error) { return routeError(error, res); }
   });
 }

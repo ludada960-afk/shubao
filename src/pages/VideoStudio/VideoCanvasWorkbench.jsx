@@ -47,6 +47,10 @@ import { useApp } from '../../store/AppContext.jsx';
 import { useLongTask, useWorkflowSteps } from '../../components/ui/LongTaskProvider.jsx';
 import VideoCanvasFlowCanvas from './VideoCanvasFlowCanvas.jsx';
 import ChainOrchestrator from '../../components/chain/ChainOrchestrator.jsx';
+// 4c183cd4 续命 P-A 三方多模态串联 (video + audio + product profile)
+// 视频节点入口: 跟 ChainOrchestrator 不同, 完成后会调 /api/multi-modal/execute-and-materialize
+// 真正把 chain 4 步产物落到 project + product profile
+import MultiModalEntry from '../../components/business/MultiModalEntry.jsx';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import { quoteBillingAction } from '../../services/billing.js';
 import { createVideoJob, getVideoJob } from '../../services/video.js';
@@ -224,6 +228,8 @@ export default function VideoCanvasWorkbench({
   // 4c183cd4 续命 P-G: 链式生成 4 步面板 (文案->首帧->视频->音轨+字幕)
   const [chainOpen, setChainOpen] = useState(false);
   const [chainRefImage, setChainRefImage] = useState(null);
+  // 4c183cd4 续命 P-A: 三方多模态串联 (视频节点入口) — 跑完后产物自动落 project + product profile
+  const [multiModalOpen, setMultiModalOpen] = useState(false);
 
   const stageRef = useRef(null);
   const [flowOn] = useState(() => { try { return typeof localStorage !== 'undefined' && localStorage.getItem('shubao_flow_canvas') === '1'; } catch { return false; } });
@@ -1045,6 +1051,23 @@ export default function VideoCanvasWorkbench({
     setChainOpen(true);
   }
 
+  // 4c183cd4 续命 P-A: 打开三方多模态串联面板 (视频节点入口)
+  // 跟 P-G 共用 ref 选取逻辑; 完成后调 /api/multi-modal/execute-and-materialize 落项目+档案
+  function handleOpenMultiModal() {
+    const ref = (() => {
+      if (selectedNodes.length === 1) {
+        const n = selectedNodes[0];
+        return n.previewUrl || n.url || null;
+      }
+      const first = (nodes || []).find(function (x) {
+        return (x.kind === 'image' || x.kind === 'text') && (x.previewUrl || x.url);
+      });
+      return first ? (first.previewUrl || first.url) : null;
+    })();
+    setChainRefImage(ref);
+    setMultiModalOpen(true);
+  }
+
   function handleCreateShot() {
     if (!projectId) return;
     const purpose = (intent.goal || '新镜头').slice(0, 120);
@@ -1243,6 +1266,10 @@ export default function VideoCanvasWorkbench({
 <button type="button" data-no-drag aria-label="重置画布" title="重置摆位 / 锁定 / 选择"
           onClick={handleResetCanvas}>
           <RotateCcw size={13} />重置
+        </button>
+        <button type="button" data-no-drag aria-label="三方多模态串联 (P-A)" title="1-click 链式生成 → 落项目+商品档案 (4c183cd4 P-A)"
+          onClick={handleOpenMultiModal}>
+          <Sparkles size={13} />多模态串联
         </button>
         <span className="vcb-zoom-slider" aria-label="画布缩放">
           <ZoomIn size={12} />
@@ -1846,5 +1873,20 @@ export default function VideoCanvasWorkbench({
         </div>}
       </footer>
     </section>}
+
+    {/* 4c183cd4 续命 P-A: 三方多模态串联 (视频节点入口) — chain 4 步后自动落项目+档案 */}
+    <MultiModalEntry
+      open={multiModalOpen}
+      onClose={function () { setMultiModalOpen(false); }}
+      referenceImage={chainRefImage}
+      defaultProjectKind="video"
+      onComplete={function (result) {
+        // 完成时刷新项目列表, 让新建的 video project 立即可被顶部下拉选中
+        if (result && result.materialization && result.materialization.projectId) {
+          setProjectId(result.materialization.projectId);
+          void loadWorkbench(result.materialization.projectId);
+        }
+      }}
+    />
   </section>;
 }
