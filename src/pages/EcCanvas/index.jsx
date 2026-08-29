@@ -4116,9 +4116,9 @@ export default function EcCanvas() {
     }
   }, [showToast]);
   // P2 跨域投递入口 a：选中套图产物/节点 → 「发往视频项目」。
-  const selectedNodeVideoDelivery = useMemo(() => deliverableRefFromNodes(selectedNode ? [selectedNode] : []), [selectedNode]);
+  const selectedNodeVideoDelivery = useMemo(() => deliverableRefsFromNodes(selectedNode ? [selectedNode] : []), [selectedNode]);
   const handleSendSelectedToVideoProject = useCallback(node => {
-    const refs = deliverableRefFromNodes(node ? [node] : []);
+    const refs = deliverableRefsFromNodes(node ? [node] : []);
     if (!refs.length) return showToast('该节点尚未登记为项目素材，暂不能跨域投递', 'info');
     setVideoDelivery({ refs, surface: DELIVERY_SOURCE_SURFACES.ecCanvas });
   }, [showToast]);
