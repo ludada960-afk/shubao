@@ -41,10 +41,12 @@ import {
   MoveHorizontal,
   MoveVertical,
   RotateCw,
+  Wand2,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
-import { useLongTask } from '../../components/ui/LongTaskProvider.jsx';
+import { useLongTask, useWorkflowSteps } from '../../components/ui/LongTaskProvider.jsx';
 import VideoCanvasFlowCanvas from './VideoCanvasFlowCanvas.jsx';
+import ChainOrchestrator from '../../components/chain/ChainOrchestrator.jsx';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import { quoteBillingAction } from '../../services/billing.js';
 import { createVideoJob, getVideoJob } from '../../services/video.js';
@@ -181,6 +183,8 @@ export default function VideoCanvasWorkbench({
   const { dispatch, refreshBillingBalance } = useApp();
   // V4 P0-3 (D2) 长任务全屏进度条 hook, 导出清单等长任务用它驱动 overlay
   const { startLongTask, updateLongTask, stopLongTask, markStep } = useLongTask();
+  // V2 P3 创意工作流 Automation: 0 步操作, run(asyncWork) 内部自动 markStep + 收尾
+  const { run: runWorkflow } = useWorkflowSteps();
   const [projects, setProjects] = useState([]);
   const [libraryRows, setLibraryRows] = useState([]);
   const [projectId, setProjectId] = useState('');
@@ -217,6 +221,9 @@ export default function VideoCanvasWorkbench({
   const [clipError, setClipError] = useState('');
   const [exportManifest, setExportManifest] = useState(null);
   const [exportBusy, setExportBusy] = useState(false);
+  // 4c183cd4 续命 P-G: 链式生成 4 步面板 (文案->首帧->视频->音轨+字幕)
+  const [chainOpen, setChainOpen] = useState(false);
+  const [chainRefImage, setChainRefImage] = useState(null);
 
   const stageRef = useRef(null);
   const [flowOn] = useState(() => { try { return typeof localStorage !== 'undefined' && localStorage.getItem('shubao_flow_canvas') === '1'; } catch { return false; } });
@@ -956,24 +963,33 @@ export default function VideoCanvasWorkbench({
     if (!projectId || exportBusy || !exportReady.ok) return;
     setExportBusy(true);
     setError('');
-    // V4 P0-3 (D2) 启动长任务全屏进度条: 3 步 (准备资源 → 合并字幕与音轨 → 写入清单)
-    // V2 P0-3 增量: 事件驱动 markStep + Provider 200ms 心跳兜底, 进度条 0→100 真动态
+    // V2 P3 创意工作流 Automation (4c183cd4 续命): 0 步操作
+    // run({ id, title, stages }, asyncWork) 内部自动 startLongTask → 每次 advance() 触发 markStep → 收尾 stopLongTask
+    // 用户看不到 3 次手动 markStep, 只看到 run(asyncWork) 一行
     const taskId = `export-manifest:${projectId}`;
-    startLongTask({ id: taskId, title: '生成导出清单', totalSteps: 3, stage: '正在准备资源…' });
     try {
-      markStep(taskId, 0, '正在准备资源…');
-      // 短停顿让"准备资源"阶段可见
-      await new Promise((resolve) => setTimeout(resolve, 120));
-      markStep(taskId, 1, '正在合并字幕与音轨…');
-      const manifest = await createVideoExportManifest(projectId);
-      markStep(taskId, 2, '清单已生成');
-      updateLongTask(taskId, { progress: 100, stage: '清单已生成' });
+      const manifest = await runWorkflow(
+        {
+          id: taskId,
+          title: '生成导出清单',
+          stages: ['正在准备资源…', '正在合并字幕与音轨…', '清单已生成'],
+        },
+        async (advance) => {
+          // 第 1 步: 准备资源 (短停顿让"准备资源"阶段可见)
+          advance('正在准备资源…');
+          await new Promise((resolve) => setTimeout(resolve, 120));
+          // 第 2 步: 合并字幕与音轨 (服务端 createVideoExportManifest)
+          advance('正在合并字幕与音轨…');
+          const result = await createVideoExportManifest(projectId);
+          // 第 3 步: 写入清单
+          advance('清单已生成');
+          return result;
+        },
+      );
       setExportManifest(manifest);
     } catch (exportError) {
       setError(displayError(exportError));
     } finally {
-      // 保留 overlay 显示 600ms 让用户感知"完成"状态, 再隐藏 (心跳也会自动停)
-      setTimeout(() => stopLongTask(taskId), 600);
       setExportBusy(false);
     }
   }
@@ -1010,6 +1026,23 @@ export default function VideoCanvasWorkbench({
     } finally {
       setBusy('');
     }
+  }
+
+  // 4c183cd4 续命 P-G: 打开链式生成面板, 优先取选中节点的 previewUrl 作参考图
+  function handleOpenChainOrchestrator() {
+    const ref = (() => {
+      if (selectedNodes.length === 1) {
+        const n = selectedNodes[0];
+        return n.previewUrl || n.url || null;
+      }
+      // 退而求其次: 全画布首个 image/text 节点
+      const first = (nodes || []).find(function (x) {
+        return (x.kind === 'image' || x.kind === 'text') && (x.previewUrl || x.url);
+      });
+      return first ? (first.previewUrl || first.url) : null;
+    })();
+    setChainRefImage(ref);
+    setChainOpen(true);
   }
 
   function handleCreateShot() {

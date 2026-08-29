@@ -49,6 +49,9 @@ import { createPaymentService } from './billing/paymentService.mjs';
 import { createPaymentChannelRegistry } from './billing/paymentChannels.mjs';
 import { assertCatalogMarginGates } from './billing/catalog.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
+// 4c183cd4 续命 P-D commerce paywall: 微信/支付宝 sandbox 真接入 (4 档定价 + 月卡 2 档)
+import { createPaywallService } from './billing/paywall.mjs';
+import { mountPaywallRoutes } from './billing/paywallRoutes.mjs';
 import { visionRouter } from './routes/visionRouter.mjs';
 // 4c183cd4 续命 P1 TTS 口播 (provider-neutral 桥, 跟 modlens vision 桥同模式)
 import { mountTTSRoutes } from './services/ttsBridge.mjs';
@@ -245,6 +248,8 @@ assertCatalogMarginGates();
 // 支付通道注册表：wechat_qr/alipay 为 unavailable 占位 + 上线开关位；balance 保持 active。
 const paymentChannelRegistry = createPaymentChannelRegistry({ env: process.env });
 const paymentService = createPaymentService(db, walletService);
+// 4c183cd4 续命 P-D commerce paywall: 独立 paywall_transactions 表, 复用 walletService 入账 + grant 幂等键防撞
+const paywallService = createPaywallService(db, { env: process.env, walletService });
 const contentEntitlements = createContentEntitlements(db, walletService);
 const authSessionSecret = resolveAuthSessionSecret({
   envSecret: process.env.AUTH_SESSION_SECRET,
@@ -751,6 +756,22 @@ mountBillingRoutes(app, {
   },
   // 4c183cd4 续命 P2：复用 adminOperations.costSummary，避免再开第二条 SQL 路径
   costSummary: adminOperations.costSummary,
+});
+
+// 4c183cd4 续命 P-D commerce paywall: 微信/支付宝 sandbox 真接入, 4 档定价 + 月卡 2 档
+// 鉴权: 跟 mountBillingRoutes 同源 (authenticateContentRequest); admin 走 authorizeAdmin
+// 账务: paywallService 内部 grant, 幂等键前缀 paywall-grant:txId 防与主 paymentService 撞键
+mountPaywallRoutes(app, {
+  paywallService,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+  authorizeAdmin(email) {
+    return requireAdminAccess(db, email);
+  },
 });
 
 app.use('/api/vision', visionRouter);

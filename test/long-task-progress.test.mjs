@@ -3,7 +3,7 @@
 // 覆盖:
 // 1. LongTaskProvider 暴露 markStep API + 200ms 心跳常量
 // 2. markStep 计算 progress = (stepIdx+1)/totalSteps * 90 (末步 = 100)
-// 3. VideoCanvasWorkbench handleCreateExportManifest 调用 markStep 至少 3 次
+// 3. VideoCanvasWorkbench handleCreateExportManifest 通过 useWorkflowSteps 触发至少 3 步 (V2 P3 自动化)
 //
 // 用 fs.readFileSync + 正则匹配, 避开 .jsx 解析
 

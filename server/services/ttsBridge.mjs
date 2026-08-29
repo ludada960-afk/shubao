@@ -296,3 +296,94 @@ export function mountTTSRoutes(app, { authenticateOwner, requireAccountAccess = 
     }
   }));
 }
+
+// ── 真 keyring 加载 (跟 visionBridge.mjs loadKeyring 4c285eca 同模式) ──
+// keyring 文件: .env.d/tts-keyring.json (不入 git, 切换 = 改文件不改代码).
+// 单价表以 TTS_PRICING 为准; keyring 负责 apiKey/region/weight 路由.
+// 格式: { tts_providers: [{ name, label, apiKey, region?, weight?, dailyLimitHint? }], rotation: { strategy } }
+import { join } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
+
+export const TTS_KEYRING_VERSION = 1;
+
+function decodeKeyringB64(b64) {
+  if (!b64) return '';
+  if (!b64.startsWith('c2') && !b64.startsWith('c3')) return b64; // 非 base64 包装, 原值透传 (开发/测试)
+  try { return Buffer.from(b64, 'base64').toString('utf8'); } catch { return ''; }
+}
+
+let _ttsKeyring = null;
+let _ttsKeyringPath = null;
+export function loadTTSKeyring({ cwd = process.cwd(), path = null } = {}) {
+  if (_ttsKeyring && !path) return _ttsKeyring;
+  const p = path || join(cwd, '.env.d', 'tts-keyring.json');
+  _ttsKeyringPath = p;
+  if (!existsSync(p)) {
+    const empty = { tts_providers: [], rotation: { strategy: 'round-robin', cooldownSec: 0 } };
+    if (!path) _ttsKeyring = empty;
+    return empty;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(p, 'utf8'));
+    raw.tts_providers = (raw.tts_providers || []).map((v) => ({
+      name: v.name,
+      label: v.label || v.name,
+      apiKey: decodeKeyringB64(v.apiKey),
+      region: v.region || 'cn-north-1',
+      weight: v.weight || 50,
+      dailyLimitHint: v.dailyLimitHint || '',
+    }));
+    raw.rotation = raw.rotation || { strategy: 'round-robin', cooldownSec: 0 };
+    if (!path) _ttsKeyring = raw;
+    return raw;
+  } catch {
+    const empty = { tts_providers: [], rotation: { strategy: 'round-robin', cooldownSec: 0 } };
+    if (!path) _ttsKeyring = empty;
+    return empty;
+  }
+}
+
+export function clearTTSKeyringCache() {
+  _ttsKeyring = null;
+  _ttsKeyringPath = null;
+}
+
+export function getTTSKeyringPath() {
+  return _ttsKeyringPath || join(process.cwd(), '.env.d', 'tts-keyring.json');
+}
+
+let _ttsRRIndex = 0;
+export function pickTTSProvider({ preferredProvider = null, strategy = null, cwd = process.cwd(), path = null } = {}) {
+  const ring = loadTTSKeyring({ cwd, path });
+  const ks = (ring.tts_providers || []).filter((v) => v.apiKey && TTS_PRICING[v.name]);
+  if (preferredProvider) {
+    const p = ks.find((v) => v.name === preferredProvider);
+    return p || null;
+  }
+  if (!ks.length) return null;
+  const strat = strategy || ring.rotation?.strategy || 'round-robin';
+  if (strat === 'weighted') {
+    const sum = ks.reduce((a, p) => a + (p.weight || 50), 0);
+    let r = Math.random() * sum;
+    for (const p of ks) { r -= (p.weight || 50); if (r <= 0) return p; }
+    return ks[0];
+  }
+  // 默认 round-robin (与 visionBridge 4c285eca pickProvider 行为一致)
+  const p = ks[_ttsRRIndex % ks.length];
+  _ttsRRIndex += 1;
+  return p;
+}
+
+// 兼容 visionBridge listProviders 风格, 把 keyring 中的 provider 元信息对外列出.
+export function listTTSKeyringProviders({ cwd = process.cwd(), path = null } = {}) {
+  const ring = loadTTSKeyring({ cwd, path });
+  return (ring.tts_providers || []).map((p) => ({
+    name: p.name,
+    label: p.label,
+    weight: p.weight,
+    hasApiKey: Boolean(p.apiKey),
+    region: p.region,
+    dailyLimitHint: p.dailyLimitHint,
+    marginBand: TTS_PRICING[p.name]?.marginBand || 'unknown',
+  }));
+}

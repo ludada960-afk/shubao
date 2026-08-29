@@ -10,14 +10,23 @@ import {
   TTS_PRICING,
   TTS_VENDOR_SUMMARY,
   TTS_GANTT,
+  TTS_KEYRING_VERSION,
   computeTTSCost,
   computeTTSCostSnapshot,
   listTPSProviders,
   listTTSProviders,
+  listTTSKeyringProviders,
   nextProviderKey,
   synthesizeTTS,
   mountTTSRoutes,
+  loadTTSKeyring,
+  pickTTSProvider,
+  clearTTSKeyringCache,
+  getTTSKeyringPath,
 } from '../server/services/ttsBridge.mjs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { join, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 
 // 1) 5 provider 单价表 ── 跟 1d6d17fa costBasis 模型表口径一致
 test('TTS_PRICING 5 价正确 (跟 1d6d17fa costBasis 同模型表)', () => {
@@ -340,4 +349,160 @@ test('computeTTSCostSnapshot 毛利告警 (0 < margin < 0.40)', () => {
   });
   // margin = (0.131 - 0.10) / 0.131 ≈ 0.24, warning
   assert.ok(snap.health === 'warning' || snap.health === 'breach', `health=${snap.health}`);
+});
+
+// 10) TTS 真 keyring (跟 visionBridge 4c285eca loadKeyring 同模式)
+// Day 1 落地点: 跟 modlens vision 桥对齐, 走 .env.d/tts-keyring.json 文件, 不依赖环境变量.
+test('TTS_KEYRING_VERSION 显式为 1 (跟 vision-keyring 同源)', () => {
+  assert.equal(TTS_KEYRING_VERSION, 1);
+});
+
+test('loadTTSKeyring 缺文件返空 ring (走 5 provider 兜底)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  try {
+    const ring = loadTTSKeyring({ path: join(dir, 'nope.json') });
+    assert.equal(ring.tts_providers.length, 0);
+    assert.equal(ring.rotation.strategy, 'round-robin');
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('loadTTSKeyring 真文件 + 2 provider (volcengine 主 + elevenlabs 备) 解码 apiKey', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  const keyringPath = join(dir, 'tts-keyring.json');
+  // base64 编码 "sk-volc-test-1234" 模拟真实 keyring
+  const b64 = Buffer.from('sk-volc-test-1234', 'utf8').toString('base64');
+  writeFileSync(keyringPath, JSON.stringify({
+    tts_providers: [
+      { name: 'volcengine', label: '火山主', apiKey: b64, region: 'cn-north-1', weight: 100 },
+      { name: 'elevenlabs', label: 'ElevenLabs 备', apiKey: 'sk-11l-plain-99', weight: 60 },
+    ],
+    rotation: { strategy: 'round-robin', cooldownSec: 0 },
+  }));
+  clearTTSKeyringCache();
+  try {
+    const ring = loadTTSKeyring({ path: keyringPath });
+    assert.equal(ring.tts_providers.length, 2);
+    assert.equal(ring.tts_providers[0].name, 'volcengine');
+    assert.equal(ring.tts_providers[0].apiKey, 'sk-volc-test-1234', 'base64 应被解码');
+    assert.equal(ring.tts_providers[0].weight, 100);
+    assert.equal(ring.tts_providers[1].apiKey, 'sk-11l-plain-99', '明文 key 透传');
+  } finally {
+    clearTTSKeyringCache();
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('pickTTSProvider preferredProvider 命中 keyring 名字', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  const keyringPath = join(dir, 'tts-keyring.json');
+  writeFileSync(keyringPath, JSON.stringify({
+    tts_providers: [
+      { name: 'volcengine', apiKey: 'sk-1', weight: 100 },
+      { name: 'elevenlabs', apiKey: 'sk-2', weight: 60 },
+    ],
+    rotation: { strategy: 'round-robin' },
+  }));
+  clearTTSKeyringCache();
+  try {
+    const p = pickTTSProvider({ preferredProvider: 'elevenlabs', path: keyringPath });
+    assert.ok(p, '应命中');
+    assert.equal(p.name, 'elevenlabs');
+    assert.equal(p.apiKey, 'sk-2');
+  } finally {
+    clearTTSKeyringCache();
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('pickTTSProvider preferredProvider 不在 keyring 返 null', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  const keyringPath = join(dir, 'tts-keyring.json');
+  writeFileSync(keyringPath, JSON.stringify({
+    tts_providers: [{ name: 'volcengine', apiKey: 'sk-1', weight: 100 }],
+    rotation: { strategy: 'round-robin' },
+  }));
+  clearTTSKeyringCache();
+  try {
+    const p = pickTTSProvider({ preferredProvider: 'aliyun', path: keyringPath });
+    assert.equal(p, null);
+  } finally {
+    clearTTSKeyringCache();
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('pickTTSProvider keyring 空返 null (走 nextProviderKey 兜底)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  const keyringPath = join(dir, 'tts-keyring.json');
+  writeFileSync(keyringPath, JSON.stringify({ tts_providers: [], rotation: { strategy: 'round-robin' } }));
+  clearTTSKeyringCache();
+  try {
+    const p = pickTTSProvider({ path: keyringPath });
+    assert.equal(p, null);
+  } finally {
+    clearTTSKeyringCache();
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('pickTTSProvider keyring provider.name 不在 TTS_PRICING 中被过滤', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  const keyringPath = join(dir, 'tts-keyring.json');
+  writeFileSync(keyringPath, JSON.stringify({
+    tts_providers: [
+      { name: 'unknown-xyz', apiKey: 'sk-x', weight: 100 }, // 5 provider 之外的
+      { name: 'volcengine', apiKey: 'sk-v', weight: 80 },
+    ],
+    rotation: { strategy: 'round-robin' },
+  }));
+  clearTTSKeyringCache();
+  try {
+    const p = pickTTSProvider({ path: keyringPath });
+    assert.equal(p.name, 'volcengine', 'unknown-xyz 应被过滤');
+  } finally {
+    clearTTSKeyringCache();
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('listTTSKeyringProviders 把 keyring 元信息列出 (含 marginBand)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tts-kr-'));
+  const keyringPath = join(dir, 'tts-keyring.json');
+  writeFileSync(keyringPath, JSON.stringify({
+    tts_providers: [
+      { name: 'volcengine', apiKey: 'sk-1', weight: 100, dailyLimitHint: '主' },
+      { name: 'elevenlabs', apiKey: 'sk-2', weight: 60, dailyLimitHint: '备' },
+    ],
+    rotation: { strategy: 'weighted' },
+  }));
+  clearTTSKeyringCache();
+  try {
+    const list = listTTSKeyringProviders({ path: keyringPath });
+    assert.equal(list.length, 2);
+    assert.equal(list[0].name, 'volcengine');
+    assert.equal(list[0].weight, 100);
+    assert.equal(list[0].hasApiKey, true);
+    assert.equal(list[0].marginBand, 'core');
+    assert.equal(list[1].marginBand, 'premium');
+  } finally {
+    clearTTSKeyringCache();
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+});
+
+test('clearTTSKeyringCache 清掉缓存 (避免单测污染)', () => {
+  // 先清一次
+  clearTTSKeyringCache();
+  // 重新加载真实默认路径 (如果不存在应返空)
+  const ring = loadTTSKeyring();
+  assert.ok(ring, '应返有效 ring (空/有内容都算)');
+  assert.ok(Array.isArray(ring.tts_providers));
+});
+
+test('getTTSKeyringPath 默认指向 .env.d/tts-keyring.json', () => {
+  clearTTSKeyringCache();
+  const p = getTTSKeyringPath();
+  assert.ok(p.endsWith(`.env.d${sep}tts-keyring.json`) || p.includes('tts-keyring.json'), `path=${p}`);
 });
