@@ -1,0 +1,270 @@
+/* ═══════ 4c183cd4 续命 画布中央弹窗 3 行分层视觉 v3 (1 张参考图 + 1 句 prompt) ═══════ */
+/* 资深美工视角: 3 行分层 (添加素材 / AI 生成 / 智能) 视觉密度清晰, 1 行 9 按钮 -> 3 行 9 按钮
+   产品经理视角: 认知路径分层, 用户先选 入口 (3 选 1) -> 再选 AI 任务 (2+4 选 1)
+   流影AI 调研视角: 1 张参考图 + 1 句 prompt = 现代 SaaS 画布 (TapNow Agent) + 电商画布 (Quantv 模板) 标准入口
+   毛玻璃 backdrop-filter, 暗色模式 token 化, 响应式 (移动单列) */
+
+/* 整体面板 — 比 v2 760px 窄, 用户 8-29 硬性要求 "不能搞得这么宽" */
+.ec-canvas-empty-state > div {
+  width: min(640px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+@media (max-width: 720px) {
+  .ec-canvas-empty-state > div { width: min(560px, calc(100vw - 24px)); }
+}
+@media (max-width: 540px) {
+  .ec-canvas-empty-state > div { width: calc(100vw - 24px); padding: 22px 16px 20px; }
+}
+
+/* 标题 + 副标 (无内部术语, 用户 8-29 硬性要求 "你为什么要告诉用户这个呢?") */
+.ec-canvas-empty-state strong {
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: .01em;
+  color: var(--text-primary);
+  text-align: center;
+}
+.ec-canvas-empty-state p {
+  margin: 8px 0 22px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* 3 行外层 — 毛玻璃 + 间距 */
+.ec-canvas-empty-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* 1 行 — 容器 */
+.ec-canvas-empty-row {
+  display: grid;
+  gap: 6px;
+  align-items: stretch;
+}
+
+/* Row 1 - 添加素材 (3 入口) - 主操作行, 按钮大 */
+.ec-canvas-empty-row.is-primary-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ec-canvas-empty-row.is-primary-row button {
+  min-height: 56px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+}
+.ec-canvas-empty-row.is-primary-row button svg {
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, .08);
+  color: var(--canvas-command);
+  flex-shrink: 0;
+  transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out);
+}
+
+/* Row 2 - AI 生成 (2 入口) - 次操作行, 按钮中 */
+.ec-canvas-empty-row.is-generate-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 2px;
+}
+.ec-canvas-empty-row.is-generate-row button {
+  min-height: 48px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  gap: 7px;
+}
+.ec-canvas-empty-row.is-generate-row button svg {
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: rgba(37, 99, 235, .06);
+  color: var(--canvas-command);
+  flex-shrink: 0;
+  transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out);
+}
+
+/* Row 3 - 智能 (4 入口) - 第三操作行, 按钮小, 视觉密度高 */
+.ec-canvas-empty-row.is-smart-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--canvas-hairline);
+  position: relative;
+}
+.ec-canvas-empty-row.is-smart-row::before {
+  content: "智能";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 8px;
+  background: var(--canvas-surface, #fff);
+  color: var(--text-hint, #9a9490);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.ec-canvas-empty-row.is-smart-row button {
+  min-height: 60px;
+  padding: 8px 6px;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  flex-direction: column;
+  gap: 4px;
+  white-space: normal;
+  justify-content: center;
+}
+.ec-canvas-empty-row.is-smart-row button svg {
+  width: 22px;
+  height: 22px;
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: rgba(82, 117, 204, .10);
+  color: var(--blue, #5275cc);
+  flex-shrink: 0;
+  transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out);
+}
+
+/* 通用 button 样式 — 毛玻璃 + 边框 + 渐变 + hover lift + 暗色模式 */
+.ec-canvas-empty-actions button {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--canvas-hairline, rgba(15, 23, 42, .08));
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .75);
+  color: var(--text-primary, #1a1614);
+  box-shadow: 0 1px 2px rgba(57, 45, 26, .04), 0 1px 1px rgba(57, 45, 26, .04);
+  font: inherit;
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--ec-motion-fast, 0.12s) var(--ec-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
+              box-shadow var(--ec-motion-fast, 0.12s) var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1)),
+              border-color var(--ec-motion-fast, 0.12s) var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1)),
+              background var(--ec-motion-fast, 0.12s) var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1));
+  animation: ecHeroRise 320ms var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1)) backwards;
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+}
+.ec-canvas-empty-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, .32);
+  box-shadow: 0 4px 14px rgba(57, 45, 26, .08), 0 1px 3px rgba(57, 45, 26, .06);
+  background: rgba(255, 255, 255, .92);
+}
+.ec-canvas-empty-actions button:hover:not(:disabled) svg {
+  transform: scale(1.06);
+  background: rgba(37, 99, 235, .14);
+}
+.ec-canvas-empty-actions button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(57, 45, 26, .04);
+  transition-duration: 60ms;
+}
+.ec-canvas-empty-actions button:focus-visible {
+  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline-offset: 2px;
+}
+.ec-canvas-empty-actions button.is-primary {
+  color: #fff;
+  background: linear-gradient(180deg, rgba(37, 99, 235, .96), rgba(37, 99, 235, .85) 58%, rgba(29, 78, 216, .92));
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, .24), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+.ec-canvas-empty-actions button.is-primary svg {
+  color: #fff;
+  background: rgba(255, 255, 255, .18);
+}
+.ec-canvas-empty-actions button.is-primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 1), rgba(29, 78, 216, .98));
+  box-shadow: 0 6px 18px rgba(37, 99, 235, .32);
+}
+.ec-canvas-empty-actions button.is-primary:hover:not(:disabled) svg {
+  background: rgba(255, 255, 255, .24);
+}
+
+/* 暗色模式 token 化 */
+[data-theme="dark"] .ec-canvas-empty-actions button {
+  background: rgba(28, 26, 24, .75);
+  color: var(--text-primary, #f5efe4);
+  border-color: var(--border, rgba(245, 239, 228, .10));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .40), 0 1px 1px rgba(0, 0, 0, .30);
+}
+[data-theme="dark"] .ec-canvas-empty-actions button:hover:not(:disabled) {
+  background: rgba(35, 33, 32, .92);
+  border-color: rgba(123, 149, 224, .45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .50), 0 1px 3px rgba(0, 0, 0, .40);
+}
+[data-theme="dark"] .ec-canvas-empty-row.is-primary-row button svg {
+  background: rgba(123, 149, 224, .18);
+  color: #7b95e0;
+}
+[data-theme="dark"] .ec-canvas-empty-row.is-generate-row button svg {
+  background: rgba(123, 149, 224, .14);
+  color: #7b95e0;
+}
+[data-theme="dark"] .ec-canvas-empty-row.is-smart-row button svg {
+  background: rgba(123, 149, 224, .16);
+  color: #7b95e0;
+}
+[data-theme="dark"] .ec-canvas-empty-row.is-smart-row {
+  border-top-color: var(--border, rgba(245, 239, 228, .10));
+}
+[data-theme="dark"] .ec-canvas-empty-row.is-smart-row::before {
+  background: var(--bg-elevated, #232120);
+  color: var(--text-muted, #9a9490);
+}
+[data-theme="dark"] .ec-canvas-empty-actions button.is-primary {
+  background: linear-gradient(180deg, rgba(123, 149, 224, .96), rgba(82, 117, 204, .92));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .50), inset 0 1px 0 rgba(255, 255, 255, .10);
+}
+[data-theme="dark"] .ec-canvas-empty-actions button.is-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(123, 149, 224, 1), rgba(82, 117, 204, 1));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .60);
+}
+
+/* 响应式: 移动端按钮宽度自适应, 1 列 (3+2+4 = 4+1+1 = 6 按钮) */
+@media (max-width: 540px) {
+  .ec-canvas-empty-row.is-primary-row { grid-template-columns: 1fr; }
+  .ec-canvas-empty-row.is-generate-row { grid-template-columns: 1fr 1fr; }
+  .ec-canvas-empty-row.is-smart-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* 减少动效 */
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-empty-actions button { animation: none; transition: none; }
+  .ec-canvas-empty-actions button:hover:not(:disabled) { transform: none; }
+}
+
+/* 入场动画 — stagger (第 1-9 个按钮依次浮现) */
+@keyframes ecHeroRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ec-canvas-empty-actions button { animation: ecHeroRise 320ms var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1)) backwards; }
+.ec-canvas-empty-row.is-primary-row button:nth-child(1) { animation-delay: 30ms; }
+.ec-canvas-empty-row.is-primary-row button:nth-child(2) { animation-delay: 70ms; }
+.ec-canvas-empty-row.is-primary-row button:nth-child(3) { animation-delay: 110ms; }
+.ec-canvas-empty-row.is-generate-row button:nth-child(1) { animation-delay: 160ms; }
+.ec-canvas-empty-row.is-generate-row button:nth-child(2) { animation-delay: 200ms; }
+.ec-canvas-empty-row.is-smart-row button:nth-child(1) { animation-delay: 250ms; }
+.ec-canvas-empty-row.is-smart-row button:nth-child(2) { animation-delay: 290ms; }
+.ec-canvas-empty-row.is-smart-row button:nth-child(3) { animation-delay: 330ms; }
+.ec-canvas-empty-row.is-smart-row button:nth-child(4) { animation-delay: 370ms; }

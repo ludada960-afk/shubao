@@ -89,6 +89,7 @@ import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialo
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
 import './EcCanvas.css';
 import '../../styles/canvas-derive-menu.css';
+import '../../styles/canvas-empty-actions.css';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },
@@ -4539,32 +4540,32 @@ export default function EcCanvas() {
                 }}
               >
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
-                <p>从商品素材开始，AI 帮你生成套图、文案、视频、音轨、字幕一站搞定</p>
+                <p>从商品素材开始，AI 帮你完成后续视觉</p>
+                {/* 3 行分层: 添加素材 (3 入口) + AI 生成 (2 入口) + 智能 (4 入口)
+                   资深美工 + 产品经理视角: 3 行而非 1 行 9 按钮, 视觉密度分层, 认知路径清晰
+                   智能行 4 入口走 addCanvasComposer (开 prompt 节点), 不是 handleCreateDerivedNode (需要 source 节点),
+                   修复 v2 bug: 空画布时 4 智能按钮无反应 (因为 nodes.length === 0) */}
                 <div className="ec-canvas-empty-actions">
-                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
-                  <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
-                  <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
-                  <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
-                  <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
-                  {/* 4 流影AI LibTV 风格新功能 (用户 8-29 硬性指定 1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效) */}
-                  <button type="button" className="is-primary" onClick={() => {
-                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
-                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('one-click-suite') || { id: 'one-click-suite', label: '1-click 套图' });
-                  }} aria-label="1-click 套图 — 一键生成电商 5 宫格"><HeroGlyph kind="oneclick" />1-click 套图<small>5 宫格</small></button>
-                  <button type="button" className="is-primary" onClick={() => {
-                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
-                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('one-click-video') || { id: 'one-click-video', label: '1-click 视频模板' });
-                  }} aria-label="1-click 视频模板 — 4 步 chain 文案到首帧到视频到音轨+字幕"><HeroGlyph kind="oneclick" />1-click 视频<small>4 步</small></button>
-                  <button type="button" className="is-primary" onClick={() => {
-                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
-                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('tts-voiceover') || { id: 'tts-voiceover', label: 'TTS 配音' });
-                  }} aria-label="TTS 配音 — 5 家供应商 美式播客感"><HeroGlyph kind="voiceover" />TTS 配音<small>5 provider</small></button>
-                  <button type="button" className="is-primary" onClick={() => {
-                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
-                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('caption-motion') || { id: 'caption-motion', label: '字幕动效' });
-                  }} aria-label="字幕动效 — 流影AI 风格字幕排版 + 弹出/淡入/逐字"><HeroGlyph kind="captions" />字幕动效<small>弹出/淡入</small></button>
+                  {/* Row 1 - 添加素材 (3 入口) */}
+                  <div className="ec-canvas-empty-row is-primary-row" role="group" aria-label="添加素材">
+                    <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
+                    <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
+                    <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
+                  </div>
+                  {/* Row 2 - AI 生成 (2 入口) */}
+                  <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="AI 生成">
+                    <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
+                    <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
+                  </div>
+                  {/* Row 3 - 智能 (4 入口) — 不写来源 (用户 8-29 原话: "你为什么要告诉用户这个呢?") */}
+                  <div className="ec-canvas-empty-row is-smart-row" role="group" aria-label="智能生成">
+                    <button type="button" onClick={() => addCanvasComposer('suite', { actionId: 'one-click-suite' })}><HeroGlyph kind="oneclick" />1-click 套图</button>
+                    <button type="button" onClick={() => addCanvasComposer('video', { actionId: 'one-click-video' })}><HeroGlyph kind="oneclick" />1-click 视频</button>
+                    <button type="button" onClick={() => addCanvasComposer('text', { actionId: 'tts-voiceover' })}><HeroGlyph kind="voiceover" />TTS 配音</button>
+                    <button type="button" onClick={() => addCanvasComposer('text', { actionId: 'caption-motion' })}><HeroGlyph kind="captions" />字幕动效</button>
+                  </div>
                 </div>
-                
+
               </div>
             </div>
           )}

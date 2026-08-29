@@ -201,37 +201,12 @@
    area, single layer, saturate+blur — with an opaque fallback for engines
    without backdrop-filter. Cursor spotlight tracks via two custom props. */
 .ec-canvas-empty-state { position: absolute; z-index: 10; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.ec-canvas-empty-state > div { position: relative; overflow: hidden; border-radius: var(--ec-radius-lg); background: rgba(255, 255, 255, .55); border: 1px solid rgba(255, 255, 255, .85); box-shadow: var(--ec-shadow-2); padding: 26px 24px 24px; backdrop-filter: blur(10px) saturate(150%); -webkit-backdrop-filter: blur(10px) saturate(150%); }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .ec-canvas-empty-state > div { background: rgba(252, 253, 254, .92); }
-}
+.ec-canvas-empty-state > div { position: relative; overflow: hidden; }
 .ec-canvas-empty-state > div::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; background: radial-gradient(300px circle at var(--ec-spot-x, 50%) var(--ec-spot-y, 30%), rgba(37, 99, 235, .07), transparent 68%); opacity: 0; transition: opacity var(--ec-motion-base) var(--ec-ease-out); pointer-events: none; }
 .ec-canvas-empty-state > div:hover::before { opacity: 1; }
-.ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; width: min(760px, calc(100vw - 32px)); pointer-events: auto; }
-.ec-canvas-empty-state strong { font-size: 16px; font-weight: 750; letter-spacing: .01em; }
-.ec-canvas-empty-state p { margin: 6px 0 20px; color: var(--canvas-muted); font-size: 12px; }
-.ec-canvas-empty-actions { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(max-content, 1fr)); gap: 10px; }
-.ec-canvas-empty-actions button { min-width: 0; height: 48px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 0 13px; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-lg); background: var(--canvas-surface); color: #2a3040; box-shadow: var(--ec-shadow-1); font-size: 12px; font-weight: 700; letter-spacing: .005em; white-space: nowrap; cursor: pointer; position: relative; transition: transform var(--ec-motion-fast) var(--ec-ease-spring), box-shadow var(--ec-motion-fast) var(--ec-ease-out), border-color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out); }
-.ec-canvas-empty-actions button svg { width: 28px; height: 28px; padding: 6px; box-sizing: border-box; border-radius: calc(var(--ec-radius-lg) - 4px); background: #eef3ff; color: var(--canvas-command); flex-shrink: 0; transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out), color var(--ec-motion-fast) var(--ec-ease-out); }
-.ec-canvas-empty-actions button:hover:not(:disabled) { transform: translateY(var(--ec-hover-lift)); border-color: rgba(37, 99, 235, .38); box-shadow: var(--ec-shadow-2), var(--ec-ring-inset); background: #fdfdff; }
-.ec-canvas-empty-actions button:hover:not(:disabled) svg { transform: scale(1.08); background: #e3edff; }
-.ec-canvas-empty-actions button:active:not(:disabled) { transform: translateY(var(--ec-press-drop)); box-shadow: var(--ec-shadow-1); transition-duration: var(--ec-motion-fast); }
-.ec-canvas-empty-actions button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 2px; }
-.ec-canvas-empty-actions button.is-primary { color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--canvas-command) 94%, #fff), var(--canvas-command) 58%, color-mix(in srgb, var(--canvas-command) 86%, #000)); border-color: transparent; box-shadow: var(--ec-shadow-1), inset 0 1px 0 rgba(255, 255, 255, .18); }
-.ec-canvas-empty-actions button.is-primary svg { color: #fff; background: rgba(255, 255, 255, .17); }
-.ec-canvas-empty-actions button.is-primary:hover:not(:disabled) { border-color: transparent; background: linear-gradient(180deg, var(--canvas-command), var(--canvas-command-hover)); box-shadow: var(--ec-shadow-2); }
-.ec-canvas-empty-actions button.is-primary:hover:not(:disabled) svg { background: rgba(255, 255, 255, .24); }
-.ec-canvas-empty-actions button { animation: ecHeroRise var(--ec-motion-base) var(--ec-ease-out) backwards; }
-.ec-canvas-empty-actions button:nth-child(1) { --ec-stagger: 20ms; animation-delay: var(--ec-stagger); }
-.ec-canvas-empty-actions button:nth-child(2) { --ec-stagger: 60ms; animation-delay: var(--ec-stagger); }
-.ec-canvas-empty-actions button:nth-child(3) { --ec-stagger: 100ms; animation-delay: var(--ec-stagger); }
-.ec-canvas-empty-actions button:nth-child(4) { --ec-stagger: 140ms; animation-delay: var(--ec-stagger); }
-.ec-canvas-empty-actions button:nth-child(5) { --ec-stagger: 180ms; animation-delay: var(--ec-stagger); }
-.ec-canvas-empty-actions button:nth-child(n) .ec-hero-glyph-slot { animation-delay: calc(var(--ec-stagger, 0ms) + var(--ec-motion-base)); }
-@keyframes ecHeroRise {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+/* Central modal inner visual (3-row layered / glass / dark / responsive) lives in src/styles/canvas-empty-actions.css */
+
 @media (prefers-reduced-motion: reduce) {
   .ec-canvas-empty-actions button,
   .ec-canvas-empty-actions button .ec-hero-glyph-slot,
@@ -743,10 +718,6 @@
 }
 
 @media (max-width: 620px) {
-  .ec-canvas-empty-state > div { width: min(360px, calc(100vw - 24px)); padding: 18px 12px; }
-  .ec-canvas-empty-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ec-canvas-empty-actions button { justify-content: flex-start; }
-  .ec-canvas-empty-actions button:last-child { grid-column: 1 / -1; justify-content: center; }
   .ec-canvas-topbar { height: 96px; flex-basis: 96px; flex-wrap: wrap; align-content: center; gap: 4px; padding: 4px 8px; overflow: hidden; }
   .ec-canvas-topbar-leading { width: 100%; gap: 6px; }
   .ec-canvas-project-title { flex: 1; min-width: 0; max-width: none; }

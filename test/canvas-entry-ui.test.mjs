@@ -5,6 +5,7 @@ import test from 'node:test';
 test('empty canvas presents image, video, works, and generation entrypoints', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
+  const cssEmpty = await readFile(new URL('../src/styles/canvas-empty-actions.css', import.meta.url), 'utf8');
   assert.match(source, /从一个素材开始，继续完成整套视觉内容/);
   assert.match(source, /上传图片/);
   assert.match(source, /上传视频/);
@@ -15,7 +16,10 @@ test('empty canvas presents image, video, works, and generation entrypoints', as
   assert.doesNotMatch(source, /CanvasSourceImportSheet|sourceImportOpen|product_original|style_reference|general_material/);
   assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);
   assert.match(css, /\.ec-canvas-empty-state > div \{[^}]*pointer-events: auto;/);
-  assert.match(css, /\.ec-canvas-empty-actions \{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(max-content,\s*1fr\)\)/);
+  /* v3: 中央弹窗内 3 行分层视觉 走独立 src/styles/canvas-empty-actions.css (4c183cd4 续命 抽离) */
+  assert.match(cssEmpty, /\.ec-canvas-empty-row\.is-primary-row/);
+  assert.match(cssEmpty, /\.ec-canvas-empty-row\.is-generate-row/);
+  assert.match(cssEmpty, /\.ec-canvas-empty-row\.is-smart-row/);
   assert.doesNotMatch(css, /@media \(max-width: 900px\)\s*\{\s*\.ec-canvas-empty-actions/);
 });
 

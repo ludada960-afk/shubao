@@ -1,0 +1,118 @@
+feat(canvas): 中央弹窗 TapNow 第一版视觉 v3 (3 行分层 + 修 4 按钮 bug) (4c183cd4 续命)
+
+用户 8-29 原话 (硬性反馈 v2 错误):
+"你为什么要展示这些告诉我的东西呢? 这些什么选中素材后右侧什么什么这些东西. 这些是要展示给用户看的吗? 用户需要看这些吗? 你只要提供这些功能给到用户, 用户自己就能够体验到呀."
+
+"你下面这几个新添加的功能, 什么智能分镜套图还有配音这些, 我现在点击了都是没有反应的, 任何反应都没有啊. 然后我之前不是也一直跟你说, 你这个面板不能搞得这么宽吗? 我说你直接去抄别人的面板是怎么做的呀? 就是进入画布的第一版视觉是怎么做的呀?"
+
+"我感觉你好像真的没有去调研啊. 如果你真的有去调研的话, 你应该明白, 我在说就是要以其中一个作为股价, 然后其他两个作为补充来做嘛. 你现在的情况就是完全没有以任何一个作为骨架去做, 然后上面还搞个留影AI风格这个说法, 你为什么要告诉用户这个呢? 用户为什么要知道这个呢? 你这些信息是直接在报告里面跟我说就好了呀, 你为什么要在网站上面体现这些东西呢? 你是真的有毛病吗?"
+
+# v2 (bcaef198 + d453dc27 + 8e237600) 错误 -> v3 修正
+
+## 4 个硬性修正 (按用户 8-29 原话)
+
+1. **不写内部术语**: 删除中央弹窗所有 "(流影AI 风格)" / "LibTV Agent" / "TapNow" 内部术语
+   - v2: "<p>从商品素材开始，AI 帮你生成套图、文案、视频、音轨、字幕一站搞定</p>" (无内部术语, 8e237600 已修)
+   - v3: "<p>从商品素材开始，AI 帮你完成后续视觉</p>" (进一步精简)
+
+2. **修 4 智能按钮无反应 bug**:
+   - v2: 4 按钮用 handleCreateDerivedNode (需要 sourceNodeId, 空画布时 src=undefined 静默返回)
+   - v3: 4 按钮改用 addCanvasComposer (开 prompt 节点, 空画布时也能开)
+     - addCanvasComposer('suite', { actionId: 'one-click-suite' })
+     - addCanvasComposer('video', { actionId: 'one-click-video' })
+     - addCanvasComposer('text', { actionId: 'tts-voiceover' })
+     - addCanvasComposer('text', { actionId: 'caption-motion' })
+
+3. **改窄面板** (用户 8-29 硬性要求 "不能搞得这么宽"):
+   - v1/v2 EcCanvas.css: 760px
+   - v3 canvas-empty-actions.css: 640px (主屏) / 560px (平板) / 全宽 (移动)
+
+4. **TapNow 第一版视觉** (用户 8-29 硬性要求 "进入画布的第一版视觉是怎么做的呀?"):
+   - v2: 1 行 9 按钮 (信息密度过载, 用户 8-29 反馈 "搞得这么宽")
+   - v3: 3 行分层 (3 + 2 + 4 = 9 按钮, 视觉密度分层)
+     - Row 1 添加素材 (3 入口, primary): 上传图片 / 上传视频 / 从我的作品导入
+     - Row 2 AI 生成 (2 入口, secondary): 生成电商套图 / 生成视频
+     - Row 3 智能 (4 入口, 虚线分隔 + 标签 "智能"): 1-click 套图 / 1-click 视频 / TTS 配音 / 字幕动效
+
+# 改的内容 (本 commit)
+
+## 1. src/pages/EcCanvas/index.jsx (中央 modal 重写)
+- 1 行 9 按钮 -> 3 行分层 9 按钮
+- 4 智能按钮: handleCreateDerivedNode -> addCanvasComposer (修 v2 bug)
+- 副标文案精简: "AI 帮你完成后续视觉" (不写"一站搞定"等冗余)
+- 智能行 4 按钮 aria-label="智能生成" (替代 v2 的"流影AI 智能"内部术语)
+- 新增 import: '../../styles/canvas-empty-actions.css'
+
+## 2. src/styles/canvas-empty-actions.css (新文件, 独立 CSS 资产)
+- 资深美工视角: 3 行分层视觉密度清晰, 1 行 9 按钮 -> 3 行 9 按钮
+- 产品经理视角: 认知路径分层, 用户先选 入口 (3 选 1) -> 再选 AI 任务 (2+4 选 1)
+- 流影AI 调研视角: 1 张参考图 + 1 句 prompt = 现代 SaaS 画布标准入口
+- 毛玻璃 backdrop-filter: blur(8px) saturate(140%)
+- 暗色模式 [data-theme="dark"] token 化 (无硬编码颜色)
+- 响应式: 桌面 3+2+4 列 / 平板 (720px 以下) 3+2+4 -> 全宽 / 移动 (540px 以下) 1+2+2 列
+- 减少动效 @media (prefers-reduced-motion: reduce)
+- 入场动画 ecHeroRise 320ms + stagger (9 个按钮依次浮现 30/70/110/160/200/250/290/330/370ms)
+
+## 3. src/pages/EcCanvas/EcCanvas.css (清理, 减 32 行)
+- 删 旧 .ec-canvas-empty-state 中央 modal CSS (lines 203-234, 32 行)
+- 中央弹窗 base 容器 (position/z-index/pointer-events) 保留
+- cursor spotlight (::before radial-gradient) 保留
+- 删 旧 .ec-canvas-empty-actions grid (1 行 9 按钮) CSS
+- 删 旧 mobile responsive (1 行 9 按钮响应式) CSS
+- inner 视觉 (3 行分层 / 毛玻璃 / 暗色 / 响应式) 走独立 src/styles/canvas-empty-actions.css
+
+## 4. test/canvas-tapnow-visual.test.mjs (新文件, 7 视觉契约测试)
+- 1) 独立 CSS 资产契约 (2 测试): canvas-empty-actions.css 存在 + 3 行分层 + 毛玻璃 + 暗色 + 响应式
+- 2) 3 行分层集成契约 (3 测试): 9 个按钮 (3+2+4) + 4 智能按钮走 addCanvasComposer + 不写内部术语
+- 3) 窄面板 + 响应式契约 (2 测试): width < 720px + 暗色模式 + 响应式 + 减少动效 + 入场动画 keyframes
+
+## 5. test/canvas-entry-ui.test.mjs (调整 1 测试)
+- 旧测试断言 .ec-canvas-empty-actions grid repeat(auto-fit, minmax(max-content, 1fr)) 旧 1 行 9 按钮 CSS pattern
+- v3 改为: 3 行分层 CSS 必填 (is-primary-row + is-generate-row + is-smart-row), 在 src/styles/canvas-empty-actions.css
+
+# 调研依据 (4c183cd4 续命 v2 真调研 47 张截图)
+
+来源: .superpowers/sdd/2026-08-28-v2-deep-research.md
+- TapNow: 营销页 mockup 完整呈现 7 大功能 (节点 + Agent + 导演台), 1 张参考图 + 1 句 prompt
+- Liblib: LibTV Agent + 6 卡片 (Seedance 2.5 / Wan 3.0 / MiniMax H3 / 导演台 / 逐帧拉片 / 片段重拍)
+- Quantv: 36 模板卡片, 6 大类 (产品精修 / 照片精修 / 风格材质更换 / 画面主体迁移融合 / 爆款商品文字海报)
+
+TapNow 第一版视觉 (1 张参考图 + 1 句 prompt):
+- Agent 自动生成 Scene 1 (Enclosure) -> Scene 2 (Breakthrough) -> Scene 3 (Framing)
+- 多角度相机: 3D cube Rotation/Tilt/Scale/Wide-Angle
+- Studio lighting: Brightness/Color Temp/Main Light 6 方向/Rim Light
+- Lens Combo: ARRI ALEXA 65 + Cooke S4/i + 焦距/光圈 滑块
+- 9 个模型: 公开 + 积分表透明 (每 1 秒扣多少)
+
+# 三视角合一 (用户硬性要求)
+
+1. 资深美工视角 (frontend-design skill):
+   - 3 行分层视觉密度清晰, 1 行 9 按钮 (信息密度过载) -> 3 行分层 (3+2+4)
+   - 毛玻璃 backdrop-filter 跟 pricing refactor 8d608493 风格一致
+   - 暗色模式 token 化, 响应式 3 档断点 (720px/540px)
+
+2. 产品经理视角 (impeccable skill):
+   - 认知路径分层: 选入口 (3 选 1) -> 选 AI 任务 (2+4 选 1)
+   - 5 原有 + 4 流影AI = 9 按钮, 按"先添加素材 -> 再选 AI"分层
+   - 智能行带"智能"虚线分隔 + 标签, 视觉上跟"添加素材"+"AI 生成"区分
+
+3. 流影AI 调研视角 (LibTV Agent 风格):
+   - TapNow 第一版视觉 = 1 张参考图 + 1 句 prompt (用户 8-29 硬性要求)
+   - 不写内部术语 (用户 8-29 硬性要求 "你为什么要告诉用户这个呢?")
+   - 4 流影AI 智能行: 1-click 套图 / 1-click 视频 / TTS 配音 / 字幕动效 (用户硬性指定)
+
+# 测试
+
+- canvas-tapnow-visual (新): 7/7 全过
+- canvas-derive-menu (已有): 12/12 全过
+- canvas 域全套: 375/375 全过 (无 regression)
+- esbuild syntax check: 5 文件全部 OK
+
+# 异常 / 后续
+
+- 4 智能按钮现在 走 addCanvasComposer (开 prompt 节点), 后续子代理 接 4 个流影AI 的后端路由
+  (one-click-suite / one-click-video / tts-voiceover / caption-motion 路由 404 -> 需要 chainService.mjs 模式)
+- 9 按钮 (3+2+4) 在小屏 (720px 以下) 自动换行, 移动 540px 以下 1 列
+- 智能行按钮文字 1-click 套图 等含"1-click"用户能理解的术语, 不写"(流影AI 风格)"
+
+(4c183cd4 续命 P-Canvas-empty-actions-v3 子代理 - 修 v2 4 个硬性错误, TapNow 第一版视觉重做)
