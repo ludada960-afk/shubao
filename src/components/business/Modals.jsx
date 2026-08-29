@@ -311,6 +311,10 @@ export function PricingModal() {
   const { state } = useApp();
   const plans = useMemo(() => buildPricingPlans(PRICING_PLANS, state.billingCatalog || []), [state.billingCatalog]);
   const providers = useMemo(() => enabledPaymentProviders(state.billingCatalog || []), [state.billingCatalog]);
+  const [payModal, setPayModal] = useState(null);
+  const [payLoading, setPayLoading] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('');
+  const [paymentOrder, setPaymentOrder] = useState(null);
   const buy = (plan) => createBillingOrder({ provider: providers[0]?.id, plan }).then((order) => setPaymentOrder(order)).catch(() => {});
   return (
     <>
