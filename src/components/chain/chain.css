@@ -1,0 +1,209 @@
+/* src/components/chain/chain.css
+   4c183cd4 续命 P-G 画布 1-click chain UI: 链式生成 4 步面板 + 进度条样式
+   跟 VideoCanvasWorkbench.css 同色系: #4636b8 主色 + #edf7f0 副色 + 暖灰文字 */
+
+/* ── 4 步进度条 ── */
+.chain-progress {
+  list-style: none;
+  display: flex;
+  align-items: stretch;
+  margin: 14px 0 8px;
+  padding: 12px 10px;
+  border: 1px dashed rgba(70, 54, 184, .28);
+  border-radius: 12px;
+  background: rgba(70, 54, 184, .04);
+  gap: 0;
+}
+.chain-step {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  min-width: 0;
+}
+.chain-step-dot {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(70, 54, 184, .35);
+  background: #fff;
+  color: #4636b8;
+}
+.chain-step-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.chain-step-label { font-size: 12.5px; font-weight: 700; color: #2c2545; }
+.chain-step-state { font-size: 10.5px; color: #6e6884; margin-top: 2px; }
+.chain-step-summary { font-size: 10.5px; color: #4636b8; margin-top: 2px; word-break: break-word; }
+.chain-step.is-ok .chain-step-dot { background: #2f9e6c; border-color: #2f9e6c; color: #fff; }
+.chain-step.is-ok .chain-step-state { color: #256b45; }
+.chain-step.is-failed .chain-step-dot, .chain-step.is-failed.is-failed .chain-step-dot { background: #E8544B; border-color: #E8544B; color: #fff; }
+.chain-step.is-failed .chain-step-state { color: #c93b32; }
+.chain-step.is-active .chain-step-dot { background: #4636b8; border-color: #4636b8; color: #fff; }
+.chain-step.is-active .chain-step-state { color: #4636b8; font-weight: 700; }
+.chain-step-rail {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: rgba(70, 54, 184, .35);
+  transform: translateY(-50%);
+}
+.chain-step:last-child .chain-step-rail { display: none; }
+.chain-step-spin { animation: chainStepSpin 0.9s linear infinite; }
+@keyframes chainStepSpin { to { transform: rotate(360deg); } }
+
+/* ── Orchestrator 面板 ── */
+.chain-orchestrator {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  border: 1px solid rgba(70, 54, 184, .28);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 16px 40px rgba(48, 34, 96, .22);
+  max-width: 640px;
+}
+.chain-orchestrator-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chain-orchestrator-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  margin: 0;
+  color: #2c2545;
+}
+.chain-orchestrator-body { display: flex; flex-direction: column; gap: 10px; }
+.chain-orchestrator-foot { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; border-top: 1px dashed rgba(61, 50, 41, .12); }
+.chain-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #6e6884;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.chain-close:hover { background: rgba(70, 54, 184, .08); color: #4636b8; }
+.chain-close:disabled { opacity: .35; cursor: not-allowed; }
+
+.chain-phase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.chain-phase-badge.is-idle { background: #f3f1f7; color: #6e6884; }
+.chain-phase-badge.is-running { background: rgba(70, 54, 184, .12); color: #4636b8; }
+.chain-phase-badge.is-done { background: #edf7f0; color: #256b45; }
+.chain-phase-badge.is-error { background: #fdecea; color: #c93b32; }
+
+.chain-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 0; }
+.chain-field > span { font-size: 12px; color: #4636b8; font-weight: 700; }
+.chain-field textarea, .chain-field select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid rgba(70, 54, 184, .28);
+  border-radius: 9px;
+  background: #fff;
+  color: #2c2545;
+  resize: vertical;
+}
+.chain-field textarea:focus, .chain-field select:focus { outline: 2px solid rgba(70, 54, 184, .4); outline-offset: 1px; }
+.chain-field textarea:disabled, .chain-field select:disabled { opacity: .55; cursor: not-allowed; }
+.chain-hint { font-size: 10.5px; color: #6e6884; }
+.chain-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.chain-ref {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(70, 54, 184, .2);
+  border-radius: 8px;
+  background: #f3f1f7;
+  font-size: 11px;
+  color: #4636b8;
+}
+.chain-ref.is-empty { color: #938c84; background: transparent; border-style: dashed; }
+.chain-ref img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; }
+.chain-ref-label { font-weight: 700; }
+
+.chain-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #c93b32;
+  font-size: 12px;
+  margin: 0;
+}
+.chain-result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #edf7f0;
+  color: #256b45;
+  font-size: 12px;
+}
+.chain-result strong { font-size: 12.5px; }
+.chain-health { font-weight: 700; }
+.chain-health.is-ok { color: #256b45; }
+.chain-health.is-risk { color: #d29400; }
+.chain-health.is-breach { color: #c93b32; }
+
+.chain-primary, .chain-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 13px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.chain-primary { background: #4636b8; color: #fff; border-color: #4636b8; }
+.chain-primary:hover { background: #352693; }
+.chain-primary:disabled { opacity: .55; cursor: not-allowed; }
+.chain-secondary { background: transparent; color: #4636b8; border-color: rgba(70, 54, 184, .35); }
+.chain-secondary:hover { background: rgba(70, 54, 184, .08); }
+.chain-secondary:disabled { opacity: .55; cursor: not-allowed; }
+
+/* mini-toolbar 入口按钮 - 跟 vcb-mini-toolbar button 风格一致 */
+.vcb-mini-toolbar .vcb-chain-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(70, 54, 184, .35);
+  border-radius: 999px;
+  background: rgba(70, 54, 184, .08);
+  color: #4636b8;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vcb-mini-toolbar .vcb-chain-trigger:hover { background: rgba(70, 54, 184, .18); }
+.vcb-mini-toolbar .vcb-chain-trigger:disabled { opacity: .35; cursor: not-allowed; }
