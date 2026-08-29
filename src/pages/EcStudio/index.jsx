@@ -11,6 +11,11 @@ import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../.
 import { IMAGES } from '../../constants/images';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
+import AssetQuickDrag from '../../components/business/AssetQuickDrag.jsx';
+import {
+  ASSET_DRAG_SOURCES,
+  normalizeAssetDragPayload,
+} from '../../services/projectAssetDrag.js';
 import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
@@ -177,6 +182,21 @@ export default function EcStudioPage() {
       r.readAsDataURL(f);
     });
   };
+
+  // ── 1-click 拖入 helper (P-H) ──
+  // 把 AssetQuickDrag 的 payload (dataURL / remoteUrl) 落到指定 setter
+  const addDragPayload = (setter, cur, max) => (payload) => {
+    const normalized = normalizeAssetDragPayload(payload);
+    if (!normalized) return false;
+    const url = normalized.dataUrl || normalized.remoteUrl || normalized.thumbUrl;
+    if (!url) return false;
+    setter((p) => (p.length >= max ? p : [...p, url]));
+    return true;
+  };
+  const addRealDragPayload = addDragPayload(setRealShots, realShots, 10);
+  const addRefDragPayload = addDragPayload(setRefShots, refShots, 5);
+  // 落点 (EcStudio 的 ImageUploader 区域) 状态: 标记正在被 drag over
+  const [dragOverTarget, setDragOverTarget] = useState(''); // 'real' | 'ref' | ''
 
   // ── 智能识别 → 回填 5 步字段 ──
   const goRecognize = async () => {
@@ -700,17 +720,30 @@ export default function EcStudioPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <div style={SX.stepNum}>1</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>上传产品多角度实拍图</h3>
+                <div style={{ marginLeft: 'auto' }}>
+                  <AssetQuickDrag
+                    onPick={(payload) => { addRealDragPayload(payload); }}
+                    compact={false}
+                  />
+                </div>
               </div>
               <p style={{ ...SX.hint, marginBottom: 16 }}>
                 推荐角度：正面 / 45°侧面 / 细节 / 包装 / 场景。AI 会以这些实拍为准生成，最多 10 张。
               </p>
               <ImageUploader
                 imgs={realShots}
-                setImgs={setRealShots}
                 max={10}
                 onPick={() => fReal.current?.click()}
                 onDel={(i) => setRealShots((p) => p.filter((_, j) => j !== i))}
                 onPreview={setLb}
+                dropTargetKey={dragOverTarget === 'real' ? 'real' : ''}
+                onDragOverTarget={setDragOverTarget}
+                onDragLeaveTarget={(target, e) => {
+                  // 仅当真正离开 ImageUploader 容器时才清空
+                  if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+                  setDragOverTarget((cur) => (cur === target ? '' : cur));
+                }}
+                onDropAsset={(payload) => { addRealDragPayload(payload); setDragOverTarget(''); }}
               />
               <input
                 ref={fReal}
@@ -731,17 +764,29 @@ export default function EcStudioPage() {
                 <div style={SX.stepNum}>2</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>上传目标参考图</h3>
                 <span style={{ fontSize: 12, color: '#bbb' }}>选填 · 最多 5 张</span>
+                <div style={{ marginLeft: 'auto' }}>
+                  <AssetQuickDrag
+                    onPick={(payload) => { addRefDragPayload(payload); }}
+                    compact={false}
+                  />
+                </div>
               </div>
               <p style={{ ...SX.hint, marginBottom: 16 }}>
                 想模仿的风格 / 竞品爆款图，AI 会学习它的视觉调性。
               </p>
               <ImageUploader
                 imgs={refShots}
-                setImgs={setRefShots}
                 max={5}
                 onPick={() => fRef.current?.click()}
                 onDel={(i) => setRefShots((p) => p.filter((_, j) => j !== i))}
                 onPreview={setLb}
+                dropTargetKey={dragOverTarget === 'ref' ? 'ref' : ''}
+                onDragOverTarget={setDragOverTarget}
+                onDragLeaveTarget={(target, e) => {
+                  if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+                  setDragOverTarget((cur) => (cur === target ? '' : cur));
+                }}
+                onDropAsset={(payload) => { addRefDragPayload(payload); setDragOverTarget(''); }}
               />
               <input
                 ref={fRef}
@@ -1299,7 +1344,9 @@ export default function EcStudioPage() {
 }
 
 // ── 图片上传小组件（实拍图/参考图共用） ──
-function ImageUploader({ imgs, max, onPick, onDel, onPreview }) {
+// 4c183cd4 续命 P-H: 支持 1-click 拖入 (highlight on dragover + drop 接入)
+function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = '', onDragOverTarget, onDragLeaveTarget, onDropAsset }) {
+  const isDragOver = dropTargetKey !== '';
   return (
     <>
       {imgs.length > 0 && (
@@ -1334,21 +1381,49 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview }) {
       )}
       <div
         onClick={onPick}
+        onDragOver={(e) => {
+          if (!dropTargetKey) return;
+          e.preventDefault();
+          try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+          onDragOverTarget?.(dropTargetKey);
+        }}
+        onDragLeave={(e) => {
+          if (!dropTargetKey) return;
+          onDragLeaveTarget?.(dropTargetKey, e);
+        }}
+        onDrop={(e) => {
+          if (!dropTargetKey) return;
+          e.preventDefault();
+          let payload = null;
+          try {
+            const raw = e.dataTransfer.getData('application/x-shubao-asset');
+            if (raw) payload = JSON.parse(raw);
+          } catch (err) { payload = null; }
+          if (!payload) return;
+          onDropAsset?.(payload);
+        }}
         style={{
-          border: '2px dashed #DDDDE3', borderRadius: 10, padding: '24px',
-          textAlign: 'center', cursor: 'pointer', background: '#FAFBFC',
-          transition: 'all .15s', color: '#bbb',
+          border: isDragOver ? '2px dashed #4338CA' : '2px dashed #DDDDE3',
+          borderRadius: 10, padding: '24px',
+          textAlign: 'center', cursor: 'pointer',
+          background: isDragOver ? '#EEF2FF' : '#FAFBFC',
+          transition: 'all .15s', color: isDragOver ? '#4338CA' : '#bbb',
+          boxShadow: isDragOver ? '0 0 0 4px rgba(67,56,202,0.08) inset' : 'none',
         }}
         onMouseEnter={(e) => {
+          if (isDragOver) return;
           e.currentTarget.style.borderColor = '#6366F1';
           e.currentTarget.style.background = '#F5F3FF';
           e.currentTarget.style.color = '#6366F1';
         }}
         onMouseLeave={(e) => {
+          if (isDragOver) return;
           e.currentTarget.style.borderColor = '#DDDDE3';
           e.currentTarget.style.background = '#FAFBFC';
           e.currentTarget.style.color = '#bbb';
         }}
+        data-testid={`image-uploader-${dropTargetKey || 'default'}`}
+        aria-label={isDragOver ? `拖入到 ${dropTargetKey === 'real' ? '实拍图' : '参考图'}` : undefined}
       >
         <Upload
           weight="fill"
@@ -1356,7 +1431,7 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview }) {
           style={{ display: 'block', margin: '0 auto 6px', color: 'inherit' }}
         />
         <div style={{ fontSize: 13, fontWeight: 500, color: 'inherit' }}>
-          点击上传（{imgs.length}/{max}）
+          {isDragOver ? '松开放入' : `点击上传（${imgs.length}/${max}）`}
         </div>
       </div>
     </>
