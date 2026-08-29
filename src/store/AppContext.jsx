@@ -57,12 +57,51 @@ const initialState = {
   scrollPos: 0,
 };
 
+// 4c183cd4 续命: 用户 8-30 反馈 "画布/视频创作/全部都打不开"
+// 根因: App.jsx 是 state-based 路由, 不读 window.location.pathname.
+//       vite HTML5 history fallback 让 /canvas /video-studio /ec-canvas 都返回
+//       index.html (HTTP 200), 但 React 内部 state.page 永远是 'home', 任何
+//       deep-link URL 都会渲染首页. 现在把已知的 deep-link 路径映射到正确 page.
+const PATHNAME_PAGE_MAP = Object.freeze({
+  '/': 'home',
+  '/canvas': 'ec-canvas',
+  '/video-studio': 'video-studio',
+  '/ec-canvas': 'ec-canvas',
+  '/pricing': 'pricing',
+  '/public-templates': 'public-templates',
+  '/ec-studio': 'ec-studio',
+  '/ec-auto': 'ec-auto',
+  '/plog': 'plog',
+});
+
+export function pathnameToPage(pathname) {
+  const safe = pathname || (typeof globalThis !== 'undefined' && globalThis.location ? globalThis.location.pathname : '');
+  if (typeof safe !== 'string' || safe.length === 0) return 'home';
+  const trimmed = safe.split('?')[0].split('#')[0];
+  if (Object.prototype.hasOwnProperty.call(PATHNAME_PAGE_MAP, trimmed)) {
+    return PATHNAME_PAGE_MAP[trimmed];
+  }
+  return 'home';
+}
+
 function createInitialState() {
   const browserQaState = createCanvasBrowserQaState({
     enabled: import.meta.env.DEV,
     search: globalThis.location?.search || '',
   });
-  return browserQaState ? { ...initialState, ...browserQaState } : initialState;
+  const base = browserQaState ? { ...initialState, ...browserQaState } : { ...initialState };
+  // 4c183cd4 续命: 根据 window.location.pathname 决定初始 page,
+  // 让 /canvas /video-studio /ec-canvas 等 deep-link URL 进入对应页面
+  // (而不是永远停留在 home). /login 自动弹登录弹窗, 其它路径走 PATHNAME_PAGE_MAP.
+  if (!base.browserQa) {
+    const pathname = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.pathname) || '';
+    const page = pathnameToPage(pathname);
+    base.page = page;
+    if (pathname === '/login') {
+      base.showLogin = true;
+    }
+  }
+  return base;
 }
 
 function createEmptyCanvasResult() {

@@ -2,7 +2,7 @@
  * 薯包AI · App 路由（V3 灵图风格视觉统一）
  */
 import React, { useEffect, Suspense } from 'react';
-import { AppProvider, useApp } from './store/AppContext';
+import { AppProvider, useApp, pathnameToPage } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
 import { FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles, SquarePlay } from 'lucide-react';
@@ -242,6 +242,22 @@ function AppRouter() {
       dispatch({ type: 'NAVIGATE', page: 'public-templates' });
     }
   }, []);
+
+  // 4c183cd4 续命: 监听浏览器前进/后退 (popstate) 同步 page.
+  // AppContext.createInitialState 已根据初始 pathname 设好 page, 但用户在 SPA
+  // 内部点导航或浏览器按返回键时, 需把 URL 变化反映到 state.page 才能保持
+  // URL 与视图一致. 不影响 SPA 内部 dispatch NAVIGATE 的现有行为.
+  useEffect(() => {
+    const handlePopState = () => {
+      const pathname = (typeof window !== 'undefined' && window.location && window.location.pathname) || '';
+      const nextPage = pathnameToPage(pathname);
+      if (nextPage && nextPage !== page) {
+        dispatch({ type: 'NAVIGATE', page: nextPage });
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [dispatch, page]);
 
   // B3: 全局 resize 节流 — 防止高频重排导致崩溃
   useEffect(() => {

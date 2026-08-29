@@ -4140,6 +4140,20 @@ export default function EcCanvas() {
     if (!selected || !patch || typeof patch !== 'object') return;
     setNodes(prev => prev.map(node => node.id === selected ? { ...node, ...patch } : node));
   }, [selected]);
+  // 4c183cd4 续命 全站真浏览器测修复: 把 portCreationActions 声明提前到这里,
+  // 否则 L4143 useMemo deps 引用 portCreationActions 时它还在 TDZ,
+  // 触发 "Cannot access 'portCreationActions' before initialization".
+  // 原来 4c183cd4 时代声明在 L4510 (本函数体末尾), 画布页打不开时这 bug 不暴露;
+  // 主线程修好 /canvas deep link 后画布真渲染, TDZ 立刻爆, 必须前置.
+  const portCreationActions = CANVAS_CREATION_OPTIONS.map(option => {
+    const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
+    return {
+      ...(imageAction || {}),
+      ...option,
+      group: '继续创作',
+      priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
+    };
+  });
   const selectedNodeBillingCost = useMemo(() => {
     if (!selectedNode) return 0;
     /* 优先取 node 自身的 billing 字段, 否则按第一个可用 action 的 priceLabel 估算. */
@@ -4507,15 +4521,7 @@ export default function EcCanvas() {
 
   // 选中状态（单选 or 多选）
   const isNodeSelected = (id) => selected === id || multiSelected.has(id);
-  const portCreationActions = CANVAS_CREATION_OPTIONS.map(option => {
-    const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
-    return {
-      ...(imageAction || {}),
-      ...option,
-      group: '继续创作',
-      priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
-    };
-  });
+  // 4c183cd4 续命: portCreationActions 声明已上移到 useMemo 之前 (避免 TDZ), 这里只保留注释.
   /* 契约：派生菜单与对象工具条共享同一选中谓词——"选中即双面板齐张"。
      两个面板各自内部再决定渲染什么内容（工具条动作不足时自行收窄），
      但出现/消失必须永远同步。 */
