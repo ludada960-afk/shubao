@@ -308,14 +308,71 @@ export function LoginModal() {
 // 4c183cd4 续命 P-Canvas 主线程亲自救 (1f64aa42 后): App.jsx 还在 `import { LoginModal, PricingModal }` + `<PricingModal />`,
 // 1f64aa42 删了老 PricingModalLegacy 函数但没补 export, 这里重命名 Modals 函数为 PricingModal 让 App.jsx 仍能 <PricingModal />
 export function PricingModal() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const plans = useMemo(() => buildPricingPlans(PRICING_PLANS, state.billingCatalog || []), [state.billingCatalog]);
   const providers = useMemo(() => enabledPaymentProviders(state.billingCatalog || []), [state.billingCatalog]);
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
   const [paymentOrder, setPaymentOrder] = useState(null);
-  const buy = (plan) => createBillingOrder({ provider: providers[0]?.id, plan }).then((order) => setPaymentOrder(order)).catch(() => {});
+  // 4c183cd4 续命 P-Modals (主线程亲自补 1f64aa42 + 07741c29 + b515a6b2 漏的 4c183cd4 时代老 PricingModalLegacy 状态):
+  // 4c183cd4 老函数里 useRef 4 个 + useState 1 个 + 若干事件 handler (close / closePayment / createOrder) 都漏了
+  // 当前简化 07741c29 版本只用 modalView 的 setter (PricingModalRefactored.onClose 调 transitionPricingModalView)
+  // paymentAbortRef / paymentKeysRef / paymentCheckoutRef / restoredPaymentKeyRef 在简化版里没有引用, 不加 (避免死代码)
+  // close / closePayment / createOrder 在 JSX 里直接用, 必须声明
+  const [modalView, setModalView] = useState(() => createPricingModalViewState({
+    interrupted: state.priceReason === 'INSUFFICIENT_CREDITS',
+    pendingAction: state.pendingPaidAction,
+    priceReason: state.priceReason,
+  }));
+  const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
+  const closePayment = () => {
+    setPayModal(null);
+  };
+  const createOrder = async (provider) => {
+    if (!payModal) return;
+    setPayLoading(true);
+    setPaymentStatus('');
+    try {
+      const requestKey = `${payModal.sku}:${provider.id}`;
+      const idempotencyKey = createOrderRequest({ productSku: payModal.sku, provider: provider.id }).idempotencyKey;
+      const response = await createBillingOrder(createOrderRequest({
+        productSku: payModal.sku,
+        provider: provider.id,
+        idempotencyKey,
+      }));
+      const order = response?.order || response;
+      setPaymentOrder(order);
+      if (isTerminalPaymentOrderStatus(order?.status)) {
+        clearPendingPaymentOrder();
+      } else if (state.phone) {
+        savePendingPaymentOrder(createPendingPaymentOrder({
+          ownerEmail: state.phone,
+          orderId: order.id,
+          productSku: payModal.sku,
+          provider: provider.id,
+          idempotencyKey,
+          status: order.status || 'pending',
+          checkout: order?.checkout,
+        }));
+      }
+      setPaymentStatus(order?.status === 'credited'
+        ? '支付已到账,当前工作已保留,关闭窗口即可继续创作。'
+        : '订单已创建,请在 5 分钟内完成支付;关闭此窗口当前工作仍会保留。');
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        setPaymentStatus('订单创建失败,请稍后重试或换一种支付方式。');
+      }
+    } finally {
+      setPayLoading(false);
+    }
+  };
+  const buy = (plan) => {
+    if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
+    setPaymentStatus('');
+    setPaymentOrder(null);
+    setPayModal(plan);
+  };
   return (
     <>
       {/* Overlay */}
