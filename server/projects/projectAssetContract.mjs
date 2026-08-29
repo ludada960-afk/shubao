@@ -93,3 +93,6 @@ export function assertCanonicalProjectAssetRef(ref, asset = {}) {
     ...(Object.keys(metadata).length ? { metadata } : {}),
   };
 }
+
+// 4c183cd4 续命 主线程加 stub (救 P-A 子代理)
+export function stableAssetIdFromUrl(url) { return String(url || "").replace(/[^a-zA-Z0-9]/g, "_").slice(0, 64) || "asset-" + Date.now(); }
