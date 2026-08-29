@@ -13,7 +13,6 @@ import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
 import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
-import { canSendMail, sendVerificationEmail, sendPasswordResetEmail } from './mailService.mjs';
 import { resolveAuthSessionSecret } from './authSessionSecret.mjs';
 import { createAuthService, createDualModeSessionTokens } from './auth/authService.mjs';
 import { mountAuthRoutes } from './authRoutes.mjs';
@@ -51,6 +50,8 @@ import { createPaymentChannelRegistry } from './billing/paymentChannels.mjs';
 import { assertCatalogMarginGates } from './billing/catalog.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
 import { visionRouter } from './routes/visionRouter.mjs';
+// 4c183cd4 续命 P1 TTS 口播 (provider-neutral 桥, 跟 modlens vision 桥同模式)
+import { mountTTSRoutes } from './services/ttsBridge.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
 import { createAdminOperations } from './adminOperations.mjs';
@@ -751,6 +752,18 @@ mountBillingRoutes(app, {
 });
 
 app.use('/api/vision', visionRouter);
+
+// 4c183cd4 续命 P1 TTS 口播路由 (provider-neutral 桥, 跟 modlens vision 桥同模式)
+// 鉴权: authenticateContentRequest (v2 可吊销会话 + 存量 HMAC 宽限期), 跟 visionRouter / billing 路由同源.
+// 真实账务 (hold/settle/release) 由调用方决定是否接入 walletService, 本桥只算 cost + 调 adapter.
+mountTTSRoutes(app, {
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+});
 
 // 4c183cd4 续命 P0-D 飞书可视化 webhook 入站路由
 import { handleFeishuChallenge, dispatchFeishuEvent } from './feishu/webhook.mjs';
