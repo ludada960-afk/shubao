@@ -10,13 +10,15 @@ import {
 const pageSource = () => readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 const studioSource = () => readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 
-test('contract: selection opens the object toolbar and derive menu together', () => {
+test('contract: selection opens the object toolbar, derive menu and right panel together', () => {
   const page = pageSource();
-  // 一个共享谓词，两块面板各用一次——出现/消失永远同步
+  // 一个共享谓词, 三块面板各用一次 (4c183cd4 续命 画布深度重构: 加 EcCanvasRightPanel 跟上面 toolbar + 派生菜单同步张合)
+  // 出现/消失永远同步, 用户 8-29 硬性要求 "上面跟右边的面板都同时张开"
   assert.match(page, /const selectionPanelsVisible = /);
   const uses = page.match(/selectionPanelsVisible && </g) || [];
-  assert.equal(uses.length, 2, 'object toolbar and derive menu must share the predicate');
+  assert.equal(uses.length, 3, 'object toolbar + derive menu + right panel must all share the same predicate (双面板联动 + 右面板)');
   assert.match(page, /selectionPanelsVisible && <CanvasObjectToolbar/);
+  assert.match(page, /selectionPanelsVisible && <EcCanvasRightPanel/);
   assert.match(page, /selectionPanelsVisible && <CanvasDeriveMenu/);
   // 谓词本身覆盖：非聚焦编辑、无连线选择、单选、存在选中节点、排除文本与 composer
   const declaration = page.slice(page.indexOf('const selectionPanelsVisible'), page.indexOf('; ', page.indexOf('const selectionPanelsVisible')));

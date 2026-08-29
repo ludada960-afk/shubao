@@ -1,0 +1,337 @@
+/* ═══════ 4c183cd4 续命 画布右侧固定面板 (用户 8-29 硬性反馈) ═══════ */
+/* 资深美工视角: 玻璃+暗色+8 列 grid+柔和阴影+统一 12px 圆角, 不破 14px 圆角上限
+   产品经理视角: 顶部素材卡 (缩略图+名称+类型徽章) + 中部 14 项派生菜单 (5 原有+4 智能) + 底部参数 (尺寸/位置/透明度/音轨音量/视频时长/AI 积分)
+   商业化视角: AI 积分消耗徽章永远显示, 让用户每次操作看到成本
+   总统筹视角: TapNow 骨架 (右固定面板) + Liblib 补充 (节点卡) + Quantv 辅助 (合规水印, 留位)
+   选中节点时, 上方 toolbar + 右侧面板同时张开 (双面板联动)
+   不用 AI 默认色 (奶白+暖灰), 走薯包深紫/蓝强调色 */
+
+/* ── 主面板: 固定右滑面板 ── */
+.ec-canvas-right-panel {
+  /* 用户硬性要求: 选中一个图片或视频时, 上面跟右边的面板都同时张开
+     现状: 派生菜单是浮在节点旁边的 popup, 用户感觉"右面板空的"
+     解决: 改成 360px 宽固定右滑面板, 跟上方 CanvasObjectToolbar 一起同步张合 */
+  position: absolute;
+  z-index: 65;
+  top: 78px;          /* 顶部 toolbar 高度 62px + 16px 留白 */
+  right: 14px;
+  bottom: 130px;      /* 底部 toolbar 高度 92px + 38px 留白 */
+  width: 360px;
+  max-width: calc(100vw - 28px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  /* 资深美工视角: 选中时从右滑入, 220ms ease-out */
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 220ms var(--ec-ease-out, cubic-bezier(.16, 1, .3, 1)),
+              opacity 200ms var(--ec-ease-out, cubic-bezier(.16, 1, .3, 1));
+}
+
+@media (max-width: 1100px) {
+  /* 中小屏: 面板占满 80% 宽, 不被画布挤压 */
+  .ec-canvas-right-panel {
+    width: min(360px, calc(100vw - 220px));
+  }
+}
+
+@media (max-width: 760px) {
+  /* 移动: 全屏面板, 顶部 toolbar 收紧 */
+  .ec-canvas-right-panel {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+    bottom: 80px;
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-right-panel { transition: none; }
+}
+
+/* ── 顶部: 素材卡 (缩略图+名称+类型徽章) ── */
+.ec-canvas-right-panel__hero {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--border-light);
+  background: linear-gradient(180deg, var(--bg-card-solid) 0%, transparent 100%);
+}
+.ec-canvas-right-panel__thumb {
+  width: 78px;
+  height: 78px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-hover);
+  display: grid;
+  place-items: center;
+  position: relative;
+  box-shadow: inset 0 0 0 1px var(--border-light);
+}
+.ec-canvas-right-panel__thumb img,
+.ec-canvas-right-panel__thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ec-canvas-right-panel__thumb-icon {
+  color: var(--text-faint);
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.ec-canvas-right-panel__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ec-canvas-right-panel__name {
+  font-size: 13px;
+  font-weight: 720;
+  color: var(--text-primary);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.ec-canvas-right-panel__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ec-canvas-right-panel__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--accent-bg);
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.ec-canvas-right-panel__badge.is-magic {
+  background: var(--blue-bg, rgba(37, 99, 235, .08));
+  color: var(--blue, #2563eb);
+}
+.ec-canvas-right-panel__badge.is-processing {
+  background: rgba(234, 88, 12, .1);
+  color: #ea580c;
+}
+.ec-canvas-right-panel__badge.is-error {
+  background: rgba(220, 38, 38, .1);
+  color: #dc2626;
+}
+
+/* ── 中部: 14 项派生菜单 (5 原有 + 4 智能) ── */
+.ec-canvas-right-panel__menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.ec-canvas-right-panel__menu::-webkit-scrollbar { width: 5px; }
+.ec-canvas-right-panel__menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.ec-canvas-right-panel__menu::-webkit-scrollbar-track { background: transparent; }
+
+/* 中部菜单复用 canvas-derive-menu.css 的 .ec-canvas-derive-* 类, 这里只加 group 间距 */
+.ec-canvas-right-panel__menu .ec-canvas-derive-bucket + .ec-canvas-derive-bucket {
+  margin-top: 6px;
+}
+.ec-canvas-right-panel__menu .ec-canvas-derive-bucket {
+  margin: 2px 0 0;
+}
+
+/* ── 底部: 调整参数 (尺寸/位置/透明度/音轨音量/视频时长/AI 积分) ── */
+.ec-canvas-right-panel__adjust {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-card-solid);
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ec-canvas-right-panel__adjust-title {
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-hint);
+  margin: 0;
+}
+.ec-canvas-right-panel__row {
+  display: grid;
+  grid-template-columns: 64px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+.ec-canvas-right-panel__row-label {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+.ec-canvas-right-panel__row-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+.ec-canvas-right-panel__row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--duration-fast, 160ms) var(--ease-out, ease);
+}
+.ec-canvas-right-panel__row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent, #7c3aed);
+  border: 2px solid var(--bg-card-solid, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+  cursor: grab;
+  transition: transform 120ms var(--ease-out, ease);
+}
+.ec-canvas-right-panel__row input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.ec-canvas-right-panel__row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent, #7c3aed);
+  border: 2px solid var(--bg-card-solid, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+  cursor: grab;
+}
+.ec-canvas-right-panel__row input[type="range"]:focus-visible {
+  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline-offset: 2px;
+}
+.ec-canvas-right-panel__row select {
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-card-solid, #fff);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 120ms var(--ease-out, ease);
+}
+.ec-canvas-right-panel__row select:hover {
+  border-color: var(--border-hover);
+}
+.ec-canvas-right-panel__row select:focus-visible {
+  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline-offset: 2px;
+}
+
+/* ── 底部: AI 积分消耗摘要 ── */
+.ec-canvas-right-panel__cost {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, .06) 0%, rgba(37, 99, 235, .06) 100%);
+  border: 1px solid var(--border-light);
+}
+.ec-canvas-right-panel__cost-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ec-canvas-right-panel__cost-label svg {
+  color: var(--accent, #7c3aed);
+}
+.ec-canvas-right-panel__cost-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  letter-spacing: -0.01em;
+}
+
+/* ── 关闭按钮 (右上) ── */
+.ec-canvas-right-panel__close {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background 120ms var(--ease-out, ease), color 120ms var(--ease-out, ease);
+}
+.ec-canvas-right-panel__close:hover {
+  background: var(--bg-elevated, rgba(0, 0, 0, .06));
+  color: var(--text-primary);
+}
+.ec-canvas-right-panel__close:focus-visible {
+  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline-offset: 2px;
+}
+
+/* ── 暗色模式 ── */
+[data-theme="dark"] .ec-canvas-right-panel {
+  background: var(--bg-card, rgba(22, 24, 29, .85));
+}
+[data-theme="dark"] .ec-canvas-right-panel__hero {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .02) 0%, transparent 100%);
+}
+[data-theme="dark"] .ec-canvas-right-panel__thumb {
+  background: var(--bg-hover, rgba(255, 255, 255, .04));
+}
+[data-theme="dark"] .ec-canvas-right-panel__adjust {
+  background: var(--bg-elevated, rgba(255, 255, 255, .02));
+}
+[data-theme="dark"] .ec-canvas-right-panel__cost {
+  background: linear-gradient(135deg, rgba(124, 58, 237, .12) 0%, rgba(37, 99, 235, .12) 100%);
+}

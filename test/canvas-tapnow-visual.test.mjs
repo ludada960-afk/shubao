@@ -62,48 +62,37 @@ test('EcCanvas/index.jsx 画布中央弹窗有 3 行分层 (1 添加素材 + 2 A
   for (const kind of ['image', 'video', 'works']) {
     assert.ok(jsx.indexOf('HeroGlyph kind="' + kind + '"') !== -1, 'Row 1 HeroGlyph kind=' + kind + ' 必填');
   }
-  // Row 2 - 2 入口 (5 原有 part 2)
+  // Row 2 - 2 入口 (5 原有 part 2, 单步 addCanvasComposer)
   assert.ok(jsx.indexOf("addCanvasComposer('suite')") !== -1, 'Row 2 suite composer 必填');
   assert.ok(jsx.indexOf("addCanvasComposer('video')") !== -1, 'Row 2 video composer 必填');
-  // Row 3 - 3 入口 (3 新增, 用户 8-29 硬性指定)
-  assert.ok(jsx.indexOf("actionId: 'one-click-suite'") !== -1, 'Row 3 one-click-suite 必填');
-  assert.ok(jsx.indexOf("actionId: 'one-click-video'") !== -1, 'Row 3 one-click-video 必填');
-  assert.ok(jsx.indexOf("actionId: 'tts-voiceover'") !== -1, 'Row 3 tts-voiceover 必填');
-  // v4: 字幕动效 已删 (5+3=8 严格 8 按钮)
-  assert.equal(jsx.indexOf("actionId: 'caption-motion'"), -1, 'v4 已删 caption-motion (字幕动效), 用户 8-29 硬性 5+3=8');
+  // Row 3 - 3 入口 (3 新增, 4c183cd4 续命 用户 8-29 硬性反馈 3: 走 handleSmartChainAction -> chainService 4 步)
+  // 不再调单步 addCanvasComposer (v3 bug: 跟 5 原有重复), 改调 handleSmartChainAction (chainService 4 步: 文案->首帧->视频->音轨+字幕)
+  assert.ok(jsx.indexOf("handleSmartChainAction('one-click-suite')") !== -1, 'Row 3 one-click-suite 必须调 handleSmartChainAction (chainService 4 步)');
+  assert.ok(jsx.indexOf("handleSmartChainAction('one-click-video')") !== -1, 'Row 3 one-click-video 必须调 handleSmartChainAction (chainService 4 步)');
+  assert.ok(jsx.indexOf("handleSmartChainAction('tts-voiceover')") !== -1, 'Row 3 tts-voiceover 必须调 handleSmartChainAction (chainService 4 步)');
 });
 
-test('中央弹窗 3 智能按钮 走 addCanvasComposer (修 v2 bug: 空画布时按钮无反应)', () => {
-  /* 用户 8-29 原话: "你下面这几个新添加的功能, 什么智能分镜套图还有配音这些,
-     我现在点击了都是没有反应的, 任何反应都没有啊"
-     v2 用 handleCreateDerivedNode (需要 sourceNodeId, 空画布时 src=undefined 静默返回)
-     v4 改用 addCanvasComposer (开 prompt 节点, 空画布时也能开)
-     v4: 8 按钮 = 5 原有 (5 entry points) + 3 新增 (3 流影AI 风格智能)
-     删除 v3 的 caption-motion (字幕动效) 保留 5+3=8 */
+test('中央弹窗 3 智能按钮 走 handleSmartChainAction -> chainService 4 步 (用户 8-29 硬性反馈 3: 跟 5 原有按钮差异化)', () => {
+  /* 用户 8-29 原话: "你下面这三个智能是干什么的呢? 你现在点击进去的话, 他们全部跟上面的这些是一样的呀.
+     点进去的话就是生成图片, 生成视频的相关的这种面板出来啊. 那不就是重复了吗?"
+     v3 用 addCanvasComposer 跟 5 原有按钮重复 (用户反馈的 bug)
+     v4 (4c183cd4 续命 画布深度重构) 改用 handleSmartChainAction -> chainService.executeChain 4 步
+     (文案->首帧->视频->音轨+字幕) — 跟 5 原有按钮 (单步 addCanvasComposer) 完全区分
+     v4: 8 按钮 = 5 原有 (5 entry points) + 3 新增 (3 流影AI 风格智能) */
   const jsx = readFileSync(ecCanvasIndexPath, 'utf8');
-  // 3 智能按钮 必须 addCanvasComposer 形式, 不准 handleCreateDerivedNode
-  for (const actionId of ['one-click-suite', 'one-click-video', 'tts-voiceover']) {
-    const hasPattern = jsx.indexOf("actionId: '" + actionId + "'") !== -1;
-    assert.ok(hasPattern, '智能按钮 ' + actionId + ' 必须有 actionId 路由, 不准 handleCreateDerivedNode');
-    // 同时必须 addCanvasComposer 形式
-    const beforeActionId = jsx.indexOf("actionId: '" + actionId + "'");
-    const sliceBefore = jsx.slice(Math.max(0, beforeActionId - 100), beforeActionId);
-    assert.ok(sliceBefore.indexOf('addCanvasComposer') !== -1, '智能按钮 ' + actionId + ' 必须 addCanvasComposer 形式 (空画布时也能开 composer)');
+  // 3 智能按钮 必须 handleSmartChainAction 形式, 不准单步 addCanvasComposer 重复路径
+  for (const mode of ['one-click-suite', 'one-click-video', 'tts-voiceover']) {
+    assert.ok(jsx.indexOf("handleSmartChainAction('" + mode + "')") !== -1, '智能按钮 ' + mode + ' 必须调 handleSmartChainAction (chainService 4 步, 跟 5 原有区分)');
   }
-  // 反向断言: 中央 modal 内部 <button onClick={...handleCreateDerivedNode(...)}> 不准出现 (v2 bug)
-  // 注释中可提及 (设计说明), 但不准在 onClick 调用
-  const centralMarker = '{!nodes.length && (';
-  const centralStart = jsx.indexOf(centralMarker);
-  if (centralStart !== -1) {
-    const heroPanelStart = jsx.indexOf('ec-canvas-empty-state', centralStart);
-    const closingPattern = jsx.indexOf('\n          )}\n\n          <div', centralStart);
-    if (heroPanelStart !== -1 && closingPattern !== -1) {
-      const centralCode = jsx.slice(heroPanelStart, closingPattern);
-      // Strip comments first
-      const codeNoComments = centralCode.replace(/\/\*[\s\S]*?\*\//g, '');
-      // <button onClick={() => handleCreateDerivedNode(...)}> pattern
-      const buttonOnClickHCDN = codeNoComments.match(/<button[^>]*onClick=\{[^}]*handleCreateDerivedNode/);
-      assert.equal(buttonOnClickHCDN, null, '中央 modal 内部 <button onClick={handleCreateDerivedNode}> 不准出现 (v2 bug: 空画布时静默返回)');
+  // 反向断言: Row 3 (smart-row) 内部 <button onClick={...addCanvasComposer('suite' / 'video' / 'text')}> 不准出现 (v3 bug)
+  const smartRowStart = jsx.indexOf('ec-canvas-empty-row is-smart-row');
+  if (smartRowStart !== -1) {
+    // 取 smart-row 块的 1500 字符 (含 3 按钮 onClick + 注释)
+    const smartRowSlice = jsx.slice(smartRowStart, smartRowStart + 2000);
+    // 注释里可提及 addCanvasComposer (设计说明), 但不准在 button onClick 内
+    const codeNoComments = smartRowSlice.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const bad of ["addCanvasComposer('suite'", "addCanvasComposer('video'", "addCanvasComposer('text'"]) {
+      assert.equal(codeNoComments.indexOf(bad), -1, 'smart-row onClick 内不准 ' + bad + ' (跟 5 原有重复, v3 bug 4c183cd4 续命 已修)');
     }
   }
 });

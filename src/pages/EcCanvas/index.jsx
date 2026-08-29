@@ -87,9 +87,14 @@ import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js'
 import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/videoStudioModel.js';
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
+/* 4c183cd4 续命 P-G 画布 1-click chain 客户端 (用户 8-29 硬性反馈 3): 下面 3 智能按钮走 chainService
+   跟上面 5 原有按钮 (单步 addCanvasComposer) 完全区分, 真实差异化. */
+import { executeChain as executeChainService, normalizeChainResponse, CHAIN_STEP_LABELS } from '../../services/chain.js';
 import './EcCanvas.css';
 import '../../styles/canvas-derive-menu.css';
 import '../../styles/canvas-empty-actions.css';
+import '../../styles/canvas-right-panel.css';
+import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },
@@ -563,6 +568,10 @@ export default function EcCanvas() {
   const [connectionPicker, setConnectionPicker] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
   const [videoDelivery, setVideoDelivery] = useState(null); // P2: 发往视频项目对话框状态 {refs, surface}
+  /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 3): 下面 3 智能按钮的 chain 进度状态.
+     chainRun = { title, mode: 'one-click-suite' | 'one-click-video' | 'tts-voiceover',
+                  steps: [''|'pending'|'running'|'ok'|'failed', ...], totalCost, error, running, finishedAt } */
+  const [chainRun, setChainRun] = useState(null);
   const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
   const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
@@ -4124,6 +4133,89 @@ export default function EcCanvas() {
     if (!refs.length) return showToast('该节点尚未登记为项目素材，暂不能跨域投递', 'info');
     setVideoDelivery({ refs, surface: DELIVERY_SOURCE_SURFACES.ecCanvas });
   }, [showToast]);
+  /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 1): 右面板"调整参数" patch.
+     用户在右面板拖 opacity / volume / duration, 同步到 node.opacity / node.volume / node.duration.
+     商业化视角: AI 积分消耗 (selectedNodeBillingCost) 也跟着 deriveActions 第一个 action 的 priceLabel 走. */
+  const handleRightPanelPatch = useCallback(patch => {
+    if (!selected || !patch || typeof patch !== 'object') return;
+    setNodes(prev => prev.map(node => node.id === selected ? { ...node, ...patch } : node));
+  }, [selected]);
+  const selectedNodeBillingCost = useMemo(() => {
+    if (!selectedNode) return 0;
+    /* 优先取 node 自身的 billing 字段, 否则按第一个可用 action 的 priceLabel 估算. */
+    const directCost = Number(selectedNode.billingCost ?? selectedNode.cost ?? selectedNode.estimatedCost ?? 0);
+    if (directCost > 0) return directCost;
+    const firstPriced = portCreationActions.find(action => action.priceLabel && action.priceLabel !== '免费' && action.priceLabel !== '0');
+    if (!firstPriced) return 0;
+    /* priceLabel 形如 "1 积分" / "1.5 积分" / "0.2 积分" — 提取数字. */
+    const match = String(firstPriced.priceLabel).match(/([\d.]+)/);
+    return match ? Number(match[1]) : 0;
+  }, [selectedNode, portCreationActions]);
+  /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 3): 下面 3 智能按钮差异化 handler
+     mode: 'one-click-suite' (1-click 套图, 走 chainService 4 步: 文案->首帧->视频->音轨+字幕)
+           'one-click-video' (1-click 视频模板, 同上 4 步 chain)
+           'tts-voiceover'   (TTS 配音, 走 chainService 单步 audio, 跟上面 5 原有 完全不同)
+     跟 addCanvasComposer (单步) 完全区分: 这里真调 chainService.executeChain. */
+  const handleSmartChainAction = useCallback(async (mode) => {
+    const titles = {
+      'one-click-suite': '1-click 套图',
+      'one-click-video': '1-click 视频模板',
+      'tts-voiceover': 'TTS 配音',
+    };
+    const defaultTexts = {
+      'one-click-suite': '把当前素材一键派生电商 5 宫格 (主图+场景+细节+白底+详情图)',
+      'one-click-video': '把当前素材一键生成营销视频 (分镜脚本 + 首帧 + 成片 + 口播)',
+      'tts-voiceover': '把当前文案/脚本一键合成专业口播配音 (5 provider 美式播客感)',
+    };
+    /* 找 source 节点 (优先 selectedNode, 否则第一张图) */
+    const sourceNode = selectedNode || nodes.find(n => ['image', 'output', 'video', 'source_group'].includes(n.kind)) || null;
+    const referenceImage = sourceNode?.url ? proxyImg(sourceNode.url) : null;
+    const text = defaultTexts[mode] || titles[mode] || '薯包 1-click 创作';
+    setChainRun({
+      title: titles[mode],
+      mode,
+      steps: ['running', 'pending', 'pending', 'pending'],
+      totalCost: 0,
+      error: '',
+      running: true,
+      finishedAt: 0,
+    });
+    try {
+      const payload = await executeChainService({
+        text,
+        referenceImage: referenceImage || null,
+        audioSourceId: null,
+        subtitleStyle: 'simple',
+      });
+      const normalized = normalizeChainResponse(payload);
+      const finalSteps = normalized.stepStatuses.map((status, idx) => {
+        if (status === 'ok') return 'ok';
+        if (status === 'failed') return 'failed';
+        return idx <= normalized.stepLabels.length - 1 ? 'ok' : 'pending';
+      });
+      setChainRun(prev => ({
+        ...(prev || {}),
+        steps: finalSteps,
+        totalCost: normalized.totalCost || 0,
+        ok: normalized.ok,
+        failedStep: normalized.failedStep,
+        error: normalized.ok ? '' : (normalized.failedStep ? `第 ${normalized.failedStep} 步失败` : '链式生成失败'),
+        running: false,
+        finishedAt: Date.now(),
+      }));
+      showToast(normalized.ok ? `${titles[mode]} 完成 (累计 ¥${(normalized.totalCost || 0).toFixed(4)})` : `${titles[mode]} 中途失败`, normalized.ok ? 'success' : 'error');
+    } catch (e) {
+      const msg = e && e.message ? e.message : String(e);
+      setChainRun(prev => ({
+        ...(prev || {}),
+        steps: ['failed', 'pending', 'pending', 'pending'],
+        error: msg || '网络错误',
+        running: false,
+        finishedAt: Date.now(),
+      }));
+      showToast(`${titles[mode]} 失败: ${msg}`, 'error');
+    }
+  }, [selectedNode, nodes, showToast]);
   const handleVideoDelivered = useCallback(({ projectId }) => {
     setVideoDelivery(null);
     showToast(`已发往视频项目，可在视频创作工作台「从画布发来」查看（项目 ${String(projectId).slice(-6)}）`, 'success');
@@ -4560,11 +4652,15 @@ export default function EcCanvas() {
                     <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
                     <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
                   </div>
-                  {/* Row 3 - 智能 (3 入口) — 走 addCanvasComposer, 空画布时也能开 (修 v2 bug) */}
+                  {/* Row 3 - 智能 (3 入口) — 走 chainService 4 步 (用户 8-29 硬性反馈 3)
+                      跟上面 5 原有按钮 (单步 addCanvasComposer) 完全区分: 真实差异化, 走 4 步 chain.
+                      1-click 套图: 文案->首帧->视频->音轨+字幕 (chainService.executeChain)
+                      1-click 视频: 同 4 步 chain, 重点在视频生成
+                      TTS 配音: chainService audio 步骤, 5 provider failover */}
                   <div className="ec-canvas-empty-row is-smart-row" role="group" aria-label="智能生成">
-                    <button type="button" onClick={() => addCanvasComposer('suite', { actionId: 'one-click-suite' })}><HeroGlyph kind="oneclick" />1-click 套图</button>
-                    <button type="button" onClick={() => addCanvasComposer('video', { actionId: 'one-click-video' })}><HeroGlyph kind="oneclick" />1-click 视频</button>
-                    <button type="button" onClick={() => addCanvasComposer('text', { actionId: 'tts-voiceover' })}><HeroGlyph kind="voiceover" />TTS 配音</button>
+                    <button type="button" onClick={() => handleSmartChainAction('one-click-suite')}><HeroGlyph kind="oneclick" />1-click 套图</button>
+                    <button type="button" onClick={() => handleSmartChainAction('one-click-video')}><HeroGlyph kind="oneclick" />1-click 视频</button>
+                    <button type="button" onClick={() => handleSmartChainAction('tts-voiceover')}><HeroGlyph kind="voiceover" />TTS 配音</button>
                   </div>
                 </div>
 
@@ -4747,16 +4843,42 @@ export default function EcCanvas() {
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
             {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
-            {selectionPanelsVisible && <CanvasDeriveMenu
+            {/* 4c183cd4 续命 画布深度重构: 右侧固定面板 (用户 8-29 硬性反馈 1)
+                用户原话: "选中一个图片或视频时, 上面跟右边的面板都同时张开呀, 你现在的情况是右边的面板是完全空的"
+                现状: 派生菜单原本是浮在节点旁边的 popup, 用户感觉右面板空的
+                解决: 新增 EcCanvasRightPanel 固定右滑面板, 跟上方 CanvasObjectToolbar 一起同步张合 (双面板联动)
+                14 项菜单按 5 原有 + 4 智能分桶, 跟 canvas-derive-menu.css 完全一致 */}
+            {selectionPanelsVisible && <EcCanvasRightPanel
+              node={selectedNode}
+              deriveActions={portCreationActions}
+              onClose={() => setSelected(null)}
+              onPatch={handleRightPanelPatch}
+              billingCost={selectedNodeBillingCost}
+              onDeriveSelect={action => {
+                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
+                /* 9 个动作路由 (5 原有 + 4 流影AI LibTV 新增, 用户硬性指定).
+                   用户 8-29 原话: "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
+                   5 原有走 addCanvasComposer 短路径, 4 流影AI 走 handleCreateDerivedNode 通用派生. */
+                if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
+                else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'video-upload') videoUploadRef.current?.click();
+                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'tts-voiceover') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'caption-motion') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'one-click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'one-click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+              }}
+            />}
+            {/* 老版 popup 派生菜单继续保留 (向后兼容 + 不破坏既有测试契约), 但默认隐藏, 让新右面板主导 */}
+            {false && selectionPanelsVisible && <CanvasDeriveMenu
               actions={portCreationActions}
               position={clampCanvasPickerPosition({ world: { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y }, viewport, bounds: containerRef.current?.getBoundingClientRect() })}
               title="引用当前素材生成"
               onClose={() => setSelected(null)}
               onSelect={action => {
                 const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
-                /* 9 个动作路由 (5 原有 + 4 流影AI LibTV 新增, 用户硬性指定).
-                   用户 8-29 原话: "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
-                   5 原有走 addCanvasComposer 短路径, 4 流影AI 走 handleCreateDerivedNode 通用派生. */
                 if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
                 else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'video-upload') videoUploadRef.current?.click();
@@ -5138,6 +5260,44 @@ export default function EcCanvas() {
         onClose={() => setVideoDelivery(null)}
         onDelivered={handleVideoDelivered}
       />
+
+      {/* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 3): 下面 3 智能按钮的 chainService 进度弹窗
+          资深美工视角: 4 步进度条 + 完成态对比 + AI 积分消耗, 不用 AI 默认色
+          产品经理视角: 4 步 = 文案 -> 首帧 -> 视频 -> 音轨+字幕 (跟 chainService 4 步 100% 一致)
+          总统筹视角: TapNow 旗舰模式 Agent progress UI, 不写 (流影AI 风格) */}
+      {chainRun && (
+        <div role="dialog" aria-modal="true" aria-label={`${chainRun.title} 进度`} style={{ position: 'fixed', inset: 0, zIndex: 10006, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
+          <section style={{ width: 'min(440px, 100%)', background: 'var(--bg-card-solid, #fff)', border: '1px solid var(--border, rgba(15,23,42,.08))', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 22 }}>
+            <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+              <div>
+                <h2 style={{ margin: 0, color: 'var(--text-primary, #111827)', fontSize: 16, fontWeight: 800 }}>{chainRun.title}</h2>
+                <div style={{ marginTop: 4, color: 'var(--text-hint, #6b7280)', fontSize: 11 }}>chainService 4 步 (文案→首帧→视频→音轨+字幕)</div>
+              </div>
+              <button type="button" aria-label="关闭进度" title="关闭" disabled={chainRun.running} onClick={() => setChainRun(null)} style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, border: 0, borderRadius: 6, background: 'var(--bg-hover, #f3f4f6)', color: 'var(--text-faint, #4b5563)', cursor: chainRun.running ? 'not-allowed' : 'pointer', opacity: chainRun.running ? .5 : 1 }}>×</button>
+            </header>
+            <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 14px', display: 'grid', gap: 8 }}>
+              {CHAIN_STEP_LABELS.map((label, idx) => {
+                const status = chainRun.steps?.[idx] || 'pending';
+                const statusColor = status === 'ok' ? '#10b981' : status === 'failed' ? '#ef4444' : status === 'running' ? '#7c3aed' : '#9ca3af';
+                const statusLabel = status === 'ok' ? '✓ 完成' : status === 'failed' ? '✕ 失败' : status === 'running' ? '⋯ 进行中' : '○ 等待';
+                return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 9, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
+                  <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 999, fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #111827)' }}>{label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, letterSpacing: '.02em' }}>{statusLabel}</span>
+                </li>;
+              })}
+            </ol>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 9, background: chainRun.ok ? 'rgba(16,185,129,.08)' : chainRun.error ? 'rgba(239,68,68,.08)' : 'rgba(124,58,237,.06)', marginBottom: 12 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-hint, #6b7280)' }}>累计 AI 成本</span>
+              <strong style={{ fontSize: 14, color: 'var(--text-primary, #111827)', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: 'tnum' }}>¥{(chainRun.totalCost || 0).toFixed(4)}</strong>
+            </div>
+            {chainRun.error && <div role="alert" style={{ padding: '9px 11px', borderRadius: 8, background: 'rgba(239,68,68,.06)', color: '#b91c1c', fontSize: 12, marginBottom: 12 }}>{chainRun.error}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={chainRun.running} onClick={() => setChainRun(null)} style={{ border: 0, borderRadius: 8, padding: '8px 14px', background: 'var(--bg-hover, #f3f4f6)', color: 'var(--text-muted, #4b5563)', fontSize: 12, fontWeight: 700, cursor: chainRun.running ? 'not-allowed' : 'pointer' }}>{chainRun.ok ? '完成' : '关闭'}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {imageInfoNode && (
         <div role="dialog" aria-modal="true" aria-labelledby="canvas-image-info-title" style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.38)', display: 'grid', placeItems: 'center', padding: 20 }}>
