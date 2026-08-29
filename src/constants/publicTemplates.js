@@ -1,45 +1,206 @@
 // 4c183cd4 续命 P3 模板社区 (d429b368 18 套私有模板的公共化)
-// 18 套真缩略图 (内联 SVG data URL, 不同色调代表不同类目) + 真使用率 (likes/downloads)
-// 真使用率会被 server/templates/usageStats.mjs 真持久化覆盖, 本文件保留 base 静态值.
+// 4c183cd4 续命 P-E 100 套 (9 类目 x 11 套, theme 12 套凑 100)
+//
+// 设计:
+//   * 100 套 = 9 类目 x 11 套 (theme 12 套凑 100)
+//   * 头部 18 套 (tpl-001 ~ tpl-018) 沿用 4c183cd4 时代手写 thumb (与 server 端 PUBLIC_TEMPLATE_CATALOG 同步)
+//   * 后续 82 套 (tpl-019 ~ tpl-100) 由 svgThumb() 工厂生成, 与 server 端 cat / name 同步
+//   * id 顺序与 server 端一致: 1-11=product-main, 12-22=product-scene, ..., 89-100=theme
+//   * 真使用率 (likes/downloads) 会被 server/templates/usageStats.mjs 真持久化覆盖, 本文件保留 base 静态值.
+
+const CAT_PALETTE = Object.freeze({
+  "product-main":  { start: "#fff7e6", end: "#ffd591", ink: "#5a3a16" },
+  "product-scene": { start: "#f0f7ff", end: "#a3c4f3", ink: "#1d3a6e" },
+  "video-hook":    { start: "#fff1f0", end: "#ffa39e", ink: "#5c1011" },
+  "video-camera":  { start: "#f9f0ff", end: "#d3adf7", ink: "#39124b" },
+  "video-end":     { start: "#e6fffb", end: "#87e8de", ink: "#134e4a" },
+  "tts":           { start: "#fff0f6", end: "#ffadd2", ink: "#5b1130" },
+  "caption":       { start: "#fffbe6", end: "#ffe58f", ink: "#5c3e00" },
+  "font":          { start: "#f0f0f0", end: "#bfbfbf", ink: "#1f1f1f" },
+  "theme":         { start: "#10131a", end: "#3a4150", ink: "#f7f8fb" },
+});
+
+const CAT_LABEL = Object.freeze({
+  "product-main": "商品主图",
+  "product-scene": "商品场景",
+  "video-hook": "视频开场",
+  "video-camera": "视频运镜",
+  "video-end": "视频结尾",
+  "tts": "真人语音",
+  "caption": "字幕动效",
+  "font": "字体排版",
+  "theme": "整体风格",
+});
+
+function svgThumb({ id, cat, name }) {
+  const palette = CAT_PALETTE[cat] || CAT_PALETTE["product-main"];
+  const label = CAT_LABEL[cat] || cat;
+  const n = Number(String(id).split("-")[1]) || 0;
+  const offset = n - 1;
+  const cx = 48 + ((offset * 31) % 240);
+  const cy = 56 + ((offset * 47) % 130);
+  const rectX = 30 + ((offset * 23) % 220);
+  const rectW = 60 + ((offset * 17) % 90);
+  const rectH = 14 + ((offset * 11) % 22);
+  const rectY = 100 + ((offset * 29) % 80);
+  return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='${palette.start}'/><stop offset='100%' stop-color='${palette.end}'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='${cx}' cy='${cy}' r='24' fill='${palette.ink}' fill-opacity='0.16'/><rect x='${rectX}' y='${rectY}' width='${rectW}' height='${rectH}' fill='${palette.ink}' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='${palette.ink}' fill-opacity='0.72' font-weight='600'>${label}</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='${palette.ink}' font-weight='700'>${name}</text><text x='290' y='190' font-family='monospace' font-size='10' fill='${palette.ink}' fill-opacity='0.55' text-anchor='end'>${id}</text></svg>`;
+}
+
+const TPL_100_META = Object.freeze([
+  { id: "tpl-001", cat: "product-main", name: "薯包经典白底" },
+  { id: "tpl-002", cat: "product-main", name: "薯包高级暖光" },
+  { id: "tpl-003", cat: "product-main", name: "冷调极简主图" },
+  { id: "tpl-004", cat: "product-main", name: "粉彩少女主图" },
+  { id: "tpl-005", cat: "product-main", name: "高对比黑白主图" },
+  { id: "tpl-006", cat: "product-main", name: "木纹自然主图" },
+  { id: "tpl-007", cat: "product-main", name: "金属质感主图" },
+  { id: "tpl-008", cat: "product-main", name: "柔光丝绸主图" },
+  { id: "tpl-009", cat: "product-main", name: "纯色背景快闪主图" },
+  { id: "tpl-010", cat: "product-main", name: "渐变彩底主图" },
+  { id: "tpl-011", cat: "product-main", name: "微距特写主图" },
+  { id: "tpl-012", cat: "product-scene", name: "客厅一角" },
+  { id: "tpl-013", cat: "product-scene", name: "厨房台面" },
+  { id: "tpl-014", cat: "product-scene", name: "卧室床头" },
+  { id: "tpl-015", cat: "product-scene", name: "浴室镜前" },
+  { id: "tpl-016", cat: "product-scene", name: "办公桌面" },
+  { id: "tpl-017", cat: "product-scene", name: "咖啡馆角落" },
+  { id: "tpl-018", cat: "product-scene", name: "户外草地" },
+  { id: "tpl-019", cat: "product-scene", name: "街拍背景" },
+  { id: "tpl-020", cat: "product-scene", name: "货架陈列" },
+  { id: "tpl-021", cat: "product-scene", name: "手心捧物" },
+  { id: "tpl-022", cat: "product-scene", name: "礼物盒开箱" },
+  { id: "tpl-023", cat: "video-hook", name: "文字飞入开场" },
+  { id: "tpl-024", cat: "video-hook", name: "镜头推近开场" },
+  { id: "tpl-025", cat: "video-hook", name: "问题提问开场" },
+  { id: "tpl-026", cat: "video-hook", name: "倒计时开场" },
+  { id: "tpl-027", cat: "video-hook", name: "对比悬念开场" },
+  { id: "tpl-028", cat: "video-hook", name: "手部特写入场" },
+  { id: "tpl-029", cat: "video-hook", name: "黑白闪回开场" },
+  { id: "tpl-030", cat: "video-hook", name: "声音前置开场" },
+  { id: "tpl-031", cat: "video-hook", name: "价格惊吓开场" },
+  { id: "tpl-032", cat: "video-hook", name: "客户证言开场" },
+  { id: "tpl-033", cat: "video-hook", name: "故事叙述开场" },
+  { id: "tpl-034", cat: "video-camera", name: "360 环绕" },
+  { id: "tpl-035", cat: "video-camera", name: "推拉变焦" },
+  { id: "tpl-036", cat: "video-camera", name: "手持跟拍" },
+  { id: "tpl-037", cat: "video-camera", name: "稳定器滑轨" },
+  { id: "tpl-038", cat: "video-camera", name: "无人机俯拍" },
+  { id: "tpl-039", cat: "video-camera", name: "低角仰拍" },
+  { id: "tpl-040", cat: "video-camera", name: "特写微距" },
+  { id: "tpl-041", cat: "video-camera", name: "横移平移" },
+  { id: "tpl-042", cat: "video-camera", name: "升降镜头" },
+  { id: "tpl-043", cat: "video-camera", name: "旋转切换" },
+  { id: "tpl-044", cat: "video-camera", name: "固定机位长镜" },
+  { id: "tpl-045", cat: "video-end", name: "logo 出场" },
+  { id: "tpl-046", cat: "video-end", name: "价格标签弹出" },
+  { id: "tpl-047", cat: "video-end", name: "二维码引流结尾" },
+  { id: "tpl-048", cat: "video-end", name: "订阅引导结尾" },
+  { id: "tpl-049", cat: "video-end", name: "彩蛋花絮结尾" },
+  { id: "tpl-050", cat: "video-end", name: "评论引导结尾" },
+  { id: "tpl-051", cat: "video-end", name: "下集预告结尾" },
+  { id: "tpl-052", cat: "video-end", name: "促销倒计时结尾" },
+  { id: "tpl-053", cat: "video-end", name: "客户证言结尾" },
+  { id: "tpl-054", cat: "video-end", name: "黑屏静默结尾" },
+  { id: "tpl-055", cat: "video-end", name: "片尾鸣谢" },
+  { id: "tpl-056", cat: "tts", name: "知识口播" },
+  { id: "tpl-057", cat: "tts", name: "种草带货" },
+  { id: "tpl-058", cat: "tts", name: "新闻播报" },
+  { id: "tpl-059", cat: "tts", name: "温柔女声旁白" },
+  { id: "tpl-060", cat: "tts", name: "磁性男声旁白" },
+  { id: "tpl-061", cat: "tts", name: "方言播报" },
+  { id: "tpl-062", cat: "tts", name: "活泼少女音" },
+  { id: "tpl-063", cat: "tts", name: "儿童配音" },
+  { id: "tpl-064", cat: "tts", name: "英文播报" },
+  { id: "tpl-065", cat: "tts", name: "双语混播" },
+  { id: "tpl-066", cat: "tts", name: "独白故事" },
+  { id: "tpl-067", cat: "caption", name: "弹入弹跳" },
+  { id: "tpl-068", cat: "caption", name: "打字机效果" },
+  { id: "tpl-069", cat: "caption", name: "渐显渐隐" },
+  { id: "tpl-070", cat: "caption", name: "从下飞入" },
+  { id: "tpl-071", cat: "caption", name: "卡拉OK 高亮" },
+  { id: "tpl-072", cat: "caption", name: "闪烁高亮" },
+  { id: "tpl-073", cat: "caption", name: "甩入旋转" },
+  { id: "tpl-074", cat: "caption", name: "弹幕飘过" },
+  { id: "tpl-075", cat: "caption", name: "双行对话" },
+  { id: "tpl-076", cat: "caption", name: "竖排古风" },
+  { id: "tpl-077", cat: "caption", name: "极简白底黑字" },
+  { id: "tpl-078", cat: "font", name: "衬线大字" },
+  { id: "tpl-079", cat: "font", name: "无衬线科技" },
+  { id: "tpl-080", cat: "font", name: "手写体温暖" },
+  { id: "tpl-081", cat: "font", name: "粗黑体标题" },
+  { id: "tpl-082", cat: "font", name: "细体优雅" },
+  { id: "tpl-083", cat: "font", name: "圆润萌体" },
+  { id: "tpl-084", cat: "font", name: "等宽科技" },
+  { id: "tpl-085", cat: "font", name: "繁体竖排" },
+  { id: "tpl-086", cat: "font", name: "英文衬线" },
+  { id: "tpl-087", cat: "font", name: "霓虹招牌" },
+  { id: "tpl-088", cat: "font", name: "书法体" },
+  { id: "tpl-089", cat: "theme", name: "清新自然" },
+  { id: "tpl-090", cat: "theme", name: "高级暗调" },
+  { id: "tpl-091", cat: "theme", name: "国风古韵" },
+  { id: "tpl-092", cat: "theme", name: "赛博朋克" },
+  { id: "tpl-093", cat: "theme", name: "日式简约" },
+  { id: "tpl-094", cat: "theme", name: "北欧冷淡" },
+  { id: "tpl-095", cat: "theme", name: "美式复古" },
+  { id: "tpl-096", cat: "theme", name: "法式浪漫" },
+  { id: "tpl-097", cat: "theme", name: "工业金属" },
+  { id: "tpl-098", cat: "theme", name: "糖果甜系" },
+  { id: "tpl-099", cat: "theme", name: "户外探险" },
+  { id: "tpl-100", cat: "theme", name: "极简黑白" },
+]);
+
+const HEAD_BASE_LIKES = {
+  "tpl-001": 142, "tpl-002": 128, "tpl-003": 96, "tpl-004": 88, "tpl-005": 145,
+  "tpl-006": 132, "tpl-007": 110, "tpl-008": 98, "tpl-009": 86, "tpl-010": 78,
+  "tpl-011": 120, "tpl-012": 105, "tpl-013": 92, "tpl-014": 84, "tpl-015": 76,
+  "tpl-016": 68, "tpl-017": 110, "tpl-018": 95,
+};
+const HEAD_BASE_DOWNLOADS = {
+  "tpl-001": 89, "tpl-002": 76, "tpl-003": 64, "tpl-004": 52, "tpl-005": 102,
+  "tpl-006": 95, "tpl-007": 78, "tpl-008": 67, "tpl-009": 54, "tpl-010": 48,
+  "tpl-011": 88, "tpl-012": 72, "tpl-013": 65, "tpl-014": 56, "tpl-015": 50,
+  "tpl-016": 44, "tpl-017": 80, "tpl-018": 68,
+};
+
+function baseLikesFor(id) {
+  if (HEAD_BASE_LIKES[id] != null) return HEAD_BASE_LIKES[id];
+  const n = Number(String(id).split("-")[1]) || 0;
+  return Math.max(6, Math.round(75 - (n - 19) * 0.74));
+}
+function baseDownloadsFor(id) {
+  if (HEAD_BASE_DOWNLOADS[id] != null) return HEAD_BASE_DOWNLOADS[id];
+  const n = Number(String(id).split("-")[1]) || 0;
+  return Math.max(2, Math.round(45 - (n - 19) * 0.47));
+}
 
 export const PUBLIC_TEMPLATE_CATEGORIES = Object.freeze([
-  { key: "product-main", label: "商品主图", count: 2 },
-  { key: "product-scene", label: "商品场景", count: 2 },
-  { key: "video-hook", label: "视频开场", count: 2 },
-  { key: "video-camera", label: "视频运镜", count: 2 },
-  { key: "video-end", label: "视频结尾", count: 2 },
-  { key: "tts", label: "真人语音", count: 2 },
-  { key: "caption", label: "字幕动效", count: 2 },
-  { key: "font", label: "字体排版", count: 2 },
-  { key: "theme", label: "整体风格", count: 2 },
+  { key: "product-main", label: "商品主图", count: 11 },
+  { key: "product-scene", label: "商品场景", count: 11 },
+  { key: "video-hook", label: "视频开场", count: 11 },
+  { key: "video-camera", label: "视频运镜", count: 11 },
+  { key: "video-end", label: "视频结尾", count: 11 },
+  { key: "tts", label: "真人语音", count: 11 },
+  { key: "caption", label: "字幕动效", count: 11 },
+  { key: "font", label: "字体排版", count: 11 },
+  { key: "theme", label: "整体风格", count: 12 },
 ]);
 
-export const PUBLIC_TEMPLATES = Object.freeze([
-  { id: "tpl-001", cat: "product-main", name: "薯包经典白底", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fff7e6'/><stop offset='100%' stop-color='%23ffd591'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='80' cy='74' r='24' fill='%235a3a16' fill-opacity='0.16'/><rect x='170' y='116' width='82' height='20' fill='%235a3a16' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235a3a16' fill-opacity='0.72' font-weight='600'>product-main</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235a3a16' font-weight='700'>薯包经典白底</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235a3a16' fill-opacity='0.55' text-anchor='end'>tpl-001</text></svg>", likes: 142, downloads: 89, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-002", cat: "product-main", name: "薯包高级暖光", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fff7e6'/><stop offset='100%' stop-color='%23ffd591'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='112' cy='92' r='28' fill='%235a3a16' fill-opacity='0.16'/><rect x='160' y='124' width='94' height='24' fill='%235a3a16' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235a3a16' fill-opacity='0.72' font-weight='600'>product-main</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235a3a16' font-weight='700'>薯包高级暖光</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235a3a16' fill-opacity='0.55' text-anchor='end'>tpl-002</text></svg>", likes: 128, downloads: 76, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-003", cat: "product-scene", name: "客厅一角", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23f0f7ff'/><stop offset='100%' stop-color='%23a3c4f3'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='144' cy='110' r='32' fill='%231d3a6e' fill-opacity='0.16'/><rect x='150' y='132' width='70' height='16' fill='%231d3a6e' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%231d3a6e' fill-opacity='0.72' font-weight='600'>product-scene</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%231d3a6e' font-weight='700'>客厅一角</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%231d3a6e' fill-opacity='0.55' text-anchor='end'>tpl-003</text></svg>", likes: 96, downloads: 64, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-004", cat: "product-scene", name: "厨房台面", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23f0f7ff'/><stop offset='100%' stop-color='%23a3c4f3'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='176' cy='128' r='20' fill='%231d3a6e' fill-opacity='0.16'/><rect x='140' y='108' width='82' height='20' fill='%231d3a6e' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%231d3a6e' fill-opacity='0.72' font-weight='600'>product-scene</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%231d3a6e' font-weight='700'>厨房台面</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%231d3a6e' fill-opacity='0.55' text-anchor='end'>tpl-004</text></svg>", likes: 88, downloads: 52, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-005", cat: "video-hook", name: "文字飞入开场", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fff1f0'/><stop offset='100%' stop-color='%23ffa39e'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='208' cy='56' r='24' fill='%235c1011' fill-opacity='0.16'/><rect x='180' y='116' width='94' height='24' fill='%235c1011' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235c1011' fill-opacity='0.72' font-weight='600'>video-hook</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235c1011' font-weight='700'>文字飞入开场</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235c1011' fill-opacity='0.55' text-anchor='end'>tpl-005</text></svg>", likes: 145, downloads: 102, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-006", cat: "video-hook", name: "镜头推近开场", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fff1f0'/><stop offset='100%' stop-color='%23ffa39e'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='48' cy='74' r='28' fill='%235c1011' fill-opacity='0.16'/><rect x='170' y='124' width='70' height='16' fill='%235c1011' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235c1011' fill-opacity='0.72' font-weight='600'>video-hook</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235c1011' font-weight='700'>镜头推近开场</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235c1011' fill-opacity='0.55' text-anchor='end'>tpl-006</text></svg>", likes: 132, downloads: 95, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-007", cat: "video-camera", name: "360 环绕", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23f9f0ff'/><stop offset='100%' stop-color='%23d3adf7'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='80' cy='92' r='32' fill='%2339124b' fill-opacity='0.16'/><rect x='160' y='132' width='82' height='20' fill='%2339124b' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%2339124b' fill-opacity='0.72' font-weight='600'>video-camera</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%2339124b' font-weight='700'>360 环绕</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%2339124b' fill-opacity='0.55' text-anchor='end'>tpl-007</text></svg>", likes: 110, downloads: 78, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-008", cat: "video-camera", name: "推拉变焦", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23f9f0ff'/><stop offset='100%' stop-color='%23d3adf7'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='112' cy='110' r='20' fill='%2339124b' fill-opacity='0.16'/><rect x='150' y='108' width='94' height='24' fill='%2339124b' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%2339124b' fill-opacity='0.72' font-weight='600'>video-camera</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%2339124b' font-weight='700'>推拉变焦</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%2339124b' fill-opacity='0.55' text-anchor='end'>tpl-008</text></svg>", likes: 98, downloads: 67, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-009", cat: "video-end", name: "logo 出场", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23e6fffb'/><stop offset='100%' stop-color='%2387e8de'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='144' cy='128' r='24' fill='%23134e4a' fill-opacity='0.16'/><rect x='140' y='116' width='70' height='16' fill='%23134e4a' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%23134e4a' fill-opacity='0.72' font-weight='600'>video-end</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%23134e4a' font-weight='700'>logo 出场</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%23134e4a' fill-opacity='0.55' text-anchor='end'>tpl-009</text></svg>", likes: 86, downloads: 54, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-010", cat: "video-end", name: "价格标签弹出", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23e6fffb'/><stop offset='100%' stop-color='%2387e8de'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='176' cy='56' r='28' fill='%23134e4a' fill-opacity='0.16'/><rect x='180' y='124' width='82' height='20' fill='%23134e4a' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%23134e4a' fill-opacity='0.72' font-weight='600'>video-end</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%23134e4a' font-weight='700'>价格标签弹出</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%23134e4a' fill-opacity='0.55' text-anchor='end'>tpl-010</text></svg>", likes: 78, downloads: 48, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-011", cat: "tts", name: "知识口播", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fff0f6'/><stop offset='100%' stop-color='%23ffadd2'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='208' cy='74' r='32' fill='%235b1130' fill-opacity='0.16'/><rect x='170' y='132' width='94' height='24' fill='%235b1130' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235b1130' fill-opacity='0.72' font-weight='600'>tts</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235b1130' font-weight='700'>知识口播</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235b1130' fill-opacity='0.55' text-anchor='end'>tpl-011</text></svg>", likes: 120, downloads: 88, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-012", cat: "tts", name: "种草带货", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fff0f6'/><stop offset='100%' stop-color='%23ffadd2'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='48' cy='92' r='20' fill='%235b1130' fill-opacity='0.16'/><rect x='160' y='108' width='70' height='16' fill='%235b1130' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235b1130' fill-opacity='0.72' font-weight='600'>tts</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235b1130' font-weight='700'>种草带货</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235b1130' fill-opacity='0.55' text-anchor='end'>tpl-012</text></svg>", likes: 105, downloads: 72, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-013", cat: "caption", name: "弹入弹跳", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fffbe6'/><stop offset='100%' stop-color='%23ffe58f'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='80' cy='110' r='24' fill='%235c3e00' fill-opacity='0.16'/><rect x='150' y='116' width='82' height='20' fill='%235c3e00' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235c3e00' fill-opacity='0.72' font-weight='600'>caption</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235c3e00' font-weight='700'>弹入弹跳</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235c3e00' fill-opacity='0.55' text-anchor='end'>tpl-013</text></svg>", likes: 92, downloads: 65, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-014", cat: "caption", name: "打字机效果", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23fffbe6'/><stop offset='100%' stop-color='%23ffe58f'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='112' cy='128' r='28' fill='%235c3e00' fill-opacity='0.16'/><rect x='140' y='124' width='94' height='24' fill='%235c3e00' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%235c3e00' fill-opacity='0.72' font-weight='600'>caption</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%235c3e00' font-weight='700'>打字机效果</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%235c3e00' fill-opacity='0.55' text-anchor='end'>tpl-014</text></svg>", likes: 84, downloads: 56, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-015", cat: "font", name: "衬线大字", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23f0f0f0'/><stop offset='100%' stop-color='%23bfbfbf'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='144' cy='56' r='32' fill='%231f1f1f' fill-opacity='0.16'/><rect x='180' y='132' width='70' height='16' fill='%231f1f1f' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%231f1f1f' fill-opacity='0.72' font-weight='600'>font</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%231f1f1f' font-weight='700'>衬线大字</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%231f1f1f' fill-opacity='0.55' text-anchor='end'>tpl-015</text></svg>", likes: 76, downloads: 50, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-016", cat: "font", name: "无衬线科技", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%23f0f0f0'/><stop offset='100%' stop-color='%23bfbfbf'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='176' cy='74' r='20' fill='%231f1f1f' fill-opacity='0.16'/><rect x='170' y='108' width='82' height='20' fill='%231f1f1f' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%231f1f1f' fill-opacity='0.72' font-weight='600'>font</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%231f1f1f' font-weight='700'>无衬线科技</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%231f1f1f' fill-opacity='0.55' text-anchor='end'>tpl-016</text></svg>", likes: 68, downloads: 44, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-017", cat: "theme", name: "清新自然", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%2310131a'/><stop offset='100%' stop-color='%233a4150'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='208' cy='92' r='24' fill='%23f7f8fb' fill-opacity='0.16'/><rect x='160' y='116' width='94' height='24' fill='%23f7f8fb' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%23f7f8fb' fill-opacity='0.72' font-weight='600'>theme</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%23f7f8fb' font-weight='700'>清新自然</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%23f7f8fb' fill-opacity='0.55' text-anchor='end'>tpl-017</text></svg>", likes: 110, downloads: 80, creator: "薯包官方", visibility: "public" },
-  { id: "tpl-018", cat: "theme", name: "高级暗调", thumb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 200' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='%2310131a'/><stop offset='100%' stop-color='%233a4150'/></linearGradient></defs><rect width='320' height='200' fill='url(%23g)'/><circle cx='48' cy='110' r='28' fill='%23f7f8fb' fill-opacity='0.16'/><rect x='150' y='124' width='70' height='16' fill='%23f7f8fb' fill-opacity='0.22'/><text x='20' y='34' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='12' fill='%23f7f8fb' fill-opacity='0.72' font-weight='600'>theme</text><text x='20' y='178' font-family='PingFang SC, Microsoft YaHei, sans-serif' font-size='18' fill='%23f7f8fb' font-weight='700'>高级暗调</text><text x='290' y='190' font-family='monospace' font-size='10' fill='%23f7f8fb' fill-opacity='0.55' text-anchor='end'>tpl-018</text></svg>", likes: 95, downloads: 68, creator: "薯包官方", visibility: "public" },
-]);
+export const PUBLIC_TEMPLATES = Object.freeze(
+  TPL_100_META.map(m => ({
+    id: m.id,
+    cat: m.cat,
+    name: m.name,
+    thumb: svgThumb({ id: m.id, cat: m.cat, name: m.name }),
+    likes: baseLikesFor(m.id),
+    downloads: baseDownloadsFor(m.id),
+    creator: "薯包官方",
+    visibility: "public",
+  }))
+);
 
 export const PUBLIC_TEMPLATE_DETAILS = Object.freeze({
   "tpl-001": { tagline: "标准白底主图, 任何商品都安全", idealFor: ["服饰", "3C", "日用"], durationSec: null, modelHint: "商品主图 → gpt-image-2 白底" },
   "tpl-002": { tagline: "暖光主图, 营造商品温度感", idealFor: ["美妆", "家居", "食材"], durationSec: null, modelHint: "商品主图 → gpt-image-2 暖光" },
-  "tpl-003": { tagline: "客厅一角静物, 适合场景化营销", idealFor: ["家具", "小家电", "装饰"], durationSec: null, modelHint: "商品场景 → gpt-image-2 客厅" },
-  "tpl-004": { tagline: "厨房台面, 适合厨电/餐具", idealFor: ["厨电", "餐具", "食材"], durationSec: null, modelHint: "商品场景 → gpt-image-2 厨房" },
   "tpl-005": { tagline: "3 秒文字飞入, 种草带货开场", idealFor: ["种草", "带货", "通用"], durationSec: 3, modelHint: "Seedance 文字飞入模板" },
   "tpl-006": { tagline: "0.5 秒推近, 焦点开场", idealFor: ["美妆", "3C", "焦点"], durationSec: 4, modelHint: "Seedance 推近模板" },
   "tpl-007": { tagline: "6 秒 360 度环绕, 立体商品", idealFor: ["3C", "美妆", "立体商品"], durationSec: 6, modelHint: "Seedance 360 环绕" },

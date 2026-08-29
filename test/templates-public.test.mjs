@@ -102,11 +102,12 @@ function statsWithBase() {
   });
 }
 
-test('listPublicTemplates has 18 entries in default sort', () => {
+test('listPublicTemplates has 100 entries in default sort (P-E 100 套)', () => {
   const stats = statsWithBase();
   const out = listPublicTemplates({ stats });
-  assert.equal(out.total, 18);
-  assert.equal(out.items.length, 18);
+  assert.equal(out.total, 100);
+  // 默认 limit = 50, items 50, total 100
+  assert.equal(out.items.length, 50);
   // 排序 = popular, 第一个 likes 最高 (tpl-005 145)
   assert.equal(out.items[0].id, 'tpl-005');
   assert.equal(out.sort, 'popular');
@@ -114,8 +115,9 @@ test('listPublicTemplates has 18 entries in default sort', () => {
 
 test('listPublicTemplates filters by category', () => {
   const stats = statsWithBase();
+  // 4c183cd4 P-E: video-hook 现在 11 套 (9 类目 x 11 套)
   const out = listPublicTemplates({ stats, cat: 'video-hook' });
-  assert.equal(out.total, 2);
+  assert.equal(out.total, 11);
   for (const item of out.items) assert.equal(item.cat, 'video-hook');
   assert.equal(out.cat, 'video-hook');
 });
@@ -144,8 +146,8 @@ test('listPublicTemplates sorts by newest (id desc) and paginates', () => {
   const stats = statsWithBase();
   const out = listPublicTemplates({ stats, sort: 'newest', limit: 5, offset: 2 });
   assert.equal(out.items.length, 5);
-  // id 倒序: tpl-018, tpl-017, tpl-016, ...
-  assert.equal(out.items[0].id, 'tpl-016');
+  // 4c183cd4 P-E 100 套: id 倒序 offset=2 -> tpl-098, tpl-097, tpl-096, tpl-095, tpl-094
+  assert.equal(out.items[0].id, 'tpl-098');
   // 切片后, id 仍然单调递减
   for (let i = 1; i < out.items.length; i += 1) {
     assert.ok(String(out.items[i - 1].id) > String(out.items[i].id));
@@ -163,10 +165,10 @@ test('listPublicTemplates reflects incrementDownload as live downloads', async (
   assert.equal(after.likes, 142);
 });
 
-test('PUBLIC_TEMPLATE_CATALOG has 18 unique entries across 9 categories', () => {
-  assert.equal(PUBLIC_TEMPLATE_CATALOG.length, 18);
+test('PUBLIC_TEMPLATE_CATALOG has 100 unique entries across 9 categories (P-E 100 套)', () => {
+  assert.equal(PUBLIC_TEMPLATE_CATALOG.length, 100);
   const ids = new Set(PUBLIC_TEMPLATE_CATALOG.map(t => t.id));
-  assert.equal(ids.size, 18);
+  assert.equal(ids.size, 100);
   const cats = new Set(PUBLIC_TEMPLATE_CATALOG.map(t => t.cat));
   assert.equal(cats.size, 9);
   assert.equal(PUBLIC_TEMPLATE_CATEGORIES.length, 9);
@@ -193,6 +195,7 @@ function createHarness() {
 
 test('clonePublicTemplate creates a video project and increments download', async () => {
   const { projectStore, stats } = createHarness();
+  // 4c183cd4 P-E 100 套: tpl-005 = "高对比黑白主图" (cat: product-main)
   const beforeDownloads = stats.snapshot('tpl-005').downloads;
   const result = await clonePublicTemplate({
     stats,
@@ -203,7 +206,7 @@ test('clonePublicTemplate creates a video project and increments download', asyn
   });
   assert.ok(result.projectId);
   assert.equal(result.templateId, 'tpl-005');
-  assert.equal(result.templateName, '文字飞入开场');
+  assert.equal(result.templateName, '高对比黑白主图');
   assert.equal(result.projectKind, 'video');
   assert.equal(result.replayed, false);
   assert.equal(result.downloads, beforeDownloads + 1);
@@ -212,7 +215,7 @@ test('clonePublicTemplate creates a video project and increments download', asyn
   const cloned = projects.find(p => p.id === result.projectId);
   assert.ok(cloned);
   assert.equal(cloned.kind, 'video');
-  assert.ok(cloned.title.includes('文字飞入开场'));
+  assert.ok(cloned.title.includes('高对比黑白主图'));
 });
 
 test('clonePublicTemplate with same idempotency key replays instead of creating new', async () => {
@@ -343,13 +346,14 @@ function mountHarness() {
   return { app, ...harness };
 }
 
-test('GET /api/templates/public returns 18 items + categories', async () => {
+test('GET /api/templates/public returns 50 items (P-E 100 套 default limit=50) + categories', async () => {
   const { app } = mountHarness();
   const res = await invoke(app, 'GET', '/api/templates/public');
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.ok, true);
-  assert.equal(res.body.items.length, 18);
-  assert.equal(res.body.total, 18);
+  // 4c183cd4 P-E: default limit 50, total 100
+  assert.equal(res.body.items.length, 50);
+  assert.equal(res.body.total, 100);
   assert.equal(res.body.categories.length, 9);
   // 真使用率字段 (likes/downloads 是数字)
   for (const item of res.body.items) {
@@ -358,11 +362,12 @@ test('GET /api/templates/public returns 18 items + categories', async () => {
   }
 });
 
-test('GET /api/templates/public with cat=video-hook returns 2 items', async () => {
+test('GET /api/templates/public with cat=video-hook returns 11 items (P-E)', async () => {
   const { app } = mountHarness();
   const res = await invoke(app, 'GET', '/api/templates/public', { query: { cat: 'video-hook' } });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.items.length, 2);
+  // video-hook 11 套, 全部返回 (小于默认 limit 50)
+  assert.equal(res.body.items.length, 11);
   for (const item of res.body.items) assert.equal(item.cat, 'video-hook');
 });
 

@@ -1,16 +1,17 @@
 // 4c183cd4 续命 P3 模板社区 - 详情模态 + 复制到画布
+// 4c183cd4 续命 P-E 100 套 (9 类目 x 11 套, theme 12 套) + likes 排序 + 分页 + 视觉徽章
 //
 // 设计:
-//   * 静态数据来自 src/constants/publicTemplates.js (18 套真缩略图 + base 使用率)
+//   * 静态数据来自 src/constants/publicTemplates.js (100 套真缩略图 + base 使用率)
 //   * 启动时从 GET /api/templates/public 拿真使用率 (server 持久化覆盖 base)
-//   * 列表: 类目筛选 + 排序(popular/likes/downloads/newest) + 热门区
+//   * 列表: 类目筛选 + 排序(popular/likes/downloads/newest) + 热门区 + 分页 (50/页)
 //   * 详情: 点击卡片展开模态, 显示 tagline/idealFor/durationSec/modelHint + 复制按钮
 //   * 复制: POST /api/templates/public/:tplId/clone -> 跳到 #/video-studio/<projectId>
 //
 // 注意: 不做自动 reset; 当用户没登录, 复制时弹出登录模态 (复用 useApp 现有 modal).
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Sparkles, Heart, Download, X, ChevronRight } from 'lucide-react';
+import { Sparkles, Heart, Download, X, ChevronRight, ChevronLeft, ChevronRight as ChevronRightAlias } from 'lucide-react';
 import './index.css';
 import {
   PUBLIC_TEMPLATE_CATEGORIES,
@@ -29,6 +30,21 @@ const SORTS = [
   { key: 'downloads', label: '最多下载' },
   { key: 'newest', label: '最新上架' },
 ];
+
+// 4c183cd4 P-E 100 套分页: 客户端默认 50/页 (server 默认 limit=50)
+const PAGE_SIZE = 50;
+
+const CAT_LABEL_LOOKUP = Object.freeze({
+  "product-main": "商品主图",
+  "product-scene": "商品场景",
+  "video-hook": "视频开场",
+  "video-camera": "视频运镜",
+  "video-end": "视频结尾",
+  "tts": "真人语音",
+  "caption": "字幕动效",
+  "font": "字体排版",
+  "theme": "整体风格",
+});
 
 function fmt(num) {
   if (typeof num !== 'number' || !Number.isFinite(num)) return '0';
@@ -70,7 +86,7 @@ function TemplateDetail({ tpl, usage, onClose, onClone, busy }) {
             <p className="tpl-modal-tagline">{detail.tagline || '薯包官方原创模板'}</p>
             <dl>
               <div><dt>创作者</dt><dd>{tpl.creator}</dd></div>
-              <div><dt>类目</dt><dd>{tpl.cat}</dd></div>
+              <div><dt>类目</dt><dd>{CAT_LABEL_LOOKUP[tpl.cat] || tpl.cat}</dd></div>
               <div><dt>建议时长</dt><dd>{detail.durationSec ? `${detail.durationSec} 秒` : '按画布时长'}</dd></div>
               <div><dt>建议场景</dt><dd>{(detail.idealFor || []).join(' / ') || '通用'}</dd></div>
               <div><dt>模型提示</dt><dd>{detail.modelHint || '默认'}</dd></div>
@@ -99,10 +115,38 @@ function TemplateDetail({ tpl, usage, onClose, onClone, busy }) {
   );
 }
 
+function Pager({ page, totalPages, onPage }) {
+  if (totalPages <= 1) return null;
+  const pages = [];
+  for (let i = 0; i < totalPages; i += 1) pages.push(i);
+  return (
+    <nav className="pager" aria-label="分页">
+      <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="上一页">
+        <ChevronLeft size={14} /> 上一页
+      </button>
+      {pages.map(p => (
+        <button
+          key={p}
+          type="button"
+          className={p === page ? 'is-on' : ''}
+          onClick={() => onPage(p)}
+          aria-label={`第 ${p + 1} 页`}
+        >
+          {p + 1}
+        </button>
+      ))}
+      <button type="button" disabled={page >= totalPages - 1} onClick={() => onPage(page + 1)} aria-label="下一页">
+        下一页 <ChevronRightAlias size={14} />
+      </button>
+    </nav>
+  );
+}
+
 const PublicTemplates = () => {
   const { state, dispatch } = useApp();
   const [cat, setCat] = useState('all');
   const [sort, setSort] = useState('popular');
+  const [page, setPage] = useState(0);
   const [usageMap, setUsageMap] = useState(() => {
     const out = Object.create(null);
     for (const t of PUBLIC_TEMPLATES) out[t.id] = { likes: t.likes, downloads: t.downloads };
@@ -116,7 +160,7 @@ const PublicTemplates = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/templates/public?limit=50', { credentials: 'include' });
+        const res = await fetch('/api/templates/public?limit=100', { credentials: 'include' });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled || !data || !Array.isArray(data.items)) return;
@@ -144,10 +188,21 @@ const PublicTemplates = () => {
     return applySort(filtered, sort);
   }, [decorated, cat, sort]);
 
+  // 4c183cd4 P-E 100 套分页: 总页数 = ceil(items.length / PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pagedItems = useMemo(
+    () => items.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE),
+    [items, safePage]
+  );
+
   const popular = useMemo(() => applySort(decorated, 'popular').slice(0, 4), [decorated]);
 
   const handleSelect = useCallback((t) => setSelected(t), []);
   const handleClose = useCallback(() => { if (!busy) setSelected(null); }, [busy]);
+
+  // 类目或排序变化时回到第一页
+  useEffect(() => { setPage(0); }, [cat, sort]);
 
   const handleClone = useCallback(async (tpl) => {
     if (!tpl) return;
@@ -175,9 +230,7 @@ const PublicTemplates = () => {
         return;
       }
       if (data?.projectId) {
-        // 把 projectId 暂存到 sessionStorage, VideoProjectWorkbench 启动时可读
         try { sessionStorage.setItem('video.project.to.open', data.projectId); } catch (_) {}
-        // 跳到 video-studio, hash 形式
         window.location.hash = `#/video-studio/${data.projectId}`;
         dispatch({ type: 'NAVIGATE', page: 'video-studio' });
         setSelected(null);
@@ -196,7 +249,7 @@ const PublicTemplates = () => {
     <section className="public-templates-page" aria-label="公共模板社区">
       <header className="public-templates-head">
         <h1>公共模板库</h1>
-        <p>9 类目 18 套, 站主原创, 复制到画布即可继续编辑</p>
+        <p>9 类目 100 套, 站主原创, 复制到画布即可继续编辑</p>
       </header>
 
       <section className="popular-row" aria-label="热门模板">
@@ -235,22 +288,26 @@ const PublicTemplates = () => {
             {s.label}
           </button>
         ))}
-        <span className="sort-count">共 {items.length} 套</span>
+        <span className="sort-count">共 {items.length} 套 · 第 {safePage + 1}/{totalPages} 页</span>
       </div>
 
       <ul className="grid" aria-label="模板列表">
-        {items.map(t => (
+        {pagedItems.map(t => (
           <li key={t.id} className="grid-item" onClick={() => handleSelect(t)} role="button" tabIndex={0}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(t); } }}>
             <img src={t.thumb} alt={t.name} loading="lazy" width="320" height="200" />
+            <span className="grid-item-badge">{t.id}</span>
+            <span className="grid-item-cat">{CAT_LABEL_LOOKUP[t.cat] || t.cat}</span>
             <div className="grid-meta">
               <strong>{t.name}</strong>
-              <small>{t.cat} · 创作者 {t.creator}</small>
+              <small>创作者 {t.creator}</small>
               <div className="grid-stats"><Heart size={11} /> {fmt(t.likes)}  ·  <Download size={11} /> {fmt(t.downloads)}</div>
             </div>
           </li>
         ))}
       </ul>
+
+      <Pager page={safePage} totalPages={totalPages} onPage={setPage} />
 
       {selected && (
         <TemplateDetail

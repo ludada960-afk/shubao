@@ -1,4 +1,5 @@
 /* 4c183cd4 续命 P3 模板社区样式 */
+/* 4c183cd4 续命 P-E 100 套 (9 类目 x 11 套) 视觉增强 + 分页 */
 
 .public-templates-page {
   max-width: 1280px;
@@ -55,7 +56,9 @@
   cursor: pointer;
   font-size: 13px;
   color: var(--text-primary, #2a2f3a);
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
+.cat-bar button:hover { border-color: var(--brand-primary, #ff5b3a); color: var(--brand-primary, #ff5b3a); }
 .cat-bar button.is-on { background: var(--brand-primary, #ff5b3a); color: #fff; border-color: transparent; }
 
 .sort-bar {
@@ -67,13 +70,16 @@
   background: transparent; border: 1px solid transparent;
   color: var(--text-secondary, #5d6679);
   border-radius: 6px; cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
 }
+.sort-bar button:hover { color: var(--brand-primary, #ff5b3a); }
 .sort-bar button.is-on { color: var(--brand-primary, #ff5b3a); border-color: var(--brand-primary, #ff5b3a); background: rgba(255,91,58,0.06); }
 .sort-count { margin-left: auto; font-size: 12px; color: var(--text-secondary, #5d6679); }
 
+/* 4c183cd4 P-E: 100 套 grid (auto-fill, 视觉增强) */
 .grid {
   list-style: none; padding: 0; margin: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
 }
 .grid-item {
@@ -83,14 +89,51 @@
   overflow: hidden;
   cursor: pointer;
   display: flex; flex-direction: column;
-  transition: transform .15s ease, box-shadow .15s ease;
+  position: relative;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
-.grid-item:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08); }
+.grid-item:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15,23,42,0.08); border-color: rgba(255,91,58,0.45); }
 .grid-item img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
 .grid-meta { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
 .grid-meta strong { font-size: 14px; font-weight: 600; }
 .grid-meta small { font-size: 12px; color: var(--text-secondary, #5d6679); }
 .grid-stats { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-secondary, #5d6679); }
+.grid-item-badge {
+  position: absolute; left: 8px; top: 8px;
+  background: rgba(15,23,42,0.78); color: #fff;
+  font-family: monospace; font-size: 10px;
+  padding: 2px 6px; border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+.grid-item-cat {
+  position: absolute; right: 8px; top: 8px;
+  background: rgba(255,91,58,0.92); color: #fff;
+  font-size: 10px;
+  padding: 2px 8px; border-radius: 999px;
+  font-weight: 600;
+}
+
+/* 4c183cd4 P-E: 分页 (100 套 -> 50/页) */
+.pager {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.pager button {
+  padding: 6px 12px;
+  border: 1px solid var(--border-soft, #d8dde6);
+  background: var(--surface-card, #fff);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary, #2a2f3a);
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.pager button:hover:not(:disabled) { border-color: var(--brand-primary, #ff5b3a); color: var(--brand-primary, #ff5b3a); }
+.pager button.is-on { background: var(--brand-primary, #ff5b3a); color: #fff; border-color: transparent; }
+.pager button:disabled { opacity: 0.5; cursor: not-allowed; }
+.pager-info { font-size: 12px; color: var(--text-secondary, #5d6679); margin-left: 12px; }
 
 .tpl-modal-backdrop {
   position: fixed; inset: 0;
