@@ -65,15 +65,43 @@ test('context menu is clamped to the browser viewport', () => {
   );
 });
 
-test('node port presents Shubao image, text, ecommerce, and video capabilities', () => {
-  assert.deepEqual(CANVAS_CREATION_OPTIONS.map(option => option.id), [
+test('node port presents Shubao 14 derive actions (5 core + 5 magic + 4 expand, 4c183cd4 续命)', () => {
+  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构: 5 原有 + 9 新增 (LibTV + 流影AI) */
+  const ids = CANVAS_CREATION_OPTIONS.map(option => option.id);
+  assert.deepEqual(ids, [
+    /* core 5 */
     'text-generation',
     'image-edit',
     'ecommerce-suite',
     'video-upload',
     'video-generation',
-  ]);
+    /* magic 5 (LibTV + 流影AI 风格) */
+    'ai-storyboard',
+    'one-click-suite',
+    'tts-voiceover',
+    'caption-motion',
+    'similar-recommend',
+    /* expand 4 */
+    'one-click-video',
+    'bg-removal',
+    'color-grade',
+    'derive-1click',
+  ], '14 个 action 顺序必须按 core -> magic -> expand');
+  assert.equal(ids.length, 14, '总共 14 个 action, 用户硬性要求 5 原有 + 9 新增');
   assert.equal(CANVAS_CREATION_OPTIONS.find(option => option.id === 'video-generation')?.priceLabel, '32积分起');
+  /* 验证 group 字段 (3 个 group: core / magic / expand) */
+  const groups = new Set(CANVAS_CREATION_OPTIONS.map(o => o.group));
+  assert.equal(groups.size, 3, '必须有 3 个 group 标签 (core / magic / expand)');
+  assert.ok(groups.has('core'));
+  assert.ok(groups.has('magic'));
+  assert.ok(groups.has('expand'));
+  /* 验证 group 数量分布: 5 core + 5 magic + 4 expand = 14 */
+  const coreCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'core').length;
+  const magicCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'magic').length;
+  const expandCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'expand').length;
+  assert.equal(coreCount, 5, '5 原有 全部 core');
+  assert.equal(magicCount, 5, 'magic 桶 5 个 (智能分镜/1-click 套图/TTS/字幕/相似)');
+  assert.equal(expandCount, 4, 'expand 桶 4 个 (1-click 视频/抠图/调色/派生)');
 });
 
 test('drag frames update geometry without persistence and drag end persists once', () => {

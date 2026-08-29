@@ -1207,9 +1207,10 @@
    响应式: 桌面 3 列, 平板 2 列, 移动 1 列 */
 
 .ec-canvas-derive-menu {
+  /* 用户硬性要求: 不能搞得这么宽. 13 个 action × 150px = 450px 3 列, 移动 1 列. */
   width: 432px;
   max-width: calc(100vw - 32px);
-  max-height: min(640px, calc(100vh - 64px));
+  max-height: min(560px, calc(100vh - 64px));
   background: var(--bg-card);
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
@@ -1473,15 +1474,11 @@
   background: rgba(255, 255, 255, 0.18);
   color: rgba(255, 255, 255, 0.85);
 }
-.ec-canvas-empty-state .ec-canvas-empty-actions > button.is-magic {
+.ec-canvas-empty-state .ec-canvas-empty-actions > button.is-primary {
   border-color: var(--blue);
   background: var(--blue-bg);
   color: var(--blue);
   box-shadow: 0 0 0 1px var(--blue-bg);
-}
-.ec-canvas-empty-state .ec-canvas-empty-actions > button.is-magic small {
-  background: rgba(82, 117, 204, 0.16);
-  color: var(--blue);
 }
 .ec-canvas-empty-state .ec-canvas-empty-actions > button:hover {
   transform: translateY(-1px);
@@ -1489,27 +1486,10 @@
   box-shadow: var(--shadow-md);
 }
 .ec-canvas-empty-state .ec-canvas-empty-actions > button.is-primary:hover { background: var(--accent-hover); }
-.ec-canvas-empty-state .ec-canvas-empty-actions > button.is-magic:hover {
-  background: var(--blue);
-  color: var(--bg-card-solid);
-}
-.ec-canvas-empty-state .ec-canvas-empty-actions > button.is-magic:hover small {
-  background: rgba(255, 255, 255, 0.18);
   color: rgba(255, 255, 255, 0.85);
 }
 .ec-canvas-empty-state .ec-canvas-empty-actions > button:active { transform: translateY(0); }
 .ec-canvas-empty-state .ec-canvas-empty-actions > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.ec-canvas-empty-hint {
-  font-size: 10.5px;
-  color: var(--text-hint);
-  text-align: center;
-  margin-top: 8px;
-  padding: 6px 12px;
-  background: var(--bg-hover);
-  border-radius: 999px;
-  display: inline-block;
-}
 
 .ec-hero-glyph.ec-glyph-storyboard {
   animation: ecStoryboardSway 1.6s var(--ease-out) infinite alternate;
@@ -1548,7 +1528,7 @@
   background: var(--bg-elevated);
   border-color: var(--border);
 }
-[data-theme="dark"] .ec-canvas-empty-state .ec-canvas-empty-actions > button.is-magic {
+[data-theme="dark"] .ec-canvas-empty-state .ec-canvas-empty-actions > button.is-primary {
   border-color: var(--blue);
   background: var(--blue-bg);
 }

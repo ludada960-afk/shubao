@@ -6,14 +6,18 @@ import {
   AlignRight,
   ArrowLeft,
   Bold,
+  Captions,
   Check,
   Clapperboard,
   Copy,
   Crop,
   Download,
   Eraser,
+  Eye,
   FileText,
   FileVideo,
+  Film,
+  Filter,
   FolderInput,
   FolderOpen,
   Grid2X2,
@@ -29,7 +33,9 @@ import {
   ListOrdered,
   Maximize2,
   MessageSquareText,
+  Mic,
   Move,
+  Palette,
   Pencil,
   Plus,
   Redo2,
@@ -38,6 +44,7 @@ import {
   SlidersHorizontal,
   Square,
   Sparkles,
+  Theater,
   Trash2,
   Type,
   Ungroup,
@@ -174,14 +181,33 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
   </div>;
 }
 
+/* 14 个动作图标 (5 原有 + 9 新增). 9 个新: ai-storyboard / one-click-suite / one-click-video /
+   tts-voiceover / caption-motion / bg-removal / color-grade / similar-recommend / derive-1click.
+   选 icon: 跟流影AI LibTV Agent / TapNow 调研一致 — 动词型 chip, 圆形/方形几何平衡. */
 const DERIVE_ICONS = Object.freeze({
+  /* 5 原有 */
   'text-generation': MessageSquareText,
-  'ecommerce-suite': WandSparkles,
   'image-edit': Sparkles,
+  'ecommerce-suite': WandSparkles,
   'video-upload': FileVideo,
   'video-generation': ImagePlay,
+  /* 9 新增 (LibTV + 流影AI 风格) */
+  'ai-storyboard': Theater,         /* 智能分镜: 戏剧/舞台几何 */
+  'one-click-suite': Grid2X2,        /* 1-click 套图: 5 宫格 */
+  'one-click-video': Film,           /* 1-click 视频模板: 胶片 */
+  'tts-voiceover': Mic,              /* TTS 配音: 话筒 */
+  'caption-motion': Captions,        /* 字幕动效: 字幕 */
+  'bg-removal': Eraser,              /* AI 抠图: 橡皮 */
+  'color-grade': Palette,            /* 滤镜调色: 调色板 */
+  'similar-recommend': Eye,          /* 相似推荐: 眼睛 */
+  'derive-1click': SlidersHorizontal, /* 1-click 派生: 滑块 */
 });
 
+/* 14-action grid derive menu (4c183cd4 续命 深度重构)
+   资深美工视角: 3 列 grid 平衡感, 卡片圆角一致, hover lift + shadow + 边框颜色变化
+   产品经理视角: group 标签 (核心/智能/扩展) 视觉分组, 避免一长串无层级
+   流影AI 调研: LibTV Agent 风格 — 每个 action = 1 个可点卡片, 不堆文字
+   毛玻璃 backdrop-filter, 暗色模式 token 化 */
 export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用当前素材生成', onBack, onClose, onSelect }) {
   const introGateRef = usePanelIntroGate('derive-menu');
   const { x, y, ...positionStyle } = position || {};
@@ -190,23 +216,43 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     ...(x != null ? { left: x } : {}),
     ...(y != null ? { top: y } : {}),
   };
-  /* 卡片式信息架构（参考流影 AI 的平衡行）：左侧动词图标芯片、中间两行
-     文案、右侧价格徽标 + 前进箭头。三段栅格让每行左右重量对称，不再
-     文字全堆左边、右侧留白。徽标只在非免费动作上出现，避免一排"免费"。 */
+  /* 按 group 分桶渲染: core 先, magic 中, expand 后. 每个桶 < 1 个则不渲染桶标题. */
+  const groups = [
+    { id: 'core', label: '核心常用' },
+    { id: 'magic', label: 'AI 智能' },
+    { id: 'expand', label: '扩展工具' },
+  ];
+  const bucketMap = actions.reduce((acc, action) => {
+    const group = action.group || 'core';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(action);
+    return acc;
+  }, {});
   return <div ref={introGateRef} className="ec-canvas-derive-menu" style={menuStyle} role="menu" aria-label="从当前素材继续创作">
     <div className="ec-canvas-menu-heading">
-      <span>{onBack && <button type="button" aria-label="返回创作类型" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onBack?.(); }}><ArrowLeft size={14} /></button>}{title}</span>
+      <span>{onBack && <button type="button" aria-label="返回创作类型" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onBack?.(); }}><ArrowLeft size={14} /></button>}{title}<small className="ec-canvas-derive-count">{actions.length} 项</small></span>
       <button type="button" aria-label="关闭派生菜单" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
     </div>
-    {actions.map(action => {
-      const Icon = DERIVE_ICONS[action.id] || Sparkles;
-      const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
-      return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
-        <span className="ec-canvas-derive-chip"><Icon /></span>
-        <span className="ec-canvas-derive-copy"><strong>{action.label}</strong><small>{action.description}</small></span>
-        <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
-      </button>;
-    })}
+    <div className="ec-canvas-derive-scroll">
+      {groups.map(group => {
+        const bucket = bucketMap[group.id];
+        if (!bucket || !bucket.length) return null;
+        return <div key={group.id} className={`ec-canvas-derive-bucket is-${group.id}`} role="group" aria-label={group.label}>
+          <div className="ec-canvas-derive-bucket-label"><span>{group.label}</span></div>
+          <div className="ec-canvas-derive-grid">
+            {bucket.map(action => {
+              const Icon = DERIVE_ICONS[action.id] || Sparkles;
+              const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
+              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
+                <span className="ec-canvas-derive-chip"><Icon /></span>
+                <span className="ec-canvas-derive-copy"><strong>{action.label}</strong><small>{action.description}</small></span>
+                <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
+              </button>;
+            })}
+          </div>
+        </div>;
+      })}
+    </div>
   </div>;
 }
 

@@ -4538,7 +4538,7 @@ export default function EcCanvas() {
                 }}
               >
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
-                <p>从商品素材开始，AI 帮你生成套图、文案、视频、音轨、字幕一站搞定 (流影AI 风格)</p>
+                <p>从商品素材开始，AI 帮你生成套图、文案、视频、音轨、字幕一站搞定</p>
                 <div className="ec-canvas-empty-actions">
                   <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
                   <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>

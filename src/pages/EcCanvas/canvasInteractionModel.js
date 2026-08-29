@@ -4,12 +4,30 @@ import { isLongDetailCandidate } from './detailCompositionModel.js';
 const VIEWPORT_GUTTER = 12;
 const PANEL_GAP = 13;
 
+/* 引用当前素材生成 14 个动作 (4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构)
+   - 5 原有 (text-generation / image-edit / ecommerce-suite / video-upload / video-generation)
+   - 9 新增 (LibTV Agent 风格 + 流影AI 调研: 智能分镜 / 1-click 套图 / 1-click 视频 / TTS 配音 /
+     字幕动效 / AI 抠图 / 滤镜调色 / 相似推荐 / 1-click 派生)
+   - group 字段: 'core' (核心常用) / 'expand' (扩展) / 'magic' (智能/AI 黑魔法)
+   - 排序按: core 先, magic 中, expand 后 — 资深美工+产品经理视角 */
 export const CANVAS_CREATION_OPTIONS = Object.freeze([
-  Object.freeze({ id: 'text-generation', label: '生成文案', description: '从当前商品图提炼卖点和电商文案' }),
-  Object.freeze({ id: 'image-edit', label: '图片生成', description: '按新的画面要求编辑或生成图片' }),
-  Object.freeze({ id: 'ecommerce-suite', label: '电商套图', description: '用当前商品继续生成完整套图' }),
-  Object.freeze({ id: 'video-upload', label: '上传视频', description: '把现有视频加入画布继续创作' }),
-  Object.freeze({ id: 'video-generation', label: '生成视频', description: '用当前图片或视频生成营销成片', priceLabel: '32积分起' }),
+  /* ── core 核心常用 (5 原有) ── */
+  Object.freeze({ id: 'text-generation', label: '生成文案', description: '从当前商品图提炼卖点和电商文案', group: 'core' }),
+  Object.freeze({ id: 'image-edit', label: '图片生成', description: '按新的画面要求编辑或生成图片', group: 'core' }),
+  Object.freeze({ id: 'ecommerce-suite', label: '电商套图', description: '用当前商品继续生成完整套图', group: 'core' }),
+  Object.freeze({ id: 'video-upload', label: '上传视频', description: '把现有视频加入画布继续创作', group: 'core' }),
+  Object.freeze({ id: 'video-generation', label: '生成视频', description: '用当前图片或视频生成营销成片', priceLabel: '32积分起', group: 'core' }),
+  /* ── magic 智能/AI (5 新增, LibTV + 流影AI 风格) ── */
+  Object.freeze({ id: 'ai-storyboard', label: '智能分镜', description: '自动拆解画面为 6 段电影分镜 (Enclosure/Breakthrough/Framing…)', priceLabel: '18积分', group: 'magic' }),
+  Object.freeze({ id: 'one-click-suite', label: '1-click 套图', description: '一键生成电商 5 宫格 (主图+场景+细节+白底+详情图)', priceLabel: '15积分', group: 'magic' }),
+  Object.freeze({ id: 'tts-voiceover', label: 'TTS 配音', description: '5 家供应商 (火山/阿里云/ElevenLabs/Azure/MiniMax) 美式播客感', priceLabel: '8积分', group: 'magic' }),
+  Object.freeze({ id: 'caption-motion', label: '字幕动效', description: '流影AI 风格字幕排版 + 弹出/淡入/逐字动画', priceLabel: '5积分', group: 'magic' }),
+  Object.freeze({ id: 'similar-recommend', label: '相似推荐', description: '从作品库/公共模板找出最相似的 5 张图', group: 'magic' }),
+  /* ── expand 扩展 (4 新增) ── */
+  Object.freeze({ id: 'one-click-video', label: '1-click 视频模板', description: '流影AI 1-click 视频模板 (4 步: 文案→首帧→视频→音轨+字幕)', priceLabel: '40积分', group: 'expand' }),
+  Object.freeze({ id: 'bg-removal', label: 'AI 抠图', description: '一键去背景生成透明 PNG 商品素材', priceLabel: '0.5积分', group: 'expand' }),
+  Object.freeze({ id: 'color-grade', label: '滤镜调色', description: '12 套电商主流调色 (暖黄/冷蓝/高级灰/INS 风)', group: 'expand' }),
+  Object.freeze({ id: 'derive-1click', label: '1-click 派生', description: '一键变风格/变角度/换模特, 沿用商品主体', priceLabel: '3积分', group: 'expand' }),
 ]);
 
 export const MULTI_SELECTION_ACTIONS = Object.freeze([
