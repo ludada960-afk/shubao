@@ -57,6 +57,9 @@ import { visionRouter } from './routes/visionRouter.mjs';
 import { mountTTSRoutes } from './services/ttsBridge.mjs';
 // 4c183cd4 续命 P-G 画布 1-click chain (4 步: 文案->首帧->视频->音轨+字幕, 集成 costBasis + TTS)
 import { mountChainRoutes } from './services/chainService.mjs';
+// 4c183cd4 续命 P-F 孪生体 2.0 矩阵 (Web / 小程序 / API) — 薯包独门 1/3
+// 集成 ttsBridge (9c5d01d5) + visionBridge (4c285eca) + chainService (b015edb8) + 中文 AI 合规水印 (4c183cd4 续命)
+import { mountTwinMatrixRoutes } from './services/twinMatrix.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
 import { createAdminOperations } from './adminOperations.mjs';
@@ -813,6 +816,28 @@ mountMultiModalRoutes(app, {
   }),
   db,
   projectStore,
+});
+
+// 4c183cd4 续命 P-F 孪生体 2.0 矩阵 (Web / 小程序 / API) 三处真实现
+// 鉴权同 chain / multiModal (authenticateContentRequest). 不需要 db/projectStore, 纯纯孪生链.
+// 三处入口: /api/twin/web/* + /api/twin/miniprogram/* + /api/twin/api/*
+// 公共端点: /api/twin/matrix/health + /api/twin/capabilities + /api/twin/compliance/legals
+mountTwinMatrixRoutes(app, {
+  authenticate: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
+});
+
+// 4c183cd4 续命 P-F 数据回流画布 (薯包独门 3/3)
+// 鉴权同 twin (authenticateContentRequest). 内存 ring buffer 10000 条, 进程重启清空.
+// 路由: /api/canvas/feedback/{summary,event,aggregate}
+import { mountCanvasFeedbackRoutes } from './extensions/canvasFeedback.mjs';
+mountCanvasFeedbackRoutes(app, {
+  authenticate: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
 });
 
 // 4c183cd4 续命 P0-D 飞书可视化 webhook 入站路由
