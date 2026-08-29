@@ -92,10 +92,13 @@ export function deriveScript({ prompt = '', referenceImage = null, sceneCount = 
 // 输入: step1.script + referenceImage
 // 输出: 每段分镜的首帧 URL (mock 占位, 真接入时由 GPT-Image-2 / Nano Banana 替换)
 export function deriveKeyframes({ script, referenceImage = null } = {}) {
-  if (!script || !Array.isArray(script.scenes) || script.scenes.length === 0) {
+  // 接受 deriveScript 返回值 { scenes, script: scenesArr, totalDurationSec }
+  // 或直接的 scenes 数组 (兼容调用方)
+  const scenesArr = Array.isArray(script) ? script : (Array.isArray(script?.script) ? script.script : null);
+  if (!scenesArr || scenesArr.length === 0) {
     throw codedError('CHAIN_SCRIPT_REQUIRED', 'Step1 文案未产出, 请先执行 script 步骤', 500);
   }
-  return script.scenes.map((scene, i) => {
+  return scenesArr.map((scene, i) => {
     const seed = hashString(`${scene.description}:${referenceImage || 'no-ref'}:${i}`);
     return {
       sceneIndex: scene.index,
@@ -184,7 +187,9 @@ export async function deriveAudio({
   speed = 1.0,
   subtitleStyle = 'simple',
 } = {}) {
-  if (!script || !Array.isArray(script.scenes) || script.scenes.length === 0) {
+  // 跟 deriveKeyframes 一致: 接受 deriveScript 返回值或直接的 scenes 数组
+  const scenesArr = Array.isArray(script) ? script : (Array.isArray(script?.script) ? script.script : null);
+  if (!scenesArr || scenesArr.length === 0) {
     throw codedError('CHAIN_SCRIPT_REQUIRED', 'Step1 文案未产出, 无法生成音轨', 500);
   }
   // 字幕样式合法化
@@ -193,7 +198,7 @@ export async function deriveAudio({
     throw codedError('CHAIN_SUBTITLE_STYLE_INVALID', `字幕样式必须是 ${validStyles.join('/')} 之一`, 400);
   }
   // 优先用 text 参数, 否则用 script 拼接
-  const narrationText = cleanString(text || script.scenes.map(s => s.description).join(' '), 4000);
+  const narrationText = cleanString(text || scenesArr.map(s => s.description).join(' '), 4000);
   if (!narrationText) throw codedError('CHAIN_TEXT_REQUIRED', '音轨口播文本不能为空', 400);
   // 真调 ttsBridge (mock audio, 但 cost + provider 真实切换)
   const tts = await synthesizeTTS({
@@ -203,14 +208,15 @@ export async function deriveAudio({
     lang,
     speed,
     sku: 'chain_audio',
+    itemUnits: 1, // 给 costSnapshot itemUnits=1, 避免 theoretical=0 致 health=breach
     withCostSnapshot: true,
   });
   // 字幕分段: 按 scene 等分 narrationText, 每段对应一个分镜
   const totalLen = narrationText.length;
-  const perScene = Math.max(1, Math.floor(totalLen / script.scenes.length));
-  const subtitles = script.scenes.map((scene, i) => {
+  const perScene = Math.max(1, Math.floor(totalLen / scenesArr.length));
+  const subtitles = scenesArr.map((scene, i) => {
     const start = i * perScene;
-    const end = i === script.scenes.length - 1 ? totalLen : (i + 1) * perScene;
+    const end = i === scenesArr.length - 1 ? totalLen : (i + 1) * perScene;
     return {
       sceneIndex: scene.index,
       start: start,

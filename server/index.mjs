@@ -52,6 +52,8 @@ import { mountBillingRoutes } from './billing/routes.mjs';
 import { visionRouter } from './routes/visionRouter.mjs';
 // 4c183cd4 续命 P1 TTS 口播 (provider-neutral 桥, 跟 modlens vision 桥同模式)
 import { mountTTSRoutes } from './services/ttsBridge.mjs';
+// 4c183cd4 续命 P-G 画布 1-click chain (4 步: 文案->首帧->视频->音轨+字幕, 集成 costBasis + TTS)
+import { mountChainRoutes } from './services/chainService.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
 import { createAdminOperations } from './adminOperations.mjs';
@@ -763,6 +765,16 @@ mountTTSRoutes(app, {
       authorizeEmail: authorizeAccountEmail,
     });
   },
+});
+
+// 4c183cd4 续命 P-G 画布 1-click chain (4 步: 文案->首帧->视频->音轨+字幕)
+// 鉴权: 跟 TTS / visionRouter 同源 (authenticateContentRequest).
+// 账务: 本路由只算 cost (costBasis 4 步累计), 真实 hold/settle 由上层付费链路 (ec-cron / paid-task) 接入 walletService.
+mountChainRoutes(app, {
+  authenticate: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
 });
 
 // 4c183cd4 续命 P0-D 飞书可视化 webhook 入站路由
