@@ -1,4 +1,5 @@
 import { FEATURE_SKUS, PRODUCTS, quoteFeature } from './catalog.mjs';
+import { quoteVideoMeter, listVideoMeterTiers } from './videoMeter.mjs';
 
 const CURRENCIES = new Set(['ec_points', 'content_sets']);
 const SAFE_IDENTIFIER = /^[a-z0-9][a-z0-9_-]{0,127}$/i;
@@ -341,6 +342,16 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
       return res.json({ ok: true, order: publicOrder(order) });
     }),
 
+    // 4c183cd4 续命 P-B 视频按量切价：实时报价 (model/seconds/resolution -> cost + margin)
+    videoMeter: handler((req, res) => {
+      const quote = quoteVideoMeter({
+        model: req.query?.model,
+        seconds: req.query?.seconds,
+        resolution: req.query?.resolution,
+      });
+      return res.json({ quote, tiers: listVideoMeterTiers({ includeHidden: false }) });
+    }),
+
     ledger: handler((req, res) => {
       const ownerEmail = ownerFor(req);
       const selectedCurrency = currency(req.query?.currency);
@@ -364,6 +375,8 @@ export function mountBillingRoutes(app, deps) {
   app.get('/api/billing/orders/:id', handlers.requireUser, handlers.order);
   app.post('/api/billing/webhooks/:provider', handlers.providerWebhook);
   app.get('/api/billing/ledger', handlers.requireUser, handlers.ledger);
+  // 4c183cd4 续命 P-B 视频按量切价：GET 端点；公开报价 (无需登录)
+  app.get('/api/billing/video-meter', handlers.videoMeter);
   // 4c183cd4 续命 P2 成本核算精确化：admin-only 全站毛利 + 异常用量预警
   app.get('/api/billing/cost-summary', handlers.requireAdmin, handlers.costSummary);
   app.post('/api/create-payment', handlers.legacyPaymentDisabled);
