@@ -1,4 +1,14 @@
 import { resolveVideoApiMode } from './videoStudioModel.js';
+import { formatCanvasShotName, resolveShotPrefix } from '../../constants/canvasNames.js';
+
+// 4c183cd4 续命 P-B 电影分镜命名: buildCanvasNodes 内部用同一份 counter,
+// 保证同一项目里同前缀递增 001/002/..., 与「产品图N」客观命名一致。
+const SHOT_NAME_COUNTERS = { Enclosure: 0, Breakthrough: 0, Framing: 0, Overture: 0, Voice: 0, Track: 0 };
+
+function nextShotName(prefixKey) {
+  SHOT_NAME_COUNTERS[prefixKey] = (SHOT_NAME_COUNTERS[prefixKey] || 0) + 1;
+  return formatCanvasShotName(prefixKey, SHOT_NAME_COUNTERS[prefixKey]);
+}
 
 // P1 画布最小集的纯模型：节点、连线、布局、框选、生成条与审批门。
 // 只做表现层编排，不触碰 provider 底座 / 队列 / 账务。
@@ -50,28 +60,34 @@ export function buildCanvasNodes({ uploads = [], libraryAssets = [], workbench =
   (Array.isArray(uploads) ? uploads : []).forEach(upload => {
     const asset = upload?.asset;
     if (!asset?.id || imported.has(asset.id)) return;
+    const kind = asset.kind || 'image';
+    const realName = upload.file?.name || asset.fileName || asset.name;
     nodes.push({
       id: assetNodeId('upload', asset.id),
       type: 'asset',
       source: 'upload',
       sourceKey: asset.id,
       videoAssetId: asset.id,
-      kind: asset.kind || 'image',
+      kind,
       previewUrl: asset.url || '',
-      title: String(upload.file?.name || asset.fileName || asset.name || '上传素材'),
+      // P-B: 真实文件名优先, 兜底走电影分镜命名 (Enclosure-001 / Breakthrough-001 / Voice-001)
+      title: String(realName || nextShotName(resolveShotPrefix({ kind }))),
     });
   });
   (Array.isArray(libraryAssets) ? libraryAssets : []).forEach(item => {
     if (!item?.projectAssetId) return;
+    const kind = item.mediaKind || 'image';
+    const realName = item.metadata?.displayName || item.displayName || item.name;
     nodes.push({
       id: assetNodeId('library', (item.sourceProject?.id || '') + ':' + item.projectAssetId),
       type: 'asset',
       source: 'library',
       sourceKey: item.projectAssetId,
       projectAssetId: item.projectAssetId,
-      kind: item.mediaKind || 'image',
+      kind,
       previewUrl: item.stableUrl || '',
-      title: item.metadata?.displayName || item.displayName || item.name || '项目素材',
+      // P-B: 库内素材用 displayName 优先, 无名时走 Enclosure/Breakthrough/Voice 编号
+      title: String(realName || nextShotName(resolveShotPrefix({ kind }))),
     });
   });
   (Array.isArray(workbench?.assets) ? workbench.assets : []).forEach(asset => {
@@ -79,15 +95,18 @@ export function buildCanvasNodes({ uploads = [], libraryAssets = [], workbench =
     const versions = Array.isArray(asset?.versions) ? asset.versions : [];
     const version = versions.find(item => item?.id === asset.approvedVersionId) || versions[0];
     if (!version) return;
+    const subKind = asset.kind === 'voice' ? 'voice' : asset.kind === 'music' ? 'music' : null;
+    const kind = subKind ? 'audio' : 'image';
     nodes.push({
       id: assetNodeId('workbench', asset.id),
       type: 'asset',
       source: 'workbench',
       sourceKey: asset.id,
-      kind: asset.kind === 'voice' || asset.kind === 'music' ? 'audio' : 'image',
-      audioKind: asset.kind === 'voice' ? 'voice' : asset.kind === 'music' ? 'music' : null,
+      kind,
+      audioKind: subKind,
       previewUrl: version.playbackUrl || version.stableUrl || '',
-      title: asset.name || '已确认素材',
+      // P-B: 已确认素材有 name 优先; voice 走 Voice-XXX, music 走 Track-XXX, 图片走 Enclosure-XXX
+      title: String(asset.name || nextShotName(resolveShotPrefix({ kind, subKind }))),
       // W4 音频节点：把 workbench asset + approved version id 透出到节点, 让 footer 按钮可以发起音轨 POST
       sourceAssetId: asset.id,
       sourceAssetVersionId: asset.approvedVersionId || version.id,
@@ -95,15 +114,17 @@ export function buildCanvasNodes({ uploads = [], libraryAssets = [], workbench =
   });
   (Array.isArray(workbench?.shots) ? workbench.shots : []).forEach(shot => {
     if (!shot?.id) return;
+    // P-B: shot 节点用 Framing-XXX, 有 purpose 时直接使用
     nodes.push({
       id: shotNodeId(shot.id),
       type: 'shot',
       shotId: shot.id,
       position: Number(shot.position ?? 0),
-      title: shot.purpose || '未命名镜头',
+      title: String(shot.purpose || nextShotName('shot')),
     });
     (Array.isArray(shot.candidates) ? shot.candidates : []).forEach(candidate => {
       if (!candidate?.id) return;
+      // P-B: candidate 节点用 Overture-XXX (前奏/候选), 任务规范中 6 类齐全
       nodes.push({
         id: candidateNodeId(shot.id, candidate.id),
         type: 'candidate',
@@ -111,7 +132,7 @@ export function buildCanvasNodes({ uploads = [], libraryAssets = [], workbench =
         sourceKey: candidate.id,
         previewUrl: candidate.playbackUrl || candidate.stableUrl || '',
         selected: shot.selectedCandidateId === candidate.id,
-        title: '候选',
+        title: nextShotName('candidate'),
       });
     });
   });
