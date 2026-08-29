@@ -308,6 +308,10 @@ export function LoginModal() {
 // 4c183cd4 续命 P-Canvas 主线程亲自救 (1f64aa42 后): App.jsx 还在 `import { LoginModal, PricingModal }` + `<PricingModal />`,
 // 1f64aa42 删了老 PricingModalLegacy 函数但没补 export, 这里重命名 Modals 函数为 PricingModal 让 App.jsx 仍能 <PricingModal />
 export function PricingModal() {
+  const { state } = useApp();
+  const plans = useMemo(() => buildPricingPlans(PRICING_PLANS, state.billingCatalog || []), [state.billingCatalog]);
+  const providers = useMemo(() => enabledPaymentProviders(state.billingCatalog || []), [state.billingCatalog]);
+  const buy = (plan) => createBillingOrder({ provider: providers[0]?.id, plan }).then((order) => setPaymentOrder(order)).catch(() => {});
   return (
     <>
       {/* Overlay */}
