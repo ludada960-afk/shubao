@@ -29,17 +29,17 @@ export default function PricingModalRefactored({ plans = [], providers = [], onB
       {/* 头部 */}
       <header className="pricing-modal__header">
         <h3 className="pricing-modal__title">
-          选择套餐
+          套餐
           <span className="pricing-modal__badge">4c183cd4 续命</span>
         </h3>
-        <p className="pricing-modal__subtitle">一次买断,按量结算,关闭后当前工作仍会保留</p>
+        <p className="pricing-modal__subtitle">一次买断,按量结算</p>
       </header>
 
       {/* 用户额度卡 (4c183cd4 续命: 毛玻璃) */}
       {isLogged && (
         <div className="pricing-modal__balance">
-          <div className="pricing-modal__balance-label">账户额度 · AI 积分（电商 / 小红书 / 画布）</div>
-          <div className="pricing-modal__balance-value">{unlimited ? "∞" : ecPoints} AI 积分</div>
+          <div className="pricing-modal__balance-label">账户额度 · AI 积分</div>
+          <div className="pricing-modal__balance-value">{unlimited ? "∞" : ecPoints}</div>
         </div>
       )}
 
@@ -94,12 +94,9 @@ export default function PricingModalRefactored({ plans = [], providers = [], onB
 
       {/* 商业化高手视角: 取消"内测味"文案 */}
       <div className="pricing-modal__notice">
-        <strong>所有创作功能共用一套 AI 积分，按实际使用量结算，失败任务释放冻结额度。</strong>
+        <strong>AI 积分通用, 失败任务释放冻结</strong>
         {providers.length === 0 && (
-          <p>
-            微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
-            已生成的订单会按计划结清，欢迎再次下单。
-          </p>
+          <p>微信/支付宝, 扫码 3-5 秒到账, 失败释放冻结额度</p>
         )}
       </div>
 
