@@ -43,6 +43,15 @@ function iso(ms) {
   return new Date(ms).toISOString();
 }
 
+// 4c183cd4 续命 dev 兜底：NODE_ENV !== 'production' 时，验证码 123456 视为开发者 mock。
+// 仅当 process.env.NODE_ENV 严格不等于 'production' 才生效。生产环境不接受。
+// 行为：跳过 DB 行查询与 hash 校验，但保留路由层 requireAccess 的账号白名单。
+// 4c183cd4 时代 mailService.mjs 硬编码 code='123456' 入 codeStore，4c183cd4 续命迁到 DB 后
+// 必须显式保留这个开发者友好入口，否则 dev 流程因为真实邮件无法触达而阻塞。
+export const DEV_OTP_FALLBACK = '123456';
+export function isDevMockOtp(value) {
+  return process.env.NODE_ENV !== 'production' && String(value ?? '') === DEV_OTP_FALLBACK;
+}
 function finiteNow(now) {
   const value = now();
   if (!Number.isFinite(value)) throw new TypeError('now must return a finite timestamp');
@@ -151,6 +160,13 @@ export function createAuthService({
   function consumeEmailCode(email, purpose, value) {
     const normalized = normalizeEmail(email);
     if (!['login', 'register'].includes(purpose)) throw codedError('AUTH_CODE_INVALID', '验证码错误或已过期');
+    // 4c183cd4 续命 dev 兜底：NODE_ENV !== 'production' 时 123456 直接通过。
+    // 先于过期/锁定判断，避免锁定状态阻塞 dev 用户。生产环境绝不开。
+    if (isDevMockOtp(value)) {
+      // 顺手清掉可能存在的旧 row，避免后续真实流程被旧 dev 兜底记录干扰
+      db.prepare('DELETE FROM email_verification_codes WHERE email = ? AND purpose = ?').run(normalized, purpose);
+      return { ok: true, email: normalized, devMock: true };
+    }
     const at = finiteNow(now);
     const row = db.prepare('SELECT * FROM email_verification_codes WHERE email = ? AND purpose = ?')
       .get(normalized, purpose);
