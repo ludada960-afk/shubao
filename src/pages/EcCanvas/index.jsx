@@ -4538,14 +4538,27 @@ export default function EcCanvas() {
                 }}
               >
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
-                <p>从商品素材开始，继续生成套图、文案和营销视频</p>
+                <p>从商品素材开始，AI 帮你生成套图、文案、视频、音轨、字幕一站搞定 (流影AI 风格)</p>
                 <div className="ec-canvas-empty-actions">
                   <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
                   <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
                   <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
                   <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
                   <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
+                  <button type="button" className="is-primary" onClick={() => {
+                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
+                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('ai-storyboard') || { id: 'ai-storyboard', label: '智能分镜' });
+                  }} aria-label="智能分镜 — 自动拆解画面为 6 段"><HeroGlyph kind="storyboard" />智能分镜<small>6 段分镜</small></button>
+                  <button type="button" className="is-primary" onClick={() => {
+                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
+                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('one-click-suite') || { id: 'one-click-suite', label: '1-click 套图' });
+                  }} aria-label="1-click 套图 — 一键生成电商 5 宫格"><HeroGlyph kind="oneclick" />1-click 套图<small>5 宫格</small></button>
+                  <button type="button" className="is-primary" onClick={() => {
+                    const src = nodes.find(n => n.kind === 'image' || n.kind === 'source') || nodes[0];
+                    if (src) handleCreateDerivedNode(src.id, getCanvasAction('tts-voiceover') || { id: 'tts-voiceover', label: 'TTS 配音' });
+                  }} aria-label="TTS 配音 — 5 家供应商 美式播客感"><HeroGlyph kind="voiceover" />TTS 配音<small>5 provider</small></button>
                 </div>
+                
               </div>
             </div>
           )}
@@ -4732,11 +4745,22 @@ export default function EcCanvas() {
               onClose={() => setSelected(null)}
               onSelect={action => {
                 const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
+                /* 14 个动作路由 (5 原有 + 9 新增). 9 个新增: 走 handleCreateDerivedNode 通用派生,
+                   复用 canvasActionRegistry 自动注册的执行链路 — 资深美工+产品经理视角统一收口. */
                 if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
                 else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'video-upload') videoUploadRef.current?.click();
                 else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'bg-removal') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id, actionId: 'remove-bg' });
+                else if (action.id === 'color-grade') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id, actionId: 'color-grade' });
+                else if (action.id === 'tts-voiceover') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'caption-motion') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'ai-storyboard') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'one-click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'one-click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'similar-recommend') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'derive-1click') handleCreateDerivedNode(selectedNode.id, getCanvasAction('product-remix') || action, world);
                 else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
               }}
             />}
