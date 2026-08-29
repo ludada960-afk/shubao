@@ -65,43 +65,38 @@ test('context menu is clamped to the browser viewport', () => {
   );
 });
 
-test('node port presents Shubao 14 derive actions (5 core + 5 magic + 4 expand, 4c183cd4 续命)', () => {
-  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构: 5 原有 + 9 新增 (LibTV + 流影AI) */
+test('node port presents Shubao 9 derive actions (5 core + 4 magic, 4c183cd4 续命 v2, 用户硬性要求保留 5 原有)', () => {
+  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构 v2:
+     用户 8-29 原话 "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
+     - 5 原有 (text-generation / image-edit / ecommerce-suite / video-upload / video-generation)
+     - 4 流影AI LibTV 风格 (1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效)
+     总共 9 个 action, 5+4 分桶 */
   const ids = CANVAS_CREATION_OPTIONS.map(option => option.id);
   assert.deepEqual(ids, [
-    /* core 5 */
+    /* core 5 (用户硬性要求全部保留) */
     'text-generation',
     'image-edit',
     'ecommerce-suite',
     'video-upload',
     'video-generation',
-    /* magic 5 (LibTV + 流影AI 风格) */
-    'ai-storyboard',
+    /* magic 4 (流影AI LibTV 风格, 用户硬性指定) */
     'one-click-suite',
+    'one-click-video',
     'tts-voiceover',
     'caption-motion',
-    'similar-recommend',
-    /* expand 4 */
-    'one-click-video',
-    'bg-removal',
-    'color-grade',
-    'derive-1click',
-  ], '14 个 action 顺序必须按 core -> magic -> expand');
-  assert.equal(ids.length, 14, '总共 14 个 action, 用户硬性要求 5 原有 + 9 新增');
+  ], '9 个 action 顺序必须按 core(5) -> magic(4)');
+  assert.equal(ids.length, 9, '总共 9 个 action: 5 原有 + 4 流影AI');
   assert.equal(CANVAS_CREATION_OPTIONS.find(option => option.id === 'video-generation')?.priceLabel, '32积分起');
-  /* 验证 group 字段 (3 个 group: core / magic / expand) */
+  /* 验证 group 字段 (2 个 group: core / magic) */
   const groups = new Set(CANVAS_CREATION_OPTIONS.map(o => o.group));
-  assert.equal(groups.size, 3, '必须有 3 个 group 标签 (core / magic / expand)');
+  assert.equal(groups.size, 2, '必须有 2 个 group 标签 (core / magic)');
   assert.ok(groups.has('core'));
   assert.ok(groups.has('magic'));
-  assert.ok(groups.has('expand'));
-  /* 验证 group 数量分布: 5 core + 5 magic + 4 expand = 14 */
+  /* 验证 group 数量分布: 5 core + 4 magic = 9 */
   const coreCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'core').length;
   const magicCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'magic').length;
-  const expandCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'expand').length;
-  assert.equal(coreCount, 5, '5 原有 全部 core');
-  assert.equal(magicCount, 5, 'magic 桶 5 个 (智能分镜/1-click 套图/TTS/字幕/相似)');
-  assert.equal(expandCount, 4, 'expand 桶 4 个 (1-click 视频/抠图/调色/派生)');
+  assert.equal(coreCount, 5, '5 原有 全部 core (用户硬性要求保留)');
+  assert.equal(magicCount, 4, 'magic 桶 4 个 (流影AI 1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效)');
 });
 
 test('drag frames update geometry without persistence and drag end persists once', () => {

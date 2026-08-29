@@ -13,11 +13,9 @@ import {
   Crop,
   Download,
   Eraser,
-  Eye,
   FileText,
   FileVideo,
   Film,
-  Filter,
   FolderInput,
   FolderOpen,
   Grid2X2,
@@ -35,16 +33,13 @@ import {
   MessageSquareText,
   Mic,
   Move,
-  Palette,
   Pencil,
   Plus,
   Redo2,
   ScanText,
   Scissors,
-  SlidersHorizontal,
   Square,
   Sparkles,
-  Theater,
   Trash2,
   Type,
   Ungroup,
@@ -181,26 +176,21 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
   </div>;
 }
 
-/* 14 个动作图标 (5 原有 + 9 新增). 9 个新: ai-storyboard / one-click-suite / one-click-video /
-   tts-voiceover / caption-motion / bg-removal / color-grade / similar-recommend / derive-1click.
+/* 9 个动作图标 (5 原有 + 4 流影AI LibTV Agent 风格, 用户硬性指定).
+   4 个流影AI 新增: one-click-suite (5 宫格) / one-click-video (胶片) / tts-voiceover (话筒) / caption-motion (字幕).
    选 icon: 跟流影AI LibTV Agent / TapNow 调研一致 — 动词型 chip, 圆形/方形几何平衡. */
 const DERIVE_ICONS = Object.freeze({
-  /* 5 原有 */
+  /* 5 原有 (用户硬性要求保留) */
   'text-generation': MessageSquareText,
   'image-edit': Sparkles,
   'ecommerce-suite': WandSparkles,
   'video-upload': FileVideo,
   'video-generation': ImagePlay,
-  /* 9 新增 (LibTV + 流影AI 风格) */
-  'ai-storyboard': Theater,         /* 智能分镜: 戏剧/舞台几何 */
+  /* 4 新增 (流影AI LibTV Agent 风格, 用户硬性指定) */
   'one-click-suite': Grid2X2,        /* 1-click 套图: 5 宫格 */
   'one-click-video': Film,           /* 1-click 视频模板: 胶片 */
   'tts-voiceover': Mic,              /* TTS 配音: 话筒 */
   'caption-motion': Captions,        /* 字幕动效: 字幕 */
-  'bg-removal': Eraser,              /* AI 抠图: 橡皮 */
-  'color-grade': Palette,            /* 滤镜调色: 调色板 */
-  'similar-recommend': Eye,          /* 相似推荐: 眼睛 */
-  'derive-1click': SlidersHorizontal, /* 1-click 派生: 滑块 */
 });
 
 /* 14-action grid derive menu (4c183cd4 续命 深度重构)
@@ -216,11 +206,12 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     ...(x != null ? { left: x } : {}),
     ...(y != null ? { top: y } : {}),
   };
-  /* 按 group 分桶渲染: core 先, magic 中, expand 后. 每个桶 < 1 个则不渲染桶标题. */
+  /* 按 group 分桶渲染: core 先 (5 原有), magic 后 (4 流影AI 新增).
+     用户 8-29 原话: "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
+     所以 5 原有全部保留, 4 流影AI 加在后面, 不删任何 5 原有. */
   const groups = [
     { id: 'core', label: '核心常用' },
-    { id: 'magic', label: 'AI 智能' },
-    { id: 'expand', label: '扩展工具' },
+    { id: 'magic', label: '流影AI 智能' },
   ];
   const bucketMap = actions.reduce((acc, action) => {
     const group = action.group || 'core';

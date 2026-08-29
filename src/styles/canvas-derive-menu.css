@@ -1,13 +1,14 @@
-/* ═══════ 4c183cd4 续命 画布右侧 引用当前素材生成 14-action 深度重构 ═══════ */
+/* ═══════ 4c183cd4 续命 画布右侧 引用当前素材生成 9-action 深度重构 v2 ═══════ */
 /* 资深美工视角: 3 列 grid 平衡感, 卡片圆角一致, hover lift + shadow + 边框颜色变化
-   产品经理视角: group 标签 (核心常用/AI 智能/扩展工具) 视觉分组, 避免一长串无层级
+   产品经理视角: 2 个 group (核心常用/流影AI 智能) 视觉分组, 避免一长串无层级
    流影AI 调研视角: LibTV Agent 风格 — 每个 action = 1 个可点卡片, 不堆文字
    毛玻璃 backdrop-filter, 暗色模式 token 化 (复用 design-tokens.css + theme.css)
    响应式: 桌面 3 列, 平板 2 列, 移动 1 列
 
-   这个文件是 14-action 派生菜单的独立 CSS 资产. 之前在 EcCanvas.css 末尾 (line 1202-1498),
-   现在抽取到 src/styles/ 目录, 通过 @import 在 EcCanvas.css 顶部引用.
-   维护好处: 派生菜单视觉是 1 个独立子系统, 单独文件便于跨页面复用 + 单元测试契约校验. */
+   这个文件是 9-action (5 原有 + 4 流影AI) 派生菜单的独立 CSS 资产. 之前 14-action 块
+   在 EcCanvas.css 末尾 (line 1202-1498), 现在抽取到 src/styles/ 目录.
+   v2 (用户 8-29 反馈): 删 5 个非流影AI 风格 (ai-storyboard/bg-removal/color-grade/similar-recommend/derive-1click),
+   保留 5 原有 + 4 流影AI LibTV 风格 (1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效). */
 
 /* ── 引用当前素材生成 (14-action 网格菜单) ── */
 .ec-canvas-derive-menu {
@@ -57,7 +58,7 @@
 .ec-canvas-derive-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .ec-canvas-derive-scroll::-webkit-scrollbar-track { background: transparent; }
 
-/* 桶 (group 分组) — 3 个 group: core / magic / expand */
+/* 桶 (group 分组) — 2 个 group: core (5 原有) / magic (4 流影AI) */
 .ec-canvas-derive-bucket {
   margin: 4px 0 2px;
   padding: 0;
@@ -94,7 +95,7 @@
   font-size: 11px;
   color: var(--blue);
 }
-.ec-canvas-derive-bucket.is-expand .ec-canvas-derive-bucket-label > span { color: var(--text-muted); }
+
 
 /* grid: 桌面 3 列, 平板 2 列, 移动 1 列 */
 .ec-canvas-derive-grid {

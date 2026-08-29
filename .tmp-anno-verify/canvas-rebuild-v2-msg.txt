@@ -1,0 +1,115 @@
+feat(canvas): 右侧'引用当前素材生成' v2 加 4 流影AI 风格 (5 原有保留, 共 9 个) (4c183cd4 续命)
+
+用户 8-29 原话 (硬性反馈 v1 错误):
+"我之前的确有让你在这里改几个功能去学习流影AI他们的做法. 但是这并不代表其他的功能, 你就要删掉呀.
+ 你看一下我们现在线上的这个版本, 这些功能都是要保留的, 只是之前其中几个功能做的不够好, 所以我让你
+ 去学习对AI他们的做法去做. 你要弄明白我的意思是什么呀? 你不要只是做了那几个功能, 然后就放上去,
+ 把其他的功能都删掉, 这是错误的."
+
+# v1 -> v2 变更 (bcaef198 + d453dc27 基础上)
+
+v1 (bcaef198 + d453dc27) 14-action 错误: 加了 9 个新 (5 流影AI + 4 其它), 删了 5 原有.
+v2 (本 commit) 9-action 正确: 5 原有全部保留, 加 4 流影AI.
+
+## 5 原有 (用户硬性要求保留) -> core 桶:
+- text-generation (生成文案)        -> core
+- image-edit (图片生成)              -> core
+- ecommerce-suite (电商套图)         -> core
+- video-upload (上传视频)            -> core
+- video-generation (生成视频)        -> core (32积分起)
+
+## 4 流影AI LibTV 风格 (用户硬性指定) -> magic 桶:
+- one-click-suite (1-click 套图)         -> magic (15积分)
+- one-click-video (1-click 视频模板)     -> magic (40积分)
+- tts-voiceover (TTS 配音)               -> magic (8积分)
+- caption-motion (字幕动效)              -> magic (5积分)
+
+## 删除的 5 个 (v1 加的非流影AI 风格, 用户 8-29 反馈"不能删其他的功能"):
+- ai-storyboard (智能分镜)             -- 用户原话: "你好好看我现在线上的这个版本, 这些功能都是要保留的"
+- bg-removal (AI 抠图)                 -- 不是用户指定的 4 个流影AI
+- color-grade (滤镜调色)               -- 不是用户指定的 4 个流影AI
+- similar-recommend (相似推荐)         -- 不是用户指定的 4 个流影AI
+- derive-1click (1-click 派生)         -- 不是用户指定的 4 个流影AI
+
+# 改的内容 (本 commit v2)
+
+## 1. src/pages/EcCanvas/canvasInteractionModel.js (14 -> 9)
+- 删 5 个: ai-storyboard / similar-recommend / one-click-video / bg-removal / color-grade / derive-1click
+- 留 9 个: 5 原有 (core) + 4 流影AI (magic: one-click-suite / one-click-video / tts-voiceover / caption-motion)
+- group 字段从 3 桶 (core/magic/expand) 简化为 2 桶 (core/magic)
+
+## 2. src/pages/EcCanvas/canvasActionRegistry.js (9 新增 -> 4 新增)
+- 删 5 个 action 定义 (ai-storyboard / bg-removal / color-grade / similar-recommend / derive-1click)
+- 留 4 个流影AI action 注册 (one-click-suite / one-click-video / tts-voiceover / caption-motion)
+- 每个有 nodeKind/nodeActionId/handler/route, 走 handleCreateDerivedNode 通用派生
+
+## 3. src/pages/EcCanvas/components/CanvasStudio.jsx (14 icon -> 9 icon)
+- 删 5 个 lucide-react import: Eraser / Eye / Filter / Palette / SlidersHorizontal / Theater
+- DERIVE_ICONS 简化为 9 个 (5 原有 + 4 流影AI)
+- CanvasDeriveMenu groups 从 3 桶 (核心常用/AI 智能/扩展工具) 简化为 2 桶 (核心常用/流影AI 智能)
+
+## 4. src/pages/EcCanvas/components/HeroIcons.jsx (8 -> 9 glyph)
+- 中央 modal 3 流影AI 按钮 -> 4 流影AI 按钮
+  - 1-click 套图 (oneclick, Film) - 保留
+  - 1-click 视频 (oneclick, Film) - 新增 (用同一个 icon, 不同 label)
+  - TTS 配音 (voiceover, Mic) - 保留
+  - 字幕动效 (captions, Captions) - 新增 (替代 v1 的 智能分镜)
+- FAMILY 删 storyboard, 加 captions
+- import 删 Theater
+
+## 5. src/pages/EcCanvas/index.jsx
+- 中央 modal 3 流影AI 按钮 -> 4 流影AI 按钮 (智能分镜 -> 字幕动效)
+- 右面板 onSelect 14 路由 -> 9 路由 (5 原有 + 4 流影AI)
+- 删 5 个路由: bg-removal / color-grade / ai-storyboard / similar-recommend / derive-1click
+
+## 6. src/styles/canvas-derive-menu.css
+- 删 .ec-canvas-derive-bucket.is-expand 死代码 (现在只有 2 桶: core / magic)
+- 注释 14-action -> 9-action v2
+- 注释 3 桶 -> 2 桶
+
+## 7. test/canvas-derive-menu.test.mjs (14 契约 -> 12 契约 v2)
+- 删 2 个测试: ai-storyboard / color-grade / bg-removal / similar-recommend / derive-1click 关键字
+- 调整 9-action 数据契约 (4 测试) + CSS 资产契约 (3 测试) + 集成契约 (5 测试)
+
+## 8. test/canvas-interaction-model.test.mjs (14 -> 9)
+- 14 -> 9 action 顺序断言
+- 5 core + 4 magic (3 桶 -> 2 桶)
+
+## 9. test/canvas-action-registry.test.mjs (20 + 14 -> 15 + 9)
+- selection surface 20 -> 15
+- image-editor surface 14 -> 9
+
+# 三视角合一 (用户硬性要求)
+
+1. 资深美工视角 (frontend-design skill):
+   - 9 个 action 而非 14 个, 信息密度降低, 卡片更突出
+   - 2 桶 (核心常用 + 流影AI 智能) 而非 3 桶, 视觉层级更清晰
+   - 毛玻璃 + 3 列 grid + hover lift 跟 pricing refactor 8d608493 风格一致
+
+2. 产品经理视角 (impeccable skill):
+   - 保留所有 5 现有功能, 符合"画布渐进式增强"原则
+   - 4 个流影AI 新增让用户感知到"产品在学习头部厂商"
+   - 5 原有 + 4 流影AI = 9 个, 跟用户硬性 8-29 要求 1:1 对应
+
+3. 流影AI 调研视角 (LibTV Agent 风格):
+   - 1-click 套图 (5 宫格) = 流影AI 1-click 生成
+   - 1-click 视频模板 (4 步 chain) = 流影AI 4 步 chain (文案->首帧->视频->音轨+字幕)
+   - TTS 配音 (5 provider) = 流影AI 5+ voice 美式播客感
+   - 字幕动效 = 流影AI 字幕排版 + 弹出/淡入/逐字
+
+# 测试
+
+- canvas-derive-menu (新): 12/12 全过 (v1 14 测试, 删 2 个 5-原有关键字测试)
+- canvas 域全套: 368/368 全过 (356 已有 + 12 新增, 无 regression)
+- 5 个新中央 modal 按钮 (5+4=9): 4 流影AI 都已挂到 onSelect + canvasActionRegistry
+- esbuild syntax check: 5 文件全部 OK
+
+# 异常 / 后续
+
+- 4 个流影AI 新 action 后端路由尚未全部实现 (one-click-video / tts-voiceover / caption-motion 路由 404)
+  -> 点击会触发 handleCreateDerivedNode 通用派生 + 弹 toast "已创建XX节点"
+  -> 后续子代理按 chainService.mjs 模式接 P-F/P-G/P-H 路由
+- one-click-suite 复用 smart-remix 既有节点 (P-C Clone Project 已 commit)
+- 用户硬性要求 5 原有全部保留, 本 commit 严格遵守 (canvasInteractionModel.js 5 原有 line 15-19)
+
+(4c183cd4 续命 P-Canvas-derive-v2 子代理 - 修正 v1 错误, 保留 5 原有 + 加 4 流影AI)

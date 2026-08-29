@@ -26,9 +26,9 @@ test('every Canvas command is declared once with execution and billing metadata'
   }
 });
 
-test('selection exposes the complete commerce image toolbar (11 原有 + 9 新增 = 20, 4c183cd4 续命) in observed order', () => {
-  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构: 11 selection surface actions +
-     9 新增 (LibTV + 流影AI 风格) 共 20 个. 新增 actions 同时加入 selection 表面 (选中节点工具条). */
+test('selection exposes the complete commerce image toolbar (11 原有 + 4 流影AI = 15, 4c183cd4 续命 v2) in observed order', () => {
+  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构 v2: 11 selection surface actions +
+     4 新增 (流影AI LibTV 风格, 用户硬性指定) 共 15 个. 5 原有 (selection 表面已经有 11) 全部保留. */
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
@@ -43,15 +43,10 @@ test('selection exposes the complete commerce image toolbar (11 原有 + 9 新�
       'crop',
       'split-image',
       'download',
-      'ai-storyboard',
       'one-click-suite',
       'one-click-video',
       'tts-voiceover',
       'caption-motion',
-      'bg-removal',
-      'color-grade',
-      'similar-recommend',
-      'derive-1click',
     ],
   );
 });
@@ -127,23 +122,22 @@ test('context commands never advertise image-only operations on text or source g
   }
 });
 
-test('ready image outputs expose deep workflow actions (5 原有 + 9 新增 = 14, 4c183cd4 续命) while running outputs stay disabled', () => {
-  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构: 5 原有 + 9 新增 (LibTV + 流影AI) */
+test('ready image outputs expose deep workflow actions (5 原有 + 4 流影AI = 9, 4c183cd4 续命 v2) while running outputs stay disabled', () => {
+  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构 v2: 5 原有 + 4 流影AI (用户硬性要求保留 5 原有) */
   const sourceGroup = { id: 'source-1', kind: 'source_group', status: 'ready', assets: [{ url: '/product.png' }] };
   const runningOutput = { id: 'output-2', kind: 'output', status: 'generating', url: '/still-running.png' };
   const readyOutput = { id: 'output-3', kind: 'output', status: 'ready', url: '/ready.png' };
-  const expected14 = ['product-remix', 'outpaint', 'inpaint', 'translate', 'upscale',
-    'ai-storyboard', 'one-click-suite', 'one-click-video', 'tts-voiceover', 'caption-motion',
-    'bg-removal', 'color-grade', 'similar-recommend', 'derive-1click'];
+  const expected9 = ['product-remix', 'outpaint', 'inpaint', 'translate', 'upscale',
+    'one-click-suite', 'one-click-video', 'tts-voiceover', 'caption-motion'];
 
   assert.deepEqual(
     actionsForSurface({ surface: 'image-editor', node: sourceGroup }).map(action => action.id),
-    expected14,
+    expected9,
   );
   assert.deepEqual(actionsForSurface({ surface: 'image-editor', node: runningOutput }), []);
   assert.deepEqual(
     actionsForSurface({ surface: 'image-editor', node: readyOutput }).map(action => action.id),
-    expected14,
+    expected9,
   );
   assert.equal(actionsForSurface({ surface: 'image-editor', node: { kind: 'process', status: 'ready', url: '/derived.png' } }).length, 0);
 });

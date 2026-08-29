@@ -145,35 +145,21 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('upscale', '高清修复', ['image-editor'], 'upscale', false, {
     type: 'node', handler: 'create:upscale', nodeActionId: 'upscale', nodeKind: 'upscale', route: '/api/canvas/transform',
   }, { description: '提升清晰度与商品细节', group: '电商处理', canRun: canCreateWorkflowFromNode }),
-  /* 4c183cd4 续命 9 个新动作 (LibTV Agent 风格 + 流影AI 调研)
-     资深美工 + 产品经理 + 流影AI 调研 3 视角合一 */
-  action('ai-storyboard', '智能分镜', ['image-editor', 'selection'], null, true, {
-    type: 'node', handler: 'create:storyboard', nodeActionId: 'ai-storyboard', nodeKind: 'storyboard', route: '/api/canvas/storyboard',
-  }, { description: '自动拆解画面为 6 段电影分镜 (Enclosure/Breakthrough/Framing)', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
+  /* 4c183cd4 续命 4 个新动作 (流影AI LibTV Agent 风格, 用户硬性指定)
+     用户 8-29 原话: "我之前的确有让你在这里改几个功能去学习流影AI他们的做法, 但是这并不代表其他的功能, 你就要删掉呀"
+     资深美工 + 产品经理 + 流影AI 调研 3 视角合一, 只保留 4 个流影AI 风格核心功能 */
   action('one-click-suite', '1-click 套图', ['image-editor', 'selection'], 'smart-remix', true, {
     type: 'node', handler: 'create:one-click-suite', nodeActionId: 'one-click-suite', nodeKind: 'one-click-suite', route: '/api/canvas/regenerate', requires: { prompt: true },
   }, { description: '一键生成电商 5 宫格 (主图+场景+细节+白底+详情图)', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
   action('one-click-video', '1-click 视频模板', ['image-editor', 'selection'], null, true, {
     type: 'node', handler: 'create:one-click-video', nodeActionId: 'one-click-video', nodeKind: 'one-click-video', route: '/api/canvas/one-click-video',
-  }, { description: '流影AI 1-click 视频模板 (4 步: 文案到首帧到视频到音轨+字幕)', group: '扩展工具', canRun: canCreateWorkflowFromNode }),
+  }, { description: '流影AI 1-click 视频模板 (4 步: 文案到首帧到视频到音轨+字幕)', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
   action('tts-voiceover', 'TTS 配音', ['image-editor', 'selection'], null, true, {
     type: 'node', handler: 'create:tts-voiceover', nodeActionId: 'tts-voiceover', nodeKind: 'tts-voiceover', route: '/api/canvas/tts',
   }, { description: '5 家供应商 (火山/阿里云/ElevenLabs/Azure/MiniMax) 美式播客感', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
   action('caption-motion', '字幕动效', ['image-editor', 'selection'], null, true, {
     type: 'node', handler: 'create:caption-motion', nodeActionId: 'caption-motion', nodeKind: 'caption-motion', route: '/api/canvas/caption',
   }, { description: '流影AI 风格字幕排版 + 弹出/淡入/逐字动画', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
-  action('bg-removal', 'AI 抠图', ['image-editor', 'selection'], 'remove-bg', false, {
-    type: 'node', handler: 'create:remove-bg', nodeActionId: 'remove-bg', nodeKind: 'remove-bg', route: '/api/canvas/transform',
-  }, { description: '一键去背景生成透明 PNG 商品素材', group: '扩展工具', canRun: canCreateWorkflowFromNode }),
-  action('color-grade', '滤镜调色', ['image-editor', 'selection'], null, true, {
-    type: 'node', handler: 'create:color-grade', nodeActionId: 'color-grade', nodeKind: 'color-grade', route: '/api/canvas/color-grade',
-  }, { description: '12 套电商主流调色 (暖黄/冷蓝/高级灰/INS 风)', group: '扩展工具', canRun: canCreateWorkflowFromNode }),
-  action('similar-recommend', '相似推荐', ['image-editor', 'selection'], 'reverse-prompt', false, {
-    type: 'node', handler: 'create:similar-recommend', nodeActionId: 'similar-recommend', nodeKind: 'similar-recommend', route: '/api/reverse-prompt',
-  }, { description: '从作品库/公共模板找出最相似的 5 张图', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
-  action('derive-1click', '1-click 派生', ['image-editor', 'selection'], 'smart-remix', true, {
-    type: 'node', handler: 'create:derive-1click', nodeActionId: 'derive-1click', nodeKind: 'derive-1click', route: '/api/canvas/regenerate', requires: { prompt: true },
-  }, { description: '一键变风格/变角度/换模特, 沿用商品主体 (Clone Project)', group: '扩展工具', canRun: canCreateWorkflowFromNode }),
 ]);
 
 const ACTION_BY_ID = new Map(CANVAS_ACTIONS.map(item => [item.id, item]));
