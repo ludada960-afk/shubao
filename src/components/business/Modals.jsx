@@ -13,7 +13,6 @@ import {
   beginOAuthLogin,
   forgotPassword,
 } from '../../services/auth';
-import DevicesPanel from './DevicesPanel.jsx';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
 import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
@@ -632,21 +631,14 @@ export function PricingModal() {
           </div>
         )}
 
-        {/* P2 设备管理：我的设备折叠区块 */}
-        {state.logged && (
-          <div style={{ marginBottom: 18 }}>
-            <DevicesPanel />
-          </div>
-        )}
-
-        <div style={{ marginBottom: 20, padding: '10px 12px', borderRadius: 10, background: '#f7f8fa', color: 'var(--text-muted)', fontSize: 12 }}>
-          所有创作功能共用一套 AI 积分，按实际使用量结算。
+        <div style={{ marginBottom: 20, padding: '10px 12px', borderRadius: 10, background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 12 }}>
+          所有创作功能共用一套 AI 积分，按实际使用量结算，失败任务释放冻结额度。
         </div>
 
         {providers.length === 0 && (
-          <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'rgba(12,10,9,0.04)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
-            公司备案完成后,微信支付与支付宝将同步上线;
-            届时欢迎回到此页面扫码完成支付,已生成的订单会自动恢复。
+          <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
+            微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
+            已生成的订单会按计划结清，欢迎再次下单。
           </div>
         )}
 
@@ -763,8 +755,8 @@ export function PricingModal() {
                   {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: 'rgba(12,10,9,0.04)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 }}>
-              公司备案完成后,微信支付与支付宝将同步上线,届时欢迎再次下单。
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 }}>
+              微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
             </div>}
 
             <div style={{
