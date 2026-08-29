@@ -14,6 +14,8 @@ import {
   forgotPassword,
 } from '../../services/auth';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
+import PricingModal from './PricingModal.jsx';
+import '../../styles/pricing-modal.css';
 import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
 import {
@@ -599,131 +601,16 @@ export function PricingModal() {
           <MdClose size={16} />
         </button>
 
-        {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          {interrupted && (
-            <button
-              type="button"
-              onClick={() => setModalView(current => transitionPricingModalView(current, 'RETURN_TO_INSUFFICIENT'))}
-              style={{ marginBottom: 12, padding: 0, border: 0, background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              ← 返回额度提示
-            </button>
-          )}
-          <h3 style={{
-            fontSize: 22, fontWeight: 900,
-            color: 'var(--accent)',
-            marginBottom: 4,
-          }}>
-            选择套餐
-          </h3>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
-            一次买断,按量结算,关闭后当前工作仍会保留
-          </p>
-        </div>
-
-        {state.logged && (
-          <div style={{ marginBottom: 18 }}>
-            <BillingBalanceCard
-              ecommercePoints={state.ecPoints}
-              unlimited={state.unlimited}
-            />
-          </div>
-        )}
-
-        <div style={{ marginBottom: 20, padding: '10px 12px', borderRadius: 10, background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 12 }}>
-          所有创作功能共用一套 AI 积分，按实际使用量结算，失败任务释放冻结额度。
-        </div>
-
-        {providers.length === 0 && (
-          <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7 }}>
-            微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
-            已生成的订单会按计划结清，欢迎再次下单。
-          </div>
-        )}
-
-        {/* Pricing cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {plans.length === 0 && (
-            <div role="status" style={{ padding: 18, textAlign: 'center', color: 'var(--text-muted)' }}>
-              正在加载套餐信息…
-            </div>
-          )}
-          {plans.map((p, i) => {
-            const colors = [
-              'linear-gradient(135deg, #f59e0b, #f97316)',
-              'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              'linear-gradient(135deg, #ec4899, #f43f5e)',
-              'linear-gradient(135deg, #0f766e, #14b8a6)',
-            ];
-            return (
-              <div key={i}
-                style={{
-                  display: 'flex', alignItems: 'center',
-                  gap: 16,
-                  padding: 18,
-                  borderRadius: 20,
-                  border: p.recommended ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  background: p.recommended ? '#FAFAF9' : '#fff',
-                  cursor: p.enabled && providers.length > 0 ? 'pointer' : 'default',
-                  transition: 'all 0.15s',
-                  position: 'relative',
-                }}
-                onClick={p.enabled && providers.length > 0 ? () => buy(p) : undefined}
-                onMouseEnter={p.enabled && providers.length > 0 ? e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; } : undefined}
-                onMouseLeave={p.enabled && providers.length > 0 ? e => { e.currentTarget.style.borderColor = p.recommended ? 'var(--accent)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; } : undefined}>
-                {/* Small gradient icon */}
-                <span style={{
-                  width: 44, height: 44, borderRadius: 14,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: colors[i],
-                  flexShrink: 0,
-                }}>
-                  <MdAutoAwesome size={22} color="#fff" fill="#fff" />
-                </span>
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>
-                    {p.name}
-                    {p.recommended && (
-                      <span style={{
-                        fontSize: 9, fontWeight: 900, color: '#fff',
-                        background: 'var(--accent)',
-                        padding: '2px 8px', borderRadius: 6, marginLeft: 8,
-                        letterSpacing: 0.3,
-                      }}>推荐</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, fontWeight: 500 }}>
-                    {formatCatalogGrant(p)} · {p.validityDays ? `${p.validityDays} 天有效` : '永久有效'}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>
-                    {p.description}
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{
-                    fontSize: 26, fontWeight: 900,
-                    color: 'var(--accent)',
-                    lineHeight: 1,
-                  }}>
-                    ¥{formatCatalogPrice(p.priceFen)}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {p.enabled ? (providers.length > 0 ? '选择套餐' : '即将开放') : '套餐已停用'}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-      </div>
-
-      {/* Payment modal */}
-      {payModal && (providers.length > 0 || paymentOrder) && (
-        <div style={{
+          {/* 4c183cd4 续命 PricingModal (4 视角重构 - 替代 4c183cd4 时代 inline style) */}
+          <PricingModal
+            plans={plans}
+            providers={providers}
+            onBuy={buy}
+            onClose={() => setModalView(current => transitionPricingModalView(current, 'CANCEL'))}
+            isLogged={state.logged}
+            ecPoints={state.ecPoints}
+            unlimited={state.unlimited}
+          />
           position: 'fixed', inset: 0, zIndex: 99999,
           background: 'rgba(0,0,0,0.5)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 20,
