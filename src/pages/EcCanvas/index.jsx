@@ -4546,6 +4546,9 @@ export default function EcCanvas() {
                    智能行 4 入口走 addCanvasComposer (开 prompt 节点), 不是 handleCreateDerivedNode (需要 source 节点),
                    修复 v2 bug: 空画布时 4 智能按钮无反应 (因为 nodes.length === 0) */}
                 <div className="ec-canvas-empty-actions">
+                  {/* 3 行分层 (用户 8-29 硬性要求 "5 原有 + 3 新增 = 8")
+                     Row 1 添加素材 (3 入口, 5 原有) + Row 2 AI 生成 (2 入口, 5 原有) + Row 3 智能 (3 入口, 新增)
+                     不写内部术语 (用户 8-29 硬性要求 "你为什么要告诉用户这个呢?") */}
                   {/* Row 1 - 添加素材 (3 入口) */}
                   <div className="ec-canvas-empty-row is-primary-row" role="group" aria-label="添加素材">
                     <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
@@ -4557,12 +4560,11 @@ export default function EcCanvas() {
                     <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
                     <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
                   </div>
-                  {/* Row 3 - 智能 (4 入口) — 不写来源 (用户 8-29 原话: "你为什么要告诉用户这个呢?") */}
+                  {/* Row 3 - 智能 (3 入口) — 走 addCanvasComposer, 空画布时也能开 (修 v2 bug) */}
                   <div className="ec-canvas-empty-row is-smart-row" role="group" aria-label="智能生成">
                     <button type="button" onClick={() => addCanvasComposer('suite', { actionId: 'one-click-suite' })}><HeroGlyph kind="oneclick" />1-click 套图</button>
                     <button type="button" onClick={() => addCanvasComposer('video', { actionId: 'one-click-video' })}><HeroGlyph kind="oneclick" />1-click 视频</button>
                     <button type="button" onClick={() => addCanvasComposer('text', { actionId: 'tts-voiceover' })}><HeroGlyph kind="voiceover" />TTS 配音</button>
-                    <button type="button" onClick={() => addCanvasComposer('text', { actionId: 'caption-motion' })}><HeroGlyph kind="captions" />字幕动效</button>
                   </div>
                 </div>
 

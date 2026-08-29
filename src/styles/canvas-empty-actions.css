@@ -1,7 +1,8 @@
-/* ═══════ 4c183cd4 续命 画布中央弹窗 3 行分层视觉 v3 (1 张参考图 + 1 句 prompt) ═══════ */
-/* 资深美工视角: 3 行分层 (添加素材 / AI 生成 / 智能) 视觉密度清晰, 1 行 9 按钮 -> 3 行 9 按钮
-   产品经理视角: 认知路径分层, 用户先选 入口 (3 选 1) -> 再选 AI 任务 (2+4 选 1)
+/* ═══════ 4c183cd4 续命 画布中央弹窗 3 行分层视觉 v4 (1 张参考图 + 1 句 prompt, 8 按钮) ═══════ */
+/* 资深美工视角: 3 行分层 (添加素材 / AI 生成 / 智能) 视觉密度清晰, 1 行 8 按钮 -> 3 行 8 按钮
+   产品经理视角: 认知路径分层, 用户先选 入口 (3 选 1) -> 再选 AI 任务 (2+3 选 1)
    流影AI 调研视角: 1 张参考图 + 1 句 prompt = 现代 SaaS 画布 (TapNow Agent) + 电商画布 (Quantv 模板) 标准入口
+   用户 8-29 硬性要求: 5 原有 + 3 新增 = 8 个按钮, 不写内部术语 (流影AI / TapNow 等)
    毛玻璃 backdrop-filter, 暗色模式 token 化, 响应式 (移动单列) */
 
 /* 整体面板 — 比 v2 760px 窄, 用户 8-29 硬性要求 "不能搞得这么宽" */
@@ -95,9 +96,9 @@
   transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out);
 }
 
-/* Row 3 - 智能 (4 入口) - 第三操作行, 按钮小, 视觉密度高 */
+/* Row 3 - 智能 (3 入口) - 第三操作行, 按钮小, 视觉密度高 */
 .ec-canvas-empty-row.is-smart-row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 4px;
   padding-top: 12px;
   border-top: 1px dashed var(--canvas-hairline);
@@ -240,7 +241,7 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, .60);
 }
 
-/* 响应式: 移动端按钮宽度自适应, 1 列 (3+2+4 = 4+1+1 = 6 按钮) */
+/* 响应式: 移动端按钮宽度自适应, 1 列 (3+2+3 = 8 按钮, 用户 8-29 硬性要求 5+3=8) */
 @media (max-width: 540px) {
   .ec-canvas-empty-row.is-primary-row { grid-template-columns: 1fr; }
   .ec-canvas-empty-row.is-generate-row { grid-template-columns: 1fr 1fr; }
@@ -253,7 +254,7 @@
   .ec-canvas-empty-actions button:hover:not(:disabled) { transform: none; }
 }
 
-/* 入场动画 — stagger (第 1-9 个按钮依次浮现) */
+/* 入场动画 — stagger (8 个按钮依次浮现: 3+2+3) */
 @keyframes ecHeroRise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -267,4 +268,3 @@
 .ec-canvas-empty-row.is-smart-row button:nth-child(1) { animation-delay: 250ms; }
 .ec-canvas-empty-row.is-smart-row button:nth-child(2) { animation-delay: 290ms; }
 .ec-canvas-empty-row.is-smart-row button:nth-child(3) { animation-delay: 330ms; }
-.ec-canvas-empty-row.is-smart-row button:nth-child(4) { animation-delay: 370ms; }
