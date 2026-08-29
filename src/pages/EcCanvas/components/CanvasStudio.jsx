@@ -42,6 +42,7 @@ import {
   Sparkles,
   Trash2,
   Type,
+  SlidersHorizontal,
   Ungroup,
   Undo2,
   WandSparkles,
