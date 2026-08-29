@@ -2030,3 +2030,43 @@ export async function autoGenerate({ platform, input, refImages, email, draftId,
 
 
 /* ── EC 文案 AI 润色 ── */
+
+
+// 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone
+// POST /api/projects/:projectId/clone
+// body: { cloneMode: 'same-style' | 'change-style' | 'change-angle', targetKind?, titleHint? }
+export async function cloneProject(projectId, body, opts) {
+  opts = opts || {};
+  const id = String(projectId || '').trim();
+  if (!id) throw new Error('projectId is required');
+  const payload = {
+    cloneMode: String((body && body.cloneMode) || 'same-style').trim(),
+  };
+  if (body && body.targetKind) payload.targetKind = String(body.targetKind).trim();
+  if (body && body.titleHint) payload.titleHint = String(body.titleHint).trim();
+  const allowed = ['same-style', 'change-style', 'change-angle'];
+  if (allowed.indexOf(payload.cloneMode) < 0) {
+    throw new Error('cloneMode must be one of ' + allowed.join(' | '));
+  }
+  const headers = { 'Content-Type': 'application/json' };
+  const email = getSessionEmail();
+  if (email) headers['x-session-email'] = email;
+  const res = await fetch('/api/projects/' + encodeURIComponent(id) + '/clone', {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(payload),
+    signal: opts.signal || undefined,
+    credentials: 'include',
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* keep null */ }
+  if (!res.ok) {
+    const code = (data && data.code) ? data.code : 'CLONE_FAILED';
+    const message = (data && data.error) ? data.error : ('clone project failed (HTTP ' + res.status + ')');
+    const err = new Error(message);
+    err.code = code;
+    err.status = res.status;
+    throw err;
+  }
+  return data || null;
+}
