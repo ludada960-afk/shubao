@@ -104,6 +104,8 @@ import { createCompositionAssetAuthorizer, createCompositionService } from './co
 import { createPixelLayers } from './composition/layerService.mjs';
 import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
+// 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone Service
+import { createProjectCloneService } from './projects/cloneService.mjs';
 import { mountVideoWorkbenchRoutes } from './videoWorkbenchRoutes.mjs';
 import { mountPublicTemplateRoutes, loadDefaultUsageStats } from './templates/publicTemplates.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
@@ -291,6 +293,8 @@ const generatedAssetStore = createGeneratedAssetStore({
   },
 });
 const projectStore = createProjectStore(db);
+// 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone Service (同风格/变风格/变角度)
+const projectCloneService = createProjectCloneService({ db, projectStore });
 const contentProjectLifecycle = createContentProjectLifecycle({
   projectStore,
   readGeneratedAsset: assetId => generatedAssetStore.read(assetId),
@@ -798,6 +802,19 @@ mountChainRoutes(app, {
   }),
 });
 
+// 4c183cd4 续命 P-A 三方多模态串联 (video + audio + product profile)
+// 1-click chain + 写 project_assets + attach product profile
+// 鉴权同 chain, db + projectStore 复用 server 全局实例 (line 293+ 已有)
+import { mountMultiModalRoutes } from './services/multiModalService.mjs';
+mountMultiModalRoutes(app, {
+  authenticate: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
+  db,
+  projectStore,
+});
+
 // 4c183cd4 续命 P0-D 飞书可视化 webhook 入站路由
 import { handleFeishuChallenge, dispatchFeishuEvent } from './feishu/webhook.mjs';
 app.get('/feishu/events', (req, res) => {
@@ -838,9 +855,13 @@ const adminRouteHandlers = mountAdminRoutes(app, {
 // P2 账号体系：adminOperations 之前在 authService 之前实例化，
 // 现把 auth 域句柄 late-bind 进去，让 listSessions/revokeSession 可用。
 adminOperations.bindAuthService(authService);
+// 4c183cd4 续命 P-D commerce paywall: 把 paywallService 注入 adminOperations 用于 stats/refund/list
+adminOperations.bindPaywallService(paywallService);
 
 mountProjectRoutes(app, {
   projectStore,
+  // 4c183cd4 续命 P-C 1-click 派生升级
+  cloneService: projectCloneService,
   importVideoAsset: importVideoAssetToProject,
   importImageAsset: importImageAssetToProject,
   registerGeneratedAsset: registerGeneratedAssetToProject,

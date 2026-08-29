@@ -219,6 +219,8 @@ export function createAdminOperations({
   // P2 账号体系：auth 域晚于本模块实例化，adminOperations 通过 late-bind 注入。
   // 若未注入，listSessions/revokeSession 抛出 ADMIN_AUTH_UNAVAILABLE，避免误用导致静默成功。
   let authRef = authService;
+  // 4c183cd4 续命 P-D commerce paywall: paywallService 同样晚于本模块实例化 (支付域) , 走 late-bind
+  let paywallRef = null;
   const operations = {};
   function bindAuthService(next) {
     if (next !== null && next !== undefined && typeof next.listUserSessions !== 'function') {
@@ -226,6 +228,22 @@ export function createAdminOperations({
     }
     authRef = next || null;
     return operations;
+  }
+  function bindPaywallService(next) {
+    if (next !== null && next !== undefined && typeof next.stats !== 'function') {
+      throw new TypeError('paywallService must expose stats / refundOrder / listTransactions');
+    }
+    paywallRef = next || null;
+    return operations;
+  }
+  function ensurePaywallBridge() {
+    if (!paywallRef || typeof paywallRef.stats !== 'function') {
+      throw Object.assign(new Error('paywall 统计暂不可用，请稍后重试'), {
+        code: 'ADMIN_PAYWALL_UNAVAILABLE',
+        status: 503,
+      });
+    }
+    return paywallRef;
   }
   function ensureAuthBridge() {
     if (!authRef || typeof authRef.listUserSessions !== 'function') {
@@ -916,6 +934,35 @@ export function createAdminOperations({
     };
   }
 
+  // 4c183cd4 续命 P-D commerce paywall: admin 域的 paywall 统计/退款/列表 (走 late-bind paywallService)
+  function paywallStats(input = {}) {
+    const bridge = ensurePaywallBridge();
+    const days = safeInteger(input.days ?? 30, 'days', { min: 1, max: 365 });
+    const summary = bridge.stats({ days });
+    return {
+      generatedAt: new Date().toISOString(),
+      ...summary,
+    };
+  }
+
+  function paywallRefund(input = {}) {
+    const bridge = ensurePaywallBridge();
+    const transactionId = nonEmpty(input.transactionId, 'transactionId');
+    const refundAmountFen = input.refundAmountFen === undefined || input.refundAmountFen === null
+      ? null
+      : safeInteger(input.refundAmountFen, 'refundAmountFen', { min: 1, max: 1_000_000_000 });
+    const reason = String(input.reason || '').slice(0, 500);
+    return bridge.refundOrder({ transactionId, refundAmountFen, reason });
+  }
+
+  function paywallList(input = {}) {
+    const bridge = ensurePaywallBridge();
+    const limit = safeInteger(input.limit ?? 50, 'limit', { min: 1, max: 500 });
+    const status = input.status ? String(input.status).trim() : null;
+    const channel = input.channel ? String(input.channel).trim() : null;
+    return bridge.listTransactions({ status, channel, limit });
+  }
+
   function createAccount(actorEmail, input = {}) {
     const actor = getAccountAccess(db, actorEmail);
     if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
@@ -1486,6 +1533,11 @@ export function createAdminOperations({
     getUserCostReport,
     // 4c183cd4 续命 P2 成本核算精确化：全站毛利 + 异常用量监控
     costSummary,
+    // 4c183cd4 续命 P-D commerce paywall: 微信/支付宝 sandbox 真接入的 admin 域入口
+    paywallStats,
+    paywallRefund,
+    paywallList,
     bindAuthService,
+    bindPaywallService,
   };
 }
