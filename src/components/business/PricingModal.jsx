@@ -21,7 +21,7 @@ function formatCatalogGrant(plan) {
   return units + " AI 积分";
 }
 
-export default function PricingModal({ plans = [], providers = [], onBuy, onClose, isLogged, ecPoints = 0, unlimited = false }) {
+export default function PricingModalRefactored({ plans = [], providers = [], onBuy, onClose, isLogged, ecPoints = 0, unlimited = false }) {
   return (
     <div className="pricing-modal" data-testid="pricing-modal">
       <div className="pricing-modal__bg" />

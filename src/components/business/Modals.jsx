@@ -14,7 +14,7 @@ import {
   forgotPassword,
 } from '../../services/auth';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
-import PricingModal from './PricingModal.jsx';
+import PricingModalRefactored from './PricingModal.jsx';
 import '../../styles/pricing-modal.css';
 import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
@@ -602,7 +602,7 @@ export function PricingModal() {
         </button>
 
           {/* 4c183cd4 续命 PricingModal (4 视角重构 - 替代 4c183cd4 时代 inline style) */}
-          <PricingModal
+          <PricingModalRefactored
             plans={plans}
             providers={providers}
             onBuy={buy}
