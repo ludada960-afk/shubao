@@ -309,6 +309,7 @@ export function LoginModal() {
 // 1f64aa42 删了老 PricingModalLegacy 函数但没补 export, 这里重命名 Modals 函数为 PricingModal 让 App.jsx 仍能 <PricingModal />
 export function PricingModal() {
   const { state, dispatch } = useApp();
+  if (!state.showPrice) return null;
   const plans = useMemo(() => buildPricingPlans(PRICING_PLANS, state.billingCatalog || []), [state.billingCatalog]);
   const providers = useMemo(() => enabledPaymentProviders(state.billingCatalog || []), [state.billingCatalog]);
   const [payModal, setPayModal] = useState(null);
@@ -414,7 +415,9 @@ export function PricingModal() {
         </button>
 
           {/* 4c183cd4 续命 PricingModal (4 视角重构 - 替代 4c183cd4 时代 inline style) */}
+          {/* 4c183cd4 续命 P-Modals (主线程亲自加 4c183cd4 时代 1af0762d0 漏的 show prop 透传): 外层 L312 已守 state.showPrice, 这里再透传给 PricingModalRefactored 作为第二层保险 */}
           <PricingModalRefactored
+            show={state.showPrice}
             plans={plans}
             providers={providers}
             onBuy={buy}

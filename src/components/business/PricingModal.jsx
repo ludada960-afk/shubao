@@ -21,7 +21,13 @@ function formatCatalogGrant(plan) {
   return units + " AI 积分";
 }
 
-export default function PricingModalRefactored({ plans = [], providers = [], onBuy, onClose, isLogged, ecPoints = 0, unlimited = false }) {
+// 4c183cd4 续命 P-Modals (主线程亲自加 4c183cd4 时代 1af0762d0 漏的守卫):
+// 用户 8-30 反馈 "一打开网站定价弹窗就一直显示, 关不掉, 不是首页"
+// 根因 4c183cd4 时代老 PricingModal 函数缺守卫, Refactored 也没加, 任意 mount 路径都 DOM 渲染
+// 加 show prop 守卫, 默认 undefined 保持向后兼容; 显式 show={false} 直接 return null
+// Modals.jsx L312 外层已有 `if (!state.showPrice) return null`, 这里再加一层保险 (Refactored 自身守卫)
+export default function PricingModalRefactored({ plans = [], providers = [], onBuy, onClose, isLogged, ecPoints = 0, unlimited = false, show = true }) {
+  if (show === false) return null;
   return (
     <div className="pricing-modal" data-testid="pricing-modal">
       <div className="pricing-modal__bg" />
