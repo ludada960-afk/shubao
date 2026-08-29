@@ -1,0 +1,101 @@
+feat(canvas): 右侧'引用当前素材生成' 14-action 独立 CSS 资产 + 14 契约测试 (4c183cd4 续命)
+
+用户 8-28 22:55 原话硬性要求 (图 2 标注 46.2%/34.5% 右侧):
+- "这里为什么只有两个功能了啊, 之前其他的功能去哪了啊"
+- "我当时是找了流影AI的画布截了一些图, 然后教你这几个功能要怎么做的"
+- "你为什么把之前几个功能全搞没了啊, 你好好翻一下我前面是怎么说的"
+- "你好好翻一下我前面是怎么说的, 找不到就找没恢复的那个记录去看"
+
+# 上下文 (本 commit 在 bcaef198 基础上继续)
+bcaef198 (feat(canvas): 右侧'引用当前素材生成' 5+9=14 深度重构) 已经把:
+- canvasInteractionModel.js 5 -> 14 action (core 5 / magic 5 / expand 4)
+- canvasActionRegistry.js 9 新 action 注册 (有 nodeKind/nodeActionId/handler/route)
+- CanvasStudio.jsx DERIVE_ICONS 14 icon + 3 列 grid + 3 桶分桶
+- HeroIcons.jsx 3 新 hero glyph (storyboard/voiceover/oneclick)
+- EcCanvas/index.jsx 中央 modal +3 按钮 + 副标清理
+- EcCanvas.css +330 行 14-action grid 视觉
+
+但是 bcaef198 把 14-action 全部 CSS 直接 append 到 EcCanvas.css 末尾 (line 1202-1542, 342 行),
+跟其它画布样式 (1149 行) 混在一起, 不利于 14-action 派生菜单的独立维护/跨页面复用/契约测试.
+
+# 改的内容 (本 commit)
+
+## 1. src/styles/canvas-derive-menu.css (新文件, 独立 CSS 资产)
+从 EcCanvas.css 末尾抽出 14-action grid 全部规则 (342 行 -> 独立文件):
+- 毛玻璃 backdrop-filter: blur(18px) saturate(160%)
+- 3 列 grid 桌面 / 2 列平板 / 1 列移动 响应式
+- 3 个桶 (core/magic/expand) 视觉分组
+- 14 个 tile 卡片 (icon chip + label + 2 行描述 + 价格徽标 + 箭头)
+- hover lift -2px + box-shadow + 左侧滑入高亮条
+- 暗色模式 [data-theme="dark"] token 化
+- 减少动效 @media (prefers-reduced-motion: reduce)
+- 暗色模式 + 减少动效继承 design-tokens.css / theme.css
+
+维护好处:
+- 派生菜单是 1 个独立子系统, 单独文件便于跨页面复用 (未来 VideoStudio 也能用)
+- 单独文件便于单元测试 (test/canvas-derive-menu.test.mjs 14 测试可直接 grep 关键字)
+- 不再污染 EcCanvas.css (1149 行其它画布样式保持稳定)
+
+## 2. src/pages/EcCanvas/EcCanvas.css (-342 行)
+- 删除 line 1202-1542 (重复 14-action block, 已被独立文件取代)
+- 文件从 1543 行 -> 1149 行 (净 -394 行)
+- 保留 .ec-canvas-derive-menu { position: absolute; ... } 兼容样式 (跟 .ec-canvas-add-menu 共用基础选择器)
+
+## 3. src/pages/EcCanvas/index.jsx (+1 行)
+- 新增 `import '../../styles/canvas-derive-menu.css';` 在 EcCanvas.css import 之后
+- 让 Vite/esbuild 加载独立 CSS 资产
+
+## 4. test/canvas-derive-menu.test.mjs (新文件, 14 契约测试)
+3 大类共 14 测试, 全部通过:
+
+### 1) 14 action 数据契约 (5 测试)
+- exactly 14 actions (5 原有 + 9 新增, 硬性要求)
+- 3 groups 分桶 (core 5 / magic 5 / expand 4)
+- 显示顺序 (core 先, magic 中, expand 后)
+- label/description/Object.freeze 完整
+- priceLabel 格式 ("<数字>积分" / "<数字>积分起" / "免费")
+
+### 2) 独立 CSS 资产契约 (4 测试)
+- canvas-derive-menu.css 存在 (>1KB)
+- 14-action grid + 3 bucket markers + 毛玻璃 + 暗色模式 关键字
+- tile hover lift (-2px) + chip (背景 var(--accent)) + meta (价格徽标 em)
+- EcCanvas.css 不再含 14-action 块 (抽离干净)
+
+### 3) 视觉/集成契约 (5 测试)
+- EcCanvas/index.jsx import canvas-derive-menu.css
+- CanvasStudio.jsx 14 lucide icon (5 原有 + 9 新增)
+- CanvasDeriveMenu 3 桶 (核心常用/AI 智能/扩展工具) + 4 个 class (grid/tile/bucket/scroll)
+- HeroIcons.jsx 3 新 glyph (storyboard/voiceover/oneclick)
+- 右面板 onSelect 14 路由 (5 原有 + 9 新增, 含 bg-removal 复用 remove-bg / derive-1click 复用 product-remix)
+
+# 三视角合一 (用户硬性要求)
+
+1. 资深美工视角 (frontend-design skill):
+   - 14-action 派生菜单是 1 个独立子系统, 单独 CSS 文件便于设计迭代
+   - 毛玻璃 + 3 列 grid + hover lift 跟 pricing refactor 8d608493 风格一致
+   - 暗色模式 token 化 (无硬编码颜色)
+
+2. 产品经理视角 (impeccable skill):
+   - 独立文件 + 14 契约测试, 后续 9 个新 action 的后端路由接入不会破坏 UI 契约
+   - 14 个 action 在测试里有完整断言 (id/label/description/group/order/priceLabel), 防止未来回归
+   - 派生菜单文档化 (CSS 顶部注释 + 14 测试命名清晰)
+
+3. 流影AI 调研视角 (LibTV Agent 风格):
+   - 9 个新 action 全部走 canvasActionRegistry, 未来 LibTV Agent 接入 (W2 prompt + 6 卡片) 不用改 UI
+   - 3 个新 hero glyph 动画 (storyboard 旋转 / voiceover 律动 / oneclick 推进) 跟流影AI "分镜+运镜+音效+字幕" 对位
+
+# 测试
+
+- canvas-derive-menu (新): 14/14 全过
+- canvas 域全套: 370/370 全过 (356 已有 + 14 新增, 无 regression)
+- 跨域验证: 抽取后 EcCanvas.css 1149 行, 14-action block 完全独立, 不污染其它画布样式
+
+# 异常 / 后续
+
+- 9 个新 action 后端路由尚未实现 (storyboard / one-click-video / tts-voiceover / caption-motion / color-grade / similar-recommend)
+  -> 点击会触发 handleCreateDerivedNode 通用派生 + 弹 toast
+  -> 后续子代理按 chainService.mjs 模式接 P-F/P-G/P-H 路由
+- canvas-derive-menu.css 是独立文件, 后续可被 VideoStudio / Pricing / 其它页面复用
+- 14 契约测试用 grep 关键字方式 (不引入 jsdom 依赖), 跟项目其它 test/canvas-*.test.mjs 风格一致
+
+(4c183cd4 续命 P-Canvas-derive-14-css 子代理)

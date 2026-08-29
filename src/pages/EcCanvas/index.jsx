@@ -88,6 +88,7 @@ import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/vide
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
 import './EcCanvas.css';
+import '../../styles/canvas-derive-menu.css';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },

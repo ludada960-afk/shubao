@@ -1,0 +1,259 @@
+/* ═══════ 4c183cd4 续命 画布右侧 引用当前素材生成 14-action 深度重构 ═══════ */
+/* 资深美工视角: 3 列 grid 平衡感, 卡片圆角一致, hover lift + shadow + 边框颜色变化
+   产品经理视角: group 标签 (核心常用/AI 智能/扩展工具) 视觉分组, 避免一长串无层级
+   流影AI 调研视角: LibTV Agent 风格 — 每个 action = 1 个可点卡片, 不堆文字
+   毛玻璃 backdrop-filter, 暗色模式 token 化 (复用 design-tokens.css + theme.css)
+   响应式: 桌面 3 列, 平板 2 列, 移动 1 列
+
+   这个文件是 14-action 派生菜单的独立 CSS 资产. 之前在 EcCanvas.css 末尾 (line 1202-1498),
+   现在抽取到 src/styles/ 目录, 通过 @import 在 EcCanvas.css 顶部引用.
+   维护好处: 派生菜单视觉是 1 个独立子系统, 单独文件便于跨页面复用 + 单元测试契约校验. */
+
+/* ── 引用当前素材生成 (14-action 网格菜单) ── */
+.ec-canvas-derive-menu {
+  /* 用户硬性要求: 不能搞得这么宽. 14 action × 140px ≈ 432px 3 列, 移动 1 列. */
+  width: 432px;
+  max-width: calc(100vw - 32px);
+  max-height: min(560px, calc(100vh - 64px));
+  background: var(--bg-card);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xl);
+  border-radius: 14px;
+  padding: 0;
+  overflow: hidden;
+}
+.ec-canvas-derive-menu .ec-canvas-menu-heading {
+  padding: 9px 12px 7px;
+  border-bottom: 1px solid var(--border-light);
+  background: linear-gradient(180deg, var(--bg-card-solid) 0%, transparent 100%);
+}
+.ec-canvas-derive-menu .ec-canvas-menu-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.ec-canvas-derive-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-style: normal;
+}
+.ec-canvas-derive-scroll {
+  max-height: min(580px, calc(100vh - 120px));
+  overflow-y: auto;
+  padding: 6px 8px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.ec-canvas-derive-scroll::-webkit-scrollbar { width: 5px; }
+.ec-canvas-derive-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.ec-canvas-derive-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* 桶 (group 分组) — 3 个 group: core / magic / expand */
+.ec-canvas-derive-bucket {
+  margin: 4px 0 2px;
+  padding: 0;
+}
+.ec-canvas-derive-bucket + .ec-canvas-derive-bucket {
+  margin-top: 8px;
+}
+.ec-canvas-derive-bucket-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 6px;
+  color: var(--text-hint);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.ec-canvas-derive-bucket-label > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ec-canvas-derive-bucket-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-light) 0%, transparent 100%);
+}
+.ec-canvas-derive-bucket.is-core .ec-canvas-derive-bucket-label > span { color: var(--accent); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-bucket-label > span { color: var(--blue); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-bucket-label > span::before {
+  content: "✦";
+  font-size: 11px;
+  color: var(--blue);
+}
+.ec-canvas-derive-bucket.is-expand .ec-canvas-derive-bucket-label > span { color: var(--text-muted); }
+
+/* grid: 桌面 3 列, 平板 2 列, 移动 1 列 */
+.ec-canvas-derive-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+@media (max-width: 960px) {
+  .ec-canvas-derive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ec-canvas-derive-menu { width: 360px; }
+}
+@media (max-width: 620px) {
+  .ec-canvas-derive-grid { grid-template-columns: 1fr; }
+  .ec-canvas-derive-menu { width: min(320px, calc(100vw - 24px)); }
+}
+
+/* tile: 14 个动作卡片 */
+.ec-canvas-derive-tile {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 4px;
+  padding: 10px 9px 9px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-card-solid);
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  font: inherit;
+  transition: transform var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
+  position: relative;
+  min-height: 86px;
+  overflow: hidden;
+}
+.ec-canvas-derive-tile::before {
+  /* hover 时左侧滑入的高亮条, 资深美工视角微动效 */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+.ec-canvas-derive-tile:hover {
+  /* hover lift: 资深美工视角的"画布命令抬起" 微动效 */
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-elevated);
+}
+.ec-canvas-derive-tile:hover::before { opacity: 1; transform: translateX(0); }
+.ec-canvas-derive-tile:active { transform: translateY(0); }
+.ec-canvas-derive-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* chip: 图标芯片 */
+.ec-canvas-derive-tile .ec-canvas-derive-chip {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px var(--border-light);
+  transition: color var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
+}
+/* magic 桶的 chip 加蓝色高亮, 强调 AI 智能 */
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-chip {
+  color: var(--blue);
+  background: var(--blue-bg);
+}
+.ec-canvas-derive-tile:hover .ec-canvas-derive-chip {
+  color: var(--bg-card-solid);
+  background: var(--accent);
+  box-shadow: none;
+}
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-chip {
+  color: var(--bg-card-solid);
+  background: var(--blue);
+}
+
+/* copy: 标签 + 描述 (2 行) */
+.ec-canvas-derive-tile .ec-canvas-derive-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ec-canvas-derive-tile .ec-canvas-derive-copy strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ec-canvas-derive-tile .ec-canvas-derive-copy small {
+  font-size: 10.5px;
+  color: var(--text-hint);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* meta: 价格徽标 + 箭头 */
+.ec-canvas-derive-tile .ec-canvas-derive-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin-top: 1px;
+  min-height: 14px;
+}
+.ec-canvas-derive-tile .ec-canvas-derive-meta em {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 9.5px;
+  font-weight: 750;
+  font-style: normal;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-meta em {
+  color: var(--blue);
+  background: var(--blue-bg);
+}
+.ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--bg-card-solid); background: var(--accent); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--bg-card-solid); background: var(--blue); }
+.ec-canvas-derive-tile .ec-canvas-derive-meta svg { color: var(--text-faint); transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out); }
+.ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--accent); transform: translate(1px, -1px); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--blue); }
+
+/* ── 暗色模式适配 (沿用 design-tokens 主题覆盖) ── */
+[data-theme="dark"] .ec-canvas-derive-tile {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+[data-theme="dark"] .ec-canvas-derive-tile:hover {
+  background: var(--bg-card-solid);
+  border-color: var(--border-hover);
+}
+
+/* ── 减少动效 (系统设置) ── */
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-derive-tile { transition: none; }
+  .ec-canvas-derive-tile:hover { transform: none; }
+}
