@@ -32,6 +32,7 @@ import {
 } from "react-icons/md";
 import { FaWeixin } from "react-icons/fa";
 import { SiAlipay } from "react-icons/si";
+import { IMAGES } from "../../constants/images";
 
 /* ── 视觉决策: 锚定 / 推中间 ──
    按 04-pricing.png 设计稿 + 8-30 用户原话"商业化策略":
@@ -254,7 +255,7 @@ export default function PricingModalRefactored({
       <header className="pricing-modal__header">
         <div className="pricing-modal__brand">
           <span className="pricing-modal__brand-mark">
-            <MdAutoAwesome size={16} />
+            <img src={IMAGES.logo_lg} alt="番茄AI" className="pricing-modal__brand-logo" />
           </span>
           <span className="pricing-modal__brand-text">SHUBAO · 商业化定价</span>
         </div>
