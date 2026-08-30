@@ -39,7 +39,7 @@ const UNITS_PER_POINT = 1000;
 const COST_PER_IMAGE_CNY = 0.038;
 const COST_PER_VIDEO_FAST_CNY = 5.07;
 function unitsToPoints(units) { return Math.round(Number(units || 0) / UNITS_PER_POINT); }
-function approxImages(points) { return Math.round(points); /* 1 积分 ≈ 1 张 2K 商品图 (catalog 终案) */ }
+function approxImages(points) { return Math.round(points); /* 1 积分 ≈ 1 张 2K \\u5546\\u54c1\\u56fe (catalog 终案) */ }
 function approxVideos(points) { return Math.round(points / 27); /* 27 积分 ≈ 1 条快试视频 (catalog 终案) */ }
 
 /* ── 主组件 (props 向后兼容 4c183cd4 时代) ── */
@@ -201,17 +201,25 @@ export default function PricingModalRefactored({
                 <span className="pricing-modal__pack-price-val">{(pack.priceFen / 100).toFixed(1)}</span>
               </div>
               <div className="pricing-modal__pack-units">{formatUnits(points)} 积分</div>
-              <div className="pricing-modal__pack-equiv">
-                {(() => {
-                  const raw = pack.description || (giftPoints > 0
-                    ? "含赠 " + giftPoints + " 积分"
-                    : "约 " + imgCount + " 张图 / 约 " + vidCount + " 条快试视频"
-                  );
-                  /* 8-31 反馈: 不写 "2K 商品图", 只写 "图片" (还有 XHS/自由创作) */
-                  return raw.replace(/2K 商品图/g, "图片");
-                })()}
-                <span className="pricing-modal__pack-validity">永不过期</span>
-              </div>
+              {/* 8-31 第 4 轮: 结构化展示 (图片数 / 视频数 / 永不过期), 不再挤单行描述 */}
+              <ul className="pricing-modal__pack-list">
+                <li>
+                  <span className="pricing-modal__pack-list-icon">🖼</span>
+                  <span className="pricing-modal__pack-list-val">约 {imgCount}</span>
+                  <span className="pricing-modal__pack-list-unit">张图片</span>
+                </li>
+                <li>
+                  <span className="pricing-modal__pack-list-icon">🎬</span>
+                  <span className="pricing-modal__pack-list-val">约 {vidCount}</span>
+                  <span className="pricing-modal__pack-list-unit">条视频</span>
+                </li>
+                <li className="pricing-modal__pack-list-meta">
+                  {giftPoints > 0
+                    ? <span>含赠 <strong>{giftPoints}</strong> 积分</span>
+                    : <span>一次买断, 永不过期</span>
+                  }
+                </li>
+              </ul>
               <button
                 type="button"
                 className={

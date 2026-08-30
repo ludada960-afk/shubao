@@ -20,13 +20,20 @@
  *   7. 当前积分永远显示 (未登录也显示引导)
  *   8. 关闭按钮 + Escape 键
  *   9. 切换 tab 自动重置选中 (防残留)
- *  10. 响应式 4 列 -> 2 列 -> 1 列
- *  11. 标题面向用户, 不再直白"商业化档位"
- *  12. 弹窗尺寸 880px (从 720 扩)
- *  13. 向后兼容 4c183cd4 时代 props + show 守卫
- *  14. 内测味文案零泄漏
- *  15. api-contract 不变量
- *  16. Modals.jsx 集成不变量
+ * ═══════ 10. 响应式: 4 列 -> 2 列 -> 1 列 (8-31 第 4 轮: 1100 / 980 / 640) ═══════
+test('responsive grid: 4-cols -> 2-cols @ 980px -> 1-col @ 640px', () => {
+  assert.match(PRICING_CSS, /@media \(max-width: 980px\)/);
+  assert.match(PRICING_CSS, /@media \(max-width: 640px\)/);
+  assert.match(PRICING_CSS, /@media \(max-width: 980px\)[\s\S]*?\.pricing-modal__pack-grid[\s\S]*?grid-template-columns:\s*1fr 1fr/);
+  assert.match(PRICING_CSS, /@media \(max-width: 640px\)[\s\S]*?\.pricing-modal__pack-grid[\s\S]*?grid-template-columns:\s*1fr/);
+});
+
+ * 11. 标题面向用户, 不再直白"商业化档位"
+ * 12. 弹窗尺寸 880px (从 720 扩)
+ * 13. 向后兼容 4c183cd4 时代 props + show 守卫
+ * 14. 内测味文案零泄漏
+ * 15. api-contract 不变量
+ * 16. Modals.jsx 集成不变量
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -101,7 +108,12 @@ test('积分体系共用: 视频和图片共用 AI 积分, 用约数表达', () 
   assert.match(PRICING_MODAL, /approxImages/);
   assert.match(PRICING_MODAL, /approxVideos/);
   /* 8-31 反馈: 不写 "商品图", 只写 "图片" (还有 XHS/自由创作) */
-  assert.match(PRICING_MODAL, /张图.{0,30}条快试视频/);  /* 张图 后允许换行/符号, 30 字符内出现 条快试视频 */
+  /* 8-31 第 4 轮: 结构化 ul/li 列表 (图片数 / 视频数 / 永不过期 各占独立行), 不再单行描述 */
+  assert.match(PRICING_MODAL, /pricing-modal__pack-list/);
+  assert.match(PRICING_MODAL, /约 \{imgCount\}/);  /* 动态算图片数 */
+  assert.match(PRICING_MODAL, /约 \{vidCount\}/);  /* 动态算视频数 */
+  /* "图片" 不要 "2K 商品图" 残留 */
+  assert.ok(!PRICING_MODAL.includes('2K 商品图'), 'no 2K 商品图');
   /* 不写死绝对张数 */
   assert.ok(!PRICING_MODAL.includes('30 张 2K'), 'no hardcoded 30 张 2K');
   assert.ok(!PRICING_MODAL.includes('60 张 2K'), 'no hardcoded 60 张 2K');
@@ -155,13 +167,7 @@ test('handleTabChange resets selectedId + payProvider to avoid residue across ta
   assert.match(PRICING_MODAL, /30000/);
 });
 
-/* ═══════ 10. 响应式: 4 列 -> 2 列 -> 1 列 ═══════ */
-test('responsive grid: 4-cols -> 2-cols @ 760px -> 1-col @ 480px', () => {
-  assert.match(PRICING_CSS, /@media \(max-width: 760px\)/);
-  assert.match(PRICING_CSS, /@media \(max-width: 480px\)/);
-  assert.match(PRICING_CSS, /@media \(max-width: 760px\)[\s\S]*?\.pricing-modal__pack-grid[\s\S]*?grid-template-columns:\s*1fr 1fr/);
-  assert.match(PRICING_CSS, /@media \(max-width: 480px\)[\s\S]*?\.pricing-modal__pack-grid[\s\S]*?grid-template-columns:\s*1fr/);
-});
+
 
 /* ═══════ 11. 标题面向用户, 不再直白"商业化档位" ═══════ */
 test('title is user-facing: 给创作充点能量, not 商业化档位', () => {
@@ -171,11 +177,12 @@ test('title is user-facing: 给创作充点能量, not 商业化档位', () => {
 });
 
 /* ═══════ 12. 弹窗尺寸: 880px (从 720 扩) ═══════ */
-test('modal width 960px (修"框太小"反馈, 8-31 第 3 轮再扩到 960)', () => {
-  assert.match(PRICING_CSS, /width: min\(960px, 96vw\)/);
+test('modal width 1100px (修"框太小"反馈, 8-31 第 4 轮再扩到 1100)', () => {
+  assert.match(PRICING_CSS, /width: min\(1100px, 98vw\)/);
   assert.ok(!PRICING_CSS.includes('width: min(720px'), 'no 720px');
-  assert.ok(!PRICING_CSS.includes('width: min(720px'), 'no 720px');
+  assert.ok(!PRICING_CSS.includes('width: min(880px'), 'no 880px');
   assert.ok(!PRICING_CSS.includes('width: min(940px'), 'no 940px');
+  assert.ok(!PRICING_CSS.includes('width: min(960px'), 'no 960px');
 });
 
 /* ═══════ 13. 向后兼容 4c183cd4 时代 props + show 守卫 ═══════ */
