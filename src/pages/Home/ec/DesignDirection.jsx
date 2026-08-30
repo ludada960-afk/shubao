@@ -874,8 +874,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 }}
               />
 
-              {/* ── 补充素材与调整：复用第一步工作台 ── */}
+              {/* ── 补充素材与调整方向: 复用第一步工作台(已隐藏首页面向用户的案例卡) ── */}
               <div className="ec-direction-supplement">
+                <div className="ec-direction-supplement-title">
+                  <strong>补充素材与调整方向</strong>
+                  <span>第一步素材已经带入；还可补充商品角度、竞品风格或新的生成要求。</span>
+                </div>
               <EcommerceWorkbench
                 productImages={supplementDeck.productImages}
                 refImages={supplementDeck.referenceImages}
@@ -883,6 +887,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 unmappedImages={params?.unmappedImages || []}
                 abilityRecipeId={abilityRecipeId}
                 showAbilitySelector={false}
+                showShowcase={false}
                 personMode={activePersonMode}
                 onPersonModeChange={mode => setActivePersonMode(mode === 'reference' ? 'reference' : 'smart')}
                 onRoleUpload={isTryOn ? (role, event) => appendSupplementImages(

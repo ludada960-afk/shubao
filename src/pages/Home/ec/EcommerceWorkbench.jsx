@@ -256,6 +256,9 @@ export default function EcommerceWorkbench({
   personMode = 'smart',
   onPersonModeChange,
   showAbilitySelector = true,
+  // 首页面向用户的案例卡 (真实套图 / 万物上身) 在第二步会变成多余.
+  // 电商生图第二步 (DesignDirection) 复用本工作台时, 必须传 false 隐藏案例.
+  showShowcase = true,
   heading = '上传商品素材，生成整套电商视觉',
   subheading = '先放入一张清晰商品图；补充角度或参考图，能让画面更贴近你的商品。',
   promptTitle = '描述想生成的商品视觉，一句话就够了',
@@ -329,8 +332,9 @@ export default function EcommerceWorkbench({
         <span>{isTryOn ? '商品定细节，模特定呈现。' : subheading}</span>
       </div>
 
-      {isTryOn && <TryOnShowcase personMode={personMode} />}
-      {!isTryOn && <ProductSuiteShowcase />}
+      {/* 首页面向用户的案例卡 (真实套图 / 万物上身). 第二步复用工作台时必须传 showShowcase={false} 隐藏. */}
+      {showShowcase && isTryOn && <TryOnShowcase personMode={personMode} />}
+      {showShowcase && !isTryOn && <ProductSuiteShowcase />}
 
       <div className={`ec-xhs-composer ${isTryOn ? 'is-tryon-composer' : ''}`}>
         <div className="ec-xhs-media-column">
