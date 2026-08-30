@@ -1,36 +1,24 @@
-/* 灵图风格定价弹窗 CSS (用户 8-30 反馈 + 8-31 重构)
-   设计基准: 灵图 AI
-   - 弹窗宽 880px (从 720 扩)
-   - 玻璃拟态 + 渐变光晕 orbs
-   - 双 tab (永久积分包 / 月卡套餐) 简洁切换
-   - 4 档升序, 推荐档居中放大 + 黑色 CTA
-   - 标题/副标面向用户 (不是 "商业化档位" 这种直白说法)
-   - 约数表达 (不写死 X 张, 写 "约 X 张")
-   - 当前额度永远显示 (未登录也显示引导)
-   - 切换 tab 自动重置选中 (防残留)
+/* 灵图风格定价弹窗 (用户 8-31 第 3 轮反馈: 不要叠层, 单一扁平宽框)
+   设计基准: 灵图 AI (月度套餐 / 永久积分包 双tab, 价格升序 4 档)
+   - 弹窗宽度 960px (足够宽, 不要再缩)
+   - 单一扁平框: 内部不再用 card 嵌套
+   - 套餐卡片直接平铺 4 列, 推荐档黑色边框
+   - 永不过期 在每个套餐底部
 */
 
 .pricing-modal {
   position: relative;
-  width: min(880px, 96vw);
+  width: min(960px, 96vw);
   max-height: 92vh;
   overflow-y: auto;
   padding: 32px 36px 28px;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.96) 0%,
-    rgba(252, 252, 254, 0.82) 100%);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 32px 80px -16px rgba(15, 23, 42, 0.22),
-    0 8px 20px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  isolation: isolate;
+  gap: 20px;
   font-family: var(--font-body);
   color: var(--text-primary);
   overflow-x: hidden;
@@ -40,31 +28,34 @@
 .pricing-modal::-webkit-scrollbar { width: 6px; }
 .pricing-modal::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
 
-/* 渐变光晕 (灵图风格的彩色柔光) */
+/* 装饰: 保留极简的渐变光晕 (右上角, 不影响扁平感) */
 .pricing-modal__orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
+  filter: blur(80px);
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
+  opacity: 0.4;
 }
 .pricing-modal__orb--a {
-  top: -100px; left: -80px;
-  width: 320px; height: 320px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.40), transparent 70%);
+  top: -120px; right: -100px;
+  width: 360px; height: 360px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent 70%);
 }
 .pricing-modal__orb--b {
-  bottom: -120px; right: -100px;
-  width: 360px; height: 360px;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.32), transparent 70%);
+  bottom: -100px; left: -80px;
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.30), transparent 70%);
 }
 
 /* 顶部: 品牌 + 关闭 */
 .pricing-modal__header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  z-index: 1;
 }
 .pricing-modal__brand {
   display: flex;
@@ -79,99 +70,93 @@
   border-radius: 8px;
   object-fit: contain;
 }
-.pricing-modal__brand-text {
-  letter-spacing: 0.02em;
-}
 .pricing-modal__close {
   width: 36px; height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  background: #ffffff;
   border-radius: 999px;
   color: var(--text-primary);
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease;
 }
-.pricing-modal__close:hover { background: rgba(255, 255, 255, 0.9); transform: scale(1.05); }
-.pricing-modal__close:focus-visible {
-  outline: 2px solid #6366f1;
-  outline-offset: 2px;
-}
+.pricing-modal__close:hover { background: rgba(0, 0, 0, 0.04); }
 
-/* 标题区 (面向用户, 不再"商业化档位") */
+/* 标题 + 副标 */
 .pricing-modal__title {
-  font-size: 28px;
+  position: relative;
+  z-index: 1;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;
   color: var(--text-primary);
 }
 .pricing-modal__subtitle {
-  margin: -12px 0 0 0;
-  font-size: 14px;
+  position: relative;
+  z-index: 1;
+  margin: -14px 0 0 0;
+  font-size: 13px;
   color: var(--text-muted);
   letter-spacing: 0.01em;
 }
 
-/* 当前额度卡 (永远显示, 未登录也显示引导) */
-.pricing-modal__balance {
+/* Hero 区: 创作权益 + 当前积分 (扁平 inline, 不嵌套卡) */
+.pricing-modal__hero {
   position: relative;
-  padding: 18px 22px;
-  border-radius: 16px;
-  background: linear-gradient(135deg,
-    rgba(99, 102, 241, 0.10) 0%,
-    rgba(236, 72, 153, 0.08) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  z-index: 1;
+  padding: 4px 0 14px;
+  border-bottom: 1px dashed rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pricing-modal__hero-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+.pricing-modal__hero-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
   flex-wrap: wrap;
 }
-.pricing-modal__balance-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  flex: 0 0 auto;
-}
-.pricing-modal__balance-value {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+.pricing-modal__hero-meta strong {
   color: var(--text-primary);
-  flex: 1;
-  text-align: center;
+  font-weight: 700;
+}
+.pricing-modal__hero-dot {
+  color: rgba(15, 23, 42, 0.20);
 }
 .pricing-modal__balance-login {
-  font-size: 16px;
-  font-weight: 600;
   color: var(--command);
+  font-weight: 600;
   cursor: pointer;
 }
-.pricing-modal__balance-foot {
-  font-size: 12px;
-  color: var(--text-muted);
-  flex: 0 0 auto;
-}
 
-/* 双 Tab: 永久积分包 / 月卡套餐 */
+/* 双 Tab */
 .pricing-modal__tabs {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
   padding: 4px;
   background: rgba(15, 23, 42, 0.05);
-  border-radius: 14px;
+  border-radius: 12px;
 }
 .pricing-modal__tab {
   appearance: none;
   border: 0;
   background: transparent;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -185,12 +170,11 @@
 .pricing-modal__tab--active {
   background: #ffffff;
   color: var(--text-primary);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10), 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 .pricing-modal__tab-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: -0.005em;
 }
 .pricing-modal__tab-sub {
   font-size: 11px;
@@ -200,42 +184,66 @@
 }
 .pricing-modal__tab--active .pricing-modal__tab-sub { color: var(--text-muted); }
 
-/* 套餐网格 (4 档升序, 推荐档居中放大) */
+/* 区段标题 */
+.pricing-modal__section-title {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+.pricing-modal__section-title em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* 套餐网格 */
 .pricing-modal__pack-grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-.pricing-modal__pack-grid:has(.pricing-modal__pack:nth-child(2):last-child) {
-  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: stretch;
 }
 .pricing-modal__pack {
   position: relative;
-  padding: 22px 16px 18px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 16px 14px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1.5px solid rgba(15, 23, 42, 0.10);
   cursor: pointer;
-  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-  text-align: center;
-  align-items: center;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  text-align: left;
+  align-items: flex-start;
+  min-height: 240px;
 }
 .pricing-modal__pack:hover {
   border-color: rgba(99, 102, 241, 0.4);
-  transform: translateY(-2px);
 }
 .pricing-modal__pack--anchored {
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.06) 0%, rgba(236, 72, 153, 0.04) 100%);
-  border-color: rgba(99, 102, 241, 0.32);
-  box-shadow: 0 12px 28px -10px rgba(99, 102, 241, 0.28);
-  transform: translateY(-4px) scale(1.03);
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  border-color: #111827;
+  color: #ffffff;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px -10px rgba(17, 24, 39, 0.45);
 }
 .pricing-modal__pack--selected {
   border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 12px 28px -10px rgba(99, 102, 241, 0.28);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
+}
+.pricing-modal__pack--anchored.pricing-modal__pack--selected {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.30), 0 12px 28px -10px rgba(17, 24, 39, 0.45);
 }
 .pricing-modal__pack-flag {
   position: absolute;
@@ -245,7 +253,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: linear-gradient(135deg, #6366f1, #ec4899);
-  color: #fff;
+  color: #ffffff;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -253,25 +261,30 @@
   align-items: center;
   gap: 3px;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+  z-index: 2;
 }
 .pricing-modal__pack-tagline {
   font-size: 11px;
-  color: var(--text-muted);
+  color: rgba(15, 23, 42, 0.55);
   letter-spacing: 0.02em;
-  margin-top: 4px;
+}
+.pricing-modal__pack--anchored .pricing-modal__pack-tagline {
+  color: rgba(255, 255, 255, 0.65);
 }
 .pricing-modal__pack-name {
   font-size: 16px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.01em;
-  margin-top: 2px;
+}
+.pricing-modal__pack--anchored .pricing-modal__pack-name {
+  color: #ffffff;
 }
 .pricing-modal__pack-price {
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
-  margin-top: 6px;
+  margin-top: 2px;
 }
 .pricing-modal__pack-price-sym {
   font-size: 14px;
@@ -279,59 +292,86 @@
   color: var(--text-primary);
 }
 .pricing-modal__pack-price-val {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1;
 }
+.pricing-modal__pack--anchored .pricing-modal__pack-price-sym,
+.pricing-modal__pack--anchored .pricing-modal__pack-price-val {
+  color: #ffffff;
+}
 .pricing-modal__pack-units {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-top: 6px;
+}
+.pricing-modal__pack--anchored .pricing-modal__pack-units {
+  color: #ffffff;
 }
 .pricing-modal__pack-equiv {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.45;
-  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.65);
+  line-height: 1.55;
+  word-break: break-word;
+  flex: 1;
+  white-space: normal;
+}
+.pricing-modal__pack--anchored .pricing-modal__pack-equiv {
+  color: rgba(255, 255, 255, 0.78);
+}
+.pricing-modal__pack-validity {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.10);
+  color: #6366f1;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.pricing-modal__pack--anchored .pricing-modal__pack-validity {
+  background: rgba(255, 255, 255, 0.20);
+  color: #ffffff;
 }
 .pricing-modal__pack-cta {
-  margin-top: 12px;
-  width: 100%;
+  margin-top: auto;
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.7);
+  background: #ffffff;
   color: var(--text-primary);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease;
+  align-self: stretch;
+  text-align: center;
 }
+.pricing-modal__pack-cta:hover { background: rgba(0, 0, 0, 0.04); }
 .pricing-modal__pack-cta--anchored {
-  background: linear-gradient(135deg, #1f2937, #111827);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827;
   border-color: transparent;
 }
 .pricing-modal__pack-cta--selected {
   background: linear-gradient(135deg, #6366f1, #ec4899);
-  color: #fff;
+  color: #ffffff;
   border-color: transparent;
 }
-.pricing-modal__pack-cta:hover { filter: brightness(1.05); }
 
 /* 支付区 */
 .pricing-modal__pay {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.12);
 }
 .pricing-modal__pay-summary {
   font-size: 13px;
@@ -359,8 +399,8 @@
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  color: #fff;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  color: #ffffff;
+  transition: filter 0.15s ease;
 }
 .pricing-modal__pay-btn--wechat {
   background: linear-gradient(135deg, #07C160, #06AD56);
@@ -369,7 +409,6 @@
   background: linear-gradient(135deg, #1677FF, #0E5DD9);
 }
 .pricing-modal__pay-btn:hover { filter: brightness(1.06); }
-.pricing-modal__pay-btn:active { transform: translateY(1px); }
 .pricing-modal__pay-btn.is-pressed {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
 }
@@ -381,17 +420,13 @@
   letter-spacing: 0.02em;
 }
 
-/* 响应式: 窄屏改 2 列 */
+/* 响应式 */
 @media (max-width: 760px) {
-  .pricing-modal { padding: 24px 20px; }
-  .pricing-modal__pack-grid { grid-template-columns: 1fr 1fr; }
-  .pricing-modal__pack-grid .pricing-modal__pack--anchored {
-    grid-column: span 2;
-    transform: none;
-  }
+  .pricing-modal { padding: 24px 20px; width: 96vw; }
+  .pricing-modal__pack-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pricing-modal__pack-grid .pricing-modal__pack--anchored { transform: none; }
 }
 @media (max-width: 480px) {
-  .pricing-modal__pack-grid { grid-template-columns: 1fr; }
-  .pricing-modal__pack-grid .pricing-modal__pack--anchored { grid-column: auto; }
+  .pricing-modal__pack-grid { grid-template-columns: 1fr; gap: 10px; }
   .pricing-modal__pay-grid { grid-template-columns: 1fr; }
 }

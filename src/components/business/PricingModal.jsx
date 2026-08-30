@@ -125,17 +125,18 @@ export default function PricingModalRefactored({
       <h3 className="pricing-modal__title">给创作充点能量</h3>
       <p className="pricing-modal__subtitle">一次买断 · 视频和图片共用一套积分 · 用完再充</p>
 
-      {/* 当前额度卡 (未登录也显示, 不再"积分不显示") */}
-      <div className="pricing-modal__balance" data-testid="pricing-modal-balance">
-        <div className="pricing-modal__balance-label">我的积分</div>
-        <div className="pricing-modal__balance-value">
+      {/* 副标: 灵图风格的"创作权益"区段标题 (替代之前独立的当前积分卡, 避免叠层) */}
+      <div className="pricing-modal__hero" data-testid="pricing-modal-hero">
+        <div className="pricing-modal__hero-title">创作权益</div>
+        <div className="pricing-modal__hero-meta">
           {!isLogged
-            ? <span className="pricing-modal__balance-login">登录后查看</span>
-            : unlimited ? "∞" : formatUnits(ecPoints)
+            ? <span className="pricing-modal__balance-login">登录后查看积分</span>
+            : unlimited
+              ? <span>我的积分: <strong>∞</strong></span>
+              : <span>我的积分: <strong>{formatUnits(ecPoints)}</strong></span>
           }
-        </div>
-        <div className="pricing-modal__balance-foot">
-          {isLogged ? "跨设备同步, 永不失效" : "登录购买可永久累积, 跨设备同步"}
+          <span className="pricing-modal__hero-dot">·</span>
+          <span>永不过期</span>
         </div>
       </div>
 
@@ -201,10 +202,15 @@ export default function PricingModalRefactored({
               </div>
               <div className="pricing-modal__pack-units">{formatUnits(points)} 积分</div>
               <div className="pricing-modal__pack-equiv">
-                {pack.description || (giftPoints > 0
-                  ? "含赠 " + giftPoints + " 积分"
-                  : "约 " + imgCount + " 张 2K 图 / 约 " + vidCount + " 条快试视频"
-                )}
+                {(() => {
+                  const raw = pack.description || (giftPoints > 0
+                    ? "含赠 " + giftPoints + " 积分"
+                    : "约 " + imgCount + " 张图 / 约 " + vidCount + " 条快试视频"
+                  );
+                  /* 8-31 反馈: 不写 "2K 商品图", 只写 "图片" (还有 XHS/自由创作) */
+                  return raw.replace(/2K 商品图/g, "图片");
+                })()}
+                <span className="pricing-modal__pack-validity">永不过期</span>
               </div>
               <button
                 type="button"

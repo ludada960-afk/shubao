@@ -45,10 +45,10 @@ const MODALS = await fs.readFile(
   'utf8',
 );
 
-/* ═══════ 1. 玻璃拟态 + 渐变光晕 orbs ═══════ */
-test('pricing modal root has glassmorphism + gradient orbs decoration', () => {
-  assert.match(PRICING_CSS, /\.pricing-modal\s*[\s\S]*?backdrop-filter:\s*blur/);
-  assert.match(PRICING_CSS, /saturate\(180%\)/);
+/* ═══════ 1. 扁平化布局 + 渐变光晕 orbs (8-31 第 3 轮: 去掉玻璃拟态, 改 solid #ffffff + border + 软阴影) ═══════ */
+test('pricing modal root has flat layout + gradient orbs decoration', () => {
+  assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?background:\s*#ffffff/);
+  assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?border-radius:\s*20px/);
   assert.match(PRICING_MODAL, /pricing-modal__orb--a/);
   assert.match(PRICING_MODAL, /pricing-modal__orb--b/);
   assert.ok(PRICING_CSS.includes('99, 102, 241'), 'indigo rgb in css');
@@ -69,13 +69,16 @@ test('pricing modal exposes dual tab toggle with role=tablist', () => {
 
 /* ═══════ 3. 锚定效应: 专业包 (starter) 居中放大 + 黑色 CTA ═══════ */
 test('永久积分包 专业包 (starter) is anchored with 推荐 flag and scale up', () => {
-  /* 推荐档改用 sku */
+  /* 推荐档改用 sku (黑色背景 card) */
   assert.match(PRICING_MODAL, /sku === "ec_starter_29"/);
   assert.match(PRICING_MODAL, /pricing-modal__pack--anchored/);
   assert.match(PRICING_MODAL, /pricing-modal__pack-flag/);
   assert.match(PRICING_MODAL, /<MdStar[\s\S]*?\/>\s*推荐/);
-  assert.match(PRICING_CSS, /\.pricing-modal__pack--anchored\s*\{[\s\S]*?translateY\(-4px\)\s*scale\(1\.03\)/);
-  assert.match(PRICING_CSS, /\.pricing-modal__pack-cta--anchored\s*\{[\s\S]*?linear-gradient\(135deg, #1f2937/);
+  /* 8-31: 推荐档整体黑色背景 + translateY(-4px) + 软阴影, CTA 反白色 (灵图风格) */
+  assert.match(PRICING_CSS, /\.pricing-modal__pack--anchored\s*\{[\s\S]*?translateY\(-4px\)/);
+  assert.match(PRICING_CSS, /\.pricing-modal__pack--anchored\s*\{[\s\S]*?#1f2937/);
+  assert.match(PRICING_CSS, /\.pricing-modal__pack-cta--anchored[\s\S]*?#111827/);  /* CTA 黑字 (推荐档整体黑底, CTA 文字反白黑) */
+  assert.match(PRICING_CSS, /\.pricing-modal__pack--anchored[\s\S]*?linear-gradient\(180deg,\s*#1f2937/);  /* 推荐档整体黑色背景 */
 });
 
 /* ═══════ 4. 价值阶梯: 4 档永久 + 2 档月卡, 价格升序 ═══════ */
@@ -97,7 +100,8 @@ test('积分体系共用: 视频和图片共用 AI 积分, 用约数表达', () 
   assert.match(PRICING_MODAL, /unitsToPoints/);
   assert.match(PRICING_MODAL, /approxImages/);
   assert.match(PRICING_MODAL, /approxVideos/);
-  assert.match(PRICING_MODAL, /张 2K 图.*条快试视频/);  // 实际文案: 约 X 张 2K 图 / 约 Y 条快试视频
+  /* 8-31 反馈: 不写 "商品图", 只写 "图片" (还有 XHS/自由创作) */
+  assert.match(PRICING_MODAL, /张图.{0,30}条快试视频/);  /* 张图 后允许换行/符号, 30 字符内出现 条快试视频 */
   /* 不写死绝对张数 */
   assert.ok(!PRICING_MODAL.includes('30 张 2K'), 'no hardcoded 30 张 2K');
   assert.ok(!PRICING_MODAL.includes('60 张 2K'), 'no hardcoded 60 张 2K');
@@ -124,11 +128,14 @@ test('payment buttons expose WeChat green and Alipay blue with click feedback', 
 /* ═══════ 7. 当前积分永远显示 (未登录也显示引导) ═══════ */
 test('当前积分永远显示: 未登录显示引导, 登录显示 ecPoints', () => {
   assert.match(PRICING_MODAL, /pricing-modal__balance/);
-  assert.match(PRICING_MODAL, /data-testid="pricing-modal-balance"/);
+  /* 8-31 重构: 删了 balance 卡 (避免叠层), 改成 hero 区域 inline */
+  assert.match(PRICING_MODAL, /data-testid="pricing-modal-hero"/);
   assert.match(PRICING_MODAL, /pricing-modal__balance-login/);
   assert.match(PRICING_MODAL, /isLogged/);
-  /* 无 isLogged 守卫包裹整个 balance - 未登录也渲染 */
-  assert.ok(!/\{isLogged\s*&&\s*\(\s*\n?\s*<div className="pricing-modal__balance"/.test(PRICING_MODAL), 'no isLogged guard wrapping balance');
+  /* 8-31 反馈: "积分不显示" 修好. 未登录显示 "登录后查看积分" (hero 区域), 登录显示 ecPoints */
+  assert.match(PRICING_MODAL, /pricing-modal__hero/);
+  assert.match(PRICING_MODAL, /isLogged/);
+  assert.match(PRICING_MODAL, /登录后查看积分/);  // 8-31 反馈: 未登录引导文字
 });
 
 /* ═══════ 8. 关闭按钮 + Escape 键 ═══════ */
@@ -164,9 +171,11 @@ test('title is user-facing: 给创作充点能量, not 商业化档位', () => {
 });
 
 /* ═══════ 12. 弹窗尺寸: 880px (从 720 扩) ═══════ */
-test('modal width 880px (修"框太小"反馈)', () => {
-  assert.match(PRICING_CSS, /width: min\(880px, 96vw\)/);
+test('modal width 960px (修"框太小"反馈, 8-31 第 3 轮再扩到 960)', () => {
+  assert.match(PRICING_CSS, /width: min\(960px, 96vw\)/);
   assert.ok(!PRICING_CSS.includes('width: min(720px'), 'no 720px');
+  assert.ok(!PRICING_CSS.includes('width: min(720px'), 'no 720px');
+  assert.ok(!PRICING_CSS.includes('width: min(940px'), 'no 940px');
 });
 
 /* ═══════ 13. 向后兼容 4c183cd4 时代 props + show 守卫 ═══════ */
@@ -190,7 +199,6 @@ test('no internal-test, placeholder, or service-gap copy leaks into the modal', 
     '>公司备案<',
     '我的设备',
     '历史迁移',
-    '创作权益',
     '体验包',
     '入门包',
     '成长包',
@@ -208,8 +216,9 @@ test('no internal-test, placeholder, or service-gap copy leaks into the modal', 
 
 /* ═══════ 15. api-contract 不变量 ═══════ */
 test('keeps the long-standing api-contract invariants for the modal', () => {
-  assert.ok(!PRICING_MODAL.includes('创作权益'), 'no legacy 创作权益 title');
+  /* 8-31 重构: 用 "创作权益" 作为 hero 区段标题 (灵图风格) */
   assert.ok(PRICING_MODAL.includes('给创作充点能量'), 'new user-facing title');
+  assert.ok(PRICING_MODAL.includes('创作权益'), 'hero section title');
   assert.ok(PRICING_MODAL.includes('所有创作功能共用一套 AI 积分'), 'shared points copy');
   assert.ok(PRICING_MODAL.includes('微信支付'), 'wechat pay');
   assert.ok(PRICING_MODAL.includes('支付宝'), 'alipay');
