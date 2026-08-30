@@ -35,6 +35,7 @@ import { useApp } from '../../store/AppContext';
 import { PRICING_PLANS } from '../../constants/data';
 import Footer from '../../components/layout/Footer';
 import BillingBalanceCard from '../../components/billing/BillingBalanceCard.jsx';
+import { IMAGES } from '../../constants/images';
 import {
   buildPricingPlans,
   buildVideoTiers,
@@ -539,6 +540,14 @@ export default function PricingPage() {
         <div className="pricing-hero-orb pricing-hero-orb--b" aria-hidden />
         <div className="pricing-hero-orb pricing-hero-orb--c" aria-hidden />
         <div className="pricing-hero-inner">
+          <div className="pricing-hero-brand">
+            <img
+              src={IMAGES.logo_lg}
+              alt="番茄AI"
+              className="pricing-hero-logo"
+            />
+            <span className="pricing-hero-brandname">薯包AI</span>
+          </div>
           <div className="pricing-hero-eyebrow">Shubao · 商业化定价</div>
           <h1 className="pricing-hero-title">
             一次买断，按量结算，<br className="pricing-hero-break" />
