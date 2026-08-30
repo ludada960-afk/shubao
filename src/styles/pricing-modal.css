@@ -8,17 +8,15 @@
 
 .pricing-modal {
   position: relative;
-  /* 8-31 第 6 轮: 不强制缩到 1100, 让弹窗尽量占满 viewport 但保留 8px 边距, 保证 4 列套餐不被切 */
   width: calc(100vw - 16px);
   max-width: 1100px;
-}
   max-height: 92vh;
   overflow-y: auto;
   padding: 28px 32px 24px;
   background: #ffffff;
   border-radius: 20px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.20), 0 8px 24px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -30,6 +28,15 @@
 }
 .pricing-modal::-webkit-scrollbar { width: 6px; }
 .pricing-modal::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+
+/* 外层 shell 重置: 不影响内层 PricingModal 样式 */
+.pricing-modal-scroll-shell {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  width: auto !important;
+}
 
 /* 装饰: 保留极简的渐变光晕 (右上角, 不影响扁平感) */
 .pricing-modal__orb {

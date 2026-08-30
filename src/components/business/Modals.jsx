@@ -381,25 +381,17 @@ export function PricingModal() {
       <div onClick={close}
         style={{
           position: 'fixed', inset: 0, zIndex: 9998,
-          background: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(4px)',
-          animation: 'fadeIn 0.15s ease',
+          background: 'rgba(15, 23, 42, 0.45)',
         }} />
 
-      {/* Modal */}
-      {/* 4c183cd4 续命 8-30 主线程真浏览器截图验证修复: shell 480 太窄, fc13c60c 加视频按量档 FAST/STANDARD/PREMIUM 后内容撑到 720, shell 必须容纳, 否则 PREMIUM 卡片 + 支付宝按钮会被右边界裁掉 ~235px. 改 maxWidth 480 -> 760 (容纳 pricing-modal max-width 720 + shell padding 24*2 - margin) */}
+      {/* Modal - 外层 shell 只负责居中定位 + 滚容器, 不设样式 (避免双层) */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
         zIndex: 9999,
-        width: 'calc(100% - 32px)', maxWidth: 'none',  /* 8-31 第 6 轮: 去掉 maxWidth 760 (PricingModalRefactored 自己有 width: calc(100vw - 16px) + max-width: 1100px) */
         maxHeight: 'calc(100vh - 40px)',
         overflowY: 'auto',
         overflowX: 'hidden',
         scrollbarWidth: 'none',
-        background: 'transparent',  /* 8-31 第 6 轮: 让 PricingModal 自身的 #ffffff 显示, 去掉双层背景 */
-        borderRadius: 20,  /* 8-31 第 6 轮: 匹配 PricingModal 自己的 20px, 去掉双层圆角 */
-        boxShadow: '0 28px 90px rgba(0,0,0,0.2)',
-        padding: 0,  /* 8-31 第 6 轮: 去掉外层 padding (双层) */
         animation: 'scaleIn 0.15s ease',
       }} className="pricing-modal-scroll-shell">
         {/* Close button */}
