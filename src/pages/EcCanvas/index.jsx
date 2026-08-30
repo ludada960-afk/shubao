@@ -96,10 +96,10 @@ import '../../styles/canvas-empty-actions.css';
 import '../../styles/canvas-right-panel.css';
 import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
 /* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 (8 大新规划 5/8 落地) */
-import CanvasChainOverlay from './components/CanvasChainOverlay.jsx';
+/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay import (1-click 视频 overlay 重复入口, 改走节点串联) */
 import CanvasMultiModalOverlay from './components/CanvasMultiModalOverlay.jsx';
 import CanvasTemplateMarketplace from './components/CanvasTemplateMarketplace.jsx';
-import CanvasAssetQuickPanel from './components/CanvasAssetQuickPanel.jsx';
+/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },
@@ -577,8 +577,9 @@ export default function EcCanvas() {
      chainRun = { title, mode: 'one-click-suite' | 'one-click-video' | 'tts-voiceover',
                   steps: [''|'pending'|'running'|'ok'|'failed', ...], totalCost, error, running, finishedAt } */
   const [chainRun, setChainRun] = useState(null);
-  /* 4c183cd4 续命 P-G/P-A/P-E/P-H 完整集成 (画布 8 大新规划): 3 个 overlay 状态 */
-  const [chainOverlayOpen, setChainOverlayOpen] = useState(false);
+  /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 chainOverlayOpen state
+      改后只剩 2 个 overlay (multiModal/templateMarketplace)
+      1-click 视频改走节点串联 (Quantv §10.2) */
   const [multiModalOverlayOpen, setMultiModalOverlayOpen] = useState(false);
   const [templateMarketplaceOpen, setTemplateMarketplaceOpen] = useState(false);
   const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
@@ -4250,6 +4251,41 @@ export default function EcCanvas() {
       showToast(`${titles[mode]} 失败: ${msg}`, 'error');
     }
   }, [selectedNode, nodes, showToast]);
+
+  /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 新建应用节点 (Quantv §10.2 风格)
+     用户原话 8-30: "你必须把这些重复的东西都给拿掉" / "完整的去复刻他这个AI产品整体的这些东西进来"
+     Quantv 实拍: "应用"节点 = 预设工作流, 落画布 1 个 application 节点, 端口接图片源 + 视频目标
+     节点串联: 选中图片节点 → 端口 → 应用节点 (5 宫格/1-click 视频/TTS/字幕) → 视频节点 → 音频节点 */
+  const handleCreateApplicationNode = useCallback(() => {
+    const sourceNode = selectedNode || nodes.find(n => ['image', 'output', 'source_group'].includes(n.kind)) || null;
+    const id = globalThis.crypto?.randomUUID?.() || 'app-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    const world = sourceNode ? { x: (sourceNode.x || 0) + (sourceNode.w || 200) + 60, y: sourceNode.y || 0 } : { x: 80, y: 80 };
+    const applicationNode = {
+      id,
+      kind: 'application',
+      name: '应用节点',
+      description: '5 宫格套图 / 1-click 视频 / TTS 配音 / 字幕动效',
+      applicationType: '5-grid-suite',
+      x: world.x,
+      y: world.y,
+      w: 240,
+      h: 160,
+      status: 'draft',
+      sourceNodeIds: sourceNode ? [sourceNode.id] : [],
+      prompt: '',
+      costEstimate: 5.18,
+      assetId: '',
+      createdAt: Date.now(),
+    };
+    setNodes(prev => [...prev, applicationNode]);
+    if (sourceNode) {
+      const connection = createChildConnection(sourceNode.id, id);
+      setConnections(prev => [...prev, connection]);
+    }
+    showToast('已新建应用节点 (可串联到图片/视频/音频节点)', 'success');
+    setSelectedNodeId(id);
+  }, [selectedNode, nodes, showToast]);
+
   const handleVideoDelivered = useCallback(({ projectId }) => {
     setVideoDelivery(null);
     showToast(`已发往视频项目，可在视频创作工作台「从画布发来」查看（项目 ${String(projectId).slice(-6)}）`, 'success');
@@ -4575,8 +4611,11 @@ export default function EcCanvas() {
         }}
         onRestore={handleCanvasSessionRestore}
         onNew={handleNew}
-        /* 4c183cd4 续命 P-G/P-A/P-E 8 大新规划入口: 1-click 视频链式 + 三方多模态 + 模板广场 */
-        onOpenChain={() => setChainOverlayOpen(true)}
+        /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉顶部 [1-click 视频] overlay 入口
+           用户原话 8-30: "你必须把这些重复的东西都给拿掉"
+           原 3 overlay (1-click 视频/多模态串联/模板广场) -> 2 overlay (多模态串联/模板广场)
+           1-click 视频改走节点串联: 选中图片节点 → 端口 → 应用节点 → 视频节点 → 音频节点
+           保留: 多模态串联 (三方资产汇总, 跟"1-click 视频" 完全不同) + 模板广场 (公共资源入口) */
         onOpenMultiModal={() => setMultiModalOverlayOpen(true)}
         onOpenTemplateMarketplace={() => setTemplateMarketplaceOpen(true)}
         saving={canvasSessionBusy}
@@ -4633,14 +4672,12 @@ export default function EcCanvas() {
             layersOpen={layersPanelOpen}
             onLayers={() => setLayersPanelOpen(open => !open)}
           />
-          {/* 4c183cd4 续命 P-H 画布 1-click 拖入素材 持久面板 (8 大新规划落地) */}
-          {tab === 'canvas' && <div className="ec-canvas-asset-quick-panel-wrap">
-            <CanvasAssetQuickPanel
-              onDragStart={(payload) => { showToast(`开始拖入 ${payload.label}`, 'info'); }}
-              onPick={(payload) => { showToast(`已选择 ${payload.label}`, 'info'); }}
-              onUploadPayload={(payload, file) => { sourceUploadRef.current?.click(); showToast(`已上传 ${file.name}`, 'success'); }}
-            />
-          </div>}
+          {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
+              用户原话 8-30: "你必须把这些重复的东西都给拿掉"
+              原 3 按钮 (商品档案/公共素材库/本地上传) 跟:
+                - tab=assets 完整项目素材库面板 (重复)
+                - 底部"添加图片/视频" 工具 (重复)
+              改后: 用户从底部"添加图片/添加视频" 入口 + tab=assets 完整面板 进入素材, 不再走 1-click 拖入 */}
           <CanvasLayersPanel
             open={layersPanelOpen}
             nodes={nodes}
@@ -4676,29 +4713,25 @@ export default function EcCanvas() {
                    智能行 4 入口走 addCanvasComposer (开 prompt 节点), 不是 handleCreateDerivedNode (需要 source 节点),
                    修复 v2 bug: 空画布时 4 智能按钮无反应 (因为 nodes.length === 0) */}
                 <div className="ec-canvas-empty-actions">
-                  {/* 3 行分层 (用户 8-29 硬性要求 "5 原有 + 3 新增 = 8")
-                     Row 1 添加素材 (3 入口, 5 原有) + Row 2 AI 生成 (2 入口, 5 原有) + Row 3 智能 (3 入口, 新增)
-                     不写内部术语 (用户 8-29 硬性要求 "你为什么要告诉用户这个呢?") */}
+                  {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉重复, 改按节点串联方案
+                     用户原话 8-30: "你必须把这些重复的东西都给拿掉" / "你不能够残留那些做错的东西, 拿掉之后你就完整的去复刻他这个AI产品整体的这些东西进来"
+                     原 3 行分层 (8 入口) -> 1 行 4 入口:
+                       - Row 1 上传图片 / 上传视频 / 从我的作品导入 (3 入口, 保留)
+                       - Row 2 新建应用节点 (1 入口, 预设工作流节点)
+                     原 Row 2 "生成电商套图/生成视频" 改走"图片节点 → 应用节点 → 视频节点" 端口串联
+                     原 Row 3 "1-click 套图/1-click 视频/TTS 配音" 改走"应用节点" 系列 (5 宫格/1-click 视频/TTS 配音/字幕动效)
+                     智能操作不再是"独立按钮", 是"节点串联"的一部分 */}
                   {/* Row 1 - 添加素材 (3 入口) */}
                   <div className="ec-canvas-empty-row is-primary-row" role="group" aria-label="添加素材">
                     <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
                     <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
                     <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
                   </div>
-                  {/* Row 2 - AI 生成 (2 入口) */}
-                  <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="AI 生成">
-                    <button type="button" onClick={() => addCanvasComposer('suite')}><HeroGlyph kind="suite" />生成电商套图</button>
-                    <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="film" />生成视频</button>
-                  </div>
-                  {/* Row 3 - 智能 (3 入口) — 走 chainService 4 步 (用户 8-29 硬性反馈 3)
-                      跟上面 5 原有按钮 (单步 addCanvasComposer) 完全区分: 真实差异化, 走 4 步 chain.
-                      1-click 套图: 文案->首帧->视频->音轨+字幕 (chainService.executeChain)
-                      1-click 视频: 同 4 步 chain, 重点在视频生成
-                      TTS 配音: chainService audio 步骤, 5 provider failover */}
-                  <div className="ec-canvas-empty-row is-smart-row" role="group" aria-label="智能生成">
-                    <button type="button" onClick={() => handleSmartChainAction('one-click-suite')}><HeroGlyph kind="oneclick" />1-click 套图</button>
-                    <button type="button" onClick={() => handleSmartChainAction('one-click-video')}><HeroGlyph kind="oneclick" />1-click 视频</button>
-                    <button type="button" onClick={() => handleSmartChainAction('tts-voiceover')}><HeroGlyph kind="voiceover" />TTS 配音</button>
+                  {/* Row 2 - 新建应用节点 (1 入口, 预设工作流 "应用" 节点)
+                      "应用"节点 = 预设工作流, 内部串联多张图/视频/音频
+                      用户选完应用类型后, 落画布 1 个 application 节点, 端口接图片源 + 视频目标 */}
+                  <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="应用节点">
+                    <button type="button" className="is-primary" onClick={() => handleCreateApplicationNode()}><HeroGlyph kind="oneclick" />新建应用节点</button>
                   </div>
                 </div>
 
@@ -4902,10 +4935,10 @@ export default function EcCanvas() {
                 else if (action.id === 'video-upload') videoUploadRef.current?.click();
                 else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'tts-voiceover') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'caption-motion') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'one-click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'one-click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-tts') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
                 else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
               }}
             />}
@@ -4922,10 +4955,10 @@ export default function EcCanvas() {
                 else if (action.id === 'video-upload') videoUploadRef.current?.click();
                 else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'tts-voiceover') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'caption-motion') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'one-click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'one-click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-tts') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
                 else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
               }}
             />}
@@ -5505,16 +5538,9 @@ export default function EcCanvas() {
 
       {/* B10: 全局键盘快捷键 */}
 
-      {/* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 8 大新规划: 3 个 overlay */}
-      <CanvasChainOverlay
-        open={chainOverlayOpen}
-        onClose={() => setChainOverlayOpen(false)}
-        referenceImage={selectedNode?.url || null}
-        onComplete={(result) => {
-          setChainOverlayOpen(false);
-          showToast('链式生成完成，已写入作品集', 'success');
-        }}
-      />
+      {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay JSX 渲染
+          1-click 视频改走节点串联: 图片节点 → 应用节点 → 视频节点 → 音频节点 (Quantv §10.2)
+          改后只剩 2 个 overlay (多模态串联/模板广场) */}
       <CanvasMultiModalOverlay
         open={multiModalOverlayOpen}
         onClose={() => setMultiModalOverlayOpen(false)}

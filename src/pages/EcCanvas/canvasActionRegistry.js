@@ -145,21 +145,26 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('upscale', '高清修复', ['image-editor'], 'upscale', false, {
     type: 'node', handler: 'create:upscale', nodeActionId: 'upscale', nodeKind: 'upscale', route: '/api/canvas/transform',
   }, { description: '提升清晰度与商品细节', group: '电商处理', canRun: canCreateWorkflowFromNode }),
-  /* 4c183cd4 续命 4 个新动作 (流影AI LibTV Agent 风格, 用户硬性指定)
-     用户 8-29 原话: "我之前的确有让你在这里改几个功能去学习流影AI他们的做法, 但是这并不代表其他的功能, 你就要删掉呀"
-     资深美工 + 产品经理 + 流影AI 调研 3 视角合一, 只保留 4 个流影AI 风格核心功能 */
-  action('one-click-suite', '1-click 套图', ['image-editor', 'selection'], 'smart-remix', true, {
-    type: 'node', handler: 'create:one-click-suite', nodeActionId: 'one-click-suite', nodeKind: 'one-click-suite', route: '/api/canvas/regenerate', requires: { prompt: true },
-  }, { description: '一键生成电商 5 宫格 (主图+场景+细节+白底+详情图)', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
-  action('one-click-video', '1-click 视频模板', ['image-editor', 'selection'], null, true, {
-    type: 'node', handler: 'create:one-click-video', nodeActionId: 'one-click-video', nodeKind: 'one-click-video', route: '/api/canvas/one-click-video',
-  }, { description: '流影AI 1-click 视频模板 (4 步: 文案到首帧到视频到音轨+字幕)', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
-  action('tts-voiceover', 'TTS 配音', ['image-editor', 'selection'], null, true, {
-    type: 'node', handler: 'create:tts-voiceover', nodeActionId: 'tts-voiceover', nodeKind: 'tts-voiceover', route: '/api/canvas/tts',
-  }, { description: '5 家供应商 (火山/阿里云/ElevenLabs/Azure/MiniMax) 美式播客感', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
-  action('caption-motion', '字幕动效', ['image-editor', 'selection'], null, true, {
-    type: 'node', handler: 'create:caption-motion', nodeActionId: 'caption-motion', nodeKind: 'caption-motion', route: '/api/canvas/caption',
-  }, { description: '流影AI 风格字幕排版 + 弹出/淡入/逐字动画', group: 'AI 智能', canRun: canCreateWorkflowFromNode }),
+  /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 AI 智能组 4 项, 改成"应用节点" 4 类
+     用户原话 8-30: "你必须把这些重复的东西都给拿掉" / "你不能够残留那些做错的东西"
+     原 AI 智能组 (one-click-suite/one-click-video/tts-voiceover/caption-motion) 跟:
+       - 空状态 Row 3 智能区 (1-click 套图/1-click 视频/TTS 配音)
+       - 顶部 [1-click 视频] overlay 按钮
+       - 顶部 [多模态串联] overlay 按钮
+     全部走 Quantv §10.2 节点串联方案: 5 类节点 (文本/图片/视频/音频/应用) + 2 资源入口
+     改后: 智能操作不再是"独立节点", 改走"图片节点 → 应用节点 → 视频节点 → 音频节点" 端口串联 */
+  action('application-1click-suite', '应用: 5 宫格套图', ['image-editor', 'selection'], 'smart-remix', true, {
+    type: 'node', handler: 'create:application-1click-suite', nodeActionId: 'application-1click-suite', nodeKind: 'application', route: '/api/canvas/regenerate', requires: { prompt: true },
+  }, { description: '应用节点 5 宫格套图 (Quantv 风格: 串联 1 输入 + 5 输出)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
+  action('application-1click-video', '应用: 1-click 视频', ['image-editor', 'selection'], null, true, {
+    type: 'node', handler: 'create:application-1click-video', nodeActionId: 'application-1click-video', nodeKind: 'application', route: '/api/canvas/one-click-video',
+  }, { description: '应用节点 1-click 视频 (Quantv 风格: 4 步 chain 串联 文本/图片/视频/音频)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
+  action('application-tts', '应用: TTS 配音', ['image-editor', 'selection'], null, true, {
+    type: 'node', handler: 'create:application-tts', nodeActionId: 'application-tts', nodeKind: 'application', route: '/api/canvas/tts',
+  }, { description: '应用节点 TTS 配音 (5 provider: 火山/阿里云/ElevenLabs/Azure/MiniMax)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
+  action('application-caption', '应用: 字幕动效', ['image-editor', 'selection'], null, true, {
+    type: 'node', handler: 'create:application-caption', nodeActionId: 'application-caption', nodeKind: 'application', route: '/api/canvas/caption',
+  }, { description: '应用节点字幕动效 (弹出/淡入/逐字动画, 烧入视频节点)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
 ]);
 
 const ACTION_BY_ID = new Map(CANVAS_ACTIONS.map(item => [item.id, item]));

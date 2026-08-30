@@ -56,17 +56,24 @@ test('反馈 1: EcCanvas/index.jsx 集成右面板 (跟 CanvasObjectToolbar 一�
   assert.ok(indexSource.includes('selectionPanelsVisible && <EcCanvasRightPanel'), '必须用 selectionPanelsVisible 守卫 (跟 CanvasObjectToolbar 同步)');
 });
 
-test('反馈 1: 右面板路由 9 action (5 原有 + 4 智能) 跟 CanvasObjectToolbar 共享 14-action 派生菜单契约', () => {
+test('反馈 1 (2026-08-30 画布总统筹重审): 右面板路由 9 action (5 原有 + 4 应用节点) 跟 CanvasObjectToolbar 共享派生菜单契约', () => {
   assert.ok(indexSource.includes('onDeriveSelect={action =>'), '必须有 onDeriveSelect 路由');
-  for (const id of ['text-generation', 'ecommerce-suite', 'video-generation', 'image-edit', 'tts-voiceover', 'caption-motion', 'one-click-suite', 'one-click-video']) {
+  // 5 原有 + 4 应用节点 (取代 tts-voiceover/caption-motion/one-click-suite/one-click-video)
+  for (const id of ['text-generation', 'ecommerce-suite', 'video-generation', 'image-edit', 'application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']) {
     assert.ok(indexSource.includes("id === '" + id + "'"), '右面板路由必须覆盖 action id: ' + id);
   }
 });
 
-test('反馈 3: 3 智能按钮 (1-click 套图/视频/TTS) 调 handleSmartChainAction (跟 5 原有区分)', () => {
-  assert.ok(indexSource.includes("handleSmartChainAction('one-click-suite')"), '1-click 套图必须调 handleSmartChainAction');
-  assert.ok(indexSource.includes("handleSmartChainAction('one-click-video')"), '1-click 视频必须调 handleSmartChainAction');
-  assert.ok(indexSource.includes("handleSmartChainAction('tts-voiceover')"), 'TTS 配音必须调 handleSmartChainAction');
+test('反馈 3 (2026-08-30 画布总统筹重审): 4 应用节点 (Quantv §10.2 风格) 取代原 3 智能按钮, 走 handleCreateApplicationNode', () => {
+  // 改后: 不再调 handleSmartChainAction (one-click-suite/one-click-video/tts-voiceover/caption-motion)
+  // 改走 handleCreateApplicationNode (落 1 个 application 节点, 内部端口连接)
+  assert.ok(indexSource.includes('handleCreateApplicationNode'), '必须调 handleCreateApplicationNode (Quantv 风格应用节点)');
+  assert.ok(indexSource.includes("kind: 'application'"), 'application 节点 kind=application');
+  assert.ok(indexSource.includes('createChildConnection'), '应用节点必须建连接 (节点串联)');
+  // 旧 3 智能按钮不应再在空状态 Row 2/3 出现
+  assert.ok(!indexSource.includes("handleSmartChainAction('one-click-suite')"), '空状态不应再调 handleSmartChainAction(one-click-suite)');
+  assert.ok(!indexSource.includes("handleSmartChainAction('one-click-video')"), '空状态不应再调 handleSmartChainAction(one-click-video)');
+  assert.ok(!indexSource.includes("handleSmartChainAction('tts-voiceover')"), '空状态不应再调 handleSmartChainAction(tts-voiceover)');
 });
 
 test('反馈 3: handleSmartChainAction 真调 chainService.executeChain 4 步 (不是 addCanvasComposer)', () => {

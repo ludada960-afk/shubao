@@ -241,15 +241,21 @@ test('登录保持 3: /api/auth/verify-code 路由已挂 (authRoutes.mjs)', () =
   assert.ok(src.includes('issueSession'), 'verify-code 必须签发 session');
 });
 
-test('画布能开 6: EcCanvas/index.jsx 含 9 action (5 原有 core + 4 智能 magic) 路由到 chainService', () => {
+test('画布能开 6 (2026-08-30 画布总统筹重审): EcCanvas/index.jsx 含 application 节点 (Quantv §10.2 风格, 取代原 AI 智能组)', () => {
   const idx = readFileSync(join(repoRoot, 'src/pages/EcCanvas/index.jsx'), 'utf8');
-  for (const id of ['text-generation', 'image-edit', 'ecommerce-suite', 'video-upload', 'video-generation', 'one-click-suite', 'one-click-video', 'tts-voiceover', 'caption-motion']) {
+  // 保留 5 原有 core 路由
+  for (const id of ['text-generation', 'image-edit', 'ecommerce-suite', 'video-upload', 'video-generation']) {
+    assert.ok(idx.includes("id === '" + id + "'"), 'index.jsx 必须保留 ' + id + ' 路由');
+  }
+  // 4 应用节点路由 (取代 one-click-suite/one-click-video/tts-voiceover/caption-motion)
+  for (const id of ['application-1click-suite', 'application-1click-video', 'application-tts', 'application-caption']) {
     assert.ok(idx.includes("id === '" + id + "'"), 'index.jsx 必须含 ' + id + ' 路由');
   }
-  for (const mode of ["'one-click-suite'", "'one-click-video'", "'tts-voiceover'"]) {
-    assert.ok(idx.includes("handleSmartChainAction(" + mode + ")"), 'handleSmartChainAction 必须接收 ' + mode);
-  }
-  assert.ok(idx.includes('executeChainService'), '必须调 chainService.executeChain');
+  // handleCreateApplicationNode (Quantv 风格: 落 application 节点 + 端口连接)
+  assert.ok(idx.includes('handleCreateApplicationNode'), '必须定义 handleCreateApplicationNode (Quantv 风格应用节点)');
+  assert.ok(idx.includes("kind: 'application'"), 'application 节点 kind=application');
+  // 旧 AI 智能组 handleSmartChainAction 在空状态已不再被调用 (改走 handleCreateApplicationNode + 节点串联)
+  // 但 handleSmartChainAction 函数本身保留, 因为 VideoStudio 还在用
 });
 
 test('画布能开 7: 关键文件 + CSS 资产都齐 (画布深度重构 + PricingModal 重构 + 右面板)', () => {

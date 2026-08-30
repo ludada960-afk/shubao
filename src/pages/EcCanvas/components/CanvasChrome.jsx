@@ -45,7 +45,6 @@ export function CanvasTopBar({
   onExport,
   onRestore,
   onNew,
-  onOpenChain,
   onOpenMultiModal,
   onOpenTemplateMarketplace,
   saving = false,
@@ -86,11 +85,10 @@ export function CanvasTopBar({
             {filters.map(filter => <option key={filter} value={filter}>{filter}</option>)}
           </select>
         </label>
-        {/* 4c183cd4 续命 P-G 画布 1-click chain 入口按钮 (8 大新规划落地) */}
-        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenChain} aria-label="打开 1-click 视频链式生成">
-          <Sparkles size={16} />1-click 视频
-        </button>
-        {/* 4c183cd4 续命 P-A 三方多模态串联 入口按钮 */}
+        {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉顶部 [1-click 视频] 入口
+            用户原话 8-30: "你必须把这些重复的东西都给拿掉"
+            1-click 视频改走节点串联: 图片 → 应用节点 → 视频 → 音频 (Quantv §10.2 风格) */}
+        {/* 4c183cd4 续命 P-A 三方多模态串联 入口按钮 (保留, 不算重复) */}
         <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenMultiModal} aria-label="打开三方多模态串联">
           <Layers3 size={16} />多模态串联
         </button>

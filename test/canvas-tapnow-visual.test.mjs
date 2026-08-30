@@ -53,37 +53,48 @@ test('canvas-empty-actions.css declares the 3-row layered visual + glass + dark 
 
 /* 2) 3 行分层集成契约 (3 测试) */
 
-test('EcCanvas/index.jsx 画布中央弹窗有 3 行分层 (1 添加素材 + 2 AI 生成 + 3 智能) 8 个按钮 (用户 8-29 硬性 5+3=8)', () => {
+test('EcCanvas/index.jsx 画布中央弹窗有 2 行分层 (1 添加素材 + 2 应用节点) 4 个按钮 (2026-08-30 画布总统筹重审 Quantv §10.2 风格)', () => {
+  // 用户原话 8-30: "你必须把这些重复的东西都给拿掉"
+  // 改后: 2 行分层 (1 添加素材 + 2 应用节点), 4 按钮
+  //   - Row 1: 上传图片/上传视频/从我的作品导入 (3 入口, 保留)
+  //   - Row 2: 新建应用节点 (1 入口, Quantv §10.2 "应用" 节点)
+  //   - 原 Row 2 "生成电商套图/生成视频" + Row 3 "1-click 套图/视频/TTS" 5 按钮重复已拿掉
   const jsx = readFileSync(ecCanvasIndexPath, 'utf8');
-  assert.ok(jsx.indexOf('ec-canvas-empty-row is-primary-row') !== -1, 'Row 1 ec-canvas-empty-row is-primary-row 必填');
-  assert.ok(jsx.indexOf('ec-canvas-empty-row is-generate-row') !== -1, 'Row 2 ec-canvas-empty-row is-generate-row 必填');
-  assert.ok(jsx.indexOf('ec-canvas-empty-row is-smart-row') !== -1, 'Row 3 ec-canvas-empty-row is-smart-row 必填');
-  // Row 1 - 3 入口 (5 原有 part 1)
+  assert.ok(jsx.indexOf('ec-canvas-empty-row is-primary-row') !== -1, 'Row 1 ec-canvas-empty-row is-primary-row 必填 (添加素材)');
+  assert.ok(jsx.indexOf('ec-canvas-empty-row is-generate-row') !== -1, 'Row 2 ec-canvas-empty-row is-generate-row 必填 (应用节点)');
+  assert.equal(jsx.indexOf('ec-canvas-empty-row is-smart-row'), -1, 'Row 3 智能行已拿掉 (跟 Row 2 重复)');
+  // Row 1 - 3 入口
   for (const kind of ['image', 'video', 'works']) {
     assert.ok(jsx.indexOf('HeroGlyph kind="' + kind + '"') !== -1, 'Row 1 HeroGlyph kind=' + kind + ' 必填');
   }
-  // Row 2 - 2 入口 (5 原有 part 2, 单步 addCanvasComposer)
-  assert.ok(jsx.indexOf("addCanvasComposer('suite')") !== -1, 'Row 2 suite composer 必填');
-  assert.ok(jsx.indexOf("addCanvasComposer('video')") !== -1, 'Row 2 video composer 必填');
-  // Row 3 - 3 入口 (3 新增, 4c183cd4 续命 用户 8-29 硬性反馈 3: 走 handleSmartChainAction -> chainService 4 步)
-  // 不再调单步 addCanvasComposer (v3 bug: 跟 5 原有重复), 改调 handleSmartChainAction (chainService 4 步: 文案->首帧->视频->音轨+字幕)
-  assert.ok(jsx.indexOf("handleSmartChainAction('one-click-suite')") !== -1, 'Row 3 one-click-suite 必须调 handleSmartChainAction (chainService 4 步)');
-  assert.ok(jsx.indexOf("handleSmartChainAction('one-click-video')") !== -1, 'Row 3 one-click-video 必须调 handleSmartChainAction (chainService 4 步)');
-  assert.ok(jsx.indexOf("handleSmartChainAction('tts-voiceover')") !== -1, 'Row 3 tts-voiceover 必须调 handleSmartChainAction (chainService 4 步)');
+  // Row 2 - 1 入口 (Quantv §10.2 "应用" 节点, 取代原 2 入口)
+  assert.ok(jsx.indexOf('handleCreateApplicationNode') !== -1, 'Row 2 必须调 handleCreateApplicationNode (Quantv 风格应用节点)');
+  // 空状态段匹配 (排除中央弹窗 CanvasAddMenu 仍调 addCanvasComposer('suite/video'))
+  const emptyStateRowMatch = jsx.match(/ec-canvas-empty-row[sS]*?ec-canvas-empty-actions/);
+  const emptyStateSrc = emptyStateRowMatch ? emptyStateRowMatch[0] : '';
+  assert.equal(emptyStateSrc.includes("addCanvasComposer('suite')"), false, '空状态不应再调 addCanvasComposer(suite)');
+  assert.equal(emptyStateSrc.includes("addCanvasComposer('video')"), false, '空状态不应再调 addCanvasComposer(video)');
+  assert.equal(emptyStateSrc.includes('handleSmartChainAction'), false, '空状态不应再调 handleSmartChainAction (改走节点串联)');
 });
 
-test('中央弹窗 3 智能按钮 走 handleSmartChainAction -> chainService 4 步 (用户 8-29 硬性反馈 3: 跟 5 原有按钮差异化)', () => {
-  /* 用户 8-29 原话: "你下面这三个智能是干什么的呢? 你现在点击进去的话, 他们全部跟上面的这些是一样的呀.
-     点进去的话就是生成图片, 生成视频的相关的这种面板出来啊. 那不就是重复了吗?"
+test('中央弹窗 3 智能按钮已拿掉 (2026-08-30 画布总统筹重审, 跟 Row 2/3 重复, 改走节点串联)', () => {
+  /* 用户原话 8-30: "你必须把这些重复的东西都给拿掉"
+     原 Row 3 3 智能按钮 (1-click 套图/1-click 视频/TTS 配音) 跟 Row 2 "生成电商套图/生成视频" 完全重复
      v3 用 addCanvasComposer 跟 5 原有按钮重复 (用户反馈的 bug)
      v4 (4c183cd4 续命 画布深度重构) 改用 handleSmartChainAction -> chainService.executeChain 4 步
-     (文案->首帧->视频->音轨+字幕) — 跟 5 原有按钮 (单步 addCanvasComposer) 完全区分
-     v4: 8 按钮 = 5 原有 (5 entry points) + 3 新增 (3 流影AI 风格智能) */
+     v5 (2026-08-30 画布总统筹重审 Quantv §10.2) 改走节点串联:
+       选中图片节点 → 端口 → 应用节点 → 视频节点 → 音频节点
+       应用节点 = application-1click-suite / application-1click-video / application-tts / application-caption
+       3 智能按钮全部从空状态拿掉 (改走 handleCreateApplicationNode 创建 application 节点) */
   const jsx = readFileSync(ecCanvasIndexPath, 'utf8');
-  // 3 智能按钮 必须 handleSmartChainAction 形式, 不准单步 addCanvasComposer 重复路径
-  for (const mode of ['one-click-suite', 'one-click-video', 'tts-voiceover']) {
-    assert.ok(jsx.indexOf("handleSmartChainAction('" + mode + "')") !== -1, '智能按钮 ' + mode + ' 必须调 handleSmartChainAction (chainService 4 步, 跟 5 原有区分)');
-  }
+  // 2026-08-30 画布总统筹重审: 3 智能按钮全部拿掉 (改走节点串联 + handleCreateApplicationNode)
+  // 空状态段匹配 (排除外面 handleSmartChainAction 函数仍存在的引用, 函数本身仍存在给 VideoStudio 用)
+  const emptyStateMatch = jsx.match(/ec-canvas-empty-row[\s\S]*?ec-canvas-empty-actions/);
+  const emptyStateSrc = emptyStateMatch ? emptyStateMatch[0] : '';
+  assert.equal(emptyStateSrc.includes('handleSmartChainAction'), false,
+    '空状态段不应再调 handleSmartChainAction (改走节点串联 + handleCreateApplicationNode)');
+  assert.equal(jsx.indexOf('ec-canvas-empty-row is-smart-row'), -1,
+    '空状态 Row 3 smart-row 已拿掉 (跟 Row 2 完全重复)');
   // 反向断言: Row 3 (smart-row) 内部 <button onClick={...addCanvasComposer('suite' / 'video' / 'text')}> 不准出现 (v3 bug)
   const smartRowStart = jsx.indexOf('ec-canvas-empty-row is-smart-row');
   if (smartRowStart !== -1) {

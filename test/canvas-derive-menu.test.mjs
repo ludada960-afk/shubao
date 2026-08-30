@@ -144,14 +144,14 @@ test('HeroIcons.jsx ships the 4 new central modal glyphs (1-click 套图 / 1-cli
   }
 });
 
-test('right-side onSelect router handles all 9 derive action ids (5 原有 + 4 流影AI)', () => {
+test('right-side onSelect router handles all 9 derive action ids (5 原有 + 4 应用节点)', () => {
   const jsx = readFileSync(ecCanvasIndexPath, 'utf8');
   /* 5 原有 (用户硬性要求保留) */
   for (const legacyId of ['text-generation', 'ecommerce-suite', 'video-upload', 'video-generation', 'image-edit']) {
     assert.ok(jsx.indexOf("action.id === '" + legacyId + "'") !== -1, '右面板 onSelect 必须路由 ' + legacyId);
   }
-  /* 4 流影AI 新增 (用户硬性指定) */
-  for (const newId of ['tts-voiceover', 'caption-motion', 'one-click-suite', 'one-click-video']) {
+  /* 4 应用节点 (Quantv §10.2 风格, 取代原流影AI tts-voiceover/caption-motion/one-click-suite/one-click-video) */
+  for (const newId of ['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']) {
     assert.ok(jsx.indexOf("action.id === '" + newId + "'") !== -1, '右面板 onSelect 必须路由 ' + newId);
   }
 });
