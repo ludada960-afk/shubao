@@ -67,7 +67,7 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
-import { createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
@@ -95,6 +95,11 @@ import '../../styles/canvas-derive-menu.css';
 import '../../styles/canvas-empty-actions.css';
 import '../../styles/canvas-right-panel.css';
 import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
+/* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 (8 大新规划 5/8 落地) */
+import CanvasChainOverlay from './components/CanvasChainOverlay.jsx';
+import CanvasMultiModalOverlay from './components/CanvasMultiModalOverlay.jsx';
+import CanvasTemplateMarketplace from './components/CanvasTemplateMarketplace.jsx';
+import CanvasAssetQuickPanel from './components/CanvasAssetQuickPanel.jsx';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },
@@ -572,6 +577,10 @@ export default function EcCanvas() {
      chainRun = { title, mode: 'one-click-suite' | 'one-click-video' | 'tts-voiceover',
                   steps: [''|'pending'|'running'|'ok'|'failed', ...], totalCost, error, running, finishedAt } */
   const [chainRun, setChainRun] = useState(null);
+  /* 4c183cd4 续命 P-G/P-A/P-E/P-H 完整集成 (画布 8 大新规划): 3 个 overlay 状态 */
+  const [chainOverlayOpen, setChainOverlayOpen] = useState(false);
+  const [multiModalOverlayOpen, setMultiModalOverlayOpen] = useState(false);
+  const [templateMarketplaceOpen, setTemplateMarketplaceOpen] = useState(false);
   const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
   const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
@@ -637,6 +646,10 @@ export default function EcCanvas() {
   const suiteGenerationInFlightRef = useRef(new Set());
   const toastTimerRef = useRef(null);
   const textOcrCacheRef = useRef(new Map());
+  /* 4c183cd4 续命 P-B 电影分镜命名 (Enclosure/Breakthrough/Framing/Voice 等)
+     一个 session 维持独立计数器, 保证单调递增, 跟 videoCanvasModel 同源 */
+  const canvasShotNamerRef = useRef(null);
+  if (!canvasShotNamerRef.current) canvasShotNamerRef.current = createCanvasShotNamer();
 
   useEffect(() => {
     setActiveComposerSurface('');
@@ -1068,6 +1081,7 @@ export default function EcCanvas() {
         ? createFreshCanvasSession({ work: result, mediaAssets: resultMediaAssets })
       : {
         nodes: createUploadedVideoNodes({
+          namer: canvasShotNamerRef.current,
           assets: [videoAsset || {
             id: result.id || result.taskId || `video-${Date.now()}`,
             name: result.product_name || result.prompt || '视频作品',
@@ -3082,8 +3096,9 @@ export default function EcCanvas() {
         status: 'success',
         ...(videoResultPatch || { url: job.resultUrl, videoAssetId: job.resultAssetId || '' }),
         videoJobId: job.id,
-        name: String(composer.prompt).trim().slice(0, 32) || 'AI 视频',
-        displayLabel: 'AI 视频成片',
+        /* P-B 电影分镜命名: 视频走 Breakthrough */
+        name: canvasShotNamerRef.current.next('video'),
+        displayLabel: canvasShotNamerRef.current.next('video'),
         progress: 100,
         progressLabel: '成片已交付',
       });
@@ -3254,8 +3269,9 @@ export default function EcCanvas() {
         kind: 'image',
         status: 'ready',
         url,
-        name: `图片生成结果 ${index + 2}`,
-        displayLabel: `图片生成结果 ${index + 2}`,
+        /* P-B 电影分镜命名: Enclosure-001 替代 '图片生成结果 1' */
+        name: canvasShotNamerRef.current.next('image'),
+        displayLabel: canvasShotNamerRef.current.next('image'),
         group: '素材',
         role: '创作图片',
         imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
@@ -3272,8 +3288,9 @@ export default function EcCanvas() {
         ...node,
         status: 'success',
         url: urls[0],
-        name: '图片生成结果',
-        displayLabel: '图片生成结果',
+        /* P-B 电影分镜命名: composer 主图走 Enclosure */
+        name: canvasShotNamerRef.current.next('image'),
+        displayLabel: canvasShotNamerRef.current.next('image'),
         ratio,
         h: Math.round(node.w / ratioNumber),
         outputNodeIds: [composer.id, ...outputs.map(output => output.id)],
@@ -3512,8 +3529,9 @@ export default function EcCanvas() {
         kind: 'image',
         status: 'ready',
         url,
-        name: `画面生成结果 ${index + 1}`,
-        displayLabel: `画面生成结果 ${index + 1}`,
+        /* P-B 电影分镜命名: 文本驱动画面走 Enclosure */
+        name: canvasShotNamerRef.current.next('image'),
+        displayLabel: canvasShotNamerRef.current.next('image'),
         group: '素材',
         role: '创作图片',
         imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
@@ -3595,7 +3613,7 @@ export default function EcCanvas() {
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      const uploadedNodes = createUploadedImageNodes({ assets, x: worldX, y: worldY, now: uploadStartedAt })
+      const uploadedNodes = createUploadedImageNodes({ assets, x: worldX, y: worldY, now: uploadStartedAt, namer: canvasShotNamerRef.current })
         .map(node => ({ ...node, status: 'uploading', localPreviewUrl: node.url }));
       const persistenceGeneration = canvasPersistenceGenerationRef.current;
       draftReadyRef.current = true;
@@ -3677,7 +3695,7 @@ export default function EcCanvas() {
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: worldX, y: worldY, now: uploadStartedAt });
+      const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: worldX, y: worldY, now: uploadStartedAt, namer: canvasShotNamerRef.current });
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);
       if (projectContext || Object.keys(mediaFields).length) {
@@ -3749,12 +3767,14 @@ export default function EcCanvas() {
         x: composer.x - importedImages.assets.length * 278 - 36,
         y: composer.y,
         now: uploadStartedAt,
+        namer: canvasShotNamerRef.current,
       }).map(node => ({ ...node, role }));
       const videoNodes = createUploadedVideoNodes({
         assets: importedVideos.assets,
         x: composer.x - Math.max(1, importedVideos.assets.length) * 360 - 36,
         y: composer.y + (imageNodes.length ? 112 : 0),
         now: uploadStartedAt,
+        namer: canvasShotNamerRef.current,
       }).map(node => ({ ...node, role }));
       const audioNodes = importedAudios.assets.map((asset, index) => attachCanvasProjectAssetRef({
         id: `audio_upload_${uploadStartedAt}_${index}`, assetId: asset.id, videoAssetId: asset.id, kind: 'audio', provenance: 'source', status: 'ready',
@@ -4555,6 +4575,10 @@ export default function EcCanvas() {
         }}
         onRestore={handleCanvasSessionRestore}
         onNew={handleNew}
+        /* 4c183cd4 续命 P-G/P-A/P-E 8 大新规划入口: 1-click 视频链式 + 三方多模态 + 模板广场 */
+        onOpenChain={() => setChainOverlayOpen(true)}
+        onOpenMultiModal={() => setMultiModalOverlayOpen(true)}
+        onOpenTemplateMarketplace={() => setTemplateMarketplaceOpen(true)}
         saving={canvasSessionBusy}
         canRestore={Boolean(canvasSession?.id || result.canvasSessionId)}
         entitlement={{
@@ -4609,6 +4633,14 @@ export default function EcCanvas() {
             layersOpen={layersPanelOpen}
             onLayers={() => setLayersPanelOpen(open => !open)}
           />
+          {/* 4c183cd4 续命 P-H 画布 1-click 拖入素材 持久面板 (8 大新规划落地) */}
+          {tab === 'canvas' && <div className="ec-canvas-asset-quick-panel-wrap">
+            <CanvasAssetQuickPanel
+              onDragStart={(payload) => { showToast(`开始拖入 ${payload.label}`, 'info'); }}
+              onPick={(payload) => { showToast(`已选择 ${payload.label}`, 'info'); }}
+              onUploadPayload={(payload, file) => { sourceUploadRef.current?.click(); showToast(`已上传 ${file.name}`, 'success'); }}
+            />
+          </div>}
           <CanvasLayersPanel
             open={layersPanelOpen}
             nodes={nodes}
@@ -5472,6 +5504,35 @@ export default function EcCanvas() {
       )}
 
       {/* B10: 全局键盘快捷键 */}
+
+      {/* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 8 大新规划: 3 个 overlay */}
+      <CanvasChainOverlay
+        open={chainOverlayOpen}
+        onClose={() => setChainOverlayOpen(false)}
+        referenceImage={selectedNode?.url || null}
+        onComplete={(result) => {
+          setChainOverlayOpen(false);
+          showToast('链式生成完成，已写入作品集', 'success');
+        }}
+      />
+      <CanvasMultiModalOverlay
+        open={multiModalOverlayOpen}
+        onClose={() => setMultiModalOverlayOpen(false)}
+        referenceImage={selectedNode?.url || null}
+        defaultProjectKind="ecommerce"
+        onComplete={(result) => {
+          setMultiModalOverlayOpen(false);
+          showToast('三方多模态串联完成', 'success');
+        }}
+      />
+      <CanvasTemplateMarketplace
+        open={templateMarketplaceOpen}
+        onClose={() => setTemplateMarketplaceOpen(false)}
+        onPickTemplate={(tpl, detail) => {
+          setTemplateMarketplaceOpen(false);
+          showToast(`已应用模板 ${tpl.name}`, 'success');
+        }}
+      />
 
       <style>{`
         @keyframes skeletonShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}

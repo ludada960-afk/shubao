@@ -45,6 +45,9 @@ export function CanvasTopBar({
   onExport,
   onRestore,
   onNew,
+  onOpenChain,
+  onOpenMultiModal,
+  onOpenTemplateMarketplace,
   saving = false,
   canRestore = false,
   entitlement,
@@ -83,6 +86,18 @@ export function CanvasTopBar({
             {filters.map(filter => <option key={filter} value={filter}>{filter}</option>)}
           </select>
         </label>
+        {/* 4c183cd4 续命 P-G 画布 1-click chain 入口按钮 (8 大新规划落地) */}
+        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenChain} aria-label="打开 1-click 视频链式生成">
+          <Sparkles size={16} />1-click 视频
+        </button>
+        {/* 4c183cd4 续命 P-A 三方多模态串联 入口按钮 */}
+        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenMultiModal} aria-label="打开三方多模态串联">
+          <Layers3 size={16} />多模态串联
+        </button>
+        {/* 4c183cd4 续命 P-E 100 套模板广场 入口按钮 */}
+        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenTemplateMarketplace} aria-label="打开模板广场">
+          <ImagePlus size={16} />模板广场
+        </button>
         <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onExport}><Download size={16} />导出整套图片</button>
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}

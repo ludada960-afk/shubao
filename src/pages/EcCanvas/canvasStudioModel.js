@@ -1,5 +1,32 @@
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
+import { formatCanvasShotName, resolveShotPrefix } from '../../constants/canvasNames.js';
+
+/* ═══════ 4c183cd4 续命 P-B 画布节点电影分镜命名 ═══════
+   资深美工视角: 「素材 1」「图片 1」无法体现镜头/声轨/画面职责
+   流影AI LibTV Agent 视角: Enclosure (取景) / Breakthrough (突破) / Framing (构图) / Voice (口播) 等
+   1 个画布 session 内按 kind 维持独立计数器, 保证单调递增, 跟 videoCanvasModel 同源
+   用户未重命名时直接显示分镜名, 重命名后保留用户输入, 计数器不再自增该节点 */
+export function createCanvasShotNamer() {
+  const counters = new Map();
+  function next(kind, options = {}) {
+    const prefix = resolveShotPrefix({ kind, ...options });
+    const current = counters.get(prefix) || 0;
+    const nextCounter = current + 1;
+    counters.set(prefix, nextCounter);
+    return formatCanvasShotName(prefix, nextCounter);
+  }
+  function preset(kind, counter, options = {}) {
+    const prefix = resolveShotPrefix({ kind, ...options });
+    const safeCounter = Math.max((counters.get(prefix) || 0) + 1, Number(counter) || 1);
+    counters.set(prefix, Math.max(safeCounter, counters.get(prefix) || 0));
+    return formatCanvasShotName(prefix, counter);
+  }
+  function snapshot() {
+    return Object.fromEntries(counters.entries());
+  }
+  return { next, preset, snapshot, counters };
+}
 
 const MIN_NODE_WIDTH = 160;
 const MIN_NODE_HEIGHT = 56;
@@ -354,11 +381,14 @@ function closestRatio(width, height) {
   return ratios.reduce((best, current) => Math.abs(current[1] - value) < Math.abs(best[1] - value) ? current : best)[0];
 }
 
-export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = Date.now() } = {}) {
+export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = Date.now(), namer = null } = {}) {
   const width = 240;
   const gap = 38;
   return assets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => {
     const ratio = asset.ratio || closestRatio(asset.width, asset.height);
+    /* P-B 电影分镜命名: 优先用 namer.next('image') (Enclosure-001), 用户上传时资产自带 name 优先 */
+    const fallbackName = namer ? namer.next('image') : `Enclosure-${String(index + 1).padStart(3, '0')}`;
+    const nodeName = asset.name || fallbackName;
     return attachCanvasProjectAssetRef({
       id: `upload_${now}_${index}`,
       assetId: asset.assetId || `upload-asset-${now}-${index}`,
@@ -366,8 +396,8 @@ export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = D
       provenance: 'source',
       status: 'ready',
       url: asset.url || asset.stableUrl,
-      name: asset.name || `上传图片 ${index + 1}`,
-      displayLabel: asset.name || `上传图片 ${index + 1}`,
+      name: nodeName,
+      displayLabel: nodeName,
       group: '',
       role: '',
       ratio,
@@ -388,33 +418,38 @@ export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = D
   });
 }
 
-export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = Date.now() } = {}) {
+export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = Date.now(), namer = null } = {}) {
   const width = 320;
   const gap = 42;
-  return assets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => attachCanvasProjectAssetRef({
-    id: `video_upload_${now}_${index}`,
-    assetId: asset.id || asset.assetId || `video-asset-${now}-${index}`,
-    videoAssetId: asset.id || asset.videoAssetId || '',
-    kind: 'video',
-    provenance: 'source',
-    status: 'ready',
-    url: asset.url || asset.stableUrl,
-    name: asset.name || `上传视频 ${index + 1}`,
-    displayLabel: asset.name || `上传视频 ${index + 1}`,
-    group: '视频',
-    role: '参考视频',
-    aspectRatio: asset.aspectRatio || '16:9',
-    duration: Number(asset.duration) || 0,
-    resolution: asset.resolution || '',
-    sourceNodeIds: [],
-    editable: true,
-    showMeta: true,
-    x: finite(x) + index * (width + gap),
-    y: finite(y),
-    w: width,
-    h: Math.round(width / ratioValue(asset.aspectRatio || '16:9', 16 / 9)),
-    rotation: 0,
-    locked: false,
-    hidden: false,
-  }, asset));
+  return assets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => {
+    /* P-B 电影分镜命名: video -> Breakthrough-001 */
+    const fallbackName = namer ? namer.next('video') : `Breakthrough-${String(index + 1).padStart(3, '0')}`;
+    const nodeName = asset.name || fallbackName;
+    return attachCanvasProjectAssetRef({
+      id: `video_upload_${now}_${index}`,
+      assetId: asset.id || asset.assetId || `video-asset-${now}-${index}`,
+      videoAssetId: asset.id || asset.videoAssetId || '',
+      kind: 'video',
+      provenance: 'source',
+      status: 'ready',
+      url: asset.url || asset.stableUrl,
+      name: nodeName,
+      displayLabel: nodeName,
+      group: '视频',
+      role: '参考视频',
+      aspectRatio: asset.aspectRatio || '16:9',
+      duration: Number(asset.duration) || 0,
+      resolution: asset.resolution || '',
+      sourceNodeIds: [],
+      editable: true,
+      showMeta: true,
+      x: finite(x) + index * (width + gap),
+      y: finite(y),
+      w: width,
+      h: Math.round(width / ratioValue(asset.aspectRatio || '16:9', 16 / 9)),
+      rotation: 0,
+      locked: false,
+      hidden: false,
+    }, asset);
+  });
 }
