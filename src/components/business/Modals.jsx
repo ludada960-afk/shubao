@@ -391,15 +391,15 @@ export function PricingModal() {
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
         zIndex: 9999,
-        width: 'calc(100% - 32px)', maxWidth: 760,
+        width: 'calc(100% - 32px)', maxWidth: 'none',  /* 8-31 第 6 轮: 去掉 maxWidth 760 (PricingModalRefactored 自己有 width: calc(100vw - 16px) + max-width: 1100px) */
         maxHeight: 'calc(100vh - 40px)',
         overflowY: 'auto',
         overflowX: 'hidden',
         scrollbarWidth: 'none',
-        background: '#fff',
-        borderRadius: 24,
+        background: 'transparent',  /* 8-31 第 6 轮: 让 PricingModal 自身的 #ffffff 显示, 去掉双层背景 */
+        borderRadius: 20,  /* 8-31 第 6 轮: 匹配 PricingModal 自己的 20px, 去掉双层圆角 */
         boxShadow: '0 28px 90px rgba(0,0,0,0.2)',
-        padding: 24,
+        padding: 0,  /* 8-31 第 6 轮: 去掉外层 padding (双层) */
         animation: 'scaleIn 0.15s ease',
       }} className="pricing-modal-scroll-shell">
         {/* Close button */}

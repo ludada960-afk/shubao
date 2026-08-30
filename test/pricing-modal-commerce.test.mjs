@@ -178,7 +178,8 @@ test('title is user-facing: 给创作充点能量, not 商业化档位', () => {
 
 /* ═══════ 12. 弹窗尺寸: 880px (从 720 扩) ═══════ */
 test('modal width 1100px (修"框太小"反馈, 8-31 第 4 轮再扩到 1100)', () => {
-  assert.match(PRICING_CSS, /width: min\(1100px, calc\(96vw - 24px\)\)/);  /* 8-31 第 5 轮: viewport < 1100 时缩到 viewport - 24px (留 box-shadow 空间), 避免右侧内容被切 */
+  assert.match(PRICING_CSS, /width: calc\(100vw - 16px\)/);  /* 8-31 第 6 轮: 不缩到固定 1100, 让弹窗 viewport - 16px, 保证 4 列不被切 */
+  assert.match(PRICING_CSS, /max-width: 1100px/);
   assert.ok(!PRICING_CSS.includes('width: min(720px'), 'no 720px');
   assert.ok(!PRICING_CSS.includes('width: min(880px'), 'no 880px');
   assert.ok(!PRICING_CSS.includes('width: min(940px'), 'no 940px');
