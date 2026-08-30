@@ -14,37 +14,33 @@ import { FaWeixin } from "react-icons/fa";
 import { SiAlipay } from "react-icons/si";
 import { IMAGES } from "../../constants/images";
 
-/* ── 共享积分体系 (一套收费: 视频+图片共用 AI 积分) ── */
-const POINTS_PER_IMAGE = 3;
-const POINTS_PER_VIDEO = 46;
 
-function approxImages(units) { return Math.round(units / POINTS_PER_IMAGE); }
-function approxVideos(units) { return Math.round(units / POINTS_PER_VIDEO); }
 function formatUnits(n) { return n.toLocaleString("zh-CN"); }
-function formatPriceYuan(p) { return p.toFixed(1); }
-
+/* ── 渲染辅助: 从服务端 plans 派生展示数据 ── */
 const PACK_LABEL = {
-  trial:        "基础包",
-  starter:      "专业包",
-  growth:       "团队包",
-  studio:       "工作室包",
-  month_light:  "轻月卡",
-  month_pro:    "Pro 月卡",
+  ec_trial_990: "基础包",
+  ec_starter_29: "专业包",
+  ec_growth_79: "团队包",
+  ec_studio_199: "工作室包",
+  ec_monthpack_39: "轻月卡",
+  ec_monthpack_59: "Pro 月卡",
 };
-
-/* ── 4 档永久积分包 (升序, 专业包推荐) ── */
-const PERMANENT_PACKS = [
-  { id: "trial",   price: 9.9,   units: 300,  tagline: "0 风险试一次",  recommended: false },
-  { id: "starter", price: 29,    units: 900,  tagline: "新手开店首选",  recommended: true  },
-  { id: "growth",  price: 79,    units: 2400, tagline: "稳定出量",      recommended: false },
-  { id: "studio",  price: 199,   units: 6000, tagline: "团队级产能",    recommended: false },
-];
-
-/* ── 2 档月卡 (积分当月有效, 含赠) ── */
-const MONTHLY_PACKS = [
-  { id: "month_light", price: 39, units: 175, gift: 25, tagline: "月内高频" },
-  { id: "month_pro",   price: 59, units: 270, gift: 40, tagline: "稳定团队" },
-];
+const PACK_TAGLINE = {
+  ec_trial_990: "0 风险试一次",
+  ec_starter_29: "新手开店首选",
+  ec_growth_79: "稳定出量",
+  ec_studio_199: "团队级产能",
+  ec_monthpack_39: "月内高频",
+  ec_monthpack_59: "稳定团队",
+};
+/* 1 积分 = 1000 units (catalog 终案口径) */
+const UNITS_PER_POINT = 1000;
+/* 主力档图片成本 ¥0.038/张, 视频快试 ¥5.07/条 (catalog 终案口径) */
+const COST_PER_IMAGE_CNY = 0.038;
+const COST_PER_VIDEO_FAST_CNY = 5.07;
+function unitsToPoints(units) { return Math.round(Number(units || 0) / UNITS_PER_POINT); }
+function approxImages(points) { return Math.round(points); /* 1 积分 ≈ 1 张 2K 商品图 (catalog 终案) */ }
+function approxVideos(points) { return Math.round(points / 27); /* 27 积分 ≈ 1 条快试视频 (catalog 终案) */ }
 
 /* ── 主组件 (props 向后兼容 4c183cd4 时代) ── */
 export default function PricingModalRefactored({
@@ -61,12 +57,17 @@ export default function PricingModalRefactored({
 
   /* Tab: 'permanent' (永久积分包) | 'monthly' (月卡套餐) - 灵图风格双tab */
   const [activeTab, setActiveTab] = useState("permanent");
-  const [selectedId, setSelectedId] = useState("starter");
+  const [selectedId, setSelectedId] = useState("ec_starter_29");
   const [payProvider, setPayProvider] = useState(null);
 
-  const currentPacks = activeTab === "permanent" ? PERMANENT_PACKS : MONTHLY_PACKS;
-  const recommended = currentPacks.find((p) => p.recommended) || currentPacks[Math.min(1, currentPacks.length - 1)];
-  const selectedPack = currentPacks.find((p) => p.id === selectedId) || currentPacks[0];
+  /* 从服务端 plans props 派生当前 tab 的 SKU (currency=ec_points 的才是积分包) */
+  const planCatalog = (plans || []).filter((p) => p && p.currency === "ec_points");
+  const permanentPacks = planCatalog.filter((p) => !String(p.sku || "").startsWith("ec_monthpack_"));
+  const monthlyPacks = planCatalog.filter((p) => String(p.sku || "").startsWith("ec_monthpack_"));
+  const currentPacks = activeTab === "permanent" ? permanentPacks : monthlyPacks;
+  /* 推荐档: ec_starter_29 (基于 server/billing/catalog.mjs 终案) */
+  const recommended = currentPacks.find((p) => p.sku === "ec_starter_29") || currentPacks.find((p) => p.recommended) || currentPacks[Math.min(1, currentPacks.length - 1)];
+  const selectedPack = currentPacks.find((p) => p.sku === selectedId) || recommended;
 
   /* Escape 关闭 */
   useEffect(() => {
@@ -79,20 +80,20 @@ export default function PricingModalRefactored({
   /* 切 tab 时自动选中推荐档 (避免切换 tab 后旧选中残留) */
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
-    setSelectedId(tab === "permanent" ? "starter" : "month_light");
+    setSelectedId(tab === "permanent" ? "ec_starter_29" : "ec_monthpack_39");
     setPayProvider(null);
   }, []);
 
   /* 选套餐时清支付态 */
-  const handleSelectPack = useCallback((id) => {
-    setSelectedId(id);
+  const handleSelectPack = useCallback((sku) => {
+    setSelectedId(sku);
     setPayProvider(null);
   }, []);
 
   const handlePay = useCallback(
     (provider) => {
       setPayProvider(provider);
-      if (onBuy) onBuy({ id: selectedId, activeTab, provider });
+      if (onBuy) onBuy({ sku: selectedId, activeTab, provider });
       window.setTimeout(() => setPayProvider(null), 30000);
     },
     [onBuy, selectedId, activeTab]
@@ -108,7 +109,7 @@ export default function PricingModalRefactored({
       <header className="pricing-modal__header">
         <div className="pricing-modal__brand">
           <img src={IMAGES.logo_lg} alt="番茄AI" className="pricing-modal__brand-logo" />
-          <span className="pricing-modal__brand-text">番茄 AI</span>
+          <span className="pricing-modal__brand-text">薯包 AI</span>
         </div>
         <button
           type="button"
@@ -167,38 +168,43 @@ export default function PricingModalRefactored({
       {/* 套餐网格 (升序, 推荐档居中放大, 黑色 CTA) */}
       <div className="pricing-modal__pack-grid" data-testid="pricing-modal-packs">
         {currentPacks.map((pack) => {
-          const isSelected = selectedId === pack.id;
-          const isRec = pack.recommended;
-          const imgCount = approxImages(pack.units);
-          const vidCount = approxVideos(pack.units);
+          const sku = String(pack.sku || "");
+          const isSelected = selectedId === sku;
+          const isRec = sku === "ec_starter_29" || pack.recommended === true;
+          const points = unitsToPoints(pack.grantUnits);
+          const giftPoints = pack.giftUnits ? unitsToPoints(pack.giftUnits) : 0;
+          const imgCount = approxImages(points);
+          const vidCount = approxVideos(points);
+          const label = PACK_LABEL[sku] || sku;
+          const tagline = PACK_TAGLINE[sku] || "";
           return (
             <article
-              key={pack.id}
+              key={sku}
               className={
                 "pricing-modal__pack" +
                 (isRec ? " pricing-modal__pack--anchored" : "") +
                 (isSelected ? " pricing-modal__pack--selected" : "")
               }
-              onClick={() => handleSelectPack(pack.id)}
-              data-testid={"pricing-modal-pack-" + pack.id}
+              onClick={() => handleSelectPack(sku)}
+              data-testid={"pricing-modal-pack-" + sku}
             >
               {isRec && (
                 <span className="pricing-modal__pack-flag" data-testid="pricing-modal-pack-flag">
                   <MdStar size={10} /> 推荐
                 </span>
               )}
-              <div className="pricing-modal__pack-tagline">{pack.tagline}</div>
-              <div className="pricing-modal__pack-name">{PACK_LABEL[pack.id]}</div>
+              <div className="pricing-modal__pack-tagline">{tagline}</div>
+              <div className="pricing-modal__pack-name">{label}</div>
               <div className="pricing-modal__pack-price">
                 <span className="pricing-modal__pack-price-sym">¥</span>
-                <span className="pricing-modal__pack-price-val">{formatPriceYuan(pack.price)}</span>
+                <span className="pricing-modal__pack-price-val">{(pack.priceFen / 100).toFixed(1)}</span>
               </div>
-              <div className="pricing-modal__pack-units">{formatUnits(pack.units)} 积分</div>
+              <div className="pricing-modal__pack-units">{formatUnits(points)} 积分</div>
               <div className="pricing-modal__pack-equiv">
-                {pack.gift
-                  ? "含赠 " + pack.gift + " 积分"
-                  : "约 " + imgCount + " 张图 / 约 " + vidCount + " 条视频"
-                }
+                {pack.description || (giftPoints > 0
+                  ? "含赠 " + giftPoints + " 积分"
+                  : "约 " + imgCount + " 张 2K 图 / 约 " + vidCount + " 条快试视频"
+                )}
               </div>
               <button
                 type="button"
@@ -207,8 +213,8 @@ export default function PricingModalRefactored({
                   (isSelected ? " pricing-modal__pack-cta--selected" : "") +
                   (isRec && !isSelected ? " pricing-modal__pack-cta--anchored" : "")
                 }
-                onClick={(e) => { e.stopPropagation(); handleSelectPack(pack.id); }}
-                data-testid={"pricing-modal-pack-cta-" + pack.id}
+                onClick={(e) => { e.stopPropagation(); handleSelectPack(sku); }}
+                data-testid={"pricing-modal-pack-cta-" + sku}
               >
                 {isSelected ? "✓ 已选" : "选这个"}
               </button>
@@ -220,7 +226,7 @@ export default function PricingModalRefactored({
       {/* 支付区 */}
       <div className="pricing-modal__pay" data-testid="pricing-modal-pay">
         <div className="pricing-modal__pay-summary">
-          已选: <strong>{PACK_LABEL[selectedPack.id]}</strong> · ¥{formatPriceYuan(selectedPack.price)} · {formatUnits(selectedPack.units)} 积分
+          已选: <strong>{PACK_LABEL[selectedPack.sku] || selectedPack.sku}</strong> · ¥{(selectedPack.priceFen/100).toFixed(1)} · {formatUnits(unitsToPoints(selectedPack.grantUnits))} 积分
         </div>
         <div className="pricing-modal__pay-grid">
           <button

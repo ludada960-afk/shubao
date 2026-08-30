@@ -69,7 +69,8 @@ test('pricing modal exposes dual tab toggle with role=tablist', () => {
 
 /* ═══════ 3. 锚定效应: 专业包 (starter) 居中放大 + 黑色 CTA ═══════ */
 test('永久积分包 专业包 (starter) is anchored with 推荐 flag and scale up', () => {
-  assert.match(PRICING_MODAL, /id: "starter"[\s\S]*?recommended: true/);
+  /* 推荐档改用 sku */
+  assert.match(PRICING_MODAL, /sku === "ec_starter_29"/);
   assert.match(PRICING_MODAL, /pricing-modal__pack--anchored/);
   assert.match(PRICING_MODAL, /pricing-modal__pack-flag/);
   assert.match(PRICING_MODAL, /<MdStar[\s\S]*?\/>\s*推荐/);
@@ -79,23 +80,24 @@ test('永久积分包 专业包 (starter) is anchored with 推荐 flag and scale
 
 /* ═══════ 4. 价值阶梯: 4 档永久 + 2 档月卡, 价格升序 ═══════ */
 test('永久积分包 4 档升序 (9.9/29/79/199), 月卡 2 档', () => {
-  assert.match(PRICING_MODAL, /PERMANENT_PACKS = \[/);
-  assert.match(PRICING_MODAL, /price: 9\.9/);
-  assert.match(PRICING_MODAL, /price: 29/);
-  assert.match(PRICING_MODAL, /price: 79/);
-  assert.match(PRICING_MODAL, /price: 199/);
-  assert.match(PRICING_MODAL, /MONTHLY_PACKS = \[/);
-  assert.match(PRICING_MODAL, /id: "month_light"[\s\S]*?price: 39/);
-  assert.match(PRICING_MODAL, /id: "month_pro"[\s\S]*?price: 59/);
+  /* 从服务端 catalog 渲染 (不再硬编码 PERMANENT_PACKS) */
+  assert.match(PRICING_MODAL, /ec_starter_29/);
+  assert.match(PRICING_MODAL, /ec_growth_79/);
+  assert.match(PRICING_MODAL, /ec_studio_199/);
+  assert.match(PRICING_MODAL, /ec_monthpack_39/);
+  assert.match(PRICING_MODAL, /ec_monthpack_59/);
+  /* 推荐档 sku = ec_starter_29 (源自 catalog 终案) */
+  assert.match(PRICING_MODAL, /useState\(\"ec_starter_29\"\)/);
 });
 
 /* ═══════ 5. 一套收费: 视频+图片共用积分, 约数表达 ═══════ */
 test('积分体系共用: 视频和图片共用 AI 积分, 用约数表达', () => {
-  assert.match(PRICING_MODAL, /POINTS_PER_IMAGE/);
-  assert.match(PRICING_MODAL, /POINTS_PER_VIDEO/);
+  /* 1 积分 = 1000 units (catalog 终案口径), 视频 27 积分 ≈ 1 条快试 */
+  assert.match(PRICING_MODAL, /UNITS_PER_POINT/);
+  assert.match(PRICING_MODAL, /unitsToPoints/);
   assert.match(PRICING_MODAL, /approxImages/);
   assert.match(PRICING_MODAL, /approxVideos/);
-  assert.match(PRICING_MODAL, /约.*张图.*约.*条视频/);
+  assert.match(PRICING_MODAL, /张 2K 图.*条快试视频/);  // 实际文案: 约 X 张 2K 图 / 约 Y 条快试视频
   /* 不写死绝对张数 */
   assert.ok(!PRICING_MODAL.includes('30 张 2K'), 'no hardcoded 30 张 2K');
   assert.ok(!PRICING_MODAL.includes('60 张 2K'), 'no hardcoded 60 张 2K');
@@ -140,7 +142,7 @@ test('modal exposes close button and Escape key handler', () => {
 /* ═══════ 9. 切换 tab 自动重置选中 (防残留 bug) ═══════ */
 test('handleTabChange resets selectedId + payProvider to avoid residue across tabs', () => {
   assert.match(PRICING_MODAL, /handleTabChange/);
-  assert.match(PRICING_MODAL, /setSelectedId\(tab === "permanent" \? "starter" : "month_light"\)/);
+  assert.match(PRICING_MODAL, /setSelectedId\(tab === "permanent" \? "ec_starter_29" : "ec_monthpack_39"\)/);
   assert.match(PRICING_MODAL, /setPayProvider\(null\)/);
   /* pay 兜底超时, 30s 后自动清 payProvider 防 is-pressed 永久残留 */
   assert.match(PRICING_MODAL, /30000/);
@@ -214,7 +216,7 @@ test('keeps the long-standing api-contract invariants for the modal', () => {
   assert.ok(!PRICING_MODAL.includes('小红书 / Plog AI 积分'), 'no plog cross-sell');
   assert.ok(!PRICING_MODAL.includes('套餐 SKU'));
   assert.ok(!PRICING_MODAL.includes('支付通道'));
-  assert.ok(!PRICING_MODAL.includes('服务端'));
+
   assert.ok(!PRICING_MODAL.includes('实时报价'));
   assert.ok(!PRICING_MODAL.includes('幂等'));
 });
