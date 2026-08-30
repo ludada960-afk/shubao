@@ -1,0 +1,773 @@
+/* ═══════ 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI 样式 ═══════
+   用户原话 8-30: "最成品, 最面向市场, 最高级的一个体验和流畅度"
+   设计语言: 玻璃拟态 + 暗色优先 + 微动效 spring 130ms + 高级悬停反馈 */
+
+/* 顶栏监督状态条 */
+.ec-canvas-supervisor-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(13, 17, 23, 0.6);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ec-canvas-supervisor-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ec-canvas-supervisor-button:hover {
+  background: rgba(78, 205, 196, 0.12);
+  border-color: rgba(78, 205, 196, 0.34);
+  transform: translateY(-1px);
+}
+.ec-canvas-supervisor-button:active {
+  transform: translateY(0);
+}
+
+.ec-canvas-supervisor-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  background: linear-gradient(135deg, #FF6B6B, #EC4899);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* 保存状态指示器 */
+.ec-canvas-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.ec-canvas-save-indicator-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+.ec-canvas-save-indicator.status-saved .ec-canvas-save-indicator-dot {
+  animation: saveIndicatorPulse 2.4s ease-in-out infinite;
+}
+.ec-canvas-save-indicator.status-saving .ec-canvas-save-indicator-dot {
+  animation: saveIndicatorSpin 1.4s linear infinite;
+}
+@keyframes saveIndicatorPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes saveIndicatorSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 节点操作条 (Quantv NodeActionBar) */
+.ec-canvas-node-action-bar {
+  position: fixed;
+  z-index: 9000;
+  width: 360px;
+  background: rgba(20, 24, 33, 0.92);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4),
+              0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  animation: nodeActionBarEnter 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes nodeActionBarEnter {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ec-canvas-node-action-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ec-canvas-node-action-bar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ec-canvas-node-action-bar-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.ec-canvas-node-action-bar-kind {
+  font-style: normal;
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.ec-canvas-node-action-bar-status {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.ec-canvas-node-action-bar-status.status-ready { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+.ec-canvas-node-action-bar-status.status-running { background: rgba(78, 205, 196, 0.18); color: #4ECDC4; }
+.ec-canvas-node-action-bar-status.status-error { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+.ec-canvas-node-action-bar-status.status-success { background: rgba(78, 205, 196, 0.18); color: #4ECDC4; }
+.ec-canvas-node-action-bar-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px;
+}
+.ec-canvas-node-action-bar-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.84);
+  cursor: pointer;
+  transition: all 0.16s ease-out;
+  font-size: 11px;
+  font-weight: 500;
+}
+.ec-canvas-node-action-bar-button:hover {
+  background: rgba(78, 205, 196, 0.1);
+  color: #4ECDC4;
+}
+.ec-canvas-node-action-bar-button.is-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+.ec-canvas-node-action-bar-button-label {
+  font-size: 11px;
+}
+.ec-canvas-node-action-bar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+.ec-canvas-node-action-bar-cost {
+  font-weight: 600;
+  color: #FFE66D;
+}
+.ec-canvas-node-action-bar-save {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ec-canvas-node-action-bar-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.16s;
+}
+.ec-canvas-node-action-bar-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 画布右键菜单 (空白处) */
+.ec-canvas-context-panel {
+  position: fixed;
+  z-index: 8500;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  animation: contextPanelEnter 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes contextPanelEnter {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.ec-canvas-context-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 6px;
+}
+.ec-canvas-context-panel-header strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.ec-canvas-context-panel-header span {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ec-canvas-context-panel-group-label {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ec-canvas-context-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s;
+  text-align: left;
+}
+.ec-canvas-context-panel-item:hover {
+  background: rgba(78, 205, 196, 0.12);
+}
+.ec-canvas-context-panel-item-icon {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+.ec-canvas-context-panel-item-label {
+  flex: 1;
+}
+.ec-canvas-context-panel-item-shortcut {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  font-family: 'SF Mono', monospace;
+}
+
+/* 添加节点面板 (Quantv §10.2) */
+.ec-canvas-add-node-panel {
+  position: fixed;
+  z-index: 8500;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  animation: contextPanelEnter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ec-canvas-add-node-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 6px;
+}
+.ec-canvas-add-node-panel-header strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ec-canvas-add-node-panel-header span {
+  display: block;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ec-canvas-add-node-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 0 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+.ec-canvas-add-node-panel-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-size: 12px;
+}
+.ec-canvas-add-node-panel-search input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.ec-canvas-add-node-panel-section {
+  padding: 4px 0;
+}
+.ec-canvas-add-node-panel-section-label {
+  padding: 8px 14px 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ec-canvas-add-node-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 0 6px;
+}
+.ec-canvas-add-node-panel-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.14s ease-out;
+}
+.ec-canvas-add-node-panel-card:hover {
+  background: rgba(78, 205, 196, 0.1);
+  border-color: rgba(78, 205, 196, 0.3);
+  transform: translateY(-1px);
+}
+.ec-canvas-add-node-panel-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: #4ECDC4;
+}
+.ec-canvas-add-node-panel-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ec-canvas-add-node-panel-card-text strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ec-canvas-add-node-panel-card-text small {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 快捷键帮助面板 */
+.ec-canvas-shortcut-help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  animation: shortcutHelpOverlayEnter 200ms ease-out;
+}
+@keyframes shortcutHelpOverlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ec-canvas-shortcut-help {
+  background: rgba(13, 17, 23, 0.96);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: shortcutHelpEnter 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes shortcutHelpEnter {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ec-canvas-shortcut-help header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ec-canvas-shortcut-help header strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.ec-canvas-shortcut-help header button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 18px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  transition: all 0.12s;
+}
+.ec-canvas-shortcut-help header button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+}
+.ec-canvas-shortcut-help-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+}
+.ec-canvas-shortcut-help-search input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.ec-canvas-shortcut-help-search input:focus {
+  border-color: rgba(78, 205, 196, 0.4);
+}
+.ec-canvas-shortcut-help-list {
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  flex: 1;
+  min-height: 200px;
+}
+.ec-canvas-shortcut-help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.ec-canvas-shortcut-help-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.ec-canvas-shortcut-help-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ec-canvas-shortcut-help-keys kbd {
+  font-family: 'SF Mono', monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.ec-canvas-shortcut-help-keys .or-divider {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 10px;
+  margin: 0 2px;
+}
+.ec-canvas-shortcut-help-desc {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.ec-canvas-shortcut-help-empty {
+  text-align: center;
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* 任务日志面板 */
+.ec-canvas-task-log-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10800;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: flex-end;
+  animation: shortcutHelpOverlayEnter 160ms ease-out;
+}
+.ec-canvas-task-log-panel {
+  width: 420px;
+  height: 100%;
+  background: rgba(13, 17, 23, 0.96);
+  backdrop-filter: blur(28px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  animation: taskLogPanelEnter 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes taskLogPanelEnter {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.ec-canvas-task-log-panel header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ec-canvas-task-log-panel header strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.ec-canvas-task-log-panel header span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ec-canvas-task-log-panel header button {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 18px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+.ec-canvas-task-log-panel header button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+}
+.ec-canvas-task-log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.ec-canvas-task-log-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+}
+.ec-canvas-task-log-group-header.status-processing { background: rgba(78, 205, 196, 0.1); color: #4ECDC4; }
+.ec-canvas-task-log-group-header.status-failed { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+.ec-canvas-task-log-group-header.status-completed { background: rgba(34, 197, 94, 0.1); color: #4ade80; }
+.ec-canvas-task-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.ec-canvas-task-log-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.ec-canvas-task-log-row-main strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ec-canvas-task-log-row-main small {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.ec-canvas-task-log-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.ec-canvas-task-log-row-actions button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ec-canvas-task-log-row-actions button:hover {
+  background: rgba(78, 205, 196, 0.12);
+  border-color: rgba(78, 205, 196, 0.3);
+}
+.ec-canvas-task-log-empty {
+  text-align: center;
+  padding: 60px 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+/* 小地图 */
+.ec-canvas-minimap {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 5000;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 6px 4px 4px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.92);
+}
+.ec-canvas-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 4px;
+  font-size: 10px;
+}
+.ec-canvas-minimap-header strong {
+  font-weight: 600;
+}
+.ec-canvas-minimap-header span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 9px;
+}
+.ec-canvas-minimap-canvas {
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.ec-canvas-minimap-node {
+  position: absolute;
+  border-radius: 2px;
+  transition: all 0.16s;
+}
+.ec-canvas-minimap-viewport {
+  position: absolute;
+  border: 1px solid rgba(78, 205, 196, 0.7);
+  background: rgba(78, 205, 196, 0.06);
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
+}
+
+/* 便签 */
+.ec-canvas-sticker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18),
+              0 0 0 1px rgba(255, 255, 255, 0.08);
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  cursor: move;
+  z-index: 100;
+  transition: box-shadow 0.2s ease-out;
+}
+.ec-canvas-sticker:hover {
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.24),
+              0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.ec-canvas-sticker-text {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: 18px;
+  line-height: 1.4;
+  color: inherit;
+  padding: 4px;
+}
+.ec-canvas-sticker-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.14s;
+}
+.ec-canvas-sticker:hover .ec-canvas-sticker-delete {
+  opacity: 1;
+}
+.ec-canvas-sticker-delete:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+/* 边类型校验 (Quantv isEdgeInvalid) */
+.ec-canvas-edge-invalid {
+  stroke: #EF4444 !important;
+  stroke-dasharray: 4 4 !important;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+  animation: edgeInvalidPulse 1.2s ease-in-out infinite;
+}
+@keyframes edgeInvalidPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* 网格吸附视觉提示 */
+.ec-canvas-snap-indicator {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(78, 205, 196, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 205, 196, 0.06) 1px, transparent 1px);
+  background-size: 8px 8px;
+}

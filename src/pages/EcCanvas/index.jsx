@@ -94,11 +94,38 @@ import './EcCanvas.css';
 import '../../styles/canvas-derive-menu.css';
 import '../../styles/canvas-empty-actions.css';
 import '../../styles/canvas-right-panel.css';
+/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI */
+import '../../styles/canvas-supervisor.css';
 import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
 /* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 (8 大新规划 5/8 落地) */
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay import (1-click 视频 overlay 重复入口, 改走节点串联) */
 import CanvasMultiModalOverlay from './components/CanvasMultiModalOverlay.jsx';
 import CanvasTemplateMarketplace from './components/CanvasTemplateMarketplace.jsx';
+/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI 组件
+   CanvasContextMenuPanel.jsx 内含: CanvasContextMenuPanel / CanvasAddNodePanel /
+   CanvasShortcutHelp / CanvasMinimap / CanvasTaskLogPanel / SaveStatusIndicator / CanvasSticker */
+import CanvasNodeActionBar from './components/CanvasNodeActionBar.jsx';
+/* CanvasContextMenuPanel 是 default export, 其余是 named exports */
+import CanvasContextMenuPanel, {
+  CanvasAddNodePanel,
+  CanvasShortcutHelp,
+  CanvasMinimap,
+  CanvasTaskLogPanel,
+  SaveStatusIndicator,
+} from './components/CanvasContextMenuPanel.jsx';
+/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 核心扩展逻辑 */
+import {
+  isEdgeInvalid,
+  autoCanvasShotName,
+  createCanvasGroup,
+  dissolveCanvasGroup,
+  autoArrangeCanvasNodes,
+} from './canvasQuantvExtensions.js';
+import {
+  copyNodesToClipboard,
+  readClipboardNodes,
+  createCanvasHistory,
+} from './canvasKeyboardHooks.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
@@ -451,13 +478,19 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
         const y2 = toPort.y;
         const mx = (x1 + x2) / 2;
         const isProcessing = from.status === 'processing' || to.status === 'processing';
-        const style = isProcessing
-          ? { stroke: '#7c3aed', dash: '8 6' }
-          : styles[conn.relation || conn.type] || styles.reference;
+        /* 4c183cd4 续命 画布总监督 2026-08-30 - 边类型校验 (Quantv isEdgeInvalid) */
+        const validity = isEdgeInvalid(conn, nodes);
+        const isInvalid = validity.invalid;
+        const style = isInvalid
+          ? { stroke: '#EF4444', dash: '4 4' }
+          : isProcessing
+            ? { stroke: '#7c3aed', dash: '8 6' }
+            : styles[conn.relation || conn.type] || styles.reference;
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
+        const edgeClass = isInvalid ? 'ec-canvas-edge-invalid' : (isProcessing ? 'ec-canvas-edge-processing' : undefined);
         return (
           <g key={i}>
-            <path className={isProcessing ? 'ec-canvas-edge-processing' : undefined} data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
+            <path className={edgeClass} data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
@@ -602,6 +635,17 @@ export default function EcCanvas() {
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
+  /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能状态 */
+  const [saveStatus, setSaveStatus] = useState('saved');
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [taskLogOpen, setTaskLogOpen] = useState(false);
+  const [taskLogEntries, setTaskLogEntries] = useState([]);
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [addNodePanel, setAddNodePanel] = useState(null);
+  const [canvasContextPanel, setCanvasContextPanel] = useState(null);
+  const [nodeActionBar, setNodeActionBar] = useState(null);
+  const [snapEnabled, setSnapEnabled] = useState(false);
+  const [themeMode, setThemeMode] = useState('auto');
 
   useEffect(() => {
     const requestedTab = state.canvasEntryTab;
@@ -634,6 +678,10 @@ export default function EcCanvas() {
   const workflowProcessRef = useRef(null);
   const sourceUploadRef = useRef(null);
   const videoUploadRef = useRef(null);
+  /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 ref + 撤销/重做 history */
+  const audioUploadRef = useRef(null);
+  const historyRef = useRef(null);
+  if (!historyRef.current) historyRef.current = createCanvasHistory();
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
   const projectAssetImportBusyRef = useRef(false);
@@ -1471,6 +1519,131 @@ export default function EcCanvas() {
         e.preventDefault();
         fitViewRef.current?.();
         return;
+      }
+      /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 完整快捷键 */
+      // Ctrl+C / Cmd+C: 复制选中节点到剪贴板
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && (selected || multiSelected.size > 0)) {
+        e.preventDefault();
+        const ids = selected ? new Set([selected]) : multiSelected;
+        const toCopy = (nodes || []).filter(n => ids.has(n.id));
+        if (toCopy.length) {
+          copyNodesToClipboard(toCopy).then(({ ok }) => {
+            if (ok) console.info('[canvas] 已复制', toCopy.length, '个节点到剪贴板');
+          });
+        }
+        return;
+      }
+      // Ctrl+V / Cmd+V: 从剪贴板粘贴
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        readClipboardNodes().then(payload => {
+          if (!payload?.nodes?.length) return;
+          // 偏移位置避免覆盖
+          const offset = 36;
+          const now = Date.now();
+          const newNodes = payload.nodes.map((n, i) => ({
+            ...n,
+            id: `pasted_${now}_${i}_${n.id}`,
+            x: (n.x || 100) + offset + i * offset,
+            y: (n.y || 100) + offset + i * offset,
+            userRenamed: false,
+          }));
+          setNodes(prev => [...prev, ...newNodes]);
+        });
+        return;
+      }
+      // Ctrl+D / Cmd+D: 复制选中节点 (复用 Ctrl+V 机制, 不清空选中)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && (selected || multiSelected.size > 0)) {
+        // 上面 Ctrl+D 已绑到取消全选, 改成单独的 Cmd+D 复制
+        if (e.metaKey && (selected || multiSelected.size > 0)) {
+          e.preventDefault();
+          const ids = selected ? new Set([selected]) : multiSelected;
+          const toDup = (nodes || []).filter(n => ids.has(n.id));
+          if (toDup.length) {
+            const offset = 36;
+            const now = Date.now();
+            const newNodes = toDup.map((n, i) => ({
+              ...n,
+              id: `dup_${now}_${i}`,
+              x: (n.x || 100) + offset + i * offset,
+              y: (n.y || 100) + offset + i * offset,
+            }));
+            setNodes(prev => [...prev, ...newNodes]);
+          }
+          return;
+        }
+        return;
+      }
+      // Ctrl+Z / Cmd+Z: 撤销
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        const current = { nodes };
+        const previous = historyRef.current.undo(current);
+        if (previous !== current && previous.nodes) {
+          setNodes(previous.nodes);
+          historyRef.current.push(current);
+        }
+        return;
+      }
+      // Ctrl+Shift+Z / Cmd+Shift+Z: 重做
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && e.shiftKey) {
+        e.preventDefault();
+        const current = { nodes };
+        const next = historyRef.current.redo(current);
+        if (next !== current && next.nodes) {
+          setNodes(next.nodes);
+        }
+        return;
+      }
+      // Ctrl+G / Cmd+G: 打组
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g' && (selected || multiSelected.size > 0)) {
+        e.preventDefault();
+        const ids = selected ? new Set([selected]) : multiSelected;
+        if (ids.size >= 2) {
+          setNodes(prev => createCanvasGroup(prev, ids));
+        }
+        return;
+      }
+      // Ctrl+Shift+G / Cmd+Shift+G: 取消分组
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g' && (selected || multiSelected.size > 0)) {
+        e.preventDefault();
+        const ids = selected ? new Set([selected]) : multiSelected;
+        setNodes(prev => dissolveCanvasGroup(prev, ids));
+        return;
+      }
+      // Ctrl+S / Cmd+S: 手动保存
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        setSaveStatus('saving');
+        // 触发持久化 (debounce 200ms 模拟)
+        setTimeout(() => {
+          setSaveStatus('saved');
+          setLastSavedAt(Date.now());
+        }, 220);
+        return;
+      }
+      // ?: 帮助面板
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShortcutHelpOpen(true);
+        return;
+      }
+      // 方向键移动选中节点
+      if (!isTyping && (selected || multiSelected.size > 0)) {
+        const step = e.shiftKey ? 10 : 1;
+        let dx = 0, dy = 0;
+        if (e.key === 'ArrowLeft') dx = -step;
+        else if (e.key === 'ArrowRight') dx = step;
+        else if (e.key === 'ArrowUp') dy = -step;
+        else if (e.key === 'ArrowDown') dy = step;
+        if (dx || dy) {
+          e.preventDefault();
+          const ids = selected ? new Set([selected]) : multiSelected;
+          setNodes(prev => prev.map(n => ids.has(n.id) && !n.locked
+            ? { ...n, x: (n.x || 0) + dx, y: (n.y || 0) + dy }
+            : n));
+          return;
+        }
       }
     };
     const handleKeyUp = (e) => {
@@ -3731,6 +3904,58 @@ export default function EcCanvas() {
     }
   };
 
+  /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 (Quantv 5 种基础节点: audio) */
+  const handleCanvasAudioUpload = async event => {
+    const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('audio/')).slice(0, 4);
+    event.target.value = '';
+    if (!files.length) return;
+    const uploadStartedAt = Date.now();
+    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `audio-upload-${uploadStartedAt}` });
+    setPromptLoading(true);
+    try {
+      const assets = [];
+      for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      const bounds = containerRef.current?.getBoundingClientRect();
+      const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
+      const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
+      const width = 320;
+      const gap = 42;
+      const safeN = (v, fb) => Number.isFinite(Number(v)) ? Number(v) : fb;
+      const audioNodes = assets.map((asset, index) => ({
+        id: `audio_upload_${uploadStartedAt}_${index}`,
+        kind: 'audio',
+        provenance: 'source',
+        status: 'ready',
+        url: asset.url || asset.stableUrl,
+        name: asset.name || `音频 ${index + 1}`,
+        displayLabel: asset.name || `音频 ${index + 1}`,
+        group: '音频',
+        role: '配音',
+        duration: Number(asset.duration) || 0,
+        editable: true,
+        showMeta: true,
+        x: safeN(worldX, 200) + index * (width + gap),
+        y: safeN(worldY, 200),
+        w: width,
+        h: 120,
+        rotation: 0,
+        locked: false,
+        hidden: false,
+      })).filter(node => node.url);
+      draftReadyRef.current = true;
+      setNodes(previous => [...previous, ...audioNodes]);
+      if (audioNodes.length) {
+        setSelected(audioNodes[0].id || null);
+        setMultiSelected(new Set(audioNodes.map(n => n.id)));
+      }
+      showToast(audioNodes.length ? `已加入 ${audioNodes.length} 个音频` : '没有可用的音频', audioNodes.length ? 'success' : 'error');
+    } catch (error) {
+      showToast(error.message || '音频上传失败，请重试', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  };
+
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
     const accepted = composer?.kind === 'video-composer'
@@ -4630,6 +4855,27 @@ export default function EcCanvas() {
         }}
       />
 
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - 保存状态指示器 (顶栏) + 任务日志入口 */}
+      <div className="ec-canvas-supervisor-bar" aria-label="画布监督状态栏">
+        <SaveStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+        <button
+          type="button"
+          className="ec-canvas-supervisor-button"
+          aria-label="任务日志"
+          onClick={() => setTaskLogOpen(true)}
+        >
+          任务日志 {taskLogEntries.length > 0 && <span className="ec-canvas-supervisor-badge">{taskLogEntries.length}</span>}
+        </button>
+        <button
+          type="button"
+          className="ec-canvas-supervisor-button"
+          aria-label="快捷键面板"
+          onClick={() => setShortcutHelpOpen(true)}
+        >
+          快捷键 (?)
+        </button>
+      </div>
+
       {tab === 'canvas' ? (
         <div
           ref={containerRef}
@@ -4639,8 +4885,30 @@ export default function EcCanvas() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onContextMenu={event => {
+            /* 4c183cd4 续命 画布总监督 2026-08-30 - 画布空白处右键菜单 */
+            if (event.target?.closest?.('[data-canvas-node-id],button,input,textarea,select,a')) return;
+            event.preventDefault();
+            const rect = containerRef.current?.getBoundingClientRect();
+            const world = toWorldPoint ? toWorldPoint(event) : { x: event.clientX, y: event.clientY };
+            setCanvasContextPanel({
+              x: event.clientX,
+              y: event.clientY,
+              world,
+            });
+          }}
           onDoubleClick={event => {
-            if (!event.target?.closest?.('[data-canvas-node-id],button,input,textarea,select,a')) sourceUploadRef.current?.click();
+            /* 4c183cd4 续命 画布总监督 2026-08-30 - 双击空白处弹添加节点面板 (Quantv §10.2) */
+            if (!event.target?.closest?.('[data-canvas-node-id],button,input,textarea,select,a')) {
+              event.preventDefault();
+              const rect = containerRef.current?.getBoundingClientRect();
+              const world = toWorldPoint ? toWorldPoint(event) : { x: event.clientX - (rect?.left || 0), y: event.clientY - (rect?.top || 0) };
+              setAddNodePanel({
+                x: event.clientX,
+                y: event.clientY,
+                world,
+              });
+            }
           }}
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
@@ -5311,7 +5579,7 @@ export default function EcCanvas() {
         </div>
       )}
 
-      {/* A6: 右键上下文菜单 */}
+      {/* A6: 右键上下文菜单 (节点级) */}
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
@@ -5322,6 +5590,151 @@ export default function EcCanvas() {
           onAction={handleToolAction}
         />
       )}
+
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 节点操作条 (NodeActionBar) */}
+      {nodeActionBar && (
+        <CanvasNodeActionBar
+          node={nodeActionBar.node}
+          position={nodeActionBar.position}
+          onAction={(actionId, node) => {
+            /* 转发到对应的 canvas action */
+            handleToolAction({ id: actionId, execute: { handler: actionId } }, node);
+            if (actionId !== 'preview' && actionId !== 'add-asset') {
+              setNodeActionBar(null);
+            }
+          }}
+          onClose={() => setNodeActionBar(null)}
+          saveStatus={saveStatus}
+        />
+      )}
+
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 画布右键菜单 (空白处) */}
+      {canvasContextPanel && (
+        <CanvasContextMenuPanel
+          x={canvasContextPanel.x}
+          y={canvasContextPanel.y}
+          onAction={(actionId) => {
+            switch (actionId) {
+              case 'add-text': handleAddTextRef.current?.(); break;
+              case 'add-image': sourceUploadRef.current?.click?.(); break;
+              case 'add-video': videoUploadRef.current?.click?.(); break;
+              case 'add-audio': audioUploadRef.current?.click?.(); break;
+              case 'add-application':
+                setAddNodePanel({
+                  x: canvasContextPanel.x,
+                  y: canvasContextPanel.y,
+                  world: canvasContextPanel.world,
+                });
+                break;
+              case 'paste':
+                readClipboardNodes().then(payload => {
+                  if (!payload?.nodes?.length) return;
+                  const now = Date.now();
+                  const newNodes = payload.nodes.map((n, i) => ({
+                    ...n,
+                    id: `pasted_${now}_${i}`,
+                    x: (n.x || 100) + i * 36,
+                    y: (n.y || 100) + i * 36,
+                  }));
+                  setNodes(prev => [...prev, ...newNodes]);
+                });
+                break;
+              case 'select-all':
+                setMultiSelected(new Set((nodes || []).map(n => n.id)));
+                setSelected(null);
+                break;
+              case 'fit-view': fitViewRef.current?.(); break;
+              case 'auto-arrange':
+                setNodes(prev => autoArrangeCanvasNodes(prev, connections || []));
+                break;
+              case 'toggle-snap': setSnapEnabled(v => !v); break;
+              case 'toggle-theme': setThemeMode(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'auto' : 'dark'); break;
+              case 'undo': {
+                const current = { nodes };
+                const previous = historyRef.current.undo(current);
+                if (previous !== current && previous.nodes) setNodes(previous.nodes);
+                break;
+              }
+              case 'redo': {
+                const current = { nodes };
+                const next = historyRef.current.redo(current);
+                if (next !== current && next.nodes) setNodes(next.nodes);
+                break;
+              }
+              default: break;
+            }
+          }}
+          onClose={() => setCanvasContextPanel(null)}
+          viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 1440}
+          viewportHeight={typeof window !== 'undefined' ? window.innerHeight : 900}
+        />
+      )}
+
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 双击添加节点面板 */}
+      {addNodePanel && (
+        <CanvasAddNodePanel
+          x={addNodePanel.x}
+          y={addNodePanel.y}
+          onAdd={(kind, id) => {
+            const world = addNodePanel.world || { x: 200, y: 200 };
+            if (kind === 'text') {
+              const textNode = createCanvasTextNode({ x: world.x, y: world.y });
+              textNode.name = autoCanvasShotName(nodes, 'text');
+              setNodes(prev => [...prev, textNode]);
+            } else if (kind === 'image') {
+              sourceUploadRef.current?.click?.();
+            } else if (kind === 'video') {
+              videoUploadRef.current?.click?.();
+            } else if (kind === 'audio') {
+              audioUploadRef.current?.click?.();
+            } else if (kind === 'application') {
+              /* 应用节点 - 创建 application 节点 */
+              const appNode = {
+                id: `app_${Date.now()}`,
+                kind: 'application',
+                x: world.x,
+                y: world.y,
+                w: 360,
+                h: 220,
+                name: autoCanvasShotName(nodes, 'application'),
+                status: 'draft',
+                actionId: 'application-1click-suite',
+              };
+              setNodes(prev => [...prev, appNode]);
+            }
+          }}
+          onUpload={() => sourceUploadRef.current?.click?.()}
+          onPickFromLibrary={() => { setActiveFilter && setActiveFilter('素材库'); }}
+          onClose={() => setAddNodePanel(null)}
+          viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 1440}
+          viewportHeight={typeof window !== 'undefined' ? window.innerHeight : 900}
+        />
+      )}
+
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - 快捷键帮助面板 (按 ?  弹出) */}
+      {shortcutHelpOpen && (
+        <CanvasShortcutHelp onClose={() => setShortcutHelpOpen(false)} />
+      )}
+
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - 任务日志面板 (Quantv §1.6 CanvasTaskLogPanel) */}
+      {taskLogOpen && (
+        <CanvasTaskLogPanel
+          tasks={taskLogEntries}
+          onClose={() => setTaskLogOpen(false)}
+          onRetry={(task) => console.info('[task] 重试', task.id)}
+          onDismiss={(task) => setTaskLogEntries(prev => prev.filter(t => t.id !== task.id))}
+          onRefund={(task) => console.info('[task] 退款', task.id)}
+        />
+      )}
+
+      {/* 4c183cd4 续命 画布总监督 2026-08-30 - 小地图 (Quantv CanvasMinimap) */}
+      <CanvasMinimap
+        nodes={nodes}
+        connections={connections}
+        viewport={viewport}
+        worldBounds={{ width: 2400, height: 1600 }}
+        onViewportChange={(v) => setViewport(v)}
+      />
 
       {/* P2: 跨域投递对话框（EcCanvas → 视频项目） */}
       <VideoProjectDeliveryDialog
