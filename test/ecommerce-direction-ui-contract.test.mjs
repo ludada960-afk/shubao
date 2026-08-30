@@ -52,17 +52,20 @@ test('方案编辑器突出每张图可编辑的重点，并在中等桌面宽�
   const editorCss = readFileSync(new URL('../src/pages/Home/ec/EcommerceDesignPlanEditor.css', import.meta.url), 'utf8');
   const homeCss = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
 
-  assert.match(editorSource, /生成规格/);
   assert.match(editorSource, /本图重点/);
   assert.doesNotMatch(editorSource, /本图差异/);
   assert.match(editorSource, /ec-shared-shot-field--primary/);
-  assert.match(editorSource, />统一视觉基线</);
+  assert.doesNotMatch(editorSource, />统一视觉基线</);
   assert.match(editorSource, />逐张规划</);
   assert.doesNotMatch(editorSource, /商品驱动方案/);
-  assert.match(editorSource, /本次商品依据/);
-  assert.match(editorSource, /参考图借鉴/);
-  assert.match(editorSource, /用户要求如何进入方案/);
-  assert.match(editorSource, /本次路线选择/);
+  assert.match(editorSource, /商品依据/);
+  assert.match(editorSource, /参考借鉴/);
+  assert.match(editorSource, /用户要求/);
+  assert.match(editorSource, /ec-shared-plan-facts/);
+  assert.doesNotMatch(editorSource, /<strong>生成规格</);
+  assert.doesNotMatch(editorSource, /ec-plan-specification/);
+  assert.doesNotMatch(editorSource, /CANVAS_SUITE_PLAN_FIELDS/);
+  assert.doesNotMatch(editorSource, /本次路线选择/);
   assert.doesNotMatch(editorSource, /执行清单/);
   assert.match(editorCss, /#f7f8fa/i);
   assert.doesNotMatch(editorCss, /#f4efe5/i);

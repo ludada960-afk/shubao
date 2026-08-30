@@ -69,52 +69,25 @@
   font-size: 14px;
   font-weight: 800;
 }
-.ec-plan-editable-field > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.ec-plan-editable-field > span em {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid #d7c8ff;
-  border-radius: 999px;
-  color: #6d4ed2;
-  background: #f5f0ff;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 800;
-}
-.ec-plan-evidence {
+.ec-shared-plan-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
-  margin-top: 14px;
+  margin: 0 0 18px;
   overflow: hidden;
   border: 1px solid #dfe4ea;
   border-radius: 6px;
   background: #dfe4ea;
 }
-.ec-plan-evidence > div {
+.ec-shared-plan-facts > div {
   min-width: 0;
   display: grid;
   gap: 5px;
   padding: 11px 12px;
   background: #fff;
 }
-.ec-plan-evidence b { color: #35404d; font-size: 12px; }
-.ec-plan-evidence span { color: #626b77; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
-.ec-plan-evidence-change { grid-column: 1 / -1; background: #eef4ff !important; }
-.ec-shared-plan-brief {
-  margin-top: 18px;
-  padding: 16px;
-  border: 1px solid #d9cbff;
-  border-radius: 8px;
-  background: #fbf9ff;
-}
+.ec-shared-plan-facts b { color: #35404d; font-size: 12px; }
+.ec-shared-plan-facts span { color: #626b77; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .ec-shared-plan-editor textarea,
 .ec-shared-plan-editor input {
   min-width: 0;
@@ -133,7 +106,6 @@
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 .ec-shared-plan-editor textarea { min-height: 84px; }
-.ec-shared-plan-brief textarea { min-height: 112px; }
 .ec-shared-plan-editor input { height: 44px; resize: none; }
 .ec-shared-plan-editor textarea:focus,
 .ec-shared-plan-editor input:focus {
@@ -141,18 +113,6 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
   background: #fff;
 }
-.ec-shared-plan-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 12px 0 18px;
-}
-.ec-plan-specification { padding-top: 18px; }
-.ec-editable-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.ec-editable-section-heading strong { color: #2a3038; font-size: 15px; }
-.ec-editable-section-heading span { color: #706b78; font-size: 13px; }
-.ec-plan-spec-field { padding: 14px; border: 1px solid #d9cbff; border-radius: 8px; background: #fbf9ff; }
-.ec-plan-spec-field textarea { min-height: 92px; padding: 10px 11px; background: #fbfcfe; }
 .ec-shared-shot-plan {
   padding-top: 20px;
   border-top: 1px solid #e3e6ea;
@@ -355,8 +315,7 @@
 .ec-direction-supplement { min-width: 0; max-width: 100%; overflow: clip; padding: 18px; border: 1px solid #e3e6ea; border-radius: 8px; background: #fff; }
 @media (max-width: 900px) {
   .ec-shared-plan-editor { padding: 22px 18px 26px; }
-  .ec-shared-plan-grid,
-  .ec-plan-evidence,
+  .ec-shared-plan-facts,
   .ec-shared-plan-preview-grid,
   .ec-shared-shot-detail-grid { grid-template-columns: 1fr; }
   .ec-shared-shot-field:first-child { grid-column: auto; }

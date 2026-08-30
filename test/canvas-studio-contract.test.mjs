@@ -440,7 +440,10 @@ test('Canvas suite uses one editable overall plan and readable source naming', (
   assert.match(source, /CanvasSuitePlanEditor/);
   assert.match(source, /EcommerceDesignPlanEditor/);
   assert.match(source, /整体设计方案/);
-  assert.match(sharedPlan, /data-suite-plan-field/);
+  assert.match(sharedPlan, /data-suite-shot-field/);
+  assert.match(sharedPlan, /ec-shared-shot-plan/);
+  assert.match(sharedPlan, /ec-shared-plan-facts/);
+  assert.doesNotMatch(sharedPlan, /data-suite-plan-field/);
   assert.doesNotMatch(source, /<DirectionOptionCard/);
   assert.match(source, /上传产品图/);
   assert.match(source, /上传参考图/);

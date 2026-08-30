@@ -1,30 +1,13 @@
 import React, { useState } from 'react';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import './EcommerceDesignPlanEditor.css';
 import {
   buildCanvasSuitePlan,
-  CANVAS_SUITE_PLAN_FIELDS,
   CANVAS_SUITE_SHOT_FIELDS,
-  updateCanvasSuitePlanField,
   updateCanvasSuitePlanShot,
 } from '../../EcCanvas/canvasSuitePlanModel.js';
 
 const PRIMARY_SHOT_FIELD_KEYS = new Set(['objective', 'scene', 'composition', 'contentElements', 'copy']);
-
-const ROUTE_FIELD_LABELS = {
-  sellingThesis: '核心卖点',
-  sceneFamily: '场景体系',
-  composition: '构图方式',
-  cameraLanguage: '镜头语言',
-  informationHierarchy: '信息层级',
-  proofStrategy: '证明方式',
-  paletteIntent: '配色方向',
-  lightingIntent: '光线方向',
-};
-
-function humanizeRouteDifference(value) {
-  return String(value || '').split(/\s*;\s*/).filter(Boolean).map(part => part.replace(/^([A-Za-z][A-Za-z0-9_]*):\s*/, (_, key) => `${ROUTE_FIELD_LABELS[key] || key}：`)).join('；');
-}
 
 function ShotField({ field, shot, onChange }) {
   const primary = PRIMARY_SHOT_FIELD_KEYS.has(field.key);
@@ -35,18 +18,6 @@ function ShotField({ field, shot, onChange }) {
       value={shot[field.key] || ''}
       onChange={event => onChange(field.key, event.target.value)}
       aria-label={`编辑${shot.title}的${field.label}`}
-    />
-  </label>;
-}
-
-function PlanSpecField({ field, plan, onChange }) {
-  return <label className="ec-plan-spec-field">
-    <span>{field.label}</span>
-    <textarea
-      data-suite-plan-field={field.key}
-      value={plan[field.key] || ''}
-      onChange={event => onChange(field.key, event.target.value)}
-      aria-label={`编辑${field.label}`}
     />
   </label>;
 }
@@ -88,41 +59,24 @@ function EditableShot({ shot, expanded, onToggle, onChange }) {
 export function EcommerceDesignPlanEditor({ direction = {}, prompt = '', onChange }) {
   const plan = buildCanvasSuitePlan(direction, prompt);
   const [expandedShotId, setExpandedShotId] = useState(null);
-  const updateField = (key, value) => onChange?.(updateCanvasSuitePlanField(plan, key, value));
   const updateShot = (shotId, key, value) => onChange?.(updateCanvasSuitePlanShot(plan, shotId, { [key]: value }));
   const shots = Array.isArray(plan.shots) ? plan.shots : [];
   const analysis = direction?.analysis || {};
   const observations = Array.isArray(analysis.product_observations) ? analysis.product_observations : [];
   const referenceStyle = Array.isArray(analysis.reference_style) ? analysis.reference_style : [];
-  const route = direction?.creative_route || {};
-  const insightRows = [
-    ['本次商品依据', observations.join('、') || '依据商品图和用户已确认信息建立商品事实。'],
-    ['参考图借鉴', referenceStyle.join('、') || '只借鉴构图、光线和信息层级，不替换商品主体。'],
-    ['用户要求如何进入方案', prompt || '围绕当前商品生成专业电商套图。'],
-    ['本次路线选择', direction?.route_rationale || route?.rationale || '根据商品事实、平台和用户要求选择本次商业叙事。'],
-  ];
+  const factRows = [
+    ['商品依据', observations.join('、')],
+    ['参考借鉴', referenceStyle.join('、')],
+    ['用户要求', prompt],
+  ].filter(([, value]) => value);
 
   return <div className="ec-shared-plan-editor" aria-label="整体设计方案编辑区">
-    <section className="ec-plan-overview" aria-label="统一视觉基线">
-      <header className="ec-shared-plan-heading">
-        <div><h3>统一视觉基线</h3><p>先锁定商品事实和视觉方向，再展开逐图执行。</p></div>
-      </header>
-      <div className="ec-plan-evidence" aria-label="本次方案依据">
-        {insightRows.map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}
-        {direction?.route_difference && <div className="ec-plan-evidence-change"><b>与上一方案的变化</b><span>{humanizeRouteDifference(direction.route_difference)}</span></div>}
-      </div>
-      <label className="ec-shared-plan-brief ec-plan-editable-field">
-        <span><b>核心叙事</b><em><Check size={13} />可编辑</em></span>
-        <textarea data-suite-plan-field="brief" value={plan.brief || ''} onChange={event => onChange?.({ ...plan, brief: event.target.value.slice(0, 1800) })} aria-label="编辑整套执行思路" />
-      </label>
-      <section className="ec-plan-specification" aria-label="整套生成规格">
-        <div className="ec-editable-section-heading"><strong>生成规格</strong><span>下方字段可直接调整，修改会同步到整套方案。</span></div>
-        <div className="ec-shared-plan-grid">
-          {CANVAS_SUITE_PLAN_FIELDS.map(field => <PlanSpecField key={field.key} field={field} plan={plan} onChange={updateField} />)}
-        </div>
-      </section>
-    </section>
     <section className="ec-shared-shot-plan" aria-label="逐张规划">
+      {factRows.length > 0 && (
+        <div className="ec-shared-plan-facts" aria-label="本次方案关键事实">
+          {factRows.map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}
+        </div>
+      )}
       <div className="ec-shared-shot-heading">
         <div><h3>逐张规划</h3><p>展开图片，直接调整它的主题、场景、镜头与信息表达。</p></div>
         <strong>{shots.length} 张</strong>
