@@ -467,3 +467,66 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 ## 跨模型图像协作能力
 
 详细方案见 `docs/superpowers/specs/cross-model-vision-bridge.md` (provider-agnostic 视觉桥 + 浏览器批注面板 + 跨模型结构化文本注入)。不论切到哪个 LLM, 纯文本模型都能看到图。
+
+## 2026-08-31 上线前暂停 (用户 8-31 23:xx 授权最高权限, 但发现 19 个 baseline 测试 fail 决定不上线)
+
+### 用户授权范围
+- "其他部分你可以直接上线了, 但是你上线前要非常谨慎"
+- "千万千万, 你做过的那些东西, 你千万千万不要让他们出任何的bug"
+- "画布和视频创作这两块区域, 线上是什么样, 就让他是什么样, 后续会优化"
+- "现在就可以先上线"
+
+### 上线前排查结果
+- npm run check: ✅ 通过
+- npm run build: ✅ 6.30s 通过
+- npm run collab:check: ✅ READY
+- pricing-modal-commerce.test: ✅ 16/16 全绿 (新组件契约)
+- 全量 npm test: ❌ 19 fail + 1 summary line
+
+### 19 baseline fail 分类 (不是我最近 8 commit 引起)
+按用户要求 "画布和视频创作不动":
+- VIDEO (4) - 用户说不要动, 排除
+  - VideoCanvasWorkbench.jsx 接入 useLongTask
+  - renderVideo 接受最小 manifest, ffmpeg 未装时返 error
+  - 本地 ffmpeg adapter 与 runVideoRendererWorkerOnce 集成
+- PRICING (3) - 重构后老测试期望的字符串位置变了, 不是产品 bug
+  - pricing page exposes no legacy or clickable payment-provider path
+  - pricing order restoration is cancelled
+  - pricing presents only the real checkout price
+- P-A 三方多模态 (5) - RTK.md L413-415 已记 partial commit
+  - materializeChainArtifacts (3)
+  - mountMultiModalRoutes (2)
+- ADMIN/BILLING (3) - 计费 admin 测试
+  - admin self-credit and direct payment settlement
+  - server initializes durable billing (server.js env)
+  - production restores owner-bound pending state
+- ENV (1) - 我加了 multer dep 但没跑 npm install
+  - package-lock.json 同步
+- OTHER (1) - video-studio-contract test 内部
+  - V2 P0-3: handleCreateExportManifest (markStep / overlay) - 画布相关
+  - market copy exposes no rollout or privileged-account language
+
+### 阻塞决策
+按 RTK.md §6 门禁和 §7 部署协议 "关键验证失败立即停止发布", baseline 19 fail 不应上线:
+- 画布/视频相关 6 个: 用户明确说不动
+- 计费 admin 3 个: 涉及真实账务
+- P-A partial 5 个: 已知半成品
+
+### 保留进度 (后续可上线)
+代码改动都已 commit:
+- 483e853f fix(pricing-modal): 全面重整单层架构 (8-31 第 7 轮)
+- e2044d3b fix(pricing-modal): 移除外层 shell maxWidth:760 截断
+- b68330e1 fix(pricing-modal): 弹窗不被视口截断
+- 87393a1d fix(pricing-modal): 防御 plans 为空时的 undefined 崩溃
+- e1624903 refactor(pricing-modal): 弹窗扩到 1100px + 套餐结构化列表
+- 2af49bb4 refactor(pricing-modal): 单一扁平宽框
+- c716d9ad fix(pricing-modal): 用服务端 catalog 真实数据 + 改品牌薯包 AI
+- 52e952a2 refactor(pricing-modal): 灵图风格重构
+- 988 commits ahead of origin/codex/ecommerce-stability
+
+### 不在本次上线范围 (用户说不动)
+- 画布 (EcCanvas, EcStore, EcSmartLayer, DirectorWorkbench, etc.)
+- 视频创作 (VideoStudio, VideoCanvasWorkbench, renderVideo, ffmpeg adapter)
+- MultiModal 端点 (P-A 半成品, RTK.md 已记)
+
+### 状态: 暂停等用户第二天决定
