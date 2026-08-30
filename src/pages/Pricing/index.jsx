@@ -83,7 +83,7 @@ const FAQ_CONTENT = [
 
 // 对比矩阵：按量 vs 月卡·轻 vs 月卡·Pro
 const MATRIX_ROWS = [
-  { label: '单条标准视频有效价', values: ['¥11.90', '≈¥10.25', '≈¥10.05'] },
+  { label: '单条标准视频有效期', values: ['¥11.90', '≈¥10.25', '≈¥10.05'] },
   { label: '免费重跑', values: ['高品质档含 1 次', '同按量权益', '同按量权益'] },
   { label: '快试限次', values: ['每日 3 条 · ≤5 秒', '不限，按量扣分', '不限，按量扣分'] },
   { label: '有效期', values: ['积分永久有效', '一次买断 · 永久有效', '一次买断 · 永久有效'] },
@@ -542,11 +542,11 @@ export default function PricingPage() {
           <div className="pricing-hero-eyebrow">Shubao · 商业化定价</div>
           <h1 className="pricing-hero-title">
             一次买断，按量结算，<br className="pricing-hero-break" />
-            <span className="pricing-hero-accent">用得久，就越划算。</span>
+            <span className="pricing-hero-accent">永久有效。</span>
           </h1>
           <p className="pricing-hero-sub">
-            4 档套餐 + 2 档月卡礼包，覆盖个人创作者到工作室团队。
-            所有创作功能共用一套 AI 积分，失败任务释放冻结额度，一分不扣。
+            下方三档面向日常商业化用户，月卡礼包适合稳定出量团队。
+            所有创作功能共用一套 AI 积分，失败任务冻结额度全额释放。
           </p>
           <TrustStrip />
           <div className="pricing-hero-cta-row">
@@ -626,7 +626,7 @@ export default function PricingPage() {
         {/* ── 4 档主套餐 (核心商业化视觉) ── */}
         <div ref={packsAnchorRef} />
         <SectionHead
-          eyebrow="Packs · 4 档套餐"
+          eyebrow="Packs · 套餐"
           title="积分套餐 · 个人到团队"
           hint="一次买断 · 永久有效 · 无自动续订"
         />
@@ -667,7 +667,7 @@ export default function PricingPage() {
 
         {/* ── 支付方式 (微信/支付宝 商业化呈现) ── */}
         <SectionHead
-          eyebrow="Pay · 支付方式"
+          eyebrow="Pay · 支付"
           title="微信支付 / 支付宝 扫码即付"
           hint="通道已配置，订单实时入账"
         />
