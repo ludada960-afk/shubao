@@ -1,0 +1,28 @@
+docs(分析): 电商生图一次调用可行性深度分析 (4c183cd4 续命)
+
+基于 c3da9800 报告继续,回答用户 8-30 追问的 3 个核心疑问:
+
+1. 能不能全程只靠生图模型一次调用? 答: 不能
+   - gpt-image-2 / nano-banana 是像素模型, 不是大语言模型
+   - 不能输出结构化 JSON (productTruth / styleReferenceProfile / 4 套 direction)
+   - 不能做事实抽取 / 多方案规划 / 文案润色
+   - providerAdapter.mjs:279 硬编码 n:1, submitEdit 只返回 1 jobId
+   - OpenAI 官方 docs 没有 multiple images per request 描述
+
+2. 现在模式 (gpt-5.6 反推 + 生图出图) 是否最精简? 答: 是
+   - 反推+规划 3 次 gpt-5.6-luna = 0 用户扣费 = 0.015~0.045 元中转成本/套图
+   - 生图 6 张 = 6 元用户扣费, 中转 0.228 元
+   - 单套毛利 96.2%, 模式 B / C 都无法省任何钱, 只会损失结构化能力
+
+3. gpt-5.6 必要性? 答: 高度必要
+   - 反推事实 + 规划结构 + 文案润色, 5 角色语言基础
+   - 不计费 = 净利润的 99%+ 来源
+   - 取消 = 生图成功率↓ → 用户拒绝付费 → 负毛利 → 商业模式崩塌
+
+新证据 (不在 c3da9800):
+- modelCatalog.mjs:86 gpt-image-2-n 是死代码, promptCompiler 硬编码 assetCount:1
+- providerAdapter.mjs:144-156 extractOutputUrl 只取 result_urls[0]
+- vlmClient.mjs:179-204 + 86-105 parseJsonContent 是生图模型无法替代的强制 JSON 校验
+- catalog 已有 gpt-image-2-eco (0.10/4K) 和 gpt-image-2-auto (按分辨率) 候选通道, 未接入
+
+不改代码, 仅 docs.
