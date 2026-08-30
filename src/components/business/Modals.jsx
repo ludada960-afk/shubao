@@ -310,7 +310,8 @@ export function LoginModal() {
 export function PricingModal() {
   const { state, dispatch } = useApp();
   if (!state.showPrice) return null;
-  const plans = useMemo(() => buildPricingPlans(PRICING_PLANS, state.billingCatalog || []), [state.billingCatalog]);
+  // 4c183cd4 续命 8-30 主线程真浏览器截图验证修复: 之前参数顺序错 (PRICING_PLANS 当 catalog, billingCatalog 当 metadata), buildPricingPlans 的 catalog 是产品列表 (priceFen/grantUnits/validityDays), metadata 是 fallback (sku/name/desc/pop), 反过来才对. 而且 currency 必须传 primaryCurrency, 否则 validCatalogProduct 拒绝所有 product. 修后 4 档套餐 (基础/专业/团队/工作室) + 2 个月卡礼包 会渲染.
+  const plans = useMemo(() => buildPricingPlans(state.billingCatalog || null, PRICING_PLANS, state.billingCatalog?.billing?.primaryCurrency), [state.billingCatalog]);
   const providers = useMemo(() => enabledPaymentProviders(state.billingCatalog || []), [state.billingCatalog]);
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -386,17 +387,19 @@ export function PricingModal() {
         }} />
 
       {/* Modal */}
+      {/* 4c183cd4 续命 8-30 主线程真浏览器截图验证修复: shell 480 太窄, fc13c60c 加视频按量档 FAST/STANDARD/PREMIUM 后内容撑到 720, shell 必须容纳, 否则 PREMIUM 卡片 + 支付宝按钮会被右边界裁掉 ~235px. 改 maxWidth 480 -> 760 (容纳 pricing-modal max-width 720 + shell padding 24*2 - margin) */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
         zIndex: 9999,
-        width: 'calc(100% - 32px)', maxWidth: 480,
+        width: 'calc(100% - 32px)', maxWidth: 760,
         maxHeight: 'calc(100vh - 40px)',
         overflowY: 'auto',
+        overflowX: 'hidden',
         scrollbarWidth: 'none',
         background: '#fff',
         borderRadius: 24,
         boxShadow: '0 28px 90px rgba(0,0,0,0.2)',
-        padding: 28,
+        padding: 24,
         animation: 'scaleIn 0.15s ease',
       }} className="pricing-modal-scroll-shell">
         {/* Close button */}

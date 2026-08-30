@@ -1,13 +1,14 @@
 /* 4c183cd4 续命 PricingModal 4 视角重构 (资深美工 + 产品经理 + 商业化 + 4c183cd4 总统统筹) */
 
+/* 4c183cd4 续命 8-30 主线程真浏览器截图验证修复: pricing-modal max-width 720 + padding 28 32 = 实际内容宽 656, 但 shell 已 fix 为 760 (容纳 modal 720). 让 modal max-width 712 + padding 24 24 = 内容 664, 与 shell 内容宽 712 (=760-24*2) 一致, 消除 8px 水平溢出. */
 .pricing-modal {
   position: relative;
   min-width: 480px;
-  max-width: 720px;
-  width: min(720px, 96vw);
+  max-width: 712px;
+  width: min(712px, 96vw);
   max-height: 90vh;
   overflow-y: auto;
-  padding: 28px 32px 24px;
+  padding: 24px 24px 20px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(22px) saturate(170%);
   -webkit-backdrop-filter: blur(22px) saturate(170%);
