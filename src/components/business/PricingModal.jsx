@@ -67,7 +67,7 @@ export default function PricingModalRefactored({
   const currentPacks = activeTab === "permanent" ? permanentPacks : monthlyPacks;
   /* 推荐档: ec_starter_29 (基于 server/billing/catalog.mjs 终案) */
   const recommended = currentPacks.find((p) => p.sku === "ec_starter_29") || currentPacks.find((p) => p.recommended) || currentPacks[Math.min(1, currentPacks.length - 1)];
-  const selectedPack = currentPacks.find((p) => p.sku === selectedId) || recommended;
+  const selectedPack = currentPacks.find((p) => p && p.sku === selectedId) || recommended;
 
   /* Escape 关闭 */
   useEffect(() => {
@@ -240,7 +240,10 @@ export default function PricingModalRefactored({
       {/* 支付区 */}
       <div className="pricing-modal__pay" data-testid="pricing-modal-pay">
         <div className="pricing-modal__pay-summary">
-          已选: <strong>{PACK_LABEL[selectedPack.sku] || selectedPack.sku}</strong> · ¥{(selectedPack.priceFen/100).toFixed(1)} · {formatUnits(unitsToPoints(selectedPack.grantUnits))} 积分
+          {selectedPack
+            ? <>已选: <strong>{PACK_LABEL[selectedPack.sku] || selectedPack.sku}</strong> · ¥{(selectedPack.priceFen/100).toFixed(1)} · {formatUnits(unitsToPoints(selectedPack.grantUnits))} 积分</>
+            : <>加载中...</>
+          }
         </div>
         <div className="pricing-modal__pay-grid">
           <button
