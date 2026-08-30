@@ -35,8 +35,7 @@ export default function PricingModalRefactored({ plans = [], providers = [], onB
       {/* 头部 */}
       <header className="pricing-modal__header">
         <h3 className="pricing-modal__title">
-          套餐
-          <span className="pricing-modal__badge">4c183cd4 续命</span>
+          选择套餐
         </h3>
         <p className="pricing-modal__subtitle">一次买断,按量结算</p>
       </header>
@@ -49,7 +48,30 @@ export default function PricingModalRefactored({ plans = [], providers = [], onB
         </div>
       )}
 
-      {/* 4 档 4 视角 1: 资深美工视角 4 档并排 + 推荐角标 */}
+
+      {/* 视频按量档 (按 04-pricing.png 设计稿) */}
+      <div className="pricing-modal__video">
+        <div className="pricing-modal__section-eyebrow">Video · 按量</div>
+        <div className="pricing-modal__video-grid">
+          {[
+            { eyebrow: 'FAST', name: '快试', desc: '5 秒试稿钩子', price: '6.9', units: '27 积分/条', note: '单条 ≤5 秒 · 每日最多 3 条', chip: '¥6.9/条' },
+            { eyebrow: 'STANDARD', name: '标准', desc: '720P 正式交付主力', price: '11.9', units: '46 积分/条', note: '≤8 秒 · 商品/人物/场景通用', chip: '¥11.9/条', rec: true },
+            { eyebrow: 'PREMIUM', name: '高品质', desc: '长时长交付', price: '14.9', units: '57 积分/条', note: '>8 秒 · 含 1 次免费重跑', chip: '¥14.9/条' },
+          ].map(t => (
+            <div key={t.eyebrow} className={"pricing-modal__video-card" + (t.rec ? " pricing-modal__video-card--rec" : "")}>
+              <div className="pricing-modal__video-eyebrow">{t.eyebrow}</div>
+              <div className="pricing-modal__video-name">{t.name}</div>
+              <div className="pricing-modal__video-chip">{t.chip}</div>
+              <div className="pricing-modal__video-units">{t.units}</div>
+              <div className="pricing-modal__video-note">{t.note}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4 档积分套餐 (按 04-pricing.png 设计稿) */}
+      <div className="pricing-modal__section-eyebrow">Packs · 套餐</div>
+      {/* 4 档套餐 */}
       <div className="pricing-modal__grid">
         {plans.map((plan, idx) => (
           <article
@@ -98,12 +120,20 @@ export default function PricingModalRefactored({ plans = [], providers = [], onB
         ))}
       </div>
 
-      {/* 商业化高手视角: 取消"内测味"文案 */}
-      <div className="pricing-modal__notice">
-        <strong>AI 积分通用, 失败任务释放冻结</strong>
-        {providers.length === 0 && (
-          <p>微信/支付宝, 扫码 3-5 秒到账, 失败释放冻结额度</p>
-        )}
+      {/* 商业化高手视角: 微信/支付宝 真品牌色 (按 04-pricing.png) */}
+      <div className="pricing-modal__pay">
+        <div className="pricing-modal__section-eyebrow">Pay · 支付</div>
+        <div className="pricing-modal__pay-grid">
+          <div className="pricing-modal__pay-card">
+            <div className="pricing-modal__pay-brand pricing-modal__pay-brand--wechat">微信支付</div>
+            <div className="pricing-modal__pay-state">扫码 3-5 秒到账</div>
+          </div>
+          <div className="pricing-modal__pay-card">
+            <div className="pricing-modal__pay-brand pricing-modal__pay-brand--alipay">支付宝</div>
+            <div className="pricing-modal__pay-state">扫码 3-5 秒到账</div>
+          </div>
+        </div>
+        <div className="pricing-modal__pay-note">AI 积分通用 · 失败任务释放冻结额度 · 一次买断永久有效</div>
       </div>
 
       <button type="button" className="pricing-modal__close" onClick={onClose}>关闭</button>

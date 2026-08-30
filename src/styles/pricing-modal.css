@@ -273,3 +273,96 @@
   .pricing-modal__card { transition: none; }
   .pricing-modal__card:hover { transform: none; }
 }
+/* 视频按量档 + 微信/支付宝品牌色 (4c183cd4 续命 8-30 主线程商业化补全) */
+.pricing-modal__section-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 16px 0 10px;
+}
+.pricing-modal__video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.pricing-modal__video-card {
+  padding: 14px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  text-align: center;
+}
+.pricing-modal__video-card--rec {
+  border: 2px solid var(--accent);
+  background: linear-gradient(180deg, rgba(99,102,241,0.06), rgba(255,255,255,0.95));
+}
+.pricing-modal__video-eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.pricing-modal__video-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 4px 0;
+}
+.pricing-modal__video-chip {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 900;
+  color: #fff;
+  background: var(--accent);
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+.pricing-modal__video-units {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.pricing-modal__video-note {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 6px;
+}
+.pricing-modal__pay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pricing-modal__pay-card {
+  padding: 14px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.pricing-modal__pay-brand {
+  font-size: 15px;
+  font-weight: 900;
+  color: #fff;
+  padding: 10px 0;
+  border-radius: 10px;
+}
+.pricing-modal__pay-brand--wechat { background: #07C160; }
+.pricing-modal__pay-brand--alipay { background: #1677FF; }
+.pricing-modal__pay-state {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.pricing-modal__pay-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+[data-theme="dark"] .pricing-modal__video-card { background: rgba(40,40,48,0.9); }
+[data-theme="dark"] .pricing-modal__pay-card { background: rgba(40,40,48,0.9); }
