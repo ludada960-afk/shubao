@@ -424,7 +424,7 @@ export function PricingModal() {
             plans={plans}
             providers={providers}
             onBuy={buy}
-            onClose={() => setModalView(current => transitionPricingModalView(current, 'CANCEL'))}
+            onClose={() => { setModalView(current => transitionPricingModalView(current, 'CANCEL')); close(); }}
             isLogged={state.logged}
             ecPoints={state.ecPoints}
             unlimited={state.unlimited}
