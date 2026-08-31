@@ -601,6 +601,7 @@ const LARGE_BODY_ROUTES = new Set([
   '/api/reverse-prompt',       // image_url
   '/api/ecommerce/auto-recognize', // refShots
   '/api/ecommerce/stitch-long',    // imageUrls 兼容 data URI
+  '/api/ecommerce/assets',         // asset.data 为 data:image base64（探针/上传 JSON 走此路径）
 ]);
 const largeJsonBodyParser = express.json({ limit: '15mb', verify: captureWebhookBody });
 for (const largeBodyRoute of LARGE_BODY_ROUTES) {
