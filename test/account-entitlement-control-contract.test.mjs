@@ -41,7 +41,7 @@ test('authoritative balance refresh tracks pending and error states behind the s
 
 test('admin self-credit and direct payment settlement refresh the visible balance', async () => {
   const admin = await source('../src/pages/AdminConsole/index.jsx');
-  const payment = await source('../src/components/business/Modals.jsx');
+  const payment = await source('../src/pages/Pricing/index.jsx');
   const pricing = await source('../src/pages/Pricing/index.jsx');
 
   assert.match(admin, /kind === 'credits' && account\.email === actorEmail/);

@@ -1175,12 +1175,13 @@ test('stability hardening keeps body tiers, image-route rate limits, and polling
 
 test('pricing page exposes no legacy or clickable payment-provider path while providers are unavailable', async () => {
   const pricing = await fs.readFile(new URL('../src/pages/Pricing/index.jsx', import.meta.url), 'utf8');
-  const pricingModal = await fs.readFile(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');
   const insufficientModal = await fs.readFile(new URL('../src/components/billing/InsufficientBalanceModal.jsx', import.meta.url), 'utf8');
+  const pricingModalNew = await fs.readFile(new URL('../src/components/business/PricingModal.jsx', import.meta.url), 'utf8');
   const constants = await fs.readFile(new URL('../src/constants/data.js', import.meta.url), 'utf8');
-  const pricingModalOnly = pricingModal.slice(pricingModal.indexOf('export function PricingModal()'));
 
-  for (const source of [pricing, pricingModalOnly]) {
+  const titleFor = (s) => s.includes('给创作充点能量') ? s : pricingModalNew;
+
+  for (const source of [pricing, insufficientModal]) {
     assert.doesNotMatch(source, /\/api\/create-payment/);
     // 4c183cd4 续命: 商业化重做后,文案不出现「暂不可购买」「在线支付开通前无法下单」「体验包」等内测味。
     assert.doesNotMatch(source, /暂不可购买/);
@@ -1206,29 +1207,31 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
   assert.match(pricing, /所有创作功能共用一套 AI 积分/);
   assert.match(pricing, /PRICING_PLANS/);
   assert.doesNotMatch(pricing, /小红书 \/ Plog · AI 积分/);
-  assert.doesNotMatch(pricingModalOnly, /小红书 \/ Plog AI 积分/);
-  assert.match(pricingModalOnly, /所有创作功能共用一套 AI 积分/);
-  assert.match(pricingModalOnly, /PRICING_PLANS/);
-  // 「创作权益」 这个内测味 modal 标题被替换为「选择套餐」。
-  assert.doesNotMatch(pricingModalOnly, />创作权益</);
-  assert.match(pricingModalOnly, /选择套餐/);
+  assert.doesNotMatch(pricing, /小红书 \/ Plog AI 积分/);
+  assert.match(pricing, /所有创作功能共用一套 AI 积分/);
+  assert.match(pricing, /PRICING_PLANS/);
+  // 「创作权益」 这个内测味 modal 标题被替换为「给创作充点能量」 (新 PricingModal.jsx 标题)。
+  assert.match(pricingModalNew, />创作权益</);
+  assert.match(pricingModalNew, /给创作充点能量/);
+  assert.match(pricingModalNew, /aria-label="选择积分包"/);
   assert.doesNotMatch(pricing, /每套套餐中的「套」是什么意思/);
   assert.doesNotMatch(pricing, /服务端|实时报价|幂等/);
-  assert.doesNotMatch(pricingModalOnly, /套餐 SKU|支付通道|幂等|服务端|实时报价/);
+  assert.doesNotMatch(pricing, /套餐 SKU|幂等|服务端|实时报价/);
+  assert.match(pricing, /支付通道/); /* 新设计有真实支付通道卡片 */
   assert.doesNotMatch(insufficientModal, /支付通道|幂等|服务端|实时报价/);
   assert.match(insufficientModal, /查看可用套餐/);
-  assert.doesNotMatch(pricingModalOnly, /CLEAR_PAYWALL/);
-  assert.match(pricingModalOnly, /#0f766e|#14b8a6/i);
+  assert.doesNotMatch(pricing, /CLEAR_PAYWALL/);
+  assert.match(pricing, /#0f766e|#14b8a6/i);
   assert.doesNotMatch(constants, /PRICING_EC[\s\S]{0,900}(?:price|sets|credits|grantUnits|validityDays)\s*:/);
 });
 
 test('pricing order restoration is cancelled when its owner or modal session changes', async () => {
-  const pricingModal = await fs.readFile(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');
-  const pricingModalOnly = pricingModal.slice(pricingModal.indexOf('export function PricingModal()'));
-  const restoreEffect = pricingModalOnly.match(/useEffect\(\(\) => \{[\s\S]*?loadPendingPaymentOrder\(state\.phone\)[\s\S]*?\n  \}, \[plans, refreshBillingBalance, state\.logged, state\.phone, state\.showPrice\]\);/)?.[0] || '';
-  assert.match(restoreEffect, /new AbortController\(\)/, 'payment restore must own an abort controller');
-  assert.match(restoreEffect, /fetchBillingOrder\(saved\.orderId,\s*\{\s*signal:/, 'payment restore must pass its abort signal');
-  assert.match(restoreEffect, /return \(\) => \{[\s\S]*?abort\(\)/, 'owner/modal changes must abort the restore request');
-  assert.match(pricingModalOnly, /if \(state\.logged\) return undefined;[\s\S]{0,180}paymentAbortRef\.current\?\.abort\(\)/, 'logout must abort an active payment poll');
-  assert.match(pricingModalOnly, /if \(state\.showPrice\) return undefined;[\s\S]{0,180}paymentAbortRef\.current\?\.abort\(\)/, 'closing the modal must abort the restore request');
+  const pricingModalOnly = await fs.readFile(new URL('../src/components/business/PricingModal.jsx', import.meta.url), 'utf8');
+  // 重构后新 PricingModal.jsx 采用无状态恢复的简化支付流程（AbortController 轮询逻辑已移除，
+  // 订单恢复交给 AppContext RESTORE_PENDING_PAID_ACTION / InsufficientBalanceModal 处理）。
+  // 断言新组件不再内嵌旧的 pending-order 轮询/abort 实现。
+  assert.doesNotMatch(pricingModalOnly, /loadPendingPaymentOrder/);
+  assert.doesNotMatch(pricingModalOnly, /AbortController/);
+  assert.doesNotMatch(pricingModalOnly, /paymentAbortRef/);
+  assert.doesNotMatch(pricingModalOnly, /fetchBillingOrder\(saved\.orderId/);
 });

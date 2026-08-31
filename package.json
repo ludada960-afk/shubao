@@ -32,6 +32,7 @@
     "express": "4.22.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.33.0",
+    "multer": "^2.3.0",
     "nodemailer": "^9.0.3",
     "onnxruntime-web": "1.27.0",
     "react": "^18.3.1",

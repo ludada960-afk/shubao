@@ -308,7 +308,7 @@ export function LoginModal() {
 // 4c183cd4 续命 P-Canvas 主线程亲自救 (1f64aa42 后): App.jsx 还在 `import { LoginModal, PricingModal }` + `<PricingModal />`,
 // 1f64aa42 删了老 PricingModalLegacy 函数但没补 export, 这里重命名 Modals 函数为 PricingModal 让 App.jsx 仍能 <PricingModal />
 export function PricingModal() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshBillingBalance } = useApp();
   if (!state.showPrice) return null;
   // 4c183cd4 续命 8-30 主线程真浏览器截图验证修复: 之前参数顺序错 (PRICING_PLANS 当 catalog, billingCatalog 当 metadata), buildPricingPlans 的 catalog 是产品列表 (priceFen/grantUnits/validityDays), metadata 是 fallback (sku/name/desc/pop), 反过来才对. 而且 currency 必须传 primaryCurrency, 否则 validCatalogProduct 拒绝所有 product. 修后 4 档套餐 (基础/专业/团队/工作室) + 2 个月卡礼包 会渲染.
   const plans = useMemo(() => buildPricingPlans(state.billingCatalog || null, PRICING_PLANS, state.billingCatalog?.billing?.primaryCurrency), [state.billingCatalog]);
@@ -327,6 +327,8 @@ export function PricingModal() {
     pendingAction: state.pendingPaidAction,
     priceReason: state.priceReason,
   }));
+  // 8-31 恢复 InsufficientBalanceModal 渲染: 积分不足时保留创作, 充值/刷新后返回继续。
+  const pendingAction = modalView.pendingAction;
   const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
   const closePayment = () => {
     setPayModal(null);
@@ -421,6 +423,30 @@ export function PricingModal() {
             ecPoints={state.ecPoints}
             unlimited={state.unlimited}
           />
+
+          {/* 8-31 恢复 InsufficientBalanceModal: 积分不足时工作已保留, 充值/刷新后返回继续创作.
+              由 OPEN_PAYWALL / RESTORE_PENDING_PAID_ACTION 带入的 pendingAction 驱动. */}
+          {modalView.mode === 'insufficient' && pendingAction && (
+            <InsufficientBalanceModal
+              pendingAction={pendingAction}
+              required={pendingAction?.billing?.required}
+              available={pendingAction?.billing?.available}
+              currency={resolvePendingActionCurrency({
+                currency: state.billingCatalog?.billing?.primaryCurrency,
+                action: pendingAction?.action,
+                source: pendingAction?.source,
+              })}
+              entitlement={{ ecPoints: state.ecPoints, contentSets: state.contentSets, unlimited: state.unlimited }}
+              catalog={state.billingCatalog}
+              onClose={close}
+              onRefreshBalance={async () => {
+                const ent = await refreshBillingBalance();
+                return ent || null;
+              }}
+              onResume={close}
+              onViewPlans={() => setModalView(current => transitionPricingModalView(current, 'VIEW_PLANS'))}
+            />
+          )}
       </div>
 
       {/* Payment modal */}

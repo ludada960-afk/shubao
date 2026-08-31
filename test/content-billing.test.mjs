@@ -1274,13 +1274,24 @@ test('server initializes durable billing, signed sessions, trusted proxy IPs, an
   assert.match(middleware, /req\._contentPreview = true/);
   assert.match(middleware, /authenticateContentRequest\(req/);
   assertBefore(middleware, 'req._contentPreview = true', 'authenticateContentRequest', 'preview is separated before session auth');
-  assertBefore(middleware, 'authenticateContentRequest', 'authorizeAccountEmail(req.body?.email)', 'signed content auth precedes legacy body auth');
+  // Signed content auth still precedes legacy body-email auth: the newer implementation
+  // passes `authorizeEmail: authorizeAccountEmail` INTO authenticateContentRequest (which
+  // resolves the legacy body email internally) rather than calling it as a separate
+  // step afterward. Verify the property wiring exists and stays inside the call.
+  assert.match(middleware, /authorizeEmail:\s*authorizeAccountEmail/);
+  assertBefore(middleware, 'authenticateContentRequest\(req', 'authorizeEmail:', 'signed content auth precedes legacy body auth');
   assert.match(server, /betaAccessMiddleware\(req, res, continueWithRateLimit(?:, guardedPath)?\)/);
 
-  const verifyRoute = extractRouteHandler(server, '/api/auth/verify-code');
-  assert.match(verifyRoute, /contentSessionTokens\.issue\(access\.email\)/);
-  assert.match(verifyRoute, /token/);
-  assert.match(verifyRoute, /expiresAt/);
+  // verify-code 路由已拆分到独立 authRoutes.mjs (8-31 前重构): 现在走 authService.issueSession + sessionPayload,
+  // 由 authService 内部签发 v2 会话 (token/expiresAt 仍由 sessionPayload 返回), 不再直接调 contentSessionTokens.issue。
+  const authRoutesSource = await fs.readFile(new URL('../server/authRoutes.mjs', import.meta.url), 'utf8');
+  const verifyRoute = extractRouteHandler(authRoutesSource, '/api/auth/verify-code');
+  assert.match(verifyRoute, /authService\.issueSession/);
+  assert.match(verifyRoute, /sessionPayload\(session\)/);
+  // token/expiresAt 由 sessionPayload 函数返回, 校验该函数携带这2个字段。
+  const sessionPayloadFn = extractNamedFunction(authRoutesSource, 'sessionPayload');
+  assert.match(sessionPayloadFn, /token:/);
+  assert.match(sessionPayloadFn, /expiresAt:/);
 });
 
 test('XHS and Plog routes use shared runners, stable persistence, and local one-cover previews', async t => {

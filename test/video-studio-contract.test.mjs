@@ -165,7 +165,7 @@ test('video studio is an authenticated durable billed workspace embedded in home
 test('pricing presents only the real checkout price', async () => {
   const [catalog, modal] = await Promise.all([
     source('../server/billing/catalog.mjs'),
-    source('../src/components/business/Modals.jsx'),
+    source('../src/pages/Pricing/index.jsx'),
   ]);
   assert.doesNotMatch(catalog, /compareAtFen/);
   assert.doesNotMatch(modal, /正式版价|公测价|line-through/);
