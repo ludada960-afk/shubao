@@ -104,7 +104,7 @@ export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchI
   for (const product of body.products) {
     if (!['seedance_fast', 'seedance_standard'].includes(product.id)) throw new Error(`Unexpected public video product: ${product.id}`);
     if (!product.quotes?.short?.sku || !product.quotes?.long?.sku) throw new Error(`Video product ${product.id} has incomplete quotes`);
-    const expected = product.id === 'seedance_fast' ? [40000, 46000] : [62000, 72000];
+    const expected = product.id === 'seedance_fast' ? [27000, 27000] : [46000, 57000];
     if (product.quotes.short.units !== expected[0] || product.quotes.long.units !== expected[1]) throw new Error(`Video product ${product.id} quote mismatch`);
   }
   if (body.generationEnabled && !body.products.some(product => product.id === 'seedance_standard')) {

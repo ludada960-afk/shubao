@@ -17,8 +17,8 @@ test('production video verifier identifies the failing authenticated route when 
   const catalog = {
     generationEnabled: true,
     products: [
-      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 40000 }, long: { sku: 'fast-long', units: 46000 } } },
-      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 62000 }, long: { sku: 'standard-long', units: 72000 } } },
+      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 27000 }, long: { sku: 'fast-long', units: 27000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 46000 }, long: { sku: 'standard-long', units: 57000 } } },
     ],
   };
   await assert.rejects(
@@ -46,8 +46,8 @@ test('production video verifier accepts a safe public catalog without making a g
   const body = {
     generationEnabled: true,
     products: [
-      { id: 'seedance_fast', quotes: { short: { sku: 'video_seedance_fast_short', units: 40000 }, long: { sku: 'video_seedance_fast_long', units: 46000 } } },
-      { id: 'seedance_standard', quotes: { short: { sku: 'video_seedance_standard_short', units: 62000 }, long: { sku: 'video_seedance_standard_long', units: 72000 } } },
+      { id: 'seedance_fast', quotes: { short: { sku: 'video_seedance_fast_short', units: 27000 }, long: { sku: 'video_seedance_fast_long', units: 27000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'video_seedance_standard_short', units: 46000 }, long: { sku: 'video_seedance_standard_long', units: 57000 } } },
     ],
   };
   await verifyProductionVideo({ baseUrl: 'https://example.com', fetchImpl: async url => { calls += 1; assert.match(url, /\/api\/video\/capabilities$/); return response(body); } });
@@ -55,7 +55,7 @@ test('production video verifier accepts a safe public catalog without making a g
 });
 test('production video verifier rejects an internal route leak', async () => {
   await assert.rejects(
-    verifyProductionVideo({ fetchImpl: async () => response({ generationEnabled: false, products: [{ id: 'seedance_fast', routeId: 'sd5-seedance-2.0-fast', quotes: { short: { units: 40000 }, long: { units: 46000 } } }] }) }),
+    verifyProductionVideo({ fetchImpl: async () => response({ generationEnabled: false, products: [{ id: 'seedance_fast', routeId: 'sd5-seedance-2.0-fast', quotes: { short: { units: 27000 }, long: { units: 27000 } } }] }) }),
     /leaked an internal route/,
   );
 });
@@ -65,8 +65,8 @@ test('authenticated production verifier performs only non-billable canaries', as
   const catalog = {
     generationEnabled: true,
     products: [
-      { id: 'seedance_fast', quotes: { short: { sku: 'video_seedance_fast_short', units: 40000 }, long: { sku: 'video_seedance_fast_long', units: 46000 } } },
-      { id: 'seedance_standard', quotes: { short: { sku: 'video_seedance_standard_short', units: 62000 }, long: { sku: 'video_seedance_standard_long', units: 72000 } } },
+      { id: 'seedance_fast', quotes: { short: { sku: 'video_seedance_fast_short', units: 27000 }, long: { sku: 'video_seedance_fast_long', units: 27000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'video_seedance_standard_short', units: 46000 }, long: { sku: 'video_seedance_standard_long', units: 57000 } } },
     ],
   };
   const fetchImpl = async (url, options = {}) => {
@@ -108,8 +108,8 @@ test('authenticated cleanup retries transient network failures without retrying 
   const catalog = {
     generationEnabled: true,
     products: [
-      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 40000 }, long: { sku: 'fast-long', units: 46000 } } },
-      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 62000 }, long: { sku: 'standard-long', units: 72000 } } },
+      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 27000 }, long: { sku: 'fast-long', units: 27000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 46000 }, long: { sku: 'standard-long', units: 57000 } } },
     ],
   };
   let deleteAttempts = 0;
@@ -143,8 +143,8 @@ test('authenticated cleanup treats an already-removed ephemeral upload as succes
   const catalog = {
     generationEnabled: true,
     products: [
-      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 40000 }, long: { sku: 'fast-long', units: 46000 } } },
-      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 62000 }, long: { sku: 'standard-long', units: 72000 } } },
+      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 27000 }, long: { sku: 'fast-long', units: 27000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 46000 }, long: { sku: 'standard-long', units: 57000 } } },
     ],
   };
   const fetchImpl = async (url, options = {}) => {
