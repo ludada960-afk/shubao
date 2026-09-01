@@ -35,11 +35,11 @@ export const PRODUCTS = freezeCatalog({
   // 依赖快试每日 3 次频控与 admin 用量监控兜底，不在礼包定价内重复计提。
   ec_monthpack_39: {
     sku: 'ec_monthpack_39', priceFen: 3900, currency: 'ec_points',
-    grantUnits: 175000, baseUnits: 150000, giftUnits: 25000, validityDays: null,
+    grantUnits: 175000, baseUnits: 150000, giftUnits: 25000, validityDays: 30,
   },
   ec_monthpack_59: {
     sku: 'ec_monthpack_59', priceFen: 5900, currency: 'ec_points',
-    grantUnits: 270000, baseUnits: 230000, giftUnits: 40000, validityDays: null,
+    grantUnits: 270000, baseUnits: 230000, giftUnits: 40000, validityDays: 30,
   },
   xhs_entry_19: { sku: 'xhs_entry_19', priceFen: 1900, currency: 'content_sets', grantUnits: 3, validityDays: 30, regenPerWork: 5 },
   xhs_growth_49: { sku: 'xhs_growth_49', priceFen: 4900, currency: 'content_sets', grantUnits: 10, validityDays: 30, regenPerWork: 8 },

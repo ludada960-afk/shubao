@@ -806,21 +806,8 @@ mountChainRoutes(app, {
   }),
 });
 
-// 4c183cd4 续命 P-A 三方多模态串联 (video + audio + product profile)
-// 1-click chain + 写 project_assets + attach product profile
-// 鉴权同 chain, db + projectStore 复用 server 全局实例 (line 293+ 已有)
-import { mountMultiModalRoutes } from './services/multiModalService.mjs';
-mountMultiModalRoutes(app, {
-  authenticate: req => authenticateContentRequest(req, {
-    sessionTokens: contentSessionTokens,
-    authorizeEmail: authorizeAccountEmail,
-  }),
-  db,
-  projectStore,
-});
-
 // 4c183cd4 续命 P-F 孪生体 2.0 矩阵 (Web / 小程序 / API) 三处真实现
-// 鉴权同 chain / multiModal (authenticateContentRequest). 不需要 db/projectStore, 纯纯孪生链.
+// 鉴权同 chain (authenticateContentRequest). 不需要 db/projectStore, 纯纯孪生链.
 // 三处入口: /api/twin/web/* + /api/twin/miniprogram/* + /api/twin/api/*
 // 公共端点: /api/twin/matrix/health + /api/twin/capabilities + /api/twin/compliance/legals
 mountTwinMatrixRoutes(app, {

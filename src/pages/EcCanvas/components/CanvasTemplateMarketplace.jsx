@@ -67,7 +67,28 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
   }, [open, onClose]);
 
   if (!open) return null;
+
+  // 4c183cd4 空态守卫: 数据源为空 (PUBLIC_TEMPLATES.length === 0) 时绝不能渲染空壳/白屏。
+  // 当前数据源是 src/constants/publicTemplates.js 的静态 100 套 (永不空)。
+  // 一旦未来改走服务端 API / 数据被清空 / 构建失败 import 为空, 这里给出友好空态兜底。
+  const hasAnyTemplates = Array.isArray(PUBLIC_TEMPLATES) && PUBLIC_TEMPLATES.length > 0;
+
+  if (!hasAnyTemplates) {
+    return <div role="alertdialog" aria-modal="true" aria-label="模板广场暂无内容" style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
+      <div style={{ position: 'relative', width: 'min(420px, 92vw)', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)', padding: '28px 24px', textAlign: 'center' }}>
+        <button type="button" aria-label="关闭模板广场" onClick={() => onClose?.()} style={{ position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 8, border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <X size={16} />
+        </button>
+        <div style={{ fontSize: 34, lineHeight: 1 }}>🖼️</div>
+        <strong style={{ display: 'block', marginTop: 12, fontSize: 16, color: '#0f172a' }}>模板广场暂时没有内容</strong>
+        <p style={{ margin: '8px 0 18px', fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>公共模板正在整理中，稍后再来看看。你可以先直接用「新建生图」开始创作。</p>
+        <button type="button" onClick={() => onClose?.()} style={{ padding: '8px 18px', borderRadius: 8, border: 0, background: '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>知道了</button>
+      </div>
+    </div>;
+  }
+
   const totalTemplates = PUBLIC_TEMPLATES.length;
+  const gridEmpty = !Array.isArray(filteredTemplates) || filteredTemplates.length === 0;
   return <div role="dialog" aria-modal="true" aria-label="模板广场" style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
     <div style={{ position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' }}>
       <button type="button" aria-label="关闭模板广场" onClick={() => onClose?.()} style={{ position: 'absolute', top: 12, right: 12, zIndex: 5, width: 32, height: 32, borderRadius: 8, border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -93,12 +114,20 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
           ))}
         </div>
       </div>
-      <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-        {filteredTemplates.map(tpl => {
-          const detail = getPublicTemplateDetail(tpl.id);
-          return <TemplateCard key={tpl.id} tpl={tpl} detail={detail} onPick={() => onPickTemplate?.(tpl, detail)} />;
-        })}
-      </div>
+      {gridEmpty ? (
+        <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 28, lineHeight: 1 }}>🗂️</div>
+          <strong style={{ display: 'block', marginTop: 10, fontSize: 14, color: '#0f172a' }}>这个分类暂时没有可用的模板</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#64748b' }}>请切换到「热门」或「全部」查看。</p>
+        </div>
+      ) : (
+        <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+          {filteredTemplates.map(tpl => {
+            const detail = getPublicTemplateDetail(tpl.id);
+            return <TemplateCard key={tpl.id} tpl={tpl} detail={detail} onPick={() => onPickTemplate?.(tpl, detail)} />;
+          })}
+        </div>
+      )}
       <div style={{ padding: '10px 20px 18px', borderTop: '1px solid rgba(15,23,42,.06)', display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#64748b' }}>
         <Filter size={12} />点击模板即可应用到画布，弹出方案卡片后可继续细化或派生新节点。
       </div>

@@ -119,22 +119,21 @@ test('积分体系共用: 视频和图片共用 AI 积分, 用约数表达', () 
   assert.ok(!PRICING_MODAL.includes('60 张 2K'), 'no hardcoded 60 张 2K');
 });
 
-/* ═══════ 6. 可交互支付按钮 (微信绿 + 支付宝蓝) ═══════ */
-test('payment buttons expose WeChat green and Alipay blue with click feedback', () => {
-  assert.match(PRICING_CSS, /#07C160/);
-  assert.match(PRICING_CSS, /#06AD56/);
-  assert.match(PRICING_CSS, /#1677FF/);
-  assert.match(PRICING_CSS, /#0E5DD9/);
-  assert.match(PRICING_MODAL, /onClick=\{\(\) => handlePay\("wechat"\)\}/);
-  assert.match(PRICING_MODAL, /onClick=\{\(\) => handlePay\("alipay"\)\}/);
-  assert.match(PRICING_MODAL, /pricing-modal__pay-btn--wechat/);
-  assert.match(PRICING_MODAL, /pricing-modal__pay-btn--alipay/);
-  assert.match(PRICING_MODAL, /FaWeixin/);
-  assert.match(PRICING_MODAL, /SiAlipay/);
-  assert.match(PRICING_MODAL, /data-testid="pricing-modal-pay-wechat"/);
-  assert.match(PRICING_MODAL, /data-testid="pricing-modal-pay-alipay"/);
-  assert.match(PRICING_CSS, /\.pricing-modal__pay-btn\.is-pressed/);
-  assert.match(PRICING_CSS, /\.pricing-modal__pay-btn:hover/);
+/* ═══════ 6. 8-31 第 7 轮: 单一"去支付"按钮 (微信/支付宝改由 Modals 弹支付方式) ═══════ */
+test('payment area shows a single 去支付 button; payment method pops in Modals, not inline', () => {
+  // 微信/支付宝不再直铺在页面上, 改为点击"去支付"后由 Modals 的 payModal 弹出支付方式。
+  assert.match(PRICING_MODAL, /data-testid="pricing-modal-pay-submit"/);
+  assert.match(PRICING_MODAL, /pricing-modal__pay-primary/);
+  assert.match(PRICING_MODAL, /去支付/);
+  assert.ok(!PRICING_MODAL.includes('handlePay("wechat")'), 'no inline wechat handlePay');
+  assert.ok(!PRICING_MODAL.includes('handlePay("alipay")'), 'no inline alipay handlePay');
+  assert.ok(!PRICING_MODAL.includes('pricing-modal-pay-wechat'), 'no inline wechat pay testid');
+  assert.ok(!PRICING_MODAL.includes('pricing-modal-pay-alipay'), 'no inline alipay pay testid');
+  assert.ok(!PRICING_MODAL.includes('FaWeixin'), 'no inline wechat icon');
+  assert.ok(!PRICING_MODAL.includes('SiAlipay'), 'no inline alipay icon');
+  // 支付方式选择由 Modals.jsx 的 payModal 承载
+  assert.ok(MODALS.includes('选择支付方式'), 'payModal offers payment method choice');
+  assert.ok(MODALS.includes('formatPaymentProviderLabel'), 'payModal renders providers');
 });
 
 /* ═══════ 7. 当前积分永远显示 (未登录也显示引导) ═══════ */
@@ -158,22 +157,28 @@ test('modal exposes close button and Escape key handler', () => {
   assert.match(PRICING_MODAL, /e\.key === "Escape"/);
 });
 
-/* ═══════ 9. 切换 tab 自动重置选中 (防残留 bug) ═══════ */
-test('handleTabChange resets selectedId + payProvider to avoid residue across tabs', () => {
+/* ═══════ 9. 切换 tab 自动重置选中 (防残留 bug) + 倒计时 ticker ═══════ */
+test('handleTabChange resets selectedId; no inline payProvider residue; countdown ticks', () => {
   assert.match(PRICING_MODAL, /handleTabChange/);
-  assert.match(PRICING_MODAL, /setSelectedId\(tab === "permanent" \? "ec_starter_29" : "ec_monthpack_39"\)/);
-  assert.match(PRICING_MODAL, /setPayProvider\(null\)/);
-  /* pay 兜底超时, 30s 后自动清 payProvider 防 is-pressed 永久残留 */
-  assert.match(PRICING_MODAL, /30000/);
+  assert.ok(PRICING_MODAL.includes('setSelectedId(tab === "permanent" ? "ec_starter_29" : "ec_monthpack_39")'), 'tab default selection');
+  // 8-31 第 7 轮: 内联支付态 payProvider 已移除, 无残留风险
+  assert.ok(!PRICING_MODAL.includes('setPayProvider'), 'no payProvider residue');
+  assert.ok(!PRICING_MODAL.includes('30000'), 'no 30s pay-reset timer');
+  // 到期倒计时秒级 ticker 存在
+  assert.ok(PRICING_MODAL.includes('setInterval(() => setNow(Date.now()), 1000)'), 'countdown ticker');
 });
 
 
 
-/* ═══════ 11. 标题面向用户, 不再直白"商业化档位" ═══════ */
-test('title is user-facing: 给创作充点能量, not 商业化档位', () => {
-  assert.match(PRICING_MODAL, /给创作充点能量/);
+/* ═══════ 11. 标题简洁: 一句话 + 清晰积分 (删掉啰嗦主副标题) ═══════ */
+test('title is concise, user-facing: 一句话 + 清晰积分 (不再啰嗦主副标题)', () => {
+  // 8-31 第 7 轮: 删掉"给创作充点能量"啰嗦主副标题
+  assert.ok(!PRICING_MODAL.includes('给创作充点能量'), 'no verbose 给创作充点能量 title');
   assert.ok(!PRICING_MODAL.includes('选你的商业化档位'), 'no "商业化档位"');
   assert.ok(!PRICING_MODAL.includes('SHUBAO · 商业化定价'), 'no "商业化定价" brand text');
+  // 换成一话 + 清晰积分
+  assert.match(PRICING_MODAL, /pricing-modal__hero-line/);
+  assert.match(PRICING_MODAL, /一次买断 · 视频图片共用一套 AI 积分，用完再充/);
 });
 
 /* ═══════ 12. 弹窗尺寸: 880px (从 720 扩) ═══════ */
@@ -224,16 +229,16 @@ test('no internal-test, placeholder, or service-gap copy leaks into the modal', 
 
 /* ═══════ 15. api-contract 不变量 ═══════ */
 test('keeps the long-standing api-contract invariants for the modal', () => {
-  /* 8-31 重构: 用 "创作权益" 作为 hero 区段标题 (灵图风格) */
-  assert.ok(PRICING_MODAL.includes('给创作充点能量'), 'new user-facing title');
-  assert.ok(PRICING_MODAL.includes('创作权益'), 'hero section title');
+  // 8-31 第 7 轮: 去掉"给创作充点能量"主副标题与"创作权益"区段, 改为一句话 + 清晰积分。
+  assert.ok(!PRICING_MODAL.includes('给创作充点能量'), 'no verbose title');
+  assert.ok(!PRICING_MODAL.includes('创作权益'), 'no 创作权益 pile-up');
   assert.ok(PRICING_MODAL.includes('所有创作功能共用一套 AI 积分'), 'shared points copy');
-  assert.ok(PRICING_MODAL.includes('微信支付'), 'wechat pay');
-  assert.ok(PRICING_MODAL.includes('支付宝'), 'alipay');
+  // 微信/支付宝改由 Modals 的 payModal 承载
+  assert.ok(MODALS.includes('微信支付'), 'wechat pay lives in payModal');
+  assert.ok(MODALS.includes('支付宝'), 'alipay lives in payModal');
   assert.ok(!PRICING_MODAL.includes('小红书 / Plog AI 积分'), 'no plog cross-sell');
   assert.ok(!PRICING_MODAL.includes('套餐 SKU'));
   assert.ok(!PRICING_MODAL.includes('支付通道'));
-
   assert.ok(!PRICING_MODAL.includes('实时报价'));
   assert.ok(!PRICING_MODAL.includes('幂等'));
 });

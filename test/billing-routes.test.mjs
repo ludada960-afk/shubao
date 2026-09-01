@@ -193,7 +193,7 @@ test('owner account reports a real numeric balance', async t => {
   });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.unlimited, false);
-  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 300000, heldUnits: 0, unlimited: false });
+  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 300000, heldUnits: 0, unlimited: false, expiringUnits: 0, expiringAt: null });
 });
 
 test('full beta tester account receives a real numeric balance', async t => {
@@ -207,7 +207,7 @@ test('full beta tester account receives a real numeric balance', async t => {
   });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.unlimited, false);
-  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 100000, heldUnits: 0, unlimited: false });
+  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 100000, heldUnits: 0, unlimited: false, expiringUnits: 0, expiringAt: null });
 });
 
 test('orders and ledger entries are scoped to the signed owner', async t => {

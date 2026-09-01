@@ -2,7 +2,7 @@
 // 4c183cd4 续命 P-F 孪生体 2.0 矩阵 (Web / 小程序 / API) — 薯包独门 1/3
 //
 // 设计目标: 把现有 ttsBridge (9c5d01d5) + visionBridge (4c285eca) + chainService (b015edb8)
-// + multiModalService + costBasis (1d6d17fa) 五个 provider-neutral 桥 串成一个孪生体矩阵,
+// + costBasis (1d6d17fa) 四个 provider-neutral 桥 串成一个孪生体矩阵,
 // 任何孪生体 channel (Web / 小程序 / API 三处入口) 都拿到一致的"孪生能力 + 中文 AI 合规 + 实时定价" 视图.
 //
 // 孪生体 = (inputProfile, outputChannel, capabilityKey, costSnapshot, complianceCheck).
@@ -244,7 +244,7 @@ export async function executeTwin({
       costCny = chain.cost?.totalCny || 0;
       costSnapshot = chain.cost || null;
     } else if (capability === 'multi_modal') {
-      // multi_modal 走 multiModalService materialization; 这里仅暴露 intent + cost 估算
+      // multi_modal 仅暴露 intent + cost 估算 (真实生成走画布节点串联)
       const text = cleanString(input.text, 2000);
       if (!text) throw codedError('TWIN_MULTIMODAL_TEXT_REQUIRED', 'multi_modal 模式 text 必填', 400);
       const baseCostCny = 0.05; // 估算: video+audio+profile 串联
@@ -252,7 +252,7 @@ export async function executeTwin({
         kind: 'multi_modal',
         text,
         productId: input.productId || null,
-        note: '真实三方串联由 multiModalService.executeAndMaterialize 接管; 孪生体仅暴露 intent + cost 估算',
+        note: '孪生体仅暴露 intent + cost 估算; 真实视频/音频生成走画布节点串联',
       };
       costCny = baseCostCny;
     } else if (capability === 'composition') {

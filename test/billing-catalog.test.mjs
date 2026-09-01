@@ -250,7 +250,7 @@ test('prepaid month packs grant base-plus-gift points with no auto renewal', () 
     grantUnits: 175000,
     baseUnits: 150000,
     giftUnits: 25000,
-    validityDays: null,
+    validityDays: 30,
   });
   assert.deepEqual(getProduct('ec_monthpack_59'), {
     sku: 'ec_monthpack_59',
@@ -259,7 +259,7 @@ test('prepaid month packs grant base-plus-gift points with no auto renewal', () 
     grantUnits: 270000,
     baseUnits: 230000,
     giftUnits: 40000,
-    validityDays: null,
+    validityDays: 30,
   });
 });
 

@@ -395,13 +395,11 @@ export function CanvasMinimap({
           })}
         </svg>
         {nodes.map(node => {
-          const color = import.meta.url ? null : null; // Color resolved via getNodeKindColor
           return (
             <div
               key={node.id}
               className="ec-canvas-minimap-node"
               data-kind={node.kind}
-              data-color={(import('../canvasQuantvExtensions.js').then(m => m.getNodeKindColor(node.kind)),)}
               style={{
                 left: node.x * scaleX,
                 top: node.y * scaleY,

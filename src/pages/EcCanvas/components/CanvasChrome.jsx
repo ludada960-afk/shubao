@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import AccountEntitlementControl from '../../../components/billing/AccountEntitlementControl.jsx';
+import { PUBLIC_TEMPLATES } from '../../../constants/publicTemplates.js';
 
 function IconButton({ label, children, active = false, disabled = false, onClick, className = '' }) {
   return <button
@@ -45,12 +46,13 @@ export function CanvasTopBar({
   onExport,
   onRestore,
   onNew,
-  onOpenMultiModal,
   onOpenTemplateMarketplace,
   saving = false,
   canRestore = false,
   entitlement,
 }) {
+  // 4c183cd4 空态守卫: 模板数据为空时隐藏顶部入口按钮, 避免打开空壳白屏。
+  const hasTemplates = Array.isArray(PUBLIC_TEMPLATES) && PUBLIC_TEMPLATES.length > 0;
   return <header className="ec-canvas-topbar">
     <div className="ec-canvas-topbar-leading">
       <IconButton label="返回" className="ec-canvas-topbar-surface" onClick={onBack}><ArrowLeft size={18} /></IconButton>
@@ -88,14 +90,11 @@ export function CanvasTopBar({
         {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉顶部 [1-click 视频] 入口
             用户原话 8-30: "你必须把这些重复的东西都给拿掉"
             1-click 视频改走节点串联: 图片 → 应用节点 → 视频 → 音频 (Quantv §10.2 风格) */}
-        {/* 4c183cd4 续命 P-A 三方多模态串联 入口按钮 (保留, 不算重复) */}
-        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenMultiModal} aria-label="打开三方多模态串联">
-          <Layers3 size={16} />多模态串联
-        </button>
-        {/* 4c183cd4 续命 P-E 100 套模板广场 入口按钮 */}
-        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenTemplateMarketplace} aria-label="打开模板广场">
+        {/* 2026-09-01 用户反对多模态串联: 拿掉多模态串联 入口按钮, 视频/音频走节点串联 */}
+        {/* 4c183cd4 续命 P-E 100 套模板广场 入口按钮 (无模板数据时隐藏) */}
+        {hasTemplates && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenTemplateMarketplace} aria-label="打开模板广场">
           <ImagePlus size={16} />模板广场
-        </button>
+        </button>}
         <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onExport}><Download size={16} />导出整套图片</button>
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}

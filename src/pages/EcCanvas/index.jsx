@@ -99,7 +99,7 @@ import '../../styles/canvas-supervisor.css';
 import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
 /* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 (8 大新规划 5/8 落地) */
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay import (1-click 视频 overlay 重复入口, 改走节点串联) */
-import CanvasMultiModalOverlay from './components/CanvasMultiModalOverlay.jsx';
+/* 2026-09-01 用户反对多模态串联: 移除该浮层 import, 视频/音频收敛到节点串联 */
 import CanvasTemplateMarketplace from './components/CanvasTemplateMarketplace.jsx';
 /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI 组件
    CanvasContextMenuPanel.jsx 内含: CanvasContextMenuPanel / CanvasAddNodePanel /
@@ -611,9 +611,8 @@ export default function EcCanvas() {
                   steps: [''|'pending'|'running'|'ok'|'failed', ...], totalCost, error, running, finishedAt } */
   const [chainRun, setChainRun] = useState(null);
   /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 chainOverlayOpen state
-      改后只剩 2 个 overlay (multiModal/templateMarketplace)
-      1-click 视频改走节点串联 (Quantv §10.2) */
-  const [multiModalOverlayOpen, setMultiModalOverlayOpen] = useState(false);
+      2026-09-01 用户反对多模态串联: 移除该浮层开关状态
+      1-click 视频改走节点串联 (Quantv §10.2), 现只剩 1 个 overlay (templateMarketplace) */
   const [templateMarketplaceOpen, setTemplateMarketplaceOpen] = useState(false);
   const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
   const [workCategory, setWorkCategory] = useState('all');
@@ -4838,10 +4837,9 @@ export default function EcCanvas() {
         onNew={handleNew}
         /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉顶部 [1-click 视频] overlay 入口
            用户原话 8-30: "你必须把这些重复的东西都给拿掉"
-           原 3 overlay (1-click 视频/多模态串联/模板广场) -> 2 overlay (多模态串联/模板广场)
+           原 3 overlay (1-click 视频/多模态串联/模板广场) -> 1 overlay (模板广场)
            1-click 视频改走节点串联: 选中图片节点 → 端口 → 应用节点 → 视频节点 → 音频节点
-           保留: 多模态串联 (三方资产汇总, 跟"1-click 视频" 完全不同) + 模板广场 (公共资源入口) */
-        onOpenMultiModal={() => setMultiModalOverlayOpen(true)}
+           2026-09-01 用户反对多模态串联: 拿掉 入口回调 prop, 现只剩 模板广场 (公共资源入口) overlay */
         onOpenTemplateMarketplace={() => setTemplateMarketplaceOpen(true)}
         saving={canvasSessionBusy}
         canRestore={Boolean(canvasSession?.id || result.canvasSessionId)}
@@ -5953,17 +5951,7 @@ export default function EcCanvas() {
 
       {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay JSX 渲染
           1-click 视频改走节点串联: 图片节点 → 应用节点 → 视频节点 → 音频节点 (Quantv §10.2)
-          改后只剩 2 个 overlay (多模态串联/模板广场) */}
-      <CanvasMultiModalOverlay
-        open={multiModalOverlayOpen}
-        onClose={() => setMultiModalOverlayOpen(false)}
-        referenceImage={selectedNode?.url || null}
-        defaultProjectKind="ecommerce"
-        onComplete={(result) => {
-          setMultiModalOverlayOpen(false);
-          showToast('三方多模态串联完成', 'success');
-        }}
-      />
+          2026-09-01 用户反对多模态串联: 移除该浮层渲染, 现只剩 1 个 overlay (模板广场) */}
       <CanvasTemplateMarketplace
         open={templateMarketplaceOpen}
         onClose={() => setTemplateMarketplaceOpen(false)}

@@ -3,7 +3,7 @@
 // 改后画布:
 //   - 拿掉 CanvasChainOverlay (1-click 视频独立入口, 重复)
 //   - 拿掉 CanvasAssetQuickPanel (1-click 拖入面板, 重复, 已被 tab=assets + 底部"添加图片/视频" 替代)
-//   - 保留 CanvasMultiModalOverlay (三方多模态串联, 不重复)
+//   - 拿掉 CanvasMultiModalOverlay (2026-09-01 用户反对多模态串联, 视频/音频走节点串联)
 //   - 保留 CanvasTemplateMarketplace (模板广场, 不重复)
 //   - 新增 application 节点 kind (Quantv §10.2 "应用" 节点, 取代原 AI 智能组)
 //   - 节点串联: 图片节点 → 端口 → 应用节点 → 视频节点 → 音频节点
@@ -16,15 +16,9 @@ import path from 'node:path';
 
 const SRC_ROOT = path.join(process.cwd(), 'src');
 
-test('Q1: CanvasMultiModalOverlay 组件存在 (保留, 三方多模态串联)', () => {
+test('Q1: CanvasMultiModalOverlay 组件已被移除 (用户反对多模态串联, 视频/音频走节点串联)', () => {
   const file = path.join(SRC_ROOT, 'pages/EcCanvas/components/CanvasMultiModalOverlay.jsx');
-  assert.ok(existsSync(file), 'CanvasMultiModalOverlay.jsx 必须存在');
-  const src = readFileSync(file, 'utf8');
-  assert.ok(src.includes('MultiModalEntry'), '必须 import MultiModalEntry');
-  assert.ok(src.includes('export default function CanvasMultiModalOverlay'), '必须 export default');
-  for (const prop of ['open', 'onClose', 'referenceImage', 'defaultProjectKind', 'onComplete']) {
-    assert.ok(src.includes(prop), `CanvasMultiModalOverlay 必须接收 ${prop} prop`);
-  }
+  assert.equal(existsSync(file), false, 'CanvasMultiModalOverlay.jsx 必须不存在 (多模态串联已移除)');
 });
 
 test('Q2: CanvasTemplateMarketplace 组件存在 (保留, 模板广场)', () => {
@@ -57,12 +51,13 @@ test('Q4: CanvasAssetQuickPanel 已被拿掉 (1-click 拖入面板重复, 已被
     'EcCanvas/index.jsx 不应再渲染 CanvasAssetQuickPanel');
 });
 
-test('Q5: EcCanvas/index.jsx 已只剩 2 个 overlay (multiModal + templateMarketplace)', () => {
+test('Q5: EcCanvas/index.jsx 已只剩 1 个 overlay (templateMarketplace), 多模态串联已移除', () => {
   const file = path.join(SRC_ROOT, 'pages/EcCanvas/index.jsx');
   const src = readFileSync(file, 'utf8');
-  assert.ok(src.includes('multiModalOverlayOpen'), '必须保留 multiModalOverlayOpen state');
+  assert.equal(src.includes('multiModalOverlayOpen'), false, 'multiModalOverlayOpen state 必须已移除');
+  assert.equal(src.includes('onOpenMultiModal'), false, 'onOpenMultiModal prop 必须已移除');
+  assert.equal(src.includes('CanvasMultiModalOverlay'), false, 'CanvasMultiModalOverlay 必须已移除');
   assert.ok(src.includes('templateMarketplaceOpen'), '必须保留 templateMarketplaceOpen state');
-  assert.ok(src.includes('onOpenMultiModal'), '必须传给 CanvasTopBar onOpenMultiModal');
   assert.ok(src.includes('onOpenTemplateMarketplace'), '必须传给 CanvasTopBar onOpenTemplateMarketplace');
 });
 

@@ -271,7 +271,12 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
     balance: handler((req, res) => {
       const ownerEmail = ownerFor(req);
       const balances = Object.fromEntries(
-        [...CURRENCIES].map(unit => [unit, walletService.getBalance(ownerEmail, unit)]),
+        [...CURRENCIES].map(unit => [
+          unit,
+          typeof walletService.getBalanceWithExpiry === 'function'
+            ? walletService.getBalanceWithExpiry(ownerEmail, unit)
+            : walletService.getBalance(ownerEmail, unit),
+        ]),
       );
       return res.json({
         unlimited: Object.values(balances).some(balance => balance.unlimited),

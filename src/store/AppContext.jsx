@@ -30,6 +30,8 @@ const initialState = {
   logged: false,
   phone: '',
   ecPoints: 0,
+  ecPointsExpiring: 0,
+  ecPointsExpiresAt: null,
   contentSets: 0,
   credits: 0,
   unlimited: false,
@@ -181,6 +183,8 @@ function reducer(state, action) {
           scrollPos: 0,
           canvasEntryTab: 'canvas',
           ecPoints: 0,
+          ecPointsExpiring: 0,
+          ecPointsExpiresAt: null,
           contentSets: 0,
           credits: 0,
           unlimited: false,
@@ -200,6 +204,12 @@ function reducer(state, action) {
       return {
         ...state,
         ecPoints: action.ecPoints,
+        ecPointsExpiring: Object.prototype.hasOwnProperty.call(action, 'ecPointsExpiring')
+          ? action.ecPointsExpiring
+          : state.ecPointsExpiring,
+        ecPointsExpiresAt: Object.prototype.hasOwnProperty.call(action, 'ecPointsExpiresAt')
+          ? action.ecPointsExpiresAt
+          : state.ecPointsExpiresAt,
         contentSets: action.contentSets,
         credits: action.contentSets,
         unlimited: Boolean(action.unlimited),

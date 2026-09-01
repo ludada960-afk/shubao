@@ -30,16 +30,16 @@ test('normalizes milli-point balance records into separate human-readable entitl
       content_sets: { availableUnits: 10, heldUnits: 0, unlimited: false },
     },
     unlimited: false,
-  }), { ecPoints: 105, contentSets: 10, unlimited: false });
+  }), { ecPoints: 105, ecPointsExpiring: 0, ecPointsExpiresAt: null, contentSets: 10, unlimited: false });
 });
 
 test('normalizes compact balance payloads and keeps unlimited distinct from numeric balances', () => {
   assert.deepEqual(normalizeEntitlement({
     balances: { ec_points: 105000, content_sets: 10 },
     unlimited: false,
-  }), { ecPoints: 105, contentSets: 10, unlimited: false });
-  assert.deepEqual(normalizeEntitlement({ unlimited: true }), { ecPoints: null, contentSets: null, unlimited: true });
-  assert.deepEqual(normalizeEntitlement({}), { ecPoints: 0, contentSets: 0, unlimited: false });
+  }), { ecPoints: 105, ecPointsExpiring: 0, ecPointsExpiresAt: null, contentSets: 10, unlimited: false });
+  assert.deepEqual(normalizeEntitlement({ unlimited: true }), { ecPoints: null, ecPointsExpiring: null, ecPointsExpiresAt: null, contentSets: null, unlimited: true });
+  assert.deepEqual(normalizeEntitlement({}), { ecPoints: 0, ecPointsExpiring: 0, ecPointsExpiresAt: null, contentSets: 0, unlimited: false });
 });
 
 test('session request gate rejects responses captured before a session switch', async () => {

@@ -490,6 +490,15 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
         AND julianday(expires_at) <= julianday(?)
         AND remaining_units > 0
     `),
+    selectUnexpiredExpiringLots: db.prepare(`
+      SELECT remaining_units, expires_at
+      FROM credit_lots
+      WHERE owner_email = ? AND currency = ?
+        AND remaining_units > 0
+        AND expires_at IS NOT NULL
+        AND julianday(expires_at) > julianday(?)
+      ORDER BY julianday(expires_at) ASC, created_at ASC, id ASC
+    `),
     expireLot: db.prepare(`
       UPDATE credit_lots
       SET remaining_units = 0
@@ -1458,6 +1467,21 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     return result;
   });
 
+  // 计算某币种当前可用余额（扣除已到期 lot），供 getBalance / getBalanceWithExpiry 复用。
+  function balanceFor(ownerEmail, currency) {
+    const normalizedOwnerEmail = nonEmptyString(ownerEmail, 'ownerEmail');
+    const normalizedCurrency = nonEmptyString(currency, 'currency');
+    const unlimited = Boolean(isUnlimited(normalizedOwnerEmail));
+    const wallet = statements.selectWallet.get(normalizedOwnerEmail, normalizedCurrency);
+    if (unlimited || !wallet) return balanceResult(wallet, unlimited);
+    const expiredUnits = statements.sumExpiredLots
+      .get(normalizedOwnerEmail, normalizedCurrency, currentTimeIso()).units;
+    return balanceResult({
+      ...wallet,
+      available_units: Math.max(0, wallet.available_units - expiredUnits),
+    }, false);
+  }
+
   return {
     grant(input) {
       return grantTx(normalizeGrantInput(input, currentTimeMs()));
@@ -1468,17 +1492,26 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     },
 
     getBalance(ownerEmail, currency) {
-      const normalizedOwnerEmail = nonEmptyString(ownerEmail, 'ownerEmail');
-      const normalizedCurrency = nonEmptyString(currency, 'currency');
-      const unlimited = Boolean(isUnlimited(normalizedOwnerEmail));
-      const wallet = statements.selectWallet.get(normalizedOwnerEmail, normalizedCurrency);
-      if (unlimited || !wallet) return balanceResult(wallet, unlimited);
-      const expiredUnits = statements.sumExpiredLots
-        .get(normalizedOwnerEmail, normalizedCurrency, currentTimeIso()).units;
-      return balanceResult({
-        ...wallet,
-        available_units: Math.max(0, wallet.available_units - expiredUnits),
-      }, false);
+      return balanceFor(ownerEmail, currency);
+    },
+
+    // 月卡/礼包积分带 expires_at，前端需要区分「会过期部分 + 到期时间」做倒计时。
+    // 返回 balance 字段 + expiringUnits（尚未到期、将于某时失效的剩余积分 units）和
+    // expiringAt（最早一笔到期 lot 的失效时间 ISO 字符串；没有则 null）。
+    getBalanceWithExpiry(ownerEmail, currency) {
+      const balance = balanceFor(ownerEmail, currency);
+      if (balance.unlimited) {
+        return { ...balance, expiringUnits: 0, expiringAt: null };
+      }
+      const nowIso = currentTimeIso();
+      const lots = statements.selectUnexpiredExpiringLots
+        .all(ownerEmail, currency, nowIso);
+      const expiringUnits = lots.reduce((sum, lot) => sum + lot.remaining_units, 0);
+      return {
+        ...balance,
+        expiringUnits,
+        expiringAt: lots.length ? lots[0].expires_at : null,
+      };
     },
 
     createHold(input) {

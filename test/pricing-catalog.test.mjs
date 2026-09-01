@@ -46,8 +46,8 @@ test('authoritative server catalog contains the exact ecommerce permanent point 
       { sku: 'ec_starter_29', priceFen: 2900, grantUnits: 105000, validityDays: null },
       { sku: 'ec_growth_79', priceFen: 7900, grantUnits: 295000, validityDays: null },
       { sku: 'ec_studio_199', priceFen: 19900, grantUnits: 760000, validityDays: null },
-      { sku: 'ec_monthpack_39', priceFen: 3900, grantUnits: 175000, validityDays: null },
-      { sku: 'ec_monthpack_59', priceFen: 5900, grantUnits: 270000, validityDays: null },
+      { sku: 'ec_monthpack_39', priceFen: 3900, grantUnits: 175000, validityDays: 30 },
+      { sku: 'ec_monthpack_59', priceFen: 5900, grantUnits: 270000, validityDays: 30 },
     ],
   );
 });
@@ -99,8 +99,8 @@ test('pricing view model takes price, grants, validity, and enabled state from s
       { sku: 'ec_starter_29', priceFen: 2900, grantUnits: 105000, validityDays: null, enabled: true },
       { sku: 'ec_growth_79', priceFen: 7900, grantUnits: 295000, validityDays: null, enabled: false },
       { sku: 'ec_studio_199', priceFen: 19900, grantUnits: 760000, validityDays: null, enabled: true },
-      { sku: 'ec_monthpack_39', priceFen: 3900, grantUnits: 175000, validityDays: null, enabled: true },
-      { sku: 'ec_monthpack_59', priceFen: 5900, grantUnits: 270000, validityDays: null, enabled: true },
+      { sku: 'ec_monthpack_39', priceFen: 3900, grantUnits: 175000, validityDays: 30, enabled: true },
+      { sku: 'ec_monthpack_59', priceFen: 5900, grantUnits: 270000, validityDays: 30, enabled: true },
     ],
   );
 });

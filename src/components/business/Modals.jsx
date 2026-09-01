@@ -421,6 +421,8 @@ export function PricingModal() {
             onClose={() => { setModalView(current => transitionPricingModalView(current, 'CANCEL')); close(); }}
             isLogged={state.logged}
             ecPoints={state.ecPoints}
+            ecPointsExpiring={state.ecPointsExpiring}
+            ecPointsExpiresAt={state.ecPointsExpiresAt}
             unlimited={state.unlimited}
           />
 

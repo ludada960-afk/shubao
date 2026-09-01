@@ -1,19 +1,22 @@
-// 灵图风格定价弹窗 (用户 8-30 反馈, 8-31 重构)
+// 灵图风格定价弹窗 (用户 8-30 反馈, 8-31 重构, 8-31 第 7 轮收敛)
 // 用户 8-30 反馈 + 8-31 重构指令:
 //   - 一套收费标准: 视频和图片共用 AI 积分, 不做两套分档
 //   - 约数表达: 不写死"X 张图/Y 条视频", 写"约 X 张 / 约 Y 条"
 //   - 弹窗要大, 有空间感, 有主次
 //   - 标题面向最终用户, 不要"商业化档位"这种直白说法
 //   - 关闭按钮失效 (Modals.jsx 已修), 选中态残留, 积分不显示
+// 8-31 第 7 轮收敛 (本轮)：
+//   - 删掉啰嗦的主副标题
+//   - 去掉顶部 LOGO (番茄AI/薯包AI)
+//   - 权益区改"一句话 + 清晰积分"（不再啰嗦列一堆权益）
+//   - 套餐选中显示明确的"选中详情区"（渲染 desc 字段 + 有效期）
+//   - 月卡(30天)与永久包真实区分有效期；有会过期积分时前端做到期倒计时
+//   - 微信/支付宝不再直铺在页面上，改为点击"去支付"后由 Modals 弹出支付方式
 //
-// 设计基准: 灵图 AI (月度套餐 / 永久积分包 双tab, 价格升序 4 档, 推荐档黑色按钮)
+// 设计基准: 灵图 AI (月度套餐 / 永久积分包 双tab, 价格升序, 推荐档黑色按钮)
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { MdCheckCircle, MdStar, MdClose } from "react-icons/md";
-import { FaWeixin } from "react-icons/fa";
-import { SiAlipay } from "react-icons/si";
-import { IMAGES } from "../../constants/images";
-
+import { MdStar, MdClose } from "react-icons/md";
 
 function formatUnits(n) { return n.toLocaleString("zh-CN"); }
 /* ── 渲染辅助: 从服务端 plans 派生展示数据 ── */
@@ -36,11 +39,22 @@ const PACK_TAGLINE = {
 /* 1 积分 = 1000 units (catalog 终案口径) */
 const UNITS_PER_POINT = 1000;
 /* 主力档图片成本 ¥0.038/张, 视频快试 ¥5.07/条 (catalog 终案口径) */
-const COST_PER_IMAGE_CNY = 0.038;
-const COST_PER_VIDEO_FAST_CNY = 5.07;
 function unitsToPoints(units) { return Math.round(Number(units || 0) / UNITS_PER_POINT); }
-function approxImages(points) { return Math.round(points); /* 1 积分 ≈ 1 张 2K \\u5546\\u54c1\\u56fe (catalog 终案) */ }
-function approxVideos(points) { return Math.round(points / 27); /* 27 积分 ≈ 1 条快试视频 (catalog 终案) */ }
+function approxImages(points) { return Math.round(points); }
+function approxVideos(points) { return Math.round(points / 27); }
+
+/* 到期倒计时文案: 传最早到期时间 ISO + 当前时间戳, 返回 "X 天 Y 小时 / X 小时 Y 分 / X 分" */
+function countdownText(expiresAt, nowMs) {
+  const diff = Date.parse(expiresAt) - nowMs;
+  if (!Number.isFinite(diff) || diff <= 0) return "即将到期";
+  const totalMin = Math.floor(diff / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins = totalMin % 60;
+  if (days > 0) return `${days} 天 ${hours} 小时`;
+  if (hours > 0) return `${hours} 小时 ${mins} 分`;
+  return `${mins} 分`;
+}
 
 /* ── 主组件 (props 向后兼容 4c183cd4 时代) ── */
 export default function PricingModalRefactored({
@@ -50,6 +64,8 @@ export default function PricingModalRefactored({
   onClose,
   isLogged,
   ecPoints = 0,
+  ecPointsExpiring = 0,
+  ecPointsExpiresAt = null,
   unlimited = false,
   show = true,
 }) {
@@ -58,7 +74,8 @@ export default function PricingModalRefactored({
   /* Tab: 'permanent' (永久积分包) | 'monthly' (月卡套餐) - 灵图风格双tab */
   const [activeTab, setActiveTab] = useState("permanent");
   const [selectedId, setSelectedId] = useState("ec_starter_29");
-  const [payProvider, setPayProvider] = useState(null);
+  /* 到期倒计时秒级 ticker */
+  const [now, setNow] = useState(() => Date.now());
 
   /* 从服务端 plans props 派生当前 tab 的 SKU (currency=ec_points 的才是积分包) */
   const planCatalog = (plans || []).filter((p) => p && p.currency === "ec_points");
@@ -77,27 +94,31 @@ export default function PricingModalRefactored({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  /* 倒计时 tick (弹窗可见时每秒刷新) */
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   /* 切 tab 时自动选中推荐档 (避免切换 tab 后旧选中残留) */
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
     setSelectedId(tab === "permanent" ? "ec_starter_29" : "ec_monthpack_39");
-    setPayProvider(null);
   }, []);
 
-  /* 选套餐时清支付态 */
+  /* 选套餐时记录选中 SKU */
   const handleSelectPack = useCallback((sku) => {
     setSelectedId(sku);
-    setPayProvider(null);
   }, []);
 
-  const handlePay = useCallback(
-    (provider) => {
-      setPayProvider(provider);
-      if (onBuy) onBuy({ sku: selectedId, activeTab, provider });
-      window.setTimeout(() => setPayProvider(null), 30000);
-    },
-    [onBuy, selectedId, activeTab]
-  );
+  /* 会过期积分拆分: 登录 + 非 unlimited + 有会过期积分 + 有到期时间 */
+  const hasExpiring = Boolean(isLogged && !unlimited && Number(ecPointsExpiring) > 0 && ecPointsExpiresAt);
+  const expiryCountdown = hasExpiring ? countdownText(ecPointsExpiresAt, now) : "";
+
+  const handlePay = useCallback(() => {
+    if (!selectedPack) return;
+    if (onBuy) onBuy(selectedPack);
+  }, [onBuy, selectedPack]);
 
   return (
     <div className="pricing-modal" data-testid="pricing-modal" data-tab={activeTab} role="dialog" aria-label="选择积分包">
@@ -105,12 +126,9 @@ export default function PricingModalRefactored({
       <div className="pricing-modal__orb pricing-modal__orb--a" aria-hidden="true" />
       <div className="pricing-modal__orb pricing-modal__orb--b" aria-hidden="true" />
 
-      {/* 顶部: 品牌 + 关闭 */}
+      {/* 顶部: 仅关闭按钮 (LOGO 已按用户要求去掉) */}
       <header className="pricing-modal__header">
-        <div className="pricing-modal__brand">
-          <img src={IMAGES.logo_lg} alt="番茄AI" className="pricing-modal__brand-logo" />
-          <span className="pricing-modal__brand-text">薯包 AI</span>
-        </div>
+        <span className="pricing-modal__brand-text">薯包 AI · 积分充值</span>
         <button
           type="button"
           className="pricing-modal__close"
@@ -122,12 +140,11 @@ export default function PricingModalRefactored({
         </button>
       </header>
 
-      <h3 className="pricing-modal__title">给创作充点能量</h3>
-      <p className="pricing-modal__subtitle">一次买断 · 视频和图片共用一套积分 · 用完再充</p>
-
-      {/* 副标: 灵图风格的"创作权益"区段标题 (替代之前独立的当前积分卡, 避免叠层) */}
+      {/* 一句话 + 清晰积分 (不再啰嗦列一堆权益 / 主副标题) */}
       <div className="pricing-modal__hero" data-testid="pricing-modal-hero">
-        <div className="pricing-modal__hero-title">创作权益</div>
+        <div className="pricing-modal__hero-line">
+          一次买断 · 视频图片共用一套 AI 积分，用完再充
+        </div>
         <div className="pricing-modal__hero-meta">
           {!isLogged
             ? <span className="pricing-modal__balance-login">登录后查看积分</span>
@@ -135,8 +152,12 @@ export default function PricingModalRefactored({
               ? <span>我的积分: <strong>∞</strong></span>
               : <span>我的积分: <strong>{formatUnits(ecPoints)}</strong></span>
           }
-          <span className="pricing-modal__hero-dot">·</span>
-          <span>永不过期</span>
+          {hasExpiring && (
+            <span className="pricing-modal__hero-expiring">
+              <span className="pricing-modal__hero-dot">·</span>
+              其中 {formatUnits(ecPointsExpiring)} 积分 {expiryCountdown} 后到期
+            </span>
+          )}
         </div>
       </div>
 
@@ -162,7 +183,7 @@ export default function PricingModalRefactored({
           data-testid="pricing-modal-tab-monthly"
         >
           <span className="pricing-modal__tab-name">月卡套餐</span>
-          <em className="pricing-modal__tab-sub">月内高频更划算</em>
+          <em className="pricing-modal__tab-sub">月内高频, 30 天有效</em>
         </button>
       </div>
 
@@ -178,6 +199,9 @@ export default function PricingModalRefactored({
           const vidCount = approxVideos(points);
           const label = PACK_LABEL[sku] || sku;
           const tagline = PACK_TAGLINE[sku] || "";
+          const validity = Number.isInteger(pack.validityDays) && pack.validityDays > 0
+            ? `${pack.validityDays} 天有效`
+            : "永久有效";
           return (
             <article
               key={sku}
@@ -201,7 +225,6 @@ export default function PricingModalRefactored({
                 <span className="pricing-modal__pack-price-val">{(pack.priceFen / 100).toFixed(1)}</span>
               </div>
               <div className="pricing-modal__pack-units">{formatUnits(points)} 积分</div>
-              {/* 8-31 第 4 轮: 结构化展示 (图片数 / 视频数 / 永不过期), 不再挤单行描述 */}
               <ul className="pricing-modal__pack-list">
                 <li>
                   <span className="pricing-modal__pack-list-icon">🖼</span>
@@ -214,9 +237,11 @@ export default function PricingModalRefactored({
                   <span className="pricing-modal__pack-list-unit">条视频</span>
                 </li>
                 <li className="pricing-modal__pack-list-meta">
-                  {giftPoints > 0
-                    ? <span>含赠 <strong>{giftPoints}</strong> 积分</span>
-                    : <span>一次买断, 永不过期</span>
+                  {pack.validityDays
+                    ? <><span className="pricing-modal__pack-validity">{validity}</span>{giftPoints > 0 && <span> · 含赠 <strong>{giftPoints}</strong> 积分</span>}</>
+                    : giftPoints > 0
+                      ? <span>含赠 <strong>{giftPoints}</strong> 积分</span>
+                      : <span>一次买断, 永久有效</span>
                   }
                 </li>
               </ul>
@@ -237,36 +262,41 @@ export default function PricingModalRefactored({
         })}
       </div>
 
-      {/* 支付区 */}
+      {/* 选中详情区 (渲染 desc 字段 + 有效期 + 价格/积分) */}
+      {selectedPack && (
+        <section className="pricing-modal__detail" data-testid="pricing-modal-selected-detail">
+          <div className="pricing-modal__detail-head">
+            <span className="pricing-modal__detail-name">
+              {PACK_LABEL[selectedPack.sku] || selectedPack.name || selectedPack.sku}
+            </span>
+            <span className="pricing-modal__pack-validity">
+              {Number.isInteger(selectedPack.validityDays) && selectedPack.validityDays > 0
+                ? `${selectedPack.validityDays} 天有效`
+                : "永久有效"}
+            </span>
+          </div>
+          <div className="pricing-modal__detail-price">
+            ¥{(selectedPack.priceFen / 100).toFixed(1)} · {formatUnits(unitsToPoints(selectedPack.grantUnits))} 积分
+            {selectedPack.giftUnits ? <>（含赠 <strong>{formatUnits(unitsToPoints(selectedPack.giftUnits))}</strong> 积分）</> : null}
+          </div>
+          {selectedPack.description && (
+            <p className="pricing-modal__detail-desc">{selectedPack.description}</p>
+          )}
+        </section>
+      )}
+
+      {/* 支付区: 微信/支付宝不直铺, 点"去支付"后由 Modals 弹支付方式 */}
       <div className="pricing-modal__pay" data-testid="pricing-modal-pay">
-        <div className="pricing-modal__pay-summary">
-          {selectedPack
-            ? <>已选: <strong>{PACK_LABEL[selectedPack.sku] || selectedPack.sku}</strong> · ¥{(selectedPack.priceFen/100).toFixed(1)} · {formatUnits(unitsToPoints(selectedPack.grantUnits))} 积分</>
-            : <>加载中...</>
-          }
-        </div>
-        <div className="pricing-modal__pay-grid">
-          <button
-            type="button"
-            className={"pricing-modal__pay-btn pricing-modal__pay-btn--wechat" + (payProvider === "wechat" ? " is-pressed" : "")}
-            onClick={() => handlePay("wechat")}
-            data-testid="pricing-modal-pay-wechat"
-          >
-            <FaWeixin size={20} />
-            <span>微信支付</span>
-          </button>
-          <button
-            type="button"
-            className={"pricing-modal__pay-btn pricing-modal__pay-btn--alipay" + (payProvider === "alipay" ? " is-pressed" : "")}
-            onClick={() => handlePay("alipay")}
-            data-testid="pricing-modal-pay-alipay"
-          >
-            <SiAlipay size={20} />
-            <span>支付宝</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="pricing-modal__pay-primary"
+          onClick={handlePay}
+          data-testid="pricing-modal-pay-submit"
+        >
+          {isLogged ? "去支付" : "登录后去支付"}
+        </button>
         <p className="pricing-modal__pay-note">
-          所有创作功能共用一套 AI 积分 · 失败任务自动返还 · 一次买断永久有效
+          所有创作功能共用一套 AI 积分 · 失败任务自动返还 · 月卡 30 天有效 / 永久包永久有效
         </p>
       </div>
     </div>
