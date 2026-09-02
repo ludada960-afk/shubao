@@ -640,6 +640,7 @@ export default function EcCanvas() {
   const [taskLogOpen, setTaskLogOpen] = useState(false);
   const [taskLogEntries, setTaskLogEntries] = useState([]);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [minimapOpen, setMinimapOpen] = useState(true); // 9-02 小地图可关闭 (默认开)
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
   const [nodeActionBar, setNodeActionBar] = useState(null);
@@ -5726,13 +5727,14 @@ export default function EcCanvas() {
       )}
 
       {/* 4c183cd4 续命 画布总监督 2026-08-30 - 小地图 (Quantv CanvasMinimap) */}
-      <CanvasMinimap
+      {minimapOpen && <CanvasMinimap
         nodes={nodes}
         connections={connections}
         viewport={viewport}
         worldBounds={{ width: 2400, height: 1600 }}
         onViewportChange={(v) => setViewport(v)}
-      />
+        onClose={() => setMinimapOpen(false)}
+      />}
 
       {/* P2: 跨域投递对话框（EcCanvas → 视频项目） */}
       <VideoProjectDeliveryDialog

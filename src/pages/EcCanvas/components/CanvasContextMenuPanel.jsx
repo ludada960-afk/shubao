@@ -270,11 +270,13 @@ export function CanvasShortcutHelp({ onClose }) {
     };
   }, [onClose]);
 
-  const shortcuts = useMemo(() => import('../canvasQuantvExtensions.js').then(m => m.CANVAS_SHORTCUTS), []);
+  // 9-02 修复: 动态 import 已 resolve 为 CANVAS_SHORTCUTS 数组, 直接使用, 不再二次访问 .CANVAS_SHORTCUTS (会导致列表恒空)
   const [shortcutsList, setShortcutsList] = useState([]);
   useEffect(() => {
-    shortcuts.then(m => setShortcutsList(m.CANVAS_SHORTCUTS || []));
-  }, [shortcuts]);
+    import('../canvasQuantvExtensions.js')
+      .then((m) => setShortcutsList(m.CANVAS_SHORTCUTS || []))
+      .catch(() => setShortcutsList([]));
+  }, []);
 
   const filtered = shortcutsList.filter(s =>
     !query || s.description.includes(query) || s.keys.some(k => k.toLowerCase().includes(query.toLowerCase()))
@@ -325,6 +327,7 @@ export function CanvasMinimap({
   viewport = { x: 0, y: 0, scale: 1 },
   worldBounds = { width: 2400, height: 1600 },
   onViewportChange,
+  onClose,
   minimapWidth = 200,
   minimapHeight = 140,
 }) {
@@ -374,6 +377,7 @@ export function CanvasMinimap({
       <header className="ec-canvas-minimap-header">
         <strong>小地图</strong>
         <span>{nodes.length} 节点</span>
+        <button type="button" aria-label="关闭小地图" title="关闭小地图" className="ec-canvas-minimap-close" onClick={() => onClose?.()}>×</button>
       </header>
       <div
         ref={ref}

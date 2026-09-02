@@ -95,10 +95,10 @@ export function CanvasTopBar({
         {hasTemplates && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenTemplateMarketplace} aria-label="打开模板广场">
           <ImagePlus size={16} />模板广场
         </button>}
-        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onExport}><Download size={16} />导出整套图片</button>
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}
-      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}><Plus size={16} />新建生图</button>
+      {/* 9-02 用户反馈: "新建生图"命名不清. 此按钮新建画布会话, 改名"新建画布" */}
+      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}><Plus size={16} />新建画布</button>
     </div>
   </header>;
 }

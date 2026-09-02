@@ -31,8 +31,9 @@ test('canvas entitlement layout preserves primary canvas commands on mobile', as
   assert.match(chrome, /AccountEntitlementControl/);
   assert.match(control, /点击充值额度/);
   assert.doesNotMatch(control, /account-entitlement-purchase/);
-  assert.match(chrome, /导出整套图片/);
-  assert.match(chrome, /新建生图/);
+  // 9-02 用户反馈: 顶部去掉"导出整套图片"按钮 (派生面板里有电商套图), "新建生图"改名"新建画布"
+  assert.doesNotMatch(chrome, /导出整套图片/);
+  assert.match(chrome, /新建画布/);
   const mobile = css.slice(css.indexOf('@media (max-width: 620px)'));
   assert.match(mobile, /\.account-entitlement-control\.is-compact/);
   assert.match(mobile, /\.ec-canvas-topbar-actions\s*\{[^}]*flex-wrap:\s*wrap/s);

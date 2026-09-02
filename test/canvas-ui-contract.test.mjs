@@ -16,8 +16,9 @@ test('Canvas keeps distinct select and hand tools with a discoverable multi-sele
   assert.doesNotMatch(css, /\.ec-canvas-selection-hint/);
 });
 
-test('full-suite export remains an explicit top-level Canvas command', () => {
-  assert.match(chrome, /导出整套图片/);
+test('full-suite export lives in the derive menu, not the top-level command bar (9-02 user request)', () => {
+  // 9-02 用户反馈: 顶部去掉"导出整套图片"按钮 (多余, 派生面板里有电商套图)。导出仍经 derive 菜单 + setExportSelectionIds 可达。
+  assert.doesNotMatch(chrome, /导出整套图片/);
   assert.match(studio, /action\.label/);
   assert.match(chrome, /AccountEntitlementControl/);
   assert.match(page, /setExportSelectionIds\(new Set\(\)\)/);
