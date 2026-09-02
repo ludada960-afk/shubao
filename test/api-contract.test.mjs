@@ -1210,11 +1210,13 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
   assert.doesNotMatch(pricing, /小红书 \/ Plog AI 积分/);
   assert.match(pricing, /所有创作功能共用一套 AI 积分/);
   assert.match(pricing, /PRICING_PLANS/);
-  // 8-31 第 7 轮: 去掉「给创作充点能量」主副标题与「创作权益」区段, 改为一句话 + 清晰积分。
+  // 8-31 第 7 轮: 去掉「给创作充点能量」啰嗦主副标题; 9-02 灵图重构加回眉题 + 主标题「创作权益」+ 副题。
   assert.ok(pricingModalNew.includes('一次买断 · 视频图片共用一套 AI 积分，用完再充'), 'concise hero line');
   assert.match(pricingModalNew, /pricing-modal__hero-line/);
   assert.ok(!pricingModalNew.includes('给创作充点能量'), 'no verbose title');
-  assert.ok(!pricingModalNew.includes('创作权益'), 'no 创作权益 pile-up');
+  assert.match(pricingModalNew, /pricing-modal__eyebrow/);
+  assert.match(pricingModalNew, /创作<em>权益<\/em>/);
+  assert.match(pricingModalNew, /pricing-modal__subtitle/);
   assert.match(pricingModalNew, /aria-label="选择积分包"/);
   assert.doesNotMatch(pricing, /每套套餐中的「套」是什么意思/);
   assert.doesNotMatch(pricing, /服务端|实时报价|幂等/);

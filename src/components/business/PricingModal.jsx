@@ -140,6 +140,11 @@ export default function PricingModalRefactored({
         </button>
       </header>
 
+      {/* 眉题 + 主标题 (灵图风格: 眉题 + 创作权益 + 副题) */}
+      <p className="pricing-modal__eyebrow">积分套餐 · 价格升序</p>
+      <h2 className="pricing-modal__title">创作<em>权益</em></h2>
+      <p className="pricing-modal__subtitle">选择适合你的套餐</p>
+
       {/* 一句话 + 清晰积分 (不再啰嗦列一堆权益 / 主副标题) */}
       <div className="pricing-modal__hero" data-testid="pricing-modal-hero">
         <div className="pricing-modal__hero-line">
@@ -218,13 +223,17 @@ export default function PricingModalRefactored({
                   <MdStar size={10} /> 推荐
                 </span>
               )}
+              <span className="pricing-modal__pack-icon" aria-hidden="true"><MdStar size={22} /></span>
               <div className="pricing-modal__pack-tagline">{tagline}</div>
               <div className="pricing-modal__pack-name">{label}</div>
               <div className="pricing-modal__pack-price">
                 <span className="pricing-modal__pack-price-sym">¥</span>
                 <span className="pricing-modal__pack-price-val">{(pack.priceFen / 100).toFixed(1)}</span>
+                <span className="pricing-modal__pack-price-period">{pack.validityDays ? "/月" : "/一次"}</span>
               </div>
-              <div className="pricing-modal__pack-units">{formatUnits(points)} 积分</div>
+              <div className="pricing-modal__pack-units">{formatUnits(points)}<small> 积分</small></div>
+              <span className="pricing-modal__pack-validity">{validity}</span>
+              <p className="pricing-modal__pack-desc">可生成约 {imgCount} 张图片 · 约 {vidCount} 条视频</p>
               <ul className="pricing-modal__pack-list">
                 <li>
                   <span className="pricing-modal__pack-list-icon">🖼</span>
