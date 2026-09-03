@@ -4860,7 +4860,7 @@ export default function EcCanvas() {
   return (
     <div className="ec-canvas-page">
       <CanvasTopBar
-        title={tab === 'canvas' ? (result.product_name || '电商画布') : tab === 'assets' ? '项目素材库' : tab === 'trash' ? '回收站' : '我的作品集'}
+        title={tab === 'canvas' ? (result.product_name || '智能画布') : tab === 'assets' ? '项目素材库' : tab === 'trash' ? '回收站' : '我的作品集'}
         meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : tab === 'assets' ? `${visibleProjectAssetLibrary.length} 个可用素材` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
         tab={tab}
         onTabChange={handleTabChange}

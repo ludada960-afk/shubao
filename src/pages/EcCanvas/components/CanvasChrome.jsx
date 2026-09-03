@@ -57,7 +57,7 @@ export function CanvasTopBar({
     <div className="ec-canvas-topbar-leading">
       <IconButton label="返回" className="ec-canvas-topbar-surface" onClick={onBack}><ArrowLeft size={18} /></IconButton>
       <div className="ec-canvas-project-title">
-        <strong>{title || '电商画布'}</strong>
+        <strong>{title || '智能画布'}</strong>
         <span><i className={saving ? 'is-saving' : ''} />{saving ? '正在保存' : meta}</span>
       </div>
       <nav className="ec-canvas-tabs ec-canvas-topbar-surface" aria-label="画布视图">
