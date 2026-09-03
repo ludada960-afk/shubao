@@ -3785,9 +3785,21 @@ export default function EcCanvas() {
     try {
       const assets = await readCanvasImageFiles(files, uploadStartedAt);
       const bounds = containerRef.current?.getBoundingClientRect();
-      const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
-      const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      const uploadedNodes = createUploadedImageNodes({ assets, x: worldX, y: worldY, now: uploadStartedAt, namer: canvasShotNamerRef.current })
+      const baseX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
+      const baseY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
+      /* 4c183cd4 续命 画布拖拽bug修复: 多次上传曾落在同一固定坐标, 完全重叠,
+         上层节点盖住下层节点, 导致"上传第二个素材后拖不动" (下层节点无法被点选/拖动).
+         改用 findCanvasBlankPlacement 在已有节点旁找空白位置错开排放. */
+      const blank = findCanvasBlankPlacement({
+        width: 200,
+        height: 200,
+        viewport,
+        bounds: { width: bounds?.width || 1200, height: bounds?.height || 800 },
+        nodes,
+        preferred: { x: baseX, y: baseY },
+        gap: 28,
+      }) || { x: baseX, y: baseY };
+      const uploadedNodes = createUploadedImageNodes({ assets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current })
         .map(node => ({ ...node, status: 'uploading', localPreviewUrl: node.url }));
       const persistenceGeneration = canvasPersistenceGenerationRef.current;
       draftReadyRef.current = true;
@@ -3867,9 +3879,19 @@ export default function EcCanvas() {
       } catch {}
       const imported = await importCanvasMediaAssets(assets, projectContext, 'reference-video');
       const bounds = containerRef.current?.getBoundingClientRect();
-      const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
-      const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: worldX, y: worldY, now: uploadStartedAt, namer: canvasShotNamerRef.current });
+      const baseX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
+      const baseY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
+      /* 4c183cd4 续命 画布拖拽bug修复: 与图片上传一致, 用空白位置错开, 避免节点堆叠遮挡. */
+      const blank = findCanvasBlankPlacement({
+        width: 320,
+        height: 240,
+        viewport,
+        bounds: { width: bounds?.width || 1200, height: bounds?.height || 800 },
+        nodes,
+        preferred: { x: baseX, y: baseY },
+        gap: 28,
+      }) || { x: baseX, y: baseY };
+      const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current });
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);
       if (projectContext || Object.keys(mediaFields).length) {
@@ -4391,12 +4413,17 @@ export default function EcCanvas() {
   // 触发 "Cannot access 'portCreationActions' before initialization".
   // 原来 4c183cd4 时代声明在 L4510 (本函数体末尾), 画布页打不开时这 bug 不暴露;
   // 主线程修好 /canvas deep link 后画布真渲染, TDZ 立刻爆, 必须前置.
+  /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 1) 修复:
+     CANVAS_CREATION_OPTIONS 每项已带 group ('core' 5 原有 / 'magic' 4 流影AI),
+     但这里曾统一覆盖成 group: '继续创作' 使 CanvasDeriveMenu 按 group 分桶时
+     core/magic 桶全空 → 右面板只剩标题"从当前素材继续创作 9 项"、动作按钮全部不渲染,
+     用户看不到任何派生动作 (即"右面板怎么东西都不见了").
+     去掉覆盖, 保留各动作自身 group, 9 项按 5 core + 4 magic 正确分桶渲染. */
   const portCreationActions = CANVAS_CREATION_OPTIONS.map(option => {
     const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
     return {
       ...(imageAction || {}),
       ...option,
-      group: '继续创作',
       priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
     };
   });

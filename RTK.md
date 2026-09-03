@@ -530,3 +530,34 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - MultiModal 端点 (P-A 半成品, RTK.md 已记)
 
 ### 状态: 暂停等用户第二天决定
+
+## 2026-09-02 深夜 画布/定价重构 会话 773eb92a3efd (继续薯包重构目标) - 最新进度
+
+### 会话完成并提交 (2 commit)
+- f40b6873 定价页灵图视觉重构: 暖米#fbf8f1 + 琥珀#e99a18 + 紫罗兰#6d28d9 + 毛玻璃 + 推荐档五重强调; 全量 2906/2906 通过.
+- a5520a87 画布 3 处修复: 顶部去掉"导出整套图片"按钮/改"新建画布"; 修快捷键面板空 bug; 小地图加关闭按钮.
+
+### 本次会话 (9-02深夜续接) 已定位并验证修复 2 个真 bug
+
+环境: vite:5173 + 后端:3001 已起; 测试邮箱 240485042@qq.com (beta tester) 可登录 (qa@test.com 被 gateEmail 403 拒); playwright 可用.
+QA 模式 (?qa=ec-canvas) 上传会触发 401 跳回首页+登录弹窗 (result.browserQa=true 时上传归档 API 401), 不能用来复现真实上传bug, 必须真实登录.
+
+Bug 1 — "上传第二个素材后拖不动": 
+根因: handleCanvasSourceUpload 把新上传素材放在固定的 stage 40%宽/35%高坐标, 多次上传落同一点完全堆叠, 上层盖住下层, 下层节点无法被点选/拖动.
+修复: 改用 findCanvasBlankPlacement 在已有节点旁找空白位置错开排放 (index.jsx 图片上传 + 视频上传两处).
+验证: 真实登录传2张图, 第2张由(576,385)错开到(348,385), 两节点都能拖动. 拖拽链路本身正确 (handleNodeDown(1892)→pointerMode drag→handlePointerMove(1737)→flushDragFrame(1677)→moveSelectedNodes), 无全屏fixed遮罩盖住画布中心.
+
+Bug 2 — 右面板"怎么东西都不见了" (用户8-29反馈): 
+根因: portCreationActions 把 CANVAS_CREATION_OPTIONS 每项统一覆盖成 group:'继续创作', 而 CanvasDeriveMenu 只渲染 core/magic 两个桶, 9项动作全被过滤 → 右面板只剩标题"从当前素材继续创作 9 项", 动作按钮不渲染.
+修复: 去掉 group:'继续创作' 覆盖, 保留各动作自身 group (5 core + 4 magic 正确分桶).
+验证: 右面板现显示"核心常用5项+流影AI智能4项", 点击"生成文案"成功创建 text_composer 节点 (节点数 1→2).
+
+### 已过验证
+- 全量 npm test: 2906/2906 pass (两次).
+- 待跑: npm run build + npm run check.
+
+### 待续 (下次接续点)
+1. 右面板"时开时关/右边截断" item ③ — selectionPanelsVisible(4809) 需 !connectionPicker && multiSelected.size<=1 && 非text/composer; 连接端口拖动时 connectionPicker 开/关导致面板闪烁; 窄屏右边缘截断待核.
+2. 素材派生面板重建 item ② — 核心动作链路已修, 5原有+4智能 9项正常渲染与点击创建节点已验证.
+3. quantv/laoyu 生态调研 item ④ — 未开始.
+4. 全部验证 test/build/check + 提交 + 按用户意见分批部署 (scripts/deploy-production.ps1).
