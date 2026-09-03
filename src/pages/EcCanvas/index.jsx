@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, ImagePlus, Images, Info, Languages, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Trash2, Type, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Trash2, Type, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -1494,28 +1494,28 @@ export default function EcCanvas() {
         handleAddTextRef.current?.();
         return;
       }
-      // Delete/Backspace: 删除选中节点
-      if ((e.key === 'Delete' || e.key === 'Backspace') && (selected || multiSelected.size > 0)) {
+      // Delete/Backspace: 删除选中节点 (输入框/contenteditable 内不抢, 否则编辑文字时退格会删掉整个节点)
+      if (!isTyping && (e.key === 'Delete' || e.key === 'Backspace') && (selected || multiSelected.size > 0)) {
         e.preventDefault();
         handleDeleteRef.current?.();
         return;
       }
-      // Ctrl+A / Cmd+A: 全选
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      // Ctrl+A / Cmd+A: 全选 (输入框内保留原生全选)
+      if (!isTyping && (e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
         setMultiSelected(new Set(nodes.map(n => n.id)));
         setSelected(null);
         return;
       }
       // Ctrl+D / Cmd+D: 取消全选
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+      if (!isTyping && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         setSelected(null);
         setMultiSelected(new Set());
         return;
       }
-      // F: 适配视口
-      if (e.key === 'f' || e.key === 'F') {
+      // F: 适配视口 (输入文字时不能拦截 f 字符)
+      if (!isTyping && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
         fitViewRef.current?.();
         return;
@@ -3136,10 +3136,24 @@ export default function EcCanvas() {
     }
   };
 
-  const handleNew = () => {
-    dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
-    dispatch({ type: 'NAVIGATE', page: 'home' });
-  };
+  const handleNew = useCallback(() => {
+    // P0-6: 新建画布 = 就地创建一张空白画布 (不再跳回首页)
+    setSelected(null);
+    setMultiSelected(new Set());
+    setEditingTextNodeId(null);
+    setConnectionDraft(null);
+    setConnectionPicker(null);
+    setNodes([]);
+    setConnections([]);
+    setViewport({ x: 80, y: 40, scale: 1 });
+    canvasSessionRef.current = null;
+    setCanvasSession(null);
+    if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
+    remoteSaveTimerRef.current = null;
+    remoteSnapshotRef.current = '';
+    dispatch({ type: 'SET_RESULT', result: {} });
+    showToast('已新建空白画布，双击画布或从左侧添加素材开始创作');
+  }, [dispatch, showToast]);
 
   const createComposerPlacement = useCallback((width, height, placement = {}) => {
     const source = placement.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : undefined;
@@ -5756,6 +5770,14 @@ export default function EcCanvas() {
         onViewportChange={(v) => setViewport(v)}
         onClose={() => setMinimapOpen(false)}
       />}
+      {/* P0-5: 小地图关闭后保留重开入口 (左下角同一位置) */}
+      {!minimapOpen && <button
+        type="button"
+        className="ec-canvas-minimap-reopen"
+        aria-label="打开小地图"
+        title="打开小地图"
+        onClick={() => setMinimapOpen(true)}
+      ><MapIcon size={15} /></button>}
 
       {/* P2: 跨域投递对话框（EcCanvas → 视频项目） */}
       <VideoProjectDeliveryDialog

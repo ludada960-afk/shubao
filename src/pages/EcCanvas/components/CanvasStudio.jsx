@@ -162,6 +162,11 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
     role="toolbar"
     aria-label={`${node.name || node.displayLabel || '对象'}工具`}
     style={getCanvasToolbarPosition({ node, viewport, bounds, width: estimatedWidth, height: 48 })}
+    onPointerDown={event => {
+      // 同文本工具栏: 点按钮不抢编辑框焦点
+      if (event.target?.closest?.('button')) event.preventDefault();
+      event.stopPropagation();
+    }}
   >
     {actions.map(action => {
       const Icon = ACTION_ICONS[action.id] || WandSparkles;
@@ -257,7 +262,13 @@ export function CanvasTextToolbar({ node, viewport, bounds, onStyleChange, onDup
     { id: 'center', label: '居中', icon: AlignCenter, active: style.textAlign === 'center', change: { textAlign: 'center' } },
     { id: 'right', label: '右对齐', icon: AlignRight, active: style.textAlign === 'right', change: { textAlign: 'right' } },
   ];
-  return <div className="ec-canvas-text-toolbar" role="toolbar" aria-label="文本样式" style={getCanvasToolbarPosition({ node, viewport, bounds, width: 600, height: 48 })}>
+  return <div className="ec-canvas-text-toolbar" role="toolbar" aria-label="文本样式" style={getCanvasToolbarPosition({ node, viewport, bounds, width: 600, height: 48 })}
+    onPointerDown={event => {
+      // 编辑文字时点工具栏: preventDefault 阻止按钮抢焦点, 保住编辑框光标不退出
+      if (event.target?.closest?.('button')) event.preventDefault();
+      event.stopPropagation();
+    }}
+  >
     <label className="ec-canvas-text-color" title="文字颜色"><input type="color" aria-label="文字颜色" value={style.color || '#20242a'} onChange={event => onStyleChange?.({ color: event.target.value })} /></label>
     {['H1', 'H2', 'H3', '正文'].map((label, index) => {
       const block = ['h1', 'h2', 'h3', 'body'][index];
@@ -519,6 +530,30 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
   const direction = node.directions?.[node.selectedDirection || 0];
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const suitePlan = isSuite && directions.length ? buildCanvasSuitePlan(node.suitePlan || direction, node.prompt) : null;
+  const textBoardRef = useRef(null);
+  const textComposingRef = useRef(false);
+  const textEditSeedRef = useRef('');
+  /* 与 CanvasTextNode 相同的非受控编辑策略: 编辑期间 React 不回写 DOM,
+     保住光标位置和中文 IME 组合输入 */
+  useEffect(() => {
+    if (!editing || node.status === 'processing') return undefined;
+    textEditSeedRef.current = node.text || '';
+    const el = textBoardRef.current;
+    if (el) {
+      if (el.textContent !== textEditSeedRef.current) el.textContent = textEditSeedRef.current;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-generation-node is-${isVideo ? 'video' : isImage ? 'image' : isText ? 'text' : 'suite'} ${node.status === 'processing' ? 'is-processing' : ''} ${isLayerGroup ? 'is-layer-group' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
@@ -530,6 +565,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
     onMouseLeave={() => onHoverChange?.(null)}
   >
     {isText ? <div
+      ref={textBoardRef}
       className="ec-canvas-generation-text-board"
       contentEditable={editing && node.status !== 'processing'}
       suppressContentEditableWarning
@@ -540,10 +576,18 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       style={node.textStyle || undefined}
       onPointerDown={event => { event.stopPropagation(); if (!editing) onPointerDown?.(event, node.id); }}
       onDoubleClick={event => { event.stopPropagation(); onTextDoubleClick?.(node.id); }}
-      onFocus={() => onTextSelect?.(node.id)}
-      onInput={event => onTextChange?.(node.id, event.currentTarget.textContent || '')}
-      onBlur={() => onTextBlur?.(node.id)}
-    >{node.text || ''}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+      onFocus={() => { if (!textComposingRef.current) onTextSelect?.(node.id); }}
+      onCompositionStart={() => { textComposingRef.current = true; }}
+      onCompositionEnd={event => {
+        textComposingRef.current = false;
+        onTextChange?.(node.id, event.currentTarget.textContent || '');
+      }}
+      onInput={event => {
+        if (textComposingRef.current) return;
+        onTextChange?.(node.id, event.currentTarget.textContent || '');
+      }}
+      onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
@@ -1244,6 +1288,31 @@ export function CanvasSourceNode({
 
 export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart }) {
   const isComposing = useRef(false);
+  const boardRef = useRef(null);
+  const editSeedRef = useRef('');
+  /* 编辑期间内容走非受控: React 不回写 DOM, 否则每次 onInput 触发 re-render
+     都会把光标打回开头, 中文 IME 组合中的字也会被吞掉 */
+  useEffect(() => {
+    if (!editing) return undefined;
+    let seed = node.text || '';
+    if (seed === '双击编辑文字') seed = '';
+    editSeedRef.current = seed;
+    const el = boardRef.current;
+    if (el) {
+      if (el.textContent !== seed) el.textContent = seed;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-copy-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
@@ -1253,6 +1322,7 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
   >
     <div
+      ref={boardRef}
       contentEditable={editing}
       suppressContentEditableWarning
       role="textbox"
@@ -1261,10 +1331,6 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
       style={node.textStyle || undefined}
       onFocus={() => {
         if (!isComposing.current) onSelect?.(node.id);
-        // 双击编辑时清空占位提示文字
-        if (editing && node.text === '双击编辑文字') {
-          onChange?.(node.id, '');
-        }
       }}
       onCompositionStart={() => { isComposing.current = true; }}
       onCompositionEnd={(event) => {
@@ -1279,7 +1345,7 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
       onBlur={() => {
         if (!isComposing.current) onBlur?.(node.id);
       }}
-    >{node.text || ''}</div>
+    >{editing ? editSeedRef.current : (node.text || '')}</div>
     <ResizeHandles visible={selected && !editing && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }

@@ -140,10 +140,8 @@ export default function PricingModalRefactored({
         </button>
       </header>
 
-      {/* 眉题 + 主标题 (灵图风格: 眉题 + 创作权益 + 副题) */}
-      <p className="pricing-modal__eyebrow">积分套餐 · 价格升序</p>
-      <h2 className="pricing-modal__title">创作<em>权益</em></h2>
-      <p className="pricing-modal__subtitle">选择适合你的套餐</p>
+      {/* 主标题 (8-31 第 8 轮: 砍掉眉题/副题, 标题行从 6 行收敛到 2 行) */}
+      <h2 className="pricing-modal__title">积分<em>充值</em></h2>
 
       {/* 一句话 + 清晰积分 (不再啰嗦列一堆权益 / 主副标题) */}
       <div className="pricing-modal__hero" data-testid="pricing-modal-hero">

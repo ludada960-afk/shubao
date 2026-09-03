@@ -140,7 +140,7 @@
   color: #dc2626;
 }
 
-/* ── 中部: 14 项派生菜单 (5 原有 + 4 智能) ── */
+/* ── 中部: 派生菜单 (默认收进 "+", 点开展开) ── */
 .ec-canvas-right-panel__menu {
   flex: 1 1 auto;
   min-height: 0;
@@ -152,6 +152,67 @@
 .ec-canvas-right-panel__menu::-webkit-scrollbar { width: 5px; }
 .ec-canvas-right-panel__menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .ec-canvas-right-panel__menu::-webkit-scrollbar-track { background: transparent; }
+.ec-canvas-right-panel__menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 8px;
+}
+.ec-canvas-right-panel__menu-head > span {
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-hint);
+}
+.ec-canvas-right-panel__menu-toggle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border-light, rgba(15, 23, 42, .1));
+  border-radius: 8px;
+  background: var(--bg-hover, #f3f4f6);
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+  transition: transform .24s cubic-bezier(.34, 1.56, .64, 1), background .16s ease-out, color .16s ease-out;
+}
+.ec-canvas-right-panel__menu-toggle:hover {
+  background: var(--blue-bg, rgba(37, 99, 235, .08));
+  color: var(--blue, #2563eb);
+}
+.ec-canvas-right-panel__menu-toggle.is-open {
+  transform: rotate(45deg);
+}
+.ec-canvas-right-panel__menu-toggle:focus-visible {
+  outline: 2px solid var(--blue, #2563eb);
+  outline-offset: 1px;
+}
+.ec-canvas-right-panel__menu-hint {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-light, rgba(15, 23, 42, .12));
+  border-radius: 10px;
+  background: var(--bg-hover, #f8fafc);
+  color: var(--text-hint, #6b7280);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+.ec-canvas-right-panel__menu-hint strong {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  border-radius: 5px;
+  background: var(--blue, #2563eb);
+  color: #fff;
+  font-size: 13px;
+  vertical-align: -4px;
+}
 
 /* 中部菜单复用 canvas-derive-menu.css 的 .ec-canvas-derive-* 类, 这里只加 group 间距 */
 .ec-canvas-right-panel__menu .ec-canvas-derive-bucket + .ec-canvas-derive-bucket {

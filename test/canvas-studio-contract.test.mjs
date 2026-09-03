@@ -76,8 +76,8 @@ test('text creation produces a real editable canvas object rather than a form ca
     y: 160,
     w: 420,
     h: 84,
-    text: '双击编辑文字',
-    placeholder: '双击编辑文字',
+    text: '',
+    placeholder: '输入文字',
     sourceNodeIds: ['source-1'],
     status: 'ready',
     textStyle: {
@@ -516,7 +516,7 @@ test('plain text starts as a bold double-click hint and reverse prompt reuses th
   const reverseStart = page.indexOf("if (handler === 'reverse-prompt')");
   const reverseEnd = page.indexOf("if (handler === 'grid-split')", reverseStart);
   const reverseHandler = page.slice(reverseStart, reverseEnd);
-  assert.match(model, /text: '双击编辑文字'/);
+  assert.match(model, /text: ''/);
   assert.match(model, /fontSize: 48/);
   assert.match(model, /fontWeight: 700/);
   assert.match(reverseHandler, /createCanvasTextComposerNode/);
@@ -578,7 +578,7 @@ test('image remix workflow keeps one editable generation request field', () => {
 });
 
 test('canvas workflow retry resubmits an existing generation request and reruns ordinary processing nodes', () => {
-  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const start = page.indexOf('const handleWorkflowRetry = useCallback');
   const end = page.indexOf('\n\n  const handleWorkflowAddImages', start);
   assert.notEqual(start, -1);
@@ -591,7 +591,7 @@ test('canvas workflow retry resubmits an existing generation request and reruns 
 });
 
 test('canvas remix variants use one stable run id for retries and distinct request keys per output', () => {
-  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const start = page.indexOf('const handleWorkflowGenerate = useCallback');
   const end = page.indexOf('\n\n  const handleWorkflowRetry', start);
   assert.ok(start >= 0 && end > start);

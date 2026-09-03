@@ -151,16 +151,14 @@ test('handleTabChange resets selectedId; no inline payProvider residue; countdow
   assert.ok(PRICING_MODAL.includes('setInterval(() => setNow(Date.now()), 1000)'), 'countdown ticker');
 });
 
-/* ═══════ 11. 眉题 + 主标题"创作权益" + 副题 (灵图标题区) ═══════ */
-test('title has lingtu eyebrow + 创作权益 title + subtitle (no verbose legacy titles)', () => {
+/* ═══════ 11. 主标题"积分充值" (8-31 第 8 轮: 标题行 6 行收敛到 2 行) ═══════ */
+test('title is lean: single 积分充值 title, no verbose legacy titles', () => {
   assert.ok(!PRICING_MODAL.includes('给创作充点能量'), 'no verbose 给创作充点能量 title');
   assert.ok(!PRICING_MODAL.includes('选你的商业化档位'), 'no "商业化档位"');
   assert.ok(!PRICING_MODAL.includes('SHUBAO · 商业化定价'), 'no "商业化定价" brand text');
-  assert.match(PRICING_MODAL, /pricing-modal__eyebrow/);
-  assert.match(PRICING_MODAL, /创作<em>权益<\/em>/);
-  assert.match(PRICING_MODAL, /pricing-modal__subtitle/);
-  assert.match(PRICING_MODAL, /积分套餐 · 价格升序/);
-  assert.match(PRICING_MODAL, /选择适合你的套餐/);
+  assert.ok(!PRICING_MODAL.includes('pricing-modal__eyebrow'), 'no jargon eyebrow line');
+  assert.match(PRICING_MODAL, /积分<em>充值<\/em>/);
+  assert.ok(!PRICING_MODAL.includes('pricing-modal__subtitle'), 'no subtitle line');
   assert.match(PRICING_MODAL, /pricing-modal__hero-line/);
   assert.match(PRICING_MODAL, /一次买断 · 视频图片共用一套 AI 积分，用完再充/);
 });
@@ -213,11 +211,10 @@ test('no internal-test, placeholder, or service-gap copy leaks into the modal', 
 
 /* ═══════ 15. api-contract 不变量 ═══════ */
 test('keeps the long-standing api-contract invariants for the modal', () => {
-  // 8-31 第 7 轮: 去掉"给创作充点能量"啰嗦主副标题; 9-02 灵图重构加回眉题 + 主标题"创作权益" + 副题。
+  // 8-31 第 7 轮: 去掉"给创作充点能量"啰嗦主副标题; 8-31 第 8 轮: 标题收敛为单行"积分充值"。
   assert.ok(!PRICING_MODAL.includes('给创作充点能量'), 'no verbose title');
-  assert.match(PRICING_MODAL, /pricing-modal__eyebrow/);
-  assert.match(PRICING_MODAL, /创作<em>权益<\/em>/);
-  assert.match(PRICING_MODAL, /pricing-modal__subtitle/);
+  assert.match(PRICING_MODAL, /积分<em>充值<\/em>/);
+  assert.ok(!PRICING_MODAL.includes('pricing-modal__subtitle'), 'no subtitle line');
   assert.ok(PRICING_MODAL.includes('所有创作功能共用一套 AI 积分'), 'shared points copy');
   // 微信/支付宝改由 Modals 的 payModal 承载
   assert.ok(MODALS.includes('微信支付'), 'wechat pay lives in payModal');

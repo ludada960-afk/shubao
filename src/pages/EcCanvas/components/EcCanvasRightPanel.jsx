@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music } from 'lucide-react';
+import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music, Plus } from 'lucide-react';
 import { CanvasDeriveMenu } from './CanvasStudio.jsx';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 
@@ -98,6 +98,9 @@ export function EcCanvasRightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedVolume]);
 
+  /* P0-2: 派生菜单默认收进 "+" 按钮, 点开才铺开全部创作方式 */
+  const [menuOpen, setMenuOpen] = React.useState(false);
+
   return (
     <aside className="ec-canvas-right-panel" aria-label={`${nodeName} 创作面板`} role="complementary">
       <button type="button" className="ec-canvas-right-panel__close" aria-label="关闭创作面板" onClick={onClose}>
@@ -141,14 +144,31 @@ export function EcCanvasRightPanel({
         </div>
       </div>
 
-      {/* ── 中部 14 项派生菜单 (5 原有 + 4 智能) ── */}
+      {/* ── 中部 派生菜单 (默认收进 "+", 点开展开全部创作方式) ── */}
       <div className="ec-canvas-right-panel__menu">
-        <CanvasDeriveMenu
-          actions={orderedActions}
-          position={{ position: 'static', left: undefined, top: undefined, transform: undefined }}
-          title="从当前素材继续创作"
-          onSelect={onDeriveSelect}
-        />
+        <div className="ec-canvas-right-panel__menu-head">
+          <span>继续创作</span>
+          <button
+            type="button"
+            className={"ec-canvas-right-panel__menu-toggle" + (menuOpen ? " is-open" : "")}
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "收起创作菜单" : "展开创作菜单"}
+            title={menuOpen ? "收起创作菜单" : "展开创作菜单"}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <Plus size={15} />
+          </button>
+        </div>
+        {menuOpen ? (
+          <CanvasDeriveMenu
+            actions={orderedActions}
+            position={{ position: 'static', left: undefined, top: undefined, transform: undefined }}
+            title="从当前素材继续创作"
+            onSelect={onDeriveSelect}
+          />
+        ) : (
+          <p className="ec-canvas-right-panel__menu-hint">点 <strong>+</strong> 展开 {orderedActions.length} 种创作方式</p>
+        )}
       </div>
 
       {/* ── 底部 调整参数 + AI 积分消耗 ── */}
