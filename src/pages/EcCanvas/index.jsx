@@ -5207,35 +5207,7 @@ export default function EcCanvas() {
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
-            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
-            {/* 4c183cd4 续命 画布深度重构: 右侧固定面板 (用户 8-29 硬性反馈 1)
-                用户原话: "选中一个图片或视频时, 上面跟右边的面板都同时张开呀, 你现在的情况是右边的面板是完全空的"
-                现状: 派生菜单原本是浮在节点旁边的 popup, 用户感觉右面板空的
-                解决: 新增 EcCanvasRightPanel 固定右滑面板, 跟上方 CanvasObjectToolbar 一起同步张合 (双面板联动)
-                14 项菜单按 5 原有 + 4 智能分桶, 跟 canvas-derive-menu.css 完全一致 */}
-            {selectionPanelsVisible && <EcCanvasRightPanel
-              node={selectedNode}
-              deriveActions={portCreationActions}
-              onClose={() => setSelected(null)}
-              onPatch={handleRightPanelPatch}
-              billingCost={selectedNodeBillingCost}
-              onDeriveSelect={action => {
-                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
-                /* 9 个动作路由 (5 原有 + 4 流影AI LibTV 新增, 用户硬性指定).
-                   用户 8-29 原话: "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
-                   5 原有走 addCanvasComposer 短路径, 4 流影AI 走 handleCreateDerivedNode 通用派生. */
-                if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
-                else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'video-upload') videoUploadRef.current?.click();
-                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'application-tts') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-              }}
-            />}
+
             {/* 老版 popup 派生菜单继续保留 (向后兼容 + 不破坏既有测试契约), 但默认隐藏, 让新右面板主导 */}
             {false && selectionPanelsVisible && <CanvasDeriveMenu
               actions={portCreationActions}
@@ -5386,6 +5358,28 @@ export default function EcCanvas() {
           {marquee && (
             <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: marquee.w * viewport.scale, height: marquee.h * viewport.scale, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
           )}
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
+            {/* 4c183cd4 续命 画布深度重构: 右侧固定面板 (用户 8-29 硬性反馈 1) — 移到 transform 层外, 不再被 overflow:clip 截断 */}
+            {selectionPanelsVisible && <EcCanvasRightPanel
+              node={selectedNode}
+              deriveActions={portCreationActions}
+              onClose={() => setSelected(null)}
+              onPatch={handleRightPanelPatch}
+              billingCost={selectedNodeBillingCost}
+              onDeriveSelect={action => {
+                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
+                if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
+                else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'video-upload') videoUploadRef.current?.click();
+                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'application-tts') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+              }}
+            />}
 
         </div>
       ) : (
