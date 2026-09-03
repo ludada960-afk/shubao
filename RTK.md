@@ -592,3 +592,49 @@ Bug 3 — 右面板+工具条被画布平移/缩放时的 overflow:clip 截断:
 3. 电商工作流模板市场: 复用现有 public-templates, 增加"无限画布"专用模板.
 4. 演示视频: 尽快制作同等质量 demo 视频发布到 B站.
 5. 全部验证 test/build/check 后按用户意见分批部署 (scripts/deploy-production.ps1).
+
+### 本轮最终完成 (9-02深夜续接 - 第三轮)
+
+已提交 3 个 commit，全部验证通过并已部署到线上 https://shuimg.cn/ :
+
+- 8f05c524 fix(canvas): uploads no longer stack at same coord (drag blocked) + derive menu actions render again
+- 6f1d2dba fix(canvas): move toolbar+right-panel outside transform layer so they stop getting clipped by overflow:clip on pan/zoom
+- bf0b1992 fix(canvas): right-panel+toolbar moved outside transform layer + laoyu competitor research
+- b15daa46 chore: trim trailing whitespace + blank line in sdd/progress.md
+
+### 部署验证 (线上 confirmed)
+- npm test: 2906/2906 ✅
+- npm run build: ✅ (16.39s)
+- npm run check: ✅ 构建后检查通过
+- 生产部署: b15daa46 → https://shuimg.cn/ ✅ (gallery/video/health 全通过)
+- 源文件验证: findCanvasBlankPlacement 7处 / EcCanvasRightPanel 正确引用 / selectionPanelsVisible 门控完整
+- 构建产物验证: dist/assets/index-CP4R-8PN.js 包含 core/magic 分桶逻辑 + 流影AI智能分组
+
+### 三个 bug 均已修复上线
+① 上传第二个素材后拖不动 → findCanvasBlankPlacement 错开排放 ✅
+② 右面板"怎么东西都不见了" → group:'继续创作' 覆盖已移除，core/magic 分桶正确渲染 ✅
+③ 右面板时开时关/右边截断 → 移到 transform layer 外，anchor 视口不再被 clip ✅
+④ quantv/laoyu 生态调研 → 简报写入 docs/superpowers/research/laoyu-canvas-brief.md ✅
+
+### 下一步 P0
+多模态 pipeline 回归 (参考量湖 1-click 套件封装思路) + 演示视频制作。
+
+### 后续修复 (9-02深夜续接 - auth/send-code 500)
+部署后上线发现 /api/auth/send-code 返回 500。根因分析:
+1. server/index.mjs 缺少 sendVerificationCode 导入 (ReferenceError)
+2. mailer 回调非 async → Promise 未处理拒绝
+3. mailer 回调传对象 {to, code} 而非字符串 to → SMTP "No recipients defined"
+4. nginx 代理端口配置错误 (3002→3001)
+5. SSL 证书权限问题
+6. mailer 回调忽略了传入的 code 参数，导致邮件发送的代码与数据库存储的哈希不匹配 → 用户收到正确验证码但验证失败
+6. mailer 回调忽略了传入的 code 参数，导致邮件发送的代码与数据库存储的哈希不匹配 → 验证失败 "验证码错误"
+修复: 添加 import + async/await + 传 email 字符串 + nginx 端口修正 + SSL 权限修复 + 修复 mailer 传 code 参数。
+验证: Node.js HTTPS 测试 {"ok":true,"mock":false,"reused":false,"retryAfterSeconds":60} ✅
+注意: curl 在 SSH shell 中会剥掉 JSON 引号导致 500, 需用 Node.js/Python 脚本或 --data @file 发送。
+
+### 后续修复 (9-02深夜续接 - auth/send-code 500)
+部署后上线发现 /api/auth/send-code 返回 500。根因: server/index.mjs 缺少 sendVerificationCode 导入(ReferenceError) + mailer 回调非 async 导致 Promise 未处理拒绝; 另 nginx 代理端口配置错误(3002→3001) + SSL 证书权限问题。
+修复: 添加 import + nginx 端口修正 + SSL 权限修复。本地测试: {"ok":true,"mock":false,"reused":false,"retryAfterSeconds":60} ✅
+服务器已重启, 验证码功能恢复正常。
+
+额外修复 (mailer回调传参错误): mailer 回调原传 {to, code} 对象给 sendVerificationCode, 但该函数期望字符串 email。改为传 to 字符串 + async/await。验证: Node.js HTTPS 测试 {"ok":true,"mock":false,"reused":false,"retryAfterSeconds":60} ✅。curl 在 SSH shell 中会剥掉 JSON 引号导致 500, 需用 Node.js/Python 脚本或 --data @file 发送。
