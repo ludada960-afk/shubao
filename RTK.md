@@ -561,3 +561,34 @@ Bug 2 — 右面板"怎么东西都不见了" (用户8-29反馈):
 2. 素材派生面板重建 item ② — 核心动作链路已修, 5原有+4智能 9项正常渲染与点击创建节点已验证.
 3. quantv/laoyu 生态调研 item ④ — 未开始.
 4. 全部验证 test/build/check + 提交 + 按用户意见分批部署 (scripts/deploy-production.ps1).
+
+### 本次会话 (9-02深夜续接 - 第二轮) 已修复并验证 3 个真 bug (累计 5 commit)
+
+本次 commit:
+- 8f05c524 fix(canvas): uploads no longer stack at same coord (drag blocked) + derive menu actions render again
+- 6f1d2dba fix(canvas): move toolbar+right-panel outside transform layer so they stop getting clipped by overflow:clip on pan/zoom
+- + index.jsx + RTK.md + docs/superpowers/research/laoyu-canvas-brief.md
+
+Bug 3 — 右面板+工具条被画布平移/缩放时的 overflow:clip 截断:
+根因: CanvasObjectToolbar + EcCanvasRightPanel 渲染在 transform layer (translate+scale) 内部, 随画布 pan/zoom 被 overflow:clip 裁切, 右面板移出视口后消失/截断.
+修复: 把两个组件移到 transform layer 外 (index.jsx 第 5361 行, marquee 之后, tab==="canvas" 外层 div 之前), 让右面板锚定 stage/视口而非 transform 层.
+验证: playwright 测试 1440px (right=1426<1440, clipped:false) + 1100px (right=1086<1100, clipped:false) 均不截断; 760px 移动端自动隐藏.
+
+### 已通过验证
+- 全量 npm test: 2906/2906 pass (三次).
+- npm run build: ✅ (19.92s / 30.48s 两次).
+- npm run check: ✅ 构建后检查通过.
+- 浏览器 playwright 复现验证 (①②③ 全部).
+
+### 竞品调研 (item ④ 完成)
+- B站 BV1odbo6AEri 《第一集：电商无限画布工作流制作口哨舞女装 AI 带货视频保姆级教程》 (老鱼AI电商, 9632粉, 10:34, 2026-08-20)
+- laoyu.quantv.com/canvas/editor 需登录, 无法直接访问; 首页公开文案确认其定位与薯包高度重合.
+- 核心差异: 量湖在多模态串联 (文案→首帧→视频→音轨→字幕) 和演示视频矩阵上领先; 薯包架构可复刻并超越 (用 1-click 节点封装 pipeline 更轻量).
+- 完整调研简报: docs/superpowers/research/laoyu-canvas-brief.md
+
+### 待续 (下次接续点)
+1. 多模态 pipeline 回归 (P0 优先级, 参考量湖 1-click 套件封装思路, 用节点化形态替代已移除的 MultiModal).
+2. 节点流程预览升级: 实时显示处理进度/状态.
+3. 电商工作流模板市场: 复用现有 public-templates, 增加"无限画布"专用模板.
+4. 演示视频: 尽快制作同等质量 demo 视频发布到 B站.
+5. 全部验证 test/build/check 后按用户意见分批部署 (scripts/deploy-production.ps1).
