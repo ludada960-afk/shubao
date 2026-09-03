@@ -3070,3 +3070,21 @@ projectImageAssetImport（画布上传素材）和 projectVideoAssetImport（视
 - P3-07 五要素至此全部用户可见或核验达标：comments=API+UI 双层、approvals=计划审批指纹、team roles=cohort 门禁、export webhooks=订阅+投递队列、scoped API=owner-scoped dispatch。
 
 - 验证证据：client/UI/routes 52/52、视频域完整子集 221/221、git diff --check 干净。无供应商提交、无账务变更、未部署。
+
+## 2026-09-01 深夜 画布/视频重构 + 多模态移除 + 定价重构 + 模板空态 (Codex 主线程落地)
+- 部署 0a87457f 后暴露半成品画布/视频/多模态，用户下令全面重构 + 移除多模态串联，收敛到节点串联。
+- 子代理 C(模板空态)/B(移除多模态)/D(定价重构) 完成并通过聚焦测试；A(画布交互) 浏览器复现中；E(quantv 调研) 进行中。
+- 主线程：删孤儿文件 MultiModalEntry.jsx；修 index.jsx 4 处注释 literal 标识符（canvas-pa-g Q5 通过）；全量测试 2906/2906、build/check 通过。
+- 提交 67eadda0：移除多模态串联 + 模板空态守卫 + 定价页重构（月卡 validityDays 30 + getBalanceWithExpiry + 倒计时 + 单去支付按钮）24 文件。
+- 遗留：画布 5 bug（拖不动/加号没反应/参数调不了/minimap黑/重复生成整套图片按钮）待 A 结论回收后修；quantv 调研待 E 交付；全量回归复跑确认 2912 全绿。
+- 工具通道（run_code 回传）极不稳定（RTK.md §9 基础设施故障），反复重放/串台/返回空，已用单调用串行+落盘读回规避。
+
+
+## 2026-09-01 深夜 画布/视频重构 + 多模态移除 + 定价重构 + 模板空态 (Codex 主线程落地)
+- 部署 0a87457f 后暴露半成品画布/视频/多模态，用户下令全面重构 + 移除多模态串联，收敛到节点串联。
+- 子代理 C(模板空态)/B(移除多模态)/D(定价重构) 完成并通过聚焦测试；A(画布交互) 浏览器复现中；E(quantv 调研) 进行中。
+- 主线程：删孤儿文件 MultiModalEntry.jsx；修 index.jsx 4 处注释 literal 标识符（canvas-pa-g Q5 通过）；全量测试 2906/2906、build/check 通过。
+- 提交 67eadda0：移除多模态串联 + 模板空态守卫 + 定价页重构（月卡 validityDays 30 + getBalanceWithExpiry + 倒计时 + 单去支付按钮）24 文件。
+- 遗留：画布 5 bug（拖不动/加号没反应/参数调不了/minimap黑/重复生成整套图片按钮）待 A 结论回收后修；quantv 调研待 E 交付；全量回归复跑确认 2912 全绿。
+- 工具通道（run_code 回传）极不稳定（RTK.md §9 基础设施故障），反复重放/串台/返回空，已用单调用串行+落盘读回规避。
+
