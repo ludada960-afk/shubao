@@ -58,7 +58,7 @@ export function getVerificationResendDecision(existing, now = Date.now()) {
 /**
  * 发送验证码到邮箱
  */
-export async function sendVerificationCode(email) {
+export async function sendVerificationCode(email, code) {
   const now = Date.now();
   const resend = getVerificationResendDecision(codeStore.get(email), now);
   if (resend.reused) return { ok: true, ...resend };
@@ -79,9 +79,9 @@ export async function sendVerificationCode(email) {
     return { ok: true, mock: true, reused: false, retryAfterSeconds: 60 };
   }
 
-  const code = generateCode();
+  const actualCode = code || generateCode();
   const pendingCode = {
-    code,
+    actualCode,
     expiresAt: now + 300000, // 5 分钟过期
     nextSendAt: now + 60000,  // 60 秒重发限制
   };

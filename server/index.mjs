@@ -37,6 +37,7 @@ import {
 } from './xhsCreativePlanner.mjs';
 
 import { initDB, migrateLegacyUserCredits, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
+import { sendVerificationCode } from './mailService.mjs';
 import { normalizeEmail } from './accessPolicy.mjs';
 import {
   getAccountAccess,
@@ -5138,8 +5139,8 @@ mountAuthRoutes(app, {
   oauthStore,
   mailer: {
     canSend: () => true,
-    sendVerificationCodeMail: ({ to, code }) => { try { sendVerificationCode({ to, code }); } catch (e) { /* ignore */ } },
-    sendPasswordResetMail: ({ to, code }) => { try { sendVerificationCode({ to, code }); } catch (e) { void e; } },
+    sendVerificationCodeMail: async ({ to, code }) => { try { await sendVerificationCode(to, code); } catch (e) { /* ignore */ } },
+    sendPasswordResetMail: async ({ to, code }) => { try { await sendVerificationCode(to, code); } catch (e) { void e; } },
   },
 });
 
