@@ -1243,6 +1243,7 @@ export function CanvasSourceNode({
 }
 
 export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart }) {
+  const isComposing = useRef(false);
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-copy-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
@@ -1258,9 +1259,26 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
       aria-multiline="true"
       data-placeholder={node.placeholder || '输入文字'}
       style={node.textStyle || undefined}
-      onFocus={() => onSelect?.(node.id)}
-      onInput={event => onChange?.(node.id, event.currentTarget.textContent || '')}
-      onBlur={() => onBlur?.(node.id)}
+      onFocus={() => {
+        if (!isComposing.current) onSelect?.(node.id);
+        // 双击编辑时清空占位提示文字
+        if (editing && node.text === '双击编辑文字') {
+          onChange?.(node.id, '');
+        }
+      }}
+      onCompositionStart={() => { isComposing.current = true; }}
+      onCompositionEnd={(event) => {
+        isComposing.current = false;
+        const text = event.currentTarget.textContent || '';
+        onChange?.(node.id, text);
+      }}
+      onInput={event => {
+        if (isComposing.current) return;
+        onChange?.(node.id, event.currentTarget.textContent || '');
+      }}
+      onBlur={() => {
+        if (!isComposing.current) onBlur?.(node.id);
+      }}
     >{node.text || ''}</div>
     <ResizeHandles visible={selected && !editing && !node.locked} onResizeStart={onResizeStart} />
   </article>;

@@ -224,7 +224,7 @@ export function createCanvasTextNode({ x = 0, y = 0, sourceNodeId = '', now = Da
     y: finite(y),
     w: 420,
     h: 84,
-    text: '双击编辑文字',
+    text: '',
     placeholder: '双击编辑文字',
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
     status: 'ready',
