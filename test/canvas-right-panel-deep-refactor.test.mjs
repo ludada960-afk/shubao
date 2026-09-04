@@ -64,16 +64,14 @@ test('反馈 1 (2026-08-30 画布总统筹重审): 右面板路由 9 action (5 �
   }
 });
 
-test('反馈 3 (2026-08-30 画布总统筹重审): 4 应用节点 (Quantv §10.2 风格) 取代原 3 智能按钮, 走 handleCreateApplicationNode', () => {
-  // 改后: 不再调 handleSmartChainAction (one-click-suite/one-click-video/tts-voiceover/caption-motion)
-  // 改走 handleCreateApplicationNode (落 1 个 application 节点, 内部端口连接)
-  assert.ok(indexSource.includes('handleCreateApplicationNode'), '必须调 handleCreateApplicationNode (Quantv 风格应用节点)');
-  assert.ok(indexSource.includes("kind: 'application'"), 'application 节点 kind=application');
-  assert.ok(indexSource.includes('createChildConnection'), '应用节点必须建连接 (节点串联)');
-  // 旧 3 智能按钮不应再在空状态 Row 2/3 出现
+test('反馈 3 (用户 9-04 反馈): 空壳应用节点整体下架, 派生一律走素材端口菜单 (真实执行链路)', () => {
+  assert.ok(!indexSource.includes('handleCreateApplicationNode'), '空壳 handler 必须删除 (用户 9-04 反馈: 点了没反应的纯摆设)');
   assert.ok(!indexSource.includes("handleSmartChainAction('one-click-suite')"), '空状态不应再调 handleSmartChainAction(one-click-suite)');
   assert.ok(!indexSource.includes("handleSmartChainAction('one-click-video')"), '空状态不应再调 handleSmartChainAction(one-click-video)');
   assert.ok(!indexSource.includes("handleSmartChainAction('tts-voiceover')"), '空状态不应再调 handleSmartChainAction(tts-voiceover)');
+  // 右面板新增派生结果看板 (用户 9-04 反馈: 展示"我派生了什么")
+  const panelSrc = readFileSync(panelJsxPath, 'utf8');
+  assert.ok(panelSrc.includes('derivedChildren'), '右面板必须展示派生结果看板');
 });
 
 test('反馈 3: handleSmartChainAction 真调 chainService.executeChain 4 步 (不是 addCanvasComposer)', () => {

@@ -1,0 +1,102 @@
+/* ═══════ CanvasMinimap - 小地图样式 (Quantv §1.6) ═══════
+   资深美工视角: 暗色玻璃 + 节点彩色块 + 视口高亮 + 平滑过渡
+   产品经理视角: 关闭后可重开, 显示节点计数, 点击导航
+   用户 9-01 反馈: minimap黑 → 确保背景足够亮, 节点可见 */
+
+.ec-canvas-minimap {
+  position: absolute;
+  z-index: 50;
+  bottom: 140px;
+  left: 14px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+}
+
+.ec-canvas-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+}
+
+.ec-canvas-minimap-header strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.ec-canvas-minimap-header span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+
+.ec-canvas-minimap-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+  transition: color 150ms;
+}
+
+.ec-canvas-minimap-close:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ec-canvas-minimap-canvas {
+  position: relative;
+  background: rgba(30, 41, 59, 0.6);
+  cursor: grab;
+  margin: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ec-canvas-minimap-canvas:active {
+  cursor: grabbing;
+}
+
+.ec-canvas-minimap-node {
+  position: absolute;
+  border-radius: 3px;
+  opacity: 0.85;
+  transition: opacity 150ms, border-color 150ms;
+  pointer-events: none;
+}
+
+.ec-canvas-minimap-node:hover {
+  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.ec-canvas-minimap-viewport {
+  position: absolute;
+  background: rgba(99, 102, 241, 0.25);
+  border: 1.5px solid rgba(99, 102, 241, 0.8);
+  border-radius: 2px;
+  pointer-events: none;
+  transition: left 150ms, top 150ms, width 150ms, height 150ms;
+}
+
+/* 响应式 */
+@media (max-width: 760px) {
+  .ec-canvas-minimap {
+    bottom: 90px;
+    left: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-minimap-viewport { transition: none; }
+}

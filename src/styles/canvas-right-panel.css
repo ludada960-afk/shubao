@@ -232,6 +232,77 @@
   flex-direction: column;
   gap: 9px;
 }
+/* ── 派生结果看板 (用户 9-04 反馈: 右面板要展示"我派生了什么") ── */
+.ec-canvas-right-panel__children {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-card-solid);
+  padding: 10px 12px 12px;
+}
+.ec-canvas-right-panel__children-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ec-canvas-right-panel__child {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-hover, #f8fafc);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background .16s ease-out, transform .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+.ec-canvas-right-panel__child:hover {
+  background: var(--blue-bg, rgba(37, 99, 235, .08));
+  transform: translateX(2px);
+}
+.ec-canvas-right-panel__child-thumb {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef2f6;
+  font-size: 10px;
+  color: var(--text-hint, #6b7280);
+}
+.ec-canvas-right-panel__child-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ec-canvas-right-panel__child-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ec-canvas-right-panel__child-meta strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ec-canvas-right-panel__child-meta em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--text-hint, #6b7280);
+}
+.ec-canvas-right-panel__child-meta em.is-processing { color: #ea580c; }
+.ec-canvas-right-panel__child-meta em.is-error { color: #dc2626; }
 .ec-canvas-right-panel__adjust-title {
   font-size: 10.5px;
   font-weight: 750;

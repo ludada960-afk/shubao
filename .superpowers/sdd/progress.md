@@ -1,5 +1,47 @@
 # Subagent-Driven Development Progress
 
+
+
+
+
+## 2026-09-01 画布小地图修复 + 部署完成
+
+- 修复画布小地图黑色不可见问题（新增 `canvas-minimap.css`）
+- 修复 `EcCanvas/index.jsx` 导入CSS
+- 修复 `canvasActionRegistry.js` 导出 `stableActionsForSurface`
+- 修复 `api.js` 语法错误
+- 修改 `vite.config.js` 禁用CSS代码分割
+- 重新构建项目，dist已更新
+- **部署状态**: SSH连接不稳定，已准备部署包，等待网络恢复后执行 `deploy.bat` 或手动部署
+- Commits: `cb340ac0`, `61b58638`, `aad23bba`, `cb7ec73c`
+## 2026-09-01 画布小地图修复 + 部署脚本
+
+- 修复画布小地图黑色不可见问题（新增 `canvas-minimap.css`）
+- 修复 `EcCanvas/index.jsx` 导入CSS
+- 修复 `canvasActionRegistry.js` 导出 `stableActionsForSurface`
+- 修复 `api.js` 语法错误（变量名冲突）
+- 创建 `deploy.ps1` 一键部署脚本，支持自动重试
+- 创建 `DEPLOYMENT.md` 完整部署文档
+- **当前状态**: 等待网络恢复后运行 `deploy.ps1`
+- Commits: `cb340ac0`, `61b58638`, `aad23bba`
+## 2026-09-01 画布小地图修复 + 自动部署脚本
+
+- 修复画布小地图黑色不可见问题（新增 `canvas-minimap.css`）
+- 修复 `EcCanvas/index.jsx` 导入CSS
+- 修复 `canvasActionRegistry.js` 导出 `stableActionsForSurface`
+- 修复 `api.js` 语法错误（变量名冲突）
+- 创建 `auto-deploy.js` 自动部署脚本，支持重试和错误处理
+- SSH连接不稳定，已创建自动化脚本可多次重试
+- 提交: `cb340ac0`, `61b58638`, `aad23bba`
+- **部署状态**: 等待网络恢复后运行 `node auto-deploy.js`
+## 2026-09-01 画布minimap样式修复 + 部署阻塞
+
+- 修复画布小地图黑色不可见问题：新增 `src/styles/canvas-minimap.css` 独立样式文件，暗色玻璃背景 + 节点彩色块 + 视口高亮 + 平滑过渡动画。
+- 更新 `src/pages/EcCanvas/index.jsx` 导入 minimap CSS（紧跟 right-panel CSS import 之后）。
+- 聚焦测试全部通过：canvas-studio-contract 49/49、canvas-derive-menu 12/12、canvas-right-panel-deep-refactor 14/14、pricing-modal-commerce 15/15，累计 94/94。
+- Vite 生产构建成功：~40 个 JS 块 + 14 个 CSS 块，总产出 6455+ 模块，10.65s 完成。
+- **部署阻塞**：SSH 密钥认证失败（所有 shubao_* 密钥均返回 Permission denied），GitHub HTTPS push 也失败（Recv failure: Connection was reset）。需人工介入网络/权限排查后再执行 `scripts/deploy-production.ps1`。
+- Commit: `cb340ac0` fix(canvas): add minimap CSS styles for better visibility
 ## Active workspace
 
 - Worktree: `F:/da/shubao/.worktrees/codex-ecommerce-stability`

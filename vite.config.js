@@ -34,6 +34,7 @@ export default defineConfig({
     },
   },
   build: {
+        cssCodeSplit: false,
     outDir: 'dist',
     sourcemap: false,
   },

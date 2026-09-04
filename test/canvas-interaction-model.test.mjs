@@ -65,12 +65,9 @@ test('context menu is clamped to the browser viewport', () => {
   );
 });
 
-test('node port presents Shubao 9 derive actions (5 core + 4 magic, 4c183cd4 续命 v2, 用户硬性要求保留 5 原有)', () => {
-  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构 v2:
-     用户 8-29 原话 "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
-     - 5 原有 (text-generation / image-edit / ecommerce-suite / video-upload / video-generation)
-     - 4 流影AI LibTV 风格 (1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效)
-     总共 9 个 action, 5+4 分桶 */
+test('node port presents Shubao 7 derive actions (5 core + 2 audio, 9-04 反馈精简版)', () => {
+  /* 用户 9-04 反馈: 1-click 套图/1-click 视频 与 core 5 重复 → 移除;
+     TTS/字幕是视频节点专属 (videoOnly); 竞品名不进 UI */
   const ids = CANVAS_CREATION_OPTIONS.map(option => option.id);
   assert.deepEqual(ids, [
     /* core 5 (用户硬性要求全部保留) */
@@ -79,24 +76,22 @@ test('node port presents Shubao 9 derive actions (5 core + 4 magic, 4c183cd4 续
     'ecommerce-suite',
     'video-upload',
     'video-generation',
-    /* magic 4 (流影AI LibTV 风格, 用户硬性指定) */
-    'one-click-suite',
-    'one-click-video',
-    'tts-voiceover',
-    'caption-motion',
-  ], '9 个 action 顺序必须按 core(5) -> magic(4)');
-  assert.equal(ids.length, 9, '总共 9 个 action: 5 原有 + 4 流影AI');
+    /* audio 2 (视频节点专属) */
+    'application-tts',
+    'application-caption',
+  ], '7 个 action 顺序必须按 core(5) -> audio(2)');
+  assert.equal(ids.length, 7, '总共 7 个 action: 5 原有 + 2 音频字幕');
   assert.equal(CANVAS_CREATION_OPTIONS.find(option => option.id === 'video-generation')?.priceLabel, '32积分起');
-  /* 验证 group 字段 (2 个 group: core / magic) */
+  /* 验证 group 字段 (2 个 group: core / audio) */
   const groups = new Set(CANVAS_CREATION_OPTIONS.map(o => o.group));
-  assert.equal(groups.size, 2, '必须有 2 个 group 标签 (core / magic)');
+  assert.equal(groups.size, 2, '必须有 2 个 group 标签 (core / audio)');
   assert.ok(groups.has('core'));
-  assert.ok(groups.has('magic'));
-  /* 验证 group 数量分布: 5 core + 4 magic = 9 */
+  assert.ok(groups.has('audio'), 'audio 桶 (视频节点专属, 用户 9-04 反馈: 取代旧 magic 桶)');
+  /* 验证 group 数量分布: 5 core + 2 audio = 7 (1-click 已移除, 用户 9-04 反馈) */
   const coreCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'core').length;
-  const magicCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'magic').length;
+  const audioCount = CANVAS_CREATION_OPTIONS.filter(o => o.group === 'audio').length;
   assert.equal(coreCount, 5, '5 原有 全部 core (用户硬性要求保留)');
-  assert.equal(magicCount, 4, 'magic 桶 4 个 (流影AI 1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效)');
+  assert.equal(audioCount, 2, 'audio 桶 2 个 (TTS 配音 + 字幕动效, 仅视频节点)');
 });
 
 test('drag frames update geometry without persistence and drag end persists once', () => {

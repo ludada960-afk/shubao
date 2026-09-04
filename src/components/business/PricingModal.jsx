@@ -43,6 +43,17 @@ function unitsToPoints(units) { return Math.round(Number(units || 0) / UNITS_PER
 function approxImages(points) { return Math.round(points); }
 function approxVideos(points) { return Math.round(points / 27); }
 
+/* 服务端套餐目录加载失败/未就绪时的兜底 (与 server/billing/catalog.mjs 终案一致)。
+   用户 9-04 反馈"套餐又不见了": plans 为空时网格整个消失, 必须永远有套餐可看。 */
+const FALLBACK_PLANS = [
+  { sku: "ec_trial_990", name: "基础包", currency: "ec_points", priceFen: 990, grantUnits: 30000, giftUnits: 0, validityDays: null },
+  { sku: "ec_starter_29", name: "专业包", currency: "ec_points", priceFen: 2900, grantUnits: 105000, giftUnits: 0, validityDays: null, recommended: true },
+  { sku: "ec_growth_79", name: "团队包", currency: "ec_points", priceFen: 7900, grantUnits: 295000, giftUnits: 0, validityDays: null },
+  { sku: "ec_studio_199", name: "工作室包", currency: "ec_points", priceFen: 19900, grantUnits: 760000, giftUnits: 0, validityDays: null },
+  { sku: "ec_monthpack_39", name: "轻月卡", currency: "ec_points", priceFen: 3900, grantUnits: 150000, giftUnits: 25000, validityDays: 30 },
+  { sku: "ec_monthpack_59", name: "Pro 月卡", currency: "ec_points", priceFen: 5900, grantUnits: 230000, giftUnits: 40000, validityDays: 30 },
+];
+
 /* 到期倒计时文案: 传最早到期时间 ISO + 当前时间戳, 返回 "X 天 Y 小时 / X 小时 Y 分 / X 分" */
 function countdownText(expiresAt, nowMs) {
   const diff = Date.parse(expiresAt) - nowMs;
@@ -77,8 +88,10 @@ export default function PricingModalRefactored({
   /* 到期倒计时秒级 ticker */
   const [now, setNow] = useState(() => Date.now());
 
-  /* 从服务端 plans props 派生当前 tab 的 SKU (currency=ec_points 的才是积分包) */
-  const planCatalog = (plans || []).filter((p) => p && p.currency === "ec_points");
+  /* 从服务端 plans props 派生当前 tab 的 SKU (currency=ec_points 的才是积分包);
+     服务端目录未就绪时用内置兜底, 套餐永远可见 (用户 9-04 反馈) */
+  const sourcePlans = (plans && plans.length ? plans : FALLBACK_PLANS);
+  const planCatalog = sourcePlans.filter((p) => p && p.currency === "ec_points");
   const permanentPacks = planCatalog.filter((p) => !String(p.sku || "").startsWith("ec_monthpack_"));
   const monthlyPacks = planCatalog.filter((p) => String(p.sku || "").startsWith("ec_monthpack_"));
   const currentPacks = activeTab === "permanent" ? permanentPacks : monthlyPacks;

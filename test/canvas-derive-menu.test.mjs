@@ -28,38 +28,47 @@ const heroIconsPath = resolve(repoRoot, 'src/pages/EcCanvas/components/HeroIcons
      1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效
    - 总共 9 个 action (5 原有 + 4 流影AI), 用户认知路径, 资深美工+产品经理视角 */
 
-/* 1) 9 action 数据契约 (4 测试) */
+/* 1) 7 action 数据契约 (4 测试) — 用户 9-04 反馈:
+   1-click 套图/1-click 视频 与 core 5 重复 → 移除;
+   TTS/字幕只在视频节点出现 (videoOnly), 竞品名不进 UI → bucket 改名"音频与字幕" */
 
-test('derive menu exposes exactly 9 actions (5 原有 + 4 流影AI, 4c183cd4 续命 硬性要求 v2)', () => {
-  assert.equal(CANVAS_CREATION_OPTIONS.length, 9, '9 个 action: 5 原有 + 4 流影AI (用户硬性要求保留 5 原有)');
+test('derive menu exposes exactly 7 actions (5 原有 + 2 音频字幕, 9-04 反馈精简版)', () => {
+  assert.equal(CANVAS_CREATION_OPTIONS.length, 7, '7 个 action: 5 原有 + 2 音频字幕 (用户 9-04 反馈去重)');
   const ids = CANVAS_CREATION_OPTIONS.map(option => option.id);
   /* 5 原有 (用户硬性要求全部保留) */
   for (const legacyId of ['text-generation', 'image-edit', 'ecommerce-suite', 'video-upload', 'video-generation']) {
     assert.ok(ids.includes(legacyId), '5 原有 action 缺 ' + legacyId);
   }
-  /* 4 流影AI 新增 (用户硬性指定) */
-  for (const newId of ['one-click-suite', 'one-click-video', 'tts-voiceover', 'caption-motion']) {
-    assert.ok(ids.includes(newId), '4 流影AI 新增 action 缺 ' + newId);
+  /* 2 音频字幕 (只对视频节点) */
+  for (const audioId of ['application-tts', 'application-caption']) {
+    assert.ok(ids.includes(audioId), '音频字幕 action 缺 ' + audioId);
+  }
+  /* 与 core 重复的 1-click 项已移除 (用户 9-04 反馈) */
+  for (const removedId of ['one-click-suite', 'one-click-video', 'tts-voiceover', 'caption-motion']) {
+    assert.ok(!ids.includes(removedId), '旧 action ' + removedId + ' 应已移除/更名');
   }
 });
 
-test('9 actions are bucketed into 2 groups (core 5 / magic 4)', () => {
-  const buckets = { core: [], magic: [], other: [] };
+test('7 actions are bucketed into 2 groups (core 5 / audio 2, videoOnly)', () => {
+  const buckets = { core: [], audio: [], other: [] };
   for (const option of CANVAS_CREATION_OPTIONS) {
     const g = option.group || 'other';
     (buckets[g] || buckets.other).push(option.id);
   }
   assert.deepEqual(buckets.core.sort(), ['ecommerce-suite', 'image-edit', 'text-generation', 'video-generation', 'video-upload'], 'core 5 = 5 原有 (用户硬性要求全部保留)');
-  assert.deepEqual(buckets.magic.sort(), ['caption-motion', 'one-click-suite', 'one-click-video', 'tts-voiceover'], 'magic 4 = 4 流影AI LibTV Agent 风格 (用户硬性指定)');
+  assert.deepEqual(buckets.audio.sort(), ['application-caption', 'application-tts'], 'audio 2 = TTS 配音 + 字幕动效 (仅视频节点)');
   assert.equal(buckets.other.length, 0, '所有 action 必须分桶, 不允许 ungrouped');
+  for (const option of CANVAS_CREATION_OPTIONS) {
+    if (option.group === 'audio') assert.equal(option.videoOnly, true, option.id + ' 必须 videoOnly (图片节点不显示配音)');
+  }
 });
 
-test('9 actions preserve display order (core 先 5, magic 后 4)', () => {
+test('7 actions preserve display order (core 先 5, audio 后 2)', () => {
   const groupOrder = CANVAS_CREATION_OPTIONS.map(option => option.group);
   assert.deepEqual(groupOrder, [
     'core', 'core', 'core', 'core', 'core',
-    'magic', 'magic', 'magic', 'magic',
-  ], '顺序必须按 core(5) -> magic(4)');
+    'audio', 'audio',
+  ], '顺序必须按 core(5) -> audio(2)');
 });
 
 test('every derive action exposes label, description, and Object.freeze (immutable)', () => {
@@ -80,13 +89,14 @@ test('canvas-derive-menu.css exists as a standalone asset in src/styles/', () =>
   assert.ok(css.length > 1000, 'CSS 文件 > 1KB (含 9-action grid 全部规则)');
 });
 
-test('canvas-derive-menu.css contains 9-action grid + 2 bucket markers (core/magic) + glass + dark mode', () => {
+test('canvas-derive-menu.css contains 7-action grid + 2 bucket markers (core/audio) + glass + dark mode', () => {
   const css = readFileSync(cssPath, 'utf8');
   assert.match(css, /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/, '桌面 3 列 grid 必填 (用户硬性要求 2-3 列)');
   assert.match(css, /@media \(max-width: 960px\)[\s\S]*grid-template-columns:\s*repeat\(2,/, '平板 2 列 grid 必填');
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*grid-template-columns:\s*1fr/, '移动 1 列 grid 必填');
   assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-core') !== -1, 'core 桶标记必填 (5 原有)');
-  assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-magic') !== -1, 'magic 桶标记必填 (4 流影AI)');
+  assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-core') !== -1, 'core 桶标记必填');
+  assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-audio') !== -1 || css.indexOf('.ec-canvas-derive-bucket.is-magic') !== -1, 'audio 桶标记必填 (magic 样式可复用)');
   assert.match(css, /backdrop-filter:\s*blur\(18px\) saturate\(160%\)/, '毛玻璃 backdrop-filter 必填');
   assert.match(css, /\[data-theme="dark"\]\s*\.ec-canvas-derive-tile/, '暗色模式适配必填');
 });
@@ -121,12 +131,12 @@ test('CanvasStudio.jsx ships the 9-action DERIVE_ICONS map (5 原有 + 4 流影A
   }
 });
 
-test('CanvasDeriveMenu renders 2 buckets (core / magic) and 9 grid tiles', () => {
+test('CanvasDeriveMenu renders 2 buckets (core / audio) and 7 grid tiles', () => {
   const studio = readFileSync(canvasStudioPath, 'utf8');
-  for (const bucket of ['core', 'magic']) {
+  for (const bucket of ['core', 'audio']) {
     assert.ok(studio.indexOf("id: '" + bucket + "'") !== -1, 'CanvasDeriveMenu 必须定义 ' + bucket + ' 桶');
   }
-  for (const label of ['核心常用', '流影AI 智能']) {
+  for (const label of ['核心常用', '音频与字幕']) { // 用户 9-04 反馈: 竞品名不入UI, 音频桶叫'音频与字幕'
     assert.ok(studio.includes(label), 'CanvasDeriveMenu 必须有 ' + label + ' label');
   }
   for (const cls of ['ec-canvas-derive-grid', 'ec-canvas-derive-tile', 'ec-canvas-derive-bucket', 'ec-canvas-derive-scroll']) {

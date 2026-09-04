@@ -159,15 +159,13 @@ test('画布能开 2: CanvasDeriveMenu 单独 SSR 成功 (9 派生菜单 5 原�
     "  { id: 'ecommerce-suite', label: '电商套图', group: 'core' },",
     "  { id: 'video-upload', label: '上传视频', group: 'core' },",
     "  { id: 'video-generation', label: '生成视频', group: 'core' },",
-    "  { id: 'one-click-suite', label: '1-click 套图', group: 'magic' },",
-    "  { id: 'one-click-video', label: '1-click 视频', group: 'magic' },",
-    "  { id: 'tts-voiceover', label: 'TTS 配音', group: 'magic' },",
-    "  { id: 'caption-motion', label: '字幕动效', group: 'magic' },",
+    "  { id: 'application-tts', label: 'TTS 配音', group: 'audio' },",
+    "  { id: 'application-caption', label: '字幕动效', group: 'audio' },",
     "];",
     "const html = ReactDOMServer.renderToString(React2.createElement(CanvasDeriveMenu, {",
     "  actions, position: { position: 'static' }, title: '从当前素材继续创作', onSelect: () => {},",
     "}));",
-    "if (!html.includes('ec-canvas-derive-menu') || !html.includes('one-click-suite')) {",
+    "if (!html.includes('ec-canvas-derive-menu') || !html.includes('application-tts')) {",
     "  console.error('FAIL len=' + html.length);",
     "  process.exit(1);",
     "}",
@@ -247,13 +245,10 @@ test('画布能开 6 (2026-08-30 画布总统筹重审): EcCanvas/index.jsx 含 
   for (const id of ['text-generation', 'image-edit', 'ecommerce-suite', 'video-upload', 'video-generation']) {
     assert.ok(idx.includes("id === '" + id + "'"), 'index.jsx 必须保留 ' + id + ' 路由');
   }
-  // 4 应用节点路由 (取代 one-click-suite/one-click-video/tts-voiceover/caption-motion)
-  for (const id of ['application-1click-suite', 'application-1click-video', 'application-tts', 'application-caption']) {
-    assert.ok(idx.includes("id === '" + id + "'"), 'index.jsx 必须含 ' + id + ' 路由');
-  }
-  // handleCreateApplicationNode (Quantv 风格: 落 application 节点 + 端口连接)
-  assert.ok(idx.includes('handleCreateApplicationNode'), '必须定义 handleCreateApplicationNode (Quantv 风格应用节点)');
-  assert.ok(idx.includes("kind: 'application'"), 'application 节点 kind=application');
+  // 用户 9-04 反馈: 空壳应用节点已下架
+  assert.ok(!idx.includes('handleCreateApplicationNode'), '空壳 handler 必须删除');
+  assert.ok(!idx.includes('新建应用节点'), '空状态入口必须删除');
+  assert.ok(idx.includes("'application-tts'") || idx.includes("kind: 'application'"), 'application 节点由 handleCreateDerivedNode 承载 (kind: application 已改为派生节点)');
   // 旧 AI 智能组 handleSmartChainAction 在空状态已不再被调用 (改走 handleCreateApplicationNode + 节点串联)
   // 但 handleSmartChainAction 函数本身保留, 因为 VideoStudio 还在用
 });

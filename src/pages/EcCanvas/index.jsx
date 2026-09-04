@@ -57,7 +57,7 @@ import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
-import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
+import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
@@ -94,6 +94,7 @@ import './EcCanvas.css';
 import '../../styles/canvas-derive-menu.css';
 import '../../styles/canvas-empty-actions.css';
 import '../../styles/canvas-right-panel.css';
+import '../../styles/canvas-minimap.css';
 /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI */
 import '../../styles/canvas-supervisor.css';
 import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
@@ -376,7 +377,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         })}
       </div>}
       <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
-      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />
+      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
@@ -425,31 +426,6 @@ function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu,
       {(node.assets || []).slice(0, 4).map((asset, index) => <ResponsiveImage key={asset.assetId || asset.id || index} src={asset.url} alt={asset.name || '产品素材'} variant="thumb" ratio="1:1" sizes="120px" style={{ width: '100%', borderRadius: 8, background: '#e8eaf2' }} imgStyle={{ objectFit: 'contain' }} />)}
       {!node.assets?.length && <div style={{ gridColumn: '1 / -1', padding: '15px 8px', borderRadius: 8, color: '#8a93a4', background: '#f0f2f8', fontSize: 11, textAlign: 'center' }}>未找到产品原图</div>}
     </div>
-  </section>;
-}
-
-function CanvasTextNode({ node, selected, dimmed, onPointerDown, onChange, onContextMenu, onHoverChange, onPortPointerDown, onPortPointerUp }) {
-  return <section
-    data-canvas-node-id={node.id}
-    onPointerDown={event => {
-      if (event.target?.closest?.('textarea,input,button')) return;
-      onPointerDown(event, node.id);
-    }}
-    onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
-    onMouseEnter={() => onHoverChange?.(node.id)}
-    onMouseLeave={() => onHoverChange?.(null)}
-    className={`ec-canvas-text-node ${selected ? 'is-selected' : ''}`}
-    style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h, opacity: dimmed ? 0.34 : 1 }}
-  >
-    <CanvasPortHandle side="left" role="input" visible={selected} label="连接输入" onPointerUp={event => onPortPointerUp?.(event, node.id, 'in')} />
-    <CanvasPortHandle side="right" role="output" visible={selected} label="从文本派生" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} />
-    <header>文本</header>
-    <textarea
-      data-canvas-control="true"
-      value={node.text || ''}
-      placeholder="输入标题、卖点或生成要求"
-      onChange={event => onChange(node.id, event.target.value)}
-    />
   </section>;
 }
 
@@ -641,6 +617,28 @@ export default function EcCanvas() {
   const [taskLogEntries, setTaskLogEntries] = useState([]);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(true); // 9-02 小地图可关闭 (默认开)
+  /* 无限画布: 小地图世界范围 = 节点包围盒 ∪ 当前视口 (不再写死 2400x1600),
+     视角能拖多远, 地图就能显示多远 (用户 9-04 反馈小地图局限了画布) */
+  const minimapWorldBounds = useMemo(() => {
+    const viewW = (typeof window !== 'undefined' ? window.innerWidth : 1440) / Math.max(0.1, viewport.scale);
+    const viewH = (typeof window !== 'undefined' ? window.innerHeight : 900) / Math.max(0.1, viewport.scale);
+    let minX = -viewport.x / Math.max(0.1, viewport.scale);
+    let minY = -viewport.y / Math.max(0.1, viewport.scale);
+    let maxX = minX + viewW;
+    let maxY = minY + viewH;
+    for (const node of nodes) {
+      minX = Math.min(minX, node.x - 120);
+      minY = Math.min(minY, node.y - 120);
+      maxX = Math.max(maxX, (node.x || 0) + (node.w || 0) + 120);
+      maxY = Math.max(maxY, (node.y || 0) + (node.h || 0) + 120);
+    }
+    return {
+      width: Math.max(1600, maxX - minX),
+      height: Math.max(1000, maxY - minY),
+      offsetX: Math.min(0, minX),
+      offsetY: Math.min(0, minY),
+    };
+  }, [nodes, viewport]);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
   const [nodeActionBar, setNodeActionBar] = useState(null);
@@ -1482,6 +1480,7 @@ export default function EcCanvas() {
         setMarquee(null);
         setContextMenu(null);
         setEditingTextNodeId(null);
+        setAddNodePanel(null);
         setSelected(null);
         setMultiSelected(new Set());
         return;
@@ -1798,7 +1797,19 @@ export default function EcCanvas() {
     }
   }, [flushDragFrame, pointerMode, toWorldPoint, viewport.scale]);
 
-  const handlePointerUp = useCallback((e) => {
+  const openConnectionPickerForNode = useCallback(node => {
+    if (!canDeriveFromNode(node)) return;
+    setConnectionPicker({
+      sourceNodeId: node.id,
+      world: {
+        x: Number(node.x) + Number(node.w) + 42,
+        y: Number(node.y) + Number(node.h) / 2,
+      },
+    });
+    setConnectionDraft(null);
+  }, []);
+
+const handlePointerUp = useCallback((e) => {
     if (dragFrameRef.current) {
       cancelAnimationFrame(dragFrameRef.current);
       flushDragFrame();
@@ -1819,6 +1830,17 @@ export default function EcCanvas() {
       setPointerMode(null);
       return;
     }
+    if (pointerMode?.kind === 'drag') {
+      /* 用户 9-04 反馈: 单击图片/输出节点 (无拖动位移) = 打开"引用当前素材生成"。
+         原逻辑在 pointerdown 就弹菜单, 副作用是选择工具下节点永远拖不动。 */
+      const point = toWorldPoint(e);
+      const start = pointerMode.start || point;
+      const moved = Math.hypot(point.x - start.x, point.y - start.y) > 4;
+      if (!moved && pointerMode.clickNodeId) {
+        const clicked = nodes.find(item => item.id === pointerMode.clickNodeId);
+        if (clicked && ['image', 'output'].includes(clicked.kind)) openConnectionPickerForNode(clicked);
+      }
+    }
     if (pointerMode?.kind === 'marquee' && marquee) {
       const ids = new Set(selectNodesInRect(nodes, marquee));
       setMultiSelected(pointerMode.additive ? new Set([...multiSelected, ...ids]) : ids);
@@ -1826,7 +1848,7 @@ export default function EcCanvas() {
     }
     setPointerMode(null);
     setMarquee(null);
-  }, [connectionDraft, flushDragFrame, marquee, multiSelected, nodes, pointerMode, toWorldPoint]);
+  }, [connectionDraft, flushDragFrame, marquee, multiSelected, nodes, openConnectionPickerForNode, pointerMode, toWorldPoint]);
 
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
@@ -1876,17 +1898,7 @@ export default function EcCanvas() {
 
   useEffect(() => bindNonPassiveWheel(containerRef.current, handleWheel), [handleWheel, tab]);
 
-  const openConnectionPickerForNode = useCallback(node => {
-    if (!canDeriveFromNode(node)) return;
-    setConnectionPicker({
-      sourceNodeId: node.id,
-      world: {
-        x: Number(node.x) + Number(node.w) + 42,
-        y: Number(node.y) + Number(node.h) / 2,
-      },
-    });
-    setConnectionDraft(null);
-  }, []);
+  
 
   // 节点点击：Ctrl/Cmd 切换多选，拖动已选节点会批量移动
   const handleNodeDown = useCallback((e, id) => {
@@ -1906,11 +1918,11 @@ export default function EcCanvas() {
       return;
     }
     if (getNodePointerIntent({ tool: activeTool, button: e.button }) === 'select') {
+      /* 用户 9-04 反馈: 选择工具下节点完全拖不动 — 旧逻辑在这里只选中就 return。
+         改为: 选中并继续走下方统一的 drag 初始化 (可拖动); 松手时若没有位移,
+         对图片/输出节点打开"引用当前素材生成"派生菜单 (保留单击派生入口)。 */
       setSelected(id);
       setMultiSelected(new Set([id]));
-      const node = nodes.find(item => item.id === id);
-      if (node && ['image', 'output'].includes(node.kind)) openConnectionPickerForNode(node);
-      return;
     }
     const baseIds = multiSelected.has(id) ? multiSelected : new Set([id]);
     const activeNode = nodes.find(node => node.id === id);
@@ -1928,7 +1940,7 @@ export default function EcCanvas() {
     const ids = expandCanvasDragSelection(nodes, id, baseIds);
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
-    setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
+    setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e), clickNodeId: id });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [activeTool, multiSelected, nodes, openConnectionPickerForNode, toWorldPoint]);
 
@@ -2201,7 +2213,15 @@ export default function EcCanvas() {
   const handleCreateDerivedNode = useCallback((sourceNodeId, action, world, initialInputs = {}) => {
     const source = nodes.find(node => node.id === sourceNodeId);
     const actionSpec = getCanvasAction(action?.id || action);
-    if (!source || !actionSpec?.execute?.nodeKind || !canDeriveFromNode(source)) return;
+    /* 用户 9-04 反馈"死按钮": 以前这里直接静默 return, 用户点了没任何反应。 */
+    if (!source) { showToast('素材已被删除，无法继续派生', 'info'); return; }
+    if (!actionSpec?.execute?.nodeKind) { showToast('该功能暂时不可用', 'info'); return; }
+    if (!canDeriveFromNode(source)) {
+      showToast(source.status === 'processing' || source.status === 'uploading' || source.status === 'analyzing'
+        ? '素材还在处理中，完成后即可派生'
+        : '当前素材暂不支持派生，请先完成生成', 'info');
+      return;
+    }
     const sourceUrl = source.url || source.assets?.find(asset => asset?.url)?.url || null;
     const nodeActionId = actionSpec.execute.nodeActionId;
     if (nodeActionId === 'remove-bg') {
@@ -3790,6 +3810,10 @@ export default function EcCanvas() {
   const handleTextNodeChange = useCallback((nodeId, text) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text } : node));
   }, []);
+  /* 文字框高度自适应 (用户 9-04 反馈: 打字超过两行框不跟着变大) */
+  const handleTextNodeAutoHeight = useCallback((nodeId, height) => {
+    setNodes(previous => previous.map(node => node.id === nodeId && Number.isFinite(height) ? { ...node, h: Math.max(84, Math.round(height)) } : node));
+  }, []);
   const handleCanvasSourceUpload = async event => {
     const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('image/')).slice(0, 8);
     event.target.value = '';
@@ -4433,14 +4457,16 @@ export default function EcCanvas() {
      core/magic 桶全空 → 右面板只剩标题"从当前素材继续创作 9 项"、动作按钮全部不渲染,
      用户看不到任何派生动作 (即"右面板怎么东西都不见了").
      去掉覆盖, 保留各动作自身 group, 9 项按 5 core + 4 magic 正确分桶渲染. */
-  const portCreationActions = CANVAS_CREATION_OPTIONS.map(option => {
-    const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
-    return {
-      ...(imageAction || {}),
-      ...option,
-      priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
-    };
-  });
+  const portCreationActions = CANVAS_CREATION_OPTIONS
+    .filter(option => !(option.videoOnly && selectedNode?.kind !== 'video'))
+    .map(option => {
+      const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
+      return {
+        ...(imageAction || {}),
+        ...option,
+        priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
+      };
+    });
   const selectedNodeBillingCost = useMemo(() => {
     if (!selectedNode) return 0;
     /* 优先取 node 自身的 billing 字段, 否则按第一个可用 action 的 priceLabel 估算. */
@@ -4452,6 +4478,24 @@ export default function EcCanvas() {
     const match = String(firstPriced.priceLabel).match(/([\d.]+)/);
     return match ? Number(match[1]) : 0;
   }, [selectedNode, portCreationActions]);
+  /* 右面板"派生结果"看板: 从当前选中素材派生出去的子节点 (用户 9-04 反馈:
+     右面板应该展示"我派生了什么", 而不是把派生入口再重复一遍) */
+  const selectedDerivedChildren = useMemo(() => {
+    if (!selectedNode) return [];
+    const childIds = connections
+      .filter(conn => (conn.fromNodeId || conn.from) === selectedNode.id)
+      .map(conn => conn.toNodeId || conn.to);
+    return childIds
+      .map(id => nodes.find(node => node.id === id))
+      .filter(Boolean)
+      .map(node => ({
+        id: node.id,
+        name: node.name || node.displayLabel || '未命名节点',
+        kind: node.kind,
+        status: node.status || (node.url ? 'ready' : 'draft'),
+        thumb: node.url || node.assets?.find(asset => asset?.url)?.url || '',
+      }));
+  }, [connections, nodes, selectedNode]);
   /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 3): 下面 3 智能按钮差异化 handler
      mode: 'one-click-suite' (1-click 套图, 走 chainService 4 步: 文案->首帧->视频->音轨+字幕)
            'one-click-video' (1-click 视频模板, 同上 4 步 chain)
@@ -4518,40 +4562,7 @@ export default function EcCanvas() {
     }
   }, [selectedNode, nodes, showToast]);
 
-  /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 新建应用节点 (Quantv §10.2 风格)
-     用户原话 8-30: "你必须把这些重复的东西都给拿掉" / "完整的去复刻他这个AI产品整体的这些东西进来"
-     Quantv 实拍: "应用"节点 = 预设工作流, 落画布 1 个 application 节点, 端口接图片源 + 视频目标
-     节点串联: 选中图片节点 → 端口 → 应用节点 (5 宫格/1-click 视频/TTS/字幕) → 视频节点 → 音频节点 */
-  const handleCreateApplicationNode = useCallback(() => {
-    const sourceNode = selectedNode || nodes.find(n => ['image', 'output', 'source_group'].includes(n.kind)) || null;
-    const id = globalThis.crypto?.randomUUID?.() || 'app-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-    const world = sourceNode ? { x: (sourceNode.x || 0) + (sourceNode.w || 200) + 60, y: sourceNode.y || 0 } : { x: 80, y: 80 };
-    const applicationNode = {
-      id,
-      kind: 'application',
-      name: '应用节点',
-      description: '5 宫格套图 / 1-click 视频 / TTS 配音 / 字幕动效',
-      applicationType: '5-grid-suite',
-      x: world.x,
-      y: world.y,
-      w: 240,
-      h: 160,
-      status: 'draft',
-      sourceNodeIds: sourceNode ? [sourceNode.id] : [],
-      prompt: '',
-      costEstimate: 5.18,
-      assetId: '',
-      createdAt: Date.now(),
-    };
-    setNodes(prev => [...prev, applicationNode]);
-    if (sourceNode) {
-      const connection = createChildConnection(sourceNode.id, id);
-      setConnections(prev => [...prev, connection]);
-    }
-    showToast('已新建应用节点 (可串联到图片/视频/音频节点)', 'success');
-    setSelectedNodeId(id);
-  }, [selectedNode, nodes, showToast]);
-
+  /* 空壳"应用节点"已下架 (用户 9-04 反馈): 派生一律走素材端口菜单 */
   const handleVideoDelivered = useCallback(({ projectId }) => {
     setVideoDelivery(null);
     showToast(`已发往视频项目，可在视频创作工作台「从画布发来」查看（项目 ${String(projectId).slice(-6)}）`, 'success');
@@ -5000,6 +5011,13 @@ export default function EcCanvas() {
             onZoomOut={() => zoomTo(viewport.scale * 0.8)}
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
+            trailing={!minimapOpen ? <button
+              type="button"
+              className="ec-canvas-minimap-reopen"
+              aria-label="打开小地图"
+              title="打开小地图"
+              onClick={() => setMinimapOpen(true)}
+            ><MapIcon size={15} /></button> : null}
           />
           {!nodes.length && (
             <div className="ec-canvas-empty-state">
@@ -5025,21 +5043,15 @@ export default function EcCanvas() {
                      用户原话 8-30: "你必须把这些重复的东西都给拿掉" / "你不能够残留那些做错的东西, 拿掉之后你就完整的去复刻他这个AI产品整体的这些东西进来"
                      原 3 行分层 (8 入口) -> 1 行 4 入口:
                        - Row 1 上传图片 / 上传视频 / 从我的作品导入 (3 入口, 保留)
-                       - Row 2 新建应用节点 (1 入口, 预设工作流节点)
-                     原 Row 2 "生成电商套图/生成视频" 改走"图片节点 → 应用节点 → 视频节点" 端口串联
-                     原 Row 3 "1-click 套图/1-click 视频/TTS 配音" 改走"应用节点" 系列 (5 宫格/1-click 视频/TTS 配音/字幕动效)
+                       - 应用节点入口已下架 (9-04)
+                     派生一律走素材端口菜单
+                     音频字幕仅在视频节点端口菜单出现
                      智能操作不再是"独立按钮", 是"节点串联"的一部分 */}
                   {/* Row 1 - 添加素材 (3 入口) */}
                   <div className="ec-canvas-empty-row is-primary-row" role="group" aria-label="添加素材">
                     <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
                     <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
                     <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
-                  </div>
-                  {/* Row 2 - 新建应用节点 (1 入口, 预设工作流 "应用" 节点)
-                      "应用"节点 = 预设工作流, 内部串联多张图/视频/音频
-                      用户选完应用类型后, 落画布 1 个 application 节点, 端口接图片源 + 视频目标 */}
-                  <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="应用节点">
-                    <button type="button" className="is-primary" onClick={() => handleCreateApplicationNode()}><HeroGlyph kind="oneclick" />新建应用节点</button>
                   </div>
                 </div>
 
@@ -5131,6 +5143,7 @@ export default function EcCanvas() {
                   onDoubleClick={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); setEditingTextNodeId(nodeId); }}
                   onBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
                   onResizeStart={(event, handle) => handleNodeResizeStart(event, node.id, handle)}
+                  onAutoHeight={handleTextNodeAutoHeight}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
@@ -5149,6 +5162,7 @@ export default function EcCanvas() {
                   editing={editingTextNodeId === node.id}
                   onTextDoubleClick={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); setEditingTextNodeId(nodeId); }}
                   onTextBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
+                  onAutoHeight={handleTextNodeAutoHeight}
                   onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: node.name || '图片预览' })}
                 />;
               }
@@ -5251,7 +5265,7 @@ export default function EcCanvas() {
               onFullscreen={() => setTextInspectorNodeId(selectedNode.id)}
               onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
             />}
-            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
               node={selectedNode}
               position={selectedComposerPosition}
@@ -5377,6 +5391,17 @@ export default function EcCanvas() {
             {selectionPanelsVisible && <EcCanvasRightPanel
               node={selectedNode}
               deriveActions={portCreationActions}
+              derivedChildren={selectedDerivedChildren}
+              onOpenChild={childId => {
+                setSelected(childId);
+                setMultiSelected(new Set([childId]));
+                const child = nodes.find(node => node.id === childId);
+                if (child) {
+                  const viewW = (containerRef.current?.clientWidth || window.innerWidth) / viewport.scale;
+                  const viewH = (containerRef.current?.clientHeight || window.innerHeight) / viewport.scale;
+                  setViewport(current => ({ ...current, x: viewW / 2 - (child.x + child.w / 2) * current.scale, y: viewH / 2 - (child.y + child.h / 2) * current.scale }));
+                }
+              }}
               onClose={() => setSelected(null)}
               onPatch={handleRightPanelPatch}
               billingCost={selectedNodeBillingCost}
@@ -5649,16 +5674,13 @@ export default function EcCanvas() {
           y={canvasContextPanel.y}
           onAction={(actionId) => {
             switch (actionId) {
-              case 'add-text': handleAddTextRef.current?.(); break;
+              case 'add-text': handleAddTextRef.current?.({ x: canvasContextPanel.world?.x, y: canvasContextPanel.world?.y }); break;
               case 'add-image': sourceUploadRef.current?.click?.(); break;
               case 'add-video': videoUploadRef.current?.click?.(); break;
               case 'add-audio': audioUploadRef.current?.click?.(); break;
               case 'add-application':
-                setAddNodePanel({
-                  x: canvasContextPanel.x,
-                  y: canvasContextPanel.y,
-                  world: canvasContextPanel.world,
-                });
+                /* 空壳应用节点已下架 (用户 9-04 反馈) */
+                showToast('应用类工作流请选中素材后从端口或工具栏派生', 'info');
                 break;
               case 'paste':
                 readClipboardNodes().then(payload => {
@@ -5710,7 +5732,10 @@ export default function EcCanvas() {
           x={addNodePanel.x}
           y={addNodePanel.y}
           onAdd={(kind, id) => {
-            const world = addNodePanel.world || { x: 200, y: 200 };
+            const world = addNodePanel.world || {
+              x: Math.max(40, Math.round((-viewport.x + (containerRef.current?.clientWidth || window.innerWidth) * 0.5) / viewport.scale)),
+              y: Math.max(40, Math.round((-viewport.y + (containerRef.current?.clientHeight || window.innerHeight) * 0.5) / viewport.scale)),
+            };
             if (kind === 'text') {
               const textNode = createCanvasTextNode({ x: world.x, y: world.y });
               textNode.name = autoCanvasShotName(nodes, 'text');
@@ -5721,20 +5746,6 @@ export default function EcCanvas() {
               videoUploadRef.current?.click?.();
             } else if (kind === 'audio') {
               audioUploadRef.current?.click?.();
-            } else if (kind === 'application') {
-              /* 应用节点 - 创建 application 节点 */
-              const appNode = {
-                id: `app_${Date.now()}`,
-                kind: 'application',
-                x: world.x,
-                y: world.y,
-                w: 360,
-                h: 220,
-                name: autoCanvasShotName(nodes, 'application'),
-                status: 'draft',
-                actionId: 'application-1click-suite',
-              };
-              setNodes(prev => [...prev, appNode]);
             }
           }}
           onUpload={() => sourceUploadRef.current?.click?.()}
@@ -5766,18 +5777,16 @@ export default function EcCanvas() {
         nodes={nodes}
         connections={connections}
         viewport={viewport}
-        worldBounds={{ width: 2400, height: 1600 }}
-        onViewportChange={(v) => setViewport(v)}
+        worldBounds={minimapWorldBounds}
+        onViewportChange={(v) => setViewport(current => ({ ...current, x: v.x, y: v.y }))}
+        onWheelZoom={(deltaY) => {
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          setViewport(current => zoomAroundCursor(current, { x: rect.width / 2, y: rect.height / 2 }, deltaY > 0 ? 0.92 : 1.09));
+        }}
         onClose={() => setMinimapOpen(false)}
       />}
-      {/* P0-5: 小地图关闭后保留重开入口 (左下角同一位置) */}
-      {!minimapOpen && <button
-        type="button"
-        className="ec-canvas-minimap-reopen"
-        aria-label="打开小地图"
-        title="打开小地图"
-        onClick={() => setMinimapOpen(true)}
-      ><MapIcon size={15} /></button>}
+      {/* 小地图重开入口已并入左下角缩放条 (用户 9-04 反馈: 不再压住缩小按钮) */}
 
       {/* P2: 跨域投递对话框（EcCanvas → 视频项目） */}
       <VideoProjectDeliveryDialog

@@ -53,22 +53,17 @@ test('canvas-empty-actions.css declares the 3-row layered visual + glass + dark 
 
 /* 2) 3 行分层集成契约 (3 测试) */
 
-test('EcCanvas/index.jsx 画布中央弹窗有 2 行分层 (1 添加素材 + 2 应用节点) 4 个按钮 (2026-08-30 画布总统筹重审 Quantv §10.2 风格)', () => {
-  // 用户原话 8-30: "你必须把这些重复的东西都给拿掉"
-  // 改后: 2 行分层 (1 添加素材 + 2 应用节点), 4 按钮
-  //   - Row 1: 上传图片/上传视频/从我的作品导入 (3 入口, 保留)
-  //   - Row 2: 新建应用节点 (1 入口, Quantv §10.2 "应用" 节点)
-  //   - 原 Row 2 "生成电商套图/生成视频" + Row 3 "1-click 套图/视频/TTS" 5 按钮重复已拿掉
+test('EcCanvas/index.jsx 画布中央弹窗单行 4 入口 (空壳应用节点已下架, 用户 9-04 反馈)', () => {
+  // 用户 9-04 反馈: "应用"节点是空壳死功能 → Row 2 下架;
+  // 空状态只保留素材添加入口 (上传图片/上传视频/从我的作品导入)
   const jsx = readFileSync(ecCanvasIndexPath, 'utf8');
   assert.ok(jsx.indexOf('ec-canvas-empty-row is-primary-row') !== -1, 'Row 1 ec-canvas-empty-row is-primary-row 必填 (添加素材)');
-  assert.ok(jsx.indexOf('ec-canvas-empty-row is-generate-row') !== -1, 'Row 2 ec-canvas-empty-row is-generate-row 必填 (应用节点)');
-  assert.equal(jsx.indexOf('ec-canvas-empty-row is-smart-row'), -1, 'Row 3 智能行已拿掉 (跟 Row 2 重复)');
+  assert.equal(jsx.indexOf('ec-canvas-empty-row is-smart-row'), -1, 'Row 3 智能行保持已拿掉');
+  assert.equal(jsx.indexOf('handleCreateApplicationNode'), -1, '空壳应用节点 handler 必须删除');
   // Row 1 - 3 入口
   for (const kind of ['image', 'video', 'works']) {
     assert.ok(jsx.indexOf('HeroGlyph kind="' + kind + '"') !== -1, 'Row 1 HeroGlyph kind=' + kind + ' 必填');
   }
-  // Row 2 - 1 入口 (Quantv §10.2 "应用" 节点, 取代原 2 入口)
-  assert.ok(jsx.indexOf('handleCreateApplicationNode') !== -1, 'Row 2 必须调 handleCreateApplicationNode (Quantv 风格应用节点)');
   // 空状态段匹配 (排除中央弹窗 CanvasAddMenu 仍调 addCanvasComposer('suite/video'))
   const emptyStateRowMatch = jsx.match(/ec-canvas-empty-row[sS]*?ec-canvas-empty-actions/);
   const emptyStateSrc = emptyStateRowMatch ? emptyStateRowMatch[0] : '';

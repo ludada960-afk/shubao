@@ -74,20 +74,18 @@ test('Q6: canvasActionRegistry.js 应用节点组 4 项 (取代 AI 智能组 4 �
   assert.equal(src.includes("'caption-motion'"), false, '旧 caption-motion action id 应被拿掉');
 });
 
-test('Q7: EcCanvas/index.jsx 已加 handleCreateApplicationNode 函数 (Quantv 风格应用节点)', () => {
+test('Q7: 空壳"应用节点"已下架 (用户 9-04 反馈: 纯摆设死功能, 与素材端口派生重复)', () => {
   const file = path.join(SRC_ROOT, 'pages/EcCanvas/index.jsx');
   const src = readFileSync(file, 'utf8');
-  assert.ok(src.includes('handleCreateApplicationNode'), '必须定义 handleCreateApplicationNode (新建应用节点)');
-  assert.ok(src.includes('applicationType'), 'application 节点必须含 applicationType 字段');
-  assert.ok(src.includes("kind: 'application'"), 'application 节点必须 kind=application');
-  assert.ok(src.includes('createChildConnection'), 'handleCreateApplicationNode 必须建连接 (节点串联)');
+  assert.equal(src.includes('handleCreateApplicationNode'), false, '空壳 handler 必须删除');
+  assert.equal(src.includes('新建应用节点'), false, '空状态入口必须删除');
 });
 
-test('Q8: 空状态 Row 2 新建应用节点按钮 (取代原 Row 2 + Row 3 重复按钮)', () => {
+test('Q8: 空状态 Row 2 已随空壳应用节点一起下架 (用户 9-04 反馈)', () => {
   const file = path.join(SRC_ROOT, 'pages/EcCanvas/index.jsx');
   const src = readFileSync(file, 'utf8');
-  assert.ok(src.includes('handleCreateApplicationNode'), '空状态 Row 2 必须调 handleCreateApplicationNode');
-  assert.ok(src.includes('应用节点'), '空状态 Row 2 按钮文案必须含应用节点');
+  assert.equal(src.includes('handleCreateApplicationNode'), false, '空状态 Row 2 入口必须删除');
+  assert.equal(src.includes('新建应用节点'), false, '新建应用节点文案必须删除');
   // 空状态段匹配 (空状态 hero 内的 onClick 不能有 addCanvasComposer(suite/video) 或旧 handleSmartChainAction 3 智能按钮)
   // 注意: handleSmartChainAction 函数本身仍存在 (给 VideoStudio 用), 但空状态段不应再调
   const emptyStateMatch = src.match(/ec-canvas-empty-actions[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/);

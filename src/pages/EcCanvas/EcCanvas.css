@@ -392,6 +392,10 @@
 .ec-canvas-object-toolbar button.is-compact { width: var(--ec-canvas-control-height); justify-content: center; padding: 0; }
 .ec-canvas-object-toolbar button:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-object-toolbar button:active { transform: translateY(1px); }
+.ec-canvas-object-toolbar button:disabled { opacity: .38; cursor: not-allowed; }
+.ec-canvas-node-port[data-disabled] { opacity: .38; }
+.ec-canvas-node-port[data-disabled]:hover { opacity: .6; }
+.ec-canvas-object-toolbar button:disabled:active { transform: none; }
 .ec-canvas-object-toolbar button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 1px; }
 
 .ec-canvas-text-toolbar { position: absolute; z-index: 80; display: flex; align-items: center; gap: 2px; padding: 5px; transform: translate(-50%, -100%) scale(var(--canvas-overlay-scale, 1)); transform-origin: bottom center; border: 1px solid rgba(15, 23, 42, .07); border-radius: 8px; background: rgba(255, 255, 255, .98); box-shadow: 0 10px 30px rgba(15, 23, 42, .15); }

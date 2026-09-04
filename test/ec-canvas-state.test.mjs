@@ -207,7 +207,7 @@ test('canvas interaction surfaces dismiss each other and text has one toolbar', 
   assert.match(canvasSource, /const selectionPanelsVisible = !focusedEditor && !connectionPicker && multiSelected\.size <= 1[\s\S]{0,220}selectedNode\.kind !== 'text'/);
   assert.match(canvasSource, /selectionPanelsVisible && <CanvasObjectToolbar/);
   assert.match(canvasSource, /\['text', 'text-composer'\]\.includes\(selectedNode\?\.kind\) && <CanvasTextToolbar/);
-  assert.match(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
+  assert.match(canvasStudioSource, /onPointerUp=\{event => onPointerUp/);
 });
 
 test('clicking an image output port opens the derive picker without requiring a drag', () => {

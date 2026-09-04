@@ -185,11 +185,12 @@ export function CanvasLayersPanel({
   </aside>;
 }
 
-export function CanvasZoomControls({ scale, onZoomOut, onZoomIn, onFit }) {
+export function CanvasZoomControls({ scale, onZoomOut, onZoomIn, onFit, trailing = null }) {
   return <div className="ec-canvas-zoom-controls" role="group" aria-label="画布缩放">
     <IconButton label="缩小" onClick={onZoomOut}><Minus size={15} /></IconButton>
-    <span aria-live="polite">{Math.round(scale * 100)}%</span>
+    <span aria-live="polite">{Math.round((Number(scale) || 1) * 100)}%</span>
     <IconButton label="放大" onClick={onZoomIn}><Plus size={15} /></IconButton>
     <IconButton label="适配画布" onClick={onFit}><Maximize2 size={15} /></IconButton>
+    {trailing}
   </div>;
 }

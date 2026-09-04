@@ -18,11 +18,11 @@ export const CANVAS_CREATION_OPTIONS = Object.freeze([
   Object.freeze({ id: 'ecommerce-suite', label: '电商套图', description: '用当前商品继续生成完整套图', group: 'core' }),
   Object.freeze({ id: 'video-upload', label: '上传视频', description: '把现有视频加入画布继续创作', group: 'core' }),
   Object.freeze({ id: 'video-generation', label: '生成视频', description: '用当前图片或视频生成营销成片', priceLabel: '32积分起', group: 'core' }),
-  /* ── magic 流影AI 智能 (4 新增, 用户硬性指定) ── */
-  Object.freeze({ id: 'one-click-suite', label: '1-click 套图', description: '一键生成电商 5 宫格 (主图+场景+细节+白底+详情图)', priceLabel: '15积分', group: 'magic' }),
-  Object.freeze({ id: 'one-click-video', label: '1-click 视频模板', description: '一键生成视频模板 (4 步: 文案→首帧→视频→音轨+字幕)', priceLabel: '40积分', group: 'magic' }),
-  Object.freeze({ id: 'tts-voiceover', label: 'TTS 配音', description: '5 家供应商 (火山/阿里云/ElevenLabs/Azure/MiniMax) 美式播客感', priceLabel: '8积分', group: 'magic' }),
-  Object.freeze({ id: 'caption-motion', label: '字幕动效', description: '智能字幕排版 + 弹出/淡入/逐字动画', priceLabel: '5积分', group: 'magic' }),
+  /* ── audio 音频与字幕 (只对视频节点开放, 用户 9-04 反馈:
+     1-click 套图/1-click 视频 与 core 5 项重复 → 移除;
+     图片节点上出现 TTS 配音很奇怪 → 只有视频节点才显示这组) ── */
+  Object.freeze({ id: 'application-tts', label: 'TTS 配音', description: '给视频配旁白音轨 (5 家供应商可选)', priceLabel: '8积分', group: 'audio', videoOnly: true }),
+  Object.freeze({ id: 'application-caption', label: '字幕动效', description: '智能字幕排版 + 弹出/淡入/逐字动画', priceLabel: '5积分', group: 'audio', videoOnly: true }),
 ]);
 
 export const MULTI_SELECTION_ACTIONS = Object.freeze([

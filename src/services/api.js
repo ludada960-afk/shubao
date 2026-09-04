@@ -2061,10 +2061,10 @@ export async function cloneProject(projectId, body, opts) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* keep null */ }
   if (!res.ok) {
-    const code = (data && data.code) ? data.code : 'CLONE_FAILED';
+    const errorCode = (data && data.code) ? data.code : 'CLONE_FAILED';
     const message = (data && data.error) ? data.error : ('clone project failed (HTTP ' + res.status + ')');
     const err = new Error(message);
-    err.code = code;
+    err.code = errorCode;
     err.status = res.status;
     throw err;
   }

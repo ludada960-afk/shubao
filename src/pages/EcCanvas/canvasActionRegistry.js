@@ -178,6 +178,20 @@ export function actionsForSurface({ surface, node } = {}) {
   return CANVAS_ACTIONS.filter(item => item.surfaces.includes(surface) && item.canRun(node));
 }
 
+/* selection 工具栏专用: 结构稳定版。按钮集合在素材存在期间保持不变
+   (本地预览可用时全部展示), 服务器往返类在素材就绪前置灰而不是消失 —
+   否则上传完成前后工具栏会从"残缺版"跳变成"完整版" (用户 9-04 反馈)。 */
+export function stableActionsForSurface({ surface, node } = {}) {
+  const hasPreview = canRunLocally(node);
+  return CANVAS_ACTIONS
+    .filter(item => item.surfaces.includes(surface))
+    .filter(item => hasPreview || item.canRun(node))
+    .map(item => {
+      const runnable = item.canRun(node);
+      return { ...item, disabled: !runnable, disabledHint: runnable ? '' : '素材处理完成后可用' };
+    });
+}
+
 export function canvasActionHandler(actionOrId) {
   const selected = typeof actionOrId === 'string' ? getCanvasAction(actionOrId) : actionOrId;
   return selected?.execute?.handler || '';

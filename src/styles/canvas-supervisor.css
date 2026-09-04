@@ -675,6 +675,29 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 9px;
 }
+.ec-canvas-minimap-close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s ease-out, color 0.16s ease-out;
+}
+.ec-canvas-minimap-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.ec-canvas-minimap-close:focus-visible {
+  outline: 2px solid rgba(78, 205, 196, 0.8);
+  outline-offset: 1px;
+}
 .ec-canvas-minimap-canvas {
   position: relative;
   background: rgba(0, 0, 0, 0.3);
@@ -695,19 +718,15 @@
   pointer-events: none;
   box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
 }
-/* P0-5: 小地图关闭后的重开按钮 (与小地图同位, 左下角) */
+/* P0-5: 小地图关闭后的重开按钮 (内联在左下角缩放条右侧) */
 .ec-canvas-minimap-reopen {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  z-index: 5000;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 9px;
+  border-radius: 8px;
   background: rgba(13, 17, 23, 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);

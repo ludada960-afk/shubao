@@ -643,7 +643,6 @@ export const CANVAS_RIGHT_CLICK_ACTIONS = Object.freeze([
   { id: 'add-image', label: '上传图片', icon: 'image', group: 'add' },
   { id: 'add-video', label: '上传视频', icon: 'film', group: 'add' },
   { id: 'add-audio', label: '上传音频', icon: 'music', group: 'add' },
-  { id: 'add-application', label: '添加应用节点', icon: 'sparkles', group: 'add' },
   { id: 'from-asset-library', label: '从资产库选择', icon: 'folder', group: 'add' },
   { id: 'paste', label: '粘贴', icon: 'clipboard', shortcut: 'Ctrl+V', group: 'edit' },
   { id: 'undo', label: '撤销', icon: 'undo', shortcut: 'Ctrl+Z', group: 'edit' },

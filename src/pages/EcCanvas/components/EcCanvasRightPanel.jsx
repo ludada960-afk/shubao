@@ -55,6 +55,8 @@ function useDebouncedValue(value, delay = 120) {
 export function EcCanvasRightPanel({
   node,
   deriveActions = [],
+  derivedChildren = [],
+  onOpenChild,
   onDeriveSelect,
   onClose,
   onPatch,
@@ -72,10 +74,9 @@ export function EcCanvasRightPanel({
   const isError = status === 'error' || Boolean(node.error);
   const nodeName = node.name || node.displayLabel || node.direction?.purpose || (isImage ? '图片素材' : isVideo ? '视频素材' : isAudio ? '音频素材' : isText ? '文本素材' : '素材');
 
-  /* 派生菜单中按 group 排序, 5 原有 core 先, 4 流影AI magic 后
-     资深美工视角: 不写 "(流影AI 风格)" 文字, 直接走 group label */
+  /* 派生菜单按 group 排序: core 先, audio (视频节点专属) 后 */
   const orderedActions = React.useMemo(() => {
-    const groupOrder = { core: 0, magic: 1 };
+    const groupOrder = { core: 0, audio: 1 };
     return [...deriveActions].sort((a, b) => (groupOrder[a.group] ?? 99) - (groupOrder[b.group] ?? 99));
   }, [deriveActions]);
 
@@ -253,15 +254,48 @@ export function EcCanvasRightPanel({
           </div>
         )}
 
-        {/* AI 积分消耗 (商业化视角: 永远显示, 用户每次操作看到成本) */}
-        <div className="ec-canvas-right-panel__cost" aria-label="本次创作预计 AI 积分消耗">
+        {/* AI 积分 (用户 9-04 反馈: 这不是按钮, 是统计 — 显示下一步派生的预计消耗;
+            派生链累计消耗随任务真实结算后再累计展示) */}
+        <div className="ec-canvas-right-panel__cost" aria-label="下一步派生预计 AI 积分消耗">
           <span className="ec-canvas-right-panel__cost-label">
             <Coins size={12} />
-            AI 积分
+            下一步预计消耗
           </span>
           <span className="ec-canvas-right-panel__cost-value">{Number(billingCost || 0).toFixed(1)}</span>
         </div>
       </div>
+
+      {/* ── 派生结果看板: 从当前素材派生出去的子节点 (用户 9-04 反馈:
+          右面板应该展示"我派生了什么", 点击即导航过去) ── */}
+      {Array.isArray(derivedChildren) && derivedChildren.length > 0 && (
+        <div className="ec-canvas-right-panel__children" aria-label="派生结果">
+          <p className="ec-canvas-right-panel__adjust-title">派生结果 · {derivedChildren.length}</p>
+          <ul className="ec-canvas-right-panel__children-list">
+            {derivedChildren.map(child => (
+              <li key={child.id}>
+                <button
+                  type="button"
+                  className="ec-canvas-right-panel__child"
+                  onClick={() => onOpenChild?.(child.id)}
+                  title={`定位到 ${child.name}`}
+                >
+                  <span className="ec-canvas-right-panel__child-thumb">
+                    {child.thumb
+                      ? <img src={child.thumb} alt="" loading="lazy" />
+                      : <span className="ec-canvas-right-panel__child-kind">{getKindLabel(child.kind)}</span>}
+                  </span>
+                  <span className="ec-canvas-right-panel__child-meta">
+                    <strong>{child.name}</strong>
+                    <em className={child.status === 'error' ? 'is-error' : child.status === 'processing' ? 'is-processing' : ''}>
+                      {child.status === 'processing' ? '处理中' : child.status === 'error' ? '出错' : child.status === 'ready' ? '就绪' : '草稿'}
+                    </em>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </aside>
   );
 }

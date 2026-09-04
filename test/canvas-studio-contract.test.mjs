@@ -368,7 +368,7 @@ test('selected-image tools keep key command names and compact secondary actions'
   assert.match(toolbar, /isCompactCanvasToolbarAction/);
   assert.match(toolbar, /className=\{compact \? 'is-compact' : ''\}/);
   assert.match(toolbar, /\{!compact && <span>\{action\.label\}<\/span>\}/);
-  assert.match(toolbar, /title=\{action\.description \|\| action\.label\}/);
+  assert.match(toolbar, /title={isDisabled \? \(action\.disabledHint \|\| '暂时不可用'\) : \(action\.description \|\| action\.label\)}/);
 });
 
 test('image nodes report decoded natural dimensions and move-scale supports direct manipulation', () => {
@@ -725,7 +725,7 @@ test('Canvas density uses content-sized toolbars and readable metadata', () => {
   assert.match(css, /--ec-canvas-meta-font:\s*10px/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*font-size:\s*var\(--ec-canvas-action-font\)/s);
   assert.match(source, /const estimatedWidth = 76 \+ actions\.reduce/);
-  assert.match(source, /title=\{action\.description \|\| action\.label\}/);
+  assert.match(source, /title={isDisabled \? \(action\.disabledHint \|\| '暂时不可用'\) : \(action\.description \|\| action\.label\)}/);
   assert.match(source, /<span>\{action\.label\}<\/span>/);
   assert.match(source, /<Icon size=\{15\} \/><span>\{action\.label\}<\/span>/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*min-width:\s*var\(--ec-canvas-control-height\);[^}]*width:\s*auto;[^}]*padding:\s*0 8px;/s);
@@ -743,7 +743,7 @@ test('canvas output port stays clear of resize handles and owns click feedback',
   const css = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(css, /\.ec-canvas-node-port \{[^}]*right: -32px/);
-  assert.match(source, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp\?\.\(event\); \}\}/);
+  assert.match(source, /onPointerUp=\{event => onPointerUp\?\.\(event\)\}/);
 });
 
 test('canvas async processing cannot resurrect a deleted source node', () => {

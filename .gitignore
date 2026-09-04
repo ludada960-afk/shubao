@@ -49,3 +49,7 @@ dist/
 
 # local-only vision keyring
 .env.d/
+
+dist.tar*
+*.tar.gz
+*.zip

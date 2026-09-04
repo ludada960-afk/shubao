@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
 import {
   AlignCenter,
@@ -113,8 +113,8 @@ const ADD_ACTIONS = [
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderInput },
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: Sparkles },
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
-  { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },
-  { id: 'video', label: '生成视频', description: '用提示词、图片或视频创建营销成片', icon: ImagePlay },
+  /* 用户 9-04 反馈: 生成电商套图/生成视频 与选中素材后的派生菜单完全重复,
+     且套图/视频必须有商品素材才有意义 → 从添加菜单移除, 统一走"选中素材 → 端口派生" */
 ];
 
 // 宫格行列各自可独立选择的档位（与服务端 GRID 上界一致）。
@@ -148,16 +148,30 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
 
 export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction, videoDelivery = null }) {
   const introGateRef = usePanelIntroGate('object-toolbar');
+  const toolbarRef = useRef(null);
+  /* 用实测渲染宽度定位: 估算宽度偏小时 clamp 会把工具栏推出屏幕右缘,
+     表现为"工具栏歪掉、不吸附居中" (用户 9-04 反馈)。测量后二次渲染收敛。 */
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return undefined;
+    const width = Math.round(el.getBoundingClientRect().width);
+    if (width > 0 && width !== measuredWidth) setMeasuredWidth(width);
+    return undefined;
+  }, [actions, measuredWidth, videoDelivery]);
   if (!node || !actions.length) return null;
   // P2 跨域投递：选中套图产物/节点 → 「发往视频项目」（唯一注入点，逻辑由 index 提供）。
   const delivery = videoDelivery && typeof videoDelivery.onSend === 'function' && videoDelivery.enabled !== false
     ? videoDelivery
     : null;
-  const estimatedWidth = Math.min(820, 18 + actions.reduce((width, action) => (
+  const estimatedWidth = measuredWidth || Math.min(820, 18 + actions.reduce((width, action) => (
     width + (isCompactCanvasToolbarAction(action.id) ? 38 : Math.max(72, action.label.length * 13 + 30))
   ), 0) + (delivery ? 116 : 0));
   return <div
-    ref={introGateRef}
+    ref={element => {
+      toolbarRef.current = element;
+      introGateRef.current = element;
+    }}
     className="ec-canvas-object-toolbar"
     role="toolbar"
     aria-label={`${node.name || node.displayLabel || '对象'}工具`}
@@ -171,7 +185,18 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
     {actions.map(action => {
       const Icon = ACTION_ICONS[action.id] || WandSparkles;
       const compact = isCompactCanvasToolbarAction(action.id);
-      return <button key={action.id} type="button" className={compact ? 'is-compact' : ''} aria-label={action.label} title={action.description || action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
+      const isDisabled = Boolean(action.disabled);
+      return <button
+        key={action.id}
+        type="button"
+        className={compact ? 'is-compact' : ''}
+        aria-label={action.label}
+        aria-disabled={isDisabled || undefined}
+        title={isDisabled ? (action.disabledHint || '暂时不可用') : (action.description || action.label)}
+        disabled={isDisabled}
+        onPointerDown={event => event.stopPropagation()}
+        onClick={() => { if (!isDisabled) onAction?.(action, node); }}
+      >
         <Icon size={16} />
         {!compact && <span>{action.label}</span>}
       </button>;
@@ -192,11 +217,9 @@ const DERIVE_ICONS = Object.freeze({
   'ecommerce-suite': WandSparkles,
   'video-upload': FileVideo,
   'video-generation': ImagePlay,
-  /* 4 新增 (流影AI LibTV Agent 风格, 用户硬性指定) */
-  'one-click-suite': Grid2X2,        /* 1-click 套图: 5 宫格 */
-  'one-click-video': Film,           /* 1-click 视频模板: 胶片 */
-  'tts-voiceover': Mic,              /* TTS 配音: 话筒 */
-  'caption-motion': Captions,        /* 字幕动效: 字幕 */
+  /* 音频与字幕 (仅视频节点, 用户 9-04 反馈后重构) */
+  'application-tts': Mic,            /* TTS 配音: 话筒 */
+  'application-caption': Captions,   /* 字幕动效: 字幕 */
 });
 
 /* 14-action grid derive menu (4c183cd4 续命 深度重构)
@@ -212,12 +235,12 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     ...(x != null ? { left: x } : {}),
     ...(y != null ? { top: y } : {}),
   };
-  /* 按 group 分桶渲染: core 先 (5 原有), magic 后 (4 流影AI 新增).
-     用户 8-29 原话: "这些功能都是要保留的, 只是之前其中几个功能做的不够好"
-     所以 5 原有全部保留, 4 流影AI 加在后面, 不删任何 5 原有. */
+  /* 按 group 分桶渲染: core 先 (5 原有), audio 后 (视频节点专属的音频与字幕).
+     用户 9-04 反馈: 竞品名不能出现在用户界面 → bucket label 用功能描述;
+     与 core 重复的 1-click 项已移除, 不再走"5+4 全堆一锅"的旧结构。 */
   const groups = [
     { id: 'core', label: '核心常用' },
-    { id: 'magic', label: '流影AI 智能' },
+    { id: 'audio', label: '音频与字幕' },
   ];
   const bucketMap = actions.reduce((acc, action) => {
     const group = action.group || 'core';
@@ -521,7 +544,7 @@ function layerCompositeOrder(layer = {}) {
   return 2;
 }
 
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect }) {
+export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -533,6 +556,13 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
   const textBoardRef = useRef(null);
   const textComposingRef = useRef(false);
   const textEditSeedRef = useRef('');
+  /* 文案板高度跟随内容 (与 CanvasTextNode 同策略) */
+  const syncTextBoardHeight = () => {
+    const el = textBoardRef.current;
+    if (!el || typeof onAutoHeight !== 'function') return;
+    const next = Math.max(84, Math.ceil(el.scrollHeight) + 10);
+    if (Math.abs(next - (Number(node.h) || 84)) > 2) onAutoHeight(node.id, next);
+  };
   /* 与 CanvasTextNode 相同的非受控编辑策略: 编辑期间 React 不回写 DOM,
      保住光标位置和中文 IME 组合输入 */
   useEffect(() => {
@@ -551,13 +581,14 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
         selection.addRange(range);
       }
     }
+    syncTextBoardHeight();
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-generation-node is-${isVideo ? 'video' : isImage ? 'image' : isText ? 'text' : 'suite'} ${node.status === 'processing' ? 'is-processing' : ''} ${isLayerGroup ? 'is-layer-group' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
-    style={{ left: node.x, top: node.y, width: node.w, height: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
+    style={{ left: node.x, top: node.y, width: node.w, height: node.h, visibility: node.hidden ? 'hidden' : 'visible', opacity: typeof node.opacity === 'number' ? node.opacity : 1 }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
     onDoubleClick={event => { event.stopPropagation(); if (isText) onTextDoubleClick?.(node.id); else if (!isVideo && node.url) onDoubleClick?.(node); }}
@@ -581,10 +612,12 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       onCompositionEnd={event => {
         textComposingRef.current = false;
         onTextChange?.(node.id, event.currentTarget.textContent || '');
+        syncTextBoardHeight();
       }}
       onInput={event => {
         if (textComposingRef.current) return;
         onTextChange?.(node.id, event.currentTarget.textContent || '');
+        syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
     >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
@@ -1165,18 +1198,22 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
 }
 
 function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick }) {
+  /* disabled 不再真正禁用 (禁用按钮点了毫无反馈 = 用户眼中的"死按钮"),
+     改为 data-disabled 半透明, 点击时由 handler 弹出原因提示 */
   return <button
     type="button"
     className="ec-canvas-node-port"
     data-canvas-control="true"
     data-canvas-port-role="output"
     aria-label="从当前素材继续创作"
-    title="继续创作"
-    disabled={disabled}
+    title={disabled ? '素材处理完成后可继续创作' : '继续创作'}
+    data-disabled={disabled || undefined}
     tabIndex={visible ? 0 : -1}
     style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
     onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
-    onPointerUp={event => { event.stopPropagation(); onPointerUp?.(event); }}
+    /* pointerup 必须冒泡到 stage: 否则连接草稿残留, 画布卡在 connect 模式,
+       表现为"加号没反应 + 之后所有素材拖不动" (用户 9-04 反馈) */
+    onPointerUp={event => onPointerUp?.(event)}
     onClick={event => { event.stopPropagation(); onClick?.(event); }}
   ><Plus size={16} /></button>;
 }
@@ -1214,7 +1251,7 @@ export function CanvasImageNode({
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-media-node is-${presentation.state} ${presentation.dimmed ? 'is-dimmed' : ''}`}
-    style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible' }}
+    style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible', opacity: typeof node.opacity === 'number' ? node.opacity : 1 }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
     onDoubleClick={event => { event.stopPropagation(); onDoubleClick?.(node); }}
@@ -1242,7 +1279,7 @@ export function CanvasImageNode({
       <span>{[node.group, node.ratio, node.size].filter(Boolean).join(' · ')}</span>
     </footer>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
-    <DerivePort visible={presentation.handlesVisible && canDerive} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+    <DerivePort visible={presentation.handlesVisible} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
   </article>;
 }
 
@@ -1286,10 +1323,17 @@ export function CanvasSourceNode({
   </article>;
 }
 
-export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart }) {
+export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart, onAutoHeight }) {
   const isComposing = useRef(false);
   const boardRef = useRef(null);
   const editSeedRef = useRef('');
+  /* 文字框高度跟随内容: 输入超过两行时框体自动长高, 删减时回落 (最小 84) */
+  const syncAutoHeight = () => {
+    const el = boardRef.current;
+    if (!el || typeof onAutoHeight !== 'function') return;
+    const next = Math.max(84, Math.ceil(el.scrollHeight) + 10);
+    if (Math.abs(next - (Number(node.h) || 84)) > 2) onAutoHeight(node.id, next);
+  };
   /* 编辑期间内容走非受控: React 不回写 DOM, 否则每次 onInput 触发 re-render
      都会把光标打回开头, 中文 IME 组合中的字也会被吞掉 */
   useEffect(() => {
@@ -1310,13 +1354,14 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
         selection.addRange(range);
       }
     }
+    syncAutoHeight();
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-copy-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
-    style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
+    style={{ left: node.x, top: node.y, width: node.w, height: node.h, opacity: typeof node.opacity === 'number' ? node.opacity : 1 }}
     onPointerDown={event => { event.stopPropagation(); if (!editing) onPointerDown?.(event, node.id); }}
     onDoubleClick={event => { event.stopPropagation(); onDoubleClick?.(node.id); }}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
@@ -1337,10 +1382,12 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
         isComposing.current = false;
         const text = event.currentTarget.textContent || '';
         onChange?.(node.id, text);
+        syncAutoHeight();
       }}
       onInput={event => {
         if (isComposing.current) return;
         onChange?.(node.id, event.currentTarget.textContent || '');
+        syncAutoHeight();
       }}
       onBlur={() => {
         if (!isComposing.current) onBlur?.(node.id);
@@ -1362,7 +1409,7 @@ export function CanvasAudioNode({
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-media-node is-${selected ? 'selected' : 'idle'} ${dimmed ? 'is-dimmed' : ''}`}
-    style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible' }}
+    style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible', opacity: typeof node.opacity === 'number' ? node.opacity : 1 }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
     onMouseEnter={() => onHoverChange?.(node.id)}

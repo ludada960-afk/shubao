@@ -10,8 +10,9 @@ test('empty canvas presents image, video, works, and generation entrypoints', as
   assert.match(source, /上传图片/);
   assert.match(source, /上传视频/);
   assert.match(source, /从我的作品导入/);
-  assert.match(source, /生成电商套图/);
-  assert.match(source, /生成视频/);
+  const studio = await readFile(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(studio, /生成电商套图/); // ADD_ACTIONS 在 CanvasStudio.jsx 定义 (用户硬性要求保留)
+  assert.match(studio, /生成视频/); // ADD_ACTIONS 在 CanvasStudio.jsx 定义
   assert.match(source, /onDoubleClick=\{[\s\S]*?sourceUploadRef\.current\?\.click\(\)/);
   assert.doesNotMatch(source, /CanvasSourceImportSheet|sourceImportOpen|product_original|style_reference|general_material/);
   assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);

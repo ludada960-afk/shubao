@@ -148,13 +148,13 @@ export function CanvasAddNodePanel({
     };
   }, [onClose]);
 
-  // 5 种基础节点 + 1 应用
+  // 4 种基础节点 (用户 9-04 反馈: "应用"节点是空壳死功能, 已下架 —
+  // 应用类工作流走素材端口派生菜单, 那里有真实执行链路)
   const nodeTypes = [
     { id: 'text', label: '文本', kind: 'text', icon: Type, hint: '提示词 / 镜头脚本' },
     { id: 'image', label: '图片', kind: 'image', icon: ImagePlus, hint: '上传或生成图片' },
     { id: 'video', label: '视频', kind: 'video', icon: Film, hint: '上传或生成视频' },
     { id: 'audio', label: '音频', kind: 'audio', icon: Music, hint: '上传或录制音频' },
-    { id: 'application', label: '应用', kind: 'application', icon: Sparkles, hint: '预设工作流节点' },
   ];
 
   // 资源入口
@@ -327,6 +327,7 @@ export function CanvasMinimap({
   viewport = { x: 0, y: 0, scale: 1 },
   worldBounds = { width: 2400, height: 1600 },
   onViewportChange,
+  onWheelZoom,
   onClose,
   minimapWidth = 200,
   minimapHeight = 140,
@@ -335,13 +336,15 @@ export function CanvasMinimap({
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
 
-  // 计算节点比例
+  // 世界 → 小地图比例 (支持负坐标世界: offsetX/offsetY 为世界原点在小地图外的偏移)
+  const offsetX = Number.isFinite(worldBounds.offsetX) ? worldBounds.offsetX : 0;
+  const offsetY = Number.isFinite(worldBounds.offsetY) ? worldBounds.offsetY : 0;
   const scaleX = minimapWidth / Math.max(1, worldBounds.width);
   const scaleY = minimapHeight / Math.max(1, worldBounds.height);
 
   const visibleRect = {
-    x: -viewport.x / viewport.scale * scaleX,
-    y: -viewport.y / viewport.scale * scaleY,
+    x: (-viewport.x / viewport.scale - offsetX) * scaleX,
+    y: (-viewport.y / viewport.scale - offsetY) * scaleY,
     w: (globalThis.innerWidth || 1440) / viewport.scale * scaleX,
     h: (globalThis.innerHeight || 900) / viewport.scale * scaleY,
   };
@@ -351,12 +354,16 @@ export function CanvasMinimap({
     handlePointerMove(event);
   }
   function handlePointerMove(event) {
-    if (!isDragging || !onViewportChange) return;
+    if (!onViewportChange) return;
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = (event.clientX - rect.left) / scaleX * viewport.scale - (globalThis.innerWidth || 1440) / 2 / viewport.scale;
-    const y = (event.clientY - rect.top) / scaleY * viewport.scale - (globalThis.innerHeight || 900) / 2 / viewport.scale;
-    onViewportChange({ x: -x * viewport.scale + (globalThis.innerWidth || 1440) / 2, y: -y * viewport.scale + (globalThis.innerHeight || 900) / 2 });
+    // 小地图上的点 → 世界点 → 让视口中心对准它 (点击任意素材即导航过去)
+    const worldX = offsetX + (event.clientX - rect.left) / scaleX;
+    const worldY = offsetY + (event.clientY - rect.top) / scaleY;
+    onViewportChange({
+      x: (globalThis.innerWidth || 1440) / 2 - worldX * viewport.scale,
+      y: (globalThis.innerHeight || 900) / 2 - worldY * viewport.scale,
+    });
   }
   function handlePointerUp() {
     setIsDragging(false);
@@ -373,7 +380,15 @@ export function CanvasMinimap({
   }, [isDragging]);
 
   return (
-    <div className="ec-canvas-minimap" style={{ width: minimapWidth, height: minimapHeight }}>
+    <div
+      className="ec-canvas-minimap"
+      style={{ width: minimapWidth, height: minimapHeight }}
+      onWheel={event => {
+        /* 用户 9-04 反馈: 小地图开着时滚轮不能缩放画布 → 转发为画布中心缩放 */
+        event.preventDefault();
+        onWheelZoom?.(event.deltaY);
+      }}
+    >
       <header className="ec-canvas-minimap-header">
         <strong>小地图</strong>
         <span>{nodes.length} 节点</span>
@@ -391,10 +406,10 @@ export function CanvasMinimap({
             const from = nodes.find(n => n.id === (conn.fromNodeId || conn.from));
             const to = nodes.find(n => n.id === (conn.toNodeId || conn.to));
             if (!from || !to) return null;
-            const x1 = (from.x + (from.w || 0) / 2) * scaleX;
-            const y1 = (from.y + (from.h || 0) / 2) * scaleY;
-            const x2 = (to.x + (to.w || 0) / 2) * scaleX;
-            const y2 = (to.y + (to.h || 0) / 2) * scaleY;
+            const x1 = (from.x - offsetX + (from.w || 0) / 2) * scaleX;
+            const y1 = (from.y - offsetY + (from.h || 0) / 2) * scaleY;
+            const x2 = (to.x - offsetX + (to.w || 0) / 2) * scaleX;
+            const y2 = (to.y - offsetY + (to.h || 0) / 2) * scaleY;
             return <line key={conn.id || i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.18)" strokeWidth="0.6" />;
           })}
         </svg>
@@ -405,8 +420,8 @@ export function CanvasMinimap({
               className="ec-canvas-minimap-node"
               data-kind={node.kind}
               style={{
-                left: node.x * scaleX,
-                top: node.y * scaleY,
+                left: (node.x - offsetX) * scaleX,
+                top: (node.y - offsetY) * scaleY,
                 width: Math.max(2, (node.w || 100) * scaleX),
                 height: Math.max(2, (node.h || 60) * scaleY),
                 background: getStaticNodeColor(node.kind),
