@@ -10,19 +10,20 @@ import {
 const pageSource = () => readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 const studioSource = () => readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 
-test('contract: selection opens the object toolbar, derive menu and right panel together', () => {
+test('contract (9-05 定稿): selection opens toolbar + right panel together; derive menu is opened only via the + port', () => {
   const page = pageSource();
-  // 一个共享谓词, 三块面板各用一次 (4c183cd4 续命 画布深度重构: 加 EcCanvasRightPanel 跟上面 toolbar + 派生菜单同步张合)
-  // 出现/消失永远同步, 用户 8-29 硬性要求 "上面跟右边的面板都同时张开"
+  // 顶部工具栏与右面板共享同一谓词, 且派生菜单打开时两者保持出现 (双面板共存)
   assert.match(page, /const selectionPanelsVisible = /);
   const uses = page.match(/selectionPanelsVisible && </g) || [];
-  assert.equal(uses.length, 3, 'object toolbar + derive menu + right panel must all share the same predicate (双面板联动 + 右面板)');
+  assert.equal(uses.length, 2, 'object toolbar + right panel share the predicate');
   assert.match(page, /selectionPanelsVisible && <CanvasObjectToolbar/);
   assert.match(page, /selectionPanelsVisible && <EcCanvasRightPanel/);
-  assert.match(page, /selectionPanelsVisible && <CanvasDeriveMenu/);
+  // 派生菜单只由 + 触发 (connectionPicker), 不再挂 selectionPanelsVisible
+  assert.match(page, /connectionPicker && <CanvasDeriveMenu/);
+  assert.doesNotMatch(page, /&& !connectionPicker &&/, '派生菜单不能再把工具栏藏掉 (谓词里不得有 !connectionPicker 条件)');
   // 谓词本身覆盖：非聚焦编辑、无连线选择、单选、存在选中节点、排除文本与 composer
-  const declaration = page.slice(page.indexOf('const selectionPanelsVisible'), page.indexOf('; ', page.indexOf('const selectionPanelsVisible')));
-  for (const guard of ['!focusedEditor', '!connectionPicker', 'multiSelected.size <= 1', 'selectedNode']) {
+  const declaration = page.slice(page.indexOf('const selectionPanelsVisible'), page.indexOf(';', page.indexOf('selectedNode.kind')), page.indexOf('selectedNode.kind') + 40);
+  for (const guard of ['!focusedEditor', 'multiSelected.size <= 1', 'selectedNode']) {
     assert.match(declaration, new RegExp(guard.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), guard);
   }
 });

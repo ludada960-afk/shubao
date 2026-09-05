@@ -1,6 +1,5 @@
 import React from 'react';
-import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music, Plus } from 'lucide-react';
-import { CanvasDeriveMenu } from './CanvasStudio.jsx';
+import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 
 /* ═══════ 4c183cd4 续命 画布右侧固定面板 (用户 8-29 硬性反馈) ═══════
@@ -54,10 +53,8 @@ function useDebouncedValue(value, delay = 120) {
 
 export function EcCanvasRightPanel({
   node,
-  deriveActions = [],
   derivedChildren = [],
   onOpenChild,
-  onDeriveSelect,
   onClose,
   onPatch,
   billingCost = 0,
@@ -73,12 +70,6 @@ export function EcCanvasRightPanel({
   const isProcessing = status === 'processing' || status === 'analyzing' || status === 'uploading';
   const isError = status === 'error' || Boolean(node.error);
   const nodeName = node.name || node.displayLabel || node.direction?.purpose || (isImage ? '图片素材' : isVideo ? '视频素材' : isAudio ? '音频素材' : isText ? '文本素材' : '素材');
-
-  /* 派生菜单按 group 排序: core 先, audio (视频节点专属) 后 */
-  const orderedActions = React.useMemo(() => {
-    const groupOrder = { core: 0, audio: 1 };
-    return [...deriveActions].sort((a, b) => (groupOrder[a.group] ?? 99) - (groupOrder[b.group] ?? 99));
-  }, [deriveActions]);
 
   /* 调整参数 (双面板联动: 上方 toolbar 跟这个面板永远同步) */
   const opacity = typeof node.opacity === 'number' ? node.opacity : 1;
@@ -98,9 +89,6 @@ export function EcCanvasRightPanel({
     if (debouncedVolume !== volume && onPatch) onPatch({ volume: debouncedVolume });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedVolume]);
-
-  /* P0-2: 派生菜单默认收进 "+" 按钮, 点开才铺开全部创作方式 */
-  const [menuOpen, setMenuOpen] = React.useState(false);
 
   return (
     <aside className="ec-canvas-right-panel" aria-label={`${nodeName} 创作面板`} role="complementary">
@@ -145,30 +133,38 @@ export function EcCanvasRightPanel({
         </div>
       </div>
 
-      {/* ── 中部 派生菜单 (默认收进 "+", 点开展开全部创作方式) ── */}
+      {/* ── 中部 派生结果看板 (用户 9-05 定稿: 右面板只展示"这个素材派生了什么",
+          点击子节点即定位; 生成类入口只在素材右侧 + 里) ── */}
       <div className="ec-canvas-right-panel__menu">
-        <div className="ec-canvas-right-panel__menu-head">
-          <span>继续创作</span>
-          <button
-            type="button"
-            className={"ec-canvas-right-panel__menu-toggle" + (menuOpen ? " is-open" : "")}
-            aria-expanded={menuOpen}
-            aria-label={menuOpen ? "收起创作菜单" : "展开创作菜单"}
-            title={menuOpen ? "收起创作菜单" : "展开创作菜单"}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <Plus size={15} />
-          </button>
-        </div>
-        {menuOpen ? (
-          <CanvasDeriveMenu
-            actions={orderedActions}
-            position={{ position: 'static', left: undefined, top: undefined, transform: undefined }}
-            title="从当前素材继续创作"
-            onSelect={onDeriveSelect}
-          />
+        {Array.isArray(derivedChildren) && derivedChildren.length > 0 ? (
+          <ul className="ec-canvas-right-panel__children-list">
+            {derivedChildren.map(child => (
+              <li key={child.id}>
+                <button
+                  type="button"
+                  className="ec-canvas-right-panel__child"
+                  onClick={() => onOpenChild?.(child.id)}
+                  title={`定位到 ${child.name}`}
+                >
+                  <span className="ec-canvas-right-panel__child-thumb">
+                    {child.thumb
+                      ? <img src={child.thumb} alt="" loading="lazy" />
+                      : <span className="ec-canvas-right-panel__child-kind">{getKindLabel(child.kind)}</span>}
+                  </span>
+                  <span className="ec-canvas-right-panel__child-meta">
+                    <strong>{child.name}</strong>
+                    <em className={child.status === 'error' ? 'is-error' : child.status === 'processing' ? 'is-processing' : ''}>
+                      {child.status === 'processing' ? '处理中' : child.status === 'error' ? '出错' : child.status === 'ready' ? '就绪' : '草稿'}
+                    </em>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <p className="ec-canvas-right-panel__menu-hint">点 <strong>+</strong> 展开 {orderedActions.length} 种创作方式</p>
+          <p className="ec-canvas-right-panel__menu-hint">
+            还没有派生结果。点素材右侧的 <strong>+</strong> 拖出连线即可从这里继续创作
+          </p>
         )}
       </div>
 
@@ -194,9 +190,28 @@ export function EcCanvasRightPanel({
             {size && (
               <div className="ec-canvas-right-panel__row">
                 <span className="ec-canvas-right-panel__row-label">尺寸</span>
-                <span className="ec-canvas-right-panel__row-value" style={{ gridColumn: '2 / -1', textAlign: 'right' }}>
-                  {size.w} × {size.h} px
-                </span>
+                <div style={{ gridColumn: '2 / -1', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                  <input
+                    type="number"
+                    min={40}
+                    max={4000}
+                    value={size.w}
+                    aria-label="素材宽度"
+                    onChange={(event) => onPatch?.({ w: Math.min(4000, Math.max(40, Number(event.target.value) || 40)) })}
+                    style={{ width: 58, height: 24, padding: '0 4px', border: '1px solid var(--border-light, rgba(15,23,42,.12))', borderRadius: 6, background: 'var(--bg-card-solid, #fff)', color: 'inherit', fontSize: 11, textAlign: 'right' }}
+                  />
+                  <span style={{ color: 'var(--text-hint, #6b7280)' }}>×</span>
+                  <input
+                    type="number"
+                    min={40}
+                    max={4000}
+                    value={size.h}
+                    aria-label="素材高度"
+                    onChange={(event) => onPatch?.({ h: Math.min(4000, Math.max(40, Number(event.target.value) || 40)) })}
+                    style={{ width: 58, height: 24, padding: '0 4px', border: '1px solid var(--border-light, rgba(15,23,42,.12))', borderRadius: 6, background: 'var(--bg-card-solid, #fff)', color: 'inherit', fontSize: 11, textAlign: 'right' }}
+                  />
+                  <span style={{ color: 'var(--text-hint, #6b7280)', fontSize: 10 }}>px</span>
+                </div>
               </div>
             )}
             {position && (
@@ -254,48 +269,16 @@ export function EcCanvasRightPanel({
           </div>
         )}
 
-        {/* AI 积分 (用户 9-04 反馈: 这不是按钮, 是统计 — 显示下一步派生的预计消耗;
-            派生链累计消耗随任务真实结算后再累计展示) */}
-        <div className="ec-canvas-right-panel__cost" aria-label="下一步派生预计 AI 积分消耗">
+        {/* AI 积分 (用户 9-05 反馈: 展示当前素材 + 它派生出的全部子节点的累计消耗) */}
+        <div className="ec-canvas-right-panel__cost" aria-label="当前素材与派生链的 AI 积分累计消耗">
           <span className="ec-canvas-right-panel__cost-label">
             <Coins size={12} />
-            下一步预计消耗
+            派生链累计消耗
           </span>
           <span className="ec-canvas-right-panel__cost-value">{Number(billingCost || 0).toFixed(1)}</span>
         </div>
       </div>
 
-      {/* ── 派生结果看板: 从当前素材派生出去的子节点 (用户 9-04 反馈:
-          右面板应该展示"我派生了什么", 点击即导航过去) ── */}
-      {Array.isArray(derivedChildren) && derivedChildren.length > 0 && (
-        <div className="ec-canvas-right-panel__children" aria-label="派生结果">
-          <p className="ec-canvas-right-panel__adjust-title">派生结果 · {derivedChildren.length}</p>
-          <ul className="ec-canvas-right-panel__children-list">
-            {derivedChildren.map(child => (
-              <li key={child.id}>
-                <button
-                  type="button"
-                  className="ec-canvas-right-panel__child"
-                  onClick={() => onOpenChild?.(child.id)}
-                  title={`定位到 ${child.name}`}
-                >
-                  <span className="ec-canvas-right-panel__child-thumb">
-                    {child.thumb
-                      ? <img src={child.thumb} alt="" loading="lazy" />
-                      : <span className="ec-canvas-right-panel__child-kind">{getKindLabel(child.kind)}</span>}
-                  </span>
-                  <span className="ec-canvas-right-panel__child-meta">
-                    <strong>{child.name}</strong>
-                    <em className={child.status === 'error' ? 'is-error' : child.status === 'processing' ? 'is-processing' : ''}>
-                      {child.status === 'processing' ? '处理中' : child.status === 'error' ? '出错' : child.status === 'ready' ? '就绪' : '草稿'}
-                    </em>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </aside>
   );
 }

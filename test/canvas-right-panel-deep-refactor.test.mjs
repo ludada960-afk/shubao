@@ -36,11 +36,12 @@ test('反馈 1: canvas-right-panel.css 新 CSS 资产 + 毛玻璃 + 暗色 + 响
   assert.ok(panelCss.includes('@media (prefers-reduced-motion: reduce)'), '必须减动效模式 (资深美工视角)');
 });
 
-test('反馈 1: 右面板 3 块结构 (顶部 hero 缩略图 + 中部 14 派生菜单 + 底部 adjust 参数) (产品经理视角)', () => {
+test('反馈 1 (9-05 定稿): 右面板 3 块结构 = 顶部素材卡 + 中部派生结果看板 + 底部调整参数 (生成入口只在素材 + 派生菜单)', () => {
   assert.ok(panelSource.includes('ec-canvas-right-panel__hero'), '必须有 hero 块 (产品经理视角)');
   assert.ok(panelSource.includes('ec-canvas-right-panel__menu'), '必须有 menu 块 (产品经理视角)');
   assert.ok(panelSource.includes('ec-canvas-right-panel__adjust'), '必须有 adjust 块 (产品经理视角)');
-  assert.ok(panelSource.includes('CanvasDeriveMenu'), '中部必须复用 CanvasDeriveMenu 14 项菜单 (产品经理视角)');
+  assert.equal(panelSource.includes('CanvasDeriveMenu'), false, '9-05 定稿: 右面板不再复用派生菜单 (生成入口只在素材 + )');
+  assert.ok(panelSource.includes('derivedChildren'), '右面板必须展示派生结果看板');
 });
 
 test('反馈 1: 右面板包含 4 类调整参数 (透明度/尺寸/位置/AI 积分) (产品经理视角)', () => {

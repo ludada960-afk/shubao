@@ -203,8 +203,8 @@ test('image generation handlers remain executable from the non-hover creation su
 
 test('canvas interaction surfaces dismiss each other and text has one toolbar', () => {
   assert.match(canvasSource, /setContextMenu\(null\);\s*setConnectionPicker\(null\);\s*setAddMenuOpen\(false\);/);
-  // 对象工具条与派生菜单共享同一单选谓词（选中即双面板齐张，见 canvas-selection-panels）
-  assert.match(canvasSource, /const selectionPanelsVisible = !focusedEditor && !connectionPicker && multiSelected\.size <= 1[\s\S]{0,220}selectedNode\.kind !== 'text'/);
+  // 9-05 定稿: 工具栏与右面板共享谓词且共存; 派生菜单只由素材 + 触发（见 canvas-selection-panels）
+  assert.match(canvasSource, /const selectionPanelsVisible = !focusedEditor && multiSelected\.size <= 1[\s\S]{0,260}selectedNode\.kind !== 'text'/);
   assert.match(canvasSource, /selectionPanelsVisible && <CanvasObjectToolbar/);
   assert.match(canvasSource, /\['text', 'text-composer'\]\.includes\(selectedNode\?\.kind\) && <CanvasTextToolbar/);
   assert.match(canvasStudioSource, /onPointerUp=\{event => onPointerUp/);

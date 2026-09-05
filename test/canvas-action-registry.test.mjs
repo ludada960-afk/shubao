@@ -26,9 +26,7 @@ test('every Canvas command is declared once with execution and billing metadata'
   }
 });
 
-test('selection exposes the complete commerce image toolbar (11 原有 + 4 应用节点 = 15, 4c183cd4 续命 v2 + 2026-08-30 画布总统筹重审) in observed order', () => {
-  /* 4c183cd4 续命 画布中央 + 右侧'引用当前素材生成'深度重构 v2: 11 selection surface actions +
-     4 应用节点 (Quantv §10.2 风格, 2026-08-30 画布总统筹重审拿掉 AI 智能组 4 项) 共 15 个. */
+test('selection exposes the pure image-edit toolbar (9 项, 9-05 反馈: 生成/应用类只在素材 + 派生菜单)', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
@@ -41,14 +39,14 @@ test('selection exposes the complete commerce image toolbar (11 原有 + 4 应�
       'reverse-prompt',
       'annotation',
       'crop',
-      'split-image',
       'download',
-      'application-1click-suite',
-      'application-1click-video',
-      'application-tts',
-      'application-caption',
     ],
   );
+  /* 生成/应用类不再出现在工具栏 (用户 9-05: 与派生菜单重复) */
+  const ids = actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id);
+  for (const dup of ['split-image', 'application-1click-suite', 'application-1click-video', 'application-tts', 'application-caption']) {
+    assert.equal(ids.includes(dup), false, '工具栏不应含 ' + dup);
+  }
 });
 
 test('selection never offers delete — top bar and keyboard Delete own it', () => {
@@ -68,13 +66,13 @@ test('selection never offers delete — top bar and keyboard Delete own it', () 
 
 test('fresh uploads keep local tools immediately from their preview url', () => {
   const uploading = { id: 'upload-1', kind: 'image', status: 'uploading', url: 'data:image/jpeg;base64,preview' };
-  // 双面板齐张：上传落选的第一帧就有完整本地工具，而不是只剩（或没有）垃圾桶
+  // 用户 9-05: 上传中节点 url 门槛即过 — 本地工具 + 派生类 (layer-edit/remove-background) 全部立即可用
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: uploading }).map(action => action.id),
-    ['add-text', 'grid-split', 'move-scale', 'crop', 'split-image', 'download'],
+    ['add-text', 'grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
   );
-  // 服务端往返动作仍然等待持久化完成
-  for (const gatedId of ['edit-text', 'layer-edit', 'remove-background', 'reverse-prompt']) {
+  // 纯 isReadyImage 门槛的动作仍等待 status=ready
+  for (const gatedId of ['edit-text', 'reverse-prompt', 'annotation']) {
     assert.equal(actionsForSurface({ surface: 'selection', node: uploading }).some(action => action.id === gatedId), false, gatedId);
   }
   const failed = { id: 'upload-2', kind: 'image', status: 'upload-error', url: '' };
@@ -85,6 +83,7 @@ test('context menu exposes complete object operations without duplicating select
   assert.deepEqual(
     actionsForSurface({ surface: 'context', node: completedOutput }).map(action => action.id),
     [
+      'split-image',
       'copy',
       'paste',
       'duplicate',

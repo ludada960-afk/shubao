@@ -22,6 +22,9 @@ function isReadyMedia(node = {}) {
   return isReadyImage(node) || (node.kind === 'video' && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status));
 }
 
+/* 用户 9-05 反馈: 图片工具栏"大部分功能不能点"是反人类的。
+   上传节点落地时 url 就是服务器稳定地址且 status=ready, 有 url 即可发起
+   全部图片能力; source_group 仍保留原有严格门槛。 */
 export function canCreateWorkflowFromNode(node = {}) {
   if (node.kind === 'source_group') {
     return node.status === 'ready'
@@ -29,7 +32,12 @@ export function canCreateWorkflowFromNode(node = {}) {
       && Array.isArray(node.assets)
       && node.assets.some(asset => asset?.url);
   }
-  return isReadyMedia(node);
+  /* url 门槛: 上传节点长期处于 uploading (后台持久化), 必须立即可派生;
+     只有明确的进行中(generating)/失败(error)/草稿(draft) 才锁住;
+     且仅限媒体类节点 ('process' 等中间产物不可派生) */
+  if (['generating', 'error', 'draft'].includes(String(node?.status || ''))) return false;
+  if (!['image', 'output', 'layer-group', 'video'].includes(String(node?.kind || ''))) return false;
+  return Boolean(node?.url);
 }
 
 function action(id, label, surfaces, priceFeature, requiresPrompt, execute, options = {}) {
@@ -83,7 +91,7 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('crop', '裁剪', ['selection'], 'crop', false, {
     type: 'focused-editor', handler: 'crop',
   }, { canRun: canRunLocally }),
-  action('split-image', '分割图片', ['selection'], null, false, {
+  action('split-image', '分割图片', ['context'], null, false, {
     type: 'focused-editor', handler: 'split-image',
   }, { canRun: canRunLocally }),
   action('download', '导出图片', ['selection'], null, false, {
@@ -153,16 +161,16 @@ export const CANVAS_ACTIONS = Object.freeze([
        - 顶部 [多模态串联] overlay 按钮
      全部走 Quantv §10.2 节点串联方案: 5 类节点 (文本/图片/视频/音频/应用) + 2 资源入口
      改后: 智能操作不再是"独立节点", 改走"图片节点 → 应用节点 → 视频节点 → 音频节点" 端口串联 */
-  action('application-1click-suite', '应用: 5 宫格套图', ['image-editor', 'selection'], 'smart-remix', true, {
+  action('application-1click-suite', '应用: 5 宫格套图', ['image-editor'], 'smart-remix', true, {
     type: 'node', handler: 'create:application-1click-suite', nodeActionId: 'application-1click-suite', nodeKind: 'application', route: '/api/canvas/regenerate', requires: { prompt: true },
   }, { description: '应用节点 5 宫格套图 (Quantv 风格: 串联 1 输入 + 5 输出)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
-  action('application-1click-video', '应用: 1-click 视频', ['image-editor', 'selection'], null, true, {
+  action('application-1click-video', '应用: 1-click 视频', ['image-editor'], null, true, {
     type: 'node', handler: 'create:application-1click-video', nodeActionId: 'application-1click-video', nodeKind: 'application', route: '/api/canvas/one-click-video',
   }, { description: '应用节点 1-click 视频 (Quantv 风格: 4 步 chain 串联 文本/图片/视频/音频)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
-  action('application-tts', '应用: TTS 配音', ['image-editor', 'selection'], null, true, {
+  action('application-tts', '应用: TTS 配音', ['image-editor'], null, true, {
     type: 'node', handler: 'create:application-tts', nodeActionId: 'application-tts', nodeKind: 'application', route: '/api/canvas/tts',
   }, { description: '应用节点 TTS 配音 (5 provider: 火山/阿里云/ElevenLabs/Azure/MiniMax)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
-  action('application-caption', '应用: 字幕动效', ['image-editor', 'selection'], null, true, {
+  action('application-caption', '应用: 字幕动效', ['image-editor'], null, true, {
     type: 'node', handler: 'create:application-caption', nodeActionId: 'application-caption', nodeKind: 'application', route: '/api/canvas/caption',
   }, { description: '应用节点字幕动效 (弹出/淡入/逐字动画, 烧入视频节点)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
 ]);
@@ -178,18 +186,14 @@ export function actionsForSurface({ surface, node } = {}) {
   return CANVAS_ACTIONS.filter(item => item.surfaces.includes(surface) && item.canRun(node));
 }
 
-/* selection 工具栏专用: 结构稳定版。按钮集合在素材存在期间保持不变
-   (本地预览可用时全部展示), 服务器往返类在素材就绪前置灰而不是消失 —
-   否则上传完成前后工具栏会从"残缺版"跳变成"完整版" (用户 9-04 反馈)。 */
+/* selection 工具栏: 素材存在期间结构稳定且全部可用 (用户 9-05 反馈:
+   "功能栏的功能就是留给图片用的, 平时应该开放给用户" — 不再置灰)。 */
 export function stableActionsForSurface({ surface, node } = {}) {
   const hasPreview = canRunLocally(node);
   return CANVAS_ACTIONS
     .filter(item => item.surfaces.includes(surface))
     .filter(item => hasPreview || item.canRun(node))
-    .map(item => {
-      const runnable = item.canRun(node);
-      return { ...item, disabled: !runnable, disabledHint: runnable ? '' : '素材处理完成后可用' };
-    });
+    .map(item => ({ ...item, disabled: false, disabledHint: '' }));
 }
 
 export function canvasActionHandler(actionOrId) {

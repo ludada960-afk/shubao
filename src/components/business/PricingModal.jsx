@@ -128,9 +128,12 @@ export default function PricingModalRefactored({
   const hasExpiring = Boolean(isLogged && !unlimited && Number(ecPointsExpiring) > 0 && ecPointsExpiresAt);
   const expiryCountdown = hasExpiring ? countdownText(ecPointsExpiresAt, now) : "";
 
-  const handlePay = useCallback(() => {
-    if (!selectedPack) return;
-    if (onBuy) onBuy(selectedPack);
+  /* 用户 9-05 定稿 (参考竞品): 每张卡片自带"立即开通", 点击直达支付方式,
+     不再需要底部大按钮和选中详情区 — 弹窗一屏看全所有信息 */
+  const handlePay = useCallback((pack) => {
+    const target = pack || selectedPack;
+    if (!target) return;
+    if (onBuy) onBuy(target);
   }, [onBuy, selectedPack]);
 
   return (
@@ -141,7 +144,6 @@ export default function PricingModalRefactored({
 
       {/* 顶部: 仅关闭按钮 (LOGO 已按用户要求去掉) */}
       <header className="pricing-modal__header">
-        <span className="pricing-modal__brand-text">薯包 AI · 积分充值</span>
         <button
           type="button"
           className="pricing-modal__close"
@@ -160,6 +162,9 @@ export default function PricingModalRefactored({
       <div className="pricing-modal__hero" data-testid="pricing-modal-hero">
         <div className="pricing-modal__hero-line">
           一次买断 · 视频图片共用一套 AI 积分，用完再充
+        </div>
+        <div className="pricing-modal__hero-note" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-hint, #6b7280)' }}>
+          所有创作功能共用一套 AI 积分 · 失败任务自动返还
         </div>
         <div className="pricing-modal__hero-meta">
           {!isLogged
@@ -272,53 +277,18 @@ export default function PricingModalRefactored({
                   (isSelected ? " pricing-modal__pack-cta--selected" : "") +
                   (isRec && !isSelected ? " pricing-modal__pack-cta--anchored" : "")
                 }
-                onClick={(e) => { e.stopPropagation(); handleSelectPack(sku); }}
+                onClick={(e) => { e.stopPropagation(); handleSelectPack(sku); handlePay(pack); }}
                 data-testid={"pricing-modal-pack-cta-" + sku}
               >
-                {isSelected ? "✓ 已选" : "选这个"}
+                立即开通
               </button>
             </article>
           );
         })}
       </div>
 
-      {/* 选中详情区 (渲染 desc 字段 + 有效期 + 价格/积分) */}
-      {selectedPack && (
-        <section className="pricing-modal__detail" data-testid="pricing-modal-selected-detail">
-          <div className="pricing-modal__detail-head">
-            <span className="pricing-modal__detail-name">
-              {PACK_LABEL[selectedPack.sku] || selectedPack.name || selectedPack.sku}
-            </span>
-            <span className="pricing-modal__pack-validity">
-              {Number.isInteger(selectedPack.validityDays) && selectedPack.validityDays > 0
-                ? `${selectedPack.validityDays} 天有效`
-                : "永久有效"}
-            </span>
-          </div>
-          <div className="pricing-modal__detail-price">
-            ¥{(selectedPack.priceFen / 100).toFixed(1)} · {formatUnits(unitsToPoints(selectedPack.grantUnits))} 积分
-            {selectedPack.giftUnits ? <>（含赠 <strong>{formatUnits(unitsToPoints(selectedPack.giftUnits))}</strong> 积分）</> : null}
-          </div>
-          {selectedPack.description && (
-            <p className="pricing-modal__detail-desc">{selectedPack.description}</p>
-          )}
-        </section>
-      )}
-
-      {/* 支付区: 微信/支付宝不直铺, 点"去支付"后由 Modals 弹支付方式 */}
-      <div className="pricing-modal__pay" data-testid="pricing-modal-pay">
-        <button
-          type="button"
-          className="pricing-modal__pay-primary"
-          onClick={handlePay}
-          data-testid="pricing-modal-pay-submit"
-        >
-          {isLogged ? "去支付" : "登录后去支付"}
-        </button>
-        <p className="pricing-modal__pay-note">
-          所有创作功能共用一套 AI 积分 · 失败任务自动返还 · 月卡 30 天有效 / 永久包永久有效
-        </p>
-      </div>
+      {/* 用户 9-05 定稿: 底部"去支付"大按钮和选中详情区已移除 —
+          每张套餐卡片自带"立即开通"(直达支付方式弹层), 弹窗一屏看全全部信息 */}
     </div>
   );
 }

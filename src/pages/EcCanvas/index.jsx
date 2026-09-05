@@ -617,28 +617,15 @@ export default function EcCanvas() {
   const [taskLogEntries, setTaskLogEntries] = useState([]);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(true); // 9-02 小地图可关闭 (默认开)
-  /* 无限画布: 小地图世界范围 = 节点包围盒 ∪ 当前视口 (不再写死 2400x1600),
-     视角能拖多远, 地图就能显示多远 (用户 9-04 反馈小地图局限了画布) */
-  const minimapWorldBounds = useMemo(() => {
-    const viewW = (typeof window !== 'undefined' ? window.innerWidth : 1440) / Math.max(0.1, viewport.scale);
-    const viewH = (typeof window !== 'undefined' ? window.innerHeight : 900) / Math.max(0.1, viewport.scale);
-    let minX = -viewport.x / Math.max(0.1, viewport.scale);
-    let minY = -viewport.y / Math.max(0.1, viewport.scale);
-    let maxX = minX + viewW;
-    let maxY = minY + viewH;
-    for (const node of nodes) {
-      minX = Math.min(minX, node.x - 120);
-      minY = Math.min(minY, node.y - 120);
-      maxX = Math.max(maxX, (node.x || 0) + (node.w || 0) + 120);
-      maxY = Math.max(maxY, (node.y || 0) + (node.h || 0) + 120);
-    }
-    return {
-      width: Math.max(1600, maxX - minX),
-      height: Math.max(1000, maxY - minY),
-      offsetX: Math.min(0, minX),
-      offsetY: Math.min(0, minY),
-    };
-  }, [nodes, viewport]);
+  /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
+     固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
+     都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
+  const minimapWorldBounds = useMemo(() => ({
+    width: 8400,
+    height: 6000,
+    offsetX: -4200,
+    offsetY: -3000,
+  }), []);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
   const [nodeActionBar, setNodeActionBar] = useState(null);
@@ -1830,17 +1817,11 @@ const handlePointerUp = useCallback((e) => {
       setPointerMode(null);
       return;
     }
-    if (pointerMode?.kind === 'drag') {
-      /* 用户 9-04 反馈: 单击图片/输出节点 (无拖动位移) = 打开"引用当前素材生成"。
-         原逻辑在 pointerdown 就弹菜单, 副作用是选择工具下节点永远拖不动。 */
-      const point = toWorldPoint(e);
-      const start = pointerMode.start || point;
-      const moved = Math.hypot(point.x - start.x, point.y - start.y) > 4;
-      if (!moved && pointerMode.clickNodeId) {
-        const clicked = nodes.find(item => item.id === pointerMode.clickNodeId);
-        if (clicked && ['image', 'output'].includes(clicked.kind)) openConnectionPickerForNode(clicked);
-      }
-    }
+    /* 用户 9-05 定稿的面板出现逻辑:
+       - 上传素材落画布: 工具栏 + 派生菜单同时开 (见上传完成处理)
+       - 单击已选中素材: 只开顶部工具栏
+       - 点素材右侧 + / 拖线松开: 才打开派生菜单
+       因此单击这里不再自动弹派生菜单。 */
     if (pointerMode?.kind === 'marquee' && marquee) {
       const ids = new Set(selectNodesInRect(nodes, marquee));
       setMultiSelected(pointerMode.additive ? new Set([...multiSelected, ...ids]) : ids);
@@ -3845,6 +3826,8 @@ const handlePointerUp = useCallback((e) => {
       setNodes(previous => [...previous, ...uploadedNodes]);
       setSelected(uploadedNodes[0]?.id || null);
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
+      /* 用户 9-05: 上传素材落画布 → 顶部工具栏 + 右侧派生菜单同时展开 */
+      if (uploadedNodes[0]) openConnectionPickerForNode(uploadedNodes[0]);
       showToast(`已加入 ${uploadedNodes.length} 张图片，正在后台保存原图`, 'success');
       void persistCanvasUploadAssets(assets, { role: 'product' }).then(async persistedAssets => {
         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
@@ -4478,6 +4461,17 @@ const handlePointerUp = useCallback((e) => {
     const match = String(firstPriced.priceLabel).match(/([\d.]+)/);
     return match ? Number(match[1]) : 0;
   }, [selectedNode, portCreationActions]);
+  /* 右面板"派生链累计消耗": 母节点 + 全部子节点的直录消耗求和
+     (用户 9-05 反馈: 展示母节点和它派生链的整体积分消耗) */
+  const chainCostTotal = useMemo(() => {
+    if (!selectedNode) return 0;
+    const direct = node => Number(node?.billingCost ?? node?.cost ?? node?.estimatedCost ?? 0);
+    let total = direct(selectedNode);
+    for (const child of selectedDerivedChildren) {
+      total += direct(nodes.find(node => node.id === child.id));
+    }
+    return total;
+  }, [selectedDerivedChildren, selectedNode, nodes]);
   /* 右面板"派生结果"看板: 从当前选中素材派生出去的子节点 (用户 9-04 反馈:
      右面板应该展示"我派生了什么", 而不是把派生入口再重复一遍) */
   const selectedDerivedChildren = useMemo(() => {
@@ -4858,7 +4852,9 @@ const handlePointerUp = useCallback((e) => {
   /* 契约：派生菜单与对象工具条共享同一选中谓词——"选中即双面板齐张"。
      两个面板各自内部再决定渲染什么内容（工具条动作不足时自行收窄），
      但出现/消失必须永远同步。 */
-  const selectionPanelsVisible = !focusedEditor && !connectionPicker && multiSelected.size <= 1
+  /* 用户 9-05 反馈: 上传素材后顶部工具栏 + 右侧派生菜单要同时出现,
+     点 + 再看派生菜单时工具栏也不能消失 → 去掉 !connectionPicker 条件 */
+  const selectionPanelsVisible = !focusedEditor && multiSelected.size <= 1
     && Boolean(selectedNode)
     && selectedNode.kind !== 'text'
     && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind);
@@ -5236,26 +5232,7 @@ const handlePointerUp = useCallback((e) => {
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
 
-            {/* 老版 popup 派生菜单继续保留 (向后兼容 + 不破坏既有测试契约), 但默认隐藏, 让新右面板主导 */}
-            {false && selectionPanelsVisible && <CanvasDeriveMenu
-              actions={portCreationActions}
-              position={clampCanvasPickerPosition({ world: { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y }, viewport, bounds: containerRef.current?.getBoundingClientRect() })}
-              title="引用当前素材生成"
-              onClose={() => setSelected(null)}
-              onSelect={action => {
-                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
-                if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
-                else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'video-upload') videoUploadRef.current?.click();
-                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'application-tts') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-              }}
-            />}
+
             {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
@@ -5390,7 +5367,6 @@ const handlePointerUp = useCallback((e) => {
             {/* 4c183cd4 续命 画布深度重构: 工具栏移到 transform 层内，跟随节点移动 */}
             {selectionPanelsVisible && <EcCanvasRightPanel
               node={selectedNode}
-              deriveActions={portCreationActions}
               derivedChildren={selectedDerivedChildren}
               onOpenChild={childId => {
                 setSelected(childId);
@@ -5404,7 +5380,7 @@ const handlePointerUp = useCallback((e) => {
               }}
               onClose={() => setSelected(null)}
               onPatch={handleRightPanelPatch}
-              billingCost={selectedNodeBillingCost}
+              billingCost={chainCostTotal}
               onDeriveSelect={action => {
                 const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
                 if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });

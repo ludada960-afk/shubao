@@ -73,9 +73,10 @@ test('source media and ready outputs can create workflow children', () => {
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'ready', url: '/ready-output.png' }), true);
   assert.equal(canDeriveFromNode({ kind: 'video', status: 'ready', url: '/ready-output.mp4' }), true);
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'generating', url: '/output.png' }), false);
-  for (const status of ['draft', 'analyzing', 'running', 'error']) {
-    assert.equal(canDeriveFromNode({ kind: 'smart-remix', status }), false, status);
-  }
+    /* 9-05 url 门槛: 只有明确进行中(generating)/失败(error)/草稿(draft) 锁派生,
+     analyzing/running 一旦有 url (后台已落稳定地址) 即可继续派生 */
+  assert.equal(canDeriveFromNode({ kind: 'output', status: 'error', url: '/err.png' }), false);
+  assert.equal(canDeriveFromNode({ kind: 'output', status: 'draft', url: '' }), false);
   assert.equal(canDeriveFromNode({ kind: 'smart-remix', status: 'success', output: { url: '/x.png' } }), false);
 });
 

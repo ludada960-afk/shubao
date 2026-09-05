@@ -111,9 +111,10 @@ test('积分体系共用: 视频和图片共用 AI 积分, 用约数表达', () 
 
 /* ═══════ 6. 单一"去支付"按钮 (微信/支付宝由 Modals 弹支付方式) ═══════ */
 test('payment area shows a single 去支付 button; payment method pops in Modals, not inline', () => {
-  assert.match(PRICING_MODAL, /data-testid="pricing-modal-pay-submit"/);
-  assert.match(PRICING_MODAL, /pricing-modal__pay-primary/);
-  assert.match(PRICING_MODAL, /去支付/);
+  assert.match(PRICING_MODAL, /立即开通/, '9-05 定稿: 卡片自带立即开通按钮');
+  assert.ok(!PRICING_MODAL.includes('pricing-modal-pay-submit'), '底部大按钮已移除');
+  assert.ok(!PRICING_MODAL.includes('pricing-modal__detail'), '选中详情区已移除');
+  assert.ok(!PRICING_MODAL.includes('pricing-modal__pay-primary'), '底部大按钮样式已移除');
   assert.ok(!PRICING_MODAL.includes('handlePay("wechat")'), 'no inline wechat handlePay');
   assert.ok(!PRICING_MODAL.includes('handlePay("alipay")'), 'no inline alipay handlePay');
   assert.ok(!PRICING_MODAL.includes('pricing-modal-pay-wechat'), 'no inline wechat pay testid');
