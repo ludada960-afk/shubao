@@ -26,6 +26,8 @@ const AdminConsolePage = React.lazy(() => import('./pages/AdminConsole/index.jsx
 const VisionFeedbackPage = React.lazy(() => import('./pages/VisionFeedback/index.jsx'));
 const ProductArchivePage = React.lazy(() => import('./pages/ProductArchive/index.jsx'));
 const PublicTemplatesPage = React.lazy(() => import('./pages/PublicTemplates/index.jsx'));
+const TermsPage = React.lazy(() => import('./pages/Legal/index.jsx').then(mod => ({ default: mod.TermsPage })));
+const PrivacyPage = React.lazy(() => import('./pages/Legal/index.jsx').then(mod => ({ default: mod.PrivacyPage })));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
@@ -316,6 +318,8 @@ function AppRouter() {
     'vision-feedback': VisionFeedbackPage,
     'product-archive': ProductArchivePage,
     'public-templates': PublicTemplatesPage,
+    'terms': TermsPage,
+    'privacy': PrivacyPage,
   };
   const PageComponent = page === 'admin' && !canAdmin
     ? HomePage

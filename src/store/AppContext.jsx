@@ -74,6 +74,8 @@ const PATHNAME_PAGE_MAP = Object.freeze({
   '/ec-studio': 'ec-studio',
   '/ec-auto': 'ec-auto',
   '/plog': 'plog',
+  '/terms': 'terms',
+  '/privacy': 'privacy',
 });
 
 export function pathnameToPage(pathname) {

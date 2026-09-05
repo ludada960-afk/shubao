@@ -1452,6 +1452,7 @@ export default function EcCanvas() {
   const handleDeleteRef = useRef(() => {});
   const fitViewRef = useRef(() => {});
   const handleAddTextRef = useRef(() => {});
+  const handleCanvasSessionSaveRef = useRef(() => {});
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -3138,8 +3139,14 @@ const handlePointerUp = useCallback((e) => {
     }
   };
 
-  const handleNew = useCallback(() => {
-    // P0-6: 新建画布 = 就地创建一张空白画布 (不再跳回首页)
+  const handleNew = useCallback(async () => {
+    // 9-06: 新建前自动保存旧画布, 用户可在作品集找回 (防数据丢失)
+    if (nodes.length > 0 && handleCanvasSessionSaveRef.current) {
+      try {
+        await handleCanvasSessionSaveRef.current();
+        showToast('旧画布已保存，可在作品集中找回');
+      } catch { /* 保存失败不阻塞新建 */ }
+    }
     setSelected(null);
     setMultiSelected(new Set());
     setEditingTextNodeId(null);
@@ -4808,7 +4815,8 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       setCanvasSessionBusy(false);
     }
-  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
+  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
+  useEffect(() => { handleCanvasSessionSaveRef.current = handleCanvasSessionSave; }, [handleCanvasSessionSave]);
 
   const handleCanvasSessionRestore = useCallback(async () => {
     const sessionId = canvasSession?.id || result.canvasSessionId;
@@ -5030,14 +5038,10 @@ const handlePointerUp = useCallback((e) => {
                   el.style.setProperty('--ec-spot-y', (((event.clientY - rect.top) / Math.max(1, rect.height)) * 100).toFixed(2) + '%');
                 }}
               >
-                <strong>从一个素材开始，继续完成整套视觉内容</strong>
-                <p>从商品素材开始，AI 帮你完成后续视觉</p>
-                {/* 9-06: 空画布操作引导 (对齐主流画布产品的空态做法) */}
-                <p style={{ marginTop: 14, fontSize: 12.5, color: '#8a93a4', display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <span><strong style={{ color: '#4b5563' }}>双击画布</strong>：添加节点</span>
-                  <span><strong style={{ color: '#4b5563' }}>右键画布</strong>：更多操作</span>
-                  <span><strong style={{ color: '#4b5563' }}>选中素材后拖右侧 +</strong>：拉出派生连线</span>
-                </p>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 16px', borderRadius: 999, background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.06)', fontSize: 13, color: '#6b7280' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 1 10-10" /><path d="M22 6 12 16l-3-3" /></svg>
+                  双击屏幕，画布自由创作
+                </span>
                 {/* 3 行分层: 添加素材 (3 入口) + AI 生成 (2 入口) + 智能 (4 入口)
                    资深美工 + 产品经理视角: 3 行而非 1 行 9 按钮, 视觉密度分层, 认知路径清晰
                    智能行 4 入口走 addCanvasComposer (开 prompt 节点), 不是 handleCreateDerivedNode (需要 source 节点),
@@ -5757,7 +5761,7 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {/* 4c183cd4 续命 画布总监督 2026-08-30 - 小地图 (Quantv CanvasMinimap) */}
-      {minimapOpen && <CanvasMinimap
+      {tab === 'canvas' && minimapOpen && <CanvasMinimap
         nodes={nodes}
         connections={connections}
         viewport={viewport}

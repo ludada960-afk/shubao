@@ -113,8 +113,10 @@ const ADD_ACTIONS = [
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderInput },
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: Sparkles },
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
-  /* 用户 9-04 反馈: 生成电商套图/生成视频 与选中素材后的派生菜单完全重复,
-     且套图/视频必须有商品素材才有意义 → 从添加菜单移除, 统一走"选中素材 → 端口派生" */
+  { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },
+  { id: 'video', label: '生成视频', description: '用提示词、图片或视频创建营销成片', icon: ImagePlay },
+  /* 9-06 恢复: 用户确认左侧 + 是"无素材起点"的完整创作菜单, 应包含全部生成入口;
+     与派生菜单不冲突 — 派生带源素材引用, 这里是全新创建 */
 ];
 
 // 宫格行列各自可独立选择的档位（与服务端 GRID 上界一致）。

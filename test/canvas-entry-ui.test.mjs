@@ -6,7 +6,10 @@ test('empty canvas presents image, video, works, and generation entrypoints', as
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   const cssEmpty = await readFile(new URL('../src/styles/canvas-empty-actions.css', import.meta.url), 'utf8');
-  assert.match(source, /从一个素材开始，继续完成整套视觉内容/);
+  /* 9-06: 空状态改极简胶囊提示 (双击屏幕，画布自由创作) */
+  assert.match(source, /双击屏幕，画布自由创作/);
+  /* 右键操作入口仍在: stage onContextMenu 打开上下文菜单 */
+  assert.match(source, /setCanvasContextPanel\(\{\s*\r?\n?\s*x: event\.clientX/);
   assert.match(source, /上传图片/);
   assert.match(source, /上传视频/);
   assert.match(source, /从我的作品导入/);

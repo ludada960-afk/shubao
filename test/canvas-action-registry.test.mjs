@@ -30,7 +30,6 @@ test('selection exposes the pure image-edit toolbar (9 项, 9-05 反馈: 生成/
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
-      'edit-text',
       'add-text',
       'grid-split',
       'layer-edit',

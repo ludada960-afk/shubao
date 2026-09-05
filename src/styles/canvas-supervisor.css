@@ -649,17 +649,17 @@
 /* 小地图 */
 .ec-canvas-minimap {
   position: fixed;
-  bottom: 16px;
+  bottom: 58px;
   left: 16px;
   z-index: 5000;
-  background: rgba(13, 17, 23, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   padding: 6px 4px 4px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
-  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 28px -6px rgba(15, 23, 42, 0.18);
+  color: #1f2937;
 }
 .ec-canvas-minimap-header {
   display: flex;
@@ -672,7 +672,7 @@
   font-weight: 600;
 }
 .ec-canvas-minimap-header span {
-  color: rgba(255, 255, 255, 0.5);
+  color: #9ca3af;
   font-size: 9px;
 }
 .ec-canvas-minimap-close {
@@ -700,8 +700,8 @@
 }
 .ec-canvas-minimap-canvas {
   position: relative;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
+  background: #f3f4f6;
+  border-radius: 8px;
   cursor: pointer;
   overflow: hidden;
 }

@@ -50,6 +50,9 @@ export function LoginModal() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  /* 9-06 市场化: 邀请码注册通道 (UI 先行, 后端接入时随 verify 请求提交) + 协议勾选 */
+  const [inviteCode, setInviteCode] = useState('');
+  const [agreedTerms, setAgreedTerms] = useState(true);
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
 
@@ -178,6 +181,7 @@ export function LoginModal() {
   };
 
   const handleVerify = async () => {
+    if (!agreedTerms) { setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
     if (!code.trim()) { setErr('请输入验证码'); return; }
     setLoading(true); setErr('');
     try {
@@ -243,10 +247,39 @@ export function LoginModal() {
         <div style={{ height: 10 }} />
       )}
 
+      {step === 'code' && (
+        <input
+          placeholder="邀请码（选填）"
+          value={inviteCode}
+          onChange={e => setInviteCode(e.target.value)}
+          style={{
+            width: '100%', padding: '12px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
+            fontSize: 'var(--text-base)', marginBottom: 12,
+            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', opacity: 1,
+          }}
+        />
+      )}
+
       <Button primary full onClick={step === 'email' ? handleSendCode : handleVerify} disabled={loading}>
         {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
-        {step === 'email' ? ' 发送验证码' : ' 登录'}
+        {step === 'email' ? ' 发送验证码' : (agreedTerms ? ' 登录 / 注册' : ' 请先勾选同意下方协议')}
       </Button>
+
+      {/* 9-06 市场化: 服务条款 / 隐私政策 (ICP 备案必需; /terms /privacy 页面已上线) */}
+      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, fontSize: 12.5, color: 'var(--text-hint, #6b7280)', cursor: 'pointer', userSelect: 'none' }}>
+        <input
+          type="checkbox"
+          checked={agreedTerms}
+          onChange={e => setAgreedTerms(e.target.checked)}
+          style={{ width: 15, height: 15, accentColor: '#1c1917', cursor: 'pointer' }}
+        />
+        <span>
+          我已阅读并同意
+          <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--command, #2563eb)', textDecoration: 'none', margin: '0 2px' }}>《用户服务协议》</a>和
+          <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--command, #2563eb)', textDecoration: 'none', margin: '0 2px' }}>《隐私政策》</a>
+        </span>
+      </label>
 
       <button type="button" onClick={() => { setErr(''); setForgotMode(true); }}
         style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
