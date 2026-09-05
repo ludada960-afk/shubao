@@ -250,26 +250,7 @@ export default function PricingModalRefactored({
               <div className="pricing-modal__pack-units">{formatUnits(points)}<small> 积分</small></div>
               <span className="pricing-modal__pack-validity">{validity}</span>
               <p className="pricing-modal__pack-desc">可生成约 {imgCount} 张图片 · 约 {vidCount} 条视频</p>
-              <ul className="pricing-modal__pack-list">
-                <li>
-                  <span className="pricing-modal__pack-list-icon">🖼</span>
-                  <span className="pricing-modal__pack-list-val">约 {imgCount}</span>
-                  <span className="pricing-modal__pack-list-unit">张图片</span>
-                </li>
-                <li>
-                  <span className="pricing-modal__pack-list-icon">🎬</span>
-                  <span className="pricing-modal__pack-list-val">约 {vidCount}</span>
-                  <span className="pricing-modal__pack-list-unit">条视频</span>
-                </li>
-                <li className="pricing-modal__pack-list-meta">
-                  {pack.validityDays
-                    ? <><span className="pricing-modal__pack-validity">{validity}</span>{giftPoints > 0 && <span> · 含赠 <strong>{giftPoints}</strong> 积分</span>}</>
-                    : giftPoints > 0
-                      ? <span>含赠 <strong>{giftPoints}</strong> 积分</span>
-                      : <span>一次买断, 永久有效</span>
-                  }
-                </li>
-              </ul>
+
               <button
                 type="button"
                 className={

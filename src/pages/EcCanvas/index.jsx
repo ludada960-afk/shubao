@@ -4461,17 +4461,7 @@ const handlePointerUp = useCallback((e) => {
     const match = String(firstPriced.priceLabel).match(/([\d.]+)/);
     return match ? Number(match[1]) : 0;
   }, [selectedNode, portCreationActions]);
-  /* 右面板"派生链累计消耗": 母节点 + 全部子节点的直录消耗求和
-     (用户 9-05 反馈: 展示母节点和它派生链的整体积分消耗) */
-  const chainCostTotal = useMemo(() => {
-    if (!selectedNode) return 0;
-    const direct = node => Number(node?.billingCost ?? node?.cost ?? node?.estimatedCost ?? 0);
-    let total = direct(selectedNode);
-    for (const child of selectedDerivedChildren) {
-      total += direct(nodes.find(node => node.id === child.id));
-    }
-    return total;
-  }, [selectedDerivedChildren, selectedNode, nodes]);
+
   /* 右面板"派生结果"看板: 从当前选中素材派生出去的子节点 (用户 9-04 反馈:
      右面板应该展示"我派生了什么", 而不是把派生入口再重复一遍) */
   const selectedDerivedChildren = useMemo(() => {
@@ -4490,6 +4480,17 @@ const handlePointerUp = useCallback((e) => {
         thumb: node.url || node.assets?.find(asset => asset?.url)?.url || '',
       }));
   }, [connections, nodes, selectedNode]);
+  /* 右面板"派生链累计消耗": 母节点 + 全部子节点的直录消耗求和
+     (用户 9-05 反馈: 展示母节点和它派生链的整体积分消耗) */
+  const chainCostTotal = useMemo(() => {
+    if (!selectedNode) return 0;
+    const direct = node => Number(node?.billingCost ?? node?.cost ?? node?.estimatedCost ?? 0);
+    let total = direct(selectedNode);
+    for (const child of selectedDerivedChildren) {
+      total += direct(nodes.find(node => node.id === child.id));
+    }
+    return total;
+  }, [selectedDerivedChildren, selectedNode, nodes]);
   /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 3): 下面 3 智能按钮差异化 handler
      mode: 'one-click-suite' (1-click 套图, 走 chainService 4 步: 文案->首帧->视频->音轨+字幕)
            'one-click-video' (1-click 视频模板, 同上 4 步 chain)

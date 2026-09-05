@@ -101,9 +101,9 @@ test('积分体系共用: 视频和图片共用 AI 积分, 用约数表达', () 
   assert.match(PRICING_MODAL, /unitsToPoints/);
   assert.match(PRICING_MODAL, /approxImages/);
   assert.match(PRICING_MODAL, /approxVideos/);
-  assert.match(PRICING_MODAL, /pricing-modal__pack-list/);
-  assert.match(PRICING_MODAL, /约 \{imgCount\}/);  /* 动态算图片数 */
-  assert.match(PRICING_MODAL, /约 \{vidCount\}/);  /* 动态算视频数 */
+  /* 9-05: pack-list 与 pack-desc 重复已删, 只留 desc 一行动态约数 */
+  assert.match(PRICING_MODAL, /pricing-modal__pack-desc/);
+  assert.match(PRICING_MODAL, /约 \{imgCount\} 张图片 · 约 \{vidCount\} 条视频/);
   assert.ok(!PRICING_MODAL.includes('2K 商品图'), 'no 2K 商品图');
   assert.ok(!PRICING_MODAL.includes('30 张 2K'), 'no hardcoded 30 张 2K');
   assert.ok(!PRICING_MODAL.includes('60 张 2K'), 'no hardcoded 60 张 2K');
@@ -167,10 +167,10 @@ test('title has lingtu eyebrow + 创作权益 title + subtitle (no verbose legac
   assert.match(PRICING_MODAL, /一次买断 · 视频图片共用一套 AI 积分，用完再充/);
 });
 
-/* ═══════ 12. 弹窗尺寸: max-width 1100px ═══════ */
-test('modal width viewport-16px capped at 1100px', () => {
-  assert.match(PRICING_CSS, /width: calc\(100vw - 16px\)/);
-  assert.match(PRICING_CSS, /max-width: 1100px/);
+/* ═══════ 12. 弹窗尺寸: 9-05 定稿 1280px 一屏 ═══════ */
+test('modal width viewport-24px capped at 1280px', () => {
+  assert.match(PRICING_CSS, /width: calc\(100vw - 24px\)/);
+  assert.match(PRICING_CSS, /max-width: 1280px/);
   assert.ok(!PRICING_CSS.includes('width: min(720px'), 'no 720px');
   assert.ok(!PRICING_CSS.includes('width: min(880px'), 'no 880px');
   assert.ok(!PRICING_CSS.includes('width: min(940px'), 'no 940px');
