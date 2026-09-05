@@ -59,14 +59,16 @@
   background: radial-gradient(circle, rgba(139, 92, 246, 0.28), transparent 70%);
 }
 
-/* 顶部: 品牌 + 关闭 */
+/* 顶部: 品牌 + 关闭 (9-06: 负 margin 让关闭行不占垂直留白) */
 .pricing-modal__header {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   z-index: 1;
+  margin-bottom: -14px;
+  min-height: 24px;
 }
 .pricing-modal__brand-text {
   display: inline-flex;
@@ -116,7 +118,7 @@
   font-size: 32px;
   font-weight: 900;
   letter-spacing: -0.02em;
-  margin: 2px 0 0;
+  margin: 0 0 4px;
   color: #1c1917;
   text-align: center;
 }

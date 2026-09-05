@@ -620,11 +620,12 @@ export default function EcCanvas() {
   /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
      固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
+  /* 9-06: 世界窗中心对准默认视口中心 (720,450) — 新用户视口框落在地图正中 */
   const minimapWorldBounds = useMemo(() => ({
-    width: 8400,
-    height: 6000,
-    offsetX: -4200,
-    offsetY: -3000,
+    width: 4800,
+    height: 3400,
+    offsetX: 720 - 2400,
+    offsetY: 450 - 1700,
   }), []);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
@@ -5031,6 +5032,12 @@ const handlePointerUp = useCallback((e) => {
               >
                 <strong>从一个素材开始，继续完成整套视觉内容</strong>
                 <p>从商品素材开始，AI 帮你完成后续视觉</p>
+                {/* 9-06: 空画布操作引导 (对齐主流画布产品的空态做法) */}
+                <p style={{ marginTop: 14, fontSize: 12.5, color: '#8a93a4', display: 'flex', gap: 18, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <span><strong style={{ color: '#4b5563' }}>双击画布</strong>：添加节点</span>
+                  <span><strong style={{ color: '#4b5563' }}>右键画布</strong>：更多操作</span>
+                  <span><strong style={{ color: '#4b5563' }}>选中素材后拖右侧 +</strong>：拉出派生连线</span>
+                </p>
                 {/* 3 行分层: 添加素材 (3 入口) + AI 生成 (2 入口) + 智能 (4 入口)
                    资深美工 + 产品经理视角: 3 行而非 1 行 9 按钮, 视觉密度分层, 认知路径清晰
                    智能行 4 入口走 addCanvasComposer (开 prompt 节点), 不是 handleCreateDerivedNode (需要 source 节点),

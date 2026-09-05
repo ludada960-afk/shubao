@@ -17,6 +17,17 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { MdStar, MdClose } from "react-icons/md";
+import { Crown, Gem, Hexagon, Sparkles, Zap } from "lucide-react";
+
+/* 档位徽章: 每档不同图标+色 (用户 9-05: 每卡都是同一个星星很敷衍, 参考灵图 tier 徽章) */
+const TIER_BADGES = {
+  ec_trial_990: { Icon: Hexagon, color: "#d97706", tint: "#fef3c7", label: "基础" },
+  ec_starter_29: { Icon: Sparkles, color: "#ea580c", tint: "#ffedd5", label: "专业" },
+  ec_growth_79: { Icon: Gem, color: "#7c3aed", tint: "#ede9fe", label: "团队" },
+  ec_studio_199: { Icon: Crown, color: "#0284c7", tint: "#e0f2fe", label: "工作室" },
+  ec_monthpack_39: { Icon: Zap, color: "#059669", tint: "#d1fae5", label: "轻月卡" },
+  ec_monthpack_59: { Icon: Crown, color: "#7c3aed", tint: "#ede9fe", label: "Pro" },
+};
 
 function formatUnits(n) { return n.toLocaleString("zh-CN"); }
 /* ── 渲染辅助: 从服务端 plans 派生展示数据 ── */
@@ -239,7 +250,19 @@ export default function PricingModalRefactored({
                   <MdStar size={10} /> 推荐
                 </span>
               )}
-              <span className="pricing-modal__pack-icon" aria-hidden="true"><MdStar size={22} /></span>
+              {(() => {
+                const tier = TIER_BADGES[sku] || TIER_BADGES.ec_trial_990;
+                const TierIcon = tier.Icon;
+                return (
+                  <span
+                    className="pricing-modal__pack-icon"
+                    style={{ background: tier.tint, color: tier.color }}
+                    aria-hidden="true"
+                  >
+                    <TierIcon size={20} />
+                  </span>
+                );
+              })()}
               <div className="pricing-modal__pack-tagline">{tagline}</div>
               <div className="pricing-modal__pack-name">{label}</div>
               <div className="pricing-modal__pack-price">
