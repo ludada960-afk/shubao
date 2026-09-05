@@ -172,10 +172,7 @@ export default function PricingModalRefactored({
       {/* 一句话 + 清晰积分 (不再啰嗦列一堆权益 / 主副标题) */}
       <div className="pricing-modal__hero" data-testid="pricing-modal-hero">
         <div className="pricing-modal__hero-line">
-          一次买断 · 视频图片共用一套 AI 积分，用完再充
-        </div>
-        <div className="pricing-modal__hero-note" style={{ marginTop: 4, fontSize: 11, color: 'var(--text-hint, #6b7280)' }}>
-          所有创作功能共用一套 AI 积分 · 失败任务自动返还
+          先扣月卡积分（快到期的先用），永久积分永不过期
         </div>
         <div className="pricing-modal__hero-meta">
           {!isLogged

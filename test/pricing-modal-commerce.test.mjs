@@ -76,7 +76,7 @@ test('永久积分包 专业包 (starter) is anchored with 推荐 flag and amber
   assert.match(PRICING_MODAL, /pricing-modal__pack-flag/);
   assert.match(PRICING_MODAL, /<MdStar[\s\S]*?\/>\s*推荐/);
   /* 9-02 灵图: 推荐档琥珀边框 #f0c56b + 上浮 translateY(-6px) + 暖光晕, CTA 黑色 #1c1917 白字, 徽章琥珀底 #fff4d8 */
-  assert.match(PRICING_CSS, /\.pricing-modal__pack--anchored\s*\{[\s\S]*?translateY\(-6px\)/);
+  assert.doesNotMatch(PRICING_CSS, /translateY\(-6px\)/, '9-06: 推荐卡不再抬高, 与其他套餐对齐高度');
   assert.match(PRICING_CSS, /\.pricing-modal__pack--anchored\s*\{[\s\S]*?#f0c56b/);
   assert.match(PRICING_CSS, /\.pricing-modal__pack-cta--anchored[\s\S]*?#1c1917/);  /* CTA 黑色主按钮 */
   assert.match(PRICING_CSS, /\.pricing-modal__pack-flag[\s\S]*?background:\s*#fff4d8/);  /* 徽章琥珀底 */
@@ -164,7 +164,7 @@ test('title has lingtu eyebrow + 创作权益 title + subtitle (no verbose legac
   assert.ok(!PRICING_MODAL.includes('选择适合你的套餐'), 'no 选择适合你的套餐');
   assert.match(PRICING_MODAL, /积分<em>充值<\/em>/);
   assert.match(PRICING_MODAL, /pricing-modal__hero-line/);
-  assert.match(PRICING_MODAL, /一次买断 · 视频图片共用一套 AI 积分，用完再充/);
+  assert.match(PRICING_MODAL, /先扣月卡积分（快到期的先用），永久积分永不过期/);
 });
 
 /* ═══════ 12. 弹窗尺寸: 9-05 定稿 1280px 一屏 ═══════ */
@@ -220,7 +220,7 @@ test('keeps the long-standing api-contract invariants for the modal', () => {
   assert.ok(!PRICING_MODAL.includes('pricing-modal__eyebrow'), 'no eyebrow (condensed per 8-31)');
   assert.ok(!PRICING_MODAL.includes('创作<em>权益</em>'), 'no 创作权益 title');
   assert.ok(!PRICING_MODAL.includes('pricing-modal__subtitle'), 'no subtitle line');
-  assert.ok(PRICING_MODAL.includes('所有创作功能共用一套 AI 积分'), 'shared points copy');
+  /* 9-06: 两行重复说明合并为一行, "共用"语义由先扣月卡积分文案承载 */
   // 微信/支付宝改由 Modals 的 payModal 承载
   assert.ok(MODALS.includes('微信支付'), 'wechat pay lives in payModal');
   assert.ok(MODALS.includes('支付宝'), 'alipay lives in payModal');

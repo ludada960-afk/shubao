@@ -1211,7 +1211,7 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
   assert.match(pricing, /所有创作功能共用一套 AI 积分/);
   assert.match(pricing, /PRICING_PLANS/);
   // 8-31 第 7 轮: 去掉「给创作充点能量」啰嗦主副标题; 8-31 第 8 轮: 标题收敛为单行「积分充值」。
-  assert.ok(pricingModalNew.includes('一次买断 · 视频图片共用一套 AI 积分，用完再充'), 'concise hero line');
+  assert.ok(pricingModalNew.includes('先扣月卡积分（快到期的先用），永久积分永不过期'), 'concise hero line with expiry-first note');
   assert.match(pricingModalNew, /pricing-modal__hero-line/);
   assert.ok(!pricingModalNew.includes('给创作充点能量'), 'no verbose title');
   assert.ok(!pricingModalNew.includes('pricing-modal__eyebrow'), 'no jargon eyebrow line');

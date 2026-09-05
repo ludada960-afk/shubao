@@ -411,10 +411,15 @@ function AccountEditor({ account, actorEmail, onClose, onChanged }) {
       setMessage({ type: 'error', text: '请填写额度和调整原因' });
       return;
     }
+    /* 9-06: 支持月度积分 — 填了有效天数则按天数换算 expiresAt, 留空即永久 */
+    const expiresAt = credit.operation === 'grant' && credit.currency === 'ec_points' && Number(credit.expiryDays) > 0
+      ? new Date(Date.now() + Number(credit.expiryDays) * 86400000).toISOString()
+      : null;
     mutate('credits', () => adjustAdminCredits(account.email, {
       ...credit,
+      expiresAt,
       idempotencyKey: uid(`credits-${credit.operation}`),
-    })).then(() => setCredit(current => ({ ...current, amount: '', reason: '' })));
+    })).then(() => setCredit(current => ({ ...current, amount: '', reason: '', expiryDays: '' })));
   };
 
   const togglePermission = feature => {
@@ -461,12 +466,13 @@ function AccountEditor({ account, actorEmail, onClose, onChanged }) {
 
       <section className="admin-editor-section">
         <div className="admin-section-heading"><div><strong>额度账本</strong><span>每次调整都会留下不可变审计记录</span></div></div>
-        <div className="admin-balance-row"><div><small>AI 积分</small><strong>{points(account.balances.ec_points.availableUnits)}</strong><span>冻结 {points(account.balances.ec_points.heldUnits)}</span></div><div><small>内容套数</small><strong>{account.balances.content_sets.availableUnits}</strong><span>冻结 {account.balances.content_sets.heldUnits}</span></div></div>
+        <div className="admin-balance-row"><div><small>AI 积分（总）</small><strong>{points(account.balances.ec_points.availableUnits)}</strong><span>冻结 {points(account.balances.ec_points.heldUnits)}</span>{account.expiringCredits > 0 && <span style={{ color: '#c2570b' }}>其中 {visiblePoints(account.expiringCredits)} 积分 {Math.ceil((Date.parse(account.expiringAt || 0) - Date.now()) / 86400000)} 天后到期</span>}</div><div><small>内容套数</small><strong>{account.balances.content_sets.availableUnits}</strong><span>冻结 {account.balances.content_sets.heldUnits}</span></div></div>
         <form className="admin-credit-form" onSubmit={submitCredits}>
           <div className="admin-segmented"><button type="button" className={credit.operation === 'grant' ? 'active' : ''} onClick={() => setCredit({ ...credit, operation: 'grant' })}><Plus size={14} />发放积分</button><button type="button" className={credit.operation === 'revoke' ? 'active danger' : ''} onClick={() => setCredit({ ...credit, operation: 'revoke' })}><Ban size={14} />回收积分</button></div>
           <div className="admin-field-grid">
             <label><span>额度类型</span><select value={credit.currency} onChange={event => setCredit({ ...credit, currency: event.target.value })}><option value="ec_points">AI 积分</option><option value="content_sets">内容套数</option></select></label>
             <label><span>{credit.currency === 'ec_points' ? '积分数量' : '套数'}</span><input type="number" min="0.001" step={credit.currency === 'ec_points' ? '0.001' : '1'} value={credit.amount} placeholder="例如 100" onChange={event => setCredit({ ...credit, amount: event.target.value })} /></label>
+            <label><span>有效天数（选填）</span><input type="number" min="1" value={credit.expiryDays || ''} placeholder="留空 = 永久" onChange={event => setCredit({ ...credit, expiryDays: event.target.value })} /></label>
             <label className="wide"><span>调整原因</span><input value={credit.reason} maxLength={500} placeholder="例如：发放第二轮内测额度" onChange={event => setCredit({ ...credit, reason: event.target.value })} /></label>
           </div>
           <button type="submit" className={`admin-primary-button ${credit.operation === 'revoke' ? 'danger' : ''}`} disabled={Boolean(saving)}>{saving === 'credits' ? <LoaderCircle className="spin" size={15} /> : <Coins size={15} />}{credit.operation === 'grant' ? '确认发放' : '确认回收'}</button>

@@ -76,10 +76,10 @@ function CreativeNavGlyph({ Icon, motion, size = 25 }) {
 }
 
 const DESKTOP_PANEL_WIDTHS = Object.freeze({
-  commerce: 430,
-  video: 430,
+  commerce: 460,
+  video: 460,
   content: 460,
-  visual: 520,
+  visual: 460,
 });
 
 function getDesktopPanelWidth(group) {
