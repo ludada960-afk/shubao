@@ -622,10 +622,10 @@ export default function EcCanvas() {
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
   /* 9-06: 世界窗中心对准默认视口中心 (720,450) — 新用户视口框落在地图正中 */
   const minimapWorldBounds = useMemo(() => ({
-    width: 4800,
-    height: 3400,
-    offsetX: 720 - 2400,
-    offsetY: 450 - 1700,
+    width: 6400,
+    height: 4800,
+    offsetX: 720 - 3200,
+    offsetY: 450 - 2400,
   }), []);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
@@ -5060,6 +5060,13 @@ const handlePointerUp = useCallback((e) => {
                     <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
                     <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
                     <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
+                  </div>
+                  {/* 9-09: AI 生成行 — 对齐主流画布 (流影/Quantv) 的丰富空态入口 */}
+                  <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="AI 创作">
+                    <button type="button" onClick={() => handleAddTextRef.current?.({ x: 120, y: 120 })}><HeroGlyph kind="text" />新建文本</button>
+                    <button type="button" onClick={() => addCanvasComposer('image', { x: 220, y: 120 })}><HeroGlyph kind="sparkles" />生成图片</button>
+                    <button type="button" onClick={() => addCanvasComposer('video', { x: 340, y: 120 })}><HeroGlyph kind="clapperboard" />生成视频</button>
+                    <button type="button" onClick={() => audioUploadRef.current?.click()}><HeroGlyph kind="mic" />添加音频</button>
                   </div>
                 </div>
 

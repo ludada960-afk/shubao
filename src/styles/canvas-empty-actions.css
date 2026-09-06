@@ -9,6 +9,8 @@
 .ec-canvas-empty-state > div {
   width: min(640px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px -12px rgba(15, 23, 42, 0.12);
 }
 @media (max-width: 720px) {
   .ec-canvas-empty-state > div { width: min(560px, calc(100vw - 24px)); }
@@ -38,8 +40,9 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   align-items: stretch;
+  margin-top: 18px;
 }
 
 /* 1 行 — 容器 */

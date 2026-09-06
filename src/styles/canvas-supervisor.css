@@ -684,8 +684,8 @@
   padding: 0;
   border: 0;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
+  background: #eef0f3;
+  color: #6b7280;
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
