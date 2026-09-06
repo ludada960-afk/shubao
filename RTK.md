@@ -639,7 +639,7 @@ Bug 3 — 右面板+工具条被画布平移/缩放时的 overflow:clip 截断:
 
 额外修复 (mailer回调传参错误): mailer 回调原传 {to, code} 对象给 sendVerificationCode, 但该函数期望字符串 email。改为传 to 字符串 + async/await。验证: Node.js HTTPS 测试 {"ok":true,"mock":false,"reused":false,"retryAfterSeconds":60} ✅。curl 在 SSH shell 中会剥掉 JSON 引号导致 500, 需用 Node.js/Python 脚本或 --data @file 发送。
 
-## 11. 9-06 会话：P0 构建卡点结案（构建从未出错，是验证方法错了）
+## 12. 9-06 会话：P0 构建卡点结案（构建从未出错，是验证方法错了）
 
 ### 结论
 "P0 卡点：vite 产物不含源码新改动"是**误判**。构建管线、dist 产物、线上部署从未有问题，无需重新部署。
@@ -671,3 +671,18 @@ Bug 3 — 右面板+工具条被画布平移/缩放时的 overflow:clip 截断:
 3. P1.5 邀请码/兑换卡后端 + 管理后台、微信 OAuth
 4. 支付 API 接入
 
+## 13. 9-06 会话续：P0-1 + P0-2 落地并上线（派生链第一次真正"跑起来"）
+
+### 交付（commit c64ee737，已部署 https://shuimg.cn/ 并字节级验证）
+- **P0-1 派生即执行**："生成文案"动作点完即自动发起 `/api/canvas/regenerate-text`（该 API 此前在画布从未被调用过——G1 缺口实锤）：
+  - 新文件 `src/pages/EcCanvas/canvasDerivedAutoRun.js`：CANVAS_COPYWRITING_PROMPT 默认指令 / findUpstreamCanvasCopy（BFS 向上找最近 ready 文案，防环、跳过 running/error）/ buildCanvasCopywritingRequest（图源进 referenceImages、文本源与 direction 拼进 prompt）/ normalizeCanvasCopywritingResult / resolveDerivedVideoPrompt。
+  - index.jsx 新 handleDerivedTextGeneration：文本节点以 running 态立即落位（text 预填"正在提炼卖点文案…"+ 呼吸动画 `ec-canvas-copy-node.is-running`），成功写回真文案 status ready，失败保留 error 态 + toast。分发替换 2 处（CanvasDeriveMenu / 右面板 onDeriveSelect）。
+  - `findUpstreamCanvasCopy` 只认 status==='ready' 的 text 节点——P0-1 的 running 中间态不会污染 P0-2 的上游引用（时序安全）。
+- **P0-2 视频 prompt 上游引用**："生成视频" composer 创建时经 `placement.prompt` 通道（addCanvasComposer 已有）自动预填最近上游文案内容；planReviewed 计费确认保护保留，用户可改可确认。
+- 测试 `test/canvasDerivedAutoRun.test.mjs` 9 例（链查找/环防/空态跳过/请求组装/结果规整/视频预填），全量 **2915/2915 绿**；npm run build ✅（主 bundle index-BmrZgFRX / 画布 chunk index-BQc0P9gK）；npm run check ✅。
+- 部署：tar 269MB（dist 含 12.9MB ort-wasm + 营销大图属正常，public/ 来的）→ scp → .tmp-deploy-remote2.sh → DEPLOY-DONE，pm2 shubao-production online；线上 fetch 字节级 identical：主 bundle 498553B ✓ 画布 chunk 399533B ✓；/api/session 401（未登录正确响应）✓。
+- 下一步：P0-3 TTS 执行链（视频→TTS→audio 节点可播放，走 chainService 单步 audio）→ P0-4 字幕 → P0-5 placeDerivedRightOfSources 全路径确认。
+
+### 坑（新增）
+- **node -e 内联正则会被 PowerShell/工具层转义串台**（`\\.` 变 `\\\\.` 等），复杂匹配一律写成 .cjs 脚本文件再 node 跑；cwd 也可能不在项目目录（node -e 里用相对路径前先确认 pwd）。
+- scp 269MB tar 约 1-3 分钟，属正常耗时，别当卡死重试。

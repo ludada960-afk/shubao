@@ -111,8 +111,8 @@
 ## 4. 路线图（P0 → P3，含验收标准）
 
 ### P0 把派生链"跑起来"（预计 2-3 天）
-- [ ] P0-1 派生即执行：从图片派生"生成文案"→ 节点落位后自动带源图 prompt 发起请求，产出自动写入节点（验收：上传图→点+→生成文案→3s 内出现跑动状态，无需手动点）
-- [ ] P0-2 派生菜单里"生成视频"默认引用上游文案节点（若链条里有）作为 prompt 来源（验收：图→文案→视频，视频 prompt 自动填充文案内容）
+- [x] P0-1 派生即执行：从图片派生"生成文案"→ 节点落位后自动带源图 prompt 发起请求，产出自动写入节点（验收：上传图→点+→生成文案→3s 内出现跑动状态，无需手动点）✅ 2026-09-06 c64ee737（canvasDerivedAutoRun.js 纯函数层 + handleDerivedTextGeneration；running 呼吸动画；9 测试覆盖；已上线验证）
+- [x] P0-2 派生菜单里"生成视频"默认引用上游文案节点（若链条里有）作为 prompt 来源（验收：图→文案→视频，视频 prompt 自动填充文案内容）✅ 2026-09-06 c64ee737（resolveDerivedVideoPrompt BFS 沿连线取最近 ready 文案，经 placement.prompt 通道预填 composer；planReviewed 计费保护保留）
 - [ ] P0-3 TTS 配音执行链：视频节点派生 TTS → 创建 audio 节点 → 调 chainService 单步 audio → 音频落节点可播放（验收：视频→TTS→出现可播放音频节点）
 - [ ] P0-4 字幕动效：视频→字幕→生成字幕配置并烧入（复用 caption API）
 - [ ] P0-5 派生节点自动排布确认：所有 createDerivedNode 路径走 placeDerivedRightOfSources
