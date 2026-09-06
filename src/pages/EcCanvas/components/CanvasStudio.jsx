@@ -1362,7 +1362,7 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
   }, [editing]);
   return <article
     data-canvas-node-id={node.id}
-    className={`ec-canvas-copy-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+    className={`ec-canvas-copy-node ${node.status === 'running' ? 'is-running' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
     style={{ left: node.x, top: node.y, width: node.w, height: node.h, opacity: typeof node.opacity === 'number' ? node.opacity : 1 }}
     onPointerDown={event => { event.stopPropagation(); if (!editing) onPointerDown?.(event, node.id); }}
     onDoubleClick={event => { event.stopPropagation(); onDoubleClick?.(node.id); }}

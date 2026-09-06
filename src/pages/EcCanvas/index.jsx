@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, Fol
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
-import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -68,6 +68,8 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+/* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 */
+import { buildCanvasCopywritingRequest, normalizeCanvasCopywritingResult, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
@@ -3793,6 +3795,71 @@ const handlePointerUp = useCallback((e) => {
     return textNode;
   }, [addCanvasComposer, nodes, viewport]);
 
+  /* P0-1 派生即执行 (master-plan §4, 9-06): "生成文案"点完即自动发起请求。
+     旧流程: 建空 composer 让用户手填 prompt 手动点生成 (G1 缺口)。
+     新流程: 上传图 → 点+ → 生成文案 → 文本节点立即以 running 态落位 (呼吸动画),
+     自动带源图 referenceImages 调 /api/canvas/regenerate-text, 产出直接写入节点。
+     无需手动点; 失败时节点保留 error 态, toast 提示原因。 */
+  const handleDerivedTextGeneration = useCallback(async (sourceNodeId, world = {}) => {
+    const source = nodes.find(node => node.id === sourceNodeId);
+    if (!source) { showToast('素材已被删除，无法继续派生', 'info'); return; }
+    if (['processing', 'uploading', 'analyzing'].includes(source.status)) {
+      showToast('素材还在处理中，完成后即可派生', 'info');
+      return;
+    }
+    const request = buildCanvasCopywritingRequest({ source });
+    const bounds = containerRef.current?.getBoundingClientRect();
+    const position = findCanvasBlankPlacement({
+      width: 420,
+      height: 84,
+      viewport,
+      bounds,
+      nodes,
+      sourceNode: source,
+      preferred: Number.isFinite(world?.x) && Number.isFinite(world?.y) ? { x: world.x, y: world.y } : undefined,
+      gap: 16,
+    }) || { x: source.x + source.w + 28, y: source.y };
+    const textNode = {
+      ...createCanvasTextNode({ ...position, sourceNodeId: source.id }),
+      status: 'running',
+      progressLabel: '正在提炼卖点文案',
+      text: '正在提炼卖点文案…',
+      actionId: 'text-generation',
+    };
+    setNodes(previous => [...previous, textNode]);
+    setConnections(previous => addConnection(previous, source.id, textNode.id, 'derived'));
+    setSelected(textNode.id);
+    setMultiSelected(new Set([textNode.id]));
+    setActiveTool('select');
+    showToast('文案生成中，完成后自动写入节点', 'info');
+    try {
+      const data = await regenerateCanvasText({
+        prompt: request.prompt,
+        referenceImages: request.referenceImages,
+        references: request.references,
+        count: 1,
+      });
+      const text = normalizeCanvasCopywritingResult(data);
+      setNodes(previous => previous.map(node => node.id === textNode.id ? {
+        ...node,
+        text,
+        status: 'ready',
+        error: null,
+        progressLabel: '',
+      } : node));
+      showToast('卖点文案已生成，可继续派生图片或视频', 'success');
+    } catch (error) {
+      setNodes(previous => previous.map(node => node.id === textNode.id ? {
+        ...node,
+        text: '',
+        status: 'error',
+        error: error?.message || '文案生成失败',
+        progressLabel: '',
+      } : node));
+      if (error?.name !== 'AbortError') handleCanvasActionError(error, { type: 'text-generation', nodeId: textNode.id });
+    }
+  }, [handleCanvasActionError, nodes, showToast, viewport]);
+
   useEffect(() => {
     handleAddTextRef.current = handleAddTextNode;
   }, [handleAddTextNode]);
@@ -5333,13 +5400,19 @@ const handlePointerUp = useCallback((e) => {
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
               onSelect={action => {
                 if (action.id === 'text-generation') {
-                  handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId, openComposer: true });
+                  /* P0-1 派生即执行: 点完即自动发起文案请求, 不再打开空 composer */
+                  handleDerivedTextGeneration(connectionPicker.sourceNodeId, connectionPicker.world);
                 } else if (action.id === 'ecommerce-suite') {
                   addCanvasComposer('suite', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'video-upload') {
                   videoUploadRef.current?.click();
                 } else if (action.id === 'video-generation') {
-                  addCanvasComposer('video', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
+                  /* P0-2: prompt 自动引用上游文案节点 (若链条里有), 用户仍可在 composer 修改后确认生成 */
+                  addCanvasComposer('video', {
+                    ...connectionPicker.world,
+                    sourceNodeId: connectionPicker.sourceNodeId,
+                    prompt: resolveDerivedVideoPrompt({ nodes, connections, sourceNodeId: connectionPicker.sourceNodeId }),
+                  });
                 } else if (action.id === 'image-edit' && connectionPicker.mode !== 'image-editor') {
                   // The right-side image action is the same generation node as
                   // the left rail. Its only extra behavior is carrying the
@@ -5403,10 +5476,10 @@ const handlePointerUp = useCallback((e) => {
               billingCost={chainCostTotal}
               onDeriveSelect={action => {
                 const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
-                if (action.id === 'text-generation') handleAddTextNode({ ...world, sourceNodeId: selectedNode.id, openComposer: true });
+                if (action.id === 'text-generation') handleDerivedTextGeneration(selectedNode.id, world);
                 else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'video-upload') videoUploadRef.current?.click();
-                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id });
+                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id, prompt: resolveDerivedVideoPrompt({ nodes, connections, sourceNodeId: selectedNode.id }) });
                 else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'application-tts') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
                 else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);

@@ -351,6 +351,9 @@
 
 .ec-canvas-copy-node { display: block; align-items: stretch; padding: 0; border: 1px solid transparent; border-radius: 4px; background: transparent; box-shadow: none; cursor: grab; }
 .ec-canvas-copy-node.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 1px rgba(37, 99, 235, .18); }
+/* P0-1 派生即执行 (9-06): 文案节点自动生成中的呼吸态, 完成后移除 class */
+.ec-canvas-copy-node.is-running { border-color: var(--canvas-command); animation: ecCopyPulse 1.2s ease-in-out infinite; }
+@keyframes ecCopyPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 .ec-canvas-copy-node [role="textbox"] { width: 100%; height: 100%; min-height: 0; box-sizing: border-box; padding: 5px 7px; outline: 0; color: #20242a; cursor: grab; font-size: 24px; line-height: 1.2; white-space: pre-wrap; }
 .ec-canvas-copy-node [contenteditable="true"] { cursor: text; user-select: text; }
 .ec-canvas-copy-node [role="textbox"]:empty::before { color: #929aa5; content: attr(data-placeholder); pointer-events: none; }
