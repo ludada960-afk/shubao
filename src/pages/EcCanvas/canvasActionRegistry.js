@@ -64,10 +64,10 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('regenerate', '重新生成', [], 'smart-remix', false, {
     type: 'route', handler: 'regenerate', route: '/api/canvas/regenerate',
   }, { description: '沿用当前商品与画幅生成新图', group: '优先操作' }),
-  action('edit-text', '改图上文字', [], null, false, {
+  action('edit-text', '编辑文字', ['selection'], null, false, {
     type: 'inspector', handler: 'edit-text',
   }, { description: '识别并编辑画面中的文字' }),
-  action('add-text', '添加文字', ['selection'], null, false, {
+  action('add-text', '添加文字', [], null, false, {
     type: 'local', handler: 'add-text',
   }, { description: '在画布上添加可直接编辑的文字', canRun: canRunLocally }),
   action('grid-split', '宫格切分', ['selection'], 'grid-split', false, {

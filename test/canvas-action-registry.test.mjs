@@ -30,7 +30,7 @@ test('selection exposes the pure image-edit toolbar (9 项, 9-05 反馈: 生成/
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
-      'add-text',
+      'edit-text',
       'grid-split',
       'layer-edit',
       'remove-background',
@@ -68,7 +68,7 @@ test('fresh uploads keep local tools immediately from their preview url', () => 
   // 用户 9-05: 上传中节点 url 门槛即过 — 本地工具 + 派生类 (layer-edit/remove-background) 全部立即可用
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: uploading }).map(action => action.id),
-    ['add-text', 'grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
+    ['grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
   );
   // 纯 isReadyImage 门槛的动作仍等待 status=ready
   for (const gatedId of ['edit-text', 'reverse-prompt', 'annotation']) {
@@ -153,8 +153,9 @@ test('add-text is a free local action reserved for real inline text editing', ()
   assert.deepEqual(action.execute, { type: 'local', handler: 'add-text', requires: {} });
   assert.equal(action.priceFeature, null);
   assert.equal(action.priceLabel, '免费');
-  assert.equal(actionsForSurface({ surface: 'selection', node: completedOutput }).filter(item => item.id === 'add-text').length, 1);
-  assert.deepEqual(actionsForSurface({ surface: 'context', node: completedOutput }).filter(item => item.id === 'add-text'), []);
+  /* 9-06: add-text 从工具栏移除 (用户指名去 T 按钮), 编辑文字恢复 */
+  assert.equal(actionsForSurface({ surface: 'selection', node: completedOutput }).filter(item => item.id === 'add-text').length, 0);
+  assert.equal(actionsForSurface({ surface: 'selection', node: completedOutput }).filter(item => item.id === 'edit-text').length, 1);
 });
 
 test('workflow view models contain no fallback command registry', () => {

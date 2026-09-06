@@ -5,6 +5,16 @@
    - 推荐档: 琥珀边框+光晕+顶部骑缝徽章+琥珀价格+黑色主按钮 (五重强调)
    - 支付方式点击"去支付"后由 Modals 弹二级"选择支付方式" */
 
+.pricing-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(57, 45, 26, 0.35);
+  backdrop-filter: blur(4px);
+}
 .pricing-modal {
   position: relative;
   width: calc(100vw - 24px);
@@ -203,7 +213,7 @@
   appearance: none;
   border: 0;
   background: transparent;
-  padding: 16px 14px;
+  padding: 16px 20px;
   border-radius: 14px;
   display: flex;
   flex-direction: column;
@@ -221,10 +231,12 @@
   box-shadow: 0 12px 28px rgba(146, 64, 14, 0.18);
 }
 .pricing-modal__tab-name {
+  font-size: 17px;
   font-size: 15px;
   font-weight: 800;
 }
 .pricing-modal__tab-sub {
+  margin-top: 3px;
   font-size: 11px;
   font-style: normal;
   color: #a8a099;
@@ -259,6 +271,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 26px;
   align-items: stretch;
+  margin-top: 18px;
 }
 .pricing-modal__empty {
   grid-column: 1 / -1;
@@ -279,16 +292,16 @@
   background: #fffefb;
   border: 1px solid #ece6db;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(57, 45, 26, 0.05), 0 4px 14px -6px rgba(57, 45, 26, 0.08);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  box-shadow: 0 2px 4px rgba(57, 45, 26, 0.04), 0 8px 24px -8px rgba(57, 45, 26, 0.12);
+  transition: border-color 0.18s ease, box-shadow 0.22s ease, transform 0.22s ease;
   text-align: center;
   align-items: center;
   min-width: 0;
 }
 .pricing-modal__pack:hover {
   border-color: #e99a18;
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -10px rgba(146, 64, 14, 0.14);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px -8px rgba(146, 64, 14, 0.18);
 }
 /* 推荐档: 琥珀边框 + 暖光阴影 + 变色 (五重差异) */
 .pricing-modal__pack--anchored {
