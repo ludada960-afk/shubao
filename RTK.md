@@ -717,7 +717,7 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 1. ✅ P0-1 派生即执行（c64ee737, live）
 2. ✅ P0-2 视频 prompt 上游引用（c64ee737, live）
 3. ✅ P0-3 TTS 配音执行链（06812be7, live）
-4. P0-4 字幕动效（视频→字幕→烧入 caption API）
+4. ✅ P0-4 字幕动效（17ed05bc, live）
 5. P0-5 placeDerivedRightOfSources 全路径确认
 6. P1.6 画布水印面板（唯一未实现功能）
 7. P1.5 邀请码/兑换卡后端 + 管理后台、微信 OAuth
