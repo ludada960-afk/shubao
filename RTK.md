@@ -638,3 +638,36 @@ Bug 3 — 右面板+工具条被画布平移/缩放时的 overflow:clip 截断:
 服务器已重启, 验证码功能恢复正常。
 
 额外修复 (mailer回调传参错误): mailer 回调原传 {to, code} 对象给 sendVerificationCode, 但该函数期望字符串 email。改为传 to 字符串 + async/await。验证: Node.js HTTPS 测试 {"ok":true,"mock":false,"reused":false,"retryAfterSeconds":60} ✅。curl 在 SSH shell 中会剥掉 JSON 引号导致 500, 需用 Node.js/Python 脚本或 --data @file 发送。
+
+## 11. 9-06 会话：P0 构建卡点结案（构建从未出错，是验证方法错了）
+
+### 结论
+"P0 卡点：vite 产物不含源码新改动"是**误判**。构建管线、dist 产物、线上部署从未有问题，无需重新部署。
+
+### 真相
+- **EcCanvas 是 React.lazy 动态导入页面 → 编译进独立懒加载 chunk `dist/assets/index-BrfQVtFR.js`（396KB）**；`index.html` 只引用主入口 `index-DyUHUGIF.js`（App 外壳），主 bundle 本来就不含任何 EcCanvas 代码。
+- 前几轮会话一直 grep 主 bundle `index-DyUHUGIF.js` 找画布字符串（新建文本/上传图片等），当然找不到 → 误判"产物是极旧版本"。
+- "BUILD OK 但 hash 不变" = 确定性构建的正常表现（同源码 → 同内容 hash），不是 rollup/vite 缓存病、不是 dist 残留。
+
+### 铁证（node fetch 完整下载 + Buffer.equals + sha256 前 20 位）
+- 主 bundle：本地 498544B `04e99316a1011f7792fe` ＝ 线上 `https://shuimg.cn/assets/index-DyUHUGIF.js` 498544B 同 sha，完全一致
+- EcCanvas chunk：本地 396512B `22b8db5599173d9b72fb` ＝ 线上 `https://shuimg.cn/assets/index-BrfQVtFR.js` 396512B 同 sha，完全一致
+- 线上 chunk 内容标记全部命中：新建文本:Y 生成图片:Y 生成视频:Y 添加音频:Y 6400(小地图世界窗):Y edit-text:Y 上传图片:Y 小地图:Y
+  → 空状态 AI 生成行 / 小地图 6400 世界窗 / 工具栏编辑文字 / 派生 gating 等修复**已全部在线上**。
+
+### 方法论（验证产物三原则，写给所有后续会话）
+1. 验证产物必须对准**懒加载 chunk** 文件（页面级代码不在主 bundle），先确认目标模块被编译进哪个文件。
+2. 下载线上产物必须用 node fetch + Buffer 长度 + sha256 校验完整性；**本机 curl 对大文件会偶发截断**（曾得到 379235B 假大小 + exit code 1，引发一轮"同名 hash 不同大小"的假矛盾）。
+3. marker 验证法要用真实 UI 字符串（如 `新建文本`、`6400`）；`//` 注释 marker 会被生产构建剥离，必然"找不到"，造成二次误判。
+
+### 本次动作与状态
+- 补提交 `9227c225`：edit-text 图标行（`ACTION_ICONS['edit-text']: Pencil`，9-05 轮修复漏提交部分），提交前 npm test **2906/2906 全绿**（59s）。
+- 源码 tracked 改动已全部入库；线上 https://shuimg.cn/ 即最新版本。
+- 工作树 622 个 untracked 全为历史会话 .tmp-* 杂物，不属于任何提交范围。
+
+### 下一步（优先级不变）
+1. P0-1 派生链"点完即执行"（见 master-plan §4）
+2. P1.6 画布水印面板（唯一未实现功能）
+3. P1.5 邀请码/兑换卡后端 + 管理后台、微信 OAuth
+4. 支付 API 接入
+
