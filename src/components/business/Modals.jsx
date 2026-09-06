@@ -53,6 +53,9 @@ export function LoginModal() {
   /* 9-06 市场化: 邀请码注册通道 (UI 先行, 后端接入时随 verify 请求提交) + 协议勾选 */
   const [inviteCode, setInviteCode] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(true);
+  /* 9-06 登录重构: 手机号/邮箱双通道 (手机号后端桩, 短信备案后接通) */
+  const [loginChannel, setLoginChannel] = useState('email');
+  const [phone, setPhone] = useState('');
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
 
@@ -164,13 +167,16 @@ export function LoginModal() {
     if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
     setLoading(true); setErr('');
     try {
+      if (loginChannel === 'phone') { setErr('手机号登录即将开放，请先使用邮箱登录'); setLoading(false); return; }
       const result = await sendOTP(email.trim());
       updateOtp({
         type: 'CODE_SENT',
         now: Date.now(),
         cooldownMs: Math.max(0, result.retryAfterSeconds) * 1000,
       });
-    } catch (e) { setErr(e.message); }
+    } catch (e) {
+      setErr(/failed to fetch/i.test(e?.message || '') ? '网络请求失败，请检查网络后重试（如果你在本地测试页面，请访问 shuimg.cn）' : e.message);
+    }
     setLoading(false);
   };
 
@@ -194,20 +200,49 @@ export function LoginModal() {
         dispatch({ type: 'SET_LOGIN_INTENT', intent: null });
       }
       close();
-    } catch (e) { setErr(e.message); }
+    } catch (e) {
+      setErr(/failed to fetch/i.test(e?.message || '') ? '网络请求失败，请检查网络后重试（如果你在本地测试页面，请访问 shuimg.cn）' : e.message);
+    }
     setLoading(false);
   };
 
   return (
     <Modal onClose={close}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+      {/* 9-06 登录页重构 (参考椒图AI/灵图AI): 渐变头部 + 无密码 OTP + 通道切换 */}
+      <div style={{
+        margin: '-38px -38px 20px',
+        padding: '34px 20px 22px',
+        background: 'linear-gradient(160deg, #ff8a5c 0%, #f2545b 42%, #a855f7 100%)',
+        borderRadius: '22px 22px 0 0',
+        textAlign: 'center',
+      }}>
         <CharImg src={IMAGES.wave} size={64} />
-        <div style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-bold)', marginTop: 10 }}>
+        <div style={{ fontSize: 20, fontWeight: 900, marginTop: 8, color: '#ffffff' }}>
           登录薯包AI
         </div>
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 4 }}>
-          验证邮箱后即可继续创作
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.88)', marginTop: 4 }}>
+          验证邮箱后即可继续创作，无需密码
         </div>
+      </div>
+
+      {/* 通道 pill: 手机号 / 邮箱 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, padding: 4, background: '#f4eadb', border: '1px solid #e7e0d4', borderRadius: 14, marginBottom: 14 }}>
+        {[['phone', '手机号'], ['email', '邮箱']].map(([id, name]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => { setLoginChannel(id); setErr(''); }}
+            style={{
+              appearance: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit',
+              padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+              background: loginChannel === id ? '#ffffff' : 'transparent',
+              color: loginChannel === id ? '#1c1917' : '#78716c',
+              boxShadow: loginChannel === id ? '0 2px 8px rgba(57,45,26,0.12)' : 'none',
+            }}
+          >
+            {id === 'phone' ? '📱 ' : '✉️ '}{name}
+          </button>
+        ))}
       </div>
 
       {err && <div style={{
@@ -215,6 +250,19 @@ export function LoginModal() {
         padding: '8px 14px', marginBottom: 12, fontSize: 'var(--text-sm)', color: '#C53030',
       }}>{err}</div>}
 
+      {loginChannel === 'phone' ? (
+        <input
+          placeholder="请输入手机号（即将开放）"
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          style={{
+            width: '100%', padding: '12px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
+            fontSize: 'var(--text-base)', marginBottom: 10,
+            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', opacity: 0.7,
+          }}
+        />
+      ) : (
       <input
         placeholder="邮箱地址"
         autoFocus
@@ -228,8 +276,7 @@ export function LoginModal() {
           opacity: 1,
         }}
       />
-
-      {step === 'code' ? (
+      )}
         <input
           placeholder="验证码"
           value={code}
@@ -281,10 +328,25 @@ export function LoginModal() {
         </span>
       </label>
 
-      <button type="button" onClick={() => { setErr(''); setForgotMode(true); }}
+      {loginChannel === 'email' && step === 'email' && (
+        <button
+          type="button"
+          onClick={() => setErr('微信登录即将开放，敬请期待')}
+          style={{
+            width: '100%', marginTop: 12, padding: '11px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 999,
+            background: '#ffffff', color: '#292524', fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', opacity: 0.85,
+          }}
+        >
+          💚 微信登录（即将开放）
+        </button>
+      )}
+
+      {false && <button type="button" onClick={() => { setErr(''); setForgotMode(true); }}
         style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
         忘记密码？
-      </button>
+      </button>}
 
       {oauthProviders.length > 0 && (
         <>
