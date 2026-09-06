@@ -318,6 +318,7 @@ function AppRouter() {
     'vision-feedback': VisionFeedbackPage,
     'product-archive': ProductArchivePage,
     'public-templates': PublicTemplatesPage,
+    'admin': AdminConsolePage,
     'terms': TermsPage,
     'privacy': PrivacyPage,
   };

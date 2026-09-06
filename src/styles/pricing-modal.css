@@ -627,3 +627,8 @@
   .pricing-modal__pay-grid { grid-template-columns: 1fr; }
   .pricing-modal__title { font-size: 26px; }
 }
+
+/* 9-06: 弹窗打开时锁定 body 滚动 */
+body:has(.pricing-modal) {
+  overflow: hidden !important;
+}

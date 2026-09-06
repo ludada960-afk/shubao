@@ -148,7 +148,6 @@ export default function PricingModalRefactored({
   }, [onBuy, selectedPack]);
 
   return (
-    <div className="pricing-modal-backdrop" onWheel={(e) => e.stopPropagation()}>
     <div className="pricing-modal" data-testid="pricing-modal" data-tab={activeTab} role="dialog" aria-label="选择积分包">
       {/* 装饰: 渐变光晕 (灵图风格的彩色柔光) */}
       <div className="pricing-modal__orb pricing-modal__orb--a" aria-hidden="true" />
@@ -291,7 +290,6 @@ export default function PricingModalRefactored({
 
       {/* 用户 9-05 定稿: 底部"去支付"大按钮和选中详情区已移除 —
           每张套餐卡片自带"立即开通"(直达支付方式弹层), 弹窗一屏看全全部信息 */}
-    </div>
     </div>
   );
 }
