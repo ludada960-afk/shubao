@@ -252,33 +252,35 @@ export function LoginModal() {
         padding: '8px 14px', marginBottom: 12, fontSize: 'var(--text-sm)', color: '#C53030',
       }}>{err}</div>}
 
+      {/* 通道输入区: 手机号(桩) / 邮箱 OTP */}
       {loginChannel === 'phone' ? (
         <input
-          placeholder="请输入手机号（即将开放）"
+          placeholder="手机号登录即将开放，先用邮箱"
           value={phone}
           onChange={e => setPhone(e.target.value)}
           style={{
-            width: '100%', padding: '12px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
-            fontSize: 'var(--text-base)', marginBottom: 10,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', opacity: 0.7,
+            width: '100%', padding: '13px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 12,
+            fontSize: 'var(--text-base)', marginBottom: 12,
+            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fafaf9',
           }}
         />
       ) : (
-      <input
-        placeholder="邮箱地址"
-        autoFocus
-        value={email}
-        onChange={e => handleEmailChange(e.target.value)}
-        style={{
-          width: '100%', padding: '12px 16px',
-          border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
-          fontSize: 'var(--text-base)', marginBottom: 10,
-          boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
-          opacity: 1,
-        }}
-      />
+        <input
+          placeholder="邮箱地址"
+          autoFocus
+          value={email}
+          onChange={e => handleEmailChange(e.target.value)}
+          style={{
+            width: '100%', padding: '13px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 12,
+            fontSize: 'var(--text-base)', marginBottom: 12,
+            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
+          }}
+        />
       )}
+
+      {loginChannel === 'email' && step === 'code' && (
         <input
           placeholder="验证码"
           value={code}
@@ -286,33 +288,31 @@ export function LoginModal() {
           maxLength={6}
           autoFocus
           style={{
-            width: '100%', padding: '12px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
-            fontSize: 'var(--text-base)', marginBottom: 20,
+            width: '100%', padding: '13px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 12,
+            fontSize: 'var(--text-base)', marginBottom: 12,
             boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
           }}
         />
-      ) : (
-        <div style={{ height: 10 }} />
       )}
 
-      {step === 'code' && (
+      {loginChannel === 'email' && step === 'code' && (
         <input
           placeholder="邀请码（选填）"
           value={inviteCode}
           onChange={e => setInviteCode(e.target.value)}
           style={{
-            width: '100%', padding: '12px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
+            width: '100%', padding: '13px 16px',
+            border: '1.5px solid var(--border)', borderRadius: 12,
             fontSize: 'var(--text-base)', marginBottom: 12,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', opacity: 1,
+            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
           }}
         />
       )}
 
-      <Button primary full onClick={step === 'email' ? handleSendCode : handleVerify} disabled={loading}>
+      <Button primary full onClick={loginChannel === 'email' ? (step === 'email' ? handleSendCode : handleVerify) : () => setErr('手机号登录即将开放，请先用邮箱登录')} disabled={loading}>
         {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
-        {step === 'email' ? ' 发送验证码' : (agreedTerms ? ' 登录 / 注册' : ' 请先勾选同意下方协议')}
+        {loginChannel === 'phone' ? ' 手机号登录' : step === 'email' ? ' 发送验证码' : (agreedTerms ? ' 登录 / 注册' : ' 请先勾选同意下方协议')}
       </Button>
 
       {/* 9-06 市场化: 服务条款 / 隐私政策 (ICP 备案必需; /terms /privacy 页面已上线) */}
@@ -330,27 +330,20 @@ export function LoginModal() {
         </span>
       </label>
 
-      {loginChannel === 'email' && step === 'email' && (
-        <button
-          type="button"
-          onClick={() => setErr('微信登录即将开放，敬请期待')}
-          style={{
-            width: '100%', marginTop: 12, padding: '11px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 999,
-            background: '#ffffff', color: '#292524', fontSize: 14, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit', opacity: 0.85,
-          }}
-        >
-          💚 微信登录（即将开放）
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setErr('微信登录正在接入，即将开放')}
+        style={{
+          width: '100%', marginTop: 12, padding: '11px 16px',
+          border: '1.5px solid var(--border)', borderRadius: 999,
+          background: '#ffffff', color: '#292524', fontSize: 14, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        微信登录
+      </button>
 
-      {false && <button type="button" onClick={() => { setErr(''); setForgotMode(true); }}
-        style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-        忘记密码？
-      </button>}
-
-      {oauthProviders.length > 0 && (
+{oauthProviders.length > 0 && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 10px', color: 'var(--text-invisible)', fontSize: 11 }}>
             <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
