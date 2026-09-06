@@ -211,12 +211,14 @@ export function LoginModal() {
       {/* 9-06 登录页重构 (参考椒图AI/灵图AI): 渐变头部 + 无密码 OTP + 通道切换 */}
       <div style={{
         margin: '-38px -38px 20px',
-        padding: '34px 20px 22px',
-        background: 'linear-gradient(160deg, #ff8a5c 0%, #f2545b 42%, #a855f7 100%)',
+        padding: '30px 20px 20px',
+        background: 'linear-gradient(160deg, #f97362 0%, #e9485a 45%, #9d5cf0 100%)',
         borderRadius: '22px 22px 0 0',
         textAlign: 'center',
       }}>
-        <CharImg src={IMAGES.wave} size={64} />
+        <span style={{ display: 'inline-grid', placeItems: 'center', width: 84, height: 84, borderRadius: '50%', background: 'rgba(255,255,255,0.96)', boxShadow: '0 6px 20px -4px rgba(80,0,40,0.35)' }}>
+          <CharImg src={IMAGES.wave} size={62} />
+        </span>
         <div style={{ fontSize: 20, fontWeight: 900, marginTop: 8, color: '#ffffff' }}>
           登录薯包AI
         </div>
