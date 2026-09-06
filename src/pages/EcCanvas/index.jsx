@@ -251,6 +251,7 @@ function normalizeLayerItems(layers, nodeId) {
 }
 
 const ACTION_ICONS = {
+  'edit-text': Pencil, /* 9-09: 编辑文字工具图标 */
   'add-text': Type,
   'adjust-requirements': Pencil,
   regenerate: RefreshCw,
