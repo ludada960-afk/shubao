@@ -233,6 +233,35 @@ export async function deriveAudio({
   };
 }
 
+/* ── P0-4 独立字幕生成 (9-06): 视频节点派生字幕 → 自动生成字幕配置 ──
+   从 deriveAudio 抽出来的纯字幕逻辑: 按 sceneCount 等分文本, 每段对应一个分镜。
+   独立于 TTS, 可直接从画布 video 节点派生 "字幕动效" 动作调用。 */
+export function generateCaption({ text, sceneCount = 3, style = 'simple', totalDurationMs = 8000 } = {}) {
+  const narrationText = cleanString(text || '', 4000);
+  if (!narrationText) throw codedError('CAPTION_TEXT_REQUIRED', '字幕文本不能为空', 400);
+  const validStyles = CHAIN_SUBTITLE_STYLES.map(s => s.key);
+  if (!validStyles.includes(style)) throw codedError('CAPTION_STYLE_INVALID', `字幕样式必须是 ${validStyles.join('/')} 之一`, 400);
+  const scenes = Math.max(1, Math.min(12, Math.floor(sceneCount) || 1));
+  const totalLen = narrationText.length;
+  const perScene = Math.max(1, Math.floor(totalLen / scenes));
+  const perSceneMs = Math.floor(totalDurationMs / scenes);
+  const subtitles = [];
+  for (let i = 0; i < scenes; i += 1) {
+    const start = i * perScene;
+    const end = i === scenes - 1 ? totalLen : (i + 1) * perScene;
+    subtitles.push({
+      sceneIndex: i,
+      startChar: start,
+      endChar: end,
+      startTimeMs: i * perSceneMs,
+      endTimeMs: i === scenes - 1 ? totalDurationMs : (i + 1) * perSceneMs,
+      text: cleanString(narrationText.slice(start, end), 200),
+      style,
+    });
+  }
+  return { subtitles, subtitleStyle: style, textChars: totalLen, sceneCount: scenes, totalDurationMs };
+}
+
 // ── 4 步累计 cost (costBasis 集成) ──
 // 每步一个 costSnapshot, 总和得出 chainCost; 4 步全 failed 时 health=breach.
 export function aggregateCost(steps = []) {
@@ -449,6 +478,24 @@ export function mountChainRoutes(app, { authenticate }) {
     } catch (e) {
       const message = e && e.message ? e.message : String(e);
       return res.status(e?.status || 500).json({ code: e?.code || 'CHAIN_EXECUTE_FAILED', error: message });
+    }
+  }));
+
+  /* P0-4 独立字幕生成 (9-06): 视频节点派生 "字幕动效" 动作 → 自动生成字幕分段配置。
+     文本优先来自上游 ready 文案, 回退到视频 prompt; sceneCount 决定分几段。 */
+  app.post('/api/canvas/caption', auth(async (req, res, email) => {
+    const { text, scene_count: sceneCount, style, duration_ms: durationMs } = req.body || {};
+    try {
+      const result = generateCaption({
+        text: text || '',
+        sceneCount: Number(sceneCount) || 3,
+        style: style || 'simple',
+        totalDurationMs: Number(durationMs) || 8000,
+      });
+      return res.json({ ok: true, caption: result, actor: email });
+    } catch (e) {
+      const message = e && e.message ? e.message : String(e);
+      return res.status(e?.status || 400).json({ code: e?.code || 'CAPTION_FAILED', error: message });
     }
   }));
 }

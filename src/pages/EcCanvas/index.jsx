@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, Fol
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
-import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, synthesizeCanvasTts, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, synthesizeCanvasTts, synthesizeCanvasCaption, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -68,8 +68,8 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
-/* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 */
-import { buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
+/* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
+import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
@@ -3940,6 +3940,89 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [connections, handleCanvasActionError, nodes, showToast, viewport]);
 
+  /* P0-4 字幕动效执行链 (master-plan §4, 9-06): 视频节点派生字幕不再落空壳 application 节点,
+     点完即创建 subtitle 节点并自动调 /api/canvas/caption (chainService generateCaption),
+     生成按 sceneCount 等分的字幕分段配置, 直接写入节点可展示。
+     文本优先取上游 ready 文案(口播稿正源), 回退视频 prompt。 */
+  const handleDerivedCaptionGeneration = useCallback(async (sourceNodeId, world = {}) => {
+    const source = nodes.find(node => node.id === sourceNodeId);
+    if (!source) { showToast('素材已被删除，无法继续派生', 'info'); return; }
+    if (['processing', 'uploading', 'analyzing'].includes(source.status)) {
+      showToast('视频还在处理中，完成后即可派生', 'info');
+      return;
+    }
+    const upstream = findUpstreamCanvasCopy({ nodes, connections, nodeId: source.id });
+    const request = buildCanvasCaptionRequest({ source, upstream });
+    if (!request.text) {
+      showToast('请先给视频配一段文案或描述，再生成字幕', 'info');
+      return;
+    }
+    const bounds = containerRef.current?.getBoundingClientRect();
+    const position = findCanvasBlankPlacement({
+      width: 280,
+      height: 120,
+      viewport,
+      bounds,
+      nodes,
+      sourceNode: source,
+      preferred: Number.isFinite(world?.x) && Number.isFinite(world?.y) ? { x: world.x, y: world.y } : undefined,
+      gap: 16,
+    }) || { x: source.x + source.w + 28, y: source.y + (source.h || 240) + 16 };
+    const subtitleNodeId = `subtitle_${Date.now()}`;
+    const baseNode = {
+      id: subtitleNodeId,
+      kind: 'subtitle',
+      provenance: 'derived',
+      status: 'running',
+      progressLabel: '正在生成字幕动效',
+      name: '字幕动效',
+      displayLabel: '字幕动效',
+      group: source.group || '应用节点',
+      role: '字幕',
+      ...position,
+      w: 280,
+      h: 80,
+      sourceNodeIds: [source.id],
+      editable: true,
+      showMeta: true,
+      actionId: 'application-caption',
+    };
+    setNodes(previous => [...previous, baseNode]);
+    setConnections(previous => addConnection(previous, source.id, subtitleNodeId, 'derived'));
+    setSelected(subtitleNodeId);
+    setMultiSelected(new Set([subtitleNodeId]));
+    setActiveTool('select');
+    showToast('字幕生成中，完成后自动写入节点', 'info');
+    try {
+      const caption = await synthesizeCanvasCaption({
+        text: request.text,
+        sceneCount: request.scene_count,
+        style: request.style,
+        durationMs: request.duration_ms,
+      });
+      const settled = normalizeCanvasSubtitleNodes({
+        caption,
+        sourceNode: source,
+        position,
+        nodeId: subtitleNodeId,
+      });
+      setNodes(previous => previous.map(node => node.id === subtitleNodeId ? {
+        ...node,
+        ...settled,
+        progressLabel: '',
+      } : node));
+      showToast(`字幕已生成 ${caption.subtitles.length} 段，点击节点可查看`, 'success');
+    } catch (error) {
+      setNodes(previous => previous.map(node => node.id === subtitleNodeId ? {
+        ...node,
+        status: 'error',
+        error: error?.message || '字幕生成失败',
+        progressLabel: '',
+      } : node));
+      if (error?.name !== 'AbortError') handleCanvasActionError(error, { type: 'application-caption', nodeId: subtitleNodeId });
+    }
+  }, [connections, handleCanvasActionError, nodes, showToast, viewport]);
+
   useEffect(() => {
     handleAddTextRef.current = handleAddTextNode;
   }, [handleAddTextNode]);
@@ -5503,6 +5586,9 @@ const handlePointerUp = useCallback((e) => {
                 } else if (action.id === 'application-tts') {
                   /* P0-3 派生即执行: TTS 点完即合成, 不再落空壳 application 节点 */
                   handleDerivedTtsGeneration(connectionPicker.sourceNodeId, connectionPicker.world);
+                } else if (action.id === 'application-caption') {
+                  /* P0-4 派生即执行: 字幕点完即生成字幕配置, 不再落空壳 application 节点 */
+                  handleDerivedCaptionGeneration(connectionPicker.sourceNodeId, connectionPicker.world);
                 } else {
                   handleCreateDerivedNode(connectionPicker.sourceNodeId, getCanvasAction(action.id) || action, connectionPicker.world);
                 }
@@ -5565,7 +5651,7 @@ const handlePointerUp = useCallback((e) => {
                 else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id, prompt: resolveDerivedVideoPrompt({ nodes, connections, sourceNodeId: selectedNode.id }) });
                 else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
                 else if (action.id === 'application-tts') handleDerivedTtsGeneration(selectedNode.id, world);
-                else if (action.id === 'application-caption') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
+                else if (action.id === 'application-caption') handleDerivedCaptionGeneration(selectedNode.id, world);
                 else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
                 else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
                 else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);

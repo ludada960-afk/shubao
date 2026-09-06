@@ -185,3 +185,85 @@ test('P0-3 normalizeCanvasAudioNodeFromTts honors explicit position and rejects 
   assert.equal(node.y, 34);
   assert.throws(() => normalizeCanvasAudioNodeFromTts({ tts: {}, sourceNode: null }), /音频地址/);
 });
+
+/* ── P0-4 字幕动效执行链 ── */
+import {
+  CANVAS_CAPTION_STYLES,
+  buildCanvasCaptionRequest,
+  normalizeCanvasSubtitleNodes,
+} from '../src/pages/EcCanvas/canvasDerivedAutoRun.js';
+
+test('P0-4 buildCanvasCaptionRequest prefers upstream copy over the video prompt', () => {
+  const source = { id: 'video_1', kind: 'video', inputs: { prompt: '画面里有海' } };
+  assert.deepEqual(
+    buildCanvasCaptionRequest({ source, upstream: { nodeId: 'copy_1', text: '正式口播稿' } }),
+    { text: '正式口播稿', scene_count: 3, style: 'simple', duration_ms: 8000 },
+  );
+  assert.deepEqual(
+    buildCanvasCaptionRequest({ source, upstream: null }),
+    { text: '画面里有海', scene_count: 3, style: 'simple', duration_ms: 8000 },
+    '没有上游文案时回退到视频 prompt',
+  );
+});
+
+test('P0-4 buildCanvasCaptionRequest honors explicit sceneCount/style/duration', () => {
+  const req = buildCanvasCaptionRequest({
+    source: { id: 'video_1', kind: 'video' },
+    upstream: { nodeId: 'copy_1', text: '文案' },
+    sceneCount: 5,
+    style: 'kinetic',
+    durationMs: 12000,
+  });
+  assert.equal(req.scene_count, 5);
+  assert.equal(req.style, 'kinetic');
+  assert.equal(req.duration_ms, 12000);
+});
+
+test('P0-4 buildCanvasCaptionRequest clamps out-of-range values', () => {
+  const req = buildCanvasCaptionRequest({ source: { id: 'v', kind: 'video' }, upstream: { nodeId: 'c', text: 't' }, sceneCount: 99, durationMs: 500 });
+  assert.equal(req.scene_count, 12, 'sceneCount 上限 12');
+  assert.equal(req.duration_ms, 1000, 'durationMs 下限 1000');
+});
+
+test('P0-4 CANVAS_CAPTION_STYLES lists 5 styles', () => {
+  assert.equal(CANVAS_CAPTION_STYLES.length, 5);
+  assert.ok(CANVAS_CAPTION_STYLES.some(s => s.key === 'simple'));
+  assert.ok(CANVAS_CAPTION_STYLES.some(s => s.key === 'kinetic'));
+});
+
+test('P0-4 normalizeCanvasSubtitleNodes builds a subtitle node', () => {
+  const sourceNode = { id: 'video_1', kind: 'video', x: 100, y: 200, w: 360, h: 240, group: '素材' };
+  const node = normalizeCanvasSubtitleNodes({
+    caption: {
+      subtitles: [
+        { sceneIndex: 0, startChar: 0, endChar: 4, startTimeMs: 0, endTimeMs: 4000, text: '第一段', style: 'simple' },
+        { sceneIndex: 1, startChar: 4, endChar: 8, startTimeMs: 4000, endTimeMs: 8000, text: '第二段', style: 'simple' },
+      ],
+      subtitleStyle: 'simple',
+      textChars: 8,
+      sceneCount: 2,
+      totalDurationMs: 8000,
+    },
+    sourceNode,
+  });
+  assert.equal(node.kind, 'subtitle');
+  assert.equal(node.status, 'ready');
+  assert.equal(node.captionStyle, 'simple');
+  assert.equal(node.sceneCount, 2);
+  assert.equal(node.firstText, '第一段');
+  assert.equal(node.x, 100 + 360 + 28, 'falls back to the right of the source');
+  assert.equal(node.y, 200 + 240 + 16, 'below the source');
+  assert.ok(node.name.includes('字幕动效'));
+});
+
+test('P0-4 normalizeCanvasSubtitleNodes honors explicit position and rejects empty subtitles', () => {
+  const node = normalizeCanvasSubtitleNodes({
+    caption: { subtitles: [{ sceneIndex: 0, text: '唯一段', style: 'kinetic' }], subtitleStyle: 'kinetic' },
+    sourceNode: { id: 'video_1', kind: 'video' },
+    position: { x: 50, y: 60 },
+  });
+  assert.equal(node.x, 50);
+  assert.equal(node.y, 60);
+  assert.equal(node.captionStyle, 'kinetic');
+  assert.throws(() => normalizeCanvasSubtitleNodes({ caption: { subtitles: [] }, sourceNode: null }), /字幕生成/);
+});

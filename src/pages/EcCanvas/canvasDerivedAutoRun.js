@@ -113,3 +113,60 @@ export function normalizeCanvasAudioNodeFromTts({ tts, sourceNode, position = {}
     billingCost: Number(tts?.costCny) || 0,
   };
 }
+
+/* ── P0-4 字幕动效执行链 ── */
+
+export const CANVAS_CAPTION_STYLES = Object.freeze([
+  { key: 'simple', label: '极简白字' },
+  { key: 'highlight', label: '关键词高亮' },
+  { key: 'kinetic', label: '动态字弹' },
+  { key: 'cinema', label: '电影底栏' },
+  { key: 'reel', label: '短视频竖屏' },
+]);
+
+/* 组装 /api/canvas/caption 请求参数。文本优先取上游 ready 文案, 回退视频 prompt。 */
+export function buildCanvasCaptionRequest({ source, upstream, sceneCount = 3, style = 'simple', durationMs = 8000 } = {}) {
+  const text = String(upstream?.text || '').trim()
+    || String(source?.inputs?.prompt || source?.prompt || '').trim()
+    || '';
+  return {
+    text,
+    scene_count: Math.max(1, Math.min(12, Math.floor(sceneCount) || 3)),
+    style: String(style || 'simple'),
+    duration_ms: Math.max(1000, Math.floor(durationMs) || 8000),
+  };
+}
+
+/* 把 /api/canvas/caption 返回的 caption 结果组装成画布 subtitle 节点数据。 */
+export function normalizeCanvasSubtitleNodes({ caption, sourceNode, position = {}, nodeId, now = Date.now() } = {}) {
+  if (!caption || !Array.isArray(caption.subtitles) || caption.subtitles.length === 0) {
+    throw new Error(caption?.error || '字幕生成未返回有效分段');
+  }
+  const sid = nodeId || `subtitle_${now}`;
+  const first = caption.subtitles[0];
+  const name = `字幕动效 · ${caption.subtitleStyle || 'simple'} · ${caption.subtitles.length}段`;
+  return {
+    id: sid,
+    kind: 'subtitle',
+    provenance: 'derived',
+    status: 'ready',
+    name,
+    displayLabel: name,
+    group: sourceNode?.group || '应用节点',
+    role: '字幕',
+    x: Number.isFinite(position.x) ? position.x : (Number(sourceNode?.x) || 0) + (Number(sourceNode?.w) || 360) + 28,
+    y: Number.isFinite(position.y) ? position.y : (Number(sourceNode?.y) || 0) + (Number(sourceNode?.h) || 240) + 16,
+    w: 280,
+    h: Math.max(60, caption.subtitles.length * 28),
+    sourceNodeIds: sourceNode?.id ? [sourceNode.id] : [],
+    editable: true,
+    showMeta: true,
+    actionId: 'application-caption',
+    captionStyle: caption.subtitleStyle || 'simple',
+    subtitles: caption.subtitles,
+    sceneCount: caption.sceneCount || caption.subtitles.length,
+    textChars: caption.textChars || 0,
+    durationMs: caption.totalDurationMs || 0,
+    firstText: first?.text || '',
+  };
+}

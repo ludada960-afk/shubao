@@ -1615,6 +1615,22 @@ export async function synthesizeCanvasTts({ text, provider = null, voiceId = 'de
   return data.tts;
 }
 
+/* P0-4 画布字幕动效 (9-06): 走 chainService 已有的 /api/canvas/caption, 生成按 sceneCount 等分的字幕配置。
+   返回 { ok, caption: { subtitles, subtitleStyle, textChars, sceneCount, totalDurationMs } }。 */
+export async function synthesizeCanvasCaption({ text, sceneCount = 3, style = 'simple', durationMs = 8000 } = {}) {
+  const bodyText = String(text || '').trim();
+  if (!bodyText) throw new Error('Caption empty text');
+  const res = await fetch(`${API_BASE}/api/canvas/caption`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ text: bodyText, scene_count: sceneCount, style, duration_ms: durationMs }),
+  });
+  if (!res.ok) throw await createApiError(res, '字幕生成失败');
+  const data = await res.json();
+  if (!data?.ok || !data?.caption?.subtitles) throw new Error(data?.error || '字幕生成失败');
+  return data.caption;
+}
+
 export async function saveWork(work, phone, { signal } = {}) {
   if (signal?.aborted) return null;
   const ownerEmail = String(phone || getSessionEmail() || '').trim().toLowerCase();
