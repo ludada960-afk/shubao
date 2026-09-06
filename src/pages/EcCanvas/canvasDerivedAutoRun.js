@@ -68,3 +68,48 @@ export function resolveDerivedVideoPrompt({ nodes, connections, sourceNodeId } =
   const upstream = findUpstreamCanvasCopy({ nodes, connections, nodeId: sourceNodeId });
   return upstream ? upstream.text : '';
 }
+
+/* ── P0-3 TTS 配音执行链 ── */
+
+/* 兜底口播稿: 视频既无上游文案也无 prompt 时, TTS 链仍可完整跑通 (验收: 视频→TTS→可播放音频节点)。 */
+export const CANVAS_TTS_DEFAULT_SCRIPT = '为这条营销视频配一段 15 秒以内的口播旁白，突出商品核心卖点、使用场景与行动号召，语气自然有感染力。';
+
+/* TTS 文本来源优先级: 上游 ready 文案(口播稿正源) > 视频/节点 prompt > 默认口播稿。 */
+export function buildCanvasTtsRequest({ source, upstream } = {}) {
+  const text = String(upstream?.text || '').trim()
+    || String(source?.inputs?.prompt || source?.prompt || '').trim()
+    || CANVAS_TTS_DEFAULT_SCRIPT;
+  return { text, provider: null };
+}
+
+/* 把 /api/tts/synthesize 的 tts 结果组装成画布 audio 节点 (字段约定对齐上传音频节点:
+   kind 'audio' + url 可播 + 264x72 + showMeta)。 */
+export function normalizeCanvasAudioNodeFromTts({ tts, sourceNode, position = {}, nodeId, now = Date.now() } = {}) {
+  const audioUrl = String(tts?.audioUrl || '').trim();
+  if (!audioUrl) {
+    throw new Error(tts?.error || 'TTS 未返回音频地址');
+  }
+  const provider = String(tts?.provider || 'default');
+  const name = `TTS 配音 · ${provider}`;
+  return {
+    id: nodeId || `audio_tts_${now}`,
+    kind: 'audio',
+    provenance: 'derived',
+    status: 'ready',
+    url: audioUrl,
+    name,
+    displayLabel: name,
+    group: sourceNode?.group || '音频',
+    role: '配音',
+    x: Number.isFinite(position.x) ? position.x : (Number(sourceNode?.x) || 0) + (Number(sourceNode?.w) || 360) + 28,
+    y: Number.isFinite(position.y) ? position.y : (Number(sourceNode?.y) || 0),
+    w: 264,
+    h: 72,
+    sourceNodeIds: sourceNode?.id ? [sourceNode.id] : [],
+    editable: true,
+    showMeta: true,
+    durationMs: Number(tts?.durationMs) || null,
+    ttsProvider: provider,
+    billingCost: Number(tts?.costCny) || 0,
+  };
+}

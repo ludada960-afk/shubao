@@ -136,13 +136,42 @@ export function computeTTSCostSnapshot({
   });
 }
 
+/* P0-3 (9-06): mock 音频必须是浏览器 <audio> 真正可播的地址。
+   旧 '/mock/tts-*.mp3' 在服务端没有对应路由, 必然 404, 音频节点永远播不出声。
+   改为现场生成 0.6s 静音 WAV 的 data URI: 零新路由、不碰计费, 真实 provider
+   接入时整个 adapter 被替换, 此函数自然退役。 */
+export function mockTtsAudioDataUrl(seedText = 'shubao') {
+  const sampleRate = 8000;
+  const seconds = 0.6;
+  const samples = Math.round(sampleRate * seconds);
+  const dataSize = samples * 2; // 16-bit mono
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0, 'ascii');
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8, 'ascii');
+  buffer.write('fmt ', 12, 'ascii');
+  buffer.writeUInt32LE(16, 16); // PCM chunk size
+  buffer.writeUInt16LE(1, 20); // PCM
+  buffer.writeUInt16LE(1, 22); // mono
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28); // byte rate
+  buffer.writeUInt16LE(2, 32); // block align
+  buffer.writeUInt16LE(16, 34); // bits per sample
+  buffer.write('data', 36, 'ascii');
+  buffer.writeUInt32LE(dataSize, 40);
+  // 静音 (全 0) 即可; seed 只影响 data 尾部一个采样, 避免每次 URL 完全相同
+  const seed = Buffer.from(String(seedText), 'utf8')[0] || 0;
+  buffer.writeInt16LE(seed * 7 % 251, 44 + dataSize - 2);
+  return 'data:audio/wav;base64,' + buffer.toString('base64');
+}
+
 async function callVolcengineTTS({ apiKey, apiSecret, text, voiceId, lang, speed }) {
   return {
     provider: 'volcengine',
     voiceId,
     text,
     mockAudio: true,
-    audioUrl: '/mock/tts-volc-' + Date.now() + '.mp3',
+    audioUrl: mockTtsAudioDataUrl('volc-' + text.length),
   };
 }
 async function callElevenLabsTTS({ apiKey, text, voiceId, lang, speed }) {
@@ -151,7 +180,7 @@ async function callElevenLabsTTS({ apiKey, text, voiceId, lang, speed }) {
     voiceId,
     text,
     mockAudio: true,
-    audioUrl: '/mock/tts-11l-' + Date.now() + '.mp3',
+    audioUrl: mockTtsAudioDataUrl('11l-' + text.length),
   };
 }
 async function callAliyunTTS({ apiKey, apiSecret, text, voiceId, lang, speed }) {
@@ -160,7 +189,7 @@ async function callAliyunTTS({ apiKey, apiSecret, text, voiceId, lang, speed }) 
     voiceId,
     text,
     mockAudio: true,
-    audioUrl: '/mock/tts-ali-' + Date.now() + '.mp3',
+    audioUrl: mockTtsAudioDataUrl('ali-' + text.length),
   };
 }
 async function callAzureTTS({ apiKey, region, text, voiceId, lang, speed }) {
@@ -169,7 +198,7 @@ async function callAzureTTS({ apiKey, region, text, voiceId, lang, speed }) {
     voiceId,
     text,
     mockAudio: true,
-    audioUrl: '/mock/tts-azure-' + Date.now() + '.mp3',
+    audioUrl: mockTtsAudioDataUrl('azure-' + text.length),
   };
 }
 async function callMiniMaxTTS({ apiKey, text, voiceId, lang, speed }) {
@@ -178,7 +207,7 @@ async function callMiniMaxTTS({ apiKey, text, voiceId, lang, speed }) {
     voiceId,
     text,
     mockAudio: true,
-    audioUrl: '/mock/tts-mmx-' + Date.now() + '.mp3',
+    audioUrl: mockTtsAudioDataUrl('mmx-' + text.length),
   };
 }
 

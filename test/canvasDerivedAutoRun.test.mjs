@@ -130,3 +130,58 @@ test('P0-2 resolveDerivedVideoPrompt fills the video composer from upstream copy
   assert.equal(resolveDerivedVideoPrompt({ nodes, connections, sourceNodeId: 'video_1' }), '轻若无感 透气一整天');
   assert.equal(resolveDerivedVideoPrompt({ nodes, connections: [], sourceNodeId: 'video_1' }), '');
 });
+
+/* ── P0-3 TTS 配音执行链 ── */
+import {
+  CANVAS_TTS_DEFAULT_SCRIPT,
+  buildCanvasTtsRequest,
+  normalizeCanvasAudioNodeFromTts,
+} from '../src/pages/EcCanvas/canvasDerivedAutoRun.js';
+
+test('P0-3 buildCanvasTtsRequest prefers upstream copy over the video prompt', () => {
+  const source = { id: 'video_1', kind: 'video', inputs: { prompt: '画面里有海' } };
+  assert.deepEqual(
+    buildCanvasTtsRequest({ source, upstream: { nodeId: 'copy_1', text: '正式口播稿' } }),
+    { text: '正式口播稿', provider: null },
+  );
+  assert.deepEqual(
+    buildCanvasTtsRequest({ source, upstream: null }),
+    { text: '画面里有海', provider: null },
+    '没有上游文案时回退到视频 prompt',
+  );
+});
+
+test('P0-3 buildCanvasTtsRequest falls back to a default script so the chain always runs', () => {
+  const request = buildCanvasTtsRequest({ source: { id: 'video_1', kind: 'video' }, upstream: null });
+  assert.equal(request.text, CANVAS_TTS_DEFAULT_SCRIPT);
+  assert.ok(request.text.length > 10);
+});
+
+test('P0-3 normalizeCanvasAudioNodeFromTts builds a playable audio node', () => {
+  const sourceNode = { id: 'video_1', kind: 'video', x: 100, y: 200, w: 360, group: '素材' };
+  const node = normalizeCanvasAudioNodeFromTts({
+    tts: { audioUrl: 'data:audio/wav;base64,UklGR', provider: 'volcengine', durationMs: 3200, costCny: 0.01 },
+    sourceNode,
+  });
+  assert.equal(node.kind, 'audio');
+  assert.equal(node.status, 'ready');
+  assert.equal(node.url, 'data:audio/wav;base64,UklGR');
+  assert.equal(node.sourceNodeIds[0], 'video_1');
+  assert.equal(node.w, 264);
+  assert.equal(node.h, 72);
+  assert.equal(node.x, 100 + 360 + 28, 'falls back to the right of the source');
+  assert.equal(node.y, 200);
+  assert.equal(node.ttsProvider, 'volcengine');
+  assert.ok(node.name.includes('volcengine'));
+});
+
+test('P0-3 normalizeCanvasAudioNodeFromTts honors explicit position and rejects empty audio', () => {
+  const node = normalizeCanvasAudioNodeFromTts({
+    tts: { audioUrl: 'data:audio/wav;base64,UklGR', provider: 'mock' },
+    sourceNode: { id: 'video_1', kind: 'video' },
+    position: { x: 12, y: 34 },
+  });
+  assert.equal(node.x, 12);
+  assert.equal(node.y, 34);
+  assert.throws(() => normalizeCanvasAudioNodeFromTts({ tts: {}, sourceNode: null }), /音频地址/);
+});

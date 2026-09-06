@@ -1599,6 +1599,22 @@ export async function regenerateCanvasText({ prompt, referenceImages = [], refer
   return data;
 }
 
+/* P0-3 画布 TTS 配音 (9-06): 走 ttsBridge 已有的 /api/tts/synthesize (计费/换 provider 都在服务端),
+   返回 { ok, tts: { provider, audioUrl, durationMs, costCny, ... } }。 */
+export async function synthesizeCanvasTts({ text, provider = null, voiceId = 'default', lang = 'zh-CN', speed = 1.0 } = {}) {
+  const bodyText = String(text || '').trim();
+  if (!bodyText) throw new Error('TTS empty text');
+  const res = await fetch(`${API_BASE}/api/tts/synthesize`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ text: bodyText, provider: provider || undefined, voiceId, lang, speed }),
+  });
+  if (!res.ok) throw await createApiError(res, '配音合成失败');
+  const data = await res.json();
+  if (!data?.ok || !String(data?.tts?.audioUrl || '').trim()) throw new Error(data?.error || '配音合成失败');
+  return data.tts;
+}
+
 export async function saveWork(work, phone, { signal } = {}) {
   if (signal?.aborted) return null;
   const ownerEmail = String(phone || getSessionEmail() || '').trim().toLowerCase();

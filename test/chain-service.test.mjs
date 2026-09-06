@@ -164,7 +164,8 @@ test('deriveVideos 空 keyframes 抛错', async () => {
 test('deriveAudio 默认火山 (5 provider 轮换) 出 mock audioUrl + costSnapshot', async () => {
   const script = deriveScript({ prompt: '夏日海边咖啡', sceneCount: 3 });
   const result = await deriveAudio({ script });
-  assert.ok(result.tts.audioUrl.startsWith('/mock/tts-'));
+  /* 9-06 P0-3: mock audio 改为可播的静音 WAV data URI (旧 /mock/ 路径无路由必 404) */
+  assert.ok(result.tts.audioUrl.startsWith('data:audio/wav;base64,'));
   assert.ok(result.tts.costSnapshot, 'ttsBridge 应返回 costSnapshot');
   assert.ok(result.tts.costSnapshot.actualCostCny >= 0);
   assert.equal(result.subtitleStyle, 'simple');
@@ -179,7 +180,7 @@ test('deriveAudio 指定 provider=elevenlabs 真实切换', async () => {
   const script = deriveScript({ prompt: 'test', sceneCount: 2 });
   const result = await deriveAudio({ script, provider: 'elevenlabs', lang: 'en-US' });
   assert.equal(result.tts.provider, 'elevenlabs');
-  assert.equal(result.tts.audioUrl.startsWith('/mock/tts-11l-'), true);
+  assert.equal(result.tts.audioUrl.startsWith('data:audio/wav;base64,'), true);
 });
 
 test('deriveAudio 字幕风格非法抛错 (status 400)', async () => {
