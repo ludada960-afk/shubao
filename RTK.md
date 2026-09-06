@@ -686,3 +686,39 @@ Bug 3 — 右面板+工具条被画布平移/缩放时的 overflow:clip 截断:
 ### 坑（新增）
 - **node -e 内联正则会被 PowerShell/工具层转义串台**（`\\.` 变 `\\\\.` 等），复杂匹配一律写成 .cjs 脚本文件再 node 跑；cwd 也可能不在项目目录（node -e 里用相对路径前先确认 pwd）。
 - scp 269MB tar 约 1-3 分钟，属正常耗时，别当卡死重试。
+
+## 14. 9-06 会话结：P0-3 TTS 部署上线 & 推送完成
+
+### 结论
+P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0-1/P0-2/P0-3 修复。
+提交 `06812be7` 已推送 origin/codex/ecommerce-stability（origin 之前落后一个 commit 87f1ae65 至 P0-1/P0-2）。
+
+### 验证（node fetch + sha256，curl 对大文件截断问题已规避）
+- **主 entry** `index-B1xUZ1au.js`：本地 499178B `ad2991ec7afa7e937d9` = 线上，完全一致
+- **EcCanvas 懒加载 chunk** `index-BYua88Dj.js`：本地 402483B `0225b113d971c6b5` = 线上，完全一致
+  - 内容标记命中：TTS 配音:Y，新建文本:Y，6400:Y，编辑文字:Y，upload image:Y，小地图:Y
+- npm test 2919/2919 全绿 ✅
+
+### P0-3 交付内容
+- `canvasDerivedAutoRun.js` 新增 P0-3 函数：CANVAS_TTS_DEFAULT_SCRIPT / buildCanvasTtsRequest（优先上游 ready 文案 > 视频 prompt > 默认口播稿）/ normalizeCanvasAudioNodeFromTts（组装可播放 audio 节点）
+- index.jsx 新 handleDerivedTtsGeneration：视频派生 TTS 点完即创建 audio 节点 + 自动调用 synthesizeCanvasTts，成功后原生 `<audio>` 可播放
+- chainService 单步 audio 已接入；ttsBridge mockTtsAudioDataUrl 返回真实 WAV data URI
+- test/canvasDerivedAutoRun.test.mjs 新增 3 例 P0-3 测试（请求优先级 / 默认回退 / 音频节点组装 + 位置 honoring + 空 audio 拒绝）
+
+### 部署日志
+- node_modules/.cache + dist 清理 → npm run build → tar → scp → .tmp-deploy-remote2.sh → pm2 restart（online）
+- 推送：`git -c http.proxy=http://127.0.0.1:7993 push origin codex/ecommerce-stability` ✅ `87f1ae65..06812be7`
+
+### 工作树清理
+- 622 个 untracked .tmp-* 文件全部为历史会话杂物，未影响任何提交
+- tracked 改动清零 ✅
+
+### 当前优先级队列（P0 全部落地）
+1. ✅ P0-1 派生即执行（c64ee737, live）
+2. ✅ P0-2 视频 prompt 上游引用（c64ee737, live）
+3. ✅ P0-3 TTS 配音执行链（06812be7, live）
+4. P0-4 字幕动效（视频→字幕→烧入 caption API）
+5. P0-5 placeDerivedRightOfSources 全路径确认
+6. P1.6 画布水印面板（唯一未实现功能）
+7. P1.5 邀请码/兑换卡后端 + 管理后台、微信 OAuth
+8. 支付 API 接入
