@@ -238,9 +238,15 @@
 .ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-bring { animation: ecGlyphBob 1.2s var(--ec-ease-out) infinite; }
 .ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-magic { animation: ecGlyphTwinkle 900ms var(--ec-ease-out) infinite; }
 .ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-pull { animation: ecGlyphPull 1s var(--ec-ease-out) infinite; }
+.ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-write { animation: ecGlyphWrite 700ms var(--ec-ease-out) infinite; }
+.ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-cinema { animation: ecGlyphCinema 800ms var(--ec-ease-out) infinite; }
+.ec-canvas-empty-actions button:hover:not(:disabled) .ec-glyph-voice { animation: ecGlyphVoice 600ms var(--ec-ease-out) infinite; }
 @keyframes ecGlyphBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes ecGlyphTwinkle { 0%, 100% { transform: rotate(0deg) scale(1); } 40% { transform: rotate(-8deg) scale(1.12); } 70% { transform: rotate(6deg) scale(1.04); } }
 @keyframes ecGlyphPull { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-2px); } }
+@keyframes ecGlyphWrite { 0%, 100% { transform: rotate(0deg) translateY(0); } 25% { transform: rotate(-5deg) translateY(-1px); } 75% { transform: rotate(3deg) translateY(1px); } }
+@keyframes ecGlyphCinema { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-3deg) translateY(-2px); } }
+@keyframes ecGlyphVoice { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1) translateY(-1px); } }
 .ec-canvas-page .ec-canvas-command:hover svg[class*='lucide-plus'] { transform: rotate(90deg); }
 .ec-canvas-page .ec-canvas-command:hover svg[class*='lucide-refresh-cw'] { transform: rotate(-45deg); }
 .ec-canvas-selection-bar button:hover svg[class*='lucide-download'],

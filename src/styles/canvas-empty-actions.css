@@ -5,18 +5,36 @@
    用户 8-29 硬性要求: 5 原有 + 3 新增 = 8 个按钮, 不写内部术语 (流影AI / TapNow 等)
    毛玻璃 backdrop-filter, 暗色模式 token 化, 响应式 (移动单列) */
 
-/* 整体面板 — 比 v2 760px 窄, 用户 8-29 硬性要求 "不能搞得这么宽" */
+/* 整体面板 — 比 v2 760px 窄, 用户 8-29 硬性要求 "不能搞得这么宽"
+   9-07 改进: 毛玻璃面板比内容区域大得多 (四周各留 40px+ 呼吸空间),
+   边缘自然过渡到画布背景, 不再贴边可见。 */
 .ec-canvas-empty-state > div {
   width: min(640px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
-  border-radius: 20px;
-  box-shadow: 0 8px 32px -12px rgba(15, 23, 42, 0.12);
+  border-radius: 24px;
+  box-shadow: 0 12px 48px -16px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
+  padding: 56px 48px 52px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  position: relative;
+}
+/* 柔和边缘过渡 — 让毛玻璃边缘自然消融到画布背景, 不再出现硬边 */
+.ec-canvas-empty-state > div::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 26px;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(15, 23, 42, 0.025) 100%);
+  pointer-events: none;
+  z-index: -1;
 }
 @media (max-width: 720px) {
-  .ec-canvas-empty-state > div { width: min(560px, calc(100vw - 24px)); }
+  .ec-canvas-empty-state > div { width: min(560px, calc(100vw - 24px)); padding: 44px 32px 40px; }
 }
 @media (max-width: 540px) {
-  .ec-canvas-empty-state > div { width: calc(100vw - 24px); padding: 22px 16px 20px; }
+  .ec-canvas-empty-state > div { width: calc(100vw - 24px); padding: 36px 20px 32px; border-radius: 20px; }
 }
 
 /* 标题 + 副标 (无内部术语, 用户 8-29 硬性要求 "你为什么要告诉用户这个呢?") */
@@ -205,6 +223,14 @@
 }
 
 /* 暗色模式 token 化 */
+[data-theme="dark"] .ec-canvas-empty-state > div {
+  background: rgba(28, 26, 24, 0.78);
+  border-color: rgba(245, 239, 228, 0.12);
+  box-shadow: 0 12px 48px -16px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .ec-canvas-empty-state > div::after {
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.15) 100%);
+}
 [data-theme="dark"] .ec-canvas-empty-actions button {
   background: rgba(28, 26, 24, .75);
   color: var(--text-primary, #f5efe4);

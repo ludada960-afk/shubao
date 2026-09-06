@@ -1,24 +1,26 @@
 import React from 'react';
-import { Captions, FileVideo, Film, FolderInput, ImagePlay, ImageUp, Mic, WandSparkles } from 'lucide-react';
+import { Captions, Clapperboard, FileVideo, Film, FolderInput, ImagePlay, ImageUp, Mic, MicVocal, Pencil, WandSparkles } from 'lucide-react';
 
-/* Hero glyph set v6 — 4c183cd4 续命 画布中央深度重构 v2 (5+4=9 个动作)
-   5 原有 (image / video / works / suite / film, 用户硬性要求保留)
-   + 4 新增 (流影AI LibTV 风格, 用户硬性指定):
-     1-click 套图 (oneclick, Grid2X2 在右面板, Film 在中央) / 1-click 视频模板 (oneclick) /
-     TTS 配音 (voiceover) / 字幕动效 (captions)
-   沿用 v4 的 split motion channel 设计 — 解决 hover-off 重新触发入场动画的 bug. */
+/* Hero glyph set v7 — 9-07 空态按钮个性化图标修复 + 4 个 AI 生成入口独特视觉
+   原来 text/sparkles/clapperboard/mic 四个 kind 在 FAMILY 中不存在 → 全部 fallback 到 image 图标 (Bug)。
+   现在每个动词都有独立图标 + 独立动效 channel, 符合资深美工/产品经理视角的差异化设计。 */
 
 const FAMILY = {
-  /* 5 原有 (用户硬性要求保留) */
+  /* 添加素材行 (实体感: 带入感 bob) */
   image: { Icon: ImageUp, cls: 'ec-glyph-bring' },
   video: { Icon: FileVideo, cls: 'ec-glyph-bring' },
   works: { Icon: FolderInput, cls: 'ec-glyph-pull' },
+  /* AI 生成行 (每个独特图标 + 独特动效) */
+  text: { Icon: Pencil, cls: 'ec-glyph-write' },          /* 新建文本: 铅笔 (书写感) */
+  sparkles: { Icon: WandSparkles, cls: 'ec-glyph-magic' }, /* 生成图片: 魔棒火花 (AI 魔法) */
+  clapperboard: { Icon: Clapperboard, cls: 'ec-glyph-cinema' }, /* 生成视频: 场记板 (电影感) */
+  mic: { Icon: MicVocal, cls: 'ec-glyph-voice' },         /* 添加音频: 收音麦克风 (声音感) */
+  /* 保留 (右面板 / 1-click) */
   suite: { Icon: WandSparkles, cls: 'ec-glyph-magic' },
   film: { Icon: ImagePlay, cls: 'ec-glyph-magic' },
-  /* 4 新增 (流影AI LibTV 风格, 用户硬性指定 1-click 套图 / 1-click 视频模板 / TTS 配音 / 字幕动效) */
-  oneclick: { Icon: Film, cls: 'ec-glyph-oneclick' },        /* 1-click 套图 / 1-click 视频模板: 胶片 */
-  voiceover: { Icon: Mic, cls: 'ec-glyph-voiceover' },         /* TTS 配音: 麦克风 */
-  captions: { Icon: Captions, cls: 'ec-glyph-storyboard' },    /* 字幕动效: 字幕 */
+  oneclick: { Icon: Film, cls: 'ec-glyph-oneclick' },
+  voiceover: { Icon: Mic, cls: 'ec-glyph-voiceover' },
+  captions: { Icon: Captions, cls: 'ec-glyph-storyboard' },
 };
 
 export function HeroGlyph({ kind }) {
