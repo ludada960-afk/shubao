@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+
 import { CharImg } from '../ui/index';
 import { IMAGES } from '../../constants/images';
 
 /**
- * 登录卡片外壳 (2026-09-08 极简重构)
- * 用户批注：不要左侧品牌信息堆叠，只保留必要信息点 + 少量视觉元素，做成极简单卡片。
+ * 登录卡片外壳 (2026-09-08 v3 · 高级场景版)
+ * 暖米背景 + 细点阵 + 四角柔光，墨色卡片分层阴影，Fredoka 品牌字。
  * 无障碍：role=dialog + aria-modal + 焦点陷阱 + Esc 关闭 + 背景滚动锁。
  */
 export default function LoginDialog({ onClose, labelledBy, children }) {
@@ -45,6 +46,14 @@ export default function LoginDialog({ onClose, labelledBy, children }) {
         <div className="ld-brandline">
           <span className="ld-logo-mark"><CharImg src={IMAGES.wave} size={26} /></span>
           <strong>薯包 AI</strong>
+        </div>
+        {/* 顶行：品牌 wordmark（左）· 返回首页（右），像一页真正的站 */}
+        <div className="ld-topbar">
+          <div className="ld-brand">
+            <span className="ld-brandmark"><CharImg src={IMAGES.wave} size={24} /></span>
+            <span className="ld-brandname">薯包 AI</span>
+          </div>
+          <a href="/" className="ld-back">返回首页</a>
         </div>
         {children}
       </div>
