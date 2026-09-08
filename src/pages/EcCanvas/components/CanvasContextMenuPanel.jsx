@@ -339,14 +339,24 @@ export function CanvasMinimap({
   // 世界 → 小地图比例 (支持负坐标世界: offsetX/offsetY 为世界原点在小地图外的偏移)
   const offsetX = Number.isFinite(worldBounds.offsetX) ? worldBounds.offsetX : 0;
   const offsetY = Number.isFinite(worldBounds.offsetY) ? worldBounds.offsetY : 0;
-  const scaleX = minimapWidth / Math.max(1, worldBounds.width);
-  const scaleY = minimapHeight / Math.max(1, worldBounds.height);
+  // 小地图内容区扣除外框与标题栏占用，所有映射都使用同一坐标系。
+  // 不能使用浏览器窗口尺寸或外层 minimap 尺寸，否则右下角会越界。
+  const canvasWidth = Math.max(1, minimapWidth - 16);
+  const canvasHeight = Math.max(1, minimapHeight - 30);
+  const scaleX = canvasWidth / Math.max(1, worldBounds.width);
+  const scaleY = canvasHeight / Math.max(1, worldBounds.height);
 
+  const rawVisibleRect = {
+    x: (-viewport.x / Math.max(0.01, viewport.scale) - offsetX) * scaleX,
+    y: (-viewport.y / Math.max(0.01, viewport.scale) - offsetY) * scaleY,
+    w: (globalThis.innerWidth || 1440) / Math.max(0.01, viewport.scale) * scaleX,
+    h: (globalThis.innerHeight || 900) / Math.max(0.01, viewport.scale) * scaleY,
+  };
   const visibleRect = {
-    x: (-viewport.x / viewport.scale - offsetX) * scaleX,
-    y: (-viewport.y / viewport.scale - offsetY) * scaleY,
-    w: (globalThis.innerWidth || 1440) / viewport.scale * scaleX,
-    h: (globalThis.innerHeight || 900) / viewport.scale * scaleY,
+    w: Math.min(canvasWidth, Math.max(2, rawVisibleRect.w)),
+    h: Math.min(canvasHeight, Math.max(2, rawVisibleRect.h)),
+    x: Math.min(canvasWidth - Math.min(canvasWidth, Math.max(2, rawVisibleRect.w)), Math.max(0, rawVisibleRect.x)),
+    y: Math.min(canvasHeight - Math.min(canvasHeight, Math.max(2, rawVisibleRect.h)), Math.max(0, rawVisibleRect.y)),
   };
 
   function handlePointerDown(event) {
@@ -397,11 +407,11 @@ export function CanvasMinimap({
       <div
         ref={ref}
         className="ec-canvas-minimap-canvas"
-        style={{ width: minimapWidth - 8, height: minimapHeight - 36 }}
+        style={{ width: canvasWidth, height: canvasHeight }}
         onPointerDown={handlePointerDown}
       >
         {/* 连线简化渲染 */}
-        <svg viewBox={`0 0 ${minimapWidth} ${minimapHeight}`} width={minimapWidth - 8} height={minimapHeight - 36}>
+        <svg viewBox={`0 0 ${canvasWidth} ${canvasHeight}`} width={canvasWidth} height={canvasHeight}>
           {connections.map((conn, i) => {
             const from = nodes.find(n => n.id === (conn.fromNodeId || conn.from));
             const to = nodes.find(n => n.id === (conn.toNodeId || conn.to));
@@ -438,8 +448,8 @@ export function CanvasMinimap({
           style={{
             left: Math.max(0, visibleRect.x),
             top: Math.max(0, visibleRect.y),
-            width: Math.min(minimapWidth - 8, visibleRect.w),
-            height: Math.min(minimapHeight - 36, visibleRect.h),
+            width: visibleRect.w,
+            height: visibleRect.h,
           }}
         />
       </div>

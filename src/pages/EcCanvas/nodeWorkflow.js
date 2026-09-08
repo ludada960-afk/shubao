@@ -121,7 +121,7 @@ export function normalizeCanvasConnection(input = {}) {
   };
 }
 
-export function createDerivedNode({ sourceNodeIds = [], actionId, x = 0, y = 0, inputs = {}, id } = {}) {
+export function createDerivedNode({ sourceNodeIds = [], actionId, x = 0, y = 0, inputs = {}, id, imageWatermark, videoWatermark } = {}) {
   const action = getActionById(actionId);
   if (!action) throw new Error(`Unknown canvas action: ${actionId}`);
   const size = ACTION_SIZES[action.execute.nodeKind] || ACTION_SIZES['remove-bg'];
@@ -139,6 +139,8 @@ export function createDerivedNode({ sourceNodeIds = [], actionId, x = 0, y = 0, 
     h: size.h,
     title: action.label,
     description: action.description,
+    ...(imageWatermark ? { imageWatermark: structuredClone(imageWatermark) } : {}),
+    ...(videoWatermark ? { videoWatermark: structuredClone(videoWatermark) } : {}),
   });
 }
 

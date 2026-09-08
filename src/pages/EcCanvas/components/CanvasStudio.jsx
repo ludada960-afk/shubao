@@ -1,5 +1,6 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
+import { buildImageWatermarkTiles, buildVideoWatermarkTiles, normalizeImageWatermark, normalizeVideoWatermark } from '../canvasWatermarkModel.js';
 import {
   AlignCenter,
   AlignLeft,
@@ -546,7 +547,7 @@ function layerCompositeOrder(layer = {}) {
   return 2;
 }
 
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight }) {
+export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -622,7 +623,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
         syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
-    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame"><video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
@@ -636,6 +637,8 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       {node.mediaPlaybackError && <small className="is-error">{node.mediaPlaybackError}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}
+    {isVideo && <MaterialWatermarkOverlay kind="video" watermark={node.videoWatermark || videoWatermark} width={node.w || 1} height={node.h || 1} />}
+    {isImage && <MaterialWatermarkOverlay kind="image" watermark={node.imageWatermark || imageWatermark} width={node.w || 1} height={node.h || 1} />}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
@@ -1232,8 +1235,39 @@ function ResizeHandles({ visible, onResizeStart }) {
   />);
 }
 
+function MaterialWatermarkOverlay({ kind, watermark, width = 1, height = 1 }) {
+  const config = useMemo(() => kind === 'video' ? normalizeVideoWatermark(watermark) : normalizeImageWatermark(watermark), [kind, watermark]);
+  const tiles = useMemo(() => kind === 'video'
+    ? buildVideoWatermarkTiles(config, { width, height })
+    : buildImageWatermarkTiles(config, { width, height }), [config, kind, width, height]);
+  if (!config.enabled || !tiles.length) return null;
+  const isLogo = config.type === 'logo' && config.logoUrl;
+  const isDynamic = kind === 'video' && config.type === 'dynamic';
+  const text = isDynamic ? config.dynamic.text : config.text;
+  return <div className={`ec-material-watermark-overlay is-${kind}`} aria-label={`${kind === 'video' ? '视频' : '图片'}水印预览`}>
+    {tiles.map(tile => <span
+      key={tile.id}
+      className={`ec-material-watermark-tile ${isDynamic ? `is-${config.dynamic.mode}` : ''}`}
+      style={{
+        left: `${(tile.x / Math.max(1, width)) * 100}%`,
+        top: `${(tile.y / Math.max(1, height)) * 100}%`,
+        color: config.color,
+        opacity: isLogo ? config.logoOpacity : config.opacity,
+        fontFamily: config.fontFamily,
+        fontSize: `${Math.max(8, config.fontSize)}px`,
+        fontWeight: config.fontWeight,
+        transform: `rotate(${config.rotation}deg)`,
+        animationDuration: isDynamic ? `${Math.max(0.2, 8 / config.dynamic.speed)}s` : undefined,
+      }}
+    >{isLogo ? <img src={config.logoUrl} alt="" draggable="false" style={{ width: `${Math.max(0.1, config.logoScale) * 48}px`, maxWidth: 'none' }} /> : text}</span>)}
+  </div>;
+}
+
+export { MaterialWatermarkOverlay };
+
 export function CanvasImageNode({
   node,
+  imageWatermark,
   selected = false,
   hovered = false,
   focusActive = false,
@@ -1275,6 +1309,7 @@ export function CanvasImageNode({
           if (naturalWidth > 0 && naturalHeight > 0) onNaturalSize?.(node.id, { naturalWidth, naturalHeight });
         }}
       />
+      <MaterialWatermarkOverlay kind="image" watermark={node.imageWatermark || imageWatermark} width={node.w || 1} height={node.h || 1} />
     </div>
     {node.showMeta !== false && <footer>
       <strong>{node.name || node.displayLabel || '未命名图片'}</strong>

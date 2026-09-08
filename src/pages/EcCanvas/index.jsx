@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Trash2, Type, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2, Type, Video, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -33,6 +33,8 @@ import {
 } from './nodeWorkflow';
 import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
 import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
+import { ImageWatermarkPanel, VideoWatermarkPanel } from './components/WatermarkPanel.jsx';
+import { DEFAULT_IMAGE_WATERMARK, DEFAULT_VIDEO_WATERMARK } from './canvasWatermarkModel.js';
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import {
   CanvasAddMenu,
@@ -619,7 +621,26 @@ export default function EcCanvas() {
   const [taskLogOpen, setTaskLogOpen] = useState(false);
   const [taskLogEntries, setTaskLogEntries] = useState([]);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-  const [minimapOpen, setMinimapOpen] = useState(true); // 9-02 小地图可关闭 (默认开)
+const [minimapOpen, setMinimapOpen] = useState(true);
+	// 9-08 素材水印系统：图片/视频分离，面板从左侧弹出
+	const [imageWatermark, setImageWatermark] = useState(DEFAULT_IMAGE_WATERMARK);
+	const [videoWatermark, setVideoWatermark] = useState(DEFAULT_VIDEO_WATERMARK);
+	const [imageWatermarkOpen, setImageWatermarkOpen] = useState(false);
+  const [videoWatermarkOpen, setVideoWatermarkOpen] = useState(false);
+  const handleImageWatermarkChange = useCallback((next) => {
+    setImageWatermark(next);
+    setNodes(previous => previous.map(node => node.id === selected && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind)
+      ? { ...node, imageWatermark: next }
+      : node));
+  }, [selected]);
+  const handleVideoWatermarkChange = useCallback((next) => {
+    setVideoWatermark(next);
+    setNodes(previous => previous.map(node => node.id === selected && ['video', 'video-composer'].includes(node.kind)
+      ? { ...node, videoWatermark: next }
+      : node));
+  }, [selected]);
+	const [minimapHover, setMinimapHover] = useState(false);
+	const [watermarkHover, setWatermarkHover] = useState(false); // 9-02 小地图可关闭 (默认开)
   /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
      固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
@@ -719,7 +740,10 @@ export default function EcCanvas() {
   const resultMediaAssets = collectCanvasMediaAssets(result);
   const hasCurrent = imageList.length > 0 || Boolean(resultVideoUrl) || resultMediaAssets.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+  /* 9-08 事故修复: 水印改动误删了 selectedNode 定义, 但下方 20+ 处仍在引用它 → 渲染期 ReferenceError 整页白屏 ("画布打不开") */
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+  const selectedImageWatermark = selectedNode?.imageWatermark || imageWatermark;
+  const selectedVideoWatermark = selectedNode?.videoWatermark || videoWatermark;
   const exportScope = selectDeliverableNodes(nodes, exportSelectionIds);
   const orderedDetailNodes = (detailOrderIds.length
     ? detailOrderIds.map(id => exportScope.deliverables.find(node => node.id === id)).filter(Boolean)
@@ -2226,6 +2250,8 @@ const handlePointerUp = useCallback((e) => {
       actionId: actionSpec.id,
       x: Math.max(16, world?.x ?? source.x + source.w + GAP * 2),
       y: Math.max(16, world?.y ?? source.y),
+      imageWatermark: source.imageWatermark || (['image', 'output', 'image-composer', 'layer-group'].includes(source.kind) ? imageWatermark : undefined),
+      videoWatermark: source.videoWatermark || (['video', 'video-composer'].includes(source.kind) ? videoWatermark : undefined),
       inputs: {
         sourceNodeId: source.id,
         sourceUrl,
@@ -5046,7 +5072,7 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       setCanvasSessionBusy(false);
     }
-  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
+  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
   useEffect(() => { handleCanvasSessionSaveRef.current = handleCanvasSessionSave; }, [handleCanvasSessionSave]);
 
   const handleCanvasSessionRestore = useCallback(async () => {
@@ -5243,18 +5269,52 @@ const handlePointerUp = useCallback((e) => {
             onToggleLock={handleLayerLockToggle}
             onClose={() => setLayersPanelOpen(false)}
           />
+          {/* P1.6 画布控制按钮组: 小地图 + 图片水印 + 视频水印，塞进缩放条 trailing 槽，与缩放按钮同排统一设计
+              (修复 9-08: 按钮组独立 absolute 定位被缩放条 z-index:58 盖住 → 关地图后更看不见) */}
           <CanvasZoomControls
             scale={viewport.scale}
             onZoomOut={() => zoomTo(viewport.scale * 0.8)}
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
-            trailing={!minimapOpen ? <button
-              type="button"
-              className="ec-canvas-minimap-reopen"
-              aria-label="打开小地图"
-              title="打开小地图"
-              onClick={() => setMinimapOpen(true)}
-            ><MapIcon size={15} /></button> : null}
+            trailing={<>
+              <button
+                type="button"
+                className={`ec-canvas-icon-button ${minimapOpen ? 'is-active' : ''}`}
+                aria-label="小地图"
+                title="小地图"
+                aria-pressed={minimapOpen || undefined}
+                onClick={() => setMinimapOpen(!minimapOpen)}
+              ><MapIcon size={15} /></button>
+              <button
+                type="button"
+                className={`ec-canvas-icon-button ${imageWatermarkOpen ? 'is-active' : ''}`}
+                aria-label="图片水印"
+                title="图片水印"
+                aria-pressed={imageWatermarkOpen || undefined}
+                onClick={() => setImageWatermarkOpen(!imageWatermarkOpen)}
+              ><Image size={15} /></button>
+              <button
+                type="button"
+                className={`ec-canvas-icon-button ${videoWatermarkOpen ? 'is-active' : ''}`}
+                aria-label="视频水印"
+                title="视频水印"
+                aria-pressed={videoWatermarkOpen || undefined}
+                onClick={() => setVideoWatermarkOpen(!videoWatermarkOpen)}
+              ><Video size={15} /></button>
+            </>}
+          />
+          {/* P1.6 素材水印面板：图片/视频分离，面板从左侧弹出（按钮在缩放条 trailing 槽） */}
+          <ImageWatermarkPanel
+            open={imageWatermarkOpen && tab === 'canvas'}
+            watermark={selectedImageWatermark}
+            onChange={handleImageWatermarkChange}
+            onClose={() => setImageWatermarkOpen(false)}
+          />
+          <VideoWatermarkPanel
+            open={videoWatermarkOpen && tab === 'canvas'}
+            watermark={selectedVideoWatermark}
+            onChange={handleVideoWatermarkChange}
+            onClose={() => setVideoWatermarkOpen(false)}
           />
           {!nodes.length && (
             <div className="ec-canvas-empty-state">
@@ -5335,6 +5395,8 @@ const handlePointerUp = useCallback((e) => {
                   key={node.id}
                   node={node}
                   layerChildren={nodes.filter(child => child.parentLayerGroupId === node.id)}
+                  imageWatermark={node.imageWatermark || (node.id === selected ? imageWatermark : null)}
+                  videoWatermark={node.videoWatermark || (node.id === selected ? videoWatermark : null)}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
@@ -5349,6 +5411,7 @@ const handlePointerUp = useCallback((e) => {
                 return <StudioImageNode
                   key={node.id}
                   node={node}
+                  imageWatermark={node.imageWatermark || (node.id === selected ? imageWatermark : null)}
                   selected={selectedNodeState}
                   hovered={hoveredNodeId === node.id}
                   focusActive={Boolean(focusedNodeIds)}
@@ -5397,6 +5460,8 @@ const handlePointerUp = useCallback((e) => {
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
+                  imageWatermark={node.imageWatermark || (node.id === selected ? imageWatermark : null)}
+                  videoWatermark={node.videoWatermark || (node.id === selected ? videoWatermark : null)}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
