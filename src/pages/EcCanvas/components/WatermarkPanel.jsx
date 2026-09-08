@@ -1,653 +1,394 @@
-// Material Watermark System (2026-09-08)
-// 核心原则：水印应用到素材（图片/视频），不是画布
-// 分离：图片水印面板 + 视频水印面板
-// 面板从左侧弹出（按钮在左侧缩放条）
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { X, Upload, Trash2, Eraser, Loader2, Move, Check } from 'lucide-react';
+import {
+  WATERMARK_MATERIALS,
+  WATERMARK_MOTION_MODES,
+  WATERMARK_TYPES,
+  normalizeWatermark,
+} from '../canvasWatermarkModel.js';
+import { removeSolidBackground } from '../watermarkBackgroundRemoval.js';
+import WatermarkLayer from './WatermarkLayer.jsx';
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { X, Image, Video, Type, ImageIcon, RotateCcw, RotateCw, Minus, Plus, Grid, Droplet, Sparkles, SlidersHorizontal } from 'lucide-react';
+const clamp01 = n => Math.min(1, Math.max(0, n));
 
-// ===== 共享样式 =====
-const panelStyle = {
-  position: 'absolute',
-  left: 60, // 紧贴缩放条右侧
-  bottom: 16,
-  width: 320,
-  maxHeight: 'calc(100vh - 120px)',
-  overflowY: 'auto',
-  background: '#fff',
-  border: '1px solid rgba(21, 24, 40, 0.12)',
-  borderRadius: 14,
-  boxShadow: '0 16px 40px rgba(21, 24, 40, 0.18)',
-  zIndex: 100,
-  fontFamily: 'inherit',
-  fontSize: 13,
-  color: '#1f2329',
-};
+/**
+ * 水印面板 (2026-09-08 重构 · 单面板)
+ * 用户批注要点：
+ *  1. 图片/视频只用一个面板，用「素材类型」切换按钮区分（不再是两套一模一样的面板）
+ *  2. 水印位置可拖拽，拖动时实时同步到画布素材
+ *  3. 面板停靠在底部按钮区上方，绝不遮挡底部按钮
+ *  4. 图片水印支持上传 + 去纯色背景
+ *  5. 铺满图片按网格重复填充
+ *  6. 视频水印提供调研后的动态方案（定时跳位/漂移/跑马灯/脉冲/闪烁/溯源）
+ */
+export default function WatermarkPanel({
+  open,
+  material = 'image',
+  onMaterialChange,
+  config,
+  previewUrl = '',
+  previewKind = 'image',
+  previewAspect = 1,
+  onPreview,
+  onCommit,
+  onCancel,
+  onClose,
+}) {
+  const [draft, setDraft] = useState(() => normalizeWatermark(config, { material }));
+  const [busy, setBusy] = useState('');
+  const [notice, setNotice] = useState('');
+  const [mediaAspect, setMediaAspect] = useState(0);
+  const previewBoxRef = useRef(null);
+  const fileRef = useRef(null);
+  const draggingRef = useRef(false);
+  const previewCallbackRef = useRef(onPreview);
 
-const sectionStyle = {
-  padding: '16px 16px 8px',
-  borderBottom: '1px solid rgba(21, 24, 40, 0.08)',
-};
-
-const headerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginBottom: 12,
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: 11,
-  fontWeight: 600,
-  color: '#6b7280',
-  marginBottom: 6,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-};
-
-const inputStyle = {
-  width: '100%',
-  height: 36,
-  padding: '0 12px',
-  border: '1px solid rgba(21, 24, 40, 0.12)',
-  borderRadius: 8,
-  fontSize: 13,
-  color: '#1f2329',
-  background: '#fff',
-  outline: 'none',
-  transition: 'border-color 0.15s, box-shadow 0.15s',
-};
-
-const sliderContainerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  marginTop: 8,
-};
-
-const selectStyle = {
-  width: '100%',
-  height: 36,
-  padding: '0 12px',
-  border: '1px solid rgba(21, 24, 40, 0.12)',
-  borderRadius: 8,
-  fontSize: 13,
-  color: '#1f2329',
-  background: '#fff',
-  cursor: 'pointer',
-  appearance: 'none',
-  backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
-  backgroundPosition: 'right 12px center',
-  backgroundRepeat: 'no-repeat',
-  backgroundSize: '16px',
-  paddingRight: 36,
-};
-
-const colorPickerStyle = {
-  width: 40,
-  height: 36,
-  border: 'none',
-  borderRadius: 8,
-  cursor: 'pointer',
-  padding: 2,
-};
-
-const checkboxStyle = {
-  width: 18,
-  height: 18,
-  accentColor: '#7c3aed',
-  cursor: 'pointer',
-};
-
-const buttonStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  padding: '8px 16px',
-  borderRadius: 8,
-  fontSize: 12,
-  fontWeight: 600,
-  fontFamily: 'inherit',
-  cursor: 'pointer',
-  border: 'none',
-  transition: 'all 0.15s ease',
-};
-
-const primaryButtonStyle = {
-  ...buttonStyle,
-  background: '#7c3aed',
-  color: '#fff',
-};
-
-const secondaryButtonStyle = {
-  ...buttonStyle,
-  background: '#f3f4f6',
-  color: '#374151',
-};
-
-const iconButtonStyle = {
-  width: 36,
-  height: 36,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: 8,
-  border: '1px solid rgba(21, 24, 40, 0.12)',
-  background: '#fff',
-  cursor: 'pointer',
-  transition: 'all 0.15s ease',
-};
-
-// ===== 预设水印位置 =====
-const WATERMARK_POSITIONS = [
-  { value: 'top-left', label: '左上', icon: '↖' },
-  { value: 'top-center', label: '上中', icon: '↑' },
-  { value: 'top-right', label: '右上', icon: '↗' },
-  { value: 'center-left', label: '左中', icon: '←' },
-  { value: 'center', label: '正中', icon: '⊙' },
-  { value: 'center-right', label: '右中', icon: '→' },
-  { value: 'bottom-left', label: '左下', icon: '↙' },
-  { value: 'bottom-center', label: '下中', icon: '↓' },
-  { value: 'bottom-right', label: '右下', icon: '↘' },
-];
-
-const TILE_PATTERNS = [
-  { value: 'none', label: '单个' },
-  { value: 'grid', label: '网格平铺' },
-  { value: 'diagonal', label: '对角线平铺' },
-];
-
-// ===== 默认配置 =====
-const DEFAULT_IMAGE_WATERMARK = {
-  enabled: false,
-  type: 'text', // 'text' | 'logo'
-  text: 'SHUBAO AI',
-  fontFamily: 'system-ui',
-  fontSize: 24,
-  fontWeight: 600,
-  color: '#111827',
-  opacity: 0.3,
-  rotation: -15,
-  position: 'bottom-right',
-  offsetX: 20,
-  offsetY: 20,
-  tilePattern: 'none',
-  tileGapX: 100,
-  tileGapY: 100,
-  logoUrl: '',
-  logoOpacity: 0.5,
-  logoScale: 1,
-};
-
-const DEFAULT_VIDEO_WATERMARK = {
-  enabled: false,
-  type: 'text', // 'text' | 'logo' | 'dynamic'
-  text: 'SHUBAO AI',
-  fontFamily: 'system-ui',
-  fontSize: 28,
-  fontWeight: 600,
-  color: '#ffffff',
-  opacity: 0.4,
-  rotation: 0,
-  position: 'bottom-right',
-  offsetX: 30,
-  offsetY: 30,
-  // 动态水印特有
-  dynamic: {
-    enabled: false,
-    mode: 'scroll', // 'scroll' | 'bounce' | 'fade' | 'pulse'
-    speed: 1,
-    direction: 'horizontal', // 'horizontal' | 'vertical' | 'diagonal'
-    text: 'SHUBAO AI',
-  },
-  logoUrl: '',
-  logoOpacity: 0.5,
-  logoScale: 1,
-};
-
-// ===== 辅助函数 =====
-function deepMerge(target, source) {
-  const result = { ...target };
-  for (const key of Object.keys(source)) {
-    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-      result[key] = deepMerge(target[key] || {}, source[key]);
-    } else {
-      result[key] = source[key];
-    }
-  }
-  return result;
-}
-
-// ===== 图片水印面板 =====
-export function ImageWatermarkPanel({ open, watermark, onChange, onClose }) {
-  const [config, setConfig] = useState(() => deepMerge(DEFAULT_IMAGE_WATERMARK, watermark || {}));
-  const [fontPreview, setFontPreview] = useState('SHUBAO AI');
+  useEffect(() => { previewCallbackRef.current = onPreview; }, [onPreview]);
 
   useEffect(() => {
-    setConfig(prev => deepMerge(prev, watermark || {}));
-  }, [watermark]);
+    if (!open) return;
+    setDraft(normalizeWatermark(config, { material }));
+    setNotice('');
+  }, [open, config, material]);
 
-  const updateConfig = useCallback((patch) => {
-    setConfig(prev => {
-      const next = deepMerge(prev, patch);
-      onChange?.(next);
-      return next;
+  useEffect(() => {
+    if (!open) return;
+    previewCallbackRef.current?.(draft);
+  }, [draft, open]);
+
+  const patch = useCallback((next) => {
+    setDraft(prev => normalizeWatermark({
+      ...prev,
+      ...next,
+      motion: { ...prev.motion, ...(next.motion || {}) },
+    }, { material }));
+  }, [material]);
+
+  const patchMotion = useCallback((next) => {
+    setDraft(prev => normalizeWatermark({ ...prev, motion: { ...prev.motion, ...next } }, { material }));
+  }, [material]);
+
+  const moveTo = useCallback((clientX, clientY) => {
+    const box = previewBoxRef.current?.getBoundingClientRect();
+    if (!box || !box.width || !box.height) return;
+    patch({
+      xPercent: Math.round(clamp01((clientX - box.left) / box.width) * 100),
+      yPercent: Math.round(clamp01((clientY - box.top) / box.height) * 100),
     });
-  }, [onChange]);
-  
-  const handleFontFamilyChange = (e) => {
-    const font = e.target.value;
-    updateConfig({ fontFamily: font });
+  }, [patch]);
+
+  const handlePointerDown = (event) => {
+    if (!draft.enabled) return;
+    event.preventDefault();
+    draggingRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    moveTo(event.clientX, event.clientY);
+  };
+  const handlePointerMove = (event) => {
+    if (!draggingRef.current) return;
+    moveTo(event.clientX, event.clientY);
+  };
+  const handlePointerUp = (event) => {
+    draggingRef.current = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
-  const handleTextChange = (e) => {
-    const text = e.target.value;
-    updateConfig({ text });
-    setFontPreview(text);
+  const handleLogoUpload = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      patch({ type: 'logo', logoUrl: String(reader.result || '') });
+      setNotice('');
+    };
+    reader.readAsDataURL(file);
   };
+
+  const handleRemoveBackground = async () => {
+    if (!draft.logoUrl) return;
+    setBusy('bg');
+    setNotice('');
+    try {
+      const result = await removeSolidBackground(draft.logoUrl, { tolerance: 36, feather: 18 });
+      patch({ logoUrl: result.dataUrl });
+      setNotice(result.removedRatio > 0.02
+        ? '已按边缘纯色去除背景（保留主体）'
+        : '几乎没有检测到纯色背景，已保留原图');
+    } catch (error) {
+      setNotice(error?.message || '去背景失败，请换一张图片');
+    }
+    setBusy('');
+  };
+
+  /* 预览按素材真实比例渲染：媒体加载完成后用自然尺寸覆盖估算值，保证水印百分比映射一致 */
+  useEffect(() => { setMediaAspect(0); }, [previewUrl]);
+  const aspect = useMemo(() => {
+    if (mediaAspect > 0.1 && mediaAspect < 10) return mediaAspect;
+    const value = Number(previewAspect);
+    return Number.isFinite(value) && value > 0.1 && value < 10 ? value : 1;
+  }, [mediaAspect, previewAspect]);
 
   if (!open) return null;
 
+  const isLogo = draft.type === 'logo';
+  const isVideo = material === 'video';
+
   return (
-    <aside style={panelStyle} data-canvas-control="true" aria-label="图片水印设置">
-      <header style={headerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ImageIcon style={{ width: 18, height: 18, color: '#7c3aed' }} />
-          <strong>图片水印</strong>
+    <aside className="ec-wm-panel" aria-label="水印面板" data-canvas-control="true">
+      <header className="ec-wm-panel-head">
+        <div className="ec-wm-panel-title">
+          <strong>水印面板</strong>
+          <span>{WATERMARK_MATERIALS.find(m => m.value === material)?.hint}</span>
         </div>
-        <button style={{ ...buttonStyle, background: 'transparent', padding: '4px 8px' }} onClick={onClose} aria-label="关闭">
-          <X size={16} />
+        <button type="button" className="ec-wm-icon-btn" onClick={onClose} aria-label="关闭水印面板">
+          <X size={15} />
         </button>
       </header>
 
-      <div style={sectionStyle}>
-        <label style={labelStyle}>
-          <input type="checkbox" style={checkboxStyle} checked={config.enabled} onChange={e => updateConfig({ enabled: e.target.checked })} />
-          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 500 }}>启用图片水印</span>
+      <div className="ec-wm-panel-body">
+        <label className="ec-wm-switch">
+          <input type="checkbox" checked={draft.enabled} onChange={e => patch({ enabled: e.target.checked })} />
+          <span>水印开关</span>
+          <em>{draft.enabled ? '已启用' : '未启用'}</em>
         </label>
-      </div>
 
-      {config.enabled && (
-        <>
-          <div style={sectionStyle}>
-            <label style={labelStyle}>水印类型</label>
-            <select style={selectStyle} value={config.type} onChange={e => updateConfig({ type: e.target.value })}>
-              <option value="text">文字水印</option>
-              <option value="logo">Logo/图片水印</option>
-            </select>
+        <div className="ec-wm-field">
+          <span className="ec-wm-label">素材类型</span>
+          <div className="ec-wm-seg" role="group" aria-label="素材类型">
+            {WATERMARK_MATERIALS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={material === option.value ? 'is-active' : ''}
+                aria-pressed={material === option.value}
+                onClick={() => onMaterialChange?.(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {config.type === 'text' && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>水印文字</label>
-                <input style={inputStyle} type="text" maxLength={60} value={config.text} onChange={e => { updateConfig({ text: e.target.value }); setFontPreview(e.target.value); }} placeholder="输入水印文字" />
-              </div>
+        <div className="ec-wm-field">
+          <span className="ec-wm-label">水印类型</span>
+          <div className="ec-wm-seg" role="group" aria-label="水印类型">
+            {WATERMARK_TYPES.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={draft.type === option.value ? 'is-active' : ''}
+                aria-pressed={draft.type === option.value}
+                onClick={() => patch({ type: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-              <div style={sectionStyle}>
-                <label style={labelStyle}>字体</label>
-                <select style={selectStyle} value={config.fontFamily} onChange={handleFontFamilyChange}>
-                  <option value="system-ui">系统默认</option>
-                  <option value="Microsoft YaHei">微软雅黑</option>
-                  <option value="PingFang SC">苹方</option>
-                  <option value="Hiragino Sans GB">冬青黑体</option>
-                  <option value="Source Han Sans CN">思源黑体</option>
-                  <option value="Noto Sans SC">思源黑体 CN</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Times New Roman">Times New Roman</option>
-                  <option value="Arial">Arial</option>
-                  <option value="Helvetica">Helvetica</option>
-                  <option value="Impact">Impact</option>
-                </select>
-              </div>
+        <div className="ec-wm-preview-wrap">
+          <div className="ec-wm-label-row">
+            <span className="ec-wm-label">位置预览</span>
+            <span className="ec-wm-hint"><Move size={11} /> 拖动水印即可改位置</span>
+          </div>
+          <div
+            ref={previewBoxRef}
+            className={'ec-wm-preview' + (draft.enabled ? ' is-live' : '')}
+            style={{ aspectRatio: aspect }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
+            {previewUrl
+              ? (previewKind === 'video'
+                ? <video src={previewUrl} muted playsInline preload="metadata" onLoadedMetadata={e => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setMediaAspect(v.videoWidth / v.videoHeight); }} />
+                : <img src={previewUrl} alt="水印预览素材" draggable="false" onLoad={e => { const img = e.currentTarget; if (img.naturalWidth && img.naturalHeight) setMediaAspect(img.naturalWidth / img.naturalHeight); }} />)
+              : <div className="ec-wm-preview-empty">选中一个素材后可在这里预览水印</div>}
+            <WatermarkLayer
+              config={draft}
+              material={material}
+              width={1000}
+              height={Math.round(1000 / aspect)}
+              className="ec-wm-layer-preview"
+            />
+          </div>
+          <p className="ec-wm-tip">预览为素材实际比例，坐标为相对素材的百分比，导出/下载时保持一致。</p>
+        </div>
 
-              <div style={sectionStyle}>
-                <label style={labelStyle}>字重</label>
-                <select style={selectStyle} value={config.fontWeight} onChange={e => updateConfig({ fontWeight: e.target.value })}>
-                  <option value="400">Regular</option>
-                  <option value="500">Medium</option>
-                  <option value="600">SemiBold</option>
-                  <option value="700">Bold</option>
-                  <option value="800">ExtraBold</option>
-                  <option value="900">Black</option>
-                </select>
-              </div>
-            </>
-          )}
+        <label className="ec-wm-switch">
+          <input type="checkbox" checked={draft.tile} onChange={e => patch({ tile: e.target.checked })} />
+          <span>铺满图片</span>
+          <em>按网格重复填充（文字与图片水印都支持）</em>
+        </label>
 
-          {config.type === 'logo' && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>Logo 图片 URL</label>
-                <input style={inputStyle} type="url" value={config.logoUrl} onChange={e => updateConfig({ logoUrl: e.target.value })} placeholder="https://example.com/logo.png" />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>Logo 缩放</label>
-                <div style={sliderContainerStyle}>
-                  <input type="range" min={0.1} max={3} step={0.05} value={config.logoScale} onChange={e => updateConfig({ logoScale: Number(e.target.value) })} style={{ flex: 1 }} />
-                  <span style={{ width: 50, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{config.logoScale.toFixed(2)}x</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          <div style={sectionStyle}>
-            <label style={labelStyle}>
-              不透明度 <strong>{Math.round(config.opacity * 100)}%</strong>
+        <div className="ec-wm-field">
+          <span className="ec-wm-label">相对位置（%）</span>
+          <div className="ec-wm-row">
+            <label className="ec-wm-num">X
+              <input type="number" min="0" max="100" value={draft.xPercent}
+                onChange={e => patch({ xPercent: Number(e.target.value) })} />
             </label>
-            <input type="range" min={0} max={1} step={0.01} value={config.opacity} onChange={e => updateConfig({ opacity: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
+            <label className="ec-wm-num">Y
+              <input type="number" min="0" max="100" value={draft.yPercent}
+                onChange={e => patch({ yPercent: Number(e.target.value) })} />
+            </label>
+            {draft.tile && (
+              <>
+                <label className="ec-wm-num">横向间距
+                  <input type="number" min="6" max="60" value={Math.round(draft.tileGapXPercent)}
+                    onChange={e => patch({ tileGapXPercent: Number(e.target.value) })} />
+                </label>
+                <label className="ec-wm-num">纵向间距
+                  <input type="number" min="6" max="60" value={Math.round(draft.tileGapYPercent)}
+                    onChange={e => patch({ tileGapYPercent: Number(e.target.value) })} />
+                </label>
+              </>
+            )}
           </div>
+        </div>
 
-          <div style={sectionStyle}>
-            <label style={labelStyle}>颜色</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input type="color" value={config.color} onChange={e => updateConfig({ color: e.target.value })} style={colorPickerStyle} />
-              <input style={{ ...inputStyle, flex: 1, paddingLeft: 12 }} type="text" value={config.color} onChange={e => updateConfig({ color: e.target.value })} />
+        {!isLogo && (
+          <>
+            <label className="ec-wm-field">
+              <span className="ec-wm-label">水印文字</span>
+              <input className="ec-wm-input" type="text" value={draft.text} maxLength={40}
+                onChange={e => patch({ text: e.target.value })} />
+            </label>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">文字大小 <em>{draft.fontSize}</em></span>
+              <input type="range" min="10" max="140" value={draft.fontSize}
+                onChange={e => patch({ fontSize: Number(e.target.value) })} />
             </div>
-          </div>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">文字颜色</span>
+              <div className="ec-wm-row">
+                <input type="color" value={draft.color} onChange={e => patch({ color: e.target.value })} />
+                <span className="ec-wm-label">透明度 <em>{Math.round(draft.opacity * 100)}%</em></span>
+                <input type="range" min="0" max="100" value={Math.round(draft.opacity * 100)}
+                  onChange={e => patch({ opacity: Number(e.target.value) / 100 })} />
+              </div>
+            </div>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">描边颜色</span>
+              <div className="ec-wm-row">
+                <input type="color" value={draft.strokeColor} onChange={e => patch({ strokeColor: e.target.value })} />
+                <span className="ec-wm-label">透明度 <em>{Math.round(draft.strokeOpacity * 100)}%</em></span>
+                <input type="range" min="0" max="100" value={Math.round(draft.strokeOpacity * 100)}
+                  onChange={e => patch({ strokeOpacity: Number(e.target.value) / 100 })} />
+              </div>
+            </div>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">旋转角度 <em>{draft.rotation}°</em></span>
+              <input type="range" min="-180" max="180" value={draft.rotation}
+                onChange={e => patch({ rotation: Number(e.target.value) })} />
+            </div>
+          </>
+        )}
 
-          <div style={sectionStyle}>
-            <label style={labelStyle}>字号 <strong>{config.fontSize}px</strong></label>
-            <input type="range" min={8} max={120} step={1} value={config.fontSize} onChange={e => updateConfig({ fontSize: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-          </div>
+        {isLogo && (
+          <>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">图片水印</span>
+              <div className="ec-wm-row">
+                <button type="button" className="ec-wm-btn" onClick={() => fileRef.current?.click()}>
+                  <Upload size={13} /> 上传图片
+                </button>
+                <button type="button" className="ec-wm-btn" onClick={handleRemoveBackground}
+                  disabled={!draft.logoUrl || busy === 'bg'}>
+                  {busy === 'bg' ? <Loader2 size={13} className="is-spin" /> : <Eraser size={13} />} 去纯色背景
+                </button>
+                <button type="button" className="ec-wm-btn is-ghost" onClick={() => patch({ logoUrl: '' })} disabled={!draft.logoUrl}>
+                  <Trash2 size={13} /> 移除
+                </button>
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleLogoUpload} />
+            </div>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">图片水印大小 <em>{Math.round(draft.logoScale * 100)}%</em></span>
+              <input type="range" min="2" max="80" value={Math.round(draft.logoScale * 100)}
+                onChange={e => patch({ logoScale: Number(e.target.value) / 100 })} />
+            </div>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">透明度 <em>{Math.round(draft.opacity * 100)}%</em></span>
+              <input type="range" min="0" max="100" value={Math.round(draft.opacity * 100)}
+                onChange={e => patch({ opacity: Number(e.target.value) / 100 })} />
+            </div>
+            <div className="ec-wm-field">
+              <span className="ec-wm-label">旋转角度 <em>{draft.rotation}°</em></span>
+              <input type="range" min="-180" max="180" value={draft.rotation}
+                onChange={e => patch({ rotation: Number(e.target.value) })} />
+            </div>
+          </>
+        )}
 
-          <div style={sectionStyle}>
-            <label style={labelStyle}>倾斜角度 <strong>{config.rotation}°</strong></label>
-            <input type="range" min={-180} max={180} step={1} value={config.rotation} onChange={e => updateConfig({ rotation: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-          </div>
-
-          <div style={sectionStyle}>
-            <label style={labelStyle}>位置</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-              {WATERMARK_POSITIONS.map(pos => (
+        {isVideo && (
+          <div className="ec-wm-motion">
+            <span className="ec-wm-label">动态水印（视频）</span>
+            <div className="ec-wm-modes">
+              {WATERMARK_MOTION_MODES.map(mode => (
                 <button
-                  key={pos.value}
+                  key={mode.value}
                   type="button"
-                  onClick={() => updateConfig({ position: pos.value })}
-                  style={{
-                    ...buttonStyle,
-                    padding: '8px 4px',
-                    background: config.position === pos.value ? '#7c3aed' : '#f3f4f6',
-                    color: config.position === pos.value ? '#fff' : '#374151',
-                    border: '1px solid',
-                    borderColor: config.position === pos.value ? 'transparent' : 'rgba(21, 24, 40, 0.12)',
-                  }}
+                  title={mode.hint}
+                  className={draft.motion.mode === mode.value ? 'is-active' : ''}
+                  aria-pressed={draft.motion.mode === mode.value}
+                  onClick={() => patchMotion({ mode: mode.value })}
                 >
-                  <div style={{ fontSize: 10 }}>{pos.icon}</div>
-                  <div style={{ fontSize: 11 }}>{pos.label}</div>
+                  {mode.label}
                 </button>
               ))}
             </div>
+            {draft.motion.mode !== 'static' && (
+              <>
+                <div className="ec-wm-field">
+                  <span className="ec-wm-label">速度 <em>{draft.motion.speed.toFixed(1)}x</em></span>
+                  <input type="range" min="2" max="40" value={Math.round(draft.motion.speed * 10)}
+                    onChange={e => patchMotion({ speed: Number(e.target.value) / 10 })} />
+                </div>
+                {draft.motion.mode === 'rotate' && (
+                  <div className="ec-wm-field">
+                    <span className="ec-wm-label">跳位间隔 <em>{draft.motion.intervalSec}s</em></span>
+                    <input type="range" min="2" max="60" value={draft.motion.intervalSec}
+                      onChange={e => patchMotion({ intervalSec: Number(e.target.value) })} />
+                  </div>
+                )}
+                {draft.motion.mode === 'marquee' && (
+                  <div className="ec-wm-field">
+                    <span className="ec-wm-label">方向</span>
+                    <div className="ec-wm-seg">
+                      {[['horizontal', '横向'], ['vertical', '纵向'], ['diagonal', '对角']].map(([value, label]) => (
+                        <button key={value} type="button"
+                          className={draft.motion.direction === value ? 'is-active' : ''}
+                          aria-pressed={draft.motion.direction === value}
+                          onClick={() => patchMotion({ direction: value })}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="ec-wm-field">
+                  <span className="ec-wm-label">安全边距 <em>{Math.round(draft.motion.safePaddingPercent)}%</em></span>
+                  <input type="range" min="0" max="25" value={Math.round(draft.motion.safePaddingPercent)}
+                    onChange={e => patchMotion({ safePaddingPercent: Number(e.target.value) })} />
+                </div>
+                <p className="ec-wm-tip">动态水印只在视频预览/成片中移动，导出静态帧时按当前帧位置落盘。</p>
+              </>
+            )}
           </div>
+        )}
 
-          <div style={sectionStyle}>
-            <label style={labelStyle}>平铺模式</label>
-            <select style={selectStyle} value={config.tilePattern} onChange={e => updateConfig({ tilePattern: e.target.value })}>
-              {TILE_PATTERNS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </div>
-
-          {(config.tilePattern === 'grid' || config.tilePattern === 'diagonal') && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>水平间距 <strong>{config.tileGapX}px</strong></label>
-                <input type="range" min={20} max={500} step={5} value={config.tileGapX} onChange={e => updateConfig({ tileGapX: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>垂直间距 <strong>{config.tileGapY}px</strong></label>
-                <input type="range" min={20} max={500} step={5} value={config.tileGapY} onChange={e => updateConfig({ tileGapY: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-            </>
-          )}
-
-          {config.type === 'logo' && (
-            <div style={sectionStyle}>
-              <label style={labelStyle}>Logo 不透明度 <strong>{Math.round(config.logoOpacity * 100)}%</strong></label>
-              <input type="range" min={0} max={1} step={0.01} value={config.logoOpacity} onChange={e => updateConfig({ logoOpacity: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-            </div>
-          )}
-
-          <div style={{ padding: '16px', display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid rgba(21, 24, 40, 0.08)' }}>
-            <button style={secondaryButtonStyle} onClick={() => updateConfig(DEFAULT_IMAGE_WATERMARK)}>重置默认</button>
-          </div>
-        </>
-      )}
-    </aside>
-  );
-}
-
-// ===== 视频水印面板 =====
-export function VideoWatermarkPanel({ open, watermark, onChange, onClose }) {
-  const [config, setConfig] = useState(() => deepMerge(DEFAULT_VIDEO_WATERMARK, watermark || {}));
-  const [dynamicTextPreview, setDynamicTextPreview] = useState('SHUBAO AI');
-
-  useEffect(() => {
-    setConfig(prev => deepMerge(prev, watermark || {}));
-  }, [watermark]);
-
-  const updateConfig = useCallback((patch) => {
-    setConfig(prev => {
-      const next = deepMerge(prev, patch);
-      onChange?.(next);
-      return next;
-    });
-  }, [onChange]);
-
-  const handleDynamicTextChange = (e) => {
-    const text = e.target.value;
-    updateConfig({ dynamic: { ...config.dynamic, text } });
-    setDynamicTextPreview(text);
-  };
-
-  /* 9-08 修复: 原来只有 ImageWatermarkPanel 有 open 门控, 视频面板没有 → 画布 tab 上常驻悬浮.
-     Hook 全部在门控之前执行, 保证开关时 Hook 顺序一致 (避免 React 运行时崩溃). */
-  if (!open) return null;
-
-  return (
-    <aside style={{ ...panelStyle, width: 360 }} data-canvas-control="true" aria-label="视频水印设置">
-      <header style={headerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Video style={{ width: 18, height: 18, color: '#7c3aed' }} />
-          <strong>视频水印</strong>
-        </div>
-        <button style={{ ...buttonStyle, background: 'transparent', padding: '4px 8px' }} onClick={onClose} aria-label="关闭">
-          <X size={16} />
-        </button>
-      </header>
-
-      <div style={sectionStyle}>
-        <label style={labelStyle}>
-          <input type="checkbox" style={checkboxStyle} checked={config.enabled} onChange={e => updateConfig({ enabled: e.target.checked })} />
-          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 500 }}>启用视频水印</span>
-        </label>
+        {notice && <p className="ec-wm-notice">{notice}</p>}
       </div>
 
-      {config.enabled && (
-        <>
-          <div style={sectionStyle}>
-            <label style={labelStyle}>水印类型</label>
-            <select style={selectStyle} value={config.type} onChange={e => updateConfig({ type: e.target.value })}>
-              <option value="text">文字水印</option>
-              <option value="logo">Logo 图片水印</option>
-              <option value="dynamic">动态水印</option>
-            </select>
-          </div>
-
-          {config.type === 'text' && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>水印文字</label>
-                <input style={inputStyle} type="text" maxLength={80} value={config.text} onChange={e => updateConfig({ text: e.target.value })} placeholder="输入水印文字" />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>字体</label>
-                <select style={selectStyle} value={config.fontFamily} onChange={e => updateConfig({ fontFamily: e.target.value })}>
-                  <option value="system-ui">系统默认</option>
-                  <option value="Microsoft YaHei">微软雅黑</option>
-                  <option value="PingFang SC">苹方</option>
-                  <option value="Source Han Sans CN">思源黑体</option>
-                  <option value="Arial">Arial</option>
-                  <option value="Helvetica">Helvetica</option>
-                  <option value="Impact">Impact</option>
-                </select>
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>字重</label>
-                <select style={selectStyle} value={config.fontWeight} onChange={e => updateConfig({ fontWeight: e.target.value })}>
-                  <option value="400">Regular</option>
-                  <option value="500">Medium</option>
-                  <option value="600">SemiBold</option>
-                  <option value="700">Bold</option>
-                  <option value="800">ExtraBold</option>
-                  <option value="900">Black</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          {config.type === 'logo' && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>Logo 图片 URL</label>
-                <input style={inputStyle} type="url" value={config.logoUrl} onChange={e => updateConfig({ logoUrl: e.target.value })} placeholder="https://example.com/logo.png" />
-              </div>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>Logo 缩放</label>
-                <div style={sliderContainerStyle}>
-                  <input type="range" min={0.1} max={3} step={0.05} value={config.logoScale} onChange={e => updateConfig({ logoScale: Number(e.target.value) })} style={{ flex: 1 }} />
-                  <span style={{ width: 50, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{config.logoScale.toFixed(2)}x</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {config.type === 'dynamic' && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>动态文字</label>
-                <input style={inputStyle} type="text" maxLength={60} value={config.dynamic.text} onChange={e => { updateConfig({ dynamic: { ...config.dynamic, text: e.target.value } }); setDynamicTextPreview(e.target.value); }} placeholder="输入动态水印文字" />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>动画模式</label>
-                <select style={selectStyle} value={config.dynamic.mode} onChange={e => updateConfig({ dynamic: { ...config.dynamic, mode: e.target.value } })}>
-                  <option value="scroll">横向滚动</option>
-                  <option value="vertical">纵向滚动</option>
-                  <option value="diagonal">对角线滚动</option>
-                  <option value="bounce">弹跳</option>
-                  <option value="fade">淡入淡出</option>
-                  <option value="pulse">脉冲闪烁</option>
-                </select>
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>速度 <strong>{config.dynamic.speed}x</strong></label>
-                <input type="range" min={0.1} max={5} step={0.1} value={config.dynamic.speed} onChange={e => updateConfig({ dynamic: { ...config.dynamic, speed: Number(e.target.value) } })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>方向</label>
-                <select style={selectStyle} value={config.dynamic.direction} onChange={e => updateConfig({ dynamic: { ...config.dynamic, direction: e.target.value } })}>
-                  <option value="horizontal">水平</option>
-                  <option value="vertical">垂直</option>
-                  <option value="diagonal">对角线</option>
-                </select>
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>字号 <strong>{config.fontSize}px</strong></label>
-                <input type="range" min={12} max={80} step={1} value={config.fontSize} onChange={e => updateConfig({ fontSize: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>颜色</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <input type="color" value={config.color} onChange={e => updateConfig({ color: e.target.value })} style={colorPickerStyle} />
-                  <input style={{ ...inputStyle, flex: 1, paddingLeft: 12 }} type="text" value={config.color} onChange={e => updateConfig({ color: e.target.value })} />
-                </div>
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>不透明度 <strong>{Math.round(config.opacity * 100)}%</strong></label>
-                <input type="range" min={0} max={1} step={0.01} value={config.opacity} onChange={e => updateConfig({ opacity: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-            </>
-          )}
-
-          {(config.type === 'text' || config.type === 'logo') && (
-            <>
-              <div style={sectionStyle}>
-                <label style={labelStyle}>
-                  不透明度 <strong>{Math.round(config.opacity * 100)}%</strong>
-                </label>
-                <input type="range" min={0} max={1} step={0.01} value={config.opacity} onChange={e => updateConfig({ opacity: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>颜色</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <input type="color" value={config.color} onChange={e => updateConfig({ color: e.target.value })} style={colorPickerStyle} />
-                  <input style={{ ...inputStyle, flex: 1, paddingLeft: 12 }} type="text" value={config.color} onChange={e => updateConfig({ color: e.target.value })} />
-                </div>
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>字号 <strong>{config.fontSize}px</strong></label>
-                <input type="range" min={12} max={120} step={1} value={config.fontSize} onChange={e => updateConfig({ fontSize: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>倾斜角度 <strong>{config.rotation}°</strong></label>
-                <input type="range" min={-180} max={180} step={1} value={config.rotation} onChange={e => updateConfig({ rotation: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-              </div>
-
-              <div style={sectionStyle}>
-                <label style={labelStyle}>位置</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                  {WATERMARK_POSITIONS.map(pos => (
-                    <button
-                      key={pos.value}
-                      type="button"
-                      onClick={() => updateConfig({ position: pos.value })}
-                      style={{
-                        ...buttonStyle,
-                        padding: '8px 4px',
-                        background: config.position === pos.value ? '#7c3aed' : '#f3f4f6',
-                        color: config.position === pos.value ? '#fff' : '#374151',
-                        border: '1px solid',
-                        borderColor: config.position === pos.value ? 'transparent' : 'rgba(21, 24, 40, 0.12)',
-                      }}
-                    >
-                      <div style={{ fontSize: 10 }}>{pos.icon}</div>
-                      <div style={{ fontSize: 11 }}>{pos.label}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {config.type === 'logo' && (
-            <div style={sectionStyle}>
-              <label style={labelStyle}>Logo 不透明度 <strong>{Math.round(config.logoOpacity * 100)}%</strong></label>
-              <input type="range" min={0} max={1} step={0.01} value={config.logoOpacity} onChange={e => updateConfig({ logoOpacity: Number(e.target.value) })} style={{ width: '100%', accentColor: '#7c3aed' }} />
-            </div>
-          )}
-
-          <div style={{ padding: '16px', display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid rgba(21, 24, 40, 0.08)' }}>
-            <button style={secondaryButtonStyle} onClick={() => updateConfig(config.type === 'dynamic' ? DEFAULT_VIDEO_WATERMARK : { ...DEFAULT_VIDEO_WATERMARK, type: config.type })}>重置默认</button>
-          </div>
-        </>
-      )}
+      <footer className="ec-wm-panel-foot">
+        <button type="button" className="ec-wm-btn is-ghost" onClick={() => { onCancel?.(); onClose?.(); }}>取消</button>
+        <button type="button" className="ec-wm-btn is-primary" onClick={() => { onCommit?.(draft); onClose?.(); }}>
+          <Check size={14} /> 确定
+        </button>
+      </footer>
     </aside>
   );
 }
-
-// ===== 主导出 =====
-export { DEFAULT_IMAGE_WATERMARK, DEFAULT_VIDEO_WATERMARK };
-export { buildCanvasWatermarkTiles, normalizeCanvasWatermark } from '../canvasWatermarkModel.js';

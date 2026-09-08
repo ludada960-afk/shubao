@@ -1185,48 +1185,5 @@
 
 
 
-/* P1.6 画布控制按钮组: 小地图 + 水印按钮样式 */
-.ec-canvas-control-button { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer; transition: background-color 0.2s ease; background: rgba(0,0,0,0.04); }
-.ec-canvas-control-button-active { background: rgba(124,58,237,0.08); }
-.ec-canvas-control-button-hover { background: rgba(0,0,0,0.08); }
-.ec-canvas-control-button:hover { background: rgba(0,0,0,0.08); }
-.ec-canvas-control-button svg { color: #6b7280; transition: color 0.2s ease; }
-.ec-canvas-control-button-active svg, .ec-canvas-control-button-hover svg { color: #7c3aed; }
+/* 旧 .ec-material-watermark-* / .ec-canvas-watermark-* 样式已由 canvas-watermark-panel.css 的 .ec-wm-* 取代 (9-08 重构) */
 
-/* 素材水印：只覆盖图片/视频节点，不覆盖画布背景或其它节点 */
-.ec-material-watermark-overlay { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; border-radius: inherit; }
-.ec-material-watermark-tile { position: absolute; display: block; white-space: nowrap; user-select: none; line-height: 1; transform-origin: center; text-shadow: 0 1px 2px rgba(0,0,0,.18); }
-.ec-material-watermark-tile img { display: block; height: auto; object-fit: contain; }
-.ec-material-watermark-tile.is-scroll { animation: ec-material-watermark-scroll linear infinite; }
-.ec-material-watermark-tile.is-vertical { animation: ec-material-watermark-vertical linear infinite; }
-.ec-material-watermark-tile.is-diagonal { animation: ec-material-watermark-diagonal linear infinite; }
-.ec-material-watermark-tile.is-bounce { animation: ec-material-watermark-bounce ease-in-out infinite alternate; }
-.ec-material-watermark-tile.is-fade { animation: ec-material-watermark-fade ease-in-out infinite; }
-.ec-material-watermark-tile.is-pulse { animation: ec-material-watermark-pulse ease-in-out infinite; }
-@keyframes ec-material-watermark-scroll { from { translate: -8% 0; } to { translate: 8% 0; } }
-@keyframes ec-material-watermark-vertical { from { translate: 0 -8%; } to { translate: 0 8%; } }
-@keyframes ec-material-watermark-diagonal { from { translate: -8% -8%; } to { translate: 8% 8%; } }
-@keyframes ec-material-watermark-bounce { from { translate: -10% 0; } to { translate: 10% 0; } }
-@keyframes ec-material-watermark-fade { 0%,100% { opacity: .18; } 50% { opacity: 1; } }
-@keyframes ec-material-watermark-pulse { 0%,100% { scale: .9; } 50% { scale: 1.08; } }
-@media (prefers-reduced-motion: reduce) { .ec-material-watermark-tile { animation: none !important; } }
-
-.ec-canvas-watermark-overlay { position: absolute; inset: 0; z-index: 65; overflow: hidden; pointer-events: none; }
-.ec-canvas-watermark-grid { position: absolute; inset: -45%; }
-.ec-canvas-watermark-item { position: absolute; white-space: nowrap; font-weight: 600; letter-spacing: 1px; color: #111827; user-select: none; }
-.ec-canvas-watermark-panel { position: absolute; z-index: 96; right: 16px; top: 70px; width: 268px; padding: 14px 16px; display: grid; gap: 12px; border-radius: 14px; background: #fff; border: 1px solid rgba(21, 24, 40, 0.08); box-shadow: 0 12px 32px rgba(21, 24, 40, 0.16); }
-.ec-canvas-watermark-panel header { display: flex; align-items: center; justify-content: space-between; }
-.ec-canvas-watermark-panel header span { display: grid; }
-.ec-canvas-watermark-panel header strong { font-size: 14px; color: #111827; }
-.ec-canvas-watermark-panel header small { font-size: 11px; color: #6b7280; }
-.ec-canvas-watermark-panel header button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; background: transparent; color: #374151; cursor: pointer; }
-.ec-canvas-watermark-panel header button:hover { background: rgba(21, 24, 40, 0.06); }
-.ec-canvas-watermark-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #111827; }
-.ec-canvas-watermark-toggle input { width: 16px; height: 16px; accent-color: #111827; }
-.ec-canvas-watermark-field { display: grid; gap: 5px; font-size: 12px; color: #374151; }
-.ec-canvas-watermark-field span { display: flex; align-items: center; justify-content: space-between; }
-.ec-canvas-watermark-field strong { font-weight: 600; color: #111827; font-variant-numeric: tabular-nums; }
-.ec-canvas-watermark-field input[type="text"] { height: 34px; padding: 0 10px; border: 1px solid rgba(21, 24, 40, 0.14); border-radius: 9px; font-size: 13px; color: #111827; background: #fff; }
-.ec-canvas-watermark-field input[type="text"]:focus { outline: 2px solid rgba(17, 24, 39, 0.18); outline-offset: 0; border-color: transparent; }
-.ec-canvas-watermark-field input[type="range"] { width: 100%; accent-color: #111827; }
-.ec-canvas-watermark-hint { margin: 0; font-size: 11px; line-height: 1.5; color: #9ca3af; }

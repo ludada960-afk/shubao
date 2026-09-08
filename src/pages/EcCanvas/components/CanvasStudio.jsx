@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
-import { buildImageWatermarkTiles, buildVideoWatermarkTiles, normalizeImageWatermark, normalizeVideoWatermark } from '../canvasWatermarkModel.js';
+import WatermarkLayer from './WatermarkLayer.jsx';
 import {
   AlignCenter,
   AlignLeft,
@@ -637,8 +637,8 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       {node.mediaPlaybackError && <small className="is-error">{node.mediaPlaybackError}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}
-    {isVideo && <MaterialWatermarkOverlay kind="video" watermark={node.videoWatermark || videoWatermark} width={node.w || 1} height={node.h || 1} />}
-    {isImage && <MaterialWatermarkOverlay kind="image" watermark={node.imageWatermark || imageWatermark} width={node.w || 1} height={node.h || 1} />}
+    {isVideo && <MaterialWatermarkOverlay kind="video" watermark={videoWatermark} width={node.w || 1} height={node.h || 1} />}
+    {isImage && <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
@@ -1235,32 +1235,9 @@ function ResizeHandles({ visible, onResizeStart }) {
   />);
 }
 
+/* 素材水印预览层：与面板预览共用 WatermarkLayer，保证「预览 == 素材」 */
 function MaterialWatermarkOverlay({ kind, watermark, width = 1, height = 1 }) {
-  const config = useMemo(() => kind === 'video' ? normalizeVideoWatermark(watermark) : normalizeImageWatermark(watermark), [kind, watermark]);
-  const tiles = useMemo(() => kind === 'video'
-    ? buildVideoWatermarkTiles(config, { width, height })
-    : buildImageWatermarkTiles(config, { width, height }), [config, kind, width, height]);
-  if (!config.enabled || !tiles.length) return null;
-  const isLogo = config.type === 'logo' && config.logoUrl;
-  const isDynamic = kind === 'video' && config.type === 'dynamic';
-  const text = isDynamic ? config.dynamic.text : config.text;
-  return <div className={`ec-material-watermark-overlay is-${kind}`} aria-label={`${kind === 'video' ? '视频' : '图片'}水印预览`}>
-    {tiles.map(tile => <span
-      key={tile.id}
-      className={`ec-material-watermark-tile ${isDynamic ? `is-${config.dynamic.mode}` : ''}`}
-      style={{
-        left: `${(tile.x / Math.max(1, width)) * 100}%`,
-        top: `${(tile.y / Math.max(1, height)) * 100}%`,
-        color: config.color,
-        opacity: isLogo ? config.logoOpacity : config.opacity,
-        fontFamily: config.fontFamily,
-        fontSize: `${Math.max(8, config.fontSize)}px`,
-        fontWeight: config.fontWeight,
-        transform: `rotate(${config.rotation}deg)`,
-        animationDuration: isDynamic ? `${Math.max(0.2, 8 / config.dynamic.speed)}s` : undefined,
-      }}
-    >{isLogo ? <img src={config.logoUrl} alt="" draggable="false" style={{ width: `${Math.max(0.1, config.logoScale) * 48}px`, maxWidth: 'none' }} /> : text}</span>)}
-  </div>;
+  return <WatermarkLayer config={watermark} material={kind} width={width} height={height} className="ec-wm-on-node" />;
 }
 
 export { MaterialWatermarkOverlay };
@@ -1309,7 +1286,7 @@ export function CanvasImageNode({
           if (naturalWidth > 0 && naturalHeight > 0) onNaturalSize?.(node.id, { naturalWidth, naturalHeight });
         }}
       />
-      <MaterialWatermarkOverlay kind="image" watermark={node.imageWatermark || imageWatermark} width={node.w || 1} height={node.h || 1} />
+      <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />
     </div>
     {node.showMeta !== false && <footer>
       <strong>{node.name || node.displayLabel || '未命名图片'}</strong>

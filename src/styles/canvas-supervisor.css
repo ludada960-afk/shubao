@@ -649,9 +649,12 @@
 /* 小地图 */
 .ec-canvas-minimap {
   position: fixed;
-  bottom: 54px;
+  /* 用户批注: 小地图必须与底部按钮区留出间隙 (缩放条 top = 56px) */
+  bottom: calc(var(--ec-canvas-bottombar-top, 56px) + var(--ec-canvas-panel-gap, 14px));
   left: 16px;
   z-index: 5000;
+  display: flex;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -701,6 +704,9 @@
 }
 .ec-canvas-minimap-canvas {
   position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 6px;
   background: #f3f4f6;
   border-radius: 8px;
   cursor: pointer;

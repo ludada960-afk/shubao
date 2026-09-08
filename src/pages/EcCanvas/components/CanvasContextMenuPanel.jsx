@@ -3,7 +3,7 @@
    双击画布空白处 → 弹出 5 种基础节点添加面板
    用户原话 8-30: "最成品, 最面向市场, 最高级的一个体验和流畅度" */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Type, ImagePlus, Film, Music, Sparkles, Folder, ClipboardPaste, Undo2, Redo2,
   CheckSquare, Maximize, LayoutGrid, Grid3x3, Sun, Plus, Search,
@@ -330,33 +330,61 @@ export function CanvasMinimap({
   onWheelZoom,
   onClose,
   minimapWidth = 200,
-  minimapHeight = 140,
+  minimapHeight = 180,
+  viewportSize = null,
 }) {
   const ref = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
+  /* 实测内容区尺寸（而不是拿外层尺寸减魔法数字）：外框 padding / 标题栏 / margin 全部由 CSS 决定 */
+  const [box, setBox] = useState({ width: 0, height: 0 });
 
-  // 世界 → 小地图比例 (支持负坐标世界: offsetX/offsetY 为世界原点在小地图外的偏移)
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
+    const measure = () => {
+      const width = node.clientWidth;
+      const height = node.clientHeight;
+      setBox(prev => (prev.width === width && prev.height === height ? prev : { width, height }));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  // 世界 → 小地图：等比缩放 + 内容居中（用户批注：内容与默认视角都必须居中，不能歪向右下）
   const offsetX = Number.isFinite(worldBounds.offsetX) ? worldBounds.offsetX : 0;
   const offsetY = Number.isFinite(worldBounds.offsetY) ? worldBounds.offsetY : 0;
-  // 小地图内容区扣除外框与标题栏占用，所有映射都使用同一坐标系。
-  // 不能使用浏览器窗口尺寸或外层 minimap 尺寸，否则右下角会越界。
-  const canvasWidth = Math.max(1, minimapWidth - 16);
-  const canvasHeight = Math.max(1, minimapHeight - 30);
-  const scaleX = canvasWidth / Math.max(1, worldBounds.width);
-  const scaleY = canvasHeight / Math.max(1, worldBounds.height);
+  const canvasWidth = Math.max(1, box.width || (minimapWidth - 22));
+  const canvasHeight = Math.max(1, box.height || (minimapHeight - 44));
+  const scale = Math.min(
+    canvasWidth / Math.max(1, worldBounds.width),
+    canvasHeight / Math.max(1, worldBounds.height),
+  );
+  const padX = (canvasWidth - worldBounds.width * scale) / 2;
+  const padY = (canvasHeight - worldBounds.height * scale) / 2;
+  const toMapX = worldX => padX + (Number(worldX) - offsetX) * scale;
+  const toMapY = worldY => padY + (Number(worldY) - offsetY) * scale;
 
+  const stage = viewportSize && Number(viewportSize.width) > 0 && Number(viewportSize.height) > 0
+    ? { width: Number(viewportSize.width), height: Number(viewportSize.height) }
+    : { width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 };
+  const safeScale = Math.max(0.01, Number(viewport.scale) || 1);
   const rawVisibleRect = {
-    x: (-viewport.x / Math.max(0.01, viewport.scale) - offsetX) * scaleX,
-    y: (-viewport.y / Math.max(0.01, viewport.scale) - offsetY) * scaleY,
-    w: (globalThis.innerWidth || 1440) / Math.max(0.01, viewport.scale) * scaleX,
-    h: (globalThis.innerHeight || 900) / Math.max(0.01, viewport.scale) * scaleY,
+    x: toMapX(-viewport.x / safeScale),
+    y: toMapY(-viewport.y / safeScale),
+    w: (stage.width / safeScale) * scale,
+    h: (stage.height / safeScale) * scale,
   };
+  const visibleW = Math.min(canvasWidth, Math.max(3, rawVisibleRect.w));
+  const visibleH = Math.min(canvasHeight, Math.max(3, rawVisibleRect.h));
   const visibleRect = {
-    w: Math.min(canvasWidth, Math.max(2, rawVisibleRect.w)),
-    h: Math.min(canvasHeight, Math.max(2, rawVisibleRect.h)),
-    x: Math.min(canvasWidth - Math.min(canvasWidth, Math.max(2, rawVisibleRect.w)), Math.max(0, rawVisibleRect.x)),
-    y: Math.min(canvasHeight - Math.min(canvasHeight, Math.max(2, rawVisibleRect.h)), Math.max(0, rawVisibleRect.y)),
+    w: visibleW,
+    h: visibleH,
+    x: Math.min(canvasWidth - visibleW, Math.max(0, rawVisibleRect.x)),
+    y: Math.min(canvasHeight - visibleH, Math.max(0, rawVisibleRect.y)),
   };
 
   function handlePointerDown(event) {
@@ -368,11 +396,11 @@ export function CanvasMinimap({
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
     // 小地图上的点 → 世界点 → 让视口中心对准它 (点击任意素材即导航过去)
-    const worldX = offsetX + (event.clientX - rect.left) / scaleX;
-    const worldY = offsetY + (event.clientY - rect.top) / scaleY;
+    const worldX = offsetX + (event.clientX - rect.left - padX) / scale;
+    const worldY = offsetY + (event.clientY - rect.top - padY) / scale;
     onViewportChange({
-      x: (globalThis.innerWidth || 1440) / 2 - worldX * viewport.scale,
-      y: (globalThis.innerHeight || 900) / 2 - worldY * viewport.scale,
+      x: stage.width / 2 - worldX * safeScale,
+      y: stage.height / 2 - worldY * safeScale,
     });
   }
   function handlePointerUp() {
@@ -416,10 +444,10 @@ export function CanvasMinimap({
             const from = nodes.find(n => n.id === (conn.fromNodeId || conn.from));
             const to = nodes.find(n => n.id === (conn.toNodeId || conn.to));
             if (!from || !to) return null;
-            const x1 = (from.x - offsetX + (from.w || 0) / 2) * scaleX;
-            const y1 = (from.y - offsetY + (from.h || 0) / 2) * scaleY;
-            const x2 = (to.x - offsetX + (to.w || 0) / 2) * scaleX;
-            const y2 = (to.y - offsetY + (to.h || 0) / 2) * scaleY;
+            const x1 = toMapX(from.x + (from.w || 0) / 2);
+            const y1 = toMapY(from.y + (from.h || 0) / 2);
+            const x2 = toMapX(to.x + (to.w || 0) / 2);
+            const y2 = toMapY(to.y + (to.h || 0) / 2);
             return <line key={conn.id || i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.18)" strokeWidth="0.6" />;
           })}
         </svg>
@@ -430,10 +458,10 @@ export function CanvasMinimap({
               className="ec-canvas-minimap-node"
               data-kind={node.kind}
               style={{
-                left: (node.x - offsetX) * scaleX,
-                top: (node.y - offsetY) * scaleY,
-                width: Math.max(2, (node.w || 100) * scaleX),
-                height: Math.max(2, (node.h || 60) * scaleY),
+                left: toMapX(node.x),
+                top: toMapY(node.y),
+                width: Math.max(2, (node.w || 100) * scale),
+                height: Math.max(2, (node.h || 60) * scale),
                 background: getStaticNodeColor(node.kind),
                 border: hoveredNode === node.id ? '1px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)',
               }}
