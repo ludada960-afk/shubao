@@ -722,3 +722,35 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 6. P1.6 画布水印面板（唯一未实现功能）
 7. P1.5 邀请码/兑换卡后端 + 管理后台、微信 OAuth
 8. 支付 API 接入
+
+## 15. 9-08 会话：画布白屏事故结案 + 登录页重构上线（783ee806）
+
+### 线上状态（已上线，字节级验证）
+- 应用提交 `783ee806`；release `/var/www/shubao/releases/20260908-190649-783ee806`（current 软链）；入口 bundle `assets/index-BvzJbHSg.js`（506259 B，sha256 `f1f5c4acd43787eb…`）；PM2 `shubao-production` pid `2223219`；健康 `ready=true`。
+- 三处哈希一致：本地 dist / 服务器 current / 公网 https://shuimg.cn 的入口名、入口文件 sha256、文件大小完全相同。
+- 线上浏览器验收 12/12：/login 弹窗渲染、登录/注册双 Tab、邮箱框默认聚焦、OTP 6 格、修改邮箱入口、移动端无横向滚动；/ec-canvas 无错误边界、无 ReferenceError、画布壳层 44 个 ec-canvas 类元素。
+
+### 画布"打不开"根因（本次结案）
+- 9-08 水印改动**误删了 `index.jsx` 的 `const selectedNode = ...` 定义**，而文件下方 20+ 处仍在引用它 → 渲染期 `ReferenceError` → 整页白屏。与 Minimap/CSS/浏览器缓存无关。
+- 同类隐患还有一处：`Modals.jsx` 原 React import 缺 `useCallback`，新登录代码用到 → 错误边界 `useCallback is not defined`。两者都在本地 Playwright 复现后修复。
+- 教训：2900+ 单测全绿拦不住整页 ReferenceError（测试不渲染整页）。改大文件后必须跑一次真实浏览器页面。
+
+### 本次交付
+1. 画布：恢复 `selectedNode` 定义；补齐 `VideoWatermarkPanel` 的 `if (!open) return null`（原来只有图片面板有门控，视频面板会在画布常驻）；小地图视口框按内容区映射并双重裁剪；素材水印系统（模型/双面板/节点 overlay/派生继承）一并入库；补提交 `src/services/canvasQuantvExtensions.js`（index.jsx 依赖但从未入库）。
+2. 登录：新建 `LoginDialog.jsx`（左品牌叙事 + 右暖白表单；role=dialog / aria-modal / 焦点陷阱 / Esc / 滚动锁；920px、520px 断点）、`OtpCodeInput.jsx`（6 位分段，支持粘贴/退格/数字键盘/one-time-code/填满自动提交）、`src/styles/login-dialog.css`；`Modals.jsx` 的 LoginModal 重写为登录/注册双 Tab + 邮箱/手机号通道（手机号为备案占位并提供回退）+ 就地校验 + 邀请码折叠 + 重发倒计时 + 忘记密码子流程统一外壳；顺带修掉 `close` 在 forgotMode 分支的 TDZ 隐患。
+- 提交：`a2b518ea`（画布）、`783ee806`（登录）。
+
+### 部署事实（勿只看 PM2 online）
+- 第一次按 `auto → full` 档部署：真实电商验收**通过**（task `ec_708c9ec5-b94e-4c81-b278-6d23271baca6`，3 个稳定资产），但 600 秒 canary 的电商验收 3 次全失败 → 自动回滚（回滚目录 `releases/rollback-20260908-183948-783ee806`）。
+- canary 失败根因**不是本次代码**：服务器日志 `VISUAL_ANALYSIS_TIMEOUT` + `analysisStatus: 'fallback'`；直连探针测得 VLM 上游（`MINI_BASE_URL`，模型 `gpt-5.6-luna`）**8 token 文本补全耗时 22.5s**（`/models` 0.47s、无鉴权 401 0.26s），在 75s 预算下留给图像分析的余量不足。旧版本同样受影响。
+- 第二次部署改用 `-ValidationProfile frontend`（注意：**根目录转发脚本不转发 `-ValidationProfile`**，必须直调 worktree 内 canonical `scripts/deploy-production.ps1`）：跳过真实生图档，600 秒 canary、图库 117、视频契约 2 产品、账务、nginx、no-paid verifier 全通过；`Deployed 783ee806 to https://shuimg.cn/`，远端锁已释放。
+
+### 待办 / 下一步
+1. VLM 上游恢复后补跑一次真实电商 canary（`scripts/verify-production-ecommerce.ps1`，需 `SHUBAO_CANARY_SESSION_TOKEN`），补齐 full 档证据。
+2. 服务器磁盘 93%（3.0G 剩余）；本次已清理 `/tmp/git-mirror`(1.5G)、`/tmp/shubao-runtime-tools-*`(982M)、失败 release(274M)。长期仍需备份/发布保留策略。
+3. `src/pages/EcCanvas/components/CanvasMinimap.jsx` 是**未被引用的诱饵文件**（真正用的是 `CanvasContextMenuPanel.jsx` 内嵌的 CanvasMinimap）；`src/services/invitationService.js` 也无人引用，勿再被误导。
+4. 工作树仍有 600+ 历史 untracked `.tmp-*`；本次未动。
+
+### 坑（新增）
+- 根 `scripts/deploy-production.ps1` 只转发 HostName/User/KeyPath/RemoteDir/RepoPath，**不转发 `-ValidationProfile` / `-CanarySeconds`**；换档必须直调 worktree 内 canonical 脚本。
+- PowerShell 双引号字符串会先展开 `$(...)`：ssh 远程命令里出现 `$(...)` 会被本地 PowerShell 抢先执行（本次排查 VLM 时踩到两次）。远程脚本一律写成 .sh 文件 scp 过去再 `bash`。
