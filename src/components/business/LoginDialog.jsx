@@ -39,6 +39,8 @@ export default function LoginDialog({ onClose, labelledBy, children }) {
 
   return (
     <div className="ld-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
+      <div className="ld-glow ld-glow-a" />
+      <div className="ld-glow ld-glow-b" />
       <div className="ld-card" role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={panelRef}>
         <button type="button" className="ld-close" onClick={onClose} aria-label="关闭登录">
           <X size={16} />
