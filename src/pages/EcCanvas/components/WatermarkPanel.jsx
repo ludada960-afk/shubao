@@ -38,12 +38,28 @@ export default function WatermarkPanel({
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
   const [mediaAspect, setMediaAspect] = useState(0);
+  const [previewSize, setPreviewSize] = useState(200);
   const previewBoxRef = useRef(null);
   const fileRef = useRef(null);
   const draggingRef = useRef(false);
   const previewCallbackRef = useRef(onPreview);
 
   useEffect(() => { previewCallbackRef.current = onPreview; }, [onPreview]);
+
+  // 测量预览方块实际像素宽，用于等比缩放水印（素材宽≈200px，预览也要≈200px）
+  useEffect(() => {
+    const node = previewBoxRef.current;
+    if (!node) return undefined;
+    const measure = () => {
+      const w2 = node.clientWidth;
+      if (w2 > 0) setPreviewSize(w2);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const obs = new ResizeObserver(measure);
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -135,7 +151,7 @@ export default function WatermarkPanel({
   const isVideo = material === 'video';
 
   return (
-    <aside className="ec-wm-panel" aria-label="水印面板" data-canvas-control="true">
+    <aside className="ec-wm-panel" aria-label="水印面板" data-canvas-control="true" onWheel={e => e.stopPropagation()}>
       <header className="ec-wm-panel-head">
         <div className="ec-wm-panel-title">
           <strong>水印面板</strong>
@@ -195,22 +211,17 @@ export default function WatermarkPanel({
           <div
             ref={previewBoxRef}
             className={'ec-wm-preview' + (draft.enabled ? ' is-live' : '')}
-            style={{ aspectRatio: aspect }}
+            style={{ aspectRatio: 1 }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
           >
-            {previewUrl
-              ? (previewKind === 'video'
-                ? <video src={previewUrl} muted playsInline preload="metadata" onLoadedMetadata={e => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setMediaAspect(v.videoWidth / v.videoHeight); }} />
-                : <img src={previewUrl} alt="水印预览素材" draggable="false" onLoad={e => { const img = e.currentTarget; if (img.naturalWidth && img.naturalHeight) setMediaAspect(img.naturalWidth / img.naturalHeight); }} />)
-              : <div className="ec-wm-preview-empty">选中一个素材后可在这里预览水印</div>}
             <WatermarkLayer
               config={draft}
               material={material}
-              width={1000}
-              height={Math.round(1000 / aspect)}
+              width={previewSize || 200}
+              height={previewSize || 200}
               className="ec-wm-layer-preview"
             />
           </div>
