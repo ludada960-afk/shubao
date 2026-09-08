@@ -754,3 +754,34 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 ### 坑（新增）
 - 根 `scripts/deploy-production.ps1` 只转发 HostName/User/KeyPath/RemoteDir/RepoPath，**不转发 `-ValidationProfile` / `-CanarySeconds`**；换档必须直调 worktree 内 canonical 脚本。
 - PowerShell 双引号字符串会先展开 `$(...)`：ssh 远程命令里出现 `$(...)` 会被本地 PowerShell 抢先执行（本次排查 VLM 时踩到两次）。远程脚本一律写成 .sh 文件 scp 过去再 `bash`。
+
+## 16. 9-08 深夜 会话：水印/小地图按批注重构 + 登录页极简重构（两次 full 档上线）
+
+### 线上状态（两条都已上线并字节级验证）
+- 水印/小地图重构：`eccca69c` → release `/var/www/shubao/releases/20260908-212816-eccca69c`
+- 极简登录：`55801ab5` → 当前 current，入口 `assets/index-DlZGF8ke.js`（502089 B，sha256 `030315af18d761e1…`），PM2 pid `2266687`
+- 两次都用 **full 档**（真实电商验收各通过一次：`ec_4d79171b…`、`ec_046e28a9…`、`ec_2b1ad31d…`，均 3 个稳定资产）+ 600s canary + 图库 117 + 视频契约 + 账务 + nginx + no-paid verifier。
+- 三处哈希一致（本地 dist / 服务器 current / 公网 https://shuimg.cn），`/login`、`/ec-canvas` 均 200，线上浏览器验收通过。
+
+### 用户 9-08 批注 7 条（画布水印/小地图）逐条落地
+1. 小地图：打开水印/其它浮动面板时自动收起（`floatingCanvasPanelOpen`）；世界窗口改**等比缩放 + 内容居中**（`scale = min(w/W,h/H)` + `padX/padY`），不再 X/Y 各自比例导致歪向右下；视口框改用**画布容器实测尺寸**（ResizeObserver + `viewportSize`）；与底部按钮区留 14px 间距（原 `bottom:54px` 与缩放条 56px 相撞）。
+2. 水印面板不再遮挡底部按钮区：`bottom = --ec-canvas-bottombar-top(56px) + 14px`。
+3. 位置改为**可拖拽**并实时同步到画布素材（面板 draft → `onPreview` → `watermarkPreview` → `nodeWatermark` 优先返回预览配置；**CanvasStudio 里不能让 node.* 抢先**，否则节点不跟随）；`取消` 回滚、`确定` 才写回节点。
+4. 铺满图片：网格重复填充（文字/图片水印都支持），间距可调。
+5. 参考面板功能逐项对齐：水印开关、水印类型、位置预览、相对位置(%)、文字大小/颜色/透明度/描边/旋转、图片水印上传/移除/大小、取消/确定。
+6. 图片水印：上传图片 + **去纯色背景**（`watermarkBackgroundRemoval.js`：边缘像素中位数估背景色 + 色彩距离羽化 alpha，返回 PNG dataURL）。
+7. **合并为一个面板**（缩放条按钮 3→2），用「素材类型」切换图片/视频；视频动态水印按调研（剪映/SproutVideo 等）实现 7 种：静态、定时跳位（默认 20s 防搬运）、缓慢漂移、跑马灯（横/纵/对角）、心跳脉冲、闪烁、溯源水印（时间戳），含速度/间隔/方向/安全边距。
+
+顺带修复：`index.jsx` 里 lucide 的 `Image` 图标**覆盖了全局 Image 构造器** → 画布上传图片时 `new Image()` 抛 `$n is not a constructor`（上传直接失败）。改为 `Image as ImageIcon`。
+
+### 用户 9-08 批注（登录页）与合规/成本结论
+- 批注：左侧品牌信息堆叠太繁杂（且四个板块不该只突出电商）→ 改**极简单卡片**；不要向用户解释「备案」→ 手机号通道点击不请求、不报错、不解释。
+- 实现：`LoginDialog.jsx` 400px 居中单卡片（保留 role=dialog/aria-modal/焦点陷阱/Esc/滚动锁）；`login-dialog.css` 极简视觉；手机号/邮箱双通道（**邮箱为当前可用默认通道**，手机号为面向市场的正式入口但点击无请求）；去掉登录/注册双 Tab 与占位说明卡。
+- 顺带修复：验证码填满自动提交时 `handleVerify` 读到本帧旧 `code`（恒 5 位）→ 误报「请输入 6 位验证码」且不登录。改为由 `OtpCodeInput` 回传完整验证码。
+- **合规结论**：《互联网信息服务深度合成管理规定》第九条明确要求基于**移动电话号码/身份证件号码/统一社会信用代码/国家网络身份认证**做真实身份认证 —— 邮箱不满足实名，对外上线必须补手机号（或微信登录等已实名通道）。
+- **成本结论**：短信约 ¥0.03–0.05/条（每次登录）；邮箱约 ¥0.003–0.01/封（不满足实名）；账号+密码单次 0 成本但注册仍要手机号验证，且增加密码体系/找回/安全负担。降本靠**长会话（30 天免登录，已有 refresh token）+ 微信登录**，而不是账号密码。
+- 短信通道开通后：把 `loginChannel` 默认值从 `'email'` 改为 `'phone'`，并给手机号 CTA 接上 `sendOTP/verifyOTP` 的手机号版本即可（UI 无需重做）。
+
+### 验证与坑
+- 本地：npm test **2936/2936**；Playwright 水印面板 **24/24**、素材同步 **8/8**、极简登录 **20/20**；线上登录 **7/7**。
+- 坑：`fill()` 触发 OTP onChange 时父组件 state 还是旧值 → 自动提交必须显式回传验证码；Vite preview 需重建后刷新才拿到新产物；`git diff --check` 对 CRLF 文件报 trailing whitespace，需 `git config core.whitespace cr-at-eol`。
