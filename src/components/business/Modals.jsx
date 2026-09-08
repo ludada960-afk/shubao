@@ -1,8 +1,12 @@
-import React, { useReducer, useState, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose, MdLockOutline } from 'react-icons/md';
 import { FaGithub } from 'react-icons/fa';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
+import LoginDialog from './LoginDialog.jsx';
+import OtpCodeInput from './OtpCodeInput.jsx';
+import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, MessageCircle, Smartphone } from 'lucide-react';
+import '../../styles/login-dialog.css';
 import { IMAGES } from '../../constants/images';
 import { PRICING_PLANS } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
@@ -38,7 +42,7 @@ import {
 } from '../../utils/pendingPaymentOrder.js';
 import { createLoginOtpState, loginOtpReducer, remainingResendSeconds } from './loginOtpState.js';
 
-/* ═══════ Login Modal ═══════ */
+/* ═══════ Login Modal (2026-09-08 重构: 双栏品牌面板 + 分段 OTP + 登录/注册 Tab) ═══════ */
 export function LoginModal() {
   const { state, dispatch, fetchCredits } = useApp();
   const [otp, updateOtp] = useReducer(loginOtpReducer, undefined, createLoginOtpState);
@@ -52,12 +56,31 @@ export function LoginModal() {
   const [forgotLoading, setForgotLoading] = useState(false);
   /* 9-06 市场化: 邀请码注册通道 (UI 先行, 后端接入时随 verify 请求提交) + 协议勾选 */
   const [inviteCode, setInviteCode] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
+  const [termsInvalid, setTermsInvalid] = useState(false);
   /* 9-06 登录重构: 手机号/邮箱双通道 (手机号后端桩, 短信备案后接通) */
   const [loginChannel, setLoginChannel] = useState('email');
+  const [authMode, setAuthMode] = useState('login');
   const [phone, setPhone] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [codeInvalid, setCodeInvalid] = useState(false);
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
+
+  const close = useCallback(() => {
+    dispatch({ type: 'SHOW_LOGIN', show: false });
+    updateOtp({ type: 'RESET' });
+    setLoading(false);
+    setErr('');
+    setForgotMode(false);
+    setForgotEmail('');
+    setForgotMsg('');
+    setForgotLoading(false);
+    setEmailTouched(false);
+    setCodeInvalid(false);
+    setTermsInvalid(false);
+  }, [dispatch]);
 
   useEffect(() => {
     if (!state.showLogin || resendSeconds <= 0) return undefined;
@@ -75,73 +98,12 @@ export function LoginModal() {
     return () => { active = false; };
   }, [state.showLogin]);
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+  const emailInvalid = emailTouched && email.trim().length > 0 && !emailValid;
+  const isRegister = authMode === 'register';
+  const titleId = 'ld-login-title';
+
   if (!state.showLogin) return null;
-
-  // ── P2：忘记密码子流程（输邮箱 → forgot-password，响应恒定防枚举）──
-  if (forgotMode) {
-    return (
-      <Modal onClose={close}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <CharImg src={IMAGES.wave} size={64} />
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-bold)', marginTop: 10 }}>
-            找回密码
-          </div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 4 }}>
-            输入注册邮箱，我们将发送重置链接
-          </div>
-        </div>
-
-        {err && <div style={{
-          background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 'var(--radius-md)',
-          padding: '8px 14px', marginBottom: 12, fontSize: 'var(--text-sm)', color: '#C53030',
-        }}>{err}</div>}
-
-        <input
-          placeholder="邮箱地址"
-          autoFocus
-          value={forgotEmail}
-          onChange={e => setForgotEmail(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleForgotSubmit(); }}
-          style={{
-            width: '100%', padding: '12px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
-            fontSize: 'var(--text-base)', marginBottom: 12,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', opacity: 1,
-          }}
-        />
-
-        <Button primary full onClick={handleForgotSubmit} disabled={forgotLoading}>
-          {forgotLoading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLockOutline size={15} />}
-          {forgotLoading ? ' 发送中…' : ' 发送重置链接'}
-        </Button>
-
-        {forgotMsg && (
-          <div role="status" style={{
-            marginTop: 12, padding: '8px 12px', borderRadius: 'var(--radius-md)',
-            background: '#F0FFF4', border: '1px solid #C6F6D5', color: '#276749',
-            fontSize: 'var(--text-sm)', lineHeight: 1.6,
-          }}>{forgotMsg}</div>
-        )}
-
-        <button type="button"
-          onClick={() => { setForgotMode(false); setForgotMsg(''); setErr(''); }}
-          style={{ width: '100%', marginTop: 14, border: 0, background: 'transparent', color: 'var(--command)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-          返回登录
-        </button>
-      </Modal>
-    );
-  }
-
-  const close = () => {
-    dispatch({ type: 'SHOW_LOGIN', show: false });
-    updateOtp({ type: 'RESET' });
-    setLoading(false);
-    setErr('');
-    setForgotMode(false);
-    setForgotEmail('');
-    setForgotMsg('');
-    setForgotLoading(false);
-  };
 
   const handleGithubLogin = () => {
     beginOAuthLogin('github').catch(e => setErr(e?.message || 'GitHub 登录暂不可用'));
@@ -164,10 +126,11 @@ export function LoginModal() {
   };
 
   const handleSendCode = async () => {
-    if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
+    setEmailTouched(true);
+    if (loginChannel === 'phone') { setErr('手机号通道备案中，请先用邮箱验证码登录'); return; }
+    if (!emailValid) { setErr('请输入正确的邮箱地址'); return; }
     setLoading(true); setErr('');
     try {
-      if (loginChannel === 'phone') { setErr('手机号登录即将开放，请先使用邮箱登录'); setLoading(false); return; }
       const result = await sendOTP(email.trim());
       updateOtp({
         type: 'CODE_SENT',
@@ -181,14 +144,23 @@ export function LoginModal() {
   };
 
   const handleEmailChange = (nextEmail) => {
+    setErr('');
     updateOtp(step === 'code'
       ? { type: 'BEGIN_LOGIN', email: nextEmail }
       : { type: 'SET_EMAIL', email: nextEmail });
   };
 
   const handleVerify = async () => {
-    if (!agreedTerms) { setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
-    if (!code.trim()) { setErr('请输入验证码'); return; }
+    if (!agreedTerms) {
+      setTermsInvalid(true);
+      setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》');
+      return;
+    }
+    if (code.trim().length < 6) {
+      setCodeInvalid(true);
+      setErr('请输入 6 位验证码');
+      return;
+    }
     setLoading(true); setErr('');
     try {
       const user = await verifyOTP(email.trim(), code.trim());
@@ -201,197 +173,286 @@ export function LoginModal() {
       }
       close();
     } catch (e) {
+      setCodeInvalid(true);
       setErr(/failed to fetch/i.test(e?.message || '') ? '网络请求失败，请检查网络后重试（如果你在本地测试页面，请访问 shuimg.cn）' : e.message);
     }
     setLoading(false);
   };
 
+  // ── P2：忘记密码子流程（输邮箱 → forgot-password，响应恒定防枚举）──
+  if (forgotMode) {
+    return (
+      <LoginDialog onClose={close} labelledBy={titleId}>
+        <div>
+          <span className="ld-eyebrow">账号恢复</span>
+          <h2 className="ld-title" id={titleId}>找回密码</h2>
+          <p className="ld-desc">输入注册邮箱，我们会发送一封重置链接邮件。</p>
+        </div>
+
+        {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
+
+        <div className="ld-field">
+          <span className="ld-field-label"><span>邮箱</span></span>
+          <span className="ld-input-wrap">
+            <span className="ld-input-icon"><Mail size={17} /></span>
+            <input
+              id="ld-forgot-email"
+              className="ld-input"
+              type="email"
+              placeholder="邮箱地址"
+              autoComplete="email"
+              autoFocus
+              value={forgotEmail}
+              onChange={e => setForgotEmail(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleForgotSubmit(); }}
+            />
+          </span>
+        </div>
+
+        <button type="button" className={'ld-cta' + (forgotLoading ? ' is-busy' : '')} onClick={handleForgotSubmit} disabled={forgotLoading}>
+          {forgotLoading ? <><Loader2 size={16} className="ld-spin" /> 发送中…</> : <>发送重置链接 <ArrowRight size={16} /></>}
+        </button>
+
+        {forgotMsg && (
+          <div className="ld-alert" role="status" style={{ background: '#f0f9f2', borderColor: '#cfe9d6', color: '#2f6b41' }}>
+            <CheckCircle2 size={15} /><span>{forgotMsg}</span>
+          </div>
+        )}
+
+        <div className="ld-actions-row" style={{ justifyContent: 'center' }}>
+          <button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(false); setForgotMsg(''); setErr(''); }}>
+            返回登录
+          </button>
+        </div>
+        <div className="ld-foot"><Lock size={12} /><span>为防账号枚举，无论邮箱是否注册都会返回相同提示</span></div>
+      </LoginDialog>
+    );
+  }
+
   return (
-    <Modal onClose={close}>
-      {/* 9-06 登录页重构 (参考椒图AI/灵图AI): 渐变头部 + 无密码 OTP + 通道切换 */}
-      <div style={{
-        margin: '-38px -38px 20px',
-        padding: '30px 20px 20px',
-        background: 'linear-gradient(160deg, #f97362 0%, #e9485a 45%, #9d5cf0 100%)',
-        borderRadius: '22px 22px 0 0',
-        textAlign: 'center',
-      }}>
-        <span style={{ display: 'inline-grid', placeItems: 'center', width: 84, height: 84, borderRadius: '50%', background: 'rgba(255,255,255,0.96)', boxShadow: '0 6px 20px -4px rgba(80,0,40,0.35)' }}>
-          <CharImg src={IMAGES.wave} size={62} />
-        </span>
-        <div style={{ fontSize: 20, fontWeight: 900, marginTop: 8, color: '#ffffff' }}>
-          登录薯包AI
-        </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.88)', marginTop: 4 }}>
-          验证邮箱后即可继续创作，无需密码
-        </div>
+    <LoginDialog onClose={close} labelledBy={titleId}>
+      <div>
+        <span className="ld-eyebrow">{isRegister ? '新用户注册' : '账号登录'}</span>
+        <h2 className="ld-title" id={titleId}>{isRegister ? '创建你的创作账号' : '欢迎回来'}</h2>
+        <p className="ld-desc">
+          {isRegister ? '验证邮箱即完成注册，不需要设置密码。' : '验证邮箱后即可继续创作，全程免密码。'}
+        </p>
       </div>
 
-      {/* 通道 pill: 手机号 / 邮箱 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, padding: 4, background: '#f4eadb', border: '1px solid #e7e0d4', borderRadius: 14, marginBottom: 14 }}>
-        {[['phone', '手机号'], ['email', '邮箱']].map(([id, name]) => (
+      {/* 登录 / 注册 主 Tab */}
+      <div className="ld-tabs" role="tablist" aria-label="登录或注册">
+        {[['login', '登录'], ['register', '注册']].map(([id, name]) => (
           <button
             key={id}
             type="button"
-            onClick={() => { setLoginChannel(id); setErr(''); }}
-            style={{
-              appearance: 'none', border: 0, cursor: 'pointer', fontFamily: 'inherit',
-              padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-              background: loginChannel === id ? '#ffffff' : 'transparent',
-              color: loginChannel === id ? '#1c1917' : '#78716c',
-              boxShadow: loginChannel === id ? '0 2px 8px rgba(57,45,26,0.12)' : 'none',
-            }}
+            role="tab"
+            aria-selected={authMode === id}
+            className={'ld-tab' + (authMode === id ? ' is-active' : '')}
+            onClick={() => { setAuthMode(id); setErr(''); if (id === 'register') setInviteOpen(true); }}
           >
-            {id === 'phone' ? '📱 ' : '✉️ '}{name}
+            {name}
           </button>
         ))}
       </div>
 
-      {err && <div style={{
-        background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 'var(--radius-md)',
-        padding: '8px 14px', marginBottom: 12, fontSize: 'var(--text-sm)', color: '#C53030',
-      }}>{err}</div>}
+      {/* 通道切换: 邮箱 / 手机号 */}
+      <div className="ld-channels">
+        <button
+          type="button"
+          className={'ld-channel' + (loginChannel === 'email' ? ' is-active' : '')}
+          aria-pressed={loginChannel === 'email'}
+          onClick={() => { setLoginChannel('email'); setErr(''); }}
+        >
+          <Mail size={14} /> 邮箱验证码
+        </button>
+        <button
+          type="button"
+          className={'ld-channel' + (loginChannel === 'phone' ? ' is-active' : '')}
+          aria-pressed={loginChannel === 'phone'}
+          onClick={() => { setLoginChannel('phone'); setErr(''); }}
+        >
+          <Smartphone size={14} /> 手机号
+        </button>
+      </div>
 
-      {/* 通道输入区: 手机号(桩) / 邮箱 OTP */}
+      {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
+
       {loginChannel === 'phone' ? (
-        <input
-          placeholder="手机号登录即将开放，先用邮箱"
-          value={phone}
-          onChange={e => setPhone(e.target.value)}
-          style={{
-            width: '100%', padding: '13px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 12,
-            fontSize: 'var(--text-base)', marginBottom: 12,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', background: '#fafaf9',
-          }}
-        />
+        <div className="ld-stub">
+          <strong>手机号通道正在备案</strong>
+          <p>短信签名与通道备案通过后即可开通。当前请先用邮箱验证码登录，功能完全一致。</p>
+          <span className="ld-input-wrap">
+            <span className="ld-input-icon"><Smartphone size={17} /></span>
+            <input
+              className="ld-input"
+              type="tel"
+              inputMode="tel"
+              placeholder="手机号通道备案中"
+              value={phone}
+              disabled
+              onChange={e => setPhone(e.target.value)}
+            />
+          </span>
+          <button type="button" className="ld-cta" onClick={() => { setLoginChannel('email'); setErr(''); }}>
+            先用邮箱登录 <ArrowRight size={16} />
+          </button>
+        </div>
       ) : (
-        <input
-          placeholder="邮箱地址"
-          autoFocus
-          value={email}
-          onChange={e => handleEmailChange(e.target.value)}
-          style={{
-            width: '100%', padding: '13px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 12,
-            fontSize: 'var(--text-base)', marginBottom: 12,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-      )}
-
-      {loginChannel === 'email' && step === 'code' && (
-        <input
-          placeholder="验证码"
-          value={code}
-          onChange={e => updateOtp({ type: 'SET_CODE', code: e.target.value.replace(/\D/g, '') })}
-          maxLength={6}
-          autoFocus
-          style={{
-            width: '100%', padding: '13px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 12,
-            fontSize: 'var(--text-base)', marginBottom: 12,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-      )}
-
-      {loginChannel === 'email' && step === 'code' && (
-        <input
-          placeholder="邀请码（选填）"
-          value={inviteCode}
-          onChange={e => setInviteCode(e.target.value)}
-          style={{
-            width: '100%', padding: '13px 16px',
-            border: '1.5px solid var(--border)', borderRadius: 12,
-            fontSize: 'var(--text-base)', marginBottom: 12,
-            boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-      )}
-
-      <Button primary full onClick={loginChannel === 'email' ? (step === 'email' ? handleSendCode : handleVerify) : () => setErr('手机号登录即将开放，请先用邮箱登录')} disabled={loading}>
-        {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
-        {loginChannel === 'phone' ? ' 手机号登录' : step === 'email' ? ' 发送验证码' : (agreedTerms ? ' 登录 / 注册' : ' 请先勾选同意下方协议')}
-      </Button>
-
-      {/* 9-06 市场化: 服务条款 / 隐私政策 (ICP 备案必需; /terms /privacy 页面已上线) */}
-      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, fontSize: 12.5, color: 'var(--text-hint, #6b7280)', cursor: 'pointer', userSelect: 'none' }}>
-        <input
-          type="checkbox"
-          checked={agreedTerms}
-          onChange={e => setAgreedTerms(e.target.checked)}
-          style={{ width: 15, height: 15, accentColor: '#1c1917', cursor: 'pointer' }}
-        />
-        <span>
-          我已阅读并同意
-          <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--command, #2563eb)', textDecoration: 'none', margin: '0 2px' }}>《用户服务协议》</a>和
-          <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--command, #2563eb)', textDecoration: 'none', margin: '0 2px' }}>《隐私政策》</a>
-        </span>
-      </label>
-
-      <button
-        type="button"
-        onClick={() => setErr('微信登录正在接入，即将开放')}
-        style={{
-          width: '100%', marginTop: 12, padding: '11px 16px',
-          border: '1.5px solid var(--border)', borderRadius: 999,
-          background: '#ffffff', color: '#292524', fontSize: 14, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}
-      >
-        微信登录
-      </button>
-
-{oauthProviders.length > 0 && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 10px', color: 'var(--text-invisible)', fontSize: 11 }}>
-            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            或使用以下方式继续
-            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <div className="ld-field">
+            <span className="ld-field-label">
+              <span>邮箱</span>
+              {step === 'code' && <small>验证码已发送</small>}
+            </span>
+            <span className="ld-input-wrap">
+              <span className="ld-input-icon"><Mail size={17} /></span>
+              <input
+                placeholder="邮箱地址"
+                autoFocus
+                id="ld-email"
+                className={'ld-input' + (emailInvalid ? ' is-invalid' : '')}
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                spellCheck={false}
+                value={email}
+                disabled={step === 'code'}
+                aria-invalid={emailInvalid || undefined}
+                aria-describedby="ld-email-hint"
+                onChange={e => handleEmailChange(e.target.value)}
+                onBlur={() => setEmailTouched(true)}
+                onKeyDown={e => { if (e.key === 'Enter') { if (step === 'email') handleSendCode(); else handleVerify(); } }}
+              />
+              {step === 'code' && (
+                <span className="ld-input-suffix">
+                  <button type="button" className="ld-inline-action" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}>
+                    修改邮箱
+                  </button>
+                </span>
+              )}
+            </span>
+            <span className={'ld-hint' + (emailInvalid ? ' is-invalid' : (emailValid && step === 'email' ? ' is-valid' : ''))} id="ld-email-hint">
+              {emailInvalid
+                ? '邮箱格式不正确，请检查后重试'
+                : step === 'code'
+                  ? `验证码已发送至 ${email}，10 分钟内有效`
+                  : '我们只发送一次性验证码，不保存密码'}
+            </span>
           </div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {oauthProviders.map(provider => provider.id === 'github' ? (
-              <button key={provider.id} type="button" onClick={handleGithubLogin}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '11px 0', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
-                  background: '#24292f', color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                <FaGithub size={16} />
-                使用 GitHub 继续
+
+          {step === 'email' && otp.hasActiveCode && (
+            <div className="ld-actions-row" style={{ justifyContent: 'flex-start' }}>
+              <button type="button" className="ld-ghost-link" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}>
+                返回填写已发送的验证码
               </button>
-            ) : null)}
-          </div>
+            </div>
+          )}
+
+          {step === 'code' && (
+            <div className="ld-field">
+              <span className="ld-field-label">
+                <span>验证码</span>
+                <small>{resendSeconds > 0 ? `${resendSeconds}s 后可重发` : '可重新发送'}</small>
+              </span>
+              <OtpCodeInput
+                value={code}
+                onChange={next => { setCodeInvalid(false); updateOtp({ type: 'SET_CODE', code: next }); }}
+                onComplete={() => { if (!loading) handleVerify(); }}
+                onEnter={handleVerify}
+                autoFocus
+                disabled={loading}
+                invalid={codeInvalid}
+                label="邮箱验证码"
+                describedBy="ld-email-hint"
+              />
+              <span className="ld-actions-row">
+                <button
+                  type="button"
+                  className="ld-ghost-link"
+                  onClick={resendSeconds > 0 || loading ? undefined : handleSendCode}
+                  disabled={resendSeconds > 0 || loading}
+                  style={{ color: resendSeconds > 0 ? '#a8a29c' : undefined, textDecoration: 'none', cursor: resendSeconds > 0 ? 'default' : 'pointer' }}
+                >
+                  {resendSeconds > 0 ? `重新发送（${resendSeconds}s）` : '重新发送验证码'}
+                </button>
+                <button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(true); setErr(''); }}>
+                  收不到验证码？
+                </button>
+              </span>
+            </div>
+          )}
+
+          {step === 'code' && !inviteOpen && (
+            <button type="button" className="ld-invite-toggle" onClick={() => setInviteOpen(true)}>
+              <Gift size={14} /> 有邀请码？点这里填写
+            </button>
+          )}
+          {(inviteOpen || isRegister) && (
+            <div className="ld-field ld-invite">
+              <span className="ld-field-label"><span>邀请码</span><small>选填</small></span>
+              <span className="ld-input-wrap">
+                <span className="ld-input-icon"><Gift size={17} /></span>
+                <input
+                  className="ld-input"
+                  type="text"
+                  placeholder="邀请码（选填）"
+                  autoComplete="off"
+                  value={inviteCode}
+                  onChange={e => setInviteCode(e.target.value)}
+                />
+              </span>
+            </div>
+          )}
         </>
       )}
 
-      {step === 'code' && (
-        <button type="button" onClick={resendSeconds > 0 ? undefined : handleSendCode} disabled={loading || resendSeconds > 0}
-          style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: resendSeconds > 0 ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-          {resendSeconds > 0 ? `${resendSeconds} 秒后可重新发送` : '重新发送验证码'}
+      {loginChannel === 'email' && (
+        <button
+          type="button"
+          className={'ld-cta' + (loading ? ' is-busy' : '')}
+          onClick={step === 'email' ? handleSendCode : handleVerify}
+          disabled={loading}
+        >
+          {loading
+            ? <><Loader2 size={16} className="ld-spin" /> {step === 'email' ? '发送中…' : '登录中…'}</>
+            : step === 'email'
+              ? <>{isRegister ? '获取注册验证码' : '获取验证码'} <ArrowRight size={16} /></>
+              : <><LogIn size={16} /> {isRegister ? '注册并登录' : '登录 / 注册'}</>}
         </button>
       )}
 
-      {step === 'code' && (
-        <button type="button" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}
-          style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--command)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-          修改邮箱
+      {/* 第三方登录 (微信为占位通道; GitHub 由服务端凭据决定是否返回) */}
+      <div className="ld-divider">或</div>
+      <div className="ld-oauth">
+        <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}>
+          <MessageCircle size={17} /> 微信登录
         </button>
-      )}
-
-      {step === 'email' && otp.hasActiveCode && (
-        <button type="button" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}
-          style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
-          返回填写已发送的验证码
-        </button>
-      )}
-
-      <div style={{ textAlign: 'center', marginTop: 12, fontSize: 'var(--text-xs)', color: 'var(--text-invisible)' }}>
-        登录后可把作品保存到个人作品集
+        {oauthProviders.some(provider => provider.id === 'github') && (
+          <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}>
+            <FaGithub size={16} /> GitHub
+          </button>
+        )}
       </div>
-    </Modal>
+
+      {/* 服务条款 / 隐私政策 (ICP 备案必需; /terms /privacy 页面已上线) */}
+      <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}>
+        <input
+          type="checkbox"
+          checked={agreedTerms}
+          onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }}
+        />
+        <span>
+          我已阅读并同意
+          <a href="/terms" target="_blank" rel="noreferrer">《用户服务协议》</a>和
+          <a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a>
+        </span>
+      </label>
+
+      <div className="ld-foot">
+        <Lock size={12} />
+        <span>登录后作品自动保存到个人作品集 · <a href="/">先逛逛首页</a></span>
+      </div>
+    </LoginDialog>
   );
 }
 
