@@ -5,7 +5,7 @@ import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import LoginDialog from './LoginDialog.jsx';
 import OtpCodeInput from './OtpCodeInput.jsx';
-import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, MessageCircle, Smartphone } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, MessageCircle, Smartphone, ShieldCheck } from 'lucide-react';
 import '../../styles/login-dialog.css';
 import { IMAGES } from '../../constants/images';
 import { PRICING_PLANS } from '../../constants/data';
@@ -42,7 +42,7 @@ import {
 } from '../../utils/pendingPaymentOrder.js';
 import { createLoginOtpState, loginOtpReducer, remainingResendSeconds } from './loginOtpState.js';
 
-/* ═══════ Login Modal (2026-09-08 重构: 双栏品牌面板 + 分段 OTP + 登录/注册 Tab) ═══════ */
+/* ═══════ Login Modal (2026-09-08 极简重构: 单卡片 + 手机号/邮箱 + 分段 OTP) ═══════ */
 export function LoginModal() {
   const { state, dispatch, fetchCredits } = useApp();
   const [otp, updateOtp] = useReducer(loginOtpReducer, undefined, createLoginOtpState);
@@ -54,14 +54,13 @@ export function LoginModal() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
-  /* 9-06 市场化: 邀请码注册通道 (UI 先行, 后端接入时随 verify 请求提交) + 协议勾选 */
+  /* 邀请码注册通道 (UI 先行, 后端接入时随 verify 请求提交) */
   const [inviteCode, setInviteCode] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [termsInvalid, setTermsInvalid] = useState(false);
-  /* 9-06 登录重构: 手机号/邮箱双通道 (手机号后端桩, 短信备案后接通) */
+  /* 手机号 / 邮箱双通道：手机号为面向市场的首选通道（短信通道开通后即可直接使用） */
   const [loginChannel, setLoginChannel] = useState('email');
-  const [authMode, setAuthMode] = useState('login');
   const [phone, setPhone] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [codeInvalid, setCodeInvalid] = useState(false);
@@ -100,7 +99,6 @@ export function LoginModal() {
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
   const emailInvalid = emailTouched && email.trim().length > 0 && !emailValid;
-  const isRegister = authMode === 'register';
   const titleId = 'ld-login-title';
 
   if (!state.showLogin) return null;
@@ -127,7 +125,6 @@ export function LoginModal() {
 
   const handleSendCode = async () => {
     setEmailTouched(true);
-    if (loginChannel === 'phone') { setErr('手机号通道备案中，请先用邮箱验证码登录'); return; }
     if (!emailValid) { setErr('请输入正确的邮箱地址'); return; }
     setLoading(true); setErr('');
     try {
@@ -150,20 +147,22 @@ export function LoginModal() {
       : { type: 'SET_EMAIL', email: nextEmail });
   };
 
-  const handleVerify = async () => {
+  const handleVerify = async (explicitCode) => {
+    /* 自动提交时本帧的 code 还是旧值，必须用输入组件回传的完整验证码 */
+    const codeValue = String(explicitCode ?? code).trim();
     if (!agreedTerms) {
       setTermsInvalid(true);
       setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》');
       return;
     }
-    if (code.trim().length < 6) {
+    if (codeValue.length < 6) {
       setCodeInvalid(true);
       setErr('请输入 6 位验证码');
       return;
     }
     setLoading(true); setErr('');
     try {
-      const user = await verifyOTP(email.trim(), code.trim());
+      const user = await verifyOTP(email.trim(), codeValue);
       dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
       setTimeout(() => { fetchCredits(user.email); }, 100);
       if (state.loginIntent?.destination) {
@@ -183,18 +182,15 @@ export function LoginModal() {
   if (forgotMode) {
     return (
       <LoginDialog onClose={close} labelledBy={titleId}>
-        <div>
-          <span className="ld-eyebrow">账号恢复</span>
-          <h2 className="ld-title" id={titleId}>找回密码</h2>
-          <p className="ld-desc">输入注册邮箱，我们会发送一封重置链接邮件。</p>
-        </div>
+        <h2 className="ld-title" id={titleId}>找回密码</h2>
+        <p className="ld-desc">输入注册邮箱，我们会发送一封重置链接邮件。</p>
 
         {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
 
-        <div className="ld-field">
+        <div className="ld-field" style={{ marginTop: 18 }}>
           <span className="ld-field-label"><span>邮箱</span></span>
           <span className="ld-input-wrap">
-            <span className="ld-input-icon"><Mail size={17} /></span>
+            <span className="ld-input-icon"><Mail size={16} /></span>
             <input
               id="ld-forgot-email"
               className="ld-input"
@@ -209,8 +205,8 @@ export function LoginModal() {
           </span>
         </div>
 
-        <button type="button" className={'ld-cta' + (forgotLoading ? ' is-busy' : '')} onClick={handleForgotSubmit} disabled={forgotLoading}>
-          {forgotLoading ? <><Loader2 size={16} className="ld-spin" /> 发送中…</> : <>发送重置链接 <ArrowRight size={16} /></>}
+        <button type="button" className="ld-cta" onClick={handleForgotSubmit} disabled={forgotLoading}>
+          {forgotLoading ? <><Loader2 size={16} className="ld-spin" /> 发送中…</> : '发送重置链接'}
         </button>
 
         {forgotMsg && (
@@ -219,84 +215,67 @@ export function LoginModal() {
           </div>
         )}
 
-        <div className="ld-actions-row" style={{ justifyContent: 'center' }}>
+        <div className="ld-actions-row" style={{ justifyContent: 'center', marginTop: 16 }}>
           <button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(false); setForgotMsg(''); setErr(''); }}>
             返回登录
           </button>
         </div>
-        <div className="ld-foot"><Lock size={12} /><span>为防账号枚举，无论邮箱是否注册都会返回相同提示</span></div>
       </LoginDialog>
     );
   }
 
   return (
     <LoginDialog onClose={close} labelledBy={titleId}>
-      <div>
-        <span className="ld-eyebrow">{isRegister ? '新用户注册' : '账号登录'}</span>
-        <h2 className="ld-title" id={titleId}>{isRegister ? '创建你的创作账号' : '欢迎回来'}</h2>
-        <p className="ld-desc">
-          {isRegister ? '验证邮箱即完成注册，不需要设置密码。' : '验证邮箱后即可继续创作，全程免密码。'}
-        </p>
-      </div>
+      <h2 className="ld-title" id={titleId}>登录薯包 AI</h2>
+      <p className="ld-desc">未注册的账号将自动创建，登录即可开始创作</p>
 
-      {/* 登录 / 注册 主 Tab */}
-      <div className="ld-tabs" role="tablist" aria-label="登录或注册">
-        {[['login', '登录'], ['register', '注册']].map(([id, name]) => (
+      {/* 通道切换: 手机号 / 邮箱 */}
+      <div className="ld-tabs" role="tablist" aria-label="登录方式">
+        {[['phone', '手机号'], ['email', '邮箱']].map(([id, name]) => (
           <button
             key={id}
             type="button"
             role="tab"
-            aria-selected={authMode === id}
-            className={'ld-tab' + (authMode === id ? ' is-active' : '')}
-            onClick={() => { setAuthMode(id); setErr(''); if (id === 'register') setInviteOpen(true); }}
+            aria-selected={loginChannel === id}
+            className={'ld-tab' + (loginChannel === id ? ' is-active' : '')}
+            onClick={() => { setLoginChannel(id); setErr(''); }}
           >
             {name}
           </button>
         ))}
       </div>
 
-      {/* 通道切换: 邮箱 / 手机号 */}
-      <div className="ld-channels">
-        <button
-          type="button"
-          className={'ld-channel' + (loginChannel === 'email' ? ' is-active' : '')}
-          aria-pressed={loginChannel === 'email'}
-          onClick={() => { setLoginChannel('email'); setErr(''); }}
-        >
-          <Mail size={14} /> 邮箱验证码
-        </button>
-        <button
-          type="button"
-          className={'ld-channel' + (loginChannel === 'phone' ? ' is-active' : '')}
-          aria-pressed={loginChannel === 'phone'}
-          onClick={() => { setLoginChannel('phone'); setErr(''); }}
-        >
-          <Smartphone size={14} /> 手机号
-        </button>
-      </div>
-
       {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
 
       {loginChannel === 'phone' ? (
-        <div className="ld-stub">
-          <strong>手机号通道正在备案</strong>
-          <p>短信签名与通道备案通过后即可开通。当前请先用邮箱验证码登录，功能完全一致。</p>
-          <span className="ld-input-wrap">
-            <span className="ld-input-icon"><Smartphone size={17} /></span>
-            <input
-              className="ld-input"
-              type="tel"
-              inputMode="tel"
-              placeholder="手机号通道备案中"
-              value={phone}
-              disabled
-              onChange={e => setPhone(e.target.value)}
-            />
-          </span>
-          <button type="button" className="ld-cta" onClick={() => { setLoginChannel('email'); setErr(''); }}>
-            先用邮箱登录 <ArrowRight size={16} />
-          </button>
-        </div>
+        <>
+          <div className="ld-field">
+            <span className="ld-field-label"><span>手机号</span></span>
+            <span className="ld-input-wrap">
+              <span className="ld-input-icon"><Smartphone size={16} /></span>
+              <input
+                className="ld-input"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="请输入手机号"
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              />
+            </span>
+          </div>
+          <div className="ld-field">
+            <span className="ld-field-label"><span>短信验证码</span></span>
+            <span className="ld-input-wrap">
+              <span className="ld-input-icon"><ShieldCheck size={16} /></span>
+              <input className="ld-input" type="text" inputMode="numeric" placeholder="请输入验证码" readOnly />
+              <span className="ld-input-suffix">
+                <button type="button" className="ld-inline-action">获取验证码</button>
+              </span>
+            </span>
+          </div>
+          <button type="button" className="ld-cta">登录</button>
+        </>
       ) : (
         <>
           <div className="ld-field">
@@ -305,7 +284,7 @@ export function LoginModal() {
               {step === 'code' && <small>验证码已发送</small>}
             </span>
             <span className="ld-input-wrap">
-              <span className="ld-input-icon"><Mail size={17} /></span>
+              <span className="ld-input-icon"><Mail size={16} /></span>
               <input
                 placeholder="邮箱地址"
                 autoFocus
@@ -335,18 +314,10 @@ export function LoginModal() {
               {emailInvalid
                 ? '邮箱格式不正确，请检查后重试'
                 : step === 'code'
-                  ? `验证码已发送至 ${email}，10 分钟内有效`
+                  ? `验证码已发送至 ${email}`
                   : '我们只发送一次性验证码，不保存密码'}
             </span>
           </div>
-
-          {step === 'email' && otp.hasActiveCode && (
-            <div className="ld-actions-row" style={{ justifyContent: 'flex-start' }}>
-              <button type="button" className="ld-ghost-link" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}>
-                返回填写已发送的验证码
-              </button>
-            </div>
-          )}
 
           {step === 'code' && (
             <div className="ld-field">
@@ -357,8 +328,8 @@ export function LoginModal() {
               <OtpCodeInput
                 value={code}
                 onChange={next => { setCodeInvalid(false); updateOtp({ type: 'SET_CODE', code: next }); }}
-                onComplete={() => { if (!loading) handleVerify(); }}
-                onEnter={handleVerify}
+                onComplete={(next) => { if (!loading) handleVerify(next); }}
+                onEnter={() => handleVerify()}
                 autoFocus
                 disabled={loading}
                 invalid={codeInvalid}
@@ -371,7 +342,6 @@ export function LoginModal() {
                   className="ld-ghost-link"
                   onClick={resendSeconds > 0 || loading ? undefined : handleSendCode}
                   disabled={resendSeconds > 0 || loading}
-                  style={{ color: resendSeconds > 0 ? '#a8a29c' : undefined, textDecoration: 'none', cursor: resendSeconds > 0 ? 'default' : 'pointer' }}
                 >
                   {resendSeconds > 0 ? `重新发送（${resendSeconds}s）` : '重新发送验证码'}
                 </button>
@@ -382,59 +352,61 @@ export function LoginModal() {
             </div>
           )}
 
-          {step === 'code' && !inviteOpen && (
-            <button type="button" className="ld-invite-toggle" onClick={() => setInviteOpen(true)}>
-              <Gift size={14} /> 有邀请码？点这里填写
-            </button>
-          )}
-          {(inviteOpen || isRegister) && (
-            <div className="ld-field ld-invite">
-              <span className="ld-field-label"><span>邀请码</span><small>选填</small></span>
-              <span className="ld-input-wrap">
-                <span className="ld-input-icon"><Gift size={17} /></span>
-                <input
-                  className="ld-input"
-                  type="text"
-                  placeholder="邀请码（选填）"
-                  autoComplete="off"
-                  value={inviteCode}
-                  onChange={e => setInviteCode(e.target.value)}
-                />
-              </span>
+          {step === 'email' && otp.hasActiveCode && (
+            <div className="ld-actions-row" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
+              <button type="button" className="ld-ghost-link" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}>
+                返回填写已发送的验证码
+              </button>
             </div>
           )}
+
+          <button
+            type="button"
+            className={'ld-cta' + (loading ? ' is-busy' : '')}
+            onClick={step === 'email' ? handleSendCode : handleVerify}
+            disabled={loading}
+          >
+            {loading
+              ? <><Loader2 size={16} className="ld-spin" /> {step === 'email' ? '发送中…' : '登录中…'}</>
+              : step === 'email' ? '获取验证码' : '登录'}
+          </button>
         </>
       )}
 
-      {loginChannel === 'email' && (
-        <button
-          type="button"
-          className={'ld-cta' + (loading ? ' is-busy' : '')}
-          onClick={step === 'email' ? handleSendCode : handleVerify}
-          disabled={loading}
-        >
-          {loading
-            ? <><Loader2 size={16} className="ld-spin" /> {step === 'email' ? '发送中…' : '登录中…'}</>
-            : step === 'email'
-              ? <>{isRegister ? '获取注册验证码' : '获取验证码'} <ArrowRight size={16} /></>
-              : <><LogIn size={16} /> {isRegister ? '注册并登录' : '登录 / 注册'}</>}
+      {!inviteOpen ? (
+        <button type="button" className="ld-invite-toggle" onClick={() => setInviteOpen(true)}>
+          <Gift size={13} /> 有邀请码？
         </button>
+      ) : (
+        <div className="ld-field ld-invite">
+          <span className="ld-field-label"><span>邀请码</span><small>选填</small></span>
+          <span className="ld-input-wrap">
+            <span className="ld-input-icon"><Gift size={16} /></span>
+            <input
+              className="ld-input"
+              type="text"
+              placeholder="邀请码（选填）"
+              autoComplete="off"
+              value={inviteCode}
+              onChange={e => setInviteCode(e.target.value)}
+            />
+          </span>
+        </div>
       )}
 
-      {/* 第三方登录 (微信为占位通道; GitHub 由服务端凭据决定是否返回) */}
+      {/* 第三方登录 */}
       <div className="ld-divider">或</div>
       <div className="ld-oauth">
         <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}>
-          <MessageCircle size={17} /> 微信登录
+          <MessageCircle size={16} /> 微信登录
         </button>
         {oauthProviders.some(provider => provider.id === 'github') && (
           <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}>
-            <FaGithub size={16} /> GitHub
+            <FaGithub size={15} /> GitHub
           </button>
         )}
       </div>
 
-      {/* 服务条款 / 隐私政策 (ICP 备案必需; /terms /privacy 页面已上线) */}
       <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}>
         <input
           type="checkbox"
@@ -448,10 +420,7 @@ export function LoginModal() {
         </span>
       </label>
 
-      <div className="ld-foot">
-        <Lock size={12} />
-        <span>登录后作品自动保存到个人作品集 · <a href="/">先逛逛首页</a></span>
-      </div>
+      <div className="ld-foot">登录后作品自动保存到个人作品集 · <a href="/">先逛逛首页</a></div>
     </LoginDialog>
   );
 }
