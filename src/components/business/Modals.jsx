@@ -305,6 +305,7 @@ export function LoginModal() {
   return (
     <LoginDialog onClose={close} labelledBy={titleId}>
       <div className="ld-head">
+        <span className="ld-mark"><CharImg src={IMAGES.wave} size={30} /></span>
         <h2 className="ld-title" id={titleId}>{loginMode === 'register' ? '注册' : '登录'} <em>薯包AI</em></h2>
         <p className="ld-sub">使用邮箱账号登录或注册</p>
       </div>
@@ -415,6 +416,12 @@ export function LoginModal() {
             </button>
           </>
         )}
+
+        <div className="ld-divider">或</div>
+        <div className="ld-oauth">
+          <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}><MessageCircle size={17} /> 微信登录</button>
+          {oauthProviders.some(p => p.id === 'github') && <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}><FaGithub size={16} /> GitHub 登录</button>}
+        </div>
 
         <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}>
           <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }} />
