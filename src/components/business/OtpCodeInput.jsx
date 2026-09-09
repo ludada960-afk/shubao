@@ -41,6 +41,20 @@ export default function OtpCodeInput({
     try { node.setSelectionRange(target, target); } catch { /* 非文本输入忽略 */ }
   }, []);
 
+  // 显式粘贴处理：从任意文本（含空格/横线/整段邮件）中提取数字验证码
+  const handlePaste = (event) => {
+    const text = event.clipboardData?.getData('text') || '';
+    const next = text.replace(/\D/g, '').slice(0, length);
+    if (!next) return;
+    event.preventDefault();
+    completeRef.current = false;
+    onChange?.(next);
+    if (next.length === length) {
+      completeRef.current = true;
+      onComplete?.(next);
+    }
+  };
+
   const handleChange = (event) => {
     const next = event.target.value.replace(/\D/g, '').slice(0, length);
     onChange?.(next);
@@ -88,6 +102,7 @@ export default function OtpCodeInput({
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
         onChange={handleChange}
+        onPaste={handlePaste}
         onFocus={() => { setFocused(true); focusInput(digits.length); }}
         onBlur={() => setFocused(false)}
         onKeyDown={(event) => {
