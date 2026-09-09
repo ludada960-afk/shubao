@@ -1182,3 +1182,43 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 ### 下一步（未做）
 P2 生图注入管线（skill 作为结构化 `<user_skill>` 槽位，灰度 + 快照回归）；
 P3 生视频注入；P4 会员中心 + 兑换码。
+
+## 32. 9-10：Skill 体系 P2/P3/P4 全部完成（部署 cb8ad960）
+
+### 用户要求
+"全部做完"；不能有 bug；测试只做必要的，别每次都跑全量烧上游 API。
+
+### P2 生图注入（server/ecommerceEngine）
+- `promptCompiler.compileAssetRequest({ userSkills })`：新增最低优先级 `userSkill` 段
+  - instruction 明确：只能影响风格/表达，**不得覆盖** productTruth / deterministicOverlays /
+    forbiddenMutations / platformRecommendation / qualityAndRisk，冲突时忽略技能
+  - 注入前再校验一次（越权/超长/超 2 个直接丢弃，**不阻断生成**）
+- `promptAssembler` 分段顺序把 userSkill 放在最后（平台规则先读）
+- `orchestrator` 透传 `payload.user_skills`
+- 前端：技能改为**结构化字段**进入请求（不再写进提示词文本），工作台显示可移除胶囊；
+  `api.js` 只传 {id,name,version,body} 并截断 2 个
+- 测试 test/skill-injection-compiler.test.mjs 5/5（含"无技能时 prompt 逐字节不变"回归）
+
+### P3 生视频注入（server/videoPlanning.mjs）
+- `buildVideoPlanningRequest` 注入同样的最低优先级技能段；无技能时 userPrompt 逐字节不变
+- VideoStudio 增加技能库入口 + 胶囊，`userSkills` 随 /api/video/plans 请求下发
+- 测试 test/skill-injection-video.test.mjs 2/2
+
+### P4 兑换码 + 会员中心
+- server/redeem：`redeem_codes`/`redeem_records` 表 + 服务 + 路由
+  - 事务内完成校验/落流水/加积分；wallet.grant 幂等键 `redeem:CODE:EMAIL`
+  - 守卫：未知/停用/过期/领完/已兑换（各自稳定 errorCode + HTTP 409）
+  - 管理员建码：POST /api/admin/redeem-codes（requireAdminAccess）
+- 前端：`MemberCenterModal`（账户资料 / 积分余额与明细 / 我的技能 / 兑换码）
+  入口在顶栏积分控件旁（登录后显示）
+- 测试 test/redeem-codes.test.mjs 3/3
+
+### 验证与部署
+- 本地：npm test 2968/2968；DOM 验收 P2 4/4、P4 6/6
+- **全量档部署失败并已回滚**：`Ecommerce production canary direction analysis was degraded`
+  （上游 VLM 退化，pm2 日志连续 `PLANNER_TIMEOUT`/`VISUAL_ANALYSIS_TIMEOUT`；探测延迟 10.1s，正常 4.5s）
+  → 改用 frontend 档上线，并用**零成本生产冒烟**补验证：
+  - 部署后编译器实跑：无技能 prompt 无 userSkill 段 / 注入生效 / 优先级声明在 / 其余分段逐字节一致 / 越权被丢弃（5/5）
+  - 新接口：/api/skills、/api/redeem、/api/redeem/records 全部 401（挂载 + 鉴权正常）
+  - 健康 200、图库 117、视频契约通过、三处哈希一致（index-m5oyaewI.js sha256 d825fc2d…）
+- **待补**：上游恢复后重跑一次 full 档 Canary，作为 skill 注入的端到端证明。
