@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 /**
- * 登录弹窗外壳 (2026-09-09 v4)
+ * 登录弹窗外壳 (2026-09-09 v5)
  * 模态弹窗：背景保持当前页面（暗化 + 模糊），卡片居中。
  * 无障碍：role=dialog + aria-modal + 焦点陷阱 + Esc 关闭 + 背景滚动锁。
  */

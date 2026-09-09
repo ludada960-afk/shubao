@@ -281,260 +281,49 @@ export function LoginModal() {
 
   return (
     <LoginDialog onClose={close} labelledBy={titleId}>
-      <h2 className="ld-title" id={titleId}>{isRegister ? '注册薯包 AI' : '登录薯包 AI'}</h2>
-      <p className="ld-desc">{isRegister ? '手机号将用于实名认证，注册后即可开始创作' : '未注册的账号将自动创建，登录即可开始创作'}</p>
-
-      {/* 三通道 Tab: 密码登录(默认) / 手机号 / 邮箱验证码 */}
-      <div className="ld-tabs" role="tablist" aria-label="登录方式">
-        {[['password', '密码登录'], ['phone', '手机号'], ['email', '邮箱验证码']].map(([id, name]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={loginMode === id}
-            className={'ld-tab' + (loginMode === id ? ' is-active' : '')}
-            onClick={() => { setLoginMode(id); setErr(''); setPasswordErr(''); }}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-
-      {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
-
-      {loginMode === 'phone' ? (
-        <>
-          <div className="ld-field">
-            <span className="ld-field-label"><span>手机号</span></span>
-            <span className="ld-input-wrap">
-              <span className="ld-input-icon"><Smartphone size={16} /></span>
-              <input
-                className="ld-input"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder="请输入手机号"
-                value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\\D/g, '').slice(0, 11))}
-              />
-            </span>
-          </div>
-          <div className="ld-field">
-            <span className="ld-field-label"><span>短信验证码</span></span>
-            <span className="ld-input-wrap">
-              <span className="ld-input-icon"><ShieldCheck size={16} /></span>
-              <input className="ld-input" type="text" inputMode="numeric" placeholder="请输入验证码" readOnly />
-              <span className="ld-input-suffix">
-                <button type="button" className="ld-inline-action">获取验证码</button>
-              </span>
-            </span>
-          </div>
-          <button type="button" className="ld-cta">登录</button>
-        </>
-      ) : loginMode === 'password' ? (
-        <>
-          <div className="ld-field">
-            <span className="ld-field-label"><span>{isRegister ? '手机号' : '手机号/邮箱'}</span></span>
-            <span className="ld-input-wrap">
-              <span className="ld-input-icon"><User size={16} /></span>
-              <input
-                className="ld-input"
-                type="text"
-                autoComplete={isRegister ? 'tel' : 'username'}
-                placeholder={isRegister ? '请输入手机号' : '请输入手机号或邮箱'}
-                value={account}
-                onChange={e => { setAccount(e.target.value); setErr(''); setPasswordErr(''); }}
-                onBlur={() => setAccountTouched(true)}
-                aria-invalid={accountTouched && !account ? true : undefined}
-              />
-            </span>
-            {accountTouched && !account && <span className="ld-hint is-invalid">请输入手机号或邮箱</span>}
-          </div>
-          <div className="ld-field">
-            <span className="ld-field-label"><span>密码</span></span>
-            <span className="ld-input-wrap">
-              <span className="ld-input-icon"><Lock size={16} /></span>
-              <input
-                className="ld-input"
-                type={passwordVisible ? 'text' : 'password'}
-                autoComplete={isRegister ? 'new-password' : 'current-password'}
-                placeholder="请输入密码"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }}
-                aria-invalid={!!passwordErr}
-              />
-              <span className="ld-input-suffix">
-                <button type="button" className="ld-inline-action" onClick={() => setPasswordVisible(v => !v)}>
-                  {passwordVisible ? '隐藏' : '显示'}
-                </button>
-              </span>
-            </span>
-            {passwordErr && <span className="ld-hint is-invalid">{passwordErr}</span>}
-          </div>
-          <div className="ld-actions-row">
-            <button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(true); setErr(''); }}>
-              忘记密码？
-            </button>
-            <button type="button" className="ld-ghost-link" onClick={() => { setIsRegister(!isRegister); setErr(''); setPasswordErr(''); }}>
-              {isRegister ? '已有账号？去登录' : '没有账号？去注册'}
-            </button>
-          </div>
-          <button
-            type="button"
-            className={'ld-cta' + (loading ? ' is-busy' : '')}
-            onClick={isRegister ? handlePasswordRegister : handlePasswordLogin}
-            disabled={loading}
-          >
-            {loading
-              ? <><Loader2 size={16} className="ld-spin" /> {isRegister ? '注册中…' : '登录中…'}</>
-              : isRegister ? '注册' : '登录'}
-          </button>
-        </>
-      ) : (
-        <>
-          <div className="ld-field">
-            <span className="ld-field-label">
-              <span>邮箱</span>
-              {step === 'code' && <small>验证码已发送</small>}
-            </span>
-            <span className="ld-input-wrap">
-              <span className="ld-input-icon"><Mail size={16} /></span>
-              <input
-                placeholder="邮箱地址"
-                autoFocus
-                id="ld-email"
-                className={'ld-input' + (emailInvalid ? ' is-invalid' : '')}
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                spellCheck={false}
-                value={email}
-                disabled={step === 'code'}
-                aria-invalid={emailInvalid || undefined}
-                aria-describedby="ld-email-hint"
-                onChange={e => handleEmailChange(e.target.value)}
-                onBlur={() => setEmailTouched(true)}
-                onKeyDown={e => { if (e.key === 'Enter') { if (step === 'email') handleSendCode(); else handleVerify(); } }}
-              />
-              {step === 'code' && (
-                <span className="ld-input-suffix">
-                  <button type="button" className="ld-inline-action" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}>
-                    修改邮箱
-                  </button>
-                </span>
-              )}
-            </span>
-            <span className={'ld-hint' + (emailInvalid ? ' is-invalid' : (emailValid && step === 'email' ? ' is-valid' : ''))} id="ld-email-hint">
-              {emailInvalid
-                ? '邮箱格式不正确，请检查后重试'
-                : step === 'code'
-                  ? `验证码已发送至 ${email}`
-                  : '邮箱将绑定至手机号，不独立成体系'}
-            </span>
-          </div>
-
-          {step === 'code' && (
-            <div className="ld-field">
-              <span className="ld-field-label">
-                <span>验证码</span>
-                <small>{resendSeconds > 0 ? `${resendSeconds}s 后可重发` : '可重新发送'}</small>
-              </span>
-              <OtpCodeInput
-                value={code}
-                onChange={next => { setCodeInvalid(false); updateOtp({ type: 'SET_CODE', code: next }); }}
-                onComplete={(next) => { if (!loading) handleVerify(next); }}
-                onEnter={() => handleVerify()}
-                autoFocus
-                disabled={loading}
-                invalid={codeInvalid}
-                label="邮箱验证码"
-                describedBy="ld-email-hint"
-              />
-              <span className="ld-actions-row">
-                <button
-                  type="button"
-                  className="ld-ghost-link"
-                  onClick={resendSeconds > 0 || loading ? undefined : handleSendCode}
-                  disabled={resendSeconds > 0 || loading}
-                >
-                  {resendSeconds > 0 ? `重新发送（${resendSeconds}s）` : '重新发送验证码'}
-                </button>
-                <button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(true); setErr(''); }}>
-                  收不到验证码？
-                </button>
-              </span>
-            </div>
-          )}
-
-          {step === 'email' && otp.hasActiveCode && (
-            <div className="ld-actions-row" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
-              <button type="button" className="ld-ghost-link" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}>
-                返回填写已发送的验证码
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className={'ld-cta' + (loading ? ' is-busy' : '')}
-            onClick={step === 'email' ? handleSendCode : handleVerify}
-            disabled={loading}
-          >
-            {loading
-              ? <><Loader2 size={16} className="ld-spin" /> {step === 'email' ? '发送中…' : '登录中…'}</>
-              : step === 'email' ? '获取验证码' : '登录'}
-          </button>
-        </>
-      )}
-
-      {!inviteOpen ? (
-        <button type="button" className="ld-invite-toggle" onClick={() => setInviteOpen(true)}>
-          <Gift size={13} /> 有邀请码？
-        </button>
-      ) : (
-        <div className="ld-field ld-invite">
-          <span className="ld-field-label"><span>邀请码</span><small>选填</small></span>
-          <span className="ld-input-wrap">
-            <span className="ld-input-icon"><Gift size={16} /></span>
-            <input
-              className="ld-input"
-              type="text"
-              placeholder="邀请码（选填）"
-              autoComplete="off"
-              value={inviteCode}
-              onChange={e => setInviteCode(e.target.value)}
-            />
-          </span>
+      <div className="ld-header">
+        <div className="ld-brand">
+          <span className="ld-brand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M8 12l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
+          <span className="ld-brand-name">薯包 AI</span>
         </div>
-      )}
-
-      {/* 第三方登录 */}
-      <div className="ld-divider">或</div>
-      <div className="ld-oauth">
-        <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}>
-          <MessageCircle size={16} /> 微信登录
-        </button>
-        {oauthProviders.some(provider => provider.id === 'github') && (
-          <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}>
-            <FaGithub size={15} /> GitHub
-          </button>
-        )}
+        <h2 className="ld-title" id={titleId}>{isRegister ? '注册薯包 AI' : '登录薯包 AI'}</h2>
+        <p className="ld-desc">{isRegister ? '手机号将用于实名认证，注册后即可开始创作' : '未注册的账号将自动创建，登录即可开始创作'}</p>
       </div>
-
-      <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}>
-        <input
-          type="checkbox"
-          checked={agreedTerms}
-          onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }}
-        />
-        <span>
-          我已阅读并同意
-          <a href="/terms" target="_blank" rel="noreferrer">《用户服务协议》</a>和
-          <a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a>
-        </span>
-      </label>
-
-      <div className="ld-foot">登录后作品自动保存到个人作品集 · <a href="/">先逛逛首页</a></div>
+      <div className="ld-body">
+        <div className="ld-tabs" role="tablist" aria-label="登录方式">
+          {[['password', '密码登录'], ['phone', '手机号'], ['email', '邮箱验证码']].map(([id, name]) => (
+            <button key={id} type="button" role="tab" aria-selected={loginMode === id}
+              className={'ld-tab' + (loginMode === id ? ' is-active' : '')}
+              onClick={() => { setLoginMode(id); setErr(''); setPasswordErr(''); }}>
+              {name}
+            </button>
+          ))}
+        </div>
+        {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
+        {loginMode === 'phone' ? (<>
+          <div className="ld-field"><span className="ld-field-label"><span>手机号</span></span><span className="ld-input-wrap"><span className="ld-input-icon"><Smartphone size={16} /></span><input className="ld-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="请输入手机号" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} /></span></div>
+          <div className="ld-field"><span className="ld-field-label"><span>短信验证码</span></span><span className="ld-input-wrap"><span className="ld-input-icon"><ShieldCheck size={16} /></span><input className="ld-input" type="text" inputMode="numeric" placeholder="请输入验证码" readOnly /><span className="ld-input-suffix"><button type="button" className="ld-inline-action">获取验证码</button></span></span></div>
+          <button type="button" className="ld-cta">登录</button>
+        </>) : loginMode === 'password' ? (<>
+          <div className="ld-field"><span className="ld-field-label"><span>{isRegister ? '手机号' : '手机号/邮箱'}</span></span><span className="ld-input-wrap"><span className="ld-input-icon"><User size={16} /></span><input className="ld-input" type="text" autoComplete={isRegister ? 'tel' : 'username'} placeholder={isRegister ? '请输入手机号' : '请输入手机号或邮箱'} value={account} onChange={e => { setAccount(e.target.value); setErr(''); setPasswordErr(''); }} onBlur={() => setAccountTouched(true)} aria-invalid={accountTouched && !account ? true : undefined} /></span>{accountTouched && !account && <span className="ld-hint is-invalid">请输入手机号或邮箱</span>}</div>
+          <div className="ld-field"><span className="ld-field-label"><span>密码</span></span><span className="ld-input-wrap"><span className="ld-input-icon"><Lock size={16} /></span><input className="ld-input" type={passwordVisible ? 'text' : 'password'} autoComplete={isRegister ? 'new-password' : 'current-password'} placeholder="请输入密码" value={password} onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }} aria-invalid={!!passwordErr} /><span className="ld-input-suffix"><button type="button" className="ld-inline-action" onClick={() => setPasswordVisible(v => !v)}>{passwordVisible ? '隐藏' : '显示'}</button></span></span>{passwordErr && <span className="ld-hint is-invalid">{passwordErr}</span>}</div>
+          <div className="ld-actions-row"><button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(true); setErr(''); }}>忘记密码？</button><button type="button" className="ld-ghost-link" onClick={() => { setIsRegister(!isRegister); setErr(''); setPasswordErr(''); }}>{isRegister ? '已有账号？去登录' : '没有账号？去注册'}</button></div>
+          <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={isRegister ? handlePasswordRegister : handlePasswordLogin} disabled={loading}>{loading ? <><Loader2 size={16} className="ld-spin" /> {isRegister ? '注册中…' : '登录中…'}</> : isRegister ? '注册' : '登录'}</button>
+        </>) : (<>
+          <div className="ld-field"><span className="ld-field-label"><span>邮箱</span>{step === 'code' && <small>验证码已发送</small>}</span><span className="ld-input-wrap"><span className="ld-input-icon"><Mail size={16} /></span><input placeholder="邮箱地址" autoFocus id="ld-email" className={'ld-input' + (emailInvalid ? ' is-invalid' : '')} type="email" autoComplete="email" inputMode="email" spellCheck={false} value={email} disabled={step === 'code'} aria-invalid={emailInvalid || undefined} aria-describedby="ld-email-hint" onChange={e => handleEmailChange(e.target.value)} onBlur={() => setEmailTouched(true)} onKeyDown={e => { if (e.key === 'Enter') { if (step === 'email') handleSendCode(); else handleVerify(); } }} /><span className="ld-input-suffix">{step === 'code' && <button type="button" className="ld-inline-action" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}>修改邮箱</button>}</span></span><span className={'ld-hint' + (emailInvalid ? ' is-invalid' : (emailValid && step === 'email' ? ' is-valid' : ''))} id="ld-email-hint">{emailInvalid ? '邮箱格式不正确，请检查后重试' : step === 'code' ? '验证码已发送至 ' + email : '邮箱将绑定至手机号，不独立成体系'}</span></div>
+          {step === 'code' && <div className="ld-field"><span className="ld-field-label"><span>验证码</span><small>{resendSeconds > 0 ? resendSeconds + 's 后可重发' : '可重新发送'}</small></span><OtpCodeInput value={code} onChange={next => { setCodeInvalid(false); updateOtp({ type: 'SET_CODE', code: next }); }} onComplete={(next) => { if (!loading) handleVerify(next); }} onEnter={() => handleVerify()} autoFocus disabled={loading} invalid={codeInvalid} label="邮箱验证码" describedBy="ld-email-hint" /><span className="ld-actions-row"><button type="button" className="ld-ghost-link" onClick={resendSeconds > 0 || loading ? undefined : handleSendCode} disabled={resendSeconds > 0 || loading}>{resendSeconds > 0 ? '重新发送（' + resendSeconds + 's）' : '重新发送验证码'}</button><button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(true); setErr(''); }}>收不到验证码？</button></span></div>}
+          {step === 'email' && otp.hasActiveCode && <div className="ld-actions-row" style={{ justifyContent: 'flex-start', marginTop: 12 }}><button type="button" className="ld-ghost-link" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}>返回填写已发送的验证码</button></div>}
+          <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={step === 'email' ? handleSendCode : handleVerify} disabled={loading}>{loading ? <><Loader2 size={16} className="ld-spin" /> {step === 'email' ? '发送中…' : '登录中…'}</> : step === 'email' ? '获取验证码' : '登录'}</button>
+        </>)}
+        {!inviteOpen ? <button type="button" className="ld-invite-toggle" onClick={() => setInviteOpen(true)}><Gift size={13} /> 有邀请码？</button> : <div className="ld-field ld-invite"><span className="ld-field-label"><span>邀请码</span><small>选填</small></span><span className="ld-input-wrap"><span className="ld-input-icon"><Gift size={16} /></span><input className="ld-input" type="text" placeholder="邀请码（选填）" autoComplete="off" value={inviteCode} onChange={e => setInviteCode(e.target.value)} /></span></div>}
+        <div className="ld-divider">或</div>
+        <div className="ld-oauth">
+          <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}><MessageCircle size={16} /> 微信登录</button>
+          {oauthProviders.some(p => p.id === 'github') && <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}><FaGithub size={15} /> GitHub</button>}
+        </div>
+        <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}><input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }} /><span>我已阅读并同意<a href="/terms" target="_blank" rel="noreferrer">《用户服务协议》</a>和<a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a></span></label>
+        <div className="ld-foot">登录后作品自动保存到个人作品集 · <a href="/">先逛逛首页</a></div>
+      </div>
     </LoginDialog>
   );
 }
