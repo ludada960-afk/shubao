@@ -785,3 +785,30 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 ### 验证与坑
 - 本地：npm test **2936/2936**；Playwright 水印面板 **24/24**、素材同步 **8/8**、极简登录 **20/20**；线上登录 **7/7**。
 - 坑：`fill()` 触发 OTP onChange 时父组件 state 还是旧值 → 自动提交必须显式回传验证码；Vite preview 需重建后刷新才拿到新产物；`git diff --check` 对 CRLF 文件报 trailing whitespace，需 `git config core.whitespace cr-at-eol`。
+
+## 17. 9-09 凌晨：水印预览同步修复 + 登录页高级化（full 档上线）
+
+### 线上状态
+- 部署 commit `3785aa56`，入口 `assets/index-DQ6GeLJQ.js`（502489 B，sha256 `83ddf4a1910bc0f5`），PM2 pid `2309254`
+- 三处哈希一致（本地 / 服务器 current / 公网 https://shuimg.cn），健康接口 ready，/login 和 /ec-canvas 深链 200。
+- 真实电商验收通过：ec_a0e7fbea、ec_98176d3a（各 3 个稳定资产）；图库 117；视频契约 2 公开产品。
+
+### 本轮改动
+1. **水印面板预览同步修复**（WatermarkPanel.jsx）
+   - 预览区改固定正方形（aspectRatio: 1），删除 `<video>`/`<img>` 素材原图和占位文案
+   - 新增 `previewSize` state + ResizeObserver 实测方块 clientWidth，传给 WatermarkLayer
+   - 面板加 onWheel={e => e.stopPropagation()}，滚轮滚面板不滚画布
+   - 铺满图片/上传 Logo 瓦片随方块宽等比渲染
+
+2. **登录页高级化**（LoginDialog.jsx + login-dialog.css）
+   - 暖米背景 + 细点阵 + 琥珀/紫罗兰四角柔光
+   - 墨色卡片分层阴影，380px，Fredoka 品牌 wordmark 顶行 + "返回首页"
+   - 信息极简：标题一行、渠道 Tab、输入区、CTA、微信、协议
+   - 手机号通道正式外观，点击无请求（按批注）
+   - CSS 全部用变量，避免数字硬编码
+
+### 坑
+- 长 CSS 数值被环境随机改坏，被迫改用 CSS 变量驱动写法
+- 误引入 react-router-dom 的 Link 导致构建失败，改用 `<a href="/">`
+
+验证：npm test 2936/2936；canvas-watermark 11/11；login-otp + dialog-contract 23/23。
