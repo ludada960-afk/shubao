@@ -986,3 +986,19 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 ### 部署档位规则（此后执行）
 - 纯前端改动（组件/样式）→ frontend 档
 - 涉及 server/、计费、生成链路 → auto/full 档
+
+## 25. 9-09 晚：登录 v10（5 条批注 + frontend 档）
+
+### 批注修复
+1. logo 去掉 → ld-mark 移除
+2. 标题字体改普通 22px/700（弃 Fredoka）
+3. 微信登录全宽居中（oauth 改单列堆叠，delta 0.0px）
+4. 验证码可粘贴 → OtpCodeInput 加显式 onPaste：从任意文本提取数字
+   实测通过: "482 913"/"482-913"/"您的验证码是 482913，5 分钟内有效"/全角"４８２９１３" → 482913
+5. 卡片 500 → 560px
+
+### 部署
+- 首次使用 frontend 档：日志明确 "Skipped real ecommerce production verification for frontend-only release"
+- 不再烧中转站 API
+- prod send-code 对随机新地址返回 403（服务端防滥用白名单），属后端策略；内测账号不受影响
+- 线上入口 index-B91nbcXV.js sha256 2232206e…
