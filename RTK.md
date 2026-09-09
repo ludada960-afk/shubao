@@ -1222,3 +1222,16 @@ P3 生视频注入；P4 会员中心 + 兑换码。
   - 新接口：/api/skills、/api/redeem、/api/redeem/records 全部 401（挂载 + 鉴权正常）
   - 健康 200、图库 117、视频契约通过、三处哈希一致（index-m5oyaewI.js sha256 d825fc2d…）
 - **待补**：上游恢复后重跑一次 full 档 Canary，作为 skill 注入的端到端证明。
+
+### 32.1 好友那单的零成本生产复现（关键证据）
+- 生产库 `ecommerce_jobs` 近 4 天：completed 27 / failed 5，**5 次失败全部来自 610567026@qq.com**
+  （09:18–09:29），错误一律 `duplicate commercial duty: main-3x4-1 and main-text-1`；修复后他尚未重试。
+- 用他最后一单的真实 payload（保温杯、6 张产品图、sizing = main_text 5@1:1 + main_3x4 3@3:4 + detail 9@9:16）
+  在**线上部署的代码**里跑 plan 阶段（buildAssetPlan + validatePlanContract，纯函数、零 API）：
+  - 现在通过：17 个条目，无异常
+  - 该计划里仍有 3 组「职责文案相同、角色不同」的条目（main-text-N 与 main-3x4-N），
+    正是旧规则（按全局文案去重）会抛错的那 3 组 → 复现了原 bug 并证明修复生效
+- 部署一致性：线上 17 个关键文件（server/index.mjs、ecommerceEngine/*、skills/*、redeem/*、
+  videoPlanning.mjs、dist/index.html、dist/assets/index-m5oyaewI.js）与本地 cb8ad960 **sha256 全等 17/17**
+- 上游仍在慢：8 token 补全 11.5s（正常 ~4.5s）→ 全量 Canary 暂不重跑（会再失败并浪费额度），
+  待上游恢复后补跑。
