@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 /**
- * 登录弹窗外壳 (2026-09-09 v5)
- * 模态弹窗：背景保持当前页面（暗化 + 模糊），卡片居中。
- * 无障碍：role=dialog + aria-modal + 焦点陷阱 + Esc 关闭 + 背景滚动锁。
+ * 登录弹窗外壳 (2026-09-09 v6)
+ * 视觉语言与定价弹窗一致: 暖米底 + 琥珀橙 + 紫罗兰 + 毛玻璃 + 白色圆角卡片
+ * 无障碍: role=dialog + aria-modal + 焦点陷阱 + Esc 关闭 + 背景滚动锁
  */
 export default function LoginDialog({ onClose, labelledBy, children }) {
   const panelRef = useRef(null);
@@ -37,6 +37,8 @@ export default function LoginDialog({ onClose, labelledBy, children }) {
   return (
     <div className="ld-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
       <div className="ld-card" role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={panelRef}>
+        <span className="ld-orb ld-orb--a" aria-hidden="true" />
+        <span className="ld-orb ld-orb--b" aria-hidden="true" />
         <button type="button" className="ld-close" onClick={onClose} aria-label="关闭">
           <X size={16} />
         </button>
