@@ -3358,3 +3358,33 @@
   background: #fff;
 }
 
+
+/* 技能库入口（2026-09-10）：与 @引用 同行，点开技能库并把技能写入提示词 */
+.ec-workbench-mention-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ec-skill-entry {
+  appearance: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(57, 45, 26, 0.14);
+  background: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #3D3835;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+.ec-skill-entry:hover {
+  border-color: rgba(232, 84, 75, 0.45);
+  color: #B7570B;
+  background: rgba(233, 154, 24, 0.08);
+}

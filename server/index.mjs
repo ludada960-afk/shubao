@@ -108,6 +108,8 @@ import { createCompositionAssetAuthorizer, createCompositionService } from './co
 import { createPixelLayers } from './composition/layerService.mjs';
 import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
+import { createSkillStore } from './skills/skillStore.mjs';
+import { mountSkillRoutes } from './skills/skillRoutes.mjs';
 // 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone Service
 import { createProjectCloneService } from './projects/cloneService.mjs';
 import { mountVideoWorkbenchRoutes } from './videoWorkbenchRoutes.mjs';
@@ -887,6 +889,17 @@ mountProjectRoutes(app, {
     const publicBaseUrl = host ? `${proto}://${host}` : '';
     return videoGeneration.playbackUrlForAsset(decodeURIComponent(match[1]), ownerEmail, publicBaseUrl);
   },
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+});
+
+// 技能库（用户自建 Skill）：内置只读 + 用户 CRUD
+mountSkillRoutes(app, {
+  skillStore: createSkillStore(db),
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,

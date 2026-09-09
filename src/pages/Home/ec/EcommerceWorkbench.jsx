@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Clapperboard, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Clapperboard, Maximize2, Plus, Sparkles, UserRound, Wand2, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
@@ -10,6 +10,7 @@ import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 import { productionCaseById } from '../productionCaseCatalog.js';
 import { EcommerceAddCard, EcommerceImageCard } from './components/EcommerceAssetCards.jsx';
+import SkillLibraryModal from './SkillLibraryModal.jsx';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -270,6 +271,14 @@ export default function EcommerceWorkbench({
   const personInputRef = useRef(null);
   const sceneInputRef = useRef(null);
   const promptFieldRef = useRef(null);
+  const [skillOpen, setSkillOpen] = useState(false);
+  const applySkillToPrompt = (skill) => {
+    if (!skill?.body) return;
+    const header = `\n\n【技能：${skill.name}】\n`;
+    const current = String(description || '');
+    onDescriptionChange?.(`${current}${header}${skill.body}`);
+    setSkillOpen(false);
+  };
   const [mentionedIds, setMentionedIds] = useState([]);
   const [videoDelivery, setVideoDelivery] = useState(null); // P2: {refs, surface}
   const handleSendToVideoProject = ref => setVideoDelivery({ refs: [ref], surface: DELIVERY_SOURCE_SURFACES.ecommerceWorkbench });
@@ -366,8 +375,15 @@ export default function EcommerceWorkbench({
           {!description && <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints"><span className="ec-placeholder-line">{isTryOn ? '描述人物、穿搭关系和使用场景，一句话就够了' : promptTitle}</span>{(isTryOn ? ['例：年轻女性穿着整套搭配，在城市街区自然行走', '例：保留商品颜色与版型，生成 3 张不同姿态'] : promptExamples).slice(0, 2).map((example, index) => <span key={example} className={`ec-placeholder-line ${index === 0 ? 'ec-xhs-example-first' : ''}`}>{example}</span>)}</div>}
           <MentionPromptField ref={promptFieldRef} value={description} mentions={selectedMentionImages} onChange={value => onDescriptionChange(value)} onFilesPasted={handlePromptFilesPasted} className={!description ? 'ec-empty' : ''} placeholder="" aria-label="补充商品信息和生成要求" />
         </div>
-        <div className="ec-workbench-mention-row"><ImageMentionPicker images={mentionImages} selectedImages={selectedMentionImages} selectionMode="insert" onToggle={handleMentionToggle} /></div>
+        <div className="ec-workbench-mention-row">
+          <ImageMentionPicker images={mentionImages} selectedImages={selectedMentionImages} selectionMode="insert" onToggle={handleMentionToggle} />
+          <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
+            <Wand2 size={13} /> 技能库
+          </button>
+        </div>
       </div>
+
+      <SkillLibraryModal open={skillOpen} onClose={() => setSkillOpen(false)} initialKind={isTryOn ? 'image' : 'image'} onPick={applySkillToPrompt} />
 
       <input ref={productInputRef} type="file" accept="image/*" multiple hidden onChange={onProductUpload} />
       <input ref={referenceInputRef} type="file" accept="image/*" multiple hidden onChange={onReferenceUpload} />
