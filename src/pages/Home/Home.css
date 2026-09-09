@@ -3388,3 +3388,23 @@
   color: #B7570B;
   background: rgba(233, 154, 24, 0.08);
 }
+
+/* 已选技能胶囊（2026-09-10）：与 @引用 同行展示，可单个移除 */
+.ec-skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 999px;
+  background: rgba(232, 84, 75, 0.08);
+  border: 1px solid rgba(232, 84, 75, 0.28);
+  color: #B7570B;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ec-skill-chip button {
+  appearance: none; border: 0; background: transparent; padding: 0;
+  display: grid; place-items: center; width: 16px; height: 16px;
+  border-radius: 50%; color: inherit; cursor: pointer;
+}
+.ec-skill-chip button:hover { background: rgba(232, 84, 75, 0.16); }

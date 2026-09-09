@@ -109,6 +109,8 @@ import { createPixelLayers } from './composition/layerService.mjs';
 import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import { createSkillStore } from './skills/skillStore.mjs';
+import { createRedeemService } from './redeem/redeemService.mjs';
+import { mountRedeemRoutes } from './redeem/redeemRoutes.mjs';
 import { mountSkillRoutes } from './skills/skillRoutes.mjs';
 // 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone Service
 import { createProjectCloneService } from './projects/cloneService.mjs';
@@ -895,6 +897,18 @@ mountProjectRoutes(app, {
       authorizeEmail: authorizeAccountEmail,
     });
   },
+});
+
+// 兑换码：用户兑换 + 管理员建码（复用 walletService 入账，不新开账路）
+mountRedeemRoutes(app, {
+  redeemService: createRedeemService(db, { wallet: walletService }),
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+  authorizeAdmin: email => requireAdminAccess(db, email),
 });
 
 // 技能库（用户自建 Skill）：内置只读 + 用户 CRUD

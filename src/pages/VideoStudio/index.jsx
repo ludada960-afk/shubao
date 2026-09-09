@@ -38,6 +38,7 @@ import {
   resolveVideoApiMode,
 } from './videoStudioModel.js';
 import { buildVideoPlan } from './videoPlanModel.js';
+import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
 import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
@@ -206,6 +207,8 @@ export default function VideoStudioPage({ embedded = false }) {
   const [mode, setMode] = useState('smart');
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
   const [prompt, setPrompt] = useState('');
+  const [userSkills, setUserSkills] = useState([]);
+  const [skillOpen, setSkillOpen] = useState(false);
   const [negativePrompt, setNegativePrompt] = useState('');
   const [resolution, setResolution] = useState('720p');
   const [ratio, setRatio] = useState('9:16');
@@ -639,6 +642,7 @@ export default function VideoStudioPage({ embedded = false }) {
         resolution,
         sound,
         manifest: inspected.manifest,
+        userSkills: userSkills.map(skill => ({ id: skill.id, name: skill.name, version: skill.version, body: skill.body })),
         analysisImageIds: [...first, ...last, ...images, ...frames].map(asset => asset.id),
       });
       setPlannedUploads({ signature: planSignature, assets: { first, last, images, videos, audios } });
@@ -854,7 +858,29 @@ export default function VideoStudioPage({ embedded = false }) {
             placeholder={promptPlaceholder}
             className="video-prompt-mentions"
           />
+          <div className="video-skill-row">
+            {userSkills.map(skill => (
+              <span key={skill.id} className="ec-skill-chip">
+                <Sparkles size={12} /> {skill.name}
+                <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => setUserSkills(current => current.filter(item => item.id !== skill.id))}>×</button>
+              </span>
+            ))}
+            <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
+              <Sparkles size={13} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
+            </button>
+          </div>
           <div className="video-text-meta"><span>{prompt.length}/1200</span><span><Sparkles size={14} />提交前锁定本次费用</span></div>
+          <SkillLibraryModal
+            open={skillOpen}
+            onClose={() => setSkillOpen(false)}
+            initialKind="video"
+            onPick={skill => {
+              if (!skill?.body) return;
+              setUserSkills(current => (current.some(item => item.id === skill.id) ? current : [...current, { id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body }].slice(0, 2)));
+              setSkillOpen(false);
+              setPlanReviewed(false);
+            }}
+          />
           {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
           {error && <div className="video-error">{error}</div>}
           {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频通道尚未完成安全配置，当前不会扣除积分。</div>}

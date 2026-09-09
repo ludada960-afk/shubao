@@ -561,3 +561,7 @@
 .video-lightbox-audio audio { width: min(480px, 90%); }
 .video-lightbox-body footer { padding: 9px 16px; color: #9a9188; font-size: 10.5px; text-align: center; border-top: 1px solid rgba(73,59,46,.08); }
 .video-upload-status.is-completed { right: auto; left: 6px; bottom: 22px; min-width: 0; min-height: 0; width: 17px; height: 17px; padding: 0; justify-content: center; border-radius: 50%; background: rgba(25,126,87,.9); }
+
+/* 视频侧技能胶囊（2026-09-10） */
+.video-skill-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+.video-skill-row .ec-skill-entry { margin-left: 0; }

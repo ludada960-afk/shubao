@@ -35,6 +35,7 @@ import { signOut } from './services/auth';
 import { shouldShowNoteModal } from './routing/resultRouting';
 import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
 import AccountEntitlementControl from './components/billing/AccountEntitlementControl.jsx';
+import MemberCenterModal from './pages/Home/MemberCenterModal.jsx';
 import CreativeDomainNav from './components/layout/CreativeDomainNav.jsx';
 import ThemeSwitcher from './components/layout/ThemeSwitcher.jsx';
 
@@ -131,6 +132,7 @@ function TopBar() {
   const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
   const canAdmin = state.accountAccess?.role === 'owner';
   const [compact, setCompact] = React.useState(false);
+  const [memberOpen, setMemberOpen] = React.useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -192,6 +194,7 @@ function TopBar() {
             ecPoints={ecPoints}
             unlimited={unlimited}
             refreshStatus={balanceRefreshStatus}
+            onOpenMemberCenter={() => setMemberOpen(true)}
             onPurchase={() => dispatch({ type: 'SHOW_PRICE', show: true })}
             onLogin={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
           />
@@ -216,6 +219,7 @@ function TopBar() {
           )}
         </div>
       </div>
+      <MemberCenterModal open={memberOpen} onClose={() => setMemberOpen(false)} />
     </div>
   );
 }

@@ -182,6 +182,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
   // 提示词写出的比例 vs 面板配置：纯本地检测，不调用任何 API
   const [sizingPatch, setSizingPatch] = useState(null);
+  const [userSkills, setUserSkills] = useState(() => (Array.isArray(params?.userSkills) ? params.userSkills.slice(0, 2) : []));
   const [dismissedConflict, setDismissedConflict] = useState('');
   const effectiveSizing = useMemo(
     () => (sizingPatch ? { ...(params?.sizing || {}), ...sizingPatch } : (params?.sizing || {})),
@@ -578,6 +579,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           personMode: activePersonMode,
         } : {}),
         skus: params?.skus || [],
+        userSkills,
         detailPlan: params?.copywriting?.detailPlan || {},
         maintenance: params?.copywriting?.maintenance || '',
         material: params?.productParams?.material || '',
@@ -920,6 +922,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 } : undefined}
                 description={extraDesc}
                 onDescriptionChange={value => { setExtraDesc(value); setBlockedByCredits(false); }}
+                userSkills={userSkills}
+                onUserSkillsChange={setUserSkills}
                 onProductUpload={event => appendSupplementImages(event, 'product')}
                 onReferenceUpload={event => appendSupplementImages(event, 'reference')}
                 onRemoveProduct={index => { if (index >= inheritedProductCount) removeSupplementImage('product', index - inheritedProductCount); }}

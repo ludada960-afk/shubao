@@ -307,6 +307,8 @@ const STRUCTURED_SECTION_ORDER = Object.freeze([
   'forbiddenMutations',
   'qualityAndRisk',
   'referenceSafety',
+  // 用户自建 Skill：最低优先级，只作用于风格与表达（2026-09-10）
+  'userSkill',
 ]);
 
 function isStructuredRecord(value) {

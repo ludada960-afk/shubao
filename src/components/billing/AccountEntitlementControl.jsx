@@ -9,6 +9,7 @@ export default function AccountEntitlementControl({
   refreshStatus = 'ready',
   onPurchase,
   onLogin,
+  onOpenMemberCenter,
   compact = false,
 }) {
   const display = accountEntitlementDisplay({ logged, ecPoints, unlimited, refreshStatus });
@@ -35,6 +36,17 @@ export default function AccountEntitlementControl({
         {logged && <ArrowUpRight size={14} aria-hidden="true" className="account-entitlement-arrow" />}
       </button>
       </div>
+      {logged && onOpenMemberCenter && (
+        <button
+          type="button"
+          className="account-member-entry"
+          onClick={onOpenMemberCenter}
+          aria-label="打开会员中心"
+          title="会员中心"
+        >
+          会员中心
+        </button>
+      )}
       <style>{`
         .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: #fff; }
         .account-entitlement-control button { border: 0; font: inherit; cursor: pointer; }
@@ -43,6 +55,8 @@ export default function AccountEntitlementControl({
         .account-entitlement-value > svg:first-child { color: #f3c969; }
         .account-entitlement-copy { min-width: 0; display: grid; gap: 1px; }
         .account-entitlement-copy small { color: #aeb3bf; font-size: 10px; line-height: 1; }
+        .account-member-entry { margin-left: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 9px; background: #17181c; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+        .account-member-entry:hover { background: #24262d; border-color: rgba(255,255,255,.28) !important; }
         .account-entitlement-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; line-height: 1.2; }
         .account-entitlement-arrow { color: #aeb3bf; margin-left: 2px; }
         .account-entitlement-value:hover .account-entitlement-copy small { color: #d9dde7; }

@@ -43,7 +43,7 @@ const OVERRIDE_PATTERNS = Object.freeze([
 /** 否定式豁免：出现"不要忽略以上规则"这类表达时不算越权 */
 const NEGATION_PREFIX = /(?:不要|请勿|勿|别|不得|禁止|切勿|无需)\s*$/;
 
-function findOverride(text) {
+export function findOverrideInstruction(text) {
   const source = String(text || '');
   for (const pattern of OVERRIDE_PATTERNS) {
     const match = pattern.exec(source);
@@ -111,7 +111,7 @@ export function validateUserSkill(input = {}) {
   if (body.length > SKILL_LIMITS.body) {
     return fail('SKILL_BODY_TOO_LONG', `技能提示词最多 ${SKILL_LIMITS.body} 字`, { field: 'body' });
   }
-  const override = findOverride(body);
+  const override = findOverrideInstruction(body);
   if (override) {
     return fail('SKILL_OVERRIDE_REJECTED', '技能提示词不能要求改写或忽略平台规则，请改成描述画面与风格', { field: 'body', matched: override });
   }

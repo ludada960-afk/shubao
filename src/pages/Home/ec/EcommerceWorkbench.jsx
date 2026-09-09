@@ -245,6 +245,8 @@ export default function EcommerceWorkbench({
   refImages,
   description,
   onDescriptionChange,
+  userSkills = [],
+  onUserSkillsChange,
   onProductUpload,
   onReferenceUpload,
   onRemoveProduct,
@@ -272,13 +274,15 @@ export default function EcommerceWorkbench({
   const sceneInputRef = useRef(null);
   const promptFieldRef = useRef(null);
   const [skillOpen, setSkillOpen] = useState(false);
-  const applySkillToPrompt = (skill) => {
+  // 技能以结构化字段进入生成请求（不再写进提示词文本，避免重复生效）
+  const applySkill = (skill) => {
     if (!skill?.body) return;
-    const header = `\n\n【技能：${skill.name}】\n`;
-    const current = String(description || '');
-    onDescriptionChange?.(`${current}${header}${skill.body}`);
+    const next = [...(userSkills || [])];
+    if (!next.some(item => item.id === skill.id)) next.push({ id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body });
+    onUserSkillsChange?.(next.slice(0, 2));
     setSkillOpen(false);
   };
+  const removeSkill = (id) => onUserSkillsChange?.((userSkills || []).filter(item => item.id !== id));
   const [mentionedIds, setMentionedIds] = useState([]);
   const [videoDelivery, setVideoDelivery] = useState(null); // P2: {refs, surface}
   const handleSendToVideoProject = ref => setVideoDelivery({ refs: [ref], surface: DELIVERY_SOURCE_SURFACES.ecommerceWorkbench });
@@ -377,13 +381,19 @@ export default function EcommerceWorkbench({
         </div>
         <div className="ec-workbench-mention-row">
           <ImageMentionPicker images={mentionImages} selectedImages={selectedMentionImages} selectionMode="insert" onToggle={handleMentionToggle} />
+          {(userSkills || []).map(skill => (
+            <span key={skill.id} className="ec-skill-chip">
+              <Wand2 size={12} /> {skill.name}
+              <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => removeSkill(skill.id)}><X size={11} /></button>
+            </span>
+          ))}
           <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
-            <Wand2 size={13} /> 技能库
+            <Wand2 size={13} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
           </button>
         </div>
       </div>
 
-      <SkillLibraryModal open={skillOpen} onClose={() => setSkillOpen(false)} initialKind={isTryOn ? 'image' : 'image'} onPick={applySkillToPrompt} />
+      <SkillLibraryModal open={skillOpen} onClose={() => setSkillOpen(false)} initialKind={isTryOn ? 'image' : 'image'} onPick={applySkill} />
 
       <input ref={productInputRef} type="file" accept="image/*" multiple hidden onChange={onProductUpload} />
       <input ref={referenceInputRef} type="file" accept="image/*" multiple hidden onChange={onReferenceUpload} />

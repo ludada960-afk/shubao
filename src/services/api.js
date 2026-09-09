@@ -998,7 +998,7 @@ export function generatePlogContent({
   }, options);
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, contentType, targetLanguage, commerceContext, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, abilityRecipe, roleAssets, roleImages, assetRoles, personMode, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, contentType, targetLanguage, commerceContext, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, abilityRecipe, roleAssets, roleImages, assetRoles, personMode, userSkills, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
   const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
   const submissionContext = { ownerEmail, draftId };
   const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
@@ -1164,6 +1164,18 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (resolvedSelections.length > 0) {
     body.image_selections = resolvedSelections;
   }
+  // 用户自建 Skill：只传 {id,name,version,body}，服务端会再校验一次（越权内容直接丢弃）
+  const normalizedUserSkills = (Array.isArray(userSkills) ? userSkills : [])
+    .filter(skill => skill && typeof skill.body === 'string' && skill.body.trim())
+    .slice(0, 2)
+    .map(skill => ({
+      id: String(skill.id || '').slice(0, 80),
+      name: String(skill.name || '').slice(0, 40),
+      version: Number.isSafeInteger(skill.version) ? skill.version : 1,
+      body: skill.body.trim(),
+    }));
+  if (normalizedUserSkills.length) body.user_skills = normalizedUserSkills;
+
   // B5: 传递场景预设风格到后端
   if (styleSkill) body.style_skill = styleSkill;
   if (customColors) body.custom_colors = customColors;

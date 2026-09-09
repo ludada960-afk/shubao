@@ -352,6 +352,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
 
   /* — 文字 — */
   const [description, setDescription] = useState('');
+  const [userSkills, setUserSkills] = useState([]);
 
   /* — 配置 — */
   const [platform, setPlatform] = useState('taobao');
@@ -567,6 +568,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         targetLanguage: commerceContext.targetLanguage,
         commerceContext,
         sizing: effectiveSizing,
+        userSkills,
         styleSkill: effectiveStyle,
         customColors,
         productParams: effectiveParams,
@@ -1041,6 +1043,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           onRoleRemove={removeRoleImage}
           description={description}
           onDescriptionChange={setDescription}
+                userSkills={userSkills}
+                onUserSkillsChange={setUserSkills}
           onProductUpload={handleProdUpload}
           onReferenceUpload={handleRefUpload}
           onRemoveProduct={removeProdImg}

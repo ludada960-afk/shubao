@@ -1406,6 +1406,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           assets: own(job.payload, 'assets') ?? {},
           abilityRecipe: own(job.payload, 'ability_recipe'),
           personMode: own(job.payload, 'person_mode'),
+          userSkills: own(job.payload, 'user_skills'),
         });
       }
       return compiledRequest;
