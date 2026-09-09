@@ -1144,9 +1144,25 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (imageSize?.width && imageSize?.height) {
     body.image_size = imageSize;
   }
-  if (generationSettings) body.generation_settings = generationSettings;
-  if (imageSelections?.length > 0) {
-    body.image_selections = imageSelections;
+  // ── 单一事实源收敛 (2026-09-10) ─────────────────────────────────────
+  // 此前 resolution / imageModel / 图集选择在请求里有两份（generation_settings 与 sizing、
+  // image_selections 与 sizing.images），两侧可能不一致且无优先级声明。这里统一为：
+  //   分辨率/模型：generation_settings 是用户控件，sizing 同值镜像；
+  //   图集选择：sizing.images 是唯一来源，image_selections 同源镜像。
+  const resolvedResolution = generationSettings?.resolution || sizing?.resolution || '2K';
+  const resolvedImageModel = generationSettings?.imageModel || sizing?.imageModel || 'image2';
+  const resolvedSelections = Array.isArray(sizing?.images) && sizing.images.length > 0
+    ? sizing.images
+    : (Array.isArray(imageSelections) ? imageSelections : []);
+  if (generationSettings) {
+    body.generation_settings = {
+      ...generationSettings,
+      resolution: resolvedResolution,
+      imageModel: resolvedImageModel,
+    };
+  }
+  if (resolvedSelections.length > 0) {
+    body.image_selections = resolvedSelections;
   }
   // B5: 传递场景预设风格到后端
   if (styleSkill) body.style_skill = styleSkill;
@@ -1154,8 +1170,9 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (sizing || generationSettings?.resolution || generationSettings?.imageModel) {
     body.sizing = {
       ...(sizing || {}),
-      resolution: generationSettings?.resolution || sizing?.resolution || '2K',
-      imageModel: generationSettings?.imageModel || sizing?.imageModel || 'image2',
+      resolution: resolvedResolution,
+      imageModel: resolvedImageModel,
+      ...(resolvedSelections.length > 0 ? { images: resolvedSelections } : {}),
     };
   }
   if (typeof billingQuoteId === 'string' && billingQuoteId.trim()) {

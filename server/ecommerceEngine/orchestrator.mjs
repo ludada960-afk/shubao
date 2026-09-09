@@ -667,24 +667,31 @@ function legacySceneFamily(type) {
   }[cleanString(type).toLowerCase()] || 'evidence_safe_product_scene';
 }
 
+// 降级优先：旧计划张数超过职责目录时派生变体职责，而不是让迁移整体失败
+function variantCatalogDuty(catalog, occurrence, label) {
+  if (!Array.isArray(catalog) || !catalog.length) return null;
+  const base = catalog[occurrence % catalog.length];
+  if (!base) return null;
+  const cycle = Math.floor(occurrence / catalog.length);
+  if (cycle <= 0) return base;
+  const suffix = `variant${cycle + 1}`;
+  return {
+    ...base,
+    key: `${base.key}${suffix}`,
+    goal: `${base.goal} (variant ${cycle + 1} ${label})`,
+    purpose: `${base.purpose} (variant ${cycle + 1} ${label})`,
+  };
+}
+
 function roleCatalogDuty(role, occurrence) {
   if (['main', 'main_text', 'main_3x4'].includes(role)) {
-    if (!LEGACY_HERO_DUTIES[occurrence]) {
-      throw new TypeError(`legacy ${role} count exceeds the canonical commercial duty catalog`);
-    }
-    return LEGACY_HERO_DUTIES[occurrence];
+    return variantCatalogDuty(LEGACY_HERO_DUTIES, occurrence, role);
   }
   if (role === 'white_background') {
-    if (!WHITE_BACKGROUND_DUTIES[occurrence]) {
-      throw new TypeError('legacy white-background count exceeds the canonical commercial duty catalog');
-    }
-    return WHITE_BACKGROUND_DUTIES[occurrence];
+    return variantCatalogDuty(WHITE_BACKGROUND_DUTIES, occurrence, 'white-background');
   }
   if (role === 'transparent') {
-    if (!TRANSPARENT_DUTIES[occurrence]) {
-      throw new TypeError('legacy transparent count exceeds the canonical commercial duty catalog');
-    }
-    return TRANSPARENT_DUTIES[occurrence];
+    return variantCatalogDuty(TRANSPARENT_DUTIES, occurrence, 'transparent');
   }
   return null;
 }

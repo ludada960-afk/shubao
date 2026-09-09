@@ -483,7 +483,8 @@ test('assigns repeated hero images distinct commercial shot duties', () => {
   assert.match(heroes[2].purpose, /usage|scene|scale/i);
 });
 
-test('sixth repeated hero reuses the first canonical duty and is rejected despite a different shot', () => {
+test('sixth repeated hero degrades to a variant duty instead of failing the whole suite', () => {
+  // 2026-09-10 步骤③：职责槽位用尽时派生变体职责（而不是抛错让整单报废）。
   const plan = buildAssetPlan({
     productTruth: productTruth(),
     campaignBible,
@@ -497,13 +498,15 @@ test('sixth repeated hero reuses the first canonical duty and is rejected despit
   });
 
   assert.equal(plan[0].commercialDutyId, 'maintext:productrecognition');
-  assert.equal(plan[5].commercialDutyId, plan[0].commercialDutyId);
-  assert.equal(plan[5].communicationGoal, plan[0].communicationGoal);
+  assert.notEqual(plan[5].commercialDutyId, plan[0].commercialDutyId, '第六张必须拿到变体职责');
+  assert.match(plan[5].commercialDutyId, /variant2$/);
+  assert.notEqual(plan[5].communicationGoal, plan[0].communicationGoal);
   assert.notDeepEqual(plan[5].shotIntent, plan[0].shotIntent);
-  assert.throws(() => validatePlanContract(plan), /duplicate commercial duty id/i);
+  assert.doesNotThrow(() => validatePlanContract(plan));
+  assert.equal(new Set(plan.map(item => item.commercialDutyId)).size, plan.length);
 });
 
-test('rejects repeated role counts beyond their canonical commercial duty catalogs', () => {
+test('repeated role counts beyond the duty catalog degrade to unique variant duties', () => {
   for (const key of ['main_text', 'white_bg', 'transparent']) {
     const plan = buildAssetPlan({
       productTruth: productTruth(),
@@ -518,8 +521,8 @@ test('rejects repeated role counts beyond their canonical commercial duty catalo
     });
 
     assert.equal(plan.length, 20, key);
-    assert.ok(new Set(plan.map(item => item.commercialDutyId)).size < plan.length, key);
-    assert.throws(() => validatePlanContract(plan), /duplicate commercial duty id/i, key);
+    assert.equal(new Set(plan.map(item => item.commercialDutyId)).size, plan.length, key);
+    assert.doesNotThrow(() => validatePlanContract(plan), key);
   }
 });
 

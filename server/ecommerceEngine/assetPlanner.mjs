@@ -335,11 +335,16 @@ function heroDuty(role, index) {
   const placement = role === 'main_3x4'
     ? 'Vertical marketplace placement.'
     : role === 'main_text' ? 'Text-ready square marketplace placement.' : 'Primary marketplace placement.';
+  // 降级优先 (2026-09-10)：当某个角色选择的张数超过职责槽位时，派生带变体后缀的职责，
+  // 而不是让整单因为"职责重复"失败。同一角色内的职责仍然互不重复。
+  const cycle = Math.floor(index / HERO_DUTIES.length);
   const duty = HERO_DUTIES[index % HERO_DUTIES.length];
+  const variant = cycle > 0 ? `variant${cycle + 1}` : '';
+  const variantNote = variant ? ` (variant ${cycle + 1}: same duty, different treatment)` : '';
   return {
-    key: duty.key,
-    communicationGoal: `${placement} ${duty.goal}`,
-    purpose: `${placement} ${duty.purpose}`,
+    key: variant ? `${duty.key}${variant}` : duty.key,
+    communicationGoal: `${placement} ${duty.goal}${variantNote}`,
+    purpose: `${placement} ${duty.purpose}${variantNote}`,
   };
 }
 
@@ -371,7 +376,15 @@ function viewDirection(index) {
 }
 
 function repeatedDuty(catalog, index) {
-  return catalog[index % catalog.length];
+  // 降级优先：目录用尽时派生变体职责，保证同一角色的职责 id 唯一（不再整单抛错）
+  const cycle = Math.floor(index / catalog.length);
+  const duty = catalog[index % catalog.length];
+  const suffix = cycle > 0 ? `variant${cycle + 1}` : '';
+  return {
+    key: suffix ? `${duty.key}${suffix}` : duty.key,
+    goal: suffix ? `${duty.goal} (variant ${cycle + 1})` : duty.goal,
+    purpose: suffix ? `${duty.purpose} (variant ${cycle + 1})` : duty.purpose,
+  };
 }
 
 function detailPurpose(basePurpose, occurrence) {

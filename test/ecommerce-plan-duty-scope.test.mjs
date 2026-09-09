@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
 import { validatePlanContract } from '../server/ecommerceEngine/planContract.mjs';
@@ -85,4 +86,29 @@ test('legacy hyphenated roles are normalized before duty lookup', () => {
   assert.equal(normalizeLegacyRoleAlias('white-bg'), 'white_background');
   assert.equal(normalizeLegacyRoleAlias('detail-slice-surface-finish'), 'detail_slice_surface-finish');
   assert.equal(normalizeLegacyRoleAlias('main_text'), 'main_text');
+});
+
+test('duty slots exhaustion degrades to variant duties instead of failing the whole run', () => {
+  // 主图 1:1 选 7 张：只有 5 个职责槽位，过去会抛 duplicate commercial duty id 并整单失败
+  const sizing = {
+    smart: false,
+    resolution: '2K',
+    imageModel: 'nano-banana-pro',
+    contentType: 'main',
+    images: [{ key: 'main_text', count: 7, ratio: '1:1', targetRatio: '1:1', cropPolicy: 'none', label: '商品主图' }],
+  };
+  const plan = buildAssetPlan({ productTruth, campaignBible, platform: 'taobao', sizing, skus: [] });
+  assert.equal(plan.length, 7);
+  validatePlanContract(plan);
+  const keys = plan.map(item => item.commercialDutyId);
+  assert.equal(new Set(keys).size, 7, '每个职责 id 必须唯一');
+});
+
+test('panel payload keeps one source of truth for resolution and image selections', () => {
+  const api = readFileSync(new URL('../src/services/api.js', import.meta.url), 'utf8');
+  assert.match(api, /单一事实源收敛/);
+  assert.match(api, /const resolvedResolution = generationSettings\?\.resolution \|\| sizing\?\.resolution/);
+  assert.match(api, /const resolvedSelections = Array\.isArray\(sizing\?\.images\)/);
+  assert.match(api, /body\.image_selections = resolvedSelections/);
+  assert.match(api, /resolution: resolvedResolution,/);
 });
