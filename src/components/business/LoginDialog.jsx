@@ -37,10 +37,6 @@ export default function LoginDialog({ onClose, labelledBy, children }) {
   return (
     <div className="ld-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
       <div className="ld-card" role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={panelRef}>
-        <span className="ld-orbs" aria-hidden="true">
-          <span className="ld-orb ld-orb--a" />
-          <span className="ld-orb ld-orb--b" />
-        </span>
         <button type="button" className="ld-close" onClick={onClose} aria-label="关闭">
           <X size={16} />
         </button>

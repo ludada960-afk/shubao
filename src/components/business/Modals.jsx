@@ -203,7 +203,7 @@ export function LoginModal() {
     setPasswordErr('');
     setLoading(true); setErr('');
     try {
-      const user = await registerWithPassword(acc, regCode.trim(), password, '');
+      const user = await registerWithPassword(acc, regCode.trim(), password, '', phone.trim());
       dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
       setTimeout(() => { fetchCredits(user.email); }, 100);
       if (state.loginIntent?.destination) {
@@ -305,96 +305,39 @@ export function LoginModal() {
   return (
     <LoginDialog onClose={close} labelledBy={titleId}>
       <div className="ld-head">
-        <p className="ld-eyebrow">{loginMode === 'register' ? 'Create account' : 'Welcome back'}</p>
-        <h2 className="ld-title" id={titleId}>{loginMode === 'register' ? <>注册<em>薯包 AI</em></> : <>登录<em>薯包 AI</em></>}</h2>
+        <h2 className="ld-title" id={titleId}>{loginMode === 'register' ? '注册' : '登录'} <em>薯包AI</em></h2>
+        <p className="ld-sub">使用邮箱账号登录或注册</p>
       </div>
+
       <div className="ld-body">
+        {loginMode !== 'email' && <div className="ld-tabs" role="tablist" aria-label="登录或注册">
+          {[['login', '登录'], ['register', '注册']].map(([id, name]) => (
+            <button key={id} type="button" role="tab" aria-selected={loginMode === id}
+              className={'ld-tab' + (loginMode === id ? ' is-active' : '')}
+              onClick={() => { setLoginMode(id); setErr(''); setNotice(''); setPasswordErr(''); setRegCode(''); }}>
+              {name}
+            </button>
+          ))}
+        </div>}
+
         {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
         {notice && <div className="ld-note" role="status"><CheckCircle2 size={15} /><span>{notice}</span></div>}
 
-        {loginMode !== 'email' && (
-          <div className="ld-tabs" role="tablist" aria-label="登录或注册">
-            {[['login', '登录'], ['register', '注册']].map(([id, name]) => (
-              <button key={id} type="button" role="tab" aria-selected={loginMode === id}
-                className={'ld-tab' + (loginMode === id ? ' is-active' : '')}
-                onClick={() => { setLoginMode(id); setErr(''); setNotice(''); setPasswordErr(''); }}>
-                {name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {loginMode === 'login' ? (
+        {loginMode === 'email' ? (
           <>
             <div className="ld-field">
-              <span className="ld-label"><span>邮箱</span></span>
-              <span className="ld-input-wrap">
-                <input className="ld-input" type="email" autoComplete="username" inputMode="email" spellCheck={false} placeholder="请输入邮箱地址" value={account} onChange={e => { setAccount(e.target.value); setErr(''); }} />
-              </span>
-            </div>
-            <div className="ld-field">
-              <span className="ld-label"><span>密码</span></span>
-              <span className="ld-input-wrap">
-                <input className={'ld-input has-suffix'} type={passwordVisible ? 'text' : 'password'} autoComplete="current-password" placeholder="请输入密码" value={password} onChange={e => { setPassword(e.target.value); setErr(''); }} />
-                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={() => setPasswordVisible(v => !v)}>{passwordVisible ? '隐藏' : '显示'}</button></span>
-              </span>
-            </div>
-            <div className="ld-row">
-              <button type="button" className="ld-link" onClick={() => { setForgotMode(true); setErr(''); }}>忘记密码？</button>
-              <button type="button" className="ld-link" onClick={() => { setLoginMode('email'); setErr(''); setNotice(''); }}>用邮箱验证码登录</button>
-            </div>
-            <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={handlePasswordLogin} disabled={loading}>
-              {loading ? <><Loader2 size={16} className="ld-spin" /> 登录中…</> : '登录'}
-            </button>
-          </>
-        ) : loginMode === 'register' ? (
-          <>
-            <div className="ld-field">
-              <span className="ld-label"><span>邮箱</span></span>
-              <span className="ld-input-wrap">
-                <input className="ld-input" type="email" autoComplete="email" inputMode="email" spellCheck={false} placeholder="请输入邮箱地址" value={account} onChange={e => { setAccount(e.target.value); setErr(''); setNotice(''); }} />
-              </span>
-            </div>
-            <div className="ld-field">
-              <span className="ld-label"><span>邮箱验证码</span></span>
-              <span className="ld-input-wrap">
-                <input className="ld-input has-suffix" type="text" inputMode="numeric" placeholder="请输入 6 位验证码" value={regCode} onChange={e => setRegCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={handleSendRegCode} disabled={regSending || !account.trim()}>{regSending ? '发送中…' : '获取验证码'}</button></span>
-              </span>
-            </div>
-            <div className="ld-field">
-              <span className="ld-label"><span>设置密码</span><small>至少 8 位</small></span>
-              <span className="ld-input-wrap">
-                <input className={'ld-input has-suffix'} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="请输入密码" value={password} onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }} />
-                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={() => setPasswordVisible(v => !v)}>{passwordVisible ? '隐藏' : '显示'}</button></span>
-              </span>
-              {passwordErr && <span className="ld-hint is-invalid">{passwordErr}</span>}
-            </div>
-            <div className="ld-field">
-              <span className="ld-label"><span>邀请码</span><small>选填</small></span>
-              <span className="ld-input-wrap">
-                <input className="ld-input" type="text" autoComplete="off" placeholder="选填，输入好友邀请码" value={inviteCode} onChange={e => setInviteCode(e.target.value)} />
-              </span>
-            </div>
-            <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={handlePasswordRegister} disabled={loading}>
-              {loading ? <><Loader2 size={16} className="ld-spin" /> 注册中…</> : '创建账号'}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="ld-field">
-              <span className="ld-label"><span>邮箱</span>{step === 'code' && <small>验证码已发送</small>}</span>
+              <span className="ld-label">邮箱</span>
               <span className="ld-input-wrap">
                 <input placeholder="邮箱地址" autoFocus id="ld-email" className={'ld-input has-suffix' + (emailInvalid ? ' is-invalid' : '')} type="email" autoComplete="email" inputMode="email" spellCheck={false} value={email} disabled={step === 'code'} aria-invalid={emailInvalid || undefined} aria-describedby="ld-email-hint" onChange={e => handleEmailChange(e.target.value)} onBlur={() => setEmailTouched(true)} onKeyDown={e => { if (e.key === 'Enter') { if (step === 'email') handleSendCode(); else handleVerify(); } }} />
                 <span className="ld-suffix">{step === 'code' ? <button type="button" className="ld-btn-ghost" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}>修改邮箱</button> : <button type="button" className="ld-btn-ghost" onClick={handleSendCode} disabled={loading}>获取验证码</button>}</span>
               </span>
-              <span className={'ld-hint' + (emailInvalid ? ' is-invalid' : (emailValid && step === 'email' ? ' is-valid' : ''))} id="ld-email-hint">
+              <span className={'ld-hint' + (emailInvalid ? ' is-invalid' : '')} id="ld-email-hint">
                 {emailInvalid ? '邮箱格式不正确，请检查后重试' : step === 'code' ? '验证码已发送至 ' + email : '未设密码的账号用验证码登录'}
               </span>
             </div>
             {step === 'code' && (
               <div className="ld-field">
-                <span className="ld-label"><span>验证码</span><small>{resendSeconds > 0 ? resendSeconds + 's 后可重发' : '可重新发送'}</small></span>
+                <span className="ld-label">邮箱验证码</span>
                 <OtpCodeInput value={code} onChange={next => { setCodeInvalid(false); updateOtp({ type: 'SET_CODE', code: next }); }} onComplete={(next) => { if (!loading) handleVerify(next); }} onEnter={() => handleVerify()} autoFocus disabled={loading} invalid={codeInvalid} label="邮箱验证码" describedBy="ld-email-hint" />
                 <span className="ld-row">
                   <button type="button" className="ld-link" onClick={resendSeconds > 0 || loading ? undefined : handleSendCode} disabled={resendSeconds > 0 || loading}>{resendSeconds > 0 ? '重新发送（' + resendSeconds + 's）' : '重新发送验证码'}</button>
@@ -409,22 +352,76 @@ export function LoginModal() {
               <button type="button" className="ld-link" onClick={() => { setLoginMode('login'); setErr(''); }}>用密码登录</button>
             </div>
           </>
-        )}
-
-        {loginMode !== 'email' && (
+        ) : loginMode === 'login' ? (
           <>
-            <div className="ld-divider">或</div>
-            <div className="ld-oauth">
-              <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}><MessageCircle size={17} /> 微信登录</button>
-              {oauthProviders.some(p => p.id === 'github') && <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}><FaGithub size={16} /> 使用 GitHub 登录</button>}
+            <div className="ld-field">
+              <span className="ld-label">邮箱</span>
+              <span className="ld-input-wrap">
+                <input className="ld-input" type="email" autoComplete="username" inputMode="email" spellCheck={false} placeholder="name@example.com" value={account} onChange={e => { setAccount(e.target.value); setErr(''); }} />
+              </span>
             </div>
+            <div className="ld-field">
+              <span className="ld-label">密码</span>
+              <span className="ld-input-wrap">
+                <input className={'ld-input has-suffix'} type={passwordVisible ? 'text' : 'password'} autoComplete="current-password" placeholder="至少 8 位" value={password} onChange={e => { setPassword(e.target.value); setErr(''); }} />
+                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={() => setPasswordVisible(v => !v)}>{passwordVisible ? '隐藏' : '显示'}</button></span>
+              </span>
+            </div>
+            <div className="ld-row" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="ld-link" onClick={() => { setForgotMode(true); setErr(''); }}>忘记密码？</button>
+            </div>
+            <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={handlePasswordLogin} disabled={loading}>
+              {loading ? <><Loader2 size={16} className="ld-spin" /> 登录中…</> : '邮箱登录'}
+            </button>
+            <div className="ld-row" style={{ justifyContent: 'center', marginTop: 14 }}>
+              <button type="button" className="ld-link" onClick={() => { setLoginMode('email'); setErr(''); setNotice(''); }}>用邮箱验证码登录</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="ld-field">
+              <span className="ld-label">邮箱</span>
+              <span className="ld-input-wrap">
+                <input className="ld-input has-suffix" type="email" autoComplete="email" inputMode="email" spellCheck={false} placeholder="name@example.com" value={account} onChange={e => { setAccount(e.target.value); setErr(''); setNotice(''); }} />
+                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={handleSendRegCode} disabled={regSending || !account.trim()}>{regSending ? '发送中…' : '获取验证码'}</button></span>
+              </span>
+            </div>
+            <div className="ld-field">
+              <span className="ld-label">邮箱验证码</span>
+              <OtpCodeInput value={regCode} onChange={next => { setErr(''); setRegCode(next); }} autoFocus={false} disabled={loading} label="邮箱验证码" />
+            </div>
+            <div className="ld-field">
+              <span className="ld-label">手机号</span>
+              <span className="ld-input-wrap">
+                <input className="ld-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="请输入 11 位手机号" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} />
+              </span>
+            </div>
+            <div className="ld-field">
+              <span className="ld-label">密码</span>
+              <span className="ld-input-wrap">
+                <input className={'ld-input has-suffix'} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="至少 8 位" value={password} onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }} />
+                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={() => setPasswordVisible(v => !v)}>{passwordVisible ? '隐藏' : '显示'}</button></span>
+              </span>
+              {passwordErr && <span className="ld-hint is-invalid">{passwordErr}</span>}
+            </div>
+            <div className="ld-field">
+              <span className="ld-label">邀请码 <small>选填</small></span>
+              <span className="ld-input-wrap">
+                <input className="ld-input" type="text" autoComplete="off" placeholder="邀请，输入好友邀请码" value={inviteCode} onChange={e => setInviteCode(e.target.value)} />
+              </span>
+            </div>
+            <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={handlePasswordRegister} disabled={loading}>
+              {loading ? <><Loader2 size={16} className="ld-spin" /> 注册中…</> : '创建账号'}
+            </button>
           </>
         )}
 
         <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}>
           <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }} />
-          <span>我已阅读并同意<a href="/terms" target="_blank" rel="noreferrer">《用户服务协议》</a>和<a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a></span>
+          <span>您已阅读并同意<a href="/terms" target="_blank" rel="noreferrer">《服务条款》</a>和<a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a></span>
         </label>
+
+        <button type="button" className="ld-back" onClick={close}>← 返回</button>
       </div>
     </LoginDialog>
   );

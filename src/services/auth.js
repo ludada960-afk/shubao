@@ -349,7 +349,7 @@ export async function verifyOTP(email, code) {
  * 账号主体是邮箱：auth_users.primary_email 为唯一键。
  * 邮箱验证码（purpose=register）证明邮箱所有权，同时作为找回密码的唯一途径。
  */
-export async function registerWithPassword(email, code, password, nickname = '') {
+export async function registerWithPassword(email, code, password, nickname = '', phone = '') {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: 'POST',
@@ -359,6 +359,7 @@ export async function registerWithPassword(email, code, password, nickname = '')
       code: String(code || '').trim(),
       password: String(password || ''),
       nickname: String(nickname || '').trim(),
+      phone: String(phone || '').trim(),
     }),
   });
   const data = await res.json().catch(() => ({}));
