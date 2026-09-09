@@ -1235,3 +1235,38 @@ P3 生视频注入；P4 会员中心 + 兑换码。
   videoPlanning.mjs、dist/index.html、dist/assets/index-m5oyaewI.js）与本地 cb8ad960 **sha256 全等 17/17**
 - 上游仍在慢：8 token 补全 11.5s（正常 ~4.5s）→ 全量 Canary 暂不重跑（会再失败并浪费额度），
   待上游恢复后补跑。
+
+## 33. 9-10：空白弹窗根因修复 + 登录弹窗内容收窄（部署 a1c949b7）
+
+### 用户反馈
+1. "每次从画布里面出来首页就会弹出这个空白弹窗"（截图 = NoteModal 只有"暂无图片"）
+2. 登录弹窗卡片宽度可以，但内部输入框/按钮/元素都太宽，参照同类登录弹窗的内容宽度收窄
+
+### 根因（本地浏览器已复现）
+- 画布内点"新建画布" → `handleNew` 把 result 置为 `{}` → 回首页后 result 仍是 `{}`
+- `shouldShowNoteModal` 只排除 `_ecResult` → 把 `{}` 当成"有结果要展示" → 自动打开 NoteModal
+- NoteModal 没有封面/配图/正文 → 只剩"暂无图片"，看起来就是"空白弹窗"
+- 复现路径：`/ec-canvas?qa=ec-canvas`（DEV QA 态）→ 新建画布 → 返回 → 弹窗出现
+
+### 修复
+1. `src/routing/resultRouting.js`：结果弹窗只在"确实有东西可展示"时自动打开
+   （cover_url / 配图数组 / 正文至少一项非空）；`{}`、只有内部标记的对象一律不弹
+2. `src/pages/EcCanvas/index.jsx`：新建画布 result 带 `_ecResult + _emptyCanvas`
+   （顺带修掉"新建画布后保存的作品被误分类为小红书图文"，workRecords 按 `_ecResult` 分类）
+3. `src/styles/login-dialog.css`：卡片仍 600px，内容列收窄到 400px 居中
+   `clamp(28px, calc((100% - 400px)/2), 110px)`；窄屏（≤520px）仍走原 22px 媒体查询
+
+### 验证（零 API 成本）
+- `npm test` 2972/2972（新增 routing 3 条 + 登录布局契约 1 条，更新新建画布契约 1 条）
+- 本地 DOM：新建画布→返回首页→弹窗节点 0、"暂无图片"不出现
+- 本地 DOM：登录弹窗 1440/390 × 三种模式（密码登录/邮箱验证码/注册）无横向溢出
+- 线上：31/31 dist 产物 sha256 与本地一致；health 200；index.html 指向 index-k6FGAwkg.js + style-BELGrDXu.css
+- 线上 CSS 含 `(100% - 400px)/2`；线上画布 chunk 含 `_ecResult:!0,_emptyCanvas:!0`
+- 线上 DOM 实测：卡片 600 / 内容 400（1440），卡片 362 / 内容 316（390），无溢出
+
+### 顺带发现（未处理）
+- `src/pages/EcCanvas/components/CanvasMinimap.jsx` 一直被 index.jsx 引用却从未入库
+  （dist 是本地文件构建的，所以线上没坏）→ 本次一并入库
+- 线上 `dist/assets` 有 558 个历史遗留 bundle（每次部署累积，不被 index.html 引用），
+  磁盘占用不小；要不要清理需用户确认
+- `src/services/invitationService.js` 无任何引用，仍未入库
