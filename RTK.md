@@ -888,3 +888,33 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 ### 验证
 - 构建通过，测试 23/23
 - 浏览器：卡片 460x674，标题/眉题/Tab/光晕/微信居中全部正常，无 JS 错误
+
+## 21. 9-09 下午：登录 v7（邮箱统一账号体系 + 修滚动条）
+
+### 用户批注及修复
+1. 弹窗可再宽一些 → 460 → **520px**
+2. 为什么有下拉但下面没东西 → 光晕负定位撑高滚动区，加 `.ld-orbs` 裁剪容器修复（scrolls: false）
+3. 注册只有手机号但登录有邮箱（体系不一致）→ 统一为**邮箱账号体系**
+4. 邮箱要不要验证 → 要（证明所有权 + 找回密码唯一途径）
+5. 内测账号 867550189@qq.com 怎么登录 → 用「邮箱验证码登录」
+
+### 后端事实（读 server/auth/authSchema.mjs 确认）
+- 账号主体 = `auth_users.primary_email UNIQUE`（邮箱唯一键）
+- 无手机号字段，v6 的手机号注册是错的
+- 端点：/api/auth/send-code（purpose=login|register）、/register、/login、/verify-code、/forgot-password
+
+### 账号体系设计（统一，不分裂）
+- **邮箱 = 账号主体**（唯一 ID）
+- **手机号 = 后续绑定**（用于实名，中国法规；后端需加字段）
+- **密码 = 可选**，设了可密码登录
+- 登录方式：邮箱+密码 / 邮箱+验证码（两者同一账号）
+
+### 改动
+- 登录 tab：邮箱 + 密码，链接「忘记密码？」「用邮箱验证码登录」
+- 注册 tab：邮箱 + 邮箱验证码 + 设置密码 + 邀请码（同一页）
+- 验证码模式：邮箱 + 验证码，可回切密码登录
+- 新增 API：`registerWithPassword()` / `loginWithPassword()`（POST /api/auth/register|login）
+- `sendOTP(email, purpose)` 支持 purpose=register
+- 修复：`loginWithPassword`/`registerWithPhone` 被引用但未导入
+
+验证：构建通过，测试 23/23；浏览器 520x664 无滚动条，登录/注册字段一致，无 JS 错误。
