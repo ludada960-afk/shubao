@@ -1,12 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
-import { CharImg } from '../ui/index';
-import { IMAGES } from '../../constants/images';
-
 /**
- * 登录卡片外壳 (2026-09-08 v3 · 高级场景版)
- * 暖米背景 + 细点阵 + 四角柔光，墨色卡片分层阴影，Fredoka 品牌字。
+ * 登录弹窗外壳 (2026-09-09 v4)
+ * 模态弹窗：背景保持当前页面（暗化 + 模糊），卡片居中。
  * 无障碍：role=dialog + aria-modal + 焦点陷阱 + Esc 关闭 + 背景滚动锁。
  */
 export default function LoginDialog({ onClose, labelledBy, children }) {
@@ -39,24 +36,10 @@ export default function LoginDialog({ onClose, labelledBy, children }) {
 
   return (
     <div className="ld-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
-      <div className="ld-glow ld-glow-a" />
-      <div className="ld-glow ld-glow-b" />
       <div className="ld-card" role="dialog" aria-modal="true" aria-labelledby={labelledBy} ref={panelRef}>
-        <button type="button" className="ld-close" onClick={onClose} aria-label="关闭登录">
+        <button type="button" className="ld-close" onClick={onClose} aria-label="关闭">
           <X size={16} />
         </button>
-        <div className="ld-brandline">
-          <span className="ld-logo-mark"><CharImg src={IMAGES.wave} size={26} /></span>
-          <strong>薯包 AI</strong>
-        </div>
-        {/* 顶行：品牌 wordmark（左）· 返回首页（右），像一页真正的站 */}
-        <div className="ld-topbar">
-          <div className="ld-brand">
-            <span className="ld-brandmark"><CharImg src={IMAGES.wave} size={24} /></span>
-            <span className="ld-brandname">薯包 AI</span>
-          </div>
-          <a href="/" className="ld-back">返回首页</a>
-        </div>
         {children}
       </div>
     </div>

@@ -5,7 +5,7 @@ import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import LoginDialog from './LoginDialog.jsx';
 import OtpCodeInput from './OtpCodeInput.jsx';
-import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, MessageCircle, Smartphone, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, MessageCircle, Smartphone, ShieldCheck, User } from 'lucide-react';
 import '../../styles/login-dialog.css';
 import { IMAGES } from '../../constants/images';
 import { PRICING_PLANS } from '../../constants/data';
@@ -64,6 +64,14 @@ export function LoginModal() {
   const [phone, setPhone] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
   const [codeInvalid, setCodeInvalid] = useState(false);
+  /* 登录模式: 密码(默认) / 手机号 / 邮箱验证码 */
+  const [loginMode, setLoginMode] = useState('password');
+  const [isRegister, setIsRegister] = useState(false);
+  const [account, setAccount] = useState('');
+  const [password, setPassword] = useState('');
+  const [accountTouched, setAccountTouched] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [passwordErr, setPasswordErr] = useState('');
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
 
@@ -136,6 +144,53 @@ export function LoginModal() {
       });
     } catch (e) {
       setErr(/failed to fetch/i.test(e?.message || '') ? '网络请求失败，请检查网络后重试（如果你在本地测试页面，请访问 shuimg.cn）' : e.message);
+    }
+    setLoading(false);
+  };
+
+  // ── 密码登录/注册 ──────────────────────────────────────────
+  const handlePasswordLogin = async () => {
+    if (!agreedTerms) { setTermsInvalid(true); setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
+    const acc = account.trim();
+    if (!acc) { setErr('请输入手机号或邮箱'); return; }
+    if (!password) { setPasswordErr('请输入密码'); return; }
+    setPasswordErr('');
+    setLoading(true); setErr('');
+    try {
+      const user = await loginWithPassword(acc, password);
+      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email || user.phone });
+      setTimeout(() => { fetchCredits(user.email || acc); }, 100);
+      if (state.loginIntent?.destination) {
+        if (state.loginIntent.canvasTab) dispatch({ type: 'OPEN_CANVAS', tab: state.loginIntent.canvasTab });
+        else dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
+        dispatch({ type: 'SET_LOGIN_INTENT', intent: null });
+      }
+      close();
+    } catch (e) {
+      setErr(e?.message || '账号或密码错误');
+    }
+    setLoading(false);
+  };
+
+  const handlePasswordRegister = async () => {
+    if (!agreedTerms) { setTermsInvalid(true); setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
+    const acc = account.trim();
+    if (!/^1[3-9]\d{9}$/.test(acc)) { setErr('请输入正确的手机号'); return; }
+    if (password.length < 8) { setPasswordErr('密码至少 8 位'); return; }
+    setPasswordErr('');
+    setLoading(true); setErr('');
+    try {
+      const user = await registerWithPhone(acc, password);
+      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.phone });
+      setTimeout(() => { fetchCredits(user.email || acc); }, 100);
+      if (state.loginIntent?.destination) {
+        if (state.loginIntent.canvasTab) dispatch({ type: 'OPEN_CANVAS', tab: state.loginIntent.canvasTab });
+        else dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
+        dispatch({ type: 'SET_LOGIN_INTENT', intent: null });
+      }
+      close();
+    } catch (e) {
+      setErr(e?.message || '注册失败，请稍后再试');
     }
     setLoading(false);
   };
@@ -226,19 +281,19 @@ export function LoginModal() {
 
   return (
     <LoginDialog onClose={close} labelledBy={titleId}>
-      <h2 className="ld-title" id={titleId}>登录薯包 AI</h2>
-      <p className="ld-desc">未注册的账号将自动创建，登录即可开始创作</p>
+      <h2 className="ld-title" id={titleId}>{isRegister ? '注册薯包 AI' : '登录薯包 AI'}</h2>
+      <p className="ld-desc">{isRegister ? '手机号将用于实名认证，注册后即可开始创作' : '未注册的账号将自动创建，登录即可开始创作'}</p>
 
-      {/* 通道切换: 手机号 / 邮箱 */}
+      {/* 三通道 Tab: 密码登录(默认) / 手机号 / 邮箱验证码 */}
       <div className="ld-tabs" role="tablist" aria-label="登录方式">
-        {[['phone', '手机号'], ['email', '邮箱']].map(([id, name]) => (
+        {[['password', '密码登录'], ['phone', '手机号'], ['email', '邮箱验证码']].map(([id, name]) => (
           <button
             key={id}
             type="button"
             role="tab"
-            aria-selected={loginChannel === id}
-            className={'ld-tab' + (loginChannel === id ? ' is-active' : '')}
-            onClick={() => { setLoginChannel(id); setErr(''); }}
+            aria-selected={loginMode === id}
+            className={'ld-tab' + (loginMode === id ? ' is-active' : '')}
+            onClick={() => { setLoginMode(id); setErr(''); setPasswordErr(''); }}
           >
             {name}
           </button>
@@ -247,7 +302,7 @@ export function LoginModal() {
 
       {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
 
-      {loginChannel === 'phone' ? (
+      {loginMode === 'phone' ? (
         <>
           <div className="ld-field">
             <span className="ld-field-label"><span>手机号</span></span>
@@ -260,7 +315,7 @@ export function LoginModal() {
                 autoComplete="tel"
                 placeholder="请输入手机号"
                 value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={e => setPhone(e.target.value.replace(/\\D/g, '').slice(0, 11))}
               />
             </span>
           </div>
@@ -275,6 +330,65 @@ export function LoginModal() {
             </span>
           </div>
           <button type="button" className="ld-cta">登录</button>
+        </>
+      ) : loginMode === 'password' ? (
+        <>
+          <div className="ld-field">
+            <span className="ld-field-label"><span>{isRegister ? '手机号' : '手机号/邮箱'}</span></span>
+            <span className="ld-input-wrap">
+              <span className="ld-input-icon"><User size={16} /></span>
+              <input
+                className="ld-input"
+                type="text"
+                autoComplete={isRegister ? 'tel' : 'username'}
+                placeholder={isRegister ? '请输入手机号' : '请输入手机号或邮箱'}
+                value={account}
+                onChange={e => { setAccount(e.target.value); setErr(''); setPasswordErr(''); }}
+                onBlur={() => setAccountTouched(true)}
+                aria-invalid={accountTouched && !account ? true : undefined}
+              />
+            </span>
+            {accountTouched && !account && <span className="ld-hint is-invalid">请输入手机号或邮箱</span>}
+          </div>
+          <div className="ld-field">
+            <span className="ld-field-label"><span>密码</span></span>
+            <span className="ld-input-wrap">
+              <span className="ld-input-icon"><Lock size={16} /></span>
+              <input
+                className="ld-input"
+                type={passwordVisible ? 'text' : 'password'}
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                placeholder="请输入密码"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }}
+                aria-invalid={!!passwordErr}
+              />
+              <span className="ld-input-suffix">
+                <button type="button" className="ld-inline-action" onClick={() => setPasswordVisible(v => !v)}>
+                  {passwordVisible ? '隐藏' : '显示'}
+                </button>
+              </span>
+            </span>
+            {passwordErr && <span className="ld-hint is-invalid">{passwordErr}</span>}
+          </div>
+          <div className="ld-actions-row">
+            <button type="button" className="ld-ghost-link" onClick={() => { setForgotMode(true); setErr(''); }}>
+              忘记密码？
+            </button>
+            <button type="button" className="ld-ghost-link" onClick={() => { setIsRegister(!isRegister); setErr(''); setPasswordErr(''); }}>
+              {isRegister ? '已有账号？去登录' : '没有账号？去注册'}
+            </button>
+          </div>
+          <button
+            type="button"
+            className={'ld-cta' + (loading ? ' is-busy' : '')}
+            onClick={isRegister ? handlePasswordRegister : handlePasswordLogin}
+            disabled={loading}
+          >
+            {loading
+              ? <><Loader2 size={16} className="ld-spin" /> {isRegister ? '注册中…' : '登录中…'}</>
+              : isRegister ? '注册' : '登录'}
+          </button>
         </>
       ) : (
         <>
@@ -315,7 +429,7 @@ export function LoginModal() {
                 ? '邮箱格式不正确，请检查后重试'
                 : step === 'code'
                   ? `验证码已发送至 ${email}`
-                  : '我们只发送一次性验证码，不保存密码'}
+                  : '邮箱将绑定至手机号，不独立成体系'}
             </span>
           </div>
 
