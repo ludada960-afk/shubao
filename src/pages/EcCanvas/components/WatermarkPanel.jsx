@@ -67,11 +67,6 @@ export default function WatermarkPanel({
     setNotice('');
   }, [open, config, material]);
 
-  useEffect(() => {
-    if (!open) return;
-    previewCallbackRef.current?.(draft);
-  }, [draft, open]);
-
   const patch = useCallback((next) => {
     setDraft(prev => normalizeWatermark({
       ...prev,
@@ -169,6 +164,9 @@ export default function WatermarkPanel({
           <em>{draft.enabled ? '已启用' : '未启用'}</em>
         </label>
 
+        {/* 开关关闭时下方全部控件置灰且不可操作 */}
+        <fieldset className="ec-wm-gate" disabled={!draft.enabled}>
+
         <div className="ec-wm-field">
           <span className="ec-wm-label">素材类型</span>
           <div className="ec-wm-seg" role="group" aria-label="素材类型">
@@ -206,7 +204,7 @@ export default function WatermarkPanel({
         <div className="ec-wm-preview-wrap">
           <div className="ec-wm-label-row">
             <span className="ec-wm-label">位置预览</span>
-            <span className="ec-wm-hint"><Move size={11} /> 拖动水印即可改位置</span>
+            <span className="ec-wm-hint"><Move size={11} /> 拖动水印调整位置</span>
           </div>
           <div
             ref={previewBoxRef}
@@ -225,7 +223,7 @@ export default function WatermarkPanel({
               className="ec-wm-layer-preview"
             />
           </div>
-          <p className="ec-wm-tip">预览为素材实际比例，坐标为相对素材的百分比，导出/下载时保持一致。</p>
+          <p className="ec-wm-tip">预览是 1:1 示意区，点「确定」后才会应用到素材，位置与大小保持一致。</p>
         </div>
 
         <label className="ec-wm-switch">
@@ -390,6 +388,8 @@ export default function WatermarkPanel({
             )}
           </div>
         )}
+
+        </fieldset>
 
         {notice && <p className="ec-wm-notice">{notice}</p>}
       </div>

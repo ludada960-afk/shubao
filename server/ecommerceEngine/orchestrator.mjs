@@ -764,12 +764,27 @@ function detailMigrationDuty(item, sourceRole, productTruth, usedSemanticFamilie
   };
 }
 
+// 旧计划里的角色名可能是连字符形式（main-3x4 / main-text / white-bg），
+// 直接拿去比对下划线常量会失配，导致主图职责文案退化成同一条而被判重复。
+export function normalizeLegacyRoleAlias(role) {
+  const value = cleanString(role).toLowerCase();
+  if (!value) return '';
+  const aliased = value
+    .replace(/^main-3x4$/, 'main_3x4')
+    .replace(/^main-text$/, 'main_text')
+    .replace(/^main$/, 'main')
+    .replace(/^white-bg$/, 'white_background')
+    .replace(/^white-background$/, 'white_background')
+    .replace(/^detail-slice-/, 'detail_slice_');
+  return aliased;
+}
+
 function upgradePlanItems(assetPlan, productTruth = {}, deterministicInputs = {}) {
   const roleOccurrences = new Map();
   const usedDetailFamilies = new Set();
   let ordinaryDetailCount = 0;
   return assetPlan.map(item => {
-    const sourceRole = cleanString(own(item, 'role')).toLowerCase();
+    const sourceRole = normalizeLegacyRoleAlias(cleanString(own(item, 'role')).toLowerCase());
     const occurrence = roleOccurrences.get(sourceRole) || 0;
     roleOccurrences.set(sourceRole, occurrence + 1);
     const detailDuty = sourceRole.startsWith('detail_slice_')

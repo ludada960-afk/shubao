@@ -201,7 +201,10 @@ export function validatePlanContract(items) {
     }
     intents.set(semanticKey, id);
 
-    const dutyKey = normalizedCommercialDuty(duty);
+    // 职责身份 = 角色 + 职责文案。同一职责在不同放置位（如 1:1 主图与 3:4 主图）是合法的：
+    // commercialDutyId 本身已带角色前缀（maintext:productrecognition vs main3x4:productrecognition），
+    // 这里若按全局文案去重，会把合法的多比例主图误判为重复职责，导致整单生成失败。
+    const dutyKey = `${normalized(role)}|${normalizedCommercialDuty(duty)}`;
     if (duties.has(dutyKey) && !isSkuVariant) {
       throw new TypeError(`duplicate commercial duty: ${duties.get(dutyKey)} and ${id}`);
     }

@@ -1915,6 +1915,8 @@ const handlePointerUp = useCallback((e) => {
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
   const handleWheel = useCallback((e) => {
+    // 面板/控件内的滚轮只滚动面板自身，不缩放画布
+    if (e.target?.closest?.('[data-canvas-control="true"]')) return;
     try { e.preventDefault(); } catch {}
     if (wheelRafRef.current) return; // 已有一帧在排队
     const rect = e.currentTarget.getBoundingClientRect();
