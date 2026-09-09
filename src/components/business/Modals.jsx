@@ -13,6 +13,8 @@ import { useApp } from '../../store/AppContext';
 import {
   sendOTP,
   verifyOTP,
+  registerWithPassword,
+  loginWithPassword,
   fetchAuthProviders,
   beginOAuthLogin,
   forgotPassword,
@@ -48,6 +50,7 @@ export function LoginModal() {
   const [otp, updateOtp] = useReducer(loginOtpReducer, undefined, createLoginOtpState);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
   const [now, setNow] = useState(Date.now());
   const [oauthProviders, setOauthProviders] = useState([]);
   const [forgotMode, setForgotMode] = useState(false);
@@ -73,6 +76,9 @@ export function LoginModal() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [passwordErr, setPasswordErr] = useState('');
   const [phoneCode, setPhoneCode] = useState('');
+  const [regCode, setRegCode] = useState('');
+  const [regCodeSent, setRegCodeSent] = useState(false);
+  const [regSending, setRegSending] = useState(false);
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
 
@@ -152,15 +158,15 @@ export function LoginModal() {
   // ── 密码登录/注册 ──────────────────────────────────────────
   const handlePasswordLogin = async () => {
     if (!agreedTerms) { setTermsInvalid(true); setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
-    const acc = account.trim();
-    if (!acc) { setErr('请输入手机号或邮箱'); return; }
+    const acc = account.trim().toLowerCase();
+    if (!acc) { setErr('请输入邮箱地址'); return; }
     if (!password) { setPasswordErr('请输入密码'); return; }
     setPasswordErr('');
     setLoading(true); setErr('');
     try {
-      const user = await loginWithPassword(acc, password);
-      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email || user.phone });
-      setTimeout(() => { fetchCredits(user.email || acc); }, 100);
+      const user = await loginWithPassword(acc, password, true);
+      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
+      setTimeout(() => { fetchCredits(user.email); }, 100);
       if (state.loginIntent?.destination) {
         if (state.loginIntent.canvasTab) dispatch({ type: 'OPEN_CANVAS', tab: state.loginIntent.canvasTab });
         else dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
@@ -168,22 +174,38 @@ export function LoginModal() {
       }
       close();
     } catch (e) {
-      setErr(e?.message || '账号或密码错误');
+      setErr(e?.message || '邮箱或密码不正确');
     }
     setLoading(false);
   };
 
+  const handleSendRegCode = async () => {
+    const acc = account.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(acc)) { setErr('请先输入正确的邮箱地址'); return; }
+    setRegSending(true); setErr('');
+    try {
+      const result = await sendOTP(acc, 'register');
+      setRegCodeSent(true);
+      setNotice(result?.mock ? '开发模式验证码：123456' : '验证码已发送，请查收邮箱');
+      updateOtp({ type: 'CODE_SENT', now: Date.now(), cooldownMs: Math.max(0, result.retryAfterSeconds) * 1000 });
+    } catch (e) {
+      setErr(e?.message || '验证码发送失败');
+    }
+    setRegSending(false);
+  };
+
   const handlePasswordRegister = async () => {
     if (!agreedTerms) { setTermsInvalid(true); setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
-    const acc = account.trim();
-    if (!/^1[3-9]\d{9}$/.test(acc)) { setErr('请输入正确的手机号'); return; }
+    const acc = account.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(acc)) { setErr('请输入正确的邮箱地址'); return; }
     if (password.length < 8) { setPasswordErr('密码至少 8 位'); return; }
+    if (regCode.trim().length < 6) { setErr('请输入邮箱验证码'); return; }
     setPasswordErr('');
     setLoading(true); setErr('');
     try {
-      const user = await registerWithPhone(acc, password);
-      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.phone });
-      setTimeout(() => { fetchCredits(user.email || acc); }, 100);
+      const user = await registerWithPassword(acc, regCode.trim(), password, '');
+      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
+      setTimeout(() => { fetchCredits(user.email); }, 100);
       if (state.loginIntent?.destination) {
         if (state.loginIntent.canvasTab) dispatch({ type: 'OPEN_CANVAS', tab: state.loginIntent.canvasTab });
         else dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
@@ -288,13 +310,14 @@ export function LoginModal() {
       </div>
       <div className="ld-body">
         {err && <div className="ld-alert" role="alert"><AlertCircle size={15} /><span>{err}</span></div>}
+        {notice && <div className="ld-note" role="status"><CheckCircle2 size={15} /><span>{notice}</span></div>}
 
         {loginMode !== 'email' && (
           <div className="ld-tabs" role="tablist" aria-label="登录或注册">
             {[['login', '登录'], ['register', '注册']].map(([id, name]) => (
               <button key={id} type="button" role="tab" aria-selected={loginMode === id}
                 className={'ld-tab' + (loginMode === id ? ' is-active' : '')}
-                onClick={() => { setLoginMode(id); setErr(''); setPasswordErr(''); }}>
+                onClick={() => { setLoginMode(id); setErr(''); setNotice(''); setPasswordErr(''); }}>
                 {name}
               </button>
             ))}
@@ -304,9 +327,9 @@ export function LoginModal() {
         {loginMode === 'login' ? (
           <>
             <div className="ld-field">
-              <span className="ld-label"><span>手机号 / 邮箱</span></span>
+              <span className="ld-label"><span>邮箱</span></span>
               <span className="ld-input-wrap">
-                <input className="ld-input" type="text" autoComplete="username" placeholder="请输入手机号或邮箱" value={account} onChange={e => { setAccount(e.target.value); setErr(''); }} />
+                <input className="ld-input" type="email" autoComplete="username" inputMode="email" spellCheck={false} placeholder="请输入邮箱地址" value={account} onChange={e => { setAccount(e.target.value); setErr(''); }} />
               </span>
             </div>
             <div className="ld-field">
@@ -318,7 +341,7 @@ export function LoginModal() {
             </div>
             <div className="ld-row">
               <button type="button" className="ld-link" onClick={() => { setForgotMode(true); setErr(''); }}>忘记密码？</button>
-              <button type="button" className="ld-link" onClick={() => { setLoginMode('email'); setErr(''); }}>用验证码登录</button>
+              <button type="button" className="ld-link" onClick={() => { setLoginMode('email'); setErr(''); setNotice(''); }}>用邮箱验证码登录</button>
             </div>
             <button type="button" className={'ld-cta' + (loading ? ' is-busy' : '')} onClick={handlePasswordLogin} disabled={loading}>
               {loading ? <><Loader2 size={16} className="ld-spin" /> 登录中…</> : '登录'}
@@ -327,22 +350,22 @@ export function LoginModal() {
         ) : loginMode === 'register' ? (
           <>
             <div className="ld-field">
-              <span className="ld-label"><span>手机号</span></span>
+              <span className="ld-label"><span>邮箱</span></span>
               <span className="ld-input-wrap">
-                <input className="ld-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="请输入 11 位手机号" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))} />
+                <input className="ld-input" type="email" autoComplete="email" inputMode="email" spellCheck={false} placeholder="请输入邮箱地址" value={account} onChange={e => { setAccount(e.target.value); setErr(''); setNotice(''); }} />
               </span>
             </div>
             <div className="ld-field">
-              <span className="ld-label"><span>验证码</span></span>
+              <span className="ld-label"><span>邮箱验证码</span></span>
               <span className="ld-input-wrap">
-                <input className="ld-input has-suffix" type="text" inputMode="numeric" placeholder="请输入短信验证码" value={phoneCode} onChange={e => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-                <span className="ld-suffix"><button type="button" className="ld-btn-ghost">获取验证码</button></span>
+                <input className="ld-input has-suffix" type="text" inputMode="numeric" placeholder="请输入 6 位验证码" value={regCode} onChange={e => setRegCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
+                <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={handleSendRegCode} disabled={regSending || !account.trim()}>{regSending ? '发送中…' : '获取验证码'}</button></span>
               </span>
             </div>
             <div className="ld-field">
-              <span className="ld-label"><span>密码</span></span>
+              <span className="ld-label"><span>设置密码</span><small>至少 8 位</small></span>
               <span className="ld-input-wrap">
-                <input className={'ld-input has-suffix'} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="至少 8 位字符" value={password} onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }} />
+                <input className={'ld-input has-suffix'} type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" placeholder="请输入密码" value={password} onChange={e => { setPassword(e.target.value); setPasswordErr(''); setErr(''); }} />
                 <span className="ld-suffix"><button type="button" className="ld-btn-ghost" onClick={() => setPasswordVisible(v => !v)}>{passwordVisible ? '隐藏' : '显示'}</button></span>
               </span>
               {passwordErr && <span className="ld-hint is-invalid">{passwordErr}</span>}
@@ -366,7 +389,7 @@ export function LoginModal() {
                 <span className="ld-suffix">{step === 'code' ? <button type="button" className="ld-btn-ghost" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}>修改邮箱</button> : <button type="button" className="ld-btn-ghost" onClick={handleSendCode} disabled={loading}>获取验证码</button>}</span>
               </span>
               <span className={'ld-hint' + (emailInvalid ? ' is-invalid' : (emailValid && step === 'email' ? ' is-valid' : ''))} id="ld-email-hint">
-                {emailInvalid ? '邮箱格式不正确，请检查后重试' : step === 'code' ? '验证码已发送至 ' + email : '邮箱将绑定至手机号，不独立成体系'}
+                {emailInvalid ? '邮箱格式不正确，请检查后重试' : step === 'code' ? '验证码已发送至 ' + email : '未设密码的账号用验证码登录'}
               </span>
             </div>
             {step === 'code' && (

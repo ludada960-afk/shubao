@@ -22,8 +22,8 @@
 
 .ld-card {
   position: relative;
-  width: min(460px, 100%);
-  max-height: calc(100vh - 48px);
+  width: min(520px, 100%);
+  max-height: calc(100vh - 32px);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0;
@@ -43,6 +43,14 @@
 .ld-card::-webkit-scrollbar-thumb { background: #d6cdbd; border-radius: 3px; }
 
 /* 装饰光晕 */
+.ld-orbs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
 .ld-orb {
   position: absolute;
   border-radius: 50%;
@@ -83,7 +91,7 @@
 .ld-head {
   position: relative;
   z-index: 1;
-  padding: 30px 32px 0;
+  padding: 26px 32px 0;
   text-align: center;
 }
 .ld-eyebrow {
@@ -110,7 +118,7 @@
 .ld-body {
   position: relative;
   z-index: 1;
-  padding: 22px 32px 28px;
+  padding: 20px 32px 24px;
 }
 
 /* Tab: 登录 / 注册 */
@@ -365,6 +373,22 @@
 .ld-terms a { color: #a87650; font-weight: 700; text-decoration: none; }
 .ld-terms a:hover { text-decoration: underline; }
 .ld-terms.is-invalid { animation: ld-shake 0.3s ease both; }
+
+.ld-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #f0f9f2;
+  border: 1px solid #cfe9d6;
+  color: #2f6b41;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+.ld-note svg { flex: none; margin-top: 1px; }
 
 .ld-alert {
   display: flex;

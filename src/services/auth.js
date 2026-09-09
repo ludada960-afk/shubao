@@ -288,7 +288,7 @@ export async function forgotPassword(email) {
   return { ok: true, mock: Boolean(data.mock), resetToken: data.resetToken || '' };
 }
 
-export async function sendOTP(email) {
+export async function sendOTP(email, purpose = 'login') {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   // 如果是手机号格式，报错提示
   if (/^1\d{10}$/.test(normalizedEmail)) {
@@ -297,7 +297,7 @@ export async function sendOTP(email) {
   const res = await fetch(`${API_BASE}/api/auth/send-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: normalizedEmail }),
+    body: JSON.stringify({ email: normalizedEmail, purpose }),
   });
 
   // 检查 Content-Type 确保是 JSON
@@ -340,6 +340,65 @@ export async function verifyOTP(email, code) {
     token: d.token || '',
     expiresAt: d.expiresAt || '',
     refreshToken: d.refreshToken || '',
+  };
+}
+
+
+/**
+ * 邮箱 + 验证码 + 密码 注册（POST /api/auth/register）
+ * 账号主体是邮箱：auth_users.primary_email 为唯一键。
+ * 邮箱验证码（purpose=register）证明邮箱所有权，同时作为找回密码的唯一途径。
+ */
+export async function registerWithPassword(email, code, password, nickname = '') {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: normalizedEmail,
+      code: String(code || '').trim(),
+      password: String(password || ''),
+      nickname: String(nickname || '').trim(),
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || '注册失败，请稍后再试');
+  persistSessionPair(data);
+  return {
+    id: data.id || data.email,
+    email: data.email || normalizedEmail,
+    nickname: data.nickname || normalizedEmail.split('@')[0],
+    token: data.token || '',
+    expiresAt: data.expiresAt || '',
+    refreshToken: data.refreshToken || '',
+  };
+}
+
+/**
+ * 邮箱 + 密码 登录（POST /api/auth/login）
+ */
+export async function loginWithPassword(email, password, remember = true) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: normalizedEmail,
+      password: String(password || ''),
+      remember: remember === true,
+      device: 'web',
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || '邮箱或密码不正确');
+  persistSessionPair(data);
+  return {
+    id: data.id || data.email,
+    email: data.email || normalizedEmail,
+    nickname: data.nickname || normalizedEmail.split('@')[0],
+    token: data.token || '',
+    expiresAt: data.expiresAt || '',
+    refreshToken: data.refreshToken || '',
   };
 }
 
