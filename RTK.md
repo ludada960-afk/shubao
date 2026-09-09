@@ -1035,3 +1035,30 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 
 验证：npm test 2939/2939；浏览器 DOM 验收 9/9（面板高度/禁用态/240 正方形预览/水印渲染/滚轮隔离）；
 三处哈希一致 index-DSsLrqqK.js sha256 a63344df…；PM2 2563387；服务器代码 md5 与本地一致 b9f035d8…
+
+## 27. 9-10：提示词 / 面板尺寸冲突检测（步骤①，零 API 消耗）
+
+### 用户问题
+提示词里写尺寸、面板里也有一套尺寸，冲突会不会失败？该不该以提示词优先？
+
+### 调研结论（实测 + 同行）
+- **我们系统里提示词从不作为硬参数来源**：全局无任何"从提示词解析比例/尺寸"的代码；
+  最终 prompt 开头硬锁 `ASPECT RATIO LOCK: <ratio>`（生产库 request_snapshot 实测）。
+- 用户朋友那次失败与尺寸无关（是职责去重 bug，已在 §26 修复）。
+- 同行：Midjourney 用显式语法 `--ar`（无 UI 比例）；DALL·E/Imagen/Firefly/Ideogram/SD 都是
+  **UI/参数为准**，提示词里的尺寸基本被忽略；电商模板类比例由平台固定。
+- 结论：**结构化控件是硬参数唯一事实源**，提示词只表达内容意图；不要做"自然语言猜尺寸"。
+
+### 本轮实现（步骤①）
+- `src/pages/Home/ec/promptSizeConflict.js`：纯本地检测
+  - 识别 `16:9 / 9:16 / 3:4 / 1:1 …`、中文口语（方形/竖版/横版/长图…）、像素对（1200x1600 → 3:4）
+  - 与面板生效比例比对；面板为空或提示词未提尺寸时不打扰
+  - 建议补丁只改主图类（main_text/main_3x4/white_bg/transparent/sku），**绝不动详情比例**
+- `PromptSizeConflictNotice.js`（createElement 纯展示组件，可被 node:test SSR 渲染断言）
+  - 文案："⚠️ 提示词里提到「16:9 横版」，但当前套图配置是 1:1 / 9:16。系统会按面板配置出图（可把主图类改为 16:9，详情保持不变）"
+  - 动作："把主图改为 X" / "忽略"
+- DesignDirection：本地 `sizingPatch` 覆盖 → 同时进入 resolveEcommercePlan / 报价 / 生成 payload / imageSelections
+- **零新增 API 调用**（检测为字符串匹配；一键切换只改本地 state 并重新本地报价）
+
+验证：npm test 2950/2950；新增 11 个断言（纯函数 6 + UI 契约 2 + SSR 渲染 3）；
+部署 ec5f1f6e（frontend 档，日志确认 "Skipped real ecommerce production verification"）。
