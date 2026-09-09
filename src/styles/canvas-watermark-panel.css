@@ -19,7 +19,7 @@
   left: 60px;
   bottom: calc(var(--ec-canvas-bottombar-top) + var(--ec-canvas-panel-gap));
   width: 336px;
-  max-height: min(560px, calc(100vh - var(--ec-canvas-bottombar-top) - var(--ec-canvas-panel-gap) - 132px));
+  max-height: min(720px, calc(100vh - var(--ec-canvas-bottombar-top) - var(--ec-canvas-panel-gap) - 96px));
   display: flex;
   flex-direction: column;
   border-radius: 16px;
@@ -169,7 +169,8 @@
   display: grid;
   place-items: center;
 }
-.ec-wm-preview.is-live { cursor: crosshair; }
+.ec-wm-preview.is-live { cursor: grab; }
+.ec-wm-preview.is-live:active { cursor: grabbing; }
 .ec-wm-preview > img,
 .ec-wm-preview > video {
   position: absolute;

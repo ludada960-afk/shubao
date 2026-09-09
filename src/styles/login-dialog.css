@@ -9,10 +9,16 @@
 }
 .ld-card {
   position: relative;
-  width: min(560px, 100%);
+  width: min(600px, 100%);
   max-height: calc(100vh - 32px);
   overflow-y: auto;
-  background: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(
+    180deg,
+    rgba(232, 84, 75, 0.10) 0%,
+    rgba(233, 154, 24, 0.055) 22%,
+    rgba(255, 255, 255, 0.94) 58%,
+    rgba(255, 255, 255, 0.97) 100%
+  );
   backdrop-filter: blur(24px) saturate(1.25);
   -webkit-backdrop-filter: blur(24px) saturate(1.25);
   border-radius: 26px;
@@ -28,14 +34,6 @@
 .ld-card::-webkit-scrollbar-thumb { background: rgba(57,45,26,.18); border-radius: 3px; }
 
 /* 顶部品牌渐变光晕 (克制的品牌色氛围, 非装饰球) */
-.ld-card::before {
-  content: '';
-  position: absolute; top: -1px; left: 24px; right: 24px;
-  height: 120px;
-  background: linear-gradient(180deg, rgba(232, 84, 75, 0.09), rgba(233, 154, 24, 0.05) 55%, transparent);
-  border-radius: 26px 26px 0 0;
-  pointer-events: none;
-}
 
 .ld-close {
   position: absolute; top: 16px; right: 16px; z-index: 3;
@@ -50,7 +48,7 @@
 .ld-close:hover { background: #fff; color: #1A1614; transform: rotate(90deg); }
 
 /* 头部: 品牌 mark + 标题 + 副标题 (照流影AI: 居中) */
-.ld-head { position: relative; padding: 32px 40px 0; text-align: center; }
+.ld-head { position: relative; padding: 36px 44px 0; text-align: center; }
 .ld-mark {
   display: grid; place-items: center;
   width: 46px; height: 46px;
@@ -64,15 +62,31 @@
 .ld-title {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
   color: #1A1614;
 }
-.ld-title em { font-style: normal; color: #6B6560; font-weight: 500; }
-.ld-sub { margin: 7px 0 0; font-size: 13px; color: #9A9490; }
+.ld-title em {
+  font-style: normal;
+  font-weight: 800;
+  color: #E8544B;
+  position: relative;
+}
+/* 着重号：品牌名下方一个小圆点，避免两段割裂 */
+.ld-title em::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: -6px;
+  width: 5px; height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E8544B, #E99A18);
+}
+.ld-sub { margin: 14px 0 0; font-size: 14.5px; font-weight: 500; color: #6B6560; }
 
-.ld-body { position: relative; padding: 24px 40px 26px; }
+.ld-body { position: relative; padding: 26px 44px 30px; }
 
 /* Tab: 玻璃分段控件, 激活珊瑚渐变 */
 .ld-tabs {

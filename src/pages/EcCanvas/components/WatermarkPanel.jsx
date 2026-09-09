@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Upload, Trash2, Eraser, Loader2, Move, Check } from 'lucide-react';
+import { X, Upload, Trash2, Eraser, Loader2, Hand, Check } from 'lucide-react';
 import {
   WATERMARK_MATERIALS,
   WATERMARK_MOTION_MODES,
@@ -204,7 +204,7 @@ export default function WatermarkPanel({
         <div className="ec-wm-preview-wrap">
           <div className="ec-wm-label-row">
             <span className="ec-wm-label">位置预览</span>
-            <span className="ec-wm-hint"><Move size={11} /> 拖动水印调整位置</span>
+            <span className="ec-wm-hint"><Hand size={12} /> 拖动水印调整位置</span>
           </div>
           <div
             ref={previewBoxRef}

@@ -13,12 +13,12 @@ export const DEFAULT_WATERMARK = Object.freeze({
   type: 'text',                 // 'text' 文字水印 | 'logo' 图片水印
   text: '薯包AI',
   fontFamily: 'system-ui',
-  fontSize: 44,                 // 以素材宽度 1000px 为基准的字号（渲染时按宽度换算）
+  fontSize: 64,                 // 以素材宽度 1000px 为基准的字号（渲染时按宽度换算）
   fontWeight: 600,
   color: '#111827',
   strokeColor: '#ffffff',
   strokeOpacity: 0,             // 0 表示不描边
-  opacity: 0.35,
+  opacity: 0.5,
   rotation: 0,                  // -180..180 度
   xPercent: 50,                 // 水印中心在素材中的横向位置 0..100
   yPercent: 50,                 // 水印中心在素材中的纵向位置 0..100

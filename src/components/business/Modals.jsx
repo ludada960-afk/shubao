@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose, MdLockOutline } from 'react-icons/md';
-import { FaGithub } from 'react-icons/fa';
+import { FaGithub, FaWeixin } from 'react-icons/fa';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import LoginDialog from './LoginDialog.jsx';
 import OtpCodeInput from './OtpCodeInput.jsx';
-import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, MessageCircle, Smartphone, ShieldCheck, User } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Gift, Loader2, Lock, LogIn, Mail, Smartphone, ShieldCheck, User } from 'lucide-react';
 import '../../styles/login-dialog.css';
 import { IMAGES } from '../../constants/images';
 import { PRICING_PLANS } from '../../constants/data';
@@ -418,7 +418,7 @@ export function LoginModal() {
 
         <div className="ld-divider">或</div>
         <div className="ld-oauth">
-          <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}><MessageCircle size={17} /> 微信登录</button>
+          <button type="button" className="ld-oauth-btn is-wechat" onClick={() => setErr('微信登录正在接入，即将开放')}><FaWeixin size={18} /> 微信登录</button>
           {oauthProviders.some(p => p.id === 'github') && <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}><FaGithub size={16} /> GitHub 登录</button>}
         </div>
 
