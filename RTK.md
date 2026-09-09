@@ -1139,3 +1139,46 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 - **会员中心**：账号/积分/我的 Skill/订单/安全；**兑换码**：redeem_codes + 幂等接口 + 头像下拉弹窗 + 会员中心双入口。
 - **分阶段**：P0 数据模型+只读技能库 → P1 用户 skill CRUD+校验+分层预览 → P2 生图注入灰度 →
   P3 生视频注入 → P4 会员中心+兑换码。每阶段带测试与快照回归。
+
+## 31. 9-10：Skill 体系 P0/P1 上线（统一技能库）
+
+### 用户要求
+按 docs/skill-system-plan-2026-09-10.md 执行；**不能有 bug**；测试只做必要的，别每次都跑全量烧上游 API。
+
+### 测试成本策略（本次执行）
+- 只用零 API 测试：纯函数单测 + 内存 SQLite + Playwright DOM 断言
+- 部署用 frontend 档（跳过电商 Canary），因为本次**没有改生成链路**，只新增表/路由/弹窗；
+  重启健康检查 + 图库 117 + 视频契约仍然跑
+- 全量 Canary 只在改到生成链路时才跑
+
+### 交付内容（部署 d13e900f）
+**服务端** `server/skills/`
+- `skillValidation.mjs`：纯校验（kind/名称/简介/正文长度、参数白名单、越权指令检测）
+  - 越权模式 7 条（中英）+ 否定式豁免（"不要忽略以上规则"放行）
+  - 失败返回稳定 errorCode，前端可精确定位字段
+- `schema.mjs`：`user_skills` 表（owner_email/kind/name/summary/body/params_json/version/status）
+- `skillStore.mjs`：owner 隔离 + 版本自增 + **归档式删除**（保证历史引用可追溯）
+- `skillCatalog.mjs`：统一内置目录（5 个图片风格 + 2 个视频模板，只读、editable:false）
+- `skillRoutes.mjs`：GET/POST/PATCH/DELETE /api/skills + GET /api/skills/builtin/:id
+- `server/index.mjs` 挂载（复用 authenticateContentRequest + authorizeAccountEmail）
+
+**前端**
+- `src/services/skills.js`：会话头一致的 API 客户端
+- `src/pages/Home/ec/SkillLibraryModal.jsx` + `skill-library.css`：一套 UI，类型 Tab（生图/生视频/画布/文案）
+  - 内置技能只读（仅"派生"）；用户技能可编辑/归档/"使用"
+  - 保存前本地长度校验 + 服务端校验；越权提示词给出可读原因
+  - 安全提示常驻："技能只作用于风格与表达，不会覆盖商品事实/平台规则/计费"
+- `EcommerceWorkbench.jsx`：提示词区新增「技能库」入口，选用后写入提示词（@引用效果）
+
+### 修掉的自身 bug
+内置技能没有 body 时"使用"按钮点了没反应且弹窗不关 → 内置只给"派生"，用户技能才给"使用"（DOM 测试断言内置列无 primary 按钮）
+
+### 验证
+- 服务端 `test/skill-library.test.mjs` 5/5（校验/越权/owner 隔离/版本/路由）
+- 浏览器 10/10（入口、列表、四个 Tab、内置只读、越权被拒并给出原因、保存、无死按钮、写入提示词、弹窗关闭、无 JS 异常）
+- 全量本地测试 2958/2958
+- 线上：`/api/skills` 返回 401（路由已挂载、鉴权生效，非 404）；health 200；`user_skills` 表 11 列已建
+
+### 下一步（未做）
+P2 生图注入管线（skill 作为结构化 `<user_skill>` 槽位，灰度 + 快照回归）；
+P3 生视频注入；P4 会员中心 + 兑换码。
