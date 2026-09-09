@@ -1002,3 +1002,36 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 - 不再烧中转站 API
 - prod send-code 对随机新地址返回 403（服务端防滥用白名单），属后端策略；内测账号不受影响
 - 线上入口 index-B91nbcXV.js sha256 2232206e…
+
+## 26. 9-10 凌晨：生成失败根因修复 + 水印面板 4 项（部署 66dc1ede）
+
+### 用户反馈：新内测用户 610567026@qq.com 连续 5 次生成失败
+生产库实测错误（ecommerce_jobs.output.errors）：
+`duplicate commercial duty: main-3x4-1 and main-text-1` —— 来自 planContract.validatePlanContract 第 206 行（职责文案全局去重）。
+用户配置：主图 1:1 ×5 + 详情 ×9 + 主图 3:4 ×3 = 17 张。
+
+**根因**：该去重按"职责文案"全局比对，与 commercialDutyId 的角色前缀语义矛盾。
+同一职责出现在不同放置位（1:1 主图 vs 3:4 主图）是合法的，却被判重复 → 整单直接失败。
+叠加 orchestrator.upgradePlanItems 的角色别名问题：旧计划里 `main-3x4`/`main-text`（连字符）
+匹配不上 `main_3x4`/`main_text`（下划线），导致 heroPlacement 为空、两张主图职责文案退化成同一条。
+
+**修复**（server/ecommerceEngine）：
+1. planContract：dutyKey 改为 `role|normalizedDuty`（角色域内去重；同角色重复仍拦截）
+2. orchestrator：新增 normalizeLegacyRoleAlias()，兼容 main-3x4/main-text/white-bg/detail-slice-*
+3. 新增 test/ecommerce-plan-duty-scope.test.mjs（3 例：用户配置 17 张通过 / 跨角色同职责放行 / 同角色重复拦截）
+
+**生产服务器实测**（部署后跑真实代码）：
+- LEGACY PLAN: PASS（修复生效）
+- SAME-ROLE DUPLICATE: blocked（没有放松真正的重复）
+- FRIEND CONFIG (5+9+3): 17 images -> PASS
+
+### 水印面板 4 项
+1. 面板高度封顶 `min(560px, 100vh - 底栏 - gap - 132px)`，不再顶到顶栏
+2. 水印开关关闭时，下方全部控件包进 `<fieldset disabled>` 并置灰（opacity .45 + grayscale），不可操作
+3. 预览改为固定 240×240 正方形（此前 width:100% + max-height:170 会被裁成非正方形，导致水印位置/大小错位）；
+   默认字号 26 → 44（预览与素材都更明显）；**改为点「确定」才应用到素材**（用户要求，避免预览与素材瞬时不一致）
+4. 画布 handleWheel 增加 `[data-canvas-control="true"]` 判定：面板内滚轮只滚面板，不缩放画布
+   （此前面板的 React onWheel 因事件委托到 root，晚于画布容器上的原生 wheel 监听器，stopPropagation 无效）
+
+验证：npm test 2939/2939；浏览器 DOM 验收 9/9（面板高度/禁用态/240 正方形预览/水印渲染/滚轮隔离）；
+三处哈希一致 index-DSsLrqqK.js sha256 a63344df…；PM2 2563387；服务器代码 md5 与本地一致 b9f035d8…
