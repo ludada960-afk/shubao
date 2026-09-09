@@ -24,6 +24,8 @@ import {
 } from './ecommercePlanModel.js';
 import { buildAbilityAssetRoles, buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
 import EcommerceDesignPlanEditor from './EcommerceDesignPlanEditor.jsx';
+import { detectSizingConflict } from './promptSizeConflict.js';
+import PromptSizeConflictNotice from './PromptSizeConflictNotice.js';
 import { applyCanvasSuitePlanToDirection } from '../../EcCanvas/canvasSuitePlanModel.js';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
@@ -178,6 +180,20 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     return () => globalThis.removeEventListener?.('keydown', handlePreviewKey);
   }, [previewImageIndex, stableImages.length]);
 
+  // 提示词写出的比例 vs 面板配置：纯本地检测，不调用任何 API
+  const [sizingPatch, setSizingPatch] = useState(null);
+  const [dismissedConflict, setDismissedConflict] = useState('');
+  const effectiveSizing = useMemo(
+    () => (sizingPatch ? { ...(params?.sizing || {}), ...sizingPatch } : (params?.sizing || {})),
+    [params?.sizing, sizingPatch],
+  );
+  const sizeConflict = useMemo(() => detectSizingConflict({
+    promptText: [extraDesc, params?.description, params?.copywriting?.sellingPoints]
+      .filter(Boolean).join('\n'),
+    images: effectiveSizing?.images || [],
+  }), [extraDesc, params?.description, params?.copywriting?.sellingPoints, effectiveSizing]);
+  const activeConflict = sizeConflict.conflicts.find(item => item.ratio !== dismissedConflict) || null;
+
   const commerceContext = useMemo(() => normalizeCommerceContext({
     ...(params?.commerceContext || {}),
     platform: params?.commerceContext?.platform || params?.platform,
@@ -186,7 +202,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   }), [params?.commerceContext, params?.contentType, params?.platform, params?.targetLanguage]);
   const ecommercePlan = useMemo(() => resolveEcommercePlan({
     platform: commerceContext.platform,
-    sizing: { ...(params?.sizing || {}), contentType: commerceContext.contentType },
+    sizing: { ...effectiveSizing, contentType: commerceContext.contentType },
     resolution: params?.genSettings?.resolution || '2K',
     imageModel: params?.genSettings?.imageModel || 'image2',
     skus: params?.skus || [],
@@ -518,7 +534,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           brief: editableBrief || dir?.one_liner || '',
         },
         sizing: {
-          ...(params?.sizing || {}),
+          ...effectiveSizing,
           contentType: commerceContext.contentType,
           resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
           imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || 'image2',
@@ -567,7 +583,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         material: params?.productParams?.material || '',
         restrictions: params?.restrictions || '',
         // B5/B9: 正确传递场景预设和图片选择
-        imageSelections: params?.imageSelections || params?.sizing?.images || null,
+        imageSelections: sizingPatch?.images || params?.imageSelections || params?.sizing?.images || null,
         imageSize: params?.imageSize || (params?.sizing?.smart ? null : null),
         generationSettings: params?.genSettings || null,
         // B5: 场景预设通过 style_skill 字段传递，不是 imageSelections
@@ -912,6 +928,18 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 subheading="第一步素材已经带入；还可以补充商品角度、竞品风格或新的生成要求。"
                 promptTitle="补充你希望调整的画面、卖点或场景"
                 promptExamples={['例：主图更突出材质和尺寸感，减少装饰元素', '例：参考竞品构图，但保留我的品牌配色和商品结构']}
+              />
+
+              <PromptSizeConflictNotice
+                conflict={activeConflict}
+                onApply={conflict => {
+                  setSizingPatch(current => ({
+                    ...(current || {}),
+                    ...(conflict.suggestion || {}),
+                  }));
+                  setDismissedConflict(conflict.ratio);
+                }}
+                onDismiss={conflict => setDismissedConflict(conflict.ratio)}
               />
 
               {supplementError && (
