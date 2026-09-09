@@ -1104,3 +1104,38 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 - 三处哈希：入口 JS 未变（本次只改 CSS，JS 打包产物不变是正常的），CSS 资产 `style-o9MlKBYO.css`
   已同步到服务器（minifier 把 rgba 压成 `#fffefcf5`，字符串检查需注意）
 - 部署 d3c7d71e（frontend 档），npm test 2952/2952
+
+## 30. 9-10：占位提示符 bug 修复 + Skill 体系设计文档
+
+### 用户批注 1（bug）：四个面板输入后提示文字不消失
+**根因**（两层）：
+1. 旧的 `hero-textarea` + `.custom-placeholder` 模式里，占位层**无条件渲染**（没有 `!value` 判断），
+   且 `z-index:0` 在输入文字背后 → 用户看到"背后的提示文字没去掉"。
+2. 更主要的是**输入法组合期**：`MentionPromptField.onInput` 在 `isComposing` 时不提交状态（避免打断输入法），
+   所以中文打字过程中受控 `description` 仍为空，占位层一直留着。用户截图里 `ni 1 你 2 尼…` 正是候选条。
+
+**修复**（src/pages/Home/Home.css，纯 CSS、零 API）：
+```css
+.hero-textarea:not(:placeholder-shown) + .custom-placeholder { display: none; }
+.ec-textarea-wrap:has(.mention-prompt-field:not(:empty)) .ec-textarea-placeholder,
+.ec-textarea-wrap:has(textarea:not(:placeholder-shown)) .ec-textarea-placeholder { display: none; }
+```
+用 `:has()` 直接看输入框 DOM 内容，不依赖受控状态 → 组合期一有预编辑文本就立刻隐藏。
+
+验证：四个面板实拍（输入后占位层 1→0、值正确）；模拟输入法组合（组合中 0、提交后 0）；
+新增 test/prompt-placeholder-contract.test.mjs；npm test 2953/2953；
+线上 CSS 资产 style-7yxAEPNt.css 含两条守卫；部署 d545f7c7（frontend 档）。
+
+### 用户批注 2（产品）：Skill 体系 / 会员中心 / 兑换码 —— 深度调研 + 设计
+产出文档：`docs/skill-system-plan-2026-09-10.md`
+- **调研**：流影AI 两套 skill（自建主图模块 + 画布个人 Skill）本质同源、冗余；
+  行业共识是"多租户提示词指令层级"（平台安全 > 运营配置 > 用户偏好 > 请求上下文），
+  "字符串拼接"会让模型静默选赢家且无法审计。
+- **现状盘点**：我们有 **5 套分散资产**（styleSkills 5 个图片风格 / abilityRecipe / PLATFORM_PRESETS /
+  画布 skill 仓库 / videoSkillTemplates 2 个视频模板），比流影AI 更碎片化。
+- **核心结论**：用户 skill **只能叠加，不能替换**；只注入风格槽位，事实/合规/计费/尺寸槽位结构上不开放。
+- **架构**：统一 Skill 实体（kind: image|video|canvas|copy）、结构化注入（platform_rules / builtin_skill /
+  user_skill / request）、最多 2 个用户 skill、零成本冲突检测、版本化与生成记录可追溯。
+- **会员中心**：账号/积分/我的 Skill/订单/安全；**兑换码**：redeem_codes + 幂等接口 + 头像下拉弹窗 + 会员中心双入口。
+- **分阶段**：P0 数据模型+只读技能库 → P1 用户 skill CRUD+校验+分层预览 → P2 生图注入灰度 →
+  P3 生视频注入 → P4 会员中心+兑换码。每阶段带测试与快照回归。
