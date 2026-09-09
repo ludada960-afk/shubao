@@ -166,6 +166,19 @@
   flex-direction: column;
   gap: 2px;
 }
+
+/* 2026-09-10 修复：自定义占位层此前无条件渲染，用户输入后仍留在文字背后。
+   textarea 用 placeholder=" " 触发 :placeholder-shown，有内容时隐藏占位层。 */
+.hero-textarea:not(:placeholder-shown) + .custom-placeholder {
+  display: none;
+}
+
+/* 输入法组合期（预编辑文本已在 DOM 但 React 状态还没提交）也要立刻隐藏占位层。
+   用 :has() 直接看输入框 DOM 内容，不依赖受控状态，避免中文输入时提示文字一直留在文字背后。 */
+.ec-textarea-wrap:has(.mention-prompt-field:not(:empty)) .ec-textarea-placeholder,
+.ec-textarea-wrap:has(textarea:not(:placeholder-shown)) .ec-textarea-placeholder {
+  display: none;
+}
 .custom-placeholder .ph-main {
   font-size: 16px;
   color: var(--text-muted);
