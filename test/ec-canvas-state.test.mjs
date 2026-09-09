@@ -175,7 +175,8 @@ test('Canvas imports a fresh session instead of automatically restoring local no
 
 test('fresh Canvas generation creates a blank canvas in place and imports Works as a new session', () => {
   // P0-6: 新建画布就地清空成一张空白画布 (不再跳回首页)
-  assert.match(canvasSource, /dispatch\(\{ type: 'SET_RESULT', result: \{\s*\} \}\);\s*showToast\('已新建空白画布/);
+  // 空画布结果必须带 _ecResult 标记：否则回到首页会自动弹出空白结果弹窗（2026-09-10 用户反馈）
+  assert.match(canvasSource, /dispatch\(\{ type: 'SET_RESULT', result: \{ _ecResult: true, _emptyCanvas: true \} \}\);\s*showToast\('已新建空白画布/);
   assert.match(canvasSource, /setNodes\(\[\]\);\s*setConnections\(\[\]\);\s*setViewport\(\{ x: 80, y: 40, scale: 1 \}\)/);
   assert.match(canvasSource, /createFreshCanvasSession\(\{\s*work: result,/);
   assert.match(canvasSource, /dispatch\(\{ type: 'SET_RESULT', result: buildCanvasImportResult\(work\) \}\);/);

@@ -43,7 +43,10 @@
 .ld-close:hover { background: #fff; color: #1A1614; transform: rotate(90deg); }
 
 /* 头部: 品牌 mark + 标题 + 副标题 (照流影AI: 居中) */
-.ld-head { position: relative; padding: 32px 44px 0; text-align: center; }
+/* 内容列：卡片宽度保持 600px，但内部控件收窄到 ~420px（2026-09-10 用户反馈：
+   输入框/按钮/OTP 格被拉得过宽，参考同类登录弹窗的内容宽度更舒服）。
+   clamp 下限 28px 保证窄屏不挤压；≤520px 由下方媒体查询接管。 */
+.ld-head { position: relative; padding: 32px clamp(28px, calc((100% - 400px) / 2), 110px) 0; text-align: center; }
 .ld-mark {
   display: grid; place-items: center;
   width: 46px; height: 46px;
@@ -71,7 +74,7 @@
 }
 .ld-sub { margin: 14px 0 0; font-size: 14.5px; font-weight: 500; color: #6B6560; }
 
-.ld-body { position: relative; padding: 26px 44px 26px; }
+.ld-body { position: relative; padding: 26px clamp(28px, calc((100% - 400px) / 2), 110px) 26px; }
 
 /* Tab: 玻璃分段控件, 激活珊瑚渐变 */
 .ld-tabs {

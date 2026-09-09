@@ -3243,7 +3243,9 @@ const handlePointerUp = useCallback((e) => {
     if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
     remoteSaveTimerRef.current = null;
     remoteSnapshotRef.current = '';
-    dispatch({ type: 'SET_RESULT', result: {} });
+    // 空画布也必须带 _ecResult 标记：否则回到首页时它会被当成"图文结果"，
+    // 自动弹出空白的结果弹窗（2026-09-10 用户反馈），并且此后保存的画布作品会被误分类为 xhs。
+    dispatch({ type: 'SET_RESULT', result: { _ecResult: true, _emptyCanvas: true } });
     showToast('已新建空白画布，双击画布或从左侧添加素材开始创作');
   }, [dispatch, showToast]);
 
