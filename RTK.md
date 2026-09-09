@@ -1062,3 +1062,23 @@ P0-3 TTS 执行链已部署上线，线上 https://shuimg.cn/ 已包含全部 P0
 
 验证：npm test 2950/2950；新增 11 个断言（纯函数 6 + UI 契约 2 + SSR 渲染 3）；
 部署 ec5f1f6e（frontend 档，日志确认 "Skipped real ecommerce production verification"）。
+
+## 28. 9-10：登录/水印视觉修复 + 步骤②③（单一事实源 + 校验器降级）
+
+### 用户批注（两批）
+**登录**：① 背景有两层（渐变遮罩 + 白层）→ 合并成整卡一层渐变；② 主副标题太小、无主次、"登录"重而"薯包AI"轻很割裂 → 标题 30px/800 两段同权重、品牌名用品牌色 + 着重号圆点、副标题 14.5px、卡片 560→600px；③ 微信登录要用真实微信图标 → 改 react-icons/fa 的 FaWeixin
+**水印**：① 面板太矮失衡 → max-height 560→720px（保留 96px 顶部留白，不顶栏）；② 默认水印太小看不清 → fontSize 44→64、opacity .35→.5；③ 拖动标识是十字 → 换 lucide Hand（五指张开）+ 预览区 cursor grab/grabbing
+
+### 步骤②：请求载荷单一事实源（src/services/api.js）
+- resolution/imageModel：generation_settings 为用户控件，sizing 同值镜像（此前两处可能不一致且无优先级）
+- 图集选择：sizing.images 为唯一来源，image_selections 同源镜像
+- 颜色优先级经查**本就正确**（custom_colors > LLM palette > 参考图，且会写入 consistency lock），未改动
+
+### 步骤③：校验器降级（server/ecommerceEngine）
+- assetPlanner.heroDuty：职责槽位用尽时派生 `variantN` 职责（此前抛 duplicate commercial duty id → 整单报废）
+- assetPlanner.repeatedDuty（白底/透明）：同样降级
+- orchestrator.roleCatalogDuty（旧计划迁移）：不再抛 "count exceeds catalog"，派生变体
+- 两个旧契约测试按新语义改写（明确：这是行为变更，不是测试妥协）
+
+验证：npm test 2952/2952；实测 main_text/white_bg/transparent 各 20 张 → 职责 id 全部唯一且通过校验；
+浏览器 DOM 验收 14/14（登录 8 项 + 水印 6 项）；部署 512ee5dd（frontend 档）+ 4e3ddb45（全量档，电商验收 3 稳定资产通过）。
