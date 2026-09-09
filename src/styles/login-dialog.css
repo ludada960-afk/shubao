@@ -43,7 +43,7 @@
 .ld-close:hover { background: #fff; color: #1A1614; transform: rotate(90deg); }
 
 /* 头部: 品牌 mark + 标题 + 副标题 (照流影AI: 居中) */
-.ld-head { position: relative; padding: 36px 44px 0; text-align: center; }
+.ld-head { position: relative; padding: 32px 44px 0; text-align: center; }
 .ld-mark {
   display: grid; place-items: center;
   width: 46px; height: 46px;
@@ -69,19 +69,9 @@
   color: #E8544B;
   position: relative;
 }
-/* 着重号：品牌名下方一个小圆点，避免两段割裂 */
-.ld-title em::after {
-  content: '';
-  position: absolute;
-  left: 50%; bottom: -6px;
-  width: 5px; height: 5px;
-  margin-left: -2.5px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #E8544B, #E99A18);
-}
 .ld-sub { margin: 14px 0 0; font-size: 14.5px; font-weight: 500; color: #6B6560; }
 
-.ld-body { position: relative; padding: 26px 44px 30px; }
+.ld-body { position: relative; padding: 26px 44px 26px; }
 
 /* Tab: 玻璃分段控件, 激活珊瑚渐变 */
 .ld-tabs {
@@ -256,17 +246,6 @@
 .ld-terms a:hover { text-decoration: underline; }
 .ld-terms.is-invalid { animation: ld-shake 0.3s ease both; }
 
-.ld-back {
-  display: block; margin: 16px auto 0;
-  appearance: none; border: 0; background: transparent;
-  font-family: var(--font-body);
-  font-size: 13px; font-weight: 600;
-  color: #9A9490; cursor: pointer;
-  transition: color 0.15s ease;
-}
-.ld-back:hover { color: #1A1614; }
-
-@keyframes ld-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ld-pop { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes ld-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
 @keyframes ld-spin { to { transform: rotate(360deg); } }

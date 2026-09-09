@@ -426,8 +426,6 @@ export function LoginModal() {
           <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }} />
           <span>您已阅读并同意<a href="/terms" target="_blank" rel="noreferrer">《服务条款》</a>和<a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a></span>
         </label>
-
-        <button type="button" className="ld-back" onClick={close}>← 返回</button>
       </div>
     </LoginDialog>
   );
