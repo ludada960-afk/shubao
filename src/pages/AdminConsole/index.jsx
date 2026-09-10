@@ -111,9 +111,12 @@ const JOB_STATUS_LABELS = {
 
 const SERVICE_LABELS = {
   ecommerce_image: '电商生图', video_generation: '视频生成', content_generation: '小红书图文',
+  /* 2026-09-10: 百度大模型 TTS 接入后新增服务类目（后台看板与消耗/收益归集同源）。 */
+  audio_generation: '语音合成',
 };
 
 const SKU_LABELS = {
+  ec_tts_voice: '语音合成 · 配音',
   ec_image_2k: '电商生图 · 2K',
   ec_image_4k: '电商生图 · 4K',
   ec_nano_flash_1k: 'Nano Banana 2 Flash · 1K',

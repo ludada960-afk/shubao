@@ -140,6 +140,10 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_preview_cover: { units: 500, providerCostCny: 0.038 },
   ec_smart_layer: { units: 3000, providerCostCny: 0.20 },
   ec_layer_psd: { units: 3000, providerCostCny: 0.20 },
+  /* 2026-09-10: 语音合成接真上游（百度智能云大模型 TTS, ¥0.0002/千字）—— 凡走上游必收积分。
+     0.5 积分/条 = 500 units; 一条 200 字口播的上游成本 ≈ ¥0.00004 → 毛利 >99.9%（引流/留存档）。
+     未配置真凭据时 ttsBridge 仍返回 mock(mockAudio:true), 但计费口径不变（不假装免费）。 */
+  ec_tts_voice: { units: 500, providerCostCny: 0.0002 },
   content_full_set: { units: 1, currency: 'content_sets' },
 });
 

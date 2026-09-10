@@ -81,6 +81,8 @@ const SKU_CLASSIFICATIONS = Object.freeze({
   ec_direction_refresh: { feature: 'ecommerce_image', provider: '65535' },
   ec_smart_layer: { feature: 'visual_creation', provider: '65535' },
   ec_layer_psd: { feature: 'visual_creation', provider: '65535' },
+  /* 2026-09-10: 百度大模型 TTS 接入 —— 后台成本/收益看板据此归集（用户要求: 改供应商/收费必须同步后台）。 */
+  ec_tts_voice: { feature: 'audio_generation', provider: 'Baidu' },
 });
 
 // 成本定案（2026-09）：用户在 poke2api 充值实测确认美元余额按人民币 1:1 核算，

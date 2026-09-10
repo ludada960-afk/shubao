@@ -52,6 +52,8 @@ const SKU_LABELS = Object.freeze({
   ec_direction_refresh: { label: '套图方向刷新', category: 'image', per: '次' },
   ec_smart_layer: { label: '画布 · 智能图层', category: 'canvas', per: '次' },
   ec_layer_psd: { label: '画布 · PSD 分层导出', category: 'canvas', per: '次' },
+  /* 2026-09-10: 百度大模型 TTS 接入（语音合成 / 配音）—— 用户中心价格栏目与此同源（唯一真源）。 */
+  ec_tts_voice: { label: 'AI 配音 · 语音合成', category: 'video', per: '条' },
   video_plan_analysis: { label: '视频方案分析', category: 'video', per: '次' },
   video_seedance_fast_short: { label: 'AI 视频 · 快试档', category: 'video', per: '条' },
   video_seedance_fast_long: { label: 'AI 视频 · 快试档', category: 'video', per: '条' },
