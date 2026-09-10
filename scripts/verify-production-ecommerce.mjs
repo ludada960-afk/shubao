@@ -383,22 +383,36 @@ export async function verifyProductionEcommerce({
     uploadCanaryAsset({ root, headers, role: 'product', fixturePath, request }),
     uploadCanaryAsset({ root, headers, role: 'reference', fixturePath, request }),
   ]);
-  // 2026-09-10 方向分析纳入计费：先取 quote 再调用（与真实用户同一路径）
-  const directionQuote = await quoteDirectionAnalysis({ root, headers, request });
-  const directionResponse = await request(`${root}/api/ecommerce/design-directions`, {
-    method: 'POST',
-    headers: { ...headers, 'content-type': 'application/json' },
-    body: JSON.stringify(designDirectionPayload({
-      product,
-      reference,
-      quoteId: directionQuote.quoteId,
-      actionId: `canary-direction-${Date.now()}`,
-    })),
-    // This endpoint performs two bounded multimodal passes. Never replay it: a
-    // retry would repeat paid analysis and can outlive the release timeout.
-    maxAttempts: 1,
-    timeoutMs: 90_000,
-  });
+  // 2026-09-10 方向分析纳入计费：先取 quote 再调用（与真实用户同一路径）。
+  // 上游 502/503 属瞬时抖动：失败一次后等待 20s 再取新 quote 重试一次（失败的 hold 会自动
+  // release，不产生重复扣费），与用户手动重试的行为一致。仍失败则判为门禁失败。
+  let directionResponse = null;
+  for (let attempt = 0; attempt < 2 && !directionResponse; attempt += 1) {
+    const directionQuote = await quoteDirectionAnalysis({ root, headers, request });
+    try {
+      directionResponse = await request(`${root}/api/ecommerce/design-directions`, {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify(designDirectionPayload({
+          product,
+          reference,
+          quoteId: directionQuote.quoteId,
+          actionId: `canary-direction-${Date.now()}-${attempt}`,
+        })),
+        // This endpoint performs two bounded multimodal passes. Never replay the
+        // same quote: a retry would repeat paid analysis and can outlive the
+        // release timeout. A failed attempt releases its hold server-side.
+        maxAttempts: 1,
+        timeoutMs: 90_000,
+      });
+    } catch (error) {
+      const status = Number(error?.status) || 0;
+      const last = attempt === 1;
+      if (last || ![502, 503, 504].includes(status)) throw error;
+      console.log(`Direction analysis returned ${status}; waiting 20s before one retry`);
+      await wait(20_000);
+    }
+  }
   const direction = assertDirectionContract(directionResponse);
   const quote = await request(`${root}/api/billing/quote`, {
     method: 'POST',
