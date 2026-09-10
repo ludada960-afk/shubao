@@ -38,6 +38,35 @@
 - **竞品知渔 29 个模型公开**（标准/会员/代理三档价）：视频=Seedance2.0/2.5（含视频编辑）+H3+万相3.0+快乐马（R2V 换装/风格迁移）**+数字人**；图片=G2臻享/NaPro/即梦5.0/千问-Image；音频=**KFish 语音克隆**；后处理=视频增强/去字幕/去背景/换装。**它的数字人/TTS/音乐/视频换装已是收费功能，我方空白。**
 - **换/加/留建议**：**换** fast 档 → 65535 seedance-2.0-fast-std（¥0.50/秒，5s≈¥2.5，**省 35–50%**，快试档毛利 25.3%→43–52%）；**留** 标准档 IP233 ¥5.07/条（公开市场最低 720p 按条价）、nano 留 Change2Pro、H3 留 Poke（¥0.76/条，毛利 ~92%）；**加**（P3.1 支撑）Seedance 2.5（¥5.07/条、¥0.8775/秒）、首尾帧官转 doubao-seedance-2-0、omni-v2v 视频编辑（¥1.15/条）、gpt-image-2.5 基线档（¥0.0325，成本≈现价，避开可用率 0–80% 的 flare/sunburst 固定档）。
 
+## 2.4 供应商真实报价（2026-09-10 用我方 key 实测接口拉取，非截图推断）
+
+数据源：`https://task-api-1-cn.65535.space/v1/pricing`（65535 全模型报价公开 JSON）、`https://new.ip233.com/api/pricing`（80 模型）、`https://api-new.ip233.com/v1/models`（124 模型）。
+
+| 模型 | 供应商 | 真实价 | 备注 |
+|---|---|---|---|
+| agv-seedance2.0fast | IP233（已在用） | **¥0.91/条** | 5/10/15s、≤9 参考图；不支持参考视频/音频 |
+| sd10-seedance-2.0（720p） | IP233 | ¥5.07/条 | 当前标准档所用 |
+| sd10-seedance-2.0-fast / mini | IP233 | ¥3.77/条 | 当前快试档所用 |
+| doubao-seedance-2-0 / -fast / 2-5（官转） | IP233 | 动态按任务扣费 | 支持参考视频/音频、成对首尾帧 |
+| minimax-h3 | IP233 | ¥0.162/秒 | 另有 h3-768p ¥4.55/条 |
+| kling-3.0 / pro | IP233 | ¥1.82 / ¥3.77 条 | 渠道 degraded |
+| seedance-2.0-native | 65535 | ¥0.80/秒（5s≈¥4.00） | 已标价 |
+| seedance-2.0-fast-native | 65535 | **未标价（按用量）** | 原先想切的目标其实没价 |
+| seedance-2.5-native | 65535 | ¥1.20/秒 | — |
+| veo-omni-3-1 / flash / flash-edit | 65535 | ¥2.00 / ¥2.20 / ¥2.80 每次 | — |
+
+**结论（换/留/加，取代早前推断版）**：
+1. **不切 65535**：其 fast 档 seedance-2.0-fast-native 未标价（无法核算成本）；兄弟 seedance-2.0-native ¥0.80/秒≈¥4.00/5s 只比现价便宜一点；且 65535 视频走 OpenAI 兼容面（sub-proxy-us），与我们现用的任务式协议（task-api-1-cn.../v1/tasks）不同，盲切=引入风险。
+2. **真正的降本 = 站内换档**：IP233 自家 agv-seedance2.0fast ¥0.91/条，比现快试档 ¥3.77–5.07/条 **便宜 4–5 倍**，且同 host 同协议（零集成风险）。限制：不支持参考视频/音频 → 只适合 script / reference（文生、图生）两种模式的快试档；frame/remake（首尾帧、爆款重构）仍走 doubao 官转或 sd10。
+3. 标准档继续留 IP233 ¥5.07/条（公开市场最低 720p 按条价）；nano 留 Change2Pro（我方记账 ¥0.06/张，比 IP233 公开价低 40–60%）；MiniMax H3 留 Poke（¥0.76/条，毛利 ~92%）。
+4. 65535 图片侧仍是 gpt-image-2 主力（¥0.038/张）；可选加 gpt-image-2.5 基线档（同 host，已在线）。
+
+## 2.5 语音合成（TTS）选型结论
+- 用户已开通百度智能云「语音合成 2.0（大模型）」+「声音复刻 2.0」（各 20,000 字免费额度 / 99 标准音色）→ **不需要再开通其他服务**。
+- 已实现真适配器（ttsBridge 新增 baidu provider：access_token 换取 + tsn.baidu.com/text2audio + aue=mp3 + 失败体解析）。
+- **还差 Secret Key**：实测仅用 API Key 调 aip.baidubce.com/oauth/2.0/token 返回 invalid_client / unknown client id —— 百度要求 API Key + Secret Key 配对。
+- 未配置时保持 mock + mockAudio:true 标注（诚实门控，不发外部请求）。
+- 开源自建（GPT-SoVITS / CosyVoice2 / Fish-Speech / Kokoro）结论：省的是**一分钱级**调用费，花的是 GPU + 运维 + 首字延迟 1–3s；电商口播要「稳、快、音色多」→ **云 API 更划算**，自建留作后期量大降本（竞品知渔用 KFish 克隆、即梦用 Seed TTS，**均无自建**）。
 ## 3. 下一程路线图（P4→P9，每期门禁不变）
 
 ### P4 模板返工（先把体验做对）
