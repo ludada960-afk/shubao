@@ -85,7 +85,27 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 用户授权完整交付时，Codex 应自主完成备份、实现、全量回归、桌面与移动端浏览器验收、部署及线上验证；除新权限、不可逆风险或无法自行解除的外部阻塞外，不在中途反复询问。
 
 ## 11. 最近发布快照
-
+- 2026-09-10，无限画布节点生态 P0→P3（总统筹分 4 期）已由 7e4c7e5e 发布至
+  https://shuimg.cn/（frontend 档，零付费 canary；线上探针 /api/canvas/graph/run、
+  /api/canvas/one-click-video、/api/canvas/tts 均 401 wired，/api/workflow-templates
+  返回 5 内置模板 + 真实 usage/like + 诚实 gateNote）。全量回归 3088/3088 pass，
+  生产构建 + source-hygiene 绿。提交栈（本轮）：
+  - P0/P0.5 a87ba596：连线自动供料 + 分组'▶运行整链'(预览→二次确认才扣费) + 改文案
+    下游自动标'已失效'。
+  - P1 后端宿主 5f496210 + a8ce8b57：canvas_graph_runs/steps 持久化 + CAS 租约(宕机可
+    恢复) + 每节点复用 canvasBilledActionStore 计费(幂等不重扣) + 失败隔离 + 取消/恢复 +
+    /api/canvas/graph/run；免费白底链(商品图→去背景→放大)真分段+真 sharp 端到端 0 扣费。
+  - P2 业务资产层 a32f0cea / 3e7dbc85 / cb5f6356：工作流模板表 + 5 内置图工作流(T2 纯图
+    链可跑；T1/T3 填空即跑；T4/T5 P3 门控) + 技能市场(真实 usage/like，非占位) + 连线@
+    引用合一(图=唯一真源，请求组装只读图，无连线字节级等价回归护栏) + 老文档只读迁移。
+  - P3 音视频(诚实门控版，不烧上游) 7e4c7e5e：图片拼接 splice 免费接进 P1(sharp) + 假
+    能力诚实清理(chainService deriveScript/deriveKeyframes 显式 isMock；悬空路由实现为
+    /api/canvas/one-click-video + /api/canvas/tts 带门控标注) + timeline/轨道字段预留 +
+    T4/T5(video-composer/tts/lip-sync)维持门控。
+  - P3.1 遗留(需上游/报价确认，本期不硬开，属加法不返工)：真 TTS(ec_tts_voice)/Seedance
+    视频/LLM 文案/生图首帧 adapter + 对口型 lip-sync 报价 + 视频拼接 ffmpeg + 客户端
+    GRAPH_RUN_KINDS 补 splice 镜像。已留接口/字段/门控，确认后即可开。
+  三条不变式全程守住：① 不确认不扣费；② 老文档只读可用；③ 价格唯一真源(后端 catalog)。
 - 2026-08-07，电商 Canvas 创意导出稳定性版本已由 `02e517d` 发布至
   `https://shuimg.cn/`。上线前全量回归通过 `1265/1265`，生产构建通过
   （`6455` 模块），`npm run check`、协作策略和空白检查均通过。

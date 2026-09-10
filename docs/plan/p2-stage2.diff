@@ -1,0 +1,351 @@
+P2 Stage 2 — 连线@引用合一 (apply ON TOP of Stage 1, after Stage 1 is integrated.
+  Generating state verified: npm run build exit 0; 6/6 contract tests; 71/71 targeted regressions.
+  from repo/worktree root:  git apply docs/plan/p2-stage2.diff
+
+diff --git a/src/pages/EcCanvas/index.jsx b/src/pages/EcCanvas/index.jsx
+index 693c09d6..65489212 100644
+--- a/src/pages/EcCanvas/index.jsx
++++ b/src/pages/EcCanvas/index.jsx
+@@ -75,8 +75,9 @@ import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTt
+ import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
+ import { markStaleDownstream } from './canvasGraphEngine.js';
+ import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
+-/* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + P3 门控标记 (T4/T5 诚实门控, 不 mock 不扣费) */
+-import { instantiateWorkflowTemplate, markP3PendingNodes } from './workflowTemplates.js';
++/* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
++import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
++import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
+ import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
+ /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
+ const GRAPH_RUN_KINDS = {
+@@ -848,7 +849,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
+     ? (selectedNode.sourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
+     : [];
+   const selectedComposerMentions = selectedNode
+-    ? (selectedNode.mentionSourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
++    ? mergeGraphMentionSources(selectedNode, connections).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
+     : [];
+   const selectedComposerPosition = getCanvasComposerPresentation({
+     node: selectedNode,
+@@ -1236,7 +1237,11 @@ const [minimapOpen, setMinimapOpen] = useState(true);
+     const draftKey = canvasDraftKey(result);
+     canvasSaveKeyRef.current = result.browserQa ? null : draftKey;
+     const draft = result.browserQa ? null : loadCanvasDraft(draftKey);
+-    const initialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
++    const rawInitialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
++    /* P2 老文档迁移（不变式②）: mention -> reference 边（纯增量+幂等）, 老文档照常加载、只读可用 */
++    const initialSnapshot = rawInitialSnapshot
++      ? { ...rawInitialSnapshot, ...migrateMentionsToEdges(rawInitialSnapshot.nodes, rawInitialSnapshot.connections) }
++      : null;
+     const newNodes = (initialSnapshot?.nodes?.length ? initialSnapshot.nodes : session.nodes).map(normalizeCanvasNode);
+     setPendingProjectAssetImports(normalizePendingProjectAssetImports(initialSnapshot?.pendingProjectAssetImports));
+     setNodes(newNodes);
+@@ -1273,13 +1278,14 @@ const [minimapOpen, setMinimapOpen] = useState(true);
+     if (!draft && persistedSessionId) {
+       void loadCanvasSession(persistedSessionId).then(remoteSession => {
+         if (cancelled) return;
+-        const remoteSnapshot = restoreCanvasSnapshot(remoteSession.snapshot);
+-        setPendingProjectAssetImports(normalizePendingProjectAssetImports(remoteSnapshot.pendingProjectAssetImports));
+-        setNodes(remoteSnapshot.nodes.map(normalizeCanvasNode));
+-        setConnections(remoteSnapshot.connections.map(normalizeCanvasConnection));
+-        setViewport(remoteSnapshot.viewport);
++        const rawRemoteSnapshot = restoreCanvasSnapshot(remoteSession.snapshot);
++        const remoteMigration = migrateMentionsToEdges(rawRemoteSnapshot.nodes, rawRemoteSnapshot.connections);
++        setPendingProjectAssetImports(normalizePendingProjectAssetImports(rawRemoteSnapshot.pendingProjectAssetImports));
++        setNodes(remoteMigration.nodes.map(normalizeCanvasNode));
++        setConnections(remoteMigration.connections.map(normalizeCanvasConnection));
++        setViewport(rawRemoteSnapshot.viewport);
+         setCanvasSession(remoteSession);
+-        const remoteMediaRefs = canvasMediaAssetRefs(remoteSnapshot.nodes);
++        const remoteMediaRefs = canvasMediaAssetRefs(rawRemoteSnapshot.nodes);
+         if (remoteMediaRefs.length) {
+           void Promise.all(remoteMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null)))
+             .then(assets => {
+@@ -2629,9 +2635,10 @@ const handlePointerUp = useCallback((e) => {
+     try {
+       const res = await instantiateWorkflowTemplate(template.slug);
+       const snapshot = createCanvasSnapshot(res.snapshot || { nodes: [], connections: [] });
+-      const p3Nodes = markP3PendingNodes(snapshot.nodes, res.requiresAudioVideo === true);
++      const migrated = migrateMentionsToEdges(snapshot.nodes, snapshot.connections);
++      const p3Nodes = markP3PendingNodes(migrated.nodes, res.requiresAudioVideo === true);
+       setNodes(p3Nodes.map(normalizeCanvasNode));
+-      setConnections(snapshot.connections.map(normalizeCanvasConnection));
++      setConnections(migrated.connections.map(normalizeCanvasConnection));
+       setViewport(snapshot.viewport);
+       setSelected(null);
+       setMultiSelected(new Set());
+@@ -3603,7 +3610,9 @@ const handlePointerUp = useCallback((e) => {
+ 
+   const handleImageComposerGenerate = useCallback(async composer => {
+     if (!composer?.prompt?.trim() || composer.status === 'processing') return;
+-    const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
++    /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
++    const runInputs = collectRunInputs(composer.id, connections, nodes);
++    const composerSourceIds = runInputs.sources.length ? runInputs.sources : legacyComposerSourceIds(composer);
+     const sourceNodes = composerSourceIds.map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+     const sourceReferences = buildCanvasImageReferencePayload(buildImageMentions(sourceNodes.map(node => ({
+       ...node,
+@@ -3711,11 +3720,13 @@ const handlePointerUp = useCallback((e) => {
+       updateComposerNode(composer.id, { status: 'error', error: error.message || '图片生成失败' });
+       handleCanvasActionError(error, { type: 'image-generation', nodeId: composer.id });
+     }
+-  }, [handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
++  }, [connections, handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
+ 
+   const handleSuiteComposerGenerate = useCallback(async composer => {
+     if (!composer || composer.status === 'processing') return;
+-    const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
++    /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
++    const runInputs = collectRunInputs(composer.id, connections, nodes);
++    const composerSourceIds = runInputs.sources.length ? runInputs.sources : legacyComposerSourceIds(composer);
+     const sourceNodes = composerSourceIds.map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+     const productNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'product');
+     const referenceNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'reference');
+@@ -3886,7 +3897,7 @@ const handlePointerUp = useCallback((e) => {
+     } finally {
+       suiteGenerationInFlightRef.current.delete(composer.id);
+     }
+-  }, [getDesignDirections, handleCanvasActionError, nodes, phone, result.category, result.platform, result.product_name, showToast, updateComposerNode]);
++  }, [connections, getDesignDirections, handleCanvasActionError, nodes, phone, result.category, result.platform, result.product_name, showToast, updateComposerNode]);
+ 
+   const handleSuiteDirectionSelect = useCallback((composerId, direction, index) => {
+     updateComposerNode(composerId, { selectedDirection: index, selectedDirectionData: direction });
+@@ -3898,7 +3909,9 @@ const handlePointerUp = useCallback((e) => {
+     if ((!boardText && !promptText) || composer.status === 'processing') return;
+     updateComposerNode(composer.id, { status: 'processing', error: '' });
+     try {
+-      const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
++      /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
++      const runInputs = collectRunInputs(composer.id, connections, nodes);
++      const composerSourceIds = runInputs.sources.length ? runInputs.sources : legacyComposerSourceIds(composer);
+       const sourceNodes = composerSourceIds
+         .map(id => nodes.find(node => node.id === id))
+         .filter(node => node?.url);
+@@ -3967,7 +3980,7 @@ const handlePointerUp = useCallback((e) => {
+       updateComposerNode(composer.id, { status: 'error', error: error.message || '画面生成失败' });
+       handleCanvasActionError(error, { type: 'image-generation-from-text', nodeId: composer.id });
+     }
+-  }, [handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
++  }, [connections, handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
+ 
+   const handleAddTextNode = useCallback((placement = {}) => {
+     if (placement?.openComposer) {
+@@ -4593,6 +4606,11 @@ const handlePointerUp = useCallback((e) => {
+           ? removeImageMention(node.prompt, image?.label)
+           : appendImageMention(node.prompt, image?.label),
+     } : node));
++    /* P2 连线@引用合一: @ 选一个上游自动补一条 reference 边（同 from->to 去重, 已有线不重复拉）*/
++    setConnections(previous => {
++      const hasEdge = previous.some(edge => (edge.fromNodeId || edge.from) === sourceId && (edge.toNodeId || edge.to) === composerId);
++      return hasEdge ? previous : addConnection(previous, sourceId, composerId, 'reference');
++    });
+   }, []);
+   const handleTabChange = useCallback(nextTab => {
+     // Cross-fade canvas tabs through the View Transitions API when the
+@@ -5274,20 +5292,21 @@ const handlePointerUp = useCallback((e) => {
+     try {
+       const session = await loadCanvasSession(sessionId);
+       if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
+-      const snapshot = restoreCanvasSnapshot(session.snapshot);
+-      setNodes(snapshot.nodes.map(normalizeCanvasNode));
+-      setConnections(snapshot.connections.map(normalizeCanvasConnection));
+-      setPendingProjectAssetImports(normalizePendingProjectAssetImports(snapshot.pendingProjectAssetImports));
+-      setViewport(snapshot.viewport);
++      const rawSnapshot = restoreCanvasSnapshot(session.snapshot);
++      const migrated = migrateMentionsToEdges(rawSnapshot.nodes, rawSnapshot.connections);
++      setNodes(migrated.nodes.map(normalizeCanvasNode));
++      setConnections(migrated.connections.map(normalizeCanvasConnection));
++      setPendingProjectAssetImports(normalizePendingProjectAssetImports(rawSnapshot.pendingProjectAssetImports));
++      setViewport(rawSnapshot.viewport);
+       setSelected(null);
+       setMultiSelected(new Set());
+       setCanvasSession(session);
+-      const restoredMediaRefs = canvasMediaAssetRefs(snapshot.nodes);
++      const restoredMediaRefs = canvasMediaAssetRefs(rawSnapshot.nodes);
+       if (restoredMediaRefs.length) {
+         const resolvedAssets = (await Promise.all(restoredMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))))
+           .filter(Boolean);
+         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
+-        setNodes(restoreCanvasMediaPlayback(snapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
++        setNodes(restoreCanvasMediaPlayback(rawSnapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
+       }
+       showToast('已恢复保存的画布', 'success');
+     } catch (error) {
+
+
+diff --git a/src/pages/EcCanvas/mentionEdgeMigration.js b/src/pages/EcCanvas/mentionEdgeMigration.js
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/src/pages/EcCanvas/mentionEdgeMigration.js
+@@ -0,0 +1,78 @@
++/* ═══════ P2 · 老文档 mention -> 边 迁移（前端等价实现）═══════
++   语义与 server/templates/mentionEdgeMigration.mjs 逐条一致（spec §3.5.2.1 不变式②）:
++   - 纯函数 + 幂等: 不改入参（返回新数组/新节点对象）; 二次运行 connections 逐字节不变;
++   - 每个 node.mentionSourceNodeIds 里的 id:
++       空串 / 非字符串 / 指向自身 -> 丢弃（永不可能成为边）;
++       指向图内已知节点 -> 补一条 {fromNodeId, toNodeId, relation: 'reference'}
++         （同 from->to 去重: 已有边则不补）; 补成边后该 id 从 mention 数组剔除（图 = 唯一真源）;
++       指向未知 id（旧文档里已删节点）-> 暂留在 mention 数组里（延后: 该节点若日后回来再补边）, 不造死边;
++   - 既有 connections 原样保留（浅拷贝 + 端点归一 fromNodeId/toNodeId）, 但同 from->to 只留一条
++     （spec §5 "双 from->to 只一条"; P1 collectGraphEdges 同口径）。
++   不变式②: 迁移纯增量 + 幂等, 只"补边/去重", 绝不破坏已存文档的节点与边数据 ——
++   老文档读路径随时可调用, 加载照常渲染、只读可用。*/
++
++function nodeRefId(node) {
++  if (node == null) return '';
++  if (typeof node === 'string') return node.trim();
++  return node.id == null ? '' : String(node.id).trim();
++}
++
++function edgeEnds(connection) {
++  if (!connection || typeof connection !== 'object') return null;
++  const fromId = String(connection.fromNodeId || connection.from || '').trim();
++  const toId = String(connection.toNodeId || connection.to || '').trim();
++  if (!fromId || !toId) return null;
++  return { fromId, toId };
++}
++
++function edgeKey(fromId, toId) {
++  return fromId + '\u0000' + toId;
++}
++
++/* 入参 nodes/connections 可来自 restoreCanvasSnapshot 或 createCanvasSnapshot 的任一口径。
++   返回 { nodes, connections, added }: nodes 为 mention 剔除后的新节点数组,
++   connections 为端点归一 + from->to 去重 + mention 补边后的新边数组。*/
++export function migrateMentionsToEdges(nodes = [], connections = []) {
++  const inputNodes = Array.isArray(nodes) ? nodes : [];
++  const inputConnections = Array.isArray(connections) ? connections : [];
++  const knownIds = new Set(inputNodes.map(nodeRefId).filter(Boolean));
++
++  /* 1) 既有边: 端点归一 + 同 from->to 去重（保留首个, P1 collectGraphEdges 口径）。 */
++  const seen = new Set();
++  const merged = [];
++  for (const connection of inputConnections) {
++    const ends = edgeEnds(connection);
++    if (!ends) continue;
++    const key = edgeKey(ends.fromId, ends.toId);
++    if (seen.has(key)) continue;
++    seen.add(key);
++    merged.push({ ...connection, fromNodeId: ends.fromId, toNodeId: ends.toId, relation: connection.relation || 'reference' });
++  }
++
++  /* 2) mention 补边（幂等核心: 已存在的 from->to 不重复补）。 */
++  let added = 0;
++  const outNodes = inputNodes.map(node => {
++    const mentions = Array.isArray(node?.mentionSourceNodeIds) ? node.mentionSourceNodeIds : null;
++    if (!mentions) return node; // 无 mention 字段: 原样（不改入参）
++    const targetId = nodeRefId(node);
++    if (!targetId) return node;
++    const kept = [];
++    for (const raw of mentions) {
++      const sourceId = typeof raw === 'string' ? raw.trim() : '';
++      if (!sourceId || sourceId === targetId) continue;        // 空 / 自引用: 丢弃
++      if (!knownIds.has(sourceId)) { if (!kept.includes(sourceId)) kept.push(sourceId); continue; } // 未知目标: 延后（去重）, 不造死边
++      const key = edgeKey(sourceId, targetId);
++      if (!seen.has(key)) {
++        seen.add(key);
++        merged.push({ fromNodeId: sourceId, toNodeId: targetId, relation: 'reference' });
++        added += 1;
++      }
++      // 已补边 / 已有边: 该 mention 已被图表达 -> 剔除（图 = 唯一真源）
++    }
++    if (kept.length) return { ...node, mentionSourceNodeIds: kept };
++    const { mentionSourceNodeIds: _dropped, ...rest } = node;
++    return rest;
++  });
++
++  return { nodes: outNodes, connections: merged, added };
++}
+
+diff --git a/test/workflow-template-instantiate.test.mjs b/test/workflow-template-instantiate.test.mjs
+index 49aca39e..0e8cf2b3 100644
+--- a/test/workflow-template-instantiate.test.mjs
++++ b/test/workflow-template-instantiate.test.mjs
+@@ -1,19 +1,21 @@
+-/* P2 Stage 1 前端契约测试: 工作流模板"一键铺开" 的纯逻辑半边（不联网、不部署）。
+-   覆盖:
++/* P2 前端契约测试: 工作流模板"一键铺开" 的纯逻辑半边（不联网、不部署）。
++   覆盖（任务清单）:
+    1. T2（model-try-on）入边顺序 = @图片N 编号（collectRunInputs 只读图边）;
+    2. 无入边节点: collectRunInputs 空结构 + legacyComposerSourceIds 回退 = 旧并集逐字节一致（回归护栏）;
+-   3. T4/T5（requiresAudioVideo）P3 门控标记（不 mock、不提供扣费运行）。
+-   图数据直接用 server/templates/builtinTemplates.mjs 的真实内置模板（纯数据模块, 无服务端依赖）。
+-   Stage 2（连线@引用合一: mention->edge 迁移 + @菜单双向同步）见 p2-stage2.diff 的测试追加段。*/
++   3. T4/T5（requiresAudioVideo）P3 门控标记（不 mock、不提供扣费运行）;
++   4. mention -> edge 迁移: 幂等 + 同 from->to 去重 + 未知 id 延后 + 不改入参（不变式② 老文档只读可用）。
++   图数据直接用 server/templates/builtinTemplates.mjs 的真实内置模板（纯数据模块, 无服务端依赖）。*/
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+ import { BUILTIN_WORKFLOW_TEMPLATES } from '../server/templates/builtinTemplates.mjs';
+ import {
+   collectRunInputs,
+   legacyComposerSourceIds,
++  mergeGraphMentionSources,
+   workflowSlotIds,
+   markP3PendingNodes,
+ } from '../src/pages/EcCanvas/workflowTemplates.js';
++import { migrateMentionsToEdges } from '../src/pages/EcCanvas/mentionEdgeMigration.js';
+ 
+ const bySlug = slug => BUILTIN_WORKFLOW_TEMPLATES.find(t => t.slug === slug);
+ 
+@@ -96,6 +98,58 @@ test('T4/T5 requiresAudioVideo: P3 门控标记（不 mock、不提供扣费运
+   assert.equal(marked2.some(node => node.p3Pending), false, 'T2 无 P3 灰态节点');
+ });
+ 
++test('mention -> edge 迁移: 幂等 + 同 from->to 去重 + 未知 id 延后 + 不改入参', () => {
++  const nodes = [
++    { id: 'u1', kind: 'image', url: 'https://example.com/u1.png' },
++    { id: 'A', kind: 'image-composer', mentionSourceNodeIds: ['u1', 'ghost', '', 'A', 'u1'] },
++    { id: 'B', kind: 'image-composer', mentionSourceNodeIds: ['u1'] },
++  ];
++  const connections = [
++    { id: 'e1', fromNodeId: 'u1', toNodeId: 'A', relation: 'derived' },
++    { id: 'e2', from: 'u1', to: 'A', type: 'reference' }, /* 同 from->to 第二条: 去重只留首个 */
++  ];
++
++  const first = migrateMentionsToEdges(nodes, connections);
++  const endsOf = list => list.map(edge => edge.fromNodeId + '>' + edge.toNodeId);
++  assert.deepEqual(endsOf(first.connections), ['u1>A', 'u1>B'], '既有边去重 + mention 只补一次');
++  assert.equal(first.added, 1, '只有 u1->B 是新增边');
++  assert.equal(first.connections.find(edge => edge.fromNodeId === 'u1' && edge.toNodeId === 'B').relation, 'reference');
++  assert.deepEqual(first.nodes.find(node => node.id === 'A').mentionSourceNodeIds, ['ghost'], '已补边/已有边的 mention 剔除, 未知 id 延后保留');
++  assert.equal('mentionSourceNodeIds' in first.nodes.find(node => node.id === 'B'), false, '全部剔除后字段移除');
++
++  /* 入参未被破坏（不变式②: 老文档读路径随时可用）。*/
++  assert.deepEqual(nodes[1].mentionSourceNodeIds, ['u1', 'ghost', '', 'A', 'u1']);
++  assert.equal(connections.length, 2);
++  assert.equal(connections[0].relation, 'derived');
++
++  /* 二次加载: 幂等 —— 连接逐字节不变, 不新增边, 延后的未知 id 仍在。*/
++  const second = migrateMentionsToEdges(first.nodes, first.connections);
++  assert.equal(second.added, 0);
++  assert.equal(JSON.stringify(second.connections), JSON.stringify(first.connections));
++  assert.deepEqual(second.nodes.find(node => node.id === 'A').mentionSourceNodeIds, ['ghost']);
++
++  /* 未知 id "日后回来" -> 再补一次边（延后语义兑现）。*/
++  const third = migrateMentionsToEdges(
++    [...first.nodes, { id: 'ghost', kind: 'image', url: 'https://example.com/ghost.png' }],
++    first.connections,
++  );
++  assert.equal(third.added, 1);
++  assert.ok(endsOf(third.connections).includes('ghost>A'));
++});
++
++test('@菜单双向同步: 拉一条线 -> 该上游进 @ 菜单（入边补位 + 与自身 mention 去重）', () => {
++  const edges = [
++    { fromNodeId: 'm1', toNodeId: 'C', relation: 'derived' },
++    { fromNodeId: 'm2', toNodeId: 'C', relation: 'reference' },
++    { fromNodeId: 'm3', toNodeId: 'other', relation: 'reference' },
++    { fromNodeId: 'C', toNodeId: 'm2', relation: 'reference' }, /* 出边不算 */
++    { fromNodeId: 'C', toNodeId: 'C', relation: 'reference' }, /* 自环不算 */
++  ];
++  assert.deepEqual(mergeGraphMentionSources({ id: 'C', mentionSourceNodeIds: ['m1'] }, edges), ['m1', 'm2'], '自身 mention 在前, 入边补位, 同 from->to 去重');
++  assert.deepEqual(mergeGraphMentionSources({ id: 'C' }, edges), ['m1', 'm2'], '无 mention 字段也照样列出入边上游');
++  assert.deepEqual(mergeGraphMentionSources({ id: 'C' }, []), [], '无 mention 无边 = 空（P0 无图契约）');
++});
++
+ test('模板图 -> 实例化 snapshot 形状（instantiate API 契约: 可直接喂 createCanvasSnapshot）', () => {
+   for (const template of BUILTIN_WORKFLOW_TEMPLATES) {
+     const graph = template.graph;
+
