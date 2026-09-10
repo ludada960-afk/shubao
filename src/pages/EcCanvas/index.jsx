@@ -73,6 +73,19 @@ import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuite
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
+import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
+/* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
+const GRAPH_RUN_KINDS = {
+  'image-composer': 'generate',
+  'smart-remix': 'generate',
+  'suite-composer': 'generate',
+  'remove-bg': 'process',
+  extend: 'process',
+  inpaint: 'process',
+  translate: 'process',
+  upscale: 'process',
+  'layer-workbench': 'process',
+};
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
@@ -127,6 +140,7 @@ import {
   createCanvasGroup,
   dissolveCanvasGroup,
   autoArrangeCanvasNodes,
+  estimateNodeCost,
 } from './canvasQuantvExtensions.js';
 import {
   copyNodesToClipboard,
@@ -551,6 +565,8 @@ export default function EcCanvas() {
   const pendingProjectAssetImportsBusyRef = useRef(false);
   const [selected, setSelected] = useState(null);
   const [multiSelected, setMultiSelected] = useState(new Set());
+  /* P0.5 分组"运行整链"的二次确认弹窗数据（预估为 0 时不弹，直接跑） */
+  const [graphRunConfirm, setGraphRunConfirm] = useState(null);
   const [connections, setConnections] = useState([]);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
@@ -712,6 +728,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const draftReadyRef = useRef(false);
   const segmentationAbortRef = useRef(new Map());
   const workflowProcessRef = useRef(null);
+  const workflowGenerateRef = useRef(null);
+  const graphRunAbortRef = useRef(null);
   const sourceUploadRef = useRef(null);
   const videoUploadRef = useRef(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 ref + 撤销/重做 history */
@@ -2439,6 +2457,8 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [connections, nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
 
+  useEffect(() => { workflowGenerateRef.current = handleWorkflowGenerate; }, [handleWorkflowGenerate]);
+
   const handleWorkflowRetry = useCallback((node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
     const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
@@ -2554,6 +2574,45 @@ const handlePointerUp = useCallback((e) => {
   useEffect(() => {
     workflowProcessRef.current = handleWorkflowProcess;
   }, [handleWorkflowProcess]);
+
+  /* ── P0.5 分组"运行整链"（B站教程核心动作：选中→设为分组→运行）──
+     只在用户显式点击且（预估>0 时）二次确认后执行；失败只阻塞下游，不扣无关分支的钱。 */
+  function startGraphChainRun(plan, runnable) {
+    const downstream = buildTransitiveDownstream(nodes, connections);
+    const controller = new AbortController();
+    graphRunAbortRef.current = controller;
+    const supported = new Set(Object.keys(GRAPH_RUN_KINDS));
+    createGraphRunner({
+      plan,
+      downstream,
+      supportedKinds: supported,
+      runNode: async (nodeId) => {
+        const node = nodesRef.current.find((n) => String(n.id) === String(nodeId));
+        if (!node) return;
+        const action = GRAPH_RUN_KINDS[node.actionId || node.kind];
+        const fn = action === 'process' ? workflowProcessRef.current : workflowGenerateRef.current;
+        if (typeof fn === 'function') { await fn(node); }
+      },
+      awaitTerminal: createTerminalAwaiter(() => nodesRef.current, { pollMs: 300, timeoutMs: 120000 }),
+      onStatus: (id, status) => { updateWorkflowNode(id, { status }); },
+      signal: controller.signal,
+    }).then((res) => {
+      if (res.aborted) { showToast('已停止运行整链', 'info'); return; }
+      showToast('整链运行完成：成功 ' + res.succeeded.length + ' · 失败 ' + res.failed.length + ' · 跳过 ' + res.skipped.length, res.failed.length ? 'info' : 'success');
+    });
+  }
+
+  function runGraphChain(explicitTargets) {
+    const targets = (explicitTargets && explicitTargets.length) ? explicitTargets : ([...multiSelected, selected].filter(Boolean));
+    if (!targets.length) { showToast('先选中要运行的节点（可框选多个）', 'info'); return; }
+    const supported = new Set(Object.keys(GRAPH_RUN_KINDS));
+    const plan = buildRunPlan({ nodes, connections, targetNodeIds: targets, supportedKinds: supported, costOf: (n) => estimateNodeCost(n) });
+    if (!plan.ok) { showToast('存在循环连线，无法运行整链', 'info'); return; }
+    const runnable = plan.executableNodeIds;
+    if (!runnable.length) { showToast('选中的节点暂无可自动运行的（图片/处理类可跑；文本/视频节点 P1 再接入）', 'info'); return; }
+    if (plan.estimatedUnits <= 0) { startGraphChainRun(plan, runnable); return; }
+    setGraphRunConfirm({ plan, runnable });
+  }
 
   const updateWorkflowLayers = useCallback((nodeId, updater) => {
     setNodes(prev => prev.map(node => {
@@ -5350,6 +5409,15 @@ const handlePointerUp = useCallback((e) => {
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
             trailing={<>
+              {multiSelected.size >= 1 && (
+                <button
+                  type="button"
+                  className="ec-canvas-icon-button"
+                  aria-label="运行整链"
+                  title="运行整链（按拓扑顺序执行选中的节点）"
+                  onClick={() => runGraphChain()}
+                >▶ 运行</button>
+              )}
               <button
                 type="button"
                 className={`ec-canvas-icon-button ${minimapOpen ? 'is-active' : ''}`}
@@ -5368,6 +5436,18 @@ const handlePointerUp = useCallback((e) => {
               ><ImageIcon size={15} /></button>
             </>}
           />
+          {graphRunConfirm && (
+            <div
+              className="ec-canvas-graphrun-confirm"
+              style={{ position: 'fixed', left: '50%', bottom: 96, transform: 'translateX(-50%)', zIndex: 2000, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,.16)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}
+              role="dialog"
+              aria-label="运行整链确认"
+            >
+              <span>将依次运行 {graphRunConfirm.plan.nodeCount} 个节点 · 预计消耗 {graphRunConfirm.plan.estimatedUnits} 积分</span>
+              <button type="button" onClick={() => { const p = graphRunConfirm; setGraphRunConfirm(null); startGraphChainRun(p.plan, p.runnable); }}>运行</button>
+              <button type="button" onClick={() => setGraphRunConfirm(null)}>取消</button>
+            </div>
+          )}
           {/* 素材水印面板: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 (停靠在底栏之上, 不遮挡按钮区) */}
           <WatermarkPanel
             open={watermarkPanelOpen && tab === 'canvas'}
