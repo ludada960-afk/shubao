@@ -18,9 +18,11 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     eyebrow: 'Video generation',
     description: '把图片、视频和声音素材整理成可确认的创作过程。',
     icon: 'clapperboard',
-    primaryAction: { type: 'NAVIGATE', page: 'video-studio' },
+    /* 用户 9-10 反馈: 点"视频生成"跳去打不开的独立视频创作页 → 与其余三个域统一为 SET_MODE,
+       落在首页的视频模块(画布生态的发射器), 不再有第二套入口页面。 */
+    primaryAction: { type: 'SET_MODE', mode: 'video' },
     items: Object.freeze([
-      Object.freeze({ id: 'video-studio', label: '视频生成', description: '从素材、分镜到候选版本，进入视频工作台', hint: '开始生成', icon: 'film-strip', motion: 'film', action: { type: 'NAVIGATE', page: 'video-studio' } }),
+      Object.freeze({ id: 'video-studio', label: '视频生成', description: '从素材、分镜到候选版本，进入视频工作台', hint: '开始生成', icon: 'film-strip', motion: 'film', action: { type: 'SET_MODE', mode: 'video' } }),
     ]),
   }),
   Object.freeze({

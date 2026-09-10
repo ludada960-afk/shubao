@@ -1230,3 +1230,43 @@
   .ec-canvas-media-node.is-slot .ec-canvas-media-frame { outline-offset: 2px; }
 }
 
+/* ═══ 用户 9-10 反馈: 底部"运行"按钮曾塞进 icon-button → 文字被挤压/错位, 改为独立标签按钮 ═══ */
+.ec-canvas-run-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--canvas-command, #7c3aed);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ec-canvas-run-button:hover { filter: brightness(1.06); }
+.ec-canvas-run-button:active { transform: translateY(1px); }
+.ec-canvas-run-button svg { flex: none; }
+
+/* ═══ 工作流模板进入画布后的提示条 (市场化文案, 用户 9-10) ═══ */
+.ec-canvas-workflow-offer {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(680px, calc(100vw - 48px));
+  padding: 8px 10px 8px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .10);
+  font-size: 13px;
+  color: #0f172a;
+}
+.ec-canvas-workflow-offer__title { font-weight: 500; }
+.ec-canvas-workflow-offer__title strong { font-weight: 700; margin-right: 6px; }
+.ec-canvas-workflow-offer__cost { color: #b45309; font-weight: 600; font-size: 12px; }
+.ec-canvas-workflow-offer__note { color: #64748b; font-weight: 600; font-size: 12px; }
+

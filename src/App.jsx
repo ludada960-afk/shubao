@@ -63,10 +63,12 @@ function SideNav() {
       icon: SquarePlay,
       motion: 'video',
       label: '视频创作',
-      active: page === 'video-studio',
+      /* 用户 9-10 反馈: 点"视频创作"进不去 → 与顶部"视频生成"统一落到首页视频模块(不再跳独立页)。 */
+      active: page === 'home' && state.mode === 'video',
       onClick: () => {
-        if (!state.logged) return requestLogin('video-studio');
-        dispatch({ type: 'NAVIGATE', page: 'video-studio' });
+        if (!state.logged) return requestLogin({ page: 'home' });
+        if (page !== 'home') dispatch({ type: 'NAVIGATE', page: 'home' });
+        dispatch({ type: 'SET_MODE', mode: 'video' });
       },
     },
     {

@@ -6,14 +6,14 @@ import { creationNavigationContract } from '../src/pages/Home/creationShowcaseMo
 test('left navigation keeps video, canvas, and works on distinct destinations', () => {
   const contract = creationNavigationContract();
   assert.equal(contract.primary, 'home');
-  assert.equal(contract.video, 'video-studio');
+  assert.deepEqual(contract.video, { page: 'home', mode: 'video' });
   assert.equal(contract.canvas, 'ec-canvas');
   assert.deepEqual(contract.works, { page: 'ec-canvas', tab: 'works' });
 });
 
 test('source routing keeps video on the second nav and canvas on the third nav', async () => {
   const source = await fs.readFile(new URL('../src/components/layout/creativeDomainNavigation.js', import.meta.url), 'utf8');
-  assert.match(source, /id: 'video-studio'[\s\S]*?page: 'video-studio'/);
+  assert.match(source, /id: 'video-studio'[\s\S]*?SET_MODE', mode: 'video'/);
   assert.match(source, /id: 'canvas'[\s\S]*?OPEN_CANVAS/);
 });
 

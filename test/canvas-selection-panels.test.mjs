@@ -35,6 +35,15 @@ test('contract: delete stays out of the selection surface (lone-trash regression
   assert.equal(actionsForSurface({ surface: 'selection', node: ready }).some(action => action.id === 'delete'), false);
 });
 
+test('contract (9-10): panels can never outlive their node — hidden guard + stale-selection reaper', () => {
+  const page = pageSource();
+  // 节点被隐藏 -> 面板同步关闭 (原来只看 selectedNode 是否存在, hidden 节点会让面板残留)
+  assert.match(page, /&& !selectedNode\.hidden/, 'hidden nodes must close the selection panels');
+  // 选中 id 一旦脱离 nodes (删除/整张画布被替换/恢复会话/模板铺开/换作品) 立即回收
+  assert.match(page, /if \(selected && !nodes\.some\(node => node\.id === selected\)\) setSelected\(null\)/, 'stale selection must be reaped');
+  assert.match(page, /const next = new Set\(\[\.\.\.previous\]\.filter\(id => nodes\.some\(node => node\.id === id\)\)\)/, 'multi-selection must be pruned to existing nodes');
+});
+
 test('derive menu rows use the balanced card anatomy with badge + arrow', () => {
   const source = studioSource();
   assert.match(source, /ec-canvas-derive-chip/);

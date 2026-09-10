@@ -31,7 +31,7 @@ test('free visual navigation names the supported visual skills', () => {
 });
 
 test('navigation targets reuse existing app actions', () => {
-  assert.deepEqual(getNavigationTarget('video', 'video-studio'), { type: 'NAVIGATE', page: 'video-studio' });
+  assert.deepEqual(getNavigationTarget('video', 'video-studio'), { type: 'SET_MODE', mode: 'video' });
   assert.deepEqual(getNavigationTarget('content', 'content-xhs'), { type: 'SET_MODE', mode: 'content' });
 });
 

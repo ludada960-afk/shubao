@@ -10,7 +10,8 @@ const DEFAULT_KINDS = {
 export function creationNavigationContract() {
   return {
     primary: 'home',
-    video: 'video-studio',
+    /* 用户 9-10: 视频入口与其余三个域一致, 落首页视频模块 (不再有独立 video-studio 页面入口) */
+    video: { page: 'home', mode: 'video' },
     canvas: 'ec-canvas',
     works: { page: 'ec-canvas', tab: 'works' },
   };

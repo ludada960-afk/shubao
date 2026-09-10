@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2, Type, Video, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2, Type, Video, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -794,6 +794,18 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   /* 9-08 事故修复: 水印改动误删了 selectedNode 定义, 但下方 20+ 处仍在引用它 → 渲染期 ReferenceError 整页白屏 ("画布打不开") */
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+
+  /* 选中回收器 (用户 9-10 反馈: 节点删掉后功能栏还在): 任何让选中 id 脱离 nodes 的路径
+     (删除/隐藏/整张画布被替换/恢复会话/模板铺开/换作品) 都在这里立即回收选中态,
+     使工具栏与右面板永远不可能比节点活得久。返回同引用即无变化, 不触发额外渲染。 */
+  useEffect(() => {
+    if (selected && !nodes.some(node => node.id === selected)) setSelected(null);
+    setMultiSelected(previous => {
+      if (!previous.size) return previous;
+      const next = new Set([...previous].filter(id => nodes.some(node => node.id === id)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [nodes, selected]);
   const selectedImageWatermark = selectedNode?.imageWatermark || imageWatermark;
   const selectedVideoWatermark = selectedNode?.videoWatermark || videoWatermark;
   /* 面板实时预览优先：拖动水印时素材上的水印同步位移（未确定前不写回节点） */
@@ -5330,6 +5342,9 @@ const handlePointerUp = useCallback((e) => {
      点 + 再看派生菜单时工具栏也不能消失 → 去掉 !connectionPicker 条件 */
   const selectionPanelsVisible = !focusedEditor && multiSelected.size <= 1
     && Boolean(selectedNode)
+    /* 用户 9-10 反馈: 节点消失后右侧功能栏还在 → 面板绝不能比节点活得久。
+       selectedNode 由 nodes 派生(删掉即 falsy) + 这里再排除 hidden, 双保险。 */
+    && !selectedNode.hidden
     && selectedNode.kind !== 'text'
     && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind);
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
@@ -5487,11 +5502,11 @@ const handlePointerUp = useCallback((e) => {
               {multiSelected.size >= 1 && (
                 <button
                   type="button"
-                  className="ec-canvas-icon-button"
+                  className="ec-canvas-run-button"
                   aria-label="运行整链"
                   title="运行整链（按拓扑顺序执行选中的节点）"
                   onClick={() => runGraphChain()}
-                >▶ 运行</button>
+                ><Play size={13} aria-hidden="true" /><span>运行</span></button>
               )}
               <button
                 type="button"
@@ -5532,10 +5547,10 @@ const handlePointerUp = useCallback((e) => {
               aria-label="工作流模板铺开结果"
               style={{ position: 'fixed', left: '50%', top: 64, transform: 'translateX(-50%)', zIndex: 1900, background: '#fff', border: '1px solid ' + (workflowRunOffer.requiresAudioVideo ? 'rgba(100,116,139,.4)' : 'rgba(124,58,237,.4)'), borderRadius: 12, boxShadow: '0 8px 24px rgba(15,23,42,.16)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, maxWidth: 'min(720px, 92vw)' }}
             >
-              <span><strong>{workflowRunOffer.name}</strong>已铺开 · 把商品图拖进琥珀描边的 [槽] 节点即可运行</span>
+              <span className="ec-canvas-workflow-offer__title"><strong>{workflowRunOffer.name}</strong>已进入画布</span>
               {workflowRunOffer.requiresAudioVideo
-                ? <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>视频/音频能力即将上线（待 P3）· 暂不发起扣费运行</span>
-                : <span style={{ fontSize: 12, color: '#b45309', fontWeight: 600 }}>预计 {workflowRunOffer.estimatedUnits} 积分</span>}
+                ? <span className="ec-canvas-workflow-offer__note">该模板含视频节点，视频能力接入中</span>
+                : <span className="ec-canvas-workflow-offer__cost">预计 {workflowRunOffer.estimatedUnits} 积分</span>}
               {!workflowRunOffer.requiresAudioVideo && (
                 <button
                   type="button"
