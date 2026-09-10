@@ -55,7 +55,7 @@ import { createPaywallService } from './billing/paywall.mjs';
 import { mountPaywallRoutes } from './billing/paywallRoutes.mjs';
 import { visionRouter } from './routes/visionRouter.mjs';
 // 4c183cd4 续命 P1 TTS 口播 (provider-neutral 桥, 跟 modlens vision 桥同模式)
-import { mountTTSRoutes } from './services/ttsBridge.mjs';
+import { mountTTSRoutes, mountCanvasTtsRoute } from './services/ttsBridge.mjs';
 // 4c183cd4 续命 P-G 画布 1-click chain (4 步: 文案->首帧->视频->音轨+字幕, 集成 costBasis + TTS)
 import { mountChainRoutes } from './services/chainService.mjs';
 // 4c183cd4 续命 P-F 孪生体 2.0 矩阵 (Web / 小程序 / API) — 薯包独门 1/3
@@ -808,9 +808,20 @@ mountTTSRoutes(app, {
   },
 });
 
+// P3 悬空路由清理: 画布应用节点 TTS 路由 (注册表 application-tts -> /api/canvas/tts)
+// 诚实门控: 复用 ttsBridge mock 音频 + mock/gated 标记, 不开付费 TTS 扣费入口 (真 provider P3.1 接入).
+mountCanvasTtsRoute(app, {
+  authorize: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
+});
+
 // 4c183cd4 续命 P-G 画布 1-click chain (4 步: 文案->首帧->视频->音轨+字幕)
 // 鉴权: 跟 TTS / visionRouter 同源 (authenticateContentRequest).
 // 账务: 本路由只算 cost (costBasis 4 步累计), 真实 hold/settle 由上层付费链路 (ec-cron / paid-task) 接入 walletService.
+// P3: mountChainRoutes 同时挂 /api/canvas/one-click-video (注册表 application-1click-video, 原悬空;
+// 复用 4 步 chainService 占位链 + 显式 mock 标记, 不写账; 真链 P3.1 接真上游).
 mountChainRoutes(app, {
   authenticate: req => authenticateContentRequest(req, {
     sessionTokens: contentSessionTokens,
@@ -4338,11 +4349,28 @@ async function removeLightBackground(imageBuffer) {
 // ============================================================
 // P1 画布整链运行宿主（canvas graph run orchestrator）
 // 免费白底旗舰链：商品图 source -> remove-bg(本地免费) -> upscale(本地 sharp)。
+// P3 拼接链：多图 source -> splice(本地 sharp 竖排详情长图, 免费 0 扣费)；视频拼接需
+// ffmpeg 环境 -> 执行器固定返回 P3.1 门控错误 (不烧上游、不提供扣费入口)。
 // 生成类 kind（image-composer/smart-remix/suite-composer）P1.1 接 canvasGenerationService；
 // 未接线 kind 一律 {ok:false,'executor not wired'} —— 默认零付费、不发起上游。
 // ============================================================
 const canvasGraphRunStore = createCanvasGraphRunStore(db);
 const canvasGraphRunExecutor = createCanvasGraphRunExecutor({
+  /* P3 splice 接线: 读图走既有 imageInputReader (asset URL / 远程 / data URI), 产物走
+     generatedAssetStore (与 remove-bg/upscale 同一持久化口径)。本地 sharp 免费, 0 units。 */
+  readImage: async (url) => {
+    const { buffer } = await imageInputReader.read(url);
+    return { buffer };
+  },
+  persistSpliceOutput: async ({ buffer, contentType = 'image/png', taskId, label = 'canvas_graph_splice' }) => {
+    const asset = await generatedAssetStore.persistBuffer({
+      buffer,
+      contentType,
+      taskId: taskId || `canvas_graph_splice_${Date.now()}`,
+      label,
+    });
+    return { url: asset.url };
+  },
   removeBackground: async ({ imageUrl }) => {
     const { buffer } = await imageInputReader.read(imageUrl);
     const outBuf = await removeLightBackground(buffer);

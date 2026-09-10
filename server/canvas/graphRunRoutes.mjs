@@ -7,8 +7,9 @@
 //   POST /api/canvas/graph/runs/:id/cancel 取消（worker 活跃时步间生效；无主时直接落 cancelled）
 //
 // kind 守卫：只接受 P0 GRAPH_RUN_KINDS 白名单（image-composer/smart-remix/suite-composer/
-// remove-bg/extend/inpaint/translate/upscale/layer-workbench）；text/video/audio 等未支持
-// kind（无现成产物可作 source）-> 400 'kind not supported yet'（服务层是最终权威，路由层提前拦）。
+// remove-bg/extend/inpaint/translate/upscale/layer-workbench + P3 接线的 splice）；
+// text/video/audio/video-composer/tts/lip-sync 等未支持 kind（无现成产物可作 source）
+// -> 400 'kind not supported yet'（服务层是最终权威，路由层提前拦；P3 音视频真生成 = P3.1 门控）。
 //
 // ════════════════════════════════════════════════════════════════════════════════
 // WIRE-IN: server/index.mjs —— P0/P0.5 部署通过后的精确挂载行（本里程碑不改动 index.mjs）：
@@ -45,6 +46,9 @@
 //         });
 //         return { ok: true, outputUrl: asset.url };
 //       },
+//       // P3 splice（图片竖排详情长图, 本地 sharp 免费 0 扣费）: 生产执行器已接线 readImage
+//       // (imageInputReader.read) + persistSpliceOutput (generatedAssetStore.persistBuffer),
+//       // index.mjs canvasGraphRunExecutor 实例; 视频拼接固定返回 P3.1 ffmpeg 门控错误。
 //       // 生成类 kind（image-composer/smart-remix/suite-composer）与 extend/inpaint/translate/layer-workbench：
 //       // P1.1 接 canvasGenerationService / 本地 ffmpeg 与计费目录报价（quoteFeature 取 units）；
 //       // 未接线前编排器对它们返回 { ok:false, error:'executor not wired for kind X' }（零成本）。

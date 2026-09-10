@@ -165,16 +165,19 @@ test('graph_json validity: P1 buildRunPlan REAL split (empty slots) + fill-to-ru
   assert.ok(!t1Filled.unsupportedNodeIds.includes('reverse-prompt'));
   assert.deepEqual(t1Filled.executableNodeIds, ['main-image']);
 
-  /* T3：同样 fill-to-run；splice（本地免费）不在 P1 白名单 -> 填了也仍 unsupported（P1.1/P3 才接线，诚实）。 */
+  /* T3：同样 fill-to-run；P3 把 splice（本地 sharp 免费, 0 扣费）接进白名单 -> detail-splice 在 plan 层转 executable
+     （执行层仍要上游 scene 真出图才竖排拼接；视频拼接需 ffmpeg 环境, P3.1 门控）。 */
   const t3 = buildRunPlan({ nodes: bySlug['scene-detail'].graph.nodes, connections: bySlug['scene-detail'].graph.connections });
   assert.equal(t3.ok, true);
-  assert.deepEqual(t3.executableNodeIds, ['scene']);
+  assert.deepEqual(t3.executableNodeIds, ['scene', 'detail-splice']);
   assert.ok(t3.unsupportedNodeIds.includes('reverse-prompt'));
-  assert.ok(t3.unsupportedNodeIds.includes('detail-splice'));
+  assert.ok(t3.unsupportedNodeIds.includes('slot-product')); // 空槽位 = 无产物
+  assert.ok(!t3.unsupportedNodeIds.includes('detail-splice')); // P3: splice 已接线白名单（此前 unsupported）
   const t3Filled = buildRunPlan({ nodes: withFilledSlots(bySlug['scene-detail'].graph.nodes), connections: bySlug['scene-detail'].graph.connections });
   assert.ok(t3Filled.sourceNodeIds.includes('reverse-prompt'));
-  assert.deepEqual(t3Filled.executableNodeIds, ['scene']);
-  assert.ok(t3Filled.unsupportedNodeIds.includes('detail-splice')); // splice 仍 unsupported（不 mock）
+  assert.ok(t3Filled.sourceNodeIds.includes('slot-product'));
+  assert.deepEqual(t3Filled.executableNodeIds, ['scene', 'detail-splice']);
+  assert.equal(t3Filled.unsupportedNodeIds.length, 0); // 填齐后全链可跑（splice 免费, 无 P3 门控节点）
 
   /* T4：P3 门控 —— video-composer / storyboard / video kind 全在 unsupported（P1 白名单外，诚实不跑）。 */
   const t4 = buildRunPlan({ nodes: bySlug['outfit-video'].graph.nodes, connections: bySlug['outfit-video'].graph.connections });

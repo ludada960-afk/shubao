@@ -3,7 +3,7 @@
 //
 // 诚实分期（spec §0）：
 //   - T2 纯图链（双槽填齐即端到端可跑）；T1/T3 含 text 节点（P1 不执行 text：填空 = 无产物 -> unsupported，
-//     填入文本后变 source 喂下游 image-composer 段，本期“填空即跑”）；T3 的 splice 属 P1.1/P3 本地免费动作；
+//     填入文本后变 source 喂下游 image-composer 段，本期“填空即跑”）；T3 的 splice 属 P3 已接线的本地免费动作
 //   - T4/T5 含 P3 音视频 kind（video-composer / tts / lip-sync / video / audio）：P1 buildRunPlan 会把它们
 //     判为 unsupported —— 本期只做“目录 + 图结构 + 一键铺开”，前端渲染“待 P3”灰态，**不 mock 假跑、不发起扣费**。
 //
@@ -114,9 +114,10 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     isBuiltIn: true,
     isPublic: true,
     requiresAudioVideo: false,
-    /* 填空 text 后可跑场景段；splice（本地免费）未进 P1 白名单（P1.1/P3），详情段暂不可扣费运行。 */
+    /* P3 已接线: splice（本地 sharp 免费）进 P1 白名单 -> 填空 text 后场景段 + 详情拼接全链可跑（0 扣费拼接）；
+       runnableThisPhase 保持 false = 模板级 UI 门控口径不动 (requiresAudioVideo 门控不变), 仅描述性 gateNote 更新。 */
     runnableThisPhase: false,
-    gateNote: '需先填“反推提示词”文本再跑场景段；详情拼接（splice）为本地免费动作，P1.1/P3 接线前不支持扣费运行',
+    gateNote: '需先填“反推提示词”文本再跑场景段；详情拼接（splice）P3 已接线：本地 sharp 竖排长图免费（0 扣费），视频拼接需 ffmpeg 环境（P3.1 门控）',
     pricing: { estimatedUnits: 4.2, note: '预估 1.2 + N 积分（N = 场景图张数，默认 3 → 4.2；详情拼接本地免费）' },
     graph: Object.freeze({
       nodes: Object.freeze([

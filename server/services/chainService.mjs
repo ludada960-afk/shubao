@@ -85,7 +85,18 @@ export function deriveScript({ prompt = '', referenceImage = null, sceneCount = 
       description: cleanString(`${cleanPrompt} / ${refTag} / 分镜 ${i + 1} (${theme})`, 280),
     });
   }
-  return { scenes, script: result, totalDurationSec: result.reduce((a, b) => a + b.durationSec, 0) };
+  /* P3 假能力诚实清理 (master-plan §2.3): 本步是 prompt-hash 确定性派生占位, 不是真 LLM 文案。
+     显式 mock 标记让上层/前端识别"这是占位不是真产出" (不静默假装走过);
+     真实文案由 LLM 驱动 (text 节点 video_plan_analysis), P3.1 接入后自动切换。 */
+  return {
+    scenes,
+    script: result,
+    totalDurationSec: result.reduce((a, b) => a + b.durationSec, 0),
+    mock: true,
+    isMock: true,
+    provider: 'mock-placeholder',
+    note: '文案为 prompt-hash 确定性占位 (非 LLM 真产出); 真实分镜脚本由 LLM 驱动, 接入中',
+  };
 }
 
 // ── Step 2: 首帧 (keyframe) ──
@@ -98,7 +109,7 @@ export function deriveKeyframes({ script, referenceImage = null } = {}) {
   if (!scenesArr || scenesArr.length === 0) {
     throw codedError('CHAIN_SCRIPT_REQUIRED', 'Step1 文案未产出, 请先执行 script 步骤', 500);
   }
-  return scenesArr.map((scene, i) => {
+  const keyframes = scenesArr.map((scene, i) => {
     const seed = hashString(`${scene.description}:${referenceImage || 'no-ref'}:${i}`);
     return {
       sceneIndex: scene.index,
@@ -107,8 +118,18 @@ export function deriveKeyframes({ script, referenceImage = null } = {}) {
       keyframeRef: referenceImage || null,
       width: 1280,
       height: 720,
+      mock: true,
+      isMock: true,
+      provider: 'mock-placeholder',
     };
   });
+  /* P3 假能力诚实清理: /mock/ 占位 URL 不是真生图产物; 标记挂数组上 (items 保持可迭代,
+     deriveVideos / executeChain / JSON 序列化口径不变); 真实首帧由生图 provider 驱动, P3.1 接入。 */
+  keyframes.mock = true;
+  keyframes.isMock = true;
+  keyframes.provider = 'mock-placeholder';
+  keyframes.note = '首帧为 /mock/ 确定性占位 URL (非真生图); 真实首帧由生图 provider 驱动, 接入中';
+  return keyframes;
 }
 
 // ── Step 3: 视频 (video) ──
@@ -338,7 +359,7 @@ export async function executeChain({
       itemUnits: 1,
       providerCostCnyOverride: 0.002, // mock 0.002 元/次
     });
-    stepResults.push({ step: 'script', ok: true, data: script, costSnapshot: scriptCost });
+    stepResults.push({ step: 'script', ok: true, data: script, costSnapshot: scriptCost, mock: true, provider: 'mock-placeholder' });
   } catch (e) {
     failedStep = 'script';
     stepResults.push({ step: 'script', ok: false, error: e?.message || String(e), code: e?.code || 'CHAIN_SCRIPT_FAILED' });
@@ -357,7 +378,7 @@ export async function executeChain({
       itemUnits: keyframes.length,
       providerCostCnyOverride: 0.04 * keyframes.length, // mock 0.04 元/张
     });
-    stepResults.push({ step: 'keyframe', ok: true, data: { keyframes }, costSnapshot: keyframeCost });
+    stepResults.push({ step: 'keyframe', ok: true, data: { keyframes }, costSnapshot: keyframeCost, mock: true, provider: 'mock-placeholder' });
   } catch (e) {
     failedStep = 'keyframe';
     stepResults.push({ step: 'keyframe', ok: false, error: e?.message || String(e), code: e?.code || 'CHAIN_KEYFRAME_FAILED' });
@@ -382,7 +403,15 @@ export async function executeChain({
       itemUnits: videoResult.videos.length,
       providerCostCnyOverride: 0.04 * videoResult.videos.length, // mock 0.04 元/段 (含 GPU + 平台分成)
     });
-    stepResults.push({ step: 'video', ok: true, data: videoResult, costSnapshot: videoCost });
+    /* P3 诚实标记: 无 providerRegistry = 视频任务也是占位 (mock processing), 不真调 Seedance。 */
+    stepResults.push({
+      step: 'video',
+      ok: true,
+      data: videoResult,
+      costSnapshot: videoCost,
+      mock: providerRegistry == null,
+      provider: providerRegistry ? (productId || 'seedance-fast') : 'mock-placeholder',
+    });
   } catch (e) {
     failedStep = 'video';
     stepResults.push({ step: 'video', ok: false, error: e?.message || String(e), code: e?.code || 'CHAIN_VIDEO_FAILED' });
@@ -401,7 +430,8 @@ export async function executeChain({
       subtitleStyle,
     });
     // audio step 用 ttsBridge 自带 costSnapshot (含 margin/health)
-    stepResults.push({ step: 'audio', ok: true, data: audioResult, costSnapshot: audioResult.tts.costSnapshot });
+    /* P3 诚实标记: 本期 ttsBridge 出 mock 音频 (真 provider 待接入/内测), 不扣费。 */
+    stepResults.push({ step: 'audio', ok: true, data: audioResult, costSnapshot: audioResult.tts.costSnapshot, mock: true, provider: 'mock-placeholder' });
   } catch (e) {
     failedStep = 'audio';
     stepResults.push({ step: 'audio', ok: false, error: e?.message || String(e), code: e?.code || 'CHAIN_AUDIO_FAILED' });
@@ -414,6 +444,10 @@ export async function executeChain({
 function buildChainResponse({ startedAt, stepResults, failedStep, subtitleStyle }) {
   const finishedAt = new Date().toISOString();
   const cost = aggregateCost(stepResults);
+  /* P3 假能力诚实清理 (master-plan §2.3): 顶层显式 mock 口径——
+     mockSteps = 本期仍是占位的步骤; isMock = 至少一步占位; 全部占位时 mock=true。
+     上层/前端据此渲染"占位不是真产出", 绝不静默假装走过。 */
+  const mockSteps = stepResults.filter(step => step.mock === true).map(step => step.step);
   return {
     ok: !failedStep,
     chainId: hashString(`${startedAt}:${stepResults.length}:${failedStep || 'all-ok'}`),
@@ -424,6 +458,11 @@ function buildChainResponse({ startedAt, stepResults, failedStep, subtitleStyle 
     failedStep,
     subtitleStyle,
     stepCount: stepResults.length,
+    isMock: mockSteps.length > 0,
+    mock: mockSteps.length === stepResults.length && stepResults.length > 0,
+    mockSteps,
+    provider: 'mock-placeholder',
+    note: '未接真上游的步骤为确定性占位 (isMock/mockSteps 标记); 真链 P3.1 接入后自动切换, 本服务不写账',
   };
 }
 
@@ -478,6 +517,36 @@ export function mountChainRoutes(app, { authenticate }) {
     } catch (e) {
       const message = e && e.message ? e.message : String(e);
       return res.status(e?.status || 500).json({ code: e?.code || 'CHAIN_EXECUTE_FAILED', error: message });
+    }
+  }));
+
+  /* P3 悬空路由清理 (master-plan §2.3): 动作注册表 application-1click-video 指向
+     /api/canvas/one-click-video (原先不存在 = 悬空)。此处复用 4 步 chainService 状态机
+     (与 /api/chain/execute 同源): 默认走本地占位链 (0 上游调用, 0 扣费), 返回体带显式
+     mock 标记 (isMock/mockSteps/provider=mock-placeholder) —— 诚实"占位不是真产出",
+     P3.1 接真 LLM/Seedance/生图上游后自动切换。 */
+  app.post('/api/canvas/one-click-video', auth(async (req, res, email) => {
+    const { text, referenceImage, audioSourceId, subtitleStyle, sceneCount } = req.body || {};
+    try {
+      const result = await executeChain({
+        text: text || '',
+        referenceImage: referenceImage || null,
+        audioSourceId: audioSourceId || null,
+        subtitleStyle: subtitleStyle || 'simple',
+        sceneCount: sceneCount ? Number(sceneCount) : undefined,
+      });
+      return res.json({
+        ok: result.ok,
+        chain: result,
+        actor: email,
+        isMock: result.isMock,
+        mockSteps: result.mockSteps,
+        provider: 'mock-placeholder',
+        note: '一键视频占位链: 文案/首帧为确定性占位, 视频/音轨为 mock 任务, 未调真上游且本路由不写账; 真链 P3.1 接入后自动切换',
+      });
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      return res.status(err?.status || 500).json({ code: err?.code || 'ONE_CLICK_VIDEO_FAILED', error: message });
     }
   }));
 

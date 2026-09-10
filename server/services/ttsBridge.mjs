@@ -311,11 +311,17 @@ export function mountTTSRoutes(app, { authenticateOwner, requireAccountAccess = 
         itemUnits: Number(itemUnits) || 0,
         withCostSnapshot: true,
       });
+      /* P3 诚实门控: 真 TTS provider (ec_tts_voice 火山/MiniMax, 报价已定) 待接入/内测,
+         本期返回可播 mock 音频并显式标记, 不开付费 TTS 扣费入口 (不变式: 不确认不扣费)。 */
       return res.json({
         ok: true,
         tts: result,
         actor: email,
-        note: 'mock audio; real provider integration swaps adapter in ttsBridge.mjs',
+        mock: true,
+        isMock: true,
+        provider: 'mock-placeholder',
+        gated: 'real-provider-pending',
+        note: 'mock audio (可播静音 WAV); 真 TTS provider (ec_tts_voice 火山/MiniMax) 待接入/内测 — 本期不开放付费 TTS 扣费, 接真后自动切换',
       });
     } catch (e) {
       res.status(400).json({
@@ -401,6 +407,53 @@ export function pickTTSProvider({ preferredProvider = null, strategy = null, cwd
   const p = ks[_ttsRRIndex % ks.length];
   _ttsRRIndex += 1;
   return p;
+}
+
+/* P3 悬空路由清理 (master-plan §2.3): 动作注册表 application-tts 指向 /api/canvas/tts
+   (原先不存在 = 悬空)。复用本桥 synthesizeTTS (与 /api/tts/synthesize 同源) 实现对应路由:
+   诚实门控 —— 返回 mock 音频 + 显式 mock/gated 标记, 不开付费 TTS 扣费入口 (不变式: 不确认不扣费);
+   真 provider (ec_tts_voice 火山/MiniMax, 报价已定) 接入后 adapter 自动切换, 标记随之翻真。 */
+export function mountCanvasTtsRoute(app, { authorize } = {}) {
+  if (!app) throw new Error('app required');
+  if (typeof authorize !== 'function') throw new Error('authorize is required');
+  app.post('/api/canvas/tts', async (req, res) => {
+    let email;
+    try {
+      email = await authorize(req);
+    } catch (authError) {
+      const message = authError && authError.message ? authError.message : String(authError);
+      if (authError && (authError.code === 'AUTH_SESSION_REQUIRED' || authError.code === 'AUTH_INVALID' || authError.status === 401)) {
+        return res.status(401).json({ code: 'CANVAS_TTS_UNAUTHORIZED', error: message });
+      }
+      return res.status(500).json({ code: 'CANVAS_TTS_AUTH_ERROR', error: message });
+    }
+    if (!email) return res.status(401).json({ code: 'CANVAS_TTS_UNAUTHORIZED', error: '未登录' });
+    const { text, voiceId, model, lang, speed, provider, sku, itemUnits } = req.body || {};
+    if (!text || !String(text).trim()) {
+      return res.status(400).json({ code: 'CANVAS_TTS_TEXT_REQUIRED', error: 'text is required' });
+    }
+    try {
+      const result = await synthesizeTTS({
+        text, voiceId, model, lang, speed, provider,
+        sku: sku || 'canvas_tts',
+        itemUnits: Number(itemUnits) || 0,
+        withCostSnapshot: true,
+      });
+      return res.json({
+        ok: true,
+        tts: result,
+        actor: String(email).trim().toLowerCase(),
+        mock: true,
+        isMock: true,
+        provider: 'mock-placeholder',
+        gated: 'real-provider-pending',
+        note: 'TTS 配音: 真 provider (ec_tts_voice 火山/MiniMax) 待接入/内测 — 本期不开放付费 TTS 扣费; mock 音频为可播静音 WAV 占位, 接真后自动切换',
+      });
+    } catch (e2) {
+      const message = e2 && e2.message ? e2.message : String(e2);
+      return res.status(400).json({ code: 'CANVAS_TTS_FAILED', error: message });
+    }
+  });
 }
 
 // 兼容 visionBridge listProviders 风格, 把 keyring 中的 provider 元信息对外列出.

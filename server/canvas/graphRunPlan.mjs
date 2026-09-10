@@ -13,11 +13,14 @@
 // 服务端支持的 kind 白名单（镜像 P0 index.jsx GRAPH_RUN_KINDS）：
 //   image-composer / smart-remix / suite-composer -> 'generate'（P1 执行器未接线前走 400 守卫）
 //   remove-bg / extend / inpaint / translate / upscale / layer-workbench -> 'process'
-//   text / video / audio 暂不支持（不进白名单；已有产物时可作 source 喂下游，否则 400）。
+//   P3 接线: splice（图片竖排详情长图，本地 sharp 免费，0 扣费）-> 'process'
+//   text / video / audio / video-composer / tts / lip-sync 暂不支持（P3 诚实门控，不进白名单；
+//   已有产物时可作 source 喂下游，否则 400 'kind not supported yet'）。
 
 export const SUPPORTED_GRAPH_RUN_KINDS = Object.freeze([
   'image-composer', 'smart-remix', 'suite-composer',
   'remove-bg', 'extend', 'inpaint', 'translate', 'upscale', 'layer-workbench',
+  'splice', // P3: 图片竖排详情长图（本地 sharp 免费，0 扣费）
 ]);
 
 /* P0 index.jsx GRAPH_RUN_KINDS 的镜像（kind -> 动作类别，仅描述用，不作计费依据）。 */
@@ -31,6 +34,7 @@ export const GRAPH_RUN_KIND_ACTIONS = Object.freeze({
   translate: 'process',
   upscale: 'process',
   'layer-workbench': 'process',
+  splice: 'process',
 });
 
 export function readNodeId(node) {

@@ -90,7 +90,31 @@ export function restoreCanvasMediaPlayback(nodes = [], assets = []) {
   });
 }
 
-export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {}, pendingProjectAssetImports = [] } = {}) {
+/* P3 时间线/轨道数据模型预留 (spec §357-364 只留位, 本期不做自动成片时间线):
+   snapshot.timeline? = { tracks: [{ kind: 'video'|'audio', items: [{ nodeId, start, end }] }] }
+   - 老 snapshot 无 timeline 字段照常加载 (向后兼容, 不变式② 老文档只读可用);
+   - 仅新 snapshot 传入合法 timeline 时落字段; 非法/空输入一律不落 (不造假数据)。
+   start/end = 轨道时间轴毫秒 (拼接成片后续消费), nodeId 指向画布节点。 */
+export function normalizeCanvasTimeline(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  if (!Array.isArray(value.tracks)) return undefined;
+  const tracks = value.tracks
+    .filter(track => track && (track.kind === 'video' || track.kind === 'audio'))
+    .map(track => ({
+      kind: track.kind,
+      items: (Array.isArray(track.items) ? track.items : [])
+        .filter(item => item && typeof item.nodeId === 'string' && item.nodeId.trim())
+        .map(item => ({
+          nodeId: item.nodeId.trim(),
+          start: Number.isFinite(Number(item.start)) ? Number(item.start) : 0,
+          end: Number.isFinite(Number(item.end)) ? Number(item.end) : 0,
+        })),
+    }));
+  if (!tracks.length) return undefined;
+  return { tracks };
+}
+
+export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {}, pendingProjectAssetImports = [], timeline = undefined } = {}) {
   const snapshot = {
     nodes: durableCanvasValue(clone(Array.isArray(nodes) ? nodes : [], [])),
     connections: clone(Array.isArray(connections) ? connections : [], []),
@@ -98,6 +122,8 @@ export function createCanvasSnapshot({ nodes = [], connections = [], viewport = 
   };
   const pending = normalizeCanvasPendingProjectAssetImports(pendingProjectAssetImports);
   if (pending.length) snapshot.pendingProjectAssetImports = pending;
+  const normalizedTimeline = normalizeCanvasTimeline(timeline);
+  if (normalizedTimeline) snapshot.timeline = normalizedTimeline;
   return snapshot;
 }
 
@@ -109,6 +135,9 @@ export function restoreCanvasSnapshot(snapshot = {}) {
   };
   const pending = normalizeCanvasPendingProjectAssetImports(snapshot.pendingProjectAssetImports);
   if (pending.length) restored.pendingProjectAssetImports = pending;
+  /* P3 字段位: 老 snapshot 无 timeline -> 不补造; 有则归一化透传 (向后兼容)。 */
+  const normalizedTimeline = normalizeCanvasTimeline(snapshot.timeline);
+  if (normalizedTimeline) restored.timeline = normalizedTimeline;
   return restored;
 }
 
