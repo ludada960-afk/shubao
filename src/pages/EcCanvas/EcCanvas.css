@@ -1187,3 +1187,46 @@
 
 /* 旧 .ec-material-watermark-* / .ec-canvas-watermark-* 样式已由 canvas-watermark-panel.css 的 .ec-wm-* 取代 (9-08 重构) */
 
+/* ═══ P2 · 工作流模板一键铺开: [槽] 节点琥珀高亮 + P3 音视频灰态 ═══
+   槽位提示与 P0/P0.5 视觉语言一致: 描边虚线 = 未完成输入; 灰态 = 诚实门控 (不 mock、不提供扣费运行)。*/
+.ec-canvas-media-node.is-slot .ec-canvas-media-frame {
+  outline: 2px dashed rgba(245, 158, 11, .85);
+  outline-offset: 2px;
+  background: rgba(245, 158, 11, .06);
+}
+.ec-canvas-slot-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #b45309;
+  background: rgba(255, 251, 235, .66);
+  backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+.ec-canvas-slot-hint svg { width: 18px; height: 18px; opacity: .9; }
+.ec-canvas-slot-hint strong { font-size: 12px; font-weight: 650; letter-spacing: .02em; }
+
+.ec-canvas-generation-node.is-p3-pending { opacity: .6; }
+.ec-canvas-generation-node.is-p3-pending .ec-canvas-generation-placeholder { background: #f1f5f9; }
+.ec-canvas-p3-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px auto 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(100, 116, 139, .4);
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+}
+/* 铺开后的顶部运行 offer 条 (index.jsx 内联样式兜底, 这里补 motion/reduced 口径) */
+@media (prefers-reduced-motion: reduce) {
+  .ec-canvas-media-node.is-slot .ec-canvas-media-frame { outline-offset: 2px; }
+}
+

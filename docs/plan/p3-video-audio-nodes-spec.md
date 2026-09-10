@@ -47,3 +47,11 @@
 ## 7. 门禁
 - npm test/build/source-hygiene 全绿 + 提交 + 上线（frontend 档；仅当拼接/ffmpeg 触到生成路径才考虑 full）。
 - 零付费验证；对口型/数字人诚实门控不留假数据；不 mock。
+
+## 8. 现状核实（做 P3 前已查清，供委托照此施工，勿重复调研）
+- TTS：/api/tts/synthesize 已存在（server/services/ttsBridge.mjs:305），当前返回 mock 音频 + 真成本/真 provider 切换（ttsBridge:318 自述 'mock audio; real provider swaps adapter'）。P3 = 换真 provider（火山/MiniMax，ec_tts_voice 报价已定）或诚实标'内测'；audio 节点执行器接这条 + 计费。
+- 视频：Seedance 已存在（src/services/videoWorkbench.js，generateAudio/720p/planHash → 真出片）。P3 video-composer 执行器接这条 + video_seedance_* SKU（¥0.1~1/次量级，契约测不烧）。
+- 假能力（必清，'不 mock 假跑'）：(1) chainService.mjs deriveScript(prompt hash 假派生) + deriveKeyframes(/mock/ 占位 URL) → 改诚实标注'文案/首帧由 LLM/生图 驱动，接入中'或不返回假占位；(2) 动作注册表 canvasActionRegistry.js 的 one-click-video / tts-voiceover 若指向不存在的 /api/canvas/* 路由(悬空) → 实现或删注册项 + UI 隐藏。
+- 拼接成片：本地 ffmpeg（免费，引流）—— always supported。
+- 对口型/数字人（ec_lip_sync）：报价未定 → 诚实门控（灰态'报价确认中'，不发起运行/扣费）。
+- 验证纪律：P3 全用契约测试（断言执行器解析 provider + 报价 units + 计费走 catalog），绝不烧 Seedance/TTS 真调用；拼接(ffmpeg)可最小合成验证（本地免费）。

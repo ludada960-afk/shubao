@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Sparkles,
   Type,
+  Workflow,
   X,
 } from 'lucide-react';
 import AccountEntitlementControl from '../../../components/billing/AccountEntitlementControl.jsx';
@@ -47,6 +48,7 @@ export function CanvasTopBar({
   onRestore,
   onNew,
   onOpenTemplateMarketplace,
+  onOpenWorkflowGallery,
   saving = false,
   canRestore = false,
   entitlement,
@@ -94,6 +96,10 @@ export function CanvasTopBar({
         {/* 4c183cd4 续命 P-E 100 套模板广场 入口按钮 (无模板数据时隐藏) */}
         {hasTemplates && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenTemplateMarketplace} aria-label="打开模板广场">
           <ImagePlus size={16} />模板广场
+        </button>}
+        {/* P2 图工作流模板库（一键铺开层, 与 L2 提示词模板广场并存）*/}
+        {tab === 'canvas' && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenWorkflowGallery} aria-label="打开工作流模板库">
+          <Workflow size={16} />工作流模板
         </button>}
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}

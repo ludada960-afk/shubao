@@ -2,7 +2,8 @@
 // P2 业务资产层 — 5 个内置工作流模板（图结构按 docs/plan/p2-workflow-templates-spec.md §2）。
 //
 // 诚实分期（spec §0）：
-//   - T1/T2/T3 只用 P1 已支持 kind（image source / text / image-composer / 本地 splice），本期 end-to-end 可跑；
+//   - T2 纯图链（双槽填齐即端到端可跑）；T1/T3 含 text 节点（P1 不执行 text：填空 = 无产物 -> unsupported，
+//     填入文本后变 source 喂下游 image-composer 段，本期“填空即跑”）；T3 的 splice 属 P1.1/P3 本地免费动作；
 //   - T4/T5 含 P3 音视频 kind（video-composer / tts / lip-sync / video / audio）：P1 buildRunPlan 会把它们
 //     判为 unsupported —— 本期只做“目录 + 图结构 + 一键铺开”，前端渲染“待 P3”灰态，**不 mock 假跑、不发起扣费**。
 //
@@ -57,6 +58,9 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     isBuiltIn: true,
     isPublic: true,
     requiresAudioVideo: false,
+    /* 诚实分期：text 节点（reverse-prompt）空着 = 无产物 -> P1 判 unsupported；填入文本后变 source，主图段才可跑。 */
+    runnableThisPhase: false,
+    gateNote: '需先填“反推提示词”文本（或 P1.1 反推自动产出）；空文本节点会被 P1 判 unsupported 并封锁下游主图，填后即可跑图像段',
     pricing: { estimatedUnits: 1.2, note: '预估 1.2 积分：反推 0.2 + 主图 1.0（展示预估，结算以目录为准）' },
     graph: Object.freeze({
       nodes: Object.freeze([
@@ -81,6 +85,9 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     isBuiltIn: true,
     isPublic: true,
     requiresAudioVideo: false,
+    /* 唯一“本期端到端可跑”的纯图链：槽位填齐后 try-on + three-view（image-composer，P1 白名单）全部可执行。 */
+    runnableThisPhase: true,
+    gateNote: '纯图链（P1 已支持）：填齐服装图 + 模特图即可端到端运行，无文本/P3 门控',
     pricing: { estimatedUnits: 2, note: '预估 2 积分：试穿 1 + 三视图 1（无模特图补位 +1；结算以目录为准）' },
     graph: Object.freeze({
       nodes: Object.freeze([
@@ -107,6 +114,9 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     isBuiltIn: true,
     isPublic: true,
     requiresAudioVideo: false,
+    /* 填空 text 后可跑场景段；splice（本地免费）未进 P1 白名单（P1.1/P3），详情段暂不可扣费运行。 */
+    runnableThisPhase: false,
+    gateNote: '需先填“反推提示词”文本再跑场景段；详情拼接（splice）为本地免费动作，P1.1/P3 接线前不支持扣费运行',
     pricing: { estimatedUnits: 4.2, note: '预估 1.2 + N 积分（N = 场景图张数，默认 3 → 4.2；详情拼接本地免费）' },
     graph: Object.freeze({
       nodes: Object.freeze([
@@ -133,6 +143,9 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     isBuiltIn: true,
     isPublic: true,
     requiresAudioVideo: true,
+    /* P3 门控：video-composer / storyboard 不在 P1 白名单 -> 诚实 unsupported，不 mock、不发起扣费运行。 */
+    runnableThisPhase: false,
+    gateNote: 'P3 门控：video-composer / storyboard 为 P3 kind（P1 白名单外），视频能力即将上线，本期不可扣费运行',
     pricing: { estimatedUnits: 29, note: '预估 29 积分：试穿 1 + 分镜 1 + 成片视频 27（P3 音视频上线后结算）' },
     graph: Object.freeze({
       nodes: Object.freeze([
@@ -163,6 +176,9 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     isBuiltIn: true,
     isPublic: true,
     requiresAudioVideo: true,
+    /* P3 门控：tts / lip-sync 不在 P1 白名单 -> 诚实 unsupported，不 mock、不发起扣费运行。 */
+    runnableThisPhase: false,
+    gateNote: 'P3 门控：tts / lip-sync 为 P3 kind（P1 白名单外），音视频能力即将上线，本期不可扣费运行',
     pricing: { estimatedUnits: 8.2, note: '预估 8.2 积分：文案 0.2 + 主播图 1 + TTS 1 + 对口型 6（P3 音视频上线后结算）' },
     graph: Object.freeze({
       nodes: Object.freeze([

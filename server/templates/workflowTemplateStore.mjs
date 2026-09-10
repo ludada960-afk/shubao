@@ -95,6 +95,8 @@ const TEMPLATE_COLUMNS = [
   ['like_count', 'INTEGER NOT NULL DEFAULT 0'],
   ['created_at', "TEXT NOT NULL DEFAULT ''"],
   ['updated_at', "TEXT NOT NULL DEFAULT ''"],
+  ['runnable_this_phase', 'INTEGER NOT NULL DEFAULT 0'],
+  ['gate_note', "TEXT NOT NULL DEFAULT ''"],
 ];
 const LIKE_COLUMNS = [
   ['template_id', "TEXT NOT NULL"],
@@ -129,6 +131,9 @@ function rowToTemplate(row) {
     requiresAudioVideo: graphRequiresAudioVideo(graph),
     usageCount: Number(row.usage_count) || 0,
     likeCount: Number(row.like_count) || 0,
+    /* 诚实分期元数据（展示用，非扣费依据）：runnableThisPhase 只有“纯 P1 白名单 kind + 槽位”的链为 true。 */
+    runnableThisPhase: row.runnable_this_phase === 1,
+    gateNote: typeof row.gate_note === 'string' ? row.gate_note : '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -160,7 +165,9 @@ export function createWorkflowTemplateStore(db, {
       usage_count INTEGER NOT NULL DEFAULT 0,
       like_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      runnable_this_phase INTEGER NOT NULL DEFAULT 0,
+      gate_note TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_workflow_templates_list
       ON workflow_templates(is_public, category, updated_at);
@@ -183,8 +190,9 @@ export function createWorkflowTemplateStore(db, {
       INSERT INTO workflow_templates (
         template_id, slug, name, category, description, author_email,
         is_built_in, is_public, graph_json, pricing_json,
-        usage_count, like_count, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+        usage_count, like_count, created_at, updated_at,
+        runnable_this_phase, gate_note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)
     `),
     updateTemplate: db.prepare(`
       UPDATE workflow_templates
@@ -285,6 +293,7 @@ export function createWorkflowTemplateStore(db, {
       statements.insertTemplate.run(
         templateId, finalSlug, name, category, cleanString(input.description), author,
         isBuiltIn, isPublic, graphJson, pricingJson, nowIso, nowIso,
+        input.runnableThisPhase ? 1 : 0, cleanString(input.gateNote),
       );
       return rowToTemplate(statements.selectBySlug.get(finalSlug));
     },
@@ -356,6 +365,7 @@ export function createWorkflowTemplateStore(db, {
             JSON.stringify(sanitizePricing(item.pricing)),
             nowIso,
             nowIso,
+            item.runnableThisPhase ? 1 : 0, cleanString(item.gateNote),
           );
           seeded.push(slug);
         }

@@ -75,6 +75,9 @@ import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTt
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
 import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
+/* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + P3 门控标记 (T4/T5 诚实门控, 不 mock 不扣费) */
+import { instantiateWorkflowTemplate, markP3PendingNodes } from './workflowTemplates.js';
+import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
 const GRAPH_RUN_KINDS = {
   'image-composer': 'generate',
@@ -568,6 +571,9 @@ export default function EcCanvas() {
   const [multiSelected, setMultiSelected] = useState(new Set());
   /* P0.5 分组"运行整链"的二次确认弹窗数据（预估为 0 时不弹，直接跑） */
   const [graphRunConfirm, setGraphRunConfirm] = useState(null);
+  /* P2 工作流模板库: 库浮层 + 铺开后顶部的运行 offer（运行仍走 P0.5 二次确认; T4/T5 呈 P3 灰态、不提供扣费运行）*/
+  const [workflowGalleryOpen, setWorkflowGalleryOpen] = useState(false);
+  const [workflowRunOffer, setWorkflowRunOffer] = useState(null);
   const [connections, setConnections] = useState([]);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
@@ -2613,6 +2619,48 @@ const handlePointerUp = useCallback((e) => {
     if (!runnable.length) { showToast('选中的节点暂无可自动运行的（图片/处理类可跑；文本/视频节点 P1 再接入）', 'info'); return; }
     if (plan.estimatedUnits <= 0) { startGraphChainRun(plan, runnable); return; }
     setGraphRunConfirm({ plan, runnable });
+  }
+
+  /* ── P2 工作流模板"一键铺开": instantiate（服务端 usage+1, 铺开本身不扣费）-> 按相对坐标铺开图
+     -> [槽] 节点琥珀高亮（node.isSlot 数据真源, CanvasStudio 渲染）-> 顶部浮出运行 offer,
+     运行复用 P0.5 "预览 -> 二次确认"（不变式①）; T4/T5 requiresAudioVideo 呈 P3 灰态、不提供扣费运行。 */
+  async function handleInstantiateWorkflowTemplate(template) {
+    if (!template?.slug) return;
+    try {
+      const res = await instantiateWorkflowTemplate(template.slug);
+      const snapshot = createCanvasSnapshot(res.snapshot || { nodes: [], connections: [] });
+      const p3Nodes = markP3PendingNodes(snapshot.nodes, res.requiresAudioVideo === true);
+      setNodes(p3Nodes.map(normalizeCanvasNode));
+      setConnections(snapshot.connections.map(normalizeCanvasConnection));
+      setViewport(snapshot.viewport);
+      setSelected(null);
+      setMultiSelected(new Set());
+      /* P2: 铺开后是全新画布会话（spec §1: createCanvasSnapshot(template.graph) -> createCanvasSession）,
+         用户此前的画布留在旧会话, 顶栏"恢复"可回到旧版。*/
+      const nextProjectId = String(result.projectId || '').trim();
+      const nextBaseVersionId = String(result.resultVersionId || result.sourceVersionId || '').trim();
+      if (nextProjectId && nextBaseVersionId) {
+        try {
+          const created = await createCanvasSession({ projectId: nextProjectId, baseVersionId: nextBaseVersionId, snapshot });
+          canvasSessionRef.current = created;
+          setCanvasSession(created);
+          remoteSnapshotRef.current = JSON.stringify(snapshot);
+          dispatch({ type: 'SET_RESULT', result: { ...result, canvasSession: created, canvasSessionId: created.id, canvasSessionRevision: created.revision } });
+        } catch {
+          showToast('画布已铺开展示；云端会话创建失败（未登录或项目不可用），保存时会重试', 'info');
+        }
+      }
+      setWorkflowRunOffer({
+        name: res.name || template.name,
+        estimatedUnits: Number(res.estimatedUnits) || 0,
+        requiresAudioVideo: res.requiresAudioVideo === true,
+        gateNote: res.gateNote || '',
+        targetNodeIds: p3Nodes.map(node => String(node.id)),
+      });
+      showToast('已铺开 "' + (res.name || template.name) + '" · 把商品图拖进琥珀描边的 [槽] 节点即可运行', 'success');
+    } catch (error) {
+      showToast(error?.message || '模板铺开失败，请稍后重试', 'error');
+    }
   }
 
   const updateWorkflowLayers = useCallback((nodeId, updater) => {
@@ -5297,6 +5345,7 @@ const handlePointerUp = useCallback((e) => {
            1-click 视频改走节点串联: 选中图片节点 → 端口 → 应用节点 → 视频节点 → 音频节点
            2026-09-01 用户反对多模态串联: 拿掉 入口回调 prop, 现只剩 模板广场 (公共资源入口) overlay */
         onOpenTemplateMarketplace={() => setTemplateMarketplaceOpen(true)}
+        onOpenWorkflowGallery={() => setWorkflowGalleryOpen(true)}
         saving={canvasSessionBusy}
         canRestore={Boolean(canvasSession?.id || result.canvasSessionId)}
         entitlement={{
@@ -5453,6 +5502,29 @@ const handlePointerUp = useCallback((e) => {
               <span>将依次运行 {graphRunConfirm.plan.nodeCount} 个节点 · 预计消耗 {graphRunConfirm.plan.estimatedUnits} 积分</span>
               <button type="button" onClick={() => { const p = graphRunConfirm; setGraphRunConfirm(null); startGraphChainRun(p.plan, p.runnable); }}>运行</button>
               <button type="button" onClick={() => setGraphRunConfirm(null)}>取消</button>
+            </div>
+          )}
+          {/* P2 铺开后顶部的运行 offer: 预计积分读 pricing（展示口径, 结算以目录为准）;
+              运行按钮走 P0.5 runGraphChain 二次确认（不变式①）; T4/T5 P3 灰态、不提供扣费运行 */}
+          {workflowRunOffer && (
+            <div
+              className="ec-canvas-workflow-offer"
+              role="region"
+              aria-label="工作流模板铺开结果"
+              style={{ position: 'fixed', left: '50%', top: 64, transform: 'translateX(-50%)', zIndex: 1900, background: '#fff', border: '1px solid ' + (workflowRunOffer.requiresAudioVideo ? 'rgba(100,116,139,.4)' : 'rgba(124,58,237,.4)'), borderRadius: 12, boxShadow: '0 8px 24px rgba(15,23,42,.16)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, maxWidth: 'min(720px, 92vw)' }}
+            >
+              <span><strong>{workflowRunOffer.name}</strong>已铺开 · 把商品图拖进琥珀描边的 [槽] 节点即可运行</span>
+              {workflowRunOffer.requiresAudioVideo
+                ? <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>视频/音频能力即将上线（待 P3）· 暂不发起扣费运行</span>
+                : <span style={{ fontSize: 12, color: '#b45309', fontWeight: 600 }}>预计 {workflowRunOffer.estimatedUnits} 积分</span>}
+              {!workflowRunOffer.requiresAudioVideo && (
+                <button
+                  type="button"
+                  onClick={() => { const offer = workflowRunOffer; setWorkflowRunOffer(null); runGraphChain(offer.targetNodeIds); }}
+                  style={{ border: 0, background: '#7c3aed', color: '#fff', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                >运行整链</button>
+              )}
+              <button type="button" aria-label="关闭铺开提示" onClick={() => setWorkflowRunOffer(null)} style={{ border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', width: 28, height: 28, borderRadius: 8, cursor: 'pointer' }}>×</button>
             </div>
           )}
           {/* 素材水印面板: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 (停靠在底栏之上, 不遮挡按钮区) */}
@@ -6473,6 +6545,15 @@ const handlePointerUp = useCallback((e) => {
           setTemplateMarketplaceOpen(false);
           showToast(`已应用模板 ${tpl.name}`, 'success');
         }}
+      />
+
+      {/* P2 图工作流模板库（一键铺开层）: 铺开免费、点赞幂等真数、T4/T5 P3 灰态门控 */}
+      <WorkflowTemplateGallery
+        open={workflowGalleryOpen}
+        email={phone}
+        onNotify={showToast}
+        onClose={() => setWorkflowGalleryOpen(false)}
+        onInstantiate={template => { setWorkflowGalleryOpen(false); return handleInstantiateWorkflowTemplate(template); }}
       />
 
       <style>{`

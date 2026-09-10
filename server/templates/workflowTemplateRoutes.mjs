@@ -166,6 +166,8 @@ export function mountWorkflowTemplateRoutes(app, { store, authorize } = {}) {
         pricing: template.pricing,
         estimatedUnits: Number(template.pricing?.estimatedUnits) || 0,
         requiresAudioVideo: template.requiresAudioVideo,
+        runnableThisPhase: template.runnableThisPhase === true,
+        gateNote: template.gateNote || '',
         usageCount,
         snapshot: {
           nodes: clone(graph.nodes, []),
