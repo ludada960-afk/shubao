@@ -72,6 +72,7 @@ import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSel
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
+import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
@@ -2345,9 +2346,14 @@ const handlePointerUp = useCallback((e) => {
   }, []);
 
   const handleWorkflowGenerate = useCallback(async (node) => {
+    /* [canvas-graph-inputs:generate] */
+    /* 边 = 数据通道 (能力地图 N2): 先按入边收集上游产物, 无入边时下面每个 || 都原样落回老逻辑
+       (sourceNodeIds[0]), 老图行为不变。编号规则见 canvasGraphInputs.js: 入边顺序 = @图片1/@图片2。*/
+    const edgeInputs = collectNodeInputsFromEdges(node, connections, nodes);
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
-    const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
-    const prompt = String(node.inputs?.prompt || '').trim();
+    const sourceUrl = edgeInputs.images[0]?.url || node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
+    const prompt = String(node.inputs?.prompt || edgeInputs.texts[0]?.content || '').trim();
+    /* [/canvas-graph-inputs:generate] */
     if (!sourceUrl || !prompt || promptLoading) {
       showToast('请先补充可编辑的画面描述', 'info');
       return;
@@ -2371,6 +2377,12 @@ const handlePointerUp = useCallback((e) => {
         ...(node.inputs?.productImages || []),
         ...(node.inputs?.referenceImages || []),
       ].map(image => image?.url || image?.src || image?.image_url).filter(Boolean);
+      /* [canvas-graph-inputs:generate-refs] */
+      /* 入边第 2 张起 = @图片2..@图片N (第 1 张已是主输入 imageUrl), 与已有参考图去重。*/
+      for (const url of edgeInputs.images.slice(1).map(image => image.url)) {
+        if (url && !referenceImages.includes(url)) referenceImages.push(url);
+      }
+      /* [/canvas-graph-inputs:generate-refs] */
       const settled = await Promise.allSettled(pendingOutputIndexes.map(index => regenerateCanvasImage({
         prompt,
         imageUrl: sourceUrl,
@@ -2425,7 +2437,7 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       setPromptLoading(false);
     }
-  }, [nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
+  }, [connections, nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
 
   const handleWorkflowRetry = useCallback((node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
@@ -2470,8 +2482,14 @@ const handlePointerUp = useCallback((e) => {
   }, [showToast]);
 
   const handleWorkflowProcess = useCallback(async (node) => {
-    const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
-    const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
+    /* [canvas-graph-inputs:process] */
+    /* 边 = 数据通道 (能力地图 N2): 入边优先, 无入边回退老逻辑; source 也兜底到入边首个上游
+       (下游读 source.ratio/name/几何, 缺了会炸)。*/
+    const edgeInputs = collectNodeInputsFromEdges(node, connections, nodes);
+    const edgeSourceNode = edgeInputs.sources.length ? nodes.find(item => item.id === edgeInputs.sources[0]) : null;
+    const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]) || edgeSourceNode || undefined;
+    const sourceUrl = edgeInputs.images[0]?.url || node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
+    /* [/canvas-graph-inputs:process] */
     if (!sourceUrl || promptLoading) {
       showToast('源图片暂不可用，请稍后重试', 'info');
       return;
@@ -2531,7 +2549,7 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       setPromptLoading(false);
     }
-  }, [executeBrowserSegmentation, nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
+  }, [connections, executeBrowserSegmentation, nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
 
   useEffect(() => {
     workflowProcessRef.current = handleWorkflowProcess;

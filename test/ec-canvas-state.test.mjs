@@ -518,7 +518,8 @@ test('generated outputs from a blank Canvas are saved into the unified work coll
 
 test('source-group workflow generation uses the first owned product asset', () => {
   const generateBlock = canvasSource.match(/const handleWorkflowGenerate[\s\S]*?const handleWorkflowRetry/)?.[0] || '';
-  assert.match(generateBlock, /const sourceUrl = node\.inputs\?\.sourceUrl \|\| source\?\.url \|\| source\?\.assets\?\.find\(asset => asset\?\.url\)\?\.url/);
+  /* P0 边传值 (N2) 插在链首: 入边优先, 老链路 (inputs.sourceUrl > source.url > source.assets[0].url) 原样保留。*/
+  assert.match(generateBlock, /const sourceUrl = edgeInputs\.images\[0\]\?\.url \|\| node\.inputs\?\.sourceUrl \|\| source\?\.url \|\| source\?\.assets\?\.find\(asset => asset\?\.url\)\?\.url/);
   assert.match(generateBlock, /regenerateCanvasImage\(\{[\s\S]*?imageUrl: sourceUrl/);
 });
 
