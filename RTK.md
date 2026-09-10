@@ -1294,3 +1294,47 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
   `shubao-old` 5.9G、`shubao-backup-20260717` 5.5G、`shubao-temp` 1.8G、deploy-backups 2.9G、
   shubao/.git 1.4G —— 旧副本目录约 13G+，**待用户拍板后再删**
 - 教训重申：远程内联 node -e 的引号会被 bash 吃掉，一律 .cjs 文件 + scp
+
+## 35. 9-10：计费全覆盖 + 会员中心/技能库改版（9609f6ef，部署受阻待上游稳定）
+
+### 用户反馈（本轮）
+1. 积分明细全是英文；应覆盖全站所有花积分的地方，并做成"细则"陈列
+2. 全面核查：凡走上游 API 的功能都要收积分（有的可以少收）
+3. 账户资料卡片没意义 → 删
+4. 内置技能没有提示词正文，派生拿到空壳
+5. 我的技能要能分组（默认：主图/详情图/小红书/视频）
+6. 新建技能应能归到四个类型里
+7. 会员中心打开后滚动会把弹窗顶上去（没锁 body 滚动）
+8. 旧副本 13G 批准删除
+
+### 计费审计结论
+已收费：电商生图(1000-2000/张)、画布重生成/变换(AI动作)、自由创作、AI助手类(200)、
+反推(200)、OCR(200)、抠图(500)、方向刷新(1000)、智能图层/PSD(3000)、视频方案(1000)、
+视频生成(27000-57000)、XHS/Plog套装(9000)、扩展分析(1500)/生成(3000-9000)。
+**漏收 3 处（本轮补齐）**：
+- 首次方向分析 → ec_direction_analysis 1000/次
+- 画布商品识别(VLM) → ec_canvas_recognize 200/次
+- XHS/Plog 预览封面(真实生图) → ec_preview_cover 500/次
+
+### 实现
+- server/billing/billingLabels.mjs：SKU→中文名单一事实源；buildBillingRules()（细则）；
+  buildLedgerTransactions()（hold+settle 聚合为一笔中文交易，+0 结算行不再刷屏）
+- /api/billing/rules（公开）+ /api/billing/transactions（登录）
+- MemberCenterModal：删账户资料；交易视图+细则面板；useModalScrollLock 修滚动截断（技能库同享）
+- SkillLibraryModal：新建可选四类；分组（默认四组+自建+删除回退）；内置技能带完整正文（可查看/派生即所得）
+- skill_groups 表 + user_skills.group_id；groupId 归属服务端校验（跨用户清空）
+- 旧副本已删：磁盘 91%→57%
+
+### 部署周折（重要教训）
+1. 第一次全量：启动即崩 → **user_skills 老表没有 group_id 列**（CREATE TABLE IF NOT EXISTS 不改老表）。
+   教训：给已有表加列必须显式 PRAGMA+ALTER 幂等迁移，且引用新列的索引要放在补列之后建。
+   已修 + 回归测试（按线上旧表结构原样建表验证迁移）。
+2. 第二次：迁移修了，但方向分析 503（上游对重请求间歇 502/503）→ 门禁按设计拦截，回滚正常。
+   canary 已改成对 502/503/504 等 20s 取新 quote 重试一次（失败的 hold 自动 release，不重复扣费）；
+   requestJson 错误补了 .status（否则重试判断永不命中——第二个坑）。
+3. 13:30 上游仍在抖（轻请求 200、重请求 503），稳定性 watchdog 已挂上（每 4 分钟一轮 3 次重请求探测，
+   连续 3 次成功即报告），稳定后重跑全量部署。线上当前保持 a1c949b7（健康，不含本轮改动）。
+
+### 本地验证（零 API）
+- npm test 2982/2982（新增 billing-labels 4 + skill-groups 5 + migration 1，更新 verifier/api-contract/billing-ui 契约）
+- vite build 通过；Modal 源经 vite transform 断言（滚动锁/细则/类型选择/分组/内置正文均在）
