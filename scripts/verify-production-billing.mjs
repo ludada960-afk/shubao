@@ -25,7 +25,11 @@ async function request(url, {
         body,
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (!response.ok) throw new Error(`${method} ${url} returned HTTP ${response.status}`);
+      if (!response.ok) {
+        const httpError = new Error(`${method} ${url} returned HTTP ${response.status}`);
+        httpError.status = response.status; // 供调用方按 5xx 做有针对性的重试
+        throw httpError;
+      }
       return response;
     } catch (error) {
       lastError = error;
