@@ -1270,3 +1270,27 @@ P3 生视频注入；P4 会员中心 + 兑换码。
 - 线上 `dist/assets` 有 558 个历史遗留 bundle（每次部署累积，不被 index.html 引用），
   磁盘占用不小；要不要清理需用户确认
 - `src/services/invitationService.js` 无任何引用，仍未入库
+
+## 34. 9-10：最小集全量验证补跑通过 + 线上遗留 bundle 清理
+
+### 背景
+cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用 frontend 档上线 + 零成本冒烟。
+用户指示：最小范围图片验证即可，别浪费上游额度；判断上游此刻可能已恢复。
+
+### 上游健康
+- 8 token 补全：11.5s（退化期）→ **2.34s**（正常基线 4.5s 之下）→ 可以补跑
+
+### 最小集全量验证（verify-production-ecommerce.mjs，天然最小：1 张验收图 + 1 次方向分析 + 3 张图）
+- token 用部署同款签发入口 `issue-production-canary-session.mjs`（pm2 pid 绑定），只在远端本地文件流转（600 权限、用后即删），不进对话
+- **通过**：task ec_dfac8a67-b205-4290-b674-9574949f81ea，3 stable assets，EXIT_CODE=0，job 落库 completed
+- 覆盖：方向分析不降级 / 单方向锁定 spec / 三职责不重复（好友那个 bug 的线上回归位）/
+  3 图生成落库 / 独立视觉分析缓存 / Work 归档 + 画布会话持久化 / 缩略图与画布变体
+- 经验：跑法已固化——远端 nohup bash 脚本 + 日志轮询；token 永远不打印
+
+### 线上清理（用户已确认）
+- dist/assets 590 个文件(67M) → **61 个(19M)**：删除 mtime 早于 2026-09-10 00:00 的 529 个，
+  保留今天两代（cb8ad960 00:05 与 a1c949b7 00:59）以覆盖旧标签页懒加载；删后 health 200、入口 200
+- 磁盘 92%（剩 3.4G）。大头：`server/generated-assets` 7.4G（用户素材，不动）、
+  `shubao-old` 5.9G、`shubao-backup-20260717` 5.5G、`shubao-temp` 1.8G、deploy-backups 2.9G、
+  shubao/.git 1.4G —— 旧副本目录约 13G+，**待用户拍板后再删**
+- 教训重申：远程内联 node -e 的引号会被 bash 吃掉，一律 .cjs 文件 + scp
