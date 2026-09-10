@@ -49,6 +49,14 @@ export function ensureSkillSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_skill_groups_owner
       ON skill_groups(owner_email, status, updated_at DESC);
+  `);
+  // 幂等迁移：已存在的 user_skills 表补 group_id（CREATE TABLE IF NOT EXISTS 不会改老表）。
+  // 注意顺序：引用 group_id 的索引必须在补列之后创建。
+  const skillColumns = db.prepare('PRAGMA table_info(user_skills)').all().map(column => column.name);
+  if (!skillColumns.includes('group_id')) {
+    db.exec('ALTER TABLE user_skills ADD COLUMN group_id TEXT');
+  }
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_user_skills_group
       ON user_skills(owner_email, group_id);
   `);
