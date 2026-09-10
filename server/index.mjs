@@ -92,6 +92,10 @@ import {
 } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
+import { createCanvasGraphRunStore } from './canvas/graphRunSchema.mjs';
+import { createCanvasGraphRunService } from './canvas/graphRunService.mjs';
+import { createCanvasGraphRunExecutor } from './canvas/graphRunExecutor.mjs';
+import { mountCanvasGraphRunRoutes } from './canvas/graphRunRoutes.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createContentProjectLifecycle } from './projects/contentProjectLifecycle.mjs';
 import { createVideoProjectAssetImporter } from './projects/projectVideoAssetImport.mjs';
@@ -3961,10 +3965,12 @@ const ecommerceBilling = createEcommerceBilling({
   walletService,
   quoteService: billingQuoteService,
 });
+// 单一 canvas 计费幂等守卫实例：one-shot 与 P1 graph-run 共用（防重复扣费）
+const canvasBilledActions = createCanvasBilledActionStore(db);
 const canvasOneShotBilling = createOneShotBilling({
   walletService,
   quoteService: billingQuoteService,
-  actionStore: createCanvasBilledActionStore(db),
+  actionStore: canvasBilledActions,
 });
 const videoPlanningService = createVideoPlanningService({
   completeText: request => createEcommerceVlmClient({
@@ -4325,6 +4331,55 @@ async function removeLightBackground(imageBuffer) {
   if (!split.segmented) throw new Error('未检测到可靠的纯色或浅色背景，无法安全去背');
   return split.subject;
 }
+
+// ============================================================
+// P1 画布整链运行宿主（canvas graph run orchestrator）
+// 免费白底旗舰链：商品图 source -> remove-bg(本地免费) -> upscale(本地 sharp)。
+// 生成类 kind（image-composer/smart-remix/suite-composer）P1.1 接 canvasGenerationService；
+// 未接线 kind 一律 {ok:false,'executor not wired'} —— 默认零付费、不发起上游。
+// ============================================================
+const canvasGraphRunStore = createCanvasGraphRunStore(db);
+const canvasGraphRunExecutor = createCanvasGraphRunExecutor({
+  removeBackground: async ({ imageUrl }) => {
+    const { buffer } = await imageInputReader.read(imageUrl);
+    const outBuf = await removeLightBackground(buffer);
+    const asset = await generatedAssetStore.persistBuffer({
+      buffer: outBuf,
+      contentType: 'image/png',
+      taskId: `canvas_graph_remove_bg_${Date.now()}`,
+      label: 'canvas_graph_remove_bg',
+    });
+    return { ok: true, outputUrl: asset.url };
+  },
+  upscale: async ({ imageUrl }) => {
+    const { buffer } = await imageInputReader.read(imageUrl);
+    const outBuf = await sharp(buffer).resize(2048, 2048, { fit: 'inside' }).png().toBuffer();
+    const asset = await generatedAssetStore.persistBuffer({
+      buffer: outBuf,
+      contentType: 'image/png',
+      taskId: `canvas_graph_upscale_${Date.now()}`,
+      label: 'canvas_graph_upscale',
+    });
+    return { ok: true, outputUrl: asset.url };
+  },
+});
+const canvasGraphRunService = createCanvasGraphRunService({
+  store: canvasGraphRunStore,
+  billActions: canvasBilledActions,
+  executeNode: canvasGraphRunExecutor,
+});
+mountCanvasGraphRunRoutes(app, {
+  service: canvasGraphRunService,
+  authorize: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
+});
+// 启动恢复：进程重启后 resume 无主（租约失效）的整链 run（幂等：settled 步骤经 claim 短路，不重扣）
+canvasGraphRunStore.recoverInterrupted().forEach(run => {
+  canvasGraphRunService.resumeRun(run.runId)
+    .catch(err => console.warn('[canvas-graph-run] startup recovery failed:', run.runId, err && err.message));
+});
 
 app.post('/api/remove-bg', async (req, res) => {
   const {
