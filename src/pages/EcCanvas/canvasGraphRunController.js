@@ -15,6 +15,16 @@ function readNodeId(node) {
   return node.id == null ? '' : String(node.id);
 }
 
+/* 判断一个节点是否"已有可用产物"（无需再跑）：源素材(上传的图/视频/音频/文本)就是这类。
+   有产物 = 下游可以直接拿它的产物继续跑，即使这个 kind 没有执行器。 */
+export function nodeHasProduct(node = {}) {
+  if (node.url) return true;
+  if (String(node.text || '').trim()) return true;
+  if (node.assets?.length) return true;
+  if (node.output?.url || node.output?.urls?.length || node.output?.nodeId || node.output?.nodeIds?.length) return true;
+  return false;
+}
+
 /* 把 planGraphRun 的结果 + 执行器覆盖度 + 成本估算 合成一份"运行计划"。
    supportedKinds: 哪些 kind/actionId 有可用执行器（没有的 = 暂不支持整链跑，跑前就告诉用户）。
    costOf(node): 单节点预计积分（用 estimateNodeCost，前端估算表唯一真源）。
@@ -25,7 +35,8 @@ function readNodeId(node) {
      unsupportedNodeIds,  // 无执行器 → 跳过并阻塞其下游
      nodeCount, estimatedUnits
    } */
-export function buildRunPlan({ nodes = [], connections = [], targetNodeIds = [], supportedKinds = null, costOf = () => 0 } = {}) {
+export function buildRunPlan({ nodes = [], connections = [], targetNodeIds = [], supportedKinds = null, costOf = () => 0, hasProduct = nodeHasProduct } = {}) {
+  const hp = typeof hasProduct === 'function' ? hasProduct : nodeHasProduct;
   const plan = planGraphRun({ nodes, connections, targetNodeIds });
   const supported = supportedKinds instanceof Set ? supportedKinds : (Array.isArray(supportedKinds) ? new Set(supportedKinds) : null);
   if (!plan.ok) {
@@ -36,20 +47,24 @@ export function buildRunPlan({ nodes = [], connections = [], targetNodeIds = [],
     };
   }
   const nodeById = new Map((Array.isArray(nodes) ? nodes : []).map(n => [readNodeId(n), n]));
-  const executable = [];
-  const unsupported = [];
+  const executable = [];   // 有执行器 → 会真跑
+  const source = [];       // 没执行器但已有产物 → 视作"可用源"，不阻塞下游
+  const unsupported = [];  // 没执行器且无产物 → 跑不了，阻塞其下游
   let estimatedUnits = 0;
   for (const id of plan.order) {
     const node = nodeById.get(id) || {};
     const kind = node.actionId || node.kind;
-    if (supported && !supported.has(kind)) unsupported.push(id);
-    else executable.push(id);
+    if (supported && !supported.has(kind)) {
+      (hp(node) ? source : unsupported).push(id);
+      continue;
+    }
+    executable.push(id);
   }
   for (const id of executable) estimatedUnits += Number(costOf(nodeById.get(id) || {})) || 0;
   return {
     ok: true,
     layers: plan.layers, order: plan.order,
-    executableNodeIds: executable, unsupportedNodeIds: unsupported,
+    executableNodeIds: executable, sourceNodeIds: source, unsupportedNodeIds: unsupported,
     nodeCount: plan.nodeIds.length,
     estimatedUnits: Math.round(estimatedUnits * 100) / 100,
   };
@@ -88,16 +103,16 @@ export function buildTransitiveDownstream(nodes = [], connections = []) {
 
 /* 按层顺序执行。默认**层内也串行**（避免同层并发把成本翻倍、也避免和 promptLoading 打架）。
    返回 { aborted, succeeded:[], failed:[], skipped:[], blocked:[] }。
-   - 不支持的 kind → skipped + 阻塞其全部下游（它们缺了这块输入跑不出结果）；
-   - 某节点 error → failed + 阻塞其全部下游；
+   节点分类（由 buildRunPlan 预计算在 plan.sourceNodeIds / plan.unsupportedNodeIds / plan.executableNodeIds）：
+   - 源节点（无执行器但已有产物）→ 视作可用，不花钱、不阻塞下游；
+   - 无执行器且无产物 → skipped + 阻塞其全部下游（缺这块输入跑不出结果）；
+   - 有执行器 → 真跑；某节点 error → failed + 阻塞其全部下游；
    - signal.abort() → 立刻停，已完成的保留，未跑的进 blocked。*/
 export async function createGraphRunner({ plan, downstream = new Map(), supportedKinds = null, runNode, awaitTerminal, onStatus, signal } = {}) {
   if (!plan || !plan.ok) {
     return { aborted: false, skipped: [], succeeded: [], failed: [], blocked: plan ? (plan.blockedNodeIds || []) : [] , reason: plan?.reason || 'no-plan' };
   }
-  const supported = supportedKinds instanceof Set ? supportedKinds : (Array.isArray(supportedKinds) ? new Set(supportedKinds) : null);
-  const nodeById = new Map();
-  for (const id of plan.order) nodeById.set(id, null); // 占位，真实 node 由调用方经 runNode 决定
+  void supportedKinds; // 分类已交给 buildRunPlan；保留形参仅为签名兼容
   const blocked = new Set(plan.blockedNodeIds || []);
   const succeeded = []; const failed = []; const skipped = [];
   const notify = (id, status, detail) => { try { if (typeof onStatus === 'function') onStatus(id, status, detail); } catch { /* 通知失败不阻断执行 */ } };
@@ -110,14 +125,18 @@ export async function createGraphRunner({ plan, downstream = new Map(), supporte
         return { aborted: true, succeeded, failed, skipped, blocked: [...blocked] };
       }
       if (blocked.has(id)) continue;
-      const kind = nodeById.get(id) ? (nodeById.get(id).actionId || nodeById.get(id).kind) : '';
-      if (supported && kind && !supported.has(kind)) {
-        skipped.push(id);
+      if (plan.sourceNodeIds?.includes(id)) {
+        succeeded.push(id);           // 已有产物：直接用，不花钱
+        notify(id, 'success', 'source');
+        continue;
+      }
+      if (plan.unsupportedNodeIds?.includes(id)) {
+        skipped.push(id);            // 无执行器且无产物：跳过并阻塞下游
         notify(id, 'skipped', 'unsupported');
         (downstream.get(id) || []).forEach(v => blocked.add(v));
         continue;
       }
-      notify(id, 'running');
+      notify(id, 'running');          // 有执行器：真跑
       let ok = false;
       try {
         if (typeof runNode === 'function') await runNode(id);
