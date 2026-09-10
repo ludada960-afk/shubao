@@ -8,8 +8,10 @@ test('every public feature SKU has a Chinese label and lands in the rules catalo
   const labeled = new Set(rules.flatMap(group => group.items.map(item => item.sku)));
   for (const [sku, feature] of Object.entries(FEATURE_SKUS)) {
     if (feature.public === false) continue;
-    assert.ok(labeled.has(sku), `SKU ${sku} missing from billing rules`);
     assert.ok(skuLabel(sku), `SKU ${sku} missing Chinese label`);
+    // 积分细则只列 ec_points 项；内容集等遗留币种不展示（与公开目录同口径）
+    if ((feature.currency ?? 'ec_points') !== 'ec_points') continue;
+    assert.ok(labeled.has(sku), `SKU ${sku} missing from billing rules`);
   }
   const categories = new Set(rules.map(group => group.key));
   for (const expected of ['image', 'canvas', 'text', 'video', 'content']) {
@@ -36,9 +38,9 @@ test('rules carry a server-rendered price text — non-point currencies never re
     assert.ok(item.currencyLabel, `${item.sku} missing currencyLabel`);
     assert.ok(!/^0\s/.test(item.priceText), `${item.sku} renders a zero price: ${item.priceText}`);
   }
-  const contentSet = items.find(item => item.sku === 'content_full_set');
-  assert.equal(contentSet.currency, 'content_sets');
-  assert.equal(contentSet.priceText, '1 内容集/套');
+  // 内容集是遗留币种账本，不进积分细则（与公开目录口径一致）
+  assert.equal(items.some(item => item.sku === 'content_full_set'), false);
+  assert.equal(items.every(item => item.currency === 'ec_points'), true);
   const points = items.find(item => item.sku === 'ec_image_2k');
   assert.equal(points.priceText, '1 积分/张');
   const cheap = items.find(item => item.sku === 'ec_canvas_recognize');

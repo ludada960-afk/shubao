@@ -73,7 +73,7 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('grid-split', '宫格切分', ['selection'], 'grid-split', false, {
     type: 'focused-editor', handler: 'grid-split',
   }, { canRun: canRunLocally }),
-  action('layer-edit', '智能分层', ['selection'], 'layers', false, {
+  action('layer-edit', '智能分层', ['selection'], 'layer-edit', false, {
     type: 'node', handler: 'create:layer-edit', nodeActionId: 'layer-edit', nodeKind: 'layer-workbench', route: '/api/canvas/analyze-layers',
   }, { description: '分析画面区域并进入图层工作台', group: '电商处理', canRun: canCreateWorkflowFromNode }),
   action('remove-background', '去除背景', ['selection'], 'remove-bg', false, {

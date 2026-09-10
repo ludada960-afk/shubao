@@ -100,6 +100,8 @@ export function buildBillingRules() {
   const groups = new Map(BILLING_CATEGORIES.map(category => [category.key, { ...category, items: [] }]));
   for (const [sku, feature] of Object.entries(FEATURE_SKUS)) {
     if (feature.public === false) continue;
+    // 与公开目录同口径：内容集（content_sets）是遗留币种账本，不作为积分计费项展示
+    if ((feature.currency ?? 'ec_points') !== 'ec_points') continue;
     const meta = SKU_LABELS[sku] || { label: sku, category: 'image', per: '次' };
     const group = groups.get(meta.category) || groups.get('image');
     const currencyKey = feature.currency ?? 'ec_points';

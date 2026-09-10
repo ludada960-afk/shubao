@@ -299,6 +299,9 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
       const ownerEmail = ownerFor(req);
       const sku = identifier(req.body?.sku, 'sku');
       const quantity = pageNumber(req.body?.quantity, 1, 'quantity');
+      // 只给公开可售的 SKU 报价：内部/灰度 SKU（public:false）及下架项不发报价令牌
+      const feature = FEATURE_SKUS[sku];
+      if (!feature || feature.enabled === false || feature.public === false) throw codedError('BILLING_REQUEST_INVALID');
       const quote = quoteFeature(sku, quantity);
       const reference = quoteService.issue({ ownerEmail, quote });
       return res.json({ quote: publicQuote({ ...quote, ...reference }) });
