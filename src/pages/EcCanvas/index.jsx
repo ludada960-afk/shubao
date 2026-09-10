@@ -740,6 +740,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const graphRunAbortRef = useRef(null);
   const sourceUploadRef = useRef(null);
   const videoUploadRef = useRef(null);
+  /* 用户 9-10: 「替换」素材的目标节点 id（置位后, 下一次上传套到它身上而不是新建节点） */
+  const mediaReplaceTargetRef = useRef(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 ref + 撤销/重做 history */
   const audioUploadRef = useRef(null);
   const historyRef = useRef(null);
@@ -2895,6 +2897,14 @@ const handlePointerUp = useCallback((e) => {
     const actionSpec = getCanvasAction(action?.id || action);
     const actionId = actionSpec?.id || String(action || '');
     const handler = actionSpec?.execute?.handler || actionId;
+    /* 用户 9-10: 「替换」素材 —— 记住目标节点后走既有上传通道(图片走 source 输入, 视频走 video 输入),
+       上传完成后把素材套回该节点, 位置/尺寸/连线/派生关系全部不变。 */
+    if (handler === 'replace-media') {
+      mediaReplaceTargetRef.current = node.id;
+      if (node.kind === 'video') videoUploadRef.current?.click();
+      else sourceUploadRef.current?.click();
+      return;
+    }
     if (handler === 'edit-text') {
       setTextInspectorNodeId(node.id);
       const cachedBlocks = node.kind === 'image' || node.kind === 'output'
@@ -4278,6 +4288,41 @@ const handlePointerUp = useCallback((e) => {
     event.target.value = '';
     if (!files.length) return;
     const uploadStartedAt = Date.now();
+    /* 「替换」: 把新素材套到目标节点上（位置/尺寸/连线不变），不新建节点。 */
+    if (mediaReplaceTargetRef.current) {
+      const targetId = mediaReplaceTargetRef.current;
+      mediaReplaceTargetRef.current = null;
+      const replaceStartedAt = Date.now();
+      try {
+        const localAssets = await readCanvasImageFiles([files[0]], replaceStartedAt);
+        const local = localAssets[0];
+        if (!local?.url) { showToast('读取素材失败，请重试', 'error'); return; }
+        setNodes(previous => previous.map(node => node.id === targetId ? {
+          ...node,
+          kind: 'image',
+          url: local.url,
+          localPreviewUrl: local.url,
+          name: files[0].name,
+          displayLabel: files[0].name,
+          ratio: local.ratio || node.ratio,
+          size: local.width && local.height ? `${local.width}×${local.height}` : node.size,
+          status: 'uploading',
+          templatePlaceholder: false,
+        } : node));
+        setSelected(targetId);
+        showToast('已替换素材，正在后台保存原图', 'success');
+        void persistCanvasUploadAssets(localAssets, { role: 'product' }).then(persisted => {
+          const durable = persisted?.[0];
+          if (!durable?.url) return;
+          setNodes(previous => previous.map(node => node.id === targetId ? { ...node, url: durable.url, status: 'ready', localPreviewUrl: '' } : node));
+        }).catch(() => {
+          setNodes(previous => previous.map(node => node.id === targetId ? { ...node, status: 'ready' } : node));
+        });
+      } catch (error) {
+        showToast(error?.message || '替换素材失败，请重试', 'error');
+      }
+      return;
+    }
     setPromptLoading(true);
     try {
       const assets = await readCanvasImageFiles(files, uploadStartedAt);
@@ -4367,6 +4412,38 @@ const handlePointerUp = useCallback((e) => {
     event.target.value = '';
     if (!files.length) return;
     const uploadStartedAt = Date.now();
+    /* 「替换」视频素材: 套到目标节点上（位置/连线不变）。 */
+    if (mediaReplaceTargetRef.current) {
+      const targetId = mediaReplaceTargetRef.current;
+      mediaReplaceTargetRef.current = null;
+      setPromptLoading(true);
+      try {
+        const asset = { ...(await uploadVideoAsset(files[0], 'video')), name: files[0].name };
+        if (!asset?.url) { showToast('视频上传结果为空，请重试', 'error'); return; }
+        setNodes(previous => previous.map(node => node.id === targetId ? {
+          ...node,
+          kind: 'video',
+          url: asset.url,
+          videoAssetId: asset.id || asset.videoAssetId || node.videoAssetId || '',
+          name: files[0].name,
+          displayLabel: files[0].name,
+          aspectRatio: asset.aspectRatio || node.aspectRatio || '16:9',
+          duration: Number(asset.duration) || node.duration || 0,
+          resolution: asset.resolution || node.resolution || '',
+          status: 'ready',
+          mediaPlaybackStatus: undefined,
+          mediaPlaybackError: '',
+          templatePlaceholder: false,
+        } : node));
+        setSelected(targetId);
+        showToast('已替换视频素材', 'success');
+      } catch (error) {
+        showToast(error?.message || '替换视频素材失败，请重试', 'error');
+      } finally {
+        setPromptLoading(false);
+      }
+      return;
+    }
     canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `video-upload-${uploadStartedAt}` });
     setPromptLoading(true);
     try {

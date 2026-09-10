@@ -104,11 +104,12 @@ export function mergeGraphMentionSources(node, connections = []) {
   return ids;
 }
 
-/* [槽] 节点 = 一键铺开后唯一需要高亮（琥珀描边 + "把商品图拖进来"）的节点。
-   数据真源: 模板 makeNode(slot:true) 写的 isSlot/slot 标记 + 空 url。*/
+/* 模板预置素材节点 = 铺开后可用「替换」一键换成自己素材的节点（用户 9-10: 替换按钮必须有）。
+   数据真源: 模板的 templatePlaceholder 标记（旧模板的 isSlot/slot 兼容保留）。
+   注意: 占位素材自带 url（铺开即与真实上传物一致），所以不再以空 url 判定。*/
 export function workflowSlotIds(nodes = []) {
   return (Array.isArray(nodes) ? nodes : [])
-    .filter(node => (node?.isSlot === true || node?.slot === true) && !String(node?.url || '').trim())
+    .filter(node => node?.templatePlaceholder === true || node?.isSlot === true || node?.slot === true)
     .map(node => String(node?.id ?? ''))
     .filter(Boolean);
 }

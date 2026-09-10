@@ -630,7 +630,6 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
           : <ResponsiveImage src={layer.url} alt="" variant="canvas" ratio={layer.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />}
       </div>)}
     </div> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
-      {node.p3Pending && <small className="ec-canvas-p3-badge">待 P3 · 视频/音频能力即将上线</small>}
       {isVideo ? <Clapperboard size={28} /> : isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
@@ -1262,11 +1261,10 @@ export function CanvasImageNode({
   canDerive = true,
 }) {
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
-  /* P2 工作流模板 [槽] 节点: 琥珀描边 + "把商品图拖进来" 提示（数据真源 node.isSlot/slot + 空 url）*/
-  const slotPending = Boolean(node.isSlot || node.slot) && !String(node.url || '').trim();
+  /* 用户 9-10 反馈: 模板素材节点必须与真实上传素材完全同款 —— 不再有自造"槽位"描边与提示文案。 */
   return <article
     data-canvas-node-id={node.id}
-    className={`ec-canvas-media-node is-${presentation.state} ${presentation.dimmed ? 'is-dimmed' : ''} ${slotPending ? 'is-slot' : ''}`}
+    className={`ec-canvas-media-node is-${presentation.state} ${presentation.dimmed ? 'is-dimmed' : ''}`}
     style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible', opacity: typeof node.opacity === 'number' ? node.opacity : 1 }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
@@ -1290,7 +1288,6 @@ export function CanvasImageNode({
         }}
       />
       <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />
-      {slotPending && <div className="ec-canvas-slot-hint" aria-hidden="true"><ImageUp size={18} /><strong>把商品图拖进来</strong></div>}
     </div>
     {node.showMeta !== false && <footer>
       <strong>{node.name || node.displayLabel || '未命名图片'}</strong>

@@ -25,13 +25,17 @@ test('T2 模特试穿: 入边顺序 = @图片N 编号（图 = 唯一真源）', 
   assert.equal(t2.runnableThisPhase, true);
   const { nodes, connections } = t2.graph;
 
-  /* 槽位: 铺开后琥珀高亮的节点（isSlot/slot 标记 + 空 url）。*/
+  /* 预置素材节点: 铺开后可用「替换」一键换成自己素材的节点（templatePlaceholder）。*/
   assert.deepEqual(workflowSlotIds(nodes), ['slot-garment', 'slot-model']);
 
-  /* 空槽没有产物 -> sources 仍按入边顺序登记（sources 记录所有可解析上游）, 但 images 为空。*/
-  const emptyInputs = collectRunInputs('try-on', connections, nodes);
-  assert.deepEqual(emptyInputs.sources, ['slot-garment', 'slot-model'], '入边顺序（connections 数组出现顺序）');
-  assert.deepEqual(emptyInputs.images, [], '空槽暂无产物');
+  /* 用户 9-10 后: 素材节点自带占位素材 -> 铺开即有产物, @图片N 直接按入边顺序可解析（无需先填空槽）。*/
+  const placedInputs = collectRunInputs('try-on', connections, nodes);
+  assert.deepEqual(placedInputs.sources, ['slot-garment', 'slot-model'], '入边顺序（connections 数组出现顺序）');
+  assert.deepEqual(
+    placedInputs.images.map(item => [item.nodeId, item.index]),
+    [['slot-garment', 1], ['slot-model', 2]],
+    '占位素材 = @图片1/@图片2',
+  );
 
   /* 槽位填上商品图后: @图片1 = 第 1 条入边, @图片2 = 第 2 条入边（index 逐一对应）。*/
   const filled = nodes.map(node => String(node.id).startsWith('slot') ? { ...node, url: 'https://example.com/' + node.id + '.png' } : node);

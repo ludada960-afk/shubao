@@ -26,10 +26,11 @@ function createSeededStore() {
   return { db, store };
 }
 
+/* 用户 9-10 后: 模板素材节点自带占位素材 url（铺开即与真实上传物同款），
+   唯一还需要用户填写的是 text 节点（反推提示词 / 分镜脚本 / 卖点文案）。 */
 function withFilledSlots(nodes) {
   return nodes.map(node => {
     const copy = { ...node };
-    if (copy.slot) copy.url = 'https://cdn.test/filled-' + copy.id + '.png';
     if (copy.kind === 'text') copy.text = 'filled content';
     return copy;
   });
@@ -146,23 +147,21 @@ test('graph_json validity: P1 buildRunPlan REAL split (empty slots) + fill-to-ru
   const t2Fresh = buildRunPlan({ nodes: bySlug['model-try-on'].graph.nodes, connections: bySlug['model-try-on'].graph.connections });
   assert.equal(t2Fresh.ok, true);
   assert.deepEqual(t2Fresh.executableNodeIds, ['try-on', 'three-view']);
-  assert.deepEqual(t2Fresh.sourceNodeIds, []);
-  assert.deepEqual(t2Fresh.unsupportedNodeIds.sort(), ['slot-garment', 'slot-model']);
-  const t2Filled = buildRunPlan({ nodes: withFilledSlots(bySlug['model-try-on'].graph.nodes), connections: bySlug['model-try-on'].graph.connections });
-  assert.deepEqual(t2Filled.executableNodeIds, ['try-on', 'three-view']);
-  assert.deepEqual(t2Filled.sourceNodeIds, ['slot-garment', 'slot-model']);
-  assert.equal(t2Filled.unsupportedNodeIds.length, 0); // 填齐后无封锁点
+  /* 占位素材自带 url -> 两个素材节点直接进 source 集（铺开即可端到端跑, 用户可再替换成自己的图）。 */
+  assert.deepEqual(t2Fresh.sourceNodeIds.sort(), ['slot-garment', 'slot-model']);
+  assert.equal(t2Fresh.unsupportedNodeIds.length, 0);
 
   /* T1：reverse-prompt 是 text 节点（P1 不执行 text）——空文本 = 无产物 -> unsupported（封锁下游）；
      main-image（image-composer）在 plan 层仍列 executable（真实封锁发生在 P1 执行层按上游 blocked 传递）。 */
   const t1 = buildRunPlan({ nodes: bySlug['white-bg-main'].graph.nodes, connections: bySlug['white-bg-main'].graph.connections });
   assert.equal(t1.ok, true);
   assert.deepEqual(t1.executableNodeIds, ['main-image']);
-  assert.deepEqual(t1.unsupportedNodeIds.sort(), ['reverse-prompt', 'slot-product']); // 空 text 节点 unsupported
-  /* fill-to-run 契约：模拟用户填入 text -> reverse-prompt 有产物 = source，喂给下游 main-image（可执行段成立）。 */
+  assert.deepEqual(t1.sourceNodeIds, ['slot-product']); // 占位商品图自带 url = source
+  assert.deepEqual(t1.unsupportedNodeIds, ['reverse-prompt']); // 空 text 节点（P1 不执行 text）
+  /* fill-to-run 契约：填入反推提示词 -> reverse-prompt 进 source 集, 主图段成立。 */
   const t1Filled = buildRunPlan({ nodes: withFilledSlots(bySlug['white-bg-main'].graph.nodes), connections: bySlug['white-bg-main'].graph.connections });
   assert.deepEqual(t1Filled.sourceNodeIds.sort(), ['reverse-prompt', 'slot-product']);
-  assert.ok(!t1Filled.unsupportedNodeIds.includes('reverse-prompt'));
+  assert.equal(t1Filled.unsupportedNodeIds.length, 0);
   assert.deepEqual(t1Filled.executableNodeIds, ['main-image']);
 
   /* T3：同样 fill-to-run；P3 把 splice（本地 sharp 免费, 0 扣费）接进白名单 -> detail-splice 在 plan 层转 executable
@@ -170,8 +169,8 @@ test('graph_json validity: P1 buildRunPlan REAL split (empty slots) + fill-to-ru
   const t3 = buildRunPlan({ nodes: bySlug['scene-detail'].graph.nodes, connections: bySlug['scene-detail'].graph.connections });
   assert.equal(t3.ok, true);
   assert.deepEqual(t3.executableNodeIds, ['scene', 'detail-splice']);
-  assert.ok(t3.unsupportedNodeIds.includes('reverse-prompt'));
-  assert.ok(t3.unsupportedNodeIds.includes('slot-product')); // 空槽位 = 无产物
+  assert.deepEqual(t3.sourceNodeIds, ['slot-product']); // 占位商品图自带 url = source
+  assert.deepEqual(t3.unsupportedNodeIds, ['reverse-prompt']); // 空文本节点
   assert.ok(!t3.unsupportedNodeIds.includes('detail-splice')); // P3: splice 已接线白名单（此前 unsupported）
   const t3Filled = buildRunPlan({ nodes: withFilledSlots(bySlug['scene-detail'].graph.nodes), connections: bySlug['scene-detail'].graph.connections });
   assert.ok(t3Filled.sourceNodeIds.includes('reverse-prompt'));
@@ -187,15 +186,17 @@ test('graph_json validity: P1 buildRunPlan REAL split (empty slots) + fill-to-ru
   for (const n of bySlug['outfit-video'].graph.nodes.filter(x => p3Kinds.includes(x.actionId))) {
     assert.ok(t4.unsupportedNodeIds.includes(n.id), 'P3 node ' + n.id + ' must be unsupported');
   }
-  assert.ok(t4.unsupportedNodeIds.includes('slot-motion')); // kind=video 槽位
+  assert.ok(t4.sourceNodeIds.includes('slot-motion')); // 占位视频素材自带 url = source
   assert.equal(bySlug['outfit-video'].requiresAudioVideo, true);
 
   /* T5：P3 门控 —— tts / lip-sync 在 unsupported。 */
   const t5 = buildRunPlan({ nodes: bySlug['voiceover'].graph.nodes, connections: bySlug['voiceover'].graph.connections });
   assert.equal(t5.ok, true);
   assert.deepEqual(t5.executableNodeIds, ['host-image']);
+  assert.deepEqual(t5.sourceNodeIds, ['slot-product']);
   assert.ok(t5.unsupportedNodeIds.includes('tts'));
   assert.ok(t5.unsupportedNodeIds.includes('lip-sync'));
+  assert.ok(t5.unsupportedNodeIds.includes('selling-copy')); // 空卖点文案节点
   assert.equal(bySlug['voiceover'].requiresAudioVideo, true);
 
   /* 门控元数据：runnableThisPhase 只有 T2 = true；其余 false + gateNote 说明原因（不过度承诺）。 */

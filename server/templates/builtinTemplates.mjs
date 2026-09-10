@@ -45,6 +45,41 @@ function makeNode({ id, kind, actionId, x, y, w, h, group, role, name, slot = fa
   return node;
 }
 
+/* 用户 9-10 反馈: 模板里的素材节点必须"长得跟真实上传的素材一样", 不许自造槽位样式。
+   这里直接产出与 createUploadedImageNodes / createUploadedVideoNodes 同款的节点形状,
+   并预置真实占位素材（铺开后可用「替换」一键换成自己的图, 无需重新连线）。 */
+const PLACEHOLDER_ASSETS = Object.freeze({
+  product: { url: '/images/home/ecommerce-showcase/earbuds-product-source.png', ratio: '1:1', w: 240, h: 240 },
+  model: { url: '/images/home/ecommerce-showcase/earbuds-detail-fit.png', ratio: '1:1', w: 240, h: 240 },
+  garment: { url: '/images/home/ecommerce-showcase/earbuds-main-lifestyle.png', ratio: '1:1', w: 240, h: 240 },
+  motion: { url: '/images/home/ecommerce-showcase/earbuds-suite-composite.png', ratio: '16:9', w: 320, h: 180 },
+});
+
+/* 图片素材节点: 与 createUploadedImageNodes 同款字段（真实上传物长这样）。 */
+function materialImageNode({ id, x, y, name, asset }) {
+  const a = PLACEHOLDER_ASSETS[asset] || PLACEHOLDER_ASSETS.product;
+  return {
+    id, kind: 'image', provenance: 'source', status: 'ready',
+    url: a.url, name, displayLabel: name, group: '素材', role: '素材', ratio: a.ratio,
+    sourceNodeIds: [], editable: true, showMeta: true,
+    x, y, w: a.w, h: a.h, rotation: 0, flipX: false, flipY: false, locked: false, hidden: false,
+    templatePlaceholder: true,
+  };
+}
+
+/* 视频素材节点: 与 createUploadedVideoNodes 同款字段。 */
+function materialVideoNode({ id, x, y, name, asset = 'motion' }) {
+  const a = PLACEHOLDER_ASSETS[asset] || PLACEHOLDER_ASSETS.motion;
+  return {
+    id, kind: 'video', provenance: 'source', status: 'ready',
+    url: a.url, name, displayLabel: name, group: '视频', role: '参考视频',
+    aspectRatio: a.ratio, duration: 5, resolution: '720P',
+    sourceNodeIds: [], editable: true, showMeta: true,
+    x, y, w: a.w, h: a.h, rotation: 0, flipX: false, flipY: false, locked: false, hidden: false,
+    templatePlaceholder: true,
+  };
+}
+
 const edge = (fromNodeId, toNodeId) => ({ fromNodeId, toNodeId, relation: 'reference' });
 
 export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
@@ -64,7 +99,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     pricing: { estimatedUnits: 1.2, note: '预估 1.2 积分：反推 0.2 + 主图 1.0（展示预估，结算以目录为准）' },
     graph: Object.freeze({
       nodes: Object.freeze([
-        makeNode({ id: 'slot-product', kind: 'image', x: 40, y: 120, w: 240, h: 240, group: '素材', role: 'slot', name: '商品图', slot: true }),
+        materialImageNode({ id: 'slot-product', x: 40, y: 120, name: '商品图', asset: 'product' }),
         makeNode({ id: 'reverse-prompt', kind: 'text', actionId: 'reverse-prompt', x: 400, y: 120, w: 320, h: 140, group: '文本', role: 'text', name: '反推提示词' }),
         makeNode({ id: 'main-image', kind: 'image', actionId: 'image-composer', x: 840, y: 120, w: 320, h: 240, group: '图像', role: 'generate', name: '白底主图' }),
       ]),
@@ -91,8 +126,8 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     pricing: { estimatedUnits: 2, note: '预估 2 积分：试穿 1 + 三视图 1（无模特图补位 +1；结算以目录为准）' },
     graph: Object.freeze({
       nodes: Object.freeze([
-        makeNode({ id: 'slot-garment', kind: 'image', x: 40, y: 40, w: 240, h: 240, group: '素材', role: 'slot', name: '服装图', slot: true }),
-        makeNode({ id: 'slot-model', kind: 'image', x: 40, y: 380, w: 240, h: 240, group: '素材', role: 'slot', name: '模特图', slot: true }),
+        materialImageNode({ id: 'slot-garment', x: 40, y: 40, name: '服装图', asset: 'garment' }),
+        materialImageNode({ id: 'slot-model', x: 40, y: 480, name: '模特图', asset: 'model' }),
         makeNode({ id: 'try-on', kind: 'image', actionId: 'image-composer', x: 440, y: 160, w: 320, h: 300, group: '图像', role: 'generate', name: '试穿合成' }),
         makeNode({ id: 'three-view', kind: 'image', actionId: 'image-composer', x: 920, y: 380, w: 320, h: 180, group: '图像', role: 'generate', name: '三视图 (16:9)' }),
       ]),
@@ -121,7 +156,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     pricing: { estimatedUnits: 4.2, note: '预估 1.2 + N 积分（N = 场景图张数，默认 3 → 4.2；详情拼接本地免费）' },
     graph: Object.freeze({
       nodes: Object.freeze([
-        makeNode({ id: 'slot-product', kind: 'image', x: 40, y: 180, w: 240, h: 240, group: '素材', role: 'slot', name: '商品图', slot: true }),
+        materialImageNode({ id: 'slot-product', x: 40, y: 180, name: '商品图', asset: 'product' }),
         makeNode({ id: 'reverse-prompt', kind: 'text', actionId: 'reverse-prompt', x: 400, y: 180, w: 320, h: 140, group: '文本', role: 'text', name: '反推提示词' }),
         makeNode({ id: 'scene', kind: 'image', actionId: 'image-composer', x: 800, y: 180, w: 320, h: 240, group: '图像', role: 'generate', name: '场景图 ×N', params: { count: 3 } }),
         makeNode({ id: 'detail-splice', kind: 'image', actionId: 'splice', x: 1240, y: 180, w: 320, h: 240, group: '图像', role: 'process', name: '详情图拼接' }),
@@ -150,9 +185,9 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     pricing: { estimatedUnits: 29, note: '预估 29 积分：试穿 1 + 分镜 1 + 成片视频 27（P3 音视频上线后结算）' },
     graph: Object.freeze({
       nodes: Object.freeze([
-        makeNode({ id: 'slot-model', kind: 'image', x: 40, y: 40, w: 240, h: 240, group: '素材', role: 'slot', name: '模特图', slot: true }),
-        makeNode({ id: 'slot-garment', kind: 'image', x: 40, y: 380, w: 240, h: 240, group: '素材', role: 'slot', name: '服装图', slot: true }),
-        makeNode({ id: 'slot-motion', kind: 'video', x: 40, y: 720, w: 320, h: 180, group: '素材', role: 'slot', name: '动作参考视频', slot: true }),
+        materialImageNode({ id: 'slot-model', x: 40, y: 40, name: '模特图', asset: 'model' }),
+        materialImageNode({ id: 'slot-garment', x: 40, y: 480, name: '服装图', asset: 'garment' }),
+        materialVideoNode({ id: 'slot-motion', x: 40, y: 920, name: '视频素材', asset: 'motion' }),
         makeNode({ id: 'try-on', kind: 'image', actionId: 'image-composer', x: 440, y: 160, w: 320, h: 300, group: '图像', role: 'generate', name: '试换装' }),
         makeNode({ id: 'storyboard', kind: 'text', actionId: 'storyboard', x: 440, y: 720, w: 320, h: 140, group: '文本', role: 'text', name: '分镜脚本' }),
         makeNode({ id: 'final-video', kind: 'video', actionId: 'video-composer', x: 920, y: 400, w: 360, h: 240, group: '视频', role: 'generate', name: '成片短视频' }),
@@ -183,7 +218,7 @@ export const BUILTIN_WORKFLOW_TEMPLATES = Object.freeze([
     pricing: { estimatedUnits: 8.2, note: '预估 8.2 积分：文案 0.2 + 主播图 1 + TTS 1 + 对口型 6（P3 音视频上线后结算）' },
     graph: Object.freeze({
       nodes: Object.freeze([
-        makeNode({ id: 'slot-product', kind: 'image', x: 40, y: 220, w: 240, h: 240, group: '素材', role: 'slot', name: '商品图', slot: true }),
+        materialImageNode({ id: 'slot-product', x: 40, y: 220, name: '商品图', asset: 'product' }),
         makeNode({ id: 'selling-copy', kind: 'text', actionId: 'selling-copy', x: 400, y: 40, w: 320, h: 140, group: '文本', role: 'text', name: '卖点口播文案' }),
         makeNode({ id: 'host-image', kind: 'image', actionId: 'image-composer', x: 400, y: 460, w: 300, h: 300, group: '图像', role: 'generate', name: '主播形象图' }),
         makeNode({ id: 'tts', kind: 'audio', actionId: 'tts', x: 800, y: 40, w: 320, h: 96, group: '音频', role: 'generate', name: '口播配音' }),

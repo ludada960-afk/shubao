@@ -26,11 +26,12 @@ test('every Canvas command is declared once with execution and billing metadata'
   }
 });
 
-test('selection exposes the pure image-edit toolbar (9 项, 9-05 反馈: 生成/应用类只在素材 + 派生菜单)', () => {
+test('selection exposes the pure image-edit toolbar (10 项, 9-05 反馈: 生成/应用类只在素材 + 派生菜单; 9-10 新增「替换」)', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
       'edit-text',
+      'replace-media',
       'grid-split',
       'layer-edit',
       'remove-background',
@@ -68,7 +69,7 @@ test('fresh uploads keep local tools immediately from their preview url', () => 
   // 用户 9-05: 上传中节点 url 门槛即过 — 本地工具 + 派生类 (layer-edit/remove-background) 全部立即可用
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: uploading }).map(action => action.id),
-    ['grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
+    ['replace-media', 'grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
   );
   // 纯 isReadyImage 门槛的动作仍等待 status=ready
   for (const gatedId of ['edit-text', 'reverse-prompt', 'annotation']) {
