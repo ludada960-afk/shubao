@@ -143,6 +143,15 @@ UP 主的完整流程（女装带货口哨舞视频），我按逐字稿逐节�
 | **`/api/canvas/tts`、`/api/canvas/one-click-video`** | 动作注册表里有 `execute.route` | **后端不存在这两条路由**（悬空） | 接线或删掉元数据 |
 | **批量下载** | 规格函数 `downloadNodeMediaBatch` 已写好 | 全仓 0 引用，UI 无入口 | 接线（Quantv 也没有，是我们的加分项） |
 
+**审计补充（全仓 mock/占位扫描结果）**：
+
+| 项 | 结论 |
+|---|---|
+| 微信/企微登录 | `server/auth/providers/placeholderProviders.mjs` 是占位适配器，但 `providerRegistry` **读表 enabled 才暴露、当前无凭据 = 隐藏** → 登录页不会出现死按钮。**不是问题**（接入时换掉适配器即可） |
+| 公开模板的"使用量"数字 | `server/templates/publicTemplates.mjs` 注释自述"100 套占位 base 计数，头部 18 套沿用真实数据，82 套占位（递减稳态…等待真实使用率）" → **给用户看的是模拟使用量**。这属于产品诚信问题，**需要你拍板**：要么接真实统计，要么去掉这个数字 |
+| `videoWorkbenchStore` 等的 "placeholder" | 只是 SQL 占位符，**误报**，无需处理 |
+| 其他 (`paywall`/`authRoutes`/`paymentChannels` 的 mock 字样) | 多为开发/沙箱路径，未影响线上；P1 开工前再逐个复核 |
+
 > 结论：**P3 的音视频节点族开工前，必须先做"假能力清理"**（接真上游 + 计费，或在 UI 上诚实标注）。
 > 这也是"每一个走上游的功能都要收积分"这条原则的反面：**不走上游的功能不能假装走过**。
 
