@@ -76,16 +76,15 @@ test('computeTTSCost 负值/NaN 抛错 (输入校验)', () => {
 });
 
 // 3) 列出 provider
-test('listTTSProviders 6 家全列 (含 marginBand; 9-10 新增百度大模型语音合成)', () => {
+test('listTTSProviders 5 家全列 (含 marginBand)', () => {
   const list = listTTSProviders();
-  assert.equal(list.length, 6);
+  assert.equal(list.length, 5);
   const keys = list.map((p) => p.key);
   assert.ok(keys.includes('volcengine'));
   assert.ok(keys.includes('elevenlabs'));
   assert.ok(keys.includes('aliyun'));
   assert.ok(keys.includes('azure'));
   assert.ok(keys.includes('minimax'));
-  assert.ok(keys.includes('baidu'), '百度语音必须在内');
   const volc = list.find((p) => p.key === 'volcengine');
   assert.equal(volc.marginBand, 'core');
   const elabs = list.find((p) => p.key === 'elevenlabs');
@@ -94,20 +93,19 @@ test('listTTSProviders 6 家全列 (含 marginBand; 9-10 新增百度大模型�
 
 test('listTPSProviders 别名与 listTTSProviders 等价 (兼容历史命名)', () => {
   assert.equal(listTPSProviders, listTTSProviders);
-  assert.equal(listTPSProviders().length, 6);
+  assert.equal(listTPSProviders().length, 5);
 });
 
 // 4) Keyring 轮换
-test('nextProviderKey round-robin 6 个不重复', () => {
+test('nextProviderKey round-robin 5 个不重复', () => {
   const seen = new Set();
-  for (let i = 0; i < 6; i += 1) seen.add(nextProviderKey());
-  assert.equal(seen.size, 6);
+  for (let i = 0; i < 5; i += 1) seen.add(nextProviderKey());
+  assert.equal(seen.size, 5);
 });
 
-test('nextProviderKey 第 7 次回到第 1 个', () => {
-  // 6 家轮转: 连续取 7 次, 第一个和第七个相同
+test('nextProviderKey 第 6 次回到第 1 个', () => {
   const first = nextProviderKey();
-  for (let i = 0; i < 5; i += 1) nextProviderKey();
+  for (let i = 0; i < 4; i += 1) nextProviderKey();
   assert.equal(nextProviderKey(), first);
 });
 
@@ -152,7 +150,8 @@ test('computeTTSCostSnapshot override 时不挑 (上游实报优先)', () => {
 test('synthesizeTTS volcengine mock 调用 返 audioUrl + cost + durationMs', async () => {
   // 用 1000 字确保 costCny > 0 (2 字 0.0001/1000*2=2e-7 rounds to 0)
   const text = '你好'.repeat(500);
-  const r = await synthesizeTTS({ text, provider: 'volcengine', apiKey: 'test', apiSecret: 'test' });
+  /* 本文件测的是 mock 路径: 必须传 mock 占位凭据, 否则适配器会走真上游(火山)。 */
+  const r = await synthesizeTTS({ text, provider: 'volcengine', apiKey: 'mock-key', apiSecret: 'mock-secret' });
   assert.equal(r.provider, 'volcengine');
   assert.equal(r.textChars, 1000);
   assert.equal(typeof r.audioUrl, 'string');
@@ -251,7 +250,7 @@ test('mountTTSRoutes 挂载 GET /api/tts/providers (公开)', async () => {
   await handler({}, res);
   assert.equal(res.statusCode, 200);
   assert.ok(Array.isArray(res.body.providers));
-  assert.equal(res.body.providers.length, 6);
+  assert.equal(res.body.providers.length, 5);
 });
 
 test('mountTTSRoutes 挂载 POST /api/tts/synthesize (鉴权)', () => {

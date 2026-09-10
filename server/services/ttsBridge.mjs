@@ -52,14 +52,6 @@ export const TTS_PRICING = Object.freeze({
     voiceCount: 100,
     marginBand: 'core',
   },
-  /* 用户 9-10: 百度智能云「语音合成 2.0(大模型)」+「声音复刻 2.0」已开通(各 2 万字免费额度, 99 标准音色)。 */
-  baidu: {
-    name: '百度语音·大模型语音合成',
-    inputPricePerKChars: 0.0002,
-    outputPricePerKChars: 0.0002,
-    voiceCount: 99,
-    marginBand: 'core',
-  },
 });
 
 // ── Provider rotation (keyring) ──
@@ -219,75 +211,65 @@ async function callMiniMaxTTS({ apiKey, text, voiceId, lang, speed }) {
   };
 }
 
-/* ── 百度语音·大模型语音合成 (真上游; 用户 9-10 开通并给出 API Key) ──
-   契约: API Key + Secret Key 换 access_token(缓存) → POST https://tsn.baidu.com/text2audio
-   (form: tex/tok/cuid/ctp/lan/spd/pit/vol/per/aue) → 成功返回音频二进制, 失败返回 JSON {err_no,err_msg}。
-   未配置 Secret Key 时保持 mock(诚实门控), 不发任何外部请求。 */
-const BAIDU_TOKEN_URL = 'https://aip.baidubce.com/oauth/2.0/token';
-const BAIDU_TTS_URL = 'https://tsn.baidu.com/text2audio';
-const BAIDU_DEFAULT_PER = '5003'; // 度逍遥(精品); 传数字音色 id 可覆盖(含声音复刻音色)
-let baiduTokenCache = { token: '', expiresAt: 0 };
+/* ── 火山引擎（豆包语音）大模型语音合成 —— 真上游 ──
+   用户 9-10 纠正: 我们的 TTS 供应商是火山(豆包语音), 不是百度。
+   契约(2026-09-11 实测): POST https://openspeech.bytedance.com/api/v1/tts, 鉴权仅需请求头 X-Api-Key: <API Key>。
+   body = { app:{appid,cluster}, user:{uid}, audio:{voice_type,encoding,speed_ratio}, request:{reqid,text,operation:'query'} }
+   成功: { code:3000, data:'<base64 mp3>' }; 服务未开通: { code:3001, message:'...resource not granted' }。
+   未配置真 key 时保持 mock(诚实门控), 不发任何外部请求。 */
+const VOLC_TTS_URL = process.env.VOLC_TTS_URL || 'https://openspeech.bytedance.com/api/v1/tts';
+const VOLC_TTS_CLUSTER = process.env.VOLC_TTS_CLUSTER || 'volcano_tts';
+const VOLC_TTS_DEFAULT_VOICE = process.env.TTS_VOICE_ID_VOLCENGINE || 'zh_female_cancan_mars_bigtts';
 
-/* 纯函数: 构造百度 TTS 请求(供契约测试, 不发网络)。 */
-export function buildBaiduTtsRequest({ text, token, voiceId = '', speed = 1, lang = 'zh-CN', cuid = 'shubao-canvas' } = {}) {
-  const per = /^\d+$/.test(String(voiceId || '')) ? String(voiceId) : BAIDU_DEFAULT_PER;
-  const spd = Math.max(0, Math.min(15, Math.round(5 * (Number(speed) || 1))));
-  const body = new URLSearchParams();
-  body.set('tex', String(text || ''));
-  body.set('tok', String(token || ''));
-  body.set('cuid', cuid);
-  body.set('ctp', '1');
-  body.set('lan', String(lang || 'zh-CN').toLowerCase().startsWith('en') ? 'en' : 'zh');
-  body.set('spd', String(spd));
-  body.set('pit', '5');
-  body.set('vol', '5');
-  body.set('per', per);
-  body.set('aue', '3'); // mp3
-  return { url: BAIDU_TTS_URL, body: body.toString(), per, spd };
+/* 纯函数: 构造火山 TTS 请求(供契约测试, 不发网络)。 */
+export function buildVolcengineTtsRequest({ text, voiceId = '', speed = 1, appId = '', reqid = 'shubao-tts' } = {}) {
+  return {
+    url: VOLC_TTS_URL,
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      app: { appid: String(appId || ''), token: '', cluster: VOLC_TTS_CLUSTER },
+      user: { uid: 'shubao-canvas' },
+      audio: { voice_type: String(voiceId || '') || VOLC_TTS_DEFAULT_VOICE, encoding: 'mp3', speed_ratio: Number(speed) || 1 },
+      request: { reqid, text: String(text || ''), operation: 'query' },
+    },
+  };
 }
 
 export function isRealTtsCredential(value) {
   const v = String(value || '').trim();
-  return Boolean(v) && v !== 'mock-key' && v !== 'mock-secret';
+  return Boolean(v) && v !== 'mock-key' && v !== 'mock-secret' && v !== 'mock';
 }
 
-async function fetchBaiduAccessToken(apiKey, apiSecret, { fetchImpl = fetch, now = Date.now } = {}) {
-  const nowMs = now();
-  if (baiduTokenCache.token && baiduTokenCache.expiresAt > nowMs + 60_000) return baiduTokenCache.token;
-  const url = BAIDU_TOKEN_URL + '?grant_type=client_credentials&client_id=' + encodeURIComponent(apiKey) + '&client_secret=' + encodeURIComponent(apiSecret);
-  const res = await fetchImpl(url, { method: 'POST' });
-  const data = await res.json().catch(() => ({}));
-  const token = String(data?.access_token || '');
-  if (!token) throw new Error('百度语音 access_token 获取失败: ' + (data?.error_description || data?.error || res.status));
-  baiduTokenCache = { token, expiresAt: nowMs + Math.max(60, Number(data?.expires_in) || 2_592_000) * 1000 };
-  return token;
+export function volcengineServiceNotGrantedHint(message) {
+  return /not granted|resource_id/i.test(String(message || ''))
+    ? '（该 API Key 尚未在火山引擎控制台开通「语音合成 2.0」，开通后即自动转真）'
+    : '';
 }
 
-async function callBaiduTTS({ apiKey, apiSecret, text, voiceId, lang, speed }) {
-  if (!isRealTtsCredential(apiKey) || !isRealTtsCredential(apiSecret)) {
-    /* 未配置 Secret Key: 保持 mock(控制台补齐后自动转真) */
-    return { provider: 'baidu', voiceId, text, mockAudio: true, audioUrl: mockTtsAudioDataUrl('baidu-' + text.length) };
+async function callVolcengineTTSReal({ apiKey, text, voiceId, speed }) {
+  /* 诚实门控: 未配置真 API Key(或仍是 mock 占位) 时绝不发外部请求。 */
+  if (!isRealTtsCredential(apiKey)) {
+    return { provider: 'volcengine', voiceId, text, mockAudio: true, audioUrl: mockTtsAudioDataUrl('volc-' + text.length) };
   }
-  const token = await fetchBaiduAccessToken(apiKey, apiSecret);
-  const req = buildBaiduTtsRequest({ text, token, voiceId, speed, lang });
+  const req = buildVolcengineTtsRequest({
+    text, voiceId, speed,
+    appId: process.env.VOLC_TTS_APPID || '',
+    reqid: 'shubao-' + Date.now(),
+  });
   const res = await fetch(req.url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: req.body,
+    headers: { 'X-Api-Key': String(apiKey), ...req.headers },
+    body: JSON.stringify(req.body),
   });
-  const contentType = String(res.headers.get('content-type') || '');
-  if (!contentType.includes('audio')) {
-    const detail = await res.text().catch(() => '');
-    let message = '百度语音合成失败';
-    try { const j = JSON.parse(detail); message += ': ' + (j.err_msg || j.error_msg || detail.slice(0, 120)); }
-    catch { message += ': ' + detail.slice(0, 120); }
-    throw new Error(message);
+  const data = await res.json().catch(() => ({}));
+  if (Number(data?.code) !== 3000 || !data?.data) {
+    throw new Error('火山语音合成失败: ' + (data?.message || ('HTTP ' + res.status)) + volcengineServiceNotGrantedHint(data?.message));
   }
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (!buffer.length) throw new Error('百度语音合成返回空音频');
+  const buffer = Buffer.from(String(data.data), 'base64');
+  if (!buffer.length) throw new Error('火山语音合成返回空音频');
   return {
-    provider: 'baidu',
-    voiceId: req.per,
+    provider: 'volcengine',
+    voiceId: req.body.audio.voice_type,
     text,
     mockAudio: false,
     audioUrl: 'data:audio/mp3;base64,' + buffer.toString('base64'),
@@ -296,8 +278,7 @@ async function callBaiduTTS({ apiKey, apiSecret, text, voiceId, lang, speed }) {
 }
 
 const ADAPTERS = Object.freeze({
-  baidu: callBaiduTTS,
-  volcengine: callVolcengineTTS,
+  volcengine: callVolcengineTTSReal,
   elevenlabs: callElevenLabsTTS,
   aliyun: callAliyunTTS,
   azure: callAzureTTS,
