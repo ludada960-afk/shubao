@@ -27,6 +27,34 @@ test('new coverage SKUs exist (2026-09-10 audit)', () => {
   assert.equal(FEATURE_SKUS.ec_preview_cover.units, 500);
 });
 
+test('rules carry a server-rendered price text — non-point currencies never render as "0 积分"', () => {
+  const rules = buildBillingRules();
+  const items = rules.flatMap(group => group.items);
+  assert.ok(items.length > 0);
+  for (const item of items) {
+    assert.ok(item.priceText && item.priceText.includes('/'), `${item.sku} missing priceText`);
+    assert.ok(item.currencyLabel, `${item.sku} missing currencyLabel`);
+    assert.ok(!/^0\s/.test(item.priceText), `${item.sku} renders a zero price: ${item.priceText}`);
+  }
+  const contentSet = items.find(item => item.sku === 'content_full_set');
+  assert.equal(contentSet.currency, 'content_sets');
+  assert.equal(contentSet.priceText, '1 内容集/套');
+  const points = items.find(item => item.sku === 'ec_image_2k');
+  assert.equal(points.priceText, '1 积分/张');
+  const cheap = items.find(item => item.sku === 'ec_canvas_recognize');
+  assert.equal(cheap.priceText, '0.2 积分/次');
+});
+
+test('released hold detail is formatted in the wallet currency, not raw internal units', () => {
+  const entries = [
+    ledgerRow({ id: 'h1', eventType: 'hold', idempotencyKey: 'ec-hold:task9', referenceId: 'hold-9', deltaAvailable: -3000, deltaHeld: 3000, balanceAvailable: 97000, metadata: holdMeta([{ key: 'main-text', sku: 'ec_image_2k', units: 1000 }], undefined) }),
+    ledgerRow({ id: 's1', eventType: 'settle', deltaHeld: -1000, metadata: { _walletService: { fingerprint: JSON.stringify({ holdId: 'hold-9' }) } } }),
+    ledgerRow({ id: 'r1', eventType: 'release', deltaAvailable: 2000, metadata: { _walletService: { fingerprint: JSON.stringify({ holdId: 'hold-9' }) } } }),
+  ];
+  const [tx] = buildLedgerTransactions(entries);
+  assert.equal(tx.detail, '已退还 2');
+});
+
 function ledgerRow(overrides = {}) {
   return {
     id: overrides.id || 'row',

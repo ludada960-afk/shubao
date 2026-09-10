@@ -108,7 +108,8 @@ export default function MemberCenterModal({ open, onClose }) {
                       {group.items.map(item => (
                         <li key={item.sku}>
                           <span>{item.label}</span>
-                          <b>{(item.units / 1000).toLocaleString('zh-Hans-CN', { maximumFractionDigits: 1 })} 积分/{item.unit}</b>
+                          {/* 价格文案由服务端生成（积分账本内部单位 1/1000，内容集等其他币种按原值），前端不再自己换算 */}
+                          <b>{item.priceText || `${(Number(item.units) || 0) / 1000} 积分/${item.unit}`}</b>
                         </li>
                       ))}
                     </ul>

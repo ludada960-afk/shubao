@@ -14,6 +14,21 @@ export const BILLING_CATEGORIES = Object.freeze([
   { key: 'account', label: '账户' },
 ]);
 
+const CURRENCY_LABELS = Object.freeze({
+  ec_points: '积分',
+  content_sets: '内容集',
+});
+
+/**
+ * 展示用金额：积分账本以 1/1000 为内部单位，其余币种（如内容集）按原值展示。
+ * 单一事实源——前端不允许自己除 1000，否则非积分币种会显示成 "0 积分"。
+ */
+export function formatBillingAmount(units, currencyKey = 'ec_points') {
+  const value = Number(units) || 0;
+  const display = currencyKey === 'ec_points' ? value / 1000 : value;
+  return display.toLocaleString('zh-Hans-CN', { maximumFractionDigits: 2 });
+}
+
 const SKU_LABELS = Object.freeze({
   ec_image_2k: { label: 'AI 商品图 · 2K', category: 'image', per: '张' },
   ec_image_4k: { label: 'AI 商品图 · 4K', category: 'image', per: '张' },
@@ -87,12 +102,17 @@ export function buildBillingRules() {
     if (feature.public === false) continue;
     const meta = SKU_LABELS[sku] || { label: sku, category: 'image', per: '次' };
     const group = groups.get(meta.category) || groups.get('image');
+    const currencyKey = feature.currency ?? 'ec_points';
+    const currencyLabel = CURRENCY_LABELS[currencyKey] || currencyKey;
+    const unit = meta.per || '次';
     group.items.push({
       sku,
       label: meta.label,
-      unit: meta.per || '次',
+      unit,
       units: feature.units,
-      currency: feature.currency ?? 'ec_points',
+      currency: currencyKey,
+      currencyLabel,
+      priceText: `${formatBillingAmount(feature.units, currencyKey)} ${currencyLabel}/${unit}`,
     });
   }
   for (const group of groups.values()) {
@@ -167,7 +187,7 @@ export function buildLedgerTransactions(entries = [], { limit = 30 } = {}) {
         kind: released > 0 && settled === 0 ? 'refund' : 'spend',
         amount: -spent,
         balance: Number(entry.balanceAvailable) || 0,
-        detail: released > 0 ? `已退还 ${released}` : '',
+        detail: released > 0 ? `已退还 ${formatBillingAmount(released, entry.currency || 'ec_points')}` : '',
       });
       continue;
     }
