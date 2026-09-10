@@ -73,6 +73,7 @@ import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuite
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
+import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
 const GRAPH_RUN_KINDS = {
@@ -4187,8 +4188,14 @@ const handlePointerUp = useCallback((e) => {
   }, [handleAddTextNode]);
 
   const handleTextNodeChange = useCallback((nodeId, text) => {
-    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text } : node));
-  }, []);
+    setNodes(previous => {
+      const target = previous.find(node => node.id === nodeId);
+      if (!target || target.text === text) return previous; // 文本没变，不标脏
+      const updated = previous.map(node => node.id === nodeId ? { ...node, text } : node);
+      // 文本 = 上游产物，改了 → 沿出边把下游标 stale（P0 引擎，不越过 running/failed）
+      return markStaleDownstream({ nodes: updated, connections, changedNodeId: nodeId }).nodes;
+    });
+  }, [connections]);
   /* 文字框高度自适应 (用户 9-04 反馈: 打字超过两行框不跟着变大) */
   const handleTextNodeAutoHeight = useCallback((nodeId, height) => {
     setNodes(previous => previous.map(node => node.id === nodeId && Number.isFinite(height) ? { ...node, h: Math.max(84, Math.round(height)) } : node));

@@ -10,6 +10,7 @@
 .status-running, .status-analyzing { color: #5b50d6; background: #efeeff; }
 .status-success, .status-ready { color: #0f8b64; background: #e8fbf2; }
 .status-error { color: #c53d4c; background: #fff0f1; }
+.status-stale { color: #b45309; background: #fef3c7; }
 .workflow-node-icon-button { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 7px; color: #7b8495; background: transparent; cursor: pointer; }
 .workflow-node-icon-button:hover { color: #4f46c6; background: #f1f0ff; }
 .workflow-node-body { padding: 13px 15px 15px; }

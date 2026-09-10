@@ -5,6 +5,7 @@ export const NODE_STATUSES = {
   ready: { label: '可编辑', tone: 'success' },
   success: { label: '已完成', tone: 'success' },
   error: { label: '需要重试', tone: 'danger' },
+  stale: { label: '已失效·需重跑', tone: 'warning' },
 };
 
 export function normalizeStatus(status) {

@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from '../src/pages/EcCanvas/canvasGraphRunController.js';
+import { markStaleDownstream } from '../src/pages/EcCanvas/canvasGraphEngine.js';
+import { NODE_STATUSES, normalizeStatus } from '../src/pages/EcCanvas/components/workflowNodes/modular/workflowNodeViewModel.js';
+
+test('stale is a first-class node status (renders as 已失效, not 待配置)', () => {
+  assert.ok(NODE_STATUSES.stale, 'NODE_STATUSES must include stale');
+  assert.equal(normalizeStatus('stale'), 'stale', 'stale must not fall through to draft');
+  const { nodes, staleNodeIds } = markStaleDownstream({
+    nodes: [{ id: 'a', status: 'success' }, { id: 'b', status: 'success' }, { id: 'c', status: 'success' }],
+    connections: [{ fromNodeId: 'a', toNodeId: 'b' }, { fromNodeId: 'b', toNodeId: 'c' }],
+    changedNodeId: 'a',
+  });
+  assert.deepEqual(new Set(staleNodeIds), new Set(['b', 'c']));
+  assert.equal(nodes.find(n => n.id === 'b').status, 'stale');
+});
 
 /* ── buildRunPlan ── */
 test('buildRunPlan sums cost over executable nodes only', () => {
