@@ -566,7 +566,7 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /createBoundedRequestLifecycle/);
   assert.match(direction, /analysisRequestRef\s*=\s*useRef\(null\)/);
   assert.match(analysisSlice, /uploadSupplementAssetsForAnalysis\(analysisRequest\.signal\)/);
-  assert.match(analysisSlice, /getDesignDirections\([\s\S]{0,1400}\{\s*signal:\s*analysisRequest\.signal\s*\}\)/);
+  assert.match(analysisSlice, /getDesignDirections\([\s\S]{0,1900}\{\s*signal:\s*analysisRequest\.signal\s*\}\)/);
   assert.match(direction, /analysisRequestRef\.current\?\.cancel\(\)/);
   assert.match(direction, /analysisRequestRef\.current\?\.cleanup\(\)/);
   assert.match(direction, /uploadSupplementAssetsForGeneration\(generationToken/);
@@ -574,7 +574,9 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /quoteBillingAction\(\{\s*sku:\s*['"]ec_direction_refresh['"],\s*quantity:\s*1\s*\}\)/);
   assert.match(direction, /quoteId:\s*quote\.quoteId/);
   assert.match(direction, /billingQuoteId:\s*refreshBilling\?\.quoteId/);
-  assert.match(direction, /billingActionId:\s*refreshBilling\?\.actionId/);
+  assert.match(direction, /billingActionId:\s*refreshBilling\?\.actionId \?\? analysisBilling\?\.actionId/);
+  // 2026-09-10：首次方向分析同样计费（ec_direction_analysis），与刷新共用恢复式 actionId
+  assert.match(direction, /quoteBillingAction\(\{\s*sku:\s*['\"]ec_direction_analysis['\"],\s*quantity:\s*1\s*\}\)/);
   assert.match(direction, /directionRefreshActionRef\s*=\s*useRef\(null\)/);
   assert.match(direction, /loadEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId\s*\}\)/);
   assert.match(direction, /directionRefreshActionRef\.current\s*\|\|/);

@@ -996,7 +996,9 @@ test('Canvas browser segmentation sends a signed plan before billed mask materia
     masks,
   });
 
+  // 2026-09-10 计费全覆盖：商品识别（segmentation-plan）也收费，前置一次 quote
   assert.deepEqual(requests.map(request => request.url), [
+    '/api/billing/quote',
     '/api/canvas/segmentation-plan',
     '/api/billing/quote',
     '/api/remove-bg',

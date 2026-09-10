@@ -1,33 +1,39 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X, Coins, Gift, Wand2, ShieldCheck, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Coins, Gift, Wand2, Loader2, CheckCircle2, AlertCircle, Receipt, ChevronDown } from 'lucide-react';
 
 import { useApp } from '../../store/AppContext';
 import { fetchSkillLibrary } from '../../services/skills.js';
 import { redeemCode } from '../../services/redeem.js';
+import { fetchBillingTransactions, fetchBillingRules } from '../../services/billing.js';
 import SkillLibraryModal from './ec/SkillLibraryModal.jsx';
+import { useModalScrollLock } from '../../components/ui/useModalScrollLock.js';
 import './member-center.css';
 
 /**
- * 会员中心（2026-09-10 P4）
- * 把分散的个人资产收进一个地方：账号资料 / 积分与明细 / 我的技能 / 兑换码 / 安全。
- * 只读展示 + 兑换码写入；不重复实现已存在的账务与改密流程，直接复用 AppContext。
+ * 会员中心（2026-09-10 P4；2026-09-10 二次改版）
+ * - 移除"账户资料"（用户反馈无信息量）；积分明细改为中文交易视图 + 全站计费细则。
+ * - 交易与细则均由服务端聚合生成（/api/billing/transactions 与 /api/billing/rules），
+ *   前端不自造文案，保证与 SKU 目录永不漂移。
  */
 export default function MemberCenterModal({ open, onClose }) {
-  const { state, refreshBillingLedger, refreshBillingBalance } = useApp();
+  const { state, refreshBillingBalance } = useApp();
   const [code, setCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [skills, setSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [ruleGroups, setRuleGroups] = useState([]);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
-  const email = state.phone || '';
+  useModalScrollLock(open);
+
   const balance = useMemo(() => {
     if (state.unlimited) return '不限';
     const units = Number(state.ecPoints ?? state.credits ?? 0);
-    return Number.isFinite(units) ? String(units) : '0';
+    return Number.isFinite(units) ? (units / 1000).toFixed(units % 1000 === 0 ? 0 : 1) : '0';
   }, [state.unlimited, state.ecPoints, state.credits]);
-  const ledger = Array.isArray(state.billingLedger) ? state.billingLedger.slice(0, 8) : [];
 
   const loadSkills = useCallback(async () => {
     try {
@@ -36,13 +42,24 @@ export default function MemberCenterModal({ open, onClose }) {
     } catch { setSkills([]); }
   }, []);
 
+  const loadBilling = useCallback(async () => {
+    try {
+      const [tx, rules] = await Promise.all([
+        fetchBillingTransactions({ limit: 12 }),
+        fetchBillingRules(),
+      ]);
+      setTransactions(tx);
+      setRuleGroups(rules);
+    } catch { /* 明细加载失败不阻塞弹窗 */ }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     setMessage(''); setError('');
     refreshBillingBalance?.({ force: true }).catch(() => {});
-    refreshBillingLedger?.({ limit: 8 }).catch(() => {});
     loadSkills();
-  }, [open, refreshBillingBalance, refreshBillingLedger, loadSkills]);
+    loadBilling();
+  }, [open, refreshBillingBalance, loadSkills, loadBilling]);
 
   const handleRedeem = async () => {
     const value = code.trim();
@@ -53,7 +70,7 @@ export default function MemberCenterModal({ open, onClose }) {
       setMessage(`兑换成功，+ ${result.units} AI 积分`);
       setCode('');
       refreshBillingBalance?.({ force: true }).catch(() => {});
-      refreshBillingLedger?.({ limit: 8 }).catch(() => {});
+      loadBilling();
     } catch (redeemError) {
       setError(redeemError?.message || '兑换失败');
     }
@@ -68,33 +85,48 @@ export default function MemberCenterModal({ open, onClose }) {
         <header className="member-head">
           <div>
             <strong>会员中心</strong>
-            <span>在一个地方管理账号、积分、技能与兑换</span>
+            <span>积分、技能与兑换，集中管理</span>
           </div>
           <button type="button" className="member-icon-btn" onClick={onClose} aria-label="关闭会员中心"><X size={16} /></button>
         </header>
 
         <div className="member-body">
-          <section className="member-card">
-            <div className="member-card-title"><ShieldCheck size={14} /><strong>账户资料</strong></div>
-            <dl className="member-list">
-              <div><dt>账号</dt><dd>{email || '未登录'}</dd></div>
-              <div><dt>昵称</dt><dd>{email ? email.split('@')[0] : '—'}</dd></div>
-            </dl>
-          </section>
-
-          <section className="member-card">
-            <div className="member-card-title"><Coins size={14} /><strong>积分</strong></div>
-            <div className="member-balance">{balance}<em>AI 积分</em></div>
+          <section className="member-card is-wide">
+            <div className="member-card-title"><Coins size={14} /><strong>积分</strong><span className="member-card-sub">花在哪了，一目了然</span></div>
+            <div className="member-balance-row">
+              <div className="member-balance">{balance}<em>AI 积分</em></div>
+              <button type="button" className="member-link" onClick={() => setRulesOpen(previous => !previous)} aria-expanded={rulesOpen}>
+                <Receipt size={12} /> 计费细则 <ChevronDown size={12} className={rulesOpen ? 'is-open' : ''} />
+              </button>
+            </div>
+            {rulesOpen && (
+              <div className="member-rules">
+                {ruleGroups.map(group => (
+                  <div key={group.key} className="member-rule-group">
+                    <strong>{group.label}</strong>
+                    <ul>
+                      {group.items.map(item => (
+                        <li key={item.sku}>
+                          <span>{item.label}</span>
+                          <b>{(item.units / 1000).toLocaleString('zh-Hans-CN', { maximumFractionDigits: 1 })} 积分/{item.unit}</b>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
             <ul className="member-ledger">
-              {ledger.map((entry, index) => (
-                <li key={entry.id || index}>
-                  <span>{entry.referenceType || entry.eventType || '记录'}</span>
-                  <b className={Number(entry.deltaAvailable) >= 0 ? 'is-plus' : 'is-minus'}>
-                    {Number(entry.deltaAvailable) >= 0 ? '+' : ''}{Number(entry.deltaAvailable) || 0}
+              {transactions.map(entry => (
+                <li key={entry.id}>
+                  <span>{entry.label}{entry.detail ? <em className="member-ledger-sub">{entry.detail}</em> : null}</span>
+                  <time>{String(entry.at || '').slice(5, 16).replace('T', ' ')}</time>
+                  <b className={entry.amount >= 0 ? 'is-plus' : 'is-minus'}>
+                    {entry.amount >= 0 ? '+' : ''}{(entry.amount / 1000).toLocaleString('zh-Hans-CN', { maximumFractionDigits: 1 })}
                   </b>
                 </li>
               ))}
-              {!ledger.length && <li className="member-empty">暂无积分明细</li>}
+              {!transactions.length && <li className="member-empty">暂无积分明细</li>}
             </ul>
           </section>
 

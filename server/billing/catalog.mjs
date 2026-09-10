@@ -133,6 +133,11 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_canvas_ocr: { units: 200, providerCostCny: 0.01 },
   ec_remove_bg: { units: 500, providerCostCny: 0.03 },
   ec_direction_refresh: { units: 1000, providerCostCny: 0.05 },
+  // 2026-09-10 计费全覆盖（用户原则：凡走上游必收积分）：套图首次方向分析也是两次 VLM 调用，
+  // 与"刷新"同价；画布商品识别走 VLM 实例检测；小红书/Plog 预览封面走真实图片上游。
+  ec_direction_analysis: { units: 1000, providerCostCny: 0.05 },
+  ec_canvas_recognize: { units: 200, providerCostCny: 0.01 },
+  ec_preview_cover: { units: 500, providerCostCny: 0.038 },
   ec_smart_layer: { units: 3000, providerCostCny: 0.20 },
   ec_layer_psd: { units: 3000, providerCostCny: 0.20 },
   content_full_set: { units: 1, currency: 'content_sets' },

@@ -2476,14 +2476,34 @@ function buildXhsPreviewCoverPrompt(text) {
 
 async function runXhsPreview(req, res) {
   const text = String(req.body?.text || '').trim();
+  // 2026-09-10 计费全覆盖：预览封面走真实图片上游，按次收 0.5 积分（生成失败自动退费）。
+  // 生成动作放进计费事务的 work 里：上游成功才结算，上游失败自动 release。
+  const billedCover = await canvasOneShotBilling.execute({
+    ownerEmail: req._userEmail,
+    quoteId: req.body?.billing_quote_id,
+    actionId: req.body?.billing_action_id
+      || `preview-cover-xhs-${crypto.createHash('sha256').update(`${req._userEmail}|xhs|${text}`).digest('hex').slice(0, 16)}`,
+    sku: 'ec_preview_cover',
+    referenceType: 'content_preview_cover',
+    providerCostCny: 0.038,
+    metadata: { action: 'preview_cover', mode: 'xhs' },
+    resumableWork: true,
+    work: async () => {
+      const source = await generateImage(buildXhsPreviewCoverPrompt(text), '通用', true, false);
+      const url = await persistGeneratedAsset({ source, generationId: req.body?.generationId, label: 'xhs-preview-cover' });
+      return { url, source };
+    },
+  });
+  const previewCoverUrl = billedCover.result.url;
+  const previewBilling = billedCover.billing;
   return runContentPreviewSse({
     res,
     generationId: req.body?.generationId,
     mode: 'xhs',
+    billing: previewBilling,
     generateCover: async ({ generationId, send }) => {
       send('progress', { step: 'preview_cover', msg: '正在生成封面预览...' });
-      const source = await generateImage(buildXhsPreviewCoverPrompt(text), '通用', true, false);
-      const url = await persistGeneratedAsset({ source, generationId, label: 'xhs-preview-cover' });
+      const url = previewCoverUrl;
       return {
         url,
         delivery: {
@@ -4182,25 +4202,38 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
       });
       return res.json({ ...billed.result, billing: billed.billing });
     }
-    const result = await generateDesignDirections(req.body, { signal: deadline.signal });
-    designDirectionTelemetry.served += 1;
-    if (result.planner_fallback) {
-      designDirectionTelemetry.plannerFallbacks += 1;
-      designDirectionTelemetry.lastFallbackAt = new Date().toISOString();
-      console.warn('[design-directions] planner fallback:', {
-        reason: 'PLANNER_TIMEOUT',
-        analysisStatus: result.analysis?.status,
-      });
-    }
-    if (result.degraded) {
-      designDirectionTelemetry.degraded += 1;
-      designDirectionTelemetry.lastDegradedAt = new Date().toISOString();
-      console.warn('[design-directions] 降级:', {
-        reasons: result.degradedReasons,
-        analysisStatus: result.analysis?.status,
-      });
-    }
-    return res.json(result);
+    // 2026-09-10 计费全覆盖：首次方向分析同样是两次 VLM 调用，与"刷新"同价（ec_direction_analysis）。
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_direction_analysis',
+      referenceType: 'ecommerce_direction_analysis',
+      providerCostCny: 0.05,
+      metadata: { action: 'direction_analysis' },
+      work: async () => {
+        const result = await generateDesignDirections(req.body, { signal: deadline.signal });
+        designDirectionTelemetry.served += 1;
+        if (result.planner_fallback) {
+          designDirectionTelemetry.plannerFallbacks += 1;
+          designDirectionTelemetry.lastFallbackAt = new Date().toISOString();
+          console.warn('[design-directions] planner fallback:', {
+            reason: 'PLANNER_TIMEOUT',
+            analysisStatus: result.analysis?.status,
+          });
+        }
+        if (result.degraded) {
+          throw Object.assign(new Error('图片分析服务暂时不可用，请稍后重试'), {
+            code: 'DIRECTION_ANALYSIS_DEGRADED',
+            status: 503,
+            retryable: true,
+          });
+        }
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');
+        return { ...result, url: `direction-analysis:${fingerprint}` };
+      },
+    });
+    return res.json({ ...billed.result, billing: billed.billing });
   } catch (e) {
     console.warn('[design-directions] 失败:', {
       message: e?.message,
@@ -4950,10 +4983,27 @@ app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req
 });
 
 app.post('/api/canvas/segmentation-plan', async (req, res) => {
-  const { image_url: imageUrl } = req.body || {};
+  const { image_url: imageUrl, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   try {
-    const analysis = await canvasLayeringService.createSegmentationPlan({ imageUrl });
+    // 2026-09-10 计费全覆盖：商品识别走 VLM 实例检测，按次收 0.2 积分
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_canvas_recognize',
+      referenceType: 'canvas_segmentation_plan',
+      providerCostCny: 0.01,
+      metadata: { action: 'segmentation_plan' },
+      work: async () => {
+        const analysis = await canvasLayeringService.createSegmentationPlan({ imageUrl });
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(analysis.plan)).digest('hex');
+        return { ...analysis, url: `segmentation-plan:${fingerprint}` };
+      },
+    });
+    const analysis = billed.result;
+    delete analysis.url;
+    const billing = billed.billing;
     const issued = canvasSegmentationPlanTokens.issue({
       ownerEmail: req._userEmail,
       imageUrl,
@@ -4967,12 +5017,16 @@ app.post('/api/canvas/segmentation-plan', async (req, res) => {
       text_blocks: analysis.plan.textBlocks,
       plan_token: issued.planToken,
       expires_at: issued.expiresAt,
+      billing,
     });
   } catch (error) {
     console.error('[canvas/segmentation-plan] 失败:', error.message);
     return res.status(error?.status || 500).json({
       error: safeCanvasClientError(error, '商品识别暂时不可用，请稍后重试'),
       code: error?.code,
+      required: error?.required,
+      available: error?.available,
+      billing: error?.billing,
     });
   }
 });
@@ -5194,12 +5248,18 @@ async function runPlogPreview(req, res) {
   const options = plogOptions(req.body);
   const scene = classifyScene(text);
   const lens = getLensesForScene(scene, 1)[0];
-  return runContentPreviewSse({
-    res,
-    generationId: req.body?.generationId,
-    mode: 'plog',
-    generateCover: async ({ generationId, send }) => {
-      send('progress', { step: 'preview_cover', msg: '正在生成 Plog 封面预览...' });
+  // 2026-09-10 计费全覆盖：Plog 预览封面同样收 0.5 积分（生成失败自动退费）
+  const billedCover = await canvasOneShotBilling.execute({
+    ownerEmail: req._userEmail,
+    quoteId: req.body?.billing_quote_id,
+    actionId: req.body?.billing_action_id
+      || `preview-cover-plog-${crypto.createHash('sha256').update(`${req._userEmail}|plog|${text}|${options.style}|${options.layout}|${options.coverVariant}`).digest('hex').slice(0, 16)}`,
+    sku: 'ec_preview_cover',
+    referenceType: 'content_preview_cover',
+    providerCostCny: 0.038,
+    metadata: { action: 'preview_cover', mode: 'plog' },
+    resumableWork: true,
+    work: async () => {
       const prompt = buildPlogPrompt({
         lens,
         style: options.style,
@@ -5212,11 +5272,20 @@ async function runPlogPreview(req, res) {
         coverVariant: options.coverVariant,
       });
       const source = await callImageAPI(prompt, null, null);
-      const url = await persistGeneratedAsset({
-        source,
-        generationId,
-        label: 'plog-preview-cover',
-      });
+      const url = await persistGeneratedAsset({ source, generationId: req.body?.generationId, label: 'plog-preview-cover' });
+      return { url, source };
+    },
+  });
+  const previewCoverUrl = billedCover.result.url;
+  const previewBilling = billedCover.billing;
+  return runContentPreviewSse({
+    res,
+    generationId: req.body?.generationId,
+    mode: 'plog',
+    billing: previewBilling,
+    generateCover: async ({ generationId, send }) => {
+      send('progress', { step: 'preview_cover', msg: '正在生成 Plog 封面预览...' });
+      const url = previewCoverUrl;
       return {
         url,
         delivery: {

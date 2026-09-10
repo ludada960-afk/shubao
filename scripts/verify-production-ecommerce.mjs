@@ -9,7 +9,8 @@ const CANARY_OWNER_EMAIL = '867550189@qq.com';
 const DEFAULT_FIXTURE_PATH = fileURLToPath(new URL('../test_image.png', import.meta.url));
 const TERMINAL_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const DELIVERY_GROUPS = new Set(['白底图', '主图', '详情图', 'SKU', '素材']);
-const CANARY_GENERATION_UNITS = 3_000;
+const CANARY_TOTAL_UNITS = 4_000;      // 3 张图 (3000) + 首次方向分析 (1000)，2026-09-10 方向分析纳入计费
+const CANARY_GENERATION_UNITS = 3_000; // 生成本身仍按 3 张图计价
 
 const wait = delay => new Promise(resolve => setTimeout(resolve, delay));
 
@@ -23,7 +24,7 @@ function rootUrl(baseUrl) {
   return requiredString(baseUrl, 'baseUrl').replace(/\/+$/, '');
 }
 
-export function assertCanaryWalletCapacity(balanceResponse, requiredUnits = CANARY_GENERATION_UNITS) {
+export function assertCanaryWalletCapacity(balanceResponse, requiredUnits = CANARY_TOTAL_UNITS) {
   if (!Number.isSafeInteger(requiredUnits) || requiredUnits <= 0) {
     throw new TypeError('requiredUnits must be a positive safe integer');
   }
@@ -47,9 +48,21 @@ function safeAsset(asset, label) {
   return { assetId, url };
 }
 
-function designDirectionPayload({ product, reference }) {
+async function quoteDirectionAnalysis({ root, headers, request }) {
+  const quote = await request(`${root}/api/billing/quote`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ sku: 'ec_direction_analysis', quantity: 1 }),
+  });
+  if (!quote?.quote?.quoteId) throw new Error('Canary direction analysis quote is invalid');
+  return quote.quote;
+}
+
+function designDirectionPayload({ product, reference, quoteId, actionId }) {
   return {
     product_name: '生产验收红苹果',
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
     category: '食品饮料',
     platform: '淘宝',
     description: '真实展示红苹果的颜色、果形和新鲜质感，三张图片承担不同电商职责。',
@@ -370,10 +383,17 @@ export async function verifyProductionEcommerce({
     uploadCanaryAsset({ root, headers, role: 'product', fixturePath, request }),
     uploadCanaryAsset({ root, headers, role: 'reference', fixturePath, request }),
   ]);
+  // 2026-09-10 方向分析纳入计费：先取 quote 再调用（与真实用户同一路径）
+  const directionQuote = await quoteDirectionAnalysis({ root, headers, request });
   const directionResponse = await request(`${root}/api/ecommerce/design-directions`, {
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },
-    body: JSON.stringify(designDirectionPayload({ product, reference })),
+    body: JSON.stringify(designDirectionPayload({
+      product,
+      reference,
+      quoteId: directionQuote.quoteId,
+      actionId: `canary-direction-${Date.now()}`,
+    })),
     // This endpoint performs two bounded multimodal passes. Never replay it: a
     // retry would repeat paid analysis and can outlive the release timeout.
     maxAttempts: 1,

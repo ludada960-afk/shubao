@@ -122,6 +122,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const generationLifecycleRef = useRef(null);
   const supplementBlobUrlsRef = useRef(new Set());
   const directionRefreshActionRef = useRef(null);
+  const directionAnalysisActionRef = useRef(null);
   const analysisRequestRef = useRef(null);
   const creativeAttemptRef = useRef(createClientCreativeAttemptId());
   const recentCreativeRoutesRef = useRef([]);
@@ -148,7 +149,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setGenProgress('');
     creativeAttemptRef.current = createClientCreativeAttemptId();
     recentCreativeRoutesRef.current = [];
-    directionRefreshActionRef.current = loadEcommerceDirectionRefreshAction({ ownerEmail, draftId })?.actionId || null;
+    const recoveredActionId = loadEcommerceDirectionRefreshAction({ ownerEmail, draftId })?.actionId || null;
+    directionRefreshActionRef.current = recoveredActionId;
+    // 2026-09-10：首次方向分析同样计费，恢复逻辑与刷新共用同一份持久化 actionId（防中断后重复扣费）
+    directionAnalysisActionRef.current = recoveredActionId;
   }, [ownerEmail, draftId]);
 
   useEffect(() => () => {
@@ -219,7 +223,39 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   );
 
   useEffect(() => {
-    loadDirections();
+    // 2026-09-10 方向分析纳入计费（ec_direction_analysis）：与"刷新"同一路径，
+    // 先取 quote 再分析；402 走统一的余额不足处理。
+    let cancelled = false;
+    (async () => {
+      try {
+        const { quote } = await quoteBillingAction({ sku: 'ec_direction_analysis', quantity: 1 });
+        if (cancelled) return;
+        const actionId = directionAnalysisActionRef.current
+          || `ec-direction-analysis-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+        directionAnalysisActionRef.current = actionId;
+        saveEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+        await loadDirections({
+          analysisBilling: { quoteId: quote.quoteId, actionId },
+        });
+        clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+        directionAnalysisActionRef.current = null;
+      } catch (error) {
+        if (cancelled) return;
+        const accessResult = handleGenerationAccessError(error, dispatch, {
+          source: 'ecommerce-direction-analysis',
+          ownerEmail,
+          route: globalThis.location?.pathname || '/',
+          draftId,
+          currency: 'ec_points',
+        });
+        if (!accessResult) {
+          setErrorStage('analysis');
+          setError(error?.message || '设计方向生成失败，请稍后重试');
+        }
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -252,6 +288,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
   const loadDirections = async ({
     refreshBilling = null,
+    analysisBilling = null,
     creativeAttemptId = creativeAttemptRef.current,
     recentRoutes = recentCreativeRoutesRef.current,
   } = {}) => {
@@ -307,8 +344,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         creative_attempt_id: creativeAttemptId,
         recent_creative_routes: recentRoutes,
         refresh: Boolean(refreshBilling),
-        billingQuoteId: refreshBilling?.quoteId,
-        billingActionId: refreshBilling?.actionId,
+        billingQuoteId: refreshBilling?.quoteId ?? analysisBilling?.quoteId,
+        billingActionId: refreshBilling?.actionId ?? analysisBilling?.actionId,
       }, { signal: analysisRequest.signal });
 
       if (analysisRequestRef.current !== analysisRequest) return;

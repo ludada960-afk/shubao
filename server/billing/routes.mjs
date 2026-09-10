@@ -1,4 +1,5 @@
 import { FEATURE_SKUS, PRODUCTS, quoteFeature } from './catalog.mjs';
+import { buildBillingRules, buildLedgerTransactions } from './billingLabels.mjs';
 import { quoteVideoMeter, listVideoMeterTiers } from './videoMeter.mjs';
 
 const CURRENCIES = new Set(['ec_points', 'content_sets']);
@@ -365,6 +366,20 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
       const entries = walletService.listLedger(ownerEmail, selectedCurrency).slice(offset, offset + limit);
       return res.json({ currency: selectedCurrency, limit, offset, entries });
     }),
+
+    // 用户可读的交易视图：hold+settle 聚合为一笔、中文名称（2026-09-10 会员中心改版）
+    transactions: handler((req, res) => {
+      const ownerEmail = ownerFor(req);
+      const selectedCurrency = currency(req.query?.currency);
+      const limit = pageNumber(req.query?.limit, 30, 'limit');
+      const entries = walletService.listLedger(ownerEmail, selectedCurrency);
+      return res.json({ currency: selectedCurrency, transactions: buildLedgerTransactions(entries, { limit }) });
+    }),
+
+    // 计费细则：与 SKU 目录同源生成（2026-09-10 计费全覆盖审计）
+    rules: handler((req, res) => {
+      return res.json({ ok: true, categories: buildBillingRules() });
+    }),
   };
 }
 
@@ -380,6 +395,8 @@ export function mountBillingRoutes(app, deps) {
   app.get('/api/billing/orders/:id', handlers.requireUser, handlers.order);
   app.post('/api/billing/webhooks/:provider', handlers.providerWebhook);
   app.get('/api/billing/ledger', handlers.requireUser, handlers.ledger);
+  app.get('/api/billing/transactions', handlers.requireUser, handlers.transactions);
+  app.get('/api/billing/rules', handlers.rules);
   // 4c183cd4 续命 P-B 视频按量切价：GET 端点；公开报价 (无需登录)
   app.get('/api/billing/video-meter', handlers.videoMeter);
   // 4c183cd4 续命 P2 成本核算精确化：admin-only 全站毛利 + 异常用量预警

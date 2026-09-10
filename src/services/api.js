@@ -819,10 +819,16 @@ export async function reversePrompt({ image_url, product_name }) {
 }
 
 export async function createCanvasSegmentationPlan(imageUrl, { signal } = {}) {
+  // 2026-09-10 计费全覆盖：商品识别走 VLM，按次收费（ec_canvas_recognize）
+  const billing = await quoteCanvasAction('ec_canvas_recognize');
   const res = await fetch(`${API_BASE}/api/canvas/segmentation-plan`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ image_url: normalizeCanvasImageUrl(imageUrl) }),
+    body: JSON.stringify(withSessionEmail({
+      image_url: normalizeCanvasImageUrl(imageUrl),
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
     signal,
   });
   if (!res.ok) throw await createApiError(res, '商品识别失败');
@@ -955,24 +961,27 @@ async function generateContentStream(path, payload, { onImage, onProgress, signa
   return result;
 }
 
-export function generateContent(text, images, {
+export async function generateContent(text, images, {
   preview = false,
   generationId,
   referenceAssetIds,
   referenceAssets,
   ...options
 } = {}) {
+  // 2026-09-10 计费全覆盖：预览封面走真实上游，按次 0.5 积分（正式生成仍按套装计费）
+  const billing = preview ? await quoteCanvasAction('ec_preview_cover') : null;
   return generateContentStream('/api/generate', {
     text,
     images: images || [],
     preview,
+    ...(billing ? { billing_quote_id: billing.quoteId, billing_action_id: billing.actionId } : {}),
     ...(generationId ? { generationId } : {}),
     ...(Array.isArray(referenceAssetIds) && referenceAssetIds.length ? { referenceAssetIds } : {}),
     ...(referenceAssets && typeof referenceAssets === 'object' ? { referenceAssets } : {}),
   }, options);
 }
 
-export function generatePlogContent({
+export async function generatePlogContent({
   text,
   refImage,
   style,
@@ -984,12 +993,14 @@ export function generatePlogContent({
   referenceAssetIds,
   referenceAssets,
 } = {}, options = {}) {
+  const billing = preview ? await quoteCanvasAction('ec_preview_cover') : null;
   return generateContentStream('/api/plog-generate', {
     text,
     style,
     layout,
     coverVariant,
     preview,
+    ...(billing ? { billing_quote_id: billing.quoteId, billing_action_id: billing.actionId } : {}),
     ...(refImage ? { refImage } : {}),
     ...(skipEnrich ? { skipEnrich: true } : {}),
     ...(generationId ? { generationId } : {}),

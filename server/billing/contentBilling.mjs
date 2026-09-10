@@ -631,7 +631,7 @@ export function createPreviewSseRunner({
   if (!Number.isSafeInteger(heartbeatMs) || heartbeatMs <= 0) {
     throw new TypeError('preview heartbeatMs must be a positive safe integer');
   }
-  return async function runPreviewSse({ res, generationId, mode, generateCover } = {}) {
+  return async function runPreviewSse({ res, generationId, mode, billing, generateCover } = {}) {
     if (typeof generateCover !== 'function') throw new TypeError('generateCover callback is required');
     let preview;
     try {
@@ -667,6 +667,7 @@ export function createPreviewSseRunner({
       }
       const result = {
         ...preview,
+        ...(billing ? { billing } : {}),
         delivery,
       };
       transport.send('complete', completedEvent(result, false));

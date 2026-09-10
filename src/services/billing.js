@@ -138,3 +138,22 @@ export function fetchBillingLedger(input = {}) {
   const suffix = query.size ? `?${query.toString()}` : '';
   return requestJson(`/api/billing/ledger${suffix}`);
 }
+
+/** 会员中心交易视图（hold+settle 已在服务端聚合为中文名交易） */
+export async function fetchBillingTransactions({ limit = 12, signal } = {}) {
+  const response = await fetch(`/api/billing/transactions?limit=${encodeURIComponent(limit)}`, {
+    headers: signedHeaders(),
+    signal,
+  });
+  if (!response.ok) throw new Error('积分明细加载失败');
+  const data = await response.json().catch(() => ({}));
+  return Array.isArray(data.transactions) ? data.transactions : [];
+}
+
+/** 全站计费细则（与 SKU 目录同源，服务端生成） */
+export async function fetchBillingRules({ signal } = {}) {
+  const response = await fetch('/api/billing/rules', { headers: signedHeaders(), signal });
+  if (!response.ok) throw new Error('计费细则加载失败');
+  const data = await response.json().catch(() => ({}));
+  return Array.isArray(data.categories) ? data.categories : [];
+}

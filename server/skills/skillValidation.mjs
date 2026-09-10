@@ -117,5 +117,7 @@ export function validateUserSkill(input = {}) {
   }
   const params = normalizeSkillParams(input.params);
   if (!params.ok) return params;
-  return { ok: true, skill: { kind, name, summary, body, params: params.params } };
+  // groupId 由路由层结合 skillStore.resolveGroupId 归属校验后回填，这里原样透传
+  const groupId = cleanText(input.groupId);
+  return { ok: true, skill: { kind, name, summary, body, params: params.params, groupId } };
 }

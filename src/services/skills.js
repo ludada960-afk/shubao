@@ -37,7 +37,31 @@ async function request(path, { method = 'GET', body, signal } = {}) {
 export async function fetchSkillLibrary({ kind = '', signal } = {}) {
   const query = kind ? `?kind=${encodeURIComponent(kind)}` : '';
   const data = await request(`/api/skills${query}`, { signal });
-  return { builtin: Array.isArray(data.builtin) ? data.builtin : [], mine: Array.isArray(data.mine) ? data.mine : [] };
+  return {
+    builtin: Array.isArray(data.builtin) ? data.builtin : [],
+    mine: Array.isArray(data.mine) ? data.mine : [],
+    groups: Array.isArray(data.groups) ? data.groups : [],
+  };
+}
+
+export async function fetchSkillGroups({ signal } = {}) {
+  const data = await request('/api/skill-groups', { signal });
+  return Array.isArray(data.groups) ? data.groups : [];
+}
+
+export async function createSkillGroup(name, { kind = '', signal } = {}) {
+  const data = await request('/api/skill-groups', { method: 'POST', body: { name, kind }, signal });
+  return data.group;
+}
+
+export async function renameSkillGroup(id, name, { signal } = {}) {
+  const data = await request(`/api/skill-groups/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name }, signal });
+  return data.group;
+}
+
+export async function archiveSkillGroup(id, { signal } = {}) {
+  const data = await request(`/api/skill-groups/${encodeURIComponent(id)}`, { method: 'DELETE', signal });
+  return data.group;
 }
 
 export async function createUserSkill(input, { signal } = {}) {

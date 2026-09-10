@@ -45,7 +45,46 @@ export function mountSkillRoutes(app, { skillStore, authenticateOwner } = {}) {
       ok: true,
       builtin: listBuiltinSkills(kind),
       mine: skillStore.listSkills({ ownerEmail: email, kind }),
+      groups: skillStore.listGroups({ ownerEmail: email }),
     });
+  });
+
+  // ── 分组管理（2026-09-10 用户反馈：技能需要分组）──
+  app.get('/api/skill-groups', (req, res) => {
+    const email = authorize(req, res);
+    if (!email) return undefined;
+    return res.json({ ok: true, groups: skillStore.listGroups({ ownerEmail: email }) });
+  });
+
+  app.post('/api/skill-groups', (req, res) => {
+    const email = authorize(req, res);
+    if (!email) return undefined;
+    try {
+      const group = skillStore.createGroup({ ownerEmail: email, name: req.body?.name, kind: req.body?.kind });
+      return res.status(201).json({ ok: true, group });
+    } catch (error) {
+      return res.status(error?.status || 500).json({ ok: false, error: error?.message || '创建分组失败', errorCode: error?.code || '' });
+    }
+  });
+
+  app.patch('/api/skill-groups/:id', (req, res) => {
+    const email = authorize(req, res);
+    if (!email) return undefined;
+    try {
+      const group = skillStore.renameGroup({ ownerEmail: email, id: req.params?.id, name: req.body?.name });
+      if (!group) return res.status(404).json({ ok: false, error: '分组不存在' });
+      return res.json({ ok: true, group });
+    } catch (error) {
+      return res.status(error?.status || 500).json({ ok: false, error: error?.message || '重命名失败', errorCode: error?.code || '' });
+    }
+  });
+
+  app.delete('/api/skill-groups/:id', (req, res) => {
+    const email = authorize(req, res);
+    if (!email) return undefined;
+    const group = skillStore.archiveGroup({ ownerEmail: email, id: req.params?.id });
+    if (!group) return res.status(404).json({ ok: false, error: '分组不存在' });
+    return res.json({ ok: true, group });
   });
 
   app.post('/api/skills', (req, res) => {
@@ -53,6 +92,8 @@ export function mountSkillRoutes(app, { skillStore, authenticateOwner } = {}) {
     if (!email) return undefined;
     const validation = validateUserSkill(req.body || {});
     if (!validation.ok) return rejectValidation(res, validation);
+    // 分组归属在服务端校验：不属于本人的 groupId 一律清空，不报错也不落脏数据
+    validation.skill.groupId = skillStore.resolveGroupId({ ownerEmail: email, groupId: validation.skill.groupId });
     const skill = skillStore.createSkill({ ownerEmail: email, skill: validation.skill });
     return res.status(201).json({ ok: true, skill });
   });
@@ -66,6 +107,7 @@ export function mountSkillRoutes(app, { skillStore, authenticateOwner } = {}) {
     }
     const validation = validateUserSkill({ ...existing, ...(req.body || {}) });
     if (!validation.ok) return rejectValidation(res, validation);
+    validation.skill.groupId = skillStore.resolveGroupId({ ownerEmail: email, groupId: validation.skill.groupId });
     const skill = skillStore.updateSkill({ ownerEmail: email, id: existing.id, skill: validation.skill });
     return res.json({ ok: true, skill });
   });
@@ -78,7 +120,7 @@ export function mountSkillRoutes(app, { skillStore, authenticateOwner } = {}) {
     return res.json({ ok: true, skill });
   });
 
-  // 内置技能详情（供"派生为我的技能"使用）
+  // 内置技能详情（含完整提示词正文，供"派生为我的技能"使用；2026-09-10 用户反馈）
   app.get('/api/skills/builtin/:id', (req, res) => {
     const skill = getBuiltinSkill(decodeURIComponent(String(req.params?.id || '')));
     if (!skill) return res.status(404).json({ ok: false, error: '内置技能不存在' });

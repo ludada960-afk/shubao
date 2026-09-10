@@ -53,14 +53,14 @@ function json(body, status = 200) {
 }
 
 const FUNDED_BALANCE = {
-  balances: { ec_points: { unlimited: false, availableUnits: 3_000, heldUnits: 0 } },
+  balances: { ec_points: { unlimited: false, availableUnits: 4_000, heldUnits: 0 } },
 };
 
 test('ecommerce canary wallet guard fails closed before any paid input work', () => {
   assert.deepEqual(assertCanaryWalletCapacity(FUNDED_BALANCE), FUNDED_BALANCE.balances.ec_points);
   assert.throws(
     () => assertCanaryWalletCapacity({ balances: { ec_points: { unlimited: false, availableUnits: 0, heldUnits: 0 } } }),
-    /balance is 0; 3000 units are required/,
+    /balance is 0; 4000 units are required/,
   );
   assert.throws(
     () => assertCanaryWalletCapacity({ balances: { ec_points: { unlimited: true, availableUnits: 0, heldUnits: 0 } } }),
@@ -85,7 +85,7 @@ test('ecommerce production verifier checks capacity before uploading canary asse
   };
   await assert.rejects(
     verifyProductionEcommerce({ sessionToken: 'signed-canary-token', fixturePath, fetchImpl }),
-    /balance is 0; 3000 units are required/,
+    /balance is 0; 4000 units are required/,
   );
   assert.deepEqual(requests, ['/api/session', '/api/billing/balance']);
 });
@@ -170,6 +170,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
   const canvas = await sharp({ create: { width: 1280, height: 1280, channels: 3, background: '#ef4444' } }).webp().toBuffer();
   const requests = [];
   let canvasSession = null;
+  let quoteCallsTimeout = { count: 0 };
   const fetchImpl = async (url, options = {}) => {
     const parsed = new URL(url);
     const path = parsed.pathname;
@@ -182,7 +183,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
       return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
     }
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
-    if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
+    if (path === '/api/billing/quote') return json(requests.filter(item => item.path === '/api/billing/quote').length === 0 ? { quote: { quoteId: 'bq-dir.canary.signature', totalUnits: 1000 } } : { quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
     if (path === '/api/generate-ecommerce') return json({ taskId: 'task-canary', status: 'queued' }, 202);
     if (path === '/api/ecommerce/jobs/task-canary') return json({ ok: true, task: completedTask() });
     if (path === '/api/works') return json([completedWork()]);
@@ -247,6 +248,7 @@ test('ecommerce production verifier keeps polling the same paid task after trans
   let statusAttempts = 0;
   let generationCalls = 0;
   let canvasSession = null;
+  let quoteCallsTimeout = { count: 0 };
   const fetchImpl = async (url, options = {}) => {
     const parsed = new URL(url);
     const path = parsed.pathname;
@@ -258,7 +260,7 @@ test('ecommerce production verifier keeps polling the same paid task after trans
       return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
     }
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
-    if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq-timeout.canary.signature', totalUnits: 3000 } });
+    if (path === '/api/billing/quote') return json(quoteCallsTimeout.count++ === 0 ? { quote: { quoteId: 'bq-dir-timeout.canary.signature', totalUnits: 1000 } } : { quote: { quoteId: 'bq-timeout.canary.signature', totalUnits: 3000 } });
     if (path === '/api/generate-ecommerce') {
       generationCalls += 1;
       return json({ taskId: 'task-canary', status: 'queued' }, 202);
@@ -322,6 +324,7 @@ test('ecommerce production verifier rejects partial delivery and never treats it
   const fixturePath = join(directory, 'fixture.png');
   await writeFile(fixturePath, Buffer.from('fixture'));
   t.after(() => rm(directory, { recursive: true, force: true }));
+  let quoteCalls = { count: 0 };
   const fetchImpl = async url => {
     const path = new URL(url).pathname;
     if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
@@ -329,7 +332,7 @@ test('ecommerce production verifier rejects partial delivery and never treats it
     if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
     if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
-    if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
+    if (path === '/api/billing/quote') return json(quoteCalls.count++ === 0 ? { quote: { quoteId: 'bq-dir.canary.signature', totalUnits: 1000 } } : { quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
     if (path === '/api/generate-ecommerce') return json({ taskId: 'task-canary', status: 'queued' }, 202);
     if (path === '/api/ecommerce/jobs/task-canary') return json({ ok: true, task: { ...completedTask(), status: 'needs_review' } });
     throw new Error(`unexpected request ${path}`);
@@ -345,13 +348,14 @@ test('ecommerce production verifier includes failed task diagnostics in the reje
   const fixturePath = join(directory, 'fixture.png');
   await writeFile(fixturePath, Buffer.from('fixture'));
   t.after(() => rm(directory, { recursive: true, force: true }));
+  let quoteCalls = { count: 0 };
   const fetchImpl = async url => {
     const path = new URL(url).pathname;
     if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
     if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
     if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
-    if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
+    if (path === '/api/billing/quote') return json(quoteCalls.count++ === 0 ? { quote: { quoteId: 'bq-dir.canary.signature', totalUnits: 1000 } } : { quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
     if (path === '/api/generate-ecommerce') return json({ taskId: 'task-failed', status: 'queued' }, 202);
     if (path === '/api/ecommerce/jobs/task-failed') {
       return json({ ok: true, task: {
