@@ -75,8 +75,9 @@ import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTt
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
 import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
-/* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + P3 门控标记 (T4/T5 诚实门控, 不 mock 不扣费) */
-import { instantiateWorkflowTemplate, markP3PendingNodes } from './workflowTemplates.js';
+/* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
+import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
+import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
 import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
 const GRAPH_RUN_KINDS = {
@@ -848,7 +849,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     ? (selectedNode.sourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
     : [];
   const selectedComposerMentions = selectedNode
-    ? (selectedNode.mentionSourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
+    ? mergeGraphMentionSources(selectedNode, connections).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
     : [];
   const selectedComposerPosition = getCanvasComposerPresentation({
     node: selectedNode,
@@ -1236,7 +1237,11 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const draftKey = canvasDraftKey(result);
     canvasSaveKeyRef.current = result.browserQa ? null : draftKey;
     const draft = result.browserQa ? null : loadCanvasDraft(draftKey);
-    const initialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
+    const rawInitialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
+    /* P2 老文档迁移（不变式②）: mention -> reference 边（纯增量+幂等）, 老文档照常加载、只读可用 */
+    const initialSnapshot = rawInitialSnapshot
+      ? { ...rawInitialSnapshot, ...migrateMentionsToEdges(rawInitialSnapshot.nodes, rawInitialSnapshot.connections) }
+      : null;
     const newNodes = (initialSnapshot?.nodes?.length ? initialSnapshot.nodes : session.nodes).map(normalizeCanvasNode);
     setPendingProjectAssetImports(normalizePendingProjectAssetImports(initialSnapshot?.pendingProjectAssetImports));
     setNodes(newNodes);
@@ -1273,13 +1278,14 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     if (!draft && persistedSessionId) {
       void loadCanvasSession(persistedSessionId).then(remoteSession => {
         if (cancelled) return;
-        const remoteSnapshot = restoreCanvasSnapshot(remoteSession.snapshot);
-        setPendingProjectAssetImports(normalizePendingProjectAssetImports(remoteSnapshot.pendingProjectAssetImports));
-        setNodes(remoteSnapshot.nodes.map(normalizeCanvasNode));
-        setConnections(remoteSnapshot.connections.map(normalizeCanvasConnection));
-        setViewport(remoteSnapshot.viewport);
+        const rawRemoteSnapshot = restoreCanvasSnapshot(remoteSession.snapshot);
+        const remoteMigration = migrateMentionsToEdges(rawRemoteSnapshot.nodes, rawRemoteSnapshot.connections);
+        setPendingProjectAssetImports(normalizePendingProjectAssetImports(rawRemoteSnapshot.pendingProjectAssetImports));
+        setNodes(remoteMigration.nodes.map(normalizeCanvasNode));
+        setConnections(remoteMigration.connections.map(normalizeCanvasConnection));
+        setViewport(rawRemoteSnapshot.viewport);
         setCanvasSession(remoteSession);
-        const remoteMediaRefs = canvasMediaAssetRefs(remoteSnapshot.nodes);
+        const remoteMediaRefs = canvasMediaAssetRefs(rawRemoteSnapshot.nodes);
         if (remoteMediaRefs.length) {
           void Promise.all(remoteMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null)))
             .then(assets => {
@@ -2629,9 +2635,10 @@ const handlePointerUp = useCallback((e) => {
     try {
       const res = await instantiateWorkflowTemplate(template.slug);
       const snapshot = createCanvasSnapshot(res.snapshot || { nodes: [], connections: [] });
-      const p3Nodes = markP3PendingNodes(snapshot.nodes, res.requiresAudioVideo === true);
+      const migrated = migrateMentionsToEdges(snapshot.nodes, snapshot.connections);
+      const p3Nodes = markP3PendingNodes(migrated.nodes, res.requiresAudioVideo === true);
       setNodes(p3Nodes.map(normalizeCanvasNode));
-      setConnections(snapshot.connections.map(normalizeCanvasConnection));
+      setConnections(migrated.connections.map(normalizeCanvasConnection));
       setViewport(snapshot.viewport);
       setSelected(null);
       setMultiSelected(new Set());
@@ -3603,7 +3610,9 @@ const handlePointerUp = useCallback((e) => {
 
   const handleImageComposerGenerate = useCallback(async composer => {
     if (!composer?.prompt?.trim() || composer.status === 'processing') return;
-    const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
+    /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
+    const runInputs = collectRunInputs(composer.id, connections, nodes);
+    const composerSourceIds = runInputs.sources.length ? runInputs.sources : legacyComposerSourceIds(composer);
     const sourceNodes = composerSourceIds.map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     const sourceReferences = buildCanvasImageReferencePayload(buildImageMentions(sourceNodes.map(node => ({
       ...node,
@@ -3711,11 +3720,13 @@ const handlePointerUp = useCallback((e) => {
       updateComposerNode(composer.id, { status: 'error', error: error.message || '图片生成失败' });
       handleCanvasActionError(error, { type: 'image-generation', nodeId: composer.id });
     }
-  }, [handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
+  }, [connections, handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
 
   const handleSuiteComposerGenerate = useCallback(async composer => {
     if (!composer || composer.status === 'processing') return;
-    const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
+    /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
+    const runInputs = collectRunInputs(composer.id, connections, nodes);
+    const composerSourceIds = runInputs.sources.length ? runInputs.sources : legacyComposerSourceIds(composer);
     const sourceNodes = composerSourceIds.map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     const productNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'product');
     const referenceNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'reference');
@@ -3886,7 +3897,7 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       suiteGenerationInFlightRef.current.delete(composer.id);
     }
-  }, [getDesignDirections, handleCanvasActionError, nodes, phone, result.category, result.platform, result.product_name, showToast, updateComposerNode]);
+  }, [connections, getDesignDirections, handleCanvasActionError, nodes, phone, result.category, result.platform, result.product_name, showToast, updateComposerNode]);
 
   const handleSuiteDirectionSelect = useCallback((composerId, direction, index) => {
     updateComposerNode(composerId, { selectedDirection: index, selectedDirectionData: direction });
@@ -3898,7 +3909,9 @@ const handlePointerUp = useCallback((e) => {
     if ((!boardText && !promptText) || composer.status === 'processing') return;
     updateComposerNode(composer.id, { status: 'processing', error: '' });
     try {
-      const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
+      /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
+      const runInputs = collectRunInputs(composer.id, connections, nodes);
+      const composerSourceIds = runInputs.sources.length ? runInputs.sources : legacyComposerSourceIds(composer);
       const sourceNodes = composerSourceIds
         .map(id => nodes.find(node => node.id === id))
         .filter(node => node?.url);
@@ -3967,7 +3980,7 @@ const handlePointerUp = useCallback((e) => {
       updateComposerNode(composer.id, { status: 'error', error: error.message || '画面生成失败' });
       handleCanvasActionError(error, { type: 'image-generation-from-text', nodeId: composer.id });
     }
-  }, [handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
+  }, [connections, handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
 
   const handleAddTextNode = useCallback((placement = {}) => {
     if (placement?.openComposer) {
@@ -4593,6 +4606,11 @@ const handlePointerUp = useCallback((e) => {
           ? removeImageMention(node.prompt, image?.label)
           : appendImageMention(node.prompt, image?.label),
     } : node));
+    /* P2 连线@引用合一: @ 选一个上游自动补一条 reference 边（同 from->to 去重, 已有线不重复拉）*/
+    setConnections(previous => {
+      const hasEdge = previous.some(edge => (edge.fromNodeId || edge.from) === sourceId && (edge.toNodeId || edge.to) === composerId);
+      return hasEdge ? previous : addConnection(previous, sourceId, composerId, 'reference');
+    });
   }, []);
   const handleTabChange = useCallback(nextTab => {
     // Cross-fade canvas tabs through the View Transitions API when the
@@ -5274,20 +5292,21 @@ const handlePointerUp = useCallback((e) => {
     try {
       const session = await loadCanvasSession(sessionId);
       if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-      const snapshot = restoreCanvasSnapshot(session.snapshot);
-      setNodes(snapshot.nodes.map(normalizeCanvasNode));
-      setConnections(snapshot.connections.map(normalizeCanvasConnection));
-      setPendingProjectAssetImports(normalizePendingProjectAssetImports(snapshot.pendingProjectAssetImports));
-      setViewport(snapshot.viewport);
+      const rawSnapshot = restoreCanvasSnapshot(session.snapshot);
+      const migrated = migrateMentionsToEdges(rawSnapshot.nodes, rawSnapshot.connections);
+      setNodes(migrated.nodes.map(normalizeCanvasNode));
+      setConnections(migrated.connections.map(normalizeCanvasConnection));
+      setPendingProjectAssetImports(normalizePendingProjectAssetImports(rawSnapshot.pendingProjectAssetImports));
+      setViewport(rawSnapshot.viewport);
       setSelected(null);
       setMultiSelected(new Set());
       setCanvasSession(session);
-      const restoredMediaRefs = canvasMediaAssetRefs(snapshot.nodes);
+      const restoredMediaRefs = canvasMediaAssetRefs(rawSnapshot.nodes);
       if (restoredMediaRefs.length) {
         const resolvedAssets = (await Promise.all(restoredMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))))
           .filter(Boolean);
         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-        setNodes(restoreCanvasMediaPlayback(snapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
+        setNodes(restoreCanvasMediaPlayback(rawSnapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
       }
       showToast('已恢复保存的画布', 'success');
     } catch (error) {

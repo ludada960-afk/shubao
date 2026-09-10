@@ -306,7 +306,7 @@ test('Canvas keeps failed project asset archives actionable and retries them aga
   assert.match(canvasSource, /待归档素材/);
   assert.match(canvasSource, /重试归档/);
   assert.match(canvasSource, /createCanvasSnapshot\(\{ nodes, connections, viewport, pendingProjectAssetImports \}\)/);
-  assert.match(canvasSource, /normalizePendingProjectAssetImports\(snapshot\.pendingProjectAssetImports\)/);
+  assert.match(canvasSource, /normalizePendingProjectAssetImports\(rawRemoteSnapshot\.pendingProjectAssetImports\)/); /* P2 Stage-2 var rename; normalization on remote-restore preserved */
 });
 
 test('Canvas automatically archives stable generated images into the project asset library', () => {

@@ -152,14 +152,15 @@ test('Canvas opening a cached video Work remints playback even without a local d
 
 test('Canvas remote-session recovery remints playback URLs for restored media nodes', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
-  assert.match(source, /const remoteSnapshot = restoreCanvasSnapshot\(remoteSession\.snapshot\);[\s\S]*?const remoteMediaRefs = canvasMediaAssetRefs\(remoteSnapshot\.nodes\);/);
+  /* P2 Stage-2 renamed the remote-session snapshot var to rawRemoteSnapshot (mention->edge migration layer); behavior unchanged */
+  assert.match(source, /const rawRemoteSnapshot = restoreCanvasSnapshot\(remoteSession\.snapshot\);[\s\S]*?const remoteMediaRefs = canvasMediaAssetRefs\(rawRemoteSnapshot\.nodes\);/);
   assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(previous, resolvedAssets\)/);
   assert.doesNotMatch(source, /const resolvedAssets = assets\.filter\(Boolean\);\s*if \(!resolvedAssets\.length\) return;/);
 });
 
 test('explicit Canvas restore remints playback URLs before replacing the active nodes', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
-  assert.match(source, /const restoredMediaRefs = canvasMediaAssetRefs\(snapshot\.nodes\);/);
-  assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(snapshot\.nodes, resolvedAssets\)/);
+  assert.match(source, /const restoredMediaRefs = canvasMediaAssetRefs\(rawSnapshot\.nodes\);/);
+  assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(rawSnapshot\.nodes, resolvedAssets\)/);
   assert.doesNotMatch(source, /if \(resolvedAssets\.length\) \{\s*setNodes\(restoreCanvasMediaPlayback/);
 });

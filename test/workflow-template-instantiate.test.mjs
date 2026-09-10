@@ -1,19 +1,21 @@
-/* P2 Stage 1 前端契约测试: 工作流模板"一键铺开" 的纯逻辑半边（不联网、不部署）。
-   覆盖:
+/* P2 前端契约测试: 工作流模板"一键铺开" 的纯逻辑半边（不联网、不部署）。
+   覆盖（任务清单）:
    1. T2（model-try-on）入边顺序 = @图片N 编号（collectRunInputs 只读图边）;
    2. 无入边节点: collectRunInputs 空结构 + legacyComposerSourceIds 回退 = 旧并集逐字节一致（回归护栏）;
-   3. T4/T5（requiresAudioVideo）P3 门控标记（不 mock、不提供扣费运行）。
-   图数据直接用 server/templates/builtinTemplates.mjs 的真实内置模板（纯数据模块, 无服务端依赖）。
-   Stage 2（连线@引用合一: mention->edge 迁移 + @菜单双向同步）见 p2-stage2.diff 的测试追加段。*/
+   3. T4/T5（requiresAudioVideo）P3 门控标记（不 mock、不提供扣费运行）;
+   4. mention -> edge 迁移: 幂等 + 同 from->to 去重 + 未知 id 延后 + 不改入参（不变式② 老文档只读可用）。
+   图数据直接用 server/templates/builtinTemplates.mjs 的真实内置模板（纯数据模块, 无服务端依赖）。*/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILTIN_WORKFLOW_TEMPLATES } from '../server/templates/builtinTemplates.mjs';
 import {
   collectRunInputs,
   legacyComposerSourceIds,
+  mergeGraphMentionSources,
   workflowSlotIds,
   markP3PendingNodes,
 } from '../src/pages/EcCanvas/workflowTemplates.js';
+import { migrateMentionsToEdges } from '../src/pages/EcCanvas/mentionEdgeMigration.js';
 
 const bySlug = slug => BUILTIN_WORKFLOW_TEMPLATES.find(t => t.slug === slug);
 
@@ -94,6 +96,58 @@ test('T4/T5 requiresAudioVideo: P3 门控标记（不 mock、不提供扣费运�
   const t2 = bySlug('model-try-on');
   const marked2 = markP3PendingNodes(t2.graph.nodes, t2.requiresAudioVideo);
   assert.equal(marked2.some(node => node.p3Pending), false, 'T2 无 P3 灰态节点');
+});
+
+test('mention -> edge 迁移: 幂等 + 同 from->to 去重 + 未知 id 延后 + 不改入参', () => {
+  const nodes = [
+    { id: 'u1', kind: 'image', url: 'https://example.com/u1.png' },
+    { id: 'A', kind: 'image-composer', mentionSourceNodeIds: ['u1', 'ghost', '', 'A', 'u1'] },
+    { id: 'B', kind: 'image-composer', mentionSourceNodeIds: ['u1'] },
+  ];
+  const connections = [
+    { id: 'e1', fromNodeId: 'u1', toNodeId: 'A', relation: 'derived' },
+    { id: 'e2', from: 'u1', to: 'A', type: 'reference' }, /* 同 from->to 第二条: 去重只留首个 */
+  ];
+
+  const first = migrateMentionsToEdges(nodes, connections);
+  const endsOf = list => list.map(edge => edge.fromNodeId + '>' + edge.toNodeId);
+  assert.deepEqual(endsOf(first.connections), ['u1>A', 'u1>B'], '既有边去重 + mention 只补一次');
+  assert.equal(first.added, 1, '只有 u1->B 是新增边');
+  assert.equal(first.connections.find(edge => edge.fromNodeId === 'u1' && edge.toNodeId === 'B').relation, 'reference');
+  assert.deepEqual(first.nodes.find(node => node.id === 'A').mentionSourceNodeIds, ['ghost'], '已补边/已有边的 mention 剔除, 未知 id 延后保留');
+  assert.equal('mentionSourceNodeIds' in first.nodes.find(node => node.id === 'B'), false, '全部剔除后字段移除');
+
+  /* 入参未被破坏（不变式②: 老文档读路径随时可用）。*/
+  assert.deepEqual(nodes[1].mentionSourceNodeIds, ['u1', 'ghost', '', 'A', 'u1']);
+  assert.equal(connections.length, 2);
+  assert.equal(connections[0].relation, 'derived');
+
+  /* 二次加载: 幂等 —— 连接逐字节不变, 不新增边, 延后的未知 id 仍在。*/
+  const second = migrateMentionsToEdges(first.nodes, first.connections);
+  assert.equal(second.added, 0);
+  assert.equal(JSON.stringify(second.connections), JSON.stringify(first.connections));
+  assert.deepEqual(second.nodes.find(node => node.id === 'A').mentionSourceNodeIds, ['ghost']);
+
+  /* 未知 id "日后回来" -> 再补一次边（延后语义兑现）。*/
+  const third = migrateMentionsToEdges(
+    [...first.nodes, { id: 'ghost', kind: 'image', url: 'https://example.com/ghost.png' }],
+    first.connections,
+  );
+  assert.equal(third.added, 1);
+  assert.ok(endsOf(third.connections).includes('ghost>A'));
+});
+
+test('@菜单双向同步: 拉一条线 -> 该上游进 @ 菜单（入边补位 + 与自身 mention 去重）', () => {
+  const edges = [
+    { fromNodeId: 'm1', toNodeId: 'C', relation: 'derived' },
+    { fromNodeId: 'm2', toNodeId: 'C', relation: 'reference' },
+    { fromNodeId: 'm3', toNodeId: 'other', relation: 'reference' },
+    { fromNodeId: 'C', toNodeId: 'm2', relation: 'reference' }, /* 出边不算 */
+    { fromNodeId: 'C', toNodeId: 'C', relation: 'reference' }, /* 自环不算 */
+  ];
+  assert.deepEqual(mergeGraphMentionSources({ id: 'C', mentionSourceNodeIds: ['m1'] }, edges), ['m1', 'm2'], '自身 mention 在前, 入边补位, 同 from->to 去重');
+  assert.deepEqual(mergeGraphMentionSources({ id: 'C' }, edges), ['m1', 'm2'], '无 mention 字段也照样列出入边上游');
+  assert.deepEqual(mergeGraphMentionSources({ id: 'C' }, []), [], '无 mention 无边 = 空（P0 无图契约）');
 });
 
 test('模板图 -> 实例化 snapshot 形状（instantiate API 契约: 可直接喂 createCanvasSnapshot）', () => {
