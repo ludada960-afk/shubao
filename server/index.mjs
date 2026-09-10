@@ -96,6 +96,9 @@ import { createCanvasGraphRunStore } from './canvas/graphRunSchema.mjs';
 import { createCanvasGraphRunService } from './canvas/graphRunService.mjs';
 import { createCanvasGraphRunExecutor } from './canvas/graphRunExecutor.mjs';
 import { mountCanvasGraphRunRoutes } from './canvas/graphRunRoutes.mjs';
+import { createWorkflowTemplateStore } from './templates/workflowTemplateStore.mjs';
+import { BUILTIN_WORKFLOW_TEMPLATES } from './templates/builtinTemplates.mjs';
+import { mountWorkflowTemplateRoutes } from './templates/workflowTemplateRoutes.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createContentProjectLifecycle } from './projects/contentProjectLifecycle.mjs';
 import { createVideoProjectAssetImporter } from './projects/projectVideoAssetImport.mjs';
@@ -4379,6 +4382,20 @@ mountCanvasGraphRunRoutes(app, {
 canvasGraphRunStore.recoverInterrupted().forEach(run => {
   canvasGraphRunService.resumeRun(run.runId)
     .catch(err => console.warn('[canvas-graph-run] startup recovery failed:', run.runId, err && err.message));
+});
+// ============================================================
+// P2 业务资产层 —— 工作流模板（一键铺开）+ 技能市场
+// 5 个内置图工作流模板播种（T2 纯图链本期可跑；T1/T3 填文本后跑图像段；T4/T5 P3 门控）。
+// 模板本身 0 收费，实例化仅 +usage（真数）；实际扣费在 P1 /api/canvas/graph/run 节点动作层。
+// ============================================================
+const workflowTemplateStore = createWorkflowTemplateStore(db);
+workflowTemplateStore.seedBuiltIn(BUILTIN_WORKFLOW_TEMPLATES); // 幂等：已播 slug 跳过，永不覆盖既有 graph/pricing
+mountWorkflowTemplateRoutes(app, {
+  store: workflowTemplateStore,
+  authorize: req => authenticateContentRequest(req, {
+    sessionTokens: contentSessionTokens,
+    authorizeEmail: authorizeAccountEmail,
+  }),
 });
 
 app.post('/api/remove-bg', async (req, res) => {
