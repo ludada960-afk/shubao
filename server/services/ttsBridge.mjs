@@ -52,6 +52,14 @@ export const TTS_PRICING = Object.freeze({
     voiceCount: 100,
     marginBand: 'core',
   },
+  /* 用户 9-10: 百度智能云「语音合成 2.0(大模型)」+「声音复刻 2.0」已开通(各 2 万字免费额度, 99 标准音色)。 */
+  baidu: {
+    name: '百度语音·大模型语音合成',
+    inputPricePerKChars: 0.0002,
+    outputPricePerKChars: 0.0002,
+    voiceCount: 99,
+    marginBand: 'core',
+  },
 });
 
 // ── Provider rotation (keyring) ──
@@ -211,7 +219,84 @@ async function callMiniMaxTTS({ apiKey, text, voiceId, lang, speed }) {
   };
 }
 
+/* ── 百度语音·大模型语音合成 (真上游; 用户 9-10 开通并给出 API Key) ──
+   契约: API Key + Secret Key 换 access_token(缓存) → POST https://tsn.baidu.com/text2audio
+   (form: tex/tok/cuid/ctp/lan/spd/pit/vol/per/aue) → 成功返回音频二进制, 失败返回 JSON {err_no,err_msg}。
+   未配置 Secret Key 时保持 mock(诚实门控), 不发任何外部请求。 */
+const BAIDU_TOKEN_URL = 'https://aip.baidubce.com/oauth/2.0/token';
+const BAIDU_TTS_URL = 'https://tsn.baidu.com/text2audio';
+const BAIDU_DEFAULT_PER = '5003'; // 度逍遥(精品); 传数字音色 id 可覆盖(含声音复刻音色)
+let baiduTokenCache = { token: '', expiresAt: 0 };
+
+/* 纯函数: 构造百度 TTS 请求(供契约测试, 不发网络)。 */
+export function buildBaiduTtsRequest({ text, token, voiceId = '', speed = 1, lang = 'zh-CN', cuid = 'shubao-canvas' } = {}) {
+  const per = /^\d+$/.test(String(voiceId || '')) ? String(voiceId) : BAIDU_DEFAULT_PER;
+  const spd = Math.max(0, Math.min(15, Math.round(5 * (Number(speed) || 1))));
+  const body = new URLSearchParams();
+  body.set('tex', String(text || ''));
+  body.set('tok', String(token || ''));
+  body.set('cuid', cuid);
+  body.set('ctp', '1');
+  body.set('lan', String(lang || 'zh-CN').toLowerCase().startsWith('en') ? 'en' : 'zh');
+  body.set('spd', String(spd));
+  body.set('pit', '5');
+  body.set('vol', '5');
+  body.set('per', per);
+  body.set('aue', '3'); // mp3
+  return { url: BAIDU_TTS_URL, body: body.toString(), per, spd };
+}
+
+export function isRealTtsCredential(value) {
+  const v = String(value || '').trim();
+  return Boolean(v) && v !== 'mock-key' && v !== 'mock-secret';
+}
+
+async function fetchBaiduAccessToken(apiKey, apiSecret, { fetchImpl = fetch, now = Date.now } = {}) {
+  const nowMs = now();
+  if (baiduTokenCache.token && baiduTokenCache.expiresAt > nowMs + 60_000) return baiduTokenCache.token;
+  const url = BAIDU_TOKEN_URL + '?grant_type=client_credentials&client_id=' + encodeURIComponent(apiKey) + '&client_secret=' + encodeURIComponent(apiSecret);
+  const res = await fetchImpl(url, { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  const token = String(data?.access_token || '');
+  if (!token) throw new Error('百度语音 access_token 获取失败: ' + (data?.error_description || data?.error || res.status));
+  baiduTokenCache = { token, expiresAt: nowMs + Math.max(60, Number(data?.expires_in) || 2_592_000) * 1000 };
+  return token;
+}
+
+async function callBaiduTTS({ apiKey, apiSecret, text, voiceId, lang, speed }) {
+  if (!isRealTtsCredential(apiKey) || !isRealTtsCredential(apiSecret)) {
+    /* 未配置 Secret Key: 保持 mock(控制台补齐后自动转真) */
+    return { provider: 'baidu', voiceId, text, mockAudio: true, audioUrl: mockTtsAudioDataUrl('baidu-' + text.length) };
+  }
+  const token = await fetchBaiduAccessToken(apiKey, apiSecret);
+  const req = buildBaiduTtsRequest({ text, token, voiceId, speed, lang });
+  const res = await fetch(req.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: req.body,
+  });
+  const contentType = String(res.headers.get('content-type') || '');
+  if (!contentType.includes('audio')) {
+    const detail = await res.text().catch(() => '');
+    let message = '百度语音合成失败';
+    try { const j = JSON.parse(detail); message += ': ' + (j.err_msg || j.error_msg || detail.slice(0, 120)); }
+    catch { message += ': ' + detail.slice(0, 120); }
+    throw new Error(message);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (!buffer.length) throw new Error('百度语音合成返回空音频');
+  return {
+    provider: 'baidu',
+    voiceId: req.per,
+    text,
+    mockAudio: false,
+    audioUrl: 'data:audio/mp3;base64,' + buffer.toString('base64'),
+    bytes: buffer.length,
+  };
+}
+
 const ADAPTERS = Object.freeze({
+  baidu: callBaiduTTS,
   volcengine: callVolcengineTTS,
   elevenlabs: callElevenLabsTTS,
   aliyun: callAliyunTTS,
@@ -257,7 +342,9 @@ export async function synthesizeTTS({
     durationMs,
     costCny: cost.totalCny,
     latencyMs,
-    mockAudio: true,
+    /* 真上游(百度已配置) -> mockAudio:false; 未配置 -> 保持 mock 诚实门控。 */
+    mockAudio: result?.mockAudio !== false,
+    ...(Number(result?.bytes) > 0 ? { audioBytes: Number(result.bytes) } : {}),
   };
   if (withCostSnapshot) {
     payload.costSnapshot = computeTTSCostSnapshot({

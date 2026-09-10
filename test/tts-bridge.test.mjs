@@ -76,15 +76,16 @@ test('computeTTSCost 负值/NaN 抛错 (输入校验)', () => {
 });
 
 // 3) 列出 provider
-test('listTTSProviders 5 家全列 (含 marginBand)', () => {
+test('listTTSProviders 6 家全列 (含 marginBand; 9-10 新增百度大模型语音合成)', () => {
   const list = listTTSProviders();
-  assert.equal(list.length, 5);
+  assert.equal(list.length, 6);
   const keys = list.map((p) => p.key);
   assert.ok(keys.includes('volcengine'));
   assert.ok(keys.includes('elevenlabs'));
   assert.ok(keys.includes('aliyun'));
   assert.ok(keys.includes('azure'));
   assert.ok(keys.includes('minimax'));
+  assert.ok(keys.includes('baidu'), '百度语音必须在内');
   const volc = list.find((p) => p.key === 'volcengine');
   assert.equal(volc.marginBand, 'core');
   const elabs = list.find((p) => p.key === 'elevenlabs');
@@ -93,23 +94,21 @@ test('listTTSProviders 5 家全列 (含 marginBand)', () => {
 
 test('listTPSProviders 别名与 listTTSProviders 等价 (兼容历史命名)', () => {
   assert.equal(listTPSProviders, listTTSProviders);
-  assert.equal(listTPSProviders().length, 5);
+  assert.equal(listTPSProviders().length, 6);
 });
 
 // 4) Keyring 轮换
-test('nextProviderKey round-robin 5 个不重复', () => {
+test('nextProviderKey round-robin 6 个不重复', () => {
   const seen = new Set();
-  for (let i = 0; i < 5; i += 1) seen.add(nextProviderKey());
-  assert.equal(seen.size, 5);
+  for (let i = 0; i < 6; i += 1) seen.add(nextProviderKey());
+  assert.equal(seen.size, 6);
 });
 
-test('nextProviderKey 第 6 次回到第 1 个', () => {
-  // 连续取 6 次, 第一个和第六个相同
+test('nextProviderKey 第 7 次回到第 1 个', () => {
+  // 6 家轮转: 连续取 7 次, 第一个和第七个相同
   const first = nextProviderKey();
-  let prev = first;
-  for (let i = 0; i < 4; i += 1) prev = nextProviderKey();
-  const sixth = nextProviderKey();
-  assert.equal(sixth, first);
+  for (let i = 0; i < 5; i += 1) nextProviderKey();
+  assert.equal(nextProviderKey(), first);
 });
 
 // 5) costBasis 集成
@@ -252,7 +251,7 @@ test('mountTTSRoutes 挂载 GET /api/tts/providers (公开)', async () => {
   await handler({}, res);
   assert.equal(res.statusCode, 200);
   assert.ok(Array.isArray(res.body.providers));
-  assert.equal(res.body.providers.length, 5);
+  assert.equal(res.body.providers.length, 6);
 });
 
 test('mountTTSRoutes 挂载 POST /api/tts/synthesize (鉴权)', () => {
