@@ -101,10 +101,16 @@ export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchI
   if (body.products.some(product => product.id === 'minimax_h3_2k')) {
     throw new Error('Hidden MiniMax product is exposed before verification');
   }
+  /* 9-11: 公开产品集合 = Seedance 快试/标准 + MiniMax H3 768P (按条 ¥4.55 → 38000 units) */
+  const PUBLIC_QUOTE_UNITS = Object.freeze({
+    seedance_fast: [27000, 27000],
+    seedance_standard: [46000, 57000],
+    minimax_h3_768p: [38000, 38000],
+  });
   for (const product of body.products) {
-    if (!['seedance_fast', 'seedance_standard'].includes(product.id)) throw new Error(`Unexpected public video product: ${product.id}`);
+    const expected = PUBLIC_QUOTE_UNITS[product.id];
+    if (!expected) throw new Error(`Unexpected public video product: ${product.id}`);
     if (!product.quotes?.short?.sku || !product.quotes?.long?.sku) throw new Error(`Video product ${product.id} has incomplete quotes`);
-    const expected = product.id === 'seedance_fast' ? [27000, 27000] : [46000, 57000];
     if (product.quotes.short.units !== expected[0] || product.quotes.long.units !== expected[1]) throw new Error(`Video product ${product.id} quote mismatch`);
   }
   if (body.generationEnabled && !body.products.some(product => product.id === 'seedance_standard')) {
