@@ -5,7 +5,7 @@ import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp, pathnameToPage } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
-import { FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles, SquarePlay } from 'lucide-react';
+import { FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -59,18 +59,8 @@ function SideNav() {
       active: page === 'home',
       onClick: () => dispatch({ type: 'NEW_WORK' }),
     },
-    {
-      icon: SquarePlay,
-      motion: 'video',
-      label: '视频创作',
-      /* 用户 9-10 反馈: 点"视频创作"进不去 → 与顶部"视频生成"统一落到首页视频模块(不再跳独立页)。 */
-      active: page === 'home' && state.mode === 'video',
-      onClick: () => {
-        if (!state.logged) return requestLogin({ page: 'home' });
-        if (page !== 'home') dispatch({ type: 'NAVIGATE', page: 'home' });
-        dispatch({ type: 'SET_MODE', mode: 'video' });
-      },
-    },
+    /* 9-11 用户批注#9 (裁决: 方案一): 侧栏「视频创作」按钮移除 — 视频入口收敛到顶部「视频生成」域
+       (首页视频模块 + 工作台) 与画布内视频生成器/发往视频项目, 侧栏不再放重复入口。 */
     {
       icon: LayoutGrid,
       motion: 'grid',
