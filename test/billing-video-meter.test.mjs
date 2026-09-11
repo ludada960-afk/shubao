@@ -67,21 +67,20 @@ test('quoteVideoMeter seedance_standard 10s @ 720p picks standard_long (含 1 �
 test('quoteVideoMeter minimax_h3_2k 5s @ 2k returns H3 short SKU + 高毛利', () => {
   const q = quoteVideoMeter({ model: 'minimax_h3_2k', seconds: 5, resolution: '2k' });
   assert.equal(q.sku, 'video_minimax_h3_2k_short');
-  assert.equal(q.units, 57000);
-  assert.equal(q.priceFen, 1490);
-  // H3 单价 ¥0.051/秒 × 5s = ¥0.255
-  assert.equal(q.actualCostCny, Number((0.051 * 5).toFixed(6)));
-  // theoretical ≈ 14.923, margin ≈ 0.983 → healthy
-  assert.ok(q.margin > 0.9);
+  assert.equal(q.units, 65000);
+  assert.equal(q.priceFen, 1690);
+  // 9-11 更正: H3-2K 单价 ¥5.85/15s ≈ ¥0.39/秒 × 5s = ¥1.95
+  assert.equal(q.actualCostCny, Number((0.39 * 5).toFixed(6)));
+  assert.ok(q.margin > 0.6);
   assert.equal(q.health, 'healthy');
 });
 
 test('quoteVideoMeter minimax_h3_2k 12s @ 2k picks long SKU (¥16.9)', () => {
   const q = quoteVideoMeter({ model: 'minimax_h3_2k', seconds: 12, resolution: '2k' });
   assert.equal(q.sku, 'video_minimax_h3_2k_long');
-  assert.equal(q.units, 57000);
+  assert.equal(q.units, 65000);
   assert.equal(q.priceFen, 1690);
-  assert.equal(q.actualCostCny, Number((0.051 * 12).toFixed(6)));
+  assert.equal(q.actualCostCny, Number((0.39 * 12).toFixed(6)));
 });
 
 test('quoteVideoMeter seedance_1080p 默认隐藏但 listTier 包含 hidden', () => {
@@ -221,8 +220,8 @@ test('GET /api/billing/video-meter 路由: 缺参数 400 (缺 model)', () => {
 });
 
 // ─── 6. VIDEO_METER_CONSTANTS 暴露 ───
-test('VIDEO_METER_CONSTANTS 包含 5 个 tier + SAFE 正则', () => {
-  assert.equal(VIDEO_METER_CONSTANTS.VIDEO_TIER_DEFINITIONS.length, 5);
+test('VIDEO_METER_CONSTANTS 包含 11 个 tier + SAFE 正则', () => {
+  assert.equal(VIDEO_METER_CONSTANTS.VIDEO_TIER_DEFINITIONS.length, 11);
   assert.ok(VIDEO_METER_CONSTANTS.SAFE_MODEL instanceof RegExp);
   assert.ok(VIDEO_METER_CONSTANTS.SAFE_RESOLUTION instanceof RegExp);
   assert.equal(VIDEO_METER_CONSTANTS.MAX_SECONDS, 60);

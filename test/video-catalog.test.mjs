@@ -18,12 +18,18 @@ test('video products expose one curated stable contract', () => {
     'seedance_fast',
     'seedance_standard',
     'minimax_h3_768p',
+    'grok_fast',
+    'wan_standard',
+    'kling_standard',
+    'kling_pro',
+    'veo_fast',
+    'seedance_25',
     'minimax_h3_2k',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
   assert.equal(getVideoProduct('seedance_standard').label, 'Seedance 2.0 标准');
   assert.match(getVideoProduct('seedance_fast').description, /720P/);
-  assert.equal(getVideoProduct('minimax_h3_2k').public, false);
+  assert.equal(getVideoProduct('minimax_h3_2k').public, true);
   assert.equal(Object.isFrozen(VIDEO_PRODUCTS), true);
   assert.equal(Object.isFrozen(getVideoProduct('seedance_standard').limits), true);
   assert.throws(() => getVideoProduct('__proto__'), /未知视频产品/);
@@ -75,11 +81,20 @@ test('video product validation rejects unsupported duration, mode, resolution, a
 
 test('public products omit hidden routes and private provider details', () => {
   const products = publicVideoProducts();
-  assert.deepEqual(products.map(product => product.id), ['seedance_fast', 'seedance_standard', 'minimax_h3_768p']);
+  assert.deepEqual(products.map(product => product.id), [
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+    'kling_standard', 'kling_pro', 'veo_fast', 'seedance_25', 'minimax_h3_2k',
+  ]);
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
   assert.equal(products.every(product => !('routeId' in product) && !('credential' in product)), true);
   /* 9-11: MiniMax H3 768P 上架 (IP233 按条 ¥4.55, 与标准档同带定价) */
   assert.equal(products.find(product => product.id === 'minimax_h3_768p').providerLabel, 'MiniMax');
+  /* 9-11 「全上」: 6 个新档位 + MiniMax 2K 开公开, 全部对外可见 */
+  assert.equal(products.length, 10);
+  assert.equal(products.find(product => product.id === 'kling_pro').providerLabel, '快手可灵');
+  assert.equal(products.find(product => product.id === 'veo_fast').providerLabel, 'Google');
+  assert.equal(products.find(product => product.id === 'grok_fast').quotes.short.sku, 'video_grok_fast_short');
+  assert.equal(products.find(product => product.id === 'seedance_25').quotes.short.units, 43000);
   assert.deepEqual(products.find(product => product.id === 'minimax_h3_768p').quotes.short, {
     sku: 'video_minimax_h3_768p_short', units: 38000, points: 38,
   });
@@ -91,6 +106,6 @@ test('public products omit hidden routes and private provider details', () => {
   });
   assert.deepEqual(
     publicVideoProducts({ includeHidden: true }).map(product => product.id),
-    ['seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'minimax_h3_2k'],
+    ['seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard', 'kling_standard', 'kling_pro', 'veo_fast', 'seedance_25', 'minimax_h3_2k'],
   );
 });

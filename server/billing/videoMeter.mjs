@@ -72,6 +72,73 @@ const VIDEO_TIER_DEFINITIONS = Object.freeze([
     longMaxSeconds: 15,
     costPerClipCny: 4.55,  // IP233 按条 ¥4.55 (实测目录)
   },
+  /* ── 9-11 「全上」新档 (成本取 IP233 权威价目) ── */
+  {
+    model: 'grok_fast',
+    label: 'Grok 极速',
+    eyebrow: 'xAI · 720P',
+    skuShort: 'video_grok_fast_short',
+    skuLong: 'video_grok_fast_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 10,
+    costPerSecondCny: 0.104,  // 价目 ¥0.104/秒
+  },
+  {
+    model: 'wan_standard',
+    label: '通义万相 3.0',
+    eyebrow: '通义 · 720P',
+    skuShort: 'video_wan_standard_short',
+    skuLong: 'video_wan_standard_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 10,
+    costPerClipCny: 0.455,  // 价目 ¥0.455/条
+  },
+  {
+    model: 'kling_standard',
+    label: '可灵 3.0',
+    eyebrow: '可灵 · 720P',
+    skuShort: 'video_kling_standard_short',
+    skuLong: 'video_kling_standard_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 10,
+    costPerClipCny: 1.82,  // 价目 ¥1.82/条
+  },
+  {
+    model: 'kling_pro',
+    label: '可灵 3.0 Pro',
+    eyebrow: '可灵 · 720P',
+    skuShort: 'video_kling_pro_short',
+    skuLong: 'video_kling_pro_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 10,
+    costPerClipCny: 3.77,  // 价目 ¥3.77/条
+  },
+  {
+    model: 'veo_fast',
+    label: 'Veo 3.1 Fast',
+    eyebrow: 'Google · 720P',
+    skuShort: 'video_veo_fast_short',
+    skuLong: 'video_veo_fast_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 8,
+    costPerClipCny: 1.17,  // 价目 ¥1.17/条
+  },
+  {
+    model: 'seedance_25',
+    label: 'Seedance 2.5',
+    eyebrow: '字节 · 720P',
+    skuShort: 'video_seedance_25_short',
+    skuLong: 'video_seedance_25_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 15,
+    costPerClipCny: 5.07,  // 价目 sd8-seedance-2.5 ¥5.07/条
+  },
   {
     model: 'minimax_h3_2k',
     label: 'MiniMax H3 2K',
@@ -81,7 +148,7 @@ const VIDEO_TIER_DEFINITIONS = Object.freeze([
     resolutions: Object.freeze(['2k']),
     shortMaxSeconds: 8,
     longMaxSeconds: 15,
-    costPerSecondCny: 0.051,  // H3 短档 providerCostCny=0.76 / 15s ≈ 0.0507
+    costPerSecondCny: 0.39,  // 9-11 更正: 价目 minimax-h3-2k ¥5.85/条 / 15s ≈ 0.39
   },
 ]);
 

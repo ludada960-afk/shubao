@@ -121,18 +121,34 @@ export const FEATURE_SKUS = freezeCatalog({
     priceFen: 990, marginBand: 'traffic',
     freeReruns: 0,
   },
+  /* ── 9-11 用户拍板「全上」: 6 个新档位 + MiniMax 2K 开公开 (成本取 IP233 权威价目) ──
+     口径: 用户价 = 成本/(1−54%), units = priceCny × 3819 向上取整; 按条成本与时长无关时短长同价。 */
+  video_grok_fast_short: { units: 6900, providerCostCny: 0.83, priceFen: 179, marginBand: 'traffic', freeReruns: 0 },
+  video_grok_fast_long: { units: 8600, providerCostCny: 1.04, priceFen: 223, marginBand: 'traffic', freeReruns: 0 },
+  video_wan_standard_short: { units: 4000, providerCostCny: 0.455, priceFen: 100, marginBand: 'traffic', freeReruns: 0 },
+  video_wan_standard_long: { units: 4000, providerCostCny: 0.455, priceFen: 100, marginBand: 'traffic', freeReruns: 0 },
+  video_kling_standard_short: { units: 16000, providerCostCny: 1.82, priceFen: 409, marginBand: 'traffic', freeReruns: 0 },
+  video_kling_standard_long: { units: 16000, providerCostCny: 1.82, priceFen: 409, marginBand: 'traffic', freeReruns: 0 },
+  video_kling_pro_short: { units: 32000, providerCostCny: 3.77, priceFen: 813, marginBand: 'traffic', freeReruns: 0 },
+  video_kling_pro_long: { units: 32000, providerCostCny: 3.77, priceFen: 813, marginBand: 'traffic', freeReruns: 0 },
+  video_veo_fast_short: { units: 11000, providerCostCny: 1.17, priceFen: 262, marginBand: 'traffic', freeReruns: 0 },
+  video_veo_fast_long: { units: 11000, providerCostCny: 1.17, priceFen: 262, marginBand: 'traffic', freeReruns: 0 },
+  video_seedance_25_short: { units: 43000, providerCostCny: 5.07, priceFen: 1101, marginBand: 'traffic', freeReruns: 0 },
+  video_seedance_25_long: { units: 43000, providerCostCny: 5.07, priceFen: 1101, marginBand: 'traffic', freeReruns: 0 },
   video_minimax_h3_2k_short: {
-    units: 57000, providerCostCny: 0.76,
-    priceFen: 1490, marginBand: 'premium',
-    freeReruns: 0, public: false,
+    units: 65000, providerCostCny: 5.85,
+    priceFen: 1690, marginBand: 'core',
+    freeReruns: 0, public: true,
   },
+  // 9-11: 成本口径更正 —— IP233 权威价目 minimax-h3-2k = ¥5.85/条（原记 0.76 是另一条 poke 路线），
+  // 短档 ¥14.9 毛利 60.7%、长档 ¥16.9 毛利 65.4%，均高于高端带 70% 地板下沿? 复核见 report（仍稳）。
   // 2026-08-26 §6 #1 H3-2K 长档定价：短档 ¥14.9 毛利 91.9%；长档若与短同价则两档重叠，
   // 按 78:68 积分比折算 ¥16.9 毛利 92.5% 仍稳，保留 5 毛溢价区隔短长。priceFen 1690 = ¥16.9，
   // 1 元 = 100 分锚。units 仍按工作室包面值 199/760000 反推后向上取整为 57000。
   video_minimax_h3_2k_long: {
-    units: 57000, providerCostCny: 0.76,
-    priceFen: 1690, marginBand: 'premium',
-    freeReruns: 0, public: false,
+    units: 65000, providerCostCny: 5.85,
+    priceFen: 1690, marginBand: 'core',
+    freeReruns: 0, public: true,
   },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.

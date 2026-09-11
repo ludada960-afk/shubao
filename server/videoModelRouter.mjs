@@ -203,9 +203,13 @@ export function recommendVideoRoute({ request: input = {}, products = null, hist
   if (request.invalidObjective) warnings.push('未识别的路由偏好已回退为均衡。');
   const publicProducts = (products ? Object.values(products) : Object.values(VIDEO_PRODUCTS))
     .filter(product => product?.public === true);
+  /* 9-11(全上后候选变多): 可用性优先于评分 —— 时长/模式/清晰度/素材不满足的档位不能排在候选第一位,
+     否则工作台推荐的第一个选项会在用户点击时才报「不支持」。排序: 可用户 > 评分 > id 稳定序。 */
   const candidates = publicProducts
     .map(product => evaluateProduct(product, request, historyStats))
-    .sort((left, right) => right.score - left.score || left.productId.localeCompare(right.productId));
+    .sort((left, right) => (Number(right.eligible) - Number(left.eligible))
+      || right.score - left.score
+      || left.productId.localeCompare(right.productId));
   const eligible = candidates.filter(candidate => candidate.eligible);
   const preferred = request.preferredProductId
     ? candidates.find(candidate => candidate.productId === request.preferredProductId)

@@ -1,42 +1,40 @@
 // test/h3-long-pricing.test.mjs
 // 2026-08-26 周一切片 · §6 #1 H3-2K 长档定价 ¥16.9
 // -----------------------------------------------------------------------------
-// 验证：video_minimax_h3_2k_long priceFen = 1690 (¥16.9, 1元=100分锚)；
-// 短档 ¥14.9 维持；长档毛利仍在 premium 地板 70% 上方；admin bySku 看板行
-// 同步 priceFen=1690。
+// 9-11 更新：MiniMax H3-2K 成本口径更正为 IP233 权威价目 ¥5.85/条（原 0.76 为 poke 中转价），
+// 原 ¥14.9 短档在该成本下只有 57.8% 毛利、跌破高端带 70% 地板 → 短长档统一 ¥16.9 /
+// 65000 units 并改归主力带（60% 地板，实测 62.6%），两档同价不再做短长价格区隔。
+// 本文件继续验证：priceFen 锚、marginBand 归属、admin bySku 行口径一致。
 // -----------------------------------------------------------------------------
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { FEATURE_SKUS, videoMarginGateReport } from '../server/billing/catalog.mjs';
 
-test('video_minimax_h3_2k_long priceFen equals 1690 (¥16.9) — long tier separate from short', () => {
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_long.priceFen, 1690);
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_long.units, 57000);
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_long.marginBand, 'premium');
+test('video_minimax_h3_2k 两档统一 ¥16.9 / 65000 units (9-11 成本更正后改判)', () => {
+  for (const sku of ['video_minimax_h3_2k_short', 'video_minimax_h3_2k_long']) {
+    assert.equal(FEATURE_SKUS[sku].priceFen, 1690, sku + ' cash anchor');
+    assert.equal(FEATURE_SKUS[sku].units, 65000, sku + ' point face');
+    assert.equal(FEATURE_SKUS[sku].marginBand, 'core', sku + ' band');
+    assert.equal(FEATURE_SKUS[sku].public, true, sku + ' public after 全上');
+  }
 });
 
-test('video_minimax_h3_2k_short keeps ¥14.9 (1490) to preserve short/long separation', () => {
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_short.priceFen, 1490);
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_short.units, 57000);
+test('h3 成本口径锁定 IP233 权威价目 ¥5.85/条 (原 0.76 为 poke 中转价)', () => {
+  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_short.providerCostCny, 5.85);
+  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_long.providerCostCny, 5.85);
 });
 
-test('h3 long price/cost separation — long is 1690 vs short 1490 (no overlap)', () => {
-  const longPrice = FEATURE_SKUS.video_minimax_h3_2k_long.priceFen;
-  const shortPrice = FEATURE_SKUS.video_minimax_h3_2k_short.priceFen;
-  assert.ok(longPrice - shortPrice >= 200, 'long must be at least ¥2 above short');
-});
-
-test('margin gate report still classifies h3 long as premium-band ok', () => {
+test('margin gate report classifies h3 as core-band ok with ¥16.9 anchor', () => {
   const rows = videoMarginGateReport();
   const long = rows.find(row => row.sku === 'video_minimax_h3_2k_long');
   assert.ok(long, 'h3 long row present in margin gate report');
-  assert.equal(long.band, 'premium');
+  assert.equal(long.band, 'core');
   assert.equal(long.status, 'ok');
   assert.equal(long.priceFen, 1690);
-  // 1元=100分锚：priceFen=1690 是零售现金锚；积分面值由 units×anchor 推导（与短档同步未改），
-  // admin bySku 行同时显示 priceFen=1690 与 faceCny 区分「卖 ¥16.9」与「积分面值」两种口径。
-  assert.ok(long.faceCny > 14 && long.faceCny < 16, '积分面值不变（与短档同口径）');
+  assert.ok(long.margin >= 0.60, 'core band floor kept: ' + long.margin);
+  // 积分面值 = units × anchor（65000 × 锚 ≈ ¥17.02），覆盖 ¥16.9 现金锚。
+  assert.ok(long.faceCny > 16.5 && long.faceCny < 17.5, 'face value covers the cash anchor');
 });
 
 test('admin bySku 看板 H3 long 行直接读 catalog priceFen=1690 (1元=100分锚)', () => {

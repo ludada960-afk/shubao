@@ -27,6 +27,15 @@ const MODEL_TOKEN_PRICING = Object.freeze({
   'MiniMax-H3': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: 'H3 多按次费/秒费结算，token 单价留 0' }),
   'minimax-h3': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: 'H3 alias' }),
   'minimax/H3': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: 'H3 alias' }),
+  /* 9-11 「全上」新档: 按条/按秒结算, token 单价留 0 (权威价目见 docs/research/ip233-model-pricing-20260911.md) */
+  'minimax-h3-2k': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥5.85/条' }),
+  'minimax-h3-768p': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥4.55/条' }),
+  'grok-imagine-video': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按秒 ¥0.104/秒' }),
+  'xn-wan3.0': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥0.455/条' }),
+  'kling-3.0': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥1.82/条' }),
+  'kling-3.0-pro': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥3.77/条' }),
+  'veo-3.1-fast': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥1.17/条' }),
+  'sd8-seedance-2.5': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条 ¥5.07/条' }),
   // Claude Sonnet 4.6 — 文本基线
   'claude-sonnet-4.6': Object.freeze({ inputPer1k: 0.021, outputPer1k: 0.105 }),
   'claude-3-5-sonnet': Object.freeze({ inputPer1k: 0.021, outputPer1k: 0.105 }),

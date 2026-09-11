@@ -106,6 +106,13 @@ export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchI
     seedance_fast: [27000, 27000],
     seedance_standard: [46000, 57000],
     minimax_h3_768p: [38000, 38000],
+    grok_fast: [6900, 8600],
+    wan_standard: [4000, 4000],
+    kling_standard: [16000, 16000],
+    kling_pro: [32000, 32000],
+    veo_fast: [11000, 11000],
+    seedance_25: [43000, 43000],
+    minimax_h3_2k: [65000, 65000],
   });
   for (const product of body.products) {
     const expected = PUBLIC_QUOTE_UNITS[product.id];

@@ -142,7 +142,8 @@ test('public catalog advertises only the shared point wallet', async t => {
   assert.ok(res.body.features.some(feature => feature.sku === 'xhs_image_set_2k'));
   assert.ok(res.body.features.some(feature => feature.sku === 'video_seedance_fast_short'));
   assert.ok(res.body.features.some(feature => feature.sku === 'video_seedance_standard_long'));
-  assert.equal(res.body.features.some(feature => feature.sku.startsWith('video_minimax_h3_2k_')), false);
+  /* 9-11: MiniMax H3-2K 已开公开（用户「全上」），公开目录应列出其 SKU */
+  assert.equal(res.body.features.some(feature => feature.sku.startsWith('video_minimax_h3_2k_')), true);
 });
 
 test('new order routes reject legacy content-set products even when a provider is enabled', async t => {

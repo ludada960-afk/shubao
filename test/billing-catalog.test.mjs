@@ -55,9 +55,17 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     video_seedance_standard_short: { units: 46000, priceFen: 1190, providerCostCny: 5.07, isPublic: true },
     video_seedance_standard_long: { units: 57000, priceFen: 1490, providerCostCny: 5.07, isPublic: true },
     video_seedance_1080p: { units: 73000, priceFen: 1890, providerCostCny: 6.37, isPublic: false },
-    video_minimax_h3_2k_short: { units: 57000, priceFen: 1490, providerCostCny: 0.76, isPublic: false },
-    // 2026-08-26 §6 #1 H3-2K 长档 ¥16.9（短档 ¥14.9 78:68 积分比溢价 5 毛）
-    video_minimax_h3_2k_long: { units: 57000, priceFen: 1690, providerCostCny: 0.76, isPublic: false },
+    // 9-11: 成本口径更正为 IP233 权威价目 ¥5.85/条 (原 0.76 是 poke 中转价),
+    // 定价改 ¥16.9/65000 units 并归主力带 (60% 地板), 实测毛利 62.6%
+    video_minimax_h3_2k_short: { units: 65000, priceFen: 1690, providerCostCny: 5.85, isPublic: true },
+    video_minimax_h3_2k_long: { units: 65000, priceFen: 1690, providerCostCny: 5.85, isPublic: true },
+    /* 9-11 「全上」6 档 */
+    video_grok_fast_short: { units: 6900, priceFen: 179, providerCostCny: 0.83, isPublic: true },
+    video_wan_standard_short: { units: 4000, priceFen: 100, providerCostCny: 0.455, isPublic: true },
+    video_kling_standard_short: { units: 16000, priceFen: 409, providerCostCny: 1.82, isPublic: true },
+    video_kling_pro_short: { units: 32000, priceFen: 813, providerCostCny: 3.77, isPublic: true },
+    video_veo_fast_short: { units: 11000, priceFen: 262, providerCostCny: 1.17, isPublic: true },
+    video_seedance_25_short: { units: 43000, priceFen: 1101, providerCostCny: 5.07, isPublic: true },
   };
   for (const [sku, tier] of Object.entries(expected)) {
     const feature = FEATURE_SKUS[sku];
@@ -66,14 +74,8 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     assert.equal(feature.providerCostCny, tier.providerCostCny, sku + ' books the settled cost');
     assert.equal(feature.public !== false, tier.isPublic, sku + ' public visibility');
     // 实付面值不得低于终案现金价（向上取整保证）。
-    // 例外：video_minimax_h3_2k_long 因 8 项 #1 短档同口径（units=57000 保留 ¥14.93 积分面值），
-    // 现金价 ¥16.9 高于积分面值 ¥14.93 是定价策略（标价更高但积分面值不变），face < cash 故意。
-    if (sku === 'video_minimax_h3_2k_long') {
-      assert.ok(feature.units * anchor < tier.priceFen / 100, sku + ' long tier intentionally face<cash by 8 项 #1');
-      assert.ok(feature.units * anchor >= 14.5, sku + ' long tier keeps short-tier faceCny window');
-    } else {
-      assert.ok(feature.units * anchor >= tier.priceFen / 100 - 1e-9, sku + ' face value covers the cash price');
-    }
+    // 9-11: H3-2K 短长档已统一 ¥16.9/65000 units, 不再有 face<cash 特例。
+    assert.ok(feature.units * anchor >= tier.priceFen / 100 - 1e-9, sku + ' face value covers the cash price');
   }
   // 快试档权益口径：限5s、每日3次、仅fast、无重跑；高品质档含 1 次免费重跑。
   for (const sku of ['video_seedance_fast_short', 'video_seedance_fast_long']) {
@@ -98,15 +100,16 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
 
   const report = videoMarginGateReport();
   const bySku = new Map(report.map(row => [row.sku, row]));
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 10);
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 22);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);
   for (const [sku, floor] of [
     ['video_seedance_standard_long', 0.60],
     ['video_seedance_1080p', 0.60],
-    ['video_minimax_h3_2k_short', 0.70],
-    ['video_minimax_h3_2k_long', 0.70],
+    /* 9-11: 成本更正为 ¥5.85/条后, 2K 档从高端带改判主力带 (60% 地板), 实测 62.6% */
+    ['video_minimax_h3_2k_short', 0.60],
+    ['video_minimax_h3_2k_long', 0.60],
   ]) {
     const row = bySku.get(sku);
     assert.equal(row.status, 'ok', sku + ' clears its band');
@@ -146,21 +149,21 @@ test('audited margins are locked against silent cost drift under the tiered band
   assert.ok(Math.abs(rerunExposure - 0.2905) < 0.001, 'free-rerun exposure drifted: ' + rerunExposure.toFixed(4));
 });
 
-test('minimax h3 cost is finalized at the user-confirmed 1:1 CNY rate of ¥0.76 per video', () => {
+test('minimax h3 2k books the authoritative IP233 list price (9-11 更正: ¥5.85/条)', () => {
   const anchor = pointsFaceAnchorCny();
-  // 成本定案（2026-09）：用户在 poke2api 充值实测确认美元余额按人民币 1:1 核算，
-  // 单值 ¥0.76/条落库。终案定价 ¥14.9 后两档毛利仍远高于高端档 70% 地板。
+  // 9-11：以 IP233 权威价目（/api/pricing）为准 —— minimax-h3-2k = ¥5.85/条；
+  // 原 0.76 是 poke2api 中转路线价，已退役。定价 ¥16.9/65000 units，主力带毛利 62.6%。
   const auditedMargins = {
-    video_minimax_h3_2k_short: 0.9191,
-    video_minimax_h3_2k_long: 0.9191,
+    video_minimax_h3_2k_short: 0.626,
+    video_minimax_h3_2k_long: 0.626,
   };
   for (const [sku, expectedMargin] of Object.entries(auditedMargins)) {
     const feature = FEATURE_SKUS[sku];
-    assert.equal(feature.providerCostCny, 0.76, sku + ' books the user-confirmed 1:1 cost');
+    assert.equal(feature.providerCostCny, 5.85, sku + ' books the authoritative IP233 list price');
     const margin = contributionMarginOf(feature, feature.units * anchor);
-    assert.ok(Math.abs(margin - expectedMargin) < 0.001,
+    assert.ok(Math.abs(margin - expectedMargin) < 0.002,
       sku + ' margin drifted: ' + margin.toFixed(4) + ' vs audited ' + expectedMargin);
-    assert.ok(margin >= 0.70, sku + ' should clear the premium band floor by a wide margin');
+    assert.ok(margin >= 0.60, sku + ' clears the core band floor');
   }
 });
 

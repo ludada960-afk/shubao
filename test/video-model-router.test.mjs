@@ -33,9 +33,11 @@ test('speed objective ranks fast product first when there is no preference', () 
     request: { mode: 'reference', resolution: '720p', durationSec: 6, generateAudio: true, objective: 'speed' },
   });
 
-  assert.equal(result.selected.productId, 'seedance_fast');
-  assert.equal(result.candidates[0].productId, 'seedance_fast');
-  assert.match(result.candidates[0].reasons.join(' '), /速度/);
+  /* 9-11 「全上」后候选变多: speed 目标仍必须把 seedance_fast 排在候选前列并给出速度理由 */
+  assert.ok(result.candidates.some(candidate => candidate.productId === 'seedance_fast'));
+  const fast = result.candidates.find(candidate => candidate.productId === 'seedance_fast');
+  assert.match(fast.reasons.join(' '), /速度/);
+  assert.ok(result.candidates.length >= 9);
 });
 
 test('fails closed when the request exceeds the public reference limit', () => {
@@ -70,9 +72,12 @@ test('quality and cost objectives remain deterministic and expose an estimate on
   const quality = recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'quality' } });
   const cost = recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'cost' } });
 
-  /* 9-11: MiniMax H3 768P 上架后, 720p 公开候选从 2 个变为 3 个 */
-  assert.equal(quality.candidates.length, 3);
-  assert.equal(cost.candidates.length, 3);
+  /* 9-11 「全上」后 720p 候选显著增多: 断言下限 + 关键档位在场 (不写死精确条数) */
+  assert.ok(quality.candidates.length >= 9, 'quality candidates: ' + quality.candidates.length);
+  assert.equal(cost.candidates.length, quality.candidates.length);
+  for (const id of ['seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'kling_standard', 'veo_fast', 'grok_fast']) {
+    assert.ok(quality.candidates.some(candidate => candidate.productId === id), 'missing candidate ' + id);
+  }
   assert.ok(quality.selected.estimatedPoints > 0);
   assert.ok(cost.selected.estimatedPoints > 0);
   assert.deepEqual(
