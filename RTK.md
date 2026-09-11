@@ -85,6 +85,25 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 用户授权完整交付时，Codex 应自主完成备份、实现、全量回归、桌面与移动端浏览器验收、部署及线上验证；除新权限、不可逆风险或无法自行解除的外部阻塞外，不在中途反复询问。
 
 ## 11. 最近发布快照
+- 2026-09-11（二轮），9-11 二轮用户批注①-⑨ 已由 ed4c39a8 + e1377172 发布至 https://shuimg.cn/
+  （frontend 档，零付费 canary；全量回归 3124/3124，生产构建绿；线上 /health ok、
+  /api/billing/rules 含 ec_tts_voice(0.5 积分/条)+ec_direction_refresh(1 积分/条)、入口
+  bundle index-CjLK-iH_.js、画廊 117 图 + 视频契约 2 公开产品通过）。提交栈（本轮）：
+  - ed4c39a8 素材/作品逻辑：上传/替换不再自动进素材库（去「后台保存原图」机制），新增
+    工具条「加入素材库」(save-to-assets, 仅就绪带 url 素材/媒体可点)，生成物 register-generated
+    自动归集保留；「重试扫描」2 连败移出死记录。② 点空白同时收起右栏。③ 加号与连线端点
+    真重叠(删 media 节点 -17px 垂直偏移)。④ 替换后节点框随新素材宽高比自适应 + 本地 data URI
+    预览兜底到持久图解码成功，消除替换后空白闪屏。⑤ 标注工具对标流影AI：箭头 V 形箭尾手算
+    (弃 SVG marker context-stroke) + 文字标注输入框加大加描边 + 粗细滑块带实时值。⑥ 技能按域
+    分域(生图3/视频2, filterCanvasSkills) + 技能按钮「更多技能/技能库」打开既有 SkillLibraryModal
+    (initialKind 按域, 选中技能回写节点 prompt 预填 + skill/skillLabel)。⑦ 首页套图方案面板：切
+    目标语言不再误标「已调整」(workbenchState settings 去 targetLanguage) + 面板滚动隔离
+    (overscroll-behavior:contain + max-height) + 双发射按钮合并为同款紧凑组。
+  - e1377172 (用户裁决方案一) 移除侧栏「视频创作」按钮 — 视频入口收敛到顶部「视频生成」域 +
+    画布视频生成器/发往视频项目；顶部域与首页视频模块/工作台保留(发往视频项目落点不断链)。
+  线上 TTS 真链路复核：server/.env 与根 .env 双文件含 TTS_API_KEY_VOLCENGINE，单条真实调用
+  mockAudio:false + 真 MP3(ID3 头)验证通过。遗留：agv 快档首条真实账单落库后需对账校准；
+    cloudflare-tunnel 持续 errored(历史遗留, nginx 正常)；P9 画布视频视图未做(彻底合并视频入口待落地)。
 - 2026-09-11，节点生态 9-11 执行轮（火山 TTS 真链路 + agv 快档切换 + 8 项 UI 一致性 + P7 方案入画布）
   已由 8152bef9 发布至 https://shuimg.cn/（frontend 档，零付费 canary；全量回归 3113/3113，
   生产构建 + source-hygiene 绿；线上探针 /health ok、/api/billing/rules 含 ec_tts_voice 与
