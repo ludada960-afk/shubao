@@ -67,13 +67,15 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('edit-text', '编辑文字', ['selection'], null, false, {
     type: 'inspector', handler: 'edit-text',
   }, { description: '识别并编辑画面中的文字' }),
-  /* 用户 9-10 要求: 选中素材必须能给「替换」(对标竞品) —— 换图/换视频后位置与连线保持不变。 */
-  action('replace-media', '替换', ['selection'], null, false, {
+  /* 用户 9-10 要求: 选中素材必须能给「替换」(对标竞品) —— 换图/换视频后位置与连线保持不变。
+     9-11 用户批注: 位置不对标流影AI —— 不放顶部工具条, 放节点本身(选中即现的角标胶囊)。
+     surface 改 node-capsule: 工具条/右键菜单都不再渲染, 由节点组件的 onReplace 胶囊承载。 */
+  action('replace-media', '替换', ['node-capsule'], null, false, {
     type: 'local', handler: 'replace-media',
   }, {
     description: '上传新素材替换当前图片或视频，位置与连线不变',
     group: '优先操作',
-    /* 只在"选中工具条"出现（右键菜单契约: 不重复选中工具）; 失败/上传失败节点不给替换。 */
+    /* 失败/上传失败节点不给替换。 */
     canRun: node => ['image', 'output', 'layer-group', 'video'].includes(String(node?.kind || ''))
       && !['error', 'upload-error'].includes(String(node?.status || '')),
   }),

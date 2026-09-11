@@ -197,14 +197,21 @@ test('keeps a clean continuity review when directions are neutral and actions ar
 });
 
 test('uses requested public product and rejects invalid planning options', () => {
+  // 9-11 换档: 快试档切 agv-seedance2.0fast, 能力口径 = 仅文生/图生 (script/reference),
+  // 不再支持首尾帧(frame)与爆款重构(remake) —— 这两种模式归标准档。
   const valid = buildVideoWorkbenchPlan(workbench({ assets: [asset('product-1')], shots: [shot('shot-1', 1)] }), {
     productId: 'seedance_fast',
-    mode: 'frame',
+    mode: 'reference',
     resolution: '720p',
     generateAudio: false,
   });
   assert.equal(valid.status, 'ready');
   assert.equal(valid.quote.lineItems[0].productId, 'seedance_fast');
+  const frameOnFast = buildVideoWorkbenchPlan(workbench({ assets: [asset('product-1')], shots: [shot('shot-1', 1)] }), {
+    productId: 'seedance_fast', mode: 'frame', resolution: '720p', generateAudio: false,
+  });
+  assert.equal(frameOnFast.status, 'blocked', '快试档(agv)不再支持首尾帧');
+  assert.equal(frameOnFast.blockers[0].code, 'PRODUCT_OPTIONS_INVALID');
   const hidden = buildVideoWorkbenchPlan(workbench({ assets: [asset('product-1')], shots: [shot('shot-1', 1)] }), {
     productId: 'minimax_h3_2k', resolution: '2k', mode: 'frame', generateAudio: true,
   });

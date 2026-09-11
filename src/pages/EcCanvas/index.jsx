@@ -105,7 +105,7 @@ import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
-import { analyzeVideoPlan, createVideoJob, getVideoJob, uploadVideoAsset } from '../../services/video.js';
+import { analyzeVideoPlan, createVideoJob, fetchVideoCapabilities, getVideoJob, uploadVideoAsset } from '../../services/video.js';
 import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
 import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/videoStudioModel.js';
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
@@ -489,10 +489,11 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
             ? { stroke: '#7c3aed', dash: '8 6' }
             : styles[conn.relation || conn.type] || styles.reference;
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
-        const edgeClass = isInvalid ? 'ec-canvas-edge-invalid' : (isProcessing ? 'ec-canvas-edge-processing' : undefined);
+        /* 9-11: 全部连线带 .ec-canvas-edge-line (端点=加号中心重叠); 进行中边常驻流动, hover 边流动加粗 */
+        const edgeClass = ['ec-canvas-edge-line', isInvalid ? 'ec-canvas-edge-invalid' : null, isProcessing ? 'ec-canvas-edge-processing is-animated' : null].filter(Boolean).join(' ');
         return (
           <g key={i}>
-            <path className={edgeClass} data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
+            <path className={edgeClass} data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
@@ -514,7 +515,7 @@ function ConnectionDraftLine({ draft, nodes }) {
   const mx = (x1 + x2) / 2;
   return (
     <svg aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 12 }}>
-      <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke="#7f8792" strokeWidth="2.5" strokeDasharray="7 5" fill="none" />
+      <path className="ec-canvas-edge-line ec-canvas-edge-draft" d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke="#7f8792" strokeWidth="2.5" strokeDasharray="7 5" fill="none" />
       <circle cx={x2} cy={y2} r="5" fill="#7f8792" />
     </svg>
   );
@@ -575,6 +576,18 @@ export default function EcCanvas() {
   /* P2 工作流模板库: 库浮层 + 铺开后顶部的运行 offer（运行仍走 P0.5 二次确认; T4/T5 呈 P3 灰态、不提供扣费运行）*/
   const [workflowGalleryOpen, setWorkflowGalleryOpen] = useState(false);
   const [workflowRunOffer, setWorkflowRunOffer] = useState(null);
+  /* 9-11 用户批注: 视频模型与首页同源 —— 拉 /api/video/capabilities (与 VideoStudio 同一 API),
+     首页上新模型, 画布视频生成器同步出现; 拉取失败回落内置两档 (不阻塞画布)。 */
+  const [videoProducts, setVideoProducts] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchVideoCapabilities().then(data => {
+      if (cancelled) return;
+      const products = Array.isArray(data?.products) ? data.products.filter(product => product?.public !== false) : [];
+      if (products.length) setVideoProducts(products);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [connections, setConnections] = useState([]);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
@@ -799,7 +812,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
 
   /* 选中回收器 (用户 9-10 反馈: 节点删掉后功能栏还在): 任何让选中 id 脱离 nodes 的路径
      (删除/隐藏/整张画布被替换/恢复会话/模板铺开/换作品) 都在这里立即回收选中态,
-     使工具栏与右面板永远不可能比节点活得久。返回同引用即无变化, 不触发额外渲染。 */
+     使工具栏与右面板永远不可能比节点活得久。返回同引用即无变化, 不触发额外渲染。
+     9-11 扩展 (用户反馈: 中央弹窗上传后删节点, 右侧派生菜单仍在): 所有以节点为锚点的
+     浮层态 (派生菜单/连线草稿/聚焦编辑器/文字检查器/水印预览) 一并在此回收——
+     它们的源节点一旦不在 nodes 里, 浮层立即关闭, 面板永远不可能比节点活得久。 */
   useEffect(() => {
     if (selected && !nodes.some(node => node.id === selected)) setSelected(null);
     setMultiSelected(previous => {
@@ -807,7 +823,33 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       const next = new Set([...previous].filter(id => nodes.some(node => node.id === id)));
       return next.size === previous.size ? previous : next;
     });
+    setConnectionPicker(previous => (
+      previous?.sourceNodeId && !nodes.some(node => node.id === previous.sourceNodeId)
+      ? null : previous
+    ));
+    setConnectionDraft(previous => {
+      const source = previous?.sourceNodeId || previous?.from;
+      return (source && !nodes.some(node => node.id === source)) ? null : previous;
+    });
+    setFocusedEditor(previous => (
+      previous?.nodeId && !nodes.some(node => node.id === previous.nodeId)
+      ? null : previous
+    ));
+    setTextInspectorNodeId(previous => (
+      previous && !nodes.some(node => node.id === previous)
+      ? null : previous
+    ));
+    setWatermarkPreview(previous => {
+      if (!previous?.nodeId) return previous;
+      return nodes.some(node => node.id === previous.nodeId) ? previous : null;
+    });
   }, [nodes, selected]);
+  /* 9-11 用户批注: 铺开 offer 常驻顶部不行 → 并入底部提示, 8s 自动关闭 */
+  useEffect(() => {
+    if (!workflowRunOffer) return undefined;
+    const timer = setTimeout(() => setWorkflowRunOffer(null), 8000);
+    return () => clearTimeout(timer);
+  }, [workflowRunOffer]);
   const selectedImageWatermark = selectedNode?.imageWatermark || imageWatermark;
   const selectedVideoWatermark = selectedNode?.videoWatermark || videoWatermark;
   /* 面板实时预览优先：拖动水印时素材上的水印同步位移（未确定前不写回节点） */
@@ -2678,7 +2720,10 @@ const handlePointerUp = useCallback((e) => {
         gateNote: res.gateNote || '',
         targetNodeIds: p3Nodes.map(node => String(node.id)),
       });
-      showToast('已铺开 "' + (res.name || template.name) + '" · 把商品图拖进琥珀描边的 [槽] 节点即可运行', 'success');
+      /* 9-11: 文案随 P4 对齐 —— 不再有琥珀[槽], 素材节点是真实上传节点(占位图 + 「替换」角标) */
+      showToast(res.requiresAudioVideo === true
+        ? '已铺开 "' + (res.name || template.name) + '" · 视频节点能力接入中，可先替换素材运行图片部分'
+        : '已铺开 "' + (res.name || template.name) + '" · 点素材节点「替换」换成你的图，选中节点运行整链', 'success');
     } catch (error) {
       showToast(error?.message || '模板铺开失败，请稍后重试', 'error');
     }
@@ -5204,6 +5249,16 @@ const handlePointerUp = useCallback((e) => {
     setConnections(prev => removeConnectionsForNodes(prev, ids));
     setSelected(null);
     setMultiSelected(new Set());
+    /* 9-11 与 removeCanvasNode 同款回收: 删掉的节点若正锚定派生菜单/连线草稿/聚焦编辑器/
+       文字检查器/水印预览, 立即一并关闭, 不允许任何浮层比被删节点活得久 (删除键路径即时生效)。 */
+    setConnectionPicker(previous => (previous?.sourceNodeId && ids.has(previous.sourceNodeId)) ? null : previous);
+    setConnectionDraft(previous => {
+      const source = previous?.sourceNodeId || previous?.from;
+      return (source && ids.has(source)) ? null : previous;
+    });
+    setFocusedEditor(previous => (previous?.nodeId && ids.has(previous.nodeId)) ? null : previous);
+    setTextInspectorNodeId(previous => (previous && ids.has(previous)) ? null : previous);
+    setWatermarkPreview(previous => (previous?.nodeId && ids.has(previous.nodeId)) ? null : previous);
   }, [selected, multiSelected]);
 
   const handleSaveTextLayer = useCallback(async (layer) => {
@@ -5576,14 +5631,16 @@ const handlePointerUp = useCallback((e) => {
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
             trailing={<>
+              {/* 9-11 用户批注: 与其他图标按钮同款 —— 纯图标 + 悬停提示, 不显示「运行」文字;
+                  未就绪(单选)不高亮, 多选成链才 is-active; 提示告知「选中 2 个以上节点」。 */}
               {multiSelected.size >= 1 && (
                 <button
                   type="button"
-                  className="ec-canvas-run-button"
+                  className={`ec-canvas-icon-button ${multiSelected.size >= 2 ? 'is-active' : ''}`}
                   aria-label="运行整链"
-                  title="运行整链（按拓扑顺序执行选中的节点）"
+                  title={multiSelected.size >= 2 ? '运行整链（按拓扑顺序执行选中的节点）' : '选中 2 个以上节点可运行整链；当前单选将运行该节点及其下游'}
                   onClick={() => runGraphChain()}
-                ><Play size={13} aria-hidden="true" /><span>运行</span></button>
+                ><Play size={15} aria-hidden="true" /></button>
               )}
               <button
                 type="button"
@@ -5603,26 +5660,41 @@ const handlePointerUp = useCallback((e) => {
               ><ImageIcon size={15} /></button>
             </>}
           />
-          {graphRunConfirm && (
-            <div
-              className="ec-canvas-graphrun-confirm"
-              style={{ position: 'fixed', left: '50%', bottom: 96, transform: 'translateX(-50%)', zIndex: 2000, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,.16)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}
-              role="dialog"
-              aria-label="运行整链确认"
-            >
-              <span>将依次运行 {graphRunConfirm.plan.nodeCount} 个节点 · 预计消耗 {graphRunConfirm.plan.estimatedUnits} 积分</span>
-              <button type="button" onClick={() => { const p = graphRunConfirm; setGraphRunConfirm(null); startGraphChainRun(p.plan, p.runnable); }}>运行</button>
-              <button type="button" onClick={() => setGraphRunConfirm(null)}>取消</button>
+          {/* 9-11 用户批注: 确认弹窗太简陋 → 卡片化: 头部标题/预估 + 节点清单 + 主/次按钮 (不变式①: 确认后才扣费) */}
+          {graphRunConfirm && (() => {
+            const confirmNames = (graphRunConfirm.plan.executableNodeIds || [])
+              .map(id => { const n = nodes.find(item => item.id === id); return n ? (n.name || n.displayLabel || id) : null; })
+              .filter(Boolean).slice(0, 6);
+            const moreCount = (graphRunConfirm.plan.executableNodeIds || []).length - confirmNames.length;
+            return (
+            <div className="ec-canvas-graphrun-confirm" role="dialog" aria-label="运行整链确认">
+              <div className="ec-canvas-graphrun-confirm__head">
+                <strong>运行 {graphRunConfirm.plan.nodeCount} 个节点</strong>
+                <small>{graphRunConfirm.plan.estimatedUnits > 0
+                  ? `预计消耗 ${graphRunConfirm.plan.estimatedUnits} 积分 · 确认后开始扣费`
+                  : '该链运行不扣积分 · 确认后开始'}</small>
+              </div>
+              {confirmNames.length > 0 && (
+                <ol className="ec-canvas-graphrun-confirm__nodes">
+                  {confirmNames.map((name, i) => <li key={i}>{name}</li>)}
+                  {moreCount > 0 && <li className="is-more">… 等共 {(graphRunConfirm.plan.executableNodeIds || []).length} 个节点</li>}
+                </ol>
+              )}
+              <div className="ec-canvas-graphrun-confirm__actions">
+                <button type="button" className="is-primary" onClick={() => { const p = graphRunConfirm; setGraphRunConfirm(null); setWorkflowRunOffer(null); startGraphChainRun(p.plan, p.runnable); }}><Play size={13} aria-hidden="true" />运行</button>
+                <button type="button" onClick={() => setGraphRunConfirm(null)}>取消</button>
+              </div>
             </div>
-          )}
-          {/* P2 铺开后顶部的运行 offer: 预计积分读 pricing（展示口径, 结算以目录为准）;
+            );
+          })()}
+          {/* P2 铺开后底部运行 offer (9-11 用户批注: 顶部常驻条不行 → 并入底部提示区, 8s 自动关闭,
+              确认弹窗打开时收起避免叠影): 预计积分读 pricing（展示口径, 结算以目录为准）;
               运行按钮走 P0.5 runGraphChain 二次确认（不变式①）; T4/T5 P3 灰态、不提供扣费运行 */}
-          {workflowRunOffer && (
+          {workflowRunOffer && !graphRunConfirm && (
             <div
-              className="ec-canvas-workflow-offer"
+              className={`ec-canvas-workflow-offer${workflowRunOffer.requiresAudioVideo ? ' is-p3' : ''}`}
               role="region"
               aria-label="工作流模板铺开结果"
-              style={{ position: 'fixed', left: '50%', top: 64, transform: 'translateX(-50%)', zIndex: 1900, background: '#fff', border: '1px solid ' + (workflowRunOffer.requiresAudioVideo ? 'rgba(100,116,139,.4)' : 'rgba(124,58,237,.4)'), borderRadius: 12, boxShadow: '0 8px 24px rgba(15,23,42,.16)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, maxWidth: 'min(720px, 92vw)' }}
             >
               <span className="ec-canvas-workflow-offer__title"><strong>{workflowRunOffer.name}</strong>已进入画布</span>
               {workflowRunOffer.requiresAudioVideo
@@ -5631,11 +5703,11 @@ const handlePointerUp = useCallback((e) => {
               {!workflowRunOffer.requiresAudioVideo && (
                 <button
                   type="button"
+                  className="ec-canvas-workflow-offer__run"
                   onClick={() => { const offer = workflowRunOffer; setWorkflowRunOffer(null); runGraphChain(offer.targetNodeIds); }}
-                  style={{ border: 0, background: '#7c3aed', color: '#fff', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                 >运行整链</button>
               )}
-              <button type="button" aria-label="关闭铺开提示" onClick={() => setWorkflowRunOffer(null)} style={{ border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', width: 28, height: 28, borderRadius: 8, cursor: 'pointer' }}>×</button>
+              <button type="button" aria-label="关闭铺开提示" className="ec-canvas-workflow-offer__close" onClick={() => setWorkflowRunOffer(null)}>×</button>
             </div>
           )}
           {/* 素材水印面板: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 (停靠在底栏之上, 不遮挡按钮区) */}
@@ -5744,6 +5816,7 @@ const handlePointerUp = useCallback((e) => {
                 />;
               }
               if (node.kind === 'image' || node.kind === 'output') {
+                const replaceAction = getCanvasAction('replace-media');
                 return <StudioImageNode
                   key={node.id}
                   node={node}
@@ -5761,6 +5834,7 @@ const handlePointerUp = useCallback((e) => {
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onDoubleClick={node => openImagePreview({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
+                  onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
                 />;
               }
               if (node.kind === 'audio') {
@@ -5793,6 +5867,7 @@ const handlePointerUp = useCallback((e) => {
                 />;
               }
               if (node.kind === 'video' || node.kind === 'image-composer' || node.kind === 'text-composer' || node.kind === 'suite-composer' || node.kind === 'video-composer') {
+                const replaceGenAction = getCanvasAction('replace-media');
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
@@ -5811,6 +5886,11 @@ const handlePointerUp = useCallback((e) => {
                   onTextBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
                   onAutoHeight={handleTextNodeAutoHeight}
                   onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: node.name || '图片预览' })}
+                  onReplace={replaceGenAction.canRun(node) ? () => handleToolAction(replaceGenAction, node) : null}
+                  canDerive={canDeriveFromNode(node)}
+                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
+                  onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
+                  onPortClick={event => handlePortClick(event, node.id)}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
@@ -5949,6 +6029,7 @@ const handlePointerUp = useCallback((e) => {
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
               onAnalyze={() => handleVideoComposerAnalyze(selectedNode)}
               onGenerate={() => handleVideoComposerGenerate(selectedNode)}
+              videoProducts={videoProducts}
             />}
             {connectionPicker && <CanvasDeriveMenu
               actions={connectionPicker.mode === 'image-editor'

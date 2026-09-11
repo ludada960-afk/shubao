@@ -26,12 +26,11 @@ test('every Canvas command is declared once with execution and billing metadata'
   }
 });
 
-test('selection exposes the pure image-edit toolbar (10 项, 9-05 反馈: 生成/应用类只在素材 + 派生菜单; 9-10 新增「替换」)', () => {
+test('selection exposes the pure image-edit toolbar (9-11: 「替换」移回节点角标胶囊, 工具条 9 项)', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
       'edit-text',
-      'replace-media',
       'grid-split',
       'layer-edit',
       'remove-background',
@@ -42,6 +41,12 @@ test('selection exposes the pure image-edit toolbar (10 项, 9-05 反馈: 生成
       'download',
     ],
   );
+  // 9-11 用户批注: 替换不放工具条, 放节点本身 (node-capsule surface, 节点组件角标胶囊承载)
+  const capsule = actionsForSurface({ surface: 'node-capsule', node: completedOutput });
+  assert.deepEqual(capsule.map(action => action.id), ['replace-media']);
+  const failedCapsule = actionsForSurface({ surface: 'node-capsule', node: { id: 'f', kind: 'image', status: 'upload-error', url: '' } });
+  assert.equal(failedCapsule.length, 0, '失败节点不给替换');
+  assert.equal(actionsForSurface({ surface: 'context', node: completedOutput }).some(a => a.id === 'replace-media'), false, '右键菜单契约: 不重复');
   /* 生成/应用类不再出现在工具栏 (用户 9-05: 与派生菜单重复) */
   const ids = actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id);
   for (const dup of ['split-image', 'application-1click-suite', 'application-1click-video', 'application-tts', 'application-caption']) {
@@ -69,14 +74,17 @@ test('fresh uploads keep local tools immediately from their preview url', () => 
   // 用户 9-05: 上传中节点 url 门槛即过 — 本地工具 + 派生类 (layer-edit/remove-background) 全部立即可用
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: uploading }).map(action => action.id),
-    ['replace-media', 'grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
+    ['grid-split', 'layer-edit', 'remove-background', 'move-scale', 'crop', 'download'],
   );
+  // 9-11: 上传中节点仍即时给节点「替换」角标 (canRun 只排除 error/upload-error 状态)
   // 纯 isReadyImage 门槛的动作仍等待 status=ready
   for (const gatedId of ['edit-text', 'reverse-prompt', 'annotation']) {
     assert.equal(actionsForSurface({ surface: 'selection', node: uploading }).some(action => action.id === gatedId), false, gatedId);
   }
+  assert.deepEqual(actionsForSurface({ surface: 'node-capsule', node: uploading }).map(action => action.id), ['replace-media']);
   const failed = { id: 'upload-2', kind: 'image', status: 'upload-error', url: '' };
   assert.deepEqual(actionsForSurface({ surface: 'selection', node: failed }), []);
+  assert.deepEqual(actionsForSurface({ surface: 'node-capsule', node: failed }), [], '失败/上传失败节点不给替换');
 });
 
 test('context menu exposes complete object operations without duplicating selection tools', () => {

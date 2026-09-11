@@ -22,12 +22,17 @@ export function mediaHeightForRatio(ratio, width = LANE_METRICS.cardWidth) {
   return width;
 }
 
+/* 9-11 用户批注: 连线端点必须是节点两侧「加号」按钮的中心, 而不是节点边缘 —
+   加号是 30px 圆钮, 与节点边缘留 2px 间隙 (CSS .ec-canvas-node-port right/left: -32px),
+   所以中心在节点边缘外 17px。端点停在边缘会看起来「线路和加号不重叠」。 */
+export const CANVAS_PORT_CENTER_OFFSET = 17;
+
 export function getNodePortCenter(node = {}, port = 'output') {
   const isInput = port === 'input' || port === 'in';
   const width = Math.max(1, numeric(node.w, 200));
   const height = Math.max(1, numeric(node.h, 200));
   return {
-    x: numeric(node.x) + (isInput ? 0 : width),
+    x: numeric(node.x) + (isInput ? -CANVAS_PORT_CENTER_OFFSET : width + CANVAS_PORT_CENTER_OFFSET),
     y: numeric(node.y) + height / 2,
   };
 }

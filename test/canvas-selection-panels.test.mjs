@@ -44,6 +44,30 @@ test('contract (9-10): panels can never outlive their node — hidden guard + st
   assert.match(page, /const next = new Set\(\[\.\.\.previous\]\.filter\(id => nodes\.some\(node => node\.id === id\)\)\)/, 'multi-selection must be pruned to existing nodes');
 });
 
+test('contract (9-11): node-anchored floating layers are reaped with their source node', () => {
+  // 用户 9-11: 中央弹窗上传后删除节点, 右侧派生菜单(connectionPicker)仍残留。
+  // 根因: 上传完成会 openConnectionPickerForNode, 而删除路径(Delete 键/多选删除)不清 picker。
+  // 结构性防御: 回收器 effect 监听 nodes, 源节点消失即回收全部节点锚定浮层;
+  // handleDelete 同时即时清理, 双保险。
+  const page = pageSource();
+  assert.match(
+    page,
+    /setConnectionPicker\(previous => \(\s*previous\?\.sourceNodeId && !nodes\.some\(node => node\.id === previous\.sourceNodeId\)\s*\? null : previous\s*\)\)/,
+    'stale derive-menu picker must be reaped when its source node leaves nodes',
+  );
+  assert.match(
+    page,
+    /setFocusedEditor\(previous => \(\s*previous\?\.nodeId && !nodes\.some\(node => node\.id === previous\.nodeId\)\s*\? null : previous\s*\)\)/,
+    'stale focused editor must be reaped when its node leaves nodes',
+  );
+  // 删除键路径(handleDelete)即时回收同款状态
+  const deleteStart = page.indexOf('const handleDelete = useCallback');
+  const deleteBlock = page.slice(deleteStart, page.indexOf('}, [selected, multiSelected]);', deleteStart));
+  for (const setter of ['setConnectionPicker', 'setConnectionDraft', 'setFocusedEditor', 'setTextInspectorNodeId', 'setWatermarkPreview']) {
+    assert.match(deleteBlock, new RegExp(setter + '\\('), 'handleDelete must reclaim ' + setter);
+  }
+});
+
 test('derive menu rows use the balanced card anatomy with badge + arrow', () => {
   const source = studioSource();
   assert.match(source, /ec-canvas-derive-chip/);

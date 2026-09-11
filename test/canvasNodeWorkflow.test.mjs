@@ -114,13 +114,14 @@ test('action picker stays within the visible Canvas world rectangle', () => {
 });
 
 test('connection endpoints use the node geometry that is updated during drag', () => {
+  // 9-11: 端点 = 加号按钮中心 (节点边缘外 17px)
   assert.deepEqual(
     getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'output'),
-    { x: 210, y: 130 },
+    { x: 227, y: 130 },
   );
   assert.deepEqual(
     getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'input'),
-    { x: 10, y: 130 },
+    { x: -7, y: 130 },
   );
 });
 
@@ -133,6 +134,6 @@ test('connection endpoints ignore stale DOM measurements and stay deterministic'
       h: 220,
       portCenters: { input: { x: 7, y: 101 }, output: { x: 237, y: 103 } },
     }, 'output'),
-    { x: 210, y: 130 },
+    { x: 227, y: 130 },
   );
 });

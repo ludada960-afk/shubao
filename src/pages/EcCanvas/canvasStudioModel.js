@@ -7,6 +7,24 @@ import { formatCanvasShotName, resolveShotPrefix } from '../../constants/canvasN
    流影AI LibTV Agent 视角: Enclosure (取景) / Breakthrough (突破) / Framing (构图) / Voice (口播) 等
    1 个画布 session 内按 kind 维持独立计数器, 保证单调递增, 跟 videoCanvasModel 同源
    用户未重命名时直接显示分镜名, 重命名后保留用户输入, 计数器不再自增该节点 */
+/* 9-11 用户批注: 生成器要有 skill 选项 (对标流影AI)。skill = P2 工作流模板 (技能市场层) 的五套内置技能,
+   选择后把技能的结构化提示词预填进生成器 prompt (用户可见可改, 不是假能力):
+   数据源 = server/templates/builtinTemplates.mjs 的 slug (white-bg-main/model-try-on/scene-detail/outfit-video/voiceover)。 */
+export const CANVAS_SKILLS = Object.freeze([
+  Object.freeze({ slug: 'white-bg-main', name: '白底主图', skillPrompt: '纯净白底背景，商品居中完整入画，标准电商主图构图，光线均匀柔和，保留商品真实颜色与材质细节，不添加文字与水印' }),
+  Object.freeze({ slug: 'model-try-on', name: '模特试穿', skillPrompt: '真实模特自然试穿，展示服装版型与面料质感，姿态舒展不夸张，背景干净，保留商品原有颜色、图案与细节' }),
+  Object.freeze({ slug: 'scene-detail', name: '场景详情', skillPrompt: '真实生活场景摆拍，突出使用情境，多张细节特写，光线柔和有层次，商品为画面主体' }),
+  Object.freeze({ slug: 'outfit-video', name: '换装短视频', skillPrompt: '节奏明快的换装展示，动作自然连贯，镜头跟随主体，结尾全身定格展示' }),
+  Object.freeze({ slug: 'voiceover', name: '口播带货', skillPrompt: '口播带货画面，人物面向镜头自然讲述，表情生动，字幕区域留白，背景简洁不抢主体' }),
+]);
+
+/* 纯函数: 应用技能 → { prompt, skill }。prompt 为空才预填 (不覆盖用户已写内容); skill 记 slug 供节点展示。 */
+export function applyCanvasSkill({ prompt = '', skill } = {}) {
+  const found = CANVAS_SKILLS.find(item => item.slug === skill) || null;
+  if (!found) return { prompt: String(prompt || ''), skill: null };
+  return { prompt: String(prompt || '').trim() ? String(prompt) : found.skillPrompt, skill: found.slug };
+}
+
 export function createCanvasShotNamer() {
   const counters = new Map();
   function next(kind, options = {}) {

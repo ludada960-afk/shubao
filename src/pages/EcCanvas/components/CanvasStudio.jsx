@@ -62,7 +62,7 @@ import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
 import CopyPanel from '../../Home/ec/CopyPanel.jsx';
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
-import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
+import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
@@ -395,8 +395,10 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
     <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
       {open === 'model' && <div className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
+        {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
         {IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => { onChange?.({ imageModel: model.id }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
-          <strong>{model.label}</strong><small>{model.badge}</small>
+          {model.visual && <img src={model.visual} alt="" className="ec-canvas-model-thumb" />}
+          <span className="ec-canvas-model-copy"><strong>{model.label}</strong><small>{model.badge}</small></span>
         </button>)}
       </div>}
     </div>
@@ -420,6 +422,17 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
         {countOptions.map(value => <button key={value} type="button" className={value === count ? 'is-active' : ''} onClick={() => { onChange?.({ count: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>{value}</button>)}
       </div>}
     </div>}
+    {/* 9-11 用户批注: skill 选项进生成器 (对标流影AI) —— 技能 = P2 五套内置技能,
+        选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。 */}
+    <div className="ec-canvas-parameter-item">
+      <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => toggle('skill')}>{CANVAS_SKILLS.find(item => item.slug === node?.skill)?.name || '技能'}<WandSparkles size={12} /><ChevronDown size={12} /></button>
+      {open === 'skill' && <div className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
+        {CANVAS_SKILLS.map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
+          <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
+        </button>)}
+        {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
+      </div>}
+    </div>
   </div>;
 }
 
@@ -547,7 +560,7 @@ function layerCompositeOrder(layer = {}) {
   return 2;
 }
 
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight }) {
+export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, canDerive = false }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -639,6 +652,26 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
     </div>}
     {isVideo && <MaterialWatermarkOverlay kind="video" watermark={videoWatermark} width={node.w || 1} height={node.h || 1} />}
     {isImage && <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />}
+    {/* 9-11: 视频/分层节点与图片同款「替换」角标胶囊 (选中即现, 对标流影AI) */}
+    {(isVideo || isLayerGroup) && selected && onReplace && <button
+      type="button"
+      className="ec-canvas-node-replace"
+      data-canvas-control="true"
+      aria-label="替换素材"
+      title="上传新素材替换当前内容，位置与连线不变"
+      onPointerDown={event => event.stopPropagation()}
+      onClick={(event) => { event.stopPropagation(); onReplace(); }}
+    ><ImagePlus size={13} />替换</button>}
+    {/* 9-11: 左右都有加号 (与图片节点同款, 连线端点与加号中心重叠)。
+        输出加号只在可派生 (canDerive) 时给出交互, 避免"死按钮"; 输入锚点常显于选中态。 */}
+    <DerivePort side="input" visible={selected} />
+    {(isVideo || isLayerGroup) && <DerivePort
+      visible={selected}
+      disabled={!canDerive}
+      onPointerDown={onPortPointerDown}
+      onPointerUp={onPortPointerUp}
+      onClick={onPortClick}
+    />}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
@@ -742,7 +775,7 @@ export function CanvasTextGenerationComposer({ node, position, sources = [], men
   </section>;
 }
 
-export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate }) {
+export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate, videoProducts = [] }) {
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [previewPlan, setPreviewPlan] = useState(null);
@@ -811,10 +844,12 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
     </div>}
     <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => change({ prompt: event.target.value })} />
     <div className="ec-canvas-video-controls">
-      <label>视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => change({ modelProductId: event.target.value })}><option value="seedance_standard">Seedance 2.0 标准</option><option value="seedance_fast">Seedance 2.0 Fast</option></select></label>
+      <label>视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => change({ modelProductId: event.target.value })}>{(videoProducts.length ? videoProducts : [{ id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' }, { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' }]).map(product => <option key={product.id} value={product.id}>{product.label}{product.tierLabel ? ` · ${product.tierLabel}` : ''}{product.quotes?.short?.points ? ` (${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次)` : ''}</option>)}</select></label>
       <label>清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
       <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
       <label>时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+      {/* 9-11: skill 选项 (与图片生成器同源 CANVAS_SKILLS, 预填提示词不覆盖已写内容) */}
+      <label>技能<select value={node.skill || ''} onChange={event => { const next = applyCanvasSkill({ prompt: node.prompt || '', skill: event.target.value || undefined }); change({ prompt: next.prompt, skill: next.skill }); }}><option value="">无技能</option>{CANVAS_SKILLS.map(skill => <option key={skill.slug} value={skill.slug}>{skill.name}</option>)}</select></label>
       <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => change({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
     </div>
     {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
@@ -1202,24 +1237,27 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   </div>;
 }
 
-function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick }) {
+function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick, side = 'output' }) {
   /* disabled 不再真正禁用 (禁用按钮点了毫无反馈 = 用户眼中的"死按钮"),
-     改为 data-disabled 半透明, 点击时由 handler 弹出原因提示 */
+     改为 data-disabled 半透明, 点击时由 handler 弹出原因提示。
+     9-11 用户批注: 节点左右都要有加号 — side='input' 是左侧输入锚点 (上游素材从此接入,
+     连线端点与加号中心重叠, 见 canvasGeometry.CANVAS_PORT_CENTER_OFFSET), 仅视觉锚点不建连线。 */
+  const isInput = side === 'input';
   return <button
     type="button"
-    className="ec-canvas-node-port"
+    className={isInput ? 'ec-canvas-node-port is-input' : 'ec-canvas-node-port'}
     data-canvas-control="true"
-    data-canvas-port-role="output"
-    aria-label="从当前素材继续创作"
-    title={disabled ? '素材处理完成后可继续创作' : '继续创作'}
-    data-disabled={disabled || undefined}
-    tabIndex={visible ? 0 : -1}
-    style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
-    onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
+    data-canvas-port-role={isInput ? 'input' : 'output'}
+    aria-label={isInput ? '素材输入端口' : '从当前素材继续创作'}
+    title={isInput ? '上游素材从此处接入' : (disabled ? '素材处理完成后可继续创作' : '继续创作')}
+    data-disabled={!isInput && disabled ? true : undefined}
+    tabIndex={isInput ? -1 : (visible ? 0 : -1)}
+    style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? (isInput ? 'none' : 'auto') : 'none' }}
+    onPointerDown={isInput ? undefined : (event => { event.stopPropagation(); onPointerDown?.(event); })}
     /* pointerup 必须冒泡到 stage: 否则连接草稿残留, 画布卡在 connect 模式,
        表现为"加号没反应 + 之后所有素材拖不动" (用户 9-04 反馈) */
-    onPointerUp={event => onPointerUp?.(event)}
-    onClick={event => { event.stopPropagation(); onClick?.(event); }}
+    onPointerUp={isInput ? undefined : (event => onPointerUp?.(event))}
+    onClick={isInput ? undefined : (event => { event.stopPropagation(); onClick?.(event); })}
   ><Plus size={16} /></button>;
 }
 
@@ -1259,6 +1297,7 @@ export function CanvasImageNode({
   onResizeStart,
   onNaturalSize,
   canDerive = true,
+  onReplace = null,
 }) {
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
   /* 用户 9-10 反馈: 模板素材节点必须与真实上传素材完全同款 —— 不再有自造"槽位"描边与提示文案。 */
@@ -1293,7 +1332,20 @@ export function CanvasImageNode({
       <strong>{node.name || node.displayLabel || '未命名图片'}</strong>
       <span>{[node.group, node.ratio, node.size].filter(Boolean).join(' · ')}</span>
     </footer>}
+    {/* 9-11 用户批注: 「替换」不放顶部工具条, 放节点本身 (对标流影AI): 选中即现的角标胶囊,
+        点选新素材套回本节点, 位置/尺寸/连线/派生关系不变。 */}
+    {selected && onReplace && <button
+      type="button"
+      className="ec-canvas-node-replace"
+      data-canvas-control="true"
+      aria-label="替换素材"
+      title="上传新素材替换当前图片，位置与连线不变"
+      onPointerDown={event => event.stopPropagation()}
+      onClick={(event) => { event.stopPropagation(); onReplace(); }}
+    ><ImagePlus size={13} />替换</button>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
+    {/* 9-11 用户批注: 左右都有加号 — 左侧 = 输入锚点 (上游接入), 右侧 = 输出加号 (继续创作/拉线) */}
+    <DerivePort side="input" visible={presentation.handlesVisible} />
     <DerivePort visible={presentation.handlesVisible} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
   </article>;
 }
@@ -1334,6 +1386,8 @@ export function CanvasSourceNode({
       />)}
       {!assets.length && <div className="ec-canvas-source-empty">商品原图暂不可用</div>}
     </div>
+    {/* 9-11: 左右都有加号 (左 = 输入锚点, 右 = 输出加号) */}
+    <DerivePort side="input" visible={selected} />
     <DerivePort visible={selected} disabled={!assets.length} onPointerDown={onPortPointerDown} onClick={onPortClick} />
   </article>;
 }

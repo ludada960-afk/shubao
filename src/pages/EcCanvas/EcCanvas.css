@@ -164,9 +164,11 @@
 .ec-canvas-toast > span { min-width: 0; overflow-wrap: anywhere; }
 .ec-canvas-toast > button { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .14); color: #fff; font-size: 18px; line-height: 1; }
 .ec-canvas-toast > button:hover { background: rgba(255, 255, 255, .24); }
-.ec-canvas-pending-imports { position: fixed; z-index: 10002; left: 50%; bottom: 76px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 12px; padding: 8px 9px 8px 13px; transform: translateX(-50%); border: 1px solid #f1c46a; border-radius: 8px; background: #fff8e7; color: #704d09; box-shadow: 0 5px 16px rgba(15, 23, 42, .14); font-size: 12px; font-weight: 700; }
+/* 9-11 用户批注: 画布已无琥珀色系 → 待归档提示条与画布 token 体系对齐 (中性卡 + 主色动作) */
+.ec-canvas-pending-imports { position: fixed; z-index: 10002; left: 50%; bottom: 76px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 12px; padding: 8px 9px 8px 13px; transform: translateX(-50%); border: 1px solid rgba(15, 23, 42, .1); border-radius: 8px; background: #fff; color: #334155; box-shadow: 0 5px 16px rgba(15, 23, 42, .14); font-size: 12px; font-weight: 700; }
 .ec-canvas-pending-imports > span { min-width: 0; overflow-wrap: anywhere; }
-.ec-canvas-pending-imports-action { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; flex: 0 0 auto; padding: 0 9px; border: 1px solid #d99b27; border-radius: 6px; background: #fff; color: #704d09; font-size: 12px; font-weight: 750; cursor: pointer; }
+.ec-canvas-pending-imports-action { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; flex: 0 0 auto; padding: 0 10px; border: 0; border-radius: 6px; background: var(--canvas-command, #7c3aed); color: #fff; font-size: 12px; font-weight: 750; cursor: pointer; }
+.ec-canvas-pending-imports-action:disabled { opacity: .55; cursor: wait; }
 .ec-canvas-pending-imports-action:hover:not(:disabled) { background: #fff1c9; }
 .ec-canvas-pending-imports-action:disabled { cursor: wait; opacity: .65; }
 .ec-canvas-zoom-controls { left: 12px; bottom: 14px; align-items: center; gap: 1px; padding: 3px; border-radius: var(--ec-radius-sm); }
@@ -404,6 +406,24 @@
 .ec-canvas-object-toolbar button:disabled { opacity: .38; cursor: not-allowed; }
 .ec-canvas-node-port[data-disabled] { opacity: .38; }
 .ec-canvas-node-port[data-disabled]:hover { opacity: .6; }
+/* 9-11 用户批注: 节点左右都有加号 — 左侧输入加号与右侧输出加号同款, 连线端点与加号中心重叠 */
+.ec-canvas-node-port.is-input { right: auto; left: -32px; cursor: default; }
+/* 图片节点带 ~34px 底部 meta, 加号上移 17px 与「连线端点 (帧中心)」对齐 */
+.ec-canvas-media-node .ec-canvas-node-port { top: calc(50% - 17px); }
+
+/* 9-11: 连线动态 UI — 进行中/草稿边常驻流动; 任意边 hover 时流动加粗 (Quantv/流影 同款 affordance) */
+.ec-canvas-edge-line { transition: opacity 0.16s ease, stroke-width 0.16s ease, stroke 0.16s ease; }
+.ec-canvas-edge-line.is-animated { animation: ecEdgeFlow14 1.2s linear infinite; }
+.ec-canvas-edge-line:hover { stroke-dasharray: 10 14; stroke-width: 3.4; animation: ecEdgeFlow24 0.9s linear infinite; }
+@keyframes ecEdgeFlow14 { to { stroke-dashoffset: -14; } }
+@keyframes ecEdgeFlow24 { to { stroke-dashoffset: -24; } }
+@keyframes ecEdgeFlow12 { to { stroke-dashoffset: -12; } }
+.ec-canvas-edge-draft { animation: ecEdgeFlow12 0.9s linear infinite; }
+/* 9-11 用户批注: 「替换」角标胶囊 (对标流影AI: 选中即现, 在节点上而非工具条)。
+   玻璃胶囊骑在节点右上角, hover 反色; 点击走既有上传替换通道。 */
+.ec-canvas-node-replace { position: absolute; z-index: 11; top: -13px; right: -13px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid rgba(15, 23, 42, .1); border-radius: 999px; background: rgba(255, 255, 255, .96); color: #20242a; font-size: 11px; font-weight: 650; line-height: 1; box-shadow: 0 4px 14px rgba(15, 23, 42, .18); cursor: pointer; backdrop-filter: blur(6px); transition: color 140ms ease-out, background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out; }
+.ec-canvas-node-replace:hover { color: #fff; background: var(--canvas-command); border-color: var(--canvas-command); transform: translateY(-1px); }
+.ec-canvas-node-replace:active { transform: none; }
 .ec-canvas-object-toolbar button:disabled:active { transform: none; }
 .ec-canvas-object-toolbar button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 1px; }
 
@@ -551,9 +571,18 @@
 .ec-canvas-parameter-popover { position: absolute; z-index: 30; left: 0; bottom: calc(100% + 9px); box-sizing: border-box; padding: 10px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-parameter-popover button { border: 1px solid #e1e5eb; background: #fff; color: #59616c; cursor: pointer; }
 .ec-canvas-parameter-popover button:hover, .ec-canvas-parameter-popover button.is-active { border-color: #3b82f6; background: #eff6ff; color: #2563eb; }
-.ec-canvas-model-popover { width: 220px; display: grid; gap: 6px; }
-.ec-canvas-model-popover button { width: 100%; padding: 9px 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+.ec-canvas-model-popover { width: 252px; display: grid; gap: 6px; }
+.ec-canvas-model-popover button { width: 100%; padding: 8px 9px; border-radius: 8px; display: grid; grid-template-columns: 44px minmax(0,1fr); align-items: center; gap: 9px; text-align: left; }
+.ec-canvas-model-popover .ec-canvas-model-thumb { width: 44px; height: 30px; border-radius: 5px; object-fit: cover; border: 1px solid rgba(15,23,42,.08); background: #f2f3f5; }
+.ec-canvas-model-popover .ec-canvas-model-copy { display: grid; gap: 2px; min-width: 0; }
+.ec-canvas-model-popover .ec-canvas-model-copy strong { overflow: hidden; color: #20242a; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-model-popover small { color: #8a93a0; white-space: nowrap; }
+/* 9-11: skill 选项 popover (P2 五套技能, 图标+名+提示词预览) */
+.ec-canvas-skill-popover { width: 248px; display: grid; gap: 6px; }
+.ec-canvas-skill-popover button { width: 100%; padding: 8px 10px; border-radius: 8px; display: grid; gap: 3px; text-align: left; }
+.ec-canvas-skill-popover button strong { color: #20242a; font-size: 12px; font-weight: 700; }
+.ec-canvas-skill-popover button small { color: #8a93a0; font-size: 10px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ec-canvas-skill-popover button:last-child { border-style: dashed; color: #64748b; font-size: 11px; font-weight: 600; padding: 6px; }
 .ec-canvas-ratio-popover { width: 274px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .ec-canvas-ratio-popover button { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 5px; border-radius: 9px; font-size: 10px; }
 .ec-canvas-ratio-shape { display: block; width: 22px; height: 22px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 2px; }
@@ -570,7 +599,9 @@
 .ec-canvas-generation-text-board:focus { box-shadow: inset 0 0 0 2px var(--canvas-command); }
 .ec-canvas-generation-node.is-text { overflow: hidden; border: 1px solid #e1e5eb; border-radius: 9px; background: #fff; box-shadow: 0 10px 24px rgba(15,23,42,.08); }
 .ec-canvas-generation-node.is-text.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.14), 0 10px 24px rgba(15,23,42,.08); }
-.ec-canvas-generation-node.is-video { overflow: hidden; border: 1px solid #d8dee7; border-radius: 9px; background: #111827; box-shadow: 0 10px 24px rgba(15,23,42,.14); }
+/* 9-11 用户批注: 视频节点不要黑色 —— 与其他节点同款浅色卡片 (#f6f7f9);
+   仅播放器 letterbox 背景 (video 元素) 保留深色, 是视频显示规范不是页面配色 */
+.ec-canvas-generation-node.is-video { overflow: hidden; border: 1px solid #d8dee7; border-radius: 9px; background: #f6f7f9; box-shadow: 0 10px 24px rgba(15,23,42,.14); }
 .ec-canvas-generation-node.is-video.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.18), 0 12px 28px rgba(15,23,42,.18); }
 .ec-canvas-generation-node.is-video > video { display: block; width: 100%; height: 100%; object-fit: contain; background: #111827; }
 .ec-canvas-video-frame { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; }
@@ -583,7 +614,7 @@
 .ec-canvas-video-mode-tabs small { overflow: hidden; color: #7c8591; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-video-material-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 12px 0; }
 .ec-canvas-video-material-grid .ec-canvas-composer-sources, .ec-canvas-video-material-grid .ec-canvas-video-sources { min-width: 0; padding: 0; }
-.ec-canvas-video-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; border-top: 1px solid #edf0f3; }
+.ec-canvas-video-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; border-top: 1px solid #edf0f3; }
 .ec-canvas-video-controls label { display: grid; gap: 5px; color: #69727d; font-size: 10px; font-weight: 700; }
 .ec-canvas-video-controls select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; color: #20242a; }
 .ec-canvas-video-controls .is-toggle { display: flex; align-items: center; justify-content: center; flex-direction: row; gap: 6px; padding-top: 16px; }
@@ -1187,29 +1218,8 @@
 
 /* 旧 .ec-material-watermark-* / .ec-canvas-watermark-* 样式已由 canvas-watermark-panel.css 的 .ec-wm-* 取代 (9-08 重构) */
 
-/* ═══ P2 · 工作流模板一键铺开: [槽] 节点琥珀高亮 + P3 音视频灰态 ═══
-   槽位提示与 P0/P0.5 视觉语言一致: 描边虚线 = 未完成输入; 灰态 = 诚实门控 (不 mock、不提供扣费运行)。*/
-.ec-canvas-media-node.is-slot .ec-canvas-media-frame {
-  outline: 2px dashed rgba(245, 158, 11, .85);
-  outline-offset: 2px;
-  background: rgba(245, 158, 11, .06);
-}
-.ec-canvas-slot-hint {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  color: #b45309;
-  background: rgba(255, 251, 235, .66);
-  backdrop-filter: blur(1px);
-  pointer-events: none;
-}
-.ec-canvas-slot-hint svg { width: 18px; height: 18px; opacity: .9; }
-.ec-canvas-slot-hint strong { font-size: 12px; font-weight: 650; letter-spacing: .02em; }
-
+/* ═══ P3 音视频节点灰态 (诚实门控: 不 mock、不提供扣费运行) ═══
+   P4 模板返工后素材节点 = 真实上传节点同款 (占位素材 + 「替换」角标), 琥珀 [槽] 描边/提示样式已移除 (9-11)。 */
 .ec-canvas-generation-node.is-p3-pending { opacity: .6; }
 .ec-canvas-generation-node.is-p3-pending .ec-canvas-generation-placeholder { background: #f1f5f9; }
 .ec-canvas-p3-badge {
@@ -1225,48 +1235,72 @@
   font-size: 10px;
   font-weight: 600;
 }
-/* 铺开后的顶部运行 offer 条 (index.jsx 内联样式兜底, 这里补 motion/reduced 口径) */
+/* 9-11: 铺开 offer 与运行确认弹窗的 reduced-motion 口径 (入场动画关闭) */
 @media (prefers-reduced-motion: reduce) {
-  .ec-canvas-media-node.is-slot .ec-canvas-media-frame { outline-offset: 2px; }
+  .ec-canvas-workflow-offer, .ec-canvas-graphrun-confirm { animation: none; }
 }
 
-/* ═══ 用户 9-10 反馈: 底部"运行"按钮曾塞进 icon-button → 文字被挤压/错位, 改为独立标签按钮 ═══ */
-.ec-canvas-run-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 30px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--canvas-command, #7c3aed);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.ec-canvas-run-button:hover { filter: brightness(1.06); }
-.ec-canvas-run-button:active { transform: translateY(1px); }
-.ec-canvas-run-button svg { flex: none; }
+/* 9-11 用户批注: 「运行」按钮回归 icon-button 体系 (纯图标 + 悬停提示), .ec-canvas-run-button 已移除 */
 
-/* ═══ 工作流模板进入画布后的提示条 (市场化文案, 用户 9-10) ═══ */
+/* ═══ 工作流模板铺开后的运行 offer (用户 9-10 市场化文案; 9-11 用户批注: 顶部常驻不行 → 并入底部提示区, 8s 自动消失) ═══ */
 .ec-canvas-workflow-offer {
-  display: inline-flex;
+  position: fixed;
+  z-index: 1900;
+  left: 50%;
+  bottom: 152px;
+  transform: translateX(-50%);
+  display: flex;
   align-items: center;
   gap: 10px;
-  max-width: min(680px, calc(100vw - 48px));
-  padding: 8px 10px 8px 14px;
+  max-width: min(720px, calc(100vw - 32px));
+  padding: 9px 8px 9px 14px;
   border-radius: 12px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, .10);
+  background: rgba(255, 255, 255, .98);
+  border: 1px solid rgba(124, 58, 237, .35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
   font-size: 13px;
   color: #0f172a;
+  animation: toastIn .18s ease;
 }
+.ec-canvas-workflow-offer.is-p3 { border-color: rgba(100, 116, 139, .4); }
 .ec-canvas-workflow-offer__title { font-weight: 500; }
 .ec-canvas-workflow-offer__title strong { font-weight: 700; margin-right: 6px; }
-.ec-canvas-workflow-offer__cost { color: #b45309; font-weight: 600; font-size: 12px; }
+.ec-canvas-workflow-offer__cost { color: #475569; font-weight: 600; font-size: 12px; }
 .ec-canvas-workflow-offer__note { color: #64748b; font-weight: 600; font-size: 12px; }
+.ec-canvas-workflow-offer__run { flex: 0 0 auto; border: 0; border-radius: 8px; background: var(--canvas-command, #7c3aed); color: #fff; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 140ms ease-out; }
+.ec-canvas-workflow-offer__run:hover { filter: brightness(1.08); }
+.ec-canvas-workflow-offer__close { flex: 0 0 auto; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(15, 23, 42, .06); color: #475569; cursor: pointer; font-size: 15px; line-height: 1; }
+.ec-canvas-workflow-offer__close:hover { background: rgba(15, 23, 42, .12); }
+
+/* ═══ 9-11 整链运行确认弹窗 (卡片化: 标题/预估 + 节点清单 + 主/次按钮; 不变式① 确认后才扣费) ═══ */
+.ec-canvas-graphrun-confirm {
+  position: fixed;
+  z-index: 2000;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .98);
+  border: 1px solid rgba(15, 23, 42, .1);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, .2);
+  font-size: 13px;
+  color: #0f172a;
+  animation: toastIn .18s ease;
+}
+.ec-canvas-graphrun-confirm__head { display: flex; flex-direction: column; gap: 3px; }
+.ec-canvas-graphrun-confirm__head strong { font-size: 14px; font-weight: 700; }
+.ec-canvas-graphrun-confirm__head small { color: #64748b; font-size: 11px; font-weight: 500; }
+.ec-canvas-graphrun-confirm__nodes { margin: 0; padding: 8px 10px 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.ec-canvas-graphrun-confirm__nodes li { max-width: 100%; overflow: hidden; padding: 3px 9px; border: 1px solid rgba(15, 23, 42, .08); border-radius: 6px; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-graphrun-confirm__nodes li.is-more { color: #94a3b8; background: transparent; border-style: dashed; }
+.ec-canvas-graphrun-confirm__actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.ec-canvas-graphrun-confirm__actions button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border: 1px solid rgba(15, 23, 42, .12); border-radius: 8px; background: #fff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 140ms ease-out, color 140ms ease-out; }
+.ec-canvas-graphrun-confirm__actions button.is-primary { background: var(--canvas-command, #7c3aed); border-color: var(--canvas-command, #7c3aed); color: #fff; }
+.ec-canvas-graphrun-confirm__actions button.is-primary:hover { filter: brightness(1.08); }
+.ec-canvas-graphrun-confirm__actions button:not(.is-primary):hover { background: #f1f5f9; }
 

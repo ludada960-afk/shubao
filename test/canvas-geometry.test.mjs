@@ -3,11 +3,12 @@ import test from 'node:test';
 
 import { cubicEdgePath, getNodePortCenter, layoutAssetLanes, mediaHeightForRatio } from '../src/pages/EcCanvas/canvasGeometry.js';
 
-test('model geometry keeps a node port synchronized with its rectangle', () => {
+test('model geometry keeps a node port synchronized with its rectangle (9-11: 端点=加号中心, 外偏 17px)', () => {
   const node = { x: 10, y: 20, w: 200, h: 100 };
-  assert.deepEqual(getNodePortCenter(node, 'input'), { x: 10, y: 70 });
-  assert.deepEqual(getNodePortCenter(node, 'output'), { x: 210, y: 70 });
-  assert.equal(cubicEdgePath({ x: 210, y: 70 }, { x: 410, y: 130 }), 'M 210 70 C 310 70, 310 130, 410 130');
+  // 加号中心: 输入 = 左缘外 17px (10-17=-7), 输出 = 右缘外 17px (210+17=227)
+  assert.deepEqual(getNodePortCenter(node, 'input'), { x: -7, y: 70 });
+  assert.deepEqual(getNodePortCenter(node, 'output'), { x: 227, y: 70 });
+  assert.equal(cubicEdgePath({ x: 227, y: 70 }, { x: 410, y: 130 }), 'M 227 70 C 318.5 70, 318.5 130, 410 130');
 });
 
 test('asset lanes retain ratio geometry and place same-category outputs horizontally', () => {
