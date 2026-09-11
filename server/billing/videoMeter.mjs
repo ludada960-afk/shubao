@@ -62,6 +62,17 @@ const VIDEO_TIER_DEFINITIONS = Object.freeze([
     costPerSecondCny: 0.85,  // 1080P 推算 ¥0.85/秒（与 providerCostCny=6.37 在 7.5s 区间校准）
   },
   {
+    model: 'minimax_h3_768p',
+    label: 'MiniMax H3 768P',
+    eyebrow: 'H3 · 768P',
+    skuShort: 'video_minimax_h3_768p_short',
+    skuLong: 'video_minimax_h3_768p_long',
+    resolutions: Object.freeze(['720p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 15,
+    costPerClipCny: 4.55,  // IP233 按条 ¥4.55 (实测目录)
+  },
+  {
     model: 'minimax_h3_2k',
     label: 'MiniMax H3 2K',
     eyebrow: 'H3 · 2K',

@@ -164,6 +164,8 @@
 .video-icon-tool { width: 34px; padding: 0; }
 .video-icon-tool:hover,.video-model-trigger:hover { border-color: rgba(116,84,243,.3); background: #faf7ff; color: #6842dc; }
 .video-model-trigger { padding: 0 10px; gap: 7px; font: 700 11px/1 inherit; }
+/* 9-11 三轮: 模型控件与其它配置按钮同款 (两行 + 同高) */
+.video-config-trigger.is-model { min-width: 210px; }
 .video-inline-control { position: relative; display: inline-flex; }
 .video-inline-menu { position: absolute; z-index: 8; left: 0; bottom: calc(100% + 8px); width: min(330px,calc(100vw - 36px)); max-height: 250px; overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 11px; background: rgba(255,255,255,.98); box-shadow: 0 15px 40px rgba(45,33,24,.16); backdrop-filter: blur(16px); }
 .video-inline-menu > strong { display: block; padding: 5px 7px 8px; color: #8d857d; font-size: 10px; }

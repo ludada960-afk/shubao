@@ -70,8 +70,9 @@ test('quality and cost objectives remain deterministic and expose an estimate on
   const quality = recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'quality' } });
   const cost = recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'cost' } });
 
-  assert.equal(quality.candidates.length, 2);
-  assert.equal(cost.candidates.length, 2);
+  /* 9-11: MiniMax H3 768P 上架后, 720p 公开候选从 2 个变为 3 个 */
+  assert.equal(quality.candidates.length, 3);
+  assert.equal(cost.candidates.length, 3);
   assert.ok(quality.selected.estimatedPoints > 0);
   assert.ok(cost.selected.estimatedPoints > 0);
   assert.deepEqual(

@@ -110,6 +110,13 @@ const routes = [
     health: '同族监控 100%；按条库存不足', notes: '当前正式交付路由；提交成功不代表最终生成成功。',
   }),
   route({
+    id: 'ip233-minimax-h3-768p', providerId: 'ip233', model: 'minimax-h3-768p', status: 'connected',
+    purpose: 'MiniMax H3 768P（主流可选档）', billingUnit: '每条', unitPriceCny: 4.55,
+    appSkus: ['video_minimax_h3_768p_short', 'video_minimax_h3_768p_long'],
+    health: '同族目录 124 个模型可路由（2026-09-11 实测 /v1/models）',
+    notes: 'IP233 模型广场按条 ¥4.55；首条真实账单落库后须对账校准。',
+  }),
+  route({
     id: 'poke-minimax-h3', providerId: 'poke', model: 'minimax-h3-2k', status: 'configured',
     purpose: 'MiniMax H3 2K', billingUnit: '每条', unitPriceCny: 0.76,
     appSkus: ['video_minimax_h3_2k_short', 'video_minimax_h3_2k_long'],

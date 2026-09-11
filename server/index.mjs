@@ -3986,11 +3986,19 @@ const canvasOneShotBilling = createOneShotBilling({
   quoteService: billingQuoteService,
   actionStore: canvasBilledActions,
 });
+/* 9-11 用户批注: 视频方案分析一直失败 — 根因是「文本规划」被路由到识图模型 (gpt-5.6-luna),
+   实测 90s 超时; 文本模型 key 又失效 (401)。现改为: 有图走识图模型, 无图走文本模型 (若可用),
+   超时预算收紧到 45s/30s 且不再重试 — 失败时由 videoPlanning 的本地兜底方案接管, 不再阻塞用户。 */
+function createVideoPlanningTextClient({ timeoutMs = 30_000 } = {}) {
+  if (LLM_KEY && LLM_BASE) {
+    return createVlmClient({ apiKey: LLM_KEY, baseUrl: LLM_BASE, model: LLM_MODEL, timeoutMs, retryDelaysMs: [] });
+  }
+  return createEcommerceVlmClient({ timeoutMs, retryDelaysMs: [] });
+}
 const videoPlanningService = createVideoPlanningService({
-  completeText: request => createEcommerceVlmClient({
-    timeoutMs: 45_000,
-    retryDelaysMs: [750],
-  }).completeText(request),
+  completeText: request => (Array.isArray(request?.images) && request.images.length
+    ? createEcommerceVlmClient({ timeoutMs: 45_000, retryDelaysMs: [] })
+    : createVideoPlanningTextClient({ timeoutMs: 30_000 })).completeText(request),
 });
 
 function imageProviderCredential() {
@@ -4609,6 +4617,11 @@ app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
       const buffer = fs.readFileSync(asset.filePath);
       images.push(`data:${asset.row.content_type};base64,${buffer.toString('base64')}`);
     }
+    /* 先做分析: 本地兜底方案 (degraded) 不消耗模型, 因此不扣费 — 只有真实模型分析才走计费。 */
+    const analysis = await videoPlanningService.analyze({ ...req.body, images });
+    if (analysis?.degraded) {
+      return res.json({ plan: analysis, billing: { charged: false, reason: 'DEGRADED_LOCAL_PLAN' } });
+    }
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
@@ -4618,9 +4631,8 @@ app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
       providerCostCny: 0.05,
       metadata: { action: 'video_plan_analysis', feature: 'video_generation' },
       work: async () => {
-        const plan = await videoPlanningService.analyze({ ...req.body, images });
-        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex');
-        return { ...plan, url: `video-plan:${fingerprint}` };
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(analysis)).digest('hex');
+        return { ...analysis, url: `video-plan:${fingerprint}` };
       },
     });
     const { url: _reference, ...plan } = billed.result;

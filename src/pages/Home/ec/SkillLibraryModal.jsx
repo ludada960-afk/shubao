@@ -31,6 +31,12 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  /* 9-11 用户批注: 提示不能一直挂着 → 4s 自动消失, 也可手动关掉 */
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [expandedBuiltin, setExpandedBuiltin] = useState('');
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -161,7 +167,7 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
         </div>
 
         {state.error && <div className="skill-alert" role="alert">{state.error}</div>}
-        {notice && <div className="skill-notice" role="status">{notice}</div>}
+        {notice && <div className="skill-notice" role="status">{notice}<button type="button" className="skill-notice-close" aria-label="关闭提示" onClick={() => setNotice('')}>×</button></div>}
 
         <div className="skill-modal-body">
           <section className="skill-column">
@@ -188,7 +194,10 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
                     >
                       {expandedBuiltin === skill.id ? <EyeOff size={12} /> : <Eye size={12} />}
                     </button>
-                    <button type="button" className="skill-mini-btn" onClick={() => deriveBuiltin(skill)}>派生</button>
+                    {/* 9-11 用户批注: 内置技能就是给用户用的 — 直接「使用」, 不再强制派生副本;
+                        「派生」= 复制一份到我的技能里再改 (可选) */}
+                    {onPick && <button type="button" className="skill-mini-btn is-primary" onClick={() => onPick(skill)}>使用</button>}
+                    <button type="button" className="skill-mini-btn" title="复制一份到「我的技能」再修改" onClick={() => deriveBuiltin(skill)}>派生</button>
                   </div>
                 </li>
               ))}

@@ -1,6 +1,59 @@
 import { normalizeShotDirection } from './videoShotDirection.mjs';
 import { findOverrideInstruction } from './skills/skillValidation.mjs';
 
+/** 9-11 用户批注(视频生成失败): 模型不可用/超时时, 用本地可执行方案兜底 —
+ *  诚实标注 degraded + 把原因写进 risks, 不阻塞生成流程, 也不假装是模型分析结果。 */
+export function buildLocalVideoPlan(input = {}, reason = '') {
+  const duration = Math.max(4, Math.min(30, Number(input.duration) || 8));
+  const prompt = clean(input.prompt, 1200) || '按素材推进一条商业短片';
+  const negative = clean(input.negativePrompt, 600);
+  const mode = MODES.has(input.mode) ? input.mode : 'smart';
+  const ratio = clean(input.ratio, 20) || '9:16';
+  const resolution = clean(input.resolution, 20) || '720p';
+  const manifest = list(input.manifest, 16);
+  const segment = i => {
+    const start = Math.round(duration * i / 4);
+    const end = i === 3 ? duration : Math.round(duration * (i + 1) / 4);
+    return `${start}-${end}s`;
+  };
+  const beats = [
+    { time: segment(0), label: '开场建立主体', detail: `${prompt.slice(0, 80)}｜先用一个稳定的中景交代主体与环境`, source: '本地方案', camera: '中景推近', audio: input.sound === false ? '' : '环境声渐入', direction: { shotSize: 'medium', movement: 'push-in' } },
+    { time: segment(1), label: '展示核心卖点', detail: '镜头移动到商品细节，突出材质与使用动作', source: '本地方案', camera: '特写横移', audio: '', direction: { shotSize: 'close-up', movement: 'pan' } },
+    { time: segment(2), label: '真实使用场景', detail: '把商品放回真实使用关系里，节奏加快半拍', source: '本地方案', camera: '中近景跟随', audio: '', direction: { shotSize: 'medium-close', movement: 'follow' } },
+    { time: segment(3), label: '收尾定格', detail: '回到商品定妆镜头，留出品牌与卖点落版空间', source: '本地方案', camera: '定格', audio: '', direction: { shotSize: 'medium', movement: 'static' } },
+  ];
+  const optimizedPrompt = [
+    `【基本参数】${duration} 秒 | ${ratio} | ${resolution}`,
+    `【创作模式】${mode === 'frame' ? '首尾帧过渡' : mode === 'remake' ? '参考节奏重构' : '智能成片'}`,
+    `【画面要求】${prompt}`,
+    negative ? `【禁止】${negative}` : '',
+    manifest.length ? `【素材】${manifest.map((item, index) => `素材${index + 1}(${item.kind || 'image'})`).join('、')}` : '',
+    '【节奏】四段式：建立主体 → 展示卖点 → 使用场景 → 收尾定格，每段 1-2 个镜头。',
+    input.sound === false ? '【声音】不生成声音。' : '【声音】生成环境声与动作声，不生成字幕与文字。',
+  ].filter(Boolean).join('\n');
+  return {
+    summary: prompt.slice(0, 240),
+    creativeStrategy: '本地兜底方案：按提示词与素材清单生成的四段式结构，可直接执行',
+    assets: manifest.map((item, index) => ({
+      name: clean(item?.name, 100) || `素材 ${index + 1}`,
+      role: clean(item?.role, 60) || '视觉参考',
+      observations: [],
+      retain: ['保持素材主体真实，不改变商品结构与颜色'],
+      use: '作为镜头视觉参考',
+      confidence: 'low',
+    })),
+    beats,
+    risks: [
+      '本次方案由本地兜底生成（素材分析模型暂时不可用），镜头结构可直接使用，也可以修改后再生成。',
+      reason ? `模型返回：${String(reason).slice(0, 160)}` : '',
+    ].filter(Boolean),
+    optimizedPrompt,
+    degraded: true,
+    degradedReason: String(reason || '').slice(0, 200),
+    analysisBasis: { imageFrames: manifest.filter(item => item?.kind === 'image').length, audioTracks: manifest.filter(item => item?.kind === 'audio').length, videoTracks: manifest.filter(item => item?.kind === 'video').length, transcriptAvailable: false },
+  };
+}
+
 const MODES = new Set(['smart', 'frame', 'remake']);
 
 function clean(value, max = 1200) {
@@ -140,13 +193,19 @@ export function createVideoPlanningService({ completeText } = {}) {
   return {
     async analyze(input = {}) {
       const request = buildVideoPlanningRequest(input);
-      const content = await completeText({
-        systemPrompt: request.systemPrompt,
-        userPrompt: request.userPrompt,
-        images: list(input.images, 9),
-        maxTokens: 2600,
-        temperature: 0.15,
-      });
+      let content = '';
+      try {
+        content = await completeText({
+          systemPrompt: request.systemPrompt,
+          userPrompt: request.userPrompt,
+          images: list(input.images, 9),
+          maxTokens: 2600,
+          temperature: 0.15,
+        });
+      } catch (error) {
+        /* 模型不可用/超时 → 本地兜底, 不阻断用户生成 (9-11 用户批注: 视频生成一直失败) */
+        return buildLocalVideoPlan(input, error?.message || String(error));
+      }
       const counts = request.manifest.reduce((result, item) => {
         if (item.kind === 'video' || item.kind === 'video_frame') result.videoTracks += item.kind === 'video' ? 1 : 0;
         if (item.kind === 'audio') result.audioTracks += 1;

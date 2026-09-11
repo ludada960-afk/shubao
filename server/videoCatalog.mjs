@@ -52,6 +52,28 @@ export const VIDEO_PRODUCTS = deepFreeze({
     concurrency: 2,
     pollIntervalMs: 10000,
   },
+  /* 9-11 用户批注: 视频只有 Seedance → 接入 MiniMax H3 768p (IP233 按条 ¥4.55, 实测目录可路由)。
+     能力: 文生/图生/多模态/首尾帧, 5-15 秒, 720P; 用 MINIMAX_VIDEO_API_KEY 走同一 IP233 上游。 */
+  minimax_h3_768p: {
+    id: 'minimax_h3_768p',
+    label: 'MiniMax H3 768P',
+    providerLabel: 'MiniMax',
+    tierLabel: '主流可选',
+    description: '文生/图生/多模态/首尾帧都能做，节奏与人物稳定性好，适合口播与生活场景短片。',
+    limitations: '按条计费；参考视频与参考音频不限，首尾帧需两张图。',
+    routeId: 'minimax-h3-768p',
+    credential: 'minimax',
+    public: true,
+    default: false,
+    durations: { min: 5, max: 15 },
+    resolutions: ['720p'],
+    modes: ['script', 'reference', 'frame', 'remake'],
+    generatedAudio: true,
+    frameAudio: false,
+    limits: { images: 9, videos: 3, audios: 3, total: 12 },
+    concurrency: 1,
+    pollIntervalMs: 10000,
+  },
   minimax_h3_2k: {
     id: 'minimax_h3_2k',
     label: 'MiniMax H3 2K',

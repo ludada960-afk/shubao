@@ -221,8 +221,8 @@ test('GET /api/billing/video-meter 路由: 缺参数 400 (缺 model)', () => {
 });
 
 // ─── 6. VIDEO_METER_CONSTANTS 暴露 ───
-test('VIDEO_METER_CONSTANTS 包含 4 个 tier + SAFE 正则', () => {
-  assert.equal(VIDEO_METER_CONSTANTS.VIDEO_TIER_DEFINITIONS.length, 4);
+test('VIDEO_METER_CONSTANTS 包含 5 个 tier + SAFE 正则', () => {
+  assert.equal(VIDEO_METER_CONSTANTS.VIDEO_TIER_DEFINITIONS.length, 5);
   assert.ok(VIDEO_METER_CONSTANTS.SAFE_MODEL instanceof RegExp);
   assert.ok(VIDEO_METER_CONSTANTS.SAFE_RESOLUTION instanceof RegExp);
   assert.equal(VIDEO_METER_CONSTANTS.MAX_SECONDS, 60);

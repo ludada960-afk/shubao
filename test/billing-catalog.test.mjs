@@ -98,7 +98,7 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
 
   const report = videoMarginGateReport();
   const bySku = new Map(report.map(row => [row.sku, row]));
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 8);
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 10);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);

@@ -59,6 +59,9 @@ const SKU_LABELS = Object.freeze({
   video_seedance_fast_long: { label: 'AI 视频 · 快试档', category: 'video', per: '条' },
   video_seedance_standard_short: { label: 'AI 视频 · 标准档', category: 'video', per: '条' },
   video_seedance_standard_long: { label: 'AI 视频 · 高品质档', category: 'video', per: '条' },
+  /* 9-11: MiniMax H3 768P 上架 (IP233 按条 ¥4.55, 定价 ¥9.9) */
+  video_minimax_h3_768p_short: { label: 'AI 视频 · MiniMax H3 768P', category: 'video', per: '条' },
+  video_minimax_h3_768p_long: { label: 'AI 视频 · MiniMax H3 768P', category: 'video', per: '条' },
   xhs_image_set_2k: { label: '小红书图文套装（1 封面 + 8 配图）', category: 'content', per: '套' },
   content_full_set: { label: '小红书内容集', category: 'content', per: '套' },
 });

@@ -17,6 +17,7 @@ test('video products expose one curated stable contract', () => {
   assert.deepEqual(Object.keys(VIDEO_PRODUCTS), [
     'seedance_fast',
     'seedance_standard',
+    'minimax_h3_768p',
     'minimax_h3_2k',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
@@ -74,9 +75,14 @@ test('video product validation rejects unsupported duration, mode, resolution, a
 
 test('public products omit hidden routes and private provider details', () => {
   const products = publicVideoProducts();
-  assert.deepEqual(products.map(product => product.id), ['seedance_fast', 'seedance_standard']);
+  assert.deepEqual(products.map(product => product.id), ['seedance_fast', 'seedance_standard', 'minimax_h3_768p']);
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
   assert.equal(products.every(product => !('routeId' in product) && !('credential' in product)), true);
+  /* 9-11: MiniMax H3 768P 上架 (IP233 按条 ¥4.55, 与标准档同带定价) */
+  assert.equal(products.find(product => product.id === 'minimax_h3_768p').providerLabel, 'MiniMax');
+  assert.deepEqual(products.find(product => product.id === 'minimax_h3_768p').quotes.short, {
+    sku: 'video_minimax_h3_768p_short', units: 38000, points: 38,
+  });
   assert.equal(products.every(product => !JSON.stringify(product).includes('providerCostCny')), true);
   assert.equal(products.find(product => product.id === 'seedance_fast').providerLabel, '字节跳动');
   assert.match(products.find(product => product.id === 'seedance_standard').limitations, /高峰期/);
@@ -85,6 +91,6 @@ test('public products omit hidden routes and private provider details', () => {
   });
   assert.deepEqual(
     publicVideoProducts({ includeHidden: true }).map(product => product.id),
-    ['seedance_fast', 'seedance_standard', 'minimax_h3_2k'],
+    ['seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'minimax_h3_2k'],
   );
 });

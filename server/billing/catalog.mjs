@@ -109,6 +109,18 @@ export const FEATURE_SKUS = freezeCatalog({
     priceFen: 1890, marginBand: 'core',
     freeReruns: 0, public: false,
   },
+  // 9-11: MiniMax H3 768P 上架 — IP233 按条 ¥4.55, 定价 ¥9.9 (毛利 54.0%, 与标准档同带);
+  // units 按工作室包面值口径 priceCny×3819 向上取整。首条真实账单落库后须对账校准。
+  video_minimax_h3_768p_short: {
+    units: 38000, providerCostCny: 4.55,
+    priceFen: 990, marginBand: 'traffic',
+    freeReruns: 0,
+  },
+  video_minimax_h3_768p_long: {
+    units: 38000, providerCostCny: 4.55,
+    priceFen: 990, marginBand: 'traffic',
+    freeReruns: 0,
+  },
   video_minimax_h3_2k_short: {
     units: 57000, providerCostCny: 0.76,
     priceFen: 1490, marginBand: 'premium',

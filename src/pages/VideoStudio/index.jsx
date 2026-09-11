@@ -916,7 +916,12 @@ export default function VideoStudioPage({ embedded = false }) {
                 {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map(file => <button key={file.id} type="button" onPointerDown={event => event.preventDefault()} onClick={() => insertMention(file)}><span>{file.name}</span><small>{file.kind === 'image' ? '视觉参考' : file.kind === 'video' ? '镜头参考' : '声音参考'}</small></button>) : <p>上传素材后会按“图片1、视频1、音频1”自动编号</p>}</div>}
               </span>
               <span className="video-inline-control">
-                <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><VideoModelMark provider={selectedProduct?.providerLabel} /><span>{selectedProduct?.label || '选择视频模型'}</span><ChevronDown size={13} /></button>
+                {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
+                <button type="button" className="video-config-trigger is-model" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}>
+                  <VideoModelMark provider={selectedProduct?.providerLabel} />
+                  <span><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
+                  <ChevronDown size={14} />
+                </button>
                 {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
               </span>
             </div>
