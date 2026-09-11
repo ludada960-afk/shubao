@@ -77,7 +77,8 @@ test('⑥ 视频节点不黑: 卡片与其他节点同款浅色, 仅播放器 le
 
 test('⑦ 模型与首页同源: 画布模型选项带首页同款缩略图; 视频模型读后端 catalog', () => {
   const studio = studioSource();
-  assert.match(studio, /ec-canvas-model-thumb/, '生图模型选项缩略图 (IMAGE_MODELS.visual 同源)');
+  /* 9-11 三轮: 模型选项改用真实品牌标 (ModelLogo + brandLogo), 与首页同源 */
+  assert.match(studio, /<ModelLogo logo=\{brandLogo\(model\.brand\)\}/, '生图模型选项品牌标 (与首页同源)');
   assert.match(studio, /videoProducts\.length \? videoProducts/, '视频模型选项来自后端 catalog (首页同 API)');
   const page = pageSource();
   assert.match(page, /fetchVideoCapabilities\(\)/, '画布拉取视频 catalog');

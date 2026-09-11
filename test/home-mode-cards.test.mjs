@@ -101,7 +101,9 @@ test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; �
   assert.doesNotMatch(style, /避免出现的元素/);
   assert.doesNotMatch(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/);
   assert.match(settings, /generationUnits/);
-  assert.match(settings, /<img src=\{model\.visual\}/);
+  /* 9-11 三轮: 模型卡片改用真实品牌标 (ModelLogo + brandLogo), 不再用 1.5MB 示例大图 */
+  assert.match(settings, /<ModelLogo logo=\{brandLogo\(model\.brand\)\}/);
+  assert.doesNotMatch(settings, /model\.visual/);
   /* 画面风格 = 技能库「生图」内置技能 (唯一真源), 本地只留兜底视觉 */
   assert.match(style, /fetchSkillLibrary\(\{ kind: 'image' \}\)/);
   assert.match(style, /FALLBACK_STYLE_SKILLS/);
@@ -111,5 +113,7 @@ test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; �
   assert.match(ecMode, /if \(key === 'skills'\)/);
   assert.doesNotMatch(ecMode, /activePanel === 'style'/);
   assert.match(settings, /锁定品牌主色调/);
-  assert.equal((catalog.match(/visual: '\/images\/models\//g) || []).length, 3);
+  /* 9-11 三轮: 三个模型的视觉标识改为品牌 key (openai / gemini), 由 modelLogos 统一解析成 SVG 标 */
+  assert.equal((catalog.match(/brand: '(openai|gemini|midjourney|qwen|alibaba|seedream)'/g) || []).length, 3);
+  assert.doesNotMatch(catalog, /images\/models\//);
 });

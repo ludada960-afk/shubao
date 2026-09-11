@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { Coins, Lock, Monitor, ShieldAlert, Sparkles, Unlock } from 'lucide-react';
 import { IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
+import { brandLogo } from '../../../services/modelLogos.js';
+import ModelLogo from '../../../components/ModelLogo.jsx';
 
 const RESOLUTIONS = [
   { key: '1K', label: '1K', ratio: '标准', desc: '适合快速试方向' },
@@ -50,7 +52,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 background: active ? 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(255,255,255,0.94))' : '#fff',
                 boxShadow: active ? '0 3px 12px rgba(124,58,237,0.13)' : 'none',
               }}>
-                <img src={model.visual} alt="" width="72" height="52" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 72, height: 52, borderRadius: 7, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(0,0,0,0.06)' }} />
+                <span style={{ display: 'grid', placeItems: 'center', width: 40, height: 40, flexShrink: 0, borderRadius: 10, background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <ModelLogo logo={brandLogo(model.brand)} size={22} /></span>
                 <span style={{ minWidth: 0, flex: 1 }}>
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <strong style={{ fontSize: 12, color: active ? '#6d28d9' : 'var(--text-primary)' }}>{model.label}</strong>

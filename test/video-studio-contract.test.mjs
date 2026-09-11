@@ -45,8 +45,9 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /video-mode-tabs/);
   assert.match(page, /把创意素材变成吸引人的短片/);
   assert.doesNotMatch(page, /变成可交付的视频/);
-  assert.match(page, /function VideoModelMark/);
-  assert.match(page, /<Clapperboard size=\{14\}/);
+  /* 9-11 三轮: 视频模型标改为真实品牌标 (ModelLogo + videoProductLogo) */
+  assert.match(page, /function VideoModelMark\(\{ product = null, provider = '' \}\)/);
+  assert.match(page, /videoProductLogo\(product\)/);
   assert.match(page, /role="tablist"/);
   assert.match(page, /video-content-composer/);
   assert.match(page, /video-materials/);

@@ -40,6 +40,8 @@ import {
 } from './videoStudioModel.js';
 import { buildVideoPlan } from './videoPlanModel.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
+import ModelLogo from '../../components/ModelLogo.jsx';
+import { brandLogo, videoProductLogo } from '../../services/modelLogos.js';
 import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
 import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
@@ -170,10 +172,12 @@ function jobRecordStatus(job) {
   return job?.projectId ? `项目已保存 · ${status}` : status;
 }
 
-function VideoModelMark({ provider = '' }) {
-  const isMiniMax = String(provider).toLowerCase().includes('minimax');
-  return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true">
-    {isMiniMax ? <Clapperboard size={14} strokeWidth={2.2} /> : <b>S</b>}
+/* 9-11 用户批注: 视频模型的 LOGO 不对 → 用真实品牌标 (字节 / MiniMax / 可灵 / Google / 通义 / xAI),
+   取不到官方标识的品牌走同尺寸品牌色字标兜底。 */
+function VideoModelMark({ product = null, provider = '' }) {
+  const logo = videoProductLogo(product) || (String(provider).toLowerCase().includes('minimax') ? brandLogo('minimax') : brandLogo('bytedance'));
+  return <span className="video-model-mark" aria-hidden="true">
+    <ModelLogo logo={logo} size={18} />
   </span>;
 }
 
@@ -918,11 +922,11 @@ export default function VideoStudioPage({ embedded = false }) {
               <span className="video-inline-control">
                 {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
                 <button type="button" className="video-config-trigger is-model" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}>
-                  <VideoModelMark provider={selectedProduct?.providerLabel} />
+                  <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} />
                   <span><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
               </span>
             </div>
             <div className="video-toolbar-buttons">

@@ -54,6 +54,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
+import ModelLogo from '../../../components/ModelLogo.jsx';
+import { brandLogo } from '../../../services/modelLogos.js';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
 import SizingPanel from '../../Home/ec/SizingPanel.jsx';
@@ -398,7 +400,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
       {open === 'model' && <div className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
         {IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => { onChange?.({ imageModel: model.id }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
-          {model.visual && <img src={model.visual} alt="" className="ec-canvas-model-thumb" />}
+          <ModelLogo logo={brandLogo(model.brand)} size={20} style={{ marginRight: 2 }} />
           <span className="ec-canvas-model-copy"><strong>{model.label}</strong><small>{model.badge}</small></span>
         </button>)}
       </div>}
