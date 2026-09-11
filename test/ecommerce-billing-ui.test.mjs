@@ -653,7 +653,8 @@ test('first step creates one stable ecommerce draft id and passes it into direct
   assert.match(source, /useState\(createEcommerceDraftId\)/);
   assert.doesNotMatch(source, /loadOrCreateEcommerceDraft/);
   assert.match(source, /draftId/);
-  assert.match(source, /onStepChange\?\.\(\{[\s\S]*draftId/s);
+  assert.match(source, /const launchParams = \{\s*draftId,/s, 'P7 起 payload 收敛为 launchParams 变量, 首字段仍是稳定 draftId');
+  assert.match(source, /onStepChange\?\.\(launchParams\)/, 'legacy 步骤回调拿到含 draftId 的 payload');
 });
 
 test('production billing hold creates exactly one item per planned asset', async () => {
