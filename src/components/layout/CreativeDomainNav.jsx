@@ -25,6 +25,7 @@ import {
   TShirt,
 } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
+import { useModalScrollLock } from '../ui/useModalScrollLock.js';
 import {
   CREATIVE_NAV_GROUPS,
   getNavigationItem,
@@ -125,12 +126,9 @@ function CreativeDomainNav() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!mobileOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [mobileOpen]);
+  /* 9-11: 移动端导航菜单打开时的滚动锁改走共享计数 (useModalScrollLock)。
+     原来各自保存/恢复 body.style.overflow, 与技能库/面板锁叠开时会互相把 hidden 当原值 → 页面永久锁死。 */
+  useModalScrollLock(mobileOpen);
 
   useEffect(() => {
     const handleDocumentPointerDown = event => {
