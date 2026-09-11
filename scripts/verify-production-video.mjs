@@ -98,8 +98,16 @@ export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchI
   if (/sd5-seedance|providerCostCny|credential|api[_-]?key|minimax-h3-2k/i.test(serialized)) {
     throw new Error('Video capabilities leaked an internal route or credential field');
   }
-  if (body.products.some(product => product.id === 'minimax_h3_2k')) {
-    throw new Error('Hidden MiniMax product is exposed before verification');
+  /* 9-11 用户「全上」: 公开档扩到 10 个 (Seedance 快试/标准 + MiniMax 768P/2K + Grok + 万相 + 可灵 + 可灵 Pro + Veo + Seedance 2.5)。
+     原「MiniMax 2K 未验收不得公开」的护栏已由用户拍板解除, 改为校验公开集合白名单。 */
+  const APPROVED_PUBLIC_PRODUCTS = Object.freeze([
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+    'kling_standard', 'kling_pro', 'veo_fast', 'seedance_25', 'minimax_h3_2k',
+  ]);
+  const publicIds = body.products.map(product => product.id).sort();
+  const approvedIds = [...APPROVED_PUBLIC_PRODUCTS].sort();
+  if (JSON.stringify(publicIds) !== JSON.stringify(approvedIds)) {
+    throw new Error(`Public video product set drifted: ${publicIds.join(', ')}`);
   }
   /* 9-11: 公开产品集合 = Seedance 快试/标准 + MiniMax H3 768P (按条 ¥4.55 → 38000 units) */
   const PUBLIC_QUOTE_UNITS = Object.freeze({
