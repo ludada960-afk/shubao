@@ -110,3 +110,22 @@
 3. **P6 TTS 接哪家**（火山 / MiniMax / KFish 克隆）？报价确认我就开。
 4. **P7 独立「第二步设计方案」整页确认废弃**（改共享方案对象）？
 5. **供应商切换（fast 档 → 65535）**：我先小流量灰度验证，还是等你说了再动？
+
+## 6. 9-11 执行记录（§5 拍板项全部落地）
+- **TTS 接火山（拍板3）→ P6 已开**：volc Seed-TTS 2.0 大模型（`/api/v3/tts/unidirectional` +
+  `X-Api-Resource-Id: seed-tts-2.0`，NDJSON 事件流，默认音色 Vivi 2.0 `zh_female_vv_uranus_bigtts`）
+  真适配器 + 计费（ec_tts_voice 0.5 积分/条）。9-11 线上转真：key 经 SSH 注入远端 .env，
+  单条真实调用 mockAudio:false + 真 MP3 验证通过。注意：deploy 回滚会还原 .env 旧快照
+  （本次注入被打掉一次后重注；下次部署 pre-backup 含 key 自愈）。
+- **fast 档供应商切换（拍板5）→ 选 agv 而非 65535**：用户批快试档换 `agv-seedance2.0fast`
+  （IP233，¥0.91/条，5/10/15s，≤9 参考图，无参考视频/音频、无帧/重做模式）。成本链
+  （catalog cost 0.91 + upstreamLedger 新路由 + videoMeter 按条计价）已同步；用户价 27 积分
+  不变，毛利≈84% 过 40% 地板，TEASER_SUBSIDY 告警清除。65535 快档维持拒绝（未报价+协议不同）。
+- **P7 方案入画布（拍板4，用户「你直接做」）→ 已落地**：设计方案=画布对象
+  （`design-direction` 节点 CanvasDirectionNode，生成/换一套各 1 积分，先报价后扣费），
+  首页发射器化（「下一步·带设计方案」/「快速生成·跳过方案」双通道）；应用到画布派生套图
+  生成器（design-plan 连线）。**偏差声明**：§3-P7 原写「独立整页物理消失」，实际旧
+  ecStep=2 整页保留可读——三条不变式②（老文档只读可用）优先，入口收敛到画布即可。
+- **8 项画布 UI 一致性（9-11 图片批注）**：随 P7 批次交付（1f568320）。
+- 部署 `8152bef9` 已上线 shuimg.cn（frontend 档零付费 canary，全量 3113/3113）；
+  视频快档真实账单首条落库后需对账校准（upstreamLedger 已留 note）。

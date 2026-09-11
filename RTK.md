@@ -85,6 +85,30 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 用户授权完整交付时，Codex 应自主完成备份、实现、全量回归、桌面与移动端浏览器验收、部署及线上验证；除新权限、不可逆风险或无法自行解除的外部阻塞外，不在中途反复询问。
 
 ## 11. 最近发布快照
+- 2026-09-11，节点生态 9-11 执行轮（火山 TTS 真链路 + agv 快档切换 + 8 项 UI 一致性 + P7 方案入画布）
+  已由 8152bef9 发布至 https://shuimg.cn/（frontend 档，零付费 canary；全量回归 3113/3113，
+  生产构建 + source-hygiene 绿；线上探针 /health ok、/api/billing/rules 含 ec_tts_voice 与
+  P7 的 ec_direction_analysis/refresh(各 1 积分)、视频 SKU 用户价不变(快试 27 积分/条)、
+  /api/workflow-templates 5 内置模板、入口 bundle index-DtMVGsBs.js）。
+  提交栈（本轮）：
+  - e6c3c6d6 TTS 火山 Seed-TTS 2.0 v3 契约(ttsBridge: /api/v3/tts/unidirectional +
+    X-Api-Resource-Id: seed-tts-2.0 + NDJSON 解析 + 默认音色 Vivi 2.0) + 视频快试档切
+    agv-seedance2.0fast(¥0.91/条：videoCatalog routeId + billing catalog cost 0.91/
+    subsidizedTeaser 移除 + upstreamLedger 新路由 ip233-agv-seedance-fast(旧 sd5-fast
+    retired) + videoMeter 按条计价 + costBasis 登记；用户价 27 积分/¥6.9 不变，毛利
+    ≈84% 过 40% 地板，TEASER_SUBSIDY 告警清除)。
+  - 1f568320 8 项画布 UI 一致性(9-11 图片批注：删除残留回收器/纯图标运行按钮+tooltip/
+    图连线动画/加号端点几何 ±17/工作流建议卡/确认弹窗卡片化/替换胶囊/技能与模型缩略)。
+  - bfea6c07 P7 方案入画布(设计方案=画布对象 CanvasDirectionNode + 首页发射器化：
+    「下一步·带设计方案」铺开素材行+方案节点，「快速生成·跳过方案」直出套图生成器节点；
+    应用到画布派生套图生成器 design-plan 连线；不变式① analysis/refresh 先报价后扣费；
+    不变式② 旧 ecStep=2 整页保留可读)。
+  - 8152bef9 ecommerce-billing-ui 断言跟随 EcMode payload 收敛(语义 pin 不变)。
+  线上 TTS 转真：TTS_API_KEY_VOLCENGINE 经 SSH 注入 /home/ubuntu/shubao/server/.env 与根
+  .env(部署回滚会还原 .env 旧快照 → 下次部署 pre-backup 含 key 自愈)；单条真实调用验证
+  mockAudio:false + 真 MP3(ID3 头)。遗留：本机 SSL 出口不稳导致 deploy 的 public gallery
+  verify 3 次失败(exit 1，远端侧健康检查全过、release 已正常切换)；agv 快档首条真实账单
+  落库后需对账校准；cloudflare-tunnel 持续 errored(历史遗留，nginx 正常服务)。
 - 2026-09-10，无限画布节点生态 P0→P3（总统筹分 4 期）已由 7e4c7e5e 发布至
   https://shuimg.cn/（frontend 档，零付费 canary；线上探针 /api/canvas/graph/run、
   /api/canvas/one-click-video、/api/canvas/tts 均 401 wired，/api/workflow-templates
