@@ -69,21 +69,23 @@ export const FEATURE_SKUS = freezeCatalog({
   // units = ⌈priceFen/100 ÷ 锚⌉ 向上取整到整积分，保证实付面值不低于终案现金价：
   //   ¥6.9→27 分(面值¥7.07)｜¥11.9→46 分(¥12.04)｜¥14.9→57 分(¥14.93)｜¥18.9→73 分(¥19.11)。
   // 图片 SKU 全系不动；记账成本维持已核定口径（Seedance 720p ¥5.07/条、1080p ¥6.37/条预留、MiniMax ¥0.76/条定案）。
-  // 快试档：终案定价 ¥6.9 仅覆盖 fast 通道；现连路由账面 ¥5.07/条时毛利 ≈25.3%，低于引流地板 40%，
-  // 按提案 D「补贴换活跃 + 绝对成本上限 + 频控」作为受管补贴档运行：每条仍正贡献 ¥1.62，
-  // 且必须满足 dailyLimitPerUser>0、成本≤¥6 上限。上游切到廉价 fast/mini 候选通道（IP233 ¥3.77/¥3.12/条）后
-  // 毛利回到 43–52% 正常引流带；admin marginGateAlerts 持续输出 TEASER_SUBSIDY 直到通道或价格收敛。
+  // 快试档：终案定价 ¥6.9 仅覆盖 fast 通道。原连路由 sd5-seedance-2.0-fast 账面 ¥5.07/条时毛利 ≈25.3%，
+  // 曾按提案 D「补贴换活跃 + 频控」作受管补贴档运行；9-11 经用户拍板切到 IP233 优选通道
+  // agv-seedance2.0fast（¥0.91/条，/api/pricing 实测报价，同 host 同协议），面值毛利回到 ≈84%，
+  // 补贴档解除（subsidizedTeaser=false），TEASER_SUBSIDY 告警随成本收敛自然消失。
+  // 注意：agv 通道不支持参考视频/参考音频/首尾帧（能力口径见 videoCatalog seedance_fast），
+  // 首条真实账单落库后须对账校准「按条 ¥0.91」口径（见 upstreamLedger ip233-agv-seedance-fast 备注）。
   // maxDurationSeconds/dailyLimitPerUser/routeRestriction/freeReruns 为终案权益口径，运行时配额执行属后续接线（遗留）。
   video_seedance_fast_short: {
-    units: 27000, providerCostCny: 5.07,
+    units: 27000, providerCostCny: 0.91,
     priceFen: 690, marginBand: 'traffic',
-    subsidizedTeaser: true, routeRestriction: 'fast-only',
+    subsidizedTeaser: false, routeRestriction: 'fast-only',
     maxDurationSeconds: 5, dailyLimitPerUser: 3, freeReruns: 0,
   },
   video_seedance_fast_long: {
-    units: 27000, providerCostCny: 5.07,
+    units: 27000, providerCostCny: 0.91,
     priceFen: 690, marginBand: 'traffic',
-    subsidizedTeaser: true, routeRestriction: 'fast-only',
+    subsidizedTeaser: false, routeRestriction: 'fast-only',
     maxDurationSeconds: 5, dailyLimitPerUser: 3, freeReruns: 0,
   },
   // 标准档 ¥11.9 实付面值毛利 54.9%，落在引流带规划上沿（距主力地板 60% 差 5.1pp）——

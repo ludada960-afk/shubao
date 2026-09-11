@@ -50,8 +50,8 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
   // units=⌈现金价 ÷ 常规包面值锚⌉ 向上取整，记账成本维持核定口径不变。
   const anchor = pointsFaceAnchorCny();
   const expected = {
-    video_seedance_fast_short: { units: 27000, priceFen: 690, providerCostCny: 5.07, isPublic: true },
-    video_seedance_fast_long: { units: 27000, priceFen: 690, providerCostCny: 5.07, isPublic: true },
+    video_seedance_fast_short: { units: 27000, priceFen: 690, providerCostCny: 0.91, isPublic: true },
+    video_seedance_fast_long: { units: 27000, priceFen: 690, providerCostCny: 0.91, isPublic: true },
     video_seedance_standard_short: { units: 46000, priceFen: 1190, providerCostCny: 5.07, isPublic: true },
     video_seedance_standard_long: { units: 57000, priceFen: 1490, providerCostCny: 5.07, isPublic: true },
     video_seedance_1080p: { units: 73000, priceFen: 1890, providerCostCny: 6.37, isPublic: false },
@@ -80,7 +80,8 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     assert.equal(FEATURE_SKUS[sku].maxDurationSeconds, 5);
     assert.equal(FEATURE_SKUS[sku].dailyLimitPerUser, 3);
     assert.equal(FEATURE_SKUS[sku].routeRestriction, 'fast-only');
-    assert.equal(FEATURE_SKUS[sku].subsidizedTeaser, true);
+    // 9-11 快试档切 agv 通道后成本 ¥0.91/条、面值毛利 ≈84% → 补贴档解除（subsidizedTeaser=false）
+    assert.equal(FEATURE_SKUS[sku].subsidizedTeaser, false);
     assert.equal(FEATURE_SKUS[sku].freeReruns, 0);
   }
   assert.equal(FEATURE_SKUS.video_seedance_standard_long.freeReruns, 1);
@@ -112,21 +113,21 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
     assert.ok(row.margin >= floor, sku + ' margin ' + row.margin + ' clears floor ' + floor);
   }
 
-  // 快试两档为受管补贴：正贡献、必须带频控字段，并持续产生 admin 告警直至通道收敛。
+  // 9-11 快试档切 agv 通道（¥0.91/条）后毛利收敛：两档 status=ok（≥引流地板 40%），不再产生 TEASER_SUBSIDY 告警。
   for (const sku of ['video_seedance_fast_short', 'video_seedance_fast_long']) {
     const row = bySku.get(sku);
-    assert.equal(row.status, 'teaser_subsidy');
-    assert.ok(row.margin > 0, sku + ' stays contribution-positive');
+    assert.equal(row.status, 'ok', sku + ' clears the traffic floor after the agv route switch');
+    assert.ok(row.margin >= 0.40, sku + ' margin ' + row.margin);
   }
   const alertCodes = new Map(catalogMarginGateAlerts().map(alert => [alert.sku, alert.code]));
-  assert.equal(alertCodes.get('video_seedance_fast_short'), 'TEASER_SUBSIDY');
+  assert.equal(alertCodes.has('video_seedance_fast_short'), false, 'agv 换档后 TEASER_SUBSIDY 告警应消失');
   assert.equal(alertCodes.get('video_seedance_standard_long'), 'FREE_RERUN_EXPOSURE');
 });
 
 test('audited margins are locked against silent cost drift under the tiered bands', () => {
   const anchor = pointsFaceAnchorCny();
   const auditedMargins = {
-    video_seedance_fast_short: 0.2529,
+    video_seedance_fast_short: 0.8413,
     video_seedance_standard_short: 0.5491,
     video_seedance_standard_long: 0.6303,
     video_seedance_1080p: 0.6368,

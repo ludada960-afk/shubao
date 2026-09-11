@@ -38,6 +38,8 @@ const MODEL_TOKEN_PRICING = Object.freeze({
   'gemini-3.1-flash-image': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按张计费' }),
   // Seedance 2.0 fast / standard — 按秒
   'sd5-seedance-2.0-fast': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按秒计费' }),
+  // agv-seedance2.0fast — IP233 优选通道, 9-11 起快试档生产路由, 按条 ¥0.91/条 (5/10/15s 同价)
+  'agv-seedance2.0fast': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按条计费（¥0.91/条，5/10/15s 同价）' }),
   'sd5-seedance-2.0': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按秒计费' }),
   'sd5-seedance-2.0-mini': Object.freeze({ inputPer1k: 0.0, outputPer1k: 0.0, note: '按秒计费' }),
 });

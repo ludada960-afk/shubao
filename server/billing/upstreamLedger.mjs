@@ -91,10 +91,17 @@ const routes = [
     health: '13 次账户请求均成功；无独立监控', notes: '生产密钥位于特惠组；1K/2K/4K 当前同价。',
   }),
   route({
-    id: 'ip233-sd5-fast', providerId: 'ip233', model: 'sd5-seedance-2.0-fast', status: 'connected',
+    id: 'ip233-sd5-fast', providerId: 'ip233', model: 'sd5-seedance-2.0-fast', status: 'retired',
     purpose: 'Seedance 快速成片', billingUnit: '每条（720p）', unitPriceCny: 5.07,
+    appSkus: [],
+    health: '退役（9-11）', notes: '9-11 用户拍板换档：快试档切至 ip233-agv-seedance-fast（agv-seedance2.0fast ¥0.91/条），本条目留档用于历史对账；失败不应自动重复扣积分。',
+  }),
+  route({
+    id: 'ip233-agv-seedance-fast', providerId: 'ip233', model: 'agv-seedance2.0fast', status: 'connected',
+    purpose: 'Seedance 快速成片（优选通道）', billingUnit: '每条（720p；5/10/15s）', unitPriceCny: 0.91,
     appSkus: ['video_seedance_fast_short', 'video_seedance_fast_long'],
-    health: '同族监控 100%；按条库存不足', notes: 'IP233 按条计费口径 720p ¥5.07/条；失败不应自动重复扣积分。',
+    health: 'IP233 报价接口 9-11 实测 ¥0.91/条；暂无独立监控',
+    notes: '9-11 换档：替换 ip233-sd5-fast（¥5.07/条），同 IP233 任务式 /videos 协议零集成风险；通道能力仅文生/图生（≤9 参考图），不支持参考视频/参考音频与首尾帧（fast 档 catalog 已同步收口 modes/limits）。积分收费不变（27 积分/¥6.9），面值毛利 ≈84%。首条真实账单落库后须对账校准按条 ¥0.91 口径。',
   }),
   route({
     id: 'ip233-sd5-standard', providerId: 'ip233', model: 'sd5-seedance-2.0', status: 'connected',

@@ -14,12 +14,18 @@ test('upstream ledger contains the audited CNY snapshots and source state', () =
   assert.equal(ledger.providers[1].reportedSpendCny, 0.78);
   assert.equal(ledger.providers[2].reportedRequests, 0);
 
-  const fast = ledger.routes.find(route => route.id === 'ip233-sd5-fast');
+  // 9-11 换档: 快试档生产路由 = agv-seedance2.0fast (¥0.91/条); 旧 sd5 路由退役留档
+  const fast = ledger.routes.find(route => route.id === 'ip233-agv-seedance-fast');
   assert.equal(fast.providerLabel, 'IP233 Media API');
-  assert.equal(fast.unitPriceCny, 5.07);
+  assert.equal(fast.model, 'agv-seedance2.0fast');
+  assert.equal(fast.unitPriceCny, 0.91);
   assert.equal(fast.status, 'connected');
-  assert.match(fast.health, /库存/);
+  assert.match(fast.health, /实测/);
   assert.equal(fast.appActions.find(action => action.sku === 'video_seedance_fast_short').points, 27);
+  const retiredFast = ledger.routes.find(route => route.id === 'ip233-sd5-fast');
+  assert.equal(retiredFast.status, 'retired');
+  assert.deepEqual(retiredFast.appSkus, [], '退役路由不再认领新结算');
+  assert.match(retiredFast.notes, /留档/);
 
   const minimax = ledger.routes.find(route => route.id === 'poke-minimax-h3');
   assert.equal(minimax.providerLabel, 'Poke 中转（MiniMax）');
@@ -46,7 +52,7 @@ test('upstream ledger reconciles local settled cost by SKU without changing sour
   });
 
   const image = ledger.routes.find(route => route.id === '65535-gpt-image-2');
-  const video = ledger.routes.find(route => route.id === 'ip233-sd5-fast');
+  const video = ledger.routes.find(route => route.id === 'ip233-agv-seedance-fast');
   const relay = ledger.providers.find(provider => provider.id === 'relay_65535');
   const ip233 = ledger.providers.find(provider => provider.id === 'ip233');
 

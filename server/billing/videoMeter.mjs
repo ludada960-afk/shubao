@@ -3,7 +3,7 @@
 //
 // 设计目的：把"视频按量切价"做成可调用、可审计、可路由的纯函数模块。
 // 价格与积分（units/priceFen）来源于 server/billing/catalog.mjs 中已核定的 VIDEO SKUs：
-//   - video_seedance_fast_short      (Fast 720P 5s, ¥6.9, 27000 units, providerCost 5.07)
+//   - video_seedance_fast_short      (Fast 720P 5s, ¥6.9, 27000 units, providerCost 0.91 —— 9-11 切 agv-seedance2.0fast 按条)
 //   - video_seedance_fast_long       (Fast 720P 5s 同源, 路由别名)
 //   - video_seedance_standard_short  (Standard 720P ≤8s, ¥11.9, 46000 units)
 //   - video_seedance_standard_long   (Standard 720P >8s, ¥14.9, 57000 units)
@@ -37,7 +37,7 @@ const VIDEO_TIER_DEFINITIONS = Object.freeze([
     resolutions: Object.freeze(['720p']),
     shortMaxSeconds: 5,
     longMaxSeconds: 15,
-    costPerSecondCny: 0.50,  // 上游 65535: 0.5/秒 (与 catalog providerCostCny=5.07 校准到 5s/¥2.5 区间)
+    costPerClipCny: 0.91,  // 9-11 换档: agv-seedance2.0fast 按条计费 ¥0.91/条 (IP233 报价实测; 5/10/15s 同价, 与 catalog providerCostCny 同源)
   },
   {
     model: 'seedance_standard',
@@ -149,8 +149,13 @@ export function quoteVideoMeter({ model, seconds, resolution } = {}) {
   const safePriceFen = Number.isSafeInteger(priceFen) && priceFen > 0 ? priceFen : null;
   const catalogProviderCostCny = Number(feature.providerCostCny) || 0;
 
-  // 上游按秒成本 × 秒数 = actualCostCny（与 costBasis.computeGpuCost 同公式同粒度）
-  const gpu = computeGpuCost(normalizedSeconds, tier.costPerSecondCny);
+  // 上游成本 = actualCostCny：按条固定价 (agv 优选通道) 或 按秒单价 × 秒数（与 costBasis.computeGpuCost 同公式同粒度）
+  const gpu = tier.costPerClipCny != null
+    ? {
+      gpuCostCny: Number(tier.costPerClipCny.toFixed(6)),
+      breakdown: { seconds: normalizedSeconds, pricePerSecond: null, costPerClipCny: tier.costPerClipCny },
+    }
+    : computeGpuCost(normalizedSeconds, tier.costPerSecondCny);
   // 平台分成 = theoreticalPriceCny * 0.03（costBasis 默认 3% 平台分成）
   const theoretical = theoreticalPriceCny({ itemUnits: units, currency: 'ec_points' });
   const platform = computePlatformCut(theoretical, {});
@@ -178,6 +183,7 @@ export function quoteVideoMeter({ model, seconds, resolution } = {}) {
     breakdown: {
       gpuSeconds: gpu.breakdown.seconds,
       gpuPricePerSecond: gpu.breakdown.pricePerSecond,
+      ...(gpu.breakdown.costPerClipCny != null ? { costPerClipCny: gpu.breakdown.costPerClipCny } : {}),
       platformCutCny: platform.platformCutCny,
       platformCutRate: platform.breakdown.rate,
       catalogProviderCostCny,
@@ -197,7 +203,8 @@ export function listVideoMeterTiers({ includeHidden = false } = {}) {
       resolutions: [...tier.resolutions],
       shortMaxSeconds: tier.shortMaxSeconds,
       longMaxSeconds: tier.longMaxSeconds,
-      costPerSecondCny: tier.costPerSecondCny,
+      costPerSecondCny: tier.costPerSecondCny ?? null,
+      costPerClipCny: tier.costPerClipCny ?? null,
       shortSku: tier.skuShort,
       longSku: tier.skuLong,
     }));

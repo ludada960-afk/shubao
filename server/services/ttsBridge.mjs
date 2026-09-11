@@ -211,26 +211,49 @@ async function callMiniMaxTTS({ apiKey, text, voiceId, lang, speed }) {
   };
 }
 
-/* ── 火山引擎（豆包语音）大模型语音合成 —— 真上游 ──
-   用户 9-10 纠正: 我们的 TTS 供应商是火山(豆包语音), 不是百度。
-   契约(2026-09-11 实测): POST https://openspeech.bytedance.com/api/v1/tts, 鉴权仅需请求头 X-Api-Key: <API Key>。
-   body = { app:{appid,cluster}, user:{uid}, audio:{voice_type,encoding,speed_ratio}, request:{reqid,text,operation:'query'} }
-   成功: { code:3000, data:'<base64 mp3>' }; 服务未开通: { code:3001, message:'...resource not granted' }。
+/* ── 火山引擎（豆包语音）语音合成大模型 2.0（Seed-TTS 2.0）—— 真上游 ──
+   用户 9-10/9-11: 供应商是火山引擎豆包语音; 控制台已开通「语音合成 2.0」, 9-11 实测转真。
+   契约(2026-09-11 实测, docs.volcengine.com/docs/6561/2550870 「同步语音合成」):
+   POST https://openspeech.bytedance.com/api/v3/tts/unidirectional
+   请求头: X-Api-Key(新版控制台单头鉴权) + X-Api-Resource-Id: seed-tts-2.0 + X-Api-Request-Id(uuid)
+   body = { req_params: { text, speaker, model?, audio_params:{ format:'mp3', sample_rate, bit_rate, speech_rate, loudness_rate } } }
+   响应为 NDJSON 事件流: 若干音频分片 {code:0, data:'<b64 mp3 分片>'} → sentence 事件 → 结束 {code:20000000, message:'OK'};
+   错误: 终帧 code!=20000000(如 3001 not granted) → 抛中文可读错误。
+   音色: Seed-TTS 2.0 标准音色 *_uranus_bigtts(文档 1257544); model 仅克隆音色(seed-icl-2.0)需要。
    未配置真 key 时保持 mock(诚实门控), 不发任何外部请求。 */
-const VOLC_TTS_URL = process.env.VOLC_TTS_URL || 'https://openspeech.bytedance.com/api/v1/tts';
-const VOLC_TTS_CLUSTER = process.env.VOLC_TTS_CLUSTER || 'volcano_tts';
-const VOLC_TTS_DEFAULT_VOICE = process.env.TTS_VOICE_ID_VOLCENGINE || 'zh_female_cancan_mars_bigtts';
+const VOLC_TTS_URL = process.env.VOLC_TTS_URL || 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
+const VOLC_TTS_RESOURCE_ID = process.env.VOLC_TTS_RESOURCE_ID || 'seed-tts-2.0';
+const VOLC_TTS_MODEL = process.env.VOLC_TTS_MODEL || '';
+const VOLC_TTS_DEFAULT_SPEAKER = process.env.TTS_VOICE_ID_VOLCENGINE || 'zh_female_vv_uranus_bigtts';
 
-/* 纯函数: 构造火山 TTS 请求(供契约测试, 不发网络)。 */
-export function buildVolcengineTtsRequest({ text, voiceId = '', speed = 1, appId = '', reqid = 'shubao-tts' } = {}) {
+/* 纯函数: 构造火山 Seed-TTS 2.0 请求(供契约测试, 不发网络)。 */
+export function buildVolcengineTtsRequest({ text, voiceId = '', speed = 1, model = '', reqid = 'shubao-tts' } = {}) {
+  /* speech_rate: -50..100, 0=正常, 100=2.0倍速 → 内部 speed(倍速) 映射为 (speed-1)*100 */
+  const speechRate = Math.max(-50, Math.min(100, Math.round((Number(speed) - 1) * 100)));
+  const modelToUse = String(model || '') || VOLC_TTS_MODEL;
+  /* voiceId 占位(''/default) 时回落默认 Seed-TTS 2.0 音色; 实测 speaker 不匹配资源会报
+     'resource ID is mismatched with speaker related resource', 所以占位值必须替换。 */
+  const speaker = ['', 'default'].includes(String(voiceId || '').trim())
+    ? VOLC_TTS_DEFAULT_SPEAKER
+    : String(voiceId).trim();
   return {
     url: VOLC_TTS_URL,
+    resourceId: VOLC_TTS_RESOURCE_ID,
+    reqid,
     headers: { 'Content-Type': 'application/json' },
     body: {
-      app: { appid: String(appId || ''), token: '', cluster: VOLC_TTS_CLUSTER },
-      user: { uid: 'shubao-canvas' },
-      audio: { voice_type: String(voiceId || '') || VOLC_TTS_DEFAULT_VOICE, encoding: 'mp3', speed_ratio: Number(speed) || 1 },
-      request: { reqid, text: String(text || ''), operation: 'query' },
+      req_params: {
+        text: String(text || ''),
+        speaker,
+        ...(modelToUse ? { model: modelToUse } : {}),
+        audio_params: {
+          format: 'mp3',
+          sample_rate: 24000,
+          bit_rate: 64000,
+          speech_rate: speechRate,
+          loudness_rate: 0,
+        },
+      },
     },
   };
 }
@@ -241,39 +264,51 @@ export function isRealTtsCredential(value) {
 }
 
 export function volcengineServiceNotGrantedHint(message) {
-  return /not granted|resource_id/i.test(String(message || ''))
-    ? '（该 API Key 尚未在火山引擎控制台开通「语音合成 2.0」，开通后即自动转真）'
+  return /not granted|resource_id|permission|unauthorized/i.test(String(message || ''))
+    ? '（该 API Key 尚未在火山引擎控制台开通「语音合成 2.0（大模型）」或 seed-tts-2.0 资源不可用，请在控制台>开通管理核对，开通后即自动转真）'
     : '';
 }
 
-async function callVolcengineTTSReal({ apiKey, text, voiceId, speed }) {
+async function callVolcengineTTSReal({ apiKey, text, voiceId, speed, model }) {
   /* 诚实门控: 未配置真 API Key(或仍是 mock 占位) 时绝不发外部请求。 */
   if (!isRealTtsCredential(apiKey)) {
     return { provider: 'volcengine', voiceId, text, mockAudio: true, audioUrl: mockTtsAudioDataUrl('volc-' + text.length) };
   }
   const req = buildVolcengineTtsRequest({
-    text, voiceId, speed,
-    appId: process.env.VOLC_TTS_APPID || '',
-    reqid: 'shubao-' + Date.now(),
+    text, voiceId, speed, model,
+    reqid: 'shubao-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
   });
   const res = await fetch(req.url, {
     method: 'POST',
-    headers: { 'X-Api-Key': String(apiKey), ...req.headers },
+    headers: { 'X-Api-Key': String(apiKey), 'X-Api-Resource-Id': req.resourceId, 'X-Api-Request-Id': req.reqid, ...req.headers },
     body: JSON.stringify(req.body),
   });
-  const data = await res.json().catch(() => ({}));
-  if (Number(data?.code) !== 3000 || !data?.data) {
-    throw new Error('火山语音合成失败: ' + (data?.message || ('HTTP ' + res.status)) + volcengineServiceNotGrantedHint(data?.message));
+  /* 响应是 NDJSON 多事件流: 逐行解析, 拼接 data(b64 音频分片), 以终帧 code 判成败。 */
+  const raw = await res.text();
+  const chunks = [];
+  let lastCode = 0;
+  let lastMessage = '';
+  for (const line of raw.split('\n').map(s => s.trim()).filter(Boolean)) {
+    let ev;
+    try { ev = JSON.parse(line); } catch { continue; }
+    if (typeof ev.data === 'string' && ev.data) chunks.push(Buffer.from(ev.data, 'base64'));
+    if (ev.code !== null && ev.code !== undefined && Number.isFinite(Number(ev.code))) {
+      lastCode = Number(ev.code);
+      lastMessage = String(ev.message || '');
+    }
   }
-  const buffer = Buffer.from(String(data.data), 'base64');
-  if (!buffer.length) throw new Error('火山语音合成返回空音频');
+  if (lastCode !== 20000000) {
+    throw new Error('火山语音合成失败: ' + (lastMessage || ('HTTP ' + res.status)) + volcengineServiceNotGrantedHint(lastMessage));
+  }
+  const audio = Buffer.concat(chunks);
+  if (!audio.length) throw new Error('火山语音合成返回空音频');
   return {
     provider: 'volcengine',
-    voiceId: req.body.audio.voice_type,
+    voiceId: req.body.req_params.speaker,
     text,
     mockAudio: false,
-    audioUrl: 'data:audio/mp3;base64,' + buffer.toString('base64'),
-    bytes: buffer.length,
+    audioUrl: 'data:audio/mp3;base64,' + audio.toString('base64'),
+    bytes: audio.length,
   };
 }
 
@@ -309,7 +344,7 @@ export async function synthesizeTTS({
     apiKey: apiKey || process.env['TTS_API_KEY_' + providerToUse.toUpperCase()] || 'mock-key',
     apiSecret: apiSecret || process.env['TTS_API_SECRET_' + providerToUse.toUpperCase()] || 'mock-secret',
     region: region || process.env['TTS_REGION_' + providerToUse.toUpperCase()] || 'cn-north-1',
-    text, voiceId, lang, speed,
+    text, voiceId, lang, speed, model,
   });
   const cost = computeTTSCost({ provider: providerToUse, textChars });
   const latencyMs = Date.now() - startMs;
@@ -323,7 +358,7 @@ export async function synthesizeTTS({
     durationMs,
     costCny: cost.totalCny,
     latencyMs,
-    /* 真上游(百度已配置) -> mockAudio:false; 未配置 -> 保持 mock 诚实门控。 */
+    /* 真上游(火山已配置) -> mockAudio:false; 未配置 -> 保持 mock 诚实门控。 */
     mockAudio: result?.mockAudio !== false,
     ...(Number(result?.bytes) > 0 ? { audioBytes: Number(result.bytes) } : {}),
   };

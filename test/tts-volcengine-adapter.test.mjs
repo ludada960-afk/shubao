@@ -19,18 +19,24 @@ test('火山引擎在 provider 价格表与列表里(tier=core)', () => {
   assert.ok(TTS_PRICING.volcengine.inputPricePerKChars <= 0.0005, '核心档(<=¥0.0005/千字)');
 });
 
-test('火山 TTS 请求构造（纯函数, 不发网络）: X-Api-Key + v1 body', () => {
-  const req = buildVolcengineTtsRequest({ text: '你好薯包', voiceId: 'zh_female_cancan_mars_bigtts', speed: 1.2 });
-  assert.equal(req.url, 'https://openspeech.bytedance.com/api/v1/tts');
-  assert.equal(req.body.request.text, '你好薯包');
-  assert.equal(req.body.request.operation, 'query');
-  assert.equal(req.body.audio.encoding, 'mp3');
-  assert.equal(req.body.audio.voice_type, 'zh_female_cancan_mars_bigtts');
-  assert.equal(req.body.audio.speed_ratio, 1.2);
-  assert.equal(req.body.app.cluster, 'volcano_tts');
-  assert.equal(req.body.user.uid, 'shubao-canvas');
-  /* 不传音色时回落默认大模型音色 */
-  assert.ok(buildVolcengineTtsRequest({ text: 'x' }).body.audio.voice_type.length > 0);
+test('火山 Seed-TTS 2.0 请求构造（纯函数, 不发网络）: v3 端点 + req_params + 资源头', () => {
+  const req = buildVolcengineTtsRequest({ text: '你好薯包', voiceId: 'zh_female_vv_uranus_bigtts', speed: 1.2 });
+  assert.equal(req.url, 'https://openspeech.bytedance.com/api/v3/tts/unidirectional');
+  assert.equal(req.resourceId, 'seed-tts-2.0');
+  assert.equal(req.body.req_params.text, '你好薯包');
+  assert.equal(req.body.req_params.speaker, 'zh_female_vv_uranus_bigtts');
+  assert.equal(req.body.req_params.audio_params.format, 'mp3');
+  assert.equal(req.body.req_params.audio_params.sample_rate, 24000);
+  assert.equal(req.body.req_params.audio_params.bit_rate, 64000);
+  /* speed(倍速) 映射 speech_rate(-50..100): 1.2 -> 20 */
+  assert.equal(req.body.req_params.audio_params.speech_rate, 20);
+  /* 不传音色 / voiceId 为占位 'default' 时回落默认 Seed-TTS 2.0 音色; 不传 model 时不带 model 字段 */
+  const bare = buildVolcengineTtsRequest({ text: 'x' });
+  assert.ok(bare.body.req_params.speaker.length > 0);
+  assert.equal(bare.body.req_params.model, undefined);
+  assert.equal(buildVolcengineTtsRequest({ text: 'x', voiceId: 'default' }).body.req_params.speaker, bare.body.req_params.speaker);
+  /* 克隆音色需要 model 透传 */
+  assert.equal(buildVolcengineTtsRequest({ text: 'x', voiceId: 'spk-abc', model: 'seed-icl-2.0' }).body.req_params.model, 'seed-icl-2.0');
 });
 
 test('凭据判定 + 未开通服务的错误提示', () => {

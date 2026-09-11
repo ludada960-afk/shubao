@@ -20,7 +20,7 @@ import { ensureBillingSchema } from '../server/billing/schema.mjs';
 import { createWalletService } from '../server/billing/walletService.mjs';
 
 // ─── 1. 纯函数: 解析 model/seconds/resolution, 走 costBasis 实时算毛利 ───
-test('quoteVideoMeter seedance_fast 5s @ 720p returns sku=fast_short + healthy margin', () => {
+test('quoteVideoMeter seedance_fast 5s @ 720p returns sku=fast_short + healthy margin (agv 按条 ¥0.91)', () => {
   const q = quoteVideoMeter({ model: 'seedance_fast', seconds: 5, resolution: '720p' });
   assert.equal(q.model, 'seedance_fast');
   assert.equal(q.resolution, '720p');
@@ -28,17 +28,18 @@ test('quoteVideoMeter seedance_fast 5s @ 720p returns sku=fast_short + healthy m
   assert.equal(q.sku, 'video_seedance_fast_short');
   assert.equal(q.units, 27000);
   assert.equal(q.priceFen, 690);
-  // GPU 单价 ¥0.50/秒 × 5s = ¥2.5
-  assert.equal(q.actualCostCny, 2.5);
+  // 9-11 换档: agv-seedance2.0fast 按条固定 ¥0.91/条（5/10/15s 同价），不再按秒
+  assert.equal(q.actualCostCny, 0.91);
   // theoreticalPriceCny = 27000 * 199/760000 ≈ 7.070132
   assert.equal(q.theoreticalPriceCny, Number((27000 * 199 / 760000).toFixed(6)));
-  // grossProfit = theoretical - actual ≈ 7.07 - 2.5 = 4.57
-  assert.equal(q.grossProfitCny, Number((q.theoreticalPriceCny - 2.5).toFixed(6)));
-  // margin = (7.07-2.5)/7.07 ≈ 0.6464 → healthy
-  assert.ok(q.margin > 0.4);
+  // grossProfit = theoretical - actual ≈ 7.07 - 0.91 = 6.16
+  assert.equal(q.grossProfitCny, Number((q.theoreticalPriceCny - 0.91).toFixed(6)));
+  // margin = (7.07-0.91)/7.07 ≈ 0.8713 → healthy
+  assert.ok(q.margin > 0.8);
   assert.equal(q.health, 'healthy');
   assert.equal(q.breakdown.costSource, 'live_compute');
-  assert.equal(q.breakdown.gpuPricePerSecond, 0.5);
+  assert.equal(q.breakdown.gpuPricePerSecond, null, 'agv 通道为按条固定价，无按秒单价');
+  assert.equal(q.breakdown.costPerClipCny, 0.91);
   assert.equal(q.freeReruns, 0);
 });
 
@@ -129,7 +130,8 @@ test('listVideoMeterTiers 默认不含 1080P (与 catalog public=false 一致)',
   assert.ok(allTiers.map(t => t.model).includes('seedance_1080p'));
   for (const t of tiers) {
     assert.ok(Array.isArray(t.resolutions));
-    assert.ok(t.costPerSecondCny > 0);
+    // 成本口径两种: 按秒 (costPerSecondCny) 或 按条固定 (costPerClipCny, agv 优选通道)
+    assert.ok((t.costPerSecondCny ?? 0) > 0 || (t.costPerClipCny ?? 0) > 0, t.model + ' must carry a cost source');
     assert.ok(t.shortSku && t.longSku);
   }
 });

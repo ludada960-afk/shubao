@@ -56,6 +56,20 @@ test('video product validation rejects unsupported duration, mode, resolution, a
     validateVideoProductInput({ productId: 'seedance_standard', duration: 8, mode: 'reference', resolution: '720P', generateAudio: true }),
     { productId: 'seedance_standard', duration: 8, mode: 'reference', resolution: '720p', generateAudio: true },
   );
+  // 9-11 快试档切 agv 通道: 能力口径收口 —— 5s 起、仅文生/图生(无参考视频/音频、无首尾帧)
+  assert.equal(getVideoProduct('seedance_fast').routeId, 'agv-seedance2.0fast');
+  assert.deepEqual(getVideoProduct('seedance_fast').modes, ['script', 'reference']);
+  assert.equal(getVideoProduct('seedance_fast').limits.videos, 0);
+  assert.equal(getVideoProduct('seedance_fast').limits.audios, 0);
+  assert.deepEqual(getVideoProduct('seedance_fast').durations, { min: 5, max: 15 });
+  assert.throws(
+    () => validateVideoProductInput({ productId: 'seedance_fast', duration: 4, mode: 'script', resolution: '720p' }),
+    /5 到 15 秒/,
+  );
+  assert.throws(
+    () => validateVideoProductInput({ productId: 'seedance_fast', duration: 5, mode: 'frame', resolution: '720p' }),
+    /创作模式/,
+  );
 });
 
 test('public products omit hidden routes and private provider details', () => {
