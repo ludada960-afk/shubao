@@ -474,8 +474,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     ? activeItemImages.length > 0
     : productImages.length > 0 || description.trim().length > 0;
 
-  /* ── 下一步 ── */
-  const handleNext = async () => {
+  /* ── 下一步 (P7: 带 quick 参数 —— false=带方案发射画布, true=快速通道跳过方案) ── */
+  const handleNext = async (quick = false) => {
     if (!canGen || uploadingAssets) return;
     const loginPreflight = ecommerceLoginPreflight({ logged: state.logged });
     if (!loginPreflight.allowed) {
@@ -537,7 +537,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         role,
         ordinal,
       })));
-      onStepChange?.({
+      /* P7 方案入画布 (用户 9-11): 「下一步」= 发射到画布 (素材 + 提示词 + 方案对象),
+         独立整页「第二步设计方案」不再是主路径 (旧 ecStep=2 保留可读, 入口收敛到画布)。 */
+      const launchParams = {
         draftId,
         activeProductProfileId: activeProfileId,
         productName: description.trim() || '商品',
@@ -575,8 +577,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         skus,
         copywriting: effectiveCopy,
         genSettings
-      });
-      setEcStep?.(2);
+      };
+      onStepChange?.(launchParams);
+      /* P7: 发射到画布 —— 带方案 (默认) 或快速通道 (quick, 跳过设计分析直出套图节点) */
+      dispatch({ type: 'SET_CREATION_LAUNCH', launch: { kind: 'ec-plan-launch', quick: quick === true, ...launchParams } });
+      dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+      setEcStep?.(2); /* 旧步骤态保留 (legacy 可读口径), 主路径已走画布发射 */
     } catch (error) {
       if (!isGenerationCurrent(generationToken)) return;
       setAssetUploadError(error?.message || '原图上传失败，请重试');
@@ -1622,10 +1628,36 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
               </div>
             )}
             <div className="ec-workbench-submit-actions">
+              {/* P7 快速通道: 跳过设计方案分析 (免费), 素材 + 套图节点直接进画布 */}
+              <button
+                type="button"
+                className="ec-workbench-quick"
+                disabled={!canGen || uploadingAssets}
+                title="跳过设计方案分析 (免费), 素材直接进画布, 在套图节点里生成"
+                onClick={() => handleNext(true)}
+                style={{
+                  height: 38,
+                  padding: '0 14px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(124,58,237,0.35)',
+                  background: '#fff',
+                  color: canGen && !uploadingAssets ? '#7c3aed' : '#aaa',
+                  fontSize: 12,
+                  fontWeight: 650,
+                  fontFamily: 'inherit',
+                  cursor: canGen && !uploadingAssets ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  flexShrink: 0
+                }}
+              >
+                快速生成<span style={{ fontSize: 10, color: 'var(--text-muted, #9aa1ac)' }}>跳过方案</span>
+              </button>
               <button
                 className="ec-workbench-next"
                 disabled={!canGen || uploadingAssets}
-                onClick={handleNext}
+                onClick={() => handleNext(false)}
                 style={{
                   height: 38,
                   padding: '0 22px',
@@ -1655,7 +1687,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                   e.currentTarget.style.boxShadow = canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none';
                 }}
               >
-                {uploadingAssets ? '正在上传原图…' : '下一步'} <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
+                {uploadingAssets ? '正在上传原图…' : '下一步 · 带设计方案'} <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
               </button>
             </div>
           </div>

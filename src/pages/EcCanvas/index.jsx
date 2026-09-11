@@ -40,6 +40,7 @@ import {
   CanvasAddMenu,
   CanvasAudioNode,
   CanvasDeriveMenu,
+  CanvasDirectionNode,
   CanvasEcommerceComposer,
   CanvasFocusedEditor,
   CanvasGenerationNode,
@@ -60,6 +61,7 @@ import { createCanvasSession, createProject, createProjectVersion, getProjectAss
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
+import { createPlanLaunchGraph, isPlanLaunch } from './canvasPlanLaunch.js';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
@@ -587,6 +589,29 @@ export default function EcCanvas() {
       if (products.length) setVideoProducts(products);
     }).catch(() => {});
     return () => { cancelled = true; };
+  }, []);
+  /* P7 方案入画布: 首页发射器 payload (ec-plan-launch) → 素材行 + 方案节点
+     (quick = 快速通道: 跳过方案, 直接套图生成节点)。物化即消费, 防重渲染重复铺开。 */
+  useEffect(() => {
+    const launch = state.creationLaunch;
+    if (!isPlanLaunch(launch)) return;
+    try {
+      const graph = createPlanLaunchGraph({ launch, now: Date.now() });
+      if (graph.nodes.length) {
+        setNodes(graph.nodes.map(normalizeCanvasNode));
+        setConnections(graph.connections);
+        setSelected(graph.targetId);
+        setMultiSelected(new Set([graph.targetId]));
+        showToast(graph.targetKind === 'suite-composer'
+          ? '素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)'
+          : '设计方案已在画布 · 点方案节点「生成方案」(1 积分), 再应用到画布', 'success');
+      }
+    } catch (error) {
+      showToast(error?.message || '设计方案载入画布失败', 'error');
+    } finally {
+      dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [connections, setConnections] = useState([]);
 
@@ -3519,6 +3544,73 @@ const handlePointerUp = useCallback((e) => {
     return uploadVideoAsset(file, kind);
   }, []);
 
+  /* ── P7 方案入画布: 设计方案节点的三个动作 (生成/刷新都先报价后调用, 不变式①) ── */
+  const directionNodeRequestParams = (node) => ({
+    ...node.ecParams,
+    prompt: node.prompt || node.ecParams?.description || '',
+  });
+  const applyDirectionResponse = (node, res) => {
+    const directions = Array.isArray(res?.directions) ? res.directions : [];
+    updateComposerNode(node.id, {
+      status: 'ready',
+      error: '',
+      directions: directions.map(direction => ({
+        ...direction,
+        analysis: res.analysis || null,
+        productName: node.productName || direction.productName || '',
+      })),
+    });
+  };
+  const handleDirectionGenerate = useCallback(async node => {
+    if (!node || node.status === 'processing') return;
+    updateComposerNode(node.id, { status: 'processing', error: '', progressLabel: '正在分析商品并设计方案' });
+    try {
+      const { quote } = await quoteBillingAction({ sku: 'ec_direction_analysis', quantity: 1 });
+      const res = await getDesignDirections({ ...directionNodeRequestParams(node), billingQuoteId: quote.quoteId, billingActionId: quote.actionId });
+      applyDirectionResponse(node, res);
+      showToast('设计方案已生成，可「应用到画布」继续', 'success');
+    } catch (error) {
+      updateComposerNode(node.id, { status: 'error', error: error?.message || '设计方案生成失败' });
+      handleGenerationAccessError?.(error);
+    }
+  }, [updateComposerNode]);
+  const handleDirectionRefresh = useCallback(async node => {
+    if (!node || node.status === 'processing') return;
+    updateComposerNode(node.id, { status: 'processing', error: '', progressLabel: '正在换一套创意路线' });
+    try {
+      const { quote } = await quoteBillingAction({ sku: 'ec_direction_refresh', quantity: 1 });
+      const res = await getDesignDirections({ ...directionNodeRequestParams(node), refresh: true, billingQuoteId: quote.quoteId, billingActionId: quote.actionId });
+      applyDirectionResponse(node, res);
+      showToast('已换一套设计方案', 'success');
+    } catch (error) {
+      updateComposerNode(node.id, { status: 'error', error: error?.message || '方案刷新失败' });
+      handleGenerationAccessError?.(error);
+    }
+  }, [updateComposerNode]);
+  const handleDirectionApply = useCallback(node => {
+    if (!node || !Array.isArray(node.directions) || !node.directions.length) {
+      showToast('先生成设计方案，再应用到画布', 'info');
+      return;
+    }
+    const now = Date.now();
+    const suite = createCanvasSuiteComposerNode({
+      x: node.x + node.w + 48,
+      y: node.y,
+      platform: node.ecParams?.platform || 'taobao',
+      commerceContext: node.ecParams?.commerceContext,
+      now,
+    });
+    suite.directions = node.directions;
+    suite.selectedDirection = 0;
+    suite.prompt = node.prompt || '';
+    suite.sourceNodeIds = node.sourceNodeIds;
+    setNodes(previous => previous.map(item => (item.id === node.id ? { ...item, status: 'ready' } : item)).concat(suite));
+    setConnections(previous => previous.concat(createChildConnection(node.id, suite.id, 'design-plan')));
+    setSelected(suite.id);
+    setMultiSelected(new Set([suite.id]));
+    showToast('方案已应用到画布 · 在「电商套图」节点里编辑方案与素材，然后生成', 'success');
+  }, []);
+
   const handleVideoComposerGenerate = useCallback(async composer => {
     if (!String(composer?.prompt || '').trim() || composer.status === 'processing') return;
     if (!composer.planReviewed) {
@@ -5813,6 +5905,20 @@ const handlePointerUp = useCallback((e) => {
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: '图片预览' })}
+                />;
+              }
+              if (node.kind === 'design-direction') {
+                return <CanvasDirectionNode
+                  key={node.id}
+                  node={node}
+                  selected={selectedNodeState}
+                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
+                  onPointerDown={handleNodeDown}
+                  onHoverChange={setHoveredNodeId}
+                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                  onGenerate={() => handleDirectionGenerate(node)}
+                  onRefresh={() => handleDirectionRefresh(node)}
+                  onApply={() => handleDirectionApply(node)}
                 />;
               }
               if (node.kind === 'image' || node.kind === 'output') {

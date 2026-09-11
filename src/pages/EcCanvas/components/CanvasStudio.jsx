@@ -37,6 +37,7 @@ import {
   Pencil,
   Plus,
   Redo2,
+  RefreshCw,
   ScanText,
   Scissors,
   Square,
@@ -673,6 +674,47 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       onClick={onPortClick}
     />}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
+  </article>;
+}
+
+/* P7 方案入画布: 设计方案 = 画布对象 (可生成/可换一套/可应用到画布), 不是独立整页。
+   计费不变式①: 生成/刷新方案都走 ec_direction_analysis / ec_direction_refresh 报价扣费 (handler 在 index.jsx)。 */
+export function CanvasDirectionNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onGenerate, onRefresh, onApply }) {
+  const directions = Array.isArray(node.directions) ? node.directions : [];
+  const hasPlan = directions.length > 0;
+  const busy = node.status === 'processing';
+  const plan = hasPlan ? buildCanvasSuitePlan(directions[0], node.prompt || '') : null;
+  const totalShots = plan?.shots?.length || 0;
+  return <article
+    data-canvas-node-id={node.id}
+    className={`ec-canvas-generation-node is-direction ${node.status === 'processing' ? 'is-processing' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+    style={{ left: node.x, top: node.y, width: node.w, height: 'auto', minHeight: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
+    onPointerDown={event => onPointerDown?.(event, node.id)}
+    onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
+    onMouseEnter={() => onHoverChange?.(node.id)}
+    onMouseLeave={() => onHoverChange?.(null)}
+  >
+    <div className="ec-canvas-direction-body">
+      <div className="ec-canvas-direction-head">
+        <strong>设计方案{node.productName ? ` · ${node.productName}` : ''}</strong>
+        <small>{busy ? '正在生成…' : hasPlan ? `${directions.length} 套方向 · ${totalShots} 张图规划` : '未生成 · 分析 1 积分'}</small>
+      </div>
+      {hasPlan && !busy && <div className="ec-canvas-direction-items" aria-label="方向预览">
+        {directions.slice(0, 3).map((direction, index) => {
+          const label = direction.title || direction.name || direction.brief || `方向 ${index + 1}`;
+          return <span key={index} className="ec-canvas-direction-chip"><i>{index + 1}</i>{label}</span>;
+        })}
+        {directions.length > 3 && <span className="ec-canvas-direction-chip is-more">+{directions.length - 3}</span>}
+      </div>}
+      {node.error && <small className="is-error">{node.error}</small>}
+      <div className="ec-canvas-direction-actions">
+        {!hasPlan ? <button type="button" className="is-primary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onGenerate?.(); }}><WandSparkles size={13} />生成方案 · 1 积分</button>
+          : <>
+            <button type="button" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onRefresh?.(); }}><RefreshCw size={13} />换一套 · 1 积分</button>
+            <button type="button" className="is-primary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onApply?.(); }}><ImagePlus size={13} />应用到画布</button>
+          </>}
+      </div>
+    </div>
   </article>;
 }
 
