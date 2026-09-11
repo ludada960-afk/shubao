@@ -114,8 +114,12 @@ test('⑦ 首页: 面板滚动隔离 + 双发射按钮合并为同款紧凑组',
   const submitIndex = ec.indexOf('ec-workbench-submit-actions');
   assert.ok(submitIndex > 0, '提交按钮组存在');
   const submitBlock = ec.slice(Math.max(0, submitIndex - 500), submitIndex + 2600);
-  assert.match(submitBlock, /下一步 · 带方案/);
-  assert.match(submitBlock, /<\/button>\n            <\/div>/, '按钮组紧凑收尾');
-  assert.doesNotMatch(submitBlock, /linear-gradient/, '主按钮不再三色渐变');
-  assert.doesNotMatch(submitBlock, /快速生成<span/, '可见文案不再有内嵌小字尾巴');
+  /* 9-11 三轮: 并排两按钮取消 → 一个「下一步」+ 点开二选一 (带设计方案 / 快速生成) */
+  assert.match(submitBlock, /下一步/);
+  assert.match(submitBlock, /ec-mode-chooser/);
+  assert.match(submitBlock, /带设计方案/);
+  assert.match(submitBlock, /快速生成/);
+  assert.match(submitBlock, /handleNext\(false\)/);
+  assert.match(submitBlock, /handleNext\(true\)/);
+  assert.doesNotMatch(submitBlock, /ec-workbench-quick/);
 });

@@ -667,7 +667,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
     ><ImagePlus size={13} />替换</button>}
     {/* 9-11: 左右都有加号 (与图片节点同款, 连线端点与加号中心重叠)。
         输出加号只在可派生 (canDerive) 时给出交互, 避免"死按钮"; 输入锚点常显于选中态。 */}
-    <DerivePort side="input" visible={selected} />
+    <DerivePort side="input" visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
     {(isVideo || isLayerGroup) && <DerivePort
       visible={selected}
       disabled={!canDerive}
@@ -1299,21 +1299,22 @@ function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick, si
      9-11 用户批注: 节点左右都要有加号 — side='input' 是左侧输入锚点 (上游素材从此接入,
      连线端点与加号中心重叠, 见 canvasGeometry.CANVAS_PORT_CENTER_OFFSET), 仅视觉锚点不建连线。 */
   const isInput = side === 'input';
+  /* 9-11 三轮用户批注: 左侧加号点了没反应 → 与右侧加号完全同一套功能 (点开派生菜单)。 */
   return <button
     type="button"
     className={isInput ? 'ec-canvas-node-port is-input' : 'ec-canvas-node-port'}
     data-canvas-control="true"
     data-canvas-port-role={isInput ? 'input' : 'output'}
-    aria-label={isInput ? '素材输入端口' : '从当前素材继续创作'}
-    title={isInput ? '上游素材从此处接入' : (disabled ? '素材处理完成后可继续创作' : '继续创作')}
-    data-disabled={!isInput && disabled ? true : undefined}
-    tabIndex={isInput ? -1 : (visible ? 0 : -1)}
-    style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? (isInput ? 'none' : 'auto') : 'none' }}
-    onPointerDown={isInput ? undefined : (event => { event.stopPropagation(); onPointerDown?.(event); })}
+    aria-label={isInput ? '从当前素材继续创作' : '从当前素材继续创作'}
+    title={disabled ? '素材处理完成后可继续创作' : '继续创作'}
+    data-disabled={disabled ? true : undefined}
+    tabIndex={visible ? 0 : -1}
+    style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
+    onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
     /* pointerup 必须冒泡到 stage: 否则连接草稿残留, 画布卡在 connect 模式,
        表现为"加号没反应 + 之后所有素材拖不动" (用户 9-04 反馈) */
-    onPointerUp={isInput ? undefined : (event => onPointerUp?.(event))}
-    onClick={isInput ? undefined : (event => { event.stopPropagation(); onClick?.(event); })}
+    onPointerUp={event => onPointerUp?.(event)}
+    onClick={event => { event.stopPropagation(); onClick?.(event); }}
   ><Plus size={16} /></button>;
 }
 
@@ -1404,7 +1405,7 @@ export function CanvasImageNode({
     ><ImagePlus size={13} />替换</button>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
     {/* 9-11 用户批注: 左右都有加号 — 左侧 = 输入锚点 (上游接入), 右侧 = 输出加号 (继续创作/拉线) */}
-    <DerivePort side="input" visible={presentation.handlesVisible} />
+    <DerivePort side="input" visible={presentation.handlesVisible} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
     <DerivePort visible={presentation.handlesVisible} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
   </article>;
 }
@@ -1446,7 +1447,7 @@ export function CanvasSourceNode({
       {!assets.length && <div className="ec-canvas-source-empty">商品原图暂不可用</div>}
     </div>
     {/* 9-11: 左右都有加号 (左 = 输入锚点, 右 = 输出加号) */}
-    <DerivePort side="input" visible={selected} />
+    <DerivePort side="input" visible={selected} disabled={!assets.length} onPointerDown={onPortPointerDown} onClick={onPortClick} />
     <DerivePort visible={selected} disabled={!assets.length} onPointerDown={onPortPointerDown} onClick={onPortClick} />
   </article>;
 }

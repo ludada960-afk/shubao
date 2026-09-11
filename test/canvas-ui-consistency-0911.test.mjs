@@ -33,7 +33,8 @@ test('② 运行按钮 = 纯图标 icon-button, 无「运行」文字, ≥2 选�
 
 test('③ 左右加号: 输入锚点 + 输出加号, 连线端点=加号中心 (17px 外偏) 重叠', () => {
   const studio = studioSource();
-  assert.match(studio, /<DerivePort side="input" visible=\{presentation\.handlesVisible\} \/>/, '图片节点左侧输入加号');
+  /* 9-11 三轮: 左加号与右加号同功能 (点击即开派生菜单, 不再是死锚点) */
+  assert.match(studio, /<DerivePort side="input" visible=\{presentation\.handlesVisible\} disabled=\{!node\.url \|\| !canDerive\} onPointerDown=\{onPortPointerDown\}/, '图片节点左侧加号与右侧同功能');
   assert.match(studio, /is-input/, '输入加号 CSS 定位类');
   const css = cssSource();
   assert.match(css, /\.ec-canvas-node-port\.is-input \{ right: auto; left: -32px/, '左加号镜像定位');

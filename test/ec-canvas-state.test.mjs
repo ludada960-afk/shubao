@@ -208,13 +208,13 @@ test('canvas interaction surfaces dismiss each other and text has one toolbar', 
   assert.match(canvasSource, /const selectionPanelsVisible = !focusedEditor && multiSelected\.size <= 1[\s\S]{0,260}selectedNode\.kind !== 'text'/);
   assert.match(canvasSource, /selectionPanelsVisible && <CanvasObjectToolbar/);
   assert.match(canvasSource, /\['text', 'text-composer'\]\.includes\(selectedNode\?\.kind\) && <CanvasTextToolbar/);
-  assert.match(canvasStudioSource, /onPointerUp=\{isInput \? undefined : \(event => onPointerUp/);
+  assert.match(canvasStudioSource, /onPointerUp=\{event => onPointerUp\?\.\(event\)\}/);
 });
 
 test('clicking an image output port opens the derive picker without requiring a drag', () => {
   assert.match(canvasStudioSource, /function DerivePort\(\{[^}]*onClick/);
-  /* 9-11 双端口: 输出加号点击开派生菜单; 输入锚点 (isInput) 不响应点击 */
-  assert.match(canvasStudioSource, /onClick=\{isInput \? undefined : \(event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\)\}/);
+  /* 9-11 三轮: 左右加号都点击开派生菜单 (用户: 左加号点了没反应) */
+  assert.match(canvasStudioSource, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\}/);
   assert.match(canvasSource, /const handlePortClick = useCallback/);
   assert.match(canvasSource, /setConnectionPicker\(\{\s*sourceNodeId:\s*nodeId,\s*world:\s*toWorldPoint\(event\)/);
   assert.match(canvasSource, /onPortClick=\{event => handlePortClick\(event, node\.id\)\}/);

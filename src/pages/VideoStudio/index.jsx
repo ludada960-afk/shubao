@@ -49,6 +49,8 @@ import './VideoStudio.css';
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 const FINAL = new Set(['completed', 'failed', 'needs_review']);
 const TOOLBAR_ITEMS = [
+  /* 9-11 三轮用户批注: 技能库必须是一级入口 (与首页一致), 不藏在生成设置里 */
+  { key: 'skills', label: '技能库', icon: Sparkles, description: '选择生视频技能，带完整提示词进入本次生成' },
   { key: 'shot', label: '镜头规格', icon: Aperture, description: '设置画幅与成片时长' },
   { key: 'sound', label: '声音', icon: Mic2, description: '控制同期声音与音频参考' },
   { key: 'settings', label: '生成设置', icon: Settings2, description: '设置清晰度与高级约束' },
@@ -354,6 +356,12 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [activePanel]);
 
   const openPanel = useCallback((key) => {
+    /* 9-11 三轮批注: 技能库是一级入口 (直接弹技能库, 不再是浮层面板) */
+    if (key === 'skills') {
+      setActivePanel(null);
+      setSkillOpen(current => !current);
+      return;
+    }
     if (activePanel === key) {
       setActivePanel(null);
       return;
@@ -792,20 +800,16 @@ export default function VideoStudioPage({ embedded = false }) {
         {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}><b>{value.toUpperCase()}</b><span>{value === '2k' ? '精制成片' : '正式成片'}</span></button>)}
       </div></div>
       <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => { setPlanReviewed(false); setNegativePrompt(event.target.value); }} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
-      {/* 9-11 二轮用户批注: 技能库入口统一放配置面板 (与电商生图「视觉方向」面板一致), 不再挂在输入框旁 */}
-      <div className="video-panel-section"><div className="video-panel-section-title"><strong>技能</strong><span>{userSkills.length ? `${userSkills.length}/2 已选` : '可选，最多 2 个'}</span></div>
+      {/* 9-11 三轮批注: 技能库已升为一级入口 (工具栏「技能库」按钮直接开弹窗) */}
+      <div className="video-panel-section"><div className="video-panel-section-title"><strong>已选技能</strong><span>{userSkills.length ? `${userSkills.length}/2` : '未选择'}</span></div>
         <div className="video-skill-row">
-          {userSkills.map(skill => (
+          {userSkills.length ? userSkills.map(skill => (
             <span key={skill.id} className="ec-skill-chip">
               <Sparkles size={12} /> {skill.name}
               <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => setUserSkills(current => current.filter(item => item.id !== skill.id))}>×</button>
             </span>
-          ))}
-          <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
-            <Sparkles size={13} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
-          </button>
+          )) : <small className="video-panel-hint">从工具栏「技能库」选择生视频技能（最多 2 个）</small>}
         </div>
-        <small className="video-panel-hint">技能来自技能库「生视频」分类，选中后会带完整提示词进入本次生成</small>
       </div>
       <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
     </>;

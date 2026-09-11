@@ -106,7 +106,10 @@ test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; �
   assert.match(style, /fetchSkillLibrary\(\{ kind: 'image' \}\)/);
   assert.match(style, /FALLBACK_STYLE_SKILLS/);
   assert.doesNotMatch(style, /const STYLES = \[/);
-  assert.match(ecMode, /onOpenSkillLibrary=\{\(\) => setSkillOpen\(true\)\}/);
-  assert.match(ecMode, /userSkills=\{userSkills\} onAddSkill=\{applySkill\}/);
+  /* 9-11 三轮: 视觉方向面板被技能库取代 — 触发按钮直接开技能库, StylePanel 不再挂首页 */
+  assert.match(ecMode, /opensSkillLibrary: true/);
+  assert.match(ecMode, /if \(key === 'skills'\)/);
+  assert.doesNotMatch(ecMode, /activePanel === 'style'/);
+  assert.match(settings, /锁定品牌主色调/);
   assert.equal((catalog.match(/visual: '\/images\/models\//g) || []).length, 3);
 });

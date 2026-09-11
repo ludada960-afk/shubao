@@ -1,5 +1,6 @@
-import React from 'react';
-import { Coins, Monitor, ShieldAlert, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { HexColorPicker } from 'react-colorful';
+import { Coins, Lock, Monitor, ShieldAlert, Sparkles, Unlock } from 'lucide-react';
 import { IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 
 const RESOLUTIONS = [
@@ -15,10 +16,14 @@ const cardBase = {
   display: 'flex', alignItems: 'center', gap: 8,
 };
 
-export default function GenSettingsPanel({ value, onChange, showHeader = true }) {
+export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null }) {
   const safeValue = value || {};
   const selectedModel = normalizeImageModel(safeValue.imageModel);
   const set = (key, val) => onChange?.({ ...safeValue, [key]: val });
+  /* 9-11 三轮批注: 「视觉方向」面板整体让位给技能库后, 品牌主色调 (生成约束) 移到生成设置 */
+  const brandLocked = Array.isArray(brandColors) && brandColors.length > 0;
+  const [pickerColor, setPickerColor] = useState(() => (brandLocked ? brandColors[0] : '#7c3aed'));
+  const toggleBrand = () => onBrandColorsChange?.(brandLocked ? [] : [pickerColor, pickerColor]);
 
   return (
     <div style={{ padding: 0 }}>
@@ -93,6 +98,33 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true })
             })}
           </div>
         </div>
+        {onBrandColorsChange && (
+          <div>
+            <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
+              {brandLocked ? <Lock size={13} color="#7c3aed" /> : <Unlock size={13} color="var(--text-muted)" />} 锁定品牌主色调
+            </label>
+            <div style={{ marginBottom: 7, color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
+              品牌色固定时开启：本次生成会在风格之上叠加品牌主色，保持品牌辨识度
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 30, height: 30, borderRadius: 8, background: pickerColor, border: '2px solid rgba(0,0,0,0.08)', flexShrink: 0 }} />
+              <input
+                aria-label="品牌主色"
+                value={pickerColor}
+                onChange={event => { setPickerColor(event.target.value); if (brandLocked) onBrandColorsChange([event.target.value, event.target.value]); }}
+                placeholder="#7C3AED"
+                style={{ width: 120, height: 32, boxSizing: 'border-box', padding: '0 9px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 7, background: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'monospace', outline: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={toggleBrand}
+                style={{ height: 32, padding: '0 12px', borderRadius: 7, border: brandLocked ? '1px solid #7c3aed' : '1px solid rgba(0,0,0,0.12)', background: brandLocked ? '#7c3aed' : '#fff', color: brandLocked ? '#fff' : 'var(--text-secondary)', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}
+              >{brandLocked ? '已锁定' : '锁定'}</button>
+            </div>
+            {brandLocked && <div style={{ marginTop: 8 }}><HexColorPicker color={pickerColor} onChange={color => { setPickerColor(color); onBrandColorsChange([color, color]); }} style={{ width: '100%', height: 120 }} /></div>}
+          </div>
+        )}
+
         {/* 9-11 二轮批注: 「避免出现的元素」从「视觉方向」迁到生成设置 —— 它属于生成约束, 与清晰度/模型同族 */}
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>

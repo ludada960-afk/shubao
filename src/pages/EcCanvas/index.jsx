@@ -6136,7 +6136,9 @@ const handlePointerUp = useCallback((e) => {
               onFullscreen={() => setTextInspectorNodeId(selectedNode.id)}
               onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
             />}
-            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={selectedNodeVideoDelivery.length ? { enabled: true, onSend: handleSendSelectedToVideoProject } : { enabled: false }} />}
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={{ enabled: false }} />}
+            {/* 9-11 三轮用户批注: 画布节点只留一个素材动作 (「加入素材库」) —
+                「发往视频项目」与素材库语义冲突, 已从节点工具条移除 (视频路径走 生成视频 节点 / 首页视频模块)。 */}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
               node={selectedNode}
               position={selectedComposerPosition}

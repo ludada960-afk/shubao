@@ -7,7 +7,8 @@ import {
   ImagePlus,
   // 高级 AI 感图标
   Images, // 套图配置
-  Wand2, // 画面风格
+  Wand2, // 技能库 / 带方案
+  Zap, // 快速生成
   SlidersHorizontal, // 产品参数
   Package, // SKU 变体
   FileText, // 文案策划
@@ -15,7 +16,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import SizingPanel from './ec/SizingPanel';
-import StylePanel from './ec/StylePanel';
 import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
@@ -357,8 +357,17 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   const [userSkills, setUserSkills] = useState([]);
   /* 9-11 二轮批注: 技能库入口移到「视觉方向」面板 (不再挂在输入框右侧); 技能以结构化字段进生成请求 */
   const [skillOpen, setSkillOpen] = useState(false);
+  /* 9-11 三轮批注: 下一步的二选一 (带方案 / 快速生成), 不再并排两个按钮 */
+  const [modeChooserOpen, setModeChooserOpen] = useState(false);
   const applySkill = useCallback(skill => {
-    if (!skill?.body) return;
+    if (!skill) return;
+    /* 内置风格技能 (premium_minimal 等) = 画面风格, 直接落到 styleSkill; 任务型技能 → 叠加进 userSkills */
+    if (skill.key && STYLE_SKILL_KEYS.has(skill.key)) {
+      setStyleSkill(skill.key);
+      setSkillOpen(false);
+      return;
+    }
+    if (!skill.body) return;
     setUserSkills(current => {
       const next = [...(current || [])];
       if (!next.some(item => item.id === skill.id)) next.push({ id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body });
@@ -472,6 +481,16 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
 
   /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 (所有板块同规则) */
   usePanelScrollLock(Boolean(activePanel));
+
+  useEffect(() => {
+    if (!modeChooserOpen) return undefined;
+    const close = event => {
+      if (event.target?.closest?.('.ec-mode-chooser') || event.target?.closest?.('.ec-workbench-next')) return;
+      setModeChooserOpen(false);
+    };
+    const timer = window.setTimeout(() => window.addEventListener('mousedown', close), 0);
+    return () => { window.clearTimeout(timer); window.removeEventListener('mousedown', close); };
+  }, [modeChooserOpen]);
 
   const adjustedPanels = deriveEffectiveSmartOverrides({
     platform,
@@ -752,7 +771,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   }, []);
 
   /* ── 6 个功能按钮（AI 感图标升级）── */
-  const DEFAULT_BUTTONS = [
+  /* 内置风格技能 key (与后端 styleSkills 同源) — 从技能库选中即落到本次生成的风格 */
+const STYLE_SKILL_KEYS = new Set(['premium_minimal', 'lifestyle_scene', 'fashion_editorial', 'warm_natural', 'tech_precision']);
+
+const DEFAULT_BUTTONS = [
     {
       key: 'settings',
       label: '生成设置',
@@ -769,9 +791,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       icon: <Package size={15} strokeWidth={1.8} />
     },
     {
-      key: 'style',
-      label: '视觉方向',
-      icon: <Wand2 size={15} strokeWidth={1.8} />
+      /* 9-11 三轮用户批注: 视觉方向整个拿掉, 入口就是技能库 (点开即技能库, 不再叠面板+弹窗) */
+      key: 'skills',
+      label: '技能库',
+      icon: <Wand2 size={15} strokeWidth={1.8} />,
+      opensSkillLibrary: true
     },
     {
       key: 'params',
@@ -833,6 +857,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
 
   const openPanel = useCallback(
     (key) => {
+      /* 9-11 三轮批注: 技能库不是浮层面板, 点开即弹技能库 (避免面板与弹窗叠在一起) */
+      if (key === 'skills') {
+        setActivePanel(null);
+        setSkillOpen(current => !current);
+        return;
+      }
       if (activePanel === key) {
         setActivePanel(null);
         return;
@@ -909,11 +939,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           {activePanel === 'sizing' && (abilityRecipeId === 'anything_tryon'
             ? <TryOnPlanPanel sizing={sizing} onSizingChange={setSizing} />
             : <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />)}
-          {activePanel === 'style' && <StylePanel value={styleSkill} onChange={setStyleSkill} customColors={customColors} onColorsChange={setCustomColors} userSkills={userSkills} onAddSkill={applySkill} onRemoveSkill={removeSkillById} onOpenSkillLibrary={() => setSkillOpen(true)} />}
           {activePanel === 'params' && <ParamsPanel mode={abilityRecipeId === 'anything_tryon' ? 'tryon' : 'product'} params={productParams} onChange={setProductParams} />}
           {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />}
           {activePanel === 'copy' && <CopyPanel copywriting={copywriting} onChange={setCopywriting} />}
-          {activePanel === 'settings' && <GenSettingsPanel value={genSettings} onChange={setGenSettings} />}
+          {activePanel === 'settings' && <GenSettingsPanel value={genSettings} onChange={setGenSettings} brandColors={customColors} onBrandColorsChange={setCustomColors} />}
         </div>
       </div>,
       document.body
@@ -1584,7 +1613,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                     }}
                     onClick={() => openPanel(btn.key)}
                     aria-label={`${btn.label}：${summary.text || btn.label}`}
-                    aria-expanded={isOpen}
+                    aria-expanded={btn.opensSkillLibrary ? skillOpen : isOpen}
                     className={`ec-config-trigger${isOpen ? ' is-open' : ''}${isAdjusted ? ' is-adjusted' : ''}`}
                     style={{
                       ...BTN_BASE,
@@ -1645,45 +1674,22 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                 {assetUploadError}
               </div>
             )}
-            {/* 9-11 用户批注#8: 两个发射按钮合并为一组紧凑同款 — 主=下一步(带方案), 次=快速生成(跳过方案),
-                同高/同圆角/同族样式, 不再一长一短两种 UI */}
-            <div className="ec-workbench-submit-actions">
+            {/* 9-11 三轮用户批注: 两个并排按钮取消 — 一个主按钮「下一步」, 点击后二选一 (带方案 / 快速生成) */}
+            <div className="ec-workbench-submit-actions" style={{ position: 'relative' }}>
               <button
                 type="button"
-                className="ec-workbench-quick"
-                disabled={!canGen || uploadingAssets}
-                title="跳过设计方案 (免费), 素材直接进画布, 在套图节点里生成"
-                onClick={() => handleNext(true)}
-                style={{
-                  height: 38,
-                  padding: '0 14px',
-                  borderRadius: 10,
-                  border: '1px solid rgba(124,58,237,0.28)',
-                  background: canGen && !uploadingAssets ? '#faf8ff' : '#fff',
-                  color: canGen && !uploadingAssets ? '#7c3aed' : '#aaa',
-                  fontSize: 12,
-                  fontWeight: 650,
-                  fontFamily: 'inherit',
-                  cursor: canGen && !uploadingAssets ? 'pointer' : 'not-allowed',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  flexShrink: 0
-                }}
-              >
-                快速生成
-              </button>
-              <button
                 className="ec-workbench-next"
                 disabled={!canGen || uploadingAssets}
-                title="铺开素材 + 设计方案节点进画布 (方案分析 1 积分)"
-                onClick={() => handleNext(false)}
+                aria-haspopup="menu"
+                aria-expanded={modeChooserOpen}
+                title="选择下一步的生成方式 (带设计方案 / 快速生成)"
+                onClick={() => setModeChooserOpen(current => !current)}
                 style={{
-                  height: 38,
-                  padding: '0 16px',
+                  height: 40,
+                  padding: '0 20px',
                   borderRadius: 10,
                   border: 'none',
-                  fontSize: 13,
+                  fontSize: 13.5,
                   fontWeight: 700,
                   fontFamily: 'inherit',
                   background: canGen && !uploadingAssets ? '#7c3aed' : '#e5e5e5',
@@ -1695,8 +1701,21 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                   flexShrink: 0
                 }}
               >
-                {uploadingAssets ? '正在上传原图…' : '下一步 · 带方案'}
+                {uploadingAssets ? '正在上传原图…' : '下一步'}
+                <ChevronDown size={14} style={{ transform: modeChooserOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }} />
               </button>
+              {modeChooserOpen && (
+                <div className="ec-mode-chooser" role="menu" aria-label="选择生成方式">
+                  <button type="button" role="menuitem" className="ec-mode-chooser-item" onClick={() => { setModeChooserOpen(false); handleNext(false); }}>
+                    <span className="ec-mode-chooser-icon"><Wand2 size={15} /></span>
+                    <span><strong>带设计方案</strong><small>先生成方案节点再套图 · 方案分析 1 积分</small></span>
+                  </button>
+                  <button type="button" role="menuitem" className="ec-mode-chooser-item" onClick={() => { setModeChooserOpen(false); handleNext(true); }}>
+                    <span className="ec-mode-chooser-icon"><Zap size={15} /></span>
+                    <span><strong>快速生成</strong><small>跳过方案分析 (免费) · 素材直接进画布</small></span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -743,8 +743,9 @@ test('canvas output port stays clear of resize handles and owns click feedback',
   const css = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(css, /\.ec-canvas-node-port \{[^}]*right: -32px/);
-  /* 9-11 双端口: 输出加号 pointerup 仍须冒泡到 stage (连接草稿不残留); 左侧输入锚点不拦截 */
-  assert.match(source, /onPointerUp=\{isInput \? undefined : \(event => onPointerUp\?\.\(event\)\)\}/);
+  /* 9-11 三轮: 左右加号同功能 (左加号也可点开派生菜单); pointerup 仍须冒泡到 stage (连接草稿不残留) */
+  assert.match(source, /onPointerUp=\{event => onPointerUp\?\.\(event\)\}/);
+  assert.match(source, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\}/);
   assert.match(css, /\.ec-canvas-node-port\.is-input \{ right: auto; left: -32px/, '左侧输入加号镜像定位');
 });
 

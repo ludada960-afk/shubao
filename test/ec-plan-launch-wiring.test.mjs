@@ -12,8 +12,9 @@ test('首页「下一步」发射到画布: SET_CREATION_LAUNCH(ec-plan-launch) 
   const source = ecMode();
   assert.match(source, /dispatch\(\{ type: 'SET_CREATION_LAUNCH', launch: \{ kind: 'ec-plan-launch', quick: quick === true/);
   assert.match(source, /dispatch\(\{ type: 'NAVIGATE', page: 'ec-canvas' \}\)/);
-  assert.match(source, /onClick=\{\(\) => handleNext\(true\)\}/, '快速生成按钮 = quick 通道');
-  assert.match(source, /onClick=\{\(\) => handleNext\(false\)\}/, '下一步 = 带方案发射');
+  /* 9-11 三轮: 一个「下一步」+ 二选一浮层, quick 通道仍是 handleNext(true) */
+  assert.match(source, /setModeChooserOpen\(false\); handleNext\(true\); \}\}/, '快速生成项 = quick 通道');
+  assert.match(source, /setModeChooserOpen\(false\); handleNext\(false\); \}\}/, '带设计方案项 = 方案发射');
   // 旧整页保留可读 (不变式②): ecStep=2 的 DesignDirection 挂载仍在 Home/index.jsx
 });
 

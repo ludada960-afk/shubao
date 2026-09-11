@@ -675,7 +675,8 @@ test('commerce configuration and navigation controls keep native button semantic
   const nav = await fs.readFile(new URL('../src/components/layout/CreativeDomainNav.jsx', import.meta.url), 'utf8');
 
   assert.match(ecMode, /<button\s+type="button"\s+key=\{btn\.key\}/);
-  assert.match(ecMode, /aria-expanded=\{isOpen\}/);
+  /* 9-11 三轮: 技能库触发按钮的展开态由 skillOpen 决定, 其余面板按钮仍是 isOpen */
+  assert.match(ecMode, /aria-expanded=\{btn\.opensSkillLibrary \? skillOpen : isOpen\}/);
   assert.match(skuPanel, /<button type="button" aria-label=\{`删除变体 \$\{idx \+ 1\}`\}/);
   assert.doesNotMatch(skuPanel, /<div onClick=\{\(\) => rm\(sku\.id\)\}/);
   assert.match(nav, /role="menubar"/);

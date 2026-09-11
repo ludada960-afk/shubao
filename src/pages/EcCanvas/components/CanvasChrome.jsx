@@ -93,13 +93,10 @@ export function CanvasTopBar({
             用户原话 8-30: "你必须把这些重复的东西都给拿掉"
             1-click 视频改走节点串联: 图片 → 应用节点 → 视频 → 音频 (Quantv §10.2 风格) */}
         {/* 2026-09-01 用户反对多模态串联: 拿掉多模态串联 入口按钮, 视频/音频走节点串联 */}
-        {/* 4c183cd4 续命 P-E 100 套模板广场 入口按钮 (无模板数据时隐藏) */}
-        {hasTemplates && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenTemplateMarketplace} aria-label="打开模板广场">
-          <ImagePlus size={16} />模板广场
-        </button>}
-        {/* P2 图工作流模板库（一键铺开层, 与 L2 提示词模板广场并存）*/}
-        {tab === 'canvas' && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenWorkflowGallery} aria-label="打开工作流模板库">
-          <Workflow size={16} />工作流模板
+        {/* 9-11 三轮用户批注: 「模板广场」与「工作流模板」是同一个东西 (模板就是工作流) ——
+            两个入口合并为一个「模板广场」, 内容 = 可一键铺开的工作流模板库。 */}
+        {tab === 'canvas' && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenWorkflowGallery} aria-label="打开模板广场（工作流模板）">
+          <Workflow size={16} />模板广场
         </button>}
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}

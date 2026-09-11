@@ -59,7 +59,9 @@ const IMAGE_STYLE_ZH = Object.freeze({
   },
 });
 
-/** 把内置风格包的参数翻译成用户可读的中英双语提示词正文（中文可读 + 英文原令牌同源） */
+/** 把内置风格包的参数写成用户可读的提示词正文:
+ *  英文原参数在前 (生图模型按英文执行), 后面紧跟括号里的中文翻译 —
+ *  不出现任何面向开发/内部的说明文字 (9-11 三轮用户批注)。 */
 function builtinImageBody(key) {
   const skill = getSkillByKey(key);
   if (!skill || !skill.campaignLock) return '';
@@ -69,17 +71,17 @@ function builtinImageBody(key) {
     const index = line.indexOf(': ');
     return index > 0 ? [line.slice(0, index), line.slice(index + 2)] : [line, ''];
   }));
-  const pair = (label, zhText, enText) => `- ${label}: ${zhText}${enText ? `\n  EN: ${enText}` : ''}`;
+  const pair = (label, enText, zhText) => `- ${label}: ${enText || ''}${zhText ? ` (${zhText})` : ''}`;
   const lines = [
     `- 模块名: ${skill.name}`,
     `- 风格基调: ${skill.desc || ''}`,
     zh.usage ? `- 适用场景: ${zh.usage}` : '',
     '',
-    '【画面方向】(中文说明给用户看; EN 行是实际注入生图模型的原始参数, 两者同一套光影/色调/构图)',
-    pair('视觉方向', zh.direction || skill.desc || '', english['STYLE DIRECTION']),
-    pair('光线', zh.lighting || '', english.LIGHTING),
-    pair('色彩', zh.color || '', english.COLOR),
-    pair('构图', zh.composition || '', english.COMPOSITION),
+    '【画面方向】',
+    pair('视觉方向', english['STYLE DIRECTION'], zh.direction || skill.desc || ''),
+    pair('光线', english.LIGHTING, zh.lighting),
+    pair('色彩', english.COLOR, zh.color),
+    pair('构图', english.COMPOSITION, zh.composition),
     '',
     '【通用约束】',
     '- 保持商品结构与材质真实，不改变商品的数量、比例与颜色',
@@ -100,12 +102,12 @@ const TASK_IMAGE_SKILLS = Object.freeze([
       '- 模块名: 白底商品图',
       '- 适用场景: 电商上架首图、平台审核用图',
       '【画面方向】',
-      '- 视觉方向: 纯白无缝背景的标准商品图\n  EN: Pure white seamless background, standard e-commerce hero shot',
-      '- 光线: 均匀柔光，左右光比均衡，商品底部保留轻落地阴影\n  EN: Even soft lighting, balanced left-right ratio, soft grounded shadow',
-      '- 色彩: 忠实还原商品真实颜色，不偏色、不加滤镜\n  EN: Faithful color reproduction, no color cast, no filter',
-      '- 构图: 居中、商品占画面 70%-80%、四边留安全边距\n  EN: Centered, product fills 70-80% of frame, safe margins',
+      '- 视觉方向: Pure white seamless background, standard e-commerce hero shot (纯白无缝背景的标准商品图)',
+      '- 光线: Even soft lighting, balanced left-right ratio, soft grounded shadow (均匀柔光，左右光比均衡，商品底部保留轻落地阴影)',
+      '- 色彩: Faithful color reproduction, no color cast, no filter (忠实还原商品真实颜色，不偏色、不加滤镜)',
+      '- 构图: Centered, product fills 70-80% of frame, safe margins (居中构图，商品占画面 70%-80%，四边留安全边距)',
       '【禁止】',
-      '- 不加文字、促销角标、水印与无关道具\n  EN: No text, no promo badges, no watermark, no props',
+      '- No text, no promo badges, no watermark, no props (不加文字、促销角标、水印与无关道具)',
     ].join('\n'),
   }),
   Object.freeze({
@@ -116,12 +118,12 @@ const TASK_IMAGE_SKILLS = Object.freeze([
       '- 模块名: 模特上身/试穿',
       '- 适用场景: 服饰、鞋包、配饰的上身效果图',
       '【画面方向】',
-      '- 视觉方向: 真实模特自然穿着，生活化站姿或走动\n  EN: Real model wearing naturally, candid stance or subtle motion',
-      '- 光线: 柔和自然光，人物与商品受光一致\n  EN: Soft natural light, consistent exposure on model and product',
-      '- 色彩: 商品颜色忠实，肤色自然不夸张\n  EN: True product color, natural skin tone',
-      '- 构图: 七分身或全身，商品为视觉重心，背景简洁不抢\n  EN: Three-quarter or full body, product as focal point, clean background',
+      '- 视觉方向: Real model wearing naturally, candid stance or subtle motion (真实模特自然穿着，生活化站姿或走动)',
+      '- 光线: Soft natural light, consistent exposure on model and product (柔和自然光，人物与商品受光一致)',
+      '- 色彩: True product color, natural skin tone (商品颜色忠实，肤色自然不夸张)',
+      '- 构图: Three-quarter or full body, product as focal point, clean background (七分身或全身，商品为视觉重心，背景简洁不抢)',
       '【禁止】',
-      '- 不改变服装版型、图案与配件数量；不虚构品牌标识\n  EN: Do not alter fit, pattern or accessory count; never invent logos',
+      '- Do not alter fit, pattern or accessory count; never invent logos (不改变服装版型、图案与配件数量；不虚构品牌标识)',
     ].join('\n'),
   }),
   Object.freeze({
@@ -130,14 +132,14 @@ const TASK_IMAGE_SKILLS = Object.freeze([
     summary: '真实使用场景中的氛围画面，适合种草与详情',
     body: [
       '- 模块名: 场景种草图',
-      '- 适用场景: 小红书/详情页的氛围场景画面',
+      '- 适用场景: 小红书、详情页的氛围场景画面',
       '【画面方向】',
-      '- 视觉方向: 商品被真实使用中的生活瞬间，有情绪与使用关系\n  EN: Product caught in real use, emotional lifestyle narrative',
-      '- 光线: 窗边或户外自然光，逆光边缘通透\n  EN: Window or outdoor natural light with translucent rim light',
-      '- 色彩: 温暖真实，环境色调统一\n  EN: Warm realistic palette, coherent environment tone',
-      '- 构图: 三分法，商品在手边/桌面上，前景可带少量遮挡物增加层次\n  EN: Rule of thirds, product on hand or table, light foreground occlusion',
+      '- 视觉方向: Product caught in real use, emotional lifestyle narrative (商品被真实使用中的生活瞬间，有情绪与使用关系)',
+      '- 光线: Window or outdoor natural light with translucent rim light (窗边或户外自然光，逆光边缘通透)',
+      '- 色彩: Warm realistic palette, coherent environment tone (温暖真实，环境色调统一)',
+      '- 构图: Rule of thirds, product on hand or table, light foreground occlusion (三分法构图，商品在手边或桌面上，前景可带少量遮挡增加层次)',
       '【禁止】',
-      '- 不添加与商品无关的品牌、文字与竞品标识\n  EN: No unrelated brands, text or competitor marks',
+      '- No unrelated brands, text or competitor marks (不添加与商品无关的品牌、文字与竞品标识)',
     ].join('\n'),
   }),
   Object.freeze({
@@ -148,12 +150,12 @@ const TASK_IMAGE_SKILLS = Object.freeze([
       '- 模块名: 材质细节特写',
       '- 适用场景: 详情页细节切片、卖点佐证',
       '【画面方向】',
-      '- 视觉方向: 微距级特写，突出材质纹理与工艺细节\n  EN: Macro close-up emphasising material texture and craftsmanship',
-      '- 光线: 侧向掠射光强化纹理，暗部保留细节\n  EN: Raking side light to reveal texture, shadow detail preserved',
-      '- 色彩: 真实还原，避免过饱和\n  EN: True-to-life color, avoid oversaturation',
-      '- 构图: 局部充满画面，焦点锐利，浅景深分离背景\n  EN: Tight crop, tack-sharp focus, shallow depth of field',
+      '- 视觉方向: Macro close-up emphasising material texture and craftsmanship (微距级特写，突出材质纹理与工艺细节)',
+      '- 光线: Raking side light to reveal texture, shadow detail preserved (侧向掠射光强化纹理，暗部保留细节)',
+      '- 色彩: True-to-life color, avoid oversaturation (真实还原，避免过饱和)',
+      '- 构图: Tight crop, tack-sharp focus, shallow depth of field (局部充满画面，焦点锐利，浅景深分离背景)',
       '【禁止】',
-      '- 不虚构不存在的结构、接口与材质\n  EN: Do not invent structures, ports or materials',
+      '- Do not invent structures, ports or materials (不虚构不存在的结构、接口与材质)',
     ].join('\n'),
   }),
   Object.freeze({
@@ -162,14 +164,14 @@ const TASK_IMAGE_SKILLS = Object.freeze([
     summary: '同一商品的多角度一致性画面组',
     body: [
       '- 模块名: 多角度套图',
-      '- 适用场景: 一次输出正面/侧面/背面/俯视等多角度主图',
+      '- 适用场景: 一次输出正面、侧面、背面、俯视等多角度主图',
       '【画面方向】',
-      '- 视觉方向: 同一商品、同一光线与背景下的多角度连拍感\n  EN: Same product, same lighting and background, consistent multi-angle set',
-      '- 光线: 每个角度保持同一套布光，避免跳光\n  EN: Identical lighting setup across angles, no lighting jumps',
-      '- 色彩: 全组颜色一致，避免色差\n  EN: Consistent color across the set',
-      '- 构图: 同一构图框架下切换角度，主体比例稳定\n  EN: Stable framing and subject scale across angles',
+      '- 视觉方向: Same product, same lighting and background, consistent multi-angle set (同一商品、同一光线与背景下的多角度连拍感)',
+      '- 光线: Identical lighting setup across angles, no lighting jumps (每个角度保持同一套布光，避免跳光)',
+      '- 色彩: Consistent color across the set (全组颜色一致，避免色差)',
+      '- 构图: Stable framing and subject scale across angles (同一构图框架下切换角度，主体比例稳定)',
       '【禁止】',
-      '- 不同角度间不得改变商品比例、颜色与配件数量\n  EN: Never change proportions, color or accessory count between angles',
+      '- Never change proportions, color or accessory count between angles (不同角度间不得改变商品比例、颜色与配件数量)',
     ].join('\n'),
   }),
 ]);

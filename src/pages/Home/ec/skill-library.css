@@ -1,14 +1,15 @@
 /* 技能库弹窗 (2026-09-10) —— 与登录弹窗同一套玻璃/暖白语言 */
 .skill-modal-overlay {
   position: fixed; inset: 0; z-index: 9000;
-  display: grid; place-items: center; padding: 24px;
+  /* 9-11 三轮用户批注: 顶部被导航栏盖住 → 从导航下方开始; 面板做宽而不是做高 */
+  display: grid; place-items: start center; padding: 96px 24px 24px;
   background: rgba(50, 40, 28, 0.42);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 .skill-modal {
-  width: min(1040px, 100%);
-  max-height: calc(100vh - 48px);
+  width: min(1360px, 96vw);
+  max-height: min(78vh, 820px);
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
@@ -51,9 +52,9 @@
 .skill-notice { background: #F0F9F2; border: 1px solid #cfe9d6; color: #2f6b41; }
 .skill-modal-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 14px;
-  padding: 14px 22px 20px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 16px;
+  padding: 14px 24px 20px;
   overflow-y: auto;
 }
 .skill-column {

@@ -93,18 +93,15 @@ test('delivery steps: image binds first frame only when a shot is chosen; metada
   assert.equal(metadata.displayName, '白底主图');
 });
 
-test('contract: three delivery entry points exist in authorized surfaces', async () => {
-  // 入口 a：EcCanvas 对象工具条按钮 + index 接线（各一处注入点）
+test('contract: delivery entry points exist in authorized surfaces (9-11 三轮: 画布节点入口已移除)', async () => {
+  /* 9-11 三轮用户批注: 画布节点上「发往视频项目」与「加入素材库」语义冲突 → 节点工具条只留素材动作;
+     组件能力保留 (videoDelivery 仍可注入), 但画布默认关闭该入口。 */
   const canvasStudio = await source('../src/pages/EcCanvas/components/CanvasStudio.jsx');
   assert.match(canvasStudio, /videoDelivery = null/);
   assert.match(canvasStudio, /data-video-delivery="true"/);
-  assert.match(canvasStudio, /发往视频项目/);
   const canvasIndex = await source('../src/pages/EcCanvas/index.jsx');
   assert.match(canvasIndex, /VideoProjectDeliveryDialog/);
-  assert.match(canvasIndex, /DELIVERY_SOURCE_SURFACES\.ecCanvas/);
-  assert.match(canvasIndex, /handleSendSelectedToVideoProject/);
-  // 工具条按钮只在选中节点带 canonical 引用时出现
-  assert.match(canvasIndex, /selectedNodeVideoDelivery\.length \? \{ enabled: true, onSend: handleSendSelectedToVideoProject \} : \{ enabled: false \}/);
+  assert.match(canvasIndex, /videoDelivery=\{\{ enabled: false \}\}/, '画布节点工具条不再提供发往视频项目');
 
   // 入口 b：电商套图成图卡同款按钮
   const workbench = await source('../src/pages/Home/ec/EcommerceWorkbench.jsx');

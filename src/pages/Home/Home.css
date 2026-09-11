@@ -296,6 +296,13 @@
 .ec-workbench-primary-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ec-workbench-tools { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .ec-workbench-submit-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+/* 9-11 三轮: 「下一步」二选一浮层 (带设计方案 / 快速生成) */
+.ec-mode-chooser { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 1200; width: 296px; display: grid; gap: 4px; padding: 6px; border: 1px solid rgba(28,25,23,.10); border-radius: 12px; background: #fff; box-shadow: 0 18px 42px rgba(62,43,26,.18); animation: ecGlassSlideUp .18s cubic-bezier(.22,1,.36,1); }
+.ec-mode-chooser-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--text-primary); text-align: left; font-family: inherit; cursor: pointer; }
+.ec-mode-chooser-item:hover { background: rgba(124,58,237,.07); }
+.ec-mode-chooser-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: rgba(124,58,237,.10); color: #7c3aed; }
+.ec-mode-chooser-item strong { display: block; font-size: 13px; font-weight: 750; }
+.ec-mode-chooser-item small { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10.5px; line-height: 1.45; }
 .ec-direction-action {
   display: inline-flex;
   min-height: 38px;
