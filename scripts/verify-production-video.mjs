@@ -104,10 +104,11 @@ export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchI
     'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
     'kling_standard', 'kling_pro', 'veo_fast', 'seedance_25', 'minimax_h3_2k',
   ]);
-  const publicIds = body.products.map(product => product.id).sort();
-  const approvedIds = [...APPROVED_PUBLIC_PRODUCTS].sort();
-  if (JSON.stringify(publicIds) !== JSON.stringify(approvedIds)) {
-    throw new Error(`Public video product set drifted: ${publicIds.join(', ')}`);
+  /* 校验口径: 公开目录不得出现白名单之外的档位 (允许灰度期间少于白名单, 不允许越界)。 */
+  for (const product of body.products) {
+    if (!APPROVED_PUBLIC_PRODUCTS.includes(product.id)) {
+      throw new Error(`Unexpected public video product: ${product.id}`);
+    }
   }
   /* 9-11: 公开产品集合 = Seedance 快试/标准 + MiniMax H3 768P (按条 ¥4.55 → 38000 units) */
   const PUBLIC_QUOTE_UNITS = Object.freeze({
