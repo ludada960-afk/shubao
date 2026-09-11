@@ -3989,16 +3989,18 @@ const canvasOneShotBilling = createOneShotBilling({
 /* 9-11 用户批注: 视频方案分析一直失败 — 根因是「文本规划」被路由到识图模型 (gpt-5.6-luna),
    实测 90s 超时; 文本模型 key 又失效 (401)。现改为: 有图走识图模型, 无图走文本模型 (若可用),
    超时预算收紧到 45s/30s 且不再重试 — 失败时由 videoPlanning 的本地兜底方案接管, 不再阻塞用户。 */
-function createVideoPlanningTextClient({ timeoutMs = 30_000 } = {}) {
+function createVideoPlanningTextClient({ timeoutMs = 90_000 } = {}) {
   if (LLM_KEY && LLM_BASE) {
     return createVlmClient({ apiKey: LLM_KEY, baseUrl: LLM_BASE, model: LLM_MODEL, timeoutMs, retryDelaysMs: [] });
   }
   return createEcommerceVlmClient({ timeoutMs, retryDelaysMs: [] });
 }
 const videoPlanningService = createVideoPlanningService({
+  /* 9-11 实测: 一次完整方案分析 (2600 tokens 结构化 JSON) 在 gpt-5.6-luna 上约 36-40s,
+     原 30s 预算必然超时并被兜底接管 → 提到 90s, 让真实方案有机会完成 (失败仍有本地兜底)。 */
   completeText: request => (Array.isArray(request?.images) && request.images.length
-    ? createEcommerceVlmClient({ timeoutMs: 45_000, retryDelaysMs: [] })
-    : createVideoPlanningTextClient({ timeoutMs: 30_000 })).completeText(request),
+    ? createEcommerceVlmClient({ timeoutMs: 90_000, retryDelaysMs: [] })
+    : createVideoPlanningTextClient({ timeoutMs: 90_000 })).completeText(request),
 });
 
 function imageProviderCredential() {
