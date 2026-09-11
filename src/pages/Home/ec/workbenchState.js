@@ -209,8 +209,9 @@ export function deriveEffectiveSmartOverrides(configuration = {}) {
     sku: (Array.isArray(configuration.skus) ? configuration.skus : [])
       .some(sku => ['color', 'size', 'capacity', 'dimLabel'].some(field => hasText(sku?.[field]))),
     copy: Object.values(copywriting).some(hasText),
-    settings: (genSettings.resolution || '2K') !== '2K' || hasText(genSettings.negativePrompt)
-      || commerceContext.targetLanguage !== 'zh-CN',
+    /* 9-11 用户批注#8: 切换目标语言是「商业上下文」的正常调整, 不算生成配置调整 —
+       不再让 目标语言≠中文 触发 生成设置「已调整」徽标 */
+    settings: (genSettings.resolution || '2K') !== '2K' || hasText(genSettings.negativePrompt),
   };
 }
 

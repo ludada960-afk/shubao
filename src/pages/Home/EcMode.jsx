@@ -1627,67 +1627,57 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                 {assetUploadError}
               </div>
             )}
+            {/* 9-11 用户批注#8: 两个发射按钮合并为一组紧凑同款 — 主=下一步(带方案), 次=快速生成(跳过方案),
+                同高/同圆角/同族样式, 不再一长一短两种 UI */}
             <div className="ec-workbench-submit-actions">
-              {/* P7 快速通道: 跳过设计方案分析 (免费), 素材 + 套图节点直接进画布 */}
               <button
                 type="button"
                 className="ec-workbench-quick"
                 disabled={!canGen || uploadingAssets}
-                title="跳过设计方案分析 (免费), 素材直接进画布, 在套图节点里生成"
+                title="跳过设计方案 (免费), 素材直接进画布, 在套图节点里生成"
                 onClick={() => handleNext(true)}
                 style={{
                   height: 38,
                   padding: '0 14px',
-                  borderRadius: 12,
-                  border: '1px solid rgba(124,58,237,0.35)',
-                  background: '#fff',
+                  borderRadius: 10,
+                  border: '1px solid rgba(124,58,237,0.28)',
+                  background: canGen && !uploadingAssets ? '#faf8ff' : '#fff',
                   color: canGen && !uploadingAssets ? '#7c3aed' : '#aaa',
                   fontSize: 12,
                   fontWeight: 650,
                   fontFamily: 'inherit',
                   cursor: canGen && !uploadingAssets ? 'pointer' : 'not-allowed',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: 5,
                   flexShrink: 0
                 }}
               >
-                快速生成<span style={{ fontSize: 10, color: 'var(--text-muted, #9aa1ac)' }}>跳过方案</span>
+                快速生成
               </button>
               <button
                 className="ec-workbench-next"
                 disabled={!canGen || uploadingAssets}
+                title="铺开素材 + 设计方案节点进画布 (方案分析 1 积分)"
                 onClick={() => handleNext(false)}
                 style={{
                   height: 38,
-                  padding: '0 22px',
-                  borderRadius: 12,
+                  padding: '0 16px',
+                  borderRadius: 10,
                   border: 'none',
                   fontSize: 13,
                   fontWeight: 700,
                   fontFamily: 'inherit',
-                  background: canGen && !uploadingAssets ? 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)' : '#e5e5e5',
+                  background: canGen && !uploadingAssets ? '#7c3aed' : '#e5e5e5',
                   color: canGen && !uploadingAssets ? '#fff' : '#aaa',
                   cursor: canGen && !uploadingAssets ? 'pointer' : 'not-allowed',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  transition: 'all 0.2s',
-                  flexShrink: 0,
-                  boxShadow: canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none'
-                }}
-                onMouseEnter={(e) => {
-                  if (canGen && !uploadingAssets) {
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                    e.currentTarget.style.boxShadow = '0 6px 24px rgba(124,58,237,0.4)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'none';
-                  e.currentTarget.style.boxShadow = canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none';
+                  flexShrink: 0
                 }}
               >
-                {uploadingAssets ? '正在上传原图…' : '下一步 · 带设计方案'} <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
+                {uploadingAssets ? '正在上传原图…' : '下一步 · 带方案'}
               </button>
             </div>
           </div>

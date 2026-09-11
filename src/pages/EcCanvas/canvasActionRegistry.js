@@ -79,6 +79,17 @@ export const CANVAS_ACTIONS = Object.freeze([
     canRun: node => ['image', 'output', 'layer-group', 'video'].includes(String(node?.kind || ''))
       && !['error', 'upload-error'].includes(String(node?.status || '')),
   }),
+  /* 9-11 用户批注①: 素材库由用户显式定义 — 选中素材/生成物, 工具条「加入素材库」才入库;
+     上传与替换不再自动归档 (原「已替换素材，正在后台保存原图」机制已移除)。 */
+  action('save-to-assets', '加入素材库', ['selection'], null, false, {
+    type: 'local', handler: 'save-to-assets',
+  }, {
+    description: '把这个素材明确加入素材库，跨项目复用',
+    group: '优先操作',
+    canRun: node => ['image', 'output', 'video', 'audio'].includes(String(node?.kind || ''))
+      && Boolean(node?.url)
+      && !['error', 'upload-error', 'uploading', 'processing'].includes(String(node?.status || '')),
+  }),
   action('add-text', '添加文字', [], null, false, {
     type: 'local', handler: 'add-text',
   }, { description: '在画布上添加可直接编辑的文字', canRun: canRunLocally }),

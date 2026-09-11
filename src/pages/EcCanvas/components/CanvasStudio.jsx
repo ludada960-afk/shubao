@@ -63,7 +63,7 @@ import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
 import CopyPanel from '../../Home/ec/CopyPanel.jsx';
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
-import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
+import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
@@ -376,7 +376,7 @@ function ComposerMention({ availableSources = [], selectedSources = [], activeSu
   return <div className="ec-canvas-composer-mention" aria-label="引用图片"><ImageMentionPicker images={availableSources} selectedImages={selectedSources} open={activeSurface === 'mention'} onOpenChange={open => onSurfaceChange?.(open ? 'mention' : closeCanvasComposerSurface())} selectionMode="insert" onToggle={onToggleSource} /></div>;
 }
 
-function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true, activeSurface = '', onSurfaceChange }) {
+function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null }) {
   const rootRef = useRef(null);
   useEffect(() => {
     if (!activeSurface?.startsWith('parameter:')) return undefined;
@@ -426,12 +426,14 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
     {/* 9-11 用户批注: skill 选项进生成器 (对标流影AI) —— 技能 = P2 五套内置技能,
         选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。 */}
     <div className="ec-canvas-parameter-item">
-      <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => toggle('skill')}>{CANVAS_SKILLS.find(item => item.slug === node?.skill)?.name || '技能'}<WandSparkles size={12} /><ChevronDown size={12} /></button>
+      <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => toggle('skill')}>{node?.skillLabel || CANVAS_SKILLS.find(item => item.slug === node?.skill)?.name || '技能'}<WandSparkles size={12} /><ChevronDown size={12} /></button>
       {open === 'skill' && <div className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
-        {CANVAS_SKILLS.map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
+        {/* 9-11 用户批注#5: 生图节点只列生图技能 (domain 分域) */}
+        {filterCanvasSkills('image').map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
           <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
         </button>)}
-        {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
+        {onOpenSkillLibrary && <button type="button" className="ec-canvas-skill-more" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenSkillLibrary('image'); }}>更多技能…<ChevronDown size={11} style={{ transform: 'rotate(90deg)' }} /></button>}
+        {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null, skillLabel: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
       </div>}
     </div>
   </div>;
@@ -761,7 +763,7 @@ function ComposerPreview({ node, source, label = '图片生成', selection, onSe
   </div>;
 }
 
-export function CanvasImageComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+export function CanvasImageComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const source = sources[0];
@@ -790,7 +792,7 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
       />
       <div className="ec-canvas-composer-footer">
         <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
-        <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
+        <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
         <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
           {loading ? '生成中' : <><Sparkles size={15} />生成</>}
         </button>
@@ -798,7 +800,7 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
   </section>;
 }
 
-export function CanvasTextGenerationComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+export function CanvasTextGenerationComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const handleToggleSource = sourceImage => {
@@ -811,13 +813,13 @@ export function CanvasTextGenerationComposer({ node, position, sources = [], men
     <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={value => onChange?.({ prompt: value })} />
     <div className="ec-canvas-composer-footer">
       <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
-      <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
+      <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
       <button type="button" data-canvas-control="true" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
     </div>
   </section>;
 }
 
-export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate, videoProducts = [] }) {
+export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate, videoProducts = [], onOpenSkillLibrary = null }) {
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [previewPlan, setPreviewPlan] = useState(null);
@@ -891,7 +893,8 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
       <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
       <label>时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
       {/* 9-11: skill 选项 (与图片生成器同源 CANVAS_SKILLS, 预填提示词不覆盖已写内容) */}
-      <label>技能<select value={node.skill || ''} onChange={event => { const next = applyCanvasSkill({ prompt: node.prompt || '', skill: event.target.value || undefined }); change({ prompt: next.prompt, skill: next.skill }); }}><option value="">无技能</option>{CANVAS_SKILLS.map(skill => <option key={skill.slug} value={skill.slug}>{skill.name}</option>)}</select></label>
+      <label>技能<select value={node.skill || ''} onChange={event => { const next = applyCanvasSkill({ prompt: node.prompt || '', skill: event.target.value || undefined }); change({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); }}><option value="">无技能</option>{filterCanvasSkills('video').map(skill => <option key={skill.slug} value={skill.slug}>{skill.name}</option>)}</select></label>
+      {onOpenSkillLibrary && <button type="button" data-canvas-control="true" className="ec-canvas-skill-more" onClick={() => onOpenSkillLibrary('video')}><WandSparkles size={12} />技能库</button>}
       <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => change({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
     </div>
     {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
@@ -1191,7 +1194,7 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   };
   return <div className={`ec-canvas-focused-editor is-${mode}`} aria-label={FOCUSED_EDITOR_LABELS[mode] || '图片编辑'} style={{ left: node.x, top: node.y, width: node.w, height: node.h }} onPointerDown={event => event.stopPropagation()}>
     <div ref={stageRef} className="ec-canvas-focused-stage" onPointerDown={onStagePointerDown} onPointerMove={onStagePointerMove} onPointerUp={finishGesture} onPointerCancel={finishGesture}>
-      <ResponsiveImage src={node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes={`${Math.ceil(node.w)}px`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />
+      <ResponsiveImage src={node.localPreviewUrl || node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes={`${Math.ceil(node.w)}px`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />
       {isMoveScale && !hasMoveSource && <span className="ec-canvas-move-scale-hint">在要移动的对象上拖拽画框</span>}
       {isMoveScale && hasMoveSource && <div className="ec-canvas-move-scale-source" style={{ left: `${moveSourceRect.x * 100}%`, top: `${moveSourceRect.y * 100}%`, width: `${moveSourceRect.w * 100}%`, height: `${moveSourceRect.h * 100}%` }}><span>原位置</span></div>}
       {isMoveScale && hasMoveTarget && <div
@@ -1212,12 +1215,23 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
         </div>
       </>}
       {isAnnotation && <svg className={`ec-canvas-annotation-layer is-${options.annotationTool || 'pen'}`} aria-label="标注区域" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-        <defs><marker id="ec-canvas-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="context-stroke" /></marker></defs>
         {annotations.map(shape => {
           const strokeWidth = Math.max(2, Number(shape.width || 3) * 2);
           if (shape.tool === 'pen') return <polyline key={shape.id} points={(shape.points || []).map(point => `${point.x * 1000},${point.y * 1000}`).join(' ')} fill="none" stroke={shape.color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />;
           if (shape.tool === 'rectangle') return <rect key={shape.id} x={shape.x * 1000} y={shape.y * 1000} width={shape.w * 1000} height={shape.h * 1000} fill="none" stroke={shape.color} strokeWidth={strokeWidth} />;
-          if (shape.tool === 'arrow') return <line key={shape.id} x1={shape.x1 * 1000} y1={shape.y1 * 1000} x2={shape.x2 * 1000} y2={shape.y2 * 1000} stroke={shape.color} strokeWidth={strokeWidth} strokeLinecap="round" markerEnd="url(#ec-canvas-arrow)" />;
+          if (shape.tool === 'arrow') {
+            /* 9-11 用户批注#3: 箭头要完整 (线 + 箭尾) — 箭尾用三角 V 形手算 (与线同色同粗),
+               不依赖 SVG marker 箭头 (主流浏览器对 marker fill 的样式继承支持不一致) */
+            const ax = shape.x1 * 1000, ay = shape.y1 * 1000, bx = shape.x2 * 1000, by = shape.y2 * 1000;
+            const angle = Math.atan2(by - ay, bx - ax);
+            const head = Math.max(34, strokeWidth * 4);
+            const h1 = `${bx - head * Math.cos(angle - 0.48)},${by - head * Math.sin(angle - 0.48)}`;
+            const h2 = `${bx - head * Math.cos(angle + 0.48)},${by - head * Math.sin(angle + 0.48)}`;
+            return <g key={shape.id}>
+              <line x1={ax} y1={ay} x2={bx} y2={by} stroke={shape.color} strokeWidth={strokeWidth} strokeLinecap="round" />
+              <polyline points={`${h1} ${bx},${by} ${h2}`} fill="none" stroke={shape.color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+            </g>;
+          }
           return <text key={shape.id} x={shape.x * 1000} y={shape.y * 1000} fill={shape.color} fontSize={Math.max(32, strokeWidth * 8)} fontWeight="700">{shape.text}</text>;
         })}
       </svg>}
@@ -1259,7 +1273,7 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
           ['text', '文字', FileText],
         ].map(([tool, label, Icon]) => <button key={tool} type="button" title={label} aria-label={label} className={(options.annotationTool || 'pen') === tool ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, annotationTool: tool })}><Icon size={15} /></button>)}
         <label className="ec-canvas-focused-field is-icon-only" title="标注颜色"><span className="sr-only">颜色</span><input type="color" aria-label="标注颜色" value={options.annotationColor || '#ef4444'} onChange={event => onOptionChange?.({ ...options, annotationColor: event.target.value })} /></label>
-        <label className="ec-canvas-focused-field is-icon-only" title={`标注粗细 ${options.annotationWidth || 3}px`}><span className="sr-only">粗细</span><input type="range" aria-label="标注粗细" min="1" max="12" value={options.annotationWidth || 3} onChange={event => onOptionChange?.({ ...options, annotationWidth: Number(event.target.value) })} /></label>
+        <label className="ec-canvas-focused-field" title={`标注粗细 ${options.annotationWidth || 3}px`}><span>粗细</span><input type="range" aria-label="标注粗细" min="1" max="12" value={options.annotationWidth || 3} onChange={event => onOptionChange?.({ ...options, annotationWidth: Number(event.target.value) })} /><output>{options.annotationWidth || 3}px</output></label>
         <button type="button" title="撤销" aria-label="撤销" disabled={!options.annotationHistory?.length} onClick={undoAnnotation}><Undo2 size={15} /></button>
         <button type="button" title="重做" aria-label="重做" disabled={!options.annotationFuture?.length} onClick={redoAnnotation}><Redo2 size={15} /></button>
         <button type="button" title="清除标注" aria-label="清除标注" onClick={() => commitAnnotations([])}><Eraser size={15} /></button>
@@ -1340,6 +1354,7 @@ export function CanvasImageNode({
   onNaturalSize,
   canDerive = true,
   onReplace = null,
+  onImageReady = null,
 }) {
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
   /* 用户 9-10 反馈: 模板素材节点必须与真实上传素材完全同款 —— 不再有自造"槽位"描边与提示文案。 */
@@ -1355,7 +1370,8 @@ export function CanvasImageNode({
   >
     <div className="ec-canvas-media-frame" style={{ height: node.h }}>
       <ResponsiveImage
-        src={node.url}
+        /* 9-11 用户批注#2: 本地预览优先 — 持久 url 尚未解码成功前用本地 data URI 兜底, 不再空白闪屏 */
+        src={node.localPreviewUrl || node.url}
         alt={node.name || node.displayLabel || '电商图片'}
         variant="canvas"
         sizes={`${Math.ceil(node.w)}px`}
@@ -1366,6 +1382,7 @@ export function CanvasImageNode({
           const naturalWidth = Number(event.naturalWidth || event.currentTarget?.naturalWidth);
           const naturalHeight = Number(event.naturalHeight || event.currentTarget?.naturalHeight);
           if (naturalWidth > 0 && naturalHeight > 0) onNaturalSize?.(node.id, { naturalWidth, naturalHeight });
+          onImageReady?.(node.id);
         }}
       />
       <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2, Type, Video, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2, Type, Video, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -62,6 +62,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
 import { createPlanLaunchGraph, isPlanLaunch } from './canvasPlanLaunch.js';
+import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
@@ -71,7 +72,7 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
-import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
@@ -296,6 +297,7 @@ const ACTION_ICONS = {
   crop: Crop,
   'grid-split': Grid3x3,
   annotation: Type,
+  'save-to-assets': Bookmark,
 };
 
 const PLATFORM_PRESETS = {
@@ -418,7 +420,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         )}
         <ResponsiveImage
           key={retryKey}
-          src={node.url}
+          src={node.localPreviewUrl || node.url}
           alt={node.label}
           variant="canvas"
           sizes={`${Math.ceil(node.w)}px`}
@@ -590,6 +592,24 @@ export default function EcCanvas() {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
+  /* 9-11 用户批注#7: 技能按钮 → 打开既有技能库管理界面 (SkillLibraryModal, 与首页/视频页同一个),
+     选中技能回写节点: prompt 空才预填技能正文, skill/skillLabel 记名; 用户可再改。 */
+  const [skillLibraryTarget, setSkillLibraryTarget] = useState(null);
+  const openSkillLibrary = useCallback((nodeId, domain) => {
+    setSkillLibraryTarget({ nodeId, domain: domain || 'image' });
+  }, []);
+  const handleSkillLibraryPick = useCallback(skill => {
+    const target = skillLibraryTarget;
+    setSkillLibraryTarget(null);
+    if (!target?.nodeId || !skill) return;
+    const body = String(skill.body || skill.skillPrompt || '').trim();
+    setNodes(previous => previous.map(node => node.id === target.nodeId ? (() => {
+      const next = applyCanvasSkill({ prompt: node.prompt || '', skill: skill.slug || skill.name, skillBody: body });
+      return { ...node, ...next, skillLabel: next.skillLabel || skill.name };
+    })() : node));
+    if (body) showToast('技能已应用，提示词可继续修改', 'success');
+  }, [applyCanvasSkill, skillLibraryTarget, showToast]);
+
   /* P7 方案入画布: 首页发射器 payload (ec-plan-launch) → 素材行 + 方案节点
      (quick = 快速通道: 跳过方案, 直接套图生成节点)。物化即消费, 防重渲染重复铺开。 */
   useEffect(() => {
@@ -1197,9 +1217,27 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         });
       }
       const completedKeys = new Set(completed.map(item => pendingProjectAssetImportKey(item.record)));
-      setPendingProjectAssetImports(previous => previous.filter(record => !completedKeys.has(pendingProjectAssetImportKey(record))));
+      /* 9-11 用户批注②: 「重试扫描点了没反应」— 永远失败的记录会卡死待归档清单。
+         改为: 每条记录累计失败次数, 连续 2 次失败即移出清单 (不再反复重试死记录)。 */
+      const failedKeys = new Set(failed.map(item => pendingProjectAssetImportKey(item.record)));
+      let droppedStale = 0;
+      setPendingProjectAssetImports(previous => previous.map(record => {
+        const key = pendingProjectAssetImportKey(record);
+        if (completedKeys.has(key)) return null;
+        if (failedKeys.has(key)) {
+          const attempts = Number(record.attempts || 0) + 1;
+          if (attempts >= 2) { droppedStale += 1; return null; }
+          return { ...record, attempts };
+        }
+        return record;
+      }).filter(Boolean));
       if (failed.length) {
-        showToast(`${completed.length ? `已归档 ${completed.length} 个素材，` : ''}${failed.length} 个素材仍待归档，请稍后重试`, 'info');
+        showToast(
+          failed.length && droppedStale
+            ? `${completed.length ? `已归档 ${completed.length} 个素材，` : ''}已移除 ${droppedStale} 个持续失败的待归档素材`
+            : `${completed.length ? `已归档 ${completed.length} 个素材，` : ''}${failed.length} 个素材仍待归档，请稍后重试`,
+          'info',
+        );
       } else if (completed.length) {
         showToast(`已归档 ${completed.length} 个待处理素材，可继续引用生成`, 'success');
       }
@@ -1910,6 +1948,9 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       setMultiSelected(new Set());
       setContextMenu(null);
       setAddMenuOpen(false);
+      /* 9-11 用户批注③: 点空白 = 收起全部功能栏 — 右栏(派生菜单/图片编辑器)随顶栏一起关闭 */
+      setConnectionPicker(null);
+      setConnectionDraft(null);
     }
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [activeTool, editingTextNodeId, spacePressed, toWorldPoint, viewport.x, viewport.y]);
@@ -2140,6 +2181,11 @@ const handlePointerUp = useCallback((e) => {
     });
     try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch {}
   }, [nodes]);
+
+  /* 9-11 用户批注#2: 持久化图片解码成功才清本地预览 (data URI), 消除替换后空白/闪屏 */
+  const handleImagePreviewReady = useCallback(nodeId => {
+    setNodes(previous => previous.map(node => (node.id === nodeId && node.localPreviewUrl) ? { ...node, localPreviewUrl: '' } : node));
+  }, []);
 
   const handleImageNaturalSize = useCallback((nodeId, { naturalWidth, naturalHeight }) => {
     setNodes(previous => previous.map(node => {
@@ -3013,6 +3059,34 @@ const handlePointerUp = useCallback((e) => {
     if (handler === 'add-text') {
       // 添加文字：复用 handleAddTextNode 在选中图片右侧落一个真实可编辑文本节点。
       handleAddTextNode({ x: node.x + node.w + 28, y: node.y });
+      return;
+    }
+    if (handler === 'save-to-assets') {
+      /* 9-11 用户批注①: 素材库 = 用户显式定义 — 只有用户点「加入素材库」的节点才进素材库,
+         上传/替换不再自动归档。生成物仍由 register-generated 自动归集到作品。 */
+      if (!state.logged) { showToast('登录后才能收藏到素材库', 'info'); return; }
+      try {
+        const isMedia = ['video', 'audio'].includes(node.kind);
+        const projectContext = await ensureCanvasMediaProject(isMedia ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目', isMedia ? 'video' : 'ecommerce');
+        if (!projectContext) throw new Error('素材库暂不可用，请稍后重试');
+        let sourceAsset = null;
+        const stableUrl = String(node.url || '');
+        if (/^\/api\/generated-assets\//i.test(stableUrl)) {
+          sourceAsset = { url: stableUrl, name: node.name || node.displayLabel || '画布素材' };
+        } else if (stableUrl) {
+          const persisted = await persistCanvasUploadAssets([{ assetId: node.id, name: node.name || node.displayLabel || '画布素材', url: stableUrl }], { role: 'user-saved' });
+          sourceAsset = persisted[0];
+        }
+        if (!sourceAsset) throw new Error('该节点暂时没有可收藏的素材');
+        const imported = isMedia
+          ? await importCanvasMediaAssets([sourceAsset], projectContext, node.kind === 'video' ? 'user-saved-video' : 'user-saved-audio')
+          : await importCanvasImageAssets([sourceAsset], projectContext, 'user-saved');
+        if (imported?.failed?.length) throw new Error(imported.failed[0]?.error?.message || '收藏失败');
+        dispatch({ type: 'SET_RESULT', result: { ...result, projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } });
+        showToast('已加入素材库，下次创作可直接复用', 'success');
+      } catch (error) {
+        showToast(error?.message || '加入素材库失败，请稍后重试', 'error');
+      }
       return;
     }
     if (handler === 'copy-url') {
@@ -4434,25 +4508,37 @@ const handlePointerUp = useCallback((e) => {
         const localAssets = await readCanvasImageFiles([files[0]], replaceStartedAt);
         const local = localAssets[0];
         if (!local?.url) { showToast('读取素材失败，请重试', 'error'); return; }
-        setNodes(previous => previous.map(node => node.id === targetId ? {
-          ...node,
-          kind: 'image',
-          url: local.url,
-          localPreviewUrl: local.url,
-          name: files[0].name,
-          displayLabel: files[0].name,
-          ratio: local.ratio || node.ratio,
-          size: local.width && local.height ? `${local.width}×${local.height}` : node.size,
-          status: 'uploading',
-          templatePlaceholder: false,
-        } : node));
+        setNodes(previous => previous.map(node => node.id === targetId ? (() => {
+          /* 9-11 用户批注#2: 节点框随新素材动态适配 — 高度不变, 宽度按新素材宽高比重算 */
+          const baseH = Math.max(96, Number(node.h) || 240);
+          const fitW = local.width && local.height ? Math.min(720, Math.max(160, Math.round(baseH * local.width / local.height))) : (Number(node.w) || baseH);
+          return {
+            ...node,
+            kind: 'image',
+            url: local.url,
+            /* 本地 data URI 预览保留到持久化图片真正解码完成 (onImageReady 清理), 防止空白闪屏 */
+            localPreviewUrl: local.url,
+            name: files[0].name,
+            displayLabel: files[0].name,
+            w: fitW,
+            ratio: local.width && local.height ? `${local.width}:${local.height}` : node.ratio,
+            size: local.width && local.height ? `${local.width}×${local.height}` : node.size,
+            naturalWidth: local.width || node.naturalWidth,
+            naturalHeight: local.height || node.naturalHeight,
+            status: 'uploading',
+            templatePlaceholder: false,
+          };
+        })() : node));
         setSelected(targetId);
-        showToast('已替换素材，正在后台保存原图', 'success');
+        /* 9-11 用户批注①: 替换不做自动归档 — 原图/新图都留在画布草稿, 素材库只收「用户显式收藏」与「生成物自动归集」 */
+        showToast('素材已替换', 'success');
         void persistCanvasUploadAssets(localAssets, { role: 'product' }).then(persisted => {
           const durable = persisted?.[0];
           if (!durable?.url) return;
-          setNodes(previous => previous.map(node => node.id === targetId ? { ...node, url: durable.url, status: 'ready', localPreviewUrl: '' } : node));
+          /* 只切持久 url; localPreviewUrl 保留, 由图片解码成功后的 onImageReady 统一清理 */
+          setNodes(previous => previous.map(node => node.id === targetId ? { ...node, url: durable.url, status: 'ready' } : node));
         }).catch(() => {
+          /* 持久化失败: 本地预览继续可用 (localPreviewUrl), 仅标 ready 避免卡在处理中 */
           setNodes(previous => previous.map(node => node.id === targetId ? { ...node, status: 'ready' } : node));
         });
       } catch (error) {
@@ -4488,48 +4574,18 @@ const handlePointerUp = useCallback((e) => {
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
       /* 用户 9-05: 上传素材落画布 → 顶部工具栏 + 右侧派生菜单同时展开 */
       if (uploadedNodes[0]) openConnectionPickerForNode(uploadedNodes[0]);
-      showToast(`已加入 ${uploadedNodes.length} 张图片，正在后台保存原图`, 'success');
-      void persistCanvasUploadAssets(assets, { role: 'product' }).then(async persistedAssets => {
+      /* 9-11 用户批注①: 上传不自动进素材库 — 只做草稿持久化 (刷新不丢),
+         素材库 = 生成物自动归集(作品) + 用户显式「收藏为素材」; 替换/上传不再「后台归档原图」。 */
+      showToast(`已加入 ${uploadedNodes.length} 张图片`, 'success');
+      void persistCanvasUploadAssets(assets, { role: 'product' }).then(persistedAssets => {
         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-        let projectContext = null;
-        if (state.logged && !result.browserQa) {
-          try {
-            projectContext = await ensureCanvasMediaProject(files[0]?.name || 'Canvas 图片项目', 'ecommerce');
-          } catch {}
-        }
-        const imported = await importCanvasImageAssets(persistedAssets, projectContext, 'product');
-        if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-        const persistedById = new Map(uploadedNodes.map((node, index) => [node.id, imported.assets[index]]));
-        const canonicalNodes = uploadedNodes.map(node => {
+        const persistedById = new Map(uploadedNodes.map((node, index) => [node.id, persistedAssets[index]]));
+        setNodes(previous => previous.map(node => {
           const persisted = persistedById.get(node.id);
-          return persisted
-            ? attachCanvasProjectAssetRef({ ...node, ...persisted, url: persisted.url, status: 'ready', uploadError: '' }, persisted)
-            : node;
-        });
-        if (projectContext) {
-          const projectAssetRefs = collectCanvasProjectAssetRefs({ work: result, nodes: canonicalNodes });
-          dispatch({
-            type: 'SET_RESULT',
-            result: {
-              ...result,
-              projectId: projectContext.projectId,
-              sourceVersionId: projectContext.baseVersionId,
-              ...(projectAssetRefs.length ? { projectAssetRefs } : {}),
-            },
-          });
-        }
-        setNodes(previous => previous.map(node => canonicalNodes.find(next => next.id === node.id) || node));
-        const failedImageIds = new Set(imported.failed.map(item => canvasImportSourceId('image', item.asset)));
-        enqueuePendingProjectAssetImports(persistedAssets.map((asset, index) => ({
-          asset,
-          kind: 'image',
-          role: 'product',
-          displayName: asset.name || 'Canvas 图片素材',
-          nodeIds: failedImageIds.has(canvasImportSourceId('image', asset)) || !projectContext ? [uploadedNodes[index]?.id].filter(Boolean) : [],
-        })));
-        if (imported.failed.length || !projectContext) {
-          showToast(`图片已保存，但 ${imported.failed.length || persistedAssets.length} 张尚未归档到项目`, 'info');
-        }
+          if (!persisted?.url) return node;
+          /* 本地预览保留到解码完成 (onImageReady 清理), 持久 url 兜底刷新后加载 */
+          return { ...node, url: persisted.url, status: 'ready', uploadError: '' };
+        }));
       }).catch(error => {
         const uploadedIds = new Set(uploadedNodes.map(node => node.id));
         setNodes(previous => previous.map(node => uploadedIds.has(node.id)
@@ -5904,7 +5960,7 @@ const handlePointerUp = useCallback((e) => {
                   onNaturalSize={handleImageNaturalSize}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: '图片预览' })}
+                  onDoubleClick={node => (node.localPreviewUrl || node.url) && openImagePreview({ url: node.localPreviewUrl || node.url, label: '图片预览' })}
                 />;
               }
               if (node.kind === 'design-direction') {
@@ -5939,8 +5995,9 @@ const handlePointerUp = useCallback((e) => {
                   canDerive={canDeriveFromNode(node)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => openImagePreview({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
+                  onDoubleClick={node => openImagePreview({ url: node.localPreviewUrl || node.url, label: node.name || node.displayLabel || '图片预览' })}
                   onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
+                  onImageReady={handleImagePreviewReady}
                 />;
               }
               if (node.kind === 'audio') {
@@ -6094,6 +6151,7 @@ const handlePointerUp = useCallback((e) => {
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
               onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onGenerate={() => handleImageComposerGenerate(selectedNode)}
+              onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
             />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'text-composer' && <CanvasTextGenerationComposer
               node={selectedNode}
@@ -6109,6 +6167,7 @@ const handlePointerUp = useCallback((e) => {
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
               onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onGenerate={() => handleTextGenerationGenerate(selectedNode)}
+              onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
             />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'suite-composer' && <CanvasEcommerceComposer
               node={selectedNode}
@@ -6136,6 +6195,7 @@ const handlePointerUp = useCallback((e) => {
               onAnalyze={() => handleVideoComposerAnalyze(selectedNode)}
               onGenerate={() => handleVideoComposerGenerate(selectedNode)}
               videoProducts={videoProducts}
+              onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'video')}
             />}
             {connectionPicker && <CanvasDeriveMenu
               actions={connectionPicker.mode === 'image-editor'
@@ -6806,6 +6866,13 @@ const handlePointerUp = useCallback((e) => {
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}
+
+      <SkillLibraryModal
+        open={Boolean(skillLibraryTarget)}
+        initialKind={skillLibraryTarget?.domain === 'video' ? 'video' : 'image'}
+        onClose={() => setSkillLibraryTarget(null)}
+        onPick={handleSkillLibraryPick}
+      />
 
       {pendingProjectAssetImports.length > 0 && (
         <div className="ec-canvas-pending-imports" role="status" aria-live="polite">

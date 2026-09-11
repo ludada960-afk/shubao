@@ -10,19 +10,33 @@ import { formatCanvasShotName, resolveShotPrefix } from '../../constants/canvasN
 /* 9-11 用户批注: 生成器要有 skill 选项 (对标流影AI)。skill = P2 工作流模板 (技能市场层) 的五套内置技能,
    选择后把技能的结构化提示词预填进生成器 prompt (用户可见可改, 不是假能力):
    数据源 = server/templates/builtinTemplates.mjs 的 slug (white-bg-main/model-try-on/scene-detail/outfit-video/voiceover)。 */
+/* 9-11 用户批注#5: 技能按能力域分域 — 生图节点只出「生图技能」, 视频节点只出「视频技能」,
+   不再把换装短视频/口播带货塞进图片生成器。 */
 export const CANVAS_SKILLS = Object.freeze([
-  Object.freeze({ slug: 'white-bg-main', name: '白底主图', skillPrompt: '纯净白底背景，商品居中完整入画，标准电商主图构图，光线均匀柔和，保留商品真实颜色与材质细节，不添加文字与水印' }),
-  Object.freeze({ slug: 'model-try-on', name: '模特试穿', skillPrompt: '真实模特自然试穿，展示服装版型与面料质感，姿态舒展不夸张，背景干净，保留商品原有颜色、图案与细节' }),
-  Object.freeze({ slug: 'scene-detail', name: '场景详情', skillPrompt: '真实生活场景摆拍，突出使用情境，多张细节特写，光线柔和有层次，商品为画面主体' }),
-  Object.freeze({ slug: 'outfit-video', name: '换装短视频', skillPrompt: '节奏明快的换装展示，动作自然连贯，镜头跟随主体，结尾全身定格展示' }),
-  Object.freeze({ slug: 'voiceover', name: '口播带货', skillPrompt: '口播带货画面，人物面向镜头自然讲述，表情生动，字幕区域留白，背景简洁不抢主体' }),
+  Object.freeze({ slug: 'white-bg-main', name: '白底主图', domain: 'image', skillPrompt: '纯净白底背景，商品居中完整入画，标准电商主图构图，光线均匀柔和，保留商品真实颜色与材质细节，不添加文字与水印' }),
+  Object.freeze({ slug: 'model-try-on', name: '模特试穿', domain: 'image', skillPrompt: '真实模特自然试穿，展示服装版型与面料质感，姿态舒展不夸张，背景干净，保留商品原有颜色、图案与细节' }),
+  Object.freeze({ slug: 'scene-detail', name: '场景详情', domain: 'image', skillPrompt: '真实生活场景摆拍，突出使用情境，多张细节特写，光线柔和有层次，商品为画面主体' }),
+  Object.freeze({ slug: 'outfit-video', name: '换装短视频', domain: 'video', skillPrompt: '节奏明快的换装展示，动作自然连贯，镜头跟随主体，结尾全身定格展示' }),
+  Object.freeze({ slug: 'voiceover', name: '口播带货', domain: 'video', skillPrompt: '口播带货画面，人物面向镜头自然讲述，表情生动，字幕区域留白，背景简洁不抢主体' }),
 ]);
 
+/* 按能力域过滤技能: image=生图节点, video=视频生成器; domain 缺省 = 不过滤 (旧数据兼容) */
+export function filterCanvasSkills(domain) {
+  const wanted = String(domain || '');
+  return CANVAS_SKILLS.filter(item => (wanted && item.domain === wanted) || (!wanted && !item.domain));
+}
+
 /* 纯函数: 应用技能 → { prompt, skill }。prompt 为空才预填 (不覆盖用户已写内容); skill 记 slug 供节点展示。 */
-export function applyCanvasSkill({ prompt = '', skill } = {}) {
+export function applyCanvasSkill({ prompt = '', skill, skillBody = '' } = {}) {
   const found = CANVAS_SKILLS.find(item => item.slug === skill) || null;
-  if (!found) return { prompt: String(prompt || ''), skill: null };
-  return { prompt: String(prompt || '').trim() ? String(prompt) : found.skillPrompt, skill: found.slug };
+  if (!found) {
+    /* 9-11 用户批注#7: 用户技能库 (个人/专属 Skill) 选中后同样可落进节点 —
+       skill 记名称, prompt 空时预填技能正文 (skillBody 由调用方从技能库带入) */
+    const body = String(skillBody || '').trim();
+    if (body) return { prompt: String(prompt || '').trim() ? String(prompt) : body, skill: String(skill || ''), skillLabel: String(skill || '') };
+    return { prompt: String(prompt || ''), skill: null };
+  }
+  return { prompt: String(prompt || '').trim() ? String(prompt) : found.skillPrompt, skill: found.slug, skillLabel: found.name };
 }
 
 export function createCanvasShotNamer() {

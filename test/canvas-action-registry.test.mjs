@@ -26,11 +26,12 @@ test('every Canvas command is declared once with execution and billing metadata'
   }
 });
 
-test('selection exposes the pure image-edit toolbar (9-11: 「替换」移回节点角标胶囊, 工具条 9 项)', () => {
+test('selection exposes the pure image-edit toolbar (9-11: 「替换」移回节点角标胶囊; 9-12: 「加入素材库」进工具条)', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
       'edit-text',
+      'save-to-assets',
       'grid-split',
       'layer-edit',
       'remove-background',
@@ -41,6 +42,13 @@ test('selection exposes the pure image-edit toolbar (9-11: 「替换」移回节
       'download',
     ],
   );
+  /* 9-11 用户批注①: 素材库 = 用户显式定义 — 加入素材库只在 有 url 的就绪素材/媒体节点上可点 */
+  const hasSave = node => actionsForSurface({ surface: 'selection', node }).some(a => a.id === 'save-to-assets');
+  assert.equal(hasSave({ id: 'u', kind: 'image', status: 'uploading', url: 'data:image/png;base64,x' }), false, '上传中不给加入素材库');
+  assert.equal(hasSave({ id: 'u', kind: 'image', status: 'ready', url: '' }), false, '无 url 不给加入素材库');
+  assert.equal(hasSave({ id: 'u', kind: 'video', status: 'ready', url: '/api/generated-assets/v.mp4' }), true, '视频节点可加入素材库');
+  assert.equal(hasSave({ id: 'u', kind: 'text', status: 'ready', text: 'x' }), false, '文字节点不给');
+  assert.equal(hasSave({ id: 'u', kind: 'image', status: 'error', url: '/x.png' }), false, '失败节点不给');
   // 9-11 用户批注: 替换不放工具条, 放节点本身 (node-capsule surface, 节点组件角标胶囊承载)
   const capsule = actionsForSurface({ surface: 'node-capsule', node: completedOutput });
   assert.deepEqual(capsule.map(action => action.id), ['replace-media']);
