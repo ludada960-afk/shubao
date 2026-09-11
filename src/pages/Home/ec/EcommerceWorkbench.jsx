@@ -10,7 +10,6 @@ import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 import { productionCaseById } from '../productionCaseCatalog.js';
 import { EcommerceAddCard, EcommerceImageCard } from './components/EcommerceAssetCards.jsx';
-import SkillLibraryModal from './SkillLibraryModal.jsx';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -273,15 +272,8 @@ export default function EcommerceWorkbench({
   const personInputRef = useRef(null);
   const sceneInputRef = useRef(null);
   const promptFieldRef = useRef(null);
-  const [skillOpen, setSkillOpen] = useState(false);
-  // 技能以结构化字段进入生成请求（不再写进提示词文本，避免重复生效）
-  const applySkill = (skill) => {
-    if (!skill?.body) return;
-    const next = [...(userSkills || [])];
-    if (!next.some(item => item.id === skill.id)) next.push({ id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body });
-    onUserSkillsChange?.(next.slice(0, 2));
-    setSkillOpen(false);
-  };
+  /* 9-11 二轮批注: 技能库入口已移到「视觉方向」面板 (不再挂在输入框右侧);
+     这里只保留「已选技能」的可移除状态条, 应用/移除逻辑由 EcMode 统一管理。 */
   const removeSkill = (id) => onUserSkillsChange?.((userSkills || []).filter(item => item.id !== id));
   const [mentionedIds, setMentionedIds] = useState([]);
   const [videoDelivery, setVideoDelivery] = useState(null); // P2: {refs, surface}
@@ -387,13 +379,8 @@ export default function EcommerceWorkbench({
               <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => removeSkill(skill.id)}><X size={11} /></button>
             </span>
           ))}
-          <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
-            <Wand2 size={13} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
-          </button>
         </div>
       </div>
-
-      <SkillLibraryModal open={skillOpen} onClose={() => setSkillOpen(false)} initialKind={isTryOn ? 'image' : 'image'} onPick={applySkill} />
 
       <input ref={productInputRef} type="file" accept="image/*" multiple hidden onChange={onProductUpload} />
       <input ref={referenceInputRef} type="file" accept="image/*" multiple hidden onChange={onReferenceUpload} />

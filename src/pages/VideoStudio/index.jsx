@@ -8,6 +8,7 @@ import {
   Clapperboard,
   FileAudio,
   ImagePlus,
+  Loader2,
   Lock,
   Mic2,
   Play,
@@ -791,6 +792,21 @@ export default function VideoStudioPage({ embedded = false }) {
         {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}><b>{value.toUpperCase()}</b><span>{value === '2k' ? '精制成片' : '正式成片'}</span></button>)}
       </div></div>
       <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => { setPlanReviewed(false); setNegativePrompt(event.target.value); }} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
+      {/* 9-11 二轮用户批注: 技能库入口统一放配置面板 (与电商生图「视觉方向」面板一致), 不再挂在输入框旁 */}
+      <div className="video-panel-section"><div className="video-panel-section-title"><strong>技能</strong><span>{userSkills.length ? `${userSkills.length}/2 已选` : '可选，最多 2 个'}</span></div>
+        <div className="video-skill-row">
+          {userSkills.map(skill => (
+            <span key={skill.id} className="ec-skill-chip">
+              <Sparkles size={12} /> {skill.name}
+              <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => setUserSkills(current => current.filter(item => item.id !== skill.id))}>×</button>
+            </span>
+          ))}
+          <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
+            <Sparkles size={13} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
+          </button>
+        </div>
+        <small className="video-panel-hint">技能来自技能库「生视频」分类，选中后会带完整提示词进入本次生成</small>
+      </div>
       <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
     </>;
     return null;
@@ -859,15 +875,17 @@ export default function VideoStudioPage({ embedded = false }) {
             className="video-prompt-mentions"
           />
           <div className="video-skill-row">
+            {/* 9-11 二轮用户批注: @ 引用素材与电商生图对齐 — 放在输入框这一行, 不再散落到下方工具栏 */}
+            <span className="video-inline-control">
+              <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={15} /></button>
+              {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map(file => <button key={file.id} type="button" onClick={() => insertMention(file)}>{file.label}</button>) : <p>先上传素材，再引用到描述里</p>}</div>}
+            </span>
             {userSkills.map(skill => (
               <span key={skill.id} className="ec-skill-chip">
                 <Sparkles size={12} /> {skill.name}
                 <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => setUserSkills(current => current.filter(item => item.id !== skill.id))}>×</button>
               </span>
             ))}
-            <button type="button" className="ec-skill-entry" onClick={() => setSkillOpen(true)}>
-              <Sparkles size={13} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
-            </button>
           </div>
           <div className="video-text-meta"><span>{prompt.length}/1200</span><span><Sparkles size={14} />提交前锁定本次费用</span></div>
           <SkillLibraryModal
@@ -914,7 +932,9 @@ export default function VideoStudioPage({ embedded = false }) {
             })}
             </div>
           </div>
-          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions"><button type="button" className={`video-plan-trigger${planning ? ' is-busy' : ''}`} disabled={planning} onClick={openVideoPlan}><Aperture size={15} />{planning ? '正在分析素材' : planReviewed ? '方案已确认' : activeAnalysis ? '查看生成方案' : '分析并生成方案'}</button><button type="button" className={`video-generate-trigger${planReviewed && quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{planReviewed && quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></div></div>
+          {/* 9-11 二轮用户批注: 与电商生图统一为「一个主 CTA + 一个次按钮」—
+              未确认方案时只有主按钮 (分析并生成方案, 1 积分); 方案确认后才出现「开始生成」主按钮 + 「查看方案」次按钮。 */}
+          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger${planning ? ' is-busy' : ''}`} disabled={planning} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : activeAnalysis ? '查看并确认方案' : '分析并生成方案 · 1 积分'}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></>}</div></div>
         </footer>
       </section>
     </section>

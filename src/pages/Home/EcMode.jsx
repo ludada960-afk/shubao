@@ -28,6 +28,8 @@ import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '.
 import { uploadEcommerceAssets } from '../../services/api.js';
 import { archiveProductProfile, createProductProfile, getProjectAsset, listProductProfiles } from '../../services/projects.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
+import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
+import SkillLibraryModal from './ec/SkillLibraryModal.jsx';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
 import { createEcommerceGenerationPreconditionError, createEcommerceGenerationToken, ecommerceLoginPreflight, invalidateEcommerceGenerationRequest, isEcommerceGenerationTokenCurrent } from './ec/ecommerceTaskProgressModel.js';
 import { restoreCheckpointIntoEditor } from './ec/projectLifecycleModel.js';
@@ -353,6 +355,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 文字 — */
   const [description, setDescription] = useState('');
   const [userSkills, setUserSkills] = useState([]);
+  /* 9-11 二轮批注: 技能库入口移到「视觉方向」面板 (不再挂在输入框右侧); 技能以结构化字段进生成请求 */
+  const [skillOpen, setSkillOpen] = useState(false);
+  const applySkill = useCallback(skill => {
+    if (!skill?.body) return;
+    setUserSkills(current => {
+      const next = [...(current || [])];
+      if (!next.some(item => item.id === skill.id)) next.push({ id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body });
+      return next.slice(0, 2);
+    });
+    setSkillOpen(false);
+  }, []);
+  const removeSkillById = useCallback(id => setUserSkills(current => (current || []).filter(item => item.id !== id)), []);
 
   /* — 配置 — */
   const [platform, setPlatform] = useState('taobao');
@@ -455,6 +469,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       window.removeEventListener('mousedown', handleClick);
     };
   }, [activePanel]);
+
+  /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 (所有板块同规则) */
+  usePanelScrollLock(Boolean(activePanel));
 
   const adjustedPanels = deriveEffectiveSmartOverrides({
     platform,
@@ -892,7 +909,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           {activePanel === 'sizing' && (abilityRecipeId === 'anything_tryon'
             ? <TryOnPlanPanel sizing={sizing} onSizingChange={setSizing} />
             : <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />)}
-          {activePanel === 'style' && <StylePanel value={styleSkill} onChange={setStyleSkill} customColors={customColors} onColorsChange={setCustomColors} negativePrompt={genSettings.negativePrompt} onNegativePromptChange={(negativePrompt) => setGenSettings(current => ({ ...current, negativePrompt }))} />}
+          {activePanel === 'style' && <StylePanel value={styleSkill} onChange={setStyleSkill} customColors={customColors} onColorsChange={setCustomColors} userSkills={userSkills} onAddSkill={applySkill} onRemoveSkill={removeSkillById} onOpenSkillLibrary={() => setSkillOpen(true)} />}
           {activePanel === 'params' && <ParamsPanel mode={abilityRecipeId === 'anything_tryon' ? 'tryon' : 'product'} params={productParams} onChange={setProductParams} />}
           {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />}
           {activePanel === 'copy' && <CopyPanel copywriting={copywriting} onChange={setCopywriting} />}
@@ -1056,6 +1073,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           onRemoveProduct={removeProdImg}
           onRemoveReference={removeRefImg}
         />
+        <SkillLibraryModal open={skillOpen} onClose={() => setSkillOpen(false)} initialKind="image" onPick={applySkill} />
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
         {false && (
           <div style={{ display: 'none' }}>

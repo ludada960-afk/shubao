@@ -87,7 +87,7 @@ test('mode cards use original normalized artwork with transparent margins', asyn
   ]) assert.equal(existsSync(new URL(copiedAsset, import.meta.url)), false);
 });
 
-test('ecommerce controls put model first and keep negative constraints with visual direction', () => {
+test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; 画面风格=技能库真源 (9-11 二轮批注)', () => {
   const ecMode = readFileSync(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
   const settings = readFileSync(new URL('../src/pages/Home/ec/GenSettingsPanel.jsx', import.meta.url), 'utf8');
   const style = readFileSync(new URL('../src/pages/Home/ec/StylePanel.jsx', import.meta.url), 'utf8');
@@ -95,12 +95,18 @@ test('ecommerce controls put model first and keep negative constraints with visu
   const buttons = ecMode.match(/const DEFAULT_BUTTONS = \[([\s\S]*?)\n  \];/)?.[1] || '';
 
   assert.match(buttons.trimStart(), /^\{\s*key: 'settings'/);
-  assert.match(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/);
-  assert.match(ecMode, /onNegativePromptChange=/);
-  assert.doesNotMatch(settings, /避免出现的元素/);
+  /* 9-11 二轮: 「避免出现的元素」从视觉方向搬到生成设置 (生成约束与清晰度同族) */
+  assert.match(settings, /避免出现的元素/);
+  assert.match(settings, /商品结构变形、异常手部、乱码文字、无关道具/);
+  assert.doesNotMatch(style, /避免出现的元素/);
+  assert.doesNotMatch(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/);
   assert.match(settings, /generationUnits/);
   assert.match(settings, /<img src=\{model\.visual\}/);
-  assert.match(style, /避免出现的元素/);
-  assert.match(style, /商品结构变形、异常手部、乱码文字、无关道具/);
+  /* 画面风格 = 技能库「生图」内置技能 (唯一真源), 本地只留兜底视觉 */
+  assert.match(style, /fetchSkillLibrary\(\{ kind: 'image' \}\)/);
+  assert.match(style, /FALLBACK_STYLE_SKILLS/);
+  assert.doesNotMatch(style, /const STYLES = \[/);
+  assert.match(ecMode, /onOpenSkillLibrary=\{\(\) => setSkillOpen\(true\)\}/);
+  assert.match(ecMode, /userSkills=\{userSkills\} onAddSkill=\{applySkill\}/);
   assert.equal((catalog.match(/visual: '\/images\/models\//g) || []).length, 3);
 });

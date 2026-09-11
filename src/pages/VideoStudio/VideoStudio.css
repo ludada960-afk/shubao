@@ -142,6 +142,9 @@
 .video-error { margin-top: 10px; padding: 9px 11px; border: 1px solid #fecaca; border-radius: 7px; background: #fff7f7; color: #b42318; font-size: 12px; }
 
 .video-quick-tools { position: relative; margin: 10px 22px 0; display: flex; align-items: center; gap: 6px; }
+/* 9-11 二轮用户批注: @ 引用素材统一在输入框一行 (与电商生图一致) —
+   工具栏不再渲染重复的第二入口, 这里只保留模型选择。 */
+.video-quick-tools .video-inline-control:has(.video-icon-tool[aria-label="引用素材"]) { display: none; }
 .video-material-workspace { display: grid; gap: 12px; }
 .video-material-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .video-material-action { position: relative; min-width: 0; min-height: 86px; display: grid; grid-template-columns: 34px minmax(0,1fr); grid-template-rows: auto auto; align-content: center; column-gap: 10px; padding: 13px 14px; overflow: hidden; border: 1px solid rgba(68,55,43,.10); border-radius: 10px; background: #fff; cursor: pointer; transition: border-color .18s ease,background .18s ease,transform .18s ease; }

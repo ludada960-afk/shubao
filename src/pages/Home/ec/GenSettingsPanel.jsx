@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Monitor, Sparkles } from 'lucide-react';
+import { Coins, Monitor, ShieldAlert, Sparkles } from 'lucide-react';
 import { IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 
 const RESOLUTIONS = [
@@ -92,6 +92,22 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true })
               );
             })}
           </div>
+        </div>
+        {/* 9-11 二轮批注: 「避免出现的元素」从「视觉方向」迁到生成设置 —— 它属于生成约束, 与清晰度/模型同族 */}
+        <div>
+          <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <ShieldAlert size={13} color="#7c3aed" /> 避免出现的元素
+          </label>
+          <div style={{ marginBottom: 7, color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
+            建议填写商品结构变形、异常手部、乱码文字、无关道具等具体风险；只作为画面约束补充，不会改变商品实拍事实。
+          </div>
+          <input
+            aria-label="避免出现的元素"
+            value={safeValue.negativePrompt || ''}
+            onChange={event => set('negativePrompt', event.target.value)}
+            placeholder="商品结构变形、异常手部、乱码文字、无关道具"
+            style={{ width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 7, background: 'rgba(248,248,250,.92)', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 11, outline: 'none' }}
+          />
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '9px 10px', borderRadius: 9, background: 'rgba(124,58,237,0.06)', color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
           <Coins size={14} color="#7c3aed" style={{ marginTop: 1, flexShrink: 0 }} />

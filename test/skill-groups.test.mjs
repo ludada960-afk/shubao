@@ -62,7 +62,10 @@ test('groupId passes through validation untouched (route layer owns the ownershi
 
 test('every builtin skill ships a full prompt body within the injection limit', () => {
   const builtins = listBuiltinSkills();
-  assert.equal(builtins.length, 7);
+  /* 9-11 二轮: 内置技能扩容 — 5 套生图风格 + 5 个任务型生图技能 (白底/上身/场景/细节/多角度) + 2 个生视频模板 */
+  assert.equal(builtins.length, 12);
+  assert.equal(listBuiltinSkills('image').length, 10);
+  assert.equal(listBuiltinSkills('video').length, 2);
   for (const skill of builtins) {
     assert.ok(skill.body && skill.body.trim().length > 100, `builtin ${skill.id} body too short`);
     assert.ok(skill.body.length <= SKILL_LIMITS.body, `builtin ${skill.id} body exceeds user limit`);
