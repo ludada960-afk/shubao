@@ -592,24 +592,6 @@ export default function EcCanvas() {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
-  /* 9-11 用户批注#7: 技能按钮 → 打开既有技能库管理界面 (SkillLibraryModal, 与首页/视频页同一个),
-     选中技能回写节点: prompt 空才预填技能正文, skill/skillLabel 记名; 用户可再改。 */
-  const [skillLibraryTarget, setSkillLibraryTarget] = useState(null);
-  const openSkillLibrary = useCallback((nodeId, domain) => {
-    setSkillLibraryTarget({ nodeId, domain: domain || 'image' });
-  }, []);
-  const handleSkillLibraryPick = useCallback(skill => {
-    const target = skillLibraryTarget;
-    setSkillLibraryTarget(null);
-    if (!target?.nodeId || !skill) return;
-    const body = String(skill.body || skill.skillPrompt || '').trim();
-    setNodes(previous => previous.map(node => node.id === target.nodeId ? (() => {
-      const next = applyCanvasSkill({ prompt: node.prompt || '', skill: skill.slug || skill.name, skillBody: body });
-      return { ...node, ...next, skillLabel: next.skillLabel || skill.name };
-    })() : node));
-    if (body) showToast('技能已应用，提示词可继续修改', 'success');
-  }, [applyCanvasSkill, skillLibraryTarget, showToast]);
-
   /* P7 方案入画布: 首页发射器 payload (ec-plan-launch) → 素材行 + 方案节点
      (quick = 快速通道: 跳过方案, 直接套图生成节点)。物化即消费, 防重渲染重复铺开。 */
   useEffect(() => {
@@ -977,6 +959,24 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       setToast(null);
     }, 3000);
   }, []);
+
+  /* 9-11 二轮批注: 技能按钮 → 打开既有技能库管理界面 (SkillLibraryModal, 与首页/视频页同一个),
+     选中技能回写节点: prompt 空才预填技能正文, skill/skillLabel 记名 (showToast 之后声明, 避免 TDZ)。 */
+  const [skillLibraryTarget, setSkillLibraryTarget] = useState(null);
+  const openSkillLibrary = useCallback((nodeId, domain) => {
+    setSkillLibraryTarget({ nodeId, domain: domain || 'image' });
+  }, []);
+  const handleSkillLibraryPick = useCallback(skill => {
+    const target = skillLibraryTarget;
+    setSkillLibraryTarget(null);
+    if (!target?.nodeId || !skill) return;
+    const body = String(skill.body || skill.skillPrompt || '').trim();
+    setNodes(previous => previous.map(node => node.id === target.nodeId ? (() => {
+      const next = applyCanvasSkill({ prompt: node.prompt || '', skill: skill.slug || skill.name, skillBody: body });
+      return { ...node, ...next, skillLabel: next.skillLabel || skill.name };
+    })() : node));
+    if (body) showToast('技能已应用，提示词可继续修改', 'success');
+  }, [applyCanvasSkill, skillLibraryTarget, showToast]);
 
   const ensureCanvasMediaProject = useCallback(async (title = 'Canvas 媒体项目', kind = 'video') => {
     if (!state.logged) return null;

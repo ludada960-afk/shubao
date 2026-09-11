@@ -104,11 +104,25 @@ function CreativeDomainNav() {
   const closeTimer = useRef(null);
   const openTimer = useRef(null);
 
+  /* 9-11 二轮用户批注: 顶栏两态切换「跳动」— 单阈值 32px 在边界处反复翻转 (形态变化又会推动布局)。
+     改为迟滞阈值 (收起 >64 / 展开 <24) + rAF 合并同一帧内的多次 scroll 事件。 */
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 32);
-    handleScroll();
+    let frame = 0;
+    const apply = () => {
+      frame = 0;
+      const y = window.scrollY || 0;
+      setScrolled(current => (current ? y > 24 : y > 64));
+    };
+    const handleScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(apply);
+    };
+    apply();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {

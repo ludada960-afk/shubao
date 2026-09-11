@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
 import { Check, Info, LayoutTemplate, Layers3, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 import {
   MdAddPhotoAlternate,
@@ -172,21 +173,28 @@ function getVisualPanelPosition(panelId, button) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const baseWidth = { recipe: 440, specs: 500, settings: 460 }[panelId] || 460;
-  const desiredHeight = { recipe: 520, specs: 460, settings: 620 }[panelId] || 460;
+  /* 9-11 二轮用户批注: 面板打开要「一眼看全」— 提高目标高度, 并用满可用空间 (最多 92vh) */
+  const desiredHeight = { recipe: 720, specs: 620, settings: 740 }[panelId] || 620;
   const width = Math.min(Math.max(baseWidth, 400), Math.max(320, viewportWidth - 32));
   const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16));
   const gap = 10;
   const availableAbove = Math.max(0, rect.top - gap - 16);
   const availableBelow = Math.max(0, viewportHeight - rect.bottom - gap - 16);
-  const openAbove = viewportWidth <= 640 || availableAbove >= Math.min(260, desiredHeight) || availableAbove >= availableBelow;
+  /* 9-11 二轮用户批注: 「一眼看全」优先 — 选空间更大的一侧;
+     两侧都不够时允许面板越过触发条 (top:16 起, 最多 92vh), 不再强制在 396px 里滚动。 */
+  const openAbove = viewportWidth <= 640 || availableAbove >= availableBelow;
   const availableSpace = openAbove ? availableAbove : availableBelow;
+  const fullOverlayHeight = Math.min(desiredHeight, Math.round(viewportHeight * 0.92));
+  const needsOverlay = desiredHeight > availableSpace + 8 && fullOverlayHeight > availableSpace + 8;
 
   return {
     left,
-    top: openAbove ? undefined : Math.max(16, rect.bottom + gap),
-    bottom: openAbove ? Math.max(16, viewportHeight - rect.top + gap) : undefined,
+    top: needsOverlay ? 16 : (openAbove ? undefined : Math.max(16, rect.bottom + gap)),
+    bottom: needsOverlay ? undefined : (openAbove ? Math.max(16, viewportHeight - rect.top + gap) : undefined),
     width,
-    maxHeight: Math.max(180, Math.min(desiredHeight, availableSpace || desiredHeight)),
+    maxHeight: needsOverlay
+      ? fullOverlayHeight
+      : Math.max(220, Math.min(Math.round(viewportHeight * 0.92), desiredHeight, availableSpace || desiredHeight)),
     anchorX: rect.left + rect.width / 2,
   };
 }
@@ -223,6 +231,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const [showMentionMenu, setShowMentionMenu] = useState(false);
   const [previewItem, setPreviewItem] = useState(null);
   const [activeConfigPanel, setActiveConfigPanel] = useState(null);
+  /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 */
+  usePanelScrollLock(Boolean(activeConfigPanel));
   const [configPanelPos, setConfigPanelPos] = useState({
     left: 16,
     bottom: 100,
@@ -638,8 +648,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const renderConfigPanel = () => {
     if (!activeConfigPanel) return null;
     const panelMeta = {
-      recipe: { title: `${selectedSkill.title}方向`, description: '调整本次最重要的画面侧重', icon: <WandSparkles /> },
-      specs: { title: '画面规格', description: '设置发布比例与本次生成数量', icon: <LayoutTemplate /> },
+      /* 9-11 二轮用户批注: 面板头图标必须与下方触发按钮图标一致 (三块面板统一) */
+      recipe: { title: `${selectedSkill.title}方向`, description: '调整本次最重要的画面侧重', icon: <MdAutoAwesome /> },
+      specs: { title: '画面规格', description: '设置发布比例与本次生成数量', icon: <MdAspectRatio /> },
       settings: { title: '生成设置', description: '沿用电商生图的模型与清晰度控制', icon: <MdHighQuality /> },
     }[activeConfigPanel];
     return createPortal(
