@@ -375,7 +375,9 @@ function ComposerSources({ sources = [], role, onAddSources, onRemoveSource, upl
 }
 
 function ComposerMention({ availableSources = [], selectedSources = [], activeSurface = '', onSurfaceChange, onToggleSource }) {
-  return <div className="ec-canvas-composer-mention" aria-label="引用图片"><ImageMentionPicker images={availableSources} selectedImages={selectedSources} open={activeSurface === 'mention'} onOpenChange={open => onSurfaceChange?.(open ? 'mention' : closeCanvasComposerSurface())} selectionMode="insert" onToggle={onToggleSource} /></div>;
+  /* 9-12 用户批注：@ 选完没进输入框。根因——参考图已选中时，点 @ 列表里的它会走「取消选中」分支，
+     既不插入 @提及 还把参考图删了。@ 菜单的语义应是「插入提及」（未选中则同时选中），绝不在此处取消选中。 */
+  return <div className="ec-canvas-composer-mention" aria-label="引用图片"><ImageMentionPicker images={availableSources} selectedImages={selectedSources} open={activeSurface === 'mention'} onOpenChange={open => onSurfaceChange?.(open ? 'mention' : closeCanvasComposerSurface())} selectionMode="insert" onToggle={image => onToggleSource?.(image, { fromMention: true })} /></div>;
 }
 
 function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null }) {
@@ -770,8 +772,14 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
   if (!node) return null;
   const source = sources[0];
   const isLocalEdit = node.actionId === 'inpaint';
-  const handleToggleSource = sourceImage => {
+  const handleToggleSource = (sourceImage, options = {}) => {
     const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+    /* 来自 @ 菜单：只插入提及（未选中则顺带选中），绝不在菜单里取消选中 */
+    if (options.fromMention === true) {
+      if (!selected) onToggleSource?.(sourceImage, { skipPromptInsert: true });
+      promptFieldRef.current?.insertMention(sourceImage.label);
+      return;
+    }
     onToggleSource?.(sourceImage, { skipPromptInsert: true });
     if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
   };
@@ -805,8 +813,14 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
 export function CanvasTextGenerationComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
-  const handleToggleSource = sourceImage => {
+  const handleToggleSource = (sourceImage, options = {}) => {
     const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+    /* 来自 @ 菜单：只插入提及（未选中则顺带选中），绝不在菜单里取消选中 */
+    if (options.fromMention === true) {
+      if (!selected) onToggleSource?.(sourceImage, { skipPromptInsert: true });
+      promptFieldRef.current?.insertMention(sourceImage.label);
+      return;
+    }
     onToggleSource?.(sourceImage, { skipPromptInsert: true });
     if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
   };
@@ -923,11 +937,17 @@ export function CanvasEcommerceComposer({ node, position, sources = [], mentionS
     </> : <CanvasSuitePlanEditor plan={buildCanvasSuitePlan(node.suitePlan || directions[0], node.prompt)} onChange={plan => onChange?.({ suitePlan: plan })} />}
     <CanvasSuiteControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
     <div className="ec-canvas-composer-footer">
-      <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={source => {
+      <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={(source, options = {}) => {
         const sourceId = source.sourceNodeId || source.id;
         const hasProductSource = sources.some(item => (node.sourceRoles?.[item.sourceNodeId || item.id] || item.role) === 'product');
         const role = node.sourceRoles?.[sourceId] || (source.role === 'product' ? 'product' : '') || (hasProductSource ? 'reference' : 'product');
         const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === sourceId);
+        /* @ 菜单：只插入提及（未选中则顺带选中），不在菜单里取消选中 */
+        if (options.fromMention === true) {
+          if (!selected) onToggleSource?.(source, role, { skipPromptInsert: true });
+          promptFieldRef.current?.insertMention(source.label);
+          return;
+        }
         onToggleSource?.(source, role, { skipPromptInsert: true });
         if (!selected) promptFieldRef.current?.insertMention(source.label);
       }} />
