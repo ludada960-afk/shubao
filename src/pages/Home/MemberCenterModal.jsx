@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Coins, Gift, Wand2, Loader2, CheckCircle2, AlertCircle, Receipt, ChevronDown } from 'lucide-react';
 
 import { useApp } from '../../store/AppContext';
@@ -30,6 +31,15 @@ export default function MemberCenterModal({ open, onClose }) {
   const [rulesOpen, setRulesOpen] = useState(false);
 
   useModalScrollLock(open);
+
+  /* 9-12 兜底逃生：万一出现「遮罩在、卡片不可见」的情况，ESC 必须能关掉弹窗，
+     不能让用户被一块看不见的遮罩卡死。 */
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = event => { if (event.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
 
   const balance = useMemo(() => {
     if (state.unlimited) return '不限';
@@ -81,7 +91,11 @@ export default function MemberCenterModal({ open, onClose }) {
 
   if (!open) return null;
 
-  return (
+  /* 9-12 用户批注（"点会员中心/AI积分后页面变灰并完全卡住"）：
+     弹窗原来内联渲染在应用外壳里，会被祖先的层叠/滚动/滤镜上下文影响，
+     出现「遮罩在、卡片不在」→ 页面被遮罩挡住且无法操作。
+     统一 portal 到 body，保证固定定位与层级不受任何祖先影响。 */
+  const overlay = (
     <div className="member-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
       <div className="member-modal" role="dialog" aria-modal="true" aria-label="会员中心">
         <header className="member-head">
@@ -174,4 +188,5 @@ export default function MemberCenterModal({ open, onClose }) {
       </div>
     </div>
   );
+  return typeof document === 'undefined' ? overlay : createPortal(overlay, document.body);
 }
