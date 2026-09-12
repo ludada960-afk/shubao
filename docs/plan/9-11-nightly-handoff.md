@@ -86,3 +86,30 @@
   ⇒ 即"Nano Banana 2"选项此前对所有用户都是坏的，现已修复（线上重启完成，health 正常，备份 `.env.bak-912`）。
   - Change2Pro 可用模型名：`gemini-3.1-flash-image`、`gemini-3-pro-image`、`gemini-3-pro-image-preview`、`gemini-3.1-flash-image-preview`。
 
+
+## 六、待办交接（9-12 夜，用户已睡；上下文预算耗尽，以下均未动工，仓库干净、3142 全绿）
+
+### 6.1 首页「带设计方案」进画布没带素材、没建生成节点（用户截图实证）
+- 入口：`src/pages/Home/EcMode.jsx`
+  - 弹窗二选一：1697-1720 行（`ec-mode-chooser`，「带设计方案」→ `handleNext(false)`；「快速生成」→ `handleNext(true)`）
+  - 主流程：`handleNext`（514 行起）——先上传各角色素材、再进画布。**需要在进画布时把素材与生成要求落成可见节点**。
+- 现象：点「带设计方案」→ 画布已提示"设计方案已存在 · 去为「生成方案」(1 积分)"，但**素材没带进来、也没建生成节点**，用户看到"根本没生成"。
+- 排查切入点：`handleNext` 尾部把 payload 交给画布的路径（`dispatch({ type: NAVIGATE ... })` / canvas seed），以及画布侧消费 seed 的地方（`src/pages/EcCanvas/index.jsx` 里读 result/canvasSeed 的分支）；确认是否只传了 prompt/plan 而漏了 `sourceNodeIds`/节点创建。
+- 验收：点「带设计方案」→ 画布出现：① 各素材来源节点（按 6.3 的避让排版）② 一个「生成方案」节点且已连线、已带入生成要求；点「快速生成」同样带素材但跳过方案节点。
+
+### 6.2 弹窗两个选项歪左边，要居中并吸附在「下一步」正上方
+- 同文件 1697-1720 行；`ec-mode-chooser` 的定位 CSS（`src/styles/app-shell.css` 或 EcMode 专属样式表）。
+- 目标：横向居中于触发按钮、纵向紧贴按钮上沿（吸附，不飘到左侧）。
+
+### 6.3 已完成（供对照，勿重复改）
+- 生成节点内上传素材：`resolveSourceStackPlacement`（`src/pages/EcCanvas/canvasStudioModel.js`）——同列 + 从已有来源下方 + 矩形避让不重叠；`index.jsx` 4782 起的三类来源统一走它。
+- @ 菜单插入提及：`fromMention` 语义（三处 composer），不取消选中。
+- image2 同模型备用供应商：`createProviderRouter({ primary: 65535, overflow: IP233 })`，env `IMAGE_BACKUP_BASE_URL/API_KEY`；`openai-images` 协议在 `server/ecommerceEngine/providerAdapter.mjs`。
+
+### 6.4 nano / 视频备用（用户明确要求）
+- 现状：`server/index.mjs` 4080 行 `createNanoBananaProviderAdapter(...)` 与视频任务客户端都是**单适配器、无主备**。
+- 做法：照 image2 的样板包 `createProviderRouter({ primary, overflow })` + failover（同模型、只切一次、用户零信息）。
+  - nano：主 Change2Pro `gemini-3.1-flash-image`/`gemini-3-pro-image`；备 IP233 `nano-banana2`/`nano-banana-pro`（走 openai-images 协议 + 分辨率映射）。
+  - 视频：主 IP233；备 65535 seedance 系列。**用户要求只装配、不实跑**。
+- 约定：env 读取一律 `trim()`，空白视为未配置（`test/image-backup-env-guard-0912.test.mjs` 已锁，血泪教训：空值曾导致全站 502）。
+
