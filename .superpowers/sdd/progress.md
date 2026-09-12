@@ -1,8 +1,63 @@
 # Subagent-Driven Development Progress
+## 2026-09-11 六轮（视频模型「全上」）→ 9bfa8cee 上线
 
+- 用户拍板全上：Grok 极速 / 通义万相 3.0 / 可灵 3.0 / 可灵 3.0 Pro / Veo 3.1 Fast / Seedance 2.5 六档新增 + MiniMax H3 2K 开公开 → 公开档 10 个。
+- 权威价目来源：`GET https://api-new.ip233.com/api/pricing`（实测，156 行，86 个视频模型有报价），落档 docs/research/ip233-model-pricing-20260911.md。
+- 定价口径：用户价 = 成本/(1−54%)，units = priceCny×3819 向上取整且面值≥现金价；22 个 video SKU 全过地板。
+- **自查发现并纠正了我上一轮建议表的 5 处算错**（按秒当按条/漏算时长）：Veo 17→11、万相 10→4、Seedance2.5 24→43、可灵Pro 21→32、Grok 8→7；其中可灵Pro 原价毛利仅 30% 会破 40% 地板、Seedance2.5 原价会亏本。
+- MiniMax H3 2K：成本 0.76→¥5.85（IP233 价目），¥14.9 下毛利仅 57.8% 跌破高端带 → 改判 ¥16.9/65000 归主力带（62.6%）。
+- 路由：候选排序改可用性优先；公开投影 long 档按产品时长上限收敛。
+- 门禁 3123/3123 + build 绿；线上实测 10 档报价与积分正确。
 
+## 2026-09-11 五轮批注（视频生成失败 P0 + MiniMax 接入 + 技能库 UX）→ 4838904a 上线
 
+- **P0 视频生成失败**：实测复现 —— 视频方案分析走识图模型 gpt-5.6-luna，90.7s 后 `VISUAL_ANALYSIS_TIMEOUT`；同机的文本 LLM（DeepSeek）**key 401 失效**，所以没有兜底快路径。修复：按 payload 路由（无图→文本模型 30s；有图→识图 45s，均不重试）+ `buildLocalVideoPlan` 本地兜底（四段式镜头结构，degraded 标注写进 risks）+ 兜底不扣费。
+- **MiniMax 上架**：探测 IP233 `/v1/models` → 124 个模型、同一把 key 全通；新增 **MiniMax H3 768P**（routeId `minimax-h3-768p`，¥4.55/条 → 38000 units/¥9.9/54% 毛利）+ SKU/计量/台账/成本口径/中文标签；公开产品 2→3。
+- **技能库 UX**：内置技能加「使用」（直接生效，不再强制派生）、提示 4s 自动消失 + 手动关闭、弹窗 1440×88vh。
+- **视频页**：模型控件与配置按钮同款两行结构。
+- 门禁 3124/3124 + build 绿；部署校验脚本同步接受 3 个公开产品。
 
+## 2026-09-11 四轮用户批注（视觉方向并入技能库 + 单按钮二选一 + 滚动锁修复 + 画布去重）→ c2671446
+
+- **P0 页面锁死**（用户："关掉之后我竟然没有办法再滑动首页了"）：`useModalScrollLock` 与面板锁各自记录"打开前的值"，叠开时后关者把别人锁出来的 hidden 当原值还原 → body 永久 hidden。改为**共享计数 + 首次快照原值**（`acquirePageScrollLock`），面板锁复用同一份；Playwright 实测弹层关闭后 window.scrollBy 生效。
+- **视觉方向 → 技能库（用户："一整个拿掉，替换成技能库"）**：首页触发按钮改「技能库」，点开直接弹技能库（不再面板+弹窗叠放冲突）；品牌主色调迁入生成设置；技能库弹窗**做宽不做高**（1360×78vh，顶部从导航下 96px 起，不再被导航盖住）。
+- **技能正文格式纠正**（用户："你为什么把向我交代的东西暴露给用户"）：改为 `英文原参数 (中文翻译)`，删除全部面向内部的说明文字。
+- **首页下一步**：并排两个按钮取消 → 一个「下一步」+ 点开二选一浮层（带设计方案 / 快速生成·跳过方案）。
+- **画布**：节点工具条只留一个素材动作「加入素材库」（移除语义冲突的「发往视频项目」节点按钮，投递能力保留在电商工作台）；**左加号与右加号完全同功能**（点击开派生菜单，不再是死锚点）；「模板广场」与「工作流模板」合并为一个「模板广场」。
+- **视频页**：技能库升为一级入口（工具栏按钮直接开弹窗），生成设置内只显示已选技能。
+- **门禁**：全量 3124/3124 + build 绿；浏览器实测：技能库触发/宽度/关闭后滚动、画布工具条动作、左加号可交互、模板入口唯一。
+
+## 2026-09-11 三轮用户批注（画布白屏 P0 + 风格/技能合一 + 面板滚动锁定 + 导航去抖 + 视频页统一）→ e1e3024d + 9c90aa0a
+
+- **P0 画布打不开（用户："然后画布现在又打不开了"）**：根因 = 上一轮把技能库回调 `handleSkillLibraryPick` 插在 `showToast` 声明**之前**，依赖数组立即求值触发 TDZ (Cannot access 'showToast' before initialization) → 画布整页崩。已把整块移到 `showToast` 之后；**Playwright 实测** `?qa=ec-canvas` → canvas:true / 6 节点 / 零 JS 报错。
+- **画面风格 = 技能库唯一真源**：StylePanel 删掉自建 `STYLES` 真源（改 `FALLBACK_STYLE_SKILLS` 仅作接口不可用时的显示兜底），画面风格卡片由 `/api/skills?kind=image` 驱动；技能库入口从输入框右侧移到「视觉方向」面板内；任务型技能（白底/上身/场景/细节/多角度）可在面板里叠加选择（≤2），与画布技能入口同源。
+- **避免出现的元素**：从「视觉方向」迁到「生成设置」（负向约束与清晰度/模型同族）。
+- **技能正文中英双语 + 扩容**：5 套风格技能正文改为「中文说明 + EN 原始参数」双写（模型仍拿原英文令牌，用户看得懂）；新增 5 个任务型生图技能；内置共 12（10 图 + 2 视频）。
+- **首页全面板滚动锁定**：新增 `src/components/ui/usePanelScrollLock.js` — 面板打开时 body/html 锁滚（滚动条宽度补偿），滚轮在面板外只滚当前面板；已接电商生图与自由创作（其余面板族共用同一 hook）。Playwright 实测：面板打开时滚轮 400px → window.scrollY 不变。
+- **顶部导航去抖**：单阈值 32px 无迟滞 → 改「收起 >64 / 展开 <24」+ rAF 合并；实测 0→80px 滚动只发生 1 次形态切换（原为边界反复翻转）。
+- **自由创作面板一屏看全 + 图标统一**：目标高度 720/620/740，两侧空间不足时允许越过触发条（16px 起、92vh 上限）；实测面板高度 396px → 620px；面板头图标改用与触发按钮同一套图标。
+- **视频生成页与电商生图统一**：未确认方案时只留 1 个主 CTA（分析并生成方案 · 1 积分），确认后才是「查看方案」次按钮 + 「开始生成」主按钮；@ 引用素材移到输入框一行（工具栏同款入口去重）；技能库入口进「生成设置」面板。
+- **门禁**：全量 3124/3124 + build 绿；SKILL 计数断言更新（12 内置）。浏览器实测覆盖：画布开屏、面板滚动锁定、导航迟滞、技能入口位置。
+
+## 2026-09-11 二轮用户批注 ①-⑨（素材/作品逻辑 + 画布交互 + 标注/技能/首页面板 + 视频入口收敛）→ ed4c39a8 + e1377172
+
+- **① 素材/作品逻辑重构（用户质问后的裁决）**：上传/替换**不再自动进素材库**（去掉「已替换素材，正在后台保存原图」「N 个素材尚未归档到项目」机制与 toast）；素材库 = 生成物自动归集（作品）+ 用户显式「加入素材库」（新增 selection 工具条动作 save-to-assets，仅就绪且带 url 的 image/output/video/audio 节点可点）；「重试扫描」卡死修复（每条待归档记录累计失败次数，连续 2 败移出清单）。
+- **②** 点画布空白同时收起右栏（派生菜单/图片编辑器随顶栏一起关）。**③** 加号与连线端点真正重叠（删 media 节点 `-17px` 垂直偏移，统一节点垂直中心，几何端点 ±17px 水平不变）。**④** 替换后节点框随新素材宽高比自适应（高不变重算宽）+ 本地 data URI 预览兜底直到持久图解码成功（handleImagePreviewReady 清理 localPreviewUrl），消除替换后空白闪屏。
+- **⑤** 图片标注工具对标流影AI：箭头改 V 形箭尾手算（弃 SVG marker context-stroke，Chrome 不支持）、文字标注输入框加大加描边、粗细滑块带标签+实时值。**⑥** 技能按域分域（生图节点=白底主图/模特试穿/场景详情；视频生成器=换装短视频/口播带货，filterCanvasSkills）+ 技能按钮「更多技能/技能库」打开既有 SkillLibraryModal（initialKind 按域，选中技能回写节点：prompt 空才预填技能正文 + skill/skillLabel）。
+- **⑦** 首页套图方案面板：切换目标语言不再误标「生成设置已调整」（workbenchState settings 条件去 targetLanguage）；面板滚动隔离（.ec-config-panel max-height + overscroll-behavior: contain）；双发射按钮合并为同款紧凑组（主=「下一步 · 带方案」实心紫，次=「快速生成」ghost，去三色渐变/内嵌小字）。
+- **⑧→⑨ 视频入口（用户裁决：方案一）**：移除侧栏「视频创作」按钮；顶部「视频生成」域 + 首页视频模块/工作台保留（发往视频项目落点不断链），画布视频生成器照旧；P9 画布视频视图落地后再议彻底合并。
+- **门禁**：全量 3124/3124（3113 + canvas-material-works-0912 11 项，更新 registry/state 断言），build 绿；提交 ed4c39a8（11 文件）+ e1377172（App.jsx）。
+
+## 2026-09-11 节点生态 9-11 执行轮（TTS volc 真链路 + agv 快档 + UI 一致性 8 项 + P7 方案入画布）→ 8152bef9 已上线
+
+- **e6c3c6d6** TTS 火山 Seed-TTS 2.0 v3 契约（ttsBridge：/api/v3/tts/unidirectional + X-Api-Resource-Id: seed-tts-2.0 + NDJSON 解析 + 默认音色 zh_female_vv_uranus_bigtts Vivi 2.0，本地 .env 配 key；桥测试 mockAudio:false 25965B 真 MP3）+ 视频快试档切 agv-seedance2.0fast（¥0.91/条：videoCatalog routeId + billing catalog cost 0.91/subsidizedTeaser 移除 + upstreamLedger ip233-agv-seedance-fast（旧 ip233-sd5-fast retired）+ videoMeter 按条计价 + costBasis 登记；用户价 27 积分/¥6.9 不变，毛利≈84% 过 40% 地板，TEASER_SUBSIDY 告警清除）。
+- **1f568320** 8 项画布 UI 一致性（9-11 图片批注：删除后右栏残留回收器/运行按钮纯图标+tooltip/连线动画/加号端点几何 ±17（CANVAS_PORT_CENTER_OFFSET=17，连线终点=加号中心）/工作流建议卡 8s 自消/运行确认弹窗卡片化/替换胶囊节点化/技能 popover 5 技能预填 + 视频模型动态清单；canvas-ui-consistency-0911 契约 7 测试；全量 3103/3103）。
+- **bfea6c07 + 8152bef9** P7 方案入画布：设计方案=画布对象（design-direction 节点 CanvasDirectionNode：生成方案 1 积分/换一套 1 积分/应用到画布派生套图生成器 design-plan 连线）+ 首页发射器化（「下一步·带设计方案」素材行+方案节点；「快速生成·跳过方案」直出套图生成器节点）；不变式① analysis/refresh 先 quoteBillingAction 后 getDesignDirections；不变式② 旧 ecStep=2 整页保留可读；契约测试 canvas-plan-launch(6)+ec-plan-launch-wiring(4)。
+- **门禁**：全量 3113/3113（基线 3103+10 新测试），npm run build 绿，source-hygiene 绿。
+- **部署**：deploy-production.ps1 -ValidationProfile frontend → release 20260911-151025-8152bef9 正常切换，PM2 online，/health ok。脚本 exit 1 仅因本机 SSL 出口不稳致 public gallery verify 3 连败（远端侧健康检查全过、部署锁已释放、无回滚副作用）。
+- **线上探针**：/api/billing/rules 含 ec_tts_voice(0.5 积分/条) + P7 两 SKU(各 1 积分) + 视频 SKU 用户价不变；/api/workflow-templates 5 内置模板；入口 bundle index-DtMVGsBs.js。
+- **线上 TTS 转真**：TTS_API_KEY_VOLCENGINE 经 SSH 注入 server/.env + 根 .env（注意：deploy 回滚会还原 .env 旧快照，本次注入曾被打掉一次，已重注；下次部署 pre-backup 含 key 自愈）；PM2 重启后单条真实调用 mockAudio:false + 真 MP3（ID3 头）验证通过。
+- **遗留**：agv 快档首条真实账单落库后对账校准（upstreamLedger 已留 note）；cloudflare-tunnel 持续 errored（历史遗留，nginx 正常）；65535 快档维持拒绝（未报价）；P8/P9 未启动。
 
 ## 2026-09-01 画布小地图修复 + 部署完成
 
