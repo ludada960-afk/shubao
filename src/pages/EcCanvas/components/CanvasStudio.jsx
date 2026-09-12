@@ -192,19 +192,26 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
       const Icon = ACTION_ICONS[action.id] || WandSparkles;
       const compact = isCompactCanvasToolbarAction(action.id);
       const isDisabled = Boolean(action.disabled);
+      /* 9-12 用户批注：点过「加入资产库」之后按钮要**高亮**，一眼看出这个节点已经是资产了。
+         判断依据是节点已挂上项目资产引用（assetRef / projectAssetId）。 */
+      const alreadyAsset = action.id === 'save-to-assets'
+        && Boolean(node?.assetRef || node?.projectAssetId || node?.projectAssetRef);
+      const label = alreadyAsset ? '已加入资产库' : action.label;
       return <button
         key={action.id}
         type="button"
-        className={compact ? 'is-compact' : ''}
-        aria-label={action.label}
+        className={[compact ? 'is-compact' : '', alreadyAsset ? 'is-active' : ''].filter(Boolean).join(' ')}
+        data-added-to-assets={alreadyAsset ? 'true' : undefined}
+        aria-pressed={action.id === 'save-to-assets' ? alreadyAsset : undefined}
+        aria-label={label}
         aria-disabled={isDisabled || undefined}
-        title={isDisabled ? (action.disabledHint || '暂时不可用') : (action.description || action.label)}
+        title={isDisabled ? (action.disabledHint || '暂时不可用') : (alreadyAsset ? '这个素材已在资产库中' : (action.description || action.label))}
         disabled={isDisabled}
         onPointerDown={event => event.stopPropagation()}
         onClick={() => { if (!isDisabled) onAction?.(action, node); }}
       >
         <Icon size={16} />
-        {!compact && <span>{action.label}</span>}
+        {!compact && <span>{label}</span>}
       </button>;
     })}
     {delivery && <button type="button" data-video-delivery="true" aria-label="发往视频项目" title={delivery.hint || '把该素材发往视频项目，可绑为镜头首帧'} onPointerDown={event => event.stopPropagation()} onClick={() => delivery.onSend?.(node)}>

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { listProjectAssetLibrary } from '../services/projects.js';
 import { projectAssetToEcommerceImage } from '../services/api.js';
 
-// 通用素材库选择弹窗：从统一素材库(project_assets)选取图片/视频/音频
+// 通用资产库选择弹窗：从统一资产库(project_assets)选取图片/视频/音频
 // props: { open, onClose, onPick(assets), mediaKind='image', multi=true, title }
-export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 'image', multi = true, title = '从素材库选择' }) {
+export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 'image', multi = true, title = '从资产库选择' }) {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,7 +18,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
       const list = await listProjectAssetLibrary({ mediaKind, query: q || '', limit: 200 });
       setAssets(Array.isArray(list) ? list : []);
     } catch (err) {
-      setError(err?.message || '素材库读取失败');
+      setError(err?.message || '资产库读取失败');
       setAssets([]);
     } finally {
       setLoading(false);
@@ -72,8 +72,8 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
             <div role="alert" style={{ padding: 14, border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{error}</div>
           ) : !assets.length ? (
             <div style={{ padding: 24, textAlign: 'center', color: '#8a929d', fontSize: 12 }}>
-              素材库暂无可用的{mediaKind === 'image' ? '图片' : mediaKind === 'video' ? '视频' : '音频'}素材。
-              <br />提示：在作品卡片上点「加入素材库」，即可把生成结果收录进来复用。
+              资产库暂无可用的{mediaKind === 'image' ? '图片' : mediaKind === 'video' ? '视频' : '音频'}素材。
+              <br />提示：在作品卡片上点「加入资产库」，即可把生成结果收录进来复用。
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 10 }}>

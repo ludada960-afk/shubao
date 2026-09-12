@@ -1292,7 +1292,7 @@ export default function VideoCanvasWorkbench({
                 </button>
               </li>
             ))}
-            {!namedUploads.length && !namedLibrary.length && <li className="is-empty">先在上方快速生成区上传素材，或从项目素材库导入。</li>}
+            {!namedUploads.length && !namedLibrary.length && <li className="is-empty">先在上方快速生成区上传素材，或从项目资产库导入。</li>}
           </ul>
           {!!workbench?.assets?.length && <p className="vcb-approved-count"><Check size={13} />已确认素材 {workbench.assets.length} 个已作为画布素材卡展示。</p>}
           {deliveredAssets.length > 0 && <div className="vcb-received" data-testid="canvas-delivery-inbox">
@@ -1407,7 +1407,7 @@ export default function VideoCanvasWorkbench({
               <header><MousePointerSquareDashed size={12} /><span>{node.title.slice(0, 18)}</span></header>
               <NodePreview url={node.previewUrl} kind={node.kind} label={node.title} />
               <footer>
-                <span className="vcb-asset-source">{node.source === 'upload' ? '上传素材' : node.source === 'library' ? '项目素材库' : '已确认'}</span>
+                <span className="vcb-asset-source">{node.source === 'upload' ? '上传素材' : node.source === 'library' ? '项目资产库' : '已确认'}</span>
                 {node.kind === 'audio' && node.sourceAssetId && node.sourceAssetVersionId && (
                   <button type="button" data-no-drag
                     className="vcb-add-audio-track"

@@ -3,7 +3,7 @@
  *
  * 3 路入口悬浮按钮:
  *   1) 📦 商品档案    → listProductProfiles 拉取, 选 profile 后列出 assets
- *   2) 🎨 公共素材库  → /api/templates/public?cat=product-main,product-scene
+ *   2) 🎨 公共资产库  → /api/templates/public?cat=product-main,product-scene
  *   3) ⬆️ 本地上传    → <input type=file> 选图 → 转 dataURL
  *
  * 每路点击后展开"可拖动素材卡"缩略图, 用户把缩略图拖到画布节点

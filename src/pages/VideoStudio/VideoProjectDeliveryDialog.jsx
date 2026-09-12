@@ -178,7 +178,7 @@ export default function VideoProjectDeliveryDialog({
           </div>
           {!!shotChoices.length && <label className="vdd-field"><span>绑为镜头首帧（可选）</span>
             <select value={bindShotId} onChange={event => setBindShotId(event.target.value)} disabled={busy}>
-              <option value="">不绑定，仅入素材库</option>
+              <option value="">不绑定，仅入资产库</option>
               {shotChoices.map(choice => <option key={choice.shotId} value={choice.shotId}>{choice.label}</option>)}
             </select>
           </label>}

@@ -89,7 +89,7 @@ test('selecting a profile applies globally and fills the product slot from saved
 });
 
 test('creation verb row keeps upload actions only and drops the library button', () => {
-  assert.doesNotMatch(workbench, /从素材库选择/);
+  assert.doesNotMatch(workbench, /从资产库选择/);
   assert.doesNotMatch(workbench, /ProjectAssetPicker/);
   assert.doesNotMatch(workbench, /onPickFromLibrary/);
   assert.match(workbench, /'产品图'/);

@@ -85,7 +85,7 @@ export function restoreCanvasMediaPlayback(nodes = [], assets = []) {
     return {
       ...node,
       mediaPlaybackStatus: 'unavailable',
-      mediaPlaybackError: '暂时无法恢复播放地址，请稍后重试或从项目素材库重新保留素材',
+      mediaPlaybackError: '暂时无法恢复播放地址，请稍后重试或从项目资产库重新保留素材',
     };
   });
 }

@@ -42,7 +42,7 @@ test('⑦ 切换目标语言不再触发「生成设置已调整」(语言属商
   assert.equal(res.settings, true, '分辨率/负向词仍算生成配置调整');
 });
 
-test('① 素材/作品: 上传与替换不再自动归档, 素材库只收用户显式收藏; 生成物仍自动归集', () => {
+test('① 素材/作品: 上传与替换不再自动归档, 资产库只收用户显式收藏; 生成物仍自动归集', () => {
   const canvas = read('src/pages/EcCanvas/index.jsx');
   const uploadBlock = canvas.match(/canvasImportId: `upload-\$\{uploadStartedAt\}`[\s\S]*?已加入 \$\{uploadedNodes\.length\} 张图片[\s\S]*?图片上传失败，请重试/)?.[0] || '';
   assert.ok(uploadBlock.length > 0);
@@ -57,10 +57,10 @@ test('① 素材/作品: 上传与替换不再自动归档, 素材库只收用�
   assert.match(canvas, /attempts >= 2/, '死记录 2 次失败即移除');
 });
 
-test('① 素材库动作: 工具条「加入素材库」注册在 selection 表面', () => {
+test('① 资产库动作: 工具条「加入资产库」注册在 selection 表面', () => {
   const registry = read('src/pages/EcCanvas/canvasActionRegistry.js');
-  assert.match(registry, /action\('save-to-assets', '加入素材库', \['selection'\]/);
-  assert.match(registry, /user 的素材库由用户显式定义|素材库由用户显式定义/);
+  assert.match(registry, /action\('save-to-assets', '加入资产库', \['selection'\]/);
+  assert.match(registry, /user 的资产库由用户显式定义|资产库由用户显式定义/);
 });
 
 test('② 点画布空白: 顶栏与右栏 (派生菜单/图片编辑器) 同时收起', () => {

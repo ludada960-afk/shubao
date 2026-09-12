@@ -286,7 +286,7 @@ test('Canvas works category filters stay inside the mobile content column', () =
   assert.match(canvasCss, /@media\s*\(max-width:\s*620px\)[\s\S]*?\.ec-canvas-work-filters button\s*\{[\s\S]*?min-width:\s*0/);
 });
 
-test('Canvas keeps uploads out of the auto asset library (9-11 用户批注①): 上传/替换只做草稿持久化, 素材库走用户显式收藏', () => {
+test('Canvas keeps uploads out of the auto asset library (9-11 用户批注①): 上传/替换只做草稿持久化, 资产库走用户显式收藏', () => {
   const uploadBlock = canvasSource.match(/canvasImportId: `upload-\$\{uploadStartedAt\}`[\s\S]*?已加入 \$\{uploadedNodes\.length\} 张图片[\s\S]*?图片上传失败，请重试/)?.[0] || '';
   assert.ok(uploadBlock.length > 0, '上传块应存在');
   assert.doesNotMatch(uploadBlock, /importCanvasImageAssets/);
@@ -310,8 +310,8 @@ test('Canvas keeps failed project asset archives actionable and retries them aga
   assert.match(canvasSource, /importImageAssetToProject/);
   assert.match(canvasSource, /importVideoAssetToProject/);
   assert.match(canvasSource, /attachCanvasProjectAssetRef\(\{[\s\S]{0,80}\.\.\.node,/);
-  assert.match(canvasSource, /待归档素材/);
-  assert.match(canvasSource, /重试归档/);
+  assert.match(canvasSource, /素材待处理/);
+  assert.match(canvasSource, /重试处理/);
   assert.match(canvasSource, /createCanvasSnapshot\(\{ nodes, connections, viewport, pendingProjectAssetImports \}\)/);
   assert.match(canvasSource, /normalizePendingProjectAssetImports\(rawRemoteSnapshot\.pendingProjectAssetImports\)/); /* P2 Stage-2 var rename; normalization on remote-restore preserved */
 });

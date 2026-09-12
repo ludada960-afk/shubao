@@ -38,7 +38,7 @@ test('ASSET_DRAG_SOURCE_LABELS covers every source key', () => {
   }
 });
 
-test('ASSET_DRAG_PRESET_BUTTONS has three entries (商品档案 / 公共素材库 / 本地上传)', () => {
+test('ASSET_DRAG_PRESET_BUTTONS has three entries (商品档案 / 公共资产库 / 本地上传)', () => {
   assert.equal(ASSET_DRAG_PRESET_BUTTONS.length, 3);
   const keys = ASSET_DRAG_PRESET_BUTTONS.map((b) => b.key);
   assert.deepEqual(keys, [

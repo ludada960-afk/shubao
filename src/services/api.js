@@ -649,7 +649,7 @@ export async function uploadEcommerceAsset({ data, file, role = 'product', signa
   return parseEcommerceUploadResponse(res, role);
 }
 
-// 把素材库(project_assets)记录转换为电商生成可直接使用的"已拥有资产引用"(不再重复上传)
+// 把资产库(project_assets)记录转换为电商生成可直接使用的"已拥有资产引用"(不再重复上传)
 export function projectAssetToEcommerceImage(asset, role = 'reference') {
   if (!asset?.projectAssetId || !asset?.projectId) return null;
   const stableUrl = String(asset.stableUrl || '').trim();

@@ -196,7 +196,7 @@ export async function listProjectAssetLibrary({ projectId = '', projectKind = ''
   if (query) searchParams.set('query', query);
   if (limit != null) searchParams.set('limit', String(limit));
   const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
-  const response = await requestJson(`/api/project-assets${suffix}`, {}, '暂时无法读取项目素材库');
+  const response = await requestJson(`/api/project-assets${suffix}`, {}, '暂时无法读取项目资产库');
   return Array.isArray(response?.assets) ? response.assets : [];
 }
 
@@ -305,8 +305,8 @@ export async function addToProjectAssetLibrary(projectId, projectAssetId, visibl
   const response = await requestJson(`/api/projects/${pid}/assets/${aid}/library`, {
     method: 'POST',
     ...jsonBody({ visibleInLibrary }),
-  }, '暂时无法加入素材库');
-  if (!response?.asset?.projectAssetId) throw new Error('素材暂时无法加入素材库，请稍后重试');
+  }, '暂时无法加入资产库');
+  if (!response?.asset?.projectAssetId) throw new Error('素材暂时无法加入资产库，请稍后重试');
   return response.asset;
 }
 

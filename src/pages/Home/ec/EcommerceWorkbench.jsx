@@ -40,7 +40,7 @@ const AddCard = EcommerceAddCard;
 
 // P2 跨域投递入口 b：电商套图成图卡 → 「发往视频项目」。
 // 仅当图片带 canonical 引用（projectId + projectAssetId + 内容哈希，
-// 如素材库/商品档案带入的图）时浮出按钮；投递链路复用既有 API。
+// 如资产库/商品档案带入的图）时浮出按钮；投递链路复用既有 API。
 function DeliverableImageCard({ image, deliverLabel, onRemove, onSendToVideo }) {
   const ref = deliverableRefFrom(image);
   if (!ref) return <ImageCard role={deliverLabel.role} image={image} label={deliverLabel.label} index={deliverLabel.index} onRemove={onRemove} />;

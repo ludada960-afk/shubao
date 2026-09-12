@@ -127,9 +127,9 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
         {styleImages.map((url, index) => <EcommerceImageCard key={`${url}-${index}`} role="reference" image={{ url, status: 'loaded' }} label={`风格参考 ${index + 1}`} index={index} onRemove={() => onRemove('style', index)} />)}
         {styleImages.length < 3 && <EcommerceAddCard role="reference" label="风格参考" meta="构图或色调" optional title="添加风格参考" onClick={() => styleInputRef.current?.click()} />}
         {onPickLibraryUrls && (
-          <button type="button" onClick={() => setLibraryOpen(true)} aria-label="从素材库选择" style={{ minWidth: 92, minHeight: 110, padding: '8px 6px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          <button type="button" onClick={() => setLibraryOpen(true)} aria-label="从资产库选择" style={{ minWidth: 92, minHeight: 110, padding: '8px 6px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <span style={{ fontSize: 17 }}>🗂️</span>
-            <span>素材库</span>
+            <span>资产库</span>
           </button>
         )}
       </div>
@@ -142,7 +142,7 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
           onPick={assets => onPickLibraryUrls(assets.map(asset => asset.stableUrl).filter(Boolean))}
           mediaKind="image"
           multi
-          title="从素材库选择图片"
+          title="从资产库选择图片"
         />
       )}
     </div>

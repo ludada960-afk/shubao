@@ -390,7 +390,7 @@ test('unified project asset library is signed, filtered, and display-safe', asyn
   const { app, db, projectStore, sessionTokens } = createHarness();
   t.after(() => db.close());
   const owner = 'library-owner@example.com';
-  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '统一素材库' });
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '统一资产库' });
   projectStore.createProjectAsset({ ownerEmail: owner, projectId: project.id, assetId: 'library-image', stableUrl: '/api/generated-assets/library-image.webp', contentHash: 'library-image-hash', mimeType: 'image/webp' });
   const listed = await invoke(app, 'GET', '/api/project-assets', {
     headers: signedHeaders(sessionTokens, owner),
@@ -403,7 +403,7 @@ test('unified project asset library is signed, filtered, and display-safe', asyn
 
   assert.equal(listed.statusCode, 200);
   assert.equal(listed.body.assets.length, 1);
-  assert.equal(listed.body.assets[0].project.title, '统一素材库');
+  assert.equal(listed.body.assets[0].project.title, '统一资产库');
   assert.equal('ownerEmail' in listed.body.assets[0], false);
   assert.equal(denied.statusCode, 200);
   assert.deepEqual(denied.body.assets, []);

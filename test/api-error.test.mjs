@@ -31,10 +31,10 @@ test('maps non-JSON 5xx proxy failures to the friendly fallback message', async 
   // dev 场景：vite 代理指向未启动的 3001 后端 → 纯文本/空 body 的 500，
   // statusText 恰为 "Internal Server Error"，不得透传给弹窗。
   const response = { status: 500, statusText: 'Internal Server Error', async text() { return ''; } };
-  const error = await createApiError(response, '暂时无法读取项目素材库');
+  const error = await createApiError(response, '暂时无法读取项目资产库');
   assert.equal(error.status, 500);
   assert.equal(error.code, 'API_ERROR');
-  assert.equal(error.message, '暂时无法读取项目素材库');
+  assert.equal(error.message, '暂时无法读取项目资产库');
 });
 
 test('keeps non-JSON 5xx raw body for diagnosis without leaking it into the message', async () => {

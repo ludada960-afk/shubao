@@ -65,7 +65,7 @@ test('Canvas exposes a dedicated asset library view without mixing it with Works
     readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8'),
   ]);
-  assert.match(chrome, /\['assets', '素材库'\]/);
+  assert.match(chrome, /\['assets', '资产库'\]/);
   assert.match(source, /tab === 'assets'/);
   assert.match(source, /tab === 'assets' && state\.logged/);
   assert.match(source, /tab !== 'assets'/);

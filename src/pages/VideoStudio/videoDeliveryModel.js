@@ -62,7 +62,7 @@ export function deliveryWorkbenchKind(mediaKind) {
 }
 
 export function deliveryBindingRole(mediaKind) {
-  // 图片默认绑镜头首帧；视频/音频仅入素材库作参考。
+  // 图片默认绑镜头首帧；视频/音频仅入资产库作参考。
   return mediaKind === 'image' ? 'first_frame' : 'reference';
 }
 

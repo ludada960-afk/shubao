@@ -282,7 +282,7 @@ test('Canvas marks media playback recovery failures without losing canonical ide
   }];
   const recovered = restoreCanvasMediaPlayback(nodes, []);
   assert.equal(recovered[0].mediaPlaybackStatus, 'unavailable');
-  assert.match(recovered[0].mediaPlaybackError, /项目素材库/);
+  assert.match(recovered[0].mediaPlaybackError, /项目资产库/);
   assert.equal(recovered[0].projectAssetRef.projectAssetId, 'asset-2');
   const retried = restoreCanvasMediaPlayback(recovered, [{
     ...nodes[0].projectAssetRef, playbackUrl: '/api/video/media/audio-1?purpose=playback&cap=retry',

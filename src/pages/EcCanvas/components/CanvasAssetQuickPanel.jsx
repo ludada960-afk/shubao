@@ -1,5 +1,5 @@
 // 4c183cd4 续命 P-H 画布 1-click 拖入素材 持久面板
-// 在 EcCanvas 顶部工具区显示「商品档案」「公共素材库」「本地上传」3 路快速拖入按钮
+// 在 EcCanvas 顶部工具区显示「商品档案」「公共资产库」「本地上传」3 路快速拖入按钮
 // 不再依赖悬浮按钮, 用户随时可拖; AssetQuickDrag 是单按钮, 这里做成 3 按钮平铺
 // 完成后调 onPick 把素材落到画布 (图片节点 or 视频节点)
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -60,8 +60,8 @@ export default function CanvasAssetQuickPanel({ onDragStart, onPick, onUploadPay
       <button type="button" aria-label="商品档案" title="拖入已上架的商品档案" style={activeSource === ASSET_DRAG_SOURCES.PRODUCT_PROFILE ? BTN_ACTIVE : BTN} onClick={() => handleClick(ASSET_DRAG_SOURCES.PRODUCT_PROFILE)}>
         📦 商品档案
       </button>
-      <button type="button" aria-label="公共素材库" title="拖入公共素材库的模板" style={activeSource === ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE ? BTN_ACTIVE : BTN} onClick={() => handleClick(ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE)}>
-        🎨 公共素材库
+      <button type="button" aria-label="公共资产库" title="拖入公共资产库的模板" style={activeSource === ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE ? BTN_ACTIVE : BTN} onClick={() => handleClick(ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE)}>
+        🎨 公共资产库
       </button>
       <button type="button" aria-label="本地上传" title="上传本地图片/视频" style={BTN} onClick={handleUploadClick}>
         ⬆️ 本地上传

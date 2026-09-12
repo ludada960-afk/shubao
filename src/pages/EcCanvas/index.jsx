@@ -1073,7 +1073,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }, [importCanvasMediaAsset]);
 
   const importCanvasImageAssets = useCallback(async (assets, projectContext, role) => {
-    if (!projectContext || !state.logged || result.browserQa) return { assets, failed: assets.map(asset => ({ asset, error: new Error('图片项目归档不可用') })) };
+    if (!projectContext || !state.logged || result.browserQa) return { assets, failed: assets.map(asset => ({ asset, error: new Error('图片项目处理不可用') })) };
     const imported = [];
     const failed = [];
     for (const asset of assets) {
@@ -1146,7 +1146,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const pending = pendingProjectAssetImportsRef.current;
     if (!pending.length) return;
     if (!state.logged || result.browserQa) {
-      showToast('请登录后再归档待处理素材', 'info');
+      showToast('请登录后再重试', 'info');
       return;
     }
     pendingProjectAssetImportsBusyRef.current = true;
@@ -1157,7 +1157,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         hasVideo ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目',
         hasVideo ? 'video' : 'ecommerce',
       );
-      if (!projectContext) throw new Error('项目归档不可用，请稍后重试');
+      if (!projectContext) throw new Error('项目暂时不可用，请稍后重试');
       const completed = [];
       const failed = [];
       for (const record of pending) {
@@ -1229,7 +1229,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         });
       }
       const completedKeys = new Set(completed.map(item => pendingProjectAssetImportKey(item.record)));
-      /* 9-11 用户批注②: 「重试扫描点了没反应」— 永远失败的记录会卡死待归档清单。
+      /* 9-11 用户批注②: 「重试扫描点了没反应」— 永远失败的记录会卡死待处理清单。
          改为: 每条记录累计失败次数, 连续 2 次失败即移出清单 (不再反复重试死记录)。 */
       const failedKeys = new Set(failed.map(item => pendingProjectAssetImportKey(item.record)));
       let droppedStale = 0;
@@ -1246,15 +1246,15 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       if (failed.length) {
         showToast(
           failed.length && droppedStale
-            ? `${completed.length ? `已归档 ${completed.length} 个素材，` : ''}已移除 ${droppedStale} 个持续失败的待归档素材`
-            : `${completed.length ? `已归档 ${completed.length} 个素材，` : ''}${failed.length} 个素材仍待归档，请稍后重试`,
+            ? `${completed.length ? `已处理 ${completed.length} 个素材，` : ''}已跳过 ${droppedStale} 个反复失败的素材`
+            : `${completed.length ? `已处理 ${completed.length} 个素材，` : ''}还有 ${failed.length} 个素材未处理完，请稍后重试`,
           'info',
         );
       } else if (completed.length) {
-        showToast(`已归档 ${completed.length} 个待处理素材，可继续引用生成`, 'success');
+        showToast(`已处理 ${completed.length} 个素材，可继续引用生成`, 'success');
       }
     } catch (error) {
-      showToast(error.message || '项目归档失败，请稍后重试', 'error');
+      showToast(error.message || '处理失败，请稍后重试', 'error');
     } finally {
       pendingProjectAssetImportsBusyRef.current = false;
       setPendingProjectAssetImportsBusy(false);
@@ -1266,6 +1266,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const candidates = nodes.filter(node => {
       if (!['image', 'output', 'image-composer'].includes(node?.kind)) return false;
       if (!['ready', 'success'].includes(node?.status)) return false;
+      /* 9-12 用户批注：资产库只放**用户手动加入**的东西。上传进来的（provenance='source'）
+         绝不能被自动登记进项目素材 —— 之前的自动登记把上传图也收进去了，用户看到「资产库」被塞满。
+         生成物仍照旧自动归集（作品集口径不变）。 */
+      if (node?.provenance === 'source') return false;
       if (node?.projectAssetId || node?.assetRef || node?.projectAssetRef) return false;
       return Boolean(generatedAssetIdFromUrl(node?.url));
     });
@@ -3089,13 +3093,13 @@ const handlePointerUp = useCallback((e) => {
       return;
     }
     if (handler === 'save-to-assets') {
-      /* 9-11 用户批注①: 素材库 = 用户显式定义 — 只有用户点「加入素材库」的节点才进素材库,
-         上传/替换不再自动归档。生成物仍由 register-generated 自动归集到作品。 */
-      if (!state.logged) { showToast('登录后才能收藏到素材库', 'info'); return; }
+      /* 9-11 用户批注①: 资产库 = 用户显式定义 — 只有用户点「加入资产库」的节点才进资产库,
+         上传/替换不再自动处理。生成物仍由 register-generated 自动归集到作品。 */
+      if (!state.logged) { showToast('登录后才能收藏到资产库', 'info'); return; }
       try {
         const isMedia = ['video', 'audio'].includes(node.kind);
         const projectContext = await ensureCanvasMediaProject(isMedia ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目', isMedia ? 'video' : 'ecommerce');
-        if (!projectContext) throw new Error('素材库暂不可用，请稍后重试');
+        if (!projectContext) throw new Error('资产库暂不可用，请稍后重试');
         let sourceAsset = null;
         const stableUrl = String(node.url || '');
         if (/^\/api\/generated-assets\//i.test(stableUrl)) {
@@ -3110,9 +3114,9 @@ const handlePointerUp = useCallback((e) => {
           : await importCanvasImageAssets([sourceAsset], projectContext, 'user-saved');
         if (imported?.failed?.length) throw new Error(imported.failed[0]?.error?.message || '收藏失败');
         dispatch({ type: 'SET_RESULT', result: { ...result, projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } });
-        showToast('已加入素材库，下次创作可直接复用', 'success');
+        showToast('已加入资产库，下次创作可直接复用', 'success');
       } catch (error) {
-        showToast(error?.message || '加入素材库失败，请稍后重试', 'error');
+        showToast(error?.message || '加入资产库失败，请稍后重试', 'error');
       }
       return;
     }
@@ -4557,7 +4561,7 @@ const handlePointerUp = useCallback((e) => {
           };
         })() : node));
         setSelected(targetId);
-        /* 9-11 用户批注①: 替换不做自动归档 — 原图/新图都留在画布草稿, 素材库只收「用户显式收藏」与「生成物自动归集」 */
+        /* 9-11 用户批注①: 替换不做自动处理 — 原图/新图都留在画布草稿, 资产库只收「用户显式收藏」与「生成物自动归集」 */
         showToast('素材已替换', 'success');
         void persistCanvasUploadAssets(localAssets, { role: 'product' }).then(persisted => {
           const durable = persisted?.[0];
@@ -4601,8 +4605,8 @@ const handlePointerUp = useCallback((e) => {
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
       /* 用户 9-05: 上传素材落画布 → 顶部工具栏 + 右侧派生菜单同时展开 */
       if (uploadedNodes[0]) openConnectionPickerForNode(uploadedNodes[0]);
-      /* 9-11 用户批注①: 上传不自动进素材库 — 只做草稿持久化 (刷新不丢),
-         素材库 = 生成物自动归集(作品) + 用户显式「收藏为素材」; 替换/上传不再「后台归档原图」。 */
+      /* 9-11 用户批注①: 上传不自动进资产库 — 只做草稿持久化 (刷新不丢),
+         资产库 = 生成物自动归集(作品) + 用户显式「收藏为素材」; 替换/上传不再「后台处理原图」。 */
       showToast(`已加入 ${uploadedNodes.length} 张图片`, 'success');
       void persistCanvasUploadAssets(assets, { role: 'product' }).then(persistedAssets => {
         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
@@ -4713,8 +4717,8 @@ const handlePointerUp = useCallback((e) => {
       })));
       const failedCount = imported.failed.length + (!projectContext ? assets.length : 0);
       showToast(failedCount
-        ? `已加入 ${uploadedNodes.length} 个视频，但 ${failedCount} 个素材尚未归档到项目，可稍后重试`
-        : `已加入 ${uploadedNodes.length} 个视频，已归档到项目，可继续引用生成`, failedCount ? 'info' : 'success');
+        ? `已加入 ${uploadedNodes.length} 个视频，但 ${failedCount} 个素材未处理完，可稍后重试`
+        : `已加入 ${uploadedNodes.length} 个视频，可继续引用生成`, failedCount ? 'info' : 'success');
     } catch (error) {
       showToast(error.message || '视频上传失败，请重试', 'error');
     } finally {
@@ -4895,9 +4899,8 @@ const handlePointerUp = useCallback((e) => {
       ]);
       const durableImportFailures = importedImages.failed.length + importedVideos.failed.length + importedAudios.failed.length;
       const unarchivedCount = durableImportFailures + (!projectContext ? persistedAssets.length + videoAssets.length + audioAssets.length : 0);
-      showToast(unarchivedCount
-        ? `已连接 ${uploadedNodes.length} 个素材，但 ${unarchivedCount} 个素材尚未归档到项目，可稍后重试`
-        : `已连接 ${uploadedNodes.length} 个素材，图片和媒体已归档到项目`, unarchivedCount ? 'info' : 'success');
+      /* 9-12 用户批注：不要再对用户谈「处理」——素材要不要入库由用户自己点「加入资产库」决定。 */
+      showToast(`已连接 ${uploadedNodes.length} 个素材`, 'success');
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
     }
@@ -5188,7 +5191,7 @@ const handlePointerUp = useCallback((e) => {
   }, [projectAssetProductionBusy, showToast]);
   const handleAddWorkToLibrary = useCallback(async (work) => {
     const refs = Array.isArray(work?.projectAssetRefs) ? work.projectAssetRefs : [];
-    if (!refs.length) return showToast('该作品暂无可加入素材库的项目素材', 'info');
+    if (!refs.length) return showToast('该作品暂无可加入资产库的项目素材', 'info');
     let added = 0;
     let failed = 0;
     const seen = new Set();
@@ -5206,9 +5209,9 @@ const handlePointerUp = useCallback((e) => {
       }
     }
     if (added) {
-      showToast(failed ? `已加入 ${added} 个素材，${failed} 个失败` : `已加入 ${added} 个素材到素材库`, 'success');
+      showToast(failed ? `已加入 ${added} 个素材，${failed} 个失败` : `已加入 ${added} 个素材到资产库`, 'success');
     } else {
-      showToast(failed ? '素材加入素材库失败，请重试' : '作品素材已全部在素材库中', failed ? 'error' : 'info');
+      showToast(failed ? '素材加入资产库失败，请重试' : '作品素材已全部在资产库中', failed ? 'error' : 'info');
     }
   }, [showToast]);
   // P2 跨域投递入口 a：选中套图产物/节点 → 「发往视频项目」。
@@ -5679,7 +5682,7 @@ const handlePointerUp = useCallback((e) => {
   return (
     <div className="ec-canvas-page">
       <CanvasTopBar
-        title={tab === 'canvas' ? (result.product_name || '智能画布') : tab === 'assets' ? '项目素材库' : tab === 'trash' ? '回收站' : '我的作品集'}
+        title={tab === 'canvas' ? (result.product_name || '智能画布') : tab === 'assets' ? '项目资产库' : tab === 'trash' ? '回收站' : '我的作品集'}
         meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : tab === 'assets' ? `${visibleProjectAssetLibrary.length} 个可用素材` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
         tab={tab}
         onTabChange={handleTabChange}
@@ -5802,8 +5805,8 @@ const handlePointerUp = useCallback((e) => {
           />
           {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
               用户原话 8-30: "你必须把这些重复的东西都给拿掉"
-              原 3 按钮 (商品档案/公共素材库/本地上传) 跟:
-                - tab=assets 完整项目素材库面板 (重复)
+              原 3 按钮 (商品档案/公共资产库/本地上传) 跟:
+                - tab=assets 完整项目资产库面板 (重复)
                 - 底部"添加图片/视频" 工具 (重复)
               改后: 用户从底部"添加图片/添加视频" 入口 + tab=assets 完整面板 进入素材, 不再走 1-click 拖入 */}
           <CanvasLayersPanel
@@ -6180,8 +6183,8 @@ const handlePointerUp = useCallback((e) => {
               onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
             />}
             {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={{ enabled: false }} />}
-            {/* 9-11 三轮用户批注: 画布节点只留一个素材动作 (「加入素材库」) —
-                「发往视频项目」与素材库语义冲突, 已从节点工具条移除 (视频路径走 生成视频 节点 / 首页视频模块)。 */}
+            {/* 9-11 三轮用户批注: 画布节点只留一个素材动作 (「加入资产库」) —
+                「发往视频项目」与资产库语义冲突, 已从节点工具条移除 (视频路径走 生成视频 节点 / 首页视频模块)。 */}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
               node={selectedNode}
               position={selectedComposerPosition}
@@ -6494,7 +6497,7 @@ const handlePointerUp = useCallback((e) => {
           {tab === 'assets' && !state.logged && (
             <div className="ec-canvas-work-empty">
               <Grid3x3 size={42} />
-              <strong>登录后查看素材库</strong>
+              <strong>登录后查看资产库</strong>
               <span>登录后管理图片、视频和音频素材，并继续用于新的创作。</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
             </div>
@@ -6531,7 +6534,7 @@ const handlePointerUp = useCallback((e) => {
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><ExternalLink size={14} /></button>
-                      <button type="button" aria-label={`将${work.name}加入素材库`} title="加入素材库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><FolderPlus size={14} /></button>
+                      <button type="button" aria-label={`将${work.name}加入资产库`} title="加入资产库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><FolderPlus size={14} /></button>
                       {tab === 'trash' ? (
                         <button type="button" aria-label="恢复作品" onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</button>
                       ) : (
@@ -6680,7 +6683,7 @@ const handlePointerUp = useCallback((e) => {
             }
           }}
           onUpload={() => sourceUploadRef.current?.click?.()}
-          onPickFromLibrary={() => { setActiveFilter && setActiveFilter('素材库'); }}
+          onPickFromLibrary={() => { setActiveFilter && setActiveFilter('资产库'); }}
           onClose={() => setAddNodePanel(null)}
           viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 1440}
           viewportHeight={typeof window !== 'undefined' ? window.innerHeight : 900}
@@ -6921,16 +6924,16 @@ const handlePointerUp = useCallback((e) => {
 
       {pendingProjectAssetImports.length > 0 && (
         <div className="ec-canvas-pending-imports" role="status" aria-live="polite">
-          <span>有 {pendingProjectAssetImports.length} 个待归档素材</span>
+          <span>有 {pendingProjectAssetImports.length} 个素材待处理</span>
           <button
             type="button"
             className="ec-canvas-pending-imports-action"
             onClick={retryPendingProjectAssetImports}
             disabled={pendingProjectAssetImportsBusy}
-            title="重试归档待处理素材"
+            title="重试处理待处理素材"
           >
             <RefreshCw size={15} aria-hidden="true" />
-            {pendingProjectAssetImportsBusy ? '归档中' : '重试归档'}
+            {pendingProjectAssetImportsBusy ? '处理中' : '重试处理'}
           </button>
         </div>
       )}

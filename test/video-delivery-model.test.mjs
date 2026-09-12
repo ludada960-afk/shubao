@@ -94,7 +94,7 @@ test('delivery steps: image binds first frame only when a shot is chosen; metada
 });
 
 test('contract: delivery entry points exist in authorized surfaces (9-11 三轮: 画布节点入口已移除)', async () => {
-  /* 9-11 三轮用户批注: 画布节点上「发往视频项目」与「加入素材库」语义冲突 → 节点工具条只留素材动作;
+  /* 9-11 三轮用户批注: 画布节点上「发往视频项目」与「加入资产库」语义冲突 → 节点工具条只留素材动作;
      组件能力保留 (videoDelivery 仍可注入), 但画布默认关闭该入口。 */
   const canvasStudio = await source('../src/pages/EcCanvas/components/CanvasStudio.jsx');
   assert.match(canvasStudio, /videoDelivery = null/);

@@ -1,11 +1,11 @@
-// 4c183cd4 续命 P-H 画布 1-click 拖入素材 (3 路: 商品档案 / 公共素材库 / 用户上传)
+// 4c183cd4 续命 P-H 画布 1-click 拖入素材 (3 路: 商品档案 / 公共资产库 / 用户上传)
 //
 // 1-click 拖入 = 用户在悬浮按钮里点一下, 直接拉出可拖动的"素材卡",
 // 用户把它拖到画布节点(ImageNode)或 EcStudio 的 ImageUploader 区域即可落入。
 //
 // 3 路素材来源:
 //   1) 商品档案 (listProductProfiles)  → 选 profile → 取其 assets
-//   2) 公共素材库 (listPublicTemplates) → 选 template cover/reference (用 /api/templates/public)
+//   2) 公共资产库 (listPublicTemplates) → 选 template cover/reference (用 /api/templates/public)
 //   3) 用户上传 (uploadEcommerceAsset) → 浏览器本地 File 走 multipart
 //
 // 落点 API 约定: 拖入成功后, 落点会调 onDropAsset({source, ref, blobUrl, dataUrl})。
@@ -32,7 +32,7 @@ export const ASSET_DRAG_SOURCES = Object.freeze({
 
 export const ASSET_DRAG_SOURCE_LABELS = Object.freeze({
   [ASSET_DRAG_SOURCES.PRODUCT_PROFILE]: '商品档案',
-  [ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE]: '公共素材库',
+  [ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE]: '公共资产库',
   [ASSET_DRAG_SOURCES.USER_UPLOAD]: '本地上传',
 });
 
@@ -107,9 +107,9 @@ export async function loadProductProfileDragPayloads({ status = 'active', limit 
   return all;
 }
 
-// ── 路 2: 公共素材库 ────────────────────────────────────────────────────
+// ── 路 2: 公共资产库 ────────────────────────────────────────────────────
 //
-// 公共素材库 (/api/templates/public) 主要是视频/文本类模板, 但部分 cat
+// 公共资产库 (/api/templates/public) 主要是视频/文本类模板, 但部分 cat
 // (product-main / product-scene) 提供 image-style 参考; 我们把它们封装成可拖入的
 // payload, 拖入时拿到 thumbUrl 即可。
 //
@@ -175,10 +175,10 @@ export async function buildUserUploadDragPayload(file) {
   };
 }
 
-// ── 1-click 拖入 → 真正落到项目素材库 ───────────────────────────────────
+// ── 1-click 拖入 → 真正落到项目资产库 ───────────────────────────────────
 //
 // 1-click 拖入的"落点"通常只是把 dataURL/URL 推给画布节点的 onDrop handler。
-// 如果落点需要持久化到项目素材库, 走 listProjectAssetLibrary / importImageAssetToProject。
+// 如果落点需要持久化到项目资产库, 走 listProjectAssetLibrary / importImageAssetToProject。
 // 这里 export 一个轻量 helper: 把 payload 调 importImageAssetToProject。
 //
 export async function importDragPayloadToProject(projectId, payload, deps = {}) {
@@ -200,7 +200,7 @@ export async function importDragPayloadToProject(projectId, payload, deps = {}) 
 //
 export const ASSET_DRAG_PRESET_BUTTONS = Object.freeze([
   { key: ASSET_DRAG_SOURCES.PRODUCT_PROFILE, label: '从商品档案', icon: '📦' },
-  { key: ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE, label: '从公共素材库', icon: '🎨' },
+  { key: ASSET_DRAG_SOURCES.PUBLIC_TEMPLATE, label: '从公共资产库', icon: '🎨' },
   { key: ASSET_DRAG_SOURCES.USER_UPLOAD, label: '本地上传', icon: '⬆️' },
 ]);
 

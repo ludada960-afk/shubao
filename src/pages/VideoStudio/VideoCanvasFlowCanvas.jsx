@@ -13,7 +13,7 @@ function ShubaoAssetNode({ data }) {
       aria-label={a11yLabel}>
       <header><span>{String(data.title || '素材').slice(0, 18)}</span></header>
       {data.previewUrl ? <img src={data.previewUrl} alt={a11yLabel} loading="lazy" /> : null}
-      <footer>{data.source === 'upload' ? '上传素材' : data.source === 'library' ? '项目素材库' : '已确认'}</footer>
+      <footer>{data.source === 'upload' ? '上传素材' : data.source === 'library' ? '项目资产库' : '已确认'}</footer>
     </article>
   );
 }

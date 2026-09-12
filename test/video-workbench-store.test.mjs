@@ -274,7 +274,7 @@ test('workbench assets require an owned video project and immutable versions', t
 test('imports an owner-scoped project asset into video without trusting browser media facts', t => {
   const { db, projectStore, store, project } = harness();
   t.after(() => db.close());
-  const sourceProject = projectStore.createProject({ ownerEmail: OWNER, kind: 'ecommerce', title: '商品素材库' });
+  const sourceProject = projectStore.createProject({ ownerEmail: OWNER, kind: 'ecommerce', title: '商品资产库' });
   const sourceAsset = projectStore.createProjectAsset({
     ownerEmail: OWNER,
     projectId: sourceProject.id,
