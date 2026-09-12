@@ -4779,24 +4779,38 @@ const handlePointerUp = useCallback((e) => {
       const importedVideos = await importCanvasMediaAssets(videoAssets, projectContext, 'reference-video');
       const importedAudios = await importCanvasMediaAssets(audioAssets, projectContext, 'reference-audio');
       if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
+      /* 9-12 用户批注：生成器里上传的素材，要规规矩矩排在生成器**左侧一列、自上而下依次叠放**，
+         不能按数量往左横推（那个算法会让新素材落到画布中间、压在已有节点上）—— 对齐竞品（流影AI）的排布。 */
+      const SOURCE_COLUMN_WIDTH = 240;
+      const SOURCE_COLUMN_GAP_X = 56;
+      const SOURCE_STACK_GAP_Y = 28;
+      const columnX = Math.round(composer.x - SOURCE_COLUMN_WIDTH - SOURCE_COLUMN_GAP_X);
+      const existingSourceNodes = (composer.sourceNodeIds || [])
+        .map(id => nodes.find(node => node.id === id))
+        .filter(Boolean);
+      let stackY = existingSourceNodes.length
+        ? Math.max(...existingSourceNodes.map(node => (node.y || 0) + (node.h || 0))) + SOURCE_STACK_GAP_Y
+        : Math.round(composer.y);
       const imageNodes = createUploadedImageNodes({
         assets: importedImages.assets,
-        x: composer.x - importedImages.assets.length * 278 - 36,
-        y: composer.y,
+        x: columnX,
+        y: stackY,
         now: uploadStartedAt,
         namer: canvasShotNamerRef.current,
       }).map(node => ({ ...node, role }));
+      if (imageNodes.length) stackY = Math.max(...imageNodes.map(node => (node.y || 0) + (node.h || 0))) + SOURCE_STACK_GAP_Y;
       const videoNodes = createUploadedVideoNodes({
         assets: importedVideos.assets,
-        x: composer.x - Math.max(1, importedVideos.assets.length) * 360 - 36,
-        y: composer.y + (imageNodes.length ? 112 : 0),
+        x: columnX,
+        y: stackY,
         now: uploadStartedAt,
         namer: canvasShotNamerRef.current,
       }).map(node => ({ ...node, role }));
+      if (videoNodes.length) stackY = Math.max(...videoNodes.map(node => (node.y || 0) + (node.h || 0))) + SOURCE_STACK_GAP_Y;
       const audioNodes = importedAudios.assets.map((asset, index) => attachCanvasProjectAssetRef({
         id: `audio_upload_${uploadStartedAt}_${index}`, assetId: asset.id, videoAssetId: asset.id, kind: 'audio', provenance: 'source', status: 'ready',
         url: asset.url || asset.stableUrl, name: asset.name || `参考音频 ${index + 1}`, displayLabel: asset.name || `参考音频 ${index + 1}`, group: '音频', role,
-        x: composer.x - 300, y: composer.y + 150 + index * 92, w: 264, h: 72, sourceNodeIds: [], editable: true, showMeta: true,
+        x: columnX, y: stackY + index * 92, w: 264, h: 72, sourceNodeIds: [], editable: true, showMeta: true,
       }, asset));
       const uploadedNodes = [...imageNodes, ...videoNodes, ...audioNodes];
       const uploadedIds = uploadedNodes.map(node => node.id);
