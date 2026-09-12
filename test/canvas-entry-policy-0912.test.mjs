@@ -22,13 +22,19 @@ test('视频生成 → 画布：完成即自动进入，并带上视频结果与
   assert.match(video, /dispatch\(\{ type: 'NAVIGATE', page: 'ec-canvas' \}\)/);
 });
 
-test('自由创作 → 画布：作品作为 result 进入画布', () => {
+test('自由创作 → 画布：生成完成后自动进入（也可手动点「进入画布」）', () => {
   const visual = read('src/pages/Home/VisualCreationMode.jsx');
-  assert.match(visual, /buildVisualCanvasResult\(work\)/);
-  assert.match(visual, /dispatch\(\{ type: 'NAVIGATE', page: 'ec-canvas' \}\)/);
   const model = read('src/pages/Home/visualCreationModel.js');
   assert.match(model, /export function buildVisualCanvasResult\(work, \{ importId \} = \{\}\)/);
   assert.match(model, /canvasImportId:/, '必须带画布导入标识，画布据此识别为一次新作品');
+  /* 自动进入：只在本次确有成功结果时触发，且每个 run 只自动进一次 */
+  assert.match(visual, /const produced = latest\?\.slots\?\.filter\(slot => slot\.status === 'completed'\) \|\| \[\];/);
+  assert.match(visual, /if \(produced\.length && autoCanvasRunRef\.current !== latest\?\.id\) \{/);
+  assert.match(visual, /const autoCanvasRunRef = useRef\(''\)/);
+  /* 手动入口与自动进入复用同一条路径 */
+  assert.match(visual, /const openCanvasWithRun = targetRun => \{/);
+  assert.match(visual, /dispatch\(\{ type: 'NAVIGATE', page: 'ec-canvas' \}\)/);
+  assert.match(visual, /const openCanvas = \(\) => \{ openCanvasWithRun\(run\); \};/);
 });
 
 test('小红书图文 → 不进画布（保留 9 图 + 配文弹窗体验）', () => {

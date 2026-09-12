@@ -247,6 +247,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     VISUAL_CREATION_SKILLS.flatMap(skill => (skill.panels || []).map(panel => [panel.id, panel.options?.[0] || ''])),
   ));
   const runRef = useRef(null);
+  /* 9-12: 自由创作生成完成后自动进画布 —— 记录已自动进入过的 run，避免重复跳转 */
+  const autoCanvasRunRef = useRef('');
   const referencesRef = useRef([]);
   const fileInputRef = useRef(null);
   const promptRef = useRef(null);
@@ -511,6 +513,24 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         setError(`${failures.length} 张图片未完成，可只重试失败项`);
       }
     }
+    /* 9-12 用户要求：自由创作生成完成后**自动进画布**（与视频生成完成即进画布一致）。
+       只在本次确有成功结果时进入，且每次生成只自动进一次；失败/全失败留在原地。 */
+    const produced = latest?.slots?.filter(slot => slot.status === 'completed') || [];
+    if (produced.length && autoCanvasRunRef.current !== latest?.id) {
+      autoCanvasRunRef.current = latest?.id || '';
+      try {
+        openCanvasWithRun(latest);
+      } catch { /* 自动进画布失败不打断用户，可手动点「进入画布」 */ }
+    }
+  };
+
+  /* 抽成独立函数：手动按钮与「生成完成自动进入」共用同一条路径 */
+  const openCanvasWithRun = targetRun => {
+    const work = targetRun || run;
+    if (!work) return false;
+    dispatch({ type: 'SET_RESULT', result: buildVisualCanvasResult(work) });
+    dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+    return true;
   };
 
   const startGeneration = async () => {
@@ -566,11 +586,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     await executeSlots(run, retryIndexes, runConfig);
   };
 
-  const openCanvas = () => {
-    if (!work) return;
-    dispatch({ type: 'SET_RESULT', result: buildVisualCanvasResult(work) });
-    dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
-  };
+  const openCanvas = () => { openCanvasWithRun(run); };
 
   const insertMention = label => {
     promptRef.current?.insertMention?.(label);

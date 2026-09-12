@@ -598,6 +598,13 @@ export default function EcCanvas() {
   const applyPlanLaunch = useCallback(launch => {
     const graph = createPlanLaunchGraph({ launch, now: Date.now() });
     if (!graph.nodes.length) return false;
+    /* 9-12 根治(三)：发射图必须**常驻**。进画布后 result 还会再变（路由/状态初始化），
+       重建效应会因此再跑若干次；只靠「跳过一跳」挡不住 → 记下发射图，重建时优先还原它。 */
+    planLaunchGraphRef.current = {
+      nodes: graph.nodes.map(normalizeCanvasNode),
+      connections: graph.connections.map(normalizeCanvasConnection),
+      targetId: graph.targetId,
+    };
     setNodes(graph.nodes.map(normalizeCanvasNode));
     setConnections(graph.connections.map(normalizeCanvasConnection));
     setSelected(graph.targetId);
@@ -788,6 +795,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const draftReadyRef = useRef(false);
   /* 9-12：清空 launch 会触发同一效应重跑，用这个标记跳过一次，避免把刚铺好的画布清空 */
   const launchJustAppliedRef = useRef(false);
+  /* 首页发射进来的图（素材 + 方案节点）：常驻，避免被后续重建清空 */
+  const planLaunchGraphRef = useRef(null);
   const segmentationAbortRef = useRef(new Map());
   const workflowProcessRef = useRef(null);
   const workflowGenerateRef = useRef(null);
@@ -1365,10 +1374,20 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       return () => { cancelled = true; };
     }
     if (!hasCurrent) {
+      const launchGraph = planLaunchGraphRef.current;
+      if (launchGraph?.nodes?.length) {
+        /* 本次会话是从首页发射进来的：画布内容 = 发射图，任何后续重建都还原它 */
+        setNodes(launchGraph.nodes);
+        setConnections(launchGraph.connections);
+        draftReadyRef.current = true;
+        return () => { cancelled = true; };
+      }
       setNodes([]);
       setConnections([]);
       return () => { cancelled = true; };
     }
+    /* 打开的是别的作品（有真实 result）：发射图让位，避免旧发射图复活 */
+    planLaunchGraphRef.current = null;
     draftReadyRef.current = false;
     const videoAsset = canvasVideoAsset(result);
     const session = imageList.length > 0
@@ -3198,6 +3217,8 @@ const handlePointerUp = useCallback((e) => {
       return;
     }
     if (handler === 'delete') {
+      /* 用户主动删除后，发射图不再作为本次会话的内容源（否则重建时会被“复活”） */
+      planLaunchGraphRef.current = null;
       await handleContextAction('delete', node);
       setSelected(null);
       return;
