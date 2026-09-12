@@ -374,7 +374,7 @@ export function createCanvasGenerationService({
               batchEligible: false,
             });
             const hasImageInputs = resolvedInputs.length > 0;
-            const submitted = await providerAdapter.submitEdit({
+            const providerRequest = {
               idempotencyKey: request.idempotencyKey,
               prompt: buildCanvasGenerationPrompt({
                 creationIntent: request.creationIntent,
@@ -391,7 +391,8 @@ export function createCanvasGenerationService({
                 ...image,
                 fileName: `canvas-reference-${index + 1}.${imageExtension(image.contentType)}`,
               })),
-            });
+            };
+            const submitted = await providerAdapter.submitEdit(providerRequest);
             heartbeat.assertOwned();
             job = store.markSubmitted(job.requestId, {
               providerJobId: submitted.jobId,
@@ -400,7 +401,33 @@ export function createCanvasGenerationService({
           }
           if (!job.outputUrl) {
             heartbeat.assertOwned();
-            const completed = await providerAdapter.pollUntilReady(job.providerJobId);
+            let completed = await providerAdapter.pollUntilReady(job.providerJobId);
+            /* 9-12 同模型换供应商（用户无感）：主通道「任务跑失败」时用同一请求改提交到备用供应商。
+               只切一次 —— 备用 jobId 自带 overflow: 前缀，已是备用就不再切，避免无限轮换。
+               用户侧文案不变（仍走 serializedError 的产品级文案），技术细节只进日志。 */
+            const failedTerminally = completed.status !== 'completed' || !completed.outputUrl;
+            const alreadyOnOverflow = String(job.providerJobId || '').startsWith('overflow:');
+            if (failedTerminally && alreadyOnOverflow === false
+              && providerAdapter.hasOverflow === true && typeof providerAdapter.failover === 'function') {
+              try {
+                console.warn('[canvas-generation] provider failover', JSON.stringify({
+                  from: cleanString(job.providerJobId),
+                  detail: String(completed.error || '').slice(0, 200),
+                }));
+                const alternative = await providerAdapter.failover(providerRequest);
+                if (alternative && alternative.jobId) {
+                  job = store.markSubmitted(job.requestId, {
+                    providerJobId: alternative.jobId,
+                    leaseToken: job.leaseToken,
+                  });
+                  completed = await providerAdapter.pollUntilReady(job.providerJobId);
+                }
+              } catch (failoverError) {
+                console.warn('[canvas-generation] provider failover failed', JSON.stringify({
+                  detail: String(failoverError?.message || '').slice(0, 200),
+                }));
+              }
+            }
             heartbeat.assertOwned();
             if (cleanString(completed?.jobId) !== job.providerJobId) {
               throw Object.assign(new Error('Provider poll result job id does not match the submitted job'), {

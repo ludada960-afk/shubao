@@ -316,11 +316,18 @@ export function createProviderAdapter(config = {}) {
     ? config.maxSubmitAttempts
     : 3;
   const protocol = cleanString(config.protocol).toLowerCase() || 'legacy-edits';
-  if (!['legacy-edits', 'native-tasks'].includes(protocol)) {
-    throw new TypeError("provider protocol must be 'legacy-edits' or 'native-tasks'");
+  if (!['legacy-edits', 'native-tasks', 'openai-images'].includes(protocol)) {
+    throw new TypeError("provider protocol must be 'legacy-edits', 'native-tasks' or 'openai-images'");
   }
+  /* 9-12 同模型备用供应商：IP233 这类走「同步 OpenAI 图片接口」（POST 即返回图片 URL，无异步任务）。
+     为不改下游契约（submit → jobId → poll），同步结果用一个合成 jobId 暂存，poll 时立即返回 completed。 */
+  const isSyncImages = protocol === 'openai-images';
+  const syncResults = new Map();
+  let syncSequence = 0;
+  const MODEL_MAP = config.modelMap && typeof config.modelMap === 'object' ? config.modelMap : null;
   const editPath = cleanString(config.editPath) || '/v1/images/edits';
-  const submitPath = cleanString(config.submitPath) || (protocol === 'native-tasks' ? '/v1/tasks' : editPath);
+  const submitPath = cleanString(config.submitPath)
+    || (protocol === 'native-tasks' ? '/v1/tasks' : protocol === 'openai-images' ? '/v1/images/generations' : editPath);
   const pollPath = typeof config.pollPath === 'function' || typeof config.pollPath === 'string'
     ? config.pollPath
     : protocol === 'native-tasks' ? nativePollPath : defaultPollPath;
@@ -361,7 +368,59 @@ export function createProviderAdapter(config = {}) {
     }
   }
 
+  /* 同步 OpenAI 图片接口：POST JSON → 直接拿 data[0].url；带参考图时走 /v1/images/edits (multipart)。 */
+  function syncModelFor(request) {
+    const route = own(request, 'modelRoute') || {};
+    const model = cleanString(own(route, 'model'));
+    const resolution = cleanString(own(route, 'resolution') || own(route, 'imageSize')).toUpperCase();
+    if (MODEL_MAP && resolution && MODEL_MAP[resolution]) return cleanString(MODEL_MAP[resolution]);
+    return model;
+  }
+
+  async function submitSyncImages(request) {
+    const route = own(request, 'modelRoute') || {};
+    const prompt = cleanString(own(request, 'prompt'));
+    const size = cleanString(own(route, 'size'));
+    const assets = own(request, 'inputAssets') ?? [];
+    const idempotencyKey = cleanString(own(request, 'idempotencyKey'));
+    const model = syncModelFor(request);
+    if (!prompt || !model || !size) throw new TypeError('provider edit prompt, model, and size are required');
+    const hasInputs = Array.isArray(assets) && assets.length > 0;
+    let url = `${baseUrl}${submitPath}`;
+    let init;
+    if (hasInputs) {
+      const built = buildEditForm(request);
+      url = `${baseUrl}${editPath}`;
+      init = { method: 'POST', headers: headers({ 'Idempotency-Key': built.idempotencyKey }), body: built.form };
+    } else {
+      init = {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey }),
+        body: JSON.stringify({ model, prompt, size, n: 1 }),
+      };
+    }
+    const response = await fetchWithDeadline(url, init, submitTimeoutMs);
+    const responseBody = await readBody(response);
+    if (!response.ok) {
+      throw providerError(
+        extractError(responseBody) || `provider image request failed with HTTP ${response.status}`,
+        {
+          status: response.status,
+          retryable: RETRYABLE_STATUS.has(response.status),
+          code: 'PROVIDER_ERROR',
+        },
+      );
+    }
+    const outputUrl = extractOutputUrl(responseBody);
+    if (!outputUrl) throw providerError('provider returned no image url', { status: 502, code: 'PROVIDER_RESULT_MISSING' });
+    syncSequence += 1;
+    const jobId = `sync-${currentTimeMs()}-${syncSequence}-${Math.random().toString(36).slice(2, 10)}`;
+    syncResults.set(jobId, { outputUrl, createdAt: currentTimeMs() });
+    return { jobId, status: 'pending' };
+  }
+
   async function submitEdit(request) {
+    if (isSyncImages) return submitSyncImages(request);
     const { form, body, idempotencyKey } = protocol === 'native-tasks'
       ? await buildNativeTask(request)
       : buildEditForm(request);
@@ -424,6 +483,14 @@ export function createProviderAdapter(config = {}) {
 
   async function poll(jobIdInput) {
     const jobId = validateJobId(jobIdInput);
+    if (isSyncImages) {
+      const cached = syncResults.get(jobId) || (String(jobId).startsWith('sync-') ? syncResults.get(String(jobId)) : null);
+      if (cached) {
+        syncResults.delete(jobId);
+        return { jobId: validateJobId(jobId), status: 'completed', outputUrl: cached.outputUrl, error: '' };
+      }
+      throw providerError('provider sync job result expired', { status: 410, retryable: true, code: 'PROVIDER_RESULT_EXPIRED' });
+    }
     const path = typeof pollPath === 'function'
       ? pollPath(jobId)
       : pollPath.replace('{id}', encodeURIComponent(jobId));

@@ -51,5 +51,13 @@ export function createProviderRouter({ primary, overflow, legacy } = {}) {
       if (!adapters[resolved.route]) throw new Error(`${resolved.route} provider adapter is unavailable`);
       return withRoute(resolved.route, await adapters[resolved.route].pollUntilReady(resolved.jobId, options));
     },
+    /* 9-12 同模型换供应商：主通道「任务跑失败」时用**同一请求、同一模型**改提交到备用供应商。
+       与 submitEdit 里的 canOverflow 不同 —— 那条只覆盖「提交就失败」，覆盖不到「提交成功但任务失败」。
+       调用方负责保证只切一次（备用 jobId 带 overflow: 前缀，见 resolveJob）。 */
+    hasOverflow: Boolean(adapters.overflow),
+    async failover(request) {
+      if (!adapters.overflow) return null;
+      return withRoute('overflow', await adapters.overflow.submitEdit(request));
+    },
   };
 }

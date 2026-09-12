@@ -4021,9 +4021,32 @@ const createConfiguredImageAdapter = (baseUrl, {
   editPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
   pollPath,
 });
+/* 9-12 同模型备用供应商（用户无感）：主的 gpt-image-2 通道「提交成功但任务失败」时，
+   用**同一个模型**改提交到备用通道（IP233 等走同步 OpenAI 图片接口）。
+   按分辨率映射模型名（我们内部 gpt-image-2 → 上游 gpt-image-2-1k/2k/4k），用户看到的模型不变。 */
+const IMG_BACKUP_BASE = (process.env.IMAGE_BACKUP_BASE_URL || '').replace(/\/+$/, '');
+const IMG_BACKUP_KEY = process.env.IMAGE_BACKUP_API_KEY || '';
+const IMG_BACKUP_MODELS = {
+  '1K': process.env.IMAGE_BACKUP_MODEL_1K || 'gpt-image-2-1k',
+  '2K': process.env.IMAGE_BACKUP_MODEL_2K || 'gpt-image-2-2k',
+  '4K': process.env.IMAGE_BACKUP_MODEL_4K || 'gpt-image-2-4k',
+};
+const createBackupImageAdapter = () => createProviderAdapter({
+  baseUrl: IMG_BACKUP_BASE,
+  bearerToken: IMG_BACKUP_KEY,
+  authStrategy: 'bearer',
+  protocol: 'openai-images',
+  submitPath: process.env.IMAGE_BACKUP_GENERATE_PATH || '/v1/images/generations',
+  editPath: process.env.IMAGE_BACKUP_EDIT_PATH || '/v1/images/edits',
+  pollPath: process.env.IMAGE_BACKUP_GENERATE_PATH || '/v1/images/generations',
+  modelMap: IMG_BACKUP_MODELS,
+  submitTimeoutMs: 120_000,
+});
 const image2ProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
   primary: createConfiguredImageAdapter(IMG_BASE),
-  ...(IMG_OVERFLOW_BASE ? { overflow: createConfiguredImageAdapter(IMG_OVERFLOW_BASE) } : {}),
+  ...(IMG_BACKUP_BASE && IMG_BACKUP_KEY
+    ? { overflow: createBackupImageAdapter() }
+    : IMG_OVERFLOW_BASE ? { overflow: createConfiguredImageAdapter(IMG_OVERFLOW_BASE) } : {}),
   legacy: IMG_LEGACY_BASE ? createConfiguredImageAdapter(IMG_LEGACY_BASE, {
     protocol: 'legacy-edits',
     submitPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
