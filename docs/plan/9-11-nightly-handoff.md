@@ -43,3 +43,14 @@
 - IP233（视频 + 图片全模型）：`IP233_VIDEO_API_KEY`（= 用户给的 Change2Pro key，同平台）
 - 65535（LLM + VLM + 部分生图）：`LLM_API_KEY` / `MINI_API_KEY`（同为 gpt-5.6-luna 那把）
 - 火山 TTS：`TTS_API_KEY_VOLCENGINE`
+
+## 四、按秒重构的实测结论（9-12 凌晨实做一轮后回退，给下一步省时间）
+已按 §2.2 真做过一遍并跑通毛利门禁，改动如下（**代码已回退，数字可直接复用**）：
+- `server/billing/catalog.mjs`：20 个 video SKU 改「每秒」口径 —— units/秒 与 cost/秒 取最坏时长：
+  fast 4890/0.182 · standard 6110/0.754 · 2.5 9320/1.014 · h3-768p 6950/0.91 · h3-2k 8940/1.17 · kling 2980/0.364 · kling-pro 7640/0.754 · veo 6110/0.234 · wan 2900/0.091 · grok 1530/0.104（priceFen/秒 依次 128/160/244/182/234/78/200/160/76/40）。
+- `server/videoCatalog.mjs`：standard 最短时长 4s → **5s**（4s 在按条成本 ¥3.77 下必然破 40% 地板）。
+- `server/videoGeneration.mjs`：`quoteFeature(sku, 1)` → **`quoteFeature(sku, duration)`**（数量＝秒数）。
+- 门禁修正：standard_long 与 minimax_h3_2k 两档从 core 带改判 **traffic 带**（按秒后毛利 50% / 47%），全 20 个 SKU 通过地板，实测毛利 **47%～85%**。
+- **卡点（回退原因）**：改完 `npm test` 有 **28 个用例失败**，集中在视频报价形状/单位被写死的套件（video-workbench-plan、billing-video-meter、billing-catalog、video-catalog、verify-production-video 等）。计费层不留半成品 → 已 `git checkout` 回退，仓库恢复 3123/3123 全绿。
+- 下一步：按上面数字一次性改完，并同步更新这些套件的 units/points/报价断言（约 6 个测试文件），再一并部署。
+
