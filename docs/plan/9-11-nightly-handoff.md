@@ -54,3 +54,35 @@
 - **卡点（回退原因）**：改完 `npm test` 有 **28 个用例失败**，集中在视频报价形状/单位被写死的套件（video-workbench-plan、billing-video-meter、billing-catalog、video-catalog、verify-production-video 等）。计费层不留半成品 → 已 `git checkout` 回退，仓库恢复 3123/3123 全绿。
 - 下一步：按上面数字一次性改完，并同步更新这些套件的 units/points/报价断言（约 6 个测试文件），再一并部署。
 
+
+## 五、生图故障与「同模型换供应商」方案（9-12 实查，用户已纠正方向）
+
+### 5.1 用户纠正（重要，改变实现方向）
+用户原话："跑失败肯定是替换供应商啊，就是他选了什么模型，用户只想用这个模型跑出来，他又不知道你背后有没有换供应商。"
+→ **绝不能静默换模型**（我原先提的"降级到 Nano Banana"是错的：用户选的是模型，换模型＝给用户换了另一个东西）。
+→ 正确做法：**同一模型，换供应商**（gpt-image-2 挂了就换另一家提供 gpt-image-2 的上游），用户无感。
+
+### 5.2 故障取证（2026-09-12）
+- 内测用户 610567026@qq.com 的画布任务：模型 image2，2048×2048，3 张参考图，上游任务 `img_2143ff94…`。
+- 上游返回 `error_code: upstream_5xx`，`cost_usd: 0`（未扣费）；那句英文报错是**上游原话**，我方代码无此文案。
+- 复现：直连 `task-api-1-cn.65535.space` 提交 2 个探针任务 → 全部 8 秒后 `upstream_5xx`；换国际端点 `task-api-1.65535.space` 同样 `upstream_5xx`。
+  ⇒ **65535 网关背后的 gpt-image-2 通道故障**（两个区域都挂），非我方 bug。
+
+### 5.3 同模型备用供应商（已实测可用）
+- **IP233 提供同一个 `gpt-image-2`**：`POST https://api-new.ip233.com/v1/images/generations`，model `gpt-image-2-1k`，用 `MINIMAX_VIDEO_API_KEY`（或 `VIDEO_API_KEY`）→ **200 真出图 URL** ✓。
+  - 价目：gpt-image-2 ¥0.0195、-1k ¥0.0715、-2k ¥0.0975、-4k ¥0.1235；mdkj-super-gpt-image-2 ¥0.026（更便宜）。
+  - ⚠️ `IP233_VIDEO_API_KEY` 这个 env 名是**空的**，可用的是 `VIDEO_API_KEY` / `MINIMAX_VIDEO_API_KEY`（后者实测可调图片接口）。
+- 结论：可以做「同模型换供应商」，无需换模型。
+
+### 5.4 实现要点（下一步动手清单）
+1. `server/ecommerceEngine/providerAdapter.mjs` 目前只支持 `legacy-edits` / `native-tasks` 两种协议（都不是"同步 OpenAI 图片接口"）。
+   → 需**新增 `openai-images` 协议**：POST JSON 到 `/v1/images/generations`（model/prompt/size/n），同步取 `data[0].url`；带参考图走 `/v1/images/edits`（multipart）。
+2. `server/index.mjs:4024` 的 `createProviderRouter({ primary, overflow, legacy })` **已支持多供应商**——把 IP233 配成 image2 的 overflow（**同一个模型名**，按分辨率映射 gpt-image-2-1k/2k/4k），主通道 5xx 自动切、模型不变。
+3. 重试语义：上游 `upstream_5xx`/超时 → `retryable: true`，**同模型**自动换供应商重试一次；两次都失败才报错（文案说明已尝试多家），**不静默换模型**。
+4. 前端：失败卡片给「重试」按钮（同模型同参数），不提供自动换模型。
+
+### 5.5 本轮已修并上线的小问题
+- `NANO_BANANA_FLASH_MODEL` 原为 `gemini-2.5-flash-image`（上游 404 `model_not_found`）→ 改成 **`gemini-3.1-flash-image`**（实测 200，27s 真出图）。
+  ⇒ 即"Nano Banana 2"选项此前对所有用户都是坏的，现已修复（线上重启完成，health 正常，备份 `.env.bak-912`）。
+  - Change2Pro 可用模型名：`gemini-3.1-flash-image`、`gemini-3-pro-image`、`gemini-3-pro-image-preview`、`gemini-3.1-flash-image-preview`。
+
