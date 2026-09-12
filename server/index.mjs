@@ -4024,8 +4024,10 @@ const createConfiguredImageAdapter = (baseUrl, {
 /* 9-12 同模型备用供应商（用户无感）：主的 gpt-image-2 通道「提交成功但任务失败」时，
    用**同一个模型**改提交到备用通道（IP233 等走同步 OpenAI 图片接口）。
    按分辨率映射模型名（我们内部 gpt-image-2 → 上游 gpt-image-2-1k/2k/4k），用户看到的模型不变。 */
-const IMG_BACKUP_BASE = (process.env.IMAGE_BACKUP_BASE_URL || '').replace(/\/+$/, '');
-const IMG_BACKUP_KEY = process.env.IMAGE_BACKUP_API_KEY || '';
+/* 9-12 教训：env 里出现空白值（如 `IMAGE_BACKUP_API_KEY=` 或带空格）时，必须当成「未配置」，
+   否则会带着空凭据去构造适配器 → 启动即抛 exactly one provider auth credential is required，整站 502。 */
+const IMG_BACKUP_BASE = String(process.env.IMAGE_BACKUP_BASE_URL || '').trim().replace(/\/+$/, '');
+const IMG_BACKUP_KEY = String(process.env.IMAGE_BACKUP_API_KEY || '').trim();
 const IMG_BACKUP_MODELS = {
   '1K': process.env.IMAGE_BACKUP_MODEL_1K || 'gpt-image-2-1k',
   '2K': process.env.IMAGE_BACKUP_MODEL_2K || 'gpt-image-2-2k',
