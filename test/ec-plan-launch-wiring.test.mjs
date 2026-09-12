@@ -18,12 +18,16 @@ test('首页「下一步」发射到画布: SET_CREATION_LAUNCH(ec-plan-launch) 
   // 旧整页保留可读 (不变式②): ecStep=2 的 DesignDirection 挂载仍在 Home/index.jsx
 });
 
-test('画布物化: 挂载 effect 消费 launch payload, 物化即置空防重铺', () => {
+test('画布物化: 由「从草稿/会话重建」同一个效应消费 launch（不再被覆盖），物化即置空防重铺', () => {
   const source = canvas();
-  assert.match(source, /if \(!isPlanLaunch\(launch\)\) return/);
+  /* 9-12 根治：原来发射在独立效应里，随后运行的重建效应会 setNodes 覆盖它 → 只跳画布、什么都没有 */
+  assert.match(source, /const pendingLaunch = state\.creationLaunch;/);
+  assert.match(source, /if \(isPlanLaunch\(pendingLaunch\)\) \{/);
+  assert.match(source, /applyPlanLaunch\(pendingLaunch\)/);
   assert.match(source, /createPlanLaunchGraph\(\{ launch, now: Date\.now\(\) \}\)/);
   assert.match(source, /graph\.nodes\.map\(normalizeCanvasNode\)/);
   assert.match(source, /dispatch\(\{ type: 'SET_CREATION_LAUNCH', launch: null \}\)/, '物化后消费 launch, 防重渲染重复铺开');
+  assert.match(source, /state\.creationLaunch\]\)/, '发射状态必须在依赖数组里');
 });
 
 test('方案节点三动作: 生成/刷新先报价 (不变式①), 刷新走 refresh 计费 SKU', () => {

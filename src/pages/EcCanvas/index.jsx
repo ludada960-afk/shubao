@@ -593,29 +593,40 @@ export default function EcCanvas() {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
-  /* P7 方案入画布: 首页发射器 payload (ec-plan-launch) → 素材行 + 方案节点
-     (quick = 快速通道: 跳过方案, 直接套图生成节点)。物化即消费, 防重渲染重复铺开。 */
-  useEffect(() => {
-    const launch = state.creationLaunch;
-    if (!isPlanLaunch(launch)) return;
-    try {
-      const graph = createPlanLaunchGraph({ launch, now: Date.now() });
-      if (graph.nodes.length) {
-        setNodes(graph.nodes.map(normalizeCanvasNode));
-        setConnections(graph.connections);
-        setSelected(graph.targetId);
-        setMultiSelected(new Set([graph.targetId]));
-        showToast(graph.targetKind === 'suite-composer'
-          ? '素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)'
-          : '设计方案已在画布 · 点方案节点「生成方案」(1 积分), 再应用到画布', 'success');
-      }
-    } catch (error) {
-      showToast(error?.message || '设计方案载入画布失败', 'error');
-    } finally {
-      dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+  /* P7 方案入画布：发射图的装配**并入下面「从草稿/会话重建」的同一个效应**（见 handleSessionRestore）。
+     9-12 用户批注根治：原先它是独立效应，会被重建效应在之后覆盖 → 用户只看到 toast、画布空白。 */
+  const applyPlanLaunch = useCallback(launch => {
+    const graph = createPlanLaunchGraph({ launch, now: Date.now() });
+    if (!graph.nodes.length) return false;
+    setNodes(graph.nodes.map(normalizeCanvasNode));
+    setConnections(graph.connections.map(normalizeCanvasConnection));
+    setSelected(graph.targetId);
+    setMultiSelected(new Set([graph.targetId]));
+    /* 进画布把视口对准新图：整图包围盒居中并尽量一屏放下 */
+    const launchRect = containerRef.current?.getBoundingClientRect();
+    if (launchRect && launchRect.width > 0) {
+      const widths = graph.nodes.map(node => Number(node.w) || 240);
+      const heights = graph.nodes.map(node => Number(node.h) || 240);
+      const minX = Math.min(...graph.nodes.map(node => Number(node.x) || 0));
+      const minY = Math.min(...graph.nodes.map(node => Number(node.y) || 0));
+      const maxX = Math.max(...graph.nodes.map((node, index) => (Number(node.x) || 0) + (widths[index] || 240)));
+      const maxY = Math.max(...graph.nodes.map((node, index) => (Number(node.y) || 0) + (heights[index] || 240)));
+      const padding = 96;
+      const graphW = Math.max(1, maxX - minX);
+      const graphH = Math.max(1, maxY - minY);
+      const fitScale = Math.min((launchRect.width - padding * 2) / graphW, (launchRect.height - padding * 2) / graphH, 1);
+      const scale = Math.max(0.35, Number.isFinite(fitScale) ? fitScale : 1);
+      setViewport({
+        scale,
+        x: (launchRect.width - graphW * scale) / 2 - minX * scale,
+        y: (launchRect.height - graphH * scale) / 2 - minY * scale,
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    showToast(graph.targetKind === 'suite-composer'
+      ? '素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)'
+      : '设计方案已在画布 · 点方案节点「生成方案」(1 积分), 再应用到画布', 'success');
+    return true;
+  }, [showToast]);
   const [connections, setConnections] = useState([]);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
@@ -1324,6 +1335,20 @@ const [minimapOpen, setMinimapOpen] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    /* 9-12 用户批注根治：首页发射图必须在这里装配，且**装配后不再被草稿/会话重建覆盖**。
+       之前是独立效应，本效应随后跑一次就把它盖掉了 —— 用户看到「只跳画布、没有方案、没有素材」。 */
+    const pendingLaunch = state.creationLaunch;
+    if (isPlanLaunch(pendingLaunch)) {
+      try {
+        applyPlanLaunch(pendingLaunch);
+      } catch (error) {
+        showToast(error?.message || '设计方案载入画布失败', 'error');
+      } finally {
+        dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+      }
+      draftReadyRef.current = true;
+      return () => { cancelled = true; };
+    }
     if (!hasCurrent) {
       setNodes([]);
       setConnections([]);
@@ -1445,7 +1470,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       draftReadyRef.current = true;
     });
     return () => { cancelled = true; };
-  }, [result.id, result._saveKey]);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [result.id, result._saveKey, state.creationLaunch]);
 
   useEffect(() => {
     if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
