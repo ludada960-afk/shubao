@@ -6425,6 +6425,8 @@ const handlePointerUp = useCallback((e) => {
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
+          {/* 9-12 用户批注：作品只保留 7 天，要明确告知用户及时下载 */}
+          {tab === 'works' && <div className="ec-canvas-work-retention" role="note">作品在服务器保留 7 天，请及时下载到本地；过期后会自动清理。</div>}
           {tab === 'works' && <div className="ec-canvas-work-filters" role="tablist" aria-label="作品分类">
             {WORK_CATEGORY_OPTIONS.map(option => <button
               key={option.id}

@@ -196,6 +196,7 @@ import {
   readRequestBuffer,
   sendVideoAsset,
 } from './videoGeneration.mjs';
+import { createWorksRetentionService } from './worksRetention.mjs';
 import { createVideoUploadService } from './videoUploadService.mjs';
 import { createVideoReconciliation } from './videoReconciliation.mjs';
 import { readVideoPlatformFlags } from './config.mjs';
@@ -462,6 +463,8 @@ const retentionService = createRetentionService({
       try { fs.unlinkSync(filePath); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
     },
   },
+  /* 9-12: 白名单账号的资产不参与清理（作品 7 天保留策略的例外名单） */
+  isProtectedOwner: ownerEmail => worksRetentionService.isWhitelisted(ownerEmail),
 });
 // 作品删除联动素材回收（WORK_ASSET_CASCADE=on 默认；off 时 softDeleteWork 保持历史行为）。
 registerWorkDeleteCascade(createWorkAssetCascade({ db, retention: retentionService }));
@@ -4135,6 +4138,23 @@ const ecommerceProviderAdapter = createModelProviderRouter({
   image2: image2ProviderAdapter,
   nanoBanana: nanoBananaProviderAdapter,
 });
+/* ── 作品保留策略 (9-12 用户批注): 默认保留 7 天, 白名单账号永久保留 ──
+   启动时先做一次 dryRun 统计并写日志(可观测); 真正删除由 env RETENTION_PURGE_ENABLED=true 打开,
+   或由后台 POST /api/admin/retention/prune 显式触发 —— 删除用户资产这种不可逆动作不默认自动执行。 */
+const worksRetentionService = createWorksRetentionService({ db, logger: console });
+const retentionSeedWhitelist = String(process.env.RETENTION_SEED_WHITELIST || '867550189@qq.com').trim();
+if (retentionSeedWhitelist) {
+  try { worksRetentionService.addWhitelist(retentionSeedWhitelist, '初始白名单(用户指定)'); } catch { /* 忽略重复/格式问题 */ }
+}
+const RETENTION_DAYS = Number(process.env.ASSET_RETENTION_DAYS) > 0 ? Math.floor(Number(process.env.ASSET_RETENTION_DAYS)) : 7;
+const RETENTION_PURGE_ENABLED = String(process.env.RETENTION_PURGE_ENABLED || '').toLowerCase() === 'true';
+try {
+  const preview = worksRetentionService.pruneExpiredWorks({ retentionDays: RETENTION_DAYS, dryRun: !RETENTION_PURGE_ENABLED });
+  console.log('[retention] startup sweep', JSON.stringify(preview));
+} catch (error) {
+  console.warn('[retention] startup sweep failed', String(error?.message || error).slice(0, 200));
+}
+
 const canvasBackgroundCleanPlate = createCanvasBackgroundCleanPlate({
   providerAdapter: ecommerceProviderAdapter,
   imageInputReader,
@@ -4807,6 +4827,29 @@ app.post('/api/admin/video-reviews/:id/reject', adminRouteHandlers.requireAdmin,
   } catch (error) {
     return res.status(error?.status || 400).json({ error: error?.message || '视频任务核对失败', code: error?.code || 'VIDEO_REVIEW_INVALID' });
   }
+});
+
+/* ── 作品保留策略 + 白名单 (9-12 用户批注) ──
+   作品默认保留 7 天；白名单账号永不清理；后台可先 dryRun 看数量再真删。 */
+app.get('/api/admin/retention/whitelist', adminRouteHandlers.requireAdmin, (req, res) => {
+  res.json({ whitelist: worksRetentionService.listWhitelist(), retentionDays: worksRetentionService.retentionDays });
+});
+app.post('/api/admin/retention/whitelist', adminRouteHandlers.requireAdmin, (req, res) => {
+  try {
+    return res.json({ entry: worksRetentionService.addWhitelist(req.body?.email, req.body?.note) });
+  } catch (error) {
+    return res.status(error?.status || 400).json({ error: error?.message || '白名单写入失败', code: error?.code || 'RETENTION_WHITELIST_INVALID' });
+  }
+});
+app.delete('/api/admin/retention/whitelist/:email', adminRouteHandlers.requireAdmin, (req, res) => {
+  res.json(worksRetentionService.removeWhitelist(decodeURIComponent(req.params.email || '')));
+});
+app.post('/api/admin/retention/prune', adminRouteHandlers.requireAdmin, (req, res) => {
+  const dryRun = req.body?.dryRun !== false;
+  res.json({ summary: worksRetentionService.pruneExpiredWorks({ retentionDays: req.body?.retentionDays, dryRun }) });
+});
+app.get('/api/admin/retention/preview', adminRouteHandlers.requireAdmin, (req, res) => {
+  res.json({ summary: worksRetentionService.pruneExpiredWorks({ dryRun: true }) });
 });
 
 function sendCompositionError(error, res) {

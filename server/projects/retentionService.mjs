@@ -40,7 +40,10 @@ function noOpAssetStore() {
   return { remove() {} };
 }
 
-export function createRetentionService({ db, assetStore = noOpAssetStore(), now = () => new Date(), graceMs = GRACE_MS } = {}) {
+export function createRetentionService({ db, assetStore = noOpAssetStore(), now = () => new Date(), graceMs = GRACE_MS, isProtectedOwner = null } = {}) {
+  /* 9-12 用户批注：白名单账号的资产永不清理(作品 7 天保留策略的例外名单)。
+     由 index.mjs 注入 worksRetentionService.isWhitelisted。 */
+  const ownerProtected = ownerEmail => (typeof isProtectedOwner === 'function' ? isProtectedOwner(ownerEmail) === true : false);
   if (!db || typeof db.prepare !== 'function') throw new TypeError('db is required');
   if (typeof assetStore.remove !== 'function') throw new TypeError('assetStore.remove is required');
   const clock = () => {
@@ -54,6 +57,8 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
     && db.prepare(`PRAGMA table_info(${table})`).all().some(entry => entry.name === column);
   const protectedByReference = (asset, current) => {
     if (asset.retentionPinned) return true;
+    /* 白名单账号(9-12): 资产永不清理 */
+    if (ownerProtected(asset.ownerEmail)) return true;
     const importedSource = db.prepare(`SELECT metadata_json FROM project_assets
       WHERE owner_email = ? AND deleted_at IS NULL
         AND (metadata_json LIKE '%sourceProjectAssetRef%' OR metadata_json LIKE '%importedFromProjectAsset%')`)
