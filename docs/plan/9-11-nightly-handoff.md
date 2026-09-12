@@ -113,3 +113,25 @@
   - 视频：主 IP233；备 65535 seedance 系列。**用户要求只装配、不实跑**。
 - 约定：env 读取一律 `trim()`，空白视为未配置（`test/image-backup-env-guard-0912.test.mjs` 已锁，血泪教训：空值曾导致全站 502）。
 
+
+## 七、备用通道的内部观测手册（用户侧零感知；仅我们后台可查）
+
+### 7.1 铁律（用户 2026-09-12 澄清）
+- **用户永远不知道存在备用通道**：失败只给产品级原因（「视频生成失败，请重试」/「生成服务暂时繁忙，请稍后重试」）。
+- **永远先走主通道**，只有失败才切备用（正常市场化方案）；绝不出现「无备用 / 已切备用 / 已尝试多家」这类字样。
+- 真实原因与切换事实**只留后台**：日志 + 数据库内部列。
+  测试锁死：`test/provider-failover-observability-0912.test.mjs`（扫视频/画布源码中文文案，出现「备用/供应商/上游」即失败）。
+
+### 7.2 怎么查（我们自己用）
+| 想知道什么 | 查哪里 |
+|---|---|
+| 这次视频是不是备用出的 | video_jobs 表 provider_source = backup 的行 |
+| 主通道为什么失败 | video_job_attempts 里 code = VIDEO_PROVIDER_FAILED 的 message（失败原文）+ PM2 日志 `[video-generation] provider failover` |
+| 生图这次是不是备用出的 | canvas_generation_jobs 里 provider_job_id 以 overflow: 开头的行（前缀就是通道标记） |
+| 生图主通道失败原文 | PM2 日志 `[canvas-generation] provider failure`（含 providerJobId 与原文） |
+| 备用通道是否启用 | env：IMAGE_BACKUP_* / NANO_BACKUP_* / VIDEO_BACKUP_*（空白 = 未启用） |
+
+### 7.3 覆盖范围（当前）
+- 生图 image2：主 65535 → 备 IP233（实测出图：纯文生图 53.8s / 带参考图编辑 37s）。
+- 生图 nano：主 Change2Pro → 备 IP233（实测出图：nano-banana-2 1K 46.5s）。
+- 视频：主 IP233 → 备 65535，仅 4 档有对应模型（seedance 快试/标准/2.5、grok）；可灵/万相/Veo/MiniMax 在备用网关没有对应模型，**不挂备用、用户侧也无任何差别**。

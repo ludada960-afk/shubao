@@ -1010,6 +1010,13 @@ export function createVideoGeneration({
                 route: job.provider_route,
                 detail: clean(result?.error, 200),
               }));
+              /* 后台可查：把主通道这次失败如实记进尝试历史（失败原因我们自己看得到，用户侧不暴露） */
+              if (job.current_attempt_id) {
+                attemptStore.markFailed(job.current_attempt_id, {
+                  code: 'VIDEO_PROVIDER_FAILED',
+                  message: clean(result?.error, 300),
+                });
+              }
               const nextAttempt = attemptStore.begin({
                 jobId: job.id,
                 submissionKey: `${job.id}:backup:${nowMs()}`,
