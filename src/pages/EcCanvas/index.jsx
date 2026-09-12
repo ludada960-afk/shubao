@@ -298,7 +298,8 @@ const ACTION_ICONS = {
   crop: Crop,
   'grid-split': Grid3x3,
   annotation: Type,
-  'save-to-assets': Bookmark,
+  /* 用「加入库」语义的图标，不用兜底的星标/魔法棒 */
+  'save-to-assets': FolderPlus,
 };
 
 const PLATFORM_PRESETS = {
@@ -3743,6 +3744,9 @@ const handlePointerUp = useCallback((e) => {
   useEffect(() => {
     const targetId = autoPlanNodeRef.current;
     if (!targetId) return;
+    /* 本地验收通道 (?qa=...) 没有登录态与积分，自动生成会走计费失败分支；
+       这里跳过自动生成，让 QA 能安静地验证「发射后的画布布局」。线上不受影响。 */
+    if (state.browserQa) { autoPlanNodeRef.current = ''; return; }
     const node = nodes.find(item => item.id === targetId);
     if (!node || node.kind !== 'design-direction') return;
     const alreadyHasPlan = Array.isArray(node.directions) && node.directions.length > 0;
@@ -6080,6 +6084,8 @@ const handlePointerUp = useCallback((e) => {
                   onPointerDown={handleNodeDown}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                  /* 内容撑高后把实高同步回 node.h —— 否则加号与连线端点会错开 */
+                  onAutoHeight={handleTextNodeAutoHeight}
                   onGenerate={() => handleDirectionGenerate(node)}
                   onRefresh={() => handleDirectionRefresh(node)}
                   onApply={() => handleDirectionApply(node)}

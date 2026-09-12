@@ -60,7 +60,11 @@ test('① 素材/作品: 上传与替换不再自动归档, 资产库只收用�
 test('① 资产库动作: 工具条「加入资产库」注册在 selection 表面', () => {
   const registry = read('src/pages/EcCanvas/canvasActionRegistry.js');
   assert.match(registry, /action\('save-to-assets', '加入资产库', \['selection'\]/);
-  assert.match(registry, /user 的资产库由用户显式定义|资产库由用户显式定义/);
+  /* 9-12 用户批注：这个动作挪到「裁剪/导出」那一组，并带语义明确的高亮说明 */
+  assert.match(registry, /加入后按钮高亮/);
+  const cropIndex = registry.indexOf("action('crop', '裁剪'");
+  const assetIndex = registry.indexOf("action('save-to-assets', '加入资产库'");
+  assert.ok(assetIndex > 0 && cropIndex > 0 && assetIndex < cropIndex, '加入资产库应紧邻裁剪之前（同属尾部图标组）');
 });
 
 test('② 点画布空白: 顶栏与右栏 (派生菜单/图片编辑器) 同时收起', () => {

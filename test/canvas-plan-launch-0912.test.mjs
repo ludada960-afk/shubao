@@ -21,15 +21,34 @@ const launch = {
   genSettings: { imageModel: 'image2' },
 };
 
-test('带方案：素材节点 + 设计方案节点，且素材连到方案节点', () => {
+test('带方案：素材按列排 + 提示词节点 + 设计方案节点，全部连到方案节点', () => {
   const graph = createPlanLaunchGraph({ launch, now: 1 });
   const materials = graph.nodes.filter(node => node.kind === 'image' && node.provenance === 'source');
   assert.equal(materials.length, 2, '两张素材都要进画布');
+  /* 9-12 用户批注：产品图一列、参考图一列（列内竖排） */
+  const products = materials.filter(node => node.role === 'product');
+  const references = materials.filter(node => node.role === 'reference');
+  assert.equal(products.length, 1);
+  assert.equal(references.length, 1);
+  assert.ok(references[0].x > products[0].x, '参考图列在产品图列右边');
+  /* 同一列内多个素材要竖排（y 递增、x 相同） */
+  const columnTest = createPlanLaunchGraph({ launch: { ...launch, realShots: [launch.realShots[0], { assetId: 'a3', url: 'https://cdn.example.com/p2.png', name: '产品图 2' }] }, now: 9 });
+  const columnProducts = columnTest.nodes.filter(node => node.role === 'product');
+  assert.equal(columnProducts.length, 2);
+  assert.equal(columnProducts[0].x, columnProducts[1].x, '同列 x 相同');
+  assert.ok(columnProducts[1].y > columnProducts[0].y, '同列竖排');
+  /* 提示词也是一个节点，并且参与连线 */
+  const promptNode = graph.nodes.find(node => node.id.startsWith('plan_prompt_'));
+  assert.ok(promptNode, '提示词节点必须存在');
+  assert.equal(promptNode.kind, 'text');
+  assert.ok(promptNode.text.includes('保温杯'), '提示词内容要带过来');
   const target = graph.nodes.find(node => node.id === graph.targetId);
   assert.equal(target.kind, 'design-direction');
-  assert.deepEqual([...target.sourceNodeIds].sort(), materials.map(node => node.id).sort(), '方案节点要挂上素材作为来源');
-  assert.equal(graph.connections.length, materials.length, '每个素材一条连线到方案节点');
-  assert.ok(target.x > Math.max(...materials.map(node => node.x)), '方案节点排在素材行右侧');
+  assert.ok(target.sourceNodeIds.includes(promptNode.id), '方案节点要把提示词当来源');
+  for (const node of materials) assert.ok(target.sourceNodeIds.includes(node.id), '方案节点要挂上素材作为来源');
+  assert.equal(graph.connections.length, materials.length + 1, '每个素材 + 提示词各一条连线');
+  assert.ok(promptNode.x > Math.max(...materials.map(node => node.x)), '提示词排在素材列右侧');
+  assert.ok(target.x > promptNode.x, '方案节点排在提示词右侧');
 });
 
 test('快速生成：不建方案节点，直接套图生成器', () => {

@@ -4,29 +4,32 @@
    计费不变式①: 方案分析/刷新在画布内先报价后扣费; 快速通道不拉方案、不扣费。
    本模块只产纯数据 (节点/连线图), 由 index.jsx 装配进画布状态。 */
 
-import { createCanvasSuiteComposerNode } from './canvasStudioModel.js';
+import { createCanvasSuiteComposerNode, createCanvasTextNode } from './canvasStudioModel.js';
 import { createChildConnection } from './nodeWorkflow.js';
 
 export function isPlanLaunch(launch) {
   return Boolean(launch) && launch.kind === 'ec-plan-launch';
 }
 
-/* 首页已上传的素材 (realShots/refShots/personShots/sceneShots 均为服务器资产对象) → 画布素材节点 */
-export function planLaunchMaterialNodes({ launch = {}, x = 60, y = 80, now = Date.now(), namer = null } = {}) {
+/* 首页已上传的素材 (realShots/refShots/personShots/sceneShots 均为服务器资产对象) → 画布素材节点。
+   9-12 用户批注：布局要按「**每种来源一列、列内自上而下排列**」——
+   产品图一列、参考图在其右边一列（模特图/场景图依次再往右），
+   而不是全部横着铺成一长排。返回每列最后一列的右边缘，供下游节点接着摆。 */
+export function planLaunchMaterialNodes({ launch = {}, x = 60, y = 80, now = Date.now(), namer = null, columnWidth = 190, columnGap = 72, rowGap = 28, cardHeight = 240 } = {}) {
   const groups = [
     ['product', launch.realShots || launch.productImages || [], '产品图'],
     ['reference', launch.refShots || [], '参考图'],
     ['person', launch.personShots || [], '模特图'],
     ['scene', launch.sceneShots || [], '场景图'],
   ];
-  const width = 190;
-  const gap = 26;
   const nodes = [];
   let index = 0;
+  let columnX = x;
   for (const [role, list, label] of groups) {
-    for (const asset of (Array.isArray(list) ? list : [])) {
-      const url = String(asset?.url || asset?.stableUrl || '').trim();
-      if (!url) continue;
+    const usable = (Array.isArray(list) ? list : []).filter(asset => String(asset?.url || asset?.stableUrl || '').trim());
+    if (!usable.length) continue;
+    let rowY = y;
+    for (const asset of usable) {
       index += 1;
       nodes.push({
         id: `plan_launch_${now}_${role}_${index}`,
@@ -34,15 +37,15 @@ export function planLaunchMaterialNodes({ launch = {}, x = 60, y = 80, now = Dat
         kind: 'image',
         provenance: 'source',
         status: 'ready',
-        url,
+        url: String(asset.url || asset.stableUrl).trim(),
         name: asset.name || `${label} ${index}`,
         displayLabel: label,
         group: label,
         role,
-        w: width,
-        h: 240,
-        x: x + index * (width + gap),
-        y,
+        w: columnWidth,
+        h: cardHeight,
+        x: columnX,
+        y: rowY,
         rotation: 0,
         flipX: false,
         flipY: false,
@@ -51,7 +54,9 @@ export function planLaunchMaterialNodes({ launch = {}, x = 60, y = 80, now = Dat
         editable: true,
         showMeta: true,
       });
+      rowY += cardHeight + rowGap;
     }
+    columnX += columnWidth + columnGap;
   }
   return nodes;
 }
@@ -85,9 +90,19 @@ export function createPlanLaunchGraph({ launch = {}, now = Date.now(), viewport 
   const quick = launch.quick === true;
   const prompt = String(launch.description || launch.prompt || '').trim();
   const productName = String(launch.productName || '').trim();
-  const rowEndX = materials.length
-    ? materials[materials.length - 1].x + materials[materials.length - 1].w + 60
+  /* 9-12 用户批注：素材按列排完之后，右侧依次是「提示词文字节点」→「设计方案节点」。
+     提示词本身也是一个节点（原来漏了），它和素材一起喂给方案节点。 */
+  const columnRight = materials.length
+    ? Math.max(...materials.map(node => node.x + (Number(node.w) || 190)))
     : 60;
+  const promptNode = createCanvasTextNode({ x: columnRight + 72, y: 80, now });
+  promptNode.id = `plan_prompt_${now}`;
+  promptNode.text = prompt || '描述你想要的画面与要求';
+  promptNode.name = '生成要求';
+  promptNode.displayLabel = '生成要求';
+  promptNode.w = 420;
+  promptNode.h = 140;
+  const rowEndX = promptNode.x + promptNode.w + 72;
   const target = quick
     ? {
       ...createCanvasSuiteComposerNode({ x: rowEndX, y: 80, now }),
@@ -112,10 +127,13 @@ export function createPlanLaunchGraph({ launch = {}, now = Date.now(), viewport 
       ecParams: launch,
       now,
     });
-  target.sourceNodeIds = materials.map(node => node.id);
-  const connections = materials.map(node => createChildConnection(node.id, target.id));
+  target.sourceNodeIds = [...materials.map(node => node.id), promptNode.id];
+  const connections = [
+    ...materials.map(node => createChildConnection(node.id, target.id)),
+    createChildConnection(promptNode.id, target.id),
+  ];
   return {
-    nodes: [...materials, target],
+    nodes: [...materials, promptNode, target],
     connections,
     targetId: target.id,
     targetKind: target.kind,

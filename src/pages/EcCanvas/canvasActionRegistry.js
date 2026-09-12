@@ -79,17 +79,6 @@ export const CANVAS_ACTIONS = Object.freeze([
     canRun: node => ['image', 'output', 'layer-group', 'video'].includes(String(node?.kind || ''))
       && !['error', 'upload-error'].includes(String(node?.status || '')),
   }),
-  /* 9-11 用户批注①: 资产库由用户显式定义 — 选中素材/生成物, 工具条「加入资产库」才入库;
-     上传与替换不再自动归档 (原「已替换素材，正在后台保存原图」机制已移除)。 */
-  action('save-to-assets', '加入资产库', ['selection'], null, false, {
-    type: 'local', handler: 'save-to-assets',
-  }, {
-    description: '把这个素材明确加入资产库，跨项目复用',
-    group: '优先操作',
-    canRun: node => ['image', 'output', 'video', 'audio'].includes(String(node?.kind || ''))
-      && Boolean(node?.url)
-      && !['error', 'upload-error', 'uploading', 'processing'].includes(String(node?.status || '')),
-  }),
   action('add-text', '添加文字', [], null, false, {
     type: 'local', handler: 'add-text',
   }, { description: '在画布上添加可直接编辑的文字', canRun: canRunLocally }),
@@ -110,6 +99,16 @@ export const CANVAS_ACTIONS = Object.freeze([
   }, { description: '创建可继续编辑和派生的画面描述' }),
   action('annotation', '图片标注', ['selection'], 'annotation', false, {
     type: 'focused-editor', handler: 'annotation', route: '/api/canvas/transform',
+  }),
+  /* 9-12 用户批注：这个按钮（加入资产库）原来夹在「编辑文字」后面，且是纯图标容易被当成莫名的「添加」。
+     按竞品做法挪到**裁剪/导出这一组**里，用语义明确的图标，点过后高亮表示已在资产库。 */
+  action('save-to-assets', '加入资产库', ['selection'], null, false, {
+    type: 'local', handler: 'save-to-assets',
+  }, {
+    description: '把这个素材明确加入资产库，跨项目复用（加入后按钮高亮）',
+    canRun: node => ['image', 'output', 'video', 'audio'].includes(String(node?.kind || ''))
+      && Boolean(node?.url)
+      && !['error', 'upload-error', 'uploading', 'processing'].includes(String(node?.status || '')),
   }),
   action('crop', '裁剪', ['selection'], 'crop', false, {
     type: 'focused-editor', handler: 'crop',

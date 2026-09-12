@@ -31,13 +31,14 @@ test('selection exposes the pure image-edit toolbar (9-11: 「替换」移回节
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
     [
       'edit-text',
-      'save-to-assets',
       'grid-split',
       'layer-edit',
       'remove-background',
       'move-scale',
       'reverse-prompt',
       'annotation',
+      /* 9-12 用户批注：加入资产库挪到「裁剪/导出」这一组（原来夹在编辑文字后面，纯图标容易被当成莫名的“添加”） */
+      'save-to-assets',
       'crop',
       'download',
     ],

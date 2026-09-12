@@ -692,13 +692,24 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
 
 /* P7 方案入画布: 设计方案 = 画布对象 (可生成/可换一套/可应用到画布), 不是独立整页。
    计费不变式①: 生成/刷新方案都走 ec_direction_analysis / ec_direction_refresh 报价扣费 (handler 在 index.jsx)。 */
-export function CanvasDirectionNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onGenerate, onRefresh, onApply }) {
+export function CanvasDirectionNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onAutoHeight, onGenerate, onRefresh, onApply }) {
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const hasPlan = directions.length > 0;
   const busy = node.status === 'processing';
   const plan = hasPlan ? buildCanvasSuitePlan(directions[0], node.prompt || '') : null;
   const totalShots = plan?.shots?.length || 0;
+  /* 9-12 用户批注：这个节点的内容是「撑高」的（height:auto + minHeight），但 node.h 从不回写，
+     于是加号手柄（按实高 50%）与连线端点（按 node.h/2）会错开。
+     与 CanvasGenerationNode/CanvasTextNode 同样策略：把实高同步回 node.h。 */
+  const directionRootRef = useRef(null);
+  useEffect(() => {
+    const el = directionRootRef.current;
+    if (!el || typeof onAutoHeight !== 'function') return;
+    const next = Math.max(120, Math.ceil(el.scrollHeight) + 10);
+    if (Math.abs(next - (Number(node.h) || 260)) > 2) onAutoHeight(node.id, next);
+  }, [node.id, node.h, node.status, directions.length, onAutoHeight]);
   return <article
+    ref={directionRootRef}
     data-canvas-node-id={node.id}
     className={`ec-canvas-generation-node is-direction ${node.status === 'processing' ? 'is-processing' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
     style={{ left: node.x, top: node.y, width: node.w, height: 'auto', minHeight: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
