@@ -76,14 +76,42 @@ function normalizeReferenceMetadata(value, visualInputs) {
   }).filter(Boolean);
 }
 
+/* 9-12 用户批注: **上游 / 供应商属于内部信息，任何情况下都不得出现在用户可见文案里**。
+   用户只看到产品级提示；技术细节（上游任务号、上游原文）只留在服务端日志与 provider_job_id 列，供我们自己排查。 */
+const USER_FACING_GENERATION_MESSAGES = Object.freeze({
+  CANVAS_GENERATION_FAILED: '生成失败，请重试',
+  PROVIDER_NETWORK_ERROR: '生成服务暂时繁忙，请稍后重试',
+  PROVIDER_POLL_TIMEOUT: '生成超时，请重试',
+  PROVIDER_JOB_ID_MISSING: '生成服务暂时繁忙，请稍后重试',
+  CONTENT_BLOCKED: '内容未通过安全审核，请调整说明后重试',
+  INSUFFICIENT_POINTS: '积分不足，请先充值',
+});
+const TRANSIENT_ERROR_PATTERN = /upstream_5xx|\b5\d{2}\b|timeout|timed out|deadline|network|socket hang up|ECONNRESET|ETIMEDOUT/i;
+
+function userFacingGenerationMessage(error) {
+  const code = cleanString(error?.code);
+  if (USER_FACING_GENERATION_MESSAGES[code]) return USER_FACING_GENERATION_MESSAGES[code];
+  if (TRANSIENT_ERROR_PATTERN.test(String(error?.message || ''))) return '生成服务暂时繁忙，请稍后重试';
+  return '生成失败，请重试';
+}
+
 function serializedError(error) {
+  const transient = TRANSIENT_ERROR_PATTERN.test(String(error?.message || ''));
+  if (String(error?.message || '').trim()) {
+    /* 技术细节只进日志，不进用户响应 */
+    console.warn('[canvas-generation] provider failure', JSON.stringify({
+      code: cleanString(error?.code) || 'CANVAS_GENERATION_FAILED',
+      providerJobId: cleanString(error?.jobId),
+      detail: String(error?.message || '').slice(0, 400),
+    }));
+  }
   return {
-    message: error?.message || 'Canvas generation failed',
+    message: userFacingGenerationMessage(error),
     status: Number.isInteger(error?.status) ? error.status : 0,
     code: cleanString(error?.code) || 'CANVAS_GENERATION_FAILED',
-    retryable: error?.retryable === true,
+    retryable: error?.retryable === true || transient,
     retryAfter: Number.isFinite(error?.retryAfter) ? error.retryAfter : null,
-    jobId: cleanString(error?.jobId),
+    /* 不再外泄 jobId：上游任务号只作内部排查（provider_job_id 列 + 日志） */
   };
 }
 
