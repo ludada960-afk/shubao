@@ -46,6 +46,7 @@ import {
   visualGenerationEstimate,
 } from './visualCreationModel.js';
 import './VisualCreationMode.css';
+import { IMAGE_PROMPT_LIMIT } from '../../constants/promptLimits.js';
 
 const MAX_REFERENCES = 6;
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -809,7 +810,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             ref={promptRef}
             value={prompt}
             mentions={mentionOptions}
-            onChange={value => setPrompt(String(value || '').slice(0, 3000))}
+            maxLength={IMAGE_PROMPT_LIMIT}
+            onChange={value => setPrompt(String(value || '').slice(0, IMAGE_PROMPT_LIMIT))}
             onFilesPasted={files => { if (!busy) appendFiles(files); }}
             placeholder={`描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
             aria-label="画面描述"

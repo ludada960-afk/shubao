@@ -75,6 +75,9 @@ const MentionPromptField = forwardRef(function MentionPromptField({
   onChange,
   onFilesPasted,
   placeholder = '描述你想生成的内容',
+  /* 9-12 用户批注：输入上限全局统一（视频 8000 / 生图 2000），并且要真的能输入这么多、
+     不能出现“显示能输、实际被截断”。超出上限时在输入处截断并保持光标在末尾。 */
+  maxLength = 0,
   className = '',
   ...props
 }, ref) {
@@ -137,7 +140,16 @@ const MentionPromptField = forwardRef(function MentionPromptField({
     onInput={event => {
       rememberSelection();
       lastSyncKey.current = '';
-      if (!composingRef.current && !event.nativeEvent?.isComposing) onChange?.(event.currentTarget.textContent || '');
+      const raw = event.currentTarget.textContent || '';
+      const limit = Number(maxLength) || 0;
+      if (limit > 0 && raw.length > limit) {
+        const trimmed = raw.slice(0, limit);
+        event.currentTarget.textContent = trimmed;
+        restoreCaret(event.currentTarget, trimmed.length);
+        if (!composingRef.current && !event.nativeEvent?.isComposing) onChange?.(trimmed);
+        return;
+      }
+      if (!composingRef.current && !event.nativeEvent?.isComposing) onChange?.(raw);
     }}
     onPaste={event => {
       const files = extractPastedMediaFiles(event.clipboardData);

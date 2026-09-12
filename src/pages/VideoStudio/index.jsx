@@ -38,7 +38,7 @@ import {
   quoteForVideoProduct,
   resolveVideoApiMode,
 } from './videoStudioModel.js';
-import { buildVideoPlan } from './videoPlanModel.js';
+import { buildVideoPlan, VIDEO_PROMPT_MAX_LENGTH } from './videoPlanModel.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import ModelLogo from '../../components/ModelLogo.jsx';
 import { brandLogo, videoProductLogo } from '../../services/modelLogos.js';
@@ -872,7 +872,8 @@ export default function VideoStudioPage({ embedded = false }) {
             id="video-prompt"
             value={prompt}
             mentions={mentionedAssets}
-            onChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, 1200)); }}
+            maxLength={VIDEO_PROMPT_MAX_LENGTH}
+            onChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH)); }}
             onFilesPasted={files => appendQuickFiles(files)}
             placeholder={promptPlaceholder}
             className="video-prompt-mentions"

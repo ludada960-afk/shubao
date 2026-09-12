@@ -2,6 +2,9 @@ const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|avif)$/i;
 const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v)$/i;
 const AUDIO_EXTENSIONS = /\.(mp3|wav|m4a|aac|ogg|flac)$/i;
 
+/* 9-12 用户批注：视频提示词上限 1200 → 8000（与输入框显示一致，避免“能输入却被截断”） */
+export const VIDEO_PROMPT_MAX_LENGTH = 8000;
+
 export const VIDEO_PLAN_LIMITS = Object.freeze({ images: 9, videos: 3, audios: 3, total: 12, requestBytes: 64 * 1024 * 1024 });
 
 function clean(value, max = 160) {
@@ -86,7 +89,7 @@ export function buildVideoPlan({ mode = 'smart', prompt = '', files = {}, durati
   const warnings = [];
   const blockers = [];
   const normalizedMode = ['smart', 'frame', 'remake'].includes(mode) ? mode : 'smart';
-  const normalizedPrompt = clean(prompt, 1200);
+  const normalizedPrompt = clean(prompt, VIDEO_PROMPT_MAX_LENGTH);
   const material = assets.filter(item => item.kind !== 'unknown');
   const hasAudio = counts.audios > 0;
   const hasVisual = counts.images > 0 || counts.videos > 0;

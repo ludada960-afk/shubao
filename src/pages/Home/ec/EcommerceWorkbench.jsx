@@ -10,6 +10,7 @@ import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 import { productionCaseById } from '../productionCaseCatalog.js';
 import { EcommerceAddCard, EcommerceImageCard } from './components/EcommerceAssetCards.jsx';
+import { IMAGE_PROMPT_LIMIT } from '../../../constants/promptLimits.js';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -369,7 +370,7 @@ export default function EcommerceWorkbench({
 
         <div className="ec-textarea-wrap ec-xhs-prompt" onClick={() => promptFieldRef.current?.focus()}>
           {!description && <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints"><span className="ec-placeholder-line">{isTryOn ? '描述人物、穿搭关系和使用场景，一句话就够了' : promptTitle}</span>{(isTryOn ? ['例：年轻女性穿着整套搭配，在城市街区自然行走', '例：保留商品颜色与版型，生成 3 张不同姿态'] : promptExamples).slice(0, 2).map((example, index) => <span key={example} className={`ec-placeholder-line ${index === 0 ? 'ec-xhs-example-first' : ''}`}>{example}</span>)}</div>}
-          <MentionPromptField ref={promptFieldRef} value={description} mentions={selectedMentionImages} onChange={value => onDescriptionChange(value)} onFilesPasted={handlePromptFilesPasted} className={!description ? 'ec-empty' : ''} placeholder="" aria-label="补充商品信息和生成要求" />
+          <MentionPromptField ref={promptFieldRef} value={description} mentions={selectedMentionImages} maxLength={IMAGE_PROMPT_LIMIT} onChange={value => onDescriptionChange(value)} onFilesPasted={handlePromptFilesPasted} className={!description ? 'ec-empty' : ''} placeholder="" aria-label="补充商品信息和生成要求" />
         </div>
         <div className="ec-workbench-mention-row">
           <ImageMentionPicker images={mentionImages} selectedImages={selectedMentionImages} selectionMode="insert" onToggle={handleMentionToggle} />

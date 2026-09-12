@@ -23,6 +23,7 @@ import GenSettingsPanel from './ec/GenSettingsPanel';
 import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import EcProfileRail from './ec/EcProfileRail.jsx';
+import { generationUnits, IMAGE_MODELS, normalizeImageModel } from '../../services/imageModelCatalog.js';
 import ProductChip from './ec/ProductChip.jsx';
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
@@ -408,6 +409,24 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     imageModel: 'image2',
     negativePrompt: ''
   });
+
+  /* 9-12 用户批注：首页「下一步」必须先算好积分给用户看，且**随配置实时变化**
+     （改模型/清晰度/张数都要跟着变）。口径 = 每张积分 × 张数，与后端 generationUnits 同源。 */
+  const planPoints = (() => {
+    const model = normalizeImageModel(genSettings.imageModel || 'image2');
+    const resolution = String(genSettings.resolution || '2K').toUpperCase();
+    const unitsPerImage = generationUnits(model, resolution) || 0;
+    const totalImages = (Array.isArray(sizing.images) ? sizing.images : [])
+      .reduce((sum, item) => sum + (Number(item?.count) || 0), 0);
+    const count = Math.max(1, totalImages);
+    const modelLabel = IMAGE_MODELS.find(entry => entry.id === model)?.label || 'GPT Image 2';
+    return {
+      totalImages: count,
+      modelLabel,
+      unitsPerImage,
+      points: Number(((unitsPerImage * count) / 1000).toFixed(1)),
+    };
+  })();
 
   useEffect(() => {
     if (!recoveryCheckpoint || recoveryCheckpoint.project?.kind !== 'ecommerce') return;
@@ -1666,6 +1685,12 @@ const DEFAULT_BUTTONS = [
                   </button>
                 );
               })}
+            </div>
+
+            {/* ── 动态积分估算 (9-12 用户批注: 「下一步」这里要先把积分算出来给用户看, 且随配置变化) ── */}
+            <div className="ec-workbench-estimate" aria-live="polite">
+              <strong>预计 {planPoints.points} 积分</strong>
+              <small>{planPoints.totalImages} 张 · {String(genSettings.resolution || '2K').toUpperCase()} · {planPoints.modelLabel}</small>
             </div>
 
             {/* ── 下一步按钮 ── */}

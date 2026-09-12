@@ -304,6 +304,10 @@
 .ec-mode-chooser-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: rgba(124,58,237,.10); color: #7c3aed; }
 .ec-mode-chooser-item strong { display: block; font-size: 13px; font-weight: 750; }
 .ec-mode-chooser-item small { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10.5px; line-height: 1.45; }
+/* 9-12 用户批注：首页「下一步」旁显示动态积分（随模型/清晰度/张数变化） */
+.ec-workbench-estimate { display: grid; gap: 2px; margin-right: 10px; text-align: right; }
+.ec-workbench-estimate strong { color: #6d28d9; font-size: 13px; font-weight: 800; }
+.ec-workbench-estimate small { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
 .ec-direction-action {
   display: inline-flex;
   min-height: 38px;
