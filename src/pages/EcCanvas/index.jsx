@@ -593,47 +593,6 @@ export default function EcCanvas() {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
-  /* P7 方案入画布：发射图的装配**并入下面「从草稿/会话重建」的同一个效应**（见 handleSessionRestore）。
-     9-12 用户批注根治：原先它是独立效应，会被重建效应在之后覆盖 → 用户只看到 toast、画布空白。 */
-  const applyPlanLaunch = useCallback(launch => {
-    const graph = createPlanLaunchGraph({ launch, now: Date.now() });
-    if (!graph.nodes.length) return false;
-    /* 9-12 根治(三)：发射图必须**常驻**。进画布后 result 还会再变（路由/状态初始化），
-       重建效应会因此再跑若干次；只靠「跳过一跳」挡不住 → 记下发射图，重建时优先还原它。 */
-    planLaunchGraphRef.current = {
-      nodes: graph.nodes.map(normalizeCanvasNode),
-      connections: graph.connections.map(normalizeCanvasConnection),
-      targetId: graph.targetId,
-    };
-    setNodes(graph.nodes.map(normalizeCanvasNode));
-    setConnections(graph.connections.map(normalizeCanvasConnection));
-    setSelected(graph.targetId);
-    setMultiSelected(new Set([graph.targetId]));
-    /* 进画布把视口对准新图：整图包围盒居中并尽量一屏放下 */
-    const launchRect = containerRef.current?.getBoundingClientRect();
-    if (launchRect && launchRect.width > 0) {
-      const widths = graph.nodes.map(node => Number(node.w) || 240);
-      const heights = graph.nodes.map(node => Number(node.h) || 240);
-      const minX = Math.min(...graph.nodes.map(node => Number(node.x) || 0));
-      const minY = Math.min(...graph.nodes.map(node => Number(node.y) || 0));
-      const maxX = Math.max(...graph.nodes.map((node, index) => (Number(node.x) || 0) + (widths[index] || 240)));
-      const maxY = Math.max(...graph.nodes.map((node, index) => (Number(node.y) || 0) + (heights[index] || 240)));
-      const padding = 96;
-      const graphW = Math.max(1, maxX - minX);
-      const graphH = Math.max(1, maxY - minY);
-      const fitScale = Math.min((launchRect.width - padding * 2) / graphW, (launchRect.height - padding * 2) / graphH, 1);
-      const scale = Math.max(0.35, Number.isFinite(fitScale) ? fitScale : 1);
-      setViewport({
-        scale,
-        x: (launchRect.width - graphW * scale) / 2 - minX * scale,
-        y: (launchRect.height - graphH * scale) / 2 - minY * scale,
-      });
-    }
-    showToast(graph.targetKind === 'suite-composer'
-      ? '素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)'
-      : '设计方案已在画布 · 点方案节点「生成方案」(1 积分), 再应用到画布', 'success');
-    return true;
-  }, [showToast]);
   const [connections, setConnections] = useState([]);
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
@@ -982,6 +941,49 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       setToast(null);
     }, 3000);
   }, []);
+
+  /* P7 方案入画布：发射图的装配并入下面「从草稿/会话重建」的同一个效应。
+     9-12 三次反馈后的真因（本地 QA 通道实测）：本函数原先声明在 showToast 之前，
+     却在依赖里引用 showToast → 进画布瞬间 TDZ 抛错（Cannot access 'showToast' before initialization），
+     整个画布崩掉、用户只看到空画布 + toast。声明位置必须在 showToast 之后。 */
+  const applyPlanLaunch = useCallback(launch => {
+    const graph = createPlanLaunchGraph({ launch, now: Date.now() });
+    if (!graph.nodes.length) return false;
+    /* 发射图必须**常驻**：进画布后 result 还会再变，重建效应会反复跑，只靠「跳过一跳」挡不住 */
+    planLaunchGraphRef.current = {
+      nodes: graph.nodes.map(normalizeCanvasNode),
+      connections: graph.connections.map(normalizeCanvasConnection),
+      targetId: graph.targetId,
+    };
+    setNodes(graph.nodes.map(normalizeCanvasNode));
+    setConnections(graph.connections.map(normalizeCanvasConnection));
+    setSelected(graph.targetId);
+    setMultiSelected(new Set([graph.targetId]));
+    const launchRect = containerRef.current?.getBoundingClientRect();
+    if (launchRect && launchRect.width > 0) {
+      const widths = graph.nodes.map(node => Number(node.w) || 240);
+      const heights = graph.nodes.map(node => Number(node.h) || 240);
+      const minX = Math.min(...graph.nodes.map(node => Number(node.x) || 0));
+      const minY = Math.min(...graph.nodes.map(node => Number(node.y) || 0));
+      const maxX = Math.max(...graph.nodes.map((node, index) => (Number(node.x) || 0) + (widths[index] || 240)));
+      const maxY = Math.max(...graph.nodes.map((node, index) => (Number(node.y) || 0) + (heights[index] || 240)));
+      const padding = 96;
+      const graphW = Math.max(1, maxX - minX);
+      const graphH = Math.max(1, maxY - minY);
+      const fitScale = Math.min((launchRect.width - padding * 2) / graphW, (launchRect.height - padding * 2) / graphH, 1);
+      const scale = Math.max(0.35, Number.isFinite(fitScale) ? fitScale : 1);
+      setViewport({
+        scale,
+        x: (launchRect.width - graphW * scale) / 2 - minX * scale,
+        y: (launchRect.height - graphH * scale) / 2 - minY * scale,
+      });
+    }
+    showToast(graph.targetKind === 'suite-composer'
+      ? '素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)'
+      : '设计方案已在画布 · 点方案节点「生成方案」(1 积分), 再应用到画布', 'success');
+    return true;
+  }, [showToast]);
+
 
   /* 9-11 二轮批注: 技能按钮 → 打开既有技能库管理界面 (SkillLibraryModal, 与首页/视频页同一个),
      选中技能回写节点: prompt 空才预填技能正文, skill/skillLabel 记名 (showToast 之后声明, 避免 TDZ)。 */

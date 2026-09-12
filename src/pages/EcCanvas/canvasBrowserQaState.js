@@ -1,5 +1,9 @@
 const QA_QUERY_VALUE = 'ec-canvas';
 const VISUAL_QA_QUERY_VALUE = 'visual';
+/* 9-12 新增本地验收通道：?qa=ec-plan-launch —— 直接以「首页带设计方案发射」的状态进入画布。
+   仅 import.meta.env.DEV 生效（见 AppContext.createInitialState），线上永远不会命中。
+   用途：把「发射 → 画布装配」这条链在本地一次跑通/跑挂，避免靠读代码猜。 */
+const PLAN_LAUNCH_QA_QUERY_VALUE = 'ec-plan-launch';
 
 const QA_IMAGES = [
   {
@@ -61,7 +65,29 @@ const QA_IMAGES = [
 
 export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
   const qaValue = new URLSearchParams(search).get('qa');
-  if (!enabled || ![QA_QUERY_VALUE, VISUAL_QA_QUERY_VALUE].includes(qaValue)) return null;
+  if (!enabled || ![QA_QUERY_VALUE, VISUAL_QA_QUERY_VALUE, PLAN_LAUNCH_QA_QUERY_VALUE].includes(qaValue)) return null;
+
+  if (qaValue === PLAN_LAUNCH_QA_QUERY_VALUE) {
+    return {
+      browserQa: true,
+      logged: true,
+      phone: 'browser-qa@local',
+      page: 'ec-canvas',
+      genState: 'idle',
+      creationLaunch: {
+        kind: 'ec-plan-launch',
+        quick: false,
+        draftId: 'qa-plan-launch',
+        description: '保留商品结构，换成夏日场景',
+        productName: '电商商品',
+        realShots: [{ assetId: 'qa-product-1', url: '/images/curator.png', name: '产品图 1' }],
+        refShots: [{ assetId: 'qa-ref-1', url: '/images/home/entry-xhs.png', name: '参考图 1' }],
+        platform: 'taobao',
+        sizing: { resolution: '2K' },
+        genSettings: { imageModel: 'image2' },
+      },
+    };
+  }
 
   if (qaValue === VISUAL_QA_QUERY_VALUE) {
     const referenceUrl = '/images/visual-recipes/cases/social-cover-input.png';
