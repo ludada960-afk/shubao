@@ -1470,3 +1470,5 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
 - **仍未做**：资产库的「上传」按钮（需要把上传端点接进资产库并单独验收）。
 - 全量测试：3188/3188 全绿。
 
+- **资产库上传**（commit f6ec8640）：标题行加「上传」按钮 + 隐藏 file input（`accept=image/*`、multiple、最多 8 张）；链路复用画布既有上传（`readCanvasImageFiles` → `persistCanvasUploadAssets`/`uploadEcommerceAssets` → `importImageAssetToProject`），入库后按新项目刷新列表，额度条随列表变化自动刷新；失败文案「请选择 JPEG、PNG 或 WebP 图片」「上传失败，请重试」。至此资产库的**额度 / 分类 / 查询 / 上传 / 悬停删除**五项齐备。
+- 全量测试：3193/3193 全绿；线上 current = f6ec8640。
