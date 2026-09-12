@@ -234,8 +234,13 @@ export function createVideoProviderRegistry({
   credentials = {},
   fetchImpl = fetch,
   timeoutMs = 30_000,
+  /* 9-12 用户要求：视频同样要有备用供应商。上游 routeId 本身就是模型名（如 sd5-seedance-2.0），
+     所以「换供应商」= 换网关，模型不变、用户无感。 */
+  backup = null,
 } = {}) {
   const adapters = new Map();
+  const alternateAdapters = new Map();
+  const backupEnabled = Boolean(backup && backup.baseUrl);
   for (const product of Object.values(VIDEO_PRODUCTS)) {
     const token = clean(credentials?.[product.credential], 500);
     adapters.set(product.id, createAdapter({
@@ -245,11 +250,28 @@ export function createVideoProviderRegistry({
       fetchImpl,
       timeoutMs,
     }));
+    if (backupEnabled) {
+      const backupToken = clean(backup?.credentials?.[product.credential], 500);
+      if (backupToken) {
+        alternateAdapters.set(product.id, createAdapter({
+          product,
+          baseUrl: product.credential === 'minimax' ? (backup.minimaxBaseUrl || backup.baseUrl) : backup.baseUrl,
+          token: backupToken,
+          fetchImpl,
+          timeoutMs,
+        }));
+      }
+    }
   }
   return {
     get(productId) {
       return adapters.get(productId) || null;
     },
+    /* 备用通道：同一个模型、另一家上游网关；未配置时返回 null（调用方按「没备用」处理） */
+    alternate(productId) {
+      return alternateAdapters.get(productId) || null;
+    },
+    hasBackup: alternateAdapters.size > 0,
     list() {
       return [...adapters.values()];
     },

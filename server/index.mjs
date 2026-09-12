@@ -332,6 +332,11 @@ const videoGeneration = createVideoGeneration({
   assetRoot: resolve(__dirname, 'video-assets'),
   apiKey: process.env.IP233_VIDEO_API_KEY || process.env.VIDEO_API_KEY || '',
   minimaxApiKey: process.env.MINIMAX_VIDEO_API_KEY || '',
+  /* 9-12 视频备用供应商（同模型换网关，用户无感、只切一次）；空白一律视为未配置 */
+  backupBaseUrl: String(process.env.VIDEO_BACKUP_BASE_URL || '').trim().replace(/\/+$/, ''),
+  backupApiKey: String(process.env.VIDEO_BACKUP_API_KEY || '').trim(),
+  backupMinimaxBaseUrl: String(process.env.VIDEO_BACKUP_MINIMAX_BASE_URL || '').trim().replace(/\/+$/, ''),
+  backupMinimaxApiKey: String(process.env.VIDEO_BACKUP_MINIMAX_API_KEY || '').trim(),
   baseUrl: process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
@@ -4077,13 +4082,41 @@ const image2ProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
     throw error;
   },
 };
-const nanoBananaProviderAdapter = NANO_BANANA_KEY ? createNanoBananaProviderAdapter({
+const createNanoPrimaryAdapter = () => createNanoBananaProviderAdapter({
   apiKey: NANO_BANANA_KEY,
   baseUrl: NANO_BANANA_BASE,
   flashModel: NANO_BANANA_FLASH_MODEL,
   proModel: NANO_BANANA_PRO_MODEL,
   generatedAssetStore,
   publicBaseUrl: process.env.INTERNAL_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3002}`,
+});
+/* 9-12 用户要求：nano 系列同样要有备用供应商（同模型、用户无感、只切一次）。
+   主：Change2Pro（gemini 系列，便宜）；备：IP233（nano-banana2 / nano-banana-pro，走同步图片协议）。
+   env 一律 trim，空白视为未配置（血的教训：空凭据曾导致全站 502）。 */
+const NANO_BACKUP_BASE = String(process.env.NANO_BACKUP_BASE_URL || '').trim().replace(/\/+$/, '');
+const NANO_BACKUP_KEY = String(process.env.NANO_BACKUP_API_KEY || '').trim();
+const NANO_BACKUP_MODELS = {
+  'nano-banana-2:1K': process.env.NANO_BACKUP_MODEL_FLASH_1K || 'nano-banana2-1k',
+  'nano-banana-2:2K': process.env.NANO_BACKUP_MODEL_FLASH_2K || 'nano-banana2-2k',
+  'nano-banana-2:4K': process.env.NANO_BACKUP_MODEL_FLASH_4K || 'nano-banana2-4k',
+  'nano-banana-pro:1K': process.env.NANO_BACKUP_MODEL_PRO_1K || 'nano-banana-pro-1k',
+  'nano-banana-pro:2K': process.env.NANO_BACKUP_MODEL_PRO_2K || 'nano-banana-pro-2k',
+  'nano-banana-pro:4K': process.env.NANO_BACKUP_MODEL_PRO_4K || 'nano-banana-pro-4k',
+};
+const createNanoBackupAdapter = () => createProviderAdapter({
+  baseUrl: NANO_BACKUP_BASE,
+  bearerToken: NANO_BACKUP_KEY,
+  authStrategy: 'bearer',
+  protocol: 'openai-images',
+  submitPath: '/v1/images/generations',
+  editPath: '/v1/images/edits',
+  pollPath: '/v1/images/generations',
+  modelMap: NANO_BACKUP_MODELS,
+  submitTimeoutMs: 120_000,
+});
+const nanoBananaProviderAdapter = NANO_BANANA_KEY ? createProviderRouter({
+  primary: createNanoPrimaryAdapter(),
+  ...(NANO_BACKUP_BASE && NANO_BACKUP_KEY ? { overflow: createNanoBackupAdapter() } : {}),
 }) : null;
 const ecommerceProviderAdapter = createModelProviderRouter({
   image2: image2ProviderAdapter,

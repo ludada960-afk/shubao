@@ -377,7 +377,10 @@ export function createProviderAdapter(config = {}) {
     const route = own(request, 'modelRoute') || {};
     const model = cleanString(own(route, 'model'));
     const resolution = cleanString(own(route, 'resolution') || own(route, 'imageSize')).toUpperCase();
+    /* 支持三种键：`模型:分辨率`（同一上游按模型区分，如 nano-banana-pro:2K）、`分辨率`、以及无映射时沿用原模型名 */
+    if (MODEL_MAP && resolution && MODEL_MAP[`${model}:${resolution}`]) return cleanString(MODEL_MAP[`${model}:${resolution}`]);
     if (MODEL_MAP && resolution && MODEL_MAP[resolution]) return cleanString(MODEL_MAP[resolution]);
+    if (MODEL_MAP && MODEL_MAP[model]) return cleanString(MODEL_MAP[model]);
     return model;
   }
 

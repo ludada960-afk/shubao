@@ -136,7 +136,7 @@ export function createVideoProvider({
       if (!response.ok) {
         const body = await response.text().catch(() => '');
         const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
-        throw httpError(response.status >= 500 ? 502 : 400, 'VIDEO_PROVIDER_REJECTED', '视频任务未被上游接受', {
+        throw httpError(response.status >= 500 ? 502 : 400, 'VIDEO_PROVIDER_REJECTED', '视频任务提交失败，请重试', {
           retryable,
           providerStatus: response.status,
           providerDetail: body.slice(0, 300),
@@ -181,6 +181,11 @@ export function createVideoGeneration({
   assetRoot,
   apiKey,
   minimaxApiKey,
+  /* 9-12 视频备用供应商（同模型换网关）：默认空 = 不启用备用，行为与之前完全一致 */
+  backupBaseUrl = '',
+  backupApiKey = '',
+  backupMinimaxBaseUrl = '',
+  backupMinimaxApiKey = '',
   credentials,
   baseUrl,
   minimaxBaseUrl,
@@ -314,6 +319,14 @@ export function createVideoGeneration({
       minimax: credentials?.minimax || minimaxApiKey || '',
     },
     fetchImpl,
+    /* 9-12 备用供应商（同模型换网关）：未配置则为 null，行为与之前完全一致 */
+    backup: backupBaseUrl
+      ? {
+        baseUrl: backupBaseUrl,
+        minimaxBaseUrl: backupMinimaxBaseUrl || backupBaseUrl,
+        credentials: { seedance: backupApiKey || '', minimax: backupMinimaxApiKey || '' },
+      }
+      : null,
   });
   const selectJob = db.prepare('SELECT * FROM video_jobs WHERE id = ?');
   const routeCapacities = Object.fromEntries(Object.values(VIDEO_PRODUCTS).map(product => [
@@ -573,10 +586,10 @@ export function createVideoGeneration({
 
   async function persistOutput(job, response) {
     const contentType = clean(response.headers.get('content-type'), 100).split(';')[0] || 'video/mp4';
-    if (!contentType.startsWith('video/')) throw httpError(502, 'VIDEO_OUTPUT_TYPE_INVALID', '上游没有交付有效视频');
+    if (!contentType.startsWith('video/')) throw httpError(502, 'VIDEO_OUTPUT_TYPE_INVALID', '生成结果无效，请重试');
     const declaredBytes = Number(response.headers.get('content-length') || 0);
-    if (declaredBytes > OUTPUT_LIMIT) throw httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件过大');
-    if (!response.body) throw httpError(502, 'VIDEO_OUTPUT_BODY_MISSING', '上游没有交付视频文件');
+    if (declaredBytes > OUTPUT_LIMIT) throw httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '视频文件过大，无法交付');
+    if (!response.body) throw httpError(502, 'VIDEO_OUTPUT_BODY_MISSING', '没有收到视频文件，请重试');
     const id = `${crypto.randomUUID()}${extensionFor(contentType) || '.mp4'}`;
     const tempPath = resolve(outputRoot, `.${id}.tmp`);
     const finalPath = resolve(outputRoot, id);
@@ -587,7 +600,7 @@ export function createVideoGeneration({
       transform(chunk, _encoding, callback) {
         const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         bytes += buffer.length;
-        if (bytes > OUTPUT_LIMIT) return callback(httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件过大'));
+        if (bytes > OUTPUT_LIMIT) return callback(httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '视频文件过大，无法交付'));
         hash.update(buffer);
         return callback(null, buffer);
       },
@@ -595,12 +608,12 @@ export function createVideoGeneration({
     try {
       await pipeline(Readable.fromWeb(response.body), meter, fs.createWriteStream(tempPath, { flags: 'wx' }));
       if (!bytes || (declaredBytes > 0 && declaredBytes !== bytes)) {
-        throw httpError(502, 'VIDEO_OUTPUT_TRUNCATED', '上游视频文件不完整');
+        throw httpError(502, 'VIDEO_OUTPUT_TRUNCATED', '视频文件不完整，请重试');
       }
       const sha256 = hash.digest('hex');
       const expectedSha256 = clean(response.headers.get('x-content-sha256'), 100).toLowerCase();
       if (expectedSha256 && expectedSha256 !== sha256) {
-        throw httpError(502, 'VIDEO_OUTPUT_CHECKSUM_INVALID', '上游视频文件校验失败');
+        throw httpError(502, 'VIDEO_OUTPUT_CHECKSUM_INVALID', '视频文件校验失败，请重试');
       }
       const handle = await fs.promises.open(tempPath, 'r+');
       try { await handle.sync(); } finally { await handle.close(); }
@@ -870,7 +883,7 @@ export function createVideoGeneration({
     }
     return updateJob(job.id, {
       status: 'needs_review',
-      error: clean(message, 500) || '上游受理结果待自动核对，核对期间不会重复提交或结算积分',
+      error: clean(message, 500) || '任务状态待自动核对，核对期间不会重复提交或结算积分',
       failure_class: 'submission_unknown',
       billing_state: 'held',
       reconciliation_error: '',
@@ -985,7 +998,48 @@ export function createVideoGeneration({
           return;
         }
         if (['failed', 'cancelled', 'canceled', 'error'].includes(status)) {
-          throw httpError(502, 'VIDEO_PROVIDER_FAILED', '上游未能生成视频');
+          /* 9-12 用户要求：视频同样要有备用供应商 —— routeId 就是模型名，所以「换供应商」= 换网关，模型不变。
+             只切一次：provider_source 一旦记为 backup 就不再切，避免无限轮换；技术细节只进日志。 */
+          const alternate = job.provider_source === 'backup' ? null : registry.alternate(job.product_id);
+          if (alternate) {
+            try {
+              console.warn('[video-generation] provider failover', JSON.stringify({
+                route: job.provider_route,
+                detail: clean(result?.error, 200),
+              }));
+              const nextAttempt = attemptStore.begin({
+                jobId: job.id,
+                submissionKey: `${job.id}:backup:${nowMs()}`,
+                payload: providerPayload,
+                provider: alternate.protocol || job.provider_route,
+                model: alternate.model || job.provider_route,
+                capability: {
+                  productId: job.product_id,
+                  mode: job.mode,
+                  duration: job.duration,
+                  resolution: job.resolution,
+                  aspectRatio: job.aspect_ratio,
+                },
+              });
+              const resubmitted = await alternate.submit(providerPayload, nextAttempt.submission_key);
+              attemptStore.markAccepted(nextAttempt.id, resubmitted.id);
+              provider = alternate;
+              job = updateJob(id, {
+                status: 'processing',
+                provider_task_id: clean(resubmitted.id, 200),
+                provider_source: 'backup',
+                current_attempt_id: nextAttempt.id,
+                progress: 0,
+                error: '',
+              });
+              continue;
+            } catch (failoverError) {
+              console.warn('[video-generation] provider failover failed', JSON.stringify({
+                detail: clean(failoverError?.message, 200),
+              }));
+            }
+          }
+          throw httpError(502, 'VIDEO_PROVIDER_FAILED', '视频生成失败，请重试');
         }
         await new Promise(resolveDelay => setTimeout(resolveDelay, interval));
       }
@@ -994,7 +1048,7 @@ export function createVideoGeneration({
     } catch (error) {
       job = selectJob.get(id) || job;
       if (error?.retryable && job.provider_task_id) {
-        updateJob(id, { status: 'processing', error: '上游连接波动，正在自动继续确认' });
+        updateJob(id, { status: 'processing', error: '网络波动，正在自动继续确认' });
         const timer = setTimeout(() => {
           retryTimers.delete(timer);
           enqueue(id);
@@ -1237,12 +1291,12 @@ export function createVideoGeneration({
     if (!job || job.status !== 'needs_review' || job.failure_class !== 'submission_unknown') {
       throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
     }
-    if (!taskId) throw httpError(400, 'VIDEO_PROVIDER_TASK_REQUIRED', '缺少上游任务 ID');
+    if (!taskId) throw httpError(400, 'VIDEO_PROVIDER_TASK_REQUIRED', '缺少任务编号');
     if (job.current_attempt_id) attemptStore.attachProviderTask(job.current_attempt_id, taskId);
     const resolved = updateJob(job.id, {
       status: 'processing',
       provider_task_id: taskId,
-      error: '已确认上游任务，正在继续获取生成结果',
+      error: '已确认任务，正在继续获取生成结果',
       failure_class: '',
       review_deadline_ms: 0,
     });
@@ -1264,12 +1318,12 @@ export function createVideoGeneration({
     if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
     if (FINAL_STATUSES.has(job.status)) throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '已结束任务不需要重新核对');
     if (job.provider_task_id) {
-      updateJob(job.id, { status: 'processing', failure_class: '', error: '正在重新核对上游结果' });
+      updateJob(job.id, { status: 'processing', failure_class: '', error: '正在重新核对结果' });
       enqueue(job.id);
     } else if (job.status === 'queued') {
       enqueue(job.id);
     } else {
-      markSubmissionUnknown(job, '尚未取得上游任务 ID，已延长人工核对期；不会自动重复提交');
+      markSubmissionUnknown(job, '尚未取得任务编号，已延长人工核对期；不会自动重复提交');
     }
     return serializeOwnedJob(selectJob.get(job.id));
   }
@@ -1277,14 +1331,14 @@ export function createVideoGeneration({
   function confirmNotSubmitted(jobId, input = {}) {
     const job = selectJob.get(clean(jobId, 140));
     if (!job || job.status !== 'needs_review' || !['submission_unknown', 'manual_quarantine'].includes(job.failure_class)) {
-      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '只有待核对且尚无上游任务 ID 的任务可以确认未受理');
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '只有待核对且尚无任务编号的任务可以确认未受理');
     }
-    if (job.provider_task_id) throw httpError(409, 'VIDEO_PROVIDER_TASK_EXISTS', '任务已有上游任务 ID，不能标记为未受理');
+    if (job.provider_task_id) throw httpError(409, 'VIDEO_PROVIDER_TASK_EXISTS', '任务已有任务编号，不能标记为未受理');
     if (job.current_attempt_id) attemptStore.markNotSubmitted(job.current_attempt_id, input.reason);
     return serializeOwnedJob(updateJob(job.id, {
       status: 'needs_review',
       failure_class: 'confirmed_not_submitted',
-      error: '已确认上游未受理，可安全重新提交',
+      error: '已确认未受理，可安全重新提交',
       review_deadline_ms: 0,
     }));
   }
@@ -1293,7 +1347,7 @@ export function createVideoGeneration({
     const job = selectJob.get(clean(jobId, 140));
     if (!job || job.status !== 'needs_review' || job.failure_class !== 'confirmed_not_submitted'
       || job.provider_task_id || job.billing_state !== 'held') {
-      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '任务尚未确认“上游未受理”，不能安全重试');
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '任务尚未确认“未受理”，不能安全重试');
     }
     const queued = updateJob(job.id, {
       status: 'queued',
@@ -1310,7 +1364,7 @@ export function createVideoGeneration({
     const job = selectJob.get(clean(jobId, 140));
     if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
     if (FINAL_STATUSES.has(job.status) || job.provider_task_id || job.billing_state !== 'held') {
-      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '该任务已被上游受理或已经结束，不能隔离');
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '该任务已受理或已经结束，不能隔离');
     }
     return serializeOwnedJob(updateJob(job.id, {
       status: 'needs_review',
@@ -1378,7 +1432,7 @@ export function createVideoGeneration({
     const rows = db.prepare("SELECT id, status, provider_task_id FROM video_jobs WHERE status IN ('queued','submitting','processing') ORDER BY created_at").all();
     for (const row of rows) {
       if (row.status === 'submitting' && !row.provider_task_id) {
-        markSubmissionUnknown(selectJob.get(row.id), '服务重启前的上游受理结果待自动核对，核对期间不会重复提交或结算积分');
+        markSubmissionUnknown(selectJob.get(row.id), '服务重启前的任务状态待核对，核对期间不会重复提交或结算积分');
       } else {
         enqueue(row.id);
       }
