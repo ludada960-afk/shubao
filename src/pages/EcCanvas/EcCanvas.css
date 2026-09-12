@@ -571,11 +571,12 @@
 .ec-canvas-parameter-item { position: relative; }
 .ec-canvas-parameter-item > button { height: 32px; display: inline-flex; align-items: center; gap: 5px; max-width: 116px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-parameter-item > button:hover, .ec-canvas-parameter-item > button[aria-expanded="true"] { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
-.ec-canvas-parameter-popover { position: absolute; z-index: 30; left: 0; bottom: calc(100% + 9px); box-sizing: border-box; padding: 10px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
+.ec-canvas-parameter-popover { position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); bottom: calc(100% + 9px); box-sizing: border-box; padding: 10px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-parameter-popover button { border: 1px solid #e1e5eb; background: #fff; color: #59616c; cursor: pointer; }
 .ec-canvas-parameter-popover button:hover, .ec-canvas-parameter-popover button.is-active { border-color: #3b82f6; background: #eff6ff; color: #2563eb; }
 .ec-canvas-model-popover { width: 252px; display: grid; gap: 6px; }
-.ec-canvas-model-popover button { width: 100%; padding: 8px 9px; border-radius: 8px; display: grid; grid-template-columns: 44px minmax(0,1fr); align-items: center; gap: 9px; text-align: left; }
+/* 9-12 用户批注：图标与文字间距过大（原来是给 44px 大缩略图预留的列宽，现在用的是 20px 品牌标） */
+.ec-canvas-model-popover button { width: 100%; padding: 8px 9px; border-radius: 8px; display: grid; grid-template-columns: 20px minmax(0,1fr); align-items: center; gap: 8px; text-align: left; }
 .ec-canvas-model-popover .ec-canvas-model-thumb { width: 44px; height: 30px; border-radius: 5px; object-fit: cover; border: 1px solid rgba(15,23,42,.08); background: #f2f3f5; }
 .ec-canvas-model-popover .ec-canvas-model-copy { display: grid; gap: 2px; min-width: 0; }
 .ec-canvas-model-popover .ec-canvas-model-copy strong { overflow: hidden; color: #20242a; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
