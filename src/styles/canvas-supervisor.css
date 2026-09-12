@@ -521,6 +521,189 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+
+/* 小地图 */
+.ec-canvas-minimap {
+  position: fixed;
+  /* 用户批注: 小地图必须与底部按钮区留出间隙 (缩放条 top = 56px) */
+  bottom: calc(var(--ec-canvas-bottombar-top, 56px) + var(--ec-canvas-panel-gap, 14px));
+  left: 16px;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid #dde1e6;
+  border-radius: 10px;
+  padding: 2px 4px 3px;
+  box-shadow: 0 8px 28px -6px rgba(15, 23, 42, 0.18);
+  color: #1f2937;
+}
+.ec-canvas-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1px 6px 2px;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.ec-canvas-minimap-header strong {
+  font-weight: 600;
+}
+.ec-canvas-minimap-header span {
+  color: #9ca3af;
+  font-size: 9px;
+}
+.ec-canvas-minimap-close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: #eef0f3;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s ease-out, color 0.16s ease-out;
+}
+.ec-canvas-minimap-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.ec-canvas-minimap-close:focus-visible {
+  outline: 2px solid rgba(78, 205, 196, 0.8);
+  outline-offset: 1px;
+}
+.ec-canvas-minimap-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 6px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.ec-canvas-minimap-node {
+  position: absolute;
+  border-radius: 2px;
+  transition: all 0.16s;
+}
+.ec-canvas-minimap-viewport {
+  position: absolute;
+  border: 1px solid rgba(78, 205, 196, 0.7);
+  background: rgba(78, 205, 196, 0.06);
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
+}
+/* P0-5: 小地图关闭后的重开按钮 (内联在左下角缩放条右侧) */
+.ec-canvas-minimap-reopen {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.16s ease-out;
+}
+.ec-canvas-minimap-reopen:hover {
+  color: #fff;
+  transform: translateY(-2px);
+}
+.ec-canvas-minimap-reopen:focus-visible {
+  outline: 2px solid rgba(78, 205, 196, 0.8);
+  outline-offset: 2px;
+}
+
+/* 便签 */
+.ec-canvas-sticker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18),
+              0 0 0 1px rgba(255, 255, 255, 0.08);
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  cursor: move;
+  z-index: 100;
+  transition: box-shadow 0.2s ease-out;
+}
+.ec-canvas-sticker:hover {
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.24),
+              0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.ec-canvas-sticker-text {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: 18px;
+  line-height: 1.4;
+  color: inherit;
+  padding: 4px;
+}
+.ec-canvas-sticker-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.14s;
+}
+.ec-canvas-sticker:hover .ec-canvas-sticker-delete {
+  opacity: 1;
+}
+.ec-canvas-sticker-delete:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+/* 边类型校验 (Quantv isEdgeInvalid) */
+.ec-canvas-edge-invalid {
+  stroke: #EF4444 !important;
+  stroke-dasharray: 4 4 !important;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+  animation: edgeInvalidPulse 1.2s ease-in-out infinite;
+}
+@keyframes edgeInvalidPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* 网格吸附视觉提示 */
+.ec-canvas-snap-indicator {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(78, 205, 196, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 205, 196, 0.06) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+
 /* 任务日志面板 (9-12 用户批注：原来纯黑不符合我们的风格 → 改浅色；并补状态/类型筛选样式) */
 .ec-canvas-task-log-overlay { position: fixed; inset: 0; z-index: 10800; display: flex; justify-content: flex-end; background: rgba(28,25,23,.32); backdrop-filter: blur(6px); }
 .ec-canvas-task-log-panel { display: flex; flex-direction: column; width: min(420px, 94vw); height: 100%; background: #fffdfa; border-left: 1px solid rgba(28,25,23,.10); box-shadow: -16px 0 40px rgba(28,25,23,.16); color: #292524; animation: taskLogPanelEnter 220ms cubic-bezier(.16,1,.3,1); }
