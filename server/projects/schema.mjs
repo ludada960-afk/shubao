@@ -87,6 +87,9 @@ export function ensureProjectSchema(db) {
       expires_at TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
+      /* 9-12 画布库: 名称与收藏 */
+      title TEXT NOT NULL DEFAULT '',
+      favorite INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY(project_id) REFERENCES projects(id)
     );
     CREATE INDEX IF NOT EXISTS idx_canvas_sessions_owner
@@ -233,6 +236,11 @@ export function ensureProjectSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_product_profile_history_profile
       ON product_profile_history(profile_id, created_at DESC);
   `);
+  /* 9-12 画布库：canvas_sessions 补 title / favorite（老库原地加列） */
+  const canvasColumns = db.prepare('PRAGMA table_info(canvas_sessions)').all().map(column => column.name);
+  if (!canvasColumns.includes('title')) db.exec("ALTER TABLE canvas_sessions ADD COLUMN title TEXT NOT NULL DEFAULT ''");
+  if (!canvasColumns.includes('favorite')) db.exec('ALTER TABLE canvas_sessions ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
+
   const assetColumns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");
   if (!assetColumns.includes('metadata_json')) db.exec("ALTER TABLE project_assets ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'");

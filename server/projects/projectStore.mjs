@@ -361,6 +361,9 @@ function canvasFromRow(row) {
     status: row.status,
     revision: row.revision,
     snapshot: normalizeCanvasSnapshot(parse(row.snapshot, {})),
+    /* 9-12 画布库: 名称与收藏（旧行无此列时按默认值兜底） */
+    title: String(row.title || '').trim(),
+    favorite: Number(row.favorite) === 1,
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1407,6 +1410,43 @@ export function createProjectStore(db, {
         WHERE id = ? AND owner_email = ? AND status <> 'discarded'`)
         .run(timestamp().toISOString(), sessionId, normalizeOwner(ownerEmail)).changes;
       return changed === 1 ? api.getCanvasSession({ ownerEmail, sessionId }) : null;
+    },
+
+    /* ── 画布库 (9-12 用户批注): 列出/改名/收藏/复制/删除 ── */
+    listCanvasSessions({ ownerEmail, limit = 60 } = {}) {
+      const owner = normalizeOwner(ownerEmail);
+      const rows = db.prepare(`SELECT * FROM canvas_sessions
+        WHERE owner_email = ? AND status <> 'discarded'
+        ORDER BY favorite DESC, updated_at DESC LIMIT ?`).all(owner, Math.max(1, Math.min(200, Number(limit) || 60)));
+      return rows.map(canvasFromRow);
+    },
+
+    renameCanvasSession({ ownerEmail, sessionId, title }) {
+      const changed = db.prepare('UPDATE canvas_sessions SET title = ?, updated_at = ? WHERE id = ? AND owner_email = ? AND status <> \'discarded\'')
+        .run(String(title || '').trim().slice(0, 80), timestamp().toISOString(), sessionId, normalizeOwner(ownerEmail)).changes;
+      return changed === 1 ? api.getCanvasSession({ ownerEmail, sessionId }) : null;
+    },
+
+    setCanvasSessionFavorite({ ownerEmail, sessionId, favorite }) {
+      const changed = db.prepare('UPDATE canvas_sessions SET favorite = ?, updated_at = ? WHERE id = ? AND owner_email = ? AND status <> \'discarded\'')
+        .run(favorite ? 1 : 0, timestamp().toISOString(), sessionId, normalizeOwner(ownerEmail)).changes;
+      return changed === 1 ? api.getCanvasSession({ ownerEmail, sessionId }) : null;
+    },
+
+    duplicateCanvasSession({ ownerEmail, sessionId }) {
+      const owner = normalizeOwner(ownerEmail);
+      const row = db.prepare('SELECT * FROM canvas_sessions WHERE id = ? AND owner_email = ? AND status <> \'discarded\'').get(sessionId, owner);
+      if (!row) throw codedError('PROJECT_NOT_FOUND', 'canvas session not found');
+      const created = timestamp();
+      const id = randomUUID();
+      const title = `${{ ...canvasFromRow(row) }.title || '未命名画布'} 副本`;
+      const expiry = new Date(created.getTime() + canvasTtlMs).toISOString();
+      db.prepare(`INSERT INTO canvas_sessions
+        (id, owner_email, project_id, base_version_id, status, revision, snapshot, expires_at, created_at, updated_at, title, favorite)
+        VALUES (?, ?, ?, ?, 'saved', 1, ?, ?, ?, ?, ?, 0)`).run(
+        id, owner, row.project_id, row.base_version_id, row.snapshot, expiry, created.toISOString(), created.toISOString(), title,
+      );
+      return api.getCanvasSession({ ownerEmail: owner, sessionId: id });
     },
 
     ensureEcommerceGeneration({

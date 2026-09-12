@@ -484,6 +484,20 @@ export function mountProjectRoutes(app, {
   app.patch('/api/canvas-sessions/:sessionId', (req, res) => {
     try {
       const ownerEmail = ownerFor(req, authenticateOwner);
+      /* 9-12 画布库：同一个 PATCH 也支持只改名称/收藏（不带 snapshot 时不触碰画布内容） */
+      const wantsMeta = (typeof req.body?.title === 'string') || (typeof req.body?.favorite === 'boolean');
+      if (wantsMeta && req.body?.snapshot === undefined) {
+        let session = projectStore.getCanvasSession({ ownerEmail, sessionId: req.params.sessionId });
+        if (!session) return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该画布' });
+        if (typeof req.body?.title === 'string') {
+          session = projectStore.renameCanvasSession({ ownerEmail, sessionId: req.params.sessionId, title: req.body.title });
+        }
+        if (typeof req.body?.favorite === 'boolean') {
+          session = projectStore.setCanvasSessionFavorite({ ownerEmail, sessionId: req.params.sessionId, favorite: req.body.favorite });
+        }
+        if (!session) return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该画布' });
+        return res.json({ session: withCanvasSessionPlayback(session, { ownerEmail, req, resolveAssetPlaybackUrl }) });
+      }
       const session = projectStore.saveCanvasSession({
         ownerEmail, sessionId: req.params.sessionId,
         expectedRevision: req.body?.expectedRevision, snapshot: req.body?.snapshot || {},
@@ -491,6 +505,46 @@ export function mountProjectRoutes(app, {
       return res.json({ session: withCanvasSessionPlayback(session, {
         ownerEmail, req, resolveAssetPlaybackUrl,
       }) });
+    } catch (error) { return routeError(error, res); }
+  });
+
+  /* ── 画布库 (9-12 用户批注): 列出 / 改名 / 收藏 / 复制 / 删除 ── */
+  app.get('/api/canvas-library', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const sessions = projectStore.listCanvasSessions({ ownerEmail, limit: req.query?.limit });
+      return res.json({
+        canvases: sessions.map(session => ({
+          id: session.id,
+          title: session.title || '未命名画布',
+          favorite: session.favorite === true,
+          revision: session.revision,
+          updatedAt: session.updatedAt,
+          createdAt: session.createdAt,
+          nodeCount: Array.isArray(session.snapshot?.nodes) ? session.snapshot.nodes.length : 0,
+          coverUrl: (() => {
+            const nodes = Array.isArray(session.snapshot?.nodes) ? session.snapshot.nodes : [];
+            const image = nodes.find(node => node && (node.kind === 'image' || node.kind === 'output') && (node.url || node.localPreviewUrl));
+            return image ? String(image.localPreviewUrl || image.url) : '';
+          })(),
+        })),
+      });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/canvas-library/:sessionId/duplicate', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const session = projectStore.duplicateCanvasSession({ ownerEmail, sessionId: req.params.sessionId });
+      return res.status(201).json({ session });
+    } catch (error) { return routeError(error, res); }
+  });
+  /* 用 POST 而不是 DELETE：与测试基座的假 app（只实现 get/post/patch）保持兼容 */
+  app.post('/api/canvas-library/:sessionId/delete', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const session = projectStore.discardCanvasSession({ ownerEmail, sessionId: req.params.sessionId });
+      if (!session) return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该画布' });
+      return res.json({ ok: true, sessionId: session.id });
     } catch (error) { return routeError(error, res); }
   });
 

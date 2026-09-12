@@ -380,6 +380,44 @@ export async function saveCanvasSession(sessionId, { expectedRevision, snapshot 
   ));
 }
 
+/* ── 画布库 (9-12 用户批注) ── */
+export async function listCanvases() {
+  const response = await requestJson('/api/canvas-library', {}, '暂时无法读取画布列表');
+  return Array.isArray(response?.canvases) ? response.canvases : [];
+}
+
+export async function renameCanvas(sessionId, title) {
+  return canvasSessionFromResponse(await requestJson(
+    `/api/canvas-sessions/${canvasSessionPathSegment(sessionId)}`,
+    { method: 'PATCH', ...jsonBody({ title }) },
+    '暂时无法重命名画布',
+  ));
+}
+
+export async function setCanvasFavorite(sessionId, favorite) {
+  return canvasSessionFromResponse(await requestJson(
+    `/api/canvas-sessions/${canvasSessionPathSegment(sessionId)}`,
+    { method: 'PATCH', ...jsonBody({ favorite: favorite === true }) },
+    '暂时无法收藏画布',
+  ));
+}
+
+export async function duplicateCanvas(sessionId) {
+  return canvasSessionFromResponse(await requestJson(
+    `/api/canvas-library/${canvasSessionPathSegment(sessionId)}/duplicate`,
+    { method: 'POST' },
+    '暂时无法复制画布',
+  ));
+}
+
+export async function deleteCanvas(sessionId) {
+  return requestJson(
+    `/api/canvas-library/${canvasSessionPathSegment(sessionId)}/delete`,
+    { method: 'POST' },
+    '暂时无法删除画布',
+  );
+}
+
 export async function loadCanvasSession(sessionId) {
   return canvasSessionFromResponse(await requestJson(
     `/api/canvas-sessions/${canvasSessionPathSegment(sessionId)}`,

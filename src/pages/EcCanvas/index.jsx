@@ -57,6 +57,7 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
@@ -745,6 +746,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [textOcrBlocks, setTextOcrBlocks] = useState(null);
   const [textOcrLoading, setTextOcrLoading] = useState(false);
   const [canvasSession, setCanvasSession] = useState(null);
+  /* 9-12 画布库弹窗（点「新建画布」进入） */
+  const [canvasLibraryOpen, setCanvasLibraryOpen] = useState(false);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
   const previewDialogRef = useRef(null);
@@ -3595,7 +3598,17 @@ const handlePointerUp = useCallback((e) => {
     }
   };
 
+  /* 9-12 用户批注：点「新建画布」应该进入**画布库**（管理已创建过的画布），
+     库里再点「+ 新建画布」才真正开一张空白画布。 */
   const handleNew = useCallback(async () => {
+    if (!state.logged) {
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    setCanvasLibraryOpen(true);
+  }, [dispatch, state.logged]);
+
+  const createBlankCanvas = useCallback(async () => {
     // 9-06: 新建前自动保存旧画布, 用户可在作品集找回 (防数据丢失)
     if (nodes.length > 0 && handleCanvasSessionSaveRef.current) {
       try {
@@ -3620,7 +3633,33 @@ const handlePointerUp = useCallback((e) => {
     // 自动弹出空白的结果弹窗（2026-09-10 用户反馈），并且此后保存的画布作品会被误分类为 xhs。
     dispatch({ type: 'SET_RESULT', result: { _ecResult: true, _emptyCanvas: true } });
     showToast('已新建空白画布，双击画布或从左侧添加素材开始创作');
+    setCanvasLibraryOpen(false);
   }, [dispatch, showToast]);
+
+  /* 打开画布库里已有的画布：先保存当前画布，再载入目标会话快照 */
+  const openCanvasFromLibrary = useCallback(async item => {
+    if (!item?.id) return;
+    if (nodes.length > 0 && handleCanvasSessionSaveRef.current) {
+      try { await handleCanvasSessionSaveRef.current(); } catch { /* 保存失败不阻塞打开 */ }
+    }
+    try {
+      const session = await loadCanvasSession(item.id);
+      const snapshot = restoreCanvasSnapshot(session?.snapshot || {});
+      setNodes((snapshot.nodes || []).map(normalizeCanvasNode));
+      setConnections((snapshot.connections || []).map(normalizeCanvasConnection));
+      if (snapshot.viewport) setViewport(snapshot.viewport);
+      pendingProjectAssetImportsRef.current = normalizePendingProjectAssetImports(snapshot.pendingProjectAssetImports);
+      setPendingProjectAssetImports(pendingProjectAssetImportsRef.current);
+      canvasSessionRef.current = { id: session.id, revision: session.revision };
+      setCanvasSession({ id: session.id, revision: session.revision });
+      setSelected(null);
+      setMultiSelected(new Set());
+      setCanvasLibraryOpen(false);
+      showToast(`已打开画布「${item.title || '未命名画布'}」`, 'success');
+    } catch (error) {
+      showToast(error?.message || '打开画布失败，请稍后重试', 'error');
+    }
+  }, [loadCanvasSession, normalizeCanvasConnection, showToast]);
 
   const createComposerPlacement = useCallback((width, height, placement = {}) => {
     const source = placement.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : undefined;
@@ -5747,6 +5786,13 @@ const handlePointerUp = useCallback((e) => {
 
   return (
     <div className="ec-canvas-page">
+      {/* 9-12 画布库：点「新建画布」打开，可改名/复制/收藏/删除/打开已有画布 */}
+      <CanvasLibraryModal
+        open={canvasLibraryOpen}
+        onClose={() => setCanvasLibraryOpen(false)}
+        onCreate={createBlankCanvas}
+        onOpenCanvas={openCanvasFromLibrary}
+      />
       <CanvasTopBar
         title={tab === 'canvas' ? (result.product_name || '智能画布') : tab === 'assets' ? '项目资产库' : tab === 'trash' ? '回收站' : '我的作品集'}
         meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : tab === 'assets' ? `${visibleProjectAssetLibrary.length} 个可用素材` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
