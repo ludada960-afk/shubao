@@ -1,0 +1,42 @@
+// test/generate-cta-unify-0912.test.mjs
+// 2026-09-12 用户批注：各板块生成按钮的样式与「动态积分」显示必须统一；面板里已选的配置不要在按钮旁再写一遍。
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+
+test('三处主 CTA 共用同一套样式类与积分写法', () => {
+  const ec = read('src/pages/Home/EcMode.jsx');
+  const visual = read('src/pages/Home/VisualCreationMode.jsx');
+  const video = read('src/pages/VideoStudio/index.jsx');
+  assert.ok(ec.includes('ec-workbench-next shubao-gen-cta'), '电商生图 CTA 挂统一类');
+  assert.ok(visual.includes('visual-generate-button shubao-gen-cta'), '自由创作 CTA 挂统一类');
+  assert.ok(video.includes('video-generate-trigger shubao-gen-cta'), '生视频 CTA 挂统一类');
+  for (const [name, source] of [['电商生图', ec], ['自由创作', visual], ['生视频', video]]) {
+    assert.ok(source.includes('shubao-gen-cta-points'), name + ' 积分用统一容器');
+  }
+  const css = read('src/styles/generate-cta.css');
+  assert.ok(css.includes('.shubao-gen-cta {'), '统一样式存在');
+  assert.ok(css.includes('.shubao-gen-cta .shubao-gen-cta-points'), '积分样式存在');
+  assert.ok(read('src/main.jsx').includes("./styles/generate-cta.css"), '样式已引入入口');
+});
+
+test('不再重复展示面板里已经选过的配置摘要', () => {
+  const video = read('src/pages/VideoStudio/index.jsx');
+  assert.ok(!video.includes('video-submit-meta'), '生视频按钮旁的配置摘要已移除');
+  const ec = read('src/pages/Home/EcMode.jsx');
+  assert.ok(!ec.includes('ec-workbench-estimate'), '电商生图旁的独立积分条已移除');
+  const visual = read('src/pages/Home/VisualCreationMode.jsx');
+  assert.ok(!visual.includes('visual-cost'), '自由创作的独立积分条已移除');
+});
+
+test('自由创作：面板贴着触发按钮开（不再退化成全屏覆盖层）且提示词框更高', () => {
+  const visual = read('src/pages/Home/VisualCreationMode.jsx');
+  assert.ok(!visual.includes('needsOverlay'), '不再有覆盖层分支');
+  const position = visual.match(/function getVisualPanelPosition\(panelId, button\) \{[\s\S]*?\n\}/)[0];
+  assert.ok(/bottom: openAbove \? Math\.max\(12, viewportHeight - rect\.top \+ gap\)/.test(position), '向上开时贴在按钮上方');
+  const css = read('src/pages/Home/VisualCreationMode.css');
+  assert.ok(css.includes('min-height: 236px'), '提示词框更高');
+  assert.ok(css.includes('min-height: 168px'), '输入区更高');
+});

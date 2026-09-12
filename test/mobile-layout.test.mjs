@@ -20,7 +20,8 @@ test('mobile ecommerce actions stay compact and remain in flow below the compose
 
   assert.match(ecommerceModeSource, /className="ec-workbench-actions(?:\s|\")/);
   assert.match(ecommerceModeSource, /className="ec-workbench-tools"/);
-  assert.match(ecommerceModeSource, /className="ec-workbench-next"/);
+  /* 9-12 用户批注：生成按钮统一挂 .shubao-gen-cta（样式与动态积分全站一致） */
+  assert.match(ecommerceModeSource, /className="ec-workbench-next shubao-gen-cta"/);
   assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*position:\s*relative[^}]*bottom:\s*auto/);
   assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*flex-direction:\s*column/);
   assert.match(mobileRules, /\.ec-workbench-primary-row \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);

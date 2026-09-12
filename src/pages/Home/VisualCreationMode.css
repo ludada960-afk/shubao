@@ -612,14 +612,15 @@
 
 .visual-prompt-field {
   position: relative;
-  min-height: 190px;
-  padding: 18px 22px 52px;
+  /* 9-12 用户批注：提示词框要再高一些，与其它板块一致 */
+  min-height: 236px;
+  padding: 18px 22px 56px;
   background: transparent;
 }
 
 .visual-prompt-field .mention-prompt-field {
   width: 100%;
-  min-height: 128px;
+  min-height: 168px;
   max-height: 260px;
   margin: 0;
   padding: 18px;

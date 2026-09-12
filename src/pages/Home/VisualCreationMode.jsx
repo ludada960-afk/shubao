@@ -185,17 +185,15 @@ function getVisualPanelPosition(panelId, button) {
      两侧都不够时允许面板越过触发条 (top:16 起, 最多 92vh), 不再强制在 396px 里滚动。 */
   const openAbove = viewportWidth <= 640 || availableAbove >= availableBelow;
   const availableSpace = openAbove ? availableAbove : availableBelow;
-  const fullOverlayHeight = Math.min(desiredHeight, Math.round(viewportHeight * 0.92));
-  const needsOverlay = desiredHeight > availableSpace + 8 && fullOverlayHeight > availableSpace + 8;
-
+  /* 9-12 用户批注：「面板要吸在按钮上面」——之前空间不够会退化成居中全屏覆盖层，
+     结果盖住提示词框左下角的 @ 按钮，看起来像“输入框没有 @”。
+     现在改为：永远贴着触发按钮开（上方或下方），空间不足由面板内部滚动承担。 */
   return {
     left,
-    top: needsOverlay ? 16 : (openAbove ? undefined : Math.max(16, rect.bottom + gap)),
-    bottom: needsOverlay ? undefined : (openAbove ? Math.max(16, viewportHeight - rect.top + gap) : undefined),
+    top: openAbove ? undefined : Math.max(12, rect.bottom + gap),
+    bottom: openAbove ? Math.max(12, viewportHeight - rect.top + gap) : undefined,
     width,
-    maxHeight: needsOverlay
-      ? fullOverlayHeight
-      : Math.max(220, Math.min(Math.round(viewportHeight * 0.92), desiredHeight, availableSpace || desiredHeight)),
+    maxHeight: Math.max(300, Math.min(Math.round(viewportHeight * 0.92), desiredHeight, availableSpace || desiredHeight)),
     anchorX: rect.left + rect.width / 2,
   };
 }
@@ -860,12 +858,12 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           {/* 9-12 用户批注：预计积分统一放进按钮里（与电商生图、生视频一致），不再单独挂一条小字 */}
           <button
             type="button"
-            className="visual-generate-button"
+            className="visual-generate-button shubao-gen-cta"
             title={`${model.label} ${resolution} · 预计 ${estimatedPoints} AI 积分`}
             onClick={startGeneration}
             disabled={!canGenerate || busy}
           >
-            {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片 · 预计 {estimatedPoints} 积分</>}
+            {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>}
           </button>
         </div>
         {renderConfigPanel()}

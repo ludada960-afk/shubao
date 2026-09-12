@@ -1,0 +1,28 @@
+/* 2026-09-12 用户批注：各板块的「生成按钮」样式与动态积分显示必须统一（不要一个样式一个样）。
+   所有主 CTA 都挂 .shubao-gen-cta，积分统一用 .shubao-gen-cta-points（同一字号/间距/分隔符）。 */
+.shubao-gen-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #7454f3 0%, #d14db5 100%);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(116, 84, 243, .24);
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.shubao-gen-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(116, 84, 243, .3); }
+.shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
+.shubao-gen-cta:disabled { background: #e5e3e0; color: #a8a39e; box-shadow: none; cursor: not-allowed; }
+.shubao-gen-cta .shubao-gen-cta-points { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; opacity: .96; }
+.shubao-gen-cta .shubao-gen-cta-points::before { content: ''; width: 1px; height: 14px; background: rgba(255, 255, 255, .45); }
+.shubao-gen-cta:disabled .shubao-gen-cta-points::before { background: rgba(0, 0, 0, .12); }
+.shubao-gen-cta.is-busy { opacity: .82; cursor: progress; }

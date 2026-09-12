@@ -1698,7 +1698,7 @@ const DEFAULT_BUTTONS = [
             <div className="ec-workbench-submit-actions" style={{ position: 'relative' }}>
               <button
                 type="button"
-                className="ec-workbench-next"
+                className="ec-workbench-next shubao-gen-cta"
                 disabled={!canGen || uploadingAssets}
                 aria-haspopup="menu"
                 aria-expanded={modeChooserOpen}
@@ -1722,7 +1722,7 @@ const DEFAULT_BUTTONS = [
                 }}
               >
                 {/* 9-12 用户批注：预计积分要放进按钮里（与生视频统一），不再单独挂一个小字条 */}
-                {uploadingAssets ? '正在上传原图…' : `下一步 · 预计 ${planPoints.points} 积分`}
+                {uploadingAssets ? '正在上传原图…' : <>下一步<span className="shubao-gen-cta-points">{planPoints.points} 积分</span></>}
                 <ChevronDown size={14} style={{ transform: modeChooserOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }} />
               </button>
               {modeChooserOpen && (
