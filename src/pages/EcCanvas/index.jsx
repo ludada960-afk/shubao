@@ -786,6 +786,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const dragFrameRef = useRef(null);
   const pendingDragRef = useRef(null);
   const draftReadyRef = useRef(false);
+  /* 9-12：清空 launch 会触发同一效应重跑，用这个标记跳过一次，避免把刚铺好的画布清空 */
+  const launchJustAppliedRef = useRef(false);
   const segmentationAbortRef = useRef(new Map());
   const workflowProcessRef = useRef(null);
   const workflowGenerateRef = useRef(null);
@@ -1349,7 +1351,16 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         showToast(error?.message || '设计方案载入画布失败', 'error');
       } finally {
         dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+        /* 关键：launch 在依赖数组里，清空它会立刻让本效应再跑一次；
+           不跳过那一跳，第二次会走正常重建分支，把刚铺好的节点全清空 ——
+           用户看到的就是「toast 还在、画布全空」。 */
+        launchJustAppliedRef.current = true;
       }
+      draftReadyRef.current = true;
+      return () => { cancelled = true; };
+    }
+    if (launchJustAppliedRef.current) {
+      launchJustAppliedRef.current = false;
       draftReadyRef.current = true;
       return () => { cancelled = true; };
     }

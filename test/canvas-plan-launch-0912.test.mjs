@@ -57,10 +57,16 @@ test('发射进画布后必须把视口对准新图（否则用户看到空画�
 });
 
 test('发射图与「从草稿/会话重建」在同一效应内装配（不再被覆盖）', () => {
-  /* 根治：发射如果放在独立效应里，会被随后运行的重建效应 setNodes 盖掉 */
+  /* 根治①：发射如果放在独立效应里，会被随后运行的重建效应 setNodes 盖掉 */
   assert.match(page, /const pendingLaunch = state\.creationLaunch;/);
   assert.match(page, /if \(isPlanLaunch\(pendingLaunch\)\) \{\s*\n\s*try \{\s*\n\s*applyPlanLaunch\(pendingLaunch\);/);
   assert.match(page, /\}, \[result\.id, result\._saveKey, state\.creationLaunch\]\)/, '发射状态要进依赖数组');
   /* 独立效应必须已删除 */
   assert.doesNotMatch(page, /if \(!isPlanLaunch\(launch\)\) return;/);
+});
+
+test('根治②：清空 launch 触发的重跑必须被跳过（否则刚铺好的节点又被清空）', () => {
+  assert.match(page, /const launchJustAppliedRef = useRef\(false\)/);
+  assert.match(page, /dispatch\(\{ type: 'SET_CREATION_LAUNCH', launch: null \}\);\s*\n\s*\/\*[\s\S]*?\*\/\s*\n\s*launchJustAppliedRef\.current = true;/);
+  assert.match(page, /if \(launchJustAppliedRef\.current\) \{\s*\n\s*launchJustAppliedRef\.current = false;\s*\n\s*draftReadyRef\.current = true;\s*\n\s*return \(\) => \{ cancelled = true; \};\s*\n\s*\}\s*\n\s*if \(!hasCurrent\) \{/, '跳过那一跳必须发生在「空画布清空」分支之前');
 });
