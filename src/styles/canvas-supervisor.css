@@ -563,3 +563,8 @@
 article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opacity: 1; }
 .ec-asset-card-delete:hover { border-color: #dc2626; color: #dc2626; }
 
+/* 9-12 资产库：上传按钮 */
+.ec-asset-upload { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 8px; background: #fff; color: #44403c; font-size: 12px; font-weight: 600; cursor: pointer; }
+.ec-asset-upload:hover:not(:disabled) { border-color: #7c3aed; color: #6d28d9; }
+.ec-asset-upload:disabled { opacity: .6; cursor: progress; }
+

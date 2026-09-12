@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2, Type, Video, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
+  Upload, Type, Video, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -684,6 +685,8 @@ export default function EcCanvas() {
   /* 9-12 资产库：额度用量 + 正在删除的素材 */
   const [assetUsage, setAssetUsage] = useState(null);
   const [projectAssetDeleteBusy, setProjectAssetDeleteBusy] = useState('');
+  const [projectAssetUploadBusy, setProjectAssetUploadBusy] = useState(false);
+  const projectAssetUploadRef = useRef(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
@@ -5292,6 +5295,39 @@ const handlePointerUp = useCallback((e) => {
     return () => { cancelled = true; };
   }, [tab, state.logged, projectAssetLibrary.length]);
 
+  /* 9-12 用户批注：资产库要能直接上传素材进来（上传 → 入库 → 刷新列表与额度）。
+     复用画布已有的上传链路（readCanvasImageFiles → persistCanvasUploadAssets → importImageAssetToProject），不另造一套。 */
+  const handleAssetLibraryUpload = useCallback(async event => {
+    const picked = [...(event.target?.files || [])].filter(file => String(file.type || '').startsWith('image/'));
+    const files = picked.slice(0, 8);
+    event.target.value = '';
+    if (!files.length) {
+      showToast('请选择 JPEG、PNG 或 WebP 图片', 'error');
+      return;
+    }
+    setProjectAssetUploadBusy(true);
+    try {
+      const localAssets = await readCanvasImageFiles(files, Date.now());
+      const persisted = await persistCanvasUploadAssets(localAssets, { role: 'reference' });
+      const context = await ensureCanvasMediaProject('资产库上传', 'ecommerce');
+      if (!context?.projectId) throw new Error('暂时无法准备项目，请稍后重试');
+      for (const asset of persisted) {
+        await importImageAssetToProject(context.projectId, {
+          imageAssetId: asset.assetId,
+          role: 'reference',
+          metadata: { displayName: asset.name || '资产库上传' },
+        });
+      }
+      const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, query: projectAssetQuery, limit: 500 });
+      setProjectAssetLibrary(normalizeProjectAssetLibrary(library, { currentProjectId: context.projectId }));
+      showToast(`已上传 ${persisted.length} 个素材到资产库`, 'success');
+    } catch (error) {
+      showToast(error?.message || '上传失败，请重试', 'error');
+    } finally {
+      setProjectAssetUploadBusy(false);
+    }
+  }, [ensureCanvasMediaProject, projectAssetMediaFilter, projectAssetQuery, showToast]);
+
   const handleDeleteProjectAsset = useCallback(async asset => {
     if (!asset?.projectId || !asset?.projectAssetId) return;
     const key = `${asset.projectId}:${asset.projectAssetId}`;
@@ -6562,6 +6598,15 @@ const handlePointerUp = useCallback((e) => {
                 </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {/* 9-12 用户批注：资产库直接支持上传（查询=上方搜索框） */}
+                  <input ref={projectAssetUploadRef} type="file" accept="image/*" multiple hidden onChange={handleAssetLibraryUpload} />
+                  <button
+                    type="button"
+                    className="ec-asset-upload"
+                    disabled={projectAssetUploadBusy}
+                    onClick={() => projectAssetUploadRef.current?.click()}
+                    aria-label="上传素材到资产库"
+                  ><Upload size={14} />{projectAssetUploadBusy ? '上传中…' : '上传'}</button>
                   <span style={{ color: '#9aa1aa', fontSize: 11 }}>{visibleProjectAssetLibrary.length}{visibleProjectAssetLibrary.length !== projectAssetLibrary.length ? ` / ${projectAssetLibrary.length}` : ''} 个</span>
                   {selectedProjectAssetKeys.size > 0 && <button
                     type="button"
