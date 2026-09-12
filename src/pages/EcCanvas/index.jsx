@@ -58,7 +58,7 @@ import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
-import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
+import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
@@ -158,6 +158,14 @@ import {
   createCanvasHistory,
 } from './canvasKeyboardHooks.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
+
+/* 9-12 资产库额度：字节 → 可读大小 */
+function formatBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0);
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${Math.round(bytes)} B`;
+}
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },
@@ -673,6 +681,9 @@ export default function EcCanvas() {
   /* 9-12 用户批注：任务日志一直是空的、而且纯黑不像我们的风格。
      数据源改为**画布真实任务**（节点生命周期），并支持按状态/类型筛选。 */
   const [dismissedTaskIds, setDismissedTaskIds] = useState(() => new Set());
+  /* 9-12 资产库：额度用量 + 正在删除的素材 */
+  const [assetUsage, setAssetUsage] = useState(null);
+  const [projectAssetDeleteBusy, setProjectAssetDeleteBusy] = useState('');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
@@ -5271,6 +5282,31 @@ const handlePointerUp = useCallback((e) => {
   const handleToggleProjectAssetSelection = useCallback(asset => {
     setSelectedProjectAssetKeys(current => toggleProjectAssetSelection(current, asset));
   }, []);
+  /* 9-12 资产库：额度刷新 + 删除素材 */
+  useEffect(() => {
+    if (tab !== 'assets' || !state.logged) return undefined;
+    let cancelled = false;
+    fetchAssetUsage()
+      .then(usage => { if (!cancelled) setAssetUsage(usage); })
+      .catch(() => { if (!cancelled) setAssetUsage(null); });
+    return () => { cancelled = true; };
+  }, [tab, state.logged, projectAssetLibrary.length]);
+
+  const handleDeleteProjectAsset = useCallback(async asset => {
+    if (!asset?.projectId || !asset?.projectAssetId) return;
+    const key = `${asset.projectId}:${asset.projectAssetId}`;
+    setProjectAssetDeleteBusy(key);
+    try {
+      await deleteProjectAsset(asset.projectId, asset.projectAssetId);
+      setProjectAssetLibrary(current => current.filter(item => projectAssetSelectionKey(item) !== projectAssetSelectionKey(asset)));
+      showToast('已从资产库删除', 'success');
+    } catch (error) {
+      showToast(error?.message || '删除失败，请稍后重试', 'error');
+    } finally {
+      setProjectAssetDeleteBusy('');
+    }
+  }, [showToast]);
+
   const handleBatchImportProjectAssets = useCallback(() => {
     const selected = projectAssetLibrary.filter(asset => selectedProjectAssetKeys.has(projectAssetSelectionKey(asset)));
     void handleImportProjectAssets(selected);
@@ -6516,8 +6552,14 @@ const handlePointerUp = useCallback((e) => {
             <section aria-labelledby="canvas-project-assets-title" style={{ marginBottom: 22 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                 <div>
-                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3, color: '#1f2937' }}>项目素材</h2>
-                  <div style={{ marginTop: 4, color: '#8a929d', fontSize: 11 }}>图片、视频和音频 · 可搜索、可长期保留、可继续使用</div>
+                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3, color: '#1f2937' }}>资产库管理</h2>
+                <div className="ec-asset-quota" role="status" aria-live="polite">
+                  <div className="ec-asset-quota-text">
+                    <strong>已用 {formatBytes(assetUsage?.usedBytes)} / {formatBytes(assetUsage?.quotaBytes || 100 * 1024 * 1024)}</strong>
+                    <span>可用 {formatBytes(assetUsage?.availableBytes ?? (assetUsage?.quotaBytes || 100 * 1024 * 1024))}</span>
+                  </div>
+                  <div className="ec-asset-quota-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, Math.round(((assetUsage?.usedBytes || 0) / Math.max(1, assetUsage?.quotaBytes || 100 * 1024 * 1024)) * 100))}%` }} /></div>
+                </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ color: '#9aa1aa', fontSize: 11 }}>{visibleProjectAssetLibrary.length}{visibleProjectAssetLibrary.length !== projectAssetLibrary.length ? ` / ${projectAssetLibrary.length}` : ''} 个</span>
@@ -6531,7 +6573,7 @@ const handlePointerUp = useCallback((e) => {
                   ><Plus size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
                 </div>
               </div>
-              <div className="ec-project-asset-filters" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto auto', gap: 8, marginBottom: 9 }}>
+              <div className="ec-project-asset-filters" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 320px)', gap: 8, marginBottom: 9 }}>
                 <label style={{ position: 'relative', minWidth: 0 }}>
                   <span className="sr-only">搜索项目素材</span>
                   <input
@@ -6543,22 +6585,6 @@ const handlePointerUp = useCallback((e) => {
                     style={{ width: '100%', height: 32, boxSizing: 'border-box', padding: '0 10px', border: '1px solid #e1e5eb', borderRadius: 8, outline: 0, color: '#334155', fontSize: 11, background: '#fff' }}
                   />
                 </label>
-                <select
-                  aria-label="筛选素材保留状态"
-                  value={projectAssetRetentionFilter}
-                  onChange={event => setProjectAssetRetentionFilter(event.target.value)}
-                  style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid #e1e5eb', borderRadius: 8, background: '#fff', color: '#475569', fontSize: 11 }}
-                >
-                  {PROJECT_ASSET_RETENTION_FILTERS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-                </select>
-                <select
-                  aria-label="筛选素材生产状态"
-                  value={projectAssetProductionFilter}
-                  onChange={event => setProjectAssetProductionFilter(event.target.value)}
-                  style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid #e1e5eb', borderRadius: 8, background: '#fff', color: '#475569', fontSize: 11 }}
-                >
-                  {PROJECT_ASSET_PRODUCTION_FILTERS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-                </select>
               </div>
               <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                 {[['', '全部'], ['image', '图片'], ['video', '视频'], ['audio', '音频']].map(([value, label]) => <button
@@ -6599,38 +6625,20 @@ const handlePointerUp = useCallback((e) => {
                         <div style={{ padding: '8px 9px 4px' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>{label}</div>
                         <div style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#8a929d' }}>{projectTitle}</div>
-                        <div title={retention.detail} style={{ display: 'inline-flex', maxWidth: '100%', marginTop: 6, padding: '2px 5px', borderRadius: 4, background: retention.tone === 'pinned' ? '#eff6ff' : retention.tone === 'attention' ? '#fff7ed' : '#f8fafc', color: retention.tone === 'pinned' ? '#2563eb' : retention.tone === 'attention' ? '#b45309' : '#64748b', fontSize: 9, lineHeight: 1.3 }}>{retention.label}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
-                          <span title={production.detail} style={{ display: 'inline-flex', padding: '2px 5px', borderRadius: 4, background: production.tone === 'delivered' ? '#ecfdf3' : production.tone === 'candidate' ? '#eff6ff' : production.tone === 'archived' ? '#f3f4f6' : '#fff7ed', color: production.tone === 'delivered' ? '#047857' : production.tone === 'candidate' ? '#2563eb' : production.tone === 'archived' ? '#6b7280' : '#b45309', fontSize: 9, lineHeight: 1.3 }}>{production.label}</span>
-                          <select
-                            aria-label={`更新${label}的生产状态`}
-                            value={production.id}
-                            disabled={projectAssetProductionBusy === `${asset.projectId}:${asset.projectAssetId}`}
-                            onChange={event => handleSetProjectAssetProductionState(asset, event.target.value)}
-                            style={{ minWidth: 0, maxWidth: '100%', height: 22, padding: '0 3px', border: '1px solid #edf0f3', borderRadius: 4, color: '#64748b', background: '#fff', fontSize: 9 }}
-                          >
-                            {projectAssetProductionOptions(asset).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-                          </select>
-                        </div>
                         </div>
                       </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px', borderTop: '1px solid #f1f3f5' }}>
-                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#9aa1aa' }}>{asset.role || '稳定引用'}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px' }}>
+                          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#9aa1aa' }}>{asset.projectTitle || ''}</span>
+                          {/* 9-12 用户批注：卡片上只需一个「删除」，悬停才出现；其余按钮全部去掉 */}
                           <button
                             type="button"
-                            disabled={!reusable || !selectionKey || projectAssetBatchBusy}
-                            aria-label={selectedForBatch ? `取消选择${label}` : `选择${label}`}
-                            aria-pressed={selectedForBatch}
-                            title={selectedForBatch ? '取消选择' : reusable ? '选择加入批次' : '素材已到期或待清理'}
-                            onClick={() => handleToggleProjectAssetSelection(asset)}
-                            style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${selectedForBatch ? '#93c5fd' : '#e5e7eb'}`, borderRadius: 6, background: selectedForBatch ? '#dbeafe' : '#fff', color: selectedForBatch ? '#2563eb' : reusable ? '#94a3b8' : '#d1d5db', cursor: reusable ? 'pointer' : 'not-allowed' }}
-                          >{selectedForBatch ? <SquareCheck size={16} /> : <Square size={16} />}</button>
-                          <button type="button" aria-label={asset.retentionPinned ? `取消长期保留${label}` : `长期保留${label}`} aria-pressed={Boolean(asset.retentionPinned)} title={asset.retentionPinned ? '取消长期保留' : '长期保留'} disabled={projectAssetRetentionBusy === `${asset.projectId}:${asset.projectAssetId}`} onClick={() => handleToggleProjectAssetRetention(asset)} style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${asset.retentionPinned ? '#bfdbfe' : '#e5e7eb'}`, borderRadius: 6, background: asset.retentionPinned ? '#eff6ff' : '#fff', color: asset.retentionPinned ? '#2563eb' : '#94a3b8', cursor: 'pointer' }}><Pin size={13} /></button>
-                          <button type="button" disabled={!reusable} aria-label={reusable ? `加入当前画布${label}` : `先长期保留${label}`} title={reusable ? '加入当前画布' : '素材已到期或待清理，请先长期保留'} onClick={() => handleImportProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: `1px solid ${reusable ? '#dbeafe' : '#e5e7eb'}`, borderRadius: 6, background: reusable ? '#eff6ff' : '#f8fafc', color: reusable ? '#2563eb' : '#98a2b3', fontSize: 10, cursor: reusable ? 'pointer' : 'not-allowed' }}>{reusable ? '加入' : '先保留'}</button>
-                          <button type="button" aria-label={`查看${label}的来源和派生关系`} title="查看来源和派生关系" onClick={() => handleInspectProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>关系</button>
+                            className="ec-asset-card-delete"
+                            aria-label={`删除${label}`}
+                            title="删除该素材"
+                            disabled={projectAssetDeleteBusy === `${asset.projectId}:${asset.projectAssetId}`}
+                            onClick={() => handleDeleteProjectAsset(asset)}
+                          ><Trash2 size={14} /></button>
                         </div>
-                      </div>
                     </article>;
                   })}
                 </div>

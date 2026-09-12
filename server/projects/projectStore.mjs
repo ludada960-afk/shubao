@@ -1412,6 +1412,27 @@ export function createProjectStore(db, {
       return changed === 1 ? api.getCanvasSession({ ownerEmail, sessionId }) : null;
     },
 
+    /* 9-12 资产库: 用户主动删除素材（软删，文件交由保留策略清理；不可逆但可审计） */
+    softDeleteProjectAsset({ ownerEmail, projectId, projectAssetId }) {
+      const owner = normalizeOwner(ownerEmail);
+      const row = db.prepare(`SELECT pa.id FROM project_assets pa
+        JOIN projects p ON p.id = pa.project_id AND p.owner_email = pa.owner_email AND p.deleted_at IS NULL
+        WHERE pa.id = ? AND pa.project_id = ? AND pa.owner_email = ? AND pa.deleted_at IS NULL`).get(projectAssetId, projectId, owner);
+      if (!row) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
+      db.prepare("UPDATE project_assets SET deleted_at = ?, retention_state = 'deleted' WHERE id = ? AND owner_email = ?")
+        .run(timestamp().toISOString(), row.id, owner);
+      return { projectAssetId: row.id, deleted: true };
+    },
+
+    /* 9-12 资产库: 按账号统计素材占用（用于「已用 X / 上限 Y」额度条） */
+    listOwnedAssetFiles({ ownerEmail } = {}) {
+      const owner = normalizeOwner(ownerEmail);
+      return db.prepare(`SELECT pa.stable_url AS stableUrl, pa.media_kind AS mediaKind
+        FROM project_assets pa
+        JOIN projects p ON p.id = pa.project_id AND p.owner_email = pa.owner_email AND p.deleted_at IS NULL
+        WHERE pa.owner_email = ? AND pa.deleted_at IS NULL AND pa.retention_state <> 'deleted'`).all(owner);
+    },
+
     /* ── 画布库 (9-12 用户批注): 列出/改名/收藏/复制/删除 ── */
     listCanvasSessions({ ownerEmail, limit = 60 } = {}) {
       const owner = normalizeOwner(ownerEmail);

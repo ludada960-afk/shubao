@@ -380,6 +380,20 @@ export async function saveCanvasSession(sessionId, { expectedRevision, snapshot 
   ));
 }
 
+/* ── 资产库额度与删除 (9-12 用户批注) ── */
+export async function fetchAssetUsage() {
+  const response = await requestJson('/api/assets/usage', {}, '暂时无法读取存储用量');
+  return response?.usage || { usedBytes: 0, quotaBytes: 100 * 1024 * 1024, availableBytes: 100 * 1024 * 1024 };
+}
+
+export async function deleteProjectAsset(projectId, projectAssetId) {
+  return requestJson(
+    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}/delete`,
+    { method: 'POST' },
+    '暂时无法删除素材',
+  );
+}
+
 /* ── 画布库 (9-12 用户批注) ── */
 export async function listCanvases() {
   const response = await requestJson('/api/canvas-library', {}, '暂时无法读取画布列表');

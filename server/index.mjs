@@ -917,6 +917,20 @@ adminOperations.bindPaywallService(paywallService);
 
 mountProjectRoutes(app, {
   projectStore,
+  /* 9-12 资产库额度：stat 账号下素材的实际文件大小（生成资产目录） */
+  assetUsageProvider: ownerEmail => {
+    try {
+      const files = typeof projectStore.listOwnedAssetFiles === 'function' ? projectStore.listOwnedAssetFiles({ ownerEmail }) : [];
+      let total = 0;
+      for (const file of files) {
+        const match = /^\/api\/generated-assets\/([A-Za-z0-9._-]+)$/i.exec(String(file?.stableUrl || '').trim());
+        if (!match) continue;
+        try { total += fs.statSync(resolve(__dirname, 'generated-assets', match[1])).size; } catch { /* 文件缺失按 0 计 */ }
+      }
+      return total;
+    } catch { return 0; }
+  },
+  assetQuotaBytes: Number(process.env.ASSET_QUOTA_BYTES) > 0 ? Number(process.env.ASSET_QUOTA_BYTES) : 100 * 1024 * 1024,
   // 4c183cd4 续命 P-C 1-click 派生升级
   cloneService: projectCloneService,
   importVideoAsset: importVideoAssetToProject,

@@ -151,6 +151,9 @@ export function mountProjectRoutes(app, {
   importImageAsset = null,
   registerGeneratedAsset = null,
   cloneService = null, // 4c183cd4 续命 P-C 1-click 派生升级: 项目级 Clone Service
+  /* 9-12 资产库: 由 index.mjs 注入的占用统计（stat 实际文件）与额度上限 */
+  assetUsageProvider = null,
+  assetQuotaBytes = 100 * 1024 * 1024,
 } = {}) {
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
@@ -505,6 +508,36 @@ export function mountProjectRoutes(app, {
       return res.json({ session: withCanvasSessionPlayback(session, {
         ownerEmail, req, resolveAssetPlaybackUrl,
       }) });
+    } catch (error) { return routeError(error, res); }
+  });
+
+  /* ── 资产库额度与删除 (9-12 用户批注) ── */
+  app.get('/api/assets/usage', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const usedBytes = typeof assetUsageProvider === 'function' ? Math.max(0, Number(assetUsageProvider(ownerEmail)) || 0) : 0;
+      const quota = Math.max(1, Number(assetQuotaBytes) || 0);
+      return res.json({
+        usage: {
+          usedBytes,
+          quotaBytes: quota,
+          availableBytes: Math.max(0, quota - usedBytes),
+        },
+      });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/projects/:projectId/assets/:assetId/delete', (req, res) => {
+    try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      if (typeof projectStore.softDeleteProjectAsset !== 'function') {
+        return res.status(503).json({ code: 'PROJECT_ASSET_DELETE_UNAVAILABLE', error: '素材删除暂时不可用' });
+      }
+      const result = projectStore.softDeleteProjectAsset({
+        ownerEmail,
+        projectId: req.params.projectId,
+        projectAssetId: req.params.assetId,
+      });
+      return res.json(result);
     } catch (error) { return routeError(error, res); }
   });
 

@@ -269,15 +269,18 @@ test('Canvas promotes uploaded video and audio into the owner-scoped project ass
   assert.doesNotMatch(canvasSource, /importVideoAssetToProject\([\s\S]{0,220}ownerEmail/);
 });
 
-test('Canvas project asset library exposes local discovery and retention state controls', () => {
+test('资产库（9-12 用户批注）：搜索 + 额度 + 卡片只留悬停删除', () => {
   assert.match(canvasSource, /normalizeProjectAssetLibrary/);
   assert.match(canvasSource, /filterProjectAssetLibrary/);
   assert.match(canvasSource, /aria-label="搜索项目素材"/);
-  assert.match(canvasSource, /aria-label="筛选素材保留状态"/);
-  assert.match(canvasSource, /projectAssetRetentionStatus\(asset\)/);
-  assert.match(canvasSource, /canReuseProjectAsset\(asset\)/);
-  assert.match(canvasSource, /素材已到期或待清理，请先长期保留后再使用/);
-  assert.match(canvasSource, /没有符合当前搜索或筛选条件的素材/);
+  /* 用户原话：卡片上只需要一个悬停出现的删除按钮，其它按钮全部去掉 */
+  assert.match(canvasSource, /className="ec-asset-card-delete"/);
+  assert.match(canvasSource, /handleDeleteProjectAsset/);
+  assert.doesNotMatch(canvasSource, /aria-label="筛选素材保留状态"/, '多余的筛选下拉已移除');
+  assert.doesNotMatch(canvasSource, /筛选素材生产状态/, '生产状态筛选已移除');
+  /* 额度条（已用 / 可用） */
+  assert.match(canvasSource, /ec-asset-quota/);
+  assert.match(canvasSource, /已用 \{formatBytes\(assetUsage\?\.usedBytes\)\}/);
 });
 
 test('Canvas works category filters stay inside the mobile content column', () => {
@@ -336,19 +339,13 @@ test('Canvas keeps a failed generated-asset registration recoverable without mis
   assert.doesNotMatch(retryHandler, /record\.operation === 'register-generated'[\s\S]{0,220}importImageAssetToProject\(/);
 });
 
-test('Canvas project asset library exposes a server-backed long-term retention control', () => {
+/* 9-12 用户批注：保留/生产状态这类控件从「资产库页面」撤掉；
+   但底层服务端契约仍然保留（其它入口与数据恢复仍在使用），所以只断言数据层仍可用。 */
+test('保留与生产状态的底层契约仍在（只是不再出现在资产库页面）', () => {
   assert.match(canvasSource, /setProjectAssetRetention/);
-  assert.match(canvasSource, /projectAssetRetentionBusy/);
-  assert.match(canvasSource, /handleToggleProjectAssetRetention/);
-  assert.match(canvasSource, /asset\.retentionPinned \? `取消长期保留/);
-  assert.match(canvasSource, /updated\.retentionPinned \? '已长期保留此素材'/);
-});
-
-test('Canvas project asset library exposes production delivery lifecycle controls', () => {
   assert.match(canvasSource, /setProjectAssetProductionState/);
-  assert.match(canvasSource, /筛选素材生产状态/);
-  assert.match(canvasSource, /更新\$\{label\}的生产状态/);
   assert.match(canvasSource, /PROJECT_ASSET_PRODUCTION_STATES/);
+  assert.doesNotMatch(canvasSource, /更新\$\{label\}的生产状态/, '卡片上的状态下拉已按用户要求去掉');
 });
 
 test('Canvas Work projection preserves media-only sources for later recovery', () => {
