@@ -1449,3 +1449,15 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
 ### 本地验证（零 API）
 - npm test 2982/2982（新增 billing-labels 4 + skill-groups 5 + migration 1，更新 verifier/api-contract/billing-ui 契约）
 - vite build 通过；Modal 源经 vite transform 断言（滚动锁/细则/类型选择/分组/内置正文均在）
+
+## 2026-09-12 批注批次一~五（均已上线）
+
+- **批次一**：视频模型弹层图标从深色渐变底改「白底细边+彩色品牌标」；弹层 250px → min(58vh,460px)（一次见 5+）并水平居中；技能显示从「生成设置」移到工具栏「技能库」项；底部 CTA 去掉左侧独立积分栏、积分改为按钮上动态显示；充值弹窗上下间距对称；技能库弹窗 84~92vh、技能提示词上限 2000→8000。
+- **批次二**：工具条「加入资产库」挪到裁剪/导出那一组 + 图标换 FolderPlus + 已入库高亮；**加号与连线错位根治**（设计方案节点内容撑高但 node.h 不回写 → 补 onAutoHeight）；**画布发射布局重做**（每种素材一列 + 新增「生成要求」提示词节点 + 全部汇入方案节点）。
+- **批次三**：电商生图「下一步」显示**动态积分**（generationUnits(模型,清晰度)×张数）；**提示词上限全局统一**（`src/constants/promptLimits.js`：视频 8000 / 生图 2000；服务端 videoPlanModel 1200→8000；MentionPromptField 支持 maxLength；首页/画布/自由创作/视频同源）。
+- **批次四**：**作品 7 天保留 + 后台白名单**（`server/worksRetention.mjs`、dryRun、白名单免疫、project_assets 保留服务联动、`/api/admin/retention/*`、初始白名单 867550189@qq.com、作品集 7 天提示）。
+- **批次五**：**画布库**（canvas_sessions 补 title/favorite + list/rename/favorite/duplicate/delete + `/api/canvas-library` 路由 + CanvasLibraryModal 悬停改名/复制/收藏/删除；「新建画布」改为打开画布库）。
+- 教训：画布组件 `useCallback` 声明顺序会造成 TDZ 崩画布（已加全局守卫测试）；本地 QA 通道 `?qa=ec-plan-launch` 是取证利器。
+- 部署：`deploy-production.ps1` 偶发 lock channel 丢失（release 与 current 实际已更新，以线上 bundle 标记为准；残留锁用 fuser 找 PID 后 kill）。
+- **未完成**：资产库整页重做（改动点见 docs/plan/9-11-nightly-handoff.md §8）。
+
