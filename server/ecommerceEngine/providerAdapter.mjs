@@ -207,7 +207,7 @@ function normalizeAsset(asset, index) {
   return { blob, fileName };
 }
 
-function buildEditForm(request) {
+function buildEditForm(request, { standardFields = false } = {}) {
   if (request === null || typeof request !== 'object' || Array.isArray(request)) {
     throw new TypeError('provider edit request is required');
   }
@@ -228,9 +228,13 @@ function buildEditForm(request) {
   form.append('model', model);
   form.append('prompt', prompt);
   form.append('size', size);
+  const syncFieldNames = standardFields === true;
   assets.forEach((asset, index) => {
     const normalized = normalizeAsset(asset, index);
-    form.append(`image[${index}]`, normalized.blob, normalized.fileName);
+    const field = syncFieldNames
+      ? (assets.length === 1 ? 'image' : 'image[]')
+      : `image[${index}]`;
+    form.append(field, normalized.blob, normalized.fileName);
   });
   return { form, idempotencyKey };
 }
@@ -389,7 +393,7 @@ export function createProviderAdapter(config = {}) {
     let url = `${baseUrl}${submitPath}`;
     let init;
     if (hasInputs) {
-      const built = buildEditForm(request);
+      const built = buildEditForm(request, { standardFields: true });
       url = `${baseUrl}${editPath}`;
       init = { method: 'POST', headers: headers({ 'Idempotency-Key': built.idempotencyKey }), body: built.form };
     } else {
