@@ -513,8 +513,27 @@ function getStaticNodeColor(kind = '') {
 }
 
 /* ═══════ CanvasTaskLogPanel - 任务日志面板 (Quantv §1.6) ═══════ */
+/* ═══════ CanvasTaskLogPanel - 任务日志面板 (9-12 用户批注：照竞品做筛选+列表，配色走我们的浅色风格) ═══════ */
+const TASK_STATUS_FILTERS = [
+  { id: 'all', label: '全部状态' },
+  { id: 'processing', label: '进行中' },
+  { id: 'completed', label: '已完成' },
+  { id: 'failed', label: '失败' },
+];
+const TASK_TYPE_FILTERS = [
+  { id: 'all', label: '全部类型' },
+  { id: 'text', label: '文本' },
+  { id: 'image', label: '图片' },
+  { id: 'video', label: '视频' },
+  { id: 'audio', label: '音频' },
+];
+const TASK_STATUS_LABEL = { waiting: '等待中', queued: '排队中', processing: '进行中', transferring: '传输中', completed: '已完成', failed: '失败', refunding: '退款中', refunded: '已退款' };
+const TASK_STATUS_ORDER = ['processing', 'queued', 'waiting', 'transferring', 'failed', 'refunding', 'refunded', 'completed'];
+
 export function CanvasTaskLogPanel({ tasks = [], onClose, onRetry, onDismiss, onRefund }) {
   const ref = useRef(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   useEffect(() => {
     const handler = (event) => {
       if (ref.current && !ref.current.contains(event.target)) onClose?.();
@@ -530,31 +549,55 @@ export function CanvasTaskLogPanel({ tasks = [], onClose, onRetry, onDismiss, on
     };
   }, [onClose]);
 
+  const visibleTasks = useMemo(() => tasks.filter(task => {
+    if (statusFilter !== 'all' && String(task.status || '') !== statusFilter) return false;
+    if (typeFilter !== 'all' && String(task.type || '') !== typeFilter) return false;
+    return true;
+  }), [tasks, statusFilter, typeFilter]);
+
   const groupedByStatus = useMemo(() => {
     const groups = new Map();
-    tasks.forEach(task => {
+    visibleTasks.forEach(task => {
       const status = task.status || 'waiting';
       if (!groups.has(status)) groups.set(status, []);
       groups.get(status).push(task);
     });
     return groups;
-  }, [tasks]);
-
-  const statusOrder = ['waiting', 'queued', 'processing', 'transferring', 'completed', 'failed', 'refunding', 'refunded'];
+  }, [visibleTasks]);
 
   return (
     <div className="ec-canvas-task-log-overlay" role="dialog" aria-label="任务日志">
       <div ref={ref} className="ec-canvas-task-log-panel">
         <header>
           <strong>任务日志</strong>
-          <span>{tasks.length} 个任务</span>
+          <span>{visibleTasks.length} / {tasks.length} 个任务</span>
           <button type="button" onClick={onClose} aria-label="关闭">×</button>
         </header>
+        <div className="ec-canvas-task-log-filters" role="group" aria-label="任务筛选">
+          <div className="ec-canvas-task-log-filter-row">
+            {TASK_STATUS_FILTERS.map(option => <button
+              key={option.id}
+              type="button"
+              className={statusFilter === option.id ? 'is-active' : ''}
+              aria-pressed={statusFilter === option.id}
+              onClick={() => setStatusFilter(option.id)}
+            >{option.label}</button>)}
+          </div>
+          <div className="ec-canvas-task-log-filter-row">
+            {TASK_TYPE_FILTERS.map(option => <button
+              key={option.id}
+              type="button"
+              className={typeFilter === option.id ? 'is-active' : ''}
+              aria-pressed={typeFilter === option.id}
+              onClick={() => setTypeFilter(option.id)}
+            >{option.label}</button>)}
+          </div>
+        </div>
         <div className="ec-canvas-task-log-list">
-          {statusOrder.filter(s => groupedByStatus.has(s)).map(status => (
+          {TASK_STATUS_ORDER.filter(status => groupedByStatus.has(status)).map(status => (
             <div key={status} className="ec-canvas-task-log-group">
               <div className={`ec-canvas-task-log-group-header status-${status}`}>
-                {status}
+                {TASK_STATUS_LABEL[status] || status}
                 <span>({groupedByStatus.get(status).length})</span>
               </div>
               {groupedByStatus.get(status).map(task => (
@@ -564,24 +607,22 @@ export function CanvasTaskLogPanel({ tasks = [], onClose, onRetry, onDismiss, on
                     {task.message && <small>{task.message}</small>}
                   </div>
                   <div className="ec-canvas-task-log-row-actions">
-                    {task.status === 'failed' && (
-                      <button type="button" onClick={() => onRetry?.(task)}>重试</button>
-                    )}
-                    {task.status === 'completed' && (
-                      <button type="button" onClick={() => onRefund?.(task)}>退款</button>
-                    )}
-                    <button type="button" onClick={() => onDismiss?.(task)}>关闭</button>
+                    {task.status === 'failed' && <button type="button" onClick={() => onRetry?.(task)}>重试</button>}
+                    <button type="button" onClick={() => onDismiss?.(task)} aria-label={`移除${task.title || task.id}`}>清除</button>
                   </div>
                 </div>
               ))}
             </div>
           ))}
-          {!tasks.length && <div className="ec-canvas-task-log-empty">暂无任务</div>}
+          {!visibleTasks.length && (
+            <div className="ec-canvas-task-log-empty">{tasks.length ? '当前筛选下没有任务' : '暂无任务，生成或上传素材后这里会记录每一步'}</div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ═══════ SaveStatusIndicator - 保存状态指示器 (顶栏) ═══════ */
 export function SaveStatusIndicator({ status = 'saved', lastSavedAt = null }) {

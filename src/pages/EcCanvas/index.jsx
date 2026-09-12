@@ -670,6 +670,9 @@ export default function EcCanvas() {
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [taskLogOpen, setTaskLogOpen] = useState(false);
   const [taskLogEntries, setTaskLogEntries] = useState([]);
+  /* 9-12 用户批注：任务日志一直是空的、而且纯黑不像我们的风格。
+     数据源改为**画布真实任务**（节点生命周期），并支持按状态/类型筛选。 */
+  const [dismissedTaskIds, setDismissedTaskIds] = useState(() => new Set());
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
@@ -1748,6 +1751,32 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     retentionFilter: projectAssetRetentionFilter,
     productionFilter: projectAssetProductionFilter,
   }), [projectAssetLibrary, projectAssetProductionFilter, projectAssetQuery, projectAssetRetentionFilter]);
+
+  const canvasTaskLogEntries = useMemo(() => {
+    const KIND_TYPE = { image: 'image', output: 'image', 'image-composer': 'image', 'text-composer': 'text', text: 'text', video: 'video', 'video-composer': 'video', audio: 'audio' };
+    const KIND_LABEL = { image: '图片生成', output: '图片生成', 'image-composer': '图片生成', 'text-composer': '文案生成', text: '文本节点', video: '视频生成', 'video-composer': '视频生成', audio: '音频生成' };
+    const entries = [];
+    for (const node of nodes) {
+      const kind = String(node?.kind || '');
+      if (!KIND_TYPE[kind]) continue;
+      const raw = String(node?.status || 'ready');
+      const status = ['error', 'upload-error'].includes(raw) ? 'failed' : ['processing', 'uploading'].includes(raw) ? 'processing' : 'completed';
+      entries.push({
+        id: node.id,
+        title: node.name || node.displayLabel || KIND_LABEL[kind] || '画布任务',
+        type: KIND_TYPE[kind],
+        status,
+        message: node.error || node.progressLabel || '',
+        at: node.updatedAt || node.createdAt || '',
+      });
+    }
+    return entries
+      .filter(entry => !dismissedTaskIds.has(entry.id))
+      .sort((left, right) => {
+        const order = { processing: 0, failed: 1, completed: 2 };
+        return (order[left.status] - order[right.status]) || String(right.at).localeCompare(String(left.at));
+      });
+  }, [nodes, dismissedTaskIds]);
   useEffect(() => {
     setSelectedProjectAssetKeys(current => normalizeProjectAssetSelection(current, projectAssetLibrary));
   }, [projectAssetLibrary]);
@@ -6814,10 +6843,10 @@ const handlePointerUp = useCallback((e) => {
       {/* 4c183cd4 续命 画布总监督 2026-08-30 - 任务日志面板 (Quantv §1.6 CanvasTaskLogPanel) */}
       {taskLogOpen && (
         <CanvasTaskLogPanel
-          tasks={taskLogEntries}
+          tasks={canvasTaskLogEntries}
           onClose={() => setTaskLogOpen(false)}
           onRetry={(task) => console.info('[task] 重试', task.id)}
-          onDismiss={(task) => setTaskLogEntries(prev => prev.filter(t => t.id !== task.id))}
+          onDismiss={(task) => setDismissedTaskIds(prev => new Set([...prev, task.id]))}
           onRefund={(task) => console.info('[task] 退款', task.id)}
         />
       )}
