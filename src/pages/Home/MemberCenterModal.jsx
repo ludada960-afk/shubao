@@ -6,6 +6,7 @@ import { fetchSkillLibrary } from '../../services/skills.js';
 import { redeemCode } from '../../services/redeem.js';
 import { fetchBillingTransactions, fetchBillingRules } from '../../services/billing.js';
 import SkillLibraryModal from './ec/SkillLibraryModal.jsx';
+import ModelPricingList from './ec/ModelPricingList.jsx';
 import { useModalScrollLock } from '../../components/ui/useModalScrollLock.js';
 import './member-center.css';
 
@@ -23,6 +24,7 @@ export default function MemberCenterModal({ open, onClose }) {
   const [error, setError] = useState('');
   const [skills, setSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
+  const [modelPricingOpen, setModelPricingOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [ruleGroups, setRuleGroups] = useState([]);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -98,6 +100,14 @@ export default function MemberCenterModal({ open, onClose }) {
               <button type="button" className="member-link" onClick={() => setRulesOpen(previous => !previous)} aria-expanded={rulesOpen}>
                 <Receipt size={12} /> 计费细则 <ChevronDown size={12} className={rulesOpen ? 'is-open' : ''} />
               </button>
+              {/* 9-11 用户批注: 照竞品做「模型价格」长清单 (公开每个模型怎么收费) */}
+              <button type="button" className="member-link" onClick={() => setModelPricingOpen(true)}>
+                <Receipt size={12} /> 模型价格
+              </button>
+              {/* 9-11 用户批注: 照竞品做「模型价格」长清单 (公开每个模型怎么收费) */}
+              <button type="button" className="member-link" onClick={() => setModelPricingOpen(true)}>
+                <Receipt size={12} /> 模型价格
+              </button>
             </div>
             {rulesOpen && (
               <div className="member-rules">
@@ -160,6 +170,7 @@ export default function MemberCenterModal({ open, onClose }) {
         </div>
 
         <SkillLibraryModal open={skillOpen} onClose={() => { setSkillOpen(false); loadSkills(); }} initialKind="image" />
+<ModelPricingList open={modelPricingOpen} onClose={() => setModelPricingOpen(false)} />
       </div>
     </div>
   );

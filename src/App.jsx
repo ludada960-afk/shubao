@@ -310,11 +310,11 @@ function AppRouter() {
     'ec-studio': EcStudioPage,
     'ec-auto': EcAutoPage,
     'video-studio': VideoStudioPage,
+    /* 9-11 修: 这里原来 admin 出现两次 (vite 报 Duplicate key "admin" in object literal), 后者覆盖前者 —— 去重保留一条 */
     admin: AdminConsolePage,
     'vision-feedback': VisionFeedbackPage,
     'product-archive': ProductArchivePage,
     'public-templates': PublicTemplatesPage,
-    'admin': AdminConsolePage,
     'terms': TermsPage,
     'privacy': PrivacyPage,
   };
