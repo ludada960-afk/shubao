@@ -72,7 +72,8 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
-import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
+import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes,
+  resolveSourceStackPlacement, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
@@ -4779,40 +4780,42 @@ const handlePointerUp = useCallback((e) => {
       const importedVideos = await importCanvasMediaAssets(videoAssets, projectContext, 'reference-video');
       const importedAudios = await importCanvasMediaAssets(audioAssets, projectContext, 'reference-audio');
       if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-      /* 9-12 用户批注：生成器里上传的素材，要规规矩矩排在生成器**左侧一列、自上而下依次叠放**，
-         不能按数量往左横推（那个算法会让新素材落到画布中间、压在已有节点上）—— 对齐竞品（流影AI）的排布。 */
-      const SOURCE_COLUMN_WIDTH = 240;
-      const SOURCE_COLUMN_GAP_X = 56;
-      const SOURCE_STACK_GAP_Y = 28;
-      const columnX = Math.round(composer.x - SOURCE_COLUMN_WIDTH - SOURCE_COLUMN_GAP_X);
+      /* 9-12 用户批注（二次）：只做「固定左侧一列」还不够 —— 必须**放在已有来源下面、且任何节点都不重叠**。
+         统一走 resolveSourceStackPlacement：先按真实尺寸生成草稿节点，再做矩形避让排版（逐格向下找空位）。 */
       const existingSourceNodes = (composer.sourceNodeIds || [])
         .map(id => nodes.find(node => node.id === id))
         .filter(Boolean);
-      let stackY = existingSourceNodes.length
-        ? Math.max(...existingSourceNodes.map(node => (node.y || 0) + (node.h || 0))) + SOURCE_STACK_GAP_Y
-        : Math.round(composer.y);
-      const imageNodes = createUploadedImageNodes({
+      const draftImageNodes = createUploadedImageNodes({
         assets: importedImages.assets,
-        x: columnX,
-        y: stackY,
+        x: 0,
+        y: 0,
         now: uploadStartedAt,
         namer: canvasShotNamerRef.current,
       }).map(node => ({ ...node, role }));
-      if (imageNodes.length) stackY = Math.max(...imageNodes.map(node => (node.y || 0) + (node.h || 0))) + SOURCE_STACK_GAP_Y;
-      const videoNodes = createUploadedVideoNodes({
+      const draftVideoNodes = createUploadedVideoNodes({
         assets: importedVideos.assets,
-        x: columnX,
-        y: stackY,
+        x: 0,
+        y: 0,
         now: uploadStartedAt,
         namer: canvasShotNamerRef.current,
       }).map(node => ({ ...node, role }));
-      if (videoNodes.length) stackY = Math.max(...videoNodes.map(node => (node.y || 0) + (node.h || 0))) + SOURCE_STACK_GAP_Y;
-      const audioNodes = importedAudios.assets.map((asset, index) => attachCanvasProjectAssetRef({
+      const draftAudioNodes = importedAudios.assets.map((asset, index) => attachCanvasProjectAssetRef({
         id: `audio_upload_${uploadStartedAt}_${index}`, assetId: asset.id, videoAssetId: asset.id, kind: 'audio', provenance: 'source', status: 'ready',
         url: asset.url || asset.stableUrl, name: asset.name || `参考音频 ${index + 1}`, displayLabel: asset.name || `参考音频 ${index + 1}`, group: '音频', role,
-        x: columnX, y: stackY + index * 92, w: 264, h: 72, sourceNodeIds: [], editable: true, showMeta: true,
+        x: 0, y: 0, w: 264, h: 72, sourceNodeIds: [], editable: true, showMeta: true,
       }, asset));
-      const uploadedNodes = [...imageNodes, ...videoNodes, ...audioNodes];
+      const draftUploadedNodes = [...draftImageNodes, ...draftVideoNodes, ...draftAudioNodes];
+      const placements = resolveSourceStackPlacement({
+        anchor: composer,
+        existingSourceNodes,
+        existingNodes: nodes.filter(node => node.id !== composerId),
+        entries: draftUploadedNodes.map(node => ({ w: node.w || 240, h: node.h || 240 })),
+      });
+      const uploadedNodes = draftUploadedNodes.map((node, index) => ({
+        ...node,
+        x: placements[index]?.x ?? node.x,
+        y: placements[index]?.y ?? node.y,
+      }));
       const uploadedIds = uploadedNodes.map(node => node.id);
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);

@@ -1,26 +1,31 @@
 // test/canvas-source-upload-layout-0912.test.mjs
-// 2026-09-12 用户批注：在生成节点里上传素材会直接出现在画布中间、很突兀；
-// 竞品（流影AI）是把新素材排在左侧一列、自上而下叠好。
-// 约定：上传来源素材固定落在「生成器左侧一列」，从已有来源下方继续往下排；不再按数量往左横推。
+// 2026-09-12 用户批注：生成节点里上传素材，旧算法会落到画布中间并压在已有节点上。
+// 结论：落点统一走 canvasStudioModel.resolveSourceStackPlacement（固定左侧一列 + 从已有来源下方 + 矩形避让不重叠）。
+// 行为验证见 test/canvas-source-placement-0912.test.mjs；本文件锁契约（不许退回旧算法）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+const model = readFileSync(new URL('../src/pages/EcCanvas/canvasStudioModel.js', import.meta.url), 'utf8');
 
-test('来源素材落点 = 生成器左侧固定一列（不再按数量横推）', () => {
-  assert.match(page, /const columnX = Math\.round\(composer\.x - SOURCE_COLUMN_WIDTH - SOURCE_COLUMN_GAP_X\)/);
-  assert.doesNotMatch(page, /x: composer\.x - importedImages\.assets\.length \* 278 - 36/, '旧的横推算法必须消失');
+test('落点统一走避让算法，旧横推算法不得回归', () => {
+  assert.match(page, /resolveSourceStackPlacement\(\{/);
+  assert.match(page, /existingNodes: nodes\.filter\(node => node\.id !== composerId\)/);
+  assert.doesNotMatch(page, /x: composer\.x - importedImages\.assets\.length \* 278 - 36/, '旧横推算法必须消失');
   assert.doesNotMatch(page, /x: composer\.x - Math\.max\(1, importedVideos\.assets\.length\) \* 360 - 36/);
 });
 
-test('多个来源自上而下叠放：从已有来源下方继续排版', () => {
-  assert.match(page, /existingSourceNodes/);
-  assert.match(page, /Math\.max\(\.\.\.existingSourceNodes\.map\(node => \(node\.y \|\| 0\) \+ \(node\.h \|\| 0\)\)\) \+ SOURCE_STACK_GAP_Y/);
-  assert.match(page, /if \(imageNodes\.length\) stackY =/);
-  assert.match(page, /if \(videoNodes\.length\) stackY =/);
+test('三种来源（图/视频/音频）统一排布：先出草稿节点，再按真实尺寸定位', () => {
+  assert.match(page, /const draftImageNodes = createUploadedImageNodes\(\{/);
+  assert.match(page, /const draftVideoNodes = createUploadedVideoNodes\(\{/);
+  assert.match(page, /const draftAudioNodes = importedAudios\.assets\.map\(/);
+  assert.match(page, /entries: draftUploadedNodes\.map\(node => \(\{ w: node\.w \|\| 240, h: node\.h \|\| 240 \}\)\)/);
 });
 
-test('音频来源同样落在左侧一列', () => {
-  assert.match(page, /x: columnX, y: stackY \+ index \* 92/);
+test('算法本身保证：同列 + 从已有来源下方 + 矩形不相交', () => {
+  assert.match(model, /export function resolveSourceStackPlacement\(/);
+  assert.match(model, /const x = Math\.round\(Number\(anchor\.x \|\| 0\) - columnWidth - gapX\)/);
+  assert.match(model, /const overlaps = \(rect, node\) =>/);
+  assert.match(model, /const hit = \[\.\.\.blockers, \.\.\.placed\]\.find\(node => overlaps\(rect, node\)\)/);
 });

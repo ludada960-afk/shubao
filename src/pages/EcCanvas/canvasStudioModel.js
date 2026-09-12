@@ -413,6 +413,53 @@ function closestRatio(width, height) {
   return ratios.reduce((best, current) => Math.abs(current[1] - value) < Math.abs(best[1] - value) ? current : best)[0];
 }
 
+/**
+ * 生成节点里上传素材的落点排布（2026-09-12 用户批注）。
+ * 规则：
+ *  1. 固定落在生成器**左侧一列**（不再按数量往左横推）；
+ *  2. 从**已有来源的下方**开始往下排；
+ *  3. **任何情况下不得与已有节点或彼此重叠** —— 逐个向下找第一个不重叠的空位（矩形相交检测 + 安全间距）。
+ * 返回与 entries 等长的 { x, y } 数组。
+ */
+export function resolveSourceStackPlacement({
+  anchor = { x: 0, y: 0 },
+  existingSourceNodes = [],
+  existingNodes = [],
+  entries = [],
+  columnWidth = 240,
+  gapX = 56,
+  gapY = 28,
+  margin = 16,
+} = {}) {
+  const x = Math.round(Number(anchor.x || 0) - columnWidth - gapX);
+  const blockers = [...existingNodes, ...existingSourceNodes].filter(node => node && Number.isFinite(Number(node.x)) && Number.isFinite(Number(node.y)));
+  const sourceBottom = existingSourceNodes.length
+    ? Math.max(...existingSourceNodes.map(node => Number(node.y || 0) + Number(node.h || 0))) + gapY
+    : Number(anchor.y || 0);
+  const overlaps = (rect, node) => {
+    const nx = Number(node.x || 0); const ny = Number(node.y || 0);
+    const nw = Number(node.w || 240); const nh = Number(node.h || 240);
+    return rect.x < nx + nw + margin && rect.x + rect.w + margin > nx
+      && rect.y < ny + nh + margin && rect.y + rect.h + margin > ny;
+  };
+  const placed = [];
+  let cursorY = sourceBottom;
+  for (const entry of entries) {
+    const w = Number(entry?.w || columnWidth);
+    const h = Number(entry?.h || columnWidth);
+    let y = cursorY;
+    /* 向下找第一个与任何已有节点/已放节点都不相交的位置（设上限，避免极端情况下死循环） */
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      const rect = { x, y, w, h };
+      const hit = [...blockers, ...placed].find(node => overlaps(rect, node));
+      if (!hit) break;
+      y = Number(hit.y || 0) + Number(hit.h || h) + gapY;
+    }
+    placed.push({ x, y, w, h });
+    cursorY = y + h + gapY;
+  }
+  return placed.map(item => ({ x: item.x, y: item.y }));
+}
 export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = Date.now(), namer = null } = {}) {
   const width = 240;
   const gap = 38;
