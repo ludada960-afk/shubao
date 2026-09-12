@@ -32,7 +32,9 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /buildVideoPlan/);
   assert.match(page, /分析并生成方案/);
   assert.match(page, /确认生成方案/);
-  assert.match(page, /方案分析 1 积分/);
+  /* 9-12 用户批注：方案分析积分改为显示在按钮上（动态），左侧独立积分栏已去掉 */
+  assert.match(page, /分析并生成方案 · \$\{ANALYSIS_POINTS\} 积分/);
+  assert.match(page, /const ANALYSIS_POINTS = 1;/);
   assert.match(page, /analyzeVideoPlan/);
   assert.match(page, /inspectVideoPlanningFiles/);
   assert.match(page, /plannedUploads/);

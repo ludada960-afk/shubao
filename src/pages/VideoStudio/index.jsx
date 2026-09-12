@@ -50,6 +50,9 @@ import './VideoStudio.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 const FINAL = new Set(['completed', 'failed', 'needs_review']);
+/* 方案分析固定 1 积分（与计费 SKU video_plan_analysis 一致），显示在按钮上而不是写死在说明里 */
+const ANALYSIS_POINTS = 1;
+
 const TOOLBAR_ITEMS = [
   /* 9-11 三轮用户批注: 技能库必须是一级入口 (与首页一致), 不藏在生成设置里 */
   { key: 'skills', label: '技能库', icon: Sparkles, description: '选择生视频技能，带完整提示词进入本次生成' },
@@ -738,6 +741,8 @@ export default function VideoStudioPage({ embedded = false }) {
     shot: `${ratio} · ${duration}秒`,
     sound: sound ? '生成声音' : '无声音',
     settings: `${resolution.toUpperCase()} · Seed ${seed || '随机'}`,
+    /* 9-12 用户批注：技能选择的结果要显示在「技能库」这一项下面（生成设置里那份去掉） */
+    skills: userSkills.length ? userSkills.map(skill => skill.name).join(' · ') : '未选技能',
   };
 
   const renderAssetPickers = () => {
@@ -804,17 +809,7 @@ export default function VideoStudioPage({ embedded = false }) {
         {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}><b>{value.toUpperCase()}</b><span>{value === '2k' ? '精制成片' : '正式成片'}</span></button>)}
       </div></div>
       <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => { setPlanReviewed(false); setNegativePrompt(event.target.value); }} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
-      {/* 9-11 三轮批注: 技能库已升为一级入口 (工具栏「技能库」按钮直接开弹窗) */}
-      <div className="video-panel-section"><div className="video-panel-section-title"><strong>已选技能</strong><span>{userSkills.length ? `${userSkills.length}/2` : '未选择'}</span></div>
-        <div className="video-skill-row">
-          {userSkills.length ? userSkills.map(skill => (
-            <span key={skill.id} className="ec-skill-chip">
-              <Sparkles size={12} /> {skill.name}
-              <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => setUserSkills(current => current.filter(item => item.id !== skill.id))}>×</button>
-            </span>
-          )) : <small className="video-panel-hint">从工具栏「技能库」选择生视频技能（最多 2 个）</small>}
-        </div>
-      </div>
+      {/* 9-12 用户批注：技能相关从生成设置里去掉 —— 已选技能显示在工具栏「技能库」上（见 toolbarSummary.skills） */}
       <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
     </>;
     return null;
@@ -947,7 +942,11 @@ export default function VideoStudioPage({ embedded = false }) {
           </div>
           {/* 9-11 二轮用户批注: 与电商生图统一为「一个主 CTA + 一个次按钮」—
               未确认方案时只有主按钮 (分析并生成方案, 1 积分); 方案确认后才出现「开始生成」主按钮 + 「查看方案」次按钮。 */}
-          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger${planning ? ' is-busy' : ''}`} disabled={planning} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : activeAnalysis ? '查看并确认方案' : '分析并生成方案 · 1 积分'}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></>}</div></div>
+                    {/* 9-12 用户批注：
+             ① 去掉左侧那个独立的积分栏，改成**按钮上直接显示动态积分**；
+             ② 积分必须跟随配置实时变化（estimatedPoints 来自服务端报价，方案分析另计 1 积分）；
+             ③ 按钮排版与文案一并规范化（未确认方案 = 分析并生成方案；已确认 = 开始生成）。 */}
+          <div className="video-submit-row"><div className="video-submit-meta"><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'}</span></div><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger${planning ? ' is-busy' : ''}`} disabled={planning} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : activeAnalysis ? `查看并确认方案 · ${ANALYSIS_POINTS} 积分` : `分析并生成方案 · ${ANALYSIS_POINTS} 积分`}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || `开始生成 · ${estimatedPoints} 积分`)}</button></>}</div></div>
         </footer>
       </section>
     </section>

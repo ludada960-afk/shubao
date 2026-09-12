@@ -15,13 +15,14 @@
   background: rgba(57, 45, 26, 0.35);
   backdrop-filter: blur(4px);
 }
+/* 9-12 用户批注：上面空、下面挤 —— 上下内边距改为对称，并把整体高度用足（卡片不再贴底）。 */
 .pricing-modal {
   position: relative;
   width: calc(100vw - 24px);
   max-width: 1280px;
-  max-height: calc(100vh - 24px);
+  max-height: calc(100vh - 32px);
   overflow-y: hidden;
-  padding: 14px 36px 26px;
+  padding: 26px 36px 26px;
   background: #fbf8f1;
   border-radius: 24px;
   border: 1px solid #e7e0d4;
@@ -272,6 +273,9 @@
   gap: 26px;
   align-items: stretch;
   margin-top: 18px;
+  /* 9-12 用户批注：卡片下面的留白要和标题上面的留白一样大（原来下面贴得很紧） */
+  margin-bottom: 22px;
+  padding-bottom: 4px;
 }
 .pricing-modal__empty {
   grid-column: 1 / -1;

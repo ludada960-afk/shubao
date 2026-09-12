@@ -2,15 +2,16 @@
 .skill-modal-overlay {
   position: fixed; inset: 0; z-index: 9000;
   /* 9-11 三轮用户批注: 顶部被导航栏盖住 → 从导航下方开始; 面板做宽而不是做高 */
-  display: grid; place-items: start center; padding: 96px 24px 24px;
+  display: grid; place-items: start center; padding: 76px 24px 24px;
   background: rgba(50, 40, 28, 0.42);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 .skill-modal {
   width: min(1440px, 97vw);
-  max-height: min(88vh, 940px);
-  min-height: min(78vh, 820px);
+  /* 9-12 用户批注：整体偏矮、上下不平衡 → 拉高（并让输入框更高），上方留白同步收一点 */
+  max-height: min(92vh, 1000px);
+  min-height: min(84vh, 900px);
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
@@ -102,7 +103,8 @@
   font-family: inherit; font-size: 13px; color: #1A1614; outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
-.skill-field textarea { resize: vertical; line-height: 1.6; }
+/* 9-12 用户批注：技能提示词要看得见更多内容 → 文本域给足高度并可纵向拖拽 */
+.skill-field textarea { resize: vertical; line-height: 1.6; min-height: 260px; max-height: 46vh; }
 .skill-field input:focus, .skill-field textarea:focus {
   border-color: #E8544B; box-shadow: 0 0 0 4px rgba(232, 84, 75, 0.12);
 }

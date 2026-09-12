@@ -15,7 +15,8 @@ const KINDS = Object.freeze([
   { value: 'copy', label: '文案' },
 ]);
 
-const LIMITS = Object.freeze({ name: 40, summary: 80, body: 2000 });
+/* 9-12 用户批注：技能提示词要能写很多（skill 内容通常很长），上限 2000 → 8000；输入框也拉高。 */
+const LIMITS = Object.freeze({ name: 40, summary: 80, body: 8000 });
 const EMPTY_DRAFT = Object.freeze({ id: '', kind: 'image', name: '', summary: '', body: '', params: {}, groupId: '' });
 
 /**
@@ -312,7 +313,7 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
               <textarea
                 value={draft.body}
                 maxLength={LIMITS.body}
-                rows={8}
+                rows={14}
                 placeholder={'- 模块名: 场景氛围图\n- 画面任务: 突出产品整体形象与核心气质'}
                 onChange={event => patchDraft({ body: event.target.value })}
               />
