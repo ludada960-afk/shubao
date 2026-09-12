@@ -18,6 +18,7 @@ test('模型弹层一次能看到 5 个以上（高度足够）且水平居中',
   const rule = css.match(/\.video-inline-menu \{([^}]*)\}/);
   assert.ok(rule, '规则存在');
   assert.match(rule[1], /max-height: min\(58vh, 460px\)/);
-  assert.match(rule[1], /left: 50%/);
-  assert.match(rule[1], /transform: translateX\(-50%\)/);
+  /* 面板必须贴在触发按钮正上方（水平居中会让左侧被视口截断 —— 9-12 用户批注） */
+  assert.match(rule[1], /left: 0/);
+  assert.doesNotMatch(rule[1], /translateX\(-50%\)/);
 });

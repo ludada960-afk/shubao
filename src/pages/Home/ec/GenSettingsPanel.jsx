@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { HexColorPicker } from 'react-colorful';
-import { Coins, Lock, Monitor, ShieldAlert, Sparkles, Unlock } from 'lucide-react';
+import { Coins, Lock, Monitor, Palette, ShieldAlert, Sparkles, Unlock } from 'lucide-react';
 import { IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ModelLogo from '../../../components/ModelLogo.jsx';
@@ -29,13 +28,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
 
   return (
     <div style={{ padding: 0 }}>
-      {showHeader && <div style={{
-        padding: '14px 16px 12px',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 0.3 }}>生图设置</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>按商品用途控制清晰度与画面约束</div>
-      </div>}
+      {/* 9-12 用户批注：「两套描述基本一样」→ 面板顶部只保留外层那套标题，这里不再重复 */}
 
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
@@ -104,13 +97,21 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
         {onBrandColorsChange && (
           <div>
             <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
-              {brandLocked ? <Lock size={13} color="#7c3aed" /> : <Unlock size={13} color="var(--text-muted)" />} 锁定品牌主色调
+              <Palette size={13} color={brandLocked ? '#7c3aed' : 'var(--text-muted)'} /> 锁定品牌主色调
             </label>
             <div style={{ marginBottom: 7, color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
               品牌色固定时开启：本次生成会在风格之上叠加品牌主色，保持品牌辨识度
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: pickerColor, border: '2px solid rgba(0,0,0,0.08)', flexShrink: 0 }} />
+              <label style={{ position: 'relative', width: 30, height: 30, borderRadius: 8, background: pickerColor, border: '2px solid rgba(0,0,0,0.08)', flexShrink: 0, cursor: 'pointer', overflow: 'hidden' }} title="点击选择品牌色">
+  <input
+    type="color"
+    aria-label="品牌主色"
+    value={pickerColor}
+    onChange={event => { setPickerColor(event.target.value); if (brandLocked) onBrandColorsChange?.([event.target.value, event.target.value]); }}
+    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', border: 0, padding: 0 }}
+  />
+</label>
               <input
                 aria-label="品牌主色"
                 value={pickerColor}

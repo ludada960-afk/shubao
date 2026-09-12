@@ -857,16 +857,15 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               <MdTune aria-hidden="true" />
             </button>
           </div>
-          <span className="visual-cost" title={`${model.label} ${resolution} 预计用量`}>
-            预计 {estimatedPoints} AI 积分
-          </span>
+          {/* 9-12 用户批注：预计积分统一放进按钮里（与电商生图、生视频一致），不再单独挂一条小字 */}
           <button
             type="button"
             className="visual-generate-button"
+            title={`${model.label} ${resolution} · 预计 ${estimatedPoints} AI 积分`}
             onClick={startGeneration}
             disabled={!canGenerate || busy}
           >
-            {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片</>}
+            {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片 · 预计 {estimatedPoints} 积分</>}
           </button>
         </div>
         {renderConfigPanel()}

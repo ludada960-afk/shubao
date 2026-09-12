@@ -52,6 +52,18 @@ export function acquirePageScrollLock() {
   };
 }
 
+/**
+ * 9-12 用户批注（"点导航栏按钮后导航消失、页面完全卡住"）：
+ * 组件在切换页面时被卸载/隐藏、但锁计数没归零，页面就会永久锁死。
+ * 切页属于强语义边界 —— 这时把计数强制归零并还原滚动，属于安全阀。
+ */
+export function resetPageScrollLock() {
+  if (typeof document === 'undefined') return;
+  if (lockCount === 0) return;
+  lockCount = 0;
+  releaseLock();
+}
+
 export function useModalScrollLock(active) {
   useEffect(() => {
     if (!active) return undefined;

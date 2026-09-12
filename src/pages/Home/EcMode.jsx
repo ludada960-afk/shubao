@@ -1687,11 +1687,6 @@ const DEFAULT_BUTTONS = [
               })}
             </div>
 
-            {/* ── 动态积分估算 (9-12 用户批注: 「下一步」这里要先把积分算出来给用户看, 且随配置变化) ── */}
-            <div className="ec-workbench-estimate" aria-live="polite">
-              <strong>预计 {planPoints.points} 积分</strong>
-              <small>{planPoints.totalImages} 张 · {String(genSettings.resolution || '2K').toUpperCase()} · {planPoints.modelLabel}</small>
-            </div>
 
             {/* ── 下一步按钮 ── */}
             {assetUploadError && (
@@ -1726,7 +1721,8 @@ const DEFAULT_BUTTONS = [
                   flexShrink: 0
                 }}
               >
-                {uploadingAssets ? '正在上传原图…' : '下一步'}
+                {/* 9-12 用户批注：预计积分要放进按钮里（与生视频统一），不再单独挂一个小字条 */}
+                {uploadingAssets ? '正在上传原图…' : `下一步 · 预计 ${planPoints.points} 积分`}
                 <ChevronDown size={14} style={{ transform: modeChooserOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }} />
               </button>
               {modeChooserOpen && (

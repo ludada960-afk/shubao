@@ -13,6 +13,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { DialogProvider, useDialog } from './components/ui/DialogProvider.jsx';
 import { LongTaskProvider } from './components/ui/LongTaskProvider.jsx';
 import { LongTaskOverlay } from './components/ui/LongTaskOverlay.jsx';
+import { resetPageScrollLock } from './components/ui/useModalScrollLock.js';
 import './styles/app-shell.css';
 const HomePage = React.lazy(() => import('./pages/Home/index'));
 const PricingPage = React.lazy(() => import('./pages/Pricing/index'));
@@ -240,6 +241,12 @@ function AppRouter() {
       dispatch({ type: 'NAVIGATE', page: 'public-templates' });
     }
   }, []);
+
+  /* 9-12 用户批注：切页后如果还有残留的页面滚动锁，页面会「消失+完全卡住」。
+     切页是强边界 —— 在这里强制释放一次，保证任何页面切换后都能正常滚动。 */
+  useEffect(() => {
+    resetPageScrollLock();
+  }, [page]);
 
   // 4c183cd4 续命: 监听浏览器前进/后退 (popstate) 同步 page.
   // AppContext.createInitialState 已根据初始 pathname 设好 page, 但用户在 SPA
