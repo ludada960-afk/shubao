@@ -756,6 +756,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const launchJustAppliedRef = useRef(false);
   /* 首页发射进来的图（素材 + 方案节点）：常驻，避免被后续重建清空 */
   const planLaunchGraphRef = useRef(null);
+  /* 9-12 用户批注：带设计方案进来后应**自动生成方案**（不用再点一次）；这里记下待自动生成的方案节点 id */
+  const autoPlanNodeRef = useRef('');
   const segmentationAbortRef = useRef(new Map());
   const workflowProcessRef = useRef(null);
   const workflowGenerateRef = useRef(null);
@@ -978,9 +980,15 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         y: (launchRect.height - graphH * scale) / 2 - minY * scale,
       });
     }
-    showToast(graph.targetKind === 'suite-composer'
-      ? '素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)'
-      : '设计方案已在画布 · 点方案节点「生成方案」(1 积分), 再应用到画布', 'success');
+    if (graph.targetKind === 'suite-composer') {
+      /* 快速通道：跳过设计分析，不自动跑方案 */
+      autoPlanNodeRef.current = '';
+      showToast('素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)', 'success');
+    } else {
+      /* 带设计方案：进画布后自动生成方案（报价→扣费在 handleDirectionGenerate 内完成，计费不变式不变） */
+      autoPlanNodeRef.current = graph.targetId;
+      showToast('素材与方案节点已进入画布 · 正在自动生成设计方案 (1 积分)', 'success');
+    }
     return true;
   }, [showToast]);
 
@@ -3710,9 +3718,11 @@ const handlePointerUp = useCallback((e) => {
       showToast('设计方案已生成，可「应用到画布」继续', 'success');
     } catch (error) {
       updateComposerNode(node.id, { status: 'error', error: error?.message || '设计方案生成失败' });
-      handleGenerationAccessError?.(error);
+      /* 9-12 修潜伏 bug：这个助手签名是 (error, dispatch, options)，原来只传了 error，
+         一旦走到错误分支就会抛 dispatch is not a function（本地实跑被自动生成踩出来）。 */
+      handleCanvasActionError?.(error, { type: 'canvas-direction-generate', nodeId: node.id });
     }
-  }, [updateComposerNode]);
+  }, [updateComposerNode, handleCanvasActionError]);
   const handleDirectionRefresh = useCallback(async node => {
     if (!node || node.status === 'processing') return;
     updateComposerNode(node.id, { status: 'processing', error: '', progressLabel: '正在换一套创意路线' });
@@ -3723,9 +3733,27 @@ const handlePointerUp = useCallback((e) => {
       showToast('已换一套设计方案', 'success');
     } catch (error) {
       updateComposerNode(node.id, { status: 'error', error: error?.message || '方案刷新失败' });
-      handleGenerationAccessError?.(error);
+      handleCanvasActionError?.(error, { type: 'canvas-direction-refresh', nodeId: node.id });
     }
-  }, [updateComposerNode]);
+  }, [updateComposerNode, handleCanvasActionError]);
+
+  /* 9-12 用户批注：带设计方案进画布后**自动生成方案**。
+     注意声明位置必须在 handleDirectionGenerate 之后 —— 否则和 showToast 一样会踩 TDZ，
+     进画布即崩（这个坑今天刚踩过一次，见 test/canvas-tdz-guard-0912.test.mjs）。 */
+  useEffect(() => {
+    const targetId = autoPlanNodeRef.current;
+    if (!targetId) return;
+    const node = nodes.find(item => item.id === targetId);
+    if (!node || node.kind !== 'design-direction') return;
+    const alreadyHasPlan = Array.isArray(node.directions) && node.directions.length > 0;
+    if (node.status === 'processing' || alreadyHasPlan) {
+      autoPlanNodeRef.current = '';
+      return;
+    }
+    autoPlanNodeRef.current = '';
+    void handleDirectionGenerate(node);
+  }, [handleDirectionGenerate, nodes]);
+
   const handleDirectionApply = useCallback(node => {
     if (!node || !Array.isArray(node.directions) || !node.directions.length) {
       showToast('先生成设计方案，再应用到画布', 'info');
