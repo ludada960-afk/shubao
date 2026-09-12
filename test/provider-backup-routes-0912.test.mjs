@@ -13,7 +13,8 @@ test('视频注册表支持备用网关，且未配置时不启用', () => {
   assert.match(providers, /backup = null/);
   assert.match(providers, /alternate\(productId\)/);
   assert.match(providers, /hasBackup: alternateAdapters\.size > 0/);
-  assert.match(providers, /model: product\.routeId/, '同一个模型名（routeId）必须原样传给备用网关');
+  assert.match(providers, /const backupModel = clean\(backup\?\.models\?\.\[product\.routeId\], 200\)/, '备用模型名按 routeId 映射');
+  assert.match(providers, /if \(backupToken && backupModel\)/, '没有映射就不挂备用（绝不把不支持的模型名发过去）');
 });
 
 test('视频执行器：任务失败切备用一次，只切一次', () => {

@@ -337,6 +337,19 @@ const videoGeneration = createVideoGeneration({
   backupApiKey: String(process.env.VIDEO_BACKUP_API_KEY || '').trim(),
   backupMinimaxBaseUrl: String(process.env.VIDEO_BACKUP_MINIMAX_BASE_URL || '').trim().replace(/\/+$/, ''),
   backupMinimaxApiKey: String(process.env.VIDEO_BACKUP_MINIMAX_API_KEY || '').trim(),
+  /* 备用网关的模型 id 映射：routeId → 备用网关模型名。默认值来自 2026-09-12 对备用网关 /v1/models 的实测。 */
+  backupModels: (() => {
+    const raw = String(process.env.VIDEO_BACKUP_MODEL_MAP || '').trim();
+    if (raw) {
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+    return {
+      'agv-seedance2.0fast': 'seedance-2.0-fast-native',
+      'sd5-seedance-2.0': 'seedance-2.0-native',
+      'sd8-seedance-2.5': 'seedance-2.5-native',
+      'grok-imagine-video': 'grok-imagine-video',
+    };
+  })(),
   baseUrl: process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',

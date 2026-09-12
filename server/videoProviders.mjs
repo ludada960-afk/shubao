@@ -157,7 +157,7 @@ function responseJson(response) {
   });
 }
 
-function createAdapter({ product, baseUrl, token, fetchImpl, timeoutMs = 30_000 }) {
+function createAdapter({ product, baseUrl, token, fetchImpl, timeoutMs = 30_000, model = '' }) {
   const endpoint = normalizeBaseUrl(baseUrl);
   const protocol = product.credential === 'minimax' ? 'minimax-h3' : 'seedance';
   const queryPath = taskId => `/videos/${encodeURIComponent(taskId)}`;
@@ -201,7 +201,8 @@ function createAdapter({ product, baseUrl, token, fetchImpl, timeoutMs = 30_000 
     routeId: product.routeId,
     productId: product.id,
     protocol,
-    model: product.routeId,
+    /* 备用网关可能用不同的模型 id（实测 65535：seedance-2.0-native 等），未提供映射时沿用本家模型名 */
+    model: clean(model, 200) || product.routeId,
     async submit(payload, idempotencyKey) {
       const response = await request('/videos', {
         method: 'POST',
@@ -252,13 +253,17 @@ export function createVideoProviderRegistry({
     }));
     if (backupEnabled) {
       const backupToken = clean(backup?.credentials?.[product.credential], 500);
-      if (backupToken) {
+      /* 只有明确知道备用网关对应的模型 id 才挂备用 —— 否则可能把不被支持的模型名发过去，
+         那比「没有备用」更糟（会以 5xx 收场）。映射来自实测的备用网关模型清单。 */
+      const backupModel = clean(backup?.models?.[product.routeId], 200);
+      if (backupToken && backupModel) {
         alternateAdapters.set(product.id, createAdapter({
           product,
           baseUrl: product.credential === 'minimax' ? (backup.minimaxBaseUrl || backup.baseUrl) : backup.baseUrl,
           token: backupToken,
           fetchImpl,
           timeoutMs,
+          model: backupModel,
         }));
       }
     }

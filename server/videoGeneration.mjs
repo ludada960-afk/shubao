@@ -186,6 +186,7 @@ export function createVideoGeneration({
   backupApiKey = '',
   backupMinimaxBaseUrl = '',
   backupMinimaxApiKey = '',
+  backupModels = null,
   credentials,
   baseUrl,
   minimaxBaseUrl,
@@ -325,6 +326,8 @@ export function createVideoGeneration({
         baseUrl: backupBaseUrl,
         minimaxBaseUrl: backupMinimaxBaseUrl || backupBaseUrl,
         credentials: { seedance: backupApiKey || '', minimax: backupMinimaxApiKey || '' },
+        /* 备用网关的模型 id 映射（实测 65535 的视频模型清单）；未列出的档位不挂备用 */
+        models: backupModels || {},
       }
       : null,
   });
