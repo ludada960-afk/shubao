@@ -1219,24 +1219,16 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             </div>
 
             {/* Right: 生成按钮 — 彩色AI渐变风格 */}
-            <button onClick={xhsSubMode === 'content' ? doGenXHS : doGenPlog}
+            {/* 9-12 用户批注：小红书也要和其余三个板块一样 —— 统一的生成按钮样式 + 动态积分（整套 9 图 = 9 积分） */}
+            <button
+              type="button"
+              className="shubao-gen-cta"
+              onClick={xhsSubMode === 'content' ? doGenXHS : doGenPlog}
               disabled={xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()}
-              style={{
-                width:42, height:42, borderRadius:'50%', border:'none',
-                background: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim())
-                  ? '#ddd'
-                  : 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',
-                color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                cursor: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()) ? 'not-allowed' : 'pointer',
-                transition:'all 0.2s',
-                boxShadow: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim())
-                  ? 'none'
-                  : '0 4px 20px rgba(124,58,237,0.35), 0 2px 6px rgba(236,72,153,0.2)',
-                flexShrink: 0,
-              }}
-              onMouseEnter={e => { if (!(xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim())) { e.currentTarget.style.boxShadow = '0 6px 28px rgba(124,58,237,0.45), 0 3px 10px rgba(236,72,153,0.3)'; e.currentTarget.style.transform = 'scale(1.06)'; } }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()) ? 'none' : '0 4px 20px rgba(124,58,237,0.35), 0 2px 6px rgba(236,72,153,0.2)'; e.currentTarget.style.transform = 'none'; }}>
-              <MdAutoAwesome size={18} fill="#fff" />
+            >
+              <MdAutoAwesome size={16} />
+              <span>{xhsSubMode === 'content' ? '生成图文' : '生成 Plog'}</span>
+              <span className="shubao-gen-cta-points">9 积分</span>
             </button>
           </div>
 

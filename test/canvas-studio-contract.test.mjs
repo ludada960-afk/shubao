@@ -369,7 +369,8 @@ test('selected-image tools keep key command names and compact secondary actions'
   /* 9-12: 支持「已加入资产库」高亮态, className 改为数组拼接 */
   assert.match(toolbar, /className=\{\[compact \? 'is-compact' : '', alreadyAsset \? 'is-active' : ''\]/);
   assert.match(toolbar, /\{!compact && <span>\{label\}<\/span>\}/);
-  assert.match(toolbar, /alreadyAsset \? '这个素材已在资产库中'/);
+  /* 9-12 用户批注：再点一次要能取消 → 文案说明可移除 */
+  assert.match(toolbar, /alreadyAsset \? '这个素材已在资产库中，再点一次即可移除'/);
 });
 
 test('image nodes report decoded natural dimensions and move-scale supports direct manipulation', () => {
@@ -728,7 +729,7 @@ test('Canvas density uses content-sized toolbars and readable metadata', () => {
   assert.match(source, /const estimatedWidth = 76 \+ actions\.reduce/);
   /* 9-12: 按钮支持「已加入资产库」高亮态 —— title/label 按状态取值 */
   assert.match(source, /const alreadyAsset = action\.id === 'save-to-assets'/);
-  assert.match(source, /alreadyAsset \? '这个素材已在资产库中'/);
+  assert.match(source, /alreadyAsset \? '这个素材已在资产库中，再点一次即可移除'/);
   assert.match(source, /<span>\{action\.label\}<\/span>/);
   assert.match(source, /<Icon size=\{15\} \/><span>\{action\.label\}<\/span>/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*min-width:\s*var\(--ec-canvas-control-height\);[^}]*width:\s*auto;[^}]*padding:\s*0 8px;/s);

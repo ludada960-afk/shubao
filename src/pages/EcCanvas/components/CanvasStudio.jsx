@@ -197,7 +197,8 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
          判断依据是节点已挂上项目资产引用（assetRef / projectAssetId）。 */
       const alreadyAsset = action.id === 'save-to-assets'
         && Boolean(node?.assetRef || node?.projectAssetId || node?.projectAssetRef);
-      const label = alreadyAsset ? '已加入资产库' : action.label;
+      /* 9-12 用户批注：文案要说清「再点一次会移除」，否则用户不知道能不能取消 */
+      const label = alreadyAsset ? '已在资产库 · 点击移除' : action.label;
       return <button
         key={action.id}
         type="button"
@@ -206,7 +207,7 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
         aria-pressed={action.id === 'save-to-assets' ? alreadyAsset : undefined}
         aria-label={label}
         aria-disabled={isDisabled || undefined}
-        title={isDisabled ? (action.disabledHint || '暂时不可用') : (alreadyAsset ? '这个素材已在资产库中' : (action.description || action.label))}
+        title={isDisabled ? (action.disabledHint || '暂时不可用') : (alreadyAsset ? '这个素材已在资产库中，再点一次即可移除' : (action.description || action.label))}
         disabled={isDisabled}
         onPointerDown={event => event.stopPropagation()}
         onClick={() => { if (!isDisabled) onAction?.(action, node); }}

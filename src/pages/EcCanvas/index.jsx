@@ -3181,8 +3181,24 @@ const handlePointerUp = useCallback((e) => {
     }
     if (handler === 'save-to-assets') {
       /* 9-11 用户批注①: 资产库 = 用户显式定义 — 只有用户点「加入资产库」的节点才进资产库,
-         上传/替换不再自动处理。生成物仍由 register-generated 自动归集到作品。 */
+         上传/替换不再自动处理。生成物仍由 register-generated 自动归集到作品。
+         9-12 用户批注：**再点一次要能取消**（原来只进不出：「只许我点进去，不许我点出来」）。 */
       if (!state.logged) { showToast('登录后才能收藏到资产库', 'info'); return; }
+      const existingProjectAssetId = String(node.projectAssetId || node.assetRef?.projectAssetId || '').trim();
+      if (existingProjectAssetId) {
+        try {
+          const existingProjectId = String(node.projectId || node.assetRef?.projectId || result.projectId || '').trim();
+          if (!existingProjectId) throw new Error('资产库暂不可用，请稍后重试');
+          await deleteProjectAsset(existingProjectId, existingProjectAssetId);
+          setNodes(previous => previous.map(item => item.id === node.id
+            ? { ...item, projectAssetId: '', assetRef: null }
+            : item));
+          showToast('已从资产库移除', 'success');
+        } catch (error) {
+          showToast(error?.message || '移除失败，请稍后重试', 'error');
+        }
+        return;
+      }
       try {
         const isMedia = ['video', 'audio'].includes(node.kind);
         const projectContext = await ensureCanvasMediaProject(isMedia ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目', isMedia ? 'video' : 'ecommerce');
