@@ -766,7 +766,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             {/* 9-12 用户批注：文案照小红书那套语义 —— 这里是「我的素材」（主体/产品），
                 风格参考只影响构图与色调，同样放这里即可。 */}
             <span><MdAddPhotoAlternate />我的素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
-            <small>主体或产品图 · 也可放风格参考（只影响构图与色调）· JPG/PNG/WebP，最多 6 张</small>
+            <small>{selectedSkill.materialHint || '主体或参考图都可以 · 风格参考只影响构图与色调'} · JPG/PNG/WebP，最多 6 张</small>
           </div>
           <div className="visual-reference-list">
             {references.map((reference, index) => (
@@ -813,7 +813,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             maxLength={IMAGE_PROMPT_LIMIT}
             onChange={value => setPrompt(String(value || '').slice(0, IMAGE_PROMPT_LIMIT))}
             onFilesPasted={files => { if (!busy) appendFiles(files); }}
-            placeholder={`描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
+            placeholder={selectedSkill.promptHint ? `${selectedSkill.title}：${selectedSkill.promptHint}` : `描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
             aria-label="画面描述"
             className={busy ? 'is-disabled' : ''}
           />

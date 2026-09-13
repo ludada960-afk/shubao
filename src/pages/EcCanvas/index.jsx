@@ -6024,6 +6024,15 @@ const handlePointerUp = useCallback((e) => {
               else if (actionId === 'upload-video') videoUploadRef.current?.click();
               else if (actionId === 'works') handleTabChange('works');
               else if (actionId === 'asset-library') setAssetPickerOpen(true);
+              else if (actionId === 'upload-audio') audioUploadRef.current?.click();
+              /* 应用类：需要先在画布上选中一个素材；未选中时给提示，不做隐式动作 */
+              else if (['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video'].includes(actionId)) {
+                if (!selectedNode) { showToast('请先在画布上选中一个素材，再使用这个应用', 'info'); return; }
+                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
+                if (actionId === 'application-tts') handleDerivedTtsGeneration(selectedNode.id, world);
+                else if (actionId === 'application-caption') handleDerivedCaptionGeneration(selectedNode.id, world);
+                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(actionId) || { id: actionId }, world);
+              }
               else if (actionId === 'text-generation') addCanvasComposer('text');
               else if (actionId === 'image') addCanvasComposer('image');
               else if (actionId === 'ecommerce') addCanvasComposer('suite');
@@ -6643,7 +6652,6 @@ const handlePointerUp = useCallback((e) => {
                     onClick={() => projectAssetUploadRef.current?.click()}
                     aria-label="上传素材到资产库"
                   ><Upload size={14} />{projectAssetUploadBusy ? '上传中…' : '上传'}</button>
-                  <span style={{ color: '#9aa1aa', fontSize: 11 }}>{visibleProjectAssetLibrary.length}{visibleProjectAssetLibrary.length !== projectAssetLibrary.length ? ` / ${projectAssetLibrary.length}` : ''} 个</span>
                   {selectedProjectAssetKeys.size > 0 && <button
                     type="button"
                     disabled={projectAssetBatchBusy || projectAssetImportBusyRef.current}
@@ -6709,7 +6717,6 @@ const handlePointerUp = useCallback((e) => {
                         </div>
                       </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px' }}>
-                          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#9aa1aa' }}>{asset.projectTitle || ''}</span>
                           {/* 9-12 用户批注：卡片上只需一个「删除」，悬停才出现；其余按钮全部去掉 */}
                           <button
                             type="button"

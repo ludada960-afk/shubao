@@ -19,6 +19,7 @@ import {
   Film,
   FolderInput,
   LibraryBig,
+  AudioLines,
   FolderOpen,
   Grid2X2,
   ImagePlay,
@@ -53,6 +54,8 @@ import {
   X,
   ArrowUpRight,
   ChevronDown,
+  Music,
+  Wand2,
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ModelLogo from '../../../components/ModelLogo.jsx';
@@ -114,7 +117,9 @@ function usePanelIntroGate(name) {
 }
 
 /* 「添加资源」分组的成员（本地上传 / 作品 / 资产库），其余归入「用 AI 生成」 */
-const RESOURCE_ACTION_IDS = new Set(['upload', 'upload-video', 'works', 'asset-library']);
+const RESOURCE_ACTION_IDS = new Set(['upload', 'upload-video', 'upload-audio', 'works', 'asset-library']);
+/* 「应用」组：把画布已有的派生能力提到一级入口（9-12 用户批注：照竞品补「应用」分类） */
+const APPLICATION_ACTION_IDS = new Set(['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']);
 
 const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImageUp },
@@ -122,6 +127,11 @@ const ADD_ACTIONS = [
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderInput },
   /* 9-12 用户批注：加「从资产库选择」——资产库的素材必须能放到画布上 */
   { id: 'asset-library', label: '从资产库选择', description: '把资产库里的素材直接放到画布', icon: LibraryBig },
+  { id: 'upload-audio', label: '添加音频', description: '加入配音、旁白或背景音乐', icon: Music },
+  { id: 'application-tts', label: '语音合成', description: '把文案变成可用的配音音轨', icon: AudioLines },
+  { id: 'application-caption', label: '智能字幕', description: '为视频自动生成并烧录字幕', icon: Captions },
+  { id: 'application-1click-suite', label: '一键套图', description: '用当前素材直接产出整套电商图', icon: Wand2 },
+  { id: 'application-1click-video', label: '一键成片', description: '用当前素材直接产出营销短片', icon: Film },
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: Sparkles },
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },
@@ -153,7 +163,8 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
   /* 9-12 用户批注：左侧「+」菜单要像竞品一样分两组 ——
      「添加资源」（本地上传 / 作品 / 资产库）与「添加节点」（用提示词生成各类内容）。 */
   const resourceActions = ADD_ACTIONS.filter(item => RESOURCE_ACTION_IDS.has(item.id));
-  const nodeActions = ADD_ACTIONS.filter(item => !RESOURCE_ACTION_IDS.has(item.id));
+  const applicationActions = ADD_ACTIONS.filter(item => APPLICATION_ACTION_IDS.has(item.id));
+  const nodeActions = ADD_ACTIONS.filter(item => !RESOURCE_ACTION_IDS.has(item.id) && !APPLICATION_ACTION_IDS.has(item.id));
   const renderItem = item => <button key={item.id} type="button" role="menuitem" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(item.id); }}>
     <span><item.icon /></span>
     <span><strong>{item.label}</strong><small>{item.description}</small></span>
@@ -167,6 +178,10 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
     {nodeActions.length > 0 && <div className="ec-canvas-menu-group" role="group" aria-label="添加节点入口">
       <span className="ec-canvas-menu-group-title">用 AI 生成</span>
       {nodeActions.map(renderItem)}
+    </div>}
+    {applicationActions.length > 0 && <div className="ec-canvas-menu-group" role="group" aria-label="应用">
+      <span className="ec-canvas-menu-group-title">应用</span>
+      {applicationActions.map(renderItem)}
     </div>}
   </div>;
 }

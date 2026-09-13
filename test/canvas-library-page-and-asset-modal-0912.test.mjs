@@ -30,7 +30,7 @@ test('画布库改整页 + hover 动效', () => {
 
 test('左侧「+」菜单分组', () => {
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
-  assert.ok(studio.includes("const RESOURCE_ACTION_IDS = new Set(['upload', 'upload-video', 'works', 'asset-library'])"), '资源分组定义');
+  assert.ok(studio.includes("const RESOURCE_ACTION_IDS = new Set(['upload', 'upload-video', 'upload-audio', 'works', 'asset-library'])"), '资源分组定义');
   assert.ok(studio.includes('添加资源') && studio.includes('用 AI 生成'), '两组标题');
   const css = read('src/styles/canvas-supervisor.css');
   assert.ok(css.includes('.ec-canvas-menu-group-title'), '分组标题样式');
