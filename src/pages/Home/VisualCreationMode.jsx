@@ -763,8 +763,10 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           }}
         >
           <div className="visual-reference-heading">
-            <span><MdAddPhotoAlternate />参考素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
-            <small>JPG、PNG、WebP · 最多 6 张</small>
+            {/* 9-12 用户批注：文案照小红书那套语义 —— 这里是「我的素材」（主体/产品），
+                风格参考只影响构图与色调，同样放这里即可。 */}
+            <span><MdAddPhotoAlternate />我的素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
+            <small>主体或产品图 · 也可放风格参考（只影响构图与色调）· JPG/PNG/WebP，最多 6 张</small>
           </div>
           <div className="visual-reference-list">
             {references.map((reference, index) => (

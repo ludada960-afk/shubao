@@ -15,7 +15,9 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /visualGenerationEstimate/);
   assert.match(source, /saveWork/);
   assert.match(source, /buildVisualCanvasResult/);
-  assert.match(source, /JPG、PNG、WebP/);
+  /* 9-12 用户批注：文案照小红书语义改为「我的素材 + 风格参考」，格式提示仍在 */
+  assert.match(source, /我的素材/);
+  assert.match(source, /JPG\/PNG\/WebP/);
   assert.match(source, /最多 6 张/);
   assert.match(source, /placeholder=\{`描述你想生成的/);
   assert.match(source, /只重试失败项/);
