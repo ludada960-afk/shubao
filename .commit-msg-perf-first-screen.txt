@@ -1,0 +1,27 @@
+perf(home): P1-1 首屏瘦身 —— 9.2MB→1.4MB（-84.5%），根因是绕开缩略管线的源图直引
+
+体检报告 docs/audit/2026-09-14-deep-health-check.md P1-1：headless 实测线上首屏 9,192KB / 47 请求，
+最大单文件 6.5MB，慢网下等同"网站打不开"。用户对这条容忍度为 0。
+
+三个真实根因（本次全部修掉）：
+1) modeCardThumb 的 MODE_CARD_THUMB_PATTERN 以扩展名结尾锚定，而 entry-video/xhs/visual 的 src 带
+   ?v=20260812 —— query string 让缩略解析全部落空，3 张卡直接拉 326/332/284KB 源 PNG。
+   改为先 split('?')[0] 再匹配（并去掉正则里多余的惰性量词，避免捕获组吞掉 ".png"）。
+2) finalComposite（earbuds-suite-composite-v3.png，6.3MB）经 ResponsiveImage variant="display" 直渲，
+   而缩略回退只对 thumb/card 生效 → 6.3MB 源 PNG 落在关键路径。新增 1600px WebP 详情产物（101KB）
+   并让 Catalog 指向它；源 PNG 保留在仓库供回滚/下载，不再被引用。
+3) 两个多角度 tryon 资产带 ?v=fan-only-v7 / ?v=workflow-v11，同样打断 .thumbs 解析（已删除后缀）；
+   两个电商案例封面走 /gallery/ 路径本就绕开缩略管线（200KB+148KB），复制到 /images/gallery/...
+   并生成 720px 缩略（65KB+54KB），cases.json 的 cover_url 改指副本。
+   另：Google Fonts 补 preconnect/dns-prefetch，并预载首屏 4 张模式卡缩略。
+
+实测（Playwright + CDP encodedDataLength，脚本 scripts/measure-first-screen.mjs）：
+  线上改前 9,192KB / 47 请求 / 最大 6,500KB / LCP 1,104ms
+  本地改前 9,155KB / 45 请求 / 最大 6,493KB / LCP   488ms
+  改后桌面 1,422KB / 60 请求 / 最大   167KB / LCP   416ms
+  改后移动 1,346KB / 47 请求 / 最大   167KB / LCP   376ms
+
+新增可复现管线 scripts/optimize-home-images.mjs（sharp，幂等，单张 <=200KB 硬校验）；
+新增 test/home-first-screen-image-policy.test.mjs 把"主候选必须是落盘缩略"锁成红线。
+
+全量 npm test 3316/3316 绿（基线 3305，+11 例）；npm run build 通过。

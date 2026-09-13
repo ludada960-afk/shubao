@@ -18,10 +18,13 @@ import { loadWorks } from '../../services/api';
  */
 // 模式卡入口图：直接使用已入库的 .thumbs WebP 预览（约 20-35KB），加载失败回退 PNG 原图。
 // width/height 提供内在尺寸（420×360），让浏览器在样式就绪前即可锁定比例，避免占位塌陷。
-const MODE_CARD_THUMB_PATTERN = /^\/images\/(.+)\.(?:png|jpe?g)$/i;
+// 注意：先剥离 ?v= 缓存后缀再匹配，否则 query string 会让缩略解析落空、首屏直接拉源 PNG。
+const MODE_CARD_THUMB_PATTERN = /^\/images\/(.+?)\.(?:png|jpe?g)$/i;
 
 function modeCardThumb(src) {
-  const match = String(src || '').match(MODE_CARD_THUMB_PATTERN);
+  // 必须先剥掉 ?v= 缓存后缀再匹配：query string 会让以扩展名结尾锚定的缩略解析落空。
+  const clean = String(src || '').split('?')[0];
+  const match = clean.match(MODE_CARD_THUMB_PATTERN);
   return match ? '/images/.thumbs/' + match[1] + '.webp' : '';
 }
 

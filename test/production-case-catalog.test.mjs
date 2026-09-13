@@ -57,9 +57,12 @@ test('multi-angle try-on exposes four independent complete model views', () => {
   assert.ok(angleSources.every(asset => asset.ratio === '9:16'));
   const workflow = item.assets.find(asset => asset.displayRole === 'workflowBanner');
   assert.equal(workflow.ratio, '16:9');
-  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-workflow-v7.png?v=workflow-v11');
+  // 9-14 首屏瘦身：?v= 缓存后缀会打断 .thumbs 缩略解析（responsiveImageModel 的
+  // localPublicThumbnail 以扩展名结尾锚定），已从 src 移除；资源名本身即版本。
+  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-workflow-v7.png');
   assert.equal(workflow.provenance, 'production-composite');
   assert.doesNotMatch(workflow.src, /fan-only/);
+  assert.doesNotMatch(workflow.src, /\?v=/);
 });
 
 test('product suite has one wide final composite, five exact-prompt detail sources, and three rich selector previews', async () => {
@@ -97,7 +100,8 @@ test('try-on selector uses one purpose-built wide fan from production-backed ass
   assert.equal(previews.length, 1);
   assert.ok(previews.every(asset => asset.ratio === '16:9'));
   assert.ok(previews.every(asset => asset.provenance === 'production-composite'));
-  assert.equal(previews[0].src, '/images/home/tryon-showcase/editorial-multi-angle-fan-v7.webp?v=fan-only-v7');
+  assert.equal(previews[0].src, '/images/home/tryon-showcase/editorial-multi-angle-fan-v7.webp');
+  assert.doesNotMatch(previews[0].src, /\?v=/);
   assert.match(previews[0].prompt, /不裁切/);
 });
 
@@ -111,7 +115,9 @@ test('gallery product suite metadata describes the production earbuds instead of
   const [item] = source.productionGalleryItems([productionCaseById('product-suite')]);
   assert.match(item.title, /耳机商品套图/);
   assert.doesNotMatch(item.title, /玻璃灯/);
-  assert.equal(item.cover_url, '/images/home/ecommerce-showcase/earbuds-suite-composite-v3.png');
+  // 9-14 首屏瘦身：finalComposite 改引 1600px WebP 详情图（Workbench 展示/放大共用），
+  // 6.3MB 源 PNG 保留在仓库供回滚与下载，但不再出现在首屏关键路径。
+  assert.equal(item.cover_url, '/images/home/ecommerce-showcase/earbuds-suite-composite-v3-1600.webp');
   assert.equal(item.ratio, '4:3');
   assert.equal(item.images.length, productionCaseById('product-suite').manifest.outputs.length);
   assert.ok(item.images.every(image => image.prompt && image.requestKey && image.taskId));
