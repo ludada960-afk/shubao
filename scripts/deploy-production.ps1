@@ -599,11 +599,11 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   } else {
     Write-Host "Skipped real ecommerce production canary for frontend-only release"
   }
-  /* 9-13 实战教训：这一次「Authenticated video production canary」在新版部署后返回 401，
-     直接把一次成功的部署判成失败并回滚（站点其实一直是好的）。
-     401 的成因是**金丝雀会话与重启后的进程对不上**（token 由目标进程环境里的密钥签发），
-     属于可自愈的环境问题，不该判定整个版本不合格。
-     处理：失败就**重新签发一次金丝雀会话再试**（最多两次），仍然失败才算真失败。 */
+  # 9-13 实战教训：这一次「Authenticated video production canary」在新版部署后返回 401，
+  # 直接把一次成功的部署判成失败并回滚（站点其实一直是好的）。
+  # 401 的成因是金丝雀会话与重启后的进程对不上（token 由目标进程环境里的密钥签发），
+  # 属于可自愈的环境问题，不该判定整个版本不合格。
+  # 处理：失败就重新签发一次金丝雀会话再试（最多两次），仍然失败才算真失败。
   $videoCanaryPassed = $false
   for ($canaryAttempt = 1; $canaryAttempt -le 2; $canaryAttempt++) {
     Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
