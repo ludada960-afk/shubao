@@ -751,3 +751,19 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 .ec-asset-upload:hover:not(:disabled) { border-color: #7c3aed; color: #6d28d9; }
 .ec-asset-upload:disabled { opacity: .6; cursor: progress; }
 
+
+/* 9-12 左侧「+」菜单分组（添加资源 / 用 AI 生成） */
+.ec-canvas-menu-group { display: grid; gap: 2px; }
+.ec-canvas-menu-group + .ec-canvas-menu-group { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(28,25,23,.07); }
+.ec-canvas-menu-group-title { padding: 4px 10px 4px; color: #a8a29e; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; }
+/* 资产库卡片：悬停放大 + 悬停才出现的删除按钮（照竞品交互） */
+.ec-canvas-page article:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 14px 32px rgba(28,25,23,.16); }
+.ec-canvas-page article { transition: transform .18s ease, box-shadow .18s ease; }
+
+
+/* 9-12 用户批注：资产库 = 弹窗（照竞品），不再是整页 */
+.canvas-asset-library-overlay { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: center; padding: 64px 24px 32px; background: rgba(28,25,23,.44); backdrop-filter: blur(8px); }
+.canvas-asset-library-modal { display: flex; flex-direction: column; width: min(1040px, 96vw); max-height: min(84vh, 880px); overflow: hidden auto; padding: 22px 24px 24px; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.42); }
+.canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; }
+.canvas-asset-library-modal > section { margin-bottom: 0 !important; }
+

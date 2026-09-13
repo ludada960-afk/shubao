@@ -5907,8 +5907,10 @@ const handlePointerUp = useCallback((e) => {
   return (
     <div className="ec-canvas-page">
       {/* 9-12 画布库：点「新建画布」打开，可改名/复制/收藏/删除/打开已有画布 */}
+      {/* 9-12 用户批注：画布库做成整页（不是弹窗） */}
       <CanvasLibraryModal
         open={canvasLibraryOpen}
+        variant="page"
         onClose={() => setCanvasLibraryOpen(false)}
         onCreate={createBlankCanvas}
         onOpenCanvas={openCanvasFromLibrary}
@@ -6615,7 +6617,10 @@ const handlePointerUp = useCallback((e) => {
               onClick={() => setWorkCategory(option.id)}
             >{option.label}<span>{workCategoryCounts[option.id]}</span></button>)}
           </div>}
+          {/* 9-12 用户批注：资产库改成像竞品那样的**弹窗**（不再是整页 + 一堆标题/副标题） */}
           {tab === 'assets' && state.logged && (
+            <div className="canvas-asset-library-overlay" onMouseDown={event => { if (event.target === event.currentTarget) handleTabChange('canvas'); }}>
+              <section className="canvas-asset-library-modal" role="dialog" aria-modal="true" aria-label="资产库管理">
             <section aria-labelledby="canvas-project-assets-title" style={{ marginBottom: 22 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                 <div>
@@ -6722,6 +6727,8 @@ const handlePointerUp = useCallback((e) => {
                 <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>{projectAssetLibrary.length ? '没有符合当前搜索或筛选条件的素材' : '暂无可用项目素材'}</div>
               )}
             </section>
+              </section>
+            </div>
           )}
           {tab === 'assets' && !state.logged && (
             <div className="ec-canvas-work-empty">

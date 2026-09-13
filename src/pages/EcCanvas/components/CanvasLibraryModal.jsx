@@ -22,7 +22,10 @@ function formatTime(value) {
   return `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
 }
 
-export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanvas }) {
+export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanvas, variant = 'modal' }) {
+  /* 9-12 用户批注：画布库照竞品做成**整页**（不是弹窗），卡片 hover 上浮放大并浮出四个操作。
+     variant='page' 时不再渲染遮罩，直接作为画布区域内的一个整页视图。 */
+  const isPage = variant === 'page';
   const [state, setState] = useState({ loading: false, error: '', items: [] });
   const [renamingId, setRenamingId] = useState('');
   const [renameDraft, setRenameDraft] = useState('');
@@ -94,8 +97,11 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
     }
   };
 
-  return <div className="canvas-library-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
-    <section className="canvas-library" role="dialog" aria-modal="true" aria-label="我的画布">
+  return <div
+    className={`canvas-library-overlay${isPage ? ' is-page' : ''}`}
+    onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}
+  >
+    <section className={`canvas-library${isPage ? ' is-page' : ''}`} role="dialog" aria-modal={isPage ? undefined : 'true'} aria-label="我的画布">
       <header className="canvas-library-head">
         <div><strong>我的画布</strong><span>共 {state.items.length} 个画布 · 悬停卡片可改名 / 复制 / 收藏 / 删除</span></div>
         <div className="canvas-library-head-actions">

@@ -113,6 +113,9 @@ function usePanelIntroGate(name) {
   return gateRef.current;
 }
 
+/* 「添加资源」分组的成员（本地上传 / 作品 / 资产库），其余归入「用 AI 生成」 */
+const RESOURCE_ACTION_IDS = new Set(['upload', 'upload-video', 'works', 'asset-library']);
+
 const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImageUp },
   { id: 'upload-video', label: '上传视频', description: '加入已有成片或参考视频', icon: FileVideo },
@@ -147,12 +150,24 @@ export function isCompactCanvasToolbarAction(actionId) {
 export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
   const introGateRef = usePanelIntroGate('add-menu');
   if (!open) return null;
+  /* 9-12 用户批注：左侧「+」菜单要像竞品一样分两组 ——
+     「添加资源」（本地上传 / 作品 / 资产库）与「添加节点」（用提示词生成各类内容）。 */
+  const resourceActions = ADD_ACTIONS.filter(item => RESOURCE_ACTION_IDS.has(item.id));
+  const nodeActions = ADD_ACTIONS.filter(item => !RESOURCE_ACTION_IDS.has(item.id));
+  const renderItem = item => <button key={item.id} type="button" role="menuitem" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(item.id); }}>
+    <span><item.icon /></span>
+    <span><strong>{item.label}</strong><small>{item.description}</small></span>
+  </button>;
   return <div ref={introGateRef} className="ec-canvas-add-menu" style={position} role="menu" aria-label="添加节点">
     <div className="ec-canvas-menu-heading"><strong>添加节点</strong><button type="button" aria-label="关闭添加菜单" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button></div>
-    {ADD_ACTIONS.map(item => <button key={item.id} type="button" role="menuitem" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(item.id); }}>
-      <span><item.icon /></span>
-      <span><strong>{item.label}</strong><small>{item.description}</small></span>
-    </button>)}
+    {resourceActions.length > 0 && <div className="ec-canvas-menu-group" role="group" aria-label="添加资源">
+      <span className="ec-canvas-menu-group-title">添加资源</span>
+      {resourceActions.map(renderItem)}
+    </div>}
+    {nodeActions.length > 0 && <div className="ec-canvas-menu-group" role="group" aria-label="添加节点入口">
+      <span className="ec-canvas-menu-group-title">用 AI 生成</span>
+      {nodeActions.map(renderItem)}
+    </div>}
   </div>;
 }
 
