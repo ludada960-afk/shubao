@@ -55,11 +55,14 @@ test('production canary issuer falls back to the persisted application secret', 
 test('deploy refreshes the canary token after restart without logging it', () => {
   const deploy = readFileSync(new URL('../scripts/deploy-production.ps1', import.meta.url), 'utf8');
   const restart = deploy.indexOf('Remote restart or health check failed');
-  const refresh = deploy.lastIndexOf('Refresh-CanarySessionAfterRestart');
   const billing = deploy.indexOf('verify-production-billing.ps1');
+  /* 9-13：刷新点从 1 个变成 2 个 —— 主刷新 + 视频金丝雀 401 时的自愈重试。
+     所以按「调用点」收集，而不是 lastIndexOf（那会被追加的重试调用带偏）。 */
+  const refreshCalls = [...deploy.matchAll(/(?:^|\n)\s*Refresh-CanarySessionAfterRestart\s*(?:\r?\n|$)/g)].map(match => match.index);
 
-  assert.ok(restart >= 0 && restart < refresh, 'canary refresh must happen after the restarted app is healthy');
-  assert.ok(refresh < billing, 'canary refresh must happen before authenticated billing verification');
+  assert.ok(refreshCalls.length >= 1, '部署必须刷新金丝雀会话');
+  assert.ok(refreshCalls.every(index => index > restart), 'canary refresh must happen after the restarted app is healthy');
+  assert.ok(refreshCalls[0] < billing, 'canary refresh must happen before authenticated billing verification');
   assert.match(deploy, /chmod 600[^\n]*remoteCanarySessionFile/);
   assert.match(deploy, /function\s+Invoke-BoundedSshCapture/i);
   assert.match(deploy, /Invoke-BoundedSshCapture[^\n]*-TimeoutSeconds\s+30/i);
