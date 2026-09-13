@@ -24,5 +24,15 @@
 .shubao-gen-cta:disabled { background: #e5e3e0; color: #a8a39e; box-shadow: none; cursor: not-allowed; }
 .shubao-gen-cta .shubao-gen-cta-points { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; opacity: .96; }
 .shubao-gen-cta .shubao-gen-cta-points::before { content: ''; width: 1px; height: 14px; background: rgba(255, 255, 255, .45); }
-.shubao-gen-cta:disabled .shubao-gen-cta-points::before { background: rgba(0, 0, 0, .12); }
+/* 9-12 用户批注：按钮可以是灰的，但**积分必须仍然显眼**（主次分明）——
+   否则用户感知不到积分在跟着配置动态变化。 */
+.shubao-gen-cta:disabled .shubao-gen-cta-points {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, .10);
+  color: #6d28d9;
+  font-weight: 800;
+  opacity: 1;
+}
+.shubao-gen-cta:disabled .shubao-gen-cta-points::before { background: rgba(109, 40, 217, .28); }
 .shubao-gen-cta.is-busy { opacity: .82; cursor: progress; }

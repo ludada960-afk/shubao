@@ -489,16 +489,17 @@
   box-shadow: 0 8px 18px rgba(74, 53, 180, .2);
 }
 
+/* 9-12 用户批注：上传区与输入区要「做进同一个框里」，照小红书图文那套（单卡片白底 + 内部分隔线） */
 .visual-creation-composer {
-  overflow: visible;
-  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%);
-  border: 1px solid #eadfd2;
-  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #ece3da;
+  border-radius: 12px;
 }
 
 .visual-reference-zone {
-  padding: 19px 22px 18px;
-  border-bottom: 1px solid #ece3da;
+  padding: 16px 20px 14px;
+  border-bottom: 1px dashed #efe4d9;
 }
 
 .visual-reference-heading,
