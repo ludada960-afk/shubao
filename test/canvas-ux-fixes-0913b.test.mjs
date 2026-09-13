@@ -20,6 +20,15 @@ test('导航不再有「电商画布」，画布页签不再有「回收站」',
   assert.ok(!chrome.includes("['trash', '回收站']"), '回收站页签已撤');
 });
 
+
+test('空画布不再自称电商画布：标题回落智能画布', () => {
+  /* 用户 9-13：这个地方不叫电商画布 —— 视频/电商/自由创作都会进这个画布。
+     根因：空画布 result 的 product_name 被写死成「电商画布」，顶部标题直接显示它。 */
+  const context = read('src/store/AppContext.jsx');
+  assert.ok(!context.includes("product_name: '" + '电商画布' + "'"), '空画布默认项目名不能再是电商画布');
+  const chrome = read('src/pages/EcCanvas/components/CanvasChrome.jsx');
+  assert.ok(chrome.includes("title || '" + '智能画布' + "'"), '标题缺省值 = 智能画布');
+});
 test('双击空白添加的是生成文案', () => {
   const canvas = read('src/pages/EcCanvas/index.jsx');
   assert.ok(/if \(kind === 'text'\) \{\s*setAddNodePanel\(null\);\s*addCanvasComposer\('text'\);/.test(canvas), '双击文本项改为生成文案');

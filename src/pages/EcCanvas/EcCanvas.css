@@ -300,11 +300,16 @@
 /* 9-13 用户批注：「你这边的节点为什么现在不能全部展示了呢？为什么有两个会在最下面需要我去滑动？
    你不能一屏全部展示出来吗？」—— 菜单共 11 项，每项 54px 会到 700+px 必须滚动。
    收紧行高（46px）+ 分组标题与图标同步收一点，960px 以上屏幕一屏放全；矮屏仍保留滚动兜底。 */
-.ec-canvas-add-menu { position: fixed; max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; overscroll-behavior: contain; }
-.ec-canvas-add-menu button { min-height: 46px; padding: 5px 8px; }
-.ec-canvas-add-menu button > span:first-child { width: 30px; height: 30px; }
-.ec-canvas-add-menu strong { font-size: 12.5px; }
-.ec-canvas-add-menu small { margin-top: 2px; font-size: 10.5px; }
+.ec-canvas-add-menu { position: fixed; z-index: 130; max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; overscroll-behavior: contain; }
+/* 9-13：左下角小地图会浮在「添加节点」菜单上面，把最后两项盖住（用户以为菜单要滚动）
+   → 菜单展开时先收起小地图，关掉菜单自动回来。 */
+.ec-canvas-page:has(.ec-canvas-add-menu) .ec-canvas-minimap { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease; }
+/* 注意：基础规则后面还有一条 `.ec-canvas-add-menu button { min-height: 54px }`（同等特异性、顺序更靠后），
+   所以这里必须用 button[role="menuitem"] 提高特异性，否则压缩行高会被它盖掉。 */
+.ec-canvas-add-menu button[role="menuitem"] { min-height: 46px; padding: 5px 8px; }
+.ec-canvas-add-menu button[role="menuitem"] > span:first-child { width: 30px; height: 30px; }
+.ec-canvas-add-menu button[role="menuitem"] strong { font-size: 12.5px; }
+.ec-canvas-add-menu button[role="menuitem"] small { margin-top: 2px; font-size: 10.5px; line-height: 1.35; }
 .ec-canvas-add-menu .ec-canvas-menu-heading { height: 30px; }
 .ec-canvas-menu-group-title { display: block; padding: 6px 8px 3px; color: #9a938c; font-size: 10.5px; font-weight: 600; }
 .ec-canvas-derive-menu { position: absolute; transform: scale(var(--canvas-overlay-scale, 1)); transform-origin: top left; }
