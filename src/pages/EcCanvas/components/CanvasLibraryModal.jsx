@@ -40,6 +40,29 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
     if (libraryFilter === 'recent') return String(item.updatedAt || '') >= new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 19);
     return true;
   }), [state.items, libraryFilter]);
+
+  /* 按日期分组（今天 / 昨天 / 具体日期），与竞品一致 */
+  const groupedItems = useMemo(() => {
+    const dayKey = value => String(value || '').slice(0, 10);
+    const today = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const todayKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const yesterday = new Date(today.getTime() - 86400000);
+    const yesterdayKey = `${yesterday.getFullYear()}-${pad(yesterday.getMonth() + 1)}-${pad(yesterday.getDate())}`;
+    const buckets = new Map();
+    for (const item of visibleItems) {
+      const key = dayKey(item.updatedAt) || 'unknown';
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(item);
+    }
+    return [...buckets.entries()]
+      .sort((left, right) => String(right[0]).localeCompare(String(left[0])))
+      .map(([key, items]) => ({
+        key,
+        label: key === todayKey ? '今天' : key === yesterdayKey ? '昨天' : (key === 'unknown' ? '更早' : key.replace(/-/g, '年').replace(/年(\d{2})$/, '月$1日')),
+        items,
+      }));
+  }, [visibleItems]);
   const [state, setState] = useState({ loading: false, error: '', items: [] });
   const [renamingId, setRenamingId] = useState('');
   const [renameDraft, setRenameDraft] = useState('');
@@ -137,7 +160,10 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
       {state.error && <div className="canvas-library-error" role="alert">{state.error}</div>}
       {state.loading && <div className="canvas-library-loading">正在读取画布…</div>}
       <div className="canvas-library-grid">
-        {visibleItems.map(item => <article key={item.id} className={`canvas-library-card${item.favorite ? ' is-favorite' : ''}`}>
+        {/* 9-13 用户批注：照竞品按日期分组（今天 / 昨天 / 更早），组标题在网格里跨列 */}
+        {groupedItems.map(group => <React.Fragment key={group.key}>
+          <div className="canvas-library-date">{group.label}</div>
+          {group.items.map(item => <article key={item.id} className={`canvas-library-card${item.favorite ? ' is-favorite' : ''}`}>
           <button type="button" className="canvas-library-cover" onClick={() => onOpenCanvas?.(item)} aria-label={`打开画布 ${item.title}`}>
             {item.coverUrl ? <img src={item.coverUrl} alt="" loading="lazy" decoding="async" /> : <span className="canvas-library-cover-empty">空画布</span>}
           </button>
@@ -161,6 +187,7 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
             <small>{formatTime(item.updatedAt)} · {item.nodeCount} 个节点</small>
           </div>
         </article>)}
+        </React.Fragment>)}
         {!state.loading && !visibleItems.length && <div className="canvas-library-empty">{state.items.length ? '这个分类下还没有画布' : '还没有画布，点「新建画布」开始创作'}</div>}
       </div>
     </section>

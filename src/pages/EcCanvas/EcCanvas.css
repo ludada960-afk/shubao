@@ -94,7 +94,8 @@
 .ec-canvas-topbar-actions .account-entitlement-refresh { width: 26px; height: 26px; }
 .ec-canvas-topbar-actions .account-entitlement-purchase { min-height: 30px; padding: 0 8px; border-radius: 6px; font-size: 11px; }
 
-.ec-canvas-project-title { min-width: 170px; max-width: 300px; line-height: 1.2; }
+/* 9-13 用户批注：标题看起来是歪的 → 强制纵向居中 + 基线对齐，杜绝任何继承来的形变 */
+.ec-canvas-project-title { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-width: 170px; max-width: 300px; line-height: 1.2; transform: none; }
 .ec-canvas-project-title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 720; letter-spacing: 0; }
 .ec-canvas-project-title span { display: flex; align-items: center; gap: 5px; margin-top: 4px; color: var(--canvas-muted); font-size: 11px; }
 .ec-canvas-project-title i { width: 6px; height: 6px; border-radius: 50%; background: #27864b; }

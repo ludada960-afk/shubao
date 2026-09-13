@@ -69,3 +69,6 @@
 .canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
 .canvas-library-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
 
+
+/* 9-13 画布库日期分组标题 */
+.canvas-library-date { grid-column: 1 / -1; margin: 6px 0 -6px; color: #57534e; font-size: 13px; font-weight: 700; }

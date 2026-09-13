@@ -60,7 +60,7 @@ import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
 import CanvasAssetPickerModal from './components/CanvasAssetPickerModal.jsx';
-import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
+import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset, deleteCanvas,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
@@ -3720,6 +3720,7 @@ const handlePointerUp = useCallback((e) => {
       setPendingProjectAssetImports(pendingProjectAssetImportsRef.current);
       canvasSessionRef.current = { id: session.id, revision: session.revision };
       setCanvasSession({ id: session.id, revision: session.revision });
+      openedFromLibraryRef.current = true;
       setSelected(null);
       setMultiSelected(new Set());
       setCanvasLibraryOpen(false);
@@ -5849,6 +5850,53 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
   useEffect(() => { handleCanvasSessionSaveRef.current = handleCanvasSessionSave; }, [handleCanvasSessionSave]);
+
+  /* ── 9-13 用户批注：离开画布时的保存流程 ──
+     规则（用户口述）：
+       ① 画布是「从画布库打开」的 → 离开时不再打扰，**直接静默保存**（它本来就已经在库里）；
+       ② 画布是新建/临时工作的 → 离开时**询问是否保存到画布库**：
+          选「保存」→ 保存会话（于是它会出现在画布库里）；
+          选「不保存」→ 直接丢弃（不占用户资源，也不进画布库）。 */
+  const leaveGuardBypassRef = useRef(false);
+  /* 从画布库打开的画布 → 离开时静默保存, 不再询问(用户口述规则①) */
+  const openedFromLibraryRef = useRef(false);
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const LEAVING_SELECTOR = '.app-side-nav, .creative-nav, .app-topbar, .topbar, [data-canvas-leave-guard]';
+    const handleCapture = async event => {
+      if (leaveGuardBypassRef.current) return;
+      const target = event.target instanceof Element ? event.target.closest('a,button') : null;
+      if (!target || !target.closest(LEAVING_SELECTOR)) return;
+      if (!nodesRef.current.length) return;           /* 空画布不打扰 */
+      if (openedFromLibraryRef.current) {              /* ① 来自画布库 → 静默保存 */
+        void handleCanvasSessionSaveRef.current?.().catch(() => {});
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const save = await dialog.confirm({
+        title: '保存这张画布？',
+        message: '保存后可以在「我的画布」里继续编辑；不保存则直接丢弃，不占用空间。',
+        confirmText: '保存到画布库',
+        cancelText: '不保存',
+      });
+      try {
+        if (save) {
+          await handleCanvasSessionSaveRef.current?.();
+        } else if (canvasSessionRef.current?.id) {
+          /* 复用画布库删除接口(服务端即 discard 语义), 不新增接口 */
+          await deleteCanvas(canvasSessionRef.current.id);
+          canvasSessionRef.current = null;
+          setCanvasSession(null);
+        }
+      } catch { /* 保存/丢弃失败也放行，避免把用户困在画布里 */ }
+      leaveGuardBypassRef.current = true;
+      target.click();
+    };
+    document.addEventListener('click', handleCapture, true);
+    return () => document.removeEventListener('click', handleCapture, true);
+  }, [dialog]);
+
 
   const handleCanvasSessionRestore = useCallback(async () => {
     const sessionId = canvasSession?.id || result.canvasSessionId;
