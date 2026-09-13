@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Music, Search, Trash2 } from 'lucide-react';
+import { Check, Image as ImageIcon, Music, Search, Trash2, Video as VideoIcon } from 'lucide-react';
 
 import { deleteProjectAsset, listProjectAssetLibrary } from '../../../services/projects.js';
 import { normalizeProjectAssetLibrary, projectAssetSelectionKey } from '../../Works/projectAssetLibraryModel.js';
@@ -15,6 +15,14 @@ const MEDIA_FILTERS = [
   { id: 'video', label: '视频' },
   { id: 'audio', label: '音频' },
 ];
+
+/* 9-15 用户批注：卡片左上角必须常显素材类型角标（图片 / 视频 / 音频，图标 + 文字小胶囊），
+   不需要 hover 就可见；角标不得与打勾圈重叠（打勾圈移到角标正下方，见 CSS）。 */
+const TYPE_BADGES = Object.freeze({
+  image: { label: '图片', Icon: ImageIcon },
+  video: { label: '视频', Icon: VideoIcon },
+  audio: { label: '音频', Icon: Music },
+});
 
 /* 每批加载条数（9-13 用户批注：不要一次把 500 条全部渲染出来，改成滚动到底按批加载） */
 const PAGE_SIZE = 24;
@@ -194,6 +202,9 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
             const isSelected = selected.has(key);
             const kind = String(item.mediaKind || '').toLowerCase();
             const name = item.metadata?.displayName || item.projectTitle || item.assetId || '素材';
+            /* 9-15 用户批注：类型角标常显（图标 + 文字小胶囊），不依赖 hover */
+            const typeBadge = TYPE_BADGES[kind] || null;
+            const TypeIcon = typeBadge?.Icon;
             /* 卡片里放打勾圆圈（真正可点的多选按钮）和删除按钮 —— 外层不能再是 <button>
                （按钮不能嵌套按钮），沿用 role=button 的 div 并补键盘可达（Enter / 空格）。 */
             return <div
@@ -217,6 +228,8 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
                     : <Music size={24} color="#94a3b8" />}
               </span>
               <span className="canvas-asset-picker-name" title={name}>{name}</span>
+              {/* 9-15 用户批注：左上角类型角标常显（图标 + 文字小胶囊），打勾圈移到角标正下方避免重叠 */}
+              {TypeIcon && <span className="canvas-asset-picker-type" aria-hidden="true"><TypeIcon size={11} strokeWidth={2.2} /><span>{typeBadge.label}</span></span>}
               {/* 9-13 批注 ③：打勾圆圈从装饰 span 改成可点的多选按钮 —— stopPropagation 只切选中，不触发删除 */}
               <button
                 type="button"
@@ -240,7 +253,7 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
           })}
           {loadingMore && <div className="canvas-asset-picker-more" role="status">正在加载更多…</div>}
           {!state.loading && !loadingMore && !hasMore && state.items.length > 0 && <div className="canvas-asset-picker-more is-end">已经到底了</div>}
-          {!state.loading && !state.items.length && <div className="canvas-asset-picker-empty">资产库里还没有素材，先在「资产库」上传或把生成物加入资产库</div>}
+          {!state.loading && !state.items.length && <div className="canvas-asset-picker-empty">资产库里还没有素材。这里的素材来自：你上传的文件 · 从画布加入 · 从作品加入</div>}
           {state.loading && <div className="canvas-asset-picker-empty">正在读取资产库…</div>}
           <div className="canvas-asset-picker-sentinel" ref={sentinelRef} aria-hidden="true" />
         </div>

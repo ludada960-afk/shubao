@@ -746,9 +746,9 @@
 article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opacity: 1; }
 .ec-asset-card-delete:hover { border-color: #dc2626; color: #dc2626; }
 
-/* 9-12 资产库：上传按钮 */
-.ec-asset-upload { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 8px; background: #fff; color: #44403c; font-size: 12px; font-weight: 600; cursor: pointer; }
-.ec-asset-upload:hover:not(:disabled) { border-color: #7c3aed; color: #6d28d9; }
+/* 9-12 资产库：上传按钮（9-15 用户批注：太小不显眼 —— 高度 ≥ 36px、图标+文字、主色实心） */
+.ec-asset-upload { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; min-width: 96px; padding: 0 16px; border: 0; border-radius: 9px; background: linear-gradient(135deg, #7454f3, #d14db5); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(116,84,243,.26); transition: filter .15s ease, transform .15s ease; }
+.ec-asset-upload:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
 .ec-asset-upload:disabled { opacity: .6; cursor: progress; }
 
 
@@ -813,4 +813,19 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 .canvas-asset-library-modal article > div:first-child > div:first-child { height: 100% !important; min-height: 150px !important; }
 /* 垃圾桶：悬停（已有）+ 键盘聚焦（focus-within）都浮现 */
 .canvas-asset-library-modal article:focus-within .ec-asset-card-delete { opacity: 1; transform: translateY(0); }
+
+/* ═══ 9-15 用户批注：「资产库」管理弹窗照竞品收口 ═══
+   ① 上传按钮 ≥36px 实心主色（见上方 .ec-asset-upload 重写）；
+   ② 分类 tab 胶囊按钮、选中态深色实心（覆盖 index.jsx 内联浅灰选中样式）；
+   ③ 搜索框与上传按钮同高（36px）；
+   ④ 卡片间距 12px（覆盖内联 gap:10，密度与竞品一致）；
+   ⑤ 卡片左上角类型角标**常显**（图标 + 文字小胶囊，半透明深色底 + 白字，不依赖 hover）。
+      管理弹窗没有额外 DOM，用 :has() 按封面元素识别 图片/视频/音频；角标不挡打勾/删除的布局（角标在左、垃圾桶在右）。 */
+.canvas-asset-library-modal input[type="search"] { height: 36px !important; font-size: 12px !important; border-radius: 9px !important; }
+.canvas-asset-library-modal [role="tablist"] > button { min-height: 32px !important; padding: 5px 14px !important; border-radius: 999px !important; font-size: 12px !important; font-weight: 600 !important; border: 1px solid #e5e3e0 !important; background: #fff !important; color: #57534e !important; }
+.canvas-asset-library-modal [role="tablist"] > button[aria-selected="true"] { background: #202226 !important; border-color: #202226 !important; color: #fff !important; }
+.canvas-asset-library-modal [style*="repeat(auto-fill,minmax(150px,1fr)"], .canvas-asset-library-modal [style*="repeat(auto-fill, minmax(150px, 1fr)"] { gap: 12px 12px !important; }
+.canvas-asset-library-modal article::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>") " 图片"; position: absolute; top: 8px; left: 8px; z-index: 6; display: inline-flex; align-items: center; gap: 4px; height: 22px; box-sizing: border-box; padding: 0 8px; border-radius: 999px; background: rgba(20,18,16,.62); color: #fff; font-size: 11px; font-weight: 700; line-height: 22px; backdrop-filter: blur(4px); pointer-events: none; white-space: nowrap; }
+.canvas-asset-library-modal article:has(video)::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m22 8-6 4 6 4V8Z'/><rect x='2' y='6' width='14' height='12' rx='2' ry='2'/></svg>") " 视频"; }
+.canvas-asset-library-modal article:has(audio)::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>") " 音频"; }
 

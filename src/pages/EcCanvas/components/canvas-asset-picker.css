@@ -9,15 +9,15 @@
 .canvas-asset-picker-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 9px; color: #a8a29e; }
 .canvas-asset-picker-search input { flex: 1 1 auto; border: 0; outline: none; font-size: 12.5px; font-family: inherit; color: #292524; background: transparent; }
 .canvas-asset-picker-tabs { display: flex; gap: 6px; }
-.canvas-asset-picker-tabs button { height: 30px; padding: 0 12px; border: 1px solid rgba(28,25,23,.10); border-radius: 15px; background: #fff; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
+.canvas-asset-picker-tabs button { height: 32px; padding: 0 14px; border: 1px solid rgba(28,25,23,.10); border-radius: 16px; background: #fff; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
 .canvas-asset-picker-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
-.canvas-asset-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 16px 12px; overflow-y: auto; padding: 8px 22px 18px; }
+.canvas-asset-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 14px 12px; overflow-y: auto; padding: 8px 22px 18px; }
 .canvas-asset-picker-card { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; min-height: 165px; padding: 0; border: 1px solid rgba(28,25,23,.09); border-radius: 12px; overflow: hidden; background: #f6f5f3; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
 .canvas-asset-picker-card:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 28px rgba(28,25,23,.16); }
 .canvas-asset-picker-card.is-selected { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,.22); }
 .canvas-asset-picker-thumb { display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1; min-height: 148px; overflow: hidden; }
 .canvas-asset-picker-thumb img, .canvas-asset-picker-thumb video { width: 100%; height: 100%; object-fit: cover !important; object-position: center center; }
-.canvas-asset-picker-check { position: absolute; top: 8px; left: 8px; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.9); border-radius: 50%; background: rgba(28,25,23,.45); color: transparent; opacity: 0; cursor: pointer; transition: opacity .15s ease, background .15s ease, color .15s ease, border-color .15s ease; }
+.canvas-asset-picker-check { position: absolute; top: 38px; left: 8px; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.9); border-radius: 50%; background: rgba(28,25,23,.45); color: transparent; opacity: 0; cursor: pointer; transition: opacity .15s ease, background .15s ease, color .15s ease, border-color .15s ease; }
 .canvas-asset-picker-card:hover .canvas-asset-picker-check,
 .canvas-asset-picker-card:focus-within .canvas-asset-picker-check { opacity: 1; }
 .canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed; border-color: #7c3aed; color: #fff; }
@@ -41,6 +41,13 @@
 .canvas-asset-picker-card:focus-within .canvas-asset-picker-delete { opacity: 1; transform: translateY(0); }
 .canvas-asset-picker-delete:hover { background: #dc2626; border-color: rgba(255,255,255,.6); }
 .canvas-asset-picker-delete svg { width: 15px; height: 15px; }
+/* ═══ 9-15 用户批注：卡片左上角类型角标常显（图片 / 视频 / 音频，图标 + 文字小胶囊）═══
+   半透明深色底 + 白字，不依赖 hover；pointer-events: none 不挡点卡选中。
+   位置：top 8 / left 8；打勾圈已下移到 top 38，两者永不相叠（见 .canvas-asset-picker-check）。 */
+.canvas-asset-picker-type { position: absolute; top: 8px; left: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: rgba(20,18,16,.62); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; backdrop-filter: blur(4px); pointer-events: none; }
+.canvas-asset-picker-type svg { flex: 0 0 auto; }
+.canvas-asset-picker-type > span { line-height: 22px; white-space: nowrap; }
+
 /* ═══ 9-14 用户批注：无限滚动 —— 加载更多 / 已经到底 提示 + 底部哨兵（IntersectionObserver 观察点）═══ */
 .canvas-asset-picker-more { grid-column: 1 / -1; padding: 12px 10px 0; color: #a8a29e; font-size: 12px; text-align: center; }
 .canvas-asset-picker-more.is-end { color: #d6d3d1; }
