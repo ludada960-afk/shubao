@@ -212,7 +212,14 @@ function XhsInputTemplate({
               </div>;
             })}
           </div>
-          <button type="button" className="ec-workbench-next" onClick={onGenerate} disabled={!canGenerate}>{plog ? '生成 Plog' : '生成图文'} <span aria-hidden="true">→</span></button>
+          {/* 9-13 三轮批注：小红书也和其余三个板块一致 —— 同一枚 .shubao-gen-cta + 按钮内
+               <span class="shubao-gen-cta-points">积分</span>（整套 9 图 / 9 张生活记录 = 9 积分，
+               后端口径：server/billing/contentBillingConfig.mjs xhs_image_set_2k = 9000 units） */}
+          <button type="button" className="ec-workbench-next shubao-gen-cta" onClick={onGenerate} disabled={!canGenerate}>
+            <MdAutoAwesome size={16} />
+            <span>{plog ? '生成 Plog' : '生成图文'}</span>
+            <span className="shubao-gen-cta-points">9 积分</span>
+          </button>
         </div>
       </div>
     </div>

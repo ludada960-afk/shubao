@@ -16,11 +16,11 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /saveWork/);
   assert.match(source, /buildVisualCanvasResult/);
   /* 9-12 用户批注：文案照小红书语义改为「我的素材 + 风格参考」，格式提示仍在；
-     9-13 二轮批注：上限「最多 N 张」进入素材区提示行（我的素材 6 / 风格参考 3） */
+     9-13 三轮批注：上限按小红书位置（@引用行）与措辞（计数+格式），不再有自造提示句 */
   assert.match(source, /我的素材/);
   assert.match(source, /JPG\/PNG\/WebP/);
-  assert.match(source, /最多 \{MAX_REFERENCES\} 张/);
-  assert.match(source, /最多 \{MAX_STYLE_REFERENCES\} 张/);
+  assert.match(source, /我的素材 \{materials\.length\}\/\{MAX_REFERENCES\}/);
+  assert.match(source, /风格参考 \{styles\.length\}\/\{MAX_STYLE_REFERENCES\}/);
   /* 9-13：提示词引导按子页面走 selectedSkill.promptHint（缺省回落到通用文案） */
   assert.match(source, /selectedSkill\.promptHint/);
   assert.match(source, /只重试失败项/);

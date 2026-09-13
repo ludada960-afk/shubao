@@ -856,14 +856,15 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         {/* ═══ 素材上传区 + 输入区 + @引用：照抄小红书图文那套（ec-xhs-composer 暖色渐变面），只改文案 ═══ */}
         <div className="ec-xhs-composer visual-composer-surface">
           <div
-            className="visual-reference-zone"
+            className="ec-xhs-media-column xhs-ecommerce-media-column visual-reference-zone"
             onDragOver={event => event.preventDefault()}
             onDrop={event => {
               event.preventDefault();
               if (!busy) appendFiles(event.dataTransfer.files);
             }}
           >
-            {/* 9-13 二轮批注：删掉「我的素材 0/6 + 长提示」标题行，素材卡直接贴卡片顶部（与小红书一致） */}
+            {/* 9-13 三轮批注：媒体条照小红书 XhsSupplementDeck 的完整结构（ec-xhs-media-column 包媒体条），
+                行内偏移与小红书逐项一致；素材区提示句已删，上限说明移入 @引用行 */}
             <div className="ec-xhs-media-strip xhs-ecommerce-media-strip visual-reference-list">
               {materials.map((reference, index) => (
                 <EcommerceImageCard
@@ -879,7 +880,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                 <EcommerceAddCard
                   role="product"
                   label={materials.length ? '继续添加' : '我的素材'}
-                  meta={materials.length ? '补充素材' : '主体或参考图'}
+                  meta={materials.length ? '补充素材' : '主体与生活细节'}
                   title="添加我的素材"
                   onClick={() => { if (!busy) materialInputRef.current?.click(); }}
                 />
@@ -906,12 +907,6 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                 />
               )}
             </div>
-            {/* 9-13 二轮批注：素材区提示行 —— 与小红书同款位置（上传媒体条下方），
-                明确「我的素材 ≤6 / 风格参考 ≤3」上限，格式说明保留 */}
-            <p className="visual-upload-hint" aria-live="polite">
-              <span className="visual-upload-hint-theme">{selectedSkill.materialHint || '主体或参考图都可以 · 风格参考只影响构图与色调'}</span>
-              <span className="visual-upload-hint-limits">我的素材 {materials.length}/{MAX_REFERENCES} <em className="visual-upload-hint-cap">（最多 {MAX_REFERENCES} 张）</em> · 风格参考 {styles.length}/{MAX_STYLE_REFERENCES} <em className="visual-upload-hint-cap">（最多 {MAX_STYLE_REFERENCES} 张）</em> · JPG/PNG/WebP</span>
-            </p>
             <input
               ref={materialInputRef}
               type="file"
@@ -963,6 +958,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               selectionMode="insert"
               onToggle={image => insertMentionInTextarea(promptRef, prompt, setPrompt, image.label)}
             />
+            {/* 9-13 三轮批注：上限说明按小红书位置（@引用行右侧，同小红书 ref-hint 的位置）与措辞（计数 + 格式，不加自造句子） */}
+            <span className="visual-limit-note">我的素材 {materials.length}/{MAX_REFERENCES} · 风格参考 {styles.length}/{MAX_STYLE_REFERENCES} · JPG/PNG/WebP</span>
           </div>
         </div>
 

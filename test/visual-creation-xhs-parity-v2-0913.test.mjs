@@ -20,13 +20,14 @@ test('composer 顶部不再有「我的素材 0/6 + 长提示」标题行（素�
   assert.ok(!/margin-top:\s*10px/.test(listRule), '媒体条不再向下推 10px');
 });
 
-test('素材上限说明可见且按「我的素材 ≤6 / 风格参考 ≤3」表达', () => {
-  /* 与小红书同款位置：上传媒体条下方的素材区提示行 */
-  assert.match(source, /visual-upload-hint/, '存在素材区提示行');
+test('素材上限说明按小红书位置（@引用行）与措辞（计数+格式）表达，不再有提示句', () => {
+  /* 9-13 三轮：与小红书一致 —— 素材区下方不再有独立提示行；
+     上限说明移入 @引用行右侧（同小红书 ref-hint 位置），只写「我的素材 N/6 · 风格参考 N/3 · JPG/PNG/WebP」 */
+  assert.ok(!source.includes('visual-upload-hint'), '独立提示行已删除');
+  assert.ok(!source.includes('主体或参考图都可以'), '自造提示句已删除');
+  assert.match(source, /visual-limit-note/, '上限说明在 @引用行（小红书 ref-hint 位置）');
   assert.match(source, /我的素材 \{materials\.length\}\/\{MAX_REFERENCES\}/, '我的素材计数可见');
   assert.match(source, /风格参考 \{styles\.length\}\/\{MAX_STYLE_REFERENCES\}/, '风格参考计数可见');
-  assert.match(source, /最多 \{MAX_REFERENCES\} 张/, '我的素材上限「最多 6 张」');
-  assert.match(source, /最多 \{MAX_STYLE_REFERENCES\} 张/, '风格参考上限「最多 3 张」');
   assert.match(source, /JPG\/PNG\/WebP/, '格式说明仍在');
   assert.match(source, /MAX_STYLE_REFERENCES = 3/, '风格参考上限常量');
 });
@@ -52,8 +53,9 @@ test('四个子页面各自的占位引导、两条示例、素材提示互不�
   const hints = [...model.matchAll(/promptHint: '([^']+)'/g)].map(match => match[1]);
   assert.equal(new Set(hints).size, 4, '四个占位引导（promptHint）互不相同');
 
-  const materialHints = [...model.matchAll(/materialHint: '([^']+)'/g)].map(match => match[1]);
-  assert.equal(new Set(materialHints).size, 4, '四个素材提示（materialHint）互不相同');
+  /* 9-13 三轮：素材区提示句随小红书对齐删除，materialHint 不再渲染 */
+  assert.equal((model.match(/materialHint:/g) || []).length, 0, '不再保留 materialHint 字段');
+  assert.ok(!source.includes('selectedSkill.materialHint'), '素材区不再渲染提示句');
 
   /* placeholder 用子页面示例数组渲染 */
   assert.match(source, /selectedSkill\.promptExamples/, 'placeholder 渲染子页面示例');

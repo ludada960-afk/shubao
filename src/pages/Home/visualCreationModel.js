@@ -15,8 +15,8 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
   Object.freeze({
     id: 'free',
     title: '自由创作',
-    /* 9-12 用户批注：四个子页面各自适配文案（素材区提示 + 提示词引导） */
-    materialHint: '主体或参考图都可以 · 风格参考只影响构图与色调',
+    /* 9-13 三轮批注：删掉素材区提示句（「主体或参考图都可以 · 风格参考只影响构图与色调」），
+       上限说明按小红书的位置与措辞放入 @引用行；四个子页面不再有独立 materialHint */
     promptHint: '描述主体、场景、构图与限制条件',
     /* 9-13 二轮批注：自由创作页四个子页面要各自独立的占位引导与示例（不再共用同一份） */
     promptExamples: Object.freeze([
@@ -55,7 +55,6 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
   Object.freeze({
     id: 'poster',
     title: '海报设计',
-    materialHint: '放主体图 + 需要上版面的文字信息（品牌、标题、促销）',
     promptHint: '描述主体位置、文字层级与整体氛围',
     /* 9-13 二轮批注：海报设计 —— 主体位置 + 文字层级 */
     promptExamples: Object.freeze([
@@ -94,7 +93,6 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
   Object.freeze({
     id: 'social-cover',
     title: '社媒封面',
-    materialHint: '放主体或产品图 + 想突出的封面文案',
     promptHint: '描述封面想传达的重点与情绪',
     /* 9-13 二轮批注：社媒封面 —— 标题安全区 + 平台尺寸 */
     promptExamples: Object.freeze([
@@ -134,7 +132,6 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
   Object.freeze({
     id: 'brand-kv',
     title: '品牌主视觉',
-    materialHint: '放产品图与品牌素材（logo / 主色 / 代表场景）',
     promptHint: '描述品牌调性、使用场景与要避免的元素',
     /* 9-13 二轮批注：品牌主视觉 —— 品牌调性 + 色彩系统 */
     promptExamples: Object.freeze([

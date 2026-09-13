@@ -9,15 +9,16 @@ import { readFileSync } from 'node:fs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-test('四个子页面各自有素材提示与提示词引导', () => {
+test('四个子页面各有提示词引导；素材区提示句已随小红书对齐删除', () => {
   const model = read('src/pages/Home/visualCreationModel.js');
   for (const id of ["id: 'free'", "id: 'poster'", "id: 'social-cover'", "id: 'brand-kv'"]) {
     assert.ok(model.includes(id), '缺少子页面 ' + id);
   }
-  assert.equal((model.match(/materialHint:/g) || []).length, 4, '四个子页面都要有素材提示');
+  /* 9-13 三轮：素材区不再渲染提示句（materialHint 已删除，上限说明移入 @引用行），提示词引导保留 */
+  assert.equal((model.match(/materialHint:/g) || []).length, 0, '不再保留 materialHint（提示句已删）');
   assert.equal((model.match(/promptHint:/g) || []).length, 4, '四个子页面都要有提示词引导');
   const mode = read('src/pages/Home/VisualCreationMode.jsx');
-  assert.ok(mode.includes('selectedSkill.materialHint'), '素材区使用子页面文案');
+  assert.ok(!mode.includes('selectedSkill.materialHint'), '素材区不再渲染提示句');
   assert.ok(mode.includes('selectedSkill.promptHint'), '提示词框使用子页面文案');
 });
 

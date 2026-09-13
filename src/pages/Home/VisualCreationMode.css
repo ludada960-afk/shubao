@@ -505,9 +505,9 @@
   background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%);
 }
 
-/* ── 素材上传区（照小红书媒体条：虚线圆角卡片 + × 分隔 + 悬停放大的同款交互）── */
+/* ── 素材上传区（照小红书 XhsSupplementDeck：ec-xhs-media-column 包媒体条，
+    虚线圆角卡片 + × 分隔 + 悬停放大的同款交互）── */
 .visual-reference-zone {
-  display: block;
   min-width: 0;
 }
 
@@ -524,30 +524,15 @@
   min-width: 0;
 }
 
-/* ── 素材区提示行（9-13 二轮批注，照小红书媒体条下方位置）：
-   明确「我的素材 ≤6 / 风格参考 ≤3」上限 + 格式说明，一行放得下不撑高卡片 ── */
-.visual-upload-hint {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 3px 10px;
-  margin: 1px 8px 0;
+/* ── 上限说明（9-13 三轮批注）：提示句已删；计数 + 格式按小红书位置（@引用行右侧，
+    同小红书 ref-hint 的位置）与措辞（只写计数与格式，不加自造句子）── */
+.visual-limit-note {
+  margin-left: auto;
   color: #b2a69e;
   font-size: 11px;
   line-height: 16px;
   font-weight: 600;
-}
-
-.visual-upload-hint em {
-  font-style: normal;
-}
-
-.visual-upload-hint-theme {
-  color: #9a8d83;
-}
-
-.visual-upload-hint-limits {
-  color: #b6aaa1;
+  white-space: nowrap;
 }
 
 /* ── 提示词框（照小红书：无边框 textarea + 占位提示，15px/28px）── */
@@ -1226,18 +1211,13 @@
     padding: 6px 2px 8px;
   }
 
-  /* 9-13 二轮批注：移动端跟小红书一样让创作面按内容自适应（min-height 归零）；
-     提示行收窄为「计数 + 格式」，主题提示与括号上限说明隐藏防止折行撑高卡片 */
+  /* 9-13 二轮批注：移动端跟小红书一样让创作面按内容自适应（min-height 归零） */
   .visual-composer-surface.ec-xhs-composer {
     min-height: 0;
   }
 
-  .visual-upload-hint {
-    margin: 1px 6px 0;
-  }
-
-  .visual-upload-hint-theme,
-  .visual-upload-hint-cap {
+  /* 9-13 三轮批注：移动端 @引用行右侧的计数注隐藏（小红书同位置没有该信息），防止折行 */
+  .visual-limit-note {
     display: none;
   }
 
