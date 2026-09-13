@@ -54,7 +54,10 @@ export function validateWorkflowActionInputs(actionId, inputs = {}) {
   return { ok: missing.length === 0, missing };
 }
 
-export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = {}, preferredWidth = 360, preferredHeight = 460 } = {}) {
+/* 9-13 用户批注：从节点「+」按钮打开的生成面板必须**居中吸附在按钮正上方**（不能歪到一边）。
+   anchor: 'above' 时返回的 x 是「面板水平中心」（配合 CSS translate(-50%)），y 是按钮锚点；
+   上方空间不够时自动回落到原来的右下角贴靠（placement: 'corner'），绝不把面板顶出可视区。 */
+export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = {}, preferredWidth = 360, preferredHeight = 460, anchor = 'corner' } = {}) {
   const scale = Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1;
   const viewportX = Number.isFinite(viewport.x) ? viewport.x : 0;
   const viewportY = Number.isFinite(viewport.y) ? viewport.y : 0;
@@ -67,9 +70,20 @@ export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = 
   const minY = (0 - viewportY) / scale + gutter;
   const maxX = Math.max(minX, (boundsWidth - viewportX) / scale - width - gutter);
   const maxY = Math.max(minY, (boundsHeight - viewportY) / scale - height - gutter);
+  const anchorX = Number.isFinite(world.x) ? world.x : minX;
+  const anchorY = Number.isFinite(world.y) ? world.y : minY;
+  if (anchor === 'above') {
+    /* 只做「上方有没有空间」的粗判：真实高度由组件渲染后复测（放不下会自动翻到下方，仍然居中），
+       所以这里门槛放到最小可视高度，避免把「居中在按钮上方」这条规则直接跳过。 */
+    const minimumAbove = Math.min(height, 120);
+    if (anchorY - minY >= minimumAbove) {
+      const centered = Math.min(maxX + width / 2, Math.max(minX + width / 2, anchorX));
+      return { x: centered, y: anchorY, width, maxHeight: height, placement: 'above' };
+    }
+  }
   return {
-    x: Math.min(maxX, Math.max(minX, Number.isFinite(world.x) ? world.x : minX)),
-    y: Math.min(maxY, Math.max(minY, Number.isFinite(world.y) ? world.y : minY)),
+    x: Math.min(maxX, Math.max(minX, anchorX)),
+    y: Math.min(maxY, Math.max(minY, anchorY)),
     width,
     maxHeight: height,
   };

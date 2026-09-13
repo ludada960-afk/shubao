@@ -3777,8 +3777,10 @@ const handlePointerUp = useCallback((e) => {
     if (sourceNodeIds.length) {
       setConnections(previous => sourceNodeIds.reduce((edges, id) => addConnection(edges, id, composer.id, 'derived'), previous));
     }
-    setSelected(sourceNodeIds.length ? composer.id : null);
-    setMultiSelected(sourceNodeIds.length ? new Set([composer.id]) : new Set());
+    /* 9-13 用户批注：从左侧「+」菜单新建的生成框，点完必须**直接把生成面板打开**
+       （原来无源素材时不选中 → 面板不出现，用户点「生成图片」后只看到一个空框，以为坏了）。 */
+    setSelected(composer.id);
+    setMultiSelected(new Set([composer.id]));
     setActiveTool('select');
     return composer;
   }, [createComposerPlacement, nodes, result.platform]);
@@ -6573,6 +6575,7 @@ const handlePointerUp = useCallback((e) => {
                onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
                onToggleSource={(source, role, options) => toggleComposerSource(selectedNode.id, source, role, options)}
                onGenerate={() => handleSuiteComposerGenerate(selectedNode)}
+               onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
              />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer
               node={selectedNode}
@@ -6582,10 +6585,15 @@ const handlePointerUp = useCallback((e) => {
               onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
               onPortClick={event => handlePortClick(event, selectedNode.id)}
               sources={selectedComposerSources}
+              mentionSources={selectedComposerMentions}
+              availableSources={availableComposerSources}
               loading={selectedNode.status === 'processing'}
+              activeSurface={activeComposerSurface}
+              onSurfaceChange={setActiveComposerSurface}
               onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
+              onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onAnalyze={() => handleVideoComposerAnalyze(selectedNode)}
               onGenerate={() => handleVideoComposerGenerate(selectedNode)}
               videoProducts={videoProducts}
@@ -6599,6 +6607,8 @@ const handlePointerUp = useCallback((e) => {
                 world: connectionPicker.world,
                 viewport,
                 bounds: containerRef.current?.getBoundingClientRect(),
+                /* 9-13 用户批注：从节点「+」打开的生成面板必须居中吸附在按钮正上方 */
+                anchor: 'above',
               })}
               title={connectionPicker.mode === 'image-editor' ? '图片生成与编辑' : '引用当前素材生成'}
               onBack={connectionPicker.mode === 'image-editor' ? () => setConnectionPicker(previous => ({ ...previous, mode: '' })) : undefined}

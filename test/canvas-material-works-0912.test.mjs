@@ -105,8 +105,11 @@ test('⑥ 技能按钮进既有技能库管理界面 (SkillLibraryModal 同源),
   assert.match(canvas, /onOpenSkillLibrary=\{\(\) => openSkillLibrary\(selectedNode\.id, 'video'\)\}/);
   assert.match(canvas, /initialKind=\{skillLibraryTarget\?\.domain === 'video' \? 'video' : 'image'\}/);
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
-  assert.match(studio, /filterCanvasSkills\('image'\)\.map\(skill/);
-  assert.match(studio, /filterCanvasSkills\('video'\)\.map\(skill/);
+  /* 9-13：技能入口抽成 CanvasSkillControl（四个框共用），域过滤按 domain 传参 */
+  assert.match(studio, /function CanvasSkillControl\(/);
+  assert.match(studio, /filterCanvasSkills\(domain\)/);
+  assert.match(studio, /<CanvasSkillControl[^>]*domain="image"/);
+  assert.match(studio, /<CanvasSkillControl[^>]*domain="video"/);
 });
 
 test('⑦ 首页: 面板滚动隔离 + 双发射按钮合并为同款紧凑组', () => {

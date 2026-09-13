@@ -392,13 +392,16 @@ test('annotation editor handles undo and redo from the keyboard', () => {
   assert.match(source, /annotationFuture/);
 });
 
-test('left-rail creation stays idle while source-derived creation opens its linked composer', () => {
+test('新建生成框一律选中并直接打开生成面板（左侧「+」与派生同一条路径）', () => {
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const start = page.indexOf('const addCanvasComposer = useCallback');
   const end = page.indexOf('const updateComposerNode', start);
   const creation = page.slice(start, end);
-  assert.match(creation, /setSelected\(sourceNodeIds\.length \? composer\.id : null\)/);
-  assert.match(creation, /setMultiSelected\(sourceNodeIds\.length \? new Set\(\[composer\.id\]\) : new Set\(\)\)/);
+  /* 9-13 用户批注：点「生成图片」后必须马上看到生成面板。
+     旧行为（无源素材时不选中）会让人以为按钮没生效 —— 现在一律选中新节点。 */
+  assert.match(creation, /setSelected\(composer\.id\)/);
+  assert.match(creation, /setMultiSelected\(new Set\(\[composer\.id\]\)\)/);
+  assert.doesNotMatch(creation, /setSelected\(sourceNodeIds\.length/);
 });
 
 test('right-side image generation reuses the independent image composer with source context', () => {

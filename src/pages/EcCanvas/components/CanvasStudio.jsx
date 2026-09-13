@@ -79,6 +79,7 @@ import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Hom
 import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
 import { VIDEO_CREATION_MODES, hasRequiredVideoInputs } from '../../VideoStudio/videoStudioModel.js';
 import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
+import { CANVAS_PLAN_ANALYSIS_POINTS, estimateImageComposerPoints, estimateSuiteComposerPoints, estimateTextComposerPoints, estimateVideoComposerPoints, formatCanvasPoints } from '../canvasPointsEstimate.js';
 
 const ACTION_ICONS = {
   'add-text': Type,
@@ -278,12 +279,27 @@ const DERIVE_ICONS = Object.freeze({
    毛玻璃 backdrop-filter, 暗色模式 token 化 */
 export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用当前素材生成', onBack, onClose, onSelect }) {
   const introGateRef = usePanelIntroGate('derive-menu');
-  const { x, y, ...positionStyle } = position || {};
+  /* 9-13 用户批注：这个面板要**居中吸附在节点「+」按钮的正上方**（不能歪到一边）。
+     placement='above' 时由 CSS translate(-50%, -100%) 完成「水平居中 + 贴到按钮上方」。 */
+  const { x, y, placement, ...positionStyle } = position || {};
   const menuStyle = {
     ...positionStyle,
     ...(x != null ? { left: x } : {}),
     ...(y != null ? { top: y } : {}),
   };
+  /* 面板高度取决于动作数量，JS 只能估算「上方放不放得下」。真渲染后用屏幕坐标复测一次：
+     顶部被挤出画布就在同一帧内翻到按钮下方（仍然水平居中），绝不会被裁掉。 */
+  const menuRootRef = useRef(null);
+  const [flipped, setFlipped] = useState(false);
+  useLayoutEffect(() => {
+    setFlipped(false);
+    if (placement !== 'above') return;
+    const el = menuRootRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const host = el.offsetParent?.getBoundingClientRect?.() || { top: 0 };
+    if (rect.top < Math.max(host.top || 0, 0) + 8) setFlipped(true);
+  }, [placement, x, y, actions.length, title, onBack]);
   /* 按 group 分桶渲染: core 先 (5 原有), audio 后 (视频节点专属的音频与字幕).
      用户 9-04 反馈: 竞品名不能出现在用户界面 → bucket label 用功能描述;
      与 core 重复的 1-click 项已移除, 不再走"5+4 全堆一锅"的旧结构。 */
@@ -297,7 +313,7 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     acc[group].push(action);
     return acc;
   }, {});
-  return <div ref={introGateRef} className="ec-canvas-derive-menu" style={menuStyle} role="menu" aria-label="从当前素材继续创作">
+  return <div ref={el => { menuRootRef.current = el; introGateRef(el); }} className={`ec-canvas-derive-menu${placement === 'above' ? ' is-above' : ''}${flipped ? ' is-flipped' : ''}`} style={menuStyle} role="menu" aria-label="从当前素材继续创作">
     <div className="ec-canvas-menu-heading">
       <span>{onBack && <button type="button" aria-label="返回创作类型" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onBack?.(); }}><ArrowLeft size={14} /></button>}{title}<small className="ec-canvas-derive-count">{actions.length} 项</small></span>
       <button type="button" aria-label="关闭派生菜单" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
@@ -423,6 +439,25 @@ function ComposerMention({ availableSources = [], selectedSources = [], activeSu
   return <div className="ec-canvas-composer-mention" aria-label="引用图片"><ImageMentionPicker images={availableSources} selectedImages={selectedSources} open={activeSurface === 'mention'} onOpenChange={open => onSurfaceChange?.(open ? 'mention' : closeCanvasComposerSurface())} selectionMode="insert" onToggle={image => onToggleSource?.(image, { fromMention: true })} /></div>;
 }
 
+
+/* 9-13 用户批注：四个生成框要**共用同一个技能入口**（点开同一套技能，最后一项进「技能管理」弹窗）。
+   所以把「技能按钮 + 技能弹层」抽成一个组件，图片 / 文案 / 视频 / 套图四处都用它，不再各写一套。 */
+function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null, domain = 'image' }) {
+  const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
+  const skills = filterCanvasSkills(domain);
+  const activeLabel = node?.skillLabel || skills.find(item => item.slug === node?.skill)?.name || '技能';
+  return <div className="ec-canvas-parameter-item">
+    <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'parameter:skill'))}>{activeLabel}<WandSparkles size={12} /><ChevronDown size={12} /></button>
+    {open === 'skill' && <div className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
+      {skills.map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
+        <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
+      </button>)}
+      {onOpenSkillLibrary && <button type="button" className="ec-canvas-skill-more" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenSkillLibrary(domain); }}>更多技能…<ChevronDown size={11} style={{ transform: 'rotate(90deg)' }} /></button>}
+      {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null, skillLabel: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
+    </div>}
+  </div>;
+}
+
 function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null }) {
   const rootRef = useRef(null);
   useEffect(() => {
@@ -471,18 +506,9 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
       </div>}
     </div>}
     {/* 9-11 用户批注: skill 选项进生成器 (对标流影AI) —— 技能 = P2 五套内置技能,
-        选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。 */}
-    <div className="ec-canvas-parameter-item">
-      <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => toggle('skill')}>{node?.skillLabel || CANVAS_SKILLS.find(item => item.slug === node?.skill)?.name || '技能'}<WandSparkles size={12} /><ChevronDown size={12} /></button>
-      {open === 'skill' && <div className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
-        {/* 9-11 用户批注#5: 生图节点只列生图技能 (domain 分域) */}
-        {filterCanvasSkills('image').map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
-          <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
-        </button>)}
-        {onOpenSkillLibrary && <button type="button" className="ec-canvas-skill-more" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenSkillLibrary('image'); }}>更多技能…<ChevronDown size={11} style={{ transform: 'rotate(90deg)' }} /></button>}
-        {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null, skillLabel: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
-      </div>}
-    </div>
+        选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。
+        9-13: 抽成 CanvasSkillControl, 与视频/套图框共用同一个入口。 */}
+    <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" />
   </div>;
 }
 
@@ -822,6 +848,8 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
   if (!node) return null;
   const source = sources[0];
   const isLocalEdit = node.actionId === 'inpaint';
+  /* 9-13 用户批注：生成按钮上必须像首页一样直接显示动态积分（换模型/清晰度/张数实时变） */
+  const estimate = estimateImageComposerPoints({ imageModel: node.imageModel, resolution: node.resolution, count: node.count });
   const handleToggleSource = (sourceImage, options = {}) => {
     const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
     /* 来自 @ 菜单：只插入提及（未选中则顺带选中），绝不在菜单里取消选中 */
@@ -854,8 +882,8 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
       <div className="ec-canvas-composer-footer">
         <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
         <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
-        <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
-          {loading ? '生成中' : <><Sparkles size={15} />生成</>}
+        <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
+          {loading ? '生成中' : <><Sparkles size={15} />生成<span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span></>}
         </button>
       </div>
 
@@ -865,6 +893,8 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
 export function CanvasTextGenerationComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
+  /* 9-13: 文案按次计费（后端 ec_ai_assistant），与首页同样的动态积分展示 */
+  const estimate = estimateTextComposerPoints();
   const handleToggleSource = (sourceImage, options = {}) => {
     const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
     /* 来自 @ 菜单：只插入提及（未选中则顺带选中），绝不在菜单里取消选中 */
@@ -882,13 +912,14 @@ export function CanvasTextGenerationComposer({ node, position,  sources = [], me
     <div className="ec-canvas-composer-footer">
       <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
       <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
-      <button type="button" data-canvas-control="true" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
+      <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成<span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span></>}</button>
     </div>
 
   </section>;
 }
 
-export function CanvasVideoComposer({ node, position,  sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate, videoProducts = [], onOpenSkillLibrary = null }) {
+export function CanvasVideoComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onAnalyze, onGenerate, videoProducts = [], onOpenSkillLibrary = null }) {
+  const promptFieldRef = useRef(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [previewPlan, setPreviewPlan] = useState(null);
@@ -916,6 +947,19 @@ export function CanvasVideoComposer({ node, position,  sources = [], loading = f
   const localPlan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: node.duration || 8, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
   const analyzedPlan = previewPlan || node.videoPlan;
   const plan = analyzedPlan ? { ...localPlan, ...analyzedPlan, assets: analyzedPlan.assets?.length ? analyzedPlan.assets : localPlan.assets, beats: analyzedPlan.beats?.length ? analyzedPlan.beats : localPlan.beats, analyzed: true } : { ...localPlan, analyzed: false };
+  /* 9-13 用户批注：把「62 积分」这种写死的数字换成随模型/时长变化的真实报价 */
+  const estimate = estimateVideoComposerPoints({ products: videoProducts, modelProductId: node.modelProductId || 'seedance_standard', duration: node.duration || 8 });
+  /* @ 引用：与图片/文案框同一套语义（插入提及，不在菜单里取消选中） */
+  const handleToggleSource = (sourceImage, options = {}) => {
+    const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+    if (options.fromMention === true) {
+      if (!selected) onToggleSource?.(sourceImage, { skipPromptInsert: true });
+      promptFieldRef.current?.insertMention(sourceImage.label);
+      return;
+    }
+    onToggleSource?.(sourceImage, { skipPromptInsert: true });
+    if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
+  };
   const change = next => { setPreviewPlan(null); onChange?.({ ...next, planReviewed: false, videoPlan: null, plannedVideoAssets: null }); };
   const confirmPlan = () => { onChange?.({ planReviewed: true, error: '' }); setPlanOpen(false); };
   const openPlan = async event => {
@@ -955,32 +999,43 @@ export function CanvasVideoComposer({ node, position,  sources = [], loading = f
         uploadLabel={mode === 'remake' ? '添加素材' : '上传素材'}
       />
     </div>}
-    <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => change({ prompt: event.target.value })} />
+    {/* 9-13 用户批注：四个框统一要有 @ 键 —— 视频框原来只有 textarea，没有 @ 引用 */}
+    <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={1200} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述主体、动作、镜头、场景和节奏" onChange={value => change({ prompt: value })} />
     <div className="ec-canvas-video-controls">
       <label>视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => change({ modelProductId: event.target.value })}>{(videoProducts.length ? videoProducts : [{ id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' }, { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' }]).map(product => <option key={product.id} value={product.id}>{product.label}{product.tierLabel ? ` · ${product.tierLabel}` : ''}{product.quotes?.short?.points ? ` (${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次)` : ''}</option>)}</select></label>
       <label>清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
       <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
       <label>时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
-      {/* 9-11: skill 选项 (与图片生成器同源 CANVAS_SKILLS, 预填提示词不覆盖已写内容) */}
-      <label>技能<select value={node.skill || ''} onChange={event => { const next = applyCanvasSkill({ prompt: node.prompt || '', skill: event.target.value || undefined }); change({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); }}><option value="">无技能</option>{filterCanvasSkills('video').map(skill => <option key={skill.slug} value={skill.slug}>{skill.name}</option>)}</select></label>
-      {onOpenSkillLibrary && <button type="button" data-canvas-control="true" className="ec-canvas-skill-more" onClick={() => onOpenSkillLibrary('video')}><WandSparkles size={12} />技能库</button>}
+      {/* 9-11: skill 选项 (与图片生成器同源 CANVAS_SKILLS, 预填提示词不覆盖已写内容)
+          9-13 用户批注：技能入口要和另外三个框**长得一模一样**（同一个组件 + 同一个「更多技能…」进技能管理） */}
+      <CanvasSkillControl node={node} onChange={change} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="video" />
       <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => change({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
     </div>
     {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
     <div className="ec-canvas-composer-footer">
-      {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || '62 AI 积分 / 次 · 确认方案后扣费'}</span>}
-      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>{planning ? '正在分析素材' : node.planReviewed ? '方案已确认' : analyzedPlan ? '查看生成方案' : '分析并生成方案'}</button><button type="button" data-canvas-control="true" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button></div>
+      {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || (estimate ? `${formatCanvasPoints(estimate.points)} 积分 / 次 · 确认方案后扣费` : `生成前方案 ${CANVAS_PLAN_ANALYSIS_POINTS} 积分 · 确认方案后扣费`)}</span>}
+      <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
+      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>{planning ? '正在分析素材' : node.planReviewed ? '方案已确认' : analyzedPlan ? '查看生成方案' : `分析并生成方案 · ${CANVAS_PLAN_ANALYSIS_POINTS} 积分`}</button><button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频{estimate && <span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span>}</>}</button></div>
     </div>
 
   </section>;
 }
 
-export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const planning = node.suiteStep === 'directions';
   const planReady = Boolean(node.suitePlan || directions.length);
+  /* 9-13 用户批注：套图框也要像首页一样显示动态积分（整套张数 × 单价，改方案/模型/清晰度实时变） */
+  const suiteConfig = suiteConfiguration(node);
+  const suiteEstimate = estimateSuiteComposerPoints({
+    platform: suiteConfig.platform,
+    sizing: suiteConfig.sizing,
+    resolution: suiteConfig.genSettings?.resolution || node.resolution,
+    imageModel: suiteConfig.genSettings?.imageModel || node.imageModel,
+  });
+  const suitePoints = planning ? suiteEstimate.points : CANVAS_PLAN_ANALYSIS_POINTS;
   return <section data-canvas-control="true" className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-suite-composer" style={position} aria-label={planning ? '编辑整体设计方案' : '电商套图操作台'} onPointerDown={event => event.stopPropagation()}>
     {!planning && <div className="ec-canvas-suite-source-rows">
       <ComposerSources sources={sources.filter(source => (node.sourceRoles?.[source.id] || source.role) === 'product')} role="product" onAddSources={files => onAddSources?.(files, 'product')} onRemoveSource={onRemoveSource} uploadLabel="上传产品图" />
@@ -1009,8 +1064,9 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
         <span>{node.error}</span>
         <button type="button" data-canvas-control="true" disabled={loading} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>重新生成</button>
       </div> : <>
-        <span>{planning ? '确认方案后生成整套图片' : '先分析商品与参考图，再进入整体设计方案'}</span>
-        <button type="button" data-canvas-control="true" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}</>}</button>
+        <div className="ec-canvas-parameter-controls ec-canvas-suite-skill"><CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" /></div>
+        <span>{planning ? `确认方案后生成整套图片 · 共 ${suiteEstimate.count} 张` : '先分析商品与参考图，再进入整体设计方案'}</span>
+        <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}<span className="shubao-gen-cta-points">{formatCanvasPoints(suitePoints)} 积分</span></>}</button>
       </>}
     </div>
 

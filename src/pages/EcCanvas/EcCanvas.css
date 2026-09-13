@@ -287,7 +287,9 @@
   background: rgba(255, 255, 255, .98);
   box-shadow: 0 16px 40px rgba(15, 23, 42, .16), 0 2px 8px rgba(15, 23, 42, .08);
 }
-.ec-canvas-add-menu { position: fixed; }
+/* 9-13 用户批注：左侧「+」菜单太高会顶到屏幕上沿/下沿（实测 769px），
+   收成「最多 620px + 内部滚动」，保证在任何屏幕上都完整可用。 */
+.ec-canvas-add-menu { position: fixed; max-height: min(620px, calc(100vh - 48px)); overflow-y: auto; overscroll-behavior: contain; }
 .ec-canvas-derive-menu { position: absolute; transform: scale(var(--canvas-overlay-scale, 1)); transform-origin: top left; }
 .ec-canvas-menu-heading { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 3px; color: #737b87; font-size: 11px; }
 .ec-canvas-menu-heading strong { color: #20242a; font-size: 12px; white-space: nowrap; }
@@ -1331,4 +1333,53 @@
 .ec-canvas-graphrun-confirm__actions button.is-primary { background: var(--canvas-command, #7c3aed); border-color: var(--canvas-command, #7c3aed); color: #fff; }
 .ec-canvas-graphrun-confirm__actions button.is-primary:hover { filter: brightness(1.08); }
 .ec-canvas-graphrun-confirm__actions button:not(.is-primary):hover { background: #f1f5f9; }
+
+/* ═══════════ 9-13 四个生成框的「统一生成按钮 + 动态积分」 ═══════════
+   用户批注：画布四个生成框（图片 / 文案 / 视频 / 电商套图）的生成按钮，要和首页·小红书图文
+   长得一样（同一枚渐变 CTA），并且按钮里要直接显示**随配置实时变化的 AI 积分**。
+   这里用 button.ec-canvas-composer-cta 提高特异性，覆盖上面那条灰色的
+   .ec-canvas-composer-footer > button 基础规则，避免两个样式打架。 */
+.ec-canvas-composer-footer > button.ec-canvas-composer-cta,
+.ec-canvas-video-actions > button.ec-canvas-composer-cta {
+  order: 3;
+  min-width: 0;
+  height: 36px;
+  padding: 0 14px;
+  gap: 7px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ec-canvas-composer-footer > button.ec-canvas-composer-cta:not(:disabled),
+.ec-canvas-video-actions > button.ec-canvas-composer-cta:not(:disabled) {
+  background: linear-gradient(135deg, #7454f3 0%, #d14db5 100%);
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(116, 84, 243, .24);
+}
+.ec-canvas-composer-footer > button.ec-canvas-composer-cta:not(:disabled):hover,
+.ec-canvas-video-actions > button.ec-canvas-composer-cta:not(:disabled):hover {
+  background: linear-gradient(135deg, #6847ea 0%, #c244a8 100%);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(116, 84, 243, .3);
+}
+.ec-canvas-composer-footer > button.ec-canvas-composer-cta:disabled,
+.ec-canvas-video-actions > button.ec-canvas-composer-cta:disabled {
+  /* 按钮可以是灰的，但积分必须仍然显眼（积分跟着配置在动，用户要看得见） */
+  background: #eeeaf8;
+  color: #9d95b3;
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.ec-canvas-composer-footer > button.ec-canvas-composer-cta .shubao-gen-cta-points,
+.ec-canvas-video-actions > button.ec-canvas-composer-cta .shubao-gen-cta-points {
+  font-size: 11.5px;
+  font-weight: 800;
+}
+/* 套图框的「技能」入口跟参数行同宽，避免挤压右侧生成按钮 */
+.ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-skill { order: 1; flex: 0 0 auto; }
+
 

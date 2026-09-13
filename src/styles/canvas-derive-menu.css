@@ -253,6 +253,24 @@
   border-color: var(--border-hover);
 }
 
+/* ── 9-13 用户批注：从节点「+」按钮打开的生成面板必须**居中吸附在按钮正上方**（不能歪到一边） ──
+   位置由 JS（clampCanvasPickerPosition anchor:'above'）给出锚点 = 按钮中心，
+   这里只做「水平居中 + 整体上移到按钮上方」：translate 写在 scale 之后，
+   位移量会随画布缩放一起缩放，所以任何缩放下都紧贴按钮。 */
+.ec-canvas-derive-menu.is-above {
+  transform: scale(var(--canvas-overlay-scale, 1)) translate(-50%, calc(-100% - 14px));
+}
+/* 上方放不下（真渲染复测发现顶部被挤出去）→ 翻到按钮正下方，**依然水平居中**，
+   宁可换边也不让面板被裁掉或歪到一边。 */
+.ec-canvas-derive-menu.is-above.is-flipped {
+  transform: scale(var(--canvas-overlay-scale, 1)) translate(-50%, 14px);
+}
+/* 入场动画（ecPanelIn）动的是 transform，会把上面的定位冲掉 → 这个变体只淡入，
+   否则第一次打开会先出现在按钮右下角再「跳」到按钮上方。 */
+@keyframes ecDeriveMenuAboveIn { from { opacity: 0; } }
+.ec-canvas-derive-menu.is-above:not([data-mounted]) { animation: ecDeriveMenuAboveIn 240ms ease backwards; }
+.ec-canvas-derive-menu.is-above[data-mounted] { animation: none; }
+
 /* ── 减少动效 (系统设置) ── */
 @media (prefers-reduced-motion: reduce) {
   .ec-canvas-derive-tile { transition: none; }
