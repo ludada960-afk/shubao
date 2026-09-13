@@ -767,3 +767,22 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 .canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; }
 .canvas-asset-library-modal > section { margin-bottom: 0 !important; }
 
+
+/* ═══ 9-13 用户批注：资产库弹窗「照抄竞品」 ═══
+   竞品形态：网格大图卡片 + 鼠标悬停卡片轻微上浮放大 + 右上角浮现垃圾桶删除 + 标题极简。
+   这里只做外观与交互，不改数据逻辑。 */
+.canvas-asset-library-modal { padding: 20px 22px 22px !important; }
+.canvas-asset-library-modal h2 { font-size: 16px !important; font-weight: 800 !important; letter-spacing: .01em; }
+/* 网格：更大的图片卡（竞品是接近 1:1 的大图） */
+.canvas-asset-library-modal .ec-canvas-page article,
+.canvas-asset-library-modal article { position: relative; border-radius: 14px !important; overflow: hidden; background: #fff; transition: transform .18s cubic-bezier(.16,1,.3,1), box-shadow .18s ease, border-color .18s ease; }
+.canvas-asset-library-modal article:hover { transform: translateY(-4px) scale(1.035); box-shadow: 0 18px 40px rgba(28,25,23,.18); z-index: 3; }
+/* 悬停放大图片本身（竞品是图片轻微放大） */
+.canvas-asset-library-modal article img { transition: transform .28s cubic-bezier(.16,1,.3,1); }
+.canvas-asset-library-modal article:hover img { transform: scale(1.06); }
+/* 删除按钮：默认隐藏，悬停才浮现到右上角（竞品同款） */
+.canvas-asset-library-modal .ec-asset-card-delete { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 9px; background: rgba(28,25,23,.62); border: 1px solid rgba(255,255,255,.35); color: #fff; opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease; z-index: 4; }
+.canvas-asset-library-modal article:hover .ec-asset-card-delete { opacity: 1; transform: translateY(0); }
+.canvas-asset-library-modal .ec-asset-card-delete:hover { background: #dc2626; }
+.canvas-asset-library-modal .ec-asset-card-delete svg { width: 15px; height: 15px; }
+

@@ -30,7 +30,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
     <div style={{ padding: 0 }}>
       {/* 9-12 用户批注：「两套描述基本一样」→ 面板顶部只保留外层那套标题，这里不再重复 */}
 
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* 9-13 用户批注：一屏看全 → 压缩纵向间距（14/16 → 10/13），配合面板加高 */}
+      <div style={{ padding: '10px 14px 12px', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
             <Sparkles size={13} color="#7c3aed" /> 生图模型
@@ -97,7 +98,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
         {onBrandColorsChange && (
           <div>
             <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Palette size={13} color={brandLocked ? '#7c3aed' : 'var(--text-muted)'} /> 锁定品牌主色调
+              {/* 9-13 用户批注：图标颜色要与其他标题一致（原来是黑色，明显不对） */}
+              <Palette size={13} color="#7c3aed" /> 锁定品牌主色调
             </label>
             <div style={{ marginBottom: 7, color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
               品牌色固定时开启：本次生成会在风格之上叠加品牌主色，保持品牌辨识度

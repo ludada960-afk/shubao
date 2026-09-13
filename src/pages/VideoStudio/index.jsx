@@ -618,7 +618,11 @@ export default function VideoStudioPage({ embedded = false }) {
   const requires = hasRequiredVideoInputs(mode, files);
   /* 9-12 用户批注：用户什么都没做（没上传素材、没写文字）时按钮不该亮着 ——
      与其它三个板块一致，无输入即禁用灰态。 */
-  const hasAnyInput = Boolean(requires) || Boolean(String(prompt || '').trim()) || Boolean(files?.first?.length || files?.last?.length || files?.media?.length);
+  /* 注意: requires(hasRequiredVideoInputs) 在默认「智能成片」模式下**恒为 true**，
+     拿它判断「用户有没有输入」会导致按钮永远亮着（用户 9-13 再次指出）→ 改为只数真实素材与文字。 */
+  const uploadedFileCount = ['images', 'videos', 'audios', 'first', 'last', 'media']
+    .reduce((sum, key) => sum + (Array.isArray(files?.[key]) ? files[key].length : 0), 0);
+  const hasAnyInput = uploadedFileCount > 0 || Boolean(String(prompt || '').trim());
   const canAnalyze = capabilities.generationEnabled && selectedProduct && hasAnyInput;
   const canGenerate = capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning;
 

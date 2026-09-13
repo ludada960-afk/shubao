@@ -32,3 +32,40 @@
 .canvas-library.is-page .canvas-library-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(28,25,23,.18); border-color: rgba(124,58,237,.34); }
 .canvas-library.is-page .canvas-library-cover { aspect-ratio: 4 / 3; }
 
+
+/* ═══ 9-13 用户批注：画布库「照抄竞品」重做外观 ═══
+   竞品形态（用户口述）：
+   ① 卡片是**方形**容器，封面按容器适配（适配不上也没关系，容器填满），**居中裁剪**而不是只露上半部分；
+   ② 标题/时间/按钮都是**遮罩**形式叠在图上，**不占用容器空间**（否则图片下半截像被折断）；
+   ③ 只有鼠标悬停时出现四个操作按钮，也是遮罩形式；
+   ④ 按钮/文字要够大够清楚（原来看不清）；
+   ⑤ 关闭按钮要明显。 */
+.canvas-library.is-page .canvas-library-grid { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 22px; }
+/* ① 方形容器 + ③ 默认无内边距（信息以遮罩浮在上面） */
+.canvas-library.is-page .canvas-library-card { display: block; padding: 0; gap: 0; border-radius: 16px; overflow: hidden; background: #f2efe9; }
+.canvas-library.is-page .canvas-library-cover { aspect-ratio: 1 / 1; border-radius: 0; background: #efece6; }
+/* ② 封面居中裁剪（长图取中间，而不是只显示上半部分） */
+.canvas-library.is-page .canvas-library-cover img { width: 100%; height: 100%; object-fit: cover; object-position: center center; }
+/* ② 标题/时间做成底部渐变遮罩，不占容器高度 */
+.canvas-library.is-page .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 26px 14px 12px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.72)); }
+.canvas-library.is-page .canvas-library-card-body strong { color: #fff; font-size: 14px; font-weight: 700; }
+.canvas-library.is-page .canvas-library-card-body small { color: rgba(255,255,255,.78); font-size: 11.5px; margin-top: 2px; }
+.canvas-library.is-page .canvas-library-card-body input { height: 30px; font-size: 13px; }
+/* ③ 操作按钮：悬停浮现的遮罩胶囊，尺寸放大到看得清 */
+.canvas-library.is-page .canvas-library-card-actions { top: 10px; right: 10px; display: flex; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
+.canvas-library.is-page .canvas-library-card:hover .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
+.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 15px; backdrop-filter: blur(6px); }
+.canvas-library.is-page .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
+/* ⑤ 关闭按钮（整页里的返回）要明显 */
+.canvas-library.is-page .canvas-library-close { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; border: 1px solid rgba(28,25,23,.14); background: #fff; color: #44403c; font-size: 18px; line-height: 1; }
+.canvas-library.is-page .canvas-library-close:hover { border-color: #7c3aed; color: #6d28d9; }
+/* ① 新建卡片也做成方形 */
+.canvas-library.is-page .canvas-library-create { height: 40px; padding: 0 18px; border-radius: 12px; font-size: 13.5px; }
+
+
+/* 9-13 画布库分类筛选 */
+.canvas-library-tabs { position: sticky; top: 64px; z-index: 2; display: flex; gap: 8px; padding: 0 28px 6px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
+.canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 17px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; }
+.canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
+.canvas-library-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
+

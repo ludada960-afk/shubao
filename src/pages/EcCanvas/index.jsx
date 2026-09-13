@@ -5922,7 +5922,9 @@ const handlePointerUp = useCallback((e) => {
         onOpenCanvas={openCanvasFromLibrary}
       />
       <CanvasTopBar
-        title={tab === 'canvas' ? (result.product_name || '智能画布') : tab === 'assets' ? '项目资产库' : tab === 'trash' ? '回收站' : '我的作品集'}
+        /* 9-13 用户批注：标题不要再叫「电商画布」——画布服务所有项目，不是只服务电商。
+           （上游导航入口里的「电商画布」也已撤掉；这里只保留真实项目名，否则统一叫「智能画布」） */
+        title={tab === 'canvas' ? (result.product_name || '智能画布') : tab === 'assets' ? '资产库' : '我的作品集'}
         meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : tab === 'assets' ? `${visibleProjectAssetLibrary.length} 个可用素材` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
         tab={tab}
         onTabChange={handleTabChange}
@@ -6939,11 +6941,14 @@ const handlePointerUp = useCallback((e) => {
               x: Math.max(40, Math.round((-viewport.x + (containerRef.current?.clientWidth || window.innerWidth) * 0.5) / viewport.scale)),
               y: Math.max(40, Math.round((-viewport.y + (containerRef.current?.clientHeight || window.innerHeight) * 0.5) / viewport.scale)),
             };
+            /* 9-13 用户批注：双击空白处添加的应该是**生成文案（AI）**，不是纯文本节点；
+               纯文本注解只从底部工具栏的 T 进入。 */
             if (kind === 'text') {
-              const textNode = createCanvasTextNode({ x: world.x, y: world.y });
-              textNode.name = autoCanvasShotName(nodes, 'text');
-              setNodes(prev => [...prev, textNode]);
-            } else if (kind === 'image') {
+              setAddNodePanel(null);
+              addCanvasComposer('text');
+              return;
+            }
+            if (kind === 'image') {
               sourceUploadRef.current?.click?.();
             } else if (kind === 'video') {
               videoUploadRef.current?.click?.();

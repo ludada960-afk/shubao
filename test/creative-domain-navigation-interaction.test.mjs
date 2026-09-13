@@ -29,7 +29,8 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
 test('every destination has semantic icon and motion metadata while video stays a single entry', () => {
   const items = CREATIVE_NAV_GROUPS.flatMap(group => group.items);
   assert.equal(CREATIVE_NAV_GROUPS.find(group => group.id === 'video')?.items.length, 1);
-  assert.ok(items.length >= 10);
+  /* 9-13 用户批注：撤掉重复的「电商画布」入口（左侧导航已有「无限画布」，画布服务所有项目）→ 基线 9 */
+  assert.ok(items.length >= 9);
   for (const item of items) {
     assert.match(item.icon, /^[a-z-]+$/);
     assert.match(item.motion, /^[a-z-]+$/);

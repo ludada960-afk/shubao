@@ -9,7 +9,8 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     items: Object.freeze([
       Object.freeze({ id: 'commerce-suite', label: '商品套图', description: '主图、场景图、详情图一次规划', hint: '开始生成', icon: 'cards-three', motion: 'layers', action: { type: 'SET_MODE', mode: 'ecommerce' }, launch: { mode: 'ecommerce', recipeId: 'product_suite' } }),
       Object.freeze({ id: 'commerce-tryon', label: '万物上身', description: '把商品自然放入人物与真实场景', hint: '开始试穿', icon: 't-shirt', motion: 'tryon', action: { type: 'SET_MODE', mode: 'ecommerce' }, launch: { mode: 'ecommerce', recipeId: 'anything_tryon' } }),
-      Object.freeze({ id: 'commerce-canvas', label: '电商画布', description: '继续编辑、编排与导出成品', hint: '打开画布', icon: 'frame-corners', motion: 'canvas', action: { type: 'OPEN_CANVAS' } }),
+      /* 9-13 用户批注：左侧导航里已经有「无限画布」，这里再放一个「电商画布」是多余且定位错误
+         （画布服务所有项目，不是只服务电商）→ 撤掉这个入口。 */
     ]),
   }),
   Object.freeze({

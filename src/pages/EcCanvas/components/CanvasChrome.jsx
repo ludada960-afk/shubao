@@ -63,7 +63,8 @@ export function CanvasTopBar({
         <span><i className={saving ? 'is-saving' : ''} />{saving ? '正在保存' : meta}</span>
       </div>
       <nav className="ec-canvas-tabs ec-canvas-topbar-surface" aria-label="画布视图">
-        {[['canvas', '当前画布'], ['assets', '资产库'], ['works', '作品集'], ['trash', '回收站']].map(([id, label]) => <button
+        {/* 9-13 用户批注：回收站是死状态（删掉的东西其实没进去）→ 撤掉；删除即删除。 */}
+        {[['canvas', '当前画布'], ['assets', '资产库'], ['works', '作品集']].map(([id, label]) => <button
           key={id}
           type="button"
           className={tab === id ? 'is-active' : ''}

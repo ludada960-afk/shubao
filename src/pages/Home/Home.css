@@ -2269,8 +2269,8 @@
 /* 9-11 用户批注#8: 面板张开时滚轮只滚面板 — 高度上限 + 滚动链隔离, 页面不再跟着滚 */
 .ec-config-panel {
   overflow: visible auto !important; box-sizing: border-box !important;
-  /* 9-12 用户批注：面板原来要滚动才能看完 → 加高，尽量一屏看全（仍保留极端小屏下的滚动兜底） */
-  max-height: min(78vh, calc(100vh - 96px)); overscroll-behavior: contain;
+  /* 9-12/9-13 用户批注：面板要一打开就看全 → 用足可用高度（顶部让给导航、底部让给触发条） */
+  max-height: min(88vh, calc(100vh - 72px)); overscroll-behavior: contain;
   border: 1px solid rgba(255,255,255,.86) !important; border-radius: 8px !important;
   background: rgba(252,252,253,.93) !important;
   box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06) !important;

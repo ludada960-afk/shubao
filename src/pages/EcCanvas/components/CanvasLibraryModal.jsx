@@ -10,6 +10,13 @@ import {
 import { useModalScrollLock } from '../../../components/ui/useModalScrollLock.js';
 import './canvas-library.css';
 
+/* 9-13 用户批注：画布库要有分类（全部 / 收藏 / 最近 7 天） */
+const LIBRARY_FILTERS = [
+  { id: 'all', label: '全部' },
+  { id: 'favorite', label: '收藏' },
+  { id: 'recent', label: '最近 7 天' },
+];
+
 /**
  * 画布库（2026-09-12 用户批注：点「新建画布」应进入画布管理页）。
  * 卡片：封面 + 名称 + 更新时间；鼠标悬停显示 改名 / 复制 / 收藏 / 删除。
@@ -26,6 +33,13 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
   /* 9-12 用户批注：画布库照竞品做成**整页**（不是弹窗），卡片 hover 上浮放大并浮出四个操作。
      variant='page' 时不再渲染遮罩，直接作为画布区域内的一个整页视图。 */
   const isPage = variant === 'page';
+  /* 9-13: 分类筛选（收藏 / 最近） */
+  const [libraryFilter, setLibraryFilter] = useState('all');
+  const visibleItems = useMemo(() => state.items.filter(item => {
+    if (libraryFilter === 'favorite') return item.favorite === true;
+    if (libraryFilter === 'recent') return String(item.updatedAt || '') >= new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    return true;
+  }), [state.items, libraryFilter]);
   const [state, setState] = useState({ loading: false, error: '', items: [] });
   const [renamingId, setRenamingId] = useState('');
   const [renameDraft, setRenameDraft] = useState('');
@@ -109,10 +123,21 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
           <button type="button" className="canvas-library-close" aria-label="关闭画布库" onClick={onClose}>×</button>
         </div>
       </header>
+      {/* 9-13 用户批注：画布库缺分类 → 补一排分类筛选（全部 / 收藏 / 最近） */}
+      <div className="canvas-library-tabs" role="tablist" aria-label="画布分类">
+        {LIBRARY_FILTERS.map(option => <button
+          key={option.id}
+          type="button"
+          role="tab"
+          aria-selected={libraryFilter === option.id}
+          className={libraryFilter === option.id ? 'is-active' : ''}
+          onClick={() => setLibraryFilter(option.id)}
+        >{option.label}</button>)}
+      </div>
       {state.error && <div className="canvas-library-error" role="alert">{state.error}</div>}
       {state.loading && <div className="canvas-library-loading">正在读取画布…</div>}
       <div className="canvas-library-grid">
-        {state.items.map(item => <article key={item.id} className={`canvas-library-card${item.favorite ? ' is-favorite' : ''}`}>
+        {visibleItems.map(item => <article key={item.id} className={`canvas-library-card${item.favorite ? ' is-favorite' : ''}`}>
           <button type="button" className="canvas-library-cover" onClick={() => onOpenCanvas?.(item)} aria-label={`打开画布 ${item.title}`}>
             {item.coverUrl ? <img src={item.coverUrl} alt="" loading="lazy" decoding="async" /> : <span className="canvas-library-cover-empty">空画布</span>}
           </button>
@@ -136,7 +161,7 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
             <small>{formatTime(item.updatedAt)} · {item.nodeCount} 个节点</small>
           </div>
         </article>)}
-        {!state.loading && !state.items.length && <div className="canvas-library-empty">还没有画布，点「新建画布」开始创作</div>}
+        {!state.loading && !visibleItems.length && <div className="canvas-library-empty">{state.items.length ? '这个分类下还没有画布' : '还没有画布，点「新建画布」开始创作'}</div>}
       </div>
     </section>
   </div>;
