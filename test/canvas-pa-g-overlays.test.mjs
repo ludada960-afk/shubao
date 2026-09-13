@@ -90,7 +90,10 @@ test('Q8: 空状态 Row 2 已随空壳应用节点一起下架 (用户 9-04 反�
   // 注意: handleSmartChainAction 函数本身仍存在 (给 VideoStudio 用), 但空状态段不应再调
   const emptyStateMatch = src.match(/ec-canvas-empty-actions[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/);
   const emptyStateSrc = emptyStateMatch ? emptyStateMatch[0] : '';
-  assert.equal(emptyStateSrc.includes("addCanvasComposer('suite')"), false, '空状态不应再调 addCanvasComposer(suite)');
-  assert.equal(emptyStateSrc.includes("addCanvasComposer('video')"), false, '空状态不应再调 addCanvasComposer(video)');
+  /* 9-13 更新为新契约：空状态已经恢复「用 AI 生成」行（9-09 对齐主流画布），
+     但仍不得调用已下架的 application 节点入口与智能链，并且落点不得写死坐标。 */
+  assert.equal(emptyStateSrc.includes('handleCreateApplicationNode'), false, '空状态不得调用已下架的应用节点入口');
+  assert.equal(emptyStateSrc.includes("addCanvasComposer('image', { x:"), false, '落点不得写死左上角坐标');
+  assert.equal(emptyStateSrc.includes("addCanvasComposer('video', { x:"), false, '落点不得写死左上角坐标');
   assert.equal(emptyStateSrc.includes('handleSmartChainAction'), false, '空状态不应再调 handleSmartChainAction (改走节点串联)');
 });

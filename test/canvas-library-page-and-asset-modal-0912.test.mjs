@@ -24,7 +24,8 @@ test('画布库改整页 + hover 动效', () => {
   const modal = read('src/pages/EcCanvas/components/CanvasLibraryModal.jsx');
   assert.ok(modal.includes("variant = 'modal'") && modal.includes('is-page'), '支持整页变体');
   const css = read('src/pages/EcCanvas/components/canvas-library.css');
-  assert.ok(/canvas-library-overlay\.is-page \{[^}]*position: absolute/.test(css), '整页模式不再遮挡');
+  /* 9-13 修正：用户要求「新建画布是独立页面」→ 固定全屏（不再是画布内的绝对定位层） */
+  assert.ok(/canvas-library-overlay\.is-page \{[^}]*position: fixed/.test(css), '独立整页（固定全屏）');
   assert.ok(/canvas-library-card:hover \{[^}]*translateY\(-8px\) scale\(1\.03\)/.test(css), 'hover 上浮放大');
 });
 

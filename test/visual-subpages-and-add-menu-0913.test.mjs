@@ -25,9 +25,12 @@ test('左侧「+」菜单有「应用」分类且音频进资源组', () => {
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
   assert.ok(studio.includes("'upload-audio'"), '音频归入资源组');
   assert.ok(studio.includes('APPLICATION_ACTION_IDS'), '应用分组定义');
-  for (const id of ['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']) {
+  /* 9-13 修正：应用组只保留真正独立的能力（语音合成/智能字幕）；
+     「一键套图/一键成片」与「生成电商套图/生成视频」重复，已从菜单撤掉（动作本身仍在注册表里） */
+  for (const id of ['application-tts', 'application-caption']) {
     assert.ok(studio.includes(id), '缺少应用 ' + id);
   }
+  assert.ok(!studio.includes("'application-1click-suite'"), '一键套图不应出现在菜单里');
   assert.ok(studio.includes('aria-label="应用"'), '应用分组标题');
   const canvas = read('src/pages/EcCanvas/index.jsx');
   assert.ok(canvas.includes("else if (actionId === 'upload-audio') audioUploadRef.current?.click();"), '音频入口已接');

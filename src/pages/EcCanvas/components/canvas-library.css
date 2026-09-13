@@ -22,9 +22,11 @@
 .canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 12.5px; text-align: center; }
 .canvas-library-error { margin: 12px 22px 0; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
 /* 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃） */
-.canvas-library-overlay.is-page { position: absolute; inset: 0; z-index: 40; display: block; padding: 0; background: linear-gradient(180deg, rgba(255,253,250,.96), rgba(252,249,244,.98)); backdrop-filter: blur(18px) saturate(1.1); }
+/* 9-13 用户批注：新建画布是**独立页面** —— 原来 absolute 定位在画布内，
+   导致顶栏盖住它、左侧 + 与底部操作栏还露着。改为固定全屏页面。 */
+.canvas-library-overlay.is-page { position: fixed; inset: 0; z-index: 9000; display: block; padding: 0; background: linear-gradient(180deg, #fffdfa, #fbf8f2); }
 .canvas-library.is-page { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.canvas-library.is-page .canvas-library-head { padding: 22px 28px 16px; }
+.canvas-library.is-page .canvas-library-head { position: sticky; top: 0; z-index: 2; align-items: center; padding: 16px 28px 14px; background: rgba(255,253,250,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(28,25,23,.08); }
 .canvas-library.is-page .canvas-library-grid { padding: 20px 28px 32px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
 .canvas-library.is-page .canvas-library-card { background: rgba(255,255,255,.86); border-color: rgba(28,25,23,.08); backdrop-filter: blur(10px); transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease; }
 .canvas-library.is-page .canvas-library-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(28,25,23,.18); border-color: rgba(124,58,237,.34); }

@@ -615,6 +615,12 @@ export default function EcCanvas() {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   /* 9-12 用户批注：画布要能「从资产库选择」把素材放上来（此前没有任何入口） */
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
+
+  /* 9-13 用户批注：左侧「+」菜单在用户去点别的节点/空白、切换选择时必须自动收起 */
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    setAddMenuOpen(false);
+  }, [selected, multiSelected.size]);
   // JS anchoring for the add-node menu: measured from the rail button's live
   // rect (CSS centering drifts once the topbar/rail metrics change).
   const [addMenuAnchor, setAddMenuAnchor] = useState(null);
@@ -6010,6 +6016,8 @@ const handlePointerUp = useCallback((e) => {
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
           <input ref={videoUploadRef} type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={handleCanvasVideoUpload} style={{ display: 'none' }} />
+          {/* 9-13 用户批注：音频入口点了没反应 —— 根因是这个 input 从来没渲染过（只有 ref 没有元素） */}
+          <input ref={audioUploadRef} type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm" multiple onChange={handleCanvasAudioUpload} style={{ display: 'none' }} />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
             onAddMenuToggle={() => { syncAddMenuAnchor(); setAddMenuOpen(open => !open); }}
@@ -6211,9 +6219,11 @@ const handlePointerUp = useCallback((e) => {
                   </div>
                   {/* 9-09: AI 生成行 — 对齐主流画布 (流影/Quantv) 的丰富空态入口 */}
                   <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="AI 创作">
-                    <button type="button" onClick={() => handleAddTextRef.current?.({ x: 120, y: 120 })}><HeroGlyph kind="text" />新建文本</button>
-                    <button type="button" onClick={() => addCanvasComposer('image', { x: 220, y: 120 })}><HeroGlyph kind="sparkles" />生成图片</button>
-                    <button type="button" onClick={() => addCanvasComposer('video', { x: 340, y: 120 })}><HeroGlyph kind="clapperboard" />生成视频</button>
+                    {/* 9-13 用户批注：这里是 AI 生成入口 → 应为「生成文案」；
+                        纯文本注解只在底部工具栏的 T（不常用，不要到处放入口） */}
+                    <button type="button" onClick={() => addCanvasComposer('text')}><HeroGlyph kind="text" />生成文案</button>
+                    <button type="button" onClick={() => addCanvasComposer('image')}><HeroGlyph kind="sparkles" />生成图片</button>
+                    <button type="button" onClick={() => addCanvasComposer('video')}><HeroGlyph kind="clapperboard" />生成视频</button>
                     <button type="button" onClick={() => audioUploadRef.current?.click()}><HeroGlyph kind="mic" />添加音频</button>
                   </div>
                 </div>

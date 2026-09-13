@@ -11,7 +11,7 @@
 .workflow-node-icon svg,
 .workflow-picker-item-icon svg,
 .workflow-upload-tile > svg:first-child,
-.ec-canvas-add-menu > button > span:first-child svg,
+.ec-canvas-add-menu button > span:first-child svg,
 .ec-canvas-derive-menu > button > span:first-child svg,
 .ec-canvas-page [data-canvas-node-check] svg { width: var(--ec-icon-inline, 17px); height: var(--ec-icon-inline, 17px); }
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button svg { width: var(--ec-icon-tool, 18px); height: var(--ec-icon-tool, 18px); }
@@ -293,15 +293,15 @@
 .ec-canvas-menu-heading strong { color: #20242a; font-size: 12px; }
 .ec-canvas-menu-heading button { width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #7b828c; }
 .ec-canvas-menu-heading button:hover { color: #20242a; background: #f0f2f5; }
-.ec-canvas-add-menu > button,
+.ec-canvas-add-menu button,
 .ec-canvas-derive-menu > button { width: 100%; min-height: 54px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px 8px; border: 0; border-radius: 7px; background: transparent; color: #272b31; text-align: left; }
-.ec-canvas-add-menu > button:hover,
+.ec-canvas-add-menu button:hover,
 .ec-canvas-derive-menu > button:hover { background: #f2f6fb; }
-.ec-canvas-add-menu > button:active,
+.ec-canvas-add-menu button:active,
 .ec-canvas-derive-menu > button:active { background: #e8f0fb; transform: translateY(1px); }
-.ec-canvas-add-menu > button:focus-visible,
+.ec-canvas-add-menu button:focus-visible,
 .ec-canvas-derive-menu > button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: -1px; }
-.ec-canvas-add-menu > button > span:first-child,
+.ec-canvas-add-menu button > span:first-child,
 .ec-canvas-derive-menu > button > span:first-child { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 7px; color: #53606f; background: #eef1f5; }
 .ec-canvas-add-menu strong,
 .ec-canvas-derive-menu strong { display: block; font-size: 13px; font-weight: 700; }

@@ -119,7 +119,9 @@ function usePanelIntroGate(name) {
 /* 「添加资源」分组的成员（本地上传 / 作品 / 资产库），其余归入「用 AI 生成」 */
 const RESOURCE_ACTION_IDS = new Set(['upload', 'upload-video', 'upload-audio', 'works', 'asset-library']);
 /* 「应用」组：把画布已有的派生能力提到一级入口（9-12 用户批注：照竞品补「应用」分类） */
-const APPLICATION_ACTION_IDS = new Set(['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']);
+/* 只保留真正独立的应用能力；「一键套图 / 一键成片」与「生成电商套图 / 生成视频」重复，
+   9-13 用户批注「下面为什么还做一个啊，完全冲突啊」→ 从菜单撤掉，避免同屏两个同义入口 */
+const APPLICATION_ACTION_IDS = new Set(['application-tts', 'application-caption']);
 
 const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImageUp },
@@ -130,8 +132,7 @@ const ADD_ACTIONS = [
   { id: 'upload-audio', label: '添加音频', description: '加入配音、旁白或背景音乐', icon: Music },
   { id: 'application-tts', label: '语音合成', description: '把文案变成可用的配音音轨', icon: AudioLines },
   { id: 'application-caption', label: '智能字幕', description: '为视频自动生成并烧录字幕', icon: Captions },
-  { id: 'application-1click-suite', label: '一键套图', description: '用当前素材直接产出整套电商图', icon: Wand2 },
-  { id: 'application-1click-video', label: '一键成片', description: '用当前素材直接产出营销短片', icon: Film },
+
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: Sparkles },
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },
