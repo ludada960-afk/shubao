@@ -99,6 +99,10 @@ export function CanvasTopBar({
         {tab === 'canvas' && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onOpenWorkflowGallery} aria-label="打开模板广场（工作流模板）">
           <Workflow size={16} />模板广场
         </button>}
+        {/* 9-15 用户批注：「顶栏的导出按钮哪去了，之前不是有的吗」→ 找回，与模板广场/恢复已保存画布同一组 */}
+        {tab === 'canvas' && <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onExport} aria-label="导出画布">
+          <Download size={16} />导出
+        </button>}
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}
       {/* 9-02 用户反馈: "新建生图"命名不清. 此按钮新建画布会话, 改名"新建画布" */}

@@ -13,9 +13,11 @@
      解决: 改成 360px 宽固定右滑面板, 跟上方 CanvasObjectToolbar 一起同步张合 */
   position: absolute;
   z-index: 65;
-  top: 78px;          /* 顶部 toolbar 高度 62px + 16px 留白 */
+  /* 9-15 用户批注：面板顶部盖住上面的黑色栏目 → 绝对定位基准改为 .ec-canvas-workbench
+     （从画布区顶部开始），top 12px = 画布区顶部 + 12px，绝不越过画布区顶部。 */
+  top: 12px;          /* 画布区顶部 + 12px（不再 relative 到整页） */
   right: 14px;
-  bottom: 130px;      /* 底部 toolbar 高度 92px + 38px 留白 */
+  bottom: 130px;      /* 底部工具栏保持让位 */
   /* 9-13：宽度由页面级变量统一决定 —— 画布区按同一个变量让位，面板不会盖住画布内容 */
   width: var(--canvas-right-panel-width, 360px);
   max-width: calc(100vw - 28px);

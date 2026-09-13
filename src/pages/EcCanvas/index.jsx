@@ -2310,8 +2310,52 @@ const handlePointerUp = useCallback((e) => {
   }, [nodes]);
 
   /* 9-11 用户批注#2: 持久化图片解码成功才清本地预览 (data URI), 消除替换后空白/闪屏 */
+  /* 9-15 用户批注：图片上传后 1~3 秒突然不显示 —— 根因是本地预览在「持久 url 尚未证明可用」时就被
+     清掉：img 的 onLoad 先于上传持久化触发，localPreviewUrl 被立刻清除，随后 src 切到持久 url；
+     若此时持久 url 加载失败（后端一致性问题 / 临时失败），ResponsiveImage 重试后直接把图片整个隐藏，
+     节点变成一个空框。修复：本地预览只在两种安全时机清除 ——
+     ① url 与 localPreviewUrl 相同（切换无风险）；② swapNodeToDurableUrl 预载成功后再清。 */
   const handleImagePreviewReady = useCallback(nodeId => {
-    setNodes(previous => previous.map(node => (node.id === nodeId && node.localPreviewUrl) ? { ...node, localPreviewUrl: '' } : node));
+    setNodes(previous => previous.map(node => (node.id === nodeId && node.localPreviewUrl && node.url === node.localPreviewUrl && node.status !== 'uploading')
+      ? { ...node, localPreviewUrl: '' }
+      : node));
+  }, []);
+
+  /* 9-15 上传图片 1 秒后消失的根治：持久 url 先回写（草稿保存稳定地址、派生立即可用），
+     但 localPreviewUrl 只在「持久 url 真的解码成功」后才清除 —— 预载失败则保留本地预览，
+     节点永远不出现空框。预载重试两轮（900ms/1800ms），彻底失败则以后台本地预览兜底。 */
+  const swapNodeToDurableUrl = useCallback((nodeId, durableUrl, fallbackNode) => {
+    const url = String(durableUrl || '');
+    if (!url) return;
+    const attemptRef = { current: 0 };
+    let settled = false;
+    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, url, status: 'ready', uploadError: '' } : node));
+    const finish = ok => {
+      if (settled) return;
+      settled = true;
+      if (ok) {
+        setNodes(previous => previous.map(node => (node.id === nodeId && node.localPreviewUrl)
+          ? { ...node, localPreviewUrl: '' }
+          : node));
+      } else if (fallbackNode) {
+        /* 持久 url 彻底不可用：本地预览继续可见，不空框；状态仍 ready 便于继续派生 */
+        setNodes(previous => previous.map(node => node.id === nodeId
+          ? { ...node, status: 'ready', uploadError: fallbackNode.uploadError || '' }
+          : node));
+      }
+    };
+    const probe = new Image();
+    probe.onload = () => finish(true);
+    probe.onerror = () => {
+      if (attemptRef.current < 2) {
+        attemptRef.current += 1;
+        const busted = url.includes('?') ? `${url}&preload_retry=${attemptRef.current}` : `${url}?preload_retry=${attemptRef.current}`;
+        setTimeout(() => { probe.src = busted; }, 900 * attemptRef.current);
+      } else {
+        finish(false);
+      }
+    };
+    probe.src = url;
   }, []);
 
   const handleImageNaturalSize = useCallback((nodeId, { naturalWidth, naturalHeight }) => {
@@ -4742,8 +4786,9 @@ const handlePointerUp = useCallback((e) => {
         void persistCanvasUploadAssets(localAssets, { role: 'product' }).then(persisted => {
           const durable = persisted?.[0];
           if (!durable?.url) return;
-          /* 只切持久 url; localPreviewUrl 保留, 由图片解码成功后的 onImageReady 统一清理 */
-          setNodes(previous => previous.map(node => node.id === targetId ? { ...node, url: durable.url, status: 'ready' } : node));
+          /* 9-15 只切持久 url；localPreviewUrl 由 swapNodeToDurableUrl 在「持久图解码成功」后才清，
+             替换后不再出现空白闪屏 / 1 秒后图片消失。 */
+          swapNodeToDurableUrl(targetId, durable.url);
         }).catch(() => {
           /* 持久化失败: 本地预览继续可用 (localPreviewUrl), 仅标 ready 避免卡在处理中 */
           setNodes(previous => previous.map(node => node.id === targetId ? { ...node, status: 'ready' } : node));
@@ -4787,12 +4832,18 @@ const handlePointerUp = useCallback((e) => {
       void persistCanvasUploadAssets(assets, { role: 'product' }).then(persistedAssets => {
         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
         const persistedById = new Map(uploadedNodes.map((node, index) => [node.id, persistedAssets[index]]));
+        const fallbackById = new Map(uploadedNodes.map(node => [node.id, node]));
         setNodes(previous => previous.map(node => {
           const persisted = persistedById.get(node.id);
           if (!persisted?.url) return node;
-          /* 本地预览保留到解码完成 (onImageReady 清理), 持久 url 兜底刷新后加载 */
+          /* 9-15 本地预览保留到「持久 url 解码成功」才清 (swapNodeToDurableUrl 预载)；
+             持久 url 失败时保留本地预览不再空框 —— 修复上传 1 秒后图片消失。 */
           return { ...node, url: persisted.url, status: 'ready', uploadError: '' };
         }));
+        uploadedNodes.forEach(node => {
+          const persisted = persistedById.get(node.id);
+          if (persisted?.url) swapNodeToDurableUrl(node.id, persisted.url, fallbackById.get(node.id));
+        });
       }).catch(error => {
         const uploadedIds = new Set(uploadedNodes.map(node => node.id));
         setNodes(previous => previous.map(node => uploadedIds.has(node.id)
@@ -5135,9 +5186,31 @@ const handlePointerUp = useCallback((e) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     handleTabChange('canvas');
   };
+  /* 9-15 用户批注：从左侧「+」把资产库素材放进画布时提示「素材已到期或待清理」——
+     后端保留清扫会把用户自己的素材标记为 attention，界面却在导入前用本地快照直接拦截。
+     修复：登录态下以服务端为准（reuse 校验）；若素材被保留策略标记为待清理，
+     自动把它「长期保留」后再重试一次 —— 用户自己刚上传/刚加入的素材不会被误判为不可用。 */
+  const ensureReusableProjectAsset = useCallback(async (asset) => {
+    if (!state.logged || result.browserQa || !asset?.projectId || !asset?.projectAssetId) return asset;
+    try {
+      return await getProjectAsset(asset.projectId, asset.projectAssetId, 'reuse');
+    } catch (error) {
+      if (error?.code !== 'PROJECT_ASSET_NOT_REUSABLE') throw error;
+      try {
+        const pinned = await setProjectAssetRetention(asset.projectId, asset.projectAssetId, true);
+        if (!pinned?.retentionPinned) throw error;
+        return await getProjectAsset(asset.projectId, asset.projectAssetId, 'reuse');
+      } catch {
+        throw error;
+      }
+    }
+  }, [result.browserQa, state.logged]);
+
   const handleImportProjectAsset = useCallback(async (asset) => {
     if (projectAssetImportBusyRef.current) return;
-    if (!canReuseProjectAsset(asset)) {
+    /* 9-15 本地快照的 canReuseProjectAsset 仅用于未登录/浏览器 QA 兜底；
+       登录态交给 ensureReusableProjectAsset 以服务端为准，避免把用户自己的素材误判为待清理。 */
+    if ((!state.logged || result.browserQa) && !canReuseProjectAsset(asset)) {
       showToast('素材已到期或待清理，请先长期保留后再使用', 'info');
       return;
     }
@@ -5147,7 +5220,7 @@ const handlePointerUp = useCallback((e) => {
       let reusableAsset = asset;
       if (state.logged && !result.browserQa && asset?.projectId && asset?.projectAssetId) {
         try {
-          reusableAsset = await getProjectAsset(asset.projectId, asset.projectAssetId, 'reuse');
+          reusableAsset = await ensureReusableProjectAsset(asset);
         } catch (error) {
           showToast(error?.code === 'PROJECT_ASSET_NOT_REUSABLE'
             ? '素材已到期或待清理，请先长期保留后再使用'
@@ -5217,10 +5290,14 @@ const handlePointerUp = useCallback((e) => {
       projectAssetImportBusyRef.current = false;
       setProjectAssetBatchBusy(false);
     }
-  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, handleTabChange, nodes, phone, result, showToast, state.logged, viewport]);
+  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, ensureReusableProjectAsset, handleTabChange, nodes, phone, result, showToast, state.logged, viewport]);
   const handleImportProjectAssets = useCallback(async (assets = []) => {
     if (projectAssetImportBusyRef.current) return;
-    const candidates = (Array.isArray(assets) ? assets : []).filter(asset => canReuseProjectAsset(asset));
+    /* 9-15 同单素材导入：本地快照的 canReuseProjectAsset 仅用于未登录/浏览器 QA 兜底；
+       登录态逐项走 ensureReusableProjectAsset（服务端为准 + 用户素材自动长期保留）。 */
+    const candidates = (!state.logged || result.browserQa)
+      ? (Array.isArray(assets) ? assets : []).filter(asset => canReuseProjectAsset(asset))
+      : (Array.isArray(assets) ? assets : []);
     if (!candidates.length) {
       showToast('素材已到期或待清理，请先长期保留后再使用', 'info');
       return;
@@ -5236,7 +5313,7 @@ const handlePointerUp = useCallback((e) => {
         let reusableAsset = asset;
         if (state.logged && !result.browserQa && asset?.projectId && asset?.projectAssetId) {
           try {
-            reusableAsset = await getProjectAsset(asset.projectId, asset.projectAssetId, 'reuse');
+            reusableAsset = await ensureReusableProjectAsset(asset);
           } catch {
             failed += 1;
             continue;
@@ -5309,7 +5386,7 @@ const handlePointerUp = useCallback((e) => {
       projectAssetImportBusyRef.current = false;
       setProjectAssetBatchBusy(false);
     }
-  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, handleTabChange, nodes, phone, result, showToast, state.logged, viewport]);
+  }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, ensureReusableProjectAsset, handleTabChange, nodes, phone, result, showToast, state.logged, viewport]);
   const handleToggleProjectAssetSelection = useCallback(asset => {
     setSelectedProjectAssetKeys(current => toggleProjectAssetSelection(current, asset));
   }, []);
@@ -6032,7 +6109,16 @@ const handlePointerUp = useCallback((e) => {
       </div>
 
       {tab === 'canvas' ? (
-        <>
+        /* 9-15 用户批注：右侧功能栏顶部盖住黑色栏目 → 引入 .ec-canvas-workbench
+           作为右侧面板的绝对定位基准（从画布区顶部开始、占满整行），
+           面板 top=12px 即「画布区顶部 + 12px」，right=14px 即「视口右边 - 14px」。
+           9-15 用户批注：点画布空地收起右侧功能栏 → 命中工作区自身（右侧让位空隙）时清空选中。 */
+        <div className="ec-canvas-workbench" onPointerDown={event => {
+          if (event.target === event.currentTarget) {
+            setSelected(null);
+            setMultiSelected(new Set());
+          }
+        }}>
         <div
           ref={containerRef}
           /* 9-13 用户批注：「我随便上传一张图片，右边这个功能栏为什么整个盖上来？之前是在右边展示功能栏。」
@@ -6715,7 +6801,7 @@ const handlePointerUp = useCallback((e) => {
                 else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
               }}
             />}
-        </>
+        </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
           {/* 9-12 用户批注：作品只保留 7 天，要明确告知用户及时下载 */}

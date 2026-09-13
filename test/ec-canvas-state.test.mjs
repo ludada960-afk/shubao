@@ -390,7 +390,11 @@ test('project library batch imports revalidate each asset and persist one accumu
   assert.match(canvasSource, /selectedProjectAssetKeys/);
   assert.match(canvasSource, /加入所选/);
   assert.match(batchBlock, /setProjectAssetBatchBusy\(true\)/);
-  assert.match(batchBlock, /getProjectAsset\(asset\.projectId, asset\.projectAssetId, 'reuse'\)/);
+  /* 9-15：登录态改为服务端为准 —— ensureReusableProjectAsset 内部做 reuse 复检，
+     被保留策略标记为待清理的素材自动「长期保留」后再重试（用户自己的素材不再被误判）。 */
+  assert.match(batchBlock, /ensureReusableProjectAsset\(asset\)/);
+  assert.match(canvasSource, /const ensureReusableProjectAsset = useCallback/);
+  assert.match(canvasSource, /setProjectAssetRetention\(asset\.projectId, asset\.projectAssetId, true\)/);
   assert.match(batchBlock, /session = imported\.session/);
   assert.match(batchBlock, /saveWork\(workResult, phone\)/);
   assert.match(batchBlock, /setSelectedProjectAssetKeys\(new Set\(\)\)/);
@@ -399,7 +403,10 @@ test('project library batch imports revalidate each asset and persist one accumu
 
 test('project library imports revalidate the canonical asset before mutating Canvas', () => {
   const importBlock = canvasSource.match(/const handleImportProjectAsset = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
-  assert.match(importBlock, /getProjectAsset\(asset\.projectId, asset\.projectAssetId, 'reuse'\)/);
+  /* 9-15：单素材导入同样走 ensureReusableProjectAsset（服务端 reuse 复检 + 自动长期保留），
+     取消本地快照 canReuseProjectAsset 的直接拦截。 */
+  assert.match(importBlock, /reusableAsset = await ensureReusableProjectAsset\(asset\)/);
+  assert.match(canvasSource, /const ensureReusableProjectAsset = useCallback/);
   assert.match(importBlock, /importProjectAssetToCanvas\(\{[\s\S]*?asset: reusableAsset/);
 });
 

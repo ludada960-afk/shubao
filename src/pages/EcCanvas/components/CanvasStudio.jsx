@@ -6,6 +6,7 @@ import {
   AlignLeft,
   AlignRight,
   ArrowLeft,
+  BookmarkPlus,
   Bold,
   Captions,
   Check,
@@ -97,6 +98,9 @@ const ACTION_ICONS = {
   annotation: ScanText,
   duplicate: Copy,
   delete: Trash2,
+  /* 9-15 用户批注：「加入资产库」不能是 AI 魔法棒图标 —— 换成语义明确的入库图标
+     （BookmarkPlus = 收藏进入资产库），点过后高亮表示已在资产库（is-active 态已有）。 */
+  'save-to-assets': BookmarkPlus,
 };
 
 /* Panel entrance gate: each floating-panel family plays its ecPanelIn spring

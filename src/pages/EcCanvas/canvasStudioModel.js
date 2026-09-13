@@ -98,19 +98,20 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
   };
 }
 
-/* 9-13 用户批注：生成面板**太宽**（比下面的提示词区还宽、中间留白过多）→
-   默认收到 480，且不超过节点自身宽度。 */
-export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 520, gap = 12 } = {}) {
+/* 9-15 用户硬性回退：四个生成框（图片/文案/视频/套图）下面的输入面板**全部被收窄变形**。
+   用户原话：「这四个生成功能下面的输入框全部都变形了呀，都变得很窄了，这是错误的呀，
+   之前明明好好的，我只是叫你加个统一的技能栏和统一的 @ 按钮，你为什么就把全部的输入栏给做坏了呀」
+   → 面板回到**又宽又不空**的大编辑区：默认 640、节点更宽时跟节点同宽、最宽 720。
+   内部不出现大片留白：底部参数行（模型/比例/清晰度/张数/技能/@）与生成按钮在同一视觉块内不换行变形。 */
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 12 } = {}) {
   const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
   if (!visible) return { visible: false, position: null };
   const nodeWidth = Math.max(1, finite(node.w, width));
-  /* 9-13 用户批注（两轮反馈的平衡点）：
-     ① 上一轮「面板太宽、中间留白多」→ 收窄；② 这一轮「你把它们搞那么窄是要干什么？」
-     → 生成面板底部有 6 个控件（模型/比例/清晰度/张数/技能/生成按钮），低于 420 就会换行变形。
-     最终口径：**最小 420（控件不换行）/ 最大 520（不喧宾夺主）/ 不超过节点宽度时取节点宽**。 */
-  const MIN_COMPOSER_WIDTH = 420;
-  const MAX_COMPOSER_WIDTH = 520;
-  width = Math.round(Math.min(MAX_COMPOSER_WIDTH, Math.max(MIN_COMPOSER_WIDTH, Math.min(width, nodeWidth))));
+  /* 9-15 最终口径：面板宽 = clamp(640, 节点宽, 720)。
+     默认 640；节点更宽时面板跟节点同宽（最多 720）；不再出现 420/520 那种窄面板。 */
+  const MIN_COMPOSER_WIDTH = 640;
+  const MAX_COMPOSER_WIDTH = 720;
+  width = Math.round(Math.min(MAX_COMPOSER_WIDTH, Math.max(MIN_COMPOSER_WIDTH, nodeWidth)));
   const nodeHeight = Math.max(1, finite(node.h, 0));
   return {
     visible: true,
