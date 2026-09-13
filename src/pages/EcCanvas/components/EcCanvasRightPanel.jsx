@@ -1,4 +1,5 @@
-import React from 'react';
+/* 9-13：统一成具名导入（文件内既有 React.useX 也有裸写，守卫测试据此报错） */
+import React, { useEffect, useState } from 'react';
 import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 

@@ -1,3 +1,7 @@
+/* 9-13：这个文件此前缺 react 钩子导入（守卫测试抓出）。虽然当前画布渲染的是
+   CanvasContextMenuPanel 里的实现，但留着一个会崩的副本是隐患 —— 补齐导入。 */
+import React, { useEffect, useRef, useState } from 'react';
+
 export function CanvasMinimap({
   nodes = [],
   connections = [],

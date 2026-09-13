@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   deleteCanvas,
@@ -34,6 +34,9 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
      variant='page' 时不再渲染遮罩，直接作为画布区域内的一个整页视图。 */
   const isPage = variant === 'page';
   /* 9-13: 分类筛选（收藏 / 最近） */
+  const [state, setState] = useState({ loading: false, error: '', items: [] });
+  const [renamingId, setRenamingId] = useState('');
+  const [renameDraft, setRenameDraft] = useState('');
   const [libraryFilter, setLibraryFilter] = useState('all');
   const visibleItems = useMemo(() => state.items.filter(item => {
     if (libraryFilter === 'favorite') return item.favorite === true;
@@ -63,9 +66,6 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
         items,
       }));
   }, [visibleItems]);
-  const [state, setState] = useState({ loading: false, error: '', items: [] });
-  const [renamingId, setRenamingId] = useState('');
-  const [renameDraft, setRenameDraft] = useState('');
   useModalScrollLock(open);
 
   const reload = useCallback(async () => {
