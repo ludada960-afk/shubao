@@ -1565,4 +1565,19 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
 - **上架门槛（未变）**：前端 `SELECTABLE_IMAGE_MODELS` 仍过滤 `pending: true`，五档都还没进选择器 ——
   需要用户各跑一次真实生成验收（确认 id 可用 + 产物质量）后，去掉 pending 即可上架，无需再改后端。
 
+### 自由创作 / 资产库（并行子代理完成，均已复核）
+- `afc9ed4d` **自由创作照抄小红书那套**：`VisualCreationMode` 直接复用小红书图文的 composer 类
+  （`.ec-xhs-composer` / `.ec-xhs-media-strip` / `.ec-xhs-prompt` / `.ec-workbench-actions` / `.shubao-gen-cta`），
+  只改文案（「我的素材 0/6」「风格参考」）；实测两边结构/尺寸/圆角一致。
+- `cf650b24` + `7e25a99b` **资产库弹窗照竞品**：卡片 **165×165 方形**、封面 `object-fit: cover`（原来被内联 contain 压住，四周露灰条 → 已用 `!important` 压回）、
+  名称走**底部渐变遮罩**（`rgba(15,15,18,0→.74)`）、垃圾桶 30×30 **默认 opacity 0，hover / focus-within 才出现**（右上角，hover 变红）、打勾徽章挪左上。
+  实测 before→after：资产库管理弹窗卡片 173×192 → **173×173 方形**。
+
+### 上线与线上验证
+- 两次 frontend 档部署：`a288c2da` → 再 `7e25a99b`；线上 `current = /var/www/shubao/releases/20260913-195104-7e25a99b`，health 200，站内 117 张画廊与视频契约校验通过。
+- 线上 bundle 抽查（`style-CyyOtJd-.css` + `index-CpU0PbbI.js`）确认含：`ec-canvas-composer-cta`、`ec-canvas-derive-menu.is-above`、`is-flipped`、
+  `canvas-asset-picker-name` / `-delete`、「确认方案后扣费」、「更多技能」。
+- 全量测试：**3267 / 3267 全绿**。
+- 遗留提示（非本次改动引入）：部署机探针报 `Nano Banana gateway probe failed: fetch failed`（本地到该网关不通），线上功能不受影响，下次上线上网时可复看。
+
 
