@@ -489,17 +489,27 @@
   box-shadow: 0 8px 18px rgba(74, 53, 180, .2);
 }
 
-/* 9-12 用户批注：上传区与输入区要「做进同一个框里」，照小红书图文那套（单卡片白底 + 内部分隔线） */
+/* 9-13 用户批注：自由创作上传区 + 输入区照抄小红书图文那套（复用 ec-xhs-composer 暖色渐变面），只改文案 */
 .visual-creation-composer {
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid #ece3da;
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
+/* 与小红书图文一致的暖黄渐变创作面（.ec-xhs-composer 同款外观）：
+   圆角 16 / 内边距 8px 10px / 段间距 8px / 最小高度 310px */
+.visual-composer-surface.ec-xhs-composer {
+  min-height: 310px;
+  padding: 8px 10px 10px;
+  gap: 8px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%);
+}
+
+/* ── 素材上传区（照小红书媒体条：虚线圆角卡片 + × 分隔 + 悬停放大的同款交互）── */
 .visual-reference-zone {
-  padding: 16px 20px 14px;
-  border-bottom: 1px dashed #efe4d9;
+  display: block;
+  min-width: 0;
 }
 
 .visual-reference-heading,
@@ -521,194 +531,57 @@
   font-size: 11px;
 }
 
+/* 媒体条本身复用 .ec-xhs-media-strip（128 高 / 12 间距 / 8px 10px 内边距 / 横向滚动） */
 .visual-reference-list {
-  display: flex;
-  min-height: 102px;
-  margin-top: 15px;
-  align-items: stretch;
-  gap: 10px;
+  margin-top: 10px;
 }
 
-.visual-reference-item,
-.visual-reference-add {
-  position: relative;
-  width: 88px;
-  height: 110px;
-  flex: 0 0 88px;
-  overflow: visible;
-  margin: 0;
-  background: #fff;
-  border: 1px dashed #d9ced9;
-  border-radius: 7px;
+/* ── 提示词框（照小红书：无边框 textarea + 占位提示，15px/28px）── */
+.visual-prompt-field.ec-xhs-prompt {
+  height: 104px;
+  min-height: 104px;
+  padding: 6px 0;
 }
 
-.visual-reference-item img {
+.visual-prompt-field.ec-xhs-prompt .xhs-prompt-field {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
-.visual-reference-item figcaption {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  left: 5px;
-  overflow: hidden;
-  padding: 3px 5px;
-  color: #fff;
-  background: rgba(32, 28, 32, .72);
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.visual-reference-item > button {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-  display: grid;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  place-items: center;
-  color: #fff;
-  background: #3b343b;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.visual-reference-add {
-  display: grid;
-  padding: 9px 5px;
-  place-items: center;
-  align-content: center;
-  gap: 3px;
-  color: #5f565d;
-  cursor: pointer;
-}
-
-.visual-reference-add-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  color: #6854db;
-  background: #eee9ff;
-  border-radius: 50%;
-}
-
-.visual-reference-add strong {
-  font-size: 12px;
-}
-
-.visual-reference-add > span:last-child {
-  color: #91888f;
-  font-size: 10px;
-}
-
-.visual-prompt-field {
-  position: relative;
-  /* 9-12 用户批注：提示词框要再高一些，与其它板块一致 */
-  min-height: 236px;
-  padding: 18px 22px 56px;
-  background: transparent;
-}
-
-.visual-prompt-field .mention-prompt-field {
-  width: 100%;
-  min-height: 168px;
-  max-height: 260px;
-  margin: 0;
-  padding: 18px;
-  color: #2f2b31;
-  background: rgba(255, 255, 255, .82);
-  border: 1px solid #e7ded5;
-  border-radius: 7px;
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.visual-prompt-footer {
-  position: absolute;
-  right: 18px;
-  bottom: 11px;
-  left: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.visual-prompt-footer > small {
-  color: #8f878e;
-  font-size: 11px;
-}
-
-.visual-mention-wrap {
-  position: relative;
-}
-
-.visual-mention-button {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  place-items: center;
-  color: #5d50c4;
-  background: #fff;
-  border: 1px solid #ded6e2;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.visual-mention-button:disabled {
-  color: #aaa3aa;
-  cursor: not-allowed;
-}
-
-.visual-mention-menu {
-  position: absolute;
-  z-index: 20;
-  bottom: 42px;
-  left: 0;
-  display: grid;
-  min-width: 170px;
-  overflow: hidden;
-  padding: 5px;
-  background: #fff;
-  border: 1px solid #ddd5df;
-  border-radius: 7px;
-  box-shadow: 0 12px 28px rgba(46, 37, 48, .18);
-}
-
-.visual-mention-menu button {
-  padding: 9px 10px;
-  color: #3d55ae;
-  text-align: left;
-  background: transparent;
+  min-height: 104px;
+  box-sizing: border-box;
+  padding: 8px 18px;
   border: 0;
-  border-radius: 5px;
-  cursor: pointer;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 15px;
+  line-height: 28px;
+  caret-color: var(--text-primary);
 }
 
-.visual-mention-menu button:hover {
-  background: #edf3ff;
-}
-
+/* ── 底栏（照小红书：白底 + 上边框，左侧工具胶囊 + 右侧统一生成按钮 + 按钮内动态积分）── */
 .visual-parameter-bar {
   position: relative;
-  display: flex;
-  min-height: 64px;
-  padding: 10px 12px;
-  align-items: center;
-  gap: 7px;
+  min-height: 79px;
+  padding: 12px 2px 14px;
   background: #fff;
-  border-top: 1px solid #ece5df;
+  border-top: 1px solid rgba(28, 25, 23, .08);
 }
+
+.visual-generate-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* 与小红书图文底栏按钮盒一致（高 38px / 圆角 12px / 横排 22px） */
+.visual-generate-button.ec-workbench-next {
+  height: 38px;
+  min-width: 0;
+  padding: 0 22px;
+  border-radius: 12px;
+}
+
 
 .visual-config-cluster {
   display: flex;
@@ -963,7 +836,7 @@
   white-space: nowrap;
 }
 
-.visual-generate-button,
+/* 自由创作的生成按钮只保留布局（右对齐），外观由全局 .shubao-gen-cta 统一接管 */
 .visual-results-heading button,
 .visual-feedback button {
   display: inline-flex;
@@ -981,19 +854,10 @@
   cursor: pointer;
 }
 
-.visual-generate-button:hover,
 .visual-results-heading button:hover,
 .visual-feedback button:hover {
   background: #5f4fd5;
 }
-
-.visual-generate-button:disabled,
-.visual-reference-add:disabled,
-.visual-reference-item button:disabled {
-  cursor: not-allowed;
-  opacity: .55;
-}
-.visual-generate-button:disabled { color: #8d8790; background: #e7e4e8; box-shadow: none; }
 
 .visual-feedback {
   display: flex;
@@ -1198,16 +1062,8 @@
     grid-template-columns: minmax(220px, .65fr) minmax(390px, 1.35fr);
   }
 
-  .visual-parameter-bar {
-    flex-wrap: wrap;
-  }
-
   .visual-cost {
     margin-left: 0;
-  }
-
-  .visual-generate-button {
-    margin-left: auto;
   }
 }
 
@@ -1332,17 +1188,11 @@
     padding: 6px 2px 8px;
   }
 
-  .visual-prompt-field .mention-prompt-field {
-    min-height: 118px;
-  }
-
-  .visual-cost {
-    order: 2;
-    flex: 1;
-  }
-
-  .visual-generate-button {
-    order: 3;
+  /* 照小红书：移动端提示词框收窄到 92px */
+  .visual-prompt-field.ec-xhs-prompt,
+  .visual-prompt-field.ec-xhs-prompt .xhs-prompt-field {
+    height: 92px;
+    min-height: 92px;
   }
 
   .visual-config-panel-grid { grid-template-columns: 1fr; }

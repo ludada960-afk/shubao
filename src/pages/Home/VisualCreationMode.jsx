@@ -4,7 +4,6 @@ import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
 import { Check, Info, LayoutTemplate, Layers3, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 import {
   MdAddPhotoAlternate,
-  MdAlternateEmail,
   MdAspectRatio,
   MdAutoAwesome,
   MdCampaign,
@@ -29,7 +28,9 @@ import { useApp } from '../../store/AppContext';
 import { uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
 import { IMAGE_MODELS } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
+import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
+import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
+import { EcommerceAddCard, EcommerceImageCard } from './ec/components/EcommerceAssetCards.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
 import {
@@ -62,6 +63,25 @@ const VISUAL_SKILL_ICONS = {
 
 function referenceId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+/* 照小红书图文那套：ImageMentionPicker(insert) 把 @引用 插进 textarea 光标处 */
+function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
+  const field = fieldRef.current;
+  const result = insertImageMentionAt(
+    currentValue,
+    label,
+    field?.selectionStart,
+    field?.selectionEnd,
+  );
+  if (result.value === currentValue) return;
+  setValue(result.value);
+  const restore = () => {
+    field?.focus();
+    field?.setSelectionRange?.(result.caret, result.caret);
+  };
+  if (globalThis.requestAnimationFrame) globalThis.requestAnimationFrame(restore);
+  else globalThis.setTimeout?.(restore, 0);
 }
 
 function generationErrorMessage(error) {
@@ -227,7 +247,6 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const [uploading, setUploading] = useState(false);
   const [showcaseSlide, setShowcaseSlide] = useState(0);
   const [showcaseManualRevision, setShowcaseManualRevision] = useState(0);
-  const [showMentionMenu, setShowMentionMenu] = useState(false);
   const [previewItem, setPreviewItem] = useState(null);
   const [activeConfigPanel, setActiveConfigPanel] = useState(null);
   /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 */
@@ -287,10 +306,13 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     return () => globalThis.removeEventListener?.('keydown', onKeyDown);
   }, [previewItem, previewItems]);
   const skillControl = skillControlValues[skillId] || selectedSkill.control?.options?.[0] || '';
-  const mentionOptions = useMemo(() => references.map((reference, index) => ({
+  /* 照小红书图文那套：ImageMentionPicker 的 images 数组（name 生成 @参考图 N 标签） */
+  const mentionImages = useMemo(() => references.map((reference, index) => ({
     id: reference.id,
     sourceNodeId: `visual-reference-${index + 1}`,
-    label: `@参考图 ${index + 1}`,
+    url: reference.previewUrl,
+    name: `参考图 ${index + 1}`,
+    role: 'reference',
   })), [references]);
 
   useEffect(() => {
@@ -587,11 +609,6 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
 
   const openCanvas = () => { openCanvasWithRun(run); };
 
-  const insertMention = label => {
-    promptRef.current?.insertMention?.(label);
-    setShowMentionMenu(false);
-  };
-
   const updateSkillControl = value => {
     setSkillControlValues(current => ({ ...current, [skillId]: value }));
   };
@@ -754,119 +771,126 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
       </section>
 
       <div className="visual-creation-composer">
-        <div
-          className="visual-reference-zone"
-          onDragOver={event => event.preventDefault()}
-          onDrop={event => {
-            event.preventDefault();
-            if (!busy) appendFiles(event.dataTransfer.files);
-          }}
-        >
-          <div className="visual-reference-heading">
-            {/* 9-12 用户批注：文案照小红书那套语义 —— 这里是「我的素材」（主体/产品），
-                风格参考只影响构图与色调，同样放这里即可。 */}
-            <span><MdAddPhotoAlternate />我的素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
-            <small>{selectedSkill.materialHint || '主体或参考图都可以 · 风格参考只影响构图与色调'} · JPG/PNG/WebP，最多 6 张</small>
+        {/* ═══ 素材上传区 + 输入区 + @引用：照抄小红书图文那套（ec-xhs-composer 暖色渐变面），只改文案 ═══ */}
+        <div className="ec-xhs-composer visual-composer-surface">
+          <div
+            className="visual-reference-zone"
+            onDragOver={event => event.preventDefault()}
+            onDrop={event => {
+              event.preventDefault();
+              if (!busy) appendFiles(event.dataTransfer.files);
+            }}
+          >
+            <div className="visual-reference-heading">
+              {/* 9-13 用户批注：文案照小红书那套语义 —— 这里是「我的素材」（主体/产品），
+                  风格参考只影响构图与色调，同样放这里即可。 */}
+              <span><MdAddPhotoAlternate />我的素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
+              <small>{selectedSkill.materialHint || '主体或参考图都可以 · 风格参考只影响构图与色调'} · JPG/PNG/WebP，最多 6 张</small>
+            </div>
+            <div className="ec-xhs-media-strip xhs-ecommerce-media-strip visual-reference-list">
+              {references.map((reference, index) => (
+                <EcommerceImageCard
+                  key={reference.id}
+                  role="product"
+                  image={{ url: reference.previewUrl, status: 'loaded' }}
+                  label={`我的素材 ${index + 1}`}
+                  index={index}
+                  onRemove={() => removeReference(reference.id)}
+                />
+              ))}
+              {references.length < MAX_REFERENCES && (
+                <EcommerceAddCard
+                  role="product"
+                  label={references.length ? '继续添加' : '我的素材'}
+                  meta={references.length ? '补充素材' : '主体或参考图'}
+                  title="添加我的素材"
+                  onClick={() => { if (!busy) fileInputRef.current?.click(); }}
+                />
+              )}
+              <span className="ec-xhs-multiply" aria-hidden="true">×</span>
+              <EcommerceAddCard
+                role="reference"
+                label="风格参考"
+                meta="构图或色调"
+                optional
+                title="添加风格参考"
+                onClick={() => { if (!busy) fileInputRef.current?.click(); }}
+              />
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              hidden
+              onChange={event => appendFiles(event.target.files)}
+            />
           </div>
-          <div className="visual-reference-list">
-            {references.map((reference, index) => (
-              <figure className={`visual-reference-item visual-reference-item-${index % 3}`} key={reference.id}>
-                <img src={reference.previewUrl} alt={`参考图 ${index + 1}`} width="160" height="160" loading="lazy" decoding="async" fetchpriority="auto" />
-                <figcaption>参考图 {index + 1}</figcaption>
-                <button
-                  type="button"
-                  title={`删除参考图 ${index + 1}`}
-                  aria-label={`删除参考图 ${index + 1}`}
-                  onClick={() => removeReference(reference.id)}
-                  disabled={busy}
-                ><MdClose /></button>
-              </figure>
-            ))}
-            {references.length < MAX_REFERENCES && (
-              <button
-                type="button"
-                className="visual-reference-add"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={busy}
-              >
-                <span className="visual-reference-add-icon"><MdAddPhotoAlternate /></span>
-                <strong>参考图</strong>
-                <span>主体、构图或风格</span>
-              </button>
+
+          <div
+            className="ec-textarea-wrap ec-xhs-prompt visual-prompt-field"
+            onClick={event => { if (event.target !== promptRef.current) promptRef.current?.focus(); }}
+          >
+            <textarea
+              ref={promptRef}
+              value={prompt}
+              onChange={event => setPrompt(String(event.target.value || '').slice(0, IMAGE_PROMPT_LIMIT))}
+              className="xhs-prompt-field"
+              placeholder=""
+              aria-label="画面描述"
+              onPaste={event => {
+                const files = Array.from(event.clipboardData?.files || []).filter(file => ACCEPTED_IMAGE_TYPES.has(file.type));
+                if (files.length) { event.preventDefault(); appendFiles(files); }
+              }}
+            />
+            {!prompt && (
+              <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints" aria-hidden="true">
+                <span className="ec-placeholder-line">{selectedSkill.promptHint ? `${selectedSkill.title}：${selectedSkill.promptHint}` : `描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}</span>
+                <span className="ec-placeholder-line ec-xhs-example-first">例：午后咖啡馆里的透明玻璃杯，逆光，杯身加一行手写体标题</span>
+                <span className="ec-placeholder-line">例：春日街角的樱花树与单车，清新浅色调，主体放画面右侧</span>
+              </div>
             )}
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            hidden
-            onChange={event => appendFiles(event.target.files)}
-          />
+
+          <div className="ec-workbench-mention-row">
+            <ImageMentionPicker
+              images={mentionImages}
+              selectionMode="insert"
+              onToggle={image => insertMentionInTextarea(promptRef, prompt, setPrompt, image.label)}
+            />
+          </div>
         </div>
 
-        <div className="visual-prompt-field">
-          <MentionPromptField
-            ref={promptRef}
-            value={prompt}
-            mentions={mentionOptions}
-            maxLength={IMAGE_PROMPT_LIMIT}
-            onChange={value => setPrompt(String(value || '').slice(0, IMAGE_PROMPT_LIMIT))}
-            onFilesPasted={files => { if (!busy) appendFiles(files); }}
-            placeholder={selectedSkill.promptHint ? `${selectedSkill.title}：${selectedSkill.promptHint}` : `描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
-            aria-label="画面描述"
-            className={busy ? 'is-disabled' : ''}
-          />
-          <div className="visual-prompt-footer">
-            <div className="visual-mention-wrap">
-              <button
-                type="button"
-                className="visual-mention-button"
-                aria-label="引用参考素材"
-                title="引用参考素材"
-                disabled={busy || mentionOptions.length === 0}
-                onClick={() => setShowMentionMenu(current => !current)}
-              ><MdAlternateEmail /></button>
-              {showMentionMenu && (
-                <div className="visual-mention-menu" role="menu" aria-label="选择参考素材">
-                  {mentionOptions.map(option => (
-                    <button type="button" role="menuitem" key={option.id} onClick={() => insertMention(option.label)}>{option.label}</button>
-                  ))}
-                </div>
-              )}
+        {/* ═══ 底栏：左侧工具胶囊 + 右侧统一生成按钮（按钮内动态积分），照小红书图文那套 ═══ */}
+        <div className="ec-workbench-actions xhs-template-actions visual-parameter-bar">
+          <div className="ec-workbench-primary-row">
+            <div className="ec-workbench-tools xhs-template-tools visual-config-cluster" aria-label="生成配置">
+              <button type="button" ref={element => { configButtonRefs.current.recipe = element; }} className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
+                <MdAutoAwesome aria-hidden="true" />
+                <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
+                <MdTune aria-hidden="true" />
+              </button>
+              <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
+                <MdAspectRatio aria-hidden="true" />
+                <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{ratio} · {count} 张</strong></span>
+                <MdTune aria-hidden="true" />
+              </button>
+              <button type="button" ref={element => { configButtonRefs.current.settings = element; }} className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
+                <MdHighQuality aria-hidden="true" />
+                <span className="visual-config-trigger-copy"><small>生成设置</small><strong>{model.label} · {resolution}</strong></span>
+                <MdTune aria-hidden="true" />
+              </button>
             </div>
-            <small>{prompt.length}/3000</small>
-          </div>
-        </div>
-
-        <div className="visual-parameter-bar">
-          <div className="visual-config-cluster" aria-label="生成配置">
-            <button type="button" ref={element => { configButtonRefs.current.recipe = element; }} className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
-              <MdAutoAwesome aria-hidden="true" />
-              <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
-              <MdTune aria-hidden="true" />
-            </button>
-            <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
-              <MdAspectRatio aria-hidden="true" />
-              <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{ratio} · {count} 张</strong></span>
-              <MdTune aria-hidden="true" />
-            </button>
-            <button type="button" ref={element => { configButtonRefs.current.settings = element; }} className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
-              <MdHighQuality aria-hidden="true" />
-              <span className="visual-config-trigger-copy"><small>生成设置</small><strong>{model.label} · {resolution}</strong></span>
-              <MdTune aria-hidden="true" />
+            <button
+              type="button"
+              className="visual-generate-button shubao-gen-cta ec-workbench-next"
+              title={`${model.label} ${resolution} · 预计 ${estimatedPoints} AI 积分`}
+              onClick={startGeneration}
+              disabled={!canGenerate || busy}
+            >
+              {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>}
             </button>
           </div>
-          {/* 9-12 用户批注：预计积分统一放进按钮里（与电商生图、生视频一致），不再单独挂一条小字 */}
-          <button
-            type="button"
-            className="visual-generate-button shubao-gen-cta"
-            title={`${model.label} ${resolution} · 预计 ${estimatedPoints} AI 积分`}
-            onClick={startGeneration}
-            disabled={!canGenerate || busy}
-          >
-            {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>}
-          </button>
         </div>
         {renderConfigPanel()}
       </div>

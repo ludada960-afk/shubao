@@ -20,7 +20,7 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /JPG\/PNG\/WebP/);
   assert.match(source, /最多 6 张/);
   /* 9-13：提示词引导按子页面走 selectedSkill.promptHint（缺省回落到通用文案） */
-  assert.match(source, /placeholder=\{selectedSkill\.promptHint \?/);
+  assert.match(source, /selectedSkill\.promptHint/);
   assert.match(source, /只重试失败项/);
   assert.match(source, /进入画布/);
   assert.match(source, /下载/);
@@ -28,8 +28,10 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /自由创作，做出可继续编辑的视觉/);
   assert.match(source, /VISUAL_SHOWCASE_AUTO_DWELL_MS/);
   assert.match(source, /VISUAL_SHOWCASE_MANUAL_DWELL_MS/);
-  assert.match(source, /MentionPromptField/);
-  assert.match(source, /insertMention/);
+  /* 9-13 更新预期：照小红书那套 —— ImageMentionPicker(insert) + 无边框 textarea */
+  assert.match(source, /ImageMentionPicker/);
+  assert.match(source, /xhs-prompt-field/);
+  assert.match(source, /insertMentionInTextarea/);
   assert.match(source, /visual-showcase-controls/);
   assert.match(source, /visual-skill-stage-card/);
   assert.match(source, /selectedSkill\.showcases/);

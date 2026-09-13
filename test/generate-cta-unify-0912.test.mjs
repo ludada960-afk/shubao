@@ -37,6 +37,7 @@ test('自由创作：面板贴着触发按钮开（不再退化成全屏覆盖�
   const position = visual.match(/function getVisualPanelPosition\(panelId, button\) \{[\s\S]*?\n\}/)[0];
   assert.ok(/bottom: openAbove \? Math\.max\(12, viewportHeight - rect\.top \+ gap\)/.test(position), '向上开时贴在按钮上方');
   const css = read('src/pages/Home/VisualCreationMode.css');
-  assert.ok(css.includes('min-height: 236px'), '提示词框更高');
-  assert.ok(css.includes('min-height: 168px'), '输入区更高');
+  /* 9-13 更新预期：提示词框照小红书那套（104px 高 / 15px·28px 行高 / 无边框 textarea） */
+  assert.ok(css.includes('min-height: 104px'), '提示词框照小红书 104px');
+  assert.ok(css.includes('height: 104px'), '提示词框高度照小红书');
 });
