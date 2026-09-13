@@ -416,7 +416,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const model = normalizeImageModel(genSettings.imageModel || 'image2');
     const resolution = String(genSettings.resolution || '2K').toUpperCase();
     const unitsPerImage = generationUnits(model, resolution) || 0;
-    const totalImages = (Array.isArray(sizing.images) ? sizing.images : [])
+    /* 9-12 用户批注：默认整套（如 1白底+3主图+1素材+5详情=10 张）必须按整套张数算积分，
+       不能在 sizing.images 为空时退化成 1 张 → 显示 1 积分。这里与底部摘要同源。 */
+    const planned = resolveSizingImages(platform, { ...sizing, resolution });
+    const totalImages = (Array.isArray(planned) && planned.length ? planned : (Array.isArray(sizing.images) ? sizing.images : []))
       .reduce((sum, item) => sum + (Number(item?.count) || 0), 0);
     const count = Math.max(1, totalImages);
     const modelLabel = IMAGE_MODELS.find(entry => entry.id === model)?.label || 'GPT Image 2';
