@@ -30,7 +30,6 @@
 .canvas-library.is-page .canvas-library-grid { padding: 20px 28px 32px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
 .canvas-library.is-page .canvas-library-card { background: rgba(255,255,255,.86); border-color: rgba(28,25,23,.08); backdrop-filter: blur(10px); transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease; }
 .canvas-library.is-page .canvas-library-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(28,25,23,.18); border-color: rgba(124,58,237,.34); }
-.canvas-library.is-page .canvas-library-cover { aspect-ratio: 4 / 3; }
 
 
 /* ═══ 9-13 用户批注：画布库「照抄竞品」重做外观 ═══
@@ -43,7 +42,8 @@
 .canvas-library.is-page .canvas-library-grid { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 22px; }
 /* ① 方形容器 + ③ 默认无内边距（信息以遮罩浮在上面） */
 .canvas-library.is-page .canvas-library-card { display: block; padding: 0; gap: 0; border-radius: 16px; overflow: hidden; background: #f2efe9; }
-.canvas-library.is-page .canvas-library-cover { aspect-ratio: 1 / 1; border-radius: 0; background: #efece6; }
+/* 9-13 修复：「照抄」时用 aspect-ratio 让卡片塌成了细条 → 改固定高度（稳）+ 封面居中裁剪 */
+.canvas-library.is-page .canvas-library-cover { display: block; height: 230px; min-height: 230px; border-radius: 0; background: #efece6; }
 /* ② 封面居中裁剪（长图取中间，而不是只显示上半部分） */
 .canvas-library.is-page .canvas-library-cover img { width: 100%; height: 100%; object-fit: cover; object-position: center center; }
 /* ② 标题/时间做成底部渐变遮罩，不占容器高度 */

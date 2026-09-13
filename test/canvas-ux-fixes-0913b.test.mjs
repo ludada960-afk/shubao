@@ -49,7 +49,8 @@ test('资产库弹窗与画布库照竞品（悬停放大 / 垃圾桶 / 方形�
   assert.ok(/canvas-asset-library-modal article:hover \{[^}]*scale\(1\.035\)/.test(sup), '资产卡悬停放大');
   assert.ok(/canvas-asset-library-modal \.ec-asset-card-delete \{[^}]*opacity: 0/.test(sup), '删除按钮默认隐藏');
   const lib = read('src/pages/EcCanvas/components/canvas-library.css');
-  assert.ok(/canvas-library-cover \{[^}]*aspect-ratio: 1 \/ 1/.test(lib), '方形容器');
+  /* 9-13 修复：封面固定高度（aspect-ratio 在 button 上不稳，曾让卡片塌成细条） */
+  assert.ok(/canvas-library-cover \{[^}]*height: 230px/.test(lib), '方形封面（固定高度）');
   assert.ok(/object-position: center center/.test(lib), '封面居中裁剪');
   assert.ok(/canvas-library-card-body \{[^}]*position: absolute/.test(lib), '信息是遮罩、不占容器');
   const modal = read('src/pages/EcCanvas/components/CanvasLibraryModal.jsx');

@@ -27,6 +27,8 @@ test('画布库改整页 + hover 动效', () => {
   /* 9-13 修正：用户要求「新建画布是独立页面」→ 固定全屏（不再是画布内的绝对定位层） */
   assert.ok(/canvas-library-overlay\.is-page \{[^}]*position: fixed/.test(css), '独立整页（固定全屏）');
   assert.ok(/canvas-library-card:hover \{[^}]*translateY\(-8px\) scale\(1\.03\)/.test(css), 'hover 上浮放大');
+  /* 9-13 修复：封面固定高度（原 aspect-ratio 会让卡片塌成细条） */
+  assert.ok(/canvas-library-cover \{[^}]*height: 230px/.test(css), '封面固定高度');
 });
 
 test('左侧「+」菜单分组', () => {
