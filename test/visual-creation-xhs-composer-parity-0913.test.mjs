@@ -51,9 +51,11 @@ test('上传区与输入区在同一张卡片内（照小红书那套结构标�
   assert.ok(css.includes('.visual-parameter-bar {'), '底栏样式存在');
 });
 
-test('文案：素材区标题「我的素材」并保留计数；不含违禁词', () => {
-  assert.match(source, /我的素材/, '素材区标题用「我的素材」');
-  assert.ok(source.includes('{references.length}/{MAX_REFERENCES}'), '保留 references 计数');
+test('文案：素材区「我的素材 / 风格参考」分桶计数；不含违禁词', () => {
+  /* 9-13 二轮批注：顶部标题行已删，计数与上限移入素材区提示行（照小红书位置） */
+  assert.match(source, /我的素材/, '素材区文案用「我的素材」');
+  assert.ok(source.includes('{materials.length}/{MAX_REFERENCES}'), '我的素材计数保留');
+  assert.ok(source.includes('{styles.length}/{MAX_STYLE_REFERENCES}'), '风格参考计数保留');
   assert.match(source, /风格参考只影响构图与色调/, '风格参考提示文案保留');
   for (const word of ['上游', '供应商', '备用', '任务号']) {
     assert.ok(!source.includes(word), '自由创作文案不得出现「' + word + '」');

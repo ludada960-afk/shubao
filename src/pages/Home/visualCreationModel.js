@@ -18,6 +18,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     /* 9-12 用户批注：四个子页面各自适配文案（素材区提示 + 提示词引导） */
     materialHint: '主体或参考图都可以 · 风格参考只影响构图与色调',
     promptHint: '描述主体、场景、构图与限制条件',
+    /* 9-13 二轮批注：自由创作页四个子页面要各自独立的占位引导与示例（不再共用同一份） */
+    promptExamples: Object.freeze([
+      '例：午后咖啡馆的透明玻璃杯，逆光，杯身加一行手写体标题，暖棕色调',
+      '例：春日街角的樱花树与单车，清新浅色调，主体放画面右侧',
+    ]),
     shortDescription: '从一句想法或参考图开始',
     preserves: '你的主体、关系与明确约束',
     outcome: '由描述自由定义画面风格与构图',
@@ -52,6 +57,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     title: '海报设计',
     materialHint: '放主体图 + 需要上版面的文字信息（品牌、标题、促销）',
     promptHint: '描述主体位置、文字层级与整体氛围',
+    /* 9-13 二轮批注：海报设计 —— 主体位置 + 文字层级 */
+    promptExamples: Object.freeze([
+      '例：周末市集促销海报，主标题横贯顶部，产品放正中焦点，底部留白给时间地点',
+      '例：新书发布海报，书名做超大衬线标题，作者与发售信息排成两行小字区',
+    ]),
     shortDescription: '先建立焦点，再组织信息层级',
     preserves: '核心主体、品牌信息与标题优先级',
     outcome: '完整构图、清晰层级与可读排版区',
@@ -86,6 +96,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     title: '社媒封面',
     materialHint: '放主体或产品图 + 想突出的封面文案',
     promptHint: '描述封面想传达的重点与情绪',
+    /* 9-13 二轮批注：社媒封面 —— 标题安全区 + 平台尺寸 */
+    promptExamples: Object.freeze([
+      '例：美食探店封面，标题「人均 50 吃到扶墙出」放左上安全区，主图占中下 2/3',
+      '例：穿搭教程封面，标题「小个子显高 5cm」居中置顶，人物全身照放右侧竖构图',
+    ]),
     shortDescription: '让主题在移动端一眼可读',
     preserves: '主体辨识度与标题信息优先级',
     outcome: '强视觉焦点、标题安全区与紧凑构图',
@@ -121,6 +136,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     title: '品牌主视觉',
     materialHint: '放产品图与品牌素材（logo / 主色 / 代表场景）',
     promptHint: '描述品牌调性、使用场景与要避免的元素',
+    /* 9-13 二轮批注：品牌主视觉 —— 品牌调性 + 色彩系统 */
+    promptExamples: Object.freeze([
+      '例：环保家居品牌主视觉，原木与燕麦色做品牌色，产品置于自然光场景中心',
+      '例：户外运动品牌 Campaign KV，锁定品牌绿与产品剪影，山野场景向两侧延展',
+    ]),
     shortDescription: '把品牌调性扩展成统一画面语言',
     preserves: '品牌身份、产品特征与关键色',
     outcome: '可延展的场景、材质、光影与构图系统',
@@ -173,6 +193,13 @@ export function resolveVisualSkillRatio(skillId, requestedRatio) {
   const skill = visualSkillById(skillId);
   const supported = Array.isArray(skill.ratios) && skill.ratios.length ? skill.ratios : ['1:1'];
   return supported.includes(requestedRatio) ? requestedRatio : supported[0];
+}
+
+/* 9-13 二轮批注：切子页面时底部参数（画幅）按该板块最合适的默认值重置 */
+export function visualSkillDefaultRatio(skillId) {
+  const skill = visualSkillById(skillId);
+  const ratios = Array.isArray(skill.ratios) ? skill.ratios : [];
+  return ratios[0] || '1:1';
 }
 
 export function visualGenerationEstimate({ imageModel = 'image2', resolution = '2K', count = 1 } = {}) {

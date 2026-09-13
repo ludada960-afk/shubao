@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
 import { Check, Info, LayoutTemplate, Layers3, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 import {
-  MdAddPhotoAlternate,
   MdAspectRatio,
   MdAutoAwesome,
   MdCampaign,
@@ -44,12 +43,15 @@ import {
   visualRunIsBusy,
   visualSkillById,
   resolveVisualSkillRatio,
+  visualSkillDefaultRatio,
   visualGenerationEstimate,
 } from './visualCreationModel.js';
 import './VisualCreationMode.css';
 import { IMAGE_PROMPT_LIMIT } from '../../constants/promptLimits.js';
 
 const MAX_REFERENCES = 6;
+/* 9-13 二轮批注：跟小红书图文一致 ——「我的素材 ≤6 张；风格参考 ≤3 张」分别上限 */
+const MAX_STYLE_REFERENCES = 3;
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const VISUAL_SHOWCASE_AUTO_DWELL_MS = 9000;
@@ -219,22 +221,28 @@ function getVisualPanelPosition(panelId, button) {
 }
 
 function selectedReferencePayload(assets) {
-  return assets.map((asset, index) => ({
-    sourceNodeId: `visual-reference-${index + 1}`,
-    assetId: asset.assetId,
-    url: asset.url,
-    displayName: `参考图 ${index + 1}`,
-    mention: `@参考图 ${index + 1}`,
-    role: 'reference',
-    order: index,
-  }));
+  return assets.map((asset, index) => {
+    const isStyle = asset.bucket === 'style';
+    const displayName = isStyle ? `风格参考 ${asset.bucketIndex}` : `我的素材 ${asset.bucketIndex}`;
+    return {
+      sourceNodeId: `visual-reference-${index + 1}`,
+      assetId: asset.assetId,
+      url: asset.url,
+      displayName,
+      mention: `@${displayName}`,
+      role: isStyle ? 'reference' : 'source',
+      order: index,
+    };
+  });
 }
 
 export default function VisualCreationMode({ recoveryCheckpoint = null, initialSkillId = null }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [skillId, setSkillId] = useState('free');
   const [prompt, setPrompt] = useState('');
-  const [references, setReferences] = useState([]);
+  /* 9-13 二轮批注：跟小红书图文一致，上传区拆成「我的素材 ≤6」与「风格参考 ≤3」两个桶 */
+  const [materials, setMaterials] = useState([]);
+  const [styles, setStyles] = useState([]);
   const [imageModel, setImageModel] = useState('image2');
   const [ratio, setRatio] = useState('1:1');
   const [resolution, setResolution] = useState('2K');
@@ -244,6 +252,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const [work, setWork] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /* 9-13 二轮批注：超限/格式问题时给 toast（小红书同款顶部浮层），不静默丢弃 */
+  const [toast, setToast] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showcaseSlide, setShowcaseSlide] = useState(0);
   const [showcaseManualRevision, setShowcaseManualRevision] = useState(0);
@@ -267,8 +277,12 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const runRef = useRef(null);
   /* 9-12: 自由创作生成完成后自动进画布 —— 记录已自动进入过的 run，避免重复跳转 */
   const autoCanvasRunRef = useRef('');
-  const referencesRef = useRef([]);
-  const fileInputRef = useRef(null);
+  const materialsRef = useRef([]);
+  const stylesRef = useRef([]);
+  const materialInputRef = useRef(null);
+  const styleInputRef = useRef(null);
+  /* 9-13 二轮批注：恢复检查点时会跳过「切页重置画幅」，避免覆盖断点续传的画幅 */
+  const restoreRatioRef = useRef(false);
   const promptRef = useRef(null);
   const abortRef = useRef(null);
   const configButtonRefs = useRef({});
@@ -278,7 +292,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const busy = uploading || visualRunIsBusy(run);
   const retryIndexes = visualRetryIndexes(run);
   const successfulSlots = run?.slots?.filter(slot => slot.status === 'completed') || [];
-  const canGenerate = Boolean(prompt.trim() || references.length);
+  const canGenerate = Boolean(prompt.trim() || materials.length || styles.length);
   const generationEstimate = visualGenerationEstimate({ imageModel, resolution, count });
   const estimatedPoints = generationEstimate.points;
   const showcases = selectedSkill.showcases || [];
@@ -306,20 +320,36 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     return () => globalThis.removeEventListener?.('keydown', onKeyDown);
   }, [previewItem, previewItems]);
   const skillControl = skillControlValues[skillId] || selectedSkill.control?.options?.[0] || '';
-  /* 照小红书图文那套：ImageMentionPicker 的 images 数组（name 生成 @参考图 N 标签） */
-  const mentionImages = useMemo(() => references.map((reference, index) => ({
-    id: reference.id,
-    sourceNodeId: `visual-reference-${index + 1}`,
-    url: reference.previewUrl,
-    name: `参考图 ${index + 1}`,
-    role: 'reference',
-  })), [references]);
+  /* 照小红书图文那套：ImageMentionPicker 的 images 数组（name 生成 @参考图 N 标签）。
+     9-13 二轮批注：我的素材按 source、风格参考按 style 传，与小红书 XhsSupplementDeck 一致 */
+  const mentionImages = useMemo(() => [
+    ...materials.map((reference, index) => ({
+      id: reference.id,
+      sourceNodeId: `visual-material-${index + 1}`,
+      url: reference.previewUrl,
+      name: `我的素材 ${index + 1}`,
+      role: 'source',
+    })),
+    ...styles.map((reference, index) => ({
+      id: reference.id,
+      sourceNodeId: `visual-style-${index + 1}`,
+      url: reference.previewUrl,
+      name: `风格参考 ${index + 1}`,
+      role: 'style',
+    })),
+  ], [materials, styles]);
 
   useEffect(() => {
     setShowcaseSlide(0);
     setShowcaseManualRevision(0);
     setPreviewItem(null);
-    setRatio(current => resolveVisualSkillRatio(skillId, current));
+    /* 9-13 二轮批注：切子页面时底部参数默认值按该板块最合适的画幅重置 */
+    if (restoreRatioRef.current) {
+      restoreRatioRef.current = false;
+    } else {
+      setRatio(visualSkillDefaultRatio(skillId));
+      setCount(1);
+    }
   }, [skillId]);
 
   useEffect(() => {
@@ -329,6 +359,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     restoredCheckpointRef.current = checkpointId;
     const nextSkill = visualSkillById(snapshot.skillId);
     setSkillId(nextSkill.id);
+    restoreRatioRef.current = true;
     setPrompt(String(snapshot.prompt || snapshot.text || '').slice(0, 3000));
     setImageModel(snapshot.imageModel || 'image2');
     setRatio(resolveVisualSkillRatio(nextSkill.id, snapshot.ratio || '1:1'));
@@ -339,14 +370,15 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     if (snapshot.panelValues && typeof snapshot.panelValues === 'object') {
       setPanelValues(current => ({ ...current, ...snapshot.panelValues }));
     }
-    const restoredReferences = (Array.isArray(snapshot.referenceAssets) ? snapshot.referenceAssets : []).map((asset, index) => ({
+    const restoredMaterials = (Array.isArray(snapshot.referenceAssets) ? snapshot.referenceAssets : []).map((asset, index) => ({
       id: `restored-${checkpointId}-${index}`,
-      name: asset.displayName || `参考图 ${index + 1}`,
+      name: asset.displayName || `我的素材 ${index + 1}`,
       previewUrl: asset.url,
       asset,
       file: null,
     })).filter(reference => reference.asset?.url);
-    setReferences(restoredReferences.slice(0, MAX_REFERENCES));
+    setMaterials(restoredMaterials.slice(0, MAX_REFERENCES));
+    setStyles([]);
     setNotice('');
   }, [recoveryCheckpoint]);
 
@@ -371,31 +403,53 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   }, [run]);
 
   useEffect(() => {
-    referencesRef.current = references;
-  }, [references]);
+    materialsRef.current = materials;
+  }, [materials]);
+
+  useEffect(() => {
+    stylesRef.current = styles;
+  }, [styles]);
 
   useEffect(() => () => {
     abortRef.current?.abort();
-    for (const reference of referencesRef.current) {
+    for (const reference of [...materialsRef.current, ...stylesRef.current]) {
       if (reference.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(reference.previewUrl);
     }
   }, []);
+
+  /* 9-13 二轮批注：toast 自动消失（照小红书 4s） */
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = globalThis.setTimeout(() => setToast(null), 4000);
+    return () => globalThis.clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (message, type = 'error') => setToast({ message, type });
 
   const model = useMemo(
     () => IMAGE_MODELS.find(option => option.id === imageModel) || IMAGE_MODELS[0],
     [imageModel],
   );
 
-  const appendFiles = files => {
+  /* 9-13 二轮批注：按桶（material/style）上传，超限 toast 提示且不静默丢弃 */
+  const appendFiles = (files, role = 'material') => {
     setError('');
-    const available = MAX_REFERENCES - references.length;
+    const isStyle = role === 'style';
+    const max = isStyle ? MAX_STYLE_REFERENCES : MAX_REFERENCES;
+    const noun = isStyle ? '风格参考' : '我的素材';
+    const currentLength = isStyle ? styles.length : materials.length;
+    const available = max - currentLength;
+    const incoming = Array.from(files || []);
     if (available <= 0) {
-      setError(`最多上传 ${MAX_REFERENCES} 张参考图`);
+      showToast(`${noun}最多 ${max} 张，已达上限`, 'error');
+      clearFileInputs();
       return;
     }
+    if (incoming.length > available) {
+      showToast(`${noun}最多 ${max} 张，本次超出 ${incoming.length - available} 张，仅保留前 ${available} 张`, 'error');
+    }
     const accepted = [];
-    for (const file of Array.from(files || [])) {
-      if (accepted.length >= available) break;
+    for (const file of incoming.slice(0, available)) {
       if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
         setError('仅支持 JPG、PNG 和 WebP 图片');
         continue;
@@ -407,17 +461,26 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
       accepted.push({
         id: referenceId(),
         file,
-        name: file.name || `参考图 ${references.length + accepted.length + 1}`,
+        name: file.name || (isStyle ? `风格参考 ${styles.length + accepted.length + 1}` : `我的素材 ${materials.length + accepted.length + 1}`),
         previewUrl: URL.createObjectURL(file),
         asset: null,
       });
     }
-    if (accepted.length) setReferences(current => [...current, ...accepted].slice(0, MAX_REFERENCES));
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (accepted.length) {
+      if (isStyle) setStyles(current => [...current, ...accepted].slice(0, MAX_STYLE_REFERENCES));
+      else setMaterials(current => [...current, ...accepted].slice(0, MAX_REFERENCES));
+    }
+    clearFileInputs();
   };
 
-  const removeReference = id => {
-    setReferences(current => current.filter(reference => {
+  const clearFileInputs = () => {
+    if (materialInputRef.current) materialInputRef.current.value = '';
+    if (styleInputRef.current) styleInputRef.current.value = '';
+  };
+
+  const removeReference = (id, role) => {
+    const setList = role === 'style' ? setStyles : setMaterials;
+    setList(current => current.filter(reference => {
       if (reference.id !== id) return true;
       if (reference.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(reference.previewUrl);
       return false;
@@ -425,20 +488,26 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   };
 
   const ensureDurableReferences = async signal => {
-    const current = referencesRef.current;
+    const current = [...materialsRef.current, ...stylesRef.current];
     const missing = current.filter(reference => !reference.asset);
     if (!missing.length) return current.map(reference => reference.asset).filter(Boolean);
     setUploading(true);
     try {
       const uploaded = await uploadEcommerceAssets(missing.map(reference => reference.file), 'reference', { signal });
       const uploadedById = new Map(missing.map((reference, index) => [reference.id, uploaded[index]]));
-      const next = current.map(reference => ({
+      const nextMaterials = materialsRef.current.map(reference => ({
         ...reference,
         asset: reference.asset || uploadedById.get(reference.id) || null,
       }));
-      referencesRef.current = next;
-      setReferences(next);
-      return next.map(reference => reference.asset).filter(Boolean);
+      const nextStyles = stylesRef.current.map(reference => ({
+        ...reference,
+        asset: reference.asset || uploadedById.get(reference.id) || null,
+      }));
+      materialsRef.current = nextMaterials;
+      stylesRef.current = nextStyles;
+      setMaterials(nextMaterials);
+      setStyles(nextStyles);
+      return [...nextMaterials, ...nextStyles].map(reference => reference.asset).filter(Boolean);
     } finally {
       setUploading(false);
     }
@@ -569,7 +638,20 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     setError('');
     setNotice('');
     try {
-      const referenceAssets = await ensureDurableReferences(abortRef.current.signal);
+      const durableAssets = await ensureDurableReferences(abortRef.current.signal);
+      /* 9-13 二轮批注：参考素材带上桶语义（我的素材/风格参考），生成时按小红书语义命名 */
+      const referenceSources = [
+        ...materials.map((reference, index) => ({ asset: reference.asset, bucket: 'material', index })),
+        ...styles.map((reference, index) => ({ asset: reference.asset, bucket: 'style', index })),
+      ].filter(item => item.asset);
+      const referenceAssets = referenceSources.map(item => ({
+        ...item.asset,
+        bucket: item.bucket,
+        bucketIndex: item.index + 1,
+      }));
+      if (!durableAssets.length && referenceAssets.length) {
+        throw new Error('参考素材上传失败，请重试');
+      }
       const nextRun = createVisualRun({ count });
       const originalPrompt = prompt.trim();
       const selectedPanelValues = Object.fromEntries((selectedSkill.panels || []).map(panel => [panel.id, panelValues[panel.id] || panel.options?.[0] || '']));
@@ -781,49 +863,70 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               if (!busy) appendFiles(event.dataTransfer.files);
             }}
           >
-            <div className="visual-reference-heading">
-              {/* 9-13 用户批注：文案照小红书那套语义 —— 这里是「我的素材」（主体/产品），
-                  风格参考只影响构图与色调，同样放这里即可。 */}
-              <span><MdAddPhotoAlternate />我的素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
-              <small>{selectedSkill.materialHint || '主体或参考图都可以 · 风格参考只影响构图与色调'} · JPG/PNG/WebP，最多 6 张</small>
-            </div>
+            {/* 9-13 二轮批注：删掉「我的素材 0/6 + 长提示」标题行，素材卡直接贴卡片顶部（与小红书一致） */}
             <div className="ec-xhs-media-strip xhs-ecommerce-media-strip visual-reference-list">
-              {references.map((reference, index) => (
+              {materials.map((reference, index) => (
                 <EcommerceImageCard
                   key={reference.id}
                   role="product"
                   image={{ url: reference.previewUrl, status: 'loaded' }}
                   label={`我的素材 ${index + 1}`}
                   index={index}
-                  onRemove={() => removeReference(reference.id)}
+                  onRemove={() => removeReference(reference.id, 'material')}
                 />
               ))}
-              {references.length < MAX_REFERENCES && (
+              {materials.length < MAX_REFERENCES && (
                 <EcommerceAddCard
                   role="product"
-                  label={references.length ? '继续添加' : '我的素材'}
-                  meta={references.length ? '补充素材' : '主体或参考图'}
+                  label={materials.length ? '继续添加' : '我的素材'}
+                  meta={materials.length ? '补充素材' : '主体或参考图'}
                   title="添加我的素材"
-                  onClick={() => { if (!busy) fileInputRef.current?.click(); }}
+                  onClick={() => { if (!busy) materialInputRef.current?.click(); }}
                 />
               )}
               <span className="ec-xhs-multiply" aria-hidden="true">×</span>
-              <EcommerceAddCard
-                role="reference"
-                label="风格参考"
-                meta="构图或色调"
-                optional
-                title="添加风格参考"
-                onClick={() => { if (!busy) fileInputRef.current?.click(); }}
-              />
+              {styles.map((reference, index) => (
+                <EcommerceImageCard
+                  key={reference.id}
+                  role="reference"
+                  image={{ url: reference.previewUrl, status: 'loaded' }}
+                  label={`风格参考 ${index + 1}`}
+                  index={index}
+                  onRemove={() => removeReference(reference.id, 'style')}
+                />
+              ))}
+              {styles.length < MAX_STYLE_REFERENCES && (
+                <EcommerceAddCard
+                  role="reference"
+                  label="风格参考"
+                  meta="构图或色调"
+                  optional
+                  title="添加风格参考"
+                  onClick={() => { if (!busy) styleInputRef.current?.click(); }}
+                />
+              )}
             </div>
+            {/* 9-13 二轮批注：素材区提示行 —— 与小红书同款位置（上传媒体条下方），
+                明确「我的素材 ≤6 / 风格参考 ≤3」上限，格式说明保留 */}
+            <p className="visual-upload-hint" aria-live="polite">
+              <span className="visual-upload-hint-theme">{selectedSkill.materialHint || '主体或参考图都可以 · 风格参考只影响构图与色调'}</span>
+              <span className="visual-upload-hint-limits">我的素材 {materials.length}/{MAX_REFERENCES} <em className="visual-upload-hint-cap">（最多 {MAX_REFERENCES} 张）</em> · 风格参考 {styles.length}/{MAX_STYLE_REFERENCES} <em className="visual-upload-hint-cap">（最多 {MAX_STYLE_REFERENCES} 张）</em> · JPG/PNG/WebP</span>
+            </p>
             <input
-              ref={fileInputRef}
+              ref={materialInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
               hidden
-              onChange={event => appendFiles(event.target.files)}
+              onChange={event => appendFiles(event.target.files, 'material')}
+            />
+            <input
+              ref={styleInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              hidden
+              onChange={event => appendFiles(event.target.files, 'style')}
             />
           </div>
 
@@ -846,8 +949,10 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             {!prompt && (
               <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints" aria-hidden="true">
                 <span className="ec-placeholder-line">{selectedSkill.promptHint ? `${selectedSkill.title}：${selectedSkill.promptHint}` : `描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}</span>
-                <span className="ec-placeholder-line ec-xhs-example-first">例：午后咖啡馆里的透明玻璃杯，逆光，杯身加一行手写体标题</span>
-                <span className="ec-placeholder-line">例：春日街角的樱花树与单车，清新浅色调，主体放画面右侧</span>
+                {/* 9-13 二轮批注：两条示例按子页面各自独立（不再四个板块共用同一份） */}
+                {(selectedSkill.promptExamples || []).map((example, index) => (
+                  <span className={`ec-placeholder-line${index === 0 ? ' ec-xhs-example-first' : ''}`} key={example}>{example}</span>
+                ))}
               </div>
             )}
           </div>
@@ -935,6 +1040,11 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             ))}
           </div>
         </div>
+      )}
+
+      {/* 9-13 二轮批注：超限/素材问题的顶部 toast（小红书同款位置与时长） */}
+      {toast && (
+        <div className="visual-toast" role="status" aria-live="polite" data-toast-type={toast.type}>{toast.message}</div>
       )}
 
       {previewItem && (

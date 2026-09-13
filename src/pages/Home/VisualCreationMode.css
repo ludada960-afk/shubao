@@ -25,8 +25,7 @@
 }
 
 .visual-creation-kicker,
-.visual-results-heading > span,
-.visual-reference-heading > span {
+.visual-results-heading > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -512,7 +511,6 @@
   min-width: 0;
 }
 
-.visual-reference-heading,
 .visual-results-heading {
   display: flex;
   align-items: center;
@@ -520,20 +518,36 @@
   gap: 12px;
 }
 
-.visual-reference-heading > small {
-  color: #80787e;
-  font-size: 12px;
+/* 媒体条本身复用 .ec-xhs-media-strip（128 高 / 12 间距 / 8px 10px 内边距 / 横向滚动）。
+   9-13 二轮批注：删掉顶部「我的素材 0/6 + 长提示」标题行后，素材卡直接贴卡片顶部，不再有上外边距。 */
+.visual-reference-list {
+  min-width: 0;
+}
+
+/* ── 素材区提示行（9-13 二轮批注，照小红书媒体条下方位置）：
+   明确「我的素材 ≤6 / 风格参考 ≤3」上限 + 格式说明，一行放得下不撑高卡片 ── */
+.visual-upload-hint {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 1px 8px 0;
+  color: #b2a69e;
+  font-size: 11px;
+  line-height: 16px;
   font-weight: 600;
 }
 
-.visual-reference-heading span small {
-  color: #90868e;
-  font-size: 11px;
+.visual-upload-hint em {
+  font-style: normal;
 }
 
-/* 媒体条本身复用 .ec-xhs-media-strip（128 高 / 12 间距 / 8px 10px 内边距 / 横向滚动） */
-.visual-reference-list {
-  margin-top: 10px;
+.visual-upload-hint-theme {
+  color: #9a8d83;
+}
+
+.visual-upload-hint-limits {
+  color: #b6aaa1;
 }
 
 /* ── 提示词框（照小红书：无边框 textarea + 占位提示，15px/28px）── */
@@ -873,6 +887,36 @@
   font-weight: 700;
 }
 
+/* 9-13 二轮批注：超限/素材问题顶部 toast（小红书同款位置与 4s 时长） */
+.visual-toast {
+  position: fixed;
+  z-index: 9999;
+  top: 16px;
+  left: 50%;
+  max-width: min(420px, 90vw);
+  padding: 12px 24px;
+  color: #fff;
+  background: #991b1b;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .2);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: visualToastIn .3s ease;
+}
+
+.visual-toast[data-toast-type="success"] {
+  background: #065f46;
+}
+
+@keyframes visualToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 .visual-feedback.is-error {
   color: #a43d48;
   background: #fff5f6;
@@ -1177,15 +1221,30 @@
     border-width: 3px;
   }
 
-  .visual-reference-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-  }
-
   .visual-reference-list {
     overflow-x: auto;
     padding: 6px 2px 8px;
+  }
+
+  /* 9-13 二轮批注：移动端跟小红书一样让创作面按内容自适应（min-height 归零）；
+     提示行收窄为「计数 + 格式」，主题提示与括号上限说明隐藏防止折行撑高卡片 */
+  .visual-composer-surface.ec-xhs-composer {
+    min-height: 0;
+  }
+
+  .visual-upload-hint {
+    margin: 1px 6px 0;
+  }
+
+  .visual-upload-hint-theme,
+  .visual-upload-hint-cap {
+    display: none;
+  }
+
+  /* 9-13 二轮批注：移动端底栏与小红书一致（min-height 归零 + 同款内边距） */
+  .visual-parameter-bar {
+    min-height: 0;
+    padding: 8px 2px 10px;
   }
 
   /* 照小红书：移动端提示词框收窄到 92px */

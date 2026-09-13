@@ -15,10 +15,12 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /visualGenerationEstimate/);
   assert.match(source, /saveWork/);
   assert.match(source, /buildVisualCanvasResult/);
-  /* 9-12 用户批注：文案照小红书语义改为「我的素材 + 风格参考」，格式提示仍在 */
+  /* 9-12 用户批注：文案照小红书语义改为「我的素材 + 风格参考」，格式提示仍在；
+     9-13 二轮批注：上限「最多 N 张」进入素材区提示行（我的素材 6 / 风格参考 3） */
   assert.match(source, /我的素材/);
   assert.match(source, /JPG\/PNG\/WebP/);
-  assert.match(source, /最多 6 张/);
+  assert.match(source, /最多 \{MAX_REFERENCES\} 张/);
+  assert.match(source, /最多 \{MAX_STYLE_REFERENCES\} 张/);
   /* 9-13：提示词引导按子页面走 selectedSkill.promptHint（缺省回落到通用文案） */
   assert.match(source, /selectedSkill\.promptHint/);
   assert.match(source, /只重试失败项/);
@@ -41,7 +43,8 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /visual-preview-next/);
   assert.match(source, /ArrowLeft/);
   assert.match(source, /ArrowRight/);
-  assert.match(source, /setPreviewItem\(null\);\s*\n\s*setRatio/);
+  assert.match(source, /setPreviewItem\(null\);/);
+  assert.match(source, /setRatio\(visualSkillDefaultRatio\(skillId\)\)/, '切子页面按板块默认画幅重置');
   assert.match(source, /visual-skill-icon/);
   assert.match(source, /visual-ability-rail/);
   assert.match(source, /selectedSkill\.preserves/);
