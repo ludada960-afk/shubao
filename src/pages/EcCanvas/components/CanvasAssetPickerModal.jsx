@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Music, Search } from 'lucide-react';
+import { Check, Music, Search, Trash2 } from 'lucide-react';
 
-import { listProjectAssetLibrary } from '../../../services/projects.js';
+import { deleteProjectAsset, listProjectAssetLibrary } from '../../../services/projects.js';
 import { normalizeProjectAssetLibrary, projectAssetSelectionKey } from '../../Works/projectAssetLibraryModel.js';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import { useModalScrollLock } from '../../../components/ui/useModalScrollLock.js';
@@ -51,6 +51,28 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
     });
   }, []);
 
+  /* 9-13 用户批注：资产库弹窗照竞品 —— 卡片上要有垃圾桶，悬停才出现，删完立刻从列表消失。
+     删除走既有接口（与「资产库」页同一个），失败时用同一条内联错误条提示，不弹新窗打断。 */
+  const [busyKey, setBusyKey] = useState('');
+  const handleDelete = useCallback(async item => {
+    const key = projectAssetSelectionKey(item);
+    if (!key || !item?.projectId || !item?.projectAssetId || busyKey) return;
+    setBusyKey(key);
+    try {
+      await deleteProjectAsset(item.projectId, item.projectAssetId);
+      setState(current => ({ ...current, error: '', items: current.items.filter(entry => projectAssetSelectionKey(entry) !== key) }));
+      setSelected(current => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    } catch (error) {
+      setState(current => ({ ...current, error: error?.message || '删除失败，请重试' }));
+    } finally {
+      setBusyKey('');
+    }
+  }, [busyKey]);
+
   const picked = useMemo(
     () => state.items.filter(item => selected.has(projectAssetSelectionKey(item))),
     [state.items, selected],
@@ -87,21 +109,40 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
             const key = projectAssetSelectionKey(item);
             const isSelected = selected.has(key);
             const kind = String(item.mediaKind || '').toLowerCase();
-            return <button
+            const name = item.metadata?.displayName || item.projectTitle || item.assetId || '素材';
+            /* 卡片里还要放删除按钮 —— 外层不能再是 <button>（按钮不能嵌套按钮），
+               改用 role=button 的 div 并补上键盘可达（Enter / 空格）。 */
+            return <div
               key={key}
-              type="button"
+              role="button"
+              tabIndex={0}
               className={`canvas-asset-picker-card${isSelected ? ' is-selected' : ''}`}
               aria-pressed={isSelected}
-              aria-label={`选择 ${item.metadata?.displayName || item.assetId || '资产'}`}
+              aria-label={`选择 ${name}`}
               onClick={() => toggle(item)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  toggle(item);
+                }
+              }}
             >
               <span className="canvas-asset-picker-thumb">
                 {kind === 'image' ? <ResponsiveImage src={item.stableUrl} variant="thumb" ratio="1:1" alt="" />
                   : kind === 'video' ? <video src={item.playbackUrl || item.stableUrl} muted playsInline preload="metadata" />
                     : <Music size={24} color="#94a3b8" />}
               </span>
+              <span className="canvas-asset-picker-name" title={name}>{name}</span>
               <span className="canvas-asset-picker-check" aria-hidden="true"><Check size={14} /></span>
-            </button>;
+              <button
+                type="button"
+                className="canvas-asset-picker-delete"
+                data-busy={busyKey === key ? 'true' : undefined}
+                aria-label={`删除${name}`}
+                title="删除"
+                onClick={event => { event.stopPropagation(); handleDelete(item); }}
+              ><Trash2 size={15} /></button>
+            </div>;
           })}
           {!state.loading && !state.items.length && <div className="canvas-asset-picker-empty">资产库里还没有素材，先在「资产库」上传或把生成物加入资产库</div>}
           {state.loading && <div className="canvas-asset-picker-empty">正在读取资产库…</div>}
