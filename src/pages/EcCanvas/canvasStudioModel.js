@@ -123,6 +123,64 @@ export function getCanvasComposerPresentation({ node, selectedId = '', selectedC
   };
 }
 
+/* 9-15 用户决定（复核 9-13）：**生成前无加号、生成结果必须有加号**。
+   四个生成框里只有「结果真的落入框内」的框才挂左右加号：
+   image-composer / video-composer / layer-group / video 在持有 url 且状态非失败时，
+   左右渲染输入锚点 + 输出加号；text-composer / suite-composer 的框永远是控制台
+   （结果以独立节点出现），框本体不挂加号。 */
+const GENERATION_BOX_RESULT_KINDS = new Set(['image-composer', 'video-composer', 'layer-group', 'video']);
+const GENERATION_BOX_NO_RESULT_STATUS = new Set(['', 'error', 'upload-error', 'processing', 'generating', 'draft', 'empty']);
+
+export function canvasGenerationBoxHasResult(node = {}) {
+  if (!node || typeof node !== 'object') return false;
+  if (!GENERATION_BOX_RESULT_KINDS.has(node.kind)) return false;
+  if (GENERATION_BOX_NO_RESULT_STATUS.has(String(node.status || ''))) return false;
+  return Boolean(node.url);
+}
+
+/* 生成结果自动排版 —— 复用电商套图已确立的「以生成框为锚、紧贴框右侧排布 + 派生连线」约定
+   （见 handleSuiteComposerGenerate 的 230 宽 / 右排 / 'suite-output' 连线），不另立一套规则。
+   用户 9-15 决策：
+   - 图片 / 视频结果：横向一排（同一 y），结果间距 = 节点宽 + 24px，超过 4 张换行；
+   - 文案结果：纵向一列（文案是长条，竖排更可读）；
+   - 第一张结果 = 生成框本身（沿用生成前框的位置），其余结果从框右侧开始排。 */
+const CANVAS_RESULT_ROW_GAP = 24;      // 结果间距 = 节点宽 + 24px
+const CANVAS_RESULT_PER_ROW = 4;       // 超过 4 张换行
+const CANVAS_RESULT_LEAD = 56;         // 框右缘到第一张结果的起始间距（含左加号锚区）
+
+export function layoutCanvasGeneratedResults({
+  anchor = {},
+  items = [],
+  mode = 'row',
+  gap = CANVAS_RESULT_ROW_GAP,
+  perRow = CANVAS_RESULT_PER_ROW,
+  lead = CANVAS_RESULT_LEAD,
+} = {}) {
+  const anchorX = Number.isFinite(Number(anchor.x)) ? Number(anchor.x) : 0;
+  const anchorY = Number.isFinite(Number(anchor.y)) ? Number(anchor.y) : 0;
+  const anchorW = Math.max(1, Number(anchor.w) || 240);
+  const list = Array.isArray(items) ? items : [];
+  return list.map((item, index) => {
+    const width = Math.max(1, Number(item.w) || 230);
+    const height = Math.max(1, Number(item.h) || width);
+    const x0 = anchorX + anchorW + lead;
+    if (mode === 'column') {
+      return {
+        ...item,
+        x: Math.round(x0),
+        y: Math.round(anchorY + index * (height + gap)),
+      };
+    }
+    const rowIndex = Math.floor(index / perRow);
+    const columnIndex = index % perRow;
+    return {
+      ...item,
+      x: Math.round(x0 + columnIndex * (width + gap)),
+      y: Math.round(anchorY + rowIndex * (height + gap)),
+    };
+  });
+}
+
 export function resizeCanvasNode(node = {}, { width } = {}) {
   const currentWidth = Math.max(1, finite(node.w, MIN_NODE_WIDTH));
   const currentHeight = Math.max(1, finite(node.h, currentWidth));

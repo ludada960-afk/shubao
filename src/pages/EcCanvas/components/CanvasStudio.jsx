@@ -71,7 +71,7 @@ import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
 import CopyPanel from '../../Home/ec/CopyPanel.jsx';
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
-import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
+import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, canvasGenerationBoxHasResult, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
@@ -657,6 +657,11 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
   const direction = node.directions?.[node.selectedDirection || 0];
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const suitePlan = isSuite && directions.length ? buildCanvasSuitePlan(node.suitePlan || direction, node.prompt) : null;
+  /* 9-15 用户决定（复核 9-13）：**生成前无加号、生成结果必须有加号** ——
+     框内还没有结果（未生成 / 失败）时不渲染左右加号；结果落入框内（有 url）时
+     左右才出现输入锚点 + 输出加号。text-composer / suite-composer 的框是控制台，
+     结果以独立节点出现，框本体始终不挂加号。 */
+  const nodeHasResult = canvasGenerationBoxHasResult(node);
   const textBoardRef = useRef(null);
   const textComposingRef = useRef(false);
   const textEditSeedRef = useRef('');
@@ -750,12 +755,12 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       onPointerDown={event => event.stopPropagation()}
       onClick={(event) => { event.stopPropagation(); onReplace(); }}
     ><ImagePlus size={13} />替换</button>}
-    {/* 9-11: 左右都有加号 (与图片节点同款, 连线端点与加号中心重叠)。
-        输出加号只在可派生 (canDerive) 时给出交互, 避免"死按钮"; 输入锚点常显于选中态。 */}
-    <DerivePort side="input" visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-    {/* 9-13 用户批注：四个生成框（电商套图/视频生成/图片生成/文本）**左右都要有加号**，
-        并且必须挂在**框本体的左右**（此前只有 video/layer-group 有右侧；我还误把加号加到了下面的生成面板上）。 */}
-    <DerivePort visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+    {/* 9-15（复核 9-13）用户决定：**生成前无加号、生成结果必须有加号**。
+        结果未落入框内（未生成/失败）时不渲染左右加号；结果在框内（canvasGenerationBoxHasResult）
+        才渲染输入锚点 + 输出加号，点开行为与结果节点一致（派生菜单/连线）。
+        不再在 text-composer / suite-composer 控制盒上挂加号。 */}
+    {nodeHasResult && <DerivePort side="input" visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
+    {nodeHasResult && <DerivePort visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }

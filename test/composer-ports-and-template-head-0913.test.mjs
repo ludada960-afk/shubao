@@ -1,6 +1,8 @@
 // test/composer-ports-and-template-head-0913.test.mjs
-// 2026-09-13 用户批注：
-//  ① 四个生成面板打开后没有左右加号 → 都要有（hover/选中出现，点开继续创作）
+// 2026-09-13 用户批注 + 2026-09-15 复核：
+//  ① **生成前无加号、生成结果必须有加号** —— 生成框结果未落框前左右都不挂加号；
+//     结果落入框内（canvasGenerationBoxHasResult）后左右渲染输入锚点 + 输出加号；
+//     text-composer / suite-composer 的框是控制台（结果以独立节点出现），始终不挂加号。
 //  ② 工作流模板顶部文字与关闭按钮重叠
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,15 +10,16 @@ import { readFileSync } from 'node:fs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-test('加号挂在画布节点框左右，生成面板不再挂加号', () => {
+test('加号只挂在“已产出结果的节点”左右，生成面板不再挂加号', () => {
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
-  /* 9-13 修正：加号必须挂在**画布节点框**的左右（不是下面的生成面板）。
-     生成节点：输入锚点 + 输出加号，且不再限定 video/layer-group。 */
+  /* 9-15 用户决定：“生成之前（现在的样式）这四个框可以不用左右加号；生成结果出来之后左右必须有加号”。
+     生成节点（CanvasGenerationNode）：左右加号用 nodeHasResult 门控（canvasGenerationBoxHasResult）。 */
   const nodeStart = studio.indexOf('export function CanvasGenerationNode(');
   const nodeBody = studio.slice(nodeStart, studio.indexOf('export function CanvasDirectionNode('));
-  assert.ok(nodeBody.includes('<DerivePort side="input"'), '节点缺少左侧加号');
-  assert.ok((nodeBody.match(/<DerivePort/g) || []).length >= 2, '节点左右都要有加号');
-  assert.ok(!/isVideo \|\| isLayerGroup\) && <DerivePort/.test(nodeBody), '不再只给视频/图层加右侧加号');
+  assert.ok(nodeBody.includes('nodeHasResult = canvasGenerationBoxHasResult(node)'), '生成节点必须用 canvasGenerationBoxHasResult 判定“结果已落框”');
+  assert.ok(nodeBody.includes('{nodeHasResult && <DerivePort side="input"'), '左侧加号必须在结果落框后才渲染');
+  assert.ok((nodeBody.match(/<DerivePort/g) || []).length >= 2, '结果节点左右都要有加号（输入锚点 + 输出加号）');
+  assert.ok(nodeBody.includes('生成前无加号、生成结果必须有加号'), '必须写明用户决定');
   /* 四个生成面板不得再挂加号（用户明确：加号要在框的左右，不在输入区） */
   for (const name of ['CanvasImageComposer', 'CanvasTextGenerationComposer', 'CanvasVideoComposer', 'CanvasEcommerceComposer']) {
     const start = studio.indexOf('export function ' + name + '(');

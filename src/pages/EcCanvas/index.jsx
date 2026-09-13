@@ -76,7 +76,7 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes,
-  resolveSourceStackPlacement, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
+  resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
@@ -2147,7 +2147,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }, [flushDragFrame, pointerMode, toWorldPoint, viewport.scale]);
 
   const openConnectionPickerForNode = useCallback(node => {
-    if (!canDeriveFromNode(node)) return;
+    if (!canDeriveFromCanvasSource(node)) return;
     setConnectionPicker({
       sourceNodeId: node.id,
       world: {
@@ -2382,10 +2382,22 @@ const handlePointerUp = useCallback((e) => {
     setSelected(next.size === 1 ? [...next][0] : null);
   }, [multiSelected]);
 
+  /* 9-15 用户决定（复核 9-13）：**生成前无加号、生成结果必须有加号** ——
+     生成框（图片/视频/文案/套图）生成前不挂加号；生成后结果落框时，框仍从加号继续派生；
+     文案结果节点可派生「生成图片 / 生成视频」。
+     派生判定：普通素材沿用 canDeriveFromNode；四个生成框在「结果已落框或仍在生成中」时放行，
+     这样生成多张时框与结果之间的派生连线也画得出来。 */
+  const canDeriveFromCanvasSource = useCallback(node => {
+    if (!node) return false;
+    if (canDeriveFromNode(node)) return true;
+    if (!['image-composer', 'text-composer', 'video-composer', 'suite-composer'].includes(String(node.kind || ''))) return false;
+    return Boolean(node.url) || ['processing', 'success', 'completed', 'generating'].includes(String(node.status || ''));
+  }, []);
+
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
     const source = nodes.find(node => node.id === nodeId);
-    if (!canDeriveFromNode(source)) {
+    if (!canDeriveFromCanvasSource(source)) {
       showToast('完成当前处理后，可从生成结果继续派生', 'info');
       return;
     }
@@ -2398,7 +2410,7 @@ const handlePointerUp = useCallback((e) => {
 
   const handlePortClick = useCallback((event, nodeId) => {
     const source = nodes.find(node => node.id === nodeId);
-    if (!canDeriveFromNode(source)) return;
+    if (!canDeriveFromCanvasSource(source)) return;
     setConnectionPicker({
       sourceNodeId: nodeId,
       world: toWorldPoint(event),
@@ -2610,7 +2622,7 @@ const handlePointerUp = useCallback((e) => {
     /* 用户 9-04 反馈"死按钮": 以前这里直接静默 return, 用户点了没任何反应。 */
     if (!source) { showToast('素材已被删除，无法继续派生', 'info'); return; }
     if (!actionSpec?.execute?.nodeKind) { showToast('该功能暂时不可用', 'info'); return; }
-    if (!canDeriveFromNode(source)) {
+    if (!canDeriveFromCanvasSource(source)) {
       showToast(source.status === 'processing' || source.status === 'uploading' || source.status === 'analyzing'
         ? '素材还在处理中，完成后即可派生'
         : '当前素材暂不支持派生，请先完成生成', 'info');
@@ -3095,7 +3107,7 @@ const handlePointerUp = useCallback((e) => {
     if (action?.startsWith('create:')) {
       const actionId = action.slice('create:'.length);
       const source = nodes.find(item => item.id === node?.id) || node;
-      if (!canDeriveFromNode(source)) {
+      if (!canDeriveFromCanvasSource(source)) {
         showToast('完成当前处理后，可从生成结果继续派生', 'info');
         return;
       }
@@ -4001,6 +4013,10 @@ const handlePointerUp = useCallback((e) => {
         progress: 100,
         progressLabel: '成片已交付',
       });
+      /* 9-15 用户决定：视频结果即落在框内，左右必须有加号（canvasGenerationBoxHasResult）；
+         生成完成默认选中该结果 */
+      setSelected(composer.id);
+      setMultiSelected(new Set([composer.id]));
       await refreshBillingBalance?.({ force: true }).catch(() => {});
       showToast('视频成片已交付，并保存到作品集', 'success');
     } catch (error) {
@@ -4164,27 +4180,32 @@ const handlePointerUp = useCallback((e) => {
       const createdAt = Date.now();
       const ratio = composer.ratio || '1:1';
       const ratioNumber = ratioValue(ratio);
-      const outputs = urls.slice(1).map((url, index) => normalizeCanvasNode({
-        id: `image_generated_${createdAt}_${index + 1}`,
-        assetId: `asset_generated_${createdAt}_${index + 1}`,
-        kind: 'image',
-        status: 'ready',
-        url,
-        /* P-B 电影分镜命名: Enclosure-001 替代 '图片生成结果 1' */
-        name: canvasShotNamerRef.current.next('image'),
-        displayLabel: canvasShotNamerRef.current.next('image'),
-        group: '素材',
-        role: '创作图片',
-        imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
-        resolution: composer.resolution || '2K',
-        ratio,
-        sourceNodeIds: [composer.id],
-        x: composer.x + composer.w + 56 + index * 268,
-        y: composer.y,
-        w: 230,
-        h: Math.round(230 / ratioNumber),
-        showMeta: true,
-      }));
+      /* 9-15 用户决定：多张结果自动排版 —— 生成框本身是第一张，其余结果横向一排
+         （同一 y，间距 = 节点宽 + 24px，超过 4 张换行），复用套图「右侧锚定 + 派生连线」约定。 */
+      const outputs = layoutCanvasGeneratedResults({
+        anchor: composer,
+        mode: 'row',
+        items: urls.slice(1).map((url, index) => normalizeCanvasNode({
+          id: `image_generated_${createdAt}_${index + 1}`,
+          assetId: `asset_generated_${createdAt}_${index + 1}`,
+          kind: 'image',
+          status: 'ready',
+          url,
+          /* P-B 电影分镜命名: Enclosure-001 替代 '图片生成结果 1' */
+          name: canvasShotNamerRef.current.next('image'),
+          displayLabel: canvasShotNamerRef.current.next('image'),
+          group: '素材',
+          role: '创作图片',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          resolution: composer.resolution || '2K',
+          ratio,
+          sourceNodeIds: [composer.id],
+          w: 230,
+          h: Math.round(230 / ratioNumber),
+          showMeta: true,
+        })),
+      });
+      const resultNodeIds = [composer.id, ...outputs.map(output => output.id)];
       setNodes(previous => previous.map(node => node.id === composer.id ? {
         ...node,
         status: 'success',
@@ -4194,11 +4215,12 @@ const handlePointerUp = useCallback((e) => {
         displayLabel: canvasShotNamerRef.current.next('image'),
         ratio,
         h: Math.round(node.w / ratioNumber),
-        outputNodeIds: [composer.id, ...outputs.map(output => output.id)],
+        outputNodeIds: resultNodeIds,
       } : node).concat(outputs));
       setConnections(previous => outputs.reduce((edges, output) => addConnection(edges, composer.id, output.id, 'generated'), previous));
+      /* 9-15 用户决定：生成完成后默认多选全部结果（含生成框这张主图），多选工具条随即出现 */
       setSelected(composer.id);
-      setMultiSelected(new Set([composer.id]));
+      setMultiSelected(new Set(resultNodeIds));
       showToast(`已生成 ${urls.length} 张图片`, 'success');
     } catch (error) {
       updateComposerNode(composer.id, { status: 'error', error: error.message || '图片生成失败' });
@@ -4297,6 +4319,7 @@ const handlePointerUp = useCallback((e) => {
     ];
     const rowCounters = new Map();
     const receivedUrls = new Set();
+    const receivedNodeIds = [];
     const roleRows = { 白底图: 0, 主图: 1, 详情图: 2, SKU: 3, 素材: 4 };
     try {
       await generateEcommerceSuite({
@@ -4370,10 +4393,16 @@ const handlePointerUp = useCallback((e) => {
           });
           setNodes(previous => previous.some(node => node.url === url) ? previous : [...previous, output]);
           setConnections(previous => addConnection(previous, composer.id, output.id, 'suite-output'));
+          receivedNodeIds.push(output.id);
           updateComposerNode(composer.id, { generatedCount: receivedUrls.size });
         },
       });
       updateComposerNode(composer.id, { status: 'success', progress: 100, progressLabel: `已完成 ${receivedUrls.size} 张` });
+      /* 9-15 用户决定：套图结果生成完成后默认多选全部结果节点（套图框是控制台，不参与多选） */
+      if (receivedNodeIds.length) {
+        setSelected(receivedNodeIds[0]);
+        setMultiSelected(new Set(receivedNodeIds));
+      }
       showToast(`电商套图已完成 ${receivedUrls.size} 张`, 'success');
     } catch (error) {
       updateComposerNode(composer.id, { status: 'error', error: error.message || '套图生成失败' });
@@ -4428,37 +4457,43 @@ const handlePointerUp = useCallback((e) => {
       const createdAt = Date.now();
       const ratio = composer.ratio || '1:1';
       const ratioNumber = ratioValue(ratio);
-      const outputs = urls.map((url, index) => normalizeCanvasNode({
-        id: `text_generation_output_${createdAt}_${index + 1}`,
-        assetId: `text_generation_asset_${createdAt}_${index + 1}`,
-        kind: 'image',
-        status: 'ready',
-        url,
-        /* P-B 电影分镜命名: 文本驱动画面走 Enclosure */
-        name: canvasShotNamerRef.current.next('image'),
-        displayLabel: canvasShotNamerRef.current.next('image'),
-        group: '素材',
-        role: '创作图片',
-        imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
-        resolution: composer.resolution || '2K',
-        ratio,
-        sourceNodeIds: [composer.id],
-        x: composer.x + composer.w + 56 + index * 268,
-        y: composer.y,
-        w: 230,
-        h: Math.round(230 / ratioNumber),
-        showMeta: true,
-      }));
+      /* 9-15 用户决定：文案结果纵向一列（文案是长条，竖排更可读），
+         复用套图「右侧锚定 + 派生连线」约定；结果节点左右都有加号。 */
+      const outputs = layoutCanvasGeneratedResults({
+        anchor: composer,
+        mode: 'column',
+        items: urls.map((url, index) => normalizeCanvasNode({
+          id: `text_generation_output_${createdAt}_${index + 1}`,
+          assetId: `text_generation_asset_${createdAt}_${index + 1}`,
+          kind: 'image',
+          status: 'ready',
+          url,
+          /* P-B 电影分镜命名: 文本驱动画面走 Enclosure */
+          name: canvasShotNamerRef.current.next('image'),
+          displayLabel: canvasShotNamerRef.current.next('image'),
+          group: '素材',
+          role: '创作图片',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          resolution: composer.resolution || '2K',
+          ratio,
+          sourceNodeIds: [composer.id],
+          w: 230,
+          h: Math.round(230 / ratioNumber),
+          showMeta: true,
+        })),
+      });
+      const resultNodeIds = outputs.map(output => output.id);
       setNodes(previous => previous.map(node => node.id === composer.id ? {
         ...node,
         status: 'success',
         generatedCount: outputs.length,
-        outputNodeIds: outputs.map(output => output.id),
+        outputNodeIds: resultNodeIds,
         progress: 100,
       } : node).concat(outputs));
       setConnections(previous => outputs.reduce((edges, output) => addConnection(edges, composer.id, output.id, 'generated'), previous));
-      setSelected(composer.id);
-      setMultiSelected(new Set([composer.id]));
+      /* 9-15 用户决定：文案生成完成后默认多选全部结果 */
+      setSelected(outputs[0]?.id || composer.id);
+      setMultiSelected(new Set(resultNodeIds));
       showToast(`已生成 ${outputs.length} 张画面`, 'success');
     } catch (error) {
       updateComposerNode(composer.id, { status: 'error', error: error.message || '画面生成失败' });
@@ -5435,6 +5470,14 @@ const handlePointerUp = useCallback((e) => {
 
   const handleDeleteProjectAsset = useCallback(async asset => {
     if (!asset?.projectId || !asset?.projectAssetId) return;
+    /* 9-14 用户批注：「垃圾桶是删除键没错，但你要弹窗询问是否删除啊，不能我误点你就直接删呀」
+       —— 资产库管理弹窗的删除必须先确认；文案与「从资产库选择」弹窗保持一致。 */
+    const confirmed = await dialog.confirm({
+      title: '删除这个素材？',
+      message: '删除后不可恢复，已加入画布的内容不受影响。',
+      confirmLabel: '删除',
+    });
+    if (!confirmed) return;
     const key = `${asset.projectId}:${asset.projectAssetId}`;
     setProjectAssetDeleteBusy(key);
     try {
@@ -5446,7 +5489,7 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       setProjectAssetDeleteBusy('');
     }
-  }, [showToast]);
+  }, [dialog, showToast]);
 
   const handleBatchImportProjectAssets = useCallback(() => {
     const selected = projectAssetLibrary.filter(asset => selectedProjectAssetKeys.has(projectAssetSelectionKey(asset)));
@@ -6460,7 +6503,7 @@ const handlePointerUp = useCallback((e) => {
                   onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
                   onPortClick={event => handlePortClick(event, node.id)}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
-                  canDerive={canDeriveFromNode(node)}
+                  canDerive={canDeriveFromCanvasSource(node)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onDoubleClick={node => openImagePreview({ url: node.localPreviewUrl || node.url, label: node.name || node.displayLabel || '图片预览' })}
@@ -6518,7 +6561,7 @@ const handlePointerUp = useCallback((e) => {
                   onAutoHeight={handleTextNodeAutoHeight}
                   onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: node.name || '图片预览' })}
                   onReplace={replaceGenAction.canRun(node) ? () => handleToolAction(replaceGenAction, node) : null}
-                  canDerive={canDeriveFromNode(node)}
+                  canDerive={canDeriveFromCanvasSource(node)}
                   onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
                   onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
                   onPortClick={event => handlePortClick(event, node.id)}
@@ -6538,7 +6581,7 @@ const handlePointerUp = useCallback((e) => {
                   onRetry={() => handleWorkflowRetry(node)}
                   onPortPointerDown={workflowPortDown}
                   onPortPointerUp={workflowPortUp}
-                  canDerive={canDeriveFromNode(node)}
+                  canDerive={canDeriveFromCanvasSource(node)}
                   smartRemixProps={node.kind === 'smart-remix' ? {
                     prompt: node.inputs?.prompt || '',
                     productImages,
