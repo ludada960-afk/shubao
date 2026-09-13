@@ -24,7 +24,7 @@ import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import EcProfileRail from './ec/EcProfileRail.jsx';
 import { generationUnits, IMAGE_MODELS, normalizeImageModel } from '../../services/imageModelCatalog.js';
-import ProductChip from './ec/ProductChip.jsx';
+/* 9-13 用户批注：底部「商品档案」入口已删（资产库已覆盖），ProductChip 不再渲染 */
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
 import { archiveProductProfile, createProductProfile, getProjectAsset, listProductProfiles } from '../../services/projects.js';
@@ -153,13 +153,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   }, [ownerEmail, profileAccess]);
 
   useEffect(() => {
-    refreshProductProfiles();
-  }, [refreshProductProfiles]);
-
-  // 「当前商品」chip 是商品档案抽屉的唯一入口：点击即呼出左缘抽屉并刷新列表。
-  const openProfileDrawer = useCallback(() => {
-    setProfileRailTab('list');
-    setProductProfilesOpen(true);
     refreshProductProfiles();
   }, [refreshProductProfiles]);
 
@@ -1554,12 +1547,10 @@ const DEFAULT_BUTTONS = [
         >
           <div className="ec-workbench-primary-row">
             <div className="ec-workbench-tools">
-              {/* ═══ 常驻「当前商品」chip：商品档案抽屉唯一入口，选中后全局生效 ═══ */}
-              <ProductChip
-                profile={activeProductProfile}
-                loading={productProfilesLoading}
-                onOpen={openProfileDrawer}
-              />
+              {/* 9-13 用户批注：底部这排里的「商品档案」入口删掉 ——
+                  「现在其实我们自己有个资产库了，这个所谓的商品档案其实也是类似资产库的东西，
+                    我觉得是没有必要的，你可以把它给删掉了。」
+                  底层档案能力保留（小红书/Plog 跨模式仍可复用），只是不再在电商工作台底部占一个入口。 */}
               {/* ═══ 面板渲染（Portal 到 body）═══ */}
               {renderPanel()}
               {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}

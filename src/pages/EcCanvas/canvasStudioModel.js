@@ -100,11 +100,17 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
 
 /* 9-13 用户批注：生成面板**太宽**（比下面的提示词区还宽、中间留白过多）→
    默认收到 480，且不超过节点自身宽度。 */
-export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 480, gap = 12 } = {}) {
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 520, gap = 12 } = {}) {
   const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
   if (!visible) return { visible: false, position: null };
   const nodeWidth = Math.max(1, finite(node.w, width));
-  width = Math.round(Math.min(width, Math.max(360, nodeWidth)));
+  /* 9-13 用户批注（两轮反馈的平衡点）：
+     ① 上一轮「面板太宽、中间留白多」→ 收窄；② 这一轮「你把它们搞那么窄是要干什么？」
+     → 生成面板底部有 6 个控件（模型/比例/清晰度/张数/技能/生成按钮），低于 420 就会换行变形。
+     最终口径：**最小 420（控件不换行）/ 最大 520（不喧宾夺主）/ 不超过节点宽度时取节点宽**。 */
+  const MIN_COMPOSER_WIDTH = 420;
+  const MAX_COMPOSER_WIDTH = 520;
+  width = Math.round(Math.min(MAX_COMPOSER_WIDTH, Math.max(MIN_COMPOSER_WIDTH, Math.min(width, nodeWidth))));
   const nodeHeight = Math.max(1, finite(node.h, 0));
   return {
     visible: true,

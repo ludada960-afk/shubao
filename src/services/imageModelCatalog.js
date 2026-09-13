@@ -16,31 +16,27 @@ export const IMAGE_MODELS = Object.freeze([
   }),
   /* ── 9-13 新增四族五档（与竞品一致：2.5 放两个变体；全部走同一上游 IP233）── */
   Object.freeze({
-    pending: true, /* 待真实生成验收后开放（A 方案） */
+    /* 9-13 用户决定：先上线上，他自己跑真实生成验收 → 去掉 pending 直接可选。 */
     id: 'image2-5-sunburst', label: 'GPT Image 2.5 Sunburst', badge: '旗舰',
     description: '最新旗舰图片模型，画质与指令理解更强，复杂编辑更精准。',
     brand: 'openai',
   }),
   Object.freeze({
-    pending: true, /* 待真实生成验收后开放（A 方案） */
     id: 'image2-5-flare', label: 'GPT Image 2.5 Flare', badge: '极速',
     description: '新一代快速图片模型，兼顾速度与画面细节，适合日常批量出图。',
     brand: 'openai',
   }),
   Object.freeze({
-    pending: true, /* 待真实生成验收后开放（A 方案） */
     id: 'mdkj-super', label: 'MDKJ Super', badge: '极致性价比',
     description: '成本最低的通用出图档，适合高频铺量、白底图与常规商品视觉。',
     brand: 'openai',
   }),
   Object.freeze({
-    pending: true, /* 待真实生成验收后开放（A 方案） */
     id: 'gemini-3-image', label: 'Gemini 3 图像', badge: '文字排版',
     description: 'Google 新一代图片模型，擅长画面内文字、多参考一致性与复杂场景。',
     brand: 'gemini',
   }),
   Object.freeze({
-    pending: true, /* 待真实生成验收后开放（A 方案） */
     id: 'midjourney', label: 'Midjourney', badge: '风格美学',
     description: '以美学风格见长，适合概念图、情绪板与高质感视觉；最高支持 2K。',
     brand: 'midjourney',
@@ -49,7 +45,9 @@ export const IMAGE_MODELS = Object.freeze([
   }),
 ]);
 
-/** 可对用户展示的模型（pending=true 的档位尚未通过真实生成验收，先不进选择器） */
+/** 可对用户展示的模型。
+ *  9-13：五档新模型已按用户要求直接上线（用户自己在线上跑真实生成验收）。
+ *  pending 机制保留：将来要临时下线某档，给它加回 pending 标记即可，前后端都不用改。 */
 export const SELECTABLE_IMAGE_MODELS = Object.freeze(IMAGE_MODELS.filter(model => model.pending !== true));
 
 const IDS = new Set(['smart', ...IMAGE_MODELS.map(model => model.id)]);

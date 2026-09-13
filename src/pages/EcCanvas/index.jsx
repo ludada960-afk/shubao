@@ -6032,9 +6032,13 @@ const handlePointerUp = useCallback((e) => {
       </div>
 
       {tab === 'canvas' ? (
+        <>
         <div
           ref={containerRef}
-          className="ec-canvas-stage"
+          /* 9-13 用户批注：「我随便上传一张图片，右边这个功能栏为什么整个盖上来？之前是在右边展示功能栏。」
+             —— 右侧面板不再浮在画布上盖住内容：面板打开时画布区**让出右侧空间**（.has-right-panel），
+             节点不会被面板压住，画布中心与底部工具栏也跟着这条边界走。 */
+          className={`ec-canvas-stage${selectionPanelsVisible ? ' has-right-panel' : ''}`}
           style={{ cursor: canvasCursorForState({ tool: activeTool, pointerKind: pointerMode?.kind, spaceKey: spacePressed }) }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -6678,6 +6682,8 @@ const handlePointerUp = useCallback((e) => {
           {marquee && (
             <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: marquee.w * viewport.scale, height: marquee.h * viewport.scale, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
           )}
+
+        </div>
             {/* 4c183cd4 续命 画布深度重构: 工具栏移到 transform 层内，跟随节点移动 */}
             {selectionPanelsVisible && <EcCanvasRightPanel
               node={selectedNode}
@@ -6709,8 +6715,7 @@ const handlePointerUp = useCallback((e) => {
                 else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
               }}
             />}
-
-        </div>
+        </>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
           {/* 9-12 用户批注：作品只保留 7 天，要明确告知用户及时下载 */}

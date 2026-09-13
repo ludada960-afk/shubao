@@ -150,6 +150,14 @@
 .ec-canvas-topbar-surface:active:not(:disabled) { box-shadow: var(--ec-shadow-1); transform: translateY(0); }
 
 .ec-canvas-stage { flex: 1; position: relative; overflow: clip; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
+/* 9-13 用户批注：右侧功能栏打开时，画布区要让出位置（面板贴着右边、画布内容不被盖住）。
+   让位宽度 = 面板宽 + 两侧边距，统一由 --canvas-right-panel-width 一个变量决定（面板与画布同步）。 */
+.ec-canvas-page { --canvas-right-panel-width: 360px; }
+.ec-canvas-stage.has-right-panel { margin-right: calc(var(--canvas-right-panel-width, 360px) + 28px); }
+@media (max-width: 1100px) { .ec-canvas-page { --canvas-right-panel-width: min(360px, calc(100vw - 220px)); } }
+/* 移动端面板是全屏覆盖层，画布本来就看不见 → 不做让位 */
+@media (max-width: 760px) { .ec-canvas-page { --canvas-right-panel-width: 0px; } }
+@media (prefers-reduced-motion: no-preference) { .ec-canvas-stage { transition: margin-right 220ms var(--ec-ease-out, cubic-bezier(.16, 1, .3, 1)); } }
 
 .ec-canvas-left-rail,
 .ec-canvas-zoom-controls { position: absolute; z-index: 58; display: flex; background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); }
@@ -289,7 +297,16 @@
 }
 /* 9-13 用户批注：左侧「+」菜单太高会顶到屏幕上沿/下沿（实测 769px），
    收成「最多 620px + 内部滚动」，保证在任何屏幕上都完整可用。 */
-.ec-canvas-add-menu { position: fixed; max-height: min(620px, calc(100vh - 48px)); overflow-y: auto; overscroll-behavior: contain; }
+/* 9-13 用户批注：「你这边的节点为什么现在不能全部展示了呢？为什么有两个会在最下面需要我去滑动？
+   你不能一屏全部展示出来吗？」—— 菜单共 11 项，每项 54px 会到 700+px 必须滚动。
+   收紧行高（46px）+ 分组标题与图标同步收一点，960px 以上屏幕一屏放全；矮屏仍保留滚动兜底。 */
+.ec-canvas-add-menu { position: fixed; max-height: min(760px, calc(100vh - 32px)); overflow-y: auto; overscroll-behavior: contain; }
+.ec-canvas-add-menu button { min-height: 46px; padding: 5px 8px; }
+.ec-canvas-add-menu button > span:first-child { width: 30px; height: 30px; }
+.ec-canvas-add-menu strong { font-size: 12.5px; }
+.ec-canvas-add-menu small { margin-top: 2px; font-size: 10.5px; }
+.ec-canvas-add-menu .ec-canvas-menu-heading { height: 30px; }
+.ec-canvas-menu-group-title { display: block; padding: 6px 8px 3px; color: #9a938c; font-size: 10.5px; font-weight: 600; }
 .ec-canvas-derive-menu { position: absolute; transform: scale(var(--canvas-overlay-scale, 1)); transform-origin: top left; }
 .ec-canvas-menu-heading { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 3px; color: #737b87; font-size: 11px; }
 .ec-canvas-menu-heading strong { color: #20242a; font-size: 12px; white-space: nowrap; }
@@ -830,6 +847,9 @@
   --canvas-ink: #15171a;
   --canvas-muted: #626871;
   --canvas-hairline: #e3e6ea;
+  /* 9-13：右侧功能栏是「贴视口右边的面板」，不是浮在画布上的弹层 ——
+     它是本页的直接子元素，绝对定位基准必须是本页（否则会跟着画布让位一起左移）。 */
+  position: relative;
 }
 .ec-canvas-node-composer {
   border-color: #dfe3e8;

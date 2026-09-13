@@ -113,7 +113,10 @@ function createEmptyCanvasResult() {
     id: 'canvas-empty-workspace',
     _ecResult: true,
     _emptyCanvas: true,
-    product_name: '电商画布',
+    /* 9-13 用户批注（说了很多遍）：「这个地方不叫电商画布，各种各样的创作都会进来这个画布」
+       —— 空画布不再冒充某个项目名，顶部标题回落到「智能画布」；
+       下游所有用到 product_name 的地方本来就有各自的兜底（'商品'/'画布创作'…）。 */
+    product_name: '',
     category: '电商图片',
     platform: '淘宝',
     productAssets: [],

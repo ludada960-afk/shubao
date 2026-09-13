@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
 import {
   AlignCenter,
@@ -127,10 +127,12 @@ const APPLICATION_ACTION_IDS = new Set(['application-tts', 'application-caption'
 const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImageUp },
   { id: 'upload-video', label: '上传视频', description: '加入已有成片或参考视频', icon: FileVideo },
+  /* 9-13 用户批注：上面都是「上传 X」，这里却写「添加音频」，而且排在菜单最下面 ——
+     改成「上传音频」并**紧跟在上传视频下面**（同类动作排在一起）。 */
+  { id: 'upload-audio', label: '上传音频', description: '加入配音、旁白或背景音乐', icon: Music },
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderInput },
   /* 9-12 用户批注：加「从资产库选择」——资产库的素材必须能放到画布上 */
   { id: 'asset-library', label: '从资产库选择', description: '把资产库里的素材直接放到画布', icon: LibraryBig },
-  { id: 'upload-audio', label: '添加音频', description: '加入配音、旁白或背景音乐', icon: Music },
   { id: 'application-tts', label: '语音合成', description: '把文案变成可用的配音音轨', icon: AudioLines },
   { id: 'application-caption', label: '智能字幕', description: '为视频自动生成并烧录字幕', icon: Captions },
 
@@ -479,7 +481,12 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
       <button type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
       {open === 'model' && <div className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
-        {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => { onChange?.({ imageModel: model.id }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
+        {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => {
+          /* 切到不支持当前清晰度的模型时，顺手落到它支持的档位（画布上不会留下无效的 4K） */
+          const supported = imageModelResolutions(model.id);
+          onChange?.(supported.includes(resolution) ? { imageModel: model.id } : { imageModel: model.id, resolution: supported[supported.length - 1] });
+          onSurfaceChange?.(closeCanvasComposerSurface());
+        }}>
           <ModelLogo logo={brandLogo(model.brand)} size={20} style={{ marginRight: 2 }} />
           <span className="ec-canvas-model-copy"><strong>{model.label}</strong><small>{model.badge}</small></span>
         </button>)}
@@ -496,7 +503,8 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
     <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="清晰度" aria-haspopup="menu" aria-expanded={open === 'resolution'} onClick={() => toggle('resolution')}>{resolution}<ChevronDown size={12} /></button>
       {open === 'resolution' && <div className="ec-canvas-parameter-popover ec-canvas-resolution-popover" role="menu" aria-label="清晰度选项">
-        {CANVAS_RESOLUTION_OPTIONS.map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} onClick={() => { onChange?.({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
+        {/* 9-13：清晰度跟着模型能力走（Midjourney 上游只有 1K/2K，画布同样不给 4K） */}
+        {CANVAS_RESOLUTION_OPTIONS.filter(value => imageModelResolutions(imageModel).includes(value)).map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} onClick={() => { onChange?.({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
       </div>}
     </div>
     {includeCount && <div className="ec-canvas-parameter-item">

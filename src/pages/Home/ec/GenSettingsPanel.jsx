@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Coins, Lock, Monitor, Palette, ShieldAlert, Sparkles, Unlock } from 'lucide-react';
-import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, generationUnits, imageModelResolutions, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ModelLogo from '../../../components/ModelLogo.jsx';
 
@@ -21,6 +21,10 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
   const safeValue = value || {};
   const selectedModel = normalizeImageModel(safeValue.imageModel);
   const set = (key, val) => onChange?.({ ...safeValue, [key]: val });
+  /* 9-13：清晰度选项必须跟着模型能力走 —— Midjourney 上游只有 1K/2K，
+     选了它就不能再给 4K（避免「选了 4K、实际给 2K」的静默回落）。 */
+  const availableResolutions = imageModelResolutions(selectedModel);
+  const resolutionChoices = RESOLUTIONS.filter(r => availableResolutions.includes(r.key));
   /* 9-11 三轮批注: 「视觉方向」面板整体让位给技能库后, 品牌主色调 (生成约束) 移到生成设置 */
   const brandLocked = Array.isArray(brandColors) && brandColors.length > 0;
   const [pickerColor, setPickerColor] = useState(() => (brandLocked ? brandColors[0] : '#7c3aed'));
@@ -41,7 +45,13 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
             待验收的新档位仍在目录里（label/价格可解析），但不对外显示。 */}
         {SELECTABLE_IMAGE_MODELS.map(model => {
               const active = selectedModel === model.id;
-              return <button key={model.id} type="button" onClick={() => set('imageModel', model.id)} style={{
+              return <button key={model.id} type="button" onClick={() => {
+                /* 切到不支持当前清晰度的模型时，顺手落到该模型的最高可用档（用户看不到 4K，也不会偷偷给 2K） */
+                const nextResolutions = imageModelResolutions(model.id);
+                const currentResolution = safeValue.resolution || '2K';
+                const nextResolution = nextResolutions.includes(currentResolution) ? currentResolution : nextResolutions[nextResolutions.length - 1];
+                onChange?.({ ...safeValue, imageModel: model.id, resolution: nextResolution });
+              }} style={{
                 ...cardBase, width: '100%', textAlign: 'left', fontFamily: 'inherit',
                 padding: 8,
                 borderColor: active ? '#7c3aed' : 'rgba(0,0,0,0.08)',
@@ -68,7 +78,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
             <Monitor size={13} color="#7c3aed" /> 清晰度
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {RESOLUTIONS.map(r => {
+            {resolutionChoices.map(r => {
               const active = (safeValue.resolution || '2K') === r.key;
               return (
                 <div key={r.key} onClick={() => set('resolution', r.key)}

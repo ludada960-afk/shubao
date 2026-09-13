@@ -204,8 +204,9 @@ test('only one selected generation node receives a contextual composer position'
   const node = createCanvasImageComposerNode({ x: 400, y: 220, now: 123 });
   assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: node.id, selectedCount: 1 }), {
     visible: true,
-    /* 9-13：面板宽度收到 480，且**不超过节点自身宽度** —— 该用例节点宽 360，故面板宽 360、居中 */
-    position: { left: 360, top: 512, width: 360 },
+    /* 9-13 最终口径：面板宽 = min(520, max(420, min(默认宽, 节点宽)))。
+       该用例节点宽 280 → 抬到下限 420（低于 420 时底部 6 个控件会换行变形），仍然居中。 */
+    position: { left: 330, top: 512, width: 420 },
   });
   assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: 'another', selectedCount: 1 }), {
     visible: false,
@@ -222,7 +223,7 @@ test('only one selected generation node receives a contextual composer position'
     viewportBounds: { width: 800, height: 640 },
     viewport: { x: 0, y: 0, scale: 1 },
     height: 360,
-  }).position, { left: 720, top: 792, width: 360 });
+  }).position, { left: 690, top: 792, width: 420 });
 
   const mobile = getCanvasComposerPresentation({
     node: { ...node, x: 80, y: 460, w: 640, h: 420 },
@@ -232,7 +233,7 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 0.68 },
     height: 420,
   });
-  assert.deepEqual(mobile.position, { left: 160, top: 892, width: 480 });
+  assert.deepEqual(mobile.position, { left: 140, top: 892, width: 520 });
 
   const leftRail = getCanvasComposerPresentation({
     node: { id: node.id, x: -40, y: 80, w: 240, h: 120 },
@@ -242,8 +243,8 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 1 },
     height: 300,
   });
-  /* 9-13：面板宽 = min(480, max(360, 节点宽))；该节点宽 240 → 360，仍居中 */
-  assert.deepEqual(leftRail.position, { left: -100, top: 212, width: 360 });
+  /* 9-13：节点宽 240 < 下限 420 → 面板 420，仍以节点中心居中 */
+  assert.deepEqual(leftRail.position, { left: -130, top: 212, width: 420 });
 });
 
 test('contextual composer stays anchored below its node instead of dodging neighboring nodes', () => {
@@ -258,7 +259,8 @@ test('contextual composer stays anchored below its node instead of dodging neigh
     height: 360,
     avoidNodes: [{ id: 'asset', x: 770, y: 128, w: 240, h: 240 }],
   }).position;
-  assert.deepEqual(position, { left: 750, top: 792, width: 300 });
+  /* 传进来的 300 会被下限抬到 420：邻居节点不再让面板左右乱跳，仍然居中吸附在节点下方 */
+  assert.deepEqual(position, { left: 690, top: 792, width: 420 });
 });
 
 test('contextual composer can extend beyond the viewport so canvas panning remains authoritative', () => {
@@ -280,7 +282,7 @@ test('contextual composer can extend beyond the viewport so canvas panning remai
       h: 330,
     })),
   }).position;
-  assert.deepEqual(position, { left: 1680, top: 692, width: 480 });
+  assert.deepEqual(position, { left: 1660, top: 692, width: 520 });
 });
 
 test('local edit selections are normalized before they become generation input', () => {

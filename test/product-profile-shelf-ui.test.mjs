@@ -57,16 +57,19 @@ test('drawer z-index sits between page overlays and global modals (site-wide aud
   assert.deepStrictEqual(values.sort((a, b) => b - a), [1300, -1]);
 });
 
-test('bottom generation settings bar keeps a persistent current-product chip with selector', () => {
-  assert.match(ecMode, /<ProductChip[\s\S]*?profile=\{activeProductProfile\}/);
-  assert.match(ecMode, /onSelect=\{selectActiveProductProfile\}/);
+test('商品档案入口按用户要求下线，档案能力本身保留', () => {
+  /* 9-13 用户批注：「商品档案其实也是类似资产库的东西，没有必要，可以把它给删掉了。」
+     底部「当前商品」chip 已从电商工作台移除；抽屉/档案读写能力保留（小红书 / Plog 跨模式仍在用）。 */
+  assert.doesNotMatch(ecMode, /<ProductChip/, '底部不应再渲染商品档案入口');
+  assert.match(ecMode, /<EcProfileRail[\s\S]*?onSelect=\{selectActiveProductProfile\}/, '档案抽屉能力保留（跨模式复用）');
   assert.match(chip, /data-testid="ec-current-product-chip"/);
   assert.match(chip, /当前商品/);
   // 入口收敛：chip 不再自带选择器弹层，点击直接呼出档案抽屉（唯一入口）。
   assert.doesNotMatch(chip, /createPortal/);
   assert.doesNotMatch(chip, /role="listbox"/);
   assert.match(chip, /aria-haspopup="dialog"/);
-  assert.match(ecMode, /onOpen=\{openProfileDrawer\}/);
+  /* 唯一入口（底部 chip）已下线 → 不再有 openProfileDrawer 调用；抽屉由 onToggle 控制。 */
+  assert.match(ecMode, /setProductProfilesOpen\(open => !open\)/);
   assert.match(css, /\.ec-product-chip \{/);
   // chip 视觉规格并入邻近按钮体系：复用 .ec-config-trigger token（尺寸/圆角/hover/展开态），
   // 行内 flex 布局由 .ec-product-chip 自身补齐（邻近按钮的 flex 来自 BTN_BASE 内联样式）。
