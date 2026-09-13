@@ -17,7 +17,7 @@ const supervisorCss = read('src/styles/canvas-supervisor.css');
 test('资产库弹窗卡片：方形 + 缩略图 1:1（基础规则，不依赖作用域）', () => {
   const card = pickerCss.match(/\.canvas-asset-picker-card \{[^}]*\}/)[0];
   assert.ok(/aspect-ratio: 1 \/ 1/.test(card), '卡片按 1:1 方形（近正方形）');
-  assert.ok(/min-height: 148px/.test(card), '方形带 min-height 兜底（防塌陷成细条）');
+  assert.ok(/min-height: 165px/.test(card), '方形带 min-height 兜底（防塌陷成细条）');
   const thumb = pickerCss.match(/\.canvas-asset-picker-thumb \{[^}]*\}/)[0];
   assert.ok(/aspect-ratio: 1 \/ 1/.test(thumb), '缩略图容器 1:1');
   assert.ok(/min-height: 148px/.test(thumb), '缩略图也有最小高度兜底');

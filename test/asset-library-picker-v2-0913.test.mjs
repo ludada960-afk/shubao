@@ -73,14 +73,18 @@ test('删除二次确认：复用项目统一确认弹窗（useDialog），确�
   assert.ok(css.includes('.canvas-asset-picker-delete[data-busy="true"] { opacity: 1;'), '忙碌态强制可见');
 });
 
-test('行距规则（CSS）：栅格 row gap ≥ 14px，且行高按内容自适应（防卡片互相覆盖）', () => {
+test('行距规则（CSS）：栅格 row gap ≥ 14px，行高按内容自适应 + align-content:start 防 stretch 压扁，卡片高度兜底 165px', () => {
   const m = css.match(/\.canvas-asset-picker-grid \{([^}]*)\}/);
   assert.ok(m, '栅格样式存在');
   const gapMatch = m[1].match(/gap: ([^;]+);/);
   const gap = gapMatch ? gapMatch[1].trim() : '';
   const rowGap = Number.parseFloat(gap.split(/\s+/)[0]);
   assert.ok(rowGap >= 14, '行距必须 ≥ 14px，实际 CSS 行距：' + gap);
-  assert.ok(m[1].includes('grid-auto-rows: max-content'), '行高按内容自适应，卡片不溢出下一行');
+  assert.ok(m[1].includes('grid-auto-rows: min-content'), '行高按内容自适应（min-content，不被容器高度压扁）');
+  assert.ok(m[1].includes('align-content: start'), 'align-content: start，栅格行不被 stretch 压扁');
+  const card = css.match(/\.canvas-asset-picker-card \{([^}]*)\}/);
+  assert.ok(card, '卡片样式存在');
+  assert.ok(card[1].includes('min-height: 165px'), '卡片高度兜底 165px（封面高 + 边框），任何情况下不塌成细条');
 });
 
 /* ═══════════════ 真实渲染断言（QA 通道 + 接口 mock） ═══════════════ */
@@ -148,9 +152,11 @@ test('真实渲染①行距：拦截 /api/project-assets 返回 12 条，实测�
   await openPickerOn(page, 12);
   const boxes = await page.locator('.canvas-asset-picker-card').evaluateAll(els => els.map(n => {
     const r = n.getBoundingClientRect();
-    return { top: r.top, bottom: r.bottom };
+    return { top: r.top, bottom: r.bottom, h: r.height };
   }));
   assert.ok(boxes.length >= 10, '至少两行卡片可见，实际 ' + boxes.length);
+  const distinctHeights = [...new Set(boxes.map(b => Math.round(b.h * 10) / 10))];
+  assert.equal(distinctHeights.length, 1, '所有卡片高度一致（distinctHeights 单值，行高不被压扁），实际 ' + JSON.stringify(distinctHeights));
   const rowTops = [...new Set(boxes.map(b => Math.round(b.top)))].sort((a, b) => a - b);
   assert.ok(rowTops.length >= 2, '存在至少两行，实际 ' + rowTops.length);
   const measured = [];
