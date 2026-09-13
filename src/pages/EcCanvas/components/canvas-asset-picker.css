@@ -12,12 +12,12 @@
 .canvas-asset-picker-tabs button { height: 30px; padding: 0 12px; border: 1px solid rgba(28,25,23,.10); border-radius: 15px; background: #fff; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
 .canvas-asset-picker-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
 .canvas-asset-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; overflow-y: auto; padding: 8px 22px 18px; }
-.canvas-asset-picker-card { position: relative; padding: 0; border: 1px solid rgba(28,25,23,.09); border-radius: 12px; overflow: hidden; background: #f6f5f3; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.canvas-asset-picker-card { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; min-height: 148px; padding: 0; border: 1px solid rgba(28,25,23,.09); border-radius: 12px; overflow: hidden; background: #f6f5f3; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
 .canvas-asset-picker-card:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 28px rgba(28,25,23,.16); }
 .canvas-asset-picker-card.is-selected { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,.22); }
-.canvas-asset-picker-thumb { display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; }
-.canvas-asset-picker-thumb img, .canvas-asset-picker-thumb video { width: 100%; height: 100%; object-fit: cover; }
-.canvas-asset-picker-check { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.9); border-radius: 50%; background: rgba(28,25,23,.45); color: transparent; opacity: 0; transition: opacity .15s ease, background .15s ease, color .15s ease; }
+.canvas-asset-picker-thumb { display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1; min-height: 148px; overflow: hidden; }
+.canvas-asset-picker-thumb img, .canvas-asset-picker-thumb video { width: 100%; height: 100%; object-fit: cover !important; object-position: center center; }
+.canvas-asset-picker-check { position: absolute; top: 8px; left: 8px; width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.9); border-radius: 50%; background: rgba(28,25,23,.45); color: transparent; opacity: 0; transition: opacity .15s ease, background .15s ease, color .15s ease; }
 .canvas-asset-picker-card:hover .canvas-asset-picker-check { opacity: 1; }
 .canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed; color: #fff; }
 .canvas-asset-picker-empty { grid-column: 1 / -1; padding: 30px 10px; color: #a8a29e; font-size: 12.5px; text-align: center; }
@@ -28,3 +28,15 @@
 .canvas-asset-picker footer .is-ghost { border: 1px solid rgba(28,25,23,.12); background: transparent; color: #57534e; }
 .canvas-asset-picker footer .is-primary { border: 0; background: linear-gradient(135deg, #7454f3, #d14db5); color: #fff; }
 .canvas-asset-picker footer .is-primary:disabled { background: #e5e3e0; color: #a8a39e; cursor: not-allowed; }
+
+/* ═══ 9-14 用户批注：资产库弹窗照竞品 —— 名称是压在图片上的半透明遮罩 + 悬停才出现的垃圾桶 ═══
+   说明：这两个选择器是「基础规则」（不依赖任何作用域），改动 JSX 加上 .canvas-asset-picker-name /
+   .canvas-asset-picker-delete 元素后即生效；现在先沉淀样式，回归测试据此断言。 */
+/* 名称遮罩：常态压在图片底部，白字 + 底部渐变，不占容器高度（图片不被挤扁） */
+.canvas-asset-picker-name { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 22px 10px 8px; overflow: hidden; color: #fff; font-size: 12px; font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.74)); pointer-events: none; }
+/* 垃圾桶：默认不可见，悬停 / 聚焦才浮现到右上角（竞品同款，暗色毛玻璃胶囊） */
+.canvas-asset-picker-delete { position: absolute; top: 8px; right: 8px; z-index: 3; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.34); border-radius: 9px; background: rgba(20,18,16,.58); color: #fff; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease, border-color .16s ease; }
+.canvas-asset-picker-card:hover .canvas-asset-picker-delete,
+.canvas-asset-picker-card:focus-within .canvas-asset-picker-delete { opacity: 1; transform: translateY(0); }
+.canvas-asset-picker-delete:hover { background: #dc2626; border-color: rgba(255,255,255,.6); }
+.canvas-asset-picker-delete svg { width: 15px; height: 15px; }

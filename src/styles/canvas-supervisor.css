@@ -805,3 +805,12 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 /* 卡片本体：正方形观感 + 悬停微动 */
 .canvas-asset-library-modal .ec-canvas-page article, .canvas-asset-library-modal article { border-radius: 14px !important; overflow: hidden; }
 
+/* ═══ 9-14 用户批注跟进：资产库弹窗卡片「方形化」——封面填满整卡，文案遮罩不变 ═══
+   卡片按栅格列宽用 aspect-ratio 撑成正方形（近正方形），封面 100% 填满；
+   min-height 兜底（历史教训：纯 aspect-ratio 在个别浏览器会塌成细条）。 */
+.canvas-asset-library-modal article { aspect-ratio: 1 / 1 !important; min-height: 150px !important; }
+.canvas-asset-library-modal article > div:first-child { position: absolute !important; inset: 0 !important; }
+.canvas-asset-library-modal article > div:first-child > div:first-child { height: 100% !important; min-height: 150px !important; }
+/* 垃圾桶：悬停（已有）+ 键盘聚焦（focus-within）都浮现 */
+.canvas-asset-library-modal article:focus-within .ec-asset-card-delete { opacity: 1; transform: translateY(0); }
+
