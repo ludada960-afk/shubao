@@ -32,8 +32,9 @@ test('前端：画布库弹窗具备四类操作 + 悬停显示', () => {
   assert.match(modal, /aria-label="复制画布"/);
   assert.match(modal, /aria-label="删除画布"/);
   const css = read('src/pages/EcCanvas/components/canvas-library.css');
-  assert.match(css, /\.canvas-library-card-actions \{ position: absolute;[^}]*display: none;/, '操作默认隐藏');
-  assert.match(css, /\.canvas-library-card:hover \.canvas-library-card-actions \{ display: flex; \}/, '悬停才显示');
+  /* 9-13 调整为不依赖 display 切换（曾导致卡片塌陷事故）：按钮常驻 DOM，用 opacity/transform 显隐 */
+  assert.match(css, /\.canvas-library-card-actions \{ position: absolute;[^}]*opacity: 0;/, '操作默认隐藏');
+  assert.match(css, /\.canvas-library-card:hover \.canvas-library-card-actions/, '悬停才显示');
   assert.match(css, /\.canvas-library-card\.is-favorite/, '收藏要有高亮');
 });
 
