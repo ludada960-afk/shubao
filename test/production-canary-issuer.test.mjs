@@ -58,11 +58,17 @@ test('deploy refreshes the canary token after restart without logging it', () =>
   const billing = deploy.indexOf('verify-production-billing.ps1');
   /* 9-13：刷新点从 1 个变成 2 个 —— 主刷新 + 视频金丝雀 401 时的自愈重试。
      所以按「调用点」收集，而不是 lastIndexOf（那会被追加的重试调用带偏）。 */
+  /* 9-13：鉴权校验统一走 Invoke-AuthenticatedVerification（失败会重新签发会话再试一次），
+     所以「刷新」出现在两处：包装器内部 + 重启后的主刷新。断言按语义来：
+     ① 包装器存在且内部会重新签发；② 主刷新在重启之后、鉴权计费校验之前。 */
+  assert.match(deploy, /function Invoke-AuthenticatedVerification/, '鉴权校验必须统一走可自愈的包装器');
+  const helperBody = deploy.slice(deploy.indexOf('function Invoke-AuthenticatedVerification'), deploy.indexOf('function Wait-PublicProductionReady'));
+  assert.match(helperBody, /Refresh-CanarySessionAfterRestart/, '包装器失败后要重新签发金丝雀会话');
+  assert.match(helperBody, /-le 2/, '最多重试一次（共两次）');
   const refreshCalls = [...deploy.matchAll(/(?:^|\n)\s*Refresh-CanarySessionAfterRestart\s*(?:\r?\n|$)/g)].map(match => match.index);
-
-  assert.ok(refreshCalls.length >= 1, '部署必须刷新金丝雀会话');
-  assert.ok(refreshCalls.every(index => index > restart), 'canary refresh must happen after the restarted app is healthy');
-  assert.ok(refreshCalls[0] < billing, 'canary refresh must happen before authenticated billing verification');
+  const afterRestart = refreshCalls.filter(index => index > restart);
+  assert.ok(afterRestart.length >= 1, '重启后必须刷新金丝雀会话');
+  assert.ok(afterRestart[0] < billing, 'canary refresh must happen before authenticated billing verification');
   assert.match(deploy, /chmod 600[^\n]*remoteCanarySessionFile/);
   assert.match(deploy, /function\s+Invoke-BoundedSshCapture/i);
   assert.match(deploy, /Invoke-BoundedSshCapture[^\n]*-TimeoutSeconds\s+30/i);

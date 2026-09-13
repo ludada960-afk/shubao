@@ -320,6 +320,25 @@ function Refresh-CanarySessionAfterRestart {
   Invoke-LockedRemote -Command "rm -f '$remoteCanarySessionFile'" -TimeoutSeconds 120 -FailureMessage "Post-restart canary session cleanup failed"
 }
 
+# 9-13 实战教训：部署过程中「金丝雀会话」会因为刚重启/边缘抖动而短暂失效（表现为 401），
+# 直接把一次成功的部署判成失败并回滚（站点其实一直是好的）。会话问题属于环境问题，
+# 不该判定版本不合格 —— 统一包装：失败就重新签发一次会话再试，最多两次，仍失败才算真失败。
+function Invoke-AuthenticatedVerification {
+  param(
+    [Parameter(Mandatory = $true)]
+    [scriptblock]$Command,
+    [Parameter(Mandatory = $true)]
+    [string]$FailureMessage
+  )
+  for ($attempt = 1; $attempt -le 2; $attempt++) {
+    Invoke-WithCanarySession -Command $Command
+    if ($LASTEXITCODE -eq 0) { return }
+    Write-Warning "$FailureMessage (attempt $attempt of 2); re-issuing the canary session and retrying"
+    Refresh-CanarySessionAfterRestart
+  }
+  throw $FailureMessage
+}
+
 function Wait-PublicProductionReady {
   param(
     [Parameter(Mandatory = $true)]
@@ -571,14 +590,12 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery verification failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract verification failed"
   Refresh-CanarySessionAfterRestart
-  Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
-  if ($LASTEXITCODE -ne 0) { throw "Authenticated video production verification failed" }
-  Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
-  if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
+  Invoke-AuthenticatedVerification -Command { & node $videoVerifier --base-url "https://shuimg.cn" } -FailureMessage "Authenticated video production verification failed"
+  Invoke-AuthenticatedVerification -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" } -FailureMessage "Public production verification failed"
   Assert-DeploymentLockHeld
   $initialVerificationPid = Get-RemotePm2ProcessId
   if ($runRealEcommerceVerification) {
-    Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed" }
+    Invoke-AuthenticatedVerification -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed" } -FailureMessage "Authenticated ecommerce production verification failed"
     $initialVerificationEndPid = Get-RemotePm2ProcessId
     if ($initialVerificationEndPid -ne $initialVerificationPid) {
       throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
@@ -599,19 +616,7 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   } else {
     Write-Host "Skipped real ecommerce production canary for frontend-only release"
   }
-  # 9-13 实战教训：这一次「Authenticated video production canary」在新版部署后返回 401，
-  # 直接把一次成功的部署判成失败并回滚（站点其实一直是好的）。
-  # 401 的成因是金丝雀会话与重启后的进程对不上（token 由目标进程环境里的密钥签发），
-  # 属于可自愈的环境问题，不该判定整个版本不合格。
-  # 处理：失败就重新签发一次金丝雀会话再试（最多两次），仍然失败才算真失败。
-  $videoCanaryPassed = $false
-  for ($canaryAttempt = 1; $canaryAttempt -le 2; $canaryAttempt++) {
-    Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
-    if ($LASTEXITCODE -eq 0) { $videoCanaryPassed = $true; break }
-    Write-Warning "Authenticated video canary failed on attempt $canaryAttempt; re-issuing the canary session and retrying"
-    Refresh-CanarySessionAfterRestart
-  }
-  if (-not $videoCanaryPassed) { throw "Authenticated video production canary failed" }
+  Invoke-AuthenticatedVerification -Command { & node $videoVerifier --base-url "https://shuimg.cn" } -FailureMessage "Authenticated video production canary failed"
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery canary failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract canary failed"
   $canaryEndPid = Get-RemotePm2ProcessId
