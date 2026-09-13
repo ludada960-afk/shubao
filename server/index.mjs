@@ -454,6 +454,17 @@ const runBilledContentSse = createBilledSseRunner({
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
+/* 9-13 修启动期 TDZ：`isProtectedOwner` 闭包会在下面这句 `retentionService.sweep()` 时**立刻被调用**，
+   而 worksRetentionService 原来定义在 4000 行之后 → 每次启动都报
+   "Cannot access 'worksRetentionService' before initialization"。服务必须先建出来。 */
+/* ── 作品保留策略 (9-12 用户批注): 默认保留 7 天, 白名单账号永久保留 ──
+   启动时先做一次 dryRun 统计并写日志(可观测); 真正删除由 env RETENTION_PURGE_ENABLED=true 打开,
+   或由后台 POST /api/admin/retention/prune 显式触发 —— 删除用户资产这种不可逆动作不默认自动执行。 */
+const worksRetentionService = createWorksRetentionService({ db, logger: console });
+const retentionSeedWhitelist = String(process.env.RETENTION_SEED_WHITELIST || '867550189@qq.com').trim();
+if (retentionSeedWhitelist) {
+  try { worksRetentionService.addWhitelist(retentionSeedWhitelist, '初始白名单(用户指定)'); } catch { /* 忽略重复/格式问题 */ }
+}
 const retentionService = createRetentionService({
   db,
   assetStore: {
@@ -4192,14 +4203,6 @@ const ecommerceProviderAdapter = createModelProviderRouter({
   nanoBanana: nanoBananaProviderAdapter,
   advancedImage: advancedImageProviderAdapter,
 });
-/* ── 作品保留策略 (9-12 用户批注): 默认保留 7 天, 白名单账号永久保留 ──
-   启动时先做一次 dryRun 统计并写日志(可观测); 真正删除由 env RETENTION_PURGE_ENABLED=true 打开,
-   或由后台 POST /api/admin/retention/prune 显式触发 —— 删除用户资产这种不可逆动作不默认自动执行。 */
-const worksRetentionService = createWorksRetentionService({ db, logger: console });
-const retentionSeedWhitelist = String(process.env.RETENTION_SEED_WHITELIST || '867550189@qq.com').trim();
-if (retentionSeedWhitelist) {
-  try { worksRetentionService.addWhitelist(retentionSeedWhitelist, '初始白名单(用户指定)'); } catch { /* 忽略重复/格式问题 */ }
-}
 const RETENTION_DAYS = Number(process.env.ASSET_RETENTION_DAYS) > 0 ? Math.floor(Number(process.env.ASSET_RETENTION_DAYS)) : 7;
 const RETENTION_PURGE_ENABLED = String(process.env.RETENTION_PURGE_ENABLED || '').toLowerCase() === 'true';
 try {
