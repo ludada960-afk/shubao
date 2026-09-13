@@ -6153,7 +6153,7 @@ const handlePointerUp = useCallback((e) => {
             >
               <span className="ec-canvas-workflow-offer__title"><strong>{workflowRunOffer.name}</strong>已进入画布</span>
               {workflowRunOffer.requiresAudioVideo
-                ? <span className="ec-canvas-workflow-offer__note">该模板含视频节点，视频能力接入中</span>
+                ? <span className="ec-canvas-workflow-offer__note">含视频/音频节点 · 能力接入中，暂不可运行（未运行即不产生费用）</span>
                 : <span className="ec-canvas-workflow-offer__cost">预计 {workflowRunOffer.estimatedUnits} 积分</span>}
               {!workflowRunOffer.requiresAudioVideo && (
                 <button

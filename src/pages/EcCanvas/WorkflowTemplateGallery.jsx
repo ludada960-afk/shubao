@@ -213,7 +213,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
                 {estimated > 0 && <span title={template?.pricing?.note || '展示预估，结算以目录为准'} style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(255,247,237,.96)', border: '1px solid rgba(245,158,11,.35)', color: '#b45309', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Zap size={11} />预计 {estimated} 积分
                 </span>}
-                {p3Gate && <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(241,245,249,.96)', border: '1px solid rgba(100,116,139,.35)', color: '#64748b', fontSize: 11, fontWeight: 600 }}>
+                {p3Gate && <span title="这套模板用到视频/音频能力，能力上线前这些节点暂不可运行" style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(241,245,249,.96)', border: '1px solid rgba(100,116,139,.35)', color: '#64748b', fontSize: 11, fontWeight: 600 }}>
                   视频/音频能力即将上线（待 P3）
                 </span>}
               </div>
@@ -235,10 +235,13 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
                   </button>
                   {slots.length > 0 && <span title="铺开后琥珀高亮的槽位节点数">填 {slots.length} 槽</span>}
                 </div>
+                {/* 9-13 用户批注：口径要说清 —— 铺开只把节点放到画布上，本身不产生费用；
+                    真正计费发生在画布上点生成时（与普通创作同一条计费链路）。全表统一这句。 */}
+                <p style={{ margin: '6px 0 0', fontSize: 10.5, color: '#94a3b8', lineHeight: 1.5 }}>铺开只放节点、不产生费用；生成时按目录计费</p>
                 <button type="button" disabled={busy || likeBusy.has(slug)}
                   onClick={() => void instantiate(template)}
                   style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (p3Gate ? 'rgba(100,116,139,.35)' : 'rgba(124,58,237,.35)'), background: p3Gate ? '#f8fafc' : '#7c3aed', color: p3Gate ? '#64748b' : '#fff', fontSize: 12, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  {busy ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />铺开中…</> : p3Gate ? '铺开到画布（P3 前不可扣费运行）' : '一键同款 · 铺开到画布'}
+                  {busy ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />铺开中…</> : p3Gate ? '铺开到画布（待 P3 · 暂不可运行）' : '一键同款 · 铺开到画布'}
                 </button>
               </div>
             </article>;
