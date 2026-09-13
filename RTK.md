@@ -1618,7 +1618,13 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
 
 ### 测试与上线
 - 全量 `npm test`：**3283 / 3283 全绿**（基线 3267 → 新增 16 条回归）。
-- 本轮 commit：`a4dea243` / `1cfa4828` / `f4da857a` / `3fe78d17`（+ 文档）。
+- 本轮 commit：`a4dea243` / `1cfa4828` / `f4da857a` / `3fe78d17` / `ae154bba` / `568c5e80`（文档）。
+- 两次 frontend 档部署（`3fe78d17` → `ae154bba`）：线上 `current = /var/www/shubao/releases/20260913-230338-ae154bba`，origin `/api/health` 200；
+  线上 bundle 抽查命中 `has-right-panel` / `canvas-asset-picker-name` / `image2-5-sunburst` / `mdkj-super` / `gemini-3-image` /
+  `上传音频` / `智能画布` / `确认后一起加入画布` / `删除这个素材`。
+- 全量 `npm test`：**3283 / 3283 全绿**。
+- 注意（环境问题，非线上故障）：本机到 Cloudflare 的 HTTPS 会间歇性 SSL 失败（`https://www.cloudflare.com/` 同样失败），
+  用服务器侧 `curl` 复核线上为 200；以后线上验证优先「服务器侧 curl + 线上 bundle 抽查」。
 
 
 
