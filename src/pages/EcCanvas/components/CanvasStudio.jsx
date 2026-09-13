@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
 import {
   AlignCenter,
@@ -444,7 +444,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
       <button type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
       {open === 'model' && <div className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
-        {IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => { onChange?.({ imageModel: model.id }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
+        {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => { onChange?.({ imageModel: model.id }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
           <ModelLogo logo={brandLogo(model.brand)} size={20} style={{ marginRight: 2 }} />
           <span className="ec-canvas-model-copy"><strong>{model.label}</strong><small>{model.badge}</small></span>
         </button>)}

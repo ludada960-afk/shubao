@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Coins, Lock, Monitor, Palette, ShieldAlert, Sparkles, Unlock } from 'lucide-react';
-import { IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, generationUnits, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ModelLogo from '../../../components/ModelLogo.jsx';
 
@@ -37,7 +37,9 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
             <Sparkles size={13} color="#7c3aed" /> 生图模型
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 7 }}>
-            {IMAGE_MODELS.map(model => {
+            {/* 9-13：选择器只列「已通过真实生成验收」的档位（SELECTABLE_IMAGE_MODELS）；
+            待验收的新档位仍在目录里（label/价格可解析），但不对外显示。 */}
+        {SELECTABLE_IMAGE_MODELS.map(model => {
               const active = selectedModel === model.id;
               return <button key={model.id} type="button" onClick={() => set('imageModel', model.id)} style={{
                 ...cardBase, width: '100%', textAlign: 'left', fontFamily: 'inherit',

@@ -64,6 +64,25 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_nano_pro_1k: { units: 1000, providerCostCny: 0.06 },
   ec_nano_pro_2k: { units: 1500, providerCostCny: 0.06 },
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
+  // ── 9-13 新增四族五档（同一上游 IP233；成本为其权威价目 ¥/张）──
+  // GPT Image 2.5：旗舰 sunburst / 极速 flare，扣费 1.5/1.5/2 积分，毛利 76~82%
+  ec_image25_sunburst_1k: { units: 1500, providerCostCny: 0.0715 },
+  ec_image25_sunburst_2k: { units: 1500, providerCostCny: 0.0975 },
+  ec_image25_sunburst_4k: { units: 2000, providerCostCny: 0.1235 },
+  ec_image25_flare_1k: { units: 1500, providerCostCny: 0.0715 },
+  ec_image25_flare_2k: { units: 1500, providerCostCny: 0.0975 },
+  ec_image25_flare_4k: { units: 2000, providerCostCny: 0.1235 },
+  // MDKJ Super：全场最低成本档，扣费 1/1/1.5 积分，毛利 ≈90%
+  ec_mdkj_1k: { units: 1000, providerCostCny: 0.026 },
+  ec_mdkj_2k: { units: 1000, providerCostCny: 0.026 },
+  ec_mdkj_4k: { units: 1500, providerCostCny: 0.026 },
+  // Gemini 3 图像：擅画面内文字与多参考，扣费 2/2/3 积分，毛利 71~77%
+  ec_gemini3_1k: { units: 2000, providerCostCny: 0.12 },
+  ec_gemini3_2k: { units: 2000, providerCostCny: 0.12 },
+  ec_gemini3_4k: { units: 3000, providerCostCny: 0.15 },
+  // Midjourney：差异化美学档，上游仅 1K/2K（UI 不给 4K），扣费 3/3.5 积分
+  ec_mj_1k: { units: 3000, providerCostCny: 0.25 },
+  ec_mj_2k: { units: 3500, providerCostCny: 0.39 },
   // ── 视频按量终案（2026-08-26 已批准）：零售锚 priceFen（1元=100分）+ 积分扣费 units 双轨 ──
   // 积分折算锚 = 工作室包面值 ¥199/760000units ≈ ¥0.00026184/unit（见 pointsFaceAnchorCny）。
   // units = ⌈priceFen/100 ÷ 锚⌉ 向上取整到整积分，保证实付面值不低于终案现金价：

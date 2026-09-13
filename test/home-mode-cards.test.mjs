@@ -114,6 +114,8 @@ test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; �
   assert.doesNotMatch(ecMode, /activePanel === 'style'/);
   assert.match(settings, /锁定品牌主色调/);
   /* 9-11 三轮: 三个模型的视觉标识改为品牌 key (openai / gemini), 由 modelLogos 统一解析成 SVG 标 */
-  assert.equal((catalog.match(/brand: '(openai|gemini|midjourney|qwen|alibaba|seedream)'/g) || []).length, 3);
+  /* 9-13 扩档：目录现有 8 档（原 3 档 + 新增 2.5 两个变体 / MDKJ / Gemini 3 / Midjourney）；
+     品牌 key 由 modelLogos 统一解析成 SVG 标，仍然是“不再用示例大图”这条契约。 */
+  assert.equal((catalog.match(/brand: '(openai|gemini|midjourney|qwen|alibaba|seedream)'/g) || []).length, 8);
   assert.doesNotMatch(catalog, /images\/models\//);
 });
