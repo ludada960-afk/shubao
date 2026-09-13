@@ -1528,4 +1528,41 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
   ② 前端目录 + 生成链路映射（`imageModelCatalog.js` 的 `generationBillingSku` + provider `modelMap`，同一族要按分辨率映射到不同 id）；
   ③ **一次真实付费生成验收**（确认 id 可用、产物质量达标）——这一步我无法替用户跑（会真的花钱、且用户明确说自己来测）。
   目前 ①② 我可以直接做，③ 需要用户在真机上各跑一张。**没有 ③ 就上架 = 可能把可用性风险直接暴露给用户**，与「不允许有任何 bug」冲突。
+  → **2026-09-13 更新：①② 已完成（见下节 `33b891d6`），只剩 ③ 真实付费验收。**
+
+## 2026-09-13 批注批次十六：画布四个生成框对齐首页 + 新族模型后端接线
+
+### 画布（用户批注：加号位置 / 面板歪 / 应用乱打 / 技能入口 / 动态积分 / @ 键）
+- `085f94f4` **四个生成框全部对齐首页口径**：
+  - 生成按钮统一成 `.shubao-gen-cta`（与首页/小红书同一枚渐变 CTA），按钮内直接显示**动态积分**
+    （新模块 `src/pages/EcCanvas/canvasPointsEstimate.js`：图片 = generationUnits(模型,清晰度)×张数；
+    文案 = 0.2（ec_ai_assistant）；套图 = 首页 resolveSizingImages 整套张数×单价；视频 = 产品报价 short/long）。
+    彻底删掉写死的「62 AI 积分 / 次」。
+  - **技能入口抽成 `CanvasSkillControl`**：图片/文案/视频/套图四处同一个按钮、同一套技能、同一个「更多技能…」进技能管理弹窗；视频框不再用下拉框另做一套。
+  - **视频框补上 @ 引用键**（MentionPromptField + 底栏 ComposerMention，与另三个框对等）。
+  - **新建即开面板**：从左侧「+」新建生成框原来「不选中 → 面板不出现」（用户以为按钮没反应），
+    现在一律选中新节点、生成面板当场打开（`canvas-studio-contract` 相应同步）。
+  - **派生面板居中吸附在按钮正上方**：`clampCanvasPickerPosition({ anchor: 'above' })` + `.ec-canvas-derive-menu.is-above`
+    （translate(-50%, -100% - 14px)，随画布缩放同步）；真渲染后复测高度，顶部放不下就在同一帧翻到按钮下方（`is-flipped`，仍水平居中）。
+    实测：端口 (933,514) 时面板 x 中心偏差 **0px**，间隙 3px。
+  - 左侧「+」菜单实测 769px 顶到屏幕上下沿 → 收成 `max-height: min(620px, 100vh-48px)` + 内部滚动。
+- `691696b0` 加号挂在画布节点框左右（生成面板不再挂加号）；生成面板宽度收到 **480 且不超过节点宽**（≥360）并严格居中；
+  应用类按节点类型分流（语音合成只服务文案、智能字幕只服务视频，未选中给明确提示）；画布库卡片布局写进基础选择器。
+
+### 新族图片模型后端接线（A 方案：接线先到位，真实生成验收后才上架）
+- `33b891d6` `server/ecommerceEngine/modelCatalog.mjs`：`IMAGE_MODEL_IDS` 新增 image2-5-sunburst / image2-5-flare /
+  mdkj-super / gemini-3-image / midjourney；`buildModelRoute` → `provider: 'advanced-image'`、`route.model = 族 id`；
+  **Midjourney 上游只有 1K/2K，4K 请求兜底降到 2K**（不静默换模型）。
+- `modelProviderRouter.mjs`：新增 advanced 适配器分流 + `advanced:` jobId 前缀；未配置时报「这个图片模型暂时不可用，请先换个模型」（不暴露供应商，有测试卡）。
+- `server/index.mjs`：新增 `createAdvancedImageAdapter`（同步 OpenAI 图片接口，缺省复用 IMG_BACKUP_* 同一平台凭据），
+  `modelMap` 按「族:分辨率」映射真实上游 id（`IMAGE_ADVANCED_*` env 可覆盖，校准不用改代码）：
+  `gpt-image-2.5-sunburst-{1k,2k,4k}` / `gpt-image-2.5-flare-{1k,2k,4k}` / `mdkj-super-gpt-image-2-{1k,2k,4k}` /
+  `ip233-gemini-3-pro-image` / `midjourney-{1k,2k}`。
+- `ecommerceBilling.ecommerceFeatureForItem` 补齐四族五档 SKU（与前端 generationBillingSku 一一对应）。
+- **顺带修掉一个真实计费 bug**：原来 1K/4K 用「手写尺寸白名单」判断，漏了 16:9 与 21:9
+  （4K 3840x2160 / 3584x1536 被当成 2K 少收，1K 1024x576 / 1008x432 被当成 2K 多收）。
+  现在直接以 `LEGAL_IMAGE_SIZES`（尺寸唯一真源）反查档位。
+- **上架门槛（未变）**：前端 `SELECTABLE_IMAGE_MODELS` 仍过滤 `pending: true`，五档都还没进选择器 ——
+  需要用户各跑一次真实生成验收（确认 id 可用 + 产物质量）后，去掉 pending 即可上架，无需再改后端。
+
 
