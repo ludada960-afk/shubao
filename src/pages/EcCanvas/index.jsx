@@ -59,6 +59,7 @@ import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
+import CanvasAssetPickerModal from './components/CanvasAssetPickerModal.jsx';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
@@ -612,6 +613,8 @@ export default function EcCanvas() {
   const [pointerMode, setPointerMode] = useState(null);
   const [activeTool, setActiveTool] = useState('select');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  /* 9-12 用户批注：画布要能「从资产库选择」把素材放上来（此前没有任何入口） */
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   // JS anchoring for the add-node menu: measured from the rail button's live
   // rect (CSS centering drifts once the topbar/rail metrics change).
   const [addMenuAnchor, setAddMenuAnchor] = useState(null);
@@ -6018,10 +6021,20 @@ const handlePointerUp = useCallback((e) => {
               if (actionId === 'upload') sourceUploadRef.current?.click();
               else if (actionId === 'upload-video') videoUploadRef.current?.click();
               else if (actionId === 'works') handleTabChange('works');
+              else if (actionId === 'asset-library') setAssetPickerOpen(true);
               else if (actionId === 'text-generation') addCanvasComposer('text');
               else if (actionId === 'image') addCanvasComposer('image');
               else if (actionId === 'ecommerce') addCanvasComposer('suite');
               else if (actionId === 'video') addCanvasComposer('video');
+            }}
+          />
+          {/* 从资产库选择：选中后直接加进当前画布（复用既有的 handleImportProjectAssets） */}
+          <CanvasAssetPickerModal
+            open={assetPickerOpen}
+            onClose={() => setAssetPickerOpen(false)}
+            onConfirm={async picked => {
+              setAssetPickerOpen(false);
+              await handleImportProjectAssets(picked);
             }}
           />
           <CanvasBottomToolbar
@@ -6182,6 +6195,8 @@ const handlePointerUp = useCallback((e) => {
                     <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><HeroGlyph kind="image" />上传图片</button>
                     <button type="button" onClick={() => videoUploadRef.current?.click()}><HeroGlyph kind="video" />上传视频</button>
                     <button type="button" onClick={() => handleTabChange('works')}><HeroGlyph kind="works" />从我的作品导入</button>
+                    {/* 9-12 用户批注：资产库必须有入口把素材放到画布上 */}
+                    <button type="button" onClick={() => setAssetPickerOpen(true)}><HeroGlyph kind="image" />从资产库选择</button>
                   </div>
                   {/* 9-09: AI 生成行 — 对齐主流画布 (流影/Quantv) 的丰富空态入口 */}
                   <div className="ec-canvas-empty-row is-generate-row" role="group" aria-label="AI 创作">

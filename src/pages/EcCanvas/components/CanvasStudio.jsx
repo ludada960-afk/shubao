@@ -18,6 +18,7 @@ import {
   FileVideo,
   Film,
   FolderInput,
+  LibraryBig,
   FolderOpen,
   Grid2X2,
   ImagePlay,
@@ -116,6 +117,8 @@ const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImageUp },
   { id: 'upload-video', label: '上传视频', description: '加入已有成片或参考视频', icon: FileVideo },
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderInput },
+  /* 9-12 用户批注：加「从资产库选择」——资产库的素材必须能放到画布上 */
+  { id: 'asset-library', label: '从资产库选择', description: '把资产库里的素材直接放到画布', icon: LibraryBig },
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: Sparkles },
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },

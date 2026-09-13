@@ -1,0 +1,30 @@
+/* 从资产库选择（9-12 用户批注）——照竞品：卡片悬停才出现打勾 */
+.canvas-asset-picker-overlay { position: fixed; inset: 0; z-index: 9600; display: grid; place-items: center; padding: 72px 24px 32px; background: rgba(28,25,23,.44); backdrop-filter: blur(8px); }
+.canvas-asset-picker { display: flex; flex-direction: column; width: min(920px, 96vw); max-height: min(82vh, 860px); overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
+.canvas-asset-picker header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px 14px; border-bottom: 1px solid rgba(28,25,23,.08); }
+.canvas-asset-picker header strong { display: block; font-size: 16px; font-weight: 800; color: #1c1917; }
+.canvas-asset-picker header span { display: block; margin-top: 4px; color: #a8a29e; font-size: 11.5px; }
+.canvas-asset-picker header button { width: 30px; height: 30px; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: #78716c; font-size: 16px; cursor: pointer; }
+.canvas-asset-picker-tools { display: flex; align-items: center; gap: 12px; padding: 14px 22px 10px; }
+.canvas-asset-picker-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 9px; color: #a8a29e; }
+.canvas-asset-picker-search input { flex: 1 1 auto; border: 0; outline: none; font-size: 12.5px; font-family: inherit; color: #292524; background: transparent; }
+.canvas-asset-picker-tabs { display: flex; gap: 6px; }
+.canvas-asset-picker-tabs button { height: 30px; padding: 0 12px; border: 1px solid rgba(28,25,23,.10); border-radius: 15px; background: #fff; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
+.canvas-asset-picker-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
+.canvas-asset-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; overflow-y: auto; padding: 8px 22px 18px; }
+.canvas-asset-picker-card { position: relative; padding: 0; border: 1px solid rgba(28,25,23,.09); border-radius: 12px; overflow: hidden; background: #f6f5f3; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.canvas-asset-picker-card:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 28px rgba(28,25,23,.16); }
+.canvas-asset-picker-card.is-selected { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,.22); }
+.canvas-asset-picker-thumb { display: grid; place-items: center; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; }
+.canvas-asset-picker-thumb img, .canvas-asset-picker-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.canvas-asset-picker-check { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.9); border-radius: 50%; background: rgba(28,25,23,.45); color: transparent; opacity: 0; transition: opacity .15s ease, background .15s ease, color .15s ease; }
+.canvas-asset-picker-card:hover .canvas-asset-picker-check { opacity: 1; }
+.canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed; color: #fff; }
+.canvas-asset-picker-empty { grid-column: 1 / -1; padding: 30px 10px; color: #a8a29e; font-size: 12.5px; text-align: center; }
+.canvas-asset-picker-error { margin: 0 22px; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
+.canvas-asset-picker footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 22px; border-top: 1px solid rgba(28,25,23,.08); }
+.canvas-asset-picker footer span { color: #78716c; font-size: 12px; }
+.canvas-asset-picker footer button { height: 36px; padding: 0 16px; border-radius: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.canvas-asset-picker footer .is-ghost { border: 1px solid rgba(28,25,23,.12); background: transparent; color: #57534e; }
+.canvas-asset-picker footer .is-primary { border: 0; background: linear-gradient(135deg, #7454f3, #d14db5); color: #fff; }
+.canvas-asset-picker footer .is-primary:disabled { background: #e5e3e0; color: #a8a39e; cursor: not-allowed; }
