@@ -6455,6 +6455,10 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
               node={selectedNode}
               position={selectedComposerPosition}
+              handlesVisible
+              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
+              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
+              onPortClick={event => handlePortClick(event, selectedNode.id)}
                sources={selectedComposerSources}
                mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
@@ -6471,6 +6475,10 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'text-composer' && <CanvasTextGenerationComposer
               node={selectedNode}
               position={selectedComposerPosition}
+              handlesVisible
+              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
+              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
+              onPortClick={event => handlePortClick(event, selectedNode.id)}
                sources={selectedComposerSources}
                mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
@@ -6487,6 +6495,10 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'suite-composer' && <CanvasEcommerceComposer
               node={selectedNode}
               position={selectedComposerPosition}
+              handlesVisible
+              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
+              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
+              onPortClick={event => handlePortClick(event, selectedNode.id)}
                sources={selectedComposerSources}
                mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
@@ -6502,6 +6514,10 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer
               node={selectedNode}
               position={selectedComposerPosition}
+              handlesVisible
+              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
+              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
+              onPortClick={event => handlePortClick(event, selectedNode.id)}
               sources={selectedComposerSources}
               loading={selectedNode.status === 'processing'}
               onChange={change => updateComposerNode(selectedNode.id, change)}

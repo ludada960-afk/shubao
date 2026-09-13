@@ -177,10 +177,11 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
         <X size={16} />
       </button>
       <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid rgba(15,23,42,.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Workflow size={18} style={{ color: '#7c3aed' }} />
-          <strong style={{ fontSize: 15, color: '#0f172a' }}>工作流模板</strong>
-          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b' }}>一键铺开 · 拖图即跑 · 使用/点赞为真数</span>
+        {/* 9-13 用户批注：标题右侧小字与关闭按钮重叠 —— 给关闭按钮留出安全区，并把文案缩短 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 40 }}>
+          <Workflow size={18} style={{ color: '#7c3aed', flex: '0 0 auto' }} />
+          <strong style={{ fontSize: 15, color: '#0f172a', flex: '0 0 auto' }}>工作流模板</strong>
+          <span style={{ marginLeft: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: '#64748b' }}>一键铺开 · 拖图即跑</span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
           <button type="button" onClick={() => setTab('featured')} style={tab === 'featured' ? TAB_ACTIVE : TAB}><Star size={12} />精选</button>
