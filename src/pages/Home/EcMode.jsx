@@ -841,7 +841,7 @@ const DEFAULT_BUTTONS = [
     const vw = window.innerWidth;
     const baseWidth =
       {
-        sizing: 560,
+        sizing: 480,
         sku: 540,
         style: 520,
         params: 520,
@@ -892,7 +892,7 @@ const DEFAULT_BUTTONS = [
         // 面板宽度：根据内容类型调整
         const baseWidth =
           {
-            sizing: 560,
+            sizing: 480,
             sku: 540,
             style: 520,
             params: 520,

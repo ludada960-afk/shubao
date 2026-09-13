@@ -1,0 +1,94 @@
+// test/gen-settings-panel-model-copy-0914.test.mjs
+// 2026-09-14 用户批注（首页生成设置面板）：
+//  ① 模型列表太长 → 默认折叠成「当前模型」+ 展开行高 ≤44px，一屏看全（生图模型+清晰度+其它配置）
+//  ② 面板下部信息看不到 → 压缩纵向间距（配合 ①）
+//  ③ 「锁定品牌主色调」默认不锁定（brandLocked=false），用户点了才锁
+//  ④ 套图方案面板宽度收窄（>=360, <=520）
+//  ⑤ 画布里模型没有描述 → 目录给每个模型补一行 shortDescription（<=22 字），首页面板已展示
+//  ⑥ 描述与积分口径自相矛盾 → 描述/徽标不再自称「成本最低/性价比」，只讲能力差异；对照表见测试输出
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import {
+  IMAGE_MODELS,
+  SELECTABLE_IMAGE_MODELS,
+  generationUnits,
+  imageModelResolutions,
+} from '../src/services/imageModelCatalog.js';
+
+const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+
+/* ── ⑤ shortDescription：8 个模型都有、非空、一行 ≤22 字 ── */
+test('8 个可选模型都有非空 shortDescription（一行 ≤22 字）', () => {
+  assert.equal(IMAGE_MODELS.length, 8, '目录应有 8 个模型');
+  assert.equal(SELECTABLE_IMAGE_MODELS.length, 8, '8 个模型都应已上线可选');
+  for (const model of IMAGE_MODELS) {
+    const short = (model.shortDescription || '').trim();
+    assert.ok(short.length > 0, model.id + ' 缺 shortDescription');
+    assert.ok(short.length <= 22, model.id + ' shortDescription 超过一行（>22 字）：' + short);
+  }
+});
+
+test('首页生成设置面板展示 shortDescription（一行短描述）', () => {
+  const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
+  assert.ok(panel.includes('shortDescription'), '模型行必须渲染 shortDescription');
+  assert.ok(panel.includes("model.shortDescription || model.description"), 'shortDescription 缺失时回落完整描述，不白屏');
+});
+
+/* ── ⑥ 描述/徽标不再自带价格卖点（与积分口径一致） ── */
+test('徽标与描述不再自称「成本最低/性价比」（mdkj 1K/2K 与 image2 同价 1000 units）', () => {
+  const PRICE_CLAIM = /性价比|成本最低|低价|最便宜|省钱|最低成本/;
+  for (const model of IMAGE_MODELS) {
+    const copy = [model.badge, model.description, model.shortDescription].join(' ');
+    assert.ok(!PRICE_CLAIM.test(copy), model.id + ' 仍含价格卖点文案: ' + copy);
+  }
+  const mdkj = IMAGE_MODELS.find(m => m.id === 'mdkj-super');
+  assert.equal(mdkj.badge, '高频铺量');
+  assert.equal(generationUnits('mdkj-super', '2K'), 1000);
+  assert.equal(generationUnits('image2', '2K'), 1000);
+});
+
+test('积分对照表：模型 / units / 积分 / 描述 全部可解析且与档位一致', () => {
+  const rows = [];
+  for (const model of SELECTABLE_IMAGE_MODELS) {
+    const resolutions = imageModelResolutions(model.id);
+    for (const res of resolutions) {
+      const units = generationUnits(model.id, res);
+      assert.ok(Number.isFinite(units) && units > 0, model.id + ' ' + res + ' 的 units 缺失');
+      rows.push({ model: model.id, label: model.label, res, units, points: units / 1000, desc: model.shortDescription });
+    }
+  }
+  assert.equal(generationUnits('image2', '2K'), 1000);
+  assert.equal(generationUnits('mdkj-super', '4K'), 1500);
+  assert.equal(generationUnits('image2-5-sunburst', '2K'), 1500);
+  assert.equal(generationUnits('gemini-3-image', '4K'), 3000);
+  assert.equal(generationUnits('midjourney', '2K'), 3500);
+  assert.deepEqual(imageModelResolutions('midjourney'), ['1K', '2K'], 'Midjourney 只给 1K/2K');
+  console.log('对照表: 模型 / 清晰度 / units / 积分 / 描述');
+  console.log(rows.map(r => [r.model, r.res, r.units, r.points + ' 积分', r.desc].join('\t')).join('\n'));
+});
+
+/* ── ① 默认折叠 + ③ 默认不锁定 ── */
+test('面板默认折叠模型列表，行高压缩到 ≤44px（配合一屏看全）', () => {
+  const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
+  assert.ok(panel.includes('const [modelListOpen, setModelListOpen] = useState(false)'), '模型列表默认折叠');
+  assert.ok(panel.includes('aria-expanded={modelListOpen}'), '折叠按钮暴露展开状态');
+  assert.ok(panel.includes('SELECTABLE_IMAGE_MODELS.map'), '展开后列出全部已上线档位');
+  assert.ok(panel.includes("padding: '2px 9px'"), '扩展行采用紧凑 padding（高度 ≤44px）');
+});
+
+test('锁定品牌主色调默认不锁定，锁定态只由外部 brandColors 推导', () => {
+  const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
+  assert.ok(panel.includes('brandColors = null'), '默认参数 brandColors=null（不锁定）');
+  assert.ok(panel.includes('Array.isArray(brandColors) && brandColors.length > 0'), '锁定只来自外部传入色值');
+  assert.ok(panel.includes("from 'react-colorful'"), '取色器已正确引入（锁定时不再白屏）');
+});
+
+/* ── ④ 套图方案面板宽度收窄到 [360, 520] ── */
+test('套图方案面板宽度收窄（>=360 且 <=520），面板按内容类型定宽', () => {
+  const ecMode = read('src/pages/Home/EcMode.jsx');
+  assert.ok(ecMode.includes('sizing: 480,'), '套图方案面板宽度 480（[360, 520] 内）');
+  const widths = [...ecMode.matchAll(/sizing: (\d+),/g)].map(m => Number(m[1]));
+  assert.ok(widths.length >= 2 && widths.every(w => w >= 360 && w <= 520), '两处定位映射都应在 [360, 520]');
+});

@@ -2277,13 +2277,13 @@
   backdrop-filter: blur(24px) saturate(135%) !important;
 }
 .ec-config-panel::after {
-  position: absolute; left: var(--ec-panel-anchor-x); bottom: -6px; width: 12px; height: 12px;
-  border-right: 1px solid rgba(255,255,255,.9); border-bottom: 1px solid rgba(255,255,255,.9);
-  background: rgba(252,252,253,.96); content: ''; transform: translateX(-50%) rotate(45deg);
+  /* 9-14 用户批注：面板一屏看全。连接箭头绝对定位在底边下方 6px，
+     会把滚动容器的可滚动区撑高 ~9px，制造「下面还有内容」的假滚动条 → 去掉箭头。 */
+  display: none;
 }
 .ec-config-panel-header {
   position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 11px;
-  padding: 14px 16px 12px; border-bottom: 1px solid rgba(45,41,38,.08);
+  padding: 10px 16px 8px; border-bottom: 1px solid rgba(45,41,38,.08);
   background: rgba(252,252,253,.90); backdrop-filter: blur(18px);
 }
 .ec-config-panel-icon {
