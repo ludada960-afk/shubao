@@ -581,7 +581,16 @@
 .ec-canvas-composer-mention { display: flex; align-items: center; margin-left: auto; }
 .ec-canvas-composer-mention .image-mention-trigger { width: 34px; height: 34px; }
 .ec-canvas-node-composer { max-width: calc(100vw - 24px); }
-.ec-canvas-composer-footer { flex-wrap: wrap; }
+/* 9-15 用户批注：四个生成框底部参数行与生成按钮要在同一视觉块内不换行变形
+   （面板宽 640 后文案面板底部仍差几像素导致生成按钮掉行）→ ≥761px 桌面端单行
+   （面板 = min(640, 100vw-24) 从 640 起足够宽）；参数控件弹性收缩（min-width:0）吸收余量；
+   窄屏（≤760px）保持换行兜底，避免按钮被裁切。 */
+@media (min-width: 761px) {
+  .ec-canvas-composer-footer { flex-wrap: nowrap; }
+  .ec-canvas-composer-footer .ec-canvas-parameter-controls { flex: 1 1 auto; min-width: 0; }
+  .ec-canvas-composer-footer > span { flex: 0 1 auto; }
+  .ec-canvas-composer-footer > button.ec-canvas-composer-cta { flex: 0 0 auto; }
+}
 
 /* Shared composer controls: keep references fully visible and upload affordances centered. */
 .ec-canvas-composer-sources { min-height: 104px; align-items: center; padding: 10px 14px; }
@@ -838,6 +847,8 @@
   .ec-canvas-bottom-dock { left: auto; right: 8px; bottom: 10px; align-items: flex-end; transform: none; }
   .ec-canvas-layers-panel { left: 8px; bottom: 66px; width: min(288px, calc(100vw - 16px)); max-height: calc(100% - 90px); }
   .ec-canvas-node-composer { width: min(640px, calc(100vw - 20px)) !important; max-width: calc(100vw - 20px); }
+  /* 窄屏放不下参数行时允许换行（桌面端 640 已单行） */
+  .ec-canvas-composer-footer { flex-wrap: wrap; }
   .ec-canvas-suite-source-rows { grid-template-columns: 1fr; }
   .ec-canvas-suite-source-rows .ec-canvas-composer-sources + .ec-canvas-composer-sources { border-left: 0; border-top: 1px solid #edf0f3; }
   .ec-canvas-suite-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
