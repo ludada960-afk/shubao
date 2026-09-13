@@ -98,10 +98,13 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
   };
 }
 
-export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 12 } = {}) {
+/* 9-13 用户批注：生成面板**太宽**（比下面的提示词区还宽、中间留白过多）→
+   默认收到 480，且不超过节点自身宽度。 */
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 480, gap = 12 } = {}) {
   const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
   if (!visible) return { visible: false, position: null };
   const nodeWidth = Math.max(1, finite(node.w, width));
+  width = Math.round(Math.min(width, Math.max(360, nodeWidth)));
   const nodeHeight = Math.max(1, finite(node.h, 0));
   return {
     visible: true,

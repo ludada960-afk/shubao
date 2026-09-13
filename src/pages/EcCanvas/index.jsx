@@ -6085,7 +6085,20 @@ const handlePointerUp = useCallback((e) => {
               else if (actionId === 'upload-audio') audioUploadRef.current?.click();
               /* 应用类：需要先在画布上选中一个素材；未选中时给提示，不做隐式动作 */
               else if (['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video'].includes(actionId)) {
-                if (!selectedNode) { showToast('请先在画布上选中一个素材，再使用这个应用', 'info'); return; }
+                /* 9-13 用户批注：应用有**适用对象**，不能任意节点都能点——
+                   语音合成只服务文案，智能字幕只服务视频。 */
+                if (!selectedNode) { showToast('请先在画布上选中要处理的节点', 'info'); return; }
+                const appKind = String(selectedNode.kind || '');
+                const isTextNode = ['text', 'text-composer', 'text-generation'].includes(appKind);
+                const isVideoNode = ['video', 'video-composer'].includes(appKind);
+                if (actionId === 'application-tts' && !isTextNode) {
+                  showToast('语音合成只作用于文案节点，请先选中一个文案', 'info');
+                  return;
+                }
+                if (actionId === 'application-caption' && !isVideoNode) {
+                  showToast('智能字幕只作用于视频节点，请先选中一个视频', 'info');
+                  return;
+                }
                 const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
                 if (actionId === 'application-tts') handleDerivedTtsGeneration(selectedNode.id, world);
                 else if (actionId === 'application-caption') handleDerivedCaptionGeneration(selectedNode.id, world);

@@ -786,3 +786,22 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 .canvas-asset-library-modal .ec-asset-card-delete:hover { background: #dc2626; }
 .canvas-asset-library-modal .ec-asset-card-delete svg { width: 15px; height: 15px; }
 
+
+/* ═══ 9-13 用户批注：资产库弹窗照竞品 —— 图片填满正方形、文案是**透明遮罩**压在图上、悬停才出垃圾桶 ═══ */
+.canvas-asset-library-modal article > div:first-child { position: relative; }
+/* ① 图片填满方形容器（不再是小缩略图 + 下面挤一行字） */
+.canvas-asset-library-modal article > div:first-child > div:first-child { height: 190px !important; border-radius: 0 !important; background: #f1efec !important; }
+.canvas-asset-library-modal article img, .canvas-asset-library-modal article video { width: 100%; height: 100%; object-fit: cover; object-position: center center; }
+/* ② 文案（名称/size）作为底部渐变遮罩压在图片上，不占容器空间 */
+.canvas-asset-library-modal article > div:first-child > div:nth-child(2) { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 26px 12px 10px !important; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.72)); }
+.canvas-asset-library-modal article > div:first-child > div:nth-child(2) > div { color: #fff !important; }
+.canvas-asset-library-modal article > div:first-child > div:nth-child(2) > div:nth-child(2) { color: rgba(255,255,255,.78) !important; }
+/* ③ 悬停才浮现的垃圾桶（右上角遮罩胶囊） */
+.canvas-asset-library-modal article > div:last-child { position: absolute; top: 8px; right: 8px; z-index: 5; padding: 0 !important; }
+.canvas-asset-library-modal .ec-asset-card-delete { position: static; width: 32px; height: 32px; border-radius: 10px; background: rgba(20,18,16,.6); border: 1px solid rgba(255,255,255,.34); color: #fff; backdrop-filter: blur(6px); opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease; }
+.canvas-asset-library-modal article:hover .ec-asset-card-delete { opacity: 1; transform: translateY(0); }
+.canvas-asset-library-modal .ec-asset-card-delete:hover { background: #dc2626; border-color: rgba(255,255,255,.6); }
+.canvas-asset-library-modal .ec-asset-card-delete svg { width: 16px; height: 16px; }
+/* 卡片本体：正方形观感 + 悬停微动 */
+.canvas-asset-library-modal .ec-canvas-page article, .canvas-asset-library-modal article { border-radius: 14px !important; overflow: hidden; }
+

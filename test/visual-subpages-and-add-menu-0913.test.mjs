@@ -34,7 +34,10 @@ test('左侧「+」菜单有「应用」分类且音频进资源组', () => {
   assert.ok(studio.includes('aria-label="应用"'), '应用分组标题');
   const canvas = read('src/pages/EcCanvas/index.jsx');
   assert.ok(canvas.includes("else if (actionId === 'upload-audio') audioUploadRef.current?.click();"), '音频入口已接');
-  assert.ok(canvas.includes('请先在画布上选中一个素材，再使用这个应用'), '未选中素材时有明确提示');
+  /* 9-13 修正：应用有适用对象 —— 未选中提示 + 按节点类型分流提示 */
+  assert.ok(canvas.includes('请先在画布上选中要处理的节点'), '未选中时有明确提示');
+  assert.ok(canvas.includes('语音合成只作用于文案节点，请先选中一个文案'), '语音合成只服务文案节点');
+  assert.ok(canvas.includes('智能字幕只作用于视频节点，请先选中一个视频'), '智能字幕只服务视频节点');
 });
 
 test('资产库弹窗里不再堆标题/副标题', () => {

@@ -290,8 +290,9 @@
 .ec-canvas-add-menu { position: fixed; }
 .ec-canvas-derive-menu { position: absolute; transform: scale(var(--canvas-overlay-scale, 1)); transform-origin: top left; }
 .ec-canvas-menu-heading { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 3px; color: #737b87; font-size: 11px; }
-.ec-canvas-menu-heading > span { display: flex; align-items: center; gap: 5px; }
-.ec-canvas-menu-heading strong { color: #20242a; font-size: 12px; }
+.ec-canvas-menu-heading strong { color: #20242a; font-size: 12px; white-space: nowrap; }
+/* 9-13：标题曾被挤到换行（用户看到“添加节点”是歪的） */
+.ec-canvas-menu-heading > span { min-width: 0; white-space: nowrap; }
 .ec-canvas-menu-heading button { width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #7b828c; }
 .ec-canvas-menu-heading button:hover { color: #20242a; background: #f0f2f5; }
 .ec-canvas-add-menu button,

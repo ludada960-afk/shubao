@@ -204,7 +204,8 @@ test('only one selected generation node receives a contextual composer position'
   const node = createCanvasImageComposerNode({ x: 400, y: 220, now: 123 });
   assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: node.id, selectedCount: 1 }), {
     visible: true,
-    position: { left: 220, top: 512, width: 640 },
+    /* 9-13：面板宽度收到 480，且**不超过节点自身宽度** —— 该用例节点宽 360，故面板宽 360、居中 */
+    position: { left: 360, top: 512, width: 360 },
   });
   assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: 'another', selectedCount: 1 }), {
     visible: false,
@@ -221,7 +222,7 @@ test('only one selected generation node receives a contextual composer position'
     viewportBounds: { width: 800, height: 640 },
     viewport: { x: 0, y: 0, scale: 1 },
     height: 360,
-  }).position, { left: 580, top: 792, width: 640 });
+  }).position, { left: 720, top: 792, width: 360 });
 
   const mobile = getCanvasComposerPresentation({
     node: { ...node, x: 80, y: 460, w: 640, h: 420 },
@@ -231,7 +232,7 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 0.68 },
     height: 420,
   });
-  assert.deepEqual(mobile.position, { left: 80, top: 892, width: 640 });
+  assert.deepEqual(mobile.position, { left: 160, top: 892, width: 480 });
 
   const leftRail = getCanvasComposerPresentation({
     node: { id: node.id, x: -40, y: 80, w: 240, h: 120 },
@@ -241,7 +242,8 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 1 },
     height: 300,
   });
-  assert.deepEqual(leftRail.position, { left: -240, top: 212, width: 640 });
+  /* 9-13：面板宽 = min(480, max(360, 节点宽))；该节点宽 240 → 360，仍居中 */
+  assert.deepEqual(leftRail.position, { left: -100, top: 212, width: 360 });
 });
 
 test('contextual composer stays anchored below its node instead of dodging neighboring nodes', () => {
@@ -278,7 +280,7 @@ test('contextual composer can extend beyond the viewport so canvas panning remai
       h: 330,
     })),
   }).position;
-  assert.deepEqual(position, { left: 1600, top: 692, width: 640 });
+  assert.deepEqual(position, { left: 1680, top: 692, width: 480 });
 });
 
 test('local edit selections are normalized before they become generation input', () => {

@@ -715,13 +715,9 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
     {/* 9-11: 左右都有加号 (与图片节点同款, 连线端点与加号中心重叠)。
         输出加号只在可派生 (canDerive) 时给出交互, 避免"死按钮"; 输入锚点常显于选中态。 */}
     <DerivePort side="input" visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-    {(isVideo || isLayerGroup) && <DerivePort
-      visible={selected}
-      disabled={!canDerive}
-      onPointerDown={onPortPointerDown}
-      onPointerUp={onPortPointerUp}
-      onClick={onPortClick}
-    />}
+    {/* 9-13 用户批注：四个生成框（电商套图/视频生成/图片生成/文本）**左右都要有加号**，
+        并且必须挂在**框本体的左右**（此前只有 video/layer-group 有右侧；我还误把加号加到了下面的生成面板上）。 */}
+    <DerivePort visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
@@ -821,7 +817,7 @@ function ComposerPreview({ node, source, label = '图片生成', selection, onSe
   </div>;
 }
 
-export function CanvasImageComposer({ node, position, onPortPointerDown, onPortPointerUp, onPortClick, handlesVisible = false, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
+export function CanvasImageComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const source = sources[0];
@@ -862,13 +858,11 @@ export function CanvasImageComposer({ node, position, onPortPointerDown, onPortP
           {loading ? '生成中' : <><Sparkles size={15} />生成</>}
         </button>
       </div>
-      {/* 9-13 用户批注：四个生成面板也要有左右加号（选中/悬停出现，点开继续创作） */}
-      <DerivePort side="input" visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-      <DerivePort visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+
   </section>;
 }
 
-export function CanvasTextGenerationComposer({ node, position, onPortPointerDown, onPortPointerUp, onPortClick, handlesVisible = false, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
+export function CanvasTextGenerationComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const handleToggleSource = (sourceImage, options = {}) => {
@@ -890,13 +884,11 @@ export function CanvasTextGenerationComposer({ node, position, onPortPointerDown
       <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
       <button type="button" data-canvas-control="true" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
     </div>
-      {/* 9-13 用户批注：四个生成面板也要有左右加号（选中/悬停出现，点开继续创作） */}
-      <DerivePort side="input" visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-      <DerivePort visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+
   </section>;
 }
 
-export function CanvasVideoComposer({ node, position, onPortPointerDown, onPortPointerUp, onPortClick, handlesVisible = false, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate, videoProducts = [], onOpenSkillLibrary = null }) {
+export function CanvasVideoComposer({ node, position,  sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate, videoProducts = [], onOpenSkillLibrary = null }) {
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [previewPlan, setPreviewPlan] = useState(null);
@@ -979,13 +971,11 @@ export function CanvasVideoComposer({ node, position, onPortPointerDown, onPortP
       {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || '62 AI 积分 / 次 · 确认方案后扣费'}</span>}
       <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>{planning ? '正在分析素材' : node.planReviewed ? '方案已确认' : analyzedPlan ? '查看生成方案' : '分析并生成方案'}</button><button type="button" data-canvas-control="true" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button></div>
     </div>
-      {/* 9-13 用户批注：四个生成面板也要有左右加号（选中/悬停出现，点开继续创作） */}
-      <DerivePort side="input" visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-      <DerivePort visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+
   </section>;
 }
 
-export function CanvasEcommerceComposer({ node, position, onPortPointerDown, onPortPointerUp, onPortClick, handlesVisible = false, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const directions = Array.isArray(node.directions) ? node.directions : [];
@@ -1023,9 +1013,7 @@ export function CanvasEcommerceComposer({ node, position, onPortPointerDown, onP
         <button type="button" data-canvas-control="true" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}</>}</button>
       </>}
     </div>
-      {/* 9-13 用户批注：四个生成面板也要有左右加号（选中/悬停出现，点开继续创作） */}
-      <DerivePort side="input" visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-      <DerivePort visible={handlesVisible} disabled={!node.url && !(node.sources || []).length} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+
   </section>;
 }
 
