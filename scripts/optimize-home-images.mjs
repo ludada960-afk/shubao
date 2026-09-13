@@ -119,7 +119,7 @@ async function main() {
     }
     const thumbSize = fs.statSync(thumbOut).size;
     if (thumbSize > SIZE_BUDGET_BYTES) { console.error('OVER BUDGET gallery/ecommerce/' + id + '/cover.webp thumb'); failures += 1; }
-    rows.push({ kind: 'verify', rel: 'gallery/ecommerce/' + id + '/cover.webp (thumb ' + Math.round(thumbSize/1024) + 'KB)' });
+    rows.push({ kind: 'thumb', rel: 'gallery/ecommerce/' + id + '/cover.webp', beforeKb: 0, afterKb: Math.round(thumbSize/1024) });
   }
 
   // 3) 校验：两套 tryon 资产在 .thumbs 必须有落盘缩略且 <=200KB
@@ -153,7 +153,8 @@ async function main() {
 
   rows.sort((a, b) => b.afterKb - a.afterKb);
   for (const row of rows) {
-    console.log(`${(row.beforeKb + 'KB').padStart(9)} -> ${String(row.afterKb).padStart(4)}KB  ${row.kind.padEnd(6)} ${row.rel}${row.skipped ? ' (fresh)' : ''}`);
+    const before = Number.isFinite(row.beforeKb) ? row.beforeKb + 'KB' : '—';
+console.log(`${before.padStart(9)} -> ${String(row.afterKb).padStart(4)}KB  ${row.kind.padEnd(6)} ${row.rel}${row.skipped ? ' (fresh)' : ''}`);
   }
   console.log('---');
   console.log(rows.length + ' assets checked, ' + failures + ' over-budget/missing failure(s)');
