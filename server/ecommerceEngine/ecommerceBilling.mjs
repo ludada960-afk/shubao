@@ -1,8 +1,17 @@
 import { quoteFeature } from '../billing/catalog.mjs';
-import { IMAGE_MODEL_IDS, buildModelRoute, normalizeImageModel } from './modelCatalog.mjs';
+import { IMAGE_MODEL_IDS, LEGAL_IMAGE_SIZES, buildModelRoute, normalizeImageModel } from './modelCatalog.mjs';
 
-const FOUR_K_SIZES = new Set(['2880x2880', '2448x3264', '3264x2448', '2160x3840']);
-const ONE_K_SIZES = new Set(['1024x1024', '768x1024', '1024x768', '576x1024']);
+/* 9-13 修计费口径：原来用「手写白名单」判断 1K/4K，漏了 16:9 与 21:9 的尺寸
+   （4K 的 3840x2160 / 3584x1536 被当成 2K 少收费，1K 的 1024x576 / 1008x432 被当成 2K 多收费）。
+   现在直接以 LEGAL_IMAGE_SIZES（生成尺寸的唯一真源）反查分辨率档位，不再维护第二份清单。 */
+const SIZE_TO_RESOLUTION = new Map();
+for (const [resolution, ratios] of Object.entries(LEGAL_IMAGE_SIZES)) {
+  for (const size of Object.values(ratios)) SIZE_TO_RESOLUTION.set(size, resolution.toLowerCase());
+}
+
+function resolutionForSize(size) {
+  return SIZE_TO_RESOLUTION.get(cleanString(size)) || '2k';
+}
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -34,10 +43,20 @@ function usageTelemetryForItem(item) {
 
 export function ecommerceFeatureForItem(item) {
   const imageModel = normalizeImageModel(item?.imageModel);
-  const generationSize = cleanString(item?.generationSize);
-  const resolution = FOUR_K_SIZES.has(generationSize) ? '4k' : ONE_K_SIZES.has(generationSize) ? '1k' : '2k';
+  const resolution = resolutionForSize(item?.generationSize);
   if (imageModel === 'nano-banana-2') return quoteFeature(`ec_nano_flash_${resolution}`, 1);
   if (imageModel === 'nano-banana-pro') return quoteFeature(`ec_nano_pro_${resolution}`, 1);
+  /* 9-13 新增四族五档：与前端 src/services/imageModelCatalog.js 的 generationBillingSku 一一对应
+     （单位数、成本见 server/billing/catalog.mjs）。Midjourney 上游只有 1K/2K，4K 归到 2K 档，
+     避免「收了 4K 的钱、给了 2K 的图」。 */
+  const advancedSku = {
+    'image2-5-sunburst': 'ec_image25_sunburst',
+    'image2-5-flare': 'ec_image25_flare',
+    'mdkj-super': 'ec_mdkj',
+    'gemini-3-image': 'ec_gemini3',
+    'midjourney': 'ec_mj',
+  }[imageModel];
+  if (advancedSku) return quoteFeature(`${advancedSku}_${imageModel === 'midjourney' && resolution === '4k' ? '2k' : resolution}`, 1);
   return quoteFeature(resolution === '4k' ? 'ec_image_4k' : 'ec_image_2k', 1);
 }
 

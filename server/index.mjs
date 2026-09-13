@@ -4148,9 +4148,49 @@ const nanoBananaProviderAdapter = NANO_BANANA_KEY ? createProviderRouter({
   primary: createNanoPrimaryAdapter(),
   ...(NANO_BACKUP_BASE && NANO_BACKUP_KEY ? { overflow: createNanoBackupAdapter() } : {}),
 }) : null;
+/* ── 9-13 新增四族五档图片模型（2.5 Sunburst/Flare、极致性价比、Gemini 3 图像、Midjourney）──
+   上游与本项目 gpt-image-2 备用通道同一个平台（IP233 / Change2Pro，同步 OpenAI 图片接口）：
+   POST /v1/images/generations 直接回图片 URL，无异步任务。
+   模型名按「族:分辨率」映射（route.model = 族 id，见 modelCatalog.ADVANCED_IMAGE_MODELS），
+   env 全部可覆盖 —— 真实账单出来后只改 env 即可校准，不用改代码。
+   凭据缺省复用 IMG_BACKUP_*（同一平台），空白一律视为未配置（空凭据会导致启动即崩）。 */
+const ADVANCED_IMAGE_BASE = String(process.env.IMAGE_ADVANCED_BASE_URL || IMG_BACKUP_BASE || '').trim().replace(/\/+$/, '');
+const ADVANCED_IMAGE_KEY = String(process.env.IMAGE_ADVANCED_API_KEY || IMG_BACKUP_KEY || '').trim();
+const ADVANCED_IMAGE_MODELS = {
+  'image2-5-sunburst:1K': process.env.IMAGE_ADVANCED_SUNBURST_1K || 'gpt-image-2.5-sunburst-1k',
+  'image2-5-sunburst:2K': process.env.IMAGE_ADVANCED_SUNBURST_2K || 'gpt-image-2.5-sunburst-2k',
+  'image2-5-sunburst:4K': process.env.IMAGE_ADVANCED_SUNBURST_4K || 'gpt-image-2.5-sunburst-4k',
+  'image2-5-flare:1K': process.env.IMAGE_ADVANCED_FLARE_1K || 'gpt-image-2.5-flare-1k',
+  'image2-5-flare:2K': process.env.IMAGE_ADVANCED_FLARE_2K || 'gpt-image-2.5-flare-2k',
+  'image2-5-flare:4K': process.env.IMAGE_ADVANCED_FLARE_4K || 'gpt-image-2.5-flare-4k',
+  'mdkj-super:1K': process.env.IMAGE_ADVANCED_MDKJ_1K || 'mdkj-super-gpt-image-2-1k',
+  'mdkj-super:2K': process.env.IMAGE_ADVANCED_MDKJ_2K || 'mdkj-super-gpt-image-2-2k',
+  'mdkj-super:4K': process.env.IMAGE_ADVANCED_MDKJ_4K || 'mdkj-super-gpt-image-2-4k',
+  'gemini-3-image:1K': process.env.IMAGE_ADVANCED_GEMINI3_1K || 'ip233-gemini-3-pro-image',
+  'gemini-3-image:2K': process.env.IMAGE_ADVANCED_GEMINI3_2K || 'ip233-gemini-3-pro-image',
+  'gemini-3-image:4K': process.env.IMAGE_ADVANCED_GEMINI3_4K || 'ip233-gemini-3-pro-image',
+  /* Midjourney 上游只有 1K/2K（后端 resolveGenerationSize 会把 4K 兜底降到 2K） */
+  'midjourney:1K': process.env.IMAGE_ADVANCED_MJ_1K || 'midjourney-1k',
+  'midjourney:2K': process.env.IMAGE_ADVANCED_MJ_2K || 'midjourney-2k',
+};
+const createAdvancedImageAdapter = () => createProviderAdapter({
+  baseUrl: ADVANCED_IMAGE_BASE,
+  bearerToken: ADVANCED_IMAGE_KEY,
+  authStrategy: 'bearer',
+  protocol: 'openai-images',
+  submitPath: process.env.IMAGE_ADVANCED_GENERATE_PATH || '/v1/images/generations',
+  editPath: process.env.IMAGE_ADVANCED_EDIT_PATH || '/v1/images/edits',
+  pollPath: process.env.IMAGE_ADVANCED_GENERATE_PATH || '/v1/images/generations',
+  modelMap: ADVANCED_IMAGE_MODELS,
+  submitTimeoutMs: 180_000,
+});
+const advancedImageProviderAdapter = ADVANCED_IMAGE_BASE && ADVANCED_IMAGE_KEY
+  ? createProviderRouter({ primary: createAdvancedImageAdapter() })
+  : null;
 const ecommerceProviderAdapter = createModelProviderRouter({
   image2: image2ProviderAdapter,
   nanoBanana: nanoBananaProviderAdapter,
+  advancedImage: advancedImageProviderAdapter,
 });
 /* ── 作品保留策略 (9-12 用户批注): 默认保留 7 天, 白名单账号永久保留 ──
    启动时先做一次 dryRun 统计并写日志(可观测); 真正删除由 env RETENTION_PURGE_ENABLED=true 打开,

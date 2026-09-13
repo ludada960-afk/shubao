@@ -10,8 +10,28 @@ export const IMAGE_MODEL_IDS = Object.freeze({
   IMAGE2: 'image2',
   NANO_BANANA_2: 'nano-banana-2',
   NANO_BANANA_PRO: 'nano-banana-pro',
+  /* 9-13 新增四族五档（前端目录已有，pending=true 暂不进选择器）。
+     后端先把接线做齐：route.model = 族 id，真实上游模型名由 provider 适配器的
+     「族:分辨率」modelMap 决定 —— 这样上架/下架只改前端 pending，不动路由。 */
+  IMAGE2_5_SUNBURST: 'image2-5-sunburst',
+  IMAGE2_5_FLARE: 'image2-5-flare',
+  MDKJ_SUPER: 'mdkj-super',
+  GEMINI_3_IMAGE: 'gemini-3-image',
+  MIDJOURNEY: 'midjourney',
 });
 const IMAGE_MODELS = new Set(Object.values(IMAGE_MODEL_IDS));
+/* 走「新族」通道的模型：同一上游（同步 OpenAI 图片接口）按模型名区分，计费口径见 server/billing/catalog.mjs */
+const ADVANCED_IMAGE_MODELS = new Set([
+  IMAGE_MODEL_IDS.IMAGE2_5_SUNBURST,
+  IMAGE_MODEL_IDS.IMAGE2_5_FLARE,
+  IMAGE_MODEL_IDS.MDKJ_SUPER,
+  IMAGE_MODEL_IDS.GEMINI_3_IMAGE,
+  IMAGE_MODEL_IDS.MIDJOURNEY,
+]);
+
+export function isAdvancedImageModel(value) {
+  return ADVANCED_IMAGE_MODELS.has(normalizeImageModel(value));
+}
 const MAX_EDGE = 3840;
 const MAX_PIXELS = 8_294_400;
 
@@ -73,6 +93,8 @@ export function selectGenerationModel(input = {}) {
   const imageModel = normalizeImageModel(input.imageModel);
   if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2) return 'gemini-2.5-flash-image';
   if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO) return 'gemini-3-pro-image';
+  /* 新族：route.model 用族 id 本身（上游真实模型名在适配器的 modelMap 里按分辨率决定） */
+  if (ADVANCED_IMAGE_MODELS.has(imageModel)) return imageModel;
   const assetCount = input.assetCount;
   const eligibleBatch = Number.isInteger(assetCount)
     && assetCount >= 2
@@ -88,6 +110,9 @@ export function selectGenerationModel(input = {}) {
 
 export function resolveGenerationSize(input = {}) {
   let resolution = RESOLUTIONS.has(input.resolution) ? input.resolution : '2K';
+  /* Midjourney 上游只有 1K/2K（前端也只在 1K/2K 里给选择）——这里兜底降到 2K，
+     不做「静默换成别的模型」那种替换：宁可少一档清晰度，也不偷偷给别的结果。 */
+  if (normalizeImageModel(input.imageModel) === IMAGE_MODEL_IDS.MIDJOURNEY && resolution === '4K') resolution = '2K';
   const requestedRatio = input.ratio ?? input.aspectRatio;
   if (requestedRatio && !Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio)) {
     const resolutionOrder = Object.keys(LEGAL_IMAGE_SIZES);
@@ -106,9 +131,11 @@ export function resolveGenerationSize(input = {}) {
 export function buildModelRoute(input = {}) {
   const imageModel = normalizeImageModel(input.imageModel);
   const { resolution, ratio, size } = resolveGenerationSize(input);
-  const provider = imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2 || imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO
-    ? 'nano-banana'
-    : 'image2';
+  const provider = ADVANCED_IMAGE_MODELS.has(imageModel)
+    ? 'advanced-image'
+    : imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2 || imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO
+      ? 'nano-banana'
+      : 'image2';
 
   return {
     imageModel,
