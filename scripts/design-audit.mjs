@@ -139,14 +139,21 @@ console.log('  hex 硬编码:  ' + hexTotal + ' 次 / ' + hexes.size + ' 个不�
 /* ⚠️ 必须同时覆盖 CSS 的 `font-size:` 与 JSX 的 `fontSize:` ——
    此前只认驼峰，于是**所有 .css 里声明的字号都不计入**，档位数被系统性低估。
    同理 `border-radius:` / `gap:`（`gap` 两种写法同名，本来就覆盖）。 */
-const SCALE_RE = (name) => new RegExp(name + '(?:-[a-z]+)?:\\s*[\\x27"]?(var\\(--sb-[a-z0-9-]+\\)|[0-9.]+)', 'g');
+const SCALE_RE = (name) => new RegExp(name + '(?:-[a-z]+)?:\\s*[\\x27"]?(var\\(--sb-[a-z0-9-]+\\)|[0-9.]+[a-z%]*)', 'g');
 const fontSizes = countAll(codeFiles, SCALE_RE('font[Ss]ize'), normalize);
 console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 10 档 · 依 D17]   ' +
   topN(fontSizes, 6).map(([k, v]) => k + 'px×' + v).join(' '));
 
-const radii = countAll(codeFiles, SCALE_RE('border[Rr]adius'), normalize);
+/* ⚠️ `border-radius: 50%` 是**正圆**，不是「50px 档」。此前正则只抓数字、把 `%` 吞掉，
+   于是「50」被当成一个圆角档位混进档位数（实测 137 处，是第二大「档位」）——
+   又一个「代理指标不等于判据」的例子（原则 §12 第 5 次）。现在单位一起抓，按单位分流。 */
+const radiiAll = countAll(codeFiles, SCALE_RE('border[Rr]adius'), normalize);
+const circles = [...radiiAll].filter(([k]) => k.endsWith('%')).reduce((a, [, v]) => a + v, 0);
+const pills = [...radiiAll].filter(([k]) => k === '99' || k === '999').reduce((a, [, v]) => a + v, 0);
+const radii = new Map([...radiiAll].filter(([k]) => !k.endsWith('%')));
 console.log('  圆角档位:    ' + radii.size + ' 档                [目标: 8 档 · 依 D6]   ' +
   topN(radii, 6).map(([k, v]) => k + 'px×' + v).join(' '));
+console.log('     · 另有 `border-radius: 50%`（正圆，**不是档位**）: ' + circles + ' 处；99/999px（胶囊）: ' + pills + ' 处');
 
 const zIdx = countAll(codeFiles, /zIndex:\s*'?([0-9]+)/g);
 console.log('  z-index:     ' + zIdx.size + ' 个裸值             [目标: 9 档语义]');
