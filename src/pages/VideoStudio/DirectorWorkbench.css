@@ -3,7 +3,7 @@
 .dw-title{display:flex;align-items:center;gap:8px;font-size:17px}
 .dw-title strong{font-weight:700}
 .dw-mode{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.04em}
-.dw-mode-planning{background:#eef2ff;color:#4353c6}.dw-mode-live{background:#e7f7ee;color:#177a45}
+.dw-mode-planning{background:var(--sb-brand-50);color:#4353c6}.dw-mode-live{background:#e7f7ee;color:#177a45}
 .dw-planning-note{font-size:11px;color:#8a8f9c}
 .dw-project-picker{display:flex;align-items:center;gap:8px}
 .dw-project-picker select{max-width:240px;padding:6px 10px;border:1px solid #d8dbe3;border-radius:9px;background:var(--sb-neutral-0)}

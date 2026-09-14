@@ -72,7 +72,9 @@ test('hero region uses glassmorphism and gradient orbs', () => {
   assert.ok(PRICING.includes('pricing-hero-inner'), 'hero inner class in JSX');
   assert.ok(PRICING.includes('pricing-hero-accent'), 'hero accent class in JSX');
   // 3 色 hero accent gradient 在 CSS 里定义
-  assert.ok(PRICING_CSS.includes('#6366f1') && PRICING_CSS.includes('#ec4899') && PRICING_CSS.includes('#f59e0b'), 'tri-color hero gradient');
+  /* 2026-09-14 §18 裁定 1 + 裁定 2：hero 属「品牌时刻」，三色渐变**保留**，
+     但起点靛蓝 #6366f1 已迁为品牌紫 var(--sb-brand-600)（靛蓝族整体迁移）。 */
+  assert.ok(PRICING_CSS.includes('var(--sb-brand-600)') && PRICING_CSS.includes('#ec4899') && PRICING_CSS.includes('#f59e0b'), 'tri-color hero gradient (brand-purple start)');
   assert.ok(PRICING_CSS.includes('.pricing-hero-orb--a'), 'orb a selector');
   assert.ok(PRICING_CSS.includes('.pricing-hero-orb--b'), 'orb b selector');
   assert.ok(PRICING_CSS.includes('.pricing-hero-orb--c'), 'orb c selector');

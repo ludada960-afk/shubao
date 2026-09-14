@@ -36,9 +36,9 @@ const BTN_BASE = {
   gap: 6,
   padding: '6px 10px',
   borderRadius: 8,
-  border: '1px solid rgba(67, 56, 202, 0.18)',
+  border: '1px solid var(--sb-brand-a18)',
   background: 'rgba(238, 242, 255, 0.95)',
-  color: '#3730A3',
+  color: 'var(--sb-brand-800)',
   fontSize: 12,
   fontWeight: 600,
   fontFamily: 'inherit',
@@ -50,10 +50,10 @@ const BTN_BASE = {
 
 const BTN_ACTIVE = {
   ...BTN_BASE,
-  background: '#4338CA',
+  background: 'var(--sb-brand-700)',
   color: 'var(--sb-neutral-0)',
-  borderColor: '#4338CA',
-  boxShadow: '0 6px 18px rgba(67, 56, 202, 0.28)',
+  borderColor: 'var(--sb-brand-700)',
+  boxShadow: '0 6px 18px var(--sb-brand-a32)',
 };
 
 const PANEL = {
@@ -63,7 +63,7 @@ const PANEL = {
   padding: 12,
   borderRadius: 14,
   background: 'var(--sb-neutral-0)',
-  border: '1px solid rgba(67, 56, 202, 0.14)',
+  border: '1px solid var(--sb-brand-a18)',
   boxShadow: '0 18px 48px rgba(28, 25, 23, 0.16), 0 4px 14px rgba(28, 25, 23, 0.08)',
   minWidth: 260,
   maxWidth: 360,
@@ -88,7 +88,7 @@ const THUMB = {
 
 const THUMB_HOVER = {
   transform: 'translateY(-2px)',
-  boxShadow: '0 8px 22px rgba(67, 56, 202, 0.20)',
+  boxShadow: '0 8px 22px var(--sb-brand-a32)',
 };
 
 const THUMB_LABEL = {

@@ -35,7 +35,7 @@ export default function ReadProgress({ currentStage, error }) {
             <div key={s.key} style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '6px 10px', borderRadius: 8,
-              background: isCurrent ? 'rgba(99,102,241,0.06)' : 'transparent',
+              background: isCurrent ? 'var(--sb-brand-a05)' : 'transparent',
               transition: 'all 0.2s',
             }}>
               {/* 状态图标 */}
@@ -45,7 +45,7 @@ export default function ReadProgress({ currentStage, error }) {
                 flexShrink: 0,
                 background: isError ? 'rgba(232,84,75,0.12)' :
                             isDone ? 'rgba(92,168,108,0.12)' :
-                            isCurrent ? 'rgba(99,102,241,0.12)' : 'rgba(12,10,9,0.04)',
+                            isCurrent ? 'var(--sb-brand-a10)' : 'rgba(12,10,9,0.04)',
               }}>
                 {isError ? <MdError size={12} color="#E8544B" /> :
                  isDone ? <MdCheckCircle size={12} color="#5CA86C" /> :
@@ -68,7 +68,7 @@ export default function ReadProgress({ currentStage, error }) {
                 fontSize: 10, fontWeight: 600,
                 color: isError ? 'var(--red)' :
                        isDone ? '#5CA86C' :
-                       isCurrent ? '#6366F1' : 'transparent',
+                       isCurrent ? 'var(--sb-brand-600)' : 'transparent',
               }}>
                 {isError ? '失败' : isDone ? '完成' : isCurrent ? '进行中' : ''}
               </span>

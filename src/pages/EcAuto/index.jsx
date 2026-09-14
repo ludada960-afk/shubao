@@ -259,7 +259,7 @@ export default function EcAutoPage() {
               borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#4338CA'; e.currentTarget.style.color = '#4338CA'; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-brand-700)'; e.currentTarget.style.color = 'var(--sb-brand-700)'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-200)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; }}>
             🔧 精修工坊
           </button>
@@ -274,7 +274,7 @@ export default function EcAutoPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '10px 16px', borderRadius: 10,
-                  border: platform === p.key ? '2px solid #4338CA' : '1px solid var(--sb-neutral-200)',
+                  border: platform === p.key ? '2px solid var(--sb-brand-700)' : '1px solid var(--sb-neutral-200)',
                   background: platform === p.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                   cursor: 'pointer', fontFamily: 'inherit',
                   transition: 'all 0.15s',
@@ -282,7 +282,7 @@ export default function EcAutoPage() {
                 }}>
                 <span style={{ fontSize: 18 }}>{p.emoji}</span>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 13, fontWeight: platform === p.key ? 600 : 500, color: platform === p.key ? '#4338CA' : '#444' }}>
+                  <div style={{ fontSize: 13, fontWeight: platform === p.key ? 600 : 500, color: platform === p.key ? 'var(--sb-brand-700)' : '#444' }}>
                     {p.label}
                   </div>
                   <div style={{ fontSize: 10, color: platform === p.key ? '#7C7CFF' : 'var(--sb-ink-4)', marginTop: 1 }}>
@@ -326,11 +326,11 @@ export default function EcAutoPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '10px 24px', borderRadius: 10,
-                background: !input.trim() ? 'var(--sb-neutral-200)' : '#4338CA',
+                background: !input.trim() ? 'var(--sb-neutral-200)' : 'var(--sb-brand-700)',
                 color: 'var(--sb-neutral-0)', border: 'none', fontSize: 14, fontWeight: 600,
                 cursor: !input.trim() ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
-                boxShadow: !input.trim() ? 'none' : '0 2px 10px rgba(67,56,202,0.25)',
+                boxShadow: !input.trim() ? 'none' : '0 2px 10px var(--sb-brand-a32)',
               }}
               onMouseEnter={e => { if (input.trim()) e.currentTarget.style.opacity = '0.92'; }}
               onMouseLeave={e => { if (input.trim()) e.currentTarget.style.opacity = '1'; }}>
@@ -348,7 +348,7 @@ export default function EcAutoPage() {
             marginBottom: 16, textAlign: 'center',
           }}>
             <div style={{
-              width: 40, height: 40, border: '3px solid #E0E7FF', borderTopColor: '#4338CA',
+              width: 40, height: 40, border: '3px solid var(--sb-brand-100)', borderTopColor: 'var(--sb-brand-700)',
               borderRadius: '50%', animation: 'spin 0.8s linear infinite',
               margin: '0 auto 14px',
             }} />
@@ -359,12 +359,12 @@ export default function EcAutoPage() {
                 : `${selectedPlatform?.label || platform}标准套餐 · 每张约需25秒`}
               {elapsed >= 10 && ` · 已等待 ${elapsed} 秒`}
             </div>
-            {genProgress && <div style={{ marginTop: 8, fontSize: 12, color: '#4338CA' }}>{genProgress}</div>}
+            {genProgress && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--sb-brand-700)' }}>{genProgress}</div>}
             {Object.keys(inProgressPreview).length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 14 }}>
                 {Object.values(inProgressPreview).map(image => (
                   <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
-                    style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #C7D2FE' }} />
+                    style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--sb-brand-200)' }} />
                 ))}
               </div>
             )}
@@ -377,8 +377,8 @@ export default function EcAutoPage() {
         )}
 
         {genState !== 'generating' && Object.keys(inProgressPreview).length > 0 && (
-          <div style={{ background: 'var(--sb-neutral-0)', borderRadius: 14, padding: 20, marginBottom: 16, border: '1px solid #C7D2FE' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#4338CA', marginBottom: 10 }}>生成中预览 · 任务仍可继续</div>
+          <div style={{ background: 'var(--sb-neutral-0)', borderRadius: 14, padding: 20, marginBottom: 16, border: '1px solid var(--sb-brand-200)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-brand-700)', marginBottom: 10 }}>生成中预览 · 任务仍可继续</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {Object.values(inProgressPreview).map(image => (
                 <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
@@ -415,7 +415,7 @@ export default function EcAutoPage() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '8px 16px', borderRadius: 8,
-                    background: '#EEF2FF', color: '#4338CA', border: 'none',
+                    background: 'var(--sb-brand-50)', color: 'var(--sb-brand-700)', border: 'none',
                     fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                   <Download size={13} /> 全部下载
@@ -457,9 +457,9 @@ export default function EcAutoPage() {
                   }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--sb-ink-3)' }}>{label}</span>
                     <button onClick={() => downloadImage(url, `${label}.png`)} style={{
-                      fontSize: 10, color: '#4338CA', cursor: 'pointer',
+                      fontSize: 10, color: 'var(--sb-brand-700)', cursor: 'pointer',
                       padding: '3px 8px', borderRadius: 4,
-                      background: '#EEF2FF', border: 'none', fontWeight: 500, fontFamily: 'inherit',
+                      background: 'var(--sb-brand-50)', border: 'none', fontWeight: 500, fontFamily: 'inherit',
                     }}>
                       下载
                     </button>
@@ -481,7 +481,7 @@ export default function EcAutoPage() {
               </span>
               <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
                 style={{
-                  background: 'none', border: 'none', color: '#4338CA',
+                  background: 'none', border: 'none', color: 'var(--sb-brand-700)',
                   cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', gap: 3,
                 }}>

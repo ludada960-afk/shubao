@@ -73,7 +73,9 @@ test('③ 管理弹窗：上传按钮 ≥ 36px、图标+文字、主色实心（
   assert.ok(upload, '上传按钮样式存在');
   const h = Number.parseFloat(upload[1].match(/height: (\d+)px/)?.[1] || '0');
   assert.ok(h >= 36, '上传按钮高度 ≥ 36px，实际 ' + h + 'px');
-  assert.ok(upload[1].includes('linear-gradient(135deg, #7454f3, #d14db5)'), '主色实心渐变');
+  /* 2026-09-14 §18 靛蓝族迁移：起点 #7454f3 → var(--sb-brand-600)（值 #7C3AED）。
+     断言「品牌紫起点的实心渐变」，不绑定字面量。 */
+  assert.ok(/linear-gradient\(135deg,\s*(#7454f3|var\(--sb-brand-600\))/.test(upload[1]), '主色实心渐变');
   /* 处置：b) 规范被取代（docs/design/40-decisions.md D5「全局 token 迁移」）。
      品牌紫硬编码迁移批次把 color:#fff 换成了 color: var(--sb-neutral-0)
      （见 commit a9eb14c7「品牌紫硬编码迁移 批 1/4」），而 --sb-neutral-0 = #FFFFFF，

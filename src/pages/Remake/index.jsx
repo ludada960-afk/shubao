@@ -427,7 +427,7 @@ export default function RemakePage() {
                         padding: '8px 16px', borderRadius: 'var(--radius-md)', cursor: 'pointer',
                         fontSize: 'var(--text-sm)', fontWeight: tier === t.key ? 700 : 500,
                         background: tier === t.key ? 'var(--blue-bg)' : 'var(--border-light)',
-                        color: tier === t.key ? '#3730A3' : 'var(--text-muted)',
+                        color: tier === t.key ? 'var(--sb-brand-800)' : 'var(--text-muted)',
                         border: tier === t.key ? '2px solid var(--blue)' : '2px solid transparent',
                         transition: 'all .1s',
                       }}>
@@ -444,7 +444,7 @@ export default function RemakePage() {
                   cursor: generating ? 'not-allowed' : 'pointer',
                   background: generating ? 'var(--border-light)' : 'var(--sb-brand-gradient)',
                   color: generating ? 'var(--text-muted)' : 'var(--sb-neutral-0)',
-                  boxShadow: generating ? 'none' : '0 3px 12px rgba(99,102,241,.3)',
+                  boxShadow: generating ? 'none' : '0 3px 12px var(--sb-brand-a32)',
                   marginTop: 8, transition: 'all .15s',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}>

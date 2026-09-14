@@ -9,17 +9,17 @@
   padding: 0 20px;
   border: 0;
   border-radius: 11px;
-  background: linear-gradient(135deg, #7454f3 0%, #d14db5 100%);
+  background: linear-gradient(135deg, var(--sb-brand-600) 0%, #d14db5 100%);
   color: var(--sb-neutral-0);
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(116, 84, 243, .24);
+  box-shadow: 0 10px 24px var(--sb-brand-a32);
   transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
-.shubao-gen-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(116, 84, 243, .3); }
+.shubao-gen-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
 .shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
 .shubao-gen-cta:disabled { background: #e5e3e0; color: #a8a39e; box-shadow: none; cursor: not-allowed; }
 .shubao-gen-cta .shubao-gen-cta-points { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; opacity: .96; }

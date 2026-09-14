@@ -82,8 +82,8 @@
 
 .ec-canvas-minimap-viewport {
   position: absolute;
-  background: rgba(99, 102, 241, 0.25);
-  border: 1.5px solid rgba(99, 102, 241, 0.8);
+  background: var(--sb-brand-a32);
+  border: 1.5px solid var(--sb-brand-a55);
   border-radius: 2px;
   pointer-events: none;
   transition: left 150ms, top 150ms, width 150ms, height 150ms;

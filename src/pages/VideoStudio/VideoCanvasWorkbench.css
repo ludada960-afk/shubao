@@ -69,17 +69,17 @@
 
 .vcb-scheme.is-approved { border-color: #bfd8ca; background: #fbfefd; }
 .vcb-cost-badge { display: grid; gap: 3px; padding: 10px 11px; border-radius: 11px; background: linear-gradient(135deg, #f3efff, #eef4ff); }
-.vcb-cost-badge strong { font-size: 13px; color: #4636b8; }
+.vcb-cost-badge strong { font-size: 13px; color: var(--sb-brand-700); }
 .vcb-cost-badge small { color: var(--sb-ink-3); }
 .vcb-plan-shots { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 130px; overflow: auto; }
 .vcb-plan-shots li { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: #5c554e; }
-.vcb-plan-shots b { color: #4636b8; white-space: nowrap; }
+.vcb-plan-shots b { color: var(--sb-brand-700); white-space: nowrap; }
 .vcb-plan-blockers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: #93392e; }
 
 .vcb-scheme-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 11px; }
 .vcb-scheme-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(61, 50, 41, .16); background: var(--sb-neutral-0); font-size: 12.5px; font-weight: 700; color: #3d3732; cursor: pointer; }
 .vcb-scheme-actions button:disabled { opacity: .55; cursor: not-allowed; }
-.vcb-scheme-actions .vcb-approve { border-color: #4636b8; background: #4636b8; color: var(--sb-neutral-0); }
+.vcb-scheme-actions .vcb-approve { border-color: var(--sb-brand-700); background: var(--sb-brand-700); color: var(--sb-neutral-0); }
 .vcb-scheme-actions .vcb-approve:disabled { background: #eceafa; border-color: #cdc7ef; color: #7d74c9; }
 .vcb-gate-hint { display: block; margin-top: 8px; color: #938c84; font-size: 11px; line-height: 1.55; }
 .vcb-gate-hint.is-blocked { color: #93392e; }
@@ -120,10 +120,10 @@
 .vcb-shot-actions button,
 .vcb-node.is-candidate footer button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 8px; background: var(--sb-neutral-0); font-size: 11px; cursor: pointer; }
 .vcb-node.is-candidate footer button:disabled { opacity: .6; cursor: default; }
-.vcb-shot-actions .vcb-shot-generate { border-color: #4636b8; background: #4636b8; color: var(--sb-neutral-0); font-weight: 700; }
+.vcb-shot-actions .vcb-shot-generate { border-color: var(--sb-brand-700); background: var(--sb-brand-700); color: var(--sb-neutral-0); font-weight: 700; }
 .vcb-shot-actions .vcb-shot-generate:disabled { opacity: .55; }
 .vcb-shot-status { display: flex; align-items: center; gap: 5px; font-size: 10.5px; }
-.vcb-shot-status.is-running { color: #4636b8; }
+.vcb-shot-status.is-running { color: var(--sb-brand-700); }
 .vcb-shot-status.is-error { color: #93392e; }
 .vcb-shot-status.is-error button { margin-left: auto; border: 1px solid #e0b7b1; border-radius: 7px; background: var(--sb-neutral-0); padding: 2px 8px; font-size: 10.5px; cursor: pointer; }
 .vcb-shot-editor { display: grid; gap: 6px; padding: 8px; border: 1px solid rgba(61, 50, 41, .12); border-radius: 9px; background: var(--sb-neutral-0); }
@@ -138,11 +138,11 @@
 .vcb-marquee { position: absolute; z-index: 4; border: 1.5px dashed #6d4aff; background: rgba(109, 74, 255, .08); pointer-events: none; }
 
 .vcb-generation-bar { position: sticky; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 8; display: flex; flex-direction: column; gap: 8px; width: fit-content; max-width: calc(100% - 40px); padding: 11px 14px; border: 1px solid rgba(70, 54, 184, .28); border-radius: 14px; background: rgba(255, 255, 255, .98); box-shadow: 0 16px 40px rgba(48, 34, 96, .22); }
-.vcb-generation-bar-title { font-size: 12px; font-weight: 800; color: #4636b8; }
+.vcb-generation-bar-title { font-size: 12px; font-weight: 800; color: var(--sb-brand-700); }
 .vcb-generation-modes { display: flex; flex-wrap: wrap; gap: 6px; }
 .vcb-generation-modes button { padding: 6px 11px; border: 1px solid rgba(61, 50, 41, .18); border-radius: 9px; background: var(--sb-neutral-0); font-size: 11.5px; color: #4d4741; cursor: pointer; }
 .vcb-generation-modes button:disabled { opacity: .45; cursor: not-allowed; }
-.vcb-generation-modes button.is-selected { border-color: #4636b8; background: #4636b8; color: var(--sb-neutral-0); font-weight: 700; }
+.vcb-generation-modes button.is-selected { border-color: var(--sb-brand-700); background: var(--sb-brand-700); color: var(--sb-neutral-0); font-weight: 700; }
 .vcb-camera-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .vcb-camera-chips::before { content: '运镜'; font-size: 10.5px; color: #938c84; margin-right: 2px; }
 .vcb-camera-chips button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: #faf9fb; font-size: 10.5px; color: #5c554e; cursor: pointer; }
@@ -157,7 +157,7 @@
 .vcb-drawer-toggle { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 7px 11px; border: 1px solid rgba(61, 50, 41, .14); border-radius: 9px; background: var(--sb-neutral-0); color: #4d4741; font-size: 12px; cursor: pointer; }
 .vcb-project-create + .vcb-drawer-toggle { margin-left: 0; }
 .vcb-drawer-toggle:hover { background: #f4f2f6; }
-.vcb-drawer-toggle.is-open { border-color: #4636b8; background: #eceafa; color: #4636b8; }
+.vcb-drawer-toggle.is-open { border-color: var(--sb-brand-700); background: #eceafa; color: var(--sb-brand-700); }
 .vcb-drawer-toggle + .vcb-drawer-toggle { margin-left: 0; }
 
 /* ── P2：接收侧「从画布发来」── */
@@ -181,7 +181,7 @@
 .vcb-decision header small.is-ok { color: #256b45; }
 .vcb-decision-options { display: flex; flex-wrap: wrap; gap: 5px; }
 .vcb-decision-options button { padding: 4px 10px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: var(--sb-neutral-0); font-size: 11px; cursor: pointer; }
-.vcb-decision-options button.is-selected { border-color: #4636b8; background: #eceafa; color: #4636b8; font-weight: 700; }
+.vcb-decision-options button.is-selected { border-color: var(--sb-brand-700); background: #eceafa; color: var(--sb-brand-700); font-weight: 700; }
 .vcb-decision-confirm { display: inline-flex; align-items: center; gap: 5px; justify-self: start; padding: 4px 10px; border: 1px solid #bfd8ca; border-radius: 9px; background: #edf7f0; color: #256b45; font-size: 11px; cursor: pointer; }
 .vcb-gate-hint.is-ok { color: #256b45; }
 
@@ -193,7 +193,7 @@
 .vcb-event-group header small { margin-left: auto; color: #938c84; font-size: 10.5px; }
 .vcb-events ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .vcb-events li { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 9px; font-size: 11.5px; background: #f7f6fa; color: #55504a; }
-.vcb-events li.is-running { background: #eceafa; color: #4636b8; }
+.vcb-events li.is-running { background: #eceafa; color: var(--sb-brand-700); }
 .vcb-events li.is-done { background: #edf7f0; color: #256b45; }
 .vcb-events li.is-failed { background: #fdf1ef; color: #93392e; }
 .vcb-events li button { margin-left: auto; padding: 3px 9px; border: 1px solid #e0b7b1; border-radius: 8px; background: var(--sb-neutral-0); color: #93392e; font-size: 10.5px; cursor: pointer; }
@@ -203,7 +203,7 @@
 .vcb-tweaks textarea,
 .vcb-tweaks select { width: 100%; padding: 8px 10px; border: 1px solid rgba(61, 50, 41, .14); border-radius: 9px; background: var(--sb-neutral-0); font-size: 12px; box-sizing: border-box; }
 .vcb-tweaks .vcb-camera-chips { margin-bottom: 9px; }
-.vcb-tweak-send { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid #4636b8; border-radius: 10px; background: #4636b8; color: var(--sb-neutral-0); font-size: 12px; font-weight: 700; cursor: pointer; }
+.vcb-tweak-send { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid var(--sb-brand-700); border-radius: 10px; background: var(--sb-brand-700); color: var(--sb-neutral-0); font-size: 12px; font-weight: 700; cursor: pointer; }
 .vcb-tweak-send:disabled { opacity: .55; cursor: not-allowed; }
 
 /* ── P2：底部时间线抽屉 ── */
@@ -255,17 +255,17 @@
 .vcb-trim { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; }
 .vcb-trim label { display: grid; gap: 3px; font-size: 10.5px; color: var(--sb-ink-3); }
 .vcb-trim input[type='number'] { width: 86px; padding: 6px 8px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 8px; font-size: 12px; }
-.vcb-trim-range { flex: 1; min-width: 120px; accent-color: #4636b8; }
+.vcb-trim-range { flex: 1; min-width: 120px; accent-color: var(--sb-brand-700); }
 .vcb-trim > button { padding: 7px 12px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 9px; background: var(--sb-neutral-0); font-size: 11.5px; cursor: pointer; }
 .vcb-trim > button:hover:not(:disabled) { background: #f4f2f6; }
 .vcb-rebind { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; color: var(--sb-ink-3); }
-.vcb-rebind button { padding: 3px 9px; border: 1px solid rgba(70, 54, 184, .35); border-radius: 999px; background: #f6f4fd; color: #4636b8; font-size: 10.5px; cursor: pointer; }
+.vcb-rebind button { padding: 3px 9px; border: 1px solid rgba(70, 54, 184, .35); border-radius: 999px; background: #f6f4fd; color: var(--sb-brand-700); font-size: 10.5px; cursor: pointer; }
 .vcb-clip-error { display: flex; align-items: center; gap: 6px; margin: 0; color: #93392e; font-size: 11.5px; }
 .vcb-export { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding-top: 4px; border-top: 1px dashed rgba(61, 50, 41, .12); }
 
 /* W4 音频节点: 画布 asset footer 的"加入音轨"按钮 + 音轨抽屉的卡片/电平/静音 */
 .vcb-asset-source { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sb-ink-3); }
-.vcb-add-audio-track { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid rgba(70, 54, 184, .35); border-radius: 999px; background: #f6f4fd; color: #4636b8; font-size: 10.5px; font-weight: 600; cursor: pointer; }
+.vcb-add-audio-track { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid rgba(70, 54, 184, .35); border-radius: 999px; background: #f6f4fd; color: var(--sb-brand-700); font-size: 10.5px; font-weight: 600; cursor: pointer; }
 .vcb-add-audio-track:hover:not(:disabled) { background: #ece6fb; }
 .vcb-add-audio-track:disabled { opacity: .55; cursor: not-allowed; }
 .vcb-audio-tracks { display: grid; gap: 8px; padding: 10px 0 4px; border-top: 1px dashed rgba(61, 50, 41, .12); }
@@ -283,11 +283,11 @@
 .vcb-audio-mute:disabled { opacity: .55; cursor: not-allowed; }
 .vcb-audio-meter { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; }
 .vcb-audio-meter > span { font-size: 10.5px; color: var(--sb-ink-3); }
-.vcb-audio-meter input[type='range'] { width: 100%; accent-color: #4636b8; }
+.vcb-audio-meter input[type='range'] { width: 100%; accent-color: var(--sb-brand-700); }
 .vcb-audio-meter-bar { position: relative; height: 4px; background: rgba(70, 54, 184, .15); border-radius: 999px; overflow: hidden; grid-column: 1 / -1; }
-.vcb-audio-meter-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #4636b8, #7568e0); transition: width .18s ease; }
-.vcb-audio-track-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: #4636b8; }
-.vcb-export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid #4636b8; border-radius: 10px; background: #4636b8; color: var(--sb-neutral-0); font-size: 12px; font-weight: 700; cursor: pointer; }
+.vcb-audio-meter-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--sb-brand-700), #7568e0); transition: width .18s ease; }
+.vcb-audio-track-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--sb-brand-700); }
+.vcb-export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid var(--sb-brand-700); border-radius: 10px; background: var(--sb-brand-700); color: var(--sb-neutral-0); font-size: 12px; font-weight: 700; cursor: pointer; }
 .vcb-export-btn:disabled { opacity: .55; cursor: not-allowed; }
 .vcb-manifest-summary { display: grid; gap: 4px; font-size: 11.5px; color: #3d3732; }
 .vcb-manifest-summary ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; color: var(--sb-ink-3); }

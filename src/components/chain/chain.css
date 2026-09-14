@@ -1,6 +1,6 @@
 /* src/components/chain/chain.css
    4c183cd4 续命 P-G 画布 1-click chain UI: 链式生成 4 步面板 + 进度条样式
-   跟 VideoCanvasWorkbench.css 同色系: #4636b8 主色 + #edf7f0 副色 + 暖灰文字 */
+   跟 VideoCanvasWorkbench.css 同色系: var(--sb-brand-700) 主色 + #edf7f0 副色 + 暖灰文字 */
 
 /* ── 4 步进度条 ── */
 .chain-progress {
@@ -33,7 +33,7 @@
   justify-content: center;
   border: 1px solid rgba(70, 54, 184, .35);
   background: var(--sb-neutral-0);
-  color: #4636b8;
+  color: var(--sb-brand-700);
 }
 .chain-step-meta {
   display: flex;
@@ -43,13 +43,13 @@
 }
 .chain-step-label { font-size: 12.5px; font-weight: 700; color: #2c2545; }
 .chain-step-state { font-size: 10.5px; color: #6e6884; margin-top: 2px; }
-.chain-step-summary { font-size: 10.5px; color: #4636b8; margin-top: 2px; word-break: break-word; }
+.chain-step-summary { font-size: 10.5px; color: var(--sb-brand-700); margin-top: 2px; word-break: break-word; }
 .chain-step.is-ok .chain-step-dot { background: #2f9e6c; border-color: #2f9e6c; color: var(--sb-neutral-0); }
 .chain-step.is-ok .chain-step-state { color: #256b45; }
 .chain-step.is-failed .chain-step-dot, .chain-step.is-failed.is-failed .chain-step-dot { background: #E8544B; border-color: #E8544B; color: var(--sb-neutral-0); }
 .chain-step.is-failed .chain-step-state { color: #c93b32; }
-.chain-step.is-active .chain-step-dot { background: #4636b8; border-color: #4636b8; color: var(--sb-neutral-0); }
-.chain-step.is-active .chain-step-state { color: #4636b8; font-weight: 700; }
+.chain-step.is-active .chain-step-dot { background: var(--sb-brand-700); border-color: var(--sb-brand-700); color: var(--sb-neutral-0); }
+.chain-step.is-active .chain-step-state { color: var(--sb-brand-700); font-weight: 700; }
 .chain-step-rail {
   position: absolute;
   right: -6px;
@@ -99,7 +99,7 @@
   padding: 4px;
   border-radius: 6px;
 }
-.chain-close:hover { background: rgba(70, 54, 184, .08); color: #4636b8; }
+.chain-close:hover { background: rgba(70, 54, 184, .08); color: var(--sb-brand-700); }
 .chain-close:disabled { opacity: .35; cursor: not-allowed; }
 
 .chain-phase-badge {
@@ -112,12 +112,12 @@
   font-weight: 700;
 }
 .chain-phase-badge.is-idle { background: #f3f1f7; color: #6e6884; }
-.chain-phase-badge.is-running { background: rgba(70, 54, 184, .12); color: #4636b8; }
+.chain-phase-badge.is-running { background: rgba(70, 54, 184, .12); color: var(--sb-brand-700); }
 .chain-phase-badge.is-done { background: #edf7f0; color: #256b45; }
 .chain-phase-badge.is-error { background: #fdecea; color: #c93b32; }
 
 .chain-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 0; }
-.chain-field > span { font-size: 12px; color: #4636b8; font-weight: 700; }
+.chain-field > span { font-size: 12px; color: var(--sb-brand-700); font-weight: 700; }
 .chain-field textarea, .chain-field select {
   font: inherit;
   padding: 8px 10px;
@@ -140,7 +140,7 @@
   border-radius: 8px;
   background: #f3f1f7;
   font-size: 11px;
-  color: #4636b8;
+  color: var(--sb-brand-700);
 }
 .chain-ref.is-empty { color: #938c84; background: transparent; border-style: dashed; }
 .chain-ref img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; }
@@ -184,10 +184,10 @@
   cursor: pointer;
   border: 1px solid transparent;
 }
-.chain-primary { background: #4636b8; color: var(--sb-neutral-0); border-color: #4636b8; }
+.chain-primary { background: var(--sb-brand-700); color: var(--sb-neutral-0); border-color: var(--sb-brand-700); }
 .chain-primary:hover { background: #352693; }
 .chain-primary:disabled { opacity: .55; cursor: not-allowed; }
-.chain-secondary { background: transparent; color: #4636b8; border-color: rgba(70, 54, 184, .35); }
+.chain-secondary { background: transparent; color: var(--sb-brand-700); border-color: rgba(70, 54, 184, .35); }
 .chain-secondary:hover { background: rgba(70, 54, 184, .08); }
 .chain-secondary:disabled { opacity: .55; cursor: not-allowed; }
 
@@ -200,7 +200,7 @@
   border: 1px solid rgba(70, 54, 184, .35);
   border-radius: 999px;
   background: rgba(70, 54, 184, .08);
-  color: #4636b8;
+  color: var(--sb-brand-700);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
