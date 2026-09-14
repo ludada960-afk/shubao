@@ -915,6 +915,16 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 {textRegen && !editing && (
                   <button style={S.actionBtn} onClick={async () => {
                     if (item._galleryItem) { await dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可重新编辑文案。' }); return; }
+                    /* 2026-09-20 铁律 ①（没有用户确认，绝不扣费）：
+                       本按钮会真实扣 0.2 AI 积分，原来**点下去立刻扣**，
+                       而同屏的「单图重刷」(regenSingle, 见本文件上方) 却有 dialog.confirm —— 两个同性质的
+                       扣费按钮口径不一致。按钮上写了「· 0.2 AI 积分」不等于用户确认了**这一次**扣费。
+                       补上同口径确认弹窗。 */
+                    if (!await dialog.confirm({
+                      title: '重新生成图文文案？',
+                      message: '本次操作会扣除 0.2 AI 积分，图片和其他内容不会改变。',
+                      confirmLabel: '确认重新生成',
+                    })) return;
                     await textRegen();
                   }}>
                     <MdRefresh size={13} /> 重新生成 · 0.2 AI 积分
