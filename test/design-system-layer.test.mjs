@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '../scripts/lib/token-scope.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DS = path.join(ROOT, 'src/components/ui');
@@ -30,7 +31,9 @@ export function scanDsLayer(dir = DS) {
   const tot = { hex: 0, rgba: 0, legacy: 0 };
   const perFile = [];
   for (const f of files) {
-    const s = fs.readFileSync(path.join(dir, f), 'utf8');
+    /* 先剥注释：注释里的 rgba/hex 是**说明文本**，不是用法（真实事故：7 处 rgba 全来自
+       “为什么不是 token”的解释，计数器却把它们当违规 → 差点把基线从 27 放宽到 34）。 */
+    const s = stripComments(fs.readFileSync(path.join(dir, f), 'utf8'));
     const c = { file: f, hex: (s.match(HEX) || []).length, rgba: (s.match(RGBA) || []).length, legacy: (s.match(LEGACY) || []).length };
     tot.hex += c.hex; tot.rgba += c.rgba; tot.legacy += c.legacy;
     if (c.hex + c.rgba + c.legacy) perFile.push(c);
