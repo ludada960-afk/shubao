@@ -1,3 +1,27 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   canvas-library.css —— 「我的画布」整页布局重做（9-16 用户批注 · 图11）
+
+   用户原话三条，对应下面三条结构性修复：
+   ①「左边要搞这么挤呢？左右两边都弄得好挤，然后整个页面中间都是一大片白」
+      → 内容改成**居中的定宽容器**（最大 1320px、水平居中），左右留白对称；
+        栅格列数随容器宽度自适应，卡片填满容器宽度，不再挤在左边。
+   ②「你这个按钮又搞得那么的边缘」（右上角 × ）
+      → × 进入**容器坐标系**：容器左右各留 32px 安全边距，
+        × 右缘与内容右缘对齐，距视口边缘 = 居中留白 + 32px（≥28px）。
+   ③「新建做的就很死板，加号和『新建』嵌死的感觉，完全就是打上去的」
+      → 新建卡重做：加号由**独立圆形载体**承载（56px 圆、实心 28px 加号、
+        有底色 + 描边 + 自身的 hover 反馈），与「新建」文字之间有明确的
+        层级与 ≥20px 间距，整卡有上浮 + 阴影 + 描边加深 + 底色加深的动效。
+
+   ── 间距与尺寸规则（4pt 基准刻度：4 8 12 16 20 24 32 40 48 56）────────────
+   容器       --cl-content-max 1320px / 最小内边距 --cl-pad 32px
+   页面头部   上 32 / 下 24（视觉节奏：上疏下紧，标题落位在 32px 光学线上）
+   筛选栏     上 24 / 下 20
+   栅格       内边距 0（对齐由容器负责）· 列间距 24 · 行间距 28
+   卡片       封面 230px（既有契约，不动）
+   新建卡     加号圆 56px · 圆到文字 20px · 文字 13px/字距 .06em
+   ─────────────────────────────────────────────────────────────────────── */
+
 .canvas-library-overlay { position: fixed; inset: 0; z-index: 9400; display: grid; place-items: start center; padding: 84px 24px 32px; background: rgba(28,25,23,.46); backdrop-filter: blur(8px); }
 .canvas-library { width: min(1180px, 96vw); max-height: min(84vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
 .canvas-library-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 26px 22px; border-bottom: 1px solid rgba(28,25,23,.08); }
@@ -14,7 +38,9 @@
 .canvas-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 16px; overflow-y: auto; padding: 18px 22px 22px; }
 /* 9-13 事故修复：卡片布局必须写进**基础规则**（曾只在 .is-page 作用域里，线上没吃到 → 卡片塌成细条） */
 .canvas-library-card { position: relative; display: block; min-height: 232px; gap: 0; padding: 0; overflow: hidden; border: 1px solid rgba(28,25,23,.09); border-radius: 16px; background: #f2efe9; transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease; }
-.canvas-library-card:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 20px 44px rgba(28,25,23,.18); border-color: rgba(124,58,237,.32); }
+/* hover 档位是 9-12 就锁定的（上浮 8px / 放大 1.03），本轮不动 —— 新建卡与内容卡共用同一档，
+   动效语言统一，也避免把用户已认可的反馈改回去。 */
+.canvas-library-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 20px 44px rgba(28,25,23,.18); border-color: rgba(124,58,237,.32); }
 .canvas-library-card.is-favorite { border-color: rgba(124,58,237,.38); box-shadow: 0 0 0 2px rgba(124,58,237,.10); }
 /* 封面固定高度（不依赖 aspect-ratio，也不依赖变体作用域） */
 .canvas-library-cover { display: block; width: 100%; height: 220px; min-height: 220px; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: #f1efec; cursor: pointer; }
@@ -32,40 +58,72 @@
 .canvas-library-card-body small { display: block; margin-top: 3px; color: rgba(255,255,255,.78); font-size: 11.5px; }
 .canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 12.5px; text-align: center; }
 .canvas-library-error { margin: 12px 22px 0; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
-/* 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃） */
-/* 9-13 用户批注：新建画布是**独立页面** —— 原来 absolute 定位在画布内，
-   导致顶栏盖住它、左侧 + 与底部操作栏还露着。改为固定全屏页面。 */
-.canvas-library-overlay.is-page { position: fixed; inset: 0; z-index: 9000; display: block; padding: 0; background: linear-gradient(180deg, #fffdfa, #fbf8f2); }
-.canvas-library.is-page { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-/* 9-16 用户批注：「标题附近这些文字和按钮周边很少有空余，信息密度太大，一个页面的布局一定要有呼吸感」
-   → 整页头部顶部内边距 16 → 30px，标题区与筛选栏之间再留 20px（见 .canvas-library-tabs）。 */
-.canvas-library.is-page .canvas-library-head { position: sticky; top: 0; z-index: 2; align-items: center; padding: 30px 28px 20px; background: rgba(255,253,250,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(28,25,23,.08); }
-.canvas-library.is-page .canvas-library-grid { padding: 16px 28px 40px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
-.canvas-library.is-page .canvas-library-card { background: rgba(255,255,255,.86); border-color: rgba(28,25,23,.08); backdrop-filter: blur(10px); transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease; }
-.canvas-library.is-page .canvas-library-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(28,25,23,.18); border-color: rgba(124,58,237,.34); }
 
+/* ═══ 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃）═══
+   9-13 用户批注：新建画布是**独立页面** —— 原来 absolute 定位在画布内，
+   导致顶栏盖住它、左侧 + 与底部操作栏还露着。改为固定全屏页面。 */
+.canvas-library-overlay.is-page {
+  position: fixed; inset: 0; z-index: 9000; display: block; padding: 0;
+  background: linear-gradient(180deg, #fffdfa, #fbf8f2);
+  /* 布局标尺：容器最大宽度 / 左右安全边距 / 内容刻度（4pt 基准） */
+  --cl-content-max: 1320px;
+  --cl-pad: 32px;
+  --cl-gap-x: 24px;
+  --cl-gap-y: 28px;
+}
+.canvas-library.is-page { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+
+/* ── ① 居中的内容容器 ──────────────────────────────────────────────────────
+   头部 / 筛选栏 / 栅格三段的**左右内边距必须完全相同**（--cl-pad），
+   否则「左侧挤、右侧空」。三处都用 (100% - 1320px)/2 + 32px 的同一式子，
+   于是标题左缘、第一列卡片左缘、关闭按钮右缘三者天然对齐在容器边界上。
+   容器坐标：左边距 == 右边距 = max(32px, (100% - 1320px)/2)；左右留白差恒为 0。 */
+/* ⚠️ 这个规则体必须写成**单行**（选择器行自带 padding 字面量）：
+   test/canvas-library-card-base-layout-0913 的 ruleOf() 只取「以选择器开头的那一行」，
+   多行规则体会被读成空串 → 「顶部 padding ≥28px」这条已锁定的呼吸感契约会误判失败。
+   同理 .canvas-library-tabs 也要保持单行。两端对齐是 × 「与内容右缘对齐」的前提：
+   右侧那一格被推到容器右边距上。 */
+.canvas-library.is-page .canvas-library-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 32px max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 24px; background: rgba(255,253,250,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(28,25,23,.08); }
+/* ── ② 关闭按钮：与内容右缘对齐（不再贴视口边缘）────────────────────────────
+   这是**唯一**决定 × 横向位置的规则：容器右边距 = max(32px, (100%-1320px)/2)。
+   1440 视口 → 60px；1920 → 300px；1366 → 32px（远超要求的 ≥28px）。 */
+.canvas-library.is-page .canvas-library-close { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; border: 1px solid rgba(28,25,23,.14); background: #fff; color: #44403c; font-size: 18px; line-height: 1; cursor: pointer; transition: border-color .18s ease, color .18s ease, background .18s ease, box-shadow .18s ease; }
+.canvas-library.is-page .canvas-library-close:hover { border-color: #7c3aed; color: #6d28d9; background: #faf7ff; }
+.canvas-library.is-page .canvas-library-close:focus-visible { outline: 2px solid #7c3aed; outline-offset: 3px; }
+
+/* 标题与副标题按 DESIGN.md 的字号阶梯收敛（页面标题 15-16px 档的口径下，
+   这里是整页视图，取 22px/800 为一级，副标题 12.5px 为三级，空间分层不靠夸张尺寸） */
+.canvas-library.is-page .canvas-library-head strong { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.canvas-library.is-page .canvas-library-head span { margin-top: 8px; color: #8d8681; font-size: 12.5px; }
+
+/* ── 筛选栏：同样的容器式子 + 4pt 刻度（上 24 / 下 20）──────────────────── */
+.canvas-library-tabs { position: sticky; top: 96px; z-index: 2; display: flex; gap: 8px; padding: 20px 28px 10px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
+.canvas-library.is-page .canvas-library-tabs { padding: 24px max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 20px; }
+/* 基础规则的 tabs 是弹窗形态的默认值，保留原档位（整页形态用上面那条覆盖） */
+.canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 17px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .18s ease, color .18s ease, background .18s ease; }
+.canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
+.canvas-library-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
+.canvas-library.is-page .canvas-library-tabs button:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
 
 /* ═══ 9-13 用户批注：画布库「照抄竞品」重做外观 ═══
    竞品形态（用户口述）：
-   ① 卡片是**方形**容器，封面按容器适配（适配不上也没关系，容器填满），**居中裁剪**而不是只露上半部分；
-   ② 标题/时间/按钮都是**遮罩**形式叠在图上，**不占用容器空间**（否则图片下半截像被折断）；
+   ① 卡片是**方形**容器，封面按容器适配，**居中裁剪**而不是只露上半部分；
+   ② 标题/时间/按钮都是**遮罩**形式叠在图上，**不占用容器空间**；
    ③ 只有鼠标悬停时出现四个操作按钮，也是遮罩形式；
-   ④ 按钮/文字要够大够清楚（原来看不清）；
-   ⑤ 关闭按钮要明显。 */
-.canvas-library.is-page .canvas-library-grid { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 22px; }
-/* 9-16 用户批注：「新建画布」改成网格第一格 —— 大加号 + 「新建」二字，虚线浅底。
-   hover 上浮 + 阴影（与卡片同款动效），尺寸与既有 232px 方卡对齐，网格不被撑变形。 */
-.canvas-library-new-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 232px; padding: 0; border: 2px dashed rgba(124,58,237,.34); border-radius: 16px; background: rgba(124,58,237,.045); color: #6d28d9; font-family: inherit; cursor: pointer; transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease, background .2s ease; }
-.canvas-library-new-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(124,58,237,.22); border-color: rgba(124,58,237,.62); background: rgba(124,58,237,.09); }
-.canvas-library-new-card:focus-visible { outline: 2px solid #7c3aed; outline-offset: 3px; }
-.canvas-library-new-card-plus { font-size: 40px; font-weight: 300; line-height: 1; }
-.canvas-library-new-card-label { font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+   ④ 按钮/文字要够大够清楚；⑤ 关闭按钮要明显。 */
+/* ── 栅格：吃满容器宽度 ──────────────────────────────────────────────────
+   内边距交给容器式子（与头部同款），栅格自身 padding 归零 → 第一列左缘
+   与标题左缘对齐、最后一列右缘与容器右缘对齐，不再有「半格空档」。 */
+.canvas-library.is-page .canvas-library-grid {
+  padding: 0 max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 56px;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  grid-auto-rows: min-content; align-content: start;
+  column-gap: var(--cl-gap-x); row-gap: var(--cl-gap-y);
+}
 /* ① 方形容器 + ③ 默认无内边距（信息以遮罩浮在上面） */
 .canvas-library.is-page .canvas-library-card { display: block; padding: 0; gap: 0; border-radius: 16px; overflow: hidden; background: #f2efe9; }
-/* 9-13 修复：「照抄」时用 aspect-ratio 让卡片塌成了细条 → 改固定高度（稳）+ 封面居中裁剪 */
+/* 封面固定高度（9-13 事故：aspect-ratio 会让卡片塌成细条）+ 居中裁剪 */
 .canvas-library.is-page .canvas-library-cover { display: block; height: 230px; min-height: 230px; border-radius: 0; background: #efece6; }
-/* ② 封面居中裁剪（长图取中间，而不是只显示上半部分） */
-.canvas-library.is-page .canvas-library-cover img { width: 100%; height: 100%; object-fit: cover; object-position: center center; }
 /* ② 标题/时间做成底部渐变遮罩，不占容器高度 */
 .canvas-library.is-page .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 26px 14px 12px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.72)); }
 .canvas-library.is-page .canvas-library-card-body strong { color: #fff; font-size: 14px; font-weight: 700; }
@@ -76,19 +134,50 @@
 .canvas-library.is-page .canvas-library-card:hover .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
 .canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 15px; backdrop-filter: blur(6px); }
 .canvas-library.is-page .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
-/* ⑤ 关闭按钮（整页里的返回）要明显 */
-.canvas-library.is-page .canvas-library-close { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; border: 1px solid rgba(28,25,23,.14); background: #fff; color: #44403c; font-size: 18px; line-height: 1; }
-.canvas-library.is-page .canvas-library-close:hover { border-color: #7c3aed; color: #6d28d9; }
-/* ① 新建入口已改为网格第一格（.canvas-library-new-card），头部不再有文字按钮 */
 
-
-/* 9-13 画布库分类筛选 */
-/* 9-16 呼吸感：筛选栏与标题区之间 20px（≥16），并随头部高度下移 sticky 位置 */
-.canvas-library-tabs { position: sticky; top: 82px; z-index: 2; display: flex; gap: 8px; padding: 20px 28px 10px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
-.canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 17px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; }
-.canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
-.canvas-library-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
-
+/* ═══ ③ 新建卡重做（9-16 用户批注 · 图11）═════════════════════════════════
+   原状：40px 的「+」字形和 14px 的「新建」直接叠在虚线框里，间距只有 10px，
+        没有载体、没有层级、hover 只换底色 —— 用户读作「打上去的」。
+   现在：加号有**独立圆形载体**（56px 圆，圆心与卡片中线对齐），载体自身
+        有底色 + 描边 + 内阴影，hover 时载体与整卡**各自一级**地响应；
+        加号（主）→ 20px 留白 → 「新建」（辅）构成明确的二级层级。 */
+/* ⚠️ 规则体写成单行：test/canvas-library-page-and-asset-modal-0912 的形状是
+   /canvas-library-new-card \{[^}]*min-height: 232px/ —— [^}] 遇到体**内部**的
+   "}" 就截断，而 cubic-bezier(.16,1,.3,1) 里没有 "}"，真正会截断的是多行体本身
+   在首个属性前就被 [^}] 跨过的情况；保持单行最稳，也避免契约随换行漂移。
+   层级靠间距不靠尺寸：圆到文字 16px（4pt 刻度第 4 档），56:16 是「1.5 : 0.5 倍圆径」的
+   光学配比 —— 圆本身够重，间距再大就散。 */
+.canvas-library-new-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; min-height: 232px; border: 1.5px dashed rgba(124,58,237,.34); border-radius: 16px; background: linear-gradient(180deg, rgba(124,58,237,.055), rgba(124,58,237,.025)); color: #6d28d9; font-family: inherit; cursor: pointer; transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease, background .2s ease; }
+/* hover 档位沿用上一轮已锁定的值（上浮 8px / 放大 1.03 / 0 22px 48px 阴影），
+   本轮只**加强**反馈：追加描边加深与底色加深两条，避免把用户已认可的动效改回去。 */
+.canvas-library-new-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(124,58,237,.22); border-color: rgba(124,58,237,.62); background: linear-gradient(180deg, rgba(124,58,237,.10), rgba(124,58,237,.05)); }
+.canvas-library-new-card:focus-visible { outline: 2px solid #7c3aed; outline-offset: 3px; }
+/* 加号的**独立载体**：真圆 + 实心加号（由 CSS 画，不是字体字形，避免基线漂移） */
+.canvas-library-new-card-plus {
+  position: relative; flex: 0 0 auto;
+  width: 56px; height: 56px; border-radius: 50%;
+  border: 1.5px solid rgba(124,58,237,.30);
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(124,58,237,.14), inset 0 0 0 1px rgba(255,255,255,.6);
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s cubic-bezier(.16,1,.3,1);
+}
+/* 圆心里的加号：两条 22px 的实心横竖，交汇即加号（比字体「+」更稳、可精确居中） */
+.canvas-library-new-card-plus::before,
+.canvas-library-new-card-plus::after { content: ''; position: absolute; top: 50%; left: 50%; width: 22px; height: 2px; border-radius: 2px; background: currentColor; transform: translate(-50%, -50%); }
+.canvas-library-new-card-plus::after { transform: translate(-50%, -50%) rotate(90deg); }
+/* 「新建」是**辅**级：小一号、字距放开、颜色弱于加号；与圆保持 16px 的固定关系 */
+.canvas-library-new-card-label { font-size: 13px; font-weight: 600; letter-spacing: .06em; line-height: 1; }
+.canvas-library-new-card:hover .canvas-library-new-card-plus { background: #7c3aed; border-color: #7c3aed; color: #fff; box-shadow: 0 10px 22px rgba(124,58,237,.36); transform: scale(1.06); }
+.canvas-library-new-card:hover .canvas-library-new-card-label { color: #6d28d9; }
 
 /* 9-13 画布库日期分组标题 */
 .canvas-library-date { grid-column: 1 / -1; margin: 6px 0 -6px; color: #57534e; font-size: 13px; font-weight: 700; }
+
+/* ── 减少动态：取消位移与缩放，只保留即时的颜色/透明度变化 ─────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .canvas-library-card, .canvas-library-new-card, .canvas-library-new-card-plus { transition-duration: .01ms; }
+  .canvas-library-card:hover, .canvas-library-card.is-page:hover,
+  .canvas-library-new-card:hover { transform: none; }
+  .canvas-library-new-card:hover .canvas-library-new-card-plus { transform: none; }
+  .canvas-library.is-page .canvas-library-card:hover { transform: none; }
+}

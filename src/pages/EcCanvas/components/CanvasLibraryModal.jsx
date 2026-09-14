@@ -159,10 +159,14 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
       {state.error && <div className="canvas-library-error" role="alert">{state.error}</div>}
       {state.loading && <div className="canvas-library-loading">正在读取画布…</div>}
       <div className="canvas-library-grid">
-        {/* 9-16 用户批注：「新建画布」不是右上角一个文字按钮，而是**网格里的第一格**——
-            大加号 + 「新建」两个字，虚线浅底，鼠标放上去上浮并浮出阴影（与竞品一致）。 */}
+        {/* 9-16 用户批注（图11）：「新建做的就很死板，加号和『新建』两个字都嵌死的感觉，
+            完全就是打上去的」——原实现是 40px 字形「+」和 14px 文字直接叠在虚线框里。
+            现在把加号收进一个**独立的圆形载体**（.canvas-library-new-card-plus，56px 真圆），
+            载体自己负责形状/底色/描边/hover，字形由 CSS 伪元素绘制（不再依赖字体基线，
+            也因此不需要 aria-hidden 的文字节点）；「新建」退为辅助标签，与圆保持 16px 关系。
+            三层层级：图标（主）→ 留白 16px → 标签（辅）。 */}
         <button type="button" className="canvas-library-new-card" onClick={() => onCreate?.()}>
-          <span className="canvas-library-new-card-plus" aria-hidden="true">+</span>
+          <span className="canvas-library-new-card-plus" aria-hidden="true" />
           <span className="canvas-library-new-card-label">新建</span>
         </button>
         {/* 9-13 用户批注：照竞品按日期分组（今天 / 昨天 / 更早），组标题在网格里跨列 */}
