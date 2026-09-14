@@ -591,3 +591,14 @@
 .video-project-shot-frames {
   margin: 0 0 8px; color: #8a7f6f; font-size: 10px; line-height: 1.4;
 }
+
+/* §22/4.7 可点必有 hover —— 视频项目工作台 3 处
+   ① .video-project-workbench button 是**本模块所有按钮的基线**（13 行声明 cursor:pointer）
+      → 中性表面色兜底；更具体的按钮 hover（若已存在）会覆盖它；
+   ② / ③ 两个原生 <details> 的 <summary>（可点折叠标题）→ 中性表面色。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ⚠️ 14 行已有 :disabled 的 cursor:not-allowed，故一律带 :not(:disabled)。 */
+.video-project-workbench button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.video-project-shot-direction summary:hover { background-color: var(--sb-hover-bg); }
+.video-project-shot-edit summary:hover { background-color: var(--sb-hover-bg); }
+

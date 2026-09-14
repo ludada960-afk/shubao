@@ -2217,3 +2217,21 @@
 .ec-canvas-toast { z-index: var(--cvl-z-globalToast, 90); }
 .ec-canvas-pending-imports { z-index: var(--cvl-z-globalToast, 90); }
 .ec-canvas-workflow-offer { z-index: var(--cvl-z-globalToast, 90); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（画布，5 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   ① .ec-canvas-composer-skill select —— 原生下拉（cursor:pointer）
+      原生 select 无背景可改时给中性表面色，不改尺寸；
+   ② .ec-canvas-video-plan > header button（图标/小按钮）→ 中性表面色；
+   ③ .ec-canvas-video-plan-confirm 是**实色主 CTA** → 海拔 --sb-shadow-3，不改底色；
+   ④ .ec-canvas-video-sources button → 中性表面色；
+   ⑤ .ec-canvas-work-empty button → 中性表面色。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ec-canvas-composer-skill select:hover:not(:disabled) { background-color: var(--sb-hover-bg); }
+.ec-canvas-video-plan > header button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-canvas-video-plan-confirm:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.ec-canvas-video-sources button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-canvas-work-empty button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

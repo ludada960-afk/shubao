@@ -635,3 +635,17 @@
 .app-topbar.is-compact .topbar-brand-mark { width: 24px; height: 24px; }
 .app-topbar.is-compact .creative-nav-panel { padding-block: 4px; }
 @media (prefers-reduced-motion: reduce) { .app-topbar { transition: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（移动端创作导航 + 品牌链接，6 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   通道：全部**中性表面色 → --sb-hover-bg**（图标按钮 / 抽屉条目 / 白底触发按钮）。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.topbar-brand:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.creative-nav-mobile-trigger:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.creative-nav-mobile-head button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.creative-nav-mobile-group-button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.creative-nav-mobile-links button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.creative-nav-mobile-primary:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

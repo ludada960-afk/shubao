@@ -1426,3 +1426,16 @@
   }
 
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（视觉创作模式，5 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   全部为**中性表面色 → --sb-hover-bg**（分段按钮 / 计数按钮 / 预览控件图标按钮）。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.visual-showcase-controls button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.visual-count-control button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.visual-preview-close:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.visual-preview-previous:hover:not(:disabled):not([aria-disabled='true']),
+.visual-preview-next:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
