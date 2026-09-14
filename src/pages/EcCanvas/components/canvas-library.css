@@ -35,7 +35,20 @@
    .canvas-library-grid 是 flex 子项 + overflow:auto，默认 align-content:normal(=stretch) 会让
    grid 行**按容器高度被压扁**：画布一多（60 个 → 12 行）每行被压到 ~20px，封面被裁成细条。
    修法：行高按内容走（grid-auto-rows:min-content）+ 不拉伸（align-content:start）+ 卡片兜底最小高。 */
-.canvas-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 16px; overflow-y: auto; padding: 18px 22px 22px; }
+/* 9-17 修正：基础规则也要**为悬停位移预留空间**（弹窗形态走的就是这一条）。
+   原 padding 18px 22px 22px 对 232px 高的卡片几乎不留余量：放大外扩 ≈ (214×.03+232×.03)/2 ≈ 6.7
+   加上上移 8 → 上探 ≈ 14.7px，而顶部只有 18px 且被日期分组标题吃掉 → 首行顶边被切平。
+   修法同整页形态：上方补到 --cl-lift-safe-top(16px)、左右各加 --cl-lift-safe-x(8px)，
+   并用 ::before 占位行把首行连同裁剪边界一起下移（**padding 单独留不住空间**，见下方注释）。 */
+.canvas-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 16px; overflow-y: auto; padding: var(--cl-lift-safe-top, 16px) calc(22px + var(--cl-lift-safe-x, 8px)) var(--cl-lift-safe-top, 16px); }
+/* 悬停安全区（首行上方）的**真实占位**：一条跨列空行。
+   高度 = 安全区 - 行间距（多出来的部分用负 margin 抵消），于是内容整体只下移安全区那么多，
+   而首行上探位移正好落在占位里。两种形态共用。 */
+.canvas-library-grid::before {
+  content: ''; grid-column: 1 / -1; display: block;
+  height: calc(var(--cl-lift-safe-top, 16px) - 16px);
+  margin-bottom: calc(-1 * (var(--cl-lift-safe-top, 16px) - 16px));
+}
 /* 9-13 事故修复：卡片布局必须写进**基础规则**（曾只在 .is-page 作用域里，线上没吃到 → 卡片塌成细条） */
 .canvas-library-card { position: relative; display: block; min-height: 232px; gap: 0; padding: 0; overflow: hidden; border: 1px solid rgba(28,25,23,.09); border-radius: 16px; background: #f2efe9; transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease; }
 /* hover 档位是 9-12 就锁定的（上浮 8px / 放大 1.03），本轮不动 —— 新建卡与内容卡共用同一档，
@@ -62,6 +75,24 @@
 /* ═══ 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃）═══
    9-13 用户批注：新建画布是**独立页面** —— 原来 absolute 定位在画布内，
    导致顶栏盖住它、左侧 + 与底部操作栏还露着。改为固定全屏页面。 */
+/* ═══ 悬停位移安全区 —— **两种形态共用**（9-17 修正）═══
+   9-17 审计：这段令牌原先只写在 .is-page 作用域里，而组件有两种形态
+   （CanvasLibraryModal.jsx: `isPage ? ' is-page' : ''`）：整页形态（variant="page"）
+   与**弹窗形态**（variant="modal"，用户截图给的就是这个）。弹窗形态拿不到令牌 →
+   基础栅格没有安全区 → 首行卡片上探约 12.7px 仍被裁断。
+   所以令牌提升到**同时匹配两种形态**的选择器上：只要挂在 .canvas-library-overlay 下就生效。 */
+.canvas-library-overlay {
+  /* 悬停档位：translateY(--cl-lift-y) + scale(--cl-lift-scale)
+     位移需求（推导见 .canvas-library-grid 注释）：
+       上边 = 上移 8 + 放大上外扩 ≈ 4.8+3.6 = 16.4 → 16px
+       左右 = 放大外扩 ≈ 4.8 → 8px（宁可略宽，避免小尺寸下卡到像素）
+       下边 = 16px
+     余量 ≥ 1.5× 上移量（8）＝ 12px，16px 满足。 */
+  --cl-lift-y: 8px;
+  --cl-lift-scale: 1.03;
+  --cl-lift-safe-top: 16px;
+  --cl-lift-safe-x: 8px;
+}
 .canvas-library-overlay.is-page {
   position: fixed; inset: 0; z-index: 9000; display: block; padding: 0;
   background: linear-gradient(180deg, #fffdfa, #fbf8f2);
@@ -70,17 +101,6 @@
   --cl-pad: 32px;
   --cl-gap-x: 24px;
   --cl-gap-y: 28px;
-  /* ── 悬停位移的安全余量（把位移空间做进容器，而不是砍掉悬停）──────────
-     悬停档位：translateY(--cl-lift-y) + scale(--cl-lift-scale)
-     位移需求（见 .canvas-library-grid 注释的推导）：
-       上边 = 8 + 4.8 + 3.6 ≈ 16.4 → 16px
-       左右 = 4.8 → 8px（宁可略宽，避免小尺寸下卡到像素）
-       下边 = 16px
-     余量 ≥ 1.5× 上移量（8）＝ 12px，16px 满足。 */
-  --cl-lift-y: 8px;
-  --cl-lift-scale: 1.03;
-  --cl-lift-safe-top: 16px;
-  --cl-lift-safe-x: 8px;
 }
 .canvas-library.is-page { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 
