@@ -1018,7 +1018,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               />
 
               {supplementError && (
-                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 11 }}>
+                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', fontSize: 11 }}>
                   {supplementError}
                 </div>
               )}
@@ -1061,7 +1061,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               </button>
             </div>
             {error && errorStage === 'generation' && (
-              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 13, lineHeight: 1.55 }}>
+              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', fontSize: 13, lineHeight: 1.55 }}>
                 <strong style={{ display: 'block', marginBottom: 3 }}>这次生成没有交付成品</strong>
                 <span>{error}</span>
               </div>
@@ -1107,7 +1107,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                       <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
                         <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
                         <span style={{ color: asset.error ? 'var(--sb-ink-danger)' : 'var(--sb-brand-600)', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
-                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: 'var(--sb-ink-danger)', lineHeight: 1.45 }}>{asset.error}</span>}
+                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: 'var(--sb-ink-danger-strong)', lineHeight: 1.45 }}>{asset.error}</span>}
                       </div>
                     ))}
                   </div>
@@ -1149,7 +1149,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             textAlign: 'center', padding: '60px 20px',
             color: 'var(--text-muted)', fontSize: 14,
           }}>
-            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', lineHeight: 1.55 }}>{error}</div>}
+            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', lineHeight: 1.55 }}>{error}</div>}
             <p>未生成设计方向，请检查输入后重试</p>
             <button type="button" onClick={loadDirections} style={{
               appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'inline-flex', alignItems: 'center', gap: 4,

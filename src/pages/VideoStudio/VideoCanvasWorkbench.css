@@ -25,7 +25,7 @@
 
 .vcb-mode-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .vcb-mode-chip.is-planning { border: 1px dashed #b9a44c; background: #fdf7e3; color: #8a6d1a; }
-.vcb-mode-chip.is-live { border: 1px solid #bfd8ca; background: var(--sb-success-soft); color: var(--sb-ink-success); }
+.vcb-mode-chip.is-live { border: 1px solid #bfd8ca; background: var(--sb-success-soft); color: var(--sb-ink-success-strong); }
 
 .vcb-project-picker { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--sb-ink-3); }
 .vcb-project-picker select { max-width: 220px; padding: 7px 10px; border: 1px solid rgba(61, 50, 41, .14); border-radius: 9px; background: var(--sb-neutral-0); font-size: 12px; }
@@ -59,7 +59,7 @@
 .vcb-asset-name { font-weight: 800; font-size: 12px; color: #3d3732; }
 .vcb-asset-list em { font-style: normal; justify-self: end; font-size: 10px; color: #8a6d1a; background: #fdf7e3; border-radius: 999px; padding: 1px 8px; }
 .vcb-asset-list small { grid-column: 1 / -1; overflow: hidden; color: #938c84; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.vcb-approved-count { display: flex; align-items: center; gap: 6px; margin: 9px 0 0; color: var(--sb-ink-success); font-size: 12px; }
+.vcb-approved-count { display: flex; align-items: center; gap: 6px; margin: 9px 0 0; color: var(--sb-ink-success-strong); font-size: 12px; }
 
 .vcb-card label { display: grid; gap: 4px; margin-bottom: 9px; font-size: 12px; color: var(--sb-ink-3); }
 .vcb-card textarea,
@@ -146,9 +146,9 @@
 .vcb-camera-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .vcb-camera-chips::before { content: '运镜'; font-size: 11px; color: #938c84; margin-right: 2px; }
 .vcb-camera-chips button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: var(--sb-brand-50); font-size: 11px; color: #5c554e; cursor: pointer; }
-.vcb-camera-chips button.is-selected { border-color: #2f9e6c; background: var(--sb-success-soft); color: var(--sb-ink-success); font-weight: 700; }
+.vcb-camera-chips button.is-selected { border-color: #2f9e6c; background: var(--sb-success-soft); color: var(--sb-ink-success-strong); font-weight: 700; }
 .vcb-generation-bar > div:last-of-type { display: flex; }
-.vcb-bar-create { display: inline-flex; align-items: center; gap: 5px; margin-right: 6px; padding: 6px 11px; border: 1px solid rgba(47, 158, 108, .5); border-radius: 9px; background: var(--sb-success-soft); color: var(--sb-ink-success); font-size: 12px; font-weight: 700; cursor: pointer; }
+.vcb-bar-create { display: inline-flex; align-items: center; gap: 5px; margin-right: 6px; padding: 6px 11px; border: 1px solid rgba(47, 158, 108, .5); border-radius: 9px; background: var(--sb-success-soft); color: var(--sb-ink-success-strong); font-size: 12px; font-weight: 700; cursor: pointer; }
 .vcb-generation-bar > button:last-child { border: none; background: transparent; color: #938c84; font-size: 11px; cursor: pointer; }
 
 .vcb-stage-hints { position: sticky; bottom: 0; left: 0; display: flex; flex-wrap: wrap; gap: 14px; padding: 8px 16px; background: rgba(250, 249, 251, .92); border-top: 1px solid rgba(61, 50, 41, .07); color: #938c84; font-size: 11px; }
@@ -162,10 +162,10 @@
 
 /* ── P2：接收侧「从画布发来」── */
 .vcb-received { margin-top: 10px; padding: 9px 10px; border: 1px dashed #bfd8ca; border-radius: 10px; background: #f4faf6; }
-.vcb-received-title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--sb-ink-success); }
+.vcb-received-title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--sb-ink-success-strong); }
 .vcb-received ul { list-style: none; margin: 7px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .vcb-received li { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #3d3732; }
-.vcb-received li small { margin-left: auto; color: var(--sb-ink-success); background: #dff1e7; border-radius: 999px; padding: 1px 8px; font-size: 10px; }
+.vcb-received li small { margin-left: auto; color: var(--sb-ink-success-strong); background: #dff1e7; border-radius: 999px; padding: 1px 8px; font-size: 10px; }
 
 /* ── P2：三栏布局（右栏导演检查器）── */
 .vcb-columns.has-inspector { grid-template-columns: 300px minmax(0, 1fr) 340px; }
@@ -178,12 +178,12 @@
 .vcb-decision header { display: flex; align-items: baseline; gap: 8px; }
 .vcb-decision header strong { font-size: 13px; color: #3d3732; }
 .vcb-decision header small { margin-left: auto; color: #938c84; font-size: 11px; }
-.vcb-decision header small.is-ok { color: var(--sb-ink-success); }
+.vcb-decision header small.is-ok { color: var(--sb-ink-success-strong); }
 .vcb-decision-options { display: flex; flex-wrap: wrap; gap: 5px; }
 .vcb-decision-options button { padding: 4px 10px; border: 1px solid rgba(61, 50, 41, .16); border-radius: 999px; background: var(--sb-neutral-0); font-size: 11px; cursor: pointer; }
 .vcb-decision-options button.is-selected { border-color: var(--sb-brand-700); background: var(--sb-brand-100); color: var(--sb-brand-700); font-weight: 700; }
-.vcb-decision-confirm { display: inline-flex; align-items: center; gap: 5px; justify-self: start; padding: 4px 10px; border: 1px solid #bfd8ca; border-radius: 9px; background: var(--sb-success-soft); color: var(--sb-ink-success); font-size: 11px; cursor: pointer; }
-.vcb-gate-hint.is-ok { color: var(--sb-ink-success); }
+.vcb-decision-confirm { display: inline-flex; align-items: center; gap: 5px; justify-self: start; padding: 4px 10px; border: 1px solid #bfd8ca; border-radius: 9px; background: var(--sb-success-soft); color: var(--sb-ink-success-strong); font-size: 11px; cursor: pointer; }
+.vcb-gate-hint.is-ok { color: var(--sb-ink-success-strong); }
 
 /* 分区二：任务事件流 */
 .vcb-event-group { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px dashed rgba(61, 50, 41, .1); }
@@ -194,7 +194,7 @@
 .vcb-events ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .vcb-events li { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 9px; font-size: 12px; background: var(--sb-brand-50); color: #55504a; }
 .vcb-events li.is-running { background: var(--sb-brand-100); color: var(--sb-brand-700); }
-.vcb-events li.is-done { background: var(--sb-success-soft); color: var(--sb-ink-success); }
+.vcb-events li.is-done { background: var(--sb-success-soft); color: var(--sb-ink-success-strong); }
 .vcb-events li.is-failed { background: #fdf1ef; color: #93392e; }
 .vcb-events li button { margin-left: auto; padding: 3px 9px; border: 1px solid #e0b7b1; border-radius: 8px; background: var(--sb-neutral-0); color: #93392e; font-size: 11px; cursor: pointer; }
 

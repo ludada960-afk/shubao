@@ -40,7 +40,7 @@
 .content-reference-slot {
   min-width: 0;
   border: 1px solid #e8e1d8;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: var(--sb-space-2-5);
   background: var(--sb-neutral-0);
 }
@@ -64,7 +64,7 @@
 
 .content-reference-slot-count {
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill)px;
   padding: 2px 7px;
   background: #f4f0ea;
   color: #80786c;

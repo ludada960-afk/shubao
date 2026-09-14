@@ -12,7 +12,7 @@
 .content-result-grid button.is-selected { border-color: #b9475f; box-shadow: 0 0 0 2px rgba(185, 71, 95, .15); }
 .content-result-grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .content-result-grid span { position: absolute; top: 6px; left: 6px; padding: 3px 5px; border-radius: 4px; color: var(--sb-neutral-0); background: rgba(31, 24, 20, .62); font: 700 10px/1 ui-monospace, monospace; }
-.content-result-prompt { max-width: 610px; margin: 14px auto 0; padding: 12px 14px; border: 1px solid #eadfd8; border-radius: 9px; background: var(--sb-neutral-0); }
+.content-result-prompt { max-width: 610px; margin: 14px auto 0; padding: 12px 14px; border: 1px solid #eadfd8; border-radius: 12px; background: var(--sb-neutral-0); }
 .content-result-prompt > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #423732; font-size: 12px; }
 .content-result-prompt > div span { display: inline-flex; align-items: center; gap: 3px; color: #7b9277; font-size: 10px; }
 .content-result-prompt p { display: -webkit-box; overflow: auto; max-height: 90px; margin: 7px 0 0; color: #766a63; font-size: 11px; line-height: 1.65; white-space: pre-wrap; -webkit-box-orient: vertical; }
