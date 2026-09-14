@@ -486,3 +486,27 @@
     min-height: 100px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（商品档案抽屉，7 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   ① .ec-profile-rail-scrim 遮罩（点击关闭）→ 只做极轻中性反馈，不改遮挡语义/尺寸；
+   ② .ec-profile-rail-tabs button 分段按钮 → 中性表面色；
+   ③ .ec-profile-card-main 卡片主体可点块 → 海拔 --sb-shadow-2（**已选中卡**
+      .ec-profile-card.is-current 走 border-color+box-shadow 环，故 hover 只补海拔，
+      并让 is-current 的 hover 保留它自己的环、再加一档）；
+   ④ .ec-profile-card-use / ⑤ .ec-profile-detail-apply → 中性表面色；
+   ⑥ .ec-profile-rail-save 是浅紫底按钮 → 中性表面色；
+   ⑦ .ec-product-chip 胶囊可点 → 中性表面色。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   注：本文件既有的 .ec-product-profile-* 等品牌紫 hover 属历史违反（§22 禁止 1），
+       超出本任务范围，留待专项清理。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ec-profile-rail-scrim:hover { background-color: var(--sb-hover-bg); }
+.ec-profile-rail-tabs button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-profile-card-main:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
+.ec-profile-card-use:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-profile-detail-apply:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-profile-rail-save:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-product-chip:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

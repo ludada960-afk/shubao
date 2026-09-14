@@ -576,3 +576,28 @@
 /* 视频侧技能胶囊（2026-09-10） */
 .video-skill-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
 .video-skill-row .ec-skill-entry { margin-left: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（视频工作台，9 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   ① .video-balance 深色胶囊（余额入口）→ 走**海拔** --sb-shadow-3，不改底色；
+   ② .video-upload-status.is-error 红底「重试」按钮 → 海拔 --sb-shadow-3，不改底色；
+   ③ .video-media-picker-control 上传区可点块 → 中性表面色；
+   ④ .video-ratio-grid button / ⑤ .video-resolution-grid button / ⑥ .video-sound-choice
+      三者均为「可点选择块」→ 海拔 --sb-shadow-2（**不动尺寸/边框宽度**，D2）；
+      与 .is-selected 区分：selected 走 brand 描边+浅紫底，hover 只走海拔 → 不同通道；
+   ⑦ .video-history button 历史条目 → 中性表面色（.active 走 brand 描边+内阴影，不同通道）；
+   ⑧ .video-open-canvas → 中性表面色；
+   ⑨ .video-lightbox-close 图标按钮 → 中性表面色。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.video-balance:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.video-upload-status.is-error:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.video-media-picker-control:hover { background-color: var(--sb-hover-bg); }
+.video-ratio-grid button:hover:not(:disabled):not(.is-selected) { box-shadow: var(--sb-shadow-2); }
+.video-resolution-grid button:hover:not(:disabled):not(.is-selected) { box-shadow: var(--sb-shadow-2); }
+.video-sound-choice:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
+.video-history button:hover:not(:disabled):not(.active) { background-color: var(--sb-hover-bg); }
+.video-open-canvas:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.video-lightbox-close:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

@@ -188,3 +188,25 @@
 @media(max-width:760px) { .admin-economics-controls { grid-template-columns: 1fr; } }
 @media(max-width:1100px) { .admin-video-operations-grid { grid-template-columns: 1fr; }.admin-video-backlog { grid-template-columns: 1fr 1fr; }.admin-video-backlog article:nth-child(2) { border-right: 0; }.admin-video-backlog article:nth-child(-n+2) { border-bottom: 1px solid #eceef1; } }
 @media(max-width:760px) { .admin-video-backlog { grid-template-columns: 1fr; }.admin-video-backlog article { border-right: 0; border-bottom: 1px solid #eceef1; }.admin-video-backlog article:last-child { border-bottom: 0; }.admin-video-ages { align-items: flex-start; flex-direction: column; gap: 7px; padding-top: 11px; padding-bottom: 11px; }.admin-video-attention-list article { grid-template-columns: 1fr; }.admin-video-job-actions { justify-content: flex-start; flex-wrap: wrap; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（管理台，8 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   ① .admin-secondary-button 白底次按钮 → 中性表面色
+      （.admin-primary-button 9 行已有自己的深底 hover，本批**不动它**）；
+   ② .admin-economics-mode button 分段按钮 → 中性表面色（.active 走深底 selected，不同通道）；
+   ③ .admin-candidate-routes > summary（原生 <details> 折叠标题）→ 中性表面色；
+   ④ / ⑥ / ⑦ .admin-page-error / .admin-permission-list / .admin-denied button → 中性表面色；
+   ⑤ .admin-segmented button → 中性表面色。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ⚠️ 12 行有 :disabled { cursor: wait }，故一律带 :not(:disabled)。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.admin-secondary-button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.admin-economics-mode button:hover:not(:disabled):not(.active) { background-color: var(--sb-hover-bg); }
+.admin-candidate-routes > summary:hover { background-color: var(--sb-hover-bg); }
+.admin-video-job-actions button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.admin-page-error button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.admin-permission-list button:hover:not(:disabled):not(.is-enabled) { background-color: var(--sb-hover-bg); }
+.admin-segmented button:hover:not(:disabled):not(.is-active):not(.active) { background-color: var(--sb-hover-bg); }
+.admin-denied button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

@@ -3626,3 +3626,56 @@
   border-radius: 50%; color: inherit; cursor: pointer;
 }
 .ec-skill-chip button:hover { background: rgba(232, 84, 75, 0.16); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（首页，19 处缺口 —— 全站最大一块）
+   ───────────────────────────────────────────────────────────────────────────
+   通道分配照 §22 表，逐条对应：
+
+   A. 中性 / 白底按钮、图标按钮 → background-color: var(--sb-hover-bg)
+      .mode-tab · .ec-regen-cancel · .ec-tryon-person-mode button ·
+      .ec-tryon-ratio-grid button · .ec-tryon-count-row button ·
+      .ec-tryon-preserve-options label · .ec-entry-pricing-link ·
+      .ec-collapsible-header · .ec-tryon-preview-close/-previous/-next
+
+   B. 深底 / 实色底按钮 → 海拔 --sb-shadow-3（**不改底色**）
+      .ref-remove · .ec-xhs-card-remove · .ec-info-remove · .ec-ref-remove（四个圆形角标删除按钮，
+        本体已是红底/半透明深底，改底色会与 danger 语义打架 → 只抬海拔）
+      .mini-btn · .ec-gpm-btn（实色底）
+
+   C. 分段指示点（.ec-tryon-showcase-controls 的 2 处）→ 只抬海拔
+      它们本体是 18×5px 的小圆条，**改背景会盖掉「当前页」指示**（.is-active 通道），
+      故 hover 只给 --sb-shadow-2，不碰 background。
+
+   三条禁止自检：
+   ① 不改文字颜色 ✓（hover 体内 0 处 color:）；
+   ② 不改 border-width / font-size / padding / width / height ✓（正则校验 0 命中）；
+   ③ hover 与 selected 不同通道 ✓（.mode-tab 的选中走 transform/border，
+      .ec-tryon-showcase-controls 的当前页走 background+width，hover 一律只走海拔或中性底）。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── A：中性表面色 ─────────────────────────────────────────────────────── */
+.mode-tab:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-regen-cancel:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-entry-pricing-link:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-collapsible-header:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-tryon-person-mode button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-tryon-ratio-grid button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-tryon-count-row button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-tryon-preserve-options label:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-tryon-preview-close:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-tryon-preview-previous:hover:not(:disabled):not([aria-disabled='true']),
+.ec-tryon-preview-next:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+/* ── B：海拔（不动底色）─────────────────────────────────────────────────── */
+.ref-remove:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.ec-xhs-card-remove:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.ec-info-remove:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.ec-ref-remove:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.mini-btn:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.ec-gpm-btn:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+
+/* ── C：分段指示点（hover 只抬海拔，绝不碰 background/width，避免盖掉当前页指示）── */
+.ec-tryon-showcase-controls > div button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
+.ec-tryon-showcase-controls button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
+
