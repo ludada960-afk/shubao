@@ -35,13 +35,13 @@
 > | 指标 | worktree（**权威**） | master（子集，仅供对照） |
 > |---|---|---|
 > | 源文件 | **316** | 55 |
-> | hex 硬编码 | **5789 次 / 1810 个不同值** | 1571 次 / 239 值 |
+> | hex 硬编码 | **5771 次 / 1785 个不同值** | 1571 次 / 239 值 |
 > | 字号档位 | **27** | 24 |
-> | gap 非阶梯值 | **908/1562（58%）** | 175/371（47%） |
+> | gap 非阶梯值 | **896/1540（58%）** | 175/371（47%） |
 > | z-index 裸值 | **32** | 21 |
 > | `backdrop-filter` 文件 | **41** | 15 |
 > | 悬停位移站点 | **85** | 71 |
-> | **`focus-visible`** | **115 处 ✅ 已达标** | 0 处 ❌ |
+> | **`focus-visible`** | **124 处 ✅ 已达标** | 0 处 ❌ |
 > | **`prefers-reduced-motion`** | **32 处 ✅ 已达标** | 0 处 ❌ |
 > | 品牌紫硬编码 | 159 次 / 150 行 / 38 文件 | 77 处 / 21 文件 |
 >
@@ -797,6 +797,17 @@ L4  反色面     = #0C0A09                        ← --sb-neutral-900
 
 ## 4. 颜色 · 表面（Surface）— 嵌套层级
 
+> ### ⚠️ 两个「页面底」token 不要混用（**裁定 3**）
+>
+> | Token | 值 | **用在哪儿** | ❌ 不要用在哪 |
+> |---|---|---|---|
+> | **`--sb-l0-page`** | **`#F5EFE4`** | ✅ **真正的页面底**（`body` 背景、页面最外层容器）—— 与 `design-tokens.css` 的 `--bg` 同值 | 卡片 / 面板内部 |
+> | `--sb-surface-page` | `var(--sb-neutral-50)` = `#FAF7F2` | ✅ **更亮的中性底**：次级表面、区块底、页面内的"浅一层"容器 | ❌ **不要当页面底**（比真页面底更亮，会显得"浮起来"） |
+>
+> **一句话**：**最外层用 `--sb-l0-page`（`#F5EFE4`），页面内需要"更亮的底"时用 `--sb-surface-page`（`#FAF7F2`）。**
+>
+> 📌 两者都是**暖色系**（色相 ~30–39°），不要换成冷灰。
+
 **一句话**：五级表面，靠**色阶**分层，不靠画框。
 
 | 级别 | Token | 值 | 用途 | 说明 |
@@ -934,7 +945,7 @@ L0 页面 ─── L1 面板 ─── L2 卡片 ─── L3 ─── L4     
 | `--sb-text-3xl` | 32px | 800 | 1.2 | 区块标题 | 30px（1 次） |
 | `--sb-text-4xl` | 48px | 900 | 1.1 | Hero（桌面 62px 收敛到此，移动 32px） | 48/56/62px |
 
-**收敛策略**：现状 **24 档字号** → 本规范 **9 档**。映射见 §16。
+**收敛策略**：现状 **27 档字号** → 本规范 **9 档**。映射见 §16。
 
 ### 8.3 字重
 
@@ -1480,7 +1491,7 @@ L0 页面 ─── L1 面板 ─── L2 卡片 ─── L3 ─── L4     
 ## §2I · 铁律六：悬停/选中位移必须在容器内预留空间
 
 > **来源**：用户报的真实 bug。已有一处修复（\`canvas-library.css:147-190\`），本节把它**上升为全站规则**。
-> **实测规模**：全站 **71 处** hover 位移/放大站点（\`translateY\` 25+14+7+4+3+1+1+1、\`scale\` 9 处）。
+> **实测规模**：全站 **85 处** hover 位移/放大站点（\`translateY\` 25+14+7+4+3+1+1+1、\`scale\` 9 处）。
 > 其中最大位移 **translateY(-8px) + scale(1.03)**，对应需求预留 **16px**。
 
 ### §2I.1 规则本体
@@ -2041,3 +2052,257 @@ grep -rEo '#059669|#16a34a|#166534|#07c160|#10b981|#22c55e' src/ | wc -l
 # 裁定 4：灰阶收敛
 grep -rEo '#f5f5f5|#f0f0f0|#e0e0e0|#e8e8e8|#d0d0d0|#1a1a1a' src/ | wc -l
 \`\`\`
+
+---
+
+# §C · 批次作业顺序（**按可执行性重排**）
+
+> **为什么重排**：迁移 agent 需要「先改哪个文件、预计多少处、改完指标降到多少」，
+> 而不是「同一颜色的色值散落在 40 个文件里」。本节按 **D5 的 4 个批次**给出**文件级作业顺序**。
+>
+> **数据来源**：worktree 全量扫描（116 文件 / **2467 处**可迁移 hex）。
+> §B 的按色分组表**仍然有效**，作为「色值 → 目标 token」的**查表**；本节是**执行顺序**。
+
+## §C.0 全局基线（`design-audit.mjs` 实测）
+
+| 指标 | 当前基线 | 最终目标 |
+|---|---|---|
+| hex 硬编码 | **5771 次 / 1785 个不同值** | 持续下降 |
+| `gap` 非阶梯值 | **896/1540（58%）** | ≤5% |
+| 品牌紫硬编码 | **151 次 / 30 文件** | 0（D1/D3） |
+| 裸 `outline:none` | **58 处** | 0（D11） |
+| `<div onClick>` | **97 处** | 0（D11） |
+| `focus-visible` | 124 处 ✅ | 保持 |
+| `prefers-reduced-motion` | 32 处 ✅ | 保持 |
+
+## §C.1 四批次总览
+
+| 批次 | 内容 | 文件数 | 本批处数 | 累计 | 完成度 |
+|---|---|---|---|---|---|
+| **B1** | 外壳 + 首页 | 24 | **596** | 596 | 24.2% |
+| **B2** | 电商链路 | 20 | **247** | 843 | 34.2% |
+| **B3** | 画布 / 工作台 | 33 | **1052** | 1895 | 76.8% |
+| **B4** | 遗留页 + 清理 | 39 | **572** | 2467 | 100.0% |
+| | **合计** | **116** | **2467** | | 100% |
+
+> **执行规则**：① 批内按处数降序（先啃大文件）② 每批做完立刻跑 `design-audit.mjs` 对照预期
+> ③ 达标才进下一批（D5 严禁反序）④ 每批单独 commit，可整批 revert
+
+## §C.2 每批作业清单与验收预期
+
+### B1 · 外壳 + 首页（24 文件 / 596 处）
+
+**改什么**：按 §B 查表把本批文件里的 hex 换成对应 `--sb-*` token。
+
+| # | 文件 | 处数 | 主要迁移类型 |
+|---|---|---|---|
+| 1 | `pages/Home/Home.css` | 373 | 灰→中性(257)、靛蓝→紫(95)、红→一支(17) |
+| 2 | `pages/Home/ec/DesignDirection.jsx` | 39 | 灰→中性(22)、红→一支(12)、粉→受限(3) |
+| 3 | `pages/Home/ec/skill-library.css` | 37 | 灰→中性(25)、红→一支(7)、橙→一支(4) |
+| 4 | `pages/Home/EcMode.jsx` | 35 | 灰→中性(31)、红→一支(3)、粉→受限(1) |
+| 5 | `pages/Home/VisualCreationMode.css` | 25 | 灰→中性(25) |
+| 6 | `pages/Home/ec/EcProfileRail.css` | 14 | 灰→中性(9)、红→一支(4)、粉→受限(1) |
+| 7 | `pages/Home/ec/crossModeProductProfile.css` | 11 | 灰→中性(7)、红→一支(3)、粉→受限(1) |
+| 8 | `pages/Home/ec/ProductProfileShelf.css` | 9 | 灰→中性(8)、红→一支(1) |
+| 9 | `styles/app-shell.css` | 8 | 灰→中性(8) |
+| 10 | `pages/Home/ec/DesignDirectionView.jsx` | 6 | 灰→中性(5)、靛蓝→紫(1) |
+| 11 | `pages/Home/ec/model-pricing.css` | 6 | 灰→中性(5)、红→一支(1) |
+| 12 | `pages/Home/GallerySection.jsx` | 5 | 灰→中性(5) |
+| 13 | `components/layout/Navbar.jsx` | 4 | 灰→中性(3)、橙→一支(1) |
+| 14 | `components/ui/Toast.jsx` | 4 | 绿→一支(1)、红→一支(1)、橙→一支(1) |
+| 15 | `components/ui/index.jsx` | 3 | 灰→中性(3) |
+| 16 | `components/ui/UploadBox.jsx` | 3 | 灰→中性(3) |
+| 17 | `pages/Home/ec/RecoveryShelf.css` | 3 | 灰→中性(3) |
+| 18 | `pages/Home/index.jsx` | 3 | 橙→一支(2)、灰→中性(1) |
+| 19 | `components/ui/Button.jsx` | 2 | 灰→中性(2) |
+| 20 | `components/ui/DialogProvider.jsx` | 2 | 灰→中性(2) |
+| 21 | `App.jsx` | 1 | 灰→中性(1) |
+| 22 | `components/layout/Footer.jsx` | 1 | 灰→中性(1) |
+| 23 | `components/ui/LongTaskOverlay.css` | 1 | 灰→中性(1) |
+| 24 | `components/ui/Popover.jsx` | 1 | 灰→中性(1) |
+
+**✅ 验收预期**：
+
+| 指标 | 本批前 | **本批后应为** |
+|---|---|---|
+| hex 硬编码 | 5771 次 | **≈ 5175 次**（消掉 596） |
+| 品牌紫硬编码 | — | **减少约 103 处** |
+| 完成度 | 0.0% | **24.2%** |
+
+**⚠️ 特别提醒**：`Home.css` 单文件 **373 处**（全站最多），建议拆 2-3 个子提交；注意 §2I 悬停位移预留不可遗漏。
+
+**回退**：本批改动单独 commit，`git revert` 即可整批撤销。
+
+### B2 · 电商链路（20 文件 / 247 处）
+
+**改什么**：按 §B 查表把本批文件里的 hex 换成对应 `--sb-*` token。
+
+| # | 文件 | 处数 | 主要迁移类型 |
+|---|---|---|---|
+| 1 | `pages/Home/XhsContentMode.jsx` | 120 | 灰→中性(80)、靛蓝→紫(26)、红→一支(7) |
+| 2 | `components/business/CloneProjectModal.jsx` | 26 | 灰→中性(19)、→信息蓝(5)、红→一支(2) |
+| 3 | `pages/Home/ec/EcommerceDesignPlanEditor.css` | 17 | 灰→中性(15)、→信息蓝(2) |
+| 4 | `components/business/Modals.jsx` | 12 | 灰→中性(12) |
+| 5 | `components/ProjectAssetPicker.jsx` | 10 | 灰→中性(9)、红→一支(1) |
+| 6 | `components/business/AssetQuickDrag.jsx` | 9 | 灰→中性(5)、靛蓝→紫(3)、红→一支(1) |
+| 7 | `pages/Home/ec/components/SupplementAssetDeck.jsx` | 9 | 灰→中性(8)、粉→受限(1) |
+| 8 | `pages/Home/ec/components/SupplementImageCard.jsx` | 8 | 灰→中性(7)、红→一支(1) |
+| 9 | `pages/Home/ec/StylePanel.jsx` | 8 | 灰→中性(2)、→信息蓝(2)、粉→受限(2) |
+| 10 | `pages/Home/ec/components/directionUiModel.js` | 6 | 灰→中性(6) |
+| 11 | `components/business/DevicesPanel.jsx` | 5 | 灰→中性(3)、红→一支(2) |
+| 12 | `pages/Home/EcPlatformPicker.jsx` | 5 | 灰→中性(5) |
+| 13 | `pages/Home/ec/components/DirectionOptionCard.jsx` | 4 | 灰→中性(4) |
+| 14 | `pages/Home/EcSkuPanel.jsx` | 2 | 灰→中性(2) |
+| 15 | `components/business/AIComplianceWatermark.jsx` | 1 | 绿→一支(1) |
+| 16 | `components/business/PricingModal.jsx` | 1 | 绿→一支(1) |
+| 17 | `pages/Home/ec/components/EcommerceAssetCards.jsx` | 1 | 灰→中性(1) |
+| 18 | `pages/Home/ec/panelVisualLanguage.js` | 1 | 灰→中性(1) |
+| 19 | `pages/Home/EcProductParams.jsx` | 1 | 灰→中性(1) |
+| 20 | `pages/Home/EcRefImages.jsx` | 1 | 灰→中性(1) |
+
+**✅ 验收预期**：
+
+| 指标 | 本批前 | **本批后应为** |
+|---|---|---|
+| hex 硬编码 | 5175 次 | **≈ 4928 次**（消掉 247） |
+| 品牌紫硬编码 | — | **减少约 38 处** |
+| 完成度 | 24.2% | **34.2%** |
+
+**⚠️ 特别提醒**：`XhsContentMode.jsx` 单文件 **120 处**；本批还含 `.ui-modal-footer` 契约收口（步骤 1.0）。
+
+**回退**：本批改动单独 commit，`git revert` 即可整批撤销。
+
+### B3 · 画布 / 工作台（33 文件 / 1052 处）
+
+**改什么**：按 §B 查表把本批文件里的 hex 换成对应 `--sb-*` token。
+
+| # | 文件 | 处数 | 主要迁移类型 |
+|---|---|---|---|
+| 1 | `pages/EcCanvas/EcCanvas.css` | 177 | 灰→中性(154)、→信息蓝(15)、靛蓝→紫(3) |
+| 2 | `pages/EcCanvas/index.jsx` | 134 | 灰→中性(113)、红→一支(11)、→信息蓝(5) |
+| 3 | `pages/EcStudio/index.jsx` | 129 | 灰→中性(67)、靛蓝→紫(52)、红→一支(6) |
+| 4 | `pages/VideoStudio/VideoCanvasWorkbench.css` | 120 | 灰→中性(71)、靛蓝→紫(25)、绿→一支(15) |
+| 5 | `pages/VideoStudio/VideoProjectWorkbench.css` | 79 | 灰→中性(46)、粉→受限(17)、靛蓝→紫(9) |
+| 6 | `pages/EcCanvas/components/workflowNodes/modular/CanvasWorkflowNodes.module.css` | 54 | 灰→中性(46)、红→一支(5)、绿→一支(2) |
+| 7 | `pages/VideoStudio/VideoStudio.css` | 50 | 灰→中性(30)、靛蓝→紫(17)、粉→受限(2) |
+| 8 | `styles/canvas-supervisor.css` | 39 | 灰→中性(24)、粉→受限(7)、红→一支(6) |
+| 9 | `pages/EcCanvas/components/TextLayerInspector.jsx` | 30 | 灰→中性(29)、红→一支(1) |
+| 10 | `pages/EcCanvas/WorkflowTemplateGallery.jsx` | 29 | 灰→中性(24)、橙→一支(2)、红→一支(2) |
+| 11 | `styles/canvas-watermark-panel.css` | 27 | 灰→中性(22)、→信息蓝(5) |
+| 12 | `pages/EcCanvas/components/CanvasTemplateMarketplace.jsx` | 20 | 灰→中性(19)、橙→一支(1) |
+| 13 | `pages/EcCanvas/components/CanvasContextMenuPanel.jsx` | 19 | 灰→中性(7)、粉→受限(3)、→信息蓝(3) |
+| 14 | `styles/canvas-right-panel.css` | 18 | 灰→中性(9)、→信息蓝(7)、红→一支(2) |
+| 15 | `pages/VideoStudio/videoDeliveryShared.css` | 16 | 灰→中性(10)、靛蓝→紫(5)、绿→一支(1) |
+| 16 | `pages/EcCanvas/components/workflowNodes/workflowNodes.css` | 15 | 灰→中性(14)、橙→一支(1) |
+| 17 | `pages/EcCanvas/canvasQuantvExtensions.js` | 14 | 灰→中性(5)、粉→受限(3)、→信息蓝(3) |
+| 18 | `pages/EcCanvas/components/canvas-library.css` | 12 | 灰→中性(11)、红→一支(1) |
+| 19 | `pages/EcCanvas/components/canvas-asset-picker.css` | 11 | 灰→中性(9)、红→一支(2) |
+| 20 | `pages/EcCanvas/components/CanvasMinimap.jsx` | 11 | 粉→受限(3)、→信息蓝(3)、灰→中性(2) |
+| 21 | `pages/VideoStudio/DirectorWorkbench.css` | 9 | 灰→中性(8)、靛蓝→紫(1) |
+| 22 | `styles/canvas-empty-actions.css` | 7 | 灰→中性(6)、→信息蓝(1) |
+| 23 | `pages/EcCanvas/components/CanvasAssetQuickPanel.jsx` | 5 | 靛蓝→紫(3)、灰→中性(2) |
+| 24 | `pages/EcCanvas/components/CanvasStudio.jsx` | 5 | 灰→中性(2)、红→一支(2)、橙→一支(1) |
+| 25 | `pages/EcCanvas/canvasWatermarkModel.js` | 4 | 灰→中性(4) |
+| 26 | `pages/EcCanvas/components/CanvasChainOverlay.jsx` | 4 | 灰→中性(4) |
+| 27 | `pages/EcCanvas/components/EcCanvasRightPanel.jsx` | 4 | 灰→中性(4) |
+| 28 | `pages/VideoStudio/videoCanvasFlowModel.js` | 4 | 灰→中性(3)、绿→一支(1) |
+| 29 | `pages/EcCanvas/canvasStudioModel.js` | 2 | 灰→中性(2) |
+| 30 | `pages/EcCanvas/canvasInlineEditorModel.js` | 1 | 红→一支(1) |
+| 31 | `pages/EcCanvas/canvasLayerMaterialization.js` | 1 | 灰→中性(1) |
+| 32 | `pages/EcCanvas/components/CanvasAssetPickerModal.jsx` | 1 | 灰→中性(1) |
+| 33 | `pages/VideoStudio/VideoCanvasWorkbench.jsx` | 1 | 灰→中性(1) |
+
+**✅ 验收预期**：
+
+| 指标 | 本批前 | **本批后应为** |
+|---|---|---|
+| hex 硬编码 | 4928 次 | **≈ 3876 次**（消掉 1052） |
+| 品牌紫硬编码 | — | **减少约 155 处** |
+| 完成度 | 34.2% | **76.8%** |
+
+**⚠️ 特别提醒**：**本批最大（1052 处）且是核心功能**。画布侧紫色最密集，含 `--sb-z-canvas/hud/dialog` 场景别名落地（§15）。建议再拆 3 子批：EcCanvas → EcStudio → VideoStudio。
+
+**回退**：本批改动单独 commit，`git revert` 即可整批撤销。
+
+### B4 · 遗留页 + 清理（39 文件 / 572 处）
+
+**改什么**：按 §B 查表把本批文件里的 hex 换成对应 `--sb-*` token。
+
+| # | 文件 | 处数 | 主要迁移类型 |
+|---|---|---|---|
+| 1 | `NoteModal.jsx` | 79 | 灰→中性(66)、红→一支(8)、靛蓝→紫(5) |
+| 2 | `pages/Home/EcLegacyForm.jsx` | 55 | 灰→中性(34)、靛蓝→紫(17)、红→一支(4) |
+| 3 | `pages/EcAuto/index.jsx` | 53 | 灰→中性(33)、靛蓝→紫(16)、红→一支(3) |
+| 4 | `pages/AdminConsole/AdminConsole.css` | 52 | 灰→中性(52) |
+| 5 | `styles/login-dialog.css` | 38 | 灰→中性(20)、红→一支(10)、橙→一支(6) |
+| 6 | `components/chain/chain.css` | 29 | 靛蓝→紫(14)、绿→一支(7)、灰→中性(6) |
+| 7 | `pages/Home/member-center.css` | 25 | 灰→中性(17)、橙→一支(4)、绿→一支(2) |
+| 8 | `styles/pricing-modal.css` | 23 | 灰→中性(13)、橙→一支(8)、粉→受限(1) |
+| 9 | `pages/Home/CreationShowcase.css` | 22 | 灰→中性(16)、粉→受限(6) |
+| 10 | `styles/design-tokens.css` | 19 | 灰→中性(14)、红→一支(2)、绿→一支(1) |
+| 11 | `pages/Remake/index.jsx` | 18 | 灰→中性(14)、绿→一支(3)、靛蓝→紫(1) |
+| 12 | `pages/Plog/index.jsx` | 16 | 灰→中性(15)、粉→受限(1) |
+| 13 | `pages/VisionFeedback/VisionFeedback.css` | 16 | 灰→中性(11)、橙→一支(3)、红→一支(2) |
+| 14 | `components/billing/Billing.module.css` | 15 | 灰→中性(14)、红→一支(1) |
+| 15 | `components/billing/InsufficientBalanceModal.jsx` | 13 | 灰→中性(13) |
+| 16 | `pages/Pricing/index.jsx` | 8 | 灰→中性(3)、绿→一支(2)、橙→一支(2) |
+| 17 | `styles/theme.css` | 8 | 灰→中性(7)、→信息蓝(1) |
+| 18 | `components/ErrorBoundary.jsx` | 7 | 灰→中性(7) |
+| 19 | `components/billing/AccountEntitlementControl.jsx` | 6 | 灰→中性(6) |
+| 20 | `components/creation/ImageMentionPicker.css` | 6 | 灰→中性(4)、→信息蓝(2) |
+| 21 | `pages/Pricing/Pricing.css` | 6 | 灰→中性(3)、靛蓝→紫(1)、粉→受限(1) |
+| 22 | `constants/data.js` | 5 | 灰→中性(2)、→信息蓝(1)、靛蓝→紫(1) |
+| 23 | `pages/PublicTemplates/index.css` | 5 | 灰→中性(5) |
+| 24 | `styles/semanticTokens.css` | 5 | →信息蓝(4)、绿→一支(1) |
+| 25 | `components/task/BatchProgress.jsx` | 4 | 灰→中性(2)、红→一支(2) |
+| 26 | `components/task/ReadProgress.jsx` | 4 | 红→一支(2)、靛蓝→紫(2) |
+| 27 | `components/task/TaskSidebar.jsx` | 4 | 灰→中性(4) |
+| 28 | `main.jsx` | 4 | 灰→中性(2)、靛蓝→紫(1)、粉→受限(1) |
+| 29 | `pages/Generate/Loading.jsx` | 4 | 靛蓝→紫(2)、红→一支(2) |
+| 30 | `pages/ProductArchive/index.css` | 4 | 灰→中性(4) |
+| 31 | `pages/Gallery/index.jsx` | 3 | 灰→中性(3) |
+| 32 | `pages/Home/ContentResultWorkspace.css` | 3 | 灰→中性(3) |
+| 33 | `styles/generate-cta.css` | 3 | 靛蓝→紫(1)、粉→受限(1)、灰→中性(1) |
+| 34 | `components/creation/ContentReferencePicker.css` | 2 | 灰→中性(2) |
+| 35 | `components/creation/MentionPromptField.css` | 2 | 灰→中性(2) |
+| 36 | `components/task/GenModal.jsx` | 2 | 灰→中性(1)、橙→一支(1) |
+| 37 | `pages/AdminConsole/index.jsx` | 2 | 红→一支(2) |
+| 38 | `constants/publicTemplates.js` | 1 | 灰→中性(1) |
+| 39 | `services/modelLogos.js` | 1 | 灰→中性(1) |
+
+**✅ 验收预期**：
+
+| 指标 | 本批前 | **本批后应为** |
+|---|---|---|
+| hex 硬编码 | 3876 次 | **≈ 3304 次**（消掉 572） |
+| 品牌紫硬编码 | — | **减少约 74 处** |
+| 完成度 | 76.8% | **100.0%** |
+
+**⚠️ 特别提醒**：`NoteModal.jsx` 79 处；本批含死代码清理（`Navbar.jsx`、三对平行实现）与幽灵变量收口。
+
+**回退**：本批改动单独 commit，`git revert` 即可整批撤销。
+
+## §C.3 为什么这样排（依赖关系）
+
+```
+B1 外壳 + 首页  ──┐ 用户第一眼看到；也验证 token 是否够用（Home.css 373 处最大单文件）
+                  ▼
+B2 电商链路     ──┐ 依赖 B1 确立的组件与 surface 分层（含 footer 契约收口）
+                  ▼
+B3 画布/工作台  ──┐ 紫色最密集，依赖 B2 的组件词汇（z-index 场景别名在此落地）
+                  ▼
+B4 遗留页+清理  ──  最后做，含死代码删除（删前确认无引用）
+```
+
+**严禁反序（D5）**：先把尺寸改完再替换色相，等于**把硬编码重新种一遍**。
+
+## §C.4 每批回归清单
+
+| 检查项 | 命令 |
+|---|---|
+| hex 碎片度 | `node scripts/design-audit.mjs` ① |
+| 紫色残留 | `grep -rEo '#7c3aed\|#6366f1\|#4338ca' src/ \| wc -l` |
+| 无障碍 | `design-audit.mjs` ② |
+| 底部操作区契约 | `design-audit.mjs` ③d |
+| 悬停位移 | `design-audit.mjs` ③c |
+| 视觉回归 | 每批至少截 1440 / 390 两档 |
