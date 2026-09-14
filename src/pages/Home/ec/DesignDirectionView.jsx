@@ -56,7 +56,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <button type="button" aria-label="返回" onClick={onBack}
-          style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding: 0, font: 'inherit', boxSizing: 'border-box', border: 'none', outline: 'none', width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+          style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding: 0, font: 'inherit', boxSizing: 'border-box', border: 'none', outline: 'none', width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
           onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}

@@ -57,11 +57,11 @@ export default function TextLayerInspector({ layer, position = {}, ocrMode = fal
       {!ocrMode && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         <label style={{ fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
           字号
-          <input type="number" min="8" max="512" step="1" value={draft.fontSize} onChange={event => updateNumber('fontSize', event.target.value)} style={{ display: 'block', width: '100%', height: 34, boxSizing: 'border-box', marginTop: 6, padding: '0 8px', border: '1px solid #d1d5db', borderRadius: 7 }} />
+          <input type="number" min="8" max="512" step="1" value={draft.fontSize} onChange={event => updateNumber('fontSize', event.target.value)} style={{ display: 'block', width: '100%', height: 34, boxSizing: 'border-box', marginTop: 6, padding: '0 8px', border: '1px solid #d1d5db', borderRadius: 8 }} />
         </label>
         <label style={{ fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
           行高
-          <input type="number" min="0.5" max="3" step="0.1" value={draft.lineHeight} onChange={event => updateNumber('lineHeight', event.target.value)} style={{ display: 'block', width: '100%', height: 34, boxSizing: 'border-box', marginTop: 6, padding: '0 8px', border: '1px solid #d1d5db', borderRadius: 7 }} />
+          <input type="number" min="0.5" max="3" step="0.1" value={draft.lineHeight} onChange={event => updateNumber('lineHeight', event.target.value)} style={{ display: 'block', width: '100%', height: 34, boxSizing: 'border-box', marginTop: 6, padding: '0 8px', border: '1px solid #d1d5db', borderRadius: 8 }} />
         </label>
       </div>}
 

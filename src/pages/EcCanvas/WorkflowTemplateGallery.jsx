@@ -10,7 +10,7 @@ import { fetchWorkflowTemplates, likeWorkflowTemplate, workflowSlotIds } from '.
 
 const OVERLAY = { position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' };
 const PANEL = { position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 20, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' };
-const TAB = { padding: '6px 12px', borderRadius: 999, border: '1px solid rgba(15,23,42,.08)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
+const TAB = { padding: '6px 12px', borderRadius: 'var(--sb-radius-pill)', border: '1px solid rgba(15,23,42,.08)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const TAB_ACTIVE = { ...TAB, background: 'var(--sb-brand-600)', color: '#fff', borderColor: 'var(--sb-brand-600)' };
 const CARD = { borderRadius: 12, border: '1px solid rgba(15,23,42,.08)', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all .18s ease' };
 
@@ -210,10 +210,10 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
             return <article key={slug || template?.templateId} style={CARD} onMouseEnter={event => { event.currentTarget.style.transform = 'translateY(-2px)'; event.currentTarget.style.boxShadow = '0 12px 30px rgba(15,23,42,.18)'; event.currentTarget.style.borderColor = p3Gate ? 'rgba(100,116,139,.5)' : 'rgba(124,58,237,.4)'; }} onMouseLeave={event => { event.currentTarget.style.transform = ''; event.currentTarget.style.boxShadow = ''; event.currentTarget.style.borderColor = 'rgba(15,23,42,.08)'; }}>
               <div style={{ position: 'relative' }}>
                 <TemplateGraphThumb graph={template?.graph} />
-                {estimated > 0 && <span title={template?.pricing?.note || '展示预估，结算以目录为准'} style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(255,247,237,.96)', border: '1px solid rgba(245,158,11,.35)', color: 'var(--sb-credit-spend)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {estimated > 0 && <span title={template?.pricing?.note || '展示预估，结算以目录为准'} style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', borderRadius: 'var(--sb-radius-pill)', background: 'rgba(255,247,237,.96)', border: '1px solid rgba(245,158,11,.35)', color: 'var(--sb-credit-spend)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Zap size={11} />预计 {estimated} 积分
                 </span>}
-                {p3Gate && <span title="这套模板用到视频/音频能力，能力上线前这些节点暂不可运行" style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(241,245,249,.96)', border: '1px solid rgba(100,116,139,.35)', color: '#64748b', fontSize: 11, fontWeight: 600 }}>
+                {p3Gate && <span title="这套模板用到视频/音频能力，能力上线前这些节点暂不可运行" style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 'var(--sb-radius-pill)', background: 'rgba(241,245,249,.96)', border: '1px solid rgba(100,116,139,.35)', color: '#64748b', fontSize: 11, fontWeight: 600 }}>
                   视频/音频能力即将上线（待 P3）
                 </span>}
               </div>

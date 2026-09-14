@@ -16,7 +16,7 @@ import {
 
 const CAT_PILL = {
   padding: '6px 10px',
-  borderRadius: 999,
+  borderRadius: 'var(--sb-radius-pill)',
   border: '1px solid rgba(15,23,42,.08)',
   background: '#fff',
   color: '#475569',

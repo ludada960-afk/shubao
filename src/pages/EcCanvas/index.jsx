@@ -465,7 +465,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       <div style={{ padding: '8px 10px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel}</div>
-          <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: 'var(--sb-brand-600)', background: 'rgba(124,58,237,.08)', borderRadius: 999, padding: '2px 5px' }}>{node.group}</span>
+          <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: 'var(--sb-brand-600)', background: 'rgba(124,58,237,.08)', borderRadius: 'var(--sb-radius-pill)', padding: '2px 5px' }}>{node.group}</span>
         </div>
         <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{node.ratio}{node.size ? ` · ${node.size}` : ''}</div>
         {node.usage && <div style={{ fontSize: 10, color: 'var(--sb-credit-spend)', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 6, padding: '3px 6px' }}>{node.usage}</div>}
@@ -2235,10 +2235,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     }
   }, [flushDragFrame, pointerMode, toWorldPoint, viewport.scale]);
 
-  const openConnectionPickerForNode = useCallback(node => {
+  const openConnectionPickerForNode = useCallback((node, triggerEl = null) => {
     if (!canDeriveFromCanvasSource(node)) return;
+    /* 2026-09-20：改用**触发元素的视口矩形**作为弹层锚点（原来是节点的世界坐标）。
+       世界坐标要经过缩放层换算，实测在面板打开时会算飞（left=-717 → 屏幕 x=10）。
+       视口像素只有一套坐标系，交给 CanvasPopoverPortal(place='right') 统一处理。 */
+    const rect = triggerEl?.getBoundingClientRect?.();
     setConnectionPicker({
       sourceNodeId: node.id,
+      anchorRect: rect
+        ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom }
+        : null,
       world: {
         x: Number(node.x) + Number(node.w) + 42,
         y: Number(node.y) + Number(node.h) / 2,
@@ -2504,8 +2511,16 @@ const handlePointerUp = useCallback((e) => {
   const handlePortClick = useCallback((event, nodeId) => {
     const source = nodes.find(node => node.id === nodeId);
     if (!canDeriveFromCanvasSource(source)) return;
+    /* 2026-09-20：锚点改用**触发按钮的视口矩形**（原来用 toWorldPoint(event) 的世界坐标）。
+       世界坐标要经缩放层换算，实测面板打开时算飞（世界 -717 → 屏幕 x=10，甩到最左且被裁）。
+       视口 px 只有一套口径，配合 CanvasPopoverPortal(place='right') 锚在按钮右侧展开。 */
+    const portEl = event?.currentTarget?.closest?.('button') || event?.currentTarget;
+    const rect = portEl?.getBoundingClientRect?.();
     setConnectionPicker({
       sourceNodeId: nodeId,
+      anchorRect: rect
+        ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom }
+        : null,
       world: toWorldPoint(event),
     });
     setConnectionDraft(null);
@@ -6757,7 +6772,7 @@ const handlePointerUp = useCallback((e) => {
                   el.style.setProperty('--ec-spot-y', (((event.clientY - rect.top) / Math.max(1, rect.height)) * 100).toFixed(2) + '%');
                 }}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 16px', borderRadius: 999, background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.06)', fontSize: 13, color: '#6b7280' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 16px', borderRadius: 'var(--sb-radius-pill)', background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.06)', fontSize: 13, color: '#6b7280' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 1 10-10" /><path d="M22 6 12 16l-3-3" /></svg>
                   双击屏幕，画布自由创作
                 </span>
@@ -7121,20 +7136,10 @@ const handlePointerUp = useCallback((e) => {
               actions={connectionPicker.mode === 'image-editor'
                 ? actionsForSurface({ surface: 'image-editor', node: nodes.find(node => node.id === connectionPicker.sourceNodeId) })
                 : portCreationActions}
-              position={clampCanvasPickerPosition({
-                world: connectionPicker.world,
-                viewport,
-                bounds: containerRef.current?.getBoundingClientRect(),
-                /* 9-13 用户批注：从节点「+」打开的生成面板必须居中吸附在按钮正上方 */
-                anchor: 'above',
-                /* 9-17 用户批注（图5/图9）：「上传素材后右边的功能栏总是会覆盖到上面来」。
-                   实测这块浮层才是盖住节点的那个：它没受画布右缘约束。
-                   ① nodes：浮层不许压住任何已有节点（压住就整体上抬到它们之上）；
-                   ② reservedRight：右侧功能栏打开时，浮层右缘同样让开面板宽度，
-                      与画布区让位共用同一个变量，浮层与功能栏永远不重叠。 */
-                nodes: visibleNodes,
-                reservedRight: selectionPanelsVisible ? rightPanelReservedPx : 0,
-              })}
+              /* 2026-09-20：不再自算世界坐标（clampCanvasPickerPosition 的世界/像素混用
+                 会在右侧面板打开时把面板甩到最左，实测屏幕 x=10，触发按钮在 683）。
+                 改由统一权威按**视口矩形**定位：锚在触发元素向右展开、绝不左翻。 */
+              anchorRect={connectionPicker.anchorRect}
               title={connectionPicker.mode === 'image-editor' ? '图片生成与编辑' : '引用当前素材生成'}
               onBack={connectionPicker.mode === 'image-editor' ? () => setConnectionPicker(previous => ({ ...previous, mode: '' })) : undefined}
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
@@ -7300,7 +7305,7 @@ const handlePointerUp = useCallback((e) => {
                     role="tab"
                     aria-selected={projectAssetMediaFilter === value}
                     onClick={() => setProjectAssetMediaFilter(value)}
-                    style={{ padding: '5px 10px', border: `1px solid ${projectAssetMediaFilter === value ? '#cbd5e1' : '#edf0f3'}`, borderRadius: 999, background: projectAssetMediaFilter === value ? '#f1f5f9' : '#fff', color: '#475569', fontSize: 11, cursor: 'pointer' }}
+                    style={{ padding: '5px 10px', border: `1px solid ${projectAssetMediaFilter === value ? '#cbd5e1' : '#edf0f3'}`, borderRadius: 'var(--sb-radius-pill)', background: projectAssetMediaFilter === value ? '#f1f5f9' : '#fff', color: '#475569', fontSize: 11, cursor: 'pointer' }}
                   >{label}</button>)}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
@@ -7642,7 +7647,7 @@ const handlePointerUp = useCallback((e) => {
                 const statusColor = status === 'ok' ? '#10b981' : status === 'failed' ? '#ef4444' : status === 'running' ? 'var(--sb-brand-600)' : '#9ca3af';
                 const statusLabel = status === 'ok' ? '✓ 完成' : status === 'failed' ? '✕ 失败' : status === 'running' ? '⋯ 进行中' : '○ 等待';
                 return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 8, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
-                  <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 999, fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
+                  <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 'var(--sb-radius-pill)', fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #111827)' }}>{label}</span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, letterSpacing: '.02em' }}>{statusLabel}</span>
                 </li>;
@@ -7718,7 +7723,7 @@ const handlePointerUp = useCallback((e) => {
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 10 }}>文案要求<textarea value={directionCopy} onChange={e => setDirectionCopy(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <span style={{ fontSize: 11, color: '#6b7280' }}>画面比例</span>
-              {['1:1', '3:4', '9:16', '长图'].map(ratio => <button key={ratio} type="button" onClick={() => setDirectionRatio(ratio)} style={{ border: 0, borderRadius: 999, padding: '5px 9px', background: directionRatio === ratio ? '#1f2937' : 'rgba(12,10,9,.05)', color: directionRatio === ratio ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{ratio}</button>)}
+              {['1:1', '3:4', '9:16', '长图'].map(ratio => <button key={ratio} type="button" onClick={() => setDirectionRatio(ratio)} style={{ border: 0, borderRadius: 'var(--sb-radius-pill)', padding: '5px 9px', background: directionRatio === ratio ? '#1f2937' : 'rgba(12,10,9,.05)', color: directionRatio === ratio ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{ratio}</button>)}
             </div>
             {/* 9-16 同款收口：底部操作区对齐全站规范（间距 12px、按钮 36px 高、最小宽 88px、圆角 10px）。 */}
             <div className="ui-modal-footer" style={{ marginTop: 0, padding: 0, borderTop: 0 }}>
@@ -7753,7 +7758,7 @@ const handlePointerUp = useCallback((e) => {
                 {orderedDetailNodes.length < 2 && <div style={{ padding: '10px 11px', borderRadius: 8, background: '#fff7ed', color: '#9a5b13', fontSize: 12 }}>请至少选择 2 张已生成的详情图。</div>}
               </div>
             </div>}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 'var(--sb-radius-pill)', padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
             {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDelivery.destination.name}</div>}
             {(exportDelivery.status === 'preparing' || exportDelivery.status === 'writing') && <div style={{ marginBottom: 12, fontSize: 12, color: '#475569' }}>{exportDelivery.status === 'preparing' ? '正在校验图片' : '正在写入文件'} · {exportDelivery.progress.completed}/{exportDelivery.progress.total}</div>}
             {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>{exportDelivery.result?.verification === 'filesystem' ? '已验证写入' : '已开始下载'} {exportDelivery.result?.count || 0} 张图片{exportDelivery.result?.verification === 'filesystem' ? `到 ${exportDelivery.destination?.name || '所选位置'}` : '，请在浏览器下载列表确认'}</div>}

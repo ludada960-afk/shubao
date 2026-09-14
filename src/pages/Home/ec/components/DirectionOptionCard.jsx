@@ -136,7 +136,7 @@ export default function DirectionOptionCard({
               flexShrink: 0,
               minWidth: 72,
               height: 26,
-              borderRadius: 999,
+              borderRadius: 'var(--sb-radius-pill)',
               padding: '0 9px',
               border: `1px solid ${selected ? colors.primary : 'rgba(12,10,9,.12)'}`,
               background: selected ? colors.primary : 'var(--sb-neutral-0)',
