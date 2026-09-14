@@ -104,7 +104,15 @@
   --sb-ink-5: var(--sb-neutral-400);  /* 禁用文字（对比度 2.9:1，禁止用于正文） */
   --sb-ink-on-dark: #FFFFFF;
   --sb-ink-brand:   var(--sb-brand-600);   /* 品牌动作文字 */
-  --sb-ink-danger:  #D0443C;               /* 危险动作文字（≥4.5:1） */
+  --sb-ink-danger:  #D0443C;               /* 危险动作文字（≥4.5:1，白底/中性底） */
+  /* ── -strong 档 = 浅色底（--sb-*-soft）上的文字，或 ≤11px 的小字 ──────────────
+     判据：--sb-ink-* 在 --sb-*-soft 上不足 4.5:1 时使用本档。
+     适用范围**仅 danger 族** —— warning / success 的 ink 档在各自 soft 底上已达标
+     （warning 6 处达标、success 6 处全部达标；论证见 docs/design/38-ink-strong-contrast.md）。
+     danger 族有 9 处在浅红底上只有 3.55–4.38:1（AA 4.5:1 不达标），故设本档。
+     ⚠️ 不要在深色面/普通白底上用它 —— 那是 --sb-ink-danger 的用途。
+     ⚠️ 不要因为「看起来对称」就给 warning/success 补 -strong；先量对比度。 */
+  --sb-ink-danger-strong: #93392E;         /* 危险文字 on 浅红底 / 小字（最差 5.66:1）*/
   --sb-ink-success: #2F7D46;
   --sb-ink-warning: #B45309;
   --sb-ink-info:    #3B5BA5;
@@ -722,6 +730,11 @@
   --sb-ink-1: #F7F4F0; --sb-ink-2: #D9D4CE; --sb-ink-3: #A8A29B;
   --sb-ink-4: #857F79; --sb-ink-5: #6A6560; --sb-ink-on-dark: #1A1614;
   --sb-ink-brand: #C4B5FD; --sb-ink-danger: #FF8A7E; --sb-ink-success: #7ACB8A;
+  /* 深色主题下 --sb-ink-danger 是**浅红**（为深色面设计，在 #1C1A18 上 7.59:1）。
+     但 *-soft 系列在本主题下**仍是浅色值**（--sb-danger-soft 未被覆盖，仍是 #FEF2F0），
+     所以「浅底上的危险文字」这个组合在深色主题下同样存在 —— 若沿用浅红会掉到 2.09:1。
+     故 -strong 在深色主题下**保持深红**：它服务的是「底」，不是「主题」。 */
+  --sb-ink-danger-strong: #93392E;
   --sb-ink-warning: #F0B24A; --sb-ink-info: #93AEEC;
 
   --sb-border-subtle:  rgba(255, 255, 255, 0.08);
@@ -1150,5 +1163,6 @@
    通道：中性表面色。遮罩只做**极轻**反馈（不改变遮挡语义、不改透明度/尺寸）。
    ═══════════════════════════════════════════════════════════════════════════ */
 .a11y-reset:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.a11y-backdrop:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+/* ⚠️ 修正：a11y 遮罩层同属「整屏层」，用不透明浅灰会洗白 → 改为同色系加深一档。 */
+.a11y-backdrop:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-scrim); }
 
