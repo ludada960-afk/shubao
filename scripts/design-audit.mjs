@@ -139,15 +139,20 @@ console.log('  hex 硬编码:  ' + hexTotal + ' 次 / ' + hexes.size + ' 个不�
 /* ⚠️ 必须同时覆盖 CSS 的 `font-size:` 与 JSX 的 `fontSize:` ——
    此前只认驼峰，于是**所有 .css 里声明的字号都不计入**，档位数被系统性低估。
    同理 `border-radius:` / `gap:`（`gap` 两种写法同名，本来就覆盖）。 */
-const SCALE_RE = (name) => new RegExp(name + '(?:-[a-z]+)?:\\s*[\\x27"]?(var\\(--sb-[a-z0-9-]+\\)|[0-9.]+[a-z%]*)', 'g');
-const fontSizes = countAll(codeFiles, SCALE_RE('font[Ss]ize'), normalize);
-console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 10 档 · 依 D17]   ' +
+/* ⚠️ 同一件事有两种写法：CSS 用 `font-size` / `border-radius`，JSX 内联用 `fontSize` / `borderRadius`。
+   此前的模式写成 `name + '(?:-[a-z]+)?'`，那个可选后缀在**名字之后**，
+   于是 `font[Ss]ize` 只能匹配 `fontSize:`，**所有 .css 里的 `font-size:` 全部漏计** ——
+   度量只覆盖了 JSX 那一半（原则 §12 第 6 次：指标测的样本不是判据的样本）。
+   现在两种写法都显式列出。 */
+const SCALE_RE = (dashed, camel) => new RegExp('(?:' + dashed + '|' + camel + '):\\s*[\\x27"]?(var\\(--sb-[a-z0-9-]+\\)|[0-9.]+[a-z%]*)', 'g');
+const fontSizes = countAll(codeFiles, SCALE_RE('font-size', 'fontSize'), normalize);
+console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 11 档 · 依 D19]   ' +
   topN(fontSizes, 6).map(([k, v]) => k + 'px×' + v).join(' '));
 
 /* ⚠️ `border-radius: 50%` 是**正圆**，不是「50px 档」。此前正则只抓数字、把 `%` 吞掉，
    于是「50」被当成一个圆角档位混进档位数（实测 137 处，是第二大「档位」）——
    又一个「代理指标不等于判据」的例子（原则 §12 第 5 次）。现在单位一起抓，按单位分流。 */
-const radiiAll = countAll(codeFiles, SCALE_RE('border[Rr]adius'), normalize);
+const radiiAll = countAll(codeFiles, SCALE_RE('border-radius', 'borderRadius'), normalize);
 const circles = [...radiiAll].filter(([k]) => k.endsWith('%')).reduce((a, [, v]) => a + v, 0);
 const pills = [...radiiAll].filter(([k]) => k === '99' || k === '999').reduce((a, [, v]) => a + v, 0);
 const radii = new Map([...radiiAll].filter(([k]) => !k.endsWith('%')));
@@ -262,6 +267,58 @@ console.log('  <div onClick>:       ' + divClick + ' 处                 ' +
 const vp = (appText.match(/prefers-reduced-motion/g) || []).length;
 console.log('  prefers-reduced-motion: ' + vp + ' 处               ' + (vp > 0 ? '✅' : '⚠️'));
 
+/* ── ②b 交互状态覆盖（原则 4.1 八态 / 4.2 Hover≠Focus 的**可执行化**）─────
+   判据：「凡是**可点**的东西，必须看得到 hover 与键盘焦点；凡是会被禁用的，必须看得到禁用态」。
+   怎么识别「可点」：`cursor: pointer` —— 这是作者自己声明的「这里能点」，比按类名猜可靠得多。
+   ⚠️ 不把「有没有 disabled」当成所有元素的要求：装饰性可点区（遮罩/卡片）本来就不禁用。 */
+const stateRules = [];
+for (const file of cssFiles) {
+  const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const rel = path.relative(ROOT, file).split(path.sep).join('/');
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = re.exec(text))) stateRules.push({ rel, sel: m[1].trim(), body: m[2], at: text.slice(0, m.index).split('\n').length });
+}
+const baseName = (sel) => sel.split(',').map(s => s.trim().split(':')[0].trim()).filter(Boolean);
+const hasState = { hover: new Set(), focus: new Set(), disabled: new Set() };
+for (const r of stateRules) {
+  const sels = r.sel.split(',').map(s => s.trim());
+  for (const s of sels) {
+    const b = s.split(':')[0].trim();
+    if (/:hover\b/.test(s)) hasState.hover.add(b);
+    if (/:focus(-visible|-within)?\b/.test(s)) hasState.focus.add(b);
+    if (/:disabled\b|\[disabled\]|\[aria-disabled/.test(s)) hasState.disabled.add(b);
+  }
+}
+const clickables = new Map();   /* base -> { rel, at } 首次出现位置 */
+for (const r of stateRules) {
+  if (!/cursor:\s*pointer/.test(r.body)) continue;
+  for (const b of baseName(r.sel)) if (b && !clickables.has(b)) clickables.set(b, { rel: r.rel, at: r.at });
+}
+const lacks = (set, base) => {
+  /* 允许「挂在容器上」的写法：找该 base 的任一祖先片段是否已有该状态 */
+  const parts = base.split(/\s+/).filter(Boolean);
+  for (let i = parts.length; i >= 1; i--) {
+    if (set.has(parts.slice(0, i).join(' '))) return false;
+  }
+  return true;
+};
+const noHover = [], noFocus = [];
+for (const [base, loc] of clickables) {
+  if (lacks(hasState.hover, base)) noHover.push({ base, ...loc });
+  if (lacks(hasState.focus, base)) noFocus.push({ base, ...loc });
+}
+/* ⚠️ 口径说清楚（原则 §12）：**「没有显式 :focus-visible」≠「焦点不可见」**。
+   浏览器对 button/a/input 有 UA 默认焦点环；设计系统另外提供 `.sb-focusable` 工具类。
+   所以这里报的是**显式焦点覆盖率**（可行动的设计指标），不是「缺陷数」。
+   「真的完全看不见焦点」由 D11 的**不可达焦点**指标单独盯（抑制了轮廓且无替代）。 */
+const explicitFocus = clickables.size - noFocus.length;
+const cov = clickables.size ? Math.round(explicitFocus / clickables.size * 100) : 100;
+console.log('  可点元素（cursor:pointer 标记）: ' + clickables.size + ' 个选择器');
+console.log('    · 缺 :hover:        ' + noHover.length + ' 个   [目标: 0 —— 看不见的可点=不可用]');
+console.log('    · 显式焦点覆盖率:   ' + explicitFocus + '/' + clickables.size + ' (' + cov + '%)   ' +
+  '[其余靠 UA 默认焦点环：Chrome/FF 可见，**Safari 对按钮不画焦点环**]');
+for (const it of noFocus.slice(0, 6)) console.log('        · ' + it.rel + ':' + it.at + '  ' + it.base.slice(0, 62));
 /* ═══ ③ 毛玻璃与语义色 ═══ */
 H('③ 毛玻璃 / 语义色白名单');
 
