@@ -32,7 +32,12 @@ const INTERACTIVE = new Set(['button','a','input','select','textarea','summary',
  * 自定义组件（大写开头）需解析其**根元素**：<IconButton> 渲染 <button> 不算违规，
  * 而 <GCard> 渲染 <div onClick> 算 —— 只看调用点会同时产生误报与漏报。
  */
-export function findClickableNonInteractive(src, rootOf = new Map()) {
+export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
+  // 先剥掉注释：否则「注释里写 <div onClick> 作为说明」会被误判成违规。
+  // 用等长空白替换（保留换行），使行号与原文一一对应。
+  const src = srcRaw
+    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
   const hits = [];
   const tagRe = /<([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*?)\/?>/gs;
   let m;
@@ -174,7 +179,8 @@ test('③ 白名单条目不得悬空（文件必须存在且该行确实是可�
     assert.ok(statSync(p).isFile(), e.file + ' 不存在（悬空白名单，应删除该条目）');
     const src = readFileSync(p, 'utf8');
     const lines = src.split('\n');
-    const ctx = lines.slice(Math.max(0, e.line - 3), e.line + 3).join('\n');
+    // 多行 JSX 起始标签的属性可能跨越 20+ 行，故窗口取 ±30 行
+    const ctx = lines.slice(Math.max(0, e.line - 3), e.line + 30).join('\n');
     assert.match(ctx, /onClick/, e.file + ':' + e.line + ' 附近找不到 onClick（行号漂移，应更新白名单）');
   }
 });

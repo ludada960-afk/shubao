@@ -232,13 +232,28 @@ export default function PricingModalRefactored({
             ? `${pack.validityDays} 天有效`
             : "永久有效";
           return (
+            /* 原则 4.1：套餐卡整卡可点（选中该套餐），但**不能用 <button>** ——
+               卡内自带「立即开通」按钮（位于下方），HTML 禁止嵌套交互元素。
+               故用规范允许的替代：role="button" + tabIndex + onKeyDown（Enter/Space 均可触发），
+               已登记 test/fixtures/clickable-div-whitelist.json。className/testid/视觉均不变。 */
             <article
               key={sku}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              aria-label={`选择套餐 ${label}`}
               className={
                 "pricing-modal__pack" +
                 (isRec ? " pricing-modal__pack--anchored" : "") +
                 (isSelected ? " pricing-modal__pack--selected" : "")
               }
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+                // 焦点在内层「立即开通」按钮上时由它自行处理，不重复触发整卡选中
+                if (event.target !== event.currentTarget) return;
+                event.preventDefault();
+                handleSelectPack(sku);
+              }}
               onClick={() => handleSelectPack(sku)}
               data-testid={"pricing-modal-pack-" + sku}
             >
