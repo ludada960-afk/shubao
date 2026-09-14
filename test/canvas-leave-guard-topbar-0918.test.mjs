@@ -70,3 +70,24 @@ test('「返回」仍保留保存询问（不得把当初修的问题改回去�
   assert.match(seg, /confirmLabel: '保存'/, '主按钮仍是「保存」');
   assert.match(seg, /cancelLabel: '不保存'/, '次按钮仍是「不保存」');
 });
+
+/* 反向断言（2026-09-18 总统筹要求）：即使有人把 LEAVING_SELECTOR 加回来，
+   也**不得**用 `.ec-canvas-topbar` 整条顶栏当判据 —— 包括
+   `.ec-canvas-topbar [aria-label="返回"]` 这种「以顶栏为前缀」的写法：
+   它对「返回」是对的，但一旦有人把前缀写宽（去掉 [aria-label]）就会重新误伤整条顶栏。
+   本仓现役实现是给「返回」直接打 data-canvas-leave-guard，不依赖任何容器前缀。 */
+test('反向断言：任何选择器都不得以 .ec-canvas-topbar 作为离开入口前缀', () => {
+  const m = canvas.match(/LEAVING_SELECTOR\s*=\s*['"]([^'"]*)['"]/);
+  if (m) {
+    assert.ok(!/\.ec-canvas-topbar/.test(m[1]),
+      'LEAVING_SELECTOR 不得包含 .ec-canvas-topbar（哪怕后面跟 [aria-label]）');
+  }
+  assert.doesNotMatch(canvas, /\.ec-canvas-topbar\s+\[aria-label/, '不得用顶栏前缀写法，请用 data-canvas-leave-guard');
+});
+
+test('功能断言：画布有节点时点新建画布 → 开画布库且不弹守卫（源码级）', () => {
+  const start = canvas.indexOf('const handleNew = useCallback');
+  assert.ok(start > 0, '必须能找到 handleNew');
+  assert.match(canvas.slice(start, start + 500), /setCanvasLibraryOpen\(true\)/, 'handleNew 必须打开画布库');
+  assert.doesNotMatch(chrome, /新建画布[^\n<>]*data-canvas-leave-guard/, '新建画布不得带离开守卫标记');
+});
