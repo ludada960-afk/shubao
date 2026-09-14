@@ -243,7 +243,10 @@ export default function EcAutoPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 20px' }}>
         {/* 顶部导航 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          {/* 原则 4.1：Logo 是「回首页」导航动作 → 真控件 button。
+              .a11y-reset 承接 UA 默认外观归零；display:flex/gap 保持原内联样式 → 视觉零变化。 */}
+          <button type="button" className="a11y-reset" aria-label="返回首页"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
             onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}>
             <CharImg src={IMAGES.appicon} size={28} float />
             <span style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 650, color: 'var(--sb-danger)', fontFamily: '-apple-system,"PingFang SC",sans-serif' }}>
@@ -252,7 +255,7 @@ export default function EcAutoPage() {
             <span style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)', marginLeft: 4, background: 'var(--sb-neutral-100)', padding: '2px 8px', borderRadius: 'var(--sb-radius-xs)' }}>
               一键出图
             </span>
-          </div>
+          </button>
           <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
             style={{
               fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', background: 'var(--sb-neutral-0)', border: '1px solid var(--sb-neutral-200)',
