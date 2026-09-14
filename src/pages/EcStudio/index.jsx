@@ -37,18 +37,21 @@ const dimSize = (p, ratio) => {
   return { w: r[0], h: r[1] };
 };
 
+/* D3：靛蓝 #4338CA 家族判为历史遗留 → 品牌紫；D4：暖黑描边；D6：圆角 4 档；
+   D11：裸 outline:none 必须同时给替代焦点样式（下面 input 用 :focus-visible 类）。
+   全部取值来自 design-tokens-v3.css，不新增数值。 */
 const SX = {
-  card: { background: '#fff', borderRadius: 12, border: '1px solid #E0E0E6', padding: '28px 32px' },
-  label: { fontSize: 14, fontWeight: 600, color: '#2D2D3A', marginBottom: 8, display: 'block' },
+  card: { background: 'var(--sb-surface-card)', borderRadius: 'var(--sb-radius-lg)', border: '1px solid var(--sb-border-subtle)', padding: 'var(--sb-space-8)' },
+  label: { fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-2)', display: 'block' },
   input: {
-    width: '100%', padding: '11px 14px', border: '1.5px solid #D0D0D8', borderRadius: 8,
-    fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
-    background: '#fff', transition: 'border-color .15s', color: '#2D2D3A',
+    width: '100%', padding: '11px 14px', border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-md)',
+    fontSize: 'var(--sb-text-md)', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+    background: 'var(--sb-surface-sunken)', transition: 'border-color var(--sb-dur-fast, .15s)', color: 'var(--sb-ink-1)',
   },
-  h3: { fontSize: 16, fontWeight: 600, color: '#2D2D3A', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 },
-  hint: { fontSize: 13, color: '#666', lineHeight: 1.7 },
+  h3: { fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-1)', display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' },
+  hint: { fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', lineHeight: 1.7 },
   stepNum: {
-    width: 26, height: 26, borderRadius: '50%', background: '#4338CA', color: '#fff',
+    width: 26, height: 26, borderRadius: 'var(--sb-radius-pill)', background: 'var(--sb-brand-600)', color: 'var(--sb-ink-on-dark)',
     fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },

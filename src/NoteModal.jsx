@@ -410,24 +410,29 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 const size = getSpec(style, img);
                 const isLocked = isTrialLocked;
                 return (
-                  <div key={style} className="ec-card" style={{
-                    background: '#fff', borderRadius: 10, overflow: 'hidden',
-                    border: isLocked ? '1.5px solid #fde68a' : '1px solid #f0f0f0',
-                    boxShadow: '0 1px 4px rgba(12,10,9,0.04)',
-                    transition: 'box-shadow 0.2s, transform 0.2s',
+                  /* D9（docs/design/40-decisions.md）：hover 位移必须由容器预留空间。
+                     原实现把 overflow:hidden 与 translateY(-2px) 写在**同一个** div 上，
+                     而该卡片又位于 .textScroll（overflowY:auto）内部 —— 鼠标悬停上移 2px 时
+                     顶部圆角与阴影被自身裁掉。改用 D9 方案①：位移容器与裁切容器分离。
+                     外层只做 transform/阴影（不裁切），内层 .ec-card-clip 只做 overflow+圆角。 */
+                  <div key={style} className={`ec-card sb-card--hover${isLocked ? ' is-locked' : ''}`} style={{
+                    background: 'var(--sb-surface-card)', borderRadius: 'var(--sb-radius-lg)',
+                    border: isLocked ? '1px solid var(--sb-warning-border)' : '1px solid var(--sb-border-subtle)',
+                    boxShadow: 'var(--sb-shadow-1)',
                   }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.boxShadow = '0 4px 20px rgba(12,10,9,0.1)';
+                      e.currentTarget.style.boxShadow = 'var(--sb-shadow-3)';
                       e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.boxShadow = '0 1px 4px rgba(12,10,9,0.04)';
+                      e.currentTarget.style.boxShadow = 'var(--sb-shadow-1)';
                       e.currentTarget.style.transform = 'none';
                     }}
                   >
-                    <div style={{
+                    <div className="ec-card-clip" style={{
+                      borderRadius: 'inherit', overflow: 'hidden',
                       position: 'relative', width: '100%', aspectRatio: '1/1',
-                      background: '#f8f8f8', overflow: 'hidden',
+                      background: 'var(--sb-surface-sunken)',
                       cursor: isLocked ? 'default' : 'pointer',
                     }} onClick={() => { if (!isLocked) { setEcIdx(i); setEcZoom(true); } }}>
                       <ResponsiveImage src={url} alt={style} variant="thumb" ratio="1:1" sizes="220px"
@@ -472,31 +477,31 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     <div style={{
                       padding: '10px 12px',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      borderTop: '1px solid #f5f5f5',
+                      borderTop: '1px solid var(--sb-border-subtle)',
                     }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: isLocked ? '#999' : '#444' }}>
+                      <span style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', color: isLocked ? 'var(--sb-ink-4)' : 'var(--sb-ink-2)' }}>
                         {styleIcon(style)} {style}
                       </span>
                       {isLocked ? (
                         <span style={{
-                          fontSize: 10, color: '#999', padding: '4px 10px', borderRadius: 6,
-                          background: '#f5f5f5', fontWeight: 500,
+                          fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)',
+                          background: 'var(--sb-surface-tint)', fontWeight: 'var(--sb-weight-medium, 500)',
                         }}>🔒 已锁定</span>
                       ) : (
-                        <button onClick={(e) => {
+                        <button className="sb-focusable" onClick={(e) => {
                           e.stopPropagation();
                           const a = document.createElement('a');
                           a.href = url;
                           a.download = `${item.product_name}-${style}.png`;
                           a.click();
                         }} style={{
-                          fontSize: 10, color: '#4338CA', cursor: 'pointer',
-                          padding: '4px 10px', borderRadius: 6,
-                          background: '#EEF2FF', border: 'none', fontWeight: 600, fontFamily: 'inherit',
-                          transition: 'background 0.15s',
+                          fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-state-selected-ink)', cursor: 'pointer',
+                          padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)',
+                          background: 'var(--sb-state-selected-bg)', border: 'none', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit',
+                          transition: 'background var(--sb-dur-fast, .15s)',
                         }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#C7D2FE'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#EEF2FF'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--sb-brand-100, #EDE9FE)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--sb-state-selected-bg)'}
                         >
                           下载
                         </button>
@@ -825,7 +830,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 {/* 标题 */}
                 {editing ? (
                   <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                    style={{ ...S.title, border: '2px solid #f0f0f0', borderRadius: 10, padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
+                    className="sb-focusable"
+                    style={{ ...S.title, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }} />
                 ) : (
                   <h1 style={S.title}>{item.title || ''}</h1>
                 )}
@@ -837,7 +843,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 {/* 正文 */}
                 {editing ? (
                   <textarea value={editBody} onChange={e => setEditBody(e.target.value)}
-                    style={{ ...S.body, border: '2px solid #f0f0f0', borderRadius: 10, padding: '12px', width: '100%', minHeight: 200, boxSizing: 'border-box', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 14 }} />
+                    className="sb-focusable"
+                    style={{ ...S.body, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '12px', width: '100%', minHeight: 200, boxSizing: 'border-box', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 14 }} />
                 ) : (
                   <div style={S.body}>
                     {bodyText.split('\n').map((line, i) => (
@@ -852,7 +859,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 {editing ? (
                   <input value={editTags} onChange={e => setEditTags(e.target.value)}
                     placeholder="标签，用空格分隔"
-                    style={{ fontSize: 12, border: '2px solid #f0f0f0', borderRadius: 10, padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', marginBottom: 10, fontFamily: 'inherit', color: '#888' }} />
+                    className="sb-focusable"
+                    style={{ fontSize: 12, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', marginBottom: 10, fontFamily: 'inherit', color: '#888' }} />
                 ) : (item.hashtags || []).length > 0 && (
                   <div style={S.tags}>
                     {item.hashtags.map((t, i) => (
@@ -985,7 +993,9 @@ const S = {
 
   // Text panel
   textPanel: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  textScroll: { flex: 1, overflowY: 'auto', padding: '16px 22px 0' },
+  /* D9 方案②：滚动容器为 hover 位移预留空间（位移 2px + 阴影扩散）。
+     原 padding '16px 22px 0' 上下都不留量，卡片上移 2px 时顶部被裁。 */
+  textScroll: { flex: 1, overflowY: 'auto', padding: '18px 22px 10px', scrollbarGutter: 'stable' },
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #f0f0f0',

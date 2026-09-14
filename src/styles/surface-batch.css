@@ -1,0 +1,88 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   surface-batch.css —— D7 / D9 / D11 的共享实现类（本批改造新增）
+
+   为什么单独开文件：design-tokens-v3.css 当前是 dirty 状态（别人在 §19 追加响应式
+   token），按批次硬约束「跳过 dirty 文件」不能就地改它，故把**实现类**（非 token）
+   独立成本文件；token 仍然只来自 design-tokens-v3.css，本文件不新增任何取值。
+
+   引入方式：由 src/components/ui/index.jsx 顶部 import，随组件一起进包。
+
+   ── 内容索引 ──
+   §1 .sb-card / .sb-card-clip —— D9 方案①（位移容器与裁切容器分离）
+   §2 .sb-group / .sb-group-title —— D7（面板内用留白 + 分组标题，禁止再套白卡）
+   §3 .sb-focusable —— D11（统一焦点环）
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── §1 Card：D9 方案①「位移容器」与「裁切容器」分离 ─────────────────────────
+   背景（docs/design/40-decisions.md D9）：全站 overflow:hidden 89 处、没有一处为
+   hover 位移预留空间。公共 Card 组件原先把 overflow:hidden 与 translateY(-3px)
+   写在同一个元素上 —— 上移后顶部阴影与圆角被自身裁掉，「一处受害 = 全站受害」。
+
+   结构：
+     .sb-card       外层 = 位移 + 阴影 + 描边 + 圆角（**不裁切**，位移可见）
+     .sb-card-clip  内层 = overflow:hidden + 继承圆角（只裁切内容，不做位移）
+   两者职责互不干涉，位移幅度可自由调整而不会被裁。 */
+.sb-card {
+  position: relative;
+  background: var(--sb-surface-card);
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: var(--sb-radius-xl);          /* D6：卡片档 16px */
+  box-shadow: var(--sb-shadow-1);
+  transition: transform var(--sb-dur-normal, .2s) var(--sb-ease-out, cubic-bezier(0,0,.2,1)),
+              box-shadow var(--sb-dur-normal, .2s) var(--sb-ease-out, cubic-bezier(0,0,.2,1)),
+              border-color var(--sb-dur-normal, .2s) var(--sb-ease-out, cubic-bezier(0,0,.2,1));
+}
+.sb-card-clip {
+  overflow: hidden;                            /* 只裁切内容，不改圆角归属 */
+  border-radius: inherit;                      /* 跟随外层圆角，不另写数值 */
+  height: 100%;
+}
+/* hover 位移发生在**外层**，内层不参与 —— 因此阴影/圆角永远不会被裁 */
+.sb-card--hover { cursor: pointer; }
+.sb-card--hover:hover,
+.sb-card--hover[data-hover="true"] {
+  transform: translateY(-3px);
+  box-shadow: var(--sb-shadow-3);
+  border-color: var(--sb-border-default);
+}
+/* D11：键盘可达 —— 卡片作为可点元素时必须有可见焦点态 */
+.sb-card--hover:focus-visible,
+.sb-card[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: var(--sb-focus-ring), var(--sb-shadow-3);
+}
+
+/* ── §2 面板内分组：D7 禁止「白卡里再放白卡」 ────────────────────────────────
+   规则：浮层面板/页面内**不**再套 --sb-surface-card 纯白卡；
+   分组改用「留白 + 分组标题」。分组标题用小号字 + 弱化色，靠排版层级分组，
+   而不是靠一张张白卡拼出来。 */
+.sb-group { display: block; }
+.sb-group + .sb-group { margin-top: var(--sb-group-gap); }   /* 分组间距 20（D7） */
+.sb-group-title {
+  display: flex; align-items: center; gap: var(--sb-space-2);
+  margin: 0 0 var(--sb-space-3);
+  font-size: var(--sb-text-sm, 13px);
+  font-weight: var(--sb-weight-semibold, 600);
+  line-height: 1.3;
+  color: var(--sb-ink-1);
+}
+.sb-group-title-desc {
+  margin: calc(var(--sb-space-1) * -1) 0 var(--sb-space-3);
+  font-size: var(--sb-text-xs, 11px);
+  color: var(--sb-ink-3);
+  line-height: 1.5;
+}
+
+/* ── §3 统一焦点环（D11）────────────────────────────────────────────────────
+   --sb-focus-ring = 0 0 0 3px 品牌环，不改变布局（用 box-shadow 而非 border）。 */
+.sb-focusable:focus-visible {
+  outline: none;
+  box-shadow: var(--sb-focus-ring);
+}
+
+/* ── §4 尊重 prefers-reduced-motion（D11 第 ④ 条）── */
+@media (prefers-reduced-motion: reduce) {
+  .sb-card,
+  .sb-card--hover:hover,
+  .sb-card--hover[data-hover="true"] { transition: none; transform: none; }
+}

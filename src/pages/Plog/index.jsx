@@ -13,6 +13,19 @@ import {
 import SupplementAssetDeck from '../Home/ec/components/SupplementAssetDeck.jsx';
 import ProductProfilePicker, { applyProductProfileFactsToPlog, useProductProfiles } from '../Home/ec/crossModeProductProfile.jsx';
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   硬编码例外说明（本文件唯一一处，逐条声明）
+
+   下列硬编码**不是 app chrome，而是「被渲染出来的作品本身」**：
+     · PLOG_STYLES 的 color / accent（第 18–21 行）—— 用户所选「色调风格」的**渲染色值**，
+       会作为参数发给后端参与出图（generatePlogContent），改 token 会导致出图结果改变，
+       属于**业务内容**而非界面样式；
+     · Layout* 系列（碎片风/拍立得/电影感/手账/杂志）里的 #fffdf7 / #111 / #F5F0E8 / #fffde7 等
+       —— 这些是**作品预览画布**（模拟拍立得白边、电影宽银幕黑底、手账纸纹、便签纸），
+       与作品最终产物一一对应，同样不能 token 化，否则预览与实际出图不一致。
+
+   除上述之外，本文件的界面 chrome（底色/卡片/按钮/输入/文案/描边/圆角/间距）
+   已 100% 走 --sb-* token。 */
 // ── 风格包 ──
 const PLOG_STYLES = {
   'ins-minimal': { name: 'Ins 极简风', emoji: '🤍', desc: '低饱和·干净通透·大面积留白', color: '#E8E8E8', accent: '#555' },
@@ -229,16 +242,18 @@ export default function PlogPage() {
   const LayoutCasual = ({ images, onOpen }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
       {images.map((item, i) => (
-        <div key={i} onClick={() => onOpen(i)}
+        /* D11：裸 div onClick → button（可键盘 Tab 聚焦 + Enter 打开）。
+           注意：本元素的 #fff / rgba 属**作品预览画布**（拍立得白边），见文件头例外说明。 */
+        <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 1} 张`} onClick={() => onOpen(i)}
           style={{
             aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
-            background: '#fff', position: 'relative',
+            background: '#fff', position: 'relative', border: '1px solid rgba(12,10,9,0.06)', padding: 0,
             transform: `rotate(${i % 2 === 0 ? -0.5 : 0.5}deg)`,
             boxShadow: '0 1px 3px rgba(12,10,9,0.08)',
-            border: '3px solid white',
+            outlineOffset: 3,
           }}>
           <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -404,9 +419,9 @@ export default function PlogPage() {
         {/* 内容页 —— 3列极简 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {rest.map((item, i) => (
-            <div key={i} onClick={() => onOpen(i + 1)}
+            <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 2} 张`} onClick={() => onOpen(i + 1)}
               style={{
-                cursor: 'pointer',
+                cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit',
               }}>
               <div style={{
                 aspectRatio: '3/4', overflow: 'hidden', borderRadius: 4,
@@ -421,7 +436,7 @@ export default function PlogPage() {
               }}>
                 {String(i + 2).padStart(2, '0')}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -442,37 +457,43 @@ export default function PlogPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
-      <div style={{ maxWidth: 500, margin: '0 auto', padding: '24px 16px 80px' }}>
+    /* 9-16 surface 分层 + 全量 token 化（docs/design/40-decisions.md D4/D6/D7/D11）：
+       ① 底色由冷灰 #FAFAFA 改为暖白页面面 --sb-surface-page（D4：暖黑体系，冷灰与全站无关）；
+       ② 面板/卡片/描边/圆角/间距全部走 --sb-*，不再有硬编码；
+       ③ 按 D7，下面各区块不再各自套一张纯白卡，改为「分组留白 + 分组标题」。 */
+    <div style={{ minHeight: '100vh', background: 'var(--sb-surface-page)' }}>
+      <div style={{ maxWidth: 500, margin: '0 auto', padding: 'var(--sb-space-6) var(--sb-space-4) var(--sb-space-16)' }}>
         {/* 导航 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-3)', marginBottom: 'var(--sb-space-6)' }}>
           <CharImg src={IMAGES.appicon} size={28} float />
-          <span style={{ fontSize: 17, fontWeight: 650 }}>📒 Plog 生活碎片</span>
-          <span style={{ fontSize: 11, color: '#888', background: '#F0F0F0', padding: '2px 8px', borderRadius: 4 }}>全新</span>
+          <span style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)' }}>📒 Plog 生活碎片</span>
+          <span style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-3)', background: 'var(--sb-surface-tint)', padding: '2px var(--sb-space-2)', borderRadius: 'var(--sb-radius-xs)' }}>全新</span>
           <div style={{ flex: 1 }} />
-          <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
-            style={{ fontSize: 12, color: '#999', cursor: 'pointer', border: 'none', background: 'none', fontFamily: 'inherit' }}>← 返回</button>
+          <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })} className="sb-focusable"
+            style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-3)', cursor: 'pointer', border: 'none', background: 'none', fontFamily: 'inherit', borderRadius: 'var(--sb-radius-sm)', padding: 'var(--sb-space-1) var(--sb-space-2)' }}>← 返回</button>
         </div>
 
         {/* ── 输入区 ── */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #eee', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 10 }}>✍️ 描述你的生活场景</div>
+        {/* D7：不再套白卡，改用「分组留白 + 分组标题」。 */}
+        <section className="sb-group">
+          <h2 className="sb-group-title">✍️ 描述你的生活场景</h2>
+          {/* D11：输入框补焦点态（原为裸 outline:none + 手改 borderColor，键盘用户看不到焦点）。 */}
           <textarea value={text} onChange={e => setText(e.target.value)}
             placeholder="例如：独居日常｜周末宅家看书喝咖啡"
-            style={{ width: '100%', minHeight: 68, padding: '10px 12px', borderRadius: 10, border: '1.5px solid #ddd', fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
-            onFocus={e => e.target.style.borderColor = '#999'}
-            onBlur={e => e.target.style.borderColor = '#ddd'} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            className="sb-focusable"
+            style={{ width: '100%', minHeight: 68, padding: 'var(--sb-space-3)', borderRadius: 'var(--sb-radius-lg)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-sunken)', fontSize: 'var(--sb-text-md)', fontFamily: 'inherit', outline: 'none', resize: 'vertical', boxSizing: 'border-box', color: 'var(--sb-ink-1)' }} />
+          <div style={{ display: 'flex', gap: 'var(--sb-space-2)', flexWrap: 'wrap', marginTop: 'var(--sb-space-3)' }}>
             {EXAMPLE_PROMPTS.map((p, i) => (
-              <div key={i} onClick={() => setText(p)}
-                style={{ fontSize: 11, color: '#666', background: '#F5F5F5', padding: '3px 10px', borderRadius: 12, cursor: 'pointer', whiteSpace: 'nowrap', border: '1px solid #eee' }}>
+              /* D11：裸 div onClick → button（可键盘聚焦） */
+              <button key={i} type="button" onClick={() => setText(p)} className="sb-focusable"
+                style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-2)', background: 'var(--sb-surface-tint)', padding: 'var(--sb-space-1) var(--sb-space-3)', borderRadius: 'var(--sb-radius-pill)', cursor: 'pointer', whiteSpace: 'nowrap', border: '1px solid var(--sb-border-subtle)', fontFamily: 'inherit' }}>
                 {p}
-              </div>
+              </button>
             ))}
           </div>
           {/* 跨 mode 商品档案 (P2 续命 4c183cd4): 从电商工作台已保存的档案里选用一个,
               选中后把 name + 卖点 + 规格 + 材质/颜色 拼到 text 尾部, Plog 也复用同一份事实。 */}
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 'var(--sb-space-3)' }}>
             <ProductProfilePicker
               profiles={plogProfile.profiles}
               loading={plogProfile.loading}
@@ -483,79 +504,86 @@ export default function PlogPage() {
                 const ok = applyProductProfileFactsToPlog(profile, setText);
                 if (ok) setActivePlogProfileId(profile.profileId);
               }}
-              accentColor="#be185d"
+              accentColor="var(--sb-ink-brand)"
               triggerLabel="当前商品"
               emptyHint="暂未保存商品档案, 请先在电商工作台保存一个商品档案"
             />
           </div>
-        </div>
+        </section>
 
-        {/* ── 排版选择 ── */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #eee', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 10 }}>🎭 选择排版</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {/* ── 排版选择 ── D7：分组留白 + 标题；D2：选中用 ring，不加粗边框（无布局抖动） */}
+        <section className="sb-group">
+          <h2 className="sb-group-title">🎭 选择排版</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)' }}>
             {Object.entries(LAYOUT_TEMPLATES).map(([key, t]) => {
               const active = selectedLayout === key;
               return (
-                <div key={key} onClick={() => { setSelectedLayout(key); if (key !== 'casual') setSelectedCover('collage'); }}
+                <button key={key} type="button" className="sb-focusable"
+                  onClick={() => { setSelectedLayout(key); if (key !== 'casual') setSelectedCover('collage'); }}
+                  aria-pressed={active}
                   style={{
-                    padding: '10px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
-                    border: active ? '2px solid #333' : '2px solid #eee',
-                    background: active ? '#f5f5f5' : '#fff', transition: 'all .12s',
+                    padding: 'var(--sb-space-3) var(--sb-space-2)', borderRadius: 'var(--sb-radius-lg)', cursor: 'pointer', textAlign: 'center',
+                    border: '1px solid ' + (active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-subtle)'),
+                    background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-sunken)',
+                    boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
+                    transition: 'background var(--sb-dur-fast, .12s) ' + 'var(--sb-ease-out, ease), box-shadow var(--sb-dur-fast, .12s) ' + 'var(--sb-ease-out, ease)',
+                    fontFamily: 'inherit',
                   }}>
                   <div style={{ fontSize: 20, marginBottom: 2 }}>{t.emoji}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: active ? '#333' : '#666' }}>{t.name}</div>
-                  <div style={{ fontSize: 9, color: '#aaa', marginTop: 2, lineHeight: 1.3 }}>{t.desc}</div>
-                  {t.tag && <div style={{ fontSize: 8, color: '#E85D5D', marginTop: 2 }}>{t.tag}</div>}
-                </div>
+                  <div style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)' }}>{t.name}</div>
+                  <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
+                  {t.tag && <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-danger)', marginTop: 2 }}>{t.tag}</div>}
+                </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* ── 封面变体 ── */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #eee', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 10 }}>📰 封面样式</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        {/* ── 封面变体 ── D7 分组 */}
+        <section className="sb-group">
+          <h2 className="sb-group-title">📰 封面样式</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sb-space-2)' }}>
             {Object.entries(COVER_VARIANTS).map(([key, c]) => {
               const active = selectedCover === key;
               return (
-                <div key={key} onClick={() => setSelectedCover(key)}
+                <button key={key} type="button" className="sb-focusable" onClick={() => setSelectedCover(key)} aria-pressed={active}
                   style={{
-                    padding: '8px 4px', borderRadius: 8, cursor: 'pointer', textAlign: 'center',
-                    border: active ? '2px solid #333' : '2px solid #eee',
-                    background: active ? '#f5f5f5' : '#fff',
+                    padding: 'var(--sb-space-2) var(--sb-space-1)', borderRadius: 'var(--sb-radius-md)', cursor: 'pointer', textAlign: 'center', fontFamily: 'inherit',
+                    border: '1px solid ' + (active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-subtle)'),
+                    background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-sunken)',
+                    boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
                   }}>
                   <div style={{ fontSize: 18 }}>{c.icon}</div>
-                  <div style={{ fontSize: 10, fontWeight: 500, color: active ? '#333' : '#666', marginTop: 2 }}>{c.name}</div>
-                  <div style={{ fontSize: 8, color: '#aaa', marginTop: 1 }}>{c.desc}</div>
-                </div>
+                  <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', fontWeight: 'var(--sb-weight-medium, 500)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)', marginTop: 2 }}>{c.name}</div>
+                  <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 1 }}>{c.desc}</div>
+                </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* ── 风格选择 ── */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #eee', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 10 }}>🎨 色调风格</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {/* ── 风格选择 ── D7 分组 */}
+        <section className="sb-group">
+          <h2 className="sb-group-title">🎨 色调风格</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sb-space-2)' }}>
             {Object.entries(PLOG_STYLES).map(([key, s]) => {
               const active = selectedStyle === key;
               return (
-                <div key={key} onClick={() => setSelectedStyle(key)}
+                <button key={key} type="button" className="sb-focusable" onClick={() => setSelectedStyle(key)} aria-pressed={active}
                   style={{
-                    padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                    border: active ? '2px solid ' + s.accent : '2px solid #eee',
-                    background: active ? s.color + '60' : '#fff',
+                    padding: 'var(--sb-space-3)', borderRadius: 'var(--sb-radius-lg)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                    border: '1px solid ' + (active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-subtle)'),
+                    background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-sunken)',
+                    boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
                   }}>
                   <div style={{ fontSize: 16 }}>{s.emoji}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: active ? s.accent : '#333' }}>{s.name}</div>
-                  <div style={{ fontSize: 9, color: '#999', marginTop: 1 }}>{s.desc}</div>
-                </div>
+                  <div style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)' }}>{s.name}</div>
+                  <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 1 }}>{s.desc}</div>
+                </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
         {/* ── 参考素材上传 ── */}
         <SupplementAssetDeck
@@ -575,14 +603,19 @@ export default function PlogPage() {
           maxReferenceImages={3}
         />
 
-        {/* ── 生成按钮 ── */}
-        <div style={{ marginBottom: 14 }}>
-          <button onClick={handleGenerate} disabled={!text.trim() || genState === 'loading'}
+        {/* ── 生成按钮 ──
+            D1：主 CTA 改品牌紫（原 #333 纯黑是"第三套皮肤"，与全站不符）；
+            D6：圆角 12px 走 --sb-radius-lg；D11：补焦点态；禁用态用明确配色而非裸 #ddd。 */}
+        <div style={{ marginBottom: 'var(--sb-space-4)' }}>
+          <button onClick={handleGenerate} disabled={!text.trim() || genState === 'loading'} className="sb-focusable"
             style={{
-              width: '100%', padding: '13px 0', borderRadius: 12, border: 'none',
-              background: !text.trim() || genState === 'loading' ? '#ddd' : '#333',
-              color: '#fff', fontSize: 15, fontWeight: 600, cursor: !text.trim() || genState === 'loading' ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', letterSpacing: 0.5,
+              width: '100%', height: 'var(--sb-control-h-xl)', borderRadius: 'var(--sb-radius-lg)', border: 'none',
+              background: !text.trim() || genState === 'loading' ? 'var(--sb-state-disabled-bg)' : 'var(--sb-brand-600)',
+              color: !text.trim() || genState === 'loading' ? 'var(--sb-state-disabled-ink)' : 'var(--sb-ink-on-dark)',
+              fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)',
+              cursor: !text.trim() || genState === 'loading' ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', letterSpacing: 0.3,
+              transition: 'background var(--sb-dur-fast, .12s) var(--sb-ease-out, ease)',
             }}>
             {genState === 'loading'
               ? `🖼️ 生成中 ${progress.current}/${progress.total} · ${elapsed}秒`
@@ -591,14 +624,15 @@ export default function PlogPage() {
         </div>
 
         {err && (
-          <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: '#FFF5F5', border: '1px solid #FECACA', color: '#DC2626', fontSize: 12 }}>{err}</div>
+          /* D10：错误文字用 --sb-ink-danger（暖底上对比度达标），底色用 --sb-danger-soft。 */
+          <div style={{ marginBottom: 'var(--sb-space-4)', padding: 'var(--sb-space-3)', borderRadius: 'var(--sb-radius-lg)', background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 'var(--sb-text-xs)' }}>{err}</div>
         )}
 
         {/* ── 加载中 ── */}
         {genState === 'loading' && (
-          <div style={{ textAlign: 'center', padding: 32, color: '#888' }}>
-            <div style={{ width: 32, height: 32, border: '3px solid #eee', borderTopColor: '#333', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 12 }}>正在绘制 {progress.current}/{progress.total}...</div>
+          <div style={{ textAlign: 'center', padding: 'var(--sb-space-8)', color: 'var(--sb-ink-3)' }}>
+            <div style={{ width: 32, height: 32, border: '3px solid var(--sb-border-subtle)', borderTopColor: 'var(--sb-brand-600)', borderRadius: 'var(--sb-radius-pill)', animation: 'spin 0.8s linear infinite', margin: '0 auto var(--sb-space-3)' }} />
+            <div style={{ fontSize: 'var(--sb-text-xs)' }}>正在绘制 {progress.current}/{progress.total}...</div>
           </div>
         )}
 
@@ -606,31 +640,31 @@ export default function PlogPage() {
         {results && genState === 'done' && (
           <div>
             {/* caption + copy */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #eee', marginBottom: 14 }}>
+            <section className="sb-group" style={{ background: 'var(--sb-surface-card)', borderRadius: 'var(--sb-radius-xl)', padding: 'var(--sb-space-5)', border: '1px solid var(--sb-border-subtle)' }}>
               {results.caption && (
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 8, lineHeight: 1.5 }}>{results.caption}</div>
+                <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-2)', lineHeight: 1.5 }}>{results.caption}</div>
               )}
               {results.copyLines?.length > 0 && (
                 <div>
                   {results.copyLines.map((line, i) => (
                     <div key={i} style={{
-                      fontSize: 11, color: '#888', lineHeight: 1.7,
-                      paddingLeft: 10, borderLeft: '2px solid #ddd', marginBottom: 3,
+                      fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-3)', lineHeight: 1.7,
+                      paddingLeft: 'var(--sb-space-3)', borderLeft: '2px solid var(--sb-border-default)', marginBottom: 'var(--sb-space-1)',
                     }}>{line}</div>
                   ))}
                 </div>
               )}
-              <div style={{ marginTop: 8, fontSize: 9, color: '#bbb', display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 'var(--sb-space-2)', fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', display: 'flex', gap: 'var(--sb-space-2)' }}>
                 <span>📍 {results.scene}</span>
                 <span>🎨 {PLOG_STYLES[results.style]?.name || results.style}</span>
                 <span>🎭 {LAYOUT_TEMPLATES[results.layout]?.name || results.layout}</span>
               </div>
               {results.reference_usage && (
-                <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid #f0ede8', fontSize: 10, color: '#8b8175', lineHeight: 1.55 }}>
+                <div style={{ marginTop: 'var(--sb-space-3)', paddingTop: 'var(--sb-space-2)', borderTop: '1px solid var(--sb-border-subtle)', fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', lineHeight: 1.55 }}>
                   {results.reference_usage}
                 </div>
               )}
-            </div>
+            </section>
 
             {/* 排版渲染 */}
             {allImages.length > 0 && renderLayout(allImages, (idx) => {
@@ -640,8 +674,9 @@ export default function PlogPage() {
             })}
 
             {/* 按钮 */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <button onClick={() => {
+            {/* D11：补焦点态；D1/D6：主按钮品牌紫 + 圆角 8（控件档）。 */}
+            <div className="ui-modal-footer-actions" style={{ display: 'flex', gap: 'var(--sb-action-gap, var(--sb-space-3))', marginTop: 'var(--sb-space-4)' }}>
+              <button type="button" className="sb-focusable" onClick={() => {
                 allImages.forEach((item, i) => {
                   const a = document.createElement('a');
                   a.href = item.url;
@@ -649,11 +684,11 @@ export default function PlogPage() {
                   a.click();
                 });
               }}
-                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#333', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, height: 'var(--sb-control-h-lg)', borderRadius: 'var(--sb-radius-md)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-card)', color: 'var(--sb-ink-2)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-medium, 500)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 💾 下载全部
               </button>
-              <button onClick={() => { setGenState('idle'); setResults(null); }}
-                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: '#333', color: '#fff', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button type="button" className="sb-focusable" onClick={() => { setGenState('idle'); setResults(null); }}
+                style={{ flex: 1, height: 'var(--sb-control-h-lg)', borderRadius: 'var(--sb-radius-md)', border: 'none', background: 'var(--sb-brand-600)', color: 'var(--sb-ink-on-dark)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-medium, 500)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 重新生成
               </button>
             </div>
@@ -664,13 +699,15 @@ export default function PlogPage() {
         {lightbox && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(12,10,9,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => setLightbox(null)}>
+            {/* D11：灯箱翻页由裸 div onClick 改为 button（可键盘聚焦 + 有焦点环）。
+                此处 rgba(255,255,255,0.1) 属**深色遮罩上的玻璃层**，是 D4 许可的遮罩类例外。 */}
             {lightboxIdx > 0 && (
-              <div onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx - 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
-                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 20, zIndex: 1 }}>‹</div>
+              <button type="button" aria-label="上一张" className="sb-focusable" onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx - 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
+                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 'var(--sb-radius-pill)', border: 'none', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-ink-on-dark)', fontSize: 20, zIndex: 1 }}>‹</button>
             )}
             {lightboxIdx < lightboxList.length - 1 && (
-              <div onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx + 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
-                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 20, zIndex: 1 }}>›</div>
+              <button type="button" aria-label="下一张" className="sb-focusable" onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx + 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
+                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 'var(--sb-radius-pill)', border: 'none', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-ink-on-dark)', fontSize: 20, zIndex: 1 }}>›</button>
             )}
             <img src={lightbox} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 6 }} alt="" />
           </div>

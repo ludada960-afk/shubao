@@ -1,28 +1,34 @@
 import React, { useState } from 'react';
 import { MdContentCopy, MdCheck } from 'react-icons/md';
 import Button from './Button';
+/* D7 / D9 / D11 的共享实现类（token 只来自 design-tokens-v3.css） */
+import '../../styles/surface-batch.css';
 
-/* ═══════ Card ═══════ */
-export function Card({ children, style = {}, hover, onClick }) {
+/* ═══════ Card ═══════
+   D9（docs/design/40-decisions.md）：hover 位移必须由容器预留空间，禁止默认被裁。
+   原实现把 overflow:hidden 与 translateY(-3px) 写在**同一个** div 上 ——
+   上移 3px 后顶部阴影与圆角一起被自身裁掉，而「一处受害 = 全站受害」。
+   修法采用 D9 方案①：**位移容器与裁切容器分离**
+     · 外层 .sb-card（位移 / 阴影 / 圆角 / 描边）
+     · 内层 .sb-card-clip（overflow:hidden + 继承圆角，只负责裁切内容）
+   位移发生在**外层**，裁切发生在**内层**，两者不再互相干涉。
+   同时按 D6 圆角 4 档（--sb-radius-xl = 16px 卡片档）、D2 hover 只做底色变化，
+   并补 D11 focus-visible。 */
+export function Card({ children, style = {}, hover, onClick, className = '' }) {
   const [h, setH] = useState(false);
+  const interactive = Boolean(onClick) || Boolean(hover);
   return (
     <div
+      className={`sb-card${hover ? ' sb-card--hover' : ''}${className ? ' ' + className : ''}`}
       onClick={onClick}
-      style={{
-        background: 'var(--bg-card)',
-        borderRadius: 'var(--radius-xl)',
-        border: '1px solid var(--border)',
-        overflow: 'hidden',
-        transition: `all var(--duration-normal) var(--ease)`,
-        transform: h && hover ? 'translateY(-3px)' : 'none',
-        boxShadow: h && hover ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
-        cursor: hover ? 'pointer' : 'default',
-        ...style,
-      }}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
+      style={style}
+      {...(interactive ? { role: onClick ? 'button' : undefined, tabIndex: onClick ? 0 : undefined } : {})}
+      onKeyDown={onClick ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(event); } } : undefined}
+      data-hover={h ? 'true' : undefined}
     >
-      {children}
+      <div className="sb-card-clip">{children}</div>
     </div>
   );
 }
