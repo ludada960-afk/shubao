@@ -214,40 +214,20 @@
 .vcb-timeline-note { margin-left: auto; color: #938c84; font-size: 10.5px; }
 .vcb-clip-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
 
-/* W4 音频节点: 音频资产卡 + "加入音轨" 按钮 */
+/* W4 音频节点: 音频资产卡（"加入音轨" 按钮样式见下方 L266+ 的生效版本） */
 .vcb-asset.is-audio .vcb-asset-source { color: var(--sb-brand-600); }
 .vcb-asset.is-audio footer { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.vcb-add-audio-track {
-  display: inline-flex; align-items: center; gap: 3px;
-  padding: 2px 6px; border: 1px solid var(--sb-brand-600);
-  border-radius: 4px; background: transparent; color: var(--sb-brand-600);
-  font-size: 11px; cursor: pointer;
-}
-.vcb-add-audio-track:hover:not(:disabled) { background: var(--sb-brand-600); color: var(--sb-neutral-0); }
-.vcb-add-audio-track:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* W4 音轨区 */
-.vcb-audio-tracks { border-top: 1px solid var(--sb-neutral-200); padding-top: 8px; }
+/* ── 音轨抽屉：外层 header 的间距 ────────────────────────────────────────
+   ⚠️ 本规则与下方 `.vcb-audio-tracks > header` **是分层覆盖，不是重复定义**，
+   两份都必须保留：
+     · 本条（后代选择器）：提供 `margin-bottom: 6px` —— 子选择器版本没有这个属性；
+     · 下方条（子选择器）  ：提供 `align-items: baseline` / `gap: 8px`，特异性更高、
+                            且位于文件更靠后，因此这两项以它为准。
+   合并成一条会丢失 margin-bottom（实测外层 header 间距会变）。
+   历史：抽屉曾同时渲染新旧两套音轨 UI，旧版已于 2026-09 删除；
+   本注释保留是因为这两条规则的"分层"关系与那次删除无关。 */
 .vcb-audio-tracks header { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
-.vcb-audio-track {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 6px 8px; border: 1px solid var(--sb-neutral-200);
-  border-radius: 4px; margin-bottom: 4px;
-}
-.vcb-audio-track-head { display: flex; gap: 8px; align-items: center; font-size: 12px; }
-.vcb-audio-track-kind { color: var(--sb-brand-600); font-weight: 600; }
-.vcb-audio-track-name { flex: 1; }
-.vcb-audio-track-dur { color: var(--sb-ink-3); font-size: 11px; }
-.vcb-audio-track-actions { display: flex; gap: 8px; align-items: center; }
-.vcb-mute-toggle {
-  display: inline-flex; align-items: center; gap: 3px;
-  padding: 2px 6px; border: 1px solid var(--sb-neutral-200);
-  border-radius: 4px; background: transparent; font-size: 11px; cursor: pointer;
-}
-.vcb-mute-toggle.is-on { background: var(--sb-danger-hover); color: var(--sb-neutral-0); border-color: var(--sb-danger-hover); }
-.vcb-volume-slider { display: inline-flex; align-items: center; gap: 4px; flex: 1; font-size: 11px; }
-.vcb-volume-slider input[type=range] { flex: 1; max-width: 120px; }
-.vcb-volume-readout { color: var(--sb-ink-3); font-family: monospace; }
 .vcb-clip { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid rgba(61, 50, 41, .1); border-radius: 11px; background: var(--sb-neutral-0); }
 .vcb-clip-head { display: flex; align-items: baseline; gap: 8px; }
 .vcb-clip-head strong { font-size: 12.5px; color: #3d3732; }
