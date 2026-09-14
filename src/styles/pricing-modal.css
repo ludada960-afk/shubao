@@ -175,7 +175,7 @@
   justify-content: center;
 }
 .pricing-modal__hero-meta strong {
-  color: #6d28d9;
+  color: var(--sb-brand-700);
   font-weight: 900;
   font-size: 22px;
   margin-left: 2px;
@@ -404,7 +404,7 @@
 .pricing-modal__pack-units {
   font-size: 20px;
   font-weight: 800;
-  color: #6d28d9;
+  color: var(--sb-brand-700);
 }
 .pricing-modal__pack-units small {
   font-size: 14px;
@@ -481,7 +481,7 @@
   letter-spacing: 0.02em;
 }
 .pricing-modal__pack-list-meta strong {
-  color: #6d28d9;
+  color: var(--sb-brand-700);
   font-weight: 700;
   font-size: 13px;
 }
@@ -546,7 +546,7 @@
   font-weight: 700;
   color: #292524;
 }
-.pricing-modal__detail-price strong { color: #6d28d9; }
+.pricing-modal__detail-price strong { color: var(--sb-brand-700); }
 .pricing-modal__detail-desc {
   margin: 0;
   font-size: 13px;

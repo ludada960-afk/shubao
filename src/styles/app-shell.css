@@ -281,7 +281,7 @@
 }
 
 .topbar-action-button:focus-visible {
-  outline: 3px solid rgba(124, 58, 237, 0.2);
+  outline: 3px solid var(--sb-brand-a32);
   outline-offset: 2px;
   background: rgba(255, 255, 255, 0.72);
 }
@@ -328,9 +328,9 @@
 }
 
 .app-side-nav-item.is-primary {
-  border-color: rgba(124, 58, 237, 0.25);
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(167, 139, 250, 0.08));
-  color: #7c3aed;
+  border-color: var(--sb-brand-a32);
+  background: linear-gradient(135deg, var(--sb-brand-a10), rgba(167, 139, 250, 0.08));
+  color: var(--sb-ink-brand);
 }
 
 .app-side-nav-item.is-active {
@@ -342,7 +342,7 @@
 
 .app-side-nav-item.is-primary.is-active {
   border-color: transparent;
-  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  background: var(--sb-brand-gradient);
   color: #fff;
 }
 
@@ -352,11 +352,11 @@
 }
 
 .app-side-nav-item.is-primary:hover {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(167, 139, 250, 0.15));
+  background: linear-gradient(135deg, var(--sb-brand-a32), rgba(167, 139, 250, 0.15));
 }
 
 .app-side-nav-item.is-primary.is-active:hover {
-  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  background: var(--sb-brand-gradient);
 }
 
 .app-side-nav-item.is-active:hover:not(.is-primary) {
@@ -371,7 +371,7 @@
 
 .app-side-nav-item:focus-visible {
   transform: translateX(3px) scale(1.03);
-  outline: 3px solid rgba(124, 58, 237, 0.2);
+  outline: 3px solid var(--sb-brand-a32);
   outline-offset: 2px;
   box-shadow: 0 4px 12px rgba(12, 10, 9, 0.1);
 }
