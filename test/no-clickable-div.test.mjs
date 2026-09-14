@@ -89,6 +89,25 @@ test('① 检测器自证：箭头函数属性里的 ">" 不得截断标签解�
     '去掉 onKeyDown 后必须重新变为违规');
 });
 
+test('① 检测器自证：spread 提供 role/tabIndex 的合规写法不得误报', () => {
+  /* 真实缺陷：#ui/index.jsx 的 Card 用「条件展开」提供无障碍语义 ——
+       {...(interactive ? { role: onClick ? 'button' : undefined, tabIndex: onClick ? 0 : undefined } : {})}
+     原检测器只认 role="button" 直接属性写法，把该合规实现误判为违规（会去"修"好代码）。
+     现同时识别：① 直接属性 ② spread 对象字面量 ③ spread + 三元。 */
+  const spreadStyle = [
+    '<div',
+    '  onClick={onClick}',
+    '  {...(interactive ? { role: onClick ? \'button\' : undefined, tabIndex: onClick ? 0 : undefined } : {})}',
+    '  onKeyDown={onClick ? event => { if (event.key === "Enter") onClick(event); } : undefined}',
+    '>内容</div>',
+  ].join('\n');
+  assert.deepEqual(findClickableNonInteractive(spreadStyle), [],
+    'spread 形式提供的 role/tabIndex + onKeyDown 属键盘可达，不得误报');
+  // 反向：去掉 onKeyDown 后必须重新违规
+  const noKey = spreadStyle.replace(/^\s*onKeyDown=.*$/m, '');
+  assert.equal(findClickableNonInteractive(noKey).length, 1, '去掉 onKeyDown 后必须重新变为违规');
+});
+
 test('① 检测器自证：注释里出现的 <div onClick> 字样不得误报', () => {
   const src = ['/* 说明：原为 <div onClick> 已改 <button> */', 'const x = 1;'].join('\n');
   assert.deepEqual(findClickableNonInteractive(src), [], '注释内容不参与检测');

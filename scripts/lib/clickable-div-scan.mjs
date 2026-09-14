@@ -113,8 +113,21 @@ export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
     const tagText = src.slice(m.index, parsed.end);
     if (!/\bonClick\b/.test(attrs)) continue;
     if (INTERACTIVE.has(tag)) continue;
-    const hasRole = /role\s*=\s*['"]button['"]/.test(attrs);
-    const hasTabIndex = /tabIndex\s*=/.test(attrs);
+    /* role / tabIndex 有两种写法，都要认：
+       ① 直接属性        role="button" / tabIndex={0}
+       ② **spread 提供**  {...(interactive ? { role: 'button', tabIndex: 0 } : {})}
+       只认 ① 会把 Card 这类"条件展开"的合规实现误判为违规
+       （本仓 src/components/ui/index.jsx 的 Card 即此写法）。 */
+    /* role 有三种写法：
+       ① role="button"                                 —— 直接属性
+       ② { role: 'button', tabIndex: 0 }               —— spread 对象字面量
+       ③ { role: cond ? 'button' : undefined, … }      —— spread + 三元（本仓 Card 写法）
+       ②③ 若只认 ① 会把"条件提供无障碍语义"的合规实现误判为违规。 */
+    const hasRole = /role\s*=\s*['"]button['"]/.test(attrs)
+      || /role\s*:\s*['"]button['"]/.test(attrs)
+      || /role\s*:[^,}]*\?\s*['"]button['"]/.test(attrs);
+    const hasTabIndex = /tabIndex\s*=/.test(attrs)
+      || /tabIndex\s*:/.test(attrs);                        // spread 对象字面量写法
     const hasKeyDown = /onKeyDown\s*=/.test(attrs);
     if (hasRole && hasTabIndex && hasKeyDown) continue;
     let note = '';
