@@ -99,6 +99,11 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
      （取原始内容用 `execFileSync(..., { maxBuffer })`，不要过 shell 管道）。
    → 恢复文件后**必须验证**：行数、首行、`git diff --numstat`；
      再用 `node --test test/source-syntax-integrity.test.mjs` 确认没有被压平。
+   → **同类坑：行尾**。本仓源码统一 **LF**（无 `.gitattributes`），而 Windows 工具很容易写出 **CRLF**。
+     真实事故：一次文案修复把 8 个插件文件**每一行**都变成 CRLF（`git show <parent>:<f>` 里 CRLF=0 → 提交后 503），
+     造成「1646 插入 / 1486 删除」的假噪声，遮蔽了真实改动（真正的内容改动只有 13+25 行）。
+     → 判定法：`git show <parent>:<f> | CRLF 计数` 与提交后对比，**从 0 变正数 = 整文件行尾被改写**；
+     → 交付前用 `git show --numstat`：**插入≈删除且等于文件总行数** = 行尾或编码被整体改写，必须还原。
 
 ### 3.2 迁移等价性（D15，与 40-decisions.md 同步）
 
