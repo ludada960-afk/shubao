@@ -244,8 +244,11 @@
   flex-direction: column;
   gap: var(--sb-space-2-5);
   padding: var(--sb-space-5);
-  /* D6：圆角走 token 档位，不再自造 18px */
-  border-radius: 18px;
+  /* D6：圆角走 token 档位，不再自造 18px。
+     2026-09-20 修复：注释一直是这么写的，但值在某次**机械回退**里被还原成 18px，
+     造成「注释说要走 token、代码却写死」的自相矛盾，并让 p-1 契约测试在主干上稳定红。
+     卡片档 = --sb-radius-xl(16px)，Δ−2px 属 D6 授权的有意归一。 */
+  border-radius: var(--sb-radius-xl);
   /* 描边宽度恒定 1px —— 所有状态只换颜色，绝不改宽度（D2：禁止布局抖动） */
   border: 1px solid var(--sb-border-default);
   /* 表面分层：卡片 = L2 纯白，与暖米页面底拉开一级 */
