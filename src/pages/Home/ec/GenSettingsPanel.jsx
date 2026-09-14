@@ -241,7 +241,9 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                   onMouseLeave={() => setHoverKey('')}
                   style={{
                     ...optionStyle(active, key),
-                    height: 'var(--sb-control-lg)',
+                    /* 用户明确要求：清晰度等分段控件的点击区必须放大（≥40px，改造前仅 30px）。
+                       V3 阶梯里 36(--sb-control-lg) 不满足，取 44(--sb-control-h-xl)——只会更大，不会缩水。 */
+                    height: 'var(--sb-control-h-xl)',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',

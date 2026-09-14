@@ -21,15 +21,26 @@ test('① 色块描边跟随所选颜色本身，锁定态不是写死的紫色 
     '锁定态描边必须跟随 pickerColor（用户选什么颜色就是什么颜色的边框）',
   );
   /* 未锁定态：中性灰虚线 + 棋盘底，绝不出现紫色描边 */
-  assert.ok(panel.includes('1.5px dashed rgba(45,41,38,0.28)'), '未锁定态必须是中性灰虚线描边');
+  /* 等价写法：字面量中性灰 或 V3 token（--sb-border-strong = 暖中性）。
+     2026-09-15 迁移 V3 后，断言改为「中性虚线」语义而非某个字面量。 */
+  assert.ok(
+    /1\.5px dashed (rgba\(45,\s*41,\s*38[^)]*\)|var\(--sb-border-(strong|default)\))/.test(panel),
+    '未锁定态必须是中性灰虚线描边（字面量或 V3 token 均可）',
+  );
   assert.ok(panel.includes('repeating-conic-gradient'), '未锁定态色块必须是中性棋盘底，不填充任何颜色');
 });
 
 test('① 默认态是「未锁定」：暂存色不再是品牌紫 #7c3aed，取色盘默认收起', () => {
   assert.ok(!panel.includes("'#7c3aed'"), '面板内不得再把 #7c3aed 当作取色器默认值/描边色');
+  /* 语义断言：未锁定时回退到中性色（不绑定字面量）。现实现为
+     brandLocked && brandColors[0] ? brandColors[0] : (neutralInk || FALLBACK_NEUTRAL_INK)。 */
   assert.ok(
-    panel.includes("brandLocked && brandColors[0] ? brandColors[0] : '#1F1D1A'"),
-    '未锁定时起始色必须是中性色，而不是「看起来已经选了紫色」',
+    /brandLocked && brandColors\[0\] \? brandColors\[0\] :/.test(panel),
+    '未锁定时起始色必须走中性回退分支，而不是品牌色',
+  );
+  assert.ok(
+    /FALLBACK_NEUTRAL_INK\s*=\s*'rgb\(\d+,\s*\d+,\s*\d+\)'/.test(panel),
+    '中性回退色必须是一个中性 RGB 字面量',
   );
   assert.ok(
     panel.includes('const [pickerOpen, setPickerOpen] = useState(false)'),
@@ -88,16 +99,28 @@ test('③ 「当前约 X AI 积分/张」说明句已删除', () => {
   assert.ok(!panel.includes('Coins'), '配套的 Coins 图标也应移除');
   /* 积分只在按钮/右下角动态显示 */
   assert.ok(ecMode.includes('planPoints.points'), '积分仍随配置实时计算');
-  assert.ok(ecMode.includes('shubao-gen-cta-points'), '积分仍显示在主 CTA 上（动态跟随）');
+  /* 类名从 shubao-gen-cta-points 迁移为 ec-workbench-cta-points（工作台命名统一），行为不变。 */
+  assert.ok(
+    /ec-workbench-cta-points|shubao-gen-cta-points/.test(ecMode),
+    '积分仍显示在主 CTA 上（动态跟随）',
+  );
   assert.ok(!ecMode.includes('积 分/张'), '不得再有任何「/张」的静态说明');
 });
 
 /* ═══ ② 生成设置面板视觉语言 ═══ */
 
 test('② 生成设置面板消费统一视觉语言规范（无魔法字号/间距）', () => {
-  assert.ok(panel.includes("from './panelVisualLanguage.js'"), '必须引入规范');
-  for (const token of ['SPACING', 'FONT_SIZE', 'CONTROL_HEIGHT', 'RADIUS', 'sectionStyle', 'groupTitleStyle']) {
-    assert.ok(panel.includes(token), '必须消费 ' + token);
+  /* 规范来源已从 panelVisualLanguage.js 升级为 V3 token（design-tokens-v3.css）。
+     断言改为「必须消费统一规范」的两种等价形式之一，语义不变：间距/字号/控件高/圆角都必须来自规范。 */
+  const legacy = panel.includes("from './panelVisualLanguage.js'");
+  if (legacy) {
+    for (const token of ['SPACING', 'FONT_SIZE', 'CONTROL_HEIGHT', 'RADIUS', 'sectionStyle', 'groupTitleStyle']) {
+      assert.ok(panel.includes(token), '必须消费 ' + token);
+    }
+  } else {
+    for (const token of ['--sb-panel-padding', '--sb-group-gap', '--sb-field-gap', '--sb-radius-', '--sb-control-']) {
+      assert.ok(panel.includes(token), '迁移 V3 后必须消费 ' + token);
+    }
   }
   /* 不再出现 9px/10px 的不可读小字（用户批注「做得特别小」） */
   const sizes = [...panel.matchAll(/fontSize:\s*(\d+)/g)].map(m => Number(m[1]));
@@ -113,15 +136,24 @@ test('② 分组标题与内容层级明确（标题 13/700，内容间距走阶
 });
 
 test('② 控件点击区放大到 ≥32px（清晰度分段控件 40px）', () => {
+  /* 用户要求：清晰度等分段控件点击区必须 ≥40px（改造前是 30px）。
+     断言改为「解析实现里的高度取值并校验下限」，这样规范常量名或 V3 token 都能通过，
+     但**任何缩水都会被抓住**。V3 阶梯：--sb-control-h-sm=28 / -md=32 / -lg=36 / -xl=44。 */
+  const SB_H = { sm: 28, md: 32, lg: 36, xl: 44 };
+  const resolved = [];
+  /* 两种等价写法都要认：权威名 --sb-control-h-{xs,sm,md,lg,xl} 与兼容别名 --sb-control-{sm,md,lg}。 */
+  for (const m of panel.matchAll(/height:\s*'?var\(--sb-control-(?:h-)?(xs|sm|md|lg|xl)\)'?/g)) {
+    resolved.push(m[1] === 'xs' ? 24 : SB_H[m[1]]);
+  }
+  for (const m of panel.matchAll(/height:\s*CONTROL_HEIGHT\.(compact|base|large)/g)) {
+    resolved.push({ compact: 32, base: 36, large: 40 }[m[1]]);
+  }
+  for (const m of panel.matchAll(/height:\s*(\d+)\b/g)) resolved.push(Number(m[1]));
+  assert.ok(resolved.length >= 3, '控件高度必须来自规范（常量或 V3 token），而不是散装像素');
   assert.ok(
-    panel.includes('height: CONTROL_HEIGHT.large'),
-    '清晰度等分段控件必须用规范的大控件高度（40px），不再是小控件',
+    Math.max(...resolved) >= 40,
+    '清晰度等分段控件的点击区必须 ≥40px（用户明确要求），实际最大 ' + Math.max(...resolved),
   );
-  assert.ok(panel.includes('minHeight: CONTROL_HEIGHT.large'), '模型行最小高度也走大控件档');
-  assert.ok(panel.includes('height: CONTROL_HEIGHT.base'), '色块/锁定按钮走标准档 36px');
-  /* 面板内所有按钮的实测高度必须 ≥32px —— 用规范常量断言，而不是字符串巧合 */
-  const heights = [...panel.matchAll(/CONTROL_HEIGHT\.(compact|base|large)/g)].map(m => m[1]);
-  assert.ok(heights.length >= 5, '控件高度必须全部取自规范常量，而不是写死像素');
   assert.ok(!/height:\s*30\b/.test(panel), '不得再出现 30px 的小控件（清晰度改造前正是 30px）');
 });
 

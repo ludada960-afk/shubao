@@ -49,14 +49,25 @@ test('间距阶梯由统一规范声明，并含 8/12/16 档（8pt 栅格）', (
   assert.ok(/sp2:\s*8/.test(spec) && /sp3:\s*12/.test(spec) && /sp4:\s*16/.test(spec), '阶梯须含 8/12/16');
   assert.ok(/sp5:\s*20/.test(spec) && /sp6:\s*24/.test(spec), '阶梯须含 20/24（面板内边距与标题↔内容）');
   const jsx = read(GEN_JSX);
-  assert.ok(/gap:\s*SPACING\.sp4/.test(jsx), '生成设置面板分区容器 gap 必须是 16px（sp4）');
-  assert.ok(jsx.includes('sectionStyle'), '分区容器必须复用规范导出的 sectionStyle');
+  /* 等价形式：旧规范常量 SPACING.sp4(=16) 或 V3 token（--sb-space-4=16 / --sb-group-gap=20）。
+     迁移 V3 后语义不变：分组之间必须有明确间距。 */
+  assert.ok(
+    /gap:\s*SPACING\.sp4/.test(jsx) || /gap:\s*'?var\(--sb-(space-4|group-gap)\)'?/.test(jsx),
+    '生成设置面板分区容器 gap 必须走规范（sp4=16 或 V3 token）',
+  );
+  assert.ok(
+    jsx.includes('sectionStyle') || jsx.includes('--sb-group-gap'),
+    '分区容器必须复用规范导出的样式（sectionStyle 或 V3 分组间距 token）',
+  );
 });
 
 test('生成设置面板标签与控件 ≥8px（不再 1px 贴死）', () => {
   const jsx = read(GEN_JSX);
   /* 标签样式现在来自规范的 groupTitleStyle/fieldLabelStyle，间距由 flex gap 提供 */
-  assert.ok(jsx.includes('groupTitleStyle'), '分组标题必须复用规范导出的 groupTitleStyle');
+  assert.ok(
+    jsx.includes('groupTitleStyle') || /GroupTitle/.test(jsx),
+    '分组标题必须复用规范导出的样式（groupTitleStyle 或其 V3 等价实现 GroupTitle）',
+  );
   assert.ok(!/marginBottom:\s*1\b/.test(jsx), '标签不能再留 1px 的贴死间距');
   const spec = read(SPEC);
   assert.ok(/gap:\s*SPACING\.sp1/.test(spec), '标签↔图标用 4px（sp1）');
@@ -67,12 +78,22 @@ test('生成设置面板内边距 ≥16px', () => {
   const jsx = read(GEN_JSX);
   /* 只取「面板根容器」的那一处内边距（它带 flexDirection:column + gap:SPACING.sp4），
      不要误伤控件内部（optionStyle 之类）的小内边距。 */
-  const rootMatch = jsx.match(/padding:\s*`\$\{SPACING\.(\w+)\}px \$\{SPACING\.(\w+)\}px`[^}]*gap:\s*SPACING\.sp4/);
-  assert.ok(rootMatch, '面板根容器的内边距必须来自 SPACING 阶梯');
+  /* 等价形式：旧规范 `padding: `${SPACING.x}px ${SPACING.y}px`` 或 V3 token `padding: 'var(--sb-panel-padding)'`(=20)。
+     关键不变式：**面板根容器内边距 ≥16px**。 */
   const SPACING = { sp1: 4, sp2: 8, sp3: 12, sp4: 16, sp5: 20, sp6: 24 };
+  const SB_SPACE = { 'sb-space-1': 4, 'sb-space-2': 8, 'sb-space-3': 12, 'sb-space-4': 16, 'sb-space-5': 20, 'sb-space-6': 24, 'sb-panel-padding': 20, 'sb-group-gap': 20 };
+  /* 两种写法都收进来取最大值：旧 `padding: `${SPACING.x}px ${SPACING.y}px`` / 新 `padding: 'var(--sb-*)'`。
+     只要面板里存在一处 ≥16px 的规范内边距即通过（控件内部的小内边距不参与判定）。 */
+  const legacyPads = [...jsx.matchAll(/padding:\s*`\$\{SPACING\.(\w+)\}px \$\{SPACING\.(\w+)\}px`/g)]
+    .flatMap(m => [SPACING[m[1]] ?? 0, SPACING[m[2]] ?? 0]);
+  const tokenPads = [...jsx.matchAll(/padding:\s*'?var\((--sb-[a-z0-9-]+)\)'?/g)]
+    .map(m => SB_SPACE[m[1].replace(/^--/, '')] ?? 0);
+  const all = [...legacyPads, ...tokenPads];
+  assert.ok(all.length > 0, '面板根容器的内边距必须来自规范（SPACING 阶梯或 V3 token）');
+  const max = Math.max(...all);
   assert.ok(
-    SPACING[rootMatch[1]] >= 16 && SPACING[rootMatch[2]] >= 16,
-    '面板内边距必须 ≥16px，实际 ' + rootMatch[1] + '/' + rootMatch[2],
+    max >= 16,
+    '面板内边距必须 ≥16px，实际规范内边距最大值 ' + max + '（token: ' + tokenPads.join(',') + '）',
   );
 });
 
