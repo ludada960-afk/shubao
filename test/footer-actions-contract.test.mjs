@@ -18,6 +18,34 @@ import { readFileSync } from 'node:fs';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const tokens = read('src/styles/design-tokens.css');
 
+/* ── CSS 变量解析器（9-18 用户要求）─────────────────────────────────────────
+   规范把间距表达成「token 链」：--footer-actions-gap → var(--space-3) → 12px。
+   断言必须验证**解析后的值等于 12**，而不是放宽阈值、也不是只匹配 token 名字符串 ——
+   否则有人把 --space-3 改成 24px，所有断言都会照常通过（契约被悄悄改掉）。
+   实现刻意避开正则转义（用 indexOf 取声明），保证在测试里行为与调试脚本完全一致。 */
+const ALL_TOKENS = tokens + '\n' + read('src/styles/design-tokens-v3.css');
+function resolveVar(css, name, depth = 0) {
+  if (depth > 8) throw new Error('var() 解析层数过深，疑似循环：' + name);
+  // 取 'name:' 之后的第一个 ';' 之前的内容
+  const at = css.indexOf(name + ':');
+  if (at < 0) return null;
+  const end = css.indexOf(';', at);
+  if (end < 0) return null;
+  let value = css.slice(at + name.length + 1, end).trim();
+  // 跟随 var(--x) 链（支持 var(--x, fallback)）
+  if (value.startsWith('var(')) {
+    const inner = value.slice(4, value.lastIndexOf(')')).trim();
+    const comma = inner.indexOf(',');
+    const ref = (comma < 0 ? inner : inner.slice(0, comma)).trim();
+    const fallback = comma < 0 ? '' : inner.slice(comma + 1).trim();
+    const next = ref.startsWith('--') ? resolveVar(css, ref, depth + 1) : null;
+    if (next !== null) return next;
+    value = fallback;
+  }
+  const px = value.match(/^(-?\d+(?:\.\d+)?)px$/);
+  return px ? Number(px[1]) : null;
+}
+
 /* ── ① 规范本身落在共享常量文件里（不是散落各处的魔法数字） ── */
 test('① 底部操作区规范沉淀在 design-tokens.css（唯一的真源）', () => {
   for (const token of [
@@ -31,30 +59,29 @@ test('① 底部操作区规范沉淀在 design-tokens.css（唯一的真源）'
   }
 });
 
-test('① 按钮间距 = 12px（sp3），且硬下限 ≥ 8px', () => {
-  const gap = tokens.match(/--footer-actions-gap:\s*var\(--space-(\d+)\)/);
-  assert.ok(gap, '--footer-actions-gap 必须引用 --space-N 阶梯（不得写裸 px）');
-  assert.equal(gap[1], '3', '--footer-actions-gap 应引用 --space-3 = 12px，实际 --space-' + gap[1]);
-  const min = tokens.match(/--footer-actions-gap-min:\s*var\(--space-(\d+)\)/);
-  assert.ok(min, '缺少硬下限常量');
-  assert.ok(Number(min[1]) >= 2, '硬下限不得小于 --space-2 = 8px');
-  // 断言 --space-3 真的是 12px（防止有人改阶梯值把契约悄悄改掉）
-  assert.match(tokens, /--space-3:\s*12px/, '--space-3 必须是 12px');
+test('① 按钮间距解析后 = 12px（sp3），且硬下限 ≥ 8px', () => {
+  /* 9-18 用户要求：实现已改用 --footer-actions-gap（=12px），
+     断言必须验证**解析后的值等于 12**，而不是 token 名字符串、也不是放宽阈值。 */
+  const gapPx = resolveVar(ALL_TOKENS, '--footer-actions-gap');
+  assert.equal(gapPx, 12, '--footer-actions-gap 解析后必须 = 12px，实际 ' + gapPx);
+  const minPx = resolveVar(ALL_TOKENS, '--footer-actions-gap-min');
+  assert.ok(minPx !== null && minPx >= 8, '硬下限解析后 ≥ 8px，实际 ' + minPx);
+  /* 同时验证它确实走 8pt 阶梯（而不是被写成裸 12px —— 阶梯是规范的组成部分） */
+  assert.match(tokens, /--footer-actions-gap:\s*var\(--space-3\)/, '必须引用 --space-3 阶梯');
 });
 
-test('② 上间距 16px、内边距 20~24px', () => {
-  assert.match(tokens, /--footer-actions-margin-top:\s*var\(--space-4\)/, '与内容区上间距 = --space-4 = 16px');
-  assert.match(tokens, /--space-4:\s*16px/, '--space-4 必须是 16px');
-  const pad = tokens.match(/--footer-actions-padding-block:\s*var\(--space-(\d+)\)/);
-  assert.ok(pad, '缺少内边距常量');
-  assert.ok(['5', '6'].includes(pad[1]), '内边距应为 --space-5(20px) 或 --space-6(24px)，实际 --space-' + pad[1]);
+test('② 上间距解析后 = 16px、内边距解析后 20~24px', () => {
+  const mt = resolveVar(ALL_TOKENS, '--footer-actions-margin-top');
+  assert.equal(mt, 16, '与内容区上间距解析后必须 = 16px，实际 ' + mt);
+  const pad = resolveVar(ALL_TOKENS, '--footer-actions-padding-block');
+  assert.ok([20, 24].includes(pad), '内边距解析后应为 20 或 24px，实际 ' + pad);
 });
 
-test('③ 按钮高度取 32/36/40 之一，最小宽度 88px，文字不换行', () => {
-  for (const h of ['--footer-actions-button-height: 36px', '--footer-actions-button-height-sm: 32px', '--footer-actions-button-height-lg: 40px']) {
-    assert.ok(tokens.includes(h), '缺少高度常量 ' + h);
-  }
-  assert.match(tokens, /--footer-actions-button-min-width:\s*88px/, '最小宽度 88px');
+test('③ 按钮高度解析后取 32/36/40 之一，最小宽度解析后 88px，文字不换行', () => {
+  assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-button-height'), 36, '常规档解析后 = 36px');
+  assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-button-height-sm'), 32, '小弹窗档解析后 = 32px');
+  assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-button-height-lg'), 40, '大弹窗档解析后 = 40px');
+  assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-button-min-width'), 88, '最小宽度解析后 = 88px');
   const uiBtn = tokens.match(/\.ui-btn \{([^}]*)\}/);
   assert.ok(uiBtn, '.ui-btn 基础规则存在');
   assert.ok(uiBtn[1].includes('white-space: nowrap'), '文字不换行');
@@ -252,7 +279,7 @@ test('9-18③ 主次按钮视觉等重：同高 / 同最小宽 / 同圆角（圆
   assert.ok(uiBtn.includes('min-width: var(--footer-actions-button-min-width)'), '主次共用同一最小宽 token');
   assert.ok(uiBtn.includes('height: var(--footer-actions-button-height)'), '主次共用同一高度 token');
   // 10px（--footer-actions-radius）必须存在且相等，不得主次分叉
-  assert.match(tokens, /--footer-actions-radius:\s*10px/, '契约圆角 = 10px');
+  assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-radius'), 10, '契约圆角解析后 = 10px');
 });
 
 test('9-18④ 迁移过的文件里不得残留自写的底部操作区 gap 魔法数字', () => {

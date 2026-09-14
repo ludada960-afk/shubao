@@ -107,10 +107,31 @@ test('D11② 尊重 prefers-reduced-motion', () => {
   assert.ok(/@media \(prefers-reduced-motion: reduce\)/.test(surfaceBatch), '有 reduced-motion 分支');
 });
 
-test('D11③ Plog 可交互作品项用 button 而非裸 div（新写元素规范）', () => {
+/* 9-18 用户要求：若为实现语义化把 div 改成了 button，断言应指向**语义化后的新选择器**
+   （这才是这批的目的），而不是沿用旧的 div 结构。
+   下面按「标签 + 无障碍名 + 可聚焦类」三件套断言语义化结果，
+   并反向断言这些位置**不再**是 div onClick（防止回退成不可聚焦的裸 div）。 */
+test('D11③ Plog 可交互作品项已语义化为 <button>（D11 第③条：不得用 div onClick）', () => {
   const plog = read('src/pages/Plog/index.jsx');
-  assert.ok(plog.includes('aria-label={`查看第'), '作品项有可读的无障碍名');
-  assert.ok(plog.includes('className="sb-focusable"'), '作品项可键盘聚焦');
+
+  // ① 作品项：两个排版网格各自渲染，均必须是 <button> + aria-label「查看第 N 张」
+  const itemButtons = [...plog.matchAll(/<button[^>]*aria-label=\{`查看第 \$\{[^}]+\}[^>]*>/g)];
+  assert.ok(itemButtons.length >= 2, '两个排版网格的作品项都应为 <button>，实际 ' + itemButtons.length + ' 处');
+  for (const b of itemButtons) {
+    assert.ok(b[0].includes('className="sb-focusable"'), '作品项可键盘聚焦（sb-focusable）：' + b[0].slice(0, 80));
+  }
+
+  // ② 灯箱翻页：上一张 / 下一张 必须是 <button> 且带 sb-focusable
+  for (const label of ['上一张', '下一张']) {
+    const re = new RegExp('<button[^>]*aria-label="' + label + '"[^>]*>');
+    const m = plog.match(re);
+    assert.ok(m, '灯箱「' + label + '」应为 <button>');
+    assert.ok(m[0].includes('sb-focusable'), '灯箱「' + label + '」可键盘聚焦');
+  }
+
+  // ③ 反向断言：这三类位置不得再是裸 div onClick（回退即失败）
+  assert.ok(!/<div[^>]*onClick[^>]*onOpen\(/.test(plog), '作品项不得回退为 div onClick');
+  assert.ok(!/<div[^>]*onClick=\{\(e\) => \{ e\.stopPropagation\(\); const ni = lightboxIdx/.test(plog), '灯箱翻页不得回退为 div onClick');
 });
 
 /* ═══════ D12 · 幽灵变量 ═══════ */
