@@ -127,6 +127,14 @@ export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
        ② **spread 提供**  {...(interactive ? { role: 'button', tabIndex: 0 } : {})}
        只认 ① 会把 Card 这类"条件展开"的合规实现误判为违规
        （本仓 src/components/ui/index.jsx 的 Card 即此写法）。 */
+    /* 非交互容器角色：作者显式声明「我不是一个控件」——
+       如 role="group" / "presentation" / "none" / "list" / "region" / "dialog"。
+       这类元素挂 onClick 通常是**焦点转发**或容器级辅助行为
+       （OtpCodeInput 的 role="group" 容器把点击转给内部覆盖全区域的 <input>，
+        该 input 自身可 Tab 可输入，才是真正的控件）。
+       注意：只放行**显式声明了非交互 role** 的容器，裸 div 不在此列。 */
+    const CONTAINER_ROLE = /role\s*=\s*['"](group|presentation|none|list|listitem|region|dialog|table|row|grid|toolbar|separator)['"]/;
+    if (CONTAINER_ROLE.test(attrs)) continue;
     /* 合法可交互角色：不限于 button —— radio/option/menuitem/tab/switch/checkbox 等
        同样是「可聚焦 + 可键盘激活」的语义角色（DirectionOptionCard 用 role="radio"）。
        判据是「键盘到不到得了」，不是「有没有写 button 这个词」。 */

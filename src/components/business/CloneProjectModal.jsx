@@ -109,11 +109,14 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
   if (!open) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="派生此项目"
-      onClick={close}
+    /* 原则 4.1：遮罩是可点关闭区 → button + .a11y-backdrop；
+       对话框语义归位到真正的内容容器（<form>），遮罩只负责关闭。
+       面板原用 stopPropagation 吞冒泡、非可点元素 → 删掉 onClick。 */
+    <button
+      type="button"
+      aria-label="关闭"
+      className="a11y-backdrop"
+      onMouseDown={event => { if (event.target === event.currentTarget) close?.(); }}
       style={{
         position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)',
         background: 'rgba(15, 23, 42, 0.55)',
@@ -122,7 +125,9 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
       }}
     >
       <form
-        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="派生此项目"
         onSubmit={handleSubmit}
         style={{
           width: 'min(560px, 100%)',
@@ -285,6 +290,6 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
           </button>
         </footer>
       </form>
-    </div>
+    </button>
   );
 }

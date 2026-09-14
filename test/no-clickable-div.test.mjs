@@ -125,6 +125,26 @@ test('① 检测器自证：role=radio/option 等合法可交互角色不得误�
     '无 role 的裸 div 即便可聚焦也算违规（语义未声明）');
 });
 
+test('① 检测器自证：显式非交互容器角色放行，但不得成为后门口', () => {
+  /* 作者显式声明 role="group"/"presentation"/"none" 等**非交互容器角色**时，
+     挂 onClick 通常是焦点转发或容器级辅助行为（OtpCodeInput 的 role="group"
+     容器把点击转给内部覆盖全区域的 <input>，那个 input 才是真控件）。 */
+  for (const role of ['group', 'presentation', 'none', 'list', 'region', 'dialog']) {
+    const src = '<div role="' + role + '" onClick={focusInput()}>x</div>';
+    assert.deepEqual(findClickableNonInteractive(src), [],
+      'role=' + role + ' 是显式非交互容器角色，不得报');
+  }
+  /* 反向后门检查：**裸 div 不得因此被放行** —— 这是本规则最大的风险点。
+     若实现写成"只要有 role 就放行"或"无条件放行"，下面两条会红。 */
+  assert.equal(findClickableNonInteractive('<div onClick={go}>裸 div</div>').length, 1,
+    '裸 div（无 role）必须仍被检出 —— 容器角色规则不得变成后门');
+  assert.equal(findClickableNonInteractive('<div role="foo" onClick={go}>未知 role</div>').length, 1,
+    '未知/非白名单 role 必须仍被检出');
+  // 交互角色但缺 onKeyDown 也必须违规（不能靠角色蒙混）
+  assert.equal(findClickableNonInteractive('<div role="button" onClick={go}>x</div>').length, 1,
+    'role=button 缺 tabIndex/onKeyDown 必须仍被检出');
+});
+
 test('① 检测器自证：注释里出现的 <div onClick> 字样不得误报', () => {
   const src = ['/* 说明：原为 <div onClick> 已改 <button> */', 'const x = 1;'].join('\n');
   assert.deepEqual(findClickableNonInteractive(src), [], '注释内容不参与检测');
