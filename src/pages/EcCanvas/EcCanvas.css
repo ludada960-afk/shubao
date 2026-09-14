@@ -1558,7 +1558,18 @@
      用户反复投诉的「参数文字盖住生成按钮」在这一层被物理截断，与子元素自身样式无关。 */
   overflow: hidden;
 }
-.ec-canvas-context-composer > .ec-canvas-prompt-resize { flex: 0 1 auto; min-height: 0; }
+/* 2026-09-17 修 bug：这里原写 `min-height: 0`，把 .ec-canvas-prompt-resize 自己声明的
+   min-height(--ec-prompt-min-h = 102px = 3 行) 覆盖成 0 —— 于是 flex 父级把它压缩到 69px，
+   「默认高度 = 3 行」这条口径实际从未生效（实测 computed min-height 是 0px）。
+   现在改成让输入框自己守下限：可以收缩，但不低于规范下限。 */
+/* 2026-09-17 修 bug（两处叠加）：
+   ① 原写 min-height: 0，把输入框自己声明的下限（--ec-prompt-min-h = 3 行）覆盖成 0；
+   ② 原写 flex: 0 1 auto（可收缩），而生成框是**内容自适应高度**的浮动面板 ——
+      它在算「内容需要多高」时会把可收缩子项压到最小，于是输入框既进不到 3 行下限、
+      也长不到用户拖出来的高度（实测：声明 102 却渲染 69，拖动上限被压到 219）。
+   改成 flex: 0 0 auto（按自身 height/min/max 参与布局，不参与收缩）：
+   输入框自己守下限与上限，生成框再按内容自适应整体高度。 */
+.ec-canvas-context-composer > .ec-canvas-prompt-resize { flex: 0 0 auto; min-height: var(--ec-prompt-min-h, 102px); }
 .ec-canvas-context-composer > .ec-canvas-composer-footer { flex: 0 0 auto; }
 .ec-canvas-prompt-resize > .mention-prompt-field {
   width: 100%;

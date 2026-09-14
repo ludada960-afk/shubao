@@ -538,7 +538,17 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
      · 上限 = min(TEXTAREA_RESIZE.maxHeight(320), 容器可视区剩余高度 - bottomSafeGap)
        —— 首页踩过的坑：上限若不减去容器剩余空间，一拉就顶出面板被 overflow 裁断；
      · 到顶后由输入框自身 overflow:auto 出滚动条，而不是被裁掉。
-   四个生成框（图片 / 文案 / 视频 / 套图）全部走这个组件，保证口径一致。 */
+   四个生成框（图片 / 文案 / 视频 / 套图）全部走这个组件，保证口径一致。
+
+   ── 2026-09-17 产品决定：拉伸高度**不记忆、不持久化** ──────────────────
+   用户原话：「你为什么要记住他拖动的高度呢？用户是在输入太长的时候才会去拖。
+   正常情况下他不需要每次打开都看到非常大的输入框。你一开始做小一些没问题，
+   但要有可以拖动的功能。他在真正需要输入大片文字时觉得框小了才会去拖。
+   所以没必要保存上一次拖动的高度。」
+   → 因此这里刻意**只用组件内 useState**：不写 localStorage / sessionStorage，
+     不写进节点数据，也不随面板重开复原。每次打开都是规范下限的「小」尺寸，
+     用户需要时再拖；拖到上限后由输入框自身出滚动条。
+     请勿"优化"成持久化 —— 那是被产品明确否掉的行为。 */
 const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IMAGE_PROMPT_LIMIT, value = '', onResize, className = '', ...props }, ref) {
   const boxRef = useRef(null);
   const dragRef = useRef(null);
@@ -547,26 +557,42 @@ const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IM
   const styleVars = useMemo(() => promptFieldCssVars(), []);
   const textLength = String(value || '').length;
   const atLimit = maxLength > 0 && textLength >= maxLength;
-  /* 上限要同时受「规范上限」与「容器可视区剩余」约束（首页 resolveResizedHeight 同一口径）。
-     boxRef 的祖先里有 overflow:hidden 的生成框（.ec-canvas-context-composer），
-     不减去它给出的剩余高度，拉过头就会整块被裁掉。 */
+  /* 上限同时受「规范上限」与「容器可视区剩余」约束（首页 resolveResizedHeight 同一口径）。
+     2026-09-17 修 bug：这里的 available 原来写成
+         siblingHeight = hostHeight - boxHeight; available = hostHeight - siblingHeight
+     化简后 available ≡ boxHeight（输入框自己的当前高度），于是上限永远等于当前高度，
+     **手柄按下去拖不动**（实测 69px 拖了 90px 仍是 69px）。正确口径是
+     「容器里除输入框与留白之外，还剩下多少可以给输入框」——
+     即 host 的可用高度减去输入框上下**其它**兄弟节点（参考区/底栏）与面板内边距。 */
   const readBounds = () => {
     const box = boxRef.current;
-    if (!box) return { min: TEXTAREA_RESIZE.minHeight, max: TEXTAREA_RESIZE.maxHeight };
-    const host = box.closest('.ec-canvas-context-composer') || box.parentElement;
-    const hostBox = host?.getBoundingClientRect();
-    const boxBox = box.getBoundingClientRect();
-    /* 生成框里、输入框上下之外已经占掉的高度（参考区/底栏/内边距） */
-    const siblingHeight = hostBox ? Math.max(0, hostBox.height - boxBox.height) : 0;
-    const available = hostBox ? hostBox.height - siblingHeight : NaN;
+    const fallbackMin = TEXTAREA_RESIZE.minHeight;
+    const fallbackMax = TEXTAREA_RESIZE.maxHeight;
+    if (!box) return { min: fallbackMin, max: fallbackMax, available: NaN };
     const styles = getComputedStyle(box);
-    const cssMin = Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-min-h')) || TEXTAREA_RESIZE.minHeight);
-    const cssMax = Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-max-h')) || TEXTAREA_RESIZE.maxHeight);
-    return {
-      min: Math.max(TEXTAREA_RESIZE.minHeight, Math.min(cssMin, cssMax)),
-      max: Math.min(cssMax, TEXTAREA_RESIZE.maxHeight + (cssMax - TEXTAREA_RESIZE.maxHeight)),
-      available,
-    };
+    const cssMin = Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-min-h')) || fallbackMin);
+    const cssMax = Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-max-h')) || fallbackMax);
+    const min = Math.max(fallbackMin, Math.min(cssMin, cssMax));
+    const max = Math.max(min, Math.min(cssMax, Math.max(cssMax, fallbackMax)));
+    /* 容器（生成框）能给输入框的最大高度。host 自身可能已接近视口上限（.ec-canvas-context-composer
+       有 max-height: calc(100vh - 200px)），所以用「host 上限 − 其它内容占用」而不是当前 host 实高，
+       否则输入框一长高、host 跟着长高，剩余量又会把上限拉回当前值 —— 同一个死循环。 */
+    const host = box.closest('.ec-canvas-context-composer') || box.parentElement;
+    let available = NaN;
+    if (host) {
+      const hostStyles = getComputedStyle(host);
+      const declaredMax = Number.parseFloat(hostStyles.maxHeight);
+      const hostMax = Number.isFinite(declaredMax) && declaredMax > 0
+        ? Math.min(declaredMax, window.innerHeight)
+        : Math.max(host.getBoundingClientRect().height, max);
+      /* 除输入框之外的所有子元素 + 上下内边距 = 不可让出的高度 */
+      const padding = (Number.parseFloat(hostStyles.paddingTop) || 0) + (Number.parseFloat(hostStyles.paddingBottom) || 0);
+      const others = [...host.children]
+        .filter(child => child !== box)
+        .reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+      available = hostMax - padding - others - TEXTAREA_RESIZE.bottomSafeGap;
+    }
+    return { min, max, available };
   };
   const measureOverflow = () => {
     const field = boxRef.current?.querySelector('.mention-prompt-field');
