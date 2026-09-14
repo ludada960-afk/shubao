@@ -34,17 +34,65 @@ function walk(dir, exts, out = []) {
 }
 const rel = p => path.relative(ROOT, p).replace(/\\/g, '/');
 
-function countAll(files, re) {
+function countAll(files, re, norm) {
   const m = new Map();
   for (const f of files) {
     const txt = fs.readFileSync(f, 'utf8');
     for (const match of txt.matchAll(re)) {
-      const k = match[1] ?? match[0];
+      const raw = match[1] ?? match[0];
+      const k = norm ? norm(raw) : raw;
       m.set(k, (m.get(k) || 0) + 1);
     }
   }
   return m;
 }
+/**
+ * 把 `var(--sb-x)` 解析成真实数值再统计档位。
+ * 为什么必须这么做：原口径直接拿正则捕获到的**字符串**当 key，于是
+ *   fontSize: 12            → key '12'
+ *   fontSize: 'var(--sb-text-sm)' → key '--sb-text-sm'
+ * 换 token **不会**让档位下降，反而多出一个新 key——度量在惩罚正确做法。
+ * 现在先从所有 CSS 里建 `--sb-* → 值` 表（跟随别名链），统计时把 var() 还原成数值，
+ * 于是「同一 token 被到处复用」会真正体现为「档位收敛」。
+ */
+let _tokenValues = null;
+const TOKEN_VALUES = () => {
+  if (_tokenValues) return _tokenValues;
+  const map = new Map();
+  for (const f of cssFiles) {
+    const txt = fs.readFileSync(f, 'utf8');
+    for (const m of txt.matchAll(/(--sb-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+      if (!map.has(m[1])) map.set(m[1], m[2].trim());
+    }
+  }
+  /* 跟随别名链，最多 6 跳，防环 */
+  const resolve = (raw, depth = 0) => {
+    if (depth > 6) return raw;
+    const m = /^var\(\s*(--sb-[a-z0-9-]+)\s*(?:,\s*([^)]+))?\)$/.exec(raw.trim());
+    if (!m) return raw;
+    const next = map.get(m[1]);
+    if (next === undefined) return m[2] ? m[2].trim() : raw;
+    return resolve(next, depth + 1);
+  };
+  const out = new Map();
+  for (const [k, v] of map) out.set(k, resolve(v));
+  _tokenValues = out;
+  return out;
+};
+const px = value => {
+  const m = /^(-?[0-9.]+)\s*px$/.exec(String(value).trim());
+  if (m) return m[1];
+  const n = /^(-?[0-9.]+)$/.exec(String(value).trim());
+  return n ? n[1] : String(value).trim();
+};
+const normalize = raw => {
+  const s = String(raw).trim().replace(/^['\"]|['\"]$/g, '');
+  const vm = /^var\(\s*(--sb-[a-z0-9-]+)/.exec(s);
+  const tv = TOKEN_VALUES();
+  if (vm && tv.has(vm[1])) return px(tv.get(vm[1]));
+  return px(s);
+};
+
 function topN(map, n, sort = 'count') {
   const arr = [...map.entries()];
   if (sort === 'count') arr.sort((a, b) => b[1] - a[1]);
@@ -88,18 +136,18 @@ const hexes = countAll(codeFiles.filter(f => !f.endsWith('design-tokens-v3.css')
 const hexTotal = [...hexes.values()].reduce((a, b) => a + b, 0);
 console.log('  hex 硬编码:  ' + hexTotal + ' 次 / ' + hexes.size + ' 个不同值   [目标: 全部走 token]');
 
-const fontSizes = countAll(codeFiles, /fontSize:\s*'?([0-9.]+)/g);
+const fontSizes = countAll(codeFiles, /fontSize:\s*'?(var\(--sb-[a-z0-9-]+\)|[0-9.]+)/g, normalize);
 console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 9 档]   ' +
   topN(fontSizes, 6).map(([k, v]) => k + 'px×' + v).join(' '));
 
-const radii = countAll(codeFiles, /borderRadius:\s*'?([0-9.]+)/g);
+const radii = countAll(codeFiles, /borderRadius:\s*'?(var\(--sb-[a-z0-9-]+\)|[0-9.]+)/g, normalize);
 console.log('  圆角档位:    ' + radii.size + ' 档                [目标: 8 档]   ' +
   topN(radii, 6).map(([k, v]) => k + 'px×' + v).join(' '));
 
 const zIdx = countAll(codeFiles, /zIndex:\s*'?([0-9]+)/g);
 console.log('  z-index:     ' + zIdx.size + ' 个裸值             [目标: 9 档语义]');
 
-const gaps = countAll(codeFiles, /gap:\s*'?([0-9]+)/g);
+const gaps = countAll(codeFiles, /gap:\s*'?(var\(--sb-[a-z0-9-]+\)|[0-9]+)/g, normalize);
 const LADDER = new Set(['0','4','8','12','16','20','24','32','40','48','64']);
 let offLadder = 0, gapTotal = 0;
 for (const [k, v] of gaps) { gapTotal += v; if (!LADDER.has(k)) offLadder += v; }
