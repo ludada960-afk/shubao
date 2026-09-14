@@ -205,10 +205,19 @@ export const panelBodyStyle = Object.freeze({
 
 /* 中性「未锁定」态：用户批注「默认肯定是没有锁定任何颜色的」。
    未锁定 = 中性灰虚线描边 + 棋盘底，绝不能用紫色描边
-   （否则用户会以为「你已经帮他选了紫色」）。 */
+   （否则用户会以为「你已经帮他选了紫色」）。
+
+   2026-09-15 V3 更新：
+     · 描边宽度 1.5px → **2px**，与锁定态（2px solid）**等宽** ——
+       D2（40-decisions）要求「不改变边框宽度」，否则切换锁定态会抖动布局；
+     · 颜色改用 V3 token（--sb-border-strong = 暖中性），不再硬编码 rgba；
+     · 棋盘底同样走 token（--sb-surface-tint）。
+   本常量是「未锁定态」的**唯一事实源**：面板必须引用它，不得各自内联同一组值
+   （否则又是一处「多套真相」，正是 D8 要治的病）。 */
 export const NEUTRAL_UNLOCKED = Object.freeze({
-  border: '1.5px dashed rgba(45,41,38,0.28)',
-  background: 'repeating-conic-gradient(rgba(12,10,9,0.06) 0% 25%, transparent 0% 50%) 50% / 8px 8px',
+  border: '2px dashed var(--sb-border-strong)',
+  /* 棋盘格：无颜色填充，纯中性底纹 */
+  background: 'repeating-conic-gradient(var(--sb-surface-tint) 0% 25%, transparent 0% 50%) 50% / 8px 8px',
 });
 
 /** 锁定态：描边跟随所选颜色本身（不是固定紫色） */

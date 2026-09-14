@@ -4,6 +4,8 @@ import { HexColorPicker } from 'react-colorful';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelResolutions, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ModelLogo from '../../../components/ModelLogo.jsx';
+/* 未锁定态的唯一事实源（D8：同一语义只允许一处定义，禁止各面板内联同一组值）。 */
+import { NEUTRAL_UNLOCKED } from './panelVisualLanguage.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    2026-09-15 总统筹 V3 改造（用户点名「最丑」的面板）
@@ -278,10 +280,12 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                   cursor: 'pointer',
                   padding: 0,
                   /* D2：锁定/未锁定**边框宽度恒定 2px**（此前 2px↔1.5px 会抖动）；
-                     锁定态额外叠 ring，且描边跟随所选颜色本身（不是固定紫）。 */
-                  border: brandLocked ? `2px solid ${pickerColor}` : '2px dashed var(--sb-border-strong)',
+                     锁定态额外叠 ring，且描边跟随所选颜色本身（不是固定紫）。
+                     未锁定态的两条声明引用 NEUTRAL_UNLOCKED 常量（唯一事实源），
+                     不再内联同一组值 —— 等价写法，但消除了「多套真相」（D8）。 */
+                  border: brandLocked ? `2px solid ${pickerColor}` : NEUTRAL_UNLOCKED.border,
                   boxShadow: brandLocked ? 'var(--sb-shadow-ring)' : 'none',
-                  background: brandLocked ? pickerColor : 'repeating-conic-gradient(var(--sb-surface-tint) 0% 25%, transparent 0% 50%) 50% / 8px 8px',
+                  background: brandLocked ? pickerColor : NEUTRAL_UNLOCKED.background,
                 }}
               />
               <input

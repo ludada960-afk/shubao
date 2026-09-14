@@ -20,17 +20,34 @@ test('① 色块描边跟随所选颜色本身，锁定态不是写死的紫色 
     /border:\s*brandLocked\s*\?\s*`2px solid \$\{pickerColor\}`/.test(panel),
     '锁定态描边必须跟随 pickerColor（用户选什么颜色就是什么颜色的边框）',
   );
-  /* 未锁定态：中性灰虚线 + 棋盘底，绝不出现紫色描边 */
-  /* 等价写法：字面量中性灰 或 V3 token（--sb-border-strong = 暖中性）。
-     2026-09-15 迁移 V3 后，断言改为「中性虚线」语义而非某个字面量。 */
-  /* D2（40-decisions）：锁定/未锁定的**边框宽度必须一致**（2px/2px），
-     否则切换锁定态会触发 1.5px↔2px 的布局抖动 —— 这是 D2 明令禁止的。
-     颜色仍须是暖中性（不得为品牌紫）。 */
+  /* ── 未锁定态：中性灰虚线 + 棋盘底，绝不出现紫色描边（用户明确要求）──
+     等价性说明（本条第 5 项）：实现由「内联字面量」改为**引用 NEUTRAL_UNLOCKED 常量**，
+     该常量本身也升级为 V3 token。三条语义全部不变且更严格：
+       · 描边仍是中性灰虚线（--sb-border-strong = 暖中性，绝非品牌紫）
+       · 宽度恒 2px，与锁定态等宽（D2：改宽度会造成布局抖动）
+       · 底色仍是中性棋盘，不填充任何颜色
+     断言改为：① 实现引用唯一事实源；② 该事实源的取值满足上述语义。
+     这样「常量被改坏」或「面板绕开常量自己内联」都会被抓到。 */
   assert.ok(
-    /2px dashed (rgba\(45,\s*41,\s*38[^)]*\)|var\(--sb-border-(strong|default)\))/.test(panel),
-    '未锁定态必须是中性灰虚线描边（宽度与锁定态一致，均为 2px）',
+    panel.includes('NEUTRAL_UNLOCKED'),
+    '未锁定态必须引用 NEUTRAL_UNLOCKED 常量（唯一事实源，禁止各面板内联同一组值）',
   );
-  assert.ok(panel.includes('repeating-conic-gradient'), '未锁定态色块必须是中性棋盘底，不填充任何颜色');
+  const spec = read('src/pages/Home/ec/panelVisualLanguage.js');
+  const constDef = spec.slice(spec.indexOf('NEUTRAL_UNLOCKED'), spec.indexOf('NEUTRAL_UNLOCKED') + 400);
+  assert.ok(
+    /border:\s*'2px dashed var\(--sb-border-(strong|default)\)'/.test(constDef),
+    '未锁定描边必须是中性灰虚线且宽度 2px（与锁定态等宽）',
+  );
+  assert.ok(
+    !/124,\s*58,\s*237|7c3aed/i.test(constDef),
+    '未锁定描边绝不得是品牌紫',
+  );
+  assert.ok(/repeating-conic-gradient/.test(constDef), '未锁定色块必须是中性棋盘底，不填充任何颜色');
+  /* 反向护栏：面板不得再内联同一组值（否则又是一处「多套真相」） */
+  assert.ok(
+    !/repeating-conic-gradient/.test(panel),
+    '面板不得内联棋盘底 —— 必须引用 NEUTRAL_UNLOCKED',
+  );
 });
 
 test('① 默认态是「未锁定」：暂存色不再是品牌紫 #7c3aed，取色盘默认收起', () => {
