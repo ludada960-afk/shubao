@@ -148,6 +148,10 @@
   position: relative;
   z-index: 1;
 }
+/* 2026-09-20 依 D11：本控件抑制了轮廓（border: none + outline: none），
+   **必须给可见替代**。焦点环用 box-shadow（不参与盒模型 → 零布局抖动，见 D2）。
+   实测：修复前它是全站仅 2 处「不可达焦点」之一。 */
+.hero-textarea:focus-visible { box-shadow: var(--sb-shadow-ring); }
 
 /* 自定义占位层 — 叠加在 textarea 上面 */
 .custom-placeholder {

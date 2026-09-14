@@ -8,6 +8,10 @@
 .canvas-asset-picker-tools { display: flex; align-items: center; gap: 12px; padding: 14px 22px 10px; }
 .canvas-asset-picker-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 9px; color: #a8a29e; }
 .canvas-asset-picker-search input { flex: 1 1 auto; border: 0; outline: none; font-size: 12.5px; font-family: inherit; color: #292524; background: transparent; }
+/* 2026-09-20 依 D11：抑制了 input 自身轮廓 → **必须给可见替代**。
+   input 无边框（视觉框在包裹层 .canvas-asset-picker-search 上），所以焦点环打在包裹层，
+   用 box-shadow（不参与盒模型 → **零布局抖动**，见 D2）。 */
+.canvas-asset-picker-search:focus-within { border-color: var(--sb-brand-500); box-shadow: var(--sb-shadow-ring); }
 .canvas-asset-picker-tabs { display: flex; gap: 6px; }
 .canvas-asset-picker-tabs button { height: 32px; padding: 0 14px; border: 1px solid rgba(28,25,23,.10); border-radius: 16px; background: #fff; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
 .canvas-asset-picker-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }

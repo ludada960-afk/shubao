@@ -166,9 +166,70 @@ const fvInTokens = hasSbTokens
 console.log('  focus-visible 出现:  ' + fv + ' 次 (规范文件内 ' + fvInTokens + ' 次)   ' +
   (fv === 0 ? '❌ P0 违规 WCAG 2.4.7' : '✅'));
 
+/* ── ① 声明总数（保留，看规模）────────────────────────────────────────────── */
 const outlineNone = (appText.match(/outline:\s*['"]none['"]|outline:\s*none/g) || []).length;
-console.log('  裸 outline:none:     ' + outlineNone + ' 处                  ' +
-  (outlineNone > 0 ? '⚠️  必须配 :focus-visible 替代' : '✅'));
+
+/* ── ② 真正要盯的数字：**不可达焦点**（依 D11）────────────────────────────────
+   D11 原文：判据是「抑制了轮廓**必须有可见替代**」，指标是**不可达焦点 = 0**，
+   **不是关键词计数**。（此前这里只数字符串出现次数 → 420 行那种
+   `.x:focus-visible { … }` 里带可见替代的也被算成「裸」，属于用代理指标冒充判据 ——
+   同一类错误本仓已犯过三次：注释里的 hex 被算债务、var() 被算独立档位、现在这个是第三次。）
+   规则：一条 `outline:none` 只有在**没有任何可见替代**时才算缺陷。
+   可见替代 = 同一条规则或同文件的 `:focus-visible` / `:focus` 规则里出现下列任一：
+   box-shadow / border / background / color / transform / opacity / filter / outline-offset / text-decoration。 */
+const VISIBLE = /box-?[sS]hadow|border(-color|-width)?\s*:|background(-color)?\s*:|color\s*:|transform\s*:|opacity\s*:|filter\s*:|outline-offset|\.\.\.?style|text-decoration/;
+const baseOf = (sel) => sel.split(',').map(s => s.trim().split(':')[0].trim()).filter(Boolean);
+
+const focusIssues = [];
+let outlineWithReplacement = 0;
+let outlineInCssRules = 0;
+for (const file of appFiles) {
+  /* ⚠️ 必须先剥注释再切规则：否则 `([^{}]+)\{` 会把**紧邻前面的注释**当成选择器的一部分，
+     于是这条规则的 base 变成一段中文注释 → 永远匹配不上它的 :focus-visible 兄弟规则，
+     结果就是「修好了仍然报错」。（实测踩到：加了焦点环还是被判为不可达。） */
+  const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const rel = path.relative(ROOT, file).split(path.sep).join('/');
+  /* 只看 CSS 规则块；JSX 内联样式里的 outline 单独处理（见下） */
+  if (!file.endsWith('.css')) continue;
+  const rules = [];
+  const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+  let rm;
+  while ((rm = ruleRe.exec(text))) rules.push({ sel: rm[1].trim(), body: rm[2], at: text.slice(0, rm.index).split('\n').length });
+  for (const r of rules) {
+    if (!/outline:\s*none/.test(r.body)) continue;
+    outlineInCssRules++;
+    const parts = r.sel.split(',').map(s => s.trim());
+    const selfFocus = parts.filter(p => /:focus/.test(p));
+    if (selfFocus.length && VISIBLE.test(r.body)) { outlineWithReplacement++; continue; }
+    const bases = baseOf(r.sel);
+    /* 焦点环允许打在外层容器上（:focus-within）—— 这是「输入框本体无边框、视觉框在包裹层」
+       时的**行业标准做法**，所以匹配时也认「本规则的任一祖先片段」。 */
+    const tokensOf = (s) => s.split(/\s+/).filter(Boolean);
+    const ancestors = tokensOf(bases[0] || '');
+    const sibling = rules.find(o => {
+      if (!/:focus(-visible|\-within)?\b/.test(o.sel)) return false;
+      const oBase = baseOf(o.sel);
+      const hit = oBase.some(b => bases.includes(b) || ancestors.includes(b));
+      return hit && VISIBLE.test(o.body);
+    });
+    if (selfFocus.length === 0 && sibling) { outlineWithReplacement++; continue; }
+    if (selfFocus.length && !VISIBLE.test(r.body)) { focusIssues.push({ rel, at: r.at, sel: r.sel.slice(0, 70), why: 'focus 规则里抑制了轮廓但没有任何可见替代' }); continue; }
+    focusIssues.push({ rel, at: r.at, sel: r.sel.slice(0, 70), why: '抑制了轮廓，且同文件找不到带可见替代的 :focus-visible 规则' });
+  }
+}
+
+/* 两个数口径不同，必须分开写清楚（否则会看成「35 有替代 / 46 没有」这种假警报）：
+   `outlineNone` 是全仓正则计数（含 JSX 内联样式）；
+   `outlineInCssRules` 才是能被规则级判定的部分。 */
+console.log('  outline:none 声明:   ' + outlineNone + ' 处（CSS 规则 ' + outlineInCssRules +
+  ' / JSX 内联 ' + (outlineNone - outlineInCssRules) + '）');
+console.log('    · 其中 CSS 规则里**有可见替代**: ' + outlineWithReplacement + ' 处 → 合规');
+console.log('  ❗ 不可达焦点:        ' + focusIssues.length + ' 处                 ' +
+  (focusIssues.length === 0 ? '✅ 依 D11 达标（不可达焦点 = 0）' : '⚠️  D11：抑制轮廓必须有可见替代'));
+if (focusIssues.length) {
+  for (const it of focusIssues.slice(0, 10)) console.log('      · ' + it.rel + ':' + it.at + '  ' + it.sel + '   ← ' + it.why);
+  if (focusIssues.length > 10) console.log('      · …还有 ' + (focusIssues.length - 10) + ' 处');
+}
 
 const divClick = (appText.match(/<div[^>]*onClick/g) || []).length;
 console.log('  <div onClick>:       ' + divClick + ' 处                 ' +
