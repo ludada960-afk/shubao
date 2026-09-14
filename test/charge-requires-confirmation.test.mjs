@@ -213,6 +213,35 @@ test('设计方向页挂载时不得发起计费分析（刷新 3 次只扣一�
   assert.match(dd, /onClick=\{handleStartAnalysis\}/, '该入口必须挂在按钮 onClick 上');
 });
 
+/* ── 裁定②：自动补跑「恢复≠新购」可保留，但**不允许静默扣** ─────────── */
+
+test('自动补跑必须在扣费**之前**给出可见告知（第 N/M 次 + 将扣多少积分）', () => {
+  const api = read('src/services/api.js');
+  const at = api.indexOf('async function repairIncompleteSuite');
+  assert.ok(at > 0, '必须能找到 repairIncompleteSuite');
+  const seg = api.slice(at, at + 5200);
+  /* 判据：在 retryFailedEcommerceTask（真正建 hold 并结算）之前，先推一条可见 notice。 */
+  const noticeAt = seg.indexOf('onNotice?.(');
+  const chargeAt = seg.indexOf('await retryFailedEcommerceTask(');
+  assert.ok(noticeAt > 0, '必须给出事前告知（onNotice）—— 不允许静默扣');
+  assert.ok(chargeAt > 0, '必须能定位真正的扣费调用');
+  assert.ok(noticeAt < chargeAt, '告知必须发生在扣费**之前**，否则「先扣再说」没有意义');
+  /* 告知必须写明「第几次 / 上限 / 积分」，不能是含糊的一句话 */
+  assert.match(seg, /repairAttempt \+ 1[\s\S]{0,80}MAX_AUTOMATIC_SUITE_REPAIRS/,
+    '告知必须写出「第 N 次 / 共 M 次」');
+  assert.match(seg, /totalUnits|points/, '告知必须写出将扣多少积分（取自报价，不是前端编的数）');
+});
+
+test('自动补跑的扣费在积分明细里必须与首次购买可辨认', () => {
+  const billing = read('server/ecommerceEngine/ecommerceBilling.mjs');
+  assert.match(billing, /ecommerce_suite_repair/,
+    '补跑必须有自己的来源标记，否则用户在明细里看到两笔一模一样的扣费');
+  assert.match(billing, /ecommerce_generate/);
+  assert.match(billing, /job\?\.progress\?\.retryOf/, '标记必须依 job 是否补跑（retryOf）分流');
+  const labels = read('server/billing/billingLabels.mjs');
+  assert.match(labels, /补跑未交付图片/, '明细名称必须对用户可读地标出「补跑」');
+});
+
 test('设计方向的 actionId 必须是稳定键（同草稿刷新命中同一条记录 → replay）', () => {
   const dd = read('src/pages/Home/ec/DesignDirection.jsx');
   assert.match(dd, /stableCanvasActionId\(\[/, '分析必须用稳定键，否则刷新会生成新 UUID → 再扣一次');

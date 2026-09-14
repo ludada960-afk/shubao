@@ -165,8 +165,12 @@ function holdLabel({ idempotencyKey = '', metadata = {} } = {}) {
   if (String(idempotencyKey || '').startsWith('ec-hold:')) {
     const items = Array.isArray(metadata.items) ? metadata.items : [];
     const skus = [...new Set(items.map(item => String(item.sku || '')))].filter(Boolean);
-    if (skus.length === 1 && skuLabel(skus[0])) return skuLabel(skus[0]);
-    return 'AI 商品图生成';
+    /* 2026-09-20 裁定②：自动补跑必须与首次购买在积分明细里**可辨认**。
+       判据是来源标记（metadata.source，由 ecommerceBilling 依 job.progress.retryOf 写入），
+       而不是「扣费金额」—— 两者金额可能一样，用户只能靠名称区分。 */
+    const isRepair = String(metadata.source || '').trim() === 'ecommerce_suite_repair';
+    const base = skus.length === 1 && skuLabel(skus[0]) ? skuLabel(skus[0]) : 'AI 商品图生成';
+    return isRepair ? `${base} · 补跑未交付图片` : base;
   }
   if (String(idempotencyKey || '').startsWith('canvas-hold:')) return '画布 AI 处理';
   return '积分消耗';

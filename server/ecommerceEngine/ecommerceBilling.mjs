@@ -113,7 +113,13 @@ export function createEcommerceBilling({ walletService, quoteService } = {}) {
           items,
           metadata: {
             taskId: job.id,
-            source: 'ecommerce_generate',
+            /* 2026-09-20 裁定②：自动补跑（retry）必须与首次购买在**积分明细里可辨认**。
+               原来一律写 'ecommerce_generate' —— 用户看到两笔一模一样的扣费，
+               分不清哪笔是「补跑失败图」。这里按 job 是否带 retryOf 分流：
+                 首次  → ecommerce_generate（「生成套图」）
+                 补跑  → ecommerce_suite_repair（「补跑未交付图片」） */
+            source: cleanString(job?.progress?.retryOf) ? 'ecommerce_suite_repair' : 'ecommerce_generate',
+            ...(cleanString(job?.progress?.retryOf) ? { repairOf: cleanString(job.progress.retryOf) } : {}),
             quoteExpiresAt: verifiedQuote.expiresAt,
           },
         });

@@ -167,6 +167,11 @@ export default function EcAutoPage() {
           const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
           if (progress) setGenProgress(progress);
         },
+        /* 2026-09-20 裁定②：自动补跑的事前告知（不允许静默扣）。 */
+        onNotice: (notice) => {
+          if (!isGenerationCurrent(generationToken)) return;
+          if (notice?.text) setGenProgress(notice.text);
+        },
         onImage: (image) => {
           if (!isGenerationCurrent(generationToken)) return;
           const url = image?.stableUrl || image?.url;

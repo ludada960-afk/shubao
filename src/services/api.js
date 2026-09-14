@@ -276,6 +276,19 @@ async function repairIncompleteSuite(task, options) {
         retryTaskId: '',
         repairAttempt,
       });
+      /* 2026-09-20 裁定②：自动修复是「恢复」不是「新购」，保留；
+         但**不允许静默扣** —— 用户必须事先知道「这是第 N/M 次自动修复、将扣 X 积分」。
+         这里在**真正发起扣费之前**（retryFailedEcommerceTask 会建 hold 并结算）
+         先推一条可见提示，把「第几次 / 上限 / 确切积分」讲清楚。
+         文案只给用户语言，不含内部信息（不变式）。 */
+      const units = Number(retryQuote.quote.totalUnits);
+      const points = Number.isFinite(units) && units > 0 ? (units / 1000) : 0;
+      const attemptLabel = `${repairAttempt + 1}/${MAX_AUTOMATIC_SUITE_REPAIRS}`;
+      options.onNotice?.({
+        id: 'suite-auto-repair-charge',
+        tone: 'info',
+        text: `本轮有图片未交付，正在自动补跑（第 ${attemptLabel} 次），将按实际张数扣 ${points} AI 积分`,
+      });
     }
     const queued = await retryFailedEcommerceTask(sourceTaskId, {
       billingQuoteId: quoteId,

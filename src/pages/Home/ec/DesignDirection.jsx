@@ -680,6 +680,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           if (task.stage) setGenStage(task.stage);
           if (task.message) setGenProgress(task.message);
         },
+        /* 2026-09-20 裁定②：自动补跑的**事前**告知（见 services/api.js repairIncompleteSuite）。
+           「恢复≠新购」所以保留自动补跑，但不允许静默扣 ——
+           在真正扣费之前把「第几次 / 上限 / 将扣多少积分」显示给用户。 */
+        onNotice: (notice) => {
+          if (!isGenerationCurrent(generationToken)) return;
+          if (notice?.text) setGenProgress(notice.text);
+        },
         onImage: (image) => {
           if (!isGenerationCurrent(generationToken)) return;
           // C4: 每张图片生成时更新进度
