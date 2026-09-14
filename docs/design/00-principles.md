@@ -347,6 +347,32 @@ R = |translateY| + 放大外扩
 > 详细规范与可照抄实现见 `10-visual-language.md` §2I 与 `20-components.md` §0.6。
 
 ### 原则 4.5 — Disabled 必须真禁用
+### 原则 4.7 — 可点必有 hover（`cursor: pointer` ⇒ 必须有 `:hover`）
+
+> 2026-09-20 新增。原则 4.3 讲了「hover 怎么设计」，但没讲「**哪些元素必须有 hover**」——
+> 于是全站出现了「光标说能点、移上去什么都不发生」。
+
+**规则**：凡是声明了 `cursor: pointer` 的元素，**必须**有 `:hover` 规则；
+反过来，**没有 hover 的东西不该有 pointer 光标**（那是在骗用户）。
+
+**实测缺口**：全仓 **332 个** `cursor: pointer` 选择器里，**134 个没有任何 `:hover`**。
+
+**只改一个通道**（沿用 4.3 的表）：
+
+| 元素类型 | hover 改什么 | 用什么 |
+|---|---|---|
+| 中性底 / 透明底按钮、图标按钮 | 表面色（中性，**不许发紫**）| `--sb-hover-bg` |
+| 实色底按钮（主 CTA）| 海拔（**不改底色**）| `--sb-shadow-3` |
+| 卡片 / 可点块 | 海拔抬升一档（**不动尺寸**）| `--sb-shadow-2` → `-3` |
+
+**三条禁止**（每条都对应一次用户投诉）：
+1. hover **不许改文字颜色**（尤其不许变紫）—— 那是 selected 的通道；
+2. hover **不许改边框宽度 / 字号 / padding** —— 会抖动布局（D2）；
+3. hover 与 selected **不许用同一个视觉通道** —— 否则分不清「鼠标在上面」和「已经选中」。
+
+**写法**：一律 `:hover:not(:disabled)`，一律用上面的 token，**不写死颜色**。
+拿不准时可直接挂工具类 `.sb-hoverable`（`design-tokens-v3.css` §22）。
+
 
 **反模式**：`opacity: 0.4` + `pointerEvents: 'none'`，但 `onClick` 仍挂着。
 - 键盘 `Enter`/`Space` **仍然会触发**（pointerEvents 不管键盘）
