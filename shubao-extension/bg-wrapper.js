@@ -5,7 +5,7 @@
  * 注意：Manifest V3 service worker 不持久的，重要状态走 storage
  */
 
-const API_BASE = 'http://localhost:3099';
+const API_BASE = 'https://shuimg.cn';
 
 /* ── 消息路由 ── */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -41,7 +41,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     /* 打开 AI 复刻页面 */
     async openRemakePage({ taskId }) {
-      const url = `http://localhost:5173/#/remake?task=${taskId}`;
+      const url = `https://shuimg.cn/#/remake?task=${taskId}`;
       await chrome.tabs.create({ url });
       return { ok: true };
     },

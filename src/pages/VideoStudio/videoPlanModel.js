@@ -112,7 +112,7 @@ export function buildVideoPlan({ mode = 'smart', prompt = '', files = {}, durati
   if (normalizedMode === 'frame') warnings.push({ code: 'frame-ratio', title: '首尾帧会适配目标画幅', detail: `${ratio} 画幅与原图比例不一致时，边缘可能被裁切。` });
   if (hasAudio && !sound) warnings.push({ code: 'audio-reference', title: '已关闭生成声音', detail: '上传音频仍会作为节奏参考，但不会把它作为成片声音输出。' });
   if (product?.frameAudio === false && normalizedMode === 'frame' && sound) blockers.push({ code: 'frame-audio', title: '当前模型不支持首尾帧配音', detail: '关闭生成声音后再继续。' });
-  if (assets.some(item => item.kind === 'unknown')) warnings.push({ code: 'unknown-file', title: '有素材类型无法识别', detail: '未识别的文件不会被发送给上游。' });
+  if (assets.some(item => item.kind === 'unknown')) warnings.push({ code: 'unknown-file', title: '有素材类型无法识别', detail: '未识别的文件不会被上传。' });
 
   const lane = normalizedMode === 'frame'
     ? 'first_last'

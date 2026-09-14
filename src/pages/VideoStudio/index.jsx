@@ -955,7 +955,7 @@ export default function VideoStudioPage({ embedded = false }) {
           />
           {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
           {error && <div className="video-error">{error}</div>}
-          {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频通道尚未完成安全配置，当前不会扣除积分。</div>}
+          {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
         </div>
 
         <footer className="video-toolbar" ref={toolbarRef}>

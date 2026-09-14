@@ -1290,7 +1290,7 @@ const [commentDraft, setCommentDraft] = useState('');
   return <section className="video-project-workbench" aria-label="视频项目工作台" aria-busy={loading || Boolean(busy)}>
     {planningOnly && <div className="video-project-planning-banner" role="status">
       <ShieldCheck size={16} aria-hidden="true" />
-      <div><strong>规划模式</strong><span>可编辑项目、素材、分镜和时间线；不会调用供应商，也不会扣除积分。</span></div>
+      <div><strong>规划模式</strong><span>可编辑项目、素材、分镜和时间线；不会产生任何生成任务，也不会扣除积分。</span></div>
       <code>{mode === 'planning' ? 'provider-neutral' : mode}</code>
     </div>}
     <header className="video-project-workbench-header">
@@ -1421,7 +1421,7 @@ const [commentDraft, setCommentDraft] = useState('');
       {continuityReview && (workbenchPlan.shots?.length || 0) > 0 && <section className={`video-project-continuity-review ${continuityReview.status === 'review' ? 'is-review' : 'is-clear'}`} aria-label="镜头连续性检查">
         <header>
           <div><small>导演检查</small><strong>{continuityReview.status === 'review' ? <><CircleAlert size={14} />需要复核</> : <><Check size={14} />连续性通过</>}</strong></div>
-          <span>仅作生成前提示，不阻断计划，也不会调用供应商。</span>
+          <span>仅作生成前提示，不阻断计划，也不会产生任何费用。</span>
         </header>
         {!!continuityReview.issues?.length ? <ul>
           {continuityReview.issues.slice(0, 8).map((issue, index) => <li key={`${issue.code}-${issue.shotIds?.join('-') || index}`}>
@@ -1432,17 +1432,17 @@ const [commentDraft, setCommentDraft] = useState('');
       </section>}
       <div className={`video-project-preflight ${preflight?.status === 'ready' ? 'is-ready' : preflight?.status === 'blocked' ? 'is-blocked' : 'is-idle'}`}>
         <header>
-          <div><small>供应商提交门禁</small><strong>{preflight?.status === 'ready' ? <><ShieldCheck size={14} />提交条件已满足</> : preflight?.status === 'blocked' ? <><CircleAlert size={14} />提交前仍有阻断</> : '尚未执行严格预检'}</strong></div>
+          <div><small>提交前检查</small><strong>{preflight?.status === 'ready' ? <><ShieldCheck size={14} />提交条件已满足</> : preflight?.status === 'blocked' ? <><CircleAlert size={14} />提交前仍有阻断</> : '尚未执行严格预检'}</strong></div>
           <button type="button" disabled={Boolean(busy) || workbenchPlan.status !== 'ready'} onClick={handlePreflightGeneration}>
             {busy === 'plan:preflight' ? <><LoaderCircle className="is-spinning" size={13} />预检中…</> : <><ShieldCheck size={13} />提交前预检</>}
           </button>
         </header>
-        <p>只校验模型能力、素材使用权、内容审核、预算和持久化输出契约；不会调用供应商，也不会扣除积分。</p>
+        <p>只校验模型能力、素材使用权、内容审核、预算和持久化输出契约；不会产生任何生成任务，也不会扣除积分。</p>
         {preflight?.status === 'ready' && <div className="video-project-preflight-meta"><span>预检哈希</span><code>{preflight.preflightHash?.slice(0, 16) || '未知'}</code><span>参考素材</span><b>{preflight.referenceStats?.total || 0} 个/镜头</b></div>}
-        {!!preflight?.blockers?.length && <ul className="video-project-preflight-issues" aria-label="供应商提交阻断原因">
+        {!!preflight?.blockers?.length && <ul className="video-project-preflight-issues" aria-label="提交前检查的阻断原因">
           {preflight.blockers.slice(0, 8).map((item, index) => <li key={`${item.code}-${item.shotId || index}`}><CircleAlert size={13} /><span>{item.detail}</span></li>)}
         </ul>}
-        {!!preflight?.warnings?.length && <ul className="video-project-preflight-warnings" aria-label="供应商提交预警">
+        {!!preflight?.warnings?.length && <ul className="video-project-preflight-warnings" aria-label="提交前检查的提醒">
           {preflight.warnings.slice(0, 6).map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
         </ul>}
       </div>
@@ -1463,7 +1463,7 @@ const [commentDraft, setCommentDraft] = useState('');
           <small>下一步</small>
           <strong>{generationDraft ? '逐镜头生成草稿已编译' : '把已确认计划编译成逐镜头草稿'}</strong>
           <span>{generationDraft
-            ? `${generationDraft.shots?.length || 0} 个镜头 · ${generationDraft.shots?.reduce((count, shot) => count + (shot.references?.length || 0), 0) || 0} 个素材引用 · 不会发起供应商任务或扣除积分。`
+            ? `${generationDraft.shots?.length || 0} 个镜头 · ${generationDraft.shots?.reduce((count, shot) => count + (shot.references?.length || 0), 0) || 0} 个素材引用 · 不会发起生成任务或扣除积分。`
             : '只读取已确认素材版本与分镜绑定，供主视频生成入口继续执行。'}</span>
           {generationDraft && <div className="video-project-generation-draft-meta" aria-label="生成草稿审计摘要">
             <span className={generationDraft.continuityReview?.status === 'review' ? 'is-review' : ''}>连续性：{generationDraft.continuityReview?.status === 'clear' ? '通过' : generationDraft.continuityReview?.status === 'review' ? '需要复核' : '未记录'}</span>
@@ -1479,7 +1479,7 @@ const [commentDraft, setCommentDraft] = useState('');
 
     {projectId && <section className="video-project-skill-preview" aria-labelledby="video-skill-preview-heading">
       <header>
-        <div><small>工作流预览</small><h3 id="video-skill-preview-heading">先看清步骤，再决定是否生成</h3><p>这里只创建可回看的 SkillRun 预览并检查依赖，不会调用供应商、不扣积分。</p></div>
+        <div><small>工作流预览</small><h3 id="video-skill-preview-heading">先看清步骤，再决定是否生成</h3><p>这里只创建可回看的 SkillRun 预览并检查依赖，不会产生任何费用，也不扣积分。</p></div>
         {skillRun && <button type="button" disabled={Boolean(busy)} onClick={() => { setSkillRun(null); setSkillRunExecutionPreview(null); }}>清除预览</button>}
       </header>
       <div className="video-project-skill-preview-form">
@@ -1665,7 +1665,7 @@ const [commentDraft, setCommentDraft] = useState('');
               {!!completedJobs.length && <div className="video-project-job-imports">{completedJobs.map(job => <button type="button" key={job.id} disabled={Boolean(busy) || existingJobIds.has(job.id)} onClick={() => handleImportCandidate(shot, job)}>{existingJobIds.has(job.id) ? '已导入' : `导入：${String(job.prompt || '已完成成片').slice(0, 24)}`}</button>)}</div>}
               <div className="video-project-candidate-grid">{(shot.candidates || []).map((candidate, candidateIndex) => <article key={candidate.id} className={selected?.id === candidate.id ? 'is-selected' : ''}>
                 <CandidateMedia candidate={candidate} label={`镜头${index + 1}候选${candidateIndex + 1}`} />
-                <footer><span>版本 {candidateIndex + 1}</span><span className={`video-project-candidate-provenance ${candidateProvenanceClass(candidate.provenanceStatus)}`} title={candidate.provenanceStatus === 'verified' ? '已记录供应商、模型、上游任务和请求摘要' : candidate.provenanceStatus === 'unverified-legacy' ? '历史任务缺少完整的供应商来源快照' : '尚未调用供应商，仅用于规划和排练'}>{candidateProvenanceLabel(candidate.provenanceStatus)}</span><button type="button" disabled={Boolean(busy) || selected?.id === candidate.id} onClick={() => handleSelectCandidate(shot, candidate)}>{selected?.id === candidate.id ? <><Check size={14} />已选定</> : '选用此版'}</button></footer>
+                <footer><span>版本 {candidateIndex + 1}</span><span className={`video-project-candidate-provenance ${candidateProvenanceClass(candidate.provenanceStatus)}`} title={candidate.provenanceStatus === 'verified' ? '已记录模型与请求摘要' : candidate.provenanceStatus === 'unverified-legacy' ? '历史记录缺少完整的来源信息' : '尚未生成，仅用于规划和排练'}>{candidateProvenanceLabel(candidate.provenanceStatus)}</span><button type="button" disabled={Boolean(busy) || selected?.id === candidate.id} onClick={() => handleSelectCandidate(shot, candidate)}>{selected?.id === candidate.id ? <><Check size={14} />已选定</> : '选用此版'}</button></footer>
               </article>)}</div>
               {!shot.candidates?.length && <p className="video-project-inline-empty">当前镜头还没有候选。先在上方完成一次属于本项目的视频任务，再导入这里。</p>}
             </section>
@@ -1688,7 +1688,7 @@ const [commentDraft, setCommentDraft] = useState('');
                 <button type="button" className="video-project-recovery-prepare" disabled={Boolean(busy)} onClick={() => handlePrepareShotRecoveryExecution(shot, recoveryPlan)}>
                   {busy === `recovery-prepare:${shot.id}` ? <><LoaderCircle size={14} className="is-spinning" />校验中</> : <><ShieldCheck size={14} />校验执行草稿</>}
                 </button>
-                <span className="video-project-recovery-status"><ShieldCheck size={13} />已保存 · 不调用供应商 · 不扣积分 · {recoveryPlan.planHash?.slice(0, 10)}</span>
+                <span className="video-project-recovery-status"><ShieldCheck size={13} />已保存 · 不产生费用 · 不扣积分 · {recoveryPlan.planHash?.slice(0, 10)}</span>
                 {recoveryExecution && <span className="video-project-recovery-status is-verified"><Check size={13} />已校验 · {recoveryExecution.edit?.operation || 'replace'} · {recoveryExecution.executionHash?.slice(0, 10)}</span>}
               </>}
             </div>
@@ -1761,14 +1761,14 @@ const [commentDraft, setCommentDraft] = useState('');
           <button type="button" disabled={Boolean(busy) || !workbench?.timelineClips?.some(clip => clip.status === 'active')} onClick={handleCreateExportManifest}>
             {busy === 'export:manifest' ? <><LoaderCircle className="is-spinning" size={15} />生成中…</> : <><Film size={15} />生成导出清单</>}
           </button>
-          <span>先保存可审计清单，再交接本地渲染任务；清单阶段尚未调用渲染器/供应商，不会扣积分。</span>
+          <span>先保存可审计清单，再交接本地渲染任务；清单阶段尚未开始渲染，不会扣积分。</span>
         </div>
         {exportManifest ? <div className="video-project-export-manifest" role="status">
           <strong>导出清单已保存</strong><span>版本 {exportManifest.schemaVersion} · {exportManifest.manifest?.timeline?.durationMs ? `${(exportManifest.manifest.timeline.durationMs / 1000).toFixed(1)} 秒` : '时长待定'} · hash {exportManifest.manifestHash?.slice(0, 12)}</span>
         </div> : <p className="video-project-inline-empty">尚未生成导出清单；下载 MP4 需接入渲染 worker。</p>}
         {exportJob && <div className="video-project-export-job" role="status">
           <div><strong>渲染任务</strong><span className={`video-project-export-job-state is-${exportJob.state}`}>{({ waiting_renderer: '等待渲染器', rendering: '渲染中', failed: '需要重试', completed: '已完成', canceled: '已取消' })[exportJob.state] || exportJob.state}</span></div>
-          <small>任务 {exportJob.id.slice(0, 12)} · 尝试 {exportJob.attempt || 0} · {exportJob.providerSubmission ? '已交接供应商' : '尚未调用供应商'} · {exportJob.billingMutation ? '已计费' : '未计费'}</small>
+          <small>任务 {exportJob.id.slice(0, 12)} · 尝试 {exportJob.attempt || 0} · {exportJob.providerSubmission ? '已提交生成' : '尚未提交生成'} · {exportJob.billingMutation ? '已计费' : '未计费'}</small>
           {exportJob.state === 'rendering' && <button type="button" disabled={Boolean(busy)} onClick={handleRecoverExportJob}>{busy === 'export:recover' ? <><LoaderCircle className="is-spinning" size={14} />恢复中…</> : <><RefreshCw size={14} />检查租约</>}</button>}
           {exportJob.state === 'failed' && !planningOnly && <button type="button" disabled={Boolean(busy)} onClick={handleRetryExportJob}>{busy === 'export:retry' ? <><LoaderCircle className="is-spinning" size={14} />重试中…</> : <><RefreshCw size={14} />重新排队</>}</button>}
         </div>}

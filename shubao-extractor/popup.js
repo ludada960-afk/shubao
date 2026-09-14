@@ -1,7 +1,7 @@
 // 薯包AI 商品提取器 — Popup（直接在当前标签页注入提取）
 (function () {
-  var API_URL = 'http://localhost:3099/api/bookmarklet-extract';
-  var APP_URL = 'http://localhost:5173';
+  var API_URL = 'https://shuimg.cn/api/bookmarklet-extract';
+  var APP_URL = 'https://shuimg.cn';
   var appEl = document.getElementById('app');
 
   function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

@@ -28,7 +28,16 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
      d) 页面标题 / 下载名      document.title= / a.download= / download="..."
      e) 后端上屏字段           res.json({ message|error|detail|reason: '...' })
 */
-const ATTR_RE = /\b(aria-label|title|placeholder|alt)\s*=\s*(["'{])([^"'}]*)/g;
+/* 裁定③：属性值分三种写法，处理方式不同 ——
+   · title="字面量"      → 是文案，扫
+   · title={'字面量'}    → 是文案，扫（去掉花括号后取其中字符串）
+   · title={变量或表达式} → **不是文案**，只扫其中【字符串字面量的内部】；
+     变量名 / 属性名 / 表达式片段一律不算（否则每个叫 fallback 的局部变量都会误报一次，
+     门禁很快会因噪音被关掉）。 */
+const ATTR_PLAIN_RE = /\b(aria-label|title|placeholder|alt)\s*=\s*"([^"]*)"/g;
+const ATTR_BRACE_RE = /\b(aria-label|title|placeholder|alt)\s*=\s*\{([^}]*)\}/g;
+/* JSX 表达式里的字符串字面量：'…' / "…" / `…`（模板里只取静态部分） */
+const STRING_LITERAL_RE = /(['"`])([^'"`]{2,200})\1/g;
 const TEXT_RE = />([^<>{}]{2,200})</g;
 const TOAST_RE = /\b(setToast|setError|setErr|showToast|alert|setHint|setMessage)\s*\(\s*(['"`])([^'"`]{2,200})/g;
 const DL_RE = /\b(a\.download|document\.title)\s*=\s*(['"`])([^'"`]{1,200})/g;
@@ -49,8 +58,16 @@ export function extractVisibleSurfaces(source) {
       out.push({ line: lineNo, kind, text: value });
     };
     let m;
-    ATTR_RE.lastIndex = 0;
-    while ((m = ATTR_RE.exec(line))) push(m[1], m[3]);
+    /* ① 纯字符串属性：整体都是文案 */
+    ATTR_PLAIN_RE.lastIndex = 0;
+    while ((m = ATTR_PLAIN_RE.exec(line))) push(m[1], m[2]);
+    /* ② `attr={ … }`：只取花括号内【字符串字面量】，变量/表达式片段不取 */
+    ATTR_BRACE_RE.lastIndex = 0;
+    while ((m = ATTR_BRACE_RE.exec(line))) {
+      let lit;
+      STRING_LITERAL_RE.lastIndex = 0;
+      while ((lit = STRING_LITERAL_RE.exec(m[2]))) push(m[1], lit[2]);
+    }
     TEXT_RE.lastIndex = 0;
     while ((m = TEXT_RE.exec(line))) push('text', m[1]);
     TOAST_RE.lastIndex = 0;
@@ -109,7 +126,7 @@ function walk(dir, acc = []) {
     const full = join(dir, name);
     const st = statSync(full);
     if (st.isDirectory()) walk(full, acc);
-    else if (/\.(jsx|js|mjs)$/.test(name)) acc.push(full);
+    else if (/\.(jsx|js|mjs|html)$/.test(name)) acc.push(full);
   }
   return acc;
 }
@@ -131,9 +148,16 @@ export function scanFiles(files, rootDir) {
   return hits;
 }
 
+/* 裁定①：浏览器插件是【用户安装、用户能看到的界面】，其 popup/注入 UI 文案属于用户可见面，
+   必须纳入扫描。三个扩展目录都在 git 跟踪内。 */
+const PLUGIN_DIRS = ['extensions/shubao-extractor', 'shubao-extension', 'shubao-extractor'];
 const SRC_FILES = walk(join(ROOT, 'src'));
 const SERVER_FILES = walk(join(ROOT, 'server'));
-const SOURCE_FILES = [...SRC_FILES, ...SERVER_FILES];
+const PLUGIN_FILES = PLUGIN_DIRS.flatMap(dir => {
+  const abs = join(ROOT, dir);
+  try { return walk(abs); } catch { return []; }
+});
+const SOURCE_FILES = [...SRC_FILES, ...SERVER_FILES, ...PLUGIN_FILES];
 
 /* ═══════════════ 5. 测试用例 ═══════════════ */
 
@@ -185,6 +209,26 @@ test('检测器自证 ③：合规形态不得误报（变量名 / 注释 / 日�
     const leaked = LEAK_RULES.filter(r => surfaces.some(s => r.re.test(s.text)));
     assert.deepEqual(leaked.map(r => r.id), [], '误报：' + snippet + ' -> ' + leaked.map(r => r.id).join(','));
   }
+});
+
+test('检测器自证 ③b：属性值是 JS 表达式时，只认字符串字面量内部（裁定③）', () => {
+  /* 变量名 fallback 是局部变量语义，不得因名字里含 fallback 而命中。
+     注意：该表达式里确实有一个合法字面量 '电商案例'，提取器应只取它、且它不含禁用词。 */
+  const exprVar = extractVisibleSurfaces("<ResponsiveImage alt={fallback?.label || '电商案例'} />");
+  assert.deepEqual(exprVar.map(item => item.text), ['电商案例'],
+    '只应提取字符串字面量本身，变量名/表达式片段不得进入，实测 ' + JSON.stringify(exprVar));
+  assert.deepEqual(LEAK_RULES.filter(rule => exprVar.some(item => rule.re.test(item.text))).map(rule => rule.id), [],
+    '局部变量名 fallback 不得触发 fallback-word 规则');
+
+  /* 但表达式【字符串字面量内部】出现禁用词，仍然要命中 */
+  const exprLit = extractVisibleSurfaces("<img alt={x || '上游任务号'} />");
+  assert.equal(exprLit.length, 1, '字符串字面量内部命中 1 条');
+  assert.equal(exprLit[0].text, '上游任务号');
+
+  /* 纯字符串属性照常命中 */
+  const plain = extractVisibleSurfaces('<img alt="备用通道" />');
+  assert.equal(plain.length, 1);
+  assert.equal(plain[0].text, '备用通道');
 });
 
 test('检测器自证 ④：豁免表非空且每条都有理由', () => {

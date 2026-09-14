@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "一键提取电商商品图片，AI 逆向复刻 — 支持淘宝、京东、Amazon、Shopify、1688、拼多多",
   "author": "薯包AI",
-  "homepage_url": "http://localhost:5173",
+  "homepage_url": "https://shuimg.cn",
 
   "icons": {
     "16": "icons/icon16.png",
@@ -46,7 +46,7 @@
     "*://*.shopee.cn/*",
     "*://*.shopee.sg/*",
     "*://*.shopee.tw/*",
-    "*://localhost:3099/*"
+    "*://shuimg.cn/*"
   ],
 
   "background": {

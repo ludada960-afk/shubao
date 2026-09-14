@@ -69,7 +69,7 @@ router.post('/collect', (req, res) => {
  * ════════════════════════════════════════ */
 router.get('/task/:id', (req, res) => {
   const task = getTask(req.params.id);
-  if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
+  if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
 
   // 返回客户端所需信息（去掉敏感/内部字段）
   res.json({
@@ -95,10 +95,10 @@ router.get('/task/:id', (req, res) => {
 router.post('/analyze', async (req, res) => {
   try {
     const { taskId } = req.body || {};
-    if (!taskId) return res.status(400).json({ ok: false, error: '缺少 taskId' });
+    if (!taskId) return res.status(400).json({ ok: false, error: '请求缺少必要参数', code: 'EXTENSION_REQUEST_INVALID' });
 
     const task = getTask(taskId);
-    if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
+    if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
 
     // 如果已经分析过了，直接返回结果
     if (task.analysis) {
@@ -130,11 +130,11 @@ router.post('/regenerate', async (req, res) => {
   try {
     const { taskId, productName, category, sellingPoints, tier, platform } = req.body || {};
     if (!taskId || !productName) {
-      return res.status(400).json({ ok: false, error: '缺少 taskId 或 productName' });
+      return res.status(400).json({ ok: false, error: '请求缺少必要参数', code: 'EXTENSION_REQUEST_INVALID' });
     }
 
     const task = getTask(taskId);
-    if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
+    if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
 
     // 保存用户替换信息
     updateTask(taskId, {
@@ -414,7 +414,7 @@ async function analyzeSingleImage(imgInfo, env, productTitle) {
 /* ──────── AI 重新生成 ──────── */
 async function runGeneration(taskId) {
   const task = getTask(taskId);
-  if (!task) throw new Error('任务不存在');
+  if (!task) throw Object.assign(new Error('请求的内容不存在'), { status: 404, code: 'EXTENSION_TARGET_NOT_FOUND' });
 
   const env = loadEnv();
   const { userProduct, analysis } = task;
@@ -596,7 +596,7 @@ export function mountOnApp(app, { billing } = {}) {
 
   app.get('/api/extension/task/:id', (req, res) => {
     const task = getTask(req.params.id);
-    if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
+    if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
     res.json({
       ok: true, taskId: task.taskId, status: task.status, progress: task.progress,
       createdAt: task.createdAt, updatedAt: task.updatedAt, platform: task.platform,
@@ -609,9 +609,9 @@ export function mountOnApp(app, { billing } = {}) {
   app.post('/api/extension/analyze', async (req, res) => {
     try {
       const { taskId, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
-      if (!taskId) return res.status(400).json({ ok: false, error: '缺少 taskId' });
+      if (!taskId) return res.status(400).json({ ok: false, error: '请求缺少必要参数', code: 'EXTENSION_REQUEST_INVALID' });
       const task = getTask(taskId);
-      if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
+      if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
       if (task.analysis) return res.json({ ok: true, analysis: task.analysis, url: `extension-analysis:${taskId}` });
       if (task.status !== TASK_STATUS.DOWNLOADED && task.status !== TASK_STATUS.ANALYZING) {
         return res.json({ ok: true, status: task.status, message: '图片尚未就绪' });
@@ -642,9 +642,9 @@ export function mountOnApp(app, { billing } = {}) {
   app.post('/api/extension/regenerate', async (req, res) => {
     try {
       const { taskId, productName, category, sellingPoints, tier, platform, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
-      if (!taskId || !productName) return res.status(400).json({ ok: false, error: '缺少 taskId 或 productName' });
+      if (!taskId || !productName) return res.status(400).json({ ok: false, error: '请求缺少必要参数', code: 'EXTENSION_REQUEST_INVALID' });
       const task = getTask(taskId);
-      if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
+      if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
       updateTask(taskId, {
         status: TASK_STATUS.GENERATING, progress: 50,
         userProduct: { productName, category: category || '', sellingPoints: sellingPoints || [], tier: tier || 'basic', platform: platform || '' },

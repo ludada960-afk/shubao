@@ -7,7 +7,7 @@
  *  3. 都好了才显示提取按钮
  */
 const $ = id => document.getElementById(id);
-const API_BASE = 'http://localhost:3099';
+const API_BASE = 'https://shuimg.cn';
 
 const PLATFORMS = [
   { match: /taobao\.com|tmall\.com/, name: '淘宝 / 天猫' },
@@ -133,7 +133,7 @@ $('extractBtn').addEventListener('click', async () => {
       btn.classList.add('done');
       btn.innerHTML = '✅ 提取成功！已提交到云端';
       showStatus(
-        `已采集 ${data.images.length} 张图片，任务编号：<span class="em">${subRes.taskId}</span>`,
+        `已采集 ${data.images.length} 张图片，可在薯包AI 中继续处理`,
         'success'
       );
       $('goBtn').style.display = 'block';

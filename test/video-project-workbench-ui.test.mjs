@@ -149,7 +149,7 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /检查租约/);
   assert.match(component, /exportManifest\.manifest\?\.timeline\?\.durationMs/);
   assert.doesNotMatch(component, /exportManifest\.manifest\?\.durationMs\s*\?/);
-  assert.match(component, /尚未调用渲染器\/供应商，不会扣积分/);
+  assert.match(component, /清单阶段尚未开始渲染，不会扣积分/);
   assert.match(component, /下载 MP4 需接入渲染 worker/);
   assert.match(component, /handleCheckGenerationPlan/);
   assert.match(component, /handlePreflightGeneration/);
@@ -157,7 +157,7 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /handleCompileGenerationDraft/);
   assert.match(component, /generationDraft/);
   assert.match(component, /编译逐镜头草稿/);
-  assert.match(component, /不会发起供应商任务或扣除积分/);
+  assert.match(component, /不会发起生成任务或扣除积分/);
   assert.match(component, /onPlanApprovalChange/);
   assert.match(component, /workbenchPlan\?\.approval\?\.planHash/);
   assert.match(component, /视频生成计划/);
@@ -167,7 +167,7 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /video-project-generation-draft-meta/);
   assert.match(component, /handleCreateShotRecoveryPlan/);
   assert.match(component, /建立单镜头重拍计划/);
-  assert.match(component, /不调用供应商 · 不扣积分/);
+  assert.match(component, /不产生费用 · 不扣积分/);
   assert.match(component, /生成草稿审计摘要/);
   assert.match(component, /连续性：/);
   assert.match(component, /预检摘要：/);
@@ -179,10 +179,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(styles, /video-project-subtitle-editor/);
   assert.match(styles, /video-project-subtitle-row/);
   assert.match(component, /版权\/使用权|版权确认/);
-  assert.match(component, /不会调用供应商，也不会扣除积分/);
+  assert.match(component, /不会产生任何生成任务，也不会扣除积分/);
   assert.match(component, /先看清步骤，再决定是否生成/);
   assert.match(component, /预览工作流/);
-  assert.match(component, /不会调用供应商、不扣积分/);
+  assert.match(component, /不会产生任何费用，也不扣积分/);
   assert.match(component, /参考视频重构需要至少一个视频素材和一个替换图片素材/);
   assert.match(component, /skillRunExecutionPreview/);
   assert.match(component, /executionPolicy/);
