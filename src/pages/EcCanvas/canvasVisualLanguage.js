@@ -254,6 +254,36 @@ export function canvasRightPanelReserved(viewportWidth) {
   return canvasPanelWidth(viewportWidth) + CANVAS_RIGHT_PANEL_MARGIN_PX;
 }
 
+/**
+ * 画布弹层的**统一定位口径**（2026-09-20 用户确认，不可协商）。
+ *
+ * 用户原话：「面板依然是歪到左边去，然后依然是盖住了我们现在的素材」。
+ * 实测根因：各弹层自算坐标，且部分实现把**像素**当**世界坐标**用（画布有 0.68 缩放层），
+ * 右侧面板一开就把面板算到屏幕外/最左。
+ *
+ * 约定：
+ *   ① 锚在触发元素上**向右展开**（左缘 = 锚点右缘 + gap）；
+ *   ② 右侧放不下时**向下**展开（其实就是把 top 往下挪），**绝不向左翻**；
+ *   ③ 面板矩形与源节点矩形**零相交**（由 ① 天然保证）。
+ *
+ * 返回**视口像素**的 { left, top }，调用方一律用 position:fixed 落位。
+ * 纯函数、无 DOM 依赖（SSR 安全），供 portal 与内联两条路径共用同一套规则。
+ */
+export function resolveAnchoredRight({ anchor = null, width = 320, height = 400, gap = 12, gutter = 12, viewportWidth = 0, viewportHeight = 0 } = {}) {
+  if (!anchor) return null;
+  const vw = Number(viewportWidth) || 0;
+  const vh = Number(viewportHeight) || 0;
+  /* ① 向右展开：左缘贴锚点右缘。空间不足也只允许「左移到不出屏」，绝不越过锚点左缘。 */
+  const wanted = (Number.isFinite(anchor.right) ? anchor.right : anchor.x + (anchor.width || 0)) + gap;
+  const maxLeft = Math.max(gutter, vw - width - gutter);
+  const left = Math.max(gutter, Math.min(wanted, maxLeft));
+  /* ② 竖直：与锚点顶对齐；放不下就**上移**（仍在同一列），不改变左右关系。 */
+  const maxTop = Math.max(gutter, vh - height - gutter);
+  const top = Math.max(gutter, Math.min(Number(anchor.y) || 0, maxTop));
+  /* ③ 报告是否发生了回夹 —— 供测试断言「没有向左翻」 */
+  return { left, top, clampedRight: wanted > maxLeft };
+}
+
 /** 画布根节点的 CSS 变量（一处注入，全画布可用） */
 export function canvasVisualLanguageCssVars(viewportWidth) {
   const panelWidth = canvasPanelWidth(viewportWidth);

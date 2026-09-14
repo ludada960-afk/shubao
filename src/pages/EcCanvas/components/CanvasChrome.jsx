@@ -1,4 +1,8 @@
 import React from 'react';
+import { resolveAnchoredRight } from '../canvasVisualLanguage.js';
+
+/** 图层面板固定宽度（与 CSS .ec-canvas-layers-panel 的 288px 一致；定位要用同一个数） */
+const LAYERS_PANEL_WIDTH = 288;
 import {
   ArrowLeft,
   Download,
@@ -165,6 +169,9 @@ function canvasLayerName(node = {}) {
 
 export function CanvasLayersPanel({
   open = false,
+  /* 触发元素（底部「图层」按钮）的**视口矩形** —— 弹层据此向右展开。
+     由 index.jsx 在打开时量出并下传（见 resolveAnchoredRight）。 */
+  anchorRect = null,
   nodes = [],
   selectedIds = new Set(),
   onSelect,
@@ -175,7 +182,25 @@ export function CanvasLayersPanel({
   if (!open) return null;
   const selected = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
   const layers = nodes.filter(node => !['image-composer', 'suite-composer'].includes(node.kind)).slice().reverse();
-  return <aside className="ec-canvas-layers-panel" data-canvas-control="true" aria-label="图层">
+  /* 2026-09-20 用户口径：弹层锚在触发元素上向右展开，不再钉在画布左缘。
+     旧实现 CSS 写死 left:72px —— 实测面板左缘 72，而触发按钮（底部「图层」）在 775，
+     面板跑到离触发元素 700px 外的画布左边。现在由共用规则算出视口像素位置。 */
+  const solved = anchorRect && typeof window !== 'undefined'
+    ? resolveAnchoredRight({
+      anchor: anchorRect,
+      width: LAYERS_PANEL_WIDTH,
+      height: Math.min(460, Math.max(240, (anchorRect.y || 0) - 40)),
+      gap: 12,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    })
+    : null;
+  const panelStyle = solved
+    ? { position: 'fixed', left: solved.left, top: 'auto', bottom: Math.max(12, window.innerHeight - solved.top), zIndex: 10004 }
+    : undefined;
+  return <aside className="ec-canvas-layers-panel" data-canvas-control="true" aria-label="图层"
+    style={panelStyle}
+    data-anchored-right={solved ? 'true' : undefined}>
     <header>
       <span><Layers3 size={16} /><strong>图层</strong></span>
       <button type="button" aria-label="关闭图层面板" title="关闭" onClick={onClose}><X size={16} /></button>

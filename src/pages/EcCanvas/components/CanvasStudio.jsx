@@ -81,6 +81,8 @@ import { buildImageMentions } from '../../../components/creation/imageMentionMod
 import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Home/ec/EcommerceDesignPlanEditor.jsx';
 import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
 import { VIDEO_CREATION_MODES, hasRequiredVideoInputs } from '../../VideoStudio/videoStudioModel.js';
+/* 画布弹层定位的**单一真源**（2026-09-20 用户口径）：锚触发元素向右展开、放不下向下、绝不向左翻。 */
+import { resolveAnchoredRight } from '../canvasVisualLanguage.js';
 import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
 import { CANVAS_PLAN_ANALYSIS_POINTS, estimateImageComposerPoints, estimateSuiteComposerPoints, estimateTextComposerPoints, estimateVideoComposerPoints, formatCanvasPoints } from '../canvasPointsEstimate.js';
 
@@ -517,14 +519,14 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
          为什么不用『水平居中于锚点』：居中会让面板左半盖回触发元素本身
          （派生面板宽 329 > 节点宽 163，必然压住）。 */
       if (place === 'right') {
-        const gap = 12;
-        const wanted = anchor.right != null ? anchor.right + gap : anchor.x + anchor.width + gap;
-        const left = Math.min(Math.max(wanted, gutter), Math.max(gutter, window.innerWidth - width - gutter));
-        const belowTop = anchor.y;
-        const top = Math.min(Math.max(belowTop, gutter), Math.max(gutter, window.innerHeight - height - gutter));
-        setPlacement(previous => (previous && previous.left === left && previous.top === top && previous.width === width && previous.mode === 'right')
+        /* 单一真源：canvasVisualLanguage.resolveAnchoredRight（与图层面板等共用同一套规则）。 */
+        const solved = resolveAnchoredRight({
+          anchor, width, height, gap: 12, gutter,
+          viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
+        });
+        setPlacement(previous => (previous && previous.left === solved.left && previous.top === solved.top && previous.width === width && previous.mode === 'right')
           ? previous
-          : { left, top, width, mode: 'right', flipped: false });
+          : { left: solved.left, top: solved.top, width, mode: 'right', flipped: false });
         return;
       }
       const center = anchor.x + anchor.width / 2;

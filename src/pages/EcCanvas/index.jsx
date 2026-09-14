@@ -6650,8 +6650,17 @@ const handlePointerUp = useCallback((e) => {
                 - tab=assets 完整项目资产库面板 (重复)
                 - 底部"添加图片/视频" 工具 (重复)
               改后: 用户从底部"添加图片/添加视频" 入口 + tab=assets 完整面板 进入素材, 不再走 1-click 拖入 */}
+          {/* 2026-09-20 用户口径：弹层必须**锚在触发元素上向右展开**，不得钉在画布左缘。
+              旧实现 CSS 写死 `left:72px`，实测面板左缘 72 而触发按钮（图层）在 775 ——
+              面板出现在离触发元素 700px 外的画布左边，属「各写各的绝对定位」的典型。
+              这里把触发按钮的**视口矩形**量出来交给面板，由面板按同一口径定位。 */}
           <CanvasLayersPanel
             open={layersPanelOpen}
+            anchorRect={layersPanelOpen ? (() => {
+              const btn = containerRef.current?.querySelector('.ec-canvas-bottom-toolbar button[aria-label*="图层"]');
+              const r = btn?.getBoundingClientRect?.();
+              return r ? { x: r.left, y: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
+            })() : null}
             nodes={nodes}
             selectedIds={multiSelected}
             onSelect={handleLayerSelect}

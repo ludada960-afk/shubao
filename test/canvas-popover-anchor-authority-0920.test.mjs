@@ -26,23 +26,30 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(path.join(ROOT, p), 'utf8');
 const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
 const index = read('src/pages/EcCanvas/index.jsx');
+const vlang = read('src/pages/EcCanvas/canvasVisualLanguage.js');
+const chrome = read('src/pages/EcCanvas/components/CanvasChrome.jsx');
 
 test('① 定位权威必须提供 place="right"（锚触发元素向右展开）', () => {
   assert.match(studio, /export function CanvasPopoverPortal\(\{[^}]*place = 'above'/,
     'CanvasPopoverPortal 必须暴露 place 参数');
   assert.match(studio, /if \(place === 'right'\)/, '必须实现 right 分支');
-  /* 向右展开 = 左缘取锚点**右缘** + 间距；绝不能用「水平居中」当右展开 */
-  assert.match(studio, /anchor\.right != null \? anchor\.right \+ gap/, '左缘必须 = 锚点右缘 + 间距');
+  /* 向右展开的**算法**只有一份，在 canvasVisualLanguage.resolveAnchoredRight；
+     portal 必须复用它，不得自己再写一套坐标计算（那正是坐标系分裂的来源）。 */
+  assert.match(studio, /resolveAnchoredRight\(\{/, 'portal 的 right 分支必须复用共用规则');
+  assert.match(vlang, /export function resolveAnchoredRight\(/, '共用规则必须存在');
+  assert.match(vlang, /anchor\.right\s*\?[\s\S]{0,80}?\+\s*gap|\+\s*gap/, '左缘必须 = 锚点右缘 + 间距');
 });
 
-test('② 权威：右展开分支**不许出现向左翻**的兜底（不得取锚点左缘）', () => {
-  const start = studio.indexOf("if (place === 'right')");
-  assert.ok(start > 0, '必须能找到 right 分支');
-  const branch = studio.slice(start, start + 900);
-  assert.doesNotMatch(branch, /anchor\.x\s*-\s*width/, '不得把面板放到锚点左侧（那就是「向左翻」）');
-  /* 只允许「向下展开」：top 由 anchor.y 起，且被视口下界回夹 */
-  assert.match(branch, /const belowTop = anchor\.y;/, '竖直基准必须是锚点 y（向下展开）');
-  assert.match(branch, /window\.innerHeight - height - gutter/, '必须用视口下界回夹，避免超出屏幕');
+test('② 共用规则：右展开**不许出现向左翻**（左缘不得越过锚点左缘）', () => {
+  const start = vlang.indexOf('export function resolveAnchoredRight(');
+  assert.ok(start > 0, '必须能找到 resolveAnchoredRight');
+  const body = vlang.slice(start, start + 1400);
+  assert.doesNotMatch(body, /anchor\.x\s*-\s*width/, '不得把面板放到锚点左侧（那就是「向左翻」）');
+  /* 只允许向右/向下：水平取 max(左边界, min(期望右展开位, 右边界))，因此永不为负偏移 */
+  assert.match(body, /Math\.max\(gutter,\s*Math\.min\(wanted,\s*maxLeft\)\)/, '水平必须左界回夹到 gutter（不出屏）');
+  assert.match(body, /const maxTop = Math\.max\(gutter, vh - height - gutter\)/, '竖直必须用视口下界回夹');
+  /* 回夹**只能**改变左右边界内的位置，不允许变为「锚点左侧」 */
+  assert.match(body, /clampedRight:/, '必须报告是否发生右回夹（供断言与排查）');
 });
 
 test('③ 派生菜单（引用当前素材）必须走统一权威，不再自算世界坐标', () => {
@@ -67,7 +74,16 @@ test('⑤ 防回退：clampCanvasPickerPosition 不得再被派生菜单使用�
   assert.doesNotMatch(callSite, /clampCanvasPickerPosition\(/, '派生菜单不得再调用世界坐标版本的 clamp');
 });
 
-test('⑥ portal 化的派生菜单必须清掉「反向 scale」（否则二次缩放）', () => {
+test('⑥ 图层面板同样必须锚在触发元素上（不再钉在画布左缘）', () => {
+  /* 实测（修复前）：图层面板左缘 72，而触发按钮（底部「图层」）在 775 ——
+     面板出现在离触发元素 700px 外的画布左边。根因是 CSS 写死 left:72px。 */
+  assert.match(chrome, /anchorRect = null/, 'CanvasLayersPanel 必须接收触发元素矩形');
+  assert.match(chrome, /resolveAnchoredRight\(\{/, '必须复用共用定位规则');
+  assert.match(chrome, /data-anchored-right/, '必须有可断言的锚定标记');
+  assert.match(index, /anchorRect=\{layersPanelOpen \?/, '打开时必须量触发按钮的视口矩形');
+});
+
+test('⑦ portal 化的派生菜单必须清掉「反向 scale」（否则二次缩放）', () => {
   const css = read('src/pages/EcCanvas/EcCanvas.css').replace(/\/\*[\s\S]*?\*\//g, ' ');
   assert.match(css, /\.ec-canvas-derive-menu\.is-portaled \{[^}]*transform:\s*none/,
     'portal 化的派生菜单必须 transform: none（它已脱离缩放层）');

@@ -102,9 +102,11 @@ test('从节点「+」打开的生成面板锚在按钮右侧展开（2026-09-20
   assert.ok(studio.includes('place="right"'), '派生菜单必须声明向右展开');
   assert.ok(studio.includes('CanvasPopoverPortal'), '必须走统一权威（portal + 视口定位）');
   assert.ok(canvasIndex.includes('anchorRect={connectionPicker.anchorRect}'), '画布必须传触发元素的视口矩形');
-  /* 权威侧必须有「右展开 + 视口下界回夹」两条实现 */
+  /* 权威侧必须有「右展开 + 视口下界回夹」两条实现（算法单一真源在 canvasVisualLanguage） */
   assert.ok(studio.includes("if (place === 'right')"), '权威必须实现 right 分支');
-  assert.ok(studio.includes('anchor.right'), '左缘必须取锚点右缘（右展开）');
+  assert.ok(studio.includes('resolveAnchoredRight('), '右展开算法必须复用共用规则（不得各写一套）');
+  const vlang = read('src/pages/EcCanvas/canvasVisualLanguage.js');
+  assert.ok(vlang.includes('anchor.right'), '共用规则左缘必须取锚点右缘（右展开）');
   /* 反向断言：不许再走世界坐标版本（那正是甩到左边的根因） */
   const callSite = canvasIndex.slice(canvasIndex.indexOf('<CanvasDeriveMenu'), canvasIndex.indexOf('<CanvasDeriveMenu') + 600);
   assert.ok(!callSite.includes('clampCanvasPickerPosition('), '派生菜单不得再自算世界坐标');
