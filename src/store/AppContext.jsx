@@ -177,6 +177,39 @@ function reducer(state, action) {
     case 'UPDATE_RESULT':
       return { ...state, result: action.updater(state.result) };
     case 'SET_LOGGED':
+      /* ═══ 2026-09-18 产品风险修复：区分「真登出」与「会话失效引导」 ═══════════
+         用户批注（点「新建画布」触发 401 后）：「用户画布上的内容会从视图里整个消失。
+         真实用户如果会话过期或误触，会有『我的画布没了 / 工作丢了』的强烈错觉。」
+
+         根因：原来任何 SET_LOGGED:false 都会**顺带把页面上下文整段重置**
+         （page→home、result→null、genState→idle…）。而 401 时 AppContext 的
+         onSessionInvalid 也走这条分支 —— 于是「会话过期」被当成了「用户主动登出」，
+         画布被卸载 + result 被清空，用户看到的就是「画布没了」。
+
+         修法：只对**401/会话失效**这条路径保留页面上下文（softSignOut:true）——
+         用户回到登录引导，但当前页面与数据**原样保留**，登录后接着看。
+         主动点「退出登录」仍是硬登出（清空），语义不变。
+         注意：result 被保留 → 画布节点不丢；ecPoints 等账户态仍归零（它们本就无效）。 */
+      const softSignOut = action.logged === false && action.softSignOut === true;
+      if (softSignOut) {
+        return {
+          ...state,
+          logged: false,
+          phone: '',
+          /* 账户相关态失效（金额/额度在会话过期后无意义） */
+          ecPoints: 0,
+          ecPointsExpiring: 0,
+          ecPointsExpiresAt: null,
+          contentSets: 0,
+          credits: 0,
+          unlimited: false,
+          balanceRefreshStatus: 'idle',
+          balanceRefreshError: '',
+          accountAccess: null,
+          pendingPaidAction: null,
+          /* 页面上下文**保持不变**：page / result / genState / 画布内容都留着 */
+        };
+      }
       return {
         ...state,
         logged: Boolean(action.logged),
@@ -363,7 +396,10 @@ export function AppProvider({ children }) {
   }, [state.logged, state.browserQa, dispatch]);
 
   useEffect(() => onSessionInvalid(() => {
-    dispatch({ type: 'SET_LOGGED', logged: false, phone: '' });
+    /* 2026-09-18：401/会话失效 = **引导重新登录**，不是「用户主动登出」。
+       用 softSignOut 保留当前页面与数据（否则画布会被整段重置，
+       用户看到「我的画布没了」——产品风险，见 reducer 内注释）。 */
+    dispatch({ type: 'SET_LOGGED', logged: false, phone: '', softSignOut: true });
     dispatch({ type: 'SHOW_LOGIN', show: true });
   }), [dispatch]);
 
