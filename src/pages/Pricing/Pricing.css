@@ -85,7 +85,7 @@
   display: block;
 }
 .pricing-hero-brandname {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 900;
   letter-spacing: -0.3px;
   color: var(--accent);
@@ -190,7 +190,7 @@
 }
 .pricing-section-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
   letter-spacing: -0.01em;
   color: var(--text-primary);
@@ -337,7 +337,7 @@
   padding: 2px var(--sb-space-2);
 }
 .pricing-tier-name {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: var(--sb-weight-heavy);
   /* D10：档位名是标题级文字，走中性最高对比墨色；
      品牌紫是「交互主色」，留给主 CTA / 选中 / 焦点，不当装饰用。 */
@@ -382,7 +382,7 @@
   color: var(--sb-ink-2);
 }
 .pricing-price-number {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: var(--sb-weight-heavy);
   line-height: 1;
   letter-spacing: -0.025em;
@@ -688,7 +688,7 @@
 }
 /* 推荐档里的关键数值再放大一档，强化主次 */
 .pricing-pack-card.is-recommended .pricing-price-number {
-  font-size: 40px;
+  font-size: 32px;
 }
 .pricing-pack-card.is-recommended .pricing-pack-name {
   font-size: var(--sb-text-lg);
@@ -1279,7 +1279,7 @@
     padding: 5px 10px;
   }
   .pricing-price-number {
-    font-size: 28px;
+    font-size: 32px;
   }
   .pricing-modal-panel {
     padding: 22px 18px 18px;

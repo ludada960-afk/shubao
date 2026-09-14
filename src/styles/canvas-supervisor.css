@@ -794,7 +794,7 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 /* 9-12 用户批注：资产库 = 弹窗（照竞品），不再是整页 */
 .canvas-asset-library-overlay { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: center; padding: 64px 24px 32px; background: var(--sb-scrim-strong); }
 .canvas-asset-library-modal { display: flex; flex-direction: column; width: min(1040px, 96vw); max-height: min(84vh, 880px); overflow: hidden; padding: 24px 26px 26px; border: 1px solid rgba(28,25,23,.10); border-radius: var(--sb-radius-2xl); background: var(--sb-neutral-0); box-shadow: 0 32px 90px -20px rgba(28,25,23,.42); }
-.canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; }
+.canvas-asset-library-modal h2 { font-size: 16px !important; font-weight: 800 !important; }
 .canvas-asset-library-modal > section { margin-bottom: 0 !important; }
 /* ═══ 9-16 用户批注：「右边这个滑动条也超出了界面」——根因与修法 ═══
    根因：原 .canvas-asset-library-modal 写的是 `overflow: hidden auto`，即「x 轴 hidden / y 轴 auto」。
@@ -830,7 +830,7 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
    → 弹窗内边距由 20/22/22 放宽到 24/26/26（与顶部弹窗规则一致，消除 !important 冲突）。
    标题 16 → 17px 加重，作为唯一视觉起点；副信息（额度、项目名）统一弱化。 */
 .canvas-asset-library-modal { padding: 24px 26px 26px !important; }
-.canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; letter-spacing: .01em; }
+.canvas-asset-library-modal h2 { font-size: 16px !important; font-weight: 800 !important; letter-spacing: .01em; }
 /* 网格：更大的图片卡（竞品是接近 1:1 的大图） */
 .canvas-asset-library-modal .ec-canvas-page article,
 .canvas-asset-library-modal article { position: relative; border-radius: 14px !important; overflow: hidden; background: var(--sb-neutral-0); transition: transform .18s cubic-bezier(.16,1,.3,1), box-shadow .18s ease, border-color .18s ease; }

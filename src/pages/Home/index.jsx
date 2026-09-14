@@ -156,12 +156,12 @@ export default function HomePage() {
             <h1 style={{ fontSize: 38, fontWeight: 900, lineHeight: 1.05, color: 'var(--accent)', marginTop: 16, marginBottom: 0, letterSpacing: 'normal' }} className="homepage-h1">
               上传创意素材，生成<span className="hero-gradient-text">专业视觉</span>
             </h1>
-            <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
+            <style>{`@media (min-width:640px){.homepage-h1{font-size:48px!important}}@media(min-width:1024px){.homepage-h1{font-size:48px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
               从一张素材开始，生成能上架、能种草、能传播的专业视觉
             </p>
-            <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
+            <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:16px!important;line-height:30px!important}}`}</style>
           </div>
 
           {!state.browserQa && <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />}

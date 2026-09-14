@@ -26,7 +26,7 @@
 .canvas-library { width: min(1180px, 96vw); max-height: min(84vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
 .canvas-library-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 26px 22px; border-bottom: 1px solid rgba(28,25,23,.08); }
 /* 9-13 用户批注：标题与内容要有主次、不要拥挤 */
-.canvas-library-head strong { display: block; font-size: 21px; font-weight: 800; letter-spacing: -.01em; color: #1c1917; }
+.canvas-library-head strong { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.01em; color: #1c1917; }
 /* 9-16 主次分明：副标题与标题留 ≥8px，并弱化颜色，让标题先被看到 */
 .canvas-library-head span { display: block; margin-top: 10px; color: #a8a29e; font-size: 12px; }
 .canvas-library-head-actions { display: flex; align-items: center; gap: 8px; }
@@ -124,7 +124,7 @@
 
 /* 标题与副标题按 DESIGN.md 的字号阶梯收敛（页面标题 15-16px 档的口径下，
    这里是整页视图，取 22px/800 为一级，副标题 12.5px 为三级，空间分层不靠夸张尺寸） */
-.canvas-library.is-page .canvas-library-head strong { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.canvas-library.is-page .canvas-library-head strong { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
 .canvas-library.is-page .canvas-library-head span { margin-top: 8px; color: #8d8681; font-size: 13px; }
 
 /* ── 筛选栏：同样的容器式子 + 4pt 刻度（上 24 / 下 20）──────────────────── */

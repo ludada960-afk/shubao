@@ -1,6 +1,6 @@
 /* VisionFeedback - modlens 视觉协同面板 */
 .vision-feedback { max-width: 1180px; margin: 0 auto; padding: 24px 28px 80px; display: flex; flex-direction: column; gap: var(--sb-space-4); }
-.vision-head h2 { margin: 0; font-size: 22px; }
+.vision-head h2 { margin: 0; font-size: 24px; }
 .vision-head p { margin: 4px 0 0; color: var(--sb-ink-3); font-size: var(--sb-text-md); }
 .vision-controls { display: grid; grid-template-columns: auto 1fr auto; gap: var(--sb-space-3); align-items: stretch; }
 .vision-prompt { border: 1px solid rgba(15,23,42,0.10); border-radius: 10px; padding: 10px 12px; font: inherit; background: rgba(255,255,255,0.85); resize: vertical; min-height: 40px; }

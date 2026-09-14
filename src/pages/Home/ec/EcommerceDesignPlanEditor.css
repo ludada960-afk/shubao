@@ -242,7 +242,7 @@
   border-bottom: 1px solid #e5eaf0;
 }
 .ec-shared-plan-preview-header .ec-shared-plan-kicker { margin-bottom: 5px; }
-.ec-shared-plan-preview-header strong { color: #202a36; font-size: 19px; }
+.ec-shared-plan-preview-header strong { color: #202a36; font-size: 20px; }
 .ec-shared-plan-preview-header > span { color: #536b8f; font-size: 14px; font-weight: 750; }
 .ec-shared-plan-preview-brief {
   margin: 20px 0 22px;
@@ -377,7 +377,7 @@
 @media (max-width: 680px) {
   .ec-shared-plan-preview { padding: 22px 18px; }
   .ec-shared-plan-heading { gap: 12px; }
-  .ec-shared-plan-heading h3 { font-size: 19px; }
+  .ec-shared-plan-heading h3 { font-size: 20px; }
   .ec-shared-shot-toggle { grid-template-columns: 28px minmax(0, 1fr) auto 18px; gap: 8px; padding-inline: 10px; }
   .ec-shared-shot-summary span { white-space: normal; }
 }

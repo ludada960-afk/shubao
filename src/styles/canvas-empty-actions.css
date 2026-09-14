@@ -38,7 +38,7 @@
 
 /* 标题 + 副标 (无内部术语, 用户 8-29 硬性要求 "你为什么要告诉用户这个呢?") */
 .ec-canvas-empty-state strong {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 750;
   letter-spacing: .01em;
   color: var(--text-primary);

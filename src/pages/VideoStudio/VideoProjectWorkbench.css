@@ -380,7 +380,7 @@
   .video-project-planning-banner > div { align-items: flex-start; flex-direction: column; gap: 2px; }
   .video-project-planning-banner code { display: none; }
   .video-project-workbench-header,.video-project-band { padding: 18px 14px; }
-  .video-project-workbench-header h2 { font-size: 17px; }
+  .video-project-workbench-header h2 { font-size: 16px; }
   .video-project-header-actions { width: 100%; justify-content: flex-start; }
   .video-project-replay-status { max-width: 100%; }
   .video-project-replay-preview { margin-left: 14px; margin-right: 14px; padding: 13px; }

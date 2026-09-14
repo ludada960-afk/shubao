@@ -179,7 +179,7 @@
 .pricing-modal__hero-meta strong {
   color: var(--sb-brand-700);
   font-weight: 900;
-  font-size: 22px;
+  font-size: 20px;
   margin-left: var(--sb-space-0-5);
 }
 .pricing-modal__hero-dot { color: #c9bfad; }
@@ -234,7 +234,7 @@
   box-shadow: 0 12px 28px rgba(146, 64, 14, 0.18);
 }
 .pricing-modal__tab-name {
-  font-size: 17px;
+  font-size: 16px;
   font-size: 16px;
   font-weight: 800;
 }
@@ -366,7 +366,7 @@
   letter-spacing: 0.02em;
 }
 .pricing-modal__pack-name {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 900;
   color: #1c1917;
   letter-spacing: -0.01em;
@@ -385,7 +385,7 @@
   color: #1c1917;
 }
 .pricing-modal__pack-price-val {
-  font-size: 44px;
+  font-size: 48px;
   font-weight: 900;
   color: #1c1917;
   letter-spacing: -0.025em;
@@ -632,7 +632,7 @@
   .pricing-modal { padding: 20px 16px; }
   .pricing-modal__pack-grid { grid-template-columns: 1fr; gap: 14px; }
   .pricing-modal__pay-grid { grid-template-columns: 1fr; }
-  .pricing-modal__title { font-size: 26px; }
+  .pricing-modal__title { font-size: 24px; }
 }
 
 /* 9-06: 弹窗打开时锁定 body 滚动 */

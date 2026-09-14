@@ -52,7 +52,7 @@
 
 .visual-creation-heading h2 {
   margin: 0;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.25;
   letter-spacing: 0;
 }
@@ -122,7 +122,7 @@
 }
 
 .visual-skill-icon svg {
-  font-size: 23px;
+  font-size: 24px;
   transition: transform 180ms ease;
 }
 
@@ -191,7 +191,7 @@
 
 .visual-skill-stage-copy > strong {
   max-width: 330px;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.35;
 }
 
@@ -980,7 +980,7 @@
 
 .visual-result-state > svg {
   justify-self: center;
-  font-size: 26px;
+  font-size: 24px;
 }
 
 .visual-result-item.is-failed .visual-result-state {
@@ -1168,7 +1168,7 @@
   }
 
   .visual-skill-stage-copy > strong {
-    font-size: 19px;
+    font-size: 20px;
   }
 
   .visual-skill-stage-art {
