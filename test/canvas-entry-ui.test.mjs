@@ -38,7 +38,17 @@ test('commerce canvas uses a quiet professional shell and contextual world panel
   assert.match(source, /selectedComposerPosition = getCanvasComposerPresentation\([\s\S]*?\)\.position/);
   assert.doesNotMatch(source, /空白拖拽平移/);
   assert.doesNotMatch(source, /fixed[^\n]+right: 20[^\n]+bottom: 20/);
-  assert.match(css, /\.ec-canvas-stage \{[^}]*overflow: clip;/);
+  /* 判据：**画布内容必须被裁剪**（节点平移时不能漫出画布区压住顶栏 / 右侧面板）。
+     写法在 2026-09-20 变了：裁剪由「内容层」承担，`.ec-canvas-stage` 改 `overflow: visible` ——
+     因为 stage 同时装着 HUD（底部操作栏 / 缩放条 / 小地图 / 左工具栏），
+     stage 一裁，窄屏（实测 1024px + 右侧面板打开）就会把 HUD 切掉一块；
+     而把 HUD 回夹进 stage 又造成 −84px 的居中偏移（用户投诉 4 次的那个）。
+     正解是把裁剪边界下移到内容层：8 组宽度×面板开关实测「中心偏差 0 + 探针 9/9 可命中」。
+     所以这里断言**判据**（有人裁），不再锁**写法**（谁裁）—— 见 RTK §3.1 第 10 条。 */
+  assert.ok(
+    /\.ec-canvas-stage \{[^}]*overflow: clip;/.test(css) || /overflow: 'clip'/.test(source),
+    '画布内容必须被裁剪（由 stage 或内容层承担），否则节点平移会漫出画布区压住顶栏与右侧面板',
+  );
   assert.doesNotMatch(css, /\.ec-canvas-stage \{[^}]*overflow: hidden;/);
 });
 
