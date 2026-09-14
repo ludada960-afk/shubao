@@ -60,7 +60,7 @@
   flex: none;
 }
 .skill-modal-head strong { display: block; font-size: 17px; font-weight: 800; line-height: 1.25; }
-.skill-modal-head span { display: block; margin-top: var(--sk-space-xs); font-size: 12.5px; line-height: 1.5; color: var(--sb-ink-3); }
+.skill-modal-head span { display: block; margin-top: var(--sk-space-xs); font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
 .skill-icon-btn {
   width: 30px; height: 30px; border-radius: 50%; flex: none;
   border: 1px solid rgba(57, 45, 26, 0.1); background: transparent;
@@ -81,7 +81,7 @@
 }
 .skill-alert, .skill-notice {
   margin: var(--sk-space-md) var(--sk-space-xl) 0; padding: 9px 12px; border-radius: 10px;
-  font-size: 12.5px; font-weight: 600; line-height: 1.55; flex: none;
+  font-size: 13px; font-weight: 600; line-height: 1.55; flex: none;
 }
 .skill-notice { position: relative; padding-right: 34px; }
 .skill-notice-close { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
@@ -121,8 +121,8 @@
 .skill-column.is-editor .skill-editor-actions { flex: none; }
 /* 分组标题 ↔ 内容：标题下留 12px，不再和列表贴死 */
 .skill-column-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sk-space-sm); flex: none; padding-bottom: var(--sk-space-xs); }
-.skill-column-head strong { font-size: 13.5px; font-weight: 800; }
-.skill-column-head span { font-size: 11.5px; color: var(--sb-ink-4); }
+.skill-column-head strong { font-size: 14px; font-weight: 800; }
+.skill-column-head span { font-size: 12px; color: var(--sb-ink-4); }
 /* 技能列表行间距 ≥10px（紧凑项取 10，处于 8 与 12 之间、视觉上不「挤成一团」） */
 .skill-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .skill-card {
@@ -133,12 +133,12 @@
 .skill-card-main { min-width: 0; }
 .skill-card-main strong { font-size: 13px; font-weight: 700; }
 .skill-card-main strong em { font-style: normal; font-size: 11px; color: var(--sb-ink-4); font-weight: 600; }
-.skill-card-main p { margin: var(--sk-space-xs) 0 0; font-size: 11.5px; line-height: 1.5; color: var(--sb-ink-3); }
+.skill-card-main p { margin: var(--sk-space-xs) 0 0; font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
 .skill-card-actions { display: flex; align-items: center; gap: var(--sk-space-sm); flex: none; }
 .skill-mini-btn {
   appearance: none; border: 1px solid rgba(57, 45, 26, 0.12); background: var(--sb-neutral-0);
   padding: 5px 9px; border-radius: 8px;
-  font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--sb-ink-2); cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--sb-ink-2); cursor: pointer;
   display: inline-flex; align-items: center; gap: var(--sk-space-xs);
 }
 .skill-mini-btn:hover { border-color: rgba(57, 45, 26, 0.28); }
@@ -207,7 +207,7 @@
      栏内是 flex column + gap，故这里只用 margin 补足「16 - gap」的差值，
      避免 16(margin) + 12(gap) = 28px 的双重计数（实测确认过）。 */
   margin: calc(var(--sk-space-lg) - var(--sk-space-md)) 0 0;
-  font-size: 11.5px; line-height: 1.55; color: var(--sb-ink-3);
+  font-size: 12px; line-height: 1.55; color: var(--sb-ink-3);
 }
 .skill-hint svg { flex: none; margin-top: 2px; color: var(--sb-ink-success); }
 /* 9-18（P0）本处原先自写整套底部操作区（flex + gap + 边距 + 高度 + 最小宽 + 圆角 + 主次等重），
@@ -244,17 +244,17 @@
 .skill-new-group { display: flex; gap: var(--sk-space-sm); margin-top: var(--sk-space-sm); }
 .skill-new-group input {
   flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 9px;
-  border: 1.5px solid rgba(57,45,26,.12); font-family: inherit; font-size: 12.5px; outline: none;
+  border: 1.5px solid rgba(57,45,26,.12); font-family: inherit; font-size: 13px; outline: none;
 }
 .skill-new-group input:focus { border-color: var(--sb-danger); }
 .skill-card-body {
   margin: var(--sk-space-sm) 0 0; padding: 10px 11px; border-radius: 9px;
   background: var(--sb-neutral-0); border: 1px solid rgba(57,45,26,.09);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 11.5px; line-height: 1.7; color: var(--sb-ink-2); white-space: pre-wrap; word-break: break-word;
+  font-size: 12px; line-height: 1.7; color: var(--sb-ink-2); white-space: pre-wrap; word-break: break-word;
   max-height: 240px; overflow-y: auto;
 }
 .skill-group-tag {
   display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 999px;
-  background: rgba(101,72,205,.09); color: #6548CB; font-size: 10.5px; font-weight: 700;
+  background: rgba(101,72,205,.09); color: #6548CB; font-size: 11px; font-weight: 700;
 }

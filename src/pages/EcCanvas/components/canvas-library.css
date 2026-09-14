@@ -58,7 +58,7 @@
 /* 封面固定高度（不依赖 aspect-ratio，也不依赖变体作用域） */
 .canvas-library-cover { display: block; width: 100%; height: 220px; min-height: 220px; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: #f1efec; cursor: pointer; }
 .canvas-library-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center center; }
-.canvas-library-cover-empty { color: #a8a29e; font-size: 11.5px; }
+.canvas-library-cover-empty { color: #a8a29e; font-size: 12px; }
 /* 操作按钮：悬停才浮现的遮罩胶囊（够大够清楚） */
 .canvas-library-card-actions { position: absolute; top: 10px; right: 10px; z-index: 4; display: flex; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library-card:hover .canvas-library-card-actions, .canvas-library-card:focus-within .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
@@ -67,9 +67,9 @@
 /* 标题/时间是**底部遮罩**，不占容器高度（图片不再被“折断”） */
 .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 30px 14px 13px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.74)); }
 .canvas-library-card-body strong { display: block; overflow: hidden; color: #fff; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.canvas-library-card-body input { width: 100%; height: 26px; padding: 0 8px; border: 1px solid #7c3aed; border-radius: 7px; font-size: 12.5px; }
-.canvas-library-card-body small { display: block; margin-top: 3px; color: rgba(255,255,255,.78); font-size: 11.5px; }
-.canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 12.5px; text-align: center; }
+.canvas-library-card-body input { width: 100%; height: 26px; padding: 0 8px; border: 1px solid #7c3aed; border-radius: 7px; font-size: 13px; }
+.canvas-library-card-body small { display: block; margin-top: 3px; color: rgba(255,255,255,.78); font-size: 12px; }
+.canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 13px; text-align: center; }
 .canvas-library-error { margin: 12px 22px 0; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
 
 /* ═══ 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃）═══
@@ -125,7 +125,7 @@
 /* 标题与副标题按 DESIGN.md 的字号阶梯收敛（页面标题 15-16px 档的口径下，
    这里是整页视图，取 22px/800 为一级，副标题 12.5px 为三级，空间分层不靠夸张尺寸） */
 .canvas-library.is-page .canvas-library-head strong { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
-.canvas-library.is-page .canvas-library-head span { margin-top: 8px; color: #8d8681; font-size: 12.5px; }
+.canvas-library.is-page .canvas-library-head span { margin-top: 8px; color: #8d8681; font-size: 13px; }
 
 /* ── 筛选栏：同样的容器式子 + 4pt 刻度（上 24 / 下 20）──────────────────── */
 .canvas-library-tabs { position: sticky; top: 96px; z-index: 2; display: flex; gap: 8px; padding: 20px 28px 10px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
@@ -199,7 +199,7 @@
 /* ② 标题/时间做成底部渐变遮罩，不占容器高度 */
 .canvas-library.is-page .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 26px 14px 12px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.72)); }
 .canvas-library.is-page .canvas-library-card-body strong { color: #fff; font-size: 14px; font-weight: 700; }
-.canvas-library.is-page .canvas-library-card-body small { color: rgba(255,255,255,.78); font-size: 11.5px; margin-top: 2px; }
+.canvas-library.is-page .canvas-library-card-body small { color: rgba(255,255,255,.78); font-size: 12px; margin-top: 2px; }
 .canvas-library.is-page .canvas-library-card-body input { height: 30px; font-size: 13px; }
 /* ③ 操作按钮：悬停浮现的遮罩胶囊，尺寸放大到看得清 */
 .canvas-library.is-page .canvas-library-card-actions { top: 10px; right: 10px; display: flex; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }

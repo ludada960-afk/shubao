@@ -570,7 +570,7 @@
 .video-lightbox-body img, .video-lightbox-body video { display: block; width: 100%; max-height: 68vh; object-fit: contain; background: #14110e; }
 .video-lightbox-audio { display: grid; place-items: center; gap: 18px; padding: 48px 20px; background: linear-gradient(145deg, var(--sb-brand-50), #fff5e8); color: var(--sb-brand-600); }
 .video-lightbox-audio audio { width: min(480px, 90%); }
-.video-lightbox-body footer { padding: 9px 16px; color: #9a9188; font-size: 10.5px; text-align: center; border-top: 1px solid rgba(73,59,46,.08); }
+.video-lightbox-body footer { padding: 9px 16px; color: #9a9188; font-size: 11px; text-align: center; border-top: 1px solid rgba(73,59,46,.08); }
 .video-upload-status.is-completed { right: auto; left: 6px; bottom: 22px; min-width: 0; min-height: 0; width: 17px; height: 17px; padding: 0; justify-content: center; border-radius: 50%; background: rgba(25,126,87,.9); }
 
 /* 视频侧技能胶囊（2026-09-10） */

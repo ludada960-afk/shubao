@@ -27,7 +27,7 @@
   border: 1px solid rgba(21, 24, 40, 0.1);
   box-shadow: 0 18px 44px -18px rgba(21, 24, 40, 0.28);
   overflow: hidden;
-  font-size: 12.5px;
+  font-size: 13px;
   color: #1f2329;
 }
 
@@ -42,7 +42,7 @@
 }
 /* 2026-09-20 修：原为 `gap: 3;`（缺单位 → 无效声明被丢弃，从未生效）。 */
 .ec-wm-panel-title { display: grid; gap: 3px; min-width: 0; }
-.ec-wm-panel-title strong { font-size: 13.5px; font-weight: 700; }
+.ec-wm-panel-title strong { font-size: 14px; font-weight: 700; }
 .ec-wm-panel-title span { font-size: var(--sb-text-xs); color: #8a929c; line-height: 1.45; }
 
 .ec-wm-icon-btn {
@@ -95,13 +95,13 @@
 .ec-wm-switch em { margin-left: auto; font-style: normal; font-size: var(--sb-text-xs); color: #8a929c; }
 
 .ec-wm-field { display: grid; gap: var(--sb-space-1-5); }
-.ec-wm-label { font-size: 11.5px; font-weight: 600; color: #59616c; }
+.ec-wm-label { font-size: 12px; font-weight: 600; color: #59616c; }
 .ec-wm-label em { font-style: normal; color: var(--sb-ink-1); font-variant-numeric: tabular-nums; }
 .ec-wm-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sb-space-2); }
 .ec-wm-hint { display: inline-flex; align-items: center; gap: var(--sb-space-1); font-size: var(--sb-text-xs); color: #8a929c; }
 .ec-wm-row { display: flex; align-items: center; gap: var(--sb-space-2); flex-wrap: wrap; }
 /* 2026-09-20 修：原为 `gap: 5;`（缺单位 → 无效声明被丢弃，从未生效）。 */
-.ec-wm-num { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #59616c; }
+.ec-wm-num { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #59616c; }
 .ec-wm-num input {
   width: 58px; height: 30px;
   padding: 0 7px;
@@ -112,7 +112,7 @@
   height: 32px;
   padding: 0 10px;
   border: 1px solid #dfe4ec; border-radius: 9px;
-  font-family: inherit; font-size: 12.5px; color: #1f2329; background: var(--sb-neutral-0);
+  font-family: inherit; font-size: 13px; color: #1f2329; background: var(--sb-neutral-0);
 }
 .ec-wm-input:focus, .ec-wm-num input:focus { outline: 2px solid rgba(37, 99, 235, .28); outline-offset: 0; border-color: var(--sb-info); }
 .ec-wm-field input[type="range"] { width: 100%; accent-color: var(--sb-ink-1); height: 18px; }
@@ -151,7 +151,7 @@
   margin: 0; padding: 8px 10px;
   border-radius: 9px;
   background: #f0f7ff; border: 1px solid #d6e6fb; color: var(--sb-info);
-  font-size: 11.5px; line-height: 1.5;
+  font-size: 12px; line-height: 1.5;
 }
 
 /* ── 位置预览（可拖拽）──────────────────────────────────────────────────── */
@@ -184,7 +184,7 @@
   pointer-events: none;
   -webkit-user-drag: none;
 }
-.ec-wm-preview-empty { font-size: 11.5px; color: #9aa2ac; text-align: center; padding: 24px 16px; }
+.ec-wm-preview-empty { font-size: 12px; color: #9aa2ac; text-align: center; padding: 24px 16px; }
 
 /* ── 素材水印渲染层（画布节点与预览共用）──────────────────────────────── */
 .ec-wm-layer {

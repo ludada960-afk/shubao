@@ -214,7 +214,7 @@
 }
 .pricing-footnote {
   margin-top: var(--sb-space-2-5);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-faint);
   line-height: 1.7;
 }
@@ -391,7 +391,7 @@
   color: var(--sb-ink-1);
 }
 .pricing-price-unit {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--sb-ink-4);
   font-weight: var(--sb-weight-semibold);
   margin-left: var(--sb-space-0-5);
@@ -469,7 +469,7 @@
 .pricing-btn-primary--lg {
   min-height: var(--sb-control-h-xl);
   padding: 0 var(--sb-control-px-xl);
-  font-size: 14.5px;
+  font-size: 14px;
 }
 /* ── 禁用按钮：真挂 disabled 属性 + 明确的禁用配色 ──────────────────
    不用「只降透明度」——半透明会让禁用态看起来像可用的弱化版，
@@ -763,7 +763,7 @@
   letter-spacing: -0.01em;
 }
 .pricing-pack-tag {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: var(--sb-weight-bold);
   color: var(--sb-ink-4);
   letter-spacing: 0.04em;
@@ -778,7 +778,7 @@
 /* 积分赠量：积分是「数据高亮」→ 用品牌浅底 + 品牌墨色，与金额形成二级层次 */
 .pricing-pack-grant {
   display: inline-block;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: var(--sb-weight-heavy);
   color: var(--sb-ink-brand);
   background: var(--sb-state-selected-bg);
@@ -790,7 +790,7 @@
 }
 .pricing-pack-desc {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--sb-ink-3);
   line-height: var(--sb-leading-normal);
   min-height: 32px;
@@ -801,7 +801,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sb-space-1);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: var(--sb-weight-heavy);
   /* CTA 是「品牌动作」→ 品牌墨色 */
   color: var(--sb-ink-brand);
@@ -871,7 +871,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--text-muted);
   background: var(--bg-hover);
@@ -1107,7 +1107,7 @@
   border-style: dashed;
 }
 .pricing-modal-provider-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--text-primary);
 }
