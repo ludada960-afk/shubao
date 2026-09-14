@@ -112,17 +112,28 @@ export default function EcPlatformPicker({ platform, onChange }) {
                   {RATIOS.map(r => {
                     const active = customRatio === r.key;
                     return (
-                      <div key={r.key} onClick={() => setCustomRatio(r.key)}
+                      <button key={r.key} type="button" onClick={() => setCustomRatio(r.key)}
+                        aria-pressed={active}
                         style={{
+                          /* div -> button：外观零变化需要显式重置浏览器默认样式
+                             （button 默认有 border/background/padding/font，且 box-sizing 不同）。 */
+                          appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',border: 'none',
+                          margin: 0,
+                          font: 'inherit',
+                          boxSizing: 'border-box',
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
                           background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
                           color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
-                        }}>
+                          /* 键盘可达：焦点环走 --sb-focus-ring（box-shadow，不改边框宽度 → 无抖动） */
+                          outline: 'none',
+                        }}
+                        onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                        onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                         {r.label}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -137,17 +148,28 @@ export default function EcPlatformPicker({ platform, onChange }) {
                   {RESOLUTIONS.map(r => {
                     const active = customRes === r.key;
                     return (
-                      <div key={r.key} onClick={() => setCustomRes(r.key)}
+                      <button key={r.key} type="button" onClick={() => setCustomRes(r.key)}
+                        aria-pressed={active}
                         style={{
+                          /* div -> button：外观零变化需要显式重置浏览器默认样式
+                             （button 默认有 border/background/padding/font，且 box-sizing 不同）。 */
+                          appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',border: 'none',
+                          margin: 0,
+                          font: 'inherit',
+                          boxSizing: 'border-box',
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
                           background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
                           color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
-                        }}>
+                          /* 键盘可达：焦点环走 --sb-focus-ring（box-shadow，不改边框宽度 → 无抖动） */
+                          outline: 'none',
+                        }}
+                        onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                        onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                         {r.label}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

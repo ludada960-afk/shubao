@@ -55,12 +55,14 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
     <div style={{ minHeight: '100vh', background: '#0f0f1a', color: 'var(--sb-neutral-0)', paddingBottom: 40 }}>
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div onClick={onBack}
-          style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+        <button type="button" aria-label="返回" onClick={onBack}
+          style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding: 0, font: 'inherit', boxSizing: 'border-box', border: 'none', outline: 'none', width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}>
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+          onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+          onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
           <MdArrowBack size={18} color="rgba(255,255,255,0.6)" />
-        </div>
+        </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>选择设计方向</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>AI 已分析您的产品并规划多套设计方案</div>
@@ -88,8 +90,10 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
         {dirs.map(dir => {
           const selected = selectedId === dir.id;
           return (
-            <div key={dir.id} onClick={() => setSelectedId(dir.id)}
+            <button key={dir.id} type="button" aria-pressed={selected} onClick={() => setSelectedId(dir.id)}
               style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', textAlign: 'left',
+                width: '100%',
                 display: 'flex', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
                 border: selected ? '2px solid var(--sb-brand-400)' : '1px solid rgba(255,255,255,0.08)',
                 background: selected ? 'rgba(167,139,250,0.06)' : 'rgba(255,255,255,0.03)',
@@ -129,7 +133,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
                   ))}
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

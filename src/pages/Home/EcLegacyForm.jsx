@@ -299,14 +299,14 @@ export default function EcLegacyForm() {
                 decoding="async"
                 fetchpriority="auto"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div onClick={() => setRefImgs(p => p.filter((_, j) => j !== i))}
-                style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--sb-neutral-0)', fontWeight: 700 }}>×</div>
+              <button type="button" aria-label="移除这张参考图" onClick={() => setRefImgs(p => p.filter((_, j) => j !== i))}
+                style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--sb-neutral-0)', fontWeight: 700 }}>×</button>
             </div>
           ))}
           {refImgs.length < 5 && (
-            <div onClick={() => fileRef.current?.click()} style={{ width: 60, height: 60, borderRadius: 8, border: '2px dashed var(--sb-neutral-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-neutral-300)' }}>
+            <button type="button" aria-label="继续添加参考图" onClick={() => fileRef.current?.click()} style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', width: 60, height: 60, borderRadius: 8, border: '2px dashed var(--sb-neutral-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-neutral-300)' }}>
               <Upload size={16} />
-            </div>
+            </button>
           )}
           <input ref={fileRef} type="file" accept="image/*" multiple hidden
             onChange={e => { addImage(e.target.files); e.target.value = ''; }} />
@@ -328,12 +328,15 @@ export default function EcLegacyForm() {
           <div style={LABEL}>品类</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {EC_CATS.map(c => (
-              <span key={c} onClick={() => setCat(c)} style={{
-                padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+              <button key={c} type="button" aria-pressed={cat === c} onClick={() => setCat(c)} style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',cursor: 'pointer',
+                padding: '6px 14px', borderRadius: 8, fontSize: 13,
                 background: cat === c ? 'var(--sb-brand-600)' : 'var(--sb-neutral-100)',
                 color: cat === c ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)', fontWeight: cat === c ? 600 : 400,
                 border: 'none', fontFamily: 'inherit',
-              }}>{c}</span>
+              }}
+              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>{c}</button>
             ))}
           </div>
         </div>
@@ -377,16 +380,19 @@ export default function EcLegacyForm() {
               { key: 'brand_unified', label: '品牌统一', sub: '提升溢价', emoji: '💎' },
               { key: 'promo_sale', label: '促销活动', sub: '大促抓住眼球', emoji: '🏷️' },
             ].map(s => (
-              <div key={s.key} onClick={() => setStylePack(s.key)} style={{
+              <button key={s.key} type="button" aria-pressed={stylePack === s.key} onClick={() => setStylePack(s.key)} style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 border: `2px solid ${stylePack === s.key ? 'var(--sb-brand-600)' : 'var(--sb-neutral-150)'}`,
                 borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'center',
                 background: stylePack === s.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                 transition: 'all 0.15s',
-              }}>
+              }}
+              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                 <div style={{ fontSize: 20 }}>{s.emoji}</div>
                 <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
                 <div style={{ fontSize: 10, color: 'var(--sb-ink-4)', marginTop: 2 }}>{s.sub}</div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -396,12 +402,15 @@ export default function EcLegacyForm() {
           <div style={LABEL}>目标平台</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'].map(p => (
-              <span key={p} onClick={() => setPlatform(p)} style={{
-                padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+              <button key={p} type="button" aria-pressed={platform === p} onClick={() => setPlatform(p)} style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',cursor: 'pointer',
+                padding: '6px 14px', borderRadius: 8, fontSize: 13,
                 background: platform === p ? 'var(--sb-brand-600)' : 'var(--sb-neutral-100)',
                 color: platform === p ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)', fontWeight: platform === p ? 600 : 400,
                 border: 'none', fontFamily: 'inherit',
-              }}>{p}</span>
+              }}
+              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>{p}</button>
             ))}
           </div>
         </div>
@@ -415,15 +424,18 @@ export default function EcLegacyForm() {
               { key: 'standard', label: '标准版', count: '5张', desc: '增加细节图+SKU' },
               { key: 'complete', label: '完整版', count: '9张', desc: '增加对比图+包装图' },
             ].map(t => (
-              <div key={t.key} onClick={() => setTier(t.key)} style={{
+              <button key={t.key} type="button" aria-pressed={tier === t.key} onClick={() => setTier(t.key)} style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 flex: 1, border: `2px solid ${tier === t.key ? 'var(--sb-brand-600)' : 'var(--sb-neutral-150)'}`,
                 borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'center',
                 background: tier === t.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)', transition: 'all 0.15s',
-              }}>
+              }}
+              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                 <div style={{ fontSize: 11, color: 'var(--sb-ink-3)' }}>{t.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: tier === t.key ? 'var(--sb-brand-700)' : 'var(--sb-brand-600)', lineHeight: 1.2, margin: '4px 0' }}>{t.count}</div>
                 <div style={{ fontSize: 10, color: 'var(--sb-ink-4)' }}>{t.desc}</div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

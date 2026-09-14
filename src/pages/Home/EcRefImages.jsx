@@ -45,15 +45,19 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
       <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 12 }}>{sub}</div>
 
       {!hasImages ? (
-        <div onClick={() => fileRef.current?.click()}
+        <button type="button" onClick={() => fileRef.current?.click()}
           style={{
+            appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
+            display: 'block', width: '100%',
             border: '2px dashed var(--border)',
             borderRadius: 'var(--radius-md)',
             padding: '32px 14px',
             textAlign: 'center', cursor: 'pointer',
             transition: 'all 0.15s',
             background: 'transparent',
-          }}>
+          }}
+          onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+          onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
           <Upload size={22} style={{ color: 'var(--text-faint)', marginBottom: 8 }} />
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>点击上传</div>
           <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
@@ -61,7 +65,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
               ? '正面照、侧面45°、细节特写都很有用\n1 张正面照也能出图，越清晰效果越好'
               : '光影、色调、构图的参考 — 竞品好图或杂志风\nAI 会学习氛围但保留你的产品'}
           </div>
-        </div>
+        </button>
       ) : (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {images.map((src, i) => (
@@ -80,27 +84,32 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
                 decoding="async"
                 fetchpriority="auto"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div onClick={() => onRemove(i)}
+              <button type="button" aria-label="移除这张参考图" onClick={() => onRemove(i)}
                 style={{
+                  appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding: 0, font: 'inherit', boxSizing: 'border-box', border: 'none', outline: 'none',
                   position: 'absolute', top: 2, right: 2,
                   width: 18, height: 18, borderRadius: '50%',
                   background: color, color: 'var(--sb-neutral-0)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', fontSize: 10,
                   boxShadow: '0 1px 3px rgba(12,10,9,0.3)',
-                }}>✕</div>
+                }}
+                onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                onBlur={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(12,10,9,0.3)'; }}>✕</button>
             </div>
           ))}
           {images.length < max && (
-            <div onClick={() => fileRef.current?.click()}
+            <button type="button" aria-label="继续添加参考图" onClick={() => fileRef.current?.click()}
               style={{
+                /* 显式尺寸 + 边框：保持 content-box，否则 72+2px 边框会缩成 72（实测少 4px）。 */
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 width: 72, height: 72,
                 borderRadius: 'var(--radius-sm)',
                 border: '2px dashed var(--border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', color: 'var(--text-faint)', fontSize: 20,
                 flexShrink: 0,
-              }}>+</div>
+              }}>+</button>
           )}
         </div>
       )}

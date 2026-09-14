@@ -182,7 +182,7 @@ function XhsInputTemplate({
           onAdd={onAdd}
           onRemove={onRemove}
         />
-        <div className="ec-textarea-wrap ec-xhs-prompt" onClick={event => { if (event.target !== promptRef.current) promptRef.current?.focus(); }}>
+        <div className="ec-textarea-wrap ec-xhs-prompt" onMouseDown={event => { if (event.target !== promptRef.current) promptRef.current?.focus(); }}>
           <textarea
             ref={promptRef}
             value={text}
@@ -1120,7 +1120,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ gridColumn:'1 / -1' }}>
                   <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onPickLibraryUrls={handlePickLibraryUrls} onRemove={removeRoleImage} />
                 </div>
-                <div className="ec-textarea-wrap xhs-legacy-prompt" onClick={event => { if (event.target !== xhsPromptRef.current) xhsPromptRef.current?.focus(); }}>
+                <div className="ec-textarea-wrap xhs-legacy-prompt" onMouseDown={event => { if (event.target !== xhsPromptRef.current) xhsPromptRef.current?.focus(); }}>
                   <textarea ref={xhsPromptRef} value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
                     className="xhs-prompt-field"
                     placeholder="写什么？一句话就够了"
@@ -1151,7 +1151,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ gridColumn:'1 / -1' }}>
                   <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onPickLibraryUrls={handlePickPlogLibraryUrls} onRemove={removePlogRoleImage} />
                 </div>
-                <div className="ec-textarea-wrap xhs-legacy-prompt" onClick={event => { if (event.target !== plogPromptRef.current) plogPromptRef.current?.focus(); }}>
+                <div className="ec-textarea-wrap xhs-legacy-prompt" onMouseDown={event => { if (event.target !== plogPromptRef.current) plogPromptRef.current?.focus(); }}>
                   <textarea ref={plogPromptRef} value={plogText} onChange={e => setPlogText(e.target.value)}
                     className="xhs-prompt-field"
                     placeholder="描述你想记录的生活瞬间"
@@ -1362,9 +1362,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               <div>
                 {/* 子模式切换 */}
                 <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'var(--sb-neutral-200)', borderRadius:10 }}>
-                  <div onClick={() => setXhsSubMode('content')}
+                  <button type="button" aria-pressed={xhsSubMode === 'content'} onClick={() => setXhsSubMode('content')}
                     style={{
-                      flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
+                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
                       background: xhsSubMode === 'content' ? 'var(--sb-neutral-0)' : 'transparent',
                       color: xhsSubMode === 'content' ? 'var(--sb-danger)' : 'var(--sb-ink-3)',
@@ -1373,17 +1373,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       position:'relative',
                     }}
                     onMouseEnter={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = 'var(--sb-neutral-100)'; }}
-                    onMouseLeave={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = 'transparent'; }}>
+                    onMouseLeave={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = 'transparent'; }}
+                    onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                    onBlur={e => { e.currentTarget.style.boxShadow = xhsSubMode === 'content' ? '0 1px 6px rgba(12,10,9,0.12)' : 'none'; }}>
                     种草图文
-                    <div style={{
+                    {/* 下划线装饰：button 内不能嵌 div（HTML 内容模型），用 span 承载 */}
+                    <span style={{
                       position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
                       width: xhsSubMode === 'content' ? 16 : 0, height:2.5, borderRadius:2,
                       background:'var(--sb-danger)', transition:'all .2s',
                     }} />
-                  </div>
-                  <div onClick={() => setXhsSubMode('plog')}
+                  </button>
+                  <button type="button" aria-pressed={xhsSubMode === 'plog'} onClick={() => setXhsSubMode('plog')}
                     style={{
-                      flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
+                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
                       background: xhsSubMode === 'plog' ? 'var(--sb-neutral-0)' : 'transparent',
                       color: xhsSubMode === 'plog' ? '#c2185b' : 'var(--sb-ink-3)',
@@ -1392,14 +1395,16 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       position:'relative',
                     }}
                     onMouseEnter={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = 'var(--sb-neutral-100)'; }}
-                    onMouseLeave={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = 'transparent'; }}>
+                    onMouseLeave={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = 'transparent'; }}
+                    onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                    onBlur={e => { e.currentTarget.style.boxShadow = xhsSubMode === 'plog' ? '0 1px 6px rgba(12,10,9,0.12)' : 'none'; }}>
                     Plog 生活碎片
-                    <div style={{
+                    <span style={{
                       position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
                       width: xhsSubMode === 'plog' ? 16 : 0, height:2.5, borderRadius:2,
                       background:'#c2185b', transition:'all .2s',
                     }} />
-                  </div>
+                  </button>
                 </div>
                 {xhsSubMode === 'content' && (
                   <div>
@@ -1461,9 +1466,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         ].map(s => {
                           const active = plogStyle === s.k;
                           return (
-                            <div key={s.k} onClick={() => setPlogStyle(s.k)}
+                            <button key={s.k} type="button" aria-pressed={active} onClick={() => setPlogStyle(s.k)}
                               style={{
-                                padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
+                                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
                                 transition:'all .12s', lineHeight:'20px',
                                 background: active ? s.color : 'var(--sb-neutral-100)',
                                 color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-3)',
@@ -1471,9 +1476,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                                 border: active ? '1px solid ' + s.color : '1px solid var(--sb-neutral-150)',
                               }}
                               onMouseEnter={e => { if(!active) { e.currentTarget.style.borderColor = 'var(--sb-neutral-300)'; } }}
-                              onMouseLeave={e => { if(!active) { e.currentTarget.style.borderColor = 'var(--sb-neutral-150)'; } }}>
+                              onMouseLeave={e => { if(!active) { e.currentTarget.style.borderColor = 'var(--sb-neutral-150)'; } }}
+                              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                              onBlur={e => { e.currentTarget.style.boxShadow = active ? '0 1px 4px ' + s.color + '50' : 'none'; }}>
                               {s.label}
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1488,18 +1495,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         ].map(t => {
                           const active = plogLayout === t.k;
                           return (
-                            <div key={t.k} onClick={() => setPlogLayout(t.k)}
+                            <button key={t.k} type="button" aria-pressed={active} onClick={() => setPlogLayout(t.k)}
                               style={{
-                                padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, transition:'all .12s',
+                                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, transition:'all .12s',
                                 background: active ? '#BE185D' : 'var(--sb-neutral-0)',
                                 color: active ? 'var(--sb-neutral-0)' : '#BE185D',
                                 border: active ? '1px solid #BE185D' : '1px solid #f0d4df',
                                 fontWeight: active ? 600 : 400,
                               }}
                               onMouseEnter={e => { if(!active) { e.currentTarget.style.background = '#fdf2f8'; e.currentTarget.style.borderColor = '#BE185D'; } }}
-                              onMouseLeave={e => { if(!active) { e.currentTarget.style.background = 'var(--sb-neutral-0)'; e.currentTarget.style.borderColor = '#f0d4df'; } }}>
+                              onMouseLeave={e => { if(!active) { e.currentTarget.style.background = 'var(--sb-neutral-0)'; e.currentTarget.style.borderColor = '#f0d4df'; } }}
+                              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                               {t.label}
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1521,10 +1530,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 {/* 平台选择 — 横向滑动 */}
                 <div style={{ display:'flex', gap:8, padding:'14px 16px', borderBottom:'1.5px solid var(--border)', background:'var(--sb-neutral-25)', alignItems:'center', overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }}>
                   {['淘宝','京东','拼多多','抖音','小红书','亚马逊'].map(p => (
-                    <span key={p} className={`ec-cat-pill ${ecPlatform === p ? 'on' : ''}`} onClick={() => setEcPlatform(p)}
-                      style={{ flexShrink:0 }}>
+                    <button key={p} type="button" aria-pressed={ecPlatform === p} className={`ec-cat-pill ${ecPlatform === p ? 'on' : ''}`} onClick={() => setEcPlatform(p)}
+                      style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', flexShrink:0 }}
+                      onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                      onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                       {p === '淘宝' ? '🟠' : p === '京东' ? '🛒' : p === '拼多多' ? '🟢' : p === '抖音' ? '🎵' : p === '小红书' ? '📕' : '🌐'} {p}
-                    </span>
+                    </button>
                   ))}
                   <ProductProfilePicker
                     profiles={xhsProfile.profiles}
@@ -1603,8 +1614,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                             decoding="async"
                             fetchpriority="auto"
                             style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                          <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
-                            style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'var(--sb-danger)', color:'var(--sb-neutral-0)', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(12,10,9,0.3)' }}>×</div>
+                          <button type="button" aria-label="移除这张参考图" onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
+                            style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'var(--sb-danger)', color:'var(--sb-neutral-0)', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(12,10,9,0.3)' }}>×</button>
                         </div>
                       ))}
                     </div>
@@ -1728,8 +1739,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
       {/* 参考图放大查看 Lightbox */}
       {ecPreviewLightbox && (
-        <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} onClick={() => setEcPreviewLightbox(null)}>
-          <div className="ec-lightbox-content" onClick={e => e.stopPropagation()}>
+        <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} tabIndex={-1}
+          onClick={() => setEcPreviewLightbox(null)}
+          onKeyDown={e => { if (e.key === 'Escape') setEcPreviewLightbox(null); }}>
+          <div className="ec-lightbox-content" onMouseDown={e => e.stopPropagation()}>
             <button className="ec-lightbox-close" onClick={() => setEcPreviewLightbox(null)}>×</button>
             <img
               src={ecPreviewLightbox}
@@ -1754,22 +1767,27 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {/* 头部 */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
               <div style={{ fontSize:17, fontWeight:600, color:'var(--sb-ink-1)' }}>📸 上传商品实拍图</div>
-              <div onClick={() => setShowRefModal(false)} style={{ width:28, height:28, borderRadius:'50%', background:'var(--sb-neutral-100)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--sb-ink-4)', fontSize:16, lineHeight:1 }}>✕</div>
+              <button type="button" aria-label="关闭" onClick={() => setShowRefModal(false)} style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', boxSizing:'border-box', border:'none', outline:'none', cursor:'pointer', width:28, height:28, borderRadius:'50%', background:'var(--sb-neutral-100)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--sb-ink-4)', fontSize:16, lineHeight:1 }}
+                onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>✕</button>
             </div>
 
             {/* 主体 */}
             <div style={{ marginBottom:16 }}>
               {/* 上传区 — 居中 */}
-              <div onClick={() => ecFileRef.current?.click()} style={{
+              <button type="button" onClick={() => ecFileRef.current?.click()} style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display:'block', width:'100%',
                 border:'2px dashed var(--sb-neutral-300)', borderRadius:12, padding:'36px 20px',
                 textAlign:'center', cursor:'pointer', marginBottom:12,
                 background:'var(--sb-neutral-25)', transition:'all 0.15s',
               }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-brand-700)'; e.currentTarget.style.background = 'var(--sb-brand-50)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-300)'; e.currentTarget.style.background = 'var(--sb-neutral-25)'; }}>
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-300)'; e.currentTarget.style.background = 'var(--sb-neutral-25)'; }}
+                onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                 <Upload size={28} style={{ color:'var(--sb-ink-5)', marginBottom:8 }} />
-                <div style={{ fontSize:15, fontWeight:600, color:'var(--sb-ink-2)' }}>点击上传商品参考图</div>
-              </div>
+                <span style={{ fontSize:15, fontWeight:600, color:'var(--sb-ink-2)', display:'block' }}>点击上传商品参考图</span>
+              </button>
               <div style={{ fontSize:11, color:'var(--sb-ink-5)', textAlign:'center', marginBottom:16, lineHeight:1.6 }}>
                 支持 JPG / PNG / WebP，每张不超过 5MB<br />
                 建议 1:1 或 3:4 比例，产品居中、背景简洁效果最好
@@ -1793,8 +1811,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                           decoding="async"
                           fetchpriority="auto"
                           style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
-                          style={{ position:'absolute', top:-4, right:-4, width:20, height:20, borderRadius:'50%', background:'var(--sb-danger)', color:'var(--sb-neutral-0)', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid var(--sb-neutral-0)', fontWeight:700, lineHeight:1 }}>×</div>
+                        <button type="button" aria-label="移除这张参考图" onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
+                          style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', position:'absolute', top:-4, right:-4, width:20, height:20, borderRadius:'50%', background:'var(--sb-danger)', color:'var(--sb-neutral-0)', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid var(--sb-neutral-0)', fontWeight:700, lineHeight:1 }}
+                          onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                          onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>×</button>
                       </div>
                     ))}
                   </div>

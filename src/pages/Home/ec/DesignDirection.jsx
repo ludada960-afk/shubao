@@ -869,15 +869,17 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 16px' }}>
         {/* ── 顶部导航 ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div onClick={onBack} style={{
-            display: 'flex', alignItems: 'center', gap: 4,
+          <button type="button" onClick={onBack} style={{
+            appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'flex', alignItems: 'center', gap: 4,
             padding: '8px 14px', borderRadius: 12,
             background: 'var(--sb-neutral-0)', border: '1px solid rgba(12,10,9,0.08)',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
             color: 'var(--text-secondary)', transition: 'all 0.15s',
-          }}>
+          }}
+          onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+          onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
             <MdArrowBack size={16} /> 返回
-          </div>
+          </button>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--sb-ink-1)' }}>
             确认设计方案
           </h2>
@@ -1124,7 +1126,16 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           </>
         )}
         {previewImageIndex >= 0 && stableImages[previewImageIndex] && (
-          <div role="dialog" aria-modal="true" aria-label="生成图片预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', background: 'rgba(18,16,20,.86)', padding: 24 }}>
+          /* 遮罩层：**不是**按钮（点击空白处关闭是辅助行为），
+             因此保留 div 而非改成 button —— 改成 button 会让整屏变成可 Tab 的巨型按钮，
+             反而更糟。键盘可达性由两条保证：
+               ① 内部有真实的「关闭预览」button（见下）；
+               ② 遮罩自身可聚焦并响应 Escape（onKeyDown）。
+             这是 WAI-ARIA 对 dialog 的推荐做法。 */
+          <div role="dialog" aria-modal="true" aria-label="生成图片预览" tabIndex={-1}
+            onClick={() => setPreviewImageIndex(-1)}
+            onKeyDown={e => { if (e.key === 'Escape') setPreviewImageIndex(-1); }}
+            style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', background: 'rgba(18,16,20,.86)', padding: 24 }}>
             <button type="button" title="关闭预览" aria-label="关闭预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'absolute', top: 18, right: 18, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.14)', color: 'var(--sb-neutral-0)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdClose size={24} /></button>
             {stableImages.length > 1 && <button type="button" title="上一张" aria-label="上一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index - 1 + stableImages.length) % stableImages.length); }} style={{ position: 'absolute', left: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: 'var(--sb-neutral-0)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronLeft size={30} /></button>}
             <img onClick={event => event.stopPropagation()} src={stableImages[previewImageIndex].stableUrl} alt={stableImages[previewImageIndex].label || stableImages[previewImageIndex].role || '生成图片预览'} width="1200" height="800" loading="eager" decoding="async" fetchpriority="high" draggable="false" style={{ maxWidth: 'min(92vw, 1200px)', maxHeight: '86vh', objectFit: 'contain' }} />
@@ -1140,13 +1151,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           }}>
             {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', lineHeight: 1.55 }}>{error}</div>}
             <p>未生成设计方向，请检查输入后重试</p>
-            <div onClick={loadDirections} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
+            <button type="button" onClick={loadDirections} style={{
+              appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '8px 18px', borderRadius: 10,
               background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)',
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              marginTop: 12,
-            }}>重试</div>
+              marginTop: 12, border: 'none',
+            }}
+            onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+            onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>重试</button>
           </div>
         )}
       </div>

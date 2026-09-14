@@ -37,17 +37,22 @@ export default function EcSkuPanel({ skus, onChange }) {
         </div>
 
         {skus.length === 0 ? (
-          <div onClick={addSku}
+          <button type="button" onClick={addSku}
             style={{
+              /* div -> button：外观零变化需重置 UA 默认样式（button 自带 border/bg/padding/字体） */
+              appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'block', width: '100%',
               border: '2px dashed var(--border)',
               borderRadius: 'var(--radius-md)',
               padding: '24px 14px',
               textAlign: 'center', cursor: 'pointer',
               fontSize: 13, color: 'var(--text-faint)',
-            }}>
+              outline: 'none',
+            }}
+            onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+            onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
             <Plus size={18} style={{ margin: '0 auto 6px', display: 'block' }} />
             添加变体
-          </div>
+          </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {skus.map(sku => (
@@ -84,27 +89,36 @@ export default function EcSkuPanel({ skus, onChange }) {
                         color: 'var(--text-primary)', outline: 'none',
                       }} />
                   </span>
-                  <div onClick={() => removeSku(sku.id)}
+                  <button type="button" aria-label="删除该变体" onClick={() => removeSku(sku.id)}
                     style={{
+                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding: 0, font: 'inherit', boxSizing: 'border-box',
+                      border: 'none', background: 'none',
                       width: 26, height: 26, borderRadius: '50%',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       cursor: 'pointer', color: 'var(--text-faint)',
                       transition: 'all 0.12s',
-                    }}>
+                      outline: 'none',
+                    }}
+                    onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                    onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                     <Trash2 size={13} />
-                  </div>
+                  </button>
                 </div>
               </div>
             ))}
-            <div onClick={addSku}
+            <button type="button" onClick={addSku}
               style={{
+                appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',width: '100%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 padding: '10px', borderRadius: 'var(--radius-sm)',
-                border: '1px dashed var(--border)', cursor: 'pointer',
+                border: '1px dashed var(--border)', cursor: 'pointer', background: 'none',
                 fontSize: 13, color: 'var(--text-muted)', transition: 'all 0.12s',
-              }}>
+                outline: 'none',
+              }}
+              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
               <Plus size={14} /> 添加变体
-            </div>
+            </button>
           </div>
         )}
       </div>
