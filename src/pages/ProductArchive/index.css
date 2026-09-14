@@ -23,7 +23,7 @@
   padding: 14px 18px;
   background: var(--sb-neutral-0);
   border: 1px solid #ece6da;
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 6px 18px rgba(34, 22, 12, 0.05);
 }
 
@@ -42,7 +42,7 @@
 .product-archive-status {
   font-size: var(--sb-text-sm);
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill);
   font-weight: 500;
   background: #f3eada;
   color: #8a5a1f;
@@ -113,7 +113,7 @@
 .product-archive-archived-hint {
   background: var(--sb-neutral-0);
   border: 1px solid #ece6da;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 18px 20px;
   box-shadow: 0 6px 18px rgba(34, 22, 12, 0.04);
 }
@@ -300,7 +300,7 @@
 .product-archive-media-grid a {
   position: relative;
   display: block;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   background: #fdfaf3;
   aspect-ratio: 1 / 1;

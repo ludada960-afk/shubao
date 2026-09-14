@@ -6,7 +6,7 @@
 .canvas-asset-picker header span { display: block; margin-top: 4px; color: #a8a29e; font-size: 12px; }
 .canvas-asset-picker header button { width: 30px; height: 30px; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: #78716c; font-size: 16px; cursor: pointer; }
 .canvas-asset-picker-tools { display: flex; align-items: center; gap: 12px; padding: 14px 22px 10px; }
-.canvas-asset-picker-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 9px; color: #a8a29e; }
+.canvas-asset-picker-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 12px; color: #a8a29e; }
 .canvas-asset-picker-search input { flex: 1 1 auto; border: 0; outline: none; font-size: 13px; font-family: inherit; color: #292524; background: transparent; }
 /* 2026-09-20 依 D11：抑制了 input 自身轮廓 → **必须给可见替代**。
    input 无边框（视觉框在包裹层 .canvas-asset-picker-search 上），所以焦点环打在包裹层，
@@ -26,7 +26,7 @@
 .canvas-asset-picker-card:focus-within .canvas-asset-picker-check { opacity: 1; }
 .canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed; border-color: #7c3aed; color: #fff; }
 .canvas-asset-picker-empty { grid-column: 1 / -1; padding: 30px 10px; color: #a8a29e; font-size: 13px; text-align: center; }
-.canvas-asset-picker-error { margin: 0 22px; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
+.canvas-asset-picker-error { margin: 0 22px; padding: 8px 12px; border-radius: 12px; background: #fef2f0; color: #a5322b; font-size: 12px; }
 /* 9-18 用户批注（P0）：「值对了，覆盖面没到」——
    本文件原先自写了整套 footer（flex + gap + 高度 + 最小宽 + 圆角 + 主次配色 + 禁用态），
    只是把 token 名抄了进去，属于「抄了取值但没接契约」。现已改为挂契约类
@@ -40,7 +40,7 @@
 /* 名称遮罩：常态压在图片底部，白字 + 底部渐变，不占容器高度（图片不被挤扁） */
 .canvas-asset-picker-name { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 22px 10px 8px; overflow: hidden; color: #fff; font-size: 12px; font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.74)); pointer-events: none; }
 /* 垃圾桶：默认不可见，悬停 / 聚焦才浮现到右上角（竞品同款，暗色毛玻璃胶囊） */
-.canvas-asset-picker-delete { position: absolute; top: 8px; right: 8px; z-index: 3; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.34); border-radius: 9px; background: rgba(20,18,16,.58); color: #fff; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease, border-color .16s ease; }
+.canvas-asset-picker-delete { position: absolute; top: 8px; right: 8px; z-index: 3; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.34); border-radius: 12px; background: rgba(20,18,16,.58); color: #fff; cursor: pointer; opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease, border-color .16s ease; }
 .canvas-asset-picker-card:hover .canvas-asset-picker-delete,
 .canvas-asset-picker-card:focus-within .canvas-asset-picker-delete { opacity: 1; transform: translateY(0); }
 .canvas-asset-picker-delete:hover { background: #dc2626; border-color: rgba(255,255,255,.6); }
@@ -48,7 +48,7 @@
 /* ═══ 9-15 用户批注：卡片左上角类型角标常显（图片 / 视频 / 音频，图标 + 文字小胶囊）═══
    半透明深色底 + 白字，不依赖 hover；pointer-events: none 不挡点卡选中。
    位置：top 8 / left 8；打勾圈已下移到 top 38，两者永不相叠（见 .canvas-asset-picker-check）。 */
-.canvas-asset-picker-type { position: absolute; top: 8px; left: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: rgba(20,18,16,.62); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; backdrop-filter: blur(4px); pointer-events: none; }
+.canvas-asset-picker-type { position: absolute; top: 8px; left: 8px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; box-sizing: border-box; border-radius: var(--sb-radius-pill); background: rgba(20,18,16,.62); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; backdrop-filter: blur(4px); pointer-events: none; }
 .canvas-asset-picker-type svg { flex: 0 0 auto; }
 .canvas-asset-picker-type > span { line-height: 22px; white-space: nowrap; }
 

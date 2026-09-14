@@ -62,15 +62,15 @@
 /* 操作按钮：悬停才浮现的遮罩胶囊（够大够清楚） */
 .canvas-library-card-actions { position: absolute; top: 10px; right: 10px; z-index: 4; display: flex; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library-card:hover .canvas-library-card-actions, .canvas-library-card:focus-within .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
-.canvas-library-card-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.32); background: rgba(20,18,16,.58); color: #fff; font-size: 14px; background: rgba(255,255,255,.94); color: #44403c; font-size: 12px; cursor: pointer; }
+.canvas-library-card-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.32); background: rgba(20,18,16,.58); color: #fff; font-size: 14px; background: rgba(255,255,255,.94); color: #44403c; font-size: 12px; cursor: pointer; }
 .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
 /* 标题/时间是**底部遮罩**，不占容器高度（图片不再被“折断”） */
 .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 30px 14px 13px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.74)); }
 .canvas-library-card-body strong { display: block; overflow: hidden; color: #fff; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.canvas-library-card-body input { width: 100%; height: 26px; padding: 0 8px; border: 1px solid #7c3aed; border-radius: 7px; font-size: 13px; }
+.canvas-library-card-body input { width: 100%; height: 26px; padding: 0 8px; border: 1px solid #7c3aed; border-radius: 8px; font-size: 13px; }
 .canvas-library-card-body small { display: block; margin-top: 3px; color: rgba(255,255,255,.78); font-size: 12px; }
 .canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 13px; text-align: center; }
-.canvas-library-error { margin: 12px 22px 0; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
+.canvas-library-error { margin: 12px 22px 0; padding: 8px 12px; border-radius: 12px; background: #fef2f0; color: #a5322b; font-size: 12px; }
 
 /* ═══ 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃）═══
    9-13 用户批注：新建画布是**独立页面** —— 原来 absolute 定位在画布内，
@@ -133,7 +133,7 @@
    与 9-16 定稿一致（栅格多出来的 16px 是看不见的安全区，不是新的留白）。 */
 .canvas-library.is-page .canvas-library-tabs { padding: 24px max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 4px; }
 /* 基础规则的 tabs 是弹窗形态的默认值，保留原档位（整页形态用上面那条覆盖） */
-.canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 17px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .18s ease, color .18s ease, background .18s ease; }
+.canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 16px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .18s ease, color .18s ease, background .18s ease; }
 .canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
 .canvas-library-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }
 .canvas-library.is-page .canvas-library-tabs button:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
@@ -204,7 +204,7 @@
 /* ③ 操作按钮：悬停浮现的遮罩胶囊，尺寸放大到看得清 */
 .canvas-library.is-page .canvas-library-card-actions { top: 10px; right: 10px; display: flex; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library.is-page .canvas-library-card:hover .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
-.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 14px; backdrop-filter: blur(6px); }
+.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 8px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 14px; backdrop-filter: blur(6px); }
 .canvas-library.is-page .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
 
 /* ═══ ③ 新建卡重做（9-16 用户批注 · 图11）═════════════════════════════════
@@ -235,7 +235,7 @@
 }
 /* 圆心里的加号：两条 22px 的实心横竖，交汇即加号（比字体「+」更稳、可精确居中） */
 .canvas-library-new-card-plus::before,
-.canvas-library-new-card-plus::after { content: ''; position: absolute; top: 50%; left: 50%; width: 22px; height: 2px; border-radius: 2px; background: currentColor; transform: translate(-50%, -50%); }
+.canvas-library-new-card-plus::after { content: ''; position: absolute; top: 50%; left: 50%; width: 22px; height: 2px; border-radius: 4px; background: currentColor; transform: translate(-50%, -50%); }
 .canvas-library-new-card-plus::after { transform: translate(-50%, -50%) rotate(90deg); }
 /* 「新建」是**辅**级：小一号、字距放开、颜色弱于加号；与圆保持 16px 的固定关系 */
 .canvas-library-new-card-label { font-size: 13px; font-weight: 600; letter-spacing: .06em; line-height: 1; }

@@ -30,7 +30,7 @@
   backdrop-filter: blur(22px) saturate(170%);
   -webkit-backdrop-filter: blur(22px) saturate(170%);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: var(--shadow-xl);
   overflow: hidden;
   /* 资深美工视角: 选中时从右滑入, 220ms ease-out */
@@ -78,7 +78,7 @@
 .ec-canvas-right-panel__thumb {
   width: 78px;
   height: 78px;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
   background: var(--bg-hover);
   display: grid;
@@ -127,7 +127,7 @@
   align-items: center;
   gap: var(--cvl-sp1, 4px);
   padding: var(--cvl-sp1, 4px) var(--cvl-sp2, 8px);
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill);
   font-size: var(--sb-text-xs);
   font-weight: 700;
   background: var(--accent-bg);
@@ -158,7 +158,7 @@
   scrollbar-color: var(--border) transparent;
 }
 .ec-canvas-right-panel__menu::-webkit-scrollbar { width: 5px; }
-.ec-canvas-right-panel__menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.ec-canvas-right-panel__menu::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .ec-canvas-right-panel__menu::-webkit-scrollbar-track { background: transparent; }
 .ec-canvas-right-panel__menu-head {
   display: flex;
@@ -202,7 +202,7 @@
   margin: var(--cvl-sp1, 4px) 0 0;
   padding: var(--cvl-sp3, 12px);
   border: 1px dashed var(--border-light, rgba(15, 23, 42, .12));
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg-hover, #f8fafc);
   color: var(--text-hint, var(--sb-ink-3));
   font-size: var(--sb-text-sm);
@@ -215,7 +215,7 @@
   width: 18px;
   height: 18px;
   margin: 0 var(--cvl-sp1, 4px);
-  border-radius: 5px;
+  border-radius: 6px;
   background: var(--blue, var(--sb-info));
   color: var(--sb-neutral-0);
   font-size: var(--sb-text-md);
@@ -265,7 +265,7 @@
   width: 100%;
   padding: var(--cvl-sp2, 8px);
   border: 1px solid var(--border-light);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg-hover, #f8fafc);
   color: inherit;
   cursor: pointer;
@@ -345,7 +345,7 @@
   appearance: none;
   width: 100%;
   height: 4px;
-  border-radius: 2px;
+  border-radius: 8px;
   background: var(--border);
   outline: 0 solid transparent;
   margin: 0;
