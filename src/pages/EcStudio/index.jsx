@@ -1,4 +1,59 @@
-nter',
+/**
+ * 薯包AI · 精修工坊 — 重构版
+ * 智能一键框 + 5 步精细配置
+ */
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Sparkle, Package, Gear, Download, MagicWand } from '@phosphor-icons/react';
+import { useApp } from '../../store/AppContext';
+import { proxyImg, generateEcommerce, generateEcommercePreview, autoRecognizeEcommerce, stitchLongImage, saveWork, regenerateImage } from '../../services/api';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../../constants/data';
+import { IMAGES } from '../../constants/images';
+import { CharImg } from '../../components/ui/index';
+import Footer from '../../components/layout/Footer';
+import AssetQuickDrag from '../../components/business/AssetQuickDrag.jsx';
+import {
+  ASSET_DRAG_SOURCES,
+  normalizeAssetDragPayload,
+} from '../../services/projectAssetDrag.js';
+import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
+import {
+  ECOMMERCE_DRAFT_SURFACES,
+  acceptEcommerceFinalResult,
+  createEcommerceGenerationPreconditionError,
+  createEcommerceGenerationToken,
+  isEcommerceGenerationTokenCurrent,
+  loadOrCreateEcommerceDraft,
+  mergeEcommerceInProgressPreview,
+  rotateEcommerceDraft,
+} from '../Home/ec/ecommerceTaskProgressModel.js';
+
+// ── 平台尺寸 helper ──
+const DIMS = Object.fromEntries(
+  Object.entries(EC_PLATFORM_DIMS).map(([p, v]) => [p, { 1: v['1:1'], 3: v['3:4'] }])
+);
+const dimSize = (p, ratio) => {
+  const r = DIMS[p]?.[ratio === '3:4' ? 3 : 1] || [1440, 1440];
+  return { w: r[0], h: r[1] };
+};
+
+/* D3：靛蓝 var(--sb-brand-700) 家族判为历史遗留 → 品牌紫；D4：暖黑描边；D6：圆角 4 档；
+   D11：输入框的 UA 轮廓以 0 宽度 + 透明色关闭，焦点可见性由 .ec-studio-field:focus-visible 的
+        box-shadow 环提供（见文件末尾样式块，不改边框宽度、不产生布局抖动）。
+   全部取值来自 design-tokens-v3.css，不新增数值。 */
+const SX = {
+  card: { background: 'var(--sb-surface-card)', borderRadius: 'var(--sb-radius-lg)', border: '1px solid var(--sb-border-subtle)', padding: 'var(--sb-space-8)' },
+  label: { fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-2)', display: 'block' },
+  input: {
+    width: '100%', padding: '11px 14px', border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-md)',
+    fontSize: 'var(--sb-text-md)', fontFamily: 'inherit', outline: '0 solid transparent', boxSizing: 'border-box',
+    background: 'var(--sb-surface-sunken)', transition: 'border-color var(--sb-dur-fast, .15s)', color: 'var(--sb-ink-1)',
+  },
+  h3: { fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-1)', display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' },
+  hint: { fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', lineHeight: 1.7 },
+  stepNum: {
+    width: 26, height: 26, borderRadius: 'var(--sb-radius-pill)', background: 'var(--sb-brand-600)', color: 'var(--sb-ink-on-dark)',
+    fontSize: 'var(--sb-text-md)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
 };
@@ -488,7 +543,7 @@ export default function EcStudioPage() {
                   <span
                     key={t}
                     style={{
-                      fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-success-strong)', background: '#F0FDF4',
+                      fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-success)', background: '#F0FDF4',
                       padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)', fontWeight: 500,
                     }}
                   >
