@@ -344,74 +344,17 @@ export default function VideoCanvasWorkbench({
       if (sequence !== requestSequenceRef.current) return;
       setWorkbench(next);
       setError('');
-      setPositions((() => { try { return JSON.parse(localStorage.getItem('shubao_vcb_positions_' + (id || 'default')) || '{}') || {};
-
-  // W4 音频节点: 把音频资产加入时间线音轨
-  const handleAddAudioTrack = async (node) => {
-    if (!projectId || busy) return;
-    if (!node?.sourceAssetId || !node?.sourceAssetVersionId) {
-      setError('音频资产缺少 version 引用, 无法加入音轨');
-      return;
-    }
-    const kind = node.audioKind === 'voice' ? 'voice' : 'music';
-    setBusy('audio-track:' + node.sourceAssetId);
-    setError('');
-    try {
-      await createVideoAudioTrack(projectId, {
-        kind,
-        assetId: node.sourceAssetId,
-        assetVersionId: node.sourceAssetVersionId,
-        startMs: 0,
-        durationMs: 0,
-        volume: 1,
+      /* 收口说明（2026-09，D8 后续）：
+         原本这里是 `setPositions((() => { try { return JSON.parse(...) || {};` —— 表达式未闭合，
+         导致紧随其后的 66 行（W4 音轨三函数）被解析进箭头函数体内、且排在 return 之后，
+         成为**不可达的死代码**；末尾那一长串 `}; } catch { return {}; } })());` 才把它合上。
+         本处收口为**等价写法**：箭头直接返回解析结果，行为与收口前完全一致
+         （updater 仍只在拿到 workbench 后被调用一次，返回值仍为本地缓存或 {}）。
+         死代码已在本 commit 一并删除，见 test/video-canvas-audio-fn-scope.test.mjs 的契约。 */
+      setPositions(() => {
+        try { return JSON.parse(localStorage.getItem('shubao_vcb_positions_' + (id || 'default')) || '{}') || {}; }
+        catch { return {}; }
       });
-      await loadWorkbench(projectId);
-    } catch (audioError) {
-      setError(displayError(audioError));
-    } finally {
-      setBusy('');
-    }
-  };
-
-  // W4 音轨: 静音切换 (乐观 revision)
-  const handleToggleAudioMute = async (track, muted) => {
-    if (!projectId || busy) return;
-    setBusy('audio-mute:' + track.id);
-    setError('');
-    try {
-      await updateVideoAudioTrack(projectId, track.id, {
-        expectedRevision: track.revision,
-        muted,
-      });
-      await loadWorkbench(projectId);
-    } catch (muteError) {
-      setError(displayError(muteError));
-    } finally {
-      setBusy('');
-    }
-  };
-
-  // W4 音轨: 音量调整 (0..2)
-  const handleUpdateAudioVolume = async (track, volume) => {
-    if (!projectId || busy) return;
-    setBusy('audio-volume:' + track.id);
-    setError('');
-    try {
-      await updateVideoAudioTrack(projectId, track.id, {
-        expectedRevision: track.revision,
-        volume,
-      });
-      // 不在每次调整都 loadWorkbench (音量会高频滑), 改用乐观更新本地 state
-      setWorkbench(current => current ? {
-        ...current,
-        audioTracks: (current.audioTracks || []).map(t => t.id === track.id ? { ...t, volume, revision: (t.revision || 0) + 1 } : t),
-      } : current);
-    } catch (volumeError) {
-      setError(displayError(volumeError));
-    } finally {
-      setBusy('');
-    }
-  }; } catch { return {}; } })());
       setSelectedIds([]);
     } catch (loadError) {
       if (sequence !== requestSequenceRef.current) return;

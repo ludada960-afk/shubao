@@ -1,25 +1,30 @@
 // test/video-canvas-audio-fn-scope.test.mjs
 // 2026-09 裁决：把「音轨三函数哪一套是活的」用契约钉死。
 //
-// 背景：「VideoCanvasWorkbench.jsx」里同一批音轨函数存在两套声明：
+// 背景：`VideoCanvasWorkbench.jsx` 曾同时存在两套音轨函数声明：
 //   · 一套 `function` 声明（组件函数体层级）—— 活的那套；
-//   · 一套 `const` 箭头函数 —— 位于 `setPositions(() => { try { return ... }` 的
-//     箭头函数体内，且**排在 return 之后**，因此是**不可达的死代码**。
+//   · 一套 `const` 箭头函数 —— 被一个**未闭合的 setPositions 表达式**吞进箭头体内、
+//     且排在 return 之后，因此是**不可达的死代码**（esbuild 输出里被重命名为 handleAddAudioTrack2）。
 //
-// 这个结构**能编译、能跑**，所以不会自己暴露。下列断言的作用是：
-// 将来若有人把 L347 那个表达式「收口补全」，死代码会突然变成活代码 ——
-// **测试必须变红，强制他面对这是一次行为变更**。
+// 清理分两步（bc4ecbd3 加测试 / 本文件随后更新断言）：
+//   1) 契约测试先钉死该结构，使「收口」必须面对行为变更；
+//   2) 删除死代码并把 setPositions 收口为等价写法（行为不变）。
+//
+// 现在本文件断言的是**清理后的不变量**：
+// 死套必须不存在、活套必须完好、且不得再出现同名遮蔽。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const src = readFileSync(new URL('../src/pages/VideoStudio/VideoCanvasWorkbench.jsx', import.meta.url), 'utf8');
+const URL_ = new URL('../src/pages/VideoStudio/VideoCanvasWorkbench.jsx', import.meta.url);
+const src = readFileSync(URL_, 'utf8');
 const lines = src.split(/\r?\n/);
+const AUDIO_FNS = ['handleAddAudioTrack', 'handleToggleAudioMute', 'handleChangeAudioVolume'];
 
 /* ── ① 活的那套：组件层级的 function 声明，且被调用点使用 ─────────────── */
 
 test('① 音轨三函数以 function 声明存在（活的那套）', () => {
-  for (const name of ['handleAddAudioTrack', 'handleToggleAudioMute', 'handleChangeAudioVolume']) {
+  for (const name of AUDIO_FNS) {
     assert.match(
       src,
       new RegExp('^\\s{2}function\\s+' + name + '\\s*\\(', 'm'),
@@ -29,61 +34,51 @@ test('① 音轨三函数以 function 声明存在（活的那套）', () => {
 });
 
 test('① 调用点与 function 版的签名匹配（参数个数）', () => {
-  // handleAddAudioTrack(node) / handleToggleAudioMute(track) / handleChangeAudioVolume(track, n)
   assert.match(src, /onClick=\{\(\) => void handleAddAudioTrack\(node\)\}/, 'handleAddAudioTrack 1 参调用');
   assert.match(src, /onClick=\{\(\) => handleToggleAudioMute\(track\)\}/, 'handleToggleAudioMute 1 参调用');
   assert.match(src, /onChange=\{event => handleChangeAudioVolume\(track, Number\(event\.target\.value\)\)\}/, 'handleChangeAudioVolume 2 参调用');
 });
 
-/* ── ② 死的那套：位于 setPositions 表达式的括号内、且在 return 之后 ───── */
+/* ── ② 死的那套必须已不存在（清理后的不变量） ──────────────────────── */
 
-test('② 那套 const 位于 setPositions 表达式的括号内（按括号配对判定，不写死行号）', () => {
-  const start = lines.findIndex(l => l.includes('setPositions((() => {'));
-  assert.ok(start >= 0, '找到 setPositions 表达式起点');
-
-  // 从起点做括号配对（跳过字符串/注释过于复杂，这里用保守计数并允许未闭合）
-  let depth = 0;
-  let end = -1;
-  for (let i = start; i < lines.length && i < start + 120; i++) {
-    const code = lines[i].replace(/'(\\.|[^'])*'/g, "''").replace(/"(\\.|[^"])*"/g, '""').replace(/\/\/.*$/, '');
-    for (const ch of code) {
-      if (ch === '(' || ch === '{') depth++;
-      else if (ch === ')' || ch === '}') { depth--; if (depth <= 0 && i > start) { end = i; break; } }
-    }
-    if (end >= 0) break;
+test('② 不得再存在 const 版的音轨函数（死套已删除）', () => {
+  for (const name of AUDIO_FNS.concat('handleUpdateAudioVolume')) {
+    assert.doesNotMatch(
+      src,
+      new RegExp('^\\s*const\\s+' + name + '\\s*=', 'm'),
+      name + ' 不得再有 const/箭头形式的声明（那是被删除的死套）',
+    );
   }
+});
 
-  const declLine = lines.findIndex(l => /^\s{2}const\s+handleAddAudioTrack\s*=/.test(l));
-  assert.ok(declLine > start, 'const 版 handleAddAudioTrack 位于 setPositions 起点之后');
-  // 关键断言：该 const 落在表达式范围内（未被闭合）
-  assert.ok(
-    end === -1 || declLine < end,
-    'const 版 handleAddAudioTrack 必须落在 setPositions 表达式的括号内（即死代码位置）',
+test('② setPositions 调用已收口为完整表达式，不再吞掉后续代码', () => {
+  const start = lines.findIndex(l => l.includes('setPositions(() => {'));
+  assert.ok(start >= 0, 'setPositions 以自闭合箭头形式出现');
+  // 收口后的形态：紧随其后就是完整 try/catch + 闭合，而不是拖出几十行
+  const window_ = lines.slice(start, start + 8).join('\n');
+  assert.match(window_, /setPositions\(\(\) => \{\s*\n\s*try \{/, '箭头体以 try 开头');
+  assert.match(window_, /catch \{ return \{\}; \}/, 'catch 返回 {}（与收口前行为一致）');
+  assert.match(window_, /\}\);/, '箭头与调用均已闭合');
+});
+
+test('② 音轨函数不得落在 setPositions 表达式范围内（不再有遮蔽）', () => {
+  const start = lines.findIndex(l => l.includes('setPositions(() => {'));
+  const end = lines.findIndex((l, i) => i > start && /^\s{6}\}\);/.test(l));
+  assert.ok(start >= 0 && end > start, '找到 setPositions 表达式区间');
+  const fnLine = lines.findIndex(l => /^\s{2}function\s+handleAddAudioTrack\s*\(/.test(l));
+  assert.ok(fnLine > end, 'function 版位于 setPositions 表达式之后（组件层级，未被吞入）');
+});
+
+/* ── ③ handleUpdateAudioVolume 已随死套一并删除 ─────────────────────── */
+
+test('③ handleUpdateAudioVolume 已从源码移除（原先 0 调用）', () => {
+  assert.equal(
+    src.includes('handleUpdateAudioVolume'),
+    false,
+    '该函数原先仅存在于死套中且 0 调用，应随死套删除；若重新引入请同时补调用点与测试',
   );
 });
 
-test('② 死代码排在 return 之后（不可达）', () => {
-  // 注意：该 return 与 setPositions 在**同一行**（L347），所以不能用 i > start 过滤。
-  const start = lines.findIndex(l => l.includes('setPositions((() => {'));
-  assert.ok(start >= 0, '找到 setPositions 起点');
-  const ret = lines.findIndex(l => /return JSON\.parse\(localStorage\.getItem\('shubao_vcb_positions_/.test(l));
-  const decl = lines.findIndex(l => /^\s{2}const\s+handleAddAudioTrack\s*=/.test(l));
-  assert.ok(ret >= start, 'return 与 setPositions 同行或之后');
-  assert.ok(decl > ret, 'const 声明在 return 之后 -> 不可达');
-});
-
-/* ── ③ handleUpdateAudioVolume 全仓 0 调用 ──────────────────────────── */
-
-test('③ handleUpdateAudioVolume 在 src/ 里 0 处调用', () => {
-  // 只应出现在它自己的声明行上
-  const hits = lines
-    .map((l, i) => [l, i + 1])
-    .filter(([l]) => l.includes('handleUpdateAudioVolume'));
-  assert.equal(hits.length, 1, 'handleUpdateAudioVolume 应只有 1 处（声明），实际 ' + hits.length + ' 处：' + hits.map(h => h[1]).join(','));
-  assert.match(hits[0][0], /^\s{2}const\s+handleUpdateAudioVolume\s*=/, '唯一出现处是 const 声明');
-});
-
-test('③ 注：若本测试变红，说明有人收口了 L347 —— 那是行为变更，需单独验收', () => {
-  // 该测试永远通过；它的价值写在名字与上面的注释里，作为失败时的提示。
+test('③ 注：若 ② 变红，说明有人重新引入了被吞入的代码结构 —— 那是行为变更，需单独验收', () => {
   assert.ok(true);
 });
