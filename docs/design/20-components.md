@@ -41,13 +41,13 @@
 > | 指标 | worktree（**权威**） | master（子集，仅供对照） |
 > |---|---|---|
 > | 源文件 | **316** | 55 |
-> | hex 硬编码 | **5789 次 / 1810 个不同值** | 1571 次 / 239 值 |
+> | hex 硬编码 | **5771 次 / 1785 个不同值** | 1571 次 / 239 值 |
 > | 字号档位 | **27** | 24 |
-> | gap 非阶梯值 | **908/1562（58%）** | 175/371（47%） |
+> | gap 非阶梯值 | **896/1540（58%）** | 175/371（47%） |
 > | z-index 裸值 | **32** | 21 |
 > | `backdrop-filter` 文件 | **41** | 15 |
 > | 悬停位移站点 | **85** | 71 |
-> | **`focus-visible`** | **115 处 ✅ 已达标** | 0 处 ❌ |
+> | **`focus-visible`** | **124 处 ✅ 已达标** | 0 处 ❌ |
 > | **`prefers-reduced-motion`** | **32 处 ✅ 已达标** | 0 处 ❌ |
 > | 品牌紫硬编码 | 159 次 / 150 行 / 38 文件 | 77 处 / 21 文件 |
 >
@@ -280,7 +280,7 @@ R = |translateY| + 放大外扩
 ### 0.6.5 推荐：**直接降低位移量**（最省事）
 
 > \`translateY(-8px)\` 的预留成本（16px）远大于视觉收益。
-> **把大卡片统一降到 \`translateY(-4px)\`，预留可降到 9px**——既解决裁切，又减少全站 71 处中的一大半风险。
+> **把大卡片统一降到 \`translateY(-4px)\`，预留可降到 9px**——既解决裁切，又减少全站 85 处中的一大半风险。
 
 | 场景 | 位移 | 预留 R |
 |---|---|---|
@@ -1080,6 +1080,53 @@ R = |translateY| + 放大外扩
 |---|---|
 | 首页 / 页面级的独立内容块 | ✅ Card（白底 + 描边，圆角 16px） |
 | 面板内的分组 | ❌ 不用 Card，用 **留白 + 分组标题**（`.sb-group`） |
+
+### 8.2 可点卡片内含按钮时：用 `role="button"` 而非 `<button>`
+
+> **可点卡片内含独立按钮时，卡片用 `role="button"` 而非 `<button>`** ——
+> HTML 禁止 `<button>` 嵌套交互元素；嵌套会导致内层按钮无法点击/无法聚焦。
+
+卡片整体可点、而卡内又有自己的动作按钮（如「立即开通」「一键同款」）时，
+把卡片根写成 `<button>` 会产生 `button > button` 的非法结构：
+浏览器解析会重排 DOM，内层按钮的点击与焦点行为随之失效。
+
+**正确写法**（三件套缺一不可，缺任一项键盘就不可达）：
+
+```jsx
+<article
+  role="button"
+  tabIndex={0}                                  // ① 可 Tab 聚焦
+  aria-pressed={isSelected}                     //    状态语义（选中类卡片）
+  aria-label={`选择套餐 ${label}`}              //    可读无障碍名
+  onKeyDown={(event) => {                       // ② 键盘激活（Enter/Space 双通道）
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+    // 焦点在内层按钮上时由它自行处理，不重复触发整卡
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    handleSelect();
+  }}
+  onClick={() => handleSelect()}                // ③ 鼠标通道
+>
+  …
+  <button type="button" onClick={(e) => { e.stopPropagation(); pay(); }}>立即开通</button>
+</article>
+```
+
+要点：
+- `onKeyDown` 内必须判 `event.target === event.currentTarget` —— 否则在内层按钮上按 Enter
+  会同时触发内层动作与整卡动作（一次按键两个副作用）。
+- 按 §22 给 hover 通道（`:hover` 与 `:focus-visible` 必须**等价可见**，原则 4.2）。
+- 这类写法会被 `test/no-clickable-div.test.mjs` 判定为**合规**（role + tabIndex + onKeyDown 三者齐全）；
+  若确实无法满足（例如连 `tabIndex` 都会打乱既有 Tab 序列），
+  必须登记 `test/fixtures/clickable-div-whitelist.json` **并写明理由**。
+
+**实测参考**（本仓已落地两处，写法可直接照抄）：
+- `src/pages/Gallery/index.jsx` 的 `GCard`（卡片内含「查看全套内容 / 一键同款」）
+- `src/components/business/PricingModal.jsx` 的套餐卡（卡内含「立即开通」）
+
+> 判据口径：由 `scripts/lib/clickable-div-scan.mjs` **唯一实现**。
+> `scripts/design-audit.mjs` 与 `test/no-clickable-div.test.mjs` 共用它，
+> 报「严格口径 N / 未登记 M」两个数；`<div onClick>` 裸计数只是**子集，不是验收线**。
 | 面板内的可选项 | ❌ 不用 Card，用 **Option Card**（L3 tint 底，圆角 12px） |
 
 ### 8.2 尺寸
