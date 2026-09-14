@@ -100,34 +100,26 @@
 .input-dot.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
 .input-dot.blue { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
 
+/* ═══ 描述输入框 ═══
+   2026-09-15 V3：删除 inputGlow 无限呼吸动画。
+   原则 8.1 ——「动效只传达状态，不做装饰」：
+   该动画是 2.5s 无限循环的边框 + 光晕脉冲，不传达任何状态，
+   属明确的装饰性动画；且它常驻运行、持续占用 GPU
+   （audit §1.2 亦点名「输入框一直在呼吸闪烁，廉价感主要来源」）。
+   交互反馈改由 :focus-within + --sb-focus-ring 承担（原则 4.2）。 */
 .hero-textarea-wrap {
-  margin: 12px 16px;
-  border-radius: var(--radius-lg);
-  background: #fff;
-  border: 2px solid var(--border);
-  transition: border-color 0.3s, box-shadow 0.3s;
-  animation: inputGlow 2.5s ease-in-out infinite;
+  margin: var(--sb-space-3) var(--sb-space-4);
+  border-radius: var(--sb-radius-card);
+  background: var(--sb-surface-card);
+  border: 2px solid var(--sb-border-default);
+  transition: border-color var(--sb-duration-fast) var(--sb-ease-out),
+              box-shadow var(--sb-duration-fast) var(--sb-ease-out);
   overflow: hidden;
   position: relative;
 }
 .hero-textarea-wrap:focus-within {
-  border-color: var(--red);
-  animation: none;
-  box-shadow: 0 0 0 3px rgba(255,71,87,0.08);
-}
-.hero-textarea-wrap:has(.hero-textarea:not(:placeholder-shown)) {
-  animation: none;
-}
-
-@keyframes inputGlow {
-  0%, 100% {
-    border-color: var(--border);
-    box-shadow: 0 0 0 0 rgba(255,71,87,0);
-  }
-  50% {
-    border-color: rgba(255,71,87,0.25);
-    box-shadow: 0 0 12px rgba(255,71,87,0.06), inset 0 0 4px rgba(255,71,87,0.03);
-  }
+  border-color: var(--sb-brand);
+  box-shadow: var(--sb-focus-ring);
 }
 @keyframes slideDown {
   from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
