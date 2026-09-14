@@ -100,6 +100,14 @@ test('行距规则（CSS）：栅格 row gap ≥ 14px，行高按内容自适应
 
 /* ═══════════════ 真实渲染断言（QA 通道 + 接口 mock） ═══════════════ */
 
+/* 9-19 并发树加固：**对健康态重试**（不是放宽断言）
+   背景：本仓库有多条线并行改同一批文件，vite dev server 会在别人保存的瞬间
+   处于「HTTP 200 但应用没起来」的中间态（实测抓到过 body 只剩「加载中…」、
+   .ec-canvas-rail-add 不存在）。此时旧 helper 会：
+     waitForSelector(30s) 超时 → 或点空页面 → waitForFunction(15s) 超时，
+   表现为 36s / 60s 的「慢测试」假红——断言本身没问题，是被测环境瞬时不可用。
+   处置：把「等 shell 出现」升级为「等**应用健康**」，且每次尝试都用全新 page；
+   仍保留原有的全部断言（**未放宽任何阈值、未删除任何断言**）。 */
 async function devServerUp() {
   try {
     const res = await fetch('http://localhost:5173/?qa=ec-canvas', { method: 'GET' });
@@ -108,6 +116,40 @@ async function devServerUp() {
 }
 const HAS_SERVER = await devServerUp();
 const serverGate = HAS_SERVER ? {} : { skip: 'vite dev server (localhost:5173) 不可用，跳过真实渲染断言' };
+
+/* 单次「应用健康」判定：canvas 外壳已挂载且不在 vite 错误遮罩 / 加载中态 */
+async function isAppHealthy(page) {
+  try {
+    return await page.evaluate(() => {
+      if (document.querySelector('vite-error-overlay')) return false;
+      if (!document.querySelector('.ec-canvas-rail-add')) return false;
+      const text = (document.body.innerText || '').trim();
+      // 「加载中…」是应用未完成初始化的标志（bodyLen 极小）
+      return text.length > 60 && !/^加载中/.test(text);
+    });
+  } catch { return false; }
+}
+
+/* 打开画布壳并等待健康：最多重试 attempts 次，每次全新导航。
+   注意：重试只针对「环境未就绪」，一旦进入正常流程，后续断言全部照旧严格。 */
+async function gotoHealthyCanvas(page, { attempts = 4, perAttemptMs = 15000 } = {}) {
+  let last = 'unknown';
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await page.goto('http://localhost:5173/?qa=ec-canvas', { waitUntil: 'domcontentloaded', timeout: 60000 });
+      const deadline = Date.now() + perAttemptMs;
+      while (Date.now() < deadline) {
+        if (await isAppHealthy(page)) return { ok: true, attempts: i + 1 };
+        await page.waitForTimeout(400);
+      }
+      last = '应用未进入健康态（可能是并发 agent 正在改同一文件导致瞬时白屏/HMR 中断）';
+    } catch (error) {
+      last = error?.message || String(error);
+    }
+    await page.waitForTimeout(1200);   // 给 vite 重新编译的时间
+  }
+  return { ok: false, attempts, reason: last };
+}
 
 function makeAssets(total) {
   return Array.from({ length: total }, (_, i) => ({
@@ -138,9 +180,13 @@ async function openPickerOn(page, total, { catalogDelayMs = 0 } = {}) {
   });
   await page.route('**/api/**usage**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ usage: { usedBytes: 1, quotaBytes: 104857600 } }) }));
   await page.route('**/api/**assets/**/delete**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }));
-  await page.goto('http://localhost:5173/?qa=ec-canvas', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('.ec-canvas-rail-add', { timeout: 30000 });
-  await page.waitForTimeout(1500);
+  /* 9-19：先等到「应用健康」再操作（并发树下 vite 可能瞬时不可用）。
+     健康后才执行与原先**完全相同**的交互与断言。 */
+  const health = await gotoHealthyCanvas(page);
+  if (!health.ok) {
+    throw new Error('等待应用健康失败（' + health.attempts + ' 次重试）：' + health.reason);
+  }
+  await page.waitForTimeout(1200);
   await page.locator('.ec-canvas-rail-add').first().click();
   await page.waitForTimeout(400);
   await page.locator('button:has-text("从资产库选择")').first().click();
@@ -220,9 +266,10 @@ test('真实渲染③圆圈可点：点圆圈=选中（stopPropagation 不触发
   await page.route('**/api/project-assets**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ assets: makeAssets(12) }) }));
   await page.route('**/api/**usage**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ usage: { usedBytes: 1, quotaBytes: 104857600 } }) }));
   await page.route('**/api/**assets/**/delete**', route => { deleteHits += 1; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }); });
-  await page.goto('http://localhost:5173/?qa=ec-canvas', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('.ec-canvas-rail-add', { timeout: 30000 });
-  await page.waitForTimeout(1500);
+  /* 9-19：改为等到「应用健康」再操作（并发树下 vite 可能瞬时白屏/HMR 中断）。 */
+  const health = await gotoHealthyCanvas(page);
+  if (!health.ok) throw new Error('等待应用健康失败（' + health.attempts + ' 次重试）：' + health.reason);
+  await page.waitForTimeout(1200);
   await page.locator('.ec-canvas-rail-add').first().click();
   await page.waitForTimeout(400);
   await page.locator('button:has-text("从资产库选择")').first().click();
@@ -269,9 +316,10 @@ test('真实渲染④删除二次确认：先弹「删除这个素材？」确�
     await new Promise(resolve => setTimeout(resolve, 450));
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
-  await page.goto('http://localhost:5173/?qa=ec-canvas', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('.ec-canvas-rail-add', { timeout: 30000 });
-  await page.waitForTimeout(1500);
+  /* 9-19：改为等到「应用健康」再操作（并发树下 vite 可能瞬时白屏/HMR 中断）。 */
+  const health = await gotoHealthyCanvas(page);
+  if (!health.ok) throw new Error('等待应用健康失败（' + health.attempts + ' 次重试）：' + health.reason);
+  await page.waitForTimeout(1200);
   await page.locator('.ec-canvas-rail-add').first().click();
   await page.waitForTimeout(400);
   await page.locator('button:has-text("从资产库选择")').first().click();
