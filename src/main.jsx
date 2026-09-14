@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/design-tokens.css';
+import './styles/design-tokens-v3.css'; // V3 视觉体系 token（--sb-* 纯新增，见 docs/design/00-principles.md）
 import './styles/theme.css';
 import './styles/semanticTokens.css';
 import './styles/generate-cta.css';
