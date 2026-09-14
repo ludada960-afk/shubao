@@ -737,13 +737,27 @@
    权重依据实际内容长度：模型名最长（Seedance 2.0 标准 · 正式交付）> 清晰度 > 时长 ≈ 画幅 > 技能 > 引用。 */
 .ec-canvas-video-controls > label { flex: 0 1 auto; min-width: 0; }
 .ec-canvas-video-controls > label > select { width: 100%; min-width: 0; }
-/* 模型：内容最长，给最大的收缩权重，但设上限避免它吃掉整行 */
-.ec-canvas-video-controls > label:nth-of-type(2) { flex: 0 1 156px; }
-.ec-canvas-video-controls > label:nth-of-type(3) { flex: 0 1 84px; }
-.ec-canvas-video-controls > label:nth-of-type(4) { flex: 0 1 68px; }
-.ec-canvas-video-controls > label:nth-of-type(5) { flex: 0 1 72px; }
-/* 技能：不再特别窄 —— 给足一个汉字标题 + 图标 + 文字的宽度 */
-.ec-canvas-video-controls > label:nth-of-type(6) { flex: 0 1 88px; }
+/* 固定槽位（2026-09-17 用户把这里点名为**正确参照**）：
+   每个控件位宽度由这张表给定，**与文案长度无关** —— 字太长只在槽位内向右裁切，
+   绝不把整个按钮撑宽。这就是「视频模型下拉那个逻辑」。
+   取值：模型给最大固定位，其余按最长短标签（含 2 行标题）定宽。 */
+.ec-canvas-video-controls > label:nth-of-type(2) { flex: 0 0 var(--cvl-vslot-model, 112px); }
+.ec-canvas-video-controls > label:nth-of-type(3) { flex: 0 0 var(--cvl-vslot-resolution, 62px); }
+.ec-canvas-video-controls > label:nth-of-type(4) { flex: 0 0 var(--cvl-vslot-ratio, 52px); }
+.ec-canvas-video-controls > label:nth-of-type(5) { flex: 0 0 var(--cvl-vslot-duration, 56px); }
+.ec-canvas-video-controls > label:nth-of-type(6) { flex: 0 0 var(--cvl-vslot-label, 56px); }
+/* 模型槽里的 select 是原生控件，字太长会**撑宽自己**（这正是用户看到的"按钮变宽"）。
+   锁 width:100% + min-width:0，让它只占槽位宽度，超出部分被槽位右缘裁掉。 */
+.ec-canvas-video-controls > label:nth-of-type(2) > select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  /* 原生 select 的省略号由 UA 控制；这里显式关掉，保证不出现「…」 */
+  text-overflow: clip;
+}
+/* > label.is-mention 与 .is-toggle 已是固定窄位（flex: 0 0 auto），保持 */
 /* 引用（@）放最前，只有一个圆形按钮，固定窄列，不参与收缩 */
 .ec-canvas-video-controls > label.is-mention { flex: 0 0 auto; }
 /* 声音：固定窄列 */
@@ -1190,8 +1204,10 @@
   box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
 }
 .ec-canvas-suite-controls {
-  gap: 10px;
-  padding: 16px 18px;
+  gap: var(--cvl-slot-gap, 8px);
+  /* 左右内边距收到 16：6 格固定槽位（@44 + 5×104）+ 5×8 间距 = 604px，
+     行宽 638 - 2×16 = 606 ≥ 604 —— 刚好放得下，不再裁掉最右一格。 */
+  padding: 16px;
   border-top-color: #e8ebef;
   background: #fff;
 }
@@ -1606,15 +1622,39 @@
 .ec-canvas-composer-footer {
   flex-wrap: nowrap;
   align-items: center;
+  /* 参数行的槽位是固定宽，总宽是定值；底栏放不下时整体裁切，*/
+  /* 不让任何一格被压窄（槽位宽度绝对固定）。 */
+  overflow: hidden;
 }
 .ec-canvas-composer-footer > .ec-canvas-composer-mention { order: 0; flex: 0 0 auto; margin-left: 0; }
-.ec-canvas-composer-footer > .ec-canvas-parameter-controls { order: 1; flex: 0 1 auto; min-width: 0; }
-.ec-canvas-composer-footer > span { order: 2; flex: 0 1 auto; min-width: 0; }
+.ec-canvas-composer-footer > .ec-canvas-parameter-controls {
+  order: 1;
+  /* 行宽 = 槽位之和 + 间距（定值），不参与收缩 —— 放不下时由底栏裁切，
+     绝不让槽位互相挤压（槽位宽度绝对固定）。 */
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.ec-canvas-composer-footer > span {
+  order: 2;
+  /* 提示语是**最低优先级**：参数行要固定槽位宽度，就必须先拿到确定的行宽。
+     span 用 flex: 0 1 <小基数> + 大 shrink，空间不够时它先让位（文字自身可省略），
+     行则用 flex-basis:0 + grow:1 拿到稳定宽度 —— 这样槽位宽才不随提示语/模型名浮动。 */
+  flex: 0 1 0;
+  min-width: 0;
+}
 .ec-canvas-composer-footer > button.ec-canvas-composer-cta { order: 3; flex: 0 0 auto; margin-left: auto; }
 
 /* 参数行整体：可以被压缩，但每个按钮自己负责截断 */
 .ec-canvas-parameter-controls {
-  flex: 0 1 auto;
+  /* 行宽必须由**父容器**给定，不能由内容决定：
+     flex-basis: 0 + grow: 1 → 行吃掉底栏剩余宽度，是定值；
+     这样槽位的固定 basis 才有一个稳定分母可分配。
+     原来 flex: 0 1 auto（内容驱动）会让行宽随最长文案变化，
+     进而让所有槽位的收缩比例一起变 → 「互相挤压」的第二个来源。 */
+  /* 槽位是固定宽，行宽就等于「槽位之和 + 间距」——这是由槽位表算出来的定值，
+     不受提示语/模型名影响。行不收缩（flex-shrink:0），放不下时由底栏裁切，
+     保证每个槽位宽度恒定（用户口径：宁可右边看不全，也不能让按钮互相挤压）。 */
+  flex: 0 0 auto;
   min-width: 0;
   overflow: hidden;
 }
@@ -1647,6 +1687,69 @@
   white-space: nowrap;
 }
 .ec-canvas-parameter-controls .ec-canvas-parameter-item:last-child > button { max-width: 108px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   固定槽位规则（2026-09-17 用户批注 · 最高优先级）
+   —— 四个生成框（图片 / 文案 / 视频 / 电商套图）的参数控件一律适用
+   ═══════════════════════════════════════════════════════════════════════════
+
+   用户原话：
+     「就是你模型选这种名字比较长的，为什么你的按钮还是会往右边去挤呢？你的文字也
+      往右边去挤了呢？我的意思是你的文字要往右边去挤，但是不能够超出这个按钮的框。
+      …避免文字把整个按钮给拉长了，然后把整个框都给做歪了。现在的情况就是互相挤压了。」
+     「你看一下这个视频生成的选模型的这个地方，它这个逻辑就是对的：就是字太长的话，
+      你就让它长，你就让它右边有一部分显示不出来，没有关系，但是你绝对不能够让整个
+      按钮跟着你的文字去变宽。你现在这四个生成的框全部都要按照这套逻辑来做。」
+
+   规则（四条）：
+     ① 槽位宽度固定，由布局网格决定，**绝不随文案长度变化**；
+     ② 超长只在槽位内向右裁切（overflow:hidden + nowrap，无 ellipsis、无换行、不缩字号）；
+     ③ 短文案（四字）必须完整显示 → 槽位按最长短标签定宽；
+     ④ 槽位间距固定（--cvl-slot-gap = 8px），任何文案长度下整行不变形。
+
+   实现要点：**flex: 0 1 <固定 basis>** —— 这是视频面板（用户点名的正确参照）
+   用的写法，也是唯一正确的写法：
+     · flex-grow = 0  → 内容再长也**不撑宽**槽位；
+     · flex-shrink = 1 → 整行真放不下时才等比收缩（永不换行/溢出）；
+     · basis 是固定像素 → 宽度由布局决定，与文字无关。
+   对照：flex: 0 0 auto（内容自适应）正是「文字把按钮拉长」的根因，本文件已全部移除。
+   槽位宽度取值见 src/pages/EcCanvas/canvasVisualLanguage.js 的 SLOT_WIDTH。 */
+
+/* 槽位：**固定宽度**（grow 0 + shrink 0）—— 宽度只由布局网格决定，
+   与文案长度、与相邻槽位内容都无关。行宽不足时的处理见下面的容器查询：
+   由行容器统一裁切，而不是让槽位互相挤压。 */
+.ec-canvas-parameter-item {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* 槽位内的按钮：100% 撑满槽位（宽度由槽位决定，不由文字决定） */
+.ec-canvas-parameter-item > button,
+.ec-canvas-suite-control > button {
+  width: 100%;
+}
+
+/* 按控件类型给固定槽位宽（与文案长度无关；模型槽是唯一长文案槽） */
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item { flex: 0 0 var(--cvl-slot-label, 104px); }
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="生图模型"]),
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="文案模型"]) {
+  flex: 0 0 var(--cvl-slot-model, 75px);
+}
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="图片比例"]),
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="画幅"]) {
+  flex: 0 0 var(--cvl-slot-ratio, 88px);
+}
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="清晰度"]) {
+  flex: 0 0 var(--cvl-slot-resolution, 64px);
+}
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="生成数量"]) {
+  flex: 0 0 var(--cvl-slot-count, 64px);
+}
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="时长"]) {
+  flex: 0 0 var(--cvl-slot-duration, 80px);
+}
+/* 取消旧的「最后一格单独压窄」——它让宽度取决于**位置**而非**控件类型**，
+   模型槽换到别的位次就会又变形。现在一律按类型定宽。 */
+.ec-canvas-parameter-controls .ec-canvas-parameter-item:last-child > button { max-width: 100%; }
 
 /* ≤760px（窄屏）才允许换行，顺序仍是 @ → 参数 → 技能 → 生成 */
 @media (max-width: 760px) {
@@ -1685,10 +1788,19 @@
    这样「智能套图/SKU变体/商品信息/AI规划」都能拿到足够宽度完整显示，
    只有模型名这种长文案会被右缘纯裁切。 */
 .ec-canvas-suite-control {
-  flex: 0 0 auto;
+  /* 2026-09-17 固定槽位规则：宽度由布局网格决定，与文案长度**无关**。
+     grow 0 + shrink 0 = 绝对固定；行放不下时由行容器统一裁切，不让槽位互相挤压。 */
+  flex: 0 0 var(--cvl-slot-label, 104px);
   min-width: 0;
-  max-width: 100%;
+  max-width: var(--cvl-slot-label, 104px);
 }
+/* @ 引用：固定窄位，不参与收缩 */
+.ec-canvas-suite-control.ec-canvas-suite-mention {
+  flex: 0 0 var(--cvl-slot-mention, 44px);
+  max-width: var(--cvl-slot-mention, 44px);
+}
+/* 生成设置（模型·清晰度）= 唯一长文案槽，固定最大位 */
+.ec-canvas-suite-control.is-shrinkable { flex: 0 0 var(--cvl-slot-model, 75px); max-width: var(--cvl-slot-model, 75px); }
 /* 套图底栏里参数行吃剩余宽度（否则会挤压技能与生成按钮） */
 .ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-controls {
   flex: 1 1 auto;
@@ -1698,7 +1810,8 @@
   background: transparent;
 }
 .ec-canvas-suite-control > button {
-  width: auto;
+  /* 撑满槽位：宽度由槽位决定，不由文字决定 */
+  width: 100%;
   min-width: 0;
   max-width: 100%;
 }
@@ -1718,7 +1831,7 @@
    改完：24 + 7 + 108 + 7 + 78 + 7 + 78 + 7 + 54 + 7 + 78 + 7 + 78 = 540 ... 仍超，
    所以模型格再按剩余宽度自适应收缩（flex: 0 1 auto + min-width 0），
    保证"其余所有短按钮都完整、只有模型名被裁"。 */
-.ec-canvas-suite-controls { gap: 6px; }
+.ec-canvas-suite-controls { gap: var(--cvl-slot-gap, 8px); }
 .ec-canvas-suite-control > button { gap: 5px; padding: 0 9px; }
 /* 只有"允许被裁"的那一格（生成设置=模型名+清晰度，短文案格中唯一的长文案）参与收缩：
    :has(> button > span > svg) 命中「图标在文字里」的那一格 —— 其余五个参数格
@@ -1738,10 +1851,12 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  flex: 0 1 auto;
+  /* 固定槽位（模型名是长文案）—— 宽度不随文案变化 */
+  flex: 0 0 var(--cvl-slot-model, 75px);
   min-width: 0;
-  max-width: 132px;
+  max-width: var(--cvl-slot-model, 75px);
 }
+.ec-canvas-suite-settings-control > button { width: 100%; }
 .ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-settings-control { order: 1; }
 .ec-canvas-suite-settings-control > button {
   height: 40px;
@@ -2004,5 +2119,13 @@
   background: #f2f6ff;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
 }
+
+
+
+
+
+
+
+
 
 

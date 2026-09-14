@@ -67,17 +67,21 @@ test('② 整行不换行、不溢出（nowrap + border-box + 宽度锁定）', 
   assert.ok(/min-width:\s*0/.test(body), '必须允许子项收缩');
 });
 
-test('② 宽度按内容收敛（不再一律等宽撑满，技能也不特别窄）', () => {
-  /* 模型最长、时长最短 —— 各给不同的 flex-basis，而不是 grid 的 1fr */
+test('② 宽度固定（2026-09-17 用户批注：槽位宽绝不随文案变化）', () => {
+  /* 用户看着图片生成面板说「模型名字一长按钮就往右挤、文字也往右挤」，
+     并指着视频模型下拉说「这个逻辑就是对的：字太长就让它右边显示不出来，
+     但绝对不能让整个按钮跟着文字去变宽。这四个框全部按这套逻辑做」。
+     → 视频框槽位从「按内容收敛（flex: 0 1 <px>）」改为「固定槽位（flex: 0 0 <px>）」：
+       grow 0 = 内容再长也不撑宽；shrink 0 = 邻居再长也不被压窄。 */
   for (const [nth, reason] of [['2', '视频模型'], ['3', '清晰度'], ['4', '画幅'], ['5', '时长'], ['6', '技能']]) {
-    assert.ok(new RegExp('\\.ec-canvas-video-controls > label:nth-of-type\\(' + nth + '\\) \\{ flex:').test(css),
-      reason + ' 必须有按内容收敛的 flex 声明');
+    const re = new RegExp('\\.ec-canvas-video-controls > label:nth-of-type\\(' + nth + '\\) \\{[^}]*flex:\\s*0\\s+0\\s+var\\(--cvl-vslot-');
+    assert.ok(re.test(css), reason + ' 必须是固定槽位（flex: 0 0 var(--cvl-vslot-*)）');
   }
   assert.ok(/\.ec-canvas-video-controls > label\.is-mention \{ flex: 0 0 auto; \}/.test(css), '@ 固定窄列不参与收缩');
-  /* 技能必须给足宽度（用户批注「技能又做得特别窄」） */
-  const skillRule = css.match(/\.ec-canvas-video-controls > label:nth-of-type\(6\) \{ flex: 0 1 (\d+)px; \}/);
-  assert.ok(skillRule, '技能必须有明确的 flex-basis');
-  assert.ok(Number(skillRule[1]) >= 80, '技能宽度不得过窄，实际 ' + skillRule?.[1]);
+  /* 技能必须给足宽度显示标题（用户批注「技能又做得特别窄」） */
+  const skillRule = css.match(/\.ec-canvas-video-controls > label:nth-of-type\(6\) \{ flex: 0 0 var\(--cvl-vslot-label, (\d+)px\); \}/);
+  assert.ok(skillRule, '技能必须有明确的固定 flex-basis');
+  assert.ok(Number(skillRule && skillRule[1]) >= 48, '技能槽位不得过窄（要容得下「技能」标题），实际 ' + (skillRule && skillRule[1]));
 });
 
 test('② 声音开关与其余控件同结构同基线（原来是 flex+padding-top 硬顶）', () => {
