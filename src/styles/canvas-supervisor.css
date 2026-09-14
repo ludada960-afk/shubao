@@ -741,7 +741,7 @@
 .ec-canvas-task-log-panel header { display: flex; align-items: center; gap: var(--sb-space-2-5); padding: 14px 18px; border-bottom: 1px solid rgba(28,25,23,.08); }
 .ec-canvas-task-log-panel header strong { font-size: var(--sb-text-base); font-weight: 800; color: #1c1917; }
 .ec-canvas-task-log-panel header span { flex: 1 1 auto; color: #a8a29e; font-size: 11.5px; }
-.ec-canvas-task-log-panel header button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: var(--sb-ink-3); font-size: var(--sb-text-lg); cursor: pointer; }
+.ec-canvas-task-log-panel header button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: var(--sb-ink-3); font-size: 15px; cursor: pointer; }
 .ec-canvas-task-log-panel header button:hover { border-color: var(--sb-sel-line); color: var(--sb-brand-700); }
 .ec-canvas-task-log-filters { display: grid; gap: var(--sb-space-1-5); padding: 12px 18px; border-bottom: 1px solid rgba(28,25,23,.06); }
 .ec-canvas-task-log-filter-row { display: flex; flex-wrap: wrap; gap: var(--sb-space-1-5); }

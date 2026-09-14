@@ -129,7 +129,7 @@
 }
 .pricing-hero-sub {
   margin: 0;
-  font-size: var(--sb-text-lg);
+  font-size: 15px;
   line-height: 1.7;
   color: var(--text-muted);
   font-weight: 500;
@@ -757,7 +757,7 @@
   gap: var(--sb-space-0-5);
 }
 .pricing-pack-name {
-  font-size: var(--sb-text-lg);
+  font-size: 15px;
   font-weight: var(--sb-weight-heavy);
   color: var(--sb-ink-1);
   letter-spacing: -0.01em;
