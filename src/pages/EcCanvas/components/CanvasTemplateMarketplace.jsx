@@ -28,9 +28,9 @@ const CAT_PILL = {
 
 const CAT_PILL_ACTIVE = {
   ...CAT_PILL,
-  background: '#7c3aed',
+  background: 'var(--sb-brand-600)',
   color: '#fff',
-  borderColor: '#7c3aed',
+  borderColor: 'var(--sb-brand-600)',
 };
 
 const CARD = {
@@ -82,7 +82,7 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
         <div style={{ fontSize: 34, lineHeight: 1 }}>🖼️</div>
         <strong style={{ display: 'block', marginTop: 12, fontSize: 16, color: '#0f172a' }}>模板广场暂时没有内容</strong>
         <p style={{ margin: '8px 0 18px', fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>公共模板正在整理中，稍后再来看看。你可以先直接用「新建生图」开始创作。</p>
-        <button type="button" onClick={() => onClose?.()} style={{ padding: '8px 18px', borderRadius: 8, border: 0, background: '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>知道了</button>
+        <button type="button" onClick={() => onClose?.()} style={{ padding: '8px 18px', borderRadius: 8, border: 0, background: 'var(--sb-brand-600)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>知道了</button>
       </div>
     </div>;
   }
@@ -96,7 +96,7 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
       </button>
       <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid rgba(15,23,42,.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Layers size={18} style={{ color: '#7c3aed' }} />
+          <Layers size={18} style={{ color: 'var(--sb-brand-600)' }} />
           <strong style={{ fontSize: 15, color: '#0f172a' }}>模板广场</strong>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b' }}>共 {totalTemplates} 套 · 9 类目</span>
         </div>
@@ -153,7 +153,7 @@ function TemplateCard({ tpl, detail, onPick }) {
     <div style={{ padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
         <strong style={{ fontSize: 12, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</strong>
-        <span style={{ fontSize: 10, color: '#7c3aed', fontWeight: 700 }}>{tpl.id}</span>
+        <span style={{ fontSize: 10, color: 'var(--sb-brand-600)', fontWeight: 700 }}>{tpl.id}</span>
       </div>
       {detail?.tagline && <div style={{ fontSize: 10.5, color: '#64748b', lineHeight: 1.4 }}>{detail.tagline}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#94a3b8', marginTop: 2 }}>

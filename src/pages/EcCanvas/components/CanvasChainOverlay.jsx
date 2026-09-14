@@ -23,7 +23,7 @@ export default function CanvasChainOverlay({ open, onClose, referenceImage = nul
         <X size={16} />
       </button>
       <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid rgba(15,23,42,.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Sparkles size={18} style={{ color: '#7c3aed' }} />
+        <Sparkles size={18} style={{ color: 'var(--sb-brand-600)' }} />
         <strong style={{ fontSize: 15, color: '#0f172a' }}>1-click 视频链式生成</strong>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b' }}>4 步：文案 → 首帧 → 视频 → 音轨+字幕</span>
       </div>

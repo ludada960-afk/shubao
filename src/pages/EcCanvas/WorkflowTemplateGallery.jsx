@@ -11,7 +11,7 @@ import { fetchWorkflowTemplates, likeWorkflowTemplate, workflowSlotIds } from '.
 const OVERLAY = { position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' };
 const PANEL = { position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' };
 const TAB = { padding: '6px 12px', borderRadius: 999, border: '1px solid rgba(15,23,42,.08)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
-const TAB_ACTIVE = { ...TAB, background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' };
+const TAB_ACTIVE = { ...TAB, background: 'var(--sb-brand-600)', color: '#fff', borderColor: 'var(--sb-brand-600)' };
 const CARD = { borderRadius: 10, border: '1px solid rgba(15,23,42,.08)', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all .18s ease' };
 
 /* 图缩略: 按节点 bbox 等比缩放进 216x120, 槽位琥珀虚线, 连线带箭头。零外部依赖。*/
@@ -46,9 +46,9 @@ function TemplateGraphThumb({ graph }) {
     if (kind === 'audio') return { fill: 'rgba(13,148,136,.10)', stroke: '#5eead4' };
     if (kind === 'text') return { fill: 'rgba(37,99,235,.08)', stroke: '#bfdbfe' };
     if (node?.isSlot || node?.slot) return { fill: 'rgba(245,158,11,.12)', stroke: '#f59e0b' };
-    return { fill: 'rgba(124,58,237,.08)', stroke: '#ddd6fe' };
+    return { fill: 'rgba(124,58,237,.08)', stroke: 'var(--sb-brand-200)' };
   };
-  return <svg viewBox={'0 0 ' + viewW + ' ' + viewH} width="100%" height={viewH} style={{ display: 'block', background: 'linear-gradient(135deg,#f8fafc,#f5f3ff)' }} aria-label="模板图缩略">
+  return <svg viewBox={'0 0 ' + viewW + ' ' + viewH} width="100%" height={viewH} style={{ display: 'block', background: 'linear-gradient(135deg,#f8fafc,var(--sb-brand-50))' }} aria-label="模板图缩略">
     <defs>
       <marker id="wf-thum-arrow" viewBox="0 0 8 8" refX={7} refY={4} markerWidth={5} markerHeight={5} orient="auto-start-reverse">
         <path d="M 0 0 L 8 4 L 0 8 z" fill="#cbd5e1" />
@@ -179,7 +179,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
       <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid rgba(15,23,42,.06)' }}>
         {/* 9-13 用户批注：标题右侧小字与关闭按钮重叠 —— 给关闭按钮留出安全区，并把文案缩短 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 40 }}>
-          <Workflow size={18} style={{ color: '#7c3aed', flex: '0 0 auto' }} />
+          <Workflow size={18} style={{ color: 'var(--sb-brand-600)', flex: '0 0 auto' }} />
           <strong style={{ fontSize: 15, color: '#0f172a', flex: '0 0 auto' }}>工作流模板</strong>
           <span style={{ marginLeft: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: '#64748b' }}>一键铺开 · 拖图即跑</span>
         </div>
@@ -210,7 +210,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
             return <article key={slug || template?.templateId} style={CARD} onMouseEnter={event => { event.currentTarget.style.transform = 'translateY(-2px)'; event.currentTarget.style.boxShadow = '0 12px 30px rgba(15,23,42,.18)'; event.currentTarget.style.borderColor = p3Gate ? 'rgba(100,116,139,.5)' : 'rgba(124,58,237,.4)'; }} onMouseLeave={event => { event.currentTarget.style.transform = ''; event.currentTarget.style.boxShadow = ''; event.currentTarget.style.borderColor = 'rgba(15,23,42,.08)'; }}>
               <div style={{ position: 'relative' }}>
                 <TemplateGraphThumb graph={template?.graph} />
-                {estimated > 0 && <span title={template?.pricing?.note || '展示预估，结算以目录为准'} style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(255,247,237,.96)', border: '1px solid rgba(245,158,11,.35)', color: '#b45309', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {estimated > 0 && <span title={template?.pricing?.note || '展示预估，结算以目录为准'} style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(255,247,237,.96)', border: '1px solid rgba(245,158,11,.35)', color: 'var(--sb-credit-spend)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Zap size={11} />预计 {estimated} 积分
                 </span>}
                 {p3Gate && <span title="这套模板用到视频/音频能力，能力上线前这些节点暂不可运行" style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(241,245,249,.96)', border: '1px solid rgba(100,116,139,.35)', color: '#64748b', fontSize: 11, fontWeight: 600 }}>
@@ -240,7 +240,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
                 <p style={{ margin: '6px 0 0', fontSize: 10.5, color: '#94a3b8', lineHeight: 1.5 }}>铺开只放节点、不产生费用；生成时按目录计费</p>
                 <button type="button" disabled={busy || likeBusy.has(slug)}
                   onClick={() => void instantiate(template)}
-                  style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (p3Gate ? 'rgba(100,116,139,.35)' : 'rgba(124,58,237,.35)'), background: p3Gate ? '#f8fafc' : '#7c3aed', color: p3Gate ? '#64748b' : '#fff', fontSize: 12, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (p3Gate ? 'rgba(100,116,139,.35)' : 'rgba(124,58,237,.35)'), background: p3Gate ? '#f8fafc' : 'var(--sb-brand-600)', color: p3Gate ? '#64748b' : '#fff', fontSize: 12, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {busy ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />铺开中…</> : p3Gate ? '铺开到画布（待 P3 · 暂不可运行）' : '一键同款 · 铺开到画布'}
                 </button>
               </div>

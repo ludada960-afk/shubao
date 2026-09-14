@@ -492,7 +492,7 @@ function getStaticNodeColor(kind = '') {
     image: '#4ECDC4',
     output: '#4ECDC4',
     video: '#FF6B6B',
-    audio: '#A78BFA',
+    audio: 'var(--sb-brand-400)',
     application: '#FFA500',
     source_group: '#94A3B8',
     'layer-group': '#94A3B8',
@@ -503,8 +503,8 @@ function getStaticNodeColor(kind = '') {
     'smart-remix': '#EC4899',
     'layer-workbench': '#10B981',
     'remove-bg': '#22C55E',
-    extend: '#3B82F6',
-    inpaint: '#8B5CF6',
+    extend: 'var(--sb-info-solid-500)',
+    inpaint: 'var(--sb-brand-500)',
     translate: '#F59E0B',
     upscale: '#0EA5E9',
     sticker: '#FACC15',
@@ -643,7 +643,7 @@ export function CanvasSticker({ sticker = {}, onChange, onDelete, onPointerDown 
     pink: { bg: 'rgba(255, 138, 176, 0.92)', text: '#1a1a1a' },
     blue: { bg: 'rgba(100, 181, 246, 0.92)', text: '#0d1117' },
     green: { bg: 'rgba(129, 199, 132, 0.92)', text: '#0d1117' },
-    purple: { bg: 'rgba(186, 104, 200, 0.92)', text: '#ffffff' },
+    purple: { bg: 'rgba(186, 104, 200, 0.92)', text: 'var(--sb-neutral-0)' },
   };
   const colors = colorMap[sticker.color] || colorMap.yellow;
   return (

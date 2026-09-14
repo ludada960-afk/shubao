@@ -2115,7 +2115,7 @@ export function CanvasAudioNode({
         <Volume2 size={18} aria-hidden="true" />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel || '项目音频'}</span>
       </div>
-      {node.mediaPlaybackStatus === 'unavailable' ? <div role="status" style={{ color: '#b45309', fontSize: 11, lineHeight: 1.5 }}>{node.mediaPlaybackError || '音频播放地址暂时不可用，请稍后重试'}</div> : <audio
+      {node.mediaPlaybackStatus === 'unavailable' ? <div role="status" style={{ color: 'var(--sb-credit-spend)', fontSize: 11, lineHeight: 1.5 }}>{node.mediaPlaybackError || '音频播放地址暂时不可用，请稍后重试'}</div> : <audio
         controls
         preload="metadata"
         src={node.url}

@@ -416,7 +416,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       style={{
         position: 'absolute', left: node.x, top: node.y, width: node.w,
         cursor: 'grab', userSelect: 'none', borderRadius: 8,
-        boxShadow: selected ? '0 0 0 2.5px #7c3aed, 0 8px 32px rgba(124,58,237,0.25)' : '0 4px 16px rgba(12,10,9,0.10)',
+        boxShadow: selected ? '0 0 0 2.5px var(--sb-brand-600), 0 8px 32px rgba(124,58,237,0.25)' : '0 4px 16px rgba(12,10,9,0.10)',
         background: '#fff', opacity: dimmed ? 0.34 : 1, transition: 'box-shadow 0.15s, opacity 0.16s', touchAction: 'none',
       }}
     >
@@ -425,7 +425,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         data-canvas-node-check="true"
         aria-label={selected ? '取消选择' : '选择节点'}
         onPointerDown={e => { e.stopPropagation(); onToggleSelect?.(e, node.id); }}
-        style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? '#7c3aed' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(12,10,9,.16)' }}
+        style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? 'var(--sb-brand-600)' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(12,10,9,.16)' }}
       >
         {selected ? <SquareCheck /> : <Square />}
       </button>
@@ -435,8 +435,8 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
           return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 7, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
-      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
-      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
+      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
+      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--sb-brand-600)', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
@@ -444,7 +444,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
             <div style={{ fontSize: 24, opacity: 0.45 }}>!</div>
             <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>原图已失效</div>
             <div style={{ fontSize: 9, color: '#9f1239', textAlign: 'center', padding: '0 12px' }}>可用右键“再次生成”创建稳定新图</div>
-            <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: '#7c3aed', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
+            <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: 'var(--sb-brand-600)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
           </div>
         )}
         <ResponsiveImage
@@ -465,11 +465,11 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       <div style={{ padding: '8px 10px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel}</div>
-          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, color: '#7c3aed', background: 'rgba(124,58,237,.08)', borderRadius: 999, padding: '2px 5px' }}>{node.group}</span>
+          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, color: 'var(--sb-brand-600)', background: 'rgba(124,58,237,.08)', borderRadius: 999, padding: '2px 5px' }}>{node.group}</span>
         </div>
         <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{node.ratio}{node.size ? ` · ${node.size}` : ''}</div>
-        {node.usage && <div style={{ fontSize: 9, color: '#b45309', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 5, padding: '3px 6px' }}>{node.usage}</div>}
-        {node.layerStatus && <div style={{ fontSize: 9, color: '#2563eb', marginTop: 5 }}>▦ {node.layerStatus} · {node.layers?.length || 0} 层</div>}
+        {node.usage && <div style={{ fontSize: 9, color: 'var(--sb-credit-spend)', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 5, padding: '3px 6px' }}>{node.usage}</div>}
+        {node.layerStatus && <div style={{ fontSize: 9, color: 'var(--sb-info-solid-600)', marginTop: 5 }}>▦ {node.layerStatus} · {node.layers?.length || 0} 层</div>}
       </div>
     </div>
   );
@@ -477,7 +477,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
 
 function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp, onInspect, onHoverChange }) {
   const previewAsset = node.assets?.find(asset => asset?.url);
-  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onDoubleClick={event => { event.stopPropagation(); if (previewAsset) onInspect?.({ ...node, url: previewAsset.url, label: previewAsset.name || node.name }); }} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #2563eb' : '1px solid #d8dde5', borderRadius: 8, color: '#1f2937', background: '#fff', boxShadow: selected ? '0 0 0 2px rgba(37,99,235,.12), 0 4px 8px rgba(15,23,42,.12)' : '0 3px 8px rgba(15,23,42,.09)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
+  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onDoubleClick={event => { event.stopPropagation(); if (previewAsset) onInspect?.({ ...node, url: previewAsset.url, label: previewAsset.name || node.name }); }} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid var(--sb-info-solid-600)' : '1px solid #d8dde5', borderRadius: 8, color: '#1f2937', background: '#fff', boxShadow: selected ? '0 0 0 2px rgba(37,99,235,.12), 0 4px 8px rgba(15,23,42,.12)' : '0 3px 8px rgba(15,23,42,.09)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
     <CanvasPortHandle side="right" role="output" visible={selected} disabled={!canDeriveFromNode(node)} label="从产品素材派生工作流" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} onPointerUp={event => onPortPointerUp?.(event, node.id, 'out')} />
     <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
@@ -519,7 +519,7 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
         const style = isInvalid
           ? { stroke: '#EF4444', dash: '4 4' }
           : isProcessing
-            ? { stroke: '#7c3aed', dash: '8 6' }
+            ? { stroke: 'var(--sb-brand-600)', dash: '8 6' }
             : styles[conn.relation || conn.type] || styles.reference;
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
         /* 9-11: 全部连线带 .ec-canvas-edge-line (端点=加号中心重叠); 进行中边常驻流动, hover 边流动加粗 */
@@ -7196,7 +7196,7 @@ const handlePointerUp = useCallback((e) => {
           </div>
 
           {marquee && (
-            <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: marquee.w * viewport.scale, height: marquee.h * viewport.scale, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
+            <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: marquee.w * viewport.scale, height: marquee.h * viewport.scale, border: '1px solid var(--sb-brand-600)', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
           )}
 
         </div>
@@ -7314,7 +7314,7 @@ const handlePointerUp = useCallback((e) => {
                     onClick={handleBatchImportProjectAssets}
                     aria-label={`加入所选 ${selectedProjectAssetKeys.size} 个素材到画布`}
                     title="加入所选素材到画布"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 10px', border: '1px solid #bfdbfe', borderRadius: 9, background: '#eff6ff', color: '#2563eb', fontSize: 11, cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 10px', border: '1px solid #bfdbfe', borderRadius: 9, background: '#eff6ff', color: 'var(--sb-info-solid-600)', fontSize: 11, cursor: 'pointer' }}
                   ><Plus size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
                 </div>
               </div>
@@ -7410,8 +7410,8 @@ const handlePointerUp = useCallback((e) => {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><ExternalLink size={14} /></button>
-                      <button type="button" aria-label={`将${work.name}加入资产库`} title="加入资产库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><FolderPlus size={14} /></button>
+                      <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-brand-600)' }}><ExternalLink size={14} /></button>
+                      <button type="button" aria-label={`将${work.name}加入资产库`} title="加入资产库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-brand-600)' }}><FolderPlus size={14} /></button>
                       {tab === 'trash' ? (
                         <button type="button" aria-label="恢复作品" onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</button>
                       ) : (
@@ -7634,7 +7634,7 @@ const handlePointerUp = useCallback((e) => {
             <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 14px', display: 'grid', gap: 8 }}>
               {CHAIN_STEP_LABELS.map((label, idx) => {
                 const status = chainRun.steps?.[idx] || 'pending';
-                const statusColor = status === 'ok' ? '#10b981' : status === 'failed' ? '#ef4444' : status === 'running' ? '#7c3aed' : '#9ca3af';
+                const statusColor = status === 'ok' ? '#10b981' : status === 'failed' ? '#ef4444' : status === 'running' ? 'var(--sb-brand-600)' : '#9ca3af';
                 const statusLabel = status === 'ok' ? '✓ 完成' : status === 'failed' ? '✕ 失败' : status === 'running' ? '⋯ 进行中' : '○ 等待';
                 return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 9, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
                   <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 999, fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
@@ -7681,7 +7681,7 @@ const handlePointerUp = useCallback((e) => {
             </label>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" onClick={() => setImageInfoNode(null)} style={{ border: 0, borderRadius: 7, padding: '9px 14px', background: '#f3f4f6', color: '#4b5563', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
-              <button type="button" disabled={!imageInfoName.trim()} onClick={handleImageInfoSave} style={{ border: 0, borderRadius: 7, padding: '9px 16px', background: imageInfoName.trim() ? '#2563eb' : '#9ca3af', color: '#fff', fontSize: 12, fontWeight: 700, cursor: imageInfoName.trim() ? 'pointer' : 'not-allowed' }}>保存</button>
+              <button type="button" disabled={!imageInfoName.trim()} onClick={handleImageInfoSave} style={{ border: 0, borderRadius: 7, padding: '9px 16px', background: imageInfoName.trim() ? 'var(--sb-info-solid-600)' : '#9ca3af', color: '#fff', fontSize: 12, fontWeight: 700, cursor: imageInfoName.trim() ? 'pointer' : 'not-allowed' }}>保存</button>
             </div>
           </div>
         </div>
@@ -7692,7 +7692,7 @@ const handlePointerUp = useCallback((e) => {
           <div style={{ fontSize: 12, fontWeight: 800, color: '#1f2937', marginBottom: 8 }}>批量修改分类</div>
           <div style={{ fontSize: 11, color: '#777', marginBottom: 10 }}>已选 {multiSelected.size} 张资产</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {ASSET_GROUPS.map(group => <button key={group} type="button" onClick={() => handleBatchClassify(group)} style={{ border: 0, borderRadius: 8, padding: '8px 6px', background: groupDraft === group ? 'rgba(124,58,237,.12)' : 'rgba(12,10,9,.04)', color: groupDraft === group ? '#7c3aed' : '#555', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>)}
+            {ASSET_GROUPS.map(group => <button key={group} type="button" onClick={() => handleBatchClassify(group)} style={{ border: 0, borderRadius: 8, padding: '8px 6px', background: groupDraft === group ? 'rgba(124,58,237,.12)' : 'rgba(12,10,9,.04)', color: groupDraft === group ? 'var(--sb-brand-600)' : '#555', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>)}
           </div>
         </div>
       )}
@@ -7733,7 +7733,7 @@ const handlePointerUp = useCallback((e) => {
             <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
               {[['images', exportIntent === 'single' ? '另存为' : '导出整套图片', exportIntent === 'single' ? '选择文件名后，再确认开始导出' : '选择文件夹后，只导出生成图片'], ['long-detail', '合成并导出详情长图', canExportLongDetail ? '按下方顺序无缝拼接为一张长图' : '至少需要 2 张已生成的详情图']].map(([mode, label, desc]) => {
                 const disabled = (mode === 'long-detail' && !canExportLongDetail) || isExportDeliveryBusy(exportDelivery) || exportIntent === 'single' && mode === 'long-detail';
-                return <button key={mode} type="button" disabled={disabled} onClick={() => { configureExport(mode); setExportIntent(mode === 'long-detail' ? 'long-detail' : exportIntent); }} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #2563eb' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{label}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>;
+                return <button key={mode} type="button" disabled={disabled} onClick={() => { configureExport(mode); setExportIntent(mode === 'long-detail' ? 'long-detail' : exportIntent); }} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid var(--sb-info-solid-600)' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{label}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>;
               })}
             </div>
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
