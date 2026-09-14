@@ -94,10 +94,16 @@ function createInitialState() {
     search: globalThis.location?.search || '',
   });
   const base = browserQaState ? { ...initialState, ...browserQaState } : { ...initialState };
+  /* 9-17：真实登录态 QA 通道把 page 钉死，任何后续按 pathname 的推导都不许覆盖它 ——
+     否则这条通道会时好时坏地落回首页（实测：同一 URL 刷新两次，一次进画布一次进首页），
+     而「加入资产库」这类只在画布上存在的链路就永远无法稳定复现/回归。 */
+  if (base.qaPagePinned) return base;
   // 4c183cd4 续命: 根据 window.location.pathname 决定初始 page,
   // 让 /canvas /video-studio /ec-canvas 等 deep-link URL 进入对应页面
   // (而不是永远停留在 home). /login 自动弹登录弹窗, 其它路径走 PATHNAME_PAGE_MAP.
-  if (!base.browserQa) {
+  /* 9-17：真实登录态 QA 通道（?qa=ec-canvas-real）自己钉了 page，pathname 不许覆盖它 ——
+     否则它会落到首页，画布这条链就永远测不到（这正是「加入资产库」bug 长期漏网的原因）。 */
+  if (!base.browserQa && !base.qaPagePinned) {
     const pathname = (typeof globalThis !== 'undefined' && globalThis.location && globalThis.location.pathname) || '';
     const page = pathnameToPage(pathname);
     base.page = page;

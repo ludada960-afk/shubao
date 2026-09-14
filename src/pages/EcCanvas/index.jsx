@@ -564,20 +564,72 @@ function readCanvasImageFiles(files = [], startedAt = Date.now()) {
    但节点对象既不是 File 也没有 data: URL（节点只有 /api/generated-assets/… 或远程 url），
    uploadEcommerceAsset 走到 imageToDataUrl(file) 就抛「请选择 JPEG 或 PNG 原图后重试」，
    对用户就是一句和「素材无效」一样的黑话。
-   修法：把「本地待上传文件」和「已有稳定地址的素材」分开——
-     · 已有 /api/generated-assets/ 稳定地址 → 原样透传（它本来就已经持久化过，不需要也不应该再上传）；
-     · 其余（File / data: URL）→ 走原来的上传链路。
-   这样点「加入资产库」不会再对已落库的素材做一次无意义的二次上传。 */
+
+   9-17 用户批注（图8）：「点击加入资产库还是不对啊，我点击之后它为什么还是说不能加入资产库呢」
+   —— 上一轮的修复**只覆盖了生成物**（/api/generated-assets/），上传物、资产库导入物、
+   带有本地预览地址的素材仍然全都被判成「待上传」，然后拿一个既不是 File 也没有
+   data: URL 的**假素材对象**去调上传接口，于是用户再次看到「请选择 JPEG 或 PNG 原图后重试」。
+   实测复现（Playwright 真登录态）：点「加入资产库」→ toast 就是这句，
+   而且**根本没有任何上传请求发出**（只有 projects/versions/save-work 这几个自动保存请求）。
+
+   修法：判据从「是不是 /api/generated-assets/」改成「**有没有可上传的原始数据**」：
+     · 有 File/Blob                → 走上传链路（真正的本地上传）；
+     · 有 data:image/ 数据 URL      → 走上传链路；
+     · 其余（已经是任何服务端可寻址的 url，含 /api/generated-assets/、/api/gallery-image、
+       远程 http(s) 地址、以及已入库回填的 stableUrl）→ 原样透传，不做二次上传。
+   这样「加入资产库」在任何一条素材来源路径上都不会再抛上传错误。 */
+/* 服务端素材 ID 就藏在稳定地址里：/api/generated-assets/<64位hex>.(jpg|png|webp)。
+   画布节点上的 assetId 有时是**画布自己的** upload_… id（不是服务端素材 ID），
+   拿它去调 import-media 只会得到 404「图片素材不存在或不属于当前账号」。
+   所以入库前统一从稳定地址里把真正的素材 ID 解出来，解不出再退回节点字段。 */
+const CANVAS_STABLE_ASSET_URL_RE = /^\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))$/i;
+
+function canvasServerAssetIdFromUrl(url) {
+  const match = CANVAS_STABLE_ASSET_URL_RE.exec(String(url || '').split('?')[0].trim());
+  return match ? match[1] : '';
+}
+
+/* 素材角色必须落在服务端允许的取值里（server/ecommerceEngine/assetUpload.mjs：
+   product | reference | style | proof | person | scene）。画布侧原来传的是 'user-saved'，
+   服务端直接 400「素材角色无效」—— 于是「加入资产库」在**真实登录态**下从未成功过一次。
+   实测：t+1s toast「素材角色无效」，请求 400 POST /api/ecommerce/assets
+        {"error":"素材角色无效","code":"ASSET_REQUEST_INVALID"}。
+   这里把画布的业务语义（用户主动收藏 / 视频 / 音频）收敛到服务端允许的取值：
+     「加入资产库」= 用户把自己的素材收进资产库 → 语义上是参考素材，映射为 'reference'。 */
+const CANVAS_ASSET_UPLOAD_ROLES = Object.freeze({
+  'user-saved': 'reference',
+  'user-saved-video': 'reference',
+  'user-saved-audio': 'reference',
+  product: 'product',
+  reference: 'reference',
+  style: 'style',
+  proof: 'proof',
+  person: 'person',
+  scene: 'scene',
+});
+
+function normalizeCanvasAssetRole(role) {
+  const key = String(role || '').trim().toLowerCase();
+  return CANVAS_ASSET_UPLOAD_ROLES[key] || 'reference';
+}
+
+function canvasAssetUploadSource(asset = {}) {
+  const file = asset.file || asset.rawFile || asset.blob || null;
+  if (file) return file;
+  const url = String(asset.url || asset.previewUrl || asset.localPreviewUrl || '').trim();
+  if (/^data:image\//i.test(url)) return url;
+  return null;
+}
+
 async function persistCanvasUploadAssets(assets = [], { role = 'product' } = {}) {
   const list = Array.isArray(assets) ? assets : [];
-  const alreadyStable = asset => /^\/api\/generated-assets\//i.test(String(asset?.url || ''));
-  const uploadable = list.filter(asset => !alreadyStable(asset));
-  const persisted = uploadable.length ? await uploadEcommerceAssets(uploadable, role) : [];
-  if (persisted.length !== uploadable.length || persisted.some(asset => !asset?.url || !/^\/api\/generated-assets\//i.test(asset.url))) {
+  const uploadable = list.filter(asset => canvasAssetUploadSource(asset));
+  const persisted = uploadable.length ? await uploadEcommerceAssets(uploadable, normalizeCanvasAssetRole(role)) : [];
+  if (persisted.length !== uploadable.length || persisted.some(asset => !asset?.url)) {
     throw new Error('图片上传结果不完整，请重试');
   }
   let cursor = 0;
-  return list.map(asset => (alreadyStable(asset) ? { ...asset } : { ...asset, ...persisted[cursor++] }));
+  return list.map(asset => (canvasAssetUploadSource(asset) ? { ...asset, ...persisted[cursor++] } : { ...asset }));
 }
 
 /* 素材水印适用的节点类型（提交时只回写对应类型） */
@@ -3293,15 +3345,44 @@ const handlePointerUp = useCallback((e) => {
         const projectContext = await ensureCanvasMediaProject(isMedia ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目', isMedia ? 'video' : 'ecommerce');
         if (!projectContext) throw new Error('资产库暂时不可用，请稍后再试');
         let sourceAsset = { url: stableUrl, name: node.name || node.displayLabel || '画布素材' };
+        /* 只要素材还不是「服务端稳定地址」，就必须先落成一个真正的服务端素材：
+           上传接口返回的 assetId 才是入库（import-media）认得的 ID。
+           画布节点自己的 id（upload_…）不是服务端素材 ID，直接拿去入库会被判 404
+           「图片素材不存在或不属于当前账号」—— 这正是用户反复看到的「不能加入资产库」。 */
         if (!/^\/api\/generated-assets\//i.test(stableUrl)) {
-          const persisted = await persistCanvasUploadAssets([{ assetId: node.id, name: sourceAsset.name, url: stableUrl }], { role: 'user-saved' });
-          sourceAsset = persisted[0];
+          const persisted = await persistCanvasUploadAssets(
+            [{ assetId: node.assetId || node.id, name: sourceAsset.name, url: stableUrl }],
+            { role: 'user-saved' },
+          );
+          const uploaded = persisted?.[0];
+          if (!uploaded?.url) throw new Error('这个素材暂时无法加入资产库');
+          sourceAsset = { ...sourceAsset, ...uploaded, name: sourceAsset.name };
         }
         if (!sourceAsset?.url) throw new Error('这个素材暂时无法加入资产库');
+        /* 把真正的服务端素材 ID 补齐（节点上的 assetId 可能还是画布内部 id）。 */
+        if (!sourceAsset.assetId) sourceAsset = { ...sourceAsset, assetId: canvasServerAssetIdFromUrl(stableUrl) };
         const imported = isMedia
           ? await importCanvasMediaAssets([sourceAsset], projectContext, node.kind === 'video' ? 'user-saved-video' : 'user-saved-audio')
           : await importCanvasImageAssets([sourceAsset], projectContext, 'user-saved');
         if (imported?.failed?.length) throw new Error('这个素材暂时无法加入资产库');
+        /* 9-17 用户批注（图8）：「已入库高亮 + 再点一次移除」原来两头都断的：
+           入库成功后**没有把 projectAssetId 写回节点**，于是
+             ① 按钮不会高亮（看不出已经入库）；
+             ② 再点一次时 existingProjectAssetId 仍为空 → 又走一遍入库，永远退不出来。
+           这里把服务端回来的入库凭据写回节点，两个状态才有据可依。 */
+        const storedAsset = imported?.assets?.[0] || {};
+        const storedProjectAssetId = String(storedAsset.projectAssetId || storedAsset.asset?.projectAssetId || '').trim();
+        if (storedProjectAssetId) {
+          const storedProjectId = String(storedAsset.projectId || projectContext.projectId || '').trim();
+          setNodes(previous => previous.map(item => item.id === node.id
+            ? {
+              ...item,
+              projectId: storedProjectId,
+              projectAssetId: storedProjectAssetId,
+              assetRef: { projectId: storedProjectId, projectAssetId: storedProjectAssetId },
+            }
+            : item));
+        }
         dispatch({ type: 'SET_RESULT', result: { ...result, projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } });
         showToast('已加入资产库', 'success');
       } catch (error) {
@@ -4868,6 +4949,8 @@ const handlePointerUp = useCallback((e) => {
         void persistCanvasUploadAssets(localAssets, { role: 'product' }).then(persisted => {
           const durable = persisted?.[0];
           if (!durable?.url) return;
+          /* 9-17：替换同样要把服务端素材 ID 落回节点，否则替换后的素材无法加入资产库。 */
+          if (durable.assetId) setNodes(previous => previous.map(node => node.id === targetId ? { ...node, assetId: durable.assetId } : node));
           /* 9-15 只切持久 url；localPreviewUrl 由 swapNodeToDurableUrl 在「持久图解码成功」后才清，
              替换后不再出现空白闪屏 / 1 秒后图片消失。 */
           swapNodeToDurableUrl(targetId, durable.url);
@@ -4919,8 +5002,12 @@ const handlePointerUp = useCallback((e) => {
           const persisted = persistedById.get(node.id);
           if (!persisted?.url) return node;
           /* 9-15 本地预览保留到「持久 url 解码成功」才清 (swapNodeToDurableUrl 预载)；
-             持久 url 失败时保留本地预览不再空框 —— 修复上传 1 秒后图片消失。 */
-          return { ...node, url: persisted.url, status: 'ready', uploadError: '' };
+             持久 url 失败时保留本地预览不再空框 —— 修复上传 1 秒后图片消失。
+             9-17：把**服务端素材 ID** 一起落在节点上（node.assetId 原来是画布自己的
+             upload_… id，不是服务端认得的素材 ID）。少了这一步，「加入资产库」拿这个 id
+             去 import-media 只会拿到 404「图片素材不存在或不属于当前账号」——
+             用户看到的就是「点击加入资产库还是说不能加入资产库」。 */
+          return { ...node, url: persisted.url, assetId: persisted.assetId || node.assetId, status: 'ready', uploadError: '' };
         }));
         uploadedNodes.forEach(node => {
           const persisted = persistedById.get(node.id);

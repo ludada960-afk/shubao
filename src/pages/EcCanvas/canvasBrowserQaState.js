@@ -63,9 +63,23 @@ const QA_IMAGES = [
   },
 ];
 
+/* 9-17 用户批注（图8）：「点击加入资产库还是不对啊，我点击之后它为什么还是说不能加入资产库呢」。
+   上一轮只修了「生成物」这条路径。剩下的来源（上传物 / 资产库导入物 / 带本地预览地址的素材）
+   仍然被当成"待上传的本地文件"丢给上传接口，于是又抛「请选择 JPEG 或 PNG 原图后重试」。
+   QA 通道里还叠了第二个闸门：importCanvasImageAssets 开头就 `if (… || result.browserQa) return failed`，
+   于是「加入资产库」在这条通道上**永远**失败 —— 也正因为如此，这个 bug 才一直没被实测抓到。
+
+   要给这条链做真实取证，就必须能在 QA 通道里显式选择「用真实登录态跑真请求」。
+   所以新增 ?qa=ec-canvas-real：
+     · 仍然复用同一套画布夹具（节点/图片都一样），保证前后可对比；
+     · 但**不置 browserQa**，于是走的是完全真实的鉴权、项目、资产库接口，
+       带真实会话 cookie/token 时「加入资产库」才会真的发出请求、真的入库。
+   只在 import.meta.env.DEV 生效，线上永远命中不到（与其它 qa= 通道同一条约束）。 */
+const REAL_QA_QUERY_VALUE = 'ec-canvas-real';
+
 export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
   const qaValue = new URLSearchParams(search).get('qa');
-  if (!enabled || ![QA_QUERY_VALUE, VISUAL_QA_QUERY_VALUE, PLAN_LAUNCH_QA_QUERY_VALUE].includes(qaValue)) return null;
+  if (!enabled || ![QA_QUERY_VALUE, VISUAL_QA_QUERY_VALUE, PLAN_LAUNCH_QA_QUERY_VALUE, REAL_QA_QUERY_VALUE].includes(qaValue)) return null;
 
   if (qaValue === PLAN_LAUNCH_QA_QUERY_VALUE) {
     return {
@@ -127,15 +141,29 @@ export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
     };
   }
 
+  /* ?qa=ec-canvas-real：同一套夹具，但不设 browserQa —— 走真实鉴权与真实接口。
+     画布上的节点/图片与 ?qa=ec-canvas 完全一致，所以两条通道可以逐像素对比。 */
+  const realSession = qaValue === REAL_QA_QUERY_VALUE;
+  /* 注意：AppContext.createInitialState 只在 **没有** browserQa 时才按 pathname 决定初始 page，
+     而真实态这条通道恰恰没有 browserQa —— 所以光设 page 不够，pathname（'/'）会在
+     createInitialState 里把它覆盖回 home。这里在初始化期把 URL 也钉到 /ec-canvas，
+     两条路一起保证「真实登录态 + 画布」这个组合能起来。仅在 DEV + 该 qa 值下执行。 */
+  if (realSession && typeof globalThis !== 'undefined' && globalThis.history?.replaceState) {
+    const current = globalThis.location?.pathname || '';
+    if (current !== '/ec-canvas') {
+      globalThis.history.replaceState(null, '', `/ec-canvas${globalThis.location?.search || ''}`);
+    }
+  }
   return {
-    browserQa: true,
+    ...(realSession ? {} : { browserQa: true }),
     page: 'ec-canvas',
+    ...(realSession ? { qaPagePinned: true } : {}),
     logged: true,
     phone: '',
     genState: 'result',
     result: {
       id: 'canvas-browser-qa-readable',
-      browserQa: true,
+      ...(realSession ? {} : { browserQa: true }),
       _ecResult: true,
       product_name: '电商商品套图验收',
       platform: '淘宝',

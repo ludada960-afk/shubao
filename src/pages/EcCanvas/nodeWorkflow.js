@@ -90,12 +90,16 @@ export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = 
   /* 硬右界：画布可视区右缘再让开 reservedRight（打开右侧功能栏时 = 面板宽 + 两侧边距）。
      浮层与功能栏因此永远不重叠，也不会越过画布右缘画到功能栏上面去。 */
   const reservedWorld = Math.max(0, Number(reservedRight) || 0) / scale;
-  const hardRight = Math.max(0, boundsWidth - reservedWorld - gutter * 2);
-  const width = Math.min(preferredWidth, Math.max(180, (hardRight || boundsWidth) / scale));
+  /* 没有让位需求时，宽度口径必须与历史完全一致（bounds/scale - gutter*2）——
+     下面只在**确实要避让**时才把可用宽度收紧，避免影响其它调用方与既有契约。 */
+  const usableWidth = reservedWorld > 0
+    ? Math.max(180 * scale, boundsWidth - reservedWorld - gutter * 2 * scale)
+    : boundsWidth;
+  const width = Math.min(preferredWidth, Math.max(180, usableWidth / scale - gutter * 2));
   const height = Math.min(preferredHeight, Math.max(240, boundsHeight / scale - gutter * 2));
   const minX = (0 - viewportX) / scale + gutter;
   const minY = (0 - viewportY) / scale + gutter;
-  const maxRight = (hardRight - viewportX) / scale;
+  const maxRight = (usableWidth - viewportX) / scale;
   const maxX = Math.max(minX, maxRight - width - gutter);
   const maxY = Math.max(minY, (boundsHeight - viewportY) / scale - height - gutter);
   const anchorX = Number.isFinite(world.x) ? world.x : minX;
