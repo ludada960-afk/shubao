@@ -734,6 +734,15 @@ export async function generateEcommerceSuite({
   batchPlan,
   generationSettings,
   sizing,
+  /* 2026-09-17 用户批注（SKU 必须进画布排版体系）：
+     SKU 变体与套图方案是**同一个维度**的东西 —— 用户在「套图方案」里勾了主图/详情图/白底图，
+     又在「SKU 变体」里自定义了几个 SKU，最终进画布时它们都要参与排版。
+     但这条链路原来断在这里：generateEcommerce 早就支持 skus（它会拼进 body.skus，
+     服务端 assetPlanner 的 normalizeSkus → role:'sku' 也会据此产出 SKU 图），
+     而 generateEcommerceSuite **没有这个形参、也没往 generateEcommerce 传**，
+     于是画布侧的 skus 永远是 []，SKU 变体图一张都不会生成，自然也就进不了 SKU 排。
+     这里把 skus 一路透传下去（画布与首页共用同一条生成链路）。 */
+  skus,
   direction,
   assetMentions,
   email,
@@ -757,6 +766,7 @@ export async function generateEcommerceSuite({
     imageSelections: planToSelections(batchPlan),
     generationSettings,
     sizing,
+    skus: Array.isArray(skus) ? skus : [],
     direction,
     assetMentions,
     email,

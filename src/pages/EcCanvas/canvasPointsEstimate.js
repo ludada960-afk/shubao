@@ -42,16 +42,27 @@ export function estimateTextComposerPoints() {
   return { points: CANVAS_TEXT_POINTS };
 }
 
-/* 套图框：与首页 planPoints 完全同源（整套张数不能退化成 1 张） */
-export function estimateSuiteComposerPoints({ platform = 'smart', sizing = {}, resolution = '2K', imageModel = 'image2' } = {}) {
+/* SKU 变体也会各出一张图 —— 与首页 resolveEcommercePlan 的 validSkuCount 同一口径
+   （只有真正填了 颜色/规格/容量/标注尺寸 之一的变体才算数，空行不计费）。
+   2026-09-17：SKU 现在会真的进生成与排版，报价必须跟着算进去，
+   否则「报价张数」与「实际产出张数」会对不上（少报）。 */
+export function canvasValidSkuCount(skus) {
+  if (!Array.isArray(skus)) return 0;
+  return skus.filter(sku => ['color', 'size', 'capacity', 'dimLabel']
+    .some(field => String(sku?.[field] || '').trim())).length;
+}
+
+/* 套图框：与首页 planPoints 完全同源（整套张数不能退化成 1 张；SKU 变体计入张数） */
+export function estimateSuiteComposerPoints({ platform = 'smart', sizing = {}, resolution = '2K', imageModel = 'image2', skus = [] } = {}) {
   const normalizedResolution = String(resolution || '2K').toUpperCase();
   const planned = resolveSizingImages(platform, { ...(sizing || {}), resolution: normalizedResolution });
   const fallback = Array.isArray(sizing?.images) ? sizing.images : [];
   const source = Array.isArray(planned) && planned.length ? planned : fallback;
   const totalImages = source.reduce((sum, item) => sum + (Number(item?.count) || 0), 0);
-  const count = Math.max(1, totalImages);
+  const skuCount = canvasValidSkuCount(skus);
+  const count = Math.max(1, totalImages + skuCount);
   const perShot = imagePointsPerShot(imageModel, normalizedResolution);
-  return { points: perShot * count, perShot, count, resolution: normalizedResolution };
+  return { points: perShot * count, perShot, count, resolution: normalizedResolution, skuCount, sizingCount: totalImages };
 }
 
 /* 视频框：产品报价 short(≤8 秒) / long，报价来自服务端，前端只展示 */

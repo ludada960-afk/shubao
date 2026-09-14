@@ -1276,6 +1276,8 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
     sizing: suiteConfig.sizing,
     resolution: suiteConfig.genSettings?.resolution || node.resolution,
     imageModel: suiteConfig.genSettings?.imageModel || node.imageModel,
+    /* 2026-09-17：SKU 变体各出一张图，报价必须算进去（与后端 quantity 同口径） */
+    skus: suiteConfig.skus,
   });
   const suitePoints = planning ? suiteEstimate.points : CANVAS_PLAN_ANALYSIS_POINTS;
   return <section data-canvas-control="true" className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-suite-composer" style={position} aria-label={planning ? '编辑整体设计方案' : '电商套图操作台'} onPointerDown={event => event.stopPropagation()}>

@@ -4498,6 +4498,11 @@ const handlePointerUp = useCallback((e) => {
           copywritingMode: composer.copywritingMode || 'smart',
         },
         sizing: { ...(configuration.sizing || {}), smart: configuration.sizing?.smart ?? false, contentType: commerceContext.contentType, resolution: configuration.genSettings?.resolution || composer.resolution || '2K', images: imageSelections },
+        /* 2026-09-17：SKU 变体与套图方案同维度 —— 必须一起进生成，结果才会进 SKU 排。
+           服务端 assetPlanner 会按 normalizeSkus 为每个变体产出一张 role:'sku' 的图，
+           交付时带 group:'SKU'（deliveryMetadata.ecommerceGroupForRole），
+           画布 onImage 再按 group 落到 roleRows.SKU = 第 3 排。 */
+        skus: Array.isArray(configuration.skus) ? configuration.skus : [],
         direction: applyCanvasSuitePlanToDirection(suitePlan, directionSource),
         email: phone,
         onProgress: progress => updateComposerNode(composer.id, { progress: progress?.progress || progress?.percent || 0, progressLabel: progress?.message || progress?.label || '正在生成套图' }),
