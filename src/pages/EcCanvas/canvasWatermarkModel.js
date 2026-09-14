@@ -20,6 +20,9 @@ export const DEFAULT_WATERMARK = Object.freeze({
   type: 'text',                 // 'text' 文字水印 | 'logo' 图片水印
   text: '薯包AI',
   fontFamily: 'system-ui',
+  /* C 类保留（41-scales-and-snapping.md §2）：水印字号是**渲染基准数据**，
+     以素材宽度 1000px 为基准、渲染时按实际宽度换算，属业务内容而非 UI 字号档，
+     不参与 D19 归并 —— 归并它会改变水印在成品图上的实际大小。 */
   fontSize: 64,                 // 以素材宽度 1000px 为基准的字号（渲染时按宽度换算）
   fontWeight: 600,
   color: '#111827',
