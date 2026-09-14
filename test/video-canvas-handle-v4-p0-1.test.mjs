@@ -28,16 +28,17 @@ test('V4 P0-1 D4: 无效释放红色反馈 (connectingfrom / connectingto / inva
   // 三态共享红色块, 确保 source / target / invalid 都给视觉信号
   assert.match(
     css,
-    /\.vcb-flow-root \.react-flow__handle\.connectingfrom[\s\S]*?\.vcb-flow-root \.react-flow__handle\.connectingto[\s\S]*?\.vcb-flow-root \.react-flow__handle\.invalid\s*\{[^}]*#dc2626/s,
-    'should mark connectingfrom / connectingto / invalid handle in red (#dc2626)',
+    /\.vcb-flow-root \.react-flow__handle\.connectingfrom[\s\S]*?\.vcb-flow-root \.react-flow__handle\.connectingto[\s\S]*?\.vcb-flow-root \.react-flow__handle\.invalid\s*\{[^}]*var\(--sb-danger-hover\)/s,
+    'should mark connectingfrom / connectingto / invalid handle in danger red',
   );
-  // 红色用 #dc2626 (Tailwind red-600), 与全局错误色一致
+  /* 2026-09-14 §18 红→一支：红态改用 --sb-danger-hover（= #D0443C，red-600 收敛档）。
+     断言「危险红」语义：字面量或 token 均可。 */
   const invalidBlock = css.match(
     /\.vcb-flow-root \.react-flow__handle\.invalid\s*\{[^}]*\}/,
   );
   assert.ok(invalidBlock, 'should have dedicated .invalid block');
-  assert.match(invalidBlock[0], /#dc2626/);
-  assert.match(invalidBlock[0], /outline:\s*2px solid #dc2626/);
+  assert.match(invalidBlock[0], /var\(--sb-danger-hover\)/);
+  assert.match(invalidBlock[0], /outline:\s*2px solid var\(--sb-danger-hover\)/);
 });
 
 test('V4 P0-1 D4: 方向视觉分离 (bottom / top / left / right 2px solid border)', async () => {

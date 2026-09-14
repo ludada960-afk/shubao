@@ -1,7 +1,7 @@
 /* 灵图AI 风格定价弹窗 (2026-09-02 用户指定视觉基准 lingtuai.top)
    设计语言: 暖米底 + 琥珀橙强调 + 紫罗兰数字 + 全站毛玻璃 + 白色圆角卡片 + 推荐档五重差异放大
    - 弹窗背景 #fbf8f1 (暖米) + backdrop-blur 毛玻璃 + 暖阴影
-   - 主强调琥珀橙 #e99a18 / 数字紫罗兰 violet-700
+   - 主强调琥珀橙 var(--sb-warning) / 数字紫罗兰 violet-700
    - 推荐档: 琥珀边框+光晕+顶部骑缝徽章+琥珀价格+黑色主按钮 (五重强调)
    - 支付方式点击"去支付"后由 Modals 弹二级"选择支付方式" */
 
@@ -94,7 +94,7 @@
   content: '';
   width: 10px; height: 10px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #e99a18, #ec4899);
+  background: linear-gradient(135deg, var(--sb-warning), #ec4899);
   box-shadow: 0 0 0 4px rgba(233, 154, 24, 0.14);
 }
 .pricing-modal__close {
@@ -135,7 +135,7 @@
 }
 .pricing-modal__title em {
   font-style: normal;
-  color: #e99a18;
+  color: var(--sb-warning);
 }
 .pricing-modal__subtitle {
   position: relative;
@@ -182,7 +182,7 @@
 }
 .pricing-modal__hero-dot { color: #c9bfad; }
 .pricing-modal__balance-login {
-  color: #e99a18;
+  color: var(--sb-warning);
   font-weight: 700;
   cursor: pointer;
 }
@@ -227,7 +227,7 @@
 }
 .pricing-modal__tab:hover { color: #292524; }
 .pricing-modal__tab--active {
-  background: #e99a18;
+  background: var(--sb-warning);
   color: #1c1917;
   box-shadow: 0 12px 28px rgba(146, 64, 14, 0.18);
 }
@@ -303,7 +303,7 @@
   min-width: 0;
 }
 .pricing-modal__pack:hover {
-  border-color: #e99a18;
+  border-color: var(--sb-warning);
   transform: translateY(-3px);
   box-shadow: 0 16px 40px -8px rgba(146, 64, 14, 0.18);
 }
@@ -315,12 +315,12 @@
 }
 /* 选中态: 琥珀描边强化 */
 .pricing-modal__pack--selected {
-  border-color: #e99a18;
+  border-color: var(--sb-warning);
   border-width: 2px;
   box-shadow: 0 0 0 4px rgba(233, 154, 24, 0.14);
 }
 .pricing-modal__pack--anchored.pricing-modal__pack--selected {
-  border-color: #e99a18;
+  border-color: var(--sb-warning);
   border-width: 2px;
 }
 /* 推荐徽章: 顶部骑缝琥珀胶囊 */
@@ -590,6 +590,7 @@
   color: var(--sb-neutral-0);
   transition: filter 0.15s ease;
 }
+/* 第三方支付品牌色（微信绿），非本站语义色，保留字面量。 */
 .pricing-modal__pay-btn--wechat { background: linear-gradient(135deg, #07C160, #06AD56); }
 .pricing-modal__pay-btn--alipay { background: linear-gradient(135deg, #1677FF, #0E5DD9); }
 .pricing-modal__pay-btn:hover { filter: brightness(1.06); }

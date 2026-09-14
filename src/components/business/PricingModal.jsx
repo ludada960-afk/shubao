@@ -25,7 +25,7 @@ const TIER_BADGES = {
   ec_starter_29: { Icon: Sparkles, color: "#ea580c", tint: "#ffedd5", label: "专业" },
   ec_growth_79: { Icon: Gem, color: "var(--sb-ink-brand)", tint: "var(--sb-brand-100)", label: "团队" },
   ec_studio_199: { Icon: Crown, color: "#0284c7", tint: "#e0f2fe", label: "工作室" },
-  ec_monthpack_39: { Icon: Zap, color: "#059669", tint: "#d1fae5", label: "轻月卡" },
+  ec_monthpack_39: { Icon: Zap, color: "var(--sb-success)", tint: "#d1fae5", label: "轻月卡" },
   ec_monthpack_59: { Icon: Crown, color: "var(--sb-ink-brand)", tint: "var(--sb-brand-100)", label: "Pro" },
 };
 

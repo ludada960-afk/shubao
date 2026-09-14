@@ -246,7 +246,7 @@ export default function EcAutoPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
             onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}>
             <CharImg src={IMAGES.appicon} size={28} float />
-            <span style={{ fontSize: 17, fontWeight: 650, color: '#E53E3E', fontFamily: '-apple-system,"PingFang SC",sans-serif' }}>
+            <span style={{ fontSize: 17, fontWeight: 650, color: 'var(--sb-danger)', fontFamily: '-apple-system,"PingFang SC",sans-serif' }}>
               薯包AI
             </span>
             <span style={{ fontSize: 11, color: 'var(--sb-ink-4)', marginLeft: 4, background: 'var(--sb-neutral-100)', padding: '2px 8px', borderRadius: 4 }}>
@@ -369,7 +369,7 @@ export default function EcAutoPage() {
               </div>
             )}
             {elapsed >= 30 && (
-              <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 8, background: '#FFFBEB', padding: '6px 12px', borderRadius: 8, display: 'inline-block' }}>
+              <div style={{ fontSize: 11, color: 'var(--sb-warning)', marginTop: 8, background: '#FFFBEB', padding: '6px 12px', borderRadius: 8, display: 'inline-block' }}>
                 多张图片正在并行生成，请稍候...
               </div>
             )}
@@ -391,8 +391,8 @@ export default function EcAutoPage() {
         {/* 结果 */}
         {error && (
           <div style={{
-            background: '#FFF5F5', borderRadius: 10, padding: '12px 16px',
-            fontSize: 13, color: '#C53030', marginBottom: 16,
+            background: 'var(--sb-danger-soft)', borderRadius: 10, padding: '12px 16px',
+            fontSize: 13, color: 'var(--sb-danger-hover)', marginBottom: 16,
           }}>{error}</div>
         )}
 

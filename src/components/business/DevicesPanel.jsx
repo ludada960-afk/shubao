@@ -88,7 +88,7 @@ export default function DevicesPanel() {
             <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>正在加载设备列表…</div>
           )}
           {error && (
-            <div role="status" style={{ color: '#C53030', padding: '4px 0' }}>{error}</div>
+            <div role="status" style={{ color: 'var(--sb-danger-hover)', padding: '4px 0' }}>{error}</div>
           )}
           {Array.isArray(sessions) && sessions.length === 0 && !error && (
             <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>暂无活跃设备。</div>
@@ -122,7 +122,7 @@ export default function DevicesPanel() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     border: '1px solid var(--border)', borderRadius: 8,
-                    background: 'var(--sb-neutral-0)', color: '#C53030', fontSize: 11,
+                    background: 'var(--sb-neutral-0)', color: 'var(--sb-danger-hover)', fontSize: 11,
                     fontWeight: 700, padding: '5px 8px', cursor: 'pointer',
                     fontFamily: 'inherit',
                   }}

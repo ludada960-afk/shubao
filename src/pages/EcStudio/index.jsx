@@ -461,7 +461,7 @@ export default function EcStudioPage() {
             onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           >
             <CharImg src={IMAGES.appicon} size={32} float />
-            <span style={{ fontSize: 18, fontWeight: 650, color: '#E53E3E' }}>薯包AI</span>
+            <span style={{ fontSize: 18, fontWeight: 650, color: 'var(--sb-danger)' }}>薯包AI</span>
             <span
               style={{
                 fontSize: 12, color: 'var(--sb-brand-600)', background: 'var(--sb-brand-50)', padding: '3px 10px',
@@ -489,8 +489,8 @@ export default function EcStudioPage() {
         {err && (
           <div
             style={{
-              background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 8,
-              padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#C53030',
+              background: 'var(--sb-danger-soft)', border: '1px solid #FED7D7', borderRadius: 8,
+              padding: '12px 16px', marginBottom: 20, fontSize: 14, color: 'var(--sb-danger-hover)',
               lineHeight: 1.5,
             }}
           >
@@ -543,7 +543,7 @@ export default function EcStudioPage() {
                   <span
                     key={t}
                     style={{
-                      fontSize: 12, color: '#166534', background: '#F0FDF4',
+                      fontSize: 12, color: 'var(--sb-ink-success)', background: '#F0FDF4',
                       padding: '4px 10px', borderRadius: 6, fontWeight: 500,
                     }}
                   >
@@ -814,7 +814,7 @@ export default function EcStudioPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={SX.label}>
-                    商品名称 <span style={{ color: '#E53E3E' }}>*</span>
+                    商品名称 <span style={{ color: 'var(--sb-danger)' }}>*</span>
                   </label>
                   <input
                     value={name}
@@ -923,7 +923,7 @@ export default function EcStudioPage() {
                           onClick={() => delSkuRow(i)}
                           style={{
                             width: 24, height: 24, borderRadius: 6, background: 'var(--sb-neutral-0)',
-                            border: '1px solid var(--sb-neutral-200)', color: '#FF4757', cursor: 'pointer',
+                            border: '1px solid var(--sb-neutral-200)', color: 'var(--sb-danger)', cursor: 'pointer',
                             fontSize: 14, flexShrink: 0,
                           }}
                         >
@@ -1151,7 +1151,7 @@ export default function EcStudioPage() {
                 disabled={generating}
                 style={{
                   flex: 2, padding: '13px 0', borderRadius: 8, border: 'none',
-                  background: generating ? 'var(--sb-ink-5)' : '#059669', color: 'var(--sb-neutral-0)', cursor: generating ? 'wait' : 'pointer', fontSize: 14,
+                  background: generating ? 'var(--sb-ink-5)' : 'var(--sb-success)', color: 'var(--sb-neutral-0)', cursor: generating ? 'wait' : 'pointer', fontSize: 14,
                   fontWeight: 600, fontFamily: 'inherit',
                   boxShadow: '0 2px 8px rgba(5,150,105,.2)',
                 }}
@@ -1182,7 +1182,7 @@ export default function EcStudioPage() {
               }}
             >
               <div>
-                <span style={{ fontSize: 16, fontWeight: 600, color: '#059669' }}>✅ 生成完成</span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--sb-success)' }}>✅ 生成完成</span>
                 <span style={{ fontSize: 13, color: 'var(--sb-ink-4)', marginLeft: 8 }}>
                   {Object.keys(res.images || {}).length} 张图
                 </span>
@@ -1229,7 +1229,7 @@ export default function EcStudioPage() {
                     target="_blank"
                     rel="noreferrer"
                     style={{
-                      padding: '8px 16px', borderRadius: 6, background: '#059669',
+                      padding: '8px 16px', borderRadius: 6, background: 'var(--sb-success)',
                       color: 'var(--sb-neutral-0)', textDecoration: 'none', fontSize: 12, fontWeight: 600,
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}
@@ -1372,7 +1372,7 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
                 }}
                 style={{
                   position: 'absolute', top: 2, right: 2, width: 18, height: 18,
-                  borderRadius: '50%', background: '#FF4757', color: 'var(--sb-neutral-0)', fontSize: 10,
+                  borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 10,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', border: 'none', fontWeight: 700,
                 }}

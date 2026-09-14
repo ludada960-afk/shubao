@@ -67,7 +67,7 @@ export default function ReadProgress({ currentStage, error }) {
               <span style={{
                 fontSize: 10, fontWeight: 600,
                 color: isError ? 'var(--red)' :
-                       isDone ? '#5CA86C' :
+                       isDone ? 'var(--sb-success)' :
                        isCurrent ? 'var(--sb-brand-600)' : 'transparent',
               }}>
                 {isError ? '失败' : isDone ? '完成' : isCurrent ? '进行中' : ''}
@@ -79,7 +79,7 @@ export default function ReadProgress({ currentStage, error }) {
       {error && (
         <div style={{
           marginTop: 8, padding: '8px 12px', borderRadius: 8,
-          background: '#FEF2F0', fontSize: 11, color: 'var(--red)',
+          background: 'var(--sb-danger-soft)', fontSize: 11, color: 'var(--red)',
           lineHeight: 1.5, fontWeight: 500,
         }}>
           {error}

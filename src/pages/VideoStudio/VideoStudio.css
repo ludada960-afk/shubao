@@ -139,7 +139,7 @@
 .video-text-meta span:last-child { display: inline-flex; align-items: center; gap: 5px; }
 .video-job-progress { display: grid; grid-template-columns: auto minmax(100px, 1fr); align-items: center; gap: 12px; margin-top: 10px; color: #6857bd; font-size: 12px; font-weight: 700; }
 .video-job-progress progress { width: 100%; accent-color: var(--sb-brand-600); }
-.video-error { margin-top: 10px; padding: 9px 11px; border: 1px solid #fecaca; border-radius: 7px; background: #fff7f7; color: #b42318; font-size: 12px; }
+.video-error { margin-top: 10px; padding: 9px 11px; border: 1px solid var(--sb-danger-border); border-radius: 7px; background: #fff7f7; color: #b42318; font-size: 12px; }
 
 .video-quick-tools { position: relative; margin: 10px 22px 0; display: flex; align-items: center; gap: 6px; }
 /* 9-11 二轮用户批注: @ 引用素材统一在输入框一行 (与电商生图一致) —
@@ -221,7 +221,7 @@
 .video-submit-row button:disabled { background: #e5e3e0; box-shadow: none; color: #a8a39e; cursor: not-allowed; }
 /* 次按钮：与主按钮同高，渐变描边区分主次层级 */
 .video-submit-row .video-plan-trigger { min-height: 44px; padding: 0 15px; border: 1px solid transparent; border-radius: 11px; background: linear-gradient(#fffdfa,#fffdfa) padding-box, linear-gradient(135deg, var(--sb-brand-a55), rgba(209,77,181,.55)) border-box; box-shadow: none; color: var(--sb-brand-600); font-size: 12px; }
-.video-submit-row .video-plan-trigger:hover:not(:disabled), .video-submit-row .video-plan-trigger:focus-visible { background: linear-gradient(#f6f1ff,#f6f1ff) padding-box, linear-gradient(135deg, var(--sb-brand-600), #d14db5) border-box; box-shadow: 0 6px 16px var(--sb-brand-a18); }
+.video-submit-row .video-plan-trigger:hover:not(:disabled), .video-submit-row .video-plan-trigger:focus-visible { background: linear-gradient(#f6f1ff,#f6f1ff) padding-box, linear-gradient(135deg, var(--sb-brand-600), var(--sb-brand-600)) border-box; box-shadow: 0 6px 16px var(--sb-brand-a18); }
 .video-submit-row .video-generate-trigger.is-armed { box-shadow: 0 8px 20px var(--sb-brand-a32), 0 0 0 3px var(--sb-brand-a18); }
 .video-submit-row .video-generate-trigger.is-armed > svg:first-child { color: #ffe9c9; }
 .video-submit-row button.is-busy > svg:first-child { animation: video-spin .9s linear infinite; }

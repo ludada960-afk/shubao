@@ -175,7 +175,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                   className={classNames('pc-clone-option', selected && 'is-selected')}
                   style={{
                     display: 'flex', gap: 12, alignItems: 'flex-start',
-                    border: selected ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+                    border: selected ? '1.5px solid var(--sb-info)' : '1px solid #e2e8f0',
                     background: selected ? '#eff6ff' : 'var(--sb-neutral-0)',
                     borderRadius: 10, padding: 12, cursor: 'pointer',
                     transition: 'border-color 120ms ease, background 120ms ease',
@@ -187,15 +187,15 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                     value={opt.id}
                     checked={selected}
                     onChange={() => setMode(opt.id)}
-                    style={{ marginTop: 4, accentColor: '#2563eb' }}
+                    style={{ marginTop: 4, accentColor: 'var(--sb-info)' }}
                   />
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Icon size={16} color={selected ? '#2563eb' : 'var(--sb-ink-2)'} />
+                      <Icon size={16} color={selected ? 'var(--sb-info)' : 'var(--sb-ink-2)'} />
                       <strong style={{ fontSize: 14, color: 'var(--sb-ink-1)' }}>{opt.label}</strong>
                       {opt.recommended ? (
                         <span style={{
-                          fontSize: 10, color: '#2563eb', background: '#dbeafe',
+                          fontSize: 10, color: 'var(--sb-info)', background: '#dbeafe',
                           padding: '2px 6px', borderRadius: 999,
                         }}>推荐</span>
                       ) : null}
@@ -254,7 +254,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
         {error ? (
           <p style={{
             marginTop: 12, padding: '8px 10px', borderRadius: 8,
-            background: '#fef2f2', color: '#b91c1c', fontSize: 12,
+            background: 'var(--sb-danger-soft)', color: 'var(--sb-ink-danger)', fontSize: 12,
           }} role="alert">{error}</p>
         ) : null}
 
@@ -274,7 +274,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
             type="submit"
             disabled={busy || !projectId}
             style={{
-              padding: '8px 14px', border: 'none', background: busy ? '#93c5fd' : '#2563eb',
+              padding: '8px 14px', border: 'none', background: busy ? '#93c5fd' : 'var(--sb-info)',
               color: 'var(--sb-neutral-0)', borderRadius: 8,
               cursor: busy || !projectId ? 'not-allowed' : 'pointer', fontSize: 13,
               display: 'inline-flex', alignItems: 'center', gap: 6,

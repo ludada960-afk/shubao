@@ -158,7 +158,7 @@
   box-sizing: border-box;
   border-radius: 6px;
   background: rgba(82, 117, 204, .10);
-  color: var(--blue, #5275cc);
+  color: var(--blue, var(--sb-info));
   flex-shrink: 0;
   transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out);
 }
@@ -200,7 +200,7 @@
   transition-duration: 60ms;
 }
 .ec-canvas-empty-actions button:focus-visible {
-  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline: 2px solid var(--canvas-focus, var(--sb-info));
   outline-offset: 2px;
 }
 .ec-canvas-empty-actions button.is-primary {

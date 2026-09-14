@@ -9,7 +9,7 @@
   padding: 0 20px;
   border: 0;
   border-radius: 11px;
-  background: linear-gradient(135deg, var(--sb-brand-600) 0%, #d14db5 100%);
+  background: linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-600) 100%);
   color: var(--sb-neutral-0);
   font-family: inherit;
   font-size: 13.5px;

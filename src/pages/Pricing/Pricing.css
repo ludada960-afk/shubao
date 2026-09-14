@@ -120,7 +120,7 @@
   .pricing-hero-break { display: inline; }
 }
 .pricing-hero-accent {
-  background: linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 60%, #f59e0b 100%);
+  background: linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 60%, var(--sb-warning) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

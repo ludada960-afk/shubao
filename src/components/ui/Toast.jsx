@@ -25,9 +25,9 @@ export function ToastProvider({ children }) {
 
   const colors = {
     info: 'var(--sb-brand)',
-    success: '#10b981',
-    error: '#ef4444',
-    warning: '#f59e0b',
+    success: 'var(--sb-success)',
+    error: 'var(--sb-danger)',
+    warning: 'var(--sb-warning)',
   };
 
   return (

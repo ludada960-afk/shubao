@@ -45,7 +45,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
                         task.status === 'done' ? 'rgba(92,168,108,0.12)' : 'rgba(12,10,9,0.04)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <MdAutoAwesome size={16} color={isActive ? '#F59E0B' : task.status === 'done' ? '#5CA86C' : 'var(--text-muted)'}
+            <MdAutoAwesome size={16} color={isActive ? 'var(--sb-warning)' : task.status === 'done' ? 'var(--sb-success)' : 'var(--text-muted)'}
               className={isActive ? 'animate-spin' : ''} />
           </div>
           <div>

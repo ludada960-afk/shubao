@@ -288,7 +288,7 @@ export function LoginModal() {
         </button>
 
         {forgotMsg && (
-          <div className="ld-alert" role="status" style={{ background: '#f0f9f2', borderColor: '#cfe9d6', color: '#2f6b41' }}>
+          <div className="ld-alert" role="status" style={{ background: 'var(--sb-success-soft)', borderColor: '#cfe9d6', color: '#2f6b41' }}>
             <CheckCircle2 size={15} /><span>{forgotMsg}</span>
           </div>
         )}

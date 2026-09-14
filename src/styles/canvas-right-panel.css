@@ -137,7 +137,7 @@
 }
 .ec-canvas-right-panel__badge.is-magic {
   background: var(--blue-bg, rgba(37, 99, 235, .08));
-  color: var(--blue, #2563eb);
+  color: var(--blue, var(--sb-info));
 }
 .ec-canvas-right-panel__badge.is-processing {
   background: rgba(234, 88, 12, .1);
@@ -145,7 +145,7 @@
 }
 .ec-canvas-right-panel__badge.is-error {
   background: rgba(220, 38, 38, .1);
-  color: #dc2626;
+  color: var(--sb-danger-hover);
 }
 
 /* ── 中部: 派生菜单 (默认收进 "+", 点开展开) ── */
@@ -189,13 +189,13 @@
 }
 .ec-canvas-right-panel__menu-toggle:hover {
   background: var(--blue-bg, rgba(37, 99, 235, .08));
-  color: var(--blue, #2563eb);
+  color: var(--blue, var(--sb-info));
 }
 .ec-canvas-right-panel__menu-toggle.is-open {
   transform: rotate(45deg);
 }
 .ec-canvas-right-panel__menu-toggle:focus-visible {
-  outline: 2px solid var(--blue, #2563eb);
+  outline: 2px solid var(--blue, var(--sb-info));
   outline-offset: 1px;
 }
 .ec-canvas-right-panel__menu-hint {
@@ -216,7 +216,7 @@
   height: 18px;
   margin: 0 var(--cvl-sp1, 4px);
   border-radius: 5px;
-  background: var(--blue, #2563eb);
+  background: var(--blue, var(--sb-info));
   color: var(--sb-neutral-0);
   font-size: 13px;
   vertical-align: -4px;
@@ -310,7 +310,7 @@
   color: var(--text-hint, var(--sb-ink-3));
 }
 .ec-canvas-right-panel__child-meta em.is-processing { color: #ea580c; }
-.ec-canvas-right-panel__child-meta em.is-error { color: #dc2626; }
+.ec-canvas-right-panel__child-meta em.is-error { color: var(--sb-danger-hover); }
 .ec-canvas-right-panel__adjust-title {
   font-size: 11px;
   font-weight: 750;
@@ -383,7 +383,7 @@
   cursor: grab;
 }
 .ec-canvas-right-panel__row input[type="range"]:focus-visible {
-  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline: 2px solid var(--canvas-focus, var(--sb-info));
   outline-offset: 2px;
 }
 .ec-canvas-right-panel__row select {
@@ -403,7 +403,7 @@
   border-color: var(--border-hover);
 }
 .ec-canvas-right-panel__row select:focus-visible {
-  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline: 2px solid var(--canvas-focus, var(--sb-info));
   outline-offset: 2px;
 }
 
@@ -460,7 +460,7 @@
   color: var(--text-primary);
 }
 .ec-canvas-right-panel__close:focus-visible {
-  outline: 2px solid var(--canvas-focus, #2563eb);
+  outline: 2px solid var(--canvas-focus, var(--sb-info));
   outline-offset: 2px;
 }
 

@@ -278,7 +278,7 @@ export default function AssetQuickDrag({ onDragStart, onPick, compact = false, s
             </div>
           )}
           {!loading && err && (
-            <div style={{ gridColumn: '1 / -1', padding: 12, color: '#B91C1C', fontSize: 12 }}>
+            <div style={{ gridColumn: '1 / -1', padding: 12, color: 'var(--sb-ink-danger)', fontSize: 12 }}>
               {err}
             </div>
           )}

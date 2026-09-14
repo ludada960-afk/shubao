@@ -105,9 +105,9 @@ export default function LoadingView() {
 
         {/* Warning — 强调额度浪费 */}
         <div style={{
-          background: isEC ? 'var(--sb-brand-50)' : '#FFF5F5', borderRadius: 'var(--radius-lg)',
+          background: isEC ? 'var(--sb-brand-50)' : 'var(--sb-danger-soft)', borderRadius: 'var(--radius-lg)',
           padding: '12px 18px', marginBottom: 24,
-          fontSize: 'var(--text-sm)', color: isEC ? 'var(--sb-brand-800)' : '#C53030',
+          fontSize: 'var(--text-sm)', color: isEC ? 'var(--sb-brand-800)' : 'var(--sb-danger-hover)',
           display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
           lineHeight: 1.6,
         }}>

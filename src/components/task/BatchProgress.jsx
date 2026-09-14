@@ -36,7 +36,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
           </span>
           <span style={{
             fontSize: 12, fontWeight: 700,
-            color: isDone ? '#5CA86C' : isError ? 'var(--red)' : 'var(--accent)',
+            color: isDone ? 'var(--sb-success)' : isError ? 'var(--red)' : 'var(--accent)',
           }}>
             {done}/{total} 张 ({pct}%)
           </span>
@@ -47,7 +47,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
         }}>
           <div style={{
             height: '100%', borderRadius: 4, transition: 'width 0.3s',
-            background: isDone ? 'linear-gradient(90deg, #5CA86C, #7CCF8C)' :
+            background: isDone ? 'linear-gradient(90deg, var(--sb-success), #7CCF8C)' :
                        isError ? 'var(--red)' :
                        'linear-gradient(90deg, var(--accent), var(--sb-ink-2))',
             width: `${pct}%`,
@@ -76,7 +76,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
         <div style={{
           padding: '8px 12px', borderRadius: 8,
           background: 'rgba(92,168,108,0.06)',
-          marginBottom: 12, fontSize: 11, color: '#5CA86C', fontWeight: 600,
+          marginBottom: 12, fontSize: 11, color: 'var(--sb-success)', fontWeight: 600,
         }}>
           ✅ {total} 张全部生成完成
         </div>
@@ -86,7 +86,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
       {isError && task.error && (
         <div style={{
           padding: '8px 12px', borderRadius: 8,
-          background: '#FEF2F0', marginBottom: 12,
+          background: 'var(--sb-danger-soft)', marginBottom: 12,
           fontSize: 11, color: 'var(--red)', lineHeight: 1.5, fontWeight: 500,
         }}>
           {task.error}
@@ -122,7 +122,7 @@ function ControlBtn({ icon, label, onClick, primary, danger }) {
         display: 'flex', alignItems: 'center', gap: 4,
         height: 30, padding: '0 10px', borderRadius: 8,
         border: 'none',
-        background: primary ? 'var(--accent)' : danger ? '#FEF2F0' : 'rgba(12,10,9,0.04)',
+        background: primary ? 'var(--accent)' : danger ? 'var(--sb-danger-soft)' : 'rgba(12,10,9,0.04)',
         color: primary ? 'var(--sb-neutral-0)' : danger ? 'var(--red)' : 'var(--text-secondary)',
         fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         transition: 'all 0.1s',

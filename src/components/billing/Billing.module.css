@@ -138,9 +138,9 @@
   white-space: nowrap;
 }
 
-.tonepositive { color: var(--green, #5CA86C); }
+.tonepositive { color: var(--green, var(--sb-success)); }
 .tonewarning { color: #A66A00; }
-.tonenegative { color: var(--red, #E8544B); }
+.tonenegative { color: var(--red, var(--sb-danger)); }
 .toneneutral { color: var(--text-muted, var(--sb-ink-3)); }
 
 .insufficientHint {
