@@ -87,3 +87,12 @@
   .recovery-shelf__item { align-items: flex-start; }
   .recovery-shelf__actions { flex: 0 0 auto; }
 }
+
+/* §22/4.7 可点必有 hover —— .recovery-shelf__toggle（整行可点折叠开关）
+   通道：中性表面色。原为 transparent 整行 → hover 给中性灰，不改尺寸/文字色。 */
+.recovery-shelf__toggle:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+/* §22/4.7 可点必有 hover —— .recovery-shelf__actions button（中性底按钮）
+   通道：中性表面色；白底 --sb-neutral-0 → --sb-hover-bg。:disabled 已有 cursor:wait，故带 :not(:disabled)。 */
+.recovery-shelf__actions button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

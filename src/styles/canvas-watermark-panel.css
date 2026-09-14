@@ -273,3 +273,13 @@
   filter: grayscale(0.4);
   pointer-events: none;
 }
+
+/* §22/4.7 可点必有 hover —— 水印面板的三个可点控件
+   ① .ec-wm-switch 是 <label> 包裹的整行开关（90 行声明 cursor:pointer）→ 中性表面色；
+   ② .ec-wm-switch input 是勾选框本体 → 与 ① 同通道，避免叠加出双色；
+   ③ input[type="color"] 是色板图标按钮 → 中性表面色。
+   ⚠️ 全部走 --sb-hover-bg（中性），**不改 accent-color / 不改尺寸**（D2）。 */
+.ec-wm-switch:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ec-wm-switch input:hover:not(:disabled) { background-color: var(--sb-hover-bg); }
+.ec-wm-field input[type="color"]:hover:not(:disabled) { background-color: var(--sb-hover-bg); }
+

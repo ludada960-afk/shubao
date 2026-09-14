@@ -289,3 +289,13 @@
     text-align: left;
   }
 }
+
+/* §22/4.7 可点必有 hover —— .ec-product-profile-save / .ec-product-profile-use
+   两者与 .ec-product-profile-trigger、.ec-product-profile-icon-button 共用同一组
+   base 规则（19-22 行），触发/图标按钮已有 :hover（38/117 行），这两个**没有** → 补上。
+   通道：中性表面色（--sb-hover-bg）。
+   ⚠️ 注意既有实现（38-43 / 117-121 行）用的是 brand 紫，属 §22 禁止 1「hover 不许发紫」的历史违反，
+      但那超出本任务范围（只加 hover、不改既有状态），留待专项清理。 */
+.ec-product-profile-save:hover:not(:disabled):not([aria-disabled='true']),
+.ec-product-profile-use:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

@@ -495,3 +495,20 @@ input, textarea { font-family: inherit; }
   .note-modal-actions { position: sticky; bottom: 0; flex-wrap: wrap; gap: 6px !important; padding-bottom: max(12px, env(safe-area-inset-bottom)) !important; }
   .note-modal-actions button { flex: 1 1 auto; justify-content: center; min-height: 38px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 交互态基线补齐 · hover（原则 4.7：可点必有 hover）
+   ───────────────────────────────────────────────────────────────────────────
+   缺口来源：本文件 175 行 `button { cursor: pointer }` 声明了「这里能点」，
+   但全站按钮**没有统一的 hover 兜底** → 光标说能点、移上去什么都不发生。
+   通道：中性表面色（--sb-hover-bg），**不发紫、不改文字色、不改尺寸**（§22 三禁止）。
+   带 :not(:disabled)：禁用态不该有 hover 反馈。
+   注：各按钮的「品牌底色」hover（.btn-primary 等）优先级更高，此处只兜底中性按钮。 */
+button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+/* .btn-pill 基线：胶囊按钮（中性底版本，134 处缺口里的公共祖先） */
+.btn-pill:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+/* .ui-btn 基线：弹窗动作区按钮（见下方 .ui-modal-footer 约定） */
+.ui-btn:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

@@ -153,3 +153,8 @@
   .content-reference-picker-grid { grid-template-columns: 1fr; }
   .content-reference-picker-intro > div { align-items: flex-start; flex-direction: column; gap: var(--sb-space-0-5); }
 }
+
+/* §22/4.7 可点必有 hover —— .content-reference-thumb button（图片角标图标按钮）
+   通道：中性表面色。原为 transparent 悬浮角标 → 给中性底，不发紫、不改尺寸。 */
+.content-reference-thumb button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

@@ -23,7 +23,7 @@
   padding: 20px 22px 14px;
   border-bottom: 1px solid rgba(57, 45, 26, 0.08);
 }
-.member-head strong { display: block; font-size: 17px; font-weight: 800; }
+.member-head strong { display: block; font-size: 16px; font-weight: 800; }
 .member-head span { display: block; margin-top: 4px; font-size: 13px; color: var(--sb-ink-3); }
 .member-icon-btn {
   width: 30px; height: 30px; border-radius: 50%;
@@ -55,7 +55,7 @@
 .member-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .member-list dt { font-size: 12px; color: var(--sb-ink-3); }
 .member-list dd { margin: 0; font-size: 13px; font-weight: 600; }
-.member-balance { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; }
+.member-balance { font-size: 32px; font-weight: 900; letter-spacing: -0.02em; }
 .member-balance em { margin-left: 6px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--sb-ink-4); }
 .member-ledger { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .member-ledger li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--sb-ink-2); }
@@ -107,3 +107,12 @@
   .member-body { grid-template-columns: 1fr; }
   .member-card.is-wide { grid-row: auto; }
 }
+
+/* §22/4.7 可点必有 hover —— .member-link（文字链接按钮，透明底）
+   通道：中性表面色。**不改文字颜色**（#B7570B 是它的语义色，动它会和 selected 撞车）。 */
+.member-link:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+/* §22/4.7 可点必有 hover —— .member-redeem button（实色主 CTA）
+   通道：**海拔**，不改底色（--sb-shadow-3）。 */
+.member-redeem button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+
