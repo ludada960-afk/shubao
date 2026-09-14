@@ -22,7 +22,7 @@
 .shubao-gen-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
 .shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
 .shubao-gen-cta:disabled { background: #e5e3e0; color: #a8a39e; box-shadow: none; cursor: not-allowed; }
-.shubao-gen-cta .shubao-gen-cta-points { display: inline-flex; align-items: center; gap: 6; font-size: 12.5px; font-weight: 700; opacity: .96; }
+.shubao-gen-cta .shubao-gen-cta-points { display: inline-flex; align-items: center; gap: var(--sb-space-1-5); font-size: 12.5px; font-weight: 700; opacity: .96; }
 .shubao-gen-cta .shubao-gen-cta-points::before { content: ''; width: 1px; height: 14px; background: rgba(255, 255, 255, .45); }
 /* 9-12 用户批注：按钮可以是灰的，但**积分必须仍然显眼**（主次分明）——
    否则用户感知不到积分在跟着配置动态变化。 */

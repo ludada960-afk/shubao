@@ -26,7 +26,7 @@
 }
 .pricing-hero-orb {
   position: absolute;
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   filter: blur(80px);
   opacity: 0.45;
   pointer-events: none;
@@ -63,14 +63,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sb-space-5);
+  gap: 18px;
 }
 .pricing-hero-brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-2-5);
   padding: 7px 16px 7px 8px;
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -98,7 +98,7 @@
   text-transform: uppercase;
   color: var(--text-faint);
   padding: 6px 14px;
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -148,14 +148,14 @@
 .pricing-trust-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-2-5);
   justify-content: center;
   margin: 6px 0 4px;
 }
 .pricing-trust-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-1-5);
   padding: 7px 14px;
   font-size: var(--sb-text-sm);
   font-weight: 700;
@@ -164,7 +164,7 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border);
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   transition: transform var(--duration-fast) var(--ease),
               border-color var(--duration-fast) var(--ease);
 }
@@ -242,10 +242,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--sb-space-3);
+  gap: var(--sb-space-2-5);
   padding: var(--sb-space-5);
   /* D6：圆角走 token 档位，不再自造 18px */
-  border-radius: var(--sb-radius-xl);
+  border-radius: 18px;
   /* 描边宽度恒定 1px —— 所有状态只换颜色，绝不改宽度（D2：禁止布局抖动） */
   border: 1px solid var(--sb-border-default);
   /* 表面分层：卡片 = L2 纯白，与暖米页面底拉开一级 */
@@ -330,7 +330,7 @@
   color: var(--sb-ink-brand);
   background: var(--sb-state-selected-bg);
   border: 1px solid var(--sb-state-selected-line);
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   padding: 2px var(--sb-space-2);
 }
 .pricing-tier-name {
@@ -350,7 +350,7 @@
 .pricing-tier-price {
   display: flex;
   align-items: baseline;
-  gap: var(--sb-space-1);
+  gap: 3px;
 }
 .pricing-tier-price-tba {
   font-size: var(--sb-text-base);
@@ -369,7 +369,7 @@
 .pricing-price-row {
   display: flex;
   align-items: baseline;
-  gap: var(--sb-space-1);
+  gap: 3px;
 }
 .pricing-price-symbol {
   font-size: var(--sb-text-base);
@@ -388,7 +388,7 @@
   color: var(--sb-ink-1);
 }
 .pricing-price-unit {
-  font-size: var(--sb-text-xs);
+  font-size: 11.5px;
   color: var(--sb-ink-4);
   font-weight: var(--sb-weight-semibold);
   margin-left: var(--sb-space-0-5);
@@ -402,11 +402,11 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-1-5);
 }
 .pricing-bullet {
   display: flex;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-1-5);
   font-size: var(--sb-text-sm);
   color: var(--sb-ink-3);
   line-height: var(--sb-leading-normal);
@@ -415,7 +415,7 @@
 .pricing-bullet-dot {
   width: 14px;
   height: 14px;
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   background: var(--sb-state-selected-bg);
   display: inline-flex;
   align-items: center;
@@ -433,7 +433,7 @@
   margin-top: auto;
   min-height: var(--sb-control-h-lg);
   padding: 0 var(--sb-control-px-lg);
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   border: 1px solid var(--sb-brand);
   background: var(--sb-brand);
   color: var(--sb-ink-on-dark, #FFFFFF);
@@ -444,7 +444,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-1-5);
   transition: background-color var(--sb-dur-instant) var(--sb-ease-out),
               border-color var(--sb-dur-instant) var(--sb-ease-out),
               box-shadow var(--sb-dur-fast) var(--sb-ease-out),
@@ -466,7 +466,7 @@
 .pricing-btn-primary--lg {
   min-height: var(--sb-control-h-xl);
   padding: 0 var(--sb-control-px-xl);
-  font-size: var(--sb-text-lg);
+  font-size: 14.5px;
 }
 /* ── 禁用按钮：真挂 disabled 属性 + 明确的禁用配色 ──────────────────
    不用「只降透明度」——半透明会让禁用态看起来像可用的弱化版，
@@ -478,7 +478,7 @@
   /* 说明：本条同时服务两处 —— ① .pricing-btn-primary 的 disabled 伪类
      ② 独立的 .pricing-btn-muted 类（即将上线档位复用同一套禁用观感）。 */
   padding: 0 var(--sb-control-px-lg);
-  border-radius: var(--sb-radius-pill);
+  border-radius: 999px;
   border: 1px solid var(--sb-border-default);
   background: var(--sb-state-disabled-bg);
   color: var(--sb-state-disabled-ink);
@@ -488,7 +488,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-1-5);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
@@ -599,7 +599,7 @@
 .pricing-pack-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sb-space-4);
+  gap: 14px;
   /* D9（The Lift Reservation Rule）：卡片 hover 时 translateY(-2px)，
      推荐档 -4px，横向给足呼吸、纵向留出阴影扩散空间，
      避免首行/末行卡片浮起时被裁断。 */
@@ -615,7 +615,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--sb-space-3);
+  gap: var(--sb-space-2-5);
   padding: var(--sb-space-6) var(--sb-space-5) var(--sb-space-5);
   /* D6：卡片圆角走 token（20 面板档），不再自造 */
   border-radius: var(--sb-radius-2xl);
@@ -735,7 +735,7 @@
 .pricing-pack-head {
   display: flex;
   align-items: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-2-5);
 }
 .pricing-pack-icon {
   width: 36px;
@@ -751,7 +751,7 @@
 .pricing-pack-titles {
   display: flex;
   flex-direction: column;
-  gap: var(--sb-space-1);
+  gap: var(--sb-space-0-5);
 }
 .pricing-pack-name {
   font-size: var(--sb-text-lg);
@@ -760,7 +760,7 @@
   letter-spacing: -0.01em;
 }
 .pricing-pack-tag {
-  font-size: var(--sb-text-2xs);
+  font-size: 10.5px;
   font-weight: var(--sb-weight-bold);
   color: var(--sb-ink-4);
   letter-spacing: 0.04em;
@@ -770,12 +770,12 @@
   margin-top: var(--sb-space-0-5);
   display: flex;
   align-items: baseline;
-  gap: var(--sb-space-1);
+  gap: 3px;
 }
 /* 积分赠量：积分是「数据高亮」→ 用品牌浅底 + 品牌墨色，与金额形成二级层次 */
 .pricing-pack-grant {
   display: inline-block;
-  font-size: var(--sb-text-sm);
+  font-size: 12.5px;
   font-weight: var(--sb-weight-heavy);
   color: var(--sb-ink-brand);
   background: var(--sb-state-selected-bg);
@@ -787,7 +787,7 @@
 }
 .pricing-pack-desc {
   margin: 0;
-  font-size: var(--sb-text-xs);
+  font-size: 11.5px;
   color: var(--sb-ink-3);
   line-height: var(--sb-leading-normal);
   min-height: 32px;
@@ -798,7 +798,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sb-space-1);
-  font-size: var(--sb-text-sm);
+  font-size: 12.5px;
   font-weight: var(--sb-weight-heavy);
   /* CTA 是「品牌动作」→ 品牌墨色 */
   color: var(--sb-ink-brand);
@@ -809,7 +809,7 @@
 .pricing-monthpack-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sb-space-4);
+  gap: 14px;
   max-width: 720px;
 }
 
@@ -817,7 +817,7 @@
 .pricing-pay-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--sb-space-4);
+  gap: 14px;
 }
 .pricing-pay-card {
   position: relative;
@@ -830,7 +830,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-2-5);
   box-shadow: var(--shadow-sm);
   transition: transform var(--duration-fast) var(--ease),
               border-color var(--duration-fast) var(--ease);
@@ -867,7 +867,7 @@
 .pricing-pay-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--sb-space-2);
+  gap: 5px;
   font-size: 10.5px;
   font-weight: 800;
   color: var(--text-muted);
@@ -929,7 +929,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sb-space-4);
+  gap: 14px;
   padding: 15px 2px;
   font-weight: 700;
   font-size: var(--sb-text-base);
@@ -1007,7 +1007,8 @@
   position: relative;
   background: var(--sb-surface-panel-solid);
   border: 1px solid var(--sb-border-subtle);
-  border-radius: var(--sb-radius-3xl);
+  /* 22px 不在圆角阶梯（4/6/8/12/16/20/24）内 —— 保持字面量，取任何 token 都会改观感。 */
+  border-radius: 22px;
   max-width: 420px;
   width: 100%;
   padding: var(--sb-space-6) var(--sb-space-6) var(--sb-space-5);
@@ -1055,7 +1056,7 @@
 }
 .pricing-modal-providers {
   display: grid;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-2-5);
   margin-bottom: var(--sb-space-1);
 }
 .pricing-modal-provider-btn {
@@ -1248,7 +1249,7 @@
   .pricing-pack-grid {
     grid-template-columns: 1fr;
     /* 单列时卡片间距必须 ≥ 推荐角标外悬(11px)，否则角标会贴到上一张卡 */
-    gap: var(--sb-space-5);
+    gap: var(--sb-space-3);
   }
   .pricing-monthpack-grid {
     grid-template-columns: 1fr;

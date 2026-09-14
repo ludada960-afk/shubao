@@ -60,7 +60,7 @@
 
 .product-archive-head-actions {
   display: inline-flex;
-  gap: 6;
+  gap: var(--sb-space-1-5);
 }
 
 .product-archive-icon-button {
@@ -151,7 +151,7 @@
 .product-archive-share-copy {
   display: inline-flex;
   align-items: center;
-  gap: 6;
+  gap: var(--sb-space-1-5);
   border: none;
   background: #6b3a16;
   color: var(--sb-neutral-0);
@@ -200,7 +200,7 @@
   color: #6b3a16;
   display: flex;
   align-items: center;
-  gap: 6;
+  gap: var(--sb-space-1-5);
 }
 
 .product-archive-facts h2 small,
@@ -221,7 +221,7 @@
 .product-archive-facts dl > div {
   display: flex;
   flex-direction: column;
-  gap: 2;
+  gap: var(--sb-space-0-5);
   padding: 8px 10px;
   background: #fdfaf3;
   border-radius: var(--sb-radius-md);
@@ -253,7 +253,7 @@
 .product-archive-variants li {
   display: inline-flex;
   align-items: center;
-  gap: 6;
+  gap: var(--sb-space-1-5);
   padding: 6px 10px;
   background: #fdfaf3;
   border-radius: var(--sb-radius-md);
@@ -274,7 +274,7 @@
 .product-archive-media-group header {
   display: flex;
   align-items: center;
-  gap: 6;
+  gap: var(--sb-space-1-5);
   font-size: var(--sb-text-sm);
   color: #8a5a1f;
   margin-bottom: var(--sb-space-2);
@@ -287,7 +287,7 @@
 .product-archive-media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10;
+  gap: var(--sb-space-2-5);
 }
 
 .product-archive-media-grid figure {
