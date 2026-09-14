@@ -1364,7 +1364,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'var(--sb-neutral-200)', borderRadius:12 }}>
                   <button type="button" aria-pressed={xhsSubMode === 'content'} onClick={() => setXhsSubMode('content')}
                     style={{
-                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
+                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:500,
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
                       background: xhsSubMode === 'content' ? 'var(--sb-neutral-0)' : 'transparent',
                       color: xhsSubMode === 'content' ? 'var(--sb-danger)' : 'var(--sb-ink-3)',
@@ -1386,7 +1386,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   </button>
                   <button type="button" aria-pressed={xhsSubMode === 'plog'} onClick={() => setXhsSubMode('plog')}
                     style={{
-                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
+                      appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:500,
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
                       background: xhsSubMode === 'plog' ? 'var(--sb-neutral-0)' : 'transparent',
                       color: xhsSubMode === 'plog' ? '#c2185b' : 'var(--sb-ink-3)',

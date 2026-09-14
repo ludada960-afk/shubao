@@ -43,14 +43,14 @@ export default function TextLayerInspector({ layer, position = {}, ocrMode = fal
           <div style={{ fontSize: 11, color: '#6b7280' }}>{ocrLoading ? '正在识别图片里的文字…' : '识别到的文字可直接修改，保存后会生成一张新图片。'}</div>
           {!ocrLoading && ocrDraft.map((block, index) => <label key={block.id || index} style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
             文字 {index + 1}
-            <textarea value={block.text || ''} onChange={event => setOcrDraft(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item))} rows={2} maxLength={400} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 7, resize: 'vertical', font: '12px/1.55 inherit', color: '#111827' }} />
+            <textarea value={block.text || ''} onChange={event => setOcrDraft(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item))} rows={2} maxLength={400} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 8, resize: 'vertical', font: '12px/1.55 inherit', color: '#111827' }} />
           </label>)}
-          {!ocrLoading && !ocrDraft.length && <button type="button" onClick={onRecognize} style={{ height: 32, border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', color: '#4b5563', cursor: 'pointer', fontSize: 11 }}>重新识别</button>}
+          {!ocrLoading && !ocrDraft.length && <button type="button" onClick={onRecognize} style={{ height: 32, border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', color: '#4b5563', cursor: 'pointer', fontSize: 11 }}>重新识别</button>}
         </div>
       ) : (
         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4b5563', marginBottom: 12 }}>
           文案
-          <textarea value={draft.text} onChange={event => setDraft(current => ({ ...current, text: event.target.value }))} rows={4} maxLength={4000} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 7, resize: 'vertical', font: '12px/1.55 inherit', color: '#111827' }} />
+          <textarea value={draft.text} onChange={event => setDraft(current => ({ ...current, text: event.target.value }))} rows={4} maxLength={4000} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 8, resize: 'vertical', font: '12px/1.55 inherit', color: '#111827' }} />
         </label>
       )}
 
@@ -69,7 +69,7 @@ export default function TextLayerInspector({ layer, position = {}, ocrMode = fal
         <div style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', marginBottom: 6 }}>对齐</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
           {ALIGNMENTS.map(([value, Icon, label]) => (
-            <button key={value} type="button" title={label} aria-label={label} onClick={() => setDraft(current => ({ ...current, align: value }))} style={{ height: 32, border: draft.align === value ? '1px solid #0f766e' : '1px solid #e5e7eb', borderRadius: 7, background: draft.align === value ? '#ecfdf5' : '#fff', color: draft.align === value ? '#0f766e' : '#6b7280', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Icon size={17} /></button>
+            <button key={value} type="button" title={label} aria-label={label} onClick={() => setDraft(current => ({ ...current, align: value }))} style={{ height: 32, border: draft.align === value ? '1px solid #0f766e' : '1px solid #e5e7eb', borderRadius: 8, background: draft.align === value ? '#ecfdf5' : '#fff', color: draft.align === value ? '#0f766e' : '#6b7280', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Icon size={17} /></button>
           ))}
         </div>
       </div>}
@@ -78,13 +78,13 @@ export default function TextLayerInspector({ layer, position = {}, ocrMode = fal
         颜色
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <input type="color" value={draft.color.slice(0, 7)} onChange={event => setDraft(current => ({ ...current, color: event.target.value }))} aria-label="文字颜色" style={{ width: 34, height: 30, padding: 2, border: '1px solid #d1d5db', borderRadius: 6, background: '#fff' }} />
-          <input value={draft.color} onChange={event => setDraft(current => ({ ...current, color: event.target.value }))} aria-label="颜色值" maxLength={9} style={{ width: 82, height: 30, boxSizing: 'border-box', padding: '0 7px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 11 }} />
+          <input value={draft.color} onChange={event => setDraft(current => ({ ...current, color: event.target.value }))} aria-label="颜色值" maxLength={9} style={{ width: 82, height: 30, boxSizing: 'border-box', padding: '0 7px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 11 }} />
         </span>
       </label>}
 
       {!ocrMode && <div style={{ fontSize: 10, color: '#6b7280', marginBottom: error ? 8 : 12 }}>字体：系统安全字体</div>}
       {error && <div role="alert" style={{ fontSize: 11, color: '#b91c1c', marginBottom: 10 }}>{error}</div>}
-      <button type="button" disabled={saving || ocrLoading || (ocrMode && !ocrDraft.length)} onClick={() => onSave?.(ocrMode ? { ocrBlocks: ocrDraft } : draft)} style={{ width: '100%', height: 36, border: 0, borderRadius: 7, background: saving || ocrLoading ? '#9ca3af' : '#0f766e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
+      <button type="button" disabled={saving || ocrLoading || (ocrMode && !ocrDraft.length)} onClick={() => onSave?.(ocrMode ? { ocrBlocks: ocrDraft } : draft)} style={{ width: '100%', height: 36, border: 0, borderRadius: 8, background: saving || ocrLoading ? '#9ca3af' : '#0f766e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, fontWeight: 800, cursor: saving ? 'wait' : 'pointer' }}>
         <MdSave size={16} /> {saving ? '保存中' : ocrMode ? '替换图片文字' : '保存新版本'}
       </button>
     </aside>

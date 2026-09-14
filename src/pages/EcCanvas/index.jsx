@@ -432,7 +432,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       {hovered && hoverActions.length > 0 && <div style={{ position: 'absolute', zIndex: 4, top: 8, right: 8, display: 'flex', gap: 5 }}>
         {hoverActions.map(action => {
           const Icon = ACTION_ICONS[action.id] || Sparkles;
-          return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 7, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
+          return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 8, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
       <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
@@ -7663,25 +7663,25 @@ const handlePointerUp = useCallback((e) => {
                 <div id="canvas-image-info-title" style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>图片信息</div>
                 <div style={{ marginTop: 3, fontSize: 11, color: '#6b7280' }}>名称与用途会显示在画布和交付信息中</div>
               </div>
-              <button type="button" aria-label="关闭图片信息" onClick={() => setImageInfoNode(null)} style={{ width: 30, height: 30, border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>
+              <button type="button" aria-label="关闭图片信息" onClick={() => setImageInfoNode(null)} style={{ width: 30, height: 30, border: 0, borderRadius: 8, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>
             </div>
             <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
               图片名称
-              <input autoFocus value={imageInfoName} maxLength={80} onChange={event => setImageInfoName(event.target.value)} style={{ display: 'block', width: '100%', height: 38, boxSizing: 'border-box', marginTop: 6, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 7, font: '12px inherit' }} />
+              <input autoFocus value={imageInfoName} maxLength={80} onChange={event => setImageInfoName(event.target.value)} style={{ display: 'block', width: '100%', height: 38, boxSizing: 'border-box', marginTop: 6, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 8, font: '12px inherit' }} />
             </label>
             <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
               图片类型
-              <select value={imageInfoGroup} onChange={event => setImageInfoGroup(event.target.value)} style={{ display: 'block', width: '100%', height: 38, boxSizing: 'border-box', marginTop: 6, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', font: '12px inherit' }}>
+              <select value={imageInfoGroup} onChange={event => setImageInfoGroup(event.target.value)} style={{ display: 'block', width: '100%', height: 38, boxSizing: 'border-box', marginTop: 6, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', font: '12px inherit' }}>
                 {ASSET_GROUPS.map(group => <option key={group} value={group}>{group}</option>)}
               </select>
             </label>
             <label style={{ display: 'block', marginBottom: 16, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
               展示用途
-              <textarea value={imageInfoUsage} maxLength={240} rows={3} onChange={event => setImageInfoUsage(event.target.value)} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 7, resize: 'vertical', font: '12px/1.55 inherit' }} />
+              <textarea value={imageInfoUsage} maxLength={240} rows={3} onChange={event => setImageInfoUsage(event.target.value)} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 8, resize: 'vertical', font: '12px/1.55 inherit' }} />
             </label>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" onClick={() => setImageInfoNode(null)} style={{ border: 0, borderRadius: 7, padding: '9px 14px', background: '#f3f4f6', color: '#4b5563', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
-              <button type="button" disabled={!imageInfoName.trim()} onClick={handleImageInfoSave} style={{ border: 0, borderRadius: 7, padding: '9px 16px', background: imageInfoName.trim() ? 'var(--sb-info-solid-600)' : '#9ca3af', color: '#fff', fontSize: 12, fontWeight: 700, cursor: imageInfoName.trim() ? 'pointer' : 'not-allowed' }}>保存</button>
+              <button type="button" onClick={() => setImageInfoNode(null)} style={{ border: 0, borderRadius: 8, padding: '9px 14px', background: '#f3f4f6', color: '#4b5563', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
+              <button type="button" disabled={!imageInfoName.trim()} onClick={handleImageInfoSave} style={{ border: 0, borderRadius: 8, padding: '9px 16px', background: imageInfoName.trim() ? 'var(--sb-info-solid-600)' : '#9ca3af', color: '#fff', fontSize: 12, fontWeight: 700, cursor: imageInfoName.trim() ? 'pointer' : 'not-allowed' }}>保存</button>
             </div>
           </div>
         </div>
@@ -7739,13 +7739,13 @@ const handlePointerUp = useCallback((e) => {
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
               <div style={{ display: 'grid', gap: 6 }}>
-                {orderedDetailNodes.map((node, index) => <div key={node.id} style={{ minHeight: 44, display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 30px 30px', alignItems: 'center', gap: 7, padding: '5px 6px', border: '1px solid #e4e7eb', borderRadius: 7, background: '#fafbfc' }}>
+                {orderedDetailNodes.map((node, index) => <div key={node.id} style={{ minHeight: 44, display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 30px 30px', alignItems: 'center', gap: 7, padding: '5px 6px', border: '1px solid #e4e7eb', borderRadius: 8, background: '#fafbfc' }}>
                   <img src={proxyImg(node.url)} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 4, background: '#eef0f2' }} />
                   <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: '#343a43' }}>{index + 1}. {node.name || node.role || '详情图'}</span>
                   <button type="button" aria-label={`上移${node.name || '详情图'}`} title="上移" disabled={index === 0} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index - 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? .35 : 1 }}><ArrowUp size={15} /></button>
                   <button type="button" aria-label={`下移${node.name || '详情图'}`} title="下移" disabled={index === orderedDetailNodes.length - 1} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index + 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === orderedDetailNodes.length - 1 ? 'not-allowed' : 'pointer', opacity: index === orderedDetailNodes.length - 1 ? .35 : 1 }}><ArrowDown size={15} /></button>
                 </div>)}
-                {orderedDetailNodes.length < 2 && <div style={{ padding: '10px 11px', borderRadius: 7, background: '#fff7ed', color: '#9a5b13', fontSize: 12 }}>请至少选择 2 张已生成的详情图。</div>}
+                {orderedDetailNodes.length < 2 && <div style={{ padding: '10px 11px', borderRadius: 8, background: '#fff7ed', color: '#9a5b13', fontSize: 12 }}>请至少选择 2 张已生成的详情图。</div>}
               </div>
             </div>}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
@@ -7778,7 +7778,7 @@ const handlePointerUp = useCallback((e) => {
                 <h2 id="project-asset-lineage-title" style={{ margin: 0, color: '#1f2937', fontSize: 17 }}>素材关系</h2>
                 <div style={{ marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#667085', fontSize: 12 }}>{projectAssetLineage.asset?.metadata?.displayName || projectAssetLineage.asset?.assetId || '项目素材'}</div>
               </div>
-              <button type="button" aria-label="关闭素材关系" title="关闭" onClick={() => setProjectAssetLineage(null)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 auto', border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>
+              <button type="button" aria-label="关闭素材关系" title="关闭" onClick={() => setProjectAssetLineage(null)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 auto', border: 0, borderRadius: 8, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>
             </header>
             <div style={{ padding: '16px 20px 20px' }}>
               {projectAssetLineage.loading ? <div style={{ color: '#667085', fontSize: 13 }}>正在读取素材关系</div> : projectAssetLineage.error ? <div role="alert" style={{ padding: 12, border: '1px solid #fecaca', borderRadius: 8, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLineage.error}</div> : (

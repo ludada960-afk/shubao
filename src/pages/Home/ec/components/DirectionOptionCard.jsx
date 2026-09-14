@@ -171,7 +171,7 @@ export default function DirectionOptionCard({
           </div>
         )}
 
-        <section style={{ marginTop: 12, padding: 12, borderRadius: 7, background: '#f7f8fa', border: '1px solid #e7e9ee' }}>
+        <section style={{ marginTop: 12, padding: 12, borderRadius: 12, background: '#f7f8fa', border: '1px solid #e7e9ee' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <strong style={{ fontSize: 12, color: '#25282d' }}>整体设计规范</strong>
             <span style={{ fontSize: 9, color: '#69717d' }}>统一视觉标准，不随单张修改改变</span>
@@ -211,7 +211,7 @@ export default function DirectionOptionCard({
           )}
         </section>
 
-        <section data-editable-area style={{ marginTop: 12, padding: 12, borderRadius: 7, background: '#fffdf8', border: '1px solid #eee2c8' }}>
+        <section data-editable-area style={{ marginTop: 12, padding: 12, borderRadius: 12, background: '#fffdf8', border: '1px solid #eee2c8' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <strong style={{ fontSize: 12, color: '#352d23' }}>整套执行说明</strong>
             <span style={{ fontSize: 9, color: '#8a8177' }}>确认后进入后续生成请求</span>

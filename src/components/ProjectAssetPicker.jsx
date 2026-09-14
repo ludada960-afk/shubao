@@ -60,9 +60,9 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
             onChange={event => setQuery(event.target.value)}
             onKeyDown={event => { if (event.key === 'Enter') load(query); }}
             placeholder="搜索素材名称 / 项目 / ID"
-            style={{ flex: 1, height: 32, padding: '0 10px', border: '1px solid var(--sb-neutral-300)', borderRadius: 7, fontSize: 12 }}
+            style={{ flex: 1, height: 32, padding: '0 10px', border: '1px solid var(--sb-neutral-300)', borderRadius: 8, fontSize: 12 }}
           />
-          <button type="button" onClick={() => load(query)} style={{ height: 32, padding: '0 12px', border: 0, borderRadius: 7, background: 'var(--sb-brand)', color: 'var(--sb-neutral-0)', fontSize: 12, cursor: 'pointer' }}>搜索</button>
+          <button type="button" onClick={() => load(query)} style={{ height: 32, padding: '0 12px', border: 0, borderRadius: 8, background: 'var(--sb-brand)', color: 'var(--sb-neutral-0)', fontSize: 12, cursor: 'pointer' }}>搜索</button>
           <button type="button" onClick={onClose} aria-label="关闭" style={{ width: 30, height: 30, border: 0, borderRadius: 8, background: 'var(--sb-neutral-100)', cursor: 'pointer', fontSize: 13 }}>✕</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
