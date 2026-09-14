@@ -133,7 +133,7 @@ function SectionHead({ eyebrow, title, hint, align = 'left' }) {
   const wrapper = { margin: '56px 0 18px', textAlign: align };
   const row = {
     display: 'flex', flexWrap: 'wrap',
-    alignItems: 'baseline', gap: 'var(--sb-space-2)',
+    alignItems: 'baseline', gap: 10,
     justifyContent: align === 'center' ? 'center' : 'flex-start',
   };
   return (

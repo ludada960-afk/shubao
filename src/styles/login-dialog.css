@@ -105,10 +105,10 @@
 }
 
 /* 字段 */
-.ld-field { display: grid; gap: var(--sb-space-2); }
+.ld-field { display: grid; gap: 7px; }
 .ld-field + .ld-field { margin-top: 15px; }
 .ld-label {
-  display: flex; align-items: baseline; gap: var(--sb-space-2);
+  display: flex; align-items: baseline; gap: 6px;
   font-size: 12.5px; font-weight: 600; color: var(--sb-ink-2);
 }
 .ld-label small { font-weight: 400; color: var(--sb-ink-4); font-size: 11.5px; }
@@ -208,14 +208,14 @@
 
 /* 分割线 + 第三方 */
 .ld-divider {
-  display: flex; align-items: center; gap: var(--sb-space-4);
+  display: flex; align-items: center; gap: 14px;
   margin: 20px 0 14px;
   font-size: 11px; font-weight: 600; color: #B0AAA5;
 }
 .ld-divider::before, .ld-divider::after { content: ''; flex: 1; height: 1px; background: rgba(57, 45, 26, 0.1); }
-.ld-oauth { display: grid; grid-template-columns: 1fr; gap: var(--sb-space-2); }
+.ld-oauth { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .ld-oauth-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--sb-space-2);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   height: 46px;
   border: 1.5px solid rgba(57, 45, 26, 0.12);
   border-radius: 12px;
@@ -244,7 +244,7 @@
 
 /* 协议 */
 .ld-terms {
-  display: flex; align-items: flex-start; gap: var(--sb-space-2);
+  display: flex; align-items: flex-start; gap: 9px;
   margin-top: 18px;
   font-size: 12px; line-height: 1.6; color: var(--sb-ink-3);
   cursor: pointer; user-select: none;
@@ -264,7 +264,7 @@
   .ld-card { border-radius: 20px; }
   .ld-head { padding: 26px 22px 0; }
   .ld-body { padding: 18px 22px 22px; }
-  .ld-otp { gap: var(--sb-space-2); }
+  .ld-otp { gap: 6px; }
   .ld-otp-box { height: 44px; border-radius: 10px; font-size: 16px; }
   .ld-oauth { grid-template-columns: 1fr; }
 }

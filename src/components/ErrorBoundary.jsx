@@ -36,14 +36,14 @@ export default class ErrorBoundary extends React.Component {
           minHeight: '100vh', padding: 40, background: '#F5F3EF', color: 'var(--sb-ink-1)',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>页面出了点问题</h1>
-          <p style={{ fontSize: 14, color: 'var(--sb-ink-3)', marginBottom: 24, textAlign: 'center', maxWidth: 400, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 'var(--sb-text-4xl)', marginBottom: 16 }}>⚠️</div>
+          <h1 style={{ fontSize: 'var(--sb-text-2xl)', fontWeight: 800, marginBottom: 8 }}>页面出了点问题</h1>
+          <p style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-3)', marginBottom: 24, textAlign: 'center', maxWidth: 400, lineHeight: 1.6 }}>
             发生了一个意外错误。这不影响您的数据，请尝试刷新页面。
           </p>
           <div style={{
-            fontSize: 12, color: 'var(--sb-ink-5)', marginBottom: 20, fontFamily: 'monospace',
-            padding: '10px 16px', background: 'var(--sb-neutral-150)', borderRadius: 8,
+            fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-5)', marginBottom: 20, fontFamily: 'monospace',
+            padding: '10px 16px', background: 'var(--sb-neutral-150)', borderRadius: 'var(--sb-radius-md)',
             maxWidth: '100%', overflowX: 'auto',
           }}>
             {this.state.error?.message || '未知错误'}
@@ -51,8 +51,8 @@ export default class ErrorBoundary extends React.Component {
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={this.handleDismiss}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12,
-                background: 'rgba(12,10,9,0.06)', color: 'var(--sb-ink-3)', border: 'none', fontSize: 14, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 'var(--sb-radius-lg)',
+                background: 'rgba(12,10,9,0.06)', color: 'var(--sb-ink-3)', border: 'none', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
               尝试继续

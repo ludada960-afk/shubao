@@ -34,7 +34,7 @@
 .ec-canvas-derive-menu .ec-canvas-menu-heading > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
@@ -70,7 +70,7 @@
 .ec-canvas-derive-bucket-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   padding: 4px 6px 6px;
   color: var(--text-hint);
   font-size: 11px;
@@ -81,7 +81,7 @@
 .ec-canvas-derive-bucket-label > span {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 5;
 }
 .ec-canvas-derive-bucket-label::after {
   content: "";
@@ -102,7 +102,7 @@
 .ec-canvas-derive-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
+  gap: 5;
 }
 @media (max-width: 960px) {
   .ec-canvas-derive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -117,7 +117,7 @@
 .ec-canvas-derive-tile {
   display: grid;
   grid-template-rows: auto auto auto;
-  gap: 4px;
+  gap: 4;
   padding: 10px 9px 9px;
   border: 1px solid var(--border-light);
   border-radius: 10px;
@@ -192,7 +192,7 @@
 .ec-canvas-derive-tile .ec-canvas-derive-copy {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 1;
   min-width: 0;
 }
 .ec-canvas-derive-tile .ec-canvas-derive-copy strong {
@@ -219,7 +219,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 5px;
+  gap: 5;
   margin-top: 1px;
   min-height: 14px;
 }

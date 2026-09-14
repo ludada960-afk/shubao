@@ -31,12 +31,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 const BASE_STYLE = {
   border: '1px solid rgba(190, 24, 93, 0.18)',
-  borderRadius: 10,
+  borderRadius: 'var(--sb-radius-lg)',
   background: 'linear-gradient(135deg, rgba(254, 242, 242, 0.95), rgba(255, 247, 237, 0.95))',
   padding: '12px 14px',
   color: '#7c2d12',
   fontFamily: 'inherit',
-  fontSize: 13,
+  fontSize: 'var(--sb-text-md)',
   lineHeight: 1.55,
 };
 
@@ -46,7 +46,7 @@ const HEADER_STYLE = {
   gap: 8,
   marginBottom: 8,
   fontWeight: 700,
-  fontSize: 13.5,
+  fontSize: 'var(--sb-text-md)',
   color: '#9f1239',
 };
 
@@ -87,8 +87,8 @@ const STATUS_PILL_BASE = {
   alignItems: 'center',
   gap: 4,
   padding: '2px 8px',
-  borderRadius: 999,
-  fontSize: 11,
+  borderRadius: 'var(--sb-radius-pill)',
+  fontSize: 'var(--sb-text-xs)',
   fontWeight: 600,
   whiteSpace: 'nowrap',
 };
@@ -232,11 +232,11 @@ export default function AIComplianceWatermark({
                 aria-label={legal.userLabel}
               />
               <label htmlFor={testId + '-' + legal.key + '-input'} style={LABEL_STYLE}>
-                <div style={{ fontWeight: 600, fontSize: 12.5 }}>{legal.shortName}</div>
-                <div style={{ fontSize: 11, color: '#9f1239', marginTop: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 'var(--sb-text-sm)' }}>{legal.shortName}</div>
+                <div style={{ fontSize: 'var(--sb-text-xs)', color: '#9f1239', marginTop: 1 }}>
                   {legal.authority} · {legal.effectiveDate}
                 </div>
-                <div style={{ fontSize: 12, marginTop: 2, color: '#444' }}>
+                <div style={{ fontSize: 'var(--sb-text-sm)', marginTop: 2, color: '#444' }}>
                   {legal.userLabel}
                 </div>
               </label>

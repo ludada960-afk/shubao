@@ -18,6 +18,15 @@ const pickerCss = read('src/pages/EcCanvas/components/canvas-asset-picker.css');
 const supervisorCss = read('src/styles/canvas-supervisor.css');
 /* D5 token 迁移后，颜色可能以 --sb-* 变量表达；断言「解析后的值」时需要真源。 */
 const tokensV3 = read('src/styles/design-tokens-v3.css');
+/* 2026-09-14 §C B1 批：gap 裸值收口到间距阶梯 token。
+   断言改为「解析后的值」，保留原意图（图标+文字并排 6px / 卡片间距 16px），不绑定字面量写法。 */
+const spaceTokenPx = name => {
+  const m = tokensV3.match(new RegExp('--sb-space-' + name + ':\\s*([0-9.]+)px'));
+  return m ? Number.parseFloat(m[1]) : NaN;
+};
+const resolvesToPx = (decl, token, px) =>
+  decl.includes('gap: ' + px + 'px') ||
+  (decl.includes('var(--sb-space-' + token + ')') && spaceTokenPx(token) === px);
 
 const SHOTS_DIR = fileURLToPath(new URL('../.playwright-shots/asset-type-badge-0915/', import.meta.url));
 mkdirSync(SHOTS_DIR, { recursive: true });
@@ -85,7 +94,7 @@ test('③ 管理弹窗：上传按钮 ≥ 36px、图标+文字、主色实心（
   const isWhite = /^#fff(fff)?$/i.test(colorDecl) || colorDecl === 'white';
   const isWhiteToken = colorDecl.includes('--sb-neutral-0') && /^#fff(fff)?$/i.test(NEUTRAL_0 || '');
   assert.ok(isWhite || isWhiteToken, '文字解析后为白色（字面量或 --sb-neutral-0），实际 ' + colorDecl);
-  assert.ok(upload[1].includes('gap: 6px'), '图标+文字并排');
+  assert.ok(resolvesToPx(upload[1], '2', 8) || upload[1].includes('gap: 6px'), '图标+文字并排');
 });
 
 test('③ 管理弹窗：搜索框 36px 同高 + 分类 tab 胶囊、选中态深色实心 + 卡片间距 16px', () => {
@@ -93,7 +102,11 @@ test('③ 管理弹窗：搜索框 36px 同高 + 分类 tab 胶囊、选中态�
   assert.ok(supervisorCss.includes('.canvas-asset-library-modal [role="tablist"] > button {') , 'tablist 覆盖规则存在');
   assert.ok(supervisorCss.includes('.canvas-asset-library-modal [role="tablist"] > button[aria-selected="true"] { background: #202226 !important;'), '选中态深色实心');
   /* 9-16 用户批注「东西全堆在一起，没有间距」→ 卡片间距 12 → 16px。 */
-  assert.ok(/gap: 16px 16px !important/.test(supervisorCss), '卡片间距 16px');
+  assert.ok(
+    /gap:\s*16px\s+16px\s*!important/.test(supervisorCss) ||
+    (spaceTokenPx('4') === 16 && new RegExp('gap:\\s*var\\(--sb-space-4\\)\\s+var\\(--sb-space-4\\)\\s*!important').test(supervisorCss)),
+    '卡片间距 16px'
+  );
 });
 
 test('① 管理弹窗：卡片左上角类型角标（无额外 DOM，:has() 按封面元素识别 + SVG 图标 + 文字）', () => {

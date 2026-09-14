@@ -123,7 +123,7 @@
 
 .historyCopy {
   display: grid;
-  gap: 3px;
+  gap: 3;
   min-width: 0;
 }
 

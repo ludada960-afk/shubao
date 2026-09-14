@@ -4,11 +4,11 @@ import React from 'react';
 
 const shell = {
   maxWidth: 860, margin: '0 auto', padding: '48px 24px 80px',
-  color: '#292524', lineHeight: 1.9, fontSize: 14.5,
+  color: '#292524', lineHeight: 1.9, fontSize: 'var(--sb-text-lg)',
 };
-const h1 = { fontSize: 28, fontWeight: 900, marginBottom: 4 };
-const meta = { color: '#a8a099', fontSize: 12.5, marginBottom: 32 };
-const h2 = { fontSize: 18, fontWeight: 800, margin: '32px 0 8px' };
+const h1 = { fontSize: 'var(--sb-text-3xl)', fontWeight: 900, marginBottom: 4 };
+const meta = { color: '#a8a099', fontSize: 'var(--sb-text-sm)', marginBottom: 32 };
+const h2 = { fontSize: 'var(--sb-text-xl)', fontWeight: 800, margin: '32px 0 8px' };
 const p = { margin: '8px 0' };
 
 function LegalShell({ title, updated, children }) {
@@ -17,7 +17,7 @@ function LegalShell({ title, updated, children }) {
       <h1 style={h1}>{title}</h1>
       <div style={meta}>生效日期：{updated} ｜ 薯包AI（下称"本平台"）</div>
       {children}
-      <div style={{ marginTop: 48, paddingTop: 20, borderTop: '1px solid #e7e0d4', color: '#a8a099', fontSize: 12.5 }}>
+      <div style={{ marginTop: 48, paddingTop: 20, borderTop: '1px solid #e7e0d4', color: '#a8a099', fontSize: 'var(--sb-text-sm)' }}>
         如对本政策有任何疑问，可通过页脚联系方式与我们取得联系。
       </div>
     </div>

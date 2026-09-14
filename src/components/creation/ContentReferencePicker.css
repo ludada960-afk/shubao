@@ -34,7 +34,7 @@
 .content-reference-picker-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 10;
 }
 
 .content-reference-slot {
@@ -56,7 +56,7 @@
 .content-reference-slot-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   color: #4a4640;
   font-size: 12px;
   font-weight: 700;
@@ -74,7 +74,7 @@
 
 .content-reference-rail {
   display: flex;
-  gap: 7px;
+  gap: 7;
   min-height: 58px;
   overflow-x: auto;
   padding-bottom: 2px;
@@ -123,7 +123,7 @@
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 2px;
+  gap: 2;
   border: 1px dashed #cfc6b9;
   background: #fcfaf7;
   color: #908879;
@@ -150,5 +150,5 @@
 
 @media (max-width: 620px) {
   .content-reference-picker-grid { grid-template-columns: 1fr; }
-  .content-reference-picker-intro > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .content-reference-picker-intro > div { align-items: flex-start; flex-direction: column; gap: 2; }
 }

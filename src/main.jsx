@@ -67,18 +67,18 @@ class RootErrorBoundary extends React.Component {
     if (!this.state.failed) return this.props.children;
     return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: '#fffdfa' }}>
       <div style={{ maxWidth: 420, textAlign: 'center' }}>
-        <strong style={{ display: 'block', fontSize: 18, color: '#1c1917' }}>页面没能加载成功</strong>
-        <p style={{ margin: '10px 0 18px', color: '#78716c', fontSize: 13, lineHeight: 1.6 }}>
+        <strong style={{ display: 'block', fontSize: 'var(--sb-text-xl)', color: '#1c1917' }}>页面没能加载成功</strong>
+        <p style={{ margin: '10px 0 18px', color: '#78716c', fontSize: 'var(--sb-text-md)', lineHeight: 1.6 }}>
           通常是网络波动或版本刚更新导致的。点下面的按钮重新加载即可 —— 你的作品、画布和积分都不会丢。
         </p>
         <button
           type="button"
           onClick={() => window.location.reload()}
           style={{
-            height: 42, padding: '0 22px', border: 0, borderRadius: 11,
+            height: 42, padding: '0 22px', border: 0, borderRadius: 'var(--sb-radius-md)',
             /* §18 裁定 2：功能按钮禁止渐变 → 品牌紫纯色。 */
             background: 'var(--sb-btn-primary-bg)',
-            color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            color: '#fff', fontFamily: 'inherit', fontSize: 'var(--sb-text-md)', fontWeight: 700, cursor: 'pointer',
           }}
         >重新加载</button>
       </div>

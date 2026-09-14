@@ -78,17 +78,17 @@
 .chain-orchestrator-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 10;
 }
 .chain-orchestrator-head h3 {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   font-size: 14px;
   margin: 0;
   color: #2c2545;
 }
-.chain-orchestrator-body { display: flex; flex-direction: column; gap: 10px; }
+.chain-orchestrator-body { display: flex; flex-direction: column; gap: 10; }
 .chain-orchestrator-foot { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; border-top: 1px dashed rgba(61, 50, 41, .12); }
 .chain-close {
   margin-left: auto;
@@ -134,7 +134,7 @@
 .chain-ref {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   padding: 4px 8px;
   border: 1px solid rgba(70, 54, 184, .2);
   border-radius: 8px;
@@ -149,7 +149,7 @@
 .chain-error {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   padding: 6px 10px;
   border-radius: 8px;
   background: #fdecea;
@@ -176,7 +176,7 @@
 .chain-primary, .chain-secondary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6;
   padding: 8px 13px;
   border-radius: 10px;
   font-size: 12.5px;
