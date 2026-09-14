@@ -53,6 +53,39 @@ export function buildComponentRootMap(files) {
   return rootOf;
 }
 
+/**
+ * 从 start 处的 '<' 起，按 **括号/引号平衡** 找到 JSX 起始标签的结束位置。
+ *
+ * 为什么不能简单用 /<tag([^>]*?)>/：
+ *   箭头函数 `onKeyDown={event => …}` 里的 `>` 会让 [^>]*? 提前终止，
+ *   导致后续属性（尤其 onKeyDown）读不到 —— 会把**已合规**的写法误判为违规。
+ *   实测：DirectorWorkbench 的 <article role="button" tabIndex onClick onKeyDown>
+ *   因该缺陷被误报（会把好代码"改坏"）。
+ * @returns { end: 索引（指向 '>' 之后）, attrs: 属性文本 } | null
+ */
+export function readStartTag(src, start) {
+  let i = start + 1;
+  // 标签名
+  while (i < src.length && /[a-zA-Z0-9-]/.test(src[i])) i++;
+  const attrsFrom = i;
+  let depth = 0;          // {} () [] 的综合深度
+  let quote = null;       // 当前处于哪种引号内
+  while (i < src.length) {
+    const c = src[i];
+    if (quote) {
+      if (c === '\\') { i += 2; continue; }
+      if (c === quote) quote = null;
+      i++; continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; i++; continue; }
+    if (c === '{' || c === '(' || c === '[') { depth++; i++; continue; }
+    if (c === '}' || c === ')' || c === ']') { depth--; i++; continue; }
+    if (c === '>' && depth <= 0) return { end: i + 1, attrs: src.slice(attrsFrom, i) };
+    i++;
+  }
+  return null;
+}
+
 /** 剥掉注释（等长空白替换，保留行号与原文字符偏移）。 */
 function stripComments(srcRaw) {
   return srcRaw
@@ -68,12 +101,16 @@ function stripComments(srcRaw) {
 export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
   const src = stripComments(srcRaw);
   const hits = [];
-  const tagRe = /<([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*?)\/?>/gs;
+  const openRe = /<([a-zA-Z][a-zA-Z0-9-]*)\b/g;
   let m;
-  while ((m = tagRe.exec(src))) {
+  while ((m = openRe.exec(src))) {
+    const parsed = readStartTag(src, m.index);
+    if (!parsed) continue;
+    // 跳过闭合标签/注释/字符串里的 '<'（readStartTag 已按平衡解析）
     const rawTag = m[1];
     const tag = rawTag.toLowerCase();
-    const attrs = m[2];
+    const attrs = parsed.attrs;
+    const tagText = src.slice(m.index, parsed.end);
     if (!/\bonClick\b/.test(attrs)) continue;
     if (INTERACTIVE.has(tag)) continue;
     const hasRole = /role\s*=\s*['"]button['"]/.test(attrs);
@@ -91,8 +128,8 @@ export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
     const line = src.slice(0, m.index).split('\n').length;
     hits.push({
       line, tag: rawTag, note,
-      snippet: m[0].replace(/\s+/g, ' ').slice(0, 110),
-      feature: featureOf(m[0]),
+      snippet: tagText.replace(/\s+/g, ' ').slice(0, 110),
+      feature: featureOf(tagText),
     });
   }
   return hits;

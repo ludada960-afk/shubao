@@ -68,6 +68,27 @@ test('① 检测器自证：自定义组件按根元素判定（<IconButton> 不
   assert.equal(hits[0].tag, 'GCard');
 });
 
+test('① 检测器自证：箭头函数属性里的 ">" 不得截断标签解析（回归）', () => {
+  /* 真实缺陷：原实现用 /<tag([^>]*?)>/，而 onKeyDown={event => …} 里的 ">" 会让
+     属性捕获提前终止，导致**已合规**的元素被误判为违规（会把好代码"改坏"）。
+     实测命中：DirectorWorkbench 的 <article role tabIndex onClick onKeyDown>。
+     现改为按 {} () [] 与引号平衡解析起始标签。 */
+  const compliant = [
+    '<div',
+    '  role="button"',
+    '  tabIndex={0}',
+    '  onClick={() => go()}',
+    '  onKeyDown={event => { if (event.key === "Enter") go(); }}',
+    '>内容</div>',
+  ].join('\n');
+  assert.deepEqual(findClickableNonInteractive(compliant), [],
+    '含箭头函数的合规三件套不得误报');
+  // 反向：真违规仍必须被抓（去掉 onKeyDown）
+  const missing = compliant.replace(/^\s*onKeyDown=.*$/m, '');
+  assert.equal(findClickableNonInteractive(missing).length, 1,
+    '去掉 onKeyDown 后必须重新变为违规');
+});
+
 test('① 检测器自证：注释里出现的 <div onClick> 字样不得误报', () => {
   const src = ['/* 说明：原为 <div onClick> 已改 <button> */', 'const x = 1;'].join('\n');
   assert.deepEqual(findClickableNonInteractive(src), [], '注释内容不参与检测');

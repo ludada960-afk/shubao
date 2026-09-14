@@ -24,11 +24,13 @@ export default function Footer() {
         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-hint)', margin: '0 0 8px' }}>
           一站式 AI 视觉内容策划、生成与编辑
         </p>
+        {/* 原则 4.1：页脚导航原为 <span onClick>，键盘不可达 → button + .a11y-reset。
+            fontSize/color 继承自父容器（.a11y-reset 已 font:inherit/color:inherit）→ 视觉零变化。 */}
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 'var(--text-xs)', color: 'var(--text-invisible)' }}>
-          <span style={{ cursor: 'pointer' }} onClick={() => go('home', 'content')}>小红书图文</span>
-          <span style={{ cursor: 'pointer' }} onClick={() => go('home', 'ecommerce')}>电商图生成</span>
-          <span style={{ cursor: 'pointer' }} onClick={() => go('pricing')}>定价</span>
-          <span style={{ cursor: 'pointer' }} onClick={() => go('works')}>我的作品</span>
+          <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('home', 'content')}>小红书图文</button>
+          <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('home', 'ecommerce')}>电商图生成</button>
+          <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('pricing')}>定价</button>
+          <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('works')}>我的作品</button>
         </div>
         <div style={{ fontSize: 10, color: 'var(--sb-neutral-200)', marginTop: 12 }}>© 2026 薯包AI</div>
       </div>
