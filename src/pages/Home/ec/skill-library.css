@@ -46,7 +46,7 @@
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
   border: 1px solid rgba(57, 45, 26, 0.1);
-  box-shadow: 0 32px 90px -20px rgba(57, 45, 26, 0.35);
+  box-shadow: var(--sb-shadow-5); /* D20-A：暖棕字面量 → 海拔档（α.35 → 5） */
   font-family: var(--font-body);
   color: var(--sb-ink-1);
   overflow: hidden;

@@ -100,7 +100,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
               background: 'rgba(255,255,255,0.95)',
               backdropFilter: 'blur(16px)',
               padding: 12,
-              boxShadow: '0 18px 46px rgba(57,45,26,0.16)',
+              boxShadow: 'var(--sb-shadow-4)', /* D20-A：暖棕是阴影色成分，浮层 → 海拔档 4 */
               animation: 'fadeIn 0.12s ease',
             }}>
               {/* Ratio */}
