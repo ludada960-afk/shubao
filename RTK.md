@@ -79,6 +79,26 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
    真正的隔离只有一条：`git commit -F <msg> -- <文件…>`（git 内部用**临时索引**，只取指定路径的工作区内容，
    其余已暂存内容**原样留在暂存区不被动**）。
    确有理由用 write-tree 时，必须把 `GIT_INDEX_FILE` 指向**自己的临时索引文件**，绝不能用默认 `.git/index`。
+13. **禁止用「离线生成 patch 再 `git apply`」做批量改写 —— 也不要用任何"过期快照"当输入。**
+   真实事故（`7a807673`，D18 批6，全站最严重的一次）：改写脚本用的 `.css-map.json` **中途被重扫过**，
+   patch 的上下文行与文件现状对不上 → `git apply --cached` **把 2650+ 行当作删除应用**：
+   `Home.css` 3585 → 935 行、`EcStudio/index.jsx` 1404 → **1 行**、`EcMode.jsx` 1634 → 1382 行，涉及 37 个文件。
+   后果：`npm run build` 报 `Unterminated string literal` —— **站点起不来**，而 `npm test` **全绿**。
+   → 处置：批量改写**直接在文件上原地改值**（上下文精确匹配），不要绕道 patch；
+     每批**提交前必须跑 `npm run build`**（**单测全绿 ≠ 能构建**）；
+     提交后用 `git show --numstat` **逐文件核对**：出现「删除行数 >> 插入行数」立刻停下查
+     （本次 `-3335` 就是这么暴露的）。
+   → 新增门禁 `test/source-syntax-integrity.test.mjs`：每个源文件必须能被 esbuild 解析 + CSS 花括号配平
+     + 「60KB 只有 1 行」判为损坏。
+
+14. **绝不要用 PowerShell 的 `Set-Content` / `Out-File` 管道写源码文件。**
+   真实事故（我自己的，10 分钟内发生两次）：用 `git show HEAD:<file> | Set-Content -NoNewline <file>` 恢复文件，
+   结果 PowerShell 把**管道里的字符串数组当成无分隔符拼接** → **整个 1388 行的文件被压成 1 行**，
+   比原来的损坏更糟。同类报告：`Out-File` 还会改编码/换行（CRLF/BOM）。
+   → 修文件只用两种方式：**`edit` / `write` 工具**，或 **Node `fs.readFileSync` + `fs.writeFileSync` 逐字节**
+     （取原始内容用 `execFileSync(..., { maxBuffer })`，不要过 shell 管道）。
+   → 恢复文件后**必须验证**：行数、首行、`git diff --numstat`；
+     再用 `node --test test/source-syntax-integrity.test.mjs` 确认没有被压平。
 
 ### 3.2 迁移等价性（D15，与 40-decisions.md 同步）
 
