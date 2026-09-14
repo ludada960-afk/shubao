@@ -115,7 +115,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
       aria-label="派生此项目"
       onClick={close}
       style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
+        position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)',
         background: 'rgba(15, 23, 42, 0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16,
