@@ -86,16 +86,14 @@ const BTN_BASE = {
 /* 面板内分组分隔线：两个语义分组之间的一道 1px 呼吸。
    左右内边距取规范 sp5（20px），与面板左右内边距对齐。 */
 function CopyPanelDivider() {
-  return <div aria-hidden="true" style={{ height: 1, background: 'rgba(45,41,38,0.08)', margin: `${SPACING.sp1}px ${SPACING.sp5}px` }} />;
+  return <div aria-hidden="true" style={{ height: 1, background: 'var(--sb-border-subtle)', margin: `var(--sb-space-1) var(--sb-space-5)` }} />;
 }
 
 /* ═══════ 玻璃拟态面板样式（AI 感升级）═══════ */
+/* 面板外观由 Home.css 的 .ec-config-panel 统一接管（V3 已 token 化），
+   这里只保留入场动画 —— 避免「行内样式」与「CSS 规则」两套真相互相打架。 */
 const GLASS_PANEL = {
-  borderRadius: 20,
-  background: '#fff',
-  border: '1px solid rgba(28, 25, 23, 0.09)',
-  boxShadow: '0 18px 48px rgba(62,43,26,0.16), 0 4px 14px rgba(62,43,26,0.08)',
-  animation: 'ecGlassSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+  animation: 'ecGlassSlideUp var(--sb-duration-slow) var(--sb-ease-out)'
 };
 
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
@@ -1012,101 +1010,10 @@ const DEFAULT_BUTTONS = [
     );
   };
 
-  // 步骤指示器组件
-  const StepIndicator = () => {
-    const steps = [
-      { num: 1, label: '上传产品', desc: '上传实拍图+描述' },
-      { num: 2, label: '确认方向', desc: 'AI分析生成方案' },
-      { num: 3, label: '生成套图', desc: '无限画布编辑' }
-    ];
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          marginBottom: 16,
-          padding: '0 16px'
-        }}
-      >
-        {steps.map((step, idx) => {
-          const isActive = ecStep === step.num;
-          const isCompleted = ecStep > step.num;
-          const isLast = idx === steps.length - 1;
-
-          return (
-            <React.Fragment key={step.num}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '10px 16px',
-                  borderRadius: 12,
-                  background: isActive ? 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)' : isCompleted ? 'rgba(124,58,237,0.1)' : 'rgba(12,10,9,0.03)',
-                  border: isActive ? 'none' : isCompleted ? '1px solid rgba(124,58,237,0.2)' : '1px solid rgba(12,10,9,0.06)',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                {/* 步骤数字 */}
-                <div
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 13,
-                    fontWeight: 800,
-                    background: isActive ? 'rgba(255,255,255,0.2)' : isCompleted ? '#7c3aed' : 'rgba(12,10,9,0.08)',
-                    color: isActive || isCompleted ? '#fff' : '#999'
-                  }}
-                >
-                  {isCompleted ? '✓' : step.num}
-                </div>
-
-                {/* 步骤文字 */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: isActive ? '#fff' : isCompleted ? '#1a1a1a' : '#999'
-                    }}
-                  >
-                    {step.label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: isActive ? 'rgba(255,255,255,0.8)' : isCompleted ? '#666' : '#bbb'
-                    }}
-                  >
-                    {step.desc}
-                  </div>
-                </div>
-              </div>
-
-              {/* 连接线 */}
-              {!isLast && (
-                <div
-                  style={{
-                    width: 24,
-                    height: 2,
-                    background: isCompleted ? 'linear-gradient(90deg, #7c3aed, #a78bfa)' : 'rgba(12,10,9,0.06)',
-                    borderRadius: 1
-                  }}
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    );
-  };
+  /* 2026-09-15 V3：删除 StepIndicator —— 它是一个 95 行的**死组件**
+（全仓搜索零引用，EcMode 从未渲染它）。它内含最后一批未 token 化的
+硬编码色值（紫渐变/纯黑字/灰阶三态），保留即为「随时可能被误用回线上」的
+负债。已确认无引用后整体移除。 */
 
   return (
     <div>
