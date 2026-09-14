@@ -22,7 +22,7 @@ import { SPACING, groupTitleStyle, sectionStyle } from './panelVisualLanguage.js
 function GroupTitle({ icon: Icon, children }) {
   return (
     <div style={groupTitleStyle}>
-      <Icon size={14} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+      <Icon size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
       <span>{children}</span>
     </div>
   );
@@ -61,7 +61,7 @@ export default function CopyPanel({ copywriting, onChange, available = null }) {
             {detailFields.map(f => (
               <div key={f.key} style={sectionStyle}>
                 <div style={{ ...groupTitleStyle, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  <f.icon size={12} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+                  <f.icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
                   <span>{f.label}</span>
                 </div>
                 <ResizableTextarea

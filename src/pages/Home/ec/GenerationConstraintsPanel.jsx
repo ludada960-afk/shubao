@@ -39,7 +39,7 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
       <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp5 }}>
           <div style={groupTitleStyle}>
-            <ShieldAlert size={14} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+            <ShieldAlert size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
             <span>避免出现的元素</span>
           </div>
 
@@ -56,10 +56,10 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: SPACING.sp1,
                     height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp3}px`,
-                    borderRadius: 999, fontFamily: 'inherit',
+                    borderRadius: 'var(--sb-radius-pill)', fontFamily: 'inherit',
                     fontSize: FONT_SIZE.helper, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${active ? '#1F1D1A' : 'rgba(45,41,38,0.12)'}`,
-                    background: active ? 'rgba(31,29,26,0.05)' : '#fff',
+                    border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`,
+                    background: active ? 'var(--sb-brand-wash)' : 'var(--sb-surface-card)',
                     color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
                   }}
                 >

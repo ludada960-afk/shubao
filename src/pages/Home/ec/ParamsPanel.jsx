@@ -29,7 +29,7 @@ const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', 
 function GroupTitle({ icon: Icon, children }) {
   return (
     <div style={groupTitleStyle}>
-      <Icon size={14} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+      <Icon size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
       <span>{children}</span>
     </div>
   );
@@ -38,7 +38,7 @@ function GroupTitle({ icon: Icon, children }) {
 function FieldLabel({ icon: Icon, children }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-      <Icon size={12} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+      <Icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
       <span>{children}</span>
     </div>
   );
@@ -79,17 +79,17 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
             {catOpen && (
               <div className="ec-inline-option-menu" style={{
                 position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                marginTop: SPACING.sp1, background: '#fff', border: '1px solid rgba(45,41,38,0.10)',
-                borderRadius: RADIUS.control, boxShadow: '0 8px 30px rgba(12,10,9,0.1)',
+                marginTop: SPACING.sp1, background: 'var(--sb-surface-card)', border: '1px solid var(--sb-border-default)',
+                borderRadius: 'var(--sb-radius-control)', boxShadow: 'var(--sb-shadow-lg)',
                 padding: SPACING.sp1, display: 'flex', flexWrap: 'wrap', gap: SPACING.sp1,
                 maxHeight: 168, overflowY: 'auto',
               }}>
                 {CATEGORIES.map(c => (
                   <div key={c} onClick={() => { set('category', c); setCatOpen(false); }}
                     style={{
-                      padding: `${SPACING.sp1}px ${SPACING.sp2}px`, borderRadius: 6, fontSize: FONT_SIZE.helper, cursor: 'pointer',
-                      background: params.category === c ? '#1F1D1A' : 'rgba(12,10,9,0.04)',
-                      color: params.category === c ? '#fff' : 'var(--text-secondary)',
+                      padding: `${SPACING.sp1}px ${SPACING.sp2}px`, borderRadius: 'var(--sb-radius-chip)', fontSize: FONT_SIZE.helper, cursor: 'pointer',
+                      background: params.category === c ? 'var(--sb-state-selected-bg)' : 'var(--sb-state-hover-bg)',
+                      color: params.category === c ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)',
                       fontWeight: params.category === c ? 600 : 400,
                       transition: 'all 0.15s',
                     }}>{c}</div>

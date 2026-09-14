@@ -26,7 +26,7 @@ import {
 function GroupTitle({ icon: Icon, children }) {
   return (
     <div style={groupTitleStyle}>
-      <Icon size={14} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+      <Icon size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
       <span>{children}</span>
     </div>
   );
@@ -60,11 +60,11 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: SPACING.sp2,
           padding: `${SPACING.sp2}px ${SPACING.sp3}px`,
-          background: 'rgba(34,197,94,0.07)', borderRadius: RADIUS.control,
-          border: '1px solid rgba(34,197,94,0.18)',
+          background: 'var(--sb-success-bg)', borderRadius: 'var(--sb-radius-control)',
+          border: '1px solid var(--sb-success-line)',
         }}>
-          <CheckCircle2 size={14} color="#16a34a" style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ ...helperTextStyle, color: '#15803d' }}>填写颜色、规格或容量后，系统会自动生成对应的 SKU 变体图。</span>
+          <CheckCircle2 size={14} color="var(--sb-success)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ ...helperTextStyle, color: 'var(--sb-success)' }}>填写颜色、规格或容量后，系统会自动生成对应的 SKU 变体图。</span>
         </div>
 
         {/* ── 变体列表 ── */}
@@ -73,8 +73,8 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
             {skus.map((sku, idx) => (
               <div key={sku.id} style={{
                 display: 'flex', flexDirection: 'column', gap: SPACING.sp3,
-                background: 'rgba(12,10,9,0.02)', borderRadius: RADIUS.card,
-                padding: SPACING.sp3, border: '1px solid rgba(45,41,38,0.07)',
+                background: 'var(--sb-surface-tint)', borderRadius: 'var(--sb-radius-card)',
+                padding: 'var(--sb-space-3)', border: '1px solid var(--sb-border-subtle)',
               }}>
                 {/* 卡片标题行：序号 + 生成数量 + 删除 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2 }}>
@@ -88,11 +88,11 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
                     <span style={helperTextStyle}>张</span>
                     <button type="button" aria-label={`删除变体 ${idx + 1}`} onClick={() => rm(sku.id)}
                       style={{
-                        fontSize: FONT_SIZE.helper, fontWeight: 600, color: '#e74c3c', cursor: 'pointer',
-                        height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp2}px`, borderRadius: 6,
+                        fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-danger)', cursor: 'pointer',
+                        height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp2}px`, borderRadius: 'var(--sb-radius-chip)',
                         border: 0, background: 'transparent', fontFamily: 'inherit',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(231,76,60,0.1)'}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--sb-danger-bg)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >删除</button>
                   </span>
@@ -133,19 +133,19 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: SPACING.sp1,
             height: CONTROL_HEIGHT.large, borderRadius: RADIUS.control, fontFamily: 'inherit',
-            border: '1.5px dashed rgba(45,41,38,0.18)',
+            border: '1.5px dashed var(--sb-border-strong)',
             color: 'var(--text-muted)', background: 'transparent',
             fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent, #7c3aed)'; e.currentTarget.style.color = 'var(--accent, #7c3aed)'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,41,38,0.18)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-border-strong)'; e.currentTarget.style.color = 'var(--sb-text-primary)'; e.currentTarget.style.background = 'var(--sb-state-hover-bg)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-border-strong)'; e.currentTarget.style.color = 'var(--sb-text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
           <Plus size={15} /> 添加 SKU 变体
         </button>
 
         {/* ── 底部统计 ── */}
         <div style={{
-          paddingTop: SPACING.sp3, borderTop: '1px solid rgba(45,41,38,0.07)',
+          paddingTop: 'var(--sb-space-3)', borderTop: '1px solid var(--sb-border-subtle)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           ...helperTextStyle,
         }}>

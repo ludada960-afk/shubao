@@ -63,7 +63,14 @@ const FALLBACK_STYLE_SKILLS = [
 
 export default function StylePanel({ value = 'smart', onChange, customColors, onColorsChange, userSkills = [], onAddSkill, onRemoveSkill, onOpenSkillLibrary }) {
   const [showBrandColor, setShowBrandColor] = useState(false);
-  const [pickerColor, setPickerColor] = useState('#7c3aed');
+  /* 未锁定时的中性起始色：从 token 读，不再硬编码品牌紫（原则 6.3） */
+  const [pickerColor, setPickerColor] = useState(() => (
+    typeof window !== 'undefined'
+      ? (getComputedStyle(document.documentElement).getPropertyValue('--sb-text-primary').trim() || 'rgb(26, 22, 20)')
+      : 'rgb(26, 22, 20)'
+  ));
+  /* hover 用 state，避免内联改 style 覆盖声明式选中态（原则 4.3） */
+  const [hoverCard, setHoverCard] = useState('');
   /* 9-11 二轮批注: 「画面风格」= 技能库「生图」内置技能 (唯一真源); 拉取失败才回落兜底视觉。 */
   const [library, setLibrary] = useState({ loading: true, error: '', builtin: [] });
   useEffect(() => {
@@ -145,7 +152,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
             type="button"
             className="ec-skill-entry"
             onClick={() => onOpenSkillLibrary?.('image')}
-            style={{ height: 26, padding: '0 9px', borderRadius: 7, border: '1px solid rgba(124,58,237,0.22)', background: '#faf8ff', color: '#6d28d9', fontSize: 11, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            style={{ height: 'var(--sb-control-sm)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-secondary)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
           >
             <Wand2 size={12} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
           </button>
@@ -154,7 +161,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
           与技能库同一份「生图技能」：选中即带完整光影、色调与构图方案进入本次生成
         </div>
         {library.error && (
-          <div role="status" style={{ marginBottom: 8, padding: '6px 8px', borderRadius: 7, background: 'rgba(245,158,11,0.10)', color: '#b45309', fontSize: 10, lineHeight: 1.5 }}>
+          <div role="status" style={{ marginBottom: 8, padding: 'var(--sb-space-2)', borderRadius: 'var(--sb-radius-control)', background: 'var(--sb-warning-bg)', color: 'var(--sb-warning)', fontSize: 'var(--sb-text-2xs)', lineHeight: 'var(--sb-leading-normal)' }}>
             技能库暂时不可用，已用内置风格兜底：{library.error}
           </div>
         )}
@@ -173,41 +180,38 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
               <div
                 key={card.key}
                 onClick={() => handleStyle(card.key)}
+                onMouseEnter={() => setHoverCard(card.key)}
+                onMouseLeave={() => setHoverCard('')}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 4,
-                  padding: '10px 4px',
-                  borderRadius: 10,
+                  gap: 'var(--sb-space-1)',
+                  padding: 'var(--sb-space-3) var(--sb-space-1)',
                   cursor: 'pointer',
-                  border: '1.5px solid',
-                  borderColor: active ? '#1a1a1a' : 'rgba(12,10,9,0.08)',
-                  background: active ? '#1a1a1a' : 'rgba(12,10,9,0.03)',
-                  transition: 'all 0.18s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.background = 'rgba(12,10,9,0.06)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.background = 'rgba(12,10,9,0.03)';
+                  borderRadius: 'var(--sb-radius-control)',
+                  /* 原则 4.3：hover 只换**中性**底色，selected 才上品牌色 */
+                  background: active ? 'var(--sb-state-selected-bg)' : hoverCard === card.key ? 'var(--sb-state-hover-bg)' : 'var(--sb-surface-tint)',
+                  border: `1.5px solid ${active ? 'var(--sb-state-selected-line)' : 'transparent'}`,
+                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)'
                 }}
               >
+                {/* 风格预览色条：card.gradient 是该风格的**示意色**（内容的一部分，
+                    不是 UI 装饰色），按原则属合法例外，保留原值。 */}
                 <div
                   style={{
                     width: 36,
                     height: 20,
-                    borderRadius: 4,
+                    borderRadius: 'var(--sb-radius-chip)',
                     background: card.gradient,
-                    border: `1px solid ${active ? 'rgba(255,255,255,0.3)' : 'rgba(12,10,9,0.08)'}`,
-                    boxShadow: '0 2px 4px rgba(12,10,9,0.1)'
+                    border: '1px solid var(--sb-border-default)',
                   }}
                 />
                 <span
                   style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: active ? '#fff' : 'var(--text-secondary)',
+                    fontSize: 'var(--sb-text-2xs)',
+                    fontWeight: 'var(--sb-weight-semibold)',
+                    color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 2,
@@ -218,11 +222,11 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 </span>
                 <span
                   style={{
-                    fontSize: 9,
-                    fontWeight: 500,
-                    color: active ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)',
+                    fontSize: 'var(--sb-text-2xs)',
+                    fontWeight: 'var(--sb-weight-regular)',
+                    color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-muted)',
                     textAlign: 'center',
-                    lineHeight: 1.2
+                    lineHeight: 'var(--sb-leading-tight)'
                   }}
                 >
                   {card.tone}
@@ -248,7 +252,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                     aria-pressed={active}
                     title={skill.summary || skill.name}
                     onClick={() => (active ? onRemoveSkill?.(skill.id) : onAddSkill?.(skill))}
-                    style={{ height: 28, padding: '0 10px', borderRadius: 999, border: `1px solid ${active ? 'rgba(124,58,237,0.45)' : 'rgba(12,10,9,0.10)'}`, background: active ? 'rgba(124,58,237,0.10)' : '#fff', color: active ? '#6d28d9' : 'var(--text-secondary)', fontSize: 11, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    style={{ height: 'var(--sb-control-sm)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-pill)', border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`, background: active ? 'var(--sb-brand-wash)' : 'var(--sb-surface-card)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)' }}
                   >
                     {active && <Check size={11} />}{skill.name}
                   </button>
@@ -262,7 +266,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
         {(userSkills || []).length > 0 && (
           <div style={{ marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {(userSkills || []).map(skill => (
-              <span key={skill.id} className="ec-skill-chip is-active" style={{ height: 28, padding: '0 8px 0 10px', borderRadius: 999, border: '1px solid rgba(124,58,237,0.45)', background: 'rgba(124,58,237,0.10)', color: '#6d28d9', fontSize: 11, fontWeight: 650, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span key={skill.id} className="ec-skill-chip is-active" style={{ height: 'var(--sb-control-sm)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-pill)', border: '1px solid var(--sb-state-selected-line)', background: 'var(--sb-brand-wash)', color: 'var(--sb-state-selected-ink)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)' }}>
                 <Wand2 size={12} /> {skill.name}
                 <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => onRemoveSkill?.(skill.id)} style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}>×</button>
               </span>
@@ -273,11 +277,11 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
         {/* ── 品牌色锁定（可选覆盖）── */}
         <div
           style={{
-            background: brandLocked ? 'rgba(124,58,237,0.04)' : 'rgba(12,10,9,0.03)',
-            borderRadius: 10,
-            padding: '10px 12px',
-            border: `1px solid ${brandLocked ? 'rgba(124,58,237,0.15)' : 'rgba(12,10,9,0.06)'}`,
-            transition: 'all 0.2s'
+            background: brandLocked ? 'var(--sb-brand-wash)' : 'var(--sb-surface-tint)',
+            borderRadius: 'var(--sb-radius-card)',
+            padding: 'var(--sb-space-3)',
+            border: `1px solid ${brandLocked ? 'var(--sb-state-selected-line)' : 'var(--sb-border-subtle)'}`,
+            transition: 'border-color var(--sb-duration-fast) var(--sb-ease-out)'
           }}
         >
           <div
@@ -290,7 +294,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {brandLocked ? <Lock size={13} color="#7c3aed" /> : <Unlock size={13} color="var(--text-muted)" />}
+              {brandLocked ? <Lock size={13} color="var(--sb-brand)" /> : <Unlock size={13} color="var(--text-muted)" />}
               <div>
                 <span
                   style={{
@@ -316,8 +320,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
               style={{
                 width: 36,
                 height: 20,
-                borderRadius: 10,
-                background: brandLocked ? '#7c3aed' : 'rgba(12,10,9,0.12)',
+                borderRadius: 'var(--sb-radius-card)',
+                background: brandLocked ? 'var(--sb-brand)' : 'var(--sb-border-strong)',
                 position: 'relative',
                 transition: 'all 0.2s',
                 flexShrink: 0
@@ -328,12 +332,12 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                   width: 16,
                   height: 16,
                   borderRadius: '50%',
-                  background: '#fff',
+                  background: 'var(--sb-surface-card)',
                   position: 'absolute',
                   top: 2,
                   left: brandLocked ? 18 : 2,
                   transition: 'all 0.2s',
-                  boxShadow: '0 1px 3px rgba(12,10,9,0.2)'
+                  boxShadow: 'var(--sb-shadow-md)'
                 }}
               />
             </div>
@@ -375,10 +379,10 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                     style={{
                       width: 28,
                       height: 28,
-                      borderRadius: 8,
+                      borderRadius: 'var(--sb-radius-control)',
                       background: pickerColor,
-                      border: '2px solid rgba(12,10,9,0.1)',
-                      boxShadow: '0 2px 8px rgba(12,10,9,0.1)',
+                      border: '2px solid var(--sb-border-default)',
+                      boxShadow: 'var(--sb-shadow-md)',
                       flexShrink: 0
                     }}
                   />
@@ -388,14 +392,14 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                       setPickerColor(e.target.value);
                       handlePickerChange(e.target.value);
                     }}
-                    placeholder="#FFFFFF"
+                    placeholder="未锁定"
                     style={{
                       width: '100%',
                       height: 28,
                       padding: '0 8px',
-                      borderRadius: 6,
-                      border: '1px solid rgba(12,10,9,0.12)',
-                      background: '#fff',
+                      borderRadius: 'var(--sb-radius-chip)',
+                      border: '1px solid var(--sb-border-default)',
+                      background: 'var(--sb-surface-card)',
                       fontSize: 11,
                       fontWeight: 600,
                       fontFamily: 'monospace',
