@@ -210,8 +210,26 @@
   font-size: 11.5px; line-height: 1.55; color: #6B6560;
 }
 .skill-hint svg { flex: none; margin-top: 2px; color: #27864B; }
-/* 按钮组：与提示 16px、与栏底 16px（用户要求「与弹窗底边 ≥16px 留白」） */
-.skill-editor-actions { display: flex; justify-content: flex-end; gap: var(--sk-space-sm); margin-top: calc(var(--sk-space-lg) - var(--sk-space-md)); padding-bottom: var(--sk-space-xs); }
+/* 按钮组：与提示 16px、与栏底 16px（用户要求「与弹窗底边 ≥16px 留白」）
+   9-16 用户批注「你这两个按钮做的这么近也很奇怪啊。你似乎没有一个全局的意识呀。」
+   → 对齐全站底部操作区规范（src/styles/design-tokens.css 的 --footer-actions-*）：
+     gap 8 → 12px（--sk-space-md = 12px，与 --space-3 同值）；
+     上间距 4 → 16px；下内边距 4 → 16px（配合 .skill-modal-body 的下内边距，与弹窗底边留白 ≥16px）。 */
+.skill-editor-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--footer-actions-gap); margin-top: var(--footer-actions-margin-top); padding-bottom: var(--sk-space-lg); }
+/* 9-16 主次等重：主按钮（保存/创建）与次按钮（取消编辑）必须同高、同圆角、同最小宽，
+   只有配色与字重区分主次 —— 原来主 9/16 padding + 13px 字、次 5/9 padding + 11.5px 字，
+   实测主按钮比次按钮高约 8px，是「一个高一个矮」。 */
+.skill-editor-actions .skill-save-btn,
+.skill-editor-actions .skill-mini-btn {
+  height: var(--footer-actions-button-height);
+  min-width: var(--footer-actions-button-min-width);
+  padding: 0 16px;
+  box-sizing: border-box;
+  border-radius: var(--footer-actions-radius);
+  white-space: nowrap;
+  justify-content: center;
+}
+.skill-editor-actions .skill-mini-btn { font-size: 13px; font-weight: 600; }
 .skill-save-btn {
   appearance: none; border: 0; border-radius: 11px; padding: 9px 16px;
   font-family: inherit; font-size: 13px; font-weight: 700; color: #fff;
@@ -220,7 +238,7 @@
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
 }
-.skill-save-btn:disabled { background: rgba(57, 45, 26, 0.12); box-shadow: none; color: #B0AAA5; cursor: not-allowed; }
+.skill-save-btn:disabled { background: var(--footer-actions-primary-disabled-bg); box-shadow: none; color: var(--footer-actions-primary-disabled-text); cursor: not-allowed; }
 .skill-spin { animation: skill-spin .8s linear infinite; }
 @keyframes skill-spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .skill-modal-body { grid-template-columns: 1fr; } }

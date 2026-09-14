@@ -75,9 +75,13 @@
 .dw-ps-row .dw-ps-t{flex:.55!important;max-width:74px}
 .dw-ps-remove{flex:none;width:24px;border:none;background:#f5f6f9;border-radius:6px;color:#a04440;cursor:pointer;font-size:14px;line-height:1}
 .dw-ps-add{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px dashed #c9cdd8;border-radius:7px;background:#fafbfd;font-size:11px;color:#5b64d8;cursor:pointer}
-.dw-editor-actions{display:flex;justify-content:flex-end;margin-top:4px}
-.dw-save-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border:none;border-radius:8px;background:#3f49b8;color:#fff;font-size:12px;cursor:pointer}
-.dw-save-btn:disabled{opacity:.6}
+/* 9-16 对齐全站底部操作区规范（--footer-actions-*）：
+   原来**完全没有 gap 声明**（吃浏览器默认值）、上间距只有 4px；
+   按钮 32px 高（小面板档）、最小宽 88px、圆角 10px；
+   禁用态原来只有 opacity（连 cursor 都没写），补 cursor: not-allowed。 */
+.dw-editor-actions{display:flex;align-items:center;justify-content:flex-end;gap:var(--footer-actions-gap);margin-top:var(--footer-actions-margin-top)}
+.dw-save-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:var(--footer-actions-button-height-sm);min-width:var(--footer-actions-button-min-width);padding:0 16px;box-sizing:border-box;border:none;border-radius:var(--footer-actions-radius);background:#3f49b8;color:#fff;font-size:12px;white-space:nowrap;cursor:pointer}
+.dw-save-btn:disabled{opacity:.6;cursor:not-allowed}
 /* VID-R4 self-check report */
 .dw-selfcheck{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .dw-check-btn{padding:6px 12px;border:1px solid #c3c9f5;border-radius:9px;background:#f4f6ff;color:#3f49b8;font-size:11.5px;cursor:pointer}

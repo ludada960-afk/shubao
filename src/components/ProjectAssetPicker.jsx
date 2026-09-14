@@ -116,11 +116,16 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: '1px solid #edf0f3' }}>
-          <span style={{ fontSize: 11, color: '#8a929d' }}>{multi ? ('已选 ' + selected.length + ' 项') : ''}</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={onClose} style={{ height: 34, padding: '0 14px', border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer' }}>取消</button>
-            <button type="button" onClick={confirm} disabled={!selected.length} style={{ height: 34, padding: '0 18px', border: 0, borderRadius: 8, background: selected.length ? '#7c3aed' : '#ddd', color: '#fff', fontSize: 12, fontWeight: 700, cursor: selected.length ? 'pointer' : 'default' }}>确定使用</button>
+        {/* 9-16 用户批注：「你这两个按钮做的这么近也很奇怪啊。你似乎没有一个全局的意识呀。」
+            → 底部操作区改用**全站统一规范** .ui-modal-footer / .ui-modal-footer-actions
+              （按钮间距 12px、上间距 16px、内边距 20px、按钮 36px 高 / 最小宽 88px、
+               次要左主要右、主次等重、禁用态有明确底色与文字色）。
+              详见 src/styles/design-tokens.css 的 --footer-actions-* 与 .ui-modal-footer。 */}
+        <div className="ui-modal-footer">
+          <span className="ui-modal-footer-meta">{multi ? ('已选 ' + selected.length + ' 项') : ''}</span>
+          <div className="ui-modal-footer-actions">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>取消</button>
+            <button type="button" className="ui-btn ui-btn-primary" onClick={confirm} disabled={!selected.length}>确定使用</button>
           </div>
         </div>
       </div>

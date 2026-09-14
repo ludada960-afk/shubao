@@ -7598,9 +7598,12 @@ const handlePointerUp = useCallback((e) => {
               <span style={{ fontSize: 11, color: '#6b7280' }}>画面比例</span>
               {['1:1', '3:4', '9:16', '长图'].map(ratio => <button key={ratio} type="button" onClick={() => setDirectionRatio(ratio)} style={{ border: 0, borderRadius: 999, padding: '5px 9px', background: directionRatio === ratio ? '#1f2937' : 'rgba(0,0,0,.05)', color: directionRatio === ratio ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{ratio}</button>)}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, borderRadius: 8, padding: '9px 14px', background: 'rgba(0,0,0,.05)', color: '#555', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
-              <button type="button" onClick={handleDirectionSave} style={{ border: 0, borderRadius: 8, padding: '9px 16px', background: '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>保存方案并继续编辑</button>
+            {/* 9-16 同款收口：底部操作区对齐全站规范（间距 12px、按钮 36px 高、最小宽 88px、圆角 10px）。 */}
+            <div className="ui-modal-footer" style={{ marginTop: 0, padding: 0, borderTop: 0 }}>
+              <div className="ui-modal-footer-actions">
+                <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setDirectionDraft(null)}>取消</button>
+                <button type="button" className="ui-btn ui-btn-primary" onClick={handleDirectionSave}>保存方案并继续编辑</button>
+              </div>
             </div>
           </div>
         </div>
@@ -7634,10 +7637,17 @@ const handlePointerUp = useCallback((e) => {
             {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>{exportDelivery.result?.verification === 'filesystem' ? '已验证写入' : '已开始下载'} {exportDelivery.result?.count || 0} 张图片{exportDelivery.result?.verification === 'filesystem' ? `到 ${exportDelivery.destination?.name || '所选位置'}` : '，请在浏览器下载列表确认'}</div>}
             {exportDelivery.status === 'cancelled' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12 }}>已取消选择保存位置，导出配置仍保留。</div>}
             {exportDelivery.status === 'error' && <div role="alert" style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: 12 }}>{exportDelivery.error}</div>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
-              <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>{exportDelivery.status === 'success' ? '完成' : '取消'}</button>
-              <button type="button" disabled={isExportDeliveryBusy(exportDelivery) || !exportScope.deliverables.length || (exportMode === 'long-detail' && !canExportLongDetail)} onClick={handleChooseExportDestination} style={{ border: '1px solid #d7dde5', borderRadius: 8, padding: '9px 13px', background: '#fff', color: '#374151', fontWeight: 700, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer' }}>{exportDelivery.destination ? '更改保存位置' : '选择保存位置'}</button>
-              {exportDelivery.destination && <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={handleStartExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .55 : 1 }}><FileDown size={14} /> {exportDelivery.status === 'success' ? '再次导出' : '开始导出'}</button>}
+            {/* 9-16 对齐全站底部操作区规范（--footer-actions-*）：
+                 按钮间距 8 → 12px；三个按钮原来 padding 13/13/16 不一致、无固定高度，
+                 现在统一 36px 高 / 最小宽 88px / 圆角 10px（主次视觉等重）；
+                 禁用态原来是 opacity 变灰，改走 .ui-btn:disabled 的明确底色 + 文字色 + not-allowed。
+                 导出主按钮保留本弹窗的绿色语义（.is-export）。 */}
+            <div className="ui-modal-footer" style={{ marginTop: 0, padding: 0, borderTop: 0 }}>
+              <div className="ui-modal-footer-actions">
+                <button type="button" className="ui-btn ui-btn-secondary" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)}>{exportDelivery.status === 'success' ? '完成' : '取消'}</button>
+                <button type="button" className="ui-btn ui-btn-secondary" disabled={isExportDeliveryBusy(exportDelivery) || !exportScope.deliverables.length || (exportMode === 'long-detail' && !canExportLongDetail)} onClick={handleChooseExportDestination}>{exportDelivery.destination ? '更改保存位置' : '选择保存位置'}</button>
+                {exportDelivery.destination && <button type="button" className="ui-btn ui-btn-primary is-export" disabled={isExportDeliveryBusy(exportDelivery)} onClick={handleStartExport}><FileDown size={14} /> {exportDelivery.status === 'success' ? '再次导出' : '开始导出'}</button>}
+              </div>
             </div>
           </div>
         </div>

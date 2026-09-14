@@ -85,6 +85,34 @@
   --space-16: 64px;
   --space-20: 80px;
 
+  /* ═══════ 弹窗底部操作区（全局规范，9-16 用户批注）═══════
+     用户原话：「然后你这两个按钮做的这么近也很奇怪啊。你似乎没有一个全局的意识呀。」
+     根因不是某一个弹窗写错，而是**全站没有统一的底部操作区规范**，每处各写各的魔法数字
+     （实测从 6px 到 12px 都有）。这里把它沉淀成唯一的真源，所有弹窗/抽屉/面板复用。
+
+     规则（改这里就等于改全站，任何地方不得再写魔法数字）：
+       ① 按钮间距 12px（8pt 阶梯 sp3）—— 不得小于 8px，更不得贴近；
+       ② 操作区与内容区上间距 16px；操作区到底部的内边距 20–24px（按弹窗尺寸取）；
+       ③ 按钮高度与其他面板控件统一取 36px（大弹窗 40 / 小弹窗 32），最小宽度 88px，文字不换行；
+       ④ 排列：次要（取消/关闭）在左，主要（确认/加入）在右；
+       ⑤ 主次按钮宽度/高度/圆角必须视觉等重；
+       ⑥ 主按钮禁用态要有明确表达（底色 + 文字色 + cursor），不是只变灰看不清。 */
+  --footer-actions-gap: var(--space-3);            /* 12px 按钮间距 */
+  --footer-actions-gap-min: var(--space-2);        /* 8px 硬下限（契约测试断言不得低于此值） */
+  --footer-actions-margin-top: var(--space-4);     /* 16px 与内容区上间距 */
+  --footer-actions-padding-block: var(--space-5);  /* 20px 上下内边距（大弹窗用 --space-6 = 24px） */
+  --footer-actions-padding-inline: var(--space-5); /* 20px 左右内边距 */
+  --footer-actions-button-height: 36px;            /* 常规弹窗按钮高度 */
+  --footer-actions-button-height-sm: 32px;         /* 小弹窗 */
+  --footer-actions-button-height-lg: 40px;         /* 大弹窗 */
+  --footer-actions-button-min-width: 88px;         /* 最小宽度，保证主次等重 */
+  --footer-actions-radius: 10px;                   /* 按钮圆角（主次一致） */
+  --footer-actions-primary-bg: #7454f3;            /* 主按钮底色 */
+  --footer-actions-primary-bg-hover: #6a48ee;
+  --footer-actions-primary-disabled-bg: #e5e3e0;   /* 禁用：明确底色，不是「变灰看不清」 */
+  --footer-actions-primary-disabled-text: #a8a39e; /* 禁用：明确文字色 */
+  --footer-actions-border: rgba(28, 25, 23, .12);
+
   /* ── 圆角（灵图风格：超大圆角）── */
   --radius-sm: 8px;
   --radius-md: 16px;
@@ -195,6 +223,113 @@ input, textarea { font-family: inherit; }
 .btn-white:hover:not(:disabled) {
   background: rgba(255,255,255,0.9);
   box-shadow: var(--shadow-sm);
+}
+
+/* ═══════ 弹窗底部操作区（全局统一实现，9-16 用户批注）═══════
+   任何弹窗/抽屉/面板的底部操作区都应挂 .ui-modal-footer，不要再各写各的 gap/padding 魔法数字。
+   实测过的偏离值（6 / 8 / 9 / 10 / 14px）全部收敛到 --footer-actions-gap = 12px。
+
+   用法：
+     <div class="ui-modal-footer">
+       <span class="ui-modal-footer-meta">已选 3 项</span>   <!-- 可选：左侧计数/提示 -->
+       <div class="ui-modal-footer-actions">
+         <button class="ui-btn ui-btn-secondary">取消</button>
+         <button class="ui-btn ui-btn-primary">确定使用</button>
+       </div>
+     </div> */
+.ui-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--footer-actions-gap);
+  /* 与内容区 16px 上间距；底部内边距 20px（大弹窗可覆盖为 --space-6 = 24px） */
+  margin-top: var(--footer-actions-margin-top);
+  padding: var(--footer-actions-padding-block) var(--footer-actions-padding-inline);
+  border-top: 1px solid var(--footer-actions-border);
+  background: #fff;
+  flex: 0 0 auto;
+}
+.ui-modal-footer-meta {
+  color: var(--text-hint);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+/* 操作区内部：次要左、主要右，间距恒为 12px */
+.ui-modal-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--footer-actions-gap);
+  flex: 0 0 auto;
+}
+
+/* 底栏按钮：主次**视觉等重**（同高、同圆角、同最小宽），只有配色与字重区分主次 */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--footer-actions-button-height);
+  min-width: var(--footer-actions-button-min-width);
+  padding: 0 18px;
+  box-sizing: border-box;
+  border-radius: var(--footer-actions-radius);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  white-space: nowrap;            /* 文字不换行 */
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+.ui-btn:focus-visible { outline: 2px solid var(--footer-actions-primary-bg); outline-offset: 2px; }
+
+.ui-btn-secondary {
+  border: 1px solid var(--footer-actions-border);
+  background: #fff;
+  color: var(--text-secondary);
+}
+.ui-btn-secondary:hover:not(:disabled) { border-color: rgba(124, 58, 237, .38); color: #6d28d9; }
+
+.ui-btn-primary {
+  border: 0;
+  background: var(--footer-actions-primary-bg);
+  color: #fff;
+}
+.ui-btn-primary:hover:not(:disabled) { background: var(--footer-actions-primary-bg-hover); }
+
+/* 禁用态：明确底色 + 明确文字色 + not-allowed；不依赖 opacity 变灰（那样会看不清） */
+.ui-btn:disabled,
+.ui-btn-primary:disabled {
+  background: var(--footer-actions-primary-disabled-bg);
+  color: var(--footer-actions-primary-disabled-text);
+  border-color: transparent;
+  cursor: not-allowed;
+}
+.ui-btn-secondary:disabled {
+  background: #f7f6f4;
+  color: var(--footer-actions-primary-disabled-text);
+  border-color: rgba(28, 25, 23, .07);
+  cursor: not-allowed;
+}
+
+/* 尺寸变体（与面板其他控件对齐） */
+.ui-modal-footer.is-sm { --footer-actions-button-height: var(--footer-actions-button-height-sm); --footer-actions-padding-block: var(--space-4); }
+.ui-modal-footer.is-lg { --footer-actions-button-height: var(--footer-actions-button-height-lg); --footer-actions-padding-block: var(--space-6); }
+
+/* 二次确认弹窗（DialogProvider）沿用近黑主按钮，但禁用态与全站同一套语言。
+   注意选择器权重：.ui-btn:disabled 与 .ui-btn-primary.is-dark 同为 (0,2,0)，
+   必须把 :disabled 变体写在后面（或用 :not(:disabled) 排除），否则禁用态会被覆盖掉。 */
+.ui-btn-primary.is-dark:not(:disabled) { background: #1f2937; }
+.ui-btn-primary.is-dark:not(:disabled):hover { background: #111827; }
+/* 画布导出弹窗沿用绿色交付语义 */
+.ui-btn-primary.is-export:not(:disabled) { background: #047857; }
+.ui-btn-primary.is-export:not(:disabled):hover { background: #036c4e; }
+
+@media (max-width: 620px) {
+  .ui-modal-footer { flex-wrap: wrap; padding: var(--space-4); }
+  .ui-modal-footer-actions { width: 100%; }
+  .ui-modal-footer-actions .ui-btn { flex: 1 1 auto; min-width: 0; }
 }
 
 /* ── 卡片 ── */

@@ -1040,8 +1040,8 @@ const DEFAULT_BUTTONS = [
                   gap: 10,
                   padding: '10px 16px',
                   borderRadius: 12,
-                  background: isActive ? 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)' : isCompleted ? 'rgba(124,58,237,0.1)' : 'rgba(0,0,0,0.03)',
-                  border: isActive ? 'none' : isCompleted ? '1px solid rgba(124,58,237,0.2)' : '1px solid rgba(0,0,0,0.06)',
+                  background: isActive ? 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)' : isCompleted ? 'rgba(124,58,237,0.1)' : 'rgba(12,10,9,0.03)',
+                  border: isActive ? 'none' : isCompleted ? '1px solid rgba(124,58,237,0.2)' : '1px solid rgba(12,10,9,0.06)',
                   transition: 'all 0.3s ease'
                 }}
               >
@@ -1056,7 +1056,7 @@ const DEFAULT_BUTTONS = [
                     justifyContent: 'center',
                     fontSize: 13,
                     fontWeight: 800,
-                    background: isActive ? 'rgba(255,255,255,0.2)' : isCompleted ? '#7c3aed' : 'rgba(0,0,0,0.08)',
+                    background: isActive ? 'rgba(255,255,255,0.2)' : isCompleted ? '#7c3aed' : 'rgba(12,10,9,0.08)',
                     color: isActive || isCompleted ? '#fff' : '#999'
                   }}
                 >
@@ -1091,7 +1091,7 @@ const DEFAULT_BUTTONS = [
                   style={{
                     width: 24,
                     height: 2,
-                    background: isCompleted ? 'linear-gradient(90deg, #7c3aed, #a78bfa)' : 'rgba(0,0,0,0.06)',
+                    background: isCompleted ? 'linear-gradient(90deg, #7c3aed, #a78bfa)' : 'rgba(12,10,9,0.06)',
                     borderRadius: 1
                   }}
                 />
@@ -1106,13 +1106,15 @@ const DEFAULT_BUTTONS = [
   return (
     <div>
       {/* ═══ 暖黄色背景卡片（与小红书图文一致）═══ */}
+      {/* 工作台主卡：是「可点的大块」→ L2 --sb-surface-card，
+          圆角 --sb-radius-panel(20)，内边距走间距阶梯（原则 3.1 / 3.4）。 */}
       <div
         ref={cardRef}
         className="ec-main-card"
         style={{
-          borderRadius: 20,
-          background: '#fff',
-          padding: '16px 20px 20px',
+          borderRadius: 'var(--sb-radius-panel)',
+          background: 'var(--sb-surface-card)',
+          padding: 'var(--sb-space-4) var(--sb-panel-padding)',
           position: 'relative'
         }}
       >
@@ -1176,22 +1178,24 @@ const DEFAULT_BUTTONS = [
                 }}
               >
                 <div
+                  /* 原则 6.2：语义色（红=危险）不得当作「产品图」这个身份标识。
+                     两卡统一中性规格，靠标题与图标区分。 */
                   style={{
-                    background: '#fff',
-                    borderRadius: 16,
-                    border: '2px solid var(--red)',
-                    boxShadow: '0 6px 32px rgba(255,71,87,0.18)',
-                    padding: '14px 12px',
+                    background: 'var(--sb-surface-card)',
+                    borderRadius: 'var(--sb-radius-card)',
+                    border: '2px solid var(--sb-border-default)',
+                    boxShadow: 'var(--sb-shadow-md)',
+                    padding: 'var(--sb-space-3)',
                     minHeight: 110,
-                    transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)'
+                    transition: 'border-color var(--sb-duration-normal) var(--sb-ease-out), box-shadow var(--sb-duration-normal) var(--sb-ease-out)'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--red)';
-                    e.currentTarget.style.boxShadow = '0 6px 32px rgba(255,71,87,0.25)';
+                    e.currentTarget.style.borderColor = 'var(--sb-border-strong)';
+                    e.currentTarget.style.boxShadow = 'var(--sb-shadow-lg)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--red)';
-                    e.currentTarget.style.boxShadow = '0 6px 32px rgba(255,71,87,0.18)';
+                    e.currentTarget.style.borderColor = 'var(--sb-border-default)';
+                    e.currentTarget.style.boxShadow = 'var(--sb-shadow-md)';
                   }}
                 >
                   {/* 标题行 */}
@@ -1215,11 +1219,11 @@ const DEFAULT_BUTTONS = [
                     </span>
                     <span
                       style={{
-                        fontSize: 10,
-                        color: '#fff',
-                        background: 'var(--red)',
-                        padding: '2px 8px',
-                        borderRadius: 8,
+                        fontSize: 'var(--sb-text-2xs)',
+                        color: 'var(--sb-brand-ink)',
+                        background: 'var(--sb-brand)',
+                        padding: '2px var(--sb-space-2)',
+                        borderRadius: 'var(--sb-radius-pill)',
                         marginLeft: 'auto',
                         fontWeight: 600
                       }}
@@ -1271,7 +1275,7 @@ const DEFAULT_BUTTONS = [
                             right: 0,
                             bottom: 0,
                             padding: '3px 4px',
-                            background: 'linear-gradient(transparent, rgba(0,0,0,0.72))',
+                            background: 'linear-gradient(transparent, rgba(12,10,9,0.72))',
                             color: '#fff',
                             fontSize: 8,
                             fontWeight: 700,
@@ -1326,9 +1330,9 @@ const DEFAULT_BUTTONS = [
                         flex: '0 0 auto'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--red)';
-                        e.currentTarget.style.color = 'var(--red)';
-                        e.currentTarget.style.background = '#FFF5F5';
+                        e.currentTarget.style.borderColor = 'var(--sb-border-strong)';
+                        e.currentTarget.style.color = 'var(--sb-text-primary)';
+                        e.currentTarget.style.background = 'var(--sb-surface-tint)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = '#ccc';
@@ -1399,22 +1403,23 @@ const DEFAULT_BUTTONS = [
                 }}
               >
                 <div
+                  /* 同规格：参考图不再用「信息蓝」，与产品卡完全一致（原则 6.2） */
                   style={{
-                    background: '#fff',
-                    borderRadius: 16,
-                    border: '2px solid var(--blue)',
-                    boxShadow: '0 6px 32px rgba(102,126,234,0.18)',
-                    padding: '14px 12px',
+                    background: 'var(--sb-surface-card)',
+                    borderRadius: 'var(--sb-radius-card)',
+                    border: '2px solid var(--sb-border-default)',
+                    boxShadow: 'var(--sb-shadow-md)',
+                    padding: 'var(--sb-space-3)',
                     minHeight: 110,
-                    transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)'
+                    transition: 'border-color var(--sb-duration-normal) var(--sb-ease-out), box-shadow var(--sb-duration-normal) var(--sb-ease-out)'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--blue)';
-                    e.currentTarget.style.boxShadow = '0 6px 32px rgba(102,126,234,0.25)';
+                    e.currentTarget.style.borderColor = 'var(--sb-border-strong)';
+                    e.currentTarget.style.boxShadow = 'var(--sb-shadow-lg)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--blue)';
-                    e.currentTarget.style.boxShadow = '0 6px 32px rgba(102,126,234,0.18)';
+                    e.currentTarget.style.borderColor = 'var(--sb-border-default)';
+                    e.currentTarget.style.boxShadow = 'var(--sb-shadow-md)';
                   }}
                 >
                   {/* 标题行 */}
@@ -1440,7 +1445,7 @@ const DEFAULT_BUTTONS = [
                       style={{
                         fontSize: 10,
                         color: '#666',
-                        background: 'rgba(0,0,0,0.04)',
+                        background: 'rgba(12,10,9,0.04)',
                         padding: '2px 8px',
                         borderRadius: 8,
                         marginLeft: 'auto',
@@ -1531,9 +1536,9 @@ const DEFAULT_BUTTONS = [
                         flex: '0 0 auto'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--blue)';
-                        e.currentTarget.style.color = 'var(--blue)';
-                        e.currentTarget.style.background = 'rgba(102,126,234,0.04)';
+                        e.currentTarget.style.borderColor = 'var(--sb-border-strong)';
+                        e.currentTarget.style.color = 'var(--sb-text-primary)';
+                        e.currentTarget.style.background = 'var(--sb-surface-tint)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = '#ccc';

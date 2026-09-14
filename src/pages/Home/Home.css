@@ -432,21 +432,29 @@
   overflow-y: visible;
   scrollbar-width: thin;
 }
+/* ═══ 上传卡（产品图 / 参考图）═══
+   2026-09-15 V3：两卡**同一中性规格**，靠标题与图标区分。
+   原则 6.2：语义色（红=危险 / 蓝=信息）不得被挪作身份标识 ——
+   绝不能一红一蓝来区分「产品图」和「参考图」。
+   实测确认：首页两卡本就同规格；本次把残留的硬编码色值一并换成 token。 */
 .ec-xhs-upload-card {
   position: relative;
   width: 86px;
   height: 108px;
   flex: 0 0 86px;
   overflow: hidden;
-  border: 2px dashed var(--border);
-  border-radius: 16px;
-  background: #fff;
+  border: 2px dashed var(--sb-border-default);
+  border-radius: var(--sb-radius-card);
+  background: var(--sb-surface-card);
   /* 轻量、低扩散的纸片投影：保留层次，不形成矩形光晕 */
-  box-shadow: 0 5px 10px rgba(57, 45, 26, .055);
+  box-shadow: var(--sb-shadow-sm);
   filter: none;
   font-family: inherit;
-  transition: transform .2s, border-color .2s, box-shadow .2s;
+  transition: transform var(--sb-duration-normal) var(--sb-ease-out),
+              border-color var(--sb-duration-normal) var(--sb-ease-out),
+              box-shadow var(--sb-duration-normal) var(--sb-ease-out);
 }
+/* 两卡只保留「倾斜方向」这一处无害差异（视觉节奏），零颜色语义差 */
 .ec-xhs-card-product { transform: rotate(-5deg); }
 .ec-xhs-card-reference { transform: rotate(5deg); }
 .ec-xhs-add-card {
@@ -461,10 +469,16 @@
 .ec-xhs-add-card:hover,
 .ec-xhs-add-card:focus-visible {
   transform: translateY(-4px) rotate(0deg);
-  border-color: var(--accent);
-  box-shadow: 0 8px 14px rgba(57, 45, 26, .08);
+  /* 原则 4.3：hover 只改边框色（变强），不染色、不改字重 */
+  border-color: var(--sb-border-strong);
+  box-shadow: var(--sb-shadow-md);
   filter: none;
   outline: none;
+}
+/* 原则 4.2：focus 必须独立于 hover 可见（键盘用户看不到 hover） */
+.ec-xhs-add-card:focus-visible {
+  box-shadow: var(--sb-focus-ring);
+  border-color: var(--sb-brand);
 }
 .ec-xhs-add-icon {
   width: 40px;
