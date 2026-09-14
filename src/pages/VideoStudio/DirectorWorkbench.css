@@ -30,7 +30,7 @@
 .dw-stage-switch button{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border:1px solid #e0e2e9;border-radius:999px;background:#fafbfd;font-size:12.5px;cursor:pointer}
 .dw-stage-switch button.active{background:#23262f;color:var(--sb-neutral-0);border-color:#23262f}
 .dw-shot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
-.dw-shot-card{border:1px solid #e7e9ef;border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;background:#fcfcfe}
+.dw-shot-card{border:1px solid #e7e9ef;border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;background:var(--sb-brand-50)}
 .dw-shot-card header{display:flex;align-items:center;gap:7px}
 .dw-shot-no{font-size:10.5px;font-weight:700;color:#5b64d8;background:#eef0ff;border-radius:5px;padding:1px 6px}
 .dw-shot-card header strong{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -95,7 +95,7 @@
 .dw-template-list li{border:none;padding:0}
 .dw-template-toggle{display:flex;align-items:center;gap:4px;width:100%;padding:7px 8px;border:1px solid #eceef3;border-radius:9px;background:#fafbfd;font-size:12.5px;text-align:left;cursor:pointer}
 .dw-template-toggle:hover{background:#f2f3fa}
-.dw-intake{margin-top:7px;padding:9px;border:1px solid #e8eaf1;border-radius:10px;display:flex;flex-direction:column;gap:7px;background:#fcfcfe}
+.dw-intake{margin-top:7px;padding:9px;border:1px solid #e8eaf1;border-radius:10px;display:flex;flex-direction:column;gap:7px;background:var(--sb-brand-50)}
 .dw-intake-semantics{margin:0;font-size:11px;color:#8b909c;line-height:1.45}
 .dw-spec-preview{margin-top:8px;padding:9px;border:1px dashed #c9cdd8;border-radius:9px;background:var(--sb-neutral-0)}
 .dw-spec-preview ol{margin:0 0 8px;padding-left:18px;font-size:11.5px;color:#565b66;display:flex;flex-direction:column;gap:2px}
