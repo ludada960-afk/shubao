@@ -3,11 +3,11 @@
 .canvas-asset-picker { display: flex; flex-direction: column; width: min(920px, 96vw); max-height: min(82vh, 860px); overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
 .canvas-asset-picker header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px 14px; border-bottom: 1px solid rgba(28,25,23,.08); }
 .canvas-asset-picker header strong { display: block; font-size: 16px; font-weight: 800; color: #1c1917; }
-.canvas-asset-picker header span { display: block; margin-top: 4px; color: #a8a29e; font-size: 11.5px; }
+.canvas-asset-picker header span { display: block; margin-top: 4px; color: #a8a29e; font-size: 12px; }
 .canvas-asset-picker header button { width: 30px; height: 30px; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: #78716c; font-size: 16px; cursor: pointer; }
 .canvas-asset-picker-tools { display: flex; align-items: center; gap: 12px; padding: 14px 22px 10px; }
 .canvas-asset-picker-search { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(28,25,23,.12); border-radius: 9px; color: #a8a29e; }
-.canvas-asset-picker-search input { flex: 1 1 auto; border: 0; outline: none; font-size: 12.5px; font-family: inherit; color: #292524; background: transparent; }
+.canvas-asset-picker-search input { flex: 1 1 auto; border: 0; outline: none; font-size: 13px; font-family: inherit; color: #292524; background: transparent; }
 /* 2026-09-20 依 D11：抑制了 input 自身轮廓 → **必须给可见替代**。
    input 无边框（视觉框在包裹层 .canvas-asset-picker-search 上），所以焦点环打在包裹层，
    用 box-shadow（不参与盒模型 → **零布局抖动**，见 D2）。 */
@@ -25,7 +25,7 @@
 .canvas-asset-picker-card:hover .canvas-asset-picker-check,
 .canvas-asset-picker-card:focus-within .canvas-asset-picker-check { opacity: 1; }
 .canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed; border-color: #7c3aed; color: #fff; }
-.canvas-asset-picker-empty { grid-column: 1 / -1; padding: 30px 10px; color: #a8a29e; font-size: 12.5px; text-align: center; }
+.canvas-asset-picker-empty { grid-column: 1 / -1; padding: 30px 10px; color: #a8a29e; font-size: 13px; text-align: center; }
 .canvas-asset-picker-error { margin: 0 22px; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
 /* 9-18 用户批注（P0）：「值对了，覆盖面没到」——
    本文件原先自写了整套 footer（flex + gap + 高度 + 最小宽 + 圆角 + 主次配色 + 禁用态），
@@ -62,8 +62,6 @@
 .canvas-asset-picker-delete[disabled] { pointer-events: none; }
 .canvas-asset-picker-delete-spinner { width: 14px; height: 14px; box-sizing: border-box; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: canvas-asset-picker-spin .7s linear infinite; }
 @keyframes canvas-asset-picker-spin { to { transform: rotate(360deg); } }
-
-
 /* ═══════════════════════════════════════════════════════════════════════════
    §22 / 原则 4.7 —— 可点必有 hover（资产选择器，3 处缺口）
    ───────────────────────────────────────────────────────────────────────────
@@ -75,4 +73,3 @@
 .canvas-asset-picker header button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .canvas-asset-picker-tabs button:hover:not(:disabled):not([aria-disabled='true']):not(.is-active) { background-color: var(--sb-hover-bg); }
 .canvas-asset-picker-check:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-
