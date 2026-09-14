@@ -1,11 +1,11 @@
 import React from 'react';
 import { Plus, CheckCircle2, Package } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
+/* 圆角/控件高一律走 --sb-* token（D6）；本模块只保留间距与文字样式的语义别名。 */
 import {
   SPACING,
   FONT_SIZE,
   CONTROL_HEIGHT,
-  RADIUS,
   groupTitleStyle,
   helperTextStyle,
   inputStyle,
@@ -132,7 +132,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
         <button type="button" onClick={add}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: SPACING.sp1,
-            height: CONTROL_HEIGHT.large, borderRadius: RADIUS.control, fontFamily: 'inherit',
+            height: 'var(--sb-control-touch)', borderRadius: 'var(--sb-radius-control)', fontFamily: 'inherit',
             border: '1.5px dashed var(--sb-border-strong)',
             color: 'var(--text-muted)', background: 'transparent',
             fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer',

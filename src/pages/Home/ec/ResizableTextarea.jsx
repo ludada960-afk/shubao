@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { TEXTAREA_RESIZE, resolveResizedHeight, SPACING, RADIUS, FONT_SIZE, CONTROL_HEIGHT } from './panelVisualLanguage.js';
+/* 圆角走 --sb-radius-control（D6），故不再从规范模块取 RADIUS。 */
+import { TEXTAREA_RESIZE, resolveResizedHeight, SPACING, FONT_SIZE, CONTROL_HEIGHT } from './panelVisualLanguage.js';
 import './resizable-textarea.css';
 
 /**
@@ -105,7 +106,7 @@ export default function ResizableTextarea({
           maxHeight: Number.isFinite(available) && available > 0 ? Math.min(maxHeight, available) : maxHeight,
           padding: `${SPACING.sp2}px ${SPACING.sp3}px`,
           paddingBottom: SPACING.sp5,
-          borderRadius: RADIUS.control,
+          borderRadius: 'var(--sb-radius-control)',
           border: '1px solid var(--sb-border-default)',
           background: 'var(--sb-surface-card)',
           color: 'var(--text-primary)',
