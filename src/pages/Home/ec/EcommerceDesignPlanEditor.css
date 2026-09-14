@@ -5,7 +5,7 @@
   min-width: 0;
   padding: 24px;
   background: #f7f8fa;
-  color: #20242a;
+  color: var(--sb-neutral-900);
   border: 1px solid #e3e6ea;
   border-radius: 8px;
 }
@@ -84,7 +84,7 @@
   display: grid;
   gap: 5px;
   padding: 11px 12px;
-  background: #fff;
+  background: var(--sb-neutral-0);
 }
 .ec-shared-plan-facts b { color: #35404d; font-size: 12px; }
 .ec-shared-plan-facts span { color: #626b77; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
@@ -100,8 +100,8 @@
   border: 1px solid #d9dee5;
   border-radius: 6px;
   outline: 0;
-  background: #fff;
-  color: #20242a;
+  background: var(--sb-neutral-0);
+  color: var(--sb-neutral-900);
   font: 14px/1.72 inherit;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
@@ -109,9 +109,9 @@
 .ec-shared-plan-editor input { height: 44px; resize: none; }
 .ec-shared-plan-editor textarea:focus,
 .ec-shared-plan-editor input:focus {
-  border-color: #2563eb;
+  border-color: var(--sb-info);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
-  background: #fff;
+  background: var(--sb-neutral-0);
 }
 .ec-shared-shot-plan {
   padding-top: 20px;
@@ -129,9 +129,9 @@
 }
 .ec-shared-shot {
   margin-top: 10px;
-  border: 1px solid #dfe3e8;
+  border: 1px solid var(--sb-neutral-200);
   border-radius: 7px;
-  background: #fff;
+  background: var(--sb-neutral-0);
   overflow: hidden;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -212,9 +212,9 @@
 .ec-shared-shot-field:first-child { grid-column: 1 / -1; }
 .ec-shared-shot-field--primary { padding: 11px; border: 1px solid #cfdbf4; border-radius: 6px; background: #f2f6ff; }
 .ec-shared-shot-field--primary > span { color: #2457b8 !important; }
-.ec-shared-shot-field--primary textarea { border-color: #c8d5ed; background: #fff; }
+.ec-shared-shot-field--primary textarea { border-color: #c8d5ed; background: var(--sb-neutral-0); }
 .ec-shared-shot-field--shared { padding: 2px 0; }
-.ec-shared-shot-spec { margin-top: 12px; padding: 14px; border: 1px solid #e0e5eb; border-radius: 6px; background: #fff; }
+.ec-shared-shot-spec { margin-top: 12px; padding: 14px; border: 1px solid #e0e5eb; border-radius: 6px; background: var(--sb-neutral-0); }
 .ec-shared-shot-spec-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ec-shared-shot-spec-heading span { color: #315a49; font-size: 13px; font-weight: 850; }
 .ec-shared-shot-spec-heading div > p { margin: 4px 0 0; color: #637168; font-size: 12px; line-height: 1.5; }
@@ -231,7 +231,7 @@
   overflow: auto;
   padding: 28px;
   background: #fbfcfe;
-  color: #20242a;
+  color: var(--sb-neutral-900);
 }
 .ec-shared-plan-preview-header {
   display: flex;
@@ -261,7 +261,7 @@
   padding: 15px;
   border: 1px solid #dfe6ef;
   border-radius: 8px;
-  background: #fff;
+  background: var(--sb-neutral-0);
 }
 .ec-shared-plan-preview-grid b { color: #35404d; font-size: 13px; }
 .ec-shared-plan-preview-grid span { color: #687383; font-size: 13px; line-height: 1.65; }
@@ -289,7 +289,7 @@
   padding: 11px 12px;
   border: 1px solid #dfe6ef;
   border-radius: 7px;
-  background: #fff;
+  background: var(--sb-neutral-0);
 }
 .ec-shared-plan-preview-shots i {
   width: 22px;
@@ -297,7 +297,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #2563eb;
+  color: var(--sb-info);
   background: #edf4ff;
   font-size: 11px;
   font-style: normal;
@@ -321,7 +321,7 @@
   padding: 16px 18px 18px;
   border: 1px solid #e3e6ea;
   border-radius: 12px;
-  background: linear-gradient(180deg, #fdfaf6 0%, #ffffff 24%);
+  background: linear-gradient(180deg, #fdfaf6 0%, var(--sb-neutral-0) 24%);
   box-shadow: 0 1px 0 rgba(35, 31, 28, 0.02);
 }
 /* 第二步补充区内部:
@@ -333,13 +333,13 @@
   display: none;
 }
 .ec-direction-supplement .ec-xhs-composer {
-  background: #ffffff;
+  background: var(--sb-neutral-0);
   border: 1px solid #efe8e0;
   border-radius: 12px;
   padding: 12px;
 }
 .ec-direction-supplement .ec-xhs-composer.is-tryon-composer {
-  background: #ffffff;
+  background: var(--sb-neutral-0);
   border: 1px solid #efe8e0;
 }
 .ec-direction-supplement-title {

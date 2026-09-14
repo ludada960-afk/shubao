@@ -84,7 +84,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
                 style={{
                   position: 'absolute', top: 2, right: 2,
                   width: 18, height: 18, borderRadius: '50%',
-                  background: color, color: '#fff',
+                  background: color, color: 'var(--sb-neutral-0)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', fontSize: 10,
                   boxShadow: '0 1px 3px rgba(12,10,9,0.3)',

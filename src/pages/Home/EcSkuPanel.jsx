@@ -69,7 +69,7 @@ export default function EcSkuPanel({ skus, onChange }) {
                     placeholder="标注（选填，如“经典款”）"
                     style={{
                       flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)', fontSize: 12, background: '#fff',
+                      borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--sb-neutral-0)',
                       color: 'var(--text-primary)', outline: 'none',
                     }}
                   />
@@ -123,7 +123,7 @@ function SkuField({ value, onChange, placeholder }) {
       placeholder={placeholder}
       style={{
         padding: '7px 10px', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)', fontSize: 12, background: '#fff',
+        borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--sb-neutral-0)',
         color: 'var(--text-primary)', outline: 'none', width: '100%',
       }} />
   );

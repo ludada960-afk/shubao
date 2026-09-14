@@ -139,7 +139,7 @@ export default function DirectionOptionCard({
               borderRadius: 999,
               padding: '0 9px',
               border: `1px solid ${selected ? colors.primary : 'rgba(12,10,9,.12)'}`,
-              background: selected ? colors.primary : '#fff',
+              background: selected ? colors.primary : 'var(--sb-neutral-0)',
               color: selected ? getReadableTextColor(colors.primary) : '#8a8177',
               display: 'flex',
               alignItems: 'center',
@@ -228,7 +228,7 @@ export default function DirectionOptionCard({
             placeholder="补充这套方案的统一执行说明"
             rows={4}
             maxLength={1200}
-            style={{ width: '100%', boxSizing: 'border-box', marginTop: 7, padding: '8px 9px', border: '1px solid #e7dcc1', borderRadius: 6, background: '#fff', color: '#403a34', font: '11px/1.55 inherit', resize: 'vertical', outline: 'none' }}
+            style={{ width: '100%', boxSizing: 'border-box', marginTop: 7, padding: '8px 9px', border: '1px solid #e7dcc1', borderRadius: 6, background: 'var(--sb-neutral-0)', color: '#403a34', font: '11px/1.55 inherit', resize: 'vertical', outline: 'none' }}
           />
         </section>
 
@@ -254,7 +254,7 @@ export default function DirectionOptionCard({
                     padding: '0 9px',
                     borderRadius: 6,
                     border: '1px solid #ded9d2',
-                    background: '#fff',
+                    background: 'var(--sb-neutral-0)',
                     color: '#504941',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -294,7 +294,7 @@ export default function DirectionOptionCard({
                               onClick={event => event.stopPropagation()}
                               placeholder="写下这张图要怎么拍、突出什么"
                               rows={2}
-                              style={{ width: '100%', boxSizing: 'border-box', marginTop: 5, padding: '6px 7px', border: '1px solid #e5e0d9', borderRadius: 6, background: '#fff', color: '#403a34', font: '11px/1.45 inherit', resize: 'vertical', outline: 'none' }}
+                              style={{ width: '100%', boxSizing: 'border-box', marginTop: 5, padding: '6px 7px', border: '1px solid #e5e0d9', borderRadius: 6, background: 'var(--sb-neutral-0)', color: '#403a34', font: '11px/1.45 inherit', resize: 'vertical', outline: 'none' }}
                             />
                           </div>
                         </div>

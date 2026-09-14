@@ -48,7 +48,7 @@ export default function EcProductParams({ params, onChange }) {
             <div style={{
               position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
               marginTop: 4,
-              background: '#fff',
+              background: 'var(--sb-neutral-0)',
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
               boxShadow: 'var(--shadow-lg)',

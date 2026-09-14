@@ -43,8 +43,11 @@ export default function SupplementAssetDeck({
   referenceHint = '竞品/爆款风格参考',
   productSuggestions = PRODUCT_IMAGE_SUGGESTIONS,
   referenceSuggestions = REFERENCE_IMAGE_SUGGESTIONS,
-  productColor = '#7c3aed',
-  referenceColor = '#ec4899',
+  /* ⚠️ 这两个值参与 `${color}40` / `${color}08` 的**十六进制透明度拼接**，
+     不能用 var()（会产出非法 CSS `var(--x)40`）。按 §18.3 M5 保留 JS 常量，
+     并标注 token 对应关系；改 token 色值时必须同步这两行。 */
+  productColor = '#7c3aed',        // = --sb-brand-600
+  referenceColor = '#ec4899',      // = 品牌粉（仅品牌时刻）
   maxProductImages = 6,
   maxReferenceImages = 6,
   tilted = true,
@@ -128,7 +131,7 @@ export default function SupplementAssetDeck({
           cursor: count >= max ? 'default' : 'pointer',
           opacity: count >= max ? 0.55 : 1,
           transition: 'all 0.15s',
-          background: '#fff',
+          background: 'var(--sb-neutral-0)',
           flexShrink: 0,
         }}
         onMouseEnter={(e) => {
@@ -137,7 +140,7 @@ export default function SupplementAssetDeck({
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.borderColor = `${color}40`;
-          e.currentTarget.style.background = '#fff';
+          e.currentTarget.style.background = 'var(--sb-neutral-0)';
         }}
       >
         <MdAddPhotoAlternate size={20} style={{ color }} />
@@ -171,7 +174,7 @@ export default function SupplementAssetDeck({
           background: `${color}08`,
           borderRadius: 8,
           fontSize: 10,
-          color: '#666',
+          color: 'var(--sb-ink-3)',
           lineHeight: 1.5,
         }}
       >
@@ -199,7 +202,7 @@ export default function SupplementAssetDeck({
         >
           <span>📸</span>
           {productTitle}
-          <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>
+          <span style={{ fontSize: 10, color: 'var(--sb-ink-4)', fontWeight: 400 }}>
             · {productHint}
           </span>
           {stats.product.inherited > 0 && (
@@ -289,7 +292,7 @@ export default function SupplementAssetDeck({
         <span
           style={{
             fontSize: 20,
-            color: '#ccc',
+            color: 'var(--sb-neutral-300)',
             fontWeight: 300,
           }}
         >
@@ -313,7 +316,7 @@ export default function SupplementAssetDeck({
         >
           <span>🎨</span>
           {referenceTitle}
-          <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>
+          <span style={{ fontSize: 10, color: 'var(--sb-ink-4)', fontWeight: 400 }}>
             · {referenceHint}
           </span>
           {/* 可选标记 */}
@@ -322,8 +325,8 @@ export default function SupplementAssetDeck({
               marginLeft: 'auto',
               padding: '2px 8px',
               borderRadius: 4,
-              background: '#f3f4f6',
-              color: '#6b7280',
+              background: 'var(--sb-neutral-100)',
+              color: 'var(--sb-ink-3)',
               fontSize: 9,
               fontWeight: 500,
             }}

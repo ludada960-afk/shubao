@@ -6,13 +6,13 @@ import { fetchSkillLibrary } from '../../../services/skills.js';
 /* 9-11 二轮用户批注:「画面风格」不再自建一套 —— 真源 = 技能库「生图」内置技能。
    本表只保留卡片视觉 (渐变/色调文案), 风格是否有、叫什么、怎么写提示词, 全部由技能库决定。 */
 const STYLE_VISUALS = Object.freeze({
-  premium_minimal: { gradient: 'linear-gradient(135deg, #f5f5f5, #e5e5e5)', tone: '白灰低饱和' },
+  premium_minimal: { gradient: 'linear-gradient(135deg, var(--sb-neutral-100), #e5e5e5)', tone: '白灰低饱和' },
   lifestyle_scene: { gradient: 'linear-gradient(135deg, #f5f0eb, #d1fae5)', tone: '暖调自然光' },
   fashion_editorial: { gradient: 'linear-gradient(135deg, #1a1a2e, #d4a574)', tone: '暗调高对比' },
   warm_natural: { gradient: 'linear-gradient(135deg, #fde68a, #fed7aa)', tone: '米棕柔光' },
-  tech_precision: { gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', tone: '冷蓝金属' },
+  tech_precision: { gradient: 'linear-gradient(135deg, var(--sb-info), #60a5fa)', tone: '冷蓝金属' },
 });
-const SMART_STYLE = Object.freeze({ key: 'smart', label: '智能风格', tone: '由 AI 决定', gradient: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)' });
+const SMART_STYLE = Object.freeze({ key: 'smart', label: '智能风格', tone: '由 AI 决定', gradient: 'linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 50%, var(--sb-warning) 100%)' });
 
 /* 技能库不可用 (离线/接口异常) 时的显示兜底 —— 只提供卡片视觉与文案,
    技能是否存在、提示词怎么写, 一律以技能库为准 (9-11 二轮批注: 不再自建第二套风格真源)。 */
@@ -21,14 +21,14 @@ const FALLBACK_STYLE_SKILLS = [
     key: 'smart',
     label: '智能风格',
     desc: 'AI 根据品类自动匹配',
-    gradient: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',
+    gradient: 'linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 50%, var(--sb-warning) 100%)',
     tone: '由AI决定'
   },
   {
     key: 'premium_minimal',
     label: '高级极简',
     desc: '低饱和·白灰·大量留白',
-    gradient: 'linear-gradient(135deg, #f5f5f5, #e5e5e5)',
+    gradient: 'linear-gradient(135deg, var(--sb-neutral-100), #e5e5e5)',
     tone: '白灰低饱和'
   },
   {
@@ -56,7 +56,7 @@ const FALLBACK_STYLE_SKILLS = [
     key: 'tech_precision',
     label: '科技精工',
     desc: '冷蓝·锐利·金属质感',
-    gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
+    gradient: 'linear-gradient(135deg, var(--sb-info), #60a5fa)',
     tone: '冷蓝金属'
   }
 ];

@@ -181,7 +181,7 @@ export const inputStyle = Object.freeze({
   padding: '0 12px',
   borderRadius: RADIUS.control,
   border: '1px solid rgba(45,41,38,0.12)',
-  background: '#fff',
+  background: 'var(--sb-neutral-0)',
   color: 'var(--text-primary)',
   fontSize: FONT_SIZE.body,
   fontFamily: 'inherit',

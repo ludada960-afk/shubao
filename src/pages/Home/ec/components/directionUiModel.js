@@ -2,7 +2,15 @@
  * directionUiModel.js
  * 设计方向卡片 UI 状态管理纯函数
  * 不包含任何副作用，不调用 API，不使用全局状态
+ *
+ * ⚠️ 本文件是**纯 JS**（返回 hex 字符串、参与亮度计算与字符串拼接），
+ *    `var(--sb-*)` 在这里无效 —— 下面这些常量是 token 的 JS 侧镜像。
+ *    改 token 色值时**必须同步改这里**（见 docs/design/10-visual-language.md §18.3 M5）。
  */
+const BRAND_600 = '#7c3aed';   // = --sb-brand-600
+const BRAND_400 = '#a78bfa';   // = --sb-brand-400
+const INK_1 = '#1a1a1a';       // = --sb-ink-1
+const NEUTRAL_0 = '#ffffff';   // = --sb-neutral-0
 
 /**
  * 颜色对比度计算 - 基于相对亮度公式
@@ -55,7 +63,7 @@ function hexToRgb(hex) {
  * @param {string} fallback - 回退颜色
  * @returns {string} 标准化后的十六进制颜色
  */
-export function normalizeDirectionColor(color, fallback = '#7c3aed') {
+export function normalizeDirectionColor(color, fallback = BRAND_600) {
   if (!color || typeof color !== 'string') return fallback;
 
   const clean = color.trim();
@@ -89,10 +97,10 @@ export function normalizeDirectionColor(color, fallback = '#7c3aed') {
  */
 export function getReadableTextColor(
   backgroundColor,
-  darkColor = '#1a1a1a',
-  lightColor = '#ffffff'
+  darkColor = INK_1,
+  lightColor = NEUTRAL_0
 ) {
-  const normalized = normalizeDirectionColor(backgroundColor, '#ffffff');
+  const normalized = normalizeDirectionColor(backgroundColor, NEUTRAL_0);
   const luminance = getRelativeLuminance(normalized);
 
   // 亮度阈值 0.5，确保对比度
@@ -120,18 +128,18 @@ export function getDirectionCardState({ direction, selected, index }) {
   const rawColors = direction?.preview_colors || [];
 
   // 预览色可以很浅，但选择边框必须始终清晰可见。
-  const visualPrimaryColor = normalizeDirectionColor(rawColors[0], '#7c3aed');
-  const secondaryColor = normalizeDirectionColor(rawColors[1], '#a78bfa');
+  const visualPrimaryColor = normalizeDirectionColor(rawColors[0], BRAND_600);
+  const secondaryColor = normalizeDirectionColor(rawColors[1], BRAND_400);
   const accentCandidate = getRelativeLuminance(visualPrimaryColor) <= 0.78
     ? visualPrimaryColor
     : secondaryColor;
   const primaryColor = getRelativeLuminance(accentCandidate) <= 0.78
     ? accentCandidate
-    : '#7c3aed';
+    : BRAND_600;
 
   // 计算文字颜色确保对比度
   const primaryTextColor = getReadableTextColor(primaryColor);
-  const cardTextColor = '#1a1a1a'; // 卡片内文字固定深色
+  const cardTextColor = INK_1; // 卡片内文字固定深色
 
   // 生成渐变背景
   const gradientColors = rawColors.slice(0, 4).length >= 2
@@ -150,7 +158,7 @@ export function getDirectionCardState({ direction, selected, index }) {
     },
     styles: {
       border: selected ? `2px solid ${primaryColor}` : '2px solid rgba(12,10,9,0.06)',
-      background: selected ? `${primaryColor}08` : '#ffffff',
+      background: selected ? `${primaryColor}08` : NEUTRAL_0,
       boxShadow: selected
         ? `0 4px 20px ${primaryColor}30`
         : '0 2px 8px rgba(12,10,9,0.04)',
@@ -168,7 +176,7 @@ export function getDirectionCardState({ direction, selected, index }) {
       },
       focus: {
         border: `2px solid ${primaryColor}`,
-        background: '#ffffff',
+        background: NEUTRAL_0,
         boxShadow: `0 0 0 3px ${primaryColor}20`,
       },
     },

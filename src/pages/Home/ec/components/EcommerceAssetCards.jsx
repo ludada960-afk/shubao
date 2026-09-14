@@ -5,7 +5,7 @@ import ResponsiveImage from '../../../../components/ResponsiveImage.jsx';
 export function EcommerceImageCard({ role, image, label, index, onRemove }) {
   return (
     <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
-      <ResponsiveImage src={image.url} variant="thumb" ratio="4:5" alt={label} style={{ width: '100%', height: '100%', background: '#fff' }} imgStyle={{ objectFit: 'cover' }} />
+      <ResponsiveImage src={image.url} variant="thumb" ratio="4:5" alt={label} style={{ width: '100%', height: '100%', background: 'var(--sb-neutral-0)' }} imgStyle={{ objectFit: 'cover' }} />
       <span className="ec-xhs-card-caption">{label}</span>
       {image.status && <span className="ec-xhs-card-status">{image.status}</span>}
       {!image.locked && (
