@@ -1,0 +1,49 @@
+ Introduction – Radix Primitives Radix Homepage Made by WorkOS Radix Homepage Made by WorkOS Themes Themes Primitives Primitives Icons Icons Colors Colors Documentation Case studies Blog Search / Overview Introduction Getting started Accessibility Releases Guides Styling Animation Composition Server-side rendering Components Accordion Alert Dialog Aspect Ratio Avatar Checkbox Collapsible Context Menu Dialog Dropdown Menu Form Preview Hover Card Label Menubar Navigation Menu One-Time Password Field Preview Password Toggle Field Preview Popover Progress Radio Group Scroll Area Select Separator Slider Switch Tabs Toast Toggle Toggle Group Toolbar Tooltip Utilities Accessible Icon Direction Provider Portal Slot Visually Hidden Overview Introduction 
+ An open-source UI component library for building high-quality, accessible
+design systems and web apps. 
+ Radix Primitives is a low-level UI component library with a focus on accessibility, customization and developer experience. You can use these components either as the base layer of your design system, or adopt them incrementally. 
+ Vision 
+ Most of us share similar definitions for common UI patterns like accordion, checkbox,
+combobox, dialog, dropdown, select, slider, and tooltip. These UI patterns are documented by WAI-ARIA and generally understood by the community. 
+ However, the implementations provided to us by the web platform are inadequate. They're
+either non-existent, lacking in functionality, or cannot be customized sufficiently. 
+ So, developers are forced to build custom components; an incredibly difficult task. As a
+result, most components on the web are inaccessible, non-performant, and lacking important
+features. 
+ Our goal is to create a well-funded, open-source component library that the community can
+use to build accessible design systems. 
+ Key Features 
+ Accessible 
+ Components adhere to the WAI-ARIA design patterns where possible. We handle many of the difficult implementation details related to accessibility, including aria and role attributes, focus management, and keyboard navigation. Learn more in our accessibility overview. 
+ Unstyled 
+ Components ship without styles, giving you complete control over the look and feel. Components can be styled with any styling solution. Learn more in our styling guide. 
+ Opened 
+ Radix Primitives are designed to be customized to suit your needs. Our open component architecture provides you granular access to each component part, so you can wrap them and add your own event listeners, props, or refs. 
+ Uncontrolled 
+ Where applicable, components are uncontrolled by default but can also be controlled, alternatively. All of the behavior wiring is handled internally, so you can get up and running as smoothly as possible, without needing to create any local states. 
+ Developer experience 
+ One of our main goals is to provide the best possible developer experience. Radix Primitives provides a fully-typed API. All components share a similar API, creating a consistent and predictable experience. We've also implemented an asChild prop, giving users full control over the rendered element. 
+ Incremental adoption 
+ We recommend installing the radix-ui package and importing the primitives you need. This is the simplest way to get started, prevent version conflicts or duplication, and makes it easy to manage updates. The package is tree-shakeable, so you should only ship the components you use. 
+ npm install radix-ui
+ 
+ import { Dialog , DropdownMenu , Tooltip } from "radix-ui" ; 
+ 
+ Alternatively, each primitive can be installed individually: 
+ npm install @radix-ui/react-dialog
+ npm install @radix-ui/react-dropdown-menu
+ npm install @radix-ui/react-tooltip
+ 
+ import * as Dialog from "@radix-ui/react-dialog" ; 
+ import * as DropdownMenu from "@radix-ui/react-dropdown-menu" ; 
+ import * as Tooltip from "@radix-ui/react-tooltip" ; 
+ 
+ When installing separately, we recommend updating all Radix packages together to prevent duplication of shared dependencies and keep your bundle size down. 
+ Community 
+ To get involved with the Radix community, ask questions and share tips, Join our Discord . 
+ To receive updates on new primitives, announcements, blog posts, and general Radix tips, follow along on Bluesky or Twitter . 
+ To file issues, request features, and contribute, check out our GitHub. 
+ 
+ GitHub repo 
+ Code of conduct 
+ Quick nav Next Getting started Edit this page on GitHub. 

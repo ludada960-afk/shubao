@@ -1,0 +1,110 @@
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   兼容别名层（Compat Aliases）
+   ───────────────────────────────────────────────────────────────────────────
+   上面是权威色阶（数字刻度命名）。本层只做「别名 → 权威」映射，不引入新色值，
+   供已在改造中的组件引用，避免命名迁移期出现第二套真相。
+   新代码请优先使用数字刻度名（--sb-brand-600 / --sb-control-h-lg …）。
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* 品牌语义别名 */
+  --sb-brand-hover:      var(--sb-brand-700);
+  --sb-brand-active:     #5B21B6;
+  --sb-brand-soft:       var(--sb-brand-400);
+  --sb-brand-wash:       var(--sb-brand-50);
+  --sb-brand-line:       var(--sb-brand-200);
+  --sb-brand-ink:        #FFFFFF;
+  --sb-brand-gradient:   linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  --sb-brand-gradient-3: linear-gradient(135deg, #7C3AED 0%, #EC4899 55%, #F59E0B 100%);
+
+  /* 文字别名 → ink 阶梯 */
+  --sb-text-primary:     var(--sb-ink-1);
+  --sb-text-secondary:   var(--sb-ink-2);
+  --sb-text-muted:       var(--sb-ink-3);
+  --sb-text-hint:        var(--sb-ink-4);
+  --sb-text-faint:       var(--sb-ink-5);
+  --sb-text-brand:       var(--sb-ink-brand);
+  --sb-text-on-inverse:  var(--sb-ink-on-dark);
+
+  /* 圆角别名（面板 20 → 内层 12 → 控件 8 → 微件 6） */
+  --sb-radius-panel:     var(--sb-radius-2xl);
+  --sb-radius-card:      var(--sb-radius-lg);
+  --sb-radius-control:   var(--sb-radius-md);
+  --sb-radius-chip:      var(--sb-radius-sm);
+
+  /* 控件尺寸别名 */
+  --sb-control-sm:       var(--sb-control-h-sm);
+  --sb-control-md:       var(--sb-control-h-md);
+  --sb-control-lg:       var(--sb-control-h-lg);
+  --sb-control-touch:    var(--sb-control-h-xl);
+  --sb-control-min-w:    88px;
+
+  /* 间距语义别名 */
+  --sb-panel-padding:    var(--sb-space-5);   /* 面板内边距 20（禁低于 16） */
+  --sb-group-gap:        var(--sb-space-5);   /* 面板内分组间距 20 */
+  --sb-field-gap:        var(--sb-space-2);   /* 标题与控件 8 */
+  --sb-action-gap:       var(--sb-space-3);   /* 底部操作区按钮间距 12（禁低于 8） */
+
+  /* 状态派生（八态） */
+  --sb-state-hover-bg:      rgba(12, 10, 9, 0.035);
+  --sb-state-active-bg:     rgba(12, 10, 9, 0.06);
+  --sb-state-selected-bg:   var(--sb-brand-50);
+  --sb-state-selected-line: var(--sb-brand-200);
+  --sb-state-selected-ink:  var(--sb-brand-600);
+  --sb-state-disabled-bg:   rgba(12, 10, 9, 0.04);
+  --sb-state-disabled-ink:  var(--sb-ink-5);
+  --sb-focus-ring:          var(--sb-shadow-ring);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   深色主题覆盖（遵循 theme.css 既有规则：新 token 必须在 dark 下给出值）
+   品牌紫在深底上提亮一档；填充按钮仍用品牌紫实色（白字对比度 5.7:1 达标）。
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --sb-surface-page:     #0F0E0D;
+  --sb-surface-panel:    rgba(35, 33, 32, 0.86);
+  --sb-surface-panel-solid: #1C1A18;
+  --sb-surface-card:     #1C1A18;
+  --sb-surface-tint:     rgba(255, 255, 255, 0.05);
+  --sb-surface-tint-strong: rgba(255, 255, 255, 0.09);
+  --sb-surface-sunken:   #141312;
+  --sb-surface-inverse:  #F5EFE4;
+
+  --sb-ink-1: #F7F4F0; --sb-ink-2: #D9D4CE; --sb-ink-3: #A8A29B;
+  --sb-ink-4: #857F79; --sb-ink-5: #6A6560; --sb-ink-on-dark: #1A1614;
+  --sb-ink-brand: #C4B5FD; --sb-ink-danger: #FF8A7E; --sb-ink-success: #7ACB8A;
+  --sb-ink-warning: #F0B24A; --sb-ink-info: #93AEEC;
+
+  --sb-border-subtle:  rgba(255, 255, 255, 0.08);
+  --sb-border-default: rgba(255, 255, 255, 0.14);
+  --sb-border-strong:  rgba(255, 255, 255, 0.22);
+  --sb-border-inverse: rgba(255, 255, 255, 0.16);
+
+  --sb-brand-50:  rgba(124, 58, 237, 0.18);
+  --sb-brand-200: rgba(167, 139, 250, 0.34);
+  --sb-brand-400: #7C3AED;
+  --sb-brand-500: #A78BFA;
+  --sb-brand-600: #8B5CF6;
+  --sb-brand-700: #C4B5FD;
+  --sb-brand-ring: rgba(167, 139, 250, 0.40);
+
+  --sb-danger: #FF6B5E; --sb-success: #6BC07A; --sb-warning: #F0B24A; --sb-info: #7B95E0;
+
+  --sb-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --sb-shadow-2: 0 2px 8px rgba(0, 0, 0, 0.44);
+  --sb-shadow-3: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --sb-shadow-4: 0 12px 36px rgba(0, 0, 0, 0.56);
+  --sb-shadow-5: 0 28px 90px rgba(0, 0, 0, 0.62);
+  --sb-shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  --sb-scrim-weak: rgba(0, 0, 0, 0.36);
+  --sb-scrim:      rgba(0, 0, 0, 0.56);
+  --sb-scrim-strong: rgba(0, 0, 0, 0.70);
+
+  --sb-state-hover-bg:      rgba(255, 255, 255, 0.06);
+  --sb-state-active-bg:     rgba(255, 255, 255, 0.10);
+  --sb-state-selected-bg:   rgba(124, 58, 237, 0.20);
+  --sb-state-selected-line: rgba(167, 139, 250, 0.40);
+  --sb-state-selected-ink:  #C4B5FD;
+  --sb-state-disabled-bg:   rgba(255, 255, 255, 0.05);
+}

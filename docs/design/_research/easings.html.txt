@@ -1,0 +1,16 @@
+ Easing Functions Cheat Sheet Easing Functions Cheat Sheet Easing functions specify the rate of change of a parameter over time. Objects in real life don’t just start and stop instantly, and almost never move at a constant speed. When we open a drawer, we first move it quickly, and slow it down as it comes out. Drop something on the floor, and it will first accelerate downwards, and then bounce back up after hitting the floor. This page helps you choose the right easing function. Open Source Help translate site to your language x t easeInSine x t easeOutSine x t easeInOutSine x t easeInQuad x t easeOutQuad x t easeInOutQuad x t easeInCubic x t easeOutCubic x t easeInOutCubic x t easeInQuart x t easeOutQuart x t easeInOutQuart x t easeInQuint x t easeOutQuint x t easeInOutQuint x t easeInExpo x t easeOutExpo x t easeInOutExpo x t easeInCirc x t easeOutCirc x t easeInOutCirc x t easeInBack x t easeOutBack x t easeInOutBack x t easeInElastic x t easeOutElastic x t easeInOutElastic x t easeInBounce x t easeOutBounce x t easeInOutBounce All easings x t CSS In CSS, the transition and animation properties allow you to specify an easing function. .block {
+ transition : transform 0.6s ;
+} Edit on cubic-bezier.com . In CSS, this function can be implemented using @keyframes : Size Loading... Position Loading... Transparency Loading... PostCSS In PostCSS, the easing function is much easier to describe. There is a plugin postcss-easings that takes the transition information from that site. .block {
+ transition : transform 0.6s ;
+} That declaration is converted to the one described above. Unfortunately, the easing function cannot be set with any PostCSS plugin. Can be done with @keyframes , see above. Gradient It is possible to draw a gradient using postcss-easing-gradients . .block {
+ background : linear-gradient(
+ to bottom,
+ #1473e6,
+ ,
+ #247b5e
+ );
+} Math function Below you see the code of this easing function written in TypeScript. The variable x represents the absolute progress of the animation in the bounds of 0 (beginning of the animation) and 1 (end of animation). function (x: number): number {
+ 
+} Below you see the code of this easing function written in TypeScript. The variable x represents the absolute progress of the animation in the bounds of 0 (beginning of the animation) and 1 (end of animation). function (x: number): number {
+ 
+} Check easing for changes: Sizes Positions Transparencies This function: This function Linear function: Linear function Andrey Sitnik and Ivan Solovev Auto theme Light theme Dark theme አማርኛ العربية বাংলা Deutsch Greek English Español فارسی Français עיברית हिन्दी Magyar Bahasa Indonesia Italiano 日本語 한국어 Lëtzebuergesch Malayalam Nederlands Norsk bokmål Polish Português (Brasil) Română Русский Shqip Svenska Türkçe Українська Tiếng Việt 粵語 简体中文 繁體中文 
