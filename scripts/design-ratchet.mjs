@@ -63,7 +63,22 @@ const args = process.argv.slice(2);
 const wantJson = args.includes('--json');
 
 if (args.includes('--update')) {
-  const merged = { ...(existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {}) };
+  /* 铁律：基线**只能下调**。棘轮的价值全在于此——如果谁都能 --update 把新种的硬编码
+     吸收进基线，它就成了摆设（本仓已发生过一次：有人把 5482 悄悄抬到 5530）。
+     确实需要上调（例如新增了业务内容数据文件）时，必须显式加 --allow-increase 并说明理由。 */
+  const allowIncrease = args.includes('--allow-increase');
+  const previous = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
+  const increases = Object.entries(current)
+    .filter(([k, v]) => previous[k] !== undefined && v > previous[k])
+    .map(([k, v]) => ({ file: k, from: previous[k], to: v, delta: v - previous[k] }));
+  if (increases.length && !allowIncrease) {
+    console.error('[ratchet] ❌ 拒绝上调基线：下列文件比当前基线有更多硬编码色值。');
+    for (const i of increases) console.error('   +' + i.delta + '  ' + i.file + '  (' + i.from + ' → ' + i.to + ')');
+    console.error('[ratchet] 正确做法：把这些硬编码改成 --sb-* token。');
+    console.error('[ratchet] 若确属业务内容数据需登记，请加 --allow-increase 并在 commit message 里写明理由。');
+    process.exit(1);
+  }
+  const merged = { ...previous };
   for (const [k, v] of Object.entries(current)) merged[k] = v;
   writeFileSync(BASELINE_PATH, JSON.stringify(merged, null, 2) + '\n', 'utf8');
   const total = Object.values(merged).reduce((a, b) => a + b, 0);
