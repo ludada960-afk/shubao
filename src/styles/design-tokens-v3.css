@@ -525,7 +525,7 @@
   --sb-panel-padding:    var(--sb-space-5);   /* 面板内边距 20（禁低于 16） */
   --sb-group-gap:        var(--sb-space-5);   /* 面板内分组间距 20 */
   --sb-field-gap:        var(--sb-space-2);   /* 标题与控件 8 */
-  --sb-action-gap:       var(--sb-space-3);   /* 底部操作区按钮间距 12（禁低于 8） */
+  --sb-action-gap:       var(--footer-actions-gap, var(--sb-space-3));   /* 底部操作区按钮间距 12（唯一真源 = design-tokens.css --footer-actions-gap） */
 
   /* 状态派生（八态） */
   --sb-state-hover-bg:      rgba(12, 10, 9, 0.035);
