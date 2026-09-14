@@ -94,7 +94,8 @@ test('③ 管理弹窗：上传按钮 ≥ 36px、图标+文字、主色实心（
   const isWhite = /^#fff(fff)?$/i.test(colorDecl) || colorDecl === 'white';
   const isWhiteToken = colorDecl.includes('--sb-neutral-0') && /^#fff(fff)?$/i.test(NEUTRAL_0 || '');
   assert.ok(isWhite || isWhiteToken, '文字解析后为白色（字面量或 --sb-neutral-0），实际 ' + colorDecl);
-  assert.ok(resolvesToPx(upload[1], '2', 8) || upload[1].includes('gap: 6px'), '图标+文字并排');
+  /* D16：6px 补为 --sb-space-1-5 半档后，断言解析后的值仍为 6px（原意图「图标+文字并排 6px」不变）。 */
+  assert.ok(resolvesToPx(upload[1], '1-5', 6) || upload[1].includes('gap: 6px'), '图标+文字并排');
 });
 
 test('③ 管理弹窗：搜索框 36px 同高 + 分类 tab 胶囊、选中态深色实心 + 卡片间距 16px', () => {

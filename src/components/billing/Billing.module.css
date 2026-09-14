@@ -89,7 +89,7 @@
 
 .balanceValue {
   display: block;
-  margin-top: 8px;
+  margin-top: var(--sb-space-2);
   color: var(--text-primary, var(--sb-ink-1));
   font-size: var(--text-lg, 17px);
 }

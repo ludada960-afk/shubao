@@ -48,7 +48,13 @@ const MODALS = await fs.readFile(
 /* ═══════ 1. 灵图暖米底 + 毛玻璃 + 琥珀/紫罗兰光晕 (9-02: #fbf8f1 + amber 233,154,24 + violet 139,92,246) ═══════ */
 test('pricing modal root has lingtu warm-rice bg + amber/violet orbs', () => {
   assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?background:\s*#fbf8f1/);
-  assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?border-radius:\s*24px/);
+  // 2026-09-20 D15/D16：24px 逐值收编为 --sb-radius-3xl(24px) 后，断言改为校验**解析后的值**，
+  // 不再绑字面量写法（原意图「弹窗根 24px 圆角」不变）。
+  assert.ok(
+    /\.pricing-modal\s*\{[\s\S]*?border-radius:\s*24px/.test(PRICING_CSS) ||
+    /\.pricing-modal\s*\{[\s\S]*?border-radius:\s*var\(--sb-radius-3xl\)/.test(PRICING_CSS),
+    '弹窗根 24px 圆角（字面量或 --sb-radius-3xl=24px）',
+  );
   // 2026-09-20 §11：定价弹窗卡不在毛玻璃白名单内 → 改实底 + 海拔。
   // （原 backdrop-filter 被 fbf8f1 实色底完全遮住，从未产生可见效果。）
   assert.ok(!/backdrop-filter/.test(PRICING_CSS), '§11：定价弹窗与遮罩均不得用 backdrop-filter');

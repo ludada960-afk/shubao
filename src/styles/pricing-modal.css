@@ -26,7 +26,7 @@
   overflow-y: hidden;
   padding: 26px 36px 26px;
   background: #fbf8f1;
-  border-radius: 24px;
+  border-radius: var(--sb-radius-3xl);
   border: 1px solid #e7e0d4;
   /* §11：弹窗卡不属于白名单三类 → 去毛玻璃。原底 #fbf8f1 已是实色，
      blur 从未产生任何可见效果（背景被实色完全遮住），纯属无效开销。 */
@@ -118,7 +118,7 @@
   position: relative;
   z-index: 1;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--sb-text-sm);
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -128,7 +128,7 @@
 .pricing-modal__title {
   position: relative;
   z-index: 1;
-  font-size: 32px;
+  font-size: var(--sb-text-3xl);
   font-weight: 900;
   letter-spacing: -0.02em;
   margin: 0 0 4px;
@@ -143,7 +143,7 @@
   position: relative;
   z-index: 1;
   margin: 2px auto 0;
-  font-size: 14px;
+  font-size: var(--sb-text-base);
   font-weight: 600;
   color: var(--sb-ink-3);
   text-align: center;
@@ -180,7 +180,7 @@
   color: var(--sb-brand-700);
   font-weight: 900;
   font-size: 22px;
-  margin-left: 2px;
+  margin-left: var(--sb-space-0-5);
 }
 .pricing-modal__hero-dot { color: #c9bfad; }
 .pricing-modal__balance-login {
@@ -194,7 +194,7 @@
 }
 .pricing-modal__hero-expiring .pricing-modal__hero-dot {
   color: #c9bfad;
-  margin-right: 4px;
+  margin-right: var(--sb-space-1);
 }
 
 /* 双 Tab (灵图: 暖胶囊底, 选中琥珀橙发光) */
@@ -235,12 +235,12 @@
 }
 .pricing-modal__tab-name {
   font-size: 17px;
-  font-size: 15px;
+  font-size: var(--sb-text-lg);
   font-weight: 800;
 }
 .pricing-modal__tab-sub {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: var(--sb-text-xs);
   font-style: normal;
   color: #a8a099;
   letter-spacing: 0.02em;
@@ -254,14 +254,14 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   font-weight: 700;
   color: #292524;
   letter-spacing: 0.02em;
 }
 .pricing-modal__section-title em {
   font-style: normal;
-  font-size: 12px;
+  font-size: var(--sb-text-sm);
   color: #a8a099;
   font-weight: 500;
 }
@@ -277,14 +277,14 @@
   margin-top: 18px;
   /* 9-12 用户批注：卡片下面的留白要和标题上面的留白一样大（原来下面贴得很紧） */
   margin-bottom: 22px;
-  padding-bottom: 4px;
+  padding-bottom: var(--sb-space-1);
 }
 .pricing-modal__empty {
   grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
   color: #a8a099;
-  font-size: 14px;
+  font-size: var(--sb-text-base);
 }
 
 /* 每张卡: 暖白圆角, 推荐档五重强调 */
@@ -294,7 +294,7 @@
   flex-direction: column;
   gap: var(--sb-space-2-5);
   padding: 24px 20px 20px;
-  border-radius: 20px;
+  border-radius: var(--sb-radius-2xl);
   background: #fffefb;
   border: 1px solid #ece6db;
   cursor: pointer;
@@ -336,7 +336,7 @@
   border: 1px solid #f0c56b;
   background: #fff4d8;
   color: #92400e;
-  font-size: 11px;
+  font-size: var(--sb-text-xs);
   font-weight: 800;
   letter-spacing: 0.06em;
   display: inline-flex;
@@ -352,16 +352,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: var(--sb-radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  margin-bottom: 2px;
+  margin-bottom: var(--sb-space-0-5);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
 .pricing-modal__pack--anchored .pricing-modal__pack-icon {
   color: #c2570b;
 }
 .pricing-modal__pack-tagline {
-  font-size: 11px;
+  font-size: var(--sb-text-xs);
   color: #a8a099;
   letter-spacing: 0.02em;
 }
@@ -370,17 +370,17 @@
   font-weight: 900;
   color: #1c1917;
   letter-spacing: -0.01em;
-  margin-top: 2px;
+  margin-top: var(--sb-space-0-5);
 }
 /* 价格: 44px 巨号 */
 .pricing-modal__pack-price {
   display: inline-flex;
   align-items: baseline;
   gap: var(--sb-space-0-5);
-  margin-top: 2px;
+  margin-top: var(--sb-space-0-5);
 }
 .pricing-modal__pack-price-sym {
-  font-size: 18px;
+  font-size: var(--sb-text-xl);
   font-weight: 800;
   color: #1c1917;
 }
@@ -396,11 +396,11 @@
   color: #c2570b;
 }
 .pricing-modal__pack-price-period {
-  font-size: 15px;
+  font-size: var(--sb-text-lg);
   font-weight: 600;
   color: var(--sb-ink-3);
   align-self: flex-end;
-  margin-bottom: 8px;
+  margin-bottom: var(--sb-space-2);
 }
 /* 积分: 紫罗兰数字 */
 .pricing-modal__pack-units {
@@ -409,7 +409,7 @@
   color: var(--sb-brand-700);
 }
 .pricing-modal__pack-units small {
-  font-size: 14px;
+  font-size: var(--sb-text-base);
   color: var(--sb-ink-3);
   font-weight: 600;
 }
@@ -418,13 +418,13 @@
 /* 有效期徽章: 琥珀底 */
 .pricing-modal__pack-validity {
   display: inline-block;
-  margin-top: 4px;
+  margin-top: var(--sb-space-1);
   padding: 6px 14px;
-  border-radius: 12px;
+  border-radius: var(--sb-radius-lg);
   border: 1px solid #f0e0b8;
   background: #fff4d8;
   color: #92400e;
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   font-weight: 800;
   letter-spacing: 0.02em;
   line-height: 1;
@@ -436,7 +436,7 @@
 /* 价值描述 (可生成约 N 张) */
 .pricing-modal__pack-desc {
   line-height: 1.6;
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   font-weight: 700;
   color: #57534e;
   line-height: 1.55;
@@ -462,30 +462,30 @@
   display: flex;
   align-items: baseline;
   gap: var(--sb-space-1-5);
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   line-height: 1.5;
   justify-content: center;
 }
-.pricing-modal__pack-list-icon { font-size: 14px; flex-shrink: 0; }
+.pricing-modal__pack-list-icon { font-size: var(--sb-text-base); flex-shrink: 0; }
 .pricing-modal__pack-list-val {
-  font-size: 18px;
+  font-size: var(--sb-text-xl);
   font-weight: 800;
   color: #1c1917;
   letter-spacing: -0.01em;
 }
-.pricing-modal__pack-list-unit { font-size: 12px; color: var(--sb-ink-3); }
+.pricing-modal__pack-list-unit { font-size: var(--sb-text-sm); color: var(--sb-ink-3); }
 .pricing-modal__pack-list-meta {
   margin-top: 4px !important;
-  padding-top: 8px;
+  padding-top: var(--sb-space-2);
   border-top: 1px dashed #e5dcc9;
-  font-size: 11px;
+  font-size: var(--sb-text-xs);
   color: #a8a099;
   letter-spacing: 0.02em;
 }
 .pricing-modal__pack-list-meta strong {
   color: var(--sb-brand-700);
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--sb-text-md);
 }
 .pricing-modal__pack--anchored .pricing-modal__pack-list-meta strong { color: #c2570b; }
 
@@ -497,7 +497,7 @@
   border: 1px solid #e7e0d4;
   background: var(--sb-neutral-0);
   color: #292524;
-  font-size: 14px;
+  font-size: var(--sb-text-base);
   font-weight: 800;
   cursor: pointer;
   font-family: inherit;
@@ -528,7 +528,7 @@
   gap: var(--sb-space-1-5);
   padding: 14px 18px;
   border: 1.5px solid #f0c56b;
-  border-radius: 16px;
+  border-radius: var(--sb-radius-xl);
   background: #fff9ef;
 }
 .pricing-modal__detail-head {
@@ -544,14 +544,14 @@
   letter-spacing: -0.01em;
 }
 .pricing-modal__detail-price {
-  font-size: 14px;
+  font-size: var(--sb-text-base);
   font-weight: 700;
   color: #292524;
 }
 .pricing-modal__detail-price strong { color: var(--sb-brand-700); }
 .pricing-modal__detail-desc {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   color: var(--sb-ink-3);
   line-height: 1.6;
 }
@@ -563,11 +563,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--sb-space-3);
-  padding-top: 16px;
+  padding-top: var(--sb-space-4);
   border-top: 1px dashed #ddd3c2;
 }
 .pricing-modal__pay-summary {
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   color: #a8a099;
   text-align: center;
 }
@@ -583,9 +583,9 @@
   justify-content: center;
   gap: var(--sb-space-2);
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--sb-radius-lg);
   border: 1px solid transparent;
-  font-size: 14px;
+  font-size: var(--sb-text-base);
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
@@ -614,7 +614,7 @@
 .pricing-modal__pay-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
 .pricing-modal__pay-primary:active { transform: translateY(0); }
 .pricing-modal__pay-note {
-  font-size: 11px;
+  font-size: var(--sb-text-xs);
   color: #a8a099;
   text-align: center;
   margin: 0;

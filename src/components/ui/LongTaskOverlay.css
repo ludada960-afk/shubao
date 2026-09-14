@@ -81,7 +81,7 @@
 
 .long-task-overlay-title {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--sb-text-xl);
   font-weight: 700;
   color: var(--sb-neutral-0);
   letter-spacing: 0;
@@ -90,7 +90,7 @@
 
 .long-task-overlay-stage {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--sb-text-base);
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.5;
   max-width: 360px;
@@ -98,7 +98,7 @@
 
 .long-task-overlay-percent {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: var(--sb-text-md);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
   font-variant-numeric: tabular-nums;
