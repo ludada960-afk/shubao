@@ -340,8 +340,21 @@ test('D6 六面板圆角只用 20/12/8/6（10px 退役，不出现第三种）',
 
 test('原则 6.3 品牌主色调默认未锁定：中性虚线 + 占位「未锁定」', () => {
   const src = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  /* D2：宽度恒定 2px（此前 2px↔1.5px 会抖动），仍是中性虚线且零品牌紫 */
-  assert.ok(src.includes('2px dashed var(--sb-border-strong)'), '未锁定用中性虚线描边（恒宽 2px）');
+  /* ── 等价性说明（第 5 项）──
+     未锁定态的两条声明从「面板内联字面量」改为「引用 NEUTRAL_UNLOCKED 常量」。
+     语义完全不变（中性虚线、恒宽 2px、零品牌紫），且消除了同一语义两处定义（D8）。
+     故断言同步改为：面板引用常量 + 常量本身取值正确。 */
+  assert.ok(
+    src.includes('NEUTRAL_UNLOCKED'),
+    '未锁定态必须引用 NEUTRAL_UNLOCKED 常量（唯一事实源）',
+  );
+  const spec = read('src/pages/Home/ec/panelVisualLanguage.js');
+  const def = spec.slice(spec.indexOf('export const NEUTRAL_UNLOCKED'), spec.indexOf('export const NEUTRAL_UNLOCKED') + 400);
+  assert.ok(
+    /border:\s*'2px dashed var\(--sb-border-(strong|default)\)'/.test(def),
+    'NEUTRAL_UNLOCKED 必须是中性虚线且恒宽 2px（D2：宽度不得随状态变化）',
+  );
+  assert.ok(!/124,\s*58,\s*237|7c3aed/i.test(def), '未锁定描边不得是品牌紫');
   assert.ok(src.includes('placeholder="未锁定"'), '占位文案与状态一致');
   assert.ok(
     /border:\s*brandLocked\s*\?\s*`2px solid \$\{pickerColor\}`/.test(src),
