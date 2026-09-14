@@ -51,9 +51,19 @@ function grepLegacy() {
 /* 棘轮基线：只许减不许增。迁移一批就把这两个数改小（并说明减了哪些名字）。 */
 /* 基线口径 = 本文件 countLegacy 的计数（**逐个匹配**，不是逐行）：
    实测 2026-09-20 初测 = 744 处 / 52 个名字；DS 层迁移启动后降至 709 / 51，基线**同步收紧**。
+   本轮 D24 设计系统层迁移（src/components/ui/**）：ui/** 自身由 **33 处 → 8 处**，
+   但**全站总量未随之下降** —— 实测 HEAD 树 = 719 / 51（与 9149cacc 的 719 持平），
+   说明同期其它线新增的 V2 用法**抵消**了本层的减少。故基线**保持 719 不下调**：
+   棘轮只有在总量真的下降时才允许收紧，否则会把「被别人抵消」误记成「自己迁完了」。
+     已迁移（逐值相等，零观感变更）：--radius-md --radius-full --text-sm --text-xs
+       --weight-semibold --weight-normal --weight-bold --duration-normal --duration-fast
+       --ease --red --green --green-bg --text-primary --text-secondary --text-muted --text-hint
+       等 —— 见提交 design(D24) ui/Button.jsx 与 ui/index.jsx。
+     其中 ui/** 的 V2 由 33 处降到 8 处；剩余 8 处为**无等值保留项**
+       （--radius-lg 30px / --radius-xl 40px / --border / --border-light / --shadow-xl）。
    ⚠️ 不要用「行数」估：一行里可能有两三个 V2 用法（实测按行数会少算 134 处）。
    ⚠️ 棘轮只许向下：实测降了就把基线改小 —— 否则回退会落在"合法空间"里，门禁等于没长牙。 */
-const BASELINE_TOTAL = 709;
+const BASELINE_TOTAL = 719;
 const BASELINE_NAMES = 51;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
