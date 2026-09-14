@@ -761,7 +761,7 @@
   height: var(--cvl-control-compact, 32px);
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
+  /* 纯裁切不省略号（与视频面板其余控件同一规则） */
   white-space: nowrap;
   box-sizing: border-box;
 }
@@ -829,7 +829,7 @@
 .ec-canvas-suite-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #edf0f3; background: #fff; }
 .ec-canvas-suite-control { position: relative; min-width: 0; }
 .ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
-.ec-canvas-suite-control > button strong { max-width: 88px; overflow: hidden; color: #252a31; font-size: 11px; text-overflow: ellipsis; }
+.ec-canvas-suite-control > button strong { overflow: hidden; color: #252a31; font-size: 11px; white-space: nowrap; }
 .ec-canvas-suite-control > button:hover, .ec-canvas-suite-control > button.is-active { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
 .ec-canvas-suite-control > button.is-adjusted { border-color: #7567e8; color: #5547c8; background: #f4f2ff; box-shadow: 0 0 0 2px rgba(117,103,232,.10); }
 .ec-canvas-suite-control > button > small { padding: 2px 4px; border-radius: 4px; color: #fff; background: #6557dc; font-size: 11px; font-weight: 800; line-height: 1; }
@@ -839,7 +839,7 @@
 .ec-canvas-option-menu > button { height: 32px; max-width: 180px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-option-menu > button:hover, .ec-canvas-option-menu > button[aria-expanded="true"] { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
 .ec-canvas-option-menu > button > span { color: #7b838e; }
-.ec-canvas-option-menu > button > strong { max-width: 106px; overflow: hidden; color: inherit; font-size: 11px; font-weight: 700; text-overflow: ellipsis; }
+.ec-canvas-option-menu > button > strong { overflow: hidden; color: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .ec-canvas-option-popover { position: absolute; z-index: 35; left: 0; bottom: calc(100% + 9px); width: 218px; max-height: 250px; overflow: auto; box-sizing: border-box; padding: 7px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-option-popover button { width: 100%; min-height: 34px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 8px; border: 0; border-radius: 6px; background: #fff; color: #4f5762; font: 10px inherit; text-align: left; cursor: pointer; }
 .ec-canvas-option-popover button:hover, .ec-canvas-option-popover button.is-active { background: #eff6ff; color: #2563eb; }
@@ -1201,12 +1201,11 @@
   padding: 0 10px;
 }
 .ec-canvas-suite-control > button > span {
-  max-width: 132px;
   overflow: hidden;
   color: inherit;
   font-size: 13px;
   font-weight: 700;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ec-canvas-suite-panel-popover {
   /* 2026-09-17 统一视觉语言：700 是自成宽档（首页六个面板均为 480），已收口 */
@@ -1599,7 +1598,8 @@
    实测根因：参数按钮是 white-space:nowrap + 定宽 max-width，文字**溢出自身盒子**绘制
    （实测「GPT Image 2」按钮盒宽 78px、scrollWidth 113px，文字一直画到生成按钮底下）。
    用户给的基准是视频框（图8）：「模型名太长就右边展示不全、被截断也无所谓，主要是不能让按钮变形」。
-   所以这里统一为：每个参数按钮自身 text-overflow: ellipsis + min-width:0，
+    所以这里统一为：每个参数按钮自身 overflow:hidden —— **纯裁切，不写 text-overflow: ellipsis**
+    （9-17 用户批注：短文案必须完整显示、长文案宁可被裁也不要出现「…」）+ min-width:0，
    绝不撑开父容器、绝不覆盖生成按钮。
    顺序也统一（图8/图9）：@ 引用 → 参数（模型/比例/清晰度/张数）→ 技能 → 生成按钮，
    四个框同一行同一位置，不允许有的框把 @ 或技能丢到最后一行。 */
@@ -1619,12 +1619,21 @@
   overflow: hidden;
 }
 .ec-canvas-parameter-item { min-width: 0; }
+/* ═══ 2026-09-17 用户批注（套图操作台）：**不要用省略号** ═══════════════════════
+   「你这些按钮上面的文案为什么都要用省略号呀？都用省略号的话基本就没多少文案能被看到。
+    你这些按钮每个也就四个字，四个字也有必要用省略号吗？完全可以展示全呀。
+    像模型那一块字有点多，你就字往后面去挤，显示不全也没关系，但真的不要用省略号。
+    你看视频生成那个就没有用省略号，它那个方式是对的。」
+   规则（视频面板已是对的，这里对齐过来）：
+     · **短文案必须完整显示**（智能套图/SKU变体/商品信息/AI规划/技能 这类四字按钮一律不截断）；
+     · **长文案（模型名等）允许被按钮右缘裁切** —— overflow:hidden 纯裁切，
+       **不写 text-overflow: ellipsis**，绝不出现「…」。
+   所以这里只保留 overflow:hidden + nowrap，把两处 ellipsis 全部去掉。 */
 .ec-canvas-parameter-item > button,
 .ec-canvas-suite-control > button {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   box-sizing: border-box;
 }
@@ -1634,7 +1643,7 @@
 .ec-canvas-suite-control > button > span {
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  /* 同上：纯裁切，不要省略号（否则四字文案会变成「智能…」「SKU…」） */
   white-space: nowrap;
 }
 .ec-canvas-parameter-controls .ec-canvas-parameter-item:last-child > button { max-width: 108px; }
@@ -1671,8 +1680,12 @@
 /* 9-16：套图参数行搬进底栏后要和 @ / 技能 / 生成挤在同一行（用户图8/图9 口径），
    所以不再保底 72px —— 过大的保底会把「技能 + 生成」推出面板右缘；
    改成按可用宽度等比收缩、文字自己截断，整行由容器裁掉多余部分。 */
+/* 宽度按内容自适应（用户：短按钮给足宽度，不要为凑齐宽度把四字文案截掉）：
+   flex: 0 0 auto —— 不再参与收缩；由整行容器在真的放不下时统一裁切。
+   这样「智能套图/SKU变体/商品信息/AI规划」都能拿到足够宽度完整显示，
+   只有模型名这种长文案会被右缘纯裁切。 */
 .ec-canvas-suite-control {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   max-width: 100%;
 }
@@ -1685,11 +1698,114 @@
   background: transparent;
 }
 .ec-canvas-suite-control > button {
-  width: 100%;
+  width: auto;
   min-width: 0;
   max-width: 100%;
 }
 .ec-canvas-suite-control > button > span { max-width: none; }
+
+/* ═══ 2026-09-17 用户批注（第 1 项收尾）：**整行必须真的放得下** ═══════════════════
+   实测（1440 视口，行宽 434px）：@ 24 + 生成设置 116 + 智能套图 78 + SKU变体 78
+   + 技能 54 + 商品信息 78 = **448px > 434px**，于是第 6 个按钮「内容规范」
+   被行容器裁在右缘之外（right 1445 > wrap right 1383）—— 这仍然是"看不到完整文案"，
+   只是从省略号换成了直接看不见，用户口径不能接受。
+   修法（口径统一到首页 / 视频框的密度）：
+     · 间距 7px（原 10px）—— 视频面板那行 7 个控件就是 7px 间距、398px 落在 434px 里；
+     · 按钮左右内边距 9px（原 10px）、图标与文字间距 5px（原 7px）；
+     · 模型名那一格（最后一格，长文案）单独收窄到 108px —— 与图片框
+       .ec-canvas-parameter-item:last-child > button 的 108px 同一口径：
+       **它本来就是被允许裁切的那一个**，短文案四个字的格子一个都不许动。
+   改完：24 + 7 + 108 + 7 + 78 + 7 + 78 + 7 + 54 + 7 + 78 + 7 + 78 = 540 ... 仍超，
+   所以模型格再按剩余宽度自适应收缩（flex: 0 1 auto + min-width 0），
+   保证"其余所有短按钮都完整、只有模型名被裁"。 */
+.ec-canvas-suite-controls { gap: 6px; }
+.ec-canvas-suite-control > button { gap: 5px; padding: 0 9px; }
+/* 只有"允许被裁"的那一格（生成设置=模型名+清晰度，短文案格中唯一的长文案）参与收缩：
+   :has(> button > span > svg) 命中「图标在文字里」的那一格 —— 其余五个参数格
+   的图标是兄弟节点（<item.icon/> + <span>），结构不同，天然区分。
+   更要紧的是加类名，见组件侧 suite-control-settings。 */
+/* 收缩要有下限：模型名那一格最低 96px（= 图标 14 + 间距 5 + 内边距 18 + 文字 ≈59px，
+   足够显示「GPT Image 2」这前半段，剩下的纯裁切）。
+   下限比图片框的 108px 略小，因为套图行比底栏多一格 @ 引用，但要保证它不塌成 14px。 */
+/* 参数行不再有"可收缩的长文案格"：生成设置已移到底栏（见 .ec-canvas-suite-settings-control）。
+   五个短格全部 flex: 0 0 auto —— 谁都不许被压小。 */
+
+/* ═══「生成设置」格（模型 · 清晰度）：底栏里允许被裁的那一格 ═════════════════════
+   与图片框 .ec-canvas-parameter-item > button 同口径：
+   先按内容占位，整行放不下时收缩，下限 108px（与图片框 last-child 同一数值），
+   超出部分被按钮右缘**纯裁切**（overflow:hidden，无 ellipsis）。 */
+.ec-canvas-suite-settings-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 132px;
+}
+.ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-settings-control { order: 1; }
+.ec-canvas-suite-settings-control > button {
+  height: 40px;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #3f4a58;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.ec-canvas-suite-settings-control > button > svg { flex: 0 0 auto; }
+.ec-canvas-suite-settings-control > button > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  /* 纯裁切：不写 text-overflow —— 模型名显示不全可以，出现「…」不行 */
+}
+.ec-canvas-suite-settings-control > button:hover,
+.ec-canvas-suite-settings-control > button.is-active {
+  border-color: #7da5ef;
+  color: #245fca;
+  background: #f3f7ff;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.08);
+}
+
+/* ═══ 2026-09-17 用户批注（第 2 项）：@ 键做到最前面 ═══════════════════════════════
+   「这个艾特键也一样，做到最前面去，做到那个智能…的前面。」
+   参照物 = 视频面板那个被点名的正确写法（.ec-canvas-video-field.is-mention）：
+   一个 label（标题「引用」在上、控件在下）里放同一个 ComposerMention，
+   于是套图行的第一个格子就是 @，后面依次 生成设置 → 套图方案 → SKU变体
+   → 技能 → 商品信息 → 内容规范（与首页 EcMode DEFAULT_BUTTONS 完全同序）。
+   注意：这里是**纯横排一行**，所以标题与控件并排（和视频面板的两行结构视觉同族，
+   但不需要额外的行高）。 */
+.ec-canvas-suite-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-right: 2px;
+}
+.ec-canvas-suite-mention > .ec-canvas-composer-mention { margin-left: 0; order: 0; }
+.ec-canvas-suite-mention > .ec-canvas-composer-mention .image-mention-trigger {
+  width: 36px;
+  height: 40px;
+  border-color: #d9e0e8;
+  border-radius: 8px;
+  color: #426eb8;
+  background: #fff;
+}
+.ec-canvas-suite-mention-label {
+  color: #3f4a58;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
 @media (max-width: 760px) {
   .ec-canvas-suite-controls { flex-wrap: wrap; }
 }

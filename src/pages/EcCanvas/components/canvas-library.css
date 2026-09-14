@@ -70,6 +70,17 @@
   --cl-pad: 32px;
   --cl-gap-x: 24px;
   --cl-gap-y: 28px;
+  /* ── 悬停位移的安全余量（把位移空间做进容器，而不是砍掉悬停）──────────
+     悬停档位：translateY(--cl-lift-y) + scale(--cl-lift-scale)
+     位移需求（见 .canvas-library-grid 注释的推导）：
+       上边 = 8 + 4.8 + 3.6 ≈ 16.4 → 16px
+       左右 = 4.8 → 8px（宁可略宽，避免小尺寸下卡到像素）
+       下边 = 16px
+     余量 ≥ 1.5× 上移量（8）＝ 12px，16px 满足。 */
+  --cl-lift-y: 8px;
+  --cl-lift-scale: 1.03;
+  --cl-lift-safe-top: 16px;
+  --cl-lift-safe-x: 8px;
 }
 .canvas-library.is-page { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 
@@ -98,7 +109,9 @@
 
 /* ── 筛选栏：同样的容器式子 + 4pt 刻度（上 24 / 下 20）──────────────────── */
 .canvas-library-tabs { position: sticky; top: 96px; z-index: 2; display: flex; gap: 8px; padding: 20px 28px 10px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
-.canvas-library.is-page .canvas-library-tabs { padding: 24px max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 20px; }
+/* 下内边距 20 → 4：为栅格的悬停安全区让出 16px，保证第一行卡片与筛选栏的**视觉**间距
+   与 9-16 定稿一致（栅格多出来的 16px 是看不见的安全区，不是新的留白）。 */
+.canvas-library.is-page .canvas-library-tabs { padding: 24px max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 4px; }
 /* 基础规则的 tabs 是弹窗形态的默认值，保留原档位（整页形态用上面那条覆盖） */
 .canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 17px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .18s ease, color .18s ease, background .18s ease; }
 .canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
@@ -111,14 +124,53 @@
    ② 标题/时间/按钮都是**遮罩**形式叠在图上，**不占用容器空间**；
    ③ 只有鼠标悬停时出现四个操作按钮，也是遮罩形式；
    ④ 按钮/文字要够大够清楚；⑤ 关闭按钮要明显。 */
-/* ── 栅格：吃满容器宽度 ──────────────────────────────────────────────────
-   内边距交给容器式子（与头部同款），栅格自身 padding 归零 → 第一列左缘
-   与标题左缘对齐、最后一列右缘与容器右缘对齐，不再有「半格空档」。 */
+/* ── 栅格：吃满容器宽度 + 为 hover 位移**预留空间** ──────────────────────
+   9-16 用户批注：「我鼠标放上去，为什么上面会被截断呢？」——根因是本容器
+   既是滚动容器（overflow-y:auto）又没给悬停位移留空间：
+   卡片 hover 会上移 translateY(-8px) 且放大 scale(1.03)（312×232 → 321.4×238.9，
+   即四边各外扩约 4.7px，合计上探 8+4.7 ≈ 12.7px），而 padding-top 是 0 →
+   第一行的上探部分被容器裁掉（圆角顶边被切平），并顶到上方筛选栏。
+
+   修法：把位移空间**做进容器的 padding**，而不是砍掉悬停效果。
+   位移量 = 上移 --cl-lift-y(8) + 放大外扩 = (W-1)·(scale-1)/2 + (H-1)·(scale-1)/2。
+   对最大卡片尺寸（320×242，见 --cl-card-max-*）：
+     放大外扩 = 319×.015 + 241×.015 ≈ 4.8 + 3.6 = 8.4
+     需求上边 = 8 + 8.4 ≈ 16.4  → 取 --cl-lift-safe-top = 16px（≥ 1.5× 上移量的下限）
+   左右：放大外扩 4.8px → 各留 8px（--cl-lift-safe-x）—— 9-17 实测第一列/末列
+   原来左右各溢出 5px（overflowLeft/Right = 5），就是这一项没留。
+   下方：同样留 16px，末行放大后不再压到容器下缘。
+
+   ⚠️ 左右内边距**不能**再写进上面那条「内容居中」的式子（那是 9-16 的居中契约），
+   否则第一列左缘会与标题左缘错开 8px。做法：容器式子给的左右内边距保持不变，
+   **栅格整体向两侧各外扩 8px、再用等量 padding 补回**，于是
+   「内容左右边界」不变，而可绘区（padding box）向外多出 8px 容纳放大。
+   竖直方向同理：向上外扩 16px，用 padding-top 补回，内容 y 不变。 */
+/* ⚠️ 为什么不能只靠 padding：overflow:auto 的裁剪矩形是**padding box**，而内容也正是从
+   padding box 的边开始 —— 也就是说 padding 只会把裁剪边界和内容一起下移，两者永远重合，
+   首行上方依然没有可绘空间（实测 padding-top:16 后 pbTop 与内容顶同为 194，上探 11px 照样被裁）。
+   真正能留出空间的是**内容流本身**：在首行之前插入一条真实占位（::before 生成一个
+   跨列的空行），首行与裁剪边界因此一起下移，而上探位移落在这段占位里 —— 这才是「预留」。
+   左右同理：靠 padding 加宽 padding box（横向 padding 确实能扩宽裁剪矩形，因为内容宽度
+   由 1fr 列宽决定，不随 padding 变化）。 */
 .canvas-library.is-page .canvas-library-grid {
-  padding: 0 max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) 56px;
+  /* 左右各再留 --cl-lift-safe-x：overflow 的裁剪矩形是 **padding box**
+     （= 边框盒去掉边框，**包含 padding 区**），所以加在 padding 上的这 8px
+     就是货真价实的可绘空间，放大后的卡片不会顶到裁剪边界。 */
+  /* 左右：容器式子给出「内容居中的边距」，再**加上**左右安全区（安全区是可绘空间，
+     不属于内容 → 视觉上第一列左缘与标题左缘仍然对齐）。
+     写法保持 `padding: <top> max(...)` 的形状，便于既有契约测试稳定解析。 */
+  padding: 0 calc(max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) + var(--cl-lift-safe-x)) var(--cl-lift-safe-top);
   grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
   grid-auto-rows: min-content; align-content: start;
   column-gap: var(--cl-gap-x); row-gap: var(--cl-gap-y);
+}
+/* 悬停安全区（首行上方）：一条跨列占位空行，高度 = 悬停上探量。
+   它不是留白装饰，而是让首行卡片的 hover 位移有地方可去；上方的 gap 会把它
+   吸收掉（栅格下移 16px 由 .canvas-library-tabs 的下内边距同步减 16px 抵消）。 */
+.canvas-library.is-page .canvas-library-grid::before {
+  content: ''; grid-column: 1 / -1; display: block;
+  height: calc(var(--cl-lift-safe-top) - var(--cl-gap-y));
+  margin-bottom: calc(-1 * (var(--cl-lift-safe-top) - var(--cl-gap-y)));
 }
 /* ① 方形容器 + ③ 默认无内边距（信息以遮罩浮在上面） */
 .canvas-library.is-page .canvas-library-card { display: block; padding: 0; gap: 0; border-radius: 16px; overflow: hidden; background: #f2efe9; }

@@ -770,11 +770,28 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
      套图方案(SizingPanel) / SKU变体 / 商品信息(ParamsPanel) / 内容规范(CopyPanel) / 生成设置(GenSettingsPanel，
      内含生图模型·清晰度·负面提示词=避免出现的元素)。 */
 const SUITE_PANEL_BUTTONS = Object.freeze([
+  { key: 'settings', label: '生成设置', icon: SlidersHorizontal },
   { key: 'sizing', label: '套图方案', icon: Grid2X2 },
   { key: 'sku', label: 'SKU变体', icon: Layers3 },
   { key: 'params', label: '商品信息', icon: Info },
   { key: 'copy', label: '内容规范', icon: FileText },
-  { key: 'settings', label: '生成设置', icon: SlidersHorizontal },
+]);
+
+/* 参数行（.ec-canvas-suite-controls，画布上的**独立一行**）只收短文案四字按钮。
+   顺序严格照抄首页 src/pages/Home/EcMode.jsx 的 DEFAULT_BUTTONS：
+     生成设置 → 套图方案 → SKU变体 → 技能库 → 商品信息 → 内容规范
+   其中「技能库」由 CanvasSkillControl 在组件里插在对应位置，不在此数组内。
+   实测（1440 视口）：行内容盒 = 434 - 2×18 = 398px，
+   六个格子（@ 24 + 生成设置 116 + 套图方案 73 + SKU变体 74 + 技能 54 + 商品信息 73 + 内容规范 64）
+   与 6 个 6px 间距合计 448px > 398px —— 「内容规范」会被整行裁掉（用户口径不接受）。
+   所以「生成设置」（唯一的长文案格：GPT Image 2·2K，116px）移到底栏，
+   参数行只留 5 个短格：24 + 73 + 74 + 54 + 73 + 64 = 362，+5 个 6px 间距 = 392 ≤ 398 ✓
+   并且**没有任何一格需要被裁**（短文案全部完整显示）。 */
+const SUITE_PARAM_BUTTONS = Object.freeze([
+  { key: 'sizing', label: '套图方案', icon: Grid2X2 },
+  { key: 'sku', label: 'SKU变体', icon: Layers3 },
+  { key: 'params', label: '商品信息', icon: Info },
+  { key: 'copy', label: '内容规范', icon: FileText },
 ]);
 
 function suiteConfiguration(node = {}) {
@@ -798,7 +815,7 @@ function suiteConfiguration(node = {}) {
   };
 }
 
-function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChange }) {
+function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChange, availableSources = [], mentionSources = [], onToggleSource, promptFieldRef = null, onOpenSkillLibrary = null }) {
   const rootRef = useRef(null);
   const configuration = suiteConfiguration(node);
   const adjustedPanels = deriveEffectiveSmartOverrides(configuration);
@@ -827,7 +844,34 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     return `${imageModelLabel(configuration.genSettings?.imageModel)}·${configuration.genSettings?.resolution || '2K'}`;
   };
   return <div className="ec-canvas-suite-controls" role="group" aria-label="套图参数" ref={rootRef}>
-    {SUITE_PANEL_BUTTONS.map(item => <div className="ec-canvas-suite-control" key={item.key}>
+    {/* 2026-09-17 用户批注：@ 键「做到最前面去，做到那个智能…的前面」——
+        与首页一致（首页 @ 引用也在参数行首位），规格与视频框同一套 ComposerMention。 */}
+    <div className="ec-canvas-suite-control ec-canvas-suite-mention" key="mention">
+      <ComposerMention
+        availableSources={availableSources}
+        selectedSources={mentionSources}
+        activeSurface={activeSurface}
+        onSurfaceChange={onSurfaceChange}
+        onToggleSource={(sourceImage, options = {}) => {
+          const hasProductSource = sources.some(source => (node.sourceRoles?.[source.id] || source.role) === 'product');
+          const role = hasProductSource ? 'reference' : 'product';
+          const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+          /* 来自 @ 菜单：只插入提及（未选中则顺带选中），绝不在菜单里取消选中 */
+          if (options.fromMention === true) {
+            if (!selected) onToggleSource?.(sourceImage, role, { skipPromptInsert: true });
+            promptFieldRef.current?.insertMention(sourceImage.label);
+            return;
+          }
+          onToggleSource?.(sourceImage, role, { skipPromptInsert: true });
+          if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
+        }}
+      />
+      <span className="ec-canvas-suite-mention-label">引用</span>
+    </div>
+    {/* 参数行只放**短文案**四字按钮（首页同序）：套图方案 → SKU变体 → 技能 → 商品信息 → 内容规范。
+        「生成设置」不在这里 —— 它是「模型·清晰度」，是长文案、允许被裁的那一格，
+        与图片框的模型按钮同级，位置在**底栏**（与 @ / 技能 / 生成 同一行）。 */}
+    {SUITE_PARAM_BUTTONS.slice(0, 2).map(item => <div className="ec-canvas-suite-control" key={item.key}>
       <button
         ref={activePanel === item.key ? suiteAnchorRef : undefined}
         type="button"
@@ -859,6 +903,48 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
         {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
       </CanvasPopoverPortal>
     </div>)}
+    {/* 技能：位置与首页一致（Home/EcMode.jsx DEFAULT_BUTTONS 第 4 位 = skills）—— 不再丢到最下面 */}
+    <div className="ec-canvas-suite-control ec-canvas-suite-skill-control" key="skill">
+      <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" />
+    </div>
+    {/* 商品信息 → 内容规范（首页 DEFAULT_BUTTONS 的第 5、6 位）：两格都要渲染，
+        之前写死 slice(3, 4) 只出「商品信息」，「内容规范」整个丢了。 */}
+    {SUITE_PARAM_BUTTONS.slice(2).map(item => <div className="ec-canvas-suite-control" key={item.key}>
+      <button
+        ref={activePanel === item.key ? suiteAnchorRef : undefined}
+        type="button"
+        data-canvas-control="true"
+        className={`${activePanel === item.key ? 'is-active' : ''}${adjustedPanels[item.key] ? ' is-adjusted' : ''}`}
+        aria-expanded={activePanel === item.key}
+        aria-haspopup="dialog"
+        onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
+      ><item.icon size={14} /><span>{summary(item.key)}</span>{adjustedPanels[item.key] && <small>已调整</small>}<ChevronDown size={12} /></button>
+    </div>)}
+  </div>;
+}
+
+/* 「生成设置」独立成格：模型 · 清晰度（长文案，允许被右缘纯裁切）。
+   它与 CanvasSuiteControls 共用同一套 popover 锚点机制与 GenSettingsPanel，
+   但渲染在**底栏**（与 @ 引用 / 技能 / 生成按钮同一行），
+   这样参数行只剩五个短文案格，四个字全部完整显示。 */
+function CanvasSuiteSettingsControl({ node, onChange, activeSurface = '', onSurfaceChange }) {
+  const configuration = suiteConfiguration(node);
+  const activePanel = activeSurface.startsWith('suite:') ? activeSurface.slice('suite:'.length) : '';
+  const [anchorRef, anchor] = useCanvasPopoverAnchor(activePanel === 'settings' ? 'settings' : '');
+  const label = `${imageModelLabel(configuration.genSettings?.imageModel)}·${configuration.genSettings?.resolution || '2K'}`;
+  return <div className="ec-canvas-suite-settings-control">
+    <button
+      ref={activePanel === 'settings' ? anchorRef : undefined}
+      type="button"
+      data-canvas-control="true"
+      className={activePanel === 'settings' ? 'is-active' : ''}
+      aria-expanded={activePanel === 'settings'}
+      aria-haspopup="dialog"
+      onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'suite:settings'))}
+    ><SlidersHorizontal size={14} /><span>{label}</span><ChevronDown size={12} /></button>
+    <CanvasPopoverPortal open={activePanel === 'settings'} anchor={anchor} className="ec-canvas-suite-panel-popover" label="生成设置">
+      <GenSettingsPanel value={configuration.genSettings} onChange={value => onChange?.({ resolution: value.resolution || node.resolution, configuration: { ...configuration, genSettings: value } })} />
+    </CanvasPopoverPortal>
   </div>;
 }
 
@@ -1143,16 +1229,20 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
   const isLocalEdit = node.actionId === 'inpaint';
   /* 9-13 用户批注：生成按钮上必须像首页一样直接显示动态积分（换模型/清晰度/张数实时变） */
   const estimate = estimateImageComposerPoints({ imageModel: node.imageModel, resolution: node.resolution, count: node.count });
-  const handleToggleSource = (sourceImage, options = {}) => {
-    const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+  /* 角色口径：@ 引用进来的素材，若画布里**已经有产品图**就当参考图用，
+     否则第一张就是产品图本身（与首页"产品图 / 参考图"两个坑位同义）。 */
+  const hasProductSource = sources.some(source => (node.sourceRoles?.[source.id] || source.role) === 'product');
+  const handleToggleSource = (source, options = {}) => {
+    const role = hasProductSource ? 'reference' : 'product';
+    const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (source.sourceNodeId || source.id));
     /* 来自 @ 菜单：只插入提及（未选中则顺带选中），绝不在菜单里取消选中 */
     if (options.fromMention === true) {
-      if (!selected) onToggleSource?.(sourceImage, { skipPromptInsert: true });
-      promptFieldRef.current?.insertMention(sourceImage.label);
+      if (!selected) onToggleSource?.(source, role, { skipPromptInsert: true });
+      promptFieldRef.current?.insertMention(source.label);
       return;
     }
-    onToggleSource?.(sourceImage, { skipPromptInsert: true });
-    if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
+    onToggleSource?.(source, role, { skipPromptInsert: true });
+    if (!selected) promptFieldRef.current?.insertMention(source.label);
   };
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-image-composer" style={position} aria-label={isLocalEdit ? '局部改图操作台' : '图片生成操作台'} onPointerDown={event => event.stopPropagation()}>
       {isLocalEdit && <ComposerPreview node={node} source={source} label="局部改图" selection={node.selection} onSelectionChange={selection => onChange?.({ selection })} />}
@@ -1374,32 +1464,30 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
         套图的参数行（套图方案/SKU/商品信息/内容规范/生成设置）就是这一步的「参数」，
         放在底栏之上单独一行（它需要整行宽度，挤进底栏会把技能和生成按钮压变形）；
         底栏保持 @ → 技能 → 生成 的同一位置。 */}
-    <CanvasSuiteControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
+    <CanvasSuiteControls
+      node={node}
+      onChange={onChange}
+      activeSurface={activeSurface}
+      onSurfaceChange={onSurfaceChange}
+      availableSources={availableSources}
+      mentionSources={mentionSources}
+      onToggleSource={onToggleSource}
+      promptFieldRef={promptFieldRef}
+      onOpenSkillLibrary={onOpenSkillLibrary}
+    />
     <div className="ec-canvas-composer-footer">
-      <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={(source, options = {}) => {
-        const sourceId = source.sourceNodeId || source.id;
-        const hasProductSource = sources.some(item => (node.sourceRoles?.[item.sourceNodeId || item.id] || item.role) === 'product');
-        const role = node.sourceRoles?.[sourceId] || (source.role === 'product' ? 'product' : '') || (hasProductSource ? 'reference' : 'product');
-        const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === sourceId);
-        /* @ 菜单：只插入提及（未选中则顺带选中），不在菜单里取消选中 */
-        if (options.fromMention === true) {
-          if (!selected) onToggleSource?.(source, role, { skipPromptInsert: true });
-          promptFieldRef.current?.insertMention(source.label);
-          return;
-        }
-        onToggleSource?.(source, role, { skipPromptInsert: true });
-        if (!selected) promptFieldRef.current?.insertMention(source.label);
-      }} />
       {node.error ? <div className="ec-canvas-composer-error" role="alert">
         <span>{node.error}</span>
         <button type="button" data-canvas-control="true" disabled={loading} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>重新生成</button>
       </div> : <>
-        <div className="ec-canvas-parameter-controls ec-canvas-suite-skill"><CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" /></div>
         <span>{planning
           ? (planConfirmed
             ? `方案已确认 · 共 ${suiteEstimate.count} 张`
             : `方案待确认 · 共 ${suiteEstimate.count} 张`)
           : '先分析商品与参考图，再进入整体设计方案'}</span>
+        {/* 生成设置（= 模型 · 清晰度）排在底栏：它是长文案格、允许被右缘纯裁切，
+            与图片框的模型按钮同级；@ 引用 / 技能 / 生成按钮之间的那一格（order: 1）。 */}
+        <CanvasSuiteSettingsControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
         {/* 提示语纪律：短、说结果不说机制。方案待确认时按钮禁用并直接说「请先确认方案」。 */}
         {planning && !planConfirmed && <span className="ec-canvas-suite-plan-gate" role="status">请先确认方案</span>}
         <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady) || (planning && !planConfirmed)} title={planning && !planConfirmed ? '请先确认方案' : undefined} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}<span className="shubao-gen-cta-points">{formatCanvasPoints(suitePoints)} 积分</span></>}</button>
