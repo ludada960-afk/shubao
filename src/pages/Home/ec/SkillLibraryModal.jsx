@@ -337,11 +337,16 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
               <ShieldCheck size={13} /> 技能只作用于风格与表达，不会覆盖商品事实、平台规则与计费；含"忽略以上规则"一类内容会被拒绝。
             </p>
 
-            <div className="skill-editor-actions">
-              {editing && <button type="button" className="skill-mini-btn" onClick={() => setDraft(EMPTY_DRAFT)}>取消编辑</button>}
-              <button type="button" className="skill-save-btn" onClick={handleSave} disabled={!canSave || saving}>
-                {saving ? <><Loader2 size={14} className="skill-spin" /> 保存中…</> : <><Plus size={14} /> {editing ? '保存修改' : '创建技能'}</>}
-              </button>
+            {/* 9-18（P0）「值对了，覆盖面没到」——原先只是把 token 名抄进自写规则，
+                没有挂契约类。现改用 .ui-modal-footer-actions / .ui-btn，
+                按钮高度/最小宽/圆角/主次/禁用态全部由契约提供。 */}
+            <div className="ui-modal-footer skill-editor-actions">
+              <div className="ui-modal-footer-actions">
+                {editing && <button type="button" className="ui-btn ui-btn-secondary" onClick={() => setDraft(EMPTY_DRAFT)}>取消编辑</button>}
+                <button type="button" className="ui-btn ui-btn-primary" onClick={handleSave} disabled={!canSave || saving}>
+                  {saving ? <><Loader2 size={14} className="skill-spin" /> 保存中…</> : <><Plus size={14} /> {editing ? '保存修改' : '创建技能'}</>}
+                </button>
+              </div>
             </div>
           </section>
         </div>

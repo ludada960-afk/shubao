@@ -44,7 +44,8 @@ test('打勾圆圈 = 真正可点的多选按钮（onClick + stopPropagation，�
   assert.ok(modal.includes('aria-pressed={isSelected}'), '圆圈带选中态 aria');
   assert.ok(modal.includes('event.stopPropagation(); toggle(item);'), '圆圈点击 stopPropagation + 只切选中');
   assert.ok(modal.includes('取消选中 '), '圆圈有取消选中语义');
-  assert.ok(modal.includes('选中后可一次加入画布'), '圆圈 tooltip 用途提示');
+  /* 9-16 文案收短后，圆圈 tooltip 只描述动作（不再出现交互机制说明）——见本文件下方同名断言。 */
+assert.ok(!modal.includes('选中后可一次加入画布'), '圆圈 tooltip 不再含机制说明');
   const m = css.match(/\.canvas-asset-picker-check \{([^}]*)\}/);
   assert.ok(m, '打勾圆圈样式存在');
   assert.ok(m[1].includes('cursor: pointer'), '圆圈可点');

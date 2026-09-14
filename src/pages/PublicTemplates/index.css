@@ -202,19 +202,10 @@
 .tpl-modal-info dd { margin: 0; color: var(--sb-ink-1); }
 .tpl-modal-stats { display: flex; gap: var(--sb-space-4); font-size: var(--sb-text-sm); color: var(--sb-ink-3); }
 .tpl-modal-stats span { display: inline-flex; align-items: center; gap: var(--sb-space-1); }
+/* 9-18（P0）本处原先自写 .tpl-modal-clone（高度/圆角/配色/禁用态/焦点态一整套）。
+   现改挂契约类 .ui-modal-footer / .ui-modal-footer-actions / .ui-btn，故自写规则**删除**。
+   仅保留「推到底部」这一条布局语义：详情字段撑高后按钮组必须贴底。 */
 .tpl-modal-actions { margin-top: auto; }
-.tpl-modal-clone {
-  width: 100%;
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--sb-space-2);
-  height: var(--sb-control-h-xl); padding: 0 var(--sb-space-5); border: 0; border-radius: var(--sb-radius-lg);
-  background: var(--sb-brand-600); color: var(--sb-ink-on-dark);
-  font-size: var(--sb-text-md); font-weight: var(--sb-weight-semibold); cursor: pointer;
-  transition: background var(--sb-dur-fast, .15s) ease;
-}
-/* D1：主 CTA 用品牌紫（原来是页面自定义的橙色 --brand-primary）。
-   D10/D11：禁用态用明确配色 + 焦点态。 */
-.tpl-modal-clone:disabled { background: var(--sb-state-disabled-bg); color: var(--sb-state-disabled-ink); cursor: not-allowed; }
-.tpl-modal-clone:hover:not(:disabled) { background: var(--sb-brand-700); }
 .tpl-modal-clone:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
 .tpl-toast {

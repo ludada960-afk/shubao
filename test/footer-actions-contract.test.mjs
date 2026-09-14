@@ -138,34 +138,27 @@ test('④ ProjectAssetPicker：底部操作区走统一规范类', () => {
   assert.ok(src.includes('ui-btn ui-btn-secondary') && src.includes('ui-btn ui-btn-primary'), '主次按钮用统一类');
 });
 
-test('④ canvas-asset-picker：footer 显式 12px 间距 + 按钮吃统一 token', () => {
+test('④ canvas-asset-picker：已改挂契约类，且不再自写 footer 规则（9-18 覆盖面补齐）', () => {
+  const jsx = read('src/pages/EcCanvas/components/CanvasAssetPickerModal.jsx');
+  assert.ok(jsx.includes('className="ui-modal-footer"'), '容器挂契约类');
+  assert.ok(jsx.includes('ui-modal-footer-actions'), '操作区行挂契约类');
+  assert.ok(jsx.includes('ui-btn ui-btn-secondary') && jsx.includes('ui-btn ui-btn-primary'), '主次按钮挂契约类');
+  /* 关键回归：原先「抄了 token 名但仍自写整套规则」的 7 条 CSS 必须已删除，不留双份真相。 */
   const css = read('src/pages/EcCanvas/components/canvas-asset-picker.css');
-  const footer = css.match(/\.canvas-asset-picker footer \{([^}]*)\}/);
-  assert.ok(footer, 'footer 规则存在');
-  assert.ok(footer[1].includes('gap: var(--footer-actions-gap)'), '按钮间距吃规范（原来内层无 gap 声明）');
-  assert.ok(footer[1].includes('padding: 16px 22px var(--footer-actions-padding-block)'), '底内边距吃规范 20px');
-  const inner = css.match(/\.canvas-asset-picker footer > div \{([^}]*)\}/);
-  assert.ok(inner && inner[1].includes('gap: var(--footer-actions-gap)'), '内层按钮组显式 12px');
-  const btn = css.match(/\.canvas-asset-picker footer button \{([^}]*)\}/);
-  assert.ok(btn[1].includes('height: var(--footer-actions-button-height)'), '按钮高度吃规范');
-  assert.ok(btn[1].includes('min-width: var(--footer-actions-button-min-width)'), '最小宽度吃规范');
-  assert.ok(btn[1].includes('border-radius: var(--footer-actions-radius)'), '圆角吃规范');
+  assert.ok(!/\.canvas-asset-picker footer \{/.test(css), '不得再自写 .canvas-asset-picker footer 规则');
+  assert.ok(!/\.canvas-asset-picker footer button \{/.test(css), '不得再自写按钮外观');
+  assert.ok(!/linear-gradient\(135deg, #7454f3, #d14db5\)/.test(css), '主按钮双色渐变已退役');
 });
 
-test('④ 技能库 editor-actions：主次等重 + 间距/留白对齐规范', () => {
+test('④ 技能库 editor-actions：已改挂契约类，不再自写按钮外观（9-18 覆盖面补齐）', () => {
+  const jsx = read('src/pages/Home/ec/SkillLibraryModal.jsx');
+  assert.ok(jsx.includes('ui-modal-footer'), '挂契约容器类');
+  assert.ok(jsx.includes('ui-modal-footer-actions'), '挂契约操作区类');
+  assert.ok(/ui-btn ui-btn-secondary[^>]*>取消编辑/.test(jsx) || jsx.includes('ui-btn ui-btn-secondary'), '次按钮挂契约类');
+  assert.ok(jsx.includes('ui-btn ui-btn-primary'), '主按钮挂契约类');
   const css = read('src/pages/Home/ec/skill-library.css');
-  /* 注意：文件里还有 ".skill-column.is-editor .skill-editor-actions { flex: none; }" 这种组合选择器，
-     必须锚定行首的裸 .skill-editor-actions，否则匹配到的是它。 */
-  const actions = css.match(/^\.skill-editor-actions \{([^}]*)\}/m);
-  assert.ok(actions, '.skill-editor-actions 基础规则存在');
-  assert.ok(actions[1].includes('gap: var(--footer-actions-gap)'), '按钮间距 12px（原 8px）');
-  assert.ok(actions[1].includes('margin-top: var(--footer-actions-margin-top)'), '上间距 16px（原 4px）');
-  // 主次等重：两个按钮同吃统一高度/最小宽/圆角
-  const both = css.match(/\.skill-editor-actions \.skill-save-btn,\s*\n\.skill-editor-actions \.skill-mini-btn \{([^}]*)\}/);
-  assert.ok(both, '主次按钮共用一条等重规则（原来一个 9/16 padding、一个 5/9，实测差 8px）');
-  assert.ok(both[1].includes('height: var(--footer-actions-button-height)'), '同高');
-  assert.ok(both[1].includes('min-width: var(--footer-actions-button-min-width)'), '同最小宽');
-  assert.ok(both[1].includes('border-radius: var(--footer-actions-radius)'), '同圆角');
+  assert.ok(!/\.skill-editor-actions \.skill-save-btn,[\s\S]{0,80}\.skill-mini-btn \{/.test(css), '不再自写主次等重规则');
+  assert.ok(!/gap: var\(--footer-actions-gap\)/.test(css.split('.skill-editor-actions')[1] || ''), '不再自写 gap（改由契约提供）');
 });
 
 test('④ DialogProvider 二次确认：启用统一底栏 + 禁用态有明确表达', () => {
@@ -179,13 +172,14 @@ test('④ DialogProvider 二次确认：启用统一底栏 + 禁用态有明确�
   assert.ok(tokens.includes('.ui-btn-primary.is-dark:not(:disabled)'), '近黑变体用 :not(:disabled) 排除禁用态（避免权重覆盖掉禁用样式）');
 });
 
-test('④ video-plan-footer：间距 12px + 按钮 40px 档 + 最小宽/圆角统一', () => {
+test('④ video-plan-footer：已改挂契约类（is-lg 档），主按钮不再是双色渐变', () => {
+  const jsx = read('src/pages/VideoStudio/index.jsx');
+  assert.ok(/className="ui-modal-footer is-lg video-plan-footer"/.test(jsx), '挂契约容器类 + is-lg 档');
+  assert.ok(jsx.includes('ui-modal-footer-actions'), '挂契约操作区类');
+  assert.ok(jsx.includes('ui-btn ui-btn-primary'), '主按钮挂契约类');
   const css = read('src/pages/VideoStudio/VideoStudio.css');
-  const footer = css.match(/\.video-plan-footer > div \{([^}]*)\}/);
-  assert.ok(footer && footer[1].includes('gap: var(--footer-actions-gap)'), '按钮间距 12px（原 8px）');
-  const btn = css.match(/\.video-plan-footer button \{([^}]*)\}/);
-  assert.ok(btn[1].includes('height: var(--footer-actions-button-height-lg)'), '按钮走 40px 档（原来 38px 游离值）');
-  assert.ok(btn[1].includes('min-width: var(--footer-actions-button-min-width)'), '最小宽度吃规范');
+  assert.ok(!/\.video-plan-primary \{/.test(css), '自写主按钮规则已删除');
+  assert.ok(!/linear-gradient\(135deg,#7454f3,#d14db5\)/.test(css), '双色渐变主按钮已退役（视觉重量失衡根因）');
 });
 
 test('④ dw-editor-actions：补上原本缺失的 gap，且禁用态有 cursor', () => {
@@ -197,13 +191,11 @@ test('④ dw-editor-actions：补上原本缺失的 gap，且禁用态有 cursor
   assert.ok(disabled[1].includes('cursor:not-allowed'), '禁用态补 cursor（原来只有 opacity）');
 });
 
-test('④ VPW 导出区：间距 12px + 右对齐 + 禁用态有明确底色', () => {
-  const css = read('src/pages/VideoStudio/VideoProjectWorkbench.css');
-  const actions = css.match(/\.video-project-export-actions \{([^}]*)\}/);
-  assert.ok(actions[1].includes('gap: var(--footer-actions-gap)'), '按钮间距 12px（原 10px）');
-  assert.ok(actions[1].includes('justify-content: flex-end'), '补上右对齐（原来全部左对齐）');
-  const disabled = css.match(/\.video-project-export-actions button:disabled \{([^}]*)\}/);
-  assert.ok(disabled[1].includes('var(--footer-actions-primary-disabled-bg)'), '禁用态改明确底色（原来只 opacity）');
+/* VPW 导出区本轮**未迁移**：其 JSX 与 CSS 开工时即为 dirty（他人正在改），按批次硬约束跳过。
+   记录事实即可，不做会误伤同事改动的强断言。 */
+test('④ VPW 导出区：确认仍存在于 JSX（本轮因 dirty 跳过，未强改）', () => {
+  const jsx = read('src/pages/VideoStudio/VideoProjectWorkbench.jsx');
+  assert.ok(jsx.includes('video-project-export-actions'), '导出操作区仍在（未被本轮误删）');
 });
 
 test('④ EcCanvas 导出/方向保存弹窗：底部操作区走统一规范类', () => {
@@ -212,4 +204,65 @@ test('④ EcCanvas 导出/方向保存弹窗：底部操作区走统一规范类
   assert.ok(footerCount >= 2, '导出弹窗与方向保存弹窗都应挂统一底栏类，实际 ' + footerCount + ' 处');
   const tokens = read('src/styles/design-tokens.css');
   assert.ok(tokens.includes('.ui-btn-primary.is-export:not(:disabled)'), '导出主按钮保留绿色语义（且不覆盖禁用态）');
+});
+/* ═══════════════════════════════════════════════════════════════════════════
+   9-18 追加（P0）：设计组实测「全站早有 footer 契约，但只有 5 个文件用契约类、
+   9 个仍在自写 footer，残留 gap 有 8 种」→ 本轮把覆盖面补齐。
+   下面锁两件事：① 每个真正的底部操作区都挂了契约类；② 契约的主按钮是**实底纯色**（非渐变）。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 全站「弹窗/抽屉底部操作区」清单（容器是弹窗最后一块 + 提供取消/确认成对动作）。
+   注意：视频工作台的 VideoProjectWorkbench / Modals 因**开工时即为 dirty**（他人正在改）
+   被本批跳过，不在断言列表内；它们列入下方 TODO 注释，待其落地后补。 */
+const FOOTER_HOSTS = [
+  ['src/pages/EcCanvas/components/CanvasAssetPickerModal.jsx', '资源选择弹窗'],
+  ['src/pages/VideoStudio/index.jsx', '视频方案弹窗'],
+  ['src/pages/Home/ec/SkillLibraryModal.jsx', '技能库编辑器'],
+  ['src/pages/PublicTemplates/index.jsx', '模板详情弹窗'],
+  ['src/pages/Home/ContentResultWorkspace.jsx', '内容结果工作台'],
+  ['src/pages/EcCanvas/components/CanvasStudio.jsx', '画布方案/方向/生成器'],
+  ['src/pages/EcCanvas/index.jsx', '导出 + 方向保存弹窗'],
+  ['src/components/ui/DialogProvider.jsx', '全局二次确认'],
+  ['src/components/ProjectAssetPicker.jsx', '资产库选择（通用）'],
+  ['src/pages/Plog/index.jsx', 'Plog 结果操作'],
+];
+
+test('9-18① 每个底部操作区都必须挂契约类（不得再自写 footer）', () => {
+  const missing = FOOTER_HOSTS.filter(([f]) => {
+    const src = read(f);
+    return !(src.includes('ui-modal-footer') && src.includes('ui-btn'));
+  }).map(([f, label]) => label + ' (' + f + ')');
+  assert.deepEqual(missing, [], '以下底部操作区仍未接契约类：' + missing.join(' | '));
+});
+
+test('9-18② 契约主按钮必须是实底纯色，不得是双色渐变（视觉重量失衡的根因）', () => {
+  const tokens = read('src/styles/design-tokens.css');
+  const bg = tokens.match(/--footer-actions-primary-bg:\s*([^;]+);/);
+  assert.ok(bg, '--footer-actions-primary-bg 存在');
+  assert.ok(!/gradient/i.test(bg[1]), '主按钮底色不得为渐变，实际 ' + bg[1].trim());
+  assert.ok(/var\(--sb-brand-600\)/.test(bg[1]), '主按钮底色应引用品牌紫 token，实际 ' + bg[1].trim());
+  const primary = tokens.match(/\.ui-btn-primary \{([^}]*)\}/);
+  assert.ok(!/gradient/i.test(primary[1]), '.ui-btn-primary 不得引入渐变');
+});
+
+test('9-18③ 主次按钮视觉等重：同高 / 同最小宽 / 同圆角（圆角不削弱感知间隙）', () => {
+  const tokens = read('src/styles/design-tokens.css');
+  const uiBtn = tokens.match(/\.ui-btn \{([^}]*)\}/)[1];
+  assert.ok(uiBtn.includes('border-radius: var(--footer-actions-radius)'), '主次共用同一圆角 token');
+  assert.ok(uiBtn.includes('min-width: var(--footer-actions-button-min-width)'), '主次共用同一最小宽 token');
+  assert.ok(uiBtn.includes('height: var(--footer-actions-button-height)'), '主次共用同一高度 token');
+  // 10px（--footer-actions-radius）必须存在且相等，不得主次分叉
+  assert.match(tokens, /--footer-actions-radius:\s*10px/, '契约圆角 = 10px');
+});
+
+test('9-18④ 迁移过的文件里不得残留自写的底部操作区 gap 魔法数字', () => {
+  const offenders = [];
+  for (const [f] of FOOTER_HOSTS) {
+    const src = read(f);
+    // 抓「className 含 ui-modal-footer 的那一行附近又出现 gap: 数字px」的写法
+    const re = /className="[^"]*ui-modal-footer[^"]*"[^>]*gap:\s*['"]?(\d+)px/g;
+    let m;
+    while ((m = re.exec(src))) offenders.push(f + ' gap:' + m[1] + 'px');
+  }
+  assert.deepEqual(offenders, [], '契约容器上不得再叠自写 gap：' + offenders.join(' | '));
 });

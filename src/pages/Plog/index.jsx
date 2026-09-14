@@ -673,24 +673,23 @@ export default function PlogPage() {
               setLightboxIdx(idx);
             })}
 
-            {/* 按钮 */}
-            {/* D11：补焦点态；D1/D6：主按钮品牌紫 + 圆角 8（控件档）。 */}
-            <div className="ui-modal-footer-actions" style={{ display: 'flex', gap: 'var(--sb-action-gap, var(--sb-space-3))', marginTop: 'var(--sb-space-4)' }}>
-              <button type="button" className="sb-focusable" onClick={() => {
-                allImages.forEach((item, i) => {
-                  const a = document.createElement('a');
-                  a.href = item.url;
-                  a.download = `plog-${String(i + 1).padStart(2, '0')}.jpg`;
-                  a.click();
-                });
-              }}
-                style={{ flex: 1, height: 'var(--sb-control-h-lg)', borderRadius: 'var(--sb-radius-md)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-card)', color: 'var(--sb-ink-2)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-medium, 500)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                💾 下载全部
-              </button>
-              <button type="button" className="sb-focusable" onClick={() => { setGenState('idle'); setResults(null); }}
-                style={{ flex: 1, height: 'var(--sb-control-h-lg)', borderRadius: 'var(--sb-radius-md)', border: 'none', background: 'var(--sb-brand-600)', color: 'var(--sb-ink-on-dark)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-medium, 500)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                重新生成
-              </button>
+            {/* 按钮 — 9-18（P0）改用契约类（原为自写 flex + 自写 gap + 自写按钮外观）。 */}
+            <div className="ui-modal-footer">
+              <div className="ui-modal-footer-actions" style={{ width: '100%' }}>
+                <button type="button" className="ui-btn ui-btn-secondary" style={{ flex: '1 1 auto' }} onClick={() => {
+                  allImages.forEach((item, i) => {
+                    const a = document.createElement('a');
+                    a.href = item.url;
+                    a.download = `plog-${String(i + 1).padStart(2, '0')}.jpg`;
+                    a.click();
+                  });
+                }}>
+                  💾 下载全部
+                </button>
+                <button type="button" className="ui-btn ui-btn-primary" style={{ flex: '1 1 auto' }} onClick={() => { setGenState('idle'); setResults(null); }}>
+                  重新生成
+                </button>
+              </div>
             </div>
           </div>
         )}

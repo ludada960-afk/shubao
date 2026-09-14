@@ -270,16 +270,11 @@
 .video-plan-notice > span { min-width: 0; display: grid; gap: 3px; }
 .video-plan-notice strong { color: #4a3f39; font-size: 11px; }
 .video-plan-notice small { color: #8e837b; font-size: 10px; line-height: 1.45; }
-/* 9-16 对齐全站底部操作区规范（--footer-actions-*）：
-   按钮间距 8 → 12px、按钮高度 38 → 40px（大弹窗档 --footer-actions-button-height-lg）、
-   最小宽 88px、圆角统一 10px；底内边距维持 20px。 */
-.video-plan-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--footer-actions-gap); padding: 16px 26px var(--footer-actions-padding-block); border-top: 1px solid rgba(68,55,43,.08); }
-.video-plan-footer > span { color: #8e857c; font-size: 10px; }
-.video-plan-footer > div { display: flex; align-items: center; gap: var(--footer-actions-gap); }
-.video-plan-footer button { height: var(--footer-actions-button-height-lg); min-width: var(--footer-actions-button-min-width); padding: 0 16px; box-sizing: border-box; border-radius: var(--footer-actions-radius); font: 800 11px/1 inherit; cursor: pointer; white-space: nowrap; justify-content: center; }
-.video-plan-secondary { border: 1px solid rgba(68,55,43,.12); background: #fff; color: #6f665d; }
-.video-plan-primary { display: inline-flex; align-items: center; gap: 6px; border: 0; background: linear-gradient(135deg,#7454f3,#d14db5); color: #fff; }
-.video-plan-primary:disabled { background: var(--footer-actions-primary-disabled-bg); color: var(--footer-actions-primary-disabled-text); cursor: not-allowed; }
+/* 9-18（P0）本处原先自写整套底部操作区（flex/gap/高度/最小宽/圆角/主次配色/禁用态/渐变主按钮）。
+   现已改挂契约类 .ui-modal-footer / .ui-modal-footer-actions / .ui-btn（JSX 侧），
+   故所有自写规则**删除**，不留双份真相；主按钮的**双色渐变**一并退役（D1 禁用于功能按钮）。
+   仅保留一处语义补充：费用说明的弱化样式走契约的 .ui-modal-footer-meta。 */
+.video-plan-footer .ui-modal-footer-meta { font-size: var(--sb-text-2xs, 10px); }
 
 .video-config-panel {
   position: fixed;

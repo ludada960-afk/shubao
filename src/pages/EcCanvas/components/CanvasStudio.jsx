@@ -954,7 +954,8 @@ function CanvasSuiteSettingsControl({ node, onChange, activeSurface = '', onSurf
 function CanvasSuitePlanEditor({ plan = {}, onChange, confirmed = false, onConfirm, onRegenerate, regenerating = false }) {
   return <div className="ec-canvas-suite-plan-editor">
     <EcommerceDesignPlanEditor direction={plan} prompt={plan.brief} onChange={onChange} />
-    <div className="ec-canvas-suite-plan-actions">
+    {/* 9-18（P0）改用契约类（原为自写 .ec-canvas-suite-plan-actions + 自写按钮外观）。 */}
+    <div className="ec-canvas-suite-plan-actions ui-modal-footer-actions">
       {/* 状态文案：短、说结果不说机制 */}
       <span className={`ec-canvas-suite-plan-state${confirmed ? ' is-confirmed' : ''}`} role="status">
         {confirmed ? '方案已确认' : '方案待确认'}
@@ -962,7 +963,7 @@ function CanvasSuitePlanEditor({ plan = {}, onChange, confirmed = false, onConfi
       {onRegenerate && <button
         type="button"
         data-canvas-control="true"
-        className="ec-canvas-suite-plan-secondary"
+        className="ui-btn ui-btn-secondary ec-canvas-suite-plan-secondary"
         disabled={regenerating}
         onClick={event => { event.stopPropagation(); onRegenerate(); }}
       >{regenerating ? '正在重新生成' : '重新生成方案'}</button>}
@@ -970,7 +971,7 @@ function CanvasSuitePlanEditor({ plan = {}, onChange, confirmed = false, onConfi
       {!confirmed && onConfirm && <button
         type="button"
         data-canvas-control="true"
-        className="shubao-gen-cta ec-canvas-suite-plan-confirm"
+        className="ui-btn ui-btn-primary ec-canvas-suite-plan-confirm"
         onClick={event => { event.stopPropagation(); onConfirm(); }}
       ><Check size={15} />确认方案</button>}
     </div>
@@ -1168,11 +1169,12 @@ export function CanvasDirectionNode({ node, selected = false, dimmed = false, on
         {directions.length > 3 && <span className="ec-canvas-direction-chip is-more">+{directions.length - 3}</span>}
       </div>}
       {node.error && <small className="is-error">{node.error}</small>}
-      <div className="ec-canvas-direction-actions">
-        {!hasPlan ? <button type="button" className="is-primary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onGenerate?.(); }}><WandSparkles size={13} />生成方案 · 1 积分</button>
+      {/* 9-18（P0）改用契约类（原为自写 .ec-canvas-direction-actions + 自写按钮外观）。 */}
+      <div className="ec-canvas-direction-actions ui-modal-footer-actions">
+        {!hasPlan ? <button type="button" className="ui-btn ui-btn-primary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onGenerate?.(); }}><WandSparkles size={13} />生成方案 · 1 积分</button>
           : <>
-            <button type="button" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onRefresh?.(); }}><RefreshCw size={13} />换一套 · 1 积分</button>
-            <button type="button" className="is-primary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onApply?.(); }}><ImagePlus size={13} />应用到画布</button>
+            <button type="button" className="ui-btn ui-btn-secondary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onRefresh?.(); }}><RefreshCw size={13} />换一套 · 1 积分</button>
+            <button type="button" className="ui-btn ui-btn-primary" data-canvas-control="true" disabled={busy} onClick={event => { event.stopPropagation(); onApply?.(); }}><ImagePlus size={13} />应用到画布</button>
           </>}
       </div>
     </div>
@@ -1265,6 +1267,10 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
       <div className="ec-canvas-composer-footer">
         <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
         <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
+        {/* 9-18（P0）说明：本行容器 .ec-canvas-composer-footer 是**复合工具条**（@ 引用 + 参数控件 + CTA），
+            不属于「弹窗底部操作区」，故其 CTA 保留画布侧既有契约类 shubao-gen-cta
+            （test/canvas-composer-points-and-skill-0913 要求四个生成框共用同一枚 CTA），
+            不强行改挂 .ui-btn，避免破坏既有画布契约。 */}
         <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
           {loading ? '生成中' : <><Sparkles size={15} />生成<span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span></>}
         </button>

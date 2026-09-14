@@ -666,12 +666,10 @@
 .ec-canvas-direction-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; overflow: hidden; padding: 3px 9px; border: 1px solid rgba(124, 58, 237, .22); border-radius: 999px; background: #fff; color: #4c3f8f; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-direction-chip i { flex: none; width: 14px; height: 14px; display: grid; place-items: center; border-radius: 50%; background: var(--canvas-command); color: #fff; font-style: normal; font-size: 11px; }
 .ec-canvas-direction-chip.is-more { border-style: dashed; color: #8b83b8; background: transparent; }
-.ec-canvas-direction-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px; }
-.ec-canvas-direction-actions button { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid rgba(124, 58, 237, .3); border-radius: 7px; background: #fff; color: #5b4fc4; font-size: 11px; font-weight: 650; cursor: pointer; transition: background 140ms ease-out, color 140ms ease-out; }
-.ec-canvas-direction-actions button:hover:not(:disabled) { background: #f5f2ff; }
-.ec-canvas-direction-actions button.is-primary { background: var(--canvas-command); border-color: var(--canvas-command); color: #fff; }
-.ec-canvas-direction-actions button.is-primary:hover:not(:disabled) { filter: brightness(1.07); }
-.ec-canvas-direction-actions button:disabled { opacity: .5; cursor: wait; }
+/* 9-18（P0）本处原先自写整套底部操作区（gap 6px + 自写按钮外观 + 自写禁用态）。
+   现改挂契约类 .ui-modal-footer-actions / .ui-btn（JSX 侧），自写按钮规则**删除**。
+   仅保留「推到底部 + 允许换行」这一条布局语义。 */
+.ec-canvas-direction-actions { margin-top: auto; flex-wrap: wrap; }
 .ec-canvas-video-composer { width: min(640px, calc(100vw - 24px)); }
 .ec-canvas-video-mode-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 12px 8px; border-bottom: 1px solid #edf0f3; }
 .ec-canvas-video-mode-tabs button { min-width: 0; display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #dde3ec; border-radius: 7px; background: #fff; color: #59616c; text-align: left; cursor: pointer; }
@@ -1562,13 +1560,12 @@
      · 未确认时生成按钮 disabled，旁边给一句短提示「请先确认方案」；
      · 「重新生成方案」常驻（换方案），旧方案由组件保留可对比、不删除。
    间距沿用统一视觉语言（sp2=8 / sp3=12），字号只用规范 4 档（不用 9/10px）。 */
+/* 9-18（P0）按钮已改挂契约类（.ui-btn / .ui-modal-footer-actions），
+   故这里不再自写按钮外观与间距；容器只保留「状态胶囊在左、按钮组在右」的语义。 */
 .ec-canvas-suite-plan-actions {
   display: flex;
   align-items: center;
-  gap: var(--cvl-sp3, 12px);
-  padding: var(--cvl-sp3, 12px) 0 0;
-  border-top: 1px solid #edf0f3;
-  margin-top: var(--cvl-sp3, 12px);
+  flex-wrap: wrap;
 }
 .ec-canvas-suite-plan-state {
   flex: 0 0 auto;
@@ -1581,20 +1578,7 @@
   white-space: nowrap;
 }
 .ec-canvas-suite-plan-state.is-confirmed { background: #ecfdf5; color: #047857; }
-.ec-canvas-suite-plan-secondary {
-  flex: 0 0 auto;
-  min-height: var(--cvl-control-compact, 32px);
-  padding: 0 var(--cvl-sp3, 12px);
-  border: 1px solid #dfe3e8;
-  border-radius: var(--cvl-radius-control, 8px);
-  background: #fff;
-  color: #4b5563;
-  font-size: var(--cvl-font-field-label, 12px);
-  font-weight: 600;
-  cursor: pointer;
-}
-.ec-canvas-suite-plan-secondary:hover:not(:disabled) { border-color: var(--canvas-command); color: var(--canvas-command); }
-.ec-canvas-suite-plan-secondary:disabled { opacity: .5; cursor: not-allowed; }
+/* 按钮外观已由 .ui-btn 提供；这里只保留「确认按钮靠右」的布局语义。 */
 .ec-canvas-suite-plan-confirm { margin-left: auto; flex: 0 0 auto; }
 /* 未确认时的提示：紧跟状态、不抢生成按钮的位置 */
 .ec-canvas-suite-plan-gate {

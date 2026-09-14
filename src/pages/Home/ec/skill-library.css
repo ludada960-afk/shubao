@@ -210,26 +210,11 @@
   font-size: 11.5px; line-height: 1.55; color: #6B6560;
 }
 .skill-hint svg { flex: none; margin-top: 2px; color: #27864B; }
-/* 按钮组：与提示 16px、与栏底 16px（用户要求「与弹窗底边 ≥16px 留白」）
-   9-16 用户批注「你这两个按钮做的这么近也很奇怪啊。你似乎没有一个全局的意识呀。」
-   → 对齐全站底部操作区规范（src/styles/design-tokens.css 的 --footer-actions-*）：
-     gap 8 → 12px（--sk-space-md = 12px，与 --space-3 同值）；
-     上间距 4 → 16px；下内边距 4 → 16px（配合 .skill-modal-body 的下内边距，与弹窗底边留白 ≥16px）。 */
-.skill-editor-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--footer-actions-gap); margin-top: var(--footer-actions-margin-top); padding-bottom: var(--sk-space-lg); }
-/* 9-16 主次等重：主按钮（保存/创建）与次按钮（取消编辑）必须同高、同圆角、同最小宽，
-   只有配色与字重区分主次 —— 原来主 9/16 padding + 13px 字、次 5/9 padding + 11.5px 字，
-   实测主按钮比次按钮高约 8px，是「一个高一个矮」。 */
-.skill-editor-actions .skill-save-btn,
-.skill-editor-actions .skill-mini-btn {
-  height: var(--footer-actions-button-height);
-  min-width: var(--footer-actions-button-min-width);
-  padding: 0 16px;
-  box-sizing: border-box;
-  border-radius: var(--footer-actions-radius);
-  white-space: nowrap;
-  justify-content: center;
-}
-.skill-editor-actions .skill-mini-btn { font-size: 13px; font-weight: 600; }
+/* 9-18（P0）本处原先自写整套底部操作区（flex + gap + 边距 + 高度 + 最小宽 + 圆角 + 主次等重），
+   只是把 token 名抄了进去。现改挂契约类（JSX 侧），故自写规则**删除**。
+   仅保留一条语义补充：技能栏与弹窗底边仍需 ≥16px 留白（契约只给 20px 上下内边距，
+   这里由 .skill-modal-body 的下内边距承担，避免双重计数）。 */
+.skill-editor-actions { padding-bottom: var(--sk-space-sm); }
 .skill-save-btn {
   appearance: none; border: 0; border-radius: 11px; padding: 9px 16px;
   font-family: inherit; font-size: 13px; font-weight: 700; color: #fff;

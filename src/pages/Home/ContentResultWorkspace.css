@@ -23,7 +23,7 @@
 .content-result-body p { margin: 0 0 7px; }
 .content-result-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
 .content-result-tags span { color: #b9475f; font-size: 11px; }
-.content-result-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; padding-top: 18px; }
-.content-result-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 0 11px; border: 1px solid #e7ddd6; border-radius: 7px; color: #574b45; background: #fff; font: 700 11px/1 inherit; cursor: pointer; }
-.content-result-actions button:hover { border-color: #b9475f; color: #a83f57; }
+/* 9-18（P0）本处原先自写底部操作区（gap 7px + 自写按钮外观）。
+   现改挂契约类 .ui-modal-footer-actions / .ui-btn（JSX 侧），自写规则删除。 */
+.content-result-actions { margin-top: auto; }
 @media (max-width: 760px) { .content-result-overlay { padding: 0; } .content-result-workspace { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; } .content-result-header { padding: 16px; } .content-result-header h1 { font-size: 17px; } .content-result-layout { display: block; } .content-result-gallery { padding: 13px; } .content-result-copy { min-height: 300px; padding: 18px 16px 20px; } }

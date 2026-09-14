@@ -259,14 +259,18 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
           {state.loading && <div className="canvas-asset-picker-empty">正在读取资产库…</div>}
           <div className="canvas-asset-picker-sentinel" ref={sentinelRef} aria-hidden="true" />
         </div>
-        <footer>
-          {/* 9-16 文案：去掉「选中后可一次加入画布」这类机制说明，只留结果与计数。 */}
-          <span>已选 {picked.length} 个</span>
-          <div>
-            <button type="button" className="is-ghost" onClick={onClose}>取消</button>
-            <button type="button" className="is-primary" disabled={!picked.length} onClick={() => onConfirm?.(picked)}>加入画布{picked.length ? ` (${picked.length})` : ''}</button>
+        {/* 9-18 用户批注（P0）：「值对了，覆盖面没到」——本处原先只是**抄了 token 名**，
+            真正的底部操作区仍是自写 flex + 自写 gap + 自写圆角，没有用契约类。
+            现改用全站唯一的契约类 .ui-modal-footer / .ui-modal-footer-actions / .ui-btn，
+            按钮外观（高度/最小宽/圆角/主次/禁用态）全部由契约提供，本文件不再自写。
+            同时按用户要求把主按钮由**双色渐变**改为**品牌实底纯色**，缩小与次按钮的重量差。 */}
+        <div className="ui-modal-footer">
+          <span className="ui-modal-footer-meta">已选 {picked.length} 个</span>
+          <div className="ui-modal-footer-actions">
+            <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>取消</button>
+            <button type="button" className="ui-btn ui-btn-primary" disabled={!picked.length} onClick={() => onConfirm?.(picked)}>加入画布{picked.length ? ` (${picked.length})` : ''}</button>
           </div>
-        </footer>
+        </div>
       </section>
     </div>
   );

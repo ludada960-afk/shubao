@@ -23,16 +23,12 @@
 .canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed; border-color: #7c3aed; color: #fff; }
 .canvas-asset-picker-empty { grid-column: 1 / -1; padding: 30px 10px; color: #a8a29e; font-size: 12.5px; text-align: center; }
 .canvas-asset-picker-error { margin: 0 22px; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
-/* 9-16 对齐全站底部操作区规范（--footer-actions-*）：
-   底内边距 12 → 20px、按钮间距显式写成 12px（原来**内层按钮组没有 gap 声明**，吃浏览器默认值）、
-   按钮最小宽 88px、圆角统一 10px —— 与 ProjectAssetPicker / 技能库同款。 */
-.canvas-asset-picker footer { display: flex; align-items: center; justify-content: space-between; gap: var(--footer-actions-gap); padding: 16px 22px var(--footer-actions-padding-block); border-top: 1px solid rgba(28,25,23,.08); }
-.canvas-asset-picker footer span { color: #78716c; font-size: 12px; }
-.canvas-asset-picker footer > div { display: flex; align-items: center; gap: var(--footer-actions-gap); }
-.canvas-asset-picker footer button { height: var(--footer-actions-button-height); min-width: var(--footer-actions-button-min-width); padding: 0 16px; box-sizing: border-box; border-radius: var(--footer-actions-radius); font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.canvas-asset-picker footer .is-ghost { border: 1px solid rgba(28,25,23,.12); background: transparent; color: #57534e; }
-.canvas-asset-picker footer .is-primary { border: 0; background: linear-gradient(135deg, #7454f3, #d14db5); color: #fff; }
-.canvas-asset-picker footer .is-primary:disabled { background: #e5e3e0; color: #a8a39e; cursor: not-allowed; }
+/* 9-18 用户批注（P0）：「值对了，覆盖面没到」——
+   本文件原先自写了整套 footer（flex + gap + 高度 + 最小宽 + 圆角 + 主次配色 + 禁用态），
+   只是把 token 名抄了进去，属于「抄了取值但没接契约」。现已改为挂契约类
+   .ui-modal-footer / .ui-modal-footer-actions / .ui-btn（见 CanvasAssetPickerModal.jsx），
+   故这里的 7 条自写规则**全部删除**，不留双份真相。
+   按钮的底色/圆角/高度/最小宽/禁用态一律由契约提供，本文件不再定义。 */
 
 /* ═══ 9-14 用户批注：资产库弹窗照竞品 —— 名称是压在图片上的半透明遮罩 + 悬停才出现的垃圾桶 ═══
    说明：这两个选择器是「基础规则」（不依赖任何作用域），改动 JSX 加上 .canvas-asset-picker-name /
