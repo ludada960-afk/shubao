@@ -310,10 +310,13 @@ export function createCanvasGraphRunService({
 
         // 失败路径：释放未决租约（不变式 ①），步骤落 failed，传递封锁下游（全部零扣费）。
         safeRelease(owner, actionId, billingToken);
-        const failureText = cleanString(result.error) || 'executor failed';
+        /* 铁律：客户端可达的 step.error 不得出现内部实现/上游字样（原始文案只进日志）。 */
+        const rawFailure = cleanString(result.error) || '';
+        if (rawFailure) console.warn('[graph-run] step failed:', rawFailure);
+        const failureText = '这一步没有完成，请稍后重试';
         try {
           store.transitionStep(runId, stepIndex, { from: 'running', to: 'failed', error: failureText });
-          skipTransitiveDownstream(runId, nodeId, downstream, `upstream failed: ${failureText}`);
+          skipTransitiveDownstream(runId, nodeId, downstream, `前置步骤未完成：${failureText}`);
         } catch {
           return { status: store.getRun(runId)?.status || 'running', interrupted: true, leaseLost: true };
         }

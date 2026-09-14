@@ -123,7 +123,7 @@ export function createCanvasGraphRunExecutor(deps = {}) {
   if (typeof deps.removeBackground === 'function') {
     handlers.set('remove-bg', async (node, inputs, ctx) => {
       const imageUrl = firstInputUrl(inputs) || cleanString(node?.url);
-      if (!imageUrl) return { ok: false, error: 'remove-bg requires an upstream image input' };
+      if (!imageUrl) return { ok: false, error: '抠图需要先提供一张图片' };
       const out = await deps.removeBackground({ imageUrl, node, ctx });
       return normalizeExecutorResult(out, 'remove-bg');
     });
@@ -131,7 +131,7 @@ export function createCanvasGraphRunExecutor(deps = {}) {
   if (typeof deps.upscale === 'function') {
     handlers.set('upscale', async (node, inputs, ctx) => {
       const imageUrl = firstInputUrl(inputs) || cleanString(node?.url);
-      if (!imageUrl) return { ok: false, error: 'upscale requires an upstream image input' };
+      if (!imageUrl) return { ok: false, error: '放大需要先提供一张图片' };
       const out = await deps.upscale({ imageUrl, node, ctx });
       return normalizeExecutorResult(out, 'upscale');
     });
@@ -139,7 +139,7 @@ export function createCanvasGraphRunExecutor(deps = {}) {
   if (typeof deps.extend === 'function') {
     handlers.set('extend', async (node, inputs, ctx) => {
       const imageUrl = firstInputUrl(inputs) || cleanString(node?.url);
-      if (!imageUrl) return { ok: false, error: 'extend requires an upstream image input' };
+      if (!imageUrl) return { ok: false, error: '扩图需要先提供一张图片' };
       const out = await deps.extend({ imageUrl, node, ctx });
       return normalizeExecutorResult(out, 'extend');
     });
