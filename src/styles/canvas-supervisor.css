@@ -531,13 +531,35 @@
 }
 
 
-/* 小地图 */
+/* ═══════════════════════════════════════════════════════════════════════════
+   小地图 —— **唯一权威定义**（2026-09-18 合并重复定义）
+   ═══════════════════════════════════════════════════════════════════════════
+
+   去重前实测：同一组 `.ec-canvas-minimap*` class 被两个文件各定义一次，取值相反：
+     · src/styles/canvas-minimap.css   : position:absolute; z-index:50;
+                                         暗色玻璃 rgba(15,23,42,.88); 文字白色
+     · src/styles/canvas-supervisor.css : position:fixed;    z-index:5000;
+                                         白色 rgba(255,255,255,.97); 文字 #1f2937
+   两者都在 EcCanvas/index.jsx 里被 import，且 supervisor **在后**（130 行 > 128 行），
+   于是 supervisor 那份赢 —— 这正是两个顽疾的机制：
+     ① canvas-minimap.css 头部自记的「用户 9-01 反馈: minimap黑」反复出现
+        （暗色那份根本没生效，改它当然不生效）；
+     ② **用户截图里小地图亮着浮在弹窗遮罩之上** —— z-index:5000 高过一切遮罩，
+        任何「打开弹窗时隐藏 HUD」的修复都会被它压过去。
+
+   处置：保留本文件这一份（渲染入口用的就是 CanvasContextMenuPanel.jsx 里的实现，
+   与它配套）；删除 src/styles/canvas-minimap.css 这份遗留副本。
+   z-index 一律走语义阶梯 --sb-z-hud（见 src/styles/design-tokens-v3.css），
+   禁用 5000 这类裸值。 */
 .ec-canvas-minimap {
-  position: fixed;
+  /* 定位用 absolute（与画布容器一致）—— 原 fixed 会脱离画布坐标系，
+     在弹窗/滚动场景下会跑到别的层去。 */
+  position: absolute;
   /* 用户批注: 小地图必须与底部按钮区留出间隙 (缩放条 top = 56px) */
   bottom: calc(var(--ec-canvas-bottombar-top, 56px) + var(--ec-canvas-panel-gap, 14px));
   left: 16px;
-  z-index: 5000;
+  /* 语义阶梯：HUD 档（= --sb-z-sticky 100）。绝不再写 5000。 */
+  z-index: var(--sb-z-hud, 100);
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.97);

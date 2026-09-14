@@ -125,7 +125,11 @@ import '../../styles/canvas-derive-menu.css';
 import '../../styles/canvas-empty-actions.css';
 import '../../styles/canvas-right-panel.css';
 import '../../styles/canvas-watermark-panel.css';
-import '../../styles/canvas-minimap.css';
+/* 2026-09-18 去重：canvas-minimap.css 与 canvas-supervisor.css 曾各定义一份
+   .ec-canvas-minimap*（position absolute/fixed、z-index 50/5000、暗色/白色 完全相反），
+   后者因加载顺序靠后而生效，导致「minimap 黑」反复出现 + 小地图浮在弹窗遮罩之上。
+   现合并为唯一权威 = canvas-supervisor.css（与渲染入口 CanvasContextMenuPanel 配套），
+   遗留副本已删除。 */
 /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI */
 import '../../styles/canvas-supervisor.css';
 import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
