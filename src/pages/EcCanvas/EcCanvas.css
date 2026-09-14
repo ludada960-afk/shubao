@@ -183,9 +183,15 @@
    （`.has-right-panel` 的 margin-right = 面板宽 + 28px），于是「居中于画布可视区」
    = **跟着面板往左移**；实测面板打开时 dock 中心 482px，而窗口中心是 720px，差 238px。
    用户口径（已确认）：要**永远居中于整个窗口**，像 Figma 那样不随面板移动。
-   做法：stage 左缘恒在 x=0，所以「窗口中心」在 stage 坐标系里 = 50% + (面板让位宽)/2。
-   外层 min() 回夹：窄屏（面板占比过大）时不让 dock 越过 stage 右缘被裁掉。 */
-.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock { left: 50vw; }
+   做法：stage 左缘恒在 x=0 → 「窗口中心」= `50vw`（等价于 50% + 面板让位宽/2，写法更短）。
+   min() 是**回夹**：窄屏（面板占比过大）时不让 dock 越过 stage 右缘被 overflow:clip 裁掉。
+
+   ⚠️ 2026-09-20 修复：这两条规则曾被一次**无关的批量迁移**（D19 字号批）改写成裸 `left: 50vw`，
+   回夹丢失、注释与代码自相矛盾。**是契约测试把它抓回来的** ——
+   见 test/canvas-bottom-dock-window-centered-0920.test.mjs。改动这类「与迁移目标无关的行」是最隐蔽的事故来源。 */
+.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock {
+  left: min(50vw, calc(100% - var(--ec-canvas-hud-reserve-right, 120px)));
+}
 .ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: var(--ec-radius-sm); background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); }
 .ec-canvas-toast { position: fixed; z-index: 10003; left: 50%; bottom: 24px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 13px; transform: translateX(-50%); border-radius: 8px; background: #475569; color: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, .22); font-size: 12px; font-weight: 650; animation: toastIn .2s ease; }
 .ec-canvas-toast.is-error { background: #c9362e; }

@@ -35,10 +35,13 @@ test('① 面板打开时，底部 dock 按「窗口中心」定位（不再跟�
   const body = ruleOf('.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock');
   assert.ok(body, '必须存在 .ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock 规则');
   assert.match(body, /left:\s*min\(/, '定位必须带 min() 回夹，否则窄屏会被 stage 的 overflow:clip 裁掉');
+  /* 「窗口中心」有两种等价写法，都接受（断言的是判据，不是某一种写法 —— 原则 §12）：
+       A. calc(50% + (面板让位宽)/2)   ← 用变量表达 stage 坐标系里的窗口中心
+       B. 50vw                        ← 直接就是窗口中心（stage 左缘恒在 x=0） */
   assert.match(
     body,
-    /calc\(\s*50%\s*\+\s*\(\s*var\(--canvas-right-panel-width[^)]*\)\s*\+\s*var\(--cvl-right-panel-margin[^)]*\)\s*\)\s*\/\s*2\s*\)/,
-    '窗口中心 = 50% + (面板让位宽)/2 —— 必须用变量表达，不许写死像素',
+    /(calc\(\s*50%\s*\+\s*\(\s*var\(--canvas-right-panel-width[^)]*\)\s*\+\s*var\(--cvl-right-panel-margin[^)]*\)\s*\)\s*\/\s*2\s*\)|50vw)/,
+    '必须按「窗口中心」定位（50vw，或 50% + 面板让位宽/2）',
   );
 });
 
@@ -55,7 +58,7 @@ test('③ 默认（面板关闭）仍是纯 50% 居中 —— 不许把打开态
   const all = rulesOf('.ec-canvas-bottom-dock');
   assert.ok(all.length, '基础规则必须存在');
   const base = all[0];
-  assert.match(base, /left:\s*50%\s*;/, '基础态必须仍是 left: 50%，实际：' + base);
+  assert.match(base, /left:\s*(50%|50vw)\s*;/, '基础态必须是「居中」（left: 50% 或 50vw），实际：' + base);
   assert.match(base, /transform:\s*translateX\(-50%\)/, '必须用 translateX(-50%) 做居中，避免半像素偏移');
 });
 
