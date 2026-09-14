@@ -256,6 +256,15 @@
   --sb-shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.90);       /* 玻璃面高光 */
   --sb-shadow-ring: 0 0 0 3px var(--sb-brand-ring);                      /* 焦点环（外扩） */
 
+  /* 彩色投影：投影色跟随元素本身的语义色，而不是一律暖棕。
+     紫的对应物是 §1 的 --sb-brand-shadow / --sb-brand-shadow-lg；
+     红的对应物补在这里 —— 主 CTA（品牌红底）的 hover 浮起。
+     2026-09-20 幽灵变量收口：Button.jsx 写着 var(--shadow-red-lg)、
+     Home.css 写着 var(--shadow-red)，二者**全仓无定义** → box-shadow 静默失效
+     （未定义 var() 不报错，直接解析为 none）。原实现作者意图是"红底按钮浮起"，
+     故补 token 恢复意图，而不是把阴影删掉。 */
+  --sb-danger-shadow:    0 6px 18px rgba(232, 84, 75, 0.28);
+
   /* ── 尺寸别名（**必须存在**）─────────────────────────────────────────────
      组件里长期写着 var(--sb-shadow-sm/md/lg/xl)，但阶梯只定义了 0–5。
      **未定义的 var() 会静默解析成 none——不报错、不告警**，于是全站卡片阴影集体消失

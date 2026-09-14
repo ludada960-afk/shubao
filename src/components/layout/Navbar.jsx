@@ -29,7 +29,7 @@ export default function Navbar() {
 
   return (
     <nav style={{
-      position: 'sticky', top: 0, zIndex: 100,
+      position: 'sticky', top: 0, zIndex: 'var(--sb-z-sticky)',
       userSelect: 'none',
       paddingTop: 16,
     }}>
@@ -100,7 +100,10 @@ export default function Navbar() {
               fontSize: 13, fontWeight: 900, color: 'var(--accent)',
               whiteSpace: 'nowrap',
             }}>
-              <MdAutoAwesome size={14} fill="var(--amber-400)" color="var(--amber-500)" />
+              {/* 积分图标走「铁律 4」的积分金（--sb-credit），不用警告橙（那表示"快不够了"）。
+                  原 fill/color 是 --amber-400/500 —— 全仓无定义，SVG 属性被忽略后
+                  星标退回继承色（近黑），与积分语义不符。 */}
+              <MdAutoAwesome size={14} fill="var(--sb-credit)" color="var(--sb-credit-ink)" />
               <span>{credits}</span>
               <span style={{ fontWeight: 500, fontSize: 11, opacity: 0.5 }}>套</span>
             </div>

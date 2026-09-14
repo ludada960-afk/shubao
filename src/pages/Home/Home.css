@@ -239,7 +239,7 @@
       改用 V3 语义阴影（红色 CTA 用 danger 色系的柔和投影）。
    ② D8 重复选择器：本规则原本**连写两遍完全相同**（Home.css:234/235），
       合并为一条。 */
-.gen-btn.xhs { background: var(--red); box-shadow: 0 6px 18px rgba(232, 84, 75, 0.28); }
+.gen-btn.xhs { background: var(--red); box-shadow: var(--sb-danger-shadow); }
 .gen-btn:hover { transform: translateY(-1px); }
 .gen-btn:disabled { background: var(--border); color: var(--text-ghost); cursor: not-allowed; box-shadow: none; transform: none; }
 

@@ -11,7 +11,9 @@ export default function Footer() {
 
   return (
     <footer style={{
-      padding: '28px 20px', background: 'var(--surface-raised)',
+      /* 2026-09-20 幽灵变量：var(--surface-raised) 全仓无定义 → 背景静默透明。
+         改 V3 表面阶梯 L3（轻着色面），与页脚"比页面略高一层"的意图一致。 */
+      padding: '28px 20px', background: 'var(--sb-surface-tint)',
       borderTop: '1px solid var(--border)',
     }}>
       <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
