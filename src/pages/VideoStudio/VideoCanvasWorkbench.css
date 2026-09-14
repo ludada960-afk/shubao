@@ -623,7 +623,11 @@
   background: var(--accent-bg, rgba(12, 10, 9, .06));
   color: var(--accent, var(--sb-neutral-900));
 }
-.vcb-context-menu button:disabled { color: var(--text-faint, #B0AAA5); cursor: not-allowed; }
+/* D15：fallback 值 #B0AAA5 与 --sb-neutral-400 逐值相等（EXACT），按本文件既有约定
+   （见上两行 var(--accent, var(--sb-neutral-900)) / var(--red, var(--sb-danger))）
+   把 fallback 升格为 token。注意 --text-faint 在深色主题下是 #5C5651，
+   故**不能**删掉 var(--text-faint) 只留 token —— 那会改变深色下的取值。 */
+.vcb-context-menu button:disabled { color: var(--text-faint, var(--sb-neutral-400)); cursor: not-allowed; }
 .vcb-context-menu button.is-danger:hover { color: var(--red, var(--sb-danger)); }
 .vcb-context-menu .vcb-context-sep {
   height: 1px;
