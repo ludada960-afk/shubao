@@ -285,29 +285,23 @@ const DERIVE_ICONS = Object.freeze({
    产品经理视角: group 标签 (核心/智能/扩展) 视觉分组, 避免一长串无层级
    流影AI 调研: LibTV Agent 风格 — 每个 action = 1 个可点卡片, 不堆文字
    毛玻璃 backdrop-filter, 暗色模式 token 化 */
-export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用当前素材生成', onBack, onClose, onSelect }) {
+/* ═══ 2026-09-20 用户批注：「面板依然是歪到左边去，然后依然是盖住了我们现在的素材」═══
+   根因（Playwright 实测，1440 缩放 0.68，点节点右侧「+」）：
+     · 本组件渲染在**缩放层内部**（祖先 transform = matrix(.68,0,0,.68,497.64,24.4)），
+       left/top 因此是**世界坐标**；
+     · 而 clampCanvasPickerPosition 里 bounds.width / reservedRight 是**像素**口径，
+       却被除以 scale 当世界坐标用 —— 两套坐标系混用；
+     · 右侧面板一开（reservedRight>0），可用宽度被砍到 ~197px，maxX 塌到锚点**左边极远处**，
+       实测 left=-717（世界）= **屏幕 x=10**，而触发按钮在 x=683 → 面板被甩到最左并被裁掉半截。
+   修法：**不再自算世界坐标**，改走画布唯一权威 CanvasPopoverPortal
+   （portal 到 body + 视口像素定位 + place='right' 锚在触发元素向右展开）。
+   这样坐标系只剩一套（视口 px），面板左缘恒在触发元素右侧 → 不可能盖住源素材。 */
+export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引用当前素材生成', onBack, onClose, onSelect }) {
+  /* introGateRef 本身是 ref 回调（内部自带 effect），直接挂到元素上即可 ——
+     这里不要额外套 useLayoutEffect：SSR 下会触发 React 的
+     "useLayoutEffect does nothing on the server" 警告（本仓 canvas-debug 的 SSR 用例把它当失败）。 */
   const introGateRef = usePanelIntroGate('derive-menu');
-  /* 9-13 用户批注：这个面板要**居中吸附在节点「+」按钮的正上方**（不能歪到一边）。
-     placement='above' 时由 CSS translate(-50%, -100%) 完成「水平居中 + 贴到按钮上方」。 */
-  const { x, y, placement, ...positionStyle } = position || {};
-  const menuStyle = {
-    ...positionStyle,
-    ...(x != null ? { left: x } : {}),
-    ...(y != null ? { top: y } : {}),
-  };
-  /* 面板高度取决于动作数量，JS 只能估算「上方放不放得下」。真渲染后用屏幕坐标复测一次：
-     顶部被挤出画布就在同一帧内翻到按钮下方（仍然水平居中），绝不会被裁掉。 */
   const menuRootRef = useRef(null);
-  const [flipped, setFlipped] = useState(false);
-  useLayoutEffect(() => {
-    setFlipped(false);
-    if (placement !== 'above') return;
-    const el = menuRootRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const host = el.offsetParent?.getBoundingClientRect?.() || { top: 0 };
-    if (rect.top < Math.max(host.top || 0, 0) + 8) setFlipped(true);
-  }, [placement, x, y, actions.length, title, onBack]);
   /* 按 group 分桶渲染: core 先 (5 原有), audio 后 (视频节点专属的音频与字幕).
      用户 9-04 反馈: 竞品名不能出现在用户界面 → bucket label 用功能描述;
      与 core 重复的 1-click 项已移除, 不再走"5+4 全堆一锅"的旧结构。 */
@@ -321,7 +315,9 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
     acc[group].push(action);
     return acc;
   }, {});
-  return <div ref={el => { menuRootRef.current = el; introGateRef(el); }} className={`ec-canvas-derive-menu${placement === 'above' ? ' is-above' : ''}${flipped ? ' is-flipped' : ''}`} style={menuStyle} role="menu" aria-label="从当前素材继续创作">
+  /* 面板主体：内容与定位解耦，供 portal / SSR 两条路径复用。 */
+  const menuBody = <>
+    <div ref={menuRootRef} className="ec-canvas-derive-inner">
     <div className="ec-canvas-menu-heading">
       <span>{onBack && <button type="button" aria-label="返回创作类型" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onBack?.(); }}><ArrowLeft size={14} /></button>}{title}<small className="ec-canvas-derive-count">{actions.length} 项</small></span>
       <button type="button" aria-label="关闭派生菜单" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
@@ -346,7 +342,17 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
         </div>;
       })}
     </div>
-  </div>;
+    </div>
+  </>;
+  /* 走唯一权威：portal 到 body + 视口像素定位 + 锚在触发元素向右展开。
+     面板左缘 = 触发元素右缘 + 12px，因此**不可能盖住触发元素所属的素材**；
+     右侧空间不足时只向下移，绝不向左翻（place='right' 的口径）。
+     SSR（无 document）时 portal 无处可挂，改为**内联渲染主体**：
+     定位交给调用方/CSS，内容照常输出 —— 这样服务端与静态用例仍能拿到完整标记。 */
+  if (typeof document === 'undefined' || !document.body) {
+    return <div className="ec-canvas-derive-menu" role="menu" aria-label="从当前素材继续创作">{menuBody}</div>;
+  }
+  return <CanvasPopoverPortal open anchor={anchorRect} place="right" className="ec-canvas-derive-menu" label="从当前素材继续创作">{menuBody}</CanvasPopoverPortal>;
 }
 
 export function CanvasTextToolbar({ node, viewport, bounds, onStyleChange, onDuplicate, onFullscreen, onDelete }) {
@@ -490,7 +496,7 @@ export function useCanvasPopoverAnchor(openKey = '') {
 
 /* 面板本体：portal 到 body 之后，位置自己算（不再依赖祖先的包含块）。
    口径：水平中心 = 按钮水平中心；竖直 = 按钮上方 9px；视口上下都放不下时才翻到下方。 */
-export function CanvasPopoverPortal({ open = false, anchor = null, className = '', label = '', children }) {
+export function CanvasPopoverPortal({ open = false, anchor = null, className = '', label = '', place = 'above', children }) {
   const popoverRef = useRef(null);
   const [placement, setPlacement] = useState(null);
   useLayoutEffect(() => {
@@ -501,15 +507,35 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
       const width = Math.max(120, Math.round(box?.width || 200));
       const height = Math.max(40, Math.round(box?.height || 200));
       const gutter = 12;
+      /* ── place='right'：画布弹层的**唯一权威口径**（2026-09-20 用户口径）─────
+         用户原话：「面板依然是歪到左边去，然后依然是盖住了我们现在的素材」。
+         约定（不可协商）：
+           ① **锚在触发元素上向右展开**（左缘 = 锚点右缘 + 间距）；
+           ② 右侧空间不足时**向下展开**（顶部下移），**绝不向左翻**；
+           ③ 面板矩形与源节点矩形**零相交**；
+           ④ 面板左缘恒在锚点右侧 → 天然不会盖住锚点所属的素材。
+         为什么不用『水平居中于锚点』：居中会让面板左半盖回触发元素本身
+         （派生面板宽 329 > 节点宽 163，必然压住）。 */
+      if (place === 'right') {
+        const gap = 12;
+        const wanted = anchor.right != null ? anchor.right + gap : anchor.x + anchor.width + gap;
+        const left = Math.min(Math.max(wanted, gutter), Math.max(gutter, window.innerWidth - width - gutter));
+        const belowTop = anchor.y;
+        const top = Math.min(Math.max(belowTop, gutter), Math.max(gutter, window.innerHeight - height - gutter));
+        setPlacement(previous => (previous && previous.left === left && previous.top === top && previous.width === width && previous.mode === 'right')
+          ? previous
+          : { left, top, width, mode: 'right', flipped: false });
+        return;
+      }
       const center = anchor.x + anchor.width / 2;
       const left = Math.min(Math.max(center - width / 2, gutter), Math.max(gutter, window.innerWidth - width - gutter));
       const anchorTop = anchor.y;
       const above = anchorTop - height - 9;
       const below = anchor.bottom + 9;
       const top = above >= gutter ? above : (below + height <= window.innerHeight - gutter ? below : Math.max(gutter, Math.min(above, window.innerHeight - height - gutter)));
-      setPlacement(previous => (previous && previous.left === left && previous.top === top && previous.width === width)
+      setPlacement(previous => (previous && previous.left === left && previous.top === top && previous.width === width && previous.mode !== 'right')
         ? previous
-        : { left, top, width, flipped: above < gutter });
+        : { left, top, width, mode: 'above', flipped: above < gutter });
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return undefined;
@@ -518,11 +544,16 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
     return () => observer.disconnect();
   }, [open, anchor]);
   if (!open || !anchor) return null;
+  /* SSR 守卫：createPortal 需要一个真实的 document.body。
+     无 document（服务端渲染 / 测试里 renderToString）时直接不渲染 —— 弹层本来就是纯客户端交互，
+     服务端没有它的位置；这样 SSR 不会因为 portal 抛错（本仓 canvas-debug 有单独 SSR 用例）。 */
+  const canPortal = typeof document !== 'undefined' && document.body;
+  if (!canPortal) return null;
   const style = placement
     ? { position: 'fixed', left: placement.left, right: 'auto', bottom: 'auto', top: placement.top, transform: 'none', zIndex: 10004, maxHeight: `calc(100vh - ${Math.round(placement.top)}px - 12px)`, overflowY: 'auto' }
     : { position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: 10004 };
   return createPortal(
-    <div ref={popoverRef} className={`ec-canvas-parameter-popover is-portaled${placement?.flipped ? ' is-flipped' : ''} ${className}`} style={style} role="menu" aria-label={label}>{children}</div>,
+    <div ref={popoverRef} className={`ec-canvas-parameter-popover is-portaled${placement?.mode === 'right' ? ' is-anchored-right' : ''}${placement?.flipped ? ' is-flipped' : ''} ${className}`} style={style} role="menu" aria-label={label}>{children}</div>,
     document.body,
   );
 }

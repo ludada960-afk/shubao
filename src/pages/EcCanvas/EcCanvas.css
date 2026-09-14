@@ -138,7 +138,7 @@
 .ec-canvas-command:disabled { opacity: .46; cursor: not-allowed; }
 
 .ec-canvas-filter { height: var(--ec-canvas-topbar-control-height); border-radius: 8px; background: #f5f6f8; }
-.ec-canvas-filter select { height: 36px; min-width: 94px; padding: 0 30px 0 11px; border: 0; border-radius: 7px; background: transparent; color: #3d434b; font-size: 12px; font-weight: 650; }
+.ec-canvas-filter select { height: 36px; min-width: 94px; padding: 0 30px 0 11px; border: 0; border-radius: 8px; background: transparent; color: #3d434b; font-size: 12px; font-weight: 650; }
 
 .ec-canvas-topbar-surface {
   box-sizing: border-box;
@@ -225,7 +225,7 @@
 .ec-canvas-layers-panel button:hover { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-layer-list { min-height: 80px; overflow: auto; padding: 6px; }
 .ec-canvas-layer-list > p { margin: 26px 0; color: #8b929b; text-align: center; font-size: 11px; }
-.ec-canvas-layer-row { min-height: 46px; display: flex; align-items: center; gap: 2px; border-radius: 7px; }
+.ec-canvas-layer-row { min-height: 46px; display: flex; align-items: center; gap: 2px; border-radius: 8px; }
 .ec-canvas-layer-row:hover { background: #f5f7f9; }
 .ec-canvas-layer-row.is-selected { background: #eef4ff; box-shadow: inset 2px 0 0 var(--canvas-command); }
 .ec-canvas-layer-main { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 5px 7px !important; text-align: left; }
@@ -341,7 +341,13 @@
 .ec-canvas-add-menu button[role="menuitem"] small { margin-top: 2px; font-size: 11px; line-height: 1.35; }
 .ec-canvas-add-menu .ec-canvas-menu-heading { height: 30px; }
 .ec-canvas-menu-group-title { display: block; padding: 6px 8px 3px; color: #9a938c; font-size: 11px; font-weight: 600; }
-.ec-canvas-derive-menu { position: absolute; transform: scale(var(--canvas-overlay-scale, 1)); transform-origin: top left; }
+/* 2026-09-20：派生菜单改走唯一权威 CanvasPopoverPortal（portal 到 body + 视口定位）。
+   旧的「绝对定位 + 反向 scale」是为了抵消缩放层的 transform —— 现在已脱离那个上下文，
+   两样都必须清掉，否则会二次缩放/错位。内层 .ec-canvas-derive-inner 承接滚动与栅格。 */
+.ec-canvas-derive-menu.is-portaled { transform: none; transform-origin: center; }
+.ec-canvas-derive-inner { display: block; min-width: 0; }
+/* 兼容：未 portal 的旧用法（若仍有）保持原行为 */
+.ec-canvas-derive-menu:not(.is-portaled) { position: absolute; transform: scale(var(--canvas-overlay-scale, 1)); transform-origin: top left; }
 .ec-canvas-menu-heading { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 3px; color: #737b87; font-size: 11px; }
 .ec-canvas-menu-heading strong { color: #20242a; font-size: 12px; white-space: nowrap; }
 /* 9-13：标题曾被挤到换行（用户看到“添加节点”是歪的） */
@@ -349,7 +355,7 @@
 .ec-canvas-menu-heading button { width: var(--cvl-control-compact, 32px); height: var(--cvl-control-compact, 32px); display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #7b828c; }
 .ec-canvas-menu-heading button:hover { color: #20242a; background: #f0f2f5; }
 .ec-canvas-add-menu button,
-.ec-canvas-derive-menu > button { width: 100%; min-height: 54px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px 8px; border: 0; border-radius: 7px; background: transparent; color: #272b31; text-align: left; }
+.ec-canvas-derive-menu > button { width: 100%; min-height: 54px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; color: #272b31; text-align: left; }
 .ec-canvas-add-menu button:hover,
 .ec-canvas-derive-menu > button:hover { background: #f2f6fb; }
 .ec-canvas-add-menu button:active,
@@ -357,7 +363,7 @@
 .ec-canvas-add-menu button:focus-visible,
 .ec-canvas-derive-menu > button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: -1px; }
 .ec-canvas-add-menu button > span:first-child,
-.ec-canvas-derive-menu > button > span:first-child { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 7px; color: #53606f; background: #eef1f5; }
+.ec-canvas-derive-menu > button > span:first-child { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; color: #53606f; background: #eef1f5; }
 .ec-canvas-add-menu strong,
 .ec-canvas-derive-menu strong { display: block; font-size: 13px; font-weight: 700; }
 .ec-canvas-add-menu small,
@@ -366,11 +372,11 @@
 /* 引用当前素材生成菜单：卡片式平衡行（图标芯片 | 两行文案 | 价格徽标+箭头）。
    三段栅格 38px/1fr/auto 让每行左右重量对称；沿用既有 token 与灰阶。 */
 .ec-canvas-derive-menu { width: 324px; }
-.ec-canvas-derive-menu > button { grid-template-columns: 38px minmax(0, 1fr) auto; column-gap: 12px; padding: 8px 9px; border-radius: 9px; }
-.ec-canvas-derive-menu > button > span:first-child { width: 38px; height: 38px; border-radius: 9px; color: #47546c; background: #eef2f8; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .05); transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out); }
+.ec-canvas-derive-menu > button { grid-template-columns: 38px minmax(0, 1fr) auto; column-gap: 12px; padding: 8px 9px; border-radius: 12px; }
+.ec-canvas-derive-menu > button > span:first-child { width: 38px; height: 38px; border-radius: 12px; color: #47546c; background: #eef2f8; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .05); transition: color var(--ec-motion-fast) var(--ec-ease-out), background var(--ec-motion-fast) var(--ec-ease-out); }
 .ec-canvas-derive-copy { min-width: 0; }
 .ec-canvas-derive-meta { display: inline-flex; align-items: center; gap: 6px; color: #9aa3af; transition: color var(--ec-motion-fast) var(--ec-ease-out), transform var(--ec-motion-fast) var(--ec-ease-spring); }
-.ec-canvas-derive-meta em { padding: 2px 7px; border-radius: 999px; background: #f1f4f8; color: #6b7686; font-size: 11px; font-weight: 750; font-style: normal; white-space: nowrap; }
+.ec-canvas-derive-meta em { padding: 2px 7px; border-radius: var(--sb-radius-pill)px; background: #f1f4f8; color: #6b7686; font-size: 11px; font-weight: 750; font-style: normal; white-space: nowrap; }
 .ec-canvas-derive-menu > button:hover > .ec-canvas-derive-chip { color: var(--canvas-command); background: #e3edff; }
 .ec-canvas-derive-menu > button:hover > .ec-canvas-derive-meta { color: var(--canvas-command); transform: translateX(1px); }
 .ec-canvas-derive-menu > button:focus-visible > .ec-canvas-derive-chip { color: var(--canvas-command); background: #e3edff; }
@@ -385,7 +391,7 @@
 .ec-canvas-media-node.is-dimmed,
 .ec-canvas-source-node.is-dimmed,
 .ec-canvas-copy-node.is-dimmed { opacity: .25; }
-.ec-canvas-media-frame { position: relative; width: 100%; overflow: hidden; border-radius: 7px 7px 0 0; background: #f2f3f5; }
+.ec-canvas-media-frame { position: relative; width: 100%; overflow: hidden; border-radius: 8px 7px 0 0; background: #f2f3f5; }
 .ec-canvas-media-frame img { pointer-events: none; -webkit-user-drag: none; }
 .ec-canvas-media-node footer { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 8px 7px; border-top: 1px solid #eef0f2; }
 .ec-canvas-media-node footer strong { overflow: hidden; color: #20242a; font-size: var(--ec-canvas-action-font); font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
@@ -393,7 +399,7 @@
 .ec-canvas-node-port { position: absolute; z-index: 9; right: -32px; top: 50%; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; transform: translateY(-50%); border: 1px solid #d8dde4; border-radius: 50%; background: #fff; color: #4b5563; box-shadow: 0 3px 10px rgba(15, 23, 42, .14); cursor: crosshair; transition: opacity 140ms ease-out, color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
 .ec-canvas-node-port:hover:not(:disabled) { color: #fff; background: var(--canvas-command); border-color: var(--canvas-command); transform: translateY(-50%) scale(1.06); }
 .ec-canvas-node-port:disabled { cursor: not-allowed; opacity: .35 !important; }
-.ec-canvas-resize-handle { position: absolute; z-index: 10; width: 10px; height: 10px; padding: 0; border: 2px solid #fff; border-radius: 2px; background: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command); }
+.ec-canvas-resize-handle { position: absolute; z-index: 10; width: 10px; height: 10px; padding: 0; border: 2px solid #fff; border-radius: 4px; background: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command); }
 .ec-canvas-resize-handle.is-nw { left: -6px; top: -6px; cursor: nwse-resize; }
 .ec-canvas-resize-handle.is-n { left: 50%; top: -6px; transform: translateX(-50%); cursor: ns-resize; }
 .ec-canvas-resize-handle.is-ne { right: -6px; top: -6px; cursor: nesw-resize; }
@@ -427,11 +433,11 @@
 .ec-canvas-generation-node { position: absolute; z-index: 15; box-sizing: border-box; overflow: visible; border: 1px solid #d9dee5; border-radius: 8px; background: #f6f7f9; box-shadow: 0 5px 18px rgba(15, 23, 42, .09); color: #7c848f; cursor: grab; touch-action: none; transition: opacity 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out; }
 .ec-canvas-generation-node.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command), 0 12px 32px rgba(15, 23, 42, .14); }
 .ec-canvas-generation-node.is-dimmed { opacity: .25; }
-.ec-canvas-generation-node.is-image > div:first-child { overflow: hidden; border-radius: 7px; }
+.ec-canvas-generation-node.is-image > div:first-child { overflow: hidden; border-radius: 8px; }
 .ec-canvas-generation-node.is-processing { border-style: dashed; border-color: var(--sb-brand-500); animation: ecCanvasGeneratingCard 1.5s ease-in-out infinite; }
-.ec-canvas-generation-node.is-processing::after { position: absolute; inset: -2px; border: 1px solid rgba(139, 92, 246, .72); border-radius: 9px; box-shadow: 0 0 18px rgba(139, 92, 246, .28); content: ''; pointer-events: none; animation: ecCanvasGeneratingGlow 1.5s ease-in-out infinite; }
+.ec-canvas-generation-node.is-processing::after { position: absolute; inset: -2px; border: 1px solid rgba(139, 92, 246, .72); border-radius: 4px; box-shadow: 0 0 18px rgba(139, 92, 246, .28); content: ''; pointer-events: none; animation: ecCanvasGeneratingGlow 1.5s ease-in-out infinite; }
 .ec-canvas-generation-node.is-layer-group { background: #f6f7f9; }
-.ec-canvas-layer-composite { position: absolute; inset: 0; overflow: hidden; border-radius: 7px; background: #fff; pointer-events: none; }
+.ec-canvas-layer-composite { position: absolute; inset: 0; overflow: hidden; border-radius: 8px; background: #fff; pointer-events: none; }
 .ec-canvas-layer-composite-item { position: absolute; overflow: hidden; pointer-events: none; }
 .ec-canvas-layer-composite-item > div,
 .ec-canvas-layer-composite-item img { display: block; width: 100%; height: 100%; }
@@ -444,7 +450,7 @@
 .ec-canvas-generation-placeholder small.is-error { color: #c43f38; }
 .ec-canvas-generation-directions { position: absolute; inset: 0; overflow: auto; box-sizing: border-box; padding: 20px; background: #fff; color: #4f5762; }
 .ec-canvas-generation-directions > small { display: block; margin-bottom: 10px; color: #8a929d; font-size: 11px; }
-.ec-canvas-generation-directions > div { display: grid; gap: 4px; padding: 9px 10px; border: 1px solid #edf0f3; border-radius: 7px; background: #fff; }
+.ec-canvas-generation-directions > div { display: grid; gap: 4px; padding: 9px 10px; border: 1px solid #edf0f3; border-radius: 8px; background: #fff; }
 .ec-canvas-generation-directions > div + div { margin-top: 7px; }
 .ec-canvas-generation-directions > div.is-selected { border-color: #c7d7ff; background: #f5f8ff; }
 .ec-canvas-generation-directions b { color: #3d4652; font-size: 11px; }
@@ -480,7 +486,7 @@
 /* 9-15 用户批注: 「替换」按钮不像竞品 —— 竞品是**图片右上角一个半透明深色遮罩胶囊**。
    改法: rgba(15,15,18,.55) 深色遮罩 + blur + 白字 + 小图标, 贴节点右上角距边 8px;
    常态可见（选中即现），hover 加深。点击走既有上传替换通道。 */
-.ec-canvas-node-replace { position: absolute; z-index: 11; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; background: rgba(15, 15, 18, .55); color: #fff; font-size: 11px; font-weight: 650; line-height: 1; box-shadow: 0 4px 14px rgba(15, 23, 42, .22); cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out; }
+.ec-canvas-node-replace { position: absolute; z-index: 11; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border: 1px solid rgba(255, 255, 255, .16); border-radius: var(--sb-radius-pill)px; background: rgba(15, 15, 18, .55); color: #fff; font-size: 11px; font-weight: 650; line-height: 1; box-shadow: 0 4px 14px rgba(15, 23, 42, .22); cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out; }
 .ec-canvas-node-replace:hover { background: rgba(15, 15, 18, .72); border-color: rgba(255, 255, 255, .3); transform: translateY(-1px); }
 .ec-canvas-node-replace:active { transform: none; }
 .ec-canvas-object-toolbar button:disabled:active { transform: none; }
@@ -537,21 +543,21 @@
   color: #20242a;
 }
 .ec-canvas-context-composer { min-height: 0; overflow: visible; cursor: default; }
-.ec-canvas-node-composer textarea { width: calc(100% - 28px); min-height: 84px; box-sizing: border-box; display: block; margin: 0 14px 12px; padding: 11px 12px; resize: vertical; border: 1px solid #e2e6eb; border-radius: 7px; outline: 0; background: #fafbfc; color: #20242a; font: 12px/1.6 inherit; }
+.ec-canvas-node-composer textarea { width: calc(100% - 28px); min-height: 84px; box-sizing: border-box; display: block; margin: 0 14px 12px; padding: 11px 12px; resize: vertical; border: 1px solid #e2e6eb; border-radius: 8px; outline: 0; background: #fafbfc; color: #20242a; font: 12px/1.6 inherit; }
 .ec-canvas-node-composer textarea:focus { border-color: var(--canvas-command); box-shadow: 0 0 0 3px rgba(37, 99, 235, .10); background: #fff; }
 .ec-canvas-node-composer select { height: 30px; padding: 0 25px 0 9px; border: 1px solid #dfe3e8; border-radius: 6px; outline: 0; background: #f7f8fa; color: #4d5560; font: 10px inherit; }
 .ec-canvas-image-composer,
 .ec-canvas-text-generation-composer,
 .ec-canvas-suite-composer { overflow: visible; }
-.ec-canvas-composer-panel { overflow: hidden; border: 1px solid #e2e6eb; border-radius: 9px; background: #fff; box-shadow: 0 18px 48px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .08); }
-.ec-canvas-composer-preview { position: relative; width: 100%; height: 188px; display: grid; place-items: center; overflow: hidden; border: 1px solid #e2e6eb; border-radius: 9px 9px 0 0; background: #f6f7f9; color: #9aa2ad; }
+.ec-canvas-composer-panel { overflow: hidden; border: 1px solid #e2e6eb; border-radius: 12px; background: #fff; box-shadow: 0 18px 48px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .08); }
+.ec-canvas-composer-preview { position: relative; width: 100%; height: 188px; display: grid; place-items: center; overflow: hidden; border: 1px solid #e2e6eb; border-radius: 6px 9px 0 0; background: #f6f7f9; color: #9aa2ad; }
 .ec-canvas-composer-preview > div { width: 100%; height: 100%; }
 .ec-canvas-composer-preview > span { font-size: 12px; font-weight: 700; }
 .ec-canvas-composer-preview > small { position: absolute; top: calc(50% + 22px); color: #a5acb6; font-size: 11px; }
 .ec-canvas-composer-preview.is-selectable { cursor: crosshair; }
 .ec-canvas-composer-preview > em { position: absolute; left: 9px; bottom: 8px; padding: 3px 6px; border-radius: 4px; background: rgba(32, 36, 42, .68); color: #fff; font-size: 11px; font-style: normal; pointer-events: none; }
 .ec-canvas-selection-rect { position: absolute; z-index: 2; box-sizing: border-box; min-width: 2px; min-height: 2px; border: 2px solid var(--sb-brand-600); background: rgba(124, 58, 237, .16); pointer-events: none; }
-.ec-canvas-composer-source { width: 74px; height: 92px; display: grid; place-items: center; gap: 2px; flex-basis: 74px; border: 1px solid #e1e5ea; border-radius: 7px; background: #f4f5f7; }
+.ec-canvas-composer-source { width: 74px; height: 92px; display: grid; place-items: center; gap: 2px; flex-basis: 74px; border: 1px solid #e1e5ea; border-radius: 6px; background: #f4f5f7; }
 .ec-canvas-composer-source > div { width: 72px; height: 72px; overflow: hidden; border-radius: 6px 6px 3px 3px; }
 .ec-canvas-composer-source > b { width: 100%; overflow: hidden; color: #5d6470; font-size: 11px; font-weight: 700; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-composer-source-add { width: 74px; height: 92px; flex-basis: 74px; grid-template-rows: 72px 16px; gap: 0; }
@@ -563,7 +569,7 @@
 .ec-canvas-selection-mode button { height: var(--cvl-control-compact, 32px); padding: 0 var(--cvl-sp3, 12px); border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; color: #68717d; font-size: 11px; }
 .ec-canvas-selection-mode button.is-active { border-color: var(--sb-brand-600); background: #f4efff; color: #6d28d9; }
 .ec-canvas-direction-list { display: grid; gap: 7px; max-height: 190px; overflow: auto; padding: 10px 14px 12px; }
-.ec-canvas-direction-list button { display: grid; gap: 3px; padding: 10px; border: 1px solid #e1e5ea; border-radius: 7px; background: #fff; color: #20242a; text-align: left; }
+.ec-canvas-direction-list button { display: grid; gap: 3px; padding: 10px; border: 1px solid #e1e5ea; border-radius: 8px; background: #fff; color: #20242a; text-align: left; }
 .ec-canvas-direction-list button.is-selected { border-color: var(--sb-brand-600); background: #f7f2ff; box-shadow: 0 0 0 2px rgba(124, 58, 237, .10); }
 .ec-canvas-direction-list strong { font-size: 11px; }
 .ec-canvas-direction-list small { color: #7d8692; font-size: 11px; line-height: 1.45; }
@@ -582,13 +588,13 @@
 .ec-canvas-composer-sources { min-height: 66px; display: flex; align-items: center; gap: 7px; padding: 10px 14px; overflow-x: auto; }
 .ec-canvas-composer-sources > span:not(.ec-canvas-composer-source) { display: flex; align-items: center; gap: 7px; color: #89919b; font-size: 11px; }
 .ec-canvas-composer-source { position: relative; flex: 0 0 48px; height: 48px; overflow: visible; border: 1px solid #e1e5ea; border-radius: 6px; background: #f4f5f7; }
-.ec-canvas-composer-source > div { overflow: hidden; border-radius: 5px; }
+.ec-canvas-composer-source > div { overflow: hidden; border-radius: 6px; }
 .ec-canvas-composer-source > button { position: absolute; z-index: 2; right: -5px; top: -5px; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #343a40; color: #fff; }
 .ec-canvas-composer-source-add { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; border: 1px dashed #b9c1cb; border-radius: 6px; background: #fafbfc; color: #69727d; cursor: pointer; }
 .ec-canvas-composer-source-add:hover { border-color: var(--canvas-command); color: var(--canvas-command); background: #f4f7ff; }
 .ec-canvas-composer-footer { min-height: 48px; display: flex; align-items: center; gap: 7px; padding: 8px 12px; border-top: 1px solid #edf0f3; }
 .ec-canvas-composer-footer > span { flex: 1; min-width: 0; overflow: hidden; color: #7c848f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.ec-canvas-composer-footer > button { min-width: 78px; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px; border: 0; border-radius: 7px; background: var(--canvas-command); color: #fff; font-size: 11px; font-weight: 700; }
+.ec-canvas-composer-footer > button { min-width: 78px; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--canvas-command); color: #fff; font-size: 11px; font-weight: 700; }
 .ec-canvas-composer-footer > button:hover:not(:disabled) { background: var(--canvas-command-hover); }
 .ec-canvas-composer-footer > button:disabled { opacity: .42; cursor: not-allowed; }
 .ec-canvas-suite-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 14px 12px; }
@@ -599,7 +605,7 @@
 .ec-canvas-suite-source-rows { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-bottom: 1px solid #edf0f3; }
 .ec-canvas-suite-source-rows .ec-canvas-composer-sources + .ec-canvas-composer-sources { border-left: 1px solid #edf0f3; }
 .ec-canvas-composer-source { width: 62px; height: 62px; flex: 0 0 62px; display: block; overflow: visible; }
-.ec-canvas-composer-source > div { width: 100% !important; height: 100% !important; overflow: hidden; border-radius: 5px; }
+.ec-canvas-composer-source > div { width: 100% !important; height: 100% !important; overflow: hidden; border-radius: 6px; }
 .ec-canvas-composer-source > b { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; width: auto; padding: 3px 3px 2px; border-radius: 0 0 5px 5px; background: rgba(32, 36, 42, .62); color: #fff; font-size: 11px; line-height: 1.1; }
 .ec-canvas-composer-source-add { position: relative; width: 62px; height: 62px; flex: 0 0 62px; display: grid; place-items: center; align-content: center; gap: 3px; box-sizing: border-box; }
 .ec-canvas-composer-source-add small { display: block; color: #69727d; font-size: 11px; line-height: 1; }
@@ -634,15 +640,15 @@
 .ec-canvas-composer-footer > .ec-canvas-composer-mention .image-mention-trigger { border: 1px solid #dfe3e8; background: #fff; }
 .ec-canvas-parameter-controls { position: relative; z-index: 5; display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; }
 .ec-canvas-parameter-item { position: relative; }
-.ec-canvas-parameter-item > button { height: 32px; display: inline-flex; align-items: center; gap: 5px; max-width: 116px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
+.ec-canvas-parameter-item > button { height: 32px; display: inline-flex; align-items: center; gap: 5px; max-width: 116px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-parameter-item > button:hover, .ec-canvas-parameter-item > button[aria-expanded="true"] { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
-.ec-canvas-parameter-popover { position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); bottom: calc(100% + 9px); box-sizing: border-box; padding: 10px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
+.ec-canvas-parameter-popover { position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); bottom: calc(100% + 9px); box-sizing: border-box; padding: 10px; border: 1px solid #e1e5eb; border-radius: 12px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-parameter-popover button { border: 1px solid #e1e5eb; background: #fff; color: #59616c; cursor: pointer; }
 .ec-canvas-parameter-popover button:hover, .ec-canvas-parameter-popover button.is-active { border-color: var(--sb-info-solid-500); background: #eff6ff; color: var(--sb-info-solid-600); }
 .ec-canvas-model-popover { width: 252px; display: grid; gap: 6px; }
 /* 9-12 用户批注：图标与文字间距过大（原来是给 44px 大缩略图预留的列宽，现在用的是 20px 品牌标） */
 .ec-canvas-model-popover button { width: 100%; padding: 8px 9px; border-radius: 8px; display: grid; grid-template-columns: 20px minmax(0,1fr); align-items: center; gap: 8px; text-align: left; }
-.ec-canvas-model-popover .ec-canvas-model-thumb { width: 44px; height: 30px; border-radius: 5px; object-fit: cover; border: 1px solid rgba(15,23,42,.08); background: #f2f3f5; }
+.ec-canvas-model-popover .ec-canvas-model-thumb { width: 44px; height: 30px; border-radius: 6px; object-fit: cover; border: 1px solid rgba(15,23,42,.08); background: #f2f3f5; }
 .ec-canvas-model-popover .ec-canvas-model-copy { display: grid; gap: 2px; min-width: 0; }
 .ec-canvas-model-popover .ec-canvas-model-copy strong { overflow: hidden; color: #20242a; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-model-popover small { color: #8a93a0; white-space: nowrap; }
@@ -653,31 +659,31 @@
 .ec-canvas-skill-popover button small { color: #8a93a0; font-size: 11px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ec-canvas-skill-popover button:last-child { border-style: dashed; color: #64748b; font-size: 11px; font-weight: 600; padding: 6px; }
 .ec-canvas-ratio-popover { width: 274px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
-.ec-canvas-ratio-popover button { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 5px; border-radius: 9px; font-size: 11px; }
-.ec-canvas-ratio-shape { display: block; width: 22px; height: 22px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 2px; }
+.ec-canvas-ratio-popover button { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 5px; border-radius: 12px; font-size: 11px; }
+.ec-canvas-ratio-shape { display: block; width: 22px; height: 22px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 4px; }
 .ec-canvas-ratio-shape.is-3-4, .ec-canvas-ratio-shape.is-9-16 { width: 17px; }
 .ec-canvas-ratio-shape.is-4-3, .ec-canvas-ratio-shape.is-16-9 { width: 27px; height: 17px; }
 .ec-canvas-ratio-shape.is-16-9 { width: 29px; height: 16px; }
 .ec-canvas-resolution-popover { width: 218px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-.ec-canvas-resolution-popover button { min-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; border-radius: 9px; }
+.ec-canvas-resolution-popover button { min-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; border-radius: 12px; }
 .ec-canvas-resolution-popover small { color: #8d95a0; font-size: 11px; }
 .ec-canvas-count-popover { width: 172px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
 .ec-canvas-count-popover button { width: var(--cvl-control-compact, 32px); height: var(--cvl-control-compact, 32px); border-radius: var(--cvl-radius-control, 8px); font-size: var(--cvl-font-helper, 11px); }
 .ec-canvas-generation-text-board { width: 100%; height: 100%; box-sizing: border-box; overflow: auto; padding: 16px 18px; outline: 0; color: #20242a; background: #fff; text-align: left; white-space: pre-wrap; word-break: break-word; }
 .ec-canvas-generation-text-board:empty::before { content: attr(data-placeholder); color: #a0a8b3; pointer-events: none; }
 .ec-canvas-generation-text-board:focus { box-shadow: inset 0 0 0 2px var(--canvas-command); }
-.ec-canvas-generation-node.is-text { overflow: hidden; border: 1px solid #e1e5eb; border-radius: 9px; background: #fff; box-shadow: 0 10px 24px rgba(15,23,42,.08); }
+.ec-canvas-generation-node.is-text { overflow: hidden; border: 1px solid #e1e5eb; border-radius: 12px; background: #fff; box-shadow: 0 10px 24px rgba(15,23,42,.08); }
 .ec-canvas-generation-node.is-text.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.14), 0 10px 24px rgba(15,23,42,.08); }
 /* 9-11 用户批注: 视频节点不要黑色 —— 与其他节点同款浅色卡片 (#f6f7f9);
    仅播放器 letterbox 背景 (video 元素) 保留深色, 是视频显示规范不是页面配色 */
-.ec-canvas-generation-node.is-video { overflow: hidden; border: 1px solid #d8dee7; border-radius: 9px; background: #f6f7f9; box-shadow: 0 10px 24px rgba(15,23,42,.14); }
+.ec-canvas-generation-node.is-video { overflow: hidden; border: 1px solid #d8dee7; border-radius: 12px; background: #f6f7f9; box-shadow: 0 10px 24px rgba(15,23,42,.14); }
 .ec-canvas-generation-node.is-video.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.18), 0 12px 28px rgba(15,23,42,.18); }
 .ec-canvas-generation-node.is-video > video { display: block; width: 100%; height: 100%; object-fit: contain; background: #111827; }
 .ec-canvas-video-frame { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; }
 .ec-canvas-video-frame > video { display: block; width: 100%; height: 100%; object-fit: contain; background: #111827; }
 
 /* P7 方案入画布: 设计方案节点 (与其他节点同款浅色卡片, 紫色系标识方案对象) */
-.ec-canvas-generation-node.is-direction { overflow: hidden; border: 1px solid rgba(124, 58, 237, .28); border-radius: 9px; background: linear-gradient(180deg, #fbfaff, #f6f4ff); box-shadow: 0 10px 24px rgba(15,23,42,.10); }
+.ec-canvas-generation-node.is-direction { overflow: hidden; border: 1px solid rgba(124, 58, 237, .28); border-radius: 12px; background: linear-gradient(180deg, #fbfaff, #f6f4ff); box-shadow: 0 10px 24px rgba(15,23,42,.10); }
 .ec-canvas-generation-node.is-direction.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(124,58,237,.18), 0 12px 28px rgba(124,58,237,.16); }
 .ec-canvas-generation-node.is-direction.is-processing { opacity: .92; }
 .ec-canvas-direction-body { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; box-sizing: border-box; overflow: auto; }
@@ -685,7 +691,7 @@
 .ec-canvas-direction-head strong { color: #20242a; font-size: 13px; font-weight: 750; }
 .ec-canvas-direction-head small { color: var(--sb-brand-600); font-size: 11px; font-weight: 650; }
 .ec-canvas-direction-items { display: flex; flex-wrap: wrap; gap: 5px; }
-.ec-canvas-direction-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; overflow: hidden; padding: 3px 9px; border: 1px solid rgba(124, 58, 237, .22); border-radius: 999px; background: #fff; color: #4c3f8f; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-direction-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; overflow: hidden; padding: 3px 9px; border: 1px solid rgba(124, 58, 237, .22); border-radius: var(--sb-radius-pill)px; background: #fff; color: #4c3f8f; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-direction-chip i { flex: none; width: 14px; height: 14px; display: grid; place-items: center; border-radius: 50%; background: var(--canvas-command); color: #fff; font-style: normal; font-size: 11px; }
 .ec-canvas-direction-chip.is-more { border-style: dashed; color: #8b83b8; background: transparent; }
 /* 9-18（P0）本处原先自写整套底部操作区（gap 6px + 自写按钮外观 + 自写禁用态）。
@@ -694,7 +700,7 @@
 .ec-canvas-direction-actions { margin-top: auto; flex-wrap: wrap; }
 .ec-canvas-video-composer { width: min(640px, calc(100vw - 24px)); }
 .ec-canvas-video-mode-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 12px 8px; border-bottom: 1px solid #edf0f3; }
-.ec-canvas-video-mode-tabs button { min-width: 0; display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #dde3ec; border-radius: 7px; background: #fff; color: #59616c; text-align: left; cursor: pointer; }
+.ec-canvas-video-mode-tabs button { min-width: 0; display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #dde3ec; border-radius: 8px; background: #fff; color: #59616c; text-align: left; cursor: pointer; }
 .ec-canvas-video-mode-tabs button:hover, .ec-canvas-video-mode-tabs button.is-active { border-color: var(--canvas-command); background: #f5f8ff; color: var(--canvas-command); }
 .ec-canvas-video-mode-tabs strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-video-mode-tabs small { overflow: hidden; color: #7c8591; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -838,20 +844,20 @@
 .ec-canvas-video-actions { display: inline-flex; align-items: center; gap: 6px; }
 .ec-canvas-video-plan-trigger { min-height: 30px; padding: 0 9px; border: 1px solid #d9d2ff; border-radius: 6px; background: #faf8ff; color: #6354cb; font: 10px inherit; cursor: pointer; }
 .ec-canvas-video-plan-trigger:hover { border-color: #7869e8; background: #f2efff; }
-.ec-canvas-video-plan { position: absolute; z-index: 42; right: 12px; bottom: 50px; left: 12px; max-height: 310px; overflow: auto; padding: 11px; border: 1px solid #dfe3eb; border-radius: 9px; background: rgba(255,255,255,.98); box-shadow: 0 18px 44px rgba(15,23,42,.18); }
+.ec-canvas-video-plan { position: absolute; z-index: 42; right: 12px; bottom: 50px; left: 12px; max-height: 310px; overflow: auto; padding: 11px; border: 1px solid #dfe3eb; border-radius: 12px; background: rgba(255,255,255,.98); box-shadow: 0 18px 44px rgba(15,23,42,.18); }
 .ec-canvas-video-plan > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ec-canvas-video-plan > header > div { display: grid; gap: 2px; }
 .ec-canvas-video-plan > header strong { color: #20242a; font-size: 12px; }
 .ec-canvas-video-plan > header small { color: #8b93a0; font-size: 11px; }
 .ec-canvas-video-plan > header button { width: var(--cvl-control-compact, 32px); height: var(--cvl-control-compact, 32px); display: grid; place-items: center; padding: 0; border: 1px solid #e1e5eb; border-radius: 6px; background: #fff; color: #7c8591; cursor: pointer; }
-.ec-canvas-video-plan-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 8px; border-radius: 7px; background: #f6f4ff; color: #6657d0; font-size: 11px; }
+.ec-canvas-video-plan-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 8px; border-radius: 8px; background: #f6f4ff; color: #6657d0; font-size: 11px; }
 .ec-canvas-video-plan-summary span { color: #7f8794; }
 .ec-canvas-video-plan-beats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
-.ec-canvas-video-plan-beats article { min-width: 0; display: grid; gap: 4px; padding: 8px; border: 1px solid #e7e9ee; border-radius: 7px; background: #fff; }
+.ec-canvas-video-plan-beats article { min-width: 0; display: grid; gap: 4px; padding: 8px; border: 1px solid #e7e9ee; border-radius: 8px; background: #fff; }
 .ec-canvas-video-plan-beats span { color: #6959d7; font-size: 11px; font-weight: 800; }
 .ec-canvas-video-plan-beats strong { overflow: hidden; color: #343a43; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-video-plan-beats small { color: #858e9a; font-size: 11px; line-height: 1.4; }
-.ec-canvas-video-plan-errors { display: grid; gap: 4px; margin-top: 8px; padding: 8px; border-radius: 7px; background: #fff6f6; color: #b54747; font-size: 11px; line-height: 1.45; }
+.ec-canvas-video-plan-errors { display: grid; gap: 4px; margin-top: 8px; padding: 8px; border-radius: 8px; background: #fff6f6; color: #b54747; font-size: 11px; line-height: 1.45; }
 .ec-canvas-video-plan-confirm { width: 100%; min-height: var(--cvl-control-compact, 32px); display: inline-flex; align-items: center; justify-content: center; gap: 5px; margin-top: 9px; border: 0; border-radius: 6px; background: #6758d6; color: #fff; font: 800 10px inherit; cursor: pointer; }
 .ec-canvas-video-plan-confirm:disabled { background: #e3e5e9; color: #a2a8b1; cursor: not-allowed; }
 .ec-canvas-video-sources { display: flex; gap: 8px; padding: 10px 12px 0; overflow-x: auto; }
@@ -862,7 +868,7 @@
 .ec-canvas-video-sources .ec-canvas-composer-source-add { min-width: 76px; height: 68px; }
 .ec-canvas-suite-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #edf0f3; background: #fff; }
 .ec-canvas-suite-control { position: relative; min-width: 0; }
-.ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
+.ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-suite-control > button strong { overflow: hidden; color: #252a31; font-size: 11px; white-space: nowrap; }
 .ec-canvas-suite-control > button:hover, .ec-canvas-suite-control > button.is-active { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
 .ec-canvas-suite-control > button.is-adjusted { border-color: #7567e8; color: #5547c8; background: #f4f2ff; box-shadow: 0 0 0 2px rgba(117,103,232,.10); }
@@ -870,21 +876,21 @@
 .ec-canvas-suite-panel-popover { position: absolute; z-index: 40; left: 0; bottom: calc(100% + 8px); width: min(var(--cvl-panel-width, 480px), calc(100vw - 32px)); max-height: min(620px, calc(100vh - 140px)); overflow: auto; border: 1px solid #e0e4ea; border-radius: 8px; background: #fff; box-shadow: 0 18px 44px rgba(15, 23, 42, .18); }
 .ec-canvas-suite-control:nth-last-child(-n+2) .ec-canvas-suite-panel-popover { right: 0; left: auto; }
 .ec-canvas-option-menu { position: relative; min-width: 0; }
-.ec-canvas-option-menu > button { height: 32px; max-width: 180px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
+.ec-canvas-option-menu > button { height: 32px; max-width: 180px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 20px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-option-menu > button:hover, .ec-canvas-option-menu > button[aria-expanded="true"] { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
 .ec-canvas-option-menu > button > span { color: #7b838e; }
 .ec-canvas-option-menu > button > strong { overflow: hidden; color: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.ec-canvas-option-popover { position: absolute; z-index: 35; left: 0; bottom: calc(100% + 9px); width: 218px; max-height: 250px; overflow: auto; box-sizing: border-box; padding: 7px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
+.ec-canvas-option-popover { position: absolute; z-index: 35; left: 0; bottom: calc(100% + 9px); width: 218px; max-height: 250px; overflow: auto; box-sizing: border-box; padding: 7px; border: 1px solid #e1e5eb; border-radius: 12px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-option-popover button { width: 100%; min-height: 34px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 8px; border: 0; border-radius: 6px; background: #fff; color: #4f5762; font: 10px inherit; text-align: left; cursor: pointer; }
 .ec-canvas-option-popover button:hover, .ec-canvas-option-popover button.is-active { background: #eff6ff; color: var(--sb-info-solid-600); }
 .ec-canvas-option-popover button small { grid-column: 1 / -1; color: #8a929d; font-size: 11px; line-height: 1.35; }
 .ec-canvas-suite-plan-menu > button { max-width: 210px; }
 .ec-canvas-suite-plan-menu > button > strong { max-width: 145px; }
-.ec-canvas-suite-plan-popover { position: absolute; z-index: 35; left: 0; bottom: calc(100% + 9px); width: 304px; box-sizing: border-box; padding: 11px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
+.ec-canvas-suite-plan-popover { position: absolute; z-index: 35; left: 0; bottom: calc(100% + 9px); width: 304px; box-sizing: border-box; padding: 11px; border: 1px solid #e1e5eb; border-radius: 12px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-suite-plan-group + .ec-canvas-suite-plan-group { margin-top: 10px; }
 .ec-canvas-suite-plan-group > strong { display: block; margin-bottom: 6px; color: #727b87; font-size: 11px; }
 .ec-canvas-suite-plan-group > div { display: flex; flex-wrap: wrap; gap: 6px; }
-.ec-canvas-suite-plan-group button { height: var(--cvl-control-compact, 32px); padding: 0 var(--cvl-sp3, 12px); border: 1px solid #e1e5eb; border-radius: 14px; background: #fff; color: #59616c; font: 10px inherit; cursor: pointer; }
+.ec-canvas-suite-plan-group button { height: var(--cvl-control-compact, 32px); padding: 0 var(--cvl-sp3, 12px); border: 1px solid #e1e5eb; border-radius: 8px; background: #fff; color: #59616c; font: 10px inherit; cursor: pointer; }
 .ec-canvas-suite-plan-group button:hover, .ec-canvas-suite-plan-group button.is-active { border-color: var(--sb-info-solid-500); background: #eff6ff; color: var(--sb-info-solid-600); }
 .ec-canvas-suite-controls .ec-canvas-parameter-controls { margin-left: auto; }
 .ec-canvas-suite-composer .ec-canvas-composer-footer > span { flex: 1 1 180px; }
@@ -892,7 +898,7 @@
 .ec-canvas-suite-composer .ec-canvas-composer-sources { min-height: 82px; }
 .ec-canvas-composer-error { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #f1c5c1; border-radius: 6px; background: #fff7f6; color: #a2332d; font-size: 11px; line-height: 1.4; }
 .ec-canvas-composer-error > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.ec-canvas-composer-error > button { flex: 0 0 auto; height: var(--cvl-control-compact, 32px); padding: 0 var(--cvl-sp3, 12px); border: 1px solid #d95d56; border-radius: 5px; background: #fff; color: #ae3c35; font: inherit; font-weight: 700; cursor: pointer; }
+.ec-canvas-composer-error > button { flex: 0 0 auto; height: var(--cvl-control-compact, 32px); padding: 0 var(--cvl-sp3, 12px); border: 1px solid #d95d56; border-radius: 8px; background: #fff; color: #ae3c35; font: inherit; font-weight: 700; cursor: pointer; }
 .ec-canvas-composer-error > button:hover:not(:disabled) { border-color: #a2332d; background: #fff0ef; }
 .ec-canvas-composer-error > button:disabled { opacity: .55; cursor: not-allowed; }
 
@@ -909,7 +915,7 @@
 .ec-canvas-move-scale-target > span { position: absolute; left: 0; top: 0; translate: 0 -100%; padding: 3px 6px; color: #fff; font-size: 11px; line-height: 1; white-space: nowrap; }
 .ec-canvas-move-scale-source > span { background: #f43f5e; }
 .ec-canvas-move-scale-target > span { background: var(--sb-info-solid-600); }
-.ec-canvas-move-scale-handle { position: absolute; width: 10px; height: 10px; min-width: 0; padding: 0; border: 2px solid var(--sb-info-solid-600); border-radius: 2px; background: #fff; box-shadow: none; }
+.ec-canvas-move-scale-handle { position: absolute; width: 10px; height: 10px; min-width: 0; padding: 0; border: 2px solid var(--sb-info-solid-600); border-radius: 4px; background: #fff; box-shadow: none; }
 .ec-canvas-move-scale-handle.is-nw { left: -6px; top: -6px; cursor: nwse-resize; }
 .ec-canvas-move-scale-handle.is-n { left: 50%; top: -6px; translate: -50% 0; cursor: ns-resize; }
 .ec-canvas-move-scale-handle.is-ne { right: -6px; top: -6px; cursor: nesw-resize; }
@@ -1028,7 +1034,7 @@
 }
 .ec-canvas-node-composer {
   border-color: #dfe3e8;
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: 0 20px 44px rgba(15, 23, 42, .14), 0 4px 12px rgba(15, 23, 42, .06);
 }
 .ec-canvas-composer-sources {
@@ -1059,7 +1065,7 @@
 .ec-canvas-composer-source > div {
   width: 100% !important;
   height: 70px !important;
-  border-radius: 7px 7px 0 0;
+  border-radius: 6px 7px 0 0;
 }
 .ec-canvas-composer-source-preview.is-video {
   background: #111827;
@@ -1248,7 +1254,7 @@
   width: min(var(--cvl-panel-width, 480px), calc(100vw - 32px));
   max-height: min(720px, calc(100vh - 104px));
   border-color: #dce2e9;
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: 0 22px 54px rgba(15, 23, 42, .18), 0 4px 12px rgba(15, 23, 42, .07);
 }
 .ec-canvas-suite-plan-editor {
@@ -1277,7 +1283,7 @@
 .ec-canvas-suite-plan-heading h3,
 .ec-canvas-suite-shot-heading h4 { margin: 0; color: #15171a; font-size: 16px; line-height: 1.3; }
 .ec-canvas-suite-plan-heading p { margin: 5px 0 0; color: #687383; font-size: 11px; line-height: 1.5; }
-.ec-canvas-plan-state { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid #bfe5d4; border-radius: 7px; color: #18794e; background: #f2fbf6; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.ec-canvas-plan-state { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid #bfe5d4; border-radius: 8px; color: #18794e; background: #f2fbf6; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .ec-canvas-suite-plan-brief { padding: 16px 0 4px; }
 .ec-canvas-suite-plan-editor label { display: grid; gap: 7px; min-width: 0; }
 .ec-canvas-suite-plan-editor label > span { color: #3d4652; font-size: 11px; font-weight: 750; }
@@ -1289,7 +1295,7 @@
   padding: 10px 11px;
   resize: vertical;
   border: 1px solid #dfe4ea;
-  border-radius: 7px;
+  border-radius: 8px;
   outline: 0;
   background: #fbfcfd;
   color: #303945;
@@ -1307,12 +1313,12 @@
 .ec-canvas-suite-shot-meta > div { min-width: 0; display: grid; gap: 4px; }
 .ec-canvas-suite-shot-meta strong { color: #303945; font-size: 12px; }
 .ec-canvas-suite-shot-meta span { color: #737e8d; font-size: 11px; line-height: 1.45; }
-.ec-canvas-suite-shot-meta > b { flex: 0 0 auto; padding: 3px 6px; border: 1px solid #d9e1ec; border-radius: 5px; color: #536b8f; background: #f5f8fc; font-size: 11px; }
+.ec-canvas-suite-shot-meta > b { flex: 0 0 auto; padding: 3px 6px; border: 1px solid #d9e1ec; border-radius: 6px; color: #536b8f; background: #f5f8fc; font-size: 11px; }
 .ec-canvas-suite-shot textarea { min-height: 52px; }
 .ec-canvas-suite-shot-empty { margin: 0; padding: 14px 0 2px; color: #788392; font-size: 11px; }
 .ec-canvas-generation-directions { padding: 18px 20px; background: #fff; color: #3f4a58; }
 .ec-canvas-generation-directions > small { margin-bottom: 12px; color: var(--sb-info-solid-600); font-size: 11px; font-weight: 750; }
-.ec-canvas-generation-plan-summary { display: grid !important; gap: 9px !important; padding: 14px !important; border: 1px solid #dce5f2 !important; border-radius: 9px !important; background: #f8fbff !important; }
+.ec-canvas-generation-plan-summary { display: grid !important; gap: 9px !important; padding: 14px !important; border: 1px solid #dce5f2 !important; border-radius: 12px !important; background: #f8fbff !important; }
 .ec-canvas-generation-plan-summary b { color: #26384f; font-size: 13px; }
 .ec-canvas-generation-plan-summary span { color: #68778a; font-size: 11px; line-height: 1.55; }
 .ec-canvas-generation-plan-summary em { color: #4b73b8; font-size: 11px; font-style: normal; font-weight: 700; }
@@ -1325,7 +1331,7 @@
 }
 .ec-canvas-generation-text-board:focus { box-shadow: inset 0 0 0 1px #7da5ef; }
 .ec-canvas-generation-text-board:empty::before { color: #7f8b9a; font-weight: 550; }
-.ec-canvas-generation-node.is-text { border-color: #d8dee7; border-radius: 11px; box-shadow: 0 12px 28px rgba(15, 23, 42, .1); }
+.ec-canvas-generation-node.is-text { border-color: #d8dee7; border-radius: 12px; box-shadow: 0 12px 28px rgba(15, 23, 42, .1); }
 .ec-canvas-generation-node.is-text.is-selected { border-color: #6d98e8; box-shadow: 0 0 0 1px rgba(37, 99, 235, .5), 0 14px 34px rgba(15, 23, 42, .13); }
 .ec-canvas-text-toolbar {
   max-width: min(640px, calc(100vw - 28px));
@@ -1333,16 +1339,16 @@
   gap: 3px;
   padding: 6px;
   border-color: #dce2e9;
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: 0 16px 38px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .06);
 }
 .ec-canvas-text-toolbar button { width: 38px; height: 38px; flex: 0 0 38px; color: #4e5b6b; font-size: 13px; font-weight: 700; }
 .ec-canvas-text-toolbar button:hover { color: #1f4e9f; background: #edf4ff; }
 .ec-canvas-text-toolbar button.is-active { color: #1f5fca; background: #e7f0ff; box-shadow: inset 0 0 0 1px #bdd2f7; }
 .ec-canvas-text-toolbar button:focus-visible { outline: 2px solid var(--sb-info-solid-600); outline-offset: 1px; }
-.ec-canvas-text-color { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 38px; border-radius: 7px; }
+.ec-canvas-text-color { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 38px; border-radius: 8px; }
 .ec-canvas-text-color:hover { background: #edf4ff; }
-.ec-canvas-text-color input { width: 19px; height: 19px; padding: 0; border: 0; border-radius: 5px; background: transparent; }
+.ec-canvas-text-color input { width: 19px; height: 19px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
 
 @media (max-width: 620px) {
   .ec-canvas-suite-plan-editor { padding: 0; }
@@ -1352,7 +1358,7 @@
   .ec-canvas-composer-footer > button { margin-left: auto; }
 }
 /* 9-12 作品保留提示（7 天） */
-.ec-canvas-work-retention { margin: 0 0 10px; padding: 8px 12px; border: 1px solid rgba(217,119,6,.22); border-radius: 9px; background: rgba(251,191,36,.10); color: #92400e; font-size: 12px; }
+.ec-canvas-work-retention { margin: 0 0 10px; padding: 8px 12px; border: 1px solid rgba(217,119,6,.22); border-radius: 12px; background: rgba(251,191,36,.10); color: #92400e; font-size: 12px; }
 .ec-canvas-work-filters {
   display: flex;
   align-items: center;
@@ -1414,7 +1420,7 @@
 .ec-canvas-work-empty { min-height: 320px; display: grid; place-items: center; align-content: center; gap: 10px; color: #8b909a; text-align: center; }
 .ec-canvas-work-empty strong { color: #24272d; font-size: 18px; }
 .ec-canvas-work-empty span { max-width: 420px; font-size: 13px; }
-.ec-canvas-work-empty button { margin-top: 8px; padding: 9px 18px; border: 0; border-radius: 7px; background: #202226; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.ec-canvas-work-empty button { margin-top: 8px; padding: 9px 18px; border: 0; border-radius: 8px; background: #202226; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 
 /* P2: AI 生成中 border-beam（conic 扫光，仅 processing 态；普通选中保持静态环）*/
 @property --ec-beam-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
@@ -1455,7 +1461,7 @@
   gap: 4px;
   margin: 4px auto 0;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill)px;
   border: 1px solid rgba(100, 116, 139, .4);
   background: #f8fafc;
   color: #64748b;
@@ -1544,7 +1550,7 @@
   padding: 0 14px;
   gap: 7px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
@@ -1594,7 +1600,7 @@
 .ec-canvas-suite-plan-state {
   flex: 0 0 auto;
   padding: var(--cvl-sp1, 4px) var(--cvl-sp2, 8px);
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill)px;
   background: #fff7ed;
   color: var(--sb-credit-spend);
   font-size: var(--cvl-font-helper, 11px);
@@ -2019,7 +2025,7 @@
   right: 24px;
   bottom: 4px;
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: 6px;
   background: rgba(254, 242, 242, .94);
   color: #b42318;
   font-size: 11px;
@@ -2076,7 +2082,7 @@
    口径：① 打组 = 一个**组容器**（虚线描边 + 四角留白 + 四周呼吸感，组内节点不显示左右加号）；
         ② 绑定元素 = 只是"一起移动"的关联（不画实心组框，只画细链接框，组内节点保留加号）；
         ③ 已打组/已绑定时对应按钮高亮，再点一次解除。 */
-.ec-canvas-node-group { position: absolute; box-sizing: border-box; pointer-events: none; border-radius: 14px; }
+.ec-canvas-node-group { position: absolute; box-sizing: border-box; pointer-events: none; border-radius: 12px; }
 .ec-canvas-node-group.is-group {
   z-index: 8;
   border: 1.5px dashed #7c5cf0;
@@ -2093,7 +2099,7 @@
   top: -11px;
   padding: 1px 8px;
   border: 1px solid #7c5cf0;
-  border-radius: 9px;
+  border-radius: 12px;
   background: #f5f2ff;
   color: #4c33b8;
   font-size: 11px;
@@ -2233,22 +2239,7 @@
 .ec-canvas-video-plan > header button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .ec-canvas-video-plan-confirm:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
 .ec-canvas-video-sources button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.ec-canvas-work-empty button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-/* ═══════════════════════════════════════════════════════════════════════════
-   §22 / 原则 4.7 —— 可点必有 hover（画布，5 处缺口）
-   ───────────────────────────────────────────────────────────────────────────
-   ① .ec-canvas-composer-skill select —— 原生下拉（cursor:pointer）
-      原生 select 无背景可改时给中性表面色，不改尺寸；
-   ② .ec-canvas-video-plan > header button（图标/小按钮）→ 中性表面色；
-   ③ .ec-canvas-video-plan-confirm 是**实色主 CTA** → 海拔 --sb-shadow-3，不改底色；
-   ④ .ec-canvas-video-sources button → 中性表面色；
-   ⑤ .ec-canvas-work-empty button → 中性表面色。
-   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
-   ═══════════════════════════════════════════════════════════════════════════ */
-.ec-canvas-composer-skill select:hover:not(:disabled) { background-color: var(--sb-hover-bg); }
-.ec-canvas-video-plan > header button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.ec-canvas-video-plan-confirm:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
-.ec-canvas-video-sources button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 /* ⚠️ 修正：此按钮是**实色深底**（bg #202226 / 白字），按 §22 必须走**海拔**而非表面色 ——
    用 --sb-hover-bg 会产生「白字 + 浅灰底」的不可读组合（已用 Playwright 实测抓出）。 */
 .ec-canvas-work-empty button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+

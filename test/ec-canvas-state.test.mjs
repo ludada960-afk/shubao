@@ -216,7 +216,13 @@ test('clicking an image output port opens the derive picker without requiring a 
   /* 9-11 三轮: 左右加号都点击开派生菜单 (用户: 左加号点了没反应) */
   assert.match(canvasStudioSource, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\}/);
   assert.match(canvasSource, /const handlePortClick = useCallback/);
-  assert.match(canvasSource, /setConnectionPicker\(\{\s*sourceNodeId:\s*nodeId,\s*world:\s*toWorldPoint\(event\)/);
+  /* 2026-09-20：锚点从「世界坐标 toWorldPoint(event)」改为「触发按钮的视口矩形 anchorRect」。
+     原因见 test/canvas-popover-anchor-authority-0920.test.mjs：世界坐标要经缩放层换算，
+     实测右侧面板打开时算飞（世界 -717 → 屏幕 x=10），面板被甩到最左并盖住素材。
+     这里断言「先取触发元素再量视口矩形」这一实质，不绑定旧的字面量。 */
+  assert.match(canvasSource, /setConnectionPicker\(\{\s*sourceNodeId:\s*nodeId,\s*anchorRect:/,
+    '点击加号必须把触发元素的视口矩形作为锚点传给派生菜单');
+  assert.match(canvasSource, /const rect = portEl\?\.getBoundingClientRect\?\.\(\)/, '锚点必须来自触发元素的实测矩形');
   assert.match(canvasSource, /onPortClick=\{event => handlePortClick\(event, node\.id\)\}/);
 });
 

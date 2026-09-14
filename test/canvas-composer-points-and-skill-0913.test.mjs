@@ -90,18 +90,22 @@ test('视频框补上 @ 引用键（四个框对等）', () => {
   assert.ok(canvasIndex.includes('mentionSources={selectedComposerMentions}'), '画布要把 @ 候选素材传给视频框');
 });
 
-test('从节点「+」打开的生成面板居中吸附在按钮正上方', () => {
-  const model = read('src/pages/EcCanvas/nodeWorkflow.js');
-  assert.ok(model.includes("anchor === 'above'"), '缺少 above 锚点分支');
-  assert.ok(model.includes("placement: 'above'"), '缺少 above 布局标记');
-  const menuCss = read('src/styles/canvas-derive-menu.css');
-  assert.ok(menuCss.includes('.ec-canvas-derive-menu.is-above'), '缺少居中吸附样式');
-  assert.ok(menuCss.includes('translate(-50%, calc(-100% - 14px))'), '面板要水平居中并贴到按钮上方');
-  assert.ok(studio.includes("placement === 'above' ? ' is-above' : ''"), '面板要按布局标记挂 is-above');
+/* 2026-09-20 口径变更（用户原话：「面板依然是歪到左边去，然后依然是盖住了我们现在的素材」）：
+   旧的「水平居中于触发按钮正上方」被**实测证明不可行** ——
+   派生面板宽 329px > 源节点宽 163px，「居中」必然让面板左半盖回节点自身；
+   叠加右侧面板打开时的世界/像素坐标混用，实测面板被甩到屏幕 x=10（触发按钮在 683）。
+   新口径（用户确认，见 test/canvas-popover-anchor-authority-0920.test.mjs）：
+     · 锚在触发元素上**向右展开**；右侧放不下**向下**，**绝不向左翻**；与源节点零相交。
+   本用例随之改为断言**新口径**（不绑定旧的字面量写法）。 */
+test('从节点「+」打开的生成面板锚在按钮右侧展开（2026-09-20 口径）', () => {
   const canvasIndex = read('src/pages/EcCanvas/index.jsx');
-  assert.ok(canvasIndex.includes("anchor: 'above'"), '画布要把派生菜单按 above 锚点定位');
-  /* 高度是渲染后才知道的：实测放不下要翻到下方，且**仍然水平居中**（宁可换边也不歪） */
-  assert.ok(studio.includes("setFlipped(true)"), '面板要按真实渲染高度复测并翻边');
-  assert.ok(studio.includes("is-flipped"), '翻边要有样式钩子');
-  assert.ok(menuCss.includes('.ec-canvas-derive-menu.is-above.is-flipped'), '翻边样式缺失');
+  assert.ok(studio.includes('place="right"'), '派生菜单必须声明向右展开');
+  assert.ok(studio.includes('CanvasPopoverPortal'), '必须走统一权威（portal + 视口定位）');
+  assert.ok(canvasIndex.includes('anchorRect={connectionPicker.anchorRect}'), '画布必须传触发元素的视口矩形');
+  /* 权威侧必须有「右展开 + 视口下界回夹」两条实现 */
+  assert.ok(studio.includes("if (place === 'right')"), '权威必须实现 right 分支');
+  assert.ok(studio.includes('anchor.right'), '左缘必须取锚点右缘（右展开）');
+  /* 反向断言：不许再走世界坐标版本（那正是甩到左边的根因） */
+  const callSite = canvasIndex.slice(canvasIndex.indexOf('<CanvasDeriveMenu'), canvasIndex.indexOf('<CanvasDeriveMenu') + 600);
+  assert.ok(!callSite.includes('clampCanvasPickerPosition('), '派生菜单不得再自算世界坐标');
 });
