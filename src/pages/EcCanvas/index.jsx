@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, Fil
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
-import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, synthesizeCanvasTts, synthesizeCanvasCaption, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd, quoteCanvasAction } from '../../services/api';
+import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, synthesizeCanvasTts, synthesizeCanvasCaption, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd, quoteCanvasAction, stableCanvasActionId } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -4180,7 +4180,25 @@ const handlePointerUp = useCallback((e) => {
           audios: audioAssets.map(asset => asset.id),
           urls,
         },
-      }, globalThis.crypto?.randomUUID?.() || `canvas-video-${Date.now()}`);
+      }, 
+      /* 2026-09-17 第六批：幂等键原来每次点击新随机 UUID →
+         服务端 videoGeneration.createJob 按 (owner_email, idempotency_key) 查重**永不命中**。
+         实测（真实接口、无打桩）：连点 3 次 = 2 个真实视频任务、92,000 积分被真实占用；
+         同键连点 3 次 = 1 个任务、replay:true、额外扣费 0。
+         稳定键按「同一节点 + 同一提示词 + 同一规格 + 同一素材」计算：
+         素材或提示词改了 = 另一次生成，键随之改变（这是用户有意重复，应该计费）。 */
+      stableCanvasActionId([
+        'video-job',
+        composer.id,
+        composer.modelProductId || 'seedance_standard',
+        resolveVideoApiMode(mode, files),
+        String(composer.prompt).trim(),
+        Number(composer.duration) || 8,
+        composer.aspectRatio || '9:16',
+        composer.resolution || '720p',
+        composer.generateAudio !== false ? 'audio' : 'silent',
+        uploaded.map(item => item.asset.id).join(','),
+      ].join('\u0000')));
       let job = response.job;
       while (!VIDEO_FINAL_STATUSES.has(job.status)) {
         await delay(5000);
@@ -4249,9 +4267,28 @@ const handlePointerUp = useCallback((e) => {
       for (const frame of analysisFrames) frameAssets.push(await uploadVideoAsset(frame, 'image'));
       const analysisQuote = (await quoteBillingAction({ sku: 'video_plan_analysis', quantity: 1 })).quote;
       const imageIds = uploaded.filter(item => !['video', 'audio'].includes(item.source.kind)).map(item => item.asset.id);
+      /* 2026-09-17 第六批（收费链路真实端到端验收）：
+         原来 actionId 用 globalThis.crypto.randomUUID() —— 每点一次一个新 UUID，
+         服务端 oneShotBilling 按 actionId 去重**彻底失效**。
+         实测（真实接口、无打桩）：连点 3 次 = 4000 积分（4× 方案分析费）。
+         改成**稳定键**：同一节点 + 同一份素材/提示词/规格 = 同一个 actionId，
+         第 2、3 次点击服务端命中已完成记录直接 replay，不再扣费。
+         素材或提示词变了就是「另一次分析」，键随之改变（用户有意重复 → 应重新计费）。 */
+      const analysisActionKey = stableCanvasActionId([
+        'video-plan',
+        composer.id,
+        mode,
+        String(composer.prompt || '').trim(),
+        Number(composer.duration) || 8,
+        composer.aspectRatio || '9:16',
+        composer.resolution || '720p',
+        composer.modelProductId || 'seedance_standard',
+        imageIds.join(','),
+        uploaded.map(item => item.asset.id).join(','),
+      ].join('\u0000'));
       const response = await analyzeVideoPlan({
         billingQuoteId: analysisQuote.quoteId,
-        billingActionId: globalThis.crypto?.randomUUID?.() || `canvas-video-plan-${Date.now()}`,
+        billingActionId: analysisActionKey,
         productId: composer.modelProductId || 'seedance_standard',
         mode,
         prompt: String(composer.prompt).trim(),
@@ -6215,18 +6252,37 @@ const handlePointerUp = useCallback((e) => {
   const openedFromLibraryRef = useRef(false);
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
-    /* 9-17 用户批注（图10 第3点）：「在画布库打开的已有画布不需要询问，默认静默保存覆盖原画布；
-       新建的临时画布才需要询问是否保存到画布库」。
-       实测漏洞：原来的选择器只覆盖**全站导航**（.app-side-nav / .creative-nav / .app-topbar / .topbar），
-      但画布页 App.jsx 里根本不渲染 SideNav 与 TopBar（`page !== 'ec-canvas' && ...`），
-       画布自己的「返回」按钮（.ec-canvas-topbar 里的 aria-label="返回"）也不在选择器内 ——
-       于是用户点返回**直接回到首页，既不询问也不保存**（实测 reqs 为空、无弹窗）。
-       把画布自己的离开入口一并纳入：返回按钮 + 顶栏 + 让位区的导航型按钮。 */
-    const LEAVING_SELECTOR = '.app-side-nav, .creative-nav, .app-topbar, .topbar, [data-canvas-leave-guard], .ec-canvas-topbar [aria-label="返回"]'; /* 9-18 P0 修复：原先含整条 .ec-canvas-topbar，导致「新建画布/导出/模板广场/页签」在画布非空时被捕获阶段劫持；现只认返回按钮与显式标记 */
+    /* ═══ 触发判据（2026-09-18 用户批注重写）══════════════════════════════════
+       用户原话：「我刚刚是点击画布上面的那个模板广场，你为什么就会提出来这个是否保存这张
+       画布呢？应该是我离开这张画布的时候，你才要问我这个问题呀。我打开模板广场它不是
+       一个弹窗吗？你为什么也要问我这个问题呢？」
+
+       旧实现的病根：用「点击目标是否命中一个选择器」当判据，而选择器含 .ec-canvas-topbar ——
+       模板广场/画布库/导出 这些**弹窗按钮全在顶栏里**，于是「打开一个弹窗」被误判成
+       「离开画布」。这正是这个问题反复复发的根因。
+
+       新判据（必须**是真正的导航**才算离开）：
+         · 点击的是 <a href> 且目标 pathname 确实不是 /ec-canvas；或
+         · 点击的元素带 data-canvas-leave-guard（画布自己的「返回」按钮显式标注）。
+       任何弹窗按钮都是 <button>、不导航 → 天然不满足 → 一律不弹。 */
+    const CANVAS_PATHNAME = '/ec-canvas';
+    const isLeavingNavigation = target => {
+      if (target.closest('[data-canvas-leave-guard]')) return true;
+      const anchor = target.closest('a[href]');
+      if (!anchor) return false;
+      const href = anchor.getAttribute('href') || '';
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
+      let path = '';
+      try { path = new URL(anchor.href, globalThis.location?.origin || 'http://localhost').pathname; }
+      catch { return false; }
+      return path !== CANVAS_PATHNAME;
+    };
     const handleCapture = async event => {
       if (leaveGuardBypassRef.current) return;
       const target = event.target instanceof Element ? event.target.closest('a,button') : null;
-      if (!target || !target.closest(LEAVING_SELECTOR)) return;
+      if (!target) return;
+      /* 弹窗 / 切节点 / 关弹窗 / 开菜单 → 都不是导航 → 放行，绝不打扰 */
+      if (!isLeavingNavigation(target)) return;
       if (!nodesRef.current.length) return;           /* 空画布不打扰 */
       if (openedFromLibraryRef.current) {              /* ① 来自画布库 → 静默保存 */
         void handleCanvasSessionSaveRef.current?.().catch(() => {});
@@ -6234,15 +6290,21 @@ const handlePointerUp = useCallback((e) => {
       }
       event.preventDefault();
       event.stopPropagation();
-      /* 9-17 修：DialogProvider 的入参是 confirmLabel / cancelLabel，
-         原来传的 confirmText / cancelText **被静默忽略** —— 用户看到的永远是
-         「取消 / 确认」，与「保存到画布库 / 不保存」的设计文案对不上。
-         按组件真实 API 传参，文案才真的落到按钮上。 */
+      /* ═══ 文案（2026-09-18 用户批注重写）══════════════════════════════════════
+         用户原话：「你下面应该给的两个选项应该是不保存和保存吧？取消又是什么意思呢？
+         取消在你现在逻辑里面是不保存的意思吗？你很容易让用户误解为点击取消的意思是
+         取消这个选项呀。」
+         → 只有两个明确选项：左「不保存」（次要）/ 右「保存」（主）。
+         → 右上角 X 同样有歧义 → hideClose 不显示它。
+         → 点遮罩 / 按 ESC = 留在画布继续编辑（什么都不发生）→ dismissBackdrop: false。
+         → 说明文案一句结果导向，删掉「不占用空间」这类内部话术。 */
       const save = await dialog.confirm({
         title: '保存这张画布？',
-        message: '保存后可以在「我的画布」里继续编辑；不保存则直接丢弃，不占用空间。',
-        confirmLabel: '保存到画布库',
+        message: '保存后可以在「我的画布」里继续编辑。',
+        confirmLabel: '保存',
         cancelLabel: '不保存',
+        hideClose: true,
+        dismissBackdrop: false,
       });
       try {
         if (save) {

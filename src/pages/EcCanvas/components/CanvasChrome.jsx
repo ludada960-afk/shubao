@@ -23,12 +23,13 @@ import {
 import AccountEntitlementControl from '../../../components/billing/AccountEntitlementControl.jsx';
 import { PUBLIC_TEMPLATES } from '../../../constants/publicTemplates.js';
 
-function IconButton({ label, children, active = false, disabled = false, onClick, className = '' }) {
+function IconButton({ label, children, active = false, disabled = false, onClick, className = '', ...rest }) {
   return <button
     type="button"
     className={`ec-canvas-icon-button ${active ? 'is-active' : ''} ${className}`}
     aria-label={label}
     title={label}
+    {...rest}
     aria-pressed={active || undefined}
     disabled={disabled}
     onClick={onClick}
@@ -57,7 +58,11 @@ export function CanvasTopBar({
   const hasTemplates = Array.isArray(PUBLIC_TEMPLATES) && PUBLIC_TEMPLATES.length > 0;
   return <header className="ec-canvas-topbar">
     <div className="ec-canvas-topbar-leading">
-      <IconButton label="返回" className="ec-canvas-topbar-surface" onClick={onBack}><ArrowLeft size={18} /></IconButton>
+      {/* data-canvas-leave-guard：显式标注「这是真正离开画布的入口」。
+          离开守卫只认两类目标 —— 这个标记，或指向非 /ec-canvas 的 <a href>。
+          顶栏里的弹窗按钮（模板广场/画布库/导出…）都没有这个标记、也不是链接，
+          所以打开它们**不会**触发「保存这张画布？」询问（2026-09-18 用户批注修复）。 */}
+      <IconButton label="返回" className="ec-canvas-topbar-surface" data-canvas-leave-guard="true" onClick={onBack}><ArrowLeft size={18} /></IconButton>
       <div className="ec-canvas-project-title">
         <strong>{title || '智能画布'}</strong>
         <span><i className={saving ? 'is-saving' : ''} />{saving ? '正在保存' : meta}</span>

@@ -17,7 +17,10 @@ test('离开画布守卫：来自画布库则静默保存，否则询问', () =>
      原来写的是 confirmText / cancelText —— 被组件**静默忽略**，
      用户在弹窗上看到的永远是「取消 / 确认」，与设计文案对不上。
      契约随之改为校验真实生效的键名。 */
-  assert.ok(canvas.includes('confirmLabel: \'保存到画布库\'') && canvas.includes('cancelLabel: \'不保存\''), '两个选项（按 DialogProvider 真实 API）');
+  /* 9-18 用户批注改口径：按钮只有「不保存 / 保存」两个明确选项。
+     原来写「保存到画布库」是内部说法，且「取消」会被理解成"取消这次操作"。
+     详见 test/canvas-leave-save-guard-0918.test.mjs。 */
+  assert.ok(canvas.includes("confirmLabel: '保存'") && canvas.includes("cancelLabel: '不保存'"), '两个选项：不保存 / 保存');
   assert.ok(!/confirmText:|cancelText:/.test(canvas), '不再使用被忽略的 confirmText/cancelText');
   assert.ok(canvas.includes('await handleCanvasSessionSaveRef.current?.();'), '选保存 → 保存会话');
   assert.ok(canvas.includes('await deleteCanvas(canvasSessionRef.current.id);'), '选不保存 → 丢弃（复用画布库删除接口）');
@@ -32,16 +35,18 @@ test('9-17：新建画布没有项目时也要能真的存进画布库', () => {
   assert.ok(canvas.includes('showToast(\'画布暂时无法保存，请稍后重试\', \'error\')'), '建不出来时给用户可读的提示');
 });
 
-test('9-17：离开入口覆盖画布自己的顶栏，并且关标签页/刷新也要守住', () => {
+test('9-17：离开入口覆盖画布自己的「返回」，并且关标签页/刷新也要守住', () => {
   /* 实测漏洞：原选择器只覆盖全站导航，而画布页 App.jsx 不渲染 SideNav/TopBar，
-     画布自己的「返回」按钮不在其中 → 点返回直接回首页，不询问也不保存。 */
-  assert.ok(canvas.includes('.ec-canvas-topbar'), '离开选择器纳入画布顶栏（返回按钮）');
+     画布自己的「返回」按钮不在其中 → 点返回直接回首页，不询问也不保存。
+     9-18 再修：判据不再用「选择器命中」（那会把顶栏里的弹窗按钮一起误判成离开），
+     改为「返回」按钮显式标注 data-canvas-leave-guard。 */
+  assert.ok(canvas.includes('data-canvas-leave-guard'), '「返回」按钮显式标注为离开入口');
   assert.ok(canvas.includes("window.addEventListener('beforeunload', handleBeforeUnload)"), '关标签页/刷新也守');
   assert.ok(canvas.includes('event.returnValue = \'\';'), '标准 beforeunload 触发方式');
 });
 
-test('守卫只在真正离开画布时生效，且空画布不打扰', () => {
-  assert.ok(canvas.includes('LEAVING_SELECTOR'), '限定离开入口选择器');
+test('守卫只在真正离开画布时生效（真导航判据），且空画布不打扰', () => {
+  assert.ok(canvas.includes('isLeavingNavigation'), '必须有真导航判据函数（弹窗因此天然不触发）');
   assert.ok(canvas.includes('if (!nodesRef.current.length) return;'), '空画布不弹窗');
   assert.ok(canvas.includes("document.addEventListener('click', handleCapture, true)"), '捕获阶段拦截');
   assert.ok(canvas.includes('leaveGuardBypassRef.current = true;') && canvas.includes('target.click();'), '确认后继续原导航');

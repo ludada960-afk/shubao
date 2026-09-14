@@ -100,8 +100,10 @@ test('③ 方案未确认不得有任何自动生成/自动扣费路径', () => 
 test('③ 离开画布的保存规则未被本次改动影响', () => {
   assert.ok(/if \(openedFromLibraryRef\.current\) \{[\s\S]{0,120}handleCanvasSessionSaveRef\.current\?\.\(\)/.test(canvas),
     '从画布库打开 → 静默保存');
-  assert.ok(canvas.includes("confirmLabel: '保存到画布库'") && canvas.includes("cancelLabel: '不保存'"),
-    '新建有内容 → 询问保存（两个选项）');
+  /* 9-18 用户批注改口径：按钮只有「不保存 / 保存」两个明确选项，
+     「保存到画布库」是内部说法、「取消」会被理解成取消这次操作。 */
+  assert.ok(canvas.includes("confirmLabel: '保存'") && canvas.includes("cancelLabel: '不保存'"),
+    '新建有内容 → 询问保存（两个选项：不保存 / 保存）');
   assert.ok(canvas.includes('if (!nodesRef.current.length) return;'), '空画布不打扰');
   assert.ok(!/planConfirmed[\s\S]{0,200}title: '保存这张画布/.test(canvas), '方案不得额外弹窗');
 });
