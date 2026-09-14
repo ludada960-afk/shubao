@@ -60,8 +60,11 @@ function EcommerceGalleryPreview({ item, onClose }) {
   };
   if (!current) return null;
   const dimensions = current.size || (current.width && current.height ? current.width + ' × ' + current.height : '');
-  return <div className="ec-gallery-overlay animate-fade-in" onClick={onClose}>
-    <div className="ec-gallery-modal animate-scale-in" onClick={event => event.stopPropagation()} onWheel={handleWheel}>
+  /* 原则 4.1：遮罩是可点关闭区 → button + .a11y-backdrop；
+     面板原用 stopPropagation 吞冒泡、非可点元素 → 改用 target 判定，去掉嵌套交互元素。 */
+  return <button type="button" aria-label="关闭预览" className="ec-gallery-overlay animate-fade-in a11y-backdrop"
+    onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
+    <div className="ec-gallery-modal animate-scale-in" onWheel={handleWheel}>
       <div className="ec-gallery-visual">
         {isTryOn ? <TryOnGalleryWorkflow item={item} /> : <ResponsiveImage src={current.url} alt={current.label} variant="full" ratio={current.width && current.height ? `${current.width}:${current.height}` : item?.ratio || '3:4'} priority sizes="min(72vw, 980px)"
           style={{ width: '100%', height: '100%', background: '#f5f5f5' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
@@ -84,7 +87,7 @@ function EcommerceGalleryPreview({ item, onClose }) {
       .ec-gallery-tryon-workflow{display:flex;width:100%;height:100%;align-items:center;justify-content:center;gap:16px;padding:56px 36px;background:linear-gradient(120deg,#fff8ea 0%,#faf7ff 67%,#edf8f6 100%)}.ec-gallery-tryon-asset{position:relative;min-width:0;max-width:28%;margin:0;padding:8px;border:1px solid rgba(67,55,45,.1);border-radius:8px;background:#fff;box-shadow:0 18px 40px rgba(47,37,30,.14);transform:rotate(-2deg)}.ec-gallery-tryon-asset.role-reference{transform:rotate(2deg)}.ec-gallery-tryon-asset.role-result{max-width:32%;transform:rotate(1deg)}.ec-gallery-tryon-asset figcaption{position:absolute;right:13px;bottom:13px;padding:5px 8px;border-radius:5px;background:rgba(25,23,23,.78);color:#fff;font-size:11px;font-weight:900}.ec-gallery-tryon-operator{display:grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border:1px solid rgba(101,72,205,.18);border-radius:50%;background:#fff;color:#6548cb;font:900 22px/1 inherit;box-shadow:0 8px 22px rgba(76,52,161,.13)}
       @media(max-width:760px){.ec-gallery-tryon-workflow{gap:5px;padding:26px 8px}.ec-gallery-tryon-asset{max-width:29%;padding:3px}.ec-gallery-tryon-asset.role-result{max-width:32%}.ec-gallery-tryon-operator{width:22px;height:22px;flex-basis:22px;font-size:13px}.ec-gallery-tryon-asset figcaption{right:5px;bottom:5px;padding:3px 4px;font-size:10px}}
     `}</style>
-  </div>;
+  </button>;
 }
 
 export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas, initialImageIndex = 0 }) {
@@ -280,14 +283,15 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
     const getSellingPoint = (img) => Array.isArray(img) ? '' : (img.sellingPoint || '');
 
     return (
-      <div style={S.overlay} onClick={onClose} className="animate-fade-in">
+      <button type="button" aria-label="关闭" style={S.overlay} className="animate-fade-in a11y-backdrop"
+        onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
         {/* ── EC Zoom 灯箱 — 试用模式阻止全屏放大 */}
         {!isTrialLocked && ecZoom && images[ecIdx] && (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)',
             background: '#000', display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
-          }} onClick={() => setEcZoom(false)}>
+          }} onMouseDown={event => { if (event.target === event.currentTarget) setEcZoom(false); }}>
             {images.length > 1 && ecIdx > 0 && (
               <button style={{ ...S.zoomNav, left: 12, color: '#fff', background: 'rgba(255,255,255,0.15)' }}
                 onClick={(e) => { e.stopPropagation(); setEcIdx(i => i - 1); }}>
@@ -324,7 +328,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           background: '#fff', borderRadius: 'var(--sb-radius-lg)', width: '94vw', maxWidth: 780,
           maxHeight: '90vh', overflow: 'auto',
           boxShadow: '0 20px 60px rgba(12,10,9,0.25)',
-        }} onClick={e => e.stopPropagation()} className="animate-scale-in">
+        }} className="animate-scale-in">
           {/* Header */}
           <div style={{
             padding: '24px 28px 16px', borderBottom: '1px solid #eef0f5',
@@ -383,16 +387,16 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               <span style={{ fontSize: 'var(--sb-text-lg)' }}>🎁</span>
               <div>
                 <strong>免费试玩</strong> — 图片已完整生成，试玩版带水印遮挡。
-                <span onClick={() => { if (onUnlock) onUnlock(); }}
+                <button type="button" className="a11y-reset" onClick={() => { if (onUnlock) onUnlock(); }}
                   style={{ color: '#FF4757', cursor: 'pointer', fontWeight: 600, marginLeft: 4 }}>
                   立即充值解锁高清原图 →
-                </span>
+                </button>
               </div>
               <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                <span onClick={() => { if (onGallery) onGallery(); }}
+                <button type="button" className="a11y-reset" onClick={() => { if (onGallery) onGallery(); }}
                   style={{ color: '#4338CA', cursor: 'pointer', fontWeight: 500, fontSize: 'var(--sb-text-xs)' }}>
                   👀 薯包出品
-                </span>
+                </button>
               </div>
             </div>
           )}
@@ -429,12 +433,15 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       e.currentTarget.style.transform = 'none';
                     }}
                   >
+                    {/* 原则 4.1：卡片外壳已是 button，内层 ec-card-clip 只是裁切容器 →
+                        删掉内层重复 onClick（嵌套交互元素本身即反模式），
+                        点击行为由外层 button 承担，键盘可达。 */}
                     <div className="ec-card-clip" style={{
                       borderRadius: 'inherit', overflow: 'hidden',
                       position: 'relative', width: '100%', aspectRatio: '1/1',
                       background: 'var(--sb-surface-sunken)',
                       cursor: isLocked ? 'default' : 'pointer',
-                    }} onClick={() => { if (!isLocked) { setEcIdx(i); setEcZoom(true); } }}>
+                    }}>
                       <ResponsiveImage src={url} alt={style} variant="thumb" ratio="1:1" sizes="220px"
                         style={{ width: '100%', height: '100%', background: '#fff' }}
                         imgStyle={{
@@ -586,17 +593,18 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             </button>
           </div>
         </div>
-      </div>
+      </button>
     );
   }
 
   return (
     <>
       {/* ── 背景遮罩 ── */}
-      <div style={S.overlay} onClick={onClose} className="animate-fade-in">
+      <button type="button" aria-label="关闭" style={S.overlay} className="animate-fade-in a11y-backdrop"
+        onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
         {/* ── Zoom 大图 ── */}
         {zoom && (
-          <div style={S.zoomBg} onClick={(e) => { e.stopPropagation(); setZoom(false); }}>
+          <div style={S.zoomBg} onMouseDown={(event) => { if (event.target === event.currentTarget) setZoom(false); }}>
             {imgIdx > 0 && (
               <button style={{ ...S.zoomNav, left: 12 }} onClick={(e) => { e.stopPropagation(); setImgIdx(i => Math.max(0, i - 1)); }}>
                 <MdArrowBack size={18} />
@@ -614,7 +622,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
         )}
 
         {/* ── 主弹窗 ── */}
-        <div style={S.modal} onClick={e => e.stopPropagation()} className="animate-scale-in note-modal">
+        <div style={S.modal} className="animate-scale-in note-modal">
           <div style={S.main} className="note-modal-main">
 
             {/* LEFT: 图片区 */}
@@ -728,14 +736,17 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               {maxI > 1 && (
                 <div style={S.thumbStrip}>
                   {displayImgs.map((url, i) => (
-                    <div key={i} onClick={() => setImgIdx(i)} style={{
-                      ...S.thumb,
-                      border: i === imgIdx ? '2px solid #333' : '2px solid transparent',
-                      opacity: i === imgIdx ? 1 : 0.35,
-                      background: url ? 'transparent' : '#f0f0f0',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}>
+                    <button key={i} type="button" className="a11y-reset" aria-label={`查看第 ${i + 1} 张`}
+                      aria-current={i === imgIdx ? 'true' : undefined}
+                      onClick={() => setImgIdx(i)} style={{
+                        ...S.thumb,
+                        border: i === imgIdx ? '2px solid #333' : '2px solid transparent',
+                        opacity: i === imgIdx ? 1 : 0.35,
+                        background: url ? 'transparent' : '#f0f0f0',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'block', padding: 0,
+                      }}>
                       {url ? (
                         <ResponsiveImage src={url} alt="" variant="thumb" ratio={displayRatio} sizes="56px"
                           style={{ width: '100%', height: '100%', background: 'transparent' }}
@@ -758,7 +769,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           fontSize: 'var(--sb-text-2xs)', color: '#fff', textShadow: '0 1px 3px rgba(12,10,9,0.5)',
                         }}>🔒</div>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -793,16 +804,16 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     <span style={{ fontSize: 'var(--sb-text-xl)' }}>🎁</span>
                     <div>
                       <strong>免费试玩</strong> — 完整文案 + 9 张配图已生成，配图试玩版仅展示封面。
-                      <span onClick={() => { if (onUnlock) onUnlock(); }}
+                      <button type="button" className="a11y-reset" onClick={() => { if (onUnlock) onUnlock(); }}
                         style={{ color: '#FF4757', cursor: 'pointer', fontWeight: 600, marginLeft: 4 }}>
                         立即充值解锁全部 →
-                      </span>
+                      </button>
                     </div>
                     <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                      <span onClick={() => { if (onGallery) onGallery(); }}
+                      <button type="button" className="a11y-reset" onClick={() => { if (onGallery) onGallery(); }}
                         style={{ color: '#4338CA', cursor: 'pointer', fontWeight: 500, fontSize: 'var(--sb-text-xs)' }}>
                         👀 薯包出品
-                      </span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -819,10 +830,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     <span style={{ fontSize: 'var(--sb-text-lg)' }}>🎁</span>
                     <div>
                       <strong>免费预览</strong> — 文案已完整生成，配图仅展示封面。
-                      <span onClick={() => { if (onUnlock) onUnlock(); }}
+                      <button type="button" className="a11y-reset" onClick={() => { if (onUnlock) onUnlock(); }}
                         style={{ color: '#FF4757', cursor: 'pointer', fontWeight: 600, marginLeft: 4 }}>
                         购买套餐解锁全部 9 张配图 →
-                      </span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -946,7 +957,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             </div>
           </div>
         </div>
-      </div>
+      </button>
     </>
   );
 }
