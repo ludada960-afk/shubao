@@ -303,7 +303,7 @@ export default function SizingPanel({
                 </div>
 
                 {/* 图标 + 标签 */}
-                <span style={{ fontSize: 15, flexShrink: 0 }}>{typeDef.icon}</span>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{typeDef.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)' }}>{typeDef.label}</div>
                   <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>

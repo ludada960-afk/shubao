@@ -880,7 +880,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
             <MdArrowBack size={16} /> 返回
           </button>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--sb-ink-1)' }}>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--sb-ink-1)' }}>
             确认设计方案
           </h2>
           <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 4 }}>
@@ -1093,9 +1093,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sb-brand-600)' }}>{genProgress || '准备中…'}</div>
                 </div>
                 {/* 进度条 */}
-                <div style={{ height: 4, borderRadius: 2, background: 'rgba(12,10,9,0.06)', overflow: 'hidden' }}>
+                <div style={{ height: 4, borderRadius: 4, background: 'rgba(12,10,9,0.06)', overflow: 'hidden' }}>
                   <div style={{
-                    height: '100%', borderRadius: 2,
+                    height: '100%', borderRadius: 4,
                     background: 'linear-gradient(90deg, var(--sb-brand-600), #ec4899)',
                     width: genProgress?.includes('%') ? genProgress : '30%',
                     transition: 'width 0.5s ease',

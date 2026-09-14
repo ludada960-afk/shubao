@@ -69,7 +69,7 @@ export default function InsufficientBalanceModal({
           ].map(([label, value]) => <div key={label} style={{ padding: 12, borderRadius: 12, background: '#F5EFE4' }}><dt style={{ color: 'var(--sb-ink-3)', fontSize: 12 }}>{label}</dt><dd style={{ margin: '5px 0 0', fontWeight: 700 }}>{value}</dd></div>)}
         </dl>
 
-        <h3 style={{ margin: '22px 0 10px', fontSize: 15 }}>推荐套餐</h3>
+        <h3 style={{ margin: '22px 0 10px', fontSize: 16 }}>推荐套餐</h3>
         {packages.length ? <ul style={{ display: 'grid', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>{packages.map(product => <li key={product.sku} style={{ padding: 12, border: '1px solid #E7E5E4', borderRadius: 12 }}><strong>{formatBillingUnits(product.grantUnits, currency)}</strong><span style={{ float: 'right', color: 'var(--sb-ink-3)' }}>¥{(Number(product.priceFen || 0) / 100).toFixed(2)}</span></li>)}</ul> : <p style={{ margin: 0, color: 'var(--sb-ink-3)', fontSize: 13 }}>套餐信息加载中，请稍后刷新。</p>}
 
         {providers.length === 0 ? <p role="status" style={{ margin: '16px 0 0', padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>在线购买暂未开放，当前工作会继续保留。</p> : <p style={{ margin: '16px 0 0', color: 'var(--sb-ink-3)', fontSize: 13 }}>选择合适的套餐补充额度后，即可继续当前创作。</p>}

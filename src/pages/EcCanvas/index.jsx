@@ -443,7 +443,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
             <div style={{ fontSize: 24, opacity: 0.45 }}>!</div>
             <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>原图已失效</div>
-            <div style={{ fontSize: 9, color: '#9f1239', textAlign: 'center', padding: '0 12px' }}>可用右键“再次生成”创建稳定新图</div>
+            <div style={{ fontSize: 10, color: '#9f1239', textAlign: 'center', padding: '0 12px' }}>可用右键“再次生成”创建稳定新图</div>
             <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: 'var(--sb-brand-600)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
           </div>
         )}
@@ -460,16 +460,16 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
           imgStyle={{ objectFit: 'contain', objectPosition: node.crop?.grid ? `${(node.crop.index % 2) * 100}% ${Math.floor(node.crop.index / 2) * 100}%` : 'center' }}
         />
         {node.crop?.grid === 2 && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(90deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%)' }} />}
-        {node.annotations?.length > 0 && <div style={{ position: 'absolute', right: 8, bottom: 8, maxWidth: '82%', padding: '4px 6px', borderRadius: 6, background: 'rgba(17,24,39,.78)', color: '#fff', fontSize: 9, lineHeight: 1.4 }}>{node.annotations[0].text}</div>}
+        {node.annotations?.length > 0 && <div style={{ position: 'absolute', right: 8, bottom: 8, maxWidth: '82%', padding: '4px 6px', borderRadius: 6, background: 'rgba(17,24,39,.78)', color: '#fff', fontSize: 10, lineHeight: 1.4 }}>{node.annotations[0].text}</div>}
       </div>
       <div style={{ padding: '8px 10px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel}</div>
-          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, color: 'var(--sb-brand-600)', background: 'rgba(124,58,237,.08)', borderRadius: 999, padding: '2px 5px' }}>{node.group}</span>
+          <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: 'var(--sb-brand-600)', background: 'rgba(124,58,237,.08)', borderRadius: 999, padding: '2px 5px' }}>{node.group}</span>
         </div>
-        <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{node.ratio}{node.size ? ` · ${node.size}` : ''}</div>
-        {node.usage && <div style={{ fontSize: 9, color: 'var(--sb-credit-spend)', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 5, padding: '3px 6px' }}>{node.usage}</div>}
-        {node.layerStatus && <div style={{ fontSize: 9, color: 'var(--sb-info-solid-600)', marginTop: 5 }}>▦ {node.layerStatus} · {node.layers?.length || 0} 层</div>}
+        <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{node.ratio}{node.size ? ` · ${node.size}` : ''}</div>
+        {node.usage && <div style={{ fontSize: 10, color: 'var(--sb-credit-spend)', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 6, padding: '3px 6px' }}>{node.usage}</div>}
+        {node.layerStatus && <div style={{ fontSize: 10, color: 'var(--sb-info-solid-600)', marginTop: 5 }}>▦ {node.layerStatus} · {node.layers?.length || 0} 层</div>}
       </div>
     </div>
   );
@@ -7261,7 +7261,7 @@ const handlePointerUp = useCallback((e) => {
                   额度是次要信息，弱化并与标题左对齐分两行，不再和标题挤在同一基线上。 */}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
                 <div>
-                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 17, lineHeight: 1.3, color: '#1f2937' }}>资产库管理</h2>
+                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 20, lineHeight: 1.3, color: '#1f2937' }}>资产库管理</h2>
                 <div className="ec-asset-quota" role="status" aria-live="polite" style={{ marginTop: 12 }}>
                   <div className="ec-asset-quota-text">
                     <strong>已用 {formatBytes(assetUsage?.usedBytes)} / {formatBytes(assetUsage?.quotaBytes || 100 * 1024 * 1024)}</strong>
@@ -7390,7 +7390,7 @@ const handlePointerUp = useCallback((e) => {
             <div role="status" style={{ textAlign: 'center', padding: '80px 20px', color: '#8a929d', fontSize: 13 }}>正在读取作品</div>
           ) : ((tab === 'trash' ? trashWorks : visibleWorks).length === 0) ? (
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-              <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>{tab === 'trash' ? '🗑️' : '📁'}</div>
+              <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.15 }}>{tab === 'trash' ? '🗑️' : '📁'}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#999' }}>{tab === 'trash' ? '回收站是空的' : workCategory === 'all' ? '还没有作品' : '这个分类还没有作品'}</div>
             </div>
           ) : (
@@ -7775,7 +7775,7 @@ const handlePointerUp = useCallback((e) => {
           <section role="dialog" aria-modal="true" aria-labelledby="project-asset-lineage-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(520px, 100%)', maxHeight: 'min(680px, 92vh)', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 20, background: '#fff', boxShadow: '0 24px 80px rgba(15,23,42,.24)' }}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid #eef0f2' }}>
               <div style={{ minWidth: 0 }}>
-                <h2 id="project-asset-lineage-title" style={{ margin: 0, color: '#1f2937', fontSize: 17 }}>素材关系</h2>
+                <h2 id="project-asset-lineage-title" style={{ margin: 0, color: '#1f2937', fontSize: 20 }}>素材关系</h2>
                 <div style={{ marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#667085', fontSize: 12 }}>{projectAssetLineage.asset?.metadata?.displayName || projectAssetLineage.asset?.assetId || '项目素材'}</div>
               </div>
               <button type="button" aria-label="关闭素材关系" title="关闭" onClick={() => setProjectAssetLineage(null)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 auto', border: 0, borderRadius: 8, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><X size={17} /></button>

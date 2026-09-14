@@ -60,7 +60,7 @@ export default class ErrorBoundary extends React.Component {
             <button onClick={this.handleRefresh}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 12,
-                background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', border: 'none', fontSize: 15, fontWeight: 700,
+                background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', border: 'none', fontSize: 16, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
               <MdRefresh size={18} /> 刷新页面

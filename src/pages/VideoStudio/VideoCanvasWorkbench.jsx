@@ -240,18 +240,6 @@ export default function VideoCanvasWorkbench({
     try { localStorage.setItem('shubao_vcb_grid_snap', gridSnap ? '1' : '0'); } catch {}
   }, [gridSnap]);
 
-  // V2 P1 1-click 派生: Alt+Shift+F 自动布局
-  useEffect(() => {
-    const handler = (event) => {
-      if (event.altKey && event.shiftKey && (event.key === 'F' || event.key === 'f')) {
-        event.preventDefault();
-        const newPositions = autoLayoutNodes(nodes, { columnWidth: 320, rowHeight: 220 });
-        setPositions(current => ({ ...current, ...newPositions }));
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [nodes]);
   const requestSequenceRef = useRef(0);
   const attachedJobIdsRef = useRef(new Set());
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
@@ -273,6 +261,22 @@ export default function VideoCanvasWorkbench({
   const uploads = useMemo(() => availableUploadedAssets(uploadRecords), [uploadRecords]);
   const libraryAssets = useMemo(() => reusableProjectAssets(libraryRows), [libraryRows]);
   const nodes = useMemo(() => buildCanvasNodes({ uploads, libraryAssets, workbench }), [uploads, libraryAssets, workbench]);
+  // V2 P1 1-click 派生: Alt+Shift+F 自动布局
+  // 9-15 修 TDZ：本 effect 原先写在 `const nodes` **之前**，而依赖数组 [nodes] 在
+  // 组件函数体执行时就会被求值 → 每次渲染都抛 ReferenceError: Cannot access 'nodes'
+  // before initialization，整个画布工作台直接白屏（ErrorBoundary 兜住）。
+  // 依赖必须是已初始化的绑定，故移到 nodes 声明之后。
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.altKey && event.shiftKey && (event.key === 'F' || event.key === 'f')) {
+        event.preventDefault();
+        const newPositions = autoLayoutNodes(nodes, { columnWidth: 320, rowHeight: 220 });
+        setPositions(current => ({ ...current, ...newPositions }));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [nodes]);
   const laidOutNodes = useMemo(() => {
     const defaults = defaultCanvasLayout(nodes);
     return nodes.map(node => ({ ...node, ...(positions[node.id] || defaults[node.id] || { x: 32, y: 32 }) }));
@@ -1693,7 +1697,7 @@ export default function VideoCanvasWorkbench({
                 title="入点 -0.1 秒" aria-label="入点减 0.1 秒"
                 disabled={Boolean(busy)}
                 onClick={() => handleStepClipTrim(clip, 'start', -TRIM_STEP_FINE)}>‹</button>
-              <span aria-hidden="true" style={{ fontSize: 10.5, color: 'var(--sb-ink-3)', alignSelf: 'center', minWidth: 28, textAlign: 'center' }}>{TRIM_STEP_FINE.toFixed(1)}s</span>
+              <span aria-hidden="true" style={{ fontSize: 11, color: 'var(--sb-ink-3)', alignSelf: 'center', minWidth: 28, textAlign: 'center' }}>{TRIM_STEP_FINE.toFixed(1)}s</span>
               <button type="button" data-no-drag
                 title="出点 +0.1 秒" aria-label="出点加 0.1 秒"
                 disabled={Boolean(busy)}

@@ -24,7 +24,7 @@ const INPUT = {
 };
 const BTN = {
   width: '100%', padding: '13px 0', border: 'none', borderRadius: 8,
-  fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+  fontSize: 16, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
   background: 'var(--sb-brand-600)', color: 'var(--sb-neutral-0)', transition: 'all 0.2s',
 };
 const SECTION = {

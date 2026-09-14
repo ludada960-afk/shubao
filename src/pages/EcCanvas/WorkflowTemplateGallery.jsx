@@ -180,7 +180,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
         {/* 9-13 用户批注：标题右侧小字与关闭按钮重叠 —— 给关闭按钮留出安全区，并把文案缩短 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 40 }}>
           <Workflow size={18} style={{ color: 'var(--sb-brand-600)', flex: '0 0 auto' }} />
-          <strong style={{ fontSize: 15, color: '#0f172a', flex: '0 0 auto' }}>工作流模板</strong>
+          <strong style={{ fontSize: 16, color: '#0f172a', flex: '0 0 auto' }}>工作流模板</strong>
           <span style={{ marginLeft: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: '#64748b' }}>一键铺开 · 拖图即跑</span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
@@ -195,7 +195,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
         {Array.from({ length: 6 }, (item, index) => <div key={index} style={{ borderRadius: 12, border: '1px solid rgba(15,23,42,.06)', height: 210, background: 'linear-gradient(100deg,#f8fafc 30%,#eef2f7 50%,#f8fafc 70%)', backgroundSize: '200% 100%', animation: 'skeletonShimmer 1.4s infinite linear' }} />)}
       </div>
       : error ? <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, lineHeight: 1 }}>⚠️</div>
+          <div style={{ fontSize: 32, lineHeight: 1 }}>⚠️</div>
           <strong style={{ display: 'block', marginTop: 10, fontSize: 14, color: '#0f172a' }}>{error}</strong>
           <button type="button" onClick={() => void load(tab)} style={{ marginTop: 14, padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(15,23,42,.1)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>重试</button>
         </div>
@@ -237,7 +237,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
                 </div>
                 {/* 9-13 用户批注：口径要说清 —— 铺开只把节点放到画布上，本身不产生费用；
                     真正计费发生在画布上点生成时（与普通创作同一条计费链路）。全表统一这句。 */}
-                <p style={{ margin: '6px 0 0', fontSize: 10.5, color: '#94a3b8', lineHeight: 1.5 }}>铺开只放节点、不产生费用；生成时按目录计费</p>
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>铺开只放节点、不产生费用；生成时按目录计费</p>
                 <button type="button" disabled={busy || likeBusy.has(slug)}
                   onClick={() => void instantiate(template)}
                   style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (p3Gate ? 'rgba(100,116,139,.35)' : 'rgba(124,58,237,.35)'), background: p3Gate ? '#f8fafc' : 'var(--sb-brand-600)', color: p3Gate ? '#64748b' : '#fff', fontSize: 12, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -248,7 +248,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
           })}
         </div>
       : <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, lineHeight: 1 }}>{mineTab ? '🗂️' : '🧩'}</div>
+          <div style={{ fontSize: 32, lineHeight: 1 }}>{mineTab ? '🗂️' : '🧩'}</div>
           <strong style={{ display: 'block', marginTop: 10, fontSize: 14, color: '#0f172a' }}>{emptyCopy.title}</strong>
           <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b' }}>{emptyCopy.hint}</p>
         </div>}

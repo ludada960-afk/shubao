@@ -1203,7 +1203,7 @@ const DEFAULT_BUTTONS = [
                             padding: '3px 4px',
                             background: 'linear-gradient(transparent, rgba(12,10,9,0.72))',
                             color: 'var(--sb-neutral-0)',
-                            fontSize: 8,
+                            fontSize: 10,
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -1267,7 +1267,7 @@ const DEFAULT_BUTTONS = [
                       }}
                     >
                       <ImagePlus size={16} color="#999" />
-                      <span style={{ fontSize: 9, color: 'var(--sb-ink-4)', fontWeight: 600 }}>+ {getNextProductShot(productImages.length).short}</span>
+                      <span style={{ fontSize: 10, color: 'var(--sb-ink-4)', fontWeight: 600 }}>+ {getNextProductShot(productImages.length).short}</span>
                     </div>
                   </div>
 
@@ -1473,7 +1473,7 @@ const DEFAULT_BUTTONS = [
                       }}
                     >
                       <ImagePlus size={16} color="#999" />
-                      <span style={{ fontSize: 9, color: 'var(--sb-ink-4)', fontWeight: 600 }}>{refImages.length === 0 ? '上传参考' : '+ 继续添加'}</span>
+                      <span style={{ fontSize: 10, color: 'var(--sb-ink-4)', fontWeight: 600 }}>{refImages.length === 0 ? '上传参考' : '+ 继续添加'}</span>
                     </div>
                   </div>
 

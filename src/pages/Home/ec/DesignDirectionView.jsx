@@ -64,14 +64,14 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
           <MdArrowBack size={18} color="rgba(255,255,255,0.6)" />
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>选择设计方向</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>选择设计方向</div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>AI 已分析您的产品并规划多套设计方案</div>
         </div>
       </div>
 
       {/* Header */}
       <div style={{ padding: '28px 24px 8px', maxWidth: 900, margin: '0 auto' }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.3, marginBottom: 6 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.3, marginBottom: 6 }}>
           <span style={{ color: 'var(--sb-brand-400)' }}>AI</span> 已解析您的产品与需求
         </h2>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>

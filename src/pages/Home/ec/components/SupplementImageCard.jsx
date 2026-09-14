@@ -75,7 +75,7 @@ export default function SupplementImageCard({
         }}
       >
         <MdImage size={24} color="#999" />
-        <span style={{ fontSize: 9, color: 'var(--sb-ink-4)' }}>加载失败</span>
+        <span style={{ fontSize: 10, color: 'var(--sb-ink-4)' }}>加载失败</span>
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function SupplementImageCard({
                 ? 'rgba(124,58,237,0.9)'
                 : 'rgba(34,197,94,0.9)',
             color: 'var(--sb-neutral-0)',
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 600,
             pointerEvents: 'none',
           }}
@@ -201,7 +201,7 @@ export default function SupplementImageCard({
             left: 0,
             right: 0,
             textAlign: 'center',
-            fontSize: 9,
+            fontSize: 10,
             color: 'var(--sb-ink-3)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',

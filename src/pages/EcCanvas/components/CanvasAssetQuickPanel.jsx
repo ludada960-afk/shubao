@@ -23,7 +23,7 @@ const BTN = {
   border: '1px solid rgba(67, 56, 202, 0.18)',
   background: 'rgba(238, 242, 255, 0.95)',
   color: '#3730A3',
-  fontSize: 11.5,
+  fontSize: 12,
   fontWeight: 600,
   fontFamily: 'inherit',
   cursor: 'pointer',

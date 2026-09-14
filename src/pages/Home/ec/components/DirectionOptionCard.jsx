@@ -120,7 +120,7 @@ export default function DirectionOptionCard({
             <h3
               style={{
                 margin: 0,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: 800,
                 color: colors.cardText,
                 lineHeight: 1.3,
@@ -174,7 +174,7 @@ export default function DirectionOptionCard({
         <section style={{ marginTop: 12, padding: 12, borderRadius: 12, background: '#f7f8fa', border: '1px solid #e7e9ee' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <strong style={{ fontSize: 12, color: '#25282d' }}>整体设计规范</strong>
-            <span style={{ fontSize: 9, color: '#69717d' }}>统一视觉标准，不随单张修改改变</span>
+            <span style={{ fontSize: 10, color: '#69717d' }}>统一视觉标准，不随单张修改改变</span>
           </div>
           <div style={{ marginTop: 9, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 12px' }}>
             {[
@@ -188,7 +188,7 @@ export default function DirectionOptionCard({
               ['字体与文案', [overallSpec.typography_intent || visualSystem.typography_intent, overallSpec.copy_tone || visualSystem.copy_tone].filter(Boolean).join('；')],
             ].filter(([, value]) => value).map(([label, value]) => (
               <div key={label} style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#818894' }}>{label}</div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#818894' }}>{label}</div>
                 <div style={{ marginTop: 2, fontSize: 10, lineHeight: 1.5, color: '#3f454e' }}>{value}</div>
               </div>
             ))}
@@ -214,7 +214,7 @@ export default function DirectionOptionCard({
         <section data-editable-area style={{ marginTop: 12, padding: 12, borderRadius: 12, background: '#fffdf8', border: '1px solid #eee2c8' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <strong style={{ fontSize: 12, color: '#352d23' }}>整套执行说明</strong>
-            <span style={{ fontSize: 9, color: '#8a8177' }}>确认后进入后续生成请求</span>
+            <span style={{ fontSize: 10, color: '#8a8177' }}>确认后进入后续生成请求</span>
           </div>
           <textarea
             data-editable-area

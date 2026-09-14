@@ -185,7 +185,7 @@ export default function Navbar() {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 18px', width: '100', border: 'none',
                 background: isActive(item.key) ? 'rgba(12,10,9,0.06)' : 'transparent',
-                borderRadius: 12, fontFamily: 'inherit', fontSize: 15,
+                borderRadius: 12, fontFamily: 'inherit', fontSize: 16,
                 fontWeight: isActive(item.key) ? 700 : 500,
                 color: isActive(item.key) ? 'var(--accent)' : 'var(--text-secondary)',
                 cursor: 'pointer',

@@ -128,7 +128,7 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
         {styleImages.length < 3 && <EcommerceAddCard role="reference" label="风格参考" meta="构图或色调" optional title="添加风格参考" onClick={() => styleInputRef.current?.click()} />}
         {onPickLibraryUrls && (
           <button type="button" onClick={() => setLibraryOpen(true)} aria-label="从资产库选择" style={{ minWidth: 92, minHeight: 110, padding: '8px 6px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: 'var(--sb-brand-600)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            <span style={{ fontSize: 17 }}>🗂️</span>
+            <span style={{ fontSize: 16 }}>🗂️</span>
             <span>资产库</span>
           </button>
         )}
@@ -1127,7 +1127,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     aria-label="描述小红书图文主题"
                     style={{
                       width:'100%', flex:1, minHeight:120, border:'none', background:'transparent',
-                      fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
+                      fontSize:14, lineHeight:'28px', color:'var(--text-primary)',
                       outline:'none', resize:'none', fontFamily:'inherit',
                       position:'relative', zIndex:1,
                     }} />
@@ -1158,7 +1158,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     aria-label="描述 Plog 生活碎片"
                     style={{
                       width:'100%', flex:1, minHeight:120, border:'none', background:'transparent',
-                      fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
+                      fontSize:14, lineHeight:'28px', color:'var(--text-primary)',
                       outline:'none', resize:'none', fontFamily:'inherit',
                       position:'relative', zIndex:1,
                     }} />
@@ -1380,7 +1380,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     {/* 下划线装饰：button 内不能嵌 div（HTML 内容模型），用 span 承载 */}
                     <span style={{
                       position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
-                      width: xhsSubMode === 'content' ? 16 : 0, height:2.5, borderRadius:2,
+                      width: xhsSubMode === 'content' ? 16 : 0, height:2.5, borderRadius:4,
                       background:'var(--sb-danger)', transition:'all .2s',
                     }} />
                   </button>
@@ -1401,7 +1401,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     Plog 生活碎片
                     <span style={{
                       position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
-                      width: xhsSubMode === 'plog' ? 16 : 0, height:2.5, borderRadius:2,
+                      width: xhsSubMode === 'plog' ? 16 : 0, height:2.5, borderRadius:4,
                       background:'#c2185b', transition:'all .2s',
                     }} />
                   </button>
@@ -1673,7 +1673,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {!isXHS && genPhase === 'result' && ecResults && (
               <div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                  <div style={{ fontSize:15, fontWeight:600, color:'var(--sb-success)' }}>✅ 生成完成</div>
+                  <div style={{ fontSize:16, fontWeight:600, color:'var(--sb-success)' }}>✅ 生成完成</div>
                   <div style={{ display:'flex', gap:8 }}>
                     <button onClick={startNewProduct}
                       style={{ padding:'6px 14px', borderRadius:6, border:'1px solid var(--sb-neutral-200)', background:'var(--sb-neutral-0)', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'var(--sb-ink-3)' }}>
@@ -1703,7 +1703,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--sb-neutral-100)' }}>
                         <span style={{ fontSize:10, fontWeight:600, color:'var(--sb-ink-3)' }}>{ecLabel(baseKey(label))}</span>
                         <button onClick={() => { const a=document.createElement('a'); a.href=url; a.download=label+'.png'; a.click(); }}
-                          style={{ fontSize:9, padding:'2px 6px', borderRadius:4, background:'var(--sb-brand-50)', border:'none', color:'var(--sb-brand-700)', cursor:'pointer', fontWeight:500, fontFamily:'inherit' }}>
+                          style={{ fontSize:10, padding:'2px 6px', borderRadius:4, background:'var(--sb-brand-50)', border:'none', color:'var(--sb-brand-700)', cursor:'pointer', fontWeight:500, fontFamily:'inherit' }}>
                           下载
                         </button>
                       </div>
@@ -1766,7 +1766,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             onClick={e => e.stopPropagation()}>
             {/* 头部 */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-              <div style={{ fontSize:17, fontWeight:600, color:'var(--sb-ink-1)' }}>📸 上传商品实拍图</div>
+              <div style={{ fontSize:16, fontWeight:600, color:'var(--sb-ink-1)' }}>📸 上传商品实拍图</div>
               <button type="button" aria-label="关闭" onClick={() => setShowRefModal(false)} style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', boxSizing:'border-box', border:'none', outline:'none', cursor:'pointer', width:28, height:28, borderRadius:'50%', background:'var(--sb-neutral-100)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--sb-ink-4)', fontSize:16, lineHeight:1 }}
                 onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
                 onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>✕</button>
@@ -1786,7 +1786,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
                 onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
                 <Upload size={28} style={{ color:'var(--sb-ink-5)', marginBottom:8 }} />
-                <span style={{ fontSize:15, fontWeight:600, color:'var(--sb-ink-2)', display:'block' }}>点击上传商品参考图</span>
+                <span style={{ fontSize:16, fontWeight:600, color:'var(--sb-ink-2)', display:'block' }}>点击上传商品参考图</span>
               </button>
               <div style={{ fontSize:11, color:'var(--sb-ink-5)', textAlign:'center', marginBottom:16, lineHeight:1.6 }}>
                 支持 JPG / PNG / WebP，每张不超过 5MB<br />

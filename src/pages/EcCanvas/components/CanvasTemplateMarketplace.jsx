@@ -79,7 +79,7 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
         <button type="button" aria-label="关闭模板广场" onClick={() => onClose?.()} style={{ position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 8, border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <X size={16} />
         </button>
-        <div style={{ fontSize: 34, lineHeight: 1 }}>🖼️</div>
+        <div style={{ fontSize: 32, lineHeight: 1 }}>🖼️</div>
         <strong style={{ display: 'block', marginTop: 12, fontSize: 16, color: '#0f172a' }}>模板广场暂时没有内容</strong>
         <p style={{ margin: '8px 0 18px', fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>公共模板正在整理中，稍后再来看看。你可以先直接用「新建生图」开始创作。</p>
         <button type="button" onClick={() => onClose?.()} style={{ padding: '8px 18px', borderRadius: 8, border: 0, background: 'var(--sb-brand-600)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>知道了</button>
@@ -97,7 +97,7 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
       <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid rgba(15,23,42,.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Layers size={18} style={{ color: 'var(--sb-brand-600)' }} />
-          <strong style={{ fontSize: 15, color: '#0f172a' }}>模板广场</strong>
+          <strong style={{ fontSize: 16, color: '#0f172a' }}>模板广场</strong>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b' }}>共 {totalTemplates} 套 · 9 类目</span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
@@ -116,9 +116,9 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
       </div>
       {gridEmpty ? (
         <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, lineHeight: 1 }}>🗂️</div>
+          <div style={{ fontSize: 32, lineHeight: 1 }}>🗂️</div>
           <strong style={{ display: 'block', marginTop: 10, fontSize: 14, color: '#0f172a' }}>这个分类暂时没有可用的模板</strong>
-          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#64748b' }}>请切换到「热门」或「全部」查看。</p>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>请切换到「热门」或「全部」查看。</p>
         </div>
       ) : (
         <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
@@ -155,7 +155,7 @@ function TemplateCard({ tpl, detail, onPick }) {
         <strong style={{ fontSize: 12, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tpl.name}</strong>
         <span style={{ fontSize: 10, color: 'var(--sb-brand-600)', fontWeight: 700 }}>{tpl.id}</span>
       </div>
-      {detail?.tagline && <div style={{ fontSize: 10.5, color: '#64748b', lineHeight: 1.4 }}>{detail.tagline}</div>}
+      {detail?.tagline && <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.4 }}>{detail.tagline}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}><Star size={10} style={{ color: '#f59e0b' }} />{tpl.likes}</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}><Download size={10} />{tpl.downloads}</span>

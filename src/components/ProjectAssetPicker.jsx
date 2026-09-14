@@ -97,7 +97,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
                         ? <img src={asset.stableUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : kind === 'video'
                           ? <video src={asset.playbackUrl || asset.stableUrl} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : <span style={{ fontSize: 22 }}>🎵</span>}
+                          : <span style={{ fontSize: 24 }}>🎵</span>}
                     </div>
                     <div style={{ padding: '6px 8px' }}>
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 700, color: '#26313c' }}>

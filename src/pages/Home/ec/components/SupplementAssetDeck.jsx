@@ -146,7 +146,7 @@ export default function SupplementAssetDeck({
         <MdAddPhotoAlternate size={20} style={{ color }} />
         <span
           style={{
-            fontSize: 9,
+            fontSize: 10,
             color,
             fontWeight: 600,
             textAlign: 'center',
@@ -213,7 +213,7 @@ export default function SupplementAssetDeck({
                 borderRadius: 4,
                 background: `${productColor}20`,
                 color: productColor,
-                fontSize: 9,
+                fontSize: 10,
               }}
             >
               已带入 {stats.product.inherited} 张
@@ -327,7 +327,7 @@ export default function SupplementAssetDeck({
               borderRadius: 4,
               background: 'var(--sb-neutral-100)',
               color: 'var(--sb-ink-3)',
-              fontSize: 9,
+              fontSize: 10,
               fontWeight: 500,
             }}
           >
@@ -341,7 +341,7 @@ export default function SupplementAssetDeck({
                 borderRadius: 4,
                 background: `${referenceColor}20`,
                 color: referenceColor,
-                fontSize: 9,
+                fontSize: 10,
               }}
             >
               已带入 {stats.reference.inherited} 张
