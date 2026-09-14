@@ -339,7 +339,7 @@ function AppRouter() {
     {page !== 'ec-canvas' && <SideNav />}
     <TaskSidebar />
     {page !== 'ec-canvas' && <TopBar />}
-    <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>
+    <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: 'var(--sb-ink-4)' }}>加载中…</div>}>
       <PageComponent key={state._workVersion || 0} />
     </React.Suspense>
     {(galleryItem || (genState === 'result' && shouldShowNoteModal({ page, result }))) && (

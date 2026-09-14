@@ -1138,7 +1138,7 @@ const DEFAULT_BUTTONS = [
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: '#1a1a1a'
+                        color: 'var(--sb-ink-1)'
                       }}
                     >
                       产品图
@@ -1177,7 +1177,7 @@ const DEFAULT_BUTTONS = [
                           height: 64,
                           borderRadius: 10,
                           overflow: 'hidden',
-                          border: '2px solid #eee',
+                          border: '2px solid var(--sb-neutral-150)',
                           flex: '0 0 auto'
                         }}
                       >
@@ -1202,7 +1202,7 @@ const DEFAULT_BUTTONS = [
                             bottom: 0,
                             padding: '3px 4px',
                             background: 'linear-gradient(transparent, rgba(12,10,9,0.72))',
-                            color: '#fff',
+                            color: 'var(--sb-neutral-0)',
                             fontSize: 8,
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
@@ -1221,14 +1221,14 @@ const DEFAULT_BUTTONS = [
                             width: 18,
                             height: 18,
                             borderRadius: '50%',
-                            background: '#FF3B5C',
-                            color: '#fff',
+                            background: 'var(--sb-danger)',
+                            color: 'var(--sb-neutral-0)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontSize: 11,
                             cursor: 'pointer',
-                            border: '2px solid #fff',
+                            border: '2px solid var(--sb-neutral-0)',
                             fontWeight: 700
                           }}
                         >
@@ -1244,7 +1244,7 @@ const DEFAULT_BUTTONS = [
                         width: 64,
                         height: 64,
                         borderRadius: 10,
-                        border: '2px dashed #ccc',
+                        border: '2px dashed var(--sb-neutral-300)',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
@@ -1252,7 +1252,7 @@ const DEFAULT_BUTTONS = [
                         gap: 2,
                         cursor: 'pointer',
                         transition: 'all 0.15s',
-                        background: '#fff',
+                        background: 'var(--sb-neutral-0)',
                         flex: '0 0 auto'
                       }}
                       onMouseEnter={(e) => {
@@ -1261,13 +1261,13 @@ const DEFAULT_BUTTONS = [
                         e.currentTarget.style.background = 'var(--sb-surface-tint)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#ccc';
-                        e.currentTarget.style.color = '#999';
-                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.borderColor = 'var(--sb-neutral-300)';
+                        e.currentTarget.style.color = 'var(--sb-ink-4)';
+                        e.currentTarget.style.background = 'var(--sb-neutral-0)';
                       }}
                     >
                       <ImagePlus size={16} color="#999" />
-                      <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>+ {getNextProductShot(productImages.length).short}</span>
+                      <span style={{ fontSize: 9, color: 'var(--sb-ink-4)', fontWeight: 600 }}>+ {getNextProductShot(productImages.length).short}</span>
                     </div>
                   </div>
 
@@ -1275,7 +1275,7 @@ const DEFAULT_BUTTONS = [
                   <div
                     style={{
                       fontSize: 11,
-                      color: '#999',
+                      color: 'var(--sb-ink-4)',
                       marginTop: 8,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -1305,11 +1305,11 @@ const DEFAULT_BUTTONS = [
                     width: 28,
                     height: 28,
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
+                    background: 'linear-gradient(135deg, var(--sb-brand-600), #ec4899)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#fff',
+                    color: 'var(--sb-neutral-0)',
                     fontSize: 14,
                     fontWeight: 800,
                     boxShadow: '0 2px 8px rgba(124,58,237,0.3)'
@@ -1362,7 +1362,7 @@ const DEFAULT_BUTTONS = [
                       style={{
                         fontSize: 12,
                         fontWeight: 700,
-                        color: '#1a1a1a'
+                        color: 'var(--sb-ink-1)'
                       }}
                     >
                       参考图
@@ -1370,7 +1370,7 @@ const DEFAULT_BUTTONS = [
                     <span
                       style={{
                         fontSize: 10,
-                        color: '#666',
+                        color: 'var(--sb-ink-3)',
                         background: 'rgba(12,10,9,0.04)',
                         padding: '2px 8px',
                         borderRadius: 8,
@@ -1401,7 +1401,7 @@ const DEFAULT_BUTTONS = [
                           height: 64,
                           borderRadius: 10,
                           overflow: 'hidden',
-                          border: '2px solid #eee',
+                          border: '2px solid var(--sb-neutral-150)',
                           flex: '0 0 auto'
                         }}
                       >
@@ -1427,14 +1427,14 @@ const DEFAULT_BUTTONS = [
                             width: 18,
                             height: 18,
                             borderRadius: '50%',
-                            background: '#FF3B5C',
-                            color: '#fff',
+                            background: 'var(--sb-danger)',
+                            color: 'var(--sb-neutral-0)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontSize: 11,
                             cursor: 'pointer',
-                            border: '2px solid #fff',
+                            border: '2px solid var(--sb-neutral-0)',
                             fontWeight: 700
                           }}
                         >
@@ -1450,7 +1450,7 @@ const DEFAULT_BUTTONS = [
                         width: 64,
                         height: 64,
                         borderRadius: 10,
-                        border: '2px dashed #ccc',
+                        border: '2px dashed var(--sb-neutral-300)',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
@@ -1458,7 +1458,7 @@ const DEFAULT_BUTTONS = [
                         gap: 2,
                         cursor: 'pointer',
                         transition: 'all 0.15s',
-                        background: '#fff',
+                        background: 'var(--sb-neutral-0)',
                         flex: '0 0 auto'
                       }}
                       onMouseEnter={(e) => {
@@ -1467,13 +1467,13 @@ const DEFAULT_BUTTONS = [
                         e.currentTarget.style.background = 'var(--sb-surface-tint)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#ccc';
-                        e.currentTarget.style.color = '#999';
-                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.borderColor = 'var(--sb-neutral-300)';
+                        e.currentTarget.style.color = 'var(--sb-ink-4)';
+                        e.currentTarget.style.background = 'var(--sb-neutral-0)';
                       }}
                     >
                       <ImagePlus size={16} color="#999" />
-                      <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>{refImages.length === 0 ? '上传参考' : '+ 继续添加'}</span>
+                      <span style={{ fontSize: 9, color: 'var(--sb-ink-4)', fontWeight: 600 }}>{refImages.length === 0 ? '上传参考' : '+ 继续添加'}</span>
                     </div>
                   </div>
 
@@ -1481,7 +1481,7 @@ const DEFAULT_BUTTONS = [
                   <div
                     style={{
                       fontSize: 11,
-                      color: '#999',
+                      color: 'var(--sb-ink-4)',
                       marginTop: 8,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
@@ -1516,7 +1516,7 @@ const DEFAULT_BUTTONS = [
             position: 'relative',
             zIndex: 10,
             borderTop: '1px solid rgba(28,25,23,0.08)',
-            background: '#fff'
+            background: 'var(--sb-neutral-0)'
           }}
         >
           <div className="ec-workbench-primary-row">
@@ -1611,9 +1611,9 @@ const DEFAULT_BUTTONS = [
                     style={{
                       ...BTN_BASE,
                       appearance: 'none',
-                      border: `1.5px solid ${activePanel === btn.key ? '#1f2937' : 'rgba(28,25,23,.28)'}`,
-                      borderColor: isOpen ? '#8b5cf6' : isAdjusted ? 'rgba(139,92,246,0.55)' : 'rgba(28,25,23,0.10)',
-                      background: isOpen ? '#f1e9ff' : isAdjusted ? '#fbf8ff' : '#fff',
+                      border: `1.5px solid ${activePanel === btn.key ? 'var(--sb-ink-1)' : 'rgba(28,25,23,.28)'}`,
+                      borderColor: isOpen ? 'var(--sb-brand-500)' : isAdjusted ? 'rgba(139,92,246,0.55)' : 'rgba(28,25,23,0.10)',
+                      background: isOpen ? '#f1e9ff' : isAdjusted ? '#fbf8ff' : 'var(--sb-neutral-0)',
                       position: 'relative',
                       boxShadow: isOpen ? '0 4px 14px rgba(124,58,237,0.15)' : isAdjusted ? '0 3px 10px rgba(124,58,237,0.10)' : BTN_BASE.boxShadow
                     }}
@@ -1626,7 +1626,7 @@ const DEFAULT_BUTTONS = [
                     }}
                     onMouseLeave={(e) => {
                       if (!isOpen) {
-                        e.currentTarget.style.background = isAdjusted ? '#fbf8ff' : '#fff';
+                        e.currentTarget.style.background = isAdjusted ? '#fbf8ff' : 'var(--sb-neutral-0)';
                         e.currentTarget.style.transform = 'none';
                         e.currentTarget.style.boxShadow = isAdjusted ? '0 3px 10px rgba(124,58,237,0.10)' : BTN_BASE.boxShadow;
                       }
@@ -1634,7 +1634,7 @@ const DEFAULT_BUTTONS = [
                   >
                     <span
                       style={{
-                        color: isAdjusted ? '#7c3aed' : 'var(--text-muted)',
+                        color: isAdjusted ? 'var(--sb-brand-600)' : 'var(--text-muted)',
                         flexShrink: 0,
                         filter: isAdjusted ? 'drop-shadow(0 1px 2px rgba(124,58,237,0.2))' : 'none'
                       }}
@@ -1651,7 +1651,7 @@ const DEFAULT_BUTTONS = [
                       size={13}
                       style={{
                         opacity: isOpen ? 0.8 : 0.4,
-                        color: isAdjusted ? '#7c3aed' : 'var(--text-muted)',
+                        color: isAdjusted ? 'var(--sb-brand-600)' : 'var(--text-muted)',
                         transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                         transition: 'transform 0.22s ease, opacity 0.2s'
                       }}
@@ -1664,7 +1664,7 @@ const DEFAULT_BUTTONS = [
 
             {/* ── 下一步按钮 ── */}
             {assetUploadError && (
-              <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginRight: 8 }}>
+              <div role="alert" style={{ color: 'var(--sb-ink-danger)', fontSize: 12, marginRight: 8 }}>
                 {assetUploadError}
               </div>
             )}

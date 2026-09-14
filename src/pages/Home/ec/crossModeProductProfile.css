@@ -1,7 +1,7 @@
 /* 跨 mode 复用的商品档案选择器 (XHS / Plog / 未来的视频 mode)
    设计原则: 轻量 inline chip + popover, 不复用电商工作台的 portal 抽屉
    (z-index 1300 与浮层互相干扰, 跨 mode 嵌入不可靠)。色板沿用 .ec-profile-rail 的
-   紫调 (#7c3aed) 与米色 (1f2937/8a8378), 让用户跨 mode 切换时仍然认出同源控件。 */
+   紫调 (var(--sb-brand-600)) 与米色 (1f2937/8a8378), 让用户跨 mode 切换时仍然认出同源控件。 */
 
 .cm-profile-picker {
   position: relative;
@@ -18,8 +18,8 @@
   padding: 0 12px;
   border: 1px solid rgba(28, 25, 23, 0.12);
   border-radius: 10px;
-  background: #fff;
-  color: #1f2937;
+  background: var(--sb-neutral-0);
+  color: var(--sb-ink-1);
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
@@ -30,7 +30,7 @@
 
 .cm-profile-picker-trigger:hover {
   border-color: rgba(124, 58, 237, 0.45);
-  color: #7c3aed;
+  color: var(--sb-brand-600);
 }
 
 .cm-profile-picker-trigger.is-active {
@@ -71,7 +71,7 @@
   z-index: 220;
   width: 320px;
   max-width: 88vw;
-  background: #fff;
+  background: var(--sb-neutral-0);
   border: 1px solid rgba(28, 25, 23, 0.1);
   border-radius: 14px;
   box-shadow: 0 14px 38px rgba(62, 43, 26, 0.16);
@@ -100,7 +100,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #1f2937;
+  color: var(--sb-ink-1);
 }
 
 .cm-profile-picker-count {
@@ -108,7 +108,7 @@
   padding: 0 6px;
   border-radius: 999px;
   background: rgba(124, 58, 237, 0.1);
-  color: #7c3aed;
+  color: var(--sb-brand-600);
   font-size: 10px;
   font-weight: 800;
   text-align: center;
@@ -130,15 +130,15 @@
 
 .cm-profile-picker-icon + .cm-profile-picker-icon { margin-left: 4px; }
 .cm-profile-picker-icon:last-child { margin-left: auto; }
-.cm-profile-picker-icon:hover { background: rgba(124, 58, 237, 0.1); color: #7c3aed; }
+.cm-profile-picker-icon:hover { background: rgba(124, 58, 237, 0.1); color: var(--sb-brand-600); }
 .cm-profile-picker-icon:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .cm-profile-picker-error {
   padding: 6px 8px;
   border-radius: 8px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: var(--sb-danger-soft);
+  border: 1px solid var(--sb-danger-border);
+  color: var(--sb-ink-danger);
   font-size: 10px;
   line-height: 1.5;
 }
@@ -181,7 +181,7 @@
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-  color: #1f2937;
+  color: var(--sb-ink-1);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -203,8 +203,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #ede9fe, #fce7f3);
-  color: #7c3aed;
+  background: linear-gradient(135deg, var(--sb-brand-100), var(--sb-brand-50));
+  color: var(--sb-brand-600);
   font-size: 14px;
   font-weight: 900;
 }
@@ -223,7 +223,7 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--sb-ink-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -233,8 +233,8 @@
   flex: 0 0 auto;
   padding: 0 5px;
   border-radius: 6px;
-  background: #7c3aed;
-  color: #fff;
+  background: var(--sb-brand-600);
+  color: var(--sb-neutral-0);
   font-size: 9px;
   font-style: normal;
   font-weight: 700;

@@ -209,7 +209,7 @@ export default function HomePage() {
           <div id="creation-workbench" className="surface-card" style={{
             display: ecStep === 2 ? 'none' : undefined,
             marginTop: 20,
-            background: isXHS || isVideo || isVisual ? '#fff' : 'transparent',
+            background: isXHS || isVideo || isVisual ? 'var(--sb-neutral-0)' : 'transparent',
             boxShadow: isXHS || isVideo || isVisual ? undefined : 'none',
           }}>
             <div className="surface-card-inner">

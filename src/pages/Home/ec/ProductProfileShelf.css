@@ -28,7 +28,7 @@
   min-height: 36px;
   padding: 0 13px;
   border-radius: 9px;
-  background: #fff;
+  background: var(--sb-neutral-0);
   color: #44403c;
   font-size: 12px;
   font-weight: 750;
@@ -38,7 +38,7 @@
 .ec-product-profile-trigger:hover,
 .ec-product-profile-trigger.is-open {
   border-color: rgba(124, 58, 237, .35);
-  color: #6d28d9;
+  color: var(--sb-brand-700);
   background: #faf7ff;
 }
 
@@ -47,13 +47,13 @@
   padding: 1px 5px;
   border-radius: 999px;
   background: rgba(124, 58, 237, .1);
-  color: #6d28d9;
+  color: var(--sb-brand-700);
   text-align: center;
   font-size: 10px;
 }
 
 .ec-product-profile-hint {
-  color: #78716c;
+  color: var(--sb-ink-3);
   font-size: 11px;
 }
 
@@ -63,7 +63,7 @@
   padding: 14px;
   border: 1px solid rgba(41, 37, 36, .1);
   border-radius: 12px;
-  background: #fff;
+  background: var(--sb-neutral-0);
   box-shadow: 0 12px 32px rgba(62, 43, 26, .12);
 }
 
@@ -95,7 +95,7 @@
 .ec-product-profile-footer > span,
 .ec-product-profile-row-summary,
 .ec-product-profile-row-meta {
-  color: #78716c;
+  color: var(--sb-ink-3);
   font-size: 11px;
 }
 
@@ -110,19 +110,19 @@
   place-items: center;
   padding: 0;
   border-radius: 8px;
-  background: #fff;
-  color: #78716c;
+  background: var(--sb-neutral-0);
+  color: var(--sb-ink-3);
 }
 
 .ec-product-profile-icon-button:hover {
   border-color: rgba(124, 58, 237, .3);
-  color: #6d28d9;
+  color: var(--sb-brand-700);
   background: #faf7ff;
 }
 
 .ec-product-profile-icon-button.is-danger:hover {
   border-color: rgba(185, 28, 28, .25);
-  color: #b91c1c;
+  color: var(--sb-ink-danger);
   background: #fff7f7;
 }
 
@@ -199,14 +199,14 @@
   padding: 0 8px;
   border-color: transparent;
   background: rgba(124, 58, 237, .08);
-  color: #6d28d9;
+  color: var(--sb-brand-700);
 }
 
 .ec-product-profile-save {
   padding: 0 11px;
-  border-color: #6d28d9;
-  background: #6d28d9;
-  color: #fff;
+  border-color: var(--sb-brand-700);
+  background: var(--sb-brand-700);
+  color: var(--sb-neutral-0);
 }
 
 .ec-product-profile-save:disabled,
@@ -234,7 +234,7 @@
   justify-content: center;
   gap: 7px;
   min-height: 70px;
-  color: #78716c;
+  color: var(--sb-ink-3);
   font-size: 12px;
 }
 

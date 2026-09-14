@@ -53,7 +53,7 @@ export function Modal({ children, onClose, width = 420 }) {
         onClick={e => e.stopPropagation()}
         className="animate-scale-in"
         style={{
-          background: '#fff', borderRadius: 'var(--radius-xl)',
+          background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-xl)',
           padding: '32px 28px', width, maxWidth: '92vw',
           maxHeight: '90vh', overflow: 'auto',
           boxShadow: 'var(--shadow-xl)',
@@ -122,8 +122,8 @@ export function Tag({ children, active, onClick, style = {} }) {
         borderRadius: 'var(--radius-full)',
         fontSize: 'var(--text-sm)',
         fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-normal)',
-        background: active ? 'var(--red)' : (h ? '#f0f0f0' : 'var(--border-light)'),
-        color: active ? '#fff' : 'var(--text-secondary)',
+        background: active ? 'var(--red)' : (h ? 'var(--sb-neutral-100)' : 'var(--border-light)'),
+        color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
         cursor: onClick ? 'pointer' : 'default',
         transition: `all var(--duration-fast) var(--ease)`,
         whiteSpace: 'nowrap',

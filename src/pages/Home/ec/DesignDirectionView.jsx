@@ -8,7 +8,7 @@ const MOCK_DIRECTIONS = [
     subtitle: '纯净白底 · 产品聚焦',
     description: '采用纯白背景与均匀中性商品光，以经典安全角度完整展示产品全貌。画面不添加投影、地面、渐变或道具，边缘干净且四周留白明确，适合电商目录图与搜索结果页。',
     outputs: ['白底主图 ×2', '场景主图 ×1', '细节特写 ×1'],
-    mood: 'linear-gradient(135deg, #f5f5f5 0%, #ffffff 50%, #fafafa 100%)',
+    mood: 'linear-gradient(135deg, var(--sb-neutral-100) 0%, var(--sb-neutral-0) 50%, #fafafa 100%)',
   },
   {
     id: 2,
@@ -16,7 +16,7 @@ const MOCK_DIRECTIONS = [
     subtitle: '功能图解 · 信息层次',
     description: '在产品实拍基础上叠加简洁的图文排版，用图标+短文案标注核心卖点。采用分层构图：产品居中，卖点环绕分布，视觉动线清晰。适合详情页首屏与社交媒体种草图。',
     outputs: ['卖点图解 ×2', '功能对比 ×1', '参数展示 ×1'],
-    mood: 'linear-gradient(135deg, #ede9fe 0%, #e0e7ff 50%, #f0f4ff 100%)',
+    mood: 'linear-gradient(135deg, var(--sb-brand-100) 0%, var(--sb-brand-100) 50%, #f0f4ff 100%)',
   },
   {
     id: 3,
@@ -52,7 +52,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
   const dirs = directions?.length ? directions : MOCK_DIRECTIONS;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f0f1a', color: '#fff', paddingBottom: 40 }}>
+    <div style={{ minHeight: '100vh', background: '#0f0f1a', color: 'var(--sb-neutral-0)', paddingBottom: 40 }}>
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div onClick={onBack}
@@ -70,7 +70,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
       {/* Header */}
       <div style={{ padding: '28px 24px 8px', maxWidth: 900, margin: '0 auto' }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.3, marginBottom: 6 }}>
-          <span style={{ color: '#a78bfa' }}>AI</span> 已解析您的产品与需求
+          <span style={{ color: 'var(--sb-brand-400)' }}>AI</span> 已解析您的产品与需求
         </h2>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
           为您规划了 {dirs.length} 套差异化设计方向，请选择其一继续生成整套电商素材
@@ -78,7 +78,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
         {productName && (
           <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>产品：</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa' }}>{productName}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-brand-400)' }}>{productName}</span>
           </div>
         )}
       </div>
@@ -91,7 +91,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
             <div key={dir.id} onClick={() => setSelectedId(dir.id)}
               style={{
                 display: 'flex', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
-                border: selected ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.08)',
+                border: selected ? '2px solid var(--sb-brand-400)' : '1px solid rgba(255,255,255,0.08)',
                 background: selected ? 'rgba(167,139,250,0.06)' : 'rgba(255,255,255,0.03)',
                 transition: 'all 0.2s',
               }}
@@ -111,11 +111,11 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
               {/* Right: content */}
               <div style={{ flex: 1, padding: '16px 20px', minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: selected ? '#a78bfa' : 'rgba(255,255,255,0.9)' }}>{dir.title}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: selected ? 'var(--sb-brand-400)' : 'rgba(255,255,255,0.9)' }}>{dir.title}</span>
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>·</span>
                   <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{dir.subtitle}</span>
                   {selected && (
-                    <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', background: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', background: 'var(--sb-brand-400)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <MdCheck size={13} color="#fff" />
                     </div>
                   )}
@@ -141,9 +141,9 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
           style={{
             width: '100%', height: 52, borderRadius: 14, border: 'none',
             background: selectedId
-              ? 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%)'
+              ? 'linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-400) 50%, var(--sb-brand-300) 100%)'
               : 'rgba(255,255,255,0.06)',
-            color: selectedId ? '#fff' : 'rgba(255,255,255,0.25)',
+            color: selectedId ? 'var(--sb-neutral-0)' : 'rgba(255,255,255,0.25)',
             fontSize: 16, fontWeight: 700, cursor: selectedId ? 'pointer' : 'not-allowed',
             fontFamily: 'inherit', transition: 'all 0.2s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

@@ -872,13 +872,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <div onClick={onBack} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '8px 14px', borderRadius: 12,
-            background: '#fff', border: '1px solid rgba(12,10,9,0.08)',
+            background: 'var(--sb-neutral-0)', border: '1px solid rgba(12,10,9,0.08)',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
             color: 'var(--text-secondary)', transition: 'all 0.15s',
           }}>
             <MdArrowBack size={16} /> 返回
           </div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#1a1a1a' }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--sb-ink-1)' }}>
             确认设计方案
           </h2>
           <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 4 }}>
@@ -889,13 +889,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         {/* ── 加载进度 ── */}
         {loading && (
           <div style={{
-            background: '#fff', borderRadius: 16, padding: '32px 28px',
+            background: 'var(--sb-neutral-0)', borderRadius: 16, padding: '32px 28px',
             boxShadow: '0 2px 12px rgba(12,10,9,0.04)',
             border: '1px solid rgba(12,10,9,0.06)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-              <MdAutoAwesome size={20} style={{ color: '#7c3aed', animation: 'spin 1.5s linear infinite' }} />
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a1a' }}>AI 正在分析产品并设计方案…</span>
+              <MdAutoAwesome size={20} style={{ color: 'var(--sb-brand-600)', animation: 'spin 1.5s linear infinite' }} />
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--sb-ink-1)' }}>AI 正在分析产品并设计方案…</span>
             </div>
             <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             {LOAD_STAGES.map((stage, i) => (
@@ -909,14 +909,14 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   width: 24, height: 24, borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700,
-                  background: loadStage > i ? '#22c55e' : loadStage === i ? '#7c3aed' : '#e5e7eb',
-                  color: loadStage >= i ? '#fff' : '#9ca3af',
+                  background: loadStage > i ? 'var(--sb-success)' : loadStage === i ? 'var(--sb-brand-600)' : 'var(--sb-neutral-200)',
+                  color: loadStage >= i ? 'var(--sb-neutral-0)' : 'var(--sb-ink-5)',
                   transition: 'all 0.3s',
                 }}>
                   {loadStage > i ? '✓' : i + 1}
                 </div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: loadStage >= i ? '#1a1a1a' : '#9ca3af' }}>{stage.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: loadStage >= i ? 'var(--sb-ink-1)' : 'var(--sb-ink-5)' }}>{stage.label}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stage.desc}</div>
                 </div>
               </div>
@@ -929,7 +929,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 850, color: '#1f2937' }}>方案总览</div>
+                <div style={{ fontSize: 18, fontWeight: 850, color: 'var(--sb-ink-1)' }}>方案总览</div>
                 <div style={{ marginTop: 4, fontSize: 13, color: '#756d64' }}>先查看方案依据，再调整核心叙事和逐图执行。</div>
               </div>
               <button
@@ -1016,7 +1016,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               />
 
               {supplementError && (
-                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', fontSize: 11 }}>
+                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 11 }}>
                   {supplementError}
                 </div>
               )}
@@ -1045,8 +1045,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   padding: '14px 48px', borderRadius: 25,
                   border: 'none', fontSize: 16, fontWeight: 800,
                   fontFamily: 'inherit',
-                   background: generating || quoteLoading || !billingQuote ? '#ddd' : 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',
-                   color: '#fff', cursor: generating || quoteLoading || !billingQuote ? 'not-allowed' : 'pointer',
+                   background: generating || quoteLoading || !billingQuote ? 'var(--sb-neutral-200)' : 'linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 50%, var(--sb-warning) 100%)',
+                   color: 'var(--sb-neutral-0)', cursor: generating || quoteLoading || !billingQuote ? 'not-allowed' : 'pointer',
                    boxShadow: generating || quoteLoading || !billingQuote ? 'none' : '0 6px 24px rgba(124,58,237,0.35)',
                   transition: 'all 0.2s',
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -1059,19 +1059,19 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               </button>
             </div>
             {error && errorStage === 'generation' && (
-              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', fontSize: 13, lineHeight: 1.55 }}>
+              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 13, lineHeight: 1.55 }}>
                 <strong style={{ display: 'block', marginBottom: 3 }}>这次生成没有交付成品</strong>
                 <span>{error}</span>
               </div>
             )}
-            <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? '#b91c1c' : '#6b625a' }}>
+            <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? 'var(--sb-ink-danger)' : '#6b625a' }}>
               {quoteError || quoteNotice || quoteText}
             </div>
 
             {/* ── 生成进度面板（可折叠）── */}
             {(generating || assetProgress.length > 0 || stableImages.length > 0) && (
               <div className="ec-generation-progress" style={{
-                background: '#fff', borderRadius: 16, padding: '16px 20px',
+                background: 'var(--sb-neutral-0)', borderRadius: 16, padding: '16px 20px',
                 boxShadow: '0 4px 20px rgba(124,58,237,0.15)',
                 border: '2px solid rgba(124,58,237,0.2)',
                 marginTop: 16,
@@ -1079,22 +1079,22 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
+                    background: 'linear-gradient(135deg, var(--sb-brand-600), #ec4899)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <MdAutoAwesome size={18} color="#fff" style={{ animation: 'spin 1.5s linear infinite' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>AI 正在生成图片</div>
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>可继续浏览其他页面；每张完成图片都会自动保存到“我的作品”</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--sb-ink-1)' }}>AI 正在生成图片</div>
+                    <div style={{ fontSize: 12, color: 'var(--sb-ink-3)', marginTop: 2 }}>可继续浏览其他页面；每张完成图片都会自动保存到“我的作品”</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>{genProgress || '准备中…'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sb-brand-600)' }}>{genProgress || '准备中…'}</div>
                 </div>
                 {/* 进度条 */}
                 <div style={{ height: 4, borderRadius: 2, background: 'rgba(12,10,9,0.06)', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: 2,
-                    background: 'linear-gradient(90deg, #7c3aed, #ec4899)',
+                    background: 'linear-gradient(90deg, var(--sb-brand-600), #ec4899)',
                     width: genProgress?.includes('%') ? genProgress : '30%',
                     transition: 'width 0.5s ease',
                   }} />
@@ -1104,8 +1104,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                     {assetProgress.map(asset => (
                       <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
                         <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
-                        <span style={{ color: asset.error ? '#B91C1C' : '#7C3AED', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
-                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: '#B91C1C', lineHeight: 1.45 }}>{asset.error}</span>}
+                        <span style={{ color: asset.error ? 'var(--sb-ink-danger)' : 'var(--sb-brand-600)', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
+                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: 'var(--sb-ink-danger)', lineHeight: 1.45 }}>{asset.error}</span>}
                       </div>
                     ))}
                   </div>
@@ -1113,7 +1113,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 {stableImages.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
                     {stableImages.map((image, index) => (
-                      <button key={image.id} type="button" onClick={() => setPreviewImageIndex(index)} aria-label={`放大查看${image.label || image.role || '生成图'}`} style={{ width: 74, height: 74, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E9DDF8', background: '#fff', cursor: 'zoom-in' }}>
+                      <button key={image.id} type="button" onClick={() => setPreviewImageIndex(index)} aria-label={`放大查看${image.label || image.role || '生成图'}`} style={{ width: 74, height: 74, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E9DDF8', background: 'var(--sb-neutral-0)', cursor: 'zoom-in' }}>
                         <ResponsiveImage src={image.stableUrl} variant="thumb" ratio="1:1" alt={image.label || image.role || '稳定生成图'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     ))}
@@ -1125,10 +1125,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         )}
         {previewImageIndex >= 0 && stableImages[previewImageIndex] && (
           <div role="dialog" aria-modal="true" aria-label="生成图片预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', background: 'rgba(18,16,20,.86)', padding: 24 }}>
-            <button type="button" title="关闭预览" aria-label="关闭预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'absolute', top: 18, right: 18, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdClose size={24} /></button>
-            {stableImages.length > 1 && <button type="button" title="上一张" aria-label="上一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index - 1 + stableImages.length) % stableImages.length); }} style={{ position: 'absolute', left: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronLeft size={30} /></button>}
+            <button type="button" title="关闭预览" aria-label="关闭预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'absolute', top: 18, right: 18, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.14)', color: 'var(--sb-neutral-0)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdClose size={24} /></button>
+            {stableImages.length > 1 && <button type="button" title="上一张" aria-label="上一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index - 1 + stableImages.length) % stableImages.length); }} style={{ position: 'absolute', left: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: 'var(--sb-neutral-0)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronLeft size={30} /></button>}
             <img onClick={event => event.stopPropagation()} src={stableImages[previewImageIndex].stableUrl} alt={stableImages[previewImageIndex].label || stableImages[previewImageIndex].role || '生成图片预览'} width="1200" height="800" loading="eager" decoding="async" fetchpriority="high" draggable="false" style={{ maxWidth: 'min(92vw, 1200px)', maxHeight: '86vh', objectFit: 'contain' }} />
-            {stableImages.length > 1 && <button type="button" title="下一张" aria-label="下一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index + 1) % stableImages.length); }} style={{ position: 'absolute', right: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronRight size={30} /></button>}
+            {stableImages.length > 1 && <button type="button" title="下一张" aria-label="下一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index + 1) % stableImages.length); }} style={{ position: 'absolute', right: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: 'var(--sb-neutral-0)', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronRight size={30} /></button>}
           </div>
         )}
 
@@ -1138,12 +1138,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             textAlign: 'center', padding: '60px 20px',
             color: 'var(--text-muted)', fontSize: 14,
           }}>
-            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', lineHeight: 1.55 }}>{error}</div>}
+            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', lineHeight: 1.55 }}>{error}</div>}
             <p>未生成设计方向，请检查输入后重试</p>
             <div onClick={loadDirections} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '8px 18px', borderRadius: 10,
-              background: '#1a1a1a', color: '#fff',
+              background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)',
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
               marginTop: 12,
             }}>重试</div>
