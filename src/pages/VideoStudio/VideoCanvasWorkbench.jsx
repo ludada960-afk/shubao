@@ -49,6 +49,7 @@ import VideoCanvasFlowCanvas from './VideoCanvasFlowCanvas.jsx';
 import ChainOrchestrator from '../../components/chain/ChainOrchestrator.jsx';
 import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import { quoteBillingAction } from '../../services/billing.js';
+import { stableCanvasActionId } from '../../services/api.js';
 import { createVideoJob, getVideoJob } from '../../services/video.js';
 import {
   applyShotCandidateToTimeline,
@@ -582,7 +583,26 @@ export default function VideoCanvasWorkbench({
           videos: references.videos,
           audios: references.audios,
         },
-      }, keyFor('canvas-shot-job'));
+      }, 
+      /* 2026-09-17 第六批（收费链路真实端到端验收）：
+         keyFor() 每次新随机 UUID → 服务端按 (owner_email, idempotency_key) 查重永不命中，
+         连点 N 次 = N 个真实视频任务（每个都是真金白银的积分）。
+         改成按「镜头 + 已批准计划 + 提示词 + 规格 + 素材」算稳定键：
+         同一镜同一计划重复点击 → 服务端 replay，不重复扣费。 */
+      stableCanvasActionId([
+        'video-shot-job',
+        projectId,
+        shot.id,
+        gate.approvedPlanHash,
+        product.id,
+        apiMode,
+        promptParts.join('。'),
+        durationSeconds,
+        intent.ratio,
+        references.images.join(','),
+        references.videos.join(','),
+        references.audios.join(','),
+      ].join('\u0000')));
       setTrackedJobs(current => ({
         ...current,
         [created.job.id]: { jobId: created.job.id, shotId: shot.id, status: created.job.status, progress: created.job.progress || 2 },
@@ -1730,7 +1750,7 @@ export default function VideoCanvasWorkbench({
                 title="入点 -0.1 秒" aria-label="入点减 0.1 秒"
                 disabled={Boolean(busy)}
                 onClick={() => handleStepClipTrim(clip, 'start', -TRIM_STEP_FINE)}>‹</button>
-              <span aria-hidden="true" style={{ fontSize: 10.5, color: '#756f69', alignSelf: 'center', minWidth: 28, textAlign: 'center' }}>{TRIM_STEP_FINE.toFixed(1)}s</span>
+              <span aria-hidden="true" style={{ fontSize: 10.5, color: 'var(--sb-ink-3)', alignSelf: 'center', minWidth: 28, textAlign: 'center' }}>{TRIM_STEP_FINE.toFixed(1)}s</span>
               <button type="button" data-no-drag
                 title="出点 +0.1 秒" aria-label="出点加 0.1 秒"
                 disabled={Boolean(busy)}

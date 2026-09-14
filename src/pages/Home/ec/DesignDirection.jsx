@@ -5,6 +5,7 @@ import {
   generateEcommerce,
   polishECText,
   uploadEcommerceAssets,
+  stableCanvasActionId,
 } from '../../../services/api';
 import { quoteBillingAction } from '../../../services/billing.js';
 import { attachProductProfileImages } from '../../../services/projects.js';
@@ -123,6 +124,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const supplementBlobUrlsRef = useRef(new Set());
   const directionRefreshActionRef = useRef(null);
   const directionAnalysisActionRef = useRef(null);
+  const analysisBusyRef = useRef(false);
   const analysisRequestRef = useRef(null);
   const creativeAttemptRef = useRef(createClientCreativeAttemptId());
   const recentCreativeRoutesRef = useRef([]);
@@ -292,6 +294,34 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     creativeAttemptId = creativeAttemptRef.current,
     recentRoutes = recentCreativeRoutesRef.current,
   } = {}) => {
+    /* 同步闸门：连点「重试」时 state 还没变成 loading，挡不住同一 tick 的第二次点击。
+       （analysisRequestRef 的 cancel 是异步的，不足以当闸门用。） */
+    if (analysisBusyRef.current) return;
+    analysisBusyRef.current = true;
+    /* 2026-09-17 第六批（收费链路真实端到端验收）：
+       「重试」按钮原来是裸 onClick={loadDirections} —— 没带任何计费参数，
+       于是 billingQuoteId / billingActionId 双双为 undefined，
+       服务端 executeOnce 直接判「收费动作请求无效」。
+       实测（真实接口、无打桩）：[400] CANVAS_BILLING_REQUEST_INVALID ——「重试」**永远不可能成功**。
+       修法：没有计费参数时，本函数自己报价 + 生成**稳定** actionId
+       （同一商品/草稿/输入的重试命中同一 actionId，服务端 replay，不会重复扣费）。 */
+    let effectiveAnalysisBilling = analysisBilling;
+    if (!refreshBilling && !analysisBilling) {
+      const { quote } = await quoteBillingAction({ sku: 'ec_direction_analysis', quantity: 1 });
+      const actionId = directionAnalysisActionRef.current || stableCanvasActionId([
+        'ec-direction-analysis',
+        ownerEmail,
+        draftId,
+        params?.productName || '',
+        extraDesc || params?.description || '',
+        (params?.realShots || []).join(','),
+        (params?.refShots || []).join(','),
+        abilityRecipeId || '',
+      ].join('\u0000'));
+      directionAnalysisActionRef.current = actionId;
+      saveEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+      effectiveAnalysisBilling = { quoteId: quote.quoteId, actionId };
+    }
     analysisRequestRef.current?.cancel();
     analysisRequestRef.current?.cleanup();
     const analysisRequest = createBoundedRequestLifecycle();
@@ -344,8 +374,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         creative_attempt_id: creativeAttemptId,
         recent_creative_routes: recentRoutes,
         refresh: Boolean(refreshBilling),
-        billingQuoteId: refreshBilling?.quoteId ?? analysisBilling?.quoteId,
-        billingActionId: refreshBilling?.actionId ?? analysisBilling?.actionId,
+        billingQuoteId: refreshBilling?.quoteId ?? effectiveAnalysisBilling?.quoteId,
+        billingActionId: refreshBilling?.actionId ?? effectiveAnalysisBilling?.actionId,
       }, { signal: analysisRequest.signal });
 
       if (analysisRequestRef.current !== analysisRequest) return;
@@ -388,6 +418,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       clearTimeout(timer1);
       clearTimeout(timer2);
       analysisRequest.cleanup();
+      /* 闸门必须在所有出口释放（成功/失败/被取消），否则「重试」会永久卡死。 */
+      analysisBusyRef.current = false;
       if (analysisRequestRef.current === analysisRequest) {
         analysisRequestRef.current = null;
         setLoading(false);

@@ -789,7 +789,13 @@ function canvasBillingActionId() {
   return uuid ? `canvas-${uuid}` : `canvas-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function stableCanvasActionId(value) {
+/* 稳定幂等键：同一个「逻辑上的一次动作」必须映射到同一个 key，
+   否则服务端按 actionId 去重失效 —— 连点 N 次就是 N 次扣费。
+   2026-09-17 第六批：收费链路真实端到端验收发现，
+   视频方案链（画布 / VideoStudio）与视频任务创建用的是**每次新随机 UUID**，
+   实测 3 连点 = 4× 方案扣费 / 2 个视频任务（92,000 积分）。
+   导出本函数，让所有收费动作都能用稳定键。 */
+export function stableCanvasActionId(value) {
   const input = String(value || '');
   let hash = 2166136261;
   for (let index = 0; index < input.length; index += 1) {

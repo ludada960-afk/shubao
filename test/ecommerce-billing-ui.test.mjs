@@ -574,7 +574,18 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /quoteBillingAction\(\{\s*sku:\s*['"]ec_direction_refresh['"],\s*quantity:\s*1\s*\}\)/);
   assert.match(direction, /quoteId:\s*quote\.quoteId/);
   assert.match(direction, /billingQuoteId:\s*refreshBilling\?\.quoteId/);
-  assert.match(direction, /billingActionId:\s*refreshBilling\?\.actionId \?\? analysisBilling\?\.actionId/);
+  /* 2026-09-17 第六批（收费链路真实端到端验收）：
+     原来这里断言的是 `analysisBilling?.actionId` —— 而「重试」按钮是裸 onClick={loadDirections}，
+     不带任何计费参数，于是 analysisBilling 恒为 null →
+     billingQuoteId / billingActionId 双双 undefined →
+     服务端 executeOnce 判「收费动作请求无效」。
+     实测（真实接口、无打桩）：[400] CANVAS_BILLING_REQUEST_INVALID，「重试」**永远不可能成功**。
+     修法：无计费参数时 loadDirections 自己报价 + 生成稳定 actionId，
+     并把 effectiveAnalysisBilling 一路发出去。契约随之更新为 effective 口径。 */
+  assert.match(direction, /let effectiveAnalysisBilling = analysisBilling;/);
+  assert.match(direction, /if \(!refreshBilling && !analysisBilling\) \{[\s\S]{0,900}effectiveAnalysisBilling = \{ quoteId: quote\.quoteId, actionId \}/);
+  assert.match(direction, /billingActionId:\s*refreshBilling\?\.actionId \?\? effectiveAnalysisBilling\?\.actionId/);
+  assert.match(direction, /billingQuoteId:\s*refreshBilling\?\.quoteId \?\? effectiveAnalysisBilling\?\.quoteId/);
   // 2026-09-10：首次方向分析同样计费（ec_direction_analysis），与刷新共用恢复式 actionId
   assert.match(direction, /quoteBillingAction\(\{\s*sku:\s*['\"]ec_direction_analysis['\"],\s*quantity:\s*1\s*\}\)/);
   assert.match(direction, /directionRefreshActionRef\s*=\s*useRef\(null\)/);

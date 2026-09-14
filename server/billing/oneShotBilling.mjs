@@ -31,7 +31,11 @@ function inProgressError(claim) {
 }
 
 function recoveryRequiredError(claim) {
-  return billingError('该操作的上游结果仍在确认中，为避免重复扣费，请稍后查看结果', {
+  /* 2026-09-17 第六批（收费链路真实端到端验收 · 硬性不变式）：
+     原文案含「上游」——内部架构词，不能出现在用户可见文案里。
+     实测可达：租约过期后重试（进程在 claim 与 save 之间中断）会真实命中这条 409。
+     换成纯用户语言的同一含义：结果还在确认中 + 不会重复扣费 + 稍后查看。 */
+  return billingError('这次处理的结果还在确认中，为避免重复扣费，请稍后查看结果', {
     status: 409,
     code: 'CANVAS_BILLING_ACTION_RECOVERY_REQUIRED',
     retryable: true,

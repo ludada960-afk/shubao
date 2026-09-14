@@ -23,6 +23,7 @@ import {
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import { useApp } from '../../store/AppContext.jsx';
 import { quoteBillingAction } from '../../services/billing.js';
+import { stableCanvasActionId } from '../../services/api.js';
 import {
   analyzeVideoPlan,
   createVideoJob,
@@ -588,7 +589,24 @@ export default function VideoStudioPage({ embedded = false }) {
           uploadFiles(selected.audios, 'audio'),
         ]);
       const urls = Object.fromEntries([...first, ...last, ...images, ...videos, ...audios].map(asset => [asset.id, asset.url]));
-      const idempotencyKey = globalThis.crypto?.randomUUID?.() || `video-${Date.now()}`;
+      /* 2026-09-17 第六批（收费链路真实端到端验收）：
+         幂等键原来每次点击新随机 UUID → 服务端 videoGeneration.createJob 按
+         (owner_email, idempotency_key) 查重**永不命中**。
+         实测（真实接口、无打桩）画布同链路：随机键连点 3 次 = 2 个真实视频任务 / 92,000 积分；
+         同一稳定键连点 3 次 = 1 个任务 / replay:true / 额外扣费 0。
+         稳定键 = 「同一份素材 + 同一提示词 + 同一规格」，改了任一项即视为另一次生成。 */
+      const idempotencyKey = stableCanvasActionId([
+        'video-job',
+        analyzedSignature || planSignature,
+        selectedProduct?.id || '',
+        String(activeAnalysis.optimizedPrompt || prompt || '').trim(),
+        mode,
+        duration,
+        ratio,
+        resolution,
+        sound ? 'audio' : 'silent',
+        [...first, ...last, ...images, ...videos, ...audios].map(asset => asset.id).join(','),
+      ].join('\u0000'));
       const result = await createVideoJob({
         projectId: activeVideoProjectId || undefined,
         workbenchPlanHash: activeVideoPlanHash || undefined,
@@ -663,9 +681,24 @@ export default function VideoStudioPage({ embedded = false }) {
         uploadFiles(analysisFrames, 'image'),
       ]);
       const planQuote = (await quoteBillingAction({ sku: 'video_plan_analysis', quantity: 1 })).quote;
+      /* 2026-09-17 第六批（收费链路真实端到端验收）：
+         actionId 原来每次新随机 UUID → 服务端按 actionId 去重失效，
+         实测画布同链路连点 3 次 = 4000 积分（4×）。这里同样改稳定键：
+         同一份素材/提示词/规格 = 同一次分析，重复点击由服务端 replay，不再扣费。 */
+      const planActionKey = stableCanvasActionId([
+        'video-plan',
+        planSignature,
+        String(prompt || '').trim(),
+        selectedProduct?.id || '',
+        mode,
+        duration,
+        ratio,
+        resolution,
+        sound ? 'audio' : 'silent',
+      ].join('\u0000'));
       const result = await analyzeVideoPlan({
         billingQuoteId: planQuote.quoteId,
-        billingActionId: globalThis.crypto?.randomUUID?.() || `video-plan-${Date.now()}`,
+        billingActionId: planActionKey,
         productId: selectedProduct?.id,
         mode,
         prompt,
