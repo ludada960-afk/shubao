@@ -425,7 +425,7 @@
   justify-content: center;
   margin-top: 3px;
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--sb-ink-brand);
   line-height: 1;
 }

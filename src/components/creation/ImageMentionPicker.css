@@ -10,4 +10,4 @@
 .image-mention-menu > button span { min-width: 0; display: grid; gap: var(--sb-space-0-5); }
 .image-mention-menu b, .image-mention-menu small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .image-mention-menu b { font-size: var(--sb-text-xs); }
-.image-mention-menu small { color: #8b939e; font-size: 9px; }
+.image-mention-menu small { color: #8b939e; font-size: 10px; }

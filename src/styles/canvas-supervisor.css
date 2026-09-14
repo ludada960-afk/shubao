@@ -583,7 +583,7 @@
 }
 .ec-canvas-minimap-header span {
   color: var(--sb-ink-5);
-  font-size: 9px;
+  font-size: 10px;
 }
 .ec-canvas-minimap-close {
   display: grid;

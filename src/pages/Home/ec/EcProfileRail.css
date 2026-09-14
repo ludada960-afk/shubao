@@ -227,7 +227,7 @@
   border-radius: 6px;
   background: var(--sb-brand-600);
   color: var(--sb-neutral-0);
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 700;
 }
@@ -379,7 +379,7 @@
 
 .ec-profile-media-grid figcaption {
   margin-top: 2px;
-  font-size: 9px;
+  font-size: 10px;
   color: #a39d92;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -431,7 +431,7 @@
 }
 
 .ec-profile-rail-footer span {
-  font-size: 9px;
+  font-size: 10px;
   color: #a39d92;
   text-align: center;
 }
