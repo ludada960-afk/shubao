@@ -36,7 +36,7 @@ export default function Button({
       /* 焦点优先于 hover 阴影：两者叠加时仍保证焦点环可见 */
       boxShadow: focused
         ? 'var(--sb-shadow-ring)'
-        : (hover && !disabled ? 'var(--shadow-red-lg)' : 'none'),
+        : (hover && !disabled ? 'var(--sb-danger-shadow)' : 'none'),
     });
   } else if (ghost) {
     Object.assign(base, {
