@@ -4,183 +4,120 @@
 // 判据（不是写法）：`<div onClick>` 用键盘根本到不了 —— 不可 Tab、不可 Enter/Space 触发。
 // 用户体验上等价于「这个按钮在某些人手里不存在」，属不可访问的极端形式。
 //
+// 检测器**唯一实现**在 scripts/lib/clickable-div-scan.mjs ——
+// 本门禁与 scripts/design-audit.mjs 共用它，杜绝「同一判据两个数」（原则 §12）。
+//
 // 本测试三件事：
-//   ① 检测器自证：fixture 里裸 <div onClick> 必被抓；<button onClick>、
+//   ① 检测器自证：裸 <div onClick> 必被抓；<button onClick>、
 //      带 role="button" + tabIndex + onKeyDown 的 div 不得误报；
 //   ② 仓库 src/** 中「非交互元素带 onClick 且未登记」= 0，并断言样本量（防空转通过）；
-//   ③ 白名单条目必须带理由（禁止空理由白名单）。
+//   ③ 白名单条目必须带理由（禁止空理由白名单）+ 不得悬空 + 必须精确到元素。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  findClickableNonInteractive, featureOf, scanRepo,
+} from '../scripts/lib/clickable-div-scan.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'src');
-
-/* ═══════════ 检测器（唯一实现，自证后用于仓库扫描）═══════════ */
-const INTERACTIVE = new Set(['button','a','input','select','textarea','summary','details','label']);
-
-/**
- * 找出「非交互元素挂 onClick」的位置。返回 [{line, tag, snippet, note}]。
- *
- * 判据（不是写法）：元素**用键盘到不了** —— 不可 Tab、不可 Enter/Space 触发。
- *   · 真控件（button/a/input/select/textarea/summary/details/label）→ 放行；
- *   · 显式 role="button" + tabIndex + onKeyDown 三者齐全 → 视为键盘可达，放行；
- *   · 其余（div/span/li/tr/article/section/form/img…挂 onClick）→ 违规。
- *
- * 自定义组件（大写开头）需解析其**根元素**：<IconButton> 渲染 <button> 不算违规，
- * 而 <GCard> 渲染 <div onClick> 算 —— 只看调用点会同时产生误报与漏报。
- */
-export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
-  // 先剥掉注释：否则「注释里写 <div onClick> 作为说明」会被误判成违规。
-  // 用等长空白替换（保留换行），使行号与原文一一对应。
-  const src = srcRaw
-    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
-    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
-  const hits = [];
-  const tagRe = /<([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*?)\/?>/gs;
-  let m;
-  while ((m = tagRe.exec(src))) {
-    const rawTag = m[1];
-    const tag = rawTag.toLowerCase();
-    const attrs = m[2];
-    if (!/\bonClick\b/.test(attrs)) continue;
-    if (INTERACTIVE.has(tag)) continue;
-    const hasRole = /role\s*=\s*['"]button['"]/.test(attrs);
-    const hasTabIndex = /tabIndex\s*=/.test(attrs);
-    const hasKeyDown = /onKeyDown\s*=/.test(attrs);
-    if (hasRole && hasTabIndex && hasKeyDown) continue;
-    // 自定义组件：解析根元素后再判定
-    let note = '';
-    if (/^[A-Z]/.test(rawTag)) {
-      const root = rootOf.get(rawTag);
-      if (root && INTERACTIVE.has(root)) continue;      // 渲染真控件 → 放行
-      // 动态标签（同一文件内 const X = cond ? 'button' : 'div'）：可点分支渲染 button，
-      // 属"按需语义化"，只要该分支确实产出 button 即放行。
-      const dyn = new RegExp('const\\s+' + rawTag + '\\s*=\\s*onClick\\s*\\?\\s*[\'"]button[\'"]').test(src);
-      if (dyn) continue;
-      note = root ? ('组件 ' + rawTag + ' 根元素 <' + root + '>') : ('组件 ' + rawTag + ' 根元素未解析');
-    }
-    hits.push({ line: src.slice(0, m.index).split('\n').length, tag: rawTag, note,
-      snippet: m[0].replace(/\s+/g, ' ').slice(0, 110) });
-  }
-  return hits;
-}
-
-/** 扫描 src/**，建立「自定义组件名 → 根元素标签」映射。 */
-export function buildComponentRootMap(files) {
-  const rootOf = new Map();
-  for (const f of files) {
-    const src = readFileSync(f, 'utf8');
-    for (const mm of src.matchAll(/(?:export\s+)?(?:default\s+)?function\s+([A-Z][A-Za-z0-9_]*)\s*\(|(?:export\s+)?const\s+([A-Z][A-Za-z0-9_]*)\s*=\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/g)) {
-      const name = mm[1] || mm[2];
-      if (!name) continue;
-      const body = src.slice(mm.index, mm.index + 4000);
-      const ret = body.match(/return\s*\(?\s*<([a-zA-Z][\w.-]*)/);
-      if (ret) rootOf.set(name, ret[1].toLowerCase());
-      }
-  }
-  return rootOf;
-}
+const WHITELIST = JSON.parse(readFileSync(path.join(ROOT, 'test/fixtures/clickable-div-whitelist.json'), 'utf8'));
 
 /* ═══════════ ① 检测器自证（变异测试的固定靶）═══════════ */
 test('① 检测器自证：裸 <div onClick> 必被抓到', () => {
-  const bad = `<div onClick={() => go()}>点我</div>`;
-  const hits = findClickableNonInteractive(bad);
+  const hits = findClickableNonInteractive('<div onClick={() => go()}>点我</div>');
   assert.equal(hits.length, 1, '裸 div onClick 必须被检出');
   assert.equal(hits[0].tag, 'div');
 });
 
 test('① 检测器自证：跨行属性 / 其他非交互标签也必被抓到', () => {
-  const bad = [
-    '<div',
-    '  className="x"',
-    '  onClick={handle}',
-    '>内容</div>',
-    '<span onClick={f}>s</span>',
-    '<li onClick={g}>l</li>',
-  ].join('\n');
-  assert.equal(findClickableNonInteractive(bad).length, 3, '跨行 div + span + li 均应检出');
+  const bad = ['<div', '  className="x"', '  onClick={handle}', '>内容</div>',
+    '<span onClick={f}>s</span>', '<li onClick={g}>l</li>', '<tr onClick={h}>r</tr>'].join('\n');
+  assert.equal(findClickableNonInteractive(bad).length, 4, '跨行 div + span + li + tr 均应检出');
 });
 
 test('① 检测器自证：真控件与合规替代写法不报（禁止误报）', () => {
   const good = [
-    `<button type="button" onClick={go}>确定</button>`,
-    `<button onClick={go}>确定</button>`,
-    `<a href="/x" onClick={go}>链接</a>`,
-    `<div role="button" tabIndex={0} onClick={go} onKeyDown={onKey}>合规</div>`,
-    `<div className="x">无 onClick</div>`,
-    `<input onClick={go} />`,
+    '<button type="button" onClick={go}>确定</button>',
+    '<button onClick={go}>确定</button>',
+    '<a href="/x" onClick={go}>链接</a>',
+    '<div role="button" tabIndex={0} onClick={go} onKeyDown={onKey}>合规</div>',
+    '<div className="x">无 onClick</div>',
+    '<input onClick={go} />',
   ].join('\n');
   assert.deepEqual(findClickableNonInteractive(good), [], '合规写法一律不得报');
 });
 
 test('① 检测器自证：role=button 但缺 tabIndex 或 onKeyDown 仍算违规', () => {
   const partial = [
-    `<div role="button" onClick={go}>缺 tabIndex/onKeyDown</div>`,
-    `<div role="button" tabIndex={0} onClick={go}>缺 onKeyDown</div>`,
-    `<div role="button" tabIndex={0} onKeyDown={k} onClick={go}>合规</div>`,
+    '<div role="button" onClick={go}>缺 tabIndex/onKeyDown</div>',
+    '<div role="button" tabIndex={0} onClick={go}>缺 onKeyDown</div>',
+    '<div role="button" tabIndex={0} onKeyDown={k} onClick={go}>合规</div>',
   ].join('\n');
   assert.equal(findClickableNonInteractive(partial).length, 2,
     'role=button 必须三者齐全（role + tabIndex + onKeyDown）才算键盘可达');
 });
 
-/* ═══════════ ② 仓库扫描 ═══════════ */
-function walk(dir, out = []) {
-  for (const e of readdirSync(dir)) {
-    if (e === 'node_modules' || e === 'dist' || e.startsWith('.')) continue;
-    const p = path.join(dir, e);
-    if (statSync(p).isDirectory()) walk(p, out);
-    else if (/\.(jsx|tsx|js|ts)$/.test(e)) out.push(p);
-  }
-  return out;
-}
-
-const WHITELIST = JSON.parse(readFileSync(path.join(ROOT, 'test/fixtures/clickable-div-whitelist.json'), 'utf8'));
-
-test('② 仓库 src/** 无非交互元素 onClick（未登记者）', () => {
-  const files = walk(SRC);
-  assert.ok(files.length > 200, '样本量不足（防止目录读空导致的空转通过），实际 ' + files.length);
-
-  const rootOf = buildComponentRootMap(files);
-  const allowed = new Set(WHITELIST.entries.map(e => e.file + ':' + e.line));
-  const violations = [];
-  let scanned = 0;
-  for (const f of files) {
-    const rel = path.relative(ROOT, f).split(path.sep).join('/');
-    const src = readFileSync(f, 'utf8');
-    if (!src.includes('onClick')) continue;
-    scanned++;
-    for (const h of findClickableNonInteractive(src, rootOf)) {
-      if (allowed.has(rel + ':' + h.line)) continue;
-      violations.push(rel + ':' + h.line + '  <' + h.tag + '>' + (h.note ? ' (' + h.note + ')' : '') + '  ' + h.snippet);
-    }
-  }
-  assert.ok(scanned > 40, '含 onClick 的文件数异常（防空转），实际 ' + scanned);
-  assert.deepEqual(violations, [],
-    '存在键盘不可达的可点元素（应改 <button> 或补 role=button+tabIndex+onKeyDown 并登记白名单）：\n  '
-      + violations.join('\n  '));
+test('① 检测器自证：自定义组件按根元素判定（<IconButton> 不报 / <GCard> 必报）', () => {
+  const rootOf = new Map([['IconButton', 'button'], ['GCard', 'div']]);
+  const src = '<IconButton onClick={go}>图标</IconButton>\n<GCard onClick={go}>卡片</GCard>';
+  const hits = findClickableNonInteractive(src, rootOf);
+  assert.equal(hits.length, 1, '只有根元素非交互的组件才算违规');
+  assert.equal(hits[0].tag, 'GCard');
 });
 
-/* ═══════════ ③ 白名单必须带理由 ═══════════ */
-test('③ 白名单条目必须带非空理由（禁止空理由白名单）', () => {
+test('① 检测器自证：注释里出现的 <div onClick> 字样不得误报', () => {
+  const src = ['/* 说明：原为 <div onClick> 已改 <button> */', 'const x = 1;'].join('\n');
+  assert.deepEqual(findClickableNonInteractive(src), [], '注释内容不参与检测');
+});
+
+/* ═══════════ ② 仓库扫描（与 design-audit 共用同一实现）═══════════ */
+test('② 仓库 src/** 无非交互元素 onClick（未登记者）', () => {
+  const r = scanRepo({ root: ROOT, srcDir: SRC, whitelist: WHITELIST });
+  assert.ok(r.scannedFiles > 200, '样本量不足（防目录读空导致空转通过），实际 ' + r.scannedFiles);
+  assert.ok(r.onClickFiles > 40, '含 onClick 的文件数异常（防空转），实际 ' + r.onClickFiles);
+  const list = r.violations.map(v =>
+    v.file + ':' + v.line + '  <' + v.tag + '>' + (v.note ? ' (' + v.note + ')' : '') + '  ' + v.snippet);
+  assert.deepEqual(list, [],
+    '存在键盘不可达的可点元素（应改 <button>，或补 role=button+tabIndex+onKeyDown 并登记白名单）：\n  '
+      + list.join('\n  '));
+});
+
+/* ═══════════ ③ 白名单纪律 ═══════════ */
+test('③ 白名单条目必须带理由（禁止空理由白名单）', () => {
   assert.ok(Array.isArray(WHITELIST.entries), '白名单结构应为 { entries: [...] }');
   for (const e of WHITELIST.entries) {
-    assert.ok(e.file && typeof e.line === 'number', '条目必须有 file + line');
+    assert.ok(e.file, '条目必须有 file');
     assert.ok(typeof e.reason === 'string' && e.reason.trim().length >= 12,
-      e.file + ':' + e.line + ' 的理由为空或过短（必须说明为何不能用 <button>）');
+      e.file + ' 的理由为空或过短（必须说明为何不能用 <button>）');
   }
 });
 
-test('③ 白名单条目不得悬空（文件必须存在且该行确实是可点元素）', () => {
+test('③ 白名单必须精确到元素：每条须有 feature 特征串或显式 line', () => {
+  for (const e of WHITELIST.entries) {
+    const hasFeature = typeof e.feature === 'string' && e.feature.trim().length > 0;
+    const hasLine = typeof e.line === 'number';
+    assert.ok(hasFeature || hasLine, e.file + ' 既无 feature 也无 line —— 禁止整文件放行');
+  }
+});
+
+test('③ 白名单不得悬空（文件存在、且能定位到该可点元素）', () => {
+  const r = scanRepo({ root: ROOT, srcDir: SRC, whitelist: WHITELIST });
   for (const e of WHITELIST.entries) {
     const p = path.join(ROOT, e.file);
     assert.ok(statSync(p).isFile(), e.file + ' 不存在（悬空白名单，应删除该条目）');
-    const src = readFileSync(p, 'utf8');
-    const lines = src.split('\n');
-    // 多行 JSX 起始标签的属性可能跨越 20+ 行，故窗口取 ±30 行
-    const ctx = lines.slice(Math.max(0, e.line - 3), e.line + 30).join('\n');
-    assert.match(ctx, /onClick/, e.file + ':' + e.line + ' 附近找不到 onClick（行号漂移，应更新白名单）');
+    const matched = r.whitelisted.some(w => w.file === e.file &&
+      (e.feature ? w.feature === e.feature : Math.abs(w.line - e.line) <= 30));
+    assert.ok(matched,
+      e.file + ' 的白名单条目未命中任何可点元素（' +
+      (e.feature ? 'feature=' + e.feature : 'line=' + e.line) + '）—— 悬空或已改造完成，应删除');
   }
+});
+
+test('③ 白名单条目对应的违规必须确实被豁免（严格口径 - 未登记 = 白名单数）', () => {
+  const r = scanRepo({ root: ROOT, srcDir: SRC, whitelist: WHITELIST });
+  assert.equal(r.strict.length, r.violations.length + r.whitelisted.length,
+    '严格口径必须等于「未登记 + 已豁免」（否则匹配逻辑有漏）');
 });

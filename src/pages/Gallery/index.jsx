@@ -36,7 +36,7 @@ export default function GalleryPage() {
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 22,
         }}>
           {GALLERY.map(g => (
-            <GCard key={g.id} item={g} onClick={() => viewItem(g)}
+            <GCard key={g.id} data-gallery-card={g.id} item={g} onClick={() => viewItem(g)}
               onSameStyle={() => {
                 dispatch({ type: 'SET_INPUT', text: g.hint || g.title });
                 dispatch({ type: 'NAVIGATE', page: 'home' });

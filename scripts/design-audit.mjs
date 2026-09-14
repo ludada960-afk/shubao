@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanInteractiveState, HOVER_EXEMPT } from './lib/interactive-state-scan.mjs';
+import { scanRepo as scanClickableDiv } from './lib/clickable-div-scan.mjs';
 import { scopedValue, isTopRoot, isDarkTheme } from './lib/token-scope.mjs';
 
 const ROOT = process.cwd();
@@ -271,9 +272,35 @@ if (focusIssues.length) {
   if (focusIssues.length > 10) console.log('      · …还有 ' + (focusIssues.length - 10) + ' 处');
 }
 
-const divClick = (appText.match(/<div[^>]*onClick/g) || []).length;
-console.log('  <div onClick>:       ' + divClick + ' 处                 ' +
-  (divClick > 0 ? '⚠️  键盘不可达，应改 <button>' : '✅'));
+/* ── 可点元素键盘可达（原则 4.1）────────────────────────────────────────────
+   检测器**唯一实现**在 scripts/lib/clickable-div-scan.mjs —— 与门禁
+   test/no-clickable-div.test.mjs 共用，杜绝「同一判据两个数」（原则 §12）。
+   判据：元素用键盘到不到得了（不可 Tab、不可 Enter/Space 触发）。 */
+const CLICKABLE_WHITELIST = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/clickable-div-whitelist.json'), 'utf8'));
+  } catch { return { entries: [] }; }
+})();
+const clickable = scanClickableDiv({ root: ROOT, srcDir: SRC, whitelist: CLICKABLE_WHITELIST });
+
+/* 旧口径（仅作对照）：<div onClick> 的裸计数 —— 它是严格口径的**子集**，
+   既不覆盖 span/li/tr/article 等标签，也不解析自定义组件根元素，更不区分"已语义化"。
+   ⚠️ 不要拿它当验收线：它会把 <button> 的合规写法算 0，也会漏掉 <GCard> 这类 div 根组件。 */
+const divClickRaw = (appText.match(/<div[^>]*onClick/g) || []).length;
+
+console.log('  · 非交互元素可点（严格口径）: ' + clickable.strict.length + ' 处');
+console.log('  · 其中未登记（= 缺陷）:      ' + clickable.violations.length + ' 处                 ' +
+  (clickable.violations.length === 0 ? '✅ 原则 4.1 达标（键盘不可达 = 0）' : '⚠️  应改 <button> 或补 role=button+tabIndex+onKeyDown 并登记白名单'));
+console.log('  · 已登记豁免:                ' + clickable.whitelisted.length + ' 处（见 test/fixtures/clickable-div-whitelist.json）');
+console.log('  · [对照] <div onClick> 裸计数: ' + divClickRaw + ' 处（子集，非验收线 —— 不含 span/li/tr，不解析组件根元素）');
+if (clickable.violations.length) {
+  const byFile = new Map();
+  for (const v of clickable.violations) byFile.set(v.file, (byFile.get(v.file) || 0) + 1);
+  for (const [f, n] of [...byFile.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+    console.log('      · ' + String(n).padStart(3) + '  ' + f);
+  }
+  if (byFile.size > 12) console.log('      · …还有 ' + (byFile.size - 12) + ' 个文件');
+}
 
 const vp = (appText.match(/prefers-reduced-motion/g) || []).length;
 console.log('  prefers-reduced-motion: ' + vp + ' 处               ' + (vp > 0 ? '✅' : '⚠️'));
