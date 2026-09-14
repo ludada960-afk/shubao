@@ -259,6 +259,35 @@ export async function copyNodesToClipboard(nodes = []) {
   }
 }
 
+/* 9-17 用户批注（图7）：「我复制这些提示词区里面的文字，然后粘贴的话，
+   它会直接把整个生成的节点复制出来」。
+   根因（两层叠在一起）：
+     ① 画布把「节点」也用**纯文本**写进系统剪贴板（serializeNodesForClipboard → JSON 字符串），
+        节点数据与普通文本共用同一个剪贴板；
+     ② Ctrl+V 的处理**只判断"剪贴板里是不是我们的 JSON"，不判断用户此刻是不是在输入**，
+        也不判断剪贴板里到底是文本还是对象。
+   于是用户从提示词区复制一段文字、再粘贴时，只要剪贴板里恰好（还）是我们的 JSON
+   ——或者用户先复制过节点——就会被当成"粘贴节点"，直接把整个生成节点复制出来。
+   修法（把"这次粘贴到底该干什么"抽成一个可测的纯函数，输入框/编辑态优先）：
+     · 任何输入态（input / textarea / contentEditable / 节点内编辑）→ 交还浏览器原生粘贴，
+       画布**一律不拦截**；
+     · 剪贴板里不是画布节点载荷（普通文本、图片、外部内容）→ 同样不拦截，让它正常粘贴成文本；
+     · 只有「不在输入态 + 剪贴板确实是画布节点载荷」时，才执行粘贴节点。 */
+export function shouldHandleCanvasPaste({ typing = false, payload = null } = {}) {
+  if (typing) return false;
+  return Boolean(payload?.__canvasClipboard === 'da-ai-canvas-clipboard' && Array.isArray(payload.nodes) && payload.nodes.length);
+}
+
+/* 是不是"当前处于输入/编辑态"——画布自己的判断口径，与键盘 hook 的 isTypingInField 一致，
+   额外涵盖 contentEditable 与正在编辑的节点文本。 */
+export function isCanvasEditingTarget(target) {
+  if (!target) return false;
+  const tag = String(target.tagName || '').toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest?.('[contenteditable="true"], .mention-prompt-field, [data-canvas-editing="true"]'));
+}
+
 export async function readClipboardNodes() {
   try {
     const text = await navigator.clipboard?.readText();

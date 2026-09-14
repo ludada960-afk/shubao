@@ -159,6 +159,8 @@ import {
   copyNodesToClipboard,
   readClipboardNodes,
   createCanvasHistory,
+  isCanvasEditingTarget,
+  shouldHandleCanvasPaste,
 } from './canvasKeyboardHooks.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
@@ -1946,11 +1948,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         }
         return;
       }
-      // Ctrl+V / Cmd+V: 从剪贴板粘贴
+      /* Ctrl+V / Cmd+V: 从剪贴板粘贴。
+         9-17 用户批注（图7）：粘贴**必须区分"粘文本"和"粘节点"** ——
+         用户从提示词区复制一段文字再粘贴，不能变成把整个生成节点复制出来。
+         规则：输入态一律不拦（交还浏览器原生粘贴）；剪贴板不是画布节点载荷也不拦；
+         只有「不在输入态 + 确实是画布节点载荷」才粘贴节点。 */
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        e.preventDefault();
+        if (isCanvasEditingTarget(e.target) || isTyping || isCanvasEditingTarget(document.activeElement)) return;
         readClipboardNodes().then(payload => {
-          if (!payload?.nodes?.length) return;
+          /* 读回来之后再判一次：不是节点载荷 → 不 preventDefault（此处已 prevent），
+             所以这里只在确实是节点载荷时才落节点，其余情况静默放行。 */
+          if (!shouldHandleCanvasPaste({ typing: false, payload })) return;
           // 偏移位置避免覆盖
           const offset = 36;
           const now = Date.now();
@@ -7260,7 +7268,9 @@ const handlePointerUp = useCallback((e) => {
                 break;
               case 'paste':
                 readClipboardNodes().then(payload => {
-                  if (!payload?.nodes?.length) return;
+                  /* 9-17（图7）：右键菜单的「粘贴」同样只在剪贴板确实是画布节点时才落节点；
+                     普通文本绝不在这里变成节点。 */
+                  if (!shouldHandleCanvasPaste({ typing: false, payload })) return;
                   const now = Date.now();
                   const newNodes = payload.nodes.map((n, i) => ({
                     ...n,
