@@ -45,8 +45,20 @@ function walk(dir, out = []) {
   return out;
 }
 
+/**
+ * 统计前先剥离注释：
+ * 实测踩坑——有人把「原来是 #1f2937」写进注释，棘轮把注释里的 hex 也算成了硬编码，
+ * 结果「改完反而 +1」。注释不是代码，不该计入债务。
+ * 只剥离两种最稳妥的形态：块注释 /* … *\/ 与整行 // 注释。
+ */
+function stripComments(text) {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^[ \t]*\/\/.*$/gm, ' ');
+}
+
 function countHex(text) {
-  const m = text.match(HEX_RE);
+  const m = stripComments(text).match(HEX_RE);
   return m ? m.length : 0;
 }
 

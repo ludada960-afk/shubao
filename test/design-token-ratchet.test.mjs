@@ -13,6 +13,8 @@ const SRC = path.join(ROOT, 'src');
 const BASELINE_PATH = path.join(ROOT, 'docs', 'design', 'token-ratchet-baseline.json');
 const EXT = new Set(['.js', '.jsx', '.css']);
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/g;
+/* 与 scripts/design-ratchet.mjs 同口径：注释里的 hex 不计入债务 */
+const stripComments = text => text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ');
 /* token 定义源必须能自由增长（加 token = 加色值定义），否则棘轮会误伤自己人 */
 const EXEMPT_FILES = new Set([
   'src/styles/design-tokens.css',
@@ -37,7 +39,7 @@ test('设计 token 棘轮：任何文件都不得新增硬编码色值（迁移�
   for (const file of walk(SRC)) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     if (EXEMPT_FILES.has(rel)) continue;
-    const found = readFileSync(file, 'utf8').match(HEX_RE);
+    const found = stripComments(readFileSync(file, 'utf8')).match(HEX_RE);
     const now = found ? found.length : 0;
     const base = baseline[rel];
     if (now === 0) continue;
