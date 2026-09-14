@@ -118,3 +118,68 @@ npm test                               # 全量测试（含所有契约）
 - 补齐 `--sb-shadow-sm/md/lg/xl` 与语义色 `-bg`/`-line` 别名（全站卡片阴影因此恢复）。
 
 **已验证闭环的用户问题**：小地图浮在弹窗遮罩之上（根因＝两份相反定义 + z-index 5000；已合并为唯一权威 + 语义阶梯，弹窗打开时命中 HUD 次数 = 0）。
+
+### 8.7 第 53 轮快照（2026-09-20）· 幽灵变量门禁归零 + 读数口径纠错
+
+| 指标 | 起点 | 现在 |
+|---|---|---|
+| 硬编码色值（棘轮口径，剥离注释） | 5480 | **3719**（基线锁 3827） |
+| 硬编码紫 | 165 处 / 44 文件 | **95 处 / 18 文件** |
+| **幽灵变量（被引用但从未定义）** | **8** | **0** ✅ 已归零 |
+| div onClick | 107 | 92 |
+| 裸 outline:none | 80 | 57 |
+| 毛玻璃文件 | 41 | 27 |
+| 字号 / 圆角 / gap 非阶梯 | 27 / 21 / 58% | 27 / 22 / 56%（第九批进行中） |
+
+#### ⚠️ 8.7.1 必须记住的读数纪律（本轮最贵的教训）
+
+**症状**：同一个数字连续三轮对不上（我报 3480/11 红、迁移线报 3616/8 红；我报 Home 有 373 处存量、
+迁移线报已迁完 0 处）。**根因不是任何一方的代码，是命令跑错了树。**
+
+```
+git worktree list
+  F:/da/shubao                                       d9204de8 [master]              ← 误用的
+  F:/da/shubao/.worktrees/codex-ecommerce-stability  401fcb1c [codex/ecommerce-stability] ← 真身
+git rev-list --left-right --count master...codex/ecommerce-stability   →  3   1372
+```
+
+→ master 落后 **1372 个提交**，`src/pages/Home` 在 master 上最后 4 笔还是老提交。
+
+**硬规矩（违反一次就要赔三轮）**：
+1. 任何 `git status / log / grep / test` 一律在 **`.worktrees/codex-ecommerce-stability`** 下执行；
+2. **报数字必须带 `git rev-parse HEAD`**，否则该数字视为无效；
+3. 发现"对方读数和我对不上"时，**先对齐 revision，再讨论谁对**——不许直接改代码去迎合一个可疑的读数。
+
+#### 8.7.2 本轮修复：8 个幽灵变量（未定义 `var()` 静默失效）
+
+未定义的自定义属性**不报错、不告警**，直接解析为初始值，因此构建、lint、测试全都不红。
+逐条**用浏览器实测**确认了症状（不是靠读代码推断）：
+
+| 幽灵变量 | 症状（getComputedStyle 实测） | 处置 |
+|---|---|---|
+| `--surface-raised`（Footer.jsx） | footer 背景 = `rgba(0,0,0,0)`（透明） | → `--sb-surface-tint` |
+| `--shadow-red-lg`（Button.jsx） | 主按钮 hover = `none`（没有浮起） | → 新增 `--sb-danger-shadow` |
+| `--shadow-red`（Home.css） | 同上（同值字面量） | 同上，二者共用 token |
+| `--amber-400/500`（Navbar.jsx） | 积分星标 fill = `rgb(0,0,0)`（**黑的，不是金色**） | → `--sb-credit` / `--sb-credit-ink` |
+| `--vcb-accent` ×5 | 落到 fallback `#6b4eff`（非品牌紫） | → `--sb-brand-600` |
+| `--vcb-divider` ×3 / `--vcb-text-muted` ×2 / `--vcb-danger` ×2 | 落到 fallback（值恰好相同） | → `--sb-neutral-200` / `--sb-ink-3` / `--sb-danger-hover` |
+
+- **禁止用 `--sb-warning` 表达积分**：那是「配额快不够了」的警告橙，与"积分=资产（金）"语义不同，
+  token 文件「铁律 4」已写明区分。
+- 新增 `--sb-danger-shadow: 0 6px 18px rgba(232, 84, 75, 0.28)`，命名对齐既有的 `--sb-brand-shadow`。
+  **取值 = 已上线字面量**，不是新观感；Home.css 同步改用它（值相同 → 像素零变化）。红底 CTA 一律用它。
+
+#### 8.7.3 顺带发现的 D8 违规（已移交 B3）
+
+`src/pages/VideoStudio/VideoCanvasWorkbench.css` **同文件重复选择器组**：L218–250 与 L260–290
+定义同一批 `.vcb-*`，后者覆盖前者（实测生效值来自后者）。
+**不能整块删**——反例：L231 `.vcb-audio-tracks header`（后代）与 L272 `> header`（子代）选择器不同，
+前者对**嵌套** header 仍生效。必须**逐属性判定①冲突②完全相同③分层覆盖**后再动。
+
+#### 8.7.4 变异测试新标准（本轮补强）
+
+**变异体必须覆盖三元/分支的每一条出口，不能只覆盖常量。**
+实例：Home 的"描边跟随所选颜色"，首轮 4 个变异体中 M2（把**未锁定分支**改成内联紫色字面量）**存活**——
+因为原断言只校验了常量定义 + 面板里出现了常量名。补 `assert.match(panel, /:\s*NEUTRAL_UNLOCKED\.border\b/)`
+后 4/4 KILLED。**存活变异体 = 真实护栏缺口，必须补断言（只加不减、不放宽既有断言）。**
+
