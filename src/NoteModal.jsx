@@ -500,7 +500,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           background: 'var(--sb-state-selected-bg)', border: 'none', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit',
                           transition: 'background var(--sb-dur-fast, .15s)',
                         }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--sb-brand-100, #EDE9FE)'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--sb-brand-100)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'var(--sb-state-selected-bg)'}
                         >
                           下载
@@ -860,7 +860,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <input value={editTags} onChange={e => setEditTags(e.target.value)}
                     placeholder="标签，用空格分隔"
                     className="sb-focusable"
-                    style={{ fontSize: 12, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', marginBottom: 10, fontFamily: 'inherit', color: '#888' }} />
+                    style={{ fontSize: 12, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', marginBottom: 10, fontFamily: 'inherit', color: 'var(--sb-ink-4)' }} />
                 ) : (item.hashtags || []).length > 0 && (
                   <div style={S.tags}>
                     {item.hashtags.map((t, i) => (
