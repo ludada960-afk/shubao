@@ -1,6 +1,6 @@
 .dw-root{display:flex;flex-direction:column;gap:14px;margin:18px auto 40px;max-width:1280px;padding:0 20px}
 .dw-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.dw-title{display:flex;align-items:center;gap:8px;font-size:16px}
+.dw-title{display:flex;align-items:center;gap:8px;font-size:17px}
 .dw-title strong{font-weight:700}
 .dw-mode{padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.04em}
 .dw-mode-planning{background:var(--sb-brand-50);color:#4353c6}.dw-mode-live{background:#e7f7ee;color:#177a45}
@@ -11,10 +11,10 @@
 .dw-new-project:disabled{opacity:.55}
 .dw-columns{display:grid;grid-template-columns:230px minmax(0,1fr) 260px;gap:14px;min-height:420px}
 .dw-pane{background:var(--sb-neutral-0);border:1px solid #e4e6ec;border-radius:14px;padding:14px}
-.dw-pane h2{display:flex;align-items:center;gap:6px;margin:0 0 10px;font-size:14px}
+.dw-pane h2{display:flex;align-items:center;gap:6px;margin:0 0 10px;font-size:13.5px}
 .dw-group{margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed #eceef2}
 .dw-group:last-child{border-bottom:none}
-.dw-group h3{display:flex;align-items:center;gap:6px;margin:0 0 3px;font-size:13px}
+.dw-group h3{display:flex;align-items:center;gap:6px;margin:0 0 3px;font-size:12.5px}
 .dw-group h3 small{margin-left:auto;color:#a0a4af;font-weight:500}
 .dw-group-hint{margin:0 0 6px;font-size:11px;color:#9aa0ab}
 .dw-group ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
@@ -22,33 +22,33 @@
 .dw-more{color:#9aa0ab;background:transparent!important}
 .dw-asset-item{display:flex;align-items:center;gap:6px;justify-content:space-between}
 .dw-asset-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.dw-lock-btn{display:inline-flex;align-items:center;gap:3px;flex:none;padding:2px 7px;border:1px solid #dfe2e9;border-radius:999px;background:var(--sb-neutral-0);font-size:11px;color:#5b64d8;cursor:pointer}
+.dw-lock-btn{display:inline-flex;align-items:center;gap:3px;flex:none;padding:2px 7px;border:1px solid #dfe2e9;border-radius:999px;background:var(--sb-neutral-0);font-size:10.5px;color:#5b64d8;cursor:pointer}
 .dw-lock-btn.is-locked{background:#eef0ff;border-color:#c3c9f5;color:#3f49b8}
-.dw-none{margin:0;font-size:12px;color:#b3b7c1}
+.dw-none{margin:0;font-size:11.5px;color:#b3b7c1}
 .dw-center{display:flex;flex-direction:column}
 .dw-stage-switch{display:flex;gap:8px;margin-bottom:12px}
-.dw-stage-switch button{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border:1px solid #e0e2e9;border-radius:999px;background:#fafbfd;font-size:13px;cursor:pointer}
+.dw-stage-switch button{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border:1px solid #e0e2e9;border-radius:999px;background:#fafbfd;font-size:12.5px;cursor:pointer}
 .dw-stage-switch button.active{background:#23262f;color:var(--sb-neutral-0);border-color:#23262f}
 .dw-shot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
 .dw-shot-card{border:1px solid #e7e9ef;border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;background:var(--sb-brand-50)}
 .dw-shot-card header{display:flex;align-items:center;gap:7px}
-.dw-shot-no{font-size:11px;font-weight:700;color:#5b64d8;background:#eef0ff;border-radius:5px;padding:1px 6px}
-.dw-shot-card header strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-shot-no{font-size:10.5px;font-weight:700;color:#5b64d8;background:#eef0ff;border-radius:5px;padding:1px 6px}
+.dw-shot-card header strong{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dw-shot-card footer{display:flex;align-items:center;gap:7px;font-size:11px;color:#8b909c}
-.dw-shot-card p{margin:0;font-size:12px;color:#6d7280;line-height:1.45}
+.dw-shot-card p{margin:0;font-size:11.5px;color:#6d7280;line-height:1.45}
 .dw-shot-status{text-decoration:none;font-style:normal;border-radius:5px;padding:1px 6px;background:#f0f1f5}
 .dw-st-approved,.dw-st-completed{background:#e7f7ee;color:#177a45}
 .dw-st-candidate,.dw-st-needs_review{background:#fff4e0;color:#a86a12}
 .dw-timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
-.dw-timeline li{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e7e9ef;border-radius:9px;font-size:13px}
+.dw-timeline li{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e7e9ef;border-radius:9px;font-size:12.5px}
 .dw-assistant .dw-template-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .dw-template-list li{border:1px solid #eceef3;border-radius:10px;padding:9px 11px}
-.dw-template-list strong{font-size:13px}
+.dw-template-list strong{font-size:12.5px}
 .dw-template-list p{margin:3px 0 0;font-size:11px;color:#8b909c;line-height:1.4}
 .dw-assistant-note{display:flex;gap:7px;margin-top:12px;padding:10px;background:#f4f7ff;border-radius:10px;font-size:11px;color:#55618e;line-height:1.5}
 .dw-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center;color:#9aa0ab;padding:34px 12px}
-.dw-placeholder strong{color:#565b66;font-size:14px}
-.dw-placeholder span{font-size:12px;max-width:280px;line-height:1.5}
+.dw-placeholder strong{color:#565b66;font-size:13.5px}
+.dw-placeholder span{font-size:11.5px;max-width:280px;line-height:1.5}
 .dw-footer{display:flex;align-items:center;gap:12px;font-size:12px;color:#767b87;background:#fafbfd;border:1px solid #eceef2;border-radius:10px;padding:9px 15px}
 .dw-footer i{width:1px;height:12px;background:#e2e4ea}
 .dw-loading,.dw-empty,.dw-error{display:flex;align-items:center;gap:8px;font-size:13px;color:#767b87;padding:26px;text-align:center;justify-content:center}
@@ -69,9 +69,9 @@
 .dw-field input,.dw-field textarea,.dw-field select{padding:5px 8px;border:1px solid #dfe2e9;border-radius:7px;font-size:12px;font-family:inherit}
 .dw-field-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
 .dw-per-second{margin-bottom:9px}
-.dw-per-second h4{margin:0 0 6px;font-size:12px;color:#565b66}
+.dw-per-second h4{margin:0 0 6px;font-size:11.5px;color:#565b66}
 .dw-ps-row{display:flex;gap:5px;margin-bottom:5px}
-.dw-ps-row input{flex:1;min-width:0;padding:4px 7px;border:1px solid #e0e2e9;border-radius:6px;font-size:12px}
+.dw-ps-row input{flex:1;min-width:0;padding:4px 7px;border:1px solid #e0e2e9;border-radius:6px;font-size:11.5px}
 .dw-ps-row .dw-ps-t{flex:.55!important;max-width:74px}
 .dw-ps-remove{flex:none;width:24px;border:none;background:#f5f6f9;border-radius:6px;color:#a04440;cursor:pointer;font-size:14px;line-height:1}
 .dw-ps-add{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px dashed #c9cdd8;border-radius:7px;background:#fafbfd;font-size:11px;color:#5b64d8;cursor:pointer}
@@ -84,36 +84,67 @@
 .dw-save-btn:disabled{opacity:.6;cursor:not-allowed}
 /* VID-R4 self-check report */
 .dw-selfcheck{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-.dw-check-btn{padding:6px 12px;border:1px solid #c3c9f5;border-radius:9px;background:#f4f6ff;color:#3f49b8;font-size:12px;cursor:pointer}
+.dw-check-btn{padding:6px 12px;border:1px solid #c3c9f5;border-radius:9px;background:#f4f6ff;color:#3f49b8;font-size:11.5px;cursor:pointer}
 .dw-check-btn:disabled{opacity:.6}
 .dw-check-issues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
 .dw-check-issues li{border:1px solid #f0e2c0;background:#fffaf0;border-radius:8px;padding:7px 9px}
-.dw-check-issues strong{font-size:11px;color:#a86a12;letter-spacing:.03em}
+.dw-check-issues strong{font-size:10.5px;color:#a86a12;letter-spacing:.03em}
 .dw-check-issues p{margin:2px 0 0;font-size:11px;color:#6d7280;line-height:1.45}
 
 /* VID-R5 director assistant */
 .dw-template-list li{border:none;padding:0}
-.dw-template-toggle{display:flex;align-items:center;gap:4px;width:100%;padding:7px 8px;border:1px solid #eceef3;border-radius:9px;background:#fafbfd;font-size:13px;text-align:left;cursor:pointer}
+.dw-template-toggle{display:flex;align-items:center;gap:4px;width:100%;padding:7px 8px;border:1px solid #eceef3;border-radius:9px;background:#fafbfd;font-size:12.5px;text-align:left;cursor:pointer}
 .dw-template-toggle:hover{background:#f2f3fa}
 .dw-intake{margin-top:7px;padding:9px;border:1px solid #e8eaf1;border-radius:10px;display:flex;flex-direction:column;gap:7px;background:var(--sb-brand-50)}
 .dw-intake-semantics{margin:0;font-size:11px;color:#8b909c;line-height:1.45}
 .dw-spec-preview{margin-top:8px;padding:9px;border:1px dashed #c9cdd8;border-radius:9px;background:var(--sb-neutral-0)}
-.dw-spec-preview ol{margin:0 0 8px;padding-left:18px;font-size:12px;color:#565b66;display:flex;flex-direction:column;gap:2px}
+.dw-spec-preview ol{margin:0 0 8px;padding-left:18px;font-size:11.5px;color:#565b66;display:flex;flex-direction:column;gap:2px}
 .dw-run-card{margin-top:12px;border:1px solid #dfe3f2;border-radius:11px;padding:10px;background:#fbfcff}
 .dw-run-card h4{margin:0 0 8px;font-size:12px;display:flex;align-items:center;gap:6px}
 .dw-run-steps{list-style:none;margin:0 0 9px;padding:0;display:flex;flex-direction:column;gap:5px}
-.dw-run-steps li{display:flex;align-items:center;gap:7px;font-size:12px;padding:5px 8px;border-radius:8px;background:var(--sb-neutral-0);border:1px solid #eceef3}
+.dw-run-steps li{display:flex;align-items:center;gap:7px;font-size:11.5px;padding:5px 8px;border-radius:8px;background:var(--sb-neutral-0);border:1px solid #eceef3}
 .dw-run-steps li.is-done{opacity:.65}.dw-run-steps li.is-done .dw-step-state{color:#177a45}.dw-run-steps li.is-ready .dw-step-state{color:#3f49b8}.dw-run-steps li.is-blocked{opacity:.5}
 .dw-step-state{width:14px;flex:none;text-align:center}
 .dw-step-label{flex:1;min-width:0}
-.dw-checkpoint{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:6px 8px;margin-top:5px;border:1px solid #efe3c2;background:#fffbef;border-radius:8px;font-size:12px}
+.dw-checkpoint{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:6px 8px;margin-top:5px;border:1px solid #efe3c2;background:#fffbef;border-radius:8px;font-size:11.5px}
 .dw-assistant-error{padding:6px 0;font-size:11px}
 
 /* VID-R6 batch progress bar */
 .dw-batch-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
 .dw-batch-items{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
-.dw-batch-chip{padding:2px 7px;border-radius:999px;font-size:11px;background:#eef0f5;color:#767b87;border:1px solid #e0e2e9}
+.dw-batch-chip{padding:2px 7px;border-radius:999px;font-size:10.5px;background:#eef0f5;color:#767b87;border:1px solid #e0e2e9}
 .dw-batch-chip.is-candidate_ready{background:#e8f6ee;color:#177a45;border-color:#bfe3cd}
 .dw-batch-chip.is-running,.dw-batch-chip.is-in_flight,.dw-batch-chip.is-queued{background:#eef1ff;color:#3f49b8;border-color:#cdd4f5}
 .dw-batch-chip.is-failed{background:#fdeeee;color:#a04440;border-color:#f0c8c5}
 @media (max-width:1080px){.dw-columns{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（导演工作台，8 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   通道照 §22 表：
+     A. 中性底 / 白底按钮、图标按钮 → background-color: var(--sb-hover-bg)
+     B. 实色深底主 CTA（.dw-new-project=#23262f、.dw-save-btn=#3f49b8）→ box-shadow: var(--sb-shadow-3)
+     C. 卡片 / 可点块（.dw-shot-card）→ box-shadow: var(--sb-shadow-2)，**不动尺寸**
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height、hover≠selected。
+   与已有 selected 区分：.dw-shot-card.is-selected 走 brand 描边+外环，hover 只走海拔。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── A：中性底按钮 ─────────────────────────────────────────────────────── */
+.dw-lock-btn:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.dw-stage-switch button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.dw-ps-remove:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.dw-ps-add:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.dw-check-btn:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+/* ── B：实色深底主 CTA —— 只抬海拔，**不动底色** ───────────────────────── */
+.dw-new-project:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+.dw-save-btn:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+
+/* ── C：可点卡片（shot 卡，60 行声明 cursor:pointer）→ 海拔抬升一档 ──────── */
+.dw-shot-card:hover:not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
+/* 已选中卡再 hover：保留选中环 + 再抬一档（复用 61 行既有环色，**不新增颜色**）*/
+.dw-shot-card.is-selected:hover { box-shadow: 0 0 0 2px rgba(91,100,216,.18), var(--sb-shadow-3); }
+
+/* 已选中档位按钮再 hover：不抢 selected 通道（selected 走深底）*/
+.dw-stage-switch button.active:hover:not(:disabled) { box-shadow: var(--sb-shadow-2); }
+

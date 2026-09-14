@@ -51,7 +51,7 @@
 .railImage { background: #f3f4f6; }
 .railImage img { width: 100%; height: 100%; object-fit: cover; }
 .railImage button { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; padding: 0; border: 0; border-radius: 50%; background: rgba(17, 24, 39, .72); color: #fff; cursor: pointer; }
-.uploadTile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px dashed var(--sb-brand-300); background: #faf5ff; color: var(--sb-brand-600); cursor: pointer; font-size: 10px; }
+.uploadTile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px dashed var(--sb-brand-300); background: #faf5ff; color: var(--sb-brand-600); cursor: pointer; font-size: 9px; }
 .uploadTile:hover { background: #f3e8ff; }
 /* Icon sizes ride the canvas token ladder (--ec-icon-inline); CSS wins over
    the SVG attribute defaults so JSX stops hardcoding px. */
@@ -82,7 +82,7 @@
 .pickerItemText { min-width: 0; flex: 1; }
 .pickerItemText strong, .pickerItemText small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pickerItemText strong { font-size: 11px; }
-.pickerItemText small { margin-top: 2px; color: #9ca3af; font-size: 10px; }
+.pickerItemText small { margin-top: 2px; color: #9ca3af; font-size: 9px; }
 .layerList { display: grid; gap: 5px; max-height: 210px; overflow-y: auto; }
 .layerRow { display: flex; align-items: center; gap: 7px; padding: 7px; border: 1px solid transparent; border-radius: 8px; background: #fafafa; cursor: pointer; }
 .layerRow:hover, .layerSelected { border-color: var(--sb-brand-200); background: #faf5ff; }
@@ -90,7 +90,7 @@
 .layerName { min-width: 0; flex: 1; }
 .layerName strong, .layerName small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layerName strong { font-size: 11px; }
-.layerName small { margin-top: 2px; color: #9ca3af; font-size: 10px; }
+.layerName small { margin-top: 2px; color: #9ca3af; font-size: 9px; }
 .layerActions { display: flex; gap: 2px; }
 .layerActions button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #6b7280; cursor: pointer; }
 .layerActions button:hover { background: #fff; color: var(--sb-brand-600); }
@@ -109,3 +109,14 @@
 .progress { height: 4px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: var(--sb-brand-100); }
 .progress span { display: block; height: 100%; border-radius: inherit; background: var(--sb-brand-600); transition: width .2s ease; }
 .fullButton { width: 100%; margin-top: 10px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（canvas 工作流节点，3 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   通道：全部为**中性表面色 → --sb-hover-bg**（图标按钮 / 白底小按钮）。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.railImage button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.errorBox button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.quickActions button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

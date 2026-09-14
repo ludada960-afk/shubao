@@ -26,7 +26,7 @@
 .canvas-library { width: min(1180px, 96vw); max-height: min(84vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
 .canvas-library-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 26px 22px; border-bottom: 1px solid rgba(28,25,23,.08); }
 /* 9-13 用户批注：标题与内容要有主次、不要拥挤 */
-.canvas-library-head strong { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.01em; color: #1c1917; }
+.canvas-library-head strong { display: block; font-size: 21px; font-weight: 800; letter-spacing: -.01em; color: #1c1917; }
 /* 9-16 主次分明：副标题与标题留 ≥8px，并弱化颜色，让标题先被看到 */
 .canvas-library-head span { display: block; margin-top: 10px; color: #a8a29e; font-size: 12px; }
 .canvas-library-head-actions { display: flex; align-items: center; gap: 8px; }
@@ -58,18 +58,18 @@
 /* 封面固定高度（不依赖 aspect-ratio，也不依赖变体作用域） */
 .canvas-library-cover { display: block; width: 100%; height: 220px; min-height: 220px; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: #f1efec; cursor: pointer; }
 .canvas-library-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center center; }
-.canvas-library-cover-empty { color: #a8a29e; font-size: 12px; }
+.canvas-library-cover-empty { color: #a8a29e; font-size: 11.5px; }
 /* 操作按钮：悬停才浮现的遮罩胶囊（够大够清楚） */
 .canvas-library-card-actions { position: absolute; top: 10px; right: 10px; z-index: 4; display: flex; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library-card:hover .canvas-library-card-actions, .canvas-library-card:focus-within .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
-.canvas-library-card-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.32); background: rgba(20,18,16,.58); color: #fff; font-size: 14px; background: rgba(255,255,255,.94); color: #44403c; font-size: 12px; cursor: pointer; }
+.canvas-library-card-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.32); background: rgba(20,18,16,.58); color: #fff; font-size: 15px; background: rgba(255,255,255,.94); color: #44403c; font-size: 12px; cursor: pointer; }
 .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
 /* 标题/时间是**底部遮罩**，不占容器高度（图片不再被“折断”） */
 .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 30px 14px 13px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.74)); }
 .canvas-library-card-body strong { display: block; overflow: hidden; color: #fff; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.canvas-library-card-body input { width: 100%; height: 26px; padding: 0 8px; border: 1px solid #7c3aed; border-radius: 7px; font-size: 13px; }
-.canvas-library-card-body small { display: block; margin-top: 3px; color: rgba(255,255,255,.78); font-size: 12px; }
-.canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 13px; text-align: center; }
+.canvas-library-card-body input { width: 100%; height: 26px; padding: 0 8px; border: 1px solid #7c3aed; border-radius: 7px; font-size: 12.5px; }
+.canvas-library-card-body small { display: block; margin-top: 3px; color: rgba(255,255,255,.78); font-size: 11.5px; }
+.canvas-library-empty, .canvas-library-loading { padding: 34px; color: #a8a29e; font-size: 12.5px; text-align: center; }
 .canvas-library-error { margin: 12px 22px 0; padding: 8px 12px; border-radius: 9px; background: #fef2f0; color: #a5322b; font-size: 12px; }
 
 /* ═══ 9-12 画布库整页模式（照竞品：整页 + 卡片 hover 上浮放大 + 毛玻璃）═══
@@ -124,8 +124,8 @@
 
 /* 标题与副标题按 DESIGN.md 的字号阶梯收敛（页面标题 15-16px 档的口径下，
    这里是整页视图，取 22px/800 为一级，副标题 12.5px 为三级，空间分层不靠夸张尺寸） */
-.canvas-library.is-page .canvas-library-head strong { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
-.canvas-library.is-page .canvas-library-head span { margin-top: 8px; color: #8d8681; font-size: 13px; }
+.canvas-library.is-page .canvas-library-head strong { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.canvas-library.is-page .canvas-library-head span { margin-top: 8px; color: #8d8681; font-size: 12.5px; }
 
 /* ── 筛选栏：同样的容器式子 + 4pt 刻度（上 24 / 下 20）──────────────────── */
 .canvas-library-tabs { position: sticky; top: 96px; z-index: 2; display: flex; gap: 8px; padding: 20px 28px 10px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
@@ -199,12 +199,12 @@
 /* ② 标题/时间做成底部渐变遮罩，不占容器高度 */
 .canvas-library.is-page .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 26px 14px 12px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.72)); }
 .canvas-library.is-page .canvas-library-card-body strong { color: #fff; font-size: 14px; font-weight: 700; }
-.canvas-library.is-page .canvas-library-card-body small { color: rgba(255,255,255,.78); font-size: 12px; margin-top: 2px; }
+.canvas-library.is-page .canvas-library-card-body small { color: rgba(255,255,255,.78); font-size: 11.5px; margin-top: 2px; }
 .canvas-library.is-page .canvas-library-card-body input { height: 30px; font-size: 13px; }
 /* ③ 操作按钮：悬停浮现的遮罩胶囊，尺寸放大到看得清 */
 .canvas-library.is-page .canvas-library-card-actions { top: 10px; right: 10px; display: flex; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library.is-page .canvas-library-card:hover .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
-.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 14px; backdrop-filter: blur(6px); }
+.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 15px; backdrop-filter: blur(6px); }
 .canvas-library.is-page .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
 
 /* ═══ ③ 新建卡重做（9-16 用户批注 · 图11）═════════════════════════════════
@@ -253,3 +253,16 @@
   .canvas-library-new-card:hover .canvas-library-new-card-plus { transform: none; }
   .canvas-library.is-page .canvas-library-card:hover { transform: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（我的画布，2 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   ① .canvas-library-close（圆形图标按钮）→ 中性表面色；
+   ② .canvas-library-cover（卡片封面按钮，59 行声明 cursor:pointer）
+      —— 外层 .canvas-library-card:hover 已有上浮/放大/阴影（56 行，9-12 就锁定的档位，
+         **本轮不动**），但封面自身**没有任何 :hover**，故按「卡片/可点块」档补海拔，
+         不重复外层的 transform，也不改尺寸（D2 零抖动）。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.canvas-library-close:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.canvas-library-cover:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
