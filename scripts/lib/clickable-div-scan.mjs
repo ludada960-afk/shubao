@@ -47,7 +47,16 @@ export function buildComponentRootMap(files) {
       if (!name) continue;
       const body = src.slice(mm.index, mm.index + 4000);
       const ret = body.match(/return\s*\(?\s*<([a-zA-Z][\w.-]*)/);
-      if (ret) rootOf.set(name, ret[1].toLowerCase());
+      if (!ret) continue;
+      const rootTag = ret[1];
+      /* 动态根：组件内声明了 `const Root = onClick ? 'button' : 'div'` 且 return <Root …>，
+         则其**可点分支渲染的是真控件** → 视为 button。
+         （ResponsiveImage 用此法做到"按需语义化"，只认静态标签会误判为违规。） */
+      if (/^[A-Z]/.test(rootTag)) {
+        const dyn = body.match(new RegExp('const\\s+' + rootTag + '\\s*=\\s*[^;]*?\\?\\s*[\'"]button[\'"]'));
+        if (dyn) { rootOf.set(name, 'button'); continue; }
+      }
+      rootOf.set(name, rootTag.toLowerCase());
     }
   }
   return rootOf;

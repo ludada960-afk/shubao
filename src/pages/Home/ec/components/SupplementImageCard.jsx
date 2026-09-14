@@ -90,26 +90,31 @@ export default function SupplementImageCard({
         cursor: 'pointer',
       }}
     >
-      {/* 图片 */}
-      <img
-        src={image.url}
-        alt={suggestion?.label || '图片'}
-        width="80"
-        height="80"
-        loading="lazy"
-        decoding="async"
-        fetchpriority="auto"
-        onError={() => setLoadError(true)}
+      {/* 图片 —— 原则 4.1：点击语义由 <button> 承担，<img> 只是内容。
+          原来把 onClick 挂在 <img> 上，键盘不可达。 .a11y-reset 归零 UA 默认，
+          尺寸仍由内层 img 的 80×80 决定 → 视觉零变化。 */}
+      <button type="button" className="a11y-reset" aria-label={`预览 ${suggestion?.label || '图片'}`}
         onClick={handlePreview}
-        style={{
-          width: 80,
-          height: 80,
-          objectFit: 'cover',
-          borderRadius: 8,
-          border: '1px solid rgba(12,10,9,0.08)',
-          display: 'block',
-        }}
-      />
+        style={{ display: 'block', lineHeight: 0, borderRadius: 8 }}>
+        <img
+          src={image.url}
+          alt={suggestion?.label || '图片'}
+          width="80"
+          height="80"
+          loading="lazy"
+          decoding="async"
+          fetchpriority="auto"
+          onError={() => setLoadError(true)}
+          style={{
+            width: 80,
+            height: 80,
+            objectFit: 'cover',
+            borderRadius: 8,
+            border: '1px solid rgba(12,10,9,0.08)',
+            display: 'block',
+          }}
+        />
+      </button>
 
       {/* 状态标签 */}
       {statusLabel && (

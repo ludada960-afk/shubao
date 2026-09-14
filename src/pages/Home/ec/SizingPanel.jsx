@@ -289,6 +289,12 @@ export default function SizingPanel({
                 role="checkbox"
                 aria-checked={checked}
                 aria-label={typeDef.label}
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+                  event.preventDefault();
+                  toggleType(typeDef.key);
+                }}
                 onClick={() => toggleType(typeDef.key)}
               >
                 {/* 勾选框：视觉 20×20（保持分类列表的轻量感），

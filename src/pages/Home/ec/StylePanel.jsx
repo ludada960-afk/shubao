@@ -293,13 +293,18 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
             transition: 'border-color var(--sb-duration-fast) var(--sb-ease-out)'
           }}
         >
-          <div
+          <button
+            type="button"
+            className="a11y-reset"
+            aria-pressed={brandLocked}
+            aria-label="锁定品牌主色调"
             onClick={toggleBrandLock}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              width: '100%'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -350,7 +355,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 }}
               />
             </div>
-          </div>
+          </button>
 
           {/* ── 取色器（仅品牌色锁定时展开）── */}
           {brandLocked && (
