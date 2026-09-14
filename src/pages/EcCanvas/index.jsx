@@ -6060,11 +6060,23 @@ const handlePointerUp = useCallback((e) => {
   }, [imageInfoGroup, imageInfoName, imageInfoNode, imageInfoUsage, showToast]);
 
   const handleCanvasSessionSave = useCallback(async () => {
-    const projectId = result.projectId;
-    const baseVersionId = result.resultVersionId || result.sourceVersionId;
+    /* 9-17 用户批注（图10 第3点）：「新建一个新的画布并在其中做了生成或上传，离开时要询问是否保存
+       （保存 = 在画布库新建一个画布保存起来）」。
+       实测漏洞：这里一上来就要求 result.projectId + versionId，而**刚新建的画布本来就没有项目**
+       （项目是上传/生成时才建的），于是用户在离开时点了「保存到画布库」，
+       实际什么都没发生 —— 没有画布会话请求、没有落库，画布照样丢了。
+       修法：缺项目就按画布既有口径**先建一个**（复用 ensureCanvasMediaProject，
+       它自己做的就是 createProject + createProjectVersion + 回写 result），再存会话。 */
+    let projectId = result.projectId;
+    let baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) {
-      showToast('当前作品缺少可保存的项目版本', 'error');
-      return;
+      const created = await ensureCanvasMediaProject('Canvas 画布', 'ecommerce');
+      if (!created?.projectId || !created?.baseVersionId) {
+        showToast('画布暂时无法保存，请稍后重试', 'error');
+        return;
+      }
+      projectId = created.projectId;
+      baseVersionId = created.baseVersionId;
     }
     const persistenceGeneration = canvasPersistenceGenerationRef.current;
     setCanvasSessionBusy(true);
@@ -6112,7 +6124,7 @@ const handlePointerUp = useCallback((e) => {
     } finally {
       setCanvasSessionBusy(false);
     }
-  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
+  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, nodes, pendingProjectAssetImports, phone, result, showToast, viewport]);
   useEffect(() => { handleCanvasSessionSaveRef.current = handleCanvasSessionSave; }, [handleCanvasSessionSave]);
 
   /* ── 9-13 用户批注：离开画布时的保存流程 ──
@@ -6126,7 +6138,14 @@ const handlePointerUp = useCallback((e) => {
   const openedFromLibraryRef = useRef(false);
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
-    const LEAVING_SELECTOR = '.app-side-nav, .creative-nav, .app-topbar, .topbar, [data-canvas-leave-guard]';
+    /* 9-17 用户批注（图10 第3点）：「在画布库打开的已有画布不需要询问，默认静默保存覆盖原画布；
+       新建的临时画布才需要询问是否保存到画布库」。
+       实测漏洞：原来的选择器只覆盖**全站导航**（.app-side-nav / .creative-nav / .app-topbar / .topbar），
+      但画布页 App.jsx 里根本不渲染 SideNav 与 TopBar（`page !== 'ec-canvas' && ...`），
+       画布自己的「返回」按钮（.ec-canvas-topbar 里的 aria-label="返回"）也不在选择器内 ——
+       于是用户点返回**直接回到首页，既不询问也不保存**（实测 reqs 为空、无弹窗）。
+       把画布自己的离开入口一并纳入：返回按钮 + 顶栏 + 让位区的导航型按钮。 */
+    const LEAVING_SELECTOR = '.app-side-nav, .creative-nav, .app-topbar, .topbar, .ec-canvas-topbar, [data-canvas-leave-guard]';
     const handleCapture = async event => {
       if (leaveGuardBypassRef.current) return;
       const target = event.target instanceof Element ? event.target.closest('a,button') : null;
@@ -6138,11 +6157,15 @@ const handlePointerUp = useCallback((e) => {
       }
       event.preventDefault();
       event.stopPropagation();
+      /* 9-17 修：DialogProvider 的入参是 confirmLabel / cancelLabel，
+         原来传的 confirmText / cancelText **被静默忽略** —— 用户看到的永远是
+         「取消 / 确认」，与「保存到画布库 / 不保存」的设计文案对不上。
+         按组件真实 API 传参，文案才真的落到按钮上。 */
       const save = await dialog.confirm({
         title: '保存这张画布？',
         message: '保存后可以在「我的画布」里继续编辑；不保存则直接丢弃，不占用空间。',
-        confirmText: '保存到画布库',
-        cancelText: '不保存',
+        confirmLabel: '保存到画布库',
+        cancelLabel: '不保存',
       });
       try {
         if (save) {
@@ -6160,6 +6183,25 @@ const handlePointerUp = useCallback((e) => {
     document.addEventListener('click', handleCapture, true);
     return () => document.removeEventListener('click', handleCapture, true);
   }, [dialog]);
+
+  /* 9-17 用户批注（图10 第3点）：除了画布内的「返回」，直接关标签页 / 刷新也要守住。
+     新建且没保存过的画布有内容时弹系统确认（beforeunload 只能用浏览器原生文案）；
+     从画布库打开的画布静默保存，不打扰。空画布不打扰。 */
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const handleBeforeUnload = event => {
+      if (!nodesRef.current.length) return undefined;
+      if (openedFromLibraryRef.current) {
+        void handleCanvasSessionSaveRef.current?.().catch(() => {});
+        return undefined;
+      }
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
 
   const handleCanvasSessionRestore = useCallback(async () => {
