@@ -488,8 +488,25 @@ if (!hasSbTokens) {
 /* ═══ ⑤ 落地进度 ═══ */
 H('⑤ 落地进度看板');
 
-const dsDir = path.join(SRC, 'components', 'ds');
-const dsComps = fs.existsSync(dsDir) ? fs.readdirSync(dsDir) : [];
+/* ⚠️ 2026-09-20 口径修正（原则 §12）：本条原来判「`src/components/ds/` 目录是否存在」——
+   那是**判写法**，而且方向是错的：再造一个 `ds/` 目录 = **第三套组件语言**，
+   与裁定 1「不允许两套并存」冲突。
+   真正的判据是「**设计系统层存在、被全站复用、且自己说设计系统的语言**」——
+   本仓的 DS 层是 `src/components/ui/`（既有 13 个文件）+ `.sb-*` 工具类 + tokens。 */
+const dsDir = path.join(SRC, 'components', 'ui');
+const dsComps = fs.existsSync(dsDir) ? fs.readdirSync(dsDir).filter(f => !f.startsWith('.')) : [];
+/* DS 层自身的"是否说 token 语言"实测（hex / rgba / V2 遗留变量三类） */
+let dsDebt = { hex: 0, rgba: 0, legacy: 0 };
+if (dsComps.length) {
+  for (const f of dsComps) {
+    const p = path.join(dsDir, f);
+    if (!fs.statSync(p).isFile()) continue;
+    const s = fs.readFileSync(p, 'utf8');
+    dsDebt.hex += (s.match(/#[0-9a-fA-F]{3,8}\b/g) || []).length;
+    dsDebt.rgba += (s.match(/rgba?\([^)]*\)/g) || []).length;
+    dsDebt.legacy += (s.match(/var\(--(?!sb-|cvl-|max-width)[a-zA-Z0-9-]+\)/g) || []).length;
+  }
+}
 const check = (label, ok, note) =>
   console.log('  ' + (ok ? '✅' : '⬜') + '  ' + label.padEnd(42) + (note || ''));
 
@@ -499,9 +516,14 @@ check('阶段0.2  6 个幽灵变量已补齐',
   !/--amber-400|--shadow-red-lg|--surface-raised|--shadow-red\b/.test(
     [/--amber-400:\s*#/, /--shadow-red-lg:/, /--surface-raised:/].map(r => r.test(fs.readFileSync(sbTokensPath, 'utf8') ? fs.readFileSync(sbTokensPath, 'utf8') : '') ? '' : 'MISSING').join('')),
   '');
-check('阶段1.1  src/components/ds/ 组件已建', dsComps.length > 0, dsComps.length ? dsComps.length + ' 个文件' : '<-- 待做');
-check('阶段1.2  面板宽统一 480', /--sb-panel-w:\s*480px/.test(hasSbTokens ? fs.readFileSync(sbTokensPath, 'utf8') : '') && !/baseWidth\s*=/.test(appText),
-  /baseWidth\s*=/.test(appText) ? 'EcMode.jsx:303 仍是 4 档' : '');
+check('阶段1.1  设计系统层存在（src/components/ui/）', dsComps.length > 0,
+  dsComps.length ? dsComps.length + ' 个文件 · 层内债务 hex' + dsDebt.hex + '/rgba' + dsDebt.rgba + '/V2变量' + dsDebt.legacy + '（D24 迁移中）' : '<-- 待做');
+/* ⚠️ 口径修正：原来判 `--sb-panel-w: 480px` 这个**字面量拼写** —— 而面板宽早已收口到
+   `ec/panelVisualLanguage.js` 的 PANEL_WIDTH_TABLE + resolvePanelWidth（唯一真源，窄屏有兜底）。
+   判据应该是「**面板宽只有一个来源**」，不是「某个文件里写着 480px」。 */
+const panelSingleSource = /resolvePanelWidth/.test(appText) && /PANEL_WIDTH_TABLE/.test(appText) && !/baseWidth\s*=/.test(appText);
+check('阶段1.2  面板宽单一来源（panelVisualLanguage）', panelSingleSource,
+  panelSingleSource ? 'PANEL_WIDTH_TABLE.standard=480 + resolvePanelWidth 兜底' : '<-- 仍有第二份宽度表');
 check('阶段2.1  focus-visible 已覆盖', fv > 0, fv > 0 ? fv + ' 处' : '<-- 待做（P0）');
 check('阶段2.2  disabled 真实化', !/pointerEvents:\s*checked \? 'auto' : 'none'/.test(appText), '');
 check('阶段2.3  hover 内联实现已清理', !/onMouseEnter=\{e => \{ if \(!active\)/.test(appText), '');
