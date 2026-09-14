@@ -171,11 +171,21 @@ import {
   canvasVisualLanguageCssVars,
   canvasHudHidden,
   canvasRightPanelReserved,
+  resolveAnchoredRight,
   useCanvasPanelWidth,
 } from './canvasVisualLanguage.js';
 /* 2026-09-17 三层权威性排序（硬约束 > 产出结构 > 内容意图 > 设计方案）—— 唯一规则实现。 */
 import { applyPlanToConfiguration, resolvePromptAuthority } from './canvasPromptAuthority.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
+
+/* 添加菜单的尺寸 —— 用于 `resolveAnchoredRight` 算「放不放得下」。
+   宽度必须与 CSS `.ec-canvas-add-menu` 一致（当前 286px）。
+   高度**不做估算**：这个菜单的行数随内容变化（实测 680px），靠猜会把 top 算歪 ——
+   实测过一次：猜 460 时 top 被放到 428，而真实高度 680 → 底边 1108 溢出屏幕。
+   正解是直接采用 CSS 自己的高度预算（`max-height: min(760px, calc(100vh - 32px))`），
+   让规则按「最多能占多少」来纵向回夹；超出部分由 CSS 的 overflow-y 滚动，不会溢出。 */
+const ADD_MENU_WIDTH = 286;
+const addMenuHeightBudget = () => Math.min(760, Math.max(240, window.innerHeight - 32));
 
 /* 9-12 资产库额度：字节 → 可读大小 */
 function formatBytes(value) {
@@ -702,13 +712,24 @@ export default function EcCanvas() {
     if (!addMenuOpen) return;
     setAddMenuOpen(false);
   }, [selected, multiSelected.size]);
-  // JS anchoring for the add-node menu: measured from the rail button's live
-  // rect (CSS centering drifts once the topbar/rail metrics change).
+  /* 2026-09-20 收口：添加菜单原来自写 anchor（`Math.round(rect.right + 12)` 自己拼 style）。
+     行为恰好正确（实测已在触发右侧），但**口径是自己一套** —— 四条约定里第 ④ 条要求
+     「所有画布弹层走同一个权威」。现在改用 canvasVisualLanguage.resolveAnchoredRight，
+     与派生菜单 / 图层面板共用同一份「锚触发元素向右展开、放不下向下、绝不向左翻」的规则。
+     锚点仍是**触发按钮的视口矩形**（CSS 居中会随顶栏/侧栏度量漂移，所以必须实测量）。 */
   const [addMenuAnchor, setAddMenuAnchor] = useState(null);
   const syncAddMenuAnchor = useCallback(() => {
     const rect = containerRef.current?.querySelector('.ec-canvas-rail-add')?.getBoundingClientRect();
     if (!rect || !rect.width) return;
-    setAddMenuAnchor({ position: 'fixed', left: Math.round(rect.right + 12), top: Math.round(rect.top + rect.height / 2), transform: 'translateY(-50%)' });
+    const solved = resolveAnchoredRight({
+      anchor: { x: rect.left, y: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom },
+      width: ADD_MENU_WIDTH,
+      height: addMenuHeightBudget(),
+      gap: 12,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+    setAddMenuAnchor({ position: 'fixed', left: solved.left, top: solved.top, transform: 'none' });
   }, []);
   const [layersPanelOpen, setLayersPanelOpen] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
