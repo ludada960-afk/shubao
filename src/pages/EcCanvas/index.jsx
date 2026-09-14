@@ -6302,10 +6302,19 @@ const handlePointerUp = useCallback((e) => {
            面板 top=12px 即「画布区顶部 + 12px」，right=14px 即「视口右边 - 14px」。
            9-15 用户批注：点画布空地收起右侧功能栏 → 命中工作区自身（右侧让位空隙）时清空选中。 */
         <div className="ec-canvas-workbench" onPointerDown={event => {
-          if (event.target === event.currentTarget) {
-            setSelected(null);
-            setMultiSelected(new Set());
-          }
+          /* 9-17 用户批注（图10）：「我点击空地之后它还是不会自动关掉」。
+             原来只判 event.target === event.currentTarget —— 只覆盖「画布让位后露出的那条空隙本体」，
+             一旦点到空隙里的任何子元素（或右侧面板之外的空白容器）就漏掉了。
+             实测漏网的两条路径：
+               · 点右侧让位留出的空隙（x=1070）→ 面板不关；
+               · 点底部工具区外沿（x=200,y=860）→ 面板不关。
+             改成「只要命中的不是交互元素，就当作点了画布空地」：
+             节点、按钮、输入框、面板自身一律排除，其余空白（含空隙内子元素）都收起面板。 */
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          if (target.closest('[data-canvas-node-id], button, input, textarea, select, a, [contenteditable="true"], .ec-canvas-right-panel, .ec-canvas-object-toolbar, .ec-canvas-multi-toolbar, .ec-canvas-bottom-dock, .ec-canvas-left-rail, .ec-canvas-zoom-controls, .ec-canvas-minimap, .ec-canvas-layers-panel, .ec-canvas-context-composer, .ec-canvas-derive-menu, .ec-canvas-add-menu, [role="menu"], [role="dialog"]')) return;
+          setSelected(null);
+          setMultiSelected(new Set());
         }}>
         <div
           ref={containerRef}
