@@ -1,117 +1,153 @@
 import React from 'react';
-import { Plus, CheckCircle2 } from 'lucide-react';
+import { Plus, CheckCircle2, Package } from 'lucide-react';
+import ResizableTextarea from './ResizableTextarea.jsx';
+import {
+  SPACING,
+  FONT_SIZE,
+  CONTROL_HEIGHT,
+  RADIUS,
+  groupTitleStyle,
+  helperTextStyle,
+  inputStyle,
+  sectionStyle,
+} from './panelVisualLanguage.js';
 
-const sInp = {
-  padding: '6px 10px', borderRadius: 8, fontSize: 12, border: '1px solid rgba(0,0,0,0.12)',
-  background: '#fff', color: 'var(--text-primary)', outline: 'none', width: '100%',
-  fontFamily: 'inherit',
-};
+/* ═══════ SKU 变体面板 ═══════
+   2026-09-15 用户批注①（子项 2/3）：面板宽度统一 + 内部控件加强 + 多行框可拉。
 
-export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
-  const add = () => onChange([...skus, { id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
+   重排逻辑（宽度从 540 收到统一 480 后必须「相应适配」，不能粗暴截断）：
+   · 变体卡片内 4 个字段原来是一行 4 列（540px 时每列 ~110px，本就拥挤）；
+     收窄到 480 后改为 2×2 网格（每列 ~180px），标签与输入都放得下。
+   · 「生成数量」与「删除」并为卡片底栏一行，主次分明。
+   · 变体卡片改为独立分组容器（卡片圆角 12 / 内边距 12，分组间距 16）。
+   · 每个变体可写「变体说明」（多行、带右下角拉伸手柄）——
+     用户填 SKU 时经常要标注差异事实（尺寸/容量/材质），必须有地方写。 */
+
+function GroupTitle({ icon: Icon, children }) {
+  return (
+    <div style={groupTitleStyle}>
+      <Icon size={14} color="var(--accent, #7c3aed)" style={{ flexShrink: 0 }} />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function FieldLabel({ children }) {
+  return (
+    <div style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{children}</div>
+  );
+}
+
+export default function SkuPanel({ skus, onChange, sizing, onSizingChange, available = null }) {
+  const add = () => onChange([...skus, { id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1, note: '' }]);
   const upd = (id, key, val) => onChange(skus.map(s => s.id === id ? { ...s, [key]: val } : s));
   const rm = (id) => onChange(skus.filter(s => s.id !== id));
 
-  // SKU 是独立的商品事实；生成时会自动加入对应的 SKU 规格图，
-  // 不再要求用户先去另一个面板勾选一次。
+  // SKU 是独立的商品事实；生成时会自动加入对应的 SKU 规格图。
   const totalSkuImages = skus.reduce((a, s) => a + (s.count || 1), 0);
+  const fields = [
+    { key: 'color', label: '颜色', ph: '月岩白' },
+    { key: 'size', label: '规格/尺码', ph: 'M / 100ml' },
+    { key: 'capacity', label: '容量/数量', ph: '500ml / 3件装' },
+    { key: 'dimLabel', label: '标注尺寸', ph: '20×10×5cm' },
+  ];
 
   return (
     <div style={{ padding: 0 }}>
-      {/* ── 顶部状态提示 ── */}
-      <div style={{
-        padding: '14px 16px 12px',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 0.3 }}>SKU 变体配置</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>定义颜色、规格、尺寸，每个变体生成一张 SKU 图</div>
-      </div>
+      <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
 
-      {/* ── 联动状态提示 ── */}
-      <div style={{ padding: '10px 16px' }}>
+        {/* ── 联动状态提示（信息块，不是可选项） ── */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 12px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
-          borderRadius: 10, border: '1px solid rgba(34,197,94,0.15)',
-          fontSize: 12, color: '#16a34a',
+          display: 'flex', alignItems: 'flex-start', gap: SPACING.sp2,
+          padding: `${SPACING.sp2}px ${SPACING.sp3}px`,
+          background: 'rgba(34,197,94,0.07)', borderRadius: RADIUS.control,
+          border: '1px solid rgba(34,197,94,0.18)',
         }}>
-          <CheckCircle2 size={14} />
-          <span>填写颜色、规格或容量后，系统会自动生成对应的 SKU 变体图。</span>
+          <CheckCircle2 size={14} color="#16a34a" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ ...helperTextStyle, color: '#15803d' }}>填写颜色、规格或容量后，系统会自动生成对应的 SKU 变体图。</span>
         </div>
-      </div>
 
-      <div style={{ padding: '0 16px 12px' }}>
         {/* ── 变体列表 ── */}
-        {skus.map((sku, idx) => (
-          <div key={sku.id} style={{
-            background: 'rgba(0,0,0,0.03)', borderRadius: 12, padding: 12, marginBottom: 8,
-            border: '1px solid rgba(0,0,0,0.06)',
-            transition: 'opacity 0.2s',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>变体 #{idx + 1}</span>
-              <button type="button" aria-label={`删除变体 ${idx + 1}`} onClick={() => rm(sku.id)}
-                style={{
-                  fontSize: 11, fontWeight: 600, color: '#e74c3c', cursor: 'pointer',
-                  padding: '2px 8px', borderRadius: 6,
-                  transition: 'all 0.15s', border: 0, background: 'transparent', fontFamily: 'inherit',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(231,76,60,0.1)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >删除</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>颜色</div>
-                <input value={sku.color} onChange={e => upd(sku.id, 'color', e.target.value)}
-                  placeholder="月岩白" style={{ ...sInp, height: 32 }} />
+        {skus.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
+            {skus.map((sku, idx) => (
+              <div key={sku.id} style={{
+                display: 'flex', flexDirection: 'column', gap: SPACING.sp3,
+                background: 'rgba(0,0,0,0.02)', borderRadius: RADIUS.card,
+                padding: SPACING.sp3, border: '1px solid rgba(45,41,38,0.07)',
+              }}>
+                {/* 卡片标题行：序号 + 生成数量 + 删除 */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2 }}>
+                  <span style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 700, color: 'var(--text-primary)' }}>变体 #{idx + 1}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp2 }}>
+                    <span style={helperTextStyle}>生成</span>
+                    <input type="number" min="1" max="10" aria-label={`变体 ${idx + 1} 生成数量`}
+                      value={sku.count}
+                      onChange={e => upd(sku.id, 'count', parseInt(e.target.value) || 1)}
+                      style={{ ...inputStyle, width: 56, height: CONTROL_HEIGHT.compact, textAlign: 'center', padding: '0 4px' }} />
+                    <span style={helperTextStyle}>张</span>
+                    <button type="button" aria-label={`删除变体 ${idx + 1}`} onClick={() => rm(sku.id)}
+                      style={{
+                        fontSize: FONT_SIZE.helper, fontWeight: 600, color: '#e74c3c', cursor: 'pointer',
+                        height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp2}px`, borderRadius: 6,
+                        border: 0, background: 'transparent', fontFamily: 'inherit',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(231,76,60,0.1)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >删除</button>
+                  </span>
+                </div>
+
+                {/* 四个事实字段：2×2（480px 面板下每列约 180px，放得下中文标签与内容） */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
+                  {fields.map(f => (
+                    <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp1 }}>
+                      <FieldLabel>{f.label}</FieldLabel>
+                      <input value={sku[f.key] || ''} onChange={e => upd(sku.id, f.key, e.target.value)}
+                        aria-label={`变体 ${idx + 1} ${f.label}`}
+                        placeholder={f.ph} style={{ ...inputStyle, height: CONTROL_HEIGHT.compact }} />
+                    </div>
+                  ))}
+                </div>
+
+                {/* 变体说明：多行 + 右下角拉伸手柄 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp1 }}>
+                  <FieldLabel>变体说明（选填）</FieldLabel>
+                  <ResizableTextarea
+                    aria-label={`变体 ${idx + 1} 说明`}
+                    value={sku.note || ''}
+                    onChange={e => upd(sku.id, 'note', e.target.value)}
+                    available={available}
+                    minHeight={64}
+                    maxHeight={220}
+                    placeholder="该变体与其它规格的差异事实，例：磨砂黑 / 仅 500ml / 含硅胶密封圈"
+                  />
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>规格/尺码</div>
-                <input value={sku.size} onChange={e => upd(sku.id, 'size', e.target.value)}
-                  placeholder="M / 100ml" style={{ ...sInp, height: 32 }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>容量/数量</div>
-                <input value={sku.capacity} onChange={e => upd(sku.id, 'capacity', e.target.value)}
-                  placeholder="500ml / 3件装" style={{ ...sInp, height: 32 }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>标注尺寸</div>
-                <input value={sku.dimLabel} onChange={e => upd(sku.id, 'dimLabel', e.target.value)}
-                  placeholder="20×10×5cm" style={{ ...sInp, height: 32 }} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>生成数量</span>
-              <input type="number" min="1" max="10" value={sku.count}
-                onChange={e => upd(sku.id, 'count', parseInt(e.target.value) || 1)}
-                style={{ ...sInp, width: 48, height: 28, textAlign: 'center', fontSize: 12 }} />
-              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>张</span>
-            </div>
+            ))}
           </div>
-        ))}
+        )}
 
         {/* ── 添加按钮 ── */}
-        <div onClick={add}
+        <button type="button" onClick={add}
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-            padding: '10px', borderRadius: 10,
-            border: '1.5px dashed rgba(0,0,0,0.15)',
-            color: 'var(--text-muted)', fontSize: 12, fontWeight: 600,
-            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: SPACING.sp1,
+            height: CONTROL_HEIGHT.large, borderRadius: RADIUS.control, fontFamily: 'inherit',
+            border: '1.5px dashed rgba(45,41,38,0.18)',
+            color: 'var(--text-muted)', background: 'transparent',
+            fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
-          <Plus size={14} /> 添加 SKU 变体
-        </div>
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent, #7c3aed)'; e.currentTarget.style.color = 'var(--accent, #7c3aed)'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(45,41,38,0.18)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
+          <Plus size={15} /> 添加 SKU 变体
+        </button>
 
         {/* ── 底部统计 ── */}
         <div style={{
-          marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.06)',
+          paddingTop: SPACING.sp3, borderTop: '1px solid rgba(45,41,38,0.07)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 11, color: 'var(--text-muted)',
+          ...helperTextStyle,
         }}>
           <span>变体数：<b style={{ color: 'var(--text-primary)' }}>{skus.length}</b> 个</span>
           <span>将生成：<b style={{ color: 'var(--text-primary)' }}>{totalSkuImages}</b> 张 SKU 图</span>

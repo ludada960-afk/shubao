@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldAlert, Ban } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
-import { SPACING, groupTitleStyle, helperTextStyle } from './panelVisualLanguage.js';
+import { SPACING, FONT_SIZE, CONTROL_HEIGHT, groupTitleStyle, helperTextStyle } from './panelVisualLanguage.js';
 
 /* ═══════ 生成约束面板 ═══════
    2026-09-15 用户批注①（子项 2）：
@@ -55,9 +55,9 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
                   onClick={() => append(term)}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: SPACING.sp1,
-                    height: 28, padding: `0 ${SPACING.sp2}px`,
+                    height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp3}px`,
                     borderRadius: 999, fontFamily: 'inherit',
-                    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                    fontSize: FONT_SIZE.helper, fontWeight: 600, cursor: 'pointer',
                     border: `1px solid ${active ? '#1F1D1A' : 'rgba(45,41,38,0.12)'}`,
                     background: active ? 'rgba(31,29,26,0.05)' : '#fff',
                     color: active ? 'var(--text-primary)' : 'var(--text-secondary)',

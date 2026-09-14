@@ -476,7 +476,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     bottom: 0,
     width: 0,
     maxH: 400,
-    btnCenterX: 0
+    btnCenterX: 0,
+    /* 面板可视区内「多行输入框还能长到多高」——由面板顶到视口顶的安全高度反算。
+       用户批注①（子项 3）：「可以拉长当前这个框的高度，但这样就得往下面再做一些适配」。
+       这就是那层适配：手柄拉伸上限 = 面板可用高 - 已在框内的其它内容高度 - 底部留白。 */
+    textareaAvailable: null
   });
 
   /* Esc 关闭 + 点击外部关闭 */
@@ -859,13 +863,21 @@ const DEFAULT_BUTTONS = [
        读不到（首帧还没挂载）就沿用上一次的值，避免抖动。 */
     const livePanel = document.getElementById('ec-floating-panel');
     const panelH = livePanel ? Math.ceil(livePanel.getBoundingClientRect().height) : 0;
+    /* 多行输入框的可用高度：面板顶部到视口顶的安全距离（扣除 topbar 68 + 16 呼吸），
+       再减掉面板自身的头部与内边距。这样「拉到底」时输入框下沿始终落在可视区内，
+       出现的是面板内部滚动，而不是被截断。 */
+    const panelTop = livePanel ? livePanel.getBoundingClientRect().top : 0;
+    const panelHead = livePanel?.querySelector('.ec-config-panel-header')?.getBoundingClientRect().height || 0;
+    const roomToTop = livePanel ? Math.max(120, panelTop - 84) : 0;
+    const textareaAvailable = Math.max(120, Math.round(roomToTop + panelH - panelHead - 96));
     setPanelPos((previous) => ({
       left: Math.max(16, Math.min(btnCenterX - panelW / 2, vw - panelW - 16)),
       bottom: Math.max(16, window.innerHeight - btnRect.top + 10),
       width: panelW,
       maxH: Math.max(300, Math.min(620, btnRect.top - 24)),
       btnCenterX,
-      panelH: panelH || previous.panelH || 0
+      panelH: panelH || previous.panelH || 0,
+      textareaAvailable
     }));
   }, [activePanel]);
 
@@ -877,7 +889,15 @@ const DEFAULT_BUTTONS = [
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(() => {
       const h = Math.ceil(el.getBoundingClientRect().height);
-      setPanelPos((previous) => (previous.panelH === h ? previous : { ...previous, panelH: h }));
+      const withinPanel = el.querySelector('.ec-config-panel-body');
+      /* 输入框可用高度 = 面板可视高 - 面板头部 - 内边距留白 */
+      const headH = el.querySelector('.ec-config-panel-header')?.getBoundingClientRect().height || 0;
+      const available = Math.max(120, Math.round(h - headH - 96));
+      setPanelPos((previous) => (
+        previous.panelH === h && previous.textareaAvailable === available
+          ? previous
+          : { ...previous, panelH: h, textareaAvailable: available }
+      ));
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -975,17 +995,17 @@ const DEFAULT_BUTTONS = [
           {activePanel === 'sizing' && (abilityRecipeId === 'anything_tryon'
             ? <TryOnPlanPanel sizing={sizing} onSizingChange={setSizing} />
             : <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />)}
-          {activePanel === 'params' && <ParamsPanel mode={abilityRecipeId === 'anything_tryon' ? 'tryon' : 'product'} params={productParams} onChange={setProductParams} />}
-          {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />}
+          {activePanel === 'params' && <ParamsPanel mode={abilityRecipeId === 'anything_tryon' ? 'tryon' : 'product'} params={productParams} onChange={setProductParams} available={panelPos.textareaAvailable} />}
+          {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} available={panelPos.textareaAvailable} />}
           {/* 「内容规范」= 正向要什么（CopyPanel）+ 反向不要什么（GenerationConstraintsPanel）。
               用户批注①（子项 2）：「避免出现的元素」不属于「生成设置」（那是设备/输出参数），
               它是一条画面内容约束，语义归属就是描述内容的标准面板。
               数据链路不变（genSettings.negativePrompt），画布侧同步不受影响。 */}
           {activePanel === 'copy' && (
             <>
-              <CopyPanel copywriting={copywriting} onChange={setCopywriting} />
+              <CopyPanel copywriting={copywriting} onChange={setCopywriting} available={panelPos.textareaAvailable} />
               <CopyPanelDivider />
-              <GenerationConstraintsPanel negativePrompt={genSettings.negativePrompt} onChange={next => setGenSettings(current => ({ ...current, negativePrompt: next }))} />
+              <GenerationConstraintsPanel negativePrompt={genSettings.negativePrompt} onChange={next => setGenSettings(current => ({ ...current, negativePrompt: next }))} available={panelPos.textareaAvailable} />
             </>
           )}
           {activePanel === 'settings' && <GenSettingsPanel value={genSettings} onChange={setGenSettings} brandColors={customColors} onBrandColorsChange={setCustomColors} />}

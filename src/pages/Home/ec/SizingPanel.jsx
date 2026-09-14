@@ -10,6 +10,19 @@ import {
 } from './ecommercePlanModel.js';
 import { normalizeCommerceFormat } from './ecommerceFormatRegistry.js';
 import { COMMERCE_LANGUAGES, COMMERCE_PLATFORMS } from './internationalCommerceRegistry.js';
+import {
+  SPACING,
+  FONT_SIZE,
+  CONTROL_HEIGHT,
+  RADIUS,
+  groupTitleStyle,
+  helperTextStyle,
+  sectionStyle,
+} from './panelVisualLanguage.js';
+
+/* 2026-09-15 用户批注①（子项 2/3）：面板统一 480px、控件点击区 >=32px、
+   间距走统一阶梯。本面板的交互逻辑（平台/语言/图片类型/比例联动）零改动，
+   只把视觉层换成规范常量 —— 用户明确要求「不能粗暴匹配，要相应适配」。 */
 
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
@@ -33,11 +46,11 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
     <div style={{ position: 'relative' }}>
       <button ref={ref} type="button" onClick={() => !disabled && setOpen(o => !o)} disabled={disabled}
         style={{
-          display: 'flex', alignItems: 'center', gap: 4, height: 26, padding: '0 7px',
-          borderRadius: 7, border: `1px solid ${disabled ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.14)'}`, 
+          display: 'flex', alignItems: 'center', gap: SPACING.sp1, height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp2}px`,
+          borderRadius: RADIUS.control, border: `1px solid ${disabled ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.14)'}`, 
           background: disabled ? 'rgba(0,0,0,0.03)' : '#fff',
           cursor: disabled ? 'not-allowed' : 'pointer', 
-          fontSize: 11, fontWeight: 700, 
+          fontSize: FONT_SIZE.helper, fontWeight: 700, 
           color: disabled ? 'var(--text-muted)' : '#1a1a1a', 
           userSelect: 'none', fontFamily: 'inherit',
         }}>
@@ -183,13 +196,13 @@ export default function SizingPanel({
 
   return (
     <div style={{ padding: 0 }}>
-      <div style={{ padding: '14px 16px 12px' }}>
+      <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px` }}>
         {/* ── 平台与语言 ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3, marginBottom: SPACING.sp2 }}>
           <div style={{ position: 'relative' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标平台</div>
+            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: SPACING.sp2 }}>目标平台</div>
             <button ref={platformButtonRef} type="button" aria-expanded={platformOpen} onClick={() => { setPlatformOpen(open => !open); setLanguageOpen(false); }}
-              style={{ width: '100%', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 11px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', height: CONTROL_HEIGHT.base, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2, padding: `0 ${SPACING.sp3}px`, borderRadius: RADIUS.control, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{platformOption.label}</span>
               <ChevronDown size={15} style={{ flexShrink: 0, transform: platformOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
@@ -205,9 +218,9 @@ export default function SizingPanel({
             )}
           </div>
           <div style={{ position: 'relative' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标语言</div>
+            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: SPACING.sp2 }}>目标语言</div>
             <button ref={languageButtonRef} type="button" aria-expanded={languageOpen} onClick={() => { setLanguageOpen(open => !open); setPlatformOpen(false); }}
-              style={{ width: '100%', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 11px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', height: CONTROL_HEIGHT.base, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2, padding: `0 ${SPACING.sp3}px`, borderRadius: RADIUS.control, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{languageOption.label}</span>
               <ChevronDown size={15} style={{ flexShrink: 0, transform: languageOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
@@ -223,48 +236,57 @@ export default function SizingPanel({
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, color: 'var(--text-muted)', fontSize: 10 }}>
-          <Globe2 size={12} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, marginBottom: SPACING.sp4, ...helperTextStyle }}>
+          <Globe2 size={12} style={{ flexShrink: 0 }} />
           <span>{platformOption.summary}</span>
         </div>
 
         {/* ── 平台说明 ── */}
         {pDef.desc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, padding: '6px 10px', background: 'rgba(0,0,0,0.025)', borderRadius: 8 }}>
-            <Info size={12} /> 当前方案：{platformOption.label} · {planSummary}
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, ...helperTextStyle, marginBottom: SPACING.sp3, padding: `${SPACING.sp2}px ${SPACING.sp3}px`, background: 'rgba(0,0,0,0.025)', borderRadius: RADIUS.control }}>
+            <Info size={12} style={{ flexShrink: 0 }} /> 当前方案：{platformOption.label} · {planSummary}
           </div>
         )}
 
         {/* ── 图片类型列表 ── */}
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>图片类型</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ ...groupTitleStyle, marginBottom: SPACING.sp2 }}>图片类型</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp1 }}>
           {IMAGE_TYPES.map(typeDef => {
             const checked = activeKeys.has(typeDef.key);
             const activeItem = activeImages.find(i => i.key === typeDef.key);
             return (
               <div key={typeDef.key} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 10px', borderRadius: 10,
+                display: 'flex', alignItems: 'center', gap: SPACING.sp3,
+                /* 整行 ≥48px 且整行可点：用户批注「输入区都特别小」——
+                   原来只有 20×20 的勾选框能点，远低于 32px 点击区规范。 */
+                minHeight: 48, padding: `${SPACING.sp2}px ${SPACING.sp3}px`, borderRadius: RADIUS.control,
                 background: checked ? 'rgba(0,0,0,0.03)' : 'transparent',
                 border: `1.5px solid ${checked ? 'rgba(0,0,0,0.1)' : 'transparent'}`,
                 transition: 'all 0.15s',
-              }}>
-                {/* 勾选框 */}
-                <div onClick={() => toggleType(typeDef.key)} style={{
-                  width: 20, height: 20, borderRadius: 6, cursor: 'pointer',
+                cursor: 'pointer',
+              }}
+                role="checkbox"
+                aria-checked={checked}
+                aria-label={typeDef.label}
+                onClick={() => toggleType(typeDef.key)}
+              >
+                {/* 勾选框：视觉 20×20（保持分类列表的轻量感），
+                    点击目标由父行承担（父行 minHeight 48px 且整行 onClick）。 */}
+                <div aria-hidden="true" style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                   border: `2px solid ${checked ? '#1a1a1a' : 'rgba(0,0,0,0.15)'}`,
                   background: checked ? '#1a1a1a' : '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.15s', flexShrink: 0,
+                  transition: 'all 0.15s',
                 }}>
                   {checked && <Check size={12} color="#fff" strokeWidth={3} />}
                 </div>
 
                 {/* 图标 + 标签 */}
-                <span style={{ fontSize: 14, flexShrink: 0 }}>{typeDef.icon}</span>
+                <span style={{ fontSize: 15, flexShrink: 0 }}>{typeDef.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{typeDef.label}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{typeDef.desc}</div>
+                  <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text-primary)' }}>{typeDef.label}</div>
+                  <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>
                 </div>
 
                 {/* 数量 + 比例（始终显示，未勾选时禁用） */}
@@ -274,16 +296,16 @@ export default function SizingPanel({
                   pointerEvents: checked ? 'auto' : 'none',
                   transition: 'opacity 0.2s',
                 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>数量</span>
+                  <span style={helperTextStyle}>数量</span>
                   <input type="number" min={0} max={typeDef.maxCount || 20}
                     value={checked && activeItem ? activeItem.count : typeDef.defaultCount}
                     onChange={e => updateCount(typeDef.key, parseInt(e.target.value) || 0)}
                     disabled={!checked}
                     style={{
-                      width: 38, height: 26, textAlign: 'center', borderRadius: 6,
+                      width: 44, height: CONTROL_HEIGHT.compact, textAlign: 'center', borderRadius: RADIUS.control,
                       border: `1px solid ${checked ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)'}`, 
                       background: checked ? '#fff' : 'rgba(0,0,0,0.03)',
-                      fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
+                      fontSize: FONT_SIZE.body, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
                       color: checked ? 'var(--text-primary)' : 'var(--text-muted)',
                       cursor: checked ? 'text' : 'not-allowed',
                     }} />
@@ -303,13 +325,13 @@ export default function SizingPanel({
 
         {/* ── 底部统计 ── */}
         <div style={{
-          marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.06)',
+          marginTop: SPACING.sp3, paddingTop: SPACING.sp3, borderTop: '1px solid rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 12, fontWeight: 600, color: 'var(--text-muted)',
+          fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text-muted)',
         }}>
           <span>共 <b style={{ color: 'var(--text-primary)' }}>{totalImages}</b> 张图片</span>
           {platform === 'amazon' && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#e67e22', fontSize: 11 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#e67e22', fontSize: FONT_SIZE.helper }}>
               <Info size={12} /> 亚马逊首图须纯白底
             </span>
           )}
