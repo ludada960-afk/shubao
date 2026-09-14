@@ -1627,6 +1627,28 @@
 .ec-canvas-parameter-popover.is-clamped,
 .ec-canvas-suite-panel-popover.is-clamped { transform: none; }
 
+/* ═══════════ 9-17 参数弹层：portal 到 body，脱离一切裁剪上下文 ═══════════
+   用户批注（图6）：「我现在选择模型，它直接就不张开了」。
+   实测根因：面板一直有渲染，却被 4 层祖先的 overflow 物理裁掉
+   （.ec-canvas-parameter-controls / .ec-canvas-context-composer / .ec-canvas-stage / .ec-canvas-page）。
+   面板往上弹、生成框贴着画布下沿 → 整块弹出区落在裁剪框之外，用户看到的就是「点了没反应」。
+   所以定位与渲染分家：位置由 JS 用锚点按钮的视口坐标算（fixed），渲染走 createPortal(document.body)。
+   这里只保留 portal 之后仍然成立的视觉：宽度约束、内部滚动、底部弹（under）时的圆角方向。 */
+.ec-canvas-parameter-popover.is-portaled {
+  position: fixed;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  box-sizing: border-box;
+  /* 弹层内部滚动兜底；外部由 JS 给的 max-height 限制（Top 决定） */
+  overscroll-behavior: contain;
+}
+/* 按钮上方放不下 → 翻到按钮下方（仍然水平居中，不改变任何坐标口径） */
+.ec-canvas-parameter-popover.is-portaled.is-flipped { box-shadow: 0 14px 34px rgba(15, 23, 42, .16); }
+/* 套图方案等宽面板：portal 之后仍按视口宽度收敛 */
+.ec-canvas-suite-panel-popover.is-portaled { padding: 12px; }
+
 /* ═══════════ 9-16 打组 / 绑定元素：两种语义必须长得不一样 ═══════════
    用户批注（图15~19）：「打组与绑定元素行为一样、不能取消、按钮不高亮、组内节点还带加号、
    组框样式与普通选中一样」。

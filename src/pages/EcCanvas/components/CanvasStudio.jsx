@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
 import {
@@ -451,34 +452,77 @@ function ComposerMention({ availableSources = [], selectedSources = [], activeSu
 }
 
 
-/* 9-16 用户批注（图10）：「张开的面板必须居中于按钮的正上方，你现在一张开就是往右拉，很奇怪」
-   —— CSS 已经给出 left:50% + translateX(-50%)，但面板贴在画布边缘时会被视口裁掉，
-   所以在打开后的第一帧做一次「视口内回夹」：把面板水平推回可视区，并标记 is-clamped
-   （去掉 translate，避免二次偏移）。四个框的模型/比例/清晰度/张数/技能/套图面板共用这一个 hook。 */
-export function useCanvasPopoverCentering(openKey = '') {
-  const popoverRef = useRef(null);
+/* 9-17 用户批注（图6）：「我现在选择模型，它直接就不张开了」——**这是真 bug，不是样式问题**。
+   实测根因（Playwright 逐层取证）：模型面板一直有渲染，getBoundingClientRect 也正常（171×332 @ 293,440），
+   但把它所在链条上四个祖先的 overflow 依次改成 visible 之后，同一个像素点上
+   elementFromPoint 立刻从 .ec-canvas-stage 变成 .ec-canvas-parameter-popover ——
+   即面板被祖先的 overflow:hidden 物理裁掉了：
+     .ec-canvas-parameter-controls（9-16 为「参数行不撑破底栏」加的 overflow:hidden）
+     .ec-canvas-context-composer（9-16 加的 overflow:hidden）
+     .ec-canvas-stage（画布自身 overflow:clip）
+     .ec-canvas-page（整页 overflow:hidden）
+   面板是「往上弹」的（bottom:100%），而生成框底栏贴着画布下沿 —— 弹出区整块落在裁剪框之外，
+   于是用户看到的就是「点了没反应」。任何继续调 z-index / transform 的改法都不可能修好它。
+   正解：面板必须**脱离裁剪上下文**——createPortal 到 body，再用锚点按钮的视口坐标定位。
+   定位口径不变（仍是「水平居中于按钮正上方」，虚线口径：中心偏差 0px），
+   外加视口内回夹（贴边时推回可视区，顶部放不下就翻到按钮下方）。
+   四个框的模型/比例/清晰度/张数/技能/套图面板共用这一对 hook。 */
+export function useCanvasPopoverAnchor(openKey = '') {
+  const anchorRef = useRef(null);
+  const [anchor, setAnchor] = useState(null);
   useLayoutEffect(() => {
-    const node = popoverRef.current;
-    if (!node || !openKey) return;
-    node.classList.remove('is-clamped');
-    const clampToViewport = () => {
-      const box = node.getBoundingClientRect();
-      const gutter = 12;
-      const overflowLeft = gutter - box.left;
-      const overflowRight = box.right - (window.innerWidth - gutter);
-      node.style.removeProperty('left');
-      node.style.removeProperty('margin-left');
-      if (overflowLeft > 0) node.style.marginLeft = `${overflowLeft}px`;
-      else if (overflowRight > 0) node.style.marginLeft = `${-overflowRight}px`;
-      if (overflowLeft > 0 || overflowRight > 0) node.classList.add('is-clamped');
+    if (!openKey) return undefined;
+    const place = () => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setAnchor(previous => (previous && Math.abs(previous.x - rect.left) < 0.5 && Math.abs(previous.y - rect.top) < 0.5 && Math.abs(previous.width - rect.width) < 0.5)
+        ? previous
+        : { x: rect.left, y: rect.top, width: rect.width, bottom: rect.bottom });
     };
-    clampToViewport();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(clampToViewport);
-    observer.observe(node);
-    return () => observer.disconnect();
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
   }, [openKey]);
-  return popoverRef;
+  return [anchorRef, anchor];
+}
+
+/* 面板本体：portal 到 body 之后，位置自己算（不再依赖祖先的包含块）。
+   口径：水平中心 = 按钮水平中心；竖直 = 按钮上方 9px；视口上下都放不下时才翻到下方。 */
+export function CanvasPopoverPortal({ open = false, anchor = null, className = '', label = '', children }) {
+  const popoverRef = useRef(null);
+  const [placement, setPlacement] = useState(null);
+  useLayoutEffect(() => {
+    if (!open || !anchor) { setPlacement(null); return undefined; }
+    const node = popoverRef.current;
+    const measure = () => {
+      const box = node?.getBoundingClientRect();
+      const width = Math.max(120, Math.round(box?.width || 200));
+      const height = Math.max(40, Math.round(box?.height || 200));
+      const gutter = 12;
+      const center = anchor.x + anchor.width / 2;
+      const left = Math.min(Math.max(center - width / 2, gutter), Math.max(gutter, window.innerWidth - width - gutter));
+      const anchorTop = anchor.y;
+      const above = anchorTop - height - 9;
+      const below = anchor.bottom + 9;
+      const top = above >= gutter ? above : (below + height <= window.innerHeight - gutter ? below : Math.max(gutter, Math.min(above, window.innerHeight - height - gutter)));
+      setPlacement(previous => (previous && previous.left === left && previous.top === top && previous.width === width)
+        ? previous
+        : { left, top, width, flipped: above < gutter });
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    if (node) observer.observe(node);
+    return () => observer.disconnect();
+  }, [open, anchor]);
+  if (!open || !anchor) return null;
+  const style = placement
+    ? { position: 'fixed', left: placement.left, right: 'auto', bottom: 'auto', top: placement.top, transform: 'none', zIndex: 10004, maxHeight: `calc(100vh - ${Math.round(placement.top)}px - 12px)`, overflowY: 'auto' }
+    : { position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: 10004 };
+  return createPortal(
+    <div ref={popoverRef} className={`ec-canvas-parameter-popover is-portaled${placement?.flipped ? ' is-flipped' : ''} ${className}`} style={style} role="menu" aria-label={label}>{children}</div>,
+    document.body,
+  );
 }
 
 /* 9-16 用户批注（图4/图5）：「这四个文字输入框本身不大，用户输入几千字要一直滑动」、
@@ -578,19 +622,19 @@ const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IM
    所以把「技能按钮 + 技能弹层」抽成一个组件，图片 / 文案 / 视频 / 套图四处都用它，不再各写一套。 */
 function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null, domain = 'image' }) {
   const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
-  /* 9-16（图10）：技能面板同样必须居中于技能按钮正上方 */
-  const skillPopoverRef = useCanvasPopoverCentering(open === 'skill' ? 'skill' : '');
+  /* 9-17（图6）：面板走 portal 脱离裁剪上下文；锚点口径仍是「水平居中于按钮正上方」 */
+  const [skillAnchorRef, skillAnchor] = useCanvasPopoverAnchor(open === 'skill' ? 'skill' : '');
   const skills = filterCanvasSkills(domain);
   const activeLabel = node?.skillLabel || skills.find(item => item.slug === node?.skill)?.name || '技能';
   return <div className="ec-canvas-parameter-item">
-    <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'parameter:skill'))}>{activeLabel}<WandSparkles size={12} /><ChevronDown size={12} /></button>
-    {open === 'skill' && <div ref={skillPopoverRef} className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
+    <button ref={skillAnchorRef} type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'parameter:skill'))}>{activeLabel}<WandSparkles size={12} /><ChevronDown size={12} /></button>
+    <CanvasPopoverPortal open={open === 'skill'} anchor={skillAnchor} className="ec-canvas-skill-popover" label="技能选项">
       {skills.map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
         <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
       </button>)}
       {onOpenSkillLibrary && <button type="button" className="ec-canvas-skill-more" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenSkillLibrary(domain); }}>更多技能…<ChevronDown size={11} style={{ transform: 'rotate(90deg)' }} /></button>}
       {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null, skillLabel: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
-    </div>}
+    </CanvasPopoverPortal>
   </div>;
 }
 
@@ -610,15 +654,15 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const imageModel = node?.imageModel || 'image2';
   const count = Number(node?.count) || countOptions[0] || 1;
   const toggle = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `parameter:${key}`));
-  /* 9-16（图10）：「张开的面板必须居中于按钮的正上方」——模型/比例/清晰度/张数四个面板逐个居中并回夹视口 */
-  const modelPopoverRef = useCanvasPopoverCentering(open === 'model' ? 'model' : '');
-  const ratioPopoverRef = useCanvasPopoverCentering(open === 'ratio' ? 'ratio' : '');
-  const resolutionPopoverRef = useCanvasPopoverCentering(open === 'resolution' ? 'resolution' : '');
-  const countPopoverRef = useCanvasPopoverCentering(open === 'count' ? 'count' : '');
+  /* 9-17（图6）：「张开的面板必须居中于按钮的正上方」+ 必须真的能张开（portal 脱离裁剪） */
+  const [modelAnchorRef, modelAnchor] = useCanvasPopoverAnchor(open === 'model' ? 'model' : '');
+  const [ratioAnchorRef, ratioAnchor] = useCanvasPopoverAnchor(open === 'ratio' ? 'ratio' : '');
+  const [resolutionAnchorRef, resolutionAnchor] = useCanvasPopoverAnchor(open === 'resolution' ? 'resolution' : '');
+  const [countAnchorRef, countAnchor] = useCanvasPopoverAnchor(open === 'count' ? 'count' : '');
   return <div className="ec-canvas-parameter-controls" ref={rootRef} onPointerDown={event => event.stopPropagation()}>
     <div className="ec-canvas-parameter-item">
-      <button type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
-      {open === 'model' && <div ref={modelPopoverRef} className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
+      <button ref={modelAnchorRef} type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
+      <CanvasPopoverPortal open={open === 'model'} anchor={modelAnchor} className="ec-canvas-model-popover" label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
         {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => {
           /* 切到不支持当前清晰度的模型时，顺手落到它支持的档位（画布上不会留下无效的 4K） */
@@ -629,28 +673,28 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
           <ModelLogo logo={brandLogo(model.brand)} size={20} style={{ marginRight: 2 }} />
           <span className="ec-canvas-model-copy"><strong>{model.label}</strong><small>{model.badge}</small></span>
         </button>)}
-      </div>}
+      </CanvasPopoverPortal>
     </div>
     <div className="ec-canvas-parameter-item">
-      <button type="button" data-canvas-control="true" aria-label="图片比例" aria-haspopup="menu" aria-expanded={open === 'ratio'} onClick={() => toggle('ratio')}>自动 / {ratio}<ChevronDown size={12} /></button>
-      {open === 'ratio' && <div ref={ratioPopoverRef} className="ec-canvas-parameter-popover ec-canvas-ratio-popover" role="menu" aria-label="图片比例选项">
+      <button ref={ratioAnchorRef} type="button" data-canvas-control="true" aria-label="图片比例" aria-haspopup="menu" aria-expanded={open === 'ratio'} onClick={() => toggle('ratio')}>自动 / {ratio}<ChevronDown size={12} /></button>
+      <CanvasPopoverPortal open={open === 'ratio'} anchor={ratioAnchor} className="ec-canvas-ratio-popover" label="图片比例选项">
         {CANVAS_RATIO_OPTIONS.map(value => <button key={value} type="button" className={value === ratio ? 'is-active' : ''} onClick={() => { onChange?.({ ratio: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
           <i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span>
         </button>)}
-      </div>}
+      </CanvasPopoverPortal>
     </div>
     <div className="ec-canvas-parameter-item">
-      <button type="button" data-canvas-control="true" aria-label="清晰度" aria-haspopup="menu" aria-expanded={open === 'resolution'} onClick={() => toggle('resolution')}>{resolution}<ChevronDown size={12} /></button>
-      {open === 'resolution' && <div ref={resolutionPopoverRef} className="ec-canvas-parameter-popover ec-canvas-resolution-popover" role="menu" aria-label="清晰度选项">
+      <button ref={resolutionAnchorRef} type="button" data-canvas-control="true" aria-label="清晰度" aria-haspopup="menu" aria-expanded={open === 'resolution'} onClick={() => toggle('resolution')}>{resolution}<ChevronDown size={12} /></button>
+      <CanvasPopoverPortal open={open === 'resolution'} anchor={resolutionAnchor} className="ec-canvas-resolution-popover" label="清晰度选项">
         {/* 9-13：清晰度跟着模型能力走（Midjourney 上游只有 1K/2K，画布同样不给 4K） */}
         {CANVAS_RESOLUTION_OPTIONS.filter(value => imageModelResolutions(imageModel).includes(value)).map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} onClick={() => { onChange?.({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
-      </div>}
+      </CanvasPopoverPortal>
     </div>
     {includeCount && <div className="ec-canvas-parameter-item">
-      <button type="button" data-canvas-control="true" aria-label="生成数量" aria-haspopup="menu" aria-expanded={open === 'count'} onClick={() => toggle('count')}>x{count}<ChevronDown size={12} /></button>
-      {open === 'count' && <div ref={countPopoverRef} className="ec-canvas-parameter-popover ec-canvas-count-popover" role="menu" aria-label="生成数量选项">
+      <button ref={countAnchorRef} type="button" data-canvas-control="true" aria-label="生成数量" aria-haspopup="menu" aria-expanded={open === 'count'} onClick={() => toggle('count')}>x{count}<ChevronDown size={12} /></button>
+      <CanvasPopoverPortal open={open === 'count'} anchor={countAnchor} className="ec-canvas-count-popover" label="生成数量选项">
         {countOptions.map(value => <button key={value} type="button" className={value === count ? 'is-active' : ''} onClick={() => { onChange?.({ count: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>{value}</button>)}
-      </div>}
+      </CanvasPopoverPortal>
     </div>}
     {/* 9-11 用户批注: skill 选项进生成器 (对标流影AI) —— 技能 = P2 五套内置技能,
         选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。
@@ -709,8 +753,9 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     return () => document.removeEventListener('pointerdown', close);
   }, [activeSurface, onSurfaceChange]);
   const activePanel = activeSurface.startsWith('suite:') ? activeSurface.slice('suite:'.length) : '';
-  /* 9-16（图10）：套图方案/SKU/商品信息/内容规范/生成设置 五个面板同样居中于各自按钮正上方 */
-  const suitePopoverRef = useCanvasPopoverCentering(activePanel);
+  /* 9-17（图6）：套图方案/SKU/商品信息/内容规范/生成设置 五个面板同样走 portal，
+     口径不变 —— 水平居中于各自按钮正上方，且不再被生成框 / 画布 / 整页的 overflow 裁掉。 */
+  const [suiteAnchorRef, suiteAnchor] = useCanvasPopoverAnchor(activePanel);
   const update = (key, value, legacy = {}) => onChange?.({
     ...legacy,
     configuration: { ...configuration, [key]: value },
@@ -726,6 +771,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
   return <div className="ec-canvas-suite-controls" role="group" aria-label="套图参数" ref={rootRef}>
     {SUITE_PANEL_BUTTONS.map(item => <div className="ec-canvas-suite-control" key={item.key}>
       <button
+        ref={activePanel === item.key ? suiteAnchorRef : undefined}
         type="button"
         data-canvas-control="true"
         className={`${activePanel === item.key ? 'is-active' : ''}${adjustedPanels[item.key] ? ' is-adjusted' : ''}`}
@@ -733,7 +779,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
         aria-haspopup="dialog"
         onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
       ><item.icon size={14} /><span>{summary(item.key)}</span>{adjustedPanels[item.key] && <small>已调整</small>}<ChevronDown size={12} /></button>
-      {activePanel === item.key && <div ref={suitePopoverRef} className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
+      <CanvasPopoverPortal open={activePanel === item.key} anchor={suiteAnchor} className="ec-canvas-suite-panel-popover" label={`${item.label}设置`}>
         {item.key === 'sizing' && <SizingPanel
           platform={configuration.platform}
           targetLanguage={configuration.commerceContext.targetLanguage}
@@ -753,7 +799,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
         {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} />}
         {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} />}
         {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
-      </div>}
+      </CanvasPopoverPortal>
     </div>)}
   </div>;
 }
