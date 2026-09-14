@@ -442,7 +442,8 @@ export default function RemakePage() {
                   padding: '14px 0', borderRadius: 'var(--radius-lg)', border: 'none',
                   fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: generating ? 'not-allowed' : 'pointer',
-                  background: generating ? 'var(--border-light)' : 'var(--sb-brand-gradient)',
+                  /* 裁定 2 / D1：「一键复刻生成」是**功能按钮** → 品牌紫纯色，禁止渐变 */
+                  background: generating ? 'var(--border-light)' : 'var(--sb-btn-primary-bg)',
                   color: generating ? 'var(--text-muted)' : 'var(--sb-neutral-0)',
                   boxShadow: generating ? 'none' : '0 3px 12px var(--sb-brand-a32)',
                   marginTop: 8, transition: 'all .15s',

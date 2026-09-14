@@ -361,7 +361,9 @@
 
 .app-side-nav-item.is-primary.is-active {
   border-color: transparent;
-  background: var(--sb-brand-gradient);
+  /* 裁定 2 / D1：导航项是**功能控件** → 必须品牌紫**纯色**，禁止渐变。
+     （原为 var(--sb-brand-gradient)；渐变只留给 ①logo ②hero 标题 ③欢迎/空态插画） */
+  background: var(--sb-btn-primary-bg);
   color: var(--sb-neutral-0);
 }
 
@@ -375,7 +377,8 @@
 }
 
 .app-side-nav-item.is-primary.is-active:hover {
-  background: var(--sb-brand-gradient);
+  /* hover 只在**同色系内压深一档**，不换通道、不回到渐变（§22 原则 4.3） */
+  background: var(--sb-btn-primary-bg-hover);
 }
 
 .app-side-nav-item.is-active:hover:not(.is-primary) {

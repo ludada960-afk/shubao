@@ -675,7 +675,9 @@
   right: var(--sb-space-5);
   height: 2px;
   border-radius: 0 0 var(--sb-radius-xs) var(--sb-radius-xs);
-  background: var(--sb-brand-gradient);
+  /* 裁定 2 / D1：这是**卡片的推荐指示条**（功能控件状态指示）→ 品牌紫纯色。
+     2px 细条上渐变本就几乎看不出层次，纯色更干净、少一次 paint。 */
+  background: var(--sb-btn-primary-bg);
   pointer-events: none;
 }
 .pricing-pack-card.is-recommended:hover {
@@ -734,7 +736,9 @@
   font-weight: var(--sb-weight-heavy);
   letter-spacing: 0.10em;
   color: var(--sb-ink-on-dark, #FFFFFF);
-  background: var(--sb-brand-gradient);
+  /* 裁定 2 / D1：「最受欢迎」角标是**控件状态徽标**（徽标在禁止之列）→ 品牌紫纯色。
+     与 ①logo 类「品牌徽标」区分：那是品牌时刻，这是卡片状态标记。 */
+  background: var(--sb-btn-primary-bg);
   padding: 4px var(--sb-space-3);
   border-radius: 999px;
   box-shadow: var(--sb-brand-shadow);

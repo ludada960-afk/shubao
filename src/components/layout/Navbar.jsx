@@ -51,6 +51,14 @@ export default function Navbar() {
         {/* D11 键盘可达：Logo 是「回首页」导航动作 → button（.a11y-reset 归零 UA 默认外观） */}
         <button type="button" className="a11y-reset" aria-label="回到首页" onClick={() => nav('home')}
           style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', cursor: 'pointer', flexShrink: 0 }}>
+          {/* 裁定 2 / D1 角色判断：**这是 logo（品牌时刻），不是功能控件 → 保留渐变**。
+              ① 元素性质：42×42 的**品牌标识块**（薯包AI 的 mark），内含 MdAutoAwesome 星标，
+                 与右侧「薯包AI」字标共同构成品牌署名 —— 判定为 logo，命中允许清单第 ① 项。
+              ② 相邻的 <button> 才是功能控件（「回到首页」），但其背景为 transparent（.a11y-reset 归零），
+                 渐变属于内层 logo 徽标。
+              ③ 即使作为 logo，也**只用两色** --sb-brand-gradient（紫→薰衣草），
+                 未使用三色 --sb-brand-gradient-3（后者限 hero/空态插画）。
+              ⇒ 结论：**不改**，维持 var(--sb-brand-gradient)。 */}
           <span style={{
             display: 'flex', width: 42, height: 42, borderRadius: 'var(--sb-radius-lg)', overflow: 'hidden', flexShrink: 0,
             alignItems: 'center', justifyContent: 'center',

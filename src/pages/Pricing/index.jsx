@@ -98,10 +98,10 @@ const MATRIX_ROWS = [
 // 中间档 "团队版" 标"最受欢迎" (实际营销心理学锚)
 const PLAN_VISUAL = {
   ec_trial_990:   { icon: MdBolt,               gradient: 'linear-gradient(135deg, var(--sb-warning), #f97316)', tag: '入门首选',   tagline: '试用全部核心能力' },
-  ec_starter_29:  { icon: MdAutoAwesome,        gradient: 'var(--sb-brand-gradient)', tag: '个人创作者', tagline: '日常内容稳定出片' },
+  ec_starter_29:  { icon: MdAutoAwesome,        gradient: 'var(--sb-btn-primary-bg)', tag: '个人创作者', tagline: '日常内容稳定出片' },
   ec_growth_79:   { icon: MdGroups,             gradient: 'linear-gradient(135deg, #ec4899, #f43f5e)', tag: '最受欢迎',   tagline: '团队批量出量首选' },
   ec_studio_199:  { icon: MdApartment,          gradient: 'linear-gradient(135deg, #0f766e, #14b8a6)', tag: '工作室',     tagline: '高频商业化交付' },
-  ec_monthpack_39:{ icon: MdAccountBalanceWallet, gradient: 'var(--sb-brand-gradient)', tag: '月卡·轻', tagline: '稳定出量享赠分' },
+  ec_monthpack_39:{ icon: MdAccountBalanceWallet, gradient: 'var(--sb-btn-primary-bg)', tag: '月卡·轻', tagline: '稳定出量享赠分' },
   ec_monthpack_59:{ icon: MdDiamond,            gradient: 'linear-gradient(135deg, var(--sb-ink-warning), #d97706)', tag: '月卡·Pro',  tagline: '高强度创作最优单价' },
 };
 
@@ -224,7 +224,7 @@ function VideoTierCard({ tier, onUse, isAnchored }) {
 function PackCard({ plan, canPurchase, onSelect, selected }) {
   const visual = PLAN_VISUAL[plan.sku] || {
     icon: MdAutoAwesome,
-    gradient: 'var(--sb-brand-gradient)',
+    gradient: 'var(--sb-btn-primary-bg)',
     tag: plan.name,
     tagline: plan.description,
   };
