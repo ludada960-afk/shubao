@@ -27,6 +27,30 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 提交必须显式列出文件，禁止 `git add .`、`git add -A`。每个可独立验证的任务一个提交，提交前运行对应测试并检查暂存区。
 
+### 3.1 提交纪律（2026-09-20 事故后补，**6 条线共 1 个 git index，必须遵守**）
+
+多条线共用同一棵工作树、**共用同一个 Git 暂存区（index）**。因此：
+
+1. **一律 pathspec 提交**：`git commit -m "..." -- <文件1> <文件2>`。
+   **严禁裸 `git commit`** —— 它提交的是**整个暂存区**，会把别人 `git add` 进去、还没提交的内容一起定型。
+   （已发生：`614698e9` 一次卷进 4 个他人文件、25 个文件；`ebea1cd0` / `1fed0552` / `fc843f19` 同类。）
+2. 严禁 `git add .` / `git add -A` / `git commit -a` / `git stash`。
+3. 提交前 `git diff --cached --name-only` **逐条确认只有自己的文件**；提交后 `git show --stat` 核对文件数，并把数字贴进汇报。
+4. 别人的 ` M`（dirty）文件一律不碰；发现暂存区里有他人内容，**只用自己的 pathspec 隔离提交**，绝不代他们提交、也不 reset 他们的暂存。
+5. 需要 A/B 对照时用**文件级备份**，不要用 stash。
+6. 报「主干红了 / 某文件坏了」之前**必须重跑一次** —— 并发写入的瞬时中间态被误报成故障，已发生多次。
+
+### 3.2 迁移等价性（D15，与 40-decisions.md 同步）
+
+> **token 只能替换与之逐值相等的字面量。** 近似值一律不许机械替换。
+
+- 间距/字号/圆角/颜色**都是观感**：差 1px 就可能换行、错位；差 1 个色阶就是另一个颜色。
+- 阶梯里没有的值**保持字面量**；要收编先把它**加进阶梯**（加条目本身零观感变更），再做等值迁移。
+- 这类回归**不会让任何测试变红**（没有断言锁间距），只能靠审计脚本抓：
+  `node scripts/space-migration-audit.mjs`（间距，含阶梯真值自检）。
+  实测抓出 **85 处**不等价迁移（`12px→20px`、`4px→8px`、`6px→8px` …）。
+- 迁移类提交必须附：**改前→改后数值清单** + **分区段像素 diff**（未改动区域必须 d=0）。
+
 ## 4. 运行时边界
 
 **包管理器双态（2026-08-25 裁决）**：本地 node_modules 为 pnpm 安装态（pnpm-lock.yaml / pnpm-workspace.yaml 已入库）；生产 deploy 链唯一走 npm（package-lock.json，server 端 npm ci 要求与 package.json 同步）。allowBuilds 显式关闭了 canvas / better-sqlite3 / esbuild / protobufjs 的构建脚本——新环境 pnpm install 后 canvas.node、better_sqlite3.node 缺失属预期，需进包手动执行安装脚本（canvas: npm run install 即 prebuild-install）。长期收敛为单管理器需协调重装，未获授权前勿单方面切换。
