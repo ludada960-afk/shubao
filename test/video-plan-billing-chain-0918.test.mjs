@@ -105,6 +105,38 @@ test('闸门与编译都在 createJob 内（服务端权威，客户端绕不过
   assert.match(seg, /const negativePrompt = compiled\.negativePrompt;/, '落库的 negativePrompt 必须是编译结果');
 });
 
+test('闸门文案必须原样到达用户（400 + 可读中文，不是 500 兜底）', () => {
+  /* 裁定 #4（2026-09-18 总统筹）：本意就是验证「无方案时的错误行为」的用例，
+     应当断言 **这个 400 与这句文案**，而不是断言创建成功。
+     createJob 抛出的 Error 带 status/code；HTTP 层（server/index.mjs /api/video/jobs）
+     对 <500 的错误**原样透出 error.message**，≥500 才换成兜底文案 —— 这条链路必须钉住，
+     否则用户看到的就是「视频任务创建失败，请稍后重试」，根本不知道要先做方案。 */
+  const cases = [
+    { input: { videoPlan: null, planConfirmed: true }, code: 'VIDEO_PLAN_REQUIRED', message: '请先生成并确认拍摄方案后再生成视频' },
+    { input: { videoPlan: PLAN, planConfirmed: false }, code: 'VIDEO_PLAN_NOT_CONFIRMED', message: '请先确认拍摄方案后再生成视频' },
+  ];
+  for (const { input, code, message } of cases) {
+    let thrown = null;
+    try { assertVideoPlanConfirmed({ plan: input.videoPlan, planConfirmed: input.planConfirmed }); }
+    catch (error) { thrown = error; }
+    assert.ok(thrown, code + '：必须抛出');
+    assert.equal(thrown.status, 400, code + '：必须是 400（用户可纠正，不是 500）');
+    assert.equal(thrown.code, code);
+    assert.equal(thrown.message, message, code + '：文案必须逐字一致（前端直接展示）');
+  }
+  /* HTTP 层透传规则：<500 用 error.message，≥500 用兜底 —— 两分支都要在场 */
+  const route = serverIndex.slice(serverIndex.indexOf("app.post('/api/video/jobs'"));
+  const routeBody = route.slice(0, route.indexOf('app.get('));
+  assert.match(routeBody, /error: error\?\.status && error\.status < 500 \? error\.message : /,
+    '4xx 必须透传原始文案（否则用户看不到「先做方案」的引导）');
+  assert.match(routeBody, /res\.status\(error\?\.status \|\| 500\)/, '状态码必须透传');
+  /* 并且：闸门拒绝时**不得**建单 —— 不产生 job、不 hold 钱 */
+  const createJobBody = videoGeneration.slice(videoGeneration.indexOf('async function createJob('));
+  const iGate = createJobBody.indexOf('assertVideoPlanConfirmed(');
+  const iInsert = createJobBody.indexOf('INSERT INTO video_jobs');
+  assert.ok(iGate > 0 && iInsert > iGate, '闸门必须先于 INSERT（拒绝即不建单、不扣费）');
+});
+
 test('闸门在 prompt 校验之后、建单之前（拒绝时不产生 job、不扣费）', () => {
   const start = videoGeneration.indexOf('async function createJob(');
   const seg = videoGeneration.slice(start, start + 9000);
