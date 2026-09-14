@@ -7319,9 +7319,9 @@ const handlePointerUp = useCallback((e) => {
                 </div>
               </div>
               {projectAssetLibraryLoading ? (
-                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>正在读取素材</div>
+                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 8, background: '#fff', color: '#8a929d', fontSize: 12 }}>正在读取素材</div>
               ) : projectAssetLibraryError ? (
-                <div role="alert" style={{ padding: '14px 16px', border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLibraryError}</div>
+                <div role="alert" style={{ padding: '14px 16px', border: '1px solid #fecaca', borderRadius: 8, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLibraryError}</div>
               ) : visibleProjectAssetLibrary.length ? (
                 <div className="ec-asset-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 16 }}>
                   {visibleProjectAssetLibrary.map(asset => {
@@ -7335,7 +7335,7 @@ const handlePointerUp = useCallback((e) => {
                     const selectedForBatch = selectedProjectAssetKeys.has(selectionKey);
                     return <article
                       key={`${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`}
-                      style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 10, background: '#fff', color: '#26313c', cursor: 'pointer' }}
+                      style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 8, background: '#fff', color: '#26313c', cursor: 'pointer' }}
                     >
                       <div style={{ display: 'block', width: '100%', color: 'inherit', textAlign: 'left' }}>
                         <div style={{ height: 104, display: 'grid', placeItems: 'center', overflow: 'hidden', background: mediaKind === 'video' ? '#111827' : '#f4f5f7' }}>
@@ -7364,7 +7364,7 @@ const handlePointerUp = useCallback((e) => {
                   })}
                 </div>
               ) : (
-                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>{projectAssetLibrary.length ? '没有符合筛选条件的素材' : '资产库还没有素材，点右上角「上传」加进来。'}</div>
+                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 8, background: '#fff', color: '#8a929d', fontSize: 12 }}>{projectAssetLibrary.length ? '没有符合筛选条件的素材' : '资产库还没有素材，点右上角「上传」加进来。'}</div>
               )}
             </section>
               </div>

@@ -23,7 +23,7 @@ const INPUT = {
   transition: 'border-color 0.2s',
 };
 const BTN = {
-  width: '100%', padding: '13px 0', border: 'none', borderRadius: 10,
+  width: '100%', padding: '13px 0', border: 'none', borderRadius: 8,
   fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
   background: 'var(--sb-brand-600)', color: 'var(--sb-neutral-0)', transition: 'all 0.2s',
 };
@@ -229,7 +229,7 @@ export default function EcLegacyForm() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {images.map(([label, url]) => (
-            <div key={label} style={{ background: 'var(--sb-neutral-0)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(12,10,9,0.06)' }}>
+            <div key={label} style={{ background: 'var(--sb-neutral-0)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(12,10,9,0.06)' }}>
               <div style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: 'var(--sb-neutral-25)', borderBottom: '1px solid var(--sb-neutral-100)' }}>{label}</div>
               <img
                 src={url?.startsWith('data:') ? url : proxyImg(url)}
@@ -383,7 +383,7 @@ export default function EcLegacyForm() {
               <button key={s.key} type="button" aria-pressed={stylePack === s.key} onClick={() => setStylePack(s.key)} style={{
                 appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 border: `2px solid ${stylePack === s.key ? 'var(--sb-brand-600)' : 'var(--sb-neutral-150)'}`,
-                borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'center',
+                borderRadius: 8, padding: '10px 12px', cursor: 'pointer', textAlign: 'center',
                 background: stylePack === s.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                 transition: 'all 0.15s',
               }}
@@ -427,7 +427,7 @@ export default function EcLegacyForm() {
               <button key={t.key} type="button" aria-pressed={tier === t.key} onClick={() => setTier(t.key)} style={{
                 appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 flex: 1, border: `2px solid ${tier === t.key ? 'var(--sb-brand-600)' : 'var(--sb-neutral-150)'}`,
-                borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'center',
+                borderRadius: 8, padding: '12px', cursor: 'pointer', textAlign: 'center',
                 background: tier === t.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)', transition: 'all 0.15s',
               }}
               onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
@@ -477,7 +477,7 @@ export default function EcLegacyForm() {
       </button>
       {genProgress && <div style={{ marginTop: 8, textAlign: 'center', fontSize: 12, color: 'var(--sb-brand-600)' }}>{genProgress}</div>}
       {Object.keys(inProgressPreview).length > 0 && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: '1px solid #C7D2FE', background: '#F8FAFF' }}>
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: '1px solid #C7D2FE', background: '#F8FAFF' }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-brand-600)', marginBottom: 8 }}>生成中预览 · 任务仍可继续</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.values(inProgressPreview).map(image => (

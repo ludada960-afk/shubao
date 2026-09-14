@@ -34,7 +34,7 @@ const CAT_PILL_ACTIVE = {
 };
 
 const CARD = {
-  borderRadius: 10,
+  borderRadius: 12,
   border: '1px solid rgba(15,23,42,.08)',
   background: '#fff',
   overflow: 'hidden',

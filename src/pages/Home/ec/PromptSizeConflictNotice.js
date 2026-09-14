@@ -11,7 +11,7 @@ const h = React.createElement;
 const BOX_STYLE = {
   marginTop: 10,
   padding: '10px 12px',
-  borderRadius: 10,
+  borderRadius: 12,
   background: '#FFF8E7',
   border: '1px solid #F3D9A4',
   color: '#7A4E00',

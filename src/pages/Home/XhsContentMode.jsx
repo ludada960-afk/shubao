@@ -1057,7 +1057,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     // 灵图AI风格选项按钮
     const optBtn = (active, accentColor) => ({
       padding: '8px 14px',
-      borderRadius: 10,
+      borderRadius: 8,
       border: active ? `1.5px solid ${accentColor || 'var(--accent)'}` : '1.5px solid transparent',
       background: active ? (accentColor || 'var(--accent)') : 'rgba(12,10,9,0.04)',
       color: active ? 'var(--sb-neutral-0)' : 'var(--text-muted)',
@@ -1248,7 +1248,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   <button key={i} onClick={() => { setText(h); setTopicsOpen(false); }}
                     style={{
                       padding: '8px 14px',
-                      borderRadius: 10,
+                      borderRadius: 8,
                       border: '1.5px solid rgba(12,10,9,0.06)',
                       background: 'var(--sb-neutral-0)',
                       fontSize: 13, fontWeight: 500,
@@ -1303,7 +1303,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         </div>
 
         {/* Error */}
-        {err && <div style={{ padding:'8px 14px', margin:'4px 16px 0', background:'var(--sb-danger-soft)', borderRadius:10, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
+        {err && <div style={{ padding:'8px 14px', margin:'4px 16px 0', background:'var(--sb-danger-soft)', borderRadius:8, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
       </div>
     );
   }
@@ -1315,7 +1315,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
           background: toast.type === 'success' ? '#065F46' : '#991B1B',
-          color: 'var(--sb-neutral-0)', padding: '12px 24px', borderRadius: 10,
+          color: 'var(--sb-neutral-0)', padding: '12px 24px', borderRadius: 20,
           boxShadow: '0 4px 20px rgba(12,10,9,0.2)',
           fontSize: 14, fontWeight: 500, maxWidth: '90vw',
           animation: 'slideDown 0.3s ease',
@@ -1361,7 +1361,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {isXHS && (
               <div>
                 {/* 子模式切换 */}
-                <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'var(--sb-neutral-200)', borderRadius:10 }}>
+                <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'var(--sb-neutral-200)', borderRadius:12 }}>
                   <button type="button" aria-pressed={xhsSubMode === 'content'} onClick={() => setXhsSubMode('content')}
                     style={{
                       appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
@@ -1596,7 +1596,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-brand-700)'; e.currentTarget.style.color = 'var(--sb-brand-700)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-200)'; e.currentTarget.style.color = 'var(--sb-ink-2)'; }}>
                       <Upload size={13} /> 上传商品参考图
-                      {ecRefImgs.length > 0 && <span style={{ background: 'var(--sb-brand-50)', color: 'var(--sb-brand-700)', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10 }}>{ecRefImgs.length}</span>}
+                      {ecRefImgs.length > 0 && <span style={{ background: 'var(--sb-brand-50)', color: 'var(--sb-brand-700)', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 8 }}>{ecRefImgs.length}</span>}
                     </button>
                     <span className="ref-hint">正面照最有用，1 张也能出图</span>
                   </div>
@@ -1632,7 +1632,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
                 {err && <div className="error-bar">{err}</div>}
                 <button className="gen-btn" onClick={doGenEC} disabled={!ecName.trim() || genECLoading}
-                  style={{ margin:'12px 16px', width:'calc(100% - 32px)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'11px 24px', border:'none', borderRadius:10, background: genECLoading ? 'var(--sb-ink-4)' : 'var(--sb-brand-700)', color:'var(--sb-neutral-0)', fontSize:14, fontWeight:600, cursor: genECLoading ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow: genECLoading ? 'none' : '0 4px 16px rgba(67,56,202,0.25)' }}>
+                  style={{ margin:'12px 16px', width:'calc(100% - 32px)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'11px 24px', border:'none', borderRadius:8, background: genECLoading ? 'var(--sb-ink-4)' : 'var(--sb-brand-700)', color:'var(--sb-neutral-0)', fontSize:14, fontWeight:600, cursor: genECLoading ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow: genECLoading ? 'none' : '0 4px 16px rgba(67,56,202,0.25)' }}>
                   <MdAutoAwesome size={15} /> {genECLoading ? '生成中...' : '一键生成全套电商图'}
                 </button>
                 <div className="gen-hint" style={{ padding:'0 16px', marginTop:8, color:'var(--sb-ink-3)', fontSize:12 }}>
@@ -1642,7 +1642,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 </div>
 
                 {genECLoading && (
-                  <div style={{ margin:'12px 16px', padding:'14px 16px', background:'var(--sb-brand-50)', borderRadius:10, textAlign:'center' }}>
+                  <div style={{ margin:'12px 16px', padding:'14px 16px', background:'var(--sb-brand-50)', borderRadius:12, textAlign:'center' }}>
                     <div style={{ width:32, height:32, border:'2px solid var(--sb-brand-100)', borderTopColor:'var(--sb-brand-700)', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 10px' }} />
                     <div style={{ fontSize:13, color:'var(--sb-brand-700)', fontWeight:500 }}>{ecLoadingMsg}</div>
                     {Object.keys(inProgressPreview).length > 0 && (
@@ -1657,7 +1657,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   </div>
                 )}
                 {!genECLoading && Object.keys(inProgressPreview).length > 0 && (
-                  <div style={{ margin:'12px 16px', padding:'12px 14px', background:'#F8FAFF', borderRadius:10, border:'1px solid var(--sb-brand-200)' }}>
+                  <div style={{ margin:'12px 16px', padding:'12px 14px', background:'#F8FAFF', borderRadius:12, border:'1px solid var(--sb-brand-200)' }}>
                     <div style={{ fontSize:12, color:'var(--sb-brand-700)', fontWeight:600, marginBottom:8 }}>生成中预览 · 任务仍可继续</div>
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                       {Object.values(inProgressPreview).map(image => (
@@ -1823,7 +1823,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             </div>
 
             {/* 拍摄建议 */}
-            <div style={{ background:'var(--sb-brand-50)', borderRadius:10, padding:14, marginBottom:20 }}>
+            <div style={{ background:'var(--sb-brand-50)', borderRadius:12, padding:14, marginBottom:20 }}>
               <div style={{ fontSize:13, fontWeight:600, color:'var(--sb-brand-700)', marginBottom:8 }}>🎯 什么样的图最有用？</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 16px', fontSize:12, color:'var(--sb-ink-2)', lineHeight:1.8 }}>
                 <span>• <b>正面照</b> — 产品整体外观</span>
@@ -1837,7 +1837,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             </div>
 
             <button onClick={() => setShowRefModal(false)}
-              style={{ width:'100%', padding:'12px 0', border:'none', borderRadius:10, background:'var(--sb-brand-700)', color:'var(--sb-neutral-0)', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              style={{ width:'100%', padding:'12px 0', border:'none', borderRadius:8, background:'var(--sb-brand-700)', color:'var(--sb-neutral-0)', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
               完成 ({ecRefImgs.length} 张)
             </button>
           </div>

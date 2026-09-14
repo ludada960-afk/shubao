@@ -69,7 +69,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
           {loading ? (
             <div style={{ padding: 24, textAlign: 'center', color: '#8a929d', fontSize: 12 }}>正在读取素材…</div>
           ) : error ? (
-            <div role="alert" style={{ padding: 14, border: '1px solid var(--sb-danger-border)', borderRadius: 10, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{error}</div>
+            <div role="alert" style={{ padding: 14, border: '1px solid var(--sb-danger-border)', borderRadius: 8, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{error}</div>
           ) : !assets.length ? (
             <div style={{ padding: 24, textAlign: 'center', color: '#8a929d', fontSize: 12 }}>
               资产库暂无可用的{mediaKind === 'image' ? '图片' : mediaKind === 'video' ? '视频' : '音频'}素材。
@@ -87,7 +87,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
                     type="button"
                     onClick={() => toggle(asset)}
                     style={{
-                      position: 'relative', padding: 0, overflow: 'hidden', borderRadius: 10,
+                      position: 'relative', padding: 0, overflow: 'hidden', borderRadius: 8,
                       border: isPicked ? '2px solid var(--sb-sel-line)' : '1px solid #e7eaee',
                       background: 'var(--sb-neutral-0)', cursor: 'pointer', textAlign: 'left',
                     }}

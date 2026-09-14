@@ -1175,7 +1175,7 @@ const DEFAULT_BUTTONS = [
                           position: 'relative',
                           width: 64,
                           height: 64,
-                          borderRadius: 10,
+                          borderRadius: 8,
                           overflow: 'hidden',
                           border: '2px solid var(--sb-neutral-150)',
                           flex: '0 0 auto'
@@ -1243,7 +1243,7 @@ const DEFAULT_BUTTONS = [
                       style={{
                         width: 64,
                         height: 64,
-                        borderRadius: 10,
+                        borderRadius: 8,
                         border: '2px dashed var(--sb-neutral-300)',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1399,7 +1399,7 @@ const DEFAULT_BUTTONS = [
                           position: 'relative',
                           width: 64,
                           height: 64,
-                          borderRadius: 10,
+                          borderRadius: 8,
                           overflow: 'hidden',
                           border: '2px solid var(--sb-neutral-150)',
                           flex: '0 0 auto'
@@ -1449,7 +1449,7 @@ const DEFAULT_BUTTONS = [
                       style={{
                         width: 64,
                         height: 64,
-                        borderRadius: 10,
+                        borderRadius: 8,
                         border: '2px dashed var(--sb-neutral-300)',
                         display: 'flex',
                         flexDirection: 'column',

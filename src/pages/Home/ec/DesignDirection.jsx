@@ -1018,7 +1018,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               />
 
               {supplementError && (
-                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 11 }}>
+                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 11 }}>
                   {supplementError}
                 </div>
               )}
@@ -1153,7 +1153,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             <p>未生成设计方向，请检查输入后重试</p>
             <button type="button" onClick={loadDirections} style={{
               appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '8px 18px', borderRadius: 10,
+              padding: '8px 18px', borderRadius: 8,
               background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)',
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
               marginTop: 12, border: 'none',

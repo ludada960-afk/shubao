@@ -12,7 +12,7 @@ const OVERLAY = { position: 'fixed', inset: 0, zIndex: 400, display: 'flex', ali
 const PANEL = { position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' };
 const TAB = { padding: '6px 12px', borderRadius: 999, border: '1px solid rgba(15,23,42,.08)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const TAB_ACTIVE = { ...TAB, background: 'var(--sb-brand-600)', color: '#fff', borderColor: 'var(--sb-brand-600)' };
-const CARD = { borderRadius: 10, border: '1px solid rgba(15,23,42,.08)', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all .18s ease' };
+const CARD = { borderRadius: 12, border: '1px solid rgba(15,23,42,.08)', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all .18s ease' };
 
 /* 图缩略: 按节点 bbox 等比缩放进 216x120, 槽位琥珀虚线, 连线带箭头。零外部依赖。*/
 function TemplateGraphThumb({ graph }) {
@@ -192,7 +192,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
       </div>
 
       {loading ? <div style={{ padding: '24px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-        {Array.from({ length: 6 }, (item, index) => <div key={index} style={{ borderRadius: 10, border: '1px solid rgba(15,23,42,.06)', height: 210, background: 'linear-gradient(100deg,#f8fafc 30%,#eef2f7 50%,#f8fafc 70%)', backgroundSize: '200% 100%', animation: 'skeletonShimmer 1.4s infinite linear' }} />)}
+        {Array.from({ length: 6 }, (item, index) => <div key={index} style={{ borderRadius: 12, border: '1px solid rgba(15,23,42,.06)', height: 210, background: 'linear-gradient(100deg,#f8fafc 30%,#eef2f7 50%,#f8fafc 70%)', backgroundSize: '200% 100%', animation: 'skeletonShimmer 1.4s infinite linear' }} />)}
       </div>
       : error ? <div style={{ padding: '48px 20px', textAlign: 'center' }}>
           <div style={{ fontSize: 28, lineHeight: 1 }}>⚠️</div>
