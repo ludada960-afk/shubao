@@ -32,6 +32,11 @@ import { insertImageMentionAt } from '../../components/creation/imageMentionMode
 import { EcommerceAddCard, EcommerceImageCard } from './ec/components/EcommerceAssetCards.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
+/* 面板宽度的**唯一事实源**（ec/panelVisualLanguage.js）。
+   此前本文件另有一份宽度表 { recipe: 440, specs: 500, settings: 460 } —— 那是「第二套真相」，
+   同一个产品里同一类浮层面板却有三组宽度，正是用户说的「面板宽不统一」。
+   现统一走 resolvePanelWidth（480 标准档 + 窄屏兜底），并接受 PANEL_WIDTH_TABLE 的审计。 */
+import { resolvePanelWidth } from './ec/panelVisualLanguage.js';
 import {
   VISUAL_CREATION_SKILLS,
   VISUAL_RATIO_OPTIONS,
@@ -195,10 +200,11 @@ function getVisualPanelPosition(panelId, button) {
   const rect = button.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
-  const baseWidth = { recipe: 440, specs: 500, settings: 460 }[panelId] || 460;
-  /* 9-11 二轮用户批注: 面板打开要「一眼看全」— 提高目标高度, 并用满可用空间 (最多 92vh) */
+  /* 9-11 二轮用户批注: 面板打开要「一眼看全」— 提高目标高度, 并用满可用空间 (最多 92vh)
+     注：**高度**按面板内容多寡分档是有依据的（内容量不同），
+     而**宽度**没有这种依据（都是单/双列表单），故宽度统一走唯一真源。 */
   const desiredHeight = { recipe: 720, specs: 620, settings: 740 }[panelId] || 620;
-  const width = Math.min(Math.max(baseWidth, 400), Math.max(320, viewportWidth - 32));
+  const width = resolvePanelWidth(viewportWidth);
   const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16));
   const gap = 10;
   const availableAbove = Math.max(0, rect.top - gap - 16);
