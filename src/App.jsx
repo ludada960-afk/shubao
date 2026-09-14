@@ -155,15 +155,16 @@ function TopBar() {
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
       <div className="topbar-row">
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
-        <div className="topbar-brand" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
+        {/* D11 键盘可达：Logo 是「回首页」导航动作 → button + 重置默认样式（外观零变化） */}
+        <button type="button" className="topbar-brand" aria-label="回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           style={{ cursor: 'pointer' }}>
           <span className="topbar-brand-mark">
-            <img src={IMAGES.appicon} alt="薯包AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={IMAGES.appicon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </span>
           <span className="topbar-logo">
             薯包 AI
           </span>
-        </div>
+        </button>
 
         <CreativeDomainNav />
 

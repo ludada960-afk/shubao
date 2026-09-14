@@ -408,8 +408,8 @@ function CreativeDomainNav() {
       </button>
 
       {mobileOpen && typeof document !== 'undefined' && createPortal(
-        <div className="creative-nav-mobile-backdrop" role="presentation" onClick={() => setMobileOpen(false)}>
-          <aside className="creative-nav-mobile-drawer" role="dialog" aria-modal="true" aria-label="创作导航" onClick={event => event.stopPropagation()}>
+        <div className="creative-nav-mobile-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setMobileOpen(false); }}>
+          <aside className="creative-nav-mobile-drawer" role="dialog" aria-modal="true" aria-label="创作导航">
             <div className="creative-nav-mobile-head"><div><small>薯包 AI</small><strong>选择你的创作方向</strong></div><button type="button" aria-label="关闭创作导航" onClick={() => setMobileOpen(false)}><X size={19} /></button></div>
             <div className="creative-nav-mobile-groups">
               {CREATIVE_NAV_GROUPS.map(group => {

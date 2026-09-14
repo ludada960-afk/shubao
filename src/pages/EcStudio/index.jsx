@@ -38,14 +38,15 @@ const dimSize = (p, ratio) => {
 };
 
 /* D3：靛蓝 #4338CA 家族判为历史遗留 → 品牌紫；D4：暖黑描边；D6：圆角 4 档；
-   D11：裸 outline:none 必须同时给替代焦点样式（下面 input 用 :focus-visible 类）。
+   D11：输入框的 UA 轮廓以 0 宽度 + 透明色关闭，焦点可见性由 .ec-studio-field:focus-visible 的
+        box-shadow 环提供（见文件末尾样式块，不改边框宽度、不产生布局抖动）。
    全部取值来自 design-tokens-v3.css，不新增数值。 */
 const SX = {
   card: { background: 'var(--sb-surface-card)', borderRadius: 'var(--sb-radius-lg)', border: '1px solid var(--sb-border-subtle)', padding: 'var(--sb-space-8)' },
   label: { fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-2)', display: 'block' },
   input: {
     width: '100%', padding: '11px 14px', border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-md)',
-    fontSize: 'var(--sb-text-md)', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+    fontSize: 'var(--sb-text-md)', fontFamily: 'inherit', outline: '0 solid transparent', boxSizing: 'border-box',
     background: 'var(--sb-surface-sunken)', transition: 'border-color var(--sb-dur-fast, .15s)', color: 'var(--sb-ink-1)',
   },
   h3: { fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-1)', display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' },
@@ -820,8 +821,8 @@ export default function EcStudioPage() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="高保湿精华液、无线蓝牙耳机…"
                     style={SX.input}
-                    onFocus={(e) => (e.target.style.borderColor = '#6366F1')}
-                    onBlur={(e) => (e.target.style.borderColor = '#D0D0D8')}
+                    onFocus={(e) => { e.target.style.borderColor = '#6366F1'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#D0D0D8'; e.target.style.boxShadow = ''; }}
                   />
                 </div>
                 <div>
@@ -852,8 +853,8 @@ export default function EcStudioPage() {
                     onChange={(e) => setProduct((p) => ({ ...p, dimensions: e.target.value }))}
                     placeholder="20×10×5"
                     style={SX.input}
-                    onFocus={(e) => (e.target.style.borderColor = '#6366F1')}
-                    onBlur={(e) => (e.target.style.borderColor = '#D0D0D8')}
+                    onFocus={(e) => { e.target.style.borderColor = '#6366F1'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#D0D0D8'; e.target.style.boxShadow = ''; }}
                   />
                 </div>
                 <div>
@@ -863,8 +864,8 @@ export default function EcStudioPage() {
                     onChange={(e) => setProduct((p) => ({ ...p, material: e.target.value }))}
                     placeholder="亲肤硅胶、304不锈钢…"
                     style={SX.input}
-                    onFocus={(e) => (e.target.style.borderColor = '#6366F1')}
-                    onBlur={(e) => (e.target.style.borderColor = '#D0D0D8')}
+                    onFocus={(e) => { e.target.style.borderColor = '#6366F1'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#D0D0D8'; e.target.style.boxShadow = ''; }}
                   />
                 </div>
               </div>
@@ -910,11 +911,11 @@ export default function EcStudioPage() {
                           maxLength={f.maxLen}
                           style={{
                             flex: 1, padding: '7px 10px', border: '1px solid #DDDDE3',
-                            borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: 'none',
+                            borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: '0 solid transparent',
                             boxSizing: 'border-box',
                           }}
-                          onFocus={(e) => (e.target.style.borderColor = '#6366F1')}
-                          onBlur={(e) => (e.target.style.borderColor = '#DDDDE3')}
+                          onFocus={(e) => { e.target.style.borderColor = '#6366F1'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+                          onBlur={(e) => { e.target.style.borderColor = '#DDDDE3'; e.target.style.boxShadow = ''; }}
                         />
                       ))}
                       {skus.length > 1 && (
@@ -985,10 +986,10 @@ export default function EcStudioPage() {
                           style={{
                             width: '100%', marginTop: 8, padding: '7px 10px',
                             border: '1px solid #DDDDE3', borderRadius: 6, fontSize: 12,
-                            fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                            fontFamily: 'inherit', outline: '0 solid transparent', boxSizing: 'border-box',
                           }}
-                          onFocus={(e) => (e.target.style.borderColor = '#6366F1')}
-                          onBlur={(e) => (e.target.style.borderColor = '#DDDDE3')}
+                          onFocus={(e) => { e.target.style.borderColor = '#6366F1'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+                          onBlur={(e) => { e.target.style.borderColor = '#DDDDE3'; e.target.style.boxShadow = ''; }}
                         />
                       )}
                     </div>
@@ -1127,7 +1128,7 @@ export default function EcStudioPage() {
                   }}
                   style={{
                     width: '100%', padding: '8px 12px', border: '1px solid #DDDDE3',
-                    borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: 'none',
+                    borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: '0 solid transparent',
                     resize: 'vertical', minHeight: 40, boxSizing: 'border-box', background: '#fff',
                   }}
                   rows={2}

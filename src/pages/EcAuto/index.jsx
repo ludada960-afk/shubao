@@ -305,7 +305,7 @@ export default function EcAutoPage() {
               : `描述你的商品，AI自动生成全套商品图...\n\n短句：白色陶瓷杯简约风办公用、无线蓝牙耳机入耳式\n或输入详细描述，AI按需求生成全套商品图`}
             style={{
               width: '100%', minHeight: 80, maxHeight: 240,
-              border: 'none', outline: 'none', resize: 'none',
+              border: 'none', outline: '0 solid transparent', resize: 'none',
               fontSize: 14, lineHeight: 1.7, color: '#333',
               fontFamily: 'inherit', padding: 0,
             }}

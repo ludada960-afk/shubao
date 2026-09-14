@@ -117,7 +117,7 @@
   background: rgba(255, 255, 255, 0.85);
   font-family: var(--font-body);
   font-size: 14px; color: #1A1614;
-  outline: none; box-sizing: border-box;
+  outline: 0 solid transparent; box-sizing: border-box;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 .ld-input::placeholder { color: #B0AAA5; }

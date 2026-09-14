@@ -51,11 +51,35 @@ export default function Popover({ id, trigger, children, align = 'left', width =
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen]);
 
+  /* D11 键盘可达：原实现在 display:contents 包装层上挂 onClick —— 键盘无法聚焦/触发，
+     且包装层不是语义元素。改为把语义（role/aria-expanded/键盘激活）注入触发器本身，
+     包装层退回纯测量锚点（display:contents 不产生盒子，视觉零变化）。 */
+  const triggerNode = React.isValidElement(trigger)
+    ? React.cloneElement(trigger, {
+        'aria-haspopup': 'true',
+        'aria-expanded': isOpen,
+        onClick: (event) => {
+          trigger.props.onClick?.(event);
+          if (event.defaultPrevented) return;
+          isOpen ? close() : open();
+        },
+        onKeyDown: (event) => {
+          trigger.props.onKeyDown?.(event);
+          if (event.defaultPrevented) return;
+          if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+            event.preventDefault();
+            isOpen ? close() : open();
+          }
+          if (event.key === 'Escape' && isOpen) { event.preventDefault(); close(); }
+        },
+      })
+    : trigger;
+
   return (
     <>
-      <div ref={anchorRef} onClick={isOpen ? close : open} style={{ display: 'contents' }}>
-        {trigger}
-      </div>
+      <span ref={anchorRef} style={{ display: 'contents' }}>
+        {triggerNode}
+      </span>
       {isOpen && (
         <div ref={panelRef} style={{
           position: 'fixed',

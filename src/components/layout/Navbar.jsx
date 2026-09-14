@@ -48,7 +48,8 @@ export default function Navbar() {
         boxShadow: '0 12px 30px rgba(57,45,26,0.10)',
       }}>
         {/* Left: Logo */}
-        <div onClick={() => nav('home')}
+        {/* D11 键盘可达：Logo 是「回首页」导航动作 → button（.a11y-reset 归零 UA 默认外观） */}
+        <button type="button" className="a11y-reset" aria-label="回到首页" onClick={() => nav('home')}
           style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
           <span style={{
             display: 'flex', width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
@@ -62,7 +63,7 @@ export default function Navbar() {
             fontSize: 22, fontWeight: 900, lineHeight: 1,
             color: 'var(--accent)', letterSpacing: '-0.3px',
           }}>薯包AI</span>
-        </div>
+        </button>
 
         {/* Center: Nav items */}
         <div style={{

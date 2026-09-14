@@ -116,8 +116,8 @@ function MediaLightbox({ entry, onClose }) {
   }, [entry]);
   if (!entry) return null;
   const kind = fileKind(entry.file);
-  return <div className="video-lightbox" role="dialog" aria-modal="true" onClick={onClose}>
-    <div className="video-lightbox-body" onClick={event => event.stopPropagation()}>
+  return <div className="video-lightbox" role="dialog" aria-modal="true" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="video-lightbox-body">
       <header><strong>{entry.file.name}</strong><button type="button" className="video-lightbox-close" aria-label="关闭预览" onClick={onClose}><X size={16} /></button></header>
       {kind === 'image' && url ? <img src={url} alt={entry.file.name} /> : null}
       {kind === 'video' && url ? <video src={url} controls autoPlay /> : null}
@@ -203,7 +203,16 @@ function VideoPlanModal({ plan, onClose, onConfirm }) {
         {plan.analyzed && (plan.creativeStrategy || plan.risks?.length > 0) && <section className="video-plan-section video-plan-notices"><div className="video-plan-section-title"><strong>策略与风险</strong><span>提交前可返回调整</span></div>{plan.creativeStrategy && <div className="video-plan-strategy">{plan.creativeStrategy}</div>}{plan.risks?.map((item, index) => <div className="video-plan-notice" key={`${item}-${index}`}><Aperture size={15} /><span><strong>需要留意</strong><small>{item}</small></span></div>)}</section>}
         {(plan.blockers.length > 0 || plan.warnings.length > 0) && <section className="video-plan-section video-plan-notices"><div className="video-plan-section-title"><strong>提交前检查</strong><span>{plan.blockers.length ? `${plan.blockers.length} 项待处理` : '可以继续'}</span></div>{plan.blockers.map(item => <div className="video-plan-notice is-blocking" key={item.code}><X size={15} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}{plan.warnings.map(item => <div className="video-plan-notice" key={item.code}><Aperture size={15} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</section>}
       </div>
-      <footer className="video-plan-footer"><span>{plan.cost ? `成片预计 ${Math.ceil(Number(plan.cost.units || 0) / 1000)} AI 积分，点击开始生成后才会冻结` : '成片报价加载中，提交时会再次校验费用'}</span><div><button type="button" className="video-plan-secondary" onClick={onClose}>返回调整</button><button type="button" className="video-plan-primary" disabled={!plan.ready || !plan.analyzed} onClick={onConfirm}><Check size={16} />确认生成方案</button></div></footer>
+      {/* 9-18（P0）「值对了，覆盖面没到」——本处原先自写 footer（自写 flex/gap/高度/圆角/渐变主按钮），
+          现改用契约类；主按钮由**双色渐变**改为**品牌实底纯色**（D1：渐变禁用于功能按钮），
+          与次按钮的重量差随之收敛。 */}
+      <div className="ui-modal-footer is-lg video-plan-footer">
+        <span className="ui-modal-footer-meta">{plan.cost ? `成片预计 ${Math.ceil(Number(plan.cost.units || 0) / 1000)} AI 积分，点击开始生成后才会冻结` : '成片报价加载中，提交时会再次校验费用'}</span>
+        <div className="ui-modal-footer-actions">
+          <button type="button" className="ui-btn ui-btn-secondary" onClick={onClose}>返回调整</button>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={!plan.ready || !plan.analyzed} onClick={onConfirm}><Check size={16} />确认生成方案</button>
+        </div>
+      </div>
     </section>
   </div>, document.body);
 }

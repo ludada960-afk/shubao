@@ -67,7 +67,8 @@ function TemplateDetail({ tpl, usage, onClose, onClone, busy }) {
   const live = usage || { likes: tpl.likes, downloads: tpl.downloads };
   return (
     <div className="tpl-modal-backdrop" role="dialog" aria-modal="true" aria-label={`${tpl.name} 详情`} onClick={onClose}>
-      <div className="tpl-modal" onClick={e => e.stopPropagation()}>
+      {/* 面板只是吞掉冒泡 → onMouseDown 校验 target，删掉嵌套交互元素 */}
+      <div className="tpl-modal" role="presentation">
         <header className="tpl-modal-head">
           <div className="tpl-modal-title">
             <span className="tpl-modal-cat">{tpl.cat}</span>
@@ -95,18 +96,21 @@ function TemplateDetail({ tpl, usage, onClose, onClone, busy }) {
               <span><Heart size={14} /> {fmt(live.likes)} 赞</span>
               <span><Download size={14} /> {fmt(live.downloads)} 下载</span>
             </div>
-            <div className="tpl-modal-actions">
-              <button
-                type="button"
-                className="tpl-modal-clone"
-                onClick={() => onClone(tpl)}
-                disabled={busy}
-                aria-label={`复制 ${tpl.name} 到画布`}
-              >
-                <Sparkles size={16} />
-                {busy ? '复制中…' : '复制到画布'}
-                <ChevronRight size={16} />
-              </button>
+            {/* 9-18（P0）：改用契约类（原为自写 .tpl-modal-actions + .tpl-modal-clone）。 */}
+            <div className="ui-modal-footer tpl-modal-actions">
+              <div className="ui-modal-footer-actions">
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-primary"
+                  onClick={() => onClone(tpl)}
+                  disabled={busy}
+                  aria-label={`复制 ${tpl.name} 到画布`}
+                >
+                  <Sparkles size={16} />
+                  {busy ? '复制中…' : '复制到画布'}
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>

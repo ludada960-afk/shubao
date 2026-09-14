@@ -347,11 +347,16 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border);
-  outline: none;
+  outline: 0 solid transparent;
   margin: 0;
   padding: 0;
   cursor: pointer;
   transition: background var(--duration-fast, 160ms) var(--ease-out, ease);
+}
+/* D11：range 的 outline 归零后补替代焦点环（box-shadow，不改变滑块几何） */
+.ec-canvas-right-panel__row input[type="range"]:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-shadow-ring);
 }
 .ec-canvas-right-panel__row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;

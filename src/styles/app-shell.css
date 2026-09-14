@@ -19,6 +19,25 @@
   align-items: center;
   gap: 16px;
   justify-self: start;
+  /* D11：元素已由 div 升为 <button>（键盘可达）。归零 button 的 UA 默认外观，
+     几何/排版仍由上面的规则决定 → 视觉与改造前一致。
+     焦点可见性交给 :focus-visible 的 box-shadow 环，不改边框宽度、不产生布局抖动。 */
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  text-align: inherit;
+  cursor: pointer;
+}
+.topbar-brand:focus { outline: 0 solid transparent; }
+.topbar-brand:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-shadow-ring);
+  border-radius: var(--sb-radius-md, 10px);
 }
 
 .topbar-brand-mark {

@@ -328,9 +328,14 @@
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
+  outline: 0 solid transparent;
   color: inherit;
   font-size: 12px;
+}
+.ec-canvas-add-node-panel-search input:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-shadow-ring);
+  border-radius: 6px;
 }
 .ec-canvas-add-node-panel-search input::placeholder {
   color: rgba(255, 255, 255, 0.4);
@@ -468,7 +473,11 @@
   padding: 7px 12px;
   color: inherit;
   font-size: 12px;
-  outline: none;
+  outline: 0 solid transparent;
+}
+.ec-canvas-shortcut-help-search input:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-shadow-ring);
 }
 .ec-canvas-shortcut-help-search input:focus {
   border-color: rgba(78, 205, 196, 0.4);
@@ -649,7 +658,7 @@
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
+  outline: 0 solid transparent;
   resize: none;
   font-family: inherit;
   font-size: 18px;

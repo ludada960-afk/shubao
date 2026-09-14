@@ -136,7 +136,8 @@
 .content-reference-add:focus-visible {
   border-color: #9a7b5b;
   color: #765e45;
-  outline: none;
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-shadow-ring);
 }
 
 .content-reference-slot-hint {

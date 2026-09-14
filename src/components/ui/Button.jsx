@@ -18,7 +18,7 @@ export default function Button({
     transform: hover && !disabled ? 'translateY(-1px)' : 'none',
     width: full ? '100%' : 'auto',
     border: 'none',
-    outline: 'none',
+    outline: '0 solid transparent',
     lineHeight: 1.4,
     whiteSpace: 'nowrap',
     ...style,

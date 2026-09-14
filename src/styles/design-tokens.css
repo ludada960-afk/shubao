@@ -107,8 +107,11 @@
   --footer-actions-button-height-lg: 40px;         /* 大弹窗 */
   --footer-actions-button-min-width: 88px;         /* 最小宽度，保证主次等重 */
   --footer-actions-radius: 10px;                   /* 按钮圆角（主次一致） */
-  --footer-actions-primary-bg: #7454f3;            /* 主按钮底色 */
-  --footer-actions-primary-bg-hover: #6a48ee;
+  /* 9-18 用户批注（P0）：「主按钮是双色渐变实心块、次按钮是描边幽灵块 → 视觉重量失衡」
+     → 主按钮底色改为**品牌实底纯色**（唯一来源 = --sb-brand-600），
+       与次按钮的重量差收敛；渐变按 D1 只留给品牌时刻（logo/hero/空态），功能按钮不用。 */
+  --footer-actions-primary-bg: var(--sb-brand-600);       /* 主按钮底色 = 品牌紫实底（非渐变） */
+  --footer-actions-primary-bg-hover: var(--sb-brand-700); /* 悬停加深，仍是品牌色阶 */
   --footer-actions-primary-disabled-bg: #e5e3e0;   /* 禁用：明确底色，不是「变灰看不清」 */
   --footer-actions-primary-disabled-text: #a8a39e; /* 禁用：明确文字色 */
   --footer-actions-border: rgba(28, 25, 23, .12);
@@ -356,12 +359,17 @@ input, textarea { font-family: inherit; }
   background: transparent;
   font-size: var(--text-lg);
   color: var(--text-primary);
-  outline: none;
+  outline: 0 solid transparent;
   padding: 0;
   line-height: 1.6;
 }
 .input-lingtu::placeholder {
   color: var(--text-hint);
+}
+/* D11：outline 归零后必须给替代焦点样式（box-shadow 环，不改边框宽度/不抖动） */
+.input-lingtu:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-shadow-ring);
 }
 
 /* ── Animations（保留原版本）── */

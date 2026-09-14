@@ -102,10 +102,10 @@ function VisionFeedback() {
 
       <div className="vision-stage" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onFile(e.dataTransfer.files && e.dataTransfer.files[0]); }}>
         {!image && (
-          <div className="vision-empty" onClick={() => fileRef.current && fileRef.current.click()}>
+          <button type="button" className="vision-empty a11y-reset" onClick={() => fileRef.current && fileRef.current.click()}>
             <strong>拖入截图 / 点击上传</strong>
             <small>PNG / JPG / WebP / GIF · 最大 12MB</small>
-          </div>
+          </button>
         )}
         {image && (
           <div className="vision-canvas">

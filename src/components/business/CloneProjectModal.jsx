@@ -223,7 +223,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
               placeholder={projectTitle ? projectTitle + ' - 派生' : '输入新标题'}
               style={{
                 border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px',
-                fontSize: 13, color: '#0f172a', background: '#ffffff', outline: 'none',
+                fontSize: 13, color: '#0f172a', background: '#ffffff', outline: '0 solid transparent',
               }}
             />
           </label>
@@ -235,7 +235,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
               onChange={(event) => setTargetKind(event.target.value)}
               style={{
                 border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px',
-                fontSize: 13, color: '#0f172a', background: '#ffffff', outline: 'none',
+                fontSize: 13, color: '#0f172a', background: '#ffffff', outline: '0 solid transparent',
               }}
             >
               <option value="">继承源项目类型</option>

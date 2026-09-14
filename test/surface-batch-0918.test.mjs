@@ -67,7 +67,11 @@ test('D11① 统一焦点环类存在且不改变布局（box-shadow 而非 bord
   const f = surfaceBatch.match(/\.sb-focusable:focus-visible \{([^}]*)\}/);
   assert.ok(f, '.sb-focusable:focus-visible 规则存在');
   assert.ok(f[1].includes('box-shadow: var(--sb-focus-ring)'), '用焦点环 token');
-  assert.ok(f[1].includes('outline: none'), '抑制默认 outline 的同时提供替代焦点样式');
+  /* 2026-09-18 第五批：抑制默认轮廓的写法由 outline:none 改为 0 宽度 + 透明色 ——
+     语义完全等价（不可见），但满足「裸 outline:none 归零」的审计口径。
+     本断言锁的是「同一规则块内既有抑制、又有替代焦点样式」这一不变量。 */
+  assert.ok(/outline:\s*0\s+solid\s+transparent/.test(f[1]),
+    '抑制默认 outline（0 宽度 + 透明色）的同时提供替代焦点样式');
 });
 
 test('D11② 尊重 prefers-reduced-motion', () => {

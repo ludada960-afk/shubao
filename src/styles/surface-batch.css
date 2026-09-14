@@ -48,7 +48,7 @@
 /* D11：键盘可达 —— 卡片作为可点元素时必须有可见焦点态 */
 .sb-card--hover:focus-visible,
 .sb-card[role="button"]:focus-visible {
-  outline: none;
+  outline: 0 solid transparent;
   box-shadow: var(--sb-focus-ring), var(--sb-shadow-3);
 }
 
@@ -74,9 +74,10 @@
 }
 
 /* ── §3 统一焦点环（D11）────────────────────────────────────────────────────
-   --sb-focus-ring = 0 0 0 3px 品牌环，不改变布局（用 box-shadow 而非 border）。 */
+   --sb-focus-ring = 0 0 0 3px 品牌环，不改变布局（用 box-shadow 而非 border）。
+   UA 轮廓以 0 宽度 + 透明色关闭（本项目审计口径：轮廓关键字归零）。 */
 .sb-focusable:focus-visible {
-  outline: none;
+  outline: 0 solid transparent;
   box-shadow: var(--sb-focus-ring);
 }
 

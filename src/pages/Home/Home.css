@@ -2335,7 +2335,10 @@
      底色用 --sb-glass-panel（唯一允许的玻璃面板底）。
      降级：tokens §降级已定义 --sb-l1-panel-solid，由 @supports 自动接管。 */
   background: var(--sb-glass-panel) !important;
-  box-shadow: var(--sb-shadow-xl) !important;
+  /* 9-18 修复：--sb-shadow-xl 在 token 阶梯里**不存在**（阶梯是 --sb-shadow-0…5），
+     浏览器把未定义 var 解析为 none → 面板外阴影整个消失（实测 getPropertyValue 为空）。
+     取阶梯最高档 --sb-shadow-5（浮层面板的正确海拔）。 */
+  box-shadow: var(--sb-shadow-5) !important;
   backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass)) !important;
   -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass)) !important;
 }

@@ -69,7 +69,7 @@ const codeFiles = walk(SRC, ['.jsx', '.js', '.tsx', '.ts', '.css']);
 const cssFiles = walk(SRC, ['.css']);
 const allText = codeFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 
-const sbTokensPath = path.join(SRC, 'styles', 'sb-tokens.css');
+const sbTokensPath = path.join(SRC, 'styles', 'design-tokens-v3.css');
 const hasSbTokens = fs.existsSync(sbTokensPath);
 const mainJsx = fs.readFileSync(path.join(SRC, 'main.jsx'), 'utf8');
 const sbWired = /design-tokens-v3\.css/.test(mainJsx);
@@ -83,7 +83,7 @@ console.log('扫描 ' + codeFiles.length + ' 个源文件 (' + cssFiles.length +
 /* ═══ ① 碎片化程度 ═══ */
 H('① 现状碎片化程度');
 
-const hexes = countAll(codeFiles.filter(f => !f.endsWith('sb-tokens.css')),
+const hexes = countAll(codeFiles.filter(f => !f.endsWith('design-tokens-v3.css') && !f.endsWith('design-tokens.css')),
   /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g);
 const hexTotal = [...hexes.values()].reduce((a, b) => a + b, 0);
 console.log('  hex 硬编码:  ' + hexTotal + ' 次 / ' + hexes.size + ' 个不同值   [目标: 全部走 token]');
@@ -109,7 +109,7 @@ console.log('  gap 非阶梯值: ' + offLadder + '/' + gapTotal + ' 次' +
 /* ═══ ② 无障碍硬缺陷 ═══ */
 H('② 无障碍硬缺陷');
 
-const appFiles = codeFiles.filter(f => !f.endsWith('sb-tokens.css'));
+const appFiles = codeFiles.filter(f => !f.endsWith('design-tokens-v3.css') && !f.endsWith('design-tokens.css'));
 const appText = appFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 
 const fv = (appText.match(/:focus-visible|focus-visible/g) || []).length;
@@ -215,7 +215,7 @@ console.log('  footer 硬编码 gap 值: ' + (gapVals.size ? [...gapVals].join('
 H('④ design-tokens-v3.css 对比度校验 (WCAG AA)');
 
 if (!hasSbTokens) {
-  console.log('  ❌ src/styles/sb-tokens.css 不存在');
+  console.log('  ❌ src/styles/design-tokens-v3.css 不存在');
 } else {
   const tok = fs.readFileSync(sbTokensPath, 'utf8');
   const get = n => (tok.match(new RegExp('--' + n + '\\s*:\\s*(#[0-9A-Fa-f]{6})')) || [])[1];
@@ -272,6 +272,6 @@ H('参考');
 console.log('  规范:      docs/design/00-principles.md / 10-visual-language.md');
 console.log('             docs/design/20-components.md / 25-reference-teardown.md');
 console.log('  落地:      docs/design/30-adoption-plan.md');
-console.log('  Token:     src/styles/sb-tokens.css');
+console.log('  Token:     src/styles/design-tokens-v3.css');
 console.log('  调研证据:  docs/design/_research/*.md');
 console.log('');

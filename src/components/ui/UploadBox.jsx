@@ -40,7 +40,13 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
       </div>
 
       {/* Box */}
-      <div
+      {/* D11 键盘可达：整块是可上传区 → <button>；子图标各自是独立按钮（不再靠
+          stopPropagation 抑制父级点击，避免嵌套交互元素语义冲突）。
+          .a11y-reset 归零 button 的 UA 默认外观 → 视觉与改造前一致。 */}
+      <button
+        type="button"
+        className="a11y-reset"
+        aria-label={hasImages ? '图片已上传' : '点击上传图片'}
         onClick={() => !hasImages && fileRef.current?.click()}
         style={{
           position: 'relative',
@@ -65,10 +71,11 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
           <>
             <img src={images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             {/* Remove button */}
-            <div onClick={(e) => { e.stopPropagation(); onRemove(0); }}
+            <button type="button" className="a11y-reset" aria-label="移除已上传图片"
+              onClick={(e) => { e.stopPropagation(); onRemove(0); }}
               style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <MdClose size={12} color="#fff" />
-            </div>
+            </button>
             {/* Count badge */}
             {images.length > 1 && (
               <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', fontSize: 11, fontWeight: 700, color: '#fff' }}>
@@ -77,10 +84,11 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
             )}
             {/* Add more button */}
             {images.length < max && (
-              <div onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+              <button type="button" className="a11y-reset" aria-label="继续添加图片"
+                onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
                 style={{ position: 'absolute', bottom: 6, left: 6, width: 28, height: 28, borderRadius: 8, background: 'rgba(12,10,9,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                 <MdAdd size={14} color="#fff" />
-              </div>
+              </button>
             )}
           </>
         ) : (
@@ -91,7 +99,7 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
             <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>点击上传</span>
           </div>
         )}
-      </div>
+      </button>
 
       <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleChange} />
     </div>

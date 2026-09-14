@@ -506,7 +506,9 @@ export function PricingModal() {
   return (
     <>
       {/* Overlay */}
-      <div onClick={close}
+      {/* D11 键盘可达：遮罩是可点关闭区，div 键盘不可达 → button + 重置默认样式（外观零变化） */}
+      <button type="button" aria-label="关闭" onClick={close}
+        className="a11y-backdrop"
         style={{
           position: 'fixed', inset: 0, zIndex: 9998,
           background: 'rgba(15, 23, 42, 0.45)',

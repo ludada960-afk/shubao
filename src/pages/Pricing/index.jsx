@@ -725,7 +725,8 @@ export default function PricingPage() {
           className="pricing-modal-overlay"
           onClick={closePurchase}
         >
-          <div className="pricing-modal-panel" onClick={event => event.stopPropagation()}>
+          {/* 面板只是吞掉冒泡，不是可点元素 → 用原生 onMouseDown 校验 target，删掉重复的 inner onClick */}
+          <div className="pricing-modal-panel" role="presentation">
             <button
               type="button"
               onClick={closePurchase}
