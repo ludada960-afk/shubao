@@ -51,6 +51,10 @@ export function findClickableNonInteractive(src, rootOf = new Map()) {
     if (/^[A-Z]/.test(rawTag)) {
       const root = rootOf.get(rawTag);
       if (root && INTERACTIVE.has(root)) continue;      // 渲染真控件 → 放行
+      // 动态标签（同一文件内 const X = cond ? 'button' : 'div'）：可点分支渲染 button，
+      // 属"按需语义化"，只要该分支确实产出 button 即放行。
+      const dyn = new RegExp('const\\s+' + rawTag + '\\s*=\\s*onClick\\s*\\?\\s*[\'"]button[\'"]').test(src);
+      if (dyn) continue;
       note = root ? ('组件 ' + rawTag + ' 根元素 <' + root + '>') : ('组件 ' + rawTag + ' 根元素未解析');
     }
     hits.push({ line: src.slice(0, m.index).split('\n').length, tag: rawTag, note,

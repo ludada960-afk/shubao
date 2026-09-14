@@ -55,8 +55,25 @@ function GCard({ item, onClick, onSameStyle }) {
   const [h, setH] = useState(false);
   const [imgErr, setImgErr] = useState(false);
 
+  /* 原则 4.1：可点卡片必须键盘可达。
+     此处**不能用 <button>**：卡片内含「查看全套内容 / 一键同款」两个独立动作按钮，
+     HTML 禁止嵌套交互元素（button 嵌 button 属非法结构，会破坏两层语义与焦点行为）。
+     采用规范允许的替代：role="button" + tabIndex + onKeyDown（Enter/Space 均可触发），
+     已登记进 test/fixtures/clickable-div-whitelist.json。
+     类名与内联 style 不动 → 视觉零变化。 */
+  const handleCardKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+    // 焦点在内层动作按钮上时由它们自行处理，不重复触发卡片
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();
+    onClick?.();
+  };
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`查看作品：${item.title || item.cat || ''}`}
+      onKeyDown={handleCardKeyDown}
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
@@ -108,7 +125,7 @@ function GCard({ item, onClick, onSameStyle }) {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           gap: 'var(--sb-space-2-5)',
         }} className="animate-fade-in">
-          <span style={{
+          <button type="button" className="a11y-reset" style={{
             background: 'rgba(255,255,255,0.95)', color: 'var(--red)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
@@ -116,8 +133,8 @@ function GCard({ item, onClick, onSameStyle }) {
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onClick(); }}>
             <MdVisibility size={13} /> 查看全套内容
-          </span>
-          <span style={{
+          </button>
+          <button type="button" className="a11y-reset" style={{
             background: 'var(--red)', color: 'var(--sb-neutral-0)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
@@ -125,7 +142,7 @@ function GCard({ item, onClick, onSameStyle }) {
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onSameStyle?.(); }}>
             <MdAutoAwesome size={13} /> 一键同款
-          </span>
+          </button>
         </div>
       )}
     </div>
