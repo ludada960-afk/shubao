@@ -72,8 +72,8 @@ Q1 它是不是「用户此刻唯一该做的事」？
    ├─ 是 → primary 按钮：底 --sb-brand #7C3AED + 字 #FFF（每屏 ≤1 个）
    └─ 否 ↓
 
-Q2 它是不是表达了「当前选中 / 键盘焦点 / 可点击」？
-   ├─ 选中 → 三件套：底 --sb-sel-bg #F5F3FF + 描边 1.5px --sb-sel-line #7C3AED
+├─ 选中 → **D2 ring**：`box-shadow: 0 0 0 2px var(--sb-brand-500)`（= `--sb-shadow-ring`，**不改边框宽度 → 零布局抖动**）
+   ├─ 选中 → **D2 ring**：`box-shadow: 0 0 0 2px var(--sb-brand-500)`（= `--sb-shadow-ring`，**不改边框宽度 → 零布局抖动**）+ 底 `--sb-state-selected-bg` + 文字 `--sb-state-selected-ink`
    │        + 文字/图标 --sb-sel-ink #7C3AED（持久，不随鼠标移开消失）
    ├─ 焦点 → outline: 2px solid --sb-brand-500 #8B5CF6; outline-offset: 2px
    ├─ 可点文字 → --sb-ink-brand #7C3AED
@@ -141,11 +141,11 @@ Q6 以上都不是 → **中性色**，按层级选：
 
 | 状态 | 背景 | 描边 | 文字 | 允许的其他变化 |
 |---|---|---|---|---|
-| default | \`#F4F4F4\` | \`1.5px transparent\`（占位防跳） | \`--sb-ink-1\` | — |
+| default | `--sb-l3-option` `#F4F4F4` | 无（**D2**：选中用 ring，不用边框） | `--sb-ink-1` | — |
 | hover | \`#EDEDED\` | 不变 | **不变** | — |
-| active | \`#E4E4E4\` | 不变 | 不变 | \`scale(0.985)\` |
-| selected | \`#F5F3FF\` | \`1.5px #7C3AED\` | \`#7C3AED\` | 图标底座 \`#7C3AED\` |
-| selected+hover | \`#EDE9FE\` | \`1.5px #7C3AED\` | \`#7C3AED\` | — |
+| selected | `--sb-state-selected-bg` | **`box-shadow: var(--sb-shadow-ring)`**（**D2**） | `--sb-state-selected-ink` | 图标底座 `#7C3AED` |
+| selected+hover | `--sb-brand-100` | 同 ring（不变） | `--sb-state-selected-ink` | — |
+| selected+hover | `--sb-brand-100` `#EDE9FE` | 同 ring（不变） | `--sb-state-selected-ink` | — |
 | focus-visible | 同当前态 | 同当前态 | 同当前态 | \`outline 2px #8B5CF6\`（**外加**） |
 | disabled | \`#F4F4F4\` | \`rgba(12,10,9,0.06)\` | \`#B0AAA5\` | \`cursor: not-allowed\` |
 | loading | 同 default | 同 default | \`visibility:hidden\` 保位 | spinner 绝对居中 |
@@ -547,8 +547,8 @@ R = |translateY| + 放大外扩
 | **default** | `--sb-brand` 底 | 白底 + 描边 | 透明 | `--sb-danger` 底 | — |
 | **hover** | `--sb-brand-strong` | `--sb-surface-tint` 底 + `--sb-border-strong` 描边 | `--sb-surface-tint` 底 | `--sb-danger-hover` | 100ms `--sb-ease-out` |
 | **focus-visible** | `outline: 2px solid --sb-brand-500; outline-offset: 2px` | 同左 | 同左 | 同左 | 0ms（即时） |
-| **active** | `--sb-brand-800` + `transform: scale(0.98)` | `--sb-surface-tint-strong` | `--sb-surface-tint-strong` | 更深红 | 100ms |
-| **selected**（用于可切换按钮） | `--sb-brand-soft` 底 + `--sb-brand` 文字 + `1.5px --sb-brand` 描边 | 同左 | — | — | 100ms |
+| **selected**（用于可切换按钮） | `--sb-brand-soft` 底 + `--sb-ink-brand` 文字 + **ring** `var(--sb-shadow-ring)`（**D2**） | 同左 | — | — | 100ms |
+| **selected**（用于可切换按钮） | `--sb-state-selected-bg` 底 + `--sb-ink-brand` 文字 + **ring** `var(--sb-shadow-ring)`（**D2**） | 同左 | — | — | 100ms |
 | **disabled** | `--sb-neutral-200` 底 + `--sb-ink-5` 文字 + `cursor: not-allowed` | 透明底 + `--sb-ink-5` 文字 | 同左 | `--sb-danger` @40% | 0ms |
 | **loading** | 同 default，label 用 `visibility: hidden` 保留占位，spinner 绝对居中 | 同左 | 同左 | 同左 | spinner 800ms linear |
 
@@ -798,8 +798,8 @@ R = |translateY| + 放大外扩
 │ ┌────┐                                  │
 │ │ 1:1│  1024×1024            [✓]        │  ← 图标容器 28×28 r6
 │ └────┘  正方形·适合主图                  │     标题 12/600, 描述 11/400
-└────────────────────────────────────────┘
-   选中时: 背景 --sb-brand-soft, 边框 1.5px --sb-brand
+ 选中时: 背景 --sb-state-selected-bg, **ring** var(--sb-shadow-ring)（D2）
+   选中时: 背景 --sb-state-selected-bg，**ring** var(--sb-shadow-ring)（**D2**）
 ```
 
 ### 4.2 尺寸
@@ -808,26 +808,26 @@ R = |translateY| + 放大外扩
 |---|---|
 | 外边距（容器内） | `--sb-space-2`(8px) |
 | padding | `10px 12px` |
-| 圆角 | `--sb-radius-lg`(12px) ← **面板 20px − 内边距 8px = 12px**，符合嵌套公式 |
-| 边框 | `1.5px`（**默认透明**，用 transparent 占位防止选中时布局跳动） |
+| 边框 | **无**（**D2**：选中用 ring `var(--sb-shadow-ring)`，不改边框宽度） |
+| 边框 | **无**（**D2**：选中用 ring `var(--sb-shadow-ring)`，不改边框宽度） |
 | 图标容器 | `28×28` / 圆角 `6px` |
 | 标题字号 | 12 / 600 |
 | 描述字号 | 11 / 400 / `--sb-ink-3` |
 | 标题与描述间距 | `2px` |
 | 图标与文字间距 | `--sb-space-2`(8px) |
-
-> ⚠️ **默认态必须有透明的 1.5px 边框**：否则选中时从 0px → 1.5px 会导致**整行位移**。
+> ✅ **D2**：用 ring 而非加粗边框 —— **不需要**用透明边框占位，因为 ring 不参与盒模型计算，**零布局抖动**。
+> ✅ **D2**：用 ring 而不用加粗边框 —— **不需要**透明边框占位，因为 `box-shadow` 不参与盒模型计算，**零布局抖动**。
 > **现状违反**：`DesignDirectionView.jsx:94` 默认 `1px` → 选中 `2px`，卡片会跳动 [证据: `audit-panels.md` 发现 10]。
 
 ### 4.3 状态表
 
 | 状态 | 背景 | 边框 | 文字 | 说明 |
-|---|---|---|---|---|
-| **default** | `--sb-surface-tint` | `1.5px transparent` | 标题 `--sb-ink-1` / 描述 `--sb-ink-3` | **零品牌紫**（原则 6.3） |
-| **hover** | `--sb-surface-tint-strong` | `1.5px transparent` | 不变 | **只动背景，不动文字颜色** |
-| **focus-visible** | 同 default | `1.5px transparent` + outline 2px 品牌色 offset 2px | 不变 | — |
-| **selected** | `--sb-brand-soft` | `1.5px --sb-brand` | 标题 `--sb-ink-brand` / 描述 `--sb-ink-3` | 图标容器底 `--sb-brand` + 白图标 |
-| **selected + hover** | `--sb-brand-100` | `1.5px --sb-brand` | 不变 | 比 selected 略深一档 |
+| **default** | `--sb-surface-tint` | 无 | 标题 `--sb-ink-1` / 描述 `--sb-ink-3` | **零品牌紫**（D1：默认态不锁定品牌色） |
+| **hover** | `--sb-l3-option-hover` | 不变 | **不变** | **只动背景，不动文字颜色**（D2：hover≠selected） |
+| **focus-visible** | 同 default | 同 default | 不变 | **+`box-shadow: var(--sb-focus-ring)`**（**D11**，不改布局） |
+| **selected** | `--sb-state-selected-bg` | **ring** `var(--sb-shadow-ring)`（**D2**） | 标题 `--sb-state-selected-ink` / 描述 `--sb-ink-3` | 图标容器底 `--sb-brand` + 白图标 |
+| **selected + hover** | `--sb-brand-100` | 同 ring（不变） | `--sb-state-selected-ink` | 比 selected 略深一档 |
+| **selected + hover** | `--sb-brand-100` | 同 ring（不变） | 不变 | 比 selected 略深一档 |
 | **disabled** | `--sb-surface-tint` @50% | transparent | 全部 `--sb-ink-5` | cursor not-allowed |
 
 > ⚠️ **关键差异（老板点名的"选中态有不同交互"）**：
@@ -840,8 +840,8 @@ R = |translateY| + 放大外扩
 ```css
 .sb-option {
   display: flex; align-items: center; gap: var(--sb-space-2);
-  padding: 10px 12px;
-  border: 1.5px solid transparent;     /* 占位，防跳动 */
+  /* D2：不需要透明边框占位 —— ring 不影响盒模型 */
+  /* D2：无需透明边框占位 —— ring 不影响盒模型 */
   border-radius: var(--sb-radius-lg);
   background: var(--sb-surface-tint);
   cursor: pointer;
@@ -1103,8 +1103,8 @@ R = |translateY| + 放大外扩
 | **default** | 白底 / `1px --sb-border-subtle` / 无阴影 |
 | **hover** | `--sb-shadow-2` + `transform: translateY(-1px)` + 边框变 `--sb-border-default` |
 | **focus-visible** | outline 2px 品牌色 offset 2px |
-| **active** | `translateY(0)` + `--sb-shadow-1` |
-| **selected** | `1.5px --sb-brand` 描边 + `--sb-brand-soft` 底 |
+| **selected** | **ring** `var(--sb-shadow-ring)`（**D2**）+ `--sb-state-selected-bg` 底 |
+| **selected** | **ring** `var(--sb-shadow-ring)`（**D2**）+ `--sb-state-selected-bg` 底 |
 | **disabled** | opacity 0.5 / cursor not-allowed |
 
 ---
@@ -1170,7 +1170,7 @@ R = |translateY| + 放大外扩
 | 层 | 元素 | 允许的背景 | 允许的边框 |
 |---|---|---|---|
 | L1 | 面板 | `rgba(255,255,255,.85)` + 毛玻璃 | `1px --sb-border-inverse` |
-| L2 | Option Card / 分组行 | `--sb-surface-tint` | `1.5px transparent`（选中才显色） |
+| L2 | Option Card / 分组行 | `--sb-surface-tint` | 无（**D2**：选中用 ring） |
 | L3 | 图标容器 / 输入框 | `--sb-surface-tint-strong` / `--sb-surface-card` | `1px --sb-border-default` |
 
 > **L1 到 L2 靠色差**（半透明白 → 3% 暖黑），**不画框**。这是「面板看起来高级」的关键。

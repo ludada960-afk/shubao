@@ -286,7 +286,7 @@ export default function RemakePage() {
                 if (v) { setTaskId(v); setError(''); }
               }} style={{
                 padding: '8px 16px', borderRadius: 6, border: 'none',
-                background: '#7c3aed', color: '#fff', fontSize: 12,
+                background: 'var(--sb-brand)', color: '#fff', fontSize: 12,
                 cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
               }}>继续</button>
             </div>
@@ -442,7 +442,7 @@ export default function RemakePage() {
                   padding: '14px 0', borderRadius: 'var(--radius-lg)', border: 'none',
                   fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: generating ? 'not-allowed' : 'pointer',
-                  background: generating ? 'var(--border-light)' : 'linear-gradient(135deg, #7c3aed, #6366f1)',
+                  background: generating ? 'var(--border-light)' : 'var(--sb-brand-gradient)',
                   color: generating ? 'var(--text-muted)' : '#fff',
                   boxShadow: generating ? 'none' : '0 3px 12px rgba(99,102,241,.3)',
                   marginTop: 8, transition: 'all .15s',

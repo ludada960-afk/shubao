@@ -596,7 +596,7 @@ export default function EcStudioPage() {
                     download
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-                      background: '#F5F3FF', borderRadius: 10, textDecoration: 'none', marginBottom: 18,
+                      background: 'var(--sb-brand-50)', borderRadius: 10, textDecoration: 'none', marginBottom: 18,
                     }}
                   >
                     <div
@@ -639,14 +639,14 @@ export default function EcStudioPage() {
                         style={{
                           display: 'flex', gap: 10, alignItems: 'flex-start',
                           padding: '8px 12px',
-                          background: i === 4 ? 'linear-gradient(135deg,#F5F3FF,#EDE9FE)' : '#FAFBFC',
+                          background: i === 4 ? 'linear-gradient(135deg, var(--sb-brand-50), var(--sb-brand-100))' : '#FAFBFC',
                           borderRadius: 8, border: `1px solid ${i === 4 ? '#C7D2FE' : '#EEEFF2'}`,
                         }}
                       >
                         <div
                           style={{
                             width: 22, height: 22, borderRadius: '50%',
-                            background: i === 4 ? '#7C3AED' : '#4338CA',
+                            background: i === 4 ? 'var(--sb-brand)' : '#4338CA',
                             color: '#fff', fontSize: 11, fontWeight: 700,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             flexShrink: 0, marginTop: 1,
@@ -676,7 +676,7 @@ export default function EcStudioPage() {
             <div
               style={{
                 ...SX.card,
-                background: 'linear-gradient(135deg,#EEF2FF,#F5F3FF)',
+                background: 'linear-gradient(135deg,#EEF2FF, var(--sb-brand-50))',
                 borderColor: '#C7D2FE',
               }}
             >
@@ -957,7 +957,7 @@ export default function EcStudioPage() {
                       style={{
                         padding: '10px 12px', borderRadius: 8,
                         border: `1px solid ${checked ? '#C7D2FE' : '#EEEEF2'}`,
-                        background: checked ? '#F5F3FF' : '#FAFBFC',
+                        background: checked ? 'var(--sb-brand-50)' : '#FAFBFC',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1201,7 +1201,7 @@ export default function EcStudioPage() {
             {Object.keys(res.images || {}).some((k) => k.includes('detail_slice')) && (
               <div
                 style={{
-                  background: '#F5F3FF', borderRadius: 8, padding: '12px 16px',
+                  background: 'var(--sb-brand-50)', borderRadius: 8, padding: '12px 16px',
                   marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12,
                   flexWrap: 'wrap',
                 }}
@@ -1416,7 +1416,7 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
         onMouseEnter={(e) => {
           if (isDragOver) return;
           e.currentTarget.style.borderColor = '#6366F1';
-          e.currentTarget.style.background = '#F5F3FF';
+          e.currentTarget.style.background = 'var(--sb-brand-50)';
           e.currentTarget.style.color = '#6366F1';
         }}
         onMouseLeave={(e) => {

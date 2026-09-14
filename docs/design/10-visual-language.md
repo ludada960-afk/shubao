@@ -563,9 +563,9 @@ L4  反色面     = #0C0A09                        ← --sb-neutral-900
 | **default** | \`#F4F4F4\`（\`--sb-l3-option\`） | \`1.5px transparent\`（**占位防跳**） | \`--sb-ink-1\` \`#1A1614\` | — | — |
 | **hover** | \`#EDEDED\`（\`--sb-l3-option-hover\`） | 不变（transparent） | **不变** | — | **1.064:1** ✅ |
 | **active**（按下） | \`#E4E4E4\`（\`--sb-active-bg\`） | 不变 | 不变 | \`transform: scale(0.985)\` | 1.13:1 |
-| **selected** | \`#F5F3FF\`（\`--sb-sel-bg\` = brand-50） | \`1.5px #7C3AED\` | \`#7C3AED\`（\`--sb-sel-ink\`） | 图标底座 \`#7C3AED\` + 白图标 | 1.15:1 + 色相突变 |
-| **selected + hover** | \`#EDE9FE\`（\`--sb-sel-bg-hover\` = brand-100） | \`1.5px #7C3AED\` | \`#7C3AED\` | — | — |
-| **focus-visible** | 同当前态 | 同当前态 | 同当前态 | **+\`outline: 2px solid #8B5CF6; outline-offset: 2px\`** | — |
+| **selected** | `--sb-state-selected-bg` `#F5F3FF` | **`box-shadow: 0 0 0 2px var(--sb-brand-500)`** = `--sb-shadow-ring`（**D2**，不改边框宽度） | `--sb-state-selected-ink` `#7C3AED` | 图标底座 `#7C3AED` + 白图标 | 1.15:1 + 色相突变 |
+| **selected + hover** | `--sb-brand-100` `#EDE9FE` | 同 ring（不变） | `--sb-state-selected-ink` | — | — |
+| **focus-visible** | 同当前态 | 同当前态 | 同当前态 | **+`box-shadow: 0 0 0 3px`**（`--sb-focus-ring`，**D11**，不改布局） | — |
 | **disabled** | \`#F4F4F4\` | \`rgba(12,10,9,0.06)\` | \`#B0AAA5\` | \`cursor: not-allowed\` | — |
 
 ### 核心规则：四态走**四个不同的视觉通道**
@@ -574,8 +574,18 @@ L4  反色面     = #0C0A09                        ← --sb-neutral-900
 |---|---|---|
 | **hover** | ① 背景（中性灰，+1 档） | ❌ 文字色 ❌ 描边 ❌ 字重 ❌ 阴影 |
 | **active** | ① 背景（比 hover 再深 1 档）② \`scale(0.985)\` **或** \`translateY(1px)\`（**二选一**） | 同上 |
-| **selected** | ① 背景（品牌浅底）② 描边（品牌 1.5px）③ 文字/图标（品牌色） | ❌ 阴影（不用紫阴影，那会让选中"发光"）❌ 渐变 |
+| **selected** | ① 背景 `--sb-state-selected-bg` ② **ring** `--sb-shadow-ring`（**D2**：不改边框宽度 → 零抖动）③ 文字/图标 `--sb-state-selected-ink` | ❌ 加粗边框（会抖动）❌ 渐变 |
 | **focus-visible** | ① \`outline\`（**外加**，与上面四态叠加共存） | ❌ 不要用 \`box-shadow\` 做焦点环（WCAG 2.4.13 明确周长不含 shadow） |
+
+> ### ⚠️ 焦点环实现：D11 优先于早前的 WCAG 见解
+> 本文档早期版本曾写「焦点环不要用 `box-shadow`（WCAG 2.4.13 周长不含 shadow）」。
+> **该见解与 D11 冲突，现按 D11 执行**：
+> ```css
+> /* ✅ D11 口径：box-shadow ring，不改布局 */
+> :focus-visible { box-shadow: var(--sb-focus-ring); }   /* 0 0 0 3px brand-ring */
+> ```
+> **D11 的判定理由**：`box-shadow: 0 0 0 3px` **不改变盒模型尺寸**（零布局抖动），且实测对比度达标。
+> 如需严格满足 WCAG 2.4.13 的 AAA 级周长定义，可**叠加** `outline`（二者不冲突）——但**最低要求是 D11 的 ring**。
 
 > **为什么 hover 用中性灰、selected 用品牌紫**：两者是**正交**的——鼠标停在一个已选中项上时，hover 的中性灰与 selected 的品牌紫同时存在也不冲突。若两者都用紫，用户就无法区分「我鼠标停在这」和「这项被选中了」。
 
@@ -583,7 +593,7 @@ L4  反色面     = #0C0A09                        ← --sb-neutral-900
 
 | 组件 | 选中底 | 选中描边 | 额外信号 | 语义 |
 |---|---|---|---|---|
-| **选项卡片**（分辨率/模型） | \`#F5F3FF\` | \`1.5px #7C3AED\` | 图标底座变品牌实底 | 「我选了这个值」 |
+| **选项卡片**（分辨率/模型） | `--sb-state-selected-bg` | **ring**（D2） | 图标底座变品牌实底 | 「我选了这个值」 |
 | **Chip / 平台胶囊** | \`#0C0A09\` 反色黑 | 无 | 文字变白 | 「这是一个筛选条件」——反色更强，因为 chip 常多选 |
 | **Segmented** | \`#FFFFFF\` 纯白 | 无 | \`--sb-shadow-1\` 浮起 | 「当前视图」——白底浮起表达，不用品牌色 |
 | **Tab** | 无底 | 底部 \`2px #7C3AED\` | — | 「当前标签页」 |
@@ -604,6 +614,13 @@ L4  反色面     = #0C0A09                        ← --sb-neutral-900
 | **警告** | \`#FDF6EC\` | \`#F2D9B0\` | **\`#B45309\`** (5.02:1) | \`#E08A2E\` | 需注意 / 额度不足 |
 | **危险** | \`#FEF2F0\` | \`#F6C9C4\` | **\`#D0443C\`** (4.59:1) | \`#E8544B\` | 错误 / 删除 / 必填 |
 | **信息** | \`#F0F4FD\` | \`#C2D0EE\` | **\`#3B5BA5\`** (6.51:1) | \`#5275CC\` | 提示 / 说明 |
+
+> ### ⚠️ D10 口径（**唯一权威**）
+> ① **文字 / 图标**一律用 `--sb-ink-danger` / `--sb-ink-success` / `--sb-ink-warning` / `--sb-ink-info`（已按暖底调深）
+> ② **填充**（按钮底、色块底）才用 `--sb-danger` / `--sb-success` / `--sb-warning` / `--sb-info`
+> ③ 若必须在暖米白底上用浅色语义文字，**必须托一层白卡**
+>
+> **实测依据**：暖米白底会把语义色对比度拉低 0.5–0.9，基础语义色直接当文字时**不达 WCAG AA**（danger 4.01 / success 4.43 / warning 4.39 < 4.5）。
 
 > ⚠️ **solid 变体一律不得用于文字**（成功绿 \`#5CA86C\` 在白底仅 2.89:1，危险红 \`#E8544B\` 仅 3.62:1）。文字必须用 **ink** 变体。
 
@@ -1031,6 +1048,19 @@ L0 页面 ─── L1 面板 ─── L2 卡片 ─── L3 ─── L4     
 | 12px | 4px | **8px** |
 | 12px | 2px | **10px ≈ 8px** |
 
+### 10.1b D6 · 10px 退役映射（**实测 62 处**）
+
+> **D6**：圆角**只有 4 档**（20/12/8/6），10px 退役按场景归入 8 或 12。
+
+| 场景 | 原 10px | → 归入 |
+|---|---|---|
+| 按钮 / 选项卡 / 内层卡片 / 分段控件 | 10px | **`--sb-radius-lg` 12px** |
+| 输入框 / 小 chip / 菜单项 / 图标底座 | 10px | **`--sb-radius-md` 8px** |
+| 弹窗底部操作区按钮（`--footer-actions-radius`） | 10px | **`--sb-radius-lg` 12px** |
+| 浮层下拉 / popover | 10px | **`--sb-radius-lg` 12px** |
+
+**判定方法**：看它在「容器 → 内容」的哪一层。**容器级 → 12；控件级 → 8。**
+
 ### 10.2 禁止
 
 - ❌ **卡片/弹窗/输入框用 ≥ 24px 圆角**。「insanely rounded」是 AI 生成的典型特征；卡片上限 12–16px [来源: impeccable SKILL.md §Codex-specific defects]。
@@ -1168,6 +1198,21 @@ L0 页面 ─── L1 面板 ─── L2 卡片 ─── L3 ─── L4     
 ---
 
 ## 15. 层级（z-index）
+
+> ### 📌 z-index 场景别名（已在 `design-tokens-v3.css` 落地，commit `4d6fd0ea`）
+>
+> 两套命名**并存且指向同一阶梯**——层级语义（`--sb-z-base/raised/sticky/…`）是**唯一真值**，场景语义是**可读性别名**：
+>
+> | 场景别名 | 指向 | 用途 |
+> |---|---|---|
+> | `--sb-z-canvas` | `--sb-z-base` (0) | 画布内容（节点 / 连线） |
+> | `--sb-z-selection` | `--sb-z-raised` (10) | 选择框、结果节点左右加号 |
+> | `--sb-z-hud` | `--sb-z-sticky` (100) | 浮动 HUD：小地图、缩放条、底部操作栏 |
+> | `--sb-z-popover` | `--sb-z-panel` (400) | 参数弹层：模型 / 技能 / @ / 更多菜单 |
+> | `--sb-z-overlay` | `--sb-z-scrim` (800) | 遮罩 |
+> | `--sb-z-dialog` | `--sb-z-modal` (810) | 弹窗本体（必须 > 遮罩） |
+>
+> **规则**：写代码时**优先用场景别名**（自解释），需要"陌生场景"时才用层级名。**禁止裸数值。**
 
 | Token | 值 | 用途 |
 |---|---|---|

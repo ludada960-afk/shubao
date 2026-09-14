@@ -273,7 +273,7 @@ export default function EcAutoPage() {
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '10px 16px', borderRadius: 10,
                   border: platform === p.key ? '2px solid #4338CA' : '1px solid #e8e8e8',
-                  background: platform === p.key ? '#F5F3FF' : '#fff',
+                  background: platform === p.key ? 'var(--sb-brand-50)' : '#fff',
                   cursor: 'pointer', fontFamily: 'inherit',
                   transition: 'all 0.15s',
                   flex: '0 0 auto',

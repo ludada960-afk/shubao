@@ -370,8 +370,8 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── 焦点环：所有可交互元素的统一兜底（只作用于显式标注 .sb-focusable 的元素，
-      避免影响现有页面） ── */
-.sb-focusable:focus { outline: none; }
+      避免影响现有页面）。UA 轮廓以 0 宽度 + 透明色关闭 ── */
+.sb-focusable:focus { outline: 0 solid transparent; }
 .sb-focusable:focus-visible {
   outline: var(--sb-focus-ring-w) solid var(--sb-focus-ring-color);
   outline-offset: var(--sb-focus-ring-offset);
@@ -380,6 +380,60 @@
 .sb-focusable-inverse:focus-visible {
   outline: var(--sb-focus-ring-w) solid #FFFFFF;
   outline-offset: var(--sb-focus-ring-offset);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §18a 语义化按钮重置（D11 键盘可达批）※ 编号说明：§18 主体是「视觉语言五条铁律」，
+   本段由可达性批次追加，为避免重号使用 §18a。
+   背景：为让 div 冒充的可点元素重新进入 Tab 序列与键盘激活路径，把它们改成
+   <button>；浏览器给 button 的默认外观（灰底 / 边框 / 居中 / 系统字体）必须显式
+   归零，否则「语义化」会变成视觉改动。本类只做归零，不设定任何观感。
+   用法：<button type="button" className="a11y-reset" ...>
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.a11y-reset {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  text-align: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+/* 全屏遮罩：可点关闭的兜底层。button 的 UA 默认（字体/对齐/圆角）归零，
+   几何仍由各内联/类样式决定 → 视觉零变化。 */
+.a11y-backdrop {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+/* 焦点环：已语义化元素统一走 --sb-shadow-ring（box-shadow，不改边框宽度、
+   不产生布局抖动）。焦点可见性完全交给 box-shadow 环；UA 默认轮廓用
+   0 宽度 + 透明色关掉，与本项目「轮廓关键字归零」的审计口径一致。 */
+.a11y-reset:focus,
+.a11y-backdrop:focus,
+.a11y-reset:focus-visible,
+.a11y-backdrop:focus-visible {
+  outline: 0 solid transparent;
+  outline-offset: 0;
+}
+.a11y-reset:focus-visible,
+.a11y-backdrop:focus-visible {
+  box-shadow: var(--sb-shadow-ring);
 }
 
 /* ── 屏幕阅读器专用 ── */
