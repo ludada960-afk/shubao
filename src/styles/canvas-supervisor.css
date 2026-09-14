@@ -793,7 +793,12 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
    原有 12px 的滚动条预留保持不变。 */
 .canvas-asset-library-modal .ec-asset-library-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 8px 20px 8px 8px; }
 .canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar { width: 6px; }
-.canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-thumb { background: #d8d4cf; border-radius: 3px; }
+/* 9-19 棘轮修正：原先此处写死了一个十六进制灰（与 design-tokens.css 里
+   *::-webkit-scrollbar-thumb 的全局滚动条色相同）。按 D5「全局 token 迁移」
+   改为最近的中性灰 token：--sb-neutral-300。观感与全局滚动条一致，且不再新增硬编码。
+   注：本注释刻意不写十六进制字面量 —— 棘轮按正则统计 hex，
+   注释里出现色值同样会被计入，属于「自己给自己加数」。 */
+.canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-thumb { background: var(--sb-neutral-300); border-radius: var(--sb-radius-xs); }
 .canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-track { background: transparent; }
 
 
