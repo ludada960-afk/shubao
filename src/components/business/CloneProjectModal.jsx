@@ -129,7 +129,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
           maxHeight: '90vh',
           overflowY: 'auto',
           background: 'var(--sb-neutral-0)',
-          borderRadius: 14,
+          borderRadius: 'var(--sb-radius-xl)',
           boxShadow: '0 20px 60px rgba(15,23,42,0.35)',
           padding: 24,
           fontFamily: 'inherit',
@@ -165,7 +165,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
           <legend style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 8 }}>
             选择派生模板
           </legend>
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 'var(--sb-space-2)' }}>
             {CLONE_OPTIONS.map((opt) => {
               const selected = opt.id === mode;
               const Icon = opt.icon;
@@ -174,10 +174,10 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                   key={opt.id}
                   className={classNames('pc-clone-option', selected && 'is-selected')}
                   style={{
-                    display: 'flex', gap: 12, alignItems: 'flex-start',
+                    display: 'flex', gap: 'var(--sb-space-3)', alignItems: 'flex-start',
                     border: selected ? '1.5px solid var(--sb-info)' : '1px solid #e2e8f0',
                     background: selected ? '#eff6ff' : 'var(--sb-neutral-0)',
-                    borderRadius: 10, padding: 12, cursor: 'pointer',
+                    borderRadius: 'var(--sb-radius-lg)', padding: 12, cursor: 'pointer',
                     transition: 'border-color 120ms ease, background 120ms ease',
                   }}
                 >
@@ -190,17 +190,17 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                     style={{ marginTop: 4, accentColor: 'var(--sb-info)' }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
                       <Icon size={16} color={selected ? 'var(--sb-info)' : 'var(--sb-ink-2)'} />
-                      <strong style={{ fontSize: 14, color: 'var(--sb-ink-1)' }}>{opt.label}</strong>
+                      <strong style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-1)' }}>{opt.label}</strong>
                       {opt.recommended ? (
                         <span style={{
-                          fontSize: 10, color: 'var(--sb-info)', background: '#dbeafe',
-                          padding: '2px 6px', borderRadius: 999,
+                          fontSize: 'var(--sb-text-2xs)', color: 'var(--sb-info)', background: '#dbeafe',
+                          padding: '2px 6px', borderRadius: 'var(--sb-radius-pill)',
                         }}>推荐</span>
                       ) : null}
                     </div>
-                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--sb-ink-2)', lineHeight: 1.5 }}>
+                    <p style={{ margin: '4px 0 0', fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-2)', lineHeight: 1.5 }}>
                       {opt.desc}
                     </p>
                   </div>
@@ -277,7 +277,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
               padding: '8px 14px', border: 'none', background: busy ? '#93c5fd' : 'var(--sb-info)',
               color: 'var(--sb-neutral-0)', borderRadius: 8,
               cursor: busy || !projectId ? 'not-allowed' : 'pointer', fontSize: 13,
-              display: 'inline-flex', alignItems: 'center', gap: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-2)',
             }}
           >
             {busy ? <Loader2 size={14} className="is-spinning" /> : <Copy size={14} />}

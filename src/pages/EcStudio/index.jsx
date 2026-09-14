@@ -53,7 +53,7 @@ const SX = {
   hint: { fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', lineHeight: 1.7 },
   stepNum: {
     width: 26, height: 26, borderRadius: 'var(--sb-radius-pill)', background: 'var(--sb-brand-600)', color: 'var(--sb-ink-on-dark)',
-    fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 'var(--sb-text-md)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
 };
@@ -457,15 +457,15 @@ export default function EcStudioPage() {
         {/* ── Header ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', cursor: 'pointer' }}
             onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           >
             <CharImg src={IMAGES.appicon} size={32} float />
-            <span style={{ fontSize: 18, fontWeight: 650, color: 'var(--sb-danger)' }}>薯包AI</span>
+            <span style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 650, color: 'var(--sb-danger)' }}>薯包AI</span>
             <span
               style={{
-                fontSize: 12, color: 'var(--sb-brand-600)', background: 'var(--sb-brand-50)', padding: '3px 10px',
-                borderRadius: 6, fontWeight: 500,
+                fontSize: 'var(--sb-text-sm)', color: 'var(--sb-brand-600)', background: 'var(--sb-brand-50)', padding: '3px 10px',
+                borderRadius: 'var(--sb-radius-sm)', fontWeight: 500,
               }}
             >
               精修工坊
@@ -477,9 +477,9 @@ export default function EcStudioPage() {
               dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
             }}
             style={{
-              fontSize: 13, color: 'var(--sb-brand-600)', background: 'var(--sb-brand-50)', border: '1px solid var(--sb-brand-200)',
-              borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontWeight: 500,
+              fontSize: 'var(--sb-text-md)', color: 'var(--sb-brand-600)', background: 'var(--sb-brand-50)', border: '1px solid var(--sb-brand-200)',
+              borderRadius: 'var(--sb-radius-md)', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)', whiteSpace: 'nowrap', fontWeight: 500,
             }}
           >
             <Sparkle weight="fill" size={14} /> 一键出图
@@ -489,8 +489,8 @@ export default function EcStudioPage() {
         {err && (
           <div
             style={{
-              background: 'var(--sb-danger-soft)', border: '1px solid #FED7D7', borderRadius: 8,
-              padding: '12px 16px', marginBottom: 20, fontSize: 14, color: 'var(--sb-danger-hover)',
+              background: 'var(--sb-danger-soft)', border: '1px solid #FED7D7', borderRadius: 'var(--sb-radius-md)',
+              padding: '12px 16px', marginBottom: 20, fontSize: 'var(--sb-text-md)', color: 'var(--sb-danger-hover)',
               lineHeight: 1.5,
             }}
           >
@@ -500,13 +500,13 @@ export default function EcStudioPage() {
 
         {/* ═══════ CONFIG ═══════ */}
         {phase === 'config' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-4)' }}>
             {/* ① 插件导入卡片（保留不动） */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: 'var(--sb-space-4)', alignItems: 'flex-start' }}>
                 <div
                   style={{
-                    width: 52, height: 52, borderRadius: 12,
+                    width: 52, height: 52, borderRadius: 'var(--sb-radius-lg)',
                     background: 'linear-gradient(135deg,var(--sb-brand-50),var(--sb-brand-100))',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     flexShrink: 0, color: 'var(--sb-brand-700)',
@@ -520,31 +520,31 @@ export default function EcStudioPage() {
                     看到别人的商品图好看又卖得好？装插件 → 去爆款商品页点一下 → 自动抓取商品名称、多张商品图、卖点文案。
                     <strong>然后直接用薯包AI生成你自己商品的同款风格图片</strong>。
                   </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-3)', flexWrap: 'wrap' }}>
                     <button
                       onClick={() => setShowPlugin(true)}
                       style={{
-                        padding: '9px 20px', borderRadius: 8, background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
-                        border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                        fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '9px 20px', borderRadius: 'var(--sb-radius-md)', background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
+                        border: 'none', fontSize: 'var(--sb-text-md)', fontWeight: 600, cursor: 'pointer',
+                        fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)',
                         boxShadow: '0 2px 8px var(--sb-brand-a32)',
                       }}
                     >
                       📥 下载插件
                     </button>
-                    <span style={{ fontSize: 12, color: '#aaa' }}>
+                    <span style={{ fontSize: 'var(--sb-text-sm)', color: '#aaa' }}>
                       470KB · Chrome/Edge · 装一次永久用
                     </span>
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--sb-space-2)', marginTop: 16, flexWrap: 'wrap' }}>
                 {['抓取爆款商品名称', '抓取多张商品图', '提取卖点与价格', '复刻同款视觉风格'].map((t) => (
                   <span
                     key={t}
                     style={{
-                      fontSize: 12, color: 'var(--sb-ink-success)', background: '#F0FDF4',
-                      padding: '4px 10px', borderRadius: 6, fontWeight: 500,
+                      fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-success)', background: '#F0FDF4',
+                      padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)', fontWeight: 500,
                     }}
                   >
                     ✅ {t}
@@ -557,13 +557,13 @@ export default function EcStudioPage() {
             {showPlugin && (
               <div
                 style={{
-                  position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(12,10,9,.45)',
+                  position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)', background: 'rgba(12,10,9,.45)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
                 }}
                 onClick={() => setShowPlugin(false)}
               >
                 <div
-                  style={{ background: 'var(--sb-neutral-0)', borderRadius: 16, maxWidth: 460, width: '100%', padding: 24 }}
+                  style={{ background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)', maxWidth: 460, width: '100%', padding: 24 }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div
@@ -572,13 +572,13 @@ export default function EcStudioPage() {
                       marginBottom: 18,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <img src={IMAGES.appicon} alt="" width="36" height="36" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 36, height: 36, borderRadius: 8 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
+                      <img src={IMAGES.appicon} alt="" width="36" height="36" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 36, height: 36, borderRadius: 'var(--sb-radius-md)' }} />
                       <div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
+                        <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: '#1a1a2e' }}>
                           安装薯包AI提取插件
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--sb-ink-4)' }}>470KB · Chrome / Edge 浏览器</div>
+                        <div style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)' }}>470KB · Chrome / Edge 浏览器</div>
                       </div>
                     </div>
                     <div
@@ -586,7 +586,7 @@ export default function EcStudioPage() {
                       style={{
                         width: 26, height: 26, borderRadius: '50%', background: 'var(--sb-neutral-100)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', color: 'var(--sb-ink-3)', fontSize: 14, lineHeight: 1, flexShrink: 0,
+                        cursor: 'pointer', color: 'var(--sb-ink-3)', fontSize: 'var(--sb-text-md)', lineHeight: 1, flexShrink: 0,
                       }}
                     >
                       ✕
@@ -596,38 +596,38 @@ export default function EcStudioPage() {
                     href="/extensions/shubao-extractor.zip"
                     download
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-                      background: 'var(--sb-brand-50)', borderRadius: 10, textDecoration: 'none', marginBottom: 18,
+                      display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', padding: '12px 16px',
+                      background: 'var(--sb-brand-50)', borderRadius: 'var(--sb-radius-lg)', textDecoration: 'none', marginBottom: 18,
                     }}
                   >
                     <div
                       style={{
-                        width: 40, height: 40, borderRadius: 8, background: 'var(--sb-brand-700)',
+                        width: 40, height: 40, borderRadius: 'var(--sb-radius-md)', background: 'var(--sb-brand-700)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'var(--sb-neutral-0)', fontSize: 18,
+                        color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-xl)',
                       }}
                     >
                       ⬇
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-ink-1)' }}>下载插件 ZIP 包</div>
-                      <div style={{ fontSize: 11, color: 'var(--sb-ink-3)', marginTop: 1 }}>
+                      <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 600, color: 'var(--sb-ink-1)' }}>下载插件 ZIP 包</div>
+                      <div style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-3)', marginTop: 1 }}>
                         470KB · 解压后加载到浏览器即可使用
                       </div>
                     </div>
                     <span
                       style={{
-                        fontSize: 12, fontWeight: 600, color: 'var(--sb-brand-700)', background: 'var(--sb-neutral-0)',
-                        padding: '6px 14px', borderRadius: 6, border: '1px solid var(--sb-brand-200)',
+                        fontSize: 'var(--sb-text-sm)', fontWeight: 600, color: 'var(--sb-brand-700)', background: 'var(--sb-neutral-0)',
+                        padding: '6px 14px', borderRadius: 'var(--sb-radius-sm)', border: '1px solid var(--sb-brand-200)',
                       }}
                     >
                       下载
                     </span>
                   </a>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 10 }}>
+                  <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 10 }}>
                     安装步骤
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-2)' }}>
                     {[
                       '下载 ZIP 包并解压到电脑上的任意文件夹',
                       '地址栏输入 chrome://extensions 或 edge://extensions',
@@ -638,32 +638,32 @@ export default function EcStudioPage() {
                       <div
                         key={i}
                         style={{
-                          display: 'flex', gap: 10, alignItems: 'flex-start',
+                          display: 'flex', gap: 'var(--sb-space-2)', alignItems: 'flex-start',
                           padding: '8px 12px',
                           background: i === 4 ? 'linear-gradient(135deg, var(--sb-brand-50), var(--sb-brand-100))' : 'var(--sb-neutral-25)',
-                          borderRadius: 8, border: `1px solid ${i === 4 ? 'var(--sb-brand-200)' : '#EEEFF2'}`,
+                          borderRadius: 'var(--sb-radius-md)', border: `1px solid ${i === 4 ? 'var(--sb-brand-200)' : '#EEEFF2'}`,
                         }}
                       >
                         <div
                           style={{
                             width: 22, height: 22, borderRadius: '50%',
                             background: i === 4 ? 'var(--sb-brand)' : 'var(--sb-brand-700)',
-                            color: 'var(--sb-neutral-0)', fontSize: 11, fontWeight: 700,
+                            color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-xs)', fontWeight: 700,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             flexShrink: 0, marginTop: 1,
                           }}
                         >
                           {i + 1}
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--sb-ink-2)', lineHeight: 1.6 }}>{t}</div>
+                        <div style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-2)', lineHeight: 1.6 }}>{t}</div>
                       </div>
                     ))}
                   </div>
                   <button
                     onClick={() => setShowPlugin(false)}
                     style={{
-                      width: '100%', padding: '12px 0', border: 'none', borderRadius: 8,
-                      background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 600,
+                      width: '100%', padding: '12px 0', border: 'none', borderRadius: 'var(--sb-radius-md)',
+                      background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                       cursor: 'pointer', fontFamily: 'inherit', marginTop: 16,
                     }}
                   >
@@ -681,10 +681,10 @@ export default function EcStudioPage() {
                 borderColor: 'var(--sb-brand-200)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 8 }}>
                 <MagicWand weight="fill" size={20} style={{ color: 'var(--sb-brand-700)' }} />
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>📝 智能一键</h3>
-                <span style={{ fontSize: 12, color: 'var(--sb-brand-600)', fontWeight: 400 }}>
+                <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-brand-600)', fontWeight: 400 }}>
                   用一段话描述想要的商品图，AI 自动填下方 5 步
                 </span>
               </div>
@@ -694,26 +694,26 @@ export default function EcStudioPage() {
                 placeholder="例：我要卖一款月岩白的无线蓝牙耳机，材质亲肤硅胶，有3个颜色，主打降噪和长续航，需要尺寸标注和场景图，保养就是避免进水…"
                 rows={3}
                 style={{
-                  ...SX.input, minHeight: 80, resize: 'vertical', fontSize: 14, lineHeight: 1.6,
+                  ...SX.input, minHeight: 80, resize: 'vertical', fontSize: 'var(--sb-text-md)', lineHeight: 1.6,
                 }}
                 onFocus={(e) => (e.target.style.borderColor = 'var(--sb-brand-600)')}
                 onBlur={(e) => (e.target.style.borderColor = '#D0D0D8')}
               />
-              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--sb-space-2)', marginTop: 12, flexWrap: 'wrap' }}>
                 <button
                   onClick={goRecognize}
                   disabled={recognizing}
                   style={{
-                    padding: '10px 20px', borderRadius: 8, background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
-                    border: 'none', fontSize: 13, fontWeight: 600,
+                    padding: '10px 20px', borderRadius: 'var(--sb-radius-md)', background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
+                    border: 'none', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                     cursor: recognizing ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)',
                     opacity: recognizing ? 0.6 : 1,
                   }}
                 >
                   <Sparkle weight="fill" size={14} /> {recognizing ? 'AI 识别中...' : 'AI 自动识别 · 0.2 AI 积分'}
                 </button>
-                <span style={{ fontSize: 12, color: 'var(--sb-ink-3)', alignSelf: 'center' }}>
+                <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', alignSelf: 'center' }}>
                   识别后自动填到下方 5 步，可手动改
                 </span>
               </div>
@@ -721,7 +721,7 @@ export default function EcStudioPage() {
 
             {/* ① 实拍图 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 8 }}>
                 <div style={SX.stepNum}>1</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>上传产品多角度实拍图</h3>
                 <div style={{ marginLeft: 'auto' }}>
@@ -764,10 +764,10 @@ export default function EcStudioPage() {
 
             {/* ② 参考图 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 8 }}>
                 <div style={SX.stepNum}>2</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>上传目标参考图</h3>
-                <span style={{ fontSize: 12, color: 'var(--sb-ink-5)' }}>选填 · 最多 5 张</span>
+                <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-5)' }}>选填 · 最多 5 张</span>
                 <div style={{ marginLeft: 'auto' }}>
                   <AssetQuickDrag
                     onPick={(payload) => { addRefDragPayload(payload); }}
@@ -807,11 +807,11 @@ export default function EcStudioPage() {
 
             {/* ③ 规格 + SKU */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 16 }}>
                 <div style={SX.stepNum}>3</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>产品尺寸颜色规格</h3>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sb-space-3)', marginBottom: 16 }}>
                 <div>
                   <label style={SX.label}>
                     商品名称 <span style={{ color: 'var(--sb-danger)' }}>*</span>
@@ -827,13 +827,13 @@ export default function EcStudioPage() {
                 </div>
                 <div>
                   <label style={SX.label}>品类</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sb-space-1)' }}>
                     {EC_CATS.map((c) => (
                       <span
                         key={c}
                         onClick={() => setProduct((p) => ({ ...p, category: c }))}
                         style={{
-                          padding: '6px 12px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+                          padding: '6px 12px', borderRadius: 'var(--sb-radius-2xl)', fontSize: 'var(--sb-text-sm)', cursor: 'pointer',
                           fontFamily: 'inherit', border: '1.5px solid',
                           background: product.category === c ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                           borderColor: product.category === c ? 'var(--sb-brand-600)' : 'var(--sb-neutral-200)',
@@ -884,24 +884,24 @@ export default function EcStudioPage() {
                   <button
                     onClick={addSkuRow}
                     style={{
-                      padding: '5px 12px', borderRadius: 6, background: 'var(--sb-brand-50)',
-                      color: 'var(--sb-brand-700)', border: '1px solid var(--sb-brand-200)', fontSize: 12,
+                      padding: '5px 12px', borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-brand-50)',
+                      color: 'var(--sb-brand-700)', border: '1px solid var(--sb-brand-200)', fontSize: 'var(--sb-text-sm)',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
                     + 添加变体
                   </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-2)' }}>
                   {skus.map((s, i) => (
                     <div
                       key={i}
                       style={{
-                        display: 'flex', gap: 8, alignItems: 'center', padding: '8px',
-                        background: 'var(--sb-neutral-25)', borderRadius: 8, border: '1px solid #EEEEF2',
+                        display: 'flex', gap: 'var(--sb-space-2)', alignItems: 'center', padding: '8px',
+                        background: 'var(--sb-neutral-25)', borderRadius: 'var(--sb-radius-md)', border: '1px solid #EEEEF2',
                       }}
                     >
-                      <span style={{ fontSize: 12, color: 'var(--sb-ink-3)', minWidth: 28 }}>#{i + 1}</span>
+                      <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', minWidth: 28 }}>#{i + 1}</span>
                       {EC_SKU_FIELDS.map((f) => (
                         <input
                           key={f.key}
@@ -911,7 +911,7 @@ export default function EcStudioPage() {
                           maxLength={f.maxLen}
                           style={{
                             flex: 1, padding: '7px 10px', border: '1px solid var(--sb-neutral-200)',
-                            borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: '0 solid transparent',
+                            borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-sm)', fontFamily: 'inherit', outline: '0 solid transparent',
                             boxSizing: 'border-box',
                           }}
                           onFocus={(e) => { e.target.style.borderColor = 'var(--sb-brand-600)'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
@@ -922,9 +922,9 @@ export default function EcStudioPage() {
                         <button
                           onClick={() => delSkuRow(i)}
                           style={{
-                            width: 24, height: 24, borderRadius: 6, background: 'var(--sb-neutral-0)',
+                            width: 24, height: 24, borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-neutral-0)',
                             border: '1px solid var(--sb-neutral-200)', color: 'var(--sb-danger)', cursor: 'pointer',
-                            fontSize: 14, flexShrink: 0,
+                            fontSize: 'var(--sb-text-md)', flexShrink: 0,
                           }}
                         >
                           ×
@@ -933,7 +933,7 @@ export default function EcStudioPage() {
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
+                <div style={{ fontSize: 'var(--sb-text-xs)', color: '#aaa', marginTop: 6 }}>
                   颜色名 ≤4 字，AI 严格按你填的生成，不自创。
                 </div>
               </div>
@@ -941,14 +941,14 @@ export default function EcStudioPage() {
 
             {/* ④ 详情策划 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 16 }}>
                 <div style={SX.stepNum}>4</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>详情页策划思路</h3>
-                <span style={{ fontSize: 12, color: 'var(--sb-ink-5)' }}>
+                <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-5)' }}>
                   勾选 = 生成一张详情切片（1440 宽）
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-2)' }}>
                 {EC_DETAIL_SLICES.filter((s) => s.key !== 'detail_slice_care').map((s) => {
                   const planKey = PLAN_KEY_BY_SLICE[s.key];
                   const checked = detailPlan[planKey];
@@ -956,12 +956,12 @@ export default function EcStudioPage() {
                     <div
                       key={s.key}
                       style={{
-                        padding: '10px 12px', borderRadius: 8,
+                        padding: '10px 12px', borderRadius: 'var(--sb-radius-md)',
                         border: `1px solid ${checked ? 'var(--sb-brand-200)' : '#EEEEF2'}`,
                         background: checked ? 'var(--sb-brand-50)' : 'var(--sb-neutral-25)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
                         <input
                           type="checkbox"
                           checked={!!checked}
@@ -970,13 +970,13 @@ export default function EcStudioPage() {
                         />
                         <span
                           style={{
-                            fontSize: 14, fontWeight: 600,
+                            fontSize: 'var(--sb-text-md)', fontWeight: 600,
                             color: checked ? 'var(--sb-brand-700)' : 'var(--sb-ink-2)',
                           }}
                         >
                           {s.emoji} {s.label}
                         </span>
-                        <span style={{ fontSize: 12, color: 'var(--sb-ink-3)' }}>{s.desc}</span>
+                        <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)' }}>{s.desc}</span>
                       </div>
                       {checked && (
                         <input
@@ -985,7 +985,7 @@ export default function EcStudioPage() {
                           placeholder="补一句自定义文案（选填）"
                           style={{
                             width: '100%', marginTop: 8, padding: '7px 10px',
-                            border: '1px solid var(--sb-neutral-200)', borderRadius: 6, fontSize: 12,
+                            border: '1px solid var(--sb-neutral-200)', borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-sm)',
                             fontFamily: 'inherit', outline: '0 solid transparent', boxSizing: 'border-box',
                           }}
                           onFocus={(e) => { e.target.style.borderColor = 'var(--sb-brand-600)'; e.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
@@ -1000,7 +1000,7 @@ export default function EcStudioPage() {
 
             {/* ⑤ 保养维护 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 8 }}>
                 <div style={SX.stepNum}>5</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>保养维护描述</h3>
               </div>
@@ -1012,7 +1012,7 @@ export default function EcStudioPage() {
                 onChange={(e) => setMaintenance(e.target.value)}
                 placeholder="避免暴晒、温水手洗、存放干燥处…"
                 rows={2}
-                style={{ ...SX.input, minHeight: 56, resize: 'vertical', fontSize: 13 }}
+                style={{ ...SX.input, minHeight: 56, resize: 'vertical', fontSize: 'var(--sb-text-md)' }}
                 onFocus={(e) => (e.target.style.borderColor = 'var(--sb-brand-600)')}
                 onBlur={(e) => (e.target.style.borderColor = '#D0D0D8')}
               />
@@ -1029,9 +1029,9 @@ export default function EcStudioPage() {
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>
                   <Gear weight="fill" size={18} style={{ color: 'var(--sb-ink-3)' }} /> 目标平台
                 </h3>
-                <span style={{ fontSize: 14, color: 'var(--sb-ink-4)' }}>共 {total} 张</span>
+                <span style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)' }}>共 {total} 张</span>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 'var(--sb-space-2)', flexWrap: 'wrap', marginBottom: 16 }}>
                 {['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'].map((p) => {
                   const d = dimSize(p, '1:1');
                   return (
@@ -1039,7 +1039,7 @@ export default function EcStudioPage() {
                       key={p}
                       onClick={() => setPlatform(p)}
                       style={{
-                        padding: '6px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+                        padding: '6px 14px', borderRadius: 'var(--sb-radius-2xl)', fontSize: 'var(--sb-text-sm)', cursor: 'pointer',
                         fontFamily: 'inherit', border: '1.5px solid',
                         background: platform === p ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                         borderColor: platform === p ? 'var(--sb-brand-600)' : 'var(--sb-neutral-200)',
@@ -1056,8 +1056,8 @@ export default function EcStudioPage() {
                 onClick={goPreview}
                 disabled={!name.trim() || olLoad}
                 style={{
-                  width: '100%', padding: '16px 0', border: 'none', borderRadius: 12,
-                  fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
+                  width: '100%', padding: '16px 0', border: 'none', borderRadius: 'var(--sb-radius-lg)',
+                  fontSize: 'var(--sb-text-lg)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: !name.trim() || olLoad ? 'not-allowed' : 'pointer',
                   background: !name.trim() || olLoad ? 'var(--sb-neutral-200)' : 'var(--sb-brand-700)',
                   color: 'var(--sb-neutral-0)',
@@ -1079,15 +1079,15 @@ export default function EcStudioPage() {
             </p>
             {refShots.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: 'var(--sb-ink-4)', marginBottom: 8 }}>
+                <div style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-4)', marginBottom: 8 }}>
                   参考图（{refShots.length} 张）
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 'var(--sb-space-2)' }}>
                   {refShots.map((s, i) => (
                     <div
                       key={i}
                       style={{
-                        width: 44, height: 44, borderRadius: 6, overflow: 'hidden',
+                        width: 44, height: 44, borderRadius: 'var(--sb-radius-sm)', overflow: 'hidden',
                         border: '1px solid #E8E8EC', cursor: 'pointer',
                       }}
                       onClick={() => setLb(s)}
@@ -1102,21 +1102,21 @@ export default function EcStudioPage() {
               <div
                 key={idx}
                 style={{
-                  marginBottom: 10, padding: '12px 16px', borderRadius: 8,
+                  marginBottom: 10, padding: '12px 16px', borderRadius: 'var(--sb-radius-md)',
                   background: '#F8F9FA', border: '1px solid #EEEEF2',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', marginBottom: 6 }}>
                   <span
                     style={{
-                      width: 24, height: 24, borderRadius: 6, background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
+                      width: 24, height: 24, borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 700, flexShrink: 0,
+                      fontSize: 'var(--sb-text-xs)', fontWeight: 700, flexShrink: 0,
                     }}
                   >
                     {idx + 1}
                   </span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-ink-1)' }}>
+                  <span style={{ fontSize: 'var(--sb-text-md)', fontWeight: 600, color: 'var(--sb-ink-1)' }}>
                     {item.emoji || ''} {item.label}
                   </span>
                 </div>
@@ -1128,19 +1128,19 @@ export default function EcStudioPage() {
                   }}
                   style={{
                     width: '100%', padding: '8px 12px', border: '1px solid var(--sb-neutral-200)',
-                    borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: '0 solid transparent',
+                    borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-sm)', fontFamily: 'inherit', outline: '0 solid transparent',
                     resize: 'vertical', minHeight: 40, boxSizing: 'border-box', background: 'var(--sb-neutral-0)',
                   }}
                   rows={2}
                 />
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 'var(--sb-space-3)', marginTop: 16 }}>
               <button
                 onClick={() => setPhase('config')}
                 style={{
-                  flex: 1, padding: '13px 0', borderRadius: 8, border: '1.5px solid var(--sb-neutral-200)',
-                  background: 'var(--sb-neutral-0)', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit',
+                  flex: 1, padding: '13px 0', borderRadius: 'var(--sb-radius-md)', border: '1.5px solid var(--sb-neutral-200)',
+                  background: 'var(--sb-neutral-0)', cursor: 'pointer', fontSize: 'var(--sb-text-md)', fontFamily: 'inherit',
                   color: 'var(--sb-ink-3)', fontWeight: 500,
                 }}
               >
@@ -1150,8 +1150,8 @@ export default function EcStudioPage() {
                 onClick={goGen}
                 disabled={generating}
                 style={{
-                  flex: 2, padding: '13px 0', borderRadius: 8, border: 'none',
-                  background: generating ? 'var(--sb-ink-5)' : 'var(--sb-success)', color: 'var(--sb-neutral-0)', cursor: generating ? 'wait' : 'pointer', fontSize: 14,
+                  flex: 2, padding: '13px 0', borderRadius: 'var(--sb-radius-md)', border: 'none',
+                  background: generating ? 'var(--sb-ink-5)' : 'var(--sb-success)', color: 'var(--sb-neutral-0)', cursor: generating ? 'wait' : 'pointer', fontSize: 'var(--sb-text-md)',
                   fontWeight: 600, fontFamily: 'inherit',
                   boxShadow: '0 2px 8px rgba(5,150,105,.2)',
                 }}
@@ -1160,12 +1160,12 @@ export default function EcStudioPage() {
               </button>
             </div>
             {genProgress && (
-              <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, color: 'var(--sb-brand-700)' }}>{genProgress}</div>
+              <div style={{ marginTop: 10, textAlign: 'center', fontSize: 'var(--sb-text-sm)', color: 'var(--sb-brand-700)' }}>{genProgress}</div>
             )}
             {Object.keys(inProgressPreview).length > 0 && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+              <div style={{ display: 'flex', gap: 'var(--sb-space-2)', flexWrap: 'wrap', marginTop: 14 }}>
                 {Object.values(inProgressPreview).map(image => (
-                  <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id} width="76" height="76" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #D1FAE5' }} />
+                  <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id} width="76" height="76" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 'var(--sb-radius-md)', border: '1px solid #D1FAE5' }} />
                 ))}
               </div>
             )}
@@ -1182,16 +1182,16 @@ export default function EcStudioPage() {
               }}
             >
               <div>
-                <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--sb-success)' }}>✅ 生成完成</span>
-                <span style={{ fontSize: 13, color: 'var(--sb-ink-4)', marginLeft: 8 }}>
+                <span style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: 'var(--sb-success)' }}>✅ 生成完成</span>
+                <span style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)', marginLeft: 8 }}>
                   {Object.keys(res.images || {}).length} 张图
                 </span>
               </div>
               <button
                 onClick={startNewProduct}
                 style={{
-                  padding: '8px 16px', borderRadius: 8, border: '1px solid var(--sb-neutral-200)',
-                  background: 'var(--sb-neutral-0)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
+                  padding: '8px 16px', borderRadius: 'var(--sb-radius-md)', border: '1px solid var(--sb-neutral-200)',
+                  background: 'var(--sb-neutral-0)', cursor: 'pointer', fontSize: 'var(--sb-text-md)', fontFamily: 'inherit',
                   color: 'var(--sb-ink-3)',
                 }}
               >
@@ -1202,20 +1202,20 @@ export default function EcStudioPage() {
             {Object.keys(res.images || {}).some((k) => k.includes('detail_slice')) && (
               <div
                 style={{
-                  background: 'var(--sb-brand-50)', borderRadius: 8, padding: '12px 16px',
-                  marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'var(--sb-brand-50)', borderRadius: 'var(--sb-radius-md)', padding: '12px 16px',
+                  marginBottom: 16, display: 'flex', alignItems: 'center', gap: 'var(--sb-space-3)',
                   flexWrap: 'wrap',
                 }}
               >
-                <span style={{ fontSize: 13, color: 'var(--sb-brand-700)', fontWeight: 500 }}>
+                <span style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-brand-700)', fontWeight: 500 }}>
                   📦 详情切片可拼成长图（微信分享用）
                 </span>
                 <button
                   onClick={goStitch}
                   disabled={stitching}
                   style={{
-                    padding: '8px 16px', borderRadius: 6, background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
-                    border: 'none', fontSize: 12, fontWeight: 600,
+                    padding: '8px 16px', borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
+                    border: 'none', fontSize: 'var(--sb-text-sm)', fontWeight: 600,
                     cursor: stitching ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                     opacity: stitching ? 0.6 : 1,
                   }}
@@ -1229,9 +1229,9 @@ export default function EcStudioPage() {
                     target="_blank"
                     rel="noreferrer"
                     style={{
-                      padding: '8px 16px', borderRadius: 6, background: 'var(--sb-success)',
-                      color: 'var(--sb-neutral-0)', textDecoration: 'none', fontSize: 12, fontWeight: 600,
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '8px 16px', borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-success)',
+                      color: 'var(--sb-neutral-0)', textDecoration: 'none', fontSize: 'var(--sb-text-sm)', fontWeight: 600,
+                      display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)',
                     }}
                   >
                     <Download weight="fill" size={14} /> 下载长图
@@ -1242,17 +1242,17 @@ export default function EcStudioPage() {
                     src={proxyImg(stitchUrl)}
                     alt="长图预览"
                     style={{
-                      width: '100%', marginTop: 8, borderRadius: 8, border: '1px solid var(--sb-neutral-150)',
+                      width: '100%', marginTop: 8, borderRadius: 'var(--sb-radius-md)', border: '1px solid var(--sb-neutral-150)',
                     }}
                   />
                 )}
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sb-space-3)' }}>
               {Object.entries(res.images || {}).map(([l, u]) => (
                 <div
                   key={l}
-                  style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #EEEEF2' }}
+                  style={{ borderRadius: 'var(--sb-radius-md)', overflow: 'hidden', border: '1px solid #EEEEF2' }}
                 >
                   <div style={{ cursor: 'zoom-in' }} onClick={() => setLb(u)}>
                     <img
@@ -1271,13 +1271,13 @@ export default function EcStudioPage() {
                       alignItems: 'center', borderTop: '1px solid #EEEEF2',
                     }}
                   >
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-3)' }}>{l}</span>
+                    <span style={{ fontSize: 'var(--sb-text-sm)', fontWeight: 600, color: 'var(--sb-ink-3)' }}>{l}</span>
                     {regEdit.v && regEdit.l === l ? (
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 'var(--sb-space-1)' }}>
                         <button
                           onClick={() => setRegEdit({ l: null, p: '', v: false })}
                           style={{
-                            fontSize: 11, padding: '4px 10px', borderRadius: 6,
+                            fontSize: 'var(--sb-text-xs)', padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)',
                             border: '1px solid var(--sb-neutral-200)', background: 'var(--sb-neutral-0)', cursor: 'pointer',
                             fontFamily: 'inherit',
                           }}
@@ -1288,7 +1288,7 @@ export default function EcStudioPage() {
                           onClick={() => goRegen(l, regEdit.p)}
                           disabled={!!regKey}
                           style={{
-                            fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none',
+                            fontSize: 'var(--sb-text-xs)', padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)', border: 'none',
                             background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)', cursor: 'pointer',
                             fontFamily: 'inherit', opacity: regKey ? 0.5 : 1,
                           }}
@@ -1305,8 +1305,8 @@ export default function EcStudioPage() {
                           setRegEdit({ l, p, v: true });
                         }}
                         style={{
-                          fontSize: 11, color: 'var(--sb-brand-700)', cursor: 'pointer',
-                          padding: '4px 10px', borderRadius: 6, background: 'var(--sb-brand-50)',
+                          fontSize: 'var(--sb-text-xs)', color: 'var(--sb-brand-700)', cursor: 'pointer',
+                          padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-brand-50)',
                           border: 'none', fontFamily: 'inherit',
                         }}
                       >
@@ -1324,7 +1324,7 @@ export default function EcStudioPage() {
         {lb && (
           <div
             style={{
-              position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(12,10,9,.92)',
+              position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)', background: 'rgba(12,10,9,.92)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             }}
             onClick={() => setLb(null)}
@@ -1332,7 +1332,7 @@ export default function EcStudioPage() {
             <img
               src={lb.startsWith('data:') ? lb : proxyImg(lb)}
               style={{
-                maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12,
+                maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 'var(--sb-radius-lg)',
               }}
               alt=""
             />
@@ -1354,12 +1354,12 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
   return (
     <>
       {imgs.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 'var(--sb-space-2)', flexWrap: 'wrap', marginBottom: 12 }}>
           {imgs.map((s, i) => (
             <div
               key={i}
               style={{
-                position: 'relative', width: 72, height: 72, borderRadius: 8, overflow: 'hidden',
+                position: 'relative', width: 72, height: 72, borderRadius: 'var(--sb-radius-md)', overflow: 'hidden',
                 border: '1px solid #E8E8EC', cursor: 'pointer',
               }}
               onClick={() => onPreview(s)}
@@ -1372,7 +1372,7 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
                 }}
                 style={{
                   position: 'absolute', top: 2, right: 2, width: 18, height: 18,
-                  borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 10,
+                  borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-2xs)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', border: 'none', fontWeight: 700,
                 }}
@@ -1408,7 +1408,7 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
         }}
         style={{
           border: isDragOver ? '2px dashed var(--sb-brand-700)' : '2px dashed var(--sb-neutral-200)',
-          borderRadius: 10, padding: '24px',
+          borderRadius: 'var(--sb-radius-lg)', padding: '24px',
           textAlign: 'center', cursor: 'pointer',
           background: isDragOver ? 'var(--sb-brand-50)' : 'var(--sb-neutral-25)',
           transition: 'all .15s', color: isDragOver ? 'var(--sb-brand-700)' : 'var(--sb-ink-5)',
@@ -1434,7 +1434,7 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
           size={22}
           style={{ display: 'block', margin: '0 auto 6px', color: 'inherit' }}
         />
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'inherit' }}>
+        <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 500, color: 'inherit' }}>
           {isDragOver ? '松开放入' : `点击上传（${imgs.length}/${max}）`}
         </div>
       </div>

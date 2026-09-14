@@ -58,16 +58,20 @@ test('LongTaskOverlay.jsx 文件存在, 导出 LongTaskOverlay, 顶部 progress 
   assert.match(src, /long-task-overlay-stage/);
 });
 
-test('LongTaskOverlay.css 全屏 z-index 1500 + 玻璃 backdrop-filter + 进度条平滑', () => {
+test('LongTaskOverlay.css 全屏阻断层用语义 z 档位 + 实底 + 进度条平滑', () => {
   assert.equal(existsSync(overlayCssPath), true, 'LongTaskOverlay.css 缺失');
   const css = readFileSync(overlayCssPath, 'utf-8');
-  // z-index 1500 (在 NoteModal 9998 之上, 电商全屏 9999 之下)
-  assert.match(css, /z-index: 1500/);
+  // 2026-09-20：裸值 1500 收口到语义阶梯最高档 --sb-z-top（其定义用途即「全屏阻断层」）。
+  // 原注释写「要在 NoteModal 9998 之上」，但靠裸值比大小会随时间漂移；
+  // 语义档由 token 统一裁决层级，不再按数值就近硬套。
+  assert.match(css, /z-index: var\(--sb-z-top\)/);
   // 全屏 fixed inset:0
   assert.match(css, /position: fixed/);
   assert.match(css, /inset: 0/);
-  // 玻璃感 backdrop-filter
-  assert.match(css, /backdrop-filter: blur\(6px\) saturate\(1\.1\)/);
+  // 2026-09-20 §11：全屏阻断层不在毛玻璃白名单内 → 改实底。
+  // 全屏 blur 是低端机最贵的单笔开销，而它盖住的是已被深遮罩压暗的页面，虚化不可见。
+  assert.ok(!/backdrop-filter/.test(css), '§11：全屏阻断层不得用 backdrop-filter');
+  assert.match(css, /background: rgba\(18, 18, 20, 0\.68\)/, '改实底并加深遮罩补偿层次感');
   // 进度条平滑过渡
   assert.match(css, /transition: width 360ms cubic-bezier/);
   // prefers-reduced-motion 兼容

@@ -33,7 +33,7 @@ import {
 const BTN_BASE = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 'var(--sb-space-2)',
   padding: '6px 10px',
   borderRadius: 8,
   border: '1px solid var(--sb-brand-a18)',
@@ -58,7 +58,7 @@ const BTN_ACTIVE = {
 
 const PANEL = {
   position: 'absolute',
-  zIndex: 950,
+  zIndex: 'var(--sb-z-dropdown)',
   marginTop: 8,
   padding: 12,
   borderRadius: 14,
@@ -236,7 +236,7 @@ export default function AssetQuickDrag({ onDragStart, onPick, compact = false, s
   }, [onPick]);
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', display: 'inline-flex', gap: 6, ...style }}>
+    <div ref={wrapperRef} style={{ position: 'relative', display: 'inline-flex', gap: 'var(--sb-space-2)', ...style }}>
       {ASSET_DRAG_PRESET_BUTTONS.map((btn) => {
         const isOpen = openSource === btn.key;
         return (

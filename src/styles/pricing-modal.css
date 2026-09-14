@@ -12,8 +12,10 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: rgba(57, 45, 26, 0.35);
-  backdrop-filter: blur(4px);
+  background: var(--sb-scrim);
+  /* 2026-09-20 §11 毛玻璃收敛：遮罩不属于白名单三类（面板/画布浮条/吸顶导航）。
+     原来的 blur(4px) 几乎不可见，但仍是每帧的背景重算 —— 去掉零观感损失。
+     同时把自造的 rgba(57,45,26,.35) 收敛到 --sb-scrim（标准 modal 遮罩档）。 */
 }
 /* 9-12 用户批注：上面空、下面挤 —— 上下内边距改为对称，并把整体高度用足（卡片不再贴底）。 */
 .pricing-modal {
@@ -26,12 +28,12 @@
   background: #fbf8f1;
   border-radius: 24px;
   border: 1px solid #e7e0d4;
-  box-shadow: 0 24px 70px -12px rgba(57, 45, 26, 0.18), 0 8px 24px rgba(57, 45, 26, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* §11：弹窗卡不属于白名单三类 → 去毛玻璃。原底 #fbf8f1 已是实色，
+     blur 从未产生任何可见效果（背景被实色完全遮住），纯属无效开销。 */
+  box-shadow: var(--sb-shadow-5);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sb-space-3);
   font-family: var(--font-body);
   color: #292524;
   overflow-x: hidden;
@@ -76,7 +78,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 16px;
+  gap: var(--sb-space-4);
   z-index: 1;
   margin-bottom: -14px;
   min-height: 24px;
@@ -84,7 +86,7 @@
 .pricing-modal__brand-text {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   font-weight: 800;
   font-size: 16px;
   color: #292524;
@@ -156,7 +158,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
 }
 .pricing-modal__hero-line {
   font-size: 16px;
@@ -168,7 +170,7 @@
 .pricing-modal__hero-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sb-space-2);
   font-size: 16px;
   color: #57534e;
   flex-wrap: wrap;
@@ -201,7 +203,7 @@
   z-index: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0;
+  gap: var(--sb-space-0);
   padding: 5px;
   margin: 4px auto 2px;
   max-width: 680px;
@@ -218,7 +220,7 @@
   border-radius: 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sb-space-1);
   align-items: center;
   cursor: pointer;
   color: var(--sb-ink-3);
@@ -270,7 +272,7 @@
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 26px;
+  gap: var(--sb-space-6);
   align-items: stretch;
   margin-top: 18px;
   /* 9-12 用户批注：卡片下面的留白要和标题上面的留白一样大（原来下面贴得很紧） */
@@ -290,7 +292,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--sb-space-2);
   padding: 24px 20px 20px;
   border-radius: 20px;
   background: #fffefb;
@@ -339,7 +341,7 @@
   letter-spacing: 0.06em;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sb-space-2);
   box-shadow: 0 4px 12px rgba(146, 64, 14, 0.12);
   z-index: 2;
   white-space: nowrap;
@@ -374,7 +376,7 @@
 .pricing-modal__pack-price {
   display: inline-flex;
   align-items: baseline;
-  gap: 2px;
+  gap: var(--sb-space-1);
   margin-top: 2px;
 }
 .pricing-modal__pack-price-sym {
@@ -453,13 +455,13 @@
   margin: 8px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sb-space-2);
   width: 100%;
 }
 .pricing-modal__pack-list li {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--sb-space-2);
   font-size: 13px;
   line-height: 1.5;
   justify-content: center;
@@ -523,7 +525,7 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sb-space-2);
   padding: 14px 18px;
   border: 1.5px solid #f0c56b;
   border-radius: 16px;
@@ -532,7 +534,7 @@
 .pricing-modal__detail-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   flex-wrap: wrap;
 }
 .pricing-modal__detail-name {
@@ -560,7 +562,7 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sb-space-3);
   padding-top: 16px;
   border-top: 1px dashed #ddd3c2;
 }
@@ -573,13 +575,13 @@
 .pricing-modal__pay-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: var(--sb-space-3);
 }
 .pricing-modal__pay-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid transparent;
@@ -622,13 +624,13 @@
 /* 响应式: 灵图断点 (2列/单列) */
 @media (max-width: 980px) {
   .pricing-modal { padding: 24px 20px; }
-  .pricing-modal__pack-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pricing-modal__pack-grid { grid-template-columns: 1fr 1fr; gap: var(--sb-space-3); }
   .pricing-modal__pack { min-height: 0; }
   .pricing-modal__pack--anchored { transform: none; }
 }
 @media (max-width: 640px) {
   .pricing-modal { padding: 20px 16px; }
-  .pricing-modal__pack-grid { grid-template-columns: 1fr; gap: 14px; }
+  .pricing-modal__pack-grid { grid-template-columns: 1fr; gap: var(--sb-space-3); }
   .pricing-modal__pay-grid { grid-template-columns: 1fr; }
   .pricing-modal__title { font-size: 26px; }
 }

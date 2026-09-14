@@ -1,10 +1,14 @@
-/* 薯包AI 登录弹窗 v9 (2026-09-09) — 站点视觉语言: 暖米+玻璃+珊瑚/琥珀渐变 */
+/* 薯包AI 登录弹窗 v9 (2026-09-09) — 站点视觉语言: 暖米+实底+珊瑚/琥珀渐变
+   ── 2026-09-20 §11 毛玻璃收敛 ──────────────────────────────────────────
+   遮罩与弹窗卡都**不属于** §11 白名单三类（浮层面板 / 画布浮条 / 吸顶导航）。
+   遮罩用毛玻璃会把正文糊成一片、降低对比；卡片本已是 0.96 不透明度的实底，
+   再加 blur 是纯粹的性能开销（低端安卓每帧重算背景），观感零收益。
+   处置：遮罩去毛玻璃；卡片改用 L1 浮层实底 token 并补海拔。 */
 .ld-overlay {
   position: fixed; inset: 0; z-index: 10000;
   display: grid; place-items: center; padding: 24px;
-  background: rgba(50, 40, 28, 0.42);
-  backdrop-filter: blur(10px) saturate(1.1);
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  /* §11：遮罩收敛到标准 modal 遮罩档（原自造 rgba(50,40,28,.42) 是自成一档的值） */
+  background: var(--sb-scrim);
   animation: ld-fade 0.22s ease-out both;
 }
 .ld-card {
@@ -13,10 +17,10 @@
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   /* 单一均匀表面：卡片上不再有任何渐变，避免出现"两种背景色重叠"的分界带 */
-  background-color: rgba(255, 254, 252, 0.96);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  border-radius: 26px;
+  /* §11：登录卡不是「浮层面板/画布浮条/吸顶导航」，改实底（L1 浮层）——
+     原 rgba(255,254,252,.96) 本就是近实底，改 token 后观感等价且不再有 blur 开销。 */
+  background-color: var(--sb-surface-panel-solid);
+  border-radius: var(--sb-radius-2xl);
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow: 0 32px 90px -20px rgba(57, 45, 26, 0.35), 0 4px 16px rgba(57, 45, 26, 0.08), inset 0 1px 0 rgba(255,255,255,0.8);
   font-family: var(--font-body);
@@ -101,10 +105,10 @@
 }
 
 /* 字段 */
-.ld-field { display: grid; gap: 7px; }
+.ld-field { display: grid; gap: var(--sb-space-2); }
 .ld-field + .ld-field { margin-top: 15px; }
 .ld-label {
-  display: flex; align-items: baseline; gap: 6px;
+  display: flex; align-items: baseline; gap: var(--sb-space-2);
   font-size: 12.5px; font-weight: 600; color: var(--sb-ink-2);
 }
 .ld-label small { font-weight: 400; color: var(--sb-ink-4); font-size: 11.5px; }
@@ -204,14 +208,14 @@
 
 /* 分割线 + 第三方 */
 .ld-divider {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: var(--sb-space-4);
   margin: 20px 0 14px;
   font-size: 11px; font-weight: 600; color: #B0AAA5;
 }
 .ld-divider::before, .ld-divider::after { content: ''; flex: 1; height: 1px; background: rgba(57, 45, 26, 0.1); }
-.ld-oauth { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.ld-oauth { display: grid; grid-template-columns: 1fr; gap: var(--sb-space-2); }
 .ld-oauth-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sb-space-2);
   height: 46px;
   border: 1.5px solid rgba(57, 45, 26, 0.12);
   border-radius: 12px;
@@ -240,7 +244,7 @@
 
 /* 协议 */
 .ld-terms {
-  display: flex; align-items: flex-start; gap: 9px;
+  display: flex; align-items: flex-start; gap: var(--sb-space-2);
   margin-top: 18px;
   font-size: 12px; line-height: 1.6; color: var(--sb-ink-3);
   cursor: pointer; user-select: none;
@@ -260,7 +264,7 @@
   .ld-card { border-radius: 20px; }
   .ld-head { padding: 26px 22px 0; }
   .ld-body { padding: 18px 22px 22px; }
-  .ld-otp { gap: 6px; }
+  .ld-otp { gap: var(--sb-space-2); }
   .ld-otp-box { height: 44px; border-radius: 10px; font-size: 16px; }
   .ld-oauth { grid-template-columns: 1fr; }
 }

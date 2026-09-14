@@ -151,7 +151,7 @@ function TopBar() {
   }, [logged, refreshBillingBalance, state.browserQa]);
 
   return (
-    <div className={'app-topbar' + (compact ? ' is-compact' : '')} style={{ zIndex: 1100, userSelect: 'none' }}>
+    <div className={'app-topbar' + (compact ? ' is-compact' : '')} style={{ zIndex: 'var(--sb-z-sticky)', userSelect: 'none' }}>
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
       <div className="topbar-row">
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
@@ -376,7 +376,7 @@ function AppRouter() {
       />
     )}
     {genState === 'loading' && (
-      <div style={{ position:'fixed', inset:0, zIndex:9999, background:'var(--bg)' }}>
+      <div style={{ position:'fixed', inset:0, zIndex:'var(--sb-z-top)', background:'var(--bg)' }}>
         <LoadingView />
       </div>
     )}

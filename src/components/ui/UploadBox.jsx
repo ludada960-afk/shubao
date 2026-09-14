@@ -30,7 +30,7 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
   return (
     <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
       {/* Label */}
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
         {label}
         {optional && (
           <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>
@@ -73,12 +73,12 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
             {/* Remove button */}
             <button type="button" className="a11y-reset" aria-label="移除已上传图片"
               onClick={(e) => { e.stopPropagation(); onRemove(0); }}
-              style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,10,9,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <MdClose size={12} color="#fff" />
             </button>
             {/* Count badge */}
             {images.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', fontSize: 11, fontWeight: 700, color: 'var(--sb-neutral-0)' }}>
+              <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(12,10,9,0.72)', fontSize: 11, fontWeight: 700, color: 'var(--sb-neutral-0)' }}>
                 +{images.length - 1}
               </div>
             )}
@@ -86,7 +86,7 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
             {images.length < max && (
               <button type="button" className="a11y-reset" aria-label="继续添加图片"
                 onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-                style={{ position: 'absolute', bottom: 6, left: 6, width: 28, height: 28, borderRadius: 8, background: 'rgba(12,10,9,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: 6, left: 6, width: 28, height: 28, borderRadius: 8, background: 'rgba(12,10,9,0.66)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                 <MdAdd size={14} color="#fff" />
               </button>
             )}

@@ -3,7 +3,8 @@
    产品经理视角: 认知路径分层, 用户先选 入口 (3 选 1) -> 再选 AI 任务 (2+3 选 1)
    流影AI 调研视角: 1 张参考图 + 1 句 prompt = 现代 SaaS 画布 (TapNow Agent) + 电商画布 (Quantv 模板) 标准入口
    用户 8-29 硬性要求: 5 原有 + 3 新增 = 8 个按钮, 不写内部术语 (流影AI / TapNow 等)
-   毛玻璃 backdrop-filter, 暗色模式 token 化, 响应式 (移动单列) */
+   实底表面, 暗色模式 token 化, 响应式 (移动单列)
+  （2026-09-20 §11：空态卡与按钮均不在毛玻璃白名单内，已改实底） */
 
 /* 整体面板 — 比 v2 760px 窄, 用户 8-29 硬性要求 "不能搞得这么宽"
    9-07 改进: 毛玻璃面板比内容区域大得多 (四周各留 40px+ 呼吸空间),
@@ -14,9 +15,7 @@
   border-radius: 24px;
   box-shadow: 0 12px 48px -16px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
   padding: 56px 48px 52px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  background: var(--sb-surface-card);
   border: 1px solid rgba(255, 255, 255, 0.6);
   position: relative;
 }
@@ -66,7 +65,7 @@
 /* 1 行 — 容器 */
 .ec-canvas-empty-row {
   display: grid;
-  gap: 6px;
+  gap: var(--sb-space-2);
   align-items: stretch;
 }
 
@@ -103,7 +102,7 @@
   padding: 0 12px;
   font-size: 12.5px;
   font-weight: 700;
-  gap: 7px;
+  gap: var(--sb-space-2);
 }
 .ec-canvas-empty-row.is-generate-row button svg {
   width: 26px;
@@ -181,8 +180,6 @@
               border-color var(--ec-motion-fast, 0.12s) var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1)),
               background var(--ec-motion-fast, 0.12s) var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1));
   animation: ecHeroRise 320ms var(--ec-ease-out, cubic-bezier(0, 0, 0.2, 1)) backwards;
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
 .ec-canvas-empty-actions button:hover:not(:disabled) {
   transform: translateY(-1px);

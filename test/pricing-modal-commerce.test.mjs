@@ -49,7 +49,10 @@ const MODALS = await fs.readFile(
 test('pricing modal root has lingtu warm-rice bg + amber/violet orbs', () => {
   assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?background:\s*#fbf8f1/);
   assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?border-radius:\s*24px/);
-  assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?backdrop-filter:/);
+  // 2026-09-20 §11：定价弹窗卡不在毛玻璃白名单内 → 改实底 + 海拔。
+  // （原 backdrop-filter 被 fbf8f1 实色底完全遮住，从未产生可见效果。）
+  assert.ok(!/backdrop-filter/.test(PRICING_CSS), '§11：定价弹窗与遮罩均不得用 backdrop-filter');
+  assert.match(PRICING_CSS, /\.pricing-modal\s*\{[\s\S]*?box-shadow: var\(--sb-shadow-5\)/, '改用海拔表达浮起');
   assert.match(PRICING_MODAL, /pricing-modal__orb--a/);
   assert.match(PRICING_MODAL, /pricing-modal__orb--b/);
   assert.ok(PRICING_CSS.includes('233, 154, 24'), 'amber rgb in css');

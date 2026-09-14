@@ -51,9 +51,9 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)', background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ width: 'min(860px, 96vw)', maxHeight: '86vh', background: 'var(--sb-neutral-0)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--sb-neutral-100)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', padding: '12px 16px', borderBottom: '1px solid var(--sb-neutral-100)' }}>
           <strong style={{ fontSize: 14, color: 'var(--sb-ink-1)' }}>{title}</strong>
           <input
             value={query}
@@ -76,7 +76,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
               <br />提示：在作品卡片上点「加入资产库」，即可把生成结果收录进来复用。
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 'var(--sb-space-2)' }}>
               {assets.map(asset => {
                 const key = asset.projectId + ':' + asset.projectAssetId;
                 const isPicked = selected.some(a => (a.projectId + ':' + a.projectAssetId) === key);

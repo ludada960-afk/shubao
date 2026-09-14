@@ -39,10 +39,9 @@ export function Modal({ children, onClose, width = 420 }) {
     <div
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(12,10,9,0.45)',
-        zIndex: 999,
+        background: 'var(--sb-scrim)',
+        zIndex: 'var(--sb-z-modal)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
       }}
       className="animate-fade-in"
       onClick={onClose}
@@ -117,7 +116,7 @@ export function Tag({ children, active, onClick, style = {} }) {
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 3,
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)',
         padding: '5px 14px',
         borderRadius: 'var(--radius-full)',
         fontSize: 'var(--text-sm)',

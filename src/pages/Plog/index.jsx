@@ -240,13 +240,13 @@ export default function PlogPage() {
 
   /** 碎片风：3列网格+旋转+白边 */
   const LayoutCasual = ({ images, onOpen }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-1)' }}>
       {images.map((item, i) => (
         /* D11：裸 div onClick → button（可键盘 Tab 聚焦 + Enter 打开）。
            注意：本元素的 #fff / rgba 属**作品预览画布**（拍立得白边），见文件头例外说明。 */
         <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 1} 张`} onClick={() => onOpen(i)}
           style={{
-            aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
+            aspectRatio: '3/4', borderRadius: 'var(--sb-radius-sm)', overflow: 'hidden', cursor: 'pointer',
             background: '#fff', position: 'relative', border: '1px solid rgba(12,10,9,0.06)', padding: 0,
             transform: `rotate(${i % 2 === 0 ? -0.5 : 0.5}deg)`,
             boxShadow: '0 1px 3px rgba(12,10,9,0.08)',
@@ -260,26 +260,30 @@ export default function PlogPage() {
 
   /** 拍立得风：白边+旋转+阴影 */
   const LayoutPolaroid = ({ images, onOpen }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)' }}>
       {images.map((item, i) => {
         const rot = [-2, 1.5, -1, 2.5, -1.5, 1, -2.5, 2, -1][i] || 0;
         return (
-          <div key={i} onClick={() => onOpen(i)}
+          /* D11：裸 div onClick → button（可 Tab 聚焦 + Enter 打开）。
+             内联重置 button 的 UA 默认外观（背景/边框/内边距/字体/对齐），外观零变化。 */
+          <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 1} 张`} onClick={() => onOpen(i)}
             style={{
               cursor: 'pointer',
               transform: `rotate(${rot}deg)`,
               transition: 'transform 0.2s',
               filter: 'sepia(0.05)',
+              appearance: 'none', background: 'none', border: 'none', padding: 0, margin: 0,
+              font: 'inherit', color: 'inherit', textAlign: 'inherit', display: 'block',
             }}>
             <div style={{
-              background: '#fffdf7', padding: '6px 6px 22px 6px', borderRadius: 2,
+              background: '#fffdf7', padding: '6px 6px 22px 6px', borderRadius: 'var(--sb-radius-xs)',
               boxShadow: '0 3px 10px rgba(12,10,9,0.12)',
             }}>
               <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0ebe0' }}>
                 <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
               </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -287,12 +291,16 @@ export default function PlogPage() {
 
   /** 电影感：黑边+字幕条 */
   const LayoutCinematic = ({ images, onOpen }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: '#111', borderRadius: 12, padding: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-3)', background: '#111', borderRadius: 'var(--sb-radius-lg)', padding: 14 }}>
       {images.map((item, i) => (
-        <div key={i} onClick={() => onOpen(i)} style={{ cursor: 'pointer' }}>
+        <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 1} 张`} onClick={() => onOpen(i)}
+          style={{
+            cursor: 'pointer', appearance: 'none', background: 'none', border: 'none', padding: 0, margin: 0,
+            font: 'inherit', color: 'inherit', textAlign: 'inherit', display: 'block', width: '100%',
+          }}>
           {/* 宽幅 + 上下黑边 */}
           <div style={{
-            background: '#000', borderRadius: 4, overflow: 'hidden', padding: '0 0',
+            background: '#000', borderRadius: 'var(--sb-radius-xs)', overflow: 'hidden', padding: '0 0',
             position: 'relative',
           }}>
             <div style={{ aspectRatio: '3/4', maxHeight: 260, margin: '0 auto', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -305,7 +313,7 @@ export default function PlogPage() {
             }}>
               <div style={{
                 display: 'inline-block', background: 'rgba(12,10,9,0.75)', color: '#fff',
-                fontSize: 10, padding: '3px 14px', borderRadius: 2,
+                fontSize: 'var(--sb-text-2xs)', padding: '3px 14px', borderRadius: 'var(--sb-radius-xs)',
                 fontStyle: 'italic', letterSpacing: 0.5, fontFamily: 'serif',
               }}>
                 {CINEMATIC_SUBTITLES[i % CINEMATIC_SUBTITLES.length]}
@@ -313,10 +321,10 @@ export default function PlogPage() {
             </div>
           </div>
           {/* 页码 */}
-          <div style={{ textAlign: 'center', fontSize: 9, color: '#555', marginTop: 4, letterSpacing: 2 }}>
+          <div style={{ textAlign: 'center', fontSize: 'var(--sb-text-2xs)', color: '#555', marginTop: 4, letterSpacing: 2 }}>
             {String(i + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -326,19 +334,21 @@ export default function PlogPage() {
     const stickers = JOURNAL_STICKERS;
     return (
       <div style={{
-        background: '#F5F0E8', borderRadius: 12, padding: 16,
+        background: '#F5F0E8', borderRadius: 'var(--sb-radius-lg)', padding: 16,
         position: 'relative', boxShadow: 'inset 0 0 30px rgba(12,10,9,0.03)',
       }}>
         {/* 纸张纹理 SVG */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)', position: 'relative', zIndex: 1 }}>
           {images.map((item, i) => {
             const rot = [-1, 1.2, -0.8, 1.5, -1.2, 0.8, -1.8, 1, -0.5][i] || 0;
             const sticker = stickers[i % stickers.length];
             return (
-              <div key={i} onClick={() => onOpen(i)} style={{
+              <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 1} 张`} onClick={() => onOpen(i)} style={{
                 cursor: 'pointer',
                 transform: `rotate(${rot}deg)`,
                 position: 'relative',
+                appearance: 'none', background: 'none', border: 'none', padding: 0, margin: 0,
+                font: 'inherit', color: 'inherit', textAlign: 'inherit', display: 'block',
               }}>
                 {/* 撕纸边缘效果（使用不规则边框） */}
                 <div style={{
@@ -352,7 +362,7 @@ export default function PlogPage() {
                 </div>
                 {/* 贴纸 */}
                 <div style={{
-                  position: 'absolute', top: -6, right: -4, fontSize: 16,
+                  position: 'absolute', top: -6, right: -4, fontSize: 'var(--sb-text-lg)',
                   transform: `rotate(${[-10, 8, -5, 12, -8, 6, -12, 10, -6][i]}deg)`,
                   filter: 'drop-shadow(0 1px 1px rgba(12,10,9,0.15))',
                 }}>{sticker}</div>
@@ -360,8 +370,8 @@ export default function PlogPage() {
                 {i % 3 === 1 && (
                   <div style={{
                     position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)',
-                    fontSize: 7, color: '#888', background: '#fffde7', padding: '1px 6px',
-                    borderRadius: 1, whiteSpace: 'nowrap', border: '0.5px solid #ddd',
+                    fontSize: 'var(--sb-text-2xs)', color: '#888', background: '#fffde7', padding: '1px 6px',
+                    borderRadius: 'var(--sb-radius-xs)', whiteSpace: 'nowrap', border: '0.5px solid #ddd',
                   }}>📌 {['今日份', '小确幸', '记录'][i % 3]}</div>
                 )}
                 {/* 虚线（装饰） */}
@@ -371,17 +381,17 @@ export default function PlogPage() {
                     borderTop: '1px dashed #ccc',
                   }} />
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
         {/* 底部装饰线 */}
         <div style={{
           marginTop: 16, borderTop: '1px dashed #ddd',
-          display: 'flex', justifyContent: 'center', gap: 8, paddingTop: 8,
+          display: 'flex', justifyContent: 'center', gap: 'var(--sb-space-2)', paddingTop: 8,
         }}>
           {['🌸', '📅', '✉️'].map((s, i) => (
-            <span key={i} style={{ fontSize: 11, opacity: 0.6 }}>{s}</span>
+            <span key={i} style={{ fontSize: 'var(--sb-text-xs)', opacity: 0.6 }}>{s}</span>
           ))}
         </div>
       </div>
@@ -397,9 +407,10 @@ export default function PlogPage() {
       <div>
         {/* 封面 —— 大图 */}
         {cover && (
-          <div onClick={() => onOpen(0)} style={{
+          <button type="button" className="sb-focusable" aria-label="查看第 1 张（封面）" onClick={() => onOpen(0)} style={{
             marginBottom: 16, cursor: 'pointer', position: 'relative',
-            background: '#f8f8f8', borderRadius: 8, overflow: 'hidden',
+            background: '#f8f8f8', borderRadius: 'var(--sb-radius-md)', overflow: 'hidden',
+            appearance: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textAlign: 'inherit', display: 'block', width: '100%',
           }}>
             <div style={{ aspectRatio: '3/4', maxHeight: 340 }}>
               <img src={cover.url} alt="封面" style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="320" height="400" loading="lazy" decoding="async" fetchpriority="auto" />
@@ -409,29 +420,29 @@ export default function PlogPage() {
               position: 'absolute', bottom: 20, left: 16,
               color: '#fff', textShadow: '0 2px 8px rgba(12,10,9,0.3)',
             }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.7, marginBottom: 4, fontFamily: 'serif' }}>FEATURE</div>
-              <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.2, fontFamily: 'serif' }}>
+              <div style={{ fontSize: 'var(--sb-text-2xs)', letterSpacing: 3, opacity: 0.7, marginBottom: 4, fontFamily: 'serif' }}>FEATURE</div>
+              <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 700, lineHeight: 1.2, fontFamily: 'serif' }}>
                 {results?.caption?.split('｜')[0] || '生活碎片'}
               </div>
             </div>
-          </div>
+          </button>
         )}
         {/* 内容页 —— 3列极简 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)' }}>
           {rest.map((item, i) => (
             <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 2} 张`} onClick={() => onOpen(i + 1)}
               style={{
                 cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit',
               }}>
               <div style={{
-                aspectRatio: '3/4', overflow: 'hidden', borderRadius: 4,
+                aspectRatio: '3/4', overflow: 'hidden', borderRadius: 'var(--sb-radius-xs)',
                 boxShadow: '0 1px 4px rgba(12,10,9,0.04)',
               }}>
                 <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
               </div>
               {/* 极小页码 */}
               <div style={{
-                fontSize: 8, color: '#bbb', textAlign: 'right', marginTop: 3,
+                fontSize: 'var(--sb-text-2xs)', color: '#bbb', textAlign: 'right', marginTop: 3,
                 fontFamily: 'serif', letterSpacing: 1,
               }}>
                 {String(i + 2).padStart(2, '0')}
@@ -529,7 +540,7 @@ export default function PlogPage() {
                     transition: 'background var(--sb-dur-fast, .12s) ' + 'var(--sb-ease-out, ease), box-shadow var(--sb-dur-fast, .12s) ' + 'var(--sb-ease-out, ease)',
                     fontFamily: 'inherit',
                   }}>
-                  <div style={{ fontSize: 20, marginBottom: 2 }}>{t.emoji}</div>
+                  <div style={{ fontSize: 'var(--sb-text-xl)', marginBottom: 2 }}>{t.emoji}</div>
                   <div style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)' }}>{t.name}</div>
                   <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
                   {t.tag && <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-danger)', marginTop: 2 }}>{t.tag}</div>}
@@ -553,7 +564,7 @@ export default function PlogPage() {
                     background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-sunken)',
                     boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
                   }}>
-                  <div style={{ fontSize: 18 }}>{c.icon}</div>
+                  <div style={{ fontSize: 'var(--sb-text-xl)' }}>{c.icon}</div>
                   <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', fontWeight: 'var(--sb-weight-medium, 500)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)', marginTop: 2 }}>{c.name}</div>
                   <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 1 }}>{c.desc}</div>
                 </button>
@@ -576,7 +587,7 @@ export default function PlogPage() {
                     background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-sunken)',
                     boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
                   }}>
-                  <div style={{ fontSize: 16 }}>{s.emoji}</div>
+                  <div style={{ fontSize: 'var(--sb-text-lg)' }}>{s.emoji}</div>
                   <div style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)' }}>{s.name}</div>
                   <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 1 }}>{s.desc}</div>
                 </button>
@@ -694,22 +705,25 @@ export default function PlogPage() {
           </div>
         )}
 
-        {/* ── 灯箱 ── */}
+        {/* ── 灯箱 ──
+            D11：遮罩是可点关闭区，div 键盘不可达 → button + UA 默认外观归零（外观零变化）。
+            内外层不再依赖 stopPropagation：改为 onMouseDown 校验 target。 */}
         {lightbox && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(12,10,9,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => setLightbox(null)}>
+          <button type="button" aria-label="关闭预览" className="a11y-backdrop"
+            style={{ position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)', background: 'rgba(12,10,9,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onMouseDown={(event) => { if (event.target === event.currentTarget) setLightbox(null); }}>
             {/* D11：灯箱翻页由裸 div onClick 改为 button（可键盘聚焦 + 有焦点环）。
                 此处 rgba(255,255,255,0.1) 属**深色遮罩上的玻璃层**，是 D4 许可的遮罩类例外。 */}
             {lightboxIdx > 0 && (
               <button type="button" aria-label="上一张" className="sb-focusable" onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx - 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
-                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 'var(--sb-radius-pill)', border: 'none', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-ink-on-dark)', fontSize: 20, zIndex: 1 }}>‹</button>
+                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 'var(--sb-radius-pill)', border: 'none', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-ink-on-dark)', fontSize: 'var(--sb-text-xl)', zIndex: 1 }}>‹</button>
             )}
             {lightboxIdx < lightboxList.length - 1 && (
               <button type="button" aria-label="下一张" className="sb-focusable" onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx + 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}
-                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 'var(--sb-radius-pill)', border: 'none', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-ink-on-dark)', fontSize: 20, zIndex: 1 }}>›</button>
+                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: 'var(--sb-radius-pill)', border: 'none', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-ink-on-dark)', fontSize: 'var(--sb-text-xl)', zIndex: 1 }}>›</button>
             )}
-            <img src={lightbox} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 6 }} alt="" />
-          </div>
+            <img src={lightbox} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 'var(--sb-radius-sm)' }} alt="" />
+          </button>
         )}
 
         <div style={{ marginTop: 40 }}><Footer /></div>

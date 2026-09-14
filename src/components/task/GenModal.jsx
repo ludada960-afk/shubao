@@ -25,7 +25,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
   return (
     <div style={{
       position: 'fixed', bottom: 0, right: 0,
-      zIndex: 9998,
+      zIndex: 'var(--sb-z-panel)',
       width: 380, maxHeight: 'calc(100vh - 80px)',
       background: 'var(--sb-neutral-0)', borderRadius: '16px 0 0 0',
       boxShadow: '-4px 0 24px rgba(12,10,9,0.08), 0 -4px 24px rgba(12,10,9,0.06)',
@@ -38,9 +38,9 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 16px', borderBottom: '1px solid var(--border-light)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 10,
+            width: 32, height: 32, borderRadius: 'var(--sb-radius-lg)',
             background: isActive ? 'rgba(245,158,11,0.12)' :
                         task.status === 'done' ? 'rgba(92,168,108,0.12)' : 'rgba(12,10,9,0.04)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -107,9 +107,9 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
         {/* 队列等待 */}
         {task.status === 'queued' && (
           <div style={{ padding: '24px 0', textAlign: 'center' }}>
-            <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.4 }}>⏳</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>排队等待中</div>
-            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>
+            <div style={{ fontSize: 'var(--sb-text-3xl)', marginBottom: 8, opacity: 0.4 }}>⏳</div>
+            <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 600, color: 'var(--text-secondary)' }}>排队等待中</div>
+            <div style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--text-faint)', marginTop: 4 }}>
               前面还有任务，请稍候…
             </div>
           </div>

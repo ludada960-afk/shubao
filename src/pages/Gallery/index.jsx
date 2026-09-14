@@ -33,7 +33,7 @@ export default function GalleryPage() {
         </p>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 22,
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sb-space-6)',
         }}>
           {GALLERY.map(g => (
             <GCard key={g.id} item={g} onClick={() => viewItem(g)}
@@ -84,9 +84,9 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Category */}
       <span style={{
         position: 'absolute', top: 10, left: 10, zIndex: 2,
-        fontSize: 'var(--text-xs)', background: 'rgba(12,10,9,0.45)', color: 'var(--sb-neutral-0)',
+        fontSize: 'var(--text-xs)', background: 'rgba(12,10,9,0.72)', color: 'var(--sb-neutral-0)',
         padding: '3px 10px', borderRadius: 'var(--radius-md)',
-        backdropFilter: 'blur(4px)', fontWeight: 'var(--weight-semibold)',
+        fontWeight: 'var(--weight-semibold)',
       }}>
         {item.cat}
       </span>
@@ -106,13 +106,13 @@ function GCard({ item, onClick, onSameStyle }) {
         <div style={{
           position: 'absolute', inset: 0, background: 'rgba(12,10,9,0.4)', zIndex: 3,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 10,
+          gap: 'var(--sb-space-2)',
         }} className="animate-fade-in">
           <span style={{
             background: 'rgba(255,255,255,0.95)', color: 'var(--red)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
-            display: 'flex', alignItems: 'center', gap: 5,
+            display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)',
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onClick(); }}>
             <MdVisibility size={13} /> 查看全套内容
@@ -121,7 +121,7 @@ function GCard({ item, onClick, onSameStyle }) {
             background: 'var(--red)', color: 'var(--sb-neutral-0)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
-            display: 'flex', alignItems: 'center', gap: 5,
+            display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)',
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onSameStyle?.(); }}>
             <MdAutoAwesome size={13} /> 一键同款

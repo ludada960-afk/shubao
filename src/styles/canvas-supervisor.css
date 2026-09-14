@@ -6,7 +6,7 @@
 .ec-canvas-supervisor-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   padding: 8px 16px;
   background: rgba(13, 17, 23, 0.6);
   backdrop-filter: blur(20px);
@@ -18,7 +18,7 @@
 .ec-canvas-supervisor-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sb-space-2);
   padding: 5px 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -57,7 +57,7 @@
 .ec-canvas-save-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sb-space-2);
   padding: 4px 10px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
@@ -119,7 +119,7 @@
 .ec-canvas-node-action-bar-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
 }
 .ec-canvas-node-action-bar-name {
   font-weight: 600;
@@ -146,7 +146,7 @@
 .ec-canvas-node-action-bar-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
+  gap: var(--sb-space-1);
   background: rgba(255, 255, 255, 0.04);
   padding: 1px;
 }
@@ -154,7 +154,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--sb-space-2);
   padding: 12px 6px;
   background: transparent;
   border: none;
@@ -251,7 +251,7 @@
 .ec-canvas-context-panel-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sb-space-2);
   width: 100%;
   padding: 7px 10px;
   background: transparent;
@@ -317,7 +317,7 @@
 .ec-canvas-add-node-panel-search {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   padding: 8px 12px;
   margin: 0 6px 8px;
   background: rgba(255, 255, 255, 0.04);
@@ -353,13 +353,13 @@
 .ec-canvas-add-node-panel-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: var(--sb-space-1);
   padding: 0 6px;
 }
 .ec-canvas-add-node-panel-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sb-space-3);
   padding: 12px;
   background: transparent;
   border: 1px solid transparent;
@@ -388,7 +388,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sb-space-1);
 }
 .ec-canvas-add-node-panel-card-text strong {
   font-size: 13px;
@@ -404,8 +404,7 @@
   position: fixed;
   inset: 0;
   z-index: 11000;
-  background: rgba(12, 10, 9, 0.55);
-  backdrop-filter: blur(8px);
+  background: rgba(12, 10, 9, 0.64);
   display: grid;
   place-items: center;
   animation: shortcutHelpOverlayEnter 200ms ease-out;
@@ -462,7 +461,7 @@
 .ec-canvas-shortcut-help-search {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   padding: 10px 16px;
 }
 .ec-canvas-shortcut-help-search input {
@@ -502,7 +501,7 @@
 .ec-canvas-shortcut-help-keys {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sb-space-1);
 }
 .ec-canvas-shortcut-help-keys kbd {
   font-family: 'SF Mono', monospace;
@@ -736,38 +735,38 @@
 
 
 /* 任务日志面板 (9-12 用户批注：原来纯黑不符合我们的风格 → 改浅色；并补状态/类型筛选样式) */
-.ec-canvas-task-log-overlay { position: fixed; inset: 0; z-index: 10800; display: flex; justify-content: flex-end; background: rgba(28,25,23,.32); backdrop-filter: blur(6px); }
+.ec-canvas-task-log-overlay { position: fixed; inset: 0; z-index: 10800; display: flex; justify-content: flex-end; background: var(--sb-scrim); }
 .ec-canvas-task-log-panel { display: flex; flex-direction: column; width: min(420px, 94vw); height: 100%; background: #fffdfa; border-left: 1px solid rgba(28,25,23,.10); box-shadow: -16px 0 40px rgba(28,25,23,.16); color: #292524; animation: taskLogPanelEnter 220ms cubic-bezier(.16,1,.3,1); }
 @keyframes taskLogPanelEnter { from { transform: translateX(18px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-.ec-canvas-task-log-panel header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid rgba(28,25,23,.08); }
+.ec-canvas-task-log-panel header { display: flex; align-items: center; gap: var(--sb-space-2); padding: 14px 18px; border-bottom: 1px solid rgba(28,25,23,.08); }
 .ec-canvas-task-log-panel header strong { font-size: 14px; font-weight: 800; color: #1c1917; }
 .ec-canvas-task-log-panel header span { flex: 1 1 auto; color: #a8a29e; font-size: 11.5px; }
 .ec-canvas-task-log-panel header button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: var(--sb-ink-3); font-size: 15px; cursor: pointer; }
 .ec-canvas-task-log-panel header button:hover { border-color: var(--sb-sel-line); color: var(--sb-brand-700); }
-.ec-canvas-task-log-filters { display: grid; gap: 6px; padding: 12px 18px; border-bottom: 1px solid rgba(28,25,23,.06); }
-.ec-canvas-task-log-filter-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ec-canvas-task-log-filters { display: grid; gap: var(--sb-space-2); padding: 12px 18px; border-bottom: 1px solid rgba(28,25,23,.06); }
+.ec-canvas-task-log-filter-row { display: flex; flex-wrap: wrap; gap: var(--sb-space-2); }
 .ec-canvas-task-log-filter-row button { height: 26px; padding: 0 11px; border: 1px solid rgba(28,25,23,.10); border-radius: 13px; background: var(--sb-neutral-0); color: #57534e; font-size: 11.5px; font-weight: 600; cursor: pointer; }
 .ec-canvas-task-log-filter-row button:hover { border-color: var(--sb-brand-a32); color: var(--sb-brand-700); }
 .ec-canvas-task-log-filter-row button.is-active { border-color: var(--sb-sel-line); background: #f5f1ff; color: var(--sb-brand-700); }
 /* 列表底部与画布底栏保持安全间距（变量由 canvas-watermark-panel.css 提供），避免最后一条被底栏遮住 */
 .ec-canvas-task-log-list { flex: 1 1 auto; overflow-y: auto; padding: 12px 18px calc(var(--ec-canvas-bottombar-top) + 12px); }
 .ec-canvas-task-log-group + .ec-canvas-task-log-group { margin-top: 14px; }
-.ec-canvas-task-log-group-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--sb-ink-3); font-size: 11.5px; font-weight: 700; }
+.ec-canvas-task-log-group-header { display: flex; align-items: center; gap: var(--sb-space-2); margin-bottom: 6px; color: var(--sb-ink-3); font-size: 11.5px; font-weight: 700; }
 .ec-canvas-task-log-group-header.status-processing { color: var(--sb-brand-700); }
 .ec-canvas-task-log-group-header.status-failed { color: var(--sb-ink-danger); }
 .ec-canvas-task-log-group-header.status-completed { color: #15803d; }
-.ec-canvas-task-log-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid rgba(28,25,23,.07); border-radius: 10px; background: var(--sb-neutral-0); }
+.ec-canvas-task-log-row { display: flex; align-items: center; gap: var(--sb-space-2); padding: 9px 10px; border: 1px solid rgba(28,25,23,.07); border-radius: 10px; background: var(--sb-neutral-0); }
 .ec-canvas-task-log-row + .ec-canvas-task-log-row { margin-top: 6px; }
-.ec-canvas-task-log-row-main { min-width: 0; flex: 1 1 auto; display: grid; gap: 2px; }
+.ec-canvas-task-log-row-main { min-width: 0; flex: 1 1 auto; display: grid; gap: var(--sb-space-1); }
 .ec-canvas-task-log-row-main strong { overflow: hidden; color: #292524; font-size: 12.5px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-task-log-row-main small { overflow: hidden; color: #a8a29e; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.ec-canvas-task-log-row-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+.ec-canvas-task-log-row-actions { flex: 0 0 auto; display: flex; gap: var(--sb-space-2); }
 .ec-canvas-task-log-row-actions button { height: 24px; padding: 0 9px; border: 1px solid rgba(28,25,23,.12); border-radius: 7px; background: transparent; color: #57534e; font-size: 11px; cursor: pointer; }
 .ec-canvas-task-log-row-actions button:hover { border-color: var(--sb-sel-line); color: var(--sb-brand-700); }
 .ec-canvas-task-log-empty { padding: 26px 10px; color: #a8a29e; font-size: 12px; line-height: 1.6; text-align: center; }
 /* 9-12 资产库额度条（已用/可用） */
-.ec-asset-quota { display: grid; gap: 6px; margin-top: 8px; max-width: 320px; }
-.ec-asset-quota-text { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ec-asset-quota { display: grid; gap: var(--sb-space-2); margin-top: 8px; max-width: 320px; }
+.ec-asset-quota-text { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sb-space-2); }
 .ec-asset-quota-text strong { color: var(--sb-ink-1); font-size: 12px; font-weight: 700; }
 .ec-asset-quota-text span { color: #8a929d; font-size: 11px; }
 .ec-asset-quota-bar { height: 6px; border-radius: 4px; overflow: hidden; background: #eef1f4; }
@@ -778,13 +777,13 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 .ec-asset-card-delete:hover { border-color: var(--sb-danger-hover); color: var(--sb-danger-hover); }
 
 /* 9-12 资产库：上传按钮（9-15 用户批注：太小不显眼 —— 高度 ≥ 36px、图标+文字、主色实心） */
-.ec-asset-upload { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; min-width: 96px; padding: 0 16px; border: 0; border-radius: 9px; background: linear-gradient(135deg, var(--sb-brand-600), var(--sb-brand-600)); color: var(--sb-neutral-0); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px var(--sb-brand-a32); transition: filter .15s ease, transform .15s ease; }
+.ec-asset-upload { display: inline-flex; align-items: center; justify-content: center; gap: var(--sb-space-2); height: 36px; min-width: 96px; padding: 0 16px; border: 0; border-radius: 9px; background: linear-gradient(135deg, var(--sb-brand-600), var(--sb-brand-600)); color: var(--sb-neutral-0); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px var(--sb-brand-a32); transition: filter .15s ease, transform .15s ease; }
 .ec-asset-upload:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
 .ec-asset-upload:disabled { opacity: .6; cursor: progress; }
 
 
 /* 9-12 左侧「+」菜单分组（添加资源 / 用 AI 生成） */
-.ec-canvas-menu-group { display: grid; gap: 2px; }
+.ec-canvas-menu-group { display: grid; gap: var(--sb-space-1); }
 .ec-canvas-menu-group + .ec-canvas-menu-group { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(28,25,23,.07); }
 .ec-canvas-menu-group-title { padding: 4px 10px 4px; color: #a8a29e; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; }
 /* 资产库卡片：悬停放大 + 悬停才出现的删除按钮（照竞品交互） */
@@ -793,7 +792,7 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 
 
 /* 9-12 用户批注：资产库 = 弹窗（照竞品），不再是整页 */
-.canvas-asset-library-overlay { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: center; padding: 64px 24px 32px; background: rgba(28,25,23,.44); backdrop-filter: blur(8px); }
+.canvas-asset-library-overlay { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: center; padding: 64px 24px 32px; background: var(--sb-scrim-strong); }
 .canvas-asset-library-modal { display: flex; flex-direction: column; width: min(1040px, 96vw); max-height: min(84vh, 880px); overflow: hidden; padding: 24px 26px 26px; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: var(--sb-neutral-0); box-shadow: 0 32px 90px -20px rgba(28,25,23,.42); }
 .canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; }
 .canvas-asset-library-modal > section { margin-bottom: 0 !important; }
@@ -857,7 +856,7 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 .canvas-asset-library-modal article > div:first-child > div:nth-child(2) > div:nth-child(2) { color: rgba(255,255,255,.78) !important; }
 /* ③ 悬停才浮现的垃圾桶（右上角遮罩胶囊） */
 .canvas-asset-library-modal article > div:last-child { position: absolute; top: 8px; right: 8px; z-index: 5; padding: 0 !important; }
-.canvas-asset-library-modal .ec-asset-card-delete { position: static; width: 32px; height: 32px; border-radius: 10px; background: rgba(20,18,16,.6); border: 1px solid rgba(255,255,255,.34); color: var(--sb-neutral-0); backdrop-filter: blur(6px); opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease; }
+.canvas-asset-library-modal .ec-asset-card-delete { position: static; width: 32px; height: 32px; border-radius: 10px; background: rgba(20,18,16,.6); border: 1px solid rgba(255,255,255,.34); color: var(--sb-neutral-0); opacity: 0; transform: translateY(-4px); transition: opacity .16s ease, transform .16s ease, background .16s ease; }
 .canvas-asset-library-modal article:hover .ec-asset-card-delete { opacity: 1; transform: translateY(0); }
 .canvas-asset-library-modal .ec-asset-card-delete:hover { background: var(--sb-danger-hover); border-color: rgba(255,255,255,.6); }
 .canvas-asset-library-modal .ec-asset-card-delete svg { width: 16px; height: 16px; }
@@ -885,13 +884,13 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
    工具栏内部 12px 间距、与标题块 18px、与素材网格 16px；搜索框自适应拉宽。 */
 .canvas-asset-library-modal input[type="search"] { height: 36px !important; font-size: 12px !important; border-radius: 9px !important; }
 /* 工具栏吸顶：滚动浏览素材时「搜索 / 分类 / 上传」这一组始终在，与标题、网格各自成组、层次清楚。 */
-.canvas-asset-library-modal .ec-asset-toolbar { gap: 12px !important; margin-bottom: 16px !important; position: sticky; top: 0; z-index: 6; padding: 4px 0 12px; background: var(--sb-neutral-0); }
+.canvas-asset-library-modal .ec-asset-toolbar { gap: var(--sb-space-3) !important; margin-bottom: 16px !important; position: sticky; top: 0; z-index: 6; padding: 4px 0 12px; background: var(--sb-neutral-0); }
 .canvas-asset-library-modal .ec-asset-toolbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: 5px; height: 1px; background: rgba(28,25,23,.06); }
 .canvas-asset-library-modal .ec-asset-toolbar .ec-asset-upload { flex: 0 0 auto; }
 .canvas-asset-library-modal [role="tablist"] > button { min-height: 32px !important; padding: 5px 14px !important; border-radius: 999px !important; font-size: 12px !important; font-weight: 600 !important; border: 1px solid #e5e3e0 !important; background: var(--sb-neutral-0) !important; color: #57534e !important; }
 .canvas-asset-library-modal [role="tablist"] > button[aria-selected="true"] { background: #202226 !important; border-color: #202226 !important; color: var(--sb-neutral-0) !important; }
-.canvas-asset-library-modal [style*="repeat(auto-fill,minmax(150px,1fr)"], .canvas-asset-library-modal [style*="repeat(auto-fill, minmax(150px, 1fr)"], .canvas-asset-library-modal .ec-asset-grid { gap: 16px 16px !important; }
-.canvas-asset-library-modal article::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>") " 图片"; position: absolute; top: 8px; left: 8px; z-index: 6; display: inline-flex; align-items: center; gap: 4px; height: 22px; box-sizing: border-box; padding: 0 8px; border-radius: 999px; background: rgba(20,18,16,.62); color: var(--sb-neutral-0); font-size: 11px; font-weight: 700; line-height: 22px; backdrop-filter: blur(4px); pointer-events: none; white-space: nowrap; }
+.canvas-asset-library-modal [style*="repeat(auto-fill,minmax(150px,1fr)"], .canvas-asset-library-modal [style*="repeat(auto-fill, minmax(150px, 1fr)"], .canvas-asset-library-modal .ec-asset-grid { gap: var(--sb-space-4) var(--sb-space-4) !important; }
+.canvas-asset-library-modal article::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>") " 图片"; position: absolute; top: 8px; left: 8px; z-index: 6; display: inline-flex; align-items: center; gap: var(--sb-space-2); height: 22px; box-sizing: border-box; padding: 0 8px; border-radius: 999px; background: rgba(20,18,16,.62); color: var(--sb-neutral-0); font-size: 11px; font-weight: 700; line-height: 22px; pointer-events: none; white-space: nowrap; }
 .canvas-asset-library-modal article:has(video)::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m22 8-6 4 6 4V8Z'/><rect x='2' y='6' width='14' height='12' rx='2' ry='2'/></svg>") " 视频"; }
 .canvas-asset-library-modal article:has(audio)::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>") " 音频"; }
 

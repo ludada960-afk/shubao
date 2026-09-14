@@ -80,7 +80,7 @@ function EcommerceGalleryPreview({ item, onClose }) {
       </aside>
     </div>
     <style>{`
-      .ec-gallery-overlay{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:24px;background:rgba(18,18,20,.78);overscroll-behavior:none;backdrop-filter:blur(10px)}.ec-gallery-modal{display:grid;width:min(1180px,94vw);height:min(780px,92vh);grid-template-columns:minmax(0,1fr) 340px;overflow:hidden;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#fff;box-shadow:0 28px 80px rgba(12,10,9,.32)}.ec-gallery-visual{position:relative;min-width:0;overflow:hidden;background:#f1f1f1}.ec-gallery-nav{position:absolute;top:50%;display:grid;width:42px;height:42px;place-items:center;border:0;border-radius:50%;background:rgba(25,25,27,.78);color:#fff;cursor:pointer;transform:translateY(-50%);backdrop-filter:blur(8px)}.ec-gallery-prev{left:16px}.ec-gallery-next{right:16px}.ec-gallery-progress{position:absolute;bottom:16px;left:50%;padding:6px 10px;border-radius:6px;background:rgba(25,25,27,.76);color:#fff;font-size:12px;font-weight:800;transform:translateX(-50%)}.ec-gallery-details{position:relative;display:flex;min-width:0;flex-direction:column;padding:30px 26px 22px;background:#fff}.ec-gallery-close{position:absolute;top:18px;right:18px;display:grid;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:#f2f2f3;color:#333;cursor:pointer}.ec-gallery-kind{align-self:flex-start;margin-bottom:14px;padding:5px 8px;border-radius:5px;background:#f1edff;color:#6545e7;font-size:11px;font-weight:800}.ec-gallery-details h2{margin:0 40px 7px 0;color:#202124;font-size:21px;line-height:1.35;letter-spacing:0}.ec-gallery-meta{color:#888b92;font-size:12px}.ec-gallery-current{margin-top:28px;padding-top:24px;border-top:1px solid #ececef}.ec-gallery-current>span{color:#7463d9;font-size:11px;font-weight:800}.ec-gallery-current h3{margin:7px 0 8px;color:#25262a;font-size:18px;letter-spacing:0}.ec-gallery-current p{margin:0;color:#656870;font-size:13px;line-height:1.75}.ec-gallery-current small{display:block;margin-top:10px;color:#9a9ca2;font-size:11px}.ec-gallery-strip{display:flex;margin-top:auto;flex-direction:column;gap:5px;max-height:174px;overflow-y:auto;padding:2px}.ec-gallery-strip button{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:#f5f5f6;color:#6c6e74;cursor:pointer;text-align:left}.ec-gallery-strip button span{font:700 10px/1 ui-monospace,monospace;color:#a2a3a8}.ec-gallery-strip button strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ec-gallery-strip button.active{border-color:#cfc5ff;background:#f1edff;color:#563ee0}.ec-gallery-wheel-hint{margin-top:12px;color:#a1a2a8;font-size:11px;text-align:center}@media(max-width:760px){.ec-gallery-overlay{padding:0}.ec-gallery-modal{width:100vw;height:100dvh;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;border:0;border-radius:0}.ec-gallery-details{max-height:36dvh;padding:18px}.ec-gallery-details h2{font-size:17px}.ec-gallery-current{margin-top:12px;padding-top:12px}.ec-gallery-strip{margin-top:14px;flex-direction:row;overflow-x:auto;overflow-y:hidden}.ec-gallery-strip button{max-width:140px;flex:0 0 auto}.ec-gallery-wheel-hint{display:none}}
+      .ec-gallery-overlay{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:24px;background:rgba(18,18,20,.82);overscroll-behavior:none}.ec-gallery-modal{display:grid;width:min(1180px,94vw);height:min(780px,92vh);grid-template-columns:minmax(0,1fr) 340px;overflow:hidden;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#fff;box-shadow:0 28px 80px rgba(12,10,9,.32)}.ec-gallery-visual{position:relative;min-width:0;overflow:hidden;background:#f1f1f1}.ec-gallery-nav{position:absolute;top:50%;display:grid;width:42px;height:42px;place-items:center;border:0;border-radius:50%;background:rgba(25,25,27,.78);color:#fff;cursor:pointer;transform:translateY(-50%)}.ec-gallery-prev{left:16px}.ec-gallery-next{right:16px}.ec-gallery-progress{position:absolute;bottom:16px;left:50%;padding:6px 10px;border-radius:6px;background:rgba(25,25,27,.76);color:#fff;font-size:12px;font-weight:800;transform:translateX(-50%)}.ec-gallery-details{position:relative;display:flex;min-width:0;flex-direction:column;padding:30px 26px 22px;background:#fff}.ec-gallery-close{position:absolute;top:18px;right:18px;display:grid;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:#f2f2f3;color:#333;cursor:pointer}.ec-gallery-kind{align-self:flex-start;margin-bottom:14px;padding:5px 8px;border-radius:5px;background:#f1edff;color:#6545e7;font-size:11px;font-weight:800}.ec-gallery-details h2{margin:0 40px 7px 0;color:#202124;font-size:21px;line-height:1.35;letter-spacing:0}.ec-gallery-meta{color:#888b92;font-size:12px}.ec-gallery-current{margin-top:28px;padding-top:24px;border-top:1px solid #ececef}.ec-gallery-current>span{color:#7463d9;font-size:11px;font-weight:800}.ec-gallery-current h3{margin:7px 0 8px;color:#25262a;font-size:18px;letter-spacing:0}.ec-gallery-current p{margin:0;color:#656870;font-size:13px;line-height:1.75}.ec-gallery-current small{display:block;margin-top:10px;color:#9a9ca2;font-size:11px}.ec-gallery-strip{display:flex;margin-top:auto;flex-direction:column;gap:5px;max-height:174px;overflow-y:auto;padding:2px}.ec-gallery-strip button{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:#f5f5f6;color:#6c6e74;cursor:pointer;text-align:left}.ec-gallery-strip button span{font:700 10px/1 ui-monospace,monospace;color:#a2a3a8}.ec-gallery-strip button strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ec-gallery-strip button.active{border-color:#cfc5ff;background:#f1edff;color:#563ee0}.ec-gallery-wheel-hint{margin-top:12px;color:#a1a2a8;font-size:11px;text-align:center}@media(max-width:760px){.ec-gallery-overlay{padding:0}.ec-gallery-modal{width:100vw;height:100dvh;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;border:0;border-radius:0}.ec-gallery-details{max-height:36dvh;padding:18px}.ec-gallery-details h2{font-size:17px}.ec-gallery-current{margin-top:12px;padding-top:12px}.ec-gallery-strip{margin-top:14px;flex-direction:row;overflow-x:auto;overflow-y:hidden}.ec-gallery-strip button{max-width:140px;flex:0 0 auto}.ec-gallery-wheel-hint{display:none}}
       .ec-gallery-tryon-workflow{display:flex;width:100%;height:100%;align-items:center;justify-content:center;gap:16px;padding:56px 36px;background:linear-gradient(120deg,#fff8ea 0%,#faf7ff 67%,#edf8f6 100%)}.ec-gallery-tryon-asset{position:relative;min-width:0;max-width:28%;margin:0;padding:8px;border:1px solid rgba(67,55,45,.1);border-radius:8px;background:#fff;box-shadow:0 18px 40px rgba(47,37,30,.14);transform:rotate(-2deg)}.ec-gallery-tryon-asset.role-reference{transform:rotate(2deg)}.ec-gallery-tryon-asset.role-result{max-width:32%;transform:rotate(1deg)}.ec-gallery-tryon-asset figcaption{position:absolute;right:13px;bottom:13px;padding:5px 8px;border-radius:5px;background:rgba(25,23,23,.78);color:#fff;font-size:11px;font-weight:900}.ec-gallery-tryon-operator{display:grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border:1px solid rgba(101,72,205,.18);border-radius:50%;background:#fff;color:#6548cb;font:900 22px/1 inherit;box-shadow:0 8px 22px rgba(76,52,161,.13)}
       @media(max-width:760px){.ec-gallery-tryon-workflow{gap:5px;padding:26px 8px}.ec-gallery-tryon-asset{max-width:29%;padding:3px}.ec-gallery-tryon-asset.role-result{max-width:32%}.ec-gallery-tryon-operator{width:22px;height:22px;flex-basis:22px;font-size:13px}.ec-gallery-tryon-asset figcaption{right:5px;bottom:5px;padding:3px 4px;font-size:8px}}
     `}</style>
@@ -284,7 +284,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
         {/* ── EC Zoom 灯箱 — 试用模式阻止全屏放大 */}
         {!isTrialLocked && ecZoom && images[ecIdx] && (
           <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
+            position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)',
             background: '#000', display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
           }} onClick={() => setEcZoom(false)}>
@@ -304,10 +304,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             )}
             <div style={{
               position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-              display: 'flex', gap: 20, alignItems: 'center',
-              background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)',
-              padding: '8px 20px', borderRadius: 20, color: 'rgba(255,255,255,0.85)',
-              fontSize: 12,
+              display: 'flex', gap: 'var(--sb-space-5)', alignItems: 'center',
+              background: 'rgba(12,10,9,0.72)',
+              padding: '8px 20px', borderRadius: 'var(--sb-radius-2xl)', color: 'rgba(255,255,255,0.85)',
+              fontSize: 'var(--sb-text-sm)',
             }}>
               <span>{styleIcon(getLabel(images[ecIdx]))} {getLabel(images[ecIdx])}{getSellingPoint(images[ecIdx]) ? ' · ' + getSellingPoint(images[ecIdx]) : ''}</span>
               <span style={{ opacity: 0.6 }}>|</span>
@@ -321,7 +321,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
         {/* ── EC 弹窗 ── */}
         <div style={{
-          background: '#fff', borderRadius: 14, width: '94vw', maxWidth: 780,
+          background: '#fff', borderRadius: 'var(--sb-radius-lg)', width: '94vw', maxWidth: 780,
           maxHeight: '90vh', overflow: 'auto',
           boxShadow: '0 20px 60px rgba(12,10,9,0.25)',
         }} onClick={e => e.stopPropagation()} className="animate-scale-in">
@@ -333,27 +333,27 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#1e1e2e', marginBottom: 6 }}>
+                <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 700, color: '#1e1e2e', marginBottom: 6 }}>
                   🛍️ {item.product_name}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 'var(--sb-space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{
                     background: 'var(--blue-bg)', color: '#4338CA',
-                    padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                    padding: '3px 10px', borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-xs)', fontWeight: 600,
                   }}>{item.category}</span>
                   <span style={{
                     background: '#fff', color: '#555',
-                    padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 500,
+                    padding: '3px 10px', borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-xs)', fontWeight: 500,
                     border: '1px solid #e0e0e0',
                   }}>{specs.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                  <span style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--text-faint)' }}>
                     共 {images.length} 张 · 已适配 {platform}
                   </span>
                 </div>
               </div>
               <button onClick={onClose} style={{
                 background: 'rgba(255,255,255,0.8)', border: 'none', color: '#999',
-                cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex',
+                cursor: 'pointer', padding: 6, borderRadius: 'var(--sb-radius-md)', display: 'flex',
                 boxShadow: '0 1px 3px rgba(12,10,9,0.06)',
               }}>
                 <MdClose size={16} />
@@ -365,7 +365,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           <div style={{
             padding: '10px 28px', background: '#f8f9fc',
             borderBottom: '1px solid #eef0f5',
-            fontSize: 11, color: 'var(--text-hint)', lineHeight: 1.6,
+            fontSize: 'var(--sb-text-xs)', color: 'var(--text-hint)', lineHeight: 1.6,
           }}>
             <span style={{ fontWeight: 600, color: '#666' }}>📐 {specs.name} 规范:</span>
             {' '}{specs.rules}
@@ -377,10 +377,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               padding: '12px 28px',
               background: 'linear-gradient(135deg, #FFF7ED, #FFF1F3)',
               borderBottom: '1.5px solid #FED7AA',
-              display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 12.5, color: '#9A3412', lineHeight: 1.5,
+              display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)',
+              fontSize: 'var(--sb-text-sm)', color: '#9A3412', lineHeight: 1.5,
             }}>
-              <span style={{ fontSize: 16 }}>🎁</span>
+              <span style={{ fontSize: 'var(--sb-text-lg)' }}>🎁</span>
               <div>
                 <strong>免费试玩</strong> — 图片已完整生成，试玩版带水印遮挡。
                 <span onClick={() => { if (onUnlock) onUnlock(); }}
@@ -390,7 +390,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               </div>
               <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
                 <span onClick={() => { if (onGallery) onGallery(); }}
-                  style={{ color: '#4338CA', cursor: 'pointer', fontWeight: 500, fontSize: 11 }}>
+                  style={{ color: '#4338CA', cursor: 'pointer', fontWeight: 500, fontSize: 'var(--sb-text-xs)' }}>
                   👀 薯包出品
                 </span>
               </div>
@@ -402,7 +402,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-              gap: 16,
+              gap: 'var(--sb-space-4)',
             }}>
               {images.map((img, i) => {
                 const style = getLabel(img);
@@ -445,10 +445,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{
                           position: 'absolute', inset: 0,
                           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                          gap: 6, background: 'rgba(12,10,9,0.15)',
+                          gap: 'var(--sb-space-1)', background: 'rgba(12,10,9,0.15)',
                         }}>
-                          <div style={{ fontSize: 28 }}>🔒</div>
-                          <div style={{ fontSize: 11, color: '#fff', fontWeight: 600, textShadow: '0 1px 4px rgba(12,10,9,0.5)' }}>
+                          <div style={{ fontSize: 'var(--sb-text-3xl)' }}>🔒</div>
+                          <div style={{ fontSize: 'var(--sb-text-xs)', color: '#fff', fontWeight: 600, textShadow: '0 1px 4px rgba(12,10,9,0.5)' }}>
                             充值解锁
                           </div>
                         </div>
@@ -458,7 +458,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           background: 'rgba(12,10,9,0)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           opacity: 0, transition: 'all 0.2s',
-                          color: '#fff', fontSize: 12, fontWeight: 600, gap: 4,
+                          color: '#fff', fontSize: 'var(--sb-text-sm)', fontWeight: 600, gap: 'var(--sb-space-1)',
                         }}>
                           <MdFullscreen size={14} /> 点击放大
                         </div>
@@ -466,9 +466,9 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       {size && (
                         <div style={{
                           position: 'absolute', bottom: 6, left: 6,
-                          background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(4px)',
-                          padding: '2px 7px', borderRadius: 4,
-                          fontSize: 9, color: '#fff', fontWeight: 500,
+                          background: 'rgba(12,10,9,0.72)',
+                          padding: '2px 7px', borderRadius: 'var(--sb-radius-xs)',
+                          fontSize: 'var(--sb-text-2xs)', color: '#fff', fontWeight: 500,
                         }}>
                           {isLocked ? '🔒 ' + size : size}
                         </div>
@@ -513,18 +513,18 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             </div>
 
             {images.length === 0 && !item.errors?.length && (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-faint)', fontSize: 13 }}>
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-faint)', fontSize: 'var(--sb-text-md)' }}>
                 暂无生成图片
               </div>
             )}
 
             {/* Errors */}
             {item.errors?.length > 0 && (
-              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-1)' }}>
                 {item.errors.map((e, i) => (
                   <div key={i} style={{
-                    fontSize: 11, color: '#C53030', background: '#FFF5F5',
-                    borderRadius: 8, padding: '8px 12px', lineHeight: 1.5,
+                    fontSize: 'var(--sb-text-xs)', color: '#C53030', background: '#FFF5F5',
+                    borderRadius: 'var(--sb-radius-md)', padding: '8px 12px', lineHeight: 1.5,
                   }}>
                     ⚠️ <strong>{e.style}</strong> 生成失败: {e.error}
                   </div>
@@ -536,14 +536,14 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           {/* Bottom Action Bar */}
           <div style={{
             padding: '14px 28px', borderTop: '1px solid #eef0f5',
-            background: '#f8f9fc', display: 'flex', gap: 10, alignItems: 'center',
+            background: '#f8f9fc', display: 'flex', gap: 'var(--sb-space-2)', alignItems: 'center',
             position: 'sticky', bottom: 0,
           }}>
             {isTrialLocked ? (
               <button onClick={() => { if (onUnlock) onUnlock(); }} style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 10,
-                fontSize: 13, fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+                background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
+                fontSize: 'var(--sb-text-md)', fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
                 boxShadow: '0 2px 8px rgba(255,71,87,0.3)',
               }}
                 onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
@@ -562,9 +562,9 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   a.click();
                 });
               }} style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 10,
-                fontSize: 13, fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+                background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
+                fontSize: 'var(--sb-text-md)', fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
                 boxShadow: '0 2px 8px rgba(102,126,234,0.3)',
               }}
                 onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
@@ -574,9 +574,9 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               </button>
             )}
             <button onClick={onClose} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              background: '#fff', color: '#666', border: '1px solid #e0e0e0', borderRadius: 10,
-              fontSize: 13, fontWeight: 500, padding: '12px 20px', cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+              background: '#fff', color: '#666', border: '1px solid #e0e0e0', borderRadius: 'var(--sb-radius-md)',
+              fontSize: 'var(--sb-text-md)', fontWeight: 500, padding: '12px 20px', cursor: 'pointer', fontFamily: 'inherit',
               transition: 'background 0.15s',
             }}
               onMouseEnter={e => { e.currentTarget.style.background = '#f5f5f5'; e.currentTarget.style.borderColor = '#ccc'; }}
@@ -637,20 +637,20 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       <div style={{
                         position: 'absolute', inset: 0,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        gap: 10, padding: 24, zIndex: 2,
+                        gap: 'var(--sb-space-2)', padding: 24, zIndex: 2,
                       }}>
-                        <div style={{ fontSize: 36, filter: 'none' }}>🔒</div>
-                        <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', textShadow: '0 2px 12px rgba(12,10,9,0.5)', textAlign: 'center' }}>
+                        <div style={{ fontSize: 'var(--sb-text-3xl)', filter: 'none' }}>🔒</div>
+                        <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 700, color: '#fff', textShadow: '0 2px 12px rgba(12,10,9,0.5)', textAlign: 'center' }}>
                           充值解锁全套服务
                         </div>
-                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(12,10,9,0.4)', textAlign: 'center', maxWidth: 280 }}>
+                        <div style={{ fontSize: 'var(--sb-text-sm)', color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(12,10,9,0.4)', textAlign: 'center', maxWidth: 280 }}>
                           支付 ¥19 起 · 解锁所有配图 + 下载 + 保存至作品集
                         </div>
-                        <div style={{ display: 'flex', gap: 10, marginTop: 6, filter: 'none' }}>
+                        <div style={{ display: 'flex', gap: 'var(--sb-space-2)', marginTop: 6, filter: 'none' }}>
                           <button onClick={(e) => { e.stopPropagation(); if (onUnlock) onUnlock(); }}
                             style={{
                               padding: '11px 28px', background: 'var(--red, #FF4757)', color: '#fff',
-                              border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                              border: 'none', borderRadius: 'var(--sb-radius-md)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                               cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(255,71,87,0.35)',
                             }}>
                             立即充值
@@ -658,7 +658,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           <button onClick={(e) => { e.stopPropagation(); if (onGallery) onGallery(); }}
                             style={{
                               padding: '11px 20px', background: 'rgba(255,255,255,0.92)', color: '#333',
-                              border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 500,
+                              border: 'none', borderRadius: 'var(--sb-radius-md)', fontSize: 'var(--sb-text-md)', fontWeight: 500,
                               cursor: 'pointer', fontFamily: 'inherit',
                             }}>
                             👀 查看薯包出品
@@ -677,25 +677,25 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                     background: 'linear-gradient(135deg, #f8f8f8 0%, #e8e8e8 100%)',
-                    gap: 12, padding: 32,
+                    gap: 'var(--sb-space-3)', padding: 32,
                   }}>
                     <div style={{
                       width: 52, height: 52, borderRadius: '50%',
                       background: 'rgba(255,71,87,0.08)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 24,
+                      fontSize: 'var(--sb-text-2xl)',
                     }}>🔒</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#555' }}>
+                    <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: '#555' }}>
                       第 {imgIdx + 1} 张配图
                     </div>
-                    <div style={{ fontSize: 12, color: '#999', textAlign: 'center', lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 'var(--sb-text-sm)', color: '#999', textAlign: 'center', lineHeight: 1.6 }}>
                       购买套餐后解锁完整 9 张精美配图
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); if (onUnlock) onUnlock(); }}
                       style={{
                         marginTop: 4, padding: '9px 24px', border: 'none',
-                        borderRadius: 10, fontSize: 13, fontWeight: 600,
+                        borderRadius: 'var(--sb-radius-md)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                         background: 'var(--red, #FF4757)', color: '#fff',
                         cursor: 'pointer', fontFamily: 'inherit',
                         boxShadow: '0 4px 16px rgba(255,71,87,0.2)',
@@ -705,7 +705,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     </button>
                   </div>
                 ) : (
-                  <div style={{ color: '#ccc', fontSize: 13 }}>暂无图片</div>
+                  <div style={{ color: '#ccc', fontSize: 'var(--sb-text-md)' }}>暂无图片</div>
                 )}
 
                 {/* 重生成按钮 - 预览/试用锁定模式不显示 */}
@@ -748,14 +748,14 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{
                           width: '100%', height: '100%',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 12, color: '#ccc',
+                          fontSize: 'var(--sb-text-sm)', color: '#ccc',
                         }}>🔒</div>
                       )}
                       {isTrialLocked && i > 0 && (
                         <div style={{
                           position: 'absolute', inset: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 10, color: '#fff', textShadow: '0 1px 3px rgba(12,10,9,0.5)',
+                          fontSize: 'var(--sb-text-2xs)', color: '#fff', textShadow: '0 1px 3px rgba(12,10,9,0.5)',
                         }}>🔒</div>
                       )}
                     </div>
@@ -769,11 +769,11 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               <div style={S.textScroll}>
                 {/* 头部 */}
                 <div style={S.header}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
                     <img src={IMAGES.appicon} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: '#222' }}>薯包AI</div>
-                      <div style={{ fontSize: 12, color: '#999' }}>AI创作 · 一键生成</div>
+                      <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: '#222' }}>薯包AI</div>
+                      <div style={{ fontSize: 'var(--sb-text-sm)', color: '#999' }}>AI创作 · 一键生成</div>
                     </div>
                   </div>
                   <button onClick={onClose} style={S.closeBtn}>
@@ -786,11 +786,11 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <div style={{
                     background: 'linear-gradient(135deg, #FFF7ED, #FFF1F3)',
                     border: '1.5px solid #FED7AA',
-                    borderRadius: 10, padding: '12px 14px', marginBottom: 14,
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 12.5, color: '#9A3412', lineHeight: 1.5,
+                    borderRadius: 'var(--sb-radius-md)', padding: '12px 14px', marginBottom: 14,
+                    display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)',
+                    fontSize: 'var(--sb-text-sm)', color: '#9A3412', lineHeight: 1.5,
                   }}>
-                    <span style={{ fontSize: 18 }}>🎁</span>
+                    <span style={{ fontSize: 'var(--sb-text-xl)' }}>🎁</span>
                     <div>
                       <strong>免费试玩</strong> — 完整文案 + 9 张配图已生成，配图试玩版仅展示封面。
                       <span onClick={() => { if (onUnlock) onUnlock(); }}
@@ -800,7 +800,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     </div>
                     <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
                       <span onClick={() => { if (onGallery) onGallery(); }}
-                        style={{ color: '#4338CA', cursor: 'pointer', fontWeight: 500, fontSize: 11 }}>
+                        style={{ color: '#4338CA', cursor: 'pointer', fontWeight: 500, fontSize: 'var(--sb-text-xs)' }}>
                         👀 薯包出品
                       </span>
                     </div>
@@ -812,11 +812,11 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <div style={{
                     background: 'linear-gradient(135deg, #FFF7ED, #FFF1F3)',
                     border: '1px solid #FED7AA',
-                    borderRadius: 10, padding: '10px 14px', marginBottom: 14,
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 12.5, color: '#9A3412', lineHeight: 1.5,
+                    borderRadius: 'var(--sb-radius-md)', padding: '10px 14px', marginBottom: 14,
+                    display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)',
+                    fontSize: 'var(--sb-text-sm)', color: '#9A3412', lineHeight: 1.5,
                   }}>
-                    <span style={{ fontSize: 16 }}>🎁</span>
+                    <span style={{ fontSize: 'var(--sb-text-lg)' }}>🎁</span>
                     <div>
                       <strong>免费预览</strong> — 文案已完整生成，配图仅展示封面。
                       <span onClick={() => { if (onUnlock) onUnlock(); }}
@@ -838,13 +838,13 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
                 {/* 提示词标签（自由创作案例） */}
                 {isVisualCase && !editing && bodyText && (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', marginBottom: 6, letterSpacing: '0.3px' }}>创作提示词</div>
+                  <div style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 700, color: '#7c3aed', marginBottom: 6, letterSpacing: '0.3px' }}>创作提示词</div>
                 )}
                 {/* 正文 */}
                 {editing ? (
                   <textarea value={editBody} onChange={e => setEditBody(e.target.value)}
                     className="sb-focusable"
-                    style={{ ...S.body, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '12px', width: '100%', minHeight: 200, boxSizing: 'border-box', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 14 }} />
+                    style={{ ...S.body, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '12px', width: '100%', minHeight: 200, boxSizing: 'border-box', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 'var(--sb-text-md)' }} />
                 ) : (
                   <div style={S.body}>
                     {bodyText.split('\n').map((line, i) => (
@@ -860,7 +860,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <input value={editTags} onChange={e => setEditTags(e.target.value)}
                     placeholder="标签，用空格分隔"
                     className="sb-focusable"
-                    style={{ fontSize: 12, border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', marginBottom: 10, fontFamily: 'inherit', color: 'var(--sb-ink-4)' }} />
+                    style={{ fontSize: 'var(--sb-text-sm)', border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-lg)', padding: '8px 12px', width: '100%', boxSizing: 'border-box', outline: 'none', marginBottom: 10, fontFamily: 'inherit', color: 'var(--sb-ink-4)' }} />
                 ) : (item.hashtags || []).length > 0 && (
                   <div style={S.tags}>
                     {item.hashtags.map((t, i) => (
@@ -944,13 +944,12 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 /* ── 样式常量 ── */
 const S = {
   overlay: {
-    position: 'fixed', inset: 0, zIndex: 900,
+    position: 'fixed', inset: 0, zIndex: 'var(--sb-z-scrim)',
     background: 'rgba(12,10,9,0.45)',
-    backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   modal: {
-    background: '#fff', borderRadius: 14, width: '94vw', maxWidth: 1100,
+    background: '#fff', borderRadius: 'var(--sb-radius-lg)', width: '94vw', maxWidth: 1100,
     height: '90vh', display: 'flex', flexDirection: 'column',
     overflow: 'hidden', boxShadow: '0 20px 60px rgba(12,10,9,0.25)',
   },
@@ -968,10 +967,10 @@ const S = {
   },
   regenBtn: {
     position: 'absolute', left: 8, bottom: 8,
-    background: 'rgba(12,10,9,0.55)', backdropFilter: 'blur(4px)',
-    border: 'none', borderRadius: 6, padding: '5px 10px',
-    color: '#fff', fontSize: 11, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', gap: 4,
+    background: 'rgba(12,10,9,0.7)',
+    border: 'none', borderRadius: 'var(--sb-radius-sm)', padding: '5px 10px',
+    color: '#fff', fontSize: 'var(--sb-text-xs)', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)',
     zIndex: 5, opacity: 0, transition: 'opacity 0.15s', fontFamily: 'inherit',
   },
   imgNav: {
@@ -979,14 +978,14 @@ const S = {
     width: 32, height: 32, borderRadius: '50%',
     background: 'rgba(12,10,9,0.5)', border: 'none', color: '#fff',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 20, zIndex: 5, opacity: 0, transition: 'opacity 0.15s', lineHeight: 1,
+    fontSize: 'var(--sb-text-xl)', zIndex: 5, opacity: 0, transition: 'opacity 0.15s', lineHeight: 1,
   },
   thumbStrip: {
-    display: 'flex', gap: 4, padding: '8px 12px', borderTop: '1px solid #eee',
+    display: 'flex', gap: 'var(--sb-space-1)', padding: '8px 12px', borderTop: '1px solid #eee',
     justifyContent: 'center', overflowX: 'auto',
   },
   thumb: {
-    flex: '0 0 auto', width: 36, height: 48, borderRadius: 4,
+    flex: '0 0 auto', width: 36, height: 48, borderRadius: 'var(--sb-radius-xs)',
     overflow: 'hidden', cursor: 'pointer', transition: 'all 0.12s',
   },
   thumbImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
@@ -1002,38 +1001,38 @@ const S = {
   },
   closeBtn: {
     background: 'none', border: 'none', color: '#999', cursor: 'pointer', padding: 4,
-    borderRadius: 6, display: 'flex',
+    borderRadius: 'var(--sb-radius-sm)', display: 'flex',
   },
   title: {
-    fontSize: 18, fontWeight: 700, lineHeight: 1.4, color: '#222',
+    fontSize: 'var(--sb-text-xl)', fontWeight: 700, lineHeight: 1.4, color: '#222',
     margin: '0 0 12px',
   },
-  body: { fontSize: 14.5, lineHeight: 1.85, color: '#444', marginBottom: 14, whiteSpace: 'pre-wrap' },
-  tags: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 },
+  body: { fontSize: 'var(--sb-text-lg)', lineHeight: 1.85, color: '#444', marginBottom: 14, whiteSpace: 'pre-wrap' },
+  tags: { display: 'flex', flexWrap: 'wrap', gap: 'var(--sb-space-1)', marginBottom: 10 },
   tag: {
-    fontSize: 12, color: '#888', background: '#f5f5f5',
-    padding: '4px 12px', borderRadius: 20,
+    fontSize: 'var(--sb-text-sm)', color: '#888', background: '#f5f5f5',
+    padding: '4px 12px', borderRadius: 'var(--sb-radius-2xl)',
   },
 
   // Action bar
   actionBar: {
     padding: '14px 22px', borderTop: '1px solid #f0f0f0',
-    background: '#fff', display: 'flex', gap: 8, flexWrap: 'wrap',
+    background: '#fff', display: 'flex', gap: 'var(--sb-space-2)', flexWrap: 'wrap',
   },
   actionBtn: {
-    flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-    background: '#f5f5f5', border: '1px solid transparent', borderRadius: 10,
-    fontSize: 13, fontWeight: 600, color: '#333',
+    flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+    background: '#f5f5f5', border: '1px solid transparent', borderRadius: 'var(--sb-radius-md)',
+    fontSize: 'var(--sb-text-md)', fontWeight: 600, color: '#333',
     padding: '11px 14px', cursor: 'pointer', fontFamily: 'inherit',
     transition: 'all 0.15s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   },
 
   // Zoom
   zoomBg: {
-    position: 'fixed', inset: 0, zIndex: 9999,
+    position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)',
     background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  zoomImg: { maxWidth: '88%', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 },
+  zoomImg: { maxWidth: '88%', maxHeight: '92vh', objectFit: 'contain', borderRadius: 'var(--sb-radius-md)' },
   zoomNav: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
     width: 42, height: 42, borderRadius: '50%',
@@ -1043,6 +1042,6 @@ const S = {
   },
   zoomCounter: {
     position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-    color: 'rgba(255,255,255,0.5)', fontSize: 12,
+    color: 'rgba(255,255,255,0.5)', fontSize: 'var(--sb-text-sm)',
   },
 };

@@ -41,8 +41,11 @@ test('canvas-empty-actions.css declares the 3-row layered visual + glass + dark 
   assert.match(css, /\.is-primary-row\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,/, 'Row 1 = 桌面 3 列');
   assert.match(css, /\.is-generate-row\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,/, 'Row 2 = 桌面 2 列');
   assert.match(css, /\.is-smart-row\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,/, 'Row 3 = 桌面 3 列');
-  // 毛玻璃
-  assert.match(css, /backdrop-filter:\s*blur\(8px\) saturate\(140%\)/, '毛玻璃 backdrop-filter 必填');
+  // 2026-09-20 §11 毛玻璃收敛：画布空态卡与按钮都不在白名单三类内
+  // （浮层面板 / 画布浮条 / 吸顶导航）。原断言「毛玻璃必填」已被 §11 取代 ——
+  // 改为断言实底表面，保留原意图：表面必须不透明、内容可读。
+  assert.match(css, /background:\s*var\(--sb-surface-card\)/, '空态卡改实底表面（§11：卡片禁用毛玻璃）');
+  assert.ok(!/backdrop-filter/.test(css), '§11：空态卡与按钮不得再用 backdrop-filter');
   // 暗色模式
   assert.match(css, /\[data-theme="dark"\][\s\S]*\.ec-canvas-empty-actions button/, '暗色模式 button 适配必填');
   // 响应式

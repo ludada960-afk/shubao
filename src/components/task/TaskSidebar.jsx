@@ -117,10 +117,10 @@ export default function TaskSidebar() {
         position: 'fixed',
         left: 16,
         bottom: 86,
-        zIndex: 999,
+        zIndex: 'var(--sb-z-panel)',
         display: 'flex',
         alignItems: 'flex-end',
-        gap: 10,
+        gap: 'var(--sb-space-2)',
       }}
     >
       <button
@@ -134,7 +134,7 @@ export default function TaskSidebar() {
           width: 46,
           height: 46,
           border: '1px solid rgba(70, 52, 38, 0.1)',
-          borderRadius: 15,
+          borderRadius: 'var(--sb-radius-lg)',
           background: activeCount > 0 ? '#1f8a83' : '#fffaf4',
           color: activeCount > 0 ? 'var(--sb-neutral-0)' : '#554a42',
           boxShadow: '0 12px 30px rgba(84, 55, 35, 0.16)',
@@ -154,11 +154,11 @@ export default function TaskSidebar() {
             minWidth: 20,
             height: 20,
             padding: '0 5px',
-            borderRadius: 10,
+            borderRadius: 'var(--sb-radius-pill)',
             background: errorCount > 0 ? '#c34f49' : '#db7c2d',
             color: 'var(--sb-neutral-0)',
             border: '2px solid #fffaf4',
-            fontSize: 11,
+            fontSize: 'var(--sb-text-xs)',
             fontWeight: 800,
             lineHeight: '16px',
           }}>
@@ -176,7 +176,7 @@ export default function TaskSidebar() {
             maxHeight: 'min(620px, calc(100vh - 150px))',
             overflow: 'hidden',
             border: '1px solid rgba(70, 52, 38, 0.1)',
-            borderRadius: 20,
+            borderRadius: 'var(--sb-radius-2xl)',
             background: 'rgba(255, 252, 247, 0.98)',
             backdropFilter: 'blur(18px)',
             boxShadow: '0 22px 60px rgba(70, 44, 28, 0.2)',
@@ -192,8 +192,8 @@ export default function TaskSidebar() {
             borderBottom: '1px solid rgba(70, 52, 38, 0.08)',
           }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#342b25' }}>生成任务</div>
-              <div style={{ marginTop: 2, fontSize: 11, color: '#867970' }}>离开当前页面也会继续更新</div>
+              <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 800, color: '#342b25' }}>生成任务</div>
+              <div style={{ marginTop: 2, fontSize: 'var(--sb-text-xs)', color: '#867970' }}>离开当前页面也会继续更新</div>
             </div>
             <button
               type="button"
@@ -203,7 +203,7 @@ export default function TaskSidebar() {
                 width: 32,
                 height: 32,
                 border: 0,
-                borderRadius: 10,
+                borderRadius: 'var(--sb-radius-md)',
                 background: 'rgba(70, 52, 38, 0.06)',
                 color: '#6c6058',
                 cursor: 'pointer',
@@ -220,10 +220,10 @@ export default function TaskSidebar() {
               <div role="alert" style={{
                 margin: '2px 2px 10px',
                 padding: '10px 12px',
-                borderRadius: 12,
+                borderRadius: 'var(--sb-radius-lg)',
                 background: '#fff0ed',
                 color: '#a8403a',
-                fontSize: 12,
+                fontSize: 'var(--sb-text-sm)',
               }}>
                 {loadError}
                 <button type="button" onClick={refreshTasks} style={{ marginLeft: 8 }}>重新加载</button>
@@ -233,8 +233,8 @@ export default function TaskSidebar() {
             {tasks.length === 0 ? (
               <div style={{ padding: '34px 20px', textAlign: 'center' }}>
                 <MdAutoAwesome size={28} color="#b6a89d" />
-                <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: '#5f534b' }}>还没有生成任务</div>
-                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.6, color: '#93867d' }}>开始生成后，可在这里随时查看进度和失败原因。</div>
+                <div style={{ marginTop: 10, fontSize: 'var(--sb-text-md)', fontWeight: 700, color: '#5f534b' }}>还没有生成任务</div>
+                <div style={{ marginTop: 4, fontSize: 'var(--sb-text-xs)', lineHeight: 1.6, color: '#93867d' }}>开始生成后，可在这里随时查看进度和失败原因。</div>
               </div>
             ) : tasks.map(task => {
               const meta = STATUS_META[task.status] || STATUS_META.queued;
@@ -253,7 +253,7 @@ export default function TaskSidebar() {
                     marginBottom: 8,
                     padding: 12,
                     border: '1px solid rgba(70, 52, 38, 0.08)',
-                    borderRadius: 15,
+                    borderRadius: 'var(--sb-radius-lg)',
                     background: 'var(--sb-neutral-0)',
                   }}
                 >
@@ -266,12 +266,12 @@ export default function TaskSidebar() {
                       textAlign: 'left',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sb-space-2)' }}>
                       <span style={{
                         width: 32,
                         height: 32,
                         flex: '0 0 32px',
-                        borderRadius: 11,
+                        borderRadius: 'var(--sb-radius-md)',
                         background: `${meta.color}18`,
                         color: meta.color,
                         display: 'grid',
@@ -280,10 +280,10 @@ export default function TaskSidebar() {
                         <Icon size={17} className={active ? 'animate-spin' : ''} />
                       </span>
                       <span style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#3a302a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'block', fontSize: 'var(--sb-text-md)', fontWeight: 800, color: '#3a302a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {task.title || task.params?.product_name || '电商套图'}
                         </span>
-                        <span style={{ display: 'block', marginTop: 2, fontSize: 11, color: meta.color, fontWeight: 700 }}>
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 'var(--sb-text-xs)', color: meta.color, fontWeight: 700 }}>
                           {meta.label}
                         </span>
                       </span>
@@ -291,16 +291,16 @@ export default function TaskSidebar() {
 
                     {task.total > 0 && (
                       <span style={{ display: 'block', marginTop: 10 }}>
-                        <span style={{ display: 'block', height: 5, overflow: 'hidden', borderRadius: 3, background: '#eee8e2' }}>
-                          <span style={{ display: 'block', width: `${percent}%`, height: '100%', borderRadius: 3, background: task.failed > 0 ? '#bd7026' : '#1f8a83' }} />
+                        <span style={{ display: 'block', height: 5, overflow: 'hidden', borderRadius: 'var(--sb-radius-xs)', background: '#eee8e2' }}>
+                          <span style={{ display: 'block', width: `${percent}%`, height: '100%', borderRadius: 'var(--sb-radius-xs)', background: task.failed > 0 ? '#bd7026' : '#1f8a83' }} />
                         </span>
-                        <span style={{ display: 'block', marginTop: 5, fontSize: 11, color: '#7d7169' }}>{progressText(task)}</span>
+                        <span style={{ display: 'block', marginTop: 5, fontSize: 'var(--sb-text-xs)', color: '#7d7169' }}>{progressText(task)}</span>
                       </span>
                     )}
                   </div>
 
                   {(task.error || assetErrors.length > 0) && (
-                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
+                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 'var(--sb-radius-md)', background: '#fff3ee', color: '#9f493c', fontSize: 'var(--sb-text-xs)', lineHeight: 1.5 }}>
                       {task.error && <div>{task.error}</div>}
                       {assetErrors.map(asset => (
                         <div key={asset.id} style={{ marginTop: task.error ? 5 : 0 }}>
@@ -311,13 +311,13 @@ export default function TaskSidebar() {
                   )}
 
                   {retryError && (
-                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
+                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 'var(--sb-radius-md)', background: '#fff3ee', color: '#9f493c', fontSize: 'var(--sb-text-xs)', lineHeight: 1.5 }}>
                       {retryError}
                     </div>
                   )}
 
                   {dismissError && (
-                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
+                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 'var(--sb-radius-md)', background: '#fff3ee', color: '#9f493c', fontSize: 'var(--sb-text-xs)', lineHeight: 1.5 }}>
                       {dismissError}
                     </div>
                   )}
@@ -332,10 +332,10 @@ export default function TaskSidebar() {
                         width: '100%',
                         minHeight: 34,
                         border: '1px solid rgba(189, 112, 38, 0.25)',
-                        borderRadius: 10,
+                        borderRadius: 'var(--sb-radius-md)',
                         background: '#fff8ef',
                         color: '#9a591f',
-                        fontSize: 12,
+                        fontSize: 'var(--sb-text-sm)',
                         fontWeight: 700,
                         cursor: retrying || retryingTaskId ? 'wait' : 'pointer',
                         opacity: retrying || retryingTaskId ? 0.65 : 1,
@@ -355,17 +355,17 @@ export default function TaskSidebar() {
                         width: '100%',
                         minHeight: 32,
                         border: '1px solid rgba(70, 52, 38, 0.12)',
-                        borderRadius: 10,
+                        borderRadius: 'var(--sb-radius-md)',
                         background: 'var(--sb-neutral-0)',
                         color: '#756a62',
-                        fontSize: 12,
+                        fontSize: 'var(--sb-text-sm)',
                         fontWeight: 700,
                         cursor: dismissing ? 'wait' : 'pointer',
                         opacity: dismissing ? 0.65 : 1,
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 6,
+                        gap: 'var(--sb-space-1)',
                       }}
                     >
                       <MdDeleteOutline size={15} />

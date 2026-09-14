@@ -510,14 +510,14 @@ export function PricingModal() {
       <button type="button" aria-label="关闭" onClick={close}
         className="a11y-backdrop"
         style={{
-          position: 'fixed', inset: 0, zIndex: 9998,
+          position: 'fixed', inset: 0, zIndex: 'var(--sb-z-scrim)',
           background: 'rgba(15, 23, 42, 0.45)',
         }} />
 
       {/* Modal - 外层 shell 只负责居中定位 + 滚容器, 不设样式 (避免双层) */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        zIndex: 9999,
+        zIndex: 'var(--sb-z-modal)',
         maxHeight: 'calc(100vh - 40px)',
         overflowY: 'auto',
         overflowX: 'hidden',
@@ -582,54 +582,54 @@ export function PricingModal() {
       {/* Payment modal */}
       {payModal && (providers.length > 0 || paymentOrder) && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 99999,
+          position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)',
           background: 'rgba(12,10,9,0.5)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 20,
         }} onClick={closePayment}>
           <div style={{
-            background: 'var(--sb-neutral-0)', borderRadius: 20, maxWidth: 360,
+            background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-2xl)', maxWidth: 360,
             width: '100%', padding: 28, textAlign: 'center',
           }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
+            <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
               {payModal.name}
             </div>
-            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
+            <div style={{ fontSize: 'var(--sb-text-md)', color: 'var(--text-muted)', marginBottom: 20 }}>
               ¥{formatCatalogPrice(payModal.priceFen)} · {formatCatalogGrant(payModal)}
             </div>
 
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 14 }}>
+            <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 14 }}>
               选择支付方式
             </div>
 
-            {providers.length > 0 ? <div style={{ display: 'grid', gap: 10 }}>
+            {providers.length > 0 ? <div style={{ display: 'grid', gap: 'var(--sb-space-2)' }}>
               {providers.map(provider => (
                 <button
                   key={provider.id}
                   type="button"
                   onClick={() => createOrder(provider)}
                   disabled={payLoading || paymentOrder?.status === 'pending' || paymentOrder?.status === 'paid'}
-                  style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: 0, background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}
+                  style={{ width: '100%', padding: '12px 0', borderRadius: 'var(--sb-radius-lg)', border: 0, background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-md)', fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}
                 >
                   {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 }}>
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 'var(--sb-radius-lg)', background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 'var(--sb-text-sm)', lineHeight: 1.6 }}>
               微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
             </div>}
 
             <div style={{
-              fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
+              fontSize: 'var(--sb-text-xs)', color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
             }}>
               完成购买后会自动刷新额度，关闭此窗口即可回到刚才的创作位置。
             </div>
 
             {paymentOrder?.checkout?.url && (
-              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid var(--sb-ink-1)', borderRadius: 10, background: 'var(--sb-neutral-0)', color: 'var(--sb-ink-1)', cursor: 'pointer', fontWeight: 700 }}>
+              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid var(--sb-ink-1)', borderRadius: 'var(--sb-radius-lg)', background: 'var(--sb-neutral-0)', color: 'var(--sb-ink-1)', cursor: 'pointer', fontWeight: 700 }}>
                 重新打开支付页
               </button>
             )}
 
-            {paymentStatus && <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10 }}>{paymentStatus}</div>}
+            {paymentStatus && <div style={{ marginTop: 12, fontSize: 'var(--sb-text-sm)', lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 'var(--sb-radius-lg)', padding: 10 }}>{paymentStatus}</div>}
           </div>
         </div>
       )}

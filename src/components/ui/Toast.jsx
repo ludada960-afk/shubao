@@ -36,14 +36,14 @@ export function ToastProvider({ children }) {
 .      {/* Toast 渲染层 */}
       <div style={{
         position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-        zIndex: 10000, display: 'flex', flexDirection: 'column', gap: 8,
+        zIndex: 'var(--sb-z-toast)', display: 'flex', flexDirection: 'column', gap: 8,
         alignItems: 'center', pointerEvents: 'none',
       }}>
         {toasts.map(t => (
           <div key={t.id} style={{
             background: colors[t.type] || colors.info,
-            color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 600,
-            padding: '10px 20px', borderRadius: 10,
+            color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
+            padding: '10px 20px', borderRadius: 'var(--sb-radius-lg)',
             boxShadow: '0 6px 20px rgba(12,10,9,0.2)',
             animation: 'toastSlideIn 0.3s ease',
             maxWidth: '90vw', wordBreak: 'break-word',

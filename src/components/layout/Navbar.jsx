@@ -50,9 +50,9 @@ export default function Navbar() {
         {/* Left: Logo */}
         {/* D11 键盘可达：Logo 是「回首页」导航动作 → button（.a11y-reset 归零 UA 默认外观） */}
         <button type="button" className="a11y-reset" aria-label="回到首页" onClick={() => nav('home')}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', cursor: 'pointer', flexShrink: 0 }}>
           <span style={{
-            display: 'flex', width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
+            display: 'flex', width: 42, height: 42, borderRadius: 'var(--sb-radius-lg)', overflow: 'hidden', flexShrink: 0,
             alignItems: 'center', justifyContent: 'center',
             background: 'var(--sb-brand-gradient)',
             boxShadow: '0 14px 28px rgba(124,92,255,0.24)',
@@ -60,14 +60,14 @@ export default function Navbar() {
             <MdAutoAwesome size={22} color="#fff" fill="#fff" />
           </span>
           <span style={{
-            fontSize: 22, fontWeight: 900, lineHeight: 1,
+            fontSize: 'var(--sb-text-2xl)', fontWeight: 900, lineHeight: 1,
             color: 'var(--accent)', letterSpacing: '-0.3px',
           }}>薯包AI</span>
         </button>
 
         {/* Center: Nav items */}
         <div style={{
-          display: 'flex', gap: 4, alignItems: 'center', margin: '0 auto',
+          display: 'flex', gap: 'var(--sb-space-1)', alignItems: 'center', margin: '0 auto',
         }}>
           {navItems.map(item => (
             <button key={item.key} onClick={() => nav(item.key)}
@@ -75,7 +75,7 @@ export default function Navbar() {
                 padding: '7px 18px', border: 'none',
                 background: isActive(item.key) ? 'rgba(255,255,255,0.85)' : 'transparent',
                 borderRadius: 'var(--radius-full)',
-                fontFamily: 'inherit', fontSize: 14,
+                fontFamily: 'inherit', fontSize: 'var(--sb-text-md)',
                 fontWeight: isActive(item.key) ? 900 : 500,
                 color: isActive(item.key) ? 'var(--accent)' : 'var(--text-muted)',
                 cursor: 'pointer', transition: 'all 0.15s ease',
@@ -112,7 +112,7 @@ export default function Navbar() {
           {/* 套餐 button (lingtuai style) */}
           <button onClick={() => { dispatch({ type: 'SHOW_PRICE', show: true }); }}
             style={{
-              height: 40, display: 'none', alignItems: 'center', gap: 6,
+              height: 40, display: 'none', alignItems: 'center', gap: 'var(--sb-space-2)',
               padding: '0 18px', border: 'none', borderRadius: 'var(--radius-full)',
               background: 'var(--accent)',
               color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 900,
@@ -132,9 +132,9 @@ export default function Navbar() {
             <button onClick={async () => { await signOut(); dispatch({ type: 'SET_LOGGED', logged: false, phone: '' }); }}
               style={{
                 height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: 6, padding: '0 18px', border: 'none', borderRadius: 'var(--radius-full)',
+                gap: 'var(--sb-space-2)', padding: '0 18px', border: 'none', borderRadius: 'var(--radius-full)',
                 background: 'transparent', fontFamily: 'inherit',
-                fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)',
+                fontSize: 'var(--sb-text-md)', fontWeight: 700, color: 'var(--text-secondary)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}>
@@ -144,9 +144,9 @@ export default function Navbar() {
             <button onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
               style={{
                 height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: 6, padding: '0 20px', border: 'none', borderRadius: 'var(--radius-full)',
+                gap: 'var(--sb-space-2)', padding: '0 20px', border: 'none', borderRadius: 'var(--radius-full)',
                 background: 'transparent', fontFamily: 'inherit',
-                fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)',
+                fontSize: 'var(--sb-text-md)', fontWeight: 700, color: 'var(--text-secondary)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}>

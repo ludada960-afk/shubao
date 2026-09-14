@@ -71,7 +71,7 @@ export default function AnchoredPortal({
       data-anchored-portal="true"
       style={{
         position: 'fixed',
-        zIndex: 12050,
+        zIndex: 'var(--sb-z-tooltip)',
         top: position.top,
         left: position.left,
         width: position.width,
