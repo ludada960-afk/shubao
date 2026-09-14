@@ -127,7 +127,7 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
         {styleImages.map((url, index) => <EcommerceImageCard key={`${url}-${index}`} role="reference" image={{ url, status: 'loaded' }} label={`风格参考 ${index + 1}`} index={index} onRemove={() => onRemove('style', index)} />)}
         {styleImages.length < 3 && <EcommerceAddCard role="reference" label="风格参考" meta="构图或色调" optional title="添加风格参考" onClick={() => styleInputRef.current?.click()} />}
         {onPickLibraryUrls && (
-          <button type="button" onClick={() => setLibraryOpen(true)} aria-label="从资产库选择" style={{ minWidth: 92, minHeight: 110, padding: '8px 6px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          <button type="button" onClick={() => setLibraryOpen(true)} aria-label="从资产库选择" style={{ minWidth: 92, minHeight: 110, padding: '8px 6px', border: '1px dashed #c7b9f5', borderRadius: 12, background: '#faf7ff', color: 'var(--sb-brand-600)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <span style={{ fontSize: 17 }}>🗂️</span>
             <span>资产库</span>
           </button>
@@ -1046,7 +1046,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     );
     // 灵图AI风格下拉面板样式
     const panelStyle = {
-      background: '#fff',
+      background: 'var(--sb-neutral-0)',
       borderRadius: 16,
       boxShadow: '0 8px 32px rgba(12,10,9,0.12), 0 2px 8px rgba(12,10,9,0.06)',
       border: '1px solid rgba(12,10,9,0.06)',
@@ -1060,7 +1060,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       borderRadius: 10,
       border: active ? `1.5px solid ${accentColor || 'var(--accent)'}` : '1.5px solid transparent',
       background: active ? (accentColor || 'var(--accent)') : 'rgba(12,10,9,0.04)',
-      color: active ? '#fff' : 'var(--text-muted)',
+      color: active ? 'var(--sb-neutral-0)' : 'var(--text-muted)',
       fontSize: 13,
       fontWeight: 600,
       cursor: 'pointer',
@@ -1077,7 +1077,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         {/* ═══ 白色卡片（标签在白色上）═══ */}
         <div style={{
           borderRadius: 20, margin: '0 16px',
-          background: '#fff',
+          background: 'var(--sb-neutral-0)',
           padding: '20px 20px 20px',
           display: 'flex', flexDirection: 'column',
         }}>
@@ -1087,28 +1087,28 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               style={{
                 padding: '9px 20px', borderRadius: 20,
                 border: 'none',
-                background: xhsSubMode === 'content' ? '#1a1a1a' : 'rgba(12,10,9,0.05)',
-                color: xhsSubMode === 'content' ? '#fff' : '#666',
+                background: xhsSubMode === 'content' ? 'var(--sb-ink-1)' : 'rgba(12,10,9,0.05)',
+                color: xhsSubMode === 'content' ? 'var(--sb-neutral-0)' : 'var(--sb-ink-3)',
                 fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.2s',
                 boxShadow: xhsSubMode === 'content' ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : 'none',
               }}
-              onMouseEnter={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(12,10,9,0.10)'; e.currentTarget.style.color = '#333'; } }}
-              onMouseLeave={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(12,10,9,0.05)'; e.currentTarget.style.color = '#666'; } }}>
+              onMouseEnter={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(12,10,9,0.10)'; e.currentTarget.style.color = 'var(--sb-ink-1)'; } }}
+              onMouseLeave={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(12,10,9,0.05)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; } }}>
               📝 种草图文
             </button>
             <button onClick={() => setXhsSubMode('plog')}
               style={{
                 padding: '9px 20px', borderRadius: 20,
                 border: 'none',
-                background: xhsSubMode === 'plog' ? '#1a1a1a' : 'rgba(12,10,9,0.05)',
-                color: xhsSubMode === 'plog' ? '#fff' : '#666',
+                background: xhsSubMode === 'plog' ? 'var(--sb-ink-1)' : 'rgba(12,10,9,0.05)',
+                color: xhsSubMode === 'plog' ? 'var(--sb-neutral-0)' : 'var(--sb-ink-3)',
                 fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.2s',
                 boxShadow: xhsSubMode === 'plog' ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : 'none',
               }}
-              onMouseEnter={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(12,10,9,0.10)'; e.currentTarget.style.color = '#333'; } }}
-              onMouseLeave={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(12,10,9,0.05)'; e.currentTarget.style.color = '#666'; } }}>
+              onMouseEnter={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(12,10,9,0.10)'; e.currentTarget.style.color = 'var(--sb-ink-1)'; } }}
+              onMouseLeave={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(12,10,9,0.05)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; } }}>
               📸 Plog 生活碎片
             </button>
           </div>
@@ -1116,7 +1116,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           {/* ── 种草图文 ── */}
           {xhsSubMode === 'content' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, var(--sb-neutral-0) 100%)' }}>
                 <div style={{ gridColumn:'1 / -1' }}>
                   <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onPickLibraryUrls={handlePickLibraryUrls} onRemove={removeRoleImage} />
                 </div>
@@ -1147,7 +1147,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           {/* ── Plog ── */}
           {xhsSubMode === 'plog' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, var(--sb-neutral-0) 100%)' }}>
                 <div style={{ gridColumn:'1 / -1' }}>
                   <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onPickLibraryUrls={handlePickPlogLibraryUrls} onRemove={removePlogRoleImage} />
                 </div>
@@ -1190,9 +1190,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     height: 36, padding: '0 16px',
                     borderRadius: 'var(--radius-full)',
                     border: '2px solid rgba(12,10,9,0.15)',
-                    background: topicsOpen ? '#1a1a1a' : 'rgba(12,10,9,0.04)',
+                    background: topicsOpen ? 'var(--sb-ink-1)' : 'rgba(12,10,9,0.04)',
                     fontSize: 13, fontWeight: 600,
-                    color: topicsOpen ? '#fff' : '#444',
+                    color: topicsOpen ? 'var(--sb-neutral-0)' : '#444',
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.2s',
                     boxShadow: topicsOpen ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : '0 1px 3px rgba(12,10,9,0.04)',
@@ -1210,9 +1210,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     height: 36, padding: '0 16px',
                     borderRadius: 'var(--radius-full)',
                     border: '2px solid rgba(12,10,9,0.15)',
-                    background: plogOptionsOpen ? '#1a1a1a' : 'rgba(12,10,9,0.04)',
+                    background: plogOptionsOpen ? 'var(--sb-ink-1)' : 'rgba(12,10,9,0.04)',
                     fontSize: 13, fontWeight: 600,
-                    color: plogOptionsOpen ? '#fff' : '#444',
+                    color: plogOptionsOpen ? 'var(--sb-neutral-0)' : '#444',
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.2s',
                     boxShadow: plogOptionsOpen ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : '0 1px 3px rgba(12,10,9,0.04)',
@@ -1250,7 +1250,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       padding: '8px 14px',
                       borderRadius: 10,
                       border: '1.5px solid rgba(12,10,9,0.06)',
-                      background: '#fff',
+                      background: 'var(--sb-neutral-0)',
                       fontSize: 13, fontWeight: 500,
                       cursor: 'pointer', fontFamily: 'inherit',
                       color: 'var(--text-secondary)',
@@ -1258,7 +1258,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       whiteSpace: 'nowrap',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = '#f8f3ea'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.06)'; e.currentTarget.style.background = '#fff'; }}>
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.06)'; e.currentTarget.style.background = 'var(--sb-neutral-0)'; }}>
                     {h}
                   </button>
                 ))}
@@ -1272,7 +1272,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               <div style={labelStyle}>🎨 色调风格</div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom: 16 }}>
                 {[
-                  { k:'ins-minimal', label:'🤍 Ins极简', c:'#555' },
+                  { k:'ins-minimal', label:'🤍 Ins极简', c:'var(--sb-ink-2)' },
                   { k:'korean-clear', label:'💎 韩系清透', c:'#4A6FA5' },
                   { k:'japanese-cream', label:'🍦 日系奶油', c:'#B8956A' },
                   { k:'film-vintage', label:'🎞️ 胶片复古', c:'#8B6F47' },
@@ -1303,7 +1303,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         </div>
 
         {/* Error */}
-        {err && <div style={{ padding:'8px 14px', margin:'4px 16px 0', background:'#FEF2F0', borderRadius:10, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
+        {err && <div style={{ padding:'8px 14px', margin:'4px 16px 0', background:'var(--sb-danger-soft)', borderRadius:10, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
       </div>
     );
   }
@@ -1315,7 +1315,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
           background: toast.type === 'success' ? '#065F46' : '#991B1B',
-          color: '#fff', padding: '12px 24px', borderRadius: 10,
+          color: 'var(--sb-neutral-0)', padding: '12px 24px', borderRadius: 10,
           boxShadow: '0 4px 20px rgba(12,10,9,0.2)',
           fontSize: 14, fontWeight: 500, maxWidth: '90vw',
           animation: 'slideDown 0.3s ease',
@@ -1329,20 +1329,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16,
         }}>
           <div className="loading-spinner" style={{
-            width: 40, height: 40, border: '3px solid #E5E7EB', borderTopColor: '#6366F1',
+            width: 40, height: 40, border: '3px solid var(--sb-neutral-200)', borderTopColor: 'var(--sb-brand-600)',
             borderRadius: '50%', animation: 'spin 0.8s linear infinite',
           }} />
           <div style={{ fontSize: 16, fontWeight: 600, color: '#374151' }}>🔄 正在分析商品图片...</div>
-          <div style={{ fontSize: 12, color: '#9CA3AF' }}>AI 正在识别类目、风格、颜色、材质等参数</div>
+          <div style={{ fontSize: 12, color: 'var(--sb-ink-5)' }}>AI 正在识别类目、风格、颜色、材质等参数</div>
         </div>
       )}
       <section className="hero-section" style={{ paddingTop: 40 }}>
         <div style={{
           display:'inline-flex', alignItems:'center', gap:4,
-          padding:'3px 12px', borderRadius:20, background:'#FFF0F0', color:'#e84142',
+          padding:'3px 12px', borderRadius:20, background:'#FFF0F0', color:'var(--sb-danger)',
           fontSize:11, fontWeight:600, letterSpacing:0.5, marginBottom:12,
         }}>
-          <span style={{ width:5, height:5, borderRadius:'50%', background:'#e84142', display:'inline-block' }} />
+          <span style={{ width:5, height:5, borderRadius:'50%', background:'var(--sb-danger)', display:'inline-block' }} />
           AI 图文创作工具
         </div>
         <h1 className="hero-title">AI 一键生成<span className="hero-accent">电商商品图</span></h1>
@@ -1361,37 +1361,37 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {isXHS && (
               <div>
                 {/* 子模式切换 */}
-                <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'#e8e8e8', borderRadius:10 }}>
+                <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'var(--sb-neutral-200)', borderRadius:10 }}>
                   <div onClick={() => setXhsSubMode('content')}
                     style={{
                       flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
-                      background: xhsSubMode === 'content' ? '#fff' : 'transparent',
-                      color: xhsSubMode === 'content' ? '#e84142' : '#888',
+                      background: xhsSubMode === 'content' ? 'var(--sb-neutral-0)' : 'transparent',
+                      color: xhsSubMode === 'content' ? 'var(--sb-danger)' : 'var(--sb-ink-3)',
                       boxShadow: xhsSubMode === 'content' ? '0 1px 6px rgba(12,10,9,0.12)' : 'none',
                       border: xhsSubMode === 'content' ? '1px solid rgba(12,10,9,0.04)' : '1px solid transparent',
                       position:'relative',
                     }}
-                    onMouseEnter={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = '#f0f0f0'; }}
+                    onMouseEnter={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = 'var(--sb-neutral-100)'; }}
                     onMouseLeave={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = 'transparent'; }}>
                     种草图文
                     <div style={{
                       position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
                       width: xhsSubMode === 'content' ? 16 : 0, height:2.5, borderRadius:2,
-                      background:'#e84142', transition:'all .2s',
+                      background:'var(--sb-danger)', transition:'all .2s',
                     }} />
                   </div>
                   <div onClick={() => setXhsSubMode('plog')}
                     style={{
                       flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
-                      background: xhsSubMode === 'plog' ? '#fff' : 'transparent',
-                      color: xhsSubMode === 'plog' ? '#c2185b' : '#888',
+                      background: xhsSubMode === 'plog' ? 'var(--sb-neutral-0)' : 'transparent',
+                      color: xhsSubMode === 'plog' ? '#c2185b' : 'var(--sb-ink-3)',
                       boxShadow: xhsSubMode === 'plog' ? '0 1px 6px rgba(12,10,9,0.12)' : 'none',
                       border: xhsSubMode === 'plog' ? '1px solid rgba(12,10,9,0.04)' : '1px solid transparent',
                       position:'relative',
                     }}
-                    onMouseEnter={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = '#f0f0f0'; }}
+                    onMouseEnter={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = 'var(--sb-neutral-100)'; }}
                     onMouseLeave={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = 'transparent'; }}>
                     Plog 生活碎片
                     <div style={{
@@ -1441,20 +1441,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       </div>
                     </div>
                     <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onPickLibraryUrls={handlePickPlogLibraryUrls} onRemove={removePlogRoleImage} />
-                    <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'#FAFBFC', borderTop:'1.5px solid var(--border)' }}>
+                    <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'var(--sb-neutral-25)', borderTop:'1.5px solid var(--border)' }}>
                       <ImageMentionPicker
                         images={plogMentionImages}
                         selectionMode="insert"
                         onToggle={image => insertMentionInTextarea(plogPromptRef, plogText, setPlogText, image.label)}
                       />
-                      <span style={{ fontSize:13, color:'#999' }}>生活素材用于保留真实主体，风格参考用于统一视觉气质</span>
+                      <span style={{ fontSize:13, color:'var(--sb-ink-4)' }}>生活素材用于保留真实主体，风格参考用于统一视觉气质</span>
                     </div>
                     {/* 风格 + 排版设置 */}
                     <div className="tags-cloud-wrap" style={{ borderTop:'none', padding:'8px 16px 10px' }}>
                       <div className="tags-hint"><span>🎨 选择色调风格</span></div>
                       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
                         {[
-                          { k:'ins-minimal', label:'🤍 Ins极简', color:'#555' },
+                          { k:'ins-minimal', label:'🤍 Ins极简', color:'var(--sb-ink-2)' },
                           { k:'korean-clear', label:'💎 韩系清透', color:'#4A6FA5' },
                           { k:'japanese-cream', label:'🍦 日系奶油', color:'#B8956A' },
                           { k:'film-vintage', label:'🎞️ 胶片复古', color:'#8B6F47' },
@@ -1465,13 +1465,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                               style={{
                                 padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
                                 transition:'all .12s', lineHeight:'20px',
-                                background: active ? s.color : '#f5f5f5',
-                                color: active ? '#fff' : '#666',
+                                background: active ? s.color : 'var(--sb-neutral-100)',
+                                color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-3)',
                                 boxShadow: active ? '0 1px 4px ' + s.color + '50' : 'none',
-                                border: active ? '1px solid ' + s.color : '1px solid #eee',
+                                border: active ? '1px solid ' + s.color : '1px solid var(--sb-neutral-150)',
                               }}
-                              onMouseEnter={e => { if(!active) { e.currentTarget.style.borderColor = '#ccc'; } }}
-                              onMouseLeave={e => { if(!active) { e.currentTarget.style.borderColor = '#eee'; } }}>
+                              onMouseEnter={e => { if(!active) { e.currentTarget.style.borderColor = 'var(--sb-neutral-300)'; } }}
+                              onMouseLeave={e => { if(!active) { e.currentTarget.style.borderColor = 'var(--sb-neutral-150)'; } }}>
                               {s.label}
                             </div>
                           );
@@ -1491,13 +1491,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                             <div key={t.k} onClick={() => setPlogLayout(t.k)}
                               style={{
                                 padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, transition:'all .12s',
-                                background: active ? '#BE185D' : '#fff',
-                                color: active ? '#fff' : '#BE185D',
+                                background: active ? '#BE185D' : 'var(--sb-neutral-0)',
+                                color: active ? 'var(--sb-neutral-0)' : '#BE185D',
                                 border: active ? '1px solid #BE185D' : '1px solid #f0d4df',
                                 fontWeight: active ? 600 : 400,
                               }}
                               onMouseEnter={e => { if(!active) { e.currentTarget.style.background = '#fdf2f8'; e.currentTarget.style.borderColor = '#BE185D'; } }}
-                              onMouseLeave={e => { if(!active) { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#f0d4df'; } }}>
+                              onMouseLeave={e => { if(!active) { e.currentTarget.style.background = 'var(--sb-neutral-0)'; e.currentTarget.style.borderColor = '#f0d4df'; } }}>
                               {t.label}
                             </div>
                           );
@@ -1519,7 +1519,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {!isXHS && (
               <div style={{ padding:'0 0 16px' }}>
                 {/* 平台选择 — 横向滑动 */}
-                <div style={{ display:'flex', gap:8, padding:'14px 16px', borderBottom:'1.5px solid var(--border)', background:'#FAFBFC', alignItems:'center', overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }}>
+                <div style={{ display:'flex', gap:8, padding:'14px 16px', borderBottom:'1.5px solid var(--border)', background:'var(--sb-neutral-25)', alignItems:'center', overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }}>
                   {['淘宝','京东','拼多多','抖音','小红书','亚马逊'].map(p => (
                     <span key={p} className={`ec-cat-pill ${ecPlatform === p ? 'on' : ''}`} onClick={() => setEcPlatform(p)}
                       style={{ flexShrink:0 }}>
@@ -1546,13 +1546,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         setToast({ type: 'success', message: `已带入商品档案「${profile.name}」· ${result.applied.length} 项事实` });
                       }
                     }}
-                    accentColor="#4338CA"
+                    accentColor="var(--sb-brand-700)"
                     emptyHint="暂未保存商品档案, 请先在电商工作台保存一个商品档案"
                   />
-                  <span style={{ marginLeft:'auto', fontSize:12, color:'#4338CA', cursor:'pointer', whiteSpace:'nowrap', padding:'5px 12px', borderRadius:6, background:'#EEF2FF', fontWeight:500, transition:'all 0.12s', border:'1px solid #C7D2FE', flexShrink:0 }}
+                  <span style={{ marginLeft:'auto', fontSize:12, color:'var(--sb-brand-700)', cursor:'pointer', whiteSpace:'nowrap', padding:'5px 12px', borderRadius:6, background:'var(--sb-brand-50)', fontWeight:500, transition:'all 0.12s', border:'1px solid var(--sb-brand-200)', flexShrink:0 }}
                     onClick={() => dispatch({ type:'NAVIGATE', page:'ec-studio' })}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#C7D2FE'; e.currentTarget.style.borderColor = '#818CF8'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#C7D2FE'; }}>
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--sb-brand-200)'; e.currentTarget.style.borderColor = '#818CF8'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--sb-brand-50)'; e.currentTarget.style.borderColor = 'var(--sb-brand-200)'; }}>
                     🔧 精修工坊
                   </span>
                 </div>
@@ -1578,21 +1578,21 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
                         padding: '8px 14px', borderRadius: 8,
-                        border: '1px solid #e0e0e0', background: '#fff',
-                        cursor: 'pointer', fontSize: 12, color: '#555',
+                        border: '1px solid var(--sb-neutral-200)', background: 'var(--sb-neutral-0)',
+                        cursor: 'pointer', fontSize: 12, color: 'var(--sb-ink-2)',
                         fontFamily: 'inherit', transition: 'all 0.15s',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4338CA'; e.currentTarget.style.color = '#4338CA'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e0e0e0'; e.currentTarget.style.color = '#555'; }}>
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-brand-700)'; e.currentTarget.style.color = 'var(--sb-brand-700)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-200)'; e.currentTarget.style.color = 'var(--sb-ink-2)'; }}>
                       <Upload size={13} /> 上传商品参考图
-                      {ecRefImgs.length > 0 && <span style={{ background: '#EEF2FF', color: '#4338CA', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10 }}>{ecRefImgs.length}</span>}
+                      {ecRefImgs.length > 0 && <span style={{ background: 'var(--sb-brand-50)', color: 'var(--sb-brand-700)', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10 }}>{ecRefImgs.length}</span>}
                     </button>
                     <span className="ref-hint">正面照最有用，1 张也能出图</span>
                   </div>
                   {ecRefImgs.length > 0 && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 8, overflowX: 'auto', paddingBottom: 4, flexWrap: 'nowrap' }}>
                       {ecRefImgs.map((src, i) => (
-                        <div key={i} style={{ position:'relative', width:68, height:68, borderRadius:8, overflow:'hidden', border:'1px solid #e0e0e0', flexShrink:0, cursor:'pointer' }}
+                        <div key={i} style={{ position:'relative', width:68, height:68, borderRadius:8, overflow:'hidden', border:'1px solid var(--sb-neutral-200)', flexShrink:0, cursor:'pointer' }}
                           onClick={() => setEcPreviewLightbox(src)}>
                           <img
                             src={src}
@@ -1604,7 +1604,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                             fetchpriority="auto"
                             style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                           <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
-                            style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(12,10,9,0.3)' }}>×</div>
+                            style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'var(--sb-danger)', color:'var(--sb-neutral-0)', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(12,10,9,0.3)' }}>×</div>
                         </div>
                       ))}
                     </div>
@@ -1621,19 +1621,19 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
                 {err && <div className="error-bar">{err}</div>}
                 <button className="gen-btn" onClick={doGenEC} disabled={!ecName.trim() || genECLoading}
-                  style={{ margin:'12px 16px', width:'calc(100% - 32px)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'11px 24px', border:'none', borderRadius:10, background: genECLoading ? '#999' : '#4338CA', color:'#fff', fontSize:14, fontWeight:600, cursor: genECLoading ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow: genECLoading ? 'none' : '0 4px 16px rgba(67,56,202,0.25)' }}>
+                  style={{ margin:'12px 16px', width:'calc(100% - 32px)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'11px 24px', border:'none', borderRadius:10, background: genECLoading ? 'var(--sb-ink-4)' : 'var(--sb-brand-700)', color:'var(--sb-neutral-0)', fontSize:14, fontWeight:600, cursor: genECLoading ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow: genECLoading ? 'none' : '0 4px 16px rgba(67,56,202,0.25)' }}>
                   <MdAutoAwesome size={15} /> {genECLoading ? '生成中...' : '一键生成全套电商图'}
                 </button>
-                <div className="gen-hint" style={{ padding:'0 16px', marginTop:8, color:'#888', fontSize:12 }}>
+                <div className="gen-hint" style={{ padding:'0 16px', marginTop:8, color:'var(--sb-ink-3)', fontSize:12 }}>
                   {!ecName.trim() ? '输入商品描述，AI自动生成全套商品图' :
                    ecName.trim().length >= 80 ? '📝 详细模式 · 按描述精确执行' :
                    '📐 标准模式 · AI 自动生成全套套图'}
                 </div>
 
                 {genECLoading && (
-                  <div style={{ margin:'12px 16px', padding:'14px 16px', background:'#F5F3FF', borderRadius:10, textAlign:'center' }}>
-                    <div style={{ width:32, height:32, border:'2px solid #E0E7FF', borderTopColor:'#4338CA', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 10px' }} />
-                    <div style={{ fontSize:13, color:'#4338CA', fontWeight:500 }}>{ecLoadingMsg}</div>
+                  <div style={{ margin:'12px 16px', padding:'14px 16px', background:'var(--sb-brand-50)', borderRadius:10, textAlign:'center' }}>
+                    <div style={{ width:32, height:32, border:'2px solid var(--sb-brand-100)', borderTopColor:'var(--sb-brand-700)', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 10px' }} />
+                    <div style={{ fontSize:13, color:'var(--sb-brand-700)', fontWeight:500 }}>{ecLoadingMsg}</div>
                     {Object.keys(inProgressPreview).length > 0 && (
                       <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'center', marginTop:12 }}>
                         {Object.values(inProgressPreview).map(image => (
@@ -1646,8 +1646,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   </div>
                 )}
                 {!genECLoading && Object.keys(inProgressPreview).length > 0 && (
-                  <div style={{ margin:'12px 16px', padding:'12px 14px', background:'#F8FAFF', borderRadius:10, border:'1px solid #C7D2FE' }}>
-                    <div style={{ fontSize:12, color:'#4338CA', fontWeight:600, marginBottom:8 }}>生成中预览 · 任务仍可继续</div>
+                  <div style={{ margin:'12px 16px', padding:'12px 14px', background:'#F8FAFF', borderRadius:10, border:'1px solid var(--sb-brand-200)' }}>
+                    <div style={{ fontSize:12, color:'var(--sb-brand-700)', fontWeight:600, marginBottom:8 }}>生成中预览 · 任务仍可继续</div>
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                       {Object.values(inProgressPreview).map(image => (
                         <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
@@ -1662,22 +1662,22 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {!isXHS && genPhase === 'result' && ecResults && (
               <div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                  <div style={{ fontSize:15, fontWeight:600, color:'#059669' }}>✅ 生成完成</div>
+                  <div style={{ fontSize:15, fontWeight:600, color:'var(--sb-success)' }}>✅ 生成完成</div>
                   <div style={{ display:'flex', gap:8 }}>
                     <button onClick={startNewProduct}
-                      style={{ padding:'6px 14px', borderRadius:6, border:'1px solid #e0e0e0', background:'#fff', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'#666' }}>
+                      style={{ padding:'6px 14px', borderRadius:6, border:'1px solid var(--sb-neutral-200)', background:'var(--sb-neutral-0)', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'var(--sb-ink-3)' }}>
                       继续生成
                     </button>
                     <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
-                      style={{ padding:'6px 14px', borderRadius:6, border:'1px solid #4338CA', background:'#EEF2FF', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'#4338CA', fontWeight:500 }}>
+                      style={{ padding:'6px 14px', borderRadius:6, border:'1px solid var(--sb-brand-700)', background:'var(--sb-brand-50)', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'var(--sb-brand-700)', fontWeight:500 }}>
                       去精修工坊
                     </button>
                   </div>
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(120px,1fr))', gap:10 }}>
                   {Object.entries(ecResults.images||{}).map(([label,url]) => (
-                    <div key={label} style={{ background:'#f8f8f8', borderRadius:8, overflow:'hidden', border:'1px solid #f0f0f0' }}>
-                      <div style={{ aspectRatio:'1/1', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', cursor:'pointer' }}
+                    <div key={label} style={{ background:'#f8f8f8', borderRadius:8, overflow:'hidden', border:'1px solid var(--sb-neutral-100)' }}>
+                      <div style={{ aspectRatio:'1/1', background:'var(--sb-neutral-0)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', cursor:'pointer' }}
                         onClick={() => setEcLightbox(url)}>
                         <img
                           src={proxyImg(url)}
@@ -1689,10 +1689,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                           fetchpriority="auto"
                           style={{ width:'100%', height:'100%', objectFit:'contain' }} />
                       </div>
-                      <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid #f0f0f0' }}>
-                        <span style={{ fontSize:10, fontWeight:600, color:'#666' }}>{ecLabel(baseKey(label))}</span>
+                      <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--sb-neutral-100)' }}>
+                        <span style={{ fontSize:10, fontWeight:600, color:'var(--sb-ink-3)' }}>{ecLabel(baseKey(label))}</span>
                         <button onClick={() => { const a=document.createElement('a'); a.href=url; a.download=label+'.png'; a.click(); }}
-                          style={{ fontSize:9, padding:'2px 6px', borderRadius:4, background:'#EEF2FF', border:'none', color:'#4338CA', cursor:'pointer', fontWeight:500, fontFamily:'inherit' }}>
+                          style={{ fontSize:9, padding:'2px 6px', borderRadius:4, background:'var(--sb-brand-50)', border:'none', color:'var(--sb-brand-700)', cursor:'pointer', fontWeight:500, fontFamily:'inherit' }}>
                           下载
                         </button>
                       </div>
@@ -1749,28 +1749,28 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       {showRefModal && (
         <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(12,10,9,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
           onClick={() => setShowRefModal(false)}>
-          <div style={{ background:'#fff', borderRadius:16, maxWidth:600, width:'100%', maxHeight:'85vh', overflow:'auto', padding:28 }}
+          <div style={{ background:'var(--sb-neutral-0)', borderRadius:16, maxWidth:600, width:'100%', maxHeight:'85vh', overflow:'auto', padding:28 }}
             onClick={e => e.stopPropagation()}>
             {/* 头部 */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-              <div style={{ fontSize:17, fontWeight:600, color:'#333' }}>📸 上传商品实拍图</div>
-              <div onClick={() => setShowRefModal(false)} style={{ width:28, height:28, borderRadius:'50%', background:'#f5f5f5', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#999', fontSize:16, lineHeight:1 }}>✕</div>
+              <div style={{ fontSize:17, fontWeight:600, color:'var(--sb-ink-1)' }}>📸 上传商品实拍图</div>
+              <div onClick={() => setShowRefModal(false)} style={{ width:28, height:28, borderRadius:'50%', background:'var(--sb-neutral-100)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--sb-ink-4)', fontSize:16, lineHeight:1 }}>✕</div>
             </div>
 
             {/* 主体 */}
             <div style={{ marginBottom:16 }}>
               {/* 上传区 — 居中 */}
               <div onClick={() => ecFileRef.current?.click()} style={{
-                border:'2px dashed #d0d0d0', borderRadius:12, padding:'36px 20px',
+                border:'2px dashed var(--sb-neutral-300)', borderRadius:12, padding:'36px 20px',
                 textAlign:'center', cursor:'pointer', marginBottom:12,
-                background:'#FAFBFC', transition:'all 0.15s',
+                background:'var(--sb-neutral-25)', transition:'all 0.15s',
               }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#4338CA'; e.currentTarget.style.background = '#F5F3FF'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#d0d0d0'; e.currentTarget.style.background = '#FAFBFC'; }}>
-                <Upload size={28} style={{ color:'#bbb', marginBottom:8 }} />
-                <div style={{ fontSize:15, fontWeight:600, color:'#555' }}>点击上传商品参考图</div>
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-brand-700)'; e.currentTarget.style.background = 'var(--sb-brand-50)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-300)'; e.currentTarget.style.background = 'var(--sb-neutral-25)'; }}>
+                <Upload size={28} style={{ color:'var(--sb-ink-5)', marginBottom:8 }} />
+                <div style={{ fontSize:15, fontWeight:600, color:'var(--sb-ink-2)' }}>点击上传商品参考图</div>
               </div>
-              <div style={{ fontSize:11, color:'#bbb', textAlign:'center', marginBottom:16, lineHeight:1.6 }}>
+              <div style={{ fontSize:11, color:'var(--sb-ink-5)', textAlign:'center', marginBottom:16, lineHeight:1.6 }}>
                 支持 JPG / PNG / WebP，每张不超过 5MB<br />
                 建议 1:1 或 3:4 比例，产品居中、背景简洁效果最好
               </div>
@@ -1779,10 +1779,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               {/* 已上传 — 显示在下方 */}
               {ecRefImgs.length > 0 && (
                 <div>
-                  <div style={{ fontSize:13, fontWeight:500, color:'#555', marginBottom:10 }}>已上传 {ecRefImgs.length}/10 张</div>
+                  <div style={{ fontSize:13, fontWeight:500, color:'var(--sb-ink-2)', marginBottom:10 }}>已上传 {ecRefImgs.length}/10 张</div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
                     {ecRefImgs.map((src, i) => (
-                      <div key={i} style={{ position:'relative', aspectRatio:'1/1', borderRadius:8, overflow:'hidden', border:'1px solid #e8e8e8', cursor:'pointer' }}
+                      <div key={i} style={{ position:'relative', aspectRatio:'1/1', borderRadius:8, overflow:'hidden', border:'1px solid var(--sb-neutral-200)', cursor:'pointer' }}
                         onClick={() => setEcPreviewLightbox(src)}>
                         <img
                           src={src}
@@ -1794,7 +1794,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                           fetchpriority="auto"
                           style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                         <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
-                          style={{ position:'absolute', top:-4, right:-4, width:20, height:20, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700, lineHeight:1 }}>×</div>
+                          style={{ position:'absolute', top:-4, right:-4, width:20, height:20, borderRadius:'50%', background:'var(--sb-danger)', color:'var(--sb-neutral-0)', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid var(--sb-neutral-0)', fontWeight:700, lineHeight:1 }}>×</div>
                       </div>
                     ))}
                   </div>
@@ -1803,9 +1803,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             </div>
 
             {/* 拍摄建议 */}
-            <div style={{ background:'#F5F3FF', borderRadius:10, padding:14, marginBottom:20 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#4338CA', marginBottom:8 }}>🎯 什么样的图最有用？</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 16px', fontSize:12, color:'#555', lineHeight:1.8 }}>
+            <div style={{ background:'var(--sb-brand-50)', borderRadius:10, padding:14, marginBottom:20 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:'var(--sb-brand-700)', marginBottom:8 }}>🎯 什么样的图最有用？</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 16px', fontSize:12, color:'var(--sb-ink-2)', lineHeight:1.8 }}>
                 <span>• <b>正面照</b> — 产品整体外观</span>
                 <span>• <b>侧面45°</b> — 展示立体感</span>
                 <span>• <b>细节特写</b> — 材质/工艺放大</span>
@@ -1813,11 +1813,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <span>• <b>使用场景</b> — 模拟真实环境</span>
                 <span>• <b>多角度</b> — 背面/顶部/底部</span>
               </div>
-              <div style={{ fontSize:11, color:'#888', marginTop:8 }}>只要 1 张正面照也能出图，拍得越清晰 AI 效果越好</div>
+              <div style={{ fontSize:11, color:'var(--sb-ink-3)', marginTop:8 }}>只要 1 张正面照也能出图，拍得越清晰 AI 效果越好</div>
             </div>
 
             <button onClick={() => setShowRefModal(false)}
-              style={{ width:'100%', padding:'12px 0', border:'none', borderRadius:10, background:'#4338CA', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              style={{ width:'100%', padding:'12px 0', border:'none', borderRadius:10, background:'var(--sb-brand-700)', color:'var(--sb-neutral-0)', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
               完成 ({ecRefImgs.length} 张)
             </button>
           </div>
