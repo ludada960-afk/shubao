@@ -65,12 +65,23 @@ const FAMILY = (p) => {
 const TEXT_TOKEN = /^--sb-(text|font-size)-/;
 const PROP = /(?:^|[;{\s'"`])(gap|row-gap|column-gap|padding|padding-top|padding-right|padding-bottom|padding-left|margin|margin-top|margin-right|margin-bottom|margin-left|font-size|fontSize|border-radius|borderRadius)\s*:\s*([^;,'"`]+)/;
 
+/* ⚠️ 口径（2026-09-20 修正）：必须看**净效果**，不能看「逐个 commit 的 diff」。
+   原因：一笔提交把 `12px → --sb-space-5`（错），下一笔把它改回 `12px`（对）——
+   逐 commit 看仍然会报错，**但当前代码是完全正确的**，那是假警报。
+   反过来也一样：只看最后一笔会漏掉「改了一半」。
+   所以这里一律把 `base..HEAD` 当成**一个 patch** 来看（`git diff`，不是 `git log -p`）。 */
 const args = process.argv.slice(2);
 const sinceArg = args.find(a => a.startsWith('--since='));
 const baseArg = args.find(a => a.startsWith('--base='));
-const range = baseArg ? [baseArg.slice(7) + '..HEAD'] : ['--since=' + (sinceArg ? sinceArg.slice(8) : '12 hours ago')];
+let base = baseArg ? baseArg.slice(7) : null;
+if (!base) {
+  /* 没给 base 就用时间窗里**最早那笔**的父提交当基准（同样看净效果） */
+  const since = sinceArg ? sinceArg.slice(8) : '12 hours ago';
+  const oldest = execFileSync('git', ['log', '--since=' + since, '--format=%H', '--', 'src'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean).pop();
+  base = oldest ? oldest + '^' : 'HEAD';
+}
 
-const log = execFileSync('git', ['log', '-p', '-U0', '--no-color', ...range, '--', 'src'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+const log = execFileSync('git', ['diff', '-U0', '--no-color', base + '..HEAD', '--', 'src'], { encoding: 'utf8', maxBuffer: 1 << 28 });
 const chunks = log.split(/^diff --git /m).slice(1);
 const bad = [];
 const sanctioned = [];
@@ -123,7 +134,7 @@ for (const chunk of chunks) {
   }
 }
 
-const label = baseArg ? baseArg.slice(7) + '..HEAD' : '窗口 ' + (sinceArg || '--since=12 hours ago');
+const label = '净效果 ' + base.slice(0, 8) + '..HEAD';
 if (sanctioned.length) {
   console.log('ℹ D6 授权的圆角归并（有意变更，需在提交说明里注明）：' + sanctioned.length + ' 处');
   for (const s of sanctioned.slice(0, 12)) console.log('    ' + s.file + '  ' + s.from + ' → ' + s.to);
