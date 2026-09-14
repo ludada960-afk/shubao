@@ -34,7 +34,8 @@ const LADDER = {
   '--sb-space-5': 20, '--sb-space-6': 24, '--sb-space-8': 32, '--sb-space-10': 40,
   '--sb-space-12': 48, '--sb-space-16': 64,
   '--sb-text-2xs': 10, '--sb-text-xs': 11, '--sb-text-sm': 12, '--sb-text-md': 13,
-  '--sb-text-lg': 15, '--sb-text-xl': 18, '--sb-text-2xl': 24, '--sb-text-3xl': 32, '--sb-text-4xl': 48,
+  '--sb-text-base': 14, '--sb-text-lg': 15, '--sb-text-xl': 18, '--sb-text-2xl': 24,
+  '--sb-text-3xl': 32, '--sb-text-4xl': 48,
   '--sb-radius-xs': 4, '--sb-radius-sm': 6, '--sb-radius-md': 8, '--sb-radius-lg': 12,
   '--sb-radius-xl': 16, '--sb-radius-2xl': 20, '--sb-radius-3xl': 24,
 };
