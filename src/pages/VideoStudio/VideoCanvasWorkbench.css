@@ -107,9 +107,9 @@
 .vcb-node header { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sb-ink-3); min-width: 0; }
 .vcb-node header span { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .vcb-node img,
-.vcb-node video { width: 100%; height: 62px; object-fit: cover; border-radius: 8px; background: #efecef; }
+.vcb-node video { width: 100%; height: 62px; object-fit: cover; border-radius: 8px; background: var(--sb-brand-100); }
 .vcb-node footer { font-size: 10.5px; color: #938c84; }
-.vcb-node-placeholder { display: grid; place-content: center; gap: 3px; justify-items: center; width: 100%; height: 62px; border-radius: 8px; background: #efecef; color: #938c84; }
+.vcb-node-placeholder { display: grid; place-content: center; gap: 3px; justify-items: center; width: 100%; height: 62px; border-radius: 8px; background: var(--sb-brand-100); color: #938c84; }
 .vcb-node.is-selected { border-color: #6d4aff; box-shadow: 0 0 0 2px rgba(109, 74, 255, .25), 0 8px 22px rgba(55, 39, 25, .12); }
 .vcb-node.is-candidate { border-style: dashed; }
 
