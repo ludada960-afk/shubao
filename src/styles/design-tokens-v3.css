@@ -243,6 +243,17 @@
   --sb-shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.90);       /* 玻璃面高光 */
   --sb-shadow-ring: 0 0 0 3px var(--sb-brand-ring);                      /* 焦点环（外扩） */
 
+  /* ── 尺寸别名（**必须存在**）─────────────────────────────────────────────
+     组件里长期写着 var(--sb-shadow-sm/md/lg/xl)，但阶梯只定义了 0–5。
+     **未定义的 var() 会静默解析成 none——不报错、不告警**，于是全站卡片阴影集体消失
+     （实测：box-shadow 的 var() 引用 65 处，解析为 none 的有 32 处）。
+     别名只做映射：sm→1 静态卡片 / md→3 dropdown / lg→4 浮层面板 / xl→5 modal；
+     深色主题会自动跟随被指向的 token，无需在 dark 块重复定义。 */
+  --sb-shadow-sm: var(--sb-shadow-1);
+  --sb-shadow-md: var(--sb-shadow-3);
+  --sb-shadow-lg: var(--sb-shadow-4);
+  --sb-shadow-xl: var(--sb-shadow-5);
+
   /* ══════════════════════════════════════════════════════════════════════════
      §11 毛玻璃（Backdrop）— 正当使用白名单
      仅允许 3 处使用 backdrop-filter：
