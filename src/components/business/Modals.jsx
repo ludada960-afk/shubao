@@ -579,17 +579,19 @@ export function PricingModal() {
           )}
       </div>
 
-      {/* Payment modal */}
+      {/* Payment modal —— 原则 4.1：遮罩可点关闭 → button + .a11y-backdrop；
+          面板只是吞冒泡、非可点元素 → 删掉 onClick，改用 target 判定（去嵌套交互元素）。 */}
       {payModal && (providers.length > 0 || paymentOrder) && (
-        <div style={{
+        <button type="button" aria-label="关闭支付" style={{
           position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)',
           background: 'rgba(12,10,9,0.5)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 20,
-        }} onClick={closePayment}>
+        }} className="a11y-backdrop"
+          onMouseDown={event => { if (event.target === event.currentTarget) closePayment?.(); }}>
           <div style={{
             background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-2xl)', maxWidth: 360,
             width: '100%', padding: 28, textAlign: 'center',
-          }} onClick={e => e.stopPropagation()}>
+          }}>
             <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
               {payModal.name}
             </div>
@@ -631,7 +633,7 @@ export function PricingModal() {
 
             {paymentStatus && <div style={{ marginTop: 12, fontSize: 'var(--sb-text-sm)', lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 'var(--sb-radius-lg)', padding: 10 }}>{paymentStatus}</div>}
           </div>
-        </div>
+        </button>
       )}
     </>
   );
