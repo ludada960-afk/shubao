@@ -7,6 +7,27 @@
 
 ---
 
+> ## 🔒 决策口径（**唯一权威：`40-decisions.md`**）
+>
+> 本文档中的一切规则，若与 `docs/design/40-decisions.md` 的 **D1–D12** 冲突，**以 D-decisions 为准**。
+> 本文档**引用 D 编号，不另立说法**。
+>
+> | 编号 | 决策 | 与本文档的对应 |
+> |---|---|---|
+> | **D1** | 主色 = 品牌紫 `--sb-brand-600`（近黑降为中性强调；**不直接改 V2 `--accent`**） | §2A / §A.1 品牌色 |
+> | **D1-补** | 品牌红 `#FB5358` = **标识色**（logo/吉祥物/hero/空态），**不接管交互主色** | §2A A 类清单 |
+> | **D2** | 选中态统一用 **ring**（`--sb-shadow-ring`，不改边框宽度 → 零布局抖动）+ 三件套；**hover 与 selected 必须视觉不同** | §2C 选中态三件套 |
+> | **D3** | 靛蓝 `#6366F1`/`#4338CA`/`#EEF2FF` 系 = **历史遗留，全部迁往品牌紫** | §B 迁移表「靛蓝→品牌紫」 |
+> | **D4** | 覆盖层用**暖黑** `rgba(12,10,9,α)`，**纯黑退役** | §6 边框 / §11 阴影 |
+> | **D5** | 改造顺序：**接 token → 色相替换 → surface 分层 → 尺寸统一**（**严禁反序**） | — |
+> | **D6** | 圆角**只有 4 档**（20/12/8/6），**10px 退役**按场景归入 8 或 12 | §10 圆角 |
+> | **D7** | **面板内禁止再套白卡**，用留白 + 分组标题 | §2B 表面分层 |
+> | **D8** | 同一选择器**只允许一处定义**（禁止追加式覆盖） | — |
+> | **D9** | hover 位移必须**由容器预留空间**（三选一） | §2I / §0.6 |
+> | **D10** | 语义**文字**用 `--sb-ink-*`，**填充**用 `--sb-danger/success/warning` | §2D 语义色 |
+> | **D11** | `focus-visible` 必填，**禁止裸 `outline:none`** | §2C / §16 焦点环 |
+> | **D12** | 幽灵变量与死代码**当 bug 清** | §A.0 |
+
 > ## 📌 数据基准说明（**读任何数字前先看这条**）
 >
 > 本知识库中的所有**实测指标**，权威来源 = **活跃开发树 `.worktrees/codex-ecommerce-stability/`**。
@@ -30,6 +51,338 @@
 >
 > 复现：`cd .worktrees/codex-ecommerce-stability && node scripts/design-audit.mjs`
 
+
+# §A · V3 Token 权威对照表
+
+> **唯一权威源**：\`src/styles/design-tokens-v3.css\`（**总统筹落定并提交 \`12133cb0\`**）。
+> 本表**由该文件自动提取**（light \`:root\` 首次定义优先），变量名与取值**与其完全一致**。
+> ⚠️ **本规范不得改写 token 名或取值**——只解释「用途 / 禁止用法」。改值需评审（见 §A.9）。
+>
+> 已接入：\`src/main.jsx:5\`（在 \`design-tokens.css\` 之后、\`theme.css\` 之前）。
+
+## §A.0 统计
+
+| 项 | 值 |
+|---|---|
+| 文件行数 | 959 |
+| 含 dark 覆盖的 token 定义总数 | 362 |
+| light \`:root\` 首次定义数 | 220 |
+| 深色主题覆盖 | ✅ \`[data-theme="dark"]\`（1 个块） |
+
+## §A.1–§A.16 逐 token 对照
+
+
+### §1 色板 · 品牌
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-brand-50` | `#F5F3FF` | 选中态浅底 / 品牌 wash | 大段文字底（太浅） |
+| `--sb-brand-100` | `#EDE9FE` | selected+hover 底 | — |
+| `--sb-brand-200` | `#DDD6FE` | 浅描边（选中态弱描边） | 强描边（对比不足） |
+| `--sb-brand-300` | `#C4B5FD` | 装饰描边 | 正文文字 |
+| `--sb-brand-400` | `#A78BFA` | 渐变终点 / 大号装饰图标 | 小字号文字（2.72:1 不达标） |
+| `--sb-brand-500` | `#8B5CF6` | **焦点环** / processing 状态 | 大面积实底 |
+| `--sb-brand-600` | `#7C3AED` | **品牌主色**：主 CTA 实底 / 选中文字 / 激活图标 | 装饰性铺色 |
+| `--sb-brand-700` | `#6D28D9` | hover 压深 / 深色品牌文字 | — |
+| `--sb-brand-800` | `#5B21B6` | active 按下 | — |
+| `--sb-brand-900` | `#4C1D95` | 深底上的文字 | —— |
+| `--sb-brand` | `var(--sb-brand-600) → #7C3AED` | 品牌主色（= brand-600） | 默认态（未选中/未激活）**禁止**使用 |
+| `--sb-brand-strong` | `var(--sb-brand-700) → #6D28D9` | primary hover | 默认态 |
+| `--sb-brand-soft` | `#F5F3FF` | **选中态浅底**（= brand-50） | 不要指向 400（曾有覆盖 bug，见文件注释） |
+| `--sb-brand-border` | `#C4B5FD` | 选中态浅描边 | 文字 |
+| `--sb-brand-ring` | `rgba(124, 58, 237, 0.32)` | 焦点环外发光 / ring | 装饰 |
+| `--sb-brand-shadow` | `0 2px 8px rgba(124, 58, 237, 0.16)` | 选中项微投影 | 静态元素 |
+| `--sb-brand-shadow-lg` | `0 6px 20px rgba(124, 58, 237, 0.24)` | primary 按钮投影 | 静态元素 |
+| `--sb-brand-gradient` | `linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)` | **品牌时刻专用**：logo | 功能按钮（裁定 2 禁止） |
+| `--sb-brand-gradient-3` | `linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F59E0B 100%)` | **仅 logo / hero / 空态插画** | **功能按钮、控件、卡片（裁定 2 明令禁止）** |
+| `--sb-brand-a05` | `rgba(124, 58, 237, 0.05)` |  |  |
+| `--sb-brand-a10` | `rgba(124, 58, 237, 0.10)` |  |  |
+| `--sb-brand-a18` | `rgba(124, 58, 237, 0.18)` |  |  |
+| `--sb-brand-a32` | `rgba(124, 58, 237, 0.32)` |  |  |
+| `--sb-brand-a55` | `rgba(124, 58, 237, 0.55)` |  |  |
+
+### §2 色板 · 中性
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-neutral-0` | `#FFFFFF` |  |  |
+| `--sb-neutral-25` | `#FDFBF7` |  |  |
+| `--sb-neutral-50` | `#FAF7F2` |  |  |
+| `--sb-neutral-100` | `#F5F1EA` |  |  |
+| `--sb-neutral-150` | `#EFEAE1` |  |  |
+| `--sb-neutral-200` | `#E7E3DD` |  |  |
+| `--sb-neutral-300` | `#D6D1C9` |  |  |
+| `--sb-neutral-400` | `#B0AAA5` |  |  |
+| `--sb-neutral-500` | `#9A9490` |  |  |
+| `--sb-neutral-600` | `#6B6560` |  |  |
+| `--sb-neutral-700` | `#3D3835` |  |  |
+| `--sb-neutral-800` | `#1A1614` |  |  |
+| `--sb-neutral-900` | `#0C0A09` |  |  |
+
+### §3 色板 · 表面
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-surface-page` | `var(--sb-neutral-50) → #FAF7F2` | L0 页面底 | — |
+| `--sb-surface-panel` | `rgba(255, 255, 255, 0.85)` | L1 浮层面板（必须配毛玻璃） | 卡片 |
+| `--sb-surface-panel-solid` | `#FFFFFF` |  |  |
+| `--sb-surface-card` | `#FFFFFF` | L2 卡片 | **面板内部**（L1 内放白卡 = 不可辨，原则 3.2） |
+| `--sb-surface-sunken` | `var(--sb-neutral-150) → #EFEAE1` | L2- 凹槽 / 输入框底 | 卡片 |
+| `--sb-surface-tint` | `rgba(12, 10, 9, 0.03)` | L3 面板内选中行 / 分组底 | 大面积背景 |
+| `--sb-surface-tint-strong` | `rgba(12, 10, 9, 0.06)` | L3 hover 态 | — |
+| `--sb-surface-inverse` | `var(--sb-neutral-900) → #0C0A09` | L4 反色面（深色 chip / CTA） | 正文背景 |
+
+### §4 色板 · 文字
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-ink-1` | `var(--sb-neutral-800) → #1A1614` | 标题 / 关键数值 | — |
+| `--sb-ink-2` | `var(--sb-neutral-700) → #3D3835` | 正文默认 | — |
+| `--sb-ink-3` | `var(--sb-neutral-600) → #6B6560` | 辅助说明 / 分组标签 / **placeholder** | — |
+| `--sb-ink-4` | `var(--sb-neutral-500) → #9A9490` | 提示（**仅 ≥14px 粗体或大图标**） | **12px 正文**（2.99:1 不达标） |
+| `--sb-ink-5` | `var(--sb-neutral-400) → #B0AAA5` | **仅 disabled** | 任何可读内容 |
+| `--sb-ink-on-dark` | `#FFFFFF` |  |  |
+| `--sb-ink-brand` | `var(--sb-brand-600) → #7C3AED` | 品牌动作文字 / 链接 | 装饰 |
+| `--sb-ink-danger` | `#D0443C` | 错误 / 删除文字 | 普通强调 |
+| `--sb-ink-success` | `#2F7D46` | 成功文字 | 普通强调 |
+| `--sb-ink-warning` | `#B45309` | 警告文字 | 普通强调 |
+| `--sb-ink-info` | `#3B5BA5` | 信息文字 | 普通强调 |
+
+### §5 色板 · 语义状态
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-danger` | `#E8544B` |  |  |
+| `--sb-danger-hover` | `#D0443C` |  |  |
+| `--sb-danger-soft` | `#FEF2F0` |  |  |
+| `--sb-danger-border` | `#F6C9C4` |  |  |
+| `--sb-danger-ring` | `rgba(232, 84, 75, 0.30)` |  |  |
+| `--sb-success` | `#5CA86C` |  |  |
+| `--sb-success-hover` | `#4A9059` |  |  |
+| `--sb-success-soft` | `#F0F9F2` |  |  |
+| `--sb-success-border` | `#C3E3CB` |  |  |
+| `--sb-success-ring` | `rgba(92, 168, 108, 0.30)` |  |  |
+| `--sb-warning` | `#E08A2E` |  |  |
+| `--sb-warning-hover` | `#C6761F` |  |  |
+| `--sb-warning-soft` | `#FDF6EC` |  |  |
+| `--sb-warning-border` | `#F2D9B0` |  |  |
+| `--sb-warning-ring` | `rgba(224, 138, 46, 0.30)` |  |  |
+| `--sb-info` | `#5275CC` |  |  |
+| `--sb-info-hover` | `#4262B4` |  |  |
+| `--sb-info-soft` | `#F0F4FD` |  |  |
+| `--sb-info-border` | `#C2D0EE` |  |  |
+| `--sb-info-ring` | `rgba(82, 117, 204, 0.30)` |  |  |
+
+### §6 边框
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-border-subtle` | `rgba(12, 10, 9, 0.06)` |  |  |
+| `--sb-border-default` | `rgba(12, 10, 9, 0.10)` |  |  |
+| `--sb-border-strong` | `rgba(12, 10, 9, 0.16)` |  |  |
+| `--sb-border-focus` | `var(--sb-brand-500) → #8B5CF6` |  |  |
+| `--sb-border-inverse` | `rgba(255, 255, 255, 0.70)` |  |  |
+
+### §7 排版
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-font-mono` | `'SF Mono', 'Fira Code', ui-monospace, monospace` |  |  |
+| `--sb-text-2xs` | `10px` |  |  |
+| `--sb-text-xs` | `11px` |  |  |
+| `--sb-text-sm` | `12px` |  |  |
+| `--sb-text-md` | `13px` |  |  |
+| `--sb-text-lg` | `15px` |  |  |
+| `--sb-text-xl` | `18px` |  |  |
+| `--sb-text-2xl` | `24px` |  |  |
+| `--sb-text-3xl` | `32px` |  |  |
+| `--sb-text-4xl` | `48px` |  |  |
+| `--sb-weight-regular` | `400` |  |  |
+| `--sb-weight-medium` | `500` |  |  |
+| `--sb-weight-semibold` | `600` |  |  |
+| `--sb-weight-bold` | `700` |  |  |
+| `--sb-weight-heavy` | `800` |  |  |
+| `--sb-leading-tight` | `1.25` |  |  |
+| `--sb-leading-snug` | `1.4` |  |  |
+| `--sb-leading-normal` | `1.5` |  |  |
+| `--sb-leading-relaxed` | `1.65` |  |  |
+| `--sb-tracking-tight` | `-0.01em` |  |  |
+| `--sb-tracking-normal` | `0` |  |  |
+| `--sb-tracking-label` | `0.02em` |  |  |
+
+### §8 间距
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-space-0` | `0` |  |  |
+| `--sb-space-1` | `4px` |  |  |
+| `--sb-space-2` | `8px` |  |  |
+| `--sb-space-3` | `12px` |  |  |
+| `--sb-space-4` | `16px` |  |  |
+| `--sb-space-5` | `20px` |  |  |
+| `--sb-space-6` | `24px` |  |  |
+| `--sb-space-8` | `32px` |  |  |
+| `--sb-space-10` | `40px` |  |  |
+| `--sb-space-12` | `48px` |  |  |
+| `--sb-space-16` | `64px` |  |  |
+
+### §9 圆角
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-radius-xs` | `4px` |  |  |
+| `--sb-radius-sm` | `6px` |  |  |
+| `--sb-radius-md` | `8px` |  |  |
+| `--sb-radius-lg` | `12px` |  |  |
+| `--sb-radius-xl` | `16px` |  |  |
+| `--sb-radius-2xl` | `20px` |  |  |
+| `--sb-radius-3xl` | `24px` |  |  |
+| `--sb-radius-pill` | `9999px` |  |  |
+| `--sb-radius-nested-outer` | `var(--sb-radius-2xl) → 20px` |  |  |
+| `--sb-radius-nested-inner` | `var(--sb-radius-lg) → 12px` |  |  |
+
+### §10 阴影 / 海拔
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-shadow-0` | `none` |  |  |
+| `--sb-shadow-1` | `0 1px 2px rgba(57, 45, 26, 0.05)` |  |  |
+| `--sb-shadow-3` | `0 4px 16px rgba(57, 45, 26, 0.10)` |  |  |
+| `--sb-shadow-inset-top` | `inset 0 1px 0 rgba(255, 255, 255, 0.90)` |  |  |
+| `--sb-shadow-ring` | `0 0 0 3px var(--sb-brand-ring) → `0 0 0 3px rgba(124, 58, 237, 0.32)` |  |  |
+
+### §11 毛玻璃
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-blur-nav` | `24px` |  |  |
+| `--sb-blur-panel` | `24px` |  |  |
+| `--sb-blur-bar` | `16px` |  |  |
+| `--sb-blur-overlay` | `4px` |  |  |
+| `--sb-saturate-glass` | `180%` |  |  |
+| `--sb-scrim-weak` | `rgba(24, 20, 16, 0.24)` |  |  |
+| `--sb-scrim` | `rgba(24, 20, 16, 0.44)` |  |  |
+| `--sb-scrim-strong` | `rgba(24, 20, 16, 0.62)` |  |  |
+
+### §12 控件尺寸
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-control-h-xs` | `24px` |  |  |
+| `--sb-control-h-sm` | `28px` |  |  |
+| `--sb-control-h-md` | `32px` |  |  |
+| `--sb-control-h-lg` | `36px` |  |  |
+| `--sb-control-h-xl` | `44px` |  |  |
+| `--sb-control-px-sm` | `10px` |  |  |
+| `--sb-control-px-md` | `14px` |  |  |
+| `--sb-control-px-lg` | `18px` |  |  |
+| `--sb-control-px-xl` | `24px` |  |  |
+| `--sb-tap-min` | `44px` |  |  |
+
+### §12b 悬停位移预留
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-lift-btn` | `3px` | 按钮 hover 位移预留 | — |
+| `--sb-lift-card` | `5px` |  |  |
+| `--sb-lift-card-lg` | `9px` |  |  |
+| `--sb-lift-safe-x` | `8px` |  |  |
+| `--sb-lift-safe-y` | `16px` |  |  |
+
+### §13 布局
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-panel-w` | `480px` |  |  |
+| `--sb-panel-w-wide` | `560px` |  |  |
+| `--sb-panel-max-h` | `min(70vh, 640px)` |  |  |
+| `--sb-panel-offset` | `8px` |  |  |
+| `--sb-nav-h` | `72px` |  |  |
+| `--sb-nav-pad-top` | `16px` |  |  |
+| `--sb-content-max` | `1240px` |  |  |
+| `--sb-wide-max` | `1680px` |  |  |
+| `--sb-gutter` | `20px` |  |  |
+
+### §14 动效
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-ease-out` | `cubic-bezier(0.22, 1, 0.36, 1)` |  |  |
+| `--sb-ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` |  |  |
+| `--sb-ease-in` | `cubic-bezier(0.4, 0, 1, 1)` |  |  |
+| `--sb-dur-instant` | `100ms` |  |  |
+| `--sb-dur-fast` | `150ms` |  |  |
+| `--sb-dur-normal` | `200ms` |  |  |
+| `--sb-dur-slow` | `300ms` |  |  |
+| `--sb-dur-slower` | `400ms` |  |  |
+| `--sb-duration-instant` | `var(--sb-dur-instant) → 100ms` |  |  |
+| `--sb-duration-fast` | `var(--sb-dur-fast) → 150ms` |  |  |
+| `--sb-duration-normal` | `var(--sb-dur-normal) → 200ms` |  |  |
+| `--sb-duration-slow` | `var(--sb-dur-slow) → 300ms` |  |  |
+| `--sb-duration-slower` | `var(--sb-dur-slower) → 400ms` |  |  |
+
+### §15 层级
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-z-base` | `0` |  |  |
+| `--sb-z-raised` | `10` |  |  |
+| `--sb-z-sticky` | `100` |  |  |
+| `--sb-z-panel` | `400` | 参数浮层面板 | — |
+| `--sb-z-dropdown` | `600` | 下拉菜单（必须 > panel） | — |
+| `--sb-z-scrim` | `800` |  |  |
+| `--sb-z-modal` | `810` |  |  |
+| `--sb-z-toast` | `900` |  |  |
+| `--sb-z-tooltip` | `950` |  |  |
+| `--sb-z-top` | `1000` |  |  |
+
+### §16 焦点环
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-focus-ring-w` | `2px` |  |  |
+| `--sb-focus-ring-offset` | `2px` |  |  |
+| `--sb-focus-ring-color` | `var(--sb-brand-500) → #8B5CF6` |  |  |
+
+### §17 基础实现类
+
+| Token | 值 | 用途 | ❌ 禁止 |
+|---|---|---|---|
+| `--sb-brand-hover` | `var(--sb-brand-700) → #6D28D9` |  |  |
+| `--sb-brand-active` | `#5B21B6` |  |  |
+| `--sb-brand-wash` | `var(--sb-brand-50) → #F5F3FF` |  |  |
+| `--sb-brand-line` | `var(--sb-brand-200) → #DDD6FE` |  |  |
+| `--sb-brand-ink` | `#FFFFFF` |  |  |
+| `--sb-text-primary` | `var(--sb-ink-1) → #1A1614` |  |  |
+| `--sb-text-secondary` | `var(--sb-ink-2) → #3D3835` |  |  |
+| `--sb-text-muted` | `var(--sb-ink-3) → #6B6560` |  |  |
+| `--sb-text-hint` | `var(--sb-ink-4) → #9A9490` |  |  |
+| `--sb-text-faint` | `var(--sb-ink-5) → #B0AAA5` |  |  |
+| `--sb-text-brand` | `var(--sb-ink-brand) → #7C3AED` |  |  |
+| `--sb-text-on-inverse` | `var(--sb-ink-on-dark) → #FFFFFF` |  |  |
+| `--sb-radius-panel` | `var(--sb-radius-2xl) → 20px` |  |  |
+| `--sb-radius-card` | `var(--sb-radius-lg) → 12px` |  |  |
+| `--sb-radius-control` | `var(--sb-radius-md) → 8px` |  |  |
+| `--sb-radius-chip` | `var(--sb-radius-sm) → 6px` |  |  |
+| `--sb-control-sm` | `var(--sb-control-h-sm) → 28px` |  |  |
+| `--sb-control-md` | `var(--sb-control-h-md) → 32px` |  |  |
+| `--sb-control-lg` | `var(--sb-control-h-lg) → 36px` |  |  |
+| `--sb-control-touch` | `var(--sb-control-h-xl) → 44px` |  |  |
+| `--sb-control-min-w` | `88px` |  |  |
+| `--sb-panel-padding` | `var(--sb-space-5) → 20px` |  |  |
+| `--sb-group-gap` | `var(--sb-space-5) → 20px` |  |  |
+| `--sb-field-gap` | `var(--sb-space-2) → 8px` |  |  |
+| `--sb-action-gap` | `var(--footer-actions-gap, var(--sb-space-3)) → var(--footer-actions-gap, 12px)` | **底部操作区按钮间距 12px** | <8px 或 >16px |
+| `--sb-state-hover-bg` | `rgba(12, 10, 9, 0.035)` |  |  |
+| `--sb-state-active-bg` | `rgba(12, 10, 9, 0.06)` |  |  |
+| `--sb-state-selected-bg` | `var(--sb-brand-50) → #F5F3FF` |  |  |
+| `--sb-state-selected-line` | `var(--sb-brand-200) → #DDD6FE` |  |  |
+| `--sb-state-selected-ink` | `var(--sb-brand-600) → #7C3AED` |  |  |
+| `--sb-state-disabled-bg` | `rgba(12, 10, 9, 0.04)` |  |  |
+| `--sb-state-disabled-ink` | `var(--sb-ink-5) → #B0AAA5` |  |  |
+| `--sb-focus-ring` | `var(--sb-shadow-ring) → 0 0 0 3px rgba(124, 58, 237, 0.32)` |  |  |
+
+---
 
 ## 1. 使用方式
 
@@ -395,7 +748,7 @@ L4  反色面     = #0C0A09                        ← --sb-neutral-900
 | `--sb-brand-shadow-lg` | `0 6px 20px rgba(124,58,237,.24)` | primary 按钮投影 |
 | `--sb-brand-gradient` | `linear-gradient(135deg,#7C3AED,#A78BFA)` | 主 CTA / 徽标 |
 | `--sb-brand-gradient-3` | `linear-gradient(135deg,#7C3AED,#EC4899,#F59E0B)` | ⚠️ **仅限首页 hero 主 CTA 一处** |
-| ~~`--sb-gradient-text`~~ | — | ❌ **不提供此 token**。渐变文字（`background-clip: text` + 渐变）被 impeccable 判为反模式：装饰性而非表意，是典型的 AI 生成痕迹。标题强调用**字重或字号**，不用渐变 |
+| ~~`--sb-gradient-text`~~（**不存在的 token，仅用于记录禁止项**） | — | ❌ **不提供此 token**。渐变文字（`background-clip: text` + 渐变）被 impeccable 判为反模式：装饰性而非表意，是典型的 AI 生成痕迹。标题强调用**字重或字号**，不用渐变 |
 
 > ⚠️ **`--sb-brand-gradient-3` 的使用限制**：三色渐变在 `EcMode.jsx:824`「下一步」和 `design-tokens.css:286` `.hero-gradient-text` 各出现一次。三色渐变**最多全站用 2 处**（首页 hero 主 CTA + hero 标题文字）。再多就变成"到处都是彩虹"，彻底失效。
 
@@ -797,7 +1150,7 @@ L0 页面 ─── L1 面板 ─── L2 卡片 ─── L3 ─── L4     
 
 > ⚠️ **本系统不使用任何 bounce / elastic / spring 过冲缓动。** 产品型 UI 里弹跳是廉价感的直接来源——缓动越"活泼"，工具越显得不专业 [来源: impeccable SKILL.md §Motion「Ease out with exponential curves (ease-out-quart / quint / expo). No bounce, no elastic.」]。
 > **即时反馈**（按下 / 勾选）用 `--sb-ease-out` + `transform: scale(0.98)` 表达，**不做回弹**。
-> 📌 注：本规范曾定义过 `--sb-ease-spring`（`cubic-bezier(0.34, 1.4, 0.64, 1)`），被 impeccable 的检测器判为 `bounce-easing` 反模式，**已移除**。复现：`node .agents/skills/impeccable/.../detect.mjs src/styles/design-tokens-v3.css`。
+> 📌 注：（**该 token 已不存在**）本规范曾定义过 `--sb-ease-spring`（`cubic-bezier(0.34, 1.4, 0.64, 1)`），被 impeccable 的检测器判为 `bounce-easing` 反模式，**已移除**。复现：`node .agents/skills/impeccable/.../detect.mjs src/styles/design-tokens-v3.css`。
 
 ### 14.3 禁止动画的属性
 
@@ -866,7 +1219,7 @@ L0 页面 ─── L1 面板 ─── L2 卡片 ─── L3 ─── L4     
 | `#f59e0b`／`#e67e22`／`#d97706` | 12+?+? | `--sb-warning` / `--sb-ink-warning` | 警告橙收敛 |
 | `#ec4899`／`#be185d` | 15+6 | 仅 hero 渐变内 | 禁止作为独立色使用 |
 | `rgba(0,0,0,0.03/0.06/0.08/0.10/0.12/0.14/0.15/0.35)` | 大量 | `rgba(12,10,9,·)` 暖黑 | 全部换成暖黑 |
-| `rgba(255,71,87,·)` | 多处 | `--sb-danger-ring` / `--sb-danger-shadow` | — |
+| `rgba(255,71,87,·)` | 多处 | `--sb-danger-ring` `rgba(232,84,75,.30)` | 红 rgba → 统一环色 |
 | `rgba(124,58,237,·)` | 大量 | `--sb-brand-ring` / `--sb-brand-shadow` | — |
 
 ### 16.2 字号
@@ -1421,4 +1774,225 @@ grep -rn "linear-gradient.*#7c3aed" src/ | grep -iE "btn|button"
 # 红/绿收效（目标各 1 支）
 grep -rEo '#ff4757|#c53030|#e53e3e|#ef4444|#b91c1c|#dc2626' src/ | wc -l
 grep -rEo '#059669|#16a34a|#166534|#07c160|#10b981|#22c55e' src/ | wc -l
+\`\`\`
+
+---
+
+# §B · 逐色迁移映射表（**改造 agent 作业单**）
+
+> **数据来源**：worktree 全量统计（316 文件，非抽样）。
+> **目标 token 名取自 \`src/styles/design-tokens-v3.css\`，与其完全一致。**
+> **用法**：按 \`现色值\` 全局搜索 → 替换为 \`目标 token\`。同一条映射在所有出现处**一致执行**。
+
+## §B.0 四条裁定（**不可协商**）
+
+| # | 裁定 | 落地方式 |
+|---|---|---|
+| **1** | **品牌主色 = 紫 \`#7c3aed\` 系** | 靛蓝 \`#6366f1\`/\`#4338ca\` 系**全部迁移到 \`--sb-brand-*\`，不允许两套并存** |
+| **2** | **品牌渐变 = 品牌时刻专用** | \`--sb-brand-gradient\` / \`--sb-brand-gradient-3\` **仅允许** ①logo ②hero 标题 ③欢迎/空态插画。**功能按钮禁止渐变，改纯色 \`#7C3AED\`** |
+| **3** | **语义色各收敛为一支** | 红 7 支 → \`--sb-danger\`、绿 5 支 → \`--sb-success\`、橙 → \`--sb-warning\`、信息蓝从蓝系收敛到 \`--sb-info\` |
+| **4** | **灰阶全部映射到中性阶** | 5 支散装灰 + \`#1a1a1a\` + Tailwind 灰蓝族 → \`--sb-neutral-*\` / \`--sb-ink-*\` |
+
+## §B.1 工作量总览
+
+| 分组 | 条目 | hex 出现次数 | 说明 |
+|---|---|---|---|
+| **靛蓝→品牌紫** | 13 | **328** | 历史遗留靛蓝（**最大彩色族**，裁定 1） |
+| **品牌紫保留** | 12 | **257** | 已是品牌紫系，仅归档 |
+| **红→一支** | 13 | **159** | 7 支红 → `--sb-danger` |
+| **绿→一支** | 13 | **87** | 5 支绿 → `--sb-success` |
+| **橙→一支** | 11 | **102** | 多支橙 + 暖米底 |
+| **→信息蓝** | 6 | **72** | 蓝/靛蓝 → `--sb-info` |
+| **灰→中性** | 44 | **1852** | 散装灰 + Tailwind 灰蓝族（**量最大**） |
+| **粉→受限** | 6 | **73** | 品牌粉受限 / 青 → 信息 |
+| **合计** | **118** | **2930** | — |
+
+## §B.2 逐条映射
+
+### 靛蓝→品牌紫（13 条 / 328 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#6366f1` | 77 | 11 | `--sb-brand-600` | 靛蓝主色 → 品牌紫主色（最大单项） |
+| `#4338ca` | 75 | 9 | `--sb-brand-700` | 靛蓝深 → 品牌紫深（hover） |
+| `#4636b8` | 44 | 3 | `--sb-brand-700` | 自定义靛蓝(3文件44次) → 品牌紫深 |
+| `#eef2ff` | 42 | 10 | `--sb-brand-50` | 靛蓝浅底 → 品牌紫浅底 |
+| `#c7d2fe` | 17 | 5 | `--sb-brand-200` | 靛蓝浅描边 → 品牌紫 200 |
+| `#7454f3` | 15 | 7 | `--sb-brand-600` | footer 主按钮底 → 品牌紫**纯色** |
+| `#8b5cf6` | 12 | 10 | `--sb-brand-500` | 紫 500（focus） |
+| `#4f46e5` | 11 | 2 | `--sb-brand-700` | indigo variants-600 → 品牌紫深 |
+| `#6842dc` | 10 | 1 | `--sb-brand-600` | 自定义靛蓝 → 品牌紫 |
+| `#e0e7ff` | 10 | 7 | `--sb-brand-100` | 靛蓝浅底 → 品牌紫 100 |
+| `#5d49bf` | 9 | 1 | `--sb-brand-700` | 自定义靛蓝 → 品牌紫深 |
+| `#3730a3` | 4 | 4 | `--sb-brand-800` | indigo variants-800 → 品牌紫 800 |
+| `#a855f7` | 2 | 2 | `--sb-brand-400` | purple-500 → 品牌紫 400 |
+
+### 品牌紫保留（12 条 / 257 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#7c3aed` | 130 | 32 | `--sb-brand-600` | 品牌主色（已是） |
+| `#a78bfa` | 23 | 12 | `--sb-brand-400` | 品牌 400（已是） |
+| `#6d28d9` | 22 | 10 | `--sb-brand-700` | 品牌深（已是） |
+| `#f5f3ff` | 19 | 6 | `--sb-brand-50` | 品牌浅底（已是） |
+| `#faf8ff` | 13 | 5 | `--sb-brand-50` | 近白紫底 → 品牌 50 |
+| `#faf7ff` | 12 | 7 | `--sb-brand-50` | 近白紫底 → 品牌 50 |
+| `#ede9fe` | 11 | 9 | `--sb-brand-100` | 品牌 100（已是） |
+| `#c4b5fd` | 8 | 3 | `--sb-brand-300` | 品牌 300（已是） |
+| `#fbf9ff` | 7 | 5 | `--sb-brand-50` | 近白紫底 → 品牌 50 |
+| `#fbf8ff` | 6 | 3 | `--sb-brand-50` | 近白紫底 → 品牌 50 |
+| `#ddd6fe` | 3 | 3 | `--sb-brand-200` | 品牌 200（已是） |
+| `#f3e8ff` | 3 | 2 | `--sb-brand-100` | 紫 100 底 |
+
+### 红→一支（13 条 / 159 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#e8544b` | 27 | 9 | `--sb-danger` | **唯一危险色（保留升格）** |
+| `#b91c1c` | 20 | 12 | `--sb-ink-danger` | red-700 → 危险**文字** |
+| `#ef4444` | 16 | 10 | `--sb-danger` | red-500 → 统一 |
+| `#dc2626` | 15 | 5 | `--sb-danger-hover` | red-600 → 危险 hover |
+| `#ff4757` | 13 | 5 | `--sb-danger` | 高饱和红 → 统一 |
+| `#fef2f0` | 12 | 10 | `--sb-danger-soft` | 红浅底（已是） |
+| `#c53030` | 11 | 7 | `--sb-danger-hover` | 红深 → 危险 hover |
+| `#fecaca` | 11 | 8 | `--sb-danger-border` | 红浅描边 |
+| `#fef2f2` | 10 | 6 | `--sb-danger-soft` | 红浅底 → 统一 |
+| `#fff5f5` | 10 | 6 | `--sb-danger-soft` | 红浅底 → 统一 |
+| `#e53e3e` | 7 | 4 | `--sb-danger` | 红 → 统一 |
+| `#e84142` | 5 | 2 | `--sb-danger` | 红 → 统一 |
+| `#ff3b5c` | 2 | 1 | `--sb-danger` | 亮红 → 统一 |
+
+### 绿→一支（13 条 / 87 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#256b45` | 15 | 3 | `--sb-ink-success` | 深绿 → 成功文字 |
+| `#5ca86c` | 13 | 7 | `--sb-success` | **唯一成功色（保留）** |
+| `#edf7f0` | 8 | 2 | `--sb-success-soft` | 绿浅底 → 统一 |
+| `#059669` | 7 | 5 | `--sb-success` | emerald-600 → 统一 |
+| `#f5fbf7` | 7 | 1 | `--sb-success-soft` | 绿浅底 → 统一 |
+| `#10b981` | 6 | 6 | `--sb-success` | emerald-500 → 统一 |
+| `#27864b` | 6 | 5 | `--sb-ink-success` | 深绿 → 成功文字 |
+| `#f0f9f2` | 6 | 5 | `--sb-success-soft` | 绿浅底（已是） |
+| `#22c55e` | 5 | 4 | `--sb-success` | green-500 → 统一 |
+| `#047857` | 5 | 5 | `--sb-ink-success` | emerald-700 → 成功文字 |
+| `#07c160` | 4 | 3 | `--sb-success` | 微信绿 → 统一 |
+| `#166534` | 4 | 2 | `--sb-ink-success` | green-800 → 成功文字 |
+| `#16a34a` | 1 | 1 | `--sb-success` | green-600 → 统一 |
+
+### 橙→一支（11 条 / 102 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#f59e0b` | 24 | 16 | `--sb-warning` | amber-500 → 警告 |
+| `#e99a18` | 15 | 4 | `--sb-warning` | 自定义橙 → 警告 |
+| `#f5efe4` | 15 | 7 | `--sb-l0-page` | **页面底，保留** |
+| `#b45309` | 11 | 7 | `--sb-ink-warning` | amber-700 → 警告文字 |
+| `#b7570b` | 9 | 4 | `--sb-ink-warning` | 橙文字 → 警告文字 |
+| `#faefdf` | 8 | 3 | `--sb-surface-sunken` | 暖米浅底 → 凹槽 |
+| `#fbf2e8` | 8 | 3 | `--sb-neutral-100` | 暖米浅底 → 中性 100 |
+| `#fdf8f3` | 8 | 3 | `--sb-neutral-50` | 暖米近白 → 中性 50 |
+| `#fbbf24` | 2 | 2 | `--sb-warning` | amber-400 → 警告 |
+| `#fcd34d` | 1 | 1 | `--sb-credit` | 金色 → 积分色 |
+| `#e67e22` | 1 | 1 | `--sb-warning` | 橙 → 警告 |
+
+### →信息蓝（6 条 / 72 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#2563eb` | 49 | 14 | `--sb-info` | **从蓝系选一支当信息语义色** |
+| `#3b82f6` | 9 | 7 | `--sb-info` | blue-500 → 信息 |
+| `#5275cc` | 6 | 4 | `--sb-info` | 信息蓝（已是） |
+| `#0ea5e9` | 3 | 3 | `--sb-info` | sky → 信息 |
+| `#06b6d4` | 3 | 3 | `--sb-info` | cyan → 信息 |
+| `#1d4ed8` | 2 | 2 | `--sb-info-hover` | blue-700 → 信息 hover |
+
+### 灰→中性（44 条 / 1852 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#fff` | 812 | 89 | `--sb-neutral-0` | 纯白 |
+| `#999` | 52 | 13 | `--sb-ink-4` | 散装灰 → 提示（仅大文本） |
+| `#ffffff` | 51 | 18 | `--sb-neutral-0` | 纯白（大小写重复） |
+| `#888` | 42 | 12 | `--sb-ink-3` | 散装灰 → 辅助文字 |
+| `#6b7280` | 39 | 12 | `--sb-ink-3` | gray-500 → 辅助文字 |
+| `#20242a` | 35 | 7 | `--sb-neutral-900` | 冷深灰 → 反色面 |
+| `#666` | 34 | 13 | `--sb-ink-3` | 散装灰 → 辅助文字 |
+| `#333` | 34 | 10 | `--sb-ink-1` | 散装深灰 → 标题 |
+| `#111827` | 34 | 12 | `--sb-ink-1` | gray-900 → 标题 |
+| `#1a1614` | 33 | 10 | `--sb-ink-1` | 暖黑（已是） |
+| `#64748b` | 32 | 12 | `--sb-ink-3` | slate-500 → 辅助文字 |
+| `#1a1a1a` | 31 | 13 | `--sb-ink-1` | **纯黑 → 暖黑标题**（裁定 4） |
+| `#f5f5f5` | 30 | 11 | `--sb-neutral-100` | 散装灰 #f5f5f5 → 中性 100 |
+| `#f3f4f6` | 30 | 12 | `--sb-neutral-100` | gray-100 → 中性 100 |
+| `#6b6560` | 28 | 9 | `--sb-ink-3` | 暖灰（已是） |
+| `#e0e0e0` | 26 | 7 | `--sb-neutral-200` | 散装灰 #e0e0e0 → 中性 200 |
+| `#475569` | 26 | 10 | `--sb-ink-2` | slate-600 → 正文 |
+| `#1f2937` | 26 | 13 | `--sb-ink-1` | gray-800 → 标题 |
+| `#f0f0f0` | 25 | 10 | `--sb-neutral-100` | 散装灰 #f0f0f0 → 中性 100 |
+| `#eee` | 23 | 9 | `--sb-neutral-150` | 散装灰 #eee → 中性 150 |
+| `#e5e7eb` | 23 | 9 | `--sb-neutral-200` | gray-200 → 中性 200 |
+| `#dfe3e8` | 22 | 6 | `--sb-neutral-200` | 冷灰 → 中性 200 |
+| `#9a9490` | 22 | 10 | `--sb-ink-4` | 暖灰（已是） |
+| `#555` | 22 | 9 | `--sb-ink-2` | 散装灰 → 正文 |
+| `#fafbfc` | 21 | 9 | `--sb-neutral-25` | 近白 → 中性 25 |
+| `#94a3b8` | 21 | 10 | `--sb-ink-5` | slate-400 → 禁用文字 |
+| `#78716c` | 21 | 8 | `--sb-ink-3` | stone-500 → 辅助文字 |
+| `#edf0f3` | 20 | 4 | `--sb-neutral-100` | 冷灰 → 中性 100 |
+| `#756f69` | 20 | 4 | `--sb-ink-3` | 暖灰 → 辅助文字 |
+| `#4b5563` | 20 | 6 | `--sb-ink-2` | gray-600 → 正文 |
+| `#ccc` | 19 | 8 | `--sb-neutral-300` | 散装灰 #ccc → 中性 300 |
+| `#3d3835` | 19 | 9 | `--sb-ink-2` | 暖灰（已是） |
+| `#0f172a` | 19 | 7 | `--sb-ink-1` | slate-900 → 标题 |
+| `#ddd` | 18 | 6 | `--sb-neutral-200` | 散装灰 #ddd → 中性 200 |
+| `#bbb` | 18 | 8 | `--sb-ink-5` | 散装灰 → 禁用文字 |
+| `#9ca3af` | 18 | 10 | `--sb-ink-5` | gray-400 → 禁用文字 |
+| `#0c0a09` | 16 | 4 | `--sb-neutral-900` | 强调黑（已是） |
+| `#e8e8e8` | 14 | 9 | `--sb-neutral-200` | 散装灰 #e8e8e8 → 中性 200 |
+| `#dddde3` | 13 | 1 | `--sb-neutral-200` | 冷灰 → 中性 200 |
+| `#d1d5db` | 13 | 5 | `--sb-neutral-300` | gray-300 → 中性 300 |
+| `#d0d0d0` | 12 | 3 | `--sb-neutral-300` | 散装灰 #d0d0d0 → 中性 300 |
+| `#e0e2e6` | 10 | 1 | `--sb-neutral-200` | 冷灰 → 中性 200 |
+| `#dfe1e5` | 5 | 1 | `--sb-neutral-200` | 冷灰 → 中性 200 |
+| `#24262d` | 3 | 2 | `--sb-neutral-900` | 冷深 → 反色面 |
+
+### 粉→受限（6 条 / 73 次）
+
+| 现色值 | 次数 | 文件 | → 目标 token | 迁移说明 |
+|---|---|---|---|---|
+| `#ec4899` | 22 | 14 | `--sb-brand-gradient-3` | 品牌粉：**仅允许出现在品牌渐变内** |
+| `#397668` | 17 | 1 | `--sb-info` | 青绿(单文件17次) → 信息语义 |
+| `#be185d` | 12 | 3 | `--sb-brand-gradient-3` | 深粉 → 同上受限 |
+| `#4ecdc4` | 10 | 4 | `--sb-info` | 青 → 信息语义 |
+| `#d14db5` | 9 | 6 | `--sb-brand-600` | footer 渐变中的粉 → 改品牌紫**纯色** |
+| `#fce7f3` | 3 | 3 | `--sb-brand-50` | 粉浅底 → 品牌 50 |
+
+## §B.3 执行要点
+
+| # | 要点 |
+|---|---|
+| **M1** | **先灰阶，后彩色** —— 灰阶 44 条 / 1852 次，风险最低（只是冷灰→暖灰），先做可快速降碎片度 |
+| **M2** | **靛蓝整族一起迁** —— 只换 \`#6366f1\` 而留 \`#4338ca\` 会造成新的不匹配 |
+| **M3** | **渐变要拆，不是换** —— 功能按钮上的三色渐变**改成纯色** \`#7C3AED\`，不是换成另一个渐变（裁定 2） |
+| **M4** | **rgba 同步** —— \`rgba(99,102,241,α)\`（靛蓝）→ \`rgba(124,58,237,α)\` 系列 |
+| **M5** | **JS 默认参数不能用 var()** —— \`directionUiModel.js\` 等的 \`fallback = '#7c3aed'\` 是 JS 值，需 \`getComputedStyle\` 读取或保留常量 |
+| **M6** | **每批后跑 audit** —— \`node scripts/design-audit.mjs\` 的「hex 硬编码」应持续下降 |
+
+## §B.4 验证命令
+
+\`\`\`bash
+node scripts/design-audit.mjs                                   # 总碎片度
+
+# 裁定 1：靛蓝残留（目标 0）
+grep -rEo '#6366f1|#4338ca|#4f46e5|#3730a3|#eef2ff|#e0e7ff|#c7d2fe' src/ | wc -l
+
+# 裁定 2：功能按钮上的渐变（目标 0）
+grep -rn "linear-gradient" src/ | grep -iE "btn|button"
+
+# 裁定 3：红/绿收敛（目标各 1 支）
+grep -rEo '#ff4757|#c53030|#e53e3e|#ef4444|#b91c1c|#dc2626' src/ | wc -l
+grep -rEo '#059669|#16a34a|#166534|#07c160|#10b981|#22c55e' src/ | wc -l
+
+# 裁定 4：灰阶收敛
+grep -rEo '#f5f5f5|#f0f0f0|#e0e0e0|#e8e8e8|#d0d0d0|#1a1a1a' src/ | wc -l
 \`\`\`
