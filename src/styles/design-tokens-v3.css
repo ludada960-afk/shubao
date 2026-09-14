@@ -2,9 +2,11 @@
    薯包AI · 设计系统 Token（V3 / Design System v1）
    ───────────────────────────────────────────────────────────────────────────
    文件：src/styles/design-tokens.css 的【纯新增】兄弟文件。
+   ⚠️ 本文件的权威位置 = 活跃开发树 .worktrees/codex-ecommerce-stability/
+      （master 上曾有一份同名异写的 sb-tokens.css，已废弃，勿再引用）
    引入方式（由后续落地 agent 在 src/main.jsx 追加一行，位于原 tokens 之后）：
        import './styles/design-tokens.css';
-       import './styles/sb-tokens.css';   // ← 本文件，必须在其后
+       import './styles/design-tokens-v3.css';   // ← 本文件，必须在其后
 
    铁律：
    1. 本文件只新增 --sb-* 命名空间的变量与 .sb-* / .ds-* 工具类。
@@ -866,4 +868,91 @@
   @media (max-width: 640px) {
     .sb-panel { padding-bottom: env(safe-area-inset-bottom); }
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §20 主色体系拍板（V3.2 · 2026-09 · 总统筹裁定，权威）
+   ───────────────────────────────────────────────────────────────────────────
+   本节是**裁定结论**，不是建议。后续所有改造必须据此执行。
+
+   ▌裁定 1：品牌主色 = 紫 #7c3aed 系
+     靛蓝 #6366f1 / #4338ca 系**整体判为历史遗留**，全部迁移到品牌紫。
+     **不允许两套并存**（实测靛蓝系在 worktree 有 314 次硬编码，是存量最大的
+     第三方语言，迁移工作量按此量级排）。
+
+   ▌裁定 2：品牌渐变 = 品牌时刻专用
+     三色渐变（#7c3aed → #ec4899 → #f59e0b）**只允许**用于：
+       ① logo ② hero 标题 ③ 欢迎/空态插画
+     **禁止**用于功能按钮与普通控件。功能按钮一律用**品牌紫纯色**。
+     理由：现状「下一步」「生成」这类按钮铺三色渐变，是画面"到处都在喊"
+     与廉价感的主要来源。
+
+   ▌裁定 3：语义色各收敛为一支（见 §20.2 映射）
+   ▌裁定 4：灰阶全部映射到 §2 中性色阶（见 §20.3 映射）
+
+   完整迁移映射表（每个 hex 一行）见：
+     docs/design/10-visual-language.md §18
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 品牌渐变：限定用途 ─────────────────────────────────────────────
+     ⚠️ 这两个 token 的**使用白名单只有 3 处**：logo / hero 标题 / 欢迎空态插画。
+     任何按钮、控件、卡片、徽标使用它们 = 违规。 */
+  --sb-brand-gradient-hero:  linear-gradient(135deg, #7C3AED 0%, #EC4899 55%, #F59E0B 100%);
+  --sb-brand-gradient-logo:  linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  --sb-brand-gradient-soft:  linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%);  /* 允许用于主 CTA 底色，替代三色 */
+
+  /* ── 功能按钮：一律品牌紫纯色，禁止渐变 ── */
+  --sb-btn-primary-bg:          var(--sb-brand-600);   /* #7C3AED */
+  --sb-btn-primary-bg-hover:    var(--sb-brand-700);   /* #6D28D9 */
+  --sb-btn-primary-bg-active:   var(--sb-brand-800);   /* #5B21B6 */
+  --sb-btn-primary-ink:         #FFFFFF;
+
+  /* ── 信息语义：从靛蓝/蓝系里选一支，**改名进语义域，不再当品牌色用** ──
+     选 #2563eb（blue-600）为主，收敛到既有 --sb-info 家族。 */
+  --sb-info-solid-600: #2563EB;   /* 原 blue-600，24 次硬编码 */
+  --sb-info-solid-700: #1D4ED8;   /* 原 blue-700 */
+  --sb-info-solid-500: #3B82F6;   /* 原 blue-500 */
+
+  /* ── 语义色「唯一一支」的最终裁定值（覆盖 §5，以本节为准）──
+     每类只保留一个 solid + hover + soft + border + ink，其余全部映射过来。 */
+  --sb-sem-danger:        #E8544B;   /* 唯一危险色（吸收 7 支红）*/
+  --sb-sem-danger-hover:  #D0443C;
+  --sb-sem-danger-soft:   #FEF2F0;
+  --sb-sem-danger-border: #F6C9C4;
+  --sb-sem-danger-ink:    #D0443C;
+
+  --sb-sem-success:       #5CA86C;   /* 唯一成功色（吸收 5 支绿）*/
+  --sb-sem-success-hover: #4A9059;
+  --sb-sem-success-soft:  #F0F9F2;
+  --sb-sem-success-border:#C3E3CB;
+  --sb-sem-success-ink:   #2F7D46;
+
+  --sb-sem-warning:       #E08A2E;   /* 唯一警告色（吸收多支橙）*/
+  --sb-sem-warning-hover: #C6761F;
+  --sb-sem-warning-soft:  #FDF6EC;
+  --sb-sem-warning-border:#F2D9B0;
+  --sb-sem-warning-ink:   #B45309;
+
+  --sb-sem-info:          #5275CC;   /* 唯一信息色（从靛蓝/蓝系收敛）*/
+  --sb-sem-info-hover:    #4262B4;
+  --sb-sem-info-soft:     #F0F4FD;
+  --sb-sem-info-border:   #C2D0EE;
+  --sb-sem-info-ink:      #3B5BA5;
+
+  /* ── 灰阶映射别名：把 5 支散装灰 + #1a1a1a 直接指向中性色阶 ──
+     迁移期可先用这些别名过渡，减少一次性替换风险。 */
+  --sb-gray-white:  var(--sb-neutral-0);    /* #fff / #ffffff */
+  --sb-gray-50:     var(--sb-neutral-25);   /* #fafbfc */
+  --sb-gray-100:    var(--sb-neutral-100);  /* #f5f5f5 / #f3f4f6 / #f0f0f0 / #edf0f3 */
+  --sb-gray-150:    var(--sb-neutral-150);  /* #eee */
+  --sb-gray-200:    var(--sb-neutral-200);  /* #e5e7eb / #e8e8e8 / #e0e0e0 / #ddd / #dfe3e8 … */
+  --sb-gray-300:    var(--sb-neutral-300);  /* #d0d0d0 / #d1d5db / #ccc */
+  --sb-gray-400:    var(--sb-ink-5);        /* #bbb / #9ca3af / #94a3b8 */
+  --sb-gray-500:    var(--sb-ink-4);        /* #999 / #9a9490 */
+  --sb-gray-600:    var(--sb-ink-3);        /* #888 / #666 / #6b6560 / #64748b / #6b7280 / #78716c */
+  --sb-gray-700:    var(--sb-ink-2);        /* #555 / #4b5563 / #475569 / #3d3835 */
+  --sb-gray-800:    var(--sb-ink-1);        /* #333 / #1f2937 / #111827 / #0f172a / #1a1a1a / #1a1614 */
+  --sb-gray-900:    var(--sb-neutral-900);  /* #20242a / #0c0a09 / #24262d */
 }

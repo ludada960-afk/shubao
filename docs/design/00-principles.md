@@ -11,6 +11,30 @@
 
 ---
 
+> ## 📌 数据基准说明（**读任何数字前先看这条**）
+>
+> 本知识库中的所有**实测指标**，权威来源 = **活跃开发树 `.worktrees/codex-ecommerce-stability/`**。
+>
+> | 指标 | worktree（**权威**） | master（子集，仅供对照） |
+> |---|---|---|
+> | 源文件 | **316** | 55 |
+> | hex 硬编码 | **5789 次 / 1810 个不同值** | 1571 次 / 239 值 |
+> | 字号档位 | **27** | 24 |
+> | gap 非阶梯值 | **908/1562（58%）** | 175/371（47%） |
+> | z-index 裸值 | **32** | 21 |
+> | `backdrop-filter` 文件 | **41** | 15 |
+> | 悬停位移站点 | **85** | 71 |
+> | **`focus-visible`** | **115 处 ✅ 已达标** | 0 处 ❌ |
+> | **`prefers-reduced-motion`** | **32 处 ✅ 已达标** | 0 处 ❌ |
+> | 品牌紫硬编码 | 159 次 / 150 行 / 38 文件 | 77 处 / 21 文件 |
+>
+> ⚠️ **两条曾被误判为"P0 缺陷"的项，在活跃树上已经修复**：
+> `focus-visible` 与 `prefers-reduced-motion` 在 worktree 上分别有 **115 处**与 **32 处**，**不是缺陷**。
+> （早期文档基于 master 得出"全站 0 次"的结论，**对活跃开发树不成立**，已在本节更正。）
+>
+> 复现：`cd .worktrees/codex-ecommerce-stability && node scripts/design-audit.mjs`
+
+
 ## 0. 先立规矩：本系统要解决的真实问题
 
 ### 0.1 现状诊断（全部有据可查）
@@ -18,17 +42,19 @@
 | # | 问题 | 证据 |
 |---|---|---|
 | P1 | **两套主色体系在打架** | `design-tokens.css:12-13` 明写「近黑极简，**无彩色主色**」`--accent: #0C0A09`；但 `#7c3aed` 紫硬编码出现 **67 次**，光 `DesignDirection.jsx` 就 15 处 [证据: src/pages/Home/ec/DesignDirection.jsx] |
-| P2 | **颜色是碎片** | 全站 **239 个不同 hex**、1571 次硬编码出现 [证据: `node scripts/design-audit.mjs` ①] |
-| P3 | **字号 24 档** | 实测 12(137次)/11(101)/13(91)/10(54)/14(47)/15(29)/9/16/18/20/8/24/22/28/17/12.5/26/48/56/14.5/30/36/38/7 px [证据: `design-audit.mjs` ①] |
-| P4 | **圆角 20 档** | 同语义最多 6 档：选项卡 10/10/6/8/8/9999px [证据: `SizingPanel.jsx:237`、`StylePanel.jsx:117`、`ParamsPanel.jsx:75`、`EcPlatformPicker.jsx:117,50`] |
+| P2 | **颜色是碎片** | 全站 **1810 个不同 hex**、5789 次硬编码 [证据: worktree `node scripts/design-audit.mjs` ①] |
+| P3 | **字号 27 档** | 实测 12(162次)/11(133)/13(98)/10(61)/14(43)/16(21)/… [证据: `design-audit.mjs` ①] |
+| P4 | **圆角 21 档** | 同语义最多 6 档：选项卡 10/10/6/8/8/9999px [证据: `SizingPanel.jsx:237`、`StylePanel.jsx:117`、`ParamsPanel.jsx:75`、`EcPlatformPicker.jsx:117,50`] |
 | P5 | **控件高度 12 档** | 26/28/30/32/34/36/38/40/42/44/45/50 px [证据: `audit-panels.md`] |
 | P6 | **面板宽度 4 档** | copy=520 / sizing=460 / settings=380 / 其余=420 [证据: `EcMode.jsx:303`] |
-| P7 | **键盘用户完全被排除** | `focus-visible` 全站出现 **0 次**；**133 处** `<div onClick>` 伪按钮；**42 处** `outline: 'none'` 主动抹掉焦点环 [证据: `design-audit.mjs` ②] |
+| P7 | **键盘可达性部分达标** | ✅ `focus-visible` **115 处**（已达标）；✅ `prefers-reduced-motion` **32 处**（已达标）；⚠️ 仍有 **107 处** `<div onClick>` 伪按钮、**80 处** `outline:none` [证据: worktree `design-audit.mjs` ②] |
 | P8 | **状态覆盖大面积缺失** | hover 有 3 种实现并存（内联 JS / CSS class / 完全没有）；loading 只在 2 处有；disabled 多为「视觉禁用但 onClick 仍挂着」[证据: `audit-panels.md` 发现 9] |
 | P9 | **同一流程两个相反配色** | `DesignDirection.jsx`（暖白）与 `DesignDirectionView.jsx`（暗色 `#0f0f1a`）是同一个「确认设计方向」流程的两个实现 [证据: `DesignDirectionView.jsx:1-158`] |
-| P10 | **z-index 裸值 21 种** | 1/2/3/5/10/50/100/101/200/900/999/1000/1001/9998/9999/10000/10001/10002/10003/99999/999999 [证据: `design-audit.mjs` ①] |
-| P13 | **间距近半数是手感值** | `gap` 非阶梯值 **175/371 次（47%）** [证据: `design-audit.mjs` ①] |
-| P14 | **`prefers-reduced-motion` 全站 0 处** | 前庭症用户无任何保护，违反 WCAG 2.3.3 (AAA) [证据: `design-audit.mjs` ②] |
+| P10 | **z-index 裸值 32 种** | 1/2/3/5/10/50/100/101/200/900/999/1000/1001/9998/9999/10000/10001/10002/10003/99999/999999 [证据: `design-audit.mjs` ①] |
+| P13 | **间距过半是手感值** | `gap` 非阶梯值 **908/1562 次（58%）** [证据: worktree `design-audit.mjs` ①] |
+| P14 | ~~`prefers-reduced-motion` 缺失~~ | ✅ **worktree 已实现 32 处**，此项已解决（早期基于 master 的 0 处结论作废） |
+| P15 | **毛玻璃泛滥** | **41 个文件**使用 `backdrop-filter`（白名单只允许 3 类场景）[证据: `design-audit.mjs` ③] |
+| P16 | **悬停位移未预留** | **85 处**位移/放大站点，**20 种**位移值，5 处 >4px 高风险 [证据: `design-audit.mjs` ③c] |
 | P11 | **6 个 CSS 变量根本不存在** | `--amber-400`/`--amber-500`（Navbar.jsx:101）、`--shadow-red-lg`（Button.jsx:31）、`--surface-raised`（Footer.jsx:14、Home.css:88）、`--shadow-red`（Home.css:229-230）全站无定义 → 这些样式**当前渲染为无效值** |
 | P12 | **Navbar.jsx 是死代码** | `App.jsx:272` 渲染的是内联 `TopBar`，`Navbar.jsx`（208 行，含自己的毛玻璃规格）从未被引用 |
 
@@ -56,7 +82,7 @@
 | 暖棕投影 | `rgba(57,45,26,·)` | `design-tokens.css:95-99` |
 
 > ⚠️ **P1 是唯一需要人拍板的冲突**：`design-tokens.css` 说「无彩色主色」，但实际代码 67 次用紫。本规范的处理是——**把紫提升为正式品牌色，同时定义「默认必须处于未锁定/中性态」**（见 §6）。理由：紫色已经是事实上的品牌识别（导航、CTA、选中态全在用），推翻它等于否定现有产品人格；而「无彩色主色」的原始意图（*不要到处乱用彩色*）恰恰由 §6 的语义规则来满足。
-> **优先级**：若老板决定改回近黑主色，只需替换 `sb-tokens.css` §1 的 `--sb-brand-*` 九个值，其余规范全部不变。**这就是 token 化的意义。**
+> **优先级**：若老板决定改回近黑主色，只需替换 `design-tokens-v3.css` §1 的 `--sb-brand-*` 九个值，其余规范全部不变。**这就是 token 化的意义。**
 
 ---
 
@@ -405,7 +431,7 @@ WCAG 2.5.8 Target Size (Minimum) 的 AA 要求是 24×24px [来源: https://www.
 
 每一处动画都必须有 `@media (prefers-reduced-motion: reduce)` 的替代（通常是瞬时切换或纯交叉淡入）。[来源: impeccable SKILL.md §Motion]
 
-已在 `sb-tokens.css` §17 统一实现。
+已在 `design-tokens-v3.css` §17 统一实现。
 
 ---
 

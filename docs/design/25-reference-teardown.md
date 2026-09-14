@@ -203,7 +203,7 @@
 | **2.5.5** Target Size (Enhanced) | AAA | **≥44×44 CSS px** |
 | **2.3.3** Animation from Interactions | AAA | 交互触发的运动动画**可被禁用** |
 
-> ⚠️ **这条改变了我方的实现**：焦点环**必须用 `outline`**，不能用 `box-shadow`。（`sb-tokens.css` 的 `.sb-focusable:focus-visible` 已正确使用 `outline`；`--sb-shadow-ring` 保留给"外发光"装饰用途，**不作为焦点指示器**。）
+> ⚠️ **这条改变了我方的实现**：焦点环**必须用 `outline`**，不能用 `box-shadow`。（`design-tokens-v3.css` 的 `.sb-focusable:focus-visible` 已正确使用 `outline`；`--sb-shadow-ring` 保留给"外发光"装饰用途，**不作为焦点指示器**。）
 
 ### 4.2 Apple HIG
 

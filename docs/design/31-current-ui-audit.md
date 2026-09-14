@@ -471,7 +471,7 @@
 
 **但这不影响总统筹的判断方向**——恰恰相反，本轮发现了更硬的事实：
 
-> ### 🔴 `src/styles/sb-tokens.css`（482 行 V3 设计系统）已存在，但完全没有接入任何页面。
+> ### 🔴 `src/styles/design-tokens-v3.css`（482 行 V3 设计系统）已存在，但完全没有接入任何页面。
 >
 > | 检查项 | 结果 |
 > |---|---|
@@ -482,7 +482,7 @@
 >
 > 即：**团队已写好完整 V3 设计语言（品牌色阶梯、五级 surface、语义状态四件套、控件高度 5 档、z-index 9 档、焦点环、动效、断点收敛），却锁在抽屉里一行没用。** 这解释了为什么改造看起来一直在做却没效果——**产出的是 token 文件，不是页面**。
 
-`sb-tokens.css` 可直接复用的资产（改造时应直接引，不要重造）：
+`design-tokens-v3.css` 可直接复用的资产（改造时应直接引，不要重造）：
 
 - §3 五级 surface：`--sb-surface-page/-panel/-panel-solid/-card/-sunken/-tint/-tint-strong/-inverse`（正是解决「没有分层」的）
 - §5 语义四件套：`--sb-{danger,success,warning,info}-{soft,border,ring}`（正是解决「没有语义色」的）
@@ -594,9 +594,9 @@
 
 **小计：35 个分层失败点。类型 a（同色/微差）24 处、类型 b（仅靠淡边框）8 处、类型 c（嵌套圆角公式错误）2 处。**
 
-### 与 `sb-tokens.css` 的对照（说明本可不必如此）
+### 与 `design-tokens-v3.css` 的对照（说明本可不必如此）
 
-`sb-tokens.css` §3 已定义**五级 surface**，正是为解决上述问题而写：
+`design-tokens-v3.css` §3 已定义**五级 surface**，正是为解决上述问题而写：
 
 | 级别 | token | 值 | 本应替换掉的现状 |
 |---|---|---|---|
@@ -703,7 +703,7 @@
 | `#fff` → `var(--sb-surface-card)` | **约 299** | 与上一条配套；后续改暗色/换肤时一处生效 |
 | 灰阶文字 `#999/#666/#888/#555/#333/#aaa/#bbb/#ccc` → `--sb-ink-1..5` | **约 280** | 现状 9 档灰文字，`sb-tokens` 只保留 5 档 ink |
 
-> **注意**：`sb-tokens.css` 目前**没有被 import**，上述替换生效前必须先做两件事：① 在 `main.jsx:4` 后追加 `import './styles/sb-tokens.css'`；② 确认 `sb-tokens.css` 的 `:root` 与 `design-tokens.css` **无同名变量冲突**（该文件自述「只新增 `--sb-*` 命名空间」，已核对无冲突，可安全引入）。
+> **注意**：`design-tokens-v3.css` 目前**没有被 import**，上述替换生效前必须先做两件事：① 在 `main.jsx:4` 后追加 `import './styles/design-tokens-v3.css'`；② 确认 `design-tokens-v3.css` 的 `:root` 与 `design-tokens.css` **无同名变量冲突**（该文件自述「只新增 `--sb-*` 命名空间」，已核对无冲突，可安全引入）。
 
 ---
 
@@ -711,7 +711,7 @@
 
 | 新排名 | 项 | 依据 | 变化 |
 |---|---|---|---|
-| **1** | **把 `sb-tokens.css` 接进 `main.jsx`** | 482 行 V3 设计系统零接入（A.0） | 🆕 新增，**应排在所有 UI 改动之前**，否则后续每改一处都继续硬编码 |
+| **1** | **把 `design-tokens-v3.css` 接进 `main.jsx`** | 482 行 V3 设计系统零接入（A.0） | 🆕 新增，**应排在所有 UI 改动之前**，否则后续每改一处都继续硬编码 |
 | **2** | `rgba(0,0,0,` 全站换暖黑 `rgba(12,10,9,` | 约 320 处（A.3.3） | ⬆️ 单条改动收益最大 |
 | **3** | `GenSettingsPanel.jsx` 未选中态与输入框 | 21 行纯中性（A.1）；输入框无凹槽无 focus | ⬆️ 总统筹点名样板，升入前三 |
 | 4 | `EcMode.jsx:819-834` 下一步 38px/12px | 第一轮 #1 | ⬇️ |
@@ -724,7 +724,7 @@
 
 ### 给落地 agent 的执行顺序（硬性）
 
-1. **先接 token**：`main.jsx` 追加 import，跑一次构建确认零回归（`sb-tokens.css` 第 13 行已保证）。
+1. **先接 token**：`main.jsx` 追加 import，跑一次构建确认零回归（`design-tokens-v3.css` 第 13 行已保证）。
 2. **再做全局色相替换**：`rgba(0,0,0,` → `rgba(12,10,9,`、`#fff` → token。不改布局、不改尺寸，风险最低、收益最大。
 3. **再做 surface 分层**：按 A.2 的 35 处清单，优先修类型 a（24 处，多为改一个变量）。
 4. **最后做尺寸统一**：主 CTA 组件化（第一轮 §3.1，12 处 → 1 个组件）。
@@ -738,7 +738,7 @@
 - 中性色统计：匹配 `background|border|borderColor|color|boxShadow|backgroundColor` 声明行，行内色值全属中性族则计入。
 - 色值频次统计：全量匹配 `#RRGGBB`/`#RGB` 与 `rgba(0,0,0,α)`/`rgba(255,255,255,α)`（兼容空格变体），聚合计数，含色声明行总数 1413。
 - 所有行号以当前工作区 `F:\da\shubao` 为准，可直接跳转。
-- 本轮**未修改任何 `src/` 下文件**，未 commit。`sb-tokens.css` 为上轮审计后新出现的文件，本轮已核实其未被引用。
+- 本轮**未修改任何 `src/` 下文件**，未 commit。`design-tokens-v3.css` 为上轮审计后新出现的文件，本轮已核实其未被引用。
 
 ---
 
@@ -795,7 +795,7 @@
 | `src/pages/EcStudio/index.jsx` | **22** | 297,310,430,473,480,510,517,529,629,644,661,672,722,766,796,821,850,1003,1190,1191,1192 |
 | `src/pages/Home/ec/DesignDirection.jsx` | **21** | 208,223,261,262,361,369,382,383,384,385,386,444,475,477,493,494,500,509,515 |
 | **`src/pages/EcCanvas/index.jsx`** | **19** | 108,118,168,195,196,571,582,602,635,663,700 |
-| `src/styles/sb-tokens.css` | 18 | 28-37（品牌色阶梯定义）、41-47（品牌语义变量） |
+| `src/styles/design-tokens-v3.css` | 18 | 28-37（品牌色阶梯定义）、41-47（品牌语义变量） |
 | `src/pages/Home/ec/GenSettingsPanel.jsx` | **17** | 43,52,53,54,56,61,67,79,88,89,90,92,97,101,113 |
 | `src/pages/Home/ec/DesignDirectionView.jsx` | **13** | 19,73,79,81,94,95,114,118,144,150 |
 | `src/pages/Home/ec/CopyPanel.jsx` | **11** | 44,45,46,58,64,71,72,73,74,84 |
@@ -842,7 +842,7 @@
 | `src/pages/EcAuto/index.jsx` | **10** | 靛蓝 `#4338CA`、橙 `#F59E0B` | 112,127,135,175,197,209,243,285,309 |
 | `src/pages/EcCanvas/index.jsx` | **10** | 红 `#ef4444`、绿 `#10b981`、琥珀 `#b45309` | 117,135,167,168,576,664,700 |
 | `src/pages/Pricing/index.jsx` | **10** | 橙/靛/粉/支付宝蓝/微信绿 | 116,118,177,190,220,221,230,231 |
-| `src/styles/sb-tokens.css` | 5 | 三色渐变定义 | 47,97,118 |
+| `src/styles/design-tokens-v3.css` | 5 | 三色渐变定义 | 47,97,118 |
 | `src/NoteModal.jsx` | 4 | 靛蓝 `#4338CA` | 207,259,363,663 |
 | `src/pages/Home/ec/SkuPanel.jsx` | 4 | 橙 `#d97706`、绿、红 | 39,40,41 |
 | `src/pages/Home/ec/StylePanel.jsx` | 4 | 紫粉橙渐变、蓝 `#3b82f6` | 9,24 |
@@ -935,7 +935,7 @@
 **统一改造的决策点只有两个（必须先定，否则改了也白改）**：
 
 1. **品牌主色到底是近黑还是紫？** —— token 说近黑，但代码里紫出现 293 次、近黑 `var(--accent)` 只出现 59 次，且画布 100% 是紫。若选近黑，需替换 293 处；若选紫，需把 `--accent` 改值并替换 59 处。**建议以「紫为主色 + 近黑为中性强调」收敛**，因为改造成本最低且符合当前多数界面观感。
-2. **选中态统一用哪种？** —— 建议采纳链路 B 的 **ring 手法**（`box-shadow: 0 0 0 2px var(--brand)`），优点是不改边框宽度、不引起布局抖动，且能与 `sb-tokens.css:232` 已定义的 `--sb-shadow-ring` 直接对齐。
+2. **选中态统一用哪种？** —— 建议采纳链路 B 的 **ring 手法**（`box-shadow: 0 0 0 2px var(--brand)`），优点是不改边框宽度、不引起布局抖动，且能与 `design-tokens-v3.css:232` 已定义的 `--sb-shadow-ring` 直接对齐。
 
 ---
 
@@ -1092,7 +1092,7 @@
 ```
 
 > **建议**：卡片类（M2/M3）用**方案 1**；滚动容器内的项（M1）用**方案 2**；不确定时用**方案 3**。
-> 三者可与 `sb-tokens.css` 的 `--sb-shadow-1..5` 海拔阶梯直接配合 —— 用阴影层级差表达「浮起」，比位移更稳且不会被裁。
+> 三者可与 `design-tokens-v3.css` 的 `--sb-shadow-1..5` 海拔阶梯直接配合 —— 用阴影层级差表达「浮起」，比位移更稳且不会被裁。
 
 ---
 
@@ -1129,13 +1129,13 @@
 | `src/pages` 文件数 | 30 | **115** |
 | `src/styles` 文件数 | 2 | **14** |
 | `src` 源文件总数 | ~50 | **315** |
-| V3 token 文件 | `sb-tokens.css`（**未 import**） | **`design-tokens-v3.css`（已在 main.jsx import）** |
+| V3 token 文件 | `design-tokens-v3.css`（**未 import**） | **`design-tokens-v3.css`（已在 main.jsx import）** |
 | V3 使用量 | 6 处 | **727 处 / 5 文件** |
 | 设计规范文档 | 仅 31 审计 | 另有 `00-principles.md`(35KB)、`40-decisions.md`、`_research/` 39 份 |
 
 ### 🔴 必须撤回的前置结论
 
-**附录 A.0 曾断言「`sb-tokens.css` 完全没被接入任何页面，是锁在抽屉里的设计系统」——该结论对主树成立，对活跃 worktree 不成立。**
+**附录 A.0 曾断言「`design-tokens-v3.css` 完全没被接入任何页面，是锁在抽屉里的设计系统」——该结论对主树成立，对活跃 worktree 不成立。**
 
 事实：worktree 已把同一套 token 落为 `design-tokens-v3.css`，并且在 `main.jsx` 中 import；且已被 **5 个文件**实际引用 **727 处**：
 
@@ -1283,7 +1283,7 @@ className={`canvas-library${isPage ? ' is-page' : ''}`}           // :141
 |---|---|---|---|
 | 1 | 「画布库新建卡片在当前 src 树中不存在，全仓搜『新建画布』0 命中」（附录 C.0） | ❌ **完全错误** | 存在于 src/pages/EcCanvas/components/CanvasLibraryModal.jsx + canvas-library.css:202 .canvas-library-new-card |
 | 2 | 「全仓未找到小地图实现，属功能缺失」（附录 A.2 #33） | ❌ **完全错误** | 存在：CanvasMinimap.jsx(165行) + canvas-minimap.css(102行) + EcCanvas/index.jsx:7475 渲染。**问题在样式冲突，不在缺失**（见 E.3） |
-| 3 | 「sb-tokens.css 完全没接入，锁在抽屉里」（附录 A.0） | ❌ **错误** | worktree 已落为 design-tokens-v3.css 并在 main.jsx import，**已引用 727 处** |
+| 3 | 「design-tokens-v3.css 完全没接入，锁在抽屉里」（附录 A.0） | ❌ **错误** | worktree 已落为 design-tokens-v3.css 并在 main.jsx import，**已引用 727 处** |
 | 4 | 「总统筹引用的 GenSettingsPanel 中性版 0 命中」（附录 A.0） | ❌ **错误** | 该文件已完整 V3 改造（343 行，:9 注释「2026-09-15 总统筹 V3 改造」） |
 | 5 | 中性色 829 行 / 42 文件（附录 A.1） | ⚠️ **数字要改** | 主树为 829/42；**worktree 为 1535 行 / 101 文件** |
 | 6 | 中性色硬编码 1190 处 / 46 文件（附录 A.3） | ⚠️ **数字要改** | 主树口径；worktree 源文件从 ~50 增至 315，实际量随文件数近乎翻倍 |

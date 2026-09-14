@@ -427,3 +427,160 @@
 2. 逐项对比 §3–§7 表格中的 **背景色 / 文字色 / 边框色 / 字号字重 / 高度 / 内边距 / 圆角 / 盒阴影**；
 3. 重点验收 §8 的 4 处「零差异 hover」是否已补上反馈，以及 §2 的每个「一句话结论」是否被解决；
 4. 数值口径必须保持一致：**`offsetWidth/offsetHeight` 量尺寸 + `getComputedStyle` 取色**（否则画布缩放会污染对比）。
+
+---
+
+## 11. 改后对比（第一批首页改造）
+
+> **改造提交**：`cd132359`（生成设置面板）、`3f58a92c`（电商「下一步」主 CTA）、`1fed0552`（上传卡去红蓝撞色）
+> **采集口径**：与 §1 完全一致 —— 视口 **1440×900**、`deviceScaleFactor: 2`、`locale: zh-CN`、同一入口 `http://localhost:5173/`（默认电商生图态）、同一套数据。尺寸用 `offsetWidth/offsetHeight`，颜色/圆角/阴影取 `getComputedStyle` **实际计算值**。
+> **改后截图目录**：`.playwright-shots/design-baseline/after/`，文件名与 before 一一对应。
+> **只读声明**：本节仅截图与测量，**未修改任何 src**，未 commit。
+
+### 11.1 截图对应关系
+
+| before | after（同机位） | 内容 |
+|---|---|---|
+| `01-home-ec-default.png` | `after/01-home-ec-default.png` | 首页电商生图默认态（整屏） |
+| `02-home-ec-bottom-params-bar.png` | `after/02-home-ec-bottom-params-bar.png` | 底部参数栏（含主 CTA） |
+| `03-home-ec-upload-cards.png` | `after/03-home-ec-upload-cards.png` | 两个上传卡 |
+| `04-home-ec-gen-settings-modal.png` | `after/04-home-ec-gen-settings-modal.png` | 生成设置面板（整屏） |
+| `05-home-ec-gen-settings-modal-crop.png` | `after/05-home-ec-gen-settings-modal-crop.png` | 生成设置面板（特写） |
+| —（新增机位） | `after/10-home-ec-cta-enabled.png` | CTA 可用态（输入描述后） |
+| —（新增机位） | `after/12-home-ec-cta-hover-crop.png` | CTA hover |
+| —（新增机位） | `after/13-home-ec-cta-focus-visible-crop.png` | CTA focus-visible（Tab 聚焦） |
+| 原始数据 | `after/_after-raw.json`、`_after-cta.json`、`_after-bar.json`、`_after-d7.json` | 全部实测记录 |
+
+---
+
+### 11.2 生成设置面板（commit `cd132359`）
+
+#### before vs after 实测值
+
+| 项 | before | after | 判定 |
+|---|---|---|---|
+| **面板底色** | `rgba(252, 252, 253, 0.93)`（冷白，与页面暖米撞色） | `rgba(255, 255, 255, 0.85)` | ⚠️ 仍为半透明白（见 11.5 附注） |
+| **面板边框** | `1px solid rgba(255, 255, 255, 0.86)`（白描边≈无边框） | `1px solid rgba(12, 10, 9, 0.06)` | ✅ 改为中性墨色描边，边界可见 |
+| **面板圆角** | `8px` | `20px` | ✅ 归入四档（20/12/8/6）；`--sb-radius-panel` |
+| **分组区底色** | 纯白卡 `rgb(255,255,255)` + `1px` 描边 | `rgba(0, 0, 0, 0)` **透明** | ✅ **白卡已移除**（见 11.5） |
+| **分组区边框** | `1px solid rgba(12,10,9,0.1)` | `0px none` | ✅ 改「留白 + 分组标题」分区 |
+| **分组区阴影** | 有 | `none` | ✅ |
+| **模型行（未选中）** | `rgba(12, 10, 9, 0.03)` / `1px solid transparent` / `12px` | 同左 | ➖ 不变（`--sb-surface-tint`） |
+| **分段控件高度** | 46px | **44px** | ✅ 触达 ≥40 |
+| **面板内边距** | 未统一 | `--sb-panel-padding` = `20px` | ✅ |
+| **分组间距** | 未统一 | `--sb-group-gap` = `20px` | ✅ 组内:组间 = 8:20 |
+
+#### hover 与 selected 是否已视觉不同？（用户提过三次）
+
+**✅ 已明确分通道。** 这是本次改造最关键的一条：
+
+| 通道 | 背景 | 文字/图标 | 边框 |
+|---|---|---|---|
+| **默认**（未选中/未 hover） | `rgba(12, 10, 9, 0.03)` | `rgb(26, 22, 20)` 中性墨 | `1px solid rgba(0, 0, 0, 0)` 透明 |
+| **hover**（中性灰，**不发紫**） | `rgba(12, 10, 9, 0.035)` | `rgb(26, 22, 20)` **不变** | `1px solid rgba(0, 0, 0, 0)` **不变** |
+| **selected**（品牌紫，持久） | `rgb(245, 243, 255)` | `rgb(124, 58, 237)` **紫字** | `1px solid rgb(221, 214, 254)` **紫描边** |
+
+实测证据（`after/_after-raw.json`）：
+
+- 未选中项 hover：`rgba(12,10,9,0.03) → rgba(12,10,9,0.035)`，**只有背景动、文字与边框纹丝不动**；
+- 选中项「2K 高清·推荐」：`bg=rgb(245,243,255)` / `color=rgb(124,58,237)` / `border=1px solid rgb(221,214,254)`，**hover 时实测「无差异」——选中态稳定不抖**；
+- 即 **hover 走中性通道、selected 走品牌紫通道，两者在色相上即可区分**（灰 vs 紫），不再混淆「鼠标停在这」与「这个面板是开着的」。
+
+> 对照 before：旧实现 hover 与 selected **都**往「紫渐变 + 紫阴影」走，实测差异只有 `rgba(12,10,9,0.03) → rgba(12,10,9,0.035)`（0.5% 不透明度）。**该问题已修复。**
+
+#### 引用的 `--sb-*` token
+
+| 控件 | 引用的 token | 解析值 |
+|---|---|---|
+| 面板容器圆角 | `--sb-radius-panel` | `20px` |
+| 面板内边距 | `--sb-panel-padding` | `20px` |
+| 分组间距 | `--sb-group-gap` | `20px` |
+| 组内间距 | `--sb-field-gap` | `8px` |
+| 选项默认底 | `--sb-surface-tint` | `rgba(12, 10, 9, 0.03)` |
+| 选项 hover 底 | `--sb-state-hover-bg` | `rgba(12, 10, 9, 0.035)` |
+| 选项 selected 底 | `--sb-state-selected-bg` | `#F5F3FF` → `rgb(245, 243, 255)` |
+| 选项 selected 描边 | `--sb-state-selected-line` | `#DDD6FE` → `rgb(221, 214, 254)` |
+| 选项 selected 字/图标 | `--sb-state-selected-ink` | `#7C3AED` → `rgb(124, 58, 237)` |
+| 选项圆角 | `--sb-radius-card` | `12px` |
+| 分组标题 | `--sb-weight-bold` / `--sb-text-hint` | 中性色（不染紫，原则 6.1） |
+| 禁用底/字 | `--sb-state-disabled-bg` / `--sb-state-disabled-ink` | `rgba(12,10,9,0.04)` / `#B0AAA5` |
+| 焦点环 | `--sb-focus-ring` | `0 0 0 3px rgba(124, 58, 237, 0.32)` |
+
+---
+
+### 11.3 电商底部栏「下一步」主 CTA（commit `3f58a92c`）
+
+| 项 | before | after | 判定 |
+|---|---|---|---|
+| **高度** | `40px`（且与 `.ec-workbench-cta` 的 44 打架） | **`44px`** | ✅ 统一为 `--sb-control-touch`(44) |
+| **圆角** | `10px`（不在四档内） | **`8px`** | ✅ `--sb-radius-control` |
+| **底色（可用态）** | 紫→粉→橙三色**渐变** | **`rgb(124, 58, 237)` 纯色 = `#7C3AED`** | ✅ **渐变已停用** |
+| **`backgroundImage`** | `linear-gradient(...)` | **`none`** | ✅ 实测证明 |
+| **文字色** | `rgb(255,255,255)` | `rgb(255, 255, 255)`（`--sb-brand-ink`） | ✅ |
+| **focus 态** | **完全没有** | **存在**：`box-shadow: rgba(124, 58, 237, 0.32) 0px 0px 0px 3px` | ✅ **新增**（原则 4.2） |
+| **hover** | `translateY(-1px)` 位移（改布局） | `rgb(124,58,237) → rgb(109,40,217)` **只压深底色，不位移** | ✅ 原则 4.3 |
+| **禁用态** | `rgb(229,229,229)` / `rgb(170,170,170)` 裸值 | `rgba(12,10,9,0.04)` / `rgb(176,170,165)` | ✅ `--sb-state-disabled-*` |
+
+**focus 态存在性证明**（两路互证）：
+1. 样式表规则实测存在：`.ec-workbench-cta:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }`
+2. 真键盘 Tab 聚焦后 computedStyle：`box-shadow = rgba(124, 58, 237, 0.32) 0px 0px 0px 3px`；
+3. 截图 `after/13-home-ec-cta-focus-visible-crop.png` 可见淡紫焦点环。
+
+**引用的 token**：`--sb-brand`(#7C3AED) / `--sb-brand-hover`(#6D28D9) / `--sb-brand-active`(#5B21B6) / `--sb-brand-ink` / `--sb-brand-wash` / `--sb-radius-control`(8) / `--sb-control-touch`(44) / `--sb-text-sm` / `--sb-focus-ring` / `--sb-state-disabled-bg` / `--sb-state-disabled-ink` / `--sb-shadow-md`。
+
+> 说明：默认态（未输入描述）实测 `disabled=true`，故显示禁用样式 `rgba(12,10,9,0.04)`；输入描述后变为纯色品牌紫 —— 两种态**都已截图留证**。
+
+---
+
+### 11.4 两个上传卡：红蓝撞色是否已统一（commit `1fed0552`）
+
+| 卡 | before 边框 | after 边框 | 判定 |
+|---|---|---|---|
+| **产品图** `.ec-xhs-card-product` | `2px solid var(--red)`（**红**） | `2px dashed rgba(12, 10, 9, 0.1)` | ✅ |
+| **参考图** `.ec-xhs-card-reference` | `2px solid var(--blue)`（**蓝**） | `2px dashed rgba(12, 10, 9, 0.1)` | ✅ |
+
+**实测：两卡 computedStyle 完全一致** ——
+- 背景 `rgb(255, 255, 255)`、边框 `2px dashed rgba(12, 10, 9, 0.1)`、圆角 `12px`、尺寸 `86×108`、文字色 `rgb(61, 56, 53)`；
+- **红/蓝身份色已彻底移除**，改由「产品图 / 参考图」**文案**区分角色（符合原则 6.2「语义色不得当身份标识」）；
+- hover 两卡同步：边框 `rgba(12,10,9,0.1) → rgba(12,10,9,0.16)`（`--sb-border-default → --sb-border-strong`），行为一致。
+
+**引用的 token**：`--sb-border-default` / `--sb-border-strong` / `--sb-radius-card`(12) / `--sb-surface-card` / `--sb-shadow-md` / `--sb-brand`(徽标) / `--sb-brand-ink` / `--sb-radius-pill`。
+
+---
+
+### 11.5 不变式核对：面板内是否还有「纯白卡叠在半透明白面板上」（原则 D7）
+
+**结论：✅ 已不违反。** computedStyle 证据：
+
+| 层级 | 元素 | 背景 | 边框 | 阴影 |
+|---|---|---|---|---|
+| L1 面板 | `.ec-config-panel` | `rgba(255, 255, 255, 0.85)` | `1px solid rgba(12, 10, 9, 0.06)` | — |
+| L2 面板体 | `.ec-config-panel-body` | `rgba(0, 0, 0, 0)` 透明 | `0px none` | `none` |
+| L3 分组「生图模型」 | (inline style) | **`rgba(0, 0, 0, 0)` 透明** | **`0px none`** | **`none`** |
+| L3 分组「清晰度」 | (inline style) | **`rgba(0, 0, 0, 0)` 透明** | **`0px none`** | **`none`** |
+| L3 分组「品牌主色调」 | (inline style) | **`rgba(0, 0, 0, 0)` 透明** | **`0px none`** | **`none`** |
+| L4 选项控件 | `button` | `rgba(12, 10, 9, 0.03)` | `1px solid transparent` | `none` |
+
+- **三个分组区的背景均为 `rgba(0, 0, 0, 0)`，没有一个等于 `rgb(255,255,255)`** —— 分区分隔改由「留白 20px + 分组标题」承担，不再套白卡。
+- 全量扫描面板内所有后代，**高度 >24px 且宽 >120px 的纯白背景元素仅 1 个**：品牌色 `input`（`302×32`，`1px solid rgba(12,10,9,0.1)`）—— 这是**输入框**（控件本身，非卡片），不属于 D7 所指的「白卡叠面板」。
+- 对照 before：旧实现分组是「纯白卡 + 极淡黑描边」叠在 L1 半透明白面板上，两者色差 ≈0，那条 1px 边框成了唯一分界 —— **该形态已消除**。
+
+> 附注（供后续批次决策）：L1 面板自身仍是 `rgba(255,255,255,0.85)` 半透明，页面内容会透出（见 `after/05-...-crop.png` 可隐约看到背后文字）。这不违反 D7 字面不变式（D7 禁止的是「面板**内**再套纯白卡」），但若后续要求面板更「实」，可考虑提高不透明度或加 backdrop-filter。
+
+---
+
+### 11.6 本批结论
+
+| 目标 | 结果 |
+|---|---|
+| 生成设置面板去白卡 + hover/选中分通道 | ✅ **达成**，选中=紫通道、hover=中性通道，色相可辨 |
+| 「下一步」CTA 纯色品牌紫 + 无渐变 | ✅ **达成**，`rgb(124,58,237)`、`backgroundImage: none` |
+| CTA 补 focus 态 | ✅ **达成**，`rgba(124,58,237,0.32) 0 0 0 3px` 焦点环，Tab 可达 |
+| 上传卡去红蓝撞色 | ✅ **达成**，两卡 computedStyle 完全一致 |
+| D7 面板内无纯白卡 | ✅ **达成**，三个分组区背景均透明 |
+
+**仍待后续批次处理**（本次未改，如实记录）：
+1. 同一底栏 **7 个参数 chip 仍完全同权同形**（全 `126×52`、同白底/同边框/同字重），主次问题未解决；
+2. 面板 L1 半透明导致页面文字透出（见 11.5 附注）；
+3. 能力卡选中态仍为 `1px solid rgb(130, 105, 231)` + 淡紫渐变（未纳入本批）。
+

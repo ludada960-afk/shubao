@@ -6,6 +6,30 @@
 
 ---
 
+> ## 📌 数据基准说明（**读任何数字前先看这条**）
+>
+> 本知识库中的所有**实测指标**，权威来源 = **活跃开发树 `.worktrees/codex-ecommerce-stability/`**。
+>
+> | 指标 | worktree（**权威**） | master（子集，仅供对照） |
+> |---|---|---|
+> | 源文件 | **316** | 55 |
+> | hex 硬编码 | **5789 次 / 1810 个不同值** | 1571 次 / 239 值 |
+> | 字号档位 | **27** | 24 |
+> | gap 非阶梯值 | **908/1562（58%）** | 175/371（47%） |
+> | z-index 裸值 | **32** | 21 |
+> | `backdrop-filter` 文件 | **41** | 15 |
+> | 悬停位移站点 | **85** | 71 |
+> | **`focus-visible`** | **115 处 ✅ 已达标** | 0 处 ❌ |
+> | **`prefers-reduced-motion`** | **32 处 ✅ 已达标** | 0 处 ❌ |
+> | 品牌紫硬编码 | 159 次 / 150 行 / 38 文件 | 77 处 / 21 文件 |
+>
+> ⚠️ **两条曾被误判为"P0 缺陷"的项，在活跃树上已经修复**：
+> `focus-visible` 与 `prefers-reduced-motion` 在 worktree 上分别有 **115 处**与 **32 处**，**不是缺陷**。
+> （早期文档基于 master 得出"全站 0 次"的结论，**对活跃开发树不成立**，已在本节更正。）
+>
+> 复现：`cd .worktrees/codex-ecommerce-stability && node scripts/design-audit.mjs`
+
+
 ## 0. 全局约束
 
 | # | 约束 |
@@ -13,7 +37,7 @@
 | 1 | **不 commit**。所有改动由老板统一验收后提交。 |
 | 2 | **每一步独立可回退**。每步改动范围可控，出问题能单独 revert。 |
 | 3 | **不做大爆炸重构**。按页面/组件粒度推进，每步完成后可单独验收。 |
-| 4 | **零回归底线**：`sb-tokens.css` 是纯新增文件，删掉它全站渲染必须与今天完全一致。 |
+| 4 | **零回归底线**：`design-tokens-v3.css` 是纯新增文件，删掉它全站渲染必须与今天完全一致。 |
 | 5 | **现有硬约束必须继承**：面板宽 480、间距 4/8/12/16/20/24、字号 13/700·12/600·12/400·11/400、控件高 32/36/40、圆角 8/12/20、品牌默认中性态。 |
 
 ---
@@ -49,13 +73,94 @@
 
 ## 2. 阶段划分
 
+> **落地依赖顺序**（后一批依赖前一批的 token 与组件，**不可跳批**）：
+
 ```
-阶段 0  基础设施            ← 零风险，先做
-阶段 1  P0 组件 + 首页参数面板  ← 收益最大
-阶段 2  交互态全覆盖          ← 解决"没状态"
-阶段 3  页面级统一            ← 画布 / 作品 / 定价
-阶段 4  清理与收口            ← 删死代码、合并平行实现
+批次 0  基础设施（token 接线）        ← 零风险，前置依赖，先做
+批次 1  外壳 + 首页                   ← 用户第一眼看到；也验证 token 是否够用
+批次 2  电商链路（生成→方向→参数→SKU→文案→画布入库）
+批次 3  画布 / 工作台                 ← 紫色最密集（116 处），依赖批次 2 的组件
+批次 4  遗留页 + 清理收口             ← 作品/定价/图库/重制/Plog + 删死代码
 ```
+
+| 批次 | 内容 | 预估 | 依赖 | 回退粒度 |
+|---|---|---|---|---|
+| **0** | token 接线 + 6 幽灵变量 + 决策 S1 | 0.5 天 | — | 删一行 import |
+| **1** | **外壳（顶栏/侧栏） + 首页** | 3 天 | 0 | 按文件 revert |
+| **2** | **电商链路**（6 个参数面板 + 设计方向 + 生成流程） | 4 天 | 1 | 按面板 revert |
+| **3** | **画布 / 工作台**（EcCanvas / EcStudio / VideoStudio） | 3 天 | 2 | 按文件 revert |
+| **4** | **遗留页 + 清理**（作品/定价/图库/重制/Plog + 死代码） | 2 天 | 3 | 按文件 revert |
+
+
+---
+
+## 2.1 批次文件清单（**改造 agent 的派工表**）
+
+> 每批都给出：**要改的文件** / **改什么** / **验收** / **回退**。
+> 列出的路径均相对 \`.worktrees/codex-ecommerce-stability/\`。
+
+### 批次 1 · 外壳 + 首页
+
+| # | 文件 | 改什么 | 风险 |
+|---|---|---|---|
+| 1 | \`src/App.jsx\` | 顶栏 \`TopBar\`（:118-199）按钮统一 \`.sb-btn--xl\`；字重 900→700；\`SideNav\`(:24-115) 圆角/状态改 token | 中（全站可见） |
+| 2 | \`src/components/layout/Navbar.jsx\` | **死代码**（\`App.jsx:272\` 渲染的是 TopBar）→ 删除或接线，二选一 | 低 |
+| 3 | \`src/pages/Home/index.jsx\` | hero 区（:35-51）字号收敛；主模式切换（:55-88）近黑实底 → 规范 Segmented；\`.hero-gradient-text\` 去渐变 | 中 |
+| 4 | \`src/pages/Home/EcMode.jsx\` | \`GLASS_PANEL\`(:46-54) → \`.sb-panel\`；面板宽 4 档 → 480(:303)；功能按钮 hover/selected 分通道(:763-792)；上传区红/蓝语义色误用(:503,594) | **高**（首页主路径） |
+| 5 | \`src/pages/Home/Home.css\` | 22 处 hover 位移的容器预留；\`#6d28d9\` 等紫收敛；\`creative-bg-glow\` 评估 | 中 |
+| 6 | \`src/styles/app-shell.css\` | 外壳样式 token 化；6 处 hover 位移预留 | 中 |
+
+**验收**：首页 1440/390 截图对比；键盘走完顶栏+hero；\`design-audit.mjs\` ① 指标下降。
+**回退**：按文件 \`git checkout\`。
+
+### 批次 2 · 电商链路
+
+| # | 文件 | 改什么 | 风险 |
+|---|---|---|---|
+| 1 | \`src/pages/Home/ec/GenSettingsPanel.jsx\` | **样板先行**（§2F 十条逐行对照）：选中三件套、图标底座、transition token 名 | 中 |
+| 2 | \`src/pages/Home/ec/SizingPanel.jsx\` | 选项卡圆角 10→12；RatioSelect 下拉改 Popover API（**当前会被 overflow 裁切**）；平台 chip 改 \`.sb-chip\` | 中 |
+| 3 | \`src/pages/Home/ec/StylePanel.jsx\` | 分组标签统一；渐变 → token | 低 |
+| 4 | \`src/pages/Home/ec/ParamsPanel.jsx\` | 与 \`EcProductParams.jsx\` 二选一（§4.1 平行实现） | 中 |
+| 5 | \`src/pages/Home/ec/SkuPanel.jsx\` | 与 \`EcSkuPanel.jsx\` 二选一；状态横幅统一为通栏 | 中 |
+| 6 | \`src/pages/Home/ec/CopyPanel.jsx\` | 边框 1.5px→1px；label 规格统一 | 低 |
+| 7 | \`src/pages/Home/ec/DesignDirection.jsx\` | 与 \`DesignDirectionView.jsx\` 合并（**暖白 vs 暗色两套配色**）；主按钮 radius 25→规范 | **高** |
+| 8 | \`src/pages/Home/ec/EcProfileRail.css\` | 10 处紫收敛；hover 位移预留 | 中 |
+| 9 | \`src/pages/Home/ec/*.css\`（6 个） | crossModeProductProfile / ProductProfileShelf / skill-library / model-pricing / resizable-textarea | 低 |
+
+**验收**：完整走一遍「上传产品图 → 生成套图 → 设计方向 → 生成」；6 个面板截图对比。
+**回退**：**按面板单独 revert**（每个面板是独立文件）。
+
+### 批次 3 · 画布 / 工作台
+
+| # | 文件 | 改什么 | 风险 |
+|---|---|---|---|
+| 1 | \`src/pages/EcCanvas/EcCanvas.css\` | 11 处紫收敛；对象工具栏选中态；5 处 hover 位移预留 | **高**（核心功能） |
+| 2 | \`src/pages/EcCanvas/index.jsx\` | 12 处紫；节点选中 ring；\`zIndex:10001\` 放大遮罩 → \`--sb-z-modal\` | **高** |
+| 3 | \`src/pages/EcCanvas/components/canvas-library.css\` | ✅ 位移预留**已修**（:147-190），仅需紫收敛 + footer 改契约类 | 低 |
+| 4 | \`src/pages/EcCanvas/components/canvas-asset-picker.css\` | **用户报的间距问题**：主按钮双色渐变减重；footer 改 \`.ui-modal-footer\` | 低 |
+| 5 | \`src/pages/EcCanvas/components/workflowNodes/**\` | 13 处紫；节点/端口选中态 | 中 |
+| 6 | \`src/pages/EcCanvas/components/CanvasTemplateMarketplace.jsx\` 等 | 5+4+3 处紫 | 低 |
+| 7 | \`src/styles/canvas-*.css\`（6 个） | supervisor / right-panel / minimap / derive-menu / empty-actions / watermark | 中 |
+| 8 | \`src/pages/EcStudio/index.jsx\` + \`VideoStudio/**\` | 靛蓝 \`#4338CA\` 统一；7 处 hover 位移 | 中 |
+
+**验收**：画布全流程（建节点→连线→生成→导出）；\`design-audit.mjs\` ③b 紫色数下降。
+**回退**：按文件 revert；画布改动**单独 commit**。
+
+### 批次 4 · 遗留页 + 清理收口
+
+| # | 文件 | 改什么 | 风险 |
+|---|---|---|---|
+| 1 | \`src/pages/Works/index.jsx\` | 卡片规格、空态文案、栅格间距 | 低 |
+| 2 | \`src/pages/Pricing/index.jsx\` + \`styles/pricing-modal.css\` | 套餐卡层级；推荐态用品牌色；主 CTA 唯一性；4+4 处紫 | 中 |
+| 3 | \`src/pages/Gallery/index.jsx\` | 覆盖文字对比度；1 处毛玻璃评估 | 低 |
+| 4 | \`src/pages/Remake/index.jsx\` | 表单规格；2 处紫 | 低 |
+| 5 | \`src/pages/Plog/index.jsx\` | 卡片/按钮规格 | 低 |
+| 6 | \`src/NoteModal.jsx\` | 4 处毛玻璃；\`#7c3aed\` 文字 | 中 |
+| 7 | \`src/components/business/Modals.jsx\`、\`ProjectAssetPicker.jsx\`、\`ui/Toast.jsx\` | Toast 改白底+图标色；**去掉侧边彩条反模式** | 中 |
+| 8 | **清理**：\`Navbar.jsx\` / \`ui/Button.jsx\` / 三对平行实现 / \`EcSkuPanel:87-95\` 死代码 | 删除 | 中 |
+
+**验收**：5 个页面截图；\`design-audit.mjs\` 全指标达标。
+**回退**：清理类改动**单独 commit**，便于单独 revert。
 
 ---
 
@@ -67,7 +172,7 @@
 
 | 动作 | 文件 | 内容 |
 |---|---|---|
-| 新增 import | `src/main.jsx:4` 之后 | `import './styles/sb-tokens.css';` |
+| 新增 import | `src/main.jsx:4` 之后 | `import './styles/design-tokens-v3.css';` |
 
 **验收**：页面渲染与改动前**逐像素一致**（因为新文件只定义变量和工具类，没有选择器命中现有 DOM）。
 
@@ -75,7 +180,7 @@
 
 ### 步骤 0.2 — 补齐 6 个幽灵变量
 
-在 `design-tokens.css` 的 `:root` 里补上（或在 `sb-tokens.css` 里补 `--amber-400` 等，但**不改名**，避免影响引用处）：
+在 `design-tokens.css` 的 `:root` 里补上（或在 `design-tokens-v3.css` 里补 `--amber-400` 等，但**不改名**，避免影响引用处）：
 
 ```css
 --amber-400: #FBBF24;
@@ -98,11 +203,25 @@
 | **B** | 回归 `design-tokens.css` 原意（`--accent: #0C0A09` 近黑），把 67 处紫色全部替换为近黑 | 大范围改动；品牌识别度下降 |
 | **C** | 双主色：近黑用于中性场景，紫只用于 CTA | 需要逐处判断，最费人力 |
 
-**本规范默认按 A 编写。** 若选 B 或 C，只需替换 `sb-tokens.css` §1 的 `--sb-brand-*` 九个值，**其余规范全部不变**——这正是 token 化的价值。
+**本规范默认按 A 编写。** 若选 B 或 C，只需替换 `design-tokens-v3.css` §1 的 `--sb-brand-*` 九个值，**其余规范全部不变**——这正是 token 化的价值。
 
 ---
 
 ## 阶段 1 · P0 组件 + 首页参数面板（收益最大）
+
+### 步骤 1.0 — 底部操作区契约收口（**独立小任务，半人日**）
+
+**问题**：全站已有 `--footer-actions-*` 契约（`design-tokens.css:92-114`）与 `.ui-modal-footer` 类，但**只有 5 个文件采用，9 个文件自写**，gap 值残留 8 种（`2/4/5/6/7/8/10/12px`）。用户报的「取消/加入画布挨太近」正是其中之一。
+
+| 动作 | 文件 |
+|---|---|
+| 1. 把 9 个自写 footer 改用 `.ui-modal-footer` + `.ui-modal-footer-actions` | 见 `20-components.md` §0.7.1 表 |
+| 2. `canvas-asset-picker.css` 的**视觉重量失衡**（主按钮双色渐变过重） | 见 §0.7.5 的 P0 修正 |
+| 3. 全站搜硬编码 footer `gap` 值，收敛到 `--footer-actions-gap` | `grep -rn "footer.*gap:.*[0-9]px"` |
+
+**验收**：`node scripts/design-audit.mjs` ③d 显示「自写 footer: 0 个文件」「硬编码 gap: 无」。
+
+**风险**：低。契约已存在且有测试（`--footer-actions-gap-min: 8px` 契约断言）。
 
 ### 步骤 1.1 — 实现 6 个基础组件
 
@@ -272,7 +391,7 @@
 + <h1>AI 一键生成<span style={{ color: 'var(--sb-ink-brand)' }}>视觉内容</span></h1>
 ```
 
-> 📌 这是**唯一**在 `design-tokens.css` 里被检测器标记的项；`sb-tokens.css` 本身已通过检测（`detect.mjs` 零命中）。
+> 📌 这是**唯一**在 `design-tokens.css` 里被检测器标记的项；`design-tokens-v3.css` 本身已通过检测（`detect.mjs` 零命中）。
 > 复现：`node .agents/skills/impeccable/scripts/detect.mjs src/styles/design-tokens.css`
 
 ### 步骤 4.4 — 修复 `EcRefImages.jsx:60`
@@ -285,7 +404,7 @@
 
 | 风险 | 概率 | 影响 | 缓解 | 回退 |
 |---|---|---|---|---|
-| `sb-tokens.css` 意外覆盖现有样式 | 低 | 高 | 文件只定义 `--sb-*` 和 `.sb-*`；现状无 `sb-` 前缀 class | 删除 import 一行 |
+| `design-tokens-v3.css` 意外覆盖现有样式 | 低 | 高 | 文件只定义 `--sb-*` 和 `.sb-*`；现状无 `sb-` 前缀 class | 删除 import 一行 |
 | 面板改造引发首页主流程回归 | 中 | 高 | 先改 `GenSettingsPanel.jsx` 作样板；**每改一个面板就截图验收** | 面板文件独立，单独 revert |
 | 焦点环改造影响键盘操作 | 低 | 低 | 只加不删 | revert |
 | 品牌主色决策（S1）选错 | 低 | 中 | token 化隔离——**只换 9 个值** | 改 `--sb-brand-*` |
@@ -336,7 +455,7 @@ node scripts/design-audit.mjs      # 只读，实时重算全部指标 + 输出�
 | ① 碎片化 | hex 数量 / 字号档位 / 圆角档位 / z-index 裸值 / gap 非阶梯值占比 |
 | ② 无障碍 | `focus-visible` 出现次数、裸 `outline:none` 处数、`<div onClick>` 处数、`prefers-reduced-motion` 处数 |
 | ③ 白名单 | 使用 `backdrop-filter` 的文件清单、危险色被当作标识的处数 |
-| ④ 对比度 | `sb-tokens.css` 里每个 `--sb-ink-*` 在白底与暖米白底上的实算对比度 |
+| ④ 对比度 | `design-tokens-v3.css` 里每个 `--sb-ink-*` 在白底与暖米白底上的实算对比度 |
 | ⑤ 进度 | 对照本计划的阶段性 checklist（如"面板宽统一 480"会直接检测 `EcMode.jsx` 的 `baseWidth` 是否还在） |
 
 **基线值（2026-09 首次运行）**：

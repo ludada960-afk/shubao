@@ -1,5 +1,18 @@
 # 薯包AI · 设计知识库
 
+> ## ⚠️ 路径约定（先读这条）
+>
+> | 位置 | 用途 |
+> |---|---|
+> | **`.worktrees/codex-ecommerce-stability/`** | ✅ **活跃开发树** —— 所有 `docs/design/**` 与 `src/styles/**` 的产出写这里 |
+> | `F:\da\shubao\`（master 主树） | 👀 **只读** —— 代码改动、测试、部署都不在这棵树 |
+>
+> **本知识库的权威版本 = 活跃开发树**。master 主树上的同名文件仅供对照，**不要在 master 上编辑**。
+>
+> **Token 文件唯一名**：`src/styles/design-tokens-v3.css`
+> （master 上曾有一份同名异写的 `sb-tokens.css`，**已废弃，勿引用**。）
+
+
 > **建立时间**：2026-08 · **版本**：Design System v1
 > **适用**：React 18 + Vite 的薯包AI Web 端（`F:\da\shubao`）
 
@@ -13,17 +26,18 @@
 
 | 维度 | 现状 | 证据 |
 |---|---|---|
-| 颜色 | **239 个不同 hex**，1571 次硬编码 | `node scripts/design-audit.mjs` |
-| 字号 | **24 档**（7–62px） | 同上 |
-| 圆角 | **20 档** | 同上 |
-| `gap` 非阶梯值 | **175/371 次（47%）** | 同上 |
+| 颜色 | **1810 个不同 hex**，5789 次硬编码 | 同上（**worktree 实测**） |
+| 字号 | **27 档** | 同上 |
+| 圆角 | **21 档** | 同上 |
+| `gap` 非阶梯值 | **908/1562 次（58%）** | 同上 |
 | 控件高度 | **12 档**（26–50px） | `_research/audit-panels.md` |
+| z-index | **32 个裸值** | `design-audit.mjs` |
 | 面板宽度 | **4 档**（380/420/460/520） | `EcMode.jsx:303` |
 | z-index | **21 个裸值**（1 到 999999） | `design-audit.mjs` |
-| **`focus-visible`** | 真实应用代码里 **0 次** | ❌ 违反 WCAG 2.4.7 (AA) |
-| **裸 `outline: none`** | **42 处** | ❌ 焦点环被主动抹掉 |
-| **`<div onClick>`** | **133 处** | ❌ 键盘完全不可达 |
-| **`prefers-reduced-motion`** | **0 处** | ❌ 前庭症用户无保护 |
+| **`focus-visible`** | **115 处** | ✅ **已达标**（WCAG 2.4.7） |
+| **`prefers-reduced-motion`** | **32 处** | ✅ **已达标**（WCAG 2.3.3） |
+| 裸 `outline: none` | **80 处** | ⚠️ 需确认每处都配了 focus-visible 替代 |
+| `<div onClick>` | **107 处** | ⚠️ 键盘不可达，应改 `<button>` |
 
 > 📊 **可复现**：`node scripts/design-audit.mjs` 会实时重算以上全部数字，并输出落地进度看板。**任何时刻都可以用它验证规范文档里的结论是否仍然成立。**
 
@@ -43,14 +57,14 @@
 | **`20-components.md`** | 每个组件长什么样、什么尺寸、什么状态 | **写组件前必读** |
 | **`25-reference-teardown.md`** | 从 13 个产品学什么、**不学什么** | 想知道"为什么定这个规则"时 |
 | **`30-adoption-plan.md`** | 落地顺序、风险、回退 | **排期 / 开工前必读** |
-| **`../src/styles/sb-tokens.css`** | **机器可读的 token**（唯一实现源） | 写代码时随时查 |
+| **`../src/styles/design-tokens-v3.css`** | **机器可读的 token**（唯一实现源） | 写代码时随时查 |
 
 ### 按角色导航
 
 | 你是 | 读这些 |
 |---|---|
 | **要改某个面板的视觉** | `00-principles.md` §2/§3/§4 → `10-visual-language.md` 全文 → `20-components.md` 对应组件 → `30-adoption-plan.md` 找到对应步骤 |
-| **要新建一个组件** | `00-principles.md` §1/§4 → `20-components.md`（先找有没有现成的）→ `sb-tokens.css` |
+| **要新建一个组件** | `00-principles.md` §1/§4 → `20-components.md`（先找有没有现成的）→ `design-tokens-v3.css` |
 | **要审代码 / 验收** | `10-visual-language.md` §17 检查清单 + `30-adoption-plan.md` §4 验收清单 |
 | **要决策方向** | `25-reference-teardown.md`（别人怎么做）→ `00-principles.md` §0.3（我们的品牌基底） |
 | **第一次接手这个项目** | 本文 → `00-principles.md` §0（现状诊断）→ `30-adoption-plan.md` §1（体检结论） |
@@ -64,7 +78,7 @@
 ```diff
   // src/main.jsx
   import './styles/design-tokens.css';
-+ import './styles/sb-tokens.css';
++ import './styles/design-tokens-v3.css';
 ```
 
 ### 2. 用 token，不要硬编码
@@ -109,7 +123,7 @@
 - **class**：`.sb-*`（现状无任何 `sb-` class，零冲突）
 - **新组件目录**：`src/components/ds/`（与现有 `src/components/ui/` 平行，逐页迁移）
 
-> ⚠️ **`src/styles/sb-tokens.css` 是纯新增文件**：删掉它后，全站渲染必须与今天完全一致。这是零回归保证。
+> ⚠️ **`src/styles/design-tokens-v3.css` 是纯新增文件**：删掉它后，全站渲染必须与今天完全一致。这是零回归保证。
 
 ---
 
@@ -165,7 +179,7 @@ node scripts/design-audit.mjs
 
 1. **统计现状碎片化**（hex / 字号 / 圆角 / z-index / gap 非阶梯值）
 2. **检查无障碍硬缺陷**（`focus-visible` / 裸 `outline:none` / `<div onClick>` / `prefers-reduced-motion`）
-3. **校验 `sb-tokens.css` 的对比度**是否满足 WCAG AA（含暖米白底这一容易被忽略的场景）
+3. **校验 `design-tokens-v3.css` 的对比度**是否满足 WCAG AA（含暖米白底这一容易被忽略的场景）
 4. **输出落地进度看板**（对照 `30-adoption-plan.md` 的每一步）
 
 > **任何时刻都可以用它验证本知识库里的结论是否仍然成立。** 文档里的数字如果和脚本输出不一致，以脚本为准。
@@ -174,8 +188,8 @@ node scripts/design-audit.mjs
 
 ## 维护约定
 
-1. **改 token 只改一处**：`src/styles/sb-tokens.css`。文档里的值是它的说明，不是第二份真相。
-2. **新增 token 要同步三处**：`sb-tokens.css` 定义 → `10-visual-language.md` 表格 → `20-components.md`（如果组件用到）。
+1. **改 token 只改一处**：`src/styles/design-tokens-v3.css`。文档里的值是它的说明，不是第二份真相。
+2. **新增 token 要同步三处**：`design-tokens-v3.css` 定义 → `10-visual-language.md` 表格 → `20-components.md`（如果组件用到）。
 3. **不要在本知识库写入与视觉无关的内容**（产品需求、技术架构走别的文档）。
 4. **规范是活的**：如果某条规则在实践中被证明不合适，改文档 + 说明理由，**不要默默违反**。
 
