@@ -240,7 +240,7 @@ export default function PlogPage() {
 
   /** 碎片风：3列网格+旋转+白边 */
   const LayoutCasual = ({ images, onOpen }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-1)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
       {images.map((item, i) => (
         /* D11：裸 div onClick → button（可键盘 Tab 聚焦 + Enter 打开）。
            注意：本元素的 #fff / rgba 属**作品预览画布**（拍立得白边），见文件头例外说明。 */
@@ -260,7 +260,7 @@ export default function PlogPage() {
 
   /** 拍立得风：白边+旋转+阴影 */
   const LayoutPolaroid = ({ images, onOpen }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
       {images.map((item, i) => {
         const rot = [-2, 1.5, -1, 2.5, -1.5, 1, -2.5, 2, -1][i] || 0;
         return (
@@ -291,7 +291,7 @@ export default function PlogPage() {
 
   /** 电影感：黑边+字幕条 */
   const LayoutCinematic = ({ images, onOpen }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-3)', background: '#111', borderRadius: 'var(--sb-radius-lg)', padding: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: '#111', borderRadius: 'var(--sb-radius-lg)', padding: 14 }}>
       {images.map((item, i) => (
         <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 1} 张`} onClick={() => onOpen(i)}
           style={{
@@ -338,7 +338,7 @@ export default function PlogPage() {
         position: 'relative', boxShadow: 'inset 0 0 30px rgba(12,10,9,0.03)',
       }}>
         {/* 纸张纹理 SVG */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, position: 'relative', zIndex: 1 }}>
           {images.map((item, i) => {
             const rot = [-1, 1.2, -0.8, 1.5, -1.2, 0.8, -1.8, 1, -0.5][i] || 0;
             const sticker = stickers[i % stickers.length];
@@ -388,7 +388,7 @@ export default function PlogPage() {
         {/* 底部装饰线 */}
         <div style={{
           marginTop: 16, borderTop: '1px dashed #ddd',
-          display: 'flex', justifyContent: 'center', gap: 'var(--sb-space-2)', paddingTop: 8,
+          display: 'flex', justifyContent: 'center', gap: 8, paddingTop: 8,
         }}>
           {['🌸', '📅', '✉️'].map((s, i) => (
             <span key={i} style={{ fontSize: 'var(--sb-text-xs)', opacity: 0.6 }}>{s}</span>
@@ -428,7 +428,7 @@ export default function PlogPage() {
           </button>
         )}
         {/* 内容页 —— 3列极简 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {rest.map((item, i) => (
             <button key={i} type="button" className="sb-focusable" aria-label={`查看第 ${i + 2} 张`} onClick={() => onOpen(i + 1)}
               style={{

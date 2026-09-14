@@ -116,7 +116,7 @@ export function Tag({ children, active, onClick, style = {} }) {
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)',
+        display: 'inline-flex', alignItems: 'center', gap: 3,
         padding: '5px 14px',
         borderRadius: 'var(--radius-full)',
         fontSize: 'var(--text-sm)',

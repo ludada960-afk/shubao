@@ -304,7 +304,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             )}
             <div style={{
               position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-              display: 'flex', gap: 'var(--sb-space-5)', alignItems: 'center',
+              display: 'flex', gap: 20, alignItems: 'center',
               background: 'rgba(12,10,9,0.72)',
               padding: '8px 20px', borderRadius: 'var(--sb-radius-2xl)', color: 'rgba(255,255,255,0.85)',
               fontSize: 'var(--sb-text-sm)',
@@ -336,7 +336,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 700, color: '#1e1e2e', marginBottom: 6 }}>
                   🛍️ {item.product_name}
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--sb-space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{
                     background: 'var(--blue-bg)', color: '#4338CA',
                     padding: '3px 10px', borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-xs)', fontWeight: 600,
@@ -377,7 +377,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               padding: '12px 28px',
               background: 'linear-gradient(135deg, #FFF7ED, #FFF1F3)',
               borderBottom: '1.5px solid #FED7AA',
-              display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)',
+              display: 'flex', alignItems: 'center', gap: 8,
               fontSize: 'var(--sb-text-sm)', color: '#9A3412', lineHeight: 1.5,
             }}>
               <span style={{ fontSize: 'var(--sb-text-lg)' }}>🎁</span>
@@ -402,7 +402,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-              gap: 'var(--sb-space-4)',
+              gap: 16,
             }}>
               {images.map((img, i) => {
                 const style = getLabel(img);
@@ -445,7 +445,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{
                           position: 'absolute', inset: 0,
                           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                          gap: 'var(--sb-space-1)', background: 'rgba(12,10,9,0.15)',
+                          gap: 6, background: 'rgba(12,10,9,0.15)',
                         }}>
                           <div style={{ fontSize: 'var(--sb-text-3xl)' }}>🔒</div>
                           <div style={{ fontSize: 'var(--sb-text-xs)', color: '#fff', fontWeight: 600, textShadow: '0 1px 4px rgba(12,10,9,0.5)' }}>
@@ -458,7 +458,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           background: 'rgba(12,10,9,0)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           opacity: 0, transition: 'all 0.2s',
-                          color: '#fff', fontSize: 'var(--sb-text-sm)', fontWeight: 600, gap: 'var(--sb-space-1)',
+                          color: '#fff', fontSize: 'var(--sb-text-sm)', fontWeight: 600, gap: 4,
                         }}>
                           <MdFullscreen size={14} /> 点击放大
                         </div>
@@ -520,7 +520,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
             {/* Errors */}
             {item.errors?.length > 0 && (
-              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-1)' }}>
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {item.errors.map((e, i) => (
                   <div key={i} style={{
                     fontSize: 'var(--sb-text-xs)', color: '#C53030', background: '#FFF5F5',
@@ -536,12 +536,12 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           {/* Bottom Action Bar */}
           <div style={{
             padding: '14px 28px', borderTop: '1px solid #eef0f5',
-            background: '#f8f9fc', display: 'flex', gap: 'var(--sb-space-2)', alignItems: 'center',
+            background: '#f8f9fc', display: 'flex', gap: 10, alignItems: 'center',
             position: 'sticky', bottom: 0,
           }}>
             {isTrialLocked ? (
               <button onClick={() => { if (onUnlock) onUnlock(); }} style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
                 fontSize: 'var(--sb-text-md)', fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
                 boxShadow: '0 2px 8px rgba(255,71,87,0.3)',
@@ -562,7 +562,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   a.click();
                 });
               }} style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
                 fontSize: 'var(--sb-text-md)', fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
                 boxShadow: '0 2px 8px rgba(102,126,234,0.3)',
@@ -574,7 +574,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               </button>
             )}
             <button onClick={onClose} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               background: '#fff', color: '#666', border: '1px solid #e0e0e0', borderRadius: 'var(--sb-radius-md)',
               fontSize: 'var(--sb-text-md)', fontWeight: 500, padding: '12px 20px', cursor: 'pointer', fontFamily: 'inherit',
               transition: 'background 0.15s',
@@ -637,7 +637,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       <div style={{
                         position: 'absolute', inset: 0,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        gap: 'var(--sb-space-2)', padding: 24, zIndex: 2,
+                        gap: 10, padding: 24, zIndex: 2,
                       }}>
                         <div style={{ fontSize: 'var(--sb-text-3xl)', filter: 'none' }}>🔒</div>
                         <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 700, color: '#fff', textShadow: '0 2px 12px rgba(12,10,9,0.5)', textAlign: 'center' }}>
@@ -646,7 +646,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{ fontSize: 'var(--sb-text-sm)', color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(12,10,9,0.4)', textAlign: 'center', maxWidth: 280 }}>
                           支付 ¥19 起 · 解锁所有配图 + 下载 + 保存至作品集
                         </div>
-                        <div style={{ display: 'flex', gap: 'var(--sb-space-2)', marginTop: 6, filter: 'none' }}>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 6, filter: 'none' }}>
                           <button onClick={(e) => { e.stopPropagation(); if (onUnlock) onUnlock(); }}
                             style={{
                               padding: '11px 28px', background: 'var(--red, #FF4757)', color: '#fff',
@@ -677,7 +677,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                     background: 'linear-gradient(135deg, #f8f8f8 0%, #e8e8e8 100%)',
-                    gap: 'var(--sb-space-3)', padding: 32,
+                    gap: 12, padding: 32,
                   }}>
                     <div style={{
                       width: 52, height: 52, borderRadius: '50%',
@@ -769,7 +769,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               <div style={S.textScroll}>
                 {/* 头部 */}
                 <div style={S.header}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <img src={IMAGES.appicon} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
                     <div>
                       <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: '#222' }}>薯包AI</div>
@@ -787,7 +787,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     background: 'linear-gradient(135deg, #FFF7ED, #FFF1F3)',
                     border: '1.5px solid #FED7AA',
                     borderRadius: 'var(--sb-radius-md)', padding: '12px 14px', marginBottom: 14,
-                    display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)',
+                    display: 'flex', alignItems: 'center', gap: 8,
                     fontSize: 'var(--sb-text-sm)', color: '#9A3412', lineHeight: 1.5,
                   }}>
                     <span style={{ fontSize: 'var(--sb-text-xl)' }}>🎁</span>
@@ -813,7 +813,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     background: 'linear-gradient(135deg, #FFF7ED, #FFF1F3)',
                     border: '1px solid #FED7AA',
                     borderRadius: 'var(--sb-radius-md)', padding: '10px 14px', marginBottom: 14,
-                    display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)',
+                    display: 'flex', alignItems: 'center', gap: 8,
                     fontSize: 'var(--sb-text-sm)', color: '#9A3412', lineHeight: 1.5,
                   }}>
                     <span style={{ fontSize: 'var(--sb-text-lg)' }}>🎁</span>
@@ -970,7 +970,7 @@ const S = {
     background: 'rgba(12,10,9,0.7)',
     border: 'none', borderRadius: 'var(--sb-radius-sm)', padding: '5px 10px',
     color: '#fff', fontSize: 'var(--sb-text-xs)', cursor: 'pointer',
-    display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)',
+    display: 'flex', alignItems: 'center', gap: 4,
     zIndex: 5, opacity: 0, transition: 'opacity 0.15s', fontFamily: 'inherit',
   },
   imgNav: {
@@ -981,7 +981,7 @@ const S = {
     fontSize: 'var(--sb-text-xl)', zIndex: 5, opacity: 0, transition: 'opacity 0.15s', lineHeight: 1,
   },
   thumbStrip: {
-    display: 'flex', gap: 'var(--sb-space-1)', padding: '8px 12px', borderTop: '1px solid #eee',
+    display: 'flex', gap: 4, padding: '8px 12px', borderTop: '1px solid #eee',
     justifyContent: 'center', overflowX: 'auto',
   },
   thumb: {
@@ -1008,7 +1008,7 @@ const S = {
     margin: '0 0 12px',
   },
   body: { fontSize: 'var(--sb-text-lg)', lineHeight: 1.85, color: '#444', marginBottom: 14, whiteSpace: 'pre-wrap' },
-  tags: { display: 'flex', flexWrap: 'wrap', gap: 'var(--sb-space-1)', marginBottom: 10 },
+  tags: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 },
   tag: {
     fontSize: 'var(--sb-text-sm)', color: '#888', background: '#f5f5f5',
     padding: '4px 12px', borderRadius: 'var(--sb-radius-2xl)',
@@ -1017,10 +1017,10 @@ const S = {
   // Action bar
   actionBar: {
     padding: '14px 22px', borderTop: '1px solid #f0f0f0',
-    background: '#fff', display: 'flex', gap: 'var(--sb-space-2)', flexWrap: 'wrap',
+    background: '#fff', display: 'flex', gap: 8, flexWrap: 'wrap',
   },
   actionBtn: {
-    flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1)',
+    flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
     background: '#f5f5f5', border: '1px solid transparent', borderRadius: 'var(--sb-radius-md)',
     fontSize: 'var(--sb-text-md)', fontWeight: 600, color: '#333',
     padding: '11px 14px', cursor: 'pointer', fontFamily: 'inherit',

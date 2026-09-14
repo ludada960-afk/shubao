@@ -33,7 +33,7 @@ import {
 const BTN_BASE = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 'var(--sb-space-2)',
+  gap: 6,
   padding: '6px 10px',
   borderRadius: 8,
   border: '1px solid var(--sb-brand-a18)',
@@ -236,7 +236,7 @@ export default function AssetQuickDrag({ onDragStart, onPick, compact = false, s
   }, [onPick]);
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', display: 'inline-flex', gap: 'var(--sb-space-2)', ...style }}>
+    <div ref={wrapperRef} style={{ position: 'relative', display: 'inline-flex', gap: 6, ...style }}>
       {ASSET_DRAG_PRESET_BUTTONS.map((btn) => {
         const isOpen = openSource === btn.key;
         return (

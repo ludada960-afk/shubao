@@ -33,7 +33,7 @@ export default function GalleryPage() {
         </p>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sb-space-6)',
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 22,
         }}>
           {GALLERY.map(g => (
             <GCard key={g.id} item={g} onClick={() => viewItem(g)}
@@ -106,13 +106,13 @@ function GCard({ item, onClick, onSameStyle }) {
         <div style={{
           position: 'absolute', inset: 0, background: 'rgba(12,10,9,0.4)', zIndex: 3,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 'var(--sb-space-2)',
+          gap: 10,
         }} className="animate-fade-in">
           <span style={{
             background: 'rgba(255,255,255,0.95)', color: 'var(--red)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
-            display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)',
+            display: 'flex', alignItems: 'center', gap: 5,
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onClick(); }}>
             <MdVisibility size={13} /> 查看全套内容
@@ -121,7 +121,7 @@ function GCard({ item, onClick, onSameStyle }) {
             background: 'var(--red)', color: 'var(--sb-neutral-0)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
-            display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1)',
+            display: 'flex', alignItems: 'center', gap: 5,
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onSameStyle?.(); }}>
             <MdAutoAwesome size={13} /> 一键同款

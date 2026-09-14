@@ -38,7 +38,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 16px', borderBottom: '1px solid var(--border-light)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 32, height: 32, borderRadius: 'var(--sb-radius-lg)',
             background: isActive ? 'rgba(245,158,11,0.12)' :
