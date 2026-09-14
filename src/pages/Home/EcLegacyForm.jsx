@@ -25,7 +25,7 @@ const INPUT = {
 const BTN = {
   width: '100%', padding: '13px 0', border: 'none', borderRadius: 10,
   fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-  background: '#6366F1', color: 'var(--sb-neutral-0)', transition: 'all 0.2s',
+  background: 'var(--sb-brand-600)', color: 'var(--sb-neutral-0)', transition: 'all 0.2s',
 };
 const SECTION = {
   background: 'var(--sb-neutral-0)', borderRadius: 12, padding: '20px 24px', marginBottom: 12,
@@ -273,7 +273,7 @@ export default function EcLegacyForm() {
             setExtracting(false);
           }} disabled={extracting || !link.trim()} style={{
             padding: '0 16px', border: 'none', borderRadius: 8,
-            background: extracting || !link.trim() ? 'var(--sb-neutral-200)' : '#6366F1',
+            background: extracting || !link.trim() ? 'var(--sb-neutral-200)' : 'var(--sb-brand-600)',
             color: 'var(--sb-neutral-0)', cursor: extracting || !link.trim() ? 'not-allowed' : 'pointer',
             fontSize: 13, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap',
           }}>
@@ -300,7 +300,7 @@ export default function EcLegacyForm() {
                 fetchpriority="auto"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div onClick={() => setRefImgs(p => p.filter((_, j) => j !== i))}
-                style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#FF4757', color: 'var(--sb-neutral-0)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--sb-neutral-0)', fontWeight: 700 }}>×</div>
+                style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--sb-neutral-0)', fontWeight: 700 }}>×</div>
             </div>
           ))}
           {refImgs.length < 5 && (
@@ -330,7 +330,7 @@ export default function EcLegacyForm() {
             {EC_CATS.map(c => (
               <span key={c} onClick={() => setCat(c)} style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                background: cat === c ? '#6366F1' : 'var(--sb-neutral-100)',
+                background: cat === c ? 'var(--sb-brand-600)' : 'var(--sb-neutral-100)',
                 color: cat === c ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)', fontWeight: cat === c ? 600 : 400,
                 border: 'none', fontFamily: 'inherit',
               }}>{c}</span>
@@ -378,9 +378,9 @@ export default function EcLegacyForm() {
               { key: 'promo_sale', label: '促销活动', sub: '大促抓住眼球', emoji: '🏷️' },
             ].map(s => (
               <div key={s.key} onClick={() => setStylePack(s.key)} style={{
-                border: `2px solid ${stylePack === s.key ? '#6366F1' : 'var(--sb-neutral-150)'}`,
+                border: `2px solid ${stylePack === s.key ? 'var(--sb-brand-600)' : 'var(--sb-neutral-150)'}`,
                 borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'center',
-                background: stylePack === s.key ? '#EEF2FF' : 'var(--sb-neutral-0)',
+                background: stylePack === s.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                 transition: 'all 0.15s',
               }}>
                 <div style={{ fontSize: 20 }}>{s.emoji}</div>
@@ -398,7 +398,7 @@ export default function EcLegacyForm() {
             {['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'].map(p => (
               <span key={p} onClick={() => setPlatform(p)} style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                background: platform === p ? '#6366F1' : 'var(--sb-neutral-100)',
+                background: platform === p ? 'var(--sb-brand-600)' : 'var(--sb-neutral-100)',
                 color: platform === p ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)', fontWeight: platform === p ? 600 : 400,
                 border: 'none', fontFamily: 'inherit',
               }}>{p}</span>
@@ -416,12 +416,12 @@ export default function EcLegacyForm() {
               { key: 'complete', label: '完整版', count: '9张', desc: '增加对比图+包装图' },
             ].map(t => (
               <div key={t.key} onClick={() => setTier(t.key)} style={{
-                flex: 1, border: `2px solid ${tier === t.key ? '#6366F1' : 'var(--sb-neutral-150)'}`,
+                flex: 1, border: `2px solid ${tier === t.key ? 'var(--sb-brand-600)' : 'var(--sb-neutral-150)'}`,
                 borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'center',
-                background: tier === t.key ? '#EEF2FF' : 'var(--sb-neutral-0)', transition: 'all 0.15s',
+                background: tier === t.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)', transition: 'all 0.15s',
               }}>
                 <div style={{ fontSize: 11, color: 'var(--sb-ink-3)' }}>{t.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: tier === t.key ? '#4338CA' : '#6366F1', lineHeight: 1.2, margin: '4px 0' }}>{t.count}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: tier === t.key ? 'var(--sb-brand-700)' : 'var(--sb-brand-600)', lineHeight: 1.2, margin: '4px 0' }}>{t.count}</div>
                 <div style={{ fontSize: 10, color: 'var(--sb-ink-4)' }}>{t.desc}</div>
               </div>
             ))}
@@ -433,7 +433,7 @@ export default function EcLegacyForm() {
           <div style={LABEL}>自定义尺寸（选填）</div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--sb-ink-3)', cursor: 'pointer', marginBottom: 6 }}>
             <input type="checkbox" checked={sizeEnabled} onChange={e => setSizeEnabled(e.target.checked)}
-              style={{ accentColor: '#6366F1' }} />
+              style={{ accentColor: 'var(--sb-brand-600)' }} />
             自定义宽高（不勾选则用 GPT 默认）
           </label>
           {sizeEnabled && (
@@ -449,24 +449,24 @@ export default function EcLegacyForm() {
         {cat === '美妆护肤' && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--sb-ink-3)', cursor: 'pointer', marginTop: 8 }}>
             <input type="checkbox" checked={beauty} onChange={e => setBeauty(e.target.checked)}
-              style={{ accentColor: '#6366F1' }} />
+              style={{ accentColor: 'var(--sb-brand-600)' }} />
             同时生成「美妆分析报告」信息图
           </label>
         )}
       </div>
 
       <button onClick={doGen} disabled={!name.trim() || loading} style={{
-        ...BTN, background: (!name.trim() || loading) ? 'var(--sb-neutral-200)' : '#6366F1',
+        ...BTN, background: (!name.trim() || loading) ? 'var(--sb-neutral-200)' : 'var(--sb-brand-600)',
         cursor: (!name.trim() || loading) ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
         {loading ? <MdAutorenew size={16} className="animate-spin" /> : null}
         {loading ? '生成中...' : '🚀 生成商品图'}
       </button>
-      {genProgress && <div style={{ marginTop: 8, textAlign: 'center', fontSize: 12, color: '#6366F1' }}>{genProgress}</div>}
+      {genProgress && <div style={{ marginTop: 8, textAlign: 'center', fontSize: 12, color: 'var(--sb-brand-600)' }}>{genProgress}</div>}
       {Object.keys(inProgressPreview).length > 0 && (
         <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: '1px solid #C7D2FE', background: '#F8FAFF' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#6366F1', marginBottom: 8 }}>生成中预览 · 任务仍可继续</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-brand-600)', marginBottom: 8 }}>生成中预览 · 任务仍可继续</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.values(inProgressPreview).map(image => (
               <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
