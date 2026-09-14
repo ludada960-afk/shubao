@@ -4752,6 +4752,16 @@ app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
     billingActionId: actionId,
     analysisImageIds = [],
   } = req.body || {};
+  /* 2026-09-20 裁定③：**为无效请求扣费**是铁律①的变体 ——
+     用户没拿到任何有用的东西却付了钱。
+     原来这里不校验 prompt，空/全空白 prompt 也会走完分析并真实扣 1000 units
+     （实测：prompt:'   ' → 200 + 余额 -1000）。
+     对齐 /api/video/jobs 既有的 VIDEO_PROMPT_REQUIRED 口径（videoGeneration.mjs:1142）：
+     空/全空白一律 400，**在建 hold 之前**就返回，不产生任何冻结与扣费。
+     注意：必须在计费之前判定 —— 否则「拒绝」也会先扣一笔再退，用户可见余额抖动。 */
+  if (!String(req.body?.prompt || '').trim()) {
+    return res.status(400).json({ code: 'VIDEO_PROMPT_REQUIRED', error: '请输入视频内容' });
+  }
   try {
     const imageIds = [...new Set((Array.isArray(analysisImageIds) ? analysisImageIds : [])
       .map(value => String(value || '').trim()).filter(Boolean))].slice(0, 9);

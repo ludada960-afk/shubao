@@ -17,7 +17,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  chargeFunctions, indexCalls, traceUp, NAMED_HANDLER,
+  chargeFunctions, indexCalls, traceUp, NAMED_HANDLER, parseModule, buildParents,
 } from './support/charge-gesture-detector.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -128,6 +128,99 @@ test('服务端拒绝与报价不符/过期的扣费', () => {
   assert.match(quote, /BILLING_QUOTE_MISMATCH/, '报价与实扣不符必须拒绝');
   assert.match(quote, /BILLING_QUOTE_EXPIRED/, '过期报价必须拒绝');
   assert.match(quote, /BILLING_QUOTE_REQUIRED/, '缺报价必须拒绝');
+});
+
+/* ── 裁定③：为**无效请求**扣费 = 铁律①的变体（用户没拿到东西却付了钱）── */
+
+test('无效输入必须在**建 hold 之前**被拒 —— 不得先扣一笔再退（用户可见余额抖动）', () => {
+  const index = read('server/index.mjs');
+  const at = index.indexOf("app.post('/api/video/plans'");
+  assert.ok(at > 0, '必须能找到 /api/video/plans');
+  const seg = index.slice(at, at + 2200);
+  /* 判据：空/全空白 prompt 提前 400，且这个 400 出现在任何计费调用之前。 */
+  assert.match(seg, /if \(!String\(req\.body\?\.prompt \|\| ''\)\.trim\(\)\)/,
+    '空/全空白 prompt 必须被拒');
+  assert.match(seg, /VIDEO_PROMPT_REQUIRED/, '必须复用既有的 VIDEO_PROMPT_REQUIRED 口径');
+  const rejectAt = seg.search(/VIDEO_PROMPT_REQUIRED/);
+  const chargeAt = seg.search(/canvasOneShotBilling\.execute\(/);
+  assert.ok(chargeAt > 0, '该路由确实会扣费（否则本断言无意义）');
+  assert.ok(rejectAt < chargeAt,
+    '空 prompt 的拒绝必须发生在扣费调用**之前** —— 否则就是「先扣再退」，用户会看到余额抖动');
+});
+
+test('视频任务与视频方案对 prompt 的口径必须一致（防止只修一处）', () => {
+  const index = read('server/index.mjs');
+  const generation = read('server/videoGeneration.mjs');
+  assert.match(generation, /VIDEO_PROMPT_REQUIRED/, '/api/video/jobs 侧的既有校验');
+  const at = index.indexOf("app.post('/api/video/plans'");
+  assert.match(index.slice(at, at + 2200), /VIDEO_PROMPT_REQUIRED/,
+    '/api/video/plans 侧必须同口径 —— 同一个「视频内容」概念不能两套判定');
+});
+
+/* ── 裁定①：挂载不得自动扣费（刷新/后退/深链都会重新挂载）───────────── */
+
+test('设计方向页挂载时不得发起计费分析（刷新 3 次只扣一次）', () => {
+  const dd = read('src/pages/Home/ec/DesignDirection.jsx');
+  /* 判据（AST，不靠正则猜边界）：挂载级 useEffect 的函数体里，
+     不得出现任何**计费发起**调用（quoteBillingAction / 计费型的 loadDirections）。
+     允许「读取上次未消费凭证」(loadEcommerceDirectionRefreshAction) —— 那是本地读，不发请求。 */
+  const ast = parseModule(dd);
+  const parents = buildParents(ast);
+  const mountEffects = [];
+  for (const node of ast.program.body) {
+    /* 组件是 function 声明；遍历其体内所有 CallExpression，找 useEffect(fn, []) */
+  }
+  (function walk(node) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { for (const c of node) walk(c); return; }
+    if (node.type === 'CallExpression'
+      && node.callee?.type === 'Identifier'
+      && ['useEffect', 'useLayoutEffect'].includes(node.callee.name)) {
+      const deps = node.arguments?.[1];
+      const isMount = deps?.type === 'ArrayExpression' && deps.elements.length === 0;
+      if (isMount) mountEffects.push(node.arguments?.[0]);
+    }
+    for (const k of Object.keys(node)) {
+      if (k === 'loc' || k === 'start' || k === 'end') continue;
+      walk(node[k]);
+    }
+  })(ast);
+
+  assert.ok(mountEffects.length > 0, '必须能找到挂载级 effect（否则本断言没有作用对象）');
+  const offenders = [];
+  for (const fn of mountEffects) {
+    if (!fn) continue;
+    (function walk(node) {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) { for (const c of node) walk(c); return; }
+      if (node.type === 'CallExpression' && node.callee?.type === 'Identifier') {
+        if (['quoteBillingAction', 'loadDirections'].includes(node.callee.name)) {
+          offenders.push(node.callee.name + ' (line ' + (node.loc?.start?.line ?? '?') + ')');
+        }
+      }
+      for (const k of Object.keys(node)) {
+        if (k === 'loc' || k === 'start' || k === 'end') continue;
+        walk(node[k]);
+      }
+    })(fn);
+  }
+  assert.deepEqual(offenders, [],
+    '挂载级 effect 里出现了计费发起调用 —— 刷新/后退/深链进入都会重新挂载 → 每次都再扣一次：\n'
+    + offenders.join('\n'));
+
+  /* 必须存在一个显式的用户触发入口，并挂在按钮上 */
+  assert.match(dd, /const handleStartAnalysis = useCallback\(/, '必须有显式的「开始分析」用户手势入口');
+  assert.match(dd, /onClick=\{handleStartAnalysis\}/, '该入口必须挂在按钮 onClick 上');
+});
+
+test('设计方向的 actionId 必须是稳定键（同草稿刷新命中同一条记录 → replay）', () => {
+  const dd = read('src/pages/Home/ec/DesignDirection.jsx');
+  assert.match(dd, /stableCanvasActionId\(\[/, '分析必须用稳定键，否则刷新会生成新 UUID → 再扣一次');
+  const start = dd.indexOf('stableCanvasActionId([');
+  const seg = dd.slice(start, start + 400);
+  assert.match(seg, /'ec-direction-analysis'/, '稳定键必须含动作标识');
+  assert.match(seg, /ownerEmail/, '必须含 owner');
+  assert.match(seg, /draftId/, '必须含 draft —— 「同一草稿」是幂等的作用域');
 });
 
 /* ── 动态断言：真实调用计费服务，验「拒则不动钱 / 准则扣一次 / 同键不重扣」── */
