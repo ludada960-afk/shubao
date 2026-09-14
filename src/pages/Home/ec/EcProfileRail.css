@@ -75,7 +75,7 @@
 .ec-profile-rail-count {
   min-width: 20px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill)px;
   background: rgba(124, 58, 237, 0.1);
   color: var(--sb-brand-600);
   font-size: 11px;
@@ -110,7 +110,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   padding: 3px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(28, 25, 23, 0.04);
 }
 
@@ -133,7 +133,7 @@
 
 .ec-profile-rail-error {
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--sb-danger-soft);
   border: 1px solid var(--sb-danger-border);
   color: var(--sb-ink-danger);
@@ -192,7 +192,7 @@
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -302,7 +302,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(28, 25, 23, 0.03);
 }
 
@@ -351,7 +351,7 @@
 
 .ec-profile-media-group header small {
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill)px;
   background: rgba(28, 25, 23, 0.06);
   font-weight: 700;
 }
@@ -393,7 +393,7 @@
   gap: 6px;
   height: 32px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--sb-brand-600), var(--sb-brand-400));
   color: var(--sb-neutral-0);
   font-size: 12px;
@@ -422,7 +422,7 @@
   gap: 6px;
   height: 32px;
   border: 1px solid rgba(124, 58, 237, 0.35);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #faf7ff;
   color: var(--sb-brand-600);
   font-size: 12px;
@@ -502,35 +502,23 @@
    注：本文件既有的 .ec-product-profile-* 等品牌紫 hover 属历史违反（§22 禁止 1），
        超出本任务范围，留待专项清理。
    ═══════════════════════════════════════════════════════════════════════════ */
-.ec-profile-rail-scrim:hover { background-color: var(--sb-hover-bg); }
-.ec-profile-rail-tabs button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.ec-profile-card-main:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
-.ec-profile-card-use:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.ec-profile-detail-apply:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.ec-profile-rail-save:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-.ec-product-chip:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-/* ═══════════════════════════════════════════════════════════════════════════
-   §22 / 原则 4.7 —— 可点必有 hover（商品档案抽屉，7 处缺口）
-   ───────────────────────────────────────────────────────────────────────────
-   ① .ec-profile-rail-scrim 遮罩（点击关闭）→ 只做极轻中性反馈，不改遮挡语义/尺寸；
-   ② .ec-profile-rail-tabs button 分段按钮 → 中性表面色；
-   ③ .ec-profile-card-main 卡片主体可点块 → 海拔 --sb-shadow-2（**已选中卡**
-      .ec-profile-card.is-current 走 border-color+box-shadow 环，故 hover 只补海拔，
-      并让 is-current 的 hover 保留它自己的环、再加一档）；
-   ④ .ec-profile-card-use / ⑤ .ec-profile-detail-apply → 中性表面色；
-   ⑥ .ec-profile-rail-save 是浅紫底按钮 → 中性表面色；
-   ⑦ .ec-product-chip 胶囊可点 → 中性表面色。
-   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
-   注：本文件既有的 .ec-product-profile-* 等品牌紫 hover 属历史违反（§22 禁止 1），
-       超出本任务范围，留待专项清理。
-   ═══════════════════════════════════════════════════════════════════════════ */
 /* ⚠️ 修正：遮罩是**整屏深色层**（rgba(28,25,23,.34) + blur，inset:0，z-index:-1，无文字）。
    用 --sb-hover-bg（不透明浅灰）会把整屏遮罩洗白 → 遮挡语义破坏。
    改为「加深一档」：用 --sb-scrim（标准遮罩档）在同色系内加深 —— 不动尺寸、不动透明度通道之外的东西。 */
-.ec-profile-rail-scrim:hover { background-color: var(--sb-scrim); }
+/* ───────────────────────────────────────────────────────────────────────────
+   §22/4.7 **登记豁免**（不是缺陷，不提供 hover）—— .ec-profile-rail-scrim
+   ───────────────────────────────────────────────────────────────────────────
+   保留 cursor: pointer，**刻意不加 hover**：
+     ① 点击=关闭的整屏遮罩（EcProfileRail.jsx：
+        <button className="ec-profile-rail-scrim" aria-label="关闭商品档案抽屉"
+                title="点击空白处收起" onClick={onToggle} />），pointer 光标诚实；
+     ② 整屏遮罩 hover = 整屏闪动，比无反馈更差；
+     ③ 它 z-index:-1 位于抽屉之下，视觉变化会被抽屉遮掉大半，收益近乎为零。
+   ═══════════════════════════════════════════════════════════════════════════ */
 .ec-profile-rail-tabs button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .ec-profile-card-main:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }
 .ec-profile-card-use:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .ec-profile-detail-apply:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .ec-profile-rail-save:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .ec-product-chip:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

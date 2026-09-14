@@ -109,7 +109,7 @@
   position: absolute; right: 8px; top: 8px;
   background: rgba(255,91,58,0.92); color: var(--sb-neutral-0);
   font-size: var(--sb-text-2xs);
-  padding: 2px 8px; border-radius: 999px;
+  padding: 2px 8px; border-radius: var(--sb-radius-pill)px;
   font-weight: 600;
 }
 
@@ -170,7 +170,7 @@
 .tpl-modal-cat {
   background: var(--sb-surface-tint-strong);
   color: var(--sb-ink-brand);
-  padding: 2px var(--sb-space-2); border-radius: 999px; font-size: var(--sb-text-xs);
+  padding: 2px var(--sb-space-2); border-radius: var(--sb-radius-pill)px; font-size: var(--sb-text-xs);
   font-family: var(--sb-font-mono);
 }
 .tpl-modal-close {
@@ -214,20 +214,18 @@
 .tpl-toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: rgba(15,23,42,0.92); color: var(--sb-neutral-0);
-  padding: 10px 18px; border-radius: 999px;
+  padding: 10px 18px; border-radius: var(--sb-radius-pill)px;
   font-size: var(--sb-text-md); z-index: 1200;
   box-shadow: 0 8px 24px rgba(15,23,42,0.3);
 }
 
-/* §22/4.7 可点必有 hover —— .tpl-modal-backdrop（遮罩，已由 div 升为 <button>，键盘可达）
-   通道：遮罩本体**不该有视觉位移/变色**，否则会像「内容在动」。
-   只做**极轻**的中性反馈：背景色叠加一层中性 hover 档（不改变遮挡语义、不改透明度）。
-   说明：这是 §22 三档之外的特例 —— 遮罩不是按钮/卡片，仅用于满足「可点必有 hover」且不误导。 */
-.tpl-modal-backdrop:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-/* §22/4.7 可点必有 hover —— .tpl-modal-backdrop（遮罩，已由 div 升为 <button>，键盘可达）
-   通道：遮罩本体**不该有视觉位移/变色**，否则会像「内容在动」。
-   只做**极轻**的中性反馈：背景色叠加一层中性 hover 档（不改变遮挡语义、不改透明度）。
-   说明：这是 §22 三档之外的特例 —— 遮罩不是按钮/卡片，仅用于满足「可点必有 hover」且不误导。 */
-/* ⚠️ 修正：同 .ec-profile-rail-scrim —— 遮罩用 --sb-hover-bg（不透明浅灰）会洗白整屏。
-   改为在同色系内加深一档（--sb-scrim）。 */
-.tpl-modal-backdrop:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-scrim); }
+/* ───────────────────────────────────────────────────────────────────────────
+   §22/4.7 **登记豁免**（不是缺陷，不提供 hover）—— .tpl-modal-backdrop
+   ───────────────────────────────────────────────────────────────────────────
+   保留 cursor: pointer，**刻意不加 hover**：
+     ① 点击=关闭的整屏遮罩（PublicTemplates/index.jsx：
+        <button className="tpl-modal-backdrop a11y-backdrop" aria-label="关闭 … 详情" onClick={onClose}>），
+        pointer 光标诚实且必要（告诉用户「点外面能关」）；
+     ② 整屏遮罩 hover 会整屏闪动，观感反而更差；
+     ③ 遮罩应与弹窗形成「背景/前景」对比，自身变色会削弱这个层级。
+   ═══════════════════════════════════════════════════════════════════════════ */

@@ -441,7 +441,7 @@ input, textarea { font-family: inherit; }
   background: #fff;
 }
 .surface-card-inner {
-  border-radius: 26px;
+  border-radius: 16px;
   background: transparent;
   padding: 0;
 }
@@ -501,14 +501,34 @@ input, textarea { font-family: inherit; }
    ───────────────────────────────────────────────────────────────────────────
    缺口来源：本文件 175 行 `button { cursor: pointer }` 声明了「这里能点」，
    但全站按钮**没有统一的 hover 兜底** → 光标说能点、移上去什么都不发生。
-   通道：中性表面色（--sb-hover-bg），**不发紫、不改文字色、不改尺寸**（§22 三禁止）。
-   带 :not(:disabled)：禁用态不该有 hover 反馈。
-   注：各按钮的「品牌底色」hover（.btn-primary 等）优先级更高，此处只兜底中性按钮。 */
-button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 
-/* .btn-pill 基线：胶囊按钮（中性底版本，134 处缺口里的公共祖先） */
+   ⚠️ 2026-09-20 修正（**一条被实测证伪的错误做法，留档警示**）：
+   本块曾写成 `button:hover { background-color: var(--sb-hover-bg) }`（元素级兜底）。
+   实测（Playwright，.hoverfix/shot3.cjs）证明它会**把所有实色按钮刷成中性灰**：
+       红色主 CTA   rgb(232,84,75)   → rgb(237,237,237)   ✗
+       品牌紫按钮   rgb(124,58,237)  → rgb(237,237,237)   ✗
+       深色按钮     rgb(32,34,38)    → rgb(237,237,237)   ✗
+       透明 ghost   transparent      → rgb(237,237,237)   ✓（只有这一类是对的）
+   根因：`--sb-hover-bg` 是**不透明中性色**，它假设了「元素当前底色是中性/透明」。
+   **元素级兜底看似「一处收益全站」，实际是「一处风险全站」。**
+
+   ▌因此确立一条硬规则（写进 §22 口径）
+   **基线/全局 hover 只允许用「不依赖元素当前底色」的通道**：
+     · box-shadow 抬升（对实心与透明都安全，符合 §22「实色底 → 海拔」）
+     · 或干脆不给元素级兜底，交给各组件自己声明（那才是它们的职责）
+   而 `background-color: var(--sb-hover-bg)` **只允许用在「声明了自己是中性底/透明底」的工具类**上。
+
+   下面的实现即按此规则：
+     ① 元素级 `button` 兜底 → 用**海拔**（不依赖底色，实心/透明都成立）；
+     ② 中性底工具类 `.btn-pill` / `.ui-btn` → 才可用表面色。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ① 元素级兜底：**只抬海拔，绝不碰 background** —— 对实色按钮与透明按钮都安全。
+   为什么是阴影而不是 filter: brightness()：后者会创建 containing block，
+   会影响内部 position:fixed 子元素与 backdrop-filter，风险面更大（§22 备选 B 慎用）。 */
+button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+
+/* ② 中性底工具类：这些类**自己声明了**中性/透明底，用表面色是安全的 */
 .btn-pill:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
-
-/* .ui-btn 基线：弹窗动作区按钮（见下方 .ui-modal-footer 约定） */
 .ui-btn:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 
