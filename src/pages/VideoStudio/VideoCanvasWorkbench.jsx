@@ -1810,39 +1810,6 @@ export default function VideoCanvasWorkbench({
             </li>;
           })}
         </ul>
-        {(workbench?.audioTracks || []).length > 0 && <section className="vcb-audio-tracks" data-testid="audio-tracks-panel" aria-label="音轨">
-          <header><strong><Music size={14} />音轨 ({workbench.audioTracks.length})</strong></header>
-          <ul>
-            {workbench.audioTracks.map(track => {
-              const isMuted = Boolean(track.muted);
-              const volume = Number(track.volume ?? 1);
-              return <li key={track.id} className="vcb-audio-track" data-track={track.id}>
-                <div className="vcb-audio-track-head">
-                  <span className="vcb-audio-track-kind">{track.kind === 'voice' ? '旁白' : '配乐'}</span>
-                  <span className="vcb-audio-track-name">{track.assetName || track.assetId}</span>
-                  <span className="vcb-audio-track-dur">{((Number(track.durationMs) || 0) / 1000).toFixed(1)}s</span>
-                </div>
-                <div className="vcb-audio-track-actions">
-                  <button type="button" data-no-drag
-                    className={isMuted ? 'vcb-mute-toggle is-on' : 'vcb-mute-toggle'}
-                    aria-pressed={isMuted}
-                    disabled={Boolean(busy)}
-                    title={isMuted ? '取消静音' : '静音'}
-                    onClick={() => void handleToggleAudioMute(track, !isMuted)}>
-                    {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}{isMuted ? '已静音' : '正常'}
-                  </button>
-                  <label className="vcb-volume-slider">
-                    <span>音量</span>
-                    <input type="range" min="0" max="2" step="0.1" value={volume}
-                      aria-label="音量"
-                      onChange={event => void handleUpdateAudioVolume(track, Number(event.target.value))} />
-                    <span className="vcb-volume-readout">{volume.toFixed(1)}×</span>
-                  </label>
-                </div>
-              </li>;
-            })}
-          </ul>
-        </section>}
       </section>
 
       <footer className="vcb-export" data-testid="export-manifest-panel">
