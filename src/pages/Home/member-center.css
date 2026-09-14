@@ -11,7 +11,7 @@
   max-height: calc(100vh - 48px);
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
-  border-radius: 20px;
+  border-radius: 22px;
   border: 1px solid var(--sb-border-default); /* D21：α.10 */
   box-shadow: var(--sb-shadow-5); /* D20-A：暖棕字面量 → 海拔档（α.35 → 5） */
   font-family: var(--font-body);
@@ -41,7 +41,7 @@
 .member-card.is-wide { grid-row: span 2; }
 .member-card {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 14px; border-radius: 12px;
+  padding: 14px; border-radius: 14px;
   background: #faf8f4;
   border: 1px solid var(--sb-border-subtle); /* D21：α.07 */
 }
@@ -66,12 +66,12 @@
 .member-redeem { display: flex; gap: 8px; }
 .member-redeem input {
   flex: 1; min-width: 0; height: 38px; padding: 0 11px;
-  border-radius: 8px; border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0);
+  border-radius: 10px; border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0);
   font-family: inherit; font-size: 13px; letter-spacing: 0.06em; outline: none;
 }
 .member-redeem input:focus { border-color: #E8544B; box-shadow: 0 0 0 4px rgba(232, 84, 75, 0.12); }
 .member-redeem button {
-  appearance: none; border: 0; border-radius: 8px; padding: 0 16px; height: 38px;
+  appearance: none; border: 0; border-radius: 10px; padding: 0 16px; height: 38px;
   font-family: inherit; font-size: 13px; font-weight: 700; color: var(--sb-neutral-0);
   background: linear-gradient(135deg, #E8544B, #E99A18); cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
@@ -92,7 +92,7 @@
 .member-ledger li time { font-size: 11px; color: var(--sb-ink-4); font-variant-numeric: tabular-nums; }
 .member-ledger-sub { display: block; margin-top: 1px; font-size: 11px; font-style: normal; color: var(--sb-ink-4); }
 .member-rules {
-  margin: 2px 0 6px; padding: 10px 11px; border-radius: 12px;
+  margin: 2px 0 6px; padding: 10px 11px; border-radius: 10px;
   background: var(--sb-neutral-0); border: 1px solid var(--sb-border-default); /* D21：α.09 */
   max-height: 300px; overflow-y: auto;
 }

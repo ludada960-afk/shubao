@@ -51,10 +51,7 @@ test('① 选择弹窗：角标 CSS 常显 —— 左上角、不设 opacity:0�
   assert.ok(badge[1].includes('top: 8px') && badge[1].includes('left: 8px'), '左上角');
   assert.ok(!badge[1].includes('opacity: 0'), '不做任何隐藏（默认透明度即可见，常显）');
   assert.ok(badge[1].includes('pointer-events: none'), '不挡卡片点击');
-  /* 2026-09-20 D18：断言改为「胶囊语义」而非字面量 999px ——
-     D18 要求 99/999px 一律归入 --sb-radius-pill，字面量已被 token 取代。
-     锁写法会让正确的归并反而变红（RTK §3.1「契约测试锁判据不锁写法」）。 */
-  assert.ok(/border-radius:\s*(999px|var\(--sb-radius-pill\))/.test(badge[1]), '小胶囊');
+  assert.ok(badge[1].includes('border-radius: 999px'), '小胶囊');
   assert.ok(badge[1].includes('rgba(20,18,16,.62)'), '半透明深色底');
   /* 2026-09-14 §18 灰阶迁移：白字改用 token --sb-neutral-0（值不变）。
      断言改为「白字语义」：字面量或 V3 token 均可。 */

@@ -24,7 +24,7 @@
   content: "";
   position: absolute;
   inset: -2px;
-  border-radius: 4px;
+  border-radius: 26px;
   background: radial-gradient(ellipse at center, transparent 60%, rgba(15, 23, 42, 0.025) 100%);
   pointer-events: none;
   z-index: -1;
@@ -109,7 +109,7 @@
   height: 26px;
   padding: 5px;
   box-sizing: border-box;
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgba(37, 99, 235, .06);
   color: var(--canvas-command);
   flex-shrink: 0;
@@ -168,7 +168,7 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--canvas-hairline, rgba(15, 23, 42, .08));
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, .75);
   color: var(--text-primary, var(--sb-ink-1));
   box-shadow: 0 1px 2px rgba(57, 45, 26, .04), 0 1px 1px rgba(57, 45, 26, .04);

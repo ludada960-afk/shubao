@@ -84,7 +84,7 @@
   align-items: center;
   gap: var(--sb-space-2);
   padding: 7px 10px;
-  border-radius: 8px;
+  border-radius: 11px;
   background: #f7f9fc;
   border: 1px solid #eaeef4;
   cursor: pointer;
@@ -111,14 +111,14 @@
 .ec-wm-input {
   height: 32px;
   padding: 0 10px;
-  border: 1px solid #dfe4ec; border-radius: 8px;
+  border: 1px solid #dfe4ec; border-radius: 9px;
   font-family: inherit; font-size: 13px; color: #1f2329; background: var(--sb-neutral-0);
 }
 .ec-wm-input:focus, .ec-wm-num input:focus { outline: 2px solid rgba(37, 99, 235, .28); outline-offset: 0; border-color: var(--sb-info); }
 .ec-wm-field input[type="range"] { width: 100%; accent-color: var(--sb-ink-1); height: 18px; }
 .ec-wm-field input[type="color"] { width: 34px; height: 28px; padding: 0; border: 1px solid #dfe4ec; border-radius: var(--sb-radius-md); background: var(--sb-neutral-0); cursor: pointer; }
 
-.ec-wm-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sb-space-1); padding: 3px; border-radius: 12px; background: #f1f4f8; border: 1px solid #e8edf3; }
+.ec-wm-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sb-space-1); padding: 3px; border-radius: 10px; background: #f1f4f8; border: 1px solid #e8edf3; }
 .ec-wm-seg button {
   appearance: none; border: 0; padding: 7px 6px; border-radius: var(--sb-radius-md);
   font-family: inherit; font-size: var(--sb-text-sm); font-weight: 600; color: var(--sb-ink-3);
@@ -132,7 +132,7 @@
   /* 2026-09-20 修：原为 `gap: 5;`（缺单位 → 无效声明被丢弃，从未生效）。 */
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   height: 32px; padding: 0 12px;
-  border: 1px solid #dfe4ec; border-radius: 8px;
+  border: 1px solid #dfe4ec; border-radius: 9px;
   background: var(--sb-neutral-0); color: #3d4650;
   font-family: inherit; font-size: var(--sb-text-sm); font-weight: 600;
   cursor: pointer; transition: all .16s ease;
@@ -149,7 +149,7 @@
 .ec-wm-tip { margin: 0; font-size: var(--sb-text-xs); line-height: 1.55; color: #9aa2ac; }
 .ec-wm-notice {
   margin: 0; padding: 8px 10px;
-  border-radius: 12px;
+  border-radius: 9px;
   background: #f0f7ff; border: 1px solid #d6e6fb; color: var(--sb-info);
   font-size: 12px; line-height: 1.5;
 }

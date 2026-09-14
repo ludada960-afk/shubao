@@ -545,7 +545,7 @@ export default function PlogPage() {
                   <div style={{ fontSize: 'var(--sb-text-xl)', marginBottom: 2 }}>{t.emoji}</div>
                   <div style={{ fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)' }}>{t.name}</div>
                   <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-4)', marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>
-                  {t.tag && <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-danger-strong)', marginTop: 2 }}>{t.tag}</div>}
+                  {t.tag && <div style={{ fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-ink-danger)', marginTop: 2 }}>{t.tag}</div>}
                 </button>
               );
             })}
@@ -638,7 +638,7 @@ export default function PlogPage() {
 
         {err && (
           /* D10：错误文字用 --sb-ink-danger（暖底上对比度达标），底色用 --sb-danger-soft。 */
-          <div style={{ marginBottom: 'var(--sb-space-4)', padding: 'var(--sb-space-3)', borderRadius: 'var(--sb-radius-lg)', background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', fontSize: 'var(--sb-text-xs)' }}>{err}</div>
+          <div style={{ marginBottom: 'var(--sb-space-4)', padding: 'var(--sb-space-3)', borderRadius: 'var(--sb-radius-lg)', background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 'var(--sb-text-xs)' }}>{err}</div>
         )}
 
         {/* ── 加载中 ── */}

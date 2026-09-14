@@ -1,5 +1,5 @@
 .model-pricing-overlay { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: start center; padding: 96px 24px 32px; background: rgba(50,40,28,.42); backdrop-filter: blur(8px); }
-.model-pricing-modal { display: flex; flex-direction: column; width: min(880px, 96vw); max-height: min(82vh, 860px); overflow: hidden; border: 1px solid var(--sb-border-default); /* D21：α.10 */ border-radius: 20px; background: rgba(255,254,252,.99); box-shadow: var(--sb-shadow-5); /* D20-A：暖棕是 --sb-shadow-* 的颜色成分，按 α 归海拔档（α.35 → 5） */ }
+.model-pricing-modal { display: flex; flex-direction: column; width: min(880px, 96vw); max-height: min(82vh, 860px); overflow: hidden; border: 1px solid var(--sb-border-default); /* D21：α.10 */ border-radius: 18px; background: rgba(255,254,252,.99); box-shadow: var(--sb-shadow-5); /* D20-A：暖棕是 --sb-shadow-* 的颜色成分，按 α 归海拔档（α.35 → 5） */ }
 .model-pricing-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 20px 12px; border-bottom: 1px solid var(--sb-border-subtle); /* D21：α.08 */ }
 .model-pricing-head strong { display: block; font-size: 16px; font-weight: 800; }
 .model-pricing-head span { display: block; margin-top: 4px; color: var(--sb-ink-3); font-size: 12px; line-height: 1.5; }
@@ -9,12 +9,12 @@
 .model-pricing-group h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: 13px; font-weight: 800; color: #2d2925; }
 .model-pricing-group h3 small { color: var(--sb-ink-4); font-size: 11px; font-weight: 600; }
 .model-pricing-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.model-pricing-row { display: grid; grid-template-columns: 22px minmax(0,1fr) auto auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: #faf8f4; }
+.model-pricing-row { display: grid; grid-template-columns: 22px minmax(0,1fr) auto auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; background: #faf8f4; }
 .model-pricing-row:hover { background: #f5f1ea; }
 .model-pricing-name { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 650; color: #2d2925; text-overflow: ellipsis; white-space: nowrap; }
 .model-pricing-unit { color: var(--sb-ink-4); font-size: 11px; }
 .model-pricing-price { color: var(--sb-brand-700); font-size: 13px; font-weight: 750; white-space: nowrap; }
-.model-pricing-error { margin: 12px 20px 0; padding: 9px 12px; border-radius: 12px; background: var(--sb-danger-soft); color: #a5322b; font-size: 12px; }
+.model-pricing-error { margin: 12px 20px 0; padding: 9px 12px; border-radius: 10px; background: var(--sb-danger-soft); color: #a5322b; font-size: 12px; }
 .model-pricing-loading, .model-pricing-foot { padding: 10px 20px; color: var(--sb-ink-4); font-size: 12px; }
 
 /* §22/4.7 可点必有 hover —— .model-pricing-close（图标按钮）

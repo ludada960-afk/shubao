@@ -130,7 +130,7 @@
 .ec-shared-shot {
   margin-top: 10px;
   border: 1px solid var(--sb-neutral-200);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--sb-neutral-0);
   overflow: hidden;
   transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -288,7 +288,7 @@
   gap: 9px;
   padding: 11px 12px;
   border: 1px solid #dfe6ef;
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--sb-neutral-0);
 }
 .ec-shared-plan-preview-shots i {
@@ -362,7 +362,7 @@
   color: #8a8077;
 }
 @media (max-width: 680px) {
-  .ec-direction-supplement { padding: 14px 14px 16px; border-radius: 12px; }
+  .ec-direction-supplement { padding: 14px 14px 16px; border-radius: 10px; }
   .ec-direction-supplement-title { flex-direction: column; align-items: flex-start; gap: 4px; }
 }
 @media (max-width: 900px) {

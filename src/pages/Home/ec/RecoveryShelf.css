@@ -35,7 +35,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 11px;
   background: #f4f1eb;
   color: #57534e;
   font-size: 12px;
@@ -71,7 +71,7 @@
   gap: 6px;
   padding: 0 11px;
   border: 1px solid #dedad3;
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--sb-neutral-0);
   color: #292524;
   font-size: 12px;
