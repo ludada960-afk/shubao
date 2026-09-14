@@ -409,7 +409,7 @@
 }
 .pricing-bullet {
   display: flex;
-  gap: var(--sb-space-1-5);
+  gap: var(--sb-space-2);
   font-size: var(--sb-text-sm);
   color: var(--sb-ink-3);
   line-height: var(--sb-leading-normal);
@@ -502,7 +502,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sb-space-2);
+  gap: var(--sb-space-1-5);
   min-height: 38px;
   padding: 0 18px;
   border-radius: 999px;
@@ -1272,7 +1272,7 @@
     width: 100%;
   }
   .pricing-trust-strip {
-    gap: var(--sb-space-2);
+    gap: var(--sb-space-1-5);
   }
   .pricing-trust-item {
     font-size: var(--sb-text-xs);
