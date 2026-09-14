@@ -50,10 +50,11 @@ function grepLegacy() {
 
 /* 棘轮基线：只许减不许增。迁移一批就把这两个数改小（并说明减了哪些名字）。 */
 /* 基线口径 = 本文件 countLegacy 的计数（**逐个匹配**，不是逐行）：
-   实测 2026-09-20 = 744 处 / 52 个名字。
-   ⚠️ 不要用「行数」估：一行里可能有两三个 V2 用法（实测按行数会少算 134 处）。 */
-const BASELINE_TOTAL = 744;
-const BASELINE_NAMES = 52;
+   实测 2026-09-20 初测 = 744 处 / 52 个名字；DS 层迁移启动后降至 709 / 51，基线**同步收紧**。
+   ⚠️ 不要用「行数」估：一行里可能有两三个 V2 用法（实测按行数会少算 134 处）。
+   ⚠️ 棘轮只许向下：实测降了就把基线改小 —— 否则回退会落在"合法空间"里，门禁等于没长牙。 */
+const BASELINE_TOTAL = 709;
+const BASELINE_NAMES = 51;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';

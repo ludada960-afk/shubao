@@ -20,7 +20,10 @@ const HEX = /#[0-9a-fA-F]{3,8}\b/g;
 const RGBA = /rgba?\([^)]*\)/g;
 const LEGACY = /var\(--(?!sb-|cvl-|max-width)[a-zA-Z0-9-]+\)/g;
 
-const BASELINE = { hex: 13, rgba: 27, legacy: 33 };
+/* 棘轮基线（**只许向下收紧**）：
+   2026-09-20 初测 hex13/rgba27/legacy33 → Button.jsx 迁完 V2 变量后 legacy 降到 13，基线同步收紧到 13。
+   ⚠️ 基线不收紧 = 给回退留出「合法的空间」：实测降到 13 而基线还是 33，就意味着悄悄涨回 33 也没人报警。 */
+const BASELINE = { hex: 13, rgba: 27, legacy: 13 };
 
 export function scanDsLayer(dir = DS) {
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isFile()) : [];
