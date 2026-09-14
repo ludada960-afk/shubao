@@ -112,7 +112,7 @@ export default function Navbar() {
               height: 40, display: 'none', alignItems: 'center', gap: 6,
               padding: '0 18px', border: 'none', borderRadius: 'var(--radius-full)',
               background: 'var(--accent)',
-              color: '#fff', fontSize: 13, fontWeight: 900,
+              color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 900,
               cursor: 'pointer', fontFamily: 'inherit',
               boxShadow: '0 14px 32px rgba(28,25,23,0.18)',
               transition: 'all 0.15s ease',

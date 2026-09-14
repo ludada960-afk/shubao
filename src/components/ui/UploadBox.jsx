@@ -78,7 +78,7 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
             </button>
             {/* Count badge */}
             {images.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', fontSize: 11, fontWeight: 700, color: '#fff' }}>
+              <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', fontSize: 11, fontWeight: 700, color: 'var(--sb-neutral-0)' }}>
                 +{images.length - 1}
               </div>
             )}

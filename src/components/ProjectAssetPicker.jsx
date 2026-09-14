@@ -52,18 +52,18 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: 'min(860px, 96vw)', maxHeight: '86vh', background: '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid #edf0f3' }}>
-          <strong style={{ fontSize: 14, color: '#1a1a1a' }}>{title}</strong>
+      <div style={{ width: 'min(860px, 96vw)', maxHeight: '86vh', background: 'var(--sb-neutral-0)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--sb-neutral-100)' }}>
+          <strong style={{ fontSize: 14, color: 'var(--sb-ink-1)' }}>{title}</strong>
           <input
             value={query}
             onChange={event => setQuery(event.target.value)}
             onKeyDown={event => { if (event.key === 'Enter') load(query); }}
             placeholder="搜索素材名称 / 项目 / ID"
-            style={{ flex: 1, height: 32, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 12 }}
+            style={{ flex: 1, height: 32, padding: '0 10px', border: '1px solid var(--sb-neutral-300)', borderRadius: 7, fontSize: 12 }}
           />
-          <button type="button" onClick={() => load(query)} style={{ height: 32, padding: '0 12px', border: 0, borderRadius: 7, background: 'var(--sb-brand)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>搜索</button>
-          <button type="button" onClick={onClose} aria-label="关闭" style={{ width: 30, height: 30, border: 0, borderRadius: 8, background: '#f3f4f6', cursor: 'pointer', fontSize: 13 }}>✕</button>
+          <button type="button" onClick={() => load(query)} style={{ height: 32, padding: '0 12px', border: 0, borderRadius: 7, background: 'var(--sb-brand)', color: 'var(--sb-neutral-0)', fontSize: 12, cursor: 'pointer' }}>搜索</button>
+          <button type="button" onClick={onClose} aria-label="关闭" style={{ width: 30, height: 30, border: 0, borderRadius: 8, background: 'var(--sb-neutral-100)', cursor: 'pointer', fontSize: 13 }}>✕</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
           {loading ? (
@@ -89,10 +89,10 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
                     style={{
                       position: 'relative', padding: 0, overflow: 'hidden', borderRadius: 10,
                       border: isPicked ? '2px solid var(--sb-sel-line)' : '1px solid #e7eaee',
-                      background: '#fff', cursor: 'pointer', textAlign: 'left',
+                      background: 'var(--sb-neutral-0)', cursor: 'pointer', textAlign: 'left',
                     }}
                   >
-                    <div style={{ height: 96, display: 'grid', placeItems: 'center', overflow: 'hidden', background: kind === 'video' ? '#111827' : '#f4f5f7' }}>
+                    <div style={{ height: 96, display: 'grid', placeItems: 'center', overflow: 'hidden', background: kind === 'video' ? 'var(--sb-ink-1)' : '#f4f5f7' }}>
                       {kind === 'image'
                         ? <img src={asset.stableUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : kind === 'video'
@@ -108,7 +108,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
                       </div>
                     </div>
                     {isPicked && (
-                      <span style={{ position: 'absolute', top: 6, right: 6, width: 20, height: 20, borderRadius: '50%', background: 'var(--sb-brand)', color: '#fff', fontSize: 11, display: 'grid', placeItems: 'center' }}>✓</span>
+                      <span style={{ position: 'absolute', top: 6, right: 6, width: 20, height: 20, borderRadius: '50%', background: 'var(--sb-brand)', color: 'var(--sb-neutral-0)', fontSize: 11, display: 'grid', placeItems: 'center' }}>✓</span>
                     )}
                   </button>
                 );

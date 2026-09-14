@@ -42,7 +42,7 @@ export function ToastProvider({ children }) {
         {toasts.map(t => (
           <div key={t.id} style={{
             background: colors[t.type] || colors.info,
-            color: '#fff', fontSize: 13, fontWeight: 600,
+            color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 600,
             padding: '10px 20px', borderRadius: 10,
             boxShadow: '0 6px 20px rgba(12,10,9,0.2)',
             animation: 'toastSlideIn 0.3s ease',

@@ -49,7 +49,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
             height: '100%', borderRadius: 4, transition: 'width 0.3s',
             background: isDone ? 'linear-gradient(90deg, #5CA86C, #7CCF8C)' :
                        isError ? 'var(--red)' :
-                       'linear-gradient(90deg, var(--accent), #555)',
+                       'linear-gradient(90deg, var(--accent), var(--sb-ink-2))',
             width: `${pct}%`,
           }} />
         </div>
@@ -123,7 +123,7 @@ function ControlBtn({ icon, label, onClick, primary, danger }) {
         height: 30, padding: '0 10px', borderRadius: 8,
         border: 'none',
         background: primary ? 'var(--accent)' : danger ? '#FEF2F0' : 'rgba(12,10,9,0.04)',
-        color: primary ? '#fff' : danger ? 'var(--red)' : 'var(--text-secondary)',
+        color: primary ? 'var(--sb-neutral-0)' : danger ? 'var(--red)' : 'var(--text-secondary)',
         fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         transition: 'all 0.1s',
       }}

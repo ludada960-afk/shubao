@@ -64,7 +64,7 @@ export default function DevicesPanel() {
   return (
     <div style={{
       border: '1px solid var(--border)', borderRadius: 12,
-      background: '#fff', overflow: 'hidden',
+      background: 'var(--sb-neutral-0)', overflow: 'hidden',
     }}>
       <button
         type="button"
@@ -104,7 +104,7 @@ export default function DevicesPanel() {
                   {session.current && (
                     <span style={{
                       marginLeft: 6, fontSize: 10, fontWeight: 900,
-                      color: '#fff', background: 'var(--accent)',
+                      color: 'var(--sb-neutral-0)', background: 'var(--accent)',
                       borderRadius: 6, padding: '1px 6px',
                     }}>本机</span>
                   )}
@@ -122,7 +122,7 @@ export default function DevicesPanel() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     border: '1px solid var(--border)', borderRadius: 8,
-                    background: '#fff', color: '#C53030', fontSize: 11,
+                    background: 'var(--sb-neutral-0)', color: '#C53030', fontSize: 11,
                     fontWeight: 700, padding: '5px 8px', cursor: 'pointer',
                     fontFamily: 'inherit',
                   }}

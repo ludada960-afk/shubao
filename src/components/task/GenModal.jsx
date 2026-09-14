@@ -27,7 +27,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
       position: 'fixed', bottom: 0, right: 0,
       zIndex: 9998,
       width: 380, maxHeight: 'calc(100vh - 80px)',
-      background: '#fff', borderRadius: '16px 0 0 0',
+      background: 'var(--sb-neutral-0)', borderRadius: '16px 0 0 0',
       boxShadow: '-4px 0 24px rgba(12,10,9,0.08), 0 -4px 24px rgba(12,10,9,0.06)',
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',

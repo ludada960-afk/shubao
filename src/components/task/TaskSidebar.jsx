@@ -136,7 +136,7 @@ export default function TaskSidebar() {
           border: '1px solid rgba(70, 52, 38, 0.1)',
           borderRadius: 15,
           background: activeCount > 0 ? '#1f8a83' : '#fffaf4',
-          color: activeCount > 0 ? '#fff' : '#554a42',
+          color: activeCount > 0 ? 'var(--sb-neutral-0)' : '#554a42',
           boxShadow: '0 12px 30px rgba(84, 55, 35, 0.16)',
           cursor: 'pointer',
           display: 'grid',
@@ -156,7 +156,7 @@ export default function TaskSidebar() {
             padding: '0 5px',
             borderRadius: 10,
             background: errorCount > 0 ? '#c34f49' : '#db7c2d',
-            color: '#fff',
+            color: 'var(--sb-neutral-0)',
             border: '2px solid #fffaf4',
             fontSize: 11,
             fontWeight: 800,
@@ -254,7 +254,7 @@ export default function TaskSidebar() {
                     padding: 12,
                     border: '1px solid rgba(70, 52, 38, 0.08)',
                     borderRadius: 15,
-                    background: '#fff',
+                    background: 'var(--sb-neutral-0)',
                   }}
                 >
                   <div
@@ -356,7 +356,7 @@ export default function TaskSidebar() {
                         minHeight: 32,
                         border: '1px solid rgba(70, 52, 38, 0.12)',
                         borderRadius: 10,
-                        background: '#fff',
+                        background: 'var(--sb-neutral-0)',
                         color: '#756a62',
                         fontSize: 12,
                         fontWeight: 700,

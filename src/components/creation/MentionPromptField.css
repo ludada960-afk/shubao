@@ -9,7 +9,7 @@
   border-radius: 9px;
   outline: 0;
   background: #fbfcfd;
-  color: #20242a;
+  color: var(--sb-neutral-900);
   font-size: 14px;
   line-height: 1.75;
   white-space: pre-wrap;
@@ -19,7 +19,7 @@
 .mention-prompt-field:focus {
   border-color: #7da5ef;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .1);
-  background: #fff;
+  background: var(--sb-neutral-0);
 }
 .mention-prompt-field:empty::before {
   content: attr(data-placeholder);

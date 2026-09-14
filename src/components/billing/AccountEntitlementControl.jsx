@@ -48,19 +48,19 @@ export default function AccountEntitlementControl({
         </button>
       )}
       <style>{`
-        .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: #fff; }
+        .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: var(--sb-neutral-0); }
         .account-entitlement-control button { border: 0; font: inherit; cursor: pointer; }
         .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 9px; background: #17181c; color: inherit; text-align: left; box-shadow: 0 4px 14px rgba(20,22,28,.15); transition: background .15s, border-color .15s, transform .15s; }
-        .account-entitlement-value:hover { background: #24262d; border-color: rgba(255,255,255,.28) !important; transform: translateY(-1px); }
+        .account-entitlement-value:hover { background: var(--sb-neutral-900); border-color: rgba(255,255,255,.28) !important; transform: translateY(-1px); }
         .account-entitlement-value > svg:first-child { color: #f3c969; }
         .account-entitlement-copy { min-width: 0; display: grid; gap: 1px; }
         .account-entitlement-copy small { color: #aeb3bf; font-size: 10px; line-height: 1; }
-        .account-member-entry { margin-left: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 9px; background: #17181c; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
-        .account-member-entry:hover { background: #24262d; border-color: rgba(255,255,255,.28) !important; }
-        .account-entitlement-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; line-height: 1.2; }
+        .account-member-entry { margin-left: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 9px; background: #17181c; color: var(--sb-neutral-0); font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+        .account-member-entry:hover { background: var(--sb-neutral-900); border-color: rgba(255,255,255,.28) !important; }
+        .account-entitlement-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sb-neutral-0); font-size: 12px; line-height: 1.2; }
         .account-entitlement-arrow { color: #aeb3bf; margin-left: 2px; }
         .account-entitlement-value:hover .account-entitlement-copy small { color: #d9dde7; }
-        .account-entitlement-value:hover .account-entitlement-copy strong { color: #fff; }
+        .account-entitlement-value:hover .account-entitlement-copy strong { color: var(--sb-neutral-0); }
         .account-entitlement-value:hover .account-entitlement-arrow { color: #d9dde7; }
         .account-entitlement-control[data-state="error"] .account-entitlement-value { border-color: #d99b53 !important; }
         @media (max-width: 639px) {

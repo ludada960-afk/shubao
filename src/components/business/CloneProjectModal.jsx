@@ -128,7 +128,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
           width: 'min(560px, 100%)',
           maxHeight: '90vh',
           overflowY: 'auto',
-          background: '#ffffff',
+          background: 'var(--sb-neutral-0)',
           borderRadius: 14,
           boxShadow: '0 20px 60px rgba(15,23,42,0.35)',
           padding: 24,
@@ -137,10 +137,10 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
       >
         <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, color: '#0f172a' }}>派生此项目</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+            <h2 style={{ margin: 0, fontSize: 18, color: 'var(--sb-ink-1)' }}>派生此项目</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--sb-ink-3)' }}>
               基于
-              <strong style={{ color: '#0f172a' }}> {projectTitle || '当前项目'} </strong>
+              <strong style={{ color: 'var(--sb-ink-1)' }}> {projectTitle || '当前项目'} </strong>
               创建一份可继续编辑的副本。
             </p>
           </div>
@@ -151,7 +151,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
             onClick={close}
             style={{
               background: 'transparent', border: 'none', cursor: busy ? 'not-allowed' : 'pointer',
-              padding: 4, color: '#64748b',
+              padding: 4, color: 'var(--sb-ink-3)',
             }}
           >
             <X size={18} />
@@ -162,7 +162,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
           disabled={busy}
           style={{ border: 'none', padding: 0, margin: 0 }}
         >
-          <legend style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>
+          <legend style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 8 }}>
             选择派生模板
           </legend>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -176,7 +176,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                   style={{
                     display: 'flex', gap: 12, alignItems: 'flex-start',
                     border: selected ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                    background: selected ? '#eff6ff' : '#ffffff',
+                    background: selected ? '#eff6ff' : 'var(--sb-neutral-0)',
                     borderRadius: 10, padding: 12, cursor: 'pointer',
                     transition: 'border-color 120ms ease, background 120ms ease',
                   }}
@@ -191,8 +191,8 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                   />
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Icon size={16} color={selected ? '#2563eb' : '#475569'} />
-                      <strong style={{ fontSize: 14, color: '#0f172a' }}>{opt.label}</strong>
+                      <Icon size={16} color={selected ? '#2563eb' : 'var(--sb-ink-2)'} />
+                      <strong style={{ fontSize: 14, color: 'var(--sb-ink-1)' }}>{opt.label}</strong>
                       {opt.recommended ? (
                         <span style={{
                           fontSize: 10, color: '#2563eb', background: '#dbeafe',
@@ -200,7 +200,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
                         }}>推荐</span>
                       ) : null}
                     </div>
-                    <p style={{ margin: '4px 0 0', fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--sb-ink-2)', lineHeight: 1.5 }}>
                       {opt.desc}
                     </p>
                   </div>
@@ -212,7 +212,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
 
         <div style={{ marginTop: 18, display: 'grid', gap: 12 }}>
           <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 12, color: '#475569' }}>派生后标题 (留空使用默认)</span>
+            <span style={{ fontSize: 12, color: 'var(--sb-ink-2)' }}>派生后标题 (留空使用默认)</span>
             <input
               ref={inputRef}
               type="text"
@@ -221,21 +221,26 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
               disabled={busy}
               onChange={(event) => setTitleHint(event.target.value)}
               placeholder={projectTitle ? projectTitle + ' - 派生' : '输入新标题'}
+              /* D11：抑制 UA 轮廓后必须给出可见替代焦点样式（box-shadow 环，不参与盒模型） */
+              onFocus={(event) => { event.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+              onBlur={(event) => { event.target.style.boxShadow = ''; }}
               style={{
                 border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px',
-                fontSize: 13, color: '#0f172a', background: '#ffffff', outline: '0 solid transparent',
+                fontSize: 13, color: 'var(--sb-ink-1)', background: 'var(--sb-neutral-0)', outline: '0 solid transparent',
               }}
             />
           </label>
           <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 12, color: '#475569' }}>目标项目类型 (留空继承)</span>
+            <span style={{ fontSize: 12, color: 'var(--sb-ink-2)' }}>目标项目类型 (留空继承)</span>
             <select
               value={targetKind}
               disabled={busy}
               onChange={(event) => setTargetKind(event.target.value)}
+              onFocus={(event) => { event.target.style.boxShadow = 'var(--sb-shadow-ring)'; }}
+              onBlur={(event) => { event.target.style.boxShadow = ''; }}
               style={{
                 border: '1px solid #cbd5e1', borderRadius: 8, padding: '8px 10px',
-                fontSize: 13, color: '#0f172a', background: '#ffffff', outline: '0 solid transparent',
+                fontSize: 13, color: 'var(--sb-ink-1)', background: 'var(--sb-neutral-0)', outline: '0 solid transparent',
               }}
             >
               <option value="">继承源项目类型</option>
@@ -261,8 +266,8 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
             disabled={busy}
             onClick={close}
             style={{
-              padding: '8px 14px', border: '1px solid #cbd5e1', background: '#ffffff',
-              color: '#475569', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontSize: 13,
+              padding: '8px 14px', border: '1px solid #cbd5e1', background: 'var(--sb-neutral-0)',
+              color: 'var(--sb-ink-2)', borderRadius: 8, cursor: busy ? 'not-allowed' : 'pointer', fontSize: 13,
             }}
           >取消</button>
           <button
@@ -270,7 +275,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
             disabled={busy || !projectId}
             style={{
               padding: '8px 14px', border: 'none', background: busy ? '#93c5fd' : '#2563eb',
-              color: '#ffffff', borderRadius: 8,
+              color: 'var(--sb-neutral-0)', borderRadius: 8,
               cursor: busy || !projectId ? 'not-allowed' : 'pointer', fontSize: 13,
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}

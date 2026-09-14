@@ -428,7 +428,11 @@ test('double-click image preview is a keyboard-accessible dialog', () => {
 test('credit hover keeps every label legible on the dark Canvas hover state', () => {
   const control = readFileSync(new URL('../src/components/billing/AccountEntitlementControl.jsx', import.meta.url), 'utf8');
   assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-copy small \{ color: #d9dde7; \}/);
-  assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-copy strong \{ color: #fff; \}/);
+  /* 2026-09-14 §18 灰阶迁移：白字改用 --sb-neutral-0（值不变）。断言改为「解析后为白色」。 */
+  assert.match(
+    control,
+    /\.account-entitlement-value:hover \.account-entitlement-copy strong \{ color: (?:#fff|var\(--sb-neutral-0\)); \}/,
+  );
   assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-arrow \{ color: #d9dde7; \}/);
 });
 

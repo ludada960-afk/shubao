@@ -88,7 +88,7 @@ export default function Popover({ id, trigger, children, align = 'left', width =
           left: pos.left,
           width,
           zIndex: 9999,
-          background: '#fff',
+          background: 'var(--sb-neutral-0)',
           borderRadius: 18,
           border: '1px solid var(--border)',
           boxShadow: '0 18px 46px rgba(57,45,26,0.16)',

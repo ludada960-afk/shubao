@@ -28,7 +28,7 @@ export default function Footer() {
           <span style={{ cursor: 'pointer' }} onClick={() => go('pricing')}>定价</span>
           <span style={{ cursor: 'pointer' }} onClick={() => go('works')}>我的作品</span>
         </div>
-        <div style={{ fontSize: 8, color: '#e8e8e8', marginTop: 12 }}>© 2026 薯包AI</div>
+        <div style={{ fontSize: 8, color: 'var(--sb-neutral-200)', marginTop: 12 }}>© 2026 薯包AI</div>
       </div>
     </footer>
   );

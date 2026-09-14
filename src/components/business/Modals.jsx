@@ -529,13 +529,13 @@ export function PricingModal() {
           style={{
             position: 'absolute', top: 16, right: 16,
             width: 32, height: 32, borderRadius: '50%',
-            border: 'none', background: '#f5f5f5',
+            border: 'none', background: 'var(--sb-neutral-100)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: '#999', fontFamily: 'inherit',
+            cursor: 'pointer', color: 'var(--sb-ink-4)', fontFamily: 'inherit',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#e0e0e0'; e.currentTarget.style.color = '#333'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f5'; e.currentTarget.style.color = '#999'; }}>
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--sb-neutral-200)'; e.currentTarget.style.color = 'var(--sb-ink-1)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'var(--sb-neutral-100)'; e.currentTarget.style.color = 'var(--sb-ink-4)'; }}>
           <MdClose size={16} />
         </button>
 
@@ -587,7 +587,7 @@ export function PricingModal() {
           alignItems: 'center', justifyContent: 'center', padding: 20,
         }} onClick={closePayment}>
           <div style={{
-            background: '#fff', borderRadius: 20, maxWidth: 360,
+            background: 'var(--sb-neutral-0)', borderRadius: 20, maxWidth: 360,
             width: '100%', padding: 28, textAlign: 'center',
           }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
@@ -608,7 +608,7 @@ export function PricingModal() {
                   type="button"
                   onClick={() => createOrder(provider)}
                   disabled={payLoading || paymentOrder?.status === 'pending' || paymentOrder?.status === 'paid'}
-                  style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: 0, background: '#1f2937', color: '#fff', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}
+                  style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: 0, background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}
                 >
                   {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
@@ -624,7 +624,7 @@ export function PricingModal() {
             </div>
 
             {paymentOrder?.checkout?.url && (
-              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid #1A1614', borderRadius: 10, background: '#fff', color: '#1A1614', cursor: 'pointer', fontWeight: 700 }}>
+              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid var(--sb-ink-1)', borderRadius: 10, background: 'var(--sb-neutral-0)', color: 'var(--sb-ink-1)', cursor: 'pointer', fontWeight: 700 }}>
                 重新打开支付页
               </button>
             )}

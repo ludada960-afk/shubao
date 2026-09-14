@@ -51,7 +51,7 @@ const BTN_BASE = {
 const BTN_ACTIVE = {
   ...BTN_BASE,
   background: '#4338CA',
-  color: '#fff',
+  color: 'var(--sb-neutral-0)',
   borderColor: '#4338CA',
   boxShadow: '0 6px 18px rgba(67, 56, 202, 0.28)',
 };
@@ -62,7 +62,7 @@ const PANEL = {
   marginTop: 8,
   padding: 12,
   borderRadius: 14,
-  background: '#FFFFFF',
+  background: 'var(--sb-neutral-0)',
   border: '1px solid rgba(67, 56, 202, 0.14)',
   boxShadow: '0 18px 48px rgba(28, 25, 23, 0.16), 0 4px 14px rgba(28, 25, 23, 0.08)',
   minWidth: 260,
@@ -99,7 +99,7 @@ const THUMB_LABEL = {
   padding: '3px 6px',
   fontSize: 10,
   fontWeight: 600,
-  color: '#fff',
+  color: 'var(--sb-neutral-0)',
   background: 'linear-gradient(180deg, rgba(12,10,9,0) 0%, rgba(12,10,9,0.55) 100%)',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -273,7 +273,7 @@ export default function AssetQuickDrag({ onDragStart, onPick, compact = false, s
       {openSource && openSource !== ASSET_DRAG_SOURCES.USER_UPLOAD && (
         <div style={PANEL} role="listbox" data-testid={`asset-quick-drag-panel-${openSource}`}>
           {loading && (
-            <div style={{ gridColumn: '1 / -1', padding: 16, textAlign: 'center', color: '#888', fontSize: 12 }}>
+            <div style={{ gridColumn: '1 / -1', padding: 16, textAlign: 'center', color: 'var(--sb-ink-3)', fontSize: 12 }}>
               加载中...
             </div>
           )}
@@ -283,7 +283,7 @@ export default function AssetQuickDrag({ onDragStart, onPick, compact = false, s
             </div>
           )}
           {!loading && !err && payloads.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', padding: 16, textAlign: 'center', color: '#888', fontSize: 12 }}>
+            <div style={{ gridColumn: '1 / -1', padding: 16, textAlign: 'center', color: 'var(--sb-ink-3)', fontSize: 12 }}>
               暂无{ASSET_DRAG_SOURCE_LABELS[openSource]}素材
             </div>
           )}

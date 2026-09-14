@@ -81,7 +81,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sb-neutral-0);
   letter-spacing: 0;
   line-height: 1.4;
 }

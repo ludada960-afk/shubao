@@ -56,30 +56,30 @@ export default function InsufficientBalanceModal({
 
   return (
     <div role="dialog" aria-modal="true" aria-label="余额不足" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(12,10,9,.48)' }}>
-      <section style={{ position: 'relative', width: 'min(100%, 480px)', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxSizing: 'border-box', padding: 28, borderRadius: 24, background: '#fff', boxShadow: '0 28px 90px rgba(57,45,26,.24)' }}>
+      <section style={{ position: 'relative', width: 'min(100%, 480px)', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxSizing: 'border-box', padding: 28, borderRadius: 24, background: 'var(--sb-neutral-0)', boxShadow: '0 28px 90px rgba(57,45,26,.24)' }}>
         <button aria-label="关闭余额不足提示" onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, border: 0, borderRadius: 999, width: 32, height: 32, cursor: 'pointer' }}>×</button>
-        <h2 style={{ margin: 0, color: 'var(--text-primary, #1A1614)' }}>额度不足</h2>
-        <p style={{ margin: '8px 0 18px', color: 'var(--text-muted, #6B6560)', lineHeight: 1.6 }}>当前图片、文字和设计方向都已保留。</p>
+        <h2 style={{ margin: 0, color: 'var(--text-primary, var(--sb-ink-1))' }}>额度不足</h2>
+        <p style={{ margin: '8px 0 18px', color: 'var(--text-muted, var(--sb-ink-3))', lineHeight: 1.6 }}>当前图片、文字和设计方向都已保留。</p>
 
         <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: 0 }}>
           {[
             ['本次操作', hasAuthoritativeQuote ? formatBillingUnits(requiredUnits, currency) : '待确认'],
             ['当前余额', hasAuthoritativeQuote ? formatBalanceDisplay(displayedAvailable, currency, entitlement?.unlimited) : '待确认'],
             ['还差', entitlement?.unlimited ? '无需补充' : hasAuthoritativeQuote ? formatBillingUnits(shortfall, currency) : '待确认'],
-          ].map(([label, value]) => <div key={label} style={{ padding: 12, borderRadius: 12, background: '#F5EFE4' }}><dt style={{ color: '#6B6560', fontSize: 12 }}>{label}</dt><dd style={{ margin: '5px 0 0', fontWeight: 700 }}>{value}</dd></div>)}
+          ].map(([label, value]) => <div key={label} style={{ padding: 12, borderRadius: 12, background: '#F5EFE4' }}><dt style={{ color: 'var(--sb-ink-3)', fontSize: 12 }}>{label}</dt><dd style={{ margin: '5px 0 0', fontWeight: 700 }}>{value}</dd></div>)}
         </dl>
 
         <h3 style={{ margin: '22px 0 10px', fontSize: 15 }}>推荐套餐</h3>
-        {packages.length ? <ul style={{ display: 'grid', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>{packages.map(product => <li key={product.sku} style={{ padding: 12, border: '1px solid #E7E5E4', borderRadius: 12 }}><strong>{formatBillingUnits(product.grantUnits, currency)}</strong><span style={{ float: 'right', color: '#6B6560' }}>¥{(Number(product.priceFen || 0) / 100).toFixed(2)}</span></li>)}</ul> : <p style={{ margin: 0, color: '#6B6560', fontSize: 13 }}>套餐信息加载中，请稍后刷新。</p>}
+        {packages.length ? <ul style={{ display: 'grid', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>{packages.map(product => <li key={product.sku} style={{ padding: 12, border: '1px solid #E7E5E4', borderRadius: 12 }}><strong>{formatBillingUnits(product.grantUnits, currency)}</strong><span style={{ float: 'right', color: 'var(--sb-ink-3)' }}>¥{(Number(product.priceFen || 0) / 100).toFixed(2)}</span></li>)}</ul> : <p style={{ margin: 0, color: 'var(--sb-ink-3)', fontSize: 13 }}>套餐信息加载中，请稍后刷新。</p>}
 
-        {providers.length === 0 ? <p role="status" style={{ margin: '16px 0 0', padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>在线购买暂未开放，当前工作会继续保留。</p> : <p style={{ margin: '16px 0 0', color: '#6B6560', fontSize: 13 }}>选择合适的套餐补充额度后，即可继续当前创作。</p>}
+        {providers.length === 0 ? <p role="status" style={{ margin: '16px 0 0', padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>在线购买暂未开放，当前工作会继续保留。</p> : <p style={{ margin: '16px 0 0', color: 'var(--sb-ink-3)', fontSize: 13 }}>选择合适的套餐补充额度后，即可继续当前创作。</p>}
         {notice && <p role="status" style={{ margin: '12px 0 0', color: '#7A5600', fontSize: 13 }}>{notice}</p>}
 
         <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
-          <button onClick={onViewPlans} style={{ minHeight: 42, border: '1px solid #1A1614', borderRadius: 12, background: '#fff', cursor: 'pointer', fontWeight: 700 }}>查看可用套餐</button>
+          <button onClick={onViewPlans} style={{ minHeight: 42, border: '1px solid var(--sb-ink-1)', borderRadius: 12, background: 'var(--sb-neutral-0)', cursor: 'pointer', fontWeight: 700 }}>查看可用套餐</button>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={refresh} disabled={refreshing} style={{ flex: 1, minHeight: 42, border: '1px solid #1A1614', borderRadius: 12, background: '#fff', cursor: refreshing ? 'wait' : 'pointer' }}>{refreshing ? '正在刷新…' : '刷新余额'}</button>
-            {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: '#1A1614', color: '#fff', cursor: 'pointer' }}>返回继续创作</button>}
+            <button onClick={refresh} disabled={refreshing} style={{ flex: 1, minHeight: 42, border: '1px solid var(--sb-ink-1)', borderRadius: 12, background: 'var(--sb-neutral-0)', cursor: refreshing ? 'wait' : 'pointer' }}>{refreshing ? '正在刷新…' : '刷新余额'}</button>
+            {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', cursor: 'pointer' }}>返回继续创作</button>}
           </div>
         </div>
       </section>
