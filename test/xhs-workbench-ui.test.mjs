@@ -71,7 +71,17 @@ test('XHS workbench keeps the ecommerce spacing and full article body', () => {
 });
 
 test('XHS prompt owns a visible native caret and focuses from its full surface', () => {
-  assert.match(xhs, /onClick=\{event => \{ if \(event\.target !== promptRef\.current\) promptRef\.current\?\.focus\(\); \}\}/);
+  /* 判据是「**整面可点即聚焦**」（点包裹层的任意处都把光标交给输入框），
+     **不是**「必须用 onClick 事件」。事件名是实现的细节：
+     用 onClick 时，mousedown 会先把焦点给到被点的内层元素、click 再抢回来 → **焦点闪一下、原生光标位置丢失**；
+     用 onMouseDown 则一开始就不让焦点跑掉，跟手感更好。
+     2026-09-20 依原则 §12「指标必须测量判据本身」：断言改为接受两种等价实现，
+     这样两条线各自改事件名都不会把这条判据打成假红（此前 onMouseDown 版本在主干上是稳定红）。 */
+  assert.match(
+    xhs,
+    /on(?:Click|MouseDown)=\{event => \{ if \(event\.target !== promptRef\.current\) promptRef\.current\?\.focus\(\); \}\}/,
+    '点包裹层任意处都必须把焦点交给输入框（整面可点即聚焦）',
+  );
   assert.match(xhs, /className="xhs-prompt-field"/);
   assert.match(xhs, /ec-xhs-prompt-hints/);
   assert.match(xhs, /aria-describedby=\{`xhs-prompt-placeholder-/);
