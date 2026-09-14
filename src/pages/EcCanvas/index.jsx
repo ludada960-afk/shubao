@@ -23,6 +23,7 @@ import {
   zoomPreviewByWheel,
 } from './canvasState';
 import {
+  CANVAS_RIGHT_PANEL_RESERVED_PX,
   createChildConnection,
   createDerivedNode,
   canDeriveFromNode,
@@ -6120,6 +6121,9 @@ const handlePointerUp = useCallback((e) => {
     && !selectedNode.hidden
     && selectedNode.kind !== 'text'
     && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind);
+  /* 右侧功能栏打开时占掉的画布宽度（面板 + 两侧边距）。
+     浮层避让与画布让位共用同一个常量，见 nodeWorkflow 的 CANVAS_RIGHT_PANEL_RESERVED_PX。 */
+  const rightPanelReservedPx = CANVAS_RIGHT_PANEL_RESERVED_PX;
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -6798,6 +6802,13 @@ const handlePointerUp = useCallback((e) => {
                 bounds: containerRef.current?.getBoundingClientRect(),
                 /* 9-13 用户批注：从节点「+」打开的生成面板必须居中吸附在按钮正上方 */
                 anchor: 'above',
+                /* 9-17 用户批注（图5/图9）：「上传素材后右边的功能栏总是会覆盖到上面来」。
+                   实测这块浮层才是盖住节点的那个：它没受画布右缘约束。
+                   ① nodes：浮层不许压住任何已有节点（压住就整体上抬到它们之上）；
+                   ② reservedRight：右侧功能栏打开时，浮层右缘同样让开面板宽度，
+                      与画布区让位共用同一个变量，浮层与功能栏永远不重叠。 */
+                nodes: visibleNodes,
+                reservedRight: selectionPanelsVisible ? rightPanelReservedPx : 0,
               })}
               title={connectionPicker.mode === 'image-editor' ? '图片生成与编辑' : '引用当前素材生成'}
               onBack={connectionPicker.mode === 'image-editor' ? () => setConnectionPicker(previous => ({ ...previous, mode: '' })) : undefined}

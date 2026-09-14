@@ -54,30 +54,73 @@ export function validateWorkflowActionInputs(actionId, inputs = {}) {
   return { ok: missing.length === 0, missing };
 }
 
-/* 9-13 用户批注：从节点「+」按钮打开的生成面板必须**居中吸附在按钮正上方**（不能歪到一边）。
-   anchor: 'above' 时返回的 x 是「面板水平中心」（配合 CSS translate(-50%)），y 是按钮锚点；
-   上方空间不够时自动回落到原来的右下角贴靠（placement: 'corner'），绝不把面板顶出可视区。 */
-export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = {}, preferredWidth = 360, preferredHeight = 460, anchor = 'corner' } = {}) {
+/* 9-17 用户批注（图5/图9）：「我上传一个素材上来，你右边的这个功能栏总是会覆盖到上面来」。
+   实测（Playwright，登录态 + 真上传，1440×900）：右侧功能栏本身**是对的**
+   （面板左缘 = 画布右缘 + 14px，被面板压住的节点数 0），真正盖住节点的是**这个浮层**：
+   上传后自动弹出的「引用当前素材生成」菜单落在锚点右侧、又没有约束画布右缘，
+   面板 360×308 @ (588,145) 压住了 4 个节点。用户把这块浮层当成了「右边功能栏」。
+   修法：给浮层加四条硬约束 ——
+     ① 右缘不许越过「画布可视区右缘 - 12px」（画布打开右侧功能栏时自动让位，所以这条同时
+        保证浮层与功能栏互不重叠）；
+     ② 水平优先落在锚点右侧，右侧空间不够就翻到锚点左侧（仍然贴着锚点，不歪）；
+     ③ 竖直方向在可视区内回夹；
+     ④ 高/宽都不许超出可视区。
+   浮层是「往上弹」的（CSS translate(-50%, -100%)），所以 y 传的是**面板底边**。 */
+/* 右侧功能栏的让位宽度口径 —— 唯一真源。
+   CSS 里 .ec-canvas-page{--canvas-right-panel-width:360px} + .ec-canvas-stage.has-right-panel
+   {margin-right: calc(var + 28px)} 已经决定了「面板宽 360 + 两侧边距 28」。
+   这里把它也暴露给 JS（浮层避让要用同一个数），避免两处各写一份、以后改一处漏一处。 */
+export const CANVAS_RIGHT_PANEL_WIDTH_PX = 360;
+export const CANVAS_RIGHT_PANEL_MARGIN_PX = 28;
+export const CANVAS_RIGHT_PANEL_RESERVED_PX = CANVAS_RIGHT_PANEL_WIDTH_PX + CANVAS_RIGHT_PANEL_MARGIN_PX;
+
+function overlapArea(rect, box) {
+  const width = Math.max(0, Math.min(rect.x + rect.w, box.x + box.w) - Math.max(rect.x, box.x));
+  const height = Math.max(0, Math.min(rect.y + rect.h, box.y + box.h) - Math.max(rect.y, box.y));
+  return width * height;
+}
+
+export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = {}, preferredWidth = 360, preferredHeight = 460, anchor = 'corner', nodes = [], gap = 18, reservedRight = 0 } = {}) {
   const scale = Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1;
   const viewportX = Number.isFinite(viewport.x) ? viewport.x : 0;
   const viewportY = Number.isFinite(viewport.y) ? viewport.y : 0;
   const boundsWidth = Number.isFinite(bounds.width) && bounds.width > 0 ? bounds.width : preferredWidth * scale;
   const boundsHeight = Number.isFinite(bounds.height) && bounds.height > 0 ? bounds.height : preferredHeight * scale;
   const gutter = 10 / scale;
-  const width = Math.min(preferredWidth, Math.max(180, boundsWidth / scale - gutter * 2));
+  /* 硬右界：画布可视区右缘再让开 reservedRight（打开右侧功能栏时 = 面板宽 + 两侧边距）。
+     浮层与功能栏因此永远不重叠，也不会越过画布右缘画到功能栏上面去。 */
+  const reservedWorld = Math.max(0, Number(reservedRight) || 0) / scale;
+  const hardRight = Math.max(0, boundsWidth - reservedWorld - gutter * 2);
+  const width = Math.min(preferredWidth, Math.max(180, (hardRight || boundsWidth) / scale));
   const height = Math.min(preferredHeight, Math.max(240, boundsHeight / scale - gutter * 2));
   const minX = (0 - viewportX) / scale + gutter;
   const minY = (0 - viewportY) / scale + gutter;
-  const maxX = Math.max(minX, (boundsWidth - viewportX) / scale - width - gutter);
+  const maxRight = (hardRight - viewportX) / scale;
+  const maxX = Math.max(minX, maxRight - width - gutter);
   const maxY = Math.max(minY, (boundsHeight - viewportY) / scale - height - gutter);
   const anchorX = Number.isFinite(world.x) ? world.x : minX;
   const anchorY = Number.isFinite(world.y) ? world.y : minY;
   if (anchor === 'above') {
     /* 只做「上方有没有空间」的粗判：真实高度由组件渲染后复测（放不下会自动翻到下方，仍然居中），
-       所以这里门槛放到最小可视高度，避免把「居中在按钮上方」这条规则直接跳过。 */
+        所以这里门槛放到最小可视高度，避免把「居中在按钮上方」这条规则直接跳过。 */
     const minimumAbove = Math.min(height, 120);
     if (anchorY - minY >= minimumAbove) {
+      /* ① 先试「锚点正上方 + 水平居中于锚点」（9-13 口径，只有一个节点在附近时就是它） */
       const centered = Math.min(maxX + width / 2, Math.max(minX + width / 2, anchorX));
+      /* ② 上方放得下但会压住已有节点 → 仍然居中，把整体上抬到被压节点之上 */
+      const list = Array.isArray(nodes) ? nodes.filter(item => item && item.hidden !== true) : [];
+      if (list.length) {
+        const top = anchorY - height;
+        const probe = { x: centered - width / 2, y: top, w: width, h: height };
+        const blockers = list.filter(item => overlapArea(probe, { x: item.x, y: item.y, w: item.w, h: item.h }) > 0);
+        if (blockers.length) {
+          const ceiling = Math.min(...blockers.map(item => item.y)) - gap;
+          const lifted = Math.max(minY, ceiling - height);
+          const clear = { x: centered - width / 2, y: lifted, w: width, h: height };
+          const stillBlocked = list.some(item => overlapArea(clear, { x: item.x, y: item.y, w: item.w, h: item.h }) > 0);
+          if (!stillBlocked) return { x: centered, y: lifted + height, width, maxHeight: height, placement: 'above' };
+        }
+      }
       return { x: centered, y: anchorY, width, maxHeight: height, placement: 'above' };
     }
   }
