@@ -53,7 +53,11 @@ test('drawer z-index sits between page overlays and global modals (site-wide aud
   //   app-shell 提示/命令 2200 与 3200、NoteModal 9998、图库 lightbox 9999+。
   // 商品档案抽屉定值 1300：高于一切页面浮层，低于一切全局模态；
   // scrim 用 z-index:-1 留在抽屉自身的 1300 层叠上下文内，不参与全局竞争。
-  const values = [...css.matchAll(/z-index:\s*(-?\d+)/g)].map(m => Number(m[1]));
+  /* ⚠️ 必须先**剥注释**再统计：注释里提到「z-index:-1」不是声明。
+     真实事故：§22 登记豁免的说明注释里写了两次 `z-index:-1`，
+     本断言于是数出 [1300,-1,-1,-1] 而报红 —— **判据没错，是取数没错过注释**。 */
+  const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const values = [...cssNoComments.matchAll(/z-index:\s*(-?\d+)/g)].map(m => Number(m[1]));
   assert.deepStrictEqual(values.sort((a, b) => b - a), [1300, -1]);
 });
 
