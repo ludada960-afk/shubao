@@ -657,8 +657,14 @@
   --sb-brand-wash:       var(--sb-brand-50);
   --sb-brand-line:       var(--sb-brand-200);
   --sb-brand-ink:        #FFFFFF;
-  --sb-brand-gradient:   linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
-  --sb-brand-gradient-3: linear-gradient(135deg, #7C3AED 0%, #EC4899 55%, #F59E0B 100%);
+  /* ⚠️ 2026-09-20 修正：这里**曾经重新定义渐变值**（把 §1 的「紫→薰衣草」改成「紫→粉」），
+     而本层的契约是「只做别名 → 权威映射，**不引入新色值**」。后果是：
+       · 全站 8 处引用（含**功能按钮**）渲染的都是**粉渐变**；
+       · 而 `docs/design/10-visual-language.md:96` 写的仍是「紫→薰衣草」—— **文档与实现对不上**；
+       · 粉比薰衣草「响」，正是裁定 2 要治的「到处都在喊」。
+     现改为指向 §20 的具名渐变（自定义属性在**使用时刻**解析，定义顺序无关）。 */
+  --sb-brand-gradient:   var(--sb-brand-gradient-soft);
+  --sb-brand-gradient-3: var(--sb-brand-gradient-hero);
 
   /* 文字别名 → ink 阶梯 */
   --sb-text-primary:     var(--sb-ink-1);
