@@ -118,20 +118,55 @@ test('EcMode 的面板宽度从规范模块读取，不再硬编码 460/480/540/
   assert.ok(calls.length >= 2, '两处面板定位都要走统一宽度解析');
 });
 
-test('面板内边距与分区间距取自统一间距来源（V3 后上移到 --sb-* token）', () => {
+test('面板内边距与分区间距取自统一间距来源（依 D6 + V3 规范；旧值 24/16 已废弃）', () => {
+  /* ── 口径变更依据（b 类：规范被 D 决策与 V3 取代，非私自放宽）──
+     依据文档：docs/design/40-decisions.md **D6**「圆角只有 4 档…」
+               与 40-decisions.md **D2/D7**（面板内分组用留白 + 分组标题）
+     依据实现：src/styles/design-tokens-v3.css（V3 token，唯一取值来源）
+
+     旧断言（本文件早期版本）为「24 内边距 / 16 分区间距」——那是
+     panelVisualLanguage.SPACING 时代的取值。V3 落地后，间距唯一权威上移到
+     design-tokens-v3.css，现行数值为：
+       面板内边距 --sb-panel-padding = 20px（原 24）
+       分组间距   --sb-group-gap     = 20px（原 16）
+       字段间距   --sb-field-gap     = 8px
+     故旧值 24/16 **已废弃**，本断言改为校验**现行规范的实际数值**，
+     而不是「存在即可」——后者无法防止数值被悄悄改坏。 */
   const spec = read('src/pages/Home/ec/panelVisualLanguage.js');
   assert.ok(spec.includes('panelBodyStyle'), '规范必须导出面板根样式');
   assert.ok(spec.includes('sectionStyle'), '规范必须导出分组样式');
 
-  /* 2026-09-15 V3：间距的**唯一权威**从 panelVisualLanguage.SPACING
-     上移到 design-tokens-v3.css 的 --sb-* 变量（--sb-panel-padding /
-     --sb-group-gap / --sb-field-gap / --sb-space-*）。
-     面板可以二选一：引用 token，或引用本规范模块（它仍是同一套阶梯的别名）。
-     关键契约不变：不得自带一套字号/间距。 */
   const tokens = read('src/styles/design-tokens-v3.css');
-  assert.ok(tokens.includes('--sb-panel-padding'), 'token 层必须提供面板内边距');
-  assert.ok(tokens.includes('--sb-group-gap'), 'token 层必须提供分组间距');
-  assert.ok(tokens.includes('--sb-field-gap'), 'token 层必须提供字段间距');
+  /** 解析 token 值（支持 var() 别名两级）。 */
+  const def = n => (tokens.match(new RegExp(n.replace(/-/g, '\\-') + ':\\s*([^;]+);')) || [])[1];
+  const resolve = n => {
+    const v = def(n);
+    if (!v) return null;
+    const alias = v.match(/var\((--[\w-]+)\)/);
+    if (!alias) return v.trim();
+    const inner = def(alias[1]);
+    return inner ? inner.trim() : null;
+  };
+
+  /* 现行规范数值（依 D6 与 V3）：面板内边距 20、分组间距 20、字段间距 8 */
+  assert.ok(def('--sb-panel-padding'), 'token 层必须提供面板内边距');
+  assert.ok(def('--sb-group-gap'), 'token 层必须提供分组间距');
+  assert.ok(def('--sb-field-gap'), 'token 层必须提供字段间距');
+  assert.equal(
+    def('--sb-panel-padding') === 'var(--sb-space-5)' ? resolve('--sb-space-5') : resolve('--sb-panel-padding'),
+    '20px',
+    '面板内边距必须为 20px（D6 + V3 规范；旧值 24 已废弃）',
+  );
+  assert.equal(
+    def('--sb-group-gap') === 'var(--sb-space-5)' ? resolve('--sb-space-5') : resolve('--sb-group-gap'),
+    '20px',
+    '分组间距必须为 20px（D6 + V3 规范；旧值 16 已废弃）',
+  );
+  assert.equal(
+    def('--sb-field-gap') === 'var(--sb-space-2)' ? resolve('--sb-space-2') : resolve('--sb-field-gap'),
+    '8px',
+    '字段间距必须为 8px（标签↔控件，用户要求 ≥8）',
+  );
 
   for (const panel of ['GenSettingsPanel', 'ParamsPanel', 'CopyPanel', 'SkuPanel', 'SizingPanel']) {
     const source = read('src/pages/Home/ec/' + panel + '.jsx');
