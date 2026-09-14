@@ -182,8 +182,8 @@
   padding: 0;
   border: 1px solid var(--border-light, rgba(15, 23, 42, .1));
   border-radius: 8px;
-  background: var(--bg-hover, #f3f4f6);
-  color: var(--text-secondary, #475569);
+  background: var(--bg-hover, var(--sb-neutral-100));
+  color: var(--text-secondary, var(--sb-ink-2));
   cursor: pointer;
   transition: transform .24s cubic-bezier(.34, 1.56, .64, 1), background .16s ease-out, color .16s ease-out;
 }
@@ -204,7 +204,7 @@
   border: 1px dashed var(--border-light, rgba(15, 23, 42, .12));
   border-radius: 10px;
   background: var(--bg-hover, #f8fafc);
-  color: var(--text-hint, #6b7280);
+  color: var(--text-hint, var(--sb-ink-3));
   font-size: 12px;
   line-height: 1.6;
   text-align: center;
@@ -217,7 +217,7 @@
   margin: 0 var(--cvl-sp1, 4px);
   border-radius: 5px;
   background: var(--blue, #2563eb);
-  color: #fff;
+  color: var(--sb-neutral-0);
   font-size: 13px;
   vertical-align: -4px;
 }
@@ -285,7 +285,7 @@
   overflow: hidden;
   background: #eef2f6;
   font-size: 11px;
-  color: var(--text-hint, #6b7280);
+  color: var(--text-hint, var(--sb-ink-3));
 }
 .ec-canvas-right-panel__child-thumb img {
   width: 100%;
@@ -307,7 +307,7 @@
 .ec-canvas-right-panel__child-meta em {
   font-style: normal;
   font-size: 11px;
-  color: var(--text-hint, #6b7280);
+  color: var(--text-hint, var(--sb-ink-3));
 }
 .ec-canvas-right-panel__child-meta em.is-processing { color: #ea580c; }
 .ec-canvas-right-panel__child-meta em.is-error { color: #dc2626; }
@@ -365,7 +365,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--sb-brand);
-  border: 2px solid var(--bg-card-solid, #fff);
+  border: 2px solid var(--bg-card-solid, var(--sb-neutral-0));
   box-shadow: 0 1px 4px rgba(12, 10, 9, .15);
   cursor: grab;
   transition: transform 120ms var(--ease-out, ease);
@@ -378,7 +378,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--sb-brand);
-  border: 2px solid var(--bg-card-solid, #fff);
+  border: 2px solid var(--bg-card-solid, var(--sb-neutral-0));
   box-shadow: 0 1px 4px rgba(12, 10, 9, .15);
   cursor: grab;
 }
@@ -392,7 +392,7 @@
   padding: 0 var(--cvl-sp2, 8px);
   border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: var(--bg-card-solid, #fff);
+  background: var(--bg-card-solid, var(--sb-neutral-0));
   color: var(--text-primary);
   font: inherit;
   font-size: 11px;

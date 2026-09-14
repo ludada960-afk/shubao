@@ -16,6 +16,8 @@ const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const modal = read('src/pages/EcCanvas/components/CanvasAssetPickerModal.jsx');
 const pickerCss = read('src/pages/EcCanvas/components/canvas-asset-picker.css');
 const supervisorCss = read('src/styles/canvas-supervisor.css');
+/* D5 token 迁移后，颜色可能以 --sb-* 变量表达；断言「解析后的值」时需要真源。 */
+const tokensV3 = read('src/styles/design-tokens-v3.css');
 
 const SHOTS_DIR = fileURLToPath(new URL('../.playwright-shots/asset-type-badge-0915/', import.meta.url));
 mkdirSync(SHOTS_DIR, { recursive: true });
@@ -42,7 +44,9 @@ test('① 选择弹窗：角标 CSS 常显 —— 左上角、不设 opacity:0�
   assert.ok(badge[1].includes('pointer-events: none'), '不挡卡片点击');
   assert.ok(badge[1].includes('border-radius: 999px'), '小胶囊');
   assert.ok(badge[1].includes('rgba(20,18,16,.62)'), '半透明深色底');
-  assert.ok(badge[1].includes('color: #fff'), '白字');
+  /* 2026-09-14 §18 灰阶迁移：白字改用 token --sb-neutral-0（值不变）。
+     断言改为「白字语义」：字面量或 V3 token 均可。 */
+  assert.ok(/color:\s*(#fff\b|var\(--sb-neutral-0\))/.test(badge[1]), '白字');
 });
 
 test('② 角标与打勾圈不重叠 —— 打勾圈下移到角标正下方（top: 38px = 8 + 角标高 22 + 8 间距）', () => {
@@ -70,7 +74,15 @@ test('③ 管理弹窗：上传按钮 ≥ 36px、图标+文字、主色实心（
   const h = Number.parseFloat(upload[1].match(/height: (\d+)px/)?.[1] || '0');
   assert.ok(h >= 36, '上传按钮高度 ≥ 36px，实际 ' + h + 'px');
   assert.ok(upload[1].includes('linear-gradient(135deg, #7454f3, #d14db5)'), '主色实心渐变');
-  assert.ok(upload[1].includes('color: #fff'), '白字');
+  /* 处置：b) 规范被取代（docs/design/40-decisions.md D5「全局 token 迁移」）。
+     品牌紫硬编码迁移批次把 color:#fff 换成了 color: var(--sb-neutral-0)
+     （见 commit a9eb14c7「品牌紫硬编码迁移 批 1/4」），而 --sb-neutral-0 = #FFFFFF，
+     渲染结果不变。故这里断言**解析后的值是白色**，而不是字面量 #fff。 */
+  const colorDecl = upload[1].match(/color:\s*([^;]+)/)?.[1]?.trim() || '';
+  const NEUTRAL_0 = tokensV3.match(/--sb-neutral-0:\s*([^;]+)/)?.[1]?.trim();
+  const isWhite = /^#fff(fff)?$/i.test(colorDecl) || colorDecl === 'white';
+  const isWhiteToken = colorDecl.includes('--sb-neutral-0') && /^#fff(fff)?$/i.test(NEUTRAL_0 || '');
+  assert.ok(isWhite || isWhiteToken, '文字解析后为白色（字面量或 --sb-neutral-0），实际 ' + colorDecl);
   assert.ok(upload[1].includes('gap: 6px'), '图标+文字并排');
 });
 
