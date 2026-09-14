@@ -56,26 +56,31 @@ const PRODUCT_SHOT_PLAN = [
 
 let observedEcommerceWorkVersion = 0;
 
-/* ═══════ 统一按钮样式（升级：胶囊形状+渐变）═══════ */
+/* ═══════ 配置按钮基底 ═══════
+   2026-09-15 V3 token 化。取值来自 design-tokens-v3.css：
+   控件高度阶梯为 28/32/36/44（--sb-control-h-sm/md/lg/xl）——
+   旧值 40px 不在阶梯内，故按「行内配置按钮」语义取 --sb-control-h-xl(44)，
+   与主 CTA 同高，满足用户「与同行配置按钮一致」的要求。
+   圆角 20 → --sb-radius-pill（胶囊）之外的控件统一走 --sb-radius-control(8)。 */
 const BTN_BASE = {
-  height: 40,
-  padding: '0 18px',
-  borderRadius: 20,
-  fontSize: 13,
-  fontWeight: 600,
+  height: 'var(--sb-control-touch)',
+  padding: '0 var(--sb-space-4)',
+  borderRadius: 'var(--sb-radius-control)',
+  fontSize: 'var(--sb-text-sm)',
+  fontWeight: 'var(--sb-weight-semibold)',
   fontFamily: 'inherit',
-  border: '1px solid rgba(28, 25, 23, 0.10)',
-  background: '#fff',
-  color: 'var(--text-secondary)',
-  transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+  border: '1px solid var(--sb-border-default)',
+  background: 'var(--sb-surface-card)',
+  color: 'var(--sb-text-secondary)',
+  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 'var(--sb-space-2)',
   whiteSpace: 'nowrap',
   userSelect: 'none',
   flexShrink: 0,
-  boxShadow: '0 2px 7px rgba(62,43,26,0.07)'
+  boxShadow: 'var(--sb-shadow-sm)'
 };
 
 /* 面板内分组分隔线：两个语义分组之间的一道 1px 呼吸。

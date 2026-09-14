@@ -1839,7 +1839,9 @@
   .ec-workbench-tools > div,
   .ec-workbench-tools > button { flex: 0 0 auto; }
   .ec-workbench-submit-actions { gap: 6px; }
-  .ec-workbench-next { margin-left: 0 !important; height: 40px !important; padding-inline: 16px !important; }
+  /* 高度必须与主 CTA 一致（--sb-control-touch 44）；旧值 40 不在 token 阶梯内，
+     且会与 .ec-workbench-cta 的 44 打架，造成同一按钮两种高度。 */
+  .ec-workbench-next { margin-left: 0 !important; height: var(--sb-control-touch) !important; padding-inline: var(--sb-space-4) !important; }
   .ec-workbench-heading { padding-inline: 2px; }
   .ec-workbench-heading strong { font-size: 16px; }
   .ec-commerce-workbench-actions .ec-workbench-primary-row {
@@ -2231,40 +2233,68 @@
 
 /* Ecommerce configuration system */
 .ec-workbench-tools { gap: 10px !important; align-items: stretch !important; }
+/* ═══ 参数面板触发卡（6 个）═══
+   2026-09-15 V3 token 化。注意两个语义区分（原则 4.3）：
+     · .is-open   = 面板**正在打开** → 品牌浅底 + 品牌描边（当前状态）
+     · .is-adjusted = 该面板**有非默认配置** → 用文字/徽标表达，不再抢用品牌紫描边
+       旧实现把 is-adjusted 也刷成紫色描边+紫色阴影，与 is-open 撞车，
+       用户分不清「面板开着」和「这个面板改过」。
+   另：触发卡是**按钮**，按原则 7.1 毛玻璃黑名单不应使用 backdrop-filter。
+       52px 是「两行文案」卡片的固有高度，保持。 */
 .ec-config-trigger {
-  min-width: 126px !important; height: 52px !important; padding: 0 14px !important;
-  border: 1px solid rgba(35,31,27,.11) !important; border-radius: 8px !important;
-  background: rgba(255,255,255,.84) !important;
-  box-shadow: 0 4px 14px rgba(45,38,31,.06) !important;
-  backdrop-filter: blur(12px) saturate(120%);
+  min-width: 126px !important;
+  height: 52px !important;
+  padding: 0 var(--sb-space-3) !important;
+  border: 1px solid var(--sb-border-default) !important;
+  border-radius: var(--sb-radius-control) !important;
+  background: var(--sb-surface-card) !important;
+  box-shadow: var(--sb-shadow-sm) !important;
 }
 .ec-config-trigger:hover {
-  transform: translateY(-2px) !important; border-color: rgba(88,73,58,.22) !important;
-  background: #fff !important; box-shadow: 0 9px 24px rgba(45,38,31,.11) !important;
+  /* hover 只改底色与描边（中性），不做位移（原则 4.3） */
+  border-color: var(--sb-border-strong) !important;
+  background: var(--sb-state-hover-bg) !important;
+  box-shadow: var(--sb-shadow-md) !important;
 }
 .ec-config-trigger.is-open {
-  border-color: #6d5dfc !important; background: #f7f5ff !important;
-  box-shadow: 0 0 0 3px rgba(109,93,252,.10), 0 10px 26px rgba(45,38,31,.12) !important;
+  border-color: var(--sb-state-selected-line) !important;
+  background: var(--sb-state-selected-bg) !important;
+  box-shadow: var(--sb-focus-ring), var(--sb-shadow-md) !important;
 }
+.ec-config-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--sb-focus-ring) !important;
+}
+/* is-adjusted =「这个面板被改过」，不是「面板正开着」。
+   原则 4.3：两者必须走不同通道 —— 这里保留中性卡片外观，
+   只让**文字**变品牌色 + 挂「已调整」徽标，不再抢用紫描边/紫阴影。
+   彩色字属原则 6.1 合法场合①（当前已被用户修改的项 = 当前状态）。 */
 .ec-config-trigger.is-adjusted {
-  border-color: rgba(109,93,252,.58) !important;
-  background: linear-gradient(145deg, #fff 0%, #f3f0ff 100%) !important;
-  box-shadow: 0 0 0 2px rgba(109,93,252,.09), 0 9px 24px rgba(83,63,190,.14) !important;
+  border-color: var(--sb-border-default) !important;
+  background: var(--sb-surface-card) !important;
+  box-shadow: var(--sb-shadow-sm) !important;
 }
-.ec-config-trigger.is-adjusted .ec-config-trigger-copy > span { color: #7162de; }
-.ec-config-trigger.is-adjusted .ec-config-trigger-copy > strong { color: #392f76; }
+.ec-config-trigger.is-adjusted .ec-config-trigger-copy > span { color: var(--sb-text-muted); }
+.ec-config-trigger.is-adjusted .ec-config-trigger-copy > strong { color: var(--sb-text-brand); }
+/* 徽标是「状态语义」→ 用品牌色实底（原则 6.1 合法场合①：当前状态）。
+   旧值 8px 字号低于可读下限，抬到 --sb-text-2xs(11)。 */
 .ec-config-adjusted-badge {
-  flex: 0 0 auto; padding: 3px 5px; border-radius: 5px; color: #fff;
-  background: #6d5dfc; box-shadow: 0 3px 8px rgba(83,63,190,.24);
-  font-size: 8px; font-weight: 800; line-height: 1; white-space: nowrap;
+  flex: 0 0 auto; padding: 3px var(--sb-space-1);
+  border-radius: var(--sb-radius-chip);
+  color: var(--sb-brand-ink);
+  background: var(--sb-brand);
+  font-size: var(--sb-text-2xs); font-weight: var(--sb-weight-bold);
+  line-height: 1; white-space: nowrap;
 }
 .ec-config-trigger-copy {
   display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: flex-start;
-  gap: 2px; text-align: left; line-height: 1.15;
+  gap: 2px; text-align: left; line-height: var(--sb-leading-tight);
 }
-.ec-config-trigger-copy > span { color: #8b8490; font-size: 10px; font-weight: 650; }
+.ec-config-trigger-copy > span { color: var(--sb-text-muted); font-size: var(--sb-text-2xs); font-weight: var(--sb-weight-semibold); }
 .ec-config-trigger-copy > strong {
-  max-width: 100%; overflow: hidden; color: #29262c; font-size: 12px; font-weight: 760;
+  max-width: 100%; overflow: hidden;
+  color: var(--sb-text-primary);
+  font-size: var(--sb-text-xs); font-weight: var(--sb-weight-bold);
   text-overflow: ellipsis; white-space: nowrap;
 }
 /* 9-11 用户批注#8: 面板张开时滚轮只滚面板 — 高度上限 + 滚动链隔离, 页面不再跟着滚 */
@@ -2290,10 +2320,24 @@
      ⇒ bottom ≤ 100vh - height - 84px。height 由 --ec-panel-h 上报（EcMode 不感知高度，故用 460px 兜底）。 */
   bottom: min(var(--ec-panel-bottom-safe, 16px), calc(100vh - var(--ec-panel-h, 460px) - 84px)) !important;
   overscroll-behavior: contain;
-  border: 1px solid rgba(255,255,255,.86) !important; border-radius: 8px !important;
-  background: rgba(252,252,253,.93) !important;
-  box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06) !important;
-  backdrop-filter: blur(24px) saturate(135%) !important;
+  /* 2026-09-15 V3：
+     · 圆角 8 → --sb-radius-panel(20)。原则 3.4 的嵌套公式以「面板 20」为外层基准，
+       面板本体若停在 8px，内层 12/8 的推算就整体错位（实测面板 8 / 内层 12 反而更圆）。
+     · 描边/底色/阴影/毛玻璃全部换 token：原则 7.1 面板属毛玻璃白名单第③条
+       （浮层参数面板），7.2 把 blur 收窄到规范值，7.3 由 token 自带降级。
+     · 旧的 rgba(255,255,255,.86) 描边在白底上几乎不可见，属原则 3.3 禁止的
+       「弱色差 + 弱描边」配方，改为 --sb-border-subtle + 明确色差。 */
+  border: 1px solid var(--sb-border-subtle) !important;
+  border-radius: var(--sb-radius-panel) !important;
+  /* 面板是毛玻璃白名单第③条（浮层参数面板，见 tokens §11）。
+     blur 由旧的 40px 收敛到 --sb-blur-panel(24)，saturate 由 220% 收敛到 180%
+     （原则 7.2：40px 把底层糊死、220% 产生彩色镶边）。
+     底色用 --sb-glass-panel（唯一允许的玻璃面板底）。
+     降级：tokens §降级已定义 --sb-l1-panel-solid，由 @supports 自动接管。 */
+  background: var(--sb-glass-panel) !important;
+  box-shadow: var(--sb-shadow-xl) !important;
+  backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass)) !important;
+  -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass)) !important;
 }
 .ec-config-panel::after {
   /* 9-14 用户批注：面板一屏看全。连接箭头绝对定位在底边下方 6px，
@@ -2361,7 +2405,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--sb-space-2);
-  height: var(--sb-control-lg);
+  /* 主 CTA = --sb-control-touch(44)。官方阶梯 28/32/36/44 中 44 是「主 CTA / 顶栏按钮」
+     档（10-visual-language §控件 与 20-components §按钮 均如此定义），
+     且文档标注「绝不变小」（WCAG 2.5.5 触控下限）。 */
+  height: var(--sb-control-touch);
   padding: 0 var(--sb-space-5);
   border: 0;
   border-radius: var(--sb-radius-control);
