@@ -60,7 +60,7 @@ import {
 const FAQ_CONTENT = [
   {
     q: '生成失败会扣积分吗？',
-    a: '不会。每次创作先冻结本次所需额度，只有稳定交付完整结果后才结算；上游或服务异常导致失败时，冻结额度全额释放，一分不扣。',
+    a: '不会。每次创作先冻结本次所需额度，只有稳定交付完整结果后才结算；服务异常导致失败时，冻结额度全额释放，一分不扣。',
   },
   {
     q: '高品质档的免费重跑怎么用？',
@@ -105,6 +105,13 @@ const PLAN_VISUAL = {
   ec_monthpack_59:{ icon: MdDiamond,            gradient: 'linear-gradient(135deg, var(--sb-ink-warning), #d97706)', tag: '月卡·Pro',  tagline: '高强度创作最优单价' },
 };
 
+/* 推荐档（视觉唯一事实源）：
+   页面上打「最受欢迎」角标的那一档 = 团队版 ec_growth_79。
+   ⚠️ 数据层的 plan.recommended 来自 constants/data.js 的 pop 字段（只标在月卡·Pro），
+   与页面视觉口径不一致 —— 若直接用 plan.recommended，角标与海拔会落在两张不同的卡上。
+   本常量只决定**视觉主次**，不参与任何价格/权益/计费计算。 */
+const HIGHLIGHT_SKU = 'ec_growth_79';
+
 const HERO_BADGES = [
   { icon: MdShield,    label: '支付通道已就绪' },
   { icon: MdSecurity,  label: '商用授权清晰' },
@@ -140,13 +147,19 @@ function SectionHead({ eyebrow, title, hint, align = 'left' }) {
   );
 }
 
-/* ── 视频按条计价的 5 档 (锚定陪衬: 4 档 + 1 顶档陪衬) ── */
+/* ── 视频按条计价的 5 档 (锚定陪衬: 4 档 + 1 顶档陪衬) ──
+   「即将上线」的档位：整卡 is-off + 按钮真 disabled + 状态徽标，
+   卡片本身不含任何可点区域（普通 <article>，无 onClick），键盘也不可达。 */
 function VideoTierCard({ tier, onUse, isAnchored }) {
+  const soon = !tier.available;
   return (
-    <article className={'pricing-tier-card' + (isAnchored ? ' is-anchored' : '') + (tier.available ? '' : ' is-off')}>
+    <article
+      className={'pricing-tier-card' + (isAnchored ? ' is-anchored' : '') + (soon ? ' is-off' : '')}
+      aria-disabled={soon ? true : undefined}
+    >
       <div className="pricing-tier-top">
         <span className="pricing-tier-eyebrow">{tier.eyebrow}</span>
-        {tier.available ? (
+        {!soon ? (
           tier.badge ? <span className="pricing-tier-badge">{tier.badge}</span> : <span />
         ) : (
           <span className="pricing-soon-pill">即将上线</span>
@@ -180,7 +193,7 @@ function VideoTierCard({ tier, onUse, isAnchored }) {
           </li>
         ))}
       </ul>
-      {tier.available ? (
+      {!soon ? (
         <button
           type="button"
           onClick={onUse}
@@ -189,7 +202,12 @@ function VideoTierCard({ tier, onUse, isAnchored }) {
           充值后生成
         </button>
       ) : (
-        <button type="button" disabled className="pricing-btn-muted">
+        <button
+          type="button"
+          disabled
+          aria-disabled="true"
+          className="pricing-btn-muted"
+        >
           即将上线
         </button>
       )}
@@ -197,8 +215,13 @@ function VideoTierCard({ tier, onUse, isAnchored }) {
   );
 }
 
-/* ── 4 档积分套餐卡 (主视觉: 锚定 + 推荐 + 渐变 icon) ── */
-function PackCard({ plan, canPurchase, onSelect }) {
+/* ── 积分套餐卡 (主视觉: 锚定 + 推荐 + 渐变 icon) ──
+   状态契约（D2 + 本批要求）：
+     · 在售卡    → 普通按钮，hover 只换海拔/描边/位移（宽度恒定 1px）
+     · 推荐档    → is-recommended（描边/柔底/更高海拔/角标），明显更突出
+     · 停用卡    → is-off + 真 disabled 属性（不可聚焦、不可点、不进 Tab 序列）
+     · 已选中    → is-selected，用 --sb-shadow-ring（不改边框宽度，无抖动） */
+function PackCard({ plan, canPurchase, onSelect, selected }) {
   const visual = PLAN_VISUAL[plan.sku] || {
     icon: MdAutoAwesome,
     gradient: 'var(--sb-brand-gradient)',
@@ -206,19 +229,27 @@ function PackCard({ plan, canPurchase, onSelect }) {
     tagline: plan.description,
   };
   const Icon = visual.icon;
-  const highlighted = Boolean(plan.recommended);
+  /* 角标与「突出」样式必须同源，否则会出现「角标在这张、海拔在那张」的分裂。 */
+  const highlighted = Boolean(plan.recommended) || plan.sku === HIGHLIGHT_SKU;
+  const disabled = !plan.enabled;
   return (
     <button
       type="button"
       onClick={() => onSelect(plan)}
+      disabled={disabled}
+      aria-pressed={highlighted ? undefined : (selected ? true : undefined)}
       className={
         'pricing-pack-card'
         + (highlighted ? ' is-recommended' : '')
-        + (plan.enabled ? '' : ' is-off')
+        + (disabled ? ' is-off' : '')
+        + (!disabled && selected ? ' is-selected' : '')
       }
-      aria-label={`${plan.name} ${formatCatalogPrice(plan.priceFen)} 元 ${formatCatalogGrant(plan)}`}
+      aria-label={
+        `${plan.name} ${formatCatalogPrice(plan.priceFen)} 元 ${formatCatalogGrant(plan)}`
+        + (disabled ? '（套餐已停用）' : '')
+      }
     >
-      {highlighted && <span className="pricing-recommend-badge">最受欢迎</span>}
+      {highlighted && !disabled && <span className="pricing-recommend-badge">最受欢迎</span>}
       <div className="pricing-pack-head">
         <span className="pricing-pack-icon" style={{ background: visual.gradient }}>
           <Icon size={20} color="#fff" />
@@ -251,7 +282,7 @@ function PackCard({ plan, canPurchase, onSelect }) {
       </ul>
       <div className="pricing-pack-cta">
         {plan.enabled ? (canPurchase ? '选择套餐' : '扫码支付') : '套餐已停用'}
-        <MdChevronRight size={14} />
+        {plan.enabled && <MdChevronRight size={14} />}
       </div>
     </button>
   );
@@ -651,6 +682,7 @@ export default function PricingPage() {
               plan={plan}
               canPurchase={providers.length > 0}
               onSelect={openPurchase}
+              selected={selectedPlan?.sku === plan.sku}
             />
           ))}
         </div>
@@ -668,6 +700,7 @@ export default function PricingPage() {
               plan={plan}
               canPurchase={providers.length > 0}
               onSelect={openPurchase}
+              selected={selectedPlan?.sku === plan.sku}
             />
           ))}
         </div>

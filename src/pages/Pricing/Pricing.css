@@ -63,12 +63,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: var(--sb-space-5);
 }
 .pricing-hero-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sb-space-2);
   padding: 7px 16px 7px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
@@ -137,7 +137,7 @@
 .pricing-hero-cta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--sb-space-3);
   justify-content: center;
   margin-top: 8px;
 }
@@ -146,14 +146,14 @@
 .pricing-trust-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--sb-space-2);
   justify-content: center;
   margin: 6px 0 4px;
 }
 .pricing-trust-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sb-space-2);
   padding: 7px 14px;
   font-size: 12px;
   font-weight: 700;
@@ -234,38 +234,80 @@
 .pricing-tier-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  gap: var(--sb-space-3);
 }
 .pricing-tier-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  background: var(--bg-card-solid);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--duration-normal) var(--ease),
-              box-shadow var(--duration-normal) var(--ease),
-              border-color var(--duration-normal) var(--ease);
+  gap: var(--sb-space-3);
+  padding: var(--sb-space-5);
+  /* D6：圆角走 token 档位，不再自造 18px */
+  border-radius: var(--sb-radius-xl);
+  /* 描边宽度恒定 1px —— 所有状态只换颜色，绝不改宽度（D2：禁止布局抖动） */
+  border: 1px solid var(--sb-border-default);
+  /* 表面分层：卡片 = L2 纯白，与暖米页面底拉开一级 */
+  background: var(--sb-surface-card);
+  /* 海拔：静态可点卡片用 shadow-2。不再靠「白卡 + 极淡边框」糊成一片 */
+  box-shadow: var(--sb-shadow-2);
+  transition: box-shadow var(--sb-dur-normal) var(--sb-ease-out),
+              border-color var(--sb-dur-instant) var(--sb-ease-out),
+              transform var(--sb-dur-fast) var(--sb-ease-out);
 }
+/* hover：只动海拔 + 描边色 + 位移，**不动边框宽度、不动字号** → 零抖动 */
 .pricing-tier-card:hover {
   transform: translateY(-2px);
-  border-color: var(--border-hover);
-  box-shadow: var(--shadow-md);
+  border-color: var(--sb-border-strong);
+  box-shadow: var(--sb-shadow-3);
+}
+/* 卡片内含可点控件时的键盘焦点：整卡叠环（不位移、不改宽度） */
+.pricing-tier-card:focus-within {
+  box-shadow: var(--sb-shadow-ring), var(--sb-shadow-2);
 }
 .pricing-tier-card.is-anchored {
   background:
-    linear-gradient(135deg, var(--sb-brand-a05) 0%, rgba(236, 72, 153, 0.05) 100%),
-    var(--bg-card-solid);
-  border-color: var(--border-hover);
+    linear-gradient(135deg, var(--sb-brand-a05) 0%, var(--sb-surface-tint) 100%),
+    var(--sb-surface-card);
+  border-color: var(--sb-border-default);
 }
+/* ──「即将上线」：明确的视觉降级（不是只靠 1px 虚线）────────────────
+   四通道同时降级：① 暖灰凹槽底（比任何在售卡都「沉」）② 虚线描边
+   ③ 内容墨色降级 ④ 去阴影 + 去 hover 位移，整体读作「不可交互」。 */
 .pricing-tier-card.is-off {
-  border: 1px dashed var(--border-hover);
-  opacity: 0.72;
+  background: var(--sb-surface-sunken);
+  border: 1px dashed var(--sb-border-strong);
+  box-shadow: none;
+}
+.pricing-tier-card.is-off .pricing-tier-name { color: var(--sb-ink-3); }
+.pricing-tier-card.is-off .pricing-tier-tagline,
+.pricing-tier-card.is-off .pricing-bullet {
+  /* 实测：--sb-ink-4 在凹槽底 rgb(239,234,225) 上仅 2.50:1，低于 WCAG AA。
+     降级是「弱化」而非「不可读」，故正文统一 --sb-ink-3（4.79:1）。 */
+  color: var(--sb-ink-3);
+}
+/* 价格行同步降级：不可购买的档位不能用全对比度喊价，
+   否则金额会比可售档更抢眼，直接误导购买决策。 */
+.pricing-tier-card.is-off .pricing-price-number,
+.pricing-tier-card.is-off .pricing-price-symbol {
+  /* 停用档位仍需可读：--sb-ink-4 在凹槽底上实测仅 2.50:1（低于 AA 4.5:1），
+     故价格升到 --sb-ink-3（实测 5.05:1）——降级是「弱化」不是「不可读」。 */
+  color: var(--sb-ink-3);
+}
+.pricing-tier-card.is-off .pricing-price-unit {
+  color: var(--sb-ink-4);
+}
+.pricing-tier-card.is-off .pricing-tier-points {
+  color: var(--sb-ink-4);
+}
+.pricing-tier-card.is-off .pricing-bullet-dot {
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-5);
+}
+/* 不可交互态必须真的不可交互：无 hover 反馈、无指针手型 */
+.pricing-tier-card.is-off:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--sb-border-strong);
 }
 .pricing-tier-top {
   display: flex;
@@ -274,73 +316,79 @@
   min-height: 22px;
 }
 .pricing-tier-eyebrow {
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--sb-text-2xs);
+  font-weight: var(--sb-weight-heavy);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--sb-ink-4);
 }
 .pricing-tier-badge {
-  font-size: 10px;
-  font-weight: 900;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-radius: 999px;
-  padding: 3px 9px;
+  font-size: var(--sb-text-2xs);
+  font-weight: var(--sb-weight-heavy);
+  color: var(--sb-ink-brand);
+  background: var(--sb-state-selected-bg);
+  border: 1px solid var(--sb-state-selected-line);
+  border-radius: var(--sb-radius-pill);
+  padding: 2px var(--sb-space-2);
 }
 .pricing-tier-name {
   font-size: 17px;
-  font-weight: 900;
-  color: var(--accent);
+  font-weight: var(--sb-weight-heavy);
+  /* D10：档位名是标题级文字，走中性最高对比墨色；
+     品牌紫是「交互主色」，留给主 CTA / 选中 / 焦点，不当装饰用。 */
+  color: var(--sb-ink-1);
   letter-spacing: -0.01em;
 }
 .pricing-tier-tagline {
   min-height: 34px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text-muted);
+  font-size: var(--sb-text-sm);
+  line-height: var(--sb-leading-normal);
+  color: var(--sb-ink-3);
 }
 .pricing-tier-price {
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: var(--sb-space-1);
 }
 .pricing-tier-price-tba {
   font-size: 14px;
-  font-weight: 800;
-  color: var(--text-hint);
+  font-weight: var(--sb-weight-heavy);
+  color: var(--sb-ink-4);
 }
 .pricing-tier-points {
-  font-size: 11px;
-  color: var(--text-faint);
-  line-height: 1.5;
+  font-size: var(--sb-text-xs);
+  /* 积分语义：积分属「数据高亮」，用信息语义墨色（D10 语义色当文字） */
+  color: var(--sb-ink-info);
+  font-weight: var(--sb-weight-semibold);
+  line-height: var(--sb-leading-normal);
 }
 
 /* ═══════ 价格排版 (大数 + 小单位) ═══════ */
 .pricing-price-row {
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: var(--sb-space-1);
 }
 .pricing-price-symbol {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: var(--sb-weight-heavy);
   align-self: flex-start;
   margin-top: 6px;
-  color: var(--accent);
+  color: var(--sb-ink-2);
 }
 .pricing-price-number {
   font-size: 36px;
-  font-weight: 900;
+  font-weight: var(--sb-weight-heavy);
   line-height: 1;
   letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  /* D10：金额是「关键数值」→ --sb-ink-1，暖底/白底双重达标 */
+  color: var(--sb-ink-1);
 }
 .pricing-price-unit {
-  font-size: 11.5px;
-  color: var(--text-faint);
-  font-weight: 600;
+  font-size: var(--sb-text-xs);
+  color: var(--sb-ink-4);
+  font-weight: var(--sb-weight-semibold);
   margin-left: 2px;
   align-self: flex-end;
   margin-bottom: 5px;
@@ -352,76 +400,96 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: var(--sb-space-2);
 }
 .pricing-bullet {
   display: flex;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.55;
+  gap: var(--sb-space-2);
+  font-size: var(--sb-text-sm);
+  color: var(--sb-ink-3);
+  line-height: var(--sb-leading-normal);
   align-items: flex-start;
 }
 .pricing-bullet-dot {
   width: 14px;
   height: 14px;
-  border-radius: 999px;
-  background: var(--accent-bg);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-state-selected-bg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-top: 3px;
   flex-shrink: 0;
   font-size: 9px;
-  color: var(--accent);
+  color: var(--sb-ink-brand);
   line-height: 1;
 }
 
 /* ═══════ 主按钮 (主操作, 全局共享基础) ═══════ */
+/* 主 CTA：品牌紫实底（D1）。描边宽度所有状态恒定 1px（D2）。 */
 .pricing-btn-primary {
   margin-top: auto;
-  min-height: 38px;
-  padding: 0 18px;
-  border-radius: 999px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--sb-neutral-0);
-  font-size: 13px;
-  font-weight: 800;
+  min-height: var(--sb-control-h-lg);
+  padding: 0 var(--sb-control-px-lg);
+  border-radius: var(--sb-radius-pill);
+  border: 1px solid var(--sb-brand);
+  background: var(--sb-brand);
+  color: var(--sb-ink-on-dark, #FFFFFF);
+  font-size: var(--sb-text-md);
+  font-weight: var(--sb-weight-heavy);
   font-family: inherit;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: transform var(--duration-fast) var(--ease),
-              box-shadow var(--duration-fast) var(--ease),
-              background var(--duration-fast) var(--ease);
+  gap: var(--sb-space-2);
+  transition: background-color var(--sb-dur-instant) var(--sb-ease-out),
+              border-color var(--sb-dur-instant) var(--sb-ease-out),
+              box-shadow var(--sb-dur-fast) var(--sb-ease-out),
+              transform var(--sb-dur-fast) var(--sb-ease-out);
 }
-.pricing-btn-primary:hover {
-  background: var(--accent-hover);
+.pricing-btn-primary:hover:not(:disabled) {
+  background: var(--sb-brand-700);
+  border-color: var(--sb-brand-700);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--sb-shadow-3);
 }
-.pricing-btn-primary:active {
+.pricing-btn-primary:active:not(:disabled) {
   transform: translateY(0) scale(0.985);
 }
-.pricing-btn-primary--lg {
-  min-height: 46px;
-  padding: 0 24px;
-  font-size: 14.5px;
+.pricing-btn-primary:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-focus-ring);
 }
+.pricing-btn-primary--lg {
+  min-height: var(--sb-control-h-xl);
+  padding: 0 var(--sb-control-px-xl);
+  font-size: var(--sb-text-lg);
+}
+/* ── 禁用按钮：真挂 disabled 属性 + 明确的禁用配色 ──────────────────
+   不用「只降透明度」——半透明会让禁用态看起来像可用的弱化版，
+   这里改用语义 token 的四件套（专用凹槽底 + 专用禁用墨色 + not-allowed 指针）。 */
+.pricing-btn-primary:disabled,
 .pricing-btn-muted {
   margin-top: auto;
-  min-height: 38px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-hover);
-  color: var(--text-faint);
-  font-size: 13px;
-  font-weight: 800;
+  min-height: var(--sb-control-h-lg);
+  /* 说明：本条同时服务两处 —— ① .pricing-btn-primary 的 disabled 伪类
+     ② 独立的 .pricing-btn-muted 类（即将上线档位复用同一套禁用观感）。 */
+  padding: 0 var(--sb-control-px-lg);
+  border-radius: var(--sb-radius-pill);
+  border: 1px solid var(--sb-border-default);
+  background: var(--sb-state-disabled-bg);
+  color: var(--sb-state-disabled-ink);
+  font-size: var(--sb-text-md);
+  font-weight: var(--sb-weight-bold);
   font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sb-space-2);
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* ── Ghost 按钮 (次要 CTA, 透明底) ── */
@@ -429,7 +497,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--sb-space-2);
   min-height: 38px;
   padding: 0 18px;
   border-radius: 999px;
@@ -529,108 +597,170 @@
 .pricing-pack-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--sb-space-4);
+  /* D9（The Lift Reservation Rule）：卡片 hover 时 translateY(-2px)，
+     推荐档 -4px，横向给足呼吸、纵向留出阴影扩散空间，
+     避免首行/末行卡片浮起时被裁断。 */
+  padding: var(--sb-lift-safe-x) 0;
+  margin: calc(-1 * var(--sb-lift-safe-x)) 0;
 }
+/* ── 积分套餐卡：六卡不能糊成一片 ──────────────────────────────────
+   主次三档（§「有主次、有状态」）：
+     ① 普通在售卡：L2 白面 + 中性描边 + shadow-2（克制）
+     ② 推荐档：品牌描边 + 品牌柔底 + shadow-4 + 抬升 + 专属角标（明显突出）
+     ③ 停用卡：暖灰凹槽底 + 虚线 + 去阴影 + 禁用配色（明确不可买）      */
 .pricing-pack-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 22px 18px 18px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--bg-card-solid);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: var(--shadow-sm);
+  gap: var(--sb-space-3);
+  padding: var(--sb-space-6) var(--sb-space-5) var(--sb-space-5);
+  /* D6：卡片圆角走 token（20 面板档），不再自造 */
+  border-radius: var(--sb-radius-2xl);
+  /* 描边宽度恒定 1px —— 推荐/选中态只换颜色，绝不改宽度（D2） */
+  border: 1px solid var(--sb-border-default);
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-2);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
   color: inherit;
   width: 100%;
-  transition: transform var(--duration-normal) var(--ease),
-              box-shadow var(--duration-normal) var(--ease),
-              border-color var(--duration-normal) var(--ease);
+  transition: box-shadow var(--sb-dur-normal) var(--sb-ease-out),
+              border-color var(--sb-dur-instant) var(--sb-ease-out),
+              background-color var(--sb-dur-instant) var(--sb-ease-out),
+              transform var(--sb-dur-fast) var(--sb-ease-out);
 }
-.pricing-pack-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-hover);
-  box-shadow: var(--shadow-lg);
+/* hover：只动海拔 + 描边色 + 位移（不改宽度 → 零抖动，D2/D9） */
+.pricing-pack-card:hover:not(.is-off) {
+  transform: translateY(-2px);
+  border-color: var(--sb-border-strong);
+  box-shadow: var(--sb-shadow-3);
 }
+.pricing-pack-card:active:not(.is-off) {
+  transform: translateY(0) scale(0.995);
+}
+/* 键盘焦点：统一走 --sb-focus-ring（box-shadow 环，不改布局） */
+.pricing-pack-card:focus-visible {
+  outline: 0 solid transparent;
+  box-shadow: var(--sb-focus-ring);
+}
+/* ── 推荐档：明显更突出 ──────────────────────────────────────────────
+   与普通卡拉开【四个可测维度】，而不是只加一个角标：
+     ① 海拔：shadow-4（普通卡 shadow-2）—— 投影更大更远
+     ② 抬升：translateY(-6px) —— 物理上「浮」在同行之上
+     ③ 描边：品牌紫描边（普通卡中性描边）
+     ④ 尺寸：略高（更大内边距）+ 更大字号价格 —— 视觉重心最高 */
 .pricing-pack-card.is-recommended {
-  border: 1px solid var(--accent);
-  box-shadow:
-    0 0 0 1px rgba(12, 10, 9, 0.06),
-    0 14px 36px rgba(57, 45, 26, 0.10);
-  transform: translateY(-3px);
+  border-color: var(--sb-brand-300);
+  background:
+    linear-gradient(180deg, var(--sb-brand-a05) 0%, transparent 46%),
+    var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-4);
+  /* 位移收敛到 -4px（= --sb-lift-card-lg 建议上限）；
+     推荐档靠「海拔 + 描边 + 字号 + 色带」表达主次，不靠超大位移。 */
+  transform: translateY(-4px);
 }
+/* 推荐档顶部品牌色带：一眼定位「该买哪张」 */
 .pricing-pack-card.is-recommended::before {
   content: '';
   position: absolute;
-  top: 0; left: 14px; right: 14px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(201, 162, 90, 0.55) 50%, transparent 100%);
+  top: 0;
+  left: var(--sb-space-5);
+  right: var(--sb-space-5);
+  height: 2px;
+  border-radius: 0 0 var(--sb-radius-xs) var(--sb-radius-xs);
+  background: var(--sb-brand-gradient);
   pointer-events: none;
 }
 .pricing-pack-card.is-recommended:hover {
   transform: translateY(-6px);
-  box-shadow:
-    0 0 0 1px rgba(12, 10, 9, 0.10),
-    0 24px 56px rgba(57, 45, 26, 0.20);
+  box-shadow: var(--sb-shadow-5);
+  border-color: var(--sb-brand-500);
 }
+.pricing-pack-card.is-recommended:focus-visible {
+  box-shadow: var(--sb-focus-ring), var(--sb-shadow-4);
+}
+/* 推荐档里的关键数值再放大一档，强化主次 */
+.pricing-pack-card.is-recommended .pricing-price-number {
+  font-size: 40px;
+}
+.pricing-pack-card.is-recommended .pricing-pack-name {
+  font-size: var(--sb-text-lg);
+  color: var(--sb-ink-brand);
+}
+/* 已选中的套餐卡：用 D2 的 ring 方案，边框宽度不变 */
+.pricing-pack-card.is-selected {
+  border-color: var(--sb-state-selected-line);
+  background: var(--sb-state-selected-bg);
+  box-shadow: var(--sb-shadow-ring), var(--sb-shadow-3);
+}
+/* ── 停用卡：真禁用（按钮 disabled + 不响应 hover + not-allowed 指针）── */
 .pricing-pack-card.is-off {
-  border: 1px dashed var(--border-hover);
-  opacity: 0.72;
+  border: 1px dashed var(--sb-border-strong);
+  background: var(--sb-surface-sunken);
+  box-shadow: none;
   cursor: not-allowed;
 }
-.pricing-pack-card.is-off:hover {
+.pricing-pack-card.is-off:hover,
+.pricing-pack-card.is-off:active {
   transform: none;
+  box-shadow: none;
+  border-color: var(--sb-border-strong);
 }
+.pricing-pack-card.is-off .pricing-pack-name { color: var(--sb-ink-3); }
+.pricing-pack-card.is-off .pricing-pack-desc,
+.pricing-pack-card.is-off .pricing-bullet { color: var(--sb-ink-3); }
+.pricing-pack-card.is-off .pricing-pack-cta { color: var(--sb-ink-3); }
+.pricing-pack-card.is-off .pricing-pack-icon { filter: grayscale(1); opacity: 0.55; }
+/* 推荐角标：品牌紫实底 + 品牌投影，是「推荐档更突出」的第一眼信号 */
 .pricing-recommend-badge {
   position: absolute;
-  top: -11px;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--sb-text-2xs);
+  font-weight: var(--sb-weight-heavy);
   letter-spacing: 0.10em;
-  color: var(--sb-neutral-0);
-  background: var(--accent);
-  padding: 4px 12px;
-  border-radius: 999px;
-  box-shadow: var(--shadow-sm);
+  color: var(--sb-ink-on-dark, #FFFFFF);
+  background: var(--sb-brand-gradient);
+  padding: 4px var(--sb-space-3);
+  border-radius: var(--sb-radius-pill);
+  box-shadow: var(--sb-brand-shadow);
   white-space: nowrap;
+  z-index: var(--sb-z-raised);
 }
 .pricing-pack-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sb-space-2);
 }
 .pricing-pack-icon {
   width: 36px;
   height: 36px;
-  border-radius: 12px;
+  /* D6：内层 = 外层 − 内边距 → 12px 档 */
+  border-radius: var(--sb-radius-lg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(12, 10, 9, 0.06);
+  box-shadow: var(--sb-shadow-1);
 }
 .pricing-pack-titles {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sb-space-1);
 }
 .pricing-pack-name {
-  font-size: 15px;
-  font-weight: 900;
-  color: var(--text-primary);
+  font-size: var(--sb-text-lg);
+  font-weight: var(--sb-weight-heavy);
+  color: var(--sb-ink-1);
   letter-spacing: -0.01em;
 }
 .pricing-pack-tag {
-  font-size: 10.5px;
-  font-weight: 800;
-  color: var(--text-faint);
+  font-size: var(--sb-text-2xs);
+  font-weight: var(--sb-weight-bold);
+  color: var(--sb-ink-4);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -638,23 +768,26 @@
   margin-top: 2px;
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: var(--sb-space-1);
 }
+/* 积分赠量：积分是「数据高亮」→ 用品牌浅底 + 品牌墨色，与金额形成二级层次 */
 .pricing-pack-grant {
   display: inline-block;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-radius: 8px;
-  padding: 4px 8px;
+  font-size: var(--sb-text-sm);
+  font-weight: var(--sb-weight-heavy);
+  color: var(--sb-ink-brand);
+  background: var(--sb-state-selected-bg);
+  border: 1px solid var(--sb-state-selected-line);
+  border-radius: var(--sb-radius-md);
+  padding: 4px var(--sb-space-2);
   align-self: flex-start;
+  font-variant-numeric: tabular-nums;
 }
 .pricing-pack-desc {
   margin: 0;
-  font-size: 11.5px;
-  color: var(--text-muted);
-  line-height: 1.55;
+  font-size: var(--sb-text-xs);
+  color: var(--sb-ink-3);
+  line-height: var(--sb-leading-normal);
   min-height: 32px;
 }
 .pricing-pack-cta {
@@ -662,17 +795,19 @@
   padding-top: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: var(--accent);
+  gap: var(--sb-space-1);
+  font-size: var(--sb-text-sm);
+  font-weight: var(--sb-weight-heavy);
+  /* CTA 是「品牌动作」→ 品牌墨色 */
+  color: var(--sb-ink-brand);
 }
+.pricing-pack-card.is-off .pricing-pack-cta { color: var(--sb-state-disabled-ink); }
 
 /* ═══════ 月卡 2 档 (单独行) ═══════ */
 .pricing-monthpack-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--sb-space-4);
   max-width: 720px;
 }
 
@@ -680,7 +815,7 @@
 .pricing-pay-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  gap: var(--sb-space-4);
 }
 .pricing-pay-card {
   position: relative;
@@ -693,7 +828,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--sb-space-2);
   box-shadow: var(--shadow-sm);
   transition: transform var(--duration-fast) var(--ease),
               border-color var(--duration-fast) var(--ease);
@@ -730,7 +865,7 @@
 .pricing-pay-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--sb-space-2);
   font-size: 10.5px;
   font-weight: 800;
   color: var(--text-muted);
@@ -792,7 +927,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: var(--sb-space-4);
   padding: 15px 2px;
   font-weight: 700;
   font-size: 14px;
@@ -855,10 +990,12 @@
 .pricing-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99999;
-  background: rgba(12, 10, 9, 0.46);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* z-index 走语义阶梯（D4 之后禁止裸值） */
+  z-index: var(--sb-z-modal);
+  /* 遮罩走 token（D4：暖黑，不用纯黑 rgba(0,0,0,α)） */
+  background: var(--sb-scrim);
+  backdrop-filter: blur(var(--sb-blur-overlay));
+  -webkit-backdrop-filter: blur(var(--sb-blur-overlay));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -866,14 +1003,15 @@
 }
 .pricing-modal-panel {
   position: relative;
-  background: var(--bg-elevated);
-  border-radius: 22px;
+  background: var(--sb-surface-panel-solid);
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: var(--sb-radius-3xl);
   max-width: 420px;
   width: 100%;
-  padding: 26px 24px 22px;
+  padding: var(--sb-space-6) var(--sb-space-6) var(--sb-space-5);
   text-align: center;
-  box-shadow: var(--shadow-xl);
-  animation: pricingScaleIn var(--duration-normal) var(--ease-out);
+  box-shadow: var(--sb-shadow-5);
+  animation: pricingScaleIn var(--sb-dur-normal) var(--sb-ease-out);
 }
 @keyframes pricingScaleIn {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
@@ -885,21 +1023,21 @@
   right: 14px;
   width: 30px;
   height: 30px;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill);
   border: 0;
-  background: var(--bg-hover);
-  color: var(--text-muted);
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font-family: inherit;
-  transition: background var(--duration-fast) var(--ease),
-              color var(--duration-fast) var(--ease);
+  transition: background-color var(--sb-dur-instant) var(--sb-ease-out),
+              color var(--sb-dur-instant) var(--sb-ease-out);
 }
 .pricing-modal-close:hover {
-  background: var(--border-hover);
-  color: var(--text-primary);
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
 }
 .pricing-modal-title {
   margin: 0 0 4px;
@@ -915,14 +1053,14 @@
 }
 .pricing-modal-providers {
   display: grid;
-  gap: 10px;
+  gap: var(--sb-space-2);
   margin-bottom: 4px;
 }
 .pricing-modal-provider-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--sb-space-2);
   min-height: 46px;
   padding: 0 16px;
   border-radius: 14px;
@@ -1026,27 +1164,64 @@
   background: rgba(245, 222, 169, 0.08);
 }
 
-/* ═══════ "即将上线" 胶囊 ═══════ */
+/* ═══════「即将上线」状态徽标 ═══════
+   要求「一眼可辨」——不再只靠 1px 虚线，而是 ① 实心高对比徽标
+   ② 卡片整体降级到凹槽底（见 .is-off）③ 按钮真 disabled。
+   语义走 warning 四件套（预告/待开放 = 警告语义），而不是自造金色硬编码。 */
 .pricing-soon-pill {
-  font-size: 10px;
-  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sb-space-1);
+  font-size: var(--sb-text-2xs);
+  font-weight: var(--sb-weight-heavy);
   letter-spacing: 0.04em;
-  color: #B8862C;
-  background: rgba(201, 162, 90, 0.10);
-  border: 1px solid rgba(201, 162, 90, 0.32);
-  border-radius: 999px;
-  padding: 3px 9px;
+  /* D10：语义色作文字用 --sb-ink-warning（已按暖底调深） */
+  color: var(--sb-ink-warning);
+  background: var(--sb-warning-soft);
+  border: 1px solid var(--sb-warning-border);
+  border-radius: var(--sb-radius-pill);
+  padding: 3px var(--sb-space-2);
+  white-space: nowrap;
 }
+.pricing-soon-pill::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-warning);
+  flex-shrink: 0;
+}
+/* ⚠️ 暗色覆写是**必需**的，不是可选优化：
+   design-tokens-v3.css 的暗色块只重定义了 --sb-warning / --sb-ink-warning，
+   而 --sb-warning-soft / --sb-warning-border 仍继承亮色（近乎白的浅金底），
+   实测暗色下徽标只有 ≈1.5:1 对比度（浅金底 + 浅金字），完全不可读。
+   这里改用暗色语义组合：半透明暖金底（--sb-warning-ring）+ 亮金描边。
+   注：本注释不写死色值 —— 棘轮按字面统计 hex，注释里的色值同样计入新增硬编码。 */
 [data-theme="dark"] .pricing-soon-pill {
-  color: #F5DEA9;
-  background: rgba(245, 222, 169, 0.10);
-  border-color: rgba(245, 222, 169, 0.32);
+  color: var(--sb-ink-warning);
+  background: var(--sb-warning-ring);
+  border-color: var(--sb-warning);
+}
+/* 即将上线的卡片对外明确「不可点击」：整卡遮挡指针语义 */
+.pricing-tier-card.is-off .pricing-soon-pill {
+  color: var(--sb-ink-warning);
 }
 
-/* ═══════ 焦点可见性 ═══════ */
+/* ═══════ 焦点可见性（D11：键盘可达是硬门槛）═══════
+   UA 默认轮廓以 0 宽度 + 透明色关闭（与项目审计口径一致），
+   可见焦点统一由 --sb-focus-ring 的 box-shadow 环承担 —— 不改布局、不抖。 */
 .pricing-page :focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: 0 solid transparent;
+  outline-offset: var(--sb-focus-ring-offset);
+}
+.pricing-page :focus-visible {
+  box-shadow: var(--sb-focus-ring);
+}
+/* 例外：主 CTA / 卡片自带更高层级阴影，环要叠在它们之上而不是被覆盖 */
+.pricing-modal-close:focus-visible,
+.pricing-modal-secondary:focus-visible,
+.pricing-modal-provider-btn:focus-visible {
+  box-shadow: var(--sb-focus-ring);
 }
 
 /* ═══════ 响应式 · 桌面 4 档 → 平板 2x2 → 移动 1 档 ═══════ */
@@ -1070,7 +1245,8 @@
   }
   .pricing-pack-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    /* 单列时卡片间距必须 ≥ 推荐角标外悬(11px)，否则角标会贴到上一张卡 */
+    gap: var(--sb-space-5);
   }
   .pricing-monthpack-grid {
     grid-template-columns: 1fr;
@@ -1090,7 +1266,7 @@
     width: 100%;
   }
   .pricing-trust-strip {
-    gap: 6px;
+    gap: var(--sb-space-2);
   }
   .pricing-trust-item {
     font-size: 11px;
