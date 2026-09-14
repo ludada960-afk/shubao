@@ -42,6 +42,8 @@ export default function EcAutoPage() {
   const workVersion = Number(state._workVersion || 0);
   const [platform, setPlatform] = useState('淘宝');
   const [input, setInput] = useState('');
+  /* D11 键盘可达：输入区 textarea 抑制了 UA 轮廓，焦点可见性由外层容器承担 */
+  const [focused, setInputFocused] = useState(false);
   const [genState, setGenState] = useState('idle'); // idle | generating | done
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
@@ -292,14 +294,18 @@ export default function EcAutoPage() {
           </div>
         </div>
 
-        {/* 输入区 */}
+        {/* 输入区 —— D11：无边框 textarea 的焦点可见性由容器承担（焦点环落在外层卡片，
+             既清晰可见，又不改动 textarea 自身的盒模型） */}
         <div style={{
           background: '#fff', borderRadius: 14, padding: 20,
-          boxShadow: '0 1px 6px rgba(12,10,9,0.04)',
+          boxShadow: focused ? 'var(--sb-shadow-ring)' : '0 1px 6px rgba(12,10,9,0.04)',
           border: '1px solid #eee',
           marginBottom: 16,
+          transition: 'box-shadow var(--duration-fast, 160ms) ease',
         }}>
           <textarea ref={textRef}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             value={input} onChange={e => setInput(e.target.value)}
             placeholder={platform === '亚马逊' ? '输入商品英文描述...\n\n例如：Stainless steel water bottle 500ml, minimalist design'
               : `描述你的商品，AI自动生成全套商品图...\n\n短句：白色陶瓷杯简约风办公用、无线蓝牙耳机入耳式\n或输入详细描述，AI按需求生成全套商品图`}
