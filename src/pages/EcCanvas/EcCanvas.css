@@ -680,10 +680,127 @@
 .ec-canvas-video-mode-tabs small { overflow: hidden; color: #7c8591; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-video-material-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 12px 0; }
 .ec-canvas-video-material-grid .ec-canvas-composer-sources, .ec-canvas-video-material-grid .ec-canvas-video-sources { min-width: 0; padding: 0; }
-.ec-canvas-video-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; border-top: 1px solid #edf0f3; }
-.ec-canvas-video-controls label { display: grid; gap: 5px; color: #69727d; font-size: 11px; font-weight: 700; }
-.ec-canvas-video-controls select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; color: #20242a; }
-.ec-canvas-video-controls .is-toggle { display: flex; align-items: center; justify-content: center; flex-direction: row; gap: 6px; padding-top: 16px; }
+/* ═══ 2026-09-17 视频参数行重做（用户两条批注一并解决）═══════════════════════
+   批注①「技能按钮是歪的、跟其他四个按钮规则都不一样：其他四个都是上面标题、
+          下面一个选项，你这个都没有这个逻辑」→ 技能改成一模一样的两行结构。
+   批注②「@ 键直接放在最前面（视频模型前面）；其他按钮做得太宽了要缩一下；
+          技能又做得特别窄，全部重新适配一遍」→ @ 移到第一位、宽度按内容收敛。
+
+   布局：单行 flex（原来 3 列 grid 会把六项排两行、且技能脱离网格就对不齐）；
+   每个控件都是「标题在上 + 控件在下」两行，标题顶 / 控件顶 / 行高天然一致。
+   宽度按内容收敛（flex: 0 1 auto + 内容宽度），不再一律 1fr 撑满。 */
+.ec-canvas-video-controls {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--cvl-sp2, 8px);
+  padding: var(--cvl-sp3, 12px);
+  border-top: 1px solid #edf0f3;
+  /* 关键：让本行宽度 = 生成框宽度（box-sizing 保证 padding 不再把行撑宽）。
+     实测原来 clientWidth 638 > 容器 434 —— 行自己撑出去了，
+     再靠子项收缩也救不回来；锁定 border-box 后行宽才真正等于容器宽。 */
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+/* 统一的「标题 + 控件」两行结构：六项（含技能与引用）共用同一条规则 */
+.ec-canvas-video-controls > label,
+.ec-canvas-video-controls > .ec-canvas-parameter-item {
+  display: grid;
+  gap: var(--cvl-sp1, 4px);
+  min-width: 0;
+  color: #69727d;
+  font-size: var(--cvl-font-helper, 11px);
+  font-weight: 700;
+  line-height: 1.4;
+}
+/* 宽度按内容收敛，不撑满：模型最长、时长最短，各自的 select 由内容决定但设上限 */
+.ec-canvas-video-controls > label { flex: 0 1 auto; }
+.ec-canvas-video-controls select {
+  min-width: 0;
+  width: 100%;
+  height: var(--cvl-control-compact, 32px);
+  padding: 0 var(--cvl-sp2, 8px);
+  border: 1px solid #dfe3e8;
+  border-radius: var(--cvl-radius-control, 8px);
+  background: #fff;
+  color: #20242a;
+  font-size: var(--cvl-font-body, 12px);
+}
+/* 各控件按**内容**收敛 + 整行不换行不溢出（用户批注「其他按钮都做得太宽了，
+   要尽量再缩一下；技能又做得特别窄；你全部要重新再适配一遍」）。
+
+   实测两难：六项都按内容自由伸缩时总宽 638px > 容器 434px → 溢出。
+   所以采用「按内容分配 + 可收缩」：每项 flex: 0 1 auto 且 basis 按内容权重给，
+   整行 flex-wrap: nowrap，超宽由各项**等比收缩**（min-width:0 + select 100% + 省略号），
+   保证不换行、不溢出、不互相挤压。
+   权重依据实际内容长度：模型名最长（Seedance 2.0 标准 · 正式交付）> 清晰度 > 时长 ≈ 画幅 > 技能 > 引用。 */
+.ec-canvas-video-controls > label { flex: 0 1 auto; min-width: 0; }
+.ec-canvas-video-controls > label > select { width: 100%; min-width: 0; }
+/* 模型：内容最长，给最大的收缩权重，但设上限避免它吃掉整行 */
+.ec-canvas-video-controls > label:nth-of-type(2) { flex: 0 1 156px; }
+.ec-canvas-video-controls > label:nth-of-type(3) { flex: 0 1 84px; }
+.ec-canvas-video-controls > label:nth-of-type(4) { flex: 0 1 68px; }
+.ec-canvas-video-controls > label:nth-of-type(5) { flex: 0 1 72px; }
+/* 技能：不再特别窄 —— 给足一个汉字标题 + 图标 + 文字的宽度 */
+.ec-canvas-video-controls > label:nth-of-type(6) { flex: 0 1 88px; }
+/* 引用（@）放最前，只有一个圆形按钮，固定窄列，不参与收缩 */
+.ec-canvas-video-controls > label.is-mention { flex: 0 0 auto; }
+/* 声音：固定窄列 */
+.ec-canvas-video-controls > .is-toggle { flex: 0 0 auto; }
+.ec-canvas-video-controls > label > span,
+.ec-canvas-video-controls > label:not(.is-toggle) { white-space: nowrap; }
+/* @ 引用放最前面：宽度最窄（只有一个圆形按钮），不抢参数的位置 */
+.ec-canvas-video-controls > label.is-mention { flex: 0 0 auto; }
+.ec-canvas-video-controls > label.is-mention > span { margin-bottom: 0; }
+/* 技能：与其它项同结构，宽度按内容（不再特别窄，也不撑满） */
+.ec-canvas-video-controls > label > .ec-canvas-parameter-item { min-width: 0; }
+.ec-canvas-video-controls > label > .ec-canvas-parameter-item > button {
+  width: 100%;
+  min-width: 0;
+  height: var(--cvl-control-compact, 32px);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+/* 声音开关：与其它项同高同基线（原来是 flex + padding-top 硬顶，容易歪） */
+.ec-canvas-video-controls > .is-toggle {
+  display: grid;
+  grid-template-rows: auto var(--cvl-control-compact, 32px);
+  align-items: center;
+  justify-items: start;
+  gap: var(--cvl-sp1, 4px);
+  flex: 0 0 auto;
+}
+.ec-canvas-video-controls > .is-toggle > .ec-canvas-video-toggle-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cvl-sp1, 4px);
+  /* 与其余控件同高同顶：原来 checkbox 行内居中会让它比 select 低 5px（实测 830 vs 825） */
+  height: var(--cvl-control-compact, 32px);
+  align-self: start;
+  color: #20242a;
+}
+/* 实测：checkbox 在 inline-flex 里按**文字基线**对齐，顶边比 select 低 5px（830 vs 825）。
+   与其和基线算法较劲，不如让它和其余控件**结构完全一样**：
+   控件盒子固定 32 高、checkbox 在其中垂直居中 → 与 select 的顶边天然一致。
+   （select 也是 32 高的盒子，两者同为"32 高、内容居中"。） */
+.ec-canvas-video-controls > .is-toggle > .ec-canvas-video-toggle-control {
+  display: flex;
+  align-items: center;
+  height: var(--cvl-control-compact, 32px);
+  min-height: var(--cvl-control-compact, 32px);
+  line-height: 1;
+}
+.ec-canvas-video-controls > .is-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--canvas-command);
+}
 .ec-canvas-video-actions { display: inline-flex; align-items: center; gap: 6px; }
 .ec-canvas-video-plan-trigger { min-height: 30px; padding: 0 9px; border: 1px solid #d9d2ff; border-radius: 6px; background: #faf8ff; color: #6354cb; font: 10px inherit; cursor: pointer; }
 .ec-canvas-video-plan-trigger:hover { border-color: #7869e8; background: #f2efff; }
