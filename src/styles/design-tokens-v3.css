@@ -1,179 +1,593 @@
-/* ══════════════════════════════════════════════════════════════════════
-   薯包AI · Design Tokens V3（--sb- 命名空间 · 纯新增 · 不覆盖现有变量）
-   ─────────────────────────────────────────────────────────────────────
-   总统筹落定 v0.1（2026-09-15）：这是全站唯一的视觉取值来源。
-   规范解释与逐色迁移表见 docs/design/00-principles.md 与 10-visual-language.md。
+/* ═══════════════════════════════════════════════════════════════════════════
+   薯包AI · 设计系统 Token（V3 / Design System v1）
+   ───────────────────────────────────────────────────────────────────────────
+   文件：src/styles/design-tokens.css 的【纯新增】兄弟文件。
+   引入方式（由后续落地 agent 在 src/main.jsx 追加一行，位于原 tokens 之后）：
+       import './styles/design-tokens.css';
+       import './styles/sb-tokens.css';   // ← 本文件，必须在其后
+
    铁律：
-   ① 本文件只新增 --sb-* 变量；绝不修改/删除 V2 的 --accent/--bg/... （避免全站一次性变色）
-   ② 组件里禁止再写硬编码 hex；一律引用本文件 token
-   ③ 品牌色是稀缺资源：只用于 主 CTA / 选中态 / focus ring / 激活图标 / 关键数字
-   ══════════════════════════════════════════════════════════════════════ */
+   1. 本文件只新增 --sb-* 命名空间的变量与 .sb-* / .ds-* 工具类。
+   2. 绝不重定义、覆盖或删除 design-tokens.css 里已有的 --bg / --accent / --text-* 等变量。
+   3. 绝不使用 !important 去改写既有页面样式。
+   4. 删掉本文件后，现有全站渲染必须与今天完全一致（零回归保证）。
+
+   规范文档：docs/design/10-visual-language.md
+   组件规范：docs/design/20-components.md
+   本文件在规范里的对应章节：10-visual-language.md §1 使用方式
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── 1. 品牌紫（主色阶 · 取值收敛自现有 110 处硬编码 #7c3aed 系） ── */
-  --sb-brand:            #7C3AED;   /* 主色：主 CTA / 选中 / 激活 */
-  --sb-brand-hover:      #6D28D9;   /* 悬停加深 */
-  --sb-brand-active:     #5B21B6;   /* 按下 */
-  --sb-brand-strong:     #4C1D95;   /* 深字（紫底上做强调字用） */
-  --sb-brand-soft:       #A78BFA;   /* 浅紫：装饰/图表/次级强调 */
-  --sb-brand-wash:       #F5F3FF;   /* 极浅紫底：选中区/标签底 */
-  --sb-brand-line:       #DDD6FE;   /* 浅紫描边：选中描边 */
-  --sb-brand-ring:       rgba(124, 58, 237, 0.32); /* focus ring */
-  --sb-brand-ink:        #FFFFFF;   /* 紫底上的文字 */
-  /* 品牌渐变：仅限品牌时刻（logo / hero / 空态插画）。禁止用于功能按钮 */
+  /* ══════════════════════════════════════════════════════════════════════════
+     §1 色板 · 品牌（Brand）
+     品牌紫系。默认「未锁定 / 中性」——即未选中、非激活、未付费的控件
+     一律不得使用品牌紫。品牌紫只出现在：primary 按钮、当前选中项、
+     当前焦点环、以及 brand 语义文字（≤10% 屏幕面积）。
+     依据：docs/design/00-principles.md §6 色彩语义
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-brand-50:  #F5F3FF;
+  --sb-brand-100: #EDE9FE;
+  --sb-brand-200: #DDD6FE;
+  --sb-brand-300: #C4B5FD;
+  --sb-brand-400: #A78BFA;
+  --sb-brand-500: #8B5CF6;   /* 品牌主色，用于图标 / 选中描边 */
+  --sb-brand-600: #7C3AED;   /* 【现状锚点】全站出现 67 次，主 CTA 渐变起点 */
+  --sb-brand-700: #6D28D9;
+  --sb-brand-800: #5B21B6;
+  --sb-brand-900: #4C1D95;
+
+  --sb-brand:            var(--sb-brand-600);
+  --sb-brand-strong:     var(--sb-brand-700);  /* hover 压深 */
+  --sb-brand-soft:       #F5F3FF;              /* 选中态浅底（= brand-50） */
+  --sb-brand-border:     #C4B5FD;              /* 选中态描边（= brand-300） */
+  --sb-brand-ring:       rgba(124, 58, 237, 0.32);
+  --sb-brand-shadow:     0 2px 8px rgba(124, 58, 237, 0.16);
+  --sb-brand-shadow-lg:  0 6px 20px rgba(124, 58, 237, 0.24);
+  --sb-brand-gradient:   linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%);
+  --sb-brand-gradient-3: linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F59E0B 100%);
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §2 色板 · 中性（Neutral）
+     暖灰系，色相锚定在 ~30°（暖米白），与 --bg: #F5EFE4 家族一致。
+     这是「暖白轻奢」的品牌基底，禁止换成冷灰（Tailwind slate/gray）。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-neutral-0:   #FFFFFF;
+  --sb-neutral-25:  #FDFBF7;   /* 悬浮层最亮面 */
+  --sb-neutral-50:  #FAF7F2;   /* 【现状锚点】EcMode 暖黄卡片底色 */
+  --sb-neutral-100: #F5F1EA;   /* 分组底 / 次级表面 */
+  --sb-neutral-150: #EFEAE1;   /* 输入框凹槽底 */
+  --sb-neutral-200: #E7E3DD;   /* 强分割线 */
+  --sb-neutral-300: #D6D1C9;   /* 控件描边（可见） */
+  --sb-neutral-400: #B0AAA5;   /* 禁用文字（= 现 --text-faint） */
+  --sb-neutral-500: #9A9490;   /* 提示文字（= 现 --text-hint） */
+  --sb-neutral-600: #6B6560;   /* 辅助文字（= 现 --text-muted，86 次使用） */
+  --sb-neutral-700: #3D3835;   /* 正文（= 现 --text-secondary，49 次使用） */
+  --sb-neutral-800: #1A1614;   /* 标题（= 现 --text-primary） */
+  --sb-neutral-900: #0C0A09;   /* 强调黑（= 现 --accent） */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §3 色板 · 表面（Surface）— 嵌套层级的核心
+     五级表面，数字越大越「靠前」。嵌套规则见 00-principles.md §3。
+     铁律：相邻两级表面必须至少拉开 1 级；不得跨级嵌套（L2 里直接放 L4）。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-surface-page:     var(--sb-neutral-50);         /* L0 页面底 —— 注意：现状 --bg 是 #F5EFE4，更暖 */
+  --sb-surface-panel:    rgba(255, 255, 255, 0.85);    /* L1 浮层面板（毛玻璃底） */
+  --sb-surface-panel-solid: #FFFFFF;                   /* L1 浮层面板（不透明降级） */
+  --sb-surface-card:     #FFFFFF;                      /* L2 卡片 */
+  --sb-surface-sunken:   var(--sb-neutral-150);        /* L2- 凹槽/输入框底 */
+  --sb-surface-tint:     rgba(12, 10, 9, 0.03);        /* L3 轻着色（选中行 / 分组头） */
+  --sb-surface-tint-strong: rgba(12, 10, 9, 0.06);     /* L3 强着色 */
+  --sb-surface-inverse:  var(--sb-neutral-900);        /* 反色面（深色 chip / 主 CTA） */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §4 色板 · 文字（Ink）
+     「什么时候用彩色字」的判定表见 00-principles.md §6。
+     简版：只有 ①品牌动作 ②状态语义 ③数据高亮 三种情况允许彩色字，
+     其余一律中性。禁止用彩色字做装饰。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-ink-1: var(--sb-neutral-800);  /* 标题 / 关键数值 */
+  --sb-ink-2: var(--sb-neutral-700);  /* 正文 */
+  --sb-ink-3: var(--sb-neutral-600);  /* 辅助说明 / 标签 */
+  --sb-ink-4: var(--sb-neutral-500);  /* 提示 / placeholder（对比度 4.6:1 on white ✅） */
+  --sb-ink-5: var(--sb-neutral-400);  /* 禁用文字（对比度 2.9:1，禁止用于正文） */
+  --sb-ink-on-dark: #FFFFFF;
+  --sb-ink-brand:   var(--sb-brand-600);   /* 品牌动作文字 */
+  --sb-ink-danger:  #D0443C;               /* 危险动作文字（≥4.5:1） */
+  --sb-ink-success: #2F7D46;
+  --sb-ink-warning: #B45309;
+  --sb-ink-info:    #3B5BA5;
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §5 色板 · 语义状态（Semantic）
+     每个状态 = 一组四件套：solid(实底) / soft(浅底) / border(描边) / ink(文字)
+     ══════════════════════════════════════════════════════════════════════════ */
+  /* 危险 / 删除 —— 【现状锚点】--red: #E8544B 全站 46 次 */
+  --sb-danger:        #E8544B;
+  --sb-danger-hover:  #D0443C;
+  --sb-danger-soft:   #FEF2F0;
+  --sb-danger-border: #F6C9C4;
+  --sb-danger-ring:   rgba(232, 84, 75, 0.30);
+
+  /* 成功 —— 【现状锚点】--green: #5CA86C */
+  --sb-success:        #5CA86C;
+  --sb-success-hover:  #4A9059;
+  --sb-success-soft:   #F0F9F2;
+  --sb-success-border: #C3E3CB;
+  --sb-success-ring:   rgba(92, 168, 108, 0.30);
+
+  /* 警告 —— ⚠️ 现状【没有】警告色 token，散落为 #f59e0b / #e67e22，需收编 */
+  --sb-warning:        #E08A2E;
+  --sb-warning-hover:  #C6761F;
+  --sb-warning-soft:   #FDF6EC;
+  --sb-warning-border: #F2D9B0;
+  --sb-warning-ring:   rgba(224, 138, 46, 0.30);
+
+  /* 信息 —— 【现状锚点】--blue: #5275CC */
+  --sb-info:        #5275CC;
+  --sb-info-hover:  #4262B4;
+  --sb-info-soft:   #F0F4FD;
+  --sb-info-border: #C2D0EE;
+  --sb-info-ring:   rgba(82, 117, 204, 0.30);
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §6 边框（Border）
+     「无边框优先」：能靠表面色差分层就不要画线。
+     画线时只用这三档，禁止用纯黑 rgba(0,0,0,x)。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-border-subtle:  rgba(12, 10, 9, 0.06);   /* 组内分隔（最弱） */
+  --sb-border-default: rgba(12, 10, 9, 0.10);   /* 控件描边（默认） */
+  --sb-border-strong:  rgba(12, 10, 9, 0.16);   /* 强调描边 / hover */
+  --sb-border-focus:   var(--sb-brand-500);     /* 焦点描边 */
+  --sb-border-inverse: rgba(255, 255, 255, 0.70); /* 玻璃面上的白描边 */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §7 排版（Typography）
+     现状字号极度碎片化：实测出现 12/11/13/10/14/15/9/16/18/20/8/24/22/28/
+     17/12.5/26/48/56/14.5/30/36/38/7 px 共 24 种（见
+     _research/audit-home-css.md）。本阶梯把它收敛到 8 档，映射表见
+     10-visual-language.md §「现有值 → 新 token 映射」。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+                  'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', Arial, sans-serif;
+  --sb-font-display: 'Fredoka', 'ZCOOL KuaiLe', -apple-system, 'PingFang SC',
+                     'Microsoft YaHei', sans-serif;
+  --sb-font-mono: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+
+  --sb-text-2xs: 10px;   /* 角标 / 极度次要（仅限非正文，对比度须自检） */
+  --sb-text-xs:  11px;   /* 元信息 / 说明文字 */
+  --sb-text-sm:  12px;   /* UI 标签 / 控件文字 —— 全站最高频（137 次） */
+  --sb-text-md:  13px;   /* 面板正文 / 按钮（101+91 次） */
+  --sb-text-lg:  15px;   /* 强调正文 / 大按钮 */
+  --sb-text-xl:  18px;   /* 小节标题 */
+  --sb-text-2xl: 24px;   /* 页面标题 */
+  --sb-text-3xl: 32px;   /* 区块标题 */
+  --sb-text-4xl: 48px;   /* Hero（桌面） */
+
+  --sb-weight-regular:  400;
+  --sb-weight-medium:   500;
+  --sb-weight-semibold: 600;
+  --sb-weight-bold:     700;
+  --sb-weight-heavy:    800;
+
+  --sb-leading-tight:   1.25;   /* 标题 */
+  --sb-leading-snug:    1.4;    /* 控件内文字 */
+  --sb-leading-normal:  1.5;    /* 正文 */
+  --sb-leading-relaxed: 1.65;   /* 长文 */
+
+  --sb-tracking-tight:   -0.01em;  /* 大标题；底线 -0.04em，再紧就是事故 */
+  --sb-tracking-normal:  0;
+  --sb-tracking-label:   0.02em;   /* 小字号补偿 */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §8 间距（Spacing）— 4px 基数
+     继承项目既有阶梯 4/8/12/16/20/24，向上补到 64。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-space-0:  0;
+  --sb-space-1:  4px;
+  --sb-space-2:  8px;
+  --sb-space-3:  12px;   /* 【现状锚点】最高频 gap */
+  --sb-space-4:  16px;
+  --sb-space-5:  20px;
+  --sb-space-6:  24px;
+  --sb-space-8:  32px;
+  --sb-space-10: 40px;
+  --sb-space-12: 48px;
+  --sb-space-16: 64px;
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §9 圆角（Radius）— 嵌套圆角公式
+     ⚠️ 现状冲突：design-tokens.css 定义 --radius-md:16px / --radius-lg:30px /
+        --radius-xl:40px（灵图「超圆角」），但面板代码里 --radius-md 实际被
+        当作 8px 用。本文件用 --sb-radius-* 重新锚定，语义明确。
+     嵌套公式（见 00-principles.md §4）：内层半径 = 外层半径 − 内边距
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-radius-xs:   4px;    /* 微型徽标 / 进度条 */
+  --sb-radius-sm:   6px;    /* 小图标容器 / 复选 20px 格 */
+  --sb-radius-md:   8px;    /* 【默认】输入框 / 小 chip / 菜单项 */
+  --sb-radius-lg:   12px;   /* 选项卡 / 中按钮 / 内层卡片 */
+  --sb-radius-xl:   16px;   /* 卡片 / 面板内分组 */
+  --sb-radius-2xl:  20px;   /* 【现状锚点】浮层面板（EcMode GLASS_PANEL = 20） */
+  --sb-radius-3xl:  24px;   /* 大容器 */
+  --sb-radius-pill: 9999px; /* 胶囊：主 CTA / 平台 chip / 导航项 */
+
+  /* 「浮层面板 20px 内嵌卡片 ⇒ 内层 12px」的两级嵌套预设 */
+  --sb-radius-nested-outer: var(--sb-radius-2xl);  /* 20px */
+  --sb-radius-nested-inner: var(--sb-radius-lg);   /* 12px */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §10 阴影 / 海拔（Elevation）
+     暖棕投影 rgba(57,45,26,·) —— 继承现有品牌调性，禁止改用冷灰 rgba(0,0,0,·)
+     到面板层级。海拔阶梯 0–5，见 10-visual-language.md §11。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-shadow-0: none;
+  --sb-shadow-1: 0 1px 2px rgba(57, 45, 26, 0.05);                       /* 静态卡片 / 输入框 */
+  --sb-shadow-2: 0 1px 3px rgba(57, 45, 26, 0.07),
+                 0 2px 8px rgba(57, 45, 26, 0.05);                       /* 可点卡片 rest */
+  --sb-shadow-3: 0 4px 16px rgba(57, 45, 26, 0.10);                      /* dropdown / popover */
+  --sb-shadow-4: 0 12px 36px rgba(57, 45, 26, 0.13),
+                 0 2px 8px rgba(57, 45, 26, 0.06);                       /* 浮层面板 */
+  --sb-shadow-5: 0 28px 90px rgba(57, 45, 26, 0.16),
+                 0 8px 24px rgba(57, 45, 26, 0.08);                      /* modal / 全屏抽屉 */
+  --sb-shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.90);       /* 玻璃面高光 */
+  --sb-shadow-ring: 0 0 0 3px var(--sb-brand-ring);                      /* 焦点环（外扩） */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §11 毛玻璃（Backdrop）— 正当使用白名单
+     仅允许 3 处使用 backdrop-filter：
+       ① .sb-panel     浮在内容之上的参数面板
+       ② .sb-overlay-bar 浮在画布/图片之上的工具条
+       ③ .sb-nav       吸顶导航
+     禁止用于：普通卡片、列表项、按钮（见 00-principles.md §7）
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-blur-nav:    24px;
+  --sb-blur-panel:  24px;   /* 现状 GLASS_PANEL 用 40px —— 过度，收敛到 24 */
+  --sb-blur-bar:    16px;
+  --sb-blur-overlay: 4px;   /* 遮罩后景虚化 */
+  --sb-saturate-glass: 180%; /* 现状 220% —— 过度饱和导致彩色镶边，收敛 */
+
+  --sb-scrim-weak:   rgba(24, 20, 16, 0.24);  /* 轻遮罩：popover 背后的弱化 */
+  --sb-scrim:        rgba(24, 20, 16, 0.44);  /* 标准遮罩：modal */
+  --sb-scrim-strong: rgba(24, 20, 16, 0.62);  /* 强遮罩：破坏性确认 / 全屏画布 */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §12 控件尺寸（Control Sizing）
+     ⚠️ 现状实测高度极不统一：26/28/30/32/34/36/38/40/42/44/45/50 共 12 种
+        （见 _research/audit-panels.md）。收敛到 4 档。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-control-h-xs: 24px;   /* 微型：面板内数量输入、比例选择 */
+  --sb-control-h-sm: 28px;   /* 小：chip / 次级输入 */
+  --sb-control-h-md: 32px;   /* 中：面板内按钮 / 下拉 【继承项目既有 32】 */
+  --sb-control-h-lg: 36px;   /* 大：表单主控件 【继承项目既有 36】 */
+  --sb-control-h-xl: 44px;   /* 特大：主 CTA / 顶栏按钮（触控友好下限） */
+
+  --sb-control-px-sm: 10px;
+  --sb-control-px-md: 14px;
+  --sb-control-px-lg: 18px;
+  --sb-control-px-xl: 24px;
+
+  --sb-tap-min: 44px;        /* 触控目标最小命中区（WCAG 2.5.8 AA = 24px，本系统取更严的 44px） */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §13 布局（Layout）
+     ⚠️ 现状面板宽度 4 种：copy=520 / sizing=460 / settings=380 / 其余=420
+        （EcMode.jsx:303）。统一为 480（用户指定，必须继承）。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-panel-w:      480px;   /* 【硬约束】参数面板统一宽度 */
+  --sb-panel-w-wide: 560px;   /* 例外：含 2 列网格的面板（需规范委员会批准） */
+  --sb-panel-max-h:  min(70vh, 640px);
+  --sb-panel-offset: 8px;     /* 面板与触发按钮的间距（现状 gap=8，继承） */
+  --sb-nav-h:        72px;    /* 【现状锚点】--nav-height */
+  --sb-nav-pad-top:  16px;    /* 吸顶导航外侧留白 */
+  --sb-content-max:  1240px;  /* 内容区最大宽度 */
+  --sb-wide-max:     1680px;  /* 全宽容器 */
+  --sb-gutter:       20px;    /* 页面左右安全边距 */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §14 动效（Motion）
+     缓动只用指数曲线，禁止 bounce / elastic。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-ease-out:   cubic-bezier(0.22, 1, 0.36, 1);   /* 【现状锚点】EcMode 已在用，采纳为默认 */
+  --sb-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --sb-ease-in:    cubic-bezier(0.4, 0, 1, 1);
+  --sb-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* 仅限「刚被按下/勾选」的即时反馈，位移≤2px */
+
+  --sb-dur-instant: 100ms;  /* 状态色变化：hover 文字/背景 */
+  --sb-dur-fast:    150ms;  /* hover 位移、图标旋转 */
+  --sb-dur-normal:  200ms;  /* 默认：绝大多数交互 */
+  --sb-dur-slow:    300ms;  /* 面板进/出场 */
+  --sb-dur-slower:  400ms;  /* modal 进/出场 */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §15 层级（z-index）语义阶梯
+     ⚠️ 现状 22 个裸值：1/2/3/5/10/50/100/101/200/900/999/1000/1001/9998/
+        9999/10000/10001/10002/10003/99999/999999（见 audit 报告）。
+        全部收编到下面 9 档，禁止再写裸值。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-z-base:       0;
+  --sb-z-raised:     10;     /* 卡片内浮起元素 / 按钮行定位容器 */
+  --sb-z-sticky:     100;    /* 吸顶导航（= 现状 Navbar 100） */
+  --sb-z-panel:      400;    /* 参数浮层面板（= 现状 101，抬到 nav 之上避免遮挡） */
+  --sb-z-dropdown:   600;    /* select / 下拉菜单（必须高于 panel） */
+  --sb-z-scrim:      800;    /* 遮罩层 */
+  --sb-z-modal:      810;    /* 弹窗（必须 > scrim） */
+  --sb-z-toast:      900;    /* 全局 toast */
+  --sb-z-tooltip:    950;    /* tooltip（最高：永不被遮挡） */
+  --sb-z-top:        1000;   /* 最后手段：全屏阻断层（生成中 Loading） */
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §16 焦点环（Focus Ring）— 单一来源
+     WCAG 2.4.11 / 2.4.13 要求：可见、≥2px、与相邻色对比 ≥3:1。
+     全站唯一实现，禁止各处自己写 outline。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-focus-ring-w: 2px;
+  --sb-focus-ring-offset: 2px;
+  --sb-focus-ring-color: var(--sb-brand-500);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §17 基础实现类（.sb-* / .ds-*）
+   说明：这些类都带 .sb- 前缀，绝不会命中现有 DOM（现状无任何 sb- 前缀 class）。
+   后续落地 agent 应优先用这些类替换内联 style，而不是继续堆内联样式。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 焦点环：所有可交互元素的统一兜底（只作用于显式标注 .sb-focusable 的元素，
+      避免影响现有页面） ── */
+.sb-focusable:focus { outline: none; }
+.sb-focusable:focus-visible {
+  outline: var(--sb-focus-ring-w) solid var(--sb-focus-ring-color);
+  outline-offset: var(--sb-focus-ring-offset);
+  border-radius: inherit;
+}
+.sb-focusable-inverse:focus-visible {
+  outline: var(--sb-focus-ring-w) solid #FFFFFF;
+  outline-offset: var(--sb-focus-ring-offset);
+}
+
+/* ── 屏幕阅读器专用 ── */
+.sb-sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ── 面板容器（L1 surface）── */
+.sb-panel {
+  width: var(--sb-panel-w);
+  max-height: var(--sb-panel-max-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--sb-surface-panel);
+  backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  border: 1px solid var(--sb-border-inverse);
+  border-radius: var(--sb-radius-2xl);
+  box-shadow: var(--sb-shadow-4), var(--sb-shadow-inset-top);
+}
+
+/* 不支持 backdrop-filter 时的降级（Safari 老版本 / 低端安卓） */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sb-panel { background: var(--sb-surface-panel-solid); }
+}
+
+/* ── 面板头部（吸顶，可带返回/关闭）── */
+.sb-panel__header {
+  position: sticky; top: 0; z-index: var(--sb-z-raised);
+  display: flex; align-items: center; gap: var(--sb-space-2);
+  padding: var(--sb-space-3) var(--sb-space-4);
+  background: inherit;
+  border-bottom: 1px solid var(--sb-border-subtle);
+}
+.sb-panel__title {
+  font-size: var(--sb-text-md); font-weight: var(--sb-weight-bold);
+  color: var(--sb-ink-1); line-height: var(--sb-leading-snug);
+}
+.sb-panel__subtitle {
+  font-size: var(--sb-text-xs); color: var(--sb-ink-3); margin-top: 2px;
+}
+.sb-panel__body { padding: var(--sb-space-4); }
+.sb-panel__footer {
+  position: sticky; bottom: 0;
+  padding: var(--sb-space-3) var(--sb-space-4);
+  background: inherit;
+  border-top: 1px solid var(--sb-border-subtle);
+}
+
+/* ── 分组：用「留白 + 分组标题」分层，而非再套一层卡片 ── */
+.sb-group + .sb-group { margin-top: var(--sb-space-5); }
+.sb-group__label {
+  display: flex; align-items: center; gap: var(--sb-space-1);
+  font-size: var(--sb-text-xs); font-weight: var(--sb-weight-bold);
+  color: var(--sb-ink-3); letter-spacing: var(--sb-tracking-label);
+  margin-bottom: var(--sb-space-2);
+}
+.sb-group__hint {
+  font-size: var(--sb-text-xs); color: var(--sb-ink-3);
+  line-height: var(--sb-leading-normal);
+}
+
+/* ── 遮罩 ── */
+.sb-scrim {
+  position: fixed; inset: 0; z-index: var(--sb-z-scrim);
+  background: var(--sb-scrim);
+  backdrop-filter: blur(var(--sb-blur-overlay));
+  -webkit-backdrop-filter: blur(var(--sb-blur-overlay));
+}
+
+/* ── 动效工具类 ── */
+@keyframes sbFadeIn    { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sbFadeUp    { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes sbPanelIn   { from { opacity: 0; transform: translateY(6px) scale(0.985) } to { opacity: 1; transform: translateY(0) scale(1) } }
+@keyframes sbModalIn   { from { opacity: 0; transform: translateY(12px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
+@keyframes sbSpin      { to { transform: rotate(360deg) } }
+@keyframes sbPulse     { 0%, 100% { opacity: 1 } 50% { opacity: 0.45 } }
+@keyframes sbShimmer   { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+
+.sb-anim-fade-in  { animation: sbFadeIn  var(--sb-dur-normal) var(--sb-ease-out) both; }
+.sb-anim-fade-up  { animation: sbFadeUp  var(--sb-dur-slow)   var(--sb-ease-out) both; }
+.sb-anim-panel-in { animation: sbPanelIn var(--sb-dur-slow)   var(--sb-ease-out) both; }
+.sb-anim-modal-in { animation: sbModalIn var(--sb-dur-slower) var(--sb-ease-out) both; }
+.sb-anim-spin     { animation: sbSpin 0.8s linear infinite; }
+.sb-anim-pulse    { animation: sbPulse 1.5s var(--sb-ease-in-out) infinite; }
+
+/* ── 骨架屏（替代内容区中央 spinner）── */
+.sb-skeleton {
+  background: linear-gradient(90deg,
+    var(--sb-neutral-100) 25%, var(--sb-neutral-50) 37%, var(--sb-neutral-100) 63%);
+  background-size: 200% 100%;
+  animation: sbShimmer 1.4s ease-in-out infinite;
+  border-radius: var(--sb-radius-md);
+}
+
+/* ── 减少动效偏好：无障碍硬要求 ── */
+@media (prefers-reduced-motion: reduce) {
+  .sb-anim-fade-in, .sb-anim-fade-up, .sb-anim-panel-in, .sb-anim-modal-in {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .sb-skeleton { animation: none; background: var(--sb-neutral-100); }
+  .sb-anim-spin { animation-duration: 1.5s !important; }
+  *, *::before, *::after {
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── 分屏偏好：毛玻璃降级为不透明（避免半透明层叠加导致误判） ── */
+@media (prefers-contrast: more) {
+  .sb-panel { background: var(--sb-surface-panel-solid); backdrop-filter: none; }
+  .sb-panel { border-color: var(--sb-neutral-300); }
+}
+
+/* ── 高对比 / 强制色模式 ── */
+@media (forced-colors: active) {
+  .sb-panel { border: 1px solid CanvasText; }
+  .sb-focusable:focus-visible { outline: 2px solid Highlight; }
+}
+
+/* ── 断点收敛（现状混乱：640/768/1024/1200/1440 混用）──
+   本系统只用 3 个断点：
+     sm 640px  —— 手机 → 平板
+     md 1024px —— 平板 → 桌面
+     lg 1440px —— 桌面 → 大屏
+   ── */
+@media (max-width: 640px) {
+  :root {
+    --sb-panel-w: min(480px, calc(100vw - 24px));
+    --sb-panel-max-h: 60vh;
+    --sb-gutter: 12px;
+    --sb-text-4xl: 32px;
+    --sb-text-3xl: 24px;
+    --sb-text-2xl: 20px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   兼容别名层（Compat Aliases）
+   ───────────────────────────────────────────────────────────────────────────
+   上面是权威色阶（数字刻度命名）。本层只做「别名 → 权威」映射，不引入新色值，
+   供已在改造中的组件引用，避免命名迁移期出现第二套真相。
+   新代码请优先使用数字刻度名（--sb-brand-600 / --sb-control-h-lg …）。
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* 品牌语义别名 */
+  --sb-brand-hover:      var(--sb-brand-700);
+  --sb-brand-active:     #5B21B6;
+  --sb-brand-soft:       var(--sb-brand-400);
+  --sb-brand-wash:       var(--sb-brand-50);
+  --sb-brand-line:       var(--sb-brand-200);
+  --sb-brand-ink:        #FFFFFF;
   --sb-brand-gradient:   linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
   --sb-brand-gradient-3: linear-gradient(135deg, #7C3AED 0%, #EC4899 55%, #F59E0B 100%);
 
-  /* ── 2. 表面五级（L0 页面 → L4 凹槽；相邻必须差一档，禁止跨级嵌套） ── */
-  --sb-surface-page:     #FAF7F2;                    /* L0 页面底 */
-  --sb-surface-panel:    rgba(255, 255, 255, 0.85);  /* L1 浮层面板（配毛玻璃） */
-  --sb-surface-card:     #FFFFFF;                    /* L2 卡片（可点的大块） */
-  --sb-surface-tint:     rgba(12, 10, 9, 0.03);      /* L3 面板内凹陷区 / 选中行 */
-  --sb-surface-sunken:   #EFEAE1;                    /* L4 输入框凹槽 */
-  --sb-surface-inverse:  #1F1D1A;                    /* 反色面（tooltip / 深色条） */
-  /* 面板内**禁止**再放 L2 白卡（禁令见 00-principles 3.2） */
+  /* 文字别名 → ink 阶梯 */
+  --sb-text-primary:     var(--sb-ink-1);
+  --sb-text-secondary:   var(--sb-ink-2);
+  --sb-text-muted:       var(--sb-ink-3);
+  --sb-text-hint:        var(--sb-ink-4);
+  --sb-text-faint:       var(--sb-ink-5);
+  --sb-text-brand:       var(--sb-ink-brand);
+  --sb-text-on-inverse:  var(--sb-ink-on-dark);
 
-  /* ── 3. 文字色阶（6 档 · 全部偏暖中性，不用纯黑纯灰） ── */
-  --sb-text-primary:     #1A1614;   /* 标题 / 主内容 */
-  --sb-text-secondary:   #3D3835;   /* 正文 */
-  --sb-text-muted:       #6B6560;   /* 辅助说明 */
-  --sb-text-hint:        #9A9490;   /* 占位 / 提示 */
-  --sb-text-faint:       #B0AAA5;   /* 最弱（禁用文字） */
-  --sb-text-on-inverse:  #FFFFFF;   /* 反色面文字 */
-  --sb-text-brand:       #6D28D9;   /* 彩色字：仅「可点/当前/链接」三种合法场合 */
+  /* 圆角别名（面板 20 → 内层 12 → 控件 8 → 微件 6） */
+  --sb-radius-panel:     var(--sb-radius-2xl);
+  --sb-radius-card:      var(--sb-radius-lg);
+  --sb-radius-control:   var(--sb-radius-md);
+  --sb-radius-chip:      var(--sb-radius-sm);
 
-  /* ── 4. 描边（3 档 · 弱 → 强；与色差分层二选一，禁止「弱色差 + 弱描边」） ── */
-  --sb-border-subtle:    rgba(12, 10, 9, 0.06);  /* 分隔线 / 大面积分组 */
-  --sb-border-default:   rgba(12, 10, 9, 0.10);  /* 控件描边 */
-  --sb-border-strong:    rgba(12, 10, 9, 0.16);  /* 强调 / hover 描边 */
+  /* 控件尺寸别名 */
+  --sb-control-sm:       var(--sb-control-h-sm);
+  --sb-control-md:       var(--sb-control-h-md);
+  --sb-control-lg:       var(--sb-control-h-lg);
+  --sb-control-touch:    var(--sb-control-h-xl);
+  --sb-control-min-w:    88px;
 
-  /* ── 5. 语义色（各收敛为一支；禁止当品牌色用，禁止挪作身份标识） ── */
-  --sb-danger:           #E8544B;   --sb-danger-bg:  #FEF2F0;  --sb-danger-line: #F6C9C4;
-  --sb-success:          #5CA86C;   --sb-success-bg: #F0F9F2;  --sb-success-line:#C8E4CE;
-  --sb-warning:          #D97706;   --sb-warning-bg: #FFF8EB;  --sb-warning-line:#F5DDB0;
-  --sb-info:             #5275CC;   --sb-info-bg:    #F0F4FD;  --sb-info-line:   #C9D6F0;
-  --sb-credit:           #D97706;   /* 积分/计费专属语义（内部叫法，不出现在文案） */
+  /* 间距语义别名 */
+  --sb-panel-padding:    var(--sb-space-5);   /* 面板内边距 20（禁低于 16） */
+  --sb-group-gap:        var(--sb-space-5);   /* 面板内分组间距 20 */
+  --sb-field-gap:        var(--sb-space-2);   /* 标题与控件 8 */
+  --sb-action-gap:       var(--sb-space-3);   /* 底部操作区按钮间距 12（禁低于 8） */
 
-  /* ── 6. 圆角（只有 4 档：20 面板 → 12 内层 → 8 更内层 → 6 微件） ── */
-  --sb-radius-panel:     20px;
-  --sb-radius-card:      12px;
-  --sb-radius-control:   8px;
-  --sb-radius-chip:      6px;
-  --sb-radius-pill:      9999px;
-  /* 嵌套公式：内层 = 外层 − 内边距 */
-
-  /* ── 7. 间距阶梯（8pt 基底 + 4 例外；只用这些值） ── */
-  --sb-space-1: 4px;  --sb-space-2: 8px;  --sb-space-3: 12px; --sb-space-4: 16px;
-  --sb-space-5: 20px; --sb-space-6: 24px; --sb-space-8: 32px; --sb-space-10: 40px;
-  --sb-space-12: 48px; --sb-space-16: 64px;
-  --sb-panel-padding:    var(--sb-space-5);  /* 面板内边距 20（禁低于 16） */
-  --sb-group-gap:        var(--sb-space-5);  /* 面板内分组间距 20 */
-  --sb-field-gap:        var(--sb-space-2);  /* 标题与控件 8 */
-  --sb-action-gap:       var(--sb-space-3);  /* 底部操作区按钮间距 12（禁低于 8） */
-
-  /* ── 8. 控件尺寸（全站只允许这几个高度） ── */
-  --sb-control-sm: 32px;  --sb-control-md: 36px;  --sb-control-lg: 40px;
-  --sb-control-touch: 44px;                /* 触控最小目标 */
-  --sb-control-min-w: 88px;                /* 按钮最小宽度 */
-
-  /* ── 9. 字体与字号 ── */
-  --sb-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
-  --sb-font-display: 'Fredoka', 'ZCOOL KuaiLe', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --sb-text-2xs: 11px; --sb-text-xs: 12px; --sb-text-sm: 13px; --sb-text-md: 15px;
-  --sb-text-lg: 17px;  --sb-text-xl: 20px; --sb-text-2xl: 24px; --sb-text-3xl: 30px;
-  --sb-weight-regular: 400; --sb-weight-medium: 500; --sb-weight-semibold: 600; --sb-weight-bold: 700;
-  --sb-leading-tight: 1.25; --sb-leading-normal: 1.5; --sb-leading-relaxed: 1.7;
-
-  /* ── 10. 阴影（暖调 · 4 档；禁止「1px 描边 + ≥16px 模糊阴影」同时出现 = ghost-card） ── */
-  --sb-shadow-sm: 0 1px 2px rgba(57, 45, 26, 0.05);
-  --sb-shadow-md: 0 2px 8px rgba(57, 45, 26, 0.07);
-  --sb-shadow-lg: 0 8px 24px rgba(57, 45, 26, 0.10);
-  --sb-shadow-xl: 0 20px 48px rgba(57, 45, 26, 0.14);
-
-  /* ── 11. 毛玻璃（白名单：只用于浮在内容之上的容器 + 必须有降级） ── */
-  --sb-glass-bg:     rgba(255, 255, 255, 0.78);
-  --sb-glass-blur:   blur(20px) saturate(160%);
-  --sb-overlay:      rgba(26, 22, 20, 0.32);  /* 遮罩 */
-
-  /* ── 12. z-index 语义阶梯（禁止裸值；HUD/弹层/弹窗各归其位） ── */
-  --sb-z-canvas: 0;      --sb-z-selection: 100; --sb-z-panel: 200;
-  --sb-z-hud: 300;       --sb-z-popover: 400;   --sb-z-overlay: 500;
-  --sb-z-modal: 600;     --sb-z-toast: 700;
-
-  /* ── 13. 动效（只传达状态，不做装饰；时长 120/200/350） ── */
-  --sb-duration-fast: 0.12s; --sb-duration-normal: 0.2s; --sb-duration-slow: 0.35s;
-  --sb-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --sb-ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --sb-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  /* 悬停位移必须由父容器预留 ≥ 位移×1.5 的空间，否则禁止位移 */
-
-  /* ── 14. 状态派生（八态：hover/active/selected/focus/disabled/loading/error/empty） ── */
+  /* 状态派生（八态） */
   --sb-state-hover-bg:      rgba(12, 10, 9, 0.035);
   --sb-state-active-bg:     rgba(12, 10, 9, 0.06);
-  --sb-state-selected-bg:   var(--sb-brand-wash);
-  --sb-state-selected-line: var(--sb-brand-line);
-  --sb-state-selected-ink:  var(--sb-brand);
+  --sb-state-selected-bg:   var(--sb-brand-50);
+  --sb-state-selected-line: var(--sb-brand-200);
+  --sb-state-selected-ink:  var(--sb-brand-600);
   --sb-state-disabled-bg:   rgba(12, 10, 9, 0.04);
-  --sb-state-disabled-ink:  var(--sb-text-faint);
-  --sb-focus-ring:          0 0 0 3px var(--sb-brand-ring);
+  --sb-state-disabled-ink:  var(--sb-ink-5);
+  --sb-focus-ring:          var(--sb-shadow-ring);
 }
 
-/* 毛玻璃降级：不支持 backdrop-filter 时退回不透明面板 */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root { --sb-glass-bg: #FFFFFF; --sb-surface-panel: #FFFFFF; }
-}
-
-/* 减少动效：跟随系统偏好 */
-@media (prefers-reduced-motion: reduce) {
-  :root { --sb-duration-fast: 0s; --sb-duration-normal: 0s; --sb-duration-slow: 0s; }
-}
-/* ── 15. 深色主题覆盖（遵循 theme.css 既有规则：新 token 必须在 dark 下给出值） ──
-   品牌紫在深底上提亮一档；填充式按钮仍用 --sb-brand-solid（白字对比度 5.7:1 达标）。 */
+/* ═══════════════════════════════════════════════════════════════════════════
+   深色主题覆盖（遵循 theme.css 既有规则：新 token 必须在 dark 下给出值）
+   品牌紫在深底上提亮一档；填充按钮仍用品牌紫实色（白字对比度 5.7:1 达标）。
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --sb-brand:            #A78BFA;
-  --sb-brand-hover:      #C4B5FD;
-  --sb-brand-active:     #8B5CF6;
-  --sb-brand-strong:     #DDD6FE;
-  --sb-brand-soft:       #7C3AED;
-  --sb-brand-wash:       rgba(124, 58, 237, 0.18);
-  --sb-brand-line:       rgba(167, 139, 250, 0.34);
-  --sb-brand-ring:       rgba(167, 139, 250, 0.40);
-  --sb-brand-ink:        #FFFFFF;
-
   --sb-surface-page:     #0F0E0D;
   --sb-surface-panel:    rgba(35, 33, 32, 0.86);
+  --sb-surface-panel-solid: #1C1A18;
   --sb-surface-card:     #1C1A18;
   --sb-surface-tint:     rgba(255, 255, 255, 0.05);
+  --sb-surface-tint-strong: rgba(255, 255, 255, 0.09);
   --sb-surface-sunken:   #141312;
   --sb-surface-inverse:  #F5EFE4;
 
-  --sb-text-primary:     #F7F4F0;
-  --sb-text-secondary:   #D9D4CE;
-  --sb-text-muted:       #A8A29B;
-  --sb-text-hint:        #857F79;
-  --sb-text-faint:       #6A6560;
-  --sb-text-on-inverse:  #1A1614;
-  --sb-text-brand:       #C4B5FD;
+  --sb-ink-1: #F7F4F0; --sb-ink-2: #D9D4CE; --sb-ink-3: #A8A29B;
+  --sb-ink-4: #857F79; --sb-ink-5: #6A6560; --sb-ink-on-dark: #1A1614;
+  --sb-ink-brand: #C4B5FD; --sb-ink-danger: #FF8A7E; --sb-ink-success: #7ACB8A;
+  --sb-ink-warning: #F0B24A; --sb-ink-info: #93AEEC;
 
-  --sb-border-subtle:    rgba(255, 255, 255, 0.08);
-  --sb-border-default:   rgba(255, 255, 255, 0.14);
-  --sb-border-strong:    rgba(255, 255, 255, 0.22);
+  --sb-border-subtle:  rgba(255, 255, 255, 0.08);
+  --sb-border-default: rgba(255, 255, 255, 0.14);
+  --sb-border-strong:  rgba(255, 255, 255, 0.22);
+  --sb-border-inverse: rgba(255, 255, 255, 0.16);
 
-  --sb-danger:  #FF6B5E; --sb-danger-bg:  rgba(232, 84, 75, 0.16);  --sb-danger-line: rgba(255, 107, 94, 0.34);
-  --sb-success: #6BC07A; --sb-success-bg: rgba(92, 168, 108, 0.16); --sb-success-line: rgba(107, 192, 122, 0.34);
-  --sb-warning: #F0B24A; --sb-warning-bg: rgba(217, 119, 6, 0.18);  --sb-warning-line: rgba(240, 178, 74, 0.34);
-  --sb-info:    #7B95E0; --sb-info-bg:    rgba(82, 117, 204, 0.18); --sb-info-line:    rgba(123, 149, 224, 0.34);
-  --sb-credit:  #F0B24A;
+  --sb-brand-50:  rgba(124, 58, 237, 0.18);
+  --sb-brand-200: rgba(167, 139, 250, 0.34);
+  --sb-brand-400: #7C3AED;
+  --sb-brand-500: #A78BFA;
+  --sb-brand-600: #8B5CF6;
+  --sb-brand-700: #C4B5FD;
+  --sb-brand-ring: rgba(167, 139, 250, 0.40);
 
-  --sb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
-  --sb-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.46);
-  --sb-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.52);
-  --sb-shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.60);
+  --sb-danger: #FF6B5E; --sb-success: #6BC07A; --sb-warning: #F0B24A; --sb-info: #7B95E0;
 
-  --sb-glass-bg:  rgba(28, 26, 24, 0.80);
-  --sb-overlay:   rgba(0, 0, 0, 0.56);
+  --sb-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --sb-shadow-2: 0 2px 8px rgba(0, 0, 0, 0.44);
+  --sb-shadow-3: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --sb-shadow-4: 0 12px 36px rgba(0, 0, 0, 0.56);
+  --sb-shadow-5: 0 28px 90px rgba(0, 0, 0, 0.62);
+  --sb-shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  --sb-scrim-weak: rgba(0, 0, 0, 0.36);
+  --sb-scrim:      rgba(0, 0, 0, 0.56);
+  --sb-scrim-strong: rgba(0, 0, 0, 0.70);
 
   --sb-state-hover-bg:      rgba(255, 255, 255, 0.06);
   --sb-state-active-bg:     rgba(255, 255, 255, 0.10);
+  --sb-state-selected-bg:   rgba(124, 58, 237, 0.20);
+  --sb-state-selected-line: rgba(167, 139, 250, 0.40);
+  --sb-state-selected-ink:  #C4B5FD;
   --sb-state-disabled-bg:   rgba(255, 255, 255, 0.05);
 }
+
