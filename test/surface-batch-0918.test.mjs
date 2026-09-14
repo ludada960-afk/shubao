@@ -30,12 +30,41 @@ test('D9① 公共 Card：位移容器与裁切容器分离（一处受害=全�
   assert.ok(clip[1].includes('border-radius: inherit'), '内层继承外层圆角（不另写数值）');
 });
 
-test('D9② NoteModal：卡片同样分离，滚动容器为位移预留空间', () => {
+/* 处置：c) 纯写法差异 → 断言**结构正确性**而非具体类名。
+   D9 要求的实质是「位移容器与裁切容器分离」：做位移的那层不得自带 overflow 裁切，
+   裁切必须发生在另一个（内层）元素上。只要结构满足，用什么类名都成立。
+   下面用「从位移元素出发，断言其自身不裁切、且其内部存在一个裁切后代」来验证结构。 */
+test('D9② NoteModal：位移与裁切结构分离（断言结构，不绑定类名）+ 滚动容器为位移预留空间', () => {
   const modal = read('src/NoteModal.jsx');
-  assert.ok(modal.includes('ec-card-clip'), 'NoteModal 卡片拆出裁切容器');
+
+  // ① 定位「做 hover 位移」的那个元素（onMouseEnter 里写 translateY 的那块 JSX 起始标签）
+  const hoverAt = modal.indexOf("style.transform = 'translateY(-2px)'");
+  assert.ok(hoverAt > 0, '存在 hover 位移逻辑（translateY(-2px)）');
+  const openTagStart = modal.lastIndexOf('<div', hoverAt);
+  const openTagEnd = modal.indexOf('>', hoverAt);
+  const transformTag = modal.slice(openTagStart, openTagEnd);
+  assert.ok(transformTag.length > 0, '能定位到位移元素的起始标签');
+
+  // ② 位移元素自身**不得**裁切（这正是被裁的根因）
+  assert.ok(!/overflow:\s*'hidden'/.test(transformTag), '位移容器自身不得 overflow:hidden（否则上移被自身裁掉）');
+
+  // ③ 位移元素内部必须存在一个「裁切后代」：在位移标签之后、下一个同级结束前出现 overflow hidden + 圆角继承
+  const after = modal.slice(openTagEnd);
+  const clipIdx = after.indexOf("overflow: 'hidden'");
+  assert.ok(clipIdx > 0, '位移元素内部存在裁切后代（overflow:hidden）');
+  const clipWindow = after.slice(Math.max(0, clipIdx - 400), clipIdx + 200);
+  assert.ok(/borderRadius:\s*'inherit'/.test(clipWindow), '裁切后代继承外层圆角（圆角归属外层、裁切归内层）');
+
+  // ④ 滚动容器为位移预留空间（不得上下都不留量）
   const scroll = modal.match(/textScroll:\s*\{([^}]*)\}/);
   assert.ok(scroll, 'textScroll 规则存在');
   assert.ok(!/padding:\s*'16px 22px 0'/.test(scroll[1]), '滚动容器不再上下都不留量（原实现上移 2px 被裁）');
+  const pad = scroll[1].match(/padding:\s*'([^']+)'/);
+  assert.ok(pad, '滚动容器仍有显式 padding');
+  const parts = pad[1].split(/\s+/).map(v => parseFloat(v));
+  const top = parts[0];
+  const bottom = parts.length >= 3 ? parts[2] : parts[0];
+  assert.ok(top >= 2 && bottom >= 2, '滚动容器上下均留出位移空间（≥2px，即位移量），实际 ' + pad[1]);
 });
 
 test('D9③ 位移量有明确上限声明（新增位移必须同时留空间）', () => {

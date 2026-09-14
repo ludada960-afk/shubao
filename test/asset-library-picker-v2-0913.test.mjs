@@ -241,13 +241,17 @@ test('真实渲染③圆圈可点：点圆圈=选中（stopPropagation 不触发
   await page.waitForTimeout(250);
   assert.ok((await card1.getAttribute('class')).includes('is-selected'), '点卡片正文也会选中');
   assert.equal(deleteHits, 0, '点卡片正文不得触发删除');
-  assert.ok((await page.locator('.canvas-asset-picker footer span').innerText()).includes('已选 2 个'), '底栏计数');
-  assert.ok((await page.locator('.canvas-asset-picker footer .is-primary').innerText()).includes('加入画布 (2)'), '主按钮计数');
+  /* 处置：b) 规范被取代（docs/design/40-decisions.md D 系列 · 底部操作区唯一真源）。
+     原断言用**元素选择器** `.canvas-asset-picker footer`，但契约要求底栏一律改挂
+     `.ui-modal-footer`（本弹窗已按 P0 批次迁移，自写 <footer> + .is-primary 已退役）。
+     被验证的行为不变（底栏计数 / 主按钮计数），只把定位方式换成契约类。 */
+  assert.ok((await page.locator('.canvas-asset-picker .ui-modal-footer .ui-modal-footer-meta').innerText()).includes('已选 2 个'), '底栏计数');
+  assert.ok((await page.locator('.canvas-asset-picker .ui-modal-footer .ui-btn-primary').innerText()).includes('加入画布 (2)'), '主按钮计数');
   await card1.hover();
   await card1.locator('.canvas-asset-picker-check').click();
   await page.waitForTimeout(250);
   assert.ok(!(await card1.getAttribute('class')).includes('is-selected'), '再点圆圈取消选中');
-  assert.ok((await page.locator('.canvas-asset-picker footer span').innerText()).includes('已选 1 个'), '取消后计数回退');
+  assert.ok((await page.locator('.canvas-asset-picker .ui-modal-footer .ui-modal-footer-meta').innerText()).includes('已选 1 个'), '取消后计数回退');
   await page.screenshot({ path: SHOTS_DIR + '/test-3-circle-clickable.png' });
   t.diagnostic('圆圈点击选中/取消均生效，delete 请求 0 次');
 });
