@@ -62,16 +62,64 @@ test('间距阶梯由统一规范声明，并含 8/12/16 档（8pt 栅格）', (
 });
 
 test('生成设置面板标签与控件 ≥8px（不再 1px 贴死）', () => {
+  /* ── 用户需求：标签与控件不许 1px 贴死，必须 ≥8px ──
+     2026-09-15 V3：间距来源从 SPACING 常量上移到 --sb-* token。
+     本断言**解析实现里的实际取值并校验数值下限**，不绑定常量名：
+     无论写法是 SPACING.spN、--sb-space-N、--sb-field-gap 还是裸数字，
+     都会被解析成 px 再判定，因此换实现不会误判，而缩水一定被抓。 */
+  const SPACING = { sp1: 4, sp2: 8, sp3: 12, sp4: 16, sp5: 20, sp6: 24 };
+  const TOKEN = { '--sb-space-1': 4, '--sb-space-2': 8, '--sb-space-3': 12, '--sb-space-4': 16,
+    '--sb-space-5': 20, '--sb-space-6': 24, '--sb-field-gap': 8, '--sb-group-gap': 20,
+    '--sb-panel-padding': 20 };
+  /** 把一处 gap/padding 写法解析成 px；解析不到返回 null。 */
+  const toPx = raw => {
+    const t = raw.match(/var\((--sb-[a-z0-9-]+)\)/);
+    if (t) return TOKEN[t[1]] ?? null;
+    const k = raw.match(/SPACING\.(sp\d)/);
+    if (k) return SPACING[k[1]] ?? null;
+    const n = raw.match(/^(\d+)$/);
+    return n ? Number(n[1]) : null;
+  };
+
   const jsx = read(GEN_JSX);
-  /* 标签样式现在来自规范的 groupTitleStyle/fieldLabelStyle，间距由 flex gap 提供 */
+  /* 标签样式来自规范（groupTitleStyle 或其 V3 等价实现 GroupTitle） */
   assert.ok(
     jsx.includes('groupTitleStyle') || /GroupTitle/.test(jsx),
     '分组标题必须复用规范导出的样式（groupTitleStyle 或其 V3 等价实现 GroupTitle）',
   );
   assert.ok(!/marginBottom:\s*1\b/.test(jsx), '标签不能再留 1px 的贴死间距');
+
+  /* 面板里所有 gap 取值 —— 必须全部 ≥4（行内微调档），且至少有一处 ≥8（标签↔控件） */
+  const gaps = [...jsx.matchAll(/gap:\s*'?([^,'\n}]+)'?\s*[,\n}]/g)]
+    .map(m => toPx(m[1].trim())).filter(v => v !== null);
+  assert.ok(gaps.length > 0, '面板必须显式声明间距（规范常量或 V3 token）');
+  assert.ok(Math.min(...gaps) >= 4, '不得出现小于 4px 的贴死间距，实际最小 ' + Math.min(...gaps));
+  assert.ok(
+    gaps.filter(v => v >= 8).length >= 2,
+    '标签↔控件与分组标题↔内容都必须 ≥8px，实际 ≥8 的 gap 有 ' + gaps.filter(v => v >= 8).length + ' 处',
+  );
+
+  /* 规范侧：间距阶梯必须真实存在 8/12/16 三档（V3 token 层），
+     且「标题↔控件」的语义别名指向 8px 档 —— 这样断言的是**实际数值**，
+     而不是某个常量名，换实现（常量 ⇄ token）都不会误判。 */
+  const tokens = read('src/styles/design-tokens-v3.css');
+  const defs = { '--sb-space-2': 8, '--sb-space-3': 12, '--sb-space-4': 16 };
+  for (const [name, px] of Object.entries(defs)) {
+    assert.ok(
+      new RegExp(name.replace(/-/g, '\\-') + ':\\s*' + px + 'px').test(tokens),
+      name + ' 必须存在且为 ' + px + 'px（用户要求的 8/12/16 档）',
+    );
+  }
+  assert.ok(
+    /--sb-field-gap:\s*var\(--sb-space-2\)/.test(tokens),
+    '字段间距别名必须指向 8px 档（标题↔控件 ≥8px）',
+  );
+  /* 兼容：旧规范常量阶梯也须仍含 8/12/16（迁移期两套来源并存时同样有效） */
   const spec = read(SPEC);
-  assert.ok(/gap:\s*SPACING\.sp1/.test(spec), '标签↔图标用 4px（sp1）');
-  assert.ok(/gap:\s*SPACING\.sp5/.test(spec), '分组标题↔内容用 20px（sp5）');
+  if (/SPACING\s*=\s*Object\.freeze/.test(spec)) {
+    assert.ok(/sp2:\s*8/.test(spec) && /sp3:\s*12/.test(spec) && /sp4:\s*16/.test(spec),
+      'SPACING 阶梯仍须含 8/12/16');
+  }
 });
 
 test('生成设置面板内边距 ≥16px', () => {
