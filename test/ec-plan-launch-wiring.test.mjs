@@ -45,9 +45,13 @@ test('画布物化: 由「从草稿/会话重建」同一个效应消费 launch�
 
 test('方案节点三动作: 生成/刷新先报价 (不变式①), 刷新走 refresh 计费 SKU', () => {
   const source = canvas();
-  assert.match(source, /quoteBillingAction\(\{ sku: 'ec_direction_analysis', quantity: 1 \}\)/, '生成方案先报价');
-  assert.match(source, /quoteBillingAction\(\{ sku: 'ec_direction_refresh', quantity: 1 \}\)/, '刷新方案先报价');
-  assert.match(source, /getDesignDirections\(\{ \.*\.\.\.directionNodeRequestParams\(node\), billingQuoteId: quote\.quoteId/);
+  /* 2026-09-17 修正：原来断言 quoteBillingAction —— 它只返回 { quote }（服务端 publicQuote
+     不吐 actionId），于是 billingActionId 是 undefined，服务端判 400 CANVAS_BILLING_REQUEST_INVALID
+     （不打桩实测出来的）。现改为 quoteCanvasAction（报价 + 生成 actionId）。
+     详见 test/canvas-direction-billing-chain-0917.test.mjs。 */
+  assert.match(source, /quoteCanvasAction\('ec_direction_analysis',/, '生成方案先报价（并拿 actionId）');
+  assert.match(source, /quoteCanvasAction\('ec_direction_refresh',/, '刷新方案先报价（并拿 actionId）');
+  assert.match(source, /getDesignDirections\(\{ \.*\.\.\.directionNodeRequestParams\(node\), billingQuoteId: quoteId, billingActionId: actionId \}\)/);
   assert.match(source, /createChildConnection\(node\.id, suite\.id, 'design-plan'\)/, '应用到画布 = 方案→套图生成器连线');
 });
 

@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, Fil
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
-import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, synthesizeCanvasTts, synthesizeCanvasCaption, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, synthesizeCanvasTts, synthesizeCanvasCaption, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd, quoteCanvasAction } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -4019,12 +4019,28 @@ const handlePointerUp = useCallback((e) => {
       })),
     });
   };
+  /* 同步的「正在处理」闸门（ref 而非 state）：
+     React 的 setState 是异步的，连点 3 次时 3 个 handler 都会在
+     status 变成 processing **之前**跑进来，state 判重形同虚设 ——
+     实测连点 3 次 = 3 次报价 + 3 次 design-directions（3 倍扣费暴露）。
+     ref 在同一 tick 内即写入，第二次点击直接 return。 */
+  const directionBusyRef = useRef({});
   const handleDirectionGenerate = useCallback(async node => {
     if (!node || node.status === 'processing') return;
+    if (directionBusyRef.current[node.id]) return;
+    directionBusyRef.current[node.id] = true;
     updateComposerNode(node.id, { status: 'processing', error: '', progressLabel: '正在分析商品并设计方案' });
     try {
-      const { quote } = await quoteBillingAction({ sku: 'ec_direction_analysis', quantity: 1 });
-      const res = await getDesignDirections({ ...directionNodeRequestParams(node), billingQuoteId: quote.quoteId, billingActionId: quote.actionId });
+      /* 2026-09-17 修两件事：
+         ① 原来用 quoteBillingAction，只拿 quoteId、没有 actionId，
+            服务端 executeOnce 判「收费动作请求无效」→ 方案链 100% 失败（实测 400）。
+            改走 quoteCanvasAction（= 报价 + 生成 actionId）。
+         ② 幂等：actionId 必须是**稳定键**（同一节点 + 同一轮方案 = 同一个 actionId），
+            否则连点 N 次会拿到 N 个不同 UUID，服务端去重失效 ——
+            实测连点 3 次 = 3 次报价 + 3 次 design-directions（3 倍扣费暴露）。
+            稳定键让服务端 executeOnce 命中已完成记录并 replay，第 2、3 次不再扣费。 */
+      const { quoteId, actionId } = await quoteCanvasAction('ec_direction_analysis', `direction-analysis:${node.id}`);
+      const res = await getDesignDirections({ ...directionNodeRequestParams(node), billingQuoteId: quoteId, billingActionId: actionId });
       applyDirectionResponse(node, res);
       showToast('设计方案已生成，可「应用到画布」继续', 'success');
     } catch (error) {
@@ -4032,19 +4048,28 @@ const handlePointerUp = useCallback((e) => {
       /* 9-12 修潜伏 bug：这个助手签名是 (error, dispatch, options)，原来只传了 error，
          一旦走到错误分支就会抛 dispatch is not a function（本地实跑被自动生成踩出来）。 */
       handleCanvasActionError?.(error, { type: 'canvas-direction-generate', nodeId: node.id });
+    } finally {
+      delete directionBusyRef.current[node.id];
     }
   }, [updateComposerNode, handleCanvasActionError]);
   const handleDirectionRefresh = useCallback(async node => {
     if (!node || node.status === 'processing') return;
+    if (directionBusyRef.current[node.id]) return;
+    directionBusyRef.current[node.id] = true;
     updateComposerNode(node.id, { status: 'processing', error: '', progressLabel: '正在换一套创意路线' });
     try {
-      const { quote } = await quoteBillingAction({ sku: 'ec_direction_refresh', quantity: 1 });
-      const res = await getDesignDirections({ ...directionNodeRequestParams(node), refresh: true, billingQuoteId: quote.quoteId, billingActionId: quote.actionId });
+      /* 同上：刷新方案同样必须带 actionId。
+         「换一套」是**有意重复**的用户动作 → 每次都要新的 actionId，
+         否则第二次刷新会被判为 replay、拿回旧方案。所以这里用时间戳。 */
+      const { quoteId, actionId } = await quoteCanvasAction('ec_direction_refresh', `direction-refresh:${node.id}:${Date.now()}`);
+      const res = await getDesignDirections({ ...directionNodeRequestParams(node), refresh: true, billingQuoteId: quoteId, billingActionId: actionId });
       applyDirectionResponse(node, res);
       showToast('已换一套设计方案', 'success');
     } catch (error) {
       updateComposerNode(node.id, { status: 'error', error: error?.message || '方案刷新失败' });
       handleCanvasActionError?.(error, { type: 'canvas-direction-refresh', nodeId: node.id });
+    } finally {
+      delete directionBusyRef.current[node.id];
     }
   }, [updateComposerNode, handleCanvasActionError]);
 

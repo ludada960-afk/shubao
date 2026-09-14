@@ -799,7 +799,12 @@ function stableCanvasActionId(value) {
   return `canvas-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
-async function quoteCanvasAction(sku, actionId = '', { signal } = {}) {
+/* 画布收费动作统一入口：报价 + 生成 actionId。
+   2026-09-17 修：套图「设计方案」原来直接调 quoteBillingAction，
+   只拿到 quoteId、**没有 actionId** → 服务端 executeOnce 判
+   「收费动作请求无效」(400 CANVAS_BILLING_REQUEST_INVALID)。
+   所以导出本函数，让方案链与其余 17 处收费动作同一口径。 */
+export async function quoteCanvasAction(sku, actionId = '', { signal } = {}) {
   const response = await quoteBillingAction({ sku, quantity: 1 }, { signal });
   const quote = response?.quote;
   if (!quote?.quoteId) throw new Error('暂时无法确认本次处理费用，请重试');
