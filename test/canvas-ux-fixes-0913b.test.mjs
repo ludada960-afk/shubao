@@ -36,7 +36,14 @@ test('双击空白添加的是生成文案', () => {
 
 test('品牌色标题图标用强调色，与其它标题一致', () => {
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  assert.ok(panel.includes('<Palette size={13} color="#7c3aed" /> 锁定品牌主色调'), '图标颜色一致');
+  /* 2026-09-15：分组标题统一收敛到 <GroupTitle> + groupTitleStyle（规范单一事实源），
+     图标颜色由组件统一注入 var(--accent)，不再每个标题各写一份。 */
+  assert.ok(panel.includes('groupTitleStyle'), '标题样式来自统一视觉语言规范');
+  assert.ok(/<GroupTitle icon=\{Palette\}>品牌主色调<\/GroupTitle>/.test(panel), '品牌主色调标题走统一 GroupTitle');
+  assert.ok(
+    /function GroupTitle\(\{ icon: Icon, children \}\)[\s\S]*?color="var\(--accent, #7c3aed\)"/.test(panel),
+    '标题图标用强调色，与其它标题一致',
+  );
 });
 
 test('生成设置面板用足高度且内部间距更紧', () => {
@@ -47,7 +54,9 @@ test('生成设置面板用足高度且内部间距更紧', () => {
      现在改为「高度按内容自然撑开 + 8pt 呼吸阶梯」：内边距 ≥16px、分区之间 16px。
      本条契约随之更新为校验新口径（细节见 test/modal-breathing-room-0814.test.mjs）。 */
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  assert.ok(panel.includes('SPACE'), '间距必须来自统一的 8pt 阶梯常量');
+  /* 2026-09-15：间距阶梯从面板自带的 SPACE 升级为全站统一的 panelVisualLanguage.SPACING */
+  assert.ok(panel.includes('SPACING'), '间距必须来自统一的 8pt 阶梯常量');
+  assert.ok(panel.includes("from './panelVisualLanguage.js'"), '阶梯来自统一视觉语言规范');
   assert.ok(/\.ec-config-panel \{[^}]*height: auto !important/.test(css), '面板高度按内容自然撑开（不被压扁）');
 });
 

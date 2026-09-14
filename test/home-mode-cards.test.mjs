@@ -87,7 +87,7 @@ test('mode cards use original normalized artwork with transparent margins', asyn
   ]) assert.equal(existsSync(new URL(copiedAsset, import.meta.url)), false);
 });
 
-test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; 画面风格=技能库真源 (9-11 二轮批注)', () => {
+test('ecommerce controls: 模型优先; 避免出现的元素归内容规范; 画面风格=技能库真源 (9-11 二轮 + 9-15 批注)', () => {
   const ecMode = readFileSync(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
   const settings = readFileSync(new URL('../src/pages/Home/ec/GenSettingsPanel.jsx', import.meta.url), 'utf8');
   const style = readFileSync(new URL('../src/pages/Home/ec/StylePanel.jsx', import.meta.url), 'utf8');
@@ -95,12 +95,18 @@ test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; �
   const buttons = ecMode.match(/const DEFAULT_BUTTONS = \[([\s\S]*?)\n  \];/)?.[1] || '';
 
   assert.match(buttons.trimStart(), /^\{\s*key: 'settings'/);
-  /* 9-11 二轮: 「避免出现的元素」从视觉方向搬到生成设置 (生成约束与清晰度同族) */
-  assert.match(settings, /避免出现的元素/);
-  assert.match(settings, /商品结构变形、异常手部、乱码文字、无关道具/);
+  /* 2026-09-15 用户批注：「避免出现的元素为什么要放在生成设置里？它不应该在这个面板。」
+     生成设置 = 模型/清晰度/品牌主色（设备与输出参数）；
+     「避免出现的元素」= 画面内容约束 → 迁到「内容规范」（正向要什么 + 反向不要什么）。
+     数据链路不变（仍是 genSettings.negativePrompt），画布侧同步不受影响。 */
+  const constraints = readFileSync(new URL('../src/pages/Home/ec/GenerationConstraintsPanel.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(settings, /避免出现的元素/, '生成设置面板不得再渲染该分组');
+  assert.match(constraints, /避免出现的元素/, '该分组已落到内容规范面板');
+  assert.match(constraints, /商品结构变形/, '常用约束快选保留');
+  assert.match(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/, '数据仍走 genSettings.negativePrompt');
   assert.doesNotMatch(style, /避免出现的元素/);
-  assert.doesNotMatch(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/);
-  assert.match(settings, /generationUnits/);
+  /* 积分说明句已删（2026-09-15 批注③）：积分只在主 CTA 动态显示 */
+  assert.doesNotMatch(settings, /generationUnits/, '不再在面板内展示「当前约 N AI 积分/张」');
   /* 9-11 三轮: 模型卡片改用真实品牌标 (ModelLogo + brandLogo), 不再用 1.5MB 示例大图 */
   assert.match(settings, /<ModelLogo logo=\{brandLogo\(model\.brand\)\}/);
   assert.doesNotMatch(settings, /model\.visual/);
@@ -112,7 +118,11 @@ test('ecommerce controls: 模型优先; 避免出现的元素归生成设置; �
   assert.match(ecMode, /opensSkillLibrary: true/);
   assert.match(ecMode, /if \(key === 'skills'\)/);
   assert.doesNotMatch(ecMode, /activePanel === 'style'/);
-  assert.match(settings, /锁定品牌主色调/);
+  /* 2026-09-15：标题从「锁定品牌主色调」改为「品牌主色调」——
+     默认必须表示「未锁定任何颜色」（用户批注①），标题自称「锁定」会与默认态矛盾。
+     锁定与否由色块描边 + 按钮文案（锁定/已锁定）表达。 */
+  assert.match(settings, /品牌主色调/);
+  assert.match(settings, /\{brandLocked \? '已锁定' : '锁定'\}/);
   /* 9-11 三轮: 三个模型的视觉标识改为品牌 key (openai / gemini), 由 modelLogos 统一解析成 SVG 标 */
   /* 9-13 扩档：目录现有 8 档（原 3 档 + 新增 2.5 两个变体 / MDKJ / Gemini 3 / Midjourney）；
      品牌 key 由 modelLogos 统一解析成 SVG 标，仍然是“不再用示例大图”这条契约。 */

@@ -14,6 +14,9 @@ const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const HOME_CSS = 'src/pages/Home/Home.css';
 const SKILL_CSS = 'src/pages/Home/ec/skill-library.css';
 const GEN_JSX = 'src/pages/Home/ec/GenSettingsPanel.jsx';
+/* 2026-09-15：间距阶梯从「各面板自己声明」升级为统一视觉语言规范单一事实源。
+   本文件的断言改读 SPEC，语义与阈值不变（分区 ≥16px、标签↔控件 ≥8px、内边距 ≥16px）。 */
+const SPEC = 'src/pages/Home/ec/panelVisualLanguage.js';
 const ECS = readJson => readJson;
 function panelBlock(css) { return css.slice(css.indexOf('.ec-config-panel {'), css.indexOf('.ec-config-panel::after')); }
 
@@ -25,7 +28,10 @@ test('生成设置面板高度按内容自然撑开（height:auto），不被容
 
 test('生成设置面板宽度保持内容定宽（不被拉伸变形）', () => {
   const ecMode = read('src/pages/Home/EcMode.jsx');
-  assert.ok(ecMode.includes('settings: 460'), '生成设置面板宽度 460');
+  /* 2026-09-15 用户批注：六个面板宽度必须统一（460/480/540/520/620 → 统一 480），
+     故不再断言旧的 460，改断言「统一值来自规范且落在 360-560 口径内」。 */
+  assert.ok(ecMode.includes('resolvePanelWidth(vw)'), '面板宽度必须走统一解析函数');
+  assert.ok(read(SPEC).includes('standard: 480'), '统一宽度 480 写在规范里');
   const block = panelBlock(read(HOME_CSS));
   assert.ok(!/width:\s*(100%|100vw)/.test(block), '面板不得被拉满宽度');
 });
@@ -37,26 +43,37 @@ test('生成设置面板顶部不越顶栏安全区（bottom 上限按真实高�
   assert.ok(read('src/pages/Home/EcMode.jsx').includes("'--ec-panel-h'"), 'EcMode 必须上报 --ec-panel-h');
 });
 
-test('生成设置面板内部分区之间 ≥16px 呼吸（8pt 阶梯）', () => {
+test('间距阶梯由统一规范声明，并含 8/12/16 档（8pt 栅格）', () => {
+  const spec = read(SPEC);
+  assert.ok(/SPACING\s*=\s*Object\.freeze\(\{/.test(spec), '必须声明统一间距阶梯 SPACING');
+  assert.ok(/sp2:\s*8/.test(spec) && /sp3:\s*12/.test(spec) && /sp4:\s*16/.test(spec), '阶梯须含 8/12/16');
+  assert.ok(/sp5:\s*20/.test(spec) && /sp6:\s*24/.test(spec), '阶梯须含 20/24（面板内边距与标题↔内容）');
   const jsx = read(GEN_JSX);
-  assert.ok(/SPACE\s*=\s*Object\.freeze\(\{/.test(jsx), '必须声明 8pt 间距阶梯 SPACE');
-  assert.ok(/sm:\s*8/.test(jsx) && /md:\s*12/.test(jsx) && /lg:\s*16/.test(jsx), '阶梯须含 8/12/16');
-  assert.ok(/flexDirection:\s*'column',\s*gap:\s*SPACE\.lg/.test(jsx), '分区容器 gap 必须是 16px');
+  assert.ok(/gap:\s*SPACING\.sp4/.test(jsx), '生成设置面板分区容器 gap 必须是 16px（sp4）');
+  assert.ok(jsx.includes('sectionStyle'), '分区容器必须复用规范导出的 sectionStyle');
 });
 
 test('生成设置面板标签与控件 ≥8px（不再 1px 贴死）', () => {
   const jsx = read(GEN_JSX);
-  const m = jsx.match(/const lbl = \{([\s\S]*?)\};/);
-  assert.ok(m, '必须存在标签样式 lbl');
-  assert.ok(!/marginBottom:\s*1\b/.test(m[1]), '标签不能再留 1px 的贴死间距');
+  /* 标签样式现在来自规范的 groupTitleStyle/fieldLabelStyle，间距由 flex gap 提供 */
+  assert.ok(jsx.includes('groupTitleStyle'), '分组标题必须复用规范导出的 groupTitleStyle');
+  assert.ok(!/marginBottom:\s*1\b/.test(jsx), '标签不能再留 1px 的贴死间距');
+  const spec = read(SPEC);
+  assert.ok(/gap:\s*SPACING\.sp1/.test(spec), '标签↔图标用 4px（sp1）');
+  assert.ok(/gap:\s*SPACING\.sp5/.test(spec), '分组标题↔内容用 20px（sp5）');
 });
 
 test('生成设置面板内边距 ≥16px', () => {
   const jsx = read(GEN_JSX);
-  const m = jsx.match(/padding:\s*`\$\{SPACE\.(\w+)\}px \$\{SPACE\.(\w+)\}px`/);
-  assert.ok(m, '面板内边距必须来自 SPACE 阶梯');
-  const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
-  assert.ok(SPACE[m[1]] >= 16 && SPACE[m[2]] >= 16, '内边距必须 ≥16px，实际 ' + m[1] + '/' + m[2]);
+  /* 只取「面板根容器」的那一处内边距（它带 flexDirection:column + gap:SPACING.sp4），
+     不要误伤控件内部（optionStyle 之类）的小内边距。 */
+  const rootMatch = jsx.match(/padding:\s*`\$\{SPACING\.(\w+)\}px \$\{SPACING\.(\w+)\}px`[^}]*gap:\s*SPACING\.sp4/);
+  assert.ok(rootMatch, '面板根容器的内边距必须来自 SPACING 阶梯');
+  const SPACING = { sp1: 4, sp2: 8, sp3: 12, sp4: 16, sp5: 20, sp6: 24 };
+  assert.ok(
+    SPACING[rootMatch[1]] >= 16 && SPACING[rootMatch[2]] >= 16,
+    '面板内边距必须 ≥16px，实际 ' + rootMatch[1] + '/' + rootMatch[2],
+  );
 });
 
 test('技能库声明 8pt 间距阶梯并压缩头部', () => {
@@ -93,7 +110,9 @@ test('技能库技能列表行间距 ≥10px', () => {
 test('技能库编辑器栏只让文本域滚动，按钮组始终留在可视区', () => {
   const css = read(SKILL_CSS);
   assert.ok(/\.skill-column\.is-editor \{ max-height: 100%; overflow: hidden; \}/.test(css), '编辑器栏自身不滚');
-  assert.ok(/\.skill-column\.is-editor \.skill-field:has\(textarea\)/.test(css), '文本域字段是唯一弹性项');
+  /* 2026-09-15：文本域改成受控 ResizableTextarea（不再用裸 textarea + CSS resize），
+     故弹性字段选择器同步跟进到 :has(.rsz-textarea)，语义不变（它仍是唯一弹性项）。 */
+  assert.ok(/\.skill-column\.is-editor \.skill-field:has\(\.rsz-textarea\)/.test(css), '文本域字段是唯一弹性项');
 });
 
 test('技能库三栏比例与栏间距保持稳定', () => {
