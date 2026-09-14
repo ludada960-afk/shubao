@@ -86,8 +86,8 @@ test('四个生成框都复用同一个 ComposerMention（不各写一套 @ 键�
 test('参数/套图按钮基础规则：只 overflow:hidden 纯裁切，绝无 text-overflow', () => {
   const all = [...css.matchAll(/\.ec-canvas-parameter-item > button,\s*\r?\n\s*\.ec-canvas-suite-control > button \{([\s\S]*?)\}/g)];
   assert.ok(all.length > 0, '必须存在参数/套图按钮的基础规则块');
-  /* 取最后一条 = 9-17 用户批注后的权威规则（前面几条是历史分层，会被后者覆盖） */
-  const rule = all[all.length - 1][1];
+  /* 同名选择器会拆成多条规则，浏览器把声明**并起来**生效 → 断言看并集 */
+  const rule = all.map(m => m[1]).join('\n');
   assert.ok(!/text-overflow/.test(rule), '按钮基础规则里不许出现 text-overflow（否则短文案变「智能…」）');
   assert.ok(/overflow:\s*hidden/.test(rule), '必须是 overflow:hidden 纯裁切');
   assert.ok(/white-space:\s*nowrap/.test(rule), '必须 nowrap');
@@ -96,7 +96,7 @@ test('参数/套图按钮基础规则：只 overflow:hidden 纯裁切，绝无 t
 test('按钮内文案 span 同样只裁不省略', () => {
   const all = [...css.matchAll(/\.ec-canvas-parameter-item > button > span,\s*\r?\n\s*\.ec-canvas-suite-control > button > span \{([\s\S]*?)\}/g)];
   assert.ok(all.length > 0, '必须存在按钮内文案 span 的规则块');
-  const rule = all[all.length - 1][1];
+  const rule = all.map(m => m[1]).join('\n');
   assert.ok(!/text-overflow/.test(rule), 'span 上不许出现 text-overflow');
   assert.ok(/overflow:\s*hidden/.test(rule), 'span 必须 overflow:hidden');
 });
