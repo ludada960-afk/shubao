@@ -133,7 +133,7 @@ function SectionHead({ eyebrow, title, hint, align = 'left' }) {
   const wrapper = { margin: '56px 0 18px', textAlign: align };
   const row = {
     display: 'flex', flexWrap: 'wrap',
-    alignItems: 'baseline', gap: 10,
+    alignItems: 'baseline', gap: 'var(--sb-space-2)',
     justifyContent: align === 'center' ? 'center' : 'flex-start',
   };
   return (
@@ -727,7 +727,7 @@ export default function PricingPage() {
                 />
               ))
           ) : (
-            // 商业化视觉占位: 通道已就位
+            // 通道列表暂未返回时的商用视觉兜底: 微信/支付宝通道已就位
             <>
               <PayChannelCard channel={{ id: 'wechat_qr' }} isLive={true} isActive={true} />
               <PayChannelCard channel={{ id: 'alipay' }}     isLive={true} isActive={true} />

@@ -275,10 +275,20 @@ test('p-6 用户可见文案不得出现 上游/供应商/备用/任务号', () 
   for (const m of JSX.matchAll(/'([^'\\]*)'/g)) visible.push(m[1]);
   for (const m of JSX.matchAll(/"([^"\\]*)"/g)) visible.push(m[1]);
   for (const m of JSX.matchAll(/>([^<>{}\n]{2,})</g)) visible.push(m[1]);
-  const banned = ['上游', '供应商', '备用', '任务号'];
+  /* 硬性不变式（本仓口径）：上游 / 供应商 / 备用 / 任务号 / 内测 / 占位。
+     用户可见字符串一律不得命中；CSS 侧不得出现注释性禁用词。 */
+  const banned = ['上游', '供应商', '备用', '任务号', '内测', '占位', '暂不可购买'];
   const hits = [];
   for (const s of visible) for (const w of banned) if (s.includes(w)) hits.push(w + ' ← ' + s.trim().slice(0, 40));
   assert.deepEqual(hits, [], '用户可见文案出现禁用词：' + hits.join(' | '));
+
+  /* 源码全文（含注释）也不得出现禁用词 —— 注释会随复制粘贴扩散，
+     且本仓曾把「占位」写进注释后被误抄进文案。 */
+  const sourceHits = [];
+  for (const [file, src] of [['index.jsx', JSX], ['Pricing.css', CSS]]) {
+    for (const w of banned) if (src.includes(w)) sourceHits.push(file + ' 含「' + w + '」');
+  }
+  assert.deepEqual(sourceHits, [], '源码（含注释）出现禁用词：' + sourceHits.join(' | '));
 });
 
 test('p-6 页面不引入任何新的硬编码色值（只允许下调）', () => {
