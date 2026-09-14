@@ -4173,6 +4173,13 @@ const handlePointerUp = useCallback((e) => {
         generateAudio: composer.generateAudio !== false,
         seed: 0,
         billingQuoteId: quote.quoteId,
+        /* ═══ 方案进生成（2026-09-18 总统筹拍板）═══════════════════════════════════
+           改动前：videoPlan 只存在 composer 上、用 planReviewed 拦生成，
+           但**请求体里根本没有 videoPlan** —— 用户花 1 积分买的方案对成片零影响。
+           现在把结构化方案 + 确认标记一起发上去；编译在**服务端**做（权威），
+           客户端只负责传，绕过客户端也无效。 */
+        videoPlan: composer.videoPlan || null,
+        planConfirmed: composer.planReviewed === true,
         references: {
           firstImage: firstImage?.id || '',
           lastImage: lastImage?.id || '',
@@ -4199,6 +4206,8 @@ const handlePointerUp = useCallback((e) => {
         composer.resolution || '720p',
         composer.generateAudio !== false ? 'audio' : 'silent',
         uploaded.map(item => item.asset.id).join(','),
+        /* 方案也算进幂等键：换了方案 = 另一次生成（用户有意重复，应计费） */
+        JSON.stringify(composer.videoPlan?.beats || []),
       ].join('\u0000')));
       let job = response.job;
       while (!VIDEO_FINAL_STATUSES.has(job.status)) {

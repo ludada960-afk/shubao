@@ -10,6 +10,7 @@ import { createProjectStore } from '../server/projects/projectStore.mjs';
 import { publicVideoProducts } from '../server/videoCatalog.mjs';
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
 import { createVideoProjectBridge } from '../server/videoProjectBridge.mjs';
+import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
 
 test('project bridge audit reports a missing video_assets schema as structured JSON', t => {
   const root = mkdtempSync(join(tmpdir(), 'video-project-audit-'));
@@ -224,7 +225,7 @@ test('completed video jobs converge through billing, project lineage, works proj
     publicProducts: () => publicVideoProducts(),
   };
   const bridge = createVideoProjectBridge({ db, projectStore, now });
-  const service = createVideoGeneration({
+  const service = withConfirmedPlan(createVideoGeneration({
     db,
     assetRoot,
     providerRegistry: registry,
@@ -243,7 +244,7 @@ test('completed video jobs converge through billing, project lineage, works proj
     upsertWork: work => { projectedWorks += 1; projectedWork = work; },
     pollIntervalMs: 1,
     maxConcurrent: 1,
-  });
+  }));
   t.after(() => {
     service.close();
     db.close();

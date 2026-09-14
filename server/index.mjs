@@ -4849,6 +4849,8 @@ app.post('/api/video/jobs', authenticateVideoRequest, async (req, res) => {
       idempotencyKey: req.get('Idempotency-Key'),
       billingQuoteId: req.body?.billingQuoteId,
       publicBaseUrl: `${proto}://${req.get('host')}`,
+      /* 2026-09-18：方案闸门 + 编译都在 videoGeneration.createJob 内做（服务端权威），
+         这里只原样透传 body —— 含 videoPlan（结构化方案）与 planConfirmed（确认标记）。 */
       input: req.body,
     });
     return res.status(result.replay ? 200 : 202).json(result);

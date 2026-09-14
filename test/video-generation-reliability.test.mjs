@@ -7,6 +7,7 @@ import { join } from 'node:path';
 
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
 import { publicVideoProducts } from '../server/videoCatalog.mjs';
+import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
 
 const COOLDOWN_MS = 15 * 60 * 1000;
 
@@ -28,7 +29,7 @@ function providerRegistry() {
 }
 
 function createService({ db, assetRoot, now, quoteVerify = () => ({}), walletService, registry, maxConcurrent = 0 } = {}) {
-  return createVideoGeneration({
+  return withConfirmedPlan(createVideoGeneration({
     db,
     assetRoot,
     providerRegistry: registry || providerRegistry(),
@@ -42,7 +43,7 @@ function createService({ db, assetRoot, now, quoteVerify = () => ({}), walletSer
     upsertWork() {},
     now,
     maxConcurrent,
-  });
+  }));
 }
 
 function insertTerminalRow(db, { id, status, failureClass = '' }) {
@@ -285,7 +286,7 @@ test('a delivered video is preserved while settlement is reconciled without refu
     }),
     publicProducts: () => publicVideoProducts(),
   };
-  const service = createVideoGeneration({
+  const service = withConfirmedPlan(createVideoGeneration({
     db,
     assetRoot,
     providerRegistry: completedRegistry,
@@ -298,7 +299,7 @@ test('a delivered video is preserved while settlement is reconciled without refu
     upsertWork: work => savedWorks.push(work),
     pollIntervalMs: 1,
     maxConcurrent: 1,
-  });
+  }));
   t.after(() => {
     service.close();
     db.close();
@@ -371,7 +372,7 @@ test('a settled delivery retries only the failed works projection', async t => {
     }),
     publicProducts: () => publicVideoProducts(),
   };
-  const service = createVideoGeneration({
+  const service = withConfirmedPlan(createVideoGeneration({
     db,
     assetRoot,
     providerRegistry: registry,
@@ -392,7 +393,7 @@ test('a settled delivery retries only the failed works projection', async t => {
     },
     pollIntervalMs: 1,
     maxConcurrent: 1,
-  });
+  }));
   t.after(() => {
     service.close();
     db.close();

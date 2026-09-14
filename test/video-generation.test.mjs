@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVideoGeneration, videoFeatureSku } from '../server/videoGeneration.mjs';
 import { VIDEO_CATALOG_VERSION } from '../server/videoCatalog.mjs';
+import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
 
 test('video pricing tier is derived server-side from delivery resolution and duration', () => {
   assert.equal(videoFeatureSku({ productId: 'seedance_standard', duration: 4 }), 'video_seedance_standard_short');
@@ -21,7 +22,7 @@ function createVideoGenerationHarness(t, overrides = {}) {
     db.close();
     rmSync(assetRoot, { recursive: true, force: true });
   });
-  return createVideoGeneration({
+  return withConfirmedPlan(createVideoGeneration({
     db,
     walletService: {
       createHold(input) {
@@ -51,8 +52,9 @@ function createVideoGenerationHarness(t, overrides = {}) {
     maxConcurrent: 0,
     assetSigningSecret: 'test-video-asset-signing-secret',
     ...overrides,
-  });
+  }));
 }
+
 
 async function uploadReferenceAsset(service, ownerEmail, kind) {
   const content = {
@@ -347,7 +349,7 @@ test('an accepted upstream task is never submitted again after retryable polling
     },
     download: async () => { throw new Error('download must not run'); },
   };
-  const service = createVideoGeneration({
+  const service = withConfirmedPlan(createVideoGeneration({
     db,
     walletService: {
       createHold: input => ({ id: `hold-${input.metadata.taskId}` }),
@@ -361,7 +363,7 @@ test('an accepted upstream task is never submitted again after retryable polling
     providerRegistry: { get: () => provider, publicProducts: () => [] },
     pollIntervalMs: 1,
     maxConcurrent: 1,
-  });
+  }));
   t.after(() => {
     service.close?.();
     db.close();

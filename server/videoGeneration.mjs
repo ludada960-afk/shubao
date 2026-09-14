@@ -21,6 +21,9 @@ import {
 import { createOwnerFairVideoQueue } from './videoQueue.mjs';
 import { createVideoAttemptStore } from './videoAttemptStore.mjs';
 import { createVideoOutbox } from './videoOutbox.mjs';
+/* 2026-09-18 总统筹拍板：视频方案是收了钱的，必须真的影响产出。
+   本模块把结构化方案编译进 prompt/negativePrompt（服务端权威，客户端绕不过）。 */
+import { assertVideoPlanConfirmed, compileVideoRequest, hashVideoPlan } from './videoPlanCompiler.mjs';
 
 const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review', 'reconciling']);
 const ACTIVE_STATUSES = new Set(['queued', 'submitting', 'processing']);
@@ -305,6 +308,9 @@ export function createVideoGeneration({
     ['review_deadline_ms', 'INTEGER NOT NULL DEFAULT 0'],
     ['review_attempts', 'INTEGER NOT NULL DEFAULT 0'],
     ['current_attempt_id', "TEXT NOT NULL DEFAULT ''"],
+    /* 方案留痕列（2026-09-18）：记录本单用的是哪份拍摄方案，便于出问题回查。
+       内部字段，绝不出现在任何用户可见文案里；空串 = 本列上线前的历史单。 */
+    ['plan_hash', "TEXT NOT NULL DEFAULT ''"],
   ];
   for (const [column, definition] of migrations) {
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
@@ -1109,8 +1115,25 @@ export function createVideoGeneration({
     if (!registry.get(product.id)?.enabled) {
       throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中');
     }
-    const prompt = clean(input?.prompt, 7000);
-    const negativePrompt = clean(input?.negativePrompt, 1200);
+    /* ═══ 方案闸门 + 编译（服务端权威 · 2026-09-18 总统筹拍板）═══════════════════
+       改动前实测：构造一个「无方案」请求 → **202 建单成功**（46,000 单位被 hold）。
+       前端只用 planReviewed 拦，构造请求就能绕过 —— 收钱不出活，且方案对成片零影响。
+       现在两道都放在服务端：
+         ① 闸门：没有可用方案 / 未确认 → 400（用户可读文案），**不出片、不扣费**；
+         ② 编译：方案结构（分镜/节奏/必须保留）进 prompt 最前，风险约束进 negativePrompt。
+       三层权威排序沿用 canvasPromptAuthority 的 PROMPT_LAYER（不新造一套）：
+         硬约束(1) > 方案结构(2) > 用户内容文案(3)。 */
+    assertVideoPlanConfirmed({
+      plan: input?.videoPlan,
+      planConfirmed: input?.planConfirmed === true,
+    });
+    const compiled = compileVideoRequest({
+      prompt: input?.prompt,
+      negativePrompt: input?.negativePrompt,
+      plan: input?.videoPlan,
+    });
+    const prompt = compiled.prompt;
+    const negativePrompt = compiled.negativePrompt;
     const duration = Number(input?.duration);
     const resolution = clean(input?.resolution, 20).toLowerCase();
     const aspectRatio = clean(input?.aspectRatio, 20);
@@ -1210,11 +1233,12 @@ export function createVideoGeneration({
       db.prepare(`INSERT INTO video_jobs (
         id, owner_email, idempotency_key, status, mode, sku, prompt, negative_prompt,
         duration, aspect_ratio, resolution, generate_audio, seed, refs_json, hold_id,
-        product_id, provider_route, catalog_version, provider_cost_cny, failure_class, quote_id
-      ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        product_id, provider_route, catalog_version, provider_cost_cny, failure_class, quote_id, plan_hash
+      ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, ownerEmail, requestKey, mode, sku, prompt, negativePrompt, duration, aspectRatio,
         resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
         product.id, product.routeId, VIDEO_CATALOG_VERSION, expectedQuote.providerCostCny, '', verified.quoteId,
+        compiled.planHash || '',
       );
       jobPersisted = true;
       if (projectBridge) {
