@@ -157,6 +157,11 @@
    在画布根节点 inline 注入 --canvas-right-panel-width，这里的 480 只是
    CSS 单独加载（无 JS 注入）时的兜底默认。 */
 .ec-canvas-page { --canvas-right-panel-width: 480px; }
+/* HUD 回夹余量：底部工具条**半宽**（实测 95px）+ 间距余量（25px）。
+   用途见下方 .ec-canvas-bottom-dock 的 min() —— 窄屏时把工具条回夹到画布区内，
+   既不被 stage 的 overflow:clip 裁掉，也不压到右侧面板。
+   ⚠️ 底部工具条增删按钮（改变其宽度）时必须同步这个值。 */
+.ec-canvas-page { --ec-canvas-hud-reserve-right: 120px; }
 .ec-canvas-stage.has-right-panel { margin-right: calc(var(--canvas-right-panel-width, 480px) + var(--cvl-right-panel-margin, 28px)); }
 /* 移动端面板是全屏覆盖层，画布本来就看不见 → 不做让位 */
 @media (max-width: 760px) { .ec-canvas-page { --canvas-right-panel-width: 0px; } }
@@ -173,6 +178,19 @@
 .ec-canvas-left-rail .ec-canvas-rail-add:hover:not(:disabled),
 .ec-canvas-left-rail .ec-canvas-rail-add.is-active { color: #fff; background: var(--canvas-command-hover); }
 .ec-canvas-bottom-dock { position: absolute; z-index: 58; left: 50%; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); }
+/* ═══ 2026-09-20 用户批注（第 4 次提）：「你下面这个操作栏也依然歪向左边，没有居中」═══
+   根因：dock 的定位基准是 .ec-canvas-stage，而右侧面板一开 stage 就变窄
+   （`.has-right-panel` 的 margin-right = 面板宽 + 28px），于是「居中于画布可视区」
+   = **跟着面板往左移**；实测面板打开时 dock 中心 482px，而窗口中心是 720px，差 238px。
+   用户口径（已确认）：要**永远居中于整个窗口**，像 Figma 那样不随面板移动。
+   做法：stage 左缘恒在 x=0，所以「窗口中心」在 stage 坐标系里 = 50% + (面板让位宽)/2。
+   外层 min() 回夹：窄屏（面板占比过大）时不让 dock 越过 stage 右缘被裁掉。 */
+.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock {
+  left: min(
+    calc(50% + (var(--canvas-right-panel-width, 480px) + var(--cvl-right-panel-margin, 28px)) / 2),
+    calc(100% - var(--ec-canvas-hud-reserve-right, 120px))
+  );
+}
 .ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: var(--ec-radius-sm); background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); }
 .ec-canvas-toast { position: fixed; z-index: 10003; left: 50%; bottom: 24px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 13px; transform: translateX(-50%); border-radius: 8px; background: #475569; color: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, .22); font-size: 12px; font-weight: 650; animation: toastIn .2s ease; }
 .ec-canvas-toast.is-error { background: #c9362e; }
