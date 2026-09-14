@@ -136,23 +136,40 @@ const hexes = countAll(codeFiles.filter(f => !f.endsWith('design-tokens-v3.css')
 const hexTotal = [...hexes.values()].reduce((a, b) => a + b, 0);
 console.log('  hex 硬编码:  ' + hexTotal + ' 次 / ' + hexes.size + ' 个不同值   [目标: 全部走 token]');
 
-const fontSizes = countAll(codeFiles, /fontSize:\s*'?(var\(--sb-[a-z0-9-]+\)|[0-9.]+)/g, normalize);
-console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 9 档]   ' +
+/* ⚠️ 必须同时覆盖 CSS 的 `font-size:` 与 JSX 的 `fontSize:` ——
+   此前只认驼峰，于是**所有 .css 里声明的字号都不计入**，档位数被系统性低估。
+   同理 `border-radius:` / `gap:`（`gap` 两种写法同名，本来就覆盖）。 */
+const SCALE_RE = (name) => new RegExp(name + '(?:-[a-z]+)?:\\s*[\\x27"]?(var\\(--sb-[a-z0-9-]+\\)|[0-9.]+)', 'g');
+const fontSizes = countAll(codeFiles, SCALE_RE('font[Ss]ize'), normalize);
+console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 10 档 · 依 D17]   ' +
   topN(fontSizes, 6).map(([k, v]) => k + 'px×' + v).join(' '));
 
-const radii = countAll(codeFiles, /borderRadius:\s*'?(var\(--sb-[a-z0-9-]+\)|[0-9.]+)/g, normalize);
-console.log('  圆角档位:    ' + radii.size + ' 档                [目标: 8 档]   ' +
+const radii = countAll(codeFiles, SCALE_RE('border[Rr]adius'), normalize);
+console.log('  圆角档位:    ' + radii.size + ' 档                [目标: 8 档 · 依 D6]   ' +
   topN(radii, 6).map(([k, v]) => k + 'px×' + v).join(' '));
 
 const zIdx = countAll(codeFiles, /zIndex:\s*'?([0-9]+)/g);
 console.log('  z-index:     ' + zIdx.size + ' 个裸值             [目标: 9 档语义]');
 
 const gaps = countAll(codeFiles, /gap:\s*'?(var\(--sb-[a-z0-9-]+\)|[0-9]+)/g, normalize);
-const LADDER = new Set(['0','4','8','12','16','20','24','32','40','48','64']);
-let offLadder = 0, gapTotal = 0;
-for (const [k, v] of gaps) { gapTotal += v; if (!LADDER.has(k)) offLadder += v; }
+/* 阶梯**从 token 文件现读**，不在这里抄一份 —— 抄一份就一定会漂。
+   事故：D16 补了 2/6/10 三个半档之后，本脚本仍用旧表，于是把已经合法等值迁移的
+   2/6/10px 仍然判为「非阶梯」，读数虚高约 28 个百分点（实测 55% → 27%）。
+   这正是原则 §12「指标必须测量判据本身」的第 5 次同类问题。 */
+const tvGap = TOKEN_VALUES();
+const LADDER = new Set();
+for (const [name, val] of tvGap) if (name.startsWith('--sb-space-')) LADDER.add(px(val));
+let offLadder = 0, gapTotal = 0, migratable = 0, byDesign = 0;
+for (const [k, v] of gaps) {
+  gapTotal += v;
+  if (LADDER.has(k)) { migratable += v; continue; }   /* 值在阶梯上却没写 token = 还没迁 */
+  offLadder += v; byDesign += v;                       /* 值不在阶梯 = 设计保留，需登记 */
+}
 console.log('  gap 非阶梯值: ' + offLadder + '/' + gapTotal + ' 次' +
-  (gapTotal ? ' (' + (offLadder / gapTotal * 100).toFixed(0) + '%)' : '') + '      [目标: 0%]');
+  (gapTotal ? ' (' + (offLadder / gapTotal * 100).toFixed(0) + '%)' : ''));
+console.log('    · ① 值已在阶梯上、但还写成字面量（可**零风险** token 化）: ' + migratable + ' 次   [迁移待办，不是缺陷]');
+console.log('    · ② 值不在阶梯上（D16 判定为「设计保留」，需登记理由）: ' + byDesign + ' 次   [不是缺陷，不许硬套]');
+console.log('      阶梯真值（现读 token 文件）: ' + [...LADDER].sort((a, b) => a - b).join('/'));
 
 /* ═══ ② 无障碍硬缺陷 ═══ */
 H('② 无障碍硬缺陷');
