@@ -686,9 +686,15 @@
 .pricing-pack-card.is-recommended:focus-visible {
   box-shadow: var(--sb-focus-ring), var(--sb-shadow-4);
 }
-/* 推荐档里的关键数值再放大一档，强化主次 */
+/* 推荐档里的关键数值再放大一档，强化主次。
+   ⚠️ 2026-09-20 修复：D19 批 4（ef306f91）把这里从 40px 落档到 **32px**，
+   而普通档基准是 **36px**（见 .pricing-price-number）—— 结果「推荐档的价格比普通档还小」，
+   直接违反主次（原则 1.1 一屏一个主行动 / 1.2 主次靠尺寸）。
+   契约测试 pricing-visual-states-contract:100「≥40px」当场变红抓回。
+   落档应取阶梯里**向上**那一档：--sb-text-4xl = 48px，保住「再放大一档」的原意。
+   （教训：落档要同时看**相邻元素的值**，不能只看「这个数离哪一档最近」。） */
 .pricing-pack-card.is-recommended .pricing-price-number {
-  font-size: 32px;
+  font-size: 48px;
 }
 .pricing-pack-card.is-recommended .pricing-pack-name {
   font-size: var(--sb-text-lg);
