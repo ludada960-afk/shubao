@@ -58,7 +58,7 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        onMouseEnter={e => { if (!hasImages) { e.currentTarget.style.transform = 'rotate(0deg)'; e.currentTarget.style.borderColor = '#a78bfa'; } }}
+        onMouseEnter={e => { if (!hasImages) { e.currentTarget.style.transform = 'rotate(0deg)'; e.currentTarget.style.borderColor = 'var(--sb-brand-400)'; } }}
         onMouseLeave={e => { if (!hasImages) { e.currentTarget.style.transform = `rotate(${rotation}deg)`; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; } }}
       >
         {hasImages ? (

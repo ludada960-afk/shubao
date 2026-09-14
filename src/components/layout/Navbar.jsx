@@ -53,7 +53,7 @@ export default function Navbar() {
           <span style={{
             display: 'flex', width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
             alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 55%, #e879f9 100%)',
+            background: 'var(--sb-brand-gradient)',
             boxShadow: '0 14px 28px rgba(124,92,255,0.24)',
           }}>
             <MdAutoAwesome size={22} color="#fff" fill="#fff" />

@@ -24,7 +24,7 @@ export function ToastProvider({ children }) {
   }, [remove]);
 
   const colors = {
-    info: '#7c3aed',
+    info: 'var(--sb-brand)',
     success: '#10b981',
     error: '#ef4444',
     warning: '#f59e0b',
