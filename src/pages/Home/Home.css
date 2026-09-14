@@ -3603,7 +3603,7 @@
 }
 .ec-skill-entry:hover {
   border-color: rgba(232, 84, 75, 0.45);
-  color: var(--sb-ink-warning);
+  color: var(--sb-ink-warning-strong);
   background: rgba(233, 154, 24, 0.08);
 }
 
@@ -3616,7 +3616,7 @@
   border-radius: var(--sb-radius-pill);
   background: rgba(232, 84, 75, 0.08);
   border: 1px solid rgba(232, 84, 75, 0.28);
-  color: var(--sb-ink-warning);
+  color: var(--sb-ink-warning-strong);
   font-size: 12px;
   font-weight: 600;
 }

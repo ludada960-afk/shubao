@@ -36,7 +36,7 @@
 .vdd-warn, .vdd-error, .vdd-ok, .vdd-progress { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; }
 .vdd-warn { color: #8a6d1a; }
 .vdd-error { color: #93392e; }
-.vdd-ok { color: var(--sb-ink-success); }
+.vdd-ok { color: var(--sb-ink-success-strong); }
 .vdd-progress { color: var(--sb-brand-700); }
 
 .vdd-field { display: grid; gap: 4px; font-size: 12px; color: var(--sb-ink-3); }

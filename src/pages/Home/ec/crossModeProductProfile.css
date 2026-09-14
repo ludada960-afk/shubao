@@ -138,7 +138,7 @@
   border-radius: 8px;
   background: var(--sb-danger-soft);
   border: 1px solid var(--sb-danger-border);
-  color: var(--sb-ink-danger);
+  color: var(--sb-ink-danger-strong);
   font-size: 10px;
   line-height: 1.5;
 }

@@ -122,7 +122,7 @@
 
 .ec-product-profile-icon-button.is-danger:hover {
   border-color: rgba(185, 28, 28, .25);
-  color: var(--sb-ink-danger);
+  color: var(--sb-ink-danger-strong);
   background: #fff7f7;
 }
 

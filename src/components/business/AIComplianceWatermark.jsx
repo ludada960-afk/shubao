@@ -95,7 +95,7 @@ const STATUS_PILL_BASE = {
 
 const STATUS_OK = Object.assign({}, STATUS_PILL_BASE, {
   background: 'rgba(16, 185, 129, 0.15)',
-  color: 'var(--sb-ink-success)',
+  color: 'var(--sb-ink-success-strong)',
   border: '1px solid rgba(16, 185, 129, 0.3)',
 });
 

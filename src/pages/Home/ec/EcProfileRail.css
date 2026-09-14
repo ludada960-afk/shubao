@@ -103,7 +103,7 @@
 }
 
 .ec-profile-rail-icon-button:hover { background: rgba(124, 58, 237, 0.1); color: var(--sb-brand-600); }
-.ec-profile-rail-icon-button.is-danger:hover { background: rgba(185, 28, 28, 0.1); color: var(--sb-ink-danger); }
+.ec-profile-rail-icon-button.is-danger:hover { background: rgba(185, 28, 28, 0.1); color: var(--sb-ink-danger-strong); }
 
 .ec-profile-rail-tabs {
   display: grid;
@@ -136,7 +136,7 @@
   border-radius: 12px;
   background: var(--sb-danger-soft);
   border: 1px solid var(--sb-danger-border);
-  color: var(--sb-ink-danger);
+  color: var(--sb-ink-danger-strong);
   font-size: 11px;
   line-height: 1.5;
 }

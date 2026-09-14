@@ -254,7 +254,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
         {error ? (
           <p style={{
             marginTop: 12, padding: '8px 10px', borderRadius: 8,
-            background: 'var(--sb-danger-soft)', color: 'var(--sb-ink-danger)', fontSize: 12,
+            background: 'var(--sb-danger-soft)', color: 'var(--sb-ink-danger-strong)', fontSize: 12,
           }} role="alert">{error}</p>
         ) : null}
 

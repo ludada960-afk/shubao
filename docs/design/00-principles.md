@@ -388,6 +388,16 @@ R = |translateY| + 放大外扩
 
 ### 原则 5.1 — 对比度硬门槛
 
+> ### 📌 D23 补充（按**用途**分两档，全站一致）
+> | 档 | 判据 | 适用 |
+> |---|---|---|
+> | **文字档** | 白底 `#FFFFFF` **与**页底 `#F5EFE4` **两个底都 ≥4.5:1** | `color:` 用在文本上（含链接、标签、按钮文字） |
+> | **图形档** | ≥3:1（WCAG 1.4.11） | 图标 / 描边 / 点缀 / 填充 |
+>
+> **文字一律用 `-strong` 档**：`--sb-ink-brand-strong` / `-danger-strong` / `-success-strong` / `-warning-strong` / `-info-strong`。
+> 原档（`--sb-ink-danger/success/warning`）**保留作图形档，不再允许直接当正文色**。
+> 门禁：`test/ink-contrast.test.mjs`。详见 `40-decisions.md` **D23**。
+
 | 文本类型 | 最低对比度 | WCAG |
 |---|---|---|
 | 正文（< 18.66px / < 14px bold） | **4.5:1** | 1.4.3 AA |

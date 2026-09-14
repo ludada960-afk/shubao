@@ -753,7 +753,7 @@
 .ec-canvas-task-log-group + .ec-canvas-task-log-group { margin-top: 14px; }
 .ec-canvas-task-log-group-header { display: flex; align-items: center; gap: var(--sb-space-1-5); margin-bottom: var(--sb-space-1-5); color: var(--sb-ink-3); font-size: 12px; font-weight: 700; }
 .ec-canvas-task-log-group-header.status-processing { color: var(--sb-brand-700); }
-.ec-canvas-task-log-group-header.status-failed { color: var(--sb-ink-danger); }
+.ec-canvas-task-log-group-header.status-failed { color: var(--sb-ink-danger-strong); }
 .ec-canvas-task-log-group-header.status-completed { color: #15803d; }
 .ec-canvas-task-log-row { display: flex; align-items: center; gap: var(--sb-space-2-5); padding: 9px 10px; border: 1px solid rgba(28,25,23,.07); border-radius: 12px; background: var(--sb-neutral-0); }
 .ec-canvas-task-log-row + .ec-canvas-task-log-row { margin-top: var(--sb-space-1-5); }

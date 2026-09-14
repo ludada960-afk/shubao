@@ -1192,7 +1192,7 @@
   font-weight: var(--sb-weight-heavy);
   letter-spacing: 0.04em;
   /* D10：语义色作文字用 --sb-ink-warning（已按暖底调深） */
-  color: var(--sb-ink-warning);
+  color: var(--sb-ink-warning-strong);
   background: var(--sb-warning-soft);
   border: 1px solid var(--sb-warning-border);
   border-radius: var(--sb-radius-pill);
@@ -1214,13 +1214,13 @@
    这里改用暗色语义组合：半透明暖金底（--sb-warning-ring）+ 亮金描边。
    注：本注释不写死色值 —— 棘轮按字面统计 hex，注释里的色值同样计入新增硬编码。 */
 [data-theme="dark"] .pricing-soon-pill {
-  color: var(--sb-ink-warning);
+  color: var(--sb-ink-warning-strong);
   background: var(--sb-warning-ring);
   border-color: var(--sb-warning);
 }
 /* 即将上线的卡片对外明确「不可点击」：整卡遮挡指针语义 */
 .pricing-tier-card.is-off .pricing-soon-pill {
-  color: var(--sb-ink-warning);
+  color: var(--sb-ink-warning-strong);
 }
 
 /* ═══════ 焦点可见性（D11：键盘可达是硬门槛）═══════

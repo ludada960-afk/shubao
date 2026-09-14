@@ -224,11 +224,11 @@ export default function RemakePage() {
     switch (status) {
       case 'pending':     return <span className="rmk-badge" style={{ background: '#fef9c3', color: '#854d0e' }}>排队中</span>;
       case 'downloading': return <span className="rmk-badge" style={{ background: '#dbeafe', color: '#1e40af' }}>下载图片中 ({task.progress}%)</span>;
-      case 'downloaded':  return <span className="rmk-badge" style={{ background: '#dcfce7', color: 'var(--sb-ink-success)' }}>下载完成 ✓</span>;
+      case 'downloaded':  return <span className="rmk-badge" style={{ background: '#dcfce7', color: 'var(--sb-ink-success-strong)' }}>下载完成 ✓</span>;
       case 'analyzing':   return <span className="rmk-badge" style={{ background: '#fef9c3', color: '#854d0e' }}>AI 分析中 ({task.progress}%)</span>;
-      case 'analyzed':    return <span className="rmk-badge" style={{ background: '#dcfce7', color: 'var(--sb-ink-success)' }}>分析完成 ✓</span>;
+      case 'analyzed':    return <span className="rmk-badge" style={{ background: '#dcfce7', color: 'var(--sb-ink-success-strong)' }}>分析完成 ✓</span>;
       case 'generating':  return <span className="rmk-badge" style={{ background: '#fef9c3', color: '#854d0e' }}>生成中 ({task.progress}%)</span>;
-      case 'completed':   return <span className="rmk-badge" style={{ background: '#dcfce7', color: 'var(--sb-ink-success)' }}>✅ 生成完成</span>;
+      case 'completed':   return <span className="rmk-badge" style={{ background: '#dcfce7', color: 'var(--sb-ink-success-strong)' }}>✅ 生成完成</span>;
       case 'failed':      return <span className="rmk-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>❌ 失败</span>;
       default:            return <span className="rmk-badge" style={{ background: 'var(--sb-neutral-100)', color: 'var(--sb-ink-3)' }}>{status}</span>;
     }

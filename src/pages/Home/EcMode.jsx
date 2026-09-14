@@ -1664,7 +1664,7 @@ const DEFAULT_BUTTONS = [
 
             {/* ── 下一步按钮 ── */}
             {assetUploadError && (
-              <div role="alert" style={{ color: 'var(--sb-ink-danger)', fontSize: 12, marginRight: 8 }}>
+              <div role="alert" style={{ color: 'var(--sb-ink-danger-strong)', fontSize: 12, marginRight: 8 }}>
                 {assetUploadError}
               </div>
             )}
