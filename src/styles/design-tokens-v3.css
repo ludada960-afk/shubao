@@ -40,11 +40,21 @@
   --sb-brand-strong:     var(--sb-brand-700);  /* hover 压深 */
   --sb-brand-soft:       #F5F3FF;              /* 选中态浅底（= brand-50） */
   --sb-brand-border:     #C4B5FD;              /* 选中态描边（= brand-300） */
-  --sb-brand-ring:       rgba(124, 58, 237, 0.32);
+  --sb-brand-ring:      rgba(124, 58, 237, 0.32);
   --sb-brand-shadow:     0 2px 8px rgba(124, 58, 237, 0.16);
   --sb-brand-shadow-lg:  0 6px 20px rgba(124, 58, 237, 0.24);
   --sb-brand-gradient:   linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%);
   --sb-brand-gradient-3: linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F59E0B 100%);
+
+  /* ── 品牌紫 rgba 语义档（把实测 45 个不同 alpha 收敛为 5 档）──────────
+     命名用 -a<两位数字> 表示 alpha，**避开已占用的 --sb-brand-wash/-line**
+     （那两位是 §1 的实色别名，语义不同，切勿混淆）。
+     见 docs/design/02-brand-purple-migration.md §1.2 */
+  --sb-brand-a05: rgba(124, 58, 237, 0.05);   /* 极浅底：α .025–.06 */
+  --sb-brand-a10: rgba(124, 58, 237, 0.10);   /* 浅底/选中态：α .08–.12（最密集） */
+  --sb-brand-a18: rgba(124, 58, 237, 0.18);   /* 描边强调：α .13–.18 */
+  --sb-brand-a32: rgba(124, 58, 237, 0.32);   /* 焦点环/阴影：α .20–.45 */
+  --sb-brand-a55: rgba(124, 58, 237, 0.55);   /* 遮罩：α .55–.92 */
 
   /* ══════════════════════════════════════════════════════════════════════════
      §2 色板 · 中性（Neutral）
@@ -755,4 +765,90 @@
   color: var(--sb-credit-ink);
   font-size: var(--sb-text-2xs); font-weight: var(--sb-weight-semibold);
   font-variant-numeric: tabular-nums;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §19 响应式 token（V3.1）
+   ───────────────────────────────────────────────────────────────────────────
+   背景：V2 的 design-tokens.css:331-344 有 @media (max-width:768px) 覆盖，
+   但那**只调了 8 个大字号**，控件高度/间距/面板宽度都没调，且只有 1 个断点。
+   本节把响应式纳入系统化规范（详见 docs/design/10-visual-language.md §2H）。
+
+   三条铁律：
+     R1 字号 ≤15px 不随断点缩小（12px 已是可读下限）
+     R2 控件高度不随断点缩小（触控目标 44px 是硬下限 WCAG 2.5.5）
+     R3 间距阶梯不随断点变（4pt 栅格是骨架），只有页面级 gutter 可调
+
+   断点收敛为 3 个：sm ≤640px / md 641–1024px / lg ≥1025px（默认值）
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 平板 md（641–1024px）：仅调整面板宽度与超大字 ── */
+@media (max-width: 1024px) {
+  :root {
+    --sb-text-4xl: 36px;   /* 48 → 36 */
+    --sb-text-3xl: 28px;   /* 32 → 28 */
+    --sb-panel-w: min(480px, calc(100vw - 32px));
+  }
+}
+
+/* ── 手机 sm（≤640px）── */
+@media (max-width: 640px) {
+  :root {
+    /* 排版：只缩 18px 以上的大字，12/13/15px 的 UI 正文不动（R1） */
+    --sb-text-4xl: 32px;
+    --sb-text-3xl: 24px;
+    --sb-text-2xl: 18px;
+    --sb-text-xl:  16px;
+    /* --sb-text-lg / -md / -sm / -xs / -2xs 保持不变 —— 见铁律 R1 */
+
+    /* 布局 */
+    --sb-panel-w: min(480px, calc(100vw - 24px));
+    --sb-panel-max-h: 60vh;          /* 手机键盘弹出时留空间 */
+    --sb-nav-h: 56px;                /* 触控友好下限 */
+    --sb-gutter: 12px;               /* 唯一允许随断点变的间距（页面级） */
+
+    /* 圆角：手机上面板变底部抽屉，圆角更大 */
+    --sb-radius-2xl: 24px;
+
+    /* ⚠️ 以下绝不改变（铁律 R2 / R3）：
+       --sb-control-h-*   （触控目标 44px 是硬下限）
+       --sb-space-*       （4pt 栅格是骨架）
+       --sb-radius-md/lg/xl（嵌套圆角公式依赖，改了会破公式） */
+  }
+
+  /* 面板 → 底部抽屉形态 */
+  .sb-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-height: 70vh;
+    border-radius: var(--sb-radius-2xl) var(--sb-radius-2xl) 0 0;
+    border-bottom: none;
+  }
+
+  /* 移动端关闭毛玻璃（低端机滚动掉帧主因，见 §2E 性能红线） */
+  .sb-panel {
+    background: var(--sb-l1-panel-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* 触屏无 hover，用 :active 提供反馈替代 */
+  .sb-opt:active:not(:disabled) { background: var(--sb-active-bg); }
+
+  /* 触控目标保底：视觉尺寸可小，命中区必须 ≥44px */
+  .sb-tap-target { position: relative; }
+  .sb-tap-target::after {
+    content: ''; position: absolute; inset: 50% 50%;
+    width: var(--sb-tap-min); height: var(--sb-tap-min);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* ── 高对比 / 减少动效 已在 §17 提供；此处补移动端安全区 ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 640px) {
+    .sb-panel { padding-bottom: env(safe-area-inset-bottom); }
+  }
 }
