@@ -407,3 +407,10 @@
     padding: 8px 2px 10px;
   }
 }
+
+/* §22/4.7 可点必有 hover —— .xhs-template-actions .ec-config-trigger（模板卡配置触发按钮）
+   通道：中性表面色 → --sb-hover-bg。
+   说明：该按钮本体定义在 .ec-config-trigger（其它文件），本文件仅做作用域覆盖；
+        这里补的是「在小红书模板卡内」这一具体挂载点缺失的 hover，不改按钮自身的其它状态。 */
+.xhs-template-actions .ec-config-trigger:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

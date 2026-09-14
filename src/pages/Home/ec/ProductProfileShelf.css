@@ -299,3 +299,9 @@
 .ec-product-profile-save:hover:not(:disabled):not([aria-disabled='true']),
 .ec-product-profile-use:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 
+
+/* §22/4.7 可点必有 hover —— .ec-product-profile-apply（整行可点「应用档案」按钮）
+   通道：中性表面色 → --sb-hover-bg（它是透明底的行内按钮，故不走海拔）。
+   说明：本文件 .ec-product-profile-save / -use 已于第 1 批补过；-apply 是第三个缺口。 */
+.ec-product-profile-apply:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

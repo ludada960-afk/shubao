@@ -275,3 +275,12 @@
   .ld-cta, .ld-input, .ld-otp-box, .ld-tab, .ld-oauth-btn, .ld-close { transition: none !important; }
   .ld-otp-caret { animation: none; opacity: 1; }
 }
+
+/* §22/4.7 可点必有 hover —— .ld-terms（协议勾选行，整行 <label> 可点）+ .ld-terms input
+   通道：中性表面色 → --sb-hover-bg。
+   ⚠️ 该行本身是**文字排版行**（无底色/无边框），hover 只给极轻的中性底以示意「整行可点」，
+      **不改文字色、不改 transform**（避免与 :active 的 scale 撞车）。
+   input 是勾选框本体，与行同通道以免叠加出双色。 */
+.ld-terms:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.ld-terms input:hover:not(:disabled) { background-color: var(--sb-hover-bg); }
+

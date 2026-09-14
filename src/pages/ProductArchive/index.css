@@ -369,3 +369,8 @@
     padding: 8px 14px;
   }
 }
+
+/* §22/4.7 可点必有 hover —— .product-archive-public-toggle label（整行可点勾选）
+   通道：中性表面色 → --sb-hover-bg（内联 flex 行，无底无边框，给轻中性底示意可点）。 */
+.product-archive-public-toggle label:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+

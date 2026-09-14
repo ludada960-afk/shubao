@@ -639,3 +639,7 @@
 body:has(.pricing-modal) {
   overflow: hidden !important;
 }
+
+/* §22/4.7 可点必有 hover —— .pricing-modal__balance-login（余额区「登录」按钮）
+   通道：中性表面色 → --sb-hover-bg（它是文字按钮，无实色底，故不走海拔）。 */
+.pricing-modal__balance-login:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }

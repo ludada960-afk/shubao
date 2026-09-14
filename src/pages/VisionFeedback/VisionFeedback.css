@@ -29,3 +29,11 @@
 .vision-result-head h3 { margin: 0; font-size: var(--sb-text-base); }
 .vision-summary { color: var(--sb-ink-3); font-size: var(--sb-text-sm); margin-bottom: var(--sb-space-2); }
 .vision-context { background: var(--sb-ink-1); color: #e2e8f0; padding: 14px 16px; border-radius: var(--sb-radius-md); max-height: 360px; overflow: auto; font-family: ui-monospace, SFMono-Regular, monospace; font-size: var(--sb-text-sm); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+/* §22/4.7 可点必有 hover —— 视觉反馈页 2 处
+   ① .vision-empty：空态整块可点（点它上传/开始）→ 中性表面色；
+   ② .vision-annot-rm：标注删除按钮（图标按钮）→ 中性表面色。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。 */
+.vision-empty:hover:not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.vision-annot-rm:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
