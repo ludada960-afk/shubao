@@ -272,7 +272,7 @@ export default function EcAutoPage() {
             {PLATFORMS.map(p => (
               <button key={p.key} onClick={() => setPlatform(p.key)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
+                  display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)',
                   padding: '10px 16px', borderRadius: 'var(--sb-radius-lg)',
                   border: platform === p.key ? '2px solid var(--sb-brand-700)' : '1px solid var(--sb-neutral-200)',
                   background: platform === p.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
@@ -317,14 +317,14 @@ export default function EcAutoPage() {
             }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--sb-space-1-5)', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-5)' }}>
                 {input.length}字 · {/^https?:\/\//i.test(input.trim()) ? '🔗 链接模式' : input.trim().length >= 80 ? '📝 详细模式 · 按描述生成' : '✏️ 标准模式 · 一句话生成'}
               </span>
             </div>
             <button onClick={handleGenerate} disabled={!input.trim() || genState === 'generating'}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
+                display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)',
                 padding: '10px 24px', borderRadius: 'var(--sb-radius-lg)',
                 background: !input.trim() ? 'var(--sb-neutral-200)' : 'var(--sb-brand-700)',
                 color: 'var(--sb-neutral-0)', border: 'none', fontSize: 'var(--sb-text-md)', fontWeight: 600,

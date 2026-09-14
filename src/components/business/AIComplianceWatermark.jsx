@@ -76,7 +76,7 @@ const CHECK_STYLE = {
 const COMPACT_ROW_STYLE = {
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 'var(--sb-space-1-5)',
   fontSize: 12,
   color: '#7c2d12',
   marginTop: 4,

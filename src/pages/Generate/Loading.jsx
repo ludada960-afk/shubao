@@ -108,7 +108,7 @@ export default function LoadingView() {
           background: isEC ? 'var(--sb-brand-50)' : 'var(--sb-danger-soft)', borderRadius: 'var(--radius-lg)',
           padding: '12px 18px', marginBottom: 24,
           fontSize: 'var(--text-sm)', color: isEC ? 'var(--sb-brand-800)' : 'var(--sb-danger-hover)',
-          display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
+          display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)', justifyContent: 'center',
           lineHeight: 1.6,
         }}>
           <MdSchedule size={14} /> <strong>生成中请勿刷新页面</strong>，否则将浪费一次生成额度
@@ -139,7 +139,7 @@ export default function LoadingView() {
         <div style={{
           fontSize: 'var(--text-xs)', color: 'var(--text-invisible)',
           marginTop: 20, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', gap: 6,
+          justifyContent: 'center', gap: 'var(--sb-space-1-5)',
         }}>
           <span style={{
             display: 'inline-block', width: 6, height: 6,

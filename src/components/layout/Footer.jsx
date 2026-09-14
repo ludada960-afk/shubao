@@ -17,7 +17,7 @@ export default function Footer() {
       borderTop: '1px solid var(--border)',
     }}>
       <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1-5)', marginBottom: 8 }}>
           <img src={IMAGES.appicon} style={{ width: 18, height: 18, borderRadius: 4 }} alt="" />
           <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-bold)' }}>薯包AI</span>
         </div>

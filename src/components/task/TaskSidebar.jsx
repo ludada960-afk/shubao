@@ -120,7 +120,7 @@ export default function TaskSidebar() {
         zIndex: 'var(--sb-z-panel)',
         display: 'flex',
         alignItems: 'flex-end',
-        gap: 10,
+        gap: 'var(--sb-space-2-5)',
       }}
     >
       <button
@@ -266,7 +266,7 @@ export default function TaskSidebar() {
                       textAlign: 'left',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sb-space-2-5)' }}>
                       <span style={{
                         width: 32,
                         height: 32,
@@ -365,7 +365,7 @@ export default function TaskSidebar() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 6,
+                        gap: 'var(--sb-space-1-5)',
                       }}
                     >
                       <MdDeleteOutline size={15} />

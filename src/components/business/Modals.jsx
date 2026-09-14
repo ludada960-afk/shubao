@@ -601,7 +601,7 @@ export function PricingModal() {
               选择支付方式
             </div>
 
-            {providers.length > 0 ? <div style={{ display: 'grid', gap: 10 }}>
+            {providers.length > 0 ? <div style={{ display: 'grid', gap: 'var(--sb-space-2-5)' }}>
               {providers.map(provider => (
                 <button
                   key={provider.id}

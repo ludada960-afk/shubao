@@ -457,7 +457,7 @@ export default function EcStudioPage() {
         {/* ── Header ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', cursor: 'pointer' }}
             onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           >
             <CharImg src={IMAGES.appicon} size={32} float />
@@ -479,7 +479,7 @@ export default function EcStudioPage() {
             style={{
               fontSize: 'var(--sb-text-md)', color: 'var(--sb-brand-600)', background: 'var(--sb-brand-50)', border: '1px solid var(--sb-brand-200)',
               borderRadius: 'var(--sb-radius-md)', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontWeight: 500,
+              display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)', whiteSpace: 'nowrap', fontWeight: 500,
             }}
           >
             <Sparkle weight="fill" size={14} /> 一键出图
@@ -526,7 +526,7 @@ export default function EcStudioPage() {
                       style={{
                         padding: '9px 20px', borderRadius: 'var(--sb-radius-md)', background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
                         border: 'none', fontSize: 'var(--sb-text-md)', fontWeight: 600, cursor: 'pointer',
-                        fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                        fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1-5)',
                         boxShadow: '0 2px 8px var(--sb-brand-a32)',
                       }}
                     >
@@ -572,7 +572,7 @@ export default function EcStudioPage() {
                       marginBottom: 18,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)' }}>
                       <img src={IMAGES.appicon} alt="" width="36" height="36" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: 36, height: 36, borderRadius: 'var(--sb-radius-md)' }} />
                       <div>
                         <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: '#1a1a2e' }}>
@@ -596,7 +596,7 @@ export default function EcStudioPage() {
                     href="/extensions/shubao-extractor.zip"
                     download
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
+                      display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', padding: '12px 16px',
                       background: 'var(--sb-brand-50)', borderRadius: 'var(--sb-radius-lg)', textDecoration: 'none', marginBottom: 18,
                     }}
                   >
@@ -638,7 +638,7 @@ export default function EcStudioPage() {
                       <div
                         key={i}
                         style={{
-                          display: 'flex', gap: 10, alignItems: 'flex-start',
+                          display: 'flex', gap: 'var(--sb-space-2-5)', alignItems: 'flex-start',
                           padding: '8px 12px',
                           background: i === 4 ? 'linear-gradient(135deg, var(--sb-brand-50), var(--sb-brand-100))' : 'var(--sb-neutral-25)',
                           borderRadius: 'var(--sb-radius-md)', border: `1px solid ${i === 4 ? 'var(--sb-brand-200)' : '#EEEFF2'}`,
@@ -699,7 +699,7 @@ export default function EcStudioPage() {
                 onFocus={(e) => (e.target.style.borderColor = 'var(--sb-brand-600)')}
                 onBlur={(e) => (e.target.style.borderColor = '#D0D0D8')}
               />
-              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 'var(--sb-space-2-5)', marginTop: 12, flexWrap: 'wrap' }}>
                 <button
                   onClick={goRecognize}
                   disabled={recognizing}
@@ -707,7 +707,7 @@ export default function EcStudioPage() {
                     padding: '10px 20px', borderRadius: 'var(--sb-radius-md)', background: 'var(--sb-brand-700)', color: 'var(--sb-neutral-0)',
                     border: 'none', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                     cursor: recognizing ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1-5)',
                     opacity: recognizing ? 0.6 : 1,
                   }}
                 >
@@ -721,7 +721,7 @@ export default function EcStudioPage() {
 
             {/* ① 实拍图 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', marginBottom: 8 }}>
                 <div style={SX.stepNum}>1</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>上传产品多角度实拍图</h3>
                 <div style={{ marginLeft: 'auto' }}>
@@ -764,7 +764,7 @@ export default function EcStudioPage() {
 
             {/* ② 参考图 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', marginBottom: 8 }}>
                 <div style={SX.stepNum}>2</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>上传目标参考图</h3>
                 <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-5)' }}>选填 · 最多 5 张</span>
@@ -807,7 +807,7 @@ export default function EcStudioPage() {
 
             {/* ③ 规格 + SKU */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', marginBottom: 16 }}>
                 <div style={SX.stepNum}>3</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>产品尺寸颜色规格</h3>
               </div>
@@ -827,7 +827,7 @@ export default function EcStudioPage() {
                 </div>
                 <div>
                   <label style={SX.label}>品类</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sb-space-1-5)' }}>
                     {EC_CATS.map((c) => (
                       <span
                         key={c}
@@ -941,14 +941,14 @@ export default function EcStudioPage() {
 
             {/* ④ 详情策划 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', marginBottom: 16 }}>
                 <div style={SX.stepNum}>4</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>详情页策划思路</h3>
                 <span style={{ fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-5)' }}>
                   勾选 = 生成一张详情切片（1440 宽）
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-2-5)' }}>
                 {EC_DETAIL_SLICES.filter((s) => s.key !== 'detail_slice_care').map((s) => {
                   const planKey = PLAN_KEY_BY_SLICE[s.key];
                   const checked = detailPlan[planKey];
@@ -961,7 +961,7 @@ export default function EcStudioPage() {
                         background: checked ? 'var(--sb-brand-50)' : 'var(--sb-neutral-25)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)' }}>
                         <input
                           type="checkbox"
                           checked={!!checked}
@@ -1000,7 +1000,7 @@ export default function EcStudioPage() {
 
             {/* ⑤ 保养维护 */}
             <div style={SX.card}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', marginBottom: 8 }}>
                 <div style={SX.stepNum}>5</div>
                 <h3 style={{ ...SX.h3, marginBottom: 0 }}>保养维护描述</h3>
               </div>
@@ -1231,7 +1231,7 @@ export default function EcStudioPage() {
                     style={{
                       padding: '8px 16px', borderRadius: 'var(--sb-radius-sm)', background: 'var(--sb-success)',
                       color: 'var(--sb-neutral-0)', textDecoration: 'none', fontSize: 'var(--sb-text-sm)', fontWeight: 600,
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1-5)',
                     }}
                   >
                     <Download weight="fill" size={14} /> 下载长图
@@ -1273,7 +1273,7 @@ export default function EcStudioPage() {
                   >
                     <span style={{ fontSize: 'var(--sb-text-sm)', fontWeight: 600, color: 'var(--sb-ink-3)' }}>{l}</span>
                     {regEdit.v && regEdit.l === l ? (
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 'var(--sb-space-1-5)' }}>
                         <button
                           onClick={() => setRegEdit({ l: null, p: '', v: false })}
                           style={{

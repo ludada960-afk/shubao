@@ -61,7 +61,7 @@ export default function InsufficientBalanceModal({
         <h2 style={{ margin: 0, color: 'var(--text-primary, var(--sb-ink-1))' }}>额度不足</h2>
         <p style={{ margin: '8px 0 18px', color: 'var(--text-muted, var(--sb-ink-3))', lineHeight: 1.6 }}>当前图片、文字和设计方向都已保留。</p>
 
-        <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: 0 }}>
+        <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sb-space-2-5)', margin: 0 }}>
           {[
             ['本次操作', hasAuthoritativeQuote ? formatBillingUnits(requiredUnits, currency) : '待确认'],
             ['当前余额', hasAuthoritativeQuote ? formatBalanceDisplay(displayedAvailable, currency, entitlement?.unlimited) : '待确认'],
@@ -75,9 +75,9 @@ export default function InsufficientBalanceModal({
         {providers.length === 0 ? <p role="status" style={{ margin: '16px 0 0', padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>在线购买暂未开放，当前工作会继续保留。</p> : <p style={{ margin: '16px 0 0', color: 'var(--sb-ink-3)', fontSize: 13 }}>选择合适的套餐补充额度后，即可继续当前创作。</p>}
         {notice && <p role="status" style={{ margin: '12px 0 0', color: '#7A5600', fontSize: 13 }}>{notice}</p>}
 
-        <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+        <div style={{ display: 'grid', gap: 'var(--sb-space-2-5)', marginTop: 20 }}>
           <button onClick={onViewPlans} style={{ minHeight: 42, border: '1px solid var(--sb-ink-1)', borderRadius: 12, background: 'var(--sb-neutral-0)', cursor: 'pointer', fontWeight: 700 }}>查看可用套餐</button>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 'var(--sb-space-2-5)' }}>
             <button onClick={refresh} disabled={refreshing} style={{ flex: 1, minHeight: 42, border: '1px solid var(--sb-ink-1)', borderRadius: 12, background: 'var(--sb-neutral-0)', cursor: refreshing ? 'wait' : 'pointer' }}>{refreshing ? '正在刷新…' : '刷新余额'}</button>
             {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)', cursor: 'pointer' }}>返回继续创作</button>}
           </div>

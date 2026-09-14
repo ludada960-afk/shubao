@@ -25,7 +25,7 @@ export default function ReadProgress({ currentStage, error }) {
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
         📖 读图解析
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-1-5)' }}>
         {STAGES.map((s, i) => {
           const isDone = currentIdx > i;
           const isCurrent = currentIdx === i;
@@ -33,7 +33,7 @@ export default function ReadProgress({ currentStage, error }) {
 
           return (
             <div key={s.key} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
+              display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)',
               padding: '6px 10px', borderRadius: 8,
               background: isCurrent ? 'var(--sb-brand-a05)' : 'transparent',
               transition: 'all 0.2s',

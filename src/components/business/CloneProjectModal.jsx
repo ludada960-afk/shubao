@@ -165,7 +165,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
           <legend style={{ fontSize: 13, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 8 }}>
             选择派生模板
           </legend>
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ display: 'grid', gap: 'var(--sb-space-2-5)' }}>
             {CLONE_OPTIONS.map((opt) => {
               const selected = opt.id === mode;
               const Icon = opt.icon;
@@ -277,7 +277,7 @@ export default function CloneProjectModal({ open, project, onClose, onCloned, de
               padding: '8px 14px', border: 'none', background: busy ? '#93c5fd' : 'var(--sb-info)',
               color: 'var(--sb-neutral-0)', borderRadius: 8,
               cursor: busy || !projectId ? 'not-allowed' : 'pointer', fontSize: 13,
-              display: 'inline-flex', alignItems: 'center', gap: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1-5)',
             }}
           >
             {busy ? <Loader2 size={14} className="is-spinning" /> : <Copy size={14} />}

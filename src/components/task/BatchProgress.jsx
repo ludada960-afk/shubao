@@ -94,7 +94,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
       )}
 
       {/* 控制按钮 */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 'var(--sb-space-1-5)', flexWrap: 'wrap' }}>
         {isActive && (
           <ControlBtn icon={<MdPause size={13} />} label="暂停" onClick={onPause} />
         )}

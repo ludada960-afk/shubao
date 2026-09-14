@@ -30,7 +30,7 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
   return (
     <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
       {/* Label */}
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)' }}>
         {label}
         {optional && (
           <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>

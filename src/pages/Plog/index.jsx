@@ -240,7 +240,7 @@ export default function PlogPage() {
 
   /** 碎片风：3列网格+旋转+白边 */
   const LayoutCasual = ({ images, onOpen }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-1-5)' }}>
       {images.map((item, i) => (
         /* D11：裸 div onClick → button（可键盘 Tab 聚焦 + Enter 打开）。
            注意：本元素的 #fff / rgba 属**作品预览画布**（拍立得白边），见文件头例外说明。 */
@@ -260,7 +260,7 @@ export default function PlogPage() {
 
   /** 拍立得风：白边+旋转+阴影 */
   const LayoutPolaroid = ({ images, onOpen }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2-5)' }}>
       {images.map((item, i) => {
         const rot = [-2, 1.5, -1, 2.5, -1.5, 1, -2.5, 2, -1][i] || 0;
         return (
@@ -338,7 +338,7 @@ export default function PlogPage() {
         position: 'relative', boxShadow: 'inset 0 0 30px rgba(12,10,9,0.03)',
       }}>
         {/* 纸张纹理 SVG */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sb-space-2-5)', position: 'relative', zIndex: 1 }}>
           {images.map((item, i) => {
             const rot = [-1, 1.2, -0.8, 1.5, -1.2, 0.8, -1.8, 1, -0.5][i] || 0;
             const sticker = stickers[i % stickers.length];

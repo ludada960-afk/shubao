@@ -445,7 +445,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{
                           position: 'absolute', inset: 0,
                           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                          gap: 6, background: 'rgba(12,10,9,0.15)',
+                          gap: 'var(--sb-space-1-5)', background: 'rgba(12,10,9,0.15)',
                         }}>
                           <div style={{ fontSize: 'var(--sb-text-3xl)' }}>🔒</div>
                           <div style={{ fontSize: 'var(--sb-text-xs)', color: '#fff', fontWeight: 600, textShadow: '0 1px 4px rgba(12,10,9,0.5)' }}>
@@ -536,7 +536,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           {/* Bottom Action Bar */}
           <div style={{
             padding: '14px 28px', borderTop: '1px solid #eef0f5',
-            background: '#f8f9fc', display: 'flex', gap: 10, alignItems: 'center',
+            background: '#f8f9fc', display: 'flex', gap: 'var(--sb-space-2-5)', alignItems: 'center',
             position: 'sticky', bottom: 0,
           }}>
             {isTrialLocked ? (
@@ -637,7 +637,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       <div style={{
                         position: 'absolute', inset: 0,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        gap: 10, padding: 24, zIndex: 2,
+                        gap: 'var(--sb-space-2-5)', padding: 24, zIndex: 2,
                       }}>
                         <div style={{ fontSize: 'var(--sb-text-3xl)', filter: 'none' }}>🔒</div>
                         <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 700, color: '#fff', textShadow: '0 2px 12px rgba(12,10,9,0.5)', textAlign: 'center' }}>
@@ -646,7 +646,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{ fontSize: 'var(--sb-text-sm)', color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(12,10,9,0.4)', textAlign: 'center', maxWidth: 280 }}>
                           支付 ¥19 起 · 解锁所有配图 + 下载 + 保存至作品集
                         </div>
-                        <div style={{ display: 'flex', gap: 10, marginTop: 6, filter: 'none' }}>
+                        <div style={{ display: 'flex', gap: 'var(--sb-space-2-5)', marginTop: 6, filter: 'none' }}>
                           <button onClick={(e) => { e.stopPropagation(); if (onUnlock) onUnlock(); }}
                             style={{
                               padding: '11px 28px', background: 'var(--red, #FF4757)', color: '#fff',
@@ -769,7 +769,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               <div style={S.textScroll}>
                 {/* 头部 */}
                 <div style={S.header}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)' }}>
                     <img src={IMAGES.appicon} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
                     <div>
                       <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 600, color: '#222' }}>薯包AI</div>

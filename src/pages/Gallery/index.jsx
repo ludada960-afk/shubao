@@ -106,7 +106,7 @@ function GCard({ item, onClick, onSameStyle }) {
         <div style={{
           position: 'absolute', inset: 0, background: 'rgba(12,10,9,0.4)', zIndex: 3,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 10,
+          gap: 'var(--sb-space-2-5)',
         }} className="animate-fade-in">
           <span style={{
             background: 'rgba(255,255,255,0.95)', color: 'var(--red)',

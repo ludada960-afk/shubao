@@ -239,7 +239,7 @@ export default function RemakePage() {
       <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: '32px 20px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', marginBottom: 28 }}>
           <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: 4,
             color: 'var(--text-muted)', fontSize: 18,
