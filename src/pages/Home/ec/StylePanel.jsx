@@ -178,8 +178,12 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
           {styleCards.map((card) => {
             const active = value === card.key;
             return (
-              <div
+              <button
+                type="button"
+                className="a11y-reset"
                 key={card.key}
+                aria-pressed={active}
+                aria-label={card.label || card.key}
                 onClick={() => handleStyle(card.key)}
                 onMouseEnter={() => setHoverCard(card.key)}
                 onMouseLeave={() => setHoverCard('')}
@@ -233,7 +237,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 >
                   {card.tone}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>

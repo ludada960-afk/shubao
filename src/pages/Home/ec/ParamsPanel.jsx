@@ -85,14 +85,16 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
                 maxHeight: 168, overflowY: 'auto',
               }}>
                 {CATEGORIES.map(c => (
-                  <div key={c} onClick={() => { set('category', c); setCatOpen(false); }}
+                  <button key={c} type="button" className="a11y-reset"
+                    aria-pressed={params.category === c} aria-label={`分类 ${c}`}
+                    onClick={() => { set('category', c); setCatOpen(false); }}
                     style={{
                       padding: `${SPACING.sp1}px ${SPACING.sp2}px`, borderRadius: 'var(--sb-radius-chip)', fontSize: FONT_SIZE.helper, cursor: 'pointer',
                       background: params.category === c ? 'var(--sb-state-selected-bg)' : 'var(--sb-state-hover-bg)',
                       color: params.category === c ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)',
                       fontWeight: params.category === c ? 600 : 400,
                       transition: 'all 0.15s',
-                    }}>{c}</div>
+                    }}>{c}</button>
                 ))}
               </div>
             )}

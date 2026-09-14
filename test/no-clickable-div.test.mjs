@@ -108,6 +108,23 @@ test('① 检测器自证：spread 提供 role/tabIndex 的合规写法不得误
   assert.equal(findClickableNonInteractive(noKey).length, 1, '去掉 onKeyDown 后必须重新变为违规');
 });
 
+test('① 检测器自证：role=radio/option 等合法可交互角色不得误报', () => {
+  /* 判据是「键盘到不到得了」，不是「有没有写 button 这个词」。
+     role="radio"/"option"/"menuitem"/"tab"/"switch" 同样是可聚焦 + 可键盘激活的语义角色
+     （DirectionOptionCard 用 role="radio" + tabIndex + onKeyDown 的 roving tabindex 模式）。 */
+  for (const role of ['radio', 'option', 'menuitem', 'tab', 'switch', 'checkbox', 'link']) {
+    const src = '<div role="' + role + '" tabIndex={0} onClick={go} onKeyDown={k}>x</div>';
+    assert.deepEqual(findClickableNonInteractive(src), [],
+      'role=' + role + ' + tabIndex + onKeyDown 属键盘可达，不得误报');
+  }
+  // 缺 onKeyDown 仍必须违规（可聚焦但键盘激活不了）
+  const noKey = '<div role="radio" tabIndex={0} onClick={go}>x</div>';
+  assert.equal(findClickableNonInteractive(noKey).length, 1, '缺 onKeyDown 必须违规');
+  // 无 role 的裸 div 仍必须违规
+  assert.equal(findClickableNonInteractive('<div tabIndex={0} onClick={go} onKeyDown={k}>x</div>').length, 1,
+    '无 role 的裸 div 即便可聚焦也算违规（语义未声明）');
+});
+
 test('① 检测器自证：注释里出现的 <div onClick> 字样不得误报', () => {
   const src = ['/* 说明：原为 <div onClick> 已改 <button> */', 'const x = 1;'].join('\n');
   assert.deepEqual(findClickableNonInteractive(src), [], '注释内容不参与检测');

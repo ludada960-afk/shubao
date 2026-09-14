@@ -74,7 +74,9 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
           {legalRatios.map(r => {
             const sel = r.key === value;
             return (
-              <div key={r.key} onClick={() => { onChange(r.key); setOpen(false); }}
+              <button key={r.key} type="button" className="a11y-reset"
+                aria-pressed={sel} aria-label={r.label || r.key}
+                onClick={() => { onChange(r.key); setOpen(false); }}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sb-space-1)',
                   padding: 'var(--sb-space-2) var(--sb-space-1)',
@@ -92,7 +94,7 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
                 <span style={{ fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-bold)',
                   color: sel ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)' }}>{r.label}</span>
                 <span style={{ fontSize: 'var(--sb-text-2xs)', color: 'var(--sb-text-hint)', textAlign: 'center', lineHeight: 1.2 }}>{r.usage}</span>
-              </div>
+              </button>
             );
           })}
         </div>

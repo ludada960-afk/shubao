@@ -118,6 +118,13 @@ export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
        ② **spread 提供**  {...(interactive ? { role: 'button', tabIndex: 0 } : {})}
        只认 ① 会把 Card 这类"条件展开"的合规实现误判为违规
        （本仓 src/components/ui/index.jsx 的 Card 即此写法）。 */
+    /* 合法可交互角色：不限于 button —— radio/option/menuitem/tab/switch/checkbox 等
+       同样是「可聚焦 + 可键盘激活」的语义角色（DirectionOptionCard 用 role="radio"）。
+       判据是「键盘到不到得了」，不是「有没有写 button 这个词」。 */
+    const INTERACTIVE_ROLE = /role\s*=\s*['"](button|radio|option|menuitem|tab|switch|checkbox|link)['"]/;
+    if (INTERACTIVE_ROLE.test(attrs)
+      && (/tabIndex\s*=/.test(attrs) || /tabIndex\s*:/.test(attrs))
+      && /onKeyDown\s*=/.test(attrs)) continue;
     /* role 有三种写法：
        ① role="button"                                 —— 直接属性
        ② { role: 'button', tabIndex: 0 }               —— spread 对象字面量

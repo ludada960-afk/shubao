@@ -56,7 +56,9 @@ export default function EcProductParams({ params, onChange }) {
               maxHeight: 200, overflowY: 'auto',
             }}>
               {CATEGORIES.map(c => (
-                <div key={c} onClick={() => setCat(c)}
+                <button key={c} type="button" className="a11y-reset"
+                  aria-pressed={params.category === c} aria-label={`分类 ${c}`}
+                  onClick={() => setCat(c)}
                   style={{
                     padding: '5px 12px', borderRadius: 'var(--radius-sm)',
                     fontSize: 12, cursor: 'pointer',
@@ -66,7 +68,7 @@ export default function EcProductParams({ params, onChange }) {
                     transition: 'all 0.08s',
                   }}>
                   {c}
-                </div>
+                </button>
               ))}
             </div>
           )}

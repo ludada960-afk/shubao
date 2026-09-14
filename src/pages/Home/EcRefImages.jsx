@@ -123,10 +123,10 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
       {hasImages && (
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
           {images.length}/{max} 张
-          <span onClick={() => fileRef.current?.click()}
+          <button type="button" className="a11y-reset" onClick={() => fileRef.current?.click()}
             style={{ marginLeft: 10, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>
             继续添加
-          </span>
+          </button>
         </div>
       )}
     </div>
