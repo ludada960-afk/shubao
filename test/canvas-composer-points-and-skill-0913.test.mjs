@@ -21,7 +21,18 @@ function composerBody(name) {
   return rest.slice(0, end > 0 ? end : 12000);
 }
 
-test('四个生成框共用同一枚渐变 CTA，并在按钮里显示动态积分', () => {
+/* ═══ 2026-09-18 口径更新（(b) 规范被取代）═══════════════════════════════════
+   原断言标题要求「共用同一枚**渐变** CTA」。该口径已被品牌决策推翻：
+     · docs/design/01-brand-decision.md:75 ——
+       「品牌渐变（--sb-brand-gradient / -gradient-3）**只用于品牌时刻，禁止用于功能按钮**」；
+     · docs/design/40-decisions.md · D1 —— 主色 = 品牌紫（不是近黑），交互主色为 --sb-brand-600；
+       D1 补充裁定：品牌红只用于「品牌时刻」，交互仍用品牌紫。
+   → 功能 CTA 应为一枚**纯色品牌紫**，不再要求渐变。**不把 CTA 改回渐变来迁就旧断言。**
+   说明：现 .shubao-gen-cta 的 background 写作
+     linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-600) 100%)
+   两端同色 —— 视觉上等价于纯色品牌紫；本测试断言**渲染等价于纯色**（两端同色，
+   且颜色取自 --sb-brand-*），这样既守住「不许渐变」的口径，也不强制改掉这行写法。 */
+test('四个生成框共用同一枚 CTA（纯色品牌紫）+ 按钮内动态显示积分', () => {
   for (const name of ['CanvasImageComposer', 'CanvasTextGenerationComposer', 'CanvasVideoComposer', 'CanvasEcommerceComposer']) {
     const body = composerBody(name);
     assert.ok(body.includes('shubao-gen-cta ec-canvas-composer-cta'), name + ' 的生成按钮未统一为首页同款 CTA');
@@ -32,6 +43,29 @@ test('四个生成框共用同一枚渐变 CTA，并在按钮里显示动态积�
   assert.ok(!studio.includes('62 AI 积分'), '视频框不应再写死 62 AI 积分');
   assert.ok(!/\d+ AI 积分 \/ 次 · 确认方案后扣费/.test(studio), '不应再有写死的每次积分');
   assert.ok(css.includes('.ec-canvas-composer-cta'), 'CTA 需要画布侧样式，避免被画布基础按钮规则覆盖');
+});
+
+/* 新增：把「功能按钮不得用品牌渐变」这条决策钉进画布 CTA 契约。
+   依据 docs/design/01-brand-decision.md:75 + 40-decisions.md D1。 */
+test('画布 CTA 不得使用品牌渐变（多色渐变），渲染须等价于纯色品牌紫', () => {
+  const cta = read('src/styles/generate-cta.css');
+  const block = cta.slice(cta.indexOf('.shubao-gen-cta {'), cta.indexOf('.shubao-gen-cta:hover'));
+  assert.ok(block, '必须能找到 .shubao-gen-cta 主规则');
+  /* 禁止引用品牌渐变 token（那是「品牌时刻」专用） */
+  assert.doesNotMatch(block, /--sb-brand-gradient(-3)?/, 'CTA 不得引用 --sb-brand-gradient / -gradient-3（品牌时刻专用）');
+  const bg = block.match(/background:\s*([^;]+);/);
+  assert.ok(bg, 'CTA 必须有 background 声明');
+  const value = bg[1].trim();
+  if (value.includes('linear-gradient')) {
+    /* 允许保留渐变语法，但**两端必须同色**（= 视觉纯色），且取自品牌 token */
+    const stops = value.match(/var\(--sb-brand-[a-z0-9-]+\)/g) || [];
+    assert.ok(stops.length >= 2, '若用渐变语法，两端颜色必须显式写出（便于校验同色）');
+    assert.equal(new Set(stops).size, 1,
+      '渐变两端必须同色（否则就是「多色渐变」，违反「功能按钮禁止品牌渐变」）：实际 ' + JSON.stringify([...new Set(stops)]));
+  } else {
+    /* 纯色写法：必须是品牌紫 token */
+    assert.match(value, /var\(--sb-brand-/, '纯色 CTA 必须取自品牌紫 token');
+  }
 });
 
 test('四个生成框共用同一个技能入口组件', () => {
