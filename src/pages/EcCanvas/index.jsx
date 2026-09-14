@@ -3044,7 +3044,7 @@ const handlePointerUp = useCallback((e) => {
           remoteSnapshotRef.current = JSON.stringify(snapshot);
           dispatch({ type: 'SET_RESULT', result: { ...result, canvasSession: created, canvasSessionId: created.id, canvasSessionRevision: created.revision } });
         } catch {
-          showToast('画布已铺开，云端保存稍后自动重试', 'info');
+          showToast('画布已铺开', 'info');
         }
       }
       setWorkflowRunOffer({
@@ -7061,7 +7061,9 @@ const handlePointerUp = useCallback((e) => {
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
           {/* 9-12 用户批注：作品只保留 7 天，要明确告知用户及时下载 */}
-          {tab === 'works' && <div className="ec-canvas-work-retention" role="note">作品在服务器保留 7 天，请及时下载到本地；过期后会自动清理。</div>}
+          {/* 9-17 提示语纪律（用户图8 相关）：短、说结果不说机制 ——
+             去掉"在服务器/自动清理"这类机制措辞，只留用户要做的动作。 */}
+          {tab === 'works' && <div className="ec-canvas-work-retention" role="note">作品保留 7 天，请及时下载。</div>}
           {tab === 'works' && <div className="ec-canvas-work-filters" role="tablist" aria-label="作品分类">
             {WORK_CATEGORY_OPTIONS.map(option => <button
               key={option.id}
