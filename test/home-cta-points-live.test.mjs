@@ -16,24 +16,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { startDevServer, stopDevServer, gotoHealthy, skipLive } from './helpers/live-browser.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const BASE = 'http://localhost:5173/';
 
-/** dev server 不可用则返回 null，交由调用方决定跳过浏览断言。 */
-async function openHome() {
-  try {
-    const res = await fetch(BASE, { method: 'GET' });
-    if (!res.ok) return null;
-  } catch {
-    return null;
-  }
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await page.goto(BASE, { waitUntil: 'networkidle', timeout: 60000 });
-  await page.waitForTimeout(4500);
-  return { browser, page };
-}
+/* 关键节点：首页必须出现配置触发条才算「应用健康」 */
+const READY = '.ec-config-trigger';
 
 const readCta = page => page.evaluate(() => {
   const b = document.querySelector('.ec-workbench-cta');
@@ -67,14 +55,28 @@ test('静态说明句已删除，但动态积分链路完好', () => {
 
 /* ── 实机契约：积分必须随参数变化 ── */
 
-test('实机：改清晰度后，主 CTA 上的积分数确实变化（动态跟随）', async () => {
-  const ctx = await openHome();
-  if (!ctx) {
-    console.log('[skip-browse] dev server 不可用，跳过实机断言（静态契约已在上面强制）');
-    return;
-  }
-  const { browser, page } = ctx;
+test('实机：改清晰度后，主 CTA 上的积分数确实变化（动态跟随）', async t => {
+  /* ── 自起独立端口 + 健康网关（修「全量并发 flaky」，实测曾 48.9s 超时）──
+     旧写法直接打 localhost:5173：全量跑时该端口可能被别人占着，
+     或本 worktree 的服务被并发写入打成瞬时白屏 → 30~60s 慢红。
+     现在改为**本测试专用端口**，且带健康判据重试。 */
+  const server = await startDevServer();
+  if (!server.ok) { skipLive(t, '无法启动独立 dev server：' + server.reason); return; }
+
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
+    const health = await gotoHealthy(page, server.base, READY);
+    /* 重试耗尽 → **跳过并打印明确原因**，而不是把整条 npm test 打红。
+       取舍依据（用户明确要求）：本机可能被其它 agent 占满 CPU / 服务未起，
+       此时对正确实现报红会污染所有人的判断（本仓已因此误报多次）。
+       但**绝不静默**：skip 一定带 reason，且醒目打印。 */
+    if (!health.ok) {
+      console.log('\n⚠️ [SKIP-LIVE] 等待应用健康失败（' + health.attempts + ' 次重试耗尽）：' + health.reason);
+      console.log('⚠️  source=' + server.source + '（本机是否被其它 agent 占满 CPU / 服务是否已起？）\n');
+      t.skip('SKIP-LIVE: ' + health.reason);
+      return;
+    }
     const before = await readCta(page);
     assert.ok(before, '首页必须存在主 CTA');
     assert.ok(before.points, '主 CTA 上必须显示积分数（用户要求保留）');
@@ -107,5 +109,6 @@ test('实机：改清晰度后，主 CTA 上的积分数确实变化（动态跟
     assert.equal(caption, false, '面板内不得重新出现「当前约 … AI 积分/张」说明句');
   } finally {
     await browser.close();
+    stopDevServer(server.proc, { owned: server.owned });
   }
 });

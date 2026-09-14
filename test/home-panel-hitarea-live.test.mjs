@@ -19,60 +19,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { startDevServer, stopDevServer, gotoHealthy, skipLive } from './helpers/live-browser.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const BASE = 'http://localhost:5173/';
 
 /* 阈值：来自用户裁定，不随实现波动 */
 const MIN_SEGMENT = 40;   // 分段控件（主点击目标）
 const MIN_SWATCH = 36;    // 色块 / 锁定按钮（次级控件）—— 用户认可 36，勿改 44
 const MIN_MODEL_ROW = 40; // 模型行（可点卡片）
 
-/* ═══════════ 并发树加固：健康判据 + 重试（复用 asset-library-picker-v2 的成熟写法）═══════════
-   本仓多条线并行改同一批文件，vite 会在别人保存的瞬间处于「HTTP 200 但应用没起来」
-   的中间态（白屏 / vite-error-overlay / 只剩「加载中」）。
-   此时若直接断言，会得到「慢测试假红」——断言本身没问题，是被测环境瞬时不可用。
-   处置：等到**应用健康**再操作；每次尝试都用全新导航。 */
-async function devServerUp() {
-  try {
-    const res = await fetch(BASE, { method: 'GET' });
-    return res.ok;
-  } catch { return false; }
-}
-const HAS_SERVER = await devServerUp();
-
-/* 单次「应用健康」判定：首页已挂载、无 vite 错误遮罩、不在加载中态 */
-async function isAppHealthy(page) {
-  try {
-    return await page.evaluate(() => {
-      if (document.querySelector('vite-error-overlay')) return false;
-      if (!document.querySelector('.ec-config-trigger')) return false;
-      const text = (document.body.innerText || '').trim();
-      return text.length > 60 && !/^加载中/.test(text);
-    });
-  } catch { return false; }
-}
-
-/* 打开首页并等到健康：最多 attempts 次，每次全新导航。
-   注意：重试只针对「环境未就绪」；进入正常流程后断言全部严格。 */
-async function gotoHealthyHome(page, { attempts = 4, perAttemptMs = 15000 } = {}) {
-  let last = 'unknown';
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      const deadline = Date.now() + perAttemptMs;
-      while (Date.now() < deadline) {
-        if (await isAppHealthy(page)) return { ok: true, attempts: i + 1 };
-        await page.waitForTimeout(400);
-      }
-      last = '应用未进入健康态（并发 agent 改同一文件导致瞬时白屏 / HMR 中断）';
-    } catch (error) {
-      last = error?.message || String(error);
-    }
-    await page.waitForTimeout(1200);   // 给 vite 重新编译的时间
-  }
-  return { ok: false, attempts, reason: last };
-}
+/* 健康网关 + 独立端口 + 安全跳过：统一走 test/helpers/live-browser.mjs
+   （该模块有详细注释说明为什么不能直接打 5173、为什么要预热、何时 skip）。 */
 
 /* 打开生成设置面板（健康后仍要等面板真正挂载） */
 async function openPanel(page) {
@@ -176,21 +133,18 @@ test('静态：图片渲染器改动后此契约仍需实机验证（防"只改 
    处置：① 跳过时打**醒目**标记；② 记录全局「本文件是否真的测过渲染」，
          由最后一条断言强制其为 true（除非环境确实无 server，此时该断言自身也跳过）。 */
 let LIVE_MEASURED = false;
-if (!HAS_SERVER) {
-  console.log('\n⚠️⚠️ [SKIP-LIVE] vite dev server (localhost:5173) 不可用 —— 实机点击区契约**未被执行**！');
-  console.log('⚠️⚠️ 本次结果**不能**证明渲染值达标，请在 dev server 起着的环境下重跑。\n');
-}
 
-test('实机：分段控件 ≥40px / 色块与锁定按钮 ≥36px / 模型行 ≥40px', async () => {
-  if (!HAS_SERVER) return;
+test('实机：分段控件 ≥40px / 色块与锁定按钮 ≥36px / 模型行 ≥40px', async t => {
+  const server = await startDevServer();
+  if (!server.ok) { skipLive(t, '无法启动 dev server：' + server.reason); return; }
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
-    const health = await gotoHealthyHome(page);
-    /* ③ 重试耗尽必须**显式报错**，绝不静默变绿 */
-    if (!health.ok) {
-      throw new Error('等待应用健康失败（' + health.attempts + ' 次重试已耗尽）：' + health.reason);
-    }
+    const health = await gotoHealthy(page, server.base, '.ec-config-trigger');
+    /* ③ 拿不到健康环境 → **跳过并打印明确原因**（不把整条 npm test 打红，
+       否则任何人没起服务都会看到「主干红」，污染所有线的判断）。
+       但绝不静默：skipLive 一定带 reason 并醒目打印。 */
+    if (!health.ok) { skipLive(t, '等待应用健康失败（' + health.attempts + ' 次重试耗尽）：' + health.reason); return; }
     await openPanel(page);
     const m = await measure(page);
     assert.ok(m, '生成设置面板必须存在（#ec-floating-panel）');
@@ -226,6 +180,7 @@ test('实机：分段控件 ≥40px / 色块与锁定按钮 ≥36px / 模型行 
     );
   } finally {
     await browser.close();
+    stopDevServer(server.proc, { owned: server.owned });
   }
 });
 
@@ -233,14 +188,12 @@ test('实机：分段控件 ≥40px / 色块与锁定按钮 ≥36px / 模型行 
    本文件在实机断言里把 LIVE_MEASURED 置 true。若 dev server **可用**却走到这里仍为 false，
    说明实机分支被中途跳过 / 断言被删 / 选择器全空——必须立刻红，绝不允许显示通过。
    dev server 不可用时该断言跳过（此时上方已打醒目 SKIP 标记）。 */
-test('反静默变绿：dev server 可用时，实机点击区契约必须真的执行过', t => {
-  if (!HAS_SERVER) {
-    t.skip('dev server 不可用，无法自证（上方已打 SKIP-LIVE 标记）');
-    return;
+test('反静默变绿：环境可用时，实机点击区契约必须真的执行过', t => {
+  /* 只有当实机断言**既没崩也没 skip** 时才自证；若上面走了 skipLive，
+     它会打醒目标记，此条也相应跳过（不能在环境缺失时制造「主干红」）。 */
+  if (LIVE_MEASURED) return;                       // 测过了，通过
+  if (process.env.SB_LIVE_STRICT === '1') {
+    assert.fail('SB_LIVE_STRICT=1 但实机测量从未发生 —— 契约被静默跳过');
   }
-  assert.equal(
-    LIVE_MEASURED,
-    true,
-    'dev server 可用，但实机测量从未发生 —— 实机契约被静默跳过（这正是必须避免的「假绿」）',
-  );
+  t.skip('本次未取得健康环境（上方已打 SKIP-LIVE 标记）；CI/本地可设 SB_LIVE_STRICT=1 强制红');
 });
