@@ -208,7 +208,7 @@ export const panelBodyStyle = Object.freeze({
    （否则用户会以为「你已经帮他选了紫色」）。 */
 export const NEUTRAL_UNLOCKED = Object.freeze({
   border: '1.5px dashed rgba(45,41,38,0.28)',
-  background: 'repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%) 50% / 8px 8px',
+  background: 'repeating-conic-gradient(rgba(12,10,9,0.06) 0% 25%, transparent 0% 50%) 50% / 8px 8px',
 });
 
 /** 锁定态：描边跟随所选颜色本身（不是固定紫色） */

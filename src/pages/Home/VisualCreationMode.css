@@ -883,7 +883,7 @@
   color: #fff;
   background: #991b1b;
   border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, .2);
+  box-shadow: 0 4px 20px rgba(12, 10, 9, .2);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
@@ -1013,7 +1013,7 @@
   overflow: hidden;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, .32);
+  box-shadow: 0 30px 70px rgba(12, 10, 9, .32);
 }
 
 .visual-preview-dialog-content img {

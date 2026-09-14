@@ -122,7 +122,7 @@ function VisualRatioShape({ ratio, active }) {
   const [width, height] = VISUAL_RATIO_META[ratio]?.shape || [24, 24];
   return (
     <svg className="visual-ratio-shape" width={width + 4} height={height + 4} viewBox={`0 0 ${width + 4} ${height + 4}`} aria-hidden="true">
-      <rect x="2" y="2" width={width} height={height} rx="3" fill={active ? '#7c3aed' : 'transparent'} stroke={active ? '#7c3aed' : 'rgba(0,0,0,.32)'} strokeWidth="1.5" />
+      <rect x="2" y="2" width={width} height={height} rx="3" fill={active ? '#7c3aed' : 'transparent'} stroke={active ? '#7c3aed' : 'rgba(12,10,9,.32)'} strokeWidth="1.5" />
     </svg>
   );
 }

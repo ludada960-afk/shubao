@@ -112,7 +112,7 @@ test('getDirectionCardState - 未选中状态应该有默认样式', () => {
   });
 
   assert.equal(state.selected, false);
-  assert.ok(state.styles.border.includes('rgba(0,0,0,0.06)'));
+  assert.ok(state.styles.border.includes('rgba(12,10,9,0.06)'));
 });
 
 test('getDirectionCardState - 应该处理缺失的配色', () => {

@@ -78,13 +78,13 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Gradient overlay */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%',
-        background: 'linear-gradient(transparent, rgba(0,0,0,0.5))', pointerEvents: 'none',
+        background: 'linear-gradient(transparent, rgba(12,10,9,0.5))', pointerEvents: 'none',
       }} />
 
       {/* Category */}
       <span style={{
         position: 'absolute', top: 10, left: 10, zIndex: 2,
-        fontSize: 'var(--text-xs)', background: 'rgba(0,0,0,0.45)', color: '#fff',
+        fontSize: 'var(--text-xs)', background: 'rgba(12,10,9,0.45)', color: '#fff',
         padding: '3px 10px', borderRadius: 'var(--radius-md)',
         backdropFilter: 'blur(4px)', fontWeight: 'var(--weight-semibold)',
       }}>
@@ -95,7 +95,7 @@ function GCard({ item, onClick, onSameStyle }) {
       <div style={{
         position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 2,
         fontSize: 13, fontWeight: 'var(--weight-bold)', color: '#fff',
-        lineHeight: 1.5, textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        lineHeight: 1.5, textShadow: '0 1px 4px rgba(12,10,9,0.4)',
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
         {item.title}
@@ -104,7 +104,7 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Hover overlay */}
       {h && (
         <div style={{
-          position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 3,
+          position: 'absolute', inset: 0, background: 'rgba(12,10,9,0.4)', zIndex: 3,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           gap: 10,
         }} className="animate-fade-in">

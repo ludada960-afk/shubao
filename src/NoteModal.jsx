@@ -80,7 +80,7 @@ function EcommerceGalleryPreview({ item, onClose }) {
       </aside>
     </div>
     <style>{`
-      .ec-gallery-overlay{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:24px;background:rgba(18,18,20,.78);overscroll-behavior:none;backdrop-filter:blur(10px)}.ec-gallery-modal{display:grid;width:min(1180px,94vw);height:min(780px,92vh);grid-template-columns:minmax(0,1fr) 340px;overflow:hidden;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#fff;box-shadow:0 28px 80px rgba(0,0,0,.32)}.ec-gallery-visual{position:relative;min-width:0;overflow:hidden;background:#f1f1f1}.ec-gallery-nav{position:absolute;top:50%;display:grid;width:42px;height:42px;place-items:center;border:0;border-radius:50%;background:rgba(25,25,27,.78);color:#fff;cursor:pointer;transform:translateY(-50%);backdrop-filter:blur(8px)}.ec-gallery-prev{left:16px}.ec-gallery-next{right:16px}.ec-gallery-progress{position:absolute;bottom:16px;left:50%;padding:6px 10px;border-radius:6px;background:rgba(25,25,27,.76);color:#fff;font-size:12px;font-weight:800;transform:translateX(-50%)}.ec-gallery-details{position:relative;display:flex;min-width:0;flex-direction:column;padding:30px 26px 22px;background:#fff}.ec-gallery-close{position:absolute;top:18px;right:18px;display:grid;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:#f2f2f3;color:#333;cursor:pointer}.ec-gallery-kind{align-self:flex-start;margin-bottom:14px;padding:5px 8px;border-radius:5px;background:#f1edff;color:#6545e7;font-size:11px;font-weight:800}.ec-gallery-details h2{margin:0 40px 7px 0;color:#202124;font-size:21px;line-height:1.35;letter-spacing:0}.ec-gallery-meta{color:#888b92;font-size:12px}.ec-gallery-current{margin-top:28px;padding-top:24px;border-top:1px solid #ececef}.ec-gallery-current>span{color:#7463d9;font-size:11px;font-weight:800}.ec-gallery-current h3{margin:7px 0 8px;color:#25262a;font-size:18px;letter-spacing:0}.ec-gallery-current p{margin:0;color:#656870;font-size:13px;line-height:1.75}.ec-gallery-current small{display:block;margin-top:10px;color:#9a9ca2;font-size:11px}.ec-gallery-strip{display:flex;margin-top:auto;flex-direction:column;gap:5px;max-height:174px;overflow-y:auto;padding:2px}.ec-gallery-strip button{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:#f5f5f6;color:#6c6e74;cursor:pointer;text-align:left}.ec-gallery-strip button span{font:700 10px/1 ui-monospace,monospace;color:#a2a3a8}.ec-gallery-strip button strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ec-gallery-strip button.active{border-color:#cfc5ff;background:#f1edff;color:#563ee0}.ec-gallery-wheel-hint{margin-top:12px;color:#a1a2a8;font-size:11px;text-align:center}@media(max-width:760px){.ec-gallery-overlay{padding:0}.ec-gallery-modal{width:100vw;height:100dvh;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;border:0;border-radius:0}.ec-gallery-details{max-height:36dvh;padding:18px}.ec-gallery-details h2{font-size:17px}.ec-gallery-current{margin-top:12px;padding-top:12px}.ec-gallery-strip{margin-top:14px;flex-direction:row;overflow-x:auto;overflow-y:hidden}.ec-gallery-strip button{max-width:140px;flex:0 0 auto}.ec-gallery-wheel-hint{display:none}}
+      .ec-gallery-overlay{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:24px;background:rgba(18,18,20,.78);overscroll-behavior:none;backdrop-filter:blur(10px)}.ec-gallery-modal{display:grid;width:min(1180px,94vw);height:min(780px,92vh);grid-template-columns:minmax(0,1fr) 340px;overflow:hidden;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#fff;box-shadow:0 28px 80px rgba(12,10,9,.32)}.ec-gallery-visual{position:relative;min-width:0;overflow:hidden;background:#f1f1f1}.ec-gallery-nav{position:absolute;top:50%;display:grid;width:42px;height:42px;place-items:center;border:0;border-radius:50%;background:rgba(25,25,27,.78);color:#fff;cursor:pointer;transform:translateY(-50%);backdrop-filter:blur(8px)}.ec-gallery-prev{left:16px}.ec-gallery-next{right:16px}.ec-gallery-progress{position:absolute;bottom:16px;left:50%;padding:6px 10px;border-radius:6px;background:rgba(25,25,27,.76);color:#fff;font-size:12px;font-weight:800;transform:translateX(-50%)}.ec-gallery-details{position:relative;display:flex;min-width:0;flex-direction:column;padding:30px 26px 22px;background:#fff}.ec-gallery-close{position:absolute;top:18px;right:18px;display:grid;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:#f2f2f3;color:#333;cursor:pointer}.ec-gallery-kind{align-self:flex-start;margin-bottom:14px;padding:5px 8px;border-radius:5px;background:#f1edff;color:#6545e7;font-size:11px;font-weight:800}.ec-gallery-details h2{margin:0 40px 7px 0;color:#202124;font-size:21px;line-height:1.35;letter-spacing:0}.ec-gallery-meta{color:#888b92;font-size:12px}.ec-gallery-current{margin-top:28px;padding-top:24px;border-top:1px solid #ececef}.ec-gallery-current>span{color:#7463d9;font-size:11px;font-weight:800}.ec-gallery-current h3{margin:7px 0 8px;color:#25262a;font-size:18px;letter-spacing:0}.ec-gallery-current p{margin:0;color:#656870;font-size:13px;line-height:1.75}.ec-gallery-current small{display:block;margin-top:10px;color:#9a9ca2;font-size:11px}.ec-gallery-strip{display:flex;margin-top:auto;flex-direction:column;gap:5px;max-height:174px;overflow-y:auto;padding:2px}.ec-gallery-strip button{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:#f5f5f6;color:#6c6e74;cursor:pointer;text-align:left}.ec-gallery-strip button span{font:700 10px/1 ui-monospace,monospace;color:#a2a3a8}.ec-gallery-strip button strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ec-gallery-strip button.active{border-color:#cfc5ff;background:#f1edff;color:#563ee0}.ec-gallery-wheel-hint{margin-top:12px;color:#a1a2a8;font-size:11px;text-align:center}@media(max-width:760px){.ec-gallery-overlay{padding:0}.ec-gallery-modal{width:100vw;height:100dvh;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;border:0;border-radius:0}.ec-gallery-details{max-height:36dvh;padding:18px}.ec-gallery-details h2{font-size:17px}.ec-gallery-current{margin-top:12px;padding-top:12px}.ec-gallery-strip{margin-top:14px;flex-direction:row;overflow-x:auto;overflow-y:hidden}.ec-gallery-strip button{max-width:140px;flex:0 0 auto}.ec-gallery-wheel-hint{display:none}}
       .ec-gallery-tryon-workflow{display:flex;width:100%;height:100%;align-items:center;justify-content:center;gap:16px;padding:56px 36px;background:linear-gradient(120deg,#fff8ea 0%,#faf7ff 67%,#edf8f6 100%)}.ec-gallery-tryon-asset{position:relative;min-width:0;max-width:28%;margin:0;padding:8px;border:1px solid rgba(67,55,45,.1);border-radius:8px;background:#fff;box-shadow:0 18px 40px rgba(47,37,30,.14);transform:rotate(-2deg)}.ec-gallery-tryon-asset.role-reference{transform:rotate(2deg)}.ec-gallery-tryon-asset.role-result{max-width:32%;transform:rotate(1deg)}.ec-gallery-tryon-asset figcaption{position:absolute;right:13px;bottom:13px;padding:5px 8px;border-radius:5px;background:rgba(25,23,23,.78);color:#fff;font-size:11px;font-weight:900}.ec-gallery-tryon-operator{display:grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border:1px solid rgba(101,72,205,.18);border-radius:50%;background:#fff;color:#6548cb;font:900 22px/1 inherit;box-shadow:0 8px 22px rgba(76,52,161,.13)}
       @media(max-width:760px){.ec-gallery-tryon-workflow{gap:5px;padding:26px 8px}.ec-gallery-tryon-asset{max-width:29%;padding:3px}.ec-gallery-tryon-asset.role-result{max-width:32%}.ec-gallery-tryon-operator{width:22px;height:22px;flex-basis:22px;font-size:13px}.ec-gallery-tryon-asset figcaption{right:5px;bottom:5px;padding:3px 4px;font-size:8px}}
     `}</style>
@@ -305,7 +305,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             <div style={{
               position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
               display: 'flex', gap: 20, alignItems: 'center',
-              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+              background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)',
               padding: '8px 20px', borderRadius: 20, color: 'rgba(255,255,255,0.85)',
               fontSize: 12,
             }}>
@@ -323,7 +323,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
         <div style={{
           background: '#fff', borderRadius: 14, width: '94vw', maxWidth: 780,
           maxHeight: '90vh', overflow: 'auto',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+          boxShadow: '0 20px 60px rgba(12,10,9,0.25)',
         }} onClick={e => e.stopPropagation()} className="animate-scale-in">
           {/* Header */}
           <div style={{
@@ -354,7 +354,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               <button onClick={onClose} style={{
                 background: 'rgba(255,255,255,0.8)', border: 'none', color: '#999',
                 cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                boxShadow: '0 1px 3px rgba(12,10,9,0.06)',
               }}>
                 <MdClose size={16} />
               </button>
@@ -413,15 +413,15 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <div key={style} className="ec-card" style={{
                     background: '#fff', borderRadius: 10, overflow: 'hidden',
                     border: isLocked ? '1.5px solid #fde68a' : '1px solid #f0f0f0',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                    boxShadow: '0 1px 4px rgba(12,10,9,0.04)',
                     transition: 'box-shadow 0.2s, transform 0.2s',
                   }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+                      e.currentTarget.style.boxShadow = '0 4px 20px rgba(12,10,9,0.1)';
                       e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
+                      e.currentTarget.style.boxShadow = '0 1px 4px rgba(12,10,9,0.04)';
                       e.currentTarget.style.transform = 'none';
                     }}
                   >
@@ -440,17 +440,17 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{
                           position: 'absolute', inset: 0,
                           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                          gap: 6, background: 'rgba(0,0,0,0.15)',
+                          gap: 6, background: 'rgba(12,10,9,0.15)',
                         }}>
                           <div style={{ fontSize: 28 }}>🔒</div>
-                          <div style={{ fontSize: 11, color: '#fff', fontWeight: 600, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                          <div style={{ fontSize: 11, color: '#fff', fontWeight: 600, textShadow: '0 1px 4px rgba(12,10,9,0.5)' }}>
                             充值解锁
                           </div>
                         </div>
                       ) : (
                         <div className="ec-card-overlay" style={{
                           position: 'absolute', inset: 0,
-                          background: 'rgba(0,0,0,0)',
+                          background: 'rgba(12,10,9,0)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           opacity: 0, transition: 'all 0.2s',
                           color: '#fff', fontSize: 12, fontWeight: 600, gap: 4,
@@ -461,7 +461,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       {size && (
                         <div style={{
                           position: 'absolute', bottom: 6, left: 6,
-                          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                          background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(4px)',
                           padding: '2px 7px', borderRadius: 4,
                           fontSize: 9, color: '#fff', fontWeight: 500,
                         }}>
@@ -635,10 +635,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         gap: 10, padding: 24, zIndex: 2,
                       }}>
                         <div style={{ fontSize: 36, filter: 'none' }}>🔒</div>
-                        <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)', textAlign: 'center' }}>
+                        <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', textShadow: '0 2px 12px rgba(12,10,9,0.5)', textAlign: 'center' }}>
                           充值解锁全套服务
                         </div>
-                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(0,0,0,0.4)', textAlign: 'center', maxWidth: 280 }}>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(12,10,9,0.4)', textAlign: 'center', maxWidth: 280 }}>
                           支付 ¥19 起 · 解锁所有配图 + 下载 + 保存至作品集
                         </div>
                         <div style={{ display: 'flex', gap: 10, marginTop: 6, filter: 'none' }}>
@@ -750,7 +750,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{
                           position: 'absolute', inset: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 10, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                          fontSize: 10, color: '#fff', textShadow: '0 1px 3px rgba(12,10,9,0.5)',
                         }}>🔒</div>
                       )}
                     </div>
@@ -937,14 +937,14 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 const S = {
   overlay: {
     position: 'fixed', inset: 0, zIndex: 900,
-    background: 'rgba(0,0,0,0.45)',
+    background: 'rgba(12,10,9,0.45)',
     backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   modal: {
     background: '#fff', borderRadius: 14, width: '94vw', maxWidth: 1100,
     height: '90vh', display: 'flex', flexDirection: 'column',
-    overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+    overflow: 'hidden', boxShadow: '0 20px 60px rgba(12,10,9,0.25)',
   },
   main: { display: 'flex', flex: 1, overflow: 'hidden' },
 
@@ -960,7 +960,7 @@ const S = {
   },
   regenBtn: {
     position: 'absolute', left: 8, bottom: 8,
-    background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+    background: 'rgba(12,10,9,0.55)', backdropFilter: 'blur(4px)',
     border: 'none', borderRadius: 6, padding: '5px 10px',
     color: '#fff', fontSize: 11, cursor: 'pointer',
     display: 'flex', alignItems: 'center', gap: 4,
@@ -969,7 +969,7 @@ const S = {
   imgNav: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
     width: 32, height: 32, borderRadius: '50%',
-    background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff',
+    background: 'rgba(12,10,9,0.5)', border: 'none', color: '#fff',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 20, zIndex: 5, opacity: 0, transition: 'opacity 0.15s', lineHeight: 1,
   },

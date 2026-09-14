@@ -28,9 +28,10 @@ import {
 function RatioShape({ w, h, active }) {
   return (
     <svg width={w+2} height={h+2} viewBox={`0 0 ${w+2} ${h+2}`} style={{ flexShrink: 0 }}>
+      /* 选中 = 品牌色（原则 6.1 合法场合①），未选中 = 中性描边。 */
       <rect x={1} y={1} width={w} height={h} rx={2}
-        fill={active ? '#7c3aed' : 'none'}
-        stroke={active ? '#7c3aed' : 'rgba(0,0,0,0.35)'} strokeWidth={1.5} />
+        fill={active ? 'var(--sb-brand)' : 'none'}
+        stroke={active ? 'var(--sb-brand)' : 'var(--sb-border-strong)'} strokeWidth={1.5} />
     </svg>
   );
 }
@@ -38,6 +39,9 @@ function RatioShape({ w, h, active }) {
 /* 内联比例选择器（替代原生 select）*/
 function RatioSelect({ value, onChange, disabled, resolution, role, platform }) {
   const [open, setOpen] = React.useState(false);
+  /* hover 用 state 表达而不是内联改 style —— 内联改 style 会覆盖声明式的选中态，
+     导致 hover 与 selected 长得一样（原则 4.3 要两条不同通道）。 */
+  const [hoverKey, setHoverKey] = React.useState('');
   const ref = React.useRef(null);
   const legalRatios = getLegalRatios(resolution, role, platform);
   const current = legalRatios.find(r => r.key === value) || legalRatios[0];
@@ -47,22 +51,24 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
       <button ref={ref} type="button" onClick={() => !disabled && setOpen(o => !o)} disabled={disabled}
         style={{
           display: 'flex', alignItems: 'center', gap: SPACING.sp1, height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp2}px`,
-          borderRadius: RADIUS.control, border: `1px solid ${disabled ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.14)'}`, 
-          background: disabled ? 'rgba(0,0,0,0.03)' : '#fff',
+          borderRadius: 'var(--sb-radius-control)',
+          border: `1px solid ${disabled ? 'var(--sb-border-subtle)' : 'var(--sb-border-default)'}`, 
+          background: disabled ? 'var(--sb-state-disabled-bg)' : 'var(--sb-surface-card)',
           cursor: disabled ? 'not-allowed' : 'pointer', 
           fontSize: FONT_SIZE.helper, fontWeight: 700, 
-          color: disabled ? 'var(--text-muted)' : '#1a1a1a', 
+          color: disabled ? 'var(--sb-state-disabled-ink)' : 'var(--sb-text-primary)', 
           userSelect: 'none', fontFamily: 'inherit',
         }}>
         <RatioShape w={current.w} h={current.h} active={false} />
         <span>{current.label}</span>
-        {!disabled && <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="#999" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>}
+        {!disabled && <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="var(--sb-text-hint)" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>}
       </button>
       <AnchoredPortal anchorRef={ref} open={open} onDismiss={() => setOpen(false)} align="center" minWidth={292} maxWidth={360} className="ec-ratio-portal">
         <div style={{
-          background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
-          borderRadius: 10, border: '1px solid rgba(0,0,0,0.10)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: '6px',
+          background: 'var(--sb-surface-card)',
+          borderRadius: 'var(--sb-radius-card)',
+          border: '1px solid var(--sb-border-default)',
+          boxShadow: 'var(--sb-shadow-lg)', padding: 'var(--sb-space-2)',
           display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 4,
         }}>
           {legalRatios.map(r => {
@@ -70,17 +76,20 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
             return (
               <div key={r.key} onClick={() => { onChange(r.key); setOpen(false); }}
                 style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  padding: '6px 4px', borderRadius: 7, cursor: 'pointer',
-                  background: sel ? 'rgba(124,58,237,0.08)' : 'transparent',
-                  border: `1px solid ${sel ? 'rgba(124,58,237,0.3)' : 'transparent'}`,
-                  transition: 'all 0.12s',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sb-space-1)',
+                  padding: 'var(--sb-space-2) var(--sb-space-1)',
+                  borderRadius: 'var(--sb-radius-control)', cursor: 'pointer',
+                  /* hover = 中性底（原则 4.3），selected = 品牌浅底 + 品牌描边 */
+                  background: sel ? 'var(--sb-state-selected-bg)' : hoverKey === r.key ? 'var(--sb-state-hover-bg)' : 'transparent',
+                  border: `1px solid ${sel ? 'var(--sb-state-selected-line)' : 'transparent'}`,
+                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
                 }}
-                onMouseEnter={e => { if (!sel) e.currentTarget.style.background='rgba(0,0,0,0.04)'; }}
-                onMouseLeave={e => { if (!sel) e.currentTarget.style.background='transparent'; }}>
+                onMouseEnter={() => setHoverKey(r.key)}
+                onMouseLeave={() => setHoverKey('')}>
                 <RatioShape w={r.w} h={r.h} active={sel} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: sel ? '#7c3aed' : '#555' }}>{r.label}</span>
-                <span style={{ fontSize: 9, color: '#aaa', textAlign: 'center', lineHeight: 1.2 }}>{r.usage}</span>
+                <span style={{ fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-bold)',
+                  color: sel ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)' }}>{r.label}</span>
+                <span style={{ fontSize: 'var(--sb-text-2xs)', color: 'var(--sb-text-hint)', textAlign: 'center', lineHeight: 1.2 }}>{r.usage}</span>
               </div>
             );
           })}
@@ -114,6 +123,9 @@ export default function SizingPanel({
 }) {
   const [platformOpen, setPlatformOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  /* hover 用 state 而不是内联改 style —— 内联会覆盖声明式的选中态样式，
+     导致 hover 与 selected 长得一样（原则 4.3 要求两条不同视觉通道）。 */
+  const [hoverRow, setHoverRow] = useState('');
   const platformButtonRef = useRef(null);
   const languageButtonRef = useRef(null);
   // 当前激活的图片类型列表
@@ -202,16 +214,16 @@ export default function SizingPanel({
           <div style={{ position: 'relative' }}>
             <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: SPACING.sp2 }}>目标平台</div>
             <button ref={platformButtonRef} type="button" aria-expanded={platformOpen} onClick={() => { setPlatformOpen(open => !open); setLanguageOpen(false); }}
-              style={{ width: '100%', height: CONTROL_HEIGHT.base, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2, padding: `0 ${SPACING.sp3}px`, borderRadius: RADIUS.control, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{platformOption.label}</span>
               <ChevronDown size={15} style={{ flexShrink: 0, transform: platformOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
             {platformOpen && (
               <AnchoredPortal anchorRef={platformButtonRef} open={platformOpen} onDismiss={() => setPlatformOpen(false)} align="center" minWidth={320} maxWidth={420} className="ec-commerce-menu">
-                <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{COMMERCE_PLATFORMS.map(option => (
+                <div style={{ padding: 'var(--sb-space-2)', maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 'var(--sb-radius-card)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-card)', boxShadow: 'var(--sb-shadow-lg)' }}>{COMMERCE_PLATFORMS.map(option => (
                       <button key={option.id} type="button" onClick={() => handlePlatform(option.id)}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: 0, borderRadius: 8, background: option.id === platform ? 'rgba(124,58,237,0.10)' : 'transparent', color: option.id === platform ? '#6d28d9' : 'var(--text-primary)', fontSize: 12, fontWeight: option.id === platform ? 800 : 500, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
-                        <span>{option.label}</span><span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{option.locale}</span>
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sb-space-2)', border: 0, borderRadius: 'var(--sb-radius-control)', background: option.id === platform ? 'var(--sb-state-selected-bg)' : 'transparent', color: option.id === platform ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: option.id === platform ? 'var(--sb-weight-semibold)' : 'var(--sb-weight-regular)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <span>{option.label}</span><span style={{ fontSize: 'var(--sb-text-2xs)', color: 'var(--sb-text-muted)' }}>{option.locale}</span>
                       </button>
                     ))}</div>
               </AnchoredPortal>
@@ -220,16 +232,16 @@ export default function SizingPanel({
           <div style={{ position: 'relative' }}>
             <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: SPACING.sp2 }}>目标语言</div>
             <button ref={languageButtonRef} type="button" aria-expanded={languageOpen} onClick={() => { setLanguageOpen(open => !open); setPlatformOpen(false); }}
-              style={{ width: '100%', height: CONTROL_HEIGHT.base, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2, padding: `0 ${SPACING.sp3}px`, borderRadius: RADIUS.control, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{languageOption.label}</span>
               <ChevronDown size={15} style={{ flexShrink: 0, transform: languageOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
             {languageOpen && (
               <AnchoredPortal anchorRef={languageButtonRef} open={languageOpen} onDismiss={() => setLanguageOpen(false)} align="center" minWidth={320} maxWidth={420} className="ec-commerce-menu">
-                <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{COMMERCE_LANGUAGES.map(option => (
+                <div style={{ padding: 'var(--sb-space-2)', maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 'var(--sb-radius-card)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-card)', boxShadow: 'var(--sb-shadow-lg)' }}>{COMMERCE_LANGUAGES.map(option => (
                   <button key={option.id} type="button" onClick={() => handleLanguage(option.id)}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: 0, borderRadius: 8, background: option.id === targetLanguage ? 'rgba(124,58,237,0.10)' : 'transparent', color: option.id === targetLanguage ? '#6d28d9' : 'var(--text-primary)', fontSize: 12, fontWeight: option.id === targetLanguage ? 800 : 500, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    <span>{option.label}</span><span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{option.locale}</span>
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sb-space-2)', border: 0, borderRadius: 'var(--sb-radius-control)', background: option.id === targetLanguage ? 'var(--sb-state-selected-bg)' : 'transparent', color: option.id === targetLanguage ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: option.id === targetLanguage ? 'var(--sb-weight-semibold)' : 'var(--sb-weight-regular)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <span>{option.label}</span><span style={{ fontSize: 'var(--sb-text-2xs)', color: 'var(--sb-text-muted)' }}>{option.locale}</span>
                   </button>
                 ))}</div>
               </AnchoredPortal>
@@ -243,7 +255,7 @@ export default function SizingPanel({
 
         {/* ── 平台说明 ── */}
         {pDef.desc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, ...helperTextStyle, marginBottom: SPACING.sp3, padding: `${SPACING.sp2}px ${SPACING.sp3}px`, background: 'rgba(0,0,0,0.025)', borderRadius: RADIUS.control }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, ...helperTextStyle, marginBottom: SPACING.sp3, padding: `${SPACING.sp2}px ${SPACING.sp3}px`, background: 'var(--sb-surface-tint)', borderRadius: 'var(--sb-radius-control)' }}>
             <Info size={12} style={{ flexShrink: 0 }} /> 当前方案：{platformOption.label} · {planSummary}
           </div>
         )}
@@ -259,12 +271,16 @@ export default function SizingPanel({
                 display: 'flex', alignItems: 'center', gap: SPACING.sp3,
                 /* 整行 ≥48px 且整行可点：用户批注「输入区都特别小」——
                    原来只有 20×20 的勾选框能点，远低于 32px 点击区规范。 */
-                minHeight: 48, padding: `${SPACING.sp2}px ${SPACING.sp3}px`, borderRadius: RADIUS.control,
-                background: checked ? 'rgba(0,0,0,0.03)' : 'transparent',
-                border: `1.5px solid ${checked ? 'rgba(0,0,0,0.1)' : 'transparent'}`,
-                transition: 'all 0.15s',
+                minHeight: 48, padding: `${SPACING.sp2}px ${SPACING.sp3}px`,
+                borderRadius: 'var(--sb-radius-card)',
+                /* 选中 = 品牌浅底 + 品牌描边；hover = 中性底（原则 4.3 两条不同通道） */
+                background: checked ? 'var(--sb-state-selected-bg)' : hoverRow === typeDef.key ? 'var(--sb-state-hover-bg)' : 'transparent',
+                border: `1.5px solid ${checked ? 'var(--sb-state-selected-line)' : 'transparent'}`,
+                transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
                 cursor: 'pointer',
               }}
+                onMouseEnter={() => setHoverRow(typeDef.key)}
+                onMouseLeave={() => setHoverRow('')}
                 role="checkbox"
                 aria-checked={checked}
                 aria-label={typeDef.label}
@@ -273,19 +289,20 @@ export default function SizingPanel({
                 {/* 勾选框：视觉 20×20（保持分类列表的轻量感），
                     点击目标由父行承担（父行 minHeight 48px 且整行 onClick）。 */}
                 <div aria-hidden="true" style={{
-                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                  border: `2px solid ${checked ? '#1a1a1a' : 'rgba(0,0,0,0.15)'}`,
-                  background: checked ? '#1a1a1a' : '#fff',
+                  width: 20, height: 20, borderRadius: 'var(--sb-radius-chip)', flexShrink: 0,
+                  /* 勾选 = 品牌色（原则 6.1「当前选中」），未选 = 中性描边 */
+                  border: `2px solid ${checked ? 'var(--sb-brand)' : 'var(--sb-border-strong)'}`,
+                  background: checked ? 'var(--sb-brand)' : 'var(--sb-surface-card)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.15s',
+                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
                 }}>
-                  {checked && <Check size={12} color="#fff" strokeWidth={3} />}
+                  {checked && <Check size={12} color="var(--sb-brand-ink)" strokeWidth={3} />}
                 </div>
 
                 {/* 图标 + 标签 */}
                 <span style={{ fontSize: 15, flexShrink: 0 }}>{typeDef.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text-primary)' }}>{typeDef.label}</div>
+                  <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)' }}>{typeDef.label}</div>
                   <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>
                 </div>
 
@@ -303,8 +320,8 @@ export default function SizingPanel({
                     disabled={!checked}
                     style={{
                       width: 44, height: CONTROL_HEIGHT.compact, textAlign: 'center', borderRadius: RADIUS.control,
-                      border: `1px solid ${checked ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)'}`, 
-                      background: checked ? '#fff' : 'rgba(0,0,0,0.03)',
+                      border: `1px solid ${checked ? 'var(--sb-border-default)' : 'var(--sb-border-subtle)'}`, 
+                      background: checked ? 'var(--sb-surface-card)' : 'var(--sb-state-disabled-bg)',
                       fontSize: FONT_SIZE.body, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
                       color: checked ? 'var(--text-primary)' : 'var(--text-muted)',
                       cursor: checked ? 'text' : 'not-allowed',
@@ -325,13 +342,13 @@ export default function SizingPanel({
 
         {/* ── 底部统计 ── */}
         <div style={{
-          marginTop: SPACING.sp3, paddingTop: SPACING.sp3, borderTop: '1px solid rgba(0,0,0,0.06)',
+          marginTop: SPACING.sp3, paddingTop: SPACING.sp3, borderTop: '1px solid var(--sb-border-subtle)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text-muted)',
         }}>
           <span>共 <b style={{ color: 'var(--text-primary)' }}>{totalImages}</b> 张图片</span>
           {platform === 'amazon' && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#e67e22', fontSize: FONT_SIZE.helper }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--sb-warning)', fontSize: FONT_SIZE.helper }}>
               <Info size={12} /> 亚马逊首图须纯白底
             </span>
           )}

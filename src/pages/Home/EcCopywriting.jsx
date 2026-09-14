@@ -28,7 +28,7 @@ export default function EcCopywriting({ copywriting, onChange }) {
               fontSize: 13, lineHeight: 1.6,
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
-              background: 'rgba(0,0,0,0.02)',
+              background: 'rgba(12,10,9,0.02)',
               color: 'var(--text-primary)',
               outline: 'none', resize: 'vertical',
               fontFamily: 'inherit',

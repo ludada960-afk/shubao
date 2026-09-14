@@ -295,7 +295,7 @@ export default function EcAutoPage() {
         {/* 输入区 */}
         <div style={{
           background: '#fff', borderRadius: 14, padding: 20,
-          boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+          boxShadow: '0 1px 6px rgba(12,10,9,0.04)',
           border: '1px solid #eee',
           marginBottom: 16,
         }}>
@@ -338,7 +338,7 @@ export default function EcAutoPage() {
         {genState === 'generating' && (
           <div style={{
             background: '#fff', borderRadius: 14, padding: 28,
-            boxShadow: '0 1px 6px rgba(0,0,0,0.04)', border: '1px solid #eee',
+            boxShadow: '0 1px 6px rgba(12,10,9,0.04)', border: '1px solid #eee',
             marginBottom: 16, textAlign: 'center',
           }}>
             <div style={{
@@ -393,7 +393,7 @@ export default function EcAutoPage() {
         {results && (
           <div style={{
             background: '#fff', borderRadius: 14, padding: 20,
-            boxShadow: '0 1px 6px rgba(0,0,0,0.04)', border: '1px solid #eee',
+            boxShadow: '0 1px 6px rgba(12,10,9,0.04)', border: '1px solid #eee',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>

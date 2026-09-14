@@ -581,7 +581,7 @@ export function PricingModal() {
       {payModal && (providers.length > 0 || paymentOrder) && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
-          background: 'rgba(0,0,0,0.5)', display: 'flex',
+          background: 'rgba(12,10,9,0.5)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 20,
         }} onClick={closePayment}>
           <div style={{

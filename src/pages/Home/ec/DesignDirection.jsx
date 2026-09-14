@@ -840,7 +840,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <div onClick={onBack} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '8px 14px', borderRadius: 12,
-            background: '#fff', border: '1px solid rgba(0,0,0,0.08)',
+            background: '#fff', border: '1px solid rgba(12,10,9,0.08)',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
             color: 'var(--text-secondary)', transition: 'all 0.15s',
           }}>
@@ -858,8 +858,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         {loading && (
           <div style={{
             background: '#fff', borderRadius: 16, padding: '32px 28px',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            border: '1px solid rgba(0,0,0,0.06)',
+            boxShadow: '0 2px 12px rgba(12,10,9,0.04)',
+            border: '1px solid rgba(12,10,9,0.06)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
               <MdAutoAwesome size={20} style={{ color: '#7c3aed', animation: 'spin 1.5s linear infinite' }} />
@@ -1059,7 +1059,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>{genProgress || '准备中…'}</div>
                 </div>
                 {/* 进度条 */}
-                <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                <div style={{ height: 4, borderRadius: 2, background: 'rgba(12,10,9,0.06)', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: 2,
                     background: 'linear-gradient(90deg, #7c3aed, #ec4899)',

@@ -28,7 +28,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
       zIndex: 9998,
       width: 380, maxHeight: 'calc(100vh - 80px)',
       background: '#fff', borderRadius: '16px 0 0 0',
-      boxShadow: '-4px 0 24px rgba(0,0,0,0.08), 0 -4px 24px rgba(0,0,0,0.06)',
+      boxShadow: '-4px 0 24px rgba(12,10,9,0.08), 0 -4px 24px rgba(12,10,9,0.06)',
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
       animation: 'fadeUp 0.2s ease',
@@ -42,7 +42,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
           <div style={{
             width: 32, height: 32, borderRadius: 10,
             background: isActive ? 'rgba(245,158,11,0.12)' :
-                        task.status === 'done' ? 'rgba(92,168,108,0.12)' : 'rgba(0,0,0,0.04)',
+                        task.status === 'done' ? 'rgba(92,168,108,0.12)' : 'rgba(12,10,9,0.04)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <MdAutoAwesome size={16} color={isActive ? '#F59E0B' : task.status === 'done' ? '#5CA86C' : 'var(--text-muted)'}
@@ -65,7 +65,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
               background: 'transparent', color: 'var(--text-muted)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(12,10,9,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <MdFullscreenExit size={14} />
           </button>
@@ -75,7 +75,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
               background: 'transparent', color: 'var(--text-muted)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(12,10,9,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
             <MdClose size={14} />
           </button>

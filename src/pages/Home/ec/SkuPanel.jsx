@@ -73,7 +73,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
             {skus.map((sku, idx) => (
               <div key={sku.id} style={{
                 display: 'flex', flexDirection: 'column', gap: SPACING.sp3,
-                background: 'rgba(0,0,0,0.02)', borderRadius: RADIUS.card,
+                background: 'rgba(12,10,9,0.02)', borderRadius: RADIUS.card,
                 padding: SPACING.sp3, border: '1px solid rgba(45,41,38,0.07)',
               }}>
                 {/* 卡片标题行：序号 + 生成数量 + 删除 */}

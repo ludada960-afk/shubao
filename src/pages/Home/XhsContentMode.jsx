@@ -1048,8 +1048,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     const panelStyle = {
       background: '#fff',
       borderRadius: 16,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-      border: '1px solid rgba(0,0,0,0.06)',
+      boxShadow: '0 8px 32px rgba(12,10,9,0.12), 0 2px 8px rgba(12,10,9,0.06)',
+      border: '1px solid rgba(12,10,9,0.06)',
       padding: '16px',
       marginTop: 8,
       animation: 'fadeIn 0.15s ease',
@@ -1059,7 +1059,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       padding: '8px 14px',
       borderRadius: 10,
       border: active ? `1.5px solid ${accentColor || 'var(--accent)'}` : '1.5px solid transparent',
-      background: active ? (accentColor || 'var(--accent)') : 'rgba(0,0,0,0.04)',
+      background: active ? (accentColor || 'var(--accent)') : 'rgba(12,10,9,0.04)',
       color: active ? '#fff' : 'var(--text-muted)',
       fontSize: 13,
       fontWeight: 600,
@@ -1087,28 +1087,28 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               style={{
                 padding: '9px 20px', borderRadius: 20,
                 border: 'none',
-                background: xhsSubMode === 'content' ? '#1a1a1a' : 'rgba(0,0,0,0.05)',
+                background: xhsSubMode === 'content' ? '#1a1a1a' : 'rgba(12,10,9,0.05)',
                 color: xhsSubMode === 'content' ? '#fff' : '#666',
                 fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.2s',
-                boxShadow: xhsSubMode === 'content' ? 'inset 0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                boxShadow: xhsSubMode === 'content' ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : 'none',
               }}
-              onMouseEnter={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(0,0,0,0.10)'; e.currentTarget.style.color = '#333'; } }}
-              onMouseLeave={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = '#666'; } }}>
+              onMouseEnter={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(12,10,9,0.10)'; e.currentTarget.style.color = '#333'; } }}
+              onMouseLeave={e => { if (xhsSubMode !== 'content') { e.currentTarget.style.background = 'rgba(12,10,9,0.05)'; e.currentTarget.style.color = '#666'; } }}>
               📝 种草图文
             </button>
             <button onClick={() => setXhsSubMode('plog')}
               style={{
                 padding: '9px 20px', borderRadius: 20,
                 border: 'none',
-                background: xhsSubMode === 'plog' ? '#1a1a1a' : 'rgba(0,0,0,0.05)',
+                background: xhsSubMode === 'plog' ? '#1a1a1a' : 'rgba(12,10,9,0.05)',
                 color: xhsSubMode === 'plog' ? '#fff' : '#666',
                 fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.2s',
-                boxShadow: xhsSubMode === 'plog' ? 'inset 0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                boxShadow: xhsSubMode === 'plog' ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : 'none',
               }}
-              onMouseEnter={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(0,0,0,0.10)'; e.currentTarget.style.color = '#333'; } }}
-              onMouseLeave={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = '#666'; } }}>
+              onMouseEnter={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(12,10,9,0.10)'; e.currentTarget.style.color = '#333'; } }}
+              onMouseLeave={e => { if (xhsSubMode !== 'plog') { e.currentTarget.style.background = 'rgba(12,10,9,0.05)'; e.currentTarget.style.color = '#666'; } }}>
               📸 Plog 生活碎片
             </button>
           </div>
@@ -1189,16 +1189,16 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     display: 'flex', alignItems: 'center', gap: 6,
                     height: 36, padding: '0 16px',
                     borderRadius: 'var(--radius-full)',
-                    border: '2px solid rgba(0,0,0,0.15)',
-                    background: topicsOpen ? '#1a1a1a' : 'rgba(0,0,0,0.04)',
+                    border: '2px solid rgba(12,10,9,0.15)',
+                    background: topicsOpen ? '#1a1a1a' : 'rgba(12,10,9,0.04)',
                     fontSize: 13, fontWeight: 600,
                     color: topicsOpen ? '#fff' : '#444',
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.2s',
-                    boxShadow: topicsOpen ? 'inset 0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+                    boxShadow: topicsOpen ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : '0 1px 3px rgba(12,10,9,0.04)',
                   }}
-                  onMouseEnter={e => { if (!topicsOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; } }}
-                  onMouseLeave={e => { if (!topicsOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'; e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; } }}>
+                  onMouseEnter={e => { if (!topicsOpen) { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.3)'; e.currentTarget.style.background = 'rgba(12,10,9,0.08)'; } }}
+                  onMouseLeave={e => { if (!topicsOpen) { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.15)'; e.currentTarget.style.background = 'rgba(12,10,9,0.04)'; } }}>
                   <MdLightbulb size={15} /> 热门主题
                   <MdExpandMore size={13} style={{ transform: topicsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
@@ -1209,16 +1209,16 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     display: 'flex', alignItems: 'center', gap: 6,
                     height: 36, padding: '0 16px',
                     borderRadius: 'var(--radius-full)',
-                    border: '2px solid rgba(0,0,0,0.15)',
-                    background: plogOptionsOpen ? '#1a1a1a' : 'rgba(0,0,0,0.04)',
+                    border: '2px solid rgba(12,10,9,0.15)',
+                    background: plogOptionsOpen ? '#1a1a1a' : 'rgba(12,10,9,0.04)',
                     fontSize: 13, fontWeight: 600,
                     color: plogOptionsOpen ? '#fff' : '#444',
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.2s',
-                    boxShadow: plogOptionsOpen ? 'inset 0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+                    boxShadow: plogOptionsOpen ? 'inset 0 1px 3px rgba(12,10,9,0.2)' : '0 1px 3px rgba(12,10,9,0.04)',
                   }}
-                  onMouseEnter={e => { if (!plogOptionsOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; } }}
-                  onMouseLeave={e => { if (!plogOptionsOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'; e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; } }}>
+                  onMouseEnter={e => { if (!plogOptionsOpen) { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.3)'; e.currentTarget.style.background = 'rgba(12,10,9,0.08)'; } }}
+                  onMouseLeave={e => { if (!plogOptionsOpen) { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.15)'; e.currentTarget.style.background = 'rgba(12,10,9,0.04)'; } }}>
                   <MdPalette size={15} /> Plog 设置
                   <MdExpandMore size={13} style={{ transform: plogOptionsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
@@ -1249,7 +1249,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     style={{
                       padding: '8px 14px',
                       borderRadius: 10,
-                      border: '1.5px solid rgba(0,0,0,0.06)',
+                      border: '1.5px solid rgba(12,10,9,0.06)',
                       background: '#fff',
                       fontSize: 13, fontWeight: 500,
                       cursor: 'pointer', fontFamily: 'inherit',
@@ -1258,7 +1258,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       whiteSpace: 'nowrap',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = '#f8f3ea'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)'; e.currentTarget.style.background = '#fff'; }}>
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.06)'; e.currentTarget.style.background = '#fff'; }}>
                     {h}
                   </button>
                 ))}
@@ -1316,7 +1316,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
           background: toast.type === 'success' ? '#065F46' : '#991B1B',
           color: '#fff', padding: '12px 24px', borderRadius: 10,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          boxShadow: '0 4px 20px rgba(12,10,9,0.2)',
           fontSize: 14, fontWeight: 500, maxWidth: '90vw',
           animation: 'slideDown 0.3s ease',
         }}>{toast.message}</div>
@@ -1368,8 +1368,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
                       background: xhsSubMode === 'content' ? '#fff' : 'transparent',
                       color: xhsSubMode === 'content' ? '#e84142' : '#888',
-                      boxShadow: xhsSubMode === 'content' ? '0 1px 6px rgba(0,0,0,0.12)' : 'none',
-                      border: xhsSubMode === 'content' ? '1px solid rgba(0,0,0,0.04)' : '1px solid transparent',
+                      boxShadow: xhsSubMode === 'content' ? '0 1px 6px rgba(12,10,9,0.12)' : 'none',
+                      border: xhsSubMode === 'content' ? '1px solid rgba(12,10,9,0.04)' : '1px solid transparent',
                       position:'relative',
                     }}
                     onMouseEnter={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = '#f0f0f0'; }}
@@ -1387,8 +1387,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       textAlign:'center', transition:'all .12s', letterSpacing:0.3,
                       background: xhsSubMode === 'plog' ? '#fff' : 'transparent',
                       color: xhsSubMode === 'plog' ? '#c2185b' : '#888',
-                      boxShadow: xhsSubMode === 'plog' ? '0 1px 6px rgba(0,0,0,0.12)' : 'none',
-                      border: xhsSubMode === 'plog' ? '1px solid rgba(0,0,0,0.04)' : '1px solid transparent',
+                      boxShadow: xhsSubMode === 'plog' ? '0 1px 6px rgba(12,10,9,0.12)' : 'none',
+                      border: xhsSubMode === 'plog' ? '1px solid rgba(12,10,9,0.04)' : '1px solid transparent',
                       position:'relative',
                     }}
                     onMouseEnter={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = '#f0f0f0'; }}
@@ -1604,7 +1604,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                             fetchpriority="auto"
                             style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                           <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
-                            style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}>×</div>
+                            style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(12,10,9,0.3)' }}>×</div>
                         </div>
                       ))}
                     </div>
@@ -1700,7 +1700,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   ))}
                 </div>
                 {ecLightbox && (
-                  <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+                  <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(12,10,9,0.92)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
                     onClick={() => setEcLightbox(null)}>
                     <img
                       src={ecLightbox}
@@ -1747,7 +1747,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
       {/* 上传参考图弹窗 */}
       {showRefModal && (
-        <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+        <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(12,10,9,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
           onClick={() => setShowRefModal(false)}>
           <div style={{ background:'#fff', borderRadius:16, maxWidth:600, width:'100%', maxHeight:'85vh', overflow:'auto', padding:28 }}
             onClick={e => e.stopPropagation()}>

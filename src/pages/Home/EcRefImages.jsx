@@ -36,7 +36,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
 
   return (
     <div style={{
-      background: 'rgba(0,0,0,0.02)',
+      background: 'rgba(12,10,9,0.02)',
       borderRadius: 'var(--radius-md)',
       padding: 16,
       border: '1px solid var(--border-light)',
@@ -87,7 +87,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
                   background: color, color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', fontSize: 10,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  boxShadow: '0 1px 3px rgba(12,10,9,0.3)',
                 }}>✕</div>
             </div>
           ))}

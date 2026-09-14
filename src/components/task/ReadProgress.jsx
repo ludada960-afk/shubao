@@ -45,7 +45,7 @@ export default function ReadProgress({ currentStage, error }) {
                 flexShrink: 0,
                 background: isError ? 'rgba(232,84,75,0.12)' :
                             isDone ? 'rgba(92,168,108,0.12)' :
-                            isCurrent ? 'rgba(99,102,241,0.12)' : 'rgba(0,0,0,0.04)',
+                            isCurrent ? 'rgba(99,102,241,0.12)' : 'rgba(12,10,9,0.04)',
               }}>
                 {isError ? <MdError size={12} color="#E8544B" /> :
                  isDone ? <MdCheckCircle size={12} color="#5CA86C" /> :

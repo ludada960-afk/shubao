@@ -28,7 +28,7 @@
   flex: 0 0 42px;
   overflow: hidden;
   border-radius: 12px;
-  box-shadow: 3px 6px 18px rgba(160, 130, 220, 0.35), 1px 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 3px 6px 18px rgba(160, 130, 220, 0.35), 1px 2px 6px rgba(12, 10, 9, 0.1);
 }
 
 .topbar-logo {
@@ -298,9 +298,9 @@
   margin-left: 16px;
   transform: translateY(-50%);
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(12, 10, 9, 0.08);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 32px rgba(12, 10, 9, 0.12), 0 2px 8px rgba(12, 10, 9, 0.06);
   backdrop-filter: blur(20px);
 }
 
@@ -312,11 +312,11 @@
   place-items: center;
   overflow: visible;
   padding: 0;
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(12, 10, 9, 0.08);
   border-radius: 13px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(12, 10, 9, 0.03);
   color: #666;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(12, 10, 9, 0.04);
   cursor: pointer;
   font: inherit;
   transition:
@@ -334,10 +334,10 @@
 }
 
 .app-side-nav-item.is-active {
-  border-color: rgba(0, 0, 0, 0.15);
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.04));
+  border-color: rgba(12, 10, 9, 0.15);
+  background: linear-gradient(135deg, rgba(12, 10, 9, 0.08), rgba(12, 10, 9, 0.04));
   color: #1a1a1a;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(12, 10, 9, 0.15);
 }
 
 .app-side-nav-item.is-primary.is-active {
@@ -348,7 +348,7 @@
 
 .app-side-nav-item:hover {
   transform: translateX(4px) scale(1.04);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(12, 10, 9, 0.1);
 }
 
 .app-side-nav-item.is-primary:hover {
@@ -360,7 +360,7 @@
 }
 
 .app-side-nav-item.is-active:hover:not(.is-primary) {
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.04));
+  background: linear-gradient(135deg, rgba(12, 10, 9, 0.08), rgba(12, 10, 9, 0.04));
 }
 
 .app-side-nav-item:hover:not(.is-primary):not(.is-active) {
@@ -373,7 +373,7 @@
   transform: translateX(3px) scale(1.03);
   outline: 3px solid rgba(124, 58, 237, 0.2);
   outline-offset: 2px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(12, 10, 9, 0.1);
 }
 
 .app-side-nav-icon {

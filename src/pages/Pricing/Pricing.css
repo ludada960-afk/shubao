@@ -614,7 +614,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(12, 10, 9, 0.06);
 }
 .pricing-pack-titles {
   display: flex;
@@ -713,7 +713,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10), inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 24px rgba(12, 10, 9, 0.10), inset 0 0 0 2px rgba(255, 255, 255, 0.16);
 }
 .pricing-pay-name {
   font-size: 14px;

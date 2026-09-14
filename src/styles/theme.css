@@ -57,11 +57,11 @@
   --border-hover: rgba(245, 239, 228, 0.20);
 
   /* 阴影 (暖棕 → 深色透明叠加) */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.55);
-  --shadow-xl: 0 28px 90px rgba(0, 0, 0, 0.65);
-  --shadow-float: 0 28px 90px rgba(0, 0, 0, 0.65);
+  --shadow-sm: 0 1px 3px rgba(12, 10, 9, 0.40);
+  --shadow-md: 0 4px 16px rgba(12, 10, 9, 0.45);
+  --shadow-lg: 0 14px 36px rgba(12, 10, 9, 0.55);
+  --shadow-xl: 0 28px 90px rgba(12, 10, 9, 0.65);
+  --shadow-float: 0 28px 90px rgba(12, 10, 9, 0.65);
 }
 
 /* ── 系统设置自动探测: 当用户没有显式选择时, 跟随系统 ──
@@ -98,11 +98,11 @@
     --border: rgba(245, 239, 228, 0.10);
     --border-light: rgba(245, 239, 228, 0.06);
     --border-hover: rgba(245, 239, 228, 0.20);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.55);
-    --shadow-xl: 0 28px 90px rgba(0, 0, 0, 0.65);
-    --shadow-float: 0 28px 90px rgba(0, 0, 0, 0.65);
+    --shadow-sm: 0 1px 3px rgba(12, 10, 9, 0.40);
+    --shadow-md: 0 4px 16px rgba(12, 10, 9, 0.45);
+    --shadow-lg: 0 14px 36px rgba(12, 10, 9, 0.55);
+    --shadow-xl: 0 28px 90px rgba(12, 10, 9, 0.65);
+    --shadow-float: 0 28px 90px rgba(12, 10, 9, 0.65);
   }
 }
 

@@ -100,7 +100,7 @@ const THUMB_LABEL = {
   fontSize: 10,
   fontWeight: 600,
   color: '#fff',
-  background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%)',
+  background: 'linear-gradient(180deg, rgba(12,10,9,0) 0%, rgba(12,10,9,0.55) 100%)',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   overflow: 'hidden',

@@ -182,15 +182,15 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                   borderRadius: 10,
                   cursor: 'pointer',
                   border: '1.5px solid',
-                  borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.08)',
-                  background: active ? '#1a1a1a' : 'rgba(0,0,0,0.03)',
+                  borderColor: active ? '#1a1a1a' : 'rgba(12,10,9,0.08)',
+                  background: active ? '#1a1a1a' : 'rgba(12,10,9,0.03)',
                   transition: 'all 0.18s ease'
                 }}
                 onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.06)';
+                  if (!active) e.currentTarget.style.background = 'rgba(12,10,9,0.06)';
                 }}
                 onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.03)';
+                  if (!active) e.currentTarget.style.background = 'rgba(12,10,9,0.03)';
                 }}
               >
                 <div
@@ -199,8 +199,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                     height: 20,
                     borderRadius: 4,
                     background: card.gradient,
-                    border: `1px solid ${active ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.08)'}`,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    border: `1px solid ${active ? 'rgba(255,255,255,0.3)' : 'rgba(12,10,9,0.08)'}`,
+                    boxShadow: '0 2px 4px rgba(12,10,9,0.1)'
                   }}
                 />
                 <span
@@ -248,7 +248,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                     aria-pressed={active}
                     title={skill.summary || skill.name}
                     onClick={() => (active ? onRemoveSkill?.(skill.id) : onAddSkill?.(skill))}
-                    style={{ height: 28, padding: '0 10px', borderRadius: 999, border: `1px solid ${active ? 'rgba(124,58,237,0.45)' : 'rgba(0,0,0,0.10)'}`, background: active ? 'rgba(124,58,237,0.10)' : '#fff', color: active ? '#6d28d9' : 'var(--text-secondary)', fontSize: 11, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    style={{ height: 28, padding: '0 10px', borderRadius: 999, border: `1px solid ${active ? 'rgba(124,58,237,0.45)' : 'rgba(12,10,9,0.10)'}`, background: active ? 'rgba(124,58,237,0.10)' : '#fff', color: active ? '#6d28d9' : 'var(--text-secondary)', fontSize: 11, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                   >
                     {active && <Check size={11} />}{skill.name}
                   </button>
@@ -273,10 +273,10 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
         {/* ── 品牌色锁定（可选覆盖）── */}
         <div
           style={{
-            background: brandLocked ? 'rgba(124,58,237,0.04)' : 'rgba(0,0,0,0.03)',
+            background: brandLocked ? 'rgba(124,58,237,0.04)' : 'rgba(12,10,9,0.03)',
             borderRadius: 10,
             padding: '10px 12px',
-            border: `1px solid ${brandLocked ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.06)'}`,
+            border: `1px solid ${brandLocked ? 'rgba(124,58,237,0.15)' : 'rgba(12,10,9,0.06)'}`,
             transition: 'all 0.2s'
           }}
         >
@@ -317,7 +317,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 width: 36,
                 height: 20,
                 borderRadius: 10,
-                background: brandLocked ? '#7c3aed' : 'rgba(0,0,0,0.12)',
+                background: brandLocked ? '#7c3aed' : 'rgba(12,10,9,0.12)',
                 position: 'relative',
                 transition: 'all 0.2s',
                 flexShrink: 0
@@ -333,7 +333,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                   top: 2,
                   left: brandLocked ? 18 : 2,
                   transition: 'all 0.2s',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                  boxShadow: '0 1px 3px rgba(12,10,9,0.2)'
                 }}
               />
             </div>
@@ -377,8 +377,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                       height: 28,
                       borderRadius: 8,
                       background: pickerColor,
-                      border: '2px solid rgba(0,0,0,0.1)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      border: '2px solid rgba(12,10,9,0.1)',
+                      boxShadow: '0 2px 8px rgba(12,10,9,0.1)',
                       flexShrink: 0
                     }}
                   />
@@ -394,7 +394,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                       height: 28,
                       padding: '0 8px',
                       borderRadius: 6,
-                      border: '1px solid rgba(0,0,0,0.12)',
+                      border: '1px solid rgba(12,10,9,0.12)',
                       background: '#fff',
                       fontSize: 11,
                       fontWeight: 600,

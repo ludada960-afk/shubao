@@ -383,7 +383,7 @@
   cursor: pointer;
   transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease), border-color var(--duration-fast, .12s) var(--ease, ease);
 }
-.vcb-topbar-tools button:hover { background: var(--bg-hover, rgba(0, 0, 0, .03)); color: var(--accent, #0C0A09); }
+.vcb-topbar-tools button:hover { background: var(--bg-hover, rgba(12, 10, 9, .03)); color: var(--accent, #0C0A09); }
 .vcb-topbar-tools button.is-on {
   background: var(--accent, #0C0A09);
   color: #fff;
@@ -574,7 +574,7 @@
   transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease);
 }
 .vcb-mini-toolbar button:hover {
-  background: var(--bg-hover, rgba(0, 0, 0, .03));
+  background: var(--bg-hover, rgba(12, 10, 9, .03));
   color: var(--accent, #0C0A09);
 }
 .vcb-mini-toolbar button:disabled { opacity: .35; cursor: not-allowed; }

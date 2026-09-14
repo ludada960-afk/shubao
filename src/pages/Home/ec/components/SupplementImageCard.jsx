@@ -64,8 +64,8 @@ export default function SupplementImageCard({
           width: 80,
           height: 80,
           borderRadius: 8,
-          background: 'rgba(0,0,0,0.05)',
-          border: '1px solid rgba(0,0,0,0.08)',
+          background: 'rgba(12,10,9,0.05)',
+          border: '1px solid rgba(12,10,9,0.08)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -106,7 +106,7 @@ export default function SupplementImageCard({
           height: 80,
           objectFit: 'cover',
           borderRadius: 8,
-          border: '1px solid rgba(0,0,0,0.08)',
+          border: '1px solid rgba(12,10,9,0.08)',
           display: 'block',
         }}
       />
@@ -141,7 +141,7 @@ export default function SupplementImageCard({
             position: 'absolute',
             inset: 0,
             borderRadius: 8,
-            background: 'rgba(0,0,0,0.4)',
+            background: 'rgba(12,10,9,0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

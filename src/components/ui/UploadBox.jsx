@@ -66,19 +66,19 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
             <img src={images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             {/* Remove button */}
             <div onClick={(e) => { e.stopPropagation(); onRemove(0); }}
-              style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <MdClose size={12} color="#fff" />
             </div>
             {/* Count badge */}
             {images.length > 1 && (
-              <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', fontSize: 11, fontWeight: 700, color: '#fff' }}>
+              <div style={{ position: 'absolute', bottom: 6, right: 6, padding: '3px 8px', borderRadius: 8, background: 'rgba(12,10,9,0.6)', backdropFilter: 'blur(8px)', fontSize: 11, fontWeight: 700, color: '#fff' }}>
                 +{images.length - 1}
               </div>
             )}
             {/* Add more button */}
             {images.length < max && (
               <div onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-                style={{ position: 'absolute', bottom: 6, left: 6, width: 28, height: 28, borderRadius: 8, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: 6, left: 6, width: 28, height: 28, borderRadius: 8, background: 'rgba(12,10,9,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                 <MdAdd size={14} color="#fff" />
               </div>
             )}

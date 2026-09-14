@@ -80,7 +80,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
               <div className="ec-inline-option-menu" style={{
                 position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
                 marginTop: SPACING.sp1, background: '#fff', border: '1px solid rgba(45,41,38,0.10)',
-                borderRadius: RADIUS.control, boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
+                borderRadius: RADIUS.control, boxShadow: '0 8px 30px rgba(12,10,9,0.1)',
                 padding: SPACING.sp1, display: 'flex', flexWrap: 'wrap', gap: SPACING.sp1,
                 maxHeight: 168, overflowY: 'auto',
               }}>
@@ -88,7 +88,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
                   <div key={c} onClick={() => { set('category', c); setCatOpen(false); }}
                     style={{
                       padding: `${SPACING.sp1}px ${SPACING.sp2}px`, borderRadius: 6, fontSize: FONT_SIZE.helper, cursor: 'pointer',
-                      background: params.category === c ? '#1F1D1A' : 'rgba(0,0,0,0.04)',
+                      background: params.category === c ? '#1F1D1A' : 'rgba(12,10,9,0.04)',
                       color: params.category === c ? '#fff' : 'var(--text-secondary)',
                       fontWeight: params.category === c ? 600 : 400,
                       transition: 'all 0.15s',

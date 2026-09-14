@@ -39,7 +39,7 @@ export default function EcProductParams({ params, onChange }) {
               fontSize: 13,
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
-              background: 'rgba(0,0,0,0.02)',
+              background: 'rgba(12,10,9,0.02)',
               color: 'var(--text-primary)',
               outline: 'none', fontFamily: 'inherit',
             }}
@@ -86,7 +86,7 @@ export default function EcProductParams({ params, onChange }) {
               width: '100%', padding: '10px 14px', fontSize: 13,
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
-              background: 'rgba(0,0,0,0.02)',
+              background: 'rgba(12,10,9,0.02)',
               color: 'var(--text-primary)',
               outline: 'none', fontFamily: 'inherit',
             }}

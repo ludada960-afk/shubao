@@ -53,7 +53,7 @@ export default function EcSkuPanel({ skus, onChange }) {
             {skus.map(sku => (
               <div key={sku.id}
                 style={{
-                  background: 'rgba(0,0,0,0.02)',
+                  background: 'rgba(12,10,9,0.02)',
                   borderRadius: 'var(--radius-sm)',
                   padding: 12,
                   border: '1px solid var(--border-light)',

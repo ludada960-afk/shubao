@@ -29,7 +29,7 @@ const BTN = {
 };
 const SECTION = {
   background: '#fff', borderRadius: 12, padding: '20px 24px', marginBottom: 12,
-  boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+  boxShadow: '0 1px 6px rgba(12,10,9,0.04)',
 };
 
 let observedEcommerceWorkVersion = 0;
@@ -229,7 +229,7 @@ export default function EcLegacyForm() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {images.map(([label, url]) => (
-            <div key={label} style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div key={label} style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(12,10,9,0.06)' }}>
               <div style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>{label}</div>
               <img
                 src={url?.startsWith('data:') ? url : proxyImg(url)}

@@ -52,7 +52,7 @@ export default class ErrorBoundary extends React.Component {
             <button onClick={this.handleDismiss}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12,
-                background: 'rgba(0,0,0,0.06)', color: '#666', border: 'none', fontSize: 14, fontWeight: 600,
+                background: 'rgba(12,10,9,0.06)', color: '#666', border: 'none', fontSize: 14, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
               尝试继续

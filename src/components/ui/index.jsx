@@ -33,7 +33,7 @@ export function Modal({ children, onClose, width = 420 }) {
     <div
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.45)',
+        background: 'rgba(12,10,9,0.45)',
         zIndex: 999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',

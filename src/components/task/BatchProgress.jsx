@@ -42,7 +42,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
           </span>
         </div>
         <div style={{
-          height: 8, borderRadius: 4, background: 'rgba(0,0,0,0.06)', overflow: 'hidden',
+          height: 8, borderRadius: 4, background: 'rgba(12,10,9,0.06)', overflow: 'hidden',
           position: 'relative',
         }}>
           <div style={{
@@ -122,7 +122,7 @@ function ControlBtn({ icon, label, onClick, primary, danger }) {
         display: 'flex', alignItems: 'center', gap: 4,
         height: 30, padding: '0 10px', borderRadius: 8,
         border: 'none',
-        background: primary ? 'var(--accent)' : danger ? '#FEF2F0' : 'rgba(0,0,0,0.04)',
+        background: primary ? 'var(--accent)' : danger ? '#FEF2F0' : 'rgba(12,10,9,0.04)',
         color: primary ? '#fff' : danger ? 'var(--red)' : 'var(--text-secondary)',
         fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         transition: 'all 0.1s',

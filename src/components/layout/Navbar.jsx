@@ -79,7 +79,7 @@ export default function Navbar() {
                 color: isActive(item.key) ? 'var(--accent)' : 'var(--text-muted)',
                 cursor: 'pointer', transition: 'all 0.15s ease',
                 backdropFilter: isActive(item.key) ? 'blur(8px)' : 'none',
-                boxShadow: isActive(item.key) ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                boxShadow: isActive(item.key) ? '0 1px 3px rgba(12,10,9,0.06)' : 'none',
               }}>
               {item.label}
             </button>

@@ -138,7 +138,7 @@ export default function DirectionOptionCard({
               height: 26,
               borderRadius: 999,
               padding: '0 9px',
-              border: `1px solid ${selected ? colors.primary : 'rgba(0,0,0,.12)'}`,
+              border: `1px solid ${selected ? colors.primary : 'rgba(12,10,9,.12)'}`,
               background: selected ? colors.primary : '#fff',
               color: selected ? getReadableTextColor(colors.primary) : '#8a8177',
               display: 'flex',

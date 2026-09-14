@@ -234,7 +234,7 @@ export default function PlogPage() {
             aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', cursor: 'pointer',
             background: '#fff', position: 'relative',
             transform: `rotate(${i % 2 === 0 ? -0.5 : 0.5}deg)`,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            boxShadow: '0 1px 3px rgba(12,10,9,0.08)',
             border: '3px solid white',
           }}>
           <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
@@ -258,7 +258,7 @@ export default function PlogPage() {
             }}>
             <div style={{
               background: '#fffdf7', padding: '6px 6px 22px 6px', borderRadius: 2,
-              boxShadow: '0 3px 10px rgba(0,0,0,0.12)',
+              boxShadow: '0 3px 10px rgba(12,10,9,0.12)',
             }}>
               <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: '#f0ebe0' }}>
                 <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
@@ -289,7 +289,7 @@ export default function PlogPage() {
               textAlign: 'center', padding: '4px 16px',
             }}>
               <div style={{
-                display: 'inline-block', background: 'rgba(0,0,0,0.75)', color: '#fff',
+                display: 'inline-block', background: 'rgba(12,10,9,0.75)', color: '#fff',
                 fontSize: 10, padding: '3px 14px', borderRadius: 2,
                 fontStyle: 'italic', letterSpacing: 0.5, fontFamily: 'serif',
               }}>
@@ -312,7 +312,7 @@ export default function PlogPage() {
     return (
       <div style={{
         background: '#F5F0E8', borderRadius: 12, padding: 16,
-        position: 'relative', boxShadow: 'inset 0 0 30px rgba(0,0,0,0.03)',
+        position: 'relative', boxShadow: 'inset 0 0 30px rgba(12,10,9,0.03)',
       }}>
         {/* 纸张纹理 SVG */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, position: 'relative', zIndex: 1 }}>
@@ -329,7 +329,7 @@ export default function PlogPage() {
                 <div style={{
                   background: '#fff', borderRadius: '2px 4px 4px 2px',
                   padding: 3, position: 'relative',
-                  boxShadow: '1px 2px 6px rgba(0,0,0,0.08)',
+                  boxShadow: '1px 2px 6px rgba(12,10,9,0.08)',
                 }}>
                   <div style={{ aspectRatio: '3/4', overflow: 'hidden' }}>
                     <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
@@ -339,7 +339,7 @@ export default function PlogPage() {
                 <div style={{
                   position: 'absolute', top: -6, right: -4, fontSize: 16,
                   transform: `rotate(${[-10, 8, -5, 12, -8, 6, -12, 10, -6][i]}deg)`,
-                  filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.15))',
+                  filter: 'drop-shadow(0 1px 1px rgba(12,10,9,0.15))',
                 }}>{sticker}</div>
                 {/* 手写标签（交替位置） */}
                 {i % 3 === 1 && (
@@ -392,7 +392,7 @@ export default function PlogPage() {
             {/* 杂志风格大标题覆盖 */}
             <div style={{
               position: 'absolute', bottom: 20, left: 16,
-              color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              color: '#fff', textShadow: '0 2px 8px rgba(12,10,9,0.3)',
             }}>
               <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.7, marginBottom: 4, fontFamily: 'serif' }}>FEATURE</div>
               <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.2, fontFamily: 'serif' }}>
@@ -410,7 +410,7 @@ export default function PlogPage() {
               }}>
               <div style={{
                 aspectRatio: '3/4', overflow: 'hidden', borderRadius: 4,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                boxShadow: '0 1px 4px rgba(12,10,9,0.04)',
               }}>
                 <img src={item.url} alt={item.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} width="160" height="200" loading="lazy" decoding="async" fetchpriority="auto" />
               </div>
@@ -662,7 +662,7 @@ export default function PlogPage() {
 
         {/* ── 灯箱 ── */}
         {lightbox && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(12,10,9,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => setLightbox(null)}>
             {lightboxIdx > 0 && (
               <div onClick={(e) => { e.stopPropagation(); const ni = lightboxIdx - 1; setLightbox(lightboxList[ni].url); setLightboxIdx(ni); }}

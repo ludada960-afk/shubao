@@ -149,11 +149,11 @@ export function getDirectionCardState({ direction, selected, index }) {
       cardText: cardTextColor,
     },
     styles: {
-      border: selected ? `2px solid ${primaryColor}` : '2px solid rgba(0,0,0,0.06)',
+      border: selected ? `2px solid ${primaryColor}` : '2px solid rgba(12,10,9,0.06)',
       background: selected ? `${primaryColor}08` : '#ffffff',
       boxShadow: selected
         ? `0 4px 20px ${primaryColor}30`
-        : '0 2px 8px rgba(0,0,0,0.04)',
+        : '0 2px 8px rgba(12,10,9,0.04)',
       headerGradient: `linear-gradient(90deg, ${gradientColors})`,
     },
     // 编辑区域样式

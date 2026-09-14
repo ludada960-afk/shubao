@@ -553,7 +553,7 @@ export default function EcStudioPage() {
             {showPlugin && (
               <div
                 style={{
-                  position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)',
+                  position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(12,10,9,.45)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
                 }}
                 onClick={() => setShowPlugin(false)}
@@ -1320,7 +1320,7 @@ export default function EcStudioPage() {
         {lb && (
           <div
             style={{
-              position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(0,0,0,.92)',
+              position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(12,10,9,.92)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             }}
             onClick={() => setLb(null)}

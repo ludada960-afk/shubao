@@ -54,7 +54,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                 border: active ? 'none' : '1px solid var(--border)',
                 fontSize: 12, fontWeight: active ? 900 : 600,
                 fontFamily: 'inherit',
-                boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: active ? '0 1px 3px rgba(12,10,9,0.1)' : 'none',
               }}>
               <span>{p.icon}</span>
               <span>{p.key}</span>
@@ -116,7 +116,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                         style={{
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
-                          background: active ? 'var(--accent)' : 'rgba(0,0,0,0.04)',
+                          background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
                           color: active ? '#fff' : 'var(--text-secondary)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
@@ -141,7 +141,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                         style={{
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
-                          background: active ? 'var(--accent)' : 'rgba(0,0,0,0.04)',
+                          background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
                           color: active ? '#fff' : 'var(--text-secondary)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',

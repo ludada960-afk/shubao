@@ -97,7 +97,7 @@
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4),
+  box-shadow: 0 18px 50px rgba(12, 10, 9, 0.4),
               0 0 0 1px rgba(255, 255, 255, 0.04);
   overflow: hidden;
   font-size: 13px;
@@ -216,7 +216,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 6px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 14px 40px rgba(12, 10, 9, 0.5);
   font-size: 13px;
   color: rgba(255, 255, 255, 0.92);
   animation: contextPanelEnter 160ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -293,7 +293,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   padding: 6px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 18px 50px rgba(12, 10, 9, 0.5);
   color: rgba(255, 255, 255, 0.92);
   font-size: 13px;
   animation: contextPanelEnter 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -399,7 +399,7 @@
   position: fixed;
   inset: 0;
   z-index: 11000;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(12, 10, 9, 0.55);
   backdrop-filter: blur(8px);
   display: grid;
   place-items: center;
@@ -416,7 +416,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 6px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 24px 60px rgba(12, 10, 9, 0.55);
   color: rgba(255, 255, 255, 0.92);
   font-size: 13px;
   max-height: 80vh;
@@ -615,7 +615,7 @@
   -webkit-backdrop-filter: blur(24px);
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 36px rgba(12, 10, 9, 0.4);
   transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.16s ease-out;
 }
 .ec-canvas-minimap-reopen:hover {
@@ -634,7 +634,7 @@
   flex-direction: column;
   padding: 8px;
   border-radius: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18),
+  box-shadow: 0 4px 14px rgba(12, 10, 9, 0.18),
               0 0 0 1px rgba(255, 255, 255, 0.08);
   font-family: 'Caveat', 'Comic Sans MS', cursive;
   cursor: move;
@@ -642,7 +642,7 @@
   transition: box-shadow 0.2s ease-out;
 }
 .ec-canvas-sticker:hover {
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.24),
+  box-shadow: 0 6px 22px rgba(12, 10, 9, 0.24),
               0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 .ec-canvas-sticker-text {
@@ -663,7 +663,7 @@
   right: 4px;
   width: 20px;
   height: 20px;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(12, 10, 9, 0.1);
   border: none;
   border-radius: 50%;
   font-size: 14px;
@@ -774,7 +774,15 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
    修法（三重）：① 弹窗自身 overflow:hidden（不再由它滚动）；② 弹窗内部渲染一个专属滚动视口
    .ec-asset-library-scroll（overflow-y:auto + scrollbar-gutter:stable），滚动条落在容器**内缘**；
    ③ 视口右侧留 12px（padding-right，gutter 另计），内容宽度不再被滚动条压住。 */
-.canvas-asset-library-modal .ec-asset-library-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding-right: 12px; }
+/* 9-17 用户批注（与画布库同一类问题）：「鼠标放上去，上面会被截断」。
+   根因：滚动视口 padding-top 为 0，而卡片 hover 上浮 translateY(-4px) 并放大 scale(1.035)——
+   按资产卡 150×150 估算，上探 = 4 + (150×.035)/2 ≈ 6.6px，横向外扩 ≈ 2.6px；
+   这些位移落在 overflow 的裁剪矩形（padding box）之外 → 首行顶边被切平。
+   修法：把位移空间做进滚动视口（不是砍掉悬停）——
+     竖向 8px（8 ≥ 6.6，且 8 ≥ 1.5× 上移量(4)=6 ✓）
+     左侧 8px、右侧 20px（原 12px 给滚动条，安全区叠加其上）
+   原有 12px 的滚动条预留保持不变。 */
+.canvas-asset-library-modal .ec-asset-library-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 8px 20px 8px 8px; }
 .canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar { width: 6px; }
 .canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-thumb { background: #d8d4cf; border-radius: 3px; }
 .canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-track { background: transparent; }
