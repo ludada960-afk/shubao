@@ -140,6 +140,11 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
       locale: 'zh-CN',
       policyVersion: 'global-commerce-v1',
     },
+    /* 2026-09-17 用户确认口径：套图节点默认「方案待确认」——
+       存在方案 ≠ 方案已确认；未确认时生成按钮禁用、不生成不扣费。
+       历史方案列表用于「重新生成方案」时保留旧方案可对比（不删除）。 */
+    planConfirmed: false,
+    previousSuitePlans: [],
     suiteType: '完整套图',
     ratio: '1:1',
     resolution: '2K',

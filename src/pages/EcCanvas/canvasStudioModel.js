@@ -138,12 +138,23 @@ export function canvasGenerationBoxHasResult(node = {}) {
   return Boolean(node.url);
 }
 
-/* 生成结果自动排版 —— 复用电商套图已确立的「以生成框为锚、紧贴框右侧排布 + 派生连线」约定
+/* ═══ 生成结果自动排版 · 产品决定（2026-09-17 用户确认口径）═══════════════
+   复用电商套图已确立的「以生成框为锚、紧贴框右侧排布 + 派生连线」约定
    （见 handleSuiteComposerGenerate 的 230 宽 / 右排 / 'suite-output' 连线），不另立一套规则。
-   用户 9-15 决策：
-   - 图片 / 视频结果：横向一排（同一 y），结果间距 = 节点宽 + 24px，超过 4 张换行；
-   - 文案结果：纵向一列（文案是长条，竖排更可读）；
-   - 第一张结果 = 生成框本身（沿用生成前框的位置），其余结果从框右侧开始排。 */
+
+   用户原话要点：「生成后按张数排版（横排/竖排由我们定）」——以下是**我们定下的**口径，
+   实现已按此收敛，改这里等于改产品行为，请先确认：
+
+     · 图片生成结果：**横向一排**（同一 y）；间距 = 节点宽 + 24px；**超过 4 张换行**；
+     · 视频生成结果：**横向一排**（同图片，同一套参数）；
+     · 文案生成结果：**纵向一列**（文案是长条，竖排更可读）；
+     · 电商套图结果：**按类别各自成排** —— 白底图 / 主图 / 详情图 / SKU / 素材
+       各占一排（横向、超过 4 张换行），沿用既有的 roleRows 行距 390
+       （见 index.jsx handleSuiteComposerGenerate 的 roleRows + rowCounters）；
+     · 所有结果生成后**默认全部多选**（见各生成 handler 末尾的 setMultiSelected）；
+     · 结果节点**左右都有加号**（可继续派生 / 可继续接入）。
+
+   第一张结果 = 生成框本身（沿用生成前框的位置），其余结果从框右侧开始排。 */
 const CANVAS_RESULT_ROW_GAP = 24;      // 结果间距 = 节点宽 + 24px
 const CANVAS_RESULT_PER_ROW = 4;       // 超过 4 张换行
 const CANVAS_RESULT_LEAD = 56;         // 框右缘到第一张结果的起始间距（含左加号锚区）
@@ -387,6 +398,18 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
   };
 }
 
+/* 2026-09-17 用户确认口径（产品决定）：
+   「画布里**商品套图**才有设计方案流程……方案未确认时什么都不发生
+    （不生成、不扣费、不替他决定），方案作为待确认资产自动落盘可续。」
+
+   因此套图节点的方案确认状态是**显式字段**，不是靠"有没有方案"推断：
+     planConfirmed: false  → 方案待确认（可编辑 / 可重新生成方案；**生成按钮禁用**）
+     planConfirmed: true   → 方案已确认（唯一事实源，之后生成只依据方案）
+
+   为什么不能沿用「有 suitePlan 就能生成」：那等于**存在即确认** ——
+   用户只点了一次「生成设计方案」，还没看、没改、没点头，第二次点击就已经扣费出图，
+   与「不替他决定 / 未确认什么都不发生」直接冲突。
+   字段随节点进画布快照 → 走既有画布保存链路自动落盘，用户离开再回来方案还在。 */
 export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = 'taobao', commerceContext, now = Date.now() } = {}) {
   const normalizedCommerceContext = normalizeCommerceContext({ platform, ...(commerceContext || {}) });
   return {
@@ -400,6 +423,10 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     prompt: '',
     platform,
     commerceContext: normalizedCommerceContext,
+    /* 方案确认状态（见上方注释）：新建节点一律「待确认」 */
+    planConfirmed: false,
+    /* 被替换掉的历史方案（重新生成方案时保留旧方案，供对比，不删除） */
+    previousSuitePlans: [],
     suiteType: '完整套图',
     ratio: '1:1',
     resolution: '2K',

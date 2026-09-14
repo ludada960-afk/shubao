@@ -4414,6 +4414,14 @@ const handlePointerUp = useCallback((e) => {
       showToast('请先连接或选中一张清晰商品图', 'info');
       return;
     }
+    /* 2026-09-17 产品决定：**方案未确认时什么都不发生**（不生成、不扣费、不替他决定）。
+       这里是与 UI 无关的第二道闸门 —— 按钮 disabled 只是表现层，
+       任何其它入口（快捷键/程序化调用/将来新增的按钮）走到这里都必须被挡住。
+       此时既不发起请求、也不改节点状态，只给一句短提示。 */
+    if (composer.suiteStep === 'directions' && composer.planConfirmed !== true) {
+      showToast('请先确认方案', 'info');
+      return;
+    }
     if (composer.suiteStep !== 'directions') {
       updateComposerNode(composer.id, { status: 'processing', error: '' });
       try {
@@ -6960,6 +6968,9 @@ const handlePointerUp = useCallback((e) => {
                onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
                onToggleSource={(source, role, options) => toggleComposerSource(selectedNode.id, source, role, options)}
                onGenerate={() => handleSuiteComposerGenerate(selectedNode)}
+               /* 「重新生成方案」= 重新走一次设计分析（1 积分，先报价后扣费不变）。
+                  旧方案由组件侧压进 previousSuitePlans 保留可对比，并把 planConfirmed 复位。 */
+               onRegenerateSuitePlan={() => handleSuiteComposerGenerate({ ...selectedNode, suiteStep: undefined, planConfirmed: false })}
                onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
              />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer

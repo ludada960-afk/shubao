@@ -862,8 +862,33 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
   </div>;
 }
 
-function CanvasSuitePlanEditor({ plan = {}, onChange }) {
-  return <div className="ec-canvas-suite-plan-editor"><EcommerceDesignPlanEditor direction={plan} prompt={plan.brief} onChange={onChange} /></div>;
+/* 2026-09-17 用户确认口径：方案是**待确认资产**，不是一个"存在即生效"的中间态。
+   用户需要能：① 继续编辑方案；② 明确「确认方案」（此后生成只依据方案）；
+   ③ 「重新生成方案」—— 旧方案**保留、可对比、不删除**（写进 previousSuitePlans）。 */
+function CanvasSuitePlanEditor({ plan = {}, onChange, confirmed = false, onConfirm, onRegenerate, regenerating = false }) {
+  return <div className="ec-canvas-suite-plan-editor">
+    <EcommerceDesignPlanEditor direction={plan} prompt={plan.brief} onChange={onChange} />
+    <div className="ec-canvas-suite-plan-actions">
+      {/* 状态文案：短、说结果不说机制 */}
+      <span className={`ec-canvas-suite-plan-state${confirmed ? ' is-confirmed' : ''}`} role="status">
+        {confirmed ? '方案已确认' : '方案待确认'}
+      </span>
+      {onRegenerate && <button
+        type="button"
+        data-canvas-control="true"
+        className="ec-canvas-suite-plan-secondary"
+        disabled={regenerating}
+        onClick={event => { event.stopPropagation(); onRegenerate(); }}
+      >{regenerating ? '正在重新生成' : '重新生成方案'}</button>}
+      {/* 已确认后不再重复给「确认方案」—— 避免用户以为自己要再点一次 */}
+      {!confirmed && onConfirm && <button
+        type="button"
+        data-canvas-control="true"
+        className="shubao-gen-cta ec-canvas-suite-plan-confirm"
+        onClick={event => { event.stopPropagation(); onConfirm(); }}
+      ><Check size={15} />确认方案</button>}
+    </div>
+  </div>;
 }
 
 function layerCompositeStyle(layer = {}, group = {}) {
@@ -1289,12 +1314,16 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
   </section>;
 }
 
-export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
+export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null, onRegenerateSuitePlan = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const planning = node.suiteStep === 'directions';
   const planReady = Boolean(node.suitePlan || directions.length);
+  /* 2026-09-17 产品决定：**方案未确认时什么都不发生**。
+     planConfirmed 是显式字段（不是"有方案就算确认"）——
+     否则用户只点了一次「生成设计方案」、还没看没点头，第二次点击就已经扣费出图。 */
+  const planConfirmed = node.planConfirmed === true;
   /* 9-13 用户批注：套图框也要像首页一样显示动态积分（整套张数 × 单价，改方案/模型/清晰度实时变） */
   const suiteConfig = suiteConfiguration(node);
   const suiteEstimate = estimateSuiteComposerPoints({
@@ -1313,7 +1342,26 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
     </div>}
     {!planning ? <>
       <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={IMAGE_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={value => onChange?.({ prompt: value })} />
-    </> : <CanvasSuitePlanEditor plan={buildCanvasSuitePlan(node.suitePlan || directions[0], node.prompt)} onChange={plan => onChange?.({ suitePlan: plan })} />}
+    </> : <CanvasSuitePlanEditor
+        plan={buildCanvasSuitePlan(node.suitePlan || directions[0], node.prompt)}
+        onChange={plan => onChange?.({ suitePlan: plan })}
+        confirmed={planConfirmed}
+        /* 确认方案 = 方案成为唯一事实源；此后生成按钮才可用 */
+        onConfirm={() => onChange?.({ planConfirmed: true, error: '' })}
+        /* 重新生成方案：旧方案保留可对比、不删除（压进 previousSuitePlans），
+           并复位为「待确认」—— 换了方案就必须重新确认，否则又变成存在即生效。 */
+        onRegenerate={onRegenerateSuitePlan ? () => {
+          const current = node.suitePlan || directions[0];
+          onChange?.({
+            planConfirmed: false,
+            suiteStep: 'directions',
+            previousSuitePlans: [...(node.previousSuitePlans || []), ...(current ? [{ plan: current, replacedAt: Date.now() }] : [])],
+            error: '',
+          });
+          onRegenerateSuitePlan();
+        } : undefined}
+        regenerating={loading}
+      />}
     {/* 9-16（图8/图9）：四个框统一顺序 @ → 参数 → 技能 → 生成。
         套图的参数行（套图方案/SKU/商品信息/内容规范/生成设置）就是这一步的「参数」，
         放在底栏之上单独一行（它需要整行宽度，挤进底栏会把技能和生成按钮压变形）；
@@ -1339,8 +1387,14 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
         <button type="button" data-canvas-control="true" disabled={loading} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>重新生成</button>
       </div> : <>
         <div className="ec-canvas-parameter-controls ec-canvas-suite-skill"><CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" /></div>
-        <span>{planning ? `确认方案后生成整套图片 · 共 ${suiteEstimate.count} 张` : '先分析商品与参考图，再进入整体设计方案'}</span>
-        <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}<span className="shubao-gen-cta-points">{formatCanvasPoints(suitePoints)} 积分</span></>}</button>
+        <span>{planning
+          ? (planConfirmed
+            ? `方案已确认 · 共 ${suiteEstimate.count} 张`
+            : `方案待确认 · 共 ${suiteEstimate.count} 张`)
+          : '先分析商品与参考图，再进入整体设计方案'}</span>
+        {/* 提示语纪律：短、说结果不说机制。方案待确认时按钮禁用并直接说「请先确认方案」。 */}
+        {planning && !planConfirmed && <span className="ec-canvas-suite-plan-gate" role="status">请先确认方案</span>}
+        <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady) || (planning && !planConfirmed)} title={planning && !planConfirmed ? '请先确认方案' : undefined} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}<span className="shubao-gen-cta-points">{formatCanvasPoints(suitePoints)} 积分</span></>}</button>
       </>}
     </div>
 
