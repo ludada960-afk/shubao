@@ -245,19 +245,6 @@ export default function VideoCanvasWorkbench({
   // interaction: null | { kind:'drag', id, offsetX, offsetY } | { kind:'marquee', startX, startY }
   const [interaction, setInteraction] = useState(null);
 
-  const handleFlowConnectBinding = useCallback(async ({ shotId, videoAssetId, error }) => {
-    if (error || !projectId) return;
-    setBusy('bind:' + shotId);
-    try {
-      await bindShotAssetVersion(projectId, shotId, { videoAssetId, role: 'binding' });
-      await loadWorkbench(projectId, { quiet: true });
-      setError('');
-    } catch (bindError) {
-      setError(displayError(bindError));
-    } finally {
-      setBusy('');
-    }
-  }, [loadWorkbench, projectId]);
   const uploads = useMemo(() => availableUploadedAssets(uploadRecords), [uploadRecords]);
   const libraryAssets = useMemo(() => reusableProjectAssets(libraryRows), [libraryRows]);
   const nodes = useMemo(() => buildCanvasNodes({ uploads, libraryAssets, workbench }), [uploads, libraryAssets, workbench]);
@@ -368,6 +355,24 @@ export default function VideoCanvasWorkbench({
       if (sequence === requestSequenceRef.current) setLoading(false);
     }
   }, []);
+
+  /* 9-15 修 TDZ：本 callback 原先声明在 loadWorkbench **之前**，而依赖数组
+     [loadWorkbench, projectId] 在组件函数体执行时就会被求值 → 每次渲染抛
+     ReferenceError: Cannot access 'loadWorkbench' before initialization。
+     依赖必须是已初始化的绑定，故移到 loadWorkbench 声明之后。 */
+  const handleFlowConnectBinding = useCallback(async ({ shotId, videoAssetId, error }) => {
+    if (error || !projectId) return;
+    setBusy('bind:' + shotId);
+    try {
+      await bindShotAssetVersion(projectId, shotId, { videoAssetId, role: 'binding' });
+      await loadWorkbench(projectId, { quiet: true });
+      setError('');
+    } catch (bindError) {
+      setError(displayError(bindError));
+    } finally {
+      setBusy('');
+    }
+  }, [loadWorkbench, projectId]);
 
   useEffect(() => {
     if (!enabled || !logged) return undefined;

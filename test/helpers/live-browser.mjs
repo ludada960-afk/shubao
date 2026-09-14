@@ -171,14 +171,17 @@ async function warmUp(page, base, { timeoutMs = 120000 } = {}) {
  *
  * 流程：预热（一次性，容忍冷启动）→ 健康判据 → 不健康则重试。
  */
-export async function gotoHealthy(page, base, readySelector, { attempts = 4, perAttemptMs = 15000 } = {}) {
-  await warmUp(page, base);   // 冷启动成本只付一次
+export async function gotoHealthy(page, base, readySelector, { attempts = 4, perAttemptMs = 15000, url = base } = {}) {
+  await warmUp(page, url);   // 冷启动成本只付一次
   let last = 'unknown';
   for (let i = 0; i < attempts; i += 1) {
     try {
       /* 预热后页面通常已就绪，先直接判一次，避免无谓的重新导航 */
       if (await isAppHealthy(page, readySelector)) return { ok: true, attempts: i + 1 };
-      await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      /* url 默认 = base；deep-link 页面（本仓路由是 **pathname 驱动**，不是 hash）
+         必须传完整 url，否则这里回退到 base 会把 /video-studio 这类路径冲掉，
+         页面退回首页 → 健康判据永远不满足（曾误判为「白屏 / HMR 中断」）。 */
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
       const deadline = Date.now() + perAttemptMs;
       while (Date.now() < deadline) {
         if (await isAppHealthy(page, readySelector)) return { ok: true, attempts: i + 1 };
