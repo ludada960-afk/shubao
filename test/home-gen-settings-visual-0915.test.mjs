@@ -100,12 +100,21 @@ test('③ 「当前约 X AI 积分/张」说明句已删除', () => {
   assert.ok(!panel.includes('当前约'), '生成设置面板不得再出现「当前约 … AI 积分/张」');
   assert.ok(!panel.includes('AI 积分/张'), '该说明整句删除');
   assert.ok(!panel.includes('Coins'), '配套的 Coins 图标也应移除');
-  /* 积分只在按钮/右下角动态显示 */
-  assert.ok(ecMode.includes('planPoints.points'), '积分仍随配置实时计算');
-  /* 类名从 shubao-gen-cta-points 迁移为 ec-workbench-cta-points（工作台命名统一），行为不变。 */
+  /* ── 最要紧的一条：用户要删的是**说明文字**，不是 CTA 上的积分数 ──
+     用户需求原意：「下面为什么要有『当前约 1 AI 积分/张』这一句？没必要，
+     动态调整任何东西，右下角积分跟着变就可以了。」→ 删说明句，**保留动态积分**。
+     故本断言必须锁死三件事，缺一不可：
+       ① 积分仍随配置实时计算（planPoints）
+       ② 积分仍渲染在主 CTA 内（ec-workbench-cta-points）
+       ③ 积分文案绑定的是计算结果（planPoints.points），不是任何静态字符串
+     2026-09-15 强化：原文写作「两种类名二选一」，那会让「积分被摘掉只剩旧类名」
+     也能通过。现改为**必须命中当前实现**，并新增运行时契约测试（见
+     test/home-cta-points-live.test.mjs）实测「改清晰度 → 积分数值变」。 */
+  assert.ok(ecMode.includes('planPoints.points'), '① 积分仍随配置实时计算');
+  assert.ok(ecMode.includes('ec-workbench-cta-points'), '② 积分仍渲染在主 CTA 内');
   assert.ok(
-    /ec-workbench-cta-points|shubao-gen-cta-points/.test(ecMode),
-    '积分仍显示在主 CTA 上（动态跟随）',
+    /ec-workbench-cta-points">\{planPoints\.points\}/.test(ecMode),
+    '③ 积分文案必须绑定 planPoints.points（动态），不得退化为静态字符串',
   );
   assert.ok(!ecMode.includes('积 分/张'), '不得再有任何「/张」的静态说明');
 });
@@ -113,16 +122,24 @@ test('③ 「当前约 X AI 积分/张」说明句已删除', () => {
 /* ═══ ② 生成设置面板视觉语言 ═══ */
 
 test('② 生成设置面板消费统一视觉语言规范（无魔法字号/间距）', () => {
-  /* 规范来源已从 panelVisualLanguage.js 升级为 V3 token（design-tokens-v3.css）。
-     断言改为「必须消费统一规范」的两种等价形式之一，语义不变：间距/字号/控件高/圆角都必须来自规范。 */
+  /* ── 关于「必须引入规范」的等价性说明（第 4 条） ──
+     原断言：panel.includes("from './panelVisualLanguage.js'")。
+     现状：间距/字号/控件高/圆角的**唯一权威**已上移到 design-tokens-v3.css 的 --sb-*，
+     本面板因此不再 import panelVisualLanguage.js（若继续 import 反而会出现
+     「两套来源并存」——正是 D8 要治的病）。
+     等价性：两种写法的**语义完全相同** —— 都是「取值必须来自统一规范，不得自带魔法数字」。
+     下面两种情况都要求：规范定义的每一类取值（内边距/分组间距/字段间距/圆角/控件高）
+     必须在面板里以规范形式出现。任一缩水仍会失败。 */
+  const usesV3 = /--sb-(panel-padding|group-gap|field-gap|radius-|control-)/.test(panel);
   const legacy = panel.includes("from './panelVisualLanguage.js'");
-  if (legacy) {
-    for (const token of ['SPACING', 'FONT_SIZE', 'CONTROL_HEIGHT', 'RADIUS', 'sectionStyle', 'groupTitleStyle']) {
-      assert.ok(panel.includes(token), '必须消费 ' + token);
-    }
-  } else {
+  assert.ok(usesV3 || legacy, '必须消费统一规范（V3 token 或 panelVisualLanguage 二选一）');
+  if (usesV3) {
     for (const token of ['--sb-panel-padding', '--sb-group-gap', '--sb-field-gap', '--sb-radius-', '--sb-control-']) {
       assert.ok(panel.includes(token), '迁移 V3 后必须消费 ' + token);
+    }
+  } else {
+    for (const token of ['SPACING', 'FONT_SIZE', 'CONTROL_HEIGHT', 'RADIUS', 'sectionStyle', 'groupTitleStyle']) {
+      assert.ok(panel.includes(token), '必须消费 ' + token);
     }
   }
   /* 不再出现 9px/10px 的不可读小字（用户批注「做得特别小」） */
