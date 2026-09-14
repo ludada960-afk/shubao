@@ -2113,3 +2113,83 @@
 
 
 
+
+
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   画布层叠阶梯 · 落地（2026-09-18 用户批注 · 第 N 次同类复发）
+   ═══════════════════════════════════════════════════════════════════════════
+
+   用户原话（打开「工作流模板」，左下角小地图卡片亮着浮在弹窗上）：
+     「为什么我打开工作流模板，你左下角的这个地图会跟着一起进来呢？你这又是什么奇怪的
+      逻辑呀？」
+
+   根因：画布浮层各写各的 z-index。实测本文件原有 47 处 z-index，
+   取值 1/2/3/4/5/7/8/9/10/11/15/30/35/40/42/58/70/72/80/82/90/95/100/130/140/
+   1900/2000/10000/10002/10003 —— 没有一处说了算，所以每加一个弹窗就漏一个 HUD。
+
+   唯一权威 = canvasVisualLanguage.js 的 CANVAS_Z（本文件只写 var(--cvl-z-*)）。
+   区块统一放在文件末尾，保证覆盖前面的历史裸数字（后写胜出），便于一次审计。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 内容层 ── */
+.ec-canvas-stage { z-index: var(--cvl-z-canvas, 1); }
+/* ── 选择/框选/手柄（仍在内容之上） ── */
+.ec-canvas-selection-rect,
+.ec-canvas-multi-selection-box,
+.ec-canvas-resize-handle,
+.ec-canvas-move-scale-target { z-index: var(--cvl-z-overlay, 10); }
+/* ── 右侧结果面板 ── */
+.ec-canvas-right-panel { z-index: var(--cvl-z-panel, 20); }
+/* ── 浮动 HUD：小地图 / 缩放条 / 底部操作栏（小地图卡片 = .ec-canvas-minimap 容器） ── */
+.ec-canvas-minimap,
+.ec-canvas-zoom-controls,
+.ec-canvas-bottom-dock,
+.ec-canvas-left-rail { z-index: var(--cvl-z-hud, 30); }
+/* ── 弹出层：引用素材 / 模型 / 技能 / @ / 派生菜单 / 参数弹层 ── */
+.ec-canvas-parameter-popover,
+.ec-canvas-option-popover,
+.ec-canvas-suite-plan-popover,
+.ec-canvas-suite-panel-popover,
+.ec-canvas-video-plan,
+.ec-canvas-add-menu,
+.ec-canvas-derive-menu,
+.ec-canvas-context-menu,
+.ec-canvas-layers-panel { z-index: var(--cvl-z-popover, 40); }
+/* ── 节点上的悬浮工具条 ── */
+.ec-canvas-object-toolbar,
+.ec-canvas-text-toolbar,
+.ec-canvas-multi-toolbar,
+.ec-canvas-selection-bar { z-index: var(--cvl-z-toolbar, 50); }
+/* ── 节点生成框 ── */
+.ec-canvas-node-composer,
+.ec-canvas-focused-editor { z-index: var(--cvl-z-composer, 60); }
+
+/* ═══ 核心：打开画布内任何弹窗时，HUD 一律**隐藏**（不是压暗）═══════════════
+   开关 = .ec-canvas-page.is-dialog-open（由 index.jsx 用 canvasHudHidden() 单一状态注入）。
+   display:none 同时满足两个要求：视觉上不亮、且**不可点**（不在命中测试里）。
+   ⚠️ 新增 HUD 元素时，把它的类名加进下面这组选择器。 */
+.ec-canvas-page.is-dialog-open .ec-canvas-minimap,
+.ec-canvas-page.is-dialog-open .ec-canvas-zoom-controls,
+.ec-canvas-page.is-dialog-open .ec-canvas-bottom-dock,
+.ec-canvas-page.is-dialog-open .ec-canvas-left-rail,
+.ec-canvas-page.is-dialog-open .ec-canvas-right-panel,
+.ec-canvas-page.is-dialog-open .ec-canvas-selection-bar,
+.ec-canvas-page.is-dialog-open .ec-canvas-object-toolbar,
+.ec-canvas-page.is-dialog-open .ec-canvas-text-toolbar,
+.ec-canvas-page.is-dialog-open .ec-canvas-multi-toolbar,
+.ec-canvas-page.is-dialog-open .ec-canvas-layers-panel,
+.ec-canvas-page.is-dialog-open .ec-canvas-node-composer {
+  display: none !important;
+}
+
+/* 资产库遮罩（页签式的全屏弹窗）：原为硬编码 z-index: 9500，现纳入阶梯。
+   它由 .ec-canvas-page.is-dialog-open 一并驱动（见 index.jsx 的 assetLibraryTab）。 */
+.canvas-asset-library-overlay { z-index: var(--cvl-z-modalScrim, 70); }
+.canvas-asset-library-modal { z-index: var(--cvl-z-modal, 71); }
+
+/* ── 全局 toast / 待处理提示：永远最上层，不受弹窗影响 ── */
+.ec-canvas-toast { z-index: var(--cvl-z-globalToast, 90); }
+.ec-canvas-pending-imports { z-index: var(--cvl-z-globalToast, 90); }
+.ec-canvas-workflow-offer { z-index: var(--cvl-z-globalToast, 90); }

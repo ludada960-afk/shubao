@@ -165,6 +165,7 @@ import {
    值经 CSS 变量注入画布根节点，CSS 侧不再写魔法数字。 */
 import {
   canvasVisualLanguageCssVars,
+  canvasHudHidden,
   canvasRightPanelReserved,
   useCanvasPanelWidth,
 } from './canvasVisualLanguage.js';
@@ -6402,6 +6403,22 @@ const handlePointerUp = useCallback((e) => {
      浮层避让与画布让位共用同一个值，右侧面板不会再与浮层/节点打架。 */
   const panelWidth = useCanvasPanelWidth();
   const rightPanelReservedPx = canvasRightPanelReserved(panelWidth);
+  /* ═══ 单一状态驱动 HUD 显隐（2026-09-18 用户批注：打开弹窗时 HUD 不许浮在弹窗上）═══
+     用户原话：「为什么我打开工作流模板，你左下角的这个地图会跟着一起进来呢？」
+     根因是各浮动层各写各的 z-index + HUD 从不感知"弹窗是否打开"。
+     这里把「画布内是否有弹窗」收敛成**一个** 布尔量，并写到根节点 class 上；
+     CSS 侧只用 .is-dialog-open 一个开关隐藏整档 HUD。
+     新增弹窗时只需把开关加进 canvasHudHidden()，HUD 自动跟着隐藏 —— 不会再漏。 */
+  const dialogOpen = canvasHudHidden({
+    workflowGalleryOpen,
+    canvasLibraryOpen,
+    assetPickerOpen,
+    skillLibraryOpen: Boolean(skillLibraryTarget),
+    imageInfoOpen: Boolean(imageInfoNode),
+    imagePreviewOpen: Boolean(zoomImg),
+    /* 资产库是页签式全屏弹窗，同样算"弹窗打开" */
+    assetLibraryTab: tab === 'assets' && state.logged,
+  });
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -6409,7 +6426,7 @@ const handlePointerUp = useCallback((e) => {
   ]));
 
   return (
-    <div className="ec-canvas-page" style={canvasVisualLanguageCssVars(panelWidth)}>
+    <div className={`ec-canvas-page${dialogOpen ? ' is-dialog-open' : ''}`} style={canvasVisualLanguageCssVars(panelWidth)}>
       {/* 9-12 画布库：点「新建画布」打开，可改名/复制/收藏/删除/打开已有画布 */}
       {/* 9-12 用户批注：画布库做成整页（不是弹窗） */}
       <CanvasLibraryModal

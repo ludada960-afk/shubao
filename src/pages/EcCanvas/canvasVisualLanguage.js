@@ -151,6 +151,71 @@ export const VIDEO_SLOT_WIDTH = Object.freeze({
 /** 槽位之间的固定间距：8pt 阶梯的 sp2（= 8px），任何文案长度都不变。 */
 export const SLOT_GAP = SPACING.sp2;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   画布层叠阶梯（2026-09-18 用户批注 · 第 N 次同类复发）
+   ═══════════════════════════════════════════════════════════════════════════
+
+   用户原话（打开「工作流模板」弹窗，左下角小地图卡片亮着浮在它上面）：
+     「为什么我打开工作流模板，你左下角的这个地图会跟着一起进来呢？你这又是什么奇怪的
+      逻辑呀？」
+
+   根因：画布浮动层**各写各的 z-index**，没有统一的层叠权威 ——
+   实测 EcCanvas.css 里有 47 处 z-index，取值 1/2/3/4/5/7/8/9/10/11/15/30/35/40/42/
+   58/70/72/80/82/90/95/100/130/140/1900/2000/10000/10002/10003 全是就地拍脑袋，
+   所以每加一个弹窗就漏一个 HUD。
+
+   本阶梯是**唯一权威**：新增浮层必须从 Z 取值，不得再写裸数字。
+   层级从低到高：
+     canvas      画布内容（节点、连线、参考底图）
+     overlay     节点选择框 / 框选 / 缩放手柄（浮在内容上，但仍在内容层内）
+     panel       右侧结果面板
+     hud         浮动 HUD：小地图 / 缩放条 / 底部操作栏 / 节点计数卡
+     popover     弹出层：引用素材 / 模型 / 技能 / @ / 派生菜单 / 参数弹层
+     toolbar    节点上的悬浮工具条（对象工具条 / 文本工具条 / 多选工具条）
+     composer    节点生成框（独立编辑面板，浮在弹出层之上）
+     modalScrim  弹窗遮罩
+     modal       画布内弹窗本体（工作流模板 / 模板广场 / 画布库 / 资产库 / 技能库 / 图片预览 / 二次确认）
+     globalToast 全局 toast / 待处理提示（永远最上层，不受弹窗影响）
+
+   —— 关于 HUD：**打开画布内任何弹窗时，HUD 一律隐藏（display:none），不是只压暗**，
+      即窗口打开期间 hud 这一档整体不渲染。由下面 canvasHudHidden() 一处判定，
+      调用方（index.jsx）用同一个 "是否有弹窗打开" 状态驱动，避免下次再加弹窗又漏。 */
+export const CANVAS_Z = Object.freeze({
+  canvas: 1,
+  overlay: 10,
+  panel: 20,
+  hud: 30,
+  popover: 40,
+  toolbar: 50,
+  composer: 60,
+  modalScrim: 70,
+  modal: 71,
+  globalToast: 90,
+});
+
+/** 层叠阶梯 → CSS 变量（注入画布根节点，CSS 里只写 var(--cvl-z-*)） */
+export function canvasZCssVars() {
+  return Object.fromEntries(Object.entries(CANVAS_Z).map(([k, v]) => [`--cvl-z-${k}`, String(v)]));
+}
+
+/** 画布内「是否有弹窗打开」—— **单一判定**，HUD 显隐全部由它驱动。
+ *  传入各弹窗的当前状态，返回是否应当隐藏 HUD。
+ *  ⚠️ 新增弹窗时：把它的开关加进这里，HUD 自动跟着隐藏，不会漏。 */
+export function canvasHudHidden(flags = {}) {
+  return Boolean(
+    flags.workflowGalleryOpen
+    || flags.canvasLibraryOpen
+    || flags.assetPickerOpen
+    || flags.skillLibraryOpen
+    || flags.imageInfoOpen
+    || flags.imagePreviewOpen
+    /* 资产库：它是**页签**（切走画布）而不是叠加弹窗，但仍有一层全屏遮罩
+       .canvas-asset-library-overlay —— 必须一并算作"弹窗打开"，
+       否则它开着时 HUD 仍可能透出来（实测该遮罩原为硬编码 z-index: 9500）。 */
+    || flags.assetLibraryTab,
+  );
+}
+
 /** 槽位宽度 → CSS 变量（注入到画布根节点，CSS 里只写 var(--cvl-slot-*)） */
 export function canvasSlotCssVars() {
   return {
@@ -218,6 +283,8 @@ export function canvasVisualLanguageCssVars(viewportWidth) {
     '--cvl-right-panel-margin': `${CANVAS_RIGHT_PANEL_MARGIN_PX}px`,
     /* 控件槽位（固定宽度，与文案长度无关） */
     ...canvasSlotCssVars(),
+    /* 层叠阶梯（唯一权威） */
+    ...canvasZCssVars(),
   };
 }
 
