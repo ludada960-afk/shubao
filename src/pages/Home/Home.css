@@ -85,7 +85,10 @@
   align-items: center;
   gap: 8px;
   padding: 14px 20px;
-  background: var(--surface-raised);
+  /* 2026-09-15 幽灵变量修复：原 var(--surface-raised) **全仓无定义**
+     → 浏览器静默解析为无效，该处背景一直是透明的（与本意「抬起的面」不符）。
+     改用 V3 表面阶梯 L3 --sb-surface-tint（面板内凹陷/次级面）。 */
+  background: var(--sb-surface-tint);
   border-bottom: 1.5px solid var(--border);
   font-size: 16px;
   font-weight: var(--weight-bold);
@@ -231,8 +234,12 @@
   cursor: pointer;
   transition: all 0.2s var(--ease);
 }
-.gen-btn.xhs { background: var(--red); box-shadow: var(--shadow-red); }
-.gen-btn.xhs { background: var(--red); box-shadow: var(--shadow-red); }
+/* 2026-09-15 两处修复：
+   ① 幽灵变量：var(--shadow-red) 全仓无定义 → box-shadow 静默失效；
+      改用 V3 语义阴影（红色 CTA 用 danger 色系的柔和投影）。
+   ② D8 重复选择器：本规则原本**连写两遍完全相同**（Home.css:234/235），
+      合并为一条。 */
+.gen-btn.xhs { background: var(--red); box-shadow: 0 6px 18px rgba(232, 84, 75, 0.28); }
 .gen-btn:hover { transform: translateY(-1px); }
 .gen-btn:disabled { background: var(--border); color: var(--text-ghost); cursor: not-allowed; box-shadow: none; transform: none; }
 
@@ -438,8 +445,12 @@
   border: 2px dashed var(--sb-border-default);
   border-radius: var(--sb-radius-card);
   background: var(--sb-surface-card);
-  /* 轻量、低扩散的纸片投影：保留层次，不形成矩形光晕 */
-  box-shadow: var(--sb-shadow-sm);
+  /* 可点卡片的「轻微浮起」。
+     2026-09-15 回退修复 R3：原先改写为 --sb-shadow-sm(=shadow-1, 0 1px 2px)，
+     但改造前是 0 5px 10px rgba(57,45,26,.055) —— 换 token 后**浮起感明显变弱**。
+     依 40-decisions「阴影是表达浮起/海拔的主要手段」，可点卡片应走阶梯中档：
+     这里取 --sb-shadow-2（0 1px 3px + 0 2px 8px），恢复与改造前相当的纸片投影。 */
+  box-shadow: var(--sb-shadow-2);
   filter: none;
   font-family: inherit;
   transition: transform var(--sb-duration-normal) var(--sb-ease-out),
