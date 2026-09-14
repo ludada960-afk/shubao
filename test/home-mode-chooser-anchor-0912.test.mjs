@@ -20,5 +20,7 @@ test('二选一浮层已彻底删除：无 DOM、无样式、无状态、无死�
 
 test('「下一步」按钮仍与提交组同容器（锚点容器保留，按钮本身不再需要相对定位）', () => {
   assert.match(jsx, /className="ec-workbench-submit-actions" style=\{\{ position: 'relative' \}\}/);
-  assert.match(jsx, /className="ec-workbench-next shubao-gen-cta"/);
+  /* 2026-09-15 V3：CTA 类名由 shubao-gen-cta（含紫→粉→橙渐变，V3 停用）
+     迁到 token 化的 ec-workbench-cta。锚点/容器契约不变。 */
+  assert.match(jsx, /className="ec-workbench-next ec-workbench-cta"/);
 });

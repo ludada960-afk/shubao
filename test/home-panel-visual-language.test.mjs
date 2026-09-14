@@ -118,15 +118,28 @@ test('EcMode 的面板宽度从规范模块读取，不再硬编码 460/480/540/
   assert.ok(calls.length >= 2, '两处面板定位都要走统一宽度解析');
 });
 
-test('面板内边距与分区间距取自间距阶梯（24 内边距 / 16 分区间距）', () => {
+test('面板内边距与分区间距取自统一间距来源（V3 后上移到 --sb-* token）', () => {
   const spec = read('src/pages/Home/ec/panelVisualLanguage.js');
   assert.ok(spec.includes('panelBodyStyle'), '规范必须导出面板根样式');
   assert.ok(spec.includes('sectionStyle'), '规范必须导出分组样式');
+
+  /* 2026-09-15 V3：间距的**唯一权威**从 panelVisualLanguage.SPACING
+     上移到 design-tokens-v3.css 的 --sb-* 变量（--sb-panel-padding /
+     --sb-group-gap / --sb-field-gap / --sb-space-*）。
+     面板可以二选一：引用 token，或引用本规范模块（它仍是同一套阶梯的别名）。
+     关键契约不变：不得自带一套字号/间距。 */
+  const tokens = read('src/styles/design-tokens-v3.css');
+  assert.ok(tokens.includes('--sb-panel-padding'), 'token 层必须提供面板内边距');
+  assert.ok(tokens.includes('--sb-group-gap'), 'token 层必须提供分组间距');
+  assert.ok(tokens.includes('--sb-field-gap'), 'token 层必须提供字段间距');
+
   for (const panel of ['GenSettingsPanel', 'ParamsPanel', 'CopyPanel', 'SkuPanel', 'SizingPanel']) {
     const source = read('src/pages/Home/ec/' + panel + '.jsx');
+    const usesToken = /--sb-(panel-padding|group-gap|field-gap|space-\d)/.test(source);
+    const usesSpec = source.includes('panelVisualLanguage.js');
     assert.ok(
-      source.includes("panelVisualLanguage.js"),
-      panel + ' 必须消费统一视觉语言规范，而不是自带一套字号/间距',
+      usesToken || usesSpec,
+      panel + ' 必须消费统一间距来源（--sb-* token 或 panelVisualLanguage 规范），而不是自带一套字号/间距',
     );
   }
 });

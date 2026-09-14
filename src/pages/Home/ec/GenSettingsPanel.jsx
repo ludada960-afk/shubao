@@ -189,7 +189,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
             aria-expanded={modelListOpen}
             onMouseEnter={() => setHoverKey('model-trigger')}
             onMouseLeave={() => setHoverKey('')}
-            style={{ ...optionStyle(modelListOpen, 'model-trigger'), minHeight: 'var(--sb-control-lg)' }}
+            /* 行高 ≥44px（用户「点击区不许缩水」）：V3 阶梯 28/32/36/44 中取 44。 */
+            style={{ ...optionStyle(modelListOpen, 'model-trigger'), minHeight: 'var(--sb-control-touch)' }}
           >
             {modelIcon(currentDef || { brand: 'openai' }, 22)}
             {modelRow(currentDef || { id: selectedModel, label: '智能推荐', badge: '', description: '' }, false, false)}
@@ -213,7 +214,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                     onClick={() => selectModel(model)}
                     onMouseEnter={() => setHoverKey(key)}
                     onMouseLeave={() => setHoverKey('')}
-                    style={{ ...optionStyle(active, key), minHeight: 'var(--sb-control-lg)' }}
+                    style={{ ...optionStyle(active, key), minHeight: 'var(--sb-control-touch)' }}
                   >
                     {modelIcon(model, 24)}
                     {modelRow(model, active)}

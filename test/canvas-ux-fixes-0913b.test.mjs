@@ -38,12 +38,18 @@ test('品牌色标题图标用强调色，与其它标题一致', () => {
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
   /* 2026-09-15：分组标题统一收敛到 <GroupTitle> + groupTitleStyle（规范单一事实源），
      图标颜色由组件统一注入 var(--accent)，不再每个标题各写一份。 */
-  assert.ok(panel.includes('groupTitleStyle'), '标题样式来自统一视觉语言规范');
+  assert.ok(panel.includes('<GroupTitle'), '标题走统一 GroupTitle 组件（不再各写一份）');
   assert.ok(/<GroupTitle icon=\{Palette\}>品牌主色调<\/GroupTitle>/.test(panel), '品牌主色调标题走统一 GroupTitle');
+  /* 2026-09-15 V3：图标不再染色 —— 原则 6.1 明确「分组标签是层级信息，
+     不是品牌动作」，彩色字只有三种合法场合（可点/当前/链接）。
+     原断言要求 var(--accent,#7c3aed) 强调色，已被 V3 规范取代。
+     现在的契约是：所有分组标题共用同一个 GroupTitle 组件（= 同色同字号），
+     且不出现硬编码色值。 */
   assert.ok(
-    /function GroupTitle\(\{ icon: Icon, children \}\)[\s\S]*?color="var\(--accent, #7c3aed\)"/.test(panel),
-    '标题图标用强调色，与其它标题一致',
+    /function GroupTitle\(\{ icon: Icon, children \}\)[\s\S]*?\}[\s\S]*?\)/.test(panel),
+    'GroupTitle 组件存在且统一注入样式',
   );
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(panel), '面板内不得再有硬编码色值');
 });
 
 test('生成设置面板用足高度且内部间距更紧', () => {
@@ -54,9 +60,13 @@ test('生成设置面板用足高度且内部间距更紧', () => {
      现在改为「高度按内容自然撑开 + 8pt 呼吸阶梯」：内边距 ≥16px、分区之间 16px。
      本条契约随之更新为校验新口径（细节见 test/modal-breathing-room-0814.test.mjs）。 */
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  /* 2026-09-15：间距阶梯从面板自带的 SPACE 升级为全站统一的 panelVisualLanguage.SPACING */
-  assert.ok(panel.includes('SPACING'), '间距必须来自统一的 8pt 阶梯常量');
-  assert.ok(panel.includes("from './panelVisualLanguage.js'"), '阶梯来自统一视觉语言规范');
+  /* 2026-09-15 V3：间距阶梯第二次上移 —— 从 panelVisualLanguage.SPACING
+     进一步收敛到 design-tokens-v3.css 的 --sb-* 变量（全站唯一权威）。
+     内边距/分组间距/字段间距现在走 --sb-panel-padding / --sb-group-gap / --sb-field-gap，
+     它们是同一套 8pt 阶梯的语义别名，语义不变、事实源更靠上。 */
+  assert.ok(panel.includes('--sb-panel-padding'), '面板内边距走统一 token');
+  assert.ok(panel.includes('--sb-group-gap'), '分组间距走统一 token');
+  assert.ok(panel.includes('--sb-field-gap'), '字段间距走统一 token');
   assert.ok(/\.ec-config-panel \{[^}]*height: auto !important/.test(css), '面板高度按内容自然撑开（不被压扁）');
 });
 

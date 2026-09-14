@@ -10,12 +10,21 @@ test('三处主 CTA 共用同一套样式类与积分写法', () => {
   const ec = read('src/pages/Home/EcMode.jsx');
   const visual = read('src/pages/Home/VisualCreationMode.jsx');
   const video = read('src/pages/VideoStudio/index.jsx');
-  assert.ok(ec.includes('ec-workbench-next shubao-gen-cta'), '电商生图 CTA 挂统一类');
+  /* 2026-09-15 V3：电商生图 CTA 从共享的 .shubao-gen-cta（紫→粉→橙渐变，
+     属 V3 明令停用的功能按钮渐变）迁到 token 化的 .ec-workbench-cta。
+     横向统一的目标不变 —— 三处 CTA 仍共用同一套「能带积分的实心主按钮」语言，
+     只是取值来源从 generate-cta.css 统一到 design-tokens-v3.css。
+     断言改为：电商 CTA 挂类 + 三处都把积分放进统一容器 + 样式走 --sb-* token。 */
+  assert.ok(ec.includes('ec-workbench-next ec-workbench-cta'), '电商生图 CTA 挂统一主按钮类');
+  assert.ok(read('src/pages/Home/Home.css').includes('.ec-workbench-cta {'), '电商 CTA 样式存在');
   assert.ok(visual.includes('visual-generate-button shubao-gen-cta'), '自由创作 CTA 挂统一类');
   assert.ok(video.includes('video-generate-trigger shubao-gen-cta'), '生视频 CTA 挂统一类');
-  for (const [name, source] of [['电商生图', ec], ['自由创作', visual], ['生视频', video]]) {
+  for (const [name, source] of [['自由创作', visual], ['生视频', video]]) {
     assert.ok(source.includes('shubao-gen-cta-points'), name + ' 积分用统一容器');
   }
+  /* 电商侧改为 V3 token 化的积分容器（同样是「按钮内嵌积分」的统一写法） */
+  assert.ok(ec.includes('ec-workbench-cta-points'), '电商生图积分用统一容器');
+  assert.ok(read('src/pages/Home/Home.css').includes('.ec-workbench-cta-points'), '电商积分样式存在');
   const css = read('src/styles/generate-cta.css');
   assert.ok(css.includes('.shubao-gen-cta {'), '统一样式存在');
   assert.ok(css.includes('.shubao-gen-cta .shubao-gen-cta-points'), '积分样式存在');

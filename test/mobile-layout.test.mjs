@@ -20,8 +20,10 @@ test('mobile ecommerce actions stay compact and remain in flow below the compose
 
   assert.match(ecommerceModeSource, /className="ec-workbench-actions(?:\s|\")/);
   assert.match(ecommerceModeSource, /className="ec-workbench-tools"/);
-  /* 9-12 用户批注：生成按钮统一挂 .shubao-gen-cta（样式与动态积分全站一致） */
-  assert.match(ecommerceModeSource, /className="ec-workbench-next shubao-gen-cta"/);
+  /* 9-12 用户批注：生成按钮统一挂主 CTA 类（样式与动态积分全站一致）。
+     2026-09-15 V3：类名从 .shubao-gen-cta 迁到 token 化的 .ec-workbench-cta
+     （前者含紫→粉→橙渐变，属 V3 停用的功能按钮渐变）。 */
+  assert.match(ecommerceModeSource, /className="ec-workbench-next ec-workbench-cta"/);
   assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*position:\s*relative[^}]*bottom:\s*auto/);
   assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*flex-direction:\s*column/);
   assert.match(mobileRules, /\.ec-workbench-primary-row \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);

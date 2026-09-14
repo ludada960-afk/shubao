@@ -20,9 +20,17 @@ test('上传区 + 输入区在同一个渐变卡片里（照小红书 ec-xhs-com
 });
 
 test('按钮灰态下积分依然显眼（主次分明）', () => {
+  /* 2026-09-15 V3：电商生图 CTA 的积分容器迁到 .ec-workbench-cta-points
+     （并走 --sb-* token）。「禁用态积分仍显眼」这条契约不变，两处都要守住。 */
   const cta = readFileSync(new URL('../src/styles/generate-cta.css', import.meta.url), 'utf8');
   const disabledPoints = cta.match(/.shubao-gen-cta:disabled .shubao-gen-cta-points {([^}]*)}/);
   assert.ok(disabledPoints, '禁用态积分的专属样式存在');
   assert.ok(/opacity: 1/.test(disabledPoints[1]), '禁用态不降低积分可见度');
-  assert.ok(/color: #6d28d9/.test(disabledPoints[1]), '禁用态积分仍有强调色');
+  assert.ok(/color: (#6d28d9|var\(--sb-(text-brand|brand-\d+)\))/.test(disabledPoints[1]), '禁用态积分仍有强调色');
+
+  const home = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
+  const ecDisabled = home.match(/\.ec-workbench-cta:disabled \.ec-workbench-cta-points \{([^}]*)\}/);
+  assert.ok(ecDisabled, '电商禁用态积分的专属样式存在');
+  assert.ok(/var\(--sb-text-brand\)/.test(ecDisabled[1]), '电商禁用态积分仍用品牌强调色 token');
+  assert.ok(/var\(--sb-brand-wash\)/.test(ecDisabled[1]), '电商禁用态积分有品牌浅底，保持醒目');
 });
