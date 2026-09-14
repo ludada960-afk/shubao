@@ -63,7 +63,7 @@ function grepLegacy() {
        （--radius-lg 30px / --radius-xl 40px / --border / --border-light / --shadow-xl）。
    ⚠️ 不要用「行数」估：一行里可能有两三个 V2 用法（实测按行数会少算 134 处）。
    ⚠️ 棘轮只许向下：实测降了就把基线改小 —— 否则回退会落在"合法空间"里，门禁等于没长牙。 */
-const BASELINE_TOTAL = 719;
+const BASELINE_TOTAL = 704;
 const BASELINE_NAMES = 51;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
