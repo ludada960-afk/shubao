@@ -44,7 +44,7 @@
   max-height: calc(100vh - var(--sk-gap) * 2);
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
-  border-radius: 22px;
+  border-radius: 20px;
   border: 1px solid var(--sb-border-default); /* D21：α.10 */
   box-shadow: var(--sb-shadow-5); /* D20-A：暖棕字面量 → 海拔档（α.35 → 5） */
   font-family: var(--font-body);
@@ -70,7 +70,7 @@
 .skill-kind-tabs { display: flex; gap: var(--sk-space-sm); padding: var(--sk-space-sm) var(--sk-space-xl) 0; flex: none; }
 .skill-kind-tabs button {
   appearance: none; border: 1px solid transparent; background: transparent;
-  padding: 7px 14px; border-radius: 999px;
+  padding: 7px 14px; border-radius: var(--sb-radius-pill);
   font-family: inherit; font-size: 13px; font-weight: 600; color: var(--sb-ink-3); cursor: pointer;
 }
 .skill-kind-tabs button:hover { color: var(--sb-ink-1); }
@@ -80,7 +80,7 @@
   box-shadow: 0 6px 16px -6px rgba(232, 84, 75, 0.5);
 }
 .skill-alert, .skill-notice {
-  margin: var(--sk-space-md) var(--sk-space-xl) 0; padding: 9px 12px; border-radius: 10px;
+  margin: var(--sk-space-md) var(--sk-space-xl) 0; padding: 9px 12px; border-radius: 12px;
   font-size: 13px; font-weight: 600; line-height: 1.55; flex: none;
 }
 .skill-notice { position: relative; padding-right: 34px; }
@@ -105,7 +105,7 @@
   min-width: 0;
   display: flex; flex-direction: column; gap: var(--sk-space-md);
   padding: var(--sk-space-md);
-  border-radius: 14px;
+  border-radius: 16px;
   background: #faf8f4;
   border: 1px solid var(--sb-border-subtle); /* D21：α.07 */
 }
@@ -127,7 +127,7 @@
 .skill-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .skill-card {
   display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sk-space-md);
-  padding: 10px 11px; border-radius: 11px; background: var(--sb-neutral-0);
+  padding: 10px 11px; border-radius: 12px; background: var(--sb-neutral-0);
   border: 1px solid var(--sb-border-subtle); /* D21：α.08 */
 }
 .skill-card-main { min-width: 0; }
@@ -149,7 +149,7 @@
 .skill-field > span { font-size: 12px; font-weight: 700; color: var(--sb-ink-2); line-height: 1.4; }
 .skill-field input, .skill-field textarea {
   width: 100%; box-sizing: border-box;
-  padding: 8px 11px; border-radius: 10px;
+  padding: 8px 11px; border-radius: 8px;
   border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0);
   font-family: inherit; font-size: 13px; color: var(--sb-ink-1); outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
@@ -216,7 +216,7 @@
    这里由 .skill-modal-body 的下内边距承担，避免双重计数）。 */
 .skill-editor-actions { padding-bottom: var(--sk-space-sm); }
 .skill-save-btn {
-  appearance: none; border: 0; border-radius: 11px; padding: 9px 16px;
+  appearance: none; border: 0; border-radius: 8px; padding: 9px 16px;
   font-family: inherit; font-size: 13px; font-weight: 700; color: var(--sb-neutral-0);
   background: linear-gradient(135deg, var(--sb-danger), var(--sb-warning));
   box-shadow: 0 10px 22px -10px rgba(232, 84, 75, 0.55);
@@ -229,7 +229,7 @@
 @media (max-width: 900px) { .skill-modal-body { grid-template-columns: 1fr; } }
 
 /* ── 2026-09-10 二次改版：类型选择 / 分组 / 内置正文预览 ── */
-.skill-kind-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sk-space-xs); padding: 3px; border-radius: 10px; background: rgba(57,45,26,.05); }
+.skill-kind-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sk-space-xs); padding: 3px; border-radius: 12px; background: rgba(57,45,26,.05); }
 .skill-kind-picker button {
   appearance: none; border: 0; border-radius: 8px; padding: 6px 4px;
   font-family: inherit; font-size: 12px; font-weight: 600; color: var(--sb-ink-3); background: transparent; cursor: pointer;
@@ -237,25 +237,25 @@
 .skill-kind-picker button.is-active { color: var(--sb-neutral-0); background: linear-gradient(135deg, var(--sb-danger), var(--sb-warning)); }
 .skill-group-picker { display: flex; gap: var(--sk-space-sm); align-items: center; }
 .skill-group-picker select {
-  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 10px;
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px;
   border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0); font-family: inherit; font-size: 13px; color: var(--sb-ink-1); outline: none;
 }
 .skill-group-picker select:focus { border-color: var(--sb-danger); box-shadow: 0 0 0 4px rgba(232,84,75,.1); }
 .skill-new-group { display: flex; gap: var(--sk-space-sm); margin-top: var(--sk-space-sm); }
 .skill-new-group input {
-  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 9px;
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px;
   border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ font-family: inherit; font-size: 13px; outline: none;
 }
 .skill-new-group input:focus { border-color: var(--sb-danger); }
 .skill-card-body {
-  margin: var(--sk-space-sm) 0 0; padding: 10px 11px; border-radius: 9px;
+  margin: var(--sk-space-sm) 0 0; padding: 10px 11px; border-radius: 12px;
   background: var(--sb-neutral-0); border: 1px solid var(--sb-border-default); /* D21：α.09 */
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px; line-height: 1.7; color: var(--sb-ink-2); white-space: pre-wrap; word-break: break-word;
   max-height: 240px; overflow-y: auto;
 }
 .skill-group-tag {
-  display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 999px;
+  display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: var(--sb-radius-pill);
   background: rgba(101,72,205,.09); color: #6548CB; font-size: 11px; font-weight: 700;
 }
 

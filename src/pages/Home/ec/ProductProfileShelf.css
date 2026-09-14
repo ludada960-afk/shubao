@@ -27,7 +27,7 @@
   gap: 7px;
   min-height: 36px;
   padding: 0 13px;
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--sb-neutral-0);
   color: #44403c;
   font-size: 12px;
@@ -45,7 +45,7 @@
 .ec-product-profile-count {
   min-width: 18px;
   padding: 1px 5px;
-  border-radius: 999px;
+  border-radius: var(--sb-radius-pill);
   background: rgba(124, 58, 237, .1);
   color: var(--sb-brand-700);
   text-align: center;
@@ -140,7 +140,7 @@
   min-width: 0;
   padding: 9px;
   border: 1px solid rgba(41, 37, 36, .08);
-  border-radius: 9px;
+  border-radius: 12px;
   background: #fdfcfb;
 }
 
