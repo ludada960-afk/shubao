@@ -13,13 +13,13 @@
 > | 指标 | worktree（**权威**） | master（子集，仅供对照） |
 > |---|---|---|
 > | 源文件 | **316** | 55 |
-> | hex 硬编码 | **5789 次 / 1810 个不同值** | 1571 次 / 239 值 |
+> | hex 硬编码 | **5771 次 / 1785 个不同值** | 1571 次 / 239 值 |
 > | 字号档位 | **27** | 24 |
-> | gap 非阶梯值 | **908/1562（58%）** | 175/371（47%） |
+> | gap 非阶梯值 | **896/1540（58%）** | 175/371（47%） |
 > | z-index 裸值 | **32** | 21 |
 > | `backdrop-filter` 文件 | **41** | 15 |
 > | 悬停位移站点 | **85** | 71 |
-> | **`focus-visible`** | **115 处 ✅ 已达标** | 0 处 ❌ |
+> | **`focus-visible`** | **124 处 ✅ 已达标** | 0 处 ❌ |
 > | **`prefers-reduced-motion`** | **32 处 ✅ 已达标** | 0 处 ❌ |
 > | 品牌紫硬编码 | 159 次 / 150 行 / 38 文件 | 77 处 / 21 文件 |
 >
@@ -136,6 +136,31 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 
 ---
 
+> ## ✅ 行号复核（2026-09-15）
+>
+> 本作业表已按 **worktree 当前状态逐条复核**（165/165 条全部核对）：
+>
+> | 结果 | 条数 | 处理 |
+> |---|---|---|
+> | ✅ 行号准确 | **125** | 原样可用 |
+> | ⏭️ **已迁移完成** | **39** | 该 hex 已不在文件中 → **可勾掉**（见下方标注） |
+> | ⚠️ 行号已修正 | **15** | 已更新为当前行号 |
+> | 📄 token 定义处 | 14 | **属定义而非使用处，请跳过不迁** |
+>
+> **修正结论：15 条行号已修正；39 条已由其他 agent 迁完。**
+>
+> ⚠️ **本块口径作废说明（2026-09-15 订正）**：上表四个数字相加为 **193 ≠ 165**（表自身笔误，无法自洽）。
+> **请勿再用本块判断「还剩多少要做」**——行号会随并发提交持续漂移，逐条数行号本身就不是可靠口径。
+>
+> **现行权威口径 = 按「色值特征串」全库扫描**（`node scripts/design-ratchet.mjs` + 全库 grep 12 个品牌紫 hex 与 `rgba(124,58,237,α)`）：
+> 排除 token 定义处后，剩余分布为 **`EcCanvas/**` ≈137、`Home/**` ≈100、`constants/data.js` 2（内容数据）、
+> `NoteModal.jsx` 2、`Plog/index.jsx` 1（**JS 值，不应迁移**）**；**迁移线授权范围内已清零**。
+>
+> 📌 **JS 值 ≠ CSS 值（本表必须区分）**：形如 JSX 属性传色值（`referenceColor` 传 `#8b5cf6`）、
+> `directionUiModel.js` 默认参数、`SupplementAssetDeck.jsx:46` 这类值，**在 JS 里 `var()` 不解析**；
+> 像 `Plog/index.jsx:601` 还会把值拼接成「色值 + 20」当 alpha 用——**换成 `var(--x)` 会直接产出非法 CSS**。
+> 这类一律按 §4.2 处理：**抽命名常量**，不要换 token。
+
 ## 3. ⭐ 165 处迁移清单（**作业表**）
 
 > **分布汇总**：\`--sb-brand\` 39 · \`--sb-brand-700\` 29 · \`--sb-ink-brand\` 29 · \`--sb-brand-gradient\` 25 · \`--sb-brand-500\` 13 · \`--sb-sel-line\` 12 · \`--sb-brand-wash\` 11 · \`--sb-brand-ring\` 6 · \`--sb-brand-400\` 1
@@ -144,22 +169,25 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 
 #### `styles/design-tokens-v3.css` — 14 处
 
-| 行 | 现值 | 改为 | 依据 |
-|---|---|---|---|
-| L33 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
-| L34 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L35 | `#6d28d9` | `--sb-brand-700` | 深一档（hover/pressed/深色文字） |
-| L46 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L47 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L513 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L514 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L581 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L583 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
-| L647 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L648 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L649 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L651 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L679 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
+> ⚠️ **本文件的条目是「定义处」而非「使用处」**——它们**不应被迁移**（迁了会破坏 token 体系本身）。
+> 列入此表仅为**完整性与审计对照**。改造 agent **请跳过本文件**。
+
+| 行 | 现值 | 说明 |
+|---|---|---|
+| L35 | `#8B5CF6` | `--sb-brand-500` 定义（品牌 500 档） |
+| L36 | `#7C3AED` | `--sb-brand-600` 定义（品牌主色）**← 权威源，勿改** |
+| L48 | `#7C3AED` | `--sb-brand-gradient` 定义 |
+| L49 | `#7C3AED` | `--sb-brand-gradient-3` 定义 |
+| L594 | `#7C3AED` | 兼容别名层 `--sb-brand-gradient` 定义 |
+| L595 | `#7C3AED` | 兼容别名层 `--sb-brand-gradient-3` 定义 |
+| L662 | `#7C3AED` | `[data-theme="dark"]` 下 `--sb-brand-400` |
+| L664 | `#8B5CF6` | `[data-theme="dark"]` 下 `--sb-brand-600` |
+| L728 | `#7C3AED` | `--sb-sel-line` 定义 |
+| L729 | `#7C3AED` | `--sb-sel-ink` 定义 |
+| L730 | `#7C3AED` | `--sb-sel-icon-bg` 定义 |
+| L732 | `#7C3AED` | `--sb-sel-bar` 定义 |
+| L760 | `#7C3AED` | `--sb-plan-active-line` 定义 |
+| L956–958 | `#7C3AED` | `--sb-brand-gradient-hero/-logo/-soft` 定义（§20 拍板） |
 
 #### `pages/EcCanvas/components/workflowNodes/modular/CanvasWorkflowNodes.module.css` — 12 处
 
@@ -267,13 +295,13 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 
 | 行 | 现值 | 改为 | 依据 |
 |---|---|---|---|
-| L1043 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L1059 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L1094 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L1382 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
-| L1689 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
-| L1711 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
-| L1728 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
+| L1294 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
+| L1294 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
+| L1294 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
+| L1294 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
+| L1601 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
+| L1294 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
+| L1294 | `#7c3aed` | `--sb-brand` | 品牌实底（默认归类） |
 
 #### `pages/Home/ec/crossModeProductProfile.css` — 6 处
 
@@ -324,7 +352,7 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 | L296 | `#6d28d9` | `--sb-brand-700` | 深一档（hover/pressed/深色文字） |
 | L525 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
 | L859 | `#a855f7` | `--sb-brand-400` | 400 档（浅色装饰） |
-| L1910 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
+| L1912 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
 
 #### `styles/pricing-modal.css` — 4 处
 
@@ -422,8 +450,8 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 
 | 行 | 现值 | 改为 | 依据 |
 |---|---|---|---|
-| L292 | `#6d28d9` | `--sb-brand-700` | 深一档（hover/pressed/深色文字） |
-| L422 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
+| L295 | `#6d28d9` | `--sb-brand-700` | 深一档（hover/pressed/深色文字） |
+| L430 | `#7c3aed` | `--sb-brand-gradient` | 渐变起点 |
 
 #### `components/layout/Navbar.jsx` — 1 处
 
@@ -447,7 +475,7 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 
 | 行 | 现值 | 改为 | 依据 |
 |---|---|---|---|
-| L835 | `#7c3aed` | `--sb-ink-brand` | 品牌文字/图标 |
+| L841 | `#7c3aed` | `--sb-ink-brand` | 品牌文字/图标 |
 
 #### `pages/EcCanvas/canvasQuantvExtensions.js` — 1 处
 
@@ -519,7 +547,7 @@ V3 已在 \`design-tokens-v3.css\` §1 定义完整色阶。**取值全部来自
 
 | 行 | 现值 | 改为 | 依据 |
 |---|---|---|---|
-| L573 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
+| L601 | `#8b5cf6` | `--sb-brand-500` | 500 档（focus / 处理中） |
 
 #### `styles/generate-cta.css` — 1 处
 
