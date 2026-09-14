@@ -37,13 +37,23 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.match(styles, /\.homepage-mode-card\.card-2 \{[^}]*rotate\(5deg\)/);
   assert.match(styles, /\.homepage-mode-card\.card-3 \{[^}]*rotate\(-5deg\)/);
   assert.match(styles, /\.homepage-mode-card\.card-4 \{[^}]*rotate\(5deg\)/);
-  assert.match(styles, /\.homepage-mode-card:hover,[\s\S]*transform:\s*translateY\(-16px\) rotate\(0deg\)/);
+  /* 2026-09-15 V3：hover 与 focus-visible 从「合并选择器」拆成各自独立的规则 ——
+     原则 4.2 要求 focus 必须独立于 hover 可见（键盘用户看不到 hover），
+     合并写法会让焦点环被 hover 的 transform 规则牵连。契约不变：hover 仍是上浮 16px。 */
+  assert.match(styles, /\.homepage-mode-card:hover \{[\s\S]*?transform:\s*translateY\(-16px\) rotate\(0deg\)/);
   assert.match(styles, /\.homepage-mode-card:focus-visible/);
+  assert.match(styles, /\.homepage-mode-card:active/);
   assert.doesNotMatch(styles, /\.homepage-mode-card\.is-active[^}]*rotate\(0\)/);
-  assert.match(styles, /transition: transform \.2s cubic-bezier/);
+  /* 2026-09-15 V3：时长/缓动改走 token（--sb-duration-* + --sb-ease-out），
+     契约「位移有过渡、且是产品级缓动」不变，只是取值来源统一。 */
+  assert.match(styles, /\.homepage-mode-card \{[\s\S]*?transition:\s*transform var\(--sb-duration-normal\)/);
   assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-visual img/);
-  const hoverRule = styles.match(/\.homepage-mode-card:hover,\s*\.homepage-mode-card:focus-visible\s*\{([^}]*)\}/)?.[1] || '';
+  /* hover 规则不得带 z-index（避免 hover 制造层叠事故） */
+  const hoverRule = styles.match(/\.homepage-mode-card:hover \{([^}]*)\}/)?.[1] || '';
+  assert.ok(hoverRule, 'hover 规则存在');
   assert.doesNotMatch(hoverRule, /z-index\s*:/);
+  /* 原则 4.3：hover 不得染紫（只允许中性 token） */
+  assert.doesNotMatch(hoverRule, /--sb-brand/, 'hover 不得出现品牌色');
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.homepage-mode-card/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.homepage-mode-card \{[^}]*width:\s*min\(/);
   assert.match(styles, /\.homepage-mode-card-visual img \{[^}]*object-fit:\s*contain/);
