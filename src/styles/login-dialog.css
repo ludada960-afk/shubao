@@ -20,7 +20,9 @@
   /* §11：登录卡不是「浮层面板/画布浮条/吸顶导航」，改实底（L1 浮层）——
      原 rgba(255,254,252,.96) 本就是近实底，改 token 后观感等价且不再有 blur 开销。 */
   background-color: var(--sb-surface-panel-solid);
-  border-radius: var(--sb-radius-2xl);
+  /* 26px 落在 24(**3xl**) 与 20(2xl) 之间，取任何 token 都会改变观感 —— 保持字面量，
+     待设计裁定是否把 26 收进阶梯（D6：未授权不得归并）。 */
+  border-radius: 26px;
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow: 0 32px 90px -20px rgba(57, 45, 26, 0.35), 0 4px 16px rgba(57, 45, 26, 0.08), inset 0 1px 0 rgba(255,255,255,0.8);
   font-family: var(--font-body);
