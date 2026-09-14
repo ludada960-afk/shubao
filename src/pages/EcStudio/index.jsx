@@ -543,7 +543,7 @@ export default function EcStudioPage() {
                   <span
                     key={t}
                     style={{
-                      fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-success)', background: '#F0FDF4',
+                      fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-success-strong)', background: '#F0FDF4',
                       padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)', fontWeight: 500,
                     }}
                   >
