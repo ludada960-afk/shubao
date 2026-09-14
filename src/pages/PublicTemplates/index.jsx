@@ -65,10 +65,12 @@ function TemplateDetail({ tpl, usage, onClose, onClone, busy }) {
   if (!tpl) return null;
   const detail = PUBLIC_TEMPLATE_DETAILS[tpl.id] || {};
   const live = usage || { likes: tpl.likes, downloads: tpl.downloads };
+  /* D11：遮罩是可点关闭区，div 键盘不可达 → button + UA 默认外观归零（外观零变化）。
+     面板原用 stopPropagation 吞冒泡 → 改为 onMouseDown 校验 target，避免嵌套交互元素。 */
   return (
-    <div className="tpl-modal-backdrop" role="dialog" aria-modal="true" aria-label={`${tpl.name} 详情`} onClick={onClose}>
-      {/* 面板只是吞掉冒泡 → onMouseDown 校验 target，删掉嵌套交互元素 */}
-      <div className="tpl-modal" role="presentation">
+    <button type="button" className="tpl-modal-backdrop a11y-backdrop" aria-label={`关闭 ${tpl.name} 详情`}
+      onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="tpl-modal" role="dialog" aria-modal="true" aria-label={`${tpl.name} 详情`}>
         <header className="tpl-modal-head">
           <div className="tpl-modal-title">
             <span className="tpl-modal-cat">{tpl.cat}</span>
@@ -115,7 +117,7 @@ function TemplateDetail({ tpl, usage, onClose, onClone, busy }) {
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 

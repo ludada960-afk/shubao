@@ -141,6 +141,9 @@
   display: flex; align-items: center; justify-content: center;
   z-index: var(--sb-z-modal, 1100);
   padding: var(--sb-space-5);
+  /* D11：遮罩已由 div 升为 <button>（键盘可达）。显式声明 cursor，
+     使新旧元素计算样式一致（遮罩点击即关闭，pointer 是正确的交互提示）。 */
+  cursor: pointer;
 }
 /* 9-17 同类修复：.tpl-modal 是**滚动容器**（overflow:auto），而里面的
    .popular-card / .grid-item 悬停会上浮 translateY(-2px)。
