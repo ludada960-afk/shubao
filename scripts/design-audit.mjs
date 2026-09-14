@@ -146,8 +146,17 @@ console.log('  hex 硬编码:  ' + hexTotal + ' 次 / ' + hexes.size + ' 个不�
    现在两种写法都显式列出。 */
 const SCALE_RE = (dashed, camel) => new RegExp('(?:' + dashed + '|' + camel + '):\\s*[\\x27"]?(var\\(--sb-[a-z0-9-]+\\)|[0-9.]+[a-z%]*)', 'g');
 const fontSizes = countAll(codeFiles, SCALE_RE('font-size', 'fontSize'), normalize);
-console.log('  字号档位:    ' + fontSizes.size + ' 档                [目标: 11 档 · 依 D19]   ' +
-  topN(fontSizes, 6).map(([k, v]) => k + 'px×' + v).join(' '));
+/* ⚠️ 口径（依 D19 + 原则 §12）：**「档位」只应统计阶梯内的值**。
+   把阶梯外的值（C 类登记保留，如水印渲染常量 28/64px、隐藏文字用的 0px）也算进「档位」，
+   会让目标在**数学上不可达** —— 数字永远降不到 11，于是有人去改本来正确的代码。
+   现在拆成两个数：阶梯内档位（该降的）/ 阶梯外值（需登记理由的）。 */
+const FONT_LADDER = new Set(['10','11','12','13','14','16','18','20','24','32','48']);
+const fontIn = [...fontSizes].filter(([k]) => FONT_LADDER.has(k));
+const fontOut = [...fontSizes].filter(([k]) => !FONT_LADDER.has(k));
+console.log('  字号档位:    ' + fontIn.length + ' 档                [目标: 11 档 · 依 D19]   ' +
+  topN(new Map(fontIn), 6).map(([k, v]) => k + 'px×' + v).join(' '));
+console.log('     · 阶梯外值: ' + fontOut.reduce((a, [, v]) => a + v, 0) + ' 处 / ' + fontOut.length + ' 个值   ' +
+  (fontOut.length ? fontOut.map(([k, v]) => k + 'px×' + v).join('  ') + '   [C 类登记保留，不是缺陷]' : '✅ 无'));
 
 /* ⚠️ `border-radius: 50%` 是**正圆**，不是「50px 档」。此前正则只抓数字、把 `%` 吞掉，
    于是「50」被当成一个圆角档位混进档位数（实测 137 处，是第二大「档位」）——
