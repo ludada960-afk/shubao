@@ -34,9 +34,35 @@ test('标题/时间是底部遮罩，操作按钮悬停才浮现（基础规则�
   assert.ok(/width: 34px/.test(btn) && /height: 34px/.test(btn), '按钮够大够清楚');
 });
 
+/* 判据（不是写法）：「头部有主次 —— 大标题 + 弱化副标题 + 留白」。
+   ⚠️ 2026-09-20 重写（RTK §3.1-10：契约测试锁的必须是判据，不是写法）。
+   原断言写死 `font-size: 21px` —— 那是**被取代的旧规格**：
+   D19 把 21px 归并进 20px 档（D19 字号阶梯：10/11/12/13/14/16/18/20/24/32/48），
+   实测现状 `.canvas-library-head strong` = 20px / 800。断言因此锁住了一个已不存在的写法。
+   现改为**判据断言**（阈值取自判据本身，不取自某一次的取值）：
+     · 主标题字号 ≥20px（D19 阶梯里的「大标题」起点档）
+     · 主标题**严格大于**副标题（否则谈不上「主次」）
+     · 字重 ≥700（「大」的一半是「重」）
+     · 头部上留白 ≥24px（与下方「呼吸感」用例同源的用户批注：9-16「信息密度太大、要有呼吸感」）
+   依据：D19 字号阶梯；用户批注「标题与内容要有主次、不要拥挤」（canvas-library.css 28–31 行原注）。 */
 test('头部有主次：大标题 + 弱化副标题 + 留白', () => {
-  assert.ok(/font-size: 21px/.test(ruleOf('.canvas-library-head strong')), '标题更大更重');
-  assert.ok(/padding: 28px 26px 22px/.test(ruleOf('.canvas-library-head')), '头部留白充足');
+  const strong = ruleOf('.canvas-library-head strong');
+  const span = ruleOf('.canvas-library-head span');
+
+  const sizeOf = (rule) => Number.parseFloat(rule.match(/font-size:\s*([\d.]+)px/)?.[1] || '0');
+  const weightOf = (rule) => Number.parseInt(rule.match(/font-weight:\s*(\d+)/)?.[1] || '0', 10);
+
+  const titleSize = sizeOf(strong);
+  const subSize = sizeOf(span);
+  const titleWeight = weightOf(strong);
+
+  assert.ok(titleSize >= 20, 'D19：主标题字号落在「大标题」档（≥20px），实际 ' + titleSize + 'px');
+  assert.ok(titleSize > subSize, '主次：主标题必须严格大于副标题，实际 ' + titleSize + 'px vs ' + subSize + 'px');
+  assert.ok(titleWeight >= 700, '主次：主标题字重 ≥700，实际 ' + titleWeight);
+
+  const head = ruleOf('.canvas-library-head');
+  const padTop = Number.parseFloat(head.match(/padding:\s*(\d+)px/)?.[1] || '0');
+  assert.ok(padTop >= 24, '留白：头部上留白 ≥24px，实际 ' + padTop + 'px');
 });
 
 /* 9-16 用户批注「信息密度太大、要有呼吸感」→ 三处留白写进 CSS 并锁死：
