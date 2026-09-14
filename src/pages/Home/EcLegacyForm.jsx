@@ -16,19 +16,19 @@ import {
   rotateEcommerceDraft,
 } from './ec/ecommerceTaskProgressModel.js';
 
-const LABEL = { fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 6, display: 'block' };
+const LABEL = { fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-2)', marginBottom: 6, display: 'block' };
 const INPUT = {
-  width: '100%', padding: '10px 14px', border: '2px solid #e8e8e8', borderRadius: 8,
+  width: '100%', padding: '10px 14px', border: '2px solid var(--sb-neutral-200)', borderRadius: 8,
   fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
   transition: 'border-color 0.2s',
 };
 const BTN = {
   width: '100%', padding: '13px 0', border: 'none', borderRadius: 10,
   fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-  background: '#6366F1', color: '#fff', transition: 'all 0.2s',
+  background: '#6366F1', color: 'var(--sb-neutral-0)', transition: 'all 0.2s',
 };
 const SECTION = {
-  background: '#fff', borderRadius: 12, padding: '20px 24px', marginBottom: 12,
+  background: 'var(--sb-neutral-0)', borderRadius: 12, padding: '20px 24px', marginBottom: 12,
   boxShadow: '0 1px 6px rgba(12,10,9,0.04)',
 };
 
@@ -221,16 +221,16 @@ export default function EcLegacyForm() {
       <div style={{ paddingTop: 4 }}>
         <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <span style={{ fontSize: 13, color: '#888' }}>商品：</span>
+            <span style={{ fontSize: 13, color: 'var(--sb-ink-3)' }}>商品：</span>
             <span style={{ fontWeight: 600 }}>{result.product_name}</span>
-            <span style={{ fontSize: 12, color: '#999', marginLeft: 8 }}>{result.platform} · {result.category} · 共 {images.length} 张</span>
+            <span style={{ fontSize: 12, color: 'var(--sb-ink-4)', marginLeft: 8 }}>{result.platform} · {result.category} · 共 {images.length} 张</span>
           </div>
           <button onClick={startNewProduct} style={{ ...BTN, width: 'auto', padding: '8px 20px', fontSize: 13 }}>继续生成</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {images.map(([label, url]) => (
-            <div key={label} style={{ background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(12,10,9,0.06)' }}>
-              <div style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>{label}</div>
+            <div key={label} style={{ background: 'var(--sb-neutral-0)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(12,10,9,0.06)' }}>
+              <div style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: 'var(--sb-neutral-25)', borderBottom: '1px solid var(--sb-neutral-100)' }}>{label}</div>
               <img
                 src={url?.startsWith('data:') ? url : proxyImg(url)}
                 alt={label}
@@ -240,7 +240,7 @@ export default function EcLegacyForm() {
                 decoding="async"
                 fetchpriority="auto"
                 style={{ width: '100%', display: 'block', aspectRatio: '1/1', objectFit: 'cover' }} />
-              <button onClick={() => downloadImg(url, label)} style={{ width: '100%', padding: '8px 0', border: 'none', borderTop: '1px solid #f0f0f0', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', background: '#fff', color: '#666' }}>⬇ 下载</button>
+              <button onClick={() => downloadImg(url, label)} style={{ width: '100%', padding: '8px 0', border: 'none', borderTop: '1px solid var(--sb-neutral-100)', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', background: 'var(--sb-neutral-0)', color: 'var(--sb-ink-3)' }}>⬇ 下载</button>
             </div>
           ))}
         </div>
@@ -273,8 +273,8 @@ export default function EcLegacyForm() {
             setExtracting(false);
           }} disabled={extracting || !link.trim()} style={{
             padding: '0 16px', border: 'none', borderRadius: 8,
-            background: extracting || !link.trim() ? '#ddd' : '#6366F1',
-            color: '#fff', cursor: extracting || !link.trim() ? 'not-allowed' : 'pointer',
+            background: extracting || !link.trim() ? 'var(--sb-neutral-200)' : '#6366F1',
+            color: 'var(--sb-neutral-0)', cursor: extracting || !link.trim() ? 'not-allowed' : 'pointer',
             fontSize: 13, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap',
           }}>
             {extracting ? '分析中...' : '提取并填充 · 0.2'}
@@ -289,7 +289,7 @@ export default function EcLegacyForm() {
         <div style={LABEL}>📸 商品参考图（可选，最多5张）</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {refImgs.map((src, i) => (
-            <div key={i} style={{ position: 'relative', width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '2px solid #f0f0f0' }}>
+            <div key={i} style={{ position: 'relative', width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '2px solid var(--sb-neutral-100)' }}>
               <img
                 src={src}
                 alt=""
@@ -300,11 +300,11 @@ export default function EcLegacyForm() {
                 fetchpriority="auto"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div onClick={() => setRefImgs(p => p.filter((_, j) => j !== i))}
-                style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#FF4757', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid #fff', fontWeight: 700 }}>×</div>
+                style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#FF4757', color: 'var(--sb-neutral-0)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid var(--sb-neutral-0)', fontWeight: 700 }}>×</div>
             </div>
           ))}
           {refImgs.length < 5 && (
-            <div onClick={() => fileRef.current?.click()} style={{ width: 60, height: 60, borderRadius: 8, border: '2px dashed #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ccc' }}>
+            <div onClick={() => fileRef.current?.click()} style={{ width: 60, height: 60, borderRadius: 8, border: '2px dashed var(--sb-neutral-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-neutral-300)' }}>
               <Upload size={16} />
             </div>
           )}
@@ -330,8 +330,8 @@ export default function EcLegacyForm() {
             {EC_CATS.map(c => (
               <span key={c} onClick={() => setCat(c)} style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                background: cat === c ? '#6366F1' : '#f5f5f5',
-                color: cat === c ? '#fff' : '#555', fontWeight: cat === c ? 600 : 400,
+                background: cat === c ? '#6366F1' : 'var(--sb-neutral-100)',
+                color: cat === c ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)', fontWeight: cat === c ? 600 : 400,
                 border: 'none', fontFamily: 'inherit',
               }}>{c}</span>
             ))}
@@ -378,14 +378,14 @@ export default function EcLegacyForm() {
               { key: 'promo_sale', label: '促销活动', sub: '大促抓住眼球', emoji: '🏷️' },
             ].map(s => (
               <div key={s.key} onClick={() => setStylePack(s.key)} style={{
-                border: `2px solid ${stylePack === s.key ? '#6366F1' : '#eee'}`,
+                border: `2px solid ${stylePack === s.key ? '#6366F1' : 'var(--sb-neutral-150)'}`,
                 borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'center',
-                background: stylePack === s.key ? '#EEF2FF' : '#fff',
+                background: stylePack === s.key ? '#EEF2FF' : 'var(--sb-neutral-0)',
                 transition: 'all 0.15s',
               }}>
                 <div style={{ fontSize: 20 }}>{s.emoji}</div>
                 <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
-                <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>{s.sub}</div>
+                <div style={{ fontSize: 10, color: 'var(--sb-ink-4)', marginTop: 2 }}>{s.sub}</div>
               </div>
             ))}
           </div>
@@ -398,8 +398,8 @@ export default function EcLegacyForm() {
             {['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'].map(p => (
               <span key={p} onClick={() => setPlatform(p)} style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                background: platform === p ? '#6366F1' : '#f5f5f5',
-                color: platform === p ? '#fff' : '#555', fontWeight: platform === p ? 600 : 400,
+                background: platform === p ? '#6366F1' : 'var(--sb-neutral-100)',
+                color: platform === p ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)', fontWeight: platform === p ? 600 : 400,
                 border: 'none', fontFamily: 'inherit',
               }}>{p}</span>
             ))}
@@ -416,13 +416,13 @@ export default function EcLegacyForm() {
               { key: 'complete', label: '完整版', count: '9张', desc: '增加对比图+包装图' },
             ].map(t => (
               <div key={t.key} onClick={() => setTier(t.key)} style={{
-                flex: 1, border: `2px solid ${tier === t.key ? '#6366F1' : '#eee'}`,
+                flex: 1, border: `2px solid ${tier === t.key ? '#6366F1' : 'var(--sb-neutral-150)'}`,
                 borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'center',
-                background: tier === t.key ? '#EEF2FF' : '#fff', transition: 'all 0.15s',
+                background: tier === t.key ? '#EEF2FF' : 'var(--sb-neutral-0)', transition: 'all 0.15s',
               }}>
-                <div style={{ fontSize: 11, color: '#888' }}>{t.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--sb-ink-3)' }}>{t.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: tier === t.key ? '#4338CA' : '#6366F1', lineHeight: 1.2, margin: '4px 0' }}>{t.count}</div>
-                <div style={{ fontSize: 10, color: '#999' }}>{t.desc}</div>
+                <div style={{ fontSize: 10, color: 'var(--sb-ink-4)' }}>{t.desc}</div>
               </div>
             ))}
           </div>
@@ -431,7 +431,7 @@ export default function EcLegacyForm() {
         {/* 自定义尺寸 */}
         <div style={{ marginBottom: 12 }}>
           <div style={LABEL}>自定义尺寸（选填）</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888', cursor: 'pointer', marginBottom: 6 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--sb-ink-3)', cursor: 'pointer', marginBottom: 6 }}>
             <input type="checkbox" checked={sizeEnabled} onChange={e => setSizeEnabled(e.target.checked)}
               style={{ accentColor: '#6366F1' }} />
             自定义宽高（不勾选则用 GPT 默认）
@@ -447,7 +447,7 @@ export default function EcLegacyForm() {
         </div>
 
         {cat === '美妆护肤' && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#666', cursor: 'pointer', marginTop: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--sb-ink-3)', cursor: 'pointer', marginTop: 8 }}>
             <input type="checkbox" checked={beauty} onChange={e => setBeauty(e.target.checked)}
               style={{ accentColor: '#6366F1' }} />
             同时生成「美妆分析报告」信息图
@@ -456,7 +456,7 @@ export default function EcLegacyForm() {
       </div>
 
       <button onClick={doGen} disabled={!name.trim() || loading} style={{
-        ...BTN, background: (!name.trim() || loading) ? '#ddd' : '#6366F1',
+        ...BTN, background: (!name.trim() || loading) ? 'var(--sb-neutral-200)' : '#6366F1',
         cursor: (!name.trim() || loading) ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
