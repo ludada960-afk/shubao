@@ -35,21 +35,25 @@ export function Card({ children, style = {}, hover, onClick, className = '' }) {
 
 /* ═══════ Modal ═══════ */
 export function Modal({ children, onClose, width = 420 }) {
+  /* 原则 4.1：遮罩是可点关闭区，原为 <div onClick> 键盘不可达 → button + .a11y-backdrop
+     （仓库既有重置类）。面板只是吞冒泡、不是可点元素 → 删掉重复 onMouseDown，
+     改用 event.target === event.currentTarget 判定，去掉嵌套交互元素。 */
   return (
-    <div
+    <button
+      type="button"
+      aria-label="关闭"
       style={{
         position: 'fixed', inset: 0,
         background: 'var(--sb-scrim)',
         zIndex: 'var(--sb-z-modal)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
-      className="animate-fade-in"
-      onClick={onClose}
+      className="animate-fade-in a11y-backdrop"
+      onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        onClick={e => e.stopPropagation()}
         className="animate-scale-in"
         style={{
           background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-xl)',
@@ -60,7 +64,7 @@ export function Modal({ children, onClose, width = 420 }) {
       >
         {children}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -110,8 +114,14 @@ export function CharImg({ src, alt = '', size = 120, float, style = {} }) {
 /* ═══════ Tag (pill) ═══════ */
 export function Tag({ children, active, onClick, style = {} }) {
   const [h, setH] = useState(false);
+  /* 原则 4.1：可点元素必须键盘可达。
+     仅当传了 onClick 时才渲染 <button>（无 onClick 的 Tag 是纯展示徽标，不应进 Tab 序列）。
+     两分支除标签/type/重置类外属性完全一致 → 视觉零变化。 */
+  const Root = onClick ? 'button' : 'span';
   return (
-    <span
+    <Root
+      {...(onClick ? { type: 'button' } : {})}
+      className={onClick ? 'a11y-reset' : undefined}
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
@@ -130,7 +140,7 @@ export function Tag({ children, active, onClick, style = {} }) {
       }}
     >
       {children}
-    </span>
+    </Root>
   );
 }
 
