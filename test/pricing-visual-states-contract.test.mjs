@@ -286,8 +286,11 @@ test('p-6 页面不引入任何新的硬编码色值（只允许下调）', () =
      而 HEAD 上实际已是 15（基线文件陈旧）。权威口径是 scripts/design-ratchet.mjs 的
      「不新增」判定，这里用同样的规则内联复核：本批改动不得让任一文件超过其**当前值**。
      故断言「改动后的值 ≤ 仓库基线（取基线文件与 15 的较大者）」并额外锁死具体分布。 */
+  /* 上限只允许下调（棘轮铁律）。Pricing.css 已从 6 降到 5：
+     hero 三色渐变的字面 #ec4899 已并入 --sb-brand-gradient-hero token。
+     剩余 5 处均为他人区域（modal 状态条 / #FFFFFF 关键字），不在本批范围。 */
   const EXPECTED = {
-    'src/pages/Pricing/Pricing.css': 6,
+    'src/pages/Pricing/Pricing.css': 5,
     'src/pages/Pricing/index.jsx': 15,
   };
   for (const [f, cap] of Object.entries(EXPECTED)) {
@@ -405,4 +408,21 @@ test('p-7 即将上线徽标在亮/暗两种主题下都达 WCAG AA', () => {
   /* 暗色合成实测：字 rgb(240,178,74) on rgba(224,138,46,.3) 叠在卡片底 rgb(20,19,18) */
   const r = contrast('#F0B24A', '#51371A');
   assert.ok(r >= 4.5, '暗色徽标需 ≥4.5:1，实测 ' + r.toFixed(2));
+});
+
+/* ═══ p-8 品牌渐变必须走 token（本仓硬性：不许引入新的硬编码色值） ═══ */
+
+test('p-8 hero 三色渐变走 --sb-brand-gradient-hero token，不留字面 hex', () => {
+  const css = read('src/pages/Pricing/Pricing.css');
+  assert.match(css, /\.pricing-hero-accent \{[\s\S]{0,220}?background:\s*var\(--sb-brand-gradient-hero\)/,
+    'hero 渐变必须引用 --sb-brand-gradient-hero');
+  /* 反向：hero 区块内不得出现任何字面色值 */
+  const i = css.indexOf('.pricing-hero-accent {');
+  const block = css.slice(i, css.indexOf('}', i));
+  assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'hero 渐变色块内不得有字面 hex：' + block);
+  assert.ok(!/rgba\(/.test(block), 'hero 渐变色块内不得有字面 rgba()');
+
+  /* token 本身必须真实存在且确为三色（防 token 被改空/改单色） */
+  assert.match(TOKENS, /--sb-brand-gradient-hero:\s*linear-gradient\([^;]*#7C3AED[^;]*#EC4899[^;]*#F59E0B/i,
+    '--sb-brand-gradient-hero 必须是 紫→粉→橙 三色');
 });

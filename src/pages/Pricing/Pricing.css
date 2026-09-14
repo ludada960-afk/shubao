@@ -120,7 +120,9 @@
   .pricing-hero-break { display: inline; }
 }
 .pricing-hero-accent {
-  background: linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 60%, var(--sb-warning) 100%);
+  /* hero 属「品牌时刻」白名单 → 用品牌渐变 token，不写字面 hex。
+     --sb-brand-gradient-hero = 品牌紫 → 品牌粉 → 橙，与本处原三色同义。 */
+  background: var(--sb-brand-gradient-hero);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

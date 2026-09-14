@@ -67,19 +67,25 @@ test('recommended badge is "最受欢迎" (commercial-grade, not generic "推荐
 });
 
 /* ── 5) Hero 毛玻璃 + 渐变 orbs ── */
-test('hero region uses glassmorphism and gradient orbs', () => {
+test('hero region uses glassmorphism and gradient orbs', async () => {
   assert.ok(PRICING.includes('pricing-hero-orb'), 'hero orb class in JSX');
   assert.ok(PRICING.includes('pricing-hero-inner'), 'hero inner class in JSX');
   assert.ok(PRICING.includes('pricing-hero-accent'), 'hero accent class in JSX');
   // 3 色 hero accent gradient 在 CSS 里定义
   /* 2026-09-14 §18 裁定 1 + 裁定 2：hero 属「品牌时刻」，三色渐变**保留**，
      但起点靛蓝 #6366f1 已迁为品牌紫 var(--sb-brand-600)（靛蓝族整体迁移）。 */
-  /* 2026-09-14 §18 裁定 1 + 2：hero 属「品牌时刻」，三色渐变**保留**，
-     但两支已收敛为 token：靛蓝起点 #6366f1 → var(--sb-brand-600)，
-     橙终点 #f59e0b → var(--sb-warning)（橙→一支）。中段品牌粉按裁定保留。 */
+  /* 2026-09-14 §18 裁定 1 + 2：hero 属「品牌时刻」，三色渐变**保留**。
+     2026-09-15 收敛：三支全部并入 --sb-brand-gradient-hero token（紫→粉→橙），
+     不再写字面 hex —— 观感与价值不变，但消除设计系统里最后一处
+     「同一个三色渐变两套写法」。契约改为「引用 token + token 本身确为三色」。 */
   assert.ok(
-    PRICING_CSS.includes('var(--sb-brand-600)') && PRICING_CSS.includes('#ec4899') && PRICING_CSS.includes('var(--sb-warning)'),
-    'tri-color hero gradient (brand-purple start, warning end)',
+    PRICING_CSS.includes('var(--sb-brand-gradient-hero)'),
+    'hero 三色渐变必须走 --sb-brand-gradient-hero token（禁止字面 hex）',
+  );
+  const heroTokens = await fs.readFile(new URL('../src/styles/design-tokens-v3.css', import.meta.url), 'utf8');
+  assert.ok(
+    /--sb-brand-gradient-hero:\s*linear-gradient\([^;]*#7C3AED[^;]*#EC4899[^;]*#F59E0B/i.test(heroTokens),
+    '--sb-brand-gradient-hero 必须确实是紫→粉→橙三色（防 token 被改空）',
   );
   assert.ok(PRICING_CSS.includes('.pricing-hero-orb--a'), 'orb a selector');
   assert.ok(PRICING_CSS.includes('.pricing-hero-orb--b'), 'orb b selector');
