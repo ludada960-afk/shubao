@@ -19,8 +19,11 @@
   right: 14px;
   bottom: 130px;      /* 底部工具栏保持让位 */
   /* 9-13：宽度由页面级变量统一决定 —— 画布区按同一个变量让位，面板不会盖住画布内容 */
-  width: var(--canvas-right-panel-width, 360px);
-  max-width: calc(100vw - 28px);
+  /* 宽度统一由画布根节点注入的 --canvas-right-panel-width 决定
+     （2026-09-17 统一视觉语言：480 标准 / 窄屏 min(480, 视口-32)）。
+     480 只是无 JS 注入时的兜底。 */
+  width: var(--canvas-right-panel-width, 480px);
+  max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
@@ -38,9 +41,10 @@
 }
 
 @media (max-width: 1100px) {
-  /* 中小屏: 面板收窄, 宽度由 .ec-canvas-page 的变量统一给出（画布让位同步收窄） */
+  /* 中小屏：宽度仍由 .ec-canvas-page 注入的变量统一给出（画布让位同步收窄），
+     不做第二套 clamp —— 否则又会出现「面板与让位对不上」的老问题。 */
   .ec-canvas-right-panel {
-    width: var(--canvas-right-panel-width, min(360px, calc(100vw - 220px)));
+    width: var(--canvas-right-panel-width, min(480px, calc(100vw - 32px)));
   }
 }
 
@@ -65,9 +69,9 @@
   flex: 0 0 auto;
   display: grid;
   grid-template-columns: 78px 1fr;
-  gap: 10px;
+  gap: var(--cvl-sp3, 12px);
   align-items: center;
-  padding: 12px 12px 10px;
+  padding: var(--cvl-sp4, 16px) var(--cvl-sp5, 20px);
   border-bottom: 1px solid var(--border-light);
   background: linear-gradient(180deg, var(--bg-card-solid) 0%, transparent 100%);
 }
@@ -121,10 +125,10 @@
 .ec-canvas-right-panel__badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 7px;
+  gap: var(--cvl-sp1, 4px);
+  padding: var(--cvl-sp1, 4px) var(--cvl-sp2, 8px);
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   background: var(--accent-bg);
   color: var(--text-muted);
@@ -149,7 +153,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px 8px 8px;
+  padding: var(--cvl-sp2, 8px);
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -161,10 +165,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2px 2px 8px;
+  padding: var(--cvl-sp1, 4px) var(--cvl-sp1, 4px) var(--cvl-sp3, 12px);
 }
 .ec-canvas-right-panel__menu-head > span {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 750;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -195,8 +199,8 @@
   outline-offset: 1px;
 }
 .ec-canvas-right-panel__menu-hint {
-  margin: 2px 0 0;
-  padding: 10px 12px;
+  margin: var(--cvl-sp1, 4px) 0 0;
+  padding: var(--cvl-sp3, 12px);
   border: 1px dashed var(--border-light, rgba(15, 23, 42, .12));
   border-radius: 10px;
   background: var(--bg-hover, #f8fafc);
@@ -210,7 +214,7 @@
   place-items: center;
   width: 18px;
   height: 18px;
-  margin: 0 2px;
+  margin: 0 var(--cvl-sp1, 4px);
   border-radius: 5px;
   background: var(--blue, #2563eb);
   color: #fff;
@@ -220,10 +224,10 @@
 
 /* 中部菜单复用 canvas-derive-menu.css 的 .ec-canvas-derive-* 类, 这里只加 group 间距 */
 .ec-canvas-right-panel__menu .ec-canvas-derive-bucket + .ec-canvas-derive-bucket {
-  margin-top: 6px;
+  margin-top: var(--cvl-sp2, 8px);
 }
 .ec-canvas-right-panel__menu .ec-canvas-derive-bucket {
-  margin: 2px 0 0;
+  margin: var(--cvl-sp1, 4px) 0 0;
 }
 
 /* ── 底部: 调整参数 (尺寸/位置/透明度/音轨音量/视频时长/AI 积分) ── */
@@ -231,10 +235,10 @@
   flex: 0 0 auto;
   border-top: 1px solid var(--border-light);
   background: var(--bg-card-solid);
-  padding: 10px 12px 12px;
+  padding: var(--cvl-sp3, 12px);
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: var(--cvl-sp2, 8px);
 }
 /* ── 派生结果看板 (用户 9-04 反馈: 右面板要展示"我派生了什么") ── */
 .ec-canvas-right-panel__children {
@@ -243,23 +247,23 @@
   overflow-y: auto;
   border-top: 1px solid var(--border-light);
   background: var(--bg-card-solid);
-  padding: 10px 12px 12px;
+  padding: var(--cvl-sp3, 12px);
 }
 .ec-canvas-right-panel__children-list {
   list-style: none;
-  margin: 6px 0 0;
+  margin: var(--cvl-sp2, 8px) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--cvl-sp2, 8px);
 }
 .ec-canvas-right-panel__child {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
-  gap: 9px;
+  gap: var(--cvl-sp2, 8px);
   align-items: center;
   width: 100%;
-  padding: 6px 8px;
+  padding: var(--cvl-sp2, 8px);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   background: var(--bg-hover, #f8fafc);
@@ -280,7 +284,7 @@
   border-radius: 8px;
   overflow: hidden;
   background: #eef2f6;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-hint, #6b7280);
 }
 .ec-canvas-right-panel__child-thumb img {
@@ -291,7 +295,7 @@
 .ec-canvas-right-panel__child-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--cvl-sp1, 4px);
   min-width: 0;
 }
 .ec-canvas-right-panel__child-meta strong {
@@ -302,13 +306,13 @@
 }
 .ec-canvas-right-panel__child-meta em {
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-hint, #6b7280);
 }
 .ec-canvas-right-panel__child-meta em.is-processing { color: #ea580c; }
 .ec-canvas-right-panel__child-meta em.is-error { color: #dc2626; }
 .ec-canvas-right-panel__adjust-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 750;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -380,7 +384,7 @@
 .ec-canvas-right-panel__row select {
   width: 100%;
   height: 26px;
-  padding: 0 6px;
+  padding: 0 var(--cvl-sp2, 8px);
   border: 1px solid var(--border-light);
   border-radius: 6px;
   background: var(--bg-card-solid, #fff);
@@ -404,13 +408,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 10px;
+  padding: var(--cvl-sp2, 8px) var(--cvl-sp3, 12px);
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(124, 58, 237, .06) 0%, rgba(37, 99, 235, .06) 100%);
   border: 1px solid var(--border-light);
 }
 .ec-canvas-right-panel__cost-label {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   display: flex;

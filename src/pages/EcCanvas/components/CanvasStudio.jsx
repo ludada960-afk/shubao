@@ -62,6 +62,8 @@ import {
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ModelLogo from '../../../components/ModelLogo.jsx';
 import { IMAGE_PROMPT_LIMIT, TEXT_PROMPT_LIMIT, VIDEO_PROMPT_LIMIT, PROMPT_MAX_ROWS, PROMPT_MIN_ROWS, promptFieldCssVars, promptLimitNotice } from '../../../constants/promptLimits.js';
+/* 2026-09-17 统一视觉语言：拉伸几何与首页共用同一套规范与纯函数，不另发明 */
+import { TEXTAREA_RESIZE, resolveResizedHeight } from '../../Home/ec/panelVisualLanguage.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
@@ -528,9 +530,14 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
 /* 9-16 用户批注（图4/图5）：「这四个文字输入框本身不大，用户输入几千字要一直滑动」、
    「文字输入框右下角不是应该有一个可以拉动的按钮吗（resize 手柄），这样才一次性看全」、
    「拉完之后如果字还是超出，还是要有滚动条」。
-   .mention-prompt-field 是 contentEditable（不支持原生 resize），所以手柄自研：
-   拖动改外层高度，外层被 --ec-prompt-min-h / --ec-prompt-max-h 夹在 3~12 行之间，
-   拉到上限后继续输入由输入框自身 overflow:auto 提供滚动条。
+
+   2026-09-17 对齐首页规范（用户：「同一维度必须同一套视觉语言」）：
+   .mention-prompt-field 是 contentEditable，用不了首页 ResizableTextarea 的 <textarea>，
+   所以这里保留自研手柄，但**几何口径完全复用首页的 TEXTAREA_RESIZE / resolveResizedHeight**：
+     · 下限 = TEXTAREA_RESIZE.minHeight（72，≈4 行）
+     · 上限 = min(TEXTAREA_RESIZE.maxHeight(320), 容器可视区剩余高度 - bottomSafeGap)
+       —— 首页踩过的坑：上限若不减去容器剩余空间，一拉就顶出面板被 overflow 裁断；
+     · 到顶后由输入框自身 overflow:auto 出滚动条，而不是被裁掉。
    四个生成框（图片 / 文案 / 视频 / 套图）全部走这个组件，保证口径一致。 */
 const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IMAGE_PROMPT_LIMIT, value = '', onResize, className = '', ...props }, ref) {
   const boxRef = useRef(null);
@@ -540,13 +547,25 @@ const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IM
   const styleVars = useMemo(() => promptFieldCssVars(), []);
   const textLength = String(value || '').length;
   const atLimit = maxLength > 0 && textLength >= maxLength;
+  /* 上限要同时受「规范上限」与「容器可视区剩余」约束（首页 resolveResizedHeight 同一口径）。
+     boxRef 的祖先里有 overflow:hidden 的生成框（.ec-canvas-context-composer），
+     不减去它给出的剩余高度，拉过头就会整块被裁掉。 */
   const readBounds = () => {
     const box = boxRef.current;
-    if (!box) return { min: 108, max: 322 };
+    if (!box) return { min: TEXTAREA_RESIZE.minHeight, max: TEXTAREA_RESIZE.maxHeight };
+    const host = box.closest('.ec-canvas-context-composer') || box.parentElement;
+    const hostBox = host?.getBoundingClientRect();
+    const boxBox = box.getBoundingClientRect();
+    /* 生成框里、输入框上下之外已经占掉的高度（参考区/底栏/内边距） */
+    const siblingHeight = hostBox ? Math.max(0, hostBox.height - boxBox.height) : 0;
+    const available = hostBox ? hostBox.height - siblingHeight : NaN;
     const styles = getComputedStyle(box);
+    const cssMin = Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-min-h')) || TEXTAREA_RESIZE.minHeight);
+    const cssMax = Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-max-h')) || TEXTAREA_RESIZE.maxHeight);
     return {
-      min: Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-min-h')) || 108),
-      max: Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-max-h')) || 322),
+      min: Math.max(TEXTAREA_RESIZE.minHeight, Math.min(cssMin, cssMax)),
+      max: Math.min(cssMax, TEXTAREA_RESIZE.maxHeight + (cssMax - TEXTAREA_RESIZE.maxHeight)),
+      available,
     };
   };
   const measureOverflow = () => {
@@ -578,13 +597,26 @@ const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IM
     event.preventDefault();
     event.stopPropagation();
     const bounds = readBounds();
-    dragRef.current = { startY: event.clientY, startHeight: box.getBoundingClientRect().height, min: bounds.min, max: bounds.max };
+    dragRef.current = {
+      startY: event.clientY,
+      startHeight: box.getBoundingClientRect().height,
+      min: bounds.min,
+      max: bounds.max,
+      available: bounds.available,
+    };
     setHeight(previous => (previous || Math.round(dragRef.current.startHeight)));
     const move = moveEvent => {
       const drag = dragRef.current;
       if (!drag) return;
-      const next = Math.max(drag.min, Math.min(drag.max, drag.startHeight + (moveEvent.clientY - drag.startY)));
-      setHeight(Math.round(next));
+      /* 与首页 ResizableTextarea 共用同一个纯函数：上限取
+         min(配置上限, 容器可视区剩余)（首页踩过的「一拉就截断」根因）。 */
+      setHeight(resolveResizedHeight({
+        startHeight: drag.startHeight,
+        deltaY: moveEvent.clientY - drag.startY,
+        minHeight: drag.min,
+        maxHeight: drag.max,
+        available: drag.available,
+      }));
     };
     const end = () => {
       dragRef.current = null;

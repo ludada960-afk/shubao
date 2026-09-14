@@ -73,6 +73,10 @@ export function validateWorkflowActionInputs(actionId, inputs = {}) {
 export const CANVAS_RIGHT_PANEL_WIDTH_PX = 360;
 export const CANVAS_RIGHT_PANEL_MARGIN_PX = 28;
 export const CANVAS_RIGHT_PANEL_RESERVED_PX = CANVAS_RIGHT_PANEL_WIDTH_PX + CANVAS_RIGHT_PANEL_MARGIN_PX;
+/* 注意：以上三个常量只作**兜底默认值**保留（无视口信息的纯函数测试会用到）。
+   运行时的真值是 canvasVisualLanguage.canvasRightPanelReserved(视口宽)，
+   它由首页规范 derive（统一 480 + 28），index.jsx 传入 clampCanvasPickerPosition。
+   不要在新代码里直接引用这里的常量，否则又会出现"两套宽度"。 */
 
 function overlapArea(rect, box) {
   const width = Math.max(0, Math.min(rect.x + rect.w, box.x + box.w) - Math.max(rect.x, box.x));

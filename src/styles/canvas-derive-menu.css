@@ -12,8 +12,9 @@
 
 /* ── 引用当前素材生成 (14-action 网格菜单) ── */
 .ec-canvas-derive-menu {
-  /* 用户硬性要求: 不能搞得这么宽. 14 action × 140px ≈ 432px 3 列, 移动 1 列. */
-  width: 432px;
+  /* 2026-09-17 统一视觉语言：与首页/右侧面板同一挡位 480
+     （窄屏 min(480, 视口-32)）。432 是自成一档，已收口。 */
+  width: var(--cvl-panel-width, 480px);
   max-width: calc(100vw - 32px);
   max-height: min(560px, calc(100vh - 64px));
   background: var(--bg-card);
@@ -43,7 +44,7 @@
   border-radius: 999px;
   background: var(--accent-bg);
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   font-style: normal;
 }
@@ -72,7 +73,7 @@
   gap: 6px;
   padding: 4px 6px 6px;
   color: var(--text-hint);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 750;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -204,7 +205,7 @@
   text-overflow: ellipsis;
 }
 .ec-canvas-derive-tile .ec-canvas-derive-copy small {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-hint);
   line-height: 1.35;
   display: -webkit-box;
@@ -227,7 +228,7 @@
   border-radius: 999px;
   background: var(--bg-hover);
   color: var(--text-muted);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 750;
   font-style: normal;
   white-space: nowrap;

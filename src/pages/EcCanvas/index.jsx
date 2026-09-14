@@ -23,7 +23,6 @@ import {
   zoomPreviewByWheel,
 } from './canvasState';
 import {
-  CANVAS_RIGHT_PANEL_RESERVED_PX,
   createChildConnection,
   createDerivedNode,
   canDeriveFromNode,
@@ -162,6 +161,13 @@ import {
   isCanvasEditingTarget,
   shouldHandleCanvasPaste,
 } from './canvasKeyboardHooks.js';
+/* 2026-09-17：画布统一视觉语言 —— 直接复用首页刚定稿的规范（不另发明一套），
+   值经 CSS 变量注入画布根节点，CSS 侧不再写魔法数字。 */
+import {
+  canvasVisualLanguageCssVars,
+  canvasRightPanelReserved,
+  useCanvasPanelWidth,
+} from './canvasVisualLanguage.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
 /* 9-12 资产库额度：字节 → 可读大小 */
@@ -6258,9 +6264,11 @@ const handlePointerUp = useCallback((e) => {
     && !selectedNode.hidden
     && selectedNode.kind !== 'text'
     && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind);
-  /* 右侧功能栏打开时占掉的画布宽度（面板 + 两侧边距）。
-     浮层避让与画布让位共用同一个常量，见 nodeWorkflow 的 CANVAS_RIGHT_PANEL_RESERVED_PX。 */
-  const rightPanelReservedPx = CANVAS_RIGHT_PANEL_RESERVED_PX;
+  /* 2026-09-17 统一视觉语言：面板宽度由首页规范推导（统一 480，
+     窄屏 min(480, 视口-32) 且 ≥360），窄屏不再横向溢出。
+     浮层避让与画布让位共用同一个值，右侧面板不会再与浮层/节点打架。 */
+  const panelWidth = useCanvasPanelWidth();
+  const rightPanelReservedPx = canvasRightPanelReserved(panelWidth);
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -6268,7 +6276,7 @@ const handlePointerUp = useCallback((e) => {
   ]));
 
   return (
-    <div className="ec-canvas-page">
+    <div className="ec-canvas-page" style={canvasVisualLanguageCssVars(panelWidth)}>
       {/* 9-12 画布库：点「新建画布」打开，可改名/复制/收藏/删除/打开已有画布 */}
       {/* 9-12 用户批注：画布库做成整页（不是弹窗） */}
       <CanvasLibraryModal
