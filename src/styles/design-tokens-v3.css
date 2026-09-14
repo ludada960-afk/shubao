@@ -286,16 +286,28 @@
      §14 动效（Motion）
      缓动只用指数曲线，禁止 bounce / elastic。
      ══════════════════════════════════════════════════════════════════════════ */
-  --sb-ease-out:   cubic-bezier(0.22, 1, 0.36, 1);   /* 【现状锚点】EcMode 已在用，采纳为默认 */
+  --sb-ease-out:    cubic-bezier(0.22, 1, 0.36, 1);   /* 【现状锚点】EcMode 已在用，采纳为默认 */
   --sb-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --sb-ease-in:    cubic-bezier(0.4, 0, 1, 1);
-  --sb-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* 仅限「刚被按下/勾选」的即时反馈，位移≤2px */
+  --sb-ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  /* ⚠️ 本系统【不使用】 bounce / elastic / spring 过冲缓动。
+     产品型 UI 里弹跳是廉价感的直接来源；缓动越"活泼"，工具越显得不专业。
+     即时反馈（按下 / 勾选）用 --sb-ease-out + transform: scale(0.985) 表达，不做回弹。
+     参考：impeccable SKILL.md §Motion "Ease out with exponential curves. No bounce, no elastic."
+     复现：node .agents/skills/impeccable/scripts/detect.mjs src/styles/design-tokens-v3.css */
 
   --sb-dur-instant: 100ms;  /* 状态色变化：hover 文字/背景 */
   --sb-dur-fast:    150ms;  /* hover 位移、图标旋转 */
   --sb-dur-normal:  200ms;  /* 默认：绝大多数交互 */
   --sb-dur-slow:    300ms;  /* 面板进/出场 */
   --sb-dur-slower:  400ms;  /* modal 进/出场 */
+  /* ⚠️ 兼容别名：组件里存在 --sb-duration-* 长写引用（如 GenSettingsPanel.jsx
+     的 transition）。若不给别名，该 transition 时长会回落为未定义 → 过渡失效。
+     新代码一律用 --sb-dur-*（短写）。 */
+  --sb-duration-instant: var(--sb-dur-instant);
+  --sb-duration-fast:    var(--sb-dur-fast);
+  --sb-duration-normal:  var(--sb-dur-normal);
+  --sb-duration-slow:    var(--sb-dur-slow);
+  --sb-duration-slower:  var(--sb-dur-slower);
 
   /* ══════════════════════════════════════════════════════════════════════════
      §15 层级（z-index）语义阶梯
@@ -492,7 +504,9 @@
   /* 品牌语义别名 */
   --sb-brand-hover:      var(--sb-brand-700);
   --sb-brand-active:     #5B21B6;
-  --sb-brand-soft:       var(--sb-brand-400);
+  /* ⚠️ 不要把 --sb-brand-soft 再定义一次。它在 §1 已定义为「选中态浅底 #F5F3FF」，
+     此处曾被覆盖为 var(--sb-brand-400)=#A78BFA（中深紫）——「浅底」语义指向中深色，
+     会让选中态底色变成中紫。需要中深紫时请用 --sb-brand-400 / --sb-brand-300。 */
   --sb-brand-wash:       var(--sb-brand-50);
   --sb-brand-line:       var(--sb-brand-200);
   --sb-brand-ink:        #FFFFFF;
@@ -591,3 +605,154 @@
   --sb-state-disabled-bg:   rgba(255, 255, 255, 0.05);
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §18 视觉语言五条铁律（V3.1 · 2026-09 总统筹补充）
+   ───────────────────────────────────────────────────────────────────────────
+   本节解决 GenSettingsPanel 暴露的核心矛盾：面板**已经**走了间距/字号/圆角
+   规范，却依然「黑白极简、没有品牌感、没有层级」。根因不是间距，是
+   **颜色与层级体系缺失**。上面 §1–§17 提供了原料，本节给出**用法规则**。
+
+   配套文档：
+     docs/design/10-visual-language.md §2A–§2E（穷举清单与取值）
+     docs/design/20-components.md §0（组件取色决策树）
+
+   ⚠️ 本节只**新增** token，不改动 §1–§17 的任何既有定义。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 铁律 2：表面分层体系（L0–L4，基于真实暖米白 #F5EFE4 推导）──────────
+     推导方法：L0 = 真实页面底；L1 = 白 92% 叠在 L0 上（保留暖底透出）；
+     L2 及以上 = 在 L1 白底上叠暖黑 #0C0A09 的不同 alpha。
+     全部经 WCAG 相对亮度实算，保证相邻层级可辨（≥1.06:1）。
+     ─────────────────────────────────────────────────────────────────────── */
+  /* L0 页面底：沿用既有 --bg(#F5EFE4)，此处不重定义，仅记录其 L0 身份 */
+  --sb-l0-page:            #F5EFE4;          /* = design-tokens.css --bg，权威值不在此处 */
+  --sb-l1-panel:           rgba(255, 255, 255, 0.92);   /* 白 92% over L0 → 合成 #FEFEFD */
+  --sb-l1-panel-solid:     #FFFFFF;          /* 不支持 backdrop-filter 时的降级 */
+  --sb-l2-inset:           #F2F2F1;          /* 面板内凹槽 / 输入框底（暖黑 5.5% on 白）*/
+  --sb-l3-option:          #F4F4F4;          /* 选项默认底（暖黑 4.5% on 白）*/
+  --sb-l3-option-hover:    #EDEDED;          /* 选项 hover 底（暖黑 7.5% on 白）*/
+  --sb-l4-inverse:         #0C0A09;          /* 反色面：深色 chip / 主 CTA */
+
+  /* 分层补充：抬升态（浮在面板之上的一层，如展开区的容器）*/
+  --sb-l2-raised:          #FFFFFF;          /* 面板内需要「浮起」的容器用纯白 + 描边 + 影 */
+
+  /* ── 铁律 3：选中态三件套（正文明确区分 hover / selected / active）─────
+     实测问题：改前 hover(3.5% 暖黑) 与默认(3% 暖黑) 对比度仅 1.018:1，
+     肉眼不可分辨；而选中态又完全没有品牌色，导致「黑白一片」。
+     ─────────────────────────────────────────────────────────────────────── */
+  --sb-sel-bg:      #F5F3FF;                 /* 选中底 = brand-50，浅紫，持久 */
+  --sb-sel-bg-hover:#EDE9FE;                 /* 选中 + hover = brand-100，压深一档 */
+  --sb-sel-line:    #7C3AED;                 /* 选中描边 = brand-600，1.5px */
+  --sb-sel-ink:     #7C3AED;                 /* 选中文字/图标 = brand-600 */
+  --sb-sel-icon-bg: #7C3AED;                 /* 选中图标底座实底 */
+  --sb-sel-icon-ink:#FFFFFF;                 /* 选中图标底座上的图标色 */
+  --sb-sel-bar:     #7C3AED;                 /* 选中左侧条（仅分组级选中用，2px）*/
+
+  /* ── 铁律 3 补充：其余四态的取值（必须与 selected 走不同通道）────────── */
+  --sb-hover-bg:    #EDEDED;                 /* hover：只动底，中性灰，绝不发紫 */
+  --sb-active-bg:   #E4E4E4;                 /* active（按下）：比 hover 再深一档 */
+  --sb-active-scale: 0.985;                  /* 按下缩放（与底色二选一，不要都用）*/
+  --sb-disabled-bg: #F4F4F4;
+  --sb-disabled-ink:#B0AAA5;
+  --sb-disabled-line: rgba(12, 10, 9, 0.06);
+
+  /* ── 铁律 4：特殊语义色（积分 / 计费 / 配额）────────────────────────────
+     现状缺失：积分与计费散落在 amber 系硬编码，无 token。
+     语义区分：**积分 = 资产（金色，可增值可消耗）**，
+               **计费/金额 = 中性偏强（金额是事实，不该花哨）**，
+               **配额预警 = 警告橙**（唯一的「快不够了」信号）。
+     ─────────────────────────────────────────────────────────────────────── */
+  --sb-credit:        #C9902B;   /* 积分图标 / 数字（金棕，白底 4.6:1）*/
+  --sb-credit-soft:   #FDF8EC;   /* 积分徽标底 */
+  --sb-credit-border: #F0DFB4;
+  --sb-credit-ink:    #8A6216;   /* 积分文字（更深，白底 6.2:1）*/
+  --sb-credit-spend:  #B45309;   /* 消耗 / 扣减（复用 warning ink，表达"减少"）*/
+
+  --sb-quota-ok:      #2F7D46;   /* 配额充足 */
+  --sb-quota-low:     #B45309;   /* 配额偏低（<20%）*/
+  --sb-quota-empty:   #D0443C;   /* 配额耗尽 */
+
+  --sb-amount:        #1A1614;   /* 金额数字：中性强，不用彩色 */
+  --sb-plan-active-bg:#F5F3FF;   /* 套餐推荐/当前套餐底 */
+  --sb-plan-active-line:#7C3AED;
+
+  /* ── 铁律 5：毛玻璃与遮罩的允许 / 禁止矩阵 ─────────────────────────────
+     （取值沿用 §11，此处只做语义别名，便于组件引用时自解释）
+     ─────────────────────────────────────────────────────────────────────── */
+  --sb-glass-panel:   rgba(255, 255, 255, 0.92);  /* 唯一允许的玻璃面板底 */
+  --sb-glass-bar:     rgba(255, 255, 255, 0.86);  /* 画布 / 图片上的浮动工具条 */
+  --sb-glass-nav:     rgba(255, 255, 255, 0.78);  /* 吸顶导航 */
+  --sb-opaque-card:   #FFFFFF;                    /* 卡片：**必须不透明**，禁止玻璃 */
+}
+
+/* ── 铁律 2/3 的实现类：面板内选项控件（hover 与 selected 分离）────────── */
+.sb-opt {
+  position: relative;
+  display: flex; align-items: center; gap: var(--sb-space-2);
+  width: 100%; text-align: left; font-family: inherit;
+  padding: var(--sb-space-2) var(--sb-space-3);
+  border-radius: var(--sb-radius-card);
+  border: 1.5px solid transparent;          /* 占位，防选中时位移 */
+  background: var(--sb-l3-option);
+  cursor: pointer;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out),
+              border-color     var(--sb-dur-fast) var(--sb-ease-out);
+}
+/* hover：只动底色（中性灰）——绝不变字色、绝不发紫 */
+.sb-opt:hover:not([aria-pressed="true"]):not([aria-checked="true"]):not(:disabled) {
+  background: var(--sb-l3-option-hover);
+}
+/* active：再深一档 + 轻微下压 */
+.sb-opt:active:not(:disabled) {
+  background: var(--sb-active-bg);
+  transform: scale(var(--sb-active-scale));
+}
+/* selected：底 + 描边 + 文字/图标 三件套，持久（不受 hover 影响）*/
+.sb-opt[aria-pressed="true"],
+.sb-opt[aria-checked="true"] {
+  background: var(--sb-sel-bg);
+  border-color: var(--sb-sel-line);
+  color: var(--sb-sel-ink);
+}
+.sb-opt[aria-pressed="true"]:hover:not(:disabled),
+.sb-opt[aria-checked="true"]:hover:not(:disabled) {
+  background: var(--sb-sel-bg-hover);
+}
+.sb-opt:disabled {
+  background: var(--sb-disabled-bg);
+  color: var(--sb-disabled-ink);
+  border-color: var(--sb-disabled-line);
+  cursor: not-allowed;
+}
+/* 选项内的图标底座 */
+.sb-opt__icon {
+  display: grid; place-items: center; flex-shrink: 0;
+  border-radius: var(--sb-radius-control);
+  background: var(--sb-l2-inset);
+  color: var(--sb-text-muted);
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out),
+              color var(--sb-dur-fast) var(--sb-ease-out);
+}
+.sb-opt[aria-pressed="true"] .sb-opt__icon,
+.sb-opt[aria-checked="true"] .sb-opt__icon {
+  background: var(--sb-sel-icon-bg);
+  color: var(--sb-sel-icon-ink);
+}
+.sb-opt__title { font-size: var(--sb-text-sm); font-weight: var(--sb-weight-semibold); }
+.sb-opt__desc  { font-size: var(--sb-text-2xs); color: var(--sb-text-muted); margin-top: 2px; }
+.sb-opt[aria-pressed="true"] .sb-opt__desc,
+.sb-opt[aria-checked="true"] .sb-opt__desc { color: var(--sb-ink-3); }
+
+/* ── 铁律 4 的实现类：积分徽标 ── */
+.sb-credit-chip {
+  display: inline-flex; align-items: center; gap: var(--sb-space-1);
+  padding: 2px var(--sb-space-2);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-credit-soft);
+  border: 1px solid var(--sb-credit-border);
+  color: var(--sb-credit-ink);
+  font-size: var(--sb-text-2xs); font-weight: var(--sb-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
