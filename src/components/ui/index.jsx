@@ -56,7 +56,9 @@ export function Modal({ children, onClose, width = 420 }) {
         aria-modal="true"
         className="animate-scale-in"
         style={{
-          background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-xl)',
+          background: 'var(--sb-neutral-0)',
+          /* C 类保留（D24 第 3 条）：V2 --radius-xl = 40px，V3 无对应档（最近 --sb-radius-3xl = 24px）。 */
+          borderRadius: 'var(--radius-xl)',
           padding: '32px 28px', width, maxWidth: '92vw',
           maxHeight: '90vh', overflow: 'auto',
           boxShadow: 'var(--shadow-xl)',
@@ -80,8 +82,8 @@ export function CopyButton({ text, label = '复制' }) {
         setTimeout(() => setOk(false), 1500);
       }}
       style={{
-        color: ok ? 'var(--green)' : '#aaa',
-        background: ok ? 'var(--green-bg)' : '#f8f8f8',
+        color: ok ? 'var(--sb-success)' : '#aaa',
+        background: ok ? 'var(--sb-success-soft)' : '#f8f8f8',
         border: 'none',
       }}
     >
@@ -128,13 +130,13 @@ export function Tag({ children, active, onClick, style = {} }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3,
         padding: '5px 14px',
-        borderRadius: 'var(--radius-full)',
-        fontSize: 'var(--text-sm)',
-        fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-normal)',
-        background: active ? 'var(--red)' : (h ? 'var(--sb-neutral-100)' : 'var(--border-light)'),
-        color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
+        borderRadius: 'var(--sb-radius-pill)',
+        fontSize: 'var(--sb-text-md)',
+        fontWeight: active ? 'var(--sb-weight-semibold)' : 'var(--sb-weight-regular)',
+        background: active ? 'var(--sb-danger)' : (h ? 'var(--sb-neutral-100)' : 'var(--border-light)'),
+        color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
         cursor: onClick ? 'pointer' : 'default',
-        transition: `all var(--duration-fast) var(--ease)`,
+        transition: `all var(--sb-duration-fast) var(--sb-ease-in-out)`,
         whiteSpace: 'nowrap',
         ...style,
       }}
@@ -145,7 +147,7 @@ export function Tag({ children, active, onClick, style = {} }) {
 }
 
 /* ═══════ Spinner ═══════ */
-export function Spinner({ size = 20, color = 'var(--red)' }) {
+export function Spinner({ size = 20, color = 'var(--sb-danger)' }) {
   return (
     <div style={{
       width: size, height: size,
@@ -161,8 +163,9 @@ export function EmptyState({ image, title, desc, action }) {
   return (
     <div style={{ textAlign: 'center', padding: '48px 20px' }}>
       {image && <CharImg src={image} size={100} />}
-      {title && <div style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-bold)', marginTop: 16, color: 'var(--text-primary)' }}>{title}</div>}
-      {desc && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 6 }}>{desc}</p>}
+      {/* 有意变更 Δ−1px：V2 --text-lg = 17px，D19 落档到 --sb-text-lg = 16px。 */}
+      {title && <div style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-bold)', marginTop: 16, color: 'var(--sb-ink-1)' }}>{title}</div>}
+      {desc && <p style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)', marginTop: 6 }}>{desc}</p>}
       {action && <div style={{ marginTop: 16 }}>{action}</div>}
     </div>
   );
