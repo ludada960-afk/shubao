@@ -73,3 +73,16 @@
 .canvas-asset-picker header button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .canvas-asset-picker-tabs button:hover:not(:disabled):not([aria-disabled='true']):not(.is-active) { background-color: var(--sb-hover-bg); }
 .canvas-asset-picker-check:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22 / 原则 4.7 —— 可点必有 hover（资产选择器，3 处缺口）
+   ───────────────────────────────────────────────────────────────────────────
+   ① header button 图标按钮 → 中性表面色；
+   ② tabs button 分段按钮 → 中性表面色（与 .is-active 的深底 selected 不同通道）；
+   ③ .canvas-asset-picker-check 打勾按钮 → 中性表面色（它自带 opacity 显隐，不动 opacity）。
+   禁止自检：无文字色、无 border-width/font-size/padding/width/height。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.canvas-asset-picker header button:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+.canvas-asset-picker-tabs button:hover:not(:disabled):not([aria-disabled='true']):not(.is-active) { background-color: var(--sb-hover-bg); }
+/* ⚠️ 修正：此打勾按钮是**深底半透明圆形**（rgba(28,25,23,.45) / 勾为白色），
+   按 §22 走**海拔** —— 用表面色会盖掉它「深底 + 白勾」的对比（18px 小圆，对比一丢就不可见）。 */
+.canvas-asset-picker-check:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-2); }

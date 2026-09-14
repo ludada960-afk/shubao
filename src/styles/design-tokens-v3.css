@@ -1165,4 +1165,13 @@
 .a11y-reset:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 /* ⚠️ 修正：a11y 遮罩层同属「整屏层」，用不透明浅灰会洗白 → 改为同色系加深一档。 */
 .a11y-backdrop:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-scrim); }
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   §22/4.7 可点必有 hover —— a11y 工具类
+   ───────────────────────────────────────────────────────────────────────────
+   .a11y-reset / .a11y-backdrop 是**无障碍辅助层**（.a11y-reset 承担交互重置语义、
+   .a11y-backdrop 承担点击穿透遮罩），二者在扫描口径下带 cursor:pointer 却无 :hover。
+   通道：中性表面色。遮罩只做**极轻**反馈（不改变遮挡语义、不改透明度/尺寸）。
+   ═══════════════════════════════════════════════════════════════════════════ */
+.a11y-reset:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+/* ⚠️ 修正：a11y 遮罩层同属「整屏层」，用不透明浅灰会洗白 → 改为同色系加深一档。 */
+.a11y-backdrop:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-scrim); }
