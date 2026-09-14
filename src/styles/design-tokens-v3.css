@@ -141,6 +141,19 @@
   --sb-info-border: #C2D0EE;
   --sb-info-ring:   rgba(82, 117, 204, 0.30);
 
+  /* ── 语义色「底 / 描边」别名 ────────────────────────────────────────────────
+     语义色本体的命名是 -soft（浅底）与 -border（浅描边），但组件里写的是
+     --sb-*-bg / --sb-*-line（早期草稿的命名）。两者**必须都成立**，否则又是
+     「引用了未定义的 var() → 静默 none」（由 test/token-vars-defined.test.mjs 门禁兜底）。 */
+  --sb-danger-bg:    var(--sb-danger-soft);
+  --sb-danger-line:  var(--sb-danger-border);
+  --sb-success-bg:   var(--sb-success-soft);
+  --sb-success-line: var(--sb-success-border);
+  --sb-warning-bg:   var(--sb-warning-soft);
+  --sb-warning-line: var(--sb-warning-border);
+  --sb-info-bg:      var(--sb-info-soft);
+  --sb-info-line:    var(--sb-info-border);
+
   /* ══════════════════════════════════════════════════════════════════════════
      §6 边框（Border）
      「无边框优先」：能靠表面色差分层就不要画线。
