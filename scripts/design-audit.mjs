@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanInteractiveState, HOVER_EXEMPT } from './lib/interactive-state-scan.mjs';
+import { scopedValue, isTopRoot, isDarkTheme } from './lib/token-scope.mjs';
 
 const ROOT = process.cwd();
 const SRC = path.join(ROOT, 'src');
@@ -427,29 +428,61 @@ if (!hasSbTokens) {
   console.log('  ❌ src/styles/design-tokens-v3.css 不存在');
 } else {
   const tok = fs.readFileSync(sbTokensPath, 'utf8');
-  const get = n => (tok.match(new RegExp('--' + n + '\\s*:\\s*(#[0-9A-Fa-f]{6})')) || [])[1];
-  const BGS = { '白底': '#FFFFFF', '页底': '#F5EFE4' };
-  const NEED = { 4.5: '正文', 3.0: '大文本/图标' };
+  /* ⚠️ 读值必须**按作用域**（原则 §12 —— 这条口径错过一次，并直接导致一次错误裁定）：
+     同一个 token 在 `:root` 与 `[data-theme="dark"]` 下**本来就该取不同值**。
+     旧实现用 `match(第一个 #hex)` 取到的是**暗色主题**的 `--sb-ink-brand = #C4B5FD`，
+     再拿它去和**白底**比 → 报出「1.85:1 严重不达标」。那不是缺陷，是**度量口径错误**。
+     （教训同 §8.9/§8.10：指标错了会让正确的人做错事 —— 我当时据此下了「五族各补一档」的错误裁定。） */
+  /* targets 里用的是不带 -- 前缀的名字（沿用旧表），取值时补回来 ——
+     少一个前缀就全表「未定义」，而下面还会打印「✅ 全部达标」（空转通过），这类假绿最危险。 */
+  const tt = n => '--' + String(n).replace(/^--/, '');
+  const light = n => scopedValue(tok, tt(n), isTopRoot);
+  const dark = n => scopedValue(tok, tt(n), isDarkTheme) || scopedValue(tok, tt(n), isTopRoot);
+  const lightBg = light('--sb-surface-page') || '#FAF7F2';
+  const LIGHT_BGS = { '白卡': '#FFFFFF', '页底': lightBg, '页底(现状暖)': '#F5EFE4' };
+  const DARK_BGS = { '暗底·页': dark('--sb-surface-page') || '#0F0E0D', '暗底·面板': dark('--sb-surface-panel-solid') || '#1C1A18' };
+  /* 口径自证：亮/暗必须真的取到不同的值，否则说明作用域解析失效（整个表会变成空转通过） */
+  const scopeLive = ['--sb-ink-brand', '--sb-surface-page'].some(n => light(n) && dark(n) && light(n) !== dark(n));
+  console.log('  作用域解析: 亮/暗分别取值 ' + (scopeLive ? '✅ 生效' : '❌ 失效（下表不可信！）') +
+    '   例：--sb-ink-brand 亮 ' + light('--sb-ink-brand') + ' / 暗 ' + dark('--sb-ink-brand'));
+  /* ⚠️ 两条口径缺一不可（都是本轮踩出来的）：
+     ① **图形档的门槛是 3:1，不是 4.5:1** —— 4.5:1 是**正文**门槛（WCAG 1.4.3）；
+        图形/描边/图标按 WCAG 1.4.11 非文本对比度 ≥3:1。拿 4.5 去套图形档会造出假缺陷。
+        （反过来：图形档**若被当正文用**就是真缺陷 —— 由 test/ink-contrast.test.mjs 的反向断言盯。）
+     ② 暗色表必须用**暗色主题的取值**去比暗底；拿亮色值比暗底同样会造出一屏假缺陷。 */
   const targets = [
-    ['sb-ink-1', 4.5], ['sb-ink-2', 4.5], ['sb-ink-3', 4.5], ['sb-ink-4', 3.0],
-    ['sb-ink-5', 0], ['sb-ink-brand', 4.5], ['sb-ink-danger', 4.5],
-    ['sb-ink-success', 4.5], ['sb-ink-warning', 4.5], ['sb-ink-info', 4.5],
+    ['sb-ink-1', 4.5, '标题'], ['sb-ink-2', 4.5, '正文'], ['sb-ink-3', 4.5, '辅助'],
+    ['sb-ink-4', 3.0, '提示·建议档'], ['sb-ink-5', 0, '禁用·不判'],
+    ['sb-ink-brand-strong', 4.5, '文字档'], ['sb-ink-danger-strong', 4.5, '文字档'],
+    ['sb-ink-success-strong', 4.5, '文字档'], ['sb-ink-warning-strong', 4.5, '文字档'],
+    ['sb-ink-info-strong', 4.5, '文字档'],
+    ['sb-ink-brand', 3.0, '图形档'], ['sb-ink-danger', 3.0, '图形档'],
+    ['sb-ink-success', 3.0, '图形档'], ['sb-ink-warning', 3.0, '图形档'],
+    ['sb-ink-info', 3.0, '图形档'],
   ];
-  let fails = 0;
-  for (const [name, need] of targets) {
-    const hex = get(name);
-    if (!hex) continue;
-    const cells = Object.entries(BGS).map(([bn, bv]) => {
-      const r = contrast(hex, bv);
-      const ok = r >= need;
-      return bn + ' ' + r.toFixed(2) + (ok ? '✅' : '❌');
-    });
-    if (need > 0 && contrast(hex, '#F5EFE4') < need) fails++;
-    console.log('  --' + name.padEnd(18) + hex + '  ' + cells.join('   ') + '   [需 ' + need + ':1]');
+  const ADVISORY = new Set(['sb-ink-4']);   /* placeholder：AA 不强制，但设计建议 ≥3:1 —— 不计入硬失败 */
+  const worst = (hex, bgs) => Object.entries(bgs)
+    .map(([bn, bv]) => [bn, bv && /^#/.test(bv) ? contrast(hex, bv) : NaN]).filter(x => !Number.isNaN(x[1]))
+    .sort((a, b) => a[1] - b[1])[0];
+  let failsLight = 0, failsDark = 0, missing = 0, advise = 0;
+  for (const [name, need, kind] of targets) {
+    const hexL = light(name), hexD = dark(name);
+    if (!hexL || !/^#/.test(hexL)) { missing++; console.log('  ⚠️  --' + name.padEnd(22) + '(未定义)'); continue; }
+    const wl = worst(hexL, LIGHT_BGS);
+    const wd = worst(hexD && /^#/.test(hexD) ? hexD : hexL, DARK_BGS);
+    const okL = need === 0 || wl[1] >= need;
+    const okD = need === 0 || wd[1] >= need;
+    if (!okL) { if (ADVISORY.has(name)) advise++; else failsLight++; }
+    if (!okD) failsDark++;
+    console.log('  --' + name.padEnd(22) + hexL + '  [' + kind + ']  ' +
+      '亮 最差 ' + wl[1].toFixed(2) + '(' + wl[0] + ')' + (okL ? '✅' : (ADVISORY.has(name) ? '🟡' : '❌')) + '   ' +
+      '暗 最差 ' + wd[1].toFixed(2) + (okD ? '✅' : '⚠️') + '   [需 ' + need + ':1]');
   }
-  console.log(fails === 0
-    ? '  ✅ 暖米白底上全部达标'
-    : '  ⚠️  ' + fails + ' 个 token 在暖米白底上未达 4.5:1（见 00-principles.md §5.1 的说明）');
+  console.log('  亮底：' + (failsLight === 0 ? '✅ 硬指标全部达标' : '❌ ' + failsLight + ' 个未达标') +
+    (advise ? '（另有 ' + advise + ' 个建议档未达 3:1）' : '') +
+    '   暗底：' + (failsDark === 0 ? '✅ 全部达标' : '⚠️  ' + failsDark + ' 个未达标（暗色主题为独立议题，不阻断）') +
+    (missing ? '   未定义 ' + missing + ' 个' : ''));
+  console.log('  口径：文字档(-strong)判据 = 白卡 + 页底 两个底都 ≥4.5:1；原档保留为**图形档**（描边/图标/浅底）。');
 }
 
 /* ═══ ⑤ 落地进度 ═══ */
