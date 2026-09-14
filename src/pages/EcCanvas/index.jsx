@@ -168,6 +168,8 @@ import {
   canvasRightPanelReserved,
   useCanvasPanelWidth,
 } from './canvasVisualLanguage.js';
+/* 2026-09-17 三层权威性排序（硬约束 > 产出结构 > 内容意图 > 设计方案）—— 唯一规则实现。 */
+import { applyPlanToConfiguration, resolvePromptAuthority } from './canvasPromptAuthority.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
 /* 9-12 资产库额度：字节 → 可读大小 */
@@ -4083,6 +4085,23 @@ const handlePointerUp = useCallback((e) => {
     suite.selectedDirection = 0;
     suite.prompt = node.prompt || '';
     suite.sourceNodeIds = node.sourceNodeIds;
+    /* 2026-09-17 第 4 层（设计方案 = 确认后唯一事实源）：
+       用户「应用到画布」即视为确认方案 —— 把方案参数（比例/张数/文案/风格/方向）
+       **回写到套图节点的配置**，此后生成只依据方案。
+       目的：不允许「配置 A + 方案 B」两个真相并存。
+       注意：硬约束层（避免出现的元素 / 品牌色 / 清晰度 / 平台合规）**不参与回写**，
+       由 applyPlanToConfiguration 内部挡掉，继续独立生效。 */
+    const appliedPlan = {
+      ...buildCanvasSuitePlan(node.directions[0], node.prompt || ''),
+      confirmed: true,
+      ratio: node.directions[0]?.ratio,
+      count: node.count,
+    };
+    const nextConfiguration = applyPlanToConfiguration({
+      configuration: suite.configuration || {},
+      plan: appliedPlan,
+    });
+    if (nextConfiguration !== suite.configuration) suite.configuration = nextConfiguration;
     setNodes(previous => previous.map(item => (item.id === node.id ? { ...item, status: 'ready' } : item)).concat(suite));
     setConnections(previous => previous.concat(createChildConnection(node.id, suite.id, 'design-plan')));
     setSelected(suite.id);
@@ -4451,6 +4470,17 @@ const handlePointerUp = useCallback((e) => {
     updateComposerNode(composer.id, { status: 'processing', error: '', generatedCount: 0 });
     const suitePlan = buildCanvasSuitePlan(composer.suitePlan || composer.directions?.[0], composer.prompt);
     const directionSource = composer.directions?.[0] || {};
+    /* 2026-09-17 三层权威性排序（唯一规则见 canvasPromptAuthority.js）：
+       硬约束(配置面板) > 产出结构(套图方案+SKU) > 内容意图(提示词+skill+补充) > 设计方案。
+       生成前先算一次：结构越权 / 硬约束冲突都要**显式告知用户**（绝不静默改变他的意图），
+       同时把「其它补充 + 变体说明」编译成补充说明段送进提示词。 */
+    const authority = resolvePromptAuthority({
+      prompt: composer.prompt || '',
+      skill: configuration.styleSkill || composer.styleSkill || '',
+      configuration,
+      plan: composer.suitePlan,
+    });
+    authority.notices.forEach(notice => showToast(notice, 'info'));
     const desiredCount = Math.max(3, Math.min(12, Number(composer.count) || 6));
     const mainCount = Math.min(3, Math.max(1, Math.floor((desiredCount - 1) / 2)));
     const detailCount = Math.max(1, desiredCount - 1 - mainCount);
@@ -4477,6 +4507,9 @@ const handlePointerUp = useCallback((e) => {
           `文案规则：${suitePlan.copyRules}`,
           `一致性与风险：${suitePlan.qualityRisks}`,
           composer.prompt?.trim(),
+          /* 第 3 层补充信息（其它补充 + 各变体说明）接进 prompt 编译。
+             见 canvasPromptAuthority：它们与硬约束冲突时以硬约束为准，并给用户显式提示。 */
+          authority.supplement.text,
           `输出语言：${commerceContext.targetLanguage === 'visual' ? '无文字（纯视觉）' : commerceContext.locale}`,
           `套图类型：${composer.suiteType || '完整套图'}`,
           `商品信息模式：${composer.productInfoMode === 'prompt' ? '优先使用描述' : '自动识别'}`,
