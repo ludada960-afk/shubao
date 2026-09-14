@@ -42,8 +42,13 @@ test('品牌色标题图标用强调色，与其它标题一致', () => {
 test('生成设置面板用足高度且内部间距更紧', () => {
   const css = read('src/pages/Home/Home.css');
   assert.ok(/\.ec-config-panel \{[^}]*max-height: min\(88vh/.test(css), '面板加高到 88vh');
+  /* 2026-08-14 用户批注：9-13 的「压缩间距」（padding 10/14/12 + gap 2）后来被用户否掉了 ——
+     「这个面板又变形了呀，怎么压得这么矮啊」「基本没有间距了」。
+     现在改为「高度按内容自然撑开 + 8pt 呼吸阶梯」：内边距 ≥16px、分区之间 16px。
+     本条契约随之更新为校验新口径（细节见 test/modal-breathing-room-0814.test.mjs）。 */
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  assert.ok(panel.includes("padding: '10px 14px 12px'"), '内部间距压缩');
+  assert.ok(panel.includes('SPACE'), '间距必须来自统一的 8pt 阶梯常量');
+  assert.ok(/\.ec-config-panel \{[^}]*height: auto !important/.test(css), '面板高度按内容自然撑开（不被压扁）');
 });
 
 test('视频按钮按真实输入判定（不再因 requires 恒真而常亮）', () => {

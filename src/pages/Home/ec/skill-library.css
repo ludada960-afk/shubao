@@ -1,17 +1,38 @@
 /* 技能库弹窗 (2026-09-10) —— 与登录弹窗同一套玻璃/暖白语言 */
+/* ═══════ 间距阶梯（8pt 栅格）—— 2026-08-14 用户批注落地 ═══════
+   用户原话：「上面空这么多，下面又那么挤，很不平衡啊」「你看这里基本没有间距了呀」
+   根因：三栏各自撑到 827px、比弹窗可视区(553px)还高 → 底部被裁在被折叠区里，
+   而头部又占了 83px 的垂直空间，造成「上松下挤、上下都失衡」。
+   这里统一到一套 8 的倍数阶梯，所有相邻元素按语义取同一档：
+     --sk-space-xs   4   图标与文字（不可再分的行内微调）
+     --sk-space-sm   8   标签 ↔ 控件；列表行 ↔ 列表行（紧凑项）
+     --sk-space-md  12   表单字段 ↔ 表单字段；按钮组内部
+     --sk-space-lg  16   栏 ↔ 栏；弹窗底边留白；分组标题 ↔ 内容
+     --sk-space-xl  20   弹窗内边距（左右）
+     --sk-space-2xl 24   弹窗内边距（上下大留白，仅用于头/脚）
+   ───────────────────────────────────────────────── */
 .skill-modal-overlay {
+  --sk-space-xs: 4px;
+  --sk-space-sm: 8px;
+  --sk-space-md: 12px;
+  --sk-space-lg: 16px;
+  --sk-space-xl: 20px;
+  --sk-space-2xl: 24px;
   position: fixed; inset: 0; z-index: 9000;
   /* 9-11 三轮用户批注: 顶部被导航栏盖住 → 从导航下方开始; 面板做宽而不是做高 */
-  display: grid; place-items: start center; padding: 76px 24px 24px;
+  /* 顶部 76px 是让开导航栏；底部 24px 留白。8-14：把可用高度让给弹窗内容，
+     避免三栏被压得比内容矮、底部按钮落进折叠区。 */
+  display: grid; place-items: start center; padding: 72px 24px 16px;
   background: rgba(50, 40, 28, 0.42);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 .skill-modal {
   width: min(1440px, 97vw);
-  /* 9-12 用户批注：整体偏矮、上下不平衡 → 拉高（并让输入框更高），上方留白同步收一点 */
-  max-height: min(92vh, 1000px);
-  min-height: min(84vh, 900px);
+  /* 8-14 用户批注：「上松下挤」→ 三栏内容必须整体落在弹窗可视区内，
+     而不是把 827px 的内容塞进 553px 再裁掉底部。高度按可视区撑满、内容自己滚动。 */
+  height: calc(100vh - 88px);
+  max-height: calc(100vh - 88px);
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
@@ -21,20 +42,23 @@
   color: #1A1614;
   overflow: hidden;
 }
+/* 头部压缩：原来 20/14 的上下内边距 + 83px 总高，在弹窗里就是「上面空这么多」。
+   收到 16/12，标题与副标题间距用 4px 微调档，整体省下约 16px 且不影响可读性。 */
 .skill-modal-head {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-  padding: 20px 22px 14px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sk-space-lg);
+  padding: var(--sk-space-lg) var(--sk-space-xl) var(--sk-space-md);
   border-bottom: 1px solid rgba(57, 45, 26, 0.08);
+  flex: none;
 }
-.skill-modal-head strong { display: block; font-size: 17px; font-weight: 800; }
-.skill-modal-head span { display: block; margin-top: 4px; font-size: 12.5px; color: #6B6560; }
+.skill-modal-head strong { display: block; font-size: 17px; font-weight: 800; line-height: 1.25; }
+.skill-modal-head span { display: block; margin-top: var(--sk-space-xs); font-size: 12.5px; line-height: 1.5; color: #6B6560; }
 .skill-icon-btn {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
   border: 1px solid rgba(57, 45, 26, 0.1); background: transparent;
   color: #6B6560; cursor: pointer;
 }
 .skill-icon-btn:hover { background: #f5f2ec; color: #1A1614; }
-.skill-kind-tabs { display: flex; gap: 6px; padding: 12px 22px 0; }
+.skill-kind-tabs { display: flex; gap: var(--sk-space-sm); padding: var(--sk-space-sm) var(--sk-space-xl) 0; flex: none; }
 .skill-kind-tabs button {
   appearance: none; border: 1px solid transparent; background: transparent;
   padding: 7px 14px; border-radius: 999px;
@@ -47,8 +71,8 @@
   box-shadow: 0 6px 16px -6px rgba(232, 84, 75, 0.5);
 }
 .skill-alert, .skill-notice {
-  margin: 12px 22px 0; padding: 9px 12px; border-radius: 10px;
-  font-size: 12.5px; font-weight: 600; line-height: 1.55;
+  margin: var(--sk-space-md) var(--sk-space-xl) 0; padding: 9px 12px; border-radius: 10px;
+  font-size: 12.5px; font-weight: 600; line-height: 1.55; flex: none;
 }
 .skill-notice { position: relative; padding-right: 34px; }
 .skill-notice-close { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
@@ -58,64 +82,108 @@
 .skill-modal-body {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 16px;
-  padding: 14px 24px 20px;
+  /* 栏 ↔ 栏 16px（语义：同一层级的并列分组） */
+  gap: var(--sk-space-lg);
+  /* 弹窗内边距：左右 20px、下 16px（底边留白，对应「与弹窗底边 ≥16px」） */
+  padding: var(--sk-space-md) var(--sk-space-xl) var(--sk-space-lg);
   align-content: stretch;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
 }
+/* 每一栏自己滚动，栏内所有间距取自同一阶梯 */
 .skill-column {
   min-width: 0;
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 12px;
+  display: flex; flex-direction: column; gap: var(--sk-space-md);
+  padding: var(--sk-space-md);
   border-radius: 14px;
   background: #faf8f4;
   border: 1px solid rgba(57, 45, 26, 0.07);
 }
-.skill-column-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+/* 左/中两栏：标题固定，列表自己滚 —— 保证底部「新建技能」表单永远完整可见 */
+.skill-modal-body > .skill-column:not(.is-editor) { max-height: 100%; overflow: hidden; }
+.skill-modal-body > .skill-column:not(.is-editor) .skill-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+/* 编辑器栏自身不滚 —— 滚动只交给文本域，这样「提示 + 创建技能按钮」
+   永远钉在栏底（可视区内），不会随内容滚出弹窗，对应「底部不能挤成一团 / 要留白」。 */
+.skill-column.is-editor { max-height: 100%; overflow: hidden; }
+/* 文本域是可拉伸的软性高度：它让位给表单其余部分，
+   保证「创建技能 / 保存修改」按钮永远落在弹窗内（不再被挤到折叠区外）。 */
+.skill-column.is-editor .skill-hint,
+.skill-column.is-editor .skill-editor-actions { flex: none; }
+/* 分组标题 ↔ 内容：标题下留 12px，不再和列表贴死 */
+.skill-column-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sk-space-sm); flex: none; padding-bottom: var(--sk-space-xs); }
 .skill-column-head strong { font-size: 13.5px; font-weight: 800; }
 .skill-column-head span { font-size: 11.5px; color: #9A9490; }
-.skill-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* 技能列表行间距 ≥10px（紧凑项取 10，处于 8 与 12 之间、视觉上不「挤成一团」） */
+.skill-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .skill-card {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sk-space-md);
   padding: 10px 11px; border-radius: 11px; background: #fff;
   border: 1px solid rgba(57, 45, 26, 0.08);
 }
 .skill-card-main { min-width: 0; }
 .skill-card-main strong { font-size: 13px; font-weight: 700; }
 .skill-card-main strong em { font-style: normal; font-size: 11px; color: #9A9490; font-weight: 600; }
-.skill-card-main p { margin: 3px 0 0; font-size: 11.5px; line-height: 1.5; color: #6B6560; }
-.skill-card-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.skill-card-main p { margin: var(--sk-space-xs) 0 0; font-size: 11.5px; line-height: 1.5; color: #6B6560; }
+.skill-card-actions { display: flex; align-items: center; gap: var(--sk-space-sm); flex: none; }
 .skill-mini-btn {
   appearance: none; border: 1px solid rgba(57, 45, 26, 0.12); background: #fff;
   padding: 5px 9px; border-radius: 8px;
   font-family: inherit; font-size: 11.5px; font-weight: 600; color: #3D3835; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: var(--sk-space-xs);
 }
 .skill-mini-btn:hover { border-color: rgba(57, 45, 26, 0.28); }
 .skill-mini-btn.is-primary { color: #B7570B; border-color: rgba(233, 154, 24, 0.35); background: rgba(233, 154, 24, 0.1); }
-.skill-empty { font-size: 12px; color: #9A9490; padding: 8px 2px; }
-.skill-field { display: grid; gap: 5px; position: relative; }
-.skill-field > span { font-size: 12px; font-weight: 700; color: #3D3835; }
+.skill-empty { font-size: 12px; color: #9A9490; padding: var(--sk-space-sm) 2px; }
+/* 表单字段：标签 ↔ 控件 8px（语义：标签是控件的从属元素） */
+.skill-field { display: grid; gap: var(--sk-space-sm); position: relative; }
+.skill-field > span { font-size: 12px; font-weight: 700; color: #3D3835; line-height: 1.4; }
 .skill-field input, .skill-field textarea {
   width: 100%; box-sizing: border-box;
-  padding: 9px 11px; border-radius: 10px;
+  padding: 8px 11px; border-radius: 10px;
   border: 1.5px solid rgba(57, 45, 26, 0.12); background: #fff;
   font-family: inherit; font-size: 13px; color: #1A1614; outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
-/* 9-12 用户批注：技能提示词要看得见更多内容 → 文本域给足高度并可纵向拖拽 */
-.skill-field textarea { resize: vertical; line-height: 1.6; min-height: 260px; max-height: 46vh; }
+/* 9-12 用户批注：技能提示词要看得见更多内容 → 文本域可纵向拖拽。
+   8-14：实测编辑器栏 5 个字段 + 提示 + 按钮共需 790px，可视区只有 586/498px，
+   文本域写死的高（min-height:260px + rows=14 → 311px）正是「底部挤成一团」的元凶。
+   改为弹性：文本域吃掉「其余字段排完后的剩余空间」，下限 132px（约 5 行，仍然好写），
+   这样按钮永远在弹窗内，字段间距也全部保得住。 */
+/* flex-basis:auto + flex-grow 会在空间不足时把 basis 压到 0（1280x800 实测字段高度塌成 0），
+   故显式给 flex-basis 一个下限（标签行 + 132px 文本域 ≈ 168px），空间不足时靠栏内滚动兜底。 */
+/* 文本域字段是唯一的弹性项：flex-shrink 允许它让出空间（下限 124px ≈ 4 行），
+   其余字段、提示、按钮全部 flex:none，保证「底部不挤成一团、按钮不被挤出弹窗」。 */
+/* 文本域是唯一的弹性项：flex-basis 跟随视口高度（矮屏给更小的起点），
+   配合 min-height:0 才能真正让出空间，保证按钮组永远留在栏底可视区内。 */
+.skill-column.is-editor .skill-field:has(textarea) {
+  flex: 1 1 clamp(76px, 14vh, 180px);
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+.skill-column.is-editor .skill-field textarea { height: 100%; min-height: 0; overflow-y: auto; }
+.skill-field textarea { resize: vertical; line-height: 1.6; min-height: 132px; max-height: 46vh; }
 .skill-field input:focus, .skill-field textarea:focus {
   border-color: #E8544B; box-shadow: 0 0 0 4px rgba(232, 84, 75, 0.12);
 }
 .skill-field em { position: absolute; right: 4px; bottom: -16px; font-style: normal; font-size: 11px; color: #B0AAA5; }
-.skill-field + .skill-field { margin-top: 8px; }
+/* 表单字段 ↔ 表单字段 12px（语义：同组内并列项；用户要求「≥12px 间距」）。
+   注意：父级已是 flex column + gap:12px，再叠一层 margin 会变成 24px（实测确认过），
+   反而把底部按钮顶出可视区 —— 故 margin 只在非 flex 容器里兜底。 */
+.skill-field + .skill-field { margin-top: var(--sk-space-md); }
+.skill-column.is-editor .skill-field + .skill-field { margin-top: 0; }
 .skill-hint {
-  display: flex; align-items: flex-start; gap: 6px;
-  margin: 22px 0 0; font-size: 11.5px; line-height: 1.55; color: #6B6560;
+  display: flex; align-items: flex-start; gap: var(--sk-space-sm);
+  /* 分组标题↔内容 16px：提示块与上方表单字段拉开一个层级。
+     栏内是 flex column + gap，故这里只用 margin 补足「16 - gap」的差值，
+     避免 16(margin) + 12(gap) = 28px 的双重计数（实测确认过）。 */
+  margin: calc(var(--sk-space-lg) - var(--sk-space-md)) 0 0;
+  font-size: 11.5px; line-height: 1.55; color: #6B6560;
 }
 .skill-hint svg { flex: none; margin-top: 2px; color: #27864B; }
-.skill-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+/* 按钮组：与提示 16px、与栏底 16px（用户要求「与弹窗底边 ≥16px 留白」） */
+.skill-editor-actions { display: flex; justify-content: flex-end; gap: var(--sk-space-sm); margin-top: calc(var(--sk-space-lg) - var(--sk-space-md)); padding-bottom: var(--sk-space-xs); }
 .skill-save-btn {
   appearance: none; border: 0; border-radius: 11px; padding: 9px 16px;
   font-family: inherit; font-size: 13px; font-weight: 700; color: #fff;
@@ -130,26 +198,26 @@
 @media (max-width: 900px) { .skill-modal-body { grid-template-columns: 1fr; } }
 
 /* ── 2026-09-10 二次改版：类型选择 / 分组 / 内置正文预览 ── */
-.skill-kind-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 3px; border-radius: 10px; background: rgba(57,45,26,.05); }
+.skill-kind-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sk-space-xs); padding: 3px; border-radius: 10px; background: rgba(57,45,26,.05); }
 .skill-kind-picker button {
-  appearance: none; border: 0; border-radius: 8px; padding: 7px 4px;
+  appearance: none; border: 0; border-radius: 8px; padding: 6px 4px;
   font-family: inherit; font-size: 12px; font-weight: 600; color: #6B6560; background: transparent; cursor: pointer;
 }
 .skill-kind-picker button.is-active { color: #fff; background: linear-gradient(135deg, #E8544B, #E99A18); }
-.skill-group-picker { display: flex; gap: 6px; align-items: center; }
+.skill-group-picker { display: flex; gap: var(--sk-space-sm); align-items: center; }
 .skill-group-picker select {
-  flex: 1; min-width: 0; height: 36px; padding: 0 10px; border-radius: 10px;
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 10px;
   border: 1.5px solid rgba(57,45,26,.12); background: #fff; font-family: inherit; font-size: 13px; color: #1A1614; outline: none;
 }
 .skill-group-picker select:focus { border-color: #E8544B; box-shadow: 0 0 0 4px rgba(232,84,75,.1); }
-.skill-new-group { display: flex; gap: 6px; margin-top: 8px; }
+.skill-new-group { display: flex; gap: var(--sk-space-sm); margin-top: var(--sk-space-sm); }
 .skill-new-group input {
   flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 9px;
   border: 1.5px solid rgba(57,45,26,.12); font-family: inherit; font-size: 12.5px; outline: none;
 }
 .skill-new-group input:focus { border-color: #E8544B; }
 .skill-card-body {
-  margin: 8px 0 0; padding: 10px 11px; border-radius: 9px;
+  margin: var(--sk-space-sm) 0 0; padding: 10px 11px; border-radius: 9px;
   background: #fff; border: 1px solid rgba(57,45,26,.09);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11.5px; line-height: 1.7; color: #3D3835; white-space: pre-wrap; word-break: break-word;

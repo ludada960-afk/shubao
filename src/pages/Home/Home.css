@@ -2269,8 +2269,26 @@
 /* 9-11 用户批注#8: 面板张开时滚轮只滚面板 — 高度上限 + 滚动链隔离, 页面不再跟着滚 */
 .ec-config-panel {
   overflow: visible auto !important; box-sizing: border-box !important;
-  /* 9-12/9-13 用户批注：面板要一打开就看全 → 用足可用高度（顶部让给导航、底部让给触发条） */
-  max-height: min(88vh, calc(100vh - 72px)); overscroll-behavior: contain;
+  /* 8-14 用户批注：「这个面板又变形了呀，怎么压得这么矮啊」——
+     根因是面板默认被 flex 容器的可用高度压扁（内容只有 ~282px 也要撑到一个方块）。
+     改法：高度按内容自然撑开（height:auto + flex 方向上的 align-self 不被拉伸），
+     max-height 仍以视口为准，保证「打开就一屏看全、不出现外层滚动条」。
+     两条同时满足：内容矮就自然矮，内容高才封顶到视口并内部滚动。 */
+  height: auto !important;
+  /* EcMode 行内 max-height 是按触发按钮位置算出来的下界（实测 ~400px），会把 412px 的
+     自然内容压出滚动条。这里以视口为准抬高上限：顶部让给 topbar(68) + 16px 呼吸，底部留 16px。
+     注意：抬高上限后，行内 bottom 锚点仍会把面板顶部顶出视口（1280x800 实测 top≈-50），
+     故改用 inline-size 版 bottom 上限 —— 反算 bottom 使 top 恰好落在安全区，
+     两条同时成立：高度按内容自然撑开 + 打开就一屏看全、不出外层滚动条。 */
+  max-height: min(88vh, calc(100vh - 100px)) !important;
+  /* 面板是 body 下的 position:fixed，行内 bottom 是按触发条位置算死的（实测 436~486px）。
+     抬高 max-height 后顶部会被顶出视口（1280x800 实测 top≈-50，等于「看不全」）。
+     这里把 bottom 收进安全区：--ec-panel-bottom-safe 由 EcMode 上报的锚点位置夹逼得出，
+     保证面板顶部始终落在 topbar(68px) + 16px 呼吸之下。 */
+  /* 顶部安全区约束：top = 100vh - bottom - height ≥ 84px（topbar 68 + 16 呼吸）
+     ⇒ bottom ≤ 100vh - height - 84px。height 由 --ec-panel-h 上报（EcMode 不感知高度，故用 460px 兜底）。 */
+  bottom: min(var(--ec-panel-bottom-safe, 16px), calc(100vh - var(--ec-panel-h, 460px) - 84px)) !important;
+  overscroll-behavior: contain;
   border: 1px solid rgba(255,255,255,.86) !important; border-radius: 8px !important;
   background: rgba(252,252,253,.93) !important;
   box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06) !important;

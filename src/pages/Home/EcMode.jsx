@@ -850,13 +850,33 @@ const DEFAULT_BUTTONS = [
       }[activePanel] || 520;
     const panelW = Math.min(Math.max(baseWidth, 400), Math.max(320, vw - 32));
     const btnCenterX = btnRect.left + btnRect.width / 2;
-    setPanelPos({
+    /* 8-14：面板高度按内容自然撑开（Home.css 里 height:auto + 视口 max-height）。
+       这里读一次已渲染高度上报给 CSS，让 bottom 上限能反算出「顶部不越顶栏安全区」。
+       读不到（首帧还没挂载）就沿用上一次的值，避免抖动。 */
+    const livePanel = document.getElementById('ec-floating-panel');
+    const panelH = livePanel ? Math.ceil(livePanel.getBoundingClientRect().height) : 0;
+    setPanelPos((previous) => ({
       left: Math.max(16, Math.min(btnCenterX - panelW / 2, vw - panelW - 16)),
       bottom: Math.max(16, window.innerHeight - btnRect.top + 10),
       width: panelW,
       maxH: Math.max(300, Math.min(620, btnRect.top - 24)),
-      btnCenterX
+      btnCenterX,
+      panelH: panelH || previous.panelH || 0
+    }));
+  }, [activePanel]);
+
+  /* 8-14：面板内容变化（展开模型列表 / 锁定品牌色出现取色器）后高度会变，
+     ResizeObserver 把新高度同步回 CSS 变量，保证 bottom 上限始终按真实高度反算。 */
+  useEffect(() => {
+    if (!activePanel) return undefined;
+    const el = document.getElementById('ec-floating-panel');
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      setPanelPos((previous) => (previous.panelH === h ? previous : { ...previous, panelH: h }));
     });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [activePanel]);
 
   useEffect(() => {
@@ -940,7 +960,14 @@ const DEFAULT_BUTTONS = [
           overflowY: 'auto',
           zIndex: 1100,
           transformOrigin: 'bottom center',
-          '--ec-panel-anchor-x': `${Math.max(28, Math.min(panelPos.width - 28, panelPos.btnCenterX - panelPos.left))}px`
+          '--ec-panel-anchor-x': `${Math.max(28, Math.min(panelPos.width - 28, panelPos.btnCenterX - panelPos.left))}px`,
+          /* 8-14 用户批注：面板「压得这么矮 / 或顶出屏幕」—— 高度必须按内容自然撑开。
+             这里只上报两条信息给 Home.css 统一裁决（height:auto + max-height 视口上限）：
+               --ec-panel-bottom-safe：触发条上方的锚点（贴住按钮）
+               --ec-panel-h：面板当前自然高度，用于反算「顶部不越顶栏安全区」的 bottom 上限
+             高度本身不在这里写死，避免再次把面板压扁。 */
+          '--ec-panel-bottom-safe': `${panelPos.bottom}px`,
+          '--ec-panel-h': `${panelPos.panelH || 460}px`
         }}
       >
         <div className="ec-config-panel-header">
