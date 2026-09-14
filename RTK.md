@@ -67,6 +67,18 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
    真实事故：底部操作栏的居中测试曾断言「必须有 `min()` 回夹」——
    而实测证明那个 `min()` 正是窄屏偏移的根因。**测试当时在保护 bug。**
    写法（用哪个函数/表达式）可以换；判据（居中 + 不被裁）不能换。
+11. **不要把重要修复留在工作区「攒批」** —— 未提交的改动会被别人的 pathspec 提交带走。
+   真实事故：token 去重修复（删 ≤640px 重复 `:root` 块 + 删重复的 a11y hover 段）在工作区停了一整轮，
+   另一条线为改同一个文件跑了 `git add -- src/styles/design-tokens-v3.css`，
+   → 我的两个 hunk **被卷进他们的提交** `193c4155`（提交信息完全驴唇不对马嘴，事后才能靠 `git show <hash> -- <file>` 认领）。
+   → 处置：① 修完**立刻提交**，不要等「一起交」；② 被卷走时**绝不 revert**（revert 会连带删掉对方的内容）——
+     先 `git show <hash> -- <file>` 逐字节核对自己的内容是否完整，只补提缺的部分。
+12. **`git write-tree` + `commit-tree` 不是隔离手段**（曾有报告建议改用此法，那是**反的**）。
+   `write-tree` 写的是**整个共享暂存区** —— 别人 `git add` 进来还没提交的内容会**一起进树**，
+   比裸 `git commit` 更隐蔽（它绕过了 `git commit` 自带的暂存区检查）。
+   真正的隔离只有一条：`git commit -F <msg> -- <文件…>`（git 内部用**临时索引**，只取指定路径的工作区内容，
+   其余已暂存内容**原样留在暂存区不被动**）。
+   确有理由用 write-tree 时，必须把 `GIT_INDEX_FILE` 指向**自己的临时索引文件**，绝不能用默认 `.git/index`。
 
 ### 3.2 迁移等价性（D15，与 40-decisions.md 同步）
 
