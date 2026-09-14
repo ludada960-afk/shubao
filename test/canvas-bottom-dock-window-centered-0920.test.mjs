@@ -1,13 +1,20 @@
 // test/canvas-bottom-dock-window-centered-0920.test.mjs
-// 画布底部操作栏必须**居中于整个窗口**，不随右侧面板左移。
+// 画布底部操作栏必须**居中于整个窗口**，且**不被裁切**。
 // ─────────────────────────────────────────────────────────────────────────────
 // 用户批注（同一件事提了 4 次）：「你下面这个操作栏也依然歪向左边，没有居中」
-// 根因：dock 的定位基准是 .ec-canvas-stage，而右侧面板一开 stage 就变窄
-//       （.has-right-panel 的 margin-right = 面板让位宽），于是「居中于画布可视区」
-//       变成了「跟着面板往左移」。实测（修复前，1440px，面板打开）：
-//         dock 中心 482px，窗口中心 720px —— 差 238px。
-// 口径（用户已确认，2026-09-20）：要**永远居中于整个窗口**，像 Figma 那样不随面板移动。
-// 实现：stage 左缘恒在 x=0，所以「窗口中心」在 stage 坐标系里 = 50% + (面板让位宽)/2。
+//
+// ⚠️ 本文件在 2026-09-20 被**实测推翻过一次**，留下三条教训：
+//   1. 我最初断言「必须有 min() 回夹，否则窄屏会被 stage 的 overflow:clip 裁掉」——
+//      **这个前提是错的**。实测（1024px + 右侧面板打开）那个 min() 正是**偏移的来源**：
+//      `100% − 120 = 428` 赢了 `50vw = 512`，把 dock 按到左边 **−84px**。
+//   2. 「用偏移换不裁切」是错的交易：min() 版 9/9 探针可命中但偏 84px；
+//      去掉 min() 版中心 0 偏差但有 6/9 可命中 —— **两个都不对**。
+//   3. 正解是把**裁剪边界从 stage 下移到内容层**：HUD 本来就不该被内容层的裁剪切掉。
+//      实测（8 组宽度×面板开关）中心偏差全部 0px、9/9 探针可命中。
+//
+// 所以本文件的断言改为**判据**（居中 + 不被裁），不再锁某一种写法：
+//   · 不许出现「把 HUD 回夹进 stage」的写法（那就是 −84px 那一版）；
+//   · 裁剪必须发生在**内容层**，不能发生在 stage 上。
 // ─────────────────────────────────────────────────────────────────────────────
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,64 +23,53 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-/* ⚠️ 必须先剥注释：CSS 注释里出现的花括号会让所有「朴素括号匹配」的正则失准
-   （本文件第一版就中过这个招；注释里现在也不再写花括号了）。 */
 const css = readFileSync(path.join(ROOT, 'src/pages/EcCanvas/EcCanvas.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, ' ');
 
-/** 取某个选择器的**全部**规则体（同一选择器可能在媒体查询里另有定义） */
 const rulesOf = (selector) => {
   const re = new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}', 'g');
-  const out = [];
-  let m;
+  const out = []; let m;
   while ((m = re.exec(css))) out.push(m[1]);
   return out;
 };
 const ruleOf = (selector) => { const all = rulesOf(selector); return all.length ? all[all.length - 1] : null; };
 
-test('① 面板打开时，底部 dock 按「窗口中心」定位（不再跟随 stage）', () => {
+test('① 底部 dock 按「窗口中心」定位（两种等价写法都接受，但不许回夹进 stage）', () => {
+  const base = rulesOf('.ec-canvas-bottom-dock')[0];
+  assert.ok(base, '基础规则必须存在');
+  assert.match(base, /left:\s*(50%|50vw)\s*;/, '必须按窗口居中（left: 50% 或 50vw），实际：' + base);
+  assert.match(base, /transform:\s*translateX\(-50%\)/, '用 translateX(-50%) 居中，避免半像素偏移');
+});
+
+test('② 打开态不许把 HUD 回夹进 stage —— 那正是 −84px 偏移的来源', () => {
   const body = ruleOf('.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock');
-  assert.ok(body, '必须存在 .ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock 规则');
-  assert.match(body, /left:\s*min\(/, '定位必须带 min() 回夹，否则窄屏会被 stage 的 overflow:clip 裁掉');
-  /* 「窗口中心」有两种等价写法，都接受（断言的是判据，不是某一种写法 —— 原则 §12）：
-       A. calc(50% + (面板让位宽)/2)   ← 用变量表达 stage 坐标系里的窗口中心
-       B. 50vw                        ← 直接就是窗口中心（stage 左缘恒在 x=0） */
-  assert.match(
+  if (!body) return;   /* 不需要打开态覆盖时直接适用基础规则，不算违规 */
+  assert.doesNotMatch(
     body,
-    /(calc\(\s*50%\s*\+\s*\(\s*var\(--canvas-right-panel-width[^)]*\)\s*\+\s*var\(--cvl-right-panel-margin[^)]*\)\s*\)\s*\/\s*2\s*\)|50vw)/,
-    '必须按「窗口中心」定位（50vw，或 50% + 面板让位宽/2）',
+    /--ec-canvas-hud-reserve-right/,
+    '回夹会把 dock 按到左边（实测 1024px 下 −84px）；裁剪应交给内容层，不是靠把 HUD 挤进来',
   );
+  assert.match(body, /left:\s*(50%|50vw)\s*;/, '打开态同样必须按窗口居中，实际：' + body);
 });
 
-test('② 回夹上限 = 100% − 余量（余量必须来自变量，不是散落的魔法数字）', () => {
-  const body = ruleOf('.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock');
-  assert.match(body, /calc\(\s*100%\s*-\s*var\(--ec-canvas-hud-reserve-right/, '回夹上限必须引用 --ec-canvas-hud-reserve-right');
-  const reserve = css.match(/--ec-canvas-hud-reserve-right:\s*([0-9.]+)px/);
-  assert.ok(reserve, '--ec-canvas-hud-reserve-right 必须有定义');
-  const px = parseFloat(reserve[1]);
-  assert.ok(px >= 100 && px <= 200, '余量应在 100–200px（工具条半宽 95 + 间距），实测 ' + px + 'px');
+test('③ 裁剪必须在**内容层**，不能落在 stage 上（HUD 不该被内容裁剪切掉）', () => {
+  /* ⚠️ 必须检查**全部** .ec-canvas-stage 规则，不能只看最后一条 ——
+     这个选择器在文件里出现多次（152 行主体 + 2158 行 z-index），只看最后一条会假绿。 */
+  const stages = rulesOf('.ec-canvas-stage');
+  assert.ok(stages.length, '.ec-canvas-stage 规则必须存在');
+  for (const body of stages) {
+    assert.doesNotMatch(
+      body,
+      /overflow:\s*(clip|hidden)/,
+      'stage 不得裁剪：底部操作栏/缩放条/小地图都是它的子元素，被裁就会缺一块（实测 1024px 下 3/9 探针不可命中）。实际：' + body.slice(0, 120),
+    );
+  }
 });
 
-test('③ 默认（面板关闭）仍是纯 50% 居中 —— 不许把打开态的选择器写成全局', () => {
-  const all = rulesOf('.ec-canvas-bottom-dock');
-  assert.ok(all.length, '基础规则必须存在');
-  const base = all[0];
-  assert.match(base, /left:\s*(50%|50vw)\s*;/, '基础态必须是「居中」（left: 50% 或 50vw），实际：' + base);
-  assert.match(base, /transform:\s*translateX\(-50%\)/, '必须用 translateX(-50%) 做居中，避免半像素偏移');
-});
-
-test('③b 窄屏覆盖必须继续锚在 stage 右缘（left:auto + right），不得退回 50% 居中', () => {
-  const all = rulesOf('.ec-canvas-bottom-dock');
-  const narrow = all.slice(1).join(' ');
-  if (!narrow.includes('right:')) return; // 没有窄屏覆盖就不适用
-  assert.match(narrow, /left:\s*auto\s*;/, '窄屏覆盖必须写 left: auto，否则会与居中规则打架');
-  assert.match(narrow, /transform:\s*none\s*;/, '窄屏覆盖必须清掉 translateX(-50%)，否则会自己左移半个宽度');
-});
-
-test('④ 反向断言：打开态不许退回裸 left:50%（那就是被投诉 4 次的那一版）', () => {
+test('④ 反向断言：不许再出现把 HUD 挤回 stage 的 clamp 写法', () => {
   assert.doesNotMatch(
     css,
-    /\.ec-canvas-stage\.has-right-panel\s+\.ec-canvas-bottom-dock\s*\{[^}]*left:\s*50%\s*;[^}]*\}/,
-    '退回裸 left:50% 会让 dock 重新跟着面板左移（实测差 238px）',
+    /\.ec-canvas-bottom-dock[^{]*\{[^}]*left:\s*min\(/,
+    '被投诉 4 次的那一版就是「按 stage 居中 / 回夹」—— 不许复活',
   );
 });

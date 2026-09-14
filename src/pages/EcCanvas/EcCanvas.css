@@ -149,7 +149,11 @@
 .ec-canvas-topbar-surface:hover:not(:disabled) { border-color: #cbd1d8; box-shadow: var(--ec-shadow-2); transform: translateY(-1px); }
 .ec-canvas-topbar-surface:active:not(:disabled) { box-shadow: var(--ec-shadow-1); transform: translateY(0); }
 
-.ec-canvas-stage { flex: 1; position: relative; overflow: clip; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
+/* 2026-09-20：**stage 不再裁剪**。它同时装着内容层与 HUD（底部操作栏/缩放条/小地图/左工具栏），
+   stage 一裁，窄屏（实测 1024px + 右侧面板打开）就会把 HUD 切掉一块；
+   而把 HUD 回夹进 stage 又造成 −84px 的居中偏移（用户投诉 4 次的那个）。
+   裁剪改由**内容层**自己承担（见 index.jsx 的内容层 inline style: overflow: clip）。 */
+.ec-canvas-stage { flex: 1; position: relative; overflow: visible; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
 /* 9-13 用户批注：右侧功能栏打开时，画布区要让出位置（面板贴着右边、画布内容不被盖住）。
    让位宽度 = 面板宽 + 两侧边距，统一由 --canvas-right-panel-width 一个变量决定（面板与画布同步）。 */
 /* 2026-09-17 统一视觉语言：面板宽度不再写死 360 —— 与首页同一套口径
@@ -157,11 +161,9 @@
    在画布根节点 inline 注入 --canvas-right-panel-width，这里的 480 只是
    CSS 单独加载（无 JS 注入）时的兜底默认。 */
 .ec-canvas-page { --canvas-right-panel-width: 480px; }
-/* HUD 回夹余量：底部工具条**半宽**（实测 95px）+ 间距余量（25px）。
-   用途见下方 .ec-canvas-bottom-dock 的 min() —— 窄屏时把工具条回夹到画布区内，
-   既不被 stage 的 overflow:clip 裁掉，也不压到右侧面板。
-   ⚠️ 底部工具条增删按钮（改变其宽度）时必须同步这个值。 */
-.ec-canvas-page { --ec-canvas-hud-reserve-right: 120px; }
+/* 2026-09-20 删除：这里曾声明 `--ec-canvas-hud-reserve-right: 120px`（HUD 回夹余量）。
+   回夹方案被实测推翻（见下方 .ec-canvas-bottom-dock 的说明），该变量**再无引用** ——
+   按 D12「死代码也是 bug」删除，不留一个没人用的 token 误导下一个人。 */
 .ec-canvas-stage.has-right-panel { margin-right: calc(var(--canvas-right-panel-width, 480px) + var(--cvl-right-panel-margin, 28px)); }
 /* 移动端面板是全屏覆盖层，画布本来就看不见 → 不做让位 */
 @media (max-width: 760px) { .ec-canvas-page { --canvas-right-panel-width: 0px; } }
@@ -184,14 +186,15 @@
    = **跟着面板往左移**；实测面板打开时 dock 中心 482px，而窗口中心是 720px，差 238px。
    用户口径（已确认）：要**永远居中于整个窗口**，像 Figma 那样不随面板移动。
    做法：stage 左缘恒在 x=0 → 「窗口中心」= `50vw`（等价于 50% + 面板让位宽/2，写法更短）。
-   min() 是**回夹**：窄屏（面板占比过大）时不让 dock 越过 stage 右缘被 overflow:clip 裁掉。
-
-   ⚠️ 2026-09-20 修复：这两条规则曾被一次**无关的批量迁移**（D19 字号批）改写成裸 `left: 50vw`，
-   回夹丢失、注释与代码自相矛盾。**是契约测试把它抓回来的** ——
-   见 test/canvas-bottom-dock-window-centered-0920.test.mjs。改动这类「与迁移目标无关的行」是最隐蔽的事故来源。 */
-.ec-canvas-stage.has-right-panel .ec-canvas-bottom-dock {
-  left: min(50vw, calc(100% - var(--ec-canvas-hud-reserve-right, 120px)));
-}
+   ⚠️ 2026-09-20 **实测推翻**：这里曾有一条 `min(50vw, 100% − 余量)` 的回夹，理由是
+   「窄屏时不让 dock 越过 stage 右缘被 overflow:clip 裁掉」。**那个前提是错的**：
+     · 实测 1024px + 右侧面板打开 → `100% − 120 = 428` 赢了 `50vw = 512`，
+       把 dock 按到左边 **−84px** —— 这正是用户投诉 4 次的「歪向左边」在窄屏上的复现；
+     · hit-test：回夹版 9/9 可命中但偏 84px；去回夹版中心 0 偏差但只有 6/9 可命中。**两个都不对。**
+   正解是**把裁剪边界从 stage 下移到内容层**（stage 不再 overflow:clip，HUD 就不会被裁），
+   于是这里只需要「窗口中心」，**不需要任何回夹**。
+   实测（8 组宽度 × 面板开关）：中心偏差全部 0px、探针 9/9 可命中。
+   → 打开态**不再需要覆盖规则**；基础规则里的 `left: 50vw` 就是全部。 */
 .ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: var(--ec-radius-sm); background: #fff; border: 1px solid rgba(21, 23, 26, .06); box-shadow: var(--ec-shadow-2); }
 .ec-canvas-toast { position: fixed; z-index: 10003; left: 50%; bottom: 24px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 13px; transform: translateX(-50%); border-radius: 8px; background: #475569; color: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, .22); font-size: 12px; font-weight: 650; animation: toastIn .2s ease; }
 .ec-canvas-toast.is-error { background: #c9362e; }

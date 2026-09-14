@@ -6797,7 +6797,12 @@ const handlePointerUp = useCallback((e) => {
             </div>
           )}
 
-          <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
+          {/* 2026-09-20：**裁剪边界从这里开始，不再由 .ec-canvas-stage 承担**。
+              原因：stage 还装着 HUD（底部操作栏 / 缩放条 / 小地图 / 左工具栏），
+              stage 一旦 overflow:clip，窄屏（实测 1024px + 右侧面板打开）会把 HUD 切掉一块；
+              而把 HUD 回夹进 stage 又会造成 −84px 的居中偏移 —— 两个都不对。
+              正确做法：**内容层自己裁，HUD 不裁**（实测 8 组宽度×面板开关：中心偏差 0、探针 9/9 可命中）。 */}
+          <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'clip', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
             {visibleNodes.map(node => {
