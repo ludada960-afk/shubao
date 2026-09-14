@@ -95,9 +95,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
   const [pickerColor, setPickerColor] = useState(() => (brandLocked && brandColors[0] ? brandColors[0] : (neutralInk || FALLBACK_NEUTRAL_INK)));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [modelListOpen, setModelListOpen] = useState(false);
-  /* hover 用 state 表达，而不是内联 JS 改 style ——
-     内联改 style 会覆盖声明式的选中态样式，是旧实现「hover 与选中长得一样」的成因之一。 */
-  const [hoverKey, setHoverKey] = useState('');
+  /* 注：本组件不再自管 hover 状态 —— .sb-opt 用 CSS 伪类表达 hover，
+     既满足 D2「hover 只做底色」，又避免内联 style 覆盖声明式伪类。 */
 
   const toggleBrand = () => onBrandColorsChange?.(brandLocked ? [] : [pickerColor, pickerColor]);
 
@@ -109,26 +108,19 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
     setModelListOpen(false);
   };
 
-  /* ── 选项卡：hover 与 selected 走不同通道（原则 4.3） ── */
-  const optionStyle = (active, key) => {
-    const hovered = hoverKey === key && !active;
-    return {
-      width: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'var(--sb-space-2)',
-      padding: 'var(--sb-space-2) var(--sb-space-3)',
-      textAlign: 'left',
-      fontFamily: 'inherit',
-      cursor: 'pointer',
-      borderRadius: 'var(--sb-radius-card)',
-      transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
-      /* 默认 L3 tint 无边框；hover 只换中性底色；selected 品牌浅底+品牌描边（持久） */
-      background: active ? 'var(--sb-state-selected-bg)' : hovered ? 'var(--sb-state-hover-bg)' : 'var(--sb-surface-tint)',
-      border: active ? '1.5px solid var(--sb-state-selected-line)' : '1.5px solid transparent',
-      color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)',
-    };
-  };
+  /* ── 选项卡：改用预置类 .sb-opt（20-components.md §0.4 明示优先用它） ──
+     决策依据：20-components.md「实现方式：优先用 .sb-opt 及 .sb-opt__icon 等预置类，
+     而不是手写内联 style。**内联 style 会覆盖声明式伪类**，这正是改前
+     「hover 与选中长得一样」的成因之一。」
+
+     .sb-opt 已经把 D2 全套写进 CSS（见 design-tokens-v3.css §18）：
+       default        : 底 --sb-l3-option，边框 1.5px transparent（占位防位移）
+       hover          : 只换 --sb-l3-option-hover 中性灰，**不变字色、不发紫**
+       selected       : 三件套（--sb-sel-bg / --sb-sel-line / --sb-sel-ink）+ --sb-shadow-ring
+       selected+hover : 只加深底色（--sb-sel-bg-hover），ring 与字色保持 → 持久性
+       active/disabled: 均已定义
+     本组件不再自造 hover 状态，也不需要 hoverKey（伪类由 CSS 承担）。 */
+  const optionClass = 'sb-opt';
 
   /* 模型名过长时的规则不变（用户已拍板）：槽位宽固定、内部溢出裁切、**不要省略号** */
   const modelRow = (model, active, showDesc = true) => (
@@ -185,12 +177,11 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
           <GroupTitle icon={Sparkles}>生图模型</GroupTitle>
           <button
             type="button"
+            className={optionClass}
             onClick={() => setModelListOpen(open => !open)}
             aria-expanded={modelListOpen}
-            onMouseEnter={() => setHoverKey('model-trigger')}
-            onMouseLeave={() => setHoverKey('')}
             /* 行高 ≥44px（用户「点击区不许缩水」）：V3 阶梯 28/32/36/44 中取 44。 */
-            style={{ ...optionStyle(modelListOpen, 'model-trigger'), minHeight: 'var(--sb-control-touch)' }}
+            style={{ minHeight: 'var(--sb-control-touch)' }}
           >
             {modelIcon(currentDef || { brand: 'openai' }, 22)}
             {modelRow(currentDef || { id: selectedModel, label: '智能推荐', badge: '', description: '' }, false, false)}
@@ -210,11 +201,10 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                   <button
                     key={model.id}
                     type="button"
+                    className={optionClass}
                     aria-pressed={active}
                     onClick={() => selectModel(model)}
-                    onMouseEnter={() => setHoverKey(key)}
-                    onMouseLeave={() => setHoverKey('')}
-                    style={{ ...optionStyle(active, key), minHeight: 'var(--sb-control-touch)' }}
+                    style={{ minHeight: 'var(--sb-control-touch)' }}
                   >
                     {modelIcon(model, 24)}
                     {modelRow(model, active)}
@@ -236,12 +226,10 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 <button
                   key={r.key}
                   type="button"
+                  className={optionClass}
                   aria-pressed={active}
                   onClick={() => set('resolution', r.key)}
-                  onMouseEnter={() => setHoverKey(key)}
-                  onMouseLeave={() => setHoverKey('')}
                   style={{
-                    ...optionStyle(active, key),
                     /* 用户明确要求：清晰度等分段控件的点击区必须放大（≥40px，改造前仅 30px）。
                        V3 阶梯里 36(--sb-control-lg) 不满足，取 44(--sb-control-h-xl)——只会更大，不会缩水。 */
                     height: 'var(--sb-control-h-xl)',
@@ -287,7 +275,10 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                   borderRadius: 'var(--sb-radius-control)',
                   cursor: 'pointer',
                   padding: 0,
-                  border: brandLocked ? `2px solid ${pickerColor}` : '1.5px dashed var(--sb-border-strong)',
+                  /* D2：锁定/未锁定**边框宽度恒定 2px**（此前 2px↔1.5px 会抖动）；
+                     锁定态额外叠 ring，且描边跟随所选颜色本身（不是固定紫）。 */
+                  border: brandLocked ? `2px solid ${pickerColor}` : '2px dashed var(--sb-border-strong)',
+                  boxShadow: brandLocked ? 'var(--sb-shadow-ring)' : 'none',
                   background: brandLocked ? pickerColor : 'repeating-conic-gradient(var(--sb-surface-tint) 0% 25%, transparent 0% 50%) 50% / 8px 8px',
                 }}
               />

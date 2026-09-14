@@ -23,9 +23,12 @@ test('① 色块描边跟随所选颜色本身，锁定态不是写死的紫色 
   /* 未锁定态：中性灰虚线 + 棋盘底，绝不出现紫色描边 */
   /* 等价写法：字面量中性灰 或 V3 token（--sb-border-strong = 暖中性）。
      2026-09-15 迁移 V3 后，断言改为「中性虚线」语义而非某个字面量。 */
+  /* D2（40-decisions）：锁定/未锁定的**边框宽度必须一致**（2px/2px），
+     否则切换锁定态会触发 1.5px↔2px 的布局抖动 —— 这是 D2 明令禁止的。
+     颜色仍须是暖中性（不得为品牌紫）。 */
   assert.ok(
-    /1\.5px dashed (rgba\(45,\s*41,\s*38[^)]*\)|var\(--sb-border-(strong|default)\))/.test(panel),
-    '未锁定态必须是中性灰虚线描边（字面量或 V3 token 均可）',
+    /2px dashed (rgba\(45,\s*41,\s*38[^)]*\)|var\(--sb-border-(strong|default)\))/.test(panel),
+    '未锁定态必须是中性灰虚线描边（宽度与锁定态一致，均为 2px）',
   );
   assert.ok(panel.includes('repeating-conic-gradient'), '未锁定态色块必须是中性棋盘底，不填充任何颜色');
 });

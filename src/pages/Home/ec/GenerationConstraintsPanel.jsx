@@ -58,8 +58,10 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
                     height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp3}px`,
                     borderRadius: 'var(--sb-radius-pill)', fontFamily: 'inherit',
                     fontSize: FONT_SIZE.helper, fontWeight: 600, cursor: 'pointer',
+                    /* D2：选中在**恒宽**边框之上再叠 ring；hover 与选中不同（底色 + ring） */
                     border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`,
-                    background: active ? 'var(--sb-brand-wash)' : 'var(--sb-surface-card)',
+                    boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
+                    background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-card)',
                     color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
                   }}
                 >

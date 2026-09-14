@@ -777,6 +777,9 @@
   border-radius: var(--sb-radius-card);
   border: 1.5px solid transparent;          /* 占位，防选中时位移 */
   background: var(--sb-l3-option);
+  /* 默认文字色：必须显式给中性墨色，否则 button 继承 UA 的纯黑
+     （纯黑在暖白底上发灰发脏，属 D4 要治的「廉价感」来源之一）。 */
+  color: var(--sb-text-primary);
   cursor: pointer;
   transition: background-color var(--sb-dur-fast) var(--sb-ease-out),
               border-color     var(--sb-dur-fast) var(--sb-ease-out);
@@ -790,13 +793,17 @@
   background: var(--sb-active-bg);
   transform: scale(var(--sb-active-scale));
 }
-/* selected：底 + 描边 + 文字/图标 三件套，持久（不受 hover 影响）*/
+/* selected：底 + 描边 + ring + 文字/图标（20-components §0.4 状态取色总表）
+   D2：选中**必须叠 --sb-shadow-ring**（box-shadow，不占布局、不改边框宽度）。
+   此前本类漏了 ring，与 20-components.md:146 的规定不一致 —— 已补齐。 */
 .sb-opt[aria-pressed="true"],
 .sb-opt[aria-checked="true"] {
   background: var(--sb-sel-bg);
   border-color: var(--sb-sel-line);
+  box-shadow: var(--sb-shadow-ring);
   color: var(--sb-sel-ink);
 }
+/* selected + hover：只把底色加深一档，ring 与文字色**保持不变**（持久性） */
 .sb-opt[aria-pressed="true"]:hover:not(:disabled),
 .sb-opt[aria-checked="true"]:hover:not(:disabled) {
   background: var(--sb-sel-bg-hover);

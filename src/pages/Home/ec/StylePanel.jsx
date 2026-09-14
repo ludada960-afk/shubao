@@ -190,10 +190,11 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                   padding: 'var(--sb-space-3) var(--sb-space-1)',
                   cursor: 'pointer',
                   borderRadius: 'var(--sb-radius-control)',
-                  /* 原则 4.3：hover 只换**中性**底色，selected 才上品牌色 */
+                  /* D2：hover 只换中性底色；selected = 三件套 + ring（边框恒宽，零抖动） */
                   background: active ? 'var(--sb-state-selected-bg)' : hoverCard === card.key ? 'var(--sb-state-hover-bg)' : 'var(--sb-surface-tint)',
                   border: `1.5px solid ${active ? 'var(--sb-state-selected-line)' : 'transparent'}`,
-                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)'
+                  boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
+                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)'
                 }}
               >
                 {/* 风格预览色条：card.gradient 是该风格的**示意色**（内容的一部分，

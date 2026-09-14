@@ -80,9 +80,11 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
                   padding: 'var(--sb-space-2) var(--sb-space-1)',
                   borderRadius: 'var(--sb-radius-control)', cursor: 'pointer',
                   /* hover = 中性底（原则 4.3），selected = 品牌浅底 + 品牌描边 */
+                  /* D2：选中用 ring，边框恒宽 1px（零布局抖动）；hover 只做底色 */
                   background: sel ? 'var(--sb-state-selected-bg)' : hoverKey === r.key ? 'var(--sb-state-hover-bg)' : 'transparent',
                   border: `1px solid ${sel ? 'var(--sb-state-selected-line)' : 'transparent'}`,
-                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
+                  boxShadow: sel ? 'var(--sb-shadow-ring)' : 'none',
+                  transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out)',
                 }}
                 onMouseEnter={() => setHoverKey(r.key)}
                 onMouseLeave={() => setHoverKey('')}>
@@ -273,10 +275,11 @@ export default function SizingPanel({
                    原来只有 20×20 的勾选框能点，远低于 32px 点击区规范。 */
                 minHeight: 48, padding: `${SPACING.sp2}px ${SPACING.sp3}px`,
                 borderRadius: 'var(--sb-radius-card)',
-                /* 选中 = 品牌浅底 + 品牌描边；hover = 中性底（原则 4.3 两条不同通道） */
+                /* D2：底/描边/ring 三件套；边框恒宽，hover 只做底色 */
                 background: checked ? 'var(--sb-state-selected-bg)' : hoverRow === typeDef.key ? 'var(--sb-state-hover-bg)' : 'transparent',
                 border: `1.5px solid ${checked ? 'var(--sb-state-selected-line)' : 'transparent'}`,
-                transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
+                boxShadow: checked ? 'var(--sb-shadow-ring)' : 'none',
+                transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
                 cursor: 'pointer',
               }}
                 onMouseEnter={() => setHoverRow(typeDef.key)}
@@ -319,13 +322,17 @@ export default function SizingPanel({
                     onChange={e => updateCount(typeDef.key, parseInt(e.target.value) || 0)}
                     disabled={!checked}
                     style={{
-                      width: 44, height: CONTROL_HEIGHT.compact, textAlign: 'center', borderRadius: RADIUS.control,
+                      width: 44, height: 'var(--sb-control-sm)', textAlign: 'center', borderRadius: 'var(--sb-radius-control)',
                       border: `1px solid ${checked ? 'var(--sb-border-default)' : 'var(--sb-border-subtle)'}`, 
                       background: checked ? 'var(--sb-surface-card)' : 'var(--sb-state-disabled-bg)',
-                      fontSize: FONT_SIZE.body, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
-                      color: checked ? 'var(--text-primary)' : 'var(--text-muted)',
+                      fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit',
+                      color: checked ? 'var(--sb-text-primary)' : 'var(--sb-state-disabled-ink)',
                       cursor: checked ? 'text' : 'not-allowed',
-                    }} />
+                      /* D11：不裸用 outline —— 焦点由 --sb-focus-ring 提供 */
+                      outline: 'none',
+                    }}
+                    onFocus={e => { e.target.style.boxShadow = 'var(--sb-focus-ring)'; }}
+                    onBlur={e => { e.target.style.boxShadow = 'none'; }} />
                   <RatioSelect 
                     value={checked && activeItem ? (activeItem.targetRatio || activeItem.ratio) : typeDef.defaultRatio}
                     onChange={r => checked && updateRatio(typeDef.key, r)} 
