@@ -140,9 +140,8 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
   >
     <section className={`canvas-library${isPage ? ' is-page' : ''}`} role="dialog" aria-modal={isPage ? undefined : 'true'} aria-label="我的画布">
       <header className="canvas-library-head">
-        <div><strong>我的画布</strong><span>共 {state.items.length} 个画布 · 悬停卡片可改名 / 复制 / 收藏 / 删除</span></div>
+        <div><strong>我的画布</strong><span>共 {state.items.length} 个画布</span></div>
         <div className="canvas-library-head-actions">
-          <button type="button" className="canvas-library-create" onClick={() => onCreate?.()}>+ 新建画布</button>
           <button type="button" className="canvas-library-close" aria-label="关闭画布库" onClick={onClose}>×</button>
         </div>
       </header>
@@ -160,6 +159,12 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
       {state.error && <div className="canvas-library-error" role="alert">{state.error}</div>}
       {state.loading && <div className="canvas-library-loading">正在读取画布…</div>}
       <div className="canvas-library-grid">
+        {/* 9-16 用户批注：「新建画布」不是右上角一个文字按钮，而是**网格里的第一格**——
+            大加号 + 「新建」两个字，虚线浅底，鼠标放上去上浮并浮出阴影（与竞品一致）。 */}
+        <button type="button" className="canvas-library-new-card" onClick={() => onCreate?.()}>
+          <span className="canvas-library-new-card-plus" aria-hidden="true">+</span>
+          <span className="canvas-library-new-card-label">新建</span>
+        </button>
         {/* 9-13 用户批注：照竞品按日期分组（今天 / 昨天 / 更早），组标题在网格里跨列 */}
         {groupedItems.map(group => <React.Fragment key={group.key}>
           <div className="canvas-library-date">{group.label}</div>
@@ -188,7 +193,7 @@ export default function CanvasLibraryModal({ open, onClose, onCreate, onOpenCanv
           </div>
         </article>)}
         </React.Fragment>)}
-        {!state.loading && !visibleItems.length && <div className="canvas-library-empty">{state.items.length ? '这个分类下还没有画布' : '还没有画布，点「新建画布」开始创作'}</div>}
+        {!state.loading && !visibleItems.length && <div className="canvas-library-empty">{state.items.length ? '这个分类下还没有画布' : '还没有画布，点左上角「新建」开始创作'}</div>}
       </div>
     </section>
   </div>;

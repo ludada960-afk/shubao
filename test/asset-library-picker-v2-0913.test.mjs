@@ -51,10 +51,20 @@ test('打勾圆圈 = 真正可点的多选按钮（onClick + stopPropagation，�
   assert.ok(css.includes('.canvas-asset-picker-card.is-selected .canvas-asset-picker-check { opacity: 1; background: #7c3aed;'), '选中态实心紫底');
 });
 
-test('选中用途提示：底栏「已选 N 个 · 确认后一起加入画布」+ tooltip + 主按钮文案', () => {
-  assert.ok(modal.includes('已选 {picked.length} 个 · 确认后一起加入画布'), '底栏左侧文案');
-  assert.ok(modal.includes('title="选中后可一次加入画布"'), '底栏 tooltip 用途提示');
+test('选中用途提示：底栏「已选 N 个」+ 主按钮计数（9-16 文案收短，去掉机制说明）', () => {
+  /* 9-16 用户批注：「不要出现『选择之后会高亮』这种内部逻辑说明」。
+     底栏与 tooltip 只留结果与计数，不再解释"确认后一起加入画布"这类交互机制。 */
+  assert.ok(modal.includes('已选 {picked.length} 个'), '底栏左侧只留计数');
+  assert.ok(modal.includes("title={isSelected ? '取消选中' : '选中'}"), '打勾圈 tooltip 只描述动作');
   assert.ok(modal.includes('加入画布'), '主按钮保留「加入画布」');
+  /* 只在**渲染出来的文案**里断言：源码注释里出现这些词不算面向用户文案。
+     先剥掉 JSX 注释与行注释，再检查用户可见文案。 */
+  const rendered = modal
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+  assert.ok(!rendered.includes('确认后一起加入画布'), '用户可见文案里不再有交互机制说明（正文）');
+  assert.ok(!rendered.includes('选中后可一次加入画布'), '用户可见文案里不再有交互机制说明（tooltip）');
 });
 
 test('删除二次确认：复用项目统一确认弹窗（useDialog），确认前不调接口，删除中忙碌态', () => {
@@ -62,7 +72,7 @@ test('删除二次确认：复用项目统一确认弹窗（useDialog），确�
   assert.ok(modal.includes('const { confirm } = useDialog();'), 'useDialog -> confirm');
   assert.ok(modal.includes('const confirmed = await confirm({'), '异步确认');
   assert.ok(modal.includes("title: '删除这个素材？'"), '弹窗标题');
-  assert.ok(modal.includes("message: '删除后不可恢复，已加入画布的内容不受影响。'"), '弹窗正文');
+  assert.ok(modal.includes("message: '删除后不可恢复。'"), '弹窗正文（9-16 收短，只说结果）');
   assert.ok(modal.includes("confirmLabel: '删除'"), '确认按钮文案「删除」');
   assert.ok(modal.includes('if (!confirmed) return;'), '确认前直接 return（取消什么都不做）');
   const afterConfirm = modal.split('if (!confirmed) return;')[1] || '';
@@ -230,7 +240,7 @@ test('真实渲染③圆圈可点：点圆圈=选中（stopPropagation 不触发
   await page.waitForTimeout(250);
   assert.ok((await card1.getAttribute('class')).includes('is-selected'), '点卡片正文也会选中');
   assert.equal(deleteHits, 0, '点卡片正文不得触发删除');
-  assert.ok((await page.locator('.canvas-asset-picker footer span').innerText()).includes('已选 2 个 · 确认后一起加入画布'), '底栏用途提示');
+  assert.ok((await page.locator('.canvas-asset-picker footer span').innerText()).includes('已选 2 个'), '底栏计数');
   assert.ok((await page.locator('.canvas-asset-picker footer .is-primary').innerText()).includes('加入画布 (2)'), '主按钮计数');
   await card1.hover();
   await card1.locator('.canvas-asset-picker-check').click();
@@ -269,7 +279,7 @@ test('真实渲染④删除二次确认：先弹「删除这个素材？」确�
   await dlg.waitFor({ state: 'visible', timeout: 3000 });
   const dlgText = (await dlg.innerText()).replace(/\s+/g, ' ').trim();
   assert.ok(dlgText.includes('删除这个素材？'), '确认弹窗标题');
-  assert.ok(dlgText.includes('删除后不可恢复，已加入画布的内容不受影响。'), '确认弹窗正文');
+  assert.ok(dlgText.includes('删除后不可恢复。'), '确认弹窗正文（9-16 收短）');
   assert.ok(dlgText.includes('取消'), '取消按钮');
   assert.ok(dlgText.includes('删除'), '确认按钮');
   assert.equal(deleteHits, 0, '弹窗出现但未确认前不得调用删除接口');

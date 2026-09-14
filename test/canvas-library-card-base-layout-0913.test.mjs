@@ -36,5 +36,20 @@ test('标题/时间是底部遮罩，操作按钮悬停才浮现（基础规则�
 
 test('头部有主次：大标题 + 弱化副标题 + 留白', () => {
   assert.ok(/font-size: 21px/.test(ruleOf('.canvas-library-head strong')), '标题更大更重');
-  assert.ok(/padding: 22px 26px 18px/.test(ruleOf('.canvas-library-head')), '头部留白充足');
+  assert.ok(/padding: 28px 26px 22px/.test(ruleOf('.canvas-library-head')), '头部留白充足');
+});
+
+/* 9-16 用户批注「信息密度太大、要有呼吸感」→ 三处留白写进 CSS 并锁死：
+   ① 顶部 padding ≥ 28px；② 标题与副标题间距 ≥ 8px；③ 标题区与筛选栏间距 ≥ 16px。 */
+test('呼吸感：顶部留白 ≥28px、标题↔副标题 ≥8px、标题区↔筛选栏 ≥16px', () => {
+  const head = ruleOf('.canvas-library.is-page .canvas-library-head');
+  assert.ok(head, '整页头部规则存在');
+  const padTop = Number.parseFloat(head.match(/padding: (\d+)px/)?.[1] || '0');
+  assert.ok(padTop >= 28, '顶部 padding ≥ 28px，实际 ' + padTop + 'px');
+  const span = ruleOf('.canvas-library-head span');
+  const gap = Number.parseFloat(span.match(/margin-top: (\d+)px/)?.[1] || '0');
+  assert.ok(gap >= 8, '标题与副标题间距 ≥ 8px，实际 ' + gap + 'px');
+  const tabs = ruleOf('.canvas-library-tabs');
+  const tabsTop = Number.parseFloat(tabs.match(/padding: (\d+)px/)?.[1] || '0');
+  assert.ok(tabsTop >= 16, '标题区与筛选栏间距 ≥ 16px，实际 ' + tabsTop + 'px');
 });

@@ -27,6 +27,13 @@ test('画布库改整页 + hover 动效', () => {
   /* 9-13 修正：用户要求「新建画布是独立页面」→ 固定全屏（不再是画布内的绝对定位层） */
   assert.ok(/canvas-library-overlay\.is-page \{[^}]*position: fixed/.test(css), '独立整页（固定全屏）');
   assert.ok(/canvas-library-card:hover \{[^}]*translateY\(-8px\) scale\(1\.03\)/.test(css), 'hover 上浮放大');
+  /* 9-16 用户批注：「新建画布」不是右上角的文字按钮，而是**网格里的第一格**
+     （大加号 + 「新建」二字，虚线浅底，hover 上浮 + 阴影）。 */
+  assert.ok(!modal.includes('新建画布</button>'), '头部不再有「+ 新建画布」文字按钮');
+  assert.ok(modal.includes('canvas-library-new-card'), '新建改成网格第一格的新建卡');
+  assert.ok(/canvas-library-new-card \{[^}]*min-height: 232px/.test(css), '新建卡与 232px 方卡同高');
+  assert.ok(/canvas-library-new-card:hover \{[^}]*translateY\(-8px\) scale\(1\.03\)/.test(css), '新建卡 hover 上浮放大');
+  assert.ok(/canvas-library-new-card:hover \{[^}]*box-shadow: 0 22px 48px/.test(css), '新建卡 hover 浮出阴影');
   /* 9-13 修复：封面固定高度（原 aspect-ratio 会让卡片塌成细条） */
   assert.ok(/canvas-library-cover \{[^}]*height: 230px/.test(css), '封面固定高度');
 });

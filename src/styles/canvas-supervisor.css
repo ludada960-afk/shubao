@@ -763,16 +763,31 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
 
 /* 9-12 用户批注：资产库 = 弹窗（照竞品），不再是整页 */
 .canvas-asset-library-overlay { position: fixed; inset: 0; z-index: 9500; display: grid; place-items: center; padding: 64px 24px 32px; background: rgba(28,25,23,.44); backdrop-filter: blur(8px); }
-.canvas-asset-library-modal { display: flex; flex-direction: column; width: min(1040px, 96vw); max-height: min(84vh, 880px); overflow: hidden auto; padding: 22px 24px 24px; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.42); }
+.canvas-asset-library-modal { display: flex; flex-direction: column; width: min(1040px, 96vw); max-height: min(84vh, 880px); overflow: hidden; padding: 24px 26px 26px; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.42); }
 .canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; }
 .canvas-asset-library-modal > section { margin-bottom: 0 !important; }
+/* ═══ 9-16 用户批注：「右边这个滑动条也超出了界面」——根因与修法 ═══
+   根因：原 .canvas-asset-library-modal 写的是 `overflow: hidden auto`，即「x 轴 hidden / y 轴 auto」。
+   在 CSS 里一旦某一轴是 visible、另一轴是 auto/hidden，visible 会被计算成 auto；
+   更关键的是 y:auto 的滚动条会挂在 **padding box 之外**（贴容器外缘），再加上弹窗 padding 只有 22px，
+   滚动条看起来就"压出了容器边界"。
+   修法（三重）：① 弹窗自身 overflow:hidden（不再由它滚动）；② 弹窗内部渲染一个专属滚动视口
+   .ec-asset-library-scroll（overflow-y:auto + scrollbar-gutter:stable），滚动条落在容器**内缘**；
+   ③ 视口右侧留 12px（padding-right，gutter 另计），内容宽度不再被滚动条压住。 */
+.canvas-asset-library-modal .ec-asset-library-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding-right: 12px; }
+.canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar { width: 6px; }
+.canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-thumb { background: #d8d4cf; border-radius: 3px; }
+.canvas-asset-library-modal .ec-asset-library-scroll::-webkit-scrollbar-track { background: transparent; }
 
 
 /* ═══ 9-13 用户批注：资产库弹窗「照抄竞品」 ═══
    竞品形态：网格大图卡片 + 鼠标悬停卡片轻微上浮放大 + 右上角浮现垃圾桶删除 + 标题极简。
    这里只做外观与交互，不改数据逻辑。 */
-.canvas-asset-library-modal { padding: 20px 22px 22px !important; }
-.canvas-asset-library-modal h2 { font-size: 16px !important; font-weight: 800 !important; letter-spacing: .01em; }
+/* 9-16 用户批注：「信息密度特别大，没有主次之分和呼吸感，东西全堆在一起，没有间距。」
+   → 弹窗内边距由 20/22/22 放宽到 24/26/26（与顶部弹窗规则一致，消除 !important 冲突）。
+   标题 16 → 17px 加重，作为唯一视觉起点；副信息（额度、项目名）统一弱化。 */
+.canvas-asset-library-modal { padding: 24px 26px 26px !important; }
+.canvas-asset-library-modal h2 { font-size: 17px !important; font-weight: 800 !important; letter-spacing: .01em; }
 /* 网格：更大的图片卡（竞品是接近 1:1 的大图） */
 .canvas-asset-library-modal .ec-canvas-page article,
 .canvas-asset-library-modal article { position: relative; border-radius: 14px !important; overflow: hidden; background: #fff; transition: transform .18s cubic-bezier(.16,1,.3,1), box-shadow .18s ease, border-color .18s ease; }
@@ -821,10 +836,17 @@ article:hover .ec-asset-card-delete, .ec-asset-card-delete:focus-visible { opaci
    ④ 卡片间距 12px（覆盖内联 gap:10，密度与竞品一致）；
    ⑤ 卡片左上角类型角标**常显**（图标 + 文字小胶囊，半透明深色底 + 白字，不依赖 hover）。
       管理弹窗没有额外 DOM，用 :has() 按封面元素识别 图片/视频/音频；角标不挡打勾/删除的布局（角标在左、垃圾桶在右）。 */
+/* 9-16 用户批注：「上传按钮为什么放到最右上方呢？下面一大堆空白，为什么放这么远？」
+   → 上传按钮已挪到**工具栏那一行**（搜索框右侧 / 分类 tab 右侧）。这里锁定工具栏的呼吸感：
+   工具栏内部 12px 间距、与标题块 18px、与素材网格 16px；搜索框自适应拉宽。 */
 .canvas-asset-library-modal input[type="search"] { height: 36px !important; font-size: 12px !important; border-radius: 9px !important; }
+/* 工具栏吸顶：滚动浏览素材时「搜索 / 分类 / 上传」这一组始终在，与标题、网格各自成组、层次清楚。 */
+.canvas-asset-library-modal .ec-asset-toolbar { gap: 12px !important; margin-bottom: 16px !important; position: sticky; top: 0; z-index: 6; padding: 4px 0 12px; background: #fff; }
+.canvas-asset-library-modal .ec-asset-toolbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: 5px; height: 1px; background: rgba(28,25,23,.06); }
+.canvas-asset-library-modal .ec-asset-toolbar .ec-asset-upload { flex: 0 0 auto; }
 .canvas-asset-library-modal [role="tablist"] > button { min-height: 32px !important; padding: 5px 14px !important; border-radius: 999px !important; font-size: 12px !important; font-weight: 600 !important; border: 1px solid #e5e3e0 !important; background: #fff !important; color: #57534e !important; }
 .canvas-asset-library-modal [role="tablist"] > button[aria-selected="true"] { background: #202226 !important; border-color: #202226 !important; color: #fff !important; }
-.canvas-asset-library-modal [style*="repeat(auto-fill,minmax(150px,1fr)"], .canvas-asset-library-modal [style*="repeat(auto-fill, minmax(150px, 1fr)"] { gap: 12px 12px !important; }
+.canvas-asset-library-modal [style*="repeat(auto-fill,minmax(150px,1fr)"], .canvas-asset-library-modal [style*="repeat(auto-fill, minmax(150px, 1fr)"], .canvas-asset-library-modal .ec-asset-grid { gap: 16px 16px !important; }
 .canvas-asset-library-modal article::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='9' cy='9' r='2'/><path d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/></svg>") " 图片"; position: absolute; top: 8px; left: 8px; z-index: 6; display: inline-flex; align-items: center; gap: 4px; height: 22px; box-sizing: border-box; padding: 0 8px; border-radius: 999px; background: rgba(20,18,16,.62); color: #fff; font-size: 11px; font-weight: 700; line-height: 22px; backdrop-filter: blur(4px); pointer-events: none; white-space: nowrap; }
 .canvas-asset-library-modal article:has(video)::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m22 8-6 4 6 4V8Z'/><rect x='2' y='6' width='14' height='12' rx='2' ry='2'/></svg>") " 视频"; }
 .canvas-asset-library-modal article:has(audio)::before { content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>") " 音频"; }

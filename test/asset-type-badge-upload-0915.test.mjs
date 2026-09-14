@@ -56,8 +56,12 @@ test('② 角标与打勾圈不重叠 —— 打勾圈下移到角标正下方�
   assert.ok(checkTop >= badgeTop + badgeH, '打勾圈 top ≥ 角标底边（盒模型永不相叠），实际 ' + badgeTop + '+' + badgeH + ' vs ' + checkTop);
 });
 
-test('④ 空态文案写清素材来源（不是任何资料都怼进来）', () => {
-  assert.ok(modal.includes('资产库里还没有素材。这里的素材来自：你上传的文件 · 从画布加入 · 从作品加入'), '空态说明来源');
+test('④ 空态文案写清素材来源，且够短（9-16 收短为一句面向用户的话）', () => {
+  /* 9-16 用户批注：面向用户文案要短、说结果不说机制。 */
+  assert.ok(modal.includes('资产库还没有素材'), '空态说明"没有素材"这一事实');
+  assert.ok(modal.includes('上传文件') && modal.includes('画布') && modal.includes('作品'), '空态写清素材从哪来');
+  const copy = modal.match(/资产库还没有素材[^<]*/)[0];
+  assert.ok(copy.length <= 40, '空态文案要短（≤40 字），实际 ' + copy.length + ' 字：' + copy);
 });
 
 test('③ 管理弹窗：上传按钮 ≥ 36px、图标+文字、主色实心（canvas-supervisor.css）', () => {
@@ -70,11 +74,12 @@ test('③ 管理弹窗：上传按钮 ≥ 36px、图标+文字、主色实心（
   assert.ok(upload[1].includes('gap: 6px'), '图标+文字并排');
 });
 
-test('③ 管理弹窗：搜索框 36px 同高 + 分类 tab 胶囊、选中态深色实心 + 卡片间距 12px', () => {
+test('③ 管理弹窗：搜索框 36px 同高 + 分类 tab 胶囊、选中态深色实心 + 卡片间距 16px', () => {
   assert.ok(supervisorCss.includes('.canvas-asset-library-modal input[type="search"] { height: 36px !important;'), '搜索框 36px');
   assert.ok(supervisorCss.includes('.canvas-asset-library-modal [role="tablist"] > button {') , 'tablist 覆盖规则存在');
   assert.ok(supervisorCss.includes('.canvas-asset-library-modal [role="tablist"] > button[aria-selected="true"] { background: #202226 !important;'), '选中态深色实心');
-  assert.ok(/gap: 12px 12px !important/.test(supervisorCss), '卡片间距 12px（12~16px 区间内）');
+  /* 9-16 用户批注「东西全堆在一起，没有间距」→ 卡片间距 12 → 16px。 */
+  assert.ok(/gap: 16px 16px !important/.test(supervisorCss), '卡片间距 16px');
 });
 
 test('① 管理弹窗：卡片左上角类型角标（无额外 DOM，:has() 按封面元素识别 + SVG 图标 + 文字）', () => {
@@ -234,7 +239,8 @@ test('真实渲染③：空态说明来源（无素材时展示来源文案）',
   await page.locator('button:has-text("从资产库选择")').first().click();
   await page.waitForSelector('.canvas-asset-picker-empty', { timeout: 15000 });
   const text = (await page.locator('.canvas-asset-picker-empty').innerText()).replace(/\s+/g, ' ').trim();
-  assert.ok(text.includes('你上传的文件') && text.includes('从画布加入') && text.includes('从作品加入'), '空态写清素材来源，实际：' + text);
+  assert.ok(text.includes('上传文件') && text.includes('画布') && text.includes('作品'), '空态写清素材来源，实际：' + text);
+  assert.ok(text.length <= 40, '空态文案要短（≤40 字），实际 ' + text.length + ' 字');
   await page.screenshot({ path: SHOTS_DIR + '/picker-empty.png' });
   t.diagnostic('空态文案：' + text);
 });

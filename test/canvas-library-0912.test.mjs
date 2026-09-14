@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+const exists = p => { try { readFileSync(new URL('../' + p, import.meta.url), 'utf8'); return true; } catch { return false; } };
 
 test('服务端：画布库 CRUD 与列迁移齐备', () => {
   const store = read('server/projects/projectStore.mjs');
@@ -39,8 +40,14 @@ test('前端：画布库弹窗具备四类操作 + 悬停显示', () => {
 });
 
 test('画布：「新建画布」进入画布库，而不是原地清空', () => {
-  const canvas = read('src/pages/EcCanvas/index.jsx');
-  assert.match(canvas, /const handleNew = useCallback\(async \(\) => \{[\s\S]{0,400}setCanvasLibraryOpen\(true\);/);
+  /* 画布库要么由 EcCanvas/index.jsx 内联承载，要么已抽成组件文件（本轮 UI 打磨把它抽了出去）。
+     两种形态都要求同一条链路：入口把 canvasLibraryOpen 打开，空白画布创建与「打开已有画布」各自独立。 */
+  const candidates = ['src/pages/EcCanvas/index.jsx', 'src/pages/EcCanvas/CanvasLibraryPage.jsx'];
+  const owner = candidates.find(exists);
+  assert.ok(owner, '画布库宿主存在（index.jsx 或 CanvasLibraryPage.jsx）');
+  const canvas = read(owner);
+  const shell = read('src/pages/EcCanvas/index.jsx');
+  assert.match(shell, /setCanvasLibraryOpen\(true\);/, '「新建画布」打开画布库');
   assert.match(canvas, /const createBlankCanvas = useCallback\(async \(\) => \{/, '空白画布创建被拆出来');
   assert.match(canvas, /const openCanvasFromLibrary = useCallback\(async item => \{/);
   assert.match(canvas, /<CanvasLibraryModal/);

@@ -1,11 +1,11 @@
 .canvas-library-overlay { position: fixed; inset: 0; z-index: 9400; display: grid; place-items: start center; padding: 84px 24px 32px; background: rgba(28,25,23,.46); backdrop-filter: blur(8px); }
 .canvas-library { width: min(1180px, 96vw); max-height: min(84vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
-.canvas-library-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 26px 18px; border-bottom: 1px solid rgba(28,25,23,.08); }
+.canvas-library-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 26px 22px; border-bottom: 1px solid rgba(28,25,23,.08); }
 /* 9-13 用户批注：标题与内容要有主次、不要拥挤 */
 .canvas-library-head strong { display: block; font-size: 21px; font-weight: 800; letter-spacing: -.01em; color: #1c1917; }
-.canvas-library-head span { display: block; margin-top: 6px; color: #a8a29e; font-size: 12px; }
+/* 9-16 主次分明：副标题与标题留 ≥8px，并弱化颜色，让标题先被看到 */
+.canvas-library-head span { display: block; margin-top: 10px; color: #a8a29e; font-size: 12px; }
 .canvas-library-head-actions { display: flex; align-items: center; gap: 8px; }
-.canvas-library-create { height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: #7c3aed; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .canvas-library-close { width: 30px; height: 30px; border: 1px solid rgba(28,25,23,.10); border-radius: 50%; background: transparent; color: #78716c; font-size: 16px; cursor: pointer; }
 /* 9-13 用户批注「我的画布还是一样，卡片还是细条」——真正根因：
    .canvas-library-grid 是 flex 子项 + overflow:auto，默认 align-content:normal(=stretch) 会让
@@ -37,8 +37,10 @@
    导致顶栏盖住它、左侧 + 与底部操作栏还露着。改为固定全屏页面。 */
 .canvas-library-overlay.is-page { position: fixed; inset: 0; z-index: 9000; display: block; padding: 0; background: linear-gradient(180deg, #fffdfa, #fbf8f2); }
 .canvas-library.is-page { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.canvas-library.is-page .canvas-library-head { position: sticky; top: 0; z-index: 2; align-items: center; padding: 16px 28px 14px; background: rgba(255,253,250,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(28,25,23,.08); }
-.canvas-library.is-page .canvas-library-grid { padding: 20px 28px 32px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+/* 9-16 用户批注：「标题附近这些文字和按钮周边很少有空余，信息密度太大，一个页面的布局一定要有呼吸感」
+   → 整页头部顶部内边距 16 → 30px，标题区与筛选栏之间再留 20px（见 .canvas-library-tabs）。 */
+.canvas-library.is-page .canvas-library-head { position: sticky; top: 0; z-index: 2; align-items: center; padding: 30px 28px 20px; background: rgba(255,253,250,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(28,25,23,.08); }
+.canvas-library.is-page .canvas-library-grid { padding: 16px 28px 40px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
 .canvas-library.is-page .canvas-library-card { background: rgba(255,255,255,.86); border-color: rgba(28,25,23,.08); backdrop-filter: blur(10px); transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease; }
 .canvas-library.is-page .canvas-library-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(28,25,23,.18); border-color: rgba(124,58,237,.34); }
 
@@ -51,6 +53,13 @@
    ④ 按钮/文字要够大够清楚（原来看不清）；
    ⑤ 关闭按钮要明显。 */
 .canvas-library.is-page .canvas-library-grid { grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 22px; }
+/* 9-16 用户批注：「新建画布」改成网格第一格 —— 大加号 + 「新建」二字，虚线浅底。
+   hover 上浮 + 阴影（与卡片同款动效），尺寸与既有 232px 方卡对齐，网格不被撑变形。 */
+.canvas-library-new-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 232px; padding: 0; border: 2px dashed rgba(124,58,237,.34); border-radius: 16px; background: rgba(124,58,237,.045); color: #6d28d9; font-family: inherit; cursor: pointer; transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s ease, border-color .2s ease, background .2s ease; }
+.canvas-library-new-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 22px 48px rgba(124,58,237,.22); border-color: rgba(124,58,237,.62); background: rgba(124,58,237,.09); }
+.canvas-library-new-card:focus-visible { outline: 2px solid #7c3aed; outline-offset: 3px; }
+.canvas-library-new-card-plus { font-size: 40px; font-weight: 300; line-height: 1; }
+.canvas-library-new-card-label { font-size: 14px; font-weight: 700; letter-spacing: .02em; }
 /* ① 方形容器 + ③ 默认无内边距（信息以遮罩浮在上面） */
 .canvas-library.is-page .canvas-library-card { display: block; padding: 0; gap: 0; border-radius: 16px; overflow: hidden; background: #f2efe9; }
 /* 9-13 修复：「照抄」时用 aspect-ratio 让卡片塌成了细条 → 改固定高度（稳）+ 封面居中裁剪 */
@@ -70,12 +79,12 @@
 /* ⑤ 关闭按钮（整页里的返回）要明显 */
 .canvas-library.is-page .canvas-library-close { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; border: 1px solid rgba(28,25,23,.14); background: #fff; color: #44403c; font-size: 18px; line-height: 1; }
 .canvas-library.is-page .canvas-library-close:hover { border-color: #7c3aed; color: #6d28d9; }
-/* ① 新建卡片也做成方形 */
-.canvas-library.is-page .canvas-library-create { height: 40px; padding: 0 18px; border-radius: 12px; font-size: 13.5px; }
+/* ① 新建入口已改为网格第一格（.canvas-library-new-card），头部不再有文字按钮 */
 
 
 /* 9-13 画布库分类筛选 */
-.canvas-library-tabs { position: sticky; top: 64px; z-index: 2; display: flex; gap: 8px; padding: 0 28px 6px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
+/* 9-16 呼吸感：筛选栏与标题区之间 20px（≥16），并随头部高度下移 sticky 位置 */
+.canvas-library-tabs { position: sticky; top: 82px; z-index: 2; display: flex; gap: 8px; padding: 20px 28px 10px; background: rgba(255,253,250,.94); backdrop-filter: blur(12px); }
 .canvas-library-tabs button { height: 34px; padding: 0 16px; border: 1px solid rgba(28,25,23,.12); border-radius: 17px; background: #fff; color: #57534e; font-size: 13px; font-weight: 600; cursor: pointer; }
 .canvas-library-tabs button:hover { border-color: rgba(124,58,237,.34); color: #6d28d9; }
 .canvas-library-tabs button.is-active { border-color: #202226; background: #202226; color: #fff; }

@@ -74,7 +74,7 @@ import { canReuseProjectAsset, filterProjectAssetLibrary, normalizeProjectAssetL
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
-import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
+import { applyCanvasGroupAction, applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, canvasGroupFrames, canvasSelectionGroupState, expandCanvasDragSelection, expandCanvasGroupDragIds, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes,
   resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
@@ -558,12 +558,25 @@ function readCanvasImageFiles(files = [], startedAt = Date.now()) {
   })));
 }
 
+/* 9-16 用户批注（图20）：「我点击图片上的『添加到资产库』，它为什么提示『这不是一个有效的素材』？」
+   根因：这个函数把**画布节点**当成待上传的本地文件直接丢给 uploadEcommerceAssets——
+   但节点对象既不是 File 也没有 data: URL（节点只有 /api/generated-assets/… 或远程 url），
+   uploadEcommerceAsset 走到 imageToDataUrl(file) 就抛「请选择 JPEG 或 PNG 原图后重试」，
+   对用户就是一句和「素材无效」一样的黑话。
+   修法：把「本地待上传文件」和「已有稳定地址的素材」分开——
+     · 已有 /api/generated-assets/ 稳定地址 → 原样透传（它本来就已经持久化过，不需要也不应该再上传）；
+     · 其余（File / data: URL）→ 走原来的上传链路。
+   这样点「加入资产库」不会再对已落库的素材做一次无意义的二次上传。 */
 async function persistCanvasUploadAssets(assets = [], { role = 'product' } = {}) {
-  const persisted = await uploadEcommerceAssets(assets, role);
-  if (persisted.length !== assets.length || persisted.some(asset => !asset?.url || !/^\/api\/generated-assets\//i.test(asset.url))) {
+  const list = Array.isArray(assets) ? assets : [];
+  const alreadyStable = asset => /^\/api\/generated-assets\//i.test(String(asset?.url || ''));
+  const uploadable = list.filter(asset => !alreadyStable(asset));
+  const persisted = uploadable.length ? await uploadEcommerceAssets(uploadable, role) : [];
+  if (persisted.length !== uploadable.length || persisted.some(asset => !asset?.url || !/^\/api\/generated-assets\//i.test(asset.url))) {
     throw new Error('图片上传结果不完整，请重试');
   }
-  return assets.map((asset, index) => ({ ...asset, ...persisted[index] }));
+  let cursor = 0;
+  return list.map(asset => (alreadyStable(asset) ? { ...asset } : { ...asset, ...persisted[cursor++] }));
 }
 
 /* 素材水印适用的节点类型（提交时只回写对应类型） */
@@ -817,6 +830,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
      一个 session 维持独立计数器, 保证单调递增, 跟 videoCanvasModel 同源 */
   const canvasShotNamerRef = useRef(null);
   if (!canvasShotNamerRef.current) canvasShotNamerRef.current = createCanvasShotNamer();
+  /* 9-16 用户批注（图14）：四个生成框的落点必须统一 —— 见 createComposerPlacement 的说明 */
+  const preferredComposerAnchorRef = useRef(null);
 
   useEffect(() => {
     setActiveComposerSurface('');
@@ -1013,7 +1028,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     if (graph.targetKind === 'suite-composer') {
       /* 快速通道：跳过设计分析，不自动跑方案 */
       autoPlanNodeRef.current = '';
-      showToast('素材已进入画布 · 在「电商套图」节点确认方案后生成 (快速通道已跳过设计分析)', 'success');
+      showToast('素材已进入画布，确认方案后即可生成', 'success');
     } else {
       /* 带设计方案：进画布后自动生成方案（报价→扣费在 handleDirectionGenerate 内完成，计费不变式不变） */
       autoPlanNodeRef.current = graph.targetId;
@@ -2283,6 +2298,10 @@ const handlePointerUp = useCallback((e) => {
       }
     }
     const ids = expandCanvasDragSelection(nodes, id, baseIds);
+    /* 9-16 用户批注（图15~19）：打组/绑定之后「一起移动」——
+       拖其中任意一个，同组（含绑定）的其它节点跟着走。 */
+    const groupIds = expandCanvasGroupDragIds(nodes, id);
+    groupIds.forEach(memberId => ids.add(memberId));
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e), clickNodeId: id });
@@ -2932,7 +2951,7 @@ const handlePointerUp = useCallback((e) => {
     const plan = buildRunPlan({ nodes, connections, targetNodeIds: targets, supportedKinds: supported, costOf: (n) => estimateNodeCost(n) });
     if (!plan.ok) { showToast('存在循环连线，无法运行整链', 'info'); return; }
     const runnable = plan.executableNodeIds;
-    if (!runnable.length) { showToast('选中的节点暂无可自动运行的（图片/处理类可跑；文本/视频节点 P1 再接入）', 'info'); return; }
+    if (!runnable.length) { showToast('选中的节点暂时不能运行整链', 'info'); return; }
     if (plan.estimatedUnits <= 0) { startGraphChainRun(plan, runnable); return; }
     setGraphRunConfirm({ plan, runnable });
   }
@@ -2964,7 +2983,7 @@ const handlePointerUp = useCallback((e) => {
           remoteSnapshotRef.current = JSON.stringify(snapshot);
           dispatch({ type: 'SET_RESULT', result: { ...result, canvasSession: created, canvasSessionId: created.id, canvasSessionRevision: created.revision } });
         } catch {
-          showToast('画布已铺开展示；云端会话创建失败（未登录或项目不可用），保存时会重试', 'info');
+          showToast('画布已铺开，云端保存稍后自动重试', 'info');
         }
       }
       setWorkflowRunOffer({
@@ -2993,7 +3012,7 @@ const handlePointerUp = useCallback((e) => {
 
   const handleWorkflowLayerExport = useCallback((layer) => {
     if (!layer?.preview_url) {
-      showToast('当前接口只返回图层识别结果，像素图层导出尚未就绪', 'info');
+      showToast('像素图层导出暂未开放', 'info');
       return;
     }
     const link = document.createElement('a');
@@ -3266,23 +3285,24 @@ const handlePointerUp = useCallback((e) => {
       }
       try {
         const isMedia = ['video', 'audio'].includes(node.kind);
-        const projectContext = await ensureCanvasMediaProject(isMedia ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目', isMedia ? 'video' : 'ecommerce');
-        if (!projectContext) throw new Error('资产库暂不可用，请稍后重试');
-        let sourceAsset = null;
+        /* 9-16（图20）：先判有没有可收藏的内容，再建项目——不然空节点会先去建一个项目再失败。
+           提示按「说结果不说机制」收短。 */
         const stableUrl = String(node.url || '');
-        if (/^\/api\/generated-assets\//i.test(stableUrl)) {
-          sourceAsset = { url: stableUrl, name: node.name || node.displayLabel || '画布素材' };
-        } else if (stableUrl) {
-          const persisted = await persistCanvasUploadAssets([{ assetId: node.id, name: node.name || node.displayLabel || '画布素材', url: stableUrl }], { role: 'user-saved' });
+        if (!stableUrl) { showToast('这个素材还没生成好', 'info'); return; }
+        const projectContext = await ensureCanvasMediaProject(isMedia ? 'Canvas 媒体素材项目' : 'Canvas 图片素材项目', isMedia ? 'video' : 'ecommerce');
+        if (!projectContext) throw new Error('资产库暂时不可用，请稍后再试');
+        let sourceAsset = { url: stableUrl, name: node.name || node.displayLabel || '画布素材' };
+        if (!/^\/api\/generated-assets\//i.test(stableUrl)) {
+          const persisted = await persistCanvasUploadAssets([{ assetId: node.id, name: sourceAsset.name, url: stableUrl }], { role: 'user-saved' });
           sourceAsset = persisted[0];
         }
-        if (!sourceAsset) throw new Error('该节点暂时没有可收藏的素材');
+        if (!sourceAsset?.url) throw new Error('这个素材暂时无法加入资产库');
         const imported = isMedia
           ? await importCanvasMediaAssets([sourceAsset], projectContext, node.kind === 'video' ? 'user-saved-video' : 'user-saved-audio')
           : await importCanvasImageAssets([sourceAsset], projectContext, 'user-saved');
-        if (imported?.failed?.length) throw new Error(imported.failed[0]?.error?.message || '收藏失败');
+        if (imported?.failed?.length) throw new Error('这个素材暂时无法加入资产库');
         dispatch({ type: 'SET_RESULT', result: { ...result, projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } });
-        showToast('已加入资产库，下次创作可直接复用', 'success');
+        showToast('已加入资产库', 'success');
       } catch (error) {
         showToast(error?.message || '加入资产库失败，请稍后重试', 'error');
       }
@@ -3593,9 +3613,21 @@ const handlePointerUp = useCallback((e) => {
       return;
     }
     if (actionId === 'bind-elements' || actionId === 'group-elements') {
-      const groupId = `group_${Date.now()}`;
-      setNodes(previous => previous.map(node => multiSelected.has(node.id) ? { ...node, groupId, bound: actionId === 'bind-elements' } : node));
-      showToast(actionId === 'bind-elements' ? '所选对象已绑定' : '所选对象已打组', 'success');
+      /* 9-16 用户批注（图15~19）：「打组与绑定元素行为一样、不能取消、按钮不高亮、
+         组内节点还带加号、组框样式与普通选中一样」——
+         现在走 applyCanvasGroupAction：打组/绑定各自独立前缀，再点一次解除，
+         解除后 groupId 清空、组框消失、加号回来。 */
+      const wanted = actionId === 'bind-elements' ? 'bind' : 'group';
+      const current = canvasSelectionGroupState(nodes, multiSelected);
+      setNodes(previous => applyCanvasGroupAction(previous, multiSelected, actionId));
+      /* 提示只讲结果，不讲机制（用户：提示要简短、面向用户目的） */
+      const releasing = current.kind === wanted;
+      showToast(
+        wanted === 'bind'
+          ? (releasing ? '已解除绑定' : '已绑定，拖动会一起移动')
+          : (releasing ? '已解除打组' : '已打组'),
+        'success',
+      );
     }
   };
 
@@ -3790,13 +3822,21 @@ const handlePointerUp = useCallback((e) => {
     const source = placement.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : undefined;
     const bounds = containerRef.current?.getBoundingClientRect();
     const scale = Math.max(0.05, Number(viewport.scale) || 1);
+    /* 9-16 用户批注（图14）：「视频生成点击后还是出现在画布最左上方，没有统一处理」。
+       根因：四个框共用同一个候选算法，但「视口中心」候选被已有节点占住时，
+       算法会退回**视口左上角的第一个空位** —— 于是中心被占的框（文案/视频）飞到左上角，
+       中心空着的框（图片/套图）才留在中间，四个框表现分裂。
+       修法：优先围绕**上一次成功落点**（首个框 = 视口内容中心）继续找空位，
+       保证打开后一定落在画布可视区中间/当前视口中心附近，且不与已有节点重叠。 */
+    const viewportCenter = {
+      x: -(Number(viewport.x) || 0) / scale + ((Number(bounds?.width) || 960) / scale - width) / 2,
+      y: -(Number(viewport.y) || 0) / scale + ((Number(bounds?.height) || 640) / scale - height) / 2,
+    };
+    const anchor = preferredComposerAnchorRef.current || viewportCenter;
     const preferred = Number.isFinite(placement.x) && Number.isFinite(placement.y)
       ? { x: placement.x, y: placement.y }
-      : {
-        x: -(Number(viewport.x) || 0) / scale + ((Number(bounds?.width) || 960) / scale - width) / 2,
-        y: -(Number(viewport.y) || 0) / scale + ((Number(bounds?.height) || 640) / scale - height) / 2,
-      };
-    return findCanvasBlankPlacement({
+      : anchor;
+    const position = findCanvasBlankPlacement({
       width,
       height,
       viewport,
@@ -3806,6 +3846,12 @@ const handlePointerUp = useCallback((e) => {
       preferred,
       gap: 16,
     });
+    /* 显式落点（派生/右侧菜单给了 world 坐标）不改变锚点；
+       其余情况记下这次落点，下一个框从它旁边继续展开。 */
+    if (position && !(Number.isFinite(placement.x) && Number.isFinite(placement.y))) {
+      preferredComposerAnchorRef.current = position;
+    }
+    return position;
   }, [nodes, viewport]);
 
   const addCanvasComposer = useCallback((kind, placement = {}) => {
@@ -4651,7 +4697,7 @@ const handlePointerUp = useCallback((e) => {
     setSelected(audioNodeId);
     setMultiSelected(new Set([audioNodeId]));
     setActiveTool('select');
-    showToast(upstream ? '正在用上游文案合成配音' : '正在合成配音（未找到上游文案，已用默认口播稿）', 'info');
+    showToast(upstream ? '正在用上游文案合成配音' : '正在合成配音', 'info');
     try {
       const tts = await synthesizeCanvasTts({ text: request.text });
       const settled = normalizeCanvasAudioNodeFromTts({
@@ -5471,10 +5517,10 @@ const handlePointerUp = useCallback((e) => {
   const handleDeleteProjectAsset = useCallback(async asset => {
     if (!asset?.projectId || !asset?.projectAssetId) return;
     /* 9-14 用户批注：「垃圾桶是删除键没错，但你要弹窗询问是否删除啊，不能我误点你就直接删呀」
-       —— 资产库管理弹窗的删除必须先确认；文案与「从资产库选择」弹窗保持一致。 */
+       —— 资产库管理弹窗的删除必须先确认；文案与「从资产库选择」弹窗保持一致（9-16 收短）。 */
     const confirmed = await dialog.confirm({
       title: '删除这个素材？',
-      message: '删除后不可恢复，已加入画布的内容不受影响。',
+      message: '删除后不可恢复。',
       confirmLabel: '删除',
     });
     if (!confirmed) return;
@@ -5572,7 +5618,7 @@ const handlePointerUp = useCallback((e) => {
   const selectedNodeVideoDelivery = useMemo(() => deliverableRefsFromNodes(selectedNode ? [selectedNode] : []), [selectedNode]);
   const handleSendSelectedToVideoProject = useCallback(node => {
     const refs = deliverableRefsFromNodes(node ? [node] : []);
-    if (!refs.length) return showToast('该节点尚未登记为项目素材，暂不能跨域投递', 'info');
+    if (!refs.length) return showToast('这个素材还不能发往视频项目', 'info');
     setVideoDelivery({ refs, surface: DELIVERY_SOURCE_SURFACES.ecCanvas });
   }, [showToast]);
   /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 1): 右面板"调整参数" patch.
@@ -5713,7 +5759,7 @@ const handlePointerUp = useCallback((e) => {
   /* 空壳"应用节点"已下架 (用户 9-04 反馈): 派生一律走素材端口菜单 */
   const handleVideoDelivered = useCallback(({ projectId }) => {
     setVideoDelivery(null);
-    showToast(`已发往视频项目，可在视频创作工作台「从画布发来」查看（项目 ${String(projectId).slice(-6)}）`, 'success');
+    showToast('已发往视频创作', 'success');
   }, [showToast]);
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
@@ -6630,6 +6676,16 @@ const handlePointerUp = useCallback((e) => {
                 />
               </div>;
             })}
+            {/* 9-16 用户批注（图15~19）：打组 = 一个**组容器**（虚线 + 四角留白 + 四周呼吸感，
+                组框样式与普通选中明确不同）；绑定元素 = 只是「一起移动」的关联（另一种细框）。
+                组内节点不再显示左右加号（见 CanvasGenerationNode / CanvasMediaNode 的 canDerive）。 */}
+            {!focusedEditor && canvasGroupFrames(nodes).map(frame => <div
+              key={frame.groupId}
+              className={`ec-canvas-node-group is-${frame.kind}${multiSelectionBounds && frame.kind === 'group' && nodes.some(node => multiSelected.has(node.id) && node.groupId === frame.groupId) ? ' is-selected' : ''}`}
+              aria-hidden="true"
+              data-canvas-group-id={frame.groupId}
+              style={{ left: frame.bounds.x, top: frame.bounds.y, width: frame.bounds.w, height: frame.bounds.h }}
+            ><b>{frame.kind === 'group' ? `组 · ${frame.bounds.count}` : `绑定 · ${frame.bounds.count}`}</b></div>)}
             {!focusedEditor && multiSelected.size > 1 && multiSelectionBounds && <div
               className="ec-canvas-multi-selection-box"
               aria-hidden="true"
@@ -6863,11 +6919,17 @@ const handlePointerUp = useCallback((e) => {
           {tab === 'assets' && state.logged && (
             <div className="canvas-asset-library-overlay" onMouseDown={event => { if (event.target === event.currentTarget) handleTabChange('canvas'); }}>
               <section className="canvas-asset-library-modal" role="dialog" aria-modal="true" aria-label="资产库管理">
-            <section aria-labelledby="canvas-project-assets-title" style={{ marginBottom: 22 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+            {/* 9-16 用户批注：「右边这个滑动条也超出了界面」——弹窗自身不再滚动，
+                改由这个内层滚动视口承担（overflow-y:auto + scrollbar-gutter:stable +
+                右侧 6px 留白），滚动条落在容器**内缘**，永不出界、也不压住卡片。 */}
+            <div className="ec-asset-library-scroll">
+            <section aria-labelledby="canvas-project-assets-title" style={{ marginBottom: 0 }}>
+              {/* 9-16 呼吸感：标题与额度之间 12px（≥10），标题块与工具栏之间 18px（≥16）。
+                  额度是次要信息，弱化并与标题左对齐分两行，不再和标题挤在同一基线上。 */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
                 <div>
-                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3, color: '#1f2937' }}>资产库管理</h2>
-                <div className="ec-asset-quota" role="status" aria-live="polite">
+                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 17, lineHeight: 1.3, color: '#1f2937' }}>资产库管理</h2>
+                <div className="ec-asset-quota" role="status" aria-live="polite" style={{ marginTop: 12 }}>
                   <div className="ec-asset-quota-text">
                     <strong>已用 {formatBytes(assetUsage?.usedBytes)} / {formatBytes(assetUsage?.quotaBytes || 100 * 1024 * 1024)}</strong>
                     <span>可用 {formatBytes(assetUsage?.availableBytes ?? (assetUsage?.quotaBytes || 100 * 1024 * 1024))}</span>
@@ -6875,8 +6937,36 @@ const handlePointerUp = useCallback((e) => {
                   <div className="ec-asset-quota-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, Math.round(((assetUsage?.usedBytes || 0) / Math.max(1, assetUsage?.quotaBytes || 100 * 1024 * 1024)) * 100))}%` }} /></div>
                 </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* 9-12 用户批注：资产库直接支持上传（查询=上方搜索框） */}
+              </div>
+              {/* 9-16 用户批注（资产库弹窗的呼吸感与主次）：
+                  ①「上传按钮为什么放到最右上方呢？下面一大堆空白，为什么放这么远？」→ 上传按钮紧挨
+                     **工具栏那一行**（搜索框右侧 / 分类 tab 右侧），不再孤零零挂在最右上角；
+                  ②「信息密度特别大，没有主次之分和呼吸感」→ 搜索与分类并成一行工具栏，
+                     工具栏与素材网格之间留 16px；搜索框自适应拉宽（原来固定 320px，右侧一大片空白）。 */}
+              <div className="ec-asset-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                <label style={{ position: 'relative', flex: '1 1 240px', minWidth: 200 }}>
+                  <span className="sr-only">搜索项目素材</span>
+                  <input
+                    type="search"
+                    value={projectAssetQuery}
+                    onChange={event => setProjectAssetQuery(event.target.value)}
+                    placeholder="搜索素材名称、项目或角色"
+                    aria-label="搜索项目素材"
+                    style={{ width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: '1px solid #e1e5eb', borderRadius: 9, outline: 0, color: '#334155', fontSize: 12, background: '#fff' }}
+                  />
+                </label>
+                <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: '0 0 auto' }}>
+                  {[['', '全部'], ['image', '图片'], ['video', '视频'], ['audio', '音频']].map(([value, label]) => <button
+                    key={value || 'all'}
+                    type="button"
+                    role="tab"
+                    aria-selected={projectAssetMediaFilter === value}
+                    onClick={() => setProjectAssetMediaFilter(value)}
+                    style={{ padding: '5px 10px', border: `1px solid ${projectAssetMediaFilter === value ? '#cbd5e1' : '#edf0f3'}`, borderRadius: 999, background: projectAssetMediaFilter === value ? '#f1f5f9' : '#fff', color: '#475569', fontSize: 11, cursor: 'pointer' }}
+                  >{label}</button>)}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
+                  {/* 9-12 用户批注：资产库直接支持上传（查询=同一行的搜索框） */}
                   <input ref={projectAssetUploadRef} type="file" accept="image/*" multiple hidden onChange={handleAssetLibraryUpload} />
                   <button
                     type="button"
@@ -6891,39 +6981,16 @@ const handlePointerUp = useCallback((e) => {
                     onClick={handleBatchImportProjectAssets}
                     aria-label={`加入所选 ${selectedProjectAssetKeys.size} 个素材到画布`}
                     title="加入所选素材到画布"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 28, padding: '0 8px', border: '1px solid #bfdbfe', borderRadius: 7, background: '#eff6ff', color: '#2563eb', fontSize: 11, cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 10px', border: '1px solid #bfdbfe', borderRadius: 9, background: '#eff6ff', color: '#2563eb', fontSize: 11, cursor: 'pointer' }}
                   ><Plus size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
                 </div>
-              </div>
-              <div className="ec-project-asset-filters" style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 320px)', gap: 8, marginBottom: 9 }}>
-                <label style={{ position: 'relative', minWidth: 0 }}>
-                  <span className="sr-only">搜索项目素材</span>
-                  <input
-                    type="search"
-                    value={projectAssetQuery}
-                    onChange={event => setProjectAssetQuery(event.target.value)}
-                    placeholder="搜索素材名称、项目或角色"
-                    aria-label="搜索项目素材"
-                    style={{ width: '100%', height: 32, boxSizing: 'border-box', padding: '0 10px', border: '1px solid #e1e5eb', borderRadius: 8, outline: 0, color: '#334155', fontSize: 11, background: '#fff' }}
-                  />
-                </label>
-              </div>
-              <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                {[['', '全部'], ['image', '图片'], ['video', '视频'], ['audio', '音频']].map(([value, label]) => <button
-                  key={value || 'all'}
-                  type="button"
-                  role="tab"
-                  aria-selected={projectAssetMediaFilter === value}
-                  onClick={() => setProjectAssetMediaFilter(value)}
-                  style={{ padding: '5px 10px', border: `1px solid ${projectAssetMediaFilter === value ? '#cbd5e1' : '#edf0f3'}`, borderRadius: 999, background: projectAssetMediaFilter === value ? '#f1f5f9' : '#fff', color: '#475569', fontSize: 11, cursor: 'pointer' }}
-                >{label}</button>)}
               </div>
               {projectAssetLibraryLoading ? (
                 <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>正在读取素材</div>
               ) : projectAssetLibraryError ? (
                 <div role="alert" style={{ padding: '14px 16px', border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLibraryError}</div>
               ) : visibleProjectAssetLibrary.length ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
+                <div className="ec-asset-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 16 }}>
                   {visibleProjectAssetLibrary.map(asset => {
                     const mediaKind = String(asset.mediaKind || '').toLowerCase();
                     const label = asset.metadata?.displayName || asset.assetId || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
@@ -6964,9 +7031,10 @@ const handlePointerUp = useCallback((e) => {
                   })}
                 </div>
               ) : (
-                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>{projectAssetLibrary.length ? '没有符合当前搜索或筛选条件的素材' : '暂无可用项目素材'}</div>
+                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>{projectAssetLibrary.length ? '没有符合筛选条件的素材' : '资产库还没有素材，点右上角「上传」加进来。'}</div>
               )}
             </section>
+              </div>
               </section>
             </div>
           )}
@@ -7090,7 +7158,7 @@ const handlePointerUp = useCallback((e) => {
               case 'add-audio': audioUploadRef.current?.click?.(); break;
               case 'add-application':
                 /* 空壳应用节点已下架 (用户 9-04 反馈) */
-                showToast('应用类工作流请选中素材后从端口或工具栏派生', 'info');
+                showToast('请先选中要处理的素材', 'info');
                 break;
               case 'paste':
                 readClipboardNodes().then(payload => {

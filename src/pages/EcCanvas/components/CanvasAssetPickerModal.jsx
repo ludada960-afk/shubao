@@ -38,7 +38,7 @@ const CATALOG_LIMIT = 500;
  *      滚动到底自动追加下一批（每批 24），加载中「正在加载更多…」、全部加载完「已经到底了」，
  *      搜索/切换分类时重置回第一批；
  *   ③ 左上角打勾圆圈点了没反应 —— 改成真正可点的多选按钮（stopPropagation 只切选中、不触发删除），
- *      选中态紫描边 + 圆圈实心紫底白勾，底栏左侧「已选 N 个 · 确认后一起加入画布」；
+ *      选中态紫描边 + 圆圈实心紫底白勾，底栏左侧只显示计数「已选 N 个」；
  *   ④ 垃圾桶点了直接删 —— 先弹项目统一的确认弹窗（useDialog -> confirm，与任务面板同一套），
  *      确认后才调 deleteProjectAsset，删除中忙碌态防连点；
  *   ⑤ 保留既有行为：方卡 165×165、封面 cover 填满、名称底部渐变遮罩、垃圾桶/打勾默认隐藏悬停出现、
@@ -145,7 +145,7 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
     if (!key || !item?.projectId || !item?.projectAssetId || busyKey) return;
     const confirmed = await confirm({
       title: '删除这个素材？',
-      message: '删除后不可恢复，已加入画布的内容不受影响。',
+      message: '删除后不可恢复。',
       confirmLabel: '删除',
     });
     if (!confirmed) return;
@@ -176,7 +176,8 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
     <div className="canvas-asset-picker-overlay" onPointerDown={event => event.stopPropagation()} onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
       <section className="canvas-asset-picker" role="dialog" aria-modal="true" aria-label="从资产库选择">
         <header>
-          <div><strong>从资产库选择</strong><span>点击资产即可选中，确认后加入当前画布</span></div>
+          {/* 9-16 用户批注：「不要出现『选择之后会高亮』这种内部逻辑说明」——副标题只说用户能拿到什么结果。 */}
+          <div><strong>从资产库选择</strong><span>把素材放进当前画布</span></div>
           <button type="button" aria-label="关闭" onClick={onClose}>×</button>
         </header>
         <div className="canvas-asset-picker-tools">
@@ -236,7 +237,7 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
                 className="canvas-asset-picker-check"
                 aria-label={isSelected ? `取消选中 ${name}` : `选中 ${name}`}
                 aria-pressed={isSelected}
-                title={isSelected ? '已选中，点击取消' : '选中后可一次加入画布'}
+                title={isSelected ? '取消选中' : '选中'}
                 onClick={event => { event.stopPropagation(); toggle(item); }}
               ><Check size={14} /></button>
               <button
@@ -253,12 +254,14 @@ export default function CanvasAssetPickerModal({ open, onClose, onConfirm }) {
           })}
           {loadingMore && <div className="canvas-asset-picker-more" role="status">正在加载更多…</div>}
           {!state.loading && !loadingMore && !hasMore && state.items.length > 0 && <div className="canvas-asset-picker-more is-end">已经到底了</div>}
-          {!state.loading && !state.items.length && <div className="canvas-asset-picker-empty">资产库里还没有素材。这里的素材来自：你上传的文件 · 从画布加入 · 从作品加入</div>}
+          {/* 9-16 文案收短：空态只说「没有素材」与素材从哪来，不铺陈机制。 */}
+          {!state.loading && !state.items.length && <div className="canvas-asset-picker-empty">资产库还没有素材。上传文件，或把画布、作品里的素材加进来。</div>}
           {state.loading && <div className="canvas-asset-picker-empty">正在读取资产库…</div>}
           <div className="canvas-asset-picker-sentinel" ref={sentinelRef} aria-hidden="true" />
         </div>
         <footer>
-          <span title="选中后可一次加入画布">已选 {picked.length} 个 · 确认后一起加入画布</span>
+          {/* 9-16 文案：去掉「选中后可一次加入画布」这类机制说明，只留结果与计数。 */}
+          <span>已选 {picked.length} 个</span>
           <div>
             <button type="button" className="is-ghost" onClick={onClose}>取消</button>
             <button type="button" className="is-primary" disabled={!picked.length} onClick={() => onConfirm?.(picked)}>加入画布{picked.length ? ` (${picked.length})` : ''}</button>
