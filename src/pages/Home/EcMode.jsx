@@ -20,7 +20,10 @@ import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
+import GenerationConstraintsPanel from './ec/GenerationConstraintsPanel';
 import TryOnPlanPanel from './ec/TryOnPlanPanel';
+/* 统一视觉语言规范（间距/字号/控件高/圆角/面板宽度）—— 六个面板的唯一事实源 */
+import { PANEL_WIDTH_TABLE, SPACING, resolvePanelWidth } from './ec/panelVisualLanguage.js';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import EcProfileRail from './ec/EcProfileRail.jsx';
 import { generationUnits, IMAGE_MODELS, normalizeImageModel } from '../../services/imageModelCatalog.js';
@@ -75,6 +78,12 @@ const BTN_BASE = {
   flexShrink: 0,
   boxShadow: '0 2px 7px rgba(62,43,26,0.07)'
 };
+
+/* 面板内分组分隔线：两个语义分组之间的一道 1px 呼吸。
+   左右内边距取规范 sp5（20px），与面板左右内边距对齐。 */
+function CopyPanelDivider() {
+  return <div aria-hidden="true" style={{ height: 1, background: 'rgba(45,41,38,0.08)', margin: `${SPACING.sp1}px ${SPACING.sp5}px` }} />;
+}
 
 /* ═══════ 玻璃拟态面板样式（AI 感升级）═══════ */
 const GLASS_PANEL = {
@@ -839,16 +848,11 @@ const DEFAULT_BUTTONS = [
     if (!el) return;
     const btnRect = el.getBoundingClientRect();
     const vw = window.innerWidth;
-    const baseWidth =
-      {
-        sizing: 480,
-        sku: 540,
-        style: 520,
-        params: 520,
-        copy: 620,
-        settings: 460
-      }[activePanel] || 520;
-    const panelW = Math.min(Math.max(baseWidth, 400), Math.max(320, vw - 32));
+    /* 用户批注①（子项 2/3）：六个面板宽度必须统一（口径 360–560，统一值取
+       PANEL_WIDTH_TABLE.standard = 480），窄屏由 resolvePanelWidth 兜底。
+       改造前这里是 sizing:480 / sku:540 / style:520 / params:520 / copy:620 /
+       settings:460 六套写死的宽度 —— 这就是「有的宽有的窄」的根因。 */
+    const panelW = resolvePanelWidth(vw);
     const btnCenterX = btnRect.left + btnRect.width / 2;
     /* 8-14：面板高度按内容自然撑开（Home.css 里 height:auto + 视口 max-height）。
        这里读一次已渲染高度上报给 CSS，让 bottom 上限能反算出「顶部不越顶栏安全区」。
@@ -909,18 +913,8 @@ const DEFAULT_BUTTONS = [
         const rowRect = btnRow.getBoundingClientRect();
         const vw = window.innerWidth;
 
-        // 面板宽度：根据内容类型调整
-        const baseWidth =
-          {
-            sizing: 480,
-            sku: 540,
-            style: 520,
-            params: 520,
-            copy: 620,
-            settings: 460
-          }[key] || 520;
-        const maxPW = Math.min(vw - 32, 680);
-        const panelW = Math.min(Math.max(baseWidth, 400), maxPW);
+        // 面板宽度：六个面板统一走视觉语言规范（不再是「按内容类型各调各的」）
+        const panelW = resolvePanelWidth(vw);
 
         // 使用 Portal 固定在视口：不受顶部导航、父级 overflow 或卡片高度裁切。
         const btnCenterX = btnRect.left + btnRect.width / 2;
@@ -983,7 +977,17 @@ const DEFAULT_BUTTONS = [
             : <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />)}
           {activePanel === 'params' && <ParamsPanel mode={abilityRecipeId === 'anything_tryon' ? 'tryon' : 'product'} params={productParams} onChange={setProductParams} />}
           {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />}
-          {activePanel === 'copy' && <CopyPanel copywriting={copywriting} onChange={setCopywriting} />}
+          {/* 「内容规范」= 正向要什么（CopyPanel）+ 反向不要什么（GenerationConstraintsPanel）。
+              用户批注①（子项 2）：「避免出现的元素」不属于「生成设置」（那是设备/输出参数），
+              它是一条画面内容约束，语义归属就是描述内容的标准面板。
+              数据链路不变（genSettings.negativePrompt），画布侧同步不受影响。 */}
+          {activePanel === 'copy' && (
+            <>
+              <CopyPanel copywriting={copywriting} onChange={setCopywriting} />
+              <CopyPanelDivider />
+              <GenerationConstraintsPanel negativePrompt={genSettings.negativePrompt} onChange={next => setGenSettings(current => ({ ...current, negativePrompt: next }))} />
+            </>
+          )}
           {activePanel === 'settings' && <GenSettingsPanel value={genSettings} onChange={setGenSettings} brandColors={customColors} onBrandColorsChange={setCustomColors} />}
         </div>
       </div>,
@@ -1630,9 +1634,15 @@ const DEFAULT_BUTTONS = [
                       };
                     }
                     case 'copy': {
+                      /* 「内容规范」现在同时承载正向文案与反向约束（避免出现的元素），
+                         摘要把两者都带上，否则用户看不到约束已生效。 */
                       const fields = ['plan', 'sellingPoints', 'qc', 'details', 'maintenance'];
                       const filled = fields.filter((k) => copywriting?.[k]?.trim?.()).length;
-                      return filled > 0 ? { text: `${filled}项文案`, isSmart: false } : { text: '文案策划', isSmart: false };
+                      const hasNegative = Boolean(genSettings.negativePrompt?.trim?.());
+                      if (filled > 0 && hasNegative) return { text: `${filled}项文案+约束`, isSmart: false };
+                      if (filled > 0) return { text: `${filled}项文案`, isSmart: false };
+                      if (hasNegative) return { text: '已设生成约束', isSmart: false };
+                      return { text: '文案策划', isSmart: false };
                     }
                     case 'settings': {
                       const { resolution = '2K', imageModel = 'image2' } = genSettings;

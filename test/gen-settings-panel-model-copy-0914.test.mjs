@@ -75,7 +75,11 @@ test('面板默认折叠模型列表，行高压缩到 ≤44px（配合一屏看
   assert.ok(panel.includes('const [modelListOpen, setModelListOpen] = useState(false)'), '模型列表默认折叠');
   assert.ok(panel.includes('aria-expanded={modelListOpen}'), '折叠按钮暴露展开状态');
   assert.ok(panel.includes('SELECTABLE_IMAGE_MODELS.map'), '展开后列出全部已上线档位');
-  assert.ok(panel.includes("padding: '2px 9px'"), '扩展行采用紧凑 padding（高度 ≤44px）');
+  /* 2026-09-15 更新：扩展行的紧凑 padding 让位给统一视觉语言规范 ——
+     行高改由 CONTROL_HEIGHT.large(40) 统一约束（仍 ≤44px），
+     间距改走 SPACING 阶梯，不再写死 '2px 9px' 这类碎档。 */
+  assert.ok(panel.includes('minHeight: CONTROL_HEIGHT.large'), '扩展行高度走规范的大控件档（40px ≤ 44px）');
+  assert.ok(panel.includes("from './panelVisualLanguage.js'"), '行高与间距统一取自视觉语言规范');
 });
 
 test('锁定品牌主色调默认不锁定，锁定态只由外部 brandColors 推导', () => {
@@ -85,10 +89,18 @@ test('锁定品牌主色调默认不锁定，锁定态只由外部 brandColors �
   assert.ok(panel.includes("from 'react-colorful'"), '取色器已正确引入（锁定时不再白屏）');
 });
 
-/* ── ④ 套图方案面板宽度收窄到 [360, 520] ── */
-test('套图方案面板宽度收窄（>=360 且 <=520），面板按内容类型定宽', () => {
+/* ── ④ 面板宽度：2026-09-15 起升级为「六面板统一宽度」 ──
+   用户批注：「你这些面板最好宽度都是统一的，不能太宽，太宽信息会被分散掉。
+   但也不能粗暴地匹配到一致 —— 里面还有很多按钮逻辑、内容逻辑，要相应适配。」
+   故统一值 480 落在原 [360, 520] 口径内，且六个面板共用同一个解析函数。 */
+test('六个参数面板宽度统一为 480（沿用 [360, 520] 口径并收紧到单值）', () => {
   const ecMode = read('src/pages/Home/EcMode.jsx');
-  assert.ok(ecMode.includes('sizing: 480,'), '套图方案面板宽度 480（[360, 520] 内）');
-  const widths = [...ecMode.matchAll(/sizing: (\d+),/g)].map(m => Number(m[1]));
-  assert.ok(widths.length >= 2 && widths.every(w => w >= 360 && w <= 520), '两处定位映射都应在 [360, 520]');
+  const spec = read('src/pages/Home/ec/panelVisualLanguage.js');
+  assert.ok(spec.includes('standard: 480'), '统一宽度值 480');
+  assert.ok(ecMode.includes('resolvePanelWidth(vw)'), '两处定位都走统一解析（含窄屏兜底）');
+  const calls = [...ecMode.matchAll(/resolvePanelWidth\(vw\)/g)];
+  assert.ok(calls.length >= 2, '两处定位映射都要用统一宽度');
+  for (const stale of ['sizing: 480,', 'sku: 540,', 'copy: 620,', 'settings: 460,']) {
+    assert.ok(!ecMode.includes(stale), '不得再残留按内容类型定宽的映射：' + stale);
+  }
 });

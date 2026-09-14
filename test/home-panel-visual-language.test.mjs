@@ -22,15 +22,19 @@ import {
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-/* ── ① 间距阶梯：8pt 栅格，只允许一个 4 的半档 ── */
-test('间距阶梯是 8pt 栅格（唯一半档为 4，其余全是 8 的倍数）', () => {
+/* ── ① 间距阶梯：4pt 栅格上的 6 个语义档，不多不少 ── */
+test('间距阶梯全部落在 4pt 栅格上，且只有 6 档', () => {
   const values = Object.values(SPACING);
   assert.deepEqual(values, [...values].sort((a, b) => a - b), '阶梯必须单调递增');
   assert.equal(new Set(values).size, values.length, '不得有重复档位');
   for (const v of values) {
-    assert.ok(v === 4 || v % 8 === 0, `间距 ${v} 既不是 4 也不是 8 的倍数`);
+    assert.equal(v % 4, 0, `间距 ${v} 不在 4pt 栅格上`);
   }
   assert.deepEqual(SPACING, { sp1: 4, sp2: 8, sp3: 12, sp4: 16, sp5: 20, sp6: 24 });
+  /* 改造前是 1/2/3/5/6/10/14 这类 4 的倍数以外的碎档 → 必须消失 */
+  for (const stale of [1, 2, 3, 5, 6, 10, 14]) {
+    assert.ok(!values.includes(stale), `不得再出现碎档 ${stale}px（「挤在一块」的来源）`);
+  }
 });
 
 /* ── ② 字号层级：4 档，且不再出现 9/10px 小字 ── */
@@ -70,7 +74,8 @@ test('窄屏兜底：可用宽度吃紧时收窄，绝不横向溢出', () => {
   assert.equal(resolvePanelWidth(512), 480, '512-32=480 恰好等于统一值');
   assert.equal(resolvePanelWidth(500), 468, '500-32=468，夹在 [360,480] 内取可用值');
   assert.equal(resolvePanelWidth(400), 368, '400-32=368 ≥360，用可用值');
-  assert.equal(resolvePanelWidth(380), 360, '348 <360 时夹到下限 360，仍 ≤ 视口-32');
+  assert.equal(resolvePanelWidth(392), 360, '392-32=360 恰好等于下限');
+  assert.equal(resolvePanelWidth(380), 348, '可用宽度小于下限时吃满可用宽度，绝不超过视口');
   assert.equal(resolvePanelWidth(320), 288, '极窄屏吃满可用宽度，不强行撑到 360 造成横向滚动');
   assert.equal(resolvePanelWidth(0), 480, '未知视口回落到统一值');
 });
