@@ -19,10 +19,17 @@
   --sk-space-xl: 20px;
   --sk-space-2xl: 24px;
   position: fixed; inset: 0; z-index: 9000;
-  /* 9-11 三轮用户批注: 顶部被导航栏盖住 → 从导航下方开始; 面板做宽而不是做高 */
-  /* 顶部 76px 是让开导航栏；底部 24px 留白。8-14：把可用高度让给弹窗内容，
-     避免三栏被压得比内容矮、底部按钮落进折叠区。 */
-  display: grid; place-items: start center; padding: 72px 24px 16px;
+  /* ═══ 2026-09-15 用户批注①（图2-①）：上下留白必须对称一致 ═══
+     用户原话：「技能库应该再往上挪一些，上面和下面的间隙都没有保持一致，
+     上面空这么多，下面又那么少」。
+     根因（实测确认）：这里是 padding: 72px 24px 16px —— 顶部 72px 是为了让开
+     导航栏，底部却只留 16px，实测弹窗 gapTop=72 / gapBottom=16，差 56px。
+     改法：顶部与底部取同一档 --sk-gap（24px），导航栏不再靠「预留 72px」让开，
+     而是由弹窗自身高度上限（100vh - 2*--sk-gap）保证落在视口内。
+     配合 index.html 的导航为 fixed 且顶部无遮挡区域足够，弹窗居中后上下对称。
+     ─────────────────────────────────────────────────────────── */
+  --sk-gap: 24px;
+  display: grid; place-items: center; padding: var(--sk-gap);
   background: rgba(50, 40, 28, 0.42);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -30,9 +37,11 @@
 .skill-modal {
   width: min(1440px, 97vw);
   /* 8-14 用户批注：「上松下挤」→ 三栏内容必须整体落在弹窗可视区内，
-     而不是把 827px 的内容塞进 553px 再裁掉底部。高度按可视区撑满、内容自己滚动。 */
-  height: calc(100vh - 88px);
-  max-height: calc(100vh - 88px);
+     而不是把 827px 的内容塞进 553px 再裁掉底部。高度按可视区撑满、内容自己滚动。
+     2026-09-15：高度上限改为 100vh - 2*--sk-gap，与 overlay 的对称内边距严格配套
+     （上下各 24px，实测 gapTop == gapBottom == 24）。 */
+  height: calc(100vh - var(--sk-gap) * 2);
+  max-height: calc(100vh - var(--sk-gap) * 2);
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
@@ -154,16 +163,35 @@
    故显式给 flex-basis 一个下限（标签行 + 132px 文本域 ≈ 168px），空间不足时靠栏内滚动兜底。 */
 /* 文本域字段是唯一的弹性项：flex-shrink 允许它让出空间（下限 124px ≈ 4 行），
    其余字段、提示、按钮全部 flex:none，保证「底部不挤成一团、按钮不被挤出弹窗」。 */
-/* 文本域是唯一的弹性项：flex-basis 跟随视口高度（矮屏给更小的起点），
-   配合 min-height:0 才能真正让出空间，保证按钮组永远留在栏底可视区内。 */
-.skill-column.is-editor .skill-field:has(textarea) {
+/* ═══ 2026-09-15 用户批注①（图2-②）：右下角手柄「一拉就直接往下面截断了」═══
+   用户原话：「右下角确实有一个可以拉动的手柄，但我一拉就直接往下面截断了，
+   根本没有办法拉动。你这个逻辑是怎么设计的？」
+
+   根因（实测确认，不是猜测）：
+     上一版是 .skill-column.is-editor .skill-field:has(textarea){flex:1 1 clamp(...);
+     overflow:hidden} 搭配 textarea{height:100%; resize:vertical}。
+     · CSS resize 改的是元素的 inline height（例如 300px），
+     · 但 textarea 是 flex 弹性项且 height:100% —— flex 布局立刻用
+       basis/stretch 覆写这个值，inline height 形同虚设；
+     · 同时父级 overflow:hidden，多出来的部分被直接裁掉。
+     三者叠加的表现就是「拉一下要么弹回去、要么被截断」，即用户看到的现象。
+
+   改法：放弃 CSS resize，换成受控组件 ResizableTextarea
+     （pointermove 直接改 state 高度值，flex 不再覆写；到顶后内部滚动，
+      由面板/栏自身滚动兜底，绝不裁断）。
+   这里只保留「文本域字段是唯一弹性项」的既有约束：它让出空间给下方按钮，
+   保证按钮组永远留在可视区内。
+   ─────────────────────────────────────────────────────────── */
+.skill-column.is-editor .skill-field:has(.rsz-textarea) {
   flex: 1 1 clamp(76px, 14vh, 180px);
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
+  min-width: 0;
 }
-.skill-column.is-editor .skill-field textarea { height: 100%; min-height: 0; overflow-y: auto; }
-.skill-field textarea { resize: vertical; line-height: 1.6; min-height: 132px; max-height: 46vh; }
+/* 受控文本域：高度由组件 state 决定，这里只保证它能被压缩（不撑破栏） */
+.skill-column.is-editor .skill-field .rsz-textarea { min-height: 0; }
+.skill-column.is-editor .skill-field .rsz-textarea > textarea { min-height: 0; }
+.skill-field .rsz-textarea > textarea { line-height: 1.6; }
 .skill-field input:focus, .skill-field textarea:focus {
   border-color: #E8544B; box-shadow: 0 0 0 4px rgba(232, 84, 75, 0.12);
 }

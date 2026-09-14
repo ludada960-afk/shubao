@@ -6,6 +6,7 @@ import {
   createSkillGroup,
 } from '../../../services/skills.js';
 import { useModalScrollLock } from '../../../components/ui/useModalScrollLock.js';
+import ResizableTextarea from './ResizableTextarea.jsx';
 import './skill-library.css';
 
 const KINDS = Object.freeze([
@@ -310,10 +311,22 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
 
             <label className="skill-field">
               <span>技能提示词</span>
-              <textarea
+              {/* 2026-09-15 用户批注①（图2-②）：「右下角确实有一个可以拉动的手柄，
+                  但我一拉就直接往下面截断了，根本没有办法拉动」。
+                  根因是 CSS resize:vertical 与 flex 弹性项( height:100% )互相覆写，
+                  再叠加父级 overflow:hidden → 拉出来的高度被裁掉。
+                  改用受控的 ResizableTextarea：拖拽直接改 state 高度，
+                  flex 不再覆写；上限吃到栏内可用空间，超出则栏内滚动。 */}
+              <ResizableTextarea
+                aria-label="技能提示词"
                 value={draft.body}
                 maxLength={LIMITS.body}
                 rows={14}
+                /* 技能库是弹窗不是浮层面板：给一个基于视口的合理上限，
+                   保证拉到顶之前按钮组仍留在可视区内（超出由栏内滚动兜底）。 */
+                available={Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.34)}
+                minHeight={132}
+                maxHeight={Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.46)}
                 placeholder={'- 模块名: 场景氛围图\n- 画面任务: 突出产品整体形象与核心气质'}
                 onChange={event => patchDraft({ body: event.target.value })}
               />
