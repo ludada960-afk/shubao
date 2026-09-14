@@ -104,18 +104,32 @@
   --sb-ink-5: var(--sb-neutral-400);  /* 禁用文字（对比度 2.9:1，禁止用于正文） */
   --sb-ink-on-dark: #FFFFFF;
   --sb-ink-brand:   var(--sb-brand-600);   /* 品牌动作文字 */
-  --sb-ink-danger:  #D0443C;               /* 危险动作文字（≥4.5:1，白底/中性底） */
-  /* ── -strong 档 = 浅色底（--sb-*-soft）上的文字，或 ≤11px 的小字 ──────────────
-     判据：--sb-ink-* 在 --sb-*-soft 上不足 4.5:1 时使用本档。
-     适用范围**仅 danger 族** —— warning / success 的 ink 档在各自 soft 底上已达标
-     （warning 6 处达标、success 6 处全部达标；论证见 docs/design/38-ink-strong-contrast.md）。
-     danger 族有 9 处在浅红底上只有 3.55–4.38:1（AA 4.5:1 不达标），故设本档。
-     ⚠️ 不要在深色面/普通白底上用它 —— 那是 --sb-ink-danger 的用途。
-     ⚠️ 不要因为「看起来对称」就给 warning/success 补 -strong；先量对比度。 */
-  --sb-ink-danger-strong: #93392E;         /* 危险文字 on 浅红底 / 小字（最差 5.66:1）*/
-  --sb-ink-success: #2F7D46;
-  --sb-ink-warning: #B45309;
-  --sb-ink-info:    #3B5BA5;
+  --sb-ink-danger:  #D0443C;               /* 危险动作文字（**图形档**：描边/图标/浅底；文字请用 -strong） */
+  --sb-ink-success: #2F7D46;               /* 成功文字（**图形档**） */
+  --sb-ink-warning: #B45309;               /* 警告文字（**图形档**） */
+  --sb-ink-info:    #3B5BA5;               /* 信息文字（白 6.51 / 页 5.69 —— **已达文字档，可直接用于文字**） */
+  /* ── 文字档（-strong）：**作为 `color:` 用在文本上时必须用这一档** ──────────────
+     判据（D23）：文字档必须同时满足 **白底 #FFFFFF 与页底 #F5EFE4 两个底上 ≥ 4.5:1**。
+     原档（--sb-ink-danger/success/warning）在页底上只有 4.01/4.43/4.39，**不达文字档**，
+     故保留为**图形档**（描边 / 图标 / 点缀 / 填充，判据 ≥3:1，WCAG 1.4.11）。
+
+     取值口径（D23②）：**同色相压深**，不许换色相（换色相就不是同一套视觉语言）。
+        brand   #7C3AED H262° 原值即达标 → 沿用
+        danger  #93392E H7°   （D22 既有先例，白 7.33 / 页 6.40）
+        success #2C7642 H138° （由 #2F7D46 压深 L34%→32%）
+        warning #A84D08 H26°  （由 #B45309 压深 L37%→35%）
+        info    #3B5BA5 H222° 原值即达标 → 沿用
+
+     ⚠️ 门禁：`test/ink-contrast.test.mjs` 会解析本文件的**实际取值**断言上表两个底 ≥4.5:1，
+        并反向断言「`color:` 不得引用图形档」。改值前先跑它。
+     ⚠️ 与 38-ink-strong-contrast.md 的关系：该文档判据是「ink 在各自 soft 浅底上 ≥4.5」，
+        结论仍成立（success/warning 在 soft 上确实达标）；D23 是**更严且不同**的判据
+        （白底+页底），二者不冲突，本档按 D23 执行。 */
+  --sb-ink-brand-strong:   #7C3AED;   /* 品牌文字（白 5.70 / 页 4.98） */
+  --sb-ink-danger-strong:  #93392E;   /* 危险文字（白 7.33 / 页 6.40） */
+  --sb-ink-success-strong: #2C7642;   /* 成功文字（白 5.56 / 页 4.86） */
+  --sb-ink-warning-strong: #A84D08;   /* 警告文字（白 5.63 / 页 4.92） */
+  --sb-ink-info-strong:    #3B5BA5;   /* 信息文字（白 6.51 / 页 5.69） */
 
   /* ══════════════════════════════════════════════════════════════════════════
      §5 色板 · 语义状态（Semantic）
@@ -453,6 +467,36 @@
 }
 .sb-focusable-inverse:focus-visible {
   outline: var(--sb-focus-ring-w) solid #FFFFFF;
+  outline-offset: var(--sb-focus-ring-offset);
+}
+
+/* ── §17b 全局焦点基线：**任何可聚焦元素默认都有可见焦点环** ──────────────────
+   为什么需要（实测，不是推测）：全站 332 个「可点」选择器里，只有 53 个自己声明了
+   :focus-visible；其余 279 个**完全依赖浏览器 UA 默认焦点环**。UA 环在各浏览器不一致，
+   而 **Safari 对 `<button>` 根本不画焦点环** —— 同一个按钮，Safari 用户键盘 Tab 过去
+   **什么都看不见**。把「焦点可见」交给浏览器默认值，等于把可访问性交给运气。
+
+   为什么它是**安全的纯增量**：关键在 `:where()` —— 它的**特异性为 0**，所以
+     ① 任何组件自己写的 `:focus-visible`（特异性 ≥ 0,1,0）**照样赢**，不会被这里顶掉；
+     ② 任何 `outline: none` 的抑制声明**照样赢**，不会被这里"复活"成一个多余的环；
+   也就是：它**只在「本来什么都没有」的地方**生效。没有 `!important`，也**禁止**加。
+
+   覆盖范围：原生可聚焦元素 + 常见 ARIA 控件角色 + 任何带 tabindex 的元素。
+   ⚠️ **排除 `[tabindex="-1"]`**：那是用脚本聚焦的**容器**（对话框根、滚动容器、焦点陷阱锚点），
+      给它们画环会在弹窗边缘套一个框 —— 那是噪音，不是可访问性。
+   ⚠️ 深底上的元素需要反色环（紫环在深底上仍达 3:1，但白环更醒目）：用 `.sb-focusable-inverse`，
+      它的特异性更高，照常覆盖本基线。
+   ⚠️ 环几何由 §16 的 token 统一控制（≥2px，WCAG 2.4.13）；**不许**在这里写死像素或颜色。 */
+:where(
+  a[href], area[href], button, input, select, textarea, summary,
+  audio[controls], video[controls], [contenteditable]:not([contenteditable="false"]),
+  [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"],
+  [role="menuitemradio"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"],
+  [role="treeitem"], [role="gridcell"], [role="slider"], [role="spinbutton"], [role="combobox"],
+  [role="textbox"], [role="searchbox"], [role="listbox"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: var(--sb-focus-ring-w) solid var(--sb-focus-ring-color);
   outline-offset: var(--sb-focus-ring-offset);
 }
 

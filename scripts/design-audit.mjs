@@ -301,8 +301,14 @@ if (staleExemptions.length) {
   console.log('    ⚠️  豁免表过期：以下条目已不再适用，应从 HOVER_EXEMPT 删除 → ' + staleExemptions.join(' / '));
 }
 for (const it of unregistered.slice(0, 8)) console.log('        · ' + it.rel + ':' + it.at + '  ' + it.base.slice(0, 62));
-console.log('    · 显式焦点覆盖率:   ' + explicitFocus + '/' + clickables.size + ' (' + cov + '%)   ' +
-  '[其余靠 UA 默认焦点环：Chrome/FF 可见，**Safari 对按钮不画焦点环**]');
+/* §17b 全局焦点基线（:where(...):focus-visible）落地后，口径要跟着变：
+   「没有显式 :focus-visible」**不再等于**「看不见焦点」——
+   元素级基线（特异性 0）已给所有原生可聚焦元素 + ARIA 控件 + [tabindex]:not([-1]) 兜底，
+   且它不会顶掉任何组件自己的环（零特异性）。
+   所以本行是**自有实现率**（设计一致性指标），不是「缺陷数」；真正的缺陷由 D11「不可达焦点」盯。
+   门禁：test/focus-visible-baseline.test.mjs（基线存在 + ≥2px + 环色三底色 ≥3:1 + 无 !important）。 */
+console.log('    · 自有 :focus-visible: ' + explicitFocus + '/' + clickables.size + ' (' + cov + '%)   ' +
+  '[其余由 §17b **元素级全局基线**兜底（零特异性，不顶掉组件的自定义环）；基线本身有门禁]');
 for (const it of noFocus.slice(0, 6)) console.log('        · ' + it.rel + ':' + it.at + '  ' + it.base.slice(0, 62));
 /* ── ②c 静默失效的声明（**CSS 里写了但浏览器直接丢弃**）────────────────────
    与「幽灵变量」同族：不报错、不告警、构建与测试都不红，但样式**从来没生效过**。
