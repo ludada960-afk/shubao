@@ -155,26 +155,41 @@ test('② 分组标题与内容层级明确（标题 13/700，内容间距走阶
   assert.ok(spec.includes('groupTitle: 700'), '分组标题 700 字重');
 });
 
-test('② 控件点击区放大到 ≥32px（清晰度分段控件 40px）', () => {
-  /* 用户要求：清晰度等分段控件点击区必须 ≥40px（改造前是 30px）。
-     断言改为「解析实现里的高度取值并校验下限」，这样规范常量名或 V3 token 都能通过，
-     但**任何缩水都会被抓住**。V3 阶梯：--sb-control-h-sm=28 / -md=32 / -lg=36 / -xl=44。 */
-  const SB_H = { sm: 28, md: 32, lg: 36, xl: 44 };
-  const resolved = [];
-  /* 两种等价写法都要认：权威名 --sb-control-h-{xs,sm,md,lg,xl} 与兼容别名 --sb-control-{sm,md,lg}。 */
-  for (const m of panel.matchAll(/height:\s*'?var\(--sb-control-(?:h-)?(xs|sm|md|lg|xl)\)'?/g)) {
-    resolved.push(m[1] === 'xs' ? 24 : SB_H[m[1]]);
-  }
-  for (const m of panel.matchAll(/height:\s*CONTROL_HEIGHT\.(compact|base|large)/g)) {
-    resolved.push({ compact: 32, base: 36, large: 40 }[m[1]]);
-  }
-  for (const m of panel.matchAll(/height:\s*(\d+)\b/g)) resolved.push(Number(m[1]));
-  assert.ok(resolved.length >= 3, '控件高度必须来自规范（常量或 V3 token），而不是散装像素');
+test('② 控件点击区不缩水：分段控件 ≥40px，色块/锁定按钮 ≥36px（断言实际数值）', () => {
+  /* ── 用户需求原文：「点击区不许变小」 ──
+     清晰度等分段控件 ≥40px（改造前 30px）；色块/锁定按钮 ≥36px（改造前 30px）。
+     本断言**解析实现里的高度取值并校验数值下限**，不绑定任何常量名或 token 名 ——
+     无论实现换成 CONTROL_HEIGHT 常量、--sb-control-h-*、--sb-control-{sm,md,lg,touch}
+     别名，还是直接写数字，都仍能被正确判定，且**任何缩水都会被抓住**。
+     V3 阶梯：--sb-control-h-sm=28 / -md=32 / -lg=36 / -xl=44；
+     兼容别名 --sb-control-sm/md/lg/touch 指向同一组。 */
+  const LADDER = { xs: 24, sm: 28, md: 32, lg: 36, xl: 44, touch: 44, compact: 32, base: 36, large: 40 };
+  /** 把一个高度写法解析成像素值；解析不到返回 null。 */
+  const toPx = raw => {
+    const token = raw.match(/var\(--sb-control-(?:h-)?([a-z-]+)\)/);
+    if (token) return LADDER[token[1]] ?? null;
+    const konst = raw.match(/CONTROL_HEIGHT\.([a-z]+)/);
+    if (konst) return LADDER[konst[1]] ?? null;
+    const num = raw.match(/^(\d+)$/);
+    return num ? Number(num[1]) : null;
+  };
+  const heights = [...panel.matchAll(/height:\s*'?([^,'\n}]+)'?\s*[,\n}]/g)]
+    .map(m => toPx(m[1]))
+    .filter(v => v !== null);
+  assert.ok(heights.length >= 3, '控件高度必须显式来自规范/阶梯，而不是散装像素');
+  /* ① 清晰度分段控件 ≥40px（用户明确要求） */
   assert.ok(
-    Math.max(...resolved) >= 40,
-    '清晰度等分段控件的点击区必须 ≥40px（用户明确要求），实际最大 ' + Math.max(...resolved),
+    Math.max(...heights) >= 40,
+    '分段控件点击区必须 ≥40px（改造前 30px），实际最大 ' + Math.max(...heights),
   );
-  assert.ok(!/height:\s*30\b/.test(panel), '不得再出现 30px 的小控件（清晰度改造前正是 30px）');
+  /* ② 色块 / 锁定按钮 / 同行输入框 —— 同一排三者都 ≥36px */
+  const atLeast36 = heights.filter(v => v >= 36).length;
+  assert.ok(atLeast36 >= 3, '色块/锁定按钮/同行输入框必须 ≥36px，实际 ≥36 的有 ' + atLeast36 + ' 处');
+  assert.ok(!/height:\s*30\b/.test(panel), '不得再出现 30px 的小控件（改造前正是 30px）');
+  assert.ok(
+    !/height:\s*'?var\(--sb-control-sm\)'?/.test(panel),
+    '色块/锁定按钮不得使用最小的 28px 档',
+  );
 });
 
 /* ═══ ② 六面板宽度统一 ═══ */

@@ -269,8 +269,10 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 onClick={() => setPickerOpen(open => !open)}
                 style={{
                   position: 'relative',
-                  width: 'var(--sb-control-md)',
-                  height: 'var(--sb-control-md)',
+                  /* 用户明确要求：点击区不许变小。色块/锁定按钮 ≥36px
+                     （改造前 30px）→ --sb-control-lg(36)。 */
+                  width: 'var(--sb-control-lg)',
+                  height: 'var(--sb-control-lg)',
                   flexShrink: 0,
                   borderRadius: 'var(--sb-radius-control)',
                   cursor: 'pointer',
@@ -290,7 +292,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 placeholder="未锁定"
                 style={{
                   flex: 1, minWidth: 0,
-                  height: 'var(--sb-control-md)',
+                  /* 与同排色块/锁定按钮同高，保证一行基线一致 */
+                  height: 'var(--sb-control-lg)',
                   boxSizing: 'border-box',
                   padding: '0 var(--sb-space-3)',
                   borderRadius: 'var(--sb-radius-control)',
@@ -307,7 +310,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 onClick={toggleBrand}
                 style={{
                   flexShrink: 0,
-                  height: 'var(--sb-control-md)',
+                  /* 与色块同档 ≥36px（用户「点击区不许变小」） */
+                  height: 'var(--sb-control-lg)',
                   minWidth: 'var(--sb-control-min-w)',
                   padding: '0 var(--sb-space-3)',
                   borderRadius: 'var(--sb-radius-control)',
