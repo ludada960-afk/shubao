@@ -48,6 +48,22 @@ test('① 色块描边跟随所选颜色本身，锁定态不是写死的紫色 
     !/repeating-conic-gradient/.test(panel),
     '面板不得内联棋盘底 —— 必须引用 NEUTRAL_UNLOCKED',
   );
+  /* ── 变异测试补强（2026-09 新标准：断言必须能杀死变异体）──
+     上面几条只校验「常量定义得对」+「面板引用了常量名」，
+     但**引用点的三元分支本身**没有护栏：把
+       border: brandLocked ? `2px solid ${pickerColor}` : NEUTRAL_UNLOCKED.border
+     改成 … : '2px dashed #7c3aed' 时，之前全部断言仍然通过（变异体存活）。
+     故补一条：未锁定分支必须**且只能**取 NEUTRAL_UNLOCKED.border/background。 */
+  assert.match(
+    panel,
+    /:\s*NEUTRAL_UNLOCKED\.border\b/,
+    '未锁定分支的描边必须直接取 NEUTRAL_UNLOCKED.border（不得内联字面量，否则变异体存活）',
+  );
+  assert.match(
+    panel,
+    /:\s*NEUTRAL_UNLOCKED\.background\b/,
+    '未锁定分支的底色必须直接取 NEUTRAL_UNLOCKED.background',
+  );
 });
 
 test('① 默认态是「未锁定」：暂存色不再是品牌紫 #7c3aed，取色盘默认收起', () => {
