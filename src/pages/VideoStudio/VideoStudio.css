@@ -293,7 +293,7 @@
 .video-config-panel > header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 11px; padding: 16px 18px; border-bottom: 1px solid rgba(68,55,43,.08); background: var(--sb-surface-panel-solid); }
 .video-config-panel > header > span { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--sb-brand-a10); border-radius: 9px; background: #f7f3ff; color: #714cf1; }
 .video-config-panel > header div { display: grid; gap: 3px; }
-.video-config-panel > header strong { font-size: 15px; }
+.video-config-panel > header strong { font-size: 16px; }
 .video-config-panel > header small { color: #9a928a; font-size: 11px; }
 .video-config-panel-body { padding: 17px 18px 20px; }
 

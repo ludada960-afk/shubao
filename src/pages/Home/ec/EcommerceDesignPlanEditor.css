@@ -173,7 +173,7 @@
 .ec-shared-shot-summary strong {
   overflow: hidden;
   color: #2a3a32;
-  font-size: 15px;
+  font-size: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -247,7 +247,7 @@
 .ec-shared-plan-preview-brief {
   margin: 20px 0 22px;
   color: #394452;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.8;
 }
 .ec-shared-plan-preview-grid {
@@ -279,7 +279,7 @@
   gap: 12px;
   margin-bottom: 3px;
 }
-.ec-shared-plan-preview-shots-title b { color: #253140; font-size: 15px; }
+.ec-shared-plan-preview-shots-title b { color: #253140; font-size: 16px; }
 .ec-shared-plan-preview-shots-title span { color: #7a8694; font-size: 12px; }
 .ec-shared-plan-preview-shots > div:not(.ec-shared-plan-preview-shots-title) {
   display: grid;
@@ -352,7 +352,7 @@
   border-bottom: 1px dashed #ece5da;
 }
 .ec-direction-supplement-title strong {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   color: #2a2530;
   letter-spacing: -0.2px;

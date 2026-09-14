@@ -42,7 +42,7 @@
 .video-project-plan > header small { color: #7562d0; font-size: 10px; font-weight: 750; }
 .video-project-plan.is-ready > header small { color: var(--sb-info); }
 .video-project-plan.is-blocked > header small { color: #b24d42; }
-.video-project-plan h3 { margin: 4px 0 3px; font-size: 15px; }
+.video-project-plan h3 { margin: 4px 0 3px; font-size: 16px; }
 .video-project-plan p { margin: 0; color: #8a8197; font-size: 11px; line-height: 1.6; }
 .video-project-plan > header button { min-height: 30px; padding: 0 10px; border: 1px solid var(--sb-brand-100); border-radius: 6px; color: #6655b7; background: var(--sb-neutral-0); font-size: 10px; font-weight: 750; }
 .video-project-plan > header button:disabled { cursor: not-allowed; opacity: .52; }
@@ -134,7 +134,7 @@
 .video-project-skill-preview > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .video-project-skill-preview > header > div { min-width: 0; }
 .video-project-skill-preview > header small { color: #7562d0; font-size: 10px; font-weight: 750; }
-.video-project-skill-preview h3 { margin: 4px 0 3px; font-size: 15px; }
+.video-project-skill-preview h3 { margin: 4px 0 3px; font-size: 16px; }
 .video-project-skill-preview p { margin: 0; color: #8a8197; font-size: 11px; line-height: 1.6; }
 .video-project-skill-preview > header button { min-height: 30px; padding: 0 10px; border: 1px solid var(--sb-brand-100); border-radius: 6px; color: #6655b7; background: var(--sb-neutral-0); font-size: 10px; font-weight: 750; }
 .video-project-skill-preview-form { margin-top: 13px; display: grid; grid-template-columns: 220px minmax(0,1fr) 132px; gap: 8px; align-items: end; }
@@ -196,7 +196,7 @@
 .video-project-replay-preview > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .video-project-replay-preview > header > div { min-width: 0; }
 .video-project-replay-preview > header small { color: #7562d0; font-size: 10px; font-weight: 750; }
-.video-project-replay-preview h3 { margin: 4px 0 3px; font-size: 15px; }
+.video-project-replay-preview h3 { margin: 4px 0 3px; font-size: 16px; }
 .video-project-replay-preview p { margin: 0; color: #8a8197; font-size: 11px; line-height: 1.6; }
 .video-project-replay-preview > header button { min-height: 30px; padding: 0 10px; border: 1px solid #cfc3f3; border-radius: 6px; color: var(--sb-brand-700); background: var(--sb-neutral-0); font-size: 10px; font-weight: 750; }
 .video-project-replay-summary { margin-top: 13px; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 7px; }
@@ -217,7 +217,7 @@
 .video-project-band > header { min-height: 44px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .video-project-band > header > div { display: flex; align-items: flex-start; gap: 12px; }
 .video-project-band > header > div > small { padding-top: 2px; color: #ed755d; font: 700 15px/1.4 ui-monospace,monospace; }
-.video-project-band h3 { margin: 0; font-size: 15px; }
+.video-project-band h3 { margin: 0; font-size: 16px; }
 .video-project-band header p { margin: 4px 0 0; color: #928980; font-size: 11px; }
 .video-project-band > header > b { color: #7d746a; font-size: 11px; }
 .video-project-controls { margin-top: 15px; display: grid; grid-template-columns: minmax(240px,.8fr) minmax(360px,1.2fr); gap: 12px; }

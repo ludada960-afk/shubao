@@ -62,7 +62,7 @@
 /* 操作按钮：悬停才浮现的遮罩胶囊（够大够清楚） */
 .canvas-library-card-actions { position: absolute; top: 10px; right: 10px; z-index: 4; display: flex; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library-card:hover .canvas-library-card-actions, .canvas-library-card:focus-within .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
-.canvas-library-card-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.32); background: rgba(20,18,16,.58); color: #fff; font-size: 15px; background: rgba(255,255,255,.94); color: #44403c; font-size: 12px; cursor: pointer; }
+.canvas-library-card-actions button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.32); background: rgba(20,18,16,.58); color: #fff; font-size: 14px; background: rgba(255,255,255,.94); color: #44403c; font-size: 12px; cursor: pointer; }
 .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
 /* 标题/时间是**底部遮罩**，不占容器高度（图片不再被“折断”） */
 .canvas-library-card-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 30px 14px 13px; background: linear-gradient(180deg, rgba(15,15,18,0), rgba(15,15,18,.74)); }
@@ -204,7 +204,7 @@
 /* ③ 操作按钮：悬停浮现的遮罩胶囊，尺寸放大到看得清 */
 .canvas-library.is-page .canvas-library-card-actions { top: 10px; right: 10px; display: flex; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
 .canvas-library.is-page .canvas-library-card:hover .canvas-library-card-actions { opacity: 1; transform: translateY(0); }
-.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 15px; backdrop-filter: blur(6px); }
+.canvas-library.is-page .canvas-library-card-actions button { width: 34px; height: 34px; border-radius: 10px; background: rgba(20,18,16,.58); border: 1px solid rgba(255,255,255,.32); color: #fff; font-size: 14px; backdrop-filter: blur(6px); }
 .canvas-library.is-page .canvas-library-card-actions button:hover { background: rgba(124,58,237,.92); border-color: rgba(255,255,255,.6); }
 
 /* ═══ ③ 新建卡重做（9-16 用户批注 · 图11）═════════════════════════════════

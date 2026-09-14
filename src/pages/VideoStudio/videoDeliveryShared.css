@@ -22,7 +22,7 @@
 }
 
 .vdd-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px; }
-.vdd-head h2 { flex: 1; margin: 0; font-size: 15px; color: var(--sb-ink-1); }
+.vdd-head h2 { flex: 1; margin: 0; font-size: 16px; color: var(--sb-ink-1); }
 .vdd-close { width: 28px; height: 28px; border: 0; border-radius: 7px; background: var(--sb-neutral-100); color: var(--sb-ink-2); cursor: pointer; }
 
 .vdd-eyebrow { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: var(--sb-brand-700); white-space: nowrap; }

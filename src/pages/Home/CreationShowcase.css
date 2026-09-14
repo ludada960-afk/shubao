@@ -42,7 +42,7 @@
 .creation-showcase-content-image span { position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 50%; color: var(--sb-neutral-0); background: rgba(30, 24, 20, .62); font-size: 10px; line-height: 16px; text-align: center; }
 .creation-showcase-content-copy { display: flex; min-width: 0; flex-direction: column; padding: 6px 5px 4px; }
 .creation-showcase-content-platform { color: #c24d68; font-size: 10px; font-weight: 700; }
-.creation-showcase-content-copy strong { display: -webkit-box; overflow: hidden; margin-top: 8px; color: #292321; font-size: 15px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.creation-showcase-content-copy strong { display: -webkit-box; overflow: hidden; margin-top: 8px; color: #292321; font-size: 16px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .creation-showcase-content-copy p { display: -webkit-box; overflow: hidden; margin: 9px 0 0; color: #7b706c; font-size: 11px; line-height: 1.65; white-space: pre-line; -webkit-box-orient: vertical; -webkit-line-clamp: 7; }
 .creation-showcase-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 10px; }
 .creation-showcase-tags span { color: #bc5871; font-size: 10px; }
@@ -148,7 +148,7 @@
 .xhs-mode-card-check { position: absolute; top: 50%; right: 14px; color: #be185d; transform: translateY(-50%); }
 .xhs-mode-card-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .xhs-mode-card-copy small { color: #a65b37; font-size: 10px; font-weight: 800; }
-.xhs-mode-card-copy strong { overflow: hidden; color: #292321; font-size: 15px; font-weight: 900; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.xhs-mode-card-copy strong { overflow: hidden; color: #292321; font-size: 16px; font-weight: 900; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .xhs-mode-card-copy > span { overflow: hidden; color: #786f67; font-size: 11px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .xhs-mode-fan { position: relative; width: 116px; height: 78px; flex: 0 0 116px; }
 .xhs-mode-fan-card { position: absolute; top: 50%; width: 54px; height: 72px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .92); border-radius: 7px; background: #f1e7df; box-shadow: 0 5px 12px rgba(64, 44, 33, .16); transform-origin: 50% 72%; transition: transform .2s ease; }
@@ -179,7 +179,7 @@
 .xhs-input-template .xhs-ecommerce-media-column { padding: 8px 4px 0; }
 .xhs-input-template .xhs-ecommerce-media-strip { width: 100%; min-height: 128px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; overflow-x: auto; overflow-y: visible; scrollbar-width: thin; }
 .xhs-input-template .ec-xhs-prompt { display: flex; height: 92px; min-height: 92px; margin: 0; padding: 6px 0; border: 0; border-radius: 0; background: transparent; cursor: text; }
-.xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field { display: block; width: 100%; min-height: 0; flex: 1 1 auto; box-sizing: border-box; padding: 8px 18px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 15px; line-height: 22px; caret-color: var(--text-primary); }
+.xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field { display: block; width: 100%; min-height: 0; flex: 1 1 auto; box-sizing: border-box; padding: 8px 18px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 14px; line-height: 22px; caret-color: var(--text-primary); }
 .xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field::placeholder { color: #aa9d95; opacity: 1; }
 .xhs-prompt-hints { display: grid; flex: 0 0 auto; gap: 0; padding: 0 18px 4px; color: #b2a69e; font-size: 11px; line-height: 18px; pointer-events: none; }
 .xhs-prompt-hints span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -327,7 +327,7 @@
 .xhs-main-card .xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field {
   min-height: 104px;
   padding: 8px 18px;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 28px;
 }
 

@@ -235,7 +235,7 @@
 }
 .pricing-modal__tab-name {
   font-size: 17px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
 }
 .pricing-modal__tab-sub {
@@ -396,7 +396,7 @@
   color: #c2570b;
 }
 .pricing-modal__pack-price-period {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--sb-ink-3);
   align-self: flex-end;

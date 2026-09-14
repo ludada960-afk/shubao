@@ -11,7 +11,7 @@
 .vision-alert { padding: 10px 14px; border-radius: 10px; background: rgba(239,68,68,0.08); color: var(--sb-ink-danger); font-size: var(--sb-text-md); }
 .vision-stage { min-height: 360px; border: 1px dashed rgba(15,23,42,0.18); border-radius: 14px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: rgba(248,250,252,0.5); }
 .vision-empty { cursor: pointer; color: var(--sb-ink-3); text-align: center; display: flex; flex-direction: column; gap: var(--sb-space-1); padding: 36px; }
-.vision-empty strong { font-size: 15px; color: #1e293b; }
+.vision-empty strong { font-size: 16px; color: #1e293b; }
 .vision-canvas { position: relative; max-width: 100%; max-height: 70vh; user-select: none; }
 .vision-canvas img { display: block; max-width: 100%; max-height: 70vh; object-fit: contain; }
 .vision-annot { position: absolute; border: 2px solid var(--sb-warning); background: rgba(245,158,11,0.10); border-radius: var(--sb-radius-xs); }
