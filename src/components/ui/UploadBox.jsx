@@ -29,6 +29,10 @@ export default function UploadBox({ images = [], onAdd, onRemove, label, optiona
 
   return (
     <div style={{ position: 'relative', flex: '1 1 0', minWidth: 0 }}>
+      {/* C 类保留（D24 第 3 条 / 41-scales §2「C. 保留」）：
+          本组件整块渲染在**深色画布卡**上，下列 rgba(255,255,255,·) 是
+          「深色底上的玻璃/描边层」，V3 无等值语义档（--sb-border 与 --sb-surface 各档均为暖白底用）。
+          硬凑到任一 token 都会在深底上变色 → 按 D15「不许近似顶替」保留字面量。 */}
       {/* Label */}
       <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)' }}>
         {label}

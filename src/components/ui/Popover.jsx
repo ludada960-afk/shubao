@@ -90,6 +90,9 @@ export default function Popover({ id, trigger, children, align = 'left', width =
           zIndex: 'var(--sb-z-dropdown)',
           background: 'var(--sb-neutral-0)',
           borderRadius: 'var(--sb-radius-2xl)',
+          /* C 类保留（D15/D24）：
+             · --border = rgba(231,229,228,0.8)，V3 --sb-border-* 是暖黑 rgba(12,10,9,·)，无等值；
+             · 阴影与 --sb-shadow-xl 同为暖黑系但**值不等**（V3 为双层），近似顶替会改观感。 */
           border: '1px solid var(--border)',
           boxShadow: '0 18px 46px rgba(57,45,26,0.16)',
           padding: 0,

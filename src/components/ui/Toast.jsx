@@ -44,6 +44,7 @@ export function ToastProvider({ children }) {
             background: colors[t.type] || colors.info,
             color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
             padding: '10px 20px', borderRadius: 'var(--sb-radius-lg)',
+            /* C 类保留（D15）：V3 --sb-shadow-lg 是双层暖黑阴影，值不等 → 保留。 */
             boxShadow: '0 6px 20px rgba(12,10,9,0.2)',
             animation: 'toastSlideIn 0.3s ease',
             maxWidth: '90vw', wordBreak: 'break-word',
