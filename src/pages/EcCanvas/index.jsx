@@ -411,7 +411,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       style={{
         position: 'absolute', left: node.x, top: node.y, width: node.w,
         cursor: 'grab', userSelect: 'none', borderRadius: 8,
-        boxShadow: selected ? '0 0 0 2.5px #7c3aed, 0 8px 32px rgba(124,58,237,0.25)' : '0 4px 16px rgba(0,0,0,0.10)',
+        boxShadow: selected ? '0 0 0 2.5px #7c3aed, 0 8px 32px rgba(124,58,237,0.25)' : '0 4px 16px rgba(12,10,9,0.10)',
         background: '#fff', opacity: dimmed ? 0.34 : 1, transition: 'box-shadow 0.15s, opacity 0.16s', touchAction: 'none',
       }}
     >
@@ -420,7 +420,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         data-canvas-node-check="true"
         aria-label={selected ? '取消选择' : '选择节点'}
         onPointerDown={e => { e.stopPropagation(); onToggleSelect?.(e, node.id); }}
-        style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? '#7c3aed' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(0,0,0,.16)' }}
+        style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? '#7c3aed' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(12,10,9,.16)' }}
       >
         {selected ? <SquareCheck /> : <Square />}
       </button>
@@ -6197,7 +6197,7 @@ const handlePointerUp = useCallback((e) => {
        画布自己的「返回」按钮（.ec-canvas-topbar 里的 aria-label="返回"）也不在选择器内 ——
        于是用户点返回**直接回到首页，既不询问也不保存**（实测 reqs 为空、无弹窗）。
        把画布自己的离开入口一并纳入：返回按钮 + 顶栏 + 让位区的导航型按钮。 */
-    const LEAVING_SELECTOR = '.app-side-nav, .creative-nav, .app-topbar, .topbar, .ec-canvas-topbar, [data-canvas-leave-guard]';
+    const LEAVING_SELECTOR = '.app-side-nav, .creative-nav, .app-topbar, .topbar, [data-canvas-leave-guard], .ec-canvas-topbar [aria-label="返回"]'; /* 9-18 P0 修复：原先含整条 .ec-canvas-topbar，导致「新建画布/导出/模板广场/页签」在画布非空时被捕获阶段劫持；现只认返回按钮与显式标记 */
     const handleCapture = async event => {
       if (leaveGuardBypassRef.current) return;
       const target = event.target instanceof Element ? event.target.closest('a,button') : null;
@@ -7279,7 +7279,7 @@ const handlePointerUp = useCallback((e) => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
               {(tab === 'trash' ? trashWorks : visibleWorks).map(work => (
-                <div key={work.id} style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <div key={work.id} style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid rgba(12,10,9,0.06)', boxShadow: '0 2px 8px rgba(12,10,9,0.04)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{work.name}</div>
@@ -7304,12 +7304,12 @@ const handlePointerUp = useCallback((e) => {
                   </div>
                   <div style={{ display: 'flex', gap: 6, padding: '0 14px 12px', overflowX: 'auto' }}>
                     {canvasWorkCategory(work) === 'video' && work.videoUrl ? <video src={work.videoUrl} controls playsInline preload="metadata" style={{ width: '100%', height: 180, objectFit: 'contain', borderRadius: 8, background: '#111827' }} /> : (work.images || []).slice(0, 6).map((img, i) => (
-                      <button key={i} type="button" onClick={() => openImagePreview({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
+                      <button key={i} type="button" onClick={() => openImagePreview({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid rgba(12,10,9,0.06)', flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
                         <ResponsiveImage src={img} variant="thumb" ratio="1:1" alt={img.label || `作品图片 ${i + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     ))}
                     {!work.videoUrl && !work.images?.length && work.productAssets?.length ? work.productAssets.map((asset, index) => (
-                      <button key={`${asset.projectAssetId || asset.assetId || index}`} type="button" onClick={() => openImagePreview({ url: proxyImg(asset.url || asset.stableUrl), label: asset.name || asset.label || `项目图片 ${index + 1}` })} style={{ width: 180, height: 72, padding: 0, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
+                      <button key={`${asset.projectAssetId || asset.assetId || index}`} type="button" onClick={() => openImagePreview({ url: proxyImg(asset.url || asset.stableUrl), label: asset.name || asset.label || `项目图片 ${index + 1}` })} style={{ width: 180, height: 72, padding: 0, overflow: 'hidden', border: '1px solid rgba(12,10,9,0.06)', borderRadius: 8, flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
                         <ResponsiveImage src={proxyImg(asset.url || asset.stableUrl)} variant="thumb" ratio="1:1" alt={asset.name || asset.label || `项目图片 ${index + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     )) : null}
@@ -7318,7 +7318,7 @@ const handlePointerUp = useCallback((e) => {
                       if (!mediaUrl || (asset.mediaKind === 'video' && work.videoUrl)) return null;
                       const label = asset.name || asset.displayName || asset.role || `${asset.mediaKind === 'video' ? '视频' : '音频'}素材 ${index + 1}`;
                       return asset.mediaKind === 'video' ? <video key={`media-${asset.projectAssetId || asset.assetId || index}`} src={mediaUrl} controls playsInline preload="metadata" aria-label={label} style={{ width: 220, height: 124, objectFit: 'contain', borderRadius: 8, background: '#111827', flexShrink: 0 }} /> : asset.mediaKind === 'audio' ? (
-                        <div key={`media-${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 240, height: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, padding: '0 10px', boxSizing: 'border-box', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569', flexShrink: 0 }}>
+                        <div key={`media-${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 240, height: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, padding: '0 10px', boxSizing: 'border-box', border: '1px solid rgba(12,10,9,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569', flexShrink: 0 }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}><Music size={20} />{label}</span>
                           <audio src={mediaUrl} controls preload="metadata" aria-label={label} style={{ width: '100%', height: 30 }} />
                         </div>
@@ -7571,11 +7571,11 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {inspectorOpen && multiSelected.size > 0 && (
-        <div style={{ position: 'fixed', top: 70, right: 18, zIndex: 10003, width: 220, background: '#fff', border: '1px solid rgba(0,0,0,.08)', borderRadius: 12, boxShadow: '0 12px 36px rgba(0,0,0,.16)', padding: 14 }}>
+        <div style={{ position: 'fixed', top: 70, right: 18, zIndex: 10003, width: 220, background: '#fff', border: '1px solid rgba(12,10,9,.08)', borderRadius: 12, boxShadow: '0 12px 36px rgba(12,10,9,.16)', padding: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: '#1f2937', marginBottom: 8 }}>批量修改分类</div>
           <div style={{ fontSize: 11, color: '#777', marginBottom: 10 }}>已选 {multiSelected.size} 张资产</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {ASSET_GROUPS.map(group => <button key={group} type="button" onClick={() => handleBatchClassify(group)} style={{ border: 0, borderRadius: 8, padding: '8px 6px', background: groupDraft === group ? 'rgba(124,58,237,.12)' : 'rgba(0,0,0,.04)', color: groupDraft === group ? '#7c3aed' : '#555', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>)}
+            {ASSET_GROUPS.map(group => <button key={group} type="button" onClick={() => handleBatchClassify(group)} style={{ border: 0, borderRadius: 8, padding: '8px 6px', background: groupDraft === group ? 'rgba(124,58,237,.12)' : 'rgba(12,10,9,.04)', color: groupDraft === group ? '#7c3aed' : '#555', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>)}
           </div>
         </div>
       )}
@@ -7588,7 +7588,7 @@ const handlePointerUp = useCallback((e) => {
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>再次编辑设计方案</div>
                 <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>修改后可继续生成变体，原图不会被覆盖</div>
               </div>
-              <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button>
+              <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, background: 'rgba(12,10,9,.05)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button>
             </div>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>方案名称<input value={directionTitle} readOnly aria-readonly="true" style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, background: '#f7f7f8', color: '#6b7280', cursor: 'default' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>电商用途<textarea value={directionPurpose} onChange={e => setDirectionPurpose(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
@@ -7596,7 +7596,7 @@ const handlePointerUp = useCallback((e) => {
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 10 }}>文案要求<textarea value={directionCopy} onChange={e => setDirectionCopy(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <span style={{ fontSize: 11, color: '#6b7280' }}>画面比例</span>
-              {['1:1', '3:4', '9:16', '长图'].map(ratio => <button key={ratio} type="button" onClick={() => setDirectionRatio(ratio)} style={{ border: 0, borderRadius: 999, padding: '5px 9px', background: directionRatio === ratio ? '#1f2937' : 'rgba(0,0,0,.05)', color: directionRatio === ratio ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{ratio}</button>)}
+              {['1:1', '3:4', '9:16', '长图'].map(ratio => <button key={ratio} type="button" onClick={() => setDirectionRatio(ratio)} style={{ border: 0, borderRadius: 999, padding: '5px 9px', background: directionRatio === ratio ? '#1f2937' : 'rgba(12,10,9,.05)', color: directionRatio === ratio ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{ratio}</button>)}
             </div>
             {/* 9-16 同款收口：底部操作区对齐全站规范（间距 12px、按钮 36px 高、最小宽 88px、圆角 10px）。 */}
             <div className="ui-modal-footer" style={{ marginTop: 0, padding: 0, borderTop: 0 }}>
@@ -7684,7 +7684,7 @@ const handlePointerUp = useCallback((e) => {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: 10001, overflow: 'hidden', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: 10001, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
