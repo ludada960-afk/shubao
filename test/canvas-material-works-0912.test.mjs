@@ -121,12 +121,13 @@ test('⑦ 首页: 面板滚动隔离 + 双发射按钮合并为同款紧凑组',
   const submitIndex = ec.indexOf('ec-workbench-submit-actions');
   assert.ok(submitIndex > 0, '提交按钮组存在');
   const submitBlock = ec.slice(Math.max(0, submitIndex - 500), submitIndex + 2600);
-  /* 9-11 三轮: 并排两按钮取消 → 一个「下一步」+ 点开二选一 (带设计方案 / 快速生成) */
+  /* 9-14 用户决策: 电商生图 + 万物上身统一默认带设计方案 ——
+     二选一浮层删除, 「下一步」点击即进「生成设计方案 → 进画布」。 */
   assert.match(submitBlock, /下一步/);
-  assert.match(submitBlock, /ec-mode-chooser/);
-  assert.match(submitBlock, /带设计方案/);
-  assert.match(submitBlock, /快速生成/);
-  assert.match(submitBlock, /handleNext\(false\)/);
-  assert.match(submitBlock, /handleNext\(true\)/);
+  assert.doesNotMatch(submitBlock, /ec-mode-chooser/);
+  assert.doesNotMatch(submitBlock, /带设计方案/);
+  assert.doesNotMatch(submitBlock, /快速生成/);
+  assert.match(submitBlock, /handleNext\(\)/);
+  assert.doesNotMatch(submitBlock, /handleNext\(true\)/);
   assert.doesNotMatch(submitBlock, /ec-workbench-quick/);
 });

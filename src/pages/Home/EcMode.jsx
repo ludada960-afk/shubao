@@ -8,7 +8,6 @@ import {
   // 高级 AI 感图标
   Images, // 套图配置
   Wand2, // 技能库 / 带方案
-  Zap, // 快速生成
   SlidersHorizontal, // 产品参数
   Package, // SKU 变体
   FileText, // 文案策划
@@ -360,8 +359,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   const [userSkills, setUserSkills] = useState([]);
   /* 9-11 二轮批注: 技能库入口移到「视觉方向」面板 (不再挂在输入框右侧); 技能以结构化字段进生成请求 */
   const [skillOpen, setSkillOpen] = useState(false);
-  /* 9-11 三轮批注: 下一步的二选一 (带方案 / 快速生成), 不再并排两个按钮 */
-  const [modeChooserOpen, setModeChooserOpen] = useState(false);
+  /* 9-14 用户决策: 首页电商生图与「万物上身」一律默认走设计方案流程。
+     点「下一步」= 生成设计方案 → 进画布, 不再询问 (原两条路的浮层已删, 只留方案链路)。 */
   const applySkill = useCallback(skill => {
     if (!skill) return;
     /* 内置风格技能 (premium_minimal 等) = 画面风格, 直接落到 styleSkill; 任务型技能 → 叠加进 userSkills */
@@ -510,16 +509,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 (所有板块同规则) */
   usePanelScrollLock(Boolean(activePanel));
 
-  useEffect(() => {
-    if (!modeChooserOpen) return undefined;
-    const close = event => {
-      if (event.target?.closest?.('.ec-mode-chooser') || event.target?.closest?.('.ec-workbench-next')) return;
-      setModeChooserOpen(false);
-    };
-    const timer = window.setTimeout(() => window.addEventListener('mousedown', close), 0);
-    return () => { window.clearTimeout(timer); window.removeEventListener('mousedown', close); };
-  }, [modeChooserOpen]);
-
   const adjustedPanels = deriveEffectiveSmartOverrides({
     platform,
     sizing,
@@ -538,8 +527,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     ? activeItemImages.length > 0
     : productImages.length > 0 || description.trim().length > 0;
 
-  /* ── 下一步 (P7: 带 quick 参数 —— false=带方案发射画布, true=快速通道跳过方案) ── */
-  const handleNext = async (quick = false) => {
+  /* ── 下一步 ──
+     9-14 用户决策: 电商生图 + 万物上身统一默认**带设计方案**。
+     本函数不再接受 quick 参数, 恒走「生成设计方案 → 进画布」这条链路, 首页不再出现二选一。 */
+  const handleNext = async () => {
     if (!canGen || uploadingAssets) return;
     const loginPreflight = ecommerceLoginPreflight({ logged: state.logged });
     if (!loginPreflight.allowed) {
@@ -643,8 +634,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         genSettings
       };
       onStepChange?.(launchParams);
-      /* P7: 发射到画布 —— 带方案 (默认) 或快速通道 (quick, 跳过设计分析直出套图节点) */
-      dispatch({ type: 'SET_CREATION_LAUNCH', launch: { kind: 'ec-plan-launch', quick: quick === true, ...launchParams } });
+      /* 9-14: 恒带设计方案发射到画布 —— 画布物化为「素材行 + 生成要求 + 设计方案节点」,
+         方案节点生成后「应用到画布」再连套图生成器。首页无快速通道入口, quick 恒为 false。 */
+      dispatch({ type: 'SET_CREATION_LAUNCH', launch: { kind: 'ec-plan-launch', quick: false, ...launchParams } });
       dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
       setEcStep?.(2); /* 旧步骤态保留 (legacy 可读口径), 主路径已走画布发射 */
     } catch (error) {
@@ -1745,16 +1737,16 @@ const DEFAULT_BUTTONS = [
                 {assetUploadError}
               </div>
             )}
-            {/* 9-11 三轮用户批注: 两个并排按钮取消 — 一个主按钮「下一步」, 点击后二选一 (带方案 / 快速生成) */}
+            {/* 9-14 用户决策: 电商生图 + 万物上身统一默认走设计方案流程 ——
+                「下一步」不再弹浮层, 点击即走「生成设计方案 → 进画布」。
+                按钮文案诚实反映链路; 积分仍按既有口径动态显示 (每张积分 × 张数)。 */}
             <div className="ec-workbench-submit-actions" style={{ position: 'relative' }}>
               <button
                 type="button"
                 className="ec-workbench-next shubao-gen-cta"
                 disabled={!canGen || uploadingAssets}
-                aria-haspopup="menu"
-                aria-expanded={modeChooserOpen}
-                title="选择下一步的生成方式 (带设计方案 / 快速生成)"
-                onClick={() => setModeChooserOpen(current => !current)}
+                title="生成设计方案并进入画布 · 方案分析 1 积分"
+                onClick={() => handleNext()}
                 style={{
                   height: 40,
                   padding: '0 20px',
@@ -1774,20 +1766,7 @@ const DEFAULT_BUTTONS = [
               >
                 {/* 9-12 用户批注：预计积分要放进按钮里（与生视频统一），不再单独挂一个小字条 */}
                 {uploadingAssets ? '正在上传原图…' : <>下一步<span className="shubao-gen-cta-points">{planPoints.points} 积分</span></>}
-                <ChevronDown size={14} style={{ transform: modeChooserOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }} />
               </button>
-              {modeChooserOpen && (
-                <div className="ec-mode-chooser" role="menu" aria-label="选择生成方式">
-                  <button type="button" role="menuitem" className="ec-mode-chooser-item" onClick={() => { setModeChooserOpen(false); handleNext(false); }}>
-                    <span className="ec-mode-chooser-icon"><Wand2 size={15} /></span>
-                    <span><strong>带设计方案</strong><small>先生成方案节点再套图 · 方案分析 1 积分</small></span>
-                  </button>
-                  <button type="button" role="menuitem" className="ec-mode-chooser-item" onClick={() => { setModeChooserOpen(false); handleNext(true); }}>
-                    <span className="ec-mode-chooser-icon"><Zap size={15} /></span>
-                    <span><strong>快速生成</strong><small>跳过方案分析 (免费) · 素材直接进画布</small></span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>

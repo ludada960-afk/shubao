@@ -8,14 +8,27 @@ const ecMode = () => readFileSync(new URL('../src/pages/Home/EcMode.jsx', import
 const canvas = () => readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 const studio = () => readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 
-test('首页「下一步」发射到画布: SET_CREATION_LAUNCH(ec-plan-launch) + NAVIGATE; 快速通道传 quick=true', () => {
+test('首页「下一步」发射到画布: SET_CREATION_LAUNCH(ec-plan-launch) + NAVIGATE, 恒带设计方案 (quick=false)', () => {
   const source = ecMode();
-  assert.match(source, /dispatch\(\{ type: 'SET_CREATION_LAUNCH', launch: \{ kind: 'ec-plan-launch', quick: quick === true/);
+  /* 9-14 用户决策: 电商生图 + 万物上身统一默认带设计方案, 不再二选一。
+     quick 仍作为画布消费的契约字段保留, 但首页恒为 false（方案链路）。 */
+  assert.match(source, /dispatch\(\{ type: 'SET_CREATION_LAUNCH', launch: \{ kind: 'ec-plan-launch', quick: false/);
   assert.match(source, /dispatch\(\{ type: 'NAVIGATE', page: 'ec-canvas' \}\)/);
-  /* 9-11 三轮: 一个「下一步」+ 二选一浮层, quick 通道仍是 handleNext(true) */
-  assert.match(source, /setModeChooserOpen\(false\); handleNext\(true\); \}\}/, '快速生成项 = quick 通道');
-  assert.match(source, /setModeChooserOpen\(false\); handleNext\(false\); \}\}/, '带设计方案项 = 方案发射');
+  assert.doesNotMatch(source, /quick: quick === true/, '不再由用户选择决定 quick');
   // 旧整页保留可读 (不变式②): ecStep=2 的 DesignDirection 挂载仍在 Home/index.jsx
+});
+
+test('首页电商生图与万物上身都不再出现二选一浮层, 默认带方案', () => {
+  const source = ecMode();
+  const home = readFileSync(new URL('../src/pages/Home/index.jsx', import.meta.url), 'utf8');
+  /* 两个入口都经由 EcMode 的同一个「下一步」: 电商生图 = product_suite, 万物上身 = anything_tryon */
+  assert.match(source, /abilityRecipeId === 'anything_tryon'/, '万物上身入口在同一组件内');
+  assert.doesNotMatch(source, /ec-mode-chooser/, '浮层 JSX 已删');
+  assert.doesNotMatch(source, /快速生成/, '无「快速生成」选项文案');
+  assert.doesNotMatch(source, /handleNext\(true\)/, '无 quick 快速通道调用');
+  /* 「下一步」直接调 handleNext(), 不再先开浮层 */
+  assert.match(source, /onClick=\{\(\) => handleNext\(\)\}/, '点击即进方案流程');
+  assert.match(home, /<EcMode ecStep=\{ecStep\} setEcStep=\{setEcStep\}/, 'EcMode 仍是首页唯一电商/上身入口');
 });
 
 test('画布物化: 由「从草稿/会话重建」同一个效应消费 launch（不再被覆盖），物化即置空防重铺', () => {
