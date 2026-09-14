@@ -84,7 +84,7 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Category */}
       <span style={{
         position: 'absolute', top: 10, left: 10, zIndex: 2,
-        fontSize: 'var(--text-xs)', background: 'rgba(12,10,9,0.45)', color: '#fff',
+        fontSize: 'var(--text-xs)', background: 'rgba(12,10,9,0.45)', color: 'var(--sb-neutral-0)',
         padding: '3px 10px', borderRadius: 'var(--radius-md)',
         backdropFilter: 'blur(4px)', fontWeight: 'var(--weight-semibold)',
       }}>
@@ -94,7 +94,7 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Title */}
       <div style={{
         position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 2,
-        fontSize: 13, fontWeight: 'var(--weight-bold)', color: '#fff',
+        fontSize: 13, fontWeight: 'var(--weight-bold)', color: 'var(--sb-neutral-0)',
         lineHeight: 1.5, textShadow: '0 1px 4px rgba(12,10,9,0.4)',
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
@@ -118,7 +118,7 @@ function GCard({ item, onClick, onSameStyle }) {
             <MdVisibility size={13} /> 查看全套内容
           </span>
           <span style={{
-            background: 'var(--red)', color: '#fff',
+            background: 'var(--red)', color: 'var(--sb-neutral-0)',
             fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--radius-md)',
             display: 'flex', alignItems: 'center', gap: 5,

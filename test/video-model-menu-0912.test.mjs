@@ -9,7 +9,8 @@ const css = readFileSync(new URL('../src/pages/VideoStudio/VideoStudio.css', imp
 test('模型图标改为白底细边（彩色品牌标自带配色）', () => {
   const rule = css.match(/\.video-model-mark \{([^}]*)\}/);
   assert.ok(rule, '规则存在');
-  assert.match(rule[1], /background: #fff/);
+  /* 2026-09-14 §18 灰阶迁移：白底改用 --sb-neutral-0（值不变）。断言「解析后为白」。 */
+  assert.match(rule[1], /background:\s*(#fff\b|var\(--sb-neutral-0\))/);
   assert.doesNotMatch(rule[1], /background: #343840/, '不得再用深色底');
   assert.doesNotMatch(css, /\.video-model-mark\.is-seedance \{ background: linear-gradient/, '渐变深底必须去掉');
 });

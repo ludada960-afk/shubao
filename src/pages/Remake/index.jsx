@@ -219,7 +219,7 @@ export default function RemakePage() {
 
   // Status display
   const statusBadge = () => {
-    if (!task) return <span className="rmk-badge" style={{ background: '#f3f4f6', color: '#6b7280' }}>等待中</span>;
+    if (!task) return <span className="rmk-badge" style={{ background: 'var(--sb-neutral-100)', color: 'var(--sb-ink-3)' }}>等待中</span>;
     const status = task.status;
     switch (status) {
       case 'pending':     return <span className="rmk-badge" style={{ background: '#fef9c3', color: '#854d0e' }}>排队中</span>;
@@ -230,7 +230,7 @@ export default function RemakePage() {
       case 'generating':  return <span className="rmk-badge" style={{ background: '#fef9c3', color: '#854d0e' }}>生成中 ({task.progress}%)</span>;
       case 'completed':   return <span className="rmk-badge" style={{ background: '#dcfce7', color: '#166534' }}>✅ 生成完成</span>;
       case 'failed':      return <span className="rmk-badge" style={{ background: '#fee2e2', color: '#991b1b' }}>❌ 失败</span>;
-      default:            return <span className="rmk-badge" style={{ background: '#f3f4f6', color: '#6b7280' }}>{status}</span>;
+      default:            return <span className="rmk-badge" style={{ background: 'var(--sb-neutral-100)', color: 'var(--sb-ink-3)' }}>{status}</span>;
     }
   };
 
@@ -286,7 +286,7 @@ export default function RemakePage() {
                 if (v) { setTaskId(v); setError(''); }
               }} style={{
                 padding: '8px 16px', borderRadius: 6, border: 'none',
-                background: 'var(--sb-brand)', color: '#fff', fontSize: 12,
+                background: 'var(--sb-brand)', color: 'var(--sb-neutral-0)', fontSize: 12,
                 cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
               }}>继续</button>
             </div>
@@ -316,12 +316,12 @@ export default function RemakePage() {
                 {(task.analysis.images || []).map((img, i) => (
                   <div key={i} style={{
                     minWidth: 200, maxWidth: 240, flex: '0 0 auto',
-                    background: '#fff', borderRadius: 'var(--radius-md)',
+                    background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-light)', overflow: 'hidden',
                   }}>
                     {/* Thumbnail */}
                     <div style={{
-                      width: '100%', height: 160, background: '#f5f5f5',
+                      width: '100%', height: 160, background: 'var(--sb-neutral-100)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       overflow: 'hidden',
                     }}>
@@ -344,7 +344,7 @@ export default function RemakePage() {
                             {img.colors.slice(0, 4).map((c, ci) => (
                               <span key={ci} style={{
                                 display: 'inline-block', width: 14, height: 14, borderRadius: '50%',
-                                background: c, border: '1px solid #ddd',
+                                background: c, border: '1px solid var(--sb-neutral-200)',
                               }} title={c} />
                             ))}
                           </div>
@@ -358,7 +358,7 @@ export default function RemakePage() {
 
             {/* Replacement Form */}
             <div style={{
-              background: '#fff', borderRadius: 'var(--radius-lg)',
+              background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-lg)',
               border: '2px solid var(--blue)', padding: 24, marginBottom: 28,
             }}>
               <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-semibold)', marginBottom: 16 }}>
@@ -384,7 +384,7 @@ export default function RemakePage() {
                       style={{
                         display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
                         borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)',
-                        fontSize: 'var(--text-base)', fontFamily: 'inherit', background: '#fff',
+                        fontSize: 'var(--text-base)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
                       }}>
                       {['美妆护肤', '数码3C', '食品饮料', '服饰穿搭', '家居生活', '母婴用品', '宠物用品', '其他'].map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -397,7 +397,7 @@ export default function RemakePage() {
                       style={{
                         display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
                         borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)',
-                        fontSize: 'var(--text-base)', fontFamily: 'inherit', background: '#fff',
+                        fontSize: 'var(--text-base)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
                       }}>
                       {EC_PLATFORMS.map(p => (
                         <option key={p} value={p}>{p}</option>
@@ -443,7 +443,7 @@ export default function RemakePage() {
                   fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: generating ? 'not-allowed' : 'pointer',
                   background: generating ? 'var(--border-light)' : 'var(--sb-brand-gradient)',
-                  color: generating ? 'var(--text-muted)' : '#fff',
+                  color: generating ? 'var(--text-muted)' : 'var(--sb-neutral-0)',
                   boxShadow: generating ? 'none' : '0 3px 12px rgba(99,102,241,.3)',
                   marginTop: 8, transition: 'all .15s',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -465,14 +465,14 @@ export default function RemakePage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
               {task.generatedImages.map((img, i) => (
                 <div key={i} style={{
-                  background: '#fff', borderRadius: 'var(--radius-md)',
+                  background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-light)', overflow: 'hidden',
                 }}>
                   {img.url ? (
                     <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover' }} />
                   ) : (
                     <div style={{
-                      width: '100%', aspectRatio: '1/1', background: '#f3f4f6',
+                      width: '100%', aspectRatio: '1/1', background: 'var(--sb-neutral-100)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: 'var(--text-hint)', fontSize: 'var(--text-sm)',
                     }}>{img.error || '生成失败'}</div>

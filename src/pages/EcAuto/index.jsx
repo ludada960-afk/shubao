@@ -249,33 +249,33 @@ export default function EcAutoPage() {
             <span style={{ fontSize: 17, fontWeight: 650, color: '#E53E3E', fontFamily: '-apple-system,"PingFang SC",sans-serif' }}>
               薯包AI
             </span>
-            <span style={{ fontSize: 11, color: '#999', marginLeft: 4, background: '#f0f0f0', padding: '2px 8px', borderRadius: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--sb-ink-4)', marginLeft: 4, background: 'var(--sb-neutral-100)', padding: '2px 8px', borderRadius: 4 }}>
               一键出图
             </span>
           </div>
           <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
             style={{
-              fontSize: 12, color: '#666', background: '#fff', border: '1px solid #e0e0e0',
+              fontSize: 12, color: 'var(--sb-ink-3)', background: 'var(--sb-neutral-0)', border: '1px solid var(--sb-neutral-200)',
               borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#4338CA'; e.currentTarget.style.color = '#4338CA'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e0e0e0'; e.currentTarget.style.color = '#666'; }}>
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-neutral-200)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; }}>
             🔧 精修工坊
           </button>
         </div>
 
         {/* 平台选择 */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, color: '#888', marginBottom: 8, fontWeight: 500 }}>选择平台</div>
+          <div style={{ fontSize: 12, color: 'var(--sb-ink-3)', marginBottom: 8, fontWeight: 500 }}>选择平台</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {PLATFORMS.map(p => (
               <button key={p.key} onClick={() => setPlatform(p.key)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '10px 16px', borderRadius: 10,
-                  border: platform === p.key ? '2px solid #4338CA' : '1px solid #e8e8e8',
-                  background: platform === p.key ? 'var(--sb-brand-50)' : '#fff',
+                  border: platform === p.key ? '2px solid #4338CA' : '1px solid var(--sb-neutral-200)',
+                  background: platform === p.key ? 'var(--sb-brand-50)' : 'var(--sb-neutral-0)',
                   cursor: 'pointer', fontFamily: 'inherit',
                   transition: 'all 0.15s',
                   flex: '0 0 auto',
@@ -285,7 +285,7 @@ export default function EcAutoPage() {
                   <div style={{ fontSize: 13, fontWeight: platform === p.key ? 600 : 500, color: platform === p.key ? '#4338CA' : '#444' }}>
                     {p.label}
                   </div>
-                  <div style={{ fontSize: 10, color: platform === p.key ? '#7C7CFF' : '#999', marginTop: 1 }}>
+                  <div style={{ fontSize: 10, color: platform === p.key ? '#7C7CFF' : 'var(--sb-ink-4)', marginTop: 1 }}>
                     {p.desc}
                   </div>
                 </div>
@@ -297,9 +297,9 @@ export default function EcAutoPage() {
         {/* 输入区 —— D11：无边框 textarea 的焦点可见性由容器承担（焦点环落在外层卡片，
              既清晰可见，又不改动 textarea 自身的盒模型） */}
         <div style={{
-          background: '#fff', borderRadius: 14, padding: 20,
+          background: 'var(--sb-neutral-0)', borderRadius: 14, padding: 20,
           boxShadow: focused ? 'var(--sb-shadow-ring)' : '0 1px 6px rgba(12,10,9,0.04)',
-          border: '1px solid #eee',
+          border: '1px solid var(--sb-neutral-150)',
           marginBottom: 16,
           transition: 'box-shadow var(--duration-fast, 160ms) ease',
         }}>
@@ -312,13 +312,13 @@ export default function EcAutoPage() {
             style={{
               width: '100%', minHeight: 80, maxHeight: 240,
               border: 'none', outline: '0 solid transparent', resize: 'none',
-              fontSize: 14, lineHeight: 1.7, color: '#333',
+              fontSize: 14, lineHeight: 1.7, color: 'var(--sb-ink-1)',
               fontFamily: 'inherit', padding: 0,
             }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#bbb' }}>
+              <span style={{ fontSize: 11, color: 'var(--sb-ink-5)' }}>
                 {input.length}字 · {/^https?:\/\//i.test(input.trim()) ? '🔗 链接模式' : input.trim().length >= 80 ? '📝 详细模式 · 按描述生成' : '✏️ 标准模式 · 一句话生成'}
               </span>
             </div>
@@ -326,8 +326,8 @@ export default function EcAutoPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '10px 24px', borderRadius: 10,
-                background: !input.trim() ? '#e0e0e0' : '#4338CA',
-                color: '#fff', border: 'none', fontSize: 14, fontWeight: 600,
+                background: !input.trim() ? 'var(--sb-neutral-200)' : '#4338CA',
+                color: 'var(--sb-neutral-0)', border: 'none', fontSize: 14, fontWeight: 600,
                 cursor: !input.trim() ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
                 boxShadow: !input.trim() ? 'none' : '0 2px 10px rgba(67,56,202,0.25)',
@@ -343,8 +343,8 @@ export default function EcAutoPage() {
         {/* 生成中 */}
         {genState === 'generating' && (
           <div style={{
-            background: '#fff', borderRadius: 14, padding: 28,
-            boxShadow: '0 1px 6px rgba(12,10,9,0.04)', border: '1px solid #eee',
+            background: 'var(--sb-neutral-0)', borderRadius: 14, padding: 28,
+            boxShadow: '0 1px 6px rgba(12,10,9,0.04)', border: '1px solid var(--sb-neutral-150)',
             marginBottom: 16, textAlign: 'center',
           }}>
             <div style={{
@@ -352,8 +352,8 @@ export default function EcAutoPage() {
               borderRadius: '50%', animation: 'spin 0.8s linear infinite',
               margin: '0 auto 14px',
             }} />
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#333', marginBottom: 4 }}>✨ AI 正在生成商品图...</div>
-            <div style={{ fontSize: 12, color: '#999' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 4 }}>✨ AI 正在生成商品图...</div>
+            <div style={{ fontSize: 12, color: 'var(--sb-ink-4)' }}>
               {input.trim().length >= 80 && !/^https?:\/\//i.test(input.trim())
                 ? '完整prompt模式 · 原样执行'
                 : `${selectedPlatform?.label || platform}标准套餐 · 每张约需25秒`}
@@ -377,7 +377,7 @@ export default function EcAutoPage() {
         )}
 
         {genState !== 'generating' && Object.keys(inProgressPreview).length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, border: '1px solid #C7D2FE' }}>
+          <div style={{ background: 'var(--sb-neutral-0)', borderRadius: 14, padding: 20, marginBottom: 16, border: '1px solid #C7D2FE' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#4338CA', marginBottom: 10 }}>生成中预览 · 任务仍可继续</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {Object.values(inProgressPreview).map(image => (
@@ -398,15 +398,15 @@ export default function EcAutoPage() {
 
         {results && (
           <div style={{
-            background: '#fff', borderRadius: 14, padding: 20,
-            boxShadow: '0 1px 6px rgba(12,10,9,0.04)', border: '1px solid #eee',
+            background: 'var(--sb-neutral-0)', borderRadius: 14, padding: 20,
+            boxShadow: '0 1px 6px rgba(12,10,9,0.04)', border: '1px solid var(--sb-neutral-150)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: '#1e1e2e' }}>
                   ✅ 生成完成
                 </div>
-                <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--sb-ink-4)', marginTop: 2 }}>
                   {Object.keys(results.images || {}).length} 张图 · {results.raw_mode ? '完整prompt模式' : `${selectedPlatform?.label || platform} 标准`}
                 </div>
               </div>
@@ -424,7 +424,7 @@ export default function EcAutoPage() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '8px 14px', borderRadius: 8,
-                    background: '#f5f5f5', color: '#666', border: 'none',
+                    background: 'var(--sb-neutral-100)', color: 'var(--sb-ink-3)', border: 'none',
                     fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                   <RotateCcw size={13} /> 重新生成
@@ -439,11 +439,11 @@ export default function EcAutoPage() {
               {Object.entries(results.images || {}).map(([label, url]) => (
                 <div key={label} style={{
                   background: '#f8f8f8', borderRadius: 10, overflow: 'hidden',
-                  border: '1px solid #f0f0f0',
+                  border: '1px solid var(--sb-neutral-100)',
                 }}>
                   <div style={{
                     width: '100%', aspectRatio: '1/1',
-                    background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--sb-neutral-0)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     overflow: 'hidden',
                   }}>
                     <img src={proxyImg(url)} alt={label} style={{
@@ -453,9 +453,9 @@ export default function EcAutoPage() {
                   </div>
                   <div style={{
                     padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    borderTop: '1px solid #f5f5f5',
+                    borderTop: '1px solid var(--sb-neutral-100)',
                   }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#666' }}>{label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--sb-ink-3)' }}>{label}</span>
                     <button onClick={() => downloadImage(url, `${label}.png`)} style={{
                       fontSize: 10, color: '#4338CA', cursor: 'pointer',
                       padding: '3px 8px', borderRadius: 4,
@@ -470,9 +470,9 @@ export default function EcAutoPage() {
 
             {/* 底栏 */}
             <div style={{
-              marginTop: 16, paddingTop: 14, borderTop: '1px solid #f5f5f5',
+              marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--sb-neutral-100)',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              fontSize: 12, color: '#999',
+              fontSize: 12, color: 'var(--sb-ink-4)',
             }}>
               <span>
                 {results.raw_mode

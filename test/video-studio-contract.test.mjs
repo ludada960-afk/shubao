@@ -77,7 +77,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.doesNotMatch(page, /\{ key: 'assets'/);
   assert.match(styles, /\.video-mode-tabs/);
   assert.match(styles, /button\.is-selected \.video-mode-copy strong/);
-  assert.match(styles, /color:\s*#fff/);
+  /* 2026-09-14 §18 灰阶迁移：白字改用 --sb-neutral-0（值不变）。断言「解析后为白」。 */
+  assert.match(styles, /color:\s*(#fff\b|var\(--sb-neutral-0\))/);
   assert.doesNotMatch(styles, /\.video-model-mark\.is-seedance\s*\{\s*background:\s*conic-gradient/);
   assert.match(styles, /grid-template-columns:\s*repeat\(3/);
   assert.match(styles, /\.video-content-composer/);

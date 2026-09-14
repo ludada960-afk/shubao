@@ -59,7 +59,7 @@
   transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
 .cat-bar button:hover { border-color: var(--sb-brand-600); color: var(--sb-brand-600); }
-.cat-bar button.is-on { background: var(--sb-brand-600); color: #fff; border-color: transparent; }
+.cat-bar button.is-on { background: var(--sb-brand-600); color: var(--sb-neutral-0); border-color: transparent; }
 
 .sort-bar {
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
@@ -100,14 +100,14 @@
 .grid-stats { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-secondary, #5d6679); }
 .grid-item-badge {
   position: absolute; left: 8px; top: 8px;
-  background: rgba(15,23,42,0.78); color: #fff;
+  background: rgba(15,23,42,0.78); color: var(--sb-neutral-0);
   font-family: monospace; font-size: 10px;
   padding: 2px 6px; border-radius: 6px;
   letter-spacing: 0.3px;
 }
 .grid-item-cat {
   position: absolute; right: 8px; top: 8px;
-  background: rgba(255,91,58,0.92); color: #fff;
+  background: rgba(255,91,58,0.92); color: var(--sb-neutral-0);
   font-size: 10px;
   padding: 2px 8px; border-radius: 999px;
   font-weight: 600;
@@ -131,7 +131,7 @@
   transition: border-color .15s ease, color .15s ease, background .15s ease;
 }
 .pager button:hover:not(:disabled) { border-color: var(--sb-brand-600); color: var(--sb-brand-600); }
-.pager button.is-on { background: var(--sb-brand-600); color: #fff; border-color: transparent; }
+.pager button.is-on { background: var(--sb-brand-600); color: var(--sb-neutral-0); border-color: transparent; }
 .pager button:disabled { opacity: 0.5; cursor: not-allowed; }
 .pager-info { font-size: 12px; color: var(--text-secondary, #5d6679); margin-left: 12px; }
 
@@ -210,7 +210,7 @@
 
 .tpl-toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  background: rgba(15,23,42,0.92); color: #fff;
+  background: rgba(15,23,42,0.92); color: var(--sb-neutral-0);
   padding: 10px 18px; border-radius: 999px;
   font-size: 13px; z-index: 1200;
   box-shadow: 0 8px 24px rgba(15,23,42,0.3);
