@@ -251,7 +251,10 @@
 @keyframes creative-nav-stack-assemble { 0% { opacity: .12; transform: translate3d(calc(var(--stack-x) * 1.8), calc(var(--stack-y) * 1.8), calc(var(--stack-z) * 2)) rotateX(18deg) rotateY(-18deg) rotateZ(calc(var(--stack-r) * 2)) scale(.76); } 46% { opacity: .82; transform: translate3d(calc(var(--stack-x) * .35), calc(var(--stack-y) * .35), 3px) rotateX(4deg) rotateY(4deg) rotateZ(calc(var(--stack-r) * .35)) scale(1.08); } 100% { opacity: .72; transform: translate3d(0, 0, var(--stack-z)) rotateX(0) rotateY(0) rotateZ(0) scale(1); } }
 @keyframes creative-nav-glint { 0% { opacity: 0; transform: translateX(-14px) rotate(-18deg); } 35% { opacity: .78; } 100% { opacity: 0; transform: translateX(16px) rotate(-18deg); } }
 
-/* Each destination keeps a distinct silhouette while sharing the same restrained two-layer motion. */
+/* Each destination keeps a distinct silhouette while sharing the same restrained two-layer motion.
+   C 类保留（41-scales §2）：下方 .creative-nav-glyph-* 的 border-radius 是**不规则剪影**
+   （如 4px 12px 2px 12px），四角故意不同以形成每个目的地的独特轮廓；
+   它不是圆角档位，不参与 D18 归并。登记理由：元素 = 导航图标剪影，四角差异是设计意图本身。 */
 .creative-nav-glyph--layers .creative-nav-glyph-core { transform: translateY(1px); }
 .creative-nav-glyph--layers .creative-nav-glyph-stack { border-radius: 4px 7px 3px 7px; }
 .creative-nav-glyph--tryon .creative-nav-glyph-stack { width: 13px; height: 13px; border-radius: 50% 50% 42% 42%; }

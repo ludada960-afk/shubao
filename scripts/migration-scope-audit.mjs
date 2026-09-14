@@ -27,6 +27,9 @@ import { execFileSync } from 'node:child_process';
 
 const SCALE_PROP = /(font-size|fontSize|border-radius|borderRadius|gap|row-gap|column-gap|padding|padding-top|padding-right|padding-bottom|padding-left|margin|margin-top|margin-right|margin-bottom|margin-left)\s*:\s*[^;}"']+/g;
 const flat = s => s.replace(SCALE_PROP, (m, p) => p + ':·');
+/* 注释行一律跳过：迁移时**补注释解释为什么**是好习惯，不该被当成越界。
+   （不跳的话，`/* 字号 12.5px 归到 13 * /` 这类解释性注释会把报告刷满假阳性。） */
+const isComment = s => { const t = s.trim(); return t.startsWith('/*') || t.startsWith('*') || t.startsWith('//'); };
 
 const args = process.argv.slice(2);
 const rangeArg = args.find(a => a.startsWith('--range='));
@@ -50,6 +53,33 @@ const keyOf = (raw) => {
   return decl ? 'prop:' + decl[1] : 'raw:' + s.slice(0, 40);
 };
 
+/* ⚠️ 2026-09-20 改进（D18 线提报）：**从「行级」细化到「属性级」**。
+   为什么必须改：同一行常常同时含尺度属性**与**非尺度属性
+   （例：`padding: 6px 10px; border: 1px solid …; border-radius: 10px; background: #fff`）。
+   原口径 flat() 抹平尺度值后行内仍有差异 → 整行报成「越界」，
+   报告里只能看到一整行，**读者无法判断到底哪个属性变了**，
+   于是真阳性被淹没在整行噪声里 —— 假阳性一多，门禁就会被无视（原则 §12 同源问题）。
+
+   现在：抹平后仍不同时，再解析两行的 {prop: value}，
+   只有**非尺度属性的值真的变了**才计入，并按「属性: 旧 → 新」列出。
+   这样每一行报告都直接指出**是哪个属性被越界改了**。 */
+const NONSCALE_PROP = /([a-zA-Z-]+)\s*:\s*('[^']*'|"[^"]*"|[^,;}]+)/g;
+const nonScaleProps = (raw) => {
+  const out = new Map();
+  for (const m of raw.matchAll(NONSCALE_PROP)) {
+    const p = m[1];
+    if (/^(font-size|fontSize|border-radius|borderRadius|gap|row-gap|column-gap|padding|padding-top|padding-right|padding-bottom|padding-left|margin|margin-top|margin-right|margin-bottom|margin-left)$/.test(p)) continue;
+    out.set(p, m[2].trim().replace(/^['"]|['"]$/g, ''));
+  }
+  return out;
+};
+const diffNonScale = (a, b) => {
+  const A = nonScaleProps(a), B = nonScaleProps(b);
+  const out = [];
+  for (const [p, v] of A) if (B.has(p) && B.get(p) !== v) out.push(p + ': ' + v + ' → ' + B.get(p));
+  return out;
+};
+
 const hits = [];
 let hash = '', subject = '', file = '';
 let removed = [], added = [];
@@ -63,7 +93,7 @@ const flush = () => {
     if (!bucket || !bucket.length) continue;
     const p = bucket.shift();
     if (flat(m).trim() === flat(p).trim()) continue;
-    hits.push({ hash, subject, file, minus: m.trim(), plus: p.trim() });
+    hits.push({ hash, subject, file, minus: m.trim(), plus: p.trim(), props: diffNonScale(m, p) });
   }
   removed = []; added = [];
 };
@@ -71,10 +101,18 @@ for (const line of patch.split('\n')) {
   const head = line.match(/^([0-9a-f]{7,})\|(.*)$/);
   if (head) { flush(); hash = head[1]; subject = head[2]; continue; }
   const fm = line.match(/^\+\+\+ b\/(\S+)/);
-  if (fm) { flush(); file = fm[1]; continue; }
+  if (fm) {
+    flush();
+    file = fm[1];
+    /* ⚠️ 只审**代码**文件。文档（.md）里写的统计数字会随迁移而变化，
+       把文档算成「越界改动」是纯假阳性 —— 这类噪声会让门禁被无视。 */
+    if (/\.(md|txt|json)$/i.test(file)) file = '';
+    continue;
+  }
+  if (!file) continue;
   if (line.startsWith('@@') || line.startsWith('diff --git')) { flush(); continue; }
-  if (line.startsWith('-') && !line.startsWith('---')) { removed.push(line.slice(1)); continue; }
-  if (line.startsWith('+') && !line.startsWith('+++')) { added.push(line.slice(1)); continue; }
+  if (line.startsWith('-') && !line.startsWith('---')) { if (!isComment(line.slice(1))) removed.push(line.slice(1)); continue; }
+  if (line.startsWith('+') && !line.startsWith('+++')) { if (!isComment(line.slice(1))) added.push(line.slice(1)); continue; }
 }
 flush();
 
@@ -84,6 +122,8 @@ for (const h of hits.slice(0, 30)) {
   console.log((h.hash ? h.hash + '  ' + h.subject.slice(0, 44) + '  ' : '') + h.file);
   console.log('   -  ' + h.minus.slice(0, 140));
   console.log('   +  ' + h.plus.slice(0, 140));
+  /* 属性级证据：直接说清"是哪个非尺度属性被改了"，而不是让人对着一整行找差异。 */
+  if (h.props && h.props.length) console.log('   ⚠️ 越界属性: ' + h.props.join('  |  '));
 }
 if (hits.length > 30) console.log('\n…还有 ' + (hits.length - 30) + ' 行');
 console.log('\n判读：**只有尺度值变了**的行不会出现在这里。出现的行说明这次迁移还改了别的东西 ——');
