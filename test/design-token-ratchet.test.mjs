@@ -13,6 +13,11 @@ const SRC = path.join(ROOT, 'src');
 const BASELINE_PATH = path.join(ROOT, 'docs', 'design', 'token-ratchet-baseline.json');
 const EXT = new Set(['.js', '.jsx', '.css']);
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/g;
+/* token 定义源必须能自由增长（加 token = 加色值定义），否则棘轮会误伤自己人 */
+const EXEMPT_FILES = new Set([
+  'src/styles/design-tokens.css',
+  'src/styles/design-tokens-v3.css',
+]);
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -31,6 +36,7 @@ test('设计 token 棘轮：任何文件都不得新增硬编码色值（迁移�
   const newDebt = [];
   for (const file of walk(SRC)) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    if (EXEMPT_FILES.has(rel)) continue;
     const found = readFileSync(file, 'utf8').match(HEX_RE);
     const now = found ? found.length : 0;
     const base = baseline[rel];
@@ -47,11 +53,14 @@ test('设计 token 棘轮：任何文件都不得新增硬编码色值（迁移�
   );
 });
 
-test('设计 token 棘轮：基线文件本身必须存在且包含设计系统相关文件', () => {
+test('设计 token 棘轮：基线覆盖足够广，且 token 定义源被正确豁免', () => {
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
   const files = Object.keys(baseline);
   assert.ok(files.length > 50, '基线应覆盖全部有硬编码的文件，实际 ' + files.length);
-  for (const must of ['src/styles/design-tokens.css', 'src/styles/design-tokens-v3.css']) {
-    assert.ok(files.includes(must), '基线应包含 ' + must);
+  /* token 定义源必须被豁免：加 token 就是加色值定义，不能被棘轮判成违规 */
+  for (const exempt of EXEMPT_FILES) {
+    assert.ok(!files.includes(exempt), 'token 定义源不应出现在基线里（应豁免）：' + exempt);
   }
+  /* 业务内容数据仍在基线内，只能降不能升 */
+  assert.ok(files.includes('src/constants/data.js'), '业务内容数据文件应受基线约束');
 });

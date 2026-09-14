@@ -20,12 +20,17 @@ const ROOT = path.resolve(HERE, '..');
 const SRC = path.join(ROOT, 'src');
 const BASELINE_PATH = path.join(ROOT, 'docs', 'design', 'token-ratchet-baseline.json');
 const EXT = new Set(['.js', '.jsx', '.css']);
-/** 允许存在硬编码的文件（业务内容数据/品牌资产定义），但仍受基线约束、不得增长 */
-const ALLOW_DATA_FILES = [
-  'src/constants/data.js',
+/**
+ * 豁免文件：**token 定义源**必须能自由增长（新增 token 就是新增色值定义），
+ * 否则棘轮会把「加 token」判成违规。业务内容数据文件（风格渐变/作品渲染色）不豁免，
+ * 它们仍受基线约束——只能降不能升。
+ */
+const EXEMPT_FILES = new Set([
   'src/styles/design-tokens.css',
   'src/styles/design-tokens-v3.css',
-];
+]);
+/** 说明用：这些是业务内容数据，降不动也属正常，但仍不许增长 */
+const DATA_FILES = ['src/constants/data.js'];
 
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/g;
 
@@ -49,6 +54,7 @@ const files = walk(SRC);
 const current = {};
 for (const f of files) {
   const rel = path.relative(ROOT, f).split(path.sep).join('/');
+  if (EXEMPT_FILES.has(rel)) continue;
   const n = countHex(readFileSync(f, 'utf8'));
   if (n > 0) current[rel] = n;
 }
@@ -62,7 +68,8 @@ if (args.includes('--update')) {
   writeFileSync(BASELINE_PATH, JSON.stringify(merged, null, 2) + '\n', 'utf8');
   const total = Object.values(merged).reduce((a, b) => a + b, 0);
   console.log('[ratchet] 基线已更新：' + Object.keys(merged).length + ' 个文件 / ' + total + ' 处硬编码色值');
-  console.log('[ratchet] 数据文件白名单（仍受基线约束）：' + ALLOW_DATA_FILES.join(', '));
+  console.log('[ratchet] 豁免（token 定义源，可自由增长）：' + [...EXEMPT_FILES].join(', '));
+  console.log('[ratchet] 业务内容数据（受基线约束，不许增长）：' + DATA_FILES.join(', '));
   process.exit(0);
 }
 
