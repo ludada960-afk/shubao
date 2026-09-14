@@ -12,12 +12,16 @@ export default function Button({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     gap: small ? 5 : 7,
     padding: small ? '7px 14px' : '12px 24px',
-    borderRadius: small ? 'var(--radius-md)' : 'var(--radius-lg)',
-    fontSize: small ? 'var(--text-sm)' : 'var(--text-base)',
-    fontWeight: 'var(--weight-semibold)',
+    /* C 类保留（D24 第 3 条）：V2 --radius-lg = 30px 在 V3 阶梯里**没有对应档**
+       （最近的 --sb-radius-3xl = 24px，Δ−6px 属观感变更），先留字面量、列清单待裁定。 */
+    borderRadius: small ? 'var(--sb-radius-xl)' : 'var(--radius-lg)',
+    /* 有意变更 Δ−1px：V2 --text-base = 15px，D17 判定 15px「夹心档」退役，
+       归入 --sb-text-base = 14px（标准正文档）。见 D17/D19/D24。 */
+    fontSize: small ? 'var(--sb-text-md)' : 'var(--sb-text-base)',
+    fontWeight: 'var(--sb-weight-semibold)',
     fontFamily: 'inherit',
     cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: `all var(--duration-normal) var(--ease)`,
+    transition: `all var(--sb-duration-normal) var(--sb-ease-in-out)`,
     transform: hover && !disabled ? 'translateY(-1px)' : 'none',
     width: full ? '100%' : 'auto',
     border: 'none',
@@ -31,7 +35,7 @@ export default function Button({
 
   if (primary) {
     Object.assign(base, {
-      background: disabled ? '#FFB3BD' : 'var(--red)',
+      background: disabled ? '#FFB3BD' : 'var(--sb-danger)',
       color: 'var(--sb-neutral-0)',
       /* 焦点优先于 hover 阴影：两者叠加时仍保证焦点环可见 */
       boxShadow: focused
@@ -41,14 +45,14 @@ export default function Button({
   } else if (ghost) {
     Object.assign(base, {
       background: 'transparent',
-      color: 'var(--text-muted)',
+      color: 'var(--sb-ink-3)',
       border: 'none',
     });
     if (hover) base.background = 'var(--border-light)';
   } else {
     Object.assign(base, {
       background: hover ? '#f8f8f8' : 'var(--sb-neutral-0)',
-      color: 'var(--text-secondary)',
+      color: 'var(--sb-ink-2)',
       border: '1px solid var(--border)',
     });
   }
