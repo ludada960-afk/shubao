@@ -12,7 +12,7 @@
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
-  border: 1px solid rgba(57, 45, 26, 0.1);
+  border: 1px solid var(--sb-border-default); /* D21：α.10 */
   box-shadow: var(--sb-shadow-5); /* D20-A：暖棕字面量 → 海拔档（α.35 → 5） */
   font-family: var(--font-body);
   color: var(--sb-ink-1);
@@ -21,13 +21,13 @@
 .member-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
   padding: 20px 22px 14px;
-  border-bottom: 1px solid rgba(57, 45, 26, 0.08);
+  border-bottom: 1px solid var(--sb-border-subtle); /* D21：α.08 */
 }
 .member-head strong { display: block; font-size: 16px; font-weight: 800; }
 .member-head span { display: block; margin-top: 4px; font-size: 13px; color: var(--sb-ink-3); }
 .member-icon-btn {
   width: 30px; height: 30px; border-radius: 50%;
-  border: 1px solid rgba(57, 45, 26, 0.1); background: transparent;
+  border: 1px solid var(--sb-border-default); /* D21：α.10 */ background: transparent;
   color: var(--sb-ink-3); cursor: pointer;
 }
 .member-icon-btn:hover { background: #f5f2ec; color: var(--sb-ink-1); }
@@ -43,7 +43,7 @@
   display: flex; flex-direction: column; gap: 10px;
   padding: 14px; border-radius: 14px;
   background: #faf8f4;
-  border: 1px solid rgba(57, 45, 26, 0.07);
+  border: 1px solid var(--sb-border-subtle); /* D21：α.07 */
 }
 .member-card-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; color: var(--sb-ink-2); }
 .member-card-title svg { color: #B7570B; }
@@ -66,7 +66,7 @@
 .member-redeem { display: flex; gap: 8px; }
 .member-redeem input {
   flex: 1; min-width: 0; height: 38px; padding: 0 11px;
-  border-radius: 10px; border: 1.5px solid rgba(57, 45, 26, 0.12); background: var(--sb-neutral-0);
+  border-radius: 10px; border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0);
   font-family: inherit; font-size: 13px; letter-spacing: 0.06em; outline: none;
 }
 .member-redeem input:focus { border-color: #E8544B; box-shadow: 0 0 0 4px rgba(232, 84, 75, 0.12); }
@@ -93,7 +93,7 @@
 .member-ledger-sub { display: block; margin-top: 1px; font-size: 11px; font-style: normal; color: var(--sb-ink-4); }
 .member-rules {
   margin: 2px 0 6px; padding: 10px 11px; border-radius: 10px;
-  background: var(--sb-neutral-0); border: 1px solid rgba(57,45,26,.09);
+  background: var(--sb-neutral-0); border: 1px solid var(--sb-border-default); /* D21：α.09 */
   max-height: 300px; overflow-y: auto;
 }
 .member-rule-group + .member-rule-group { margin-top: 10px; }

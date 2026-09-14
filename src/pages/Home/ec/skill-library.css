@@ -45,7 +45,7 @@
   display: flex; flex-direction: column;
   background-color: rgba(255, 254, 252, 0.98);
   border-radius: 22px;
-  border: 1px solid rgba(57, 45, 26, 0.1);
+  border: 1px solid var(--sb-border-default); /* D21：α.10 */
   box-shadow: var(--sb-shadow-5); /* D20-A：暖棕字面量 → 海拔档（α.35 → 5） */
   font-family: var(--font-body);
   color: var(--sb-ink-1);
@@ -56,14 +56,14 @@
 .skill-modal-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sk-space-lg);
   padding: var(--sk-space-lg) var(--sk-space-xl) var(--sk-space-md);
-  border-bottom: 1px solid rgba(57, 45, 26, 0.08);
+  border-bottom: 1px solid var(--sb-border-subtle); /* D21：α.08 */
   flex: none;
 }
 .skill-modal-head strong { display: block; font-size: 16px; font-weight: 800; line-height: 1.25; }
 .skill-modal-head span { display: block; margin-top: var(--sk-space-xs); font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
 .skill-icon-btn {
   width: 30px; height: 30px; border-radius: 50%; flex: none;
-  border: 1px solid rgba(57, 45, 26, 0.1); background: transparent;
+  border: 1px solid var(--sb-border-default); /* D21：α.10 */ background: transparent;
   color: var(--sb-ink-3); cursor: pointer;
 }
 .skill-icon-btn:hover { background: #f5f2ec; color: var(--sb-ink-1); }
@@ -107,7 +107,7 @@
   padding: var(--sk-space-md);
   border-radius: 14px;
   background: #faf8f4;
-  border: 1px solid rgba(57, 45, 26, 0.07);
+  border: 1px solid var(--sb-border-subtle); /* D21：α.07 */
 }
 /* 左/中两栏：标题固定，列表自己滚 —— 保证底部「新建技能」表单永远完整可见 */
 .skill-modal-body > .skill-column:not(.is-editor) { max-height: 100%; overflow: hidden; }
@@ -128,7 +128,7 @@
 .skill-card {
   display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sk-space-md);
   padding: 10px 11px; border-radius: 11px; background: var(--sb-neutral-0);
-  border: 1px solid rgba(57, 45, 26, 0.08);
+  border: 1px solid var(--sb-border-subtle); /* D21：α.08 */
 }
 .skill-card-main { min-width: 0; }
 .skill-card-main strong { font-size: 13px; font-weight: 700; }
@@ -136,12 +136,12 @@
 .skill-card-main p { margin: var(--sk-space-xs) 0 0; font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
 .skill-card-actions { display: flex; align-items: center; gap: var(--sk-space-sm); flex: none; }
 .skill-mini-btn {
-  appearance: none; border: 1px solid rgba(57, 45, 26, 0.12); background: var(--sb-neutral-0);
+  appearance: none; border: 1px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0);
   padding: 5px 9px; border-radius: 8px;
   font-family: inherit; font-size: 12px; font-weight: 600; color: var(--sb-ink-2); cursor: pointer;
   display: inline-flex; align-items: center; gap: var(--sk-space-xs);
 }
-.skill-mini-btn:hover { border-color: rgba(57, 45, 26, 0.28); }
+.skill-mini-btn:hover { border-color: var(--sb-border-strong); /* D21：α.28 hover 描边 */ }
 .skill-mini-btn.is-primary { color: var(--sb-ink-warning); border-color: rgba(233, 154, 24, 0.35); background: rgba(233, 154, 24, 0.1); }
 .skill-empty { font-size: 12px; color: var(--sb-ink-4); padding: var(--sk-space-sm) 2px; }
 /* 表单字段：标签 ↔ 控件 8px（语义：标签是控件的从属元素） */
@@ -150,7 +150,7 @@
 .skill-field input, .skill-field textarea {
   width: 100%; box-sizing: border-box;
   padding: 8px 11px; border-radius: 10px;
-  border: 1.5px solid rgba(57, 45, 26, 0.12); background: var(--sb-neutral-0);
+  border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0);
   font-family: inherit; font-size: 13px; color: var(--sb-ink-1); outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
@@ -238,18 +238,18 @@
 .skill-group-picker { display: flex; gap: var(--sk-space-sm); align-items: center; }
 .skill-group-picker select {
   flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 10px;
-  border: 1.5px solid rgba(57,45,26,.12); background: var(--sb-neutral-0); font-family: inherit; font-size: 13px; color: var(--sb-ink-1); outline: none;
+  border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ background: var(--sb-neutral-0); font-family: inherit; font-size: 13px; color: var(--sb-ink-1); outline: none;
 }
 .skill-group-picker select:focus { border-color: var(--sb-danger); box-shadow: 0 0 0 4px rgba(232,84,75,.1); }
 .skill-new-group { display: flex; gap: var(--sk-space-sm); margin-top: var(--sk-space-sm); }
 .skill-new-group input {
   flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 9px;
-  border: 1.5px solid rgba(57,45,26,.12); font-family: inherit; font-size: 13px; outline: none;
+  border: 1.5px solid var(--sb-border-default); /* D21：α.12 */ font-family: inherit; font-size: 13px; outline: none;
 }
 .skill-new-group input:focus { border-color: var(--sb-danger); }
 .skill-card-body {
   margin: var(--sk-space-sm) 0 0; padding: 10px 11px; border-radius: 9px;
-  background: var(--sb-neutral-0); border: 1px solid rgba(57,45,26,.09);
+  background: var(--sb-neutral-0); border: 1px solid var(--sb-border-default); /* D21：α.09 */
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px; line-height: 1.7; color: var(--sb-ink-2); white-space: pre-wrap; word-break: break-word;
   max-height: 240px; overflow-y: auto;
