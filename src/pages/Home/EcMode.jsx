@@ -1741,31 +1741,23 @@ const DEFAULT_BUTTONS = [
                 「下一步」不再弹浮层, 点击即走「生成设计方案 → 进画布」。
                 按钮文案诚实反映链路; 积分仍按既有口径动态显示 (每张积分 × 张数)。 */}
             <div className="ec-workbench-submit-actions" style={{ position: 'relative' }}>
+              {/* ═══ 主 CTA（全站唯一 primary · 原则 1.1）═══
+                  2026-09-15 V3：本按钮由 inline 硬编码色改为 class + --sb-* token。
+                  高度统一 --sb-control-lg(40)（与同一行 6 个配置按钮一致，消除 38/40 混用）；
+                  圆角 --sb-radius-control(8)；
+                  底色改**品牌紫纯色** --sb-brand（停用紫→粉→橙三色渐变 ——
+                  按 V3 规则，渐变只留给「品牌时刻」，功能按钮一律纯色）；
+                  hover --sb-brand-hover；active 压深一档；
+                  focus 用 --sb-focus-ring；disabled 用 --sb-state-disabled-*。 */}
               <button
                 type="button"
-                className="ec-workbench-next shubao-gen-cta"
+                className="ec-workbench-next ec-workbench-cta"
                 disabled={!canGen || uploadingAssets}
                 title="生成设计方案并进入画布 · 方案分析 1 积分"
                 onClick={() => handleNext()}
-                style={{
-                  height: 40,
-                  padding: '0 20px',
-                  borderRadius: 10,
-                  border: 'none',
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  fontFamily: 'inherit',
-                  background: canGen && !uploadingAssets ? '#7c3aed' : '#e5e5e5',
-                  color: canGen && !uploadingAssets ? '#fff' : '#aaa',
-                  cursor: canGen && !uploadingAssets ? 'pointer' : 'not-allowed',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  flexShrink: 0
-                }}
               >
                 {/* 9-12 用户批注：预计积分要放进按钮里（与生视频统一），不再单独挂一个小字条 */}
-                {uploadingAssets ? '正在上传原图…' : <>下一步<span className="shubao-gen-cta-points">{planPoints.points} 积分</span></>}
+                {uploadingAssets ? '正在上传原图…' : <>下一步<span className="ec-workbench-cta-points">{planPoints.points} 积分</span></>}
               </button>
             </div>
           </div>

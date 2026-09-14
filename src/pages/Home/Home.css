@@ -2338,6 +2338,76 @@
   .ec-config-trigger { min-width: 112px !important; }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   电商「下一步」主 CTA —— 2026-09-15 V3 token 化（原则 1.1 唯一 primary）
+   ──────────────────────────────────────────────────────────────────
+   取值全部来自 design-tokens-v3.css，本规则内无任何硬编码色值。
+   要点：
+   ① 高度 --sb-control-lg(40) —— 与同一行 6 个配置按钮一致，消除 38/40 混用；
+   ② 圆角 --sb-radius-control(8)—— 旧值 10 不在圆角四档内；
+   ③ 底色**品牌紫纯色** --sb-brand —— 停用紫→粉→橙三色渐变
+      （V3 规则：渐变只留给「品牌时刻」，功能按钮一律纯色）；
+   ④ 八态：default / hover / active / focus-visible / disabled / loading
+      —— 旧实现只有 hover 与半个 disabled，且完全没有 focus（原则 4.1/4.2）。
+   ══════════════════════════════════════════════════════════════════ */
+.ec-workbench-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sb-space-2);
+  height: var(--sb-control-lg);
+  padding: 0 var(--sb-space-5);
+  border: 0;
+  border-radius: var(--sb-radius-control);
+  background: var(--sb-brand);
+  color: var(--sb-brand-ink);
+  font-family: inherit;
+  font-size: var(--sb-text-sm);
+  font-weight: var(--sb-weight-bold);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: var(--sb-shadow-md);
+  transition: background-color var(--sb-duration-fast) var(--sb-ease-out),
+              box-shadow var(--sb-duration-fast) var(--sb-ease-out);
+}
+/* hover：只压深底色，不做位移（原则 4.3：hover 不改布局、不动尺寸） */
+.ec-workbench-cta:hover:not(:disabled) { background: var(--sb-brand-hover); }
+/* active：压深一档 */
+.ec-workbench-cta:active:not(:disabled) { background: var(--sb-brand-active); }
+/* focus-visible：键盘用户可见的焦点环（原则 4.2，旧实现完全没有） */
+.ec-workbench-cta:focus-visible {
+  outline: none;
+  box-shadow: var(--sb-focus-ring);
+}
+/* disabled：真禁用（按钮本身带 disabled 属性），底色/文字走语义 token */
+.ec-workbench-cta:disabled {
+  background: var(--sb-state-disabled-bg);
+  color: var(--sb-state-disabled-ink);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+/* 积分：彩色字合法场合③「关键数据高亮」；禁用态仍保持醒目（主次分明） */
+.ec-workbench-cta-points {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sb-space-1);
+  font-size: var(--sb-text-xs);
+  font-weight: var(--sb-weight-bold);
+}
+.ec-workbench-cta-points::before {
+  content: '';
+  width: 1px;
+  height: 14px;
+  background: var(--sb-border-strong);
+}
+.ec-workbench-cta:disabled .ec-workbench-cta-points {
+  padding: 2px var(--sb-space-2);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-brand-wash);
+  color: var(--sb-text-brand);
+}
+
 /* Homepage mode switch: each visual card is the actual workspace entry */
 .homepage-mode-showcase {
   display: flex; justify-content: center; width: min(100%, 680px); height: 174px;
