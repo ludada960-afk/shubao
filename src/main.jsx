@@ -76,7 +76,8 @@ class RootErrorBoundary extends React.Component {
           onClick={() => window.location.reload()}
           style={{
             height: 42, padding: '0 22px', border: 0, borderRadius: 11,
-            background: 'linear-gradient(135deg, #7454f3 0%, #d14db5 100%)',
+            /* §18 裁定 2：功能按钮禁止渐变 → 品牌紫纯色。 */
+            background: 'var(--sb-btn-primary-bg)',
             color: '#fff', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
         >重新加载</button>

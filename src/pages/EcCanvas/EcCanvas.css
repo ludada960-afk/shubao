@@ -1529,16 +1529,18 @@
 }
 .ec-canvas-composer-footer > button.ec-canvas-composer-cta:not(:disabled),
 .ec-canvas-video-actions > button.ec-canvas-composer-cta:not(:disabled) {
-  background: linear-gradient(135deg, #7454f3 0%, #d14db5 100%);
-  color: #fff;
-  box-shadow: 0 5px 14px rgba(116, 84, 243, .24);
+  /* §18 裁定 2 / D1：功能按钮禁止渐变，双色紫渐变 → 品牌紫纯色。 */
+  background: var(--sb-btn-primary-bg);
+  color: var(--sb-neutral-0);
+  box-shadow: 0 5px 14px var(--sb-brand-a32);
 }
 .ec-canvas-composer-footer > button.ec-canvas-composer-cta:not(:disabled):hover,
 .ec-canvas-video-actions > button.ec-canvas-composer-cta:not(:disabled):hover {
-  background: linear-gradient(135deg, #6847ea 0%, #c244a8 100%);
-  color: #fff;
+  /* 同上：hover 用 --sb-btn-primary-bg-hover（品牌紫压深一档），不再是渐变。 */
+  background: var(--sb-btn-primary-bg-hover);
+  color: var(--sb-neutral-0);
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(116, 84, 243, .3);
+  box-shadow: 0 8px 18px var(--sb-brand-a32);
 }
 .ec-canvas-composer-footer > button.ec-canvas-composer-cta:disabled,
 .ec-canvas-video-actions > button.ec-canvas-composer-cta:disabled {
