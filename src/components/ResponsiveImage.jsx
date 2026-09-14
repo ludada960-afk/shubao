@@ -85,9 +85,16 @@ export default function ResponsiveImage({
     }, IMAGE_RETRY_DELAYS_MS[retryCount]);
     return () => clearTimeout(timer);
   }, [failed, retryCount]);
+  /* 原则 4.1：可点元素必须是真控件。
+     仅当**传了 onClick** 时才渲染 <button>（本组件另有 20+ 处纯展示用法，不能一律变按钮）；
+     不可点时保持 <div>。两分支除标签/type/重置类外属性完全一致 → 视觉零变化。
+     .a11y-reset 为仓库既有交互重置工具类（design-tokens-v3.css），不新写 reset。 */
+  const Root = onClick ? 'button' : 'div';
+  const rootClass = onClick ? ((className ? className + ' ' : '') + 'a11y-reset') : className;
   return (
-    <div
-      className={className}
+    <Root
+      {...(onClick ? { type: 'button' } : {})}
+      className={rootClass}
       aria-busy={Boolean(imageSrc) && !loaded}
       data-decoded={decoded ? 'true' : undefined}
       onClick={onClick}
@@ -144,6 +151,6 @@ export default function ResponsiveImage({
           />
         </picture>
       )}
-    </div>
+    </Root>
   );
 }
