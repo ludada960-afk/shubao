@@ -74,7 +74,8 @@
 
 .content-reference-rail {
   display: flex;
-  gap: 7;
+  /* 2026-09-20 修：原为 `gap: 7;`（缺单位 → 无效声明被丢弃，从未生效）。 */
+  gap: 7px;
   min-height: 58px;
   overflow-x: auto;
   padding-bottom: var(--sb-space-0-5);

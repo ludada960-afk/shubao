@@ -319,6 +319,34 @@ console.log('    · 缺 :hover:        ' + noHover.length + ' 个   [目标: 0 �
 console.log('    · 显式焦点覆盖率:   ' + explicitFocus + '/' + clickables.size + ' (' + cov + '%)   ' +
   '[其余靠 UA 默认焦点环：Chrome/FF 可见，**Safari 对按钮不画焦点环**]');
 for (const it of noFocus.slice(0, 6)) console.log('        · ' + it.rel + ':' + it.at + '  ' + it.base.slice(0, 62));
+/* ── ②c 静默失效的声明（**CSS 里写了但浏览器直接丢弃**）────────────────────
+   与「幽灵变量」同族：不报错、不告警、构建与测试都不红，但样式**从来没生效过**。
+   实例（第九批实测 31 处）：`gap: 10;`（缺 px 单位）→ CSS 里是**无效声明，整条丢弃**，
+   所以那些间距一直是 0；把它「迁成 token」看起来是在做迁移，其实是在改一个从未生效的值。
+   ⚠️ 只查 `.css`：JSX 内联样式里的裸数字是**合法**的（React 会补 px）。 */
+const LENGTH_PROPS = new Set([
+  'gap','row-gap','column-gap','padding','padding-top','padding-right','padding-bottom','padding-left',
+  'margin','margin-top','margin-right','margin-bottom','margin-left',
+  'font-size','border-radius','border-width','outline-width','outline-offset','letter-spacing',
+  'width','height','min-width','min-height','max-width','max-height',
+  'top','right','bottom','left','text-indent','column-gap','flex-basis',
+]);
+const deadDecls = [];
+for (const file of cssFiles) {
+  const text = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const rel = path.relative(ROOT, file).split(path.sep).join('/');
+  const re = /(^|[;{\s])([a-z-]+)\s*:\s*(-?[0-9.]+)\s*(;|\})/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const prop = m[2];
+    if (!LENGTH_PROPS.has(prop)) continue;
+    if (parseFloat(m[3]) === 0) continue;          /* 0 可以不带单位 */
+    deadDecls.push({ rel, prop, val: m[3], at: text.slice(0, m.index).split('\n').length });
+  }
+}
+console.log('  静默失效声明（长度属性缺单位，CSS 直接丢弃）: ' + deadDecls.length + ' 处   ' +
+  (deadDecls.length === 0 ? '✅' : '⚠️  从未生效过的样式'));
+for (const d of deadDecls.slice(0, 8)) console.log('      · ' + d.rel + ':' + d.at + '  ' + d.prop + ': ' + d.val + ';');
 /* ═══ ③ 毛玻璃与语义色 ═══ */
 H('③ 毛玻璃 / 语义色白名单');
 

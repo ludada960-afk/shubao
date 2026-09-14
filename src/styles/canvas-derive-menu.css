@@ -81,7 +81,8 @@
 .ec-canvas-derive-bucket-label > span {
   display: inline-flex;
   align-items: center;
-  gap: 5;
+  /* 2026-09-20 修：原为 `gap: 5;`（缺单位 → 无效声明被丢弃，从未生效）。 */
+  gap: 5px;
 }
 .ec-canvas-derive-bucket-label::after {
   content: "";
@@ -102,7 +103,8 @@
 .ec-canvas-derive-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5;
+  /* 2026-09-20 修：原为 `gap: 5;`（缺单位 → 无效声明被丢弃，从未生效）。 */
+  gap: 5px;
 }
 @media (max-width: 960px) {
   .ec-canvas-derive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -192,7 +194,8 @@
 .ec-canvas-derive-tile .ec-canvas-derive-copy {
   display: flex;
   flex-direction: column;
-  gap: 1;
+  /* 2026-09-20 修：原为 `gap: 1;`（缺单位 → 无效声明被丢弃，从未生效）。 */
+  gap: 1px;
   min-width: 0;
 }
 .ec-canvas-derive-tile .ec-canvas-derive-copy strong {
@@ -219,7 +222,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 5;
+  /* 2026-09-20 修：原为 `gap: 5;`（缺单位 → 无效声明被丢弃，从未生效）。 */
+  gap: 5px;
   margin-top: 1px;
   min-height: 14px;
 }
