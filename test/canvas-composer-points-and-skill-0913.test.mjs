@@ -47,7 +47,9 @@ test('四个生成框共用同一个技能入口组件', () => {
 
 test('视频框补上 @ 引用键（四个框对等）', () => {
   const body = composerBody('CanvasVideoComposer');
-  assert.ok(body.includes('<MentionPromptField'), '视频框缺少 @ 引用输入框');
+  /* 9-16 用户批注（图4/图5）：四个框的输入框都要「右下角可拖拽调高 + 有上限 + 超限滚动」，
+     统一换成 CanvasPromptField（内部仍渲染 MentionPromptField，@ 能力不变）。 */
+  assert.ok(body.includes('<CanvasPromptField'), '视频框缺少可拉伸的 @ 引用输入框');
   assert.ok(body.includes('<ComposerMention'), '视频框底栏缺少 @ 按钮');
   assert.ok(body.includes('insertMention'), '@ 选完要能插进输入框');
   const canvasIndex = read('src/pages/EcCanvas/index.jsx');

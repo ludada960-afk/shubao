@@ -30,12 +30,101 @@ export const MULTI_SELECTION_ACTIONS = Object.freeze([
   Object.freeze({ id: 'align-center', label: '垂直居中' }),
   Object.freeze({ id: 'align-right', label: '右对齐' }),
   Object.freeze({ id: 'auto-layout', label: '自动排版' }),
-  Object.freeze({ id: 'bind-elements', label: '绑定元素' }),
-  Object.freeze({ id: 'group-elements', label: '打组' }),
+  /* 9-16 用户批注（图15~19）：打组与绑定元素原来是**同一套逻辑**（只差一个 bound 布尔），
+     既不能取消、按钮也不高亮。现在两者语义彻底分开：
+       · 打组 = 形成一个**组容器**（组框样式与普通选中不同，组内节点不显示左右加号），
+                组内节点一起移动、一起选中；
+       · 绑定元素 = 只是「一起移动」的关联，不形成组容器、不画组框、组内节点保留加号。
+     两者都可再次点击**解除**（按钮高亮表示当前选中已处于该状态）。 */
+  Object.freeze({ id: 'bind-elements', label: '绑定元素', toggles: 'bind' }),
+  Object.freeze({ id: 'group-elements', label: '打组', toggles: 'group' }),
   Object.freeze({ id: 'export-selection', label: '导出' }),
   Object.freeze({ id: 'stitch-details', label: '合成长图' }),
   Object.freeze({ id: 'delete-selection', label: '删除' }),
 ]);
+
+/* 组容器 id 语义：#group_<ts> = 打组容器；#bind_<ts> = 绑定关联。
+   以 id 前缀而不是节点上的布尔字段来判断，保证两者永远不会互相冒充。 */
+export const CANVAS_GROUP_PREFIX = '#group_';
+export const CANVAS_BIND_PREFIX = '#bind_';
+export const CANVAS_GROUP_GAP = 22;   /* 组框在节点外包一圈的呼吸感（用户：四周留呼吸感） */
+
+export function canvasGroupKindOf(groupId = '') {
+  const value = String(groupId || '');
+  if (value.startsWith(CANVAS_GROUP_PREFIX)) return 'group';
+  if (value.startsWith(CANVAS_BIND_PREFIX)) return 'bind';
+  return '';
+}
+
+export function canvasNodeGroupKind(node = {}) {
+  return canvasGroupKindOf(node?.groupId);
+}
+
+/** 选中集合当前的打组/绑定状态，供多选工具栏高亮与「再点一次解除」使用。 */
+export function canvasSelectionGroupState(nodes = [], selectedIds = new Set()) {
+  const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
+  const selected = nodes.filter(node => ids.has(node.id));
+  if (selected.length < 2) return { groupId: '', kind: '' };
+  const groupId = String(selected[0]?.groupId || '');
+  if (!groupId) return { groupId: '', kind: '' };
+  /* 只有当**选中的每个节点**都在同一个组里才认为处于该状态 */
+  if (!selected.every(node => String(node.groupId || '') === groupId)) return { groupId: '', kind: '' };
+  return { groupId, kind: canvasGroupKindOf(groupId) };
+}
+
+/** 组框：把组内节点外包一圈（含四周呼吸感），供画布渲染组容器用。 */
+export function canvasGroupBounds(nodes = [], groupId = '', gap = CANVAS_GROUP_GAP) {
+  const members = nodes.filter(node => node && node.groupId === groupId && node.hidden !== true);
+  if (members.length < 2) return null;
+  const left = Math.min(...members.map(node => finite(node.x)));
+  const top = Math.min(...members.map(node => finite(node.y)));
+  const right = Math.max(...members.map(node => finite(node.x) + finite(node.w)));
+  const bottom = Math.max(...members.map(node => finite(node.y) + finite(node.h)));
+  return {
+    x: roundCoordinate(left - gap),
+    y: roundCoordinate(top - gap),
+    w: roundCoordinate(right - left + gap * 2),
+    h: roundCoordinate(bottom - top + gap * 2),
+    count: members.length,
+  };
+}
+
+/** 画布上所有需要渲染的组容器（打组 + 绑定各一种样式）。 */
+export function canvasGroupFrames(nodes = []) {
+  const ids = [...new Set(nodes.map(node => String(node?.groupId || '')).filter(Boolean))];
+  return ids.map(groupId => {
+    const bounds = canvasGroupBounds(nodes, groupId);
+    if (!bounds) return null;
+    return { groupId, kind: canvasGroupKindOf(groupId), bounds, memberIds: nodes.filter(node => node.groupId === groupId).map(node => node.id) };
+  }).filter(Boolean);
+}
+
+/** 打组 / 绑定 / 解除：返回新的 nodes 数组（纯函数，可测）。 */
+export function applyCanvasGroupAction(nodes = [], selectedIds = new Set(), actionId = '') {
+  const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
+  const members = nodes.filter(node => ids.has(node.id));
+  if (members.length < 2) return nodes;
+  const state = canvasSelectionGroupState(nodes, ids);
+  const wanted = actionId === 'bind-elements' ? 'bind' : 'group';
+  const clearing = state.kind === wanted;
+  /* 已是该状态 → 再点一次解除（用户批注：不能取消） */
+  if (clearing) return nodes.map(node => (ids.has(node.id) ? { ...node, groupId: '' } : node));
+  const prefix = wanted === 'bind' ? CANVAS_BIND_PREFIX : CANVAS_GROUP_PREFIX;
+  /* 换组时把原来同组、这次没选中的成员一起带过来，避免出现半个组 */
+  const previous = state.groupId
+    ? new Set(nodes.filter(node => node.groupId === state.groupId).map(node => node.id))
+    : new Set();
+  const nextGroupId = `${prefix}${Date.now()}`;
+  return nodes.map(node => (ids.has(node.id) || previous.has(node.id) ? { ...node, groupId: nextGroupId } : node));
+}
+
+/** 拖动一个节点时，同组/同绑定关系的节点一起移动（打组与绑定在“一起移动”这一点上一致）。 */
+export function expandCanvasGroupDragIds(nodes = [], nodeId = '') {
+  const node = nodes.find(candidate => candidate.id === nodeId);
+  const groupId = String(node?.groupId || '');
+  if (!groupId) return new Set();
+  return new Set(nodes.filter(candidate => candidate.groupId === groupId).map(candidate => candidate.id));
+}
 
 function isExportableCanvasImage(node = {}) {
   if (!node.url) return false;

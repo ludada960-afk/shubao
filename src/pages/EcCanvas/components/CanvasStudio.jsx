@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
 import {
@@ -60,19 +60,18 @@ import {
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ModelLogo from '../../../components/ModelLogo.jsx';
-import { IMAGE_PROMPT_LIMIT } from '../../../constants/promptLimits.js';
+import { IMAGE_PROMPT_LIMIT, TEXT_PROMPT_LIMIT, VIDEO_PROMPT_LIMIT, PROMPT_MAX_ROWS, PROMPT_MIN_ROWS, promptFieldCssVars, promptLimitNotice } from '../../../constants/promptLimits.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
 import SizingPanel from '../../Home/ec/SizingPanel.jsx';
 import SkuPanel from '../../Home/ec/SkuPanel.jsx';
-import StylePanel from '../../Home/ec/StylePanel.jsx';
 import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
 import CopyPanel from '../../Home/ec/CopyPanel.jsx';
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
 import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, canvasGenerationBoxHasResult, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
-import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
+import { canvasGroupKindOf, canvasSelectionGroupState, getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
 import { buildImageMentions } from '../../../components/creation/imageMentionModel.js';
@@ -398,12 +397,18 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
   const count = selectedIds instanceof Set ? selectedIds.size : (selectedIds || []).length;
   if (!bounds || count < 2) return null;
   const actions = multiSelectionActionsForNodes(nodes, selectedIds);
+  /* 9-16 用户批注（图15~19）：「按钮不高亮」—— 已打组/已绑定时对应按钮要高亮，
+     并且按钮文字/aria 变成「解除…」，再点一次就是解除（同一个按钮，不额外加一个入口）。 */
+  const groupState = canvasSelectionGroupState(nodes, selectedIds);
   const estimatedWidth = 76 + actions.reduce((total, action) => total + Math.max(56, action.label.length * 12 + 34), 0);
   return <div ref={introGateRef} className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: estimatedWidth, height: 42 })}>
     <strong>{count} 个已选中</strong>
     {actions.map(action => {
       const Icon = MULTI_ICONS[action.id] || WandSparkles;
-      return <button key={action.id} type="button" className={`is-compact ${action.id === 'delete-selection' ? 'is-danger' : ''}`} aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action.id)}><Icon size={15} /><span>{action.label}</span></button>;
+      const applied = (action.id === 'group-elements' && groupState.kind === 'group')
+        || (action.id === 'bind-elements' && groupState.kind === 'bind');
+      const label = applied ? (action.id === 'group-elements' ? '解除打组' : '解除绑定') : action.label;
+      return <button key={action.id} type="button" className={`is-compact ${applied ? 'is-applied' : ''} ${action.id === 'delete-selection' ? 'is-danger' : ''}`} aria-label={label} aria-pressed={applied || undefined} title={label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action.id)}><Icon size={15} /><span>{label}</span></button>;
     })}
   </div>;
 }
@@ -446,15 +451,140 @@ function ComposerMention({ availableSources = [], selectedSources = [], activeSu
 }
 
 
+/* 9-16 用户批注（图10）：「张开的面板必须居中于按钮的正上方，你现在一张开就是往右拉，很奇怪」
+   —— CSS 已经给出 left:50% + translateX(-50%)，但面板贴在画布边缘时会被视口裁掉，
+   所以在打开后的第一帧做一次「视口内回夹」：把面板水平推回可视区，并标记 is-clamped
+   （去掉 translate，避免二次偏移）。四个框的模型/比例/清晰度/张数/技能/套图面板共用这一个 hook。 */
+export function useCanvasPopoverCentering(openKey = '') {
+  const popoverRef = useRef(null);
+  useLayoutEffect(() => {
+    const node = popoverRef.current;
+    if (!node || !openKey) return;
+    node.classList.remove('is-clamped');
+    const clampToViewport = () => {
+      const box = node.getBoundingClientRect();
+      const gutter = 12;
+      const overflowLeft = gutter - box.left;
+      const overflowRight = box.right - (window.innerWidth - gutter);
+      node.style.removeProperty('left');
+      node.style.removeProperty('margin-left');
+      if (overflowLeft > 0) node.style.marginLeft = `${overflowLeft}px`;
+      else if (overflowRight > 0) node.style.marginLeft = `${-overflowRight}px`;
+      if (overflowLeft > 0 || overflowRight > 0) node.classList.add('is-clamped');
+    };
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(clampToViewport);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [openKey]);
+  return popoverRef;
+}
+
+/* 9-16 用户批注（图4/图5）：「这四个文字输入框本身不大，用户输入几千字要一直滑动」、
+   「文字输入框右下角不是应该有一个可以拉动的按钮吗（resize 手柄），这样才一次性看全」、
+   「拉完之后如果字还是超出，还是要有滚动条」。
+   .mention-prompt-field 是 contentEditable（不支持原生 resize），所以手柄自研：
+   拖动改外层高度，外层被 --ec-prompt-min-h / --ec-prompt-max-h 夹在 3~12 行之间，
+   拉到上限后继续输入由输入框自身 overflow:auto 提供滚动条。
+   四个生成框（图片 / 文案 / 视频 / 套图）全部走这个组件，保证口径一致。 */
+const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IMAGE_PROMPT_LIMIT, value = '', onResize, className = '', ...props }, ref) {
+  const boxRef = useRef(null);
+  const dragRef = useRef(null);
+  const [height, setHeight] = useState(0);
+  const [overflowing, setOverflowing] = useState(false);
+  const styleVars = useMemo(() => promptFieldCssVars(), []);
+  const textLength = String(value || '').length;
+  const atLimit = maxLength > 0 && textLength >= maxLength;
+  const readBounds = () => {
+    const box = boxRef.current;
+    if (!box) return { min: 108, max: 322 };
+    const styles = getComputedStyle(box);
+    return {
+      min: Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-min-h')) || 108),
+      max: Math.round(Number.parseFloat(styles.getPropertyValue('--ec-prompt-max-h')) || 322),
+    };
+  };
+  const measureOverflow = () => {
+    const field = boxRef.current?.querySelector('.mention-prompt-field');
+    const next = Boolean(field) && field.scrollHeight > field.clientHeight + 1;
+    setOverflowing(previous => (previous === next ? previous : next));
+  };
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box || typeof ResizeObserver === 'undefined') return undefined;
+    const field = box.querySelector('.mention-prompt-field');
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(box);
+    if (field) observer.observe(field);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(box);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [height]);
+  const beginResize = event => {
+    const box = boxRef.current;
+    if (!box || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const bounds = readBounds();
+    dragRef.current = { startY: event.clientY, startHeight: box.getBoundingClientRect().height, min: bounds.min, max: bounds.max };
+    setHeight(previous => (previous || Math.round(dragRef.current.startHeight)));
+    const move = moveEvent => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const next = Math.max(drag.min, Math.min(drag.max, drag.startHeight + (moveEvent.clientY - drag.startY)));
+      setHeight(Math.round(next));
+    };
+    const end = () => {
+      dragRef.current = null;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      window.requestAnimationFrame(measureOverflow);
+      onResize?.();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+  return <div
+    className="ec-canvas-prompt-resize"
+    ref={boxRef}
+    data-canvas-control="true"
+    style={{ ...styleVars, ...(height ? { '--ec-prompt-height': `${height}px` } : {}) }}
+    onPointerDown={event => event.stopPropagation()}
+  >
+    <MentionPromptField ref={ref} value={value} maxLength={maxLength} className={className} {...props} />
+    {overflowing && atLimit && <span className="ec-canvas-prompt-overflow-hint" role="status">{promptLimitNotice(maxLength)}</span>}
+    <button
+      type="button"
+      className="ec-canvas-prompt-resize-handle"
+      data-canvas-control="true"
+      aria-label={`调整输入框高度（${PROMPT_MIN_ROWS}-${PROMPT_MAX_ROWS} 行，超过后内部滚动）`}
+      title={`拖动调整高度（${PROMPT_MIN_ROWS}-${PROMPT_MAX_ROWS} 行）`}
+      onPointerDown={beginResize}
+    />
+  </div>;
+});
+
 /* 9-13 用户批注：四个生成框要**共用同一个技能入口**（点开同一套技能，最后一项进「技能管理」弹窗）。
    所以把「技能按钮 + 技能弹层」抽成一个组件，图片 / 文案 / 视频 / 套图四处都用它，不再各写一套。 */
 function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null, domain = 'image' }) {
   const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
+  /* 9-16（图10）：技能面板同样必须居中于技能按钮正上方 */
+  const skillPopoverRef = useCanvasPopoverCentering(open === 'skill' ? 'skill' : '');
   const skills = filterCanvasSkills(domain);
   const activeLabel = node?.skillLabel || skills.find(item => item.slug === node?.skill)?.name || '技能';
   return <div className="ec-canvas-parameter-item">
     <button type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'parameter:skill'))}>{activeLabel}<WandSparkles size={12} /><ChevronDown size={12} /></button>
-    {open === 'skill' && <div className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
+    {open === 'skill' && <div ref={skillPopoverRef} className="ec-canvas-parameter-popover ec-canvas-skill-popover" role="menu" aria-label="技能选项">
       {skills.map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
         <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
       </button>)}
@@ -480,10 +610,15 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const imageModel = node?.imageModel || 'image2';
   const count = Number(node?.count) || countOptions[0] || 1;
   const toggle = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `parameter:${key}`));
+  /* 9-16（图10）：「张开的面板必须居中于按钮的正上方」——模型/比例/清晰度/张数四个面板逐个居中并回夹视口 */
+  const modelPopoverRef = useCanvasPopoverCentering(open === 'model' ? 'model' : '');
+  const ratioPopoverRef = useCanvasPopoverCentering(open === 'ratio' ? 'ratio' : '');
+  const resolutionPopoverRef = useCanvasPopoverCentering(open === 'resolution' ? 'resolution' : '');
+  const countPopoverRef = useCanvasPopoverCentering(open === 'count' ? 'count' : '');
   return <div className="ec-canvas-parameter-controls" ref={rootRef} onPointerDown={event => event.stopPropagation()}>
     <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
-      {open === 'model' && <div className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
+      {open === 'model' && <div ref={modelPopoverRef} className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
         {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => {
           /* 切到不支持当前清晰度的模型时，顺手落到它支持的档位（画布上不会留下无效的 4K） */
@@ -498,7 +633,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
     </div>
     <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="图片比例" aria-haspopup="menu" aria-expanded={open === 'ratio'} onClick={() => toggle('ratio')}>自动 / {ratio}<ChevronDown size={12} /></button>
-      {open === 'ratio' && <div className="ec-canvas-parameter-popover ec-canvas-ratio-popover" role="menu" aria-label="图片比例选项">
+      {open === 'ratio' && <div ref={ratioPopoverRef} className="ec-canvas-parameter-popover ec-canvas-ratio-popover" role="menu" aria-label="图片比例选项">
         {CANVAS_RATIO_OPTIONS.map(value => <button key={value} type="button" className={value === ratio ? 'is-active' : ''} onClick={() => { onChange?.({ ratio: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
           <i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span>
         </button>)}
@@ -506,14 +641,14 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
     </div>
     <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="清晰度" aria-haspopup="menu" aria-expanded={open === 'resolution'} onClick={() => toggle('resolution')}>{resolution}<ChevronDown size={12} /></button>
-      {open === 'resolution' && <div className="ec-canvas-parameter-popover ec-canvas-resolution-popover" role="menu" aria-label="清晰度选项">
+      {open === 'resolution' && <div ref={resolutionPopoverRef} className="ec-canvas-parameter-popover ec-canvas-resolution-popover" role="menu" aria-label="清晰度选项">
         {/* 9-13：清晰度跟着模型能力走（Midjourney 上游只有 1K/2K，画布同样不给 4K） */}
         {CANVAS_RESOLUTION_OPTIONS.filter(value => imageModelResolutions(imageModel).includes(value)).map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} onClick={() => { onChange?.({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
       </div>}
     </div>
     {includeCount && <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="生成数量" aria-haspopup="menu" aria-expanded={open === 'count'} onClick={() => toggle('count')}>x{count}<ChevronDown size={12} /></button>
-      {open === 'count' && <div className="ec-canvas-parameter-popover ec-canvas-count-popover" role="menu" aria-label="生成数量选项">
+      {open === 'count' && <div ref={countPopoverRef} className="ec-canvas-parameter-popover ec-canvas-count-popover" role="menu" aria-label="生成数量选项">
         {countOptions.map(value => <button key={value} type="button" className={value === count ? 'is-active' : ''} onClick={() => { onChange?.({ count: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>{value}</button>)}
       </div>}
     </div>}
@@ -524,10 +659,17 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   </div>;
 }
 
+/* 9-16 用户批注（图9）：「我们首页不是已经把智能风格给拿掉了吗？替换成了技能呀，
+   你这里为什么没有跟着一起改？首页改了什么，你要一起跟着改。」
+   首页电商生图的参数行口径（README）是：生图模型 / 清晰度 / 锁定品牌主色调 / 避免出现的元素。
+   画布套图框原来多一个「视觉方向 = 智能风格」入口，与首页不一致，已撤掉 ——
+   风格统一走「技能」入口（CanvasSkillControl：与图片/文案/视频同一个按钮、同一套技能、同一个技能库弹窗）。
+   保留的按钮与首页一一对应：
+     套图方案(SizingPanel) / SKU变体 / 商品信息(ParamsPanel) / 内容规范(CopyPanel) / 生成设置(GenSettingsPanel，
+     内含生图模型·清晰度·负面提示词=避免出现的元素)。 */
 const SUITE_PANEL_BUTTONS = Object.freeze([
   { key: 'sizing', label: '套图方案', icon: Grid2X2 },
   { key: 'sku', label: 'SKU变体', icon: Layers3 },
-  { key: 'style', label: '视觉方向', icon: WandSparkles },
   { key: 'params', label: '商品信息', icon: Info },
   { key: 'copy', label: '内容规范', icon: FileText },
   { key: 'settings', label: '生成设置', icon: SlidersHorizontal },
@@ -567,6 +709,8 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     return () => document.removeEventListener('pointerdown', close);
   }, [activeSurface, onSurfaceChange]);
   const activePanel = activeSurface.startsWith('suite:') ? activeSurface.slice('suite:'.length) : '';
+  /* 9-16（图10）：套图方案/SKU/商品信息/内容规范/生成设置 五个面板同样居中于各自按钮正上方 */
+  const suitePopoverRef = useCanvasPopoverCentering(activePanel);
   const update = (key, value, legacy = {}) => onChange?.({
     ...legacy,
     configuration: { ...configuration, [key]: value },
@@ -575,7 +719,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     if (key === 'sizing') return summarizeCommerceConfiguration('sizing', configuration.sizing);
     if (key === 'sku') return summarizeCommerceConfiguration('sku', configuration);
     if (key === 'params') return summarizeCommerceConfiguration('params', configuration);
-    if (key === 'style') return configuration.styleSkill === 'smart' ? '智能风格' : '自定义风格';
+    /* 9-16：'style'（视觉方向/智能风格）入口已撤掉，风格统一走「技能」，与首页一致 */
     if (key === 'copy') return Object.values(configuration.copywriting || {}).some(Boolean) ? '已配置' : 'AI规划';
     return `${imageModelLabel(configuration.genSettings?.imageModel)}·${configuration.genSettings?.resolution || '2K'}`;
   };
@@ -589,7 +733,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
         aria-haspopup="dialog"
         onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
       ><item.icon size={14} /><span>{summary(item.key)}</span>{adjustedPanels[item.key] && <small>已调整</small>}<ChevronDown size={12} /></button>
-      {activePanel === item.key && <div className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
+      {activePanel === item.key && <div ref={suitePopoverRef} className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
         {item.key === 'sizing' && <SizingPanel
           platform={configuration.platform}
           targetLanguage={configuration.commerceContext.targetLanguage}
@@ -606,7 +750,6 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
           resolution={configuration.genSettings.resolution}
         />}
         {item.key === 'sku' && <SkuPanel skus={configuration.skus} onChange={value => update('skus', value)} sizing={configuration.sizing} onSizingChange={value => update('sizing', value)} />}
-        {item.key === 'style' && <StylePanel value={configuration.styleSkill} onChange={value => update('styleSkill', value, { styleSkill: value })} customColors={configuration.customColors} onColorsChange={value => update('customColors', value)} />}
         {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} />}
         {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} />}
         {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
@@ -661,7 +804,11 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
      框内还没有结果（未生成 / 失败）时不渲染左右加号；结果落入框内（有 url）时
      左右才出现输入锚点 + 输出加号。text-composer / suite-composer 的框是控制台，
      结果以独立节点出现，框本体始终不挂加号。 */
-  const nodeHasResult = canvasGenerationBoxHasResult(node);
+  /* 9-16 用户批注（图15~19）：「组内节点还带加号」—— 打组（groupId 前缀 #group_）之后，
+     组内节点不再显示左右加号（打组 = 一个整体，加减号会破坏"这是一个组"的认知）。
+     绑定元素（#bind_）只是"一起移动"，不改变节点自身能力，加号保留。 */
+  const inCanvasGroup = canvasGroupKindOf(node.groupId) === 'group';
+  const nodeHasResult = canvasGenerationBoxHasResult(node) && !inCanvasGroup;
   const textBoardRef = useRef(null);
   const textComposingRef = useRef(false);
   const textEditSeedRef = useRef('');
@@ -885,7 +1032,7 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
         <span>局部目标</span>
         {['whole', 'rectangle', 'subject'].map(mode => <button key={mode} type="button" className={node.selection?.mode === mode || (!node.selection && mode === 'whole') ? 'is-active' : ''} data-canvas-control="true" onClick={event => { event.stopPropagation(); onChange?.({ selection: { mode } }); }}>{mode === 'whole' ? '整图' : mode === 'rectangle' ? '框选' : '主体'}</button>)}
       </div>}
-      <MentionPromptField
+      <CanvasPromptField
         ref={promptFieldRef}
         data-canvas-control="true"
         value={node.prompt || ''}
@@ -925,7 +1072,7 @@ export function CanvasTextGenerationComposer({ node, position,  sources = [], me
   };
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-text-generation-composer" style={position} aria-label="文案生成操作台" onPointerDown={event => event.stopPropagation()}>
     <ComposerSources sources={sources} role="reference" onAddSources={onAddSources} onRemoveSource={onRemoveSource} uploadLabel="上传参考图" />
-    <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={IMAGE_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={value => onChange?.({ prompt: value })} />
+    <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={TEXT_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={value => onChange?.({ prompt: value })} />
     <div className="ec-canvas-composer-footer">
       <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
       <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
@@ -1017,7 +1164,7 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
       />
     </div>}
     {/* 9-13 用户批注：四个框统一要有 @ 键 —— 视频框原来只有 textarea，没有 @ 引用 */}
-    <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={1200} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述主体、动作、镜头、场景和节奏" onChange={value => change({ prompt: value })} />
+    <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={VIDEO_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述主体、动作、镜头、场景和节奏" onChange={value => change({ prompt: value })} />
     <div className="ec-canvas-video-controls">
       <label>视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => change({ modelProductId: event.target.value })}>{(videoProducts.length ? videoProducts : [{ id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' }, { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' }]).map(product => <option key={product.id} value={product.id}>{product.label}{product.tierLabel ? ` · ${product.tierLabel}` : ''}{product.quotes?.short?.points ? ` (${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次)` : ''}</option>)}</select></label>
       <label>清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
@@ -1059,8 +1206,12 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
       <ComposerSources sources={sources.filter(source => (node.sourceRoles?.[source.id] || source.role) !== 'product')} role="reference" onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="上传参考图" />
     </div>}
     {!planning ? <>
-      <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={IMAGE_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={value => onChange?.({ prompt: value })} />
+      <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={IMAGE_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={value => onChange?.({ prompt: value })} />
     </> : <CanvasSuitePlanEditor plan={buildCanvasSuitePlan(node.suitePlan || directions[0], node.prompt)} onChange={plan => onChange?.({ suitePlan: plan })} />}
+    {/* 9-16（图8/图9）：四个框统一顺序 @ → 参数 → 技能 → 生成。
+        套图的参数行（套图方案/SKU/商品信息/内容规范/生成设置）就是这一步的「参数」，
+        放在底栏之上单独一行（它需要整行宽度，挤进底栏会把技能和生成按钮压变形）；
+        底栏保持 @ → 技能 → 生成 的同一位置。 */}
     <CanvasSuiteControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
     <div className="ec-canvas-composer-footer">
       <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={(source, options = {}) => {
@@ -1507,7 +1658,10 @@ export function CanvasImageNode({
   onReplace = null,
   onImageReady = null,
 }) {
+  /* 9-16（图15~19）：打组后的组内节点不显示左右加号（绑定元素不改变这一点） */
+  const inCanvasGroup = canvasGroupKindOf(node.groupId) === 'group';
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
+  if (inCanvasGroup) presentation.handlesVisible = false;
   /* 用户 9-10 反馈: 模板素材节点必须与真实上传素材完全同款 —— 不再有自造"槽位"描边与提示文案。 */
   return <article
     data-canvas-node-id={node.id}

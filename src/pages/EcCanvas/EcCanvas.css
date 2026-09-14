@@ -1423,4 +1423,266 @@
 /* 套图框的「技能」入口跟参数行同宽，避免挤压右侧生成按钮 */
 .ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-skill { order: 1; flex: 0 0 auto; }
 
+/* ═══════════ 9-16 四个生成框底部参数行：弹性布局 + 统一顺序 ═══════════
+   用户重复投诉（图4/图7）：「只要我把模型选个长一点的，它就会往右挤，然后把那个生成按钮给盖掉了」、
+   「你右边这个技能的按钮，现在已经是完全盖到了右边的生成按钮」。
+   实测根因：参数按钮是 white-space:nowrap + 定宽 max-width，文字**溢出自身盒子**绘制
+   （实测「GPT Image 2」按钮盒宽 78px、scrollWidth 113px，文字一直画到生成按钮底下）。
+   用户给的基准是视频框（图8）：「模型名太长就右边展示不全、被截断也无所谓，主要是不能让按钮变形」。
+   所以这里统一为：每个参数按钮自身 text-overflow: ellipsis + min-width:0，
+   绝不撑开父容器、绝不覆盖生成按钮。
+   顺序也统一（图8/图9）：@ 引用 → 参数（模型/比例/清晰度/张数）→ 技能 → 生成按钮，
+   四个框同一行同一位置，不允许有的框把 @ 或技能丢到最后一行。 */
+.ec-canvas-composer-footer {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.ec-canvas-composer-footer > .ec-canvas-composer-mention { order: 0; flex: 0 0 auto; margin-left: 0; }
+.ec-canvas-composer-footer > .ec-canvas-parameter-controls { order: 1; flex: 0 1 auto; min-width: 0; }
+.ec-canvas-composer-footer > span { order: 2; flex: 0 1 auto; min-width: 0; }
+.ec-canvas-composer-footer > button.ec-canvas-composer-cta { order: 3; flex: 0 0 auto; margin-left: auto; }
+
+/* 参数行整体：可以被压缩，但每个按钮自己负责截断 */
+.ec-canvas-parameter-controls {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.ec-canvas-parameter-item { min-width: 0; }
+.ec-canvas-parameter-item > button,
+.ec-canvas-suite-control > button {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.ec-canvas-parameter-item > button > svg,
+.ec-canvas-suite-control > button > svg { flex: 0 0 auto; }
+.ec-canvas-parameter-item > button > span,
+.ec-canvas-suite-control > button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ec-canvas-parameter-controls .ec-canvas-parameter-item:last-child > button { max-width: 108px; }
+
+/* ≤760px（窄屏）才允许换行，顺序仍是 @ → 参数 → 技能 → 生成 */
+@media (max-width: 760px) {
+  .ec-canvas-composer-footer { flex-wrap: wrap; }
+  .ec-canvas-composer-footer > .ec-canvas-parameter-controls { flex: 1 1 auto; }
+  .ec-canvas-composer-footer > button.ec-canvas-composer-cta { margin-left: auto; }
+}
+
+/* 视频框底部：@ 在左，方案/生成按钮组在右（与其余三个框同一顺序） */
+.ec-canvas-video-composer .ec-canvas-composer-footer > .ec-canvas-composer-mention { order: 0; }
+.ec-canvas-video-composer .ec-canvas-composer-footer > span { order: 2; }
+.ec-canvas-video-composer .ec-canvas-composer-footer > .ec-canvas-video-actions { order: 3; flex: 0 0 auto; margin-left: auto; }
+
+/* 套图框技能入口跟着参数行一起排，不再是独立一块 */
+.ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-skill { order: 1; flex: 0 1 auto; min-width: 0; }
+
+/* 套图参数行（套图方案/SKU变体/商品信息/内容规范/生成设置）本身也是一行参数控件：
+   同样必须"文字自己截断，绝不撑开父容器、绝不覆盖生成按钮"。
+   实测：5 个控件的 scrollWidth 合计 638px > 行宽 434px，第 4 个控件「AI规划」的文字
+   溢出到 x=1283，越过了生成按钮左缘 1246 —— 和图片框的模型按钮同一个病。
+   修法：单行不换行 + 每个控件 flex 收缩 + 按钮自身 overflow:hidden/ellipsis。 */
+.ec-canvas-suite-controls {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+/* 每个控件保底能显示「图标 + 4 个汉字」（≈72px），低于这个宽度再截断就没有意义了；
+   保底之后如果整行还是放不下，由行容器裁掉多余部分 —— 任何情况下都不会画到生成按钮上。 */
+/* 9-16：套图参数行搬进底栏后要和 @ / 技能 / 生成挤在同一行（用户图8/图9 口径），
+   所以不再保底 72px —— 过大的保底会把「技能 + 生成」推出面板右缘；
+   改成按可用宽度等比收缩、文字自己截断，整行由容器裁掉多余部分。 */
+.ec-canvas-suite-control {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+/* 套图底栏里参数行吃剩余宽度（否则会挤压技能与生成按钮） */
+.ec-canvas-suite-composer .ec-canvas-composer-footer > .ec-canvas-suite-controls {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+.ec-canvas-suite-control > button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.ec-canvas-suite-control > button > span { max-width: none; }
+@media (max-width: 760px) {
+  .ec-canvas-suite-controls { flex-wrap: wrap; }
+}
+
+/* ═══════════ 9-16 输入框：右下角可拖拽调高 + 明确上限 + 超限滚动 ═══════════
+   用户批注（图4/图5）：「这四个文字输入框本身不大，用户输入几千字要一直滑动」、
+   「文字输入框右下角不是应该有一个可以拉动的按钮吗（resize 手柄），这样才一次性看全」、
+   「拉完之后如果字还是超出，还是要有滚动条」。
+   .mention-prompt-field 是 contentEditable，原生 resize 手柄用不上 →
+   外层 .ec-canvas-prompt-resize 提供自研手柄，高度写在外层，输入框 100% 撑满。
+   上限用 --ec-prompt-max-h（= 12 行）封顶，超过后输入框自身 overflow:auto 出滚动条。 */
+.ec-canvas-prompt-resize {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 16px 14px;
+  height: var(--ec-prompt-height, var(--ec-prompt-min-h, 102px));
+  min-height: var(--ec-prompt-min-h, 102px);
+  max-height: var(--ec-prompt-max-h, 322px);
+  /* 9-16：输入框高度随面板一起被视口夹住（面板贴画布底部时不至于盖住底部工具栏） */
+  overflow: hidden;
+}
+/* 9-16：输入框拉高后，面板整体会顶到画布底部、盖住底部工具栏。
+   面板坐标仍由模型给出（9-15 契约：画布平移是最终权威，测过的 left/top 不许变），
+   所以避让放在渲染层：面板用 CSS 把超出画布底部的部分**整体上移**，
+   既不改变模型输出，也不会遮住工具栏。 */
+.ec-canvas-context-composer {
+  /* 面板整体限制在画布可视高度内：超出部分由输入框先收（它自己 min-height 是 3 行）。 */
+  max-height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+  /* 9-16 兜底：任何子元素（参数行/技能/按钮）都不许画到面板右缘之外 ——
+     用户反复投诉的「参数文字盖住生成按钮」在这一层被物理截断，与子元素自身样式无关。 */
+  overflow: hidden;
+}
+.ec-canvas-context-composer > .ec-canvas-prompt-resize { flex: 0 1 auto; min-height: 0; }
+.ec-canvas-context-composer > .ec-canvas-composer-footer { flex: 0 0 auto; }
+.ec-canvas-prompt-resize > .mention-prompt-field {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  margin: 0;
+  overflow: auto;
+  resize: none;
+}
+.ec-canvas-prompt-resize > .mention-prompt-field { padding-right: 34px; }
+.ec-canvas-prompt-resize-handle {
+  position: absolute;
+  z-index: 3;
+  right: 4px;
+  bottom: 4px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 7px 0;
+  background: transparent;
+  color: #9aa3ae;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.ec-canvas-prompt-resize-handle:hover,
+.ec-canvas-prompt-resize-handle:focus-visible { color: var(--canvas-command, #2563eb); background: rgba(37, 99, 235, .08); }
+.ec-canvas-prompt-resize-handle::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0 0 2px 0;
+}
+.ec-canvas-prompt-overflow-hint {
+  position: absolute;
+  z-index: 3;
+  right: 24px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(254, 242, 242, .94);
+  color: #b42318;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* ═══════════ 9-16 底部参数面板：水平居中于触发按钮 + 收窄提高信息密度 ═══════════
+   用户批注（图10）：「张开的面板必须居中于按钮的正上方，你现在一张开就是往右拉，很奇怪」、
+   「这个面板太宽、中间空白太多，左边选项详情和右边数量尺寸相差太远，要更挤一些」。
+   实测根因：.ec-canvas-suite-panel-popover 用 left:0 且最后两个强行 right:0，所以一律右拉；
+   宽度 min(700px, …) 又太宽。改成统一 translateX(-50%) 居中 + 视口内回夹，并收窄。 */
+.ec-canvas-parameter-popover {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+.ec-canvas-suite-panel-popover {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(400px, calc(100vw - 32px));
+}
+/* 被视口夹住时去掉 translate，避免二次偏移 */
+.ec-canvas-parameter-popover.is-clamped,
+.ec-canvas-suite-panel-popover.is-clamped { transform: none; }
+
+/* ═══════════ 9-16 打组 / 绑定元素：两种语义必须长得不一样 ═══════════
+   用户批注（图15~19）：「打组与绑定元素行为一样、不能取消、按钮不高亮、组内节点还带加号、
+   组框样式与普通选中一样」。
+   口径：① 打组 = 一个**组容器**（虚线描边 + 四角留白 + 四周呼吸感，组内节点不显示左右加号）；
+        ② 绑定元素 = 只是"一起移动"的关联（不画实心组框，只画细链接框，组内节点保留加号）；
+        ③ 已打组/已绑定时对应按钮高亮，再点一次解除。 */
+.ec-canvas-node-group { position: absolute; box-sizing: border-box; pointer-events: none; border-radius: 14px; }
+.ec-canvas-node-group.is-group {
+  z-index: 8;
+  border: 1.5px dashed #7c5cf0;
+  background: rgba(124, 92, 240, .045);
+}
+.ec-canvas-node-group.is-group.is-selected {
+  border-color: #5b3fd6;
+  background: rgba(124, 92, 240, .075);
+  box-shadow: 0 0 0 3px rgba(124, 92, 240, .1);
+}
+.ec-canvas-node-group.is-group > b {
+  position: absolute;
+  left: 10px;
+  top: -11px;
+  padding: 1px 8px;
+  border: 1px solid #7c5cf0;
+  border-radius: 9px;
+  background: #f5f2ff;
+  color: #4c33b8;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.ec-canvas-node-group.is-bind {
+  z-index: 7;
+  border: 1px dashed rgba(15, 118, 110, .55);
+  background: transparent;
+}
+.ec-canvas-node-group.is-bind > b {
+  position: absolute;
+  left: 10px;
+  top: -10px;
+  padding: 1px 7px;
+  border: 1px solid rgba(15, 118, 110, .5);
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  white-space: nowrap;
+}
+/* 多选工具栏里已生效的「打组 / 绑定元素」按钮要高亮（用户：按钮不高亮，不知道有没有生效） */
+.ec-canvas-multi-toolbar button.is-applied {
+  border-color: var(--canvas-command);
+  color: var(--canvas-command);
+  background: #f2f6ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+}
+
 

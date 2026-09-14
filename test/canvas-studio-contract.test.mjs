@@ -311,7 +311,11 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.doesNotMatch(source, /<header>\s*文本\s*<\/header>/);
   assert.match(source, /SizingPanel/);
   assert.match(source, /SkuPanel/);
-  assert.match(source, /StylePanel/);
+  /* 9-16 用户批注（图9）：「我们首页不是已经把智能风格给拿掉了么？你这里为什么没有跟着一起改？」
+     → 套图框撤掉与首页不一致的「视觉方向 / 智能风格」入口，风格统一走「技能」。
+     所以这里由「断言 StylePanel 存在」改为「断言它已下线」，并锁定首页口径的参数集。 */
+  assert.doesNotMatch(source, /StylePanel/);
+  assert.match(source, /技能/);
   assert.match(source, /ParamsPanel/);
   assert.match(source, /CopyPanel/);
   assert.match(source, /GenSettingsPanel/);
@@ -738,8 +742,11 @@ test('Canvas density uses content-sized toolbars and readable metadata', () => {
   /* 9-12: 按钮支持「已加入资产库」高亮态 —— title/label 按状态取值 */
   assert.match(source, /const alreadyAsset = action\.id === 'save-to-assets'/);
   assert.match(source, /alreadyAsset \? '这个素材已在资产库中，再点一次即可移除'/);
-  assert.match(source, /<span>\{action\.label\}<\/span>/);
-  assert.match(source, /<Icon size=\{15\} \/><span>\{action\.label\}<\/span>/);
+  /* 9-16 用户批注（图15~19）：已打组/已绑定时按钮要**高亮**，再点一次解除。
+     所以按钮标签由 action.label 改成按状态派生的 label（未生效 = 动作名，已生效 = 解除…）。 */
+  assert.match(source, /const label = applied \? \(action\.id === 'group-elements' \? '解除打组' : '解除绑定'\) : action\.label/);
+  assert.match(source, /<span>\{label\}<\/span>/);
+  assert.match(source, /<Icon size=\{15\} \/><span>\{label\}<\/span>/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*min-width:\s*var\(--ec-canvas-control-height\);[^}]*width:\s*auto;[^}]*padding:\s*0 8px;/s);
 });
 
