@@ -81,7 +81,7 @@ export default function LoadingView() {
             const accentColor = isEC ? 'var(--blue)' : 'var(--red)';
             return (
               <div key={i} style={{
-                flex: 1, height: 6, borderRadius: 3,
+                flex: 1, height: 6, borderRadius: 4,
                 background: isActive ? accentColor : 'var(--border)',
                 position: 'relative',
                 overflow: 'hidden',

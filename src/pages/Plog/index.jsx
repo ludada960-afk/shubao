@@ -352,6 +352,8 @@ export default function PlogPage() {
               }}>
                 {/* 撕纸边缘效果（使用不规则边框） */}
                 <div style={{
+                  /* C 类保留（41-scales §2）：撕纸边缘是不规则装饰形状（左窄右宽），
+                     不是圆角档位，不参与 D18 归并。 */
                   background: '#fff', borderRadius: '2px 4px 4px 2px',
                   padding: 3, position: 'relative',
                   boxShadow: '1px 2px 6px rgba(12,10,9,0.08)',
