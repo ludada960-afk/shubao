@@ -127,6 +127,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   profileAccessRef.current = { allowed: profileAccess, ownerEmail };
   const generationIdentityRef = useRef({ ownerEmail, draftId });
   generationIdentityRef.current = { ownerEmail, draftId };
+  /* 2026-09-17 第六批（收费链路真实端到端验收）：
+     「下一步」原来只靠 uploadingAssets（React state，**异步**）判重 ——
+     同一 tick 内的连点会全部在它变成 true 之前通过判断，
+     结果是 N 次「设计方案」报价 + N 次分析（N 倍扣费）。
+     这里加**同步** ref 闸门：赋值立即生效，第二次点击直接 return。
+     与画布方案链的 directionBusyRef 同一口径。 */
+  const nextClickInFlightRef = useRef(false);
   const beginGeneration = () => {
     const token = createEcommerceGenerationToken({ ownerEmail, draftId });
     generationTokenRef.current = token;
@@ -535,14 +542,19 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
      本函数不再接受 quick 参数, 恒走「生成设计方案 → 进画布」这条链路, 首页不再出现二选一。 */
   const handleNext = async () => {
     if (!canGen || uploadingAssets) return;
+    /* 同步闸门必须先落位：state 更新是异步的，挡不住同一 tick 的连点。 */
+    if (nextClickInFlightRef.current) return;
+    nextClickInFlightRef.current = true;
     const loginPreflight = ecommerceLoginPreflight({ logged: state.logged });
     if (!loginPreflight.allowed) {
+      nextClickInFlightRef.current = false;
       dispatch(loginPreflight.action);
       setAssetUploadError('');
       return;
     }
     const generationToken = beginGeneration();
     if (!generationToken) {
+      nextClickInFlightRef.current = false;
       const contextError = createEcommerceGenerationPreconditionError();
       setAssetUploadError(contextError.message);
       setUploadingAssets(false);
@@ -646,6 +658,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       if (!isGenerationCurrent(generationToken)) return;
       setAssetUploadError(error?.message || '原图上传失败，请重试');
     } finally {
+      /* 闸门必须在所有出口释放（含失败、含被取消），否则按钮会永久卡死。 */
+      nextClickInFlightRef.current = false;
       if (isGenerationCurrent(generationToken)) {
         setUploadingAssets(false);
         generationTokenRef.current = null;

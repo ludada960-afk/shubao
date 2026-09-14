@@ -152,7 +152,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
             type="button"
             className="ec-skill-entry"
             onClick={() => onOpenSkillLibrary?.('image')}
-            style={{ height: 'var(--sb-control-sm)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-secondary)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            /* 用户要求点击区 ≥32px（改造前此处仅 26px）→ --sb-control-md(32) */
+            style={{ height: 'var(--sb-control-md)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-secondary)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
           >
             <Wand2 size={12} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
           </button>
@@ -253,7 +254,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                     aria-pressed={active}
                     title={skill.summary || skill.name}
                     onClick={() => (active ? onRemoveSkill?.(skill.id) : onAddSkill?.(skill))}
-                    style={{ height: 'var(--sb-control-sm)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-pill)', border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`, background: active ? 'var(--sb-brand-wash)' : 'var(--sb-surface-card)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)' }}
+                    /* 用户要求点击区 ≥32px（改造前 28px）→ --sb-control-md(32) */
+                    style={{ height: 'var(--sb-control-md)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-pill)', border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`, background: active ? 'var(--sb-brand-wash)' : 'var(--sb-surface-card)', color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-secondary)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)' }}
                   >
                     {active && <Check size={11} />}{skill.name}
                   </button>
@@ -267,9 +269,11 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
         {(userSkills || []).length > 0 && (
           <div style={{ marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {(userSkills || []).map(skill => (
-              <span key={skill.id} className="ec-skill-chip is-active" style={{ height: 'var(--sb-control-sm)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-pill)', border: '1px solid var(--sb-state-selected-line)', background: 'var(--sb-brand-wash)', color: 'var(--sb-state-selected-ink)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)' }}>
+              <span key={skill.id} className="ec-skill-chip is-active" style={{ height: 'var(--sb-control-md)', padding: '0 var(--sb-space-2)', borderRadius: 'var(--sb-radius-pill)', border: '1px solid var(--sb-state-selected-line)', background: 'var(--sb-brand-wash)', color: 'var(--sb-state-selected-ink)', fontSize: 'var(--sb-text-2xs)', fontWeight: 'var(--sb-weight-semibold)', display: 'inline-flex', alignItems: 'center', gap: 'var(--sb-space-1)' }}>
                 <Wand2 size={12} /> {skill.name}
-                <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => onRemoveSkill?.(skill.id)} style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}>×</button>
+                <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => onRemoveSkill?.(skill.id)} /* 移除按钮此前 padding:0 且无尺寸 = 极小点击目标。
+   按用户「点击区不许缩水」给到 32×32 抓取区（视觉仍是 × 字形）。 */
+  style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0, width: 'var(--sb-control-md)', height: 'var(--sb-control-md)', display: 'inline-grid', placeItems: 'center', marginLeft: 'calc(var(--sb-space-1) * -1)' }}>×</button>
               </span>
             ))}
           </div>
