@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { MdAutoAwesome, MdArrowBack, MdChevronLeft, MdChevronRight, MdClose, MdRefresh } from 'react-icons/md';
 import {
   getDesignDirections,
@@ -80,8 +80,11 @@ function createClientCreativeAttemptId() {
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
 export default function DesignDirection({ params, onBack, onGenerated }) {
   const { state, dispatch, fetchCredits } = useApp();
-  const [loading, setLoading] = useState(true);
+  /* 裁定①：挂载不再自动分析 —— 默认「未开始」，由用户点「开始分析」按钮触发。
+     这样刷新/后退/深链进入都只看到按钮，不会静默扣费。 */
+  const [loading, setLoading] = useState(false);
   const [loadStage, setLoadStage] = useState(0); // 0=产品分析, 1=参考图分析, 2=生成方案
+  const [hasPendingAnalysis, setHasPendingAnalysis] = useState(false);
   const [directions, setDirections] = useState([]);
   const [selected, setSelected] = useState(0);
   const [analysis, setAnalysis] = useState(null);
@@ -224,41 +227,25 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     quoteRefreshVersion,
   );
 
+  /* 2026-09-20 裁定①（进入页面即自动计费 → 必须改）：
+     原来这个 effect 在**挂载时自动报价 + 分析**（ec_direction_analysis，1 积分）。
+     问题不在「少一次点击」，而在它的性质：**挂载即扣费** ——
+     刷新(F5) / 后退 / 深链进入都会重新挂载 → **每次都再扣一次**。
+     实测（真实 HTTP）：连刷 3 次 = 3 次报价 + 3 次扣费。
+     这直接违反铁律①（没有用户确认绝不扣费）。
+     改法：挂载只**读取**上次的分析（若有），不发起任何计费请求；
+     真正的分析由用户点「开始分析」按钮触发（见 handleStartAnalysis）。 */
   useEffect(() => {
-    // 2026-09-10 方向分析纳入计费（ec_direction_analysis）：与"刷新"同一路径，
-    // 先取 quote 再分析；402 走统一的余额不足处理。
-    let cancelled = false;
-    (async () => {
-      try {
-        const { quote } = await quoteBillingAction({ sku: 'ec_direction_analysis', quantity: 1 });
-        if (cancelled) return;
-        const actionId = directionAnalysisActionRef.current
-          || `ec-direction-analysis-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
-        directionAnalysisActionRef.current = actionId;
-        saveEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
-        await loadDirections({
-          analysisBilling: { quoteId: quote.quoteId, actionId },
-        });
-        clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
-        directionAnalysisActionRef.current = null;
-      } catch (error) {
-        if (cancelled) return;
-        const accessResult = handleGenerationAccessError(error, dispatch, {
-          source: 'ecommerce-direction-analysis',
-          ownerEmail,
-          route: globalThis.location?.pathname || '/',
-          draftId,
-          currency: 'ec_points',
-        });
-        if (!accessResult) {
-          setErrorStage('analysis');
-          setError(error?.message || '设计方向生成失败，请稍后重试');
-        }
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    setLoading(false);
+    setErrorStage('');
+    /* 未消费的分析凭证存在 → 说明上次分析被中断，提示用户「继续」而不是静默再扣一次。 */
+    const pending = loadEcommerceDirectionRefreshAction({ ownerEmail, draftId });
+    if (pending?.actionId) {
+      directionAnalysisActionRef.current = pending.actionId;
+      setHasPendingAnalysis(true);
+    }
+    return undefined;
+  }, [ownerEmail, draftId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,6 +274,16 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       });
     return () => { cancelled = true; };
   }, [quoteRequestKey]);
+
+  /* 2026-09-20 裁定①：分析由**显式用户手势**触发。
+     闸门是同步 ref（state 是异步的，挡不住同一 tick 的连点）；
+     幂等靠**稳定 actionId**（= owner+draft+输入 的哈希），
+     所以「连点/刷新/重进」都命中服务端同一条已完成记录 → replay → 只扣一次。 */
+  const handleStartAnalysis = useCallback(async () => {
+    if (analysisBusyRef.current) return;
+    setHasPendingAnalysis(false);
+    await loadDirections();
+  }, []);
 
   const loadDirections = async ({
     refreshBilling = null,
@@ -399,6 +396,11 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         ].slice(0, 6);
       }
       if (enrichedDirections.length) setSelected(0);
+      /* 分析成功 = 这次凭证已消费：清掉「未完成」标记，下次进入不会再提示继续。
+         注意 actionId 本身保持稳定（不清 ref）—— 这样即使用户再点一次，
+         也命中服务端同一条已完成记录 → replay → **不会二次扣费**。 */
+      setHasPendingAnalysis(false);
+      clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId: effectiveAnalysisBilling?.actionId });
     } catch (e) {
       if (analysisRequestRef.current !== analysisRequest) return;
       const message = requestFailureMessage(e, analysisRequest);
@@ -1150,8 +1152,11 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             color: 'var(--text-muted)', fontSize: 14,
           }}>
             {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', lineHeight: 1.55 }}>{error}</div>}
-            <p>未生成设计方向，请检查输入后重试</p>
-            <button type="button" onClick={loadDirections} style={{
+            {/* 2026-09-20 裁定①：这里是**计费前的最后一道用户确认** ——
+                进来不再自动扣费；用户必须显式点这个按钮才会发起分析（扣 1 积分）。
+                按钮文案把价格写在按钮上，点之前用户就知道要花多少。 */}
+            <p>{errorStage === 'analysis' ? '未生成设计方向，请检查输入后重试' : '确认商品信息后，开始生成设计方向'}</p>
+            <button type="button" onClick={handleStartAnalysis} style={{
               appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'inline-flex', alignItems: 'center', gap: 4,
               padding: '8px 18px', borderRadius: 8,
               background: 'var(--sb-ink-1)', color: 'var(--sb-neutral-0)',
@@ -1159,7 +1164,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               marginTop: 12, border: 'none',
             }}
             onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
-            onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>重试</button>
+            onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
+              {loading
+                ? '正在分析…'
+                : hasPendingAnalysis
+                  ? '继续上次未完成的分析 · 1 AI 积分'
+                  : errorStage === 'analysis'
+                    ? '重试 · 1 AI 积分'
+                    : '开始分析 · 1 AI 积分'}
+            </button>
           </div>
         )}
       </div>
