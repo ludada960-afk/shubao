@@ -96,7 +96,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
             <div style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0,
               minWidth: 240, zIndex: 50,
-              borderRadius: 18, border: '1px solid var(--border)',
+              borderRadius: 16, border: '1px solid var(--border)',
               background: 'rgba(255,255,255,0.95)',
               backdropFilter: 'blur(16px)',
               padding: 12,

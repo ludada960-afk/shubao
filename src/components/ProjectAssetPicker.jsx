@@ -52,7 +52,7 @@ export default function ProjectAssetPicker({ open, onClose, onPick, mediaKind = 
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)', background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: 'min(860px, 96vw)', maxHeight: '86vh', background: 'var(--sb-neutral-0)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ width: 'min(860px, 96vw)', maxHeight: '86vh', background: 'var(--sb-neutral-0)', borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', padding: '12px 16px', borderBottom: '1px solid var(--sb-neutral-100)' }}>
           <strong style={{ fontSize: 14, color: 'var(--sb-ink-1)' }}>{title}</strong>
           <input

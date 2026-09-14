@@ -7285,7 +7285,7 @@ const handlePointerUp = useCallback((e) => {
                     onChange={event => setProjectAssetQuery(event.target.value)}
                     placeholder="搜索素材名称、项目或角色"
                     aria-label="搜索项目素材"
-                    style={{ width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: '1px solid #e1e5eb', borderRadius: 9, outline: 0, color: '#334155', fontSize: 12, background: '#fff' }}
+                    style={{ width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: '1px solid #e1e5eb', borderRadius: 8, outline: 0, color: '#334155', fontSize: 12, background: '#fff' }}
                   />
                 </label>
                 <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: '0 0 auto' }}>
@@ -7314,7 +7314,7 @@ const handlePointerUp = useCallback((e) => {
                     onClick={handleBatchImportProjectAssets}
                     aria-label={`加入所选 ${selectedProjectAssetKeys.size} 个素材到画布`}
                     title="加入所选素材到画布"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 10px', border: '1px solid #bfdbfe', borderRadius: 9, background: '#eff6ff', color: 'var(--sb-info-solid-600)', fontSize: 11, cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 32, padding: '0 10px', border: '1px solid #bfdbfe', borderRadius: 8, background: '#eff6ff', color: 'var(--sb-info-solid-600)', fontSize: 11, cursor: 'pointer' }}
                   ><Plus size={14} />加入所选 {selectedProjectAssetKeys.size}</button>}
                 </div>
               </div>
@@ -7636,14 +7636,14 @@ const handlePointerUp = useCallback((e) => {
                 const status = chainRun.steps?.[idx] || 'pending';
                 const statusColor = status === 'ok' ? '#10b981' : status === 'failed' ? '#ef4444' : status === 'running' ? 'var(--sb-brand-600)' : '#9ca3af';
                 const statusLabel = status === 'ok' ? '✓ 完成' : status === 'failed' ? '✕ 失败' : status === 'running' ? '⋯ 进行中' : '○ 等待';
-                return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 9, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
+                return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 8, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
                   <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 999, fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #111827)' }}>{label}</span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, letterSpacing: '.02em' }}>{statusLabel}</span>
                 </li>;
               })}
             </ol>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 9, background: chainRun.ok ? 'rgba(16,185,129,.08)' : chainRun.error ? 'rgba(239,68,68,.08)' : 'rgba(124,58,237,.06)', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: chainRun.ok ? 'rgba(16,185,129,.08)' : chainRun.error ? 'rgba(239,68,68,.08)' : 'rgba(124,58,237,.06)', marginBottom: 12 }}>
               <span style={{ fontSize: 11, color: 'var(--text-hint, #6b7280)' }}>累计 AI 成本</span>
               <strong style={{ fontSize: 14, color: 'var(--text-primary, #111827)', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: 'tnum' }}>¥{(chainRun.totalCost || 0).toFixed(4)}</strong>
             </div>
@@ -7772,7 +7772,7 @@ const handlePointerUp = useCallback((e) => {
 
       {projectAssetLineage && (
         <div role="presentation" onMouseDown={() => setProjectAssetLineage(null)} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="project-asset-lineage-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(520px, 100%)', maxHeight: 'min(680px, 92vh)', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 14, background: '#fff', boxShadow: '0 24px 80px rgba(15,23,42,.24)' }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="project-asset-lineage-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(520px, 100%)', maxHeight: 'min(680px, 92vh)', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 20, background: '#fff', boxShadow: '0 24px 80px rgba(15,23,42,.24)' }}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid #eef0f2' }}>
               <div style={{ minWidth: 0 }}>
                 <h2 id="project-asset-lineage-title" style={{ margin: 0, color: '#1f2937', fontSize: 17 }}>素材关系</h2>

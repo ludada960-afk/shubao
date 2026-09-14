@@ -104,7 +104,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
               {/* Left: mood swatch */}
               <div style={{ width: 140, flexShrink: 0, background: dir.mood, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{
-                  width: 60, height: 60, borderRadius: 14,
+                  width: 60, height: 60, borderRadius: 16,
                   background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 24, fontWeight: 800, color: 'rgba(255,255,255,0.7)',
@@ -143,7 +143,7 @@ export default function DesignDirectionView({ onBack, onConfirm, directions, pro
         <button onClick={() => selectedId && onConfirm(selectedId)}
           disabled={!selectedId}
           style={{
-            width: '100%', height: 52, borderRadius: 14, border: 'none',
+            width: '100%', height: 52, borderRadius: 'var(--sb-radius-pill)', border: 'none',
             background: selectedId
               ? 'linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-400) 50%, var(--sb-brand-300) 100%)'
               : 'rgba(255,255,255,0.06)',

@@ -1044,7 +1044,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button onClick={handleConfirm} disabled={generating || quoteLoading || !billingQuote || !ecommercePlan.quoteRequest}
                 style={{
-                  padding: '14px 48px', borderRadius: 25,
+                  padding: '14px 48px', borderRadius: 'var(--sb-radius-pill)',
                   border: 'none', fontSize: 16, fontWeight: 800,
                   fontFamily: 'inherit',
                    background: generating || quoteLoading || !billingQuote ? 'var(--sb-neutral-200)' : 'linear-gradient(135deg, var(--sb-brand-600) 0%, #ec4899 50%, var(--sb-warning) 100%)',

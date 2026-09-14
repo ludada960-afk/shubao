@@ -61,7 +61,7 @@ const PANEL = {
   zIndex: 'var(--sb-z-dropdown)',
   marginTop: 8,
   padding: 12,
-  borderRadius: 14,
+  borderRadius: 20,
   background: 'var(--sb-neutral-0)',
   border: '1px solid var(--sb-brand-a18)',
   boxShadow: '0 18px 48px rgba(28, 25, 23, 0.16), 0 4px 14px rgba(28, 25, 23, 0.08)',

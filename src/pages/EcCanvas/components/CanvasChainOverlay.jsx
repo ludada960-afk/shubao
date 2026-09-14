@@ -18,7 +18,7 @@ export default function CanvasChainOverlay({ open, onClose, referenceImage = nul
   }, [open, onClose]);
   if (!open) return null;
   return <div role="dialog" aria-modal="true" aria-label="1-click 视频链式生成" style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
-    <div style={{ position: 'relative', width: 'min(720px, 92vw)', maxHeight: '88vh', overflow: 'auto', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' }}>
+    <div style={{ position: 'relative', width: 'min(720px, 92vw)', maxHeight: '88vh', overflow: 'auto', borderRadius: 20, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' }}>
       <button type="button" aria-label="关闭链式生成" onClick={() => onClose?.()} style={{ position: 'absolute', top: 12, right: 12, zIndex: 5, width: 32, height: 32, borderRadius: 8, border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         <X size={16} />
       </button>

@@ -9,7 +9,7 @@ import { Heart, Layers3, Loader2, Star, Video, Workflow, X, Zap } from 'lucide-r
 import { fetchWorkflowTemplates, likeWorkflowTemplate, workflowSlotIds } from './workflowTemplates.js';
 
 const OVERLAY = { position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' };
-const PANEL = { position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' };
+const PANEL = { position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 20, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' };
 const TAB = { padding: '6px 12px', borderRadius: 999, border: '1px solid rgba(15,23,42,.08)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const TAB_ACTIVE = { ...TAB, background: 'var(--sb-brand-600)', color: '#fff', borderColor: 'var(--sb-brand-600)' };
 const CARD = { borderRadius: 12, border: '1px solid rgba(15,23,42,.08)', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all .18s ease' };

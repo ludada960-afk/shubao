@@ -75,7 +75,7 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
 
   if (!hasAnyTemplates) {
     return <div role="alertdialog" aria-modal="true" aria-label="模板广场暂无内容" style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
-      <div style={{ position: 'relative', width: 'min(420px, 92vw)', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)', padding: '28px 24px', textAlign: 'center' }}>
+      <div style={{ position: 'relative', width: 'min(420px, 92vw)', borderRadius: 20, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)', padding: '28px 24px', textAlign: 'center' }}>
         <button type="button" aria-label="关闭模板广场" onClick={() => onClose?.()} style={{ position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 8, border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <X size={16} />
         </button>
@@ -90,7 +90,7 @@ export default function CanvasTemplateMarketplace({ open, onClose, onPickTemplat
   const totalTemplates = PUBLIC_TEMPLATES.length;
   const gridEmpty = !Array.isArray(filteredTemplates) || filteredTemplates.length === 0;
   return <div role="dialog" aria-modal="true" aria-label="模板广场" style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
-    <div style={{ position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 14, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' }}>
+    <div style={{ position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 20, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' }}>
       <button type="button" aria-label="关闭模板广场" onClick={() => onClose?.()} style={{ position: 'absolute', top: 12, right: 12, zIndex: 5, width: 32, height: 32, borderRadius: 8, border: 0, background: 'rgba(15,23,42,.06)', color: '#475569', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         <X size={16} />
       </button>
