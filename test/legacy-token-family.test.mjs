@@ -310,8 +310,20 @@ function grepLegacy() {
      · 门禁家族口径 = 183（修正后的真实值）
      · 全站 V2 口径 = 更大（另含组件自有家族的 var(--ec-*) 等）
    且**用法归零 ≠ 定义消失**：design-tokens.css 里仍有 93 个非组件定义（其中 61 个已不可达）。 */
-const BASELINE_TOTAL = 183;
-const BASELINE_NAMES = 32;
+/* ── 口径修正后的第一批迁移（2026-09-15）实测 183/32 → **150/25**：
+       --ease(11)           → --sb-ease-in-out       （cubic-bezier(.4,0,.2,1) 两主题相等）
+       --radius-full(5)     → --sb-radius-pill       （9999px）
+       --weight-semibold(5) → --sb-weight-semibold   （600）
+       --text-sm(6)         → --sb-text-md           （13px）
+       --radius-md(3)       → --sb-radius-xl         （16px）
+       --text-xs(3)         → --sb-text-xs           （11px）
+       --weight-bold        → --sb-weight-bold       （700）
+     共 33 处 / 3 个文件，全部是**早先几轮已确立的映射** —— 这次补的是它们的
+     **「带兜底」写法**（老迁移正则要求 var( 紧跟 --，把这一类整批漏掉了）。
+     ⚠️ 仍然排除的：--bg-card-solid（V3 --sb-surface-card 暗色是 #1C1A18，V2 无暗色变体
+     仍是白 → 属观感变更，留给裁定）、--weight-normal（V3 无对应 token）。 */
+const BASELINE_TOTAL = 150;
+const BASELINE_NAMES = 25;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
