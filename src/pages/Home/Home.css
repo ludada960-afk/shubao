@@ -59,7 +59,7 @@
   color: var(--sb-ink-3);
 }
 .mode-tab.active-xhs { background: var(--sb-danger); color: var(--sb-neutral-0); }
-.mode-tab.active-ec { background: var(--blue); color: var(--sb-neutral-0); }
+.mode-tab.active-ec { background: var(--sb-info); color: var(--sb-neutral-0); }
 
 /* ── Input Card ── */
 .input-area {
@@ -77,7 +77,7 @@
   box-shadow: 0 6px 32px rgba(255,71,87,0.18);
 }
 .input-card.ec-border {
-  border: 2.5px solid var(--blue);
+  border: 2.5px solid var(--sb-info);
   box-shadow: 0 6px 32px rgba(102,126,234,0.18);
 }
 .input-header {
@@ -101,7 +101,7 @@
   flex: 0 0 auto;
 }
 .input-dot.red { background: var(--sb-danger); box-shadow: 0 0 8px var(--sb-danger); }
-.input-dot.blue { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+.input-dot.blue { background: var(--sb-info); box-shadow: 0 0 8px var(--sb-info); }
 
 /* ═══ 描述输入框 ═══
    2026-09-15 V3：删除 inputGlow 无限呼吸动画。
@@ -625,7 +625,7 @@
   font-family: var(--font-display);
 }
 .stat-num.red { color: var(--sb-danger); }
-.stat-num.blue { color: var(--blue); }
+.stat-num.blue { color: var(--sb-info); }
 .stat-label { font-size: var(--sb-text-md); color: var(--sb-ink-5); margin-top: 2px; }
 
 /* ── EC Form ── */
@@ -979,7 +979,7 @@
 .feature-card:hover { border-color: var(--sb-danger-soft); box-shadow: var(--sb-shadow-md); }
 .feature-icon { width: 32px; height: 32px; border-radius: var(--sb-radius-xl); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .feature-title { font-size: var(--sb-text-lg); font-weight: var(--sb-weight-bold); margin-bottom: 4px; }
-.feature-desc { font-size: var(--sb-text-md); color: var(--sb-ink-4); line-height: var(--leading-normal); }
+.feature-desc { font-size: var(--sb-text-md); color: var(--sb-ink-4); line-height: var(--sb-leading-normal); }
 
 /* ═══════ PRICING STRIP ═══════ */
 .pricing-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -989,11 +989,11 @@
 .plan-card { flex: 1; text-align: center; padding: 14px 8px; border-radius: var(--sb-radius-xl); border: 1px solid var(--sb-border-default); cursor: pointer; transition: all var(--sb-dur-fast); }
 .plan-card:hover { box-shadow: var(--sb-shadow-md); }
 .plan-card.pop-red { border: 2px solid var(--sb-danger); }
-.plan-card.pop-blue { border: 2px solid var(--blue); }
+.plan-card.pop-blue { border: 2px solid var(--sb-info); }
 .plan-name { font-size: var(--sb-text-md); font-weight: var(--sb-weight-bold); margin-bottom: 2px; }
 .plan-price { font-size: 20px; font-weight: var(--sb-weight-heavy); margin-bottom: 2px; }
 .plan-price.red { color: var(--sb-danger); }
-.plan-price.blue { color: var(--blue); }
+.plan-price.blue { color: var(--sb-info); }
 .plan-detail { font-size: 10px; color: var(--sb-ink-5); }
 
 /* ═══════ CTA ═══════ */
@@ -1005,7 +1005,7 @@
 }
 .cta-btn:hover { transform: translateY(-1px); }
 .cta-btn.red { background: var(--sb-danger); }
-.cta-btn.blue { background: var(--blue); }
+.cta-btn.blue { background: var(--sb-info); }
 
 /* ═══════ RESPONSIVE ═══════ */
 @media (max-width: 900px) {
@@ -2771,7 +2771,7 @@
   display: inline-block;
   width: 2px;
   height: 1.1em;
-  background: var(--accent, #e74c3c);
+  background: var(--sb-surface-inverse, #e74c3c);
   border-radius: 4px;
   animation: ecCursorBlink 1s step-end infinite;
   vertical-align: text-bottom;
