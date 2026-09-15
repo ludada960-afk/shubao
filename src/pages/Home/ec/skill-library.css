@@ -223,7 +223,7 @@
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
 }
-.skill-save-btn:disabled { background: var(--footer-actions-primary-disabled-bg); box-shadow: none; color: var(--footer-actions-primary-disabled-text); cursor: not-allowed; }
+.skill-save-btn:disabled { background: var(--sb-state-disabled-bg); box-shadow: none; color: var(--sb-state-disabled-ink); cursor: not-allowed; }
 .skill-spin { animation: skill-spin .8s linear infinite; }
 @keyframes skill-spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .skill-modal-body { grid-template-columns: 1fr; } }
