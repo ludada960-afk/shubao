@@ -30,7 +30,17 @@ import { stripComments } from '../scripts/lib/token-scope.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** V2 家族的名字特征：var(--x) 且不是 --sb-* / --cvl-* / --max-width* */
-export const LEGACY_RE = /var\(--(?!sb-|cvl-|max-width)([a-zA-Z0-9-]+)\)/g;
+/* ⚠️⚠️ 口径修正（2026-09-15，第 11 轮）：**旧正则看不见「带兜底」的写法**。
+   旧写法是 `var\(--(名字)\)` —— 要求 `)` **紧跟名字**。于是
+     var(--text-primary, #1A1614)      ← 带兜底
+     var( --border )                    ← var( 后有空白
+   这两类**一条都数不到**。实测盲区规模：**183 处 / 32 个名字 / 17 个文件**
+   —— 也就是说本门禁自建立起就一直少算这一类，此前几轮报的「179 → 0」
+   **同样只覆盖「无兜底」那一种写法**。
+   修正：去掉「右括号紧跟」这个要求，并允许 var( 后有空白。
+   （这条与 §8.16 那次 P0、以及 space-ratchet 的失明属同一族：
+     **指标测的是判据的代理，而代理漏了一整类写法。**） */
+export const LEGACY_RE = /var\(\s*--(?!sb-|cvl-|max-width)([a-zA-Z0-9-]+)/g;
 
 /** 家族第一层筛选（与 git grep 用的那套逐字相同）——**保留它才和 744→719→179 的基线史可比**。
     ═══ ⚠️ 已知边界：本门禁是**家族口径**，不是「全站 V2」的全部 ═══
@@ -61,9 +71,11 @@ export const LEGACY_RE = /var\(--(?!sb-|cvl-|max-width)([a-zA-Z0-9-]+)\)/g;
    正是本会话反复踩到的一类缺陷。改成从 FAMILY_ALT 派生两个使用者。 */
 const FAMILY_ALT = '(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease'
   + '|accent|blue|space|leading|font|footer-actions)';
-const FAMILY_RE = new RegExp('var\\(--' + FAMILY_ALT + '[a-z0-9-]*\\)');
-/** 同一份家族表的 git grep -E 形态（ERE 里括号需转义） */
-const FAMILY_GREP = 'var\\(--' + FAMILY_ALT + '[a-z0-9-]*\\)';
+/* 同样去掉「右括号紧跟」的要求并允许空白 —— 否则家族筛选会与 LEGACY_RE 口径不一致，
+   出现「LEGACY_RE 数得到、FAMILY_RE 筛不进来」的漏算（这正是上面那条盲区的成因）。 */
+const FAMILY_RE = new RegExp('var\\(\\s*--' + FAMILY_ALT + '[a-z0-9-]*');
+/** 同一份家族表的 git grep -E 形态（ERE 里括号需转义；空白用 POSIX 类） */
+const FAMILY_GREP = 'var\\([[:space:]]*--' + FAMILY_ALT + '[a-z0-9-]*';
 
 /** 从文本里数出 V2 用法（导出以便自证） */
 export function countLegacy(text) {
@@ -285,8 +297,21 @@ function grepLegacy() {
          （D26 #2 判定为合法，不属第二套语言），以及 V2 权威文件里**尚未删除的定义**。
      ⚠️ 归零后 minSane=0（见下方自证逻辑）—— 但「一个都没扫到」仍会被 assert.ok(sites>0) 之外
         的门禁兜住；本文件的 ② 用 total >= minSane 且 total <= 0，等价于必须恰为 0。 */
-const BASELINE_TOTAL = 0;
-const BASELINE_NAMES = 0;
+/* ═══ 基线**如实重建**：0/0 → 183/32（2026-09-15，第 11 轮）═══
+   ⚠️ 这不是「债务涨了 183」，而是**门禁此前看不见它们**：
+   旧正则要求 `)` 紧跟名字，于是**带兜底的 var(--x, 兜底) 与 var( --x ) 一条都数不到**。
+   修正正则后暴露出 183 处 / 32 名真实存量（17 个文件）。
+
+   这条更正同时推翻了前几轮「179 → 0」的结论 —— **那个 0 只覆盖「无兜底」写法**。
+   教训：指标测的是判据的**代理**，而代理漏了一整类写法；
+   与 §8.16 那次 P0、space-ratchet 的失明同族。往后任何「归零」结论都必须先验口径本身。
+
+   仍然必须分开报的两个数（D26 #4 / D33）：
+     · 门禁家族口径 = 183（修正后的真实值）
+     · 全站 V2 口径 = 更大（另含组件自有家族的 var(--ec-*) 等）
+   且**用法归零 ≠ 定义消失**：design-tokens.css 里仍有 93 个非组件定义（其中 61 个已不可达）。 */
+const BASELINE_TOTAL = 183;
+const BASELINE_NAMES = 32;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
