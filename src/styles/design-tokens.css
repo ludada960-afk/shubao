@@ -1,5 +1,27 @@
 /* ═══════ 薯包AI Design Tokens V2 — 暖白轻奢 ═══════ */
 /* 对标 lingtuai.top 暖白米色 + 近黑极简 + 超圆角 */
+/* ─────────────────────────────────────────────────────────────────────────
+   ⚠️ 本文件是 **V2 遗留层，已冻结**（2026-09-15，见 40-decisions.md D40）。
+      权威是 design-tokens-v3.css（--sb-*）。本文件只允许**减少**，不允许新增。
+
+   ── 当前状态（实测，可复算）──
+   · **用法已归零**：门禁 legacy-token-family 的**修正口径**
+     （认 var(--x)、var(--x, 兜底)、var( --x ) 三种写法）实测 = 0 处 / 0 名。
+     ⚠️ 此前几轮报的「0」只覆盖**不带兜底**的写法，属**假的 0**（成因见 D38）。
+   · 本文件仍有 ~93 个非组件定义，其中 **57 个已不可达**
+     （可达性分析：从非 token 文件的引用出发、沿 var() 链传递）。
+     这 57 个**暂不整批删除**，依据见 D40：
+       · 40 个被文档引用（含 薯包AI Design System 的**活样本 HTML**，删了会渲染不出来）；
+       · 34 个被测试引用（多为 legacy-token-family.test.mjs 的**历史叙述** —— 那是知识库里最该保住的东西）；
+       · 13 个在 theme.css 有暗色覆盖，须**成对删除**，否则会产生「只有暗色值」的新不一致；
+       · 三者皆无的只有 12 个 —— **那 12 个已在本轮删除**（D40 有清单）。
+
+   ── 规矩 ──
+   · 新增 token 一律写进 design-tokens-v3.css；新增到本文件会被棘轮门禁
+     test/token-root-scope-language.test.mjs 挡下；
+   · 「拆掉第二套语言」的收尾动作 = 删定义，但**必须等文档同步迁移之后**再做 ——
+     否则 40 份文档与活样本 HTML 会描述/使用不存在的东西（铁律③）。
+   ───────────────────────────────────────────────────────────────────────── */
 
 :root {
   /* ── 基础色 (暖白米色系) ── */
@@ -47,7 +69,6 @@
   /* ── Typography ── */
   --font-display: 'Fredoka', 'ZCOOL KuaiLe', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', monospace;
 
   /* 字号（与 lingtuai 对齐） */
   --text-xs: 11px;
@@ -60,30 +81,20 @@
   --text-4xl: 42px;
   --text-hero: 62px;
 
-  --leading-tight: 1.15;
   --leading-normal: 1.5;
   --leading-relaxed: 1.7;
-  --leading-loose: 2.0;
 
   --weight-normal: 400;
-  --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
   --weight-heavy: 800;
-  --weight-heavier: 900;
 
   /* ── 间距 ── */
-  --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-20: 80px;
 
   /* ═══════ 弹窗底部操作区（全局规范，9-16 用户批注）═══════
      用户原话：「然后你这两个按钮做的这么近也很奇怪啊。你似乎没有一个全局的意识呀。」
@@ -145,7 +156,6 @@
   --duration-fast: 0.12s;
   --duration-normal: 0.2s;
   --duration-slow: 0.35s;
-  --duration-xl: 0.5s;
 }
 
 /* ── Reset & Base ── */
