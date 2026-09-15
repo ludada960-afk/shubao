@@ -244,10 +244,10 @@ input, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--footer-actions-gap);
+  gap: var(--sb-space-3);
   /* 与内容区 16px 上间距；底部内边距 20px（大弹窗可覆盖为 --space-6 = 24px） */
-  margin-top: var(--footer-actions-margin-top);
-  padding: var(--footer-actions-padding-block) var(--footer-actions-padding-inline);
+  margin-top: var(--sb-space-4);
+  padding: var(--sb-space-5) var(--sb-space-5);
   border-top: 1px solid var(--footer-actions-border);
   background: #fff;
   flex: 0 0 auto;
@@ -262,7 +262,7 @@ input, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--footer-actions-gap);
+  gap: var(--sb-space-3);
   flex: 0 0 auto;
 }
 
@@ -285,7 +285,7 @@ input, textarea { font-family: inherit; }
   cursor: pointer;
   transition: background var(--sb-dur-fast) var(--sb-ease-in-out), border-color var(--sb-dur-fast) var(--sb-ease-in-out), color var(--sb-dur-fast) var(--sb-ease-in-out);
 }
-.ui-btn:focus-visible { outline: 2px solid var(--footer-actions-primary-bg); outline-offset: 2px; }
+.ui-btn:focus-visible { outline: 2px solid var(--sb-brand-600); outline-offset: 2px; }
 
 .ui-btn-secondary {
   border: 1px solid var(--footer-actions-border);
@@ -296,10 +296,10 @@ input, textarea { font-family: inherit; }
 
 .ui-btn-primary {
   border: 0;
-  background: var(--footer-actions-primary-bg);
+  background: var(--sb-brand-600);
   color: #fff;
 }
-.ui-btn-primary:hover:not(:disabled) { background: var(--footer-actions-primary-bg-hover); }
+.ui-btn-primary:hover:not(:disabled) { background: var(--sb-brand-700); }
 
 /* 禁用态：明确底色 + 明确文字色 + not-allowed；不依赖 opacity 变灰（那样会看不清） */
 .ui-btn:disabled,
@@ -317,7 +317,7 @@ input, textarea { font-family: inherit; }
 }
 
 /* 尺寸变体（与面板其他控件对齐） */
-.ui-modal-footer.is-sm { --footer-actions-button-height: var(--footer-actions-button-height-sm); --footer-actions-padding-block: var(--sb-space-4); }
+.ui-modal-footer.is-sm { --footer-actions-button-height: var(--sb-control-h-md); --footer-actions-padding-block: var(--sb-space-4); }
 .ui-modal-footer.is-lg { --footer-actions-button-height: var(--footer-actions-button-height-lg); --footer-actions-padding-block: var(--sb-space-6); }
 
 /* 二次确认弹窗（DialogProvider）沿用近黑主按钮，但禁用态与全站同一套语言。
