@@ -1732,6 +1732,71 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
 - 注意（环境问题，非线上故障）：本机到 Cloudflare 的 HTTPS 会间歇性 SSL 失败（`https://www.cloudflare.com/` 同样失败），
   用服务器侧 `curl` 复核线上为 200；以后线上验证优先「服务器侧 curl + 线上 bundle 抽查」。
 
+## 2026-09-15 批注批次十八：面板体系第二次收口（`ffba0a42`，已上线）
+
+用户第二批批注 5 张图，其中三项是**我上一轮没做对**的返工。这一批的重点不是「改 UI」，
+而是**把面板的标题/标签/间距/图标收成一套体系**（用户原话：同一阶梯的东西就应该统一起来）。
+
+### 真修的 bug / 返工（每条都写了根因，不是"感觉"问题）
+- **摘要行只删了一半**（图2-② 复核）：上一轮我只删了「当前方案：」那半句，
+  `platformOption.summary`（「方形主图、商品卖点与详情长图」）还留着。这次两句一起删。
+- **空提示词也会冒出冲突提示**（用户：「我提示词里面并没有写入任何东西啊，为什么我只是在
+  面板里点个技能它就会出来这个呢」）：根因是 `PromptAuthorityNote` 有一句**无条件渲染**的
+  常驻说明；`description` 初始为 `''`，空提示词时该组件**只渲染那一句**。
+  裁决：删掉常驻句、**无冲突 `return null`**；文案改成点名「避免出现的元素」「套图方案」，
+  不再出现「硬约束 / 以配置为准」这类对审核者说的话。
+- **数量框前导零 `01`**：根因是受控 input 的写回时机 —— React 只比对「本次 value」与
+  「上次 value」，两者相同就**根本不写 DOM**；光标停在 1 前面敲 0 → `parseInt("01")===1`
+  → value 没变 → React 不纠正。修法：前导零与越界都在同一帧 `e.target.value = String(next)`。
+- **「商品主图 3:4」整行删除**，3:4 改由**平台**推出：抖音/小红书/快手/TikTok Shop/SHEIN
+  的「商品主图」默认 3:4；货架型商城（淘宝/京东/拼多多/Amazon/TEMU/Shopee）仍 1:1。
+- **取色器被视口截断**：内联渲染在面板文档流末尾，面板贴底就裁掉 → 改走 `AnchoredPortal`
+  （下方放不下自动翻到上方）。锚点取**整行**而不是色块按钮，否则点色值输入框会被判成"点外面"。
+
+### 体系（这一批真正的交付物）
+- **`PanelPrimitives.jsx`**：分组标题(13/700/ink-1 + 14px 图标)与字段标签(12/600/ink-2 + 12px 图标)
+  的全局唯一实现。删掉实测**同时存在**的四套写法：GenSettings 私有 10px/灰标题、
+  SizingPanel 的裸标题（无图标）、CopyPanel/SkuPanel 各一份**零调用**的局部 GroupTitle、
+  SkuPanel 自己写死的 FieldLabel。
+- **`ImageTypeGlyph.jsx`**：图片类型图标不再从通用图标库硬凑（`Square`/`Scissors`/`Rows3`
+  既不成套、语义也对不上 —— 剪刀 ≠ 去底），改为**自绘 duotone 图形集**：共用底板 +
+  `currentColor` 两档透明度（自动跟随主题与选中态）。尺寸：徽章 **36** / 图形 22 / 勾选框 **16**。
+- **`TEXT_ROLE.fieldLabel` 11/ink-3 → 12/ink-2**：文件头文档**一直写着 12**，与代码打架 ——
+  上一轮我照着那份错文档以为已经统一。现在两处锁死同值（门禁 ⑳）。
+- **`sectionStyle` 删除**（gap=sp5 20px，却被当成「标签+控件」容器用了 5 处 → 同一面板里
+  「品类→输入框」20px、「产品尺寸→输入框」8px）→ `fieldStackStyle(sp2)`。
+  六面板节奏统一：标签↔控件 8 < 控件↔控件 12 = 标题↔内容 12 < 分组↔分组 16 < 内边距 20/24；
+  GenSettings 从 V3 的 20/20/8 改回与另外五个面板同源。
+- GenSettings 下拉：展开列表**不再重复当前模型**（兜底：过滤后为空则退回完整清单）、
+  品牌图标 22/24 → 28/32、去掉模型行 `space-between`（那正是按钮内两侧大片空白的来源）。
+
+### ⚠️ 本批最重要的一条教训：**删一个 key ≠ 删一行 UI**
+把 `main_3x4` 从 `IMAGE_TYPES` 删掉时，我顺手把它从 `TYPE_BY_KEY` 也删了 ——
+**全量测试当场抓到真实事故：UI 计划 14 张、服务端 15 张**，差的那张就是被静默丢弃的
+`main_3x4`。而它还在三处活着：历史草稿、画布快照、**试穿链路 `anything_tryon` 的角色 key**。
+→ 定式：**面板类型列表（`IMAGE_TYPES`）与解析层登记表（`ALL_IMAGE_TYPES`）必须分开**；
+下线的类型进 `LEGACY_IMAGE_TYPES` 留在解析层，只在面板显示层用
+`migrateLegacySizingImages` 合并（**总张数不变**）。
+反向判据也写进门禁：`resolveSizingImages` 里**不许**出现迁移调用（改 key 会改变服务端出图规划）。
+
+### 门禁与验证
+- `test/workbench-panel-ux-0915.test.mjs` 共 **24 条**（新增 ⑮–㉔；⑱ 是**行为断言**：
+  直接 `import` 模型跑 `defaultRatioFor` / `resolveSizingImages` 验算平台→比例）。
+- 同期修正 **7 条锁旧写法的契约**（判据未变，只是不再锁拼写）：取色器内联 → AnchoredPortal、
+  28/18 → 倍数 ≥2、常驻句 → 只撞车时说话、`SELECTABLE_IMAGE_MODELS.map` → 派生清单（0913/0914）、
+  局部 GroupTitle（0913b）、`--sb-group-gap` → SPACING 阶梯（D7）。
+  ⚠️ 改契约前先问：**判据变了没有？** 没变就是把拼写当判据了。
+- 顺带修掉我自己写错的 token 档：勾选框圆角 `--sb-radius-xs`(4px) 不在 D6 四档内 → `chip`(6px)。
+- 全量 `npm test`：**3816 / 3809 通过 / 0 失败 / 7 跳过**（此前 3806/3799/0/7）。
+- `npm run precommit`：构建 exit 0 + **BLOCKING 21 条全绿**（门禁内 161 项）。
+- 构建产物核对（`dist/assets` 30 个包）：新文案命中 1 包；已删的三句文案 **0 命中**；
+  4 枚自绘图标 path 全部命中。
+- 线上：`index.html` 指向 `assets/index-BtAQEw_0.js`；
+  `EcommerceDesignPlanEditor-DWBk23t8.js`(81130B) 与本地构建**哈希逐字一致**
+  （比 grep 中文更可靠的线上核对方式）。
+- 部署环境坑（记下来）：`scripts/deploy-production.ps1` 含中文，必须用 **`pwsh`(7+)** 跑；
+  用 Windows PowerShell 5.1 会按 ANSI 解码 → 满屏 `Missing ')' in method call` 语法错误（不是脚本 bug）。
+
 
 
 
