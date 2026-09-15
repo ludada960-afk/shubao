@@ -6,7 +6,7 @@
   border: 1px solid var(--sb-surface-inverse, var(--sb-neutral-900));
   border-radius: var(--sb-radius-pill, 9999px);
   background: var(--bg-card-solid, var(--sb-neutral-0));
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--sb-text-md, 13px);
   font-weight: var(--sb-weight-semibold, 600);
   line-height: 1.2;
@@ -26,7 +26,7 @@
   border: 1px solid var(--border, rgba(231, 229, 228, 0.8));
   border-radius: var(--radius-lg, 30px);
   background: var(--bg-card-solid, var(--sb-neutral-0));
-  box-shadow: var(--shadow-sm, 0 1px 3px rgba(57, 45, 26, 0.06));
+  box-shadow: var(--sb-shadow-sm, 0 1px 3px rgba(57, 45, 26, 0.06));
 }
 
 .balanceHeader,
@@ -50,7 +50,7 @@
 .balanceTitle,
 .sectionTitle {
   margin: 0;
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--text-xl, 20px);
   line-height: 1.25;
 }
@@ -59,7 +59,7 @@
   padding: 5px 9px;
   border: 1px solid var(--sb-surface-inverse, var(--sb-neutral-900));
   border-radius: var(--sb-radius-pill, 9999px);
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--sb-text-xs, 11px);
   font-weight: var(--sb-weight-semibold, 600);
   white-space: nowrap;
@@ -90,12 +90,12 @@
 .balanceValue {
   display: block;
   margin-top: var(--sb-space-2);
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--text-lg, 17px);
 }
 
 .quoteTotal {
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--text-lg, 17px);
 }
 
@@ -112,7 +112,7 @@
 .historyRow {
   padding: 12px 0;
   border-top: 1px solid var(--border-light, rgba(231, 229, 228, 0.4));
-  color: var(--text-secondary, var(--sb-ink-2));
+  color: var(--sb-ink-2, var(--sb-ink-2));
   font-size: var(--sb-text-md, 13px);
 }
 
@@ -130,7 +130,7 @@
 }
 
 .historyCopy strong {
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--sb-text-md, 13px);
 }
 
@@ -140,9 +140,9 @@
   white-space: nowrap;
 }
 
-.tonepositive { color: var(--green, var(--sb-success)); }
+.tonepositive { color: var(--sb-success, var(--sb-success)); }
 .tonewarning { color: #A66A00; }
-.tonenegative { color: var(--red, var(--sb-danger)); }
+.tonenegative { color: var(--sb-danger, var(--sb-danger)); }
 .toneneutral { color: var(--text-muted, var(--sb-ink-3)); }
 
 .insufficientHint {
