@@ -46,7 +46,18 @@
   --sb-brand-shadow:     0 2px 8px rgba(124, 58, 237, 0.16);
   --sb-brand-shadow-lg:  0 6px 20px rgba(124, 58, 237, 0.24);
   --sb-brand-gradient:   linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%);
-  --sb-brand-gradient-3: linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #F59E0B 100%);
+  /* ⚠️ 2026-09-15 删除死声明（P0 修复的连带发现，零观感变更）：
+     这里原有一行 `--sb-brand-gradient-3` 三色渐变字面量（中停 50%），
+     而兼容别名层（本文件 :root，后面那一段）又把它定义为指向 --sb-brand-gradient-hero（中停 55%）。
+     同作用域、同特异性 → **后者静默胜出**，所以这一行从来就是**死声明**；
+     之所以长期没被门禁发现，是因为兼容别名层当时正被一段提前闭合的注释整块丢弃
+     （见上方「2026-09-15 修复 P0」），解析器根本看不到那个后定义。P0 修好后本重复立刻浮出。
+     两个证据证明删除是零观感变更：
+       ① 门禁判据本身就是「后者胜出」→ 生效值一直是 L729 的 hero 渐变；
+       ② `var(--sb-brand-gradient-3)` 全仓**使用 0 处** ——
+          `git grep -o -F -e 'var(--sb-brand-gradient-3)' -- src` 唯一的命中就是本段注释自身。
+     ⚠️ 注意：`--sb-brand-gradient`（上一行）在别名层被**同值**重定义（都 = brand-gradient-soft），
+     门禁只报「解析后取值不同」的重复，故这一对同值冗余保留不动 —— 它不构成「两套真相」。 */
 
   /* ── 品牌紫 rgba 语义档（把实测 45 个不同 alpha 收敛为 5 档）──────────
      命名用 -a<两位数字> 表示 alpha，**避开已占用的 --sb-brand-wash/-line**
@@ -669,13 +680,39 @@
      md 1024px —— 平板 → 桌面
      lg 1440px —— 桌面 → 大屏
    ── */
-/* ⚠️ 2026-09-20 删除：这里曾有一个 ≤640px 的 `:root` 块，与文件末尾「手机 sm」那一块
-   （搜 `/* ── 手机 sm（≤640px）── */`）**同作用域重复定义**了 6 个 token。
-   其中 5 个值相同（纯冗余），第 6 个 `--sb-text-2xl` **值不同**（这里 20px / 后者 18px）——
-   同作用域、同特异性时**后者静默胜出**，所以一直生效的是 18px，而这一块是**没人知道的死声明**。
+/* ⚠️ 2026-09-20 删除：这里曾有一个 ≤640px 的 `:root` 块，与文件末尾「手机 sm（≤640px）」那一块
+   **同作用域重复定义**了 6 个 token。其中 5 个值相同（纯冗余），第 6 个 `--sb-text-2xl`
+   **值不同**（这里 20px / 后者 18px）—— 同作用域、同特异性时**后者静默胜出**，
+   所以一直生效的是 18px，而这一块是**没人知道的死声明**。
    删除它 = **零观感变更**（生效值不变），同时消掉 6 处重复与 1 处静默冲突。
    同类事故：`--sb-brand-gradient` 也曾被兼容别名层重复定义、把「紫→薰衣草」偷换成「紫→粉」。
-   门禁见 test/token-no-duplicate-definitions.test.mjs。 */
+   门禁见 test/token-no-duplicate-definitions.test.mjs。
+
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️⚠️ 2026-09-15 修复 P0 —— 本条注释**自己**曾造成的事故，动手改注释前务必读完
+   ══════════════════════════════════════════════════════════════════════════
+   上面那句话原本写成「搜 ＜注释开始符＞── 手机 sm...── ＜注释结束符＞」——
+   **在注释内部又写了一个注释结束符**，于是注释在那一行就**提前结束**。
+   紧随其后的几行说明文字于是被当成 CSS **选择器前导**，与下一条规则的 `:root`
+   选择器并成一个**非法选择器**，导致「兼容别名层」被浏览器**整条规则丢弃**。
+
+   实测后果（浏览器读 documentElement 的计算值）：下面 35 条别名**全部解析为空串** ——
+     --sb-brand-hover / -active / -wash / -line / -ink / -gradient / -gradient-3
+     --sb-text-primary / -secondary / -muted / -hint / -faint / -brand / -on-inverse
+     --sb-radius-panel / -card / -control / -chip
+     --sb-control-sm / -md / -lg / -touch / -min-w
+     --sb-panel-padding / -group-gap / -field-gap / -action-gap
+     --sb-state-hover-bg / -active-bg / -selected-bg / -selected-line / -selected-ink
+     --sb-state-disabled-bg / -disabled-ink   ·   --sb-focus-ring
+   影响面实测（对这 35 条别名逐个 `git grep -o -F`）：**240 个引用点 / 30 条别名**曾被静默置空。
+   用户可感知后果：首页「品牌主色」色块的 width/height 取 var(--sb-control-lg) → 解析为 0，
+   整块只剩 2px 边框 → 渲染成 **4px** 的一个点（应为 36px），鼠标几乎点不到。
+   由 test/home-panel-hitarea-live.test.mjs 的**实机**契约抓到 —— 源码扫描看不见，
+   因为 token 在**文本上确实「存在」**，只是被包在一条被浏览器丢弃的规则里。
+
+   → 铁律：**CSS 注释内一律不得出现注释开始/结束定界符**（本文件尤甚）。
+     门禁 test/css-comment-integrity.test.mjs（含检测器自证 + 作用域解析自证）。
+*/
 
 /* ═══════════════════════════════════════════════════════════════════════════
    兼容别名层（Compat Aliases）
