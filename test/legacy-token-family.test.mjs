@@ -241,8 +241,22 @@ function grepLegacy() {
      ⚠️ 基线降幅（79）≠ 替换处数（107）：本门禁按「含家族匹配的整行」计数，
        同一行里若有其它 V2 用法也会被计入，所以这两个数**本就不该相等**。
      ⚠️ 迁移脚本对 CSS 采用「注释掩码后的位置替换」，注释里的 var() 说明文字不受影响。 */
-const BASELINE_TOTAL = 58;
-const BASELINE_NAMES = 18;
+/* ── D26 迁移第二笔（同在 2026-09-15）实测 58/18 → **44/11**：
+       --footer-actions-gap(4)           → --sb-space-3     （其值本就是 var(--sb-space-3) 12px）
+       --footer-actions-margin-top(3)    → --sb-space-4     （= var(--sb-space-4) 16px）
+       --footer-actions-padding-block(1) → --sb-space-5     （= var(--sb-space-5) 20px）
+       --footer-actions-padding-inline(1)→ --sb-space-5
+       --footer-actions-primary-bg(2)    → --sb-brand-600   （= var(--sb-brand-600)）
+       --footer-actions-primary-bg-hover(1) → --sb-brand-700（= var(--sb-brand-700)）
+       --footer-actions-button-height-sm(2) → --sb-control-h-md（32px = 32px；V3 控制高度档 24/28/32/36/44）
+     共替换 15 处 / 4 个文件。
+     顺带修掉一处**依赖方向反了**的写法：design-tokens-v3.css 的 --sb-action-gap 原来写
+     var(--footer-actions-gap, var(--sb-space-3))，注释还把 V2 文件标成「唯一真源」——
+     权威层不该依赖遗留层。现改为 var(--sb-space-3)，V3 自洽。
+     并收敛了 7 处**自回退** var(--X, var(--X))（改名后遗留的两级回退退化成同名义回退），
+     值不变、写法还原。 */
+const BASELINE_TOTAL = 44;
+const BASELINE_NAMES = 11;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
