@@ -84,9 +84,18 @@ test('smart package disclosure, quote quantity, and server plan all describe the
   assert.equal(serverPlan.length, 10);
   assert.match(PLATFORM_PRESETS.smart.desc, /1.*白底.*3.*主图.*1.*透明.*5.*详情.*10/);
 
+  /* 2026-09-15 用户批注（图2-②）：「……因为实际上你这里调整了什么东西，下面的那个面板按钮
+     它是会跟着显示跟着调整的。你没有必要在这个地方还写一套这个字，在这里是重复的功能。」
+     → 面板内那份摘要（planSummary）已删除，**同一信息只保留底部按钮这一处渲染**。
+     本条契约的**意图不变**（用户必须能看到「十张」的构成），只是把断言指到新的唯一位置：
+     面板里保留总张数，构成摘要归底部按钮的 summarizeCommerceConfiguration。
+     ⚠️ 这正是「契约锁判据、不锁拼写」的用法：删掉一个渲染点时要更新断言的位置，
+        而不是把「用户能看到构成」这条意图一起删掉。 */
   const sizingSource = await fs.readFile(new URL('../src/pages/Home/ec/SizingPanel.jsx', import.meta.url), 'utf8');
-  assert.match(sizingSource, /planSummary/);
-  assert.match(sizingSource, /总计.*totalImages|totalImages.*张/);
+  assert.doesNotMatch(sizingSource, /planSummary/, '面板内不得再重复渲染摘要（唯一渲染点已移到工作台底部按钮）');
+  assert.match(sizingSource, /totalImages/, '面板底部仍须给出总张数');
+  const workbench = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
+  assert.match(workbench, /summarizeCommerceConfiguration\('sizing'/, '套图摘要的唯一真源 = 底部按钮的 summarizeCommerceConfiguration');
 });
 
 test('UI plan quantity matches the production asset plan and all IDs are deterministic and unique', async () => {

@@ -96,7 +96,9 @@
   background: var(--sb-info-soft); border: 1px solid var(--sb-info-border); color: var(--sb-ink-1);
   flex: none;
 }
-.skill-login-required-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+/* gap 走阶梯里的唯一半档 --sk-space-xs(4px)：
+   本文件有契约禁止 1px/2px 的贴死间距（全量测试当场抓到过我初版的 gap: 2px）。 */
+.skill-login-required-copy { display: flex; flex-direction: column; gap: var(--sk-space-xs); min-width: 0; flex: 1; }
 .skill-login-required-copy strong { font-size: 13px; font-weight: 700; line-height: 1.4; }
 .skill-login-required-copy span { font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--sb-ink-3); }
 .skill-login-required-action {
