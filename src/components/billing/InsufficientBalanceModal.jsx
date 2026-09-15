@@ -59,7 +59,7 @@ export default function InsufficientBalanceModal({
       <section style={{ position: 'relative', width: 'min(100%, 480px)', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxSizing: 'border-box', padding: 28, borderRadius: 24, background: 'var(--sb-neutral-0)', boxShadow: '0 28px 90px rgba(57,45,26,.24)' }}>
         <button aria-label="关闭余额不足提示" onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, border: 0, borderRadius: 'var(--sb-radius-pill)', width: 32, height: 32, cursor: 'pointer' }}>×</button>
         <h2 style={{ margin: 0, color: 'var(--sb-ink-1, var(--sb-ink-1))' }}>额度不足</h2>
-        <p style={{ margin: '8px 0 18px', color: 'var(--text-muted, var(--sb-ink-3))', lineHeight: 1.6 }}>当前图片、文字和设计方向都已保留。</p>
+        <p style={{ margin: '8px 0 18px', color: 'var(--sb-ink-3, var(--sb-ink-3))', lineHeight: 1.6 }}>当前图片、文字和设计方向都已保留。</p>
 
         <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sb-space-2-5)', margin: 0 }}>
           {[
