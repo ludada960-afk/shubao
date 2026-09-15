@@ -65,7 +65,8 @@ test('W1 tapnow toolbar: 顶栏紧凑工具组在 flow+legacy 都可见，4 个�
   assert.match(css, /\.vcb-topbar-tools \{/);
   assert.match(css, /\.vcb-topbar-tools button\.is-on/);
   assert.match(css, /\.vcb-zoom-slider input\[type=\"range\"\]/);
-  assert.match(css, /accent-color: var\(--accent/);
+  /* D26：--accent → 权威 token --sb-surface-inverse（逐值相等，零观感变更） */
+  assert.match(css, /accent-color: var\(--sb-surface-inverse/);
 });
 
 test('W1 tapnow visual: 三类节点卡片视觉对齐 token 化层级', async () => {
@@ -73,7 +74,8 @@ test('W1 tapnow visual: 三类节点卡片视觉对齐 token 化层级', async (
 
   // A · 节点卡片浮起 + 边框语义
   assert.match(css, /\.vcb-node\.is-asset/);
-  assert.match(css, /\.vcb-node\.is-asset\.is-video \{ border-left: 3px solid var\(--blue/);
+  /* D26：--blue → 权威 token --sb-info（亮 #5275CC / 暗 #7B95E0，逐值相等） */
+  assert.match(css, /\.vcb-node\.is-asset\.is-video \{ border-left: 3px solid var\(--sb-info/);
   assert.match(css, /\.vcb-node\.is-asset\.is-audio \{ border-left: 3px solid var\(--green/);
   assert.match(css, /\.vcb-node\.is-shot \{[\s\S]*?background: linear-gradient\(/);
   assert.match(css, /\.vcb-node\.is-candidate \{ border-style: dashed/);
