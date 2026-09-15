@@ -51,7 +51,7 @@
   cursor: pointer;
   border: none;
   font-family: inherit;
-  transition: all 0.2s var(--sb-ease-standard);
+  transition: all 0.2s var(--sb-ease-in-out);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -70,7 +70,7 @@
   background: var(--sb-neutral-0);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  transition: all 0.3s var(--sb-ease-standard);
+  transition: all 0.3s var(--sb-ease-in-out);
 }
 .input-card.xhs-border {
   border: 2.5px solid var(--sb-danger);
@@ -215,7 +215,7 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
-  transition: all var(--sb-dur-fast);
+  transition: all var(--duration-fast);
   white-space: nowrap;
 }
 .hint-tag:hover { background: var(--sb-danger-soft); color: var(--sb-danger); }
@@ -236,7 +236,7 @@
   font-family: inherit;
   color: var(--sb-neutral-0);
   cursor: pointer;
-  transition: all 0.2s var(--sb-ease-standard);
+  transition: all 0.2s var(--sb-ease-in-out);
 }
 /* 2026-09-15 两处修复：
    ① 幽灵变量：var(--shadow-red) 全仓无定义 → box-shadow 静默失效；
@@ -921,7 +921,7 @@
 .dual-col-body { padding: 16px; }
 
 .mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 8px; }
-.mini-card { border-radius: var(--radius-lg); overflow: hidden; cursor: pointer; transition: transform var(--sb-dur-fast); border: 1px solid var(--sb-border-default); background: var(--sb-neutral-0); }
+.mini-card { border-radius: var(--radius-lg); overflow: hidden; cursor: pointer; transition: transform var(--duration-fast); border: 1px solid var(--sb-border-default); background: var(--sb-neutral-0); }
 .mini-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(12,10,9,0.1); }
 .mini-cover-wrapper { position: relative; width: 100%; aspect-ratio: 3/4; overflow: hidden; background: var(--sb-neutral-100); }
 .mini-cover { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform 0.4s; }
@@ -986,7 +986,7 @@
 .pricing-col { border-radius: var(--radius-xl); border: 1px solid var(--sb-border-default); background: var(--sb-surface-panel); overflow: hidden; }
 .pricing-header { padding: 14px 16px; display: flex; align-items: center; gap: 8px; font-weight: var(--sb-weight-bold); font-size: var(--text-base); }
 .pricing-plans { display: flex; gap: 8px; padding: 0 16px 16px; }
-.plan-card { flex: 1; text-align: center; padding: 14px 8px; border-radius: var(--radius-lg); border: 1px solid var(--sb-border-default); cursor: pointer; transition: all var(--sb-dur-fast); }
+.plan-card { flex: 1; text-align: center; padding: 14px 8px; border-radius: var(--radius-lg); border: 1px solid var(--sb-border-default); cursor: pointer; transition: all var(--duration-fast); }
 .plan-card:hover { box-shadow: var(--shadow-md); }
 .plan-card.pop-red { border: 2px solid var(--sb-danger); }
 .plan-card.pop-blue { border: 2px solid var(--blue); }

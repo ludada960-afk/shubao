@@ -128,10 +128,10 @@
   cursor: pointer;
   color: var(--sb-ink-1);
   font: inherit;
-  transition: transform var(--sb-dur-fast) var(--sb-ease-out),
-              border-color var(--sb-dur-fast) var(--sb-ease-out),
-              box-shadow var(--sb-dur-fast) var(--sb-ease-out),
-              background var(--sb-dur-fast) var(--sb-ease-out);
+  transition: transform var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
   position: relative;
   min-height: 86px;
   overflow: hidden;
@@ -148,8 +148,8 @@
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transform: translateX(-3px);
-  transition: opacity var(--sb-dur-fast) var(--sb-ease-out),
-              transform var(--sb-dur-fast) var(--sb-ease-out);
+  transition: opacity var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
 }
 .ec-canvas-derive-tile:hover {
   /* hover lift: 资深美工视角的"画布命令抬起" 微动效 */
@@ -172,8 +172,8 @@
   color: var(--sb-ink-3);
   background: var(--sb-surface-tint);
   box-shadow: inset 0 0 0 1px var(--sb-border-subtle);
-  transition: color var(--sb-dur-fast) var(--sb-ease-out),
-              background var(--sb-dur-fast) var(--sb-ease-out);
+  transition: color var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
 }
 /* magic 桶的 chip 加蓝色高亮, 强调 AI 智能 */
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-chip {
@@ -244,7 +244,7 @@
 }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--accent); }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--blue); }
-.ec-canvas-derive-tile .ec-canvas-derive-meta svg { color: var(--sb-ink-5); transition: color var(--sb-dur-fast) var(--sb-ease-out), transform var(--sb-dur-fast) var(--sb-ease-out); }
+.ec-canvas-derive-tile .ec-canvas-derive-meta svg { color: var(--sb-ink-5); transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out); }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--accent); transform: translate(1px, -1px); }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--blue); }
 
