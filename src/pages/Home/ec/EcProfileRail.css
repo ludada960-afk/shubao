@@ -464,7 +464,7 @@
 }
 
 .ec-product-chip > svg:first-child {
-  color: var(--text-muted, #8b8490);
+  color: var(--sb-ink-3, #8b8490);
   flex-shrink: 0;
 }
 
