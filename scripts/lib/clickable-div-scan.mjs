@@ -46,7 +46,11 @@ export function buildComponentRootMap(files) {
       const name = mm[1] || mm[2];
       if (!name) continue;
       const body = src.slice(mm.index, mm.index + 4000);
-      const ret = body.match(/return\s*\(?\s*<([a-zA-Z][\w.-]*)/);
+      /* ⚠️ 必须容忍「return ( 与 < 标签之间有注释」——
+         实测：UploadButton 里我按规范写了「为什么这样写」的注释，正好落在 return ( 与 <div 之间，
+         于是这条正则匹配不到自己的根元素，转而匹配到**后面另一个组件**的 return <div>（rootTag 完全错），
+         结果三件套齐全的根照样被映射成 div。注释是合法且常见的写法，解析器必须容忍它。 */
+      const ret = body.match(/return\s*\(?\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\n\s*)*<([a-zA-Z][\w.-]*)/);
       if (!ret) continue;
       const rootTag = ret[1];
       /* 动态根：组件内声明了 `const Root = onClick ? 'button' : 'div'` 且 return <Root …>，
@@ -131,6 +135,25 @@ function stripComments(srcRaw) {
     .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
 }
 
+/** 判断属性文本里是否有**顶层**（不在属性值的 {} / 引号 / 嵌套 JSX 内）的 onClick。 */
+export function hasTopLevelOnClick(attrs) {
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < attrs.length; i++) {
+    const c = attrs[i];
+    if (quote) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+    if (c === '{' || c === '(' || c === '[') { depth += 1; continue; }
+    if (c === '}' || c === ')' || c === ']') { depth -= 1; continue; }
+    if (depth === 0 && attrs.startsWith('onClick', i) && !/[\w-]/.test(attrs[i - 1] || ' ')) return true;
+  }
+  return false;
+}
+
 /**
  * 找出「非交互元素挂 onClick」的位置。
  * @returns [{ line, tag, note, snippet, feature }]
@@ -149,7 +172,10 @@ export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
     const tag = rawTag.toLowerCase();
     const attrs = parsed.attrs;
     const tagText = src.slice(m.index, parsed.end);
-    if (!/\bonClick\b/.test(attrs)) continue;
+    /* ⚠️ 只认**顶层属性**上的 onClick —— 属性值里嵌的 JSX 自带 onClick 不算本元素可点。
+       实测（假阳性第 10 类）：<XhsInputTemplate optionPanels={{ topic: <div>…<button onClick=…>… }} />
+       外层组件被属性值里的 onClick 连坐，两个调用点都被报违规，而它的根元素根本没有 onClick。 */
+    if (!hasTopLevelOnClick(attrs)) continue;
     if (INTERACTIVE.has(tag)) continue;
     /* role / tabIndex 有两种写法，都要认：
        ① 直接属性        role="button" / tabIndex={0}
