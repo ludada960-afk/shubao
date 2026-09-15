@@ -49,7 +49,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                 padding: '8px 14px',
                 borderRadius: 'var(--sb-radius-pill)',
                 cursor: 'pointer', transition: 'all 0.15s',
-                background: active ? 'var(--accent)' : 'var(--sb-neutral-0)',
+                background: active ? 'var(--sb-surface-inverse)' : 'var(--sb-neutral-0)',
                 color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
                 border: active ? 'none' : '1px solid var(--sb-border-default)',
                 fontSize: 12, fontWeight: active ? 900 : 600,
@@ -81,7 +81,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
               cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-surface-inverse)'; e.currentTarget.style.color = 'var(--sb-surface-inverse)'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-border-default)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; }}>
             <MdTune size={15} />
             <span style={{ fontWeight: 900, color: 'var(--sb-ink-1)' }}>{customOpen ? '自定义' : '智能'}</span>
@@ -123,7 +123,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                           boxSizing: 'border-box',
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
-                          background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
+                          background: active ? 'var(--sb-surface-inverse)' : 'rgba(12,10,9,0.04)',
                           color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
@@ -159,7 +159,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                           boxSizing: 'border-box',
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
-                          background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
+                          background: active ? 'var(--sb-surface-inverse)' : 'rgba(12,10,9,0.04)',
                           color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
@@ -186,7 +186,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                 </div>
                 <input type="range" min="1" max="20" value={customCount}
                   onChange={e => setCustomCount(parseInt(e.target.value))}
-                  style={{ width: '100%', accentColor: 'var(--accent)', height: 4 }} />
+                  style={{ width: '100%', accentColor: 'var(--sb-surface-inverse)', height: 4 }} />
               </div>
             </div>
           )}
