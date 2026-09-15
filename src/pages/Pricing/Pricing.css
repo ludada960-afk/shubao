@@ -165,8 +165,8 @@
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--sb-border-default);
   border-radius: var(--sb-radius-pill);
-  transition: transform var(--duration-fast) var(--sb-ease-in-out),
-              border-color var(--duration-fast) var(--sb-ease-in-out);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-in-out),
+              border-color var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-trust-item:hover {
   transform: translateY(-1px);
@@ -515,9 +515,9 @@
   cursor: pointer;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  transition: transform var(--duration-fast) var(--sb-ease-in-out),
-              background var(--duration-fast) var(--sb-ease-in-out),
-              border-color var(--duration-fast) var(--sb-ease-in-out);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-in-out),
+              background var(--sb-dur-fast) var(--sb-ease-in-out),
+              border-color var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-btn-ghost:hover {
   background: var(--sb-surface-tint);
@@ -845,8 +845,8 @@
   align-items: center;
   gap: var(--sb-space-2-5);
   box-shadow: var(--sb-shadow-sm);
-  transition: transform var(--duration-fast) var(--sb-ease-in-out),
-              border-color var(--duration-fast) var(--sb-ease-in-out);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-in-out),
+              border-color var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-pay-card:hover {
   transform: translateY(-2px);
@@ -949,7 +949,7 @@
   color: var(--sb-ink-2);
   cursor: pointer;
   font-family: inherit;
-  transition: color var(--duration-fast) var(--sb-ease-in-out);
+  transition: color var(--sb-dur-fast) var(--sb-ease-in-out);
   position: relative;
 }
 .pricing-faq summary::before {
@@ -979,7 +979,7 @@
   border-bottom: 1.5px solid var(--sb-ink-4);
   transform: rotate(45deg) translateY(-1px);
   transition: transform var(--sb-dur-normal) var(--sb-ease-in-out),
-              border-color var(--duration-fast) var(--sb-ease-in-out);
+              border-color var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-faq[open] summary::after {
   transform: rotate(225deg) translateY(-1px);
@@ -1087,9 +1087,9 @@
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--sb-ease-in-out),
-              background var(--duration-fast) var(--sb-ease-in-out),
-              box-shadow var(--duration-fast) var(--sb-ease-in-out);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-in-out),
+              background var(--sb-dur-fast) var(--sb-ease-in-out),
+              box-shadow var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-modal-provider-btn:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -1161,7 +1161,7 @@
   cursor: pointer;
   font-weight: 700;
   font-family: inherit;
-  transition: background var(--duration-fast) var(--sb-ease-in-out);
+  transition: background var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-modal-secondary:hover {
   background: var(--accent-bg);

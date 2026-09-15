@@ -134,7 +134,7 @@ html.theme-transition *::after {
   transition: background-color var(--sb-dur-normal) var(--sb-ease-in-out),
               color var(--sb-dur-normal) var(--sb-ease-in-out),
               border-color var(--sb-dur-normal) var(--sb-ease-in-out),
-              transform var(--duration-fast) var(--sb-ease-in-out);
+              transform var(--sb-dur-fast) var(--sb-ease-in-out);
   flex-shrink: 0;
 }
 .theme-switcher:hover {

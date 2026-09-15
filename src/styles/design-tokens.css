@@ -283,7 +283,7 @@ input, textarea { font-family: inherit; }
   line-height: 1;
   white-space: nowrap;            /* 文字不换行 */
   cursor: pointer;
-  transition: background var(--duration-fast) var(--sb-ease-in-out), border-color var(--duration-fast) var(--sb-ease-in-out), color var(--duration-fast) var(--sb-ease-in-out);
+  transition: background var(--sb-dur-fast) var(--sb-ease-in-out), border-color var(--sb-dur-fast) var(--sb-ease-in-out), color var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .ui-btn:focus-visible { outline: 2px solid var(--footer-actions-primary-bg); outline-offset: 2px; }
 

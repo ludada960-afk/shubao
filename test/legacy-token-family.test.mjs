@@ -141,9 +141,19 @@ function grepLegacy() {
       故「几何 d=0」是构造性成立，不需要栅格 diff 才能断言。
       逐值对照（亮色）：sm `0 1px 3px .06`→`0 1px 2px .05` · md `0 4px 16px .08`→`0 4px 16px .10`（几何不变）
       · lg `0 14px 36px .10`→`0 12px 36px .13, 0 2px 8px .06` · xl `0 28px 90px .14`→`0 28px 90px .16, 0 8px 24px .08`。
-      暗色：V2 用暖黑 `rgba(12,10,9,α)`，V3 暗色块用纯黑 `rgba(0,0,0,α)` —— 这是**有意的**（暗底上暖棕投影不可见）。 */
-const BASELINE_TOTAL = 121;
-const BASELINE_NAMES = 20;
+      暗色：V2 用暖黑 `rgba(12,10,9,α)`，V3 暗色块用纯黑 `rgba(0,0,0,α)` —— 这是**有意的**（暗底上暖棕投影不可见）。
+   ── 本批第三笔（D28 动效族）：121/20 → **91/19**（−30 处 / −1 名）。
+      `--duration-fast`(0.12s=120ms) → `--sb-dur-fast`(150ms)，5 个文件 30 处。
+      **性质：有意观感变更（时长 +30ms）**，不是逐值相等 —— 依据见 D28：
+      120ms 既不在 §14 阶梯（100/150/200/300/400）上，也不是行业标准档（Tailwind 75/100/150/200、
+      Material 100/200/300 都没有 120），故按 D15「加档须是行业标准半档」被**拒绝加档**；
+      而实测这 30 处绝大多数含 `transform`，角色正对 §14 里 `--sb-dur-fast`「hover 位移、图标旋转」的定义。
+      ⚠️ 时长变更**无法用静态像素 diff 证明**（截图不含时间维度）→ 证据改用
+      「**计算样式 A/B**」：逐选择器读 `getComputedStyle(el).transitionDuration`，看是否精确地 0.12s → 0.15s。
+      ⚠️ 保留项（D15：阶梯里没有的值保持字面量，不强套）：`--duration-slow`(350ms) 3 处 ——
+      §14 只有 300/400，350 不在阶梯上且不构成行业档，**不硬套**，留待单独裁定。 */
+const BASELINE_TOTAL = 91;
+const BASELINE_NAMES = 19;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
@@ -173,7 +183,10 @@ test('①b 检测器自证：**注释里的** V2 用法不算用法（否则门�
 
 test('② V2 家族用法不得增长（棘轮：只许减）', () => {
   const { total, names } = countLegacy(grepLegacy());
-  assert.ok(total > 100, '只数到 ' + total + ' 处，样本量异常（grep 口径可能失效）');
+  /* ⚠️ 样本量自证的**目的**是「抓 grep 口径失效」，不是「限定迁移进度」。
+     阈值必须随真实存量下调，否则它会在迁移见效时反过来变红 —— 那是**把进度当成故障**。
+     第 81 轮实测已降到 91，故阈值由 >100 调到 >50（仍远高于「口径写错会得到 0~个位数」的量级）。 */
+  assert.ok(total > 50, '只数到 ' + total + ' 处，样本量异常（grep 口径可能失效）');
   assert.ok(total <= BASELINE_TOTAL,
     'V2 变量用法从基线 ' + BASELINE_TOTAL + ' 涨到 ' + total + ' —— 又有人写了第二套 token 语言。\n' +
     '  正确做法：用 --sb-* 的对应档位（0..48 的取值表见 docs/design/41-scales-and-snapping.md）。\n' +
