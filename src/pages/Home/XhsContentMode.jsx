@@ -1754,9 +1754,9 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
 
       {/* 参考图放大查看 Lightbox */}
       {ecPreviewLightbox && (
-        <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} tabIndex={-1}
+        <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} tabIndex={-1} role="button" aria-label="关闭预览"
           onClick={() => setEcPreviewLightbox(null)}
-          onKeyDown={e => { if (e.key === 'Escape') setEcPreviewLightbox(null); }}>
+          onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEcPreviewLightbox(null); } }}>
           <div className="ec-lightbox-content" onMouseDown={e => e.stopPropagation()}>
             <button className="ec-lightbox-close" onClick={() => setEcPreviewLightbox(null)}>×</button>
             <img
