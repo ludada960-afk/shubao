@@ -454,7 +454,13 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
             <div style={{ fontSize: 24, opacity: 0.45 }}>!</div>
             <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>原图已失效</div>
             <div style={{ fontSize: 10, color: '#9f1239', textAlign: 'center', padding: '0 12px' }}>可用右键“再次生成”创建稳定新图</div>
-            <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: 'var(--sb-brand-600)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
+            <div
+              /* 键盘可达三件套：「点击重试」是真按钮（cursor:pointer 已声明可点）。 */
+              role="button"
+              tabIndex={0}
+              onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setError(false); setLoaded(false); setRetryKey(k => k + 1); } }}
+              style={{ fontSize: 11, color: 'var(--sb-brand-600)', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
           </div>
         )}
         <ResponsiveImage

@@ -27,11 +27,12 @@ const BLOCKING = [
   'test/no-upstream-leakage.test.mjs',
   'test/charge-requires-confirmation.test.mjs',
   'test/pricing-single-source.test.mjs',
-];
-
-const ADVISORY = [
+  /* 键盘不可达回归：2026-09-20 起**已归零**（79 → 0），因此从"进度条"升为**硬门禁**。 */
   'test/no-clickable-div.test.mjs',
 ];
+
+/* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */
+const ADVISORY = [];
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const failed = [];
