@@ -21,7 +21,7 @@
 }
 
 .content-reference-picker-intro strong {
-  color: var(--text-secondary, #444);
+  color: var(--sb-ink-2, #444);
   font-size: var(--sb-text-sm);
 }
 
