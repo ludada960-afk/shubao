@@ -963,6 +963,99 @@ LongTaskOverlay 的 spinner 写的是 `color: var(--accent, #8b7cf6)`，
 - §23/§24 的**档位数量**是否还需再收敛（例如 ink/ink-2/ink-3 是否可并为两档），
   需要**视觉评审**，本轮只做到「清零」这一步。
 
+---
+
+## D35 · 仓库里其实有**三套** token 语言；并修出「媒体查询里的全局 token 对门禁隐形」（2026-09-15）
+
+### 发现一：是**三套**，不是两套
+
+前 20+ 轮全都按「V2 / V3 两套并存」在做。实际清点根作用域后是：
+
+| 文件 | 角色 | 根/主题作用域 token |
+|---|---|---|
+| `src/styles/design-tokens.css` | V2（历史遗留，待迁） | 106 |
+| `src/styles/design-tokens-v3.css` | **V3 权威** | — |
+| `src/styles/theme.css` | 暗色覆盖 | 64 |
+| `src/styles/semanticTokens.css` | **第三套（本轮删除）** | 10 |
+
+第三个文件 12 行、硬编码 hex、**没有暗色变体**，且在 `main.jsx` 里排在 `theme.css`
+**之后** import。逐名裸查（剥注释，范围含 `index.html` 与 `server/`）：
+
+| token | 引用数 | 处置 |
+|---|---|---|
+| `--success` `--warning` `--danger` `--neutral-surface` | **0** | 死定义 |
+| `--image-loading` `--image-error` `--image-selected` | **0** | 死定义 |
+| `--command` `--command-hover` | 各 1（EcCanvas 别名） | → `--sb-info-solid-600 / -700` |
+| `--focus-ring` | 1（EcCanvas 别名）+ 1（theme.css 回退位） | → `--sb-info-solid-600` |
+
+即 **10 个里 7 个是死定义**。
+
+### 发现二：它真正的危害是**静默覆盖**（与 §8.16 那次 P0 同族）
+
+`theme.css` 的 `.theme-switcher:focus-visible` 写的是「`--focus-ring` 取不到就回退 `--sb-info`」，
+读起来像「跟随设计系统的信息色」。但 `semanticTokens.css` 在它**之后** import 且定义了
+`--focus-ring`，**回退分支永不执行**：
+
+- 实测（Playwright 读解析后的 `outline-color`）= `rgb(37, 99, 235)` = `#2563eb`
+- 回退值 `--sb-info` 本应是 `#5275CC`
+
+→ **写在文件里的意图 ≠ 浏览器渲染的结果**，且构建不红、测试不红、审计不红。
+
+处置按「已渲染值优先」，**零观感变更**（`--sb-info-solid-600/700` 是 V3 §21 注释里
+明文写着的 `#2563EB / #1D4ED8`）。画布那套**冷蓝语言本身不动** —— canvas 是工具面，
+与暖色营销面刻意分开（D26 #2）。
+
+### 发现三：一条「锁拼写」的契约掩盖了整件事
+
+`test/visual-system-contract.test.mjs` 原先断言那 9 个 token「在 `semanticTokens.css` 里被写出来」，
+并把 `--canvas-command` 的取值逐字锁成 `var(--command)`。前者保护的是一份**没人用的文件的拼写**
+（7/10 零引用），后者让别名**无法迁移** —— 本轮迁移后整份测试套件因此变红，**是部署的测试步骤挡下的**。
+已按 RTK §3.1-10 改为锁判据，并补了两次变异测试（改回 `var(--command)` → 红；
+从权威删掉 `--sb-sem-danger-ink` → 红）。
+
+> 附带一条流程事实：`npm run precommit` 的 13 条 BLOCKING 门禁**不含**这个文件，
+> 所以逐文件 precommit 是绿的，真正的安全网是部署里的 `npm test`。
+
+### 发现四（本轮最实质）：**媒体查询里的全局 token 对全部审计与门禁隐形**
+
+写新门禁的自证测试时，`@media (max-width: 640px) { :root { … } }` 没被识别。查下去是
+**共享解析库的 bug**：`scripts/lib/token-scope.mjs` 的 `collectDeclarations` 在进入块之后
+把字符收进 `buf`，可推入作用域栈时**只读 `pending`** —— 于是嵌套块的选择器一律变成 `?`，
+与它自己文档承诺的 `@media (max-width: 640px) > :root` 不符。
+
+影响面（全仓 662 条声明中 **55 条**作用域丢失）：
+
+| 修复前隐形的作用域 | 处数 |
+|---|---|
+| `@media (prefers-color-scheme: dark) > [data-theme="auto"]` | **32** |
+| `@media (max-width: 768px) > :root` | **8** |
+
+即 **40 处全局 token 定义从来没有任何审计或门禁看过它们**。修复后基线 137 → 177 处。
+该库被 `design-audit.mjs` 与重复定义门禁共用，修完复验：17 条相关测试全绿 + design-audit 正常。
+
+### 证据
+
+- 探针页按 `main.jsx` 的**同一顺序**加载 token 文件（已核实这些文件无 `@import` 干扰顺序），
+  Playwright 读**解析后的颜色**而非变量字符串：改动前后
+  `rgb(37,99,235)` / `rgb(29,78,216)` / `rgb(37,99,235)` / outline `rgb(37,99,235)` **四项逐字相同**。
+- 改动后 `--command` / `--command-hover` / `--focus-ring` 全仓**既无引用也无定义**。
+- ⚠️ **比较口径**：自定义属性的 computed 值会**保留声明时的大小写**（`#2563eb` vs `#2563EB`），
+  所以证据比的是**颜色解析值**；直接比字符串会误报「变了」。
+
+### 遗留裁定项（**需产品拍板**，本轮故意不动）
+
+焦点环到底该是哪个颜色？三个候选都**不是零观感变更**，按 D20 需像素取证：
+
+1. `#2563eb` —— **当前实渲染值**（来自已删除的第三套文件）。本轮保留它。
+2. `#5275CC` = `--sb-info` —— **作者写在回退位里的意图**，也是 V3 唯一信息色。
+3. `--sb-focus-ring-color` = `--sb-brand-500` —— **V3 焦点环族**（还有 `--sb-focus-ring-w` / `-offset`）。
+
+### 防复发
+
+新增棘轮门禁 `test/token-root-scope-language.test.mjs`：**根/主题作用域**（含被 `@media` 包裹的）
+里非 `--sb-*` 的自定义属性定义，基线 **177 处 / 105 名**不许再涨 ——
+锁的正是本次的复现路径「再开一个新文件塞全局 token」。
+
 
 
 
