@@ -36,6 +36,15 @@ const BLOCKING = [
      幽灵变量 / 同作用域重复定义 / 源码完整性三条门禁**都看不见**这一类，
      只有实机契约抓到了它 —— 本门禁把它变成静态可查。 */
   'test/css-comment-integrity.test.mjs',
+  /* 第三套 token 语言防复发：2026-09-15 起为**硬门禁**。
+     起因是真实事故 —— 仓库里除 V2 / V3 外还躺着第三个 token 文件 semanticTokens.css，
+     10 个 token 里 7 个全仓零引用，且在 main.jsx 里排在 theme.css 之后 import，
+     于是它的 :root 值**静默压过** theme.css 的回退值：.theme-switcher 的焦点描边
+     实测渲染 rgb(37,99,235)，而作者写在文件里的回退值是 --sb-info 的 #5275CC。
+     口径是**棘轮**（主题作用域内非 --sb-* 定义 177 处 / 105 名不许再涨），
+     不是「必须为 0」—— 现存 177 处都属已登记待迁的 V2 / 已判合法的组件自有家族。
+     幽灵变量 / 重复定义 / 家族棘轮 / DS 层四条门禁**都看不见**这一类。 */
+  'test/token-root-scope-language.test.mjs',
 ];
 
 /* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */
