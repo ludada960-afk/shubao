@@ -1561,7 +1561,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     emptyHint="暂未保存商品档案, 请先在电商工作台保存一个商品档案"
                   />
                   <span style={{ marginLeft:'auto', fontSize:12, color:'var(--sb-brand-700)', cursor:'pointer', whiteSpace:'nowrap', padding:'5px 12px', borderRadius:6, background:'var(--sb-brand-50)', fontWeight:500, transition:'all 0.12s', border:'1px solid var(--sb-brand-200)', flexShrink:0 }}
-                    onClick={() => dispatch({ type:'NAVIGATE', page:'ec-studio' })}
+                    role="button"
+tabIndex={0}
+onClick={() => dispatch({ type:'NAVIGATE', page:'ec-studio' })}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch({ type:'NAVIGATE', page:'ec-studio' }); } }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--sb-brand-200)'; e.currentTarget.style.borderColor = '#818CF8'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'var(--sb-brand-50)'; e.currentTarget.style.borderColor = 'var(--sb-brand-200)'; }}>
                     🔧 精修工坊
@@ -1689,7 +1692,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   {Object.entries(ecResults.images||{}).map(([label,url]) => (
                     <div key={label} style={{ background:'#f8f8f8', borderRadius:8, overflow:'hidden', border:'1px solid var(--sb-neutral-100)' }}>
                       <div style={{ aspectRatio:'1/1', background:'var(--sb-neutral-0)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', cursor:'pointer' }}
-                        onClick={() => setEcLightbox(url)}>
+                        role="button"
+tabIndex={0}
+aria-label="放大查看"
+onClick={() => setEcLightbox(url)}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEcLightbox(url); } }}>
                         <img
                           src={proxyImg(url)}
                           alt={label}
@@ -1712,7 +1719,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 </div>
                 {ecLightbox && (
                   <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(12,10,9,0.92)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
-                    onClick={() => setEcLightbox(null)}>
+                    role="button"
+tabIndex={0}
+aria-label="关闭"
+onClick={() => setEcLightbox(null)}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEcLightbox(null); } }}>
                     <img
                       src={ecLightbox}
                       alt=""
@@ -1761,7 +1772,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       {/* 上传参考图弹窗 */}
       {showRefModal && (
         <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(12,10,9,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
-          onClick={() => setShowRefModal(false)}>
+          role="button"
+tabIndex={0}
+aria-label="关闭"
+onClick={() => setShowRefModal(false)}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowRefModal(false); } }}>
           <div style={{ background:'var(--sb-neutral-0)', borderRadius:16, maxWidth:600, width:'100%', maxHeight:'85vh', overflow:'auto', padding:28 }}
             onClick={e => e.stopPropagation()}>
             {/* 头部 */}
