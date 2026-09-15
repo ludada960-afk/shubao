@@ -102,22 +102,39 @@ node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一�
 | 指标 | 会话起点 → 现在 |
 |---|---|
 | 键盘不可达可点元素 | **79 → 0** ✅（门禁已升为硬门禁） |
-| V2 遗留 token 用法 | **719 → 179** |
+| V2 遗留 token 用法（**门禁口径内**） | 719 → 179 → **121**（变量名 38 → 20）|
+| 全口径 V2 名字面（**新披露**） | 从未测过 → **586 / 110 名**（见 D26；与上面那个数**必须分开报**）|
 | 字号档位 | 39 → **11** ✅（D19） |
 | 圆角档位 | 27 → **10**（V3 栏 8/8 ✅） |
 | 不可达焦点 / 静默失效 / 缺 hover 缺陷 / 同作用域重复定义 | 全部 **0** ✅ |
 | 面板宽单一来源 | ✅ |
 | 上游泄漏文案 | 已清零（含插件 UI 与服务端上屏字段） |
+| BLOCKING 硬门禁 | 12 条 → **13 条**（新增 `css-comment-integrity`）|
+| 全量测试 `npm test` | 3771 条 / **0 红**（此前 3 红，含 2 条陈旧契约）|
+| **干净工作树的 precommit** | 曾 `fail 4`（主干断链）→ **pass 79 / fail 0** |
 
 ### 待办（按优先级，每条带判据）
-1. **插件 zip 真机验证（等人）**：线上 zip 当前 **36810 字节（旧坏包，指向 localhost）**，修好的应为 **60403 字节**。
+1. **插件 zip 真机验证（等人）**：线上 zip 当前 **36810 字节（旧坏包）**，修好的应为 **60403 字节**。
    本环境物理上做不到真机侧载（Chrome 忽略参数 / Edge 不侧载 / Playwright chromium 两种模式均失败）——
    **必须在装 Chrome 的机器上手动装一次**（`chrome://extensions` → 开发者模式 → 加载已解压的扩展程序）。
-2. **V2 剩余 179 处**（已分类，**不能当等值迁移**）：
+   ⚠️ **归因更正（第 81 轮）**：本条此前被写成「**当前被服务器阻塞**」—— **该归因是错的**。
+   服务器只影响「线上那个 zip 是不是旧的」；**真机侧载要的是一台装 Chrome 的机器**，与服务器无关。
+   已实测（新机 `/var/www/shubao/current/extensions/` 与 `/var/www/shubao/extensions/` 都是 36810B；
+   仓库 `public/extensions/` · `extensions/` · `dist/extensions/` 三处均为 **60403B**，
+   `node scripts/build-extension-zip.mjs --check` 三条全绿、无 localhost、manifest 指向 shuimg.cn）。
+   → 下次部署会自动把 60403B 带上线；**真机侧载仍需人工**。
+2. **V2 剩余 121 处**（门禁口径内；**已分类，不能当等值迁移**）：
    `--duration-fast`(0.12s, 30 处) 无等值档（§19 是 100/150ms）· `--radius-lg`(30px)/`--radius-xl`(40px) 需按 **D24 第 3 条**为「主卡超圆角」定角色档（含 A/B 像素证据）·
    `--text-base`(15px)/`--text-lg`(17px) 按 **D17/D19** 属**有意变更**（要同机位 A/B）· `--ease-out` 曲线不同（0,0,0.2,1 vs 0.22,1,0.36,1）· `--shadow-*`(alpha ±0.02) · `--bg`(#F5EFE4) 整页底色**必须单独裁定**。
 3. **DS 层剩余债务**：hex 13 / rgba 27（注释已登记「为何不是 token」）/ V2 变量 8。
-4. **`src/pages/EcCanvas/**` 两处小尾巴**：`.ec-canvas-layers-panel` 里 `left:72px; bottom:70px` 是**死声明**（定位已改由 portal 权威负责）—— 下次动画布顺手删。
+4. ~~**`src/pages/EcCanvas/**` 两处小尾巴**：`.ec-canvas-layers-panel` 里 `left:72px; bottom:70px` 是**死声明**~~ ——
+   ⚠️ **该诊断已被第 81 轮推翻，不要照做**：`CanvasChrome.jsx:198` 的 `panelStyle` 只在
+   `resolveAnchoredRight()` 解出 `solved` 时才给内联定位；`anchorRect` 为 null 时
+   **`panelStyle === undefined`** → 本行的 `left/bottom` 就是**唯一生效的定位**，它是**兜底分支**而非残渣。
+   而那个 72px 恰恰就是 `index.jsx:6680` 注释里记的旧 bug 本身 —— **删掉它不会修好任何东西**，
+   只会把「已知的错位置」换成「未知的错位置」。
+   **正确修法（留给画布线）**：让兜底也走同一套求解器（缺 `anchorRect` 时给一个明确锚点）。
+   已在 `EcCanvas.css` 就地留了这段说明（纯注释，10 插入 / 0 删除，见 `bff5e31f`）。
 
 ### 已知的坑（别人踩过，别再踩）
 - `test/video-canvas-auto-layout.test.mjs` 曾被写成**一行 + 字面 \n**（语法错，从未运行过）；
