@@ -58,7 +58,7 @@ export default function ReadProgress({ currentStage, error }) {
                 flex: 1, fontSize: 12, fontWeight: isCurrent ? 600 : 500,
                 color: isError ? 'var(--sb-danger)' :
                        isDone ? 'var(--sb-ink-3)' :
-                       isCurrent ? 'var(--accent)' : 'var(--sb-ink-5)',
+                       isCurrent ? 'var(--sb-surface-inverse)' : 'var(--sb-ink-5)',
               }}>
                 {s.icon} {s.label}
               </span>
