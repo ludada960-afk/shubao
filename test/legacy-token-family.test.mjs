@@ -90,6 +90,21 @@ export function countLegacy(text) {
       免得「剥注释」这件事出现第二份实现。） */
 export function countLegacyLive(text) { return countLegacy(stripComments(text)); }
 
+/** 同一条扫描管线（同一个 git、同一个 `src` 路径、同一种 ERE）—— **只在这里写一遍**。
+    抽出来是为了让「② 棘轮」与「④ 管线自证」跑的**是同一条管线**：
+    两份实现漂移正是本会话反复踩到的一类缺陷（FAMILY_RE / FAMILY_GREP 当年就漂过一次）。
+    返回命中的**文件清单**（不是内容）—— 内容要逐文件剥注释后再数。
+    ⚠️ 命中 0 个文件有两种含义：**仓库真的干净了**，或**管线坏了**（路径改了 / git 不可用 /
+    正则写错）。函数本身无法区分这两者 —— 区分它是 ④ 的职责，不许在本函数里猜。 */
+export function grepFiles(pattern) {
+  let files = '';
+  try {
+    files = execFileSync('git', ['grep', '-l', '-E', pattern, '--', 'src'],
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  } catch (e) { files = String(e.stdout || ''); /* git grep 无命中时退出码非 0，命中清单在 stdout */ }
+  return files.split(/\r?\n/).filter(Boolean);
+}
+
 function grepLegacy() {
   /* ⚠️ 口径修正（第 81 轮，与 space-ratchet 的失明是同一族缺陷）：
      此前本函数用 `git grep -h` 直接把**原文**喂进 countLegacy，于是
@@ -99,15 +114,10 @@ function grepLegacy() {
      变相鼓励下一个人**删掉注释来让数字变好看**。这与铁律③「老文档必须保持可读」直接冲突。
      改用 `git grep -l` 拿文件清单（保留同一套 family 正则做第一层筛选），
      再逐文件剥注释后按 LEGACY_RE 计数。 */
-  let files = '';
-  try {
-    files = execFileSync('git', ['grep', '-l', '-E', FAMILY_GREP, '--', 'src'],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  } catch (e) { files = String(e.stdout || ''); }
   const out = [];
-  for (const rel of files.split(/\r?\n/).filter(Boolean)) {
+  for (const rel of grepFiles(FAMILY_GREP)) {
     let raw;
-    try { raw = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { continue; /* 读不到就跳过，②的样本量断言会兜住 */ }
+    try { raw = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { continue; /* 读不到就跳过，④ 的管线自证会兜住 */ }
     /* ⚠️ 必须**先剥注释、再按家族筛行**，两步顺序不能反：
        反了就是旧口径（注释文本被当成用法）。而 stripComments 保留换行，
        所以逐行筛仍与旧口径逐行等价 —— 只是注释行已被抹成空白，筛不进来了。 */
@@ -412,8 +422,15 @@ test('② V2 家族用法不得增长（棘轮：只许减）', () => {
      · grep 口径失效（写错前缀 / 扫错目录）会得到 **0~个位数**，仍能被稳稳抓到；
      · 迁移推进时阈值随基线自动下降，不会误报。 */
   /* 归零后（BASELINE_TOTAL = 0）不能再用「不得低于基线 50%」——那会要求 total ≥ 5，
-     而正确值就是 0。故 0 时改为**恰好断言 0**：既抓住「口径失效后误报 0」的反面（
-     误报 0 在归零后无法与真相区分，这是该护栏的**已知极限**，故同时保留下面 ⑤ 的「必须扫到足量文件」作为替代保证）。 */
+     而正确值就是 0。故 0 时改为**恰好断言 0**。
+     ⚠️⚠️ **这段注释此前撒过一次谎**（本批更正）：它写着「同时保留下面 ⑤ 的『必须扫到足量文件』
+     作为替代保证」—— 而**本文件根本没有 ⑤**（只有 ①②①b③）。也就是说：归零之后，
+     本测试里的样本量自证退化成 `total >= 0` 的**恒真式**，而注释却宣称还有一道兜底。
+     这不是笔误，是**门禁自证失效**：家族用法一旦归零，`git grep -l` 能命中的文件集也随之
+     趋近于空（实测仅剩 4 个、且全是注释里的说明文字）—— 此时若扫描管线本身坏掉
+     （路径改了 / 正则写错 / git 不可用），②会得到一个**无法与真相区分的 0**，然后永远绿。
+     正确做法不是把「样本量」写在被扫对象上（那个集合天生会缩到 0），
+     而是**反过来给管线一个正对照** —— 见下面的 ④。 */
   const minSane = BASELINE_TOTAL === 0 ? 0 : Math.max(5, Math.floor(BASELINE_TOTAL / 2));
   assert.ok(total >= minSane, '只数到 ' + total + ' 处（基线 ' + BASELINE_TOTAL + '），样本量异常（grep 口径可能失效）');
   assert.ok(total <= BASELINE_TOTAL,
@@ -429,4 +446,26 @@ test('③ 两套 token 同名不同值这件事必须写在裁定里（防下一
   assert.match(doc, /D24/, 'D24（V2/V3 同名不同值的处置口径）必须写进 40-decisions.md');
   assert.match(doc, /--radius-md[\s\S]{0,200}--sb-radius-md|--sb-radius-md[\s\S]{0,200}--radius-md/,
     'D24 里必须点明「--radius-md(16px) vs --sb-radius-md(8px)」这个具体陷阱');
+});
+
+test('④ 管线自证：扫描管线本身必须仍然有效（防「管线坏掉 → 恒真的 0」）', () => {
+  /* ── 这条为什么必须存在（本批新增，补一个**被承诺却从未实现**的护栏）──
+     ② 的判据是 `total ≤ 0`。而**扫描管线坏掉时 total 也恰好是 0** —— 两者在数字上无法区分：
+       · `src` 被改名 / `git` 不在 PATH / `FAMILY_GREP` 的 ERE 写错 → grepFiles 返回 []；
+       · 仓库真的迁移干净 → 命中的文件集也趋近于空（实测只剩 4 个，且全是注释里的说明）。
+     所以「数出来的存量」这件事**不能自己证明自己**。正确做法是给管线一个**正对照**：
+     用**同一条** git grep（同一 git、同一 `-- src`、同一种 ERE）去扫一个**仓库里必定存在**的模式。
+     若管线健康，--sb-* 用法必然散布在很多文件里；若管线坏了，这里会先于 ② 变红。
+     本条的**检测器自证**见下面的负对照：同一函数必须能返回 0。 */
+  const sbFiles = grepFiles('var\\([[:space:]]*--sb-');
+  assert.ok(sbFiles.length >= 50,
+    '正对照失败：全仓只找到 ' + sbFiles.length + ' 个含 var(--sb-*) 用法的文件（应 ≥ 50）。' +
+    '这说明**扫描管线本身失效了**（路径 / git / ERE 之一），此时 ② 报的 0 是假绿，不可采信。');
+
+  /* 负对照（检测器自证）：同一个函数必须**能够**返回 0 ——
+     否则上面那条断言可能只是把一个恒 ≥ 50 的常量抄了一遍，等于没有测。 */
+  assert.equal(grepFiles('var\\([[:space:]]*--dsh-no-such-token-ever\\)').length, 0,
+    '负对照失败：一个全仓不存在的模式竟然命中了文件 —— grepFiles 的结果不可信。');
+
+  /* 正/负对照都过 = 「这条管线确实在读仓库」。此时 ② 的 0 才有意义。 */
 });
