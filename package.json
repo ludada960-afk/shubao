@@ -17,7 +17,8 @@
     "collab:check": "node scripts/collaboration-policy.mjs",
     "images:thumbs": "node scripts/generate-image-thumbs.mjs",
     "preview": "vite preview",
-    "start": "concurrently \"npm run server\" \"npm run dev\""
+    "start": "concurrently \"npm run server\" \"npm run dev\"",
+    "precommit": "node scripts/precommit-check.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
