@@ -170,7 +170,7 @@
   border: 1px solid var(--canvas-hairline, rgba(15, 23, 42, .08));
   border-radius: 8px;
   background: rgba(255, 255, 255, .75);
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   box-shadow: 0 1px 2px rgba(57, 45, 26, .04), 0 1px 1px rgba(57, 45, 26, .04);
   font: inherit;
   cursor: pointer;
@@ -230,7 +230,7 @@
 }
 [data-theme="dark"] .ec-canvas-empty-actions button {
   background: rgba(28, 26, 24, .75);
-  color: var(--text-primary, #f5efe4);
+  color: var(--sb-ink-1, #f5efe4);
   border-color: var(--border, rgba(245, 239, 228, .10));
   box-shadow: 0 1px 2px rgba(12, 10, 9, .40), 0 1px 1px rgba(12, 10, 9, .30);
 }
