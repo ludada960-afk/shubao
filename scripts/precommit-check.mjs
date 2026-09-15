@@ -71,9 +71,22 @@ console.log('[2/3] BLOCKING 门禁（' + BLOCKING.length + ' 个）…');
 if (spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...BLOCKING], { stdio: 'inherit' }).status !== 0) failed.push('BLOCKING 门禁');
 
 console.log('[3/3] ADVISORY 进度条（' + ADVISORY.length + ' 个，不拦提交）…');
-const adv = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...ADVISORY], { stdio: 'pipe', encoding: 'utf8' });
-const m = (String(adv.stdout || '') + String(adv.stderr || '')).match(/fail\s+(\d+)/);
-if (adv.status !== 0) console.log('  ↳ 仍有未完成量（fail=' + (m ? m[1] : '?') + '）—— 属任务清单，见 docs/design/34-status-and-handover.md §8.14');
+/* ⚠️ 本格曾经**对开发者说假话**（2026-09-15 修正）：ADVISORY 为空时，
+   `node --test` 不带文件参数会走**默认发现** —— 于是它把 test/ 之外的东西也跑了：
+   实测 fail=20 = **15 个 test/qa/ 浏览器探针脚本**（未纳入 git 的临时件，需要 dev server 才能跑）
+   + **5 条 npm test 有意跳过的用例**（--test-skip-pattern）。
+   然后本格把它们报成「仍有未完成量……属任务清单，见 §8.14」——
+   而 §8.14 与这 20 条**毫无关系**。每次 precommit 都在给下一个人一条错误的线索。
+   （与 legacy-token-family 那条「承诺了不存在的 ⑤」同族：**指标测的是判据的代理**。）
+   修正：**没有 ADVISORY 就明确说没有，不要跑任何东西**。
+   要恢复这条线，就老老实实往 ADVISORY 里填**契约文件名**。 */
+if (ADVISORY.length === 0) {
+  console.log('  ↳ 当前没有进度条类门禁（键盘可达已归零）。');
+} else {
+  const adv = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...ADVISORY], { stdio: 'pipe', encoding: 'utf8' });
+  const m = (String(adv.stdout || '') + String(adv.stderr || '')).match(/fail\s+(\d+)/);
+  if (adv.status !== 0) console.log('  ↳ 仍有未完成量（fail=' + (m ? m[1] : '?') + '）—— 属任务清单，见 docs/design/34-status-and-handover.md §8.14');
+}
 
 if (failed.length) {
   console.error('');
