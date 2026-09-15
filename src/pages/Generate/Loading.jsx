@@ -128,7 +128,7 @@ export default function LoadingView() {
           </div>
           <div style={{
             fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-2)',
-            lineHeight: 'var(--leading-relaxed)', minHeight: 32,
+            lineHeight: 'var(--sb-leading-relaxed)', minHeight: 32,
             transition: 'opacity 0.3s',
           }}>
             {tips[tipIdx]}
