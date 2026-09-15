@@ -56,6 +56,11 @@ const BLOCKING = [
   'test/canvas-derive-menu.test.mjs',
   'test/video-canvas-tapnow-w1.test.mjs',
   'test/visual-system-contract.test.mjs',
+  /* nano 上游模型名单一来源：2026-09-15 起为**硬门禁**。
+     起因：目录写死 'gemini-2.5-flash-image'、供应商下架换成 3.1，而适配器用自己的默认值
+     做白名单校验 —— 两处各写一份，用户得到「模型当前不可用」。
+     本门禁守住「只有一处声明」，并自带两条自证（过期名字抓得到 / 注释与别族不误报）。 */
+  'test/nano-model-single-source.test.mjs',
 ];
 
 /* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */

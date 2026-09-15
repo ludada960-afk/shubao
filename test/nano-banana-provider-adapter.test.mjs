@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createNanoBananaProviderAdapter } from '../server/ecommerceEngine/nanoBananaProviderAdapter.mjs';
+import { createNanoBananaProviderAdapter, NANO_UPSTREAM_MODELS } from '../server/ecommerceEngine/nanoBananaProviderAdapter.mjs';
+
+/* ⚠️ 本文件原先**逐字抄写**上游模型名 NANO_UPSTREAM_MODELS.flash（8 处）。
+   供应商下架该名字后，测试与实现一起失效，却谁也发现不了 —— 因为两边都写的是同一个过期名字。
+   现改为引用单点声明：测试验的是**机制**（校验通过/失败、参数怎么拼），不再替上游记名字。 */
 
 test('validates the model, sends Gemini image options, and persists before delivery', async () => {
   const calls = [];
@@ -10,7 +14,7 @@ test('validates the model, sends Gemini image options, and persists before deliv
     apiKey: 'test-key-that-is-long-enough', baseUrl: 'https://provider.example', publicBaseUrl: 'http://127.0.0.1:3002',
     fetchImpl: async (url, options = {}) => {
       calls.push({ url, options });
-      if (url.endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'gemini-2.5-flash-image' }] }), { status: 200 });
+      if (url.endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: NANO_UPSTREAM_MODELS.flash }] }), { status: 200 });
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: Buffer.from('image').toString('base64') } }] } }] }), { status: 200 });
     },
     generatedAssetStore: {
@@ -20,7 +24,7 @@ test('validates the model, sends Gemini image options, and persists before deliv
   });
   const submitted = await adapter.submitEdit({
     idempotencyKey: 'nano-one', prompt: 'Create a product image',
-    modelRoute: { imageModel: 'nano-banana-2', model: 'gemini-2.5-flash-image', resolution: '2K', ratio: '3:4' },
+    modelRoute: { imageModel: 'nano-banana-2', model: NANO_UPSTREAM_MODELS.flash, resolution: '2K', ratio: '3:4' },
     inputAssets: [{ buffer: Buffer.from('reference'), contentType: 'image/png' }],
   });
   const completed = await adapter.pollUntilReady(submitted.jobId);
@@ -44,7 +48,7 @@ test('retries transient upstream failures with exponential backoff before succee
     sleepImpl: ms => { sleeps.push(ms); return new Promise(resolve => setTimeout(resolve, Math.min(ms, 25))); },
     fetchImpl: async (url) => {
       calls.push(String(url));
-      if (String(url).endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'gemini-2.5-flash-image' }] }), { status: 200 });
+      if (String(url).endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: NANO_UPSTREAM_MODELS.flash }] }), { status: 200 });
       if (calls.filter(c => c.includes(':generateContent')).length < 3) {
         return new Response(JSON.stringify({ error: { message: 'upstream overloaded' } }), { status: 503, headers: { 'retry-after': '1' } });
       }
@@ -57,7 +61,7 @@ test('retries transient upstream failures with exponential backoff before succee
   });
   const submitted = await adapter.submitEdit({
     idempotencyKey: 'nano-retry', prompt: 'p',
-    modelRoute: { imageModel: 'nano-banana-2', model: 'gemini-2.5-flash-image', resolution: '2K', ratio: '1:1' },
+    modelRoute: { imageModel: 'nano-banana-2', model: NANO_UPSTREAM_MODELS.flash, resolution: '2K', ratio: '1:1' },
     inputAssets: [{ buffer: Buffer.from('reference'), contentType: 'image/png' }],
   });
   assert.equal(submitted.status, 'submitted');
@@ -73,7 +77,7 @@ test('honours Retry-After over the default backoff and surfaces busy errors afte
     retryDelaysMs: [5, 5],
     sleepImpl: ms => { sleeps.push(ms); return Promise.resolve(); },
     fetchImpl: async (url) => {
-      if (String(url).endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'gemini-2.5-flash-image' }] }), { status: 200 });
+      if (String(url).endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: NANO_UPSTREAM_MODELS.flash }] }), { status: 200 });
       attempts += 1;
       return new Response(JSON.stringify({ error: { message: 'rate limited' } }), { status: 429, headers: { 'retry-after': '7' } });
     },
@@ -85,7 +89,7 @@ test('honours Retry-After over the default backoff and surfaces busy errors afte
   await assert.rejects(
     () => adapter.submitEdit({
       idempotencyKey: 'nano-429', prompt: 'p',
-      modelRoute: { imageModel: 'nano-banana-2', model: 'gemini-2.5-flash-image' },
+      modelRoute: { imageModel: 'nano-banana-2', model: NANO_UPSTREAM_MODELS.flash },
       inputAssets: [],
     }),
     error => {
@@ -107,7 +111,7 @@ test('does not retry non-retryable client errors and keeps timeout failures boun
     sleepImpl: () => Promise.resolve(),
     timeoutMs: 40,
     fetchImpl: (url, options = {}) => {
-      if (String(url).endsWith('/v1/models')) return Promise.resolve(new Response(JSON.stringify({ data: [{ id: 'gemini-2.5-flash-image' }] }), { status: 200 }));
+      if (String(url).endsWith('/v1/models')) return Promise.resolve(new Response(JSON.stringify({ data: [{ id: NANO_UPSTREAM_MODELS.flash }] }), { status: 200 }));
       generateCalls.push(1);
       if (!hungOnce) {
         hungOnce = true;
@@ -122,7 +126,7 @@ test('does not retry non-retryable client errors and keeps timeout failures boun
   await assert.rejects(
     () => adapter.submitEdit({
       idempotencyKey: 'nano-timeout', prompt: 'p',
-      modelRoute: { imageModel: 'nano-banana-2', model: 'gemini-2.5-flash-image' },
+      modelRoute: { imageModel: 'nano-banana-2', model: NANO_UPSTREAM_MODELS.flash },
       inputAssets: [],
     }),
     error => {

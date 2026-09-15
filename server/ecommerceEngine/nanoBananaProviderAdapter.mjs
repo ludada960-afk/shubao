@@ -1,3 +1,15 @@
+/* ⚠️ 上游模型名的**唯一声明处**（2026-09-15 第 18 轮）。
+   起因是一次真实故障：`modelCatalog.selectGenerationModel` 里写死了
+   'gemini-2.5-flash-image'，而供应商已经把它下架、换成了 'gemini-3.1-flash-image'；
+   适配器又用自己的 env 默认值做白名单校验 —— 两处各写一份，谁也不知道对方写的是什么，
+   结果就是「目录说调 A、适配器只认 B」，用户看到「模型当前不可用」。
+   → 现在两个名字只在这里写一遍：目录**引用**它，适配器默认值**引用**它。
+   （本文件没有任何 import，所以目录反向引用它不会造成循环依赖。） */
+export const NANO_UPSTREAM_MODELS = Object.freeze({
+  flash: 'gemini-3.1-flash-image',
+  pro: 'gemini-3-pro-image',
+});
+
 const MAX_REFERENCES = 8;
 const DEFAULT_TIMEOUT_MS = 900_000;
 // 上游瞬时故障（网络中断 / 5xx / 429 / 超时）的指数退避重试序列。
@@ -50,9 +62,12 @@ function parseRetryAfter(response, nowMs) {
 
 export function createNanoBananaProviderAdapter({
   apiKey,
-  baseUrl = 'https://api.change2pro.com',
-  flashModel = 'gemini-2.5-flash-image',
-  proModel = 'gemini-3-pro-image',
+  /* 默认用**国内专用**端点：本站服务大陆用户，而供应商的默认端点
+     `api.change2pro.com` 在大陆被 DNS 污染（解析到 Meta 的 IP、TCP 不通，实测 15.2s 超时），
+     配成它等于每次生成先白等一轮失败再切备用。国内端点由供应商明示。 */
+  baseUrl = 'https://api.forkc2p.com',
+  flashModel = NANO_UPSTREAM_MODELS.flash,
+  proModel = NANO_UPSTREAM_MODELS.pro,
   generatedAssetStore,
   publicBaseUrl = 'http://127.0.0.1:3002',
   fetchImpl = globalThis.fetch,

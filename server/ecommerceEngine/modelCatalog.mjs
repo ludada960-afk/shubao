@@ -1,3 +1,7 @@
+/* 上游真实模型名**不在本文件里写死** —— 它由 provider 适配器单点声明（NANO_UPSTREAM_MODELS）。
+   本文件只负责「用户选的档位 → 调哪个上游模型」这一层判断。 */
+import { NANO_UPSTREAM_MODELS } from './nanoBananaProviderAdapter.mjs';
+
 export const LEGAL_IMAGE_SIZES = Object.freeze({
   '1K': { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '9:16': '576x1024', '16:9': '1024x576', '21:9': '1008x432' },
   '2K': { '1:1': '2048x2048', '3:4': '1536x2048', '4:3': '2048x1536', '9:16': '1152x2048', '16:9': '2048x1152', '21:9': '2048x864' },
@@ -91,8 +95,10 @@ export function normalizeImageModel(value) {
 
 export function selectGenerationModel(input = {}) {
   const imageModel = normalizeImageModel(input.imageModel);
-  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2) return 'gemini-2.5-flash-image';
-  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO) return 'gemini-3-pro-image';
+  /* ⚠️ 曾在此处写死 'gemini-2.5-flash-image'，供应商下架后就成了「目录说调 A、适配器只认 B」
+     （用户看到「模型当前不可用」）。现改为引用适配器的单点声明，两者不可能再分叉。 */
+  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2) return NANO_UPSTREAM_MODELS.flash;
+  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO) return NANO_UPSTREAM_MODELS.pro;
   /* 新族：route.model 用族 id 本身（上游真实模型名在适配器的 modelMap 里按分辨率决定） */
   if (ADVANCED_IMAGE_MODELS.has(imageModel)) return imageModel;
   const assetCount = input.assetCount;
