@@ -42,7 +42,7 @@
 .ec-canvas-derive-count {
   padding: 1px 7px;
   border-radius: var(--sb-radius-pill);
-  background: var(--accent-bg);
+  background: var(--sb-state-active-bg);
   color: var(--sb-ink-3);
   font-size: var(--sb-text-xs);
   font-weight: 700;
@@ -178,7 +178,7 @@
 /* magic 桶的 chip 加蓝色高亮, 强调 AI 智能 */
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-chip {
   color: var(--sb-info);
-  background: var(--blue-bg);
+  background: var(--sb-info-tint);
 }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-chip {
   color: var(--sb-surface-card);
@@ -240,7 +240,7 @@
 }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-meta em {
   color: var(--sb-info);
-  background: var(--blue-bg);
+  background: var(--sb-info-tint);
 }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--sb-surface-inverse); }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--sb-info); }
