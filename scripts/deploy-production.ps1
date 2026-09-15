@@ -12,7 +12,12 @@ param(
   [ValidateSet('auto', 'frontend', 'full')]
   [string]$ValidationProfile = 'auto',
   [ValidatePattern('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')]
-  [string]$CanaryOwnerEmail = "867550189@qq.com"
+  [string]$CanaryOwnerEmail = "867550189@qq.com",
+  # 跳过**从部署机发起的公网校验**（gallery / video / billing / ecommerce）。
+  # 仅在「部署机是机房来源 + 域名未备案 + Cloudflare 仅 DNS」时使用 —— 那种组合下
+  # 腾讯云会拦机房来源访问该域名，这些校验**物理上不可能跑通**，硬拦只会让部署永远失败。
+  # 跳过的项会逐条列出并告警；**必须在大陆视角复跑**（见 scripts/verify-* 与迁移手册第七节）。
+  [switch]$SkipPublicChecks
 )
 
 $ErrorActionPreference = "Stop"
@@ -330,6 +335,7 @@ function Invoke-AuthenticatedVerification {
     [Parameter(Mandatory = $true)]
     [string]$FailureMessage
   )
+  if ($script:skipPublicChecks) { Add-SkippedPublicCheck "认证校验（$FailureMessage）"; return }
   for ($attempt = 1; $attempt -le 2; $attempt++) {
     Invoke-WithCanarySession -Command $Command
     if ($LASTEXITCODE -eq 0) { return }
@@ -383,6 +389,15 @@ function Wait-PublicProductionReady {
   throw "Public production health did not become ready within $TimeoutSeconds seconds"
 }
 
+$script:skipPublicChecks = $SkipPublicChecks
+$script:skippedPublicChecks = New-Object System.Collections.Generic.List[string]
+
+function Add-SkippedPublicCheck {
+  param([Parameter(Mandatory = $true)][string]$Name)
+  $script:skippedPublicChecks.Add($Name)
+  Write-Warning "跳过公网校验「$Name」：按 -SkipPublicChecks 处理（部署机为机房来源时公网域名不可达）。需在大陆视角复跑。"
+}
+
 function Invoke-EcommerceProductionVerification {
   param(
     [Parameter(Mandatory = $true)]
@@ -393,6 +408,7 @@ function Invoke-EcommerceProductionVerification {
     [int]$RetryDelaySeconds = 20
   )
 
+  if ($script:skipPublicChecks) { Add-SkippedPublicCheck '电商生产校验（verify-production-ecommerce）'; return }
   $verifier = Join-Path $PSScriptRoot "verify-production-ecommerce.ps1"
   for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     try {
@@ -421,6 +437,7 @@ function Invoke-NodeProductionVerification {
     [int]$RetryDelaySeconds = 10
   )
 
+  if ($script:skipPublicChecks) { Add-SkippedPublicCheck "公网契约校验（$(Split-Path $Verifier -Leaf)）"; return }
   for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     & node $Verifier --base-url "https://shuimg.cn"
     if ($LASTEXITCODE -eq 0) { return }
