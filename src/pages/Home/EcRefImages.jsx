@@ -124,7 +124,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sb-ink-5)' }}>
           {images.length}/{max} 张
           <button type="button" className="a11y-reset" onClick={() => fileRef.current?.click()}
-            style={{ marginLeft: 10, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>
+            style={{ marginLeft: 10, color: 'var(--sb-surface-inverse)', cursor: 'pointer', fontWeight: 500 }}>
             继续添加
           </button>
         </div>
