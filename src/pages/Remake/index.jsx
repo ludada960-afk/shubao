@@ -296,7 +296,7 @@ export default function RemakePage() {
         {/* Loading */}
         {taskId && (!task || task.status === 'pending' || task.status === 'downloading') && (
           <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <MdRefresh size={32} className="spin" style={{ color: 'var(--blue)', marginBottom: 16 }} />
+            <MdRefresh size={32} className="spin" style={{ color: 'var(--sb-info)', marginBottom: 16 }} />
             <p style={{ color: 'var(--sb-ink-4)' }}>正在下载图片并分析中...</p>
             {task && <p style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)', marginTop: 4 }}>
               {task.downloadedImages?.length || 0}/{task.imageCount || 0} 张已下载
@@ -359,7 +359,7 @@ export default function RemakePage() {
             {/* Replacement Form */}
             <div style={{
               background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)',
-              border: '2px solid var(--blue)', padding: 24, marginBottom: 28,
+              border: '2px solid var(--sb-info)', padding: 24, marginBottom: 28,
             }}>
               <h2 style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 16 }}>
                 🔄 替换成你的商品
@@ -428,7 +428,7 @@ export default function RemakePage() {
                         fontSize: 'var(--sb-text-md)', fontWeight: tier === t.key ? 700 : 500,
                         background: tier === t.key ? 'var(--blue-bg)' : 'var(--sb-border-subtle)',
                         color: tier === t.key ? 'var(--sb-brand-800)' : 'var(--sb-ink-3)',
-                        border: tier === t.key ? '2px solid var(--blue)' : '2px solid transparent',
+                        border: tier === t.key ? '2px solid var(--sb-info)' : '2px solid transparent',
                         transition: 'all .1s',
                       }}>
                         {t.label} <span style={{ fontSize: 10, opacity: 0.7 }}>({t.count}张)</span>
