@@ -505,7 +505,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-state-selected-ink)', cursor: 'pointer',
                           padding: '4px 10px', borderRadius: 'var(--sb-radius-sm)',
                           background: 'var(--sb-state-selected-bg)', border: 'none', fontWeight: 'var(--sb-weight-semibold)', fontFamily: 'inherit',
-                          transition: 'background var(--sb-dur-fast, .15s)',
+                          transition: 'background var(--sb-dur-fast)',
                         }}
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--sb-brand-100)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'var(--sb-state-selected-bg)'}

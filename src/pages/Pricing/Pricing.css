@@ -74,7 +74,7 @@
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--sb-border-subtle);
   box-shadow: 0 10px 26px rgba(124, 92, 255, 0.12);
 }
 .pricing-hero-logo {
@@ -99,10 +99,10 @@
   color: var(--sb-ink-5);
   padding: 6px 14px;
   border-radius: var(--sb-radius-pill);
-  background: var(--bg-card);
+  background: var(--sb-surface-panel);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--sb-border-subtle);
 }
 .pricing-hero-title {
   margin: 0;
@@ -160,17 +160,17 @@
   font-size: var(--sb-text-sm);
   font-weight: 700;
   color: var(--sb-ink-2);
-  background: var(--bg-card);
+  background: var(--sb-surface-panel);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
+  border: 1px solid var(--sb-border-default);
   border-radius: var(--sb-radius-pill);
-  transition: transform var(--duration-fast) var(--ease),
-              border-color var(--duration-fast) var(--ease);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-standard),
+              border-color var(--sb-dur-fast) var(--sb-ease-standard);
 }
 .pricing-trust-item:hover {
   transform: translateY(-1px);
-  border-color: var(--border-hover);
+  border-color: var(--sb-border-strong);
 }
 .pricing-trust-item svg {
   color: var(--accent);
@@ -506,8 +506,8 @@
   min-height: 38px;
   padding: 0 18px;
   border-radius: var(--sb-radius-pill);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
+  border: 1px solid var(--sb-border-default);
+  background: var(--sb-surface-panel);
   color: var(--sb-ink-1);
   font-size: var(--sb-text-md);
   font-weight: 700;
@@ -515,13 +515,13 @@
   cursor: pointer;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  transition: transform var(--duration-fast) var(--ease),
-              background var(--duration-fast) var(--ease),
-              border-color var(--duration-fast) var(--ease);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-standard),
+              background var(--sb-dur-fast) var(--sb-ease-standard),
+              border-color var(--sb-dur-fast) var(--sb-ease-standard);
 }
 .pricing-btn-ghost:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-hover);
+  background: var(--sb-surface-tint);
+  border-color: var(--sb-border-strong);
   transform: translateY(-1px);
 }
 .pricing-btn-ghost--lg {
@@ -534,8 +534,8 @@
 .pricing-table-wrap {
   overflow-x: auto;
   border-radius: var(--sb-radius-xl);
-  border: 1px solid var(--border);
-  background: var(--bg-card-solid);
+  border: 1px solid var(--sb-border-default);
+  background: var(--sb-surface-card);
   box-shadow: var(--shadow-sm);
 }
 .pricing-table {
@@ -552,10 +552,10 @@
   font-weight: 800;
   color: var(--sb-ink-2);
   white-space: nowrap;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--sb-border-default);
 }
 .pricing-table tbody tr {
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--sb-border-subtle);
 }
 .pricing-table tbody tr:first-child {
   border-top: none;
@@ -564,7 +564,7 @@
   background: rgba(245, 239, 228, 0.45);
 }
 .pricing-table tbody tr:hover {
-  background: var(--bg-hover);
+  background: var(--sb-surface-tint);
 }
 .pricing-table tbody th {
   padding: 12px 18px;
@@ -593,11 +593,11 @@
   border-radius: 16px;
   background:
     linear-gradient(135deg, var(--sb-brand-a05) 0%, rgba(236, 72, 153, 0.05) 100%),
-    var(--bg-card-solid);
+    var(--sb-surface-card);
   color: var(--sb-ink-2);
   font-size: var(--sb-text-md);
   line-height: 1.7;
-  border: 1px solid var(--border);
+  border: 1px solid var(--sb-border-default);
 }
 .pricing-pack-grid {
   display: grid;
@@ -836,8 +836,8 @@
   position: relative;
   padding: 22px 18px 18px;
   border-radius: var(--sb-radius-2xl);
-  border: 1px solid var(--border);
-  background: var(--bg-card-solid);
+  border: 1px solid var(--sb-border-default);
+  background: var(--sb-surface-card);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -845,12 +845,12 @@
   align-items: center;
   gap: var(--sb-space-2-5);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--duration-fast) var(--ease),
-              border-color var(--duration-fast) var(--ease);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-standard),
+              border-color var(--sb-dur-fast) var(--sb-ease-standard);
 }
 .pricing-pay-card:hover {
   transform: translateY(-2px);
-  border-color: var(--border-hover);
+  border-color: var(--sb-border-strong);
 }
 .pricing-pay-card.is-active {
   border-color: var(--sb-success);
@@ -884,7 +884,7 @@
   font-size: 11px;
   font-weight: 800;
   color: var(--sb-ink-3);
-  background: var(--bg-hover);
+  background: var(--sb-surface-tint);
   border-radius: var(--sb-radius-pill);
   padding: 3px 10px;
   white-space: nowrap;
@@ -932,7 +932,7 @@
   border-radius: 4px;
 }
 .pricing-faq {
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--sb-border-subtle);
 }
 .pricing-faq:last-child {
   border-bottom-color: transparent;
@@ -949,7 +949,7 @@
   color: var(--sb-ink-2);
   cursor: pointer;
   font-family: inherit;
-  transition: color var(--duration-fast) var(--ease);
+  transition: color var(--sb-dur-fast) var(--sb-ease-standard);
   position: relative;
 }
 .pricing-faq summary::before {
@@ -962,7 +962,7 @@
   background: var(--accent);
   border-radius: 4px;
   transform: translateY(-50%);
-  transition: height var(--duration-normal) var(--ease);
+  transition: height var(--sb-dur-normal) var(--sb-ease-standard);
 }
 .pricing-faq[open] summary::before {
   height: 14px;
@@ -978,8 +978,8 @@
   border-right: 1.5px solid var(--sb-ink-4);
   border-bottom: 1.5px solid var(--sb-ink-4);
   transform: rotate(45deg) translateY(-1px);
-  transition: transform var(--duration-normal) var(--ease),
-              border-color var(--duration-fast) var(--ease);
+  transition: transform var(--sb-dur-normal) var(--sb-ease-standard),
+              border-color var(--sb-dur-fast) var(--sb-ease-standard);
 }
 .pricing-faq[open] summary::after {
   transform: rotate(225deg) translateY(-1px);
@@ -991,7 +991,7 @@
 }
 .pricing-faq-answer {
   margin: 0 0 12px;
-  animation: pricingFaqReveal var(--duration-slow) var(--ease-out);
+  animation: pricingFaqReveal var(--sb-dur-slow) var(--sb-ease-out);
   font-size: var(--sb-text-md);
   line-height: 1.7;
   color: var(--sb-ink-3);
@@ -1087,9 +1087,9 @@
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease),
-              background var(--duration-fast) var(--ease),
-              box-shadow var(--duration-fast) var(--ease);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-standard),
+              background var(--sb-dur-fast) var(--sb-ease-standard),
+              box-shadow var(--sb-dur-fast) var(--sb-ease-standard);
 }
 .pricing-modal-provider-btn:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -1109,11 +1109,11 @@
   justify-content: space-between;
   padding: 12px 14px;
   border-radius: var(--sb-radius-lg);
-  border: 1px solid var(--border);
-  background: var(--bg-card-solid);
+  border: 1px solid var(--sb-border-default);
+  background: var(--sb-surface-card);
 }
 .pricing-modal-provider-row.is-off {
-  background: var(--bg-hover);
+  background: var(--sb-surface-tint);
   border-style: dashed;
 }
 .pricing-modal-provider-name {
@@ -1136,18 +1136,18 @@
 }
 .pricing-modal-provider-pill.is-off {
   color: var(--sb-ink-3);
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-light);
+  background: var(--sb-surface-card);
+  border: 1px solid var(--sb-border-subtle);
 }
 .pricing-modal-footnote {
   margin-top: var(--sb-space-1);
   padding: 10px 12px;
   border-radius: 12px;
-  background: var(--bg-card-solid);
+  background: var(--sb-surface-card);
   color: var(--sb-ink-3);
   font-size: var(--sb-text-sm);
   line-height: 1.65;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--sb-border-subtle);
   text-align: left;
 }
 .pricing-modal-secondary {
@@ -1156,12 +1156,12 @@
   min-height: 40px;
   border: 1px solid var(--accent);
   border-radius: 12px;
-  background: var(--bg-elevated);
+  background: var(--sb-surface-card);
   color: var(--accent);
   cursor: pointer;
   font-weight: 700;
   font-family: inherit;
-  transition: background var(--duration-fast) var(--ease);
+  transition: background var(--sb-dur-fast) var(--sb-ease-standard);
 }
 .pricing-modal-secondary:hover {
   background: var(--accent-bg);

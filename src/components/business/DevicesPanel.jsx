@@ -63,7 +63,7 @@ export default function DevicesPanel() {
 
   return (
     <div style={{
-      border: '1px solid var(--border)', borderRadius: 12,
+      border: '1px solid var(--sb-border-default)', borderRadius: 12,
       background: 'var(--sb-neutral-0)', overflow: 'hidden',
     }}>
       <button
@@ -96,7 +96,7 @@ export default function DevicesPanel() {
           {Array.isArray(sessions) && sessions.map(session => (
             <div key={session.id} style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 0', borderTop: '1px solid var(--border)',
+              padding: '8px 0', borderTop: '1px solid var(--sb-border-default)',
             }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, color: 'var(--sb-ink-2)' }}>
@@ -121,7 +121,7 @@ export default function DevicesPanel() {
                   title="退出该设备登录"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
-                    border: '1px solid var(--border)', borderRadius: 8,
+                    border: '1px solid var(--sb-border-default)', borderRadius: 8,
                     background: 'var(--sb-neutral-0)', color: 'var(--sb-danger-hover)', fontSize: 11,
                     fontWeight: 700, padding: '5px 8px', cursor: 'pointer',
                     fontFamily: 'inherit',

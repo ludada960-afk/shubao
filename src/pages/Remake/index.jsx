@@ -267,7 +267,7 @@ export default function RemakePage() {
         {!taskId && (
           <div style={{
             padding: '60px 20px', textAlign: 'center', color: 'var(--sb-ink-4)',
-            border: '2px dashed var(--border-light)', borderRadius: 'var(--radius-lg)',
+            border: '2px dashed var(--sb-border-subtle)', borderRadius: 'var(--radius-lg)',
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
             <h2 style={{ fontSize: 'var(--text-xl)', margin: '0 0 8px' }}>还没有任务</h2>
@@ -275,12 +275,12 @@ export default function RemakePage() {
               使用浏览器插件从电商页面提取商品图片，
               <br />然后插件会自动跳转到这个页面。
             </p>
-            <div style={{ marginTop: 20, fontSize: 'var(--sb-text-xs)', color: 'var(--border-light)' }}>
+            <div style={{ marginTop: 20, fontSize: 'var(--sb-text-xs)', color: 'var(--sb-border-subtle)' }}>
               已安装插件？打开淘宝/京东/Amazon 商品页，点击插件按钮即可开始
             </div>
             <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
               <input id="manualTaskId" placeholder="或手动输入任务编号"
-                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border-light)', fontSize: 12, width: 220, fontFamily: 'inherit' }} />
+                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid var(--sb-border-subtle)', fontSize: 12, width: 220, fontFamily: 'inherit' }} />
               <button onClick={() => {
                 const v = document.getElementById('manualTaskId')?.value?.trim();
                 if (v) { setTaskId(v); setError(''); }
@@ -317,7 +317,7 @@ export default function RemakePage() {
                   <div key={i} style={{
                     minWidth: 200, maxWidth: 240, flex: '0 0 auto',
                     background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)',
-                    border: '1px solid var(--border-light)', overflow: 'hidden',
+                    border: '1px solid var(--sb-border-subtle)', overflow: 'hidden',
                   }}>
                     {/* Thumbnail */}
                     <div style={{
@@ -372,7 +372,7 @@ export default function RemakePage() {
                     placeholder="输入你的商品名称"
                     style={{
                       display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
-                      borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--border-light)',
+                      borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
                       fontSize: 'var(--text-base)', fontFamily: 'inherit',
                     }} />
                 </label>
@@ -383,7 +383,7 @@ export default function RemakePage() {
                     <select value={category} onChange={e => setCategory(e.target.value)}
                       style={{
                         display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
-                        borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
                         fontSize: 'var(--text-base)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
                       }}>
                       {['美妆护肤', '数码3C', '食品饮料', '服饰穿搭', '家居生活', '母婴用品', '宠物用品', '其他'].map(c => (
@@ -396,7 +396,7 @@ export default function RemakePage() {
                     <select value={platform} onChange={e => setPlatform(e.target.value)}
                       style={{
                         display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
-                        borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--border-light)',
+                        borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
                         fontSize: 'var(--text-base)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
                       }}>
                       {EC_PLATFORMS.map(p => (
@@ -413,7 +413,7 @@ export default function RemakePage() {
                     rows={3}
                     style={{
                       display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
-                      borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--border-light)',
+                      borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
                       fontSize: 'var(--text-base)', fontFamily: 'inherit', resize: 'vertical',
                     }} />
                 </label>
@@ -426,7 +426,7 @@ export default function RemakePage() {
                       <span key={t.key} role="button" tabIndex={0} aria-label={`选择 ${t.label || t.key}`} onClick={() => setTier(t.key)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTier(t.key); } }} style={{
                         padding: '8px 16px', borderRadius: 'var(--sb-radius-xl)', cursor: 'pointer',
                         fontSize: 'var(--sb-text-md)', fontWeight: tier === t.key ? 700 : 500,
-                        background: tier === t.key ? 'var(--blue-bg)' : 'var(--border-light)',
+                        background: tier === t.key ? 'var(--blue-bg)' : 'var(--sb-border-subtle)',
                         color: tier === t.key ? 'var(--sb-brand-800)' : 'var(--sb-ink-3)',
                         border: tier === t.key ? '2px solid var(--blue)' : '2px solid transparent',
                         transition: 'all .1s',
@@ -443,7 +443,7 @@ export default function RemakePage() {
                   fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: generating ? 'not-allowed' : 'pointer',
                   /* 裁定 2 / D1：「一键复刻生成」是**功能按钮** → 品牌紫纯色，禁止渐变 */
-                  background: generating ? 'var(--border-light)' : 'var(--sb-btn-primary-bg)',
+                  background: generating ? 'var(--sb-border-subtle)' : 'var(--sb-btn-primary-bg)',
                   color: generating ? 'var(--sb-ink-3)' : 'var(--sb-neutral-0)',
                   boxShadow: generating ? 'none' : '0 3px 12px var(--sb-brand-a32)',
                   marginTop: 8, transition: 'all .15s',
@@ -467,7 +467,7 @@ export default function RemakePage() {
               {task.generatedImages.map((img, i) => (
                 <div key={i} style={{
                   background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)',
-                  border: '1px solid var(--border-light)', overflow: 'hidden',
+                  border: '1px solid var(--sb-border-subtle)', overflow: 'hidden',
                 }}>
                   {img.url ? (
                     <img src={img.url} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover' }} />

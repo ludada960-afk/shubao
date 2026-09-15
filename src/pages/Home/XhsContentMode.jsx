@@ -1179,7 +1179,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           <div style={{
             display:'flex', alignItems:'center', justifyContent:'space-between',
             padding:'12px 2px 14px', marginTop:8,
-            borderTop: '1px solid var(--border-light)',
+            borderTop: '1px solid var(--sb-border-subtle)',
           }}>
             {/* Left: 热门主题 / Plog设置 按钮 — 深色框 */}
             <div style={{ flex:1 }}>
@@ -1446,7 +1446,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       </div>
                     </div>
                     <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onPickLibraryUrls={handlePickPlogLibraryUrls} onRemove={removePlogRoleImage} />
-                    <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'var(--sb-neutral-25)', borderTop:'1.5px solid var(--border)' }}>
+                    <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'var(--sb-neutral-25)', borderTop:'1.5px solid var(--sb-border-default)' }}>
                       <ImageMentionPicker
                         images={plogMentionImages}
                         selectionMode="insert"
@@ -1515,7 +1515,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     </div>
                     {err && <div className="error-bar">{err}</div>}
                     <button className="gen-btn xhs" onClick={doGenPlog} disabled={!plogText.trim()}
-                      style={{ background: !plogText.trim() ? 'var(--border)' : 'linear-gradient(135deg,#BE185D,#DB2777)' }}>
+                      style={{ background: !plogText.trim() ? 'var(--sb-border-default)' : 'linear-gradient(135deg,#BE185D,#DB2777)' }}>
                       🎨 生成{['碎片风','拍立得','电影感','手账风','杂志风'][['casual','polaroid','cinematic','journal','magazine'].indexOf(plogLayout)] || '碎片风'} Plog
                     </button>
                     <div className="gen-hint">{!plogText.trim() ? '✏️ 输入场景描述后即可生成 9 张生活碎片' : '✨ 1套 = 9 张 Plog 碎片 + 情绪文案'}</div>
@@ -1528,7 +1528,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             {!isXHS && (
               <div style={{ padding:'0 0 16px' }}>
                 {/* 平台选择 — 横向滑动 */}
-                <div style={{ display:'flex', gap:8, padding:'14px 16px', borderBottom:'1.5px solid var(--border)', background:'var(--sb-neutral-25)', alignItems:'center', overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }}>
+                <div style={{ display:'flex', gap:8, padding:'14px 16px', borderBottom:'1.5px solid var(--sb-border-default)', background:'var(--sb-neutral-25)', alignItems:'center', overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }}>
                   {['淘宝','京东','拼多多','抖音','小红书','亚马逊'].map(p => (
                     <button key={p} type="button" aria-pressed={ecPlatform === p} className={`ec-cat-pill ${ecPlatform === p ? 'on' : ''}`} onClick={() => setEcPlatform(p)}
                       style={{ appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none', flexShrink:0 }}
@@ -1630,7 +1630,7 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                 </div>
 
                 {/* 卖点+材质 — 与 tags-cloud-wrap 相同的 padding 和分隔线 */}
-                <div style={{ display:'flex', gap:10, padding:'12px 16px', borderBottom:'1.5px solid var(--border)' }}>
+                <div style={{ display:'flex', gap:10, padding:'12px 16px', borderBottom:'1.5px solid var(--sb-border-default)' }}>
                     <input className="ec-link-input" value={ecProductPoints} onChange={e => setEcProductPoints(e.target.value)}
                     placeholder="卖点（逗号分隔）例如：高保湿, 24小时持久" style={{ flex:2 }} />
                   <input className="ec-link-input" value={ecMaterial} onChange={e => setEcMaterial(e.target.value)}

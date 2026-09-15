@@ -80,9 +80,9 @@ function GCard({ item, onClick, onSameStyle }) {
       style={{
         position: 'relative', aspectRatio: '3/4', borderRadius: 'var(--radius-lg)',
         overflow: 'hidden', cursor: 'pointer',
-        background: item.grad || 'var(--border-light)',
+        background: item.grad || 'var(--sb-border-subtle)',
         boxShadow: 'var(--shadow-md)',
-        transition: 'all var(--duration-normal)',
+        transition: 'all var(--sb-dur-normal)',
         transform: h ? 'translateY(-4px)' : 'none',
       }}
     >

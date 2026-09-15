@@ -41,7 +41,7 @@ export default function EcSkuPanel({ skus, onChange }) {
             style={{
               /* div -> button：外观零变化需重置 UA 默认样式（button 自带 border/bg/padding/字体） */
               appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'block', width: '100%',
-              border: '2px dashed var(--border)',
+              border: '2px dashed var(--sb-border-default)',
               borderRadius: 'var(--sb-radius-xl)',
               padding: '24px 14px',
               textAlign: 'center', cursor: 'pointer',
@@ -61,7 +61,7 @@ export default function EcSkuPanel({ skus, onChange }) {
                   background: 'rgba(12,10,9,0.02)',
                   borderRadius: 'var(--sb-radius-md)',
                   padding: 12,
-                  border: '1px solid var(--border-light)',
+                  border: '1px solid var(--sb-border-subtle)',
                 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
                   <SkuField value={sku.color} onChange={v => updateSku(sku.id, 'color', v)} placeholder="颜色" />
@@ -73,7 +73,7 @@ export default function EcSkuPanel({ skus, onChange }) {
                     onChange={e => updateSku(sku.id, 'label', e.target.value)}
                     placeholder="标注（选填，如“经典款”）"
                     style={{
-                      flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
+                      flex: 1, padding: '6px 10px', border: '1px solid var(--sb-border-default)',
                       borderRadius: 'var(--sb-radius-md)', fontSize: 12, background: 'var(--sb-neutral-0)',
                       color: 'var(--sb-ink-1)', outline: 'none',
                     }}
@@ -84,7 +84,7 @@ export default function EcSkuPanel({ skus, onChange }) {
                       onChange={e => updateSku(sku.id, 'count', parseInt(e.target.value) || 1)}
                       style={{
                         width: 40, padding: '4px 4px', marginLeft: 4,
-                        border: '1px solid var(--border)',
+                        border: '1px solid var(--sb-border-default)',
                         borderRadius: 'var(--sb-radius-md)', fontSize: 12, textAlign: 'center',
                         color: 'var(--sb-ink-1)', outline: 'none',
                       }} />
@@ -111,7 +111,7 @@ export default function EcSkuPanel({ skus, onChange }) {
                 appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',width: '100%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 padding: '10px', borderRadius: 'var(--sb-radius-md)',
-                border: '1px dashed var(--border)', cursor: 'pointer', background: 'none',
+                border: '1px dashed var(--sb-border-default)', cursor: 'pointer', background: 'none',
                 fontSize: 13, color: 'var(--sb-ink-3)', transition: 'all 0.12s',
                 outline: 'none',
               }}
@@ -136,7 +136,7 @@ function SkuField({ value, onChange, placeholder }) {
     <input value={value} onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        padding: '7px 10px', border: '1px solid var(--border)',
+        padding: '7px 10px', border: '1px solid var(--sb-border-default)',
         borderRadius: 'var(--sb-radius-md)', fontSize: 12, background: 'var(--sb-neutral-0)',
         color: 'var(--sb-ink-1)', outline: 'none', width: '100%',
       }} />

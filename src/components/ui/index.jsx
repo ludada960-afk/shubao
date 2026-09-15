@@ -133,7 +133,7 @@ export function Tag({ children, active, onClick, style = {} }) {
         borderRadius: 'var(--sb-radius-pill)',
         fontSize: 'var(--sb-text-md)',
         fontWeight: active ? 'var(--sb-weight-semibold)' : 'var(--sb-weight-regular)',
-        background: active ? 'var(--sb-danger)' : (h ? 'var(--sb-neutral-100)' : 'var(--border-light)'),
+        background: active ? 'var(--sb-danger)' : (h ? 'var(--sb-neutral-100)' : 'var(--sb-border-subtle)'),
         color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
         cursor: onClick ? 'pointer' : 'default',
         transition: `all var(--sb-duration-fast) var(--sb-ease-in-out)`,
@@ -151,7 +151,7 @@ export function Spinner({ size = 20, color = 'var(--sb-danger)' }) {
   return (
     <div style={{
       width: size, height: size,
-      border: `3px solid var(--border)`,
+      border: `3px solid var(--sb-border-default)`,
       borderTopColor: color,
       borderRadius: '50%',
     }} className="animate-spin" />

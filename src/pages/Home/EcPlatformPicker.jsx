@@ -51,7 +51,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                 cursor: 'pointer', transition: 'all 0.15s',
                 background: active ? 'var(--accent)' : 'var(--sb-neutral-0)',
                 color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
-                border: active ? 'none' : '1px solid var(--border)',
+                border: active ? 'none' : '1px solid var(--sb-border-default)',
                 fontSize: 12, fontWeight: active ? 900 : 600,
                 fontFamily: 'inherit',
                 boxShadow: active ? '0 1px 3px rgba(12,10,9,0.1)' : 'none',
@@ -75,14 +75,14 @@ export default function EcPlatformPicker({ platform, onChange }) {
               display: 'flex', alignItems: 'center', gap: 6,
               height: 40, padding: '0 12px',
               borderRadius: 'var(--sb-radius-pill)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--sb-border-default)',
               background: 'var(--sb-neutral-0)',
               fontSize: 12, fontWeight: 700, color: 'var(--sb-ink-3)',
               cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; }}>
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--sb-border-default)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; }}>
             <MdTune size={15} />
             <span style={{ fontWeight: 900, color: 'var(--sb-ink-1)' }}>{customOpen ? '自定义' : '智能'}</span>
             <span>{customRes}</span>
@@ -96,7 +96,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
             <div style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0,
               minWidth: 240, zIndex: 50,
-              borderRadius: 16, border: '1px solid var(--border)',
+              borderRadius: 16, border: '1px solid var(--sb-border-default)',
               background: 'rgba(255,255,255,0.95)',
               backdropFilter: 'blur(16px)',
               padding: 12,

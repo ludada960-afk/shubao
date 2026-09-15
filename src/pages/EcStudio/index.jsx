@@ -47,7 +47,7 @@ const SX = {
   input: {
     width: '100%', padding: '11px 14px', border: '1px solid var(--sb-border-default)', borderRadius: 'var(--sb-radius-md)',
     fontSize: 'var(--sb-text-md)', fontFamily: 'inherit', outline: '0 solid transparent', boxSizing: 'border-box',
-    background: 'var(--sb-surface-sunken)', transition: 'border-color var(--sb-dur-fast, .15s)', color: 'var(--sb-ink-1)',
+    background: 'var(--sb-surface-sunken)', transition: 'border-color var(--sb-dur-fast)', color: 'var(--sb-ink-1)',
   },
   h3: { fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', color: 'var(--sb-ink-1)', marginBottom: 'var(--sb-space-1)', display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' },
   hint: { fontSize: 'var(--sb-text-sm)', color: 'var(--sb-ink-3)', lineHeight: 1.7 },

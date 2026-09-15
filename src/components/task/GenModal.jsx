@@ -36,7 +36,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
       {/* 标题栏 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', borderBottom: '1px solid var(--border-light)',
+        padding: '14px 16px', borderBottom: '1px solid var(--sb-border-subtle)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
@@ -119,7 +119,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
       {/* 底部提示 */}
       <div style={{
         padding: '10px 16px',
-        borderTop: '1px solid var(--border-light)',
+        borderTop: '1px solid var(--sb-border-subtle)',
         fontSize: 10, color: 'var(--sb-ink-5)', textAlign: 'center',
         fontWeight: 500,
       }}>

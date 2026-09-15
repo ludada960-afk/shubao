@@ -39,7 +39,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
       background: 'rgba(12,10,9,0.02)',
       borderRadius: 'var(--sb-radius-xl)',
       padding: 16,
-      border: '1px solid var(--border-light)',
+      border: '1px solid var(--sb-border-subtle)',
     }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 2 }}>{label}</div>
       <div style={{ fontSize: 11, color: 'var(--sb-ink-5)', marginBottom: 12 }}>{sub}</div>
@@ -49,7 +49,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
           style={{
             appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
             display: 'block', width: '100%',
-            border: '2px dashed var(--border)',
+            border: '2px dashed var(--sb-border-default)',
             borderRadius: 'var(--sb-radius-xl)',
             padding: '32px 14px',
             textAlign: 'center', cursor: 'pointer',
@@ -72,7 +72,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
             <div key={i} style={{
               position: 'relative', width: 72, height: 72,
               borderRadius: 'var(--sb-radius-md)', overflow: 'hidden',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--sb-border-default)',
               flexShrink: 0,
             }}>
               <img
@@ -105,7 +105,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
                 appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 width: 72, height: 72,
                 borderRadius: 'var(--sb-radius-md)',
-                border: '2px dashed var(--border)',
+                border: '2px dashed var(--sb-border-default)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', color: 'var(--sb-ink-5)', fontSize: 20,
                 flexShrink: 0,

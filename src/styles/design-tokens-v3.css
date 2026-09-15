@@ -288,7 +288,23 @@
   --sb-shadow-5: 0 28px 90px rgba(57, 45, 26, 0.16),
                  0 8px 24px rgba(57, 45, 26, 0.08);                      /* modal / 全屏抽屉 */
   --sb-shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.90);       /* 玻璃面高光 */
-  --sb-shadow-ring: 0 0 0 3px var(--sb-brand-ring);                      /* 焦点环（外扩） */
+  --sb-shadow-ring: 0 0 0 3px var(--sb-brand-ring);
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     §19b 动效（Motion）—— 2026-09-20 补：**设计系统此前根本没有动效 token**
+     ──────────────────────────────────────────────────────────────────────────
+     实测：全站有 **85 处**在用 V2 的 `--ease` / `--duration-*`（另有若干处
+     `var(--sb-dur-fast, .15s)` 形式的**幽灵引用** —— 带兜底所以不报错，但从来没生效过）。
+     设计系统缺这一层，导致「时长/缓动」成为**唯一还没被收编的观感维度**。
+     取值**与 V2 逐值相等**，因此迁移为零观感变更（D15）。
+     ══════════════════════════════════════════════════════════════════════════ */
+  --sb-dur-fast:   0.12s;                            /* = V2 --duration-fast（微反馈：hover/按压） */
+  --sb-dur-normal: 0.2s;                             /* = V2 --duration-normal（默认过渡） */
+  --sb-dur-slow:   0.35s;                            /* = V2 --duration-slow（面板/抽屉） */
+  --sb-dur-xl:     0.5s;                             /* = V2 --duration-xl（大面积/叙事动效） */
+  --sb-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);  /* = V2 --ease（标准进出自如） */
+  --sb-ease-out:      cubic-bezier(0, 0, 0.2, 1);    /* = V2 --ease-out（进场） */
+  --sb-ease-in:       cubic-bezier(0.4, 0, 1, 1);    /* = V2 --ease-in（退场） */                      /* 焦点环（外扩） */
 
   /* 彩色投影：投影色跟随元素本身的语义色，而不是一律暖棕。
      紫的对应物是 §1 的 --sb-brand-shadow / --sb-brand-shadow-lg；

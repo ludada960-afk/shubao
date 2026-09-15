@@ -82,7 +82,7 @@ export default function LoadingView() {
             return (
               <div key={i} style={{
                 flex: 1, height: 6, borderRadius: 4,
-                background: isActive ? accentColor : 'var(--border)',
+                background: isActive ? accentColor : 'var(--sb-border-default)',
                 position: 'relative',
                 overflow: 'hidden',
                 transition: 'background 0.5s',
@@ -116,7 +116,7 @@ export default function LoadingView() {
 
         {/* Tip */}
         <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          background: 'var(--sb-surface-panel)', border: '1px solid var(--sb-border-default)',
           borderRadius: 'var(--radius-xl)', padding: '16px 20px', textAlign: 'left',
         }}>
           <div style={{

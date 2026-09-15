@@ -148,7 +148,7 @@ export default function HomePage() {
         {/* 标题区 */}
         <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '24px 20px 0' }}>
           <div style={{ textAlign: 'center' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 'var(--sb-radius-pill)', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 900, color: 'var(--sb-ink-2)', boxShadow: 'var(--shadow-sm)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 'var(--sb-radius-pill)', border: '1px solid var(--sb-border-default)', background: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 900, color: 'var(--sb-ink-2)', boxShadow: 'var(--shadow-sm)' }}>
               <MdAutoAwesome size={16} fill="#FBBF24" color="#F59E0B" />
               薯包 AI · <span style={{ opacity: 0.7 }}>智能视觉内容创作平台</span>
             </span>

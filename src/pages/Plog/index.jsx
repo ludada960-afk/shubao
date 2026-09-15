@@ -539,7 +539,7 @@ export default function PlogPage() {
                     border: '1px solid ' + (active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-subtle)'),
                     background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-sunken)',
                     boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
-                    transition: 'background var(--sb-dur-fast, .12s) ' + 'var(--sb-ease-out, ease), box-shadow var(--sb-dur-fast, .12s) ' + 'var(--sb-ease-out, ease)',
+                    transition: 'background var(--sb-dur-fast) ' + 'var(--sb-ease-out, ease), box-shadow var(--sb-dur-fast) ' + 'var(--sb-ease-out, ease)',
                     fontFamily: 'inherit',
                   }}>
                   <div style={{ fontSize: 'var(--sb-text-xl)', marginBottom: 2 }}>{t.emoji}</div>
@@ -628,7 +628,7 @@ export default function PlogPage() {
               fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)',
               cursor: !text.trim() || genState === 'loading' ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit', letterSpacing: 0.3,
-              transition: 'background var(--sb-dur-fast, .12s) var(--sb-ease-out, ease)',
+              transition: 'background var(--sb-dur-fast) var(--sb-ease-out, ease)',
             }}>
             {genState === 'loading'
               ? `🖼️ 生成中 ${progress.current}/${progress.total} · ${elapsed}秒`

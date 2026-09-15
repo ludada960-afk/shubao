@@ -27,7 +27,7 @@ export default function EcCopywriting({ copywriting, onChange }) {
               width: '100%', padding: '10px 12px',
               fontSize: 13, lineHeight: 1.6,
               borderRadius: 'var(--sb-radius-md)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--sb-border-default)',
               background: 'rgba(12,10,9,0.02)',
               color: 'var(--sb-ink-1)',
               outline: 'none', resize: 'vertical',
@@ -35,7 +35,7 @@ export default function EcCopywriting({ copywriting, onChange }) {
               transition: 'border-color 0.15s',
             }}
             onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            onBlur={e => e.target.style.borderColor = 'var(--sb-border-default)'}
           />
         </div>
       ))}

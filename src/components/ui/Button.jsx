@@ -48,12 +48,12 @@ export default function Button({
       color: 'var(--sb-ink-3)',
       border: 'none',
     });
-    if (hover) base.background = 'var(--border-light)';
+    if (hover) base.background = 'var(--sb-border-subtle)';
   } else {
     Object.assign(base, {
       background: hover ? '#f8f8f8' : 'var(--sb-neutral-0)',
       color: 'var(--sb-ink-2)',
-      border: '1px solid var(--border)',
+      border: '1px solid var(--sb-border-default)',
     });
   }
 
