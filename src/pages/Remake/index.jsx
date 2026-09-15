@@ -426,7 +426,7 @@ export default function RemakePage() {
                       <span key={t.key} role="button" tabIndex={0} aria-label={`选择 ${t.label || t.key}`} onClick={() => setTier(t.key)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTier(t.key); } }} style={{
                         padding: '8px 16px', borderRadius: 'var(--sb-radius-xl)', cursor: 'pointer',
                         fontSize: 'var(--sb-text-md)', fontWeight: tier === t.key ? 700 : 500,
-                        background: tier === t.key ? 'var(--blue-bg)' : 'var(--sb-border-subtle)',
+                        background: tier === t.key ? 'var(--sb-info-tint)' : 'var(--sb-border-subtle)',
                         color: tier === t.key ? 'var(--sb-brand-800)' : 'var(--sb-ink-3)',
                         border: tier === t.key ? '2px solid var(--sb-info)' : '2px solid transparent',
                         transition: 'all .1s',
