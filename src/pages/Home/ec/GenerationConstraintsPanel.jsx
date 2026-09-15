@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldAlert, Ban } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
-import { SPACING, FONT_SIZE, CONTROL_HEIGHT, groupTitleStyle, helperTextStyle } from './panelVisualLanguage.js';
+import { SPACING, groupTitleStyle, helperTextStyle } from './panelVisualLanguage.js';
 
 /* ═══════ 生成约束面板 ═══════
    2026-09-15 用户批注①（子项 2）：
@@ -22,18 +22,15 @@ import { SPACING, FONT_SIZE, CONTROL_HEIGHT, groupTitleStyle, helperTextStyle } 
    注意：数据仍走 genSettings.negativePrompt 这一条链路，**画布侧同步不受影响**
    （见报告里的画布对照说明）。 */
 
-const PRESETS = ['商品结构变形', '异常手部', '乱码文字', '无关道具', '多余水印'];
+/* ⚠️ 2026-09-15 用户批注（图6-②）：这里原有的 5 个预置标签（商品结构变形 / 异常手部 /
+   乱码文字 / 无关道具 / 多余水印）**整块删除**。用户原话：
+   「我觉得你这里为什么会有 5 个可被填入的标签呀？你这又是什么逻辑呀？我觉得没有必要有
+   这些东西啊，你有这些东西用户他就不自由了，用户他应该自由地去填他产品相关的一些禁忌吧。」
+   —— 这是一条产品判断：**禁忌是品类相关的**（食品怕「变质暗示」、服装怕「走光」、
+   3C 怕「接口错误」），给一组通用标签反而把用户往这 5 个词上引，既不全也误导。
+   保留手输 + 一行格式提示（placeholder）即可。 */
 
 export default function GenerationConstraintsPanel({ negativePrompt = '', onChange, available = null }) {
-  /* 点击预设 = 追加一条约束（已存在则忽略），与手输完全同一条数据链路 */
-  const append = (term) => {
-    const current = String(negativePrompt || '');
-    const terms = current.split(/[，,、\n]/).map(t => t.trim()).filter(Boolean);
-    if (terms.includes(term)) return;
-    onChange?.([...terms, term].join('、'));
-  };
-  const activeTerms = String(negativePrompt || '').split(/[，,、\n]/).map(t => t.trim()).filter(Boolean);
-
   return (
     <div style={{ padding: 0 }}>
       <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
@@ -43,42 +40,16 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
             <span>避免出现的元素</span>
           </div>
 
-          {/* 常用约束：一键追加，省去重复手输 */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACING.sp2 }}>
-            {PRESETS.map(term => {
-              const active = activeTerms.includes(term);
-              return (
-                <button
-                  key={term}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => append(term)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: SPACING.sp1,
-                    height: CONTROL_HEIGHT.compact, padding: `0 ${SPACING.sp3}px`,
-                    borderRadius: 'var(--sb-radius-pill)', fontFamily: 'inherit',
-                    fontSize: FONT_SIZE.helper, fontWeight: 600, cursor: 'pointer',
-                    /* D2：选中在**恒宽**边框之上再叠 ring；hover 与选中不同（底色 + ring） */
-                    border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`,
-                    boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
-                    background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-card)',
-                    color: active ? 'var(--sb-ink-1)' : 'var(--sb-ink-2)',
-                  }}
-                >
-                  <Ban size={11} />
-                  {term}
-                </button>
-              );
-            })}
-          </div>
-
           {/* 多行 + 右下角拉伸手柄（统一规范） */}
           <ResizableTextarea
             aria-label="避免出现的元素"
             value={negativePrompt}
             onChange={event => onChange?.(event.target.value)}
             available={available}
-            placeholder="用「、」分隔，例如：商品结构变形、异常手部、乱码文字、无关道具"
+            /* 2026-09-15：占位提示不再列举那 5 个通用词。
+               删掉按钮却把同一份清单留在占位里，对用户的引导作用是一样的（契约当场抓到这个半成品）。
+               改成教「怎么想」：禁忌是品类相关的，不同品类怕的东西完全不同。 */
+            placeholder="用「、」分隔，写你这个品类最怕出现的东西（食品怕变质暗示、服装怕走光）"
           />
 
           <p style={{ ...helperTextStyle, margin: 0 }}>

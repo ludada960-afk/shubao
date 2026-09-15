@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import sharp from 'sharp';
 
+import { stripComments } from '../scripts/lib/token-scope.mjs';
+
 const source = readFileSync(new URL('../src/pages/Home/index.jsx', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const footer = readFileSync(new URL('../src/components/layout/Footer.jsx', import.meta.url), 'utf8');
@@ -109,10 +111,20 @@ test('ecommerce controls: 模型优先; 避免出现的元素归内容规范; �
      生成设置 = 模型/清晰度/品牌主色（设备与输出参数）；
      「避免出现的元素」= 画面内容约束 → 迁到「内容规范」（正向要什么 + 反向不要什么）。
      数据链路不变（仍是 genSettings.negativePrompt），画布侧同步不受影响。 */
-  const constraints = readFileSync(new URL('../src/pages/Home/ec/GenerationConstraintsPanel.jsx', import.meta.url), 'utf8');
+  /* ⚠️ 一律**先剥注释**再断言（复用 scripts/lib/token-scope.mjs 的同一份实现）：
+     解释「为什么删掉那 5 个标签」的注释里必然会写到它们的名字，
+     门禁若把注释算成用法，就是在惩罚「把来龙去脉写清楚」。 */
+  const constraints = stripComments(readFileSync(new URL('../src/pages/Home/ec/GenerationConstraintsPanel.jsx', import.meta.url), 'utf8'));
   assert.doesNotMatch(settings, /避免出现的元素/, '生成设置面板不得再渲染该分组');
   assert.match(constraints, /避免出现的元素/, '该分组已落到内容规范面板');
-  assert.match(constraints, /商品结构变形/, '常用约束快选保留');
+  /* 2026-09-15 用户批注（图6-②）：常用约束快选**整块删除**（本条由「保留」反转为「不得出现」）。
+     用户原话：「我觉得你这里为什么会有 5 个可被填入的标签呀？……你有这些东西用户他就不自由了，
+     用户他应该自由地去填他产品相关的一些禁忌吧。」
+     —— 禁忌是**品类相关**的（食品怕「变质暗示」、服装怕「走光」、3C 怕「接口错误」），
+     给一组通用标签反而把用户往这 5 个词上引，既不全也误导。保留手输 + 格式提示即可。 */
+  assert.doesNotMatch(constraints, /商品结构变形|异常手部|乱码文字|无关道具|多余水印/,
+    '不得再出现预置约束标签（用户明确要求自由填写）');
+  assert.match(constraints, /ResizableTextarea/, '手输入口必须保留');
   assert.match(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/, '数据仍走 genSettings.negativePrompt');
   assert.doesNotMatch(style, /避免出现的元素/);
   /* 积分说明句已删（2026-09-15 批注③）：积分只在主 CTA 动态显示 */

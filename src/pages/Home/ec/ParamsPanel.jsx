@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { Check, Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
-import ResizableTextarea from './ResizableTextarea.jsx';
 import {
   SPACING,
   FONT_SIZE,
-  CONTROL_HEIGHT,
-  RADIUS,
-  groupTitleStyle,
+  fieldLabelStyle,
   inputStyle,
   sectionStyle,
 } from './panelVisualLanguage.js';
@@ -19,32 +16,20 @@ const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', 
    「你这些面板最好宽度都是统一的 …… 里面还有很多按钮逻辑、内容逻辑，
     要相应适配，要从全局逻辑考虑。」
 
-   ── 语义重排（原来是一坨平铺，没有主次）──
-   分组 1「商品归类」：品类 —— 决定后续平台规则与文案口径的第一性问题，单独成组
-   分组 2「外观与材质」：尺寸 / 底色 / 点缀色 / 材质 —— 决定画面「长什么样」
-   分组 3「工艺与其它」：工艺说明（单行）+ 其它补充（多行，带拉伸手柄）
-     —— 这是本面板唯一的自由文本入口，必须能拉高（工厂资料往往成段）
-   分组标题 13/700，字段标签 12/600，输入框统一 36px 高 / 8 圆角。 */
-
-function GroupTitle({ icon: Icon, children }) {
+   ── 结构（2026-09-15 用户批注图5 之后）──
+   本面板不再有分组大标题，只有**字段标签 + 控件**两层：
+     品类 · 产品尺寸 / 底色主色 / 点缀色 / 材质（2 列）· 工艺说明
+   理由见下方各段注释：大标题与字段标签是同一层级的信息写两遍。
+   输入框统一走 inputStyle（36 高 / 8 圆角 / token 配色），标签走 fieldLabelStyle（主次阶梯）。 */function FieldLabel({ icon: Icon, children }) {
   return (
-    <div style={groupTitleStyle}>
-      <Icon size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function FieldLabel({ icon: Icon, children }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', lineHeight: 1.4 }}>
+    <div style={{ ...fieldLabelStyle, lineHeight: 1.4 }}>
       <Icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
       <span>{children}</span>
     </div>
   );
 }
 
-export default function ParamsPanel({ params, onChange, mode = 'product', available = null }) {
+export default function ParamsPanel({ params, onChange, mode = 'product' }) {
   const [catOpen, setCatOpen] = useState(false);
   const set = (key, val) => onChange({ ...params, [key]: val });
 
@@ -63,9 +48,15 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
     <div style={{ padding: 0 }}>
       <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
 
-        {/* ── 分组 1：商品归类 ── */}
+        {/* ── 品类 ──
+            2026-09-15 用户批注（图5-①）：删掉「商品归类 / 外观与材质 / 工艺与其它」三个大标题。
+            用户原话：「这几块我觉得没有太大必要，因为你其实下面已经有相关的这些选项是干什么的，
+            你都已经给他们一个小标题了呀，上面再加一个大标题，信息点是重复的。」
+            —— 每个框本来就有自己的字段标签，再加一层分组大标题 = 同一层级信息写两遍。
+            这一格本来只有大标题、没有字段标签，所以**把它降级成字段标签**，
+            而不是直接删掉（否则输入框就变成没有名字的裸框）。 */}
         <div style={sectionStyle}>
-          <GroupTitle icon={Shapes}>{mode === 'tryon' ? '商品类型' : '商品归类'}</GroupTitle>
+          <FieldLabel icon={Shapes}>{mode === 'tryon' ? '商品类型' : '品类'}</FieldLabel>
           <div style={{ position: 'relative' }}>
             <input
               aria-label={mode === 'tryon' ? '商品类型' : '品类'}
@@ -101,9 +92,8 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
           </div>
         </div>
 
-        {/* ── 分组 2：外观与材质（2 列） ── */}
+        {/* ── 外观与材质（2 列，各自带字段标签） ── */}
         <div style={sectionStyle}>
-          <GroupTitle icon={Palette}>外观与材质</GroupTitle>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
             {appearanceFields.map(f => (
               <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
@@ -120,9 +110,14 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
           </div>
         </div>
 
-        {/* ── 分组 3：工艺与其它 ── */}
+        {/* ── 工艺说明 ──
+            2026-09-15 用户批注（图5-②）：**「其它补充」整块删除**。
+            用户原话：「而且你这里怎么还有一个其他补充呀？我觉得完全没有必要呀。因为你这个
+            其他补充的话，你像里面还有什么避免出现的元素这些东西，这个你后面那个按钮不是里面
+            都有吗？」—— 「避免出现的元素」已在内容规范面板承接反向约束，这里再开一个自由文本框，
+            等于同一件事有两个入口，用户不知道该写哪个。
+            params.extraNotes 字段保留在数据层（历史草稿仍可读），只是不再在本面板上屏。 */}
         <div style={sectionStyle}>
-          <GroupTitle icon={Hammer}>{mode === 'tryon' ? '版型与工艺' : '工艺与其它'}</GroupTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
             <FieldLabel icon={Hammer}>{mode === 'tryon' ? '版型与工艺' : '工艺说明'}</FieldLabel>
             <input
@@ -131,19 +126,6 @@ export default function ParamsPanel({ params, onChange, mode = 'product', availa
               onChange={e => set('craft', e.target.value)}
               placeholder={mode === 'tryon' ? '廓形、垂坠、刺绣、五金细节' : '磨砂 / 抛光 / 浮雕'}
               style={inputStyle}
-            />
-          </div>
-          {/* 多行补充：工厂资料往往成段，必须能拉高 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
-            <FieldLabel icon={Shapes}>其它补充（选填）</FieldLabel>
-            <ResizableTextarea
-              aria-label="其它补充"
-              value={params.extraNotes || ''}
-              onChange={e => set('extraNotes', e.target.value)}
-              available={available}
-              minHeight={80}
-              maxHeight={280}
-              placeholder="包装形式、配件清单、同类竞品差异、禁止出现的结构…"
             />
           </div>
         </div>

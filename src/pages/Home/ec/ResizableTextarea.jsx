@@ -114,6 +114,13 @@ export default function ResizableTextarea({
           lineHeight: 1.6,
           fontFamily: 'inherit',
           outline: 'none',
+          /* ⚠️ 2026-09-15 用户批注（图6-④）：「你这些框的右下角有一个可以拉动的按钮是对的，
+             但是你现在情况好像是重叠了……你好像是两个图标或者是两个按钮叠到了一起」。
+             根因：本文件的注释一直写着「resize:none —— 真正的拉伸由右下角手柄接管」，
+             但**代码里从来没有写过这一句** —— 浏览器原生的 textarea 拉伸角标（默认 resize:both）
+             一直在右下角渲染，与自绘的 .rsz-textarea-handle 叠在同一处。
+             修法：把注释里承诺的那句真正写进样式。 */
+          resize: 'none',
           /* 到顶后内部滚动，而不是被容器裁断 */
           overflowY: 'auto',
           ...style,

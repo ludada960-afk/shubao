@@ -15,7 +15,12 @@ import { resolveResizedHeight, CONTROL_HEIGHT, PANEL_WIDTH } from '../src/pages/
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-const PANELS = ['CopyPanel', 'ParamsPanel', 'SkuPanel', 'GenerationConstraintsPanel'];
+/* 判据是「**凡有多行输入的面板**都必须用统一的 ResizableTextarea」—— 不是「这几个文件名必须出现它」。
+   2026-09-15 用户批注（图5-②）把 ParamsPanel 的「其它补充」（本面板唯一的多行输入）整块删除后，
+   该面板已不含多行输入，因此从名单移出；同时补一条反向护栏：它不得再出现裸 <textarea>，
+   若将来重新引入多行输入，必须走统一组件（那样本名单要同步加回）。 */
+const PANELS = ['CopyPanel', 'SkuPanel', 'GenerationConstraintsPanel'];
+const NO_MULTILINE_PANELS = ['ParamsPanel'];
 const STATIC_PANELS = ['GenSettingsPanel', 'SizingPanel'];
 
 /* ── ① 每个多行输入框都挂右下角拉伸手柄 ── */
@@ -25,6 +30,15 @@ test('所有含多行输入的面板都使用统一的 ResizableTextarea（右�
     assert.ok(src.includes('ResizableTextarea'), name + ' 必须使用统一的可拉伸多行输入框');
     assert.ok(!/<textarea\b/.test(src), name + ' 不得再直接用裸 <textarea>（那样没有拉伸手柄）');
     assert.ok(!/resize:\s*'vertical'/.test(src), name + ' 不得依赖 CSS resize（会被 flex 覆写，即「一拉就截断」）');
+  }
+});
+
+test('已无多行输入的面板不得偷偷长回裸 <textarea>（否则必须走统一组件）', () => {
+  for (const name of NO_MULTILINE_PANELS) {
+    const src = read(`src/pages/Home/ec/${name}.jsx`);
+    assert.ok(!/<textarea\b/.test(src), name + ' 不得使用裸 <textarea>');
+    assert.ok(!src.includes('ResizableTextarea'),
+      name + ' 当前不含多行输入（用户批注图5-② 已删「其它补充」）；若新增，必须走 ResizableTextarea 并加回本文件名单');
   }
 });
 

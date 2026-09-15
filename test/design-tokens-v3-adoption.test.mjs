@@ -216,10 +216,17 @@ test('D2 选中态用 ring，且边框宽度不随状态变化（禁止布局抖
   assert.ok(/--sb-shadow-ring:/.test(tokens), 'ring token 必须存在');
   assert.ok(/--sb-focus-ring:\s*var\(--sb-shadow-ring\)/.test(tokens), 'focus ring 复用同一支');
 
-  for (const file of ['SizingPanel', 'StylePanel', 'GenerationConstraintsPanel']) {
+  /* 判据是「**凡有选中态的面板**，选中必须用 ring」—— 不是「这几个文件名必须出现某个字符串」。
+     2026-09-15 用户批注（图6-②）把 GenerationConstraintsPanel 的 5 个预置标签整块删掉后，
+     该面板已经没有可选中的东西了，于是它自然不再出现 ring。
+     → 从名单里移出，并补一条反向护栏：它不得再长出可选中控件（长出来就必须重新用 ring）。 */
+  for (const file of ['SizingPanel', 'StylePanel']) {
     const src = read('src/pages/Home/ec/' + file + '.jsx');
     assert.ok(src.includes('var(--sb-shadow-ring)'), file + ' 的选中态必须使用 ring');
   }
+  const constraints = read('src/pages/Home/ec/GenerationConstraintsPanel.jsx');
+  assert.ok(!/aria-pressed/.test(constraints),
+    '生成约束面板已无选中态（预置标签已按用户批注删除）；若重新引入可选中控件，必须同时用 ring');
 
   /* 生成设置面板改用**预置类 .sb-opt**（20-components §0.4 明示优先用它，
      而不是手写内联 style —— 内联会覆盖声明式伪类，正是「hover 与选中长得一样」的成因）。

@@ -183,14 +183,13 @@ export const groupTitleStyle = Object.freeze({
   lineHeight: 1.4,
 });
 
-/** 字段标签：12/600，与控件 8px */
+/** 字段标签：走 TEXT_ROLE.fieldLabel（11/600/ink-3），与控件值 8px 间距。
+ *  2026-09-15 起与主次阶梯对齐 —— 标签必须比它标注的控件值**轻一档**（用户批注图3-②）。 */
 export const fieldLabelStyle = Object.freeze({
   display: 'flex',
   alignItems: 'center',
   gap: SPACING.sp1,
-  fontSize: FONT_SIZE.fieldLabel,
-  fontWeight: FONT_WEIGHT.fieldLabel,
-  color: 'var(--sb-ink-2)',
+  ...textRoleStyle('fieldLabel'),
   lineHeight: 1.4,
 });
 
@@ -203,14 +202,25 @@ export const helperTextStyle = Object.freeze({
 });
 
 /** 输入框：36 高 / 8 圆角 / 12 字号 */
+/** 输入框：36 高 / 8 圆角 / 12 字号
+ *
+ * ⚠️ 2026-09-15 用户批注（图5-①）：「你这个信息面板怎么就变成一个极简风了呢？就是黑字白底
+ * 这种极简风了呢。它是我们现在视觉语言的这种设计风格吗？」
+ * 实测根因就在这两行：
+ *   · `border: 1px solid rgba(45,41,38,0.12)` —— **硬编码冷灰**，不是 token，也不随主题变；
+ *   · `background: var(--sb-neutral-0)` —— 纯白原色，而 `--sb-neutral-0` 是**不随主题翻转**的
+ *     品牌原色（其它面板的控件用 --sb-surface-tint / --sb-surface-card）→ 暗色主题下这些
+ *     输入框会变成**白框**，既割裂又刺眼。
+ * 这正是「面板之间长得不像一套东西」的系统性来源：inputStyle 是全站面板共用的，
+ * 所以在这里修一次，所有面板（商品信息 / SKU / 套图 / 内容规范）一起对齐。 */
 export const inputStyle = Object.freeze({
   width: '100%',
   boxSizing: 'border-box',
   height: CONTROL_HEIGHT.base,
-  padding: '0 12px',
+  padding: `0 ${SPACING.sp3}px`,
   borderRadius: RADIUS.control,
-  border: '1px solid rgba(45,41,38,0.12)',
-  background: 'var(--sb-neutral-0)',
+  border: '1px solid var(--sb-border-default)',
+  background: 'var(--sb-surface-card)',
   color: 'var(--sb-ink-1)',
   fontSize: FONT_SIZE.body,
   fontFamily: 'inherit',

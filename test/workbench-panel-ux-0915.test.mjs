@@ -111,3 +111,70 @@ test('⑦ 主次阶梯：控件值必须比字段标签更重（字号更大）'
   assert.match(panel, /textRoleStyle\('value'\)/, '套图方案的下拉值必须走 value 档');
   assert.match(panel, /textRoleStyle\('fieldLabel'\)/, '套图方案的字段标签必须走 fieldLabel 档');
 });
+/* ═══ 图5 / 图6：商品信息 · 内容规范 ═══ */
+const PARAMS = 'src/pages/Home/ec/ParamsPanel.jsx';
+const COPY = 'src/pages/Home/ec/CopyPanel.jsx';
+const CONSTRAINTS = 'src/pages/Home/ec/GenerationConstraintsPanel.jsx';
+const TEXTAREA = 'src/pages/Home/ec/ResizableTextarea.jsx';
+const LADDER = 'src/pages/Home/ec/panelVisualLanguage.js';
+
+test('⑧ 输入框只能有一个拉伸入口：原生角标必须关掉', () => {
+  const box = read(TEXTAREA);
+  /* 用户原话（图6-④）：「你这些框的右下角有一个可以拉动的按钮是对的，但是你现在情况好像是
+     重叠了……你好像是两个图标或者是两个按钮叠到了一起」。
+     根因：文件注释一直写着「resize:none —— 真正的拉伸由右下角手柄接管」，
+     但**样式里从来没有写过这一句** —— 浏览器原生 textarea 角标（默认 resize:both）与自绘手柄叠着。 */
+  assert.match(box, /resize: 'none'/, 'textarea 必须显式关掉原生拉伸角标');
+  assert.match(box, /rsz-textarea-handle/, '自绘手柄仍在（用户要的那个）');
+});
+
+test('⑨ 商品信息面板不再有分组大标题，也不再有「其它补充」', () => {
+  const panel = read(PARAMS);
+  /* 用户原话（图5-①）：「商品归类、外观与材质、工艺与其它，这几块我觉得没有太大必要，
+     因为你其实下面已经有相关的这些选项是干什么的，你都已经给他们一个小标题了呀，
+     上面再加一个大标题信息点是重复的。」
+     （图5-②）：「而且你这里怎么还有一个其他补充呀？我觉得完全没有必要呀。」 */
+  for (const title of ['商品归类', '外观与材质', '工艺与其它']) {
+    assert.ok(!panel.includes(title), '不得再出现分组大标题：' + title);
+  }
+  assert.ok(!/其它补充/.test(panel), '「其它补充」整块删除（反向约束已由内容规范承接）');
+  /* 意图保留：每个控件仍必须有名字 —— 原来的裸框（只有大标题没有标签）必须降级为字段标签。 */
+  assert.match(panel, /<FieldLabel icon=\{Shapes\}>/, '品类必须有字段标签，不能变成匿名输入框');
+});
+
+test('⑩ 内容规范：创意思路整块不上屏，交付要点只去标题', () => {
+  const panel = read(COPY);
+  /* 用户原话（图6-⑦）：「我觉得你这个创意思路这一整块啊是不要的……它的创意思路肯定会在
+     提示词里面写的，上面已经有提示词框了。」
+     （图6-⑤）：「这种什么交付要点啊，也要去掉。」 */
+  assert.ok(!/创意思路/.test(panel), '创意思路整块删除（它属于表达层，是提示词的地盘）');
+  assert.ok(!/交付要点/.test(panel), '交付要点标题删除（保留下面 4 个字段）');
+  for (const label of ['核心卖点', '质检报告', '细节特写', '保养维护']) {
+    assert.ok(panel.includes(label), '字段必须保留：' + label);
+  }
+});
+
+test('⑪ 避免出现的元素：只有手输入口，不得再有预置清单', () => {
+  const panel = read(CONSTRAINTS);
+  /* 用户原话（图6-②）：见 home-mode-cards.test.mjs 的同源断言。
+     这里额外守「占位提示也不得再列那 5 个词」—— 删按钮却把清单留在占位里，引导作用是一样的。 */
+  assert.ok(!/商品结构变形|异常手部|乱码文字|无关道具|多余水印/.test(panel),
+    '按钮与占位提示都不得再列那 5 个通用禁忌词');
+  assert.match(panel, /placeholder=/, '必须保留格式提示（教怎么写，而不是给现成清单）');
+});
+
+test('⑫ 输入框样式必须走 token：不得硬编码色值，也不得用不随主题翻转的原色做底', () => {
+  const ladder = read(LADDER);
+  /* 用户原话（图5-①）：「怎么就变成一个极简风了呢？就是黑字白底这种极简风了呢。
+     它是我们现在视觉语言的这种设计风格吗？」
+     根因：共享的 inputStyle 里 border 是硬编码 rgba(45,41,38,0.12)、
+     background 是 --sb-neutral-0（品牌原色，**不随主题翻转** → 暗色下变白框）。 */
+  const inputBlock = /export const inputStyle = Object\.freeze\(\{([\s\S]*?)\}\);/;
+  const found = inputBlock.exec(ladder);
+  assert.ok(found, 'inputStyle 必须存在（六个面板共用）');
+  const body = found[1];
+  assert.ok(!/rgba?\(/.test(body), 'inputStyle 里不得再有硬编码颜色');
+  assert.ok(!/--sb-neutral-\d/.test(body), '不得用不随主题翻转的品牌原色做底（暗色下会变成白框）');
+  assert.match(body, /--sb-border-default/, '边框走语义 token');
+  assert.match(body, /--sb-surface-card/, '底色走会随主题翻转的语义 token');
+});

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Lightbulb, Target, ShieldCheck, Search, HeartHandshake } from 'lucide-react';
+import { Target, ShieldCheck, Search, HeartHandshake } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
-import { SPACING, groupTitleStyle, sectionStyle } from './panelVisualLanguage.js';
+import { SPACING, groupTitleStyle, sectionStyle, textRoleStyle } from './panelVisualLanguage.js';
 
 /* ═══════ 内容规范面板（正向文案）═══════
    2026-09-15 用户批注①（子项 2/3）：
@@ -42,25 +42,21 @@ export default function CopyPanel({ copywriting, onChange, available = null }) {
     <div style={{ padding: 0 }}>
       <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
 
-        {/* ── 分组 1：创意思路（满宽，定性输入需要宽度） ── */}
+        {/* ── 正向文案的 4 个字段（2 列，每列在 480px 面板内约 210px）──
+            2026-09-15 用户批注（图6-⑤⑦）：删掉两个分组标题。
+            · 「创意思路」整块删除 —— 用户原话：「实际上它的创意思路肯定会在提示词里面写的，
+              上面已经有提示词框了，你这个地方再写一个创意思路有点多余」。
+              ⚠️ 注意这不只是「重复」，是**错层**：创意思路属于表达层（提示词的地盘），
+                 放进配置面板等于把方向盘装进保险丝盒。
+            · 「交付要点」只删标题、保留下面 4 个字段 —— 用户原话：「这种什么交付要点啊，也要去掉」。
+            copywriting.plan 字段保留在数据层（历史草稿仍可读），只是不再在本面板上屏。 */}
         <div style={sectionStyle}>
-          <GroupTitle icon={Lightbulb}>创意思路</GroupTitle>
-          <ResizableTextarea
-            aria-label="创意思路"
-            value={copywriting.plan || ''}
-            onChange={e => setF('plan', e.target.value)}
-            available={available}
-            placeholder="整体策划方向、产品定位、目标人群…例：25-35岁精致女性，强调天然成分和长效保湿"
-          />
-        </div>
-
-        {/* ── 分组 2：交付要点（2 列，每列在 480px 面板内约 210px） ── */}
-        <div style={sectionStyle}>
-          <GroupTitle icon={Target}>交付要点</GroupTitle>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
             {detailFields.map(f => (
               <div key={f.key} style={sectionStyle}>
-                <div style={{ ...groupTitleStyle, fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-2)' }}>
+                {/* 字段标签走阶梯里的 fieldLabel 档（11/600），比下面的控件值轻一档 ——
+                    用户批注图3-② 要的就是这条主次关系。 */}
+                <div style={{ ...textRoleStyle('fieldLabel'), display: 'flex', alignItems: 'center', gap: SPACING.sp1 }}>
                   <f.icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
                   <span>{f.label}</span>
                 </div>
