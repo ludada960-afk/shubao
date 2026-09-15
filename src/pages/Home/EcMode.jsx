@@ -1213,7 +1213,12 @@ const DEFAULT_BUTTONS = [
                           {PRODUCT_SHOT_PLAN[Math.min(idx, PRODUCT_SHOT_PLAN.length - 1)].short}
                         </div>
                         <div
-                          onClick={() => removeProdImg(idx)}
+                          /* 键盘可达三件套：点击=真动作，补 role/tabIndex/onKeyDown（Enter+Space 双通道）。 */
+role="button"
+tabIndex={0}
+aria-label="删除这张产品图"
+onClick={() => removeProdImg(idx)}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); removeProdImg(idx); } }}
                           style={{
                             position: 'absolute',
                             top: -5,
@@ -1239,7 +1244,12 @@ const DEFAULT_BUTTONS = [
 
                     {/* 添加按钮 */}
                     <div
-                      onClick={() => prodFileRef.current?.click()}
+                      /* 键盘可达三件套：点击=真动作，补 role/tabIndex/onKeyDown（Enter+Space 双通道）。 */
+role="button"
+tabIndex={0}
+aria-label="点击上传产品图"
+onClick={() => prodFileRef.current?.click()}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); prodFileRef.current?.click(); } }}
                       style={{
                         width: 64,
                         height: 64,
@@ -1419,7 +1429,12 @@ const DEFAULT_BUTTONS = [
                           }}
                         />
                         <div
-                          onClick={() => removeRefImg(idx)}
+                          /* 键盘可达三件套：点击=真动作，补 role/tabIndex/onKeyDown（Enter+Space 双通道）。 */
+role="button"
+tabIndex={0}
+aria-label="删除这张参考图"
+onClick={() => removeRefImg(idx)}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); removeRefImg(idx); } }}
                           style={{
                             position: 'absolute',
                             top: -5,
@@ -1445,7 +1460,12 @@ const DEFAULT_BUTTONS = [
 
                     {/* 添加按钮 */}
                     <div
-                      onClick={() => refFileRef.current?.click()}
+                      /* 键盘可达三件套：点击=真动作，补 role/tabIndex/onKeyDown（Enter+Space 双通道）。 */
+role="button"
+tabIndex={0}
+aria-label="点击上传参考图"
+onClick={() => refFileRef.current?.click()}
+onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); refFileRef.current?.click(); } }}
                       style={{
                         width: 64,
                         height: 64,
