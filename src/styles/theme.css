@@ -108,7 +108,7 @@
 
 /* ── 滚动条 (与 design-tokens.css 保持对称) ── */
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--sb-ink-2); }
-[data-theme="dark"] ::selection { background: var(--accent-bg); color: var(--sb-surface-inverse); }
+[data-theme="dark"] ::selection { background: var(--sb-state-active-bg); color: var(--sb-surface-inverse); }
 
 /* ── 主题切换过渡: 仅在显式切换时, 避免页面初次加载时整页闪动 ── */
 html.theme-transition,
