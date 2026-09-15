@@ -132,7 +132,7 @@
   transform: translateX(-50%);
   padding: 0 8px;
   background: var(--canvas-surface, var(--sb-neutral-0));
-  color: var(--text-hint, var(--sb-ink-4));
+  color: var(--sb-ink-4, var(--sb-ink-4));
   font-size: var(--sb-text-2xs);
   font-weight: 700;
   letter-spacing: .12em;
@@ -256,7 +256,7 @@
 }
 [data-theme="dark"] .ec-canvas-empty-row.is-smart-row::before {
   background: var(--bg-elevated, #232120);
-  color: var(--text-muted, var(--sb-ink-4));
+  color: var(--sb-ink-3, var(--sb-ink-4));
 }
 [data-theme="dark"] .ec-canvas-empty-actions button.is-primary {
   background: linear-gradient(180deg, rgba(123, 149, 224, .96), rgba(82, 117, 204, .92));
