@@ -516,7 +516,7 @@
   display: inline-block;
   width: 96px;
   aspect-ratio: 16 / 9;
-  border: 1px solid var(--border, var(--sb-neutral-300));
+  border: 1px solid var(--sb-border-default, var(--sb-neutral-300));
   border-radius: 4px;
   background:
     linear-gradient(to right, transparent calc(50% - 0.5px), rgba(148,163,184,.45) 50%, transparent calc(50% + 0.5px)),
@@ -546,7 +546,7 @@
 .video-project-comments {
   margin-top: 14px;
   padding: 10px 12px;
-  border: 1px solid var(--border, var(--sb-neutral-200));
+  border: 1px solid var(--sb-border-default, var(--sb-neutral-200));
   border-radius: 8px;
   display: grid;
   gap: 8px;
