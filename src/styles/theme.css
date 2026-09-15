@@ -146,7 +146,14 @@ html.theme-transition *::after {
   transform: scale(0.94);
 }
 .theme-switcher:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--sb-info));
+  /* 原写法是「--focus-ring 取不到时回退到 --sb-info」。--focus-ring 来自 styles/semanticTokens.css
+     —— 那是仓库里的「第三套 token 语言」（已删除，见 D35）。该文件在 theme.css **之后** import，
+     于是它定义的 :root 值**压过了**这里的回退值：实测 .theme-switcher 获得焦点时
+     outline-color = rgb(37, 99, 235) = #2563eb，而**不是**回退值 --sb-info 的 #5275CC。
+     按「已渲染值优先」迁移到 --sb-info-solid-600（#2563EB，同一颜色），零观感变更。
+     ⚠️ 遗留裁定项：焦点环本应是信息色还是品牌色（--sb-focus-ring-color = --sb-brand-500）？
+     那属观感变更，需像素取证后由产品裁定，见 docs/design/40-decisions.md D35。 */
+  outline: 2px solid var(--sb-info-solid-600);
   outline-offset: 2px;
 }
 .theme-switcher-icon {
