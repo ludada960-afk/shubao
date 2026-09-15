@@ -12,6 +12,7 @@ import https from 'https';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { resolveLlmChannel } from './llmChannel.mjs';
 import { createTask, getTask, updateTask, TASK_STATUS } from './extensionTaskManager.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -560,10 +561,13 @@ async function callImageGeneration(prompt, env) {
 
 /* ──────── 加载环境变量 ──────── */
 function loadEnv() {
+  // LLM_* 与 index.mjs 用**同一份**解析规则（缺失时回退 MINI_*），
+  // 否则会出现「主站能分析、插件不能」这种按入口分裂的行为。
+  const llm = resolveLlmChannel(process.env);
   return {
-    LLM_API_KEY: process.env.LLM_API_KEY || '',
-    LLM_BASE_URL: process.env.LLM_BASE_URL || '',
-    LLM_MODEL: process.env.LLM_MODEL || 'claude-sonnet-4-6',
+    LLM_API_KEY: llm.key,
+    LLM_BASE_URL: llm.base,
+    LLM_MODEL: llm.model,
     IMAGE_API_KEY: process.env.IMAGE_API_KEY || '',
     IMAGE_BASE_URL: process.env.IMAGE_BASE_URL || '',
     IMAGE_MODEL: process.env.IMAGE_MODEL || 'gpt-image-2',
