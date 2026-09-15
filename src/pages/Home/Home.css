@@ -622,7 +622,7 @@
 .stat-num {
   font-size: var(--sb-text-3xl);
   font-weight: var(--sb-weight-heavy);
-  font-family: var(--font-display);
+  font-family: var(--sb-font-display);
 }
 .stat-num.red { color: var(--sb-danger); }
 .stat-num.blue { color: var(--sb-info); }
