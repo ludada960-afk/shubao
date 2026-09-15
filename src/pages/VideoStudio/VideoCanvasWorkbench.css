@@ -363,11 +363,11 @@
   cursor: pointer;
   transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease), border-color var(--duration-fast, .12s) var(--ease, ease);
 }
-.vcb-topbar-tools button:hover { background: var(--bg-hover, rgba(12, 10, 9, .03)); color: var(--accent, var(--sb-neutral-900)); }
+.vcb-topbar-tools button:hover { background: var(--bg-hover, rgba(12, 10, 9, .03)); color: var(--sb-surface-inverse, var(--sb-neutral-900)); }
 .vcb-topbar-tools button.is-on {
-  background: var(--accent, var(--sb-neutral-900));
+  background: var(--sb-surface-inverse, var(--sb-neutral-900));
   color: var(--sb-neutral-0);
-  border-color: var(--accent, var(--sb-neutral-900));
+  border-color: var(--sb-surface-inverse, var(--sb-neutral-900));
 }
 .vcb-topbar-tools .vcb-zoom-slider {
   display: inline-flex;
@@ -381,7 +381,7 @@
 }
 .vcb-topbar-tools .vcb-zoom-slider input[type="range"] {
   width: 92px;
-  accent-color: var(--accent, var(--sb-neutral-900));
+  accent-color: var(--sb-surface-inverse, var(--sb-neutral-900));
   cursor: pointer;
 }
 .vcb-topbar-tools .vcb-zoom-readout {
@@ -443,7 +443,7 @@
   background: var(--bg-card-solid, var(--sb-neutral-0));
   border-color: var(--border, rgba(231, 229, 228, .8));
 }
-.vcb-node.is-asset.is-video { border-left: 3px solid var(--blue, var(--sb-info)); }
+.vcb-node.is-asset.is-video { border-left: 3px solid var(--sb-info, var(--sb-info)); }
 .vcb-node.is-asset.is-audio { border-left: 3px solid var(--green, var(--sb-success)); }
 .vcb-node.is-shot {
   background: linear-gradient(180deg, #fffdf6 0%, var(--sb-neutral-0) 100%);
@@ -471,14 +471,14 @@
 
 /* C · 选中态：浮起 + 强调（300ms 浮起节奏沿用 TapNow 体感） */
 .vcb-node.is-selected {
-  border-color: var(--accent, var(--sb-neutral-900));
+  border-color: var(--sb-surface-inverse, var(--sb-neutral-900));
   box-shadow:
     0 0 0 2px rgba(12, 10, 9, .12),
     var(--shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
   transform: translateY(-3px);
   z-index: 5;
 }
-.vcb-node.is-selected header span { color: var(--accent, var(--sb-neutral-900)); }
+.vcb-node.is-selected header span { color: var(--sb-surface-inverse, var(--sb-neutral-900)); }
 
 /* C · hover 缩放（节点层独立 transition，避免与选中 transform 冲突） */
 .vcb-stage:not(.is-panning) .vcb-node:hover {
@@ -494,7 +494,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent, var(--sb-neutral-900));
+  background: var(--sb-surface-inverse, var(--sb-neutral-900));
   opacity: 0;
   pointer-events: auto;
   /* P1 · handle 弹入用 spring 0.3s，opacity 沿用快速淡入 */
@@ -555,7 +555,7 @@
 }
 .vcb-mini-toolbar button:hover {
   background: var(--bg-hover, rgba(12, 10, 9, .03));
-  color: var(--accent, var(--sb-neutral-900));
+  color: var(--sb-surface-inverse, var(--sb-neutral-900));
 }
 .vcb-mini-toolbar button:disabled { opacity: .35; cursor: not-allowed; }
 .vcb-mini-toolbar button.is-danger:hover { color: var(--red, var(--sb-danger)); }
@@ -601,7 +601,7 @@
 }
 .vcb-context-menu button:hover {
   background: var(--accent-bg, rgba(12, 10, 9, .06));
-  color: var(--accent, var(--sb-neutral-900));
+  color: var(--sb-surface-inverse, var(--sb-neutral-900));
 }
 /* D15：fallback 值 #B0AAA5 与 --sb-neutral-400 逐值相等（EXACT），按本文件既有约定
    （见上两行 var(--accent, var(--sb-neutral-900)) / var(--red, var(--sb-danger))）
