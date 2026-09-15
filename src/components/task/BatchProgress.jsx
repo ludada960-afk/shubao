@@ -36,7 +36,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
           </span>
           <span style={{
             fontSize: 12, fontWeight: 700,
-            color: isDone ? 'var(--sb-success)' : isError ? 'var(--sb-danger)' : 'var(--accent)',
+            color: isDone ? 'var(--sb-success)' : isError ? 'var(--sb-danger)' : 'var(--sb-surface-inverse)',
           }}>
             {done}/{total} 张 ({pct}%)
           </span>
@@ -49,7 +49,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
             height: '100%', borderRadius: 4, transition: 'width 0.3s',
             background: isDone ? 'linear-gradient(90deg, var(--sb-success), #7CCF8C)' :
                        isError ? 'var(--sb-danger)' :
-                       'linear-gradient(90deg, var(--accent), var(--sb-ink-2))',
+                       'linear-gradient(90deg, var(--sb-surface-inverse), var(--sb-ink-2))',
             width: `${pct}%`,
           }} />
         </div>
@@ -122,7 +122,7 @@ function ControlBtn({ icon, label, onClick, primary, danger }) {
         display: 'flex', alignItems: 'center', gap: 4,
         height: 30, padding: '0 10px', borderRadius: 8,
         border: 'none',
-        background: primary ? 'var(--accent)' : danger ? 'var(--sb-danger-soft)' : 'rgba(12,10,9,0.04)',
+        background: primary ? 'var(--sb-surface-inverse)' : danger ? 'var(--sb-danger-soft)' : 'rgba(12,10,9,0.04)',
         color: primary ? 'var(--sb-neutral-0)' : danger ? 'var(--sb-danger)' : 'var(--sb-ink-2)',
         fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         transition: 'all 0.1s',
