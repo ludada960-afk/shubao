@@ -81,8 +81,8 @@ test('W1 tapnow visual: 三类节点卡片视觉对齐 token 化层级', async (
   assert.match(css, /\.vcb-node\.is-candidate \{ border-style: dashed/);
   // 锁定视觉
   assert.match(css, /\.vcb-node\.is-locked/);
-  // 沿用 --accent / --radius-md / --shadow-md 等全站 token
-  assert.match(css, /border-radius: var\(--radius-md, 16px\)/);
+  // 沿用全站 token（D26/D37：圆角已由 --radius-md 16px 收敛到 V3 的 --sb-radius-xl 16px，逐值相等）
+  assert.match(css, /border-radius: var\(--sb-radius-xl, 16px\)/);
   assert.match(css, /box-shadow: var\(--shadow-sm/);
 });
 
@@ -129,7 +129,8 @@ test('W1 tapnow mini-toolbar: 选中 1 节点时显示 5 个动作 (delete/dupli
   assert.match(jsx, /aria-label=\"重新生成\"/);
   assert.match(jsx, /aria-label=\"缩放至适合\"/);
   // CSS：圆角胶囊 + 阴影 + 浮起
-  assert.match(css, /\.vcb-mini-toolbar[\s\S]{0,200}border-radius: var\(--radius-full/);
+  /* D26：--radius-full（9999px）→ V3 的 --sb-radius-pill（9999px，逐值相等） */
+  assert.match(css, /\.vcb-mini-toolbar[\s\S]{0,200}border-radius: var\(--sb-radius-pill/);
   assert.match(css, /animation: vcbMiniToolbarIn/);
 });
 
