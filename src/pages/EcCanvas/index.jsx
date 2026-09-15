@@ -7672,10 +7672,10 @@ const handlePointerUp = useCallback((e) => {
           <section style={{ width: 'min(440px, 100%)', background: 'var(--bg-card-solid, #fff)', border: '1px solid var(--border, rgba(15,23,42,.08))', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 22 }}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
               <div>
-                <h2 style={{ margin: 0, color: 'var(--text-primary, #111827)', fontSize: 16, fontWeight: 800 }}>{chainRun.title}</h2>
+                <h2 style={{ margin: 0, color: 'var(--sb-ink-1, #111827)', fontSize: 16, fontWeight: 800 }}>{chainRun.title}</h2>
                 <div style={{ marginTop: 4, color: 'var(--text-hint, #6b7280)', fontSize: 11 }}>chainService 4 步 (文案→首帧→视频→音轨+字幕)</div>
               </div>
-              <button type="button" aria-label="关闭进度" title="关闭" disabled={chainRun.running} onClick={() => setChainRun(null)} style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, border: 0, borderRadius: 6, background: 'var(--bg-hover, #f3f4f6)', color: 'var(--text-faint, #4b5563)', cursor: chainRun.running ? 'not-allowed' : 'pointer', opacity: chainRun.running ? .5 : 1 }}>×</button>
+              <button type="button" aria-label="关闭进度" title="关闭" disabled={chainRun.running} onClick={() => setChainRun(null)} style={{ display: 'grid', placeItems: 'center', width: 28, height: 28, border: 0, borderRadius: 6, background: 'var(--sb-state-hover-bg, #f3f4f6)', color: 'var(--text-faint, #4b5563)', cursor: chainRun.running ? 'not-allowed' : 'pointer', opacity: chainRun.running ? .5 : 1 }}>×</button>
             </header>
             <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 14px', display: 'grid', gap: 8 }}>
               {CHAIN_STEP_LABELS.map((label, idx) => {
@@ -7684,18 +7684,18 @@ const handlePointerUp = useCallback((e) => {
                 const statusLabel = status === 'ok' ? '✓ 完成' : status === 'failed' ? '✕ 失败' : status === 'running' ? '⋯ 进行中' : '○ 等待';
                 return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 8, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
                   <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 'var(--sb-radius-pill)', fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #111827)' }}>{label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--sb-ink-1, #111827)' }}>{label}</span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, letterSpacing: '.02em' }}>{statusLabel}</span>
                 </li>;
               })}
             </ol>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: chainRun.ok ? 'rgba(16,185,129,.08)' : chainRun.error ? 'rgba(239,68,68,.08)' : 'rgba(124,58,237,.06)', marginBottom: 12 }}>
               <span style={{ fontSize: 11, color: 'var(--text-hint, #6b7280)' }}>累计 AI 成本</span>
-              <strong style={{ fontSize: 14, color: 'var(--text-primary, #111827)', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: 'tnum' }}>¥{(chainRun.totalCost || 0).toFixed(4)}</strong>
+              <strong style={{ fontSize: 14, color: 'var(--sb-ink-1, #111827)', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: 'tnum' }}>¥{(chainRun.totalCost || 0).toFixed(4)}</strong>
             </div>
             {chainRun.error && <div role="alert" style={{ padding: '9px 11px', borderRadius: 8, background: 'rgba(239,68,68,.06)', color: '#b91c1c', fontSize: 12, marginBottom: 12 }}>{chainRun.error}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" disabled={chainRun.running} onClick={() => setChainRun(null)} style={{ border: 0, borderRadius: 8, padding: '8px 14px', background: 'var(--bg-hover, #f3f4f6)', color: 'var(--text-muted, #4b5563)', fontSize: 12, fontWeight: 700, cursor: chainRun.running ? 'not-allowed' : 'pointer' }}>{chainRun.ok ? '完成' : '关闭'}</button>
+              <button type="button" disabled={chainRun.running} onClick={() => setChainRun(null)} style={{ border: 0, borderRadius: 8, padding: '8px 14px', background: 'var(--sb-state-hover-bg, #f3f4f6)', color: 'var(--text-muted, #4b5563)', fontSize: 12, fontWeight: 700, cursor: chainRun.running ? 'not-allowed' : 'pointer' }}>{chainRun.ok ? '完成' : '关闭'}</button>
             </div>
           </section>
         </div>
