@@ -142,6 +142,11 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 5. 每次恢复工作的固定顺序
 
+> **2026-09-20 起，第 0 步：读 `docs/HANDOFF-design-system.md`**（设计系统会话交接，约 10 分钟）。
+> 它一次性交代了：**用户是谁、他要什么、四条产品铁律、项目与技术栈、这棵树的脾气（16 条提交纪律摘要）、
+> 设计系统现状（token 权威 / 裁定 D1–D24 / 12 条门禁 / 4 条棘轮）、当前进度与剩余待办的逐条诊断、已知坑清单**。
+> 不读它 = 会重复别人已经踩完的坑。
+
 1. 读取 `AGENTS.md`、本文件、当前规格、实施计划和 `.superpowers/sdd/progress.md`。
 2. 运行 `npm run collab:check`，确认 linked worktree、`codex/` 分支、无被跟踪运行文件、无跨代理文件冲突。
 3. 使用固定 Git 前缀检查 `status` 和最近提交；账本标记完成的任务不得重复执行。
