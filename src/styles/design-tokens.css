@@ -97,11 +97,11 @@
        ④ 排列：次要（取消/关闭）在左，主要（确认/加入）在右；
        ⑤ 主次按钮宽度/高度/圆角必须视觉等重；
        ⑥ 主按钮禁用态要有明确表达（底色 + 文字色 + cursor），不是只变灰看不清。 */
-  --footer-actions-gap: var(--space-3);            /* 12px 按钮间距 */
-  --footer-actions-gap-min: var(--space-2);        /* 8px 硬下限（契约测试断言不得低于此值） */
-  --footer-actions-margin-top: var(--space-4);     /* 16px 与内容区上间距 */
-  --footer-actions-padding-block: var(--space-5);  /* 20px 上下内边距（大弹窗用 --space-6 = 24px） */
-  --footer-actions-padding-inline: var(--space-5); /* 20px 左右内边距 */
+  --footer-actions-gap: var(--sb-space-3);            /* 12px 按钮间距 */
+  --footer-actions-gap-min: var(--sb-space-2);        /* 8px 硬下限（契约测试断言不得低于此值） */
+  --footer-actions-margin-top: var(--sb-space-4);     /* 16px 与内容区上间距 */
+  --footer-actions-padding-block: var(--sb-space-5);  /* 20px 上下内边距（大弹窗用 --space-6 = 24px） */
+  --footer-actions-padding-inline: var(--sb-space-5); /* 20px 左右内边距 */
   --footer-actions-button-height: 36px;            /* 常规弹窗按钮高度 */
   --footer-actions-button-height-sm: 32px;         /* 小弹窗 */
   --footer-actions-button-height-lg: 40px;         /* 大弹窗 */
@@ -161,11 +161,11 @@ body {
   font-family: var(--font-body);
   color: var(--sb-ink-2);
   background: var(--sb-surface-page);
-  line-height: var(--leading-normal);
+  line-height: var(--sb-leading-normal);
   overflow-x: hidden;
 }
 
-::selection { background: var(--accent-bg); color: var(--accent); }
+::selection { background: var(--accent-bg); color: var(--sb-surface-inverse); }
 
 *::-webkit-scrollbar { width: 4px; height: 4px; }
 *::-webkit-scrollbar-thumb { background: #D8D4CF; border-radius: 4px; }
@@ -198,7 +198,7 @@ input, textarea { font-family: inherit; }
 .btn-pill:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--sb-surface-inverse);
   color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
@@ -214,7 +214,7 @@ input, textarea { font-family: inherit; }
 }
 .btn-ghost:hover:not(:disabled) {
   background: var(--sb-state-hover-bg);
-  color: var(--accent);
+  color: var(--sb-surface-inverse);
   border-color: var(--sb-border-strong);
 }
 
@@ -272,8 +272,8 @@ input, textarea { font-family: inherit; }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: var(--footer-actions-button-height);
-  min-width: var(--footer-actions-button-min-width);
+  height: var(--sb-control-h-lg);
+  min-width: var(--sb-control-min-w);
   padding: 0 18px;
   box-sizing: border-box;
   border-radius: var(--footer-actions-radius);
@@ -317,8 +317,8 @@ input, textarea { font-family: inherit; }
 }
 
 /* 尺寸变体（与面板其他控件对齐） */
-.ui-modal-footer.is-sm { --footer-actions-button-height: var(--footer-actions-button-height-sm); --footer-actions-padding-block: var(--space-4); }
-.ui-modal-footer.is-lg { --footer-actions-button-height: var(--footer-actions-button-height-lg); --footer-actions-padding-block: var(--space-6); }
+.ui-modal-footer.is-sm { --footer-actions-button-height: var(--footer-actions-button-height-sm); --footer-actions-padding-block: var(--sb-space-4); }
+.ui-modal-footer.is-lg { --footer-actions-button-height: var(--footer-actions-button-height-lg); --footer-actions-padding-block: var(--sb-space-6); }
 
 /* 二次确认弹窗（DialogProvider）沿用近黑主按钮，但禁用态与全站同一套语言。
    注意选择器权重：.ui-btn:disabled 与 .ui-btn-primary.is-dark 同为 (0,2,0)，
@@ -330,7 +330,7 @@ input, textarea { font-family: inherit; }
 .ui-btn-primary.is-export:not(:disabled):hover { background: #036c4e; }
 
 @media (max-width: 620px) {
-  .ui-modal-footer { flex-wrap: wrap; padding: var(--space-4); }
+  .ui-modal-footer { flex-wrap: wrap; padding: var(--sb-space-4); }
   .ui-modal-footer-actions { width: 100%; }
   .ui-modal-footer-actions .ui-btn { flex: 1 1 auto; min-width: 0; }
 }
