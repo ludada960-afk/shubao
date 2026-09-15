@@ -592,7 +592,7 @@ export function PricingModal() {
             background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-2xl)', maxWidth: 360,
             width: '100%', padding: 28, textAlign: 'center',
           }}>
-            <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
+            <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 900, color: 'var(--sb-surface-inverse)', marginBottom: 4 }}>
               {payModal.name}
             </div>
             <div style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-3)', marginBottom: 20 }}>
