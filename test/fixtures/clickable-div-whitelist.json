@@ -1,11 +1,5 @@
 {
   "$comment": "键盘不可达的可点元素豁免清单（原则 4.1）。规则：① 每条必须写明『为何不能用 <button>』的具体理由（≥12 字），禁止空理由；② 定位用 feature 元素特征串（优先 aria-label / data-*，其次 class 片段），行号会随编辑漂移，仅在无特征串时才用 line；③ 禁止整文件放行 —— feature 必须精确匹配到该元素。新增前请确认：换成 button 真的会破坏结构/语义，而不只是『懒得改』。",
-  "entries": [
-    {
-      "file": "src/pages/Gallery/index.jsx",
-      "feature": "data-gallery-card={…}",
-      "line": 39,
-      "reason": "GCard 卡片内含「查看全套内容 / 一键同款」两个独立动作按钮，HTML 禁止嵌套交互元素，故卡片根不能用 <button>；已改为 role=\"button\" + tabIndex={0} + onKeyDown（Enter/Space 均可触发），键盘完全可达。"
-    }
-  ]
+  "$history": "2026-09-20 原有一条 src/pages/Gallery/index.jsx 的豁免（卡片内含两个独立动作按钮，HTML 禁止嵌套交互元素）。当日扫描器改为「根元素三件套齐全即视同 button」后，该卡片**已经不再是违规**，门禁的『白名单不得悬空』断言随即报出该条已失效 —— 按纪律删除，而不是留着当免死金牌。",
+  "entries": []
 }

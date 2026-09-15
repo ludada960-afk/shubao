@@ -56,6 +56,16 @@ export function buildComponentRootMap(files) {
         const dyn = body.match(new RegExp('const\\s+' + rootTag + '\\s*=\\s*[^;]*?\\?\\s*[\'"]button[\'"]'));
         if (dyn) { rootOf.set(name, 'button'); continue; }
       }
+      /* 根元素虽是 div/span，但三件套齐全（role=button + tabIndex + onKeyDown）时键盘完全可达，
+         与真按钮等价 —— 不该继续判违规。实测：SupplementAssetDeck 的 UploadButton 根已是
+         <div role="button" tabIndex onKeyDown>，两个调用点仍被报「组件根元素 <div>」。 */
+      if (!/^[A-Z]/.test(rootTag)) {
+        const tagText = body.slice(ret.index, ret.index + 700);
+        if (/role\s*=\s*["']button["']/.test(tagText) && /tabIndex\s*=/.test(tagText) && /onKeyDown\s*=/.test(tagText)) {
+          rootOf.set(name, 'button');
+          continue;
+        }
+      }
       rootOf.set(name, rootTag.toLowerCase());
     }
   }
