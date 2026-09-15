@@ -1391,6 +1391,39 @@ D36 里我把「V3 的 20 个语义浅色 token（`-soft`/`-bg`/`-border`）dark
 ⚠️ **判据**：「用户能不能打开」**必须看公众网来源的访问日志**，**不能看部署机** ——
 本机是机房出口，访问未备案域名会被拦截（详见 `docs/ops-server-migration-cutover.md` §7）。
 
+### 五、同一族的第二例：precommit 的 ADVISORY 那格**一直在说假话**（同日修正）
+
+**现象**（每次 precommit 都会打印）：
+
+    [3/3] ADVISORY 进度条（0 个，不拦提交）…
+      ↳ 仍有未完成量（fail=20）—— 属任务清单，见 docs/design/34-status-and-handover.md §8.14
+
+**根因**：ADVISORY 是**空数组**，而 node --test 不带文件参数会走**默认发现** ——
+于是这一格实际跑的是 ADVISORY 之外的东西。那 20 条实测是：
+
+| 来源 | 条数 | 性质 |
+|---|---|---|
+| test/qa/*.mjs 浏览器探针 | 15 | **未被 git 跟踪**的临时件，需要 dev server 才能跑 |
+| npm test 用 --test-skip-pattern 有意跳过的用例 | 5 | 真·已知未完成量（见下）|
+
+而 **§8.14 与这 20 条毫无关系** —— 也就是说每次提交都在给下一个人一条**错误的线索**。
+这与本节第一条（legacy-token-family 承诺了不存在的 ⑤）是**同一族缺陷**：
+**指标测的是判据的代理，而代理跑偏了。**
+
+**修法**：没有 ADVISORY 就明确说没有，**不跑任何东西**；要恢复这条线，
+就老老实实往 ADVISORY 里填**契约文件名**（不要靠默认发现兜）。
+
+**顺带查出来的真·未完成量（此前被那条假线索掩盖）**：npm test 跳过 7 条，其中 5 条**跑起来是红的**：
+
+    VideoCanvasWorkbench.jsx 接入 useLongTask + handleCreateExportManifest 启动/停止
+    V2 P0-3: handleCreateExportManifest 调用 markStep 至少 3 次 (3 步)
+    V2 P0-3: handleCreateExportManifest 保留 overlay 完成态 (stop 延迟 >= 300ms)
+    renderVideo 接受最小 manifest, ffmpeg 未装时返 error 不抛
+    本地 ffmpeg adapter 与 runVideoRendererWorkerOnce 集成: ffmpeg 失败时 job 落 failed + providerSubmission=false
+
+**归属**：全部落在视频画布线。按 RTK §3.1-4「**不要代别人修在途的文件**」，
+本轮**只登记、不修改**；但必须让它出现在明面上 —— 因为「被 skip 掉的红」
+和「绿」在输出里长得一模一样。
 
 
 
