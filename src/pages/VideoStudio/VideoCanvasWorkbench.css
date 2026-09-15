@@ -434,7 +434,7 @@
   height: 62px;
   object-fit: cover;
   border-radius: var(--radius-sm, 8px);
-  background: var(--accent-bg, rgba(12, 10, 9, .06));
+  background: var(--sb-state-active-bg, rgba(12, 10, 9, .06));
 }
 .vcb-node footer { font-size: 11px; color: var(--text-hint, var(--sb-ink-4)); }
 
@@ -600,7 +600,7 @@
   transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease);
 }
 .vcb-context-menu button:hover {
-  background: var(--accent-bg, rgba(12, 10, 9, .06));
+  background: var(--sb-state-active-bg, rgba(12, 10, 9, .06));
   color: var(--sb-surface-inverse, var(--sb-neutral-900));
 }
 /* D15：fallback 值 #B0AAA5 与 --sb-neutral-400 逐值相等（EXACT），按本文件既有约定
