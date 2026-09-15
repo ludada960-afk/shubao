@@ -62,7 +62,7 @@ export default function EcProductParams({ params, onChange }) {
                   style={{
                     padding: '5px 12px', borderRadius: 'var(--sb-radius-md)',
                     fontSize: 12, cursor: 'pointer',
-                    background: params.category === c ? 'var(--accent-bg)' : 'transparent',
+                    background: params.category === c ? 'var(--sb-state-active-bg)' : 'transparent',
                     color: params.category === c ? 'var(--sb-surface-inverse)' : 'var(--sb-ink-2)',
                     fontWeight: params.category === c ? 600 : 400,
                     transition: 'all 0.08s',
