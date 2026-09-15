@@ -71,7 +71,18 @@ test('LongTaskOverlay.css 全屏阻断层用语义 z 档位 + 实底 + 进度条
   // 2026-09-20 §11：全屏阻断层不在毛玻璃白名单内 → 改实底。
   // 全屏 blur 是低端机最贵的单笔开销，而它盖住的是已被深遮罩压暗的页面，虚化不可见。
   assert.ok(!/backdrop-filter/.test(css), '§11：全屏阻断层不得用 backdrop-filter');
-  assert.match(css, /background: rgba\(18, 18, 20, 0\.68\)/, '改实底并加深遮罩补偿层次感');
+  /* RTK §3.1-10：**契约锁判据，不锁写法**。
+     判据 =「实底 + 遮罩足够深（α ≥ .62）以补偿去掉 blur 后的层次感」，
+     不是「必须写成 rgba(18, 18, 20, 0.68) 这个字面量」。
+     D34 已把该字面量收进 §24「阻断层」族 → `var(--sb-overlay-scrim)`，**值逐位不变**；
+     旧断言从那一刻起就在保护一个**过时的写法**。
+     改后：断言「走阻断层 token」+ **从 token 权威读回它的值验 α**（不抄一份值，避免漂移）。 */
+  assert.match(css, /background: var\(--sb-overlay-scrim\)/, '阻断层遮罩必须走 §24 --sb-overlay-scrim');
+  const tokensCss = readFileSync(resolve(root, 'src', 'styles', 'design-tokens-v3.css'), 'utf-8');
+  const scrim = /--sb-overlay-scrim:\s*rgba\(\s*\d+,\s*\d+,\s*\d+,\s*([0-9.]+)\s*\)/.exec(tokensCss);
+  assert.ok(scrim, '--sb-overlay-scrim 必须在 token 权威里定义');
+  assert.ok(Number(scrim[1]) >= 0.62,
+    '阻断层遮罩 α 必须 ≥ .62（补偿去掉 blur 后的层次感），实测 ' + scrim[1]);
   // 进度条平滑过渡
   assert.match(css, /transition: width 360ms cubic-bezier/);
   // prefers-reduced-motion 兼容
