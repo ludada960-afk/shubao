@@ -335,8 +335,25 @@ function grepLegacy() {
        --text-muted（暗 V2=--sb-ink-4 #857F79 vs V3 --sb-ink-3 #A8A29B，Δ≈35）
        --text-hint / --text-faint / --border / --border-light
      以及「V3 缺随主题变化的浅底角色」那一类：--green-bg / --red-bg / --bg-card-solid。 */
-const BASELINE_TOTAL = 95;
-const BASELINE_NAMES = 16;
+/* ── D38 第二批（2026-09-15）实测 95/16 → **41/7**：
+       --bg-card-solid(10)  → --sb-surface-card  **两主题精确相等**（亮 #FFFFFF / 暗 #1C1A18）
+       --duration-normal(1) → --sb-dur-normal    **精确相等**（0.2s = 200ms）
+       --text-muted(13)     → --sb-ink-3         亮精确相等；暗 --sb-ink-4 #857F79 → #A8A29B（辅助文字在深色下更清晰）
+       --text-hint(10)      → --sb-ink-4         亮精确相等；暗 Δ≈11
+       --text-faint(2)      → --sb-ink-5         亮精确相等；暗 Δ≈15
+       --duration-fast(12)  → --sb-dur-fast      0.12s → 150ms（走**既有 D28 裁定**：120ms 已被否决）
+       --radius-sm(3)       → --sb-radius-sm     8px → 6px（D18 控件档）
+       --text-lg(2)         → --sb-text-lg       17px → 16px（D30）
+       --text-xl(1)         → --sb-text-xl       20px → 18px（D30）
+     共 54 处 / 11 个文件，diff 50/50 对称。
+
+     ⚠️ 剩余 7 名**偏差大或形态不同**，必须单独裁定：
+       --border(19) 亮 rgba(231,229,228,.8) vs V3 rgba(12,10,9,.10) —— **浅灰描边 vs 暖黑描边**，形态不同
+       --border-light(7) 同理；--bg-elevated(5) V3 无对应角色；
+       --ease-out(5) 曲线不同（cubic-bezier(0,0,.2,1) vs (.22,1,.36,1)）；
+       --bg-card(3) 半透明 vs V3 实色；--radius-lg(1) 30px vs V3 12px；--red-shadow(1) α 不同。 */
+const BASELINE_TOTAL = 41;
+const BASELINE_NAMES = 7;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
