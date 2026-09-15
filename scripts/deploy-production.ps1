@@ -339,6 +339,24 @@ function Invoke-AuthenticatedVerification {
   throw $FailureMessage
 }
 
+function Test-OriginHealthViaServer {
+  <#
+    从**服务器本机**经公网域名探测 /health（curl --resolve 把域名指到 127.0.0.1）。
+
+    为什么需要它（2026-09-15 真实故障，部署 exit 1 + 触发回滚）：
+    shuimg.cn 切到 Cloudflare **仅 DNS（灰云）** 后，区域**尚未备案**，
+    腾讯云会拦**机房来源 IP** 访问该域名（实测本机与香港机房在 443+SNI 上握手即被重置，
+    而住宅来源正常）。于是**部署机（机房出口）探不到公网**，
+    Wait-PublicProductionReady 连续 180s 失败 → 部署判失败并回滚，
+    而**站点其实一直是好的** —— 输的是**判据的观察点**。
+    详见 docs/ops-server-migration-cutover.md 第七节。
+  #>
+  try {
+    $body = Invoke-BoundedSshCapture -Command "curl -sk --max-time 10 --resolve shuimg.cn:443:127.0.0.1 https://shuimg.cn/health" -TimeoutSeconds 20
+  } catch { return $false }
+  return ($body -match '"ready"\s*:\s*true')
+}
+
 function Wait-PublicProductionReady {
   param(
     [Parameter(Mandatory = $true)]
@@ -350,6 +368,13 @@ function Wait-PublicProductionReady {
     & node -e "fetch('https://shuimg.cn/health', { signal: AbortSignal.timeout(10000) }).then(response => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1));"
     if ($LASTEXITCODE -eq 0) {
       Write-Host "Public production health is ready"
+      return
+    }
+    # 回退判据：本地探不到公网 ≠ 站点没就绪（灰云 + 未备案期间机房来源被拦）。
+    # 改从服务器本机经公网域名探测 —— 那是「大陆用户视角」，判据等价。
+    if (Test-OriginHealthViaServer) {
+      Write-Host "Public production health is ready (经源站侧探测)"
+      Write-Warning "部署机（机房来源）无法直接访问公网域名 —— 未备案 + 仅 DNS 期间腾讯云拦截机房来源。已改用源站侧探测，判据等价。"
       return
     }
     if ((Get-Date) -lt $deadline) { Start-Sleep -Seconds 5 }
