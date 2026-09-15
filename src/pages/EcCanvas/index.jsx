@@ -7669,7 +7669,7 @@ const handlePointerUp = useCallback((e) => {
           总统筹视角: TapNow 旗舰模式 Agent progress UI, 不写 (流影AI 风格) */}
       {chainRun && (
         <div role="dialog" aria-modal="true" aria-label={`${chainRun.title} 进度`} style={{ position: 'fixed', inset: 0, zIndex: 10006, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
-          <section style={{ width: 'min(440px, 100%)', background: 'var(--sb-surface-card, #fff)', border: '1px solid var(--border, rgba(15,23,42,.08))', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 22 }}>
+          <section style={{ width: 'min(440px, 100%)', background: 'var(--sb-surface-card, #fff)', border: '1px solid var(--sb-border-default, rgba(15,23,42,.08))', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 22 }}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
               <div>
                 <h2 style={{ margin: 0, color: 'var(--sb-ink-1, #111827)', fontSize: 16, fontWeight: 800 }}>{chainRun.title}</h2>
@@ -7682,7 +7682,7 @@ const handlePointerUp = useCallback((e) => {
                 const status = chainRun.steps?.[idx] || 'pending';
                 const statusColor = status === 'ok' ? '#10b981' : status === 'failed' ? '#ef4444' : status === 'running' ? 'var(--sb-brand-600)' : '#9ca3af';
                 const statusLabel = status === 'ok' ? '✓ 完成' : status === 'failed' ? '✕ 失败' : status === 'running' ? '⋯ 进行中' : '○ 等待';
-                return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--border-light, #e5e7eb)', borderRadius: 8, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
+                return <li key={label} style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 10, padding: '8px 11px', border: '1px solid var(--sb-border-subtle, #e5e7eb)', borderRadius: 8, background: status === 'running' ? 'rgba(124,58,237,.05)' : 'transparent' }}>
                   <span style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 'var(--sb-radius-pill)', fontSize: 11, fontWeight: 800, color: '#fff', background: statusColor }}>{idx + 1}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--sb-ink-1, #111827)' }}>{label}</span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, letterSpacing: '.02em' }}>{statusLabel}</span>
