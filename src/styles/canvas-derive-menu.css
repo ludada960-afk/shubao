@@ -90,12 +90,12 @@
   height: 1px;
   background: linear-gradient(90deg, var(--sb-border-subtle) 0%, transparent 100%);
 }
-.ec-canvas-derive-bucket.is-core .ec-canvas-derive-bucket-label > span { color: var(--accent); }
-.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-bucket-label > span { color: var(--blue); }
+.ec-canvas-derive-bucket.is-core .ec-canvas-derive-bucket-label > span { color: var(--sb-surface-inverse); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-bucket-label > span { color: var(--sb-info); }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-bucket-label > span::before {
   content: "✦";
   font-size: var(--sb-text-xs);
-  color: var(--blue);
+  color: var(--sb-info);
 }
 
 
@@ -144,7 +144,7 @@
   top: 8px;
   bottom: 8px;
   width: 2px;
-  background: var(--accent);
+  background: var(--sb-surface-inverse);
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transform: translateX(-3px);
@@ -160,7 +160,7 @@
 }
 .ec-canvas-derive-tile:hover::before { opacity: 1; transform: translateX(0); }
 .ec-canvas-derive-tile:active { transform: translateY(0); }
-.ec-canvas-derive-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ec-canvas-derive-tile:focus-visible { outline: 2px solid var(--sb-surface-inverse); outline-offset: 2px; }
 
 /* chip: 图标芯片 */
 .ec-canvas-derive-tile .ec-canvas-derive-chip {
@@ -177,17 +177,17 @@
 }
 /* magic 桶的 chip 加蓝色高亮, 强调 AI 智能 */
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-chip {
-  color: var(--blue);
+  color: var(--sb-info);
   background: var(--blue-bg);
 }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-chip {
   color: var(--sb-surface-card);
-  background: var(--accent);
+  background: var(--sb-surface-inverse);
   box-shadow: none;
 }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-chip {
   color: var(--sb-surface-card);
-  background: var(--blue);
+  background: var(--sb-info);
 }
 
 /* copy: 标签 + 描述 (2 行) */
@@ -239,14 +239,14 @@
   line-height: 1.4;
 }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile .ec-canvas-derive-meta em {
-  color: var(--blue);
+  color: var(--sb-info);
   background: var(--blue-bg);
 }
-.ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--accent); }
-.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--blue); }
+.ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--sb-surface-inverse); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--sb-surface-card); background: var(--sb-info); }
 .ec-canvas-derive-tile .ec-canvas-derive-meta svg { color: var(--sb-ink-5); transition: color var(--sb-dur-fast) var(--sb-ease-out), transform var(--sb-dur-fast) var(--sb-ease-out); }
-.ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--accent); transform: translate(1px, -1px); }
-.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--blue); }
+.ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--sb-surface-inverse); transform: translate(1px, -1px); }
+.ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--sb-info); }
 
 /* ── 暗色模式适配 (沿用 design-tokens 主题覆盖) ── */
 [data-theme="dark"] .ec-canvas-derive-tile {
