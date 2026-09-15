@@ -1058,8 +1058,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     const optBtn = (active, accentColor) => ({
       padding: '8px 14px',
       borderRadius: 8,
-      border: active ? `1.5px solid ${accentColor || 'var(--accent)'}` : '1.5px solid transparent',
-      background: active ? (accentColor || 'var(--accent)') : 'rgba(12,10,9,0.04)',
+      border: active ? `1.5px solid ${accentColor || 'var(--sb-surface-inverse)'}` : '1.5px solid transparent',
+      background: active ? (accentColor || 'var(--sb-surface-inverse)') : 'rgba(12,10,9,0.04)',
       color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-3)',
       fontSize: 13,
       fontWeight: 600,
@@ -1257,7 +1257,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       transition: 'all 0.12s',
                       whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = '#f8f3ea'; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sb-surface-inverse)'; e.currentTarget.style.background = '#f8f3ea'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(12,10,9,0.06)'; e.currentTarget.style.background = 'var(--sb-neutral-0)'; }}>
                     {h}
                   </button>
