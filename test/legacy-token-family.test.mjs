@@ -322,8 +322,21 @@ function grepLegacy() {
      **「带兜底」写法**（老迁移正则要求 var( 紧跟 --，把这一类整批漏掉了）。
      ⚠️ 仍然排除的：--bg-card-solid（V3 --sb-surface-card 暗色是 #1C1A18，V2 无暗色变体
      仍是白 → 属观感变更，留给裁定）、--weight-normal（V3 无对应 token）。 */
-const BASELINE_TOTAL = 150;
-const BASELINE_NAMES = 25;
+/* ── D38 第一批（2026-09-15）实测 150/25 → **95/16**：
+       --text-primary(18)   → --sb-ink-1           亮精确相等；暗 Δ(2,5,12)（#F5EFE4 vs #F7F4F0，近白之间）
+       --text-secondary(13) → --sb-ink-2           亮精确相等；暗 Δ(1,2,6)
+       --bg-hover(8)        → --sb-state-hover-bg  **暗精确相等**；亮 纯黑 .03 → 暖黑 .035
+       --shadow-sm/md/lg/xl(10) → --sb-shadow-*   走**既有 D20-A 裁定**（有意观感变更：α 与几何微调）
+       --red(6)             → --sb-danger          **两主题精确相等**
+       --green(3)           → --sb-success         **两主题精确相等**
+     共 55 处 / 10 个文件，diff 55/55 对称。
+
+     ⚠️ 本批**有意排除**（暗色差可见，需单独裁定）：
+       --text-muted（暗 V2=--sb-ink-4 #857F79 vs V3 --sb-ink-3 #A8A29B，Δ≈35）
+       --text-hint / --text-faint / --border / --border-light
+     以及「V3 缺随主题变化的浅底角色」那一类：--green-bg / --red-bg / --bg-card-solid。 */
+const BASELINE_TOTAL = 95;
+const BASELINE_NAMES = 16;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
