@@ -109,8 +109,9 @@ node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一�
 | 不可达焦点 / 静默失效 / 缺 hover 缺陷 / 同作用域重复定义 | 全部 **0** ✅ |
 | 面板宽单一来源 | ✅ |
 | 上游泄漏文案 | 已清零（含插件 UI 与服务端上屏字段） |
+| token 阶梯新增族 | §23「媒体之上（on-media）」7 档 · §24「阻断层（overlay）」8 档（D34）|
 | BLOCKING 硬门禁 | 12 条 → **13 条**（新增 `css-comment-integrity`）|
-| DS 层债务 | hex 13 / rgba 34 → **hex 13 / rgba 27 / V2 0**（见 D34 待办）|
+| DS 层债务 | hex 13 / rgba 34 → **hex 0 / rgba 0 / V2 0** ✅（门禁已归零 = 绝对红线）|
 | 全量测试 `npm test` | 3771 条 / **0 红**（此前 3 红，含 2 条陈旧契约）|
 | **干净工作树的 precommit** | 曾 `fail 4`（主干断链）→ **pass 79 / fail 0** |
 
