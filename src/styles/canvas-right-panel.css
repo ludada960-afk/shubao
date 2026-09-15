@@ -130,13 +130,13 @@
   border-radius: var(--sb-radius-pill);
   font-size: var(--sb-text-xs);
   font-weight: 700;
-  background: var(--accent-bg);
+  background: var(--sb-state-active-bg);
   color: var(--sb-ink-3);
   white-space: nowrap;
   line-height: 1.4;
 }
 .ec-canvas-right-panel__badge.is-magic {
-  background: var(--blue-bg, rgba(37, 99, 235, .08));
+  background: var(--sb-info-tint, rgba(37, 99, 235, .08));
   color: var(--sb-info);
 }
 .ec-canvas-right-panel__badge.is-processing {
@@ -188,7 +188,7 @@
   transition: transform .24s cubic-bezier(.34, 1.56, .64, 1), background .16s ease-out, color .16s ease-out;
 }
 .ec-canvas-right-panel__menu-toggle:hover {
-  background: var(--blue-bg, rgba(37, 99, 235, .08));
+  background: var(--sb-info-tint, rgba(37, 99, 235, .08));
   color: var(--sb-info);
 }
 .ec-canvas-right-panel__menu-toggle.is-open {
@@ -273,7 +273,7 @@
   transition: background .16s ease-out, transform .2s cubic-bezier(.34, 1.56, .64, 1);
 }
 .ec-canvas-right-panel__child:hover {
-  background: var(--blue-bg, rgba(37, 99, 235, .08));
+  background: var(--sb-info-tint, rgba(37, 99, 235, .08));
   transform: translateX(2px);
 }
 .ec-canvas-right-panel__child-thumb {
