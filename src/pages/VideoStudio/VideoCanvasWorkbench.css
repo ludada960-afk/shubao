@@ -443,7 +443,7 @@
   background: var(--bg-card-solid, var(--sb-neutral-0));
   border-color: var(--border, rgba(231, 229, 228, .8));
 }
-.vcb-node.is-asset.is-video { border-left: 3px solid var(--sb-info, var(--sb-info)); }
+.vcb-node.is-asset.is-video { border-left: 3px solid var(--sb-info); }
 .vcb-node.is-asset.is-audio { border-left: 3px solid var(--green, var(--sb-success)); }
 .vcb-node.is-shot {
   background: linear-gradient(180deg, #fffdf6 0%, var(--sb-neutral-0) 100%);
