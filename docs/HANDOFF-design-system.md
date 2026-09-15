@@ -123,10 +123,15 @@ node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一�
    **必须在装 Chrome 的机器上手动装一次**（`chrome://extensions` → 开发者模式 → 加载已解压的扩展程序）。
    ⚠️ **归因更正（第 81 轮）**：本条此前被写成「**当前被服务器阻塞**」—— **该归因是错的**。
    服务器只影响「线上那个 zip 是不是旧的」；**真机侧载要的是一台装 Chrome 的机器**，与服务器无关。
-   已实测（新机 `/var/www/shubao/current/extensions/` 与 `/var/www/shubao/extensions/` 都是 36810B；
-   仓库 `public/extensions/` · `extensions/` · `dist/extensions/` 三处均为 **60403B**，
-   `node scripts/build-extension-zip.mjs --check` 三条全绿、无 localhost、manifest 指向 shuimg.cn）。
-   → 下次部署会自动把 60403B 带上线；**真机侧载仍需人工**。
+   **✅ 前半已解决（2026-09-15 18:40 那次部署之后）**：线上 zip **已经是 60403 字节**。实测：
+   - `GET /extensions/shubao-extractor.zip`（源站带 Host 头）→ **200 / content-length: 60403**；
+   - nginx 有效配置里 `root /var/www/shubao/current;`，而该软链指向
+     `/var/www/shubao/releases/20260915-184045-88a95c44`，其 `extensions/` 就是 60403B。
+   ⚠️ **但它旁边还蹲着一个诱饵**：`/var/www/shubao/extensions/shubao-extractor.zip` = **36810B（7 月 23 日、root 所有）**。
+   `sudo grep -rn 'var/www/shubao/extensions' /etc/nginx/` → **零引用**，也就是说它**不会被任何用户下到**；
+   它唯一的危害是**让诊断的人以为线上还是旧包**（本轮我就差点这么报）。
+   → 它是「候选删除项」；本轮只登记证据、**不动生产上的 root 文件**。
+   **后半（真机侧载）仍需人工**：本环境物理上做不到（见上），且与服务器无关。
 2. ~~**V2 剩余 121 处**（门禁口径内）~~ → **已清零**（D39 收尾；D41 复测仍为 **0 / 0 名**）。**本条保留仅作历史。**
 3. ~~**DS 层剩余债务** hex 13 / rgba 27 / V2 变量 8~~ → **0 / 0 / 0**（门禁已归零）。
 4. **V2「定义」清理（新的独立批次，未开工）** —— **用法归零 ≠ 定义消失**：
