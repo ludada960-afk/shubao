@@ -24,7 +24,7 @@ import {
 } from 'react-icons/md';
 
 import { useApp } from '../../store/AppContext';
-import { uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
+import { proxyImg, uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
 import { IMAGE_MODELS } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
@@ -144,7 +144,11 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
             const optionMeta = selectedSkill.control.optionMeta?.find(item => item.value === option);
             return (
               <button type="button" key={option} className={`visual-choice-card${optionMeta ? ' visual-style-option' : ''}${selected ? ' is-selected' : ''}`} onClick={() => !busy && updateSkillControl(option)} disabled={busy} aria-pressed={selected}>
-                {optionMeta ? <img className="visual-style-option-image" src={optionMeta.image} alt="" width="48" height="48" loading="lazy" decoding="async" fetchpriority="auto" /> : <span className="visual-choice-icon"><Icon /></span>}
+                {/* ⚠️ 这里曾是**源图直引**：48×48 的图标位拉 5–7MB 的源 PNG。
+                    实测 free-paper-city.png = 6.8MB，而同一个 icon 只需 w320（43KB，落盘缓存）—— 差 159 倍。
+                    选项图共 14 张，用户把面板翻一遍原本要下 ~84MB（3Mbps 出口下 3 分多钟），
+                    这正是「图片加载很慢」的主因之一（另一处同族问题见视觉创作面板的案例卡）。 */}
+                {optionMeta ? <img className="visual-style-option-image" src={proxyImg(optionMeta.image, 'w320', 'webp')} alt="" width="48" height="48" loading="lazy" decoding="async" fetchpriority="auto" /> : <span className="visual-choice-icon"><Icon /></span>}
                 <span className="visual-choice-copy"><strong>{option}</strong><small>{optionMeta?.description || VISUAL_OPTION_HINTS[option] || `为${selectedSkill.title}选择更明确的${selectedSkill.control.label}倾向`}</small></span>
                 {selected && <Check className="visual-choice-check" />}
               </button>

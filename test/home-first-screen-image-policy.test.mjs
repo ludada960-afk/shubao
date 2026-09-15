@@ -3,7 +3,38 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import test from 'node:test';
 
 import { responsiveImageCandidates } from '../src/components/responsiveImageModel.js';
+import { proxyImg } from '../src/services/api.js';
 import { PRODUCTION_CASE_CATALOG } from '../src/pages/Home/productionCaseCatalog.js';
+/* ── 2026-09-15 第 18 轮补：**面板里的图也吃带宽** ──────────────────────────────
+   首屏契约（上面六条）只管首屏，于是同一个坑在**非首屏**又踩了一次：
+   视觉创作面板的选项图标是 48×48 的位子，却直引 5–7MB 的源 PNG；
+   14 张选项图翻一遍 ≈ 84MB —— 在 3Mbps 出口下是 3 分多钟，
+   而用户看到的只是「图标转圈」。实测同一个文件：源图 6.8MB / w320 变体 43KB（159 倍）。
+   判据：把每个源图按组件里的换算跑一遍，结果必须**不等于源图**且落在小尺寸档上；
+   不能用「写没写某个函数名」当判据（那是锁拼写，RTK §3.1-10）。 */
+test('面板/内联图不得直引源图：选项图标必须走小尺寸变体', () => {
+  const model = readFileSync(new URL('../src/pages/Home/visualCreationModel.js', import.meta.url), 'utf8');
+  const images = [...model.matchAll(/image: '(\/images\/[^']+)'/g)].map(match => match[1]);
+  assert.ok(images.length >= 10, '样本量自证：选项图应 >= 10 张，实际 ' + images.length);
+
+  for (const src of images) {
+    const variant = proxyImg(src, 'w320', 'webp');
+    assert.notEqual(variant, src, '选项图标不得直引源图：' + src + '（换算后仍是源图）');
+    assert.match(variant, /[?&]variant=w320(?:&|$)/, '必须请求 w320 档：' + variant);
+    assert.ok(variant.startsWith('/api/public-image?path='), '必须经变体服务：' + variant);
+  }
+
+  /* 渲染点：源码里不得再出现「把源图直接塞进 img src」的写法。
+     这一条是文本断言（JSX 渲染点没有别的静态判据），故配一条自证证明它抓得住。 */
+  const view = readFileSync(new URL('../src/pages/Home/VisualCreationMode.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(view, /src=\{optionMeta\.image\}/, '选项图标不得直引源图');
+});
+
+test('检测器自证：源图直引的写法抓得住，走变体的写法不误报', () => {
+  const RAW = /src=\{optionMeta\.image\}/;
+  assert.match('<img src={optionMeta.image} />', RAW, '直引写法必须被抓出来');
+  assert.doesNotMatch("<img src={proxyImg(optionMeta.image, 'w320', 'webp')} />", RAW, '走变体的写法不得误报');
+});
 
 // 9-14 P1-1 首屏瘦身契约：首屏可见大图的“主候选”必须是已落盘的 .thumbs WebP（<=200KB），
 // 源 PNG/大图只允许作为失败回退或放大/下载用途，不得成为首个请求的 URL。
