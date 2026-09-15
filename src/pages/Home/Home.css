@@ -139,7 +139,7 @@
   border: none;
   font-size: 16px;
   font-family: inherit;
-  line-height: var(--leading-relaxed);
+  line-height: var(--sb-leading-relaxed);
   resize: none;
   outline: none;
   background: transparent;
@@ -181,7 +181,7 @@
 .custom-placeholder .ph-main {
   font-size: 16px;
   color: var(--sb-ink-3);
-  line-height: var(--leading-relaxed);
+  line-height: var(--sb-leading-relaxed);
 }
 .custom-placeholder .ph-sub {
   font-size: 12px;
