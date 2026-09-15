@@ -1607,6 +1607,10 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                     <div style={{ display: 'flex', gap: 8, marginTop: 8, overflowX: 'auto', paddingBottom: 4, flexWrap: 'nowrap' }}>
                       {ecRefImgs.map((src, i) => (
                         <div key={i} style={{ position:'relative', width:68, height:68, borderRadius:8, overflow:'hidden', border:'1px solid var(--sb-neutral-200)', flexShrink:0, cursor:'pointer' }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label="放大查看"
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEcPreviewLightbox(src); } }}
                           onClick={() => setEcPreviewLightbox(src)}>
                           <img
                             src={src}
@@ -1816,6 +1820,10 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
                     {ecRefImgs.map((src, i) => (
                       <div key={i} style={{ position:'relative', aspectRatio:'1/1', borderRadius:8, overflow:'hidden', border:'1px solid var(--sb-neutral-200)', cursor:'pointer' }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label="放大查看"
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEcPreviewLightbox(src); } }}
                         onClick={() => setEcPreviewLightbox(src)}>
                         <img
                           src={src}
