@@ -3,7 +3,7 @@
   align-items: center;
   min-height: 28px;
   padding: 4px 10px;
-  border: 1px solid var(--accent, var(--sb-neutral-900));
+  border: 1px solid var(--sb-surface-inverse, var(--sb-neutral-900));
   border-radius: var(--radius-full, 9999px);
   background: var(--bg-card-solid, var(--sb-neutral-0));
   color: var(--text-primary, var(--sb-ink-1));
@@ -22,7 +22,7 @@
 .balanceCard,
 .quoteCard,
 .historyCard {
-  padding: var(--space-6, 24px);
+  padding: var(--sb-space-6, 24px);
   border: 1px solid var(--border, rgba(231, 229, 228, 0.8));
   border-radius: var(--radius-lg, 30px);
   background: var(--bg-card-solid, var(--sb-neutral-0));
@@ -36,7 +36,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3, 12px);
+  gap: var(--sb-space-3, 12px);
 }
 
 .eyebrow {
@@ -57,7 +57,7 @@
 
 .unlimitedBadge {
   padding: 5px 9px;
-  border: 1px solid var(--accent, var(--sb-neutral-900));
+  border: 1px solid var(--sb-surface-inverse, var(--sb-neutral-900));
   border-radius: var(--radius-full, 9999px);
   color: var(--text-primary, var(--sb-ink-1));
   font-size: var(--text-xs, 11px);
@@ -68,15 +68,15 @@
 .balanceGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3, 12px);
-  margin-top: var(--space-5, 20px);
+  gap: var(--sb-space-3, 12px);
+  margin-top: var(--sb-space-5, 20px);
 }
 
 .balanceItem {
-  padding: var(--space-4, 16px);
+  padding: var(--sb-space-4, 16px);
   border: 1px solid var(--border-light, rgba(231, 229, 228, 0.4));
   border-radius: var(--radius-md, 16px);
-  background: var(--bg, #F5EFE4);
+  background: var(--sb-surface-page, #F5EFE4);
 }
 
 .balanceLabel,
@@ -103,7 +103,7 @@
 .historyList {
   display: grid;
   gap: 0;
-  margin: var(--space-4, 16px) 0 0;
+  margin: var(--sb-space-4, 16px) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -118,7 +118,7 @@
 
 .mutedText,
 .emptyText {
-  margin: var(--space-4, 16px) 0 0;
+  margin: var(--sb-space-4, 16px) 0 0;
 }
 
 .historyCopy {
@@ -146,7 +146,7 @@
 .toneneutral { color: var(--text-muted, var(--sb-ink-3)); }
 
 .insufficientHint {
-  margin: var(--space-4, 16px) 0 0;
+  margin: var(--sb-space-4, 16px) 0 0;
   padding: 10px 12px;
   border: 1px solid #E9C46A;
   border-radius: var(--radius-sm, 8px);
@@ -159,5 +159,5 @@
   .balanceGrid { grid-template-columns: 1fr; }
   .balanceCard,
   .quoteCard,
-  .historyCard { padding: var(--space-5, 20px); }
+  .historyCard { padding: var(--sb-space-5, 20px); }
 }
