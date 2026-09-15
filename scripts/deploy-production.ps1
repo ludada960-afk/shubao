@@ -1,5 +1,5 @@
 param(
-  [string]$HostName = "43.129.180.134",
+  [string]$HostName = "114.132.157.250",   # 2026-09-15 迁移：旧机 43.129.180.134 即将过期，生产入口已切到新机（内网 172.16.0.17）
   [string]$User = "ubuntu",
   [string]$KeyPath = "$env:USERPROFILE\.ssh\shubao_deploy_ed25519",
   [string]$RemoteDir = "/home/ubuntu/shubao",

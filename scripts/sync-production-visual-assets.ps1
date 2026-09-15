@@ -2,7 +2,7 @@ param(
   [string[]]$CaseId = @(),
   [string]$AuditDir = (Join-Path $PSScriptRoot '..\.tmp\production-visual-cases'),
   [string]$DestinationDir = (Join-Path $PSScriptRoot '..\public\images\visual-recipes\cases'),
-  [string]$HostName = '43.129.180.134',
+  [string]$HostName = '114.132.157.250',   # 2026-09-15 迁移：旧机即将过期，见 scripts/deploy-production.ps1
   [string]$User = 'ubuntu',
   [string]$KeyPath = "$env:USERPROFILE\.ssh\shubao_deploy_ed25519",
   [string]$RemoteAssetDir = '/home/ubuntu/shubao/server/generated-assets'
