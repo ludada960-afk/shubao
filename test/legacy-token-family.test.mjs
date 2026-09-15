@@ -56,7 +56,14 @@ export const LEGACY_RE = /var\(--(?!sb-|cvl-|max-width)([a-zA-Z0-9-]+)\)/g;
         这不是「设计上分了两类」，是**选词时漏了**。
         → 已立账：**docs/design/40-decisions.md D26**（口径疏漏 + 组件自有 token 家族的处置）。
     禁止把「141 → 0」写成「V2 已清零」。 */
-const FAMILY_RE = /var\(--(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease)[a-z0-9-]*\)/;
+/* ⚠️ 家族表**只在这里写一遍**。此前它在本文件里写了两处（FAMILY_RE 与 grepLegacy 里
+   `git grep -E` 的内联模式），两处必须逐字一致才不会漂移 —— 而「两份逻辑漂移」
+   正是本会话反复踩到的一类缺陷。改成从 FAMILY_ALT 派生两个使用者。 */
+const FAMILY_ALT = '(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease'
+  + '|accent|blue|space|leading|font|footer-actions)';
+const FAMILY_RE = new RegExp('var\\(--' + FAMILY_ALT + '[a-z0-9-]*\\)');
+/** 同一份家族表的 git grep -E 形态（ERE 里括号需转义） */
+const FAMILY_GREP = 'var\\(--' + FAMILY_ALT + '[a-z0-9-]*\\)';
 
 /** 从文本里数出 V2 用法（导出以便自证） */
 export function countLegacy(text) {
@@ -82,7 +89,7 @@ function grepLegacy() {
      再逐文件剥注释后按 LEGACY_RE 计数。 */
   let files = '';
   try {
-    files = execFileSync('git', ['grep', '-l', '-E', 'var\\(--(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease)[a-z0-9-]*\\)', '--', 'src'],
+    files = execFileSync('git', ['grep', '-l', '-E', FAMILY_GREP, '--', 'src'],
       { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   } catch (e) { files = String(e.stdout || ''); }
   const out = [];
@@ -202,8 +209,27 @@ function grepLegacy() {
       ⚠️⚠️ **本文件管的是「家族口径」，它归零 ≠ 全站 V2 归零**：
       全口径实测仍有 **445 处 / 86 名**（`--canvas-command`54 / `--accent`42 / `--ec-*` 族 / `--blue`22 …）。
       两个数**必须分开报**，见 D26。禁止把「0」写成「全站 V2 已清零」。 */
-const BASELINE_TOTAL = 0;
-const BASELINE_NAMES = 0;
+/* ═══ D26 裁定落地：门禁家族**扩容**（2026-09-15，第 5 轮）═══
+   基线 0/0 → **137/28**。⚠️ 这不是「债务涨了」，是**口径覆盖面变了** ——
+   家族表原来只有 11 个前缀，把三类**同样是全局 V2** 的名字漏在外面：
+
+     · --accent* (42 处) / --blue* (22 处)  ← D26 #1：与已收进来的 --red/--green **同类**，
+       却因为选词时漏了而落在门外。实测 --accent 亮 #0C0A09 / 暗 #F5EFE4 与
+       --sb-surface-inverse 逐值相等；--blue 亮 #5275CC / 暗 #7B95E0 与 --sb-info 逐值相等。
+     · --space-* (7) / --leading-* (5) / --font-* (15)  ← D26 #3：全局布局与排版族。
+     · --footer-actions-* (14 名) ← 名字像组件族，但**定义在 V2 权威 design-tokens.css 里**，
+       所以按「定义在哪」判，属全局 V2 债。
+
+   ⚠️ **有意不收**（对 D26 #3 的修正，依证据）：--nav-item-accent。
+   它由 app-shell.css 的 12 个 `.creative-nav-link--*` 修饰类**在组件作用域内**定义，
+   属 D26 #2 判为合法的「组件自有 token 家族」—— 判据是**定义在哪**，不是名字像什么。
+
+   两个数必须分开报（D26 #4 / D33）：
+     · 门禁家族口径 = 137（本文件管的）
+     · 全站 V2 口径 = 更大（含 --ec-* / --canvas-* / --sk-* 等组件自有家族）
+   禁止把「家族口径 137 → 0」写成「V2 已清零」。 */
+const BASELINE_TOTAL = 137;
+const BASELINE_NAMES = 28;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
