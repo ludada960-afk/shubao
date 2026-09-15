@@ -14,6 +14,7 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
 import { resolveAuthSessionSecret } from './authSessionSecret.mjs';
+import { resolveLlmChannel } from './llmChannel.mjs';
 import { createAuthService, createDualModeSessionTokens } from './auth/authService.mjs';
 import { mountAuthRoutes } from './authRoutes.mjs';
 import { createOAuthStore } from './auth/oauthStore.mjs';
@@ -1102,9 +1103,14 @@ process.on('unhandledRejection', err => {
 const asyncRoute = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-const LLM_KEY = process.env.LLM_API_KEY || '';
-const LLM_BASE = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
-const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
+/* 2026-09-15：原来的 LLM_* 指向已 401 失效的 DeepSeek，按用户指示已从 .env 移除。
+   但**不能让它就此变成空** —— LINE 1105 那句原本是 truthy（一个必失败的通道），
+   直接留空会把 `if (LLM_KEY && LLM_BASE)` 从 true 变成 false，从而**静默改变两条调用链**：
+     · callLLMWithVision（extract-link 的视觉风格分析）以前是「401 → catch 跳过」；
+     · createVideoPlanningTextClient（视频文本规划）以前是「走失效通道」。
+   改为统一走 resolveLlmChannel：LLM_* 缺失时回退 MINI_*（项目真正在用的网关，
+   也是 createEcommerceVlmClient 本来就优先选的那条）。规则只有一份，见 server/llmChannel.mjs。 */
+const { key: LLM_KEY, base: LLM_BASE, model: LLM_MODEL } = resolveLlmChannel(process.env);
 const IMG_KEY = process.env.IMAGE_API_KEY || '';
 const IMG_BASE = (process.env.IMAGE_PRIMARY_BASE_URL || 'https://task-api-1-cn.65535.space').replace(/\/+$/, '');
 const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || '').replace(/\/+$/, '');
