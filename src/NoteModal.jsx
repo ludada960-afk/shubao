@@ -342,7 +342,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{
-                    background: 'var(--blue-bg)', color: '#4338CA',
+                    background: 'var(--sb-info-tint)', color: '#4338CA',
                     padding: '3px 10px', borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-xs)', fontWeight: 600,
                   }}>{item.category}</span>
                   <span style={{
