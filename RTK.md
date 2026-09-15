@@ -1797,6 +1797,86 @@ cb8ad960（skill 注入 P2/P3）当时因上游退化全量档被阻断，改用
 - 部署环境坑（记下来）：`scripts/deploy-production.ps1` 含中文，必须用 **`pwsh`(7+)** 跑；
   用 Windows PowerShell 5.1 会按 ANSI 解码 → 满屏 `Missing ')' in method call` 语法错误（不是脚本 bug）。
 
+## 2026-09-16 批注批次十九：第 11 张批注图（`e9656624`，已上线）
+
+用户一次给了 11 组批注，最后一句是「你不能有任何的 bug，明天我就要看到结果」。
+这一批**一半的问题不是视觉，是链路断了** —— 用户直接问：
+「你确定现在所有的这些逻辑都是打通的情况吗？都是确确实实能够带入到设计方案里面，
+然后去激活生成逻辑的吗？」先派两条**只读审计**去查，结论是**没打通**。
+
+### ⚠️ 本批最重要的定式：**「应用到画布」会把你填的配置换成默认空值**
+`handleDirectionApply` 新建套图节点时只传 `platform + commerceContext`，
+而 `createCanvasSuiteComposerNode` 的默认 configuration 里
+`productParams / skus / copywriting / customColors` **全是空值**。
+→ 用户在第 1 步填的商品信息、内容规范、SKU 变体、品牌色，到这里**静默归零**，一路空到生成。
+修法：把这几个键从 `node.ecParams` 原样带进新节点（方案回写仍在后面执行，该由方案赢的地方仍由方案赢）。
+**推论**：任何「新建节点 = 用工厂默认值」的地方，都要检查「用户之前填的东西有没有一起过来」。
+
+### 其它断链（都已实测修复）
+- **变体说明全链路丢失**：`assetPlanner` 的 SKU 白名单没有 `note`，`normalizeSkus` 直接扔掉。
+  → 单独提取（**不并进 facts** —— facts 是要过视觉核验的确认闸门，混进去会让图被判不合格），
+  走 `item.variantNote` → `roleObjective.variantNote`（**有值才出现**，空串占位会污染提示词
+  并让既有的逐字段 deepEqual 契约无谓变红）。
+- **「避免出现的元素」服务端 0 命中**：前端一直在发 `body.generation_settings.negativePrompt`，
+  服务端全仓 grep 不到 → 新增 `userExclusions` 段，排在 `userSkill` **之后**（更晚出现 = 优先级更高），
+  按分隔符切成条目，写明「硬排除 / 压过风格指引 / 不压过 productTruth 与平台规则」。
+- **服务端真正读的是 `direction.editableBrief`**，不是 `selling_points`/`product_name`
+  （后两者在 direction 是对象时**根本不生效**，`directionFromPayload` 只是 fallback）。
+  → 用户填的一切按结构并进 editableBrief。
+- **category 此前硬编码 `'其他'`**；`custom_colors` 根本没发出 → 两项接上现成服务端字段。
+- **SKU 面板的「生成数量」是个谎**：它不影响张数（计费与生成都按变体数），合计却把它算进去。
+  → 改成按变体数如实显示。**没有改计费口径**（改它会动价格，铁律①）。
+
+### 「死按钮」的通用成因（值得单独记）
+视频侧的 @ 触发器自己实现了一套「点外面就关」，判定只认底栏容器 `quickToolsRef`，
+而菜单挂在输入框下面那一行 → **pointerdown 落在菜单项上就被判成「点了外面」→ 菜单卸载 →
+click 事件永远不会触发**。用户看到的就是「有素材、能点开、点了没反应」。
+→ 正确修法不是再补一遍判定，而是**把已经做对的逻辑拿过来用**（`ImageMentionPicker` 用
+  rootRef + menuRef 双包含判定）。同类教训：**「点了没反应」优先怀疑「元素在事件到达前被卸载」**。
+
+### 视觉（同一批）
+- 模型图标**双层框**：外层 `--sb-surface-tint` 方底 + 品牌标自带框 → 图形被压到 0.72 倍
+  → 去掉外层（Gemini 没被点名，就是因为它的标没有可见外框）。
+- 图片类型「全是紫色」：四个 tile **共用同一个品牌浅底** → 新建识别色族 `ACCENT`
+  （紫/蓝/绿/琥珀，全部取自既有语义色）+ 动效（进场淡入 / hover 1.06 / 勾选弹出 /
+  `prefers-reduced-motion` 全关）。规范写死：**识别色 = 这是哪一类；状态色 = 选没选，两套不许混用**。
+- 标题配色全局统一：**图标走品牌色、文字走中性深墨**（用户点名要自由创作那套）。
+- 面板被截断：`maxHeight` 被 `Math.max(300, …)` **托底** → 可以大于该侧可用空间 → 直接被视口切。
+  修法要同时满足两条用户要求：① 面板永远贴着触发按钮（不能退化成盖住输入区的全屏层）；
+  ② 内容一屏看全（不能让用户滚鼠标）→ 高度**严格取该侧可用空间**（绝不越界 = 绝不截断），
+  装不下时切**紧凑档** `data-density="compact"` 由 CSS 压内容。
+  ⚠️ 密度传递用 `data-*` 属性，**不要用内联 CSS 变量 + 属性选择器**（各家浏览器对冒号后空格的
+  序列化不一致，会静默失效）。
+- CTA 积分看不出数值：`.video-submit-row span` 这条**后代选择器**把按钮内部的积分也刷成了灰 10px。
+  → 收窄到只作用于说明区。**教训：给按钮内部的 span 写全局后代选择器 = 迟早盖掉按钮自己的配色。**
+
+### 技能「使用」不生效
+首页与视频页只把技能塞进一个**不可见的** userSkills 字段 + 一个 chip，点了什么都看不见；
+画布侧一直是对的（`applyCanvasSkill` 会把正文写进提示词）。
+→ 三处共用：空则填入、**非空则追加**（绝不覆盖）；chip 只留名字，正文只进输入框一次
+（否则同一份正文会进两次提示词：输入框一次 + user_skills 段一次）。
+
+### 1080P：是报价签字问题，不是技术问题（未开通）
+计费 SKU `video_seedance_1080p` 已留档（units 73000 / providerCostCny 6.37，**public:false**）、
+价格页挂「即将上线」、上游货源真实存在（IP233 ¥7.67/条）。缺三步：写进某产品 `resolutions` +
+补 IP233 1080p 路由 + catalog 改 `public`。**那是报价，不是代码** —— 铁律①不许未经确认就开始计费，
+所以没开，并加了门禁守住（SKU 必须保持 `public:false`、没有任何产品能声明 1080p）。
+「默认 1 积分」也要澄清：那是**方案分析**的固定费用（`video_plan_analysis` = 1000 units = 1 积分，
+单一事实源 `server/billing/catalog.mjs`），成片费用在「开始生成」按钮上、来自服务端报价、随配置变。
+
+### 门禁与验证
+- 新增 `test/workbench-unify-0916.test.mjs`（14 条，挂 BLOCKING）。其中 4 条是**行为断言**：
+  直接 import `assetPlanner` / `promptCompiler` 跑一遍，验「变体说明逐条进 prompt」
+  「排除项成为硬排除段」「没填时不产生空段」「结构仍是合法 JSON schema」。
+- 修正 8 条锁旧写法的契约（判据未变）：applyCanvasSkill 非空行为（3 处）、
+  负向词面板的属性顺序、@ 的 preventDefault 位置、ModelLogo 换行、面板内边距条件式、面板定位 compact。
+- 全量 `npm test`：3806/3799/0失败/7跳过 → **3830/3830/0失败/0跳过**。
+- `npm run precommit`：构建 exit 0 + BLOCKING **22 个文件**全绿（175 项）。
+- **esbuild 源码完整性门禁当场抓到我自己的语法错误**（把 JSX 注释塞进 `createPortal(…)` 的参数位）。
+  教训：`createPortal(expr, container)` 只接受表达式，注释只能写成 JS 注释放在 return 之前。
+- 线上：`index.html` 指向新入口；最大的包 `index-CDWCF7Mr.js`(550292B) 与本地构建**哈希逐字一致**；
+  源站 `/` 200；pm2 online；release = `20260916-031257-e9656624`。
+
 
 
 
