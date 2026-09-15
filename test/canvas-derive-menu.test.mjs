@@ -111,7 +111,9 @@ test('canvas-derive-menu.css declares the 9-action tile hover lift + chip + meta
      旧断言从那一刻起就在保护一个**已经过时的写法** —— 表达式可以换，判据不能换。 */
   assert.match(css, /\.ec-canvas-derive-tile:hover\s*\{[^}]*box-shadow:\s*var\((--sb-)?shadow-(sm|md|lg|xl|[1-5])\)/, 'hover 必须给一层海拔阴影（V3 海拔 token）');
   assert.match(css, /\.ec-canvas-derive-tile\s+\.ec-canvas-derive-chip/, 'chip 必填');
-  assert.match(css, /\.ec-canvas-derive-tile:hover\s+\.ec-canvas-derive-chip\s*\{[^}]*background:\s*var\(--accent\)/, 'hover 时 chip 变 accent 必填');
+  /* D26：--accent 已迁到权威 token --sb-surface-inverse（亮 #0C0A09 / 暗 #F5EFE4，逐值相等）。
+     断言仍锁「hover 时 chip 底色取那个强对比 token」，只是名字换成权威名。 */
+  assert.match(css, /\.ec-canvas-derive-tile:hover\s+\.ec-canvas-derive-chip\s*\{[^}]*background:\s*var\(--sb-surface-inverse\)/, 'hover 时 chip 取强对比色 token 必填');
   assert.match(css, /\.ec-canvas-derive-tile\s+\.ec-canvas-derive-meta/, 'meta 必填');
   assert.match(css, /\.ec-canvas-derive-tile\s+\.ec-canvas-derive-meta\s+em/, '价格徽标 em 必填');
 });
