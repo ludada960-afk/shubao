@@ -135,6 +135,46 @@ function stripComments(srcRaw) {
     .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
 }
 
+/** 取**顶层**属性 `name={...}` 的取值原文（不含外层花括号）；取不到返回 null。 */
+export function readTopLevelAttr(attrs, name) {
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < attrs.length; i++) {
+    const c = attrs[i];
+    if (quote) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+    if (c === '{' || c === '(' || c === '[') { depth += 1; continue; }
+    if (c === '}' || c === ')' || c === ']') { depth -= 1; continue; }
+    if (depth === 0 && attrs.startsWith(name, i) && !/[\w-]/.test(attrs[i - 1] || ' ')) {
+      let j = i + name.length;
+      while (j < attrs.length && /\s/.test(attrs[j])) j += 1;
+      if (attrs[j] !== '=') continue;
+      j += 1;
+      while (j < attrs.length && /\s/.test(attrs[j])) j += 1;
+      if (attrs[j] !== '{') return attrs.slice(j, (attrs.indexOf(' ', j) === -1 ? attrs.length : attrs.indexOf(' ', j)));
+      let d = 0;
+      const from = j + 1;
+      for (; j < attrs.length; j += 1) {
+        if (attrs[j] === '{') d += 1;
+        else if (attrs[j] === '}') { d -= 1; if (d === 0) return attrs.slice(from, j); }
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+/** onClick 体是否**只**做了 stopPropagation（那种元素不是点击目标，不该要求键盘可达）。 */
+export function isStopPropagationOnly(value) {
+  if (!value) return false;
+  const body = value.replace(/\s+/g, '');
+  return /^\(?[a-zA-Z_$][\w$]*\)?=>\{?[a-zA-Z_$][\w$.]*\.stopPropagation\(\);?\}?$/.test(body);
+}
+
 /** 判断属性文本里是否有**顶层**（不在属性值的 {} / 引号 / 嵌套 JSX 内）的 onClick。 */
 export function hasTopLevelOnClick(attrs) {
   let depth = 0;
@@ -176,6 +216,9 @@ export function findClickableNonInteractive(srcRaw, rootOf = new Map()) {
        实测（假阳性第 10 类）：<XhsInputTemplate optionPanels={{ topic: <div>…<button onClick=…>… }} />
        外层组件被属性值里的 onClick 连坐，两个调用点都被报违规，而它的根元素根本没有 onClick。 */
     if (!hasTopLevelOnClick(attrs)) continue;
+    /* 只做 stopPropagation 的 onClick **不是点击目标**（它只是阻止冒泡），不该要求键盘可达。
+       实测假阳性：EcStudio 的模态卡、DesignDirection 的图片 —— 给它们加 role=button 是错的。 */
+    if (isStopPropagationOnly(readTopLevelAttr(attrs, 'onClick'))) continue;
     if (INTERACTIVE.has(tag)) continue;
     /* role / tabIndex 有两种写法，都要认：
        ① 直接属性        role="button" / tabIndex={0}
