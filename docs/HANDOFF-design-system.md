@@ -60,7 +60,7 @@
    - **禁止**：PowerShell `Set-Content`/`Out-File` 写源码（会把文件压成一行）· 「整文件写回」做隔离 · 离线 patch 改代码；
    - **被截断的输出不能当作「文件里没有」的证据**（要证不存在必须打印计数）；
    - 报故障前**先重跑一次**（并发写入瞬时态、编辑器保存竞态都会造成假红）。
-4. **提交前必须跑** `npm run precommit`（构建 + 12 条硬门禁），**绿了才提交**。
+4. **提交前必须跑** `npm run precommit`（构建 + 18 条硬门禁），**绿了才提交**。
 5. 本地 vite 用 **5199 或 5188**（5173 常被占）；QA 通道 `?qa=ec-canvas` / `?qa=ec-canvas-real` / `?qa=plan-launch` / `?qa=visual`。
 
 ---
@@ -90,7 +90,7 @@
 ### 5.4 常用命令
 ```bash
 node scripts/design-audit.mjs      # 全站指标看板（档位 / hover / 焦点 / 对比度 / DS 层债务 / 落地进度）
-npm run precommit                  # 构建 + 12 条硬门禁（提交前必跑）
+npm run precommit                  # 构建 + 18 条硬门禁（提交前必跑）
 node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一个都不许变）
 ```
 
@@ -102,18 +102,20 @@ node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一�
 | 指标 | 会话起点 → 现在 |
 |---|---|
 | 键盘不可达可点元素 | **79 → 0** ✅（门禁已升为硬门禁） |
-| V2 遗留 token 用法（**门禁口径内**） | 719 → 179 → **0**（变量名 38 → **0**）✅ |
-| 全口径 V2 名字面（**新披露**） | 从未测过 → 586 → **445 / 86 名**（见 D26/D33；与上面那个数**必须分开报**）|
+| V2 遗留 token 用法（**门禁口径内**） | 744 → 719 → 179 → **0 / 0 名** ✅（见 D39/D41）|
+| 全口径 V2 名字面（**新披露**） | 从未测过 → 586 → 445 → **396 / 71 名**（见 D26/D33/D41；与上面那个数**必须分开报**）|
+| ↳ 上述 396 的性质 | **全部是组件自有族 + JS 运行时注入**，D26 #2 体检已做完（D41）—— 不是「未清的 V2 债」|
 | 字号档位 | 39 → **11** ✅（D19） |
 | 圆角档位 | 27 → **10**（V3 栏 8/8 ✅） |
 | 不可达焦点 / 静默失效 / 缺 hover 缺陷 / 同作用域重复定义 | 全部 **0** ✅ |
 | 面板宽单一来源 | ✅ |
 | 上游泄漏文案 | 已清零（含插件 UI 与服务端上屏字段） |
 | token 阶梯新增族 | §23「媒体之上（on-media）」7 档 · §24「阻断层（overlay）」8 档（D34）|
-| BLOCKING 硬门禁 | 12 条 → **13 条**（新增 `css-comment-integrity`）|
-| DS 层债务 | hex 13 / rgba 34 → **hex 0 / rgba 0 / V2 0** ✅（门禁已归零 = 绝对红线）|
-| 全量测试 `npm test` | 3771 条 / **0 红**（此前 3 红，含 2 条陈旧契约）|
-| **干净工作树的 precommit** | 曾 `fail 4`（主干断链）→ **pass 79 / fail 0** |
+| BLOCKING 硬门禁 | 12 条 → 13 条 → **18 条**（新增 `token-root-scope-language` / `footer-actions-contract` / `canvas-derive-menu` / `video-canvas-tapnow-w1` / `visual-system-contract`）|
+| DS 层债务 | hex 13 / rgba 34 / V2 变量 8 → **hex 0 / rgba 0 / V2 0** ✅（门禁已归零 = 绝对红线）|
+| 全量测试 `npm test` | 3771 条 / 3 红 → **3780 条 / 3773 通过 / 0 红 / 7 跳过** |
+| **precommit**（构建 + 18 条硬门禁） | 曾 `fail 4`（主干断链）→ **tests 125 / pass 125 / fail 0**，构建 exit 0 |
+| 门禁**自证**缺口 | `legacy-token-family` 承诺的 ⑤ 兜底**从未实现** → 补 ④ 管线自证（D41）|
 
 ### 待办（按优先级，每条带判据）
 1. **插件 zip 真机验证（等人）**：线上 zip 当前 **36810 字节（旧坏包）**，修好的应为 **60403 字节**。
@@ -125,11 +127,22 @@ node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一�
    仓库 `public/extensions/` · `extensions/` · `dist/extensions/` 三处均为 **60403B**，
    `node scripts/build-extension-zip.mjs --check` 三条全绿、无 localhost、manifest 指向 shuimg.cn）。
    → 下次部署会自动把 60403B 带上线；**真机侧载仍需人工**。
-2. **V2 剩余 121 处**（门禁口径内；**已分类，不能当等值迁移**）：
-   `--duration-fast`(0.12s, 30 处) 无等值档（§19 是 100/150ms）· `--radius-lg`(30px)/`--radius-xl`(40px) 需按 **D24 第 3 条**为「主卡超圆角」定角色档（含 A/B 像素证据）·
-   `--text-base`(15px)/`--text-lg`(17px) 按 **D17/D19** 属**有意变更**（要同机位 A/B）· `--ease-out` 曲线不同（0,0,0.2,1 vs 0.22,1,0.36,1）· `--shadow-*`(alpha ±0.02) · `--bg`(#F5EFE4) 整页底色**必须单独裁定**。
-3. **DS 层剩余债务**：hex 13 / rgba 27（注释已登记「为何不是 token」）/ V2 变量 8。
-4. ~~**`src/pages/EcCanvas/**` 两处小尾巴**：`.ec-canvas-layers-panel` 里 `left:72px; bottom:70px` 是**死声明**~~ ——
+2. ~~**V2 剩余 121 处**（门禁口径内）~~ → **已清零**（D39 收尾；D41 复测仍为 **0 / 0 名**）。**本条保留仅作历史。**
+3. ~~**DS 层剩余债务** hex 13 / rgba 27 / V2 变量 8~~ → **0 / 0 / 0**（门禁已归零）。
+4. **V2「定义」清理（新的独立批次，未开工）** —— **用法归零 ≠ 定义消失**：
+   门禁口径内的**用法**是 0，但 V2 权威文件（`design-tokens.css` + `theme.css`）里仍有
+   **165 个非 `--sb-*` 定义**（暗色作用域 93 个），其中**约 61 个已不可达**
+   （例：`--nav-height` 定义在 `design-tokens.css:150/491`，**全仓 0 处引用**）。
+   删定义前必须**按这个顺序**先处理三件事（顺序反了就会破坏可读性）：
+   ① 40 篇文档里的 `var(--v2-*)` 示例（含 `薯包AI Design System/` 的**活样例 HTML**）；
+   ② 34 处测试引用 —— 多数是 `legacy-token-family.test.mjs` 里的**历史叙述**，
+      **不许为了数字好看删注释**（铁律③，这条已经踩过）；
+   ③ `theme.css` 里 13 条暗色覆盖。
+   已登记为 **D40**。
+5. **ICP 备案（等人）**：未备案期间，**机房来源**访问本域名会被拦截（按来源 IP 类别判定）。
+   本机（部署机）正属这一类，故所有公网校验**必须换视角复跑**；
+   **住宅来源（大陆与海外）都正常** —— 判断「用户能不能打开」要看这个，不要看本机。
+6. ~~**`src/pages/EcCanvas/**` 两处小尾巴**：`.ec-canvas-layers-panel` 里 `left:72px; bottom:70px` 是**死声明**~~ ——
    ⚠️ **该诊断已被第 81 轮推翻，不要照做**：`CanvasChrome.jsx:198` 的 `panelStyle` 只在
    `resolveAnchoredRight()` 解出 `solved` 时才给内联定位；`anchorRect` 为 null 时
    **`panelStyle === undefined`** → 本行的 `left/bottom` 就是**唯一生效的定位**，它是**兜底分支**而非残渣。
@@ -152,7 +165,7 @@ node scripts/space-ratchet.mjs     # 尺度值棘轮（token 名可变，值一�
 cd F:/da/shubao/.worktrees/codex-ecommerce-stability
 git rev-parse HEAD                 # 记录起点
 git status --porcelain | head      # 看有没有他人在途
-npm run precommit                  # 构建 + 12 条硬门禁：必须绿，否则先修再动
+npm run precommit                  # 构建 + 18 条硬门禁：必须绿，否则先修再动
 node scripts/design-audit.mjs      # 拿一份可信基线（工作区不干净时读数不可信）
 ```
 
