@@ -306,7 +306,14 @@ test('D7 面板内不得用纯白卡做分组容器（只允许控件用白）',
 test('D7 分组一律用留白 + 分组标题（不再靠卡片框出分组）', () => {
   const src = read('src/pages/Home/ec/GenSettingsPanel.jsx');
   assert.ok(src.includes('<GroupTitle'), '分组必须用 GroupTitle 标题分区');
-  assert.ok(src.includes('var(--sb-group-gap)'), '分组之间用统一留白');
+  /* ⚠️ 2026-09-15 更新：分组间距从 V3 的 --sb-group-gap(20) 改走**六面板统一的
+     SPACING 阶梯**（sp4 = 16）—— 改的目的正是让「生成设置」与另外五个面板同源，
+     原先 20 vs 16 本身就是用户批注「标题设计方式参差不齐」的一部分。
+     判据不变：分组之间必须是**统一留白**，不得退化成各写各的魔法数字。 */
+  assert.ok(
+    src.includes('gap: SPACING.sp4') || src.includes('var(--sb-group-gap)'),
+    '分组之间用统一留白（SPACING 阶梯或 V3 token，二者同源即可）',
+  );
   /* 分组容器本身不得是白卡 */
   const groupBlocks = src.split('<GroupTitle').slice(1);
   for (const blk of groupBlocks) {

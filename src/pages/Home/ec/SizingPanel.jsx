@@ -1,23 +1,24 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
-import {
-  Check, Info, ChevronDown, Globe2,
-  Square, Image as ImageIcon, RectangleVertical, Scissors, Rows3,
-} from 'lucide-react';
+import { Check, Info, ChevronDown, Images } from 'lucide-react';
 import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import {
+  defaultRatioFor,
   getLegalRatios,
+  migrateLegacySizingImages,
   IMAGE_TYPES,
   PLATFORM_PRESETS,
   RATIOS,
   resolveSizingImages,
 } from './ecommercePlanModel.js';
+import { ImageTypeBadge } from './ImageTypeGlyph.jsx';
+import { GroupTitle } from './PanelPrimitives.jsx';
 import { normalizeCommerceFormat } from './ecommerceFormatRegistry.js';
 import { COMMERCE_LANGUAGES, COMMERCE_PLATFORMS } from './internationalCommerceRegistry.js';
 import {
   SPACING,
   FONT_SIZE,
   CONTROL_HEIGHT,
-  groupTitleStyle,
+  ICON_SIZE,
   helperTextStyle,
   textRoleStyle,
 } from './panelVisualLanguage.js';
@@ -26,38 +27,12 @@ import {
    间距走统一阶梯。本面板的交互逻辑（平台/语言/图片类型/比例联动）零改动，
    只把视觉层换成规范常量 —— 用户明确要求「不能粗暴匹配，要相应适配」。 */
 
-/* ═══ 图片类型行图标（2026-09-15 用户批注图3-③）═══
-   用户原话：「现在这 5 个图标他们都有点太老土了，完全就是那种很简单的那种 demo 版的东西……
-   你要知道要做的是一些比较先进的视觉方案，而不是说用一些 demo 的、用一些占位的东西放上去。」
-   原来的实现是**emoji**（⬜🖼️📱🔲📋）—— 形状与配色随系统字体变化，且自带占位感。
-   现在改为项目既有图标族（lucide）里的语义图标 + 统一徽章底：
-     · 徽章 28×28 圆角方底，选中时品牌浅底 + 品牌墨色，未选中时中性底 + 次级墨色；
-     · 图标 15px stroke 1.8，与全站图标语言一致。
-   顺带满足用户同一条批注里的另半句：「你这个打钩的框，它怎么跟你的图标是一样大的呀？」
-   —— 勾选框是「状态」，徽章是「这是什么」，两者必须有大小差：18 vs 28。 */
-const TYPE_ICONS = Object.freeze({
-  whiteBg: Square,
-  mainText: ImageIcon,
-  mainPortrait: RectangleVertical,
-  transparent: Scissors,
-  detail: Rows3,
-});
-
-function TypeBadge({ iconKey, checked }) {
-  const Icon = TYPE_ICONS[iconKey] || Square;
-  return (
-    <span aria-hidden="true" style={{
-      width: 28, height: 28, flexShrink: 0, borderRadius: 'var(--sb-radius-control)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: checked ? 'var(--sb-brand-50)' : 'var(--sb-neutral-100)',
-      color: checked ? 'var(--sb-brand-700)' : 'var(--sb-ink-3)',
-      transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
-    }}>
-      <Icon size={15} strokeWidth={1.8} />
-    </span>
-  );
-}
-
+/*/* ═══ 图片类型行图标 ═══
+   图标的实现已经搬到 ./ImageTypeGlyph.jsx（自绘 duotone 图形，一套四枚 + 底板）。
+   为什么搬走：图标要从「通用图标库里的符号」变成「一套有设计语言的图形」，
+   它就不再是 SizingPanel 的私有细节 —— 画布侧、方案摘要等入口都会复用同一套，
+   放在面板文件里必然被复制成第二份。
+   ⚠️ 尺寸关系（用户两轮都在说这件事）：徽章底板 36 / 图形 22 / 勾选框 16。 */
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
   return (
@@ -166,8 +141,12 @@ export default function SizingPanel({
   const [hoverRow, setHoverRow] = useState('');
   const platformButtonRef = useRef(null);
   const languageButtonRef = useRef(null);
-  // 当前激活的图片类型列表
-  const activeImages = resolveSizingImages(platform, { ...sizing, resolution });
+  /* 当前激活的图片类型列表。
+     ⚠️ 外面这层 migrateLegacySizingImages **不是**多余的：历史草稿里可能带 main_3x4，
+     而本面板只渲染 IMAGE_TYPES 那 4 行 —— 不迁移的话，「共 N 张图片」会把一行
+     用户看不见、也改不了的图算进去。迁移只做显示层的合并（总张数不变），
+     不改公共解析层，因此出图链路（含试穿）下发的角色 key 一字未动。 */
+  const activeImages = migrateLegacySizingImages(resolveSizingImages(platform, { ...sizing, resolution }));
   // 已激活的 key 集合
   const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
   /* ── 平台切换 ── */
@@ -197,7 +176,9 @@ export default function SizingPanel({
       next = activeImages.filter(i => i.key !== typeKey);
     } else {
       // 勾选 → 添加（默认数量）
-      const format = normalizeCommerceFormat({ ratio: typeDef.defaultRatio, role: typeKey });
+      /* 3:4 不再是一行独立的类型，而是「商品主图」在移动优先平台上的默认比例 ——
+         见 ecommercePlanModel.defaultRatioFor()（用户批注图4-②）。 */
+      const format = normalizeCommerceFormat({ ratio: defaultRatioFor(typeKey, platform), role: typeKey });
       next = [...activeImages, {
         key: typeKey,
         count: typeDef.defaultCount || 1,
@@ -281,22 +262,23 @@ export default function SizingPanel({
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, marginBottom: SPACING.sp4, ...helperTextStyle }}>
-          <Globe2 size={12} style={{ flexShrink: 0 }} />
-          <span>{platformOption.summary}</span>
+
+        {/* ── 平台摘要：两句都删掉了（2026-09-15 用户批注图2-② + 图2 复核②）──
+            用户原话（第一次）：「方形主图、商品卖点与详情长图 / 当前方案：淘宝 · 白底首图×1、
+            商品主图×3、透明 PNG×1、详情切片×5 —— 这个部分我觉得可以不要。」
+            ⚠️ **我第一次只删了「当前方案：」那半句，把上一句（platformOption.summary）留下了** ——
+            用户复核时明确指出：「这个方形主图商品卖点这句我不是叫你给他删掉吗？你怎么还是没删掉呀？」
+            本次两句一起删除。
+            理由同前：底部「套图方案」按钮已实时显示同一份摘要，面板里再写一遍是同一信息的第二处渲染。
+            platformOption.summary / pDef 保留在模型层（其它入口仍可用），只是不再在本面板上屏。 */}
+        {/* ── 图片类型列表 ──
+            标题走统一 GroupTitle（13/700/ink-1 + 14px 图标）。
+            ⚠️ 上一轮这里是**裸的** 13/700、没有图标，而「避免出现的元素」有图标 ——
+            用户看成两套系统：「标题的设计方式好像都参差不齐的」。
+            节奏：与上方平台栅格之间 sp4(16)，标题 ↔ 首行 sp3(12)。 */}
+        <div style={{ marginTop: SPACING.sp4, marginBottom: SPACING.sp3 }}>
+          <GroupTitle icon={Images}>图片类型</GroupTitle>
         </div>
-
-        {/* ── 平台说明 ──
-            2026-09-15 用户批注（图2-②）：整块删除。
-            用户原话：「方形主图、商品卖点与详情长图 / 当前方案：淘宝 · 白底首图×1、商品主图×3、
-            透明 PNG×1、详情切片×5 —— 这个部分我觉得可以不要，没有这个必要。因为实际上你这里
-            调整了什么东西，下面的那个面板按钮它是会跟着显示跟着调整的。你没有必要在这个地方
-            还写一套这个字，在这里是重复的功能。」
-            —— 底部「套图方案」按钮上已经实时显示同一份摘要，面板里再写一遍是**同一信息的第二处渲染**。
-            pDef.desc 保留在模型里（其它入口仍可用），只是不再在本面板重复上屏。 */}
-
-        {/* ── 图片类型列表 ── */}
-        <div style={{ ...groupTitleStyle, marginBottom: SPACING.sp2 }}>图片类型</div>
         {/* 2026-09-15 用户批注（图2-①）：「这 5 个类型的紫色边框已经完全重叠了、挤在一起」。
             根因：行距只有 sp1(4px)，而选中行还有 1.5px 边框 + ring 阴影 —— 相邻两行都被选中时，
             两个环在视觉上就贴成一条。改为 sp2(8px)，给边框与阴影留出可分辨的间隔。 */}
@@ -334,20 +316,22 @@ export default function SizingPanel({
                 {/* 勾选框：视觉 20×20（保持分类列表的轻量感），
                     点击目标由父行承担（父行 minHeight 48px 且整行 onClick）。 */}
                 <div aria-hidden="true" style={{
-                  /* 18 而非 20：勾选框是「状态」，右侧 28px 徽章是「这是什么」——
-                     两者同大时用户批注「完全没有主次之分」（图3-③）。 */
-                  width: 18, height: 18, borderRadius: 'var(--sb-radius-chip)', flexShrink: 0,
+                  /* 16，而右侧类型徽章是 36 —— 「选中了没有」（状态）与「这是什么」（身份）
+                     的尺寸必须差到不可能看错。上一版是 18 vs 28（1.56 倍），用户复核时仍然说
+                     「你这个图标跟你的这个打钩的框怎么是一样大的」（图4-③），现在 2.25 倍。 */
+                  width: ICON_SIZE.typeCheckbox, height: ICON_SIZE.typeCheckbox,
+                  borderRadius: 'var(--sb-radius-chip)', flexShrink: 0,
                   /* 勾选 = 品牌色（原则 6.1「当前选中」），未选 = 中性描边 */
                   border: `2px solid ${checked ? 'var(--sb-brand)' : 'var(--sb-border-strong)'}`,
                   background: checked ? 'var(--sb-brand)' : 'var(--sb-surface-card)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
                 }}>
-                  {checked && <Check size={12} color="var(--sb-brand-ink)" strokeWidth={3} />}
+                  {checked && <Check size={11} color="var(--sb-brand-ink)" strokeWidth={3.2} />}
                 </div>
 
                 {/* 图标 + 标签 */}
-                <TypeBadge iconKey={typeDef.iconKey} checked={checked} />
+                <ImageTypeBadge iconKey={typeDef.iconKey} checked={checked} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)' }}>{typeDef.label}</div>
                   <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>
@@ -372,7 +356,20 @@ export default function SizingPanel({
                   <span style={helperTextStyle}>数量</span>
                   <input type="number" min={0} max={typeDef.maxCount || 20}
                     value={checked && activeItem ? activeItem.count : typeDef.defaultCount}
-                    onChange={e => updateCount(typeDef.key, parseInt(e.target.value) || 0)}
+                    onChange={e => {
+                      /* 2026-09-15 用户批注（图3-④）：「数量这里会变成 01」。
+                         根因不是取值逻辑，而是**受控 input 的写回时机**：
+                         React 只比对「本次 value」与「上次 value」，两者相同就**根本不写 DOM**。
+                         光标停在 1 前面敲个 0 → DOM 变 "01"，parseInt("01") 还是 1，
+                         value 没变化 → React 不纠正 → "01" 就留在框里了。
+                         所以前导零与越界都必须在**这一帧直接写回 e.target.value**，
+                         不能只依赖 value 属性。 */
+                      const digits = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+                      const max = typeDef.maxCount || 20;
+                      const next = digits === '' ? 0 : Math.min(Math.max(parseInt(digits, 10), 0), max);
+                      if (e.target.value !== String(next)) e.target.value = String(next);
+                      updateCount(typeDef.key, next);
+                    }}
                     disabled={!checked}
                     style={{
                       width: 44, height: 'var(--sb-control-sm)', textAlign: 'center', borderRadius: 'var(--sb-radius-control)',

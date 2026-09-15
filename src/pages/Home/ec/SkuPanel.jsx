@@ -6,11 +6,10 @@ import {
   SPACING,
   FONT_SIZE,
   CONTROL_HEIGHT,
-  groupTitleStyle,
   helperTextStyle,
   inputStyle,
-  sectionStyle,
 } from './panelVisualLanguage.js';
+import { FieldLabel } from './PanelPrimitives.jsx';
 
 /* ═══════ SKU 变体面板 ═══════
    2026-09-15 用户批注①（子项 2/3）：面板宽度统一 + 内部控件加强 + 多行框可拉。
@@ -23,20 +22,11 @@ import {
    · 每个变体可写「变体说明」（多行、带右下角拉伸手柄）——
      用户填 SKU 时经常要标注差异事实（尺寸/容量/材质），必须有地方写。 */
 
-function GroupTitle({ icon: Icon, children }) {
-  return (
-    <div style={groupTitleStyle}>
-      <Icon size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function FieldLabel({ children }) {
-  return (
-    <div style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', lineHeight: 1.4 }}>{children}</div>
-  );
-}
+/* ⚠️ 这里曾经有两个局部组件（GroupTitle / FieldLabel），2026-09-15 删除：
+   · GroupTitle 在分组标题被删掉之后就**零调用**了 —— 死代码；
+   · FieldLabel 自己写死 12/600/ink-2，与 panelVisualLanguage 的 TEXT_ROLE 是两份真相
+     （这次把 TEXT_ROLE.fieldLabel 从 11 抬到 12，它恰好「碰巧」一致 —— 越是这样越必须合并）。
+   现在两者都只有一处实现：PanelPrimitives.jsx。 */
 
 export default function SkuPanel({ skus, onChange, sizing, onSizingChange, available = null }) {
   const add = () => onChange([...skus, { id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1, note: '' }]);
@@ -101,7 +91,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
                 {/* 四个事实字段：2×2（480px 面板下每列约 180px，放得下中文标签与内容） */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
                   {fields.map(f => (
-                    <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp1 }}>
+                    <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
                       <FieldLabel>{f.label}</FieldLabel>
                       <input value={sku[f.key] || ''} onChange={e => upd(sku.id, f.key, e.target.value)}
                         aria-label={`变体 ${idx + 1} ${f.label}`}
@@ -111,7 +101,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
                 </div>
 
                 {/* 变体说明：多行 + 右下角拉伸手柄 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
                   <FieldLabel>变体说明（选填）</FieldLabel>
                   <ResizableTextarea
                     aria-label={`变体 ${idx + 1} 说明`}

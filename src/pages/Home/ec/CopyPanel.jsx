@@ -1,7 +1,8 @@
 import React from 'react';
 import { Target, ShieldCheck, Search, HeartHandshake } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
-import { SPACING, groupTitleStyle, sectionStyle, textRoleStyle } from './panelVisualLanguage.js';
+import { SPACING, fieldStackStyle } from './panelVisualLanguage.js';
+import { FieldLabel } from './PanelPrimitives.jsx';
 
 /* ═══════ 内容规范面板（正向文案）═══════
    2026-09-15 用户批注①（子项 2/3）：
@@ -18,15 +19,9 @@ import { SPACING, groupTitleStyle, sectionStyle, textRoleStyle } from './panelVi
    本面板是「内容规范」的首段：正向要什么（创意思路/卖点/质检/细节/保养）。
    反向不要什么由同面板的 GenerationConstraintsPanel 承接（避免出现的元素）。 */
 
-/* 分组标题行 */
-function GroupTitle({ icon: Icon, children }) {
-  return (
-    <div style={groupTitleStyle}>
-      <Icon size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
+/* ⚠️ 这里曾经有一个局部 GroupTitle，2026-09-15 删除：
+   「交付要点」标题被用户点名删掉之后它就**零调用**了 —— 死代码。
+   分组标题现在只有一处实现：PanelPrimitives.jsx 的 GroupTitle。 */
 
 export default function CopyPanel({ copywriting, onChange, available = null }) {
   const setF = (key, val) => onChange({ ...copywriting, [key]: val });
@@ -50,16 +45,13 @@ export default function CopyPanel({ copywriting, onChange, available = null }) {
                  放进配置面板等于把方向盘装进保险丝盒。
             · 「交付要点」只删标题、保留下面 4 个字段 —— 用户原话：「这种什么交付要点啊，也要去掉」。
             copywriting.plan 字段保留在数据层（历史草稿仍可读），只是不再在本面板上屏。 */}
-        <div style={sectionStyle}>
+        <div style={fieldStackStyle}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
             {detailFields.map(f => (
-              <div key={f.key} style={sectionStyle}>
-                {/* 字段标签走阶梯里的 fieldLabel 档（11/600），比下面的控件值轻一档 ——
-                    用户批注图3-② 要的就是这条主次关系。 */}
-                <div style={{ ...textRoleStyle('fieldLabel'), display: 'flex', alignItems: 'center', gap: SPACING.sp1 }}>
-                  <f.icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
-                  <span>{f.label}</span>
-                </div>
+              <div key={f.key} style={fieldStackStyle}>
+                {/* 字段标签走统一组件（12/600/ink-2），比下面的控件值轻一档 ——
+                    用户批注图3-② 要的就是这条主次关系；图4-①「太素了」把标签从 11 抬到 12。 */}
+                <FieldLabel icon={f.icon}>{f.label}</FieldLabel>
                 <ResizableTextarea
                   aria-label={f.label}
                   value={copywriting[f.key] || ''}

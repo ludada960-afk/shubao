@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ChevronDown, Monitor, Palette, Sparkles } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
+import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelResolutions, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 import { brandLogo } from '../../../services/modelLogos.js';
 import ModelLogo from '../../../components/ModelLogo.jsx';
+import { GroupTitle } from './PanelPrimitives.jsx';
 /* 未锁定态的唯一事实源（D8：同一语义只允许一处定义，禁止各面板内联同一组值）。 */
-import { NEUTRAL_UNLOCKED } from './panelVisualLanguage.js';
+import { ICON_SIZE, NEUTRAL_UNLOCKED, SPACING } from './panelVisualLanguage.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    2026-09-15 总统筹 V3 改造（用户点名「最丑」的面板）
@@ -57,26 +59,12 @@ const RESOLUTIONS = [
   { key: '4K', label: '4K', ratio: '超清', desc: '看细节' },
 ];
 
-/* 分组标题（原则 3.2：用「留白 + 分组标题」分区，而不是套卡片）
-   11/700 + --sb-text-hint；与内容间距 --sb-field-gap(8)，
-   分组之间由父级 --sb-group-gap(20) 拉开。 */
-function GroupTitle({ icon: Icon, children }) {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'var(--sb-space-2)',
-      fontSize: 'var(--sb-text-2xs)',
-      fontWeight: 'var(--sb-weight-bold)',
-      color: 'var(--sb-text-hint)',
-      lineHeight: 'var(--sb-leading-tight)',
-    }}>
-      {/* 中性色图标：标签是层级信息，不是品牌动作（原则 6.1） */}
-      <Icon size={13} style={{ flexShrink: 0 }} aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
+/* ⚠️ 这里曾经有一个**本面板私有**的 GroupTitle：10px / bold / --sb-text-hint（灰）。
+   它正是用户批注图6-⑧「所有面板的标题设计方式参差不齐」的最大来源 ——
+   同一档「分组标题」，套图方案是 13/700/--sb-ink-1（近黑），这里是 10px 灰，
+   面板换一个、标题就换一种长相，用户当然觉得「没有体系」。
+   2026-09-15 删除，改用 PanelPrimitives.GroupTitle（全站唯一实现）。
+   原则 6.1（分组标签不染品牌色）仍然成立：GroupTitle 的墨色是中性 --sb-ink-1。 */
 
 export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null }) {
   const safeValue = value || {};
@@ -86,6 +74,12 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
   /* 清晰度选项跟着模型能力走 —— Midjourney 上游只有 1K/2K（既有契约，不许破坏）。 */
   const availableResolutions = imageModelResolutions(selectedModel);
   const resolutionChoices = RESOLUTIONS.filter(r => availableResolutions.includes(r.key));
+  /* 展开列表里要展示的「其它可选项」：过滤掉当前已选的那个。
+     用户批注图6-⑨：「去掉模型下拉顶部重复的『当前模型』项」—— 当前模型就在正上方的
+     触发按钮里，展开后它又出现在列表第一行，用户看到的是同一个名字写了两遍。
+     兜底：万一过滤后为空（账号只有一款可用模型），退回完整列表 —— 不能点开一个空面板。 */
+  const otherModels = SELECTABLE_IMAGE_MODELS.filter(model => model.id !== selectedModel);
+  const listModels = otherModels.length > 0 ? otherModels : SELECTABLE_IMAGE_MODELS;
 
   /* 原则 6.3：默认「未锁定任何颜色」；锁定态只由外部 brandColors 推导。 */
   const brandLocked = Array.isArray(brandColors) && brandColors.length > 0;
@@ -96,6 +90,10 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
     : '';
   const [pickerColor, setPickerColor] = useState(() => (brandLocked && brandColors[0] ? brandColors[0] : (neutralInk || FALLBACK_NEUTRAL_INK)));
   const [pickerOpen, setPickerOpen] = useState(false);
+  /* 取色器的定位锚点 = 整行（色块 + 色值输入框 + 锁定按钮）。
+     取整行而不是取色块按钮：AnchoredPortal 的「点外部即关闭」只认锚点子树，
+     若只锚色块，用户点色值输入框调整数值时会被判成「点了外面」而把色盘关掉。 */
+  const pickerRowRef = useRef(null);
   const [modelListOpen, setModelListOpen] = useState(false);
   /* 注：本组件不再自管 hover 状态 —— .sb-opt 用 CSS 伪类表达 hover，
      既满足 D2「hover 只做底色」，又避免内联 style 覆盖声明式伪类。 */
@@ -127,11 +125,16 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
   /* 模型名过长时的规则不变（用户已拍板）：槽位宽固定、内部溢出裁切、**不要省略号** */
   const modelRow = (model, active, showDesc = true) => (
     <span style={{ minWidth: 0, flex: 1 }}>
-      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)' }}>
+      {/* ⚠️ 原来是 justifyContent: 'space-between' —— 模型名贴左、徽章贴右，中间空出一大片
+          （用户批注图6-⑨：「消除按钮内两侧大片空白」）。现在名字与徽章挨在一起读成一个单元，
+          整行末尾的空档交给 chevron 的 marginLeft:auto。 */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', minWidth: 0 }}>
         <strong style={{
           fontSize: 'var(--sb-text-xs)',
           fontWeight: 'var(--sb-weight-semibold)',
           color: active ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)',
+          /* 模型名过长时的规则不变（用户已拍板）：槽位宽固定、内部溢出裁切、**不要省略号** */
+          overflow: 'hidden', whiteSpace: 'nowrap',
         }}>{model.label}</strong>
         <span style={{
           fontSize: 'var(--sb-text-2xs)',
@@ -166,16 +169,21 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
 
   return (
     <div style={{ padding: 0 }}>
-      {/* 面板内边距 --sb-panel-padding(20)、分组间距 --sb-group-gap(20)（原则 2.1） */}
+      {/* 内边距与分区间距改走**六面板统一的间距阶梯**（panelVisualLanguage.SPACING），
+          不再用 V3 的 --sb-panel-padding(20) / --sb-group-gap(20)：
+          那套值让「生成设置」的内边距与分组间距和另外五个面板（24/20 与 16）对不上，
+          属于用户批注图6-⑧「都参差不齐」的一部分。
+          节奏：面板上下 sp6(24) / 左右 sp5(20)；分组 ↔ 分组 sp4(16)；
+                分组标题 ↔ 内容 sp3(12)；字段标签 ↔ 控件 sp2(8)。 */}
       <div style={{
-        padding: 'var(--sb-panel-padding)',
+        padding: `${SPACING.sp6}px ${SPACING.sp5}px`,
         display: 'flex',
         flexDirection: 'column',
-        gap: 'var(--sb-group-gap)',
+        gap: SPACING.sp4,
       }}>
 
         {/* ── 分组 1：生图模型 ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-field-gap)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
           <GroupTitle icon={Sparkles}>生图模型</GroupTitle>
           <button
             type="button"
@@ -185,10 +193,11 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
             /* 行高 ≥44px（用户「点击区不许缩水」）：V3 阶梯 28/32/36/44 中取 44。 */
             style={{ minHeight: 'var(--sb-control-touch)' }}
           >
-            {modelIcon(currentDef || { brand: 'openai' }, 22)}
+            {modelIcon(currentDef || { brand: 'openai' }, ICON_SIZE.modelTrigger)}
             {modelRow(currentDef || { id: selectedModel, label: '智能推荐', badge: '', description: '' }, false, false)}
             <ChevronDown size={15} aria-hidden="true" style={{
               flexShrink: 0,
+              marginLeft: 'auto',
               color: modelListOpen ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-hint)',
               transform: modelListOpen ? 'rotate(180deg)' : 'none',
               transition: 'transform var(--sb-duration-fast) var(--sb-ease-out)',
@@ -196,7 +205,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
           </button>
           {modelListOpen && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--sb-space-2)' }}>
-              {SELECTABLE_IMAGE_MODELS.map(model => {
+              {listModels.map(model => {
                 const active = selectedModel === model.id;
                 const key = 'model-' + model.id;
                 return (
@@ -208,7 +217,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                     onClick={() => selectModel(model)}
                     style={{ minHeight: 'var(--sb-control-touch)' }}
                   >
-                    {modelIcon(model, 24)}
+                    {modelIcon(model, ICON_SIZE.modelOption)}
                     {modelRow(model, active)}
                   </button>
                 );
@@ -218,7 +227,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
         </div>
 
         {/* ── 分组 2：清晰度 ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-field-gap)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
           <GroupTitle icon={Monitor}>清晰度</GroupTitle>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resolutionChoices.length}, minmax(0, 1fr))`, gap: 'var(--sb-space-2)' }}>
             {resolutionChoices.map(r => {
@@ -260,9 +269,9 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
 
         {/* ── 分组 3：品牌主色调（默认未锁定） ── */}
         {onBrandColorsChange && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-field-gap)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
             <GroupTitle icon={Palette}>品牌主色调</GroupTitle>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
+            <div ref={pickerRowRef} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)' }}>
               {/* 未锁定 = 中性灰虚线、零品牌紫（原则 6.3）；锁定 = 描边跟随所选颜色本身 */}
               <button
                 type="button"
@@ -337,11 +346,23 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 （2026-09-15 用户批注图1-②：「我点击之后它是没有弹出那个真正的色盘，好像卡住了」。）
                 现在只看 pickerOpen：打开就能调；调色即通过 onChange 写入 brandColors（= 锁定），
                 与「锁定」按钮的语义一致，不需要先点锁定再调色。 */}
-            {pickerOpen && (
-              <div style={{ borderRadius: 'var(--sb-radius-card)', overflow: 'hidden', border: '1px solid var(--sb-border-subtle)' }}>
-                <HexColorPicker color={pickerColor} onChange={color => { setPickerColor(color); onBrandColorsChange?.([color, color]); }} style={{ width: '100%', height: 128 }} />
+            {/* 取色器走 AnchoredPortal（与平台下拉同一套定位机制）——
+                2026-09-15 用户批注（图6-⑩）：「调色盘展开不得被可视区截断」。
+                内联渲染时它是面板文档流里的最后一块，面板一旦靠近视口底部就会被裁掉；
+                AnchoredPortal 在下方放不下时会**自动翻到上方**，并夹在视口安全边距内，
+                随滚动/resize 重新定位。高度 128 → 168，取色更从容。 */}
+            <AnchoredPortal
+              anchorRef={pickerRowRef}
+              open={pickerOpen}
+              onDismiss={() => setPickerOpen(false)}
+              align="start"
+              minWidth={240}
+              maxWidth={260}
+            >
+              <div style={{ borderRadius: 'var(--sb-radius-card)', overflow: 'hidden', border: '1px solid var(--sb-border-subtle)', background: 'var(--sb-surface-card)' }}>
+                <HexColorPicker color={pickerColor} onChange={color => { setPickerColor(color); onBrandColorsChange?.([color, color]); }} style={{ width: '100%', height: 168 }} />
               </div>
-            )}
+            </AnchoredPortal>
           </div>
         )}
       </div>

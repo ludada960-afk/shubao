@@ -3,10 +3,10 @@ import { Check, Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-
 import {
   SPACING,
   FONT_SIZE,
-  fieldLabelStyle,
   inputStyle,
-  sectionStyle,
+  fieldStackStyle,
 } from './panelVisualLanguage.js';
+import { FieldLabel } from './PanelPrimitives.jsx';
 
 const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', '食品饮料', '母婴用品', '宠物用品', '运动户外', '汽车用品', '图书文具', '珠宝配饰', '其他'];
 
@@ -20,14 +20,9 @@ const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', 
    本面板不再有分组大标题，只有**字段标签 + 控件**两层：
      品类 · 产品尺寸 / 底色主色 / 点缀色 / 材质（2 列）· 工艺说明
    理由见下方各段注释：大标题与字段标签是同一层级的信息写两遍。
-   输入框统一走 inputStyle（36 高 / 8 圆角 / token 配色），标签走 fieldLabelStyle（主次阶梯）。 */function FieldLabel({ icon: Icon, children }) {
-  return (
-    <div style={{ ...fieldLabelStyle, lineHeight: 1.4 }}>
-      <Icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
+   输入框统一走 inputStyle（36 高 / 8 圆角 / token 配色），标签走 fieldLabelStyle（主次阶梯）。 */
+/* 本面板的 FieldLabel 改为共用 PanelPrimitives 的那一个（12/600/ink-2 + 12px 图标）。
+   原先这里自己写死一套 12/600/ink-2 —— 与 TEXT_ROLE 是两份真相，改阶梯时必然漏一处。 */
 
 export default function ParamsPanel({ params, onChange, mode = 'product' }) {
   const [catOpen, setCatOpen] = useState(false);
@@ -55,7 +50,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
             —— 每个框本来就有自己的字段标签，再加一层分组大标题 = 同一层级信息写两遍。
             这一格本来只有大标题、没有字段标签，所以**把它降级成字段标签**，
             而不是直接删掉（否则输入框就变成没有名字的裸框）。 */}
-        <div style={sectionStyle}>
+        <div style={fieldStackStyle}>
           <FieldLabel icon={Shapes}>{mode === 'tryon' ? '商品类型' : '品类'}</FieldLabel>
           <div style={{ position: 'relative' }}>
             <input
@@ -93,7 +88,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
         </div>
 
         {/* ── 外观与材质（2 列，各自带字段标签） ── */}
-        <div style={sectionStyle}>
+        <div style={fieldStackStyle}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
             {appearanceFields.map(f => (
               <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
@@ -117,7 +112,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
             都有吗？」—— 「避免出现的元素」已在内容规范面板承接反向约束，这里再开一个自由文本框，
             等于同一件事有两个入口，用户不知道该写哪个。
             params.extraNotes 字段保留在数据层（历史草稿仍可读），只是不再在本面板上屏。 */}
-        <div style={sectionStyle}>
+        <div style={fieldStackStyle}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
             <FieldLabel icon={Hammer}>{mode === 'tryon' ? '版型与工艺' : '工艺说明'}</FieldLabel>
             <input

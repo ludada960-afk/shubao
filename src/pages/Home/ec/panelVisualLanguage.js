@@ -30,12 +30,17 @@
    改造前是 1/2/3/4/5/6/8/10/12/14/16 十档混用 —— 那才是「挤在一块」的来源。
 
    ── 2. 字号层级（4 档，每档语义唯一） ─────────────────────────────────
-     fontSize.groupTitle 13 / 700   分组标题（「生图模型」「清晰度」）
-     fontSize.fieldLabel 12 / 600   字段标签（「产品尺寸」「核心卖点」）
+     fontSize.groupTitle 13 / 700   分组标题（「图片类型」「避免出现的元素」）
+     fontSize.fieldLabel 12 / 600   字段标签（「目标平台」「产品尺寸」「核心卖点」）
      fontSize.body       12 / 400   正文、输入框内容、选项说明
      fontSize.helper     11 / 400   辅助说明、徽标、脚注
    刻意不留 9px/10px：用户批注「清晰度这些模块做得特别小」——
    9-10px 在 2K 屏上不可读，全部并入 11px 辅助档。
+
+   ⚠️ 2026-09-15 二次对齐（用户批注图5-②）：本表一直写着 fieldLabel = 12，
+      但 TEXT_ROLE.fieldLabel 实际是 **11** —— **文档与代码互相打架**，
+      上一轮我就是照着这份错文档以为已经统一了。现已把代码对齐到真值 12，
+      并补契约测试锁死「FONT_SIZE.fieldLabel === TEXT_ROLE.fieldLabel.size」。
 
    ── 3. 控件高度（点击区 ≥32px，用户批注「输入区都特别小」） ────────────
      control.compact 32  紧凑控件（分段控件、比例选择器、SKU 行内输入）
@@ -84,15 +89,15 @@
 export const SPACING = Object.freeze({
   /** 4 图标 ↔ 文字（唯一允许的半档） */
   sp1: 4,
-  /** 8 标签 ↔ 控件；同排控件互间 */
+  /** 8 字段标签 ↔ 它的控件；同排控件互间 */
   sp2: 8,
-  /** 12 控件 ↔ 控件（上下相邻字段） */
+  /** 12 控件 ↔ 控件；分组标题 ↔ 它的内容 */
   sp3: 12,
   /** 16 分组 ↔ 分组 */
   sp4: 16,
-  /** 20 分组标题 ↔ 内容 */
+  /** 20 面板左右内边距 */
   sp5: 20,
-  /** 24 面板内边距 */
+  /** 24 面板上下内边距 */
   sp6: 24,
 });
 
@@ -120,8 +125,15 @@ export const TEXT_ROLE = Object.freeze({
   groupTitle: Object.freeze({ size: 13, weight: 700, tone: 'var(--sb-ink-1)' }),
   /** 控件值：用户真正要读、要改的东西。必须比字段标签重 */
   value: Object.freeze({ size: 13, weight: 600, tone: 'var(--sb-text-primary)' }),
-  /** 字段标签：「这格叫什么」。比控件值轻一档 */
-  fieldLabel: Object.freeze({ size: 11, weight: 600, tone: 'var(--sb-ink-3)' }),
+  /** 字段标签：「这格叫什么」。比控件值轻一档，但不许「素」。
+   *
+   *  2026-09-15 用户批注两句话一起改这里（图4-① / 图5-②）：
+   *    · 「你的这些小标题都太素了。就是太简单了，感觉就像个demo一样。」 → 11 抬到 **12**；
+   *    · 「避免出现的元素……又大又加深，这些东西都跟他们不一样。」 →
+   *      根因不是那个标题太大，而是**标签太小太浅**，落差被放大成「参差不齐」。
+   *      所以标签抬到 12/ink-2，分组标题保持 13/ink-1，两档只差 1px + 一个字重，
+   *      层级靠**图标 + 间距（分组标题上方 sp4）**区分，而不是靠悬殊字号。 */
+  fieldLabel: Object.freeze({ size: 12, weight: 600, tone: 'var(--sb-ink-2)' }),
   /** 辅助说明：描述/单位/提示，最轻 */
   helper: Object.freeze({ size: 11, weight: 400, tone: 'var(--sb-ink-3)' }),
 });
@@ -131,6 +143,37 @@ export function textRoleStyle(role) {
   const spec = TEXT_ROLE[role] || TEXT_ROLE.value;
   return { fontSize: spec.size, fontWeight: spec.weight, color: spec.tone };
 }
+
+/* ═══════ 图标尺寸档（2026-09-15 用户批注图3-③ / 图4-③）═══════
+   用户两轮都在说同一件事：
+     · 「现在这 5 个图标他们都有点太老土了，完全就是那种很简单的那种 demo 版的东西」；
+     · 「你这个图标跟你的这个打钩的框怎么是一样大的？」
+   所以图标必须**成体系**：每一档只有一个用途，且「说明性图标」与「状态标记」永远不同尺寸。
+
+     分组标题图标 14   跟着 13px 分组标题走（图标略大于字号，视觉才配重）
+     字段标签图标 12   跟着 12px 字段标签走
+     行内提示图标 12   辅助说明条 / 状态提示
+     类型徽章图形 22   图片类型那种「这是什么」的徽章里的图形
+     类型徽章底   36   徽章底板边长（= 勾选框 16 的 2.25 倍）
+
+   最后一条是**判据**：「这是什么」（徽章 36）与「选中了没有」（勾选框 16）
+   必须差到不可能看错。上一轮我做的是 28 vs 18（1.56 倍），用户复核时仍然
+   认为一样大 —— 1.5 倍在这个尺寸下不够，改到 2.25 倍。
+   下一轮如果再被说「一样大」，改的是**形态**（方形 vs 圆形），不是继续放大。 */
+export const ICON_SIZE = Object.freeze({
+  groupTitle: 14,
+  fieldLabel: 12,
+  inline: 12,
+  typeGlyph: 22,
+  typeTile: 36,
+  /** 图片类型行的勾选框边长 —— 与 typeTile 是「状态」vs「身份」两种语义，不许同大 */
+  typeCheckbox: 16,
+  /* 生图模型下拉里的品牌图标底座（用户批注图6-⑨：「图标做大」）。
+     22/24 → 28/32：上一版图标在 44px 高的整行里只占 22，四周全是空，观感偏弱，
+     而这一行是面板里最重要的选择（选错模型 = 整批图重出）。 */
+  modelTrigger: 28,
+  modelOption: 32,
+});
 
 export const FONT_WEIGHT = Object.freeze({
   groupTitle: 700,
@@ -172,7 +215,11 @@ export function resolvePanelWidth(viewportWidth) {
 
 /* ── 面板共用视觉常量（供 inline style 直接展开） ── */
 
-/** 分组标题：13/700，与内容 20px */
+/** 分组标题：13/700，与内容 20px。
+ *  ⚠️ 用法约束（2026-09-15 统一后）：分组标题**必须带 ICON_SIZE.groupTitle 的图标**。
+ *     不带图标的散装 13/700 一出现，就会变成用户说的「标题的设计方式参差不齐」——
+ *     上一轮「图片类型」就是这么裸着的，而「避免出现的元素」有图标，两者看起来像两套系统。
+ *     判据：面板里不允许出现没有图标的裸 groupTitleStyle（契约测试 ⑩ 在守）。 */
 export const groupTitleStyle = Object.freeze({
   display: 'flex',
   alignItems: 'center',
@@ -227,11 +274,23 @@ export const inputStyle = Object.freeze({
   outline: 'none',
 });
 
-/** 分组容器：标题 ↔ 内容 20px，分组 ↔ 分组 16px（由父级 gap 提供） */
-export const sectionStyle = Object.freeze({
+/* ⚠️ 这里**曾经**有 sectionStyle（gap = sp5 20px），2026-09-15 删除。
+   删它不是收拾，是修 bug：它被当成「字段标签 + 控件」的容器用了 5 处，
+   于是同一个面板里出现两种「标签 ↔ 控件」间距 ——
+     ParamsPanel 的「品类 → 输入框」是 20px，而紧挨着的「产品尺寸 → 输入框」是 8px。
+   用户批注（图5-③）「品类与输入框间距过大」说的就是这一处；
+   同一批批注里「标题设计方式参差不齐」也包含它。
+   现在统一走 fieldStackStyle（sp2 = 8）。 */
+
+/** 字段栈：字段标签 + 它的控件（以及控件下方的辅助说明）。
+ *  间距 **sp2(8)** —— 标签必须紧贴它标注的控件，这是「谁标注谁」的视觉绑定。
+ *  ⚠️ 别拿它当「分组容器」：分组标题 ↔ 内容走 sp3(12)，分组 ↔ 分组走 sp4(16)。
+ *  ⚠️ 也不要用它去装「分组标题 + 整组内容」—— 那会让标题与内容的距离小于组与组的距离，
+ *     层级在视觉上就塌了。 */
+export const fieldStackStyle = Object.freeze({
   display: 'flex',
   flexDirection: 'column',
-  gap: SPACING.sp5,
+  gap: SPACING.sp2,
 });
 
 /** 面板根容器：内边距 24 上下 / 20 左右，分组之间 16px */

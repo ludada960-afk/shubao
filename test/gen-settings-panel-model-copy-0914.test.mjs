@@ -74,7 +74,13 @@ test('面板默认折叠模型列表，行高压缩到 ≤44px（配合一屏看
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
   assert.ok(panel.includes('const [modelListOpen, setModelListOpen] = useState(false)'), '模型列表默认折叠');
   assert.ok(panel.includes('aria-expanded={modelListOpen}'), '折叠按钮暴露展开状态');
-  assert.ok(panel.includes('SELECTABLE_IMAGE_MODELS.map'), '展开后列出全部已上线档位');
+  /* ⚠️ 2026-09-15 更新：判据是「展开后每一个已上线档位都能选到」。
+     当前已选的那一个改由正上方的触发按钮承担（用户批注图6-⑨ 要求不要重复显示同一项），
+     其余档位逐个列出，并保留「过滤后为空则退回完整清单」的兜底。 */
+  assert.ok(panel.includes('const otherModels = SELECTABLE_IMAGE_MODELS.filter'), '展开清单派生自已上线档位');
+  assert.ok(panel.includes('listModels.map'), '展开后列出清单里的每一档');
+  assert.ok(panel.includes('otherModels.length > 0 ? otherModels : SELECTABLE_IMAGE_MODELS'),
+    '兜底：过滤后为空必须退回完整清单（不能点开一个空面板）');
   /* 2026-09-15 V3 二次更新：行高改由 --sb-control-touch(44) 统一约束（仍 ≤44px），
      间距走 --sb-* token，不再写死 '2px 9px' 这类碎档。 */
   assert.ok(panel.includes("minHeight: 'var(--sb-control-touch)'"), '扩展行高度走统一控件高度 token（44px ≤ 44px）');

@@ -1,7 +1,8 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
-import { SPACING, groupTitleStyle, helperTextStyle } from './panelVisualLanguage.js';
+import { SPACING, fieldStackStyle, helperTextStyle } from './panelVisualLanguage.js';
+import { GroupTitle } from './PanelPrimitives.jsx';
 
 /* ═══════ 生成约束面板 ═══════
    2026-09-15 用户批注①（子项 2）：
@@ -34,27 +35,29 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
   return (
     <div style={{ padding: 0 }}>
       <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp5 }}>
-          <div style={groupTitleStyle}>
-            <ShieldAlert size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
-            <span>避免出现的元素</span>
+        {/* 分组标题 ↔ 内容走 sp3(12)；内容内部「控件 ↔ 它的说明」才是 sp2(8)。
+            上一版是一层 sp5(20) 套住全部三个子元素 —— 于是**说明文字上方也被撑到 20px**，
+            整块看起来下面空了一大片。用户批注（图5-④）：「避免出现的元素下方空白过多」。 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
+          <GroupTitle icon={ShieldAlert}>避免出现的元素</GroupTitle>
+
+          <div style={fieldStackStyle}>
+            {/* 多行 + 右下角拉伸手柄（统一规范） */}
+            <ResizableTextarea
+              aria-label="避免出现的元素"
+              value={negativePrompt}
+              onChange={event => onChange?.(event.target.value)}
+              available={available}
+              /* 2026-09-15：占位提示不再列举那 5 个通用词。
+                 删掉按钮却把同一份清单留在占位里，对用户的引导作用是一样的（契约当场抓到这个半成品）。
+                 改成教「怎么想」：禁忌是品类相关的，不同品类怕的东西完全不同。 */
+              placeholder="用「、」分隔，写你这个品类最怕出现的东西（食品怕变质暗示、服装怕走光）"
+            />
+
+            <p style={{ ...helperTextStyle, margin: 0 }}>
+              这些约束会随本次套图一起下发，画布侧节点同步生效。
+            </p>
           </div>
-
-          {/* 多行 + 右下角拉伸手柄（统一规范） */}
-          <ResizableTextarea
-            aria-label="避免出现的元素"
-            value={negativePrompt}
-            onChange={event => onChange?.(event.target.value)}
-            available={available}
-            /* 2026-09-15：占位提示不再列举那 5 个通用词。
-               删掉按钮却把同一份清单留在占位里，对用户的引导作用是一样的（契约当场抓到这个半成品）。
-               改成教「怎么想」：禁忌是品类相关的，不同品类怕的东西完全不同。 */
-            placeholder="用「、」分隔，写你这个品类最怕出现的东西（食品怕变质暗示、服装怕走光）"
-          />
-
-          <p style={{ ...helperTextStyle, margin: 0 }}>
-            这些约束会随本次套图一起下发，画布侧节点同步生效。
-          </p>
         </div>
       </div>
     </div>

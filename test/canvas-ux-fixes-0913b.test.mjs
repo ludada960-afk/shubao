@@ -45,9 +45,16 @@ test('品牌色标题图标用强调色，与其它标题一致', () => {
      原断言要求 var(--accent,#7c3aed) 强调色，已被 V3 规范取代。
      现在的契约是：所有分组标题共用同一个 GroupTitle 组件（= 同色同字号），
      且不出现硬编码色值。 */
+  /* ⚠️ 2026-09-15 更新：本面板私有的 GroupTitle 已删除，全站只剩一个实现
+     （PanelPrimitives.jsx）—— 这是**加强**了本条契约，不是放宽：
+     原先每个面板各写一份「统一样式」，现在连那一份也只有一处。 */
   assert.ok(
-    /function GroupTitle\(\{ icon: Icon, children \}\)[\s\S]*?\}[\s\S]*?\)/.test(panel),
-    'GroupTitle 组件存在且统一注入样式',
+    /import \{ GroupTitle \} from '\.\/PanelPrimitives\.jsx';/.test(panel),
+    'GroupTitle 必须来自全局唯一实现 PanelPrimitives.jsx',
+  );
+  assert.ok(
+    /export function GroupTitle\(\{ icon: Icon, children \}\)/.test(read('src/pages/Home/ec/PanelPrimitives.jsx')),
+    '全局 GroupTitle 必须存在并统一注入样式（字号/字重/墨色/图标尺寸档）',
   );
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(panel), '面板内不得再有硬编码色值');
 });

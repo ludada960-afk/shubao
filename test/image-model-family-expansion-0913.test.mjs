@@ -44,7 +44,14 @@ test('Midjourney 只给 1K/2K（不做静默回落）', () => {
 
 test('三处选择器都只列已验收档位（首页/自由创作/画布）', () => {
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  assert.ok(panel.includes('SELECTABLE_IMAGE_MODELS.map'), '首页与自由创作共用面板已切');
+  /* ⚠️ 2026-09-15 更新：这条原本断言字面量 SELECTABLE_IMAGE_MODELS.map。
+     用户随后批注（图6-⑨）「去掉模型下拉顶部重复的『当前模型』项」，面板改为
+     先 filter 掉当前已选、再 map —— **写法变了，但本契约要守的判据没变**：
+     渲染的清单必须派生自**已验收档位**（SELECTABLE_IMAGE_MODELS），不得退回全量表。
+     （RTK §3.1-10：契约锁判据，不锁拼写。） */
+  assert.ok(panel.includes('SELECTABLE_IMAGE_MODELS.filter'), '首页与自由创作共用面板必须从已验收档位派生清单');
+  assert.ok(panel.includes('listModels.map'), '渲染的是派生后的清单');
+  assert.ok(!/[^A-Z_]IMAGE_MODELS\.map\(/.test(panel), '不得直接渲染全量表（那会把未验收档位也列出来）');
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
   assert.ok(studio.includes('SELECTABLE_IMAGE_MODELS.map'), '画布选择器已切');
 });
