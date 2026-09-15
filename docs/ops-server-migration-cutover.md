@@ -88,6 +88,27 @@ DNS 改动前需要再做一次 DB 快照 + 换库（覆盖第 3 步那次），
 - 旧机 nginx access log **不再有**新流量；
 - 登录 / 作品列表 / 计费目录 / 一次真实电商任务。
 
+### 切流前**就绪清单**（第 2 轮实测，全部通过）
+
+> 旧机即将过期、**没有回滚点**，所以切流前把「新机自己能不能活下来」逐条验过：
+
+| 检查项 | 实测 |
+|---|---|
+| nginx 开机自启 | `enabled` ✅ + `active` ✅ |
+| PM2 开机自启 | `pm2-ubuntu.service` **enabled** ✅（unit 文件在位）|
+| `pm2 save` 快照内容 | **进程数 = 1**，只有 `shubao-production` → `server/index.mjs` ✅ |
+| `cloudflare-tunnel` 是否还在快照里 | **0 次匹配** ✅（重启不会把它复活）|
+| `/health` | 200 `ready:true` ✅ |
+| `https://127.0.0.1/`（Host: shuimg.cn）| 200 ✅ |
+| 证书 | `CN=shuimg.cn`，有效至 **2026-10-15** ✅ |
+| 运行时数据 | `works.db` 14,286,848B（与旧机一致性快照同尺寸）、`generated-assets` 7.92GB ✅ |
+| DB 计数 | tables=98 / auth_users=2 / billing_holds=57 / canvas_sessions=84 —— **与旧机逐项一致** ✅ |
+| 明文密钥 | `LLM_API_KEY` 已移除（`null`）✅；4 个必需网关 key 齐全 ✅ |
+| 磁盘 | 99G / 用 24% ✅ |
+
+跨公网同步通道（**切流后必须清理**）：新机 → 旧机放了一把临时密钥
+（`~/.ssh/migrate-tmp`，旧机 `authorized_keys` 里注释为 `temp-migration-key-new-server`）。
+
 ### 第 4 步（我，可选）：停掉旧机的 nginx / PM2
 确认新机稳定运行一段时间后再停旧机，保留一段可回滚窗口（旧机是当前唯一回滚点）。
 
