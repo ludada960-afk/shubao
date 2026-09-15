@@ -584,3 +584,39 @@ success 6 处全部达标；warning 仅 1 处 4.48 vs 4.50 属舍入差）。
 1. **棘轮基线被放宽过**：`legacy-token-family` 从 709 改到 **719**（提交 `d1cc661a` 声称「不下调 + 校正」）。**必须复核该次校正的依据**（是当初少算，还是真的涨了）—— 否则棘轮的可信度受损。
 2. **插件 zip 实机验证**：`localhost → shuimg.cn` 的改动若没重新打包，线上用户拿到的仍是坏的 zip。
 3. **键盘可达收尾**：52 处 + 冻结区（`EcCanvas/**`）由画布线代做。
+
+### 8.15 键盘可达收尾（第 80+ 轮）· 剩余 17 处的精确诊断
+
+**进度：79 → 17**（严格口径，未登记=17、豁免=0）。全程 `npm run build` exit 0，每笔提交走 `npm run precommit`。
+
+#### 已完成的批次
+| 提交 | 内容 |
+|---|---|
+| `2dd78802` `ac7caf2f` | 两处「点击容器」→ `role="group"`（**不能加 tabIndex**：那会在 Tab 序列里插一个按 Enter 无事发生的停留点） |
+| `a29a32ca` | 扫描器解析**别名赋值** `const Local = Imported;`（假阳性第 7 类，−3） |
+| `fae3e48d` | `UploadButton` 根补三件套 |
+| `fd5d4452` `38b92e00` | EcStudio 七处（chip/关闭钮/缩略图/删除角标/遮罩/上传缩略图） |
+| `85195b13` | EcMode 四处 + Remake 档位 chip |
+| `7f4f9aed` | XhsContentMode 四处（链接/缩略图/灯箱/遮罩） |
+| `c5880350` | 扫描器「根元素三件套齐全即视同 button」+ **删除一条已失效豁免**（门禁自己抓出来的） |
+
+#### 剩余 17 处的诊断（**已逐条查过，别再重复查**）
+
+1. **`EcCanvas/index.jsx` 3 处**（`:457` div、`:6693` `CanvasZoomControls` 根、`:7845` img）——**冻结区**，
+   必须由画布线代做（跨线改动统一走它，否则互相覆盖）。
+2. **`XhsContentMode` 的 2 处 `<XhsInputTemplate>`** —— 已查：该组件根（`:176`）**只有 className、没有 onClick**，
+   调用点也没传 onClick。**扫描器为何仍判违规 = 未解**（根映射逻辑里对「未解析组件」的处理需要读 `findClickableNonInteractive`）。
+   ⚠️ **不要再去改这个组件** —— 它是干净代码，问题在扫描器。
+3. **`SupplementAssetDeck` 的 2 处 `<UploadButton>`** —— 根**已**补 `role=button + tabIndex + onKeyDown`，
+   扫描器仍报。与第 2 条同源，**同一个未解问题**（怀疑 `rootOf` 按裸名索引或根映射的 `body` 切片没覆盖到属性区）。
+4. **`DesignDirection.jsx:1150`** —— `<img onClick={event => event.stopPropagation()}>`：
+   **它根本不是点击目标**（只吞掉冒泡）。这是假阳性第 8 类，**正确修法是给扫描器加判据**：
+   「onClick 体内**只有** `stopPropagation()` 时不算可点」，而不是给这个 img 加 role。
+5. **`EcStudio/index.jsx` 5 处**（品牌入口、模态卡 `:575`、结果缩略图、灯箱、上传区）——
+   其中模态卡是同类假阳性（只有 stopPropagation）；其余 4 处按既有形态补三件套即可。
+
+#### 三个必须遵守的实操要点（都是本轮踩出来的）
+1. **在 JSX 起始标签里插属性，锚点绝不能包含该标签的 `>`** —— 否则属性会落到标签外变成散字文本（我犯过）；
+2. **批量正则改 JSX 之后必须立刻 `npm run build`** —— 我的非贪婪正则在 3 处把 `>` 塞进了表达式内部，靠构建才抓到；
+3. **修扫描器前先读 `test/no-clickable-div.test.mjs` 的 ① 自检**（10 条反向保险）——
+   它们专门防「扫描器被改成无脑放行口」；改完必须 13+1 全绿（红只允许是 ② 进度条）。
