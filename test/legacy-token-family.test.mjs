@@ -151,9 +151,15 @@ function grepLegacy() {
       ⚠️ 时长变更**无法用静态像素 diff 证明**（截图不含时间维度）→ 证据改用
       「**计算样式 A/B**」：逐选择器读 `getComputedStyle(el).transitionDuration`，看是否精确地 0.12s → 0.15s。
       ⚠️ 保留项（D15：阶梯里没有的值保持字面量，不强套）：`--duration-slow`(350ms) 3 处 ——
-      §14 只有 300/400，350 不在阶梯上且不构成行业档，**不硬套**，留待单独裁定。 */
-const BASELINE_TOTAL = 91;
-const BASELINE_NAMES = 19;
+      §14 只有 300/400，350 不在阶梯上且不构成行业档，**不硬套**，留待单独裁定。
+   ── 本批第四笔（D29 圆角超圆角档）：91/19 → **71/17**（−20 处 / −2 名）。
+      `--radius-lg`(30px ×15) / `--radius-xl`(40px ×5) 按 **D18 角色表**逐处定档（不是按数值最近）：
+      按钮 → `--sb-radius-pill`（几何上本来就是胶囊，零观感变更，实测高度 43.6–48px）；
+      选项卡/内层条 → 12；卡片/分组容器 → 16；大容器 → 24；弹窗主体 → 20。
+      证据：876 个元素的**几何 diff = 0**、border-radius 变化仅 1 处、首页整屏 **像素 diff = 0**
+      （且比对器经变异测试证明能抓到 10×10 的差异）。详见 D29。 */
+const BASELINE_TOTAL = 71;
+const BASELINE_NAMES = 17;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';

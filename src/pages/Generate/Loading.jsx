@@ -105,7 +105,7 @@ export default function LoadingView() {
 
         {/* Warning — 强调额度浪费 */}
         <div style={{
-          background: isEC ? 'var(--sb-brand-50)' : 'var(--sb-danger-soft)', borderRadius: 'var(--radius-lg)',
+          background: isEC ? 'var(--sb-brand-50)' : 'var(--sb-danger-soft)', borderRadius: 'var(--sb-radius-lg)',
           padding: '12px 18px', marginBottom: 24,
           fontSize: 'var(--sb-text-md)', color: isEC ? 'var(--sb-brand-800)' : 'var(--sb-danger-hover)',
           display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)', justifyContent: 'center',
@@ -117,7 +117,7 @@ export default function LoadingView() {
         {/* Tip */}
         <div style={{
           background: 'var(--sb-surface-panel)', border: '1px solid var(--sb-border-default)',
-          borderRadius: 'var(--radius-xl)', padding: '16px 20px', textAlign: 'left',
+          borderRadius: 'var(--sb-radius-xl)', padding: '16px 20px', textAlign: 'left',
         }}>
           <div style={{
             fontSize: 'var(--sb-text-xs)', color: 'var(--text-ghost)',

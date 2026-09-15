@@ -12,9 +12,12 @@ export default function Button({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     gap: small ? 5 : 7,
     padding: small ? '7px 14px' : '12px 24px',
-    /* C 类保留（D24 第 3 条）：V2 --radius-lg = 30px 在 V3 阶梯里**没有对应档**
-       （最近的 --sb-radius-3xl = 24px，Δ−6px 属观感变更），先留字面量、列清单待裁定。 */
-    borderRadius: small ? 'var(--sb-radius-xl)' : 'var(--radius-lg)',
+    /* D29（2026-09-15 裁定，结清 D24 第 3 条）：V2 --radius-lg = 30px **归入胶囊档**。
+       依据是几何事实而非偏好：本按钮实测高 43.6px（padding 12px 24px + 14px × line-height 1.4），
+       而 CSS 规定「一侧两个圆角之和超过边长时，全部圆角按同一比例缩放」——
+       30+30=60 > 43.6 → 实际渲染半径被缩到 h/2 = 21.8px，**本来就是胶囊**。
+       故改用 --sb-radius-pill 是**零观感变更**（只要高度 ≤ 60px；改高度需重算）。 */
+    borderRadius: small ? 'var(--sb-radius-xl)' : 'var(--sb-radius-pill)',
     /* 有意变更 Δ−1px：V2 --text-base = 15px，D17 判定 15px「夹心档」退役，
        归入 --sb-text-base = 14px（标准正文档）。见 D17/D19/D24。 */
     fontSize: small ? 'var(--sb-text-md)' : 'var(--sb-text-base)',

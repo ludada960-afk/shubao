@@ -78,7 +78,7 @@ function GCard({ item, onClick, onSameStyle }) {
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{
-        position: 'relative', aspectRatio: '3/4', borderRadius: 'var(--radius-lg)',
+        position: 'relative', aspectRatio: '3/4', borderRadius: 'var(--sb-radius-xl)',
         overflow: 'hidden', cursor: 'pointer',
         background: item.grad || 'var(--sb-border-subtle)',
         boxShadow: 'var(--sb-shadow-md)',

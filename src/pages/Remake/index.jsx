@@ -267,7 +267,7 @@ export default function RemakePage() {
         {!taskId && (
           <div style={{
             padding: '60px 20px', textAlign: 'center', color: 'var(--sb-ink-4)',
-            border: '2px dashed var(--sb-border-subtle)', borderRadius: 'var(--radius-lg)',
+            border: '2px dashed var(--sb-border-subtle)', borderRadius: 'var(--sb-radius-lg)',
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
             <h2 style={{ fontSize: 'var(--sb-text-xl-plus)', margin: '0 0 8px' }}>还没有任务</h2>
@@ -358,7 +358,7 @@ export default function RemakePage() {
 
             {/* Replacement Form */}
             <div style={{
-              background: 'var(--sb-neutral-0)', borderRadius: 'var(--radius-lg)',
+              background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)',
               border: '2px solid var(--blue)', padding: 24, marginBottom: 28,
             }}>
               <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 16 }}>
@@ -439,7 +439,7 @@ export default function RemakePage() {
                 </div>
 
                 <button onClick={handleGenerate} disabled={generating || !productName.trim()} style={{
-                  padding: '14px 0', borderRadius: 'var(--radius-lg)', border: 'none',
+                  padding: '14px 0', borderRadius: 'var(--sb-radius-pill)', border: 'none',
                   fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: generating ? 'not-allowed' : 'pointer',
                   /* 裁定 2 / D1：「一键复刻生成」是**功能按钮** → 品牌紫纯色，禁止渐变 */

@@ -341,7 +341,7 @@ input, textarea { font-family: inherit; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--sb-radius-xl);
   box-shadow: var(--sb-shadow-xl);
 }
 
@@ -435,7 +435,7 @@ input, textarea { font-family: inherit; }
 
 /* ── 灵图风格表面卡（两层白色结构）── */
 .surface-card {
-  border-radius: var(--radius-lg);  /* 30px */
+  border-radius: var(--sb-radius-3xl);  /* 24px（大容器档；原 V2 --radius-lg = 30px）*/
   padding: 0;                       /* 无外框穿透 */
   box-shadow: 0 28px 90px rgba(57,45,26,0.14);
   background: #fff;

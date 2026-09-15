@@ -57,8 +57,9 @@ export function Modal({ children, onClose, width = 420 }) {
         className="animate-scale-in"
         style={{
           background: 'var(--sb-neutral-0)',
-          /* C 类保留（D24 第 3 条）：V2 --radius-xl = 40px，V3 无对应档（最近 --sb-radius-3xl = 24px）。 */
-          borderRadius: 'var(--radius-xl)',
+          /* D29（结清 D24 第 3 条）：弹窗主体按 D18 角色表归到 --sb-radius-2xl(20px)，
+             原 V2 --radius-xl = 40px。**这是有意观感变更**（Δ−20px），依据是角色而非数值最近。 */
+          borderRadius: 'var(--sb-radius-2xl)',
           padding: '32px 28px', width, maxWidth: '92vw',
           maxHeight: '90vh', overflow: 'auto',
           boxShadow: 'var(--sb-shadow-xl)',
