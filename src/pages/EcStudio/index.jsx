@@ -463,7 +463,10 @@ export default function EcStudioPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <div
             style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2-5)', cursor: 'pointer' }}
+            role="button"
+            tabIndex={0}
             onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); () => dispatch({ type: 'NAVIGATE', page: 'home' }); } }}
           >
             <CharImg src={IMAGES.appicon} size={32} float />
             <span style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 650, color: 'var(--sb-danger)' }}>薯包AI</span>
@@ -1113,7 +1116,10 @@ export default function EcStudioPage() {
                         width: 44, height: 44, borderRadius: 'var(--sb-radius-sm)', overflow: 'hidden',
                         border: '1px solid #E8E8EC', cursor: 'pointer',
                       }}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setLb(s)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); () => setLb(s); } }}
                     >
                       <img src={s} alt="" width="120" height="120" loading="lazy" decoding="async" fetchpriority="auto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
@@ -1358,7 +1364,10 @@ export default function EcStudioPage() {
               position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)', background: 'rgba(12,10,9,.92)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             }}
+            role="button"
+            tabIndex={0}
             onClick={() => setLb(null)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); () => setLb(null); } }}
           >
             <img
               src={lb.startsWith('data:') ? lb : proxyImg(lb)}
@@ -1425,7 +1434,10 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
         </div>
       )}
       <div
+        role="button"
+        tabIndex={0}
         onClick={onPick}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick; } }}
         onDragOver={(e) => {
           if (!dropTargetKey) return;
           e.preventDefault();
