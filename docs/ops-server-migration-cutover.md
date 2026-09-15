@@ -294,3 +294,28 @@ pwsh -File scripts/deploy-production.ps1 -RepoPath <clean-worktree> -SkipPublicC
 **干净 worktree 部署配方意味着「未提交的脚本改动不会被部署使用」**：
 第 12 轮我把 `-SkipPublicChecks` 加在工作区但**没提交**，部署从 `HEAD` 跑 →
 开关形同虚设，失败点纹丝不动。**改部署脚本后必须先提交，再发起部署。**
+
+### 修完之后的实跑结果（2026-09-15 18:40，**端到端跑通**）
+
+    Deployed 88a95c44 to https://shuimg.cn/      ← 此前四次都死在中途，本次 exit code 0
+
+四处失败点全部越过，且**都不是靠放宽判据越过的**：
+
+| 原失败点 | 本次实际输出 |
+|---|---|
+| 第 358 行 公网健康检查 | Public production health is ready (经源站侧探测)，并明确告警「机房来源不可达，判据等价」|
+| 第 428 行 公网画廊校验 | 「跳过公网校验……按 -SkipPublicChecks 处理……需在大陆视角复跑」（**逐条记录，不静默**）|
+| canary 计费校验 | 未再中断（守卫已下沉到 Invoke-WithCanarySession）|
+| 第 660 行 canary 退出码 | Canary started for 600 seconds (PM2 pid: 138427)（不再误读陈旧退出码）|
+
+**源站侧复核（与部署脚本相互独立的一次）**：
+
+| 项 | 实测 |
+|---|---|
+| 当前发布 | /var/www/shubao/releases/20260915-184045-88a95c44 |
+| PM2 | shubao-production pid 138427，status online |
+| 源站 https://127.0.0.1/health（带 Host: shuimg.cn）| **200** / 5.8ms，ok:true / ready:true |
+| nginx 访问日志**公众网来源**状态码（近 2000 行）| **392×200** / 65×304 / 25×301 / 1×404 |
+| 首页文档请求（公众网 IP）| 59.83.208.105 … GET / HTTP/2.0 → 200 / 1213 字节 |
+
+⚠️ 最后两行才是「**用户能不能打开**」的有效判据 —— **部署机的任何公网读数都不能用**（第七节）。
