@@ -114,8 +114,18 @@ export default function SupplementAssetDeck({
         : getUploadPlaceholderText(count, type);
 
     return (
+      /* 键盘可达：本卡是**真按钮**（点击 = 打开文件选择器），因此 role/tabIndex/onKeyDown 三件套齐全，
+         而不是把它降级成"非交互容器"。满额时（count >= max）退出 Tab 序列（tabIndex=-1）并让按键无操作。 */
       <div
         onClick={count >= max ? undefined : onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={event => {
+          if (count >= max) return;
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          onClick?.();
+        }}
         className={`supplement-upload-button supplement-upload-button--${type}`}
         aria-disabled={count >= max}
         style={{
