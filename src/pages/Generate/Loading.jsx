@@ -58,7 +58,7 @@ export default function LoadingView() {
         <div style={{
           fontSize: 'var(--sb-text-2xl)', fontWeight: 'var(--sb-weight-bold)',
           marginTop: 24, marginBottom: 6,
-          color: isEC ? 'var(--blue)' : 'var(--sb-danger)',
+          color: isEC ? 'var(--sb-info)' : 'var(--sb-danger)',
         }}>
           {stage.label}
         </div>
@@ -78,7 +78,7 @@ export default function LoadingView() {
         <div style={{ display: 'flex', gap: 4, marginBottom: 28, padding: '0 30px', position: 'relative' }}>
           {stages.map((_, i) => {
             const isActive = i <= genStage;
-            const accentColor = isEC ? 'var(--blue)' : 'var(--sb-danger)';
+            const accentColor = isEC ? 'var(--sb-info)' : 'var(--sb-danger)';
             return (
               <div key={i} style={{
                 flex: 1, height: 6, borderRadius: 4,
@@ -143,7 +143,7 @@ export default function LoadingView() {
         }}>
           <span style={{
             display: 'inline-block', width: 6, height: 6,
-            borderRadius: '50%', background: isEC ? 'var(--blue)' : 'var(--sb-danger)',
+            borderRadius: '50%', background: isEC ? 'var(--sb-info)' : 'var(--sb-danger)',
             opacity: 0.4, animation: 'pulse 1.5s infinite',
           }} />
           正在努力生成...
