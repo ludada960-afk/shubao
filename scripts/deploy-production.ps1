@@ -53,6 +53,11 @@ function Invoke-WithCanarySession {
     [Parameter(Mandatory = $true)]
     [scriptblock]$Command
   )
+  # 守卫放在**这一层**：本函数是 canary 校验的最低层入口，
+  # Invoke-AuthenticatedVerification 与直接调用它的地方（如 verify-production-billing 的
+  # --AllowEmptyBalance 那次）都要经过它。先前只在上层加守卫，于是最后一次计费校验漏网、
+  # 部署仍以 exit 1 结束（实测）。
+  if ($script:skipPublicChecks) { Add-SkippedPublicCheck 'canary 会话校验（经 Invoke-WithCanarySession）'; return }
   $previousCanaryOwnerEmail = $env:SHUBAO_CANARY_OWNER_EMAIL
   try {
     $env:SHUBAO_CANARY_SESSION_TOKEN = $script:canarySessionToken
