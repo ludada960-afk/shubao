@@ -25,11 +25,38 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '../scripts/lib/token-scope.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** V2 家族的名字特征：var(--x) 且不是 --sb-* / --cvl-* / --max-width* */
 export const LEGACY_RE = /var\(--(?!sb-|cvl-|max-width)([a-zA-Z0-9-]+)\)/g;
+
+/** 家族第一层筛选（与 git grep 用的那套逐字相同）——**保留它才和 744→719→179 的基线史可比**。
+    ═══ ⚠️ 已知边界：本门禁是**家族口径**，不是「全站 V2」的全部 ═══
+    第 81 轮实测（剥注释后，口径 = LEGACY_RE 且不限家族前缀）：
+
+      门禁口径内（11 个家族前缀）              **141** 处 / 24 名   ← 基线就是这个数
+      门禁口径外（同一份 LEGACY_RE、同一份剥注释，只是名字不在这 11 个前缀里）
+        --ec-*        140   画布自有 token 家族
+        --canvas-*     76   画布自有 token 家族
+        --accent*      51   **全局 V2 色**（design-tokens.css/theme.css 定义）
+        --sk-*         37   技能库自有 token 家族
+        --footer-actions-*  32
+        --blue*        26   **全局 V2 色**
+        --stack-* 16  --font-* 15  --cl-* 14  --space-* 8  --case-ratio 7
+        --leading-* 5  --nav-* 5  --visual-* 4  --vcb-* 3  其余 ~14
+      ─────────────────────────────────────────────────
+      合计          **586** 处 / 110 名
+
+    **两个必须分开报的数**（D15 的「剩余量口径」同理）：
+      · 「门禁口径内还剩 141」——本门禁管的就是这个，它绿 ≠ 全站干净；
+      · 「全站 V2 名字面还剩 586」——比 141 大 4 倍，且其中两个家族是**门禁自己的疏漏**：
+        `--red` / `--green` 被收进了前缀白名单，同类的 `--accent` / `--blue` 却没有 ——
+        这不是「设计上分了两类」，是**选词时漏了**。
+        → 已立账：**docs/design/40-decisions.md D26**（口径疏漏 + 组件自有 token 家族的处置）。
+    禁止把「141 → 0」写成「V2 已清零」。 */
+const FAMILY_RE = /var\(--(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease)[a-z0-9-]*\)/;
 
 /** 从文本里数出 V2 用法（导出以便自证） */
 export function countLegacy(text) {
@@ -39,17 +66,39 @@ export function countLegacy(text) {
   return { total, names };
 }
 
+/** 先剥注释再数 —— 注释里的 `var(--x)` 是**说明文本**，不是用法。
+    （与 design-system-layer 门禁同口径，两处共用 scripts/lib/token-scope.mjs 的 stripComments，
+      免得「剥注释」这件事出现第二份实现。） */
+export function countLegacyLive(text) { return countLegacy(stripComments(text)); }
+
 function grepLegacy() {
-  let out = '';
+  /* ⚠️ 口径修正（第 81 轮，与 space-ratchet 的失明是同一族缺陷）：
+     此前本函数用 `git grep -h` 直接把**原文**喂进 countLegacy，于是
+     注释里的 `var(--surface-raised)` / `var(--shadow-red)` / `var(--shadow-red-lg)`
+     被当成**真实用法**计数（实测 5 处）。那几处恰恰是**幽灵变量收口时留下的说明**，
+     是知识库里最该被保住的文字 —— 门禁却把它们当成「第二套语言」的存量，
+     变相鼓励下一个人**删掉注释来让数字变好看**。这与铁律③「老文档必须保持可读」直接冲突。
+     改用 `git grep -l` 拿文件清单（保留同一套 family 正则做第一层筛选），
+     再逐文件剥注释后按 LEGACY_RE 计数。 */
+  let files = '';
   try {
-    out = execFileSync('git', ['grep', '-h', '-E', 'var\\(--(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease)[a-z0-9-]*\\)', '--', 'src'],
+    files = execFileSync('git', ['grep', '-l', '-E', 'var\\(--(radius|text|weight|shadow|duration|border|red|green|bg|surface|ease)[a-z0-9-]*\\)', '--', 'src'],
       { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  } catch (e) { out = String(e.stdout || ''); }
-  return out;
+  } catch (e) { files = String(e.stdout || ''); }
+  const out = [];
+  for (const rel of files.split(/\r?\n/).filter(Boolean)) {
+    let raw;
+    try { raw = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { continue; /* 读不到就跳过，②的样本量断言会兜住 */ }
+    /* ⚠️ 必须**先剥注释、再按家族筛行**，两步顺序不能反：
+       反了就是旧口径（注释文本被当成用法）。而 stripComments 保留换行，
+       所以逐行筛仍与旧口径逐行等价 —— 只是注释行已被抹成空白，筛不进来了。 */
+    for (const line of stripComments(raw).split('\n')) if (FAMILY_RE.test(line)) out.push(line);
+  }
+  return out.join('\n');
 }
 
 /* 棘轮基线：只许减不许增。迁移一批就把这两个数改小（并说明减了哪些名字）。 */
-/* 基线口径 = 本文件 countLegacy 的计数（**逐个匹配**，不是逐行）：
+/* 基线口径 = 本文件 countLegacyLive 的计数（**逐个匹配**，不是逐行；**已剥注释**）：
    实测 2026-09-20 初测 = 744 处 / 52 个名字；DS 层迁移启动后降至 709 / 51，基线**同步收紧**。
    本轮 D24 设计系统层迁移（src/components/ui/**）：ui/** 自身由 **33 处 → 8 处**，
    但**全站总量未随之下降** —— 实测 HEAD 树 = 719 / 51（与 9149cacc 的 719 持平），
@@ -75,9 +124,17 @@ function grepLegacy() {
      其中 ui/** 的 V2 由 33 处降到 8 处；剩余 8 处为**无等值保留项**
        （--radius-lg 30px / --radius-xl 40px / --border / --border-light / --shadow-xl）。
    ⚠️ 不要用「行数」估：一行里可能有两三个 V2 用法（实测按行数会少算 134 处）。
-   ⚠️ 棘轮只许向下：实测降了就把基线改小 —— 否则回退会落在"合法空间"里，门禁等于没长牙。 */
-const BASELINE_TOTAL = 146;
-const BASELINE_NAMES = 27;
+   ⚠️ 棘轮只许向下：实测降了就把基线改小 —— 否则回退会落在"合法空间"里，门禁等于没长牙。
+   ── 同轮第二笔（口径修正）：基线改为**剥注释后**的「真实用量」——146/27 → **141/24**。
+     旧口径把**注释里的** `var(--x)` 当成用法，实测 5 处全是幽灵变量收口时留下的**说明文字**
+     （Footer.jsx「var(--surface-raised) 全仓无定义 → 背景静默透明」、
+       Home.css「var(--shadow-red) 全仓无定义 → box-shadow 静默失效」、
+       design-tokens-v3.css「Button.jsx 写着 var(--shadow-red-lg)」）。
+     那是知识库里最该被保住的句子；把它们计成「第二套语言存量」= 变相奖励
+     **删注释让数字变好看**，与铁律③「老文档必须保持可读」直接冲突。
+     → 与 design-system-layer 门禁用**同一份** stripComments（scripts/lib/token-scope.mjs）。 */
+const BASELINE_TOTAL = 141;
+const BASELINE_NAMES = 24;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
@@ -86,6 +143,23 @@ test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', (
   assert.equal(r.names.get('text-muted'), 1);
   assert.equal(r.names.get('radius-md'), 1);
   assert.equal(countLegacy('var(--cvl-z-toast) var(--max-width-narrow)').total, 0, 'cvl/max-width 家族不该被算作 V2');
+});
+
+test('①b 检测器自证：**注释里的** V2 用法不算用法（否则门禁在奖励删注释）', () => {
+  /* 反例取自本仓真实文本（幽灵变量收口的说明）。旧口径会把它们数成用法。 */
+  const commentOnly = '/* 幽灵变量：var(--surface-raised) 全仓无定义 → 背景静默透明；var(--shadow-red) 亦然 */';
+  assert.equal(countLegacy(commentOnly).total, 2, '前提：裸正则会数出 2 处（证明这条自证有意义）');
+  assert.equal(countLegacyLive(commentOnly).total, 0, '剥注释后必须为 0 —— 注释是说明文字，不是用法');
+
+  /* 正例：注释与真实用法并存时，只数真实的那一处。 */
+  const mixed = '/* 说明 var(--radius-lg) 的由来 */\n.card { border-radius: var(--radius-lg); }';
+  const r = countLegacyLive(mixed);
+  assert.equal(r.total, 1, '注释 + 真实用法 → 只应数出 1 处');
+  assert.equal(r.names.get('radius-lg'), 1);
+
+  /* 反向保险：剥注释不能把真用法也一起剥掉。 */
+  assert.equal(countLegacyLive('.a { gap: var(--space-2); }').names.get('space-2'), 1,
+    '剥注释不得误伤真实用法（否则本门禁会变成无脑放行口）');
 });
 
 test('② V2 家族用法不得增长（棘轮：只许减）', () => {
