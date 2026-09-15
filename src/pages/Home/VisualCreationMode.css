@@ -705,7 +705,7 @@
 .visual-config-panel .visual-count-control > div { display: flex; height: 36px; padding: 3px; gap: 3px; background: #f8f8fa; border: 1px solid rgba(45,41,38,.12); border-radius: 6px; }
 .visual-config-panel .visual-count-control button { min-width: 0; flex: 1; border-radius: 6px; }
 
-.visual-subpanel { min-width: 0; color: var(--text-primary, #29252d); }
+.visual-subpanel { min-width: 0; color: var(--sb-ink-1, #29252d); }
 .visual-subpanel-heading {
   display: flex;
   align-items: flex-start;
