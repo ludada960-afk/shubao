@@ -1,6 +1,6 @@
 /* 从资产库选择（9-12 用户批注）——照竞品：卡片悬停才出现打勾 */
 .canvas-asset-picker-overlay { position: fixed; inset: 0; z-index: 9600; display: grid; place-items: center; padding: 72px 24px 32px; background: rgba(28,25,23,.44); backdrop-filter: blur(8px); }
-.canvas-asset-picker { display: flex; flex-direction: column; width: min(920px, 96vw); max-height: min(82vh, 860px); overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
+.canvas-asset-picker { display: flex; flex-direction: column; width: min(920px, 96vw); max-height: min(82vh, 860px); overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--sb-font-sans); }
 .canvas-asset-picker header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px 14px; border-bottom: 1px solid rgba(28,25,23,.08); }
 .canvas-asset-picker header strong { display: block; font-size: 16px; font-weight: 800; color: #1c1917; }
 .canvas-asset-picker header span { display: block; margin-top: 4px; color: #a8a29e; font-size: 12px; }
