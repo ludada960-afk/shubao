@@ -104,7 +104,7 @@ export default function DevicesPanel() {
                   {session.current && (
                     <span style={{
                       marginLeft: 6, fontSize: 10, fontWeight: 900,
-                      color: 'var(--sb-neutral-0)', background: 'var(--accent)',
+                      color: 'var(--sb-neutral-0)', background: 'var(--sb-surface-inverse)',
                       borderRadius: 6, padding: '1px 6px',
                     }}>本机</span>
                   )}
