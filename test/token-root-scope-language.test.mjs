@@ -40,8 +40,17 @@ import { collectDeclarations } from '../scripts/lib/token-scope.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // 当前基线（2026-09-15 实测，删除第三套 token 语言之后）。只许降，不许升。
-const BASELINE_SITES = 177;
-const BASELINE_NAMES = 105;
+/* ── D40（2026-09-15）实测 177/105 → **165/93**：删掉 12 个**三者皆无**的 V2 定义。
+     筛选判据（三者皆无才算安全）：
+       ① 可达性分析判定为「不可达」；② 文档（含 薯包AI Design System 活样本 HTML）无引用；
+       ③ 测试无引用；④ theme.css 无对应暗色覆盖（否则须成对删除）。
+     本轮删的 12 个：--font-mono --leading-tight --leading-loose --weight-medium --weight-heavier
+                     --space-1 --space-8 --space-10 --space-12 --space-16 --space-20 --duration-xl
+     ⚠️ 余下 45 个不可达定义**有意保留**，依据见 D40：40 个被文档引用、34 个被测试引用
+        （多为历史叙述）、13 个有暗色覆盖须成对删 —— 删它们会让 40 份文档与活样本 HTML
+        描述不存在的东西（铁律③）。**拆语言的收尾动作必须等文档同步迁移之后。** */
+const BASELINE_SITES = 165;
+const BASELINE_NAMES = 93;
 // 反向保险：扫描面塌了（例如目录改名导致一个文件都没扫到），也必须变红
 const MIN_CSS_FILES = 40;
 
@@ -120,6 +129,6 @@ test('主题作用域内的非 --sb-* 定义不得超过基线（棘轮）', () 
     `主题作用域非 --sb-* 名字数从基线 ${BASELINE_NAMES} 涨到 ${names.size}（新增名字：${[...names].length}）`,
   );
   // 基线不许被随手调高
-  assert.equal(BASELINE_SITES, 177);
-  assert.equal(BASELINE_NAMES, 105);
+  assert.equal(BASELINE_SITES, 165);
+  assert.equal(BASELINE_NAMES, 93);
 });
