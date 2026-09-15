@@ -117,8 +117,11 @@ test('② 数据链路不变（仍走 genSettings.negativePrompt），画布侧�
     ecMode.includes("negativePrompt: genSettings.negativePrompt") === false,
     '不应把 negativePrompt 挪到别的 state',
   );
-  assert.ok(
-    ecMode.includes('<GenerationConstraintsPanel negativePrompt={genSettings.negativePrompt}'),
+  /* 2026-09-16：断言从「字面量」改成「结构」—— 新增的 flushTop 与属性顺序不该让本条变红，
+     判据（这个面板仍然从 genSettings.negativePrompt 读写）一字未变。 */
+  assert.match(
+    ecMode,
+    /<GenerationConstraintsPanel[^>]*negativePrompt=\{genSettings\.negativePrompt\}/,
     '约束面板仍从 genSettings.negativePrompt 读写（画布侧同一字段）',
   );
   assert.ok(

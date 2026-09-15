@@ -1,0 +1,31 @@
+/* ═══ 图片类型 tile 的动效（2026-09-16 用户批注图3-②）═══
+   用户原话：「你现在这些框都是都是紫色的也很单一啊……你好歹要有一些动效和交互效果和配色差异啊」。
+   —— 配色差异在上游解决（每类一个识别色，见 ImageTypeGlyph.TYPE_ACCENT）；
+      这里只负责**动效**，而且只用权威动效 token（--sb-dur-* / --sb-ease-*），
+      不新造时长、不写死 ms。 */
+
+@keyframes ecTypeTileIn {
+  from { opacity: .4; transform: scale(.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ec-type-tile {
+  animation: ecTypeTileIn var(--sb-dur-normal) var(--sb-ease-out) both;
+}
+
+/* 勾选框：勾上时有一个极短的「弹出」，取消时安静收回（不做反向动画，避免来回抖） */
+@keyframes ecTypeCheckPop {
+  0%   { transform: scale(.6); }
+  60%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.ec-type-check.is-on svg {
+  animation: ecTypeCheckPop var(--sb-dur-normal) var(--sb-ease-out) both;
+}
+
+/* 无障碍：系统要求减少动态效果时全部关闭（不是「调慢」，是「不要动」） */
+@media (prefers-reduced-motion: reduce) {
+  .ec-type-tile { animation: none; }
+  .ec-type-check.is-on svg { animation: none; }
+}

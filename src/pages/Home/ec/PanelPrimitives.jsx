@@ -36,7 +36,14 @@ import { ICON_SIZE, fieldLabelStyle, groupTitleStyle } from './panelVisualLangua
 export function GroupTitle({ icon: Icon, children }) {
   return (
     <div style={groupTitleStyle}>
-      {Icon ? <Icon size={ICON_SIZE.groupTitle} style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
+      {/* ═══ 图标染色：用户点名要的全局方案（2026-09-16 批注图10-②）═══
+          原话：「标题的图标，它是一个颜色的。然后标题是另一个颜色。我觉得这样会更好一些。
+          你可以全局按这个套路去做吧。」—— 他说的是自由创作方向面板那套（图标品牌紫、标题深墨），
+          而其它面板的图标当时是中性灰，所以看起来「四个板块跟别的面板不一样」。
+          现在全局统一成：**图标走品牌主色，标题文字走中性深墨**。
+          与原则 6.1 不冲突：那条禁止的是「把层级标签的**文字**染成品牌色」，
+          这里文字仍是 --sb-ink-1，品牌色只由图标承担识别作用。 */}
+      {Icon ? <Icon size={ICON_SIZE.groupTitle} color="var(--sb-brand-600)" style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
       <span>{children}</span>
     </div>
   );
@@ -50,7 +57,7 @@ export function GroupTitle({ icon: Icon, children }) {
 export function FieldLabel({ icon: Icon, children }) {
   return (
     <div style={fieldLabelStyle}>
-      {Icon ? <Icon size={ICON_SIZE.fieldLabel} style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
+      {Icon ? <Icon size={ICON_SIZE.fieldLabel} color="var(--sb-brand-600)" style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
       <span>{children}</span>
     </div>
   );

@@ -694,6 +694,25 @@
 .visual-config-panel-header > div { display: grid; gap: 2px; }
 .visual-config-panel-header strong { color: #242127; font-size: 16px; font-weight: 780; }
 .visual-config-panel-header span { color: #918a95; font-size: 10px; }
+/* ═══ 紧凑档（2026-09-16 用户批注图10-①）═══
+   用户原话：「你张开这个面板必须能够看到所有的信息，你不需要让用户去滚动这个鼠标呀，
+   你的适配逻辑必须要去做。」
+   面板高度取真实可用空间（绝不越界），空间不足时由这一档把内容压进去：
+   内边距、行高、卡片高度各收一档，实测可省下约 18%–22% 的高度。
+   只在这里改**密度**，不改字号/颜色 —— 密集不等于变小字，可读性优先。 */
+.visual-config-panel[data-density="compact"] .visual-panel-section { padding: 9px 14px 0; }
+.visual-config-panel[data-density="compact"] .visual-panel-section-heading { margin-bottom: 5px; }
+.visual-config-panel[data-density="compact"] .visual-choice-list,
+.visual-config-panel[data-density="compact"] .visual-choice-grid,
+.visual-config-panel[data-density="compact"] .visual-ratio-grid,
+.visual-config-panel[data-density="compact"] .visual-count-grid { gap: 5px; }
+.visual-config-panel[data-density="compact"] .visual-choice-card,
+.visual-config-panel[data-density="compact"] .visual-ratio-card,
+.visual-config-panel[data-density="compact"] .visual-count-card { min-height: 44px; padding: 5px 8px; }
+.visual-config-panel[data-density="compact"] .visual-choice-icon { width: 26px; height: 26px; flex-basis: 26px; }
+.visual-config-panel[data-density="compact"] .visual-panel-note { margin: 8px 14px 10px; padding: 6px 8px; }
+.visual-config-panel[data-density="compact"] .visual-config-panel-header { padding: 10px 14px 9px; }
+
 .visual-config-panel-body { padding: 0; }
 .visual-config-panel-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .visual-config-field { display: grid; min-width: 0; gap: 5px; color: #625b66; font-size: 11px; font-weight: 740; }

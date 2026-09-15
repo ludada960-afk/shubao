@@ -309,6 +309,10 @@ const STRUCTURED_SECTION_ORDER = Object.freeze([
   'referenceSafety',
   // 用户自建 Skill：最低优先级，只作用于风格与表达（2026-09-10）
   'userSkill',
+  /* 2026-09-16：用户明确排除的元素（「避免出现的元素」面板）。
+     排在 userSkill **之后**是有意的 —— 它必须比风格指引更晚出现、优先级更高：
+     skill 说的是「要什么风格」，排除项说的是「什么绝对不能出现」，冲突时以排除项为准。 */
+  'userExclusions',
 ]);
 
 function isStructuredRecord(value) {

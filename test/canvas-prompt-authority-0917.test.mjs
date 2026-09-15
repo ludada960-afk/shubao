@@ -147,8 +147,16 @@ test('回写是纯函数：不修改入参', () => {
 
 test('skill 只在 prompt 为空时预填（保持既有 applyCanvasSkill 行为）', () => {
   const studio = readFileSync(new URL('../src/pages/EcCanvas/canvasStudioModel.js', import.meta.url), 'utf8');
-  assert.ok(/String\(prompt \|\| ''\)\.trim\(\) \? String\(prompt\) : found\.skillPrompt/.test(studio),
-    'applyCanvasSkill 必须保持「prompt 非空则不覆盖」');
+  /* ⚠️ 2026-09-16 判据更新：用户批注图5-①「技能库里面我点击使用，他并没有把技能带入到输入框
+     这边呀。你之前的一个版本里面是有做到的。」—— 旧行为是「prompt 非空就什么都不做」，
+     用户点完看不到任何反应，观感就是按钮坏了。
+     新行为：**空则填入、非空则追加**（仍然绝不覆盖用户已写的内容）。
+     本契约守的判据没变（不覆盖），只是把「不覆盖」的实现从「不动作」改成「追加」。 */
+  assert.ok(/const current = String\(prompt \|\| ''\)/.test(studio), 'prompt 必须先原样存下来（追加的基准）');
+  assert.ok(/current\.includes\(text\)/.test(studio), '同一份技能正文不得重复追加');
+  assert.ok(/current\.trim\(\) \?/.test(studio), '非空时必须走**追加**分支');
+  assert.ok(!/String\(prompt \|\| ''\)\.trim\(\) \? String\(prompt\) : found\.skillPrompt/.test(studio),
+    '不得退回「非空就原样返回」的旧写法（用户会以为按钮坏了）');
   /* 权威性模块本身不得去改 skill 的行为：只允许在注释里说明"不改"，
      不得真的 import / 调用（去掉注释后再断言，避免把说明文字误判成实现）。 */
   const authority = readFileSync(new URL('../src/pages/EcCanvas/canvasPromptAuthority.js', import.meta.url), 'utf8');

@@ -71,6 +71,7 @@ import SizingPanel from '../../Home/ec/SizingPanel.jsx';
 import SkuPanel from '../../Home/ec/SkuPanel.jsx';
 import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
 import CopyPanel from '../../Home/ec/CopyPanel.jsx';
+import GenerationConstraintsPanel from '../../Home/ec/GenerationConstraintsPanel.jsx';
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
 import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, canvasGenerationBoxHasResult, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
@@ -933,6 +934,10 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
         {item.key === 'sku' && <SkuPanel skus={configuration.skus} onChange={value => update('skus', value)} sizing={configuration.sizing} onSizingChange={value => update('sizing', value)} />}
         {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} />}
         {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} />}
+        {/* 2026-09-16：画布侧此前**根本没有**「避免出现的元素」这一段（首页有、画布没有），
+            同一个「内容规范」面板在两边内容不一致 —— 用户说的「不要东做一点西做一点」正是这种。
+            现在两边用同一个组件、同一份配置键（configuration.genSettings.negativePrompt）。 */}
+        {item.key === 'copy' && <GenerationConstraintsPanel flushTop negativePrompt={configuration.genSettings?.negativePrompt || ''} onChange={value => update('genSettings', { ...configuration.genSettings, negativePrompt: value })} />}
         {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
       </CanvasPopoverPortal>
     </div>)}

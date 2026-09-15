@@ -144,7 +144,8 @@
 .video-quick-tools { position: relative; margin: 10px 22px 0; display: flex; align-items: center; gap: 6px; }
 /* 9-11 二轮用户批注: @ 引用素材统一在输入框一行 (与电商生图一致) —
    工具栏不再渲染重复的第二入口, 这里只保留模型选择。 */
-.video-quick-tools .video-inline-control:has(.video-icon-tool[aria-label="引用素材"]) { display: none; }
+/* 2026-09-16：底栏那个重复的 @ 已删除（改为全站共用的 ImageMentionPicker，
+   挂在输入框下方那一行）—— 原先用来藏它的 :has() 规则一并没有了。 */
 .video-material-workspace { display: grid; gap: 12px; }
 .video-material-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .video-material-action { position: relative; min-width: 0; min-height: 86px; display: grid; grid-template-columns: 34px minmax(0,1fr); grid-template-rows: auto auto; align-content: center; column-gap: 10px; padding: 13px 14px; overflow: hidden; border: 1px solid rgba(68,55,43,.10); border-radius: 12px; background: var(--sb-neutral-0); cursor: pointer; transition: border-color .18s ease,background .18s ease,transform .18s ease; }
@@ -212,7 +213,16 @@
 .video-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 13px; flex-wrap: wrap; }
 .video-submit-row > .video-submit-meta { min-width: 0; display: flex; align-items: center; gap: 8px; flex: 1 1 auto; }
 .video-submit-row strong { font-size: 12px; }
-.video-submit-row span { color: #928b84; font-size: 10px; white-space: nowrap; }
+/* ⚠️ 这条原本是 `.video-submit-row span`（后代选择器）—— 它会把**主 CTA 内部**的积分 span
+   也一起刷成灰色 10px，于是紫色按钮上的积分跟底色几乎同色。
+   用户批注（图8-①）：「你这个积分的这个动态的项目就跟别人不一样。别人的这个积分是用户输入了
+   之后他的确是按钮会高亮起来。但是你这个积分也应该变成白色呀，不然你跟这个底色一样，
+   就看不出来这个积分是多少呀？你自己去看看电商生图，他们那边是怎么做的这个按钮和这个文案的
+   变色逻辑。」
+   电商生图那边之所以正确，是因为积分用的是 .shubao-gen-cta-points（字体 13/700、颜色继承按钮），
+   而这条规则用更高的选择器优先级把它盖掉了。现在只作用于**说明区**，不碰按钮内部任何 span。 */
+.video-submit-row > span,
+.video-submit-row > .video-submit-meta span { color: #928b84; font-size: 10px; white-space: nowrap; }
 .video-submit-actions { min-width: 0 !important; display: flex !important; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
 .video-submit-row button { min-height: 44px; padding: 0 18px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 8px; /* §18.3 M3 / 裁定 2：功能按钮禁止渐变，改品牌紫纯色（渐变只留 logo/hero/空态）。 */
   background: var(--sb-btn-primary-bg); box-shadow: 0 8px 20px var(--sb-brand-a32); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }

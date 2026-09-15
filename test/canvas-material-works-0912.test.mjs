@@ -20,12 +20,17 @@ test('⑥ 技能按能力域分域: 生图技能进生图节点, 视频技能进
   assert.equal(image.length + video.length, CANVAS_SKILLS.length, '分域不丢技能');
 });
 
-test('⑥ applyCanvasSkill: 空 prompt 才预填; 用户技能 (skillBody) 同样可落节点', () => {
+/* 2026-09-16 判据更新（用户批注图5-①）：「技能库里面我点击使用，他并没有把技能带入到输入框
+   这边呀。」—— 旧行为是「prompt 非空就什么都不做」，用户点完看不到任何反应。
+   新行为：空则填入、非空则**追加**（仍然绝不覆盖）。判据（不覆盖用户已写内容）未变。 */
+test('⑥ applyCanvasSkill: 空 prompt 预填、非空追加（绝不覆盖）; 用户技能 (skillBody) 同样可落节点', () => {
   const empty = applyCanvasSkill({ prompt: '', skill: 'scene-detail' });
   assert.equal(empty.skill, 'scene-detail');
   assert.match(empty.prompt, /真实生活场景/);
   const kept = applyCanvasSkill({ prompt: '我写好的要求', skill: 'scene-detail' });
-  assert.equal(kept.prompt, '我写好的要求');
+  /* 追加语义：原有内容一字不动地留在开头，技能正文接在后面（绝不覆盖）。 */
+  assert.ok(kept.prompt.startsWith('我写好的要求'), '已有 prompt 必须完整保留');
+  assert.ok(kept.prompt.length > '我写好的要求'.length, '技能正文必须真的写进输入框（用户批注图5-①）');
   const userSkill = applyCanvasSkill({ prompt: '', skill: '我的主图技能', skillBody: '用户自定义正文' });
   assert.equal(userSkill.skill, '我的主图技能');
   assert.equal(userSkill.prompt, '用户自定义正文');

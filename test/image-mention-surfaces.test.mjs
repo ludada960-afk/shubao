@@ -43,15 +43,19 @@ test('Xiaohongshu and Plog prompts share the image mention picker', async () => 
 });
 
 test('video and canvas mention pickers insert at the remembered caret', async () => {
-  const [video, canvasStudio, canvasPage] = await Promise.all([
+  const [video, canvasStudio, canvasPage, picker] = await Promise.all([
     readFile(new URL('../src/pages/VideoStudio/index.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/creation/ImageMentionPicker.jsx', import.meta.url), 'utf8'),
   ]);
 
   assert.match(video, /promptFieldRef\.current\?\.insertMention\(file\.label\)/);
   assert.match(video, /<MentionPromptField[\s\S]*?ref=\{promptFieldRef\}/);
-  assert.match(video, /onPointerDown=\{event => event\.preventDefault\(\)\}/);
+  /* 2026-09-16：视频那段自写的 @ 菜单已删除，改用全站共用的 ImageMentionPicker ——
+     「保住输入框光标/选区」的 preventDefault 跟着实现搬进了共用组件：判据不变，位置变了。 */
+  assert.match(picker, /onPointerDown=\{event => event\.preventDefault\(\)\}/, '菜单项必须 preventDefault（保住输入框选区）');
+  assert.match(video, /<ImageMentionPicker/, '视频侧必须用共用 @ 组件（不再自写一套）');
   assert.match(canvasStudio, /promptFieldRef\.current\?\.insertMention\(source\.label\)/);
   assert.match(canvasStudio, /skipPromptInsert:\s*true/);
   assert.match(canvasPage, /options\.skipPromptInsert/);

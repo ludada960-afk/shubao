@@ -130,7 +130,9 @@ test('ecommerce controls: 模型优先; 避免出现的元素归内容规范; �
   /* 积分说明句已删（2026-09-15 批注③）：积分只在主 CTA 动态显示 */
   assert.doesNotMatch(settings, /generationUnits/, '不再在面板内展示「当前约 N AI 积分/张」');
   /* 9-11 三轮: 模型卡片改用真实品牌标 (ModelLogo + brandLogo), 不再用 1.5MB 示例大图 */
-  assert.match(settings, /<ModelLogo logo=\{brandLogo\(model\.brand\)\}/);
+  /* 2026-09-16：断言从「单行字面量」改成「跨行结构」—— 模型图标改成单层后属性换行了，
+     判据（模型卡片必须用真实品牌标）一字未变。 */
+  assert.match(settings, /<ModelLogo[\s\S]{0,80}logo=\{brandLogo\(model\.brand\)\}/);
   assert.doesNotMatch(settings, /model\.visual/);
   /* 画面风格 = 技能库「生图」内置技能 (唯一真源), 本地只留兜底视觉 */
   assert.match(style, /fetchSkillLibrary\(\{ kind: 'image' \}\)/);

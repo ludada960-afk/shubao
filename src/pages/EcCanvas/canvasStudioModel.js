@@ -26,17 +26,33 @@ export function filterCanvasSkills(domain) {
   return CANVAS_SKILLS.filter(item => (wanted && item.domain === wanted) || (!wanted && !item.domain));
 }
 
-/* 纯函数: 应用技能 → { prompt, skill }。prompt 为空才预填 (不覆盖用户已写内容); skill 记 slug 供节点展示。 */
+/* 纯函数: 应用技能 → { prompt, skill }。
+ *
+ *  2026-09-16 用户批注（图5-①）：「技能库里面我点击使用，他并没有把技能带入到输入框这边呀。
+ *  你之前的一个版本里面是有做到的，是有实现的。现在怎么把他们全部拿掉了呀？」
+ *  —— 他说得对：画布侧一直是「把技能正文写进提示词」，而首页电商与视频页退化成了
+ *  只加一个不可见的 userSkills 字段 + 一个 chip，用户点完「使用」什么都看不见。
+ *  本函数现在是**三处共用**的唯一实现（首页 / 视频 / 画布），规则统一为：
+ *    · prompt 为空 → 直接填入技能正文；
+ *    · prompt 非空 → **追加**到末尾（带空行分隔），不覆盖用户已经写的内容；
+ *    · 正文已在 prompt 里 → 不重复追加（点了两次也不会出现两份）。
+ *  skill 记 slug/名称供节点与 chip 展示。 */
 export function applyCanvasSkill({ prompt = '', skill, skillBody = '' } = {}) {
   const found = CANVAS_SKILLS.find(item => item.slug === skill) || null;
+  const current = String(prompt || '');
+  const appendBody = body => {
+    const text = String(body || '').trim();
+    if (!text) return current;
+    if (current.includes(text)) return current;
+    return current.trim() ? `${current.replace(/\s+$/, '')}\n\n${text}` : text;
+  };
   if (!found) {
-    /* 9-11 用户批注#7: 用户技能库 (个人/专属 Skill) 选中后同样可落进节点 —
-       skill 记名称, prompt 空时预填技能正文 (skillBody 由调用方从技能库带入) */
     const body = String(skillBody || '').trim();
-    if (body) return { prompt: String(prompt || '').trim() ? String(prompt) : body, skill: String(skill || ''), skillLabel: String(skill || '') };
-    return { prompt: String(prompt || ''), skill: null };
+    if (body) return { prompt: appendBody(body), skill: String(skill || ''), skillLabel: String(skill || '') };
+    return { prompt: current, skill: null };
   }
-  return { prompt: String(prompt || '').trim() ? String(prompt) : found.skillPrompt, skill: found.slug, skillLabel: found.name };
+  // 内置技能：正文来自技能定义；用户已写内容同样只追加、不覆盖。
+  return { prompt: appendBody(found.skillPrompt), skill: found.slug, skillLabel: found.name };
 }
 
 export function createCanvasShotNamer() {

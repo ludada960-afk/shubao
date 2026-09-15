@@ -94,7 +94,14 @@ function normalizeSkus(value) {
     const explicitLabel = SKU_LABEL_FIELDS.map(field => cleanString(ownValue(sku, field))).find(Boolean) || '';
     if (!facts.some(fact => fact.name !== 'count')) return [];
     const fallbackLabel = facts.find(fact => ['color', 'size', 'capacity', 'dimLabel'].includes(fact.name))?.value;
-    return [{ label: explicitLabel || fallbackLabel || `规格 ${facts.length + 1}`, facts }];
+    /* 2026-09-16 用户批注（图4-①）：变体说明此前**全链路丢失** ——
+       SKU_FACT_FIELDS 白名单里没有 note，normalizeSkus 直接把它扔掉，
+       用户把「磨砂黑 / 仅 500ml / 含硅胶密封圈」写得多细都不会进生成。
+       这里**单独**提取（不并进 facts）：facts 是「会被视觉核验的结构化事实」通道，
+       要进 requiredFacts 的确认闸门；而变体说明是用户对差异的自由描述，语义不同 ——
+       混进去会让它被当成待核验事实，反而可能让这张图被判不合格。 */
+    const note = cleanString(ownValue(sku, 'note'));
+    return [{ label: explicitLabel || fallbackLabel || `规格 ${facts.length + 1}`, facts, ...(note ? { note } : {}) }];
   });
 }
 
@@ -278,7 +285,7 @@ function skuVariantIdentity(skuFacts) {
   };
 }
 
-function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, variantComparison = null, category, platform, sizing }) {
+function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, variantComparison = null, variantNote = '', category, platform, sizing }) {
   const roleDefaultRatio = role.startsWith('detail_slice_') ? '9:16' : defaultRatio;
   const ratioSelection = resolveRatioSelection({ role }, sizing, roleDefaultRatio);
   const resolvedGeneration = resolveGenerationSize({ imageModel: sizing.imageModel, resolution: sizing.resolution, ratio: ratioSelection.ratio });
@@ -300,6 +307,8 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     commercialDutyId: commercialDutyIdFor(role, commercialDutyKey),
     ...(variantIdentity ? { variantIdentity } : {}),
     ...(variantComparison ? { variantComparison } : {}),
+    /* 2026-09-16：变体说明随该变体的 item 走（不再是「糊进散文、谁都不认领」）。 */
+    ...(variantNote ? { variantNote } : {}),
     communicationGoal,
     ratio,
     targetRatio,
@@ -649,6 +658,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       productAssetIds,
       styleReferenceIds,
       variantIdentity: skuVariantIdentity(skuFacts),
+      variantNote: sku.note || '',
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,

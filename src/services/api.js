@@ -756,6 +756,13 @@ export async function generateEcommerceSuite({
      于是画布侧的 skus 永远是 []，SKU 变体图一张都不会生成，自然也就进不了 SKU 排。
      这里把 skus 一路透传下去（画布与首页共用同一条生成链路）。 */
   skus,
+  /* 2026-09-16 用户批注（图4-①）打通「面板 → 生成」：
+     这两项以前**只到设计方案就断了**，出图请求体里根本没有它们。
+     都按服务端**已有字段**映射，不新造协议：
+       category     → body.category     → campaignOverrides.category → campaignBible
+       customColors → body.custom_colors → paletteLock（品牌色锁定真正生效的地方） */
+  category,
+  customColors,
   direction,
   assetMentions,
   email,
@@ -769,7 +776,8 @@ export async function generateEcommerceSuite({
 }) {
   return generateEcommerce({
     productName: sceneStyle || '商品',
-    category: '其他',
+    /* category 此前是**硬编码 '其他'** —— 用户在「商品信息」里选/填了品类也永远传不进来。 */
+    category: String(category || '').trim() || '其他',
     refImgs: referenceImages || [],
     realShots: productImages || [],
     platform: platform || '淘宝',
@@ -780,6 +788,7 @@ export async function generateEcommerceSuite({
     generationSettings,
     sizing,
     skus: Array.isArray(skus) ? skus : [],
+    customColors: Array.isArray(customColors) && customColors.length ? customColors : null,
     direction,
     assetMentions,
     email,

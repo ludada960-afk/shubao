@@ -4153,6 +4153,32 @@ const handlePointerUp = useCallback((e) => {
       commerceContext: node.ecParams?.commerceContext,
       now,
     });
+    /* ═══ 2026-09-16 用户批注（图4-①）：「你确定现在所有的这些逻辑都是打通的情况吗？都是确确实实
+       能够带入到设计方案里面，然后去激活生成逻辑的吗？」—— 审计结论：**没有打通**。
+       根因就在上面那几行：新建的套图节点只拿到 platform + commerceContext，
+       而 createCanvasSuiteComposerNode 的默认 configuration 里 productParams / skus / copywriting
+       全是**空值**。于是用户在第 1 步填的商品信息、内容规范、SKU 变体、品牌色、清晰度，
+       到了「应用到画布」这一步被**静默换成默认空值**，一路空到生成。
+       修法：把第 1 步的整份配置原样带过来。方案回写（applyPlanToConfiguration）在后面执行，
+       该由方案赢的地方仍然由方案赢，硬约束仍然独立生效。 */
+    const launchParams = node.ecParams || {};
+    suite.configuration = {
+      ...suite.configuration,
+      ...(launchParams.sizing ? { sizing: launchParams.sizing } : {}),
+      ...(launchParams.genSettings
+        ? { genSettings: { ...suite.configuration.genSettings, ...launchParams.genSettings } }
+        : {}),
+      ...(launchParams.productParams
+        ? { productParams: { ...suite.configuration.productParams, ...launchParams.productParams } }
+        : {}),
+      ...(launchParams.copywriting
+        ? { copywriting: { ...suite.configuration.copywriting, ...launchParams.copywriting } }
+        : {}),
+      ...(Array.isArray(launchParams.skus) && launchParams.skus.length ? { skus: launchParams.skus } : {}),
+      ...(Array.isArray(launchParams.customColors) && launchParams.customColors.length
+        ? { customColors: launchParams.customColors }
+        : {}),
+    };
     suite.directions = node.directions;
     suite.selectedDirection = 0;
     suite.prompt = node.prompt || '';
@@ -4619,6 +4645,48 @@ const handlePointerUp = useCallback((e) => {
     const receivedUrls = new Set();
     const receivedNodeIds = [];
     const roleRows = { 白底图: 0, 主图: 1, 详情图: 2, SKU: 3, 素材: 4 };
+    /* ═══ 用户在第 1 步填的**结构化事实**：审计确认此前只到「设计方案」就断了 ═══
+       服务端真正读进提示词的字段是 **direction.editableBrief**
+       （orchestrator.campaignOverrides → campaignBible → promptCompiler「brief」），
+       而 body.selling_points / product_name 在 direction 是对象时**根本不生效**。
+       所以这里把用户填的每一项都并进 editableBrief —— 这是唯一真正到得了模型的通道。
+       变体说明**逐条绑定到变体**（不是只取第一个，也不是糊成一段）。 */
+    const userBriefLines = (() => {
+      const pp = configuration.productParams || {};
+      const cw = configuration.copywriting || {};
+      const skuLines = (Array.isArray(configuration.skus) ? configuration.skus : [])
+        .map((sku, index) => {
+          const label = [sku?.color, sku?.size, sku?.capacity, sku?.dimLabel]
+            .map(value => String(value || '').trim()).filter(Boolean).join(' / ') || ('变体' + (index + 1));
+          const note = String(sku?.note || '').trim();
+          return note ? '变体「' + label + '」的差异说明：' + note : '';
+        })
+        .filter(Boolean);
+      const negative = String(configuration.genSettings?.negativePrompt || '').trim();
+      return [
+        pp.category && '品类：' + pp.category,
+        pp.size && '产品尺寸：' + pp.size,
+        pp.material && '商品材质：' + pp.material,
+        pp.baseColor && '底色/主色：' + pp.baseColor,
+        pp.accentColor && '点缀色：' + pp.accentColor,
+        pp.craft && '工艺说明：' + pp.craft,
+        cw.sellingPoints && '核心卖点：' + cw.sellingPoints,
+        cw.qc && '质检报告：' + cw.qc,
+        cw.details && '细节特写：' + cw.details,
+        cw.maintenance && '保养维护：' + cw.maintenance,
+        ...skuLines,
+        negative && '禁止出现（用户明确排除）：' + negative,
+      ].filter(Boolean);
+    })();
+    /* 把用户事实并进 direction.editableBrief（保留方案原有的执行说明，不覆盖它）。 */
+    const directionPayload = (() => {
+      const base = applyCanvasSuitePlanToDirection(suitePlan, directionSource);
+      if (!userBriefLines.length) return base;
+      const block = '用户填写的商品与内容事实（与画面风格冲突时以此为准）：\n' + userBriefLines.join('\n');
+      const existing = [base.editableBrief, base.executionGuide, base.execution_guide, base.brief, base.description]
+        .find(value => typeof value === 'string' && value.trim()) || '';
+      return { ...base, editableBrief: existing ? existing + '\n\n' + block : block };
+    })();
     try {
       await generateEcommerceSuite({
         productImages: productNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, name: node.name || node.displayLabel, role: 'product' })),
@@ -4662,7 +4730,12 @@ const handlePointerUp = useCallback((e) => {
            交付时带 group:'SKU'（deliveryMetadata.ecommerceGroupForRole），
            画布 onImage 再按 group 落到 roleRows.SKU = 第 3 排。 */
         skus: Array.isArray(configuration.skus) ? configuration.skus : [],
-        direction: applyCanvasSuitePlanToDirection(suitePlan, directionSource),
+        direction: directionPayload,
+        /* 品类与品牌色有**现成的服务端字段**，走结构化通道（不塞进散文）：
+           category → campaignOverrides.category → campaignBible
+           customColors → body.custom_colors → paletteLock（品牌色锁定真正生效的地方） */
+        category: String(configuration.productParams?.category || '').trim(),
+        customColors: Array.isArray(configuration.customColors) ? configuration.customColors : [],
         email: phone,
         onProgress: progress => updateComposerNode(composer.id, { progress: progress?.progress || progress?.percent || 0, progressLabel: progress?.message || progress?.label || '正在生成套图' }),
         onImage: image => {

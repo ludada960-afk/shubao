@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import {
   Aperture,
-  AtSign,
   Check,
   ChevronDown,
   Clapperboard,
@@ -21,6 +20,14 @@ import {
   X,
 } from 'lucide-react';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
+import { applyCanvasSkill } from '../EcCanvas/canvasStudioModel.js';
+/* 2026-09-16 用户批注（图7-①）：视频侧自己那套 @ 触发器 + 弹出菜单**已删除**，
+   改用全站共用的 ImageMentionPicker（电商生图 / 小红书图文 / 视频生成 三处同一个实现）。
+   删它的原因不是样式，是逻辑：视频侧「点外面就关」只认底栏容器 quickToolsRef，
+   而那个 @ 菜单挂在输入框下面那一行 —— 菜单项一按下就被判成「点了外面」→ 菜单卸载 →
+   click 永远不会触发。用户看到的「有素材、能点开、点了没反应 = 死按钮」就是它。
+   共用组件早就把判定做对了（rootRef + menuRef 双包含），所以正确修法是**把逻辑拿过来用**。 */
+import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import { useApp } from '../../store/AppContext.jsx';
 import { quoteBillingAction } from '../../services/billing.js';
 import { stableCanvasActionId } from '../../services/api.js';
@@ -48,6 +55,34 @@ import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import './VideoStudio.css';
+
+/* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
+   视频侧的命名是「图片1 / 视频1 / 音频1」（见 mentionedAssets），与电商的「产品图N / 参考图N」不同 ——
+   这里只补齐组件需要的最小字段，**绝不重命名**：引用标签必须与输入框里渲染出的 token
+   逐字一致，重命名等于「插进去的字在框里匹配不上」，那就又变成一次点了没反应。 */
+function videoMentionItems(list) {
+  return (Array.isArray(list) ? list : []).map((item, index) => {
+    const id = item?.id || item?.sourceNodeId || 'video-asset-' + (index + 1);
+    const name = item?.name || '素材' + (index + 1);
+    return {
+      ...item,
+      id,
+      sourceNodeId: item?.sourceNodeId || id,
+      name,
+      label: item?.label || '@' + name,
+      kindLabel: item?.kind === 'video' ? '镜头参考' : item?.kind === 'audio' ? '声音参考' : '视觉参考',
+    };
+  });
+}
+
+/* 菜单行自绘：视频素材没有统一缩略图（音频根本没有），所以用类型图标 + 名称 + 用途。 */
+function renderVideoMentionItem(item) {
+  const Icon = item?.kind === 'video' ? Video : item?.kind === 'audio' ? FileAudio : ImagePlus;
+  return <React.Fragment>
+    <span className="image-mention-kind" aria-hidden="true"><Icon size={15} /></span>
+    <span><b>{item.name}</b><small>{item.kindLabel}</small></span>
+  </React.Fragment>;
+}
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 const FINAL = new Set(['completed', 'failed', 'needs_review']);
@@ -413,7 +448,15 @@ export default function VideoStudioPage({ embedded = false }) {
   useEffect(() => {
     if (!inlineMenu) return undefined;
     const closeMenu = event => {
-      if (!quickToolsRef.current?.contains(event.target)) setInlineMenu(null);
+      /* ⚠️ 这里曾经只认 quickToolsRef（底栏工具区）。
+         视频侧那个 @ 菜单挂在输入框下面那一行，不在底栏里 —— 菜单项一按下就被判成「点了外面」、
+         菜单卸载、click 永不触发（就是用户报的「死按钮」）。
+         @ 现在换成共用组件（自己管开合），但这条判定对**其它内联菜单**仍是同一个坑，
+         所以改成按「内联控件容器」判，而不是按「底栏」判。 */
+      const target = event.target;
+      if (target instanceof Element && target.closest('.video-inline-control, .video-inline-menu')) return;
+      if (quickToolsRef.current?.contains(target)) return;
+      setInlineMenu(null);
     };
     const closeOnEscape = event => {
       if (event.key === 'Escape') setInlineMenu(null);
@@ -708,7 +751,8 @@ export default function VideoStudioPage({ embedded = false }) {
         resolution,
         sound,
         manifest: inspected.manifest,
-        userSkills: userSkills.map(skill => ({ id: skill.id, name: skill.name, version: skill.version, body: skill.body })),
+        /* 只发名字：技能正文已经在输入框（prompt）里了，再发 body 会让同一份正文进两次提示词。 */
+        userSkills: userSkills.map(skill => ({ id: skill.id, name: skill.name, version: skill.version })),
         analysisImageIds: [...first, ...last, ...images, ...frames].map(asset => asset.id),
       });
       setPlannedUploads({ signature: planSignature, assets: { first, last, images, videos, audios } });
@@ -929,11 +973,19 @@ export default function VideoStudioPage({ embedded = false }) {
             className="video-prompt-mentions"
           />
           <div className="video-skill-row">
-            {/* 9-11 二轮用户批注: @ 引用素材与电商生图对齐 — 放在输入框这一行, 不再散落到下方工具栏 */}
-            <span className="video-inline-control">
-              <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={15} /></button>
-              {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map(file => <button key={file.id} type="button" onClick={() => insertMention(file)}>{file.label}</button>) : <p>先上传素材，再引用到描述里</p>}</div>}
-            </span>
+            {/* @ 引用素材：全站共用组件（与电商生图同一个实现、同一个长相）。
+                内置两条用户点名要的行为：①没过素材时按钮**自动禁用变暗**；
+                ②菜单 portal 到 body + 双包含判定，点菜单项一定插得进去（图7-① 的死按钮）。 */}
+            <ImageMentionPicker
+              images={mentionedAssets}
+              selectedImages={mentionedAssets}
+              selectionMode="insert"
+              normalize={videoMentionItems}
+              renderItem={renderVideoMentionItem}
+              menuTitle="引用素材"
+              triggerLabel="引用素材"
+              onToggle={insertMention}
+            />
             {userSkills.map(skill => (
               <span key={skill.id} className="ec-skill-chip">
                 <Sparkles size={12} /> {skill.name}
@@ -941,13 +993,19 @@ export default function VideoStudioPage({ embedded = false }) {
               </span>
             ))}
           </div>
-          <div className="video-text-meta"><span>{prompt.length}/1200</span><span><Sparkles size={14} />提交前锁定本次费用</span></div>
+          {/* 2026-09-16 用户批注（图7-②）：「你下面没有必要写这个限制多少次，还有右边这个
+              『提交时锁定本次费用』这一句，就是你这行可以去掉的，不需要去提示这个。」
+              → 整行删除。字数上限是**约束**不是**说明**：MentionPromptField 到 1200 会自己截断，
+              不需要在旁边再写一个计数器；计费在按钮上已经实时显示，不必再解释一遍。 */}
           <SkillLibraryModal
             open={skillOpen}
             onClose={() => setSkillOpen(false)}
             initialKind="video"
             onPick={skill => {
               if (!skill?.body) return;
+              /* 2026-09-16 用户批注（图5-①）：技能「使用」必须把正文写进输入框 ——
+                 与首页电商、画布三处共用 applyCanvasSkill（不覆盖已写内容，追加到末尾）。 */
+              setPrompt(current => applyCanvasSkill({ prompt: current, skill: skill.slug || skill.name, skillBody: skill.body }).prompt);
               setUserSkills(current => (current.some(item => item.id === skill.id) ? current : [...current, { id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body }].slice(0, 2)));
               setSkillOpen(false);
               setPlanReviewed(false);
@@ -961,10 +1019,8 @@ export default function VideoStudioPage({ embedded = false }) {
         <footer className="video-toolbar" ref={toolbarRef}>
           <div className="video-toolbar-controls">
             <div className="video-quick-tools" ref={quickToolsRef}>
-              <span className="video-inline-control">
-                <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={17} /></button>
-                {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map(file => <button key={file.id} type="button" onPointerDown={event => event.preventDefault()} onClick={() => insertMention(file)}><span>{file.name}</span><small>{file.kind === 'image' ? '视觉参考' : file.kind === 'video' ? '镜头参考' : '声音参考'}</small></button>) : <p>上传素材后会按“图片1、视频1、音频1”自动编号</p>}</div>}
-              </span>
+              {/* 2026-09-16：这里原来还有一个重复的 @（底栏版）。两套 @ 两套菜单正是
+                 用户说的「为什么跟其他板块的艾特键不一样」—— 现在只剩输入框下方那一个共用组件。 */}
               <span className="video-inline-control">
                 {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
                 <button type="button" className="video-config-trigger is-model" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}>

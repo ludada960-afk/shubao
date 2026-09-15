@@ -1,13 +1,45 @@
+/* ═══ @ 引用入口（电商生图 / 小红书图文 / 视频生成 共用）═══
+   2026-09-16 用户批注图7-①：「你视频生成这边的这个艾特键，为什么跟其他板块的艾特键不一样呢？」
+   本文件此前用的是 `--sb-neutral-0` + 一堆硬编码 hex（#59636f / #343b45 / #f1f4f7 / #8b939e）——
+   与面板里那个「黑字白底」的 bug 同源：--sb-neutral-0 是**不随主题翻转**的品牌原色，
+   暗色主题下整块会保持近白。现在全部换成会翻转的语义 token（D6/D4/R7）。 */
 .image-mention-picker { position: relative; flex: 0 0 auto; }
-.image-mention-trigger { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 1px solid var(--sb-neutral-200); border-radius: 50%; background: var(--sb-neutral-0); color: #59636f; cursor: pointer; }
-.image-mention-trigger:hover:not(:disabled), .image-mention-trigger.is-open { border-color: var(--sb-info); color: var(--sb-info); background: #f4f7ff; }
-.image-mention-trigger:disabled { opacity: .38; cursor: not-allowed; }
-.image-mention-menu { position: fixed; z-index: 10050; box-sizing: border-box; display: grid; gap: var(--sb-space-1); overflow-y: auto; padding: 7px; border: 1px solid var(--sb-neutral-200); border-radius: var(--sb-radius-md); background: var(--sb-neutral-0); box-shadow: 0 14px 36px rgba(15, 23, 42, .18); }
-.image-mention-menu > strong { padding: 5px 7px; color: #59636f; font-size: var(--sb-text-xs); }
-.image-mention-menu > button { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) 18px; align-items: center; gap: var(--sb-space-2); padding: var(--sb-space-1-5); border: 0; border-radius: var(--sb-radius-sm); background: transparent; color: #343b45; text-align: left; cursor: pointer; }
-.image-mention-menu > button:hover { background: #f1f4f7; }
-.image-mention-menu > button > div { overflow: hidden; border-radius: 6px; background: #f4f5f7; }
+.image-mention-trigger {
+  width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--sb-border-default); border-radius: 50%;
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  cursor: pointer; font-family: inherit;
+  transition: border-color var(--sb-duration-fast) var(--sb-ease-out),
+              color var(--sb-duration-fast) var(--sb-ease-out),
+              background-color var(--sb-duration-fast) var(--sb-ease-out);
+}
+.image-mention-trigger:hover:not(:disabled),
+.image-mention-trigger.is-open {
+  border-color: var(--sb-state-selected-line); color: var(--sb-state-selected-ink); background: var(--sb-state-selected-bg);
+}
+/* 没素材时**必须看得出是暗的**（用户原话：「用户他没有上传任何东西的话，这个按钮它是暗的」）。
+   0.38 太低会看不出是按钮，0.45 + 去掉白底更接近「不可用但仍可辨认」。 */
+.image-mention-trigger:disabled { opacity: .45; cursor: not-allowed; background: var(--sb-surface-tint); border-style: dashed; }
+.image-mention-menu {
+  position: fixed; z-index: var(--sb-z-tooltip, 10050); box-sizing: border-box; display: grid; gap: var(--sb-space-1);
+  overflow-y: auto; padding: 7px; border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-card); background: var(--sb-surface-card); box-shadow: var(--sb-shadow-lg);
+}
+.image-mention-menu > strong { padding: 5px 7px; color: var(--sb-ink-2); font-size: var(--sb-text-xs); }
+.image-mention-menu > button {
+  min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) 18px; align-items: center;
+  gap: var(--sb-space-2); padding: var(--sb-space-1-5); border: 0; border-radius: var(--sb-radius-control);
+  background: transparent; color: var(--sb-text-primary); text-align: left; cursor: pointer; font-family: inherit;
+}
+.image-mention-menu > button:hover { background: var(--sb-state-hover-bg); }
+.image-mention-menu > button > div { overflow: hidden; border-radius: var(--sb-radius-chip); background: var(--sb-surface-tint); }
 .image-mention-menu > button span { min-width: 0; display: grid; gap: var(--sb-space-0-5); }
 .image-mention-menu b, .image-mention-menu small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .image-mention-menu b { font-size: var(--sb-text-xs); }
-.image-mention-menu small { color: #8b939e; font-size: 10px; }
+.image-mention-menu small { color: var(--sb-text-muted); font-size: var(--sb-text-2xs); }
+/* 自绘行（视频素材：图片/视频/音频没有统一缩略图）—— 图标格 + 名称 + 类型。 */
+.image-mention-menu.is-custom-item > button { grid-template-columns: 28px minmax(0, 1fr) 18px; }
+.image-mention-menu .image-mention-kind {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--sb-radius-control);
+  background: var(--sb-surface-tint); color: var(--sb-ink-2);
+}

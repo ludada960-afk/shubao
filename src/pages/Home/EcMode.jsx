@@ -33,6 +33,7 @@ import { archiveProductProfile, createProductProfile, getProjectAsset, listProdu
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
 import SkillLibraryModal from './ec/SkillLibraryModal.jsx';
+import { applyCanvasSkill } from '../EcCanvas/canvasStudioModel.js';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
 import { createEcommerceGenerationPreconditionError, createEcommerceGenerationToken, ecommerceLoginPreflight, invalidateEcommerceGenerationRequest, isEcommerceGenerationTokenCurrent } from './ec/ecommerceTaskProgressModel.js';
 import { restoreCheckpointIntoEditor } from './ec/projectLifecycleModel.js';
@@ -83,11 +84,10 @@ const BTN_BASE = {
   boxShadow: 'var(--sb-shadow-sm)'
 };
 
-/* 面板内分组分隔线：两个语义分组之间的一道 1px 呼吸。
-   左右内边距取规范 sp5（20px），与面板左右内边距对齐。 */
-function CopyPanelDivider() {
-  return <div aria-hidden="true" style={{ height: 1, background: 'var(--sb-border-subtle)', margin: `var(--sb-space-1) var(--sb-space-5)` }} />;
-}
+/* ⚠️ 这里**曾经**有 CopyPanelDivider（内容规范两段之间的 1px 分割线），2026-09-16 删除。
+   用户批注图6-①：「避免出现的元素，这个上面为什么会有这么多的空白处呢？是不是有一条分割线啊？
+   这个分割线你为什么不拿掉，然后把它挤上去呢？」—— 删线 = 删组件（它只有这一个用途）。
+   同时把下面那一块的顶部内边距归零（flushTop），否则两段 24px 内边距仍会叠成 48px 死白。 */
 
 /* ═══════ 玻璃拟态面板样式（AI 感升级）═══════ */
 /* 面板外观由 Home.css 的 .ec-config-panel 统一接管（V3 已 token 化），
@@ -373,21 +373,37 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
      点「下一步」= 生成设计方案 → 进画布, 不再询问 (原两条路的浮层已删, 只留方案链路)。 */
   const applySkill = useCallback(skill => {
     if (!skill) return;
-    /* 内置风格技能 (premium_minimal 等) = 画面风格, 直接落到 styleSkill; 任务型技能 → 叠加进 userSkills */
+    /* 内置风格技能 (premium_minimal 等) = 画面风格, 直接落到 styleSkill */
     if (skill.key && STYLE_SKILL_KEYS.has(skill.key)) {
       setStyleSkill(skill.key);
       setSkillOpen(false);
       return;
     }
-    if (!skill.body) return;
+    const body = String(skill.body || '').trim();
+    if (!body) return;
+    /* ═══ 2026-09-16 用户批注（图5-①）═══
+       原话：「技能库里面我点击使用，他并没有把技能带入到输入框这边呀。你之前的一个版本里面
+       是有做到的，是有实现的。现在怎么把他们全部拿掉了呀？」
+       → 「使用」的正确语义就是**把技能正文写进提示词输入框**（技能本质是提示词模板，
+          用户要看得见、改得动）。此前只塞进一个不可见的 userSkills 字段 + 一个 chip，
+          用户当然觉得「什么都没发生」。
+       统一实现：复用画布侧的 applyCanvasSkill（首页 / 视频 / 画布三处同一个函数）。 */
+    setDescription(current => applyCanvasSkill({ prompt: current, skill: skill.slug || skill.name, skillBody: body }).prompt);
+    /* chip 保留，作为「这个技能已应用」的可见标记；但**发送时会剥掉 body**（见 launch 处），
+       否则同一份正文会进两次提示词（一次是输入框文字、一次是 user_skills 段）。 */
     setUserSkills(current => {
       const next = [...(current || [])];
-      if (!next.some(item => item.id === skill.id)) next.push({ id: skill.id, name: skill.name, version: skill.version || 1, body: skill.body });
+      if (!next.some(item => item.id === skill.id)) next.push({ id: skill.id, name: skill.name, version: skill.version || 1, body });
       return next.slice(0, 2);
     });
     setSkillOpen(false);
   }, []);
-  const removeSkillById = useCallback(id => setUserSkills(current => (current || []).filter(item => item.id !== id)), []);
+  /* 移除 chip：正文已在输入框里，所以同时把这段正文从输入框删掉 —— 否则用户以为移除了、其实还在。 */
+  const removeSkillById = useCallback(id => setUserSkills(current => {
+    const target = (current || []).find(item => item.id === id);
+    if (target?.body) setDescription(value => String(value || '').replace(target.body, '').replace(/\n{3,}/g, '\n\n').trim());
+    return (current || []).filter(item => item.id !== id);
+  }), []);
 
   /* — 配置 — */
   const [platform, setPlatform] = useState('taobao');
@@ -640,7 +656,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         targetLanguage: commerceContext.targetLanguage,
         commerceContext,
         sizing: effectiveSizing,
-        userSkills,
+        /* 只发名字，**不发 body** —— 技能正文已经在提示词里了（用户点「使用」时写进去的）。
+           带上 body 会让同一份正文进两次提示词（sceneStyle 一次 + user_skills 段一次）。 */
+        userSkills: (userSkills || []).map(({ id, name, version }) => ({ id, name, version })),
         styleSkill: effectiveStyle,
         customColors,
         productParams: effectiveParams,
@@ -883,7 +901,12 @@ const DEFAULT_BUTTONS = [
       left: Math.max(16, Math.min(btnCenterX - panelW / 2, vw - panelW - 16)),
       bottom: Math.max(16, window.innerHeight - btnRect.top + 10),
       width: panelW,
-      maxH: Math.max(300, Math.min(620, btnRect.top - 24)),
+      /* ⚠️ 这里原本是 Math.max(300, Math.min(620, btnRect.top - 24)) ——
+         「300 托底」在触发条离屏幕顶部不足 324px 时会让面板**顶穿视口上沿**（被截断）。
+         同一个坑在自由创作那边也有一份（见 VisualCreationMode.getVisualPanelPosition 的注释）。
+         改成：先取该侧真实可用高，再夹到 [180, 620]；托底值降到 180 —— 它只在极端窄屏生效，
+         而那时面板内部滚动本来就是唯一出路。 */
+      maxH: Math.max(180, Math.min(620, btnRect.top - 24)),
       btnCenterX,
       panelH: panelH || previous.panelH || 0,
       textareaAvailable
@@ -949,7 +972,9 @@ const DEFAULT_BUTTONS = [
         const btnCenterX = btnRect.left + btnRect.width / 2;
         const panelLeft = Math.max(16, Math.min(btnCenterX - panelW / 2, vw - panelW - 16));
         const panelBottom = Math.max(16, window.innerHeight - btnRect.top + 10);
-        const maxH = Math.max(300, Math.min(620, btnRect.top - 24));
+        /* ⚠️ 同一个「300 托底」的坑在这里还有第二份（另一条定位路径）。
+           托底值 > 该侧可用高 → 面板顶穿视口上沿被截断。统一降到 180（只兜极端窄屏）。 */
+        const maxH = Math.max(180, Math.min(620, btnRect.top - 24));
 
         setPanelPos({
           left: panelLeft,
@@ -1013,8 +1038,9 @@ const DEFAULT_BUTTONS = [
           {activePanel === 'copy' && (
             <>
               <CopyPanel copywriting={copywriting} onChange={setCopywriting} available={panelPos.textareaAvailable} />
-              <CopyPanelDivider />
-              <GenerationConstraintsPanel negativePrompt={genSettings.negativePrompt} onChange={next => setGenSettings(current => ({ ...current, negativePrompt: next }))} available={panelPos.textareaAvailable} />
+              {/* 2026-09-16 用户批注图6-①：删掉两段之间的分割线，并让「避免出现的元素」紧贴上去
+                  （flushTop）—— 它上面的空白此前是「CopyPanel 底部 24 + 一条线 + 本段顶部 24」。 */}
+              <GenerationConstraintsPanel flushTop negativePrompt={genSettings.negativePrompt} onChange={next => setGenSettings(current => ({ ...current, negativePrompt: next }))} available={panelPos.textareaAvailable} />
             </>
           )}
           {activePanel === 'settings' && <GenSettingsPanel value={genSettings} onChange={setGenSettings} brandColors={customColors} onBrandColorsChange={setCustomColors} />}

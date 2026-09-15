@@ -1407,6 +1407,12 @@ export function createEcommerceOrchestrator(deps = {}) {
           abilityRecipe: own(job.payload, 'ability_recipe'),
           personMode: own(job.payload, 'person_mode'),
           userSkills: own(job.payload, 'user_skills'),
+          /* 2026-09-16：用户「避免出现的元素」面板的值。
+             它一直在 body.generation_settings.negativePrompt 里（前端是展开传的），
+             但服务端从来没人读 —— 这里接上，编译成 structured prompt 的硬排除段。 */
+          negativeConstraints: isRecord(own(job.payload, 'generation_settings'))
+            ? own(own(job.payload, 'generation_settings'), 'negativePrompt')
+            : '',
         });
       }
       return compiledRequest;

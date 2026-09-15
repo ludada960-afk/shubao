@@ -297,7 +297,10 @@ export default function SizingPanel({
                 background: checked ? 'var(--sb-state-selected-bg)' : hoverRow === typeDef.key ? 'var(--sb-state-hover-bg)' : 'transparent',
                 border: `1.5px solid ${checked ? 'var(--sb-state-selected-line)' : 'transparent'}`,
                 boxShadow: checked ? 'var(--sb-shadow-ring)' : 'none',
-                transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
+                /* 交互反馈（用户批注图3-②：「你好歹要有一些动效和交互效果」）：
+                   hover 时整行轻微上浮 1px —— 只动 transform，不动布局（不引起回流）。 */
+                transform: !checked && hoverRow === typeDef.key ? 'translateY(-1px)' : 'none',
+                transition: 'background-color var(--sb-dur-fast) var(--sb-ease-out), box-shadow var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out), transform var(--sb-dur-fast) var(--sb-ease-out)',
                 cursor: 'pointer',
               }}
                 onMouseEnter={() => setHoverRow(typeDef.key)}
@@ -327,11 +330,13 @@ export default function SizingPanel({
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
                 }}>
-                  {checked && <Check size={11} color="var(--sb-brand-ink)" strokeWidth={3.2} />}
+                  <span className={`ec-type-check${checked ? ' is-on' : ''}`} style={{ display: 'flex' }}>
+                    {checked && <Check size={11} color="var(--sb-brand-ink)" strokeWidth={3.2} />}
+                  </span>
                 </div>
 
                 {/* 图标 + 标签 */}
-                <ImageTypeBadge iconKey={typeDef.iconKey} checked={checked} />
+                <ImageTypeBadge iconKey={typeDef.iconKey} checked={checked} hovered={hoverRow === typeDef.key} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)' }}>{typeDef.label}</div>
                   <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>

@@ -62,8 +62,10 @@ test('⑤ skill 选项进生成器: P2 五技能 → 提示词预填 (不覆盖�
   const filled = applyCanvasSkill({ prompt: '', skill: 'white-bg-main' });
   assert.equal(filled.skill, 'white-bg-main');
   assert.match(filled.prompt, /白底/);
+  /* 2026-09-16 判据更新（用户批注图5-①）：非空时**追加**，仍然绝不覆盖。 */
   const kept = applyCanvasSkill({ prompt: '我的自定义要求', skill: 'white-bg-main' });
-  assert.equal(kept.prompt, '我的自定义要求', '已有 prompt 不被技能覆盖');
+  assert.ok(kept.prompt.startsWith('我的自定义要求'), '已有 prompt 必须保留（技能只能追加，不能覆盖）');
+  assert.ok(kept.prompt.length > '我的自定义要求'.length, '技能正文必须真的进到输入框里');
   const cleared = applyCanvasSkill({ prompt: 'x', skill: null });
   assert.equal(cleared.skill, null);
 });

@@ -160,6 +160,35 @@ export function textRoleStyle(role) {
    必须差到不可能看错。上一轮我做的是 28 vs 18（1.56 倍），用户复核时仍然
    认为一样大 —— 1.5 倍在这个尺寸下不够，改到 2.25 倍。
    下一轮如果再被说「一样大」，改的是**形态**（方形 vs 圆形），不是继续放大。 */
+/* ═══════ 内容识别色族（2026-09-16 用户批注图3-②）═══════
+   用户原话：「你现在这些框都是都是紫色的也很单一啊……你好歹要有一些动效和交互效果和配色差异啊，
+   主色次色和主次都要深度的处理啊」。
+   实测根因：图片类型那四个 tile 全都用**同一个** --sb-state-selected-bg（品牌浅紫）当底，
+   四个一样 → 用户看到的自然是「全部是紫色」「很单一」。
+   规则：**识别色（这是哪一类东西）与状态色（选中了没有）是两套颜色**，不许混用：
+     · 状态色 = 品牌紫（选中/当前），全站唯一，见 --sb-state-selected-*；
+     · 识别色 = 下面这五族，按「这一类东西是什么」分配，**同一类永远同一个色**。
+   取值全部来自既有语义色族（brand / info / success / warning / danger），不新造颜色。
+   ⚠️ 不给中性灰之外的新色值；改动只在 accent 键与 tile 的映射上。 */
+export const ACCENT = Object.freeze({
+  violet: Object.freeze({ ink: 'var(--sb-brand-700)', soft: 'var(--sb-brand-50)', line: 'var(--sb-brand-200)' }),
+  blue: Object.freeze({ ink: 'var(--sb-ink-info)', soft: 'var(--sb-info-soft)', line: 'var(--sb-info-border)' }),
+  green: Object.freeze({ ink: 'var(--sb-ink-success)', soft: 'var(--sb-success-soft)', line: 'var(--sb-success-border)' }),
+  amber: Object.freeze({ ink: 'var(--sb-ink-warning)', soft: 'var(--sb-warning-soft)', line: 'var(--sb-warning-border)' }),
+  rose: Object.freeze({ ink: 'var(--sb-ink-danger)', soft: 'var(--sb-danger-soft)', line: 'var(--sb-danger-border)' }),
+  neutral: Object.freeze({ ink: 'var(--sb-ink-2)', soft: 'var(--sb-surface-tint)', line: 'var(--sb-border-subtle)' }),
+});
+
+/** 取一族识别色的内联样式（tile 用 soft 底 + ink 图形 + line 描边）。 */
+export function accentStyle(name, { filled = false } = {}) {
+  const accent = ACCENT[name] || ACCENT.neutral;
+  return {
+    color: filled ? 'var(--sb-brand-ink)' : accent.ink,
+    background: filled ? accent.ink : accent.soft,
+    borderColor: filled ? accent.ink : accent.line,
+  };
+}
+
 export const ICON_SIZE = Object.freeze({
   groupTitle: 14,
   fieldLabel: 12,

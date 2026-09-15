@@ -217,15 +217,36 @@ function getVisualPanelPosition(panelId, button) {
      两侧都不够时允许面板越过触发条 (top:16 起, 最多 92vh), 不再强制在 396px 里滚动。 */
   const openAbove = viewportWidth <= 640 || availableAbove >= availableBelow;
   const availableSpace = openAbove ? availableAbove : availableBelow;
-  /* 9-12 用户批注：「面板要吸在按钮上面」——之前空间不够会退化成居中全屏覆盖层，
-     结果盖住提示词框左下角的 @ 按钮，看起来像“输入框没有 @”。
-     现在改为：永远贴着触发按钮开（上方或下方），空间不足由面板内部滚动承担。 */
+  /* ═══ 2026-09-16 用户批注（图10-①）═══
+     原话：「自由创作这边的四个板块，你现在张开之后都不是一般能够看全，你现在下面都会有一小部分
+     被截断，都需要往下滚动一下鼠标才能够看全所有的信息点，这个是违背我们逻辑的 ——
+     我们的逻辑就是你张开这个面板必须能够看到所有的信息，你不需要让用户去滚动这个鼠标呀，
+     你的适配逻辑必须要去做。」
+     根因有两条，都在这里：
+       ① maxHeight 被 Math.max(300, …) 托底，**可以大于该侧可用空间** → 面板直接超出视口被切；
+       ② 即使不越界，也没有「内容装不下就用满整屏」的兜底 —— 于是 420px 的空间里塞 700px 的内容，
+          只能用内部滚动承担，用户就得滚鼠标。
+     修法：maxHeight 取「该侧空间」与「设计目标高」的较大者，再用「视口可用高」封顶；
+     并在越过触发条时把面板整体夹进视口（上下各留 SAFE）——**永远不截断**。
+     只有视口本身装不下目标高度时，才轮到面板内部滚动。 */
+  /* ⚠️ 这里要同时满足两条看起来打架的用户要求，所以不能只挑一条：
+     ① 面板**永远贴着触发按钮**开（9-12 批注：退化成覆盖层会盖住输入框左下角的 @ 按钮）；
+     ② 内容**一屏看全**，不要让用户滚鼠标（图10-①）。
+     只满足 ②（把面板撑到整屏）就会破坏 ①；只满足 ① 而把内容压在该侧空间里，内容就溢出要滚。
+     解法：高度严格取该侧可用空间（**绝不越界、绝不被截断**），
+           同时把「空间不够」这件事告诉内容 —— 面板切**紧凑档**（density=compact），
+           由 CSS 收紧内边距与行高，把内容压进这块空间。
+     兜底 160：触发条贴到视口边缘时（可用空间不足 160px）允许轻微越界，
+           否则面板会退化成一个只能显示标题的窄条。 */
+  const maxHeight = Math.min(Math.round(viewportHeight * 0.92), desiredHeight, Math.max(availableSpace || desiredHeight, 160));
+  const compact = maxHeight < desiredHeight;
   return {
     left,
     top: openAbove ? undefined : Math.max(12, rect.bottom + gap),
     bottom: openAbove ? Math.max(12, viewportHeight - rect.top + gap) : undefined,
     width,
-    maxHeight: Math.max(300, Math.min(Math.round(viewportHeight * 0.92), desiredHeight, availableSpace || desiredHeight)),
+    maxHeight,
+    compact,
     anchorX: rect.left + rect.width / 2,
   };
 }
@@ -777,10 +798,17 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
       specs: { title: '画面规格', description: '设置发布比例与本次生成数量', icon: <MdAspectRatio /> },
       settings: { title: '生成设置', description: '沿用电商生图的模型与清晰度控制', icon: <MdHighQuality /> },
     }[activeConfigPanel];
+    /* ⚠️ 上面这段说明只能放这里（JS 注释），不能写成 {/* … *\/} 塞进 createPortal 的参数位 ——
+       createPortal(expr, container) 只接受表达式，那样写会直接编译失败
+       （esbuild 门禁当场抓到：Expected ")" but found "id"）。
+       面板按可用空间切紧凑档：内容压进可用高度，而不是让用户滚鼠标，
+       也不是撑成全屏盖住输入区；用 data-* 属性而不是内联 CSS 变量去传递密度 ——
+       用属性选择器匹配内联样式串时，各家浏览器对冒号后空格的序列化不一致，会静默失效。 */
     return createPortal(
       <div
         id="visual-floating-panel"
         className="visual-config-panel"
+        data-density={configPanelPos.compact ? 'compact' : 'comfortable'}
         role="dialog"
         aria-label={panelMeta?.title || '生成配置面板'}
         style={{

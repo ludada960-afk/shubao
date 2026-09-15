@@ -1,5 +1,6 @@
 import React from 'react';
-import { ICON_SIZE } from './panelVisualLanguage.js';
+import { ACCENT, ICON_SIZE } from './panelVisualLanguage.js';
+import './imageTypeTile.css';
 
 /* ═══════════════════════════════════════════════════════════════════════
    图片类型图标：一套自己画的 duotone 图形（2026-09-15）
@@ -29,6 +30,25 @@ import { ICON_SIZE } from './panelVisualLanguage.js';
 
    ⚠️ 如果下一轮还被说「一样大」，要改的是**形态**（方形勾选框 vs 圆形状态点），
       不是继续放大尺寸 —— 继续放大会撞到 48px 行高上限。 */
+
+/* ═══ 每类图片一个识别色（2026-09-16 用户批注图3-②）═══
+   用户原话：「你现在这些框都是都是紫色的也很单一啊……你好歹要有一些动效和交互效果和配色差异啊，
+   主色次色和主次都要深度的处理啊」。
+   实测根因：四个 tile 原先**共用同一个品牌浅紫底** —— 四个一模一样，当然是「全部是紫色」「很单一」。
+   分配依据是「这一类东西是什么」，不是装饰（同一类永远同一个色）：
+     白底首图 = 蓝  → 中性、干净、货架感（平台白底图）
+     商品主图 = 紫  → 品牌主色，最常用的一类
+     透明 PNG = 绿  → 素材/再加工（去底后可二次使用）
+     详情切片 = 琥珀 → 长图、信息密度高
+     竖版主图 = 中性（legacy 项，不参与识别）
+   色值全部取自既有语义色族（见 panelVisualLanguage.ACCENT），不新造任何颜色。 */
+const TYPE_ACCENT = Object.freeze({
+  whiteBg: 'blue',
+  mainText: 'violet',
+  transparent: 'green',
+  detail: 'amber',
+  mainPortrait: 'neutral',
+});
 
 /** 共用底板：整套图标「长得像一家人」的唯一来源。 */
 const PLATE = <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="currentColor" opacity="0.14" />;
@@ -99,20 +119,29 @@ export function ImageTypeGlyph({ iconKey, size = ICON_SIZE.typeGlyph }) {
 }
 
 /**
- * 图片类型徽章 = 底板 + 图形。底板承担「身份」，勾选框承担「状态」，两者尺寸必须拉开。
- * @param {{iconKey: string, checked?: boolean, size?: number}} props
+ * 图片类型徽章 = 底板 + 图形。
+ *
+ *   底板同时回答两件事，**用的是两套颜色，不混用**：
+ *     · 「这是哪一类」= 识别色（每类一个色，见 TYPE_ACCENT）；
+ *     · 「选没选」    = 由**行**的品牌色三件套承担（见 SizingPanel 的行样式）。
+ *   tile 自己的 on/off 只做「这道题有没有被勾上」的强弱差：
+ *     未选 = 中性灰底 + 灰图形（身份暗下去）；选中 = 该类识别色的浅底 + 深墨图形。
+ *   动效：进场轻微缩放淡入；hover 由 SizingPanel 传 hovered 触发 1.06 倍。
+ *   ⚠️ 时间/easing 一律走 --sb-dur-* / --sb-ease-*，不写死 ms（RTK 教训：自造同义 token 会静默覆盖）。
+ * @param {{iconKey: string, checked?: boolean, size?: number, hovered?: boolean}} props
  */
-export function ImageTypeBadge({ iconKey, checked = false, size = ICON_SIZE.typeTile }) {
-  const border = checked ? 'var(--sb-state-selected-line)' : 'var(--sb-border-subtle)';
+export function ImageTypeBadge({ iconKey, checked = false, size = ICON_SIZE.typeTile, hovered = false }) {
+  const accent = ACCENT[TYPE_ACCENT[iconKey]] || ACCENT.neutral;
   return (
-    <span aria-hidden="true" style={{
+    <span aria-hidden="true" className="ec-type-tile" style={{
       width: size, height: size, flexShrink: 0,
       borderRadius: 'var(--sb-radius-lg)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: checked ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-tint)',
-      border: '1px solid ' + border,
-      color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-ink-2)',
-      transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out), color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out)',
+      background: checked ? accent.soft : 'var(--sb-surface-tint)',
+      border: '1px solid ' + (checked ? accent.line : 'var(--sb-border-subtle)'),
+      color: checked ? accent.ink : 'var(--sb-ink-4)',
+      transform: hovered ? 'scale(1.06)' : 'scale(1)',
+      transition: 'background-color var(--sb-dur-fast) var(--sb-ease-out), color var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out), transform var(--sb-dur-fast) var(--sb-ease-out)',
     }}>
       <ImageTypeGlyph iconKey={iconKey} />
     </span>

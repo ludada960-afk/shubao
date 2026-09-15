@@ -1,8 +1,8 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import ResizableTextarea from './ResizableTextarea.jsx';
-import { SPACING, fieldStackStyle, helperTextStyle } from './panelVisualLanguage.js';
-import { GroupTitle } from './PanelPrimitives.jsx';
+import { SPACING, fieldStackStyle } from './panelVisualLanguage.js';
+import { FieldLabel } from './PanelPrimitives.jsx';
 
 /* ═══════ 生成约束面板 ═══════
    2026-09-15 用户批注①（子项 2）：
@@ -31,17 +31,28 @@ import { GroupTitle } from './PanelPrimitives.jsx';
    3C 怕「接口错误」），给一组通用标签反而把用户往这 5 个词上引，既不全也误导。
    保留手输 + 一行格式提示（placeholder）即可。 */
 
-export default function GenerationConstraintsPanel({ negativePrompt = '', onChange, available = null }) {
+export default function GenerationConstraintsPanel({ negativePrompt = '', onChange, available = null, flushTop = false }) {
+  /* flushTop：当本面板**紧接在 CopyPanel 后面**（内容规范 = 正向 + 反向两段）时，
+     顶部内边距归零 —— 否则两段各自 24px 上下内边距会叠成 48px 的死白，
+     再加一条分割线，就是用户批注图6-① 说的「上面为什么会有这么多的空白处」。 */
   return (
     <div style={{ padding: 0 }}>
-      <div style={{ padding: `${SPACING.sp6}px ${SPACING.sp5}px`, display: 'flex', flexDirection: 'column', gap: SPACING.sp4 }}>
-        {/* 分组标题 ↔ 内容走 sp3(12)；内容内部「控件 ↔ 它的说明」才是 sp2(8)。
-            上一版是一层 sp5(20) 套住全部三个子元素 —— 于是**说明文字上方也被撑到 20px**，
-            整块看起来下面空了一大片。用户批注（图5-④）：「避免出现的元素下方空白过多」。 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
-          <GroupTitle icon={ShieldAlert}>避免出现的元素</GroupTitle>
-
-          <div style={fieldStackStyle}>
+      <div style={{
+        padding: flushTop ? `0 ${SPACING.sp5}px ${SPACING.sp6}px` : `${SPACING.sp6}px ${SPACING.sp5}px`,
+        display: 'flex', flexDirection: 'column', gap: SPACING.sp2,
+      }}>
+        {/* ═══ 标题降档 + 去掉说明句（2026-09-16 用户批注图6-①②）═══
+            ① 标题：「你这个避免出现的元素，这标题还是太大了呀。它跟上面的这四个标题是不一致大小的，
+               你知道吗？就显得他特别突出啊，这是不对的。」
+               → 从「分组标题档」13/700 降到**字段标签档** 12/600（12/ink-2），
+                 与上面四个（核心卖点/质检报告/细节特写/保养维护）**逐像素同级**。
+                 内容规范这一段本来就不是「一个分组」，而是与上面四个并列的第五个字段，
+                 用分组标题档才是错的。
+            ② 说明句「这些约束会随本次套图一起下发，画布侧节点同步生效。」整句删除 ——
+               用户原话：「你下面为什么要加这一句呢？这句可以去掉啊。」
+               （它是写给维护者看的链路说明，不是用户需要的信息。） */}
+        <div style={fieldStackStyle}>
+          <FieldLabel icon={ShieldAlert}>避免出现的元素</FieldLabel>
             {/* 多行 + 右下角拉伸手柄（统一规范） */}
             <ResizableTextarea
               aria-label="避免出现的元素"
@@ -53,11 +64,6 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
                  改成教「怎么想」：禁忌是品类相关的，不同品类怕的东西完全不同。 */
               placeholder="用「、」分隔，写你这个品类最怕出现的东西（食品怕变质暗示、服装怕走光）"
             />
-
-            <p style={{ ...helperTextStyle, margin: 0 }}>
-              这些约束会随本次套图一起下发，画布侧节点同步生效。
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -156,15 +156,23 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
     </span>
   );
 
-  /* 图标底座：去掉「极淡黑底 + 描边」，改 --sb-surface-tint（原则 3.3） */
+  /* ═══ 模型图标：一层，不是两层（2026-09-16 用户批注图1-①）═══
+     用户原话：「我觉得你这些模型图标是有两个边缘的啊，就是图标本身是有一层边缘的，
+     你的外面还加了一层边缘，好像除了 gemini 以外的模型都有这个问题，图标有多层框，
+     这个问题导致图标看起来很小啊」。
+     根因：这里原本套着一个 --sb-surface-tint 的方底（第一层框），
+     里面 ModelLogo 自己又是一个带圆角/自带底色的方标（第二层框）；
+     两层框叠起来，真正有内容的图形只剩 0.72 倍 —— 于是「看起来很小」。
+     Gemini 之所以没被点名：它的标是异形/无底，外框看不出来。
+     修法：**去掉外层底**，让品牌标自己就是那一层（文字标 OpenAI/MJ 自带浅底，
+     图片标自带圆角），尺寸也不再打 0.72 折。一行一个图标，一眼一个品牌。 */
   const modelIcon = (model, size) => (
-    <span style={{
-      display: 'grid', placeItems: 'center', width: size, height: size, flexShrink: 0,
-      borderRadius: 'var(--sb-radius-control)',
-      background: 'var(--sb-surface-tint)',
-    }}>
-      <ModelLogo logo={brandLogo(model.brand)} size={Math.round(size * 0.72)} />
-    </span>
+    <ModelLogo
+      logo={brandLogo(model.brand)}
+      size={size}
+      radius={Math.round(size * 0.28)}
+      style={{ display: 'block' }}
+    />
   );
 
   return (

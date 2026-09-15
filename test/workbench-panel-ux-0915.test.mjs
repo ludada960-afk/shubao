@@ -277,7 +277,8 @@ test('⑮ 六面板的分组标题必须是同一种长相（13/700/ink-1 + 14px
   /* 带图标是硬要求：上一轮「图片类型」就是因为没图标才与「避免出现的元素」看起来像两套系统。 */
   assert.match(read(SIZING), /<GroupTitle icon=\{Images\}>图片类型<\/GroupTitle>/,
     '「图片类型」必须带图标（上一轮它是裸标题）');
-  assert.match(read(CONSTRAINTS), /<GroupTitle icon=\{ShieldAlert\}>避免出现的元素<\/GroupTitle>/);
+  assert.match(read(CONSTRAINTS), /<FieldLabel icon=\{ShieldAlert\}>避免出现的元素<\/FieldLabel>/,
+    '它必须与上面四个字段同级（FieldLabel 档），不是分组标题档');
   const genTitles = read(GEN).match(/<GroupTitle icon=\{[A-Za-z]+\}>/g) || [];
   assert.equal(genTitles.length, 3, '生成设置的三个分组标题都必须带图标');
 });
@@ -294,7 +295,8 @@ test('⑯ 图标与勾选框必须差到不可能看错（36 vs 16），图形�
   assert.match(sizing, /width: ICON_SIZE\.typeCheckbox, height: ICON_SIZE\.typeCheckbox/,
     '勾选框尺寸必须取自 ICON_SIZE（不再写死 18）');
   assert.ok(!/width: 18, height: 18/.test(sizing), '不得退回 18（1.56 倍不够）');
-  assert.match(sizing, /<ImageTypeBadge iconKey=\{typeDef\.iconKey\} checked=\{checked\} \/>/);
+  assert.match(sizing, /<ImageTypeBadge iconKey=\{typeDef\.iconKey\} checked=\{checked\} hovered=\{hoverRow === typeDef\.key\} \/>/,
+    '徽章必须把 hover 状态传进去（这是「交互效果」的落点）');
   /* 图形的设计语言判据：自绘（不引图标库）+ 一套共用底板 + duotone（只用 currentColor 与透明度）。 */
   const glyph = read(GLYPH);
   assert.ok(!/lucide-react|phosphor|heroicons/.test(glyph),
@@ -393,7 +395,9 @@ test('㉑ 六个面板的内边距与分组节奏必须同源（不得一半 SPA
   assert.ok(!/--sb-panel-padding|--sb-group-gap|--sb-field-gap/.test(gen),
     '生成设置必须改用六面板统一的 SPACING 阶梯');
   for (const rel of PANELS) {
-    assert.match(read(rel), /padding: .\$\{SPACING\.sp6\}px \$\{SPACING\.sp5\}px./,
+    /* 判据是「内边距必须同源」（sp6/sp5），不是「必须写成同一个字面量」——
+       GenerationConstraintsPanel 因为要 flushTop（紧贴上一段）用的是条件式，同源即可。 */
+    assert.match(read(rel), /padding: [^\n]*SPACING\.sp6[^\n]*SPACING\.sp5/,
       rel + ' 的面板内边距必须同源（上下 sp6 / 左右 sp5）');
   }
 });
