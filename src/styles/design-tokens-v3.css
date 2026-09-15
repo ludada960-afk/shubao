@@ -110,6 +110,10 @@
   --sb-surface-tint:     rgba(12, 10, 9, 0.03);        /* L3 轻着色（选中行 / 分组头） */
   --sb-surface-tint-strong: rgba(12, 10, 9, 0.06);     /* L3 强着色 */
   --sb-surface-inverse:  var(--sb-neutral-900);        /* 反色面（深色 chip / 主 CTA） */
+  /* D37：反色面的 **hover 态**。V3 原来只有 --sb-surface-inverse（基准态），
+     没有它的 hover 角色，于是历史遗留的 --accent-hover 一直无处可去。
+     取值逐字照搬 V2 的 --accent-hover（亮 #2A2521 / 暗 #FFFFFF）→ **零观感变更**。 */
+  --sb-surface-inverse-hover: #2A2521;
 
   /* ══════════════════════════════════════════════════════════════════════════
      §4 色板 · 文字（Ink）
@@ -168,6 +172,13 @@
   --sb-info:        #5275CC;
   --sb-info-hover:  #4262B4;
   --sb-info-soft:   #F0F4FD;
+  /* D37：**随主题变化**的信息色浅底。
+     与 --sb-info-soft 是**两个角色**，不是重复：本文件暗色块里已写明
+     「*-soft 系列在本主题下仍是浅色值（服务的是『底』，不是『主题』）」，
+     所以 --sb-info-soft 在深色下会保持近白；而历史遗留的 --blue-bg 需要的是
+     「亮色浅蓝底 / 暗色半透明蓝底」这种**跟着主题走**的浅底 —— 那是另一件事。
+     取值逐字照搬 V2 的 --blue-bg（亮 #F0F4FD / 暗 rgba(82,117,204,.18)）→ **零观感变更**。 */
+  --sb-info-tint:   #F0F4FD;
   --sb-info-border: #C2D0EE;
   --sb-info-ring:   rgba(82, 117, 204, 0.30);
 
@@ -808,6 +819,7 @@
   --sb-surface-tint-strong: rgba(255, 255, 255, 0.09);
   --sb-surface-sunken:   #141312;
   --sb-surface-inverse:  #F5EFE4;
+  --sb-surface-inverse-hover: #FFFFFF;   /* D37：见亮色块的说明 */
 
   --sb-ink-1: #F7F4F0; --sb-ink-2: #D9D4CE; --sb-ink-3: #A8A29B;
   --sb-ink-4: #857F79; --sb-ink-5: #6A6560; --sb-ink-on-dark: #1A1614;
@@ -833,6 +845,7 @@
   --sb-brand-ring: rgba(167, 139, 250, 0.40);
 
   --sb-danger: #FF6B5E; --sb-success: #6BC07A; --sb-warning: #F0B24A; --sb-info: #7B95E0;
+  --sb-info-tint: rgba(82, 117, 204, 0.18);   /* D37：随主题变化的信息色浅底（与 -soft 是两个角色） */
 
   --sb-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.40);
   --sb-shadow-2: 0 2px 8px rgba(0, 0, 0, 0.44);
