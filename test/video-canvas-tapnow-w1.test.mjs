@@ -97,7 +97,8 @@ test('W1 tapnow hover/select: 节点 hover 缩放 + 选中浮起 + 连接点 hov
   assert.match(css, /transform: scale\(1\.04\)/);
   // C · 选中态：300ms 浮起 + 强调色
   assert.match(css, /\.vcb-node\.is-selected \{[^}]*transform: translateY\(-3px\)/);
-  assert.match(css, /transition:[^}]*var\(--duration-normal/);
+  /* D38：--duration-normal（0.2s = 200ms）→ 权威 token --sb-dur-normal（200ms，精确相等） */
+  assert.match(css, /transition:[^}]*var\(--sb-dur-normal/);
   // C · 连接点 hover 显隐
   assert.match(css, /\.vcb-handle \{[^}]*opacity: 0/);
   assert.match(css, /\.vcb-node:hover \.vcb-handle/);
