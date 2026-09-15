@@ -42,7 +42,12 @@ export function collectDeclarations(text) {
     if (ch === '(') { parens++; if (stack.length) buf += ch; else pending += ch; continue; }
     if (ch === ')') { parens = Math.max(0, parens - 1); if (stack.length) buf += ch; else pending += ch; continue; }
     if (ch === '{') {
-      stack.push(pending.trim().replace(/\s+/g, ' ').slice(-60) || '?');
+      // 嵌套块的选择器在 buf 里（进入块之后字符都被收进 buf），顶层块的选择器在 pending 里。
+      // 曾经的实现只看 pending，于是 @media (…) { :root { … } } 一律被记成
+      // `@media (…) > ?` —— 与本文档承诺的 `@media (…) > :root` 不符，
+      // 让**媒体查询里的全局 token 定义**对审计与门禁隐形（55 条声明受影响）。
+      const sel = (buf.trim() || pending.trim()).replace(/\s+/g, ' ').slice(-60);
+      stack.push(sel || '?');
       pending = ''; buf = '';
     } else if (ch === '}') {
       flush();
