@@ -565,7 +565,12 @@ export default function EcStudioPage() {
                   position: 'fixed', inset: 0, zIndex: 'var(--sb-z-modal)', background: 'rgba(12,10,9,.45)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
                 }}
+                /* 键盘可达三件套：整屏遮罩点击=关闭（Esc 亦已支持）。给它键盘通道，避免「鼠标能关、键盘不能」。 */
+                role="button"
+                tabIndex={0}
+                aria-label="关闭"
                 onClick={() => setShowPlugin(false)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') { e.preventDefault(); setShowPlugin(false); } }}
               >
                 <div
                   style={{ background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)', maxWidth: 460, width: '100%', padding: 24 }}
@@ -1388,7 +1393,12 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
                 position: 'relative', width: 72, height: 72, borderRadius: 'var(--sb-radius-md)', overflow: 'hidden',
                 border: '1px solid #E8E8EC', cursor: 'pointer',
               }}
+              /* 键盘可达三件套：上传的缩略图点击=预览（cursor:pointer 已声明它是可点的）。 */
+              role="button"
+              tabIndex={0}
+              aria-label="预览这张图"
               onClick={() => onPreview(s)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPreview(s); } }}
             >
               <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div
