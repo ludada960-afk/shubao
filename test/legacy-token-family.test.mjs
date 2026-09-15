@@ -132,9 +132,18 @@ function grepLegacy() {
        design-tokens-v3.css「Button.jsx 写着 var(--shadow-red-lg)」）。
      那是知识库里最该被保住的句子；把它们计成「第二套语言存量」= 变相奖励
      **删注释让数字变好看**，与铁律③「老文档必须保持可读」直接冲突。
-     → 与 design-system-layer 门禁用**同一份** stripComments（scripts/lib/token-scope.mjs）。 */
-const BASELINE_TOTAL = 141;
-const BASELINE_NAMES = 24;
+     → 与 design-system-layer 门禁用**同一份** stripComments（scripts/lib/token-scope.mjs）。
+   ── 本批第二笔（D20-A 阴影族，20 处）：141/24 → **121/20**。
+      `--shadow-sm/md/lg/xl` → `--sb-shadow-sm/md/lg/xl`（V3 别名层，其定义处原文就写着
+      「别名只做映射：sm→1 静态卡片 / md→3 dropdown / lg→4 浮层面板 / xl→5 modal」）。
+      **性质：有意观感变更**（α 与几何微调，见设计系统层 D27），非逐值相等迁移 ——
+      20 处**全部**出现在 `box-shadow`/`boxShadow`（**paint-only**，不参与布局），
+      故「几何 d=0」是构造性成立，不需要栅格 diff 才能断言。
+      逐值对照（亮色）：sm `0 1px 3px .06`→`0 1px 2px .05` · md `0 4px 16px .08`→`0 4px 16px .10`（几何不变）
+      · lg `0 14px 36px .10`→`0 12px 36px .13, 0 2px 8px .06` · xl `0 28px 90px .14`→`0 28px 90px .16, 0 8px 24px .08`。
+      暗色：V2 用暖黑 `rgba(12,10,9,α)`，V3 暗色块用纯黑 `rgba(0,0,0,α)` —— 这是**有意的**（暗底上暖棕投影不可见）。 */
+const BASELINE_TOTAL = 121;
+const BASELINE_NAMES = 20;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';

@@ -21,7 +21,7 @@
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   border: 1px solid var(--sb-border-default);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--sb-shadow-xl);
   border-radius: 20px;
   padding: 0;
   overflow: hidden;
@@ -155,7 +155,7 @@
   /* hover lift: 资深美工视角的"画布命令抬起" 微动效 */
   transform: translateY(-2px);
   border-color: var(--sb-border-strong);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--sb-shadow-md);
   background: var(--sb-surface-card);
 }
 .ec-canvas-derive-tile:hover::before { opacity: 1; transform: translateX(0); }

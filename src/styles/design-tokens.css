@@ -203,7 +203,7 @@ input, textarea { font-family: inherit; }
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--sb-shadow-lg);
   transform: translateY(-1px);
 }
 
@@ -225,7 +225,7 @@ input, textarea { font-family: inherit; }
 }
 .btn-white:hover:not(:disabled) {
   background: rgba(255,255,255,0.9);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--sb-shadow-sm);
 }
 
 /* ═══════ 弹窗底部操作区（全局统一实现，9-16 用户批注）═══════
@@ -342,14 +342,14 @@ input, textarea { font-family: inherit; }
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--sb-shadow-xl);
 }
 
 .card-white {
   background: var(--sb-surface-card);
   border: 1px solid var(--border-light);
   border-radius: var(--sb-radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--sb-shadow-md);
 }
 
 /* ── 输入框 ── */

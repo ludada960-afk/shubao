@@ -31,7 +31,7 @@
   -webkit-backdrop-filter: blur(22px) saturate(170%);
   border: 1px solid var(--sb-border-default);
   border-radius: 16px;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--sb-shadow-xl);
   overflow: hidden;
   /* 资深美工视角: 选中时从右滑入, 220ms ease-out */
   transform: translateX(0);

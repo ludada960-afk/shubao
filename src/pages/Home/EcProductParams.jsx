@@ -51,7 +51,7 @@ export default function EcProductParams({ params, onChange }) {
               background: 'var(--sb-neutral-0)',
               border: '1px solid var(--sb-border-default)',
               borderRadius: 'var(--sb-radius-md)',
-              boxShadow: 'var(--shadow-lg)',
+              boxShadow: 'var(--sb-shadow-lg)',
               padding: 4, display: 'flex', flexWrap: 'wrap', gap: 4,
               maxHeight: 200, overflowY: 'auto',
             }}>

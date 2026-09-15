@@ -81,7 +81,7 @@ function GCard({ item, onClick, onSameStyle }) {
         position: 'relative', aspectRatio: '3/4', borderRadius: 'var(--radius-lg)',
         overflow: 'hidden', cursor: 'pointer',
         background: item.grad || 'var(--sb-border-subtle)',
-        boxShadow: 'var(--shadow-md)',
+        boxShadow: 'var(--sb-shadow-md)',
         transition: 'all var(--sb-dur-normal)',
         transform: h ? 'translateY(-4px)' : 'none',
       }}
@@ -130,7 +130,7 @@ function GCard({ item, onClick, onSameStyle }) {
             fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--sb-radius-xl)',
             display: 'flex', alignItems: 'center', gap: 5,
-            boxShadow: 'var(--shadow-md)',
+            boxShadow: 'var(--sb-shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onClick(); }}>
             <MdVisibility size={13} /> 查看全套内容
           </button>
@@ -139,7 +139,7 @@ function GCard({ item, onClick, onSameStyle }) {
             fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)',
             padding: '8px 18px', borderRadius: 'var(--sb-radius-xl)',
             display: 'flex', alignItems: 'center', gap: 5,
-            boxShadow: 'var(--shadow-md)',
+            boxShadow: 'var(--sb-shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onSameStyle?.(); }}>
             <MdAutoAwesome size={13} /> 一键同款
           </button>

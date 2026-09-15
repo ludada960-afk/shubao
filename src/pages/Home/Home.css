@@ -969,14 +969,14 @@
 
 .ec-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ec-result-card { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--sb-border-default); transition: transform 0.15s; }
-.ec-result-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.ec-result-card:hover { transform: translateY(-2px); box-shadow: var(--sb-shadow-md); }
 .ec-result-img { width: 100%; aspect-ratio: 1/1; }
 .ec-result-label { padding: 8px 10px; font-size: var(--sb-text-md); font-weight: var(--sb-weight-semibold); color: var(--sb-ink-2); }
 
 /* ═══════ FEATURES ═══════ */
 .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .feature-card { border-radius: var(--radius-lg); background: var(--sb-surface-panel); padding: 18px; border: 1px solid var(--sb-border-default); transition: all var(--sb-dur-normal); }
-.feature-card:hover { border-color: var(--sb-danger-soft); box-shadow: var(--shadow-md); }
+.feature-card:hover { border-color: var(--sb-danger-soft); box-shadow: var(--sb-shadow-md); }
 .feature-icon { width: 32px; height: 32px; border-radius: var(--sb-radius-xl); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
 .feature-title { font-size: var(--text-base); font-weight: var(--sb-weight-bold); margin-bottom: 4px; }
 .feature-desc { font-size: var(--sb-text-md); color: var(--sb-ink-4); line-height: var(--leading-normal); }
@@ -987,7 +987,7 @@
 .pricing-header { padding: 14px 16px; display: flex; align-items: center; gap: 8px; font-weight: var(--sb-weight-bold); font-size: var(--text-base); }
 .pricing-plans { display: flex; gap: 8px; padding: 0 16px 16px; }
 .plan-card { flex: 1; text-align: center; padding: 14px 8px; border-radius: var(--radius-lg); border: 1px solid var(--sb-border-default); cursor: pointer; transition: all var(--duration-fast); }
-.plan-card:hover { box-shadow: var(--shadow-md); }
+.plan-card:hover { box-shadow: var(--sb-shadow-md); }
 .plan-card.pop-red { border: 2px solid var(--sb-danger); }
 .plan-card.pop-blue { border: 2px solid var(--blue); }
 .plan-name { font-size: var(--sb-text-md); font-weight: var(--sb-weight-bold); margin-bottom: 2px; }

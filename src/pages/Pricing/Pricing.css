@@ -536,7 +536,7 @@
   border-radius: var(--sb-radius-xl);
   border: 1px solid var(--sb-border-default);
   background: var(--sb-surface-card);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--sb-shadow-sm);
 }
 .pricing-table {
   min-width: 640px;
@@ -844,7 +844,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--sb-space-2-5);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--sb-shadow-sm);
   transition: transform var(--duration-fast) var(--sb-ease-in-out),
               border-color var(--duration-fast) var(--sb-ease-in-out);
 }
@@ -854,7 +854,7 @@
 }
 .pricing-pay-card.is-active {
   border-color: var(--sb-success);
-  box-shadow: 0 0 0 1px var(--sb-success), var(--shadow-md);
+  box-shadow: 0 0 0 1px var(--sb-success), var(--sb-shadow-md);
 }
 .pricing-pay-qr {
   width: 96px;
@@ -1094,7 +1094,7 @@
 .pricing-modal-provider-btn:hover:not(:disabled) {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--sb-shadow-md);
 }
 .pricing-modal-provider-btn:active:not(:disabled) {
   transform: translateY(0) scale(0.985);

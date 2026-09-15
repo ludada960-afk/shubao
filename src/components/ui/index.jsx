@@ -61,7 +61,7 @@ export function Modal({ children, onClose, width = 420 }) {
           borderRadius: 'var(--radius-xl)',
           padding: '32px 28px', width, maxWidth: '92vw',
           maxHeight: '90vh', overflow: 'auto',
-          boxShadow: 'var(--shadow-xl)',
+          boxShadow: 'var(--sb-shadow-xl)',
         }}
       >
         {children}
