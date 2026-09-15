@@ -90,11 +90,13 @@ export default function Popover({ id, trigger, children, align = 'left', width =
           zIndex: 'var(--sb-z-dropdown)',
           background: 'var(--sb-neutral-0)',
           borderRadius: 'var(--sb-radius-2xl)',
-          /* C 类保留（D15/D24）：
-             · --border = rgba(231,229,228,0.8)，V3 --sb-border-* 是暖黑 rgba(12,10,9,·)，无等值；
-             · 阴影与 --sb-shadow-xl 同为暖黑系但**值不等**（V3 为双层），近似顶替会改观感。 */
+          /* D34 已收敛：阴影字面量 `0 18px 46px rgba(57,45,26,0.16)` → var(--sb-shadow-4)。
+             定档用的是**角色**（Popover = 浮层面板 → 4 档），不是「数值最近」——
+             这是 D34 对 D20-A 的口径细化：D20-A 的 α 表适用于「只有值、没有角色信息」的
+             token 迁移；对**组件内已知角色的字面量**按角色定档（与 D29 同一把尺）。
+             有意变更：α .16 → .13、偏移 18→12、模糊 46→36（并多一层 `0 2px 8px`）。 */
           border: '1px solid var(--sb-border-default)',
-          boxShadow: '0 18px 46px rgba(57,45,26,0.16)',
+          boxShadow: 'var(--sb-shadow-4)',
           padding: 0,
           overflow: 'hidden',
           opacity: positioned ? 1 : 0,

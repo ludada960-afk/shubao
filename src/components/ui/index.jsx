@@ -83,8 +83,8 @@ export function CopyButton({ text, label = '复制' }) {
         setTimeout(() => setOk(false), 1500);
       }}
       style={{
-        color: ok ? 'var(--sb-success)' : '#aaa',
-        background: ok ? 'var(--sb-success-soft)' : '#f8f8f8',
+        color: ok ? 'var(--sb-success)' : 'var(--sb-ink-4)',
+        background: ok ? 'var(--sb-success-soft)' : 'var(--sb-hover-bg)',
         border: 'none',
       }}
     >
@@ -98,7 +98,7 @@ export function CharImg({ src, alt = '', size = 120, float, style = {} }) {
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      filter: 'drop-shadow(0 4px 12px rgba(255,71,87,0.12))',
+      filter: 'drop-shadow(0 4px 12px var(--sb-danger-shadow-color))',
       lineHeight: 0,
     }}>
       <img

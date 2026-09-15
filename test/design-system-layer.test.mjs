@@ -24,7 +24,14 @@ const LEGACY = /var\(--(?!sb-|cvl-|max-width)[a-zA-Z0-9-]+\)/g;
 /* 棘轮基线（**只许向下收紧**）：
    2026-09-20 初测 hex13/rgba27/legacy33 → Button.jsx 迁完 V2 变量后 legacy 降到 13，基线同步收紧到 13。
    ⚠️ 基线不收紧 = 给回退留出「合法的空间」：实测降到 13 而基线还是 33，就意味着悄悄涨回 33 也没人报警。 */
-const BASELINE = { hex: 13, rgba: 27, legacy: 8 };
+/* D34（2026-09-15）**三层已全部清零**：hex 13 → 0、rgba 27 → 0、legacy 3 → 0。
+   清零的两条关键动作（详见 40-decisions D34）：
+     · 建了 §23「媒体之上（on-media）」族 —— 盖在**用户素材**之上的白 + α，
+       底色不确定故取不到「合成后再比」的底，这是唯一对任意底图可读的技术；
+     · 建了 §24「阻断层（overlay）」族 —— **主题无关**的全屏深色层
+       （dark 主题那套值只在深色主题生效，而阻断层在两种主题下都必须是深色）。
+   基线归 0 后本门禁变成**绝对红线**：DS 层再出现任何一个裸 hex / rgba / V2 变量都会立刻变红。 */
+const BASELINE = { hex: 0, rgba: 0, legacy: 0 };
 
 export function scanDsLayer(dir = DS) {
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isFile()) : [];

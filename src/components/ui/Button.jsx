@@ -38,7 +38,7 @@ export default function Button({
 
   if (primary) {
     Object.assign(base, {
-      background: disabled ? '#FFB3BD' : 'var(--sb-danger)',
+      background: disabled ? 'var(--sb-state-disabled-bg)' : 'var(--sb-danger)',
       color: 'var(--sb-neutral-0)',
       /* 焦点优先于 hover 阴影：两者叠加时仍保证焦点环可见 */
       boxShadow: focused
@@ -54,7 +54,7 @@ export default function Button({
     if (hover) base.background = 'var(--sb-border-subtle)';
   } else {
     Object.assign(base, {
-      background: hover ? '#f8f8f8' : 'var(--sb-neutral-0)',
+      background: hover ? 'var(--sb-hover-bg)' : 'var(--sb-neutral-0)',
       color: 'var(--sb-ink-2)',
       border: '1px solid var(--sb-border-default)',
     });

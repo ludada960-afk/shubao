@@ -44,8 +44,10 @@ export function ToastProvider({ children }) {
             background: colors[t.type] || colors.info,
             color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
             padding: '10px 20px', borderRadius: 'var(--sb-radius-lg)',
-            /* C 类保留（D15）：V3 --sb-shadow-lg 是双层暖黑阴影，值不等 → 保留。 */
-            boxShadow: '0 6px 20px rgba(12,10,9,0.2)',
+            /* D34 已收敛：`0 6px 20px rgba(12,10,9,0.2)` → var(--sb-shadow-3)。
+               定档按**角色**（Toast = 瞬态浮层，与 dropdown/popover 同档）。
+               有意变更：α .2 → .10、模糊 20→16；几何最接近（偏移 6→4）。 */
+            boxShadow: 'var(--sb-shadow-3)',
             animation: 'toastSlideIn 0.3s ease',
             maxWidth: '90vw', wordBreak: 'break-word',
           }}>

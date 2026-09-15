@@ -41,14 +41,16 @@ export function DialogProvider({ children }) {
   return <DialogContext.Provider value={dialogs}>
     {children}
     {dialog && <div role="presentation" onMouseDown={() => { if (dialog.dismissBackdrop === false) return; finish(dialog.kind === 'text' ? null : false); }} style={{ position: 'fixed', inset: 0, zIndex: 'var(--sb-z-top)', display: 'grid', placeItems: 'center', padding: 20, background: 'var(--sb-scrim)' }}>
-      {/* C 类保留（D24/D15，逐条注明为何不是 token）：
-          · 边框 rgba(15,23,42,.08) 与阴影 rgba(15,23,42,.24) 是**冷蓝灰**（slate），
-            而 V3 --sb-border-* / --sb-shadow-* 全为暖黑系 rgba(12,10,9,·)/rgba(57,45,26,·)，
-            解析值**无一相等** → 按 D15 不许近似顶替，保留字面量。
-          · 这两处属「本组件的冷色残留」，若要收敛应由设计裁定改暖，不属本轮等值迁移范围。 */}
-      <section role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(420px, 100%)', border: '1px solid rgba(15,23,42,.08)', borderRadius: 16, background: 'var(--sb-neutral-0)', boxShadow: '0 24px 80px rgba(15,23,42,.24)', padding: 22 }}>
-        <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}><div><h2 id="app-dialog-title" style={{ margin: 0, fontSize: 18 }}>{dialog.title}</h2>{dialog.message && <p style={{ margin: '8px 0 0', color: '#667085', fontSize: 13, lineHeight: 1.6 }}>{dialog.message}</p>}</div>{dialog.hideClose !== true && <button type="button" aria-label="关闭" title="关闭" onClick={() => finish(dialog.kind === 'text' ? null : false)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, border: 0, borderRadius: 8, background: 'var(--sb-neutral-100)', cursor: 'pointer' }}><MdClose size={16} /></button>}</header>
-        {dialog.kind === 'text' && <input autoFocus value={dialog.value} onChange={event => setDialog(current => ({ ...current, value: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter' && dialog.value.trim()) finish(dialog.value.trim()); if (event.key === 'Escape') finish(null); }} placeholder={dialog.placeholder} style={{ boxSizing: 'border-box', width: '100%', marginTop: 18, padding: '11px 12px', border: '1px solid #d0d5dd', borderRadius: 8, outline: 0, font: 'inherit' }} />}
+      {/* D34（2026-09-15）已收敛：原先的**冷蓝灰族**（slate）已按 D4「覆盖/描边一律暖黑」改暖 ——
+          · 边框 rgba(15,23,42,.08) → var(--sb-border-subtle)
+          · 阴影 0 24px 80px rgba(15,23,42,.24) → var(--sb-shadow-5)
+          · 文字 #667085 → var(--sb-ink-3)
+          · 输入框描边 #d0d5dd → var(--sb-border-default)
+          这是**有意观感变更**（冷灰→暖黑/暖棕），依据 D4 + D1 补充裁定（暖域一致性）。
+          ⚠️ 原来注释写的是「若要收敛应由设计裁定改暖」—— 那次裁定就是 D34。 */}
+      <section role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(420px, 100%)', border: '1px solid var(--sb-border-subtle)', borderRadius: 16, background: 'var(--sb-neutral-0)', boxShadow: 'var(--sb-shadow-5)', padding: 22 }}>
+        <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}><div><h2 id="app-dialog-title" style={{ margin: 0, fontSize: 18 }}>{dialog.title}</h2>{dialog.message && <p style={{ margin: '8px 0 0', color: 'var(--sb-ink-3)', fontSize: 13, lineHeight: 1.6 }}>{dialog.message}</p>}</div>{dialog.hideClose !== true && <button type="button" aria-label="关闭" title="关闭" onClick={() => finish(dialog.kind === 'text' ? null : false)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, border: 0, borderRadius: 8, background: 'var(--sb-neutral-100)', cursor: 'pointer' }}><MdClose size={16} /></button>}</header>
+        {dialog.kind === 'text' && <input autoFocus value={dialog.value} onChange={event => setDialog(current => ({ ...current, value: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter' && dialog.value.trim()) finish(dialog.value.trim()); if (event.key === 'Escape') finish(null); }} placeholder={dialog.placeholder} style={{ boxSizing: 'border-box', width: '100%', marginTop: 18, padding: '11px 12px', border: '1px solid var(--sb-border-default)', borderRadius: 8, outline: 0, font: 'inherit' }} />}
         {/* 9-16 对齐全站底部操作区规范（--footer-actions-*）：
              按钮间距 8 → 12px；按钮高度 38 → 36px 统一档 + 最小宽 88px + 圆角 10px（主次等重）。
              **关键修复**：确认按钮在 kind='text' 且输入为空时是 disabled 的，但原来内联样式
