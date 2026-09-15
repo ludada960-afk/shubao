@@ -615,7 +615,7 @@ export function PricingModal() {
                   {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div> : <div role="status" style={{ padding: 10, borderRadius: 'var(--sb-radius-lg)', background: 'var(--accent-bg)', color: 'var(--sb-ink-2)', fontSize: 'var(--sb-text-sm)', lineHeight: 1.6 }}>
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 'var(--sb-radius-lg)', background: 'var(--sb-state-active-bg)', color: 'var(--sb-ink-2)', fontSize: 'var(--sb-text-sm)', lineHeight: 1.6 }}>
               微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
             </div>}
 
