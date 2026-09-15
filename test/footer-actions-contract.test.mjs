@@ -46,6 +46,18 @@ function resolveVar(css, name, depth = 0) {
   return px ? Number(px[1]) : null;
 }
 
+/* 判据化助手（D26 迁移后新增）：断言「某条规则用了一个 token，且该 token **解析后**等于规范值」。
+   刻意不锁 token 名字 —— 本文件自己的注释就写着「断言必须验证解析后的值，而不是 token 名字符串」。
+   2026-09-15 的 D26 迁移把 --space-3 / --footer-actions-button-min-width / --footer-actions-gap
+   换成了 --sb-space-3 / --sb-control-min-w 等权威 token，逐字匹配的断言因此集体失效 ——
+   那正是「锁拼写」的代价，这里改成锁判据。 */
+function assertRefResolvesTo(rule, prop, expectedPx, label) {
+  const m = new RegExp(prop + ':\\s*var\\((--[a-z0-9-]+)\\)').exec(rule);
+  assert.ok(m, label + '：必须用 token 声明 ' + prop + '（不得硬编码）');
+  const got = resolveVar(ALL_TOKENS, m[1]);
+  assert.equal(got, expectedPx, label + '：' + prop + ' 经 ' + m[1] + ' 解析后应 = ' + expectedPx + 'px，实际 ' + got);
+}
+
 /* ── ① 规范本身落在共享常量文件里（不是散落各处的魔法数字） ── */
 test('① 底部操作区规范沉淀在 design-tokens.css（唯一的真源）', () => {
   for (const token of [
@@ -66,8 +78,13 @@ test('① 按钮间距解析后 = 12px（sp3），且硬下限 ≥ 8px', () => {
   assert.equal(gapPx, 12, '--footer-actions-gap 解析后必须 = 12px，实际 ' + gapPx);
   const minPx = resolveVar(ALL_TOKENS, '--footer-actions-gap-min');
   assert.ok(minPx !== null && minPx >= 8, '硬下限解析后 ≥ 8px，实际 ' + minPx);
-  /* 同时验证它确实走 8pt 阶梯（而不是被写成裸 12px —— 阶梯是规范的组成部分） */
-  assert.match(tokens, /--footer-actions-gap:\s*var\(--space-3\)/, '必须引用 --space-3 阶梯');
+  /* 同时验证它确实走 8pt 阶梯（而不是被写成裸 12px —— 阶梯是规范的组成部分）。
+     判据 = 「引用了一个解析后等于 12px 的 token」，不锁是哪个 token。 */
+  const gapDecl = /--footer-actions-gap:\s*([^;]+);/.exec(tokens);
+  assert.ok(gapDecl, '--footer-actions-gap 必须有定义');
+  const gapRef = gapDecl[1].trim();
+  assert.match(gapRef, /^var\(--[a-z0-9-]+\)$/, '必须引用 token 阶梯，而不是裸数字，实际 ' + gapRef);
+  assert.equal(resolveVar(ALL_TOKENS, gapRef.slice(4, -1)), 12, '引用的阶梯 token 解析后必须是 12px');
 });
 
 test('② 上间距解析后 = 16px、内边距解析后 20~24px', () => {
@@ -85,8 +102,8 @@ test('③ 按钮高度解析后取 32/36/40 之一，最小宽度解析后 88px�
   const uiBtn = tokens.match(/\.ui-btn \{([^}]*)\}/);
   assert.ok(uiBtn, '.ui-btn 基础规则存在');
   assert.ok(uiBtn[1].includes('white-space: nowrap'), '文字不换行');
-  assert.ok(uiBtn[1].includes('min-width: var(--footer-actions-button-min-width)'), '.ui-btn 吃最小宽度常量');
-  assert.ok(uiBtn[1].includes('height: var(--footer-actions-button-height)'), '.ui-btn 吃高度常量');
+  assertRefResolvesTo(uiBtn[1], 'min-width', 88, '.ui-btn');
+  assertRefResolvesTo(uiBtn[1], 'height', 36, '.ui-btn');
 });
 
 test('⑤ 主次按钮视觉等重：同高、同圆角、同最小宽度（只有配色与字重区分）', () => {
@@ -116,12 +133,16 @@ test('⑥ 主按钮禁用态：明确底色 + 文字色 + cursor，不靠 opacit
 test('操作区容器 .ui-modal-footer 用规范值，且操作区内部 gap 恒为 12px', () => {
   const footer = tokens.match(/\.ui-modal-footer \{([^}]*)\}/);
   assert.ok(footer, '.ui-modal-footer 规则存在');
-  assert.ok(footer[1].includes('gap: var(--footer-actions-gap)'), '容器 gap 吃规范');
-  assert.ok(footer[1].includes('margin-top: var(--footer-actions-margin-top)'), '上间距吃规范');
-  assert.ok(footer[1].includes('padding: var(--footer-actions-padding-block) var(--footer-actions-padding-inline)'), '内边距吃规范');
+  assertRefResolvesTo(footer[1], 'gap', 12, '.ui-modal-footer');
+  assertRefResolvesTo(footer[1], 'margin-top', 16, '.ui-modal-footer');
+  // padding 是两值简写（block inline），分别解析后核对
+  const pad = /padding:\s*var\((--[a-z0-9-]+)\)\s+var\((--[a-z0-9-]+)\)/.exec(footer[1]);
+  assert.ok(pad, '.ui-modal-footer：内边距必须用两个 token（block / inline）声明，不得硬编码');
+  assert.equal(resolveVar(ALL_TOKENS, pad[1]), 20, '内边距 block 解析后 = 20px');
+  assert.equal(resolveVar(ALL_TOKENS, pad[2]), 20, '内边距 inline 解析后 = 20px');
   const actions = tokens.match(/\.ui-modal-footer-actions \{([^}]*)\}/);
   assert.ok(actions, '.ui-modal-footer-actions 规则存在');
-  assert.ok(actions[1].includes('gap: var(--footer-actions-gap)'), '按钮间距吃规范');
+  assertRefResolvesTo(actions[1], 'gap', 12, '.ui-modal-footer-actions');
   assert.ok(actions[1].includes('justify-content: flex-end'), '次要左、主要右（容器 space-between + 本行右对齐）');
 });
 
@@ -213,7 +234,9 @@ test('④ dw-editor-actions：补上原本缺失的 gap，且禁用态有 cursor
   const css = read('src/pages/VideoStudio/DirectorWorkbench.css');
   const actions = css.match(/\.dw-editor-actions\{([^}]*)\}/);
   assert.ok(actions, '.dw-editor-actions 规则存在');
-  assert.ok(actions[1].includes('gap:var(--footer-actions-gap)'), '原来完全没有 gap 声明，现补 12px');
+  const gapRef = /gap:\s*var\((--[a-z0-9-]+)\)/.exec(actions[1]);
+  assert.ok(gapRef, '原来完全没有 gap 声明，现必须补上（且用 token 而非魔法数字）');
+  assert.equal(resolveVar(ALL_TOKENS, gapRef[1]), 12, '补上的 gap 解析后 = 12px');
   const disabled = css.match(/\.dw-save-btn:disabled\{([^}]*)\}/);
   assert.ok(disabled[1].includes('cursor:not-allowed'), '禁用态补 cursor（原来只有 opacity）');
 });
@@ -276,8 +299,8 @@ test('9-18③ 主次按钮视觉等重：同高 / 同最小宽 / 同圆角（圆
   const tokens = read('src/styles/design-tokens.css');
   const uiBtn = tokens.match(/\.ui-btn \{([^}]*)\}/)[1];
   assert.ok(uiBtn.includes('border-radius: var(--footer-actions-radius)'), '主次共用同一圆角 token');
-  assert.ok(uiBtn.includes('min-width: var(--footer-actions-button-min-width)'), '主次共用同一最小宽 token');
-  assert.ok(uiBtn.includes('height: var(--footer-actions-button-height)'), '主次共用同一高度 token');
+  assertRefResolvesTo(uiBtn, 'min-width', 88, '.ui-btn 主次共用最小宽');
+  assertRefResolvesTo(uiBtn, 'height', 36, '.ui-btn 主次共用高度');
   // 10px（--footer-actions-radius）必须存在且相等，不得主次分叉
   assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-radius'), 10, '契约圆角解析后 = 10px');
 });
