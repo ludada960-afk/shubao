@@ -1092,7 +1092,7 @@
               box-shadow var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-modal-provider-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--sb-surface-inverse-hover);
   transform: translateY(-1px);
   box-shadow: var(--sb-shadow-md);
 }
@@ -1164,7 +1164,7 @@
   transition: background var(--sb-dur-fast) var(--sb-ease-in-out);
 }
 .pricing-modal-secondary:hover {
-  background: var(--accent-bg);
+  background: var(--sb-state-active-bg);
 }
 .pricing-modal-status {
   margin: 12px 0 0;
