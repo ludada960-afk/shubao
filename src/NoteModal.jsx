@@ -570,7 +570,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 });
               }} style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
+                background: 'var(--sb-info)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
                 fontSize: 'var(--sb-text-md)', fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
                 boxShadow: '0 2px 8px rgba(102,126,234,0.3)',
               }}
