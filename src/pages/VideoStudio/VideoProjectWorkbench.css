@@ -475,7 +475,7 @@
    禁用态原来是 opacity 变灰，改为明确底色 + 文字色。 */
 .video-project-export-actions { margin-top: var(--footer-actions-margin-top); display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--footer-actions-gap); }
 .video-project-export-actions > span { margin-right: auto; }
-.video-project-export-actions button { height: var(--footer-actions-button-height); min-width: var(--footer-actions-button-min-width); display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px; box-sizing: border-box; border: 0; border-radius: var(--footer-actions-radius); color: var(--sb-neutral-0); background: #3b6fd8; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.video-project-export-actions button { height: var(--sb-control-h-lg); min-width: var(--sb-control-min-w); display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px; box-sizing: border-box; border: 0; border-radius: var(--footer-actions-radius); color: var(--sb-neutral-0); background: #3b6fd8; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .video-project-export-actions button:disabled { cursor: not-allowed; background: var(--footer-actions-primary-disabled-bg); color: var(--footer-actions-primary-disabled-text); }
 .video-project-export-actions > span { color: #6b7d94; font-size: 10px; }
 .video-project-export-manifest { min-height: 52px; margin-top: 12px; padding: 9px 11px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; border: 1px solid #cfe0f5; border-radius: 8px; color: #37608f; background: rgba(239,247,255,.8); }
