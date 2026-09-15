@@ -37,7 +37,7 @@ function GroupTitle({ icon: Icon, children }) {
 
 function FieldLabel({ icon: Icon, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', lineHeight: 1.4 }}>
       <Icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
       <span>{children}</span>
     </div>

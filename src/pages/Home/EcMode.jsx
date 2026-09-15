@@ -1654,7 +1654,7 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                   >
                     <span
                       style={{
-                        color: isAdjusted ? 'var(--sb-brand-600)' : 'var(--text-muted)',
+                        color: isAdjusted ? 'var(--sb-brand-600)' : 'var(--sb-ink-3)',
                         flexShrink: 0,
                         filter: isAdjusted ? 'drop-shadow(0 1px 2px rgba(124,58,237,0.2))' : 'none'
                       }}
@@ -1671,7 +1671,7 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                       size={13}
                       style={{
                         opacity: isOpen ? 0.8 : 0.4,
-                        color: isAdjusted ? 'var(--sb-brand-600)' : 'var(--text-muted)',
+                        color: isAdjusted ? 'var(--sb-brand-600)' : 'var(--sb-ink-3)',
                         transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                         transition: 'transform 0.22s ease, opacity 0.2s'
                       }}

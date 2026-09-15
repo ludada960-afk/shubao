@@ -56,20 +56,20 @@ export default function LoadingView() {
         />
 
         <div style={{
-          fontSize: 'var(--text-2xl)', fontWeight: 'var(--weight-bold)',
+          fontSize: 'var(--text-2xl)', fontWeight: 'var(--sb-weight-bold)',
           marginTop: 24, marginBottom: 6,
-          color: isEC ? 'var(--blue)' : 'var(--red)',
+          color: isEC ? 'var(--blue)' : 'var(--sb-danger)',
         }}>
           {stage.label}
         </div>
 
-        <div style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginBottom: 28 }}>
+        <div style={{ fontSize: 'var(--text-base)', color: 'var(--sb-ink-3)', marginBottom: 28 }}>
           {stage.desc}
         </div>
 
         {/* 已等待时间 */}
         {elapsed >= 10 && (
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)', marginTop: -20, marginBottom: 28 }}>
+          <div style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-5)', marginTop: -20, marginBottom: 28 }}>
             已等待 {elapsed} 秒，每张图约需 25 秒…
           </div>
         )}
@@ -78,7 +78,7 @@ export default function LoadingView() {
         <div style={{ display: 'flex', gap: 4, marginBottom: 28, padding: '0 30px', position: 'relative' }}>
           {stages.map((_, i) => {
             const isActive = i <= genStage;
-            const accentColor = isEC ? 'var(--blue)' : 'var(--red)';
+            const accentColor = isEC ? 'var(--blue)' : 'var(--sb-danger)';
             return (
               <div key={i} style={{
                 flex: 1, height: 6, borderRadius: 4,
@@ -107,7 +107,7 @@ export default function LoadingView() {
         <div style={{
           background: isEC ? 'var(--sb-brand-50)' : 'var(--sb-danger-soft)', borderRadius: 'var(--radius-lg)',
           padding: '12px 18px', marginBottom: 24,
-          fontSize: 'var(--text-sm)', color: isEC ? 'var(--sb-brand-800)' : 'var(--sb-danger-hover)',
+          fontSize: 'var(--sb-text-md)', color: isEC ? 'var(--sb-brand-800)' : 'var(--sb-danger-hover)',
           display: 'flex', alignItems: 'center', gap: 'var(--sb-space-1-5)', justifyContent: 'center',
           lineHeight: 1.6,
         }}>
@@ -120,14 +120,14 @@ export default function LoadingView() {
           borderRadius: 'var(--radius-xl)', padding: '16px 20px', textAlign: 'left',
         }}>
           <div style={{
-            fontSize: 'var(--text-xs)', color: 'var(--text-ghost)',
+            fontSize: 'var(--sb-text-xs)', color: 'var(--text-ghost)',
             marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4,
           }}>
             {isEC ? <MdShoppingCart size={10} /> : <MdFlashOn size={10} />}
             {isEC ? ' 电商冷知识' : ' 小红书冷知识'}
           </div>
           <div style={{
-            fontSize: 'var(--text-sm)', color: 'var(--text-secondary)',
+            fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-2)',
             lineHeight: 'var(--leading-relaxed)', minHeight: 32,
             transition: 'opacity 0.3s',
           }}>
@@ -137,13 +137,13 @@ export default function LoadingView() {
 
         {/* 旋转小提示 */}
         <div style={{
-          fontSize: 'var(--text-xs)', color: 'var(--text-invisible)',
+          fontSize: 'var(--sb-text-xs)', color: 'var(--text-invisible)',
           marginTop: 20, display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: 'var(--sb-space-1-5)',
         }}>
           <span style={{
             display: 'inline-block', width: 6, height: 6,
-            borderRadius: '50%', background: isEC ? 'var(--blue)' : 'var(--red)',
+            borderRadius: '50%', background: isEC ? 'var(--blue)' : 'var(--sb-danger)',
             opacity: 0.4, animation: 'pulse 1.5s infinite',
           }} />
           正在努力生成...

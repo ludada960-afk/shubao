@@ -350,7 +350,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     padding: '3px 10px', borderRadius: 'var(--sb-radius-sm)', fontSize: 'var(--sb-text-xs)', fontWeight: 500,
                     border: '1px solid #e0e0e0',
                   }}>{specs.name}</span>
-                  <span style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--text-faint)' }}>
+                  <span style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-5)' }}>
                     共 {images.length} 张 · 已适配 {platform}
                   </span>
                 </div>
@@ -369,7 +369,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           <div style={{
             padding: '10px 28px', background: '#f8f9fc',
             borderBottom: '1px solid #eef0f5',
-            fontSize: 'var(--sb-text-xs)', color: 'var(--text-hint)', lineHeight: 1.6,
+            fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)', lineHeight: 1.6,
           }}>
             <span style={{ fontWeight: 600, color: '#666' }}>📐 {specs.name} 规范:</span>
             {' '}{specs.rules}
@@ -520,7 +520,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             </div>
 
             {images.length === 0 && !item.errors?.length && (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-faint)', fontSize: 'var(--sb-text-md)' }}>
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--sb-ink-5)', fontSize: 'var(--sb-text-md)' }}>
                 暂无生成图片
               </div>
             )}
@@ -549,7 +549,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             {isTrialLocked ? (
               <button onClick={() => { if (onUnlock) onUnlock(); }} style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
+                background: 'var(--sb-danger)', color: '#fff', border: 'none', borderRadius: 'var(--sb-radius-md)',
                 fontSize: 'var(--sb-text-md)', fontWeight: 600, padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
                 boxShadow: '0 2px 8px rgba(255,71,87,0.3)',
               }}

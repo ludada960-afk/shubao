@@ -883,7 +883,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             padding: '8px 14px', borderRadius: 12,
             background: 'var(--sb-neutral-0)', border: '1px solid rgba(12,10,9,0.08)',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            color: 'var(--text-secondary)', transition: 'all 0.15s',
+            color: 'var(--sb-ink-2)', transition: 'all 0.15s',
           }}
           onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
           onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
@@ -892,7 +892,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--sb-ink-1)' }}>
             确认设计方案
           </h2>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 4 }}>
+          <span style={{ fontSize: 13, color: 'var(--sb-ink-3)', marginLeft: 4 }}>
             AI 已结合商品事实、参考图与平台要求制定完整视觉方案
           </span>
         </div>
@@ -928,7 +928,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: loadStage >= i ? 'var(--sb-ink-1)' : 'var(--sb-ink-5)' }}>{stage.label}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stage.desc}</div>
+                  <div style={{ fontSize: 11, color: 'var(--sb-ink-3)' }}>{stage.desc}</div>
                 </div>
               </div>
             ))}
@@ -1027,7 +1027,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               />
 
               {supplementError && (
-                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 11 }}>
+                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', fontSize: 11 }}>
                   {supplementError}
                 </div>
               )}
@@ -1070,12 +1070,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               </button>
             </div>
             {error && errorStage === 'generation' && (
-              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', fontSize: 13, lineHeight: 1.55 }}>
+              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', fontSize: 13, lineHeight: 1.55 }}>
                 <strong style={{ display: 'block', marginBottom: 3 }}>这次生成没有交付成品</strong>
                 <span>{error}</span>
               </div>
             )}
-            <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? 'var(--sb-ink-danger)' : '#6b625a' }}>
+            <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? 'var(--sb-ink-danger-strong)' : '#6b625a' }}>
               {quoteError || quoteNotice || quoteText}
             </div>
 
@@ -1115,8 +1115,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                     {assetProgress.map(asset => (
                       <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
                         <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
-                        <span style={{ color: asset.error ? 'var(--sb-ink-danger)' : 'var(--sb-brand-600)', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
-                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: 'var(--sb-ink-danger)', lineHeight: 1.45 }}>{asset.error}</span>}
+                        <span style={{ color: asset.error ? 'var(--sb-ink-danger-strong)' : 'var(--sb-brand-600)', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
+                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: 'var(--sb-ink-danger-strong)', lineHeight: 1.45 }}>{asset.error}</span>}
                       </div>
                     ))}
                   </div>
@@ -1156,9 +1156,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         {!loading && directions.length === 0 && (
           <div style={{
             textAlign: 'center', padding: '60px 20px',
-            color: 'var(--text-muted)', fontSize: 14,
+            color: 'var(--sb-ink-3)', fontSize: 14,
           }}>
-            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger)', lineHeight: 1.55 }}>{error}</div>}
+            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', lineHeight: 1.55 }}>{error}</div>}
             {/* 2026-09-20 裁定①：这里是**计费前的最后一道用户确认** ——
                 进来不再自动扣费；用户必须显式点这个按钮才会发起分析（扣 1 积分）。
                 按钮文案把价格写在按钮上，点之前用户就知道要花多少。 */}

@@ -22,7 +22,7 @@ export default function ReadProgress({ currentStage, error }) {
 
   return (
     <div style={{ padding: '16px 0' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sb-ink-1)', marginBottom: 12 }}>
         📖 读图解析
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sb-space-1-5)' }}>
@@ -50,15 +50,15 @@ export default function ReadProgress({ currentStage, error }) {
                 {isError ? <MdError size={12} color="#E8544B" /> :
                  isDone ? <MdCheckCircle size={12} color="#5CA86C" /> :
                  isCurrent ? <MdAutorenew size={12} color="#6366F1" className="animate-spin" /> :
-                 <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{i + 1}</span>}
+                 <span style={{ fontSize: 10, color: 'var(--sb-ink-5)' }}>{i + 1}</span>}
               </div>
 
               {/* 阶段名 */}
               <span style={{
                 flex: 1, fontSize: 12, fontWeight: isCurrent ? 600 : 500,
-                color: isError ? 'var(--red)' :
-                       isDone ? 'var(--text-muted)' :
-                       isCurrent ? 'var(--accent)' : 'var(--text-faint)',
+                color: isError ? 'var(--sb-danger)' :
+                       isDone ? 'var(--sb-ink-3)' :
+                       isCurrent ? 'var(--accent)' : 'var(--sb-ink-5)',
               }}>
                 {s.icon} {s.label}
               </span>
@@ -66,7 +66,7 @@ export default function ReadProgress({ currentStage, error }) {
               {/* 状态文字 */}
               <span style={{
                 fontSize: 10, fontWeight: 600,
-                color: isError ? 'var(--red)' :
+                color: isError ? 'var(--sb-danger)' :
                        isDone ? 'var(--sb-success)' :
                        isCurrent ? 'var(--sb-brand-600)' : 'transparent',
               }}>
@@ -79,7 +79,7 @@ export default function ReadProgress({ currentStage, error }) {
       {error && (
         <div style={{
           marginTop: 8, padding: '8px 12px', borderRadius: 8,
-          background: 'var(--sb-danger-soft)', fontSize: 11, color: 'var(--red)',
+          background: 'var(--sb-danger-soft)', fontSize: 11, color: 'var(--sb-danger)',
           lineHeight: 1.5, fontWeight: 500,
         }}>
           {error}

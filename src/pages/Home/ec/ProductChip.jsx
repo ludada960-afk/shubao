@@ -29,7 +29,7 @@ export default function ProductChip({ profile = null, loading = false, onOpen })
         size={13}
         style={{
           opacity: 0.4,
-          color: profile ? '#7162de' : 'var(--text-muted)',
+          color: profile ? '#7162de' : 'var(--sb-ink-3)',
           flexShrink: 0,
         }}
       />

@@ -109,7 +109,7 @@ export default function ResizableTextarea({
           borderRadius: 'var(--sb-radius-control)',
           border: '1px solid var(--sb-border-default)',
           background: 'var(--sb-surface-card)',
-          color: 'var(--text-primary)',
+          color: 'var(--sb-ink-1)',
           fontSize: FONT_SIZE.body,
           lineHeight: 1.6,
           fontFamily: 'inherit',

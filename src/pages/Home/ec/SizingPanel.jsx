@@ -216,7 +216,7 @@ export default function SizingPanel({
         {/* ── 平台与语言 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3, marginBottom: SPACING.sp2 }}>
           <div style={{ position: 'relative' }}>
-            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: SPACING.sp2 }}>目标平台</div>
+            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', marginBottom: SPACING.sp2 }}>目标平台</div>
             <button ref={platformButtonRef} type="button" aria-expanded={platformOpen} onClick={() => { setPlatformOpen(open => !open); setLanguageOpen(false); }}
               style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{platformOption.label}</span>
@@ -234,7 +234,7 @@ export default function SizingPanel({
             )}
           </div>
           <div style={{ position: 'relative' }}>
-            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: SPACING.sp2 }}>目标语言</div>
+            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', marginBottom: SPACING.sp2 }}>目标语言</div>
             <button ref={languageButtonRef} type="button" aria-expanded={languageOpen} onClick={() => { setLanguageOpen(open => !open); setPlatformOpen(false); }}
               style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{languageOption.label}</span>
@@ -359,9 +359,9 @@ export default function SizingPanel({
         <div style={{
           marginTop: SPACING.sp3, paddingTop: SPACING.sp3, borderTop: '1px solid var(--sb-border-subtle)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--text-muted)',
+          fontSize: FONT_SIZE.body, fontWeight: 600, color: 'var(--sb-ink-3)',
         }}>
-          <span>共 <b style={{ color: 'var(--text-primary)' }}>{totalImages}</b> 张图片</span>
+          <span>共 <b style={{ color: 'var(--sb-ink-1)' }}>{totalImages}</b> 张图片</span>
           {platform === 'amazon' && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--sb-warning)', fontSize: FONT_SIZE.helper }}>
               <Info size={12} /> 亚马逊首图须纯白底

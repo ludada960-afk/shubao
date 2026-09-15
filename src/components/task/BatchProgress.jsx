@@ -24,19 +24,19 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
 
   return (
     <div style={{ padding: '16px 0' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sb-ink-1)', marginBottom: 12 }}>
         🖼️ 批量生图
       </div>
 
       {/* 总进度 */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-2)' }}>
             总进度
           </span>
           <span style={{
             fontSize: 12, fontWeight: 700,
-            color: isDone ? 'var(--sb-success)' : isError ? 'var(--red)' : 'var(--accent)',
+            color: isDone ? 'var(--sb-success)' : isError ? 'var(--sb-danger)' : 'var(--accent)',
           }}>
             {done}/{total} 张 ({pct}%)
           </span>
@@ -48,7 +48,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
           <div style={{
             height: '100%', borderRadius: 4, transition: 'width 0.3s',
             background: isDone ? 'linear-gradient(90deg, var(--sb-success), #7CCF8C)' :
-                       isError ? 'var(--red)' :
+                       isError ? 'var(--sb-danger)' :
                        'linear-gradient(90deg, var(--accent), var(--sb-ink-2))',
             width: `${pct}%`,
           }} />
@@ -60,14 +60,14 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
         <div style={{
           padding: '8px 12px', borderRadius: 8,
           background: 'rgba(245,158,11,0.06)',
-          marginBottom: 12, fontSize: 11, color: 'var(--text-secondary)',
+          marginBottom: 12, fontSize: 11, color: 'var(--sb-ink-2)',
           lineHeight: 1.5,
         }}>
           <span style={{ fontWeight: 600 }}>正在生成</span>
-          <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>
+          <span style={{ color: 'var(--sb-ink-3)', marginLeft: 4 }}>
             第 {done + 1} 张 / 共 {total} 张
           </span>
-          {stage && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{stage}</div>}
+          {stage && <div style={{ fontSize: 10, color: 'var(--sb-ink-3)', marginTop: 2 }}>{stage}</div>}
         </div>
       )}
 
@@ -87,7 +87,7 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
         <div style={{
           padding: '8px 12px', borderRadius: 8,
           background: 'var(--sb-danger-soft)', marginBottom: 12,
-          fontSize: 11, color: 'var(--red)', lineHeight: 1.5, fontWeight: 500,
+          fontSize: 11, color: 'var(--sb-danger)', lineHeight: 1.5, fontWeight: 500,
         }}>
           {task.error}
         </div>
@@ -123,7 +123,7 @@ function ControlBtn({ icon, label, onClick, primary, danger }) {
         height: 30, padding: '0 10px', borderRadius: 8,
         border: 'none',
         background: primary ? 'var(--accent)' : danger ? 'var(--sb-danger-soft)' : 'rgba(12,10,9,0.04)',
-        color: primary ? 'var(--sb-neutral-0)' : danger ? 'var(--red)' : 'var(--text-secondary)',
+        color: primary ? 'var(--sb-neutral-0)' : danger ? 'var(--sb-danger)' : 'var(--sb-ink-2)',
         fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         transition: 'all 0.1s',
       }}

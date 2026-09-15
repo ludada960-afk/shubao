@@ -126,7 +126,7 @@ const eyebrowStyle = {
   fontWeight: 900,
   letterSpacing: '0.18em',
   textTransform: 'uppercase',
-  color: 'var(--text-faint)',
+  color: 'var(--sb-ink-5)',
 };
 
 function SectionHead({ eyebrow, title, hint, align = 'left' }) {

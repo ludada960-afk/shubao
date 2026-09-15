@@ -23,7 +23,7 @@ export default function EcProductParams({ params, onChange }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* 品类（下拉+手动输入） */}
       <div>
-        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-3)', display: 'block', marginBottom: 4 }}>
           品类
         </label>
         <div style={{ position: 'relative' }}>
@@ -37,10 +37,10 @@ export default function EcProductParams({ params, onChange }) {
               width: '100%',
               padding: '10px 14px',
               fontSize: 13,
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--sb-radius-md)',
               border: '1px solid var(--border)',
               background: 'rgba(12,10,9,0.02)',
-              color: 'var(--text-primary)',
+              color: 'var(--sb-ink-1)',
               outline: 'none', fontFamily: 'inherit',
             }}
           />
@@ -50,7 +50,7 @@ export default function EcProductParams({ params, onChange }) {
               marginTop: 4,
               background: 'var(--sb-neutral-0)',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--sb-radius-md)',
               boxShadow: 'var(--shadow-lg)',
               padding: 4, display: 'flex', flexWrap: 'wrap', gap: 4,
               maxHeight: 200, overflowY: 'auto',
@@ -60,10 +60,10 @@ export default function EcProductParams({ params, onChange }) {
                   aria-pressed={params.category === c} aria-label={`分类 ${c}`}
                   onClick={() => setCat(c)}
                   style={{
-                    padding: '5px 12px', borderRadius: 'var(--radius-sm)',
+                    padding: '5px 12px', borderRadius: 'var(--sb-radius-md)',
                     fontSize: 12, cursor: 'pointer',
                     background: params.category === c ? 'var(--accent-bg)' : 'transparent',
-                    color: params.category === c ? 'var(--accent)' : 'var(--text-secondary)',
+                    color: params.category === c ? 'var(--accent)' : 'var(--sb-ink-2)',
                     fontWeight: params.category === c ? 600 : 400,
                     transition: 'all 0.08s',
                   }}>
@@ -77,7 +77,7 @@ export default function EcProductParams({ params, onChange }) {
 
       {fields.map(f => (
         <div key={f.key}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-3)', display: 'block', marginBottom: 4 }}>
             {f.label}
           </label>
           <input
@@ -86,10 +86,10 @@ export default function EcProductParams({ params, onChange }) {
             placeholder={f.placeholder}
             style={{
               width: '100%', padding: '10px 14px', fontSize: 13,
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--sb-radius-md)',
               border: '1px solid var(--border)',
               background: 'rgba(12,10,9,0.02)',
-              color: 'var(--text-primary)',
+              color: 'var(--sb-ink-1)',
               outline: 'none', fontFamily: 'inherit',
             }}
           />

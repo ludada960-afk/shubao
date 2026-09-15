@@ -73,7 +73,7 @@ export default function DevicesPanel() {
           width: '100%', display: 'flex', alignItems: 'center', gap: 8,
           padding: '10px 12px', border: 0, background: 'transparent',
           cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-          fontWeight: 700, color: 'var(--text-secondary)',
+          fontWeight: 700, color: 'var(--sb-ink-2)',
         }}
       >
         <MdDevices size={15} />
@@ -85,13 +85,13 @@ export default function DevicesPanel() {
       {open && (
         <div style={{ padding: '0 12px 12px', fontSize: 12 }}>
           {!sessions && !error && (
-            <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>正在加载设备列表…</div>
+            <div style={{ color: 'var(--sb-ink-3)', padding: '4px 0' }}>正在加载设备列表…</div>
           )}
           {error && (
             <div role="status" style={{ color: 'var(--sb-danger-hover)', padding: '4px 0' }}>{error}</div>
           )}
           {Array.isArray(sessions) && sessions.length === 0 && !error && (
-            <div style={{ color: 'var(--text-muted)', padding: '4px 0' }}>暂无活跃设备。</div>
+            <div style={{ color: 'var(--sb-ink-3)', padding: '4px 0' }}>暂无活跃设备。</div>
           )}
           {Array.isArray(sessions) && sessions.map(session => (
             <div key={session.id} style={{
@@ -99,7 +99,7 @@ export default function DevicesPanel() {
               padding: '8px 0', borderTop: '1px solid var(--border)',
             }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+                <div style={{ fontWeight: 700, color: 'var(--sb-ink-2)' }}>
                   {describeDevice(session)}
                   {session.current && (
                     <span style={{
@@ -109,7 +109,7 @@ export default function DevicesPanel() {
                     }}>本机</span>
                   )}
                 </div>
-                <div style={{ color: 'var(--text-hint)', marginTop: 2 }}>
+                <div style={{ color: 'var(--sb-ink-4)', marginTop: 2 }}>
                   {[session.ip, formatTime(session.createdAt)].filter(Boolean).join(' · ')}
                 </div>
               </div>

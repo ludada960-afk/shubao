@@ -28,7 +28,7 @@ export default function GalleryPage() {
         }}>
           薯包出品
         </h1>
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', textAlign: 'center', margin: '0 0 36px' }}>
+        <p style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)', textAlign: 'center', margin: '0 0 36px' }}>
           以下内容全部由薯包AI一键生成，点击任意作品查看完整图文
         </p>
 
@@ -101,9 +101,9 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Category */}
       <span style={{
         position: 'absolute', top: 10, left: 10, zIndex: 2,
-        fontSize: 'var(--text-xs)', background: 'rgba(12,10,9,0.72)', color: 'var(--sb-neutral-0)',
-        padding: '3px 10px', borderRadius: 'var(--radius-md)',
-        fontWeight: 'var(--weight-semibold)',
+        fontSize: 'var(--sb-text-xs)', background: 'rgba(12,10,9,0.72)', color: 'var(--sb-neutral-0)',
+        padding: '3px 10px', borderRadius: 'var(--sb-radius-xl)',
+        fontWeight: 'var(--sb-weight-semibold)',
       }}>
         {item.cat}
       </span>
@@ -111,7 +111,7 @@ function GCard({ item, onClick, onSameStyle }) {
       {/* Title */}
       <div style={{
         position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 2,
-        fontSize: 13, fontWeight: 'var(--weight-bold)', color: 'var(--sb-neutral-0)',
+        fontSize: 13, fontWeight: 'var(--sb-weight-bold)', color: 'var(--sb-neutral-0)',
         lineHeight: 1.5, textShadow: '0 1px 4px rgba(12,10,9,0.4)',
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
@@ -126,18 +126,18 @@ function GCard({ item, onClick, onSameStyle }) {
           gap: 'var(--sb-space-2-5)',
         }} className="animate-fade-in">
           <button type="button" className="a11y-reset" style={{
-            background: 'rgba(255,255,255,0.95)', color: 'var(--red)',
-            fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
-            padding: '8px 18px', borderRadius: 'var(--radius-md)',
+            background: 'rgba(255,255,255,0.95)', color: 'var(--sb-danger)',
+            fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)',
+            padding: '8px 18px', borderRadius: 'var(--sb-radius-xl)',
             display: 'flex', alignItems: 'center', gap: 5,
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onClick(); }}>
             <MdVisibility size={13} /> 查看全套内容
           </button>
           <button type="button" className="a11y-reset" style={{
-            background: 'var(--red)', color: 'var(--sb-neutral-0)',
-            fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)',
-            padding: '8px 18px', borderRadius: 'var(--radius-md)',
+            background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)',
+            fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-semibold)',
+            padding: '8px 18px', borderRadius: 'var(--sb-radius-xl)',
             display: 'flex', alignItems: 'center', gap: 5,
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onSameStyle?.(); }}>

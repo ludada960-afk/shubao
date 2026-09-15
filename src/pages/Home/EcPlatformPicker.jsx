@@ -47,10 +47,10 @@ export default function EcPlatformPicker({ platform, onChange }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 14px',
-                borderRadius: 'var(--radius-full)',
+                borderRadius: 'var(--sb-radius-pill)',
                 cursor: 'pointer', transition: 'all 0.15s',
                 background: active ? 'var(--accent)' : 'var(--sb-neutral-0)',
-                color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
+                color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
                 border: active ? 'none' : '1px solid var(--border)',
                 fontSize: 12, fontWeight: active ? 900 : 600,
                 fontFamily: 'inherit',
@@ -74,17 +74,17 @@ export default function EcPlatformPicker({ platform, onChange }) {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               height: 40, padding: '0 12px',
-              borderRadius: 'var(--radius-full)',
+              borderRadius: 'var(--sb-radius-pill)',
               border: '1px solid var(--border)',
               background: 'var(--sb-neutral-0)',
-              fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+              fontSize: 12, fontWeight: 700, color: 'var(--sb-ink-3)',
               cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--sb-ink-3)'; }}>
             <MdTune size={15} />
-            <span style={{ fontWeight: 900, color: 'var(--text-primary)' }}>{customOpen ? '自定义' : '智能'}</span>
+            <span style={{ fontWeight: 900, color: 'var(--sb-ink-1)' }}>{customOpen ? '自定义' : '智能'}</span>
             <span>{customRes}</span>
             <span style={{ opacity: 0.5 }}>×</span>
             <span>{customCount}</span>
@@ -105,7 +105,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
             }}>
               {/* Ratio */}
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.3 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--sb-ink-3)', marginBottom: 6, letterSpacing: 0.3 }}>
                   画面比例
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -124,7 +124,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
                           background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
-                          color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
+                          color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
                           /* 键盘可达：焦点环走 --sb-focus-ring（box-shadow，不改边框宽度 → 无抖动） */
@@ -141,7 +141,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
 
               {/* Resolution */}
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.3 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--sb-ink-3)', marginBottom: 6, letterSpacing: 0.3 }}>
                   清晰度
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -160,7 +160,7 @@ export default function EcPlatformPicker({ platform, onChange }) {
                           padding: '5px 12px', borderRadius: 8,
                           fontSize: 12, cursor: 'pointer',
                           background: active ? 'var(--accent)' : 'rgba(12,10,9,0.04)',
-                          color: active ? 'var(--sb-neutral-0)' : 'var(--text-secondary)',
+                          color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-2)',
                           fontWeight: active ? 900 : 600,
                           transition: 'all 0.12s',
                           /* 键盘可达：焦点环走 --sb-focus-ring（box-shadow，不改边框宽度 → 无抖动） */
@@ -181,8 +181,8 @@ export default function EcPlatformPicker({ platform, onChange }) {
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   marginBottom: 6,
                 }}>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', letterSpacing: 0.3 }}>生成张数</span>
-                  <span style={{ fontSize: 14, fontWeight: 900, color: 'var(--text-primary)' }}>{customCount}</span>
+                  <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--sb-ink-3)', letterSpacing: 0.3 }}>生成张数</span>
+                  <span style={{ fontSize: 14, fontWeight: 900, color: 'var(--sb-ink-1)' }}>{customCount}</span>
                 </div>
                 <input type="range" min="1" max="20" value={customCount}
                   onChange={e => setCustomCount(parseInt(e.target.value))}

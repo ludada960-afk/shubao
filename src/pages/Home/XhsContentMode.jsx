@@ -1060,7 +1060,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       borderRadius: 8,
       border: active ? `1.5px solid ${accentColor || 'var(--accent)'}` : '1.5px solid transparent',
       background: active ? (accentColor || 'var(--accent)') : 'rgba(12,10,9,0.04)',
-      color: active ? 'var(--sb-neutral-0)' : 'var(--text-muted)',
+      color: active ? 'var(--sb-neutral-0)' : 'var(--sb-ink-3)',
       fontSize: 13,
       fontWeight: 600,
       cursor: 'pointer',
@@ -1069,7 +1069,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       textAlign: 'center',
     });
     // 灵图AI风格标签文字
-    const labelStyle = { fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: 0.2 };
+    const labelStyle = { fontSize: 13, fontWeight: 700, color: 'var(--sb-ink-2)', marginBottom: 10, letterSpacing: 0.2 };
 
     return (
       <div>
@@ -1127,7 +1127,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     aria-label="描述小红书图文主题"
                     style={{
                       width:'100%', flex:1, minHeight:120, border:'none', background:'transparent',
-                      fontSize:14, lineHeight:'28px', color:'var(--text-primary)',
+                      fontSize:14, lineHeight:'28px', color:'var(--sb-ink-1)',
                       outline:'none', resize:'none', fontFamily:'inherit',
                       position:'relative', zIndex:1,
                     }} />
@@ -1158,7 +1158,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     aria-label="描述 Plog 生活碎片"
                     style={{
                       width:'100%', flex:1, minHeight:120, border:'none', background:'transparent',
-                      fontSize:14, lineHeight:'28px', color:'var(--text-primary)',
+                      fontSize:14, lineHeight:'28px', color:'var(--sb-ink-1)',
                       outline:'none', resize:'none', fontFamily:'inherit',
                       position:'relative', zIndex:1,
                     }} />
@@ -1188,7 +1188,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     height: 36, padding: '0 16px',
-                    borderRadius: 'var(--radius-full)',
+                    borderRadius: 'var(--sb-radius-pill)',
                     border: '2px solid rgba(12,10,9,0.15)',
                     background: topicsOpen ? 'var(--sb-ink-1)' : 'rgba(12,10,9,0.04)',
                     fontSize: 13, fontWeight: 600,
@@ -1208,7 +1208,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     height: 36, padding: '0 16px',
-                    borderRadius: 'var(--radius-full)',
+                    borderRadius: 'var(--sb-radius-pill)',
                     border: '2px solid rgba(12,10,9,0.15)',
                     background: plogOptionsOpen ? 'var(--sb-ink-1)' : 'rgba(12,10,9,0.04)',
                     fontSize: 13, fontWeight: 600,
@@ -1253,7 +1253,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       background: 'var(--sb-neutral-0)',
                       fontSize: 13, fontWeight: 500,
                       cursor: 'pointer', fontFamily: 'inherit',
-                      color: 'var(--text-secondary)',
+                      color: 'var(--sb-ink-2)',
                       transition: 'all 0.12s',
                       whiteSpace: 'nowrap',
                     }}
@@ -1303,7 +1303,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         </div>
 
         {/* Error */}
-        {err && <div style={{ padding:'8px 14px', margin:'4px 16px 0', background:'var(--sb-danger-soft)', borderRadius:8, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
+        {err && <div style={{ padding:'8px 14px', margin:'4px 16px 0', background:'var(--sb-danger-soft)', borderRadius:8, color:'var(--sb-danger)', fontSize:13, fontWeight:600 }}>{err}</div>}
       </div>
     );
   }

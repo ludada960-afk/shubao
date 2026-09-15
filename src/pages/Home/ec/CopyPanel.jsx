@@ -60,7 +60,7 @@ export default function CopyPanel({ copywriting, onChange, available = null }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3 }}>
             {detailFields.map(f => (
               <div key={f.key} style={sectionStyle}>
-                <div style={{ ...groupTitleStyle, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                <div style={{ ...groupTitleStyle, fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-2)' }}>
                   <f.icon size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
                   <span>{f.label}</span>
                 </div>

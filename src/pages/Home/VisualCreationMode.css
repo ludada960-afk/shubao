@@ -568,11 +568,11 @@
   outline: 0;
   resize: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--sb-ink-1);
   font: inherit;
   font-size: 14px;
   line-height: 28px;
-  caret-color: var(--text-primary);
+  caret-color: var(--sb-ink-1);
 }
 
 /* ── 底栏（照小红书：白底 + 上边框，左侧工具胶囊 + 右侧统一生成按钮 + 按钮内动态积分）── */

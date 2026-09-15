@@ -595,11 +595,11 @@ export function PricingModal() {
             <div style={{ fontSize: 'var(--sb-text-xl)', fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
               {payModal.name}
             </div>
-            <div style={{ fontSize: 'var(--sb-text-md)', color: 'var(--text-muted)', marginBottom: 20 }}>
+            <div style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-3)', marginBottom: 20 }}>
               ¥{formatCatalogPrice(payModal.priceFen)} · {formatCatalogGrant(payModal)}
             </div>
 
-            <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 14 }}>
+            <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 700, color: 'var(--sb-ink-2)', marginBottom: 14 }}>
               选择支付方式
             </div>
 
@@ -615,12 +615,12 @@ export function PricingModal() {
                   {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div> : <div role="status" style={{ padding: 10, borderRadius: 'var(--sb-radius-lg)', background: 'var(--accent-bg)', color: 'var(--text-secondary)', fontSize: 'var(--sb-text-sm)', lineHeight: 1.6 }}>
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 'var(--sb-radius-lg)', background: 'var(--accent-bg)', color: 'var(--sb-ink-2)', fontSize: 'var(--sb-text-sm)', lineHeight: 1.6 }}>
               微信支付 / 支付宝 通道已配置；订单通过扫码完成，3-5 秒内自动入账。
             </div>}
 
             <div style={{
-              fontSize: 'var(--sb-text-xs)', color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
+              fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-5)', marginTop: 16, lineHeight: 1.5,
             }}>
               完成购买后会自动刷新额度，关闭此窗口即可回到刚才的创作位置。
             </div>

@@ -15,7 +15,7 @@ export default function EcCopywriting({ copywriting, onChange }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {fields.map(f => (
         <div key={f.key}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--sb-ink-3)', display: 'block', marginBottom: 4 }}>
             {f.label}
           </label>
           <textarea
@@ -26,10 +26,10 @@ export default function EcCopywriting({ copywriting, onChange }) {
             style={{
               width: '100%', padding: '10px 12px',
               fontSize: 13, lineHeight: 1.6,
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--sb-radius-md)',
               border: '1px solid var(--border)',
               background: 'rgba(12,10,9,0.02)',
-              color: 'var(--text-primary)',
+              color: 'var(--sb-ink-1)',
               outline: 'none', resize: 'vertical',
               fontFamily: 'inherit',
               transition: 'border-color 0.15s',

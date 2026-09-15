@@ -37,13 +37,13 @@
   gap: var(--sb-space-1-5);
   font-size: var(--sb-text-sm);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--sb-ink-1);
 }
 .ec-canvas-derive-count {
   padding: 1px 7px;
   border-radius: var(--sb-radius-pill);
   background: var(--accent-bg);
-  color: var(--text-muted);
+  color: var(--sb-ink-3);
   font-size: var(--sb-text-xs);
   font-weight: 700;
   font-style: normal;
@@ -72,7 +72,7 @@
   align-items: center;
   gap: var(--sb-space-1-5);
   padding: 4px 6px 6px;
-  color: var(--text-hint);
+  color: var(--sb-ink-4);
   font-size: var(--sb-text-xs);
   font-weight: 750;
   letter-spacing: .04em;
@@ -126,7 +126,7 @@
   background: var(--bg-card-solid);
   text-align: left;
   cursor: pointer;
-  color: var(--text-primary);
+  color: var(--sb-ink-1);
   font: inherit;
   transition: transform var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out),
@@ -169,7 +169,7 @@
   display: grid;
   place-items: center;
   border-radius: var(--sb-radius-md);
-  color: var(--text-muted);
+  color: var(--sb-ink-3);
   background: var(--bg-hover);
   box-shadow: inset 0 0 0 1px var(--border-light);
   transition: color var(--duration-fast) var(--ease-out),
@@ -201,7 +201,7 @@
 .ec-canvas-derive-tile .ec-canvas-derive-copy strong {
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--sb-ink-1);
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -209,7 +209,7 @@
 }
 .ec-canvas-derive-tile .ec-canvas-derive-copy small {
   font-size: var(--sb-text-xs);
-  color: var(--text-hint);
+  color: var(--sb-ink-4);
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -231,7 +231,7 @@
   padding: 1px 6px;
   border-radius: var(--sb-radius-pill);
   background: var(--bg-hover);
-  color: var(--text-muted);
+  color: var(--sb-ink-3);
   font-size: var(--sb-text-xs);
   font-weight: 750;
   font-style: normal;
@@ -244,7 +244,7 @@
 }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--bg-card-solid); background: var(--accent); }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta em { color: var(--bg-card-solid); background: var(--blue); }
-.ec-canvas-derive-tile .ec-canvas-derive-meta svg { color: var(--text-faint); transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out); }
+.ec-canvas-derive-tile .ec-canvas-derive-meta svg { color: var(--sb-ink-5); transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out); }
 .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--accent); transform: translate(1px, -1px); }
 .ec-canvas-derive-bucket.is-magic .ec-canvas-derive-tile:hover .ec-canvas-derive-meta svg { color: var(--blue); }
 

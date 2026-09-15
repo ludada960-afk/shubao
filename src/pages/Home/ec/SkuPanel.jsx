@@ -34,7 +34,7 @@ function GroupTitle({ icon: Icon, children }) {
 
 function FieldLabel({ children }) {
   return (
-    <div style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{children}</div>
+    <div style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', lineHeight: 1.4 }}>{children}</div>
   );
 }
 
@@ -78,7 +78,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
               }}>
                 {/* 卡片标题行：序号 + 生成数量 + 删除 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.sp2 }}>
-                  <span style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 700, color: 'var(--text-primary)' }}>变体 #{idx + 1}</span>
+                  <span style={{ fontSize: FONT_SIZE.fieldLabel, fontWeight: 700, color: 'var(--sb-ink-1)' }}>变体 #{idx + 1}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp2 }}>
                     <span style={helperTextStyle}>生成</span>
                     <input type="number" min="1" max="10" aria-label={`变体 ${idx + 1} 生成数量`}
@@ -134,7 +134,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: SPACING.sp1,
             height: 'var(--sb-control-touch)', borderRadius: 'var(--sb-radius-control)', fontFamily: 'inherit',
             border: '1.5px dashed var(--sb-border-strong)',
-            color: 'var(--text-muted)', background: 'transparent',
+            color: 'var(--sb-ink-3)', background: 'transparent',
             fontSize: FONT_SIZE.body, fontWeight: 600, cursor: 'pointer',
             transition: 'all 0.15s',
           }}
@@ -149,8 +149,8 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange, avail
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           ...helperTextStyle,
         }}>
-          <span>变体数：<b style={{ color: 'var(--text-primary)' }}>{skus.length}</b> 个</span>
-          <span>将生成：<b style={{ color: 'var(--text-primary)' }}>{totalSkuImages}</b> 张 SKU 图</span>
+          <span>变体数：<b style={{ color: 'var(--sb-ink-1)' }}>{skus.length}</b> 个</span>
+          <span>将生成：<b style={{ color: 'var(--sb-ink-1)' }}>{totalSkuImages}</b> 张 SKU 图</span>
         </div>
       </div>
     </div>

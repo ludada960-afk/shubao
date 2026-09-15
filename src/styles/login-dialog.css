@@ -142,7 +142,7 @@
   padding: 7px 12px; border-radius: 8px;
   font-family: var(--font-body);
   font-size: 13px; font-weight: 600;
-  color: var(--sb-ink-warning-strong); background: rgba(233, 154, 24, 0.14);
+  color: var(--sb-ink-warning); background: rgba(233, 154, 24, 0.14);
   cursor: pointer; white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -150,7 +150,7 @@
 .ld-btn-ghost:disabled { color: #B0AAA5; background: rgba(57,45,26,.05); cursor: not-allowed; }
 
 .ld-hint { font-size: 12px; color: var(--sb-ink-4); line-height: 1.5; }
-.ld-hint.is-valid { color: var(--sb-ink-success-strong); }
+.ld-hint.is-valid { color: var(--sb-ink-success); }
 .ld-hint.is-invalid { color: #C43D35; }
 
 /* OTP 6 格 */
@@ -177,7 +177,7 @@
   appearance: none; border: 0; padding: 0; background: transparent;
   font-family: var(--font-body);
   font-size: 13px; font-weight: 600;
-  color: var(--sb-ink-warning-strong); cursor: pointer;
+  color: var(--sb-ink-warning); cursor: pointer;
   transition: color 0.15s ease;
 }
 .ld-link:hover:not(:disabled) { color: var(--sb-danger); }
@@ -252,7 +252,7 @@
   cursor: pointer; user-select: none;
 }
 .ld-terms input { flex: none; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--sb-danger); cursor: pointer; }
-.ld-terms a { color: var(--sb-ink-warning-strong); font-weight: 600; text-decoration: none; }
+.ld-terms a { color: var(--sb-ink-warning); font-weight: 600; text-decoration: none; }
 .ld-terms a:hover { text-decoration: underline; }
 .ld-terms.is-invalid { animation: ld-shake 0.3s ease both; }
 

@@ -32,7 +32,7 @@ export default function EcSkuPanel({ skus, onChange }) {
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12, color: 'var(--sb-ink-3)', marginBottom: 10, lineHeight: 1.6 }}>
           每个变体对应一张 SKU 规格图，支持多维度组合（颜色 × 规格 × 尺寸）
         </div>
 
@@ -42,10 +42,10 @@ export default function EcSkuPanel({ skus, onChange }) {
               /* div -> button：外观零变化需重置 UA 默认样式（button 自带 border/bg/padding/字体） */
               appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',display: 'block', width: '100%',
               border: '2px dashed var(--border)',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: 'var(--sb-radius-xl)',
               padding: '24px 14px',
               textAlign: 'center', cursor: 'pointer',
-              fontSize: 13, color: 'var(--text-faint)',
+              fontSize: 13, color: 'var(--sb-ink-5)',
               outline: 'none',
             }}
             onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
@@ -59,7 +59,7 @@ export default function EcSkuPanel({ skus, onChange }) {
               <div key={sku.id}
                 style={{
                   background: 'rgba(12,10,9,0.02)',
-                  borderRadius: 'var(--radius-sm)',
+                  borderRadius: 'var(--sb-radius-md)',
                   padding: 12,
                   border: '1px solid var(--border-light)',
                 }}>
@@ -74,19 +74,19 @@ export default function EcSkuPanel({ skus, onChange }) {
                     placeholder="标注（选填，如“经典款”）"
                     style={{
                       flex: 1, padding: '6px 10px', border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--sb-neutral-0)',
-                      color: 'var(--text-primary)', outline: 'none',
+                      borderRadius: 'var(--sb-radius-md)', fontSize: 12, background: 'var(--sb-neutral-0)',
+                      color: 'var(--sb-ink-1)', outline: 'none',
                     }}
                   />
-                  <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 12, color: 'var(--sb-ink-5)', whiteSpace: 'nowrap' }}>
                     ×
                     <input type="number" min="1" value={sku.count}
                       onChange={e => updateSku(sku.id, 'count', parseInt(e.target.value) || 1)}
                       style={{
                         width: 40, padding: '4px 4px', marginLeft: 4,
                         border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)', fontSize: 12, textAlign: 'center',
-                        color: 'var(--text-primary)', outline: 'none',
+                        borderRadius: 'var(--sb-radius-md)', fontSize: 12, textAlign: 'center',
+                        color: 'var(--sb-ink-1)', outline: 'none',
                       }} />
                   </span>
                   <button type="button" aria-label="删除该变体" onClick={() => removeSku(sku.id)}
@@ -95,7 +95,7 @@ export default function EcSkuPanel({ skus, onChange }) {
                       border: 'none', background: 'none',
                       width: 26, height: 26, borderRadius: '50%',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', color: 'var(--text-faint)',
+                      cursor: 'pointer', color: 'var(--sb-ink-5)',
                       transition: 'all 0.12s',
                       outline: 'none',
                     }}
@@ -110,9 +110,9 @@ export default function EcSkuPanel({ skus, onChange }) {
               style={{
                 appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',width: '100%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '10px', borderRadius: 'var(--radius-sm)',
+                padding: '10px', borderRadius: 'var(--sb-radius-md)',
                 border: '1px dashed var(--border)', cursor: 'pointer', background: 'none',
-                fontSize: 13, color: 'var(--text-muted)', transition: 'all 0.12s',
+                fontSize: 13, color: 'var(--sb-ink-3)', transition: 'all 0.12s',
                 outline: 'none',
               }}
               onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
@@ -123,7 +123,7 @@ export default function EcSkuPanel({ skus, onChange }) {
         )}
       </div>
       {skus.length > 0 && (
-        <div style={{ fontSize: 11, color: 'var(--text-faint)', padding: '6px 0' }}>
+        <div style={{ fontSize: 11, color: 'var(--sb-ink-5)', padding: '6px 0' }}>
           共 {skus.length} 个变体，预计生成 {skus.reduce((a, s) => a + s.count, 0)} 张 SKU 图
         </div>
       )}
@@ -137,8 +137,8 @@ function SkuField({ value, onChange, placeholder }) {
       placeholder={placeholder}
       style={{
         padding: '7px 10px', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--sb-neutral-0)',
-        color: 'var(--text-primary)', outline: 'none', width: '100%',
+        borderRadius: 'var(--sb-radius-md)', fontSize: 12, background: 'var(--sb-neutral-0)',
+        color: 'var(--sb-ink-1)', outline: 'none', width: '100%',
       }} />
   );
 }

@@ -45,7 +45,7 @@
 .chain-step-state { font-size: 11px; color: #6e6884; margin-top: var(--sb-space-0-5); }
 .chain-step-summary { font-size: 11px; color: var(--sb-brand-700); margin-top: var(--sb-space-0-5); word-break: break-word; }
 .chain-step.is-ok .chain-step-dot { background: #2f9e6c; border-color: #2f9e6c; color: var(--sb-neutral-0); }
-.chain-step.is-ok .chain-step-state { color: var(--sb-ink-success-strong); }
+.chain-step.is-ok .chain-step-state { color: var(--sb-ink-success); }
 .chain-step.is-failed .chain-step-dot, .chain-step.is-failed.is-failed .chain-step-dot { background: var(--sb-danger); border-color: var(--sb-danger); color: var(--sb-neutral-0); }
 .chain-step.is-failed .chain-step-state { color: #c93b32; }
 .chain-step.is-active .chain-step-dot { background: var(--sb-brand-700); border-color: var(--sb-brand-700); color: var(--sb-neutral-0); }
@@ -113,7 +113,7 @@
 }
 .chain-phase-badge.is-idle { background: #f3f1f7; color: #6e6884; }
 .chain-phase-badge.is-running { background: rgba(70, 54, 184, .12); color: var(--sb-brand-700); }
-.chain-phase-badge.is-done { background: var(--sb-success-soft); color: var(--sb-ink-success-strong); }
+.chain-phase-badge.is-done { background: var(--sb-success-soft); color: var(--sb-ink-success); }
 .chain-phase-badge.is-error { background: #fdecea; color: #c93b32; }
 
 .chain-field { display: flex; flex-direction: column; gap: var(--sb-space-1); min-width: 0; flex: 1 1 0; }
@@ -164,12 +164,12 @@
   padding: 8px 10px;
   border-radius: 12px;
   background: var(--sb-success-soft);
-  color: var(--sb-ink-success-strong);
+  color: var(--sb-ink-success);
   font-size: var(--sb-text-sm);
 }
 .chain-result strong { font-size: 13px; }
 .chain-health { font-weight: 700; }
-.chain-health.is-ok { color: var(--sb-ink-success-strong); }
+.chain-health.is-ok { color: var(--sb-ink-success); }
 .chain-health.is-risk { color: #d29400; }
 .chain-health.is-breach { color: #c93b32; }
 

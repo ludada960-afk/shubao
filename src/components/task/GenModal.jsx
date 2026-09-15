@@ -45,14 +45,14 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
                         task.status === 'done' ? 'rgba(92,168,108,0.12)' : 'rgba(12,10,9,0.04)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <MdAutoAwesome size={16} color={isActive ? 'var(--sb-warning)' : task.status === 'done' ? 'var(--sb-success)' : 'var(--text-muted)'}
+            <MdAutoAwesome size={16} color={isActive ? 'var(--sb-warning)' : task.status === 'done' ? 'var(--sb-success)' : 'var(--sb-ink-3)'}
               className={isActive ? 'animate-spin' : ''} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sb-ink-1)' }}>
               {task.type === 'ec' ? '电商生图' : '小红书图文'}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 500 }}>
+            <div style={{ fontSize: 11, color: 'var(--sb-ink-5)', fontWeight: 500 }}>
               {task.stage || (STATUS_LABELS[task.status] || task.status)}
             </div>
           </div>
@@ -62,7 +62,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
           <button onClick={onMinimize}
             style={{
               width: 30, height: 30, borderRadius: 8, border: 'none',
-              background: 'transparent', color: 'var(--text-muted)',
+              background: 'transparent', color: 'var(--sb-ink-3)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(12,10,9,0.04)'}
@@ -72,7 +72,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
           <button onClick={onClose}
             style={{
               width: 30, height: 30, borderRadius: 8, border: 'none',
-              background: 'transparent', color: 'var(--text-muted)',
+              background: 'transparent', color: 'var(--sb-ink-3)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(12,10,9,0.04)'}
@@ -108,8 +108,8 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
         {task.status === 'queued' && (
           <div style={{ padding: '24px 0', textAlign: 'center' }}>
             <div style={{ fontSize: 'var(--sb-text-3xl)', marginBottom: 8, opacity: 0.4 }}>⏳</div>
-            <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 600, color: 'var(--text-secondary)' }}>排队等待中</div>
-            <div style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--text-faint)', marginTop: 4 }}>
+            <div style={{ fontSize: 'var(--sb-text-md)', fontWeight: 600, color: 'var(--sb-ink-2)' }}>排队等待中</div>
+            <div style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-5)', marginTop: 4 }}>
               前面还有任务，请稍候…
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
       <div style={{
         padding: '10px 16px',
         borderTop: '1px solid var(--border-light)',
-        fontSize: 10, color: 'var(--text-faint)', textAlign: 'center',
+        fontSize: 10, color: 'var(--sb-ink-5)', textAlign: 'center',
         fontWeight: 500,
       }}>
         生图进程持续后台运行，可随时折叠或关闭

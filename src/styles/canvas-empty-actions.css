@@ -41,12 +41,12 @@
   font-size: 16px;
   font-weight: 750;
   letter-spacing: .01em;
-  color: var(--text-primary);
+  color: var(--sb-ink-1);
   text-align: center;
 }
 .ec-canvas-empty-state p {
   margin: 8px 0 22px;
-  color: var(--text-muted);
+  color: var(--sb-ink-3);
   font-size: 13px;
   line-height: 1.5;
   text-align: center;

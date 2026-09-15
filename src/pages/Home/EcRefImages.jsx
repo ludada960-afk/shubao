@@ -37,12 +37,12 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
   return (
     <div style={{
       background: 'rgba(12,10,9,0.02)',
-      borderRadius: 'var(--radius-md)',
+      borderRadius: 'var(--sb-radius-xl)',
       padding: 16,
       border: '1px solid var(--border-light)',
     }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 12 }}>{sub}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sb-ink-1)', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--sb-ink-5)', marginBottom: 12 }}>{sub}</div>
 
       {!hasImages ? (
         <button type="button" onClick={() => fileRef.current?.click()}
@@ -50,7 +50,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
             appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
             display: 'block', width: '100%',
             border: '2px dashed var(--border)',
-            borderRadius: 'var(--radius-md)',
+            borderRadius: 'var(--sb-radius-xl)',
             padding: '32px 14px',
             textAlign: 'center', cursor: 'pointer',
             transition: 'all 0.15s',
@@ -58,9 +58,9 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
           }}
           onFocus={e => { e.currentTarget.style.boxShadow = 'var(--sb-focus-ring)'; }}
           onBlur={e => { e.currentTarget.style.boxShadow = 'none'; }}>
-          <Upload size={22} style={{ color: 'var(--text-faint)', marginBottom: 8 }} />
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>点击上传</div>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+          <Upload size={22} style={{ color: 'var(--sb-ink-5)', marginBottom: 8 }} />
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--sb-ink-3)' }}>点击上传</div>
+          <div style={{ fontSize: 11, color: 'var(--sb-ink-5)', marginTop: 6, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
             {color === '#2D6A4F'
               ? '正面照、侧面45°、细节特写都很有用\n1 张正面照也能出图，越清晰效果越好'
               : '光影、色调、构图的参考 — 竞品好图或杂志风\nAI 会学习氛围但保留你的产品'}
@@ -71,7 +71,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
           {images.map((src, i) => (
             <div key={i} style={{
               position: 'relative', width: 72, height: 72,
-              borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+              borderRadius: 'var(--sb-radius-md)', overflow: 'hidden',
               border: '1px solid var(--border)',
               flexShrink: 0,
             }}>
@@ -104,10 +104,10 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
                 /* 显式尺寸 + 边框：保持 content-box，否则 72+2px 边框会缩成 72（实测少 4px）。 */
                 appearance:'none', margin:0, padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',padding:0, font:'inherit', display:'block', textAlign:'inherit', boxSizing:'content-box', border:'none', background:'none', outline:'none',
                 width: 72, height: 72,
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--sb-radius-md)',
                 border: '2px dashed var(--border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'var(--text-faint)', fontSize: 20,
+                cursor: 'pointer', color: 'var(--sb-ink-5)', fontSize: 20,
                 flexShrink: 0,
               }}>+</button>
           )}
@@ -121,7 +121,7 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
           e.target.value = '';
         }} />
       {hasImages && (
-        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sb-ink-5)' }}>
           {images.length}/{max} 张
           <button type="button" className="a11y-reset" onClick={() => fileRef.current?.click()}
             style={{ marginLeft: 10, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>

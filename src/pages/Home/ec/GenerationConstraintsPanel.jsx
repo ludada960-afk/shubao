@@ -62,7 +62,7 @@ export default function GenerationConstraintsPanel({ negativePrompt = '', onChan
                     border: `1px solid ${active ? 'var(--sb-state-selected-line)' : 'var(--sb-border-default)'}`,
                     boxShadow: active ? 'var(--sb-shadow-ring)' : 'none',
                     background: active ? 'var(--sb-state-selected-bg)' : 'var(--sb-surface-card)',
-                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    color: active ? 'var(--sb-ink-1)' : 'var(--sb-ink-2)',
                   }}
                 >
                   <Ban size={11} />

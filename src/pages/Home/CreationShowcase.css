@@ -179,7 +179,7 @@
 .xhs-input-template .xhs-ecommerce-media-column { padding: 8px 4px 0; }
 .xhs-input-template .xhs-ecommerce-media-strip { width: 100%; min-height: 128px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; overflow-x: auto; overflow-y: visible; scrollbar-width: thin; }
 .xhs-input-template .ec-xhs-prompt { display: flex; height: 92px; min-height: 92px; margin: 0; padding: 6px 0; border: 0; border-radius: 0; background: transparent; cursor: text; }
-.xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field { display: block; width: 100%; min-height: 0; flex: 1 1 auto; box-sizing: border-box; padding: 8px 18px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 14px; line-height: 22px; caret-color: var(--text-primary); }
+.xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field { display: block; width: 100%; min-height: 0; flex: 1 1 auto; box-sizing: border-box; padding: 8px 18px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--sb-ink-1); font: inherit; font-size: 14px; line-height: 22px; caret-color: var(--sb-ink-1); }
 .xhs-input-template .ec-xhs-prompt textarea.xhs-prompt-field::placeholder { color: #aa9d95; opacity: 1; }
 .xhs-prompt-hints { display: grid; flex: 0 0 auto; gap: 0; padding: 0 18px 4px; color: #b2a69e; font-size: 11px; line-height: 18px; pointer-events: none; }
 .xhs-prompt-hints span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -358,7 +358,7 @@
 .xhs-main-card .xhs-template-chevron {
   flex: 0 0 auto;
   opacity: .4;
-  color: var(--text-muted);
+  color: var(--sb-ink-3);
   transition: transform .22s ease, opacity .2s ease;
 }
 

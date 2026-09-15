@@ -150,7 +150,7 @@ export const groupTitleStyle = Object.freeze({
   gap: SPACING.sp1,
   fontSize: FONT_SIZE.groupTitle,
   fontWeight: FONT_WEIGHT.groupTitle,
-  color: 'var(--text-primary)',
+  color: 'var(--sb-ink-1)',
   lineHeight: 1.4,
 });
 
@@ -161,7 +161,7 @@ export const fieldLabelStyle = Object.freeze({
   gap: SPACING.sp1,
   fontSize: FONT_SIZE.fieldLabel,
   fontWeight: FONT_WEIGHT.fieldLabel,
-  color: 'var(--text-secondary)',
+  color: 'var(--sb-ink-2)',
   lineHeight: 1.4,
 });
 
@@ -169,7 +169,7 @@ export const fieldLabelStyle = Object.freeze({
 export const helperTextStyle = Object.freeze({
   fontSize: FONT_SIZE.helper,
   fontWeight: FONT_WEIGHT.helper,
-  color: 'var(--text-muted)',
+  color: 'var(--sb-ink-3)',
   lineHeight: 1.5,
 });
 
@@ -182,7 +182,7 @@ export const inputStyle = Object.freeze({
   borderRadius: RADIUS.control,
   border: '1px solid rgba(45,41,38,0.12)',
   background: 'var(--sb-neutral-0)',
-  color: 'var(--text-primary)',
+  color: 'var(--sb-ink-1)',
   fontSize: FONT_SIZE.body,
   fontFamily: 'inherit',
   outline: 'none',

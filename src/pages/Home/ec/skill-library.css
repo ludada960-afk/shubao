@@ -142,7 +142,7 @@
   display: inline-flex; align-items: center; gap: var(--sk-space-xs);
 }
 .skill-mini-btn:hover { border-color: var(--sb-border-strong); /* D21：α.28 hover 描边 */ }
-.skill-mini-btn.is-primary { color: var(--sb-ink-warning-strong); border-color: rgba(233, 154, 24, 0.35); background: rgba(233, 154, 24, 0.1); }
+.skill-mini-btn.is-primary { color: var(--sb-ink-warning); border-color: rgba(233, 154, 24, 0.35); background: rgba(233, 154, 24, 0.1); }
 .skill-empty { font-size: 12px; color: var(--sb-ink-4); padding: var(--sk-space-sm) 2px; }
 /* 表单字段：标签 ↔ 控件 8px（语义：标签是控件的从属元素） */
 .skill-field { display: grid; gap: var(--sk-space-sm); position: relative; }
@@ -209,7 +209,7 @@
   margin: calc(var(--sk-space-lg) - var(--sk-space-md)) 0 0;
   font-size: 12px; line-height: 1.55; color: var(--sb-ink-3);
 }
-.skill-hint svg { flex: none; margin-top: 2px; color: var(--sb-ink-success-strong); }
+.skill-hint svg { flex: none; margin-top: 2px; color: var(--sb-ink-success); }
 /* 9-18（P0）本处原先自写整套底部操作区（flex + gap + 边距 + 高度 + 最小宽 + 圆角 + 主次等重），
    只是把 token 名抄了进去。现改挂契约类（JSX 侧），故自写规则**删除**。
    仅保留一条语义补充：技能栏与弹窗底边仍需 ≥16px 留白（契约只给 20px 上下内边距，

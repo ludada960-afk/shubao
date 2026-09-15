@@ -147,7 +147,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
       <div style={{ padding: '14px 16px 12px' }}>
         {/* ── 画面风格: 与「技能库 · 生图」同源 (9-11 二轮批注) ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 0.3 }}>画面风格</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--sb-ink-2)', letterSpacing: 0.3 }}>画面风格</div>
           <button
             type="button"
             className="ec-skill-entry"
@@ -158,7 +158,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
             <Wand2 size={12} /> 技能库{userSkills.length ? `（${userSkills.length}/2）` : ''}
           </button>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>
+        <div style={{ fontSize: 10, color: 'var(--sb-ink-3)', marginBottom: 8 }}>
           与技能库同一份「生图技能」：选中即带完整光影、色调与构图方案进入本次生成
         </div>
         {library.error && (
@@ -245,8 +245,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
         {/* ── 任务型技能（技能库 · 生图）：可叠加进本次生成, 与画布同源 ── */}
         {taskSkills.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 }}>按技能生成</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 7 }}>技能库里的任务型技能（白底图、模特上身等），最多同时叠加 2 个</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--sb-ink-2)', marginBottom: 2 }}>按技能生成</div>
+            <div style={{ fontSize: 10, color: 'var(--sb-ink-3)', marginBottom: 7 }}>技能库里的任务型技能（白底图、模特上身等），最多同时叠加 2 个</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {taskSkills.map(skill => {
                 const active = chosenSkillIds.has(skill.id);
@@ -308,13 +308,13 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {brandLocked ? <Lock size={13} color="var(--sb-brand)" /> : <Unlock size={13} color="var(--text-muted)" />}
+              {brandLocked ? <Lock size={13} color="var(--sb-brand)" /> : <Unlock size={13} color="var(--sb-ink-3)" />}
               <div>
                 <span
                   style={{
                     fontSize: 12,
                     fontWeight: 600,
-                    color: 'var(--text-secondary)'
+                    color: 'var(--sb-ink-2)'
                   }}
                 >
                   锁定品牌主色调
@@ -322,7 +322,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 <div
                   style={{
                     fontSize: 10,
-                    color: 'var(--text-muted)',
+                    color: 'var(--sb-ink-3)',
                     marginTop: 1
                   }}
                 >
@@ -375,7 +375,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                   style={{
                     fontSize: 10,
                     fontWeight: 600,
-                    color: 'var(--text-muted)',
+                    color: 'var(--sb-ink-3)',
                     marginBottom: 4
                   }}
                 >
@@ -417,7 +417,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                       fontSize: 11,
                       fontWeight: 600,
                       fontFamily: 'monospace',
-                      color: 'var(--text-primary)',
+                      color: 'var(--sb-ink-1)',
                       outline: 'none'
                     }}
                   />
@@ -425,7 +425,7 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 <div
                   style={{
                     fontSize: 10,
-                    color: 'var(--text-muted)',
+                    color: 'var(--sb-ink-3)',
                     lineHeight: 1.4
                   }}
                 >
