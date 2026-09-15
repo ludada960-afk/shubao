@@ -191,8 +191,18 @@ test('⑬ 提示词区必须常驻「分工说明」，让用户不必猜要不�
      判据：分工必须**写出来**（面板=保险丝/硬约束，提示词=方向盘/表达），并说明留空的含义。 */
   assert.match(note, /配置面板里的设定/, '必须常驻一句分工说明');
   assert.match(note, /留空\s*=\s*不限制/, '必须说明「留空 = 不限制」，否则用户不敢留空');
-  assert.match(ecMode, /<PromptAuthorityNote[\s\S]{0,120}negative=\{genSettings\.negativePrompt\}/,
-    '必须挂在提示词输入区，并接上真实的 negative（否则冲突判定没有输入）');
+  /* ⚠️ 挂载点必须是**真正被渲染**的那一个（本契约初版挂错了地方，实测才发现）：
+     第一版把说明挂在 EcMode.jsx 里，而那个分支并未被渲染 ——
+     实测最新构建产物里它的文案在 89 个本次构建包中 0 命中，而 EcommerceWorkbench 命中 3 个。
+     所以断言必须落在**实际在用的提示词框所在组件**上，否则「写了但用户看不见」。
+     改动前请用产物验证：npm run build 后 grep dist 里该文案。 */
+  const workbench = read('src/pages/Home/ec/EcommerceWorkbench.jsx');
+  assert.match(workbench, /<PromptAuthorityNote[\s\S]{0,120}prompt=\{description\}[\s\S]{0,60}negative=\{negativePrompt\}/,
+    '必须挂在真正在用的提示词输入区（EcommerceWorkbench），并接上 negative');
+  assert.match(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/,
+    '宿主必须把真实的 negative 透传进去（否则冲突判定没有输入）');
+  assert.match(workbench, /negativePrompt = ''/,
+    'EcommerceWorkbench 必须接收 negativePrompt 这个 prop');
 });
 
 test('⑭ 冲突必须当场显性化：以配置为准，而不是默默按一个来', () => {

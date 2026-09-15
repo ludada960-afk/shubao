@@ -33,7 +33,6 @@ import { archiveProductProfile, createProductProfile, getProjectAsset, listProdu
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
 import SkillLibraryModal from './ec/SkillLibraryModal.jsx';
-import PromptAuthorityNote from './ec/PromptAuthorityNote.jsx';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
 import { createEcommerceGenerationPreconditionError, createEcommerceGenerationToken, ecommerceLoginPreflight, invalidateEcommerceGenerationRequest, isEcommerceGenerationTokenCurrent } from './ec/ecommerceTaskProgressModel.js';
 import { restoreCheckpointIntoEditor } from './ec/projectLifecycleModel.js';
@@ -1082,6 +1081,8 @@ const DEFAULT_BUTTONS = [
           onRoleRemove={removeRoleImage}
           description={description}
           onDescriptionChange={setDescription}
+          /* 提示词 ↔ 配置面板的权威说明需要它（硬约束来自「避免出现的元素」）。 */
+          negativePrompt={genSettings.negativePrompt}
                 userSkills={userSkills}
                 onUserSkillsChange={setUserSkills}
           onProductUpload={handleProdUpload}
@@ -1525,13 +1526,6 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                 <div className="ph-sub">例如：白色陶瓷马克杯，简约北欧风，容量350ml，带木质把手，适合办公家用</div>
               </div>
             </div>
-
-            {/* 提示词 ↔ 配置面板：谁说了算（2026-09-15 用户批注图6-⑦ 的核心困惑）
-                用户原话：「用户可能提示词里面已经写过一遍这些配置了，那现在我们的配置面板里
-                还要让他再配置一次，很有可能信息它是会冲突的，用户也可能会很迷茫……」
-                落地：把已有判定（canvasPromptAuthority）搬到用户此刻正在操作的地方 ——
-                常驻一句分工说明 + 冲突时当场指出「以配置为准」。 */}
-            <PromptAuthorityNote prompt={description} negative={genSettings.negativePrompt} />
           </div>
         )}
 

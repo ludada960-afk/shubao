@@ -11,6 +11,7 @@ import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRe
 import { productionCaseById } from '../productionCaseCatalog.js';
 import { EcommerceAddCard, EcommerceImageCard } from './components/EcommerceAssetCards.jsx';
 import { IMAGE_PROMPT_LIMIT } from '../../../constants/promptLimits.js';
+import PromptAuthorityNote from './PromptAuthorityNote.jsx';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -245,6 +246,8 @@ export default function EcommerceWorkbench({
   refImages,
   description,
   onDescriptionChange,
+  /* 提示词 ↔ 配置面板的权威说明要用到「避免出现的元素」（硬约束），故透传进来。 */
+  negativePrompt = '',
   userSkills = [],
   onUserSkillsChange,
   onProductUpload,
@@ -383,6 +386,12 @@ export default function EcommerceWorkbench({
             </span>
           ))}
         </div>
+
+        {/* ⚠️ 挂载点纠错（2026-09-15）：这段说明最初被挂到了 src/pages/Home/EcMode.jsx 的一个
+            分支里，而**那个分支并没有被渲染** —— 实测最新构建产物里它的文案一个都不存在
+            （模板占位「描述你的产品名称」在 89 个本次构建包里 0 命中），而本文件是在 3 个包里命中。
+            也就是说：说明写对了、位置挂错了，用户根本看不到。现挂到真正在用的提示词框下面。 */}
+        <PromptAuthorityNote prompt={description} negative={negativePrompt} />
       </div>
 
       <input ref={productInputRef} type="file" accept="image/*" multiple hidden onChange={onProductUpload} />
