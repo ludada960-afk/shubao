@@ -45,6 +45,17 @@ const BLOCKING = [
      不是「必须为 0」—— 现存 177 处都属已登记待迁的 V2 / 已判合法的组件自有家族。
      幽灵变量 / 重复定义 / 家族棘轮 / DS 层四条门禁**都看不见**这一类。 */
   'test/token-root-scope-language.test.mjs',
+  /* 断言「token 拼写」的契约文件：2026-09-15 起为**硬门禁**。
+     起因是本轮 D26 迁移（--accent → --sb-surface-inverse 等）改了 token 名，
+     这四份契约里有 8 条断言在做**逐字匹配**，于是集体失效 ——
+     而 precommit 的 14 条门禁里**没有**它们，逐文件 precommit 全绿，
+     直到**部署的 npm test 步骤**才把它们挡下来（部署 exit 1）。
+     把这类文件挂进 BLOCKING 之后，同类失效会在 precommit 阶段就暴露。
+     （另注：dsh 的部署脚本自带 npm test，是当前唯一能覆盖全量契约的关卡。） */
+  'test/footer-actions-contract.test.mjs',
+  'test/canvas-derive-menu.test.mjs',
+  'test/video-canvas-tapnow-w1.test.mjs',
+  'test/visual-system-contract.test.mjs',
 ];
 
 /* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */
