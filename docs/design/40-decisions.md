@@ -1056,6 +1056,86 @@ LongTaskOverlay 的 spinner 写的是 `color: var(--accent, #8b7cf6)`，
 里非 `--sb-*` 的自定义属性定义，基线 **177 处 / 105 名**不许再涨 ——
 锁的正是本次的复现路径「再开一个新文件塞全局 token」。
 
+---
+
+## D36 · D26 迁移三笔收口：家族口径 **137 → 29**；余下 9 名逐条裁定（2026-09-15）
+
+### 一、已完成：三笔共迁移 **137 处**
+
+| 笔 | 处数 | 文件 | 映射（亮/暗两主题均逐值相等） |
+|---|---|---|---|
+| 1 | **107** | 25 | `--accent`(42)→`--sb-surface-inverse`；`--blue`(22)→`--sb-info`；`--space-2..6`(7)→`--sb-space-*`；`--leading-normal`(2)→`--sb-leading-normal`；footer-actions 按钮尺寸(5)→`--sb-control-*`；`--bg`(1)→`--sb-surface-page` |
+| 2 | **15** | 4 | footer-actions 的 gap/margin/padding(9)→`--sb-space-3/4/5`；primary-bg(-hover)(3)→`--sb-brand-600/700`；button-height-sm(2)→`--sb-control-h-md` |
+| 3 | **15** | 8 | `--font-body`(14)→`--sb-font-sans`；`--font-display`(1)→`--sb-font-display` |
+
+门禁家族口径：137 → 58 → 44 → **29 处 / 9 名**。
+
+> ⚠️ **降幅（108）≠ 迁移处数（137）**：本门禁按「含家族匹配的**整行**」计数，
+> 同一行里若有其它 V2 用法会一并计入，两个数**本就不该相等**。
+
+笔 3 的判据不是「名字像」，而是**字体栈的超集关系**：
+V3 `--sb-font-sans` 比 V2 `--font-body` 多一个 `'Noto Sans SC'`（排在 Microsoft YaHei 之后）——
+装有 YaHei 的 Windows 上**逐字同解析**，只有缺 YaHei 的系统（Linux/Android）才多命中它，
+那是**更正确的 CJK 字形**，属改善。
+
+### 二、途中抓到的三个真缺陷（都已修）
+
+1. **V3 权威反过来依赖 V2 遗留层**：`--sb-action-gap: var(--footer-actions-gap, var(--sb-space-3))`，
+   注释还把 V2 文件标成「唯一真源」—— **依赖方向是反的**。已确认解析后同值，改为直接取本层档位。
+2. **改名后引入的 7 处「自回退」**：`var(--blue, var(--sb-info))` → `var(--sb-info, var(--sb-info))`。
+   值对但写法退化（读代码的人会以为有第二级兜底）。已全部收敛，复查 = 0。
+3. **`src/pages/EcCanvas/EcCanvas.css` 整个文件是 CRLF**（实测 2259 处 CRLF / 0 处 LF）。
+   本项目的迁移脚本因此**主动跳过**它（长度校验不通过）—— 这是正确的防御，但也意味着
+   该文件今后所有脚本化改动都会被略过。**本次它没有目标用法，故无影响**；
+   要不要统一成 LF 需要单独评估（会产生整文件 diff，与 RTK 记的那次 CRLF 事故同类）。
+
+### 三、余下 9 名：**没有一个存在精确等值的 V3 同族 token**
+
+判据 = 精确值反查（亮/暗两主题解析值逐一比对）：
+
+| 名字 | 处数 | 现取值（亮 / 暗） | 最近 V3 候选 | 差异 |
+|---|---|---|---|---|
+| `--accent-bg` | 7 | `rgba(12,10,9,.06)` / `rgba(245,239,228,.10)` | 无同族 | V3 无对应角色 |
+| `--blue-bg` | 4 | `#F0F4FD` / `rgba(82,117,204,.18)` | `--sb-info-soft` | **亮相等、暗不等**（见第四节） |
+| `--footer-actions-primary-disabled-text` | 4 | `#a8a39e`（无暗色变体） | `--sb-ink-4` | 值不同 |
+| `--leading-relaxed` | 3 | `1.7` | `--sb-leading-relaxed` `1.65` | 差 0.05 |
+| `--footer-actions-primary-disabled-bg` | 3 | `#e5e3e0`（无暗色变体） | `--sb-state-disabled-bg` | 形态与值都不同 |
+| `--footer-actions-radius` | 3 | `10px` | `--sb-radius-*` = 8/12/16 | **无 10px 档** |
+| `--accent-hover` | 2 | `#2A2521` / `#FFFFFF` | 无同族 | V3 无对应角色 |
+| `--footer-actions-border` | 2 | `rgba(28,25,23,.12)` | `--sb-border-subtle` `.06` | α 差一倍 |
+| `--footer-actions-button-height-lg` | 1 | `40px` | V3 档 36 / 44 | **无 40px 档** |
+
+> ⚠️ **两个「假朋友」必须点名**（否则下一个人会拿它们去凑数）：
+> · `--footer-actions-radius` 10px 的精确值匹配是 `--sb-text-2xs` / `--sb-space-2-5` / `--sb-control-px-sm`；
+> · `--footer-actions-button-height-lg` 40px 的精确值匹配是 `--sb-space-10`。
+> 那分别是**字号 / 内边距 / 间距** token。拿它们当圆角或高度正是 D24 警告的**名值陷阱**：
+> 值对了、语义错了，读代码的人会被误导。**禁止这样迁。**
+
+### 四、另一个系统性发现：语义族的 soft / bg / border **全部没有暗色覆盖**
+
+实测 V3 里 20 个语义浅色 token（danger/success/warning/info 的 `-soft`/`-bg`/`-border`，
+含 `sem-*` 两套）—— **dark 列全部为空**。于是深色主题下它们仍是**浅色**
+（例：`--sb-sem-danger-soft` = `#FEF2F0` 近白）。
+
+这不是 info 一族的问题，是**系统性的**。两种可能，需要裁定：
+- (a) 设计意图：这些 token 只用于浅色语境，深色主题里组件换用别的 token；
+- (b) **深色主题缺陷**：组件在深色下拿它们做底 → 出现刺眼浅块。
+
+→ 这正是 `--blue-bg` **不能迁**的直接原因（它暗色是 `rgba(82,117,204,.18)`，而 `--sb-info-soft` 没有暗色值，迁过去深色下会变成浅蓝块）。
+**本轮不做**：需要先做一次深色主题定点核查（找出所有在 `[data-theme="dark"]` 下实际把 `-soft` 渲染成底色处），再决定「补暗色值」还是「改用法」。
+
+### 五、余下 9 名的处置建议（每条都能给出改前/改后像素证据）
+
+1. `--leading-relaxed` 1.7 → `--sb-leading-relaxed` 1.65：**建议收敛**（行高收紧约 3%），属 D30 排版族，建议随一次版式复看一起做。
+2. `--footer-actions-radius` 10px：**建议收敛到 8px**（D18 角色表：按钮 = 控件档；V3 控件圆角无 10px 档），属 D29 同族，需像素取证。
+3. `--footer-actions-border`：V3 最接近的两支 α 是 .06 / .14，**先把底栏描边定到某一档**再换。
+4. `--footer-actions-primary-disabled-bg` / `-text`：属**禁用态**，V3 已有 `--sb-state-disabled-bg` / `--sb-ink-4` → 建议整组按禁用档收敛（与 D34 里 Button 禁用底同一把尺）。
+5. `--footer-actions-button-height-lg` 40px：**需定「底栏主按钮是 36 还是 44」**（36 = 与表单主控件一致；44 = 触控友好下限）。
+6. `--accent-bg` / `--accent-hover`：它们是已迁走的 `--accent` 的 hover / 浅底态。V3 里**没有对应角色** —— 因为 `--sb-surface-inverse` 只是**值**相同，语义是「反色面板」。→ 需先定 accent 在 V3 里该对应哪个语义。
+7. `--blue-bg`：卡在第四节那条系统性缺暗色上，**先解决那条**。
+
+**结论**：余下 29 处**全部**是设计决策，不是机械劳动。不建议在未取证的情况下顺手改。
+
 
 
 
