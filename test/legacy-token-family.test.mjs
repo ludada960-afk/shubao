@@ -228,8 +228,21 @@ function grepLegacy() {
      · 门禁家族口径 = 137（本文件管的）
      · 全站 V2 口径 = 更大（含 --ec-* / --canvas-* / --sk-* 等组件自有家族）
    禁止把「家族口径 137 → 0」写成「V2 已清零」。 */
-const BASELINE_TOTAL = 137;
-const BASELINE_NAMES = 28;
+/* ── D26 迁移第一笔（逐值相等 · 零观感变更）实测 137/28 → **58/18**：
+       --accent(42)   → --sb-surface-inverse   （亮 #0C0A09 / 暗 #F5EFE4 逐值相等）
+       --blue(22)     → --sb-info              （亮 #5275CC / 暗 #7B95E0 逐值相等）
+       --space-2..6(7)→ --sb-space-2..6        （8/12/16/20/24px 逐值相等）
+       --leading-normal(2) → --sb-leading-normal（1.5 逐值相等）
+       --footer-actions-button-min-width(3) → --sb-control-min-w（88px）
+       --footer-actions-button-height(2)    → --sb-control-h-lg （36px）
+       --bg(1)        → --sb-surface-page      （亮 #F5EFE4 / 暗 #0F0E0D 逐值相等）
+     共替换 **107 处 / 25 个文件**；git diff 为 **104 insertions / 104 deletions**
+     （完全对称）= 纯名字替换、无结构改动的直接证据；剥注释后残留实测 = 0。
+     ⚠️ 基线降幅（79）≠ 替换处数（107）：本门禁按「含家族匹配的整行」计数，
+       同一行里若有其它 V2 用法也会被计入，所以这两个数**本就不该相等**。
+     ⚠️ 迁移脚本对 CSS 采用「注释掩码后的位置替换」，注释里的 var() 说明文字不受影响。 */
+const BASELINE_TOTAL = 58;
+const BASELINE_NAMES = 18;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
