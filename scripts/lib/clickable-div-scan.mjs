@@ -59,6 +59,25 @@ export function buildComponentRootMap(files) {
       rootOf.set(name, rootTag.toLowerCase());
     }
   }
+
+  /* ── 别名赋值解析：`const Local = Imported;` ──────────────────────────────
+     真实误报（第 7 类）：EcommerceWorkbench 的 `L40 const AddCard = EcommerceAddCard;`
+     只是**别名赋值**（既不是 function 也不是箭头函数），上面的正则抓不到 →
+     <AddCard> 落到「组件根元素未解析」分支被**计为违规**，
+     而 EcommerceAddCard 的根元素本来就是 `<button type="button">`（EcommerceAssetsCards:22）。
+     一次误报不大，但**误报会侵蚀门禁可信度**：40 处里混着误报，就没人认真看这个数字了。
+     → 解析别名并做 5 跳传递（防 A=B=B 链），只在「别名自身尚未解析」时写入，不覆盖已解析的真根。 */
+  const aliasOf = new Map();
+  for (const f of files) {
+    for (const m of readFileSync(f, 'utf8').matchAll(/const\s+([A-Z][A-Za-z0-9_]*)\s*=\s*([A-Z][A-Za-z0-9_]*)\s*;/g)) {
+      aliasOf.set(m[1], m[2]);
+    }
+  }
+  for (let hop = 0; hop < 5; hop++) {
+    for (const [local, imported] of aliasOf) {
+      if (!rootOf.has(local) && rootOf.has(imported)) rootOf.set(local, rootOf.get(imported));
+    }
+  }
   return rootOf;
 }
 
