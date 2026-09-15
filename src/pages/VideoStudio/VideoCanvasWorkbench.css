@@ -347,7 +347,7 @@
   padding: 4px 8px;
   margin-left: 6px;
   border: 1px solid var(--border, rgba(61, 50, 41, .14));
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--sb-radius-pill, 9999px);
   background: var(--bg-card, rgba(255, 255, 255, .97));
 }
 .vcb-topbar-tools button {
@@ -356,12 +356,12 @@
   gap: 4px;
   padding: 5px 9px;
   border: 1px solid transparent;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--sb-radius-pill, 9999px);
   background: transparent;
   color: var(--text-secondary, var(--sb-ink-2));
   font-size: 12px;
   cursor: pointer;
-  transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease), border-color var(--duration-fast, .12s) var(--ease, ease);
+  transition: background var(--duration-fast, .12s) var(--sb-ease-in-out, ease), color var(--duration-fast, .12s) var(--sb-ease-in-out, ease), border-color var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-topbar-tools button:hover { background: var(--bg-hover, rgba(12, 10, 9, .03)); color: var(--sb-surface-inverse, var(--sb-neutral-900)); }
 .vcb-topbar-tools button.is-on {
@@ -399,7 +399,7 @@
   gap: 6px;
   padding: 10px 11px;
   border: 1px solid var(--border, rgba(231, 229, 228, .8));
-  border-radius: var(--radius-md, 16px);
+  border-radius: var(--sb-radius-xl, 16px);
   background: var(--bg-card-solid, var(--sb-neutral-0));
   box-shadow: var(--shadow-sm, 0 1px 3px rgba(57, 45, 26, .06));
   color: var(--text-primary, var(--sb-ink-1));
@@ -410,8 +410,8 @@
   transition:
     /* P1 · TapNow 0.3s spring-bounce 弹性曲线（节点浮起/缩放手感） */
     transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow var(--duration-normal, .2s) var(--ease, ease),
-    border-color var(--duration-fast, .12s) var(--ease, ease);
+    box-shadow var(--duration-normal, .2s) var(--sb-ease-in-out, ease),
+    border-color var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-node:active { cursor: grabbing; z-index: 6; }
 .vcb-node header {
@@ -424,7 +424,7 @@
 }
 .vcb-node header span {
   overflow: hidden;
-  font-weight: var(--weight-semibold, 600);
+  font-weight: var(--sb-weight-semibold, 600);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -499,7 +499,7 @@
   pointer-events: auto;
   /* P1 · handle 弹入用 spring 0.3s，opacity 沿用快速淡入 */
   transition:
-    opacity var(--duration-fast, .12s) var(--ease, ease),
+    opacity var(--duration-fast, .12s) var(--sb-ease-in-out, ease),
     transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .vcb-handle.is-tl { top: -4px; left: -4px; cursor: nwse-resize; }
@@ -520,7 +520,7 @@
   gap: 2px;
   padding: 4px 6px;
   border: 1px solid var(--border, rgba(231, 229, 228, .8));
-  border-radius: var(--radius-full, 9999px);
+  border-radius: var(--sb-radius-pill, 9999px);
   background: var(--bg-elevated, var(--sb-neutral-0));
   box-shadow: var(--shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
   pointer-events: auto;
@@ -551,7 +551,7 @@
   background: transparent;
   color: var(--text-secondary, var(--sb-ink-2));
   cursor: pointer;
-  transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease);
+  transition: background var(--duration-fast, .12s) var(--sb-ease-in-out, ease), color var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-mini-toolbar button:hover {
   background: var(--bg-hover, rgba(12, 10, 9, .03));
@@ -582,7 +582,7 @@
   box-shadow: var(--shadow-xl, 0 28px 90px rgba(57, 45, 26, .14));
   font-size: 13px;
   color: var(--text-primary, var(--sb-ink-1));
-  animation: vcbMenuIn var(--duration-fast, .12s) var(--ease, ease);
+  animation: vcbMenuIn var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-context-menu button {
   display: flex;
@@ -597,7 +597,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background var(--duration-fast, .12s) var(--ease, ease), color var(--duration-fast, .12s) var(--ease, ease);
+  transition: background var(--duration-fast, .12s) var(--sb-ease-in-out, ease), color var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-context-menu button:hover {
   background: var(--sb-state-active-bg, rgba(12, 10, 9, .06));
