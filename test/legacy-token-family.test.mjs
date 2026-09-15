@@ -352,8 +352,26 @@ function grepLegacy() {
        --border-light(7) 同理；--bg-elevated(5) V3 无对应角色；
        --ease-out(5) 曲线不同（cubic-bezier(0,0,.2,1) vs (.22,1,.36,1)）；
        --bg-card(3) 半透明 vs V3 实色；--radius-lg(1) 30px vs V3 12px；--red-shadow(1) α 不同。 */
-const BASELINE_TOTAL = 41;
-const BASELINE_NAMES = 7;
+/* ── D39（2026-09-15）实测 41/7 → **0/0** —— 门禁修正口径下**归零**。
+     ⚠️ 与第 10 轮那个「假的 0」的本质区别：**那是旧正则看不见带兜底写法造成的**；
+        这次是**修正正则之后**的 0（正则会匹配 `var(--x, 兜底)` 与 `var( --x )`）。
+
+     本批 7 名逐条裁定（依据见 40-decisions.md D39）：
+       --border(19)        → --sb-border-default       D4「描边一律暖黑」：V2 的冷浅灰违反 D4，且缺暗色覆盖
+       --border-light(7)   → --sb-border-subtle        同上
+       --bg-elevated(5)    → --sb-surface-panel-solid  亮精确相等；暗 #232120 → #1C1A18（Δ≈7）
+       --ease-out(5)       → --sb-ease-out             曲线不同（(0,0,.2,1) → (.22,1,.36,1)），属**时间维度**
+       --bg-card(3)        → --sb-surface-panel        **半透明**族（非实色）：α .88→.85 / .78→.86
+       --radius-lg(1)      → --sb-radius-panel         30px → 20px（D18 角色：面板）
+       --red-shadow(1)     → --sb-danger-shadow-color  同色相，α .15 → .28（且它其实被当**描边**用）
+     共 41 处 / 9 个文件，diff 40/40 对称。
+
+     ⚠️⚠️ **「0」是本门禁的家族口径，不是「全站 V2 已清零」**（D26 #4 / D33）：
+       · 组件自有家族（--ec-* / --canvas-* / --sk-* / --cl-* 等）仍在，D26 #2 判为合法；
+       · **V2 权威文件里仍有 93 个非组件定义**（可达性分析：其中 61 个已不可达）
+         —— **用法归零 ≠ 定义消失**，删定义是独立的收尾动作。 */
+const BASELINE_TOTAL = 0;
+const BASELINE_NAMES = 0;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
