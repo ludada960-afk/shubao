@@ -204,7 +204,7 @@
   border: 1px dashed var(--border-light, rgba(15, 23, 42, .12));
   border-radius: 12px;
   background: var(--sb-state-hover-bg, #f8fafc);
-  color: var(--text-hint, var(--sb-ink-3));
+  color: var(--sb-ink-4, var(--sb-ink-3));
   font-size: var(--sb-text-sm);
   line-height: 1.6;
   text-align: center;
@@ -285,7 +285,7 @@
   overflow: hidden;
   background: #eef2f6;
   font-size: var(--sb-text-xs);
-  color: var(--text-hint, var(--sb-ink-3));
+  color: var(--sb-ink-4, var(--sb-ink-3));
 }
 .ec-canvas-right-panel__child-thumb img {
   width: 100%;
@@ -307,7 +307,7 @@
 .ec-canvas-right-panel__child-meta em {
   font-style: normal;
   font-size: var(--sb-text-xs);
-  color: var(--text-hint, var(--sb-ink-3));
+  color: var(--sb-ink-4, var(--sb-ink-3));
 }
 .ec-canvas-right-panel__child-meta em.is-processing { color: #ea580c; }
 .ec-canvas-right-panel__child-meta em.is-error { color: var(--sb-danger-hover); }
@@ -351,7 +351,7 @@
   margin: 0;
   padding: 0;
   cursor: pointer;
-  transition: background var(--duration-fast, 160ms) var(--ease-out, ease);
+  transition: background var(--sb-dur-fast, 160ms) var(--ease-out, ease);
 }
 /* D11：range 的 outline 归零后补替代焦点环（box-shadow，不改变滑块几何） */
 .ec-canvas-right-panel__row input[type="range"]:focus-visible {
@@ -365,7 +365,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--sb-brand);
-  border: 2px solid var(--bg-card-solid, var(--sb-neutral-0));
+  border: 2px solid var(--sb-surface-card, var(--sb-neutral-0));
   box-shadow: 0 1px 4px rgba(12, 10, 9, .15);
   cursor: grab;
   transition: transform 120ms var(--ease-out, ease);
@@ -378,7 +378,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--sb-brand);
-  border: 2px solid var(--bg-card-solid, var(--sb-neutral-0));
+  border: 2px solid var(--sb-surface-card, var(--sb-neutral-0));
   box-shadow: 0 1px 4px rgba(12, 10, 9, .15);
   cursor: grab;
 }
@@ -392,7 +392,7 @@
   padding: 0 var(--cvl-sp2, 8px);
   border: 1px solid var(--sb-border-subtle);
   border-radius: var(--sb-radius-sm);
-  background: var(--bg-card-solid, var(--sb-neutral-0));
+  background: var(--sb-surface-card, var(--sb-neutral-0));
   color: var(--sb-ink-1);
   font: inherit;
   font-size: var(--sb-text-xs);
