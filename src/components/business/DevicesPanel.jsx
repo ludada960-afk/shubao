@@ -134,7 +134,7 @@ export default function DevicesPanel() {
             </div>
           ))}
           {Array.isArray(sessions) && sessions.some(s => s.current) && (
-            <div style={{ color: 'var(--text-invisible)', paddingTop: 6 }}>
+            <div style={{ color: 'var(--sb-ink-4)', paddingTop: 6 }}>
               当前设备无法在本机下线；可使用退出登录。
             </div>
           )}

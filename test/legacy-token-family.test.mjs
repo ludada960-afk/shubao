@@ -171,9 +171,16 @@ function grepLegacy() {
       首屏已渲染元素几何变化 = **0 / 876**。
       ⚠️ **已知边界（本批未处理的额外变更）**：`--text-2xl`/`--text-3xl` 的**响应式覆盖断点不同** ——
       V2 是 ≤768px、V3 是 ≤640px，故 **641–768px 带**的值会变（V2 22/18px → V3 28/24px）。
-      本批只在**桌面档**做了等值/预定归并，该断点带的差异**未单独验证**。 */
-const BASELINE_TOTAL = 50;
-const BASELINE_NAMES = 13;
+      本批只在**桌面档**做了等值/预定归并，该断点带的差异**未单独验证**。
+   ── 本批第六笔（D31 ink 族 + 不可读文字缺陷）：50/13 → **36/8**（−14 处 / −5 名）。
+      `--text-primary`(2) → `--sb-ink-1`；`--text-secondary`(4) → `--sb-ink-2`；`--text-hint`(2) → `--sb-ink-4`
+      （三者**亮色逐值相等**，暗色有 ≤12/通道 的小差且方向是**提高对比度**）。
+      **另 6 处是缺陷修复**（不是等值迁移）：`--text-ghost`(#CCC8C4 1.45–1.66:1) 与
+      `--text-invisible`(#E8E5E2 1.10–1.26:1) 被当**文字色**用 → 用户基本看不见。
+      按角色落档：页脚**导航链接** → `--sb-ink-3`(AA 达标)；说明/进度/标签 → `--sb-ink-4`；
+      `.gen-btn:disabled` → `--sb-ink-5`(禁用档，WCAG 1.4.3 明文豁免)。对比度算法已自证（见 D31）。 */
+const BASELINE_TOTAL = 36;
+const BASELINE_NAMES = 8;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';

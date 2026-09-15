@@ -129,7 +129,7 @@ html.theme-transition *::after {
   border: 1px solid var(--border);
   border-radius: var(--sb-radius-pill);
   background: var(--bg-card);
-  color: var(--text-secondary);
+  color: var(--sb-ink-2);
   cursor: pointer;
   transition: background-color var(--sb-dur-normal) var(--sb-ease-in-out),
               color var(--sb-dur-normal) var(--sb-ease-in-out),

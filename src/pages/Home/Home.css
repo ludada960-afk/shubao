@@ -245,7 +245,7 @@
       合并为一条。 */
 .gen-btn.xhs { background: var(--sb-danger); box-shadow: var(--sb-danger-shadow); }
 .gen-btn:hover { transform: translateY(-1px); }
-.gen-btn:disabled { background: var(--sb-border-default); color: var(--text-ghost); cursor: not-allowed; box-shadow: none; transform: none; }
+.gen-btn:disabled { background: var(--sb-border-default); color: var(--sb-ink-5); cursor: not-allowed; box-shadow: none; transform: none; }
 
 .gen-hint {
   text-align: center;

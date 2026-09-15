@@ -298,7 +298,7 @@ export default function RemakePage() {
           <div style={{ padding: '60px 20px', textAlign: 'center' }}>
             <MdRefresh size={32} className="spin" style={{ color: 'var(--blue)', marginBottom: 16 }} />
             <p style={{ color: 'var(--sb-ink-4)' }}>正在下载图片并分析中...</p>
-            {task && <p style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--text-invisible)', marginTop: 4 }}>
+            {task && <p style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)', marginTop: 4 }}>
               {task.downloadedImages?.length || 0}/{task.imageCount || 0} 张已下载
             </p>}
           </div>

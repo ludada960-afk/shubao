@@ -120,7 +120,7 @@ export default function LoadingView() {
           borderRadius: 'var(--sb-radius-xl)', padding: '16px 20px', textAlign: 'left',
         }}>
           <div style={{
-            fontSize: 'var(--sb-text-xs)', color: 'var(--text-ghost)',
+            fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)',
             marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4,
           }}>
             {isEC ? <MdShoppingCart size={10} /> : <MdFlashOn size={10} />}
@@ -137,7 +137,7 @@ export default function LoadingView() {
 
         {/* 旋转小提示 */}
         <div style={{
-          fontSize: 'var(--sb-text-xs)', color: 'var(--text-invisible)',
+          fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)',
           marginTop: 20, display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: 'var(--sb-space-1-5)',
         }}>
