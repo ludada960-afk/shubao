@@ -126,7 +126,7 @@ html.theme-transition *::after {
   width: 38px;
   height: 38px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--sb-border-default);
   border-radius: var(--sb-radius-pill);
   background: var(--sb-surface-panel);
   color: var(--sb-ink-2);
@@ -140,7 +140,7 @@ html.theme-transition *::after {
 .theme-switcher:hover {
   background: var(--sb-state-hover-bg);
   color: var(--accent);
-  border-color: var(--border-hover);
+  border-color: var(--sb-border-strong);
 }
 .theme-switcher:active {
   transform: scale(0.94);

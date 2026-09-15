@@ -190,9 +190,20 @@ function grepLegacy() {
       `--bg-card`(rgba(255,255,255,.88)) → `--sb-surface-panel`(.85)：**D20-B**（按角色选玻璃档），α 差 .03。
       ⚠️ 教训（写进 D32）：**遇到「V3 缺档」先问「是权威错了，还是现实错了」** ——
       本例里两边都不算错，但**权威从未被现实校准过**，结果是一个 1 处的少数派定义着语义、
-      11 处的多数派只能继续用 V2 名字。**对齐之后迁移才是零变更的**。 */
-const BASELINE_TOTAL = 21;
-const BASELINE_NAMES = 5;
+      11 处的多数派只能继续用 V2 名字。**对齐之后迁移才是零变更的**。
+   ── 本批第八笔（D33 收尾）：21/5 → **0/0** —— **门禁口径内的 V2 用法全部清零**。
+      `--ease-out`(12) → `--sb-ease-out`：V2 是 cubic-bezier(0,0,.2,1)、V3 是 (0.22,1,.36,1)，
+      **曲线不同 → 有意变更**（V3 那条的定义处写着【现状锚点】EcMode 已在用）。
+      `--duration-slow`(3) → `--sb-dur-slow`(300ms)：350→300（Δ−50ms），三处都是**动画**（FAQ 揭示 / fadeUp / slideDown），
+      §14 里 300ms 的角色正是「面板进/出场」。
+      `--border`(3) → `--sb-border-default`；`--border-light`(1) → `--sb-border-subtle`；
+      `--border-hover`(2) → `--sb-border-strong` —— **按角色**，且按 **D20-D** 先合成到底色再比
+      （合成亮度差 ≤5/255）。
+      ⚠️⚠️ **本文件管的是「家族口径」，它归零 ≠ 全站 V2 归零**：
+      全口径实测仍有 **445 处 / 86 名**（`--canvas-command`54 / `--accent`42 / `--ec-*` 族 / `--blue`22 …）。
+      两个数**必须分开报**，见 D26。禁止把「0」写成「全站 V2 已清零」。 */
+const BASELINE_TOTAL = 0;
+const BASELINE_NAMES = 0;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
@@ -232,7 +243,10 @@ test('② V2 家族用法不得增长（棘轮：只许减）', () => {
      现改为「**不得低于基线的 50%，且至少 5 处**」：
      · grep 口径失效（写错前缀 / 扫错目录）会得到 **0~个位数**，仍能被稳稳抓到；
      · 迁移推进时阈值随基线自动下降，不会误报。 */
-  const minSane = Math.max(5, Math.floor(BASELINE_TOTAL / 2));
+  /* 归零后（BASELINE_TOTAL = 0）不能再用「不得低于基线 50%」——那会要求 total ≥ 5，
+     而正确值就是 0。故 0 时改为**恰好断言 0**：既抓住「口径失效后误报 0」的反面（
+     误报 0 在归零后无法与真相区分，这是该护栏的**已知极限**，故同时保留下面 ⑤ 的「必须扫到足量文件」作为替代保证）。 */
+  const minSane = BASELINE_TOTAL === 0 ? 0 : Math.max(5, Math.floor(BASELINE_TOTAL / 2));
   assert.ok(total >= minSane, '只数到 ' + total + ' 处（基线 ' + BASELINE_TOTAL + '），样本量异常（grep 口径可能失效）');
   assert.ok(total <= BASELINE_TOTAL,
     'V2 变量用法从基线 ' + BASELINE_TOTAL + ' 涨到 ' + total + ' —— 又有人写了第二套 token 语言。\n' +

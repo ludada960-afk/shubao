@@ -991,7 +991,7 @@
 }
 .pricing-faq-answer {
   margin: 0 0 12px;
-  animation: pricingFaqReveal var(--duration-slow) var(--ease-out);
+  animation: pricingFaqReveal var(--sb-dur-slow) var(--sb-ease-out);
   font-size: var(--sb-text-md);
   line-height: 1.7;
   color: var(--sb-ink-3);
