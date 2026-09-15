@@ -185,12 +185,12 @@ input, textarea { font-family: inherit; }
   padding: 0 24px;
   height: 42px;
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: var(--sb-radius-pill);
   font-family: inherit;
   font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--sb-weight-semibold);
   cursor: pointer;
-  transition: all var(--duration-normal) var(--ease);
+  transition: all var(--sb-dur-normal) var(--sb-ease-in-out);
   white-space: nowrap;
   user-select: none;
 }
@@ -254,7 +254,7 @@ input, textarea { font-family: inherit; }
 }
 .ui-modal-footer-meta {
   color: var(--text-hint);
-  font-size: var(--text-xs);
+  font-size: var(--sb-text-xs);
   line-height: 1.4;
 }
 /* 操作区内部：次要左、主要右，间距恒为 12px */
@@ -278,12 +278,12 @@ input, textarea { font-family: inherit; }
   box-sizing: border-box;
   border-radius: var(--footer-actions-radius);
   font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
+  font-size: var(--sb-text-md);
+  font-weight: var(--sb-weight-bold);
   line-height: 1;
   white-space: nowrap;            /* 文字不换行 */
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition: background var(--duration-fast) var(--sb-ease-in-out), border-color var(--duration-fast) var(--sb-ease-in-out), color var(--duration-fast) var(--sb-ease-in-out);
 }
 .ui-btn:focus-visible { outline: 2px solid var(--footer-actions-primary-bg); outline-offset: 2px; }
 
@@ -346,9 +346,9 @@ input, textarea { font-family: inherit; }
 }
 
 .card-white {
-  background: var(--bg-card-solid);
+  background: var(--sb-surface-card);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
+  border-radius: var(--sb-radius-xl);
   box-shadow: var(--shadow-md);
 }
 
@@ -403,12 +403,12 @@ input, textarea { font-family: inherit; }
   to { opacity: 0; transform: translateY(-12px); max-height: 0; }
 }
 
-.animate-fade-in { animation: fadeIn var(--duration-normal) var(--ease); }
-.animate-fade-up { animation: fadeUp var(--duration-slow) var(--ease); }
+.animate-fade-in { animation: fadeIn var(--sb-dur-normal) var(--sb-ease-in-out); }
+.animate-fade-up { animation: fadeUp var(--duration-slow) var(--sb-ease-in-out); }
 .animate-float { animation: float 2.5s ease-in-out infinite; }
 .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
 .animate-spin { animation: spin 0.8s linear infinite; }
-.animate-scale-in { animation: scaleIn var(--duration-normal) var(--ease); }
+.animate-scale-in { animation: scaleIn var(--sb-dur-normal) var(--sb-ease-in-out); }
 .animate-slide-down { animation: slideDown var(--duration-slow) var(--ease-out); }
 
 /* ── Utilities ── */

@@ -621,7 +621,7 @@
 .stat { text-align: center; }
 .stat-num {
   font-size: var(--text-3xl);
-  font-weight: var(--weight-heavy);
+  font-weight: var(--sb-weight-heavy);
   font-family: var(--font-display);
 }
 .stat-num.red { color: var(--sb-danger); }
@@ -900,7 +900,7 @@
 
 /* ═══════ SECTIONS ═══════ */
 .section { max-width: var(--max-width); margin: 0 auto; padding: 56px 24px 64px; }
-.section-title { font-size: var(--text-3xl); font-weight: var(--weight-heavy); text-align: center; margin: 0 0 4px; letter-spacing: 0.5px; }
+.section-title { font-size: var(--text-3xl); font-weight: var(--sb-weight-heavy); text-align: center; margin: 0 0 4px; letter-spacing: 0.5px; }
 .section-sub { font-size: var(--text-base); color: var(--sb-ink-4); text-align: center; margin: 0 0 28px; }
 
 .shuBao-badge {
@@ -991,7 +991,7 @@
 .plan-card.pop-red { border: 2px solid var(--sb-danger); }
 .plan-card.pop-blue { border: 2px solid var(--blue); }
 .plan-name { font-size: var(--sb-text-md); font-weight: var(--sb-weight-bold); margin-bottom: 2px; }
-.plan-price { font-size: 20px; font-weight: var(--weight-heavy); margin-bottom: 2px; }
+.plan-price { font-size: 20px; font-weight: var(--sb-weight-heavy); margin-bottom: 2px; }
 .plan-price.red { color: var(--sb-danger); }
 .plan-price.blue { color: var(--blue); }
 .plan-detail { font-size: 10px; color: var(--sb-ink-5); }
@@ -1808,7 +1808,7 @@
   .section { padding: 32px 16px 40px; }
   .stats-row { gap: 20px; }
   .mini-grid { grid-template-columns: repeat(2, 1fr); }
-  .section-title { font-size: var(--text-xl); }
+  .section-title { font-size: var(--sb-text-xl-plus); }
 }
 
 @media (max-width: 639px) {

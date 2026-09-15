@@ -127,14 +127,14 @@ html.theme-transition *::after {
   height: 38px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-full);
+  border-radius: var(--sb-radius-pill);
   background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color var(--duration-normal) var(--ease),
-              color var(--duration-normal) var(--ease),
-              border-color var(--duration-normal) var(--ease),
-              transform var(--duration-fast) var(--ease);
+  transition: background-color var(--sb-dur-normal) var(--sb-ease-in-out),
+              color var(--sb-dur-normal) var(--sb-ease-in-out),
+              border-color var(--sb-dur-normal) var(--sb-ease-in-out),
+              transform var(--duration-fast) var(--sb-ease-in-out);
   flex-shrink: 0;
 }
 .theme-switcher:hover {
@@ -153,7 +153,7 @@ html.theme-transition *::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 240ms var(--ease);
+  transition: transform 240ms var(--sb-ease-in-out);
 }
 .theme-switcher:hover .theme-switcher-icon {
   transform: rotate(20deg);

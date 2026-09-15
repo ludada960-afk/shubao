@@ -245,7 +245,7 @@ export default function RemakePage() {
             color: 'var(--sb-ink-3)', fontSize: 18,
           }}><MdArrowBack size={20} /></button>
           <div>
-            <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--weight-heavy)', margin: 0 }}>
+            <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--sb-weight-heavy)', margin: 0 }}>
               🎨 AI 复刻
             </h1>
             <p style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)', margin: '2px 0 0' }}>
@@ -270,7 +270,7 @@ export default function RemakePage() {
             border: '2px dashed var(--sb-border-subtle)', borderRadius: 'var(--radius-lg)',
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
-            <h2 style={{ fontSize: 'var(--text-xl)', margin: '0 0 8px' }}>还没有任务</h2>
+            <h2 style={{ fontSize: 'var(--sb-text-xl-plus)', margin: '0 0 8px' }}>还没有任务</h2>
             <p style={{ fontSize: 'var(--sb-text-md)', maxWidth: 400, margin: '0 auto', lineHeight: 1.6 }}>
               使用浏览器插件从电商页面提取商品图片，
               <br />然后插件会自动跳转到这个页面。

@@ -55,6 +55,19 @@ function grepLegacy() {
    但**全站总量未随之下降** —— 实测 HEAD 树 = 719 / 51（与 9149cacc 的 719 持平），
    说明同期其它线新增的 V2 用法**抵消**了本层的减少。故基线**保持 719 不下调**：
    棘轮只有在总量真的下降时才允许收紧，否则会把「被别人抵消」误记成「自己迁完了」。
+   ── 第 81 轮（本批，逐值相等迁移 · 零观感变更）实测 179/38 → **146/27**（−33 处 / −11 名），基线同步收紧：
+       --ease(12) → --sb-ease-in-out      （0.4,0,0.2,1 逐值相等，两主题同值）
+       --duration-normal(6) → --sb-dur-normal（0.2s = 200ms 逐值相等）
+       --weight-heavy(5) → --sb-weight-heavy / --weight-semibold(1) / --weight-bold(1)（400–800 逐值相等）
+       --radius-full(2) → --sb-radius-pill（9999px）/ --radius-md(1) → --sb-radius-xl（16px，卡片角色，D18）
+       --text-xs(1) → --sb-text-xs（11px）/ --text-sm(1) → --sb-text-md（13px）/ --text-xl(2) → --sb-text-xl-plus（20px）
+       --bg-card-solid(1) → --sb-surface-card（亮 #FFFFFF / 暗 #1C1A18，两主题逐值相等）
+     ⚠️ 判据补充：**「逐值相等」必须亮/暗两个主题都比对**（theme.css 的 [data-theme="dark"] 与
+       design-tokens-v3.css 的 [data-theme="dark"] 同时生效）。例：--text-primary 亮底相等
+       （#1A1614 = --sb-ink-1）但暗底不等（#F5EFE4 vs #F7F4F0）→ **不算逐值相等，本批不动**。
+     ⚠️ 判据补充 2：**响应式断点也必须比对**。V2 的覆盖断点是 768px，V3 是 640px ——
+       故 --text-2xl（V2: 24px，≤768px 转 18px）与 --sb-text-2xl（24px，≤640px 转 18px）
+       在 641–768px 带**不同值** → 不算逐值相等，本批不动。
      已迁移（逐值相等，零观感变更）：--radius-md --radius-full --text-sm --text-xs
        --weight-semibold --weight-normal --weight-bold --duration-normal --duration-fast
        --ease --red --green --green-bg --text-primary --text-secondary --text-muted --text-hint
@@ -63,8 +76,8 @@ function grepLegacy() {
        （--radius-lg 30px / --radius-xl 40px / --border / --border-light / --shadow-xl）。
    ⚠️ 不要用「行数」估：一行里可能有两三个 V2 用法（实测按行数会少算 134 处）。
    ⚠️ 棘轮只许向下：实测降了就把基线改小 —— 否则回退会落在"合法空间"里，门禁等于没长牙。 */
-const BASELINE_TOTAL = 179;
-const BASELINE_NAMES = 38;
+const BASELINE_TOTAL = 146;
+const BASELINE_NAMES = 27;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
