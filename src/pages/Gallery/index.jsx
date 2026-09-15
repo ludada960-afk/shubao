@@ -23,7 +23,7 @@ export default function GalleryPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: '48px 28px' }}>
         <h1 style={{
-          fontSize: 'var(--text-3xl)', fontWeight: 'var(--sb-weight-heavy)',
+          fontSize: 'var(--sb-text-3xl)', fontWeight: 'var(--sb-weight-heavy)',
           textAlign: 'center', margin: '0 0 6px', letterSpacing: '1px',
         }}>
           薯包出品

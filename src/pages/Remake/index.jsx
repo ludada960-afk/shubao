@@ -245,7 +245,7 @@ export default function RemakePage() {
             color: 'var(--sb-ink-3)', fontSize: 18,
           }}><MdArrowBack size={20} /></button>
           <div>
-            <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--sb-weight-heavy)', margin: 0 }}>
+            <h1 style={{ fontSize: 'var(--sb-text-2xl)', fontWeight: 'var(--sb-weight-heavy)', margin: 0 }}>
               🎨 AI 复刻
             </h1>
             <p style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)', margin: '2px 0 0' }}>
@@ -309,7 +309,7 @@ export default function RemakePage() {
           <>
             {/* Original images with analysis */}
             <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 12 }}>
                 原图分析 ({task.analysis.images?.length || 0} 张)
               </h2>
               <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
@@ -361,7 +361,7 @@ export default function RemakePage() {
               background: 'var(--sb-neutral-0)', borderRadius: 'var(--sb-radius-xl)',
               border: '2px solid var(--blue)', padding: 24, marginBottom: 28,
             }}>
-              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 16 }}>
                 🔄 替换成你的商品
               </h2>
 
@@ -373,7 +373,7 @@ export default function RemakePage() {
                     style={{
                       display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
                       borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
-                      fontSize: 'var(--text-base)', fontFamily: 'inherit',
+                      fontSize: 'var(--sb-text-lg)', fontFamily: 'inherit',
                     }} />
                 </label>
 
@@ -384,7 +384,7 @@ export default function RemakePage() {
                       style={{
                         display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
                         borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
-                        fontSize: 'var(--text-base)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
+                        fontSize: 'var(--sb-text-lg)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
                       }}>
                       {['美妆护肤', '数码3C', '食品饮料', '服饰穿搭', '家居生活', '母婴用品', '宠物用品', '其他'].map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -397,7 +397,7 @@ export default function RemakePage() {
                       style={{
                         display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
                         borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
-                        fontSize: 'var(--text-base)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
+                        fontSize: 'var(--sb-text-lg)', fontFamily: 'inherit', background: 'var(--sb-neutral-0)',
                       }}>
                       {EC_PLATFORMS.map(p => (
                         <option key={p} value={p}>{p}</option>
@@ -414,7 +414,7 @@ export default function RemakePage() {
                     style={{
                       display: 'block', width: '100%', marginTop: 4, padding: '10px 14px',
                       borderRadius: 'var(--sb-radius-xl)', border: '1px solid var(--sb-border-subtle)',
-                      fontSize: 'var(--text-base)', fontFamily: 'inherit', resize: 'vertical',
+                      fontSize: 'var(--sb-text-lg)', fontFamily: 'inherit', resize: 'vertical',
                     }} />
                 </label>
 
@@ -440,7 +440,7 @@ export default function RemakePage() {
 
                 <button onClick={handleGenerate} disabled={generating || !productName.trim()} style={{
                   padding: '14px 0', borderRadius: 'var(--sb-radius-pill)', border: 'none',
-                  fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'inherit',
+                  fontSize: 'var(--sb-text-lg)', fontWeight: 700, fontFamily: 'inherit',
                   cursor: generating ? 'not-allowed' : 'pointer',
                   /* 裁定 2 / D1：「一键复刻生成」是**功能按钮** → 品牌紫纯色，禁止渐变 */
                   background: generating ? 'var(--sb-border-subtle)' : 'var(--sb-btn-primary-bg)',
@@ -460,7 +460,7 @@ export default function RemakePage() {
         {/* Generated Results */}
         {task?.generatedImages?.length > 0 && (
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 'var(--sb-text-lg)', fontWeight: 'var(--sb-weight-semibold)', marginBottom: 12 }}>
               ✨ 生成结果 ({task.generatedImages.filter(g => g.url).length}/{task.generatedImages.length})
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>

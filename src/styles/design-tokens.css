@@ -187,7 +187,7 @@ input, textarea { font-family: inherit; }
   border: none;
   border-radius: var(--sb-radius-pill);
   font-family: inherit;
-  font-size: var(--text-base);
+  font-size: var(--sb-text-lg);
   font-weight: var(--sb-weight-semibold);
   cursor: pointer;
   transition: all var(--sb-dur-normal) var(--sb-ease-in-out);
@@ -357,7 +357,7 @@ input, textarea { font-family: inherit; }
   width: 100%;
   border: none;
   background: transparent;
-  font-size: var(--text-lg);
+  font-size: var(--sb-text-lg);
   color: var(--text-primary);
   outline: 0 solid transparent;
   padding: 0;

@@ -56,14 +56,14 @@ export default function LoadingView() {
         />
 
         <div style={{
-          fontSize: 'var(--text-2xl)', fontWeight: 'var(--sb-weight-bold)',
+          fontSize: 'var(--sb-text-2xl)', fontWeight: 'var(--sb-weight-bold)',
           marginTop: 24, marginBottom: 6,
           color: isEC ? 'var(--blue)' : 'var(--sb-danger)',
         }}>
           {stage.label}
         </div>
 
-        <div style={{ fontSize: 'var(--text-base)', color: 'var(--sb-ink-3)', marginBottom: 28 }}>
+        <div style={{ fontSize: 'var(--sb-text-base)', color: 'var(--sb-ink-3)', marginBottom: 28 }}>
           {stage.desc}
         </div>
 

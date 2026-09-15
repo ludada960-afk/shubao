@@ -157,9 +157,23 @@ function grepLegacy() {
       按钮 → `--sb-radius-pill`（几何上本来就是胶囊，零观感变更，实测高度 43.6–48px）；
       选项卡/内层条 → 12；卡片/分组容器 → 16；大容器 → 24；弹窗主体 → 20。
       证据：876 个元素的**几何 diff = 0**、border-radius 变化仅 1 处、首页整屏 **像素 diff = 0**
-      （且比对器经变异测试证明能抓到 10×10 的差异）。详见 D29。 */
-const BASELINE_TOTAL = 71;
-const BASELINE_NAMES = 17;
+      （且比对器经变异测试证明能抓到 10×10 的差异）。详见 D29。
+   ── 本批第五笔（字号族）：71/17 → **50/13**（−21 处 / −4 名）。
+      按 **D17/D19** 已裁定的映射执行，并**逐处按角色**判 14 还是 16（D19 明文要求「按角色不按数值最近」）：
+        · 控件与标题 → `--sb-text-lg`(16)：按钮 / 输入框 / textarea / .feature-title / .pricing-header / .cta-btn / .btn-pill
+        · 描述性正文 → `--sb-text-base`(14)：.error-bar / .section-sub / 生成页说明文字
+        · `--text-lg`(17) → `--sb-text-lg`(16)（D19：17 归 16）
+        · `--text-3xl`(30) → `--sb-text-3xl`(32)（D19：28/30 → 32）
+        · `--text-2xl`(24) → `--sb-text-2xl`(24)
+      ⚠️ **字号会改布局**（与圆角/阴影不同），故本批证据用**注入式定量**而非像素 diff：
+      逐 class 用「旧字号内联覆盖」与「新字号」各量一次高度 —— Δh 多为 **±1.5px**，
+      `.section-title` **+3px**（30→32 本就是要 +2px），`.btn-pill` **0**（高度固定 42px）。
+      首屏已渲染元素几何变化 = **0 / 876**。
+      ⚠️ **已知边界（本批未处理的额外变更）**：`--text-2xl`/`--text-3xl` 的**响应式覆盖断点不同** ——
+      V2 是 ≤768px、V3 是 ≤640px，故 **641–768px 带**的值会变（V2 22/18px → V3 28/24px）。
+      本批只在**桌面档**做了等值/预定归并，该断点带的差异**未单独验证**。 */
+const BASELINE_TOTAL = 50;
+const BASELINE_NAMES = 13;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
@@ -192,7 +206,7 @@ test('② V2 家族用法不得增长（棘轮：只许减）', () => {
   /* ⚠️ 样本量自证的**目的**是「抓 grep 口径失效」，不是「限定迁移进度」。
      阈值必须随真实存量下调，否则它会在迁移见效时反过来变红 —— 那是**把进度当成故障**。
      第 81 轮实测已降到 91，故阈值由 >100 调到 >50（仍远高于「口径写错会得到 0~个位数」的量级）。 */
-  assert.ok(total > 50, '只数到 ' + total + ' 处，样本量异常（grep 口径可能失效）');
+  assert.ok(total > 25, '只数到 ' + total + ' 处，样本量异常（grep 口径可能失效）');
   assert.ok(total <= BASELINE_TOTAL,
     'V2 变量用法从基线 ' + BASELINE_TOTAL + ' 涨到 ' + total + ' —— 又有人写了第二套 token 语言。\n' +
     '  正确做法：用 --sb-* 的对应档位（0..48 的取值表见 docs/design/41-scales-and-snapping.md）。\n' +
