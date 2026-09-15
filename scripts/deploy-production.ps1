@@ -400,6 +400,10 @@ $script:skippedPublicChecks = New-Object System.Collections.Generic.List[string]
 function Add-SkippedPublicCheck {
   param([Parameter(Mandatory = $true)][string]$Name)
   $script:skippedPublicChecks.Add($Name)
+  # ⚠️ 必须把退出码归零：跳过会让被调函数**提前 return**，而调用点后面紧跟着
+  # `if ($LASTEXITCODE -ne 0) { throw ... }`（如第 660 行的 canary 校验）。
+  # 不清零的话它读到的是**上一条失败命令残留的退出码** → 明明跳过了却仍以 exit 1 结束（实测踩到）。
+  $global:LASTEXITCODE = 0
   Write-Warning "跳过公网校验「$Name」：按 -SkipPublicChecks 处理（部署机为机房来源时公网域名不可达）。需在大陆视角复跑。"
 }
 
