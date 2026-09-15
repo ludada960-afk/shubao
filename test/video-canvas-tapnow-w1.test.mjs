@@ -76,14 +76,16 @@ test('W1 tapnow visual: 三类节点卡片视觉对齐 token 化层级', async (
   assert.match(css, /\.vcb-node\.is-asset/);
   /* D26：--blue → 权威 token --sb-info（亮 #5275CC / 暗 #7B95E0，逐值相等） */
   assert.match(css, /\.vcb-node\.is-asset\.is-video \{ border-left: 3px solid var\(--sb-info/);
-  assert.match(css, /\.vcb-node\.is-asset\.is-audio \{ border-left: 3px solid var\(--green/);
+  /* D38：--green → 权威 token --sb-success（亮 #5CA86C / 暗 #6BC07A，两主题精确相等） */
+  assert.match(css, /\.vcb-node\.is-asset\.is-audio \{ border-left: 3px solid var\(--sb-success/);
   assert.match(css, /\.vcb-node\.is-shot \{[\s\S]*?background: linear-gradient\(/);
   assert.match(css, /\.vcb-node\.is-candidate \{ border-style: dashed/);
   // 锁定视觉
   assert.match(css, /\.vcb-node\.is-locked/);
   // 沿用全站 token（D26/D37：圆角已由 --radius-md 16px 收敛到 V3 的 --sb-radius-xl 16px，逐值相等）
   assert.match(css, /border-radius: var\(--sb-radius-xl, 16px\)/);
-  assert.match(css, /box-shadow: var\(--shadow-sm/);
+  /* D20-A 已裁定 shadow 族的收敛（有意观感变更）；D38 补齐带兜底的写法 */
+  assert.match(css, /box-shadow: var\(--sb-shadow-sm/);
 });
 
 test('W1 tapnow hover/select: 节点 hover 缩放 + 选中浮起 + 连接点 hover 显隐', async () => {
@@ -154,7 +156,7 @@ test('W1 tapnow context menu: 6 项 (删除/复制/锁定/移到顶层/置于底
   // 修复 TapNow 7.7 已知 bug：菜单卡死。我们用 pointerdown + escape 双路径关闭，并 stopPropagation 避免误关。
   assert.match(jsx, /event\.preventDefault\(\);[\s\S]{0,80}event\.stopPropagation\(\)/);
   // CSS：阴影 / 圆角 / portal 浮层
-  assert.match(css, /\.vcb-context-menu \{[^}]*box-shadow: var\(--shadow-xl/);
+  assert.match(css, /\.vcb-context-menu \{[^}]*box-shadow: var\(--sb-shadow-xl/);
   assert.match(css, /\.vcb-context-menu button\.is-danger/);
 });
 
