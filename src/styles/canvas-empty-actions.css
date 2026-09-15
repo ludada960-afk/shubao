@@ -157,7 +157,7 @@
   box-sizing: border-box;
   border-radius: var(--sb-radius-sm);
   background: rgba(82, 117, 204, .10);
-  color: var(--blue, var(--sb-info));
+  color: var(--sb-info, var(--sb-info));
   flex-shrink: 0;
   transition: transform var(--ec-motion-base) var(--ec-ease-spring), background var(--ec-motion-fast) var(--ec-ease-out);
 }
