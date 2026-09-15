@@ -137,7 +137,7 @@
 }
 .ec-canvas-right-panel__badge.is-magic {
   background: var(--blue-bg, rgba(37, 99, 235, .08));
-  color: var(--blue, var(--sb-info));
+  color: var(--sb-info, var(--sb-info));
 }
 .ec-canvas-right-panel__badge.is-processing {
   background: rgba(234, 88, 12, .1);
@@ -189,13 +189,13 @@
 }
 .ec-canvas-right-panel__menu-toggle:hover {
   background: var(--blue-bg, rgba(37, 99, 235, .08));
-  color: var(--blue, var(--sb-info));
+  color: var(--sb-info, var(--sb-info));
 }
 .ec-canvas-right-panel__menu-toggle.is-open {
   transform: rotate(45deg);
 }
 .ec-canvas-right-panel__menu-toggle:focus-visible {
-  outline: 2px solid var(--blue, var(--sb-info));
+  outline: 2px solid var(--sb-info, var(--sb-info));
   outline-offset: 1px;
 }
 .ec-canvas-right-panel__menu-hint {
@@ -216,7 +216,7 @@
   height: 18px;
   margin: 0 var(--cvl-sp1, 4px);
   border-radius: 6px;
-  background: var(--blue, var(--sb-info));
+  background: var(--sb-info, var(--sb-info));
   color: var(--sb-neutral-0);
   font-size: var(--sb-text-md);
   vertical-align: -4px;
