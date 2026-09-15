@@ -47,7 +47,7 @@
   border-radius: 20px;
   border: 1px solid var(--sb-border-default); /* D21：α.10 */
   box-shadow: var(--sb-shadow-5); /* D20-A：暖棕字面量 → 海拔档（α.35 → 5） */
-  font-family: var(--font-body);
+  font-family: var(--sb-font-sans);
   color: var(--sb-ink-1);
   overflow: hidden;
 }
