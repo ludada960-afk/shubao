@@ -23,9 +23,13 @@
   --canvas-ink: #15171a;
   --canvas-muted: #626871;
   --canvas-hairline: #e3e6ea;
-  --canvas-command: var(--command);
-  --canvas-command-hover: var(--command-hover);
-  --canvas-focus: var(--focus-ring);
+  /* 原为 --command / --command-hover / --focus-ring 三个变量，它们都来自
+     styles/semanticTokens.css（第三套 token 语言，已删除，见 D35）。改为直指 V3 权威 token，
+     取值逐字相同（#2563eb → --sb-info-solid-600，即 V3 §21 里注释标明的「原 blue-600」），
+     画布这套冷蓝语言本身**不动**：canvas 是工具面，与暖色营销面刻意分开（D26 #2）。 */
+  --canvas-command: var(--sb-info-solid-600);
+  --canvas-command-hover: var(--sb-info-solid-700);
+  --canvas-focus: var(--sb-info-solid-600);
   /* Design-language tokens: one radius scale, one elevation ladder, one motion
      vocabulary. Every hover/press/focus in the canvas reads from these so the
      surfaces feel like one system instead of per-widget decisions. */
