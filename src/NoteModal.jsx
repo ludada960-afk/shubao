@@ -657,7 +657,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         <div style={{ display: 'flex', gap: 'var(--sb-space-2-5)', marginTop: 6, filter: 'none' }}>
                           <button onClick={(e) => { e.stopPropagation(); if (onUnlock) onUnlock(); }}
                             style={{
-                              padding: '11px 28px', background: 'var(--red, #FF4757)', color: '#fff',
+                              padding: '11px 28px', background: 'var(--sb-danger, #FF4757)', color: '#fff',
                               border: 'none', borderRadius: 'var(--sb-radius-md)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
                               cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(255,71,87,0.35)',
                             }}>
@@ -704,7 +704,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       style={{
                         marginTop: 4, padding: '9px 24px', border: 'none',
                         borderRadius: 'var(--sb-radius-md)', fontSize: 'var(--sb-text-md)', fontWeight: 600,
-                        background: 'var(--red, #FF4757)', color: '#fff',
+                        background: 'var(--sb-danger, #FF4757)', color: '#fff',
                         cursor: 'pointer', fontFamily: 'inherit',
                         boxShadow: '0 4px 16px rgba(255,71,87,0.2)',
                       }}
@@ -943,7 +943,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 )}
                 {!editing && (
                   isPreview || isTrialLocked ? (
-                    <button style={{ ...S.actionBtn, background: 'var(--red, #FF4757)', color: '#fff', boxShadow: '0 2px 8px rgba(255,71,87,0.25)' }}
+                    <button style={{ ...S.actionBtn, background: 'var(--sb-danger, #FF4757)', color: '#fff', boxShadow: '0 2px 8px rgba(255,71,87,0.25)' }}
                       onClick={() => { if (onUnlock) onUnlock(); }}>
                       🔓 解锁完整图文
                     </button>
