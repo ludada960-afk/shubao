@@ -501,7 +501,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-muted, var(--sb-ink-3));
+  color: var(--sb-ink-3, var(--sb-ink-3));
   font-size: 12px;
 }
 
@@ -536,7 +536,7 @@
   align-items: center;
   gap: 2px;
   font-size: 11px;
-  color: var(--text-muted, var(--sb-ink-3));
+  color: var(--sb-ink-3, var(--sb-ink-3));
 }
 
 .video-project-region-axis input {
@@ -554,7 +554,7 @@
 
 .video-project-comments header small {
   font-size: 12px;
-  color: var(--text-muted, var(--sb-ink-3));
+  color: var(--sb-ink-3, var(--sb-ink-3));
 }
 
 .video-project-comments-composer {
@@ -585,7 +585,7 @@
 }
 
 .video-project-comments-list li.is-empty {
-  color: var(--text-muted, var(--sb-ink-5));
+  color: var(--sb-ink-3, var(--sb-ink-5));
 }
 
 .video-project-shot-frames {
