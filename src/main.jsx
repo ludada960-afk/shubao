@@ -4,7 +4,12 @@ import App from './App';
 import './styles/design-tokens.css';
 import './styles/design-tokens-v3.css'; // V3 视觉体系 token（--sb-* 纯新增，见 docs/design/00-principles.md）
 import './styles/theme.css';
-import './styles/semanticTokens.css';
+// 本轮：删除 './styles/semanticTokens.css' —— 仓库里的「第三套 token 语言」。
+// 该文件 12 行 / 10 个 token，其中 7 个全仓零引用（--success / --warning / --danger /
+// --neutral-surface / --image-loading / --image-error / --image-selected），
+// 剩下 3 个（--command / --command-hover / --focus-ring）只被 theme.css 与 EcCanvas.css 各引用一次。
+// 它在本文件里排在 theme.css **之后** import，于是它的 :root 值会静默压过其它文件的回退值。
+// 处置与证据见 docs/design/40-decisions.md D35。
 import './styles/generate-cta.css';
 import { initThemeMode } from './utils/themeMode.js';
 
