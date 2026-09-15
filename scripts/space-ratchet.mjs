@@ -37,11 +37,23 @@ const TOKENS = path.join(SRC, 'styles/design-tokens-v3.css');
 const EXT = new Set(['.css', '.jsx', '.js']);
 
 /* ── 阶梯真值：从 token 文件现读（`--sb-space-3: 12px` / `--sb-text-sm: 12px` …）── */
-/* ⚠️ 必须把**全仓所有 ** 的 px 变量都解出来，不能只解 `--sb-space/text/radius`：
+/* ⚠️ 必须把**全仓所有**的 px 变量都解出来，不能只解 `--sb-space/text/radius`：
    老代码大量写 `var(--text-sm)` / `var(--radius)` / `var(--space-2)` 这类 **V2 变量**，
    只认 V3 前缀会把它们当成「解析不出来」直接丢掉 ——
    于是 `fontSize: 12` 变成 `fontSize: var(--text-sm)` 会被误报成「值从 12 变成没有」。
-   （这个假阳性我实测踩到过：一跑就报 161 条，其中大部分是解析不到的老 var。） */
+   （这个假阳性我实测踩到过：一跑就报 161 条，其中大部分是解析不到的老 var。）
+   ⚠️⚠️ 2026-09-15 修正（第 81 轮实测，**本文件此前与自己的声明相反**）：
+   上面这段注释自初版就写着「全仓所有 px 变量」，但 `resolve()` 里的正则写的是
+   `/^var\((--sb-[a-z0-9-]+)/` —— **只认 V3**。DEFS 老老实实收了 V2 变量，
+   resolve 却从不查它们，于是 **全部 V2 声明被静默丢弃**（解析不到 = 不算，不报错）。
+   后果：本脚本对「V2 → V3 的 token 迁移」**结构性失明** —— 而 D24 的迁移正是当前主线，
+   也就是说这条「值一个都不许变」的棘轮，在最需要它的那条线上一直看不见。
+   实测例：`border-radius: var(--radius-full)`（9999px）改写成 `var(--sb-radius-pill)`（9999px）
+   是**零观感变更**，本脚本却报「border-radius=9999 88 → 90」——
+   真相是「2 处从看不见变成看得见」，不是「值变了」。
+   修法：正则放宽到任意 `var(--x)`，由 DEFS/别名链判定是不是 px；
+   解不出来（calc/min/%/颜色/字体/缓动）依旧返回 null 跳过，行为不变。
+   教训同 D11：**指标必须反映行为，不能靠「解不出来就跳过」把盲区伪装成达标。** */
 const DEFS = new Map();
 const CSS_FILES = [];
 (function collect(dir) {
@@ -89,7 +101,7 @@ function resolve(raw) {
   const parts = val.split(/\s+/);
   const out = [];
   for (const part of parts) {
-    const tok = part.match(/^var\((--sb-[a-z0-9-]+)/);
+    const tok = part.match(/^var\((--[a-z0-9-]+)/);
     if (tok) { if (!LADDER.has(tok[1])) return null; out.push(LADDER.get(tok[1])); continue; }
     const px = part.match(/^(-?[0-9.]+)px$/);
     if (px) { out.push(parseFloat(px[1])); continue; }
