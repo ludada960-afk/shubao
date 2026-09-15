@@ -874,7 +874,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>
+    <div style={{ minHeight: '100vh', background: 'var(--sb-surface-page)', paddingBottom: 100 }}>
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 16px' }}>
         {/* ── 顶部导航 ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>

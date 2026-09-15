@@ -128,7 +128,7 @@ html.theme-transition *::after {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--sb-radius-pill);
-  background: var(--bg-card);
+  background: var(--sb-surface-panel);
   color: var(--sb-ink-2);
   cursor: pointer;
   transition: background-color var(--sb-dur-normal) var(--sb-ease-in-out),
@@ -138,7 +138,7 @@ html.theme-transition *::after {
   flex-shrink: 0;
 }
 .theme-switcher:hover {
-  background: var(--bg-hover);
+  background: var(--sb-state-hover-bg);
   color: var(--accent);
   border-color: var(--border-hover);
 }

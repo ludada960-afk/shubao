@@ -141,7 +141,7 @@ export default function HomePage() {
   };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', overflowX: 'clip', paddingBottom: 80 }}>
+    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--sb-surface-page)', overflowX: 'clip', paddingBottom: 80 }}>
       <div className="creative-bg-glow" />
 
       <div style={{ position: 'relative', zIndex: 10 }}>

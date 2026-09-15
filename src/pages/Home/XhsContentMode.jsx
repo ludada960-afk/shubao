@@ -1309,7 +1309,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   }
 
   return (
-    <div style={inlineMode ? { position: 'relative', zIndex: 10 } : { minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={inlineMode ? { position: 'relative', zIndex: 10 } : { minHeight: '100vh', background: 'var(--sb-surface-page)' }}>
       {/* Toast 通知 */}
       {toast && (
         <div style={{

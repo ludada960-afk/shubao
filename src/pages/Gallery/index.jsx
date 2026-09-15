@@ -20,7 +20,7 @@ export default function GalleryPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--sb-surface-page)' }}>
       <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: '48px 28px' }}>
         <h1 style={{
           fontSize: 'var(--sb-text-3xl)', fontWeight: 'var(--sb-weight-heavy)',

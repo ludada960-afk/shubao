@@ -160,7 +160,7 @@ html {
 body {
   font-family: var(--font-body);
   color: var(--sb-ink-2);
-  background: var(--bg);
+  background: var(--sb-surface-page);
   line-height: var(--leading-normal);
   overflow-x: hidden;
 }
@@ -213,7 +213,7 @@ input, textarea { font-family: inherit; }
   border: 1px solid var(--border);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--sb-state-hover-bg);
   color: var(--accent);
   border-color: var(--border-hover);
 }
@@ -337,7 +337,7 @@ input, textarea { font-family: inherit; }
 
 /* ── 卡片 ── */
 .card-glass {
-  background: var(--bg-card);
+  background: var(--sb-surface-panel);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);

@@ -235,7 +235,7 @@ export default function RemakePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--sb-surface-page)' }}>
       <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: '32px 20px' }}>
 
         {/* Header */}

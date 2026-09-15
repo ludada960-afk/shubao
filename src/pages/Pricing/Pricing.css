@@ -22,7 +22,7 @@
   background:
     radial-gradient(ellipse at top, var(--sb-brand-a10) 0%, transparent 60%),
     radial-gradient(ellipse at bottom right, rgba(236, 72, 153, 0.08) 0%, transparent 55%),
-    var(--bg);
+    var(--sb-surface-page);
 }
 .pricing-hero-orb {
   position: absolute;
@@ -180,7 +180,7 @@
 /* ═══════ Shell + Section Head ═══════ */
 .pricing-page {
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--sb-surface-page);
   color: var(--sb-ink-1);
 }
 .pricing-shell {

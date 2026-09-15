@@ -376,7 +376,7 @@ function AppRouter() {
       />
     )}
     {genState === 'loading' && (
-      <div style={{ position:'fixed', inset:0, zIndex:'var(--sb-z-top)', background:'var(--bg)' }}>
+      <div style={{ position:'fixed', inset:0, zIndex:'var(--sb-z-top)', background:'var(--sb-surface-page)' }}>
         <LoadingView />
       </div>
     )}

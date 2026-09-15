@@ -43,7 +43,7 @@ export default function LoadingView() {
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--sb-surface-page)' }}>
       <div style={{
         maxWidth: 'var(--max-width-xs)', margin: '0 auto',
         padding: '60px 20px', textAlign: 'center',
