@@ -587,7 +587,12 @@ export default function EcStudioPage() {
                       </div>
                     </div>
                     <div
+                      /* 键盘可达三件套：关闭按钮（26×26 圆钮）—— 真按钮，不是装饰容器。 */
+                      role="button"
+                      tabIndex={0}
+                      aria-label="关闭"
                       onClick={() => setShowPlugin(false)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowPlugin(false); } }}
                       style={{
                         width: 26, height: 26, borderRadius: '50%', background: 'var(--sb-neutral-100)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -836,7 +841,11 @@ export default function EcStudioPage() {
                     {EC_CATS.map((c) => (
                       <span
                         key={c}
+                        /* 键盘可达三件套：类目 chip 是真按钮（点击=选中类目）。 */
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setProduct((p) => ({ ...p, category: c }))}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProduct(p => ({ ...p, category: c })); } }}
                         style={{
                           padding: '6px 12px', borderRadius: 'var(--sb-radius-2xl)', fontSize: 'var(--sb-text-sm)', cursor: 'pointer',
                           fontFamily: 'inherit', border: '1.5px solid',
@@ -1042,7 +1051,11 @@ export default function EcStudioPage() {
                   return (
                     <span
                       key={p}
+                      /* 键盘可达三件套：平台 chip 是真按钮（点击=切换平台）。 */
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setPlatform(p)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPlatform(p); } }}
                       style={{
                         padding: '6px 14px', borderRadius: 'var(--sb-radius-2xl)', fontSize: 'var(--sb-text-sm)', cursor: 'pointer',
                         fontFamily: 'inherit', border: '1.5px solid',
@@ -1259,7 +1272,15 @@ export default function EcStudioPage() {
                   key={l}
                   style={{ borderRadius: 'var(--sb-radius-md)', overflow: 'hidden', border: '1px solid #EEEEF2' }}
                 >
-                  <div style={{ cursor: 'zoom-in' }} onClick={() => setLb(u)}>
+                  <div
+                    /* 键盘可达三件套：缩略图点击=放大预览（cursor:zoom-in 已声明它是可点的）。 */
+                    role="button"
+                    tabIndex={0}
+                    aria-label="放大预览"
+                    style={{ cursor: 'zoom-in' }}
+                    onClick={() => setLb(u)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLb(u); } }}
+                  >
                     <img
                       src={proxyImg(u)}
                       alt={l}
@@ -1371,10 +1392,15 @@ function ImageUploader({ imgs, max, onPick, onDel, onPreview, dropTargetKey = ''
             >
               <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div
+                /* 键盘可达三件套：删除角标是真的动作按钮（stopPropagation 只是避免冒泡到父级预览）。 */
+                role="button"
+                tabIndex={0}
+                aria-label="删除这张图"
                 onClick={(e) => {
                   e.stopPropagation();
                   onDel(i);
                 }}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDel(i); } }}
                 style={{
                   position: 'absolute', top: 2, right: 2, width: 18, height: 18,
                   borderRadius: '50%', background: 'var(--sb-danger)', color: 'var(--sb-neutral-0)', fontSize: 'var(--sb-text-2xs)',
