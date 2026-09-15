@@ -69,10 +69,40 @@
 
 > 我有服务器 SSH（两台都能登），但**没有 Cloudflare 账号权限**，改不了 A 记录。
 
-### 第 1 步（用户）：把 `shuimg.cn` 的 A 记录指向新机
-在 Cloudflare 面板把 **代理状态保持开启（橙云）**，把源站 IP 从
-`43.129.180.134` 改为 **`114.132.157.250`**。
-（`www.shuimg.cn` 若也配了记录，一并改。）
+> ⚠️ **2026-09-15 更正**：用户按「旧机 IP 换新机 IP」的思路改了解析，但**改在 DNSPod 控制台**。
+> 而 `shuimg.cn` 的权威 NS 是 `karl.ns.cloudflare.com` / `hope.ns.cloudflare.com` ——
+> **DNS 托管在 Cloudflare，DNSPod 不是权威**（直接问 `ns2.dnspod.net` 对 shuimg.cn 回
+> 「不知道这样的主机」）。所以那次改动**对公网零影响**：裸域仍由 Cloudflare 指向旧机
+> （`/health` 仍是旧机 pid 84674），`www.shuimg.cn` 直接 **NXDOMAIN**。
+> **要改的是 Cloudflare，不是 DNSPod。**
+
+### 第 0 步（用户，**当前硬阻塞**）：给新机开放 80 / 443
+
+**现在把 DNS 切过去 = 全站 522。** 实测（两个**独立外部观察点**：本机 + 旧机）：
+
+| 目标 | 22 | 80 | 443 | 3002 |
+|---|---|---|---|---|
+| 新机 `114.132.157.250` | ✅ 通 | ❌ **不通** | ❌ **不通** | ❌ 不通 |
+| 旧机 `43.129.180.134`（对照） | ✅ 通 | ✅ 通 | ✅ 通 | ❌ 不通 |
+
+主机侧已排查干净：`ufw status` 明确 `ALLOW IN 80/tcp`、`443/tcp (Anywhere)`；
+nginx 监听 `0.0.0.0:80` 与 `0.0.0.0:443`；本机 `curl -H "Host: shuimg.cn" https://127.0.0.1/` 返回 200；
+`YJ-FIREWALL-INPUT` 链只 REJECT 了一个无关 IP。
+→ 丢包发生在**到达主机之前**，即**腾讯云安全组没放行 80/443**。
+
+**操作**：腾讯云控制台 → 该实例 → 安全组 → 入站规则，添加 **TCP 80** 与 **TCP 443**，来源 `0.0.0.0/0`。
+
+> 若安全组里本来就有 80/443 却仍不通，则另一种可能是**大陆机房的 ICP 备案策略**
+> （新机是大陆 IP，旧机在香港）—— 那种情况要先备案，改安全组解决不了。
+
+### 第 1 步（用户）：把 `shuimg.cn` 的 A 记录指向新机（**在 Cloudflare 里改**）
+Cloudflare 面板 → 选中 `shuimg.cn` → DNS → 记录：源站 IP 从
+`43.129.180.134` 改为 **`114.132.157.250`**，**代理状态保持开启（橙云）**。
+
+> ⚠️ **暂时不要加 `www.shuimg.cn`**：新机回源证书的 SAN **只有 `DNS:shuimg.cn`**
+> （`openssl s_client` 实测），不含 www。加上 www 后 Cloudflare 在 Full (strict) 下会直接 **526**。
+> 新机 nginx 的 `server_name` 已经写了 `shuimg.cn www.shuimg.cn`，**缺的只是证书** ——
+> 要支持 www 得先重签含 www 的证书，那属**新增能力**，不在换机范围内。
 
 **替代方案**：把 Cloudflare **API Token**（Zone.DNS 编辑权限）交给我，我可以自己改并验证。
 
@@ -105,6 +135,12 @@ DNS 改动前需要再做一次 DB 快照 + 换库（覆盖第 3 步那次），
 | DB 计数 | tables=98 / auth_users=2 / billing_holds=57 / canvas_sessions=84 —— **与旧机逐项一致** ✅ |
 | 明文密钥 | `LLM_API_KEY` 已移除（`null`）✅；4 个必需网关 key 齐全 ✅ |
 | 磁盘 | 99G / 用 24% ✅ |
+| **公网 80 / 443 可达** | ❌ **两个外部观察点实测均不通** —— 见第 0 步 |
+
+> ⚠️ **清单更正（2026-09-15）**：上面这一版「全部通过」是**假的通过** —— 它只验了
+> 「新机在自己内部能不能活」（本机 curl、`nginx -t`、开机自启、DB 计数），
+> **唯独没验「外网能不能连上它」**，而恰恰是这一条不通。
+> 教训与 RTK §3.1-10 同一条：**验判据，不验代理指标** —— 本机返回 200 **不等于**公网可达。
 
 跨公网同步通道（**切流后必须清理**）：新机 → 旧机放了一把临时密钥
 （`~/.ssh/migrate-tmp`，旧机 `authorized_keys` 里注释为 `temp-migration-key-new-server`）。
@@ -149,6 +185,30 @@ rsync -a -e "ssh -i ~/.ssh/migrate-tmp -o StrictHostKeyChecking=accept-new" \
 - 新机删除 `~/.ssh/migrate-tmp` / `migrate-tmp.pub`；
 - 新机删除 `/home/ubuntu/.delta-check.sh`；
 - 旧机删除 `/home/ubuntu/works-snapshot.db`。
+
+---
+
+### 5.3 换机收尾的最终数据库同步（脚本）
+
+`scripts/cutover-final-db-sync.sh`（在**新机**上跑）。
+
+**为什么必须有这一步**：运行时库是 SQLite **WAL 模式** —— 实测切换前
+旧机 `works.db-wal` 有 **4,140,632 B** 未落盘的页、新机 `works.db-wal` 同时也在写。
+所以直接 `cp works.db` 会**漏掉这些写入**；脚本走 better-sqlite3 的 online backup API
+（`scripts/backup-runtime-db.cjs`）取一致性快照，并**先冻结旧机应用**再取。
+
+**顺序**（脚本会自动做 0–6 步，并在 sha256 不一致时中止）：
+
+1. **前置自检**：公网 `/health` 的 pid 必须已等于新机 pid；不等则拒绝执行（除非 `--force`）。
+   —— 防止在 DNS 还没生效时把库换掉。
+2. 旧机 `pm2 stop shubao-production`（**冻结数据源**）。
+3. 旧机生成快照。
+4. 拉取到新机并**两端 sha256 比对**。
+5. 停新机应用 → 备份现有库为 `works.db.pre-final-sync-<stamp>` → 清 `-wal`/`-shm` → 装入快照 → 跑 `pragma quick_check`。
+6. 起新机应用 → 复验 `/health` → 打印收尾清理清单。
+
+> 第 2 步之后旧机应用处于 stopped：若仍有边缘节点缓存着旧 IP，那些用户会短暂报错。
+> 这是**为避免丢数据**而接受的代价，窗口应尽量短。
 
 ---
 
