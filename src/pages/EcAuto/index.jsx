@@ -309,7 +309,7 @@ export default function EcAutoPage() {
           boxShadow: focused ? 'var(--sb-shadow-ring)' : '0 1px 6px rgba(12,10,9,0.04)',
           border: '1px solid var(--sb-neutral-150)',
           marginBottom: 16,
-          transition: 'box-shadow var(--duration-fast, 160ms) ease',
+          transition: 'box-shadow var(--sb-dur-fast, 160ms) ease',
         }}>
           <textarea ref={textRef}
             onFocus={() => setInputFocused(true)}
