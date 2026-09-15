@@ -103,6 +103,35 @@ export const FONT_SIZE = Object.freeze({
   helper: 11,
 });
 
+/* ═══════ 主次阶梯（2026-09-15 用户批注：图3-②）═══════
+   用户原话：「你像这个目标平台、目标语言，它这 8 个字跟下面的这个淘宝还有这个中文这几个字的
+   选项框，他们的字好像是一样大的，对吧？你为什么要这样去设计呢？这样搞得就真的没有任何主次
+   之分了……但是你至少得让用户知道这是一个选项吧，这是一个可以被操作的一个部分吧。」
+
+   实测根因：标签 12px/600，控件值 11px/600 —— **标签比它还大**，两者同级，于是整片糊在一起。
+
+   规则（只有一条，够用且可判）：
+     · **控件值（value）永远比它的字段标签（fieldLabel）更重**：更大 + 更深的墨色；
+     · 标签回答「这格叫什么」，值回答「这格现在是什么」—— 用户要读的是值；
+     · 未选中的控件也必须看得出「可以操作」（有边、有底、带箭头），只是不抢眼。
+   判据（可写进契约）：value.size > fieldLabel.size，且 value 的墨色比 fieldLabel 深。 */
+export const TEXT_ROLE = Object.freeze({
+  /** 分组标题：一组内容的名字，最重 */
+  groupTitle: Object.freeze({ size: 13, weight: 700, tone: 'var(--sb-ink-1)' }),
+  /** 控件值：用户真正要读、要改的东西。必须比字段标签重 */
+  value: Object.freeze({ size: 13, weight: 600, tone: 'var(--sb-text-primary)' }),
+  /** 字段标签：「这格叫什么」。比控件值轻一档 */
+  fieldLabel: Object.freeze({ size: 11, weight: 600, tone: 'var(--sb-ink-3)' }),
+  /** 辅助说明：描述/单位/提示，最轻 */
+  helper: Object.freeze({ size: 11, weight: 400, tone: 'var(--sb-ink-3)' }),
+});
+
+/** 把 TEXT_ROLE 展开成内联样式，避免每个面板各写一份 size/weight/tone。 */
+export function textRoleStyle(role) {
+  const spec = TEXT_ROLE[role] || TEXT_ROLE.value;
+  return { fontSize: spec.size, fontWeight: spec.weight, color: spec.tone };
+}
+
 export const FONT_WEIGHT = Object.freeze({
   groupTitle: 700,
   fieldLabel: 600,

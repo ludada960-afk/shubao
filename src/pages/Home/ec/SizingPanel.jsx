@@ -1,5 +1,8 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
-import { Check, Info, ChevronDown, Globe2 } from 'lucide-react';
+import {
+  Check, Info, ChevronDown, Globe2,
+  Square, Image as ImageIcon, RectangleVertical, Scissors, Rows3,
+} from 'lucide-react';
 import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import {
   getLegalRatios,
@@ -14,15 +17,46 @@ import {
   SPACING,
   FONT_SIZE,
   CONTROL_HEIGHT,
-  RADIUS,
   groupTitleStyle,
   helperTextStyle,
-  sectionStyle,
+  textRoleStyle,
 } from './panelVisualLanguage.js';
 
 /* 2026-09-15 用户批注①（子项 2/3）：面板统一 480px、控件点击区 >=32px、
    间距走统一阶梯。本面板的交互逻辑（平台/语言/图片类型/比例联动）零改动，
    只把视觉层换成规范常量 —— 用户明确要求「不能粗暴匹配，要相应适配」。 */
+
+/* ═══ 图片类型行图标（2026-09-15 用户批注图3-③）═══
+   用户原话：「现在这 5 个图标他们都有点太老土了，完全就是那种很简单的那种 demo 版的东西……
+   你要知道要做的是一些比较先进的视觉方案，而不是说用一些 demo 的、用一些占位的东西放上去。」
+   原来的实现是**emoji**（⬜🖼️📱🔲📋）—— 形状与配色随系统字体变化，且自带占位感。
+   现在改为项目既有图标族（lucide）里的语义图标 + 统一徽章底：
+     · 徽章 28×28 圆角方底，选中时品牌浅底 + 品牌墨色，未选中时中性底 + 次级墨色；
+     · 图标 15px stroke 1.8，与全站图标语言一致。
+   顺带满足用户同一条批注里的另半句：「你这个打钩的框，它怎么跟你的图标是一样大的呀？」
+   —— 勾选框是「状态」，徽章是「这是什么」，两者必须有大小差：18 vs 28。 */
+const TYPE_ICONS = Object.freeze({
+  whiteBg: Square,
+  mainText: ImageIcon,
+  mainPortrait: RectangleVertical,
+  transparent: Scissors,
+  detail: Rows3,
+});
+
+function TypeBadge({ iconKey, checked }) {
+  const Icon = TYPE_ICONS[iconKey] || Square;
+  return (
+    <span aria-hidden="true" style={{
+      width: 28, height: 28, flexShrink: 0, borderRadius: 'var(--sb-radius-control)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: checked ? 'var(--sb-brand-50)' : 'var(--sb-neutral-100)',
+      color: checked ? 'var(--sb-brand-700)' : 'var(--sb-ink-3)',
+      transition: 'background-color var(--sb-duration-fast) var(--sb-ease-out)',
+    }}>
+      <Icon size={15} strokeWidth={1.8} />
+    </span>
+  );
+}
 
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
@@ -202,13 +236,8 @@ export default function SizingPanel({
   }, [activeImages, onSizingChange, platform, resolution]);
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
-  const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
   const platformOption = COMMERCE_PLATFORMS.find(item => item.id === platform) || COMMERCE_PLATFORMS[0];
   const languageOption = COMMERCE_LANGUAGES.find(item => item.id === targetLanguage) || COMMERCE_LANGUAGES[0];
-  const planSummary = activeImages
-    .filter(item => item.count > 0)
-    .map(item => `${item.label || item.key}×${item.count}`)
-    .join('、') || '尚未选择图片类型';
 
   return (
     <div style={{ padding: 0 }}>
@@ -216,9 +245,9 @@ export default function SizingPanel({
         {/* ── 平台与语言 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SPACING.sp3, marginBottom: SPACING.sp2 }}>
           <div style={{ position: 'relative' }}>
-            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', marginBottom: SPACING.sp2 }}>目标平台</div>
+            <div style={{ ...textRoleStyle('fieldLabel'), marginBottom: SPACING.sp2 }}>目标平台</div>
             <button ref={platformButtonRef} type="button" aria-expanded={platformOpen} onClick={() => { setPlatformOpen(open => !open); setLanguageOpen(false); }}
-              style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', cursor: 'pointer', fontFamily: 'inherit', ...textRoleStyle('value') }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{platformOption.label}</span>
               <ChevronDown size={15} style={{ flexShrink: 0, transform: platformOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
@@ -234,9 +263,9 @@ export default function SizingPanel({
             )}
           </div>
           <div style={{ position: 'relative' }}>
-            <div style={{ ...groupTitleStyle, fontSize: FONT_SIZE.fieldLabel, fontWeight: 600, color: 'var(--sb-ink-2)', marginBottom: SPACING.sp2 }}>目标语言</div>
+            <div style={{ ...textRoleStyle('fieldLabel'), marginBottom: SPACING.sp2 }}>目标语言</div>
             <button ref={languageButtonRef} type="button" aria-expanded={languageOpen} onClick={() => { setLanguageOpen(open => !open); setPlatformOpen(false); }}
-              style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', color: 'var(--sb-text-primary)', fontSize: 'var(--sb-text-xs)', fontWeight: 'var(--sb-weight-semibold)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', height: 'var(--sb-control-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', padding: '0 var(--sb-space-3)', borderRadius: 'var(--sb-radius-control)', border: '1px solid var(--sb-border-default)', background: 'var(--sb-surface-tint)', cursor: 'pointer', fontFamily: 'inherit', ...textRoleStyle('value') }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{languageOption.label}</span>
               <ChevronDown size={15} style={{ flexShrink: 0, transform: languageOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
@@ -257,16 +286,21 @@ export default function SizingPanel({
           <span>{platformOption.summary}</span>
         </div>
 
-        {/* ── 平台说明 ── */}
-        {pDef.desc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: SPACING.sp1, ...helperTextStyle, marginBottom: SPACING.sp3, padding: `${SPACING.sp2}px ${SPACING.sp3}px`, background: 'var(--sb-surface-tint)', borderRadius: 'var(--sb-radius-control)' }}>
-            <Info size={12} style={{ flexShrink: 0 }} /> 当前方案：{platformOption.label} · {planSummary}
-          </div>
-        )}
+        {/* ── 平台说明 ──
+            2026-09-15 用户批注（图2-②）：整块删除。
+            用户原话：「方形主图、商品卖点与详情长图 / 当前方案：淘宝 · 白底首图×1、商品主图×3、
+            透明 PNG×1、详情切片×5 —— 这个部分我觉得可以不要，没有这个必要。因为实际上你这里
+            调整了什么东西，下面的那个面板按钮它是会跟着显示跟着调整的。你没有必要在这个地方
+            还写一套这个字，在这里是重复的功能。」
+            —— 底部「套图方案」按钮上已经实时显示同一份摘要，面板里再写一遍是**同一信息的第二处渲染**。
+            pDef.desc 保留在模型里（其它入口仍可用），只是不再在本面板重复上屏。 */}
 
         {/* ── 图片类型列表 ── */}
         <div style={{ ...groupTitleStyle, marginBottom: SPACING.sp2 }}>图片类型</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp1 }}>
+        {/* 2026-09-15 用户批注（图2-①）：「这 5 个类型的紫色边框已经完全重叠了、挤在一起」。
+            根因：行距只有 sp1(4px)，而选中行还有 1.5px 边框 + ring 阴影 —— 相邻两行都被选中时，
+            两个环在视觉上就贴成一条。改为 sp2(8px)，给边框与阴影留出可分辨的间隔。 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp2 }}>
           {IMAGE_TYPES.map(typeDef => {
             const checked = activeKeys.has(typeDef.key);
             const activeItem = activeImages.find(i => i.key === typeDef.key);
@@ -300,7 +334,9 @@ export default function SizingPanel({
                 {/* 勾选框：视觉 20×20（保持分类列表的轻量感），
                     点击目标由父行承担（父行 minHeight 48px 且整行 onClick）。 */}
                 <div aria-hidden="true" style={{
-                  width: 20, height: 20, borderRadius: 'var(--sb-radius-chip)', flexShrink: 0,
+                  /* 18 而非 20：勾选框是「状态」，右侧 28px 徽章是「这是什么」——
+                     两者同大时用户批注「完全没有主次之分」（图3-③）。 */
+                  width: 18, height: 18, borderRadius: 'var(--sb-radius-chip)', flexShrink: 0,
                   /* 勾选 = 品牌色（原则 6.1「当前选中」），未选 = 中性描边 */
                   border: `2px solid ${checked ? 'var(--sb-brand)' : 'var(--sb-border-strong)'}`,
                   background: checked ? 'var(--sb-brand)' : 'var(--sb-surface-card)',
@@ -311,14 +347,23 @@ export default function SizingPanel({
                 </div>
 
                 {/* 图标 + 标签 */}
-                <span style={{ fontSize: 16, flexShrink: 0 }}>{typeDef.icon}</span>
+                <TypeBadge iconKey={typeDef.iconKey} checked={checked} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)' }}>{typeDef.label}</div>
                   <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>
                 </div>
 
-                {/* 数量 + 比例（始终显示，未勾选时禁用） */}
-                <div style={{ 
+                {/* 数量 + 比例（始终显示，未勾选时禁用）
+                    ⚠️ 2026-09-15 用户批注（图3-①）：「我现在只要调整它们就会直接被取消选中」。
+                    根因：整行 onClick={() => toggleType(key)}（为了让整行 ≥48px 可点），
+                    而这两个控件是行**内部**的可交互元素 —— 点它们的事件冒泡到行上，
+                    于是「调数量」被理解成「点这一行 = 取消勾选」。
+                    修法：内部交互区截断事件（click + keydown 都要截：在数字框里按空格/回车
+                    同样会冒泡到行的 tabIndex/onKeyDown，把整行切掉）。 */}
+                <div
+                  onClick={event => event.stopPropagation()}
+                  onKeyDown={event => event.stopPropagation()}
+                  style={{
                   display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
                   opacity: checked ? 1 : 0.35,
                   pointerEvents: checked ? 'auto' : 'none',

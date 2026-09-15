@@ -332,7 +332,12 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                 {brandLocked ? '已锁定' : '锁定'}
               </button>
             </div>
-            {brandLocked && pickerOpen && (
+            {/* ⚠️ 这里原先写的是 `brandLocked && pickerOpen` —— 于是**未锁定状态下点色块什么都不会出现**：
+                按钮把 pickerOpen 置了 true，但渲染条件还要求 brandLocked，用户看到的就是「点了没反应」。
+                （2026-09-15 用户批注图1-②：「我点击之后它是没有弹出那个真正的色盘，好像卡住了」。）
+                现在只看 pickerOpen：打开就能调；调色即通过 onChange 写入 brandColors（= 锁定），
+                与「锁定」按钮的语义一致，不需要先点锁定再调色。 */}
+            {pickerOpen && (
               <div style={{ borderRadius: 'var(--sb-radius-card)', overflow: 'hidden', border: '1px solid var(--sb-border-subtle)' }}>
                 <HexColorPicker color={pickerColor} onChange={color => { setPickerColor(color); onBrandColorsChange?.([color, color]); }} style={{ width: '100%', height: 128 }} />
               </div>

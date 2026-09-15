@@ -30,7 +30,10 @@ export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
     key: 'white_bg',
     label: '白底首图',
-    icon: '⬜',
+    /* 图标不再用 emoji（用户批注图3-③：「这 5 个图标完全就是那种很简单的那种 demo 版的东西」）。
+       emoji 在不同系统上形状/配色不可控，且天然带「占位」观感；
+       这里只存**语义键**，具体图标由 SizingPanel 从项目既有的 lucide 图标族里取。 */
+    iconKey: 'whiteBg',
     defaultRatio: '1:1',
     defaultCount: 1,
     desc: '纯白底产品居中，电商必选',
@@ -40,7 +43,7 @@ export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
     key: 'main_text',
     label: '商品主图',
-    icon: '🖼️',
+    iconKey: 'mainText',
     defaultRatio: '1:1',
     defaultCount: 3,
     desc: '核心卖点展示，可含促销文字',
@@ -50,7 +53,7 @@ export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
     key: 'main_3x4',
     label: '商品主图 3:4',
-    icon: '📱',
+    iconKey: 'mainPortrait',
     defaultRatio: '3:4',
     defaultCount: 3,
     desc: '竖版主图，适合移动端展示',
@@ -60,7 +63,7 @@ export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
     key: 'transparent',
     label: '透明 PNG',
-    icon: '🔲',
+    iconKey: 'transparent',
     defaultRatio: '1:1',
     defaultCount: 1,
     desc: '去底素材，方便二次设计',
@@ -70,7 +73,7 @@ export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
     key: 'detail',
     label: '详情切片',
-    icon: '📋',
+    iconKey: 'detail',
     defaultRatio: '9:16',
     defaultCount: 5,
     desc: '长图详情页切片，含多种子类',
@@ -81,48 +84,47 @@ export const IMAGE_TYPES = Object.freeze([
 
 export const RATIOS = ECOMMERCE_FORMATS;
 
-function preset(name, icon, desc, images) {
+function preset(name, desc, images) {
   return Object.freeze({
     name,
-    icon,
     desc,
     images: Object.freeze(images.map(image => Object.freeze({ ...image }))),
   });
 }
 
 export const PLATFORM_PRESETS = Object.freeze({
-  smart: preset('智能推荐', '🤖', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
+  smart: preset('智能推荐', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
     { key: 'white_bg', count: 1, ratio: '1:1' },
     { key: 'main_text', count: 3, ratio: '1:1' },
     { key: 'transparent', count: 1, ratio: '1:1' },
     { key: 'detail', count: 5, ratio: '9:16' },
   ]),
-  淘宝: preset('淘宝/天猫', '🟠', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
+  淘宝: preset('淘宝/天猫', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
     { key: 'white_bg', count: 1, ratio: '1:1' },
     { key: 'main_text', count: 3, ratio: '1:1' },
     { key: 'transparent', count: 1, ratio: '1:1' },
     { key: 'detail', count: 5, ratio: '9:16' },
   ]),
-  京东: preset('京东', '🔴', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
+  京东: preset('京东', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
     { key: 'white_bg', count: 1, ratio: '1:1' },
     { key: 'main_text', count: 3, ratio: '1:1' },
     { key: 'transparent', count: 1, ratio: '1:1' },
     { key: 'detail', count: 5, ratio: '9:16' },
   ]),
-  拼多多: preset('拼多多', '🟢', '5商品主图+3详情切片，促销风格', [
+  拼多多: preset('拼多多', '5商品主图+3详情切片，促销风格', [
     { key: 'main_text', count: 5, ratio: '1:1' },
     { key: 'detail', count: 3, ratio: '9:16' },
   ]),
-  抖音: preset('抖音小店', '🎵', '3商品主图+1透明PNG+3详情，竖版优先', [
+  抖音: preset('抖音小店', '3商品主图+1透明PNG+3详情，竖版优先', [
     { key: 'main_3x4', count: 3, ratio: '3:4' },
     { key: 'transparent', count: 1, ratio: '1:1' },
     { key: 'detail', count: 3, ratio: '9:16' },
   ]),
-  小红书: preset('小红书商城', '📕', '3竖版主图+2详情，生活方式调性', [
+  小红书: preset('小红书商城', '3竖版主图+2详情，生活方式调性', [
     { key: 'main_3x4', count: 3, ratio: '3:4' },
     { key: 'detail', count: 2, ratio: '9:16' },
   ]),
-  亚马逊: preset('Amazon', '🌐', '1纯白底首图+4商品主图+1透明PNG，不可含文字', [
+  亚马逊: preset('Amazon', '1纯白底首图+4商品主图+1透明PNG，不可含文字', [
     { key: 'white_bg', count: 1, ratio: '1:1' },
     { key: 'main_text', count: 4, ratio: '1:1' },
     { key: 'transparent', count: 1, ratio: '1:1' },
