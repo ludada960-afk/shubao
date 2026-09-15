@@ -358,12 +358,12 @@
   border: 1px solid transparent;
   border-radius: var(--sb-radius-pill, 9999px);
   background: transparent;
-  color: var(--text-secondary, var(--sb-ink-2));
+  color: var(--sb-ink-2, var(--sb-ink-2));
   font-size: 12px;
   cursor: pointer;
   transition: background var(--duration-fast, .12s) var(--sb-ease-in-out, ease), color var(--duration-fast, .12s) var(--sb-ease-in-out, ease), border-color var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
-.vcb-topbar-tools button:hover { background: var(--bg-hover, rgba(12, 10, 9, .03)); color: var(--sb-surface-inverse, var(--sb-neutral-900)); }
+.vcb-topbar-tools button:hover { background: var(--sb-state-hover-bg, rgba(12, 10, 9, .03)); color: var(--sb-surface-inverse, var(--sb-neutral-900)); }
 .vcb-topbar-tools button.is-on {
   background: var(--sb-surface-inverse, var(--sb-neutral-900));
   color: var(--sb-neutral-0);
@@ -388,7 +388,7 @@
   min-width: 32px;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--text-secondary, var(--sb-ink-2));
+  color: var(--sb-ink-2, var(--sb-ink-2));
 }
 
 /* ── A · 节点卡片视觉层级（沿用全站 token：暖白 / 近黑 / 胶囊）── */
@@ -401,8 +401,8 @@
   border: 1px solid var(--border, rgba(231, 229, 228, .8));
   border-radius: var(--sb-radius-xl, 16px);
   background: var(--bg-card-solid, var(--sb-neutral-0));
-  box-shadow: var(--shadow-sm, 0 1px 3px rgba(57, 45, 26, .06));
-  color: var(--text-primary, var(--sb-ink-1));
+  box-shadow: var(--sb-shadow-sm, 0 1px 3px rgba(57, 45, 26, .06));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   cursor: grab;
   z-index: 2;
   /* C · 平滑缩放/浮起过渡（沿用 --duration） */
@@ -444,11 +444,11 @@
   border-color: var(--border, rgba(231, 229, 228, .8));
 }
 .vcb-node.is-asset.is-video { border-left: 3px solid var(--sb-info); }
-.vcb-node.is-asset.is-audio { border-left: 3px solid var(--green, var(--sb-success)); }
+.vcb-node.is-asset.is-audio { border-left: 3px solid var(--sb-success, var(--sb-success)); }
 .vcb-node.is-shot {
   background: linear-gradient(180deg, #fffdf6 0%, var(--sb-neutral-0) 100%);
   border-color: rgba(184, 152, 70, .35);
-  box-shadow: var(--shadow-md, 0 4px 16px rgba(57, 45, 26, .08));
+  box-shadow: var(--sb-shadow-md, 0 4px 16px rgba(57, 45, 26, .08));
 }
 .vcb-node.is-candidate {
   background: var(--bg-card, rgba(255, 255, 255, .97));
@@ -457,7 +457,7 @@
 }
 .vcb-node.is-candidate.is-selected {
   border-style: solid;
-  border-color: var(--green, var(--sb-success));
+  border-color: var(--sb-success, var(--sb-success));
 }
 .vcb-node.is-locked { opacity: .65; cursor: not-allowed; }
 .vcb-node.is-locked::after {
@@ -474,7 +474,7 @@
   border-color: var(--sb-surface-inverse, var(--sb-neutral-900));
   box-shadow:
     0 0 0 2px rgba(12, 10, 9, .12),
-    var(--shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
+    var(--sb-shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
   transform: translateY(-3px);
   z-index: 5;
 }
@@ -483,7 +483,7 @@
 /* C · hover 缩放（节点层独立 transition，避免与选中 transform 冲突） */
 .vcb-stage:not(.is-panning) .vcb-node:hover {
   transform: scale(1.04);
-  box-shadow: var(--shadow-md, 0 4px 16px rgba(57, 45, 26, .08));
+  box-shadow: var(--sb-shadow-md, 0 4px 16px rgba(57, 45, 26, .08));
   z-index: 4;
 }
 .vcb-node.is-selected:hover { transform: translateY(-3px) scale(1.04); }
@@ -522,7 +522,7 @@
   border: 1px solid var(--border, rgba(231, 229, 228, .8));
   border-radius: var(--sb-radius-pill, 9999px);
   background: var(--bg-elevated, var(--sb-neutral-0));
-  box-shadow: var(--shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
+  box-shadow: var(--sb-shadow-lg, 0 14px 36px rgba(57, 45, 26, .10));
   pointer-events: auto;
   /* P1 · mini-toolbar 弹入用 spring 0.3s（选中后浮起的弹性手感） */
   animation: vcbMiniToolbarIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -549,16 +549,16 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--text-secondary, var(--sb-ink-2));
+  color: var(--sb-ink-2, var(--sb-ink-2));
   cursor: pointer;
   transition: background var(--duration-fast, .12s) var(--sb-ease-in-out, ease), color var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-mini-toolbar button:hover {
-  background: var(--bg-hover, rgba(12, 10, 9, .03));
+  background: var(--sb-state-hover-bg, rgba(12, 10, 9, .03));
   color: var(--sb-surface-inverse, var(--sb-neutral-900));
 }
 .vcb-mini-toolbar button:disabled { opacity: .35; cursor: not-allowed; }
-.vcb-mini-toolbar button.is-danger:hover { color: var(--red, var(--sb-danger)); }
+.vcb-mini-toolbar button.is-danger:hover { color: var(--sb-danger, var(--sb-danger)); }
 .vcb-mini-toolbar .vcb-mini-sep {
   width: 1px;
   height: 18px;
@@ -579,9 +579,9 @@
   border: 1px solid var(--border, rgba(231, 229, 228, .8));
   border-radius: var(--radius-sm, 8px);
   background: var(--bg-elevated, var(--sb-neutral-0));
-  box-shadow: var(--shadow-xl, 0 28px 90px rgba(57, 45, 26, .14));
+  box-shadow: var(--sb-shadow-xl, 0 28px 90px rgba(57, 45, 26, .14));
   font-size: 13px;
-  color: var(--text-primary, var(--sb-ink-1));
+  color: var(--sb-ink-1, var(--sb-ink-1));
   animation: vcbMenuIn var(--duration-fast, .12s) var(--sb-ease-in-out, ease);
 }
 .vcb-context-menu button {
@@ -608,7 +608,7 @@
    把 fallback 升格为 token。注意 --text-faint 在深色主题下是 #5C5651，
    故**不能**删掉 var(--sb-ink-5) 只留 token —— 那会改变深色下的取值。 */
 .vcb-context-menu button:disabled { color: var(--text-faint, var(--sb-neutral-400)); cursor: not-allowed; }
-.vcb-context-menu button.is-danger:hover { color: var(--red, var(--sb-danger)); }
+.vcb-context-menu button.is-danger:hover { color: var(--sb-danger, var(--sb-danger)); }
 .vcb-context-menu .vcb-context-sep {
   height: 1px;
   margin: 4px 2px;
