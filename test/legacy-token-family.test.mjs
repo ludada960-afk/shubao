@@ -255,8 +255,19 @@ function grepLegacy() {
      权威层不该依赖遗留层。现改为 var(--sb-space-3)，V3 自洽。
      并收敛了 7 处**自回退** var(--X, var(--X))（改名后遗留的两级回退退化成同名义回退），
      值不变、写法还原。 */
-const BASELINE_TOTAL = 44;
-const BASELINE_NAMES = 11;
+/* ── D26 迁移第三笔（2026-09-15）实测 44/11 → **29/9**：
+       --font-body(14)    → --sb-font-sans
+       --font-display(1)  → --sb-font-display
+     判据是**字体栈的超集关系**，不是「名字像」：
+       V2 --font-body    : …, 'Microsoft YaHei', Arial, sans-serif
+       V3 --sb-font-sans : …, 'Microsoft YaHei', 'Noto Sans SC', Arial, sans-serif   ← 多一个 CJK 兜底
+       V2 --font-display : 'Fredoka','ZCOOL KuaiLe','PingFang SC','Microsoft YaHei',sans-serif
+       V3 --sb-font-display: 'Fredoka','ZCOOL KuaiLe',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif
+     即：在装有 YaHei 的 Windows 上**逐字同解析**；只有在缺 YaHei 的系统（Linux/Android）上
+     才多命中 'Noto Sans SC' —— 那是**更正确的 CJK 字形**，属改善而非回归。
+     共替换 15 处 / 8 个文件，diff 15/15 对称。 */
+const BASELINE_TOTAL = 29;
+const BASELINE_NAMES = 9;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
