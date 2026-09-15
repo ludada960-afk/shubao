@@ -123,8 +123,14 @@ test('⑥ 主按钮禁用态：明确底色 + 文字色 + cursor，不靠 opacit
   assert.match(tokens, /--footer-actions-primary-disabled-text:\s*#a8a39e/, '禁用文字色明确');
   const disabled = tokens.match(/\.ui-btn:disabled,[\s\S]*?\{([^}]*)\}/);
   assert.ok(disabled, '.ui-btn:disabled 规则存在');
-  assert.ok(disabled[1].includes('background: var(--footer-actions-primary-disabled-bg)'), '禁用有明确底色');
-  assert.ok(disabled[1].includes('color: var(--footer-actions-primary-disabled-text)'), '禁用有明确文字色');
+  /* 判据化（D37）：锁「禁用态用的是**有定义的 token**」，不锁是哪个 token 名。
+     resolveVar 只解析 px，颜色类 token 走「必须在 ALL_TOKENS 里有定义」这条。 */
+  const bgRef = /background:\s*var\((--[a-z0-9-]+)\)/.exec(disabled[1]);
+  assert.ok(bgRef, '禁用态必须有明确底色（用 token，不得硬编码）');
+  assert.ok(ALL_TOKENS.includes(bgRef[1] + ':'), '禁用底色 token ' + bgRef[1] + ' 必须有定义');
+  const fgRef = /color:\s*var\((--[a-z0-9-]+)\)/.exec(disabled[1]);
+  assert.ok(fgRef, '禁用态必须有明确文字色（用 token，不得硬编码）');
+  assert.ok(ALL_TOKENS.includes(fgRef[1] + ':'), '禁用文字色 token ' + fgRef[1] + ' 必须有定义');
   assert.ok(disabled[1].includes('cursor: not-allowed'), '禁用有 cursor');
   assert.ok(!/opacity:\s*0?\.[0-9]/.test(disabled[1]), '不靠 opacity 变灰（那样会看不清）');
 });
@@ -298,11 +304,13 @@ test('9-18② 契约主按钮必须是实底纯色，不得是双色渐变（视
 test('9-18③ 主次按钮视觉等重：同高 / 同最小宽 / 同圆角（圆角不削弱感知间隙）', () => {
   const tokens = read('src/styles/design-tokens.css');
   const uiBtn = tokens.match(/\.ui-btn \{([^}]*)\}/)[1];
-  assert.ok(uiBtn.includes('border-radius: var(--footer-actions-radius)'), '主次共用同一圆角 token');
+  assertRefResolvesTo(uiBtn, 'border-radius', 8, '.ui-btn 主次共用圆角（D18 控件档）');
   assertRefResolvesTo(uiBtn, 'min-width', 88, '.ui-btn 主次共用最小宽');
   assertRefResolvesTo(uiBtn, 'height', 36, '.ui-btn 主次共用高度');
-  // 10px（--footer-actions-radius）必须存在且相等，不得主次分叉
-  assert.equal(resolveVar(ALL_TOKENS, '--footer-actions-radius'), 10, '契约圆角解析后 = 10px');
+  /* D37 裁定：底栏按钮属**控件**角色 → 圆角收敛到 V3 控件档 --sb-radius-control（8px），
+     原 V2 的 10px 不在 V3 半径阶梯（4/6/8/12/16/20/24）上，属孤立值。
+     上面 assertRefResolvesTo 已锁「主次共用同一个、且解析后 = 8px 的圆角 token」。 */
+  assert.equal(resolveVar(ALL_TOKENS, '--sb-radius-control'), 8, 'V3 控件圆角档 = 8px');
 });
 
 test('9-18④ 迁移过的文件里不得残留自写的底部操作区 gap 魔法数字', () => {
