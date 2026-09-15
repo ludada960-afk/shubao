@@ -266,8 +266,27 @@ function grepLegacy() {
      即：在装有 YaHei 的 Windows 上**逐字同解析**；只有在缺 YaHei 的系统（Linux/Android）上
      才多命中 'Noto Sans SC' —— 那是**更正确的 CJK 字形**，属改善而非回归。
      共替换 15 处 / 8 个文件，diff 15/15 对称。 */
-const BASELINE_TOTAL = 29;
-const BASELINE_NAMES = 9;
+/* ── D37（第四笔，2026-09-15）实测 29/9 → **0/0** —— 门禁家族口径**归零**。
+     这一笔不再是「逐值相等迁移」，而是**逐条裁定**（每条都在 D37 里给了偏差与依据）：
+       --footer-actions-border        → --sb-border-default        （.12 → .10/.14；暗色由「不可见」修好）
+       --footer-actions-radius        → --sb-radius-control        （10px → 8px；D18 控件档）
+       --footer-actions-button-height-lg → --sb-control-h-xl       （40px → 44px；V3 主 CTA 档）
+       --footer-actions-primary-disabled-bg  → --sb-state-disabled-bg
+       --footer-actions-primary-disabled-text → --sb-state-disabled-ink
+       --leading-relaxed              → --sb-leading-relaxed       （1.7 → 1.65，−3%）
+       --accent-bg                    → --sb-state-active-bg       （亮精确相等）
+       --accent-hover                 → --sb-surface-inverse-hover （**新增角色**，取值照搬 → 零变更）
+       --blue-bg                      → --sb-info-tint             （**新增角色**，取值照搬 → 零变更）
+     共 34 处 / 15 个文件。
+
+     ⚠️⚠️ **「0」是本门禁的家族口径，不是「全站 V2 已清零」。** 两个数必须分开报（D26 #4 / D33）：
+       · 门禁家族口径 = **0**（本文件管的这个数）
+       · 全站 V2 口径 = 仍有 --ec-* / --canvas-* / --sk-* / --cl-* 等**组件自有家族**
+         （D26 #2 判定为合法，不属第二套语言），以及 V2 权威文件里**尚未删除的定义**。
+     ⚠️ 归零后 minSane=0（见下方自证逻辑）—— 但「一个都没扫到」仍会被 assert.ok(sites>0) 之外
+        的门禁兜住；本文件的 ② 用 total >= minSane 且 total <= 0，等价于必须恰为 0。 */
+const BASELINE_TOTAL = 0;
+const BASELINE_NAMES = 0;
 
 test('① 检测器自证：能数出 V2 用法，且不误判 V3 的 --sb-*', () => {
   const s = 'color: var(--text-muted); border-radius: var(--radius-md); background: var(--sb-surface-card); gap: var(--sb-space-2);';
