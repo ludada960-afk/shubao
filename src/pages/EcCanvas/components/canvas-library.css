@@ -23,7 +23,7 @@
    ─────────────────────────────────────────────────────────────────────── */
 
 .canvas-library-overlay { position: fixed; inset: 0; z-index: 9400; display: grid; place-items: start center; padding: 84px 24px 32px; background: rgba(28,25,23,.46); backdrop-filter: blur(8px); }
-.canvas-library { width: min(1180px, 96vw); max-height: min(84vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--font-body); }
+.canvas-library { width: min(1180px, 96vw); max-height: min(84vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(28,25,23,.10); border-radius: 20px; background: #fff; box-shadow: 0 32px 90px -20px rgba(28,25,23,.4); font-family: var(--sb-font-sans); }
 .canvas-library-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 26px 22px; border-bottom: 1px solid rgba(28,25,23,.08); }
 /* 9-13 用户批注：标题与内容要有主次、不要拥挤 */
 .canvas-library-head strong { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.01em; color: #1c1917; }
