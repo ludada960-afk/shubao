@@ -29,12 +29,26 @@ ssh_old() { ssh -q -o LogLevel=ERROR -o BatchMode=yes -o ConnectTimeout=20 -i "$
 step() { echo; echo "===== $* ====="; }
 
 step "0/6 前置自检：公网是否已指向本机"
-LOCAL_PID=$(curl -s http://127.0.0.1:3002/health | sed -n 's/.*"pid":\([0-9]*\).*/\1/p')
-PUB_PID=$(curl -s "https://shuimg.cn/health?cb=$STAMP" | sed -n 's/.*"pid":\([0-9]*\).*/\1/p')
+LOCAL_PID=$(curl -s --max-time 10 http://127.0.0.1:3002/health 2>/dev/null | sed -n 's/.*"pid":\([0-9]*\).*/\1/p' || true)
 echo "  本机 pid = $LOCAL_PID"
-echo "  公网 pid = $PUB_PID"
-if [ "$LOCAL_PID" != "$PUB_PID" ]; then
-  echo "  !! 公网仍未指向本机（DNS 可能还没生效，或还有边缘节点缓存）。"
+if [ -z "$LOCAL_PID" ]; then
+  echo "  !! 本机应用没起来（/health 取不到 pid），先解决再跑。已中止。"
+  exit 1
+fi
+
+# 预期失败：大陆机房**经 Cloudflare 回访自己的公网域名通常不通**（实测新机 curl
+#   https://shuimg.cn/health 取不到内容）。所以这里必须容错 —— 早先没容错，
+#   curl 的非零退出码经 pipefail + set -e 直接把脚本打死在第 0 步，--force 根本没机会生效。
+#   取不到公网 pid 时，改由**操作方从外部**确认切流已生效，再加 --force 继续。
+PUB_PID=$(curl -s --max-time 10 "https://shuimg.cn/health?cb=$STAMP" 2>/dev/null | sed -n 's/.*"pid":\([0-9]*\).*/\1/p' || true)
+echo "  公网 pid = ${PUB_PID:-（本机取不到，见下）}"
+if [ -z "$PUB_PID" ]; then
+  echo "  !! 本机无法访问公网 https://shuimg.cn —— 大陆机房经 Cloudflare 回访自身通常不通，属预期。"
+  echo "     请由操作方**从外部**确认公网 /health 的 pid 已是本机 pid（$LOCAL_PID），再加 --force 重跑。"
+  [ "$FORCE" -eq 1 ] || { echo "  已中止。"; exit 1; }
+  echo "  --force 已给，继续。"
+elif [ "$LOCAL_PID" != "$PUB_PID" ]; then
+  echo "  !! 公网仍指向 pid=$PUB_PID，不是本机（DNS 未生效或边缘仍有缓存）。"
   [ "$FORCE" -eq 1 ] || { echo "  已中止。确认后再跑，或加 --force 强制继续。"; exit 1; }
   echo "  --force 已给，继续。"
 else
