@@ -25,7 +25,23 @@ export function mountSkillRoutes(app, { skillStore, authenticateOwner } = {}) {
       }
       return email;
     } catch (error) {
-      res.status(error?.status || 401).json({ ok: false, error: error?.message || '登录已失效，请重新登录' });
+      /* 2026-09-15 用户批注（图4-①「技能库怎么坏掉了」）：这里原先把 error.message 原样吐给前端，
+         于是用户界面上出现的是英文 'A signed session token is required'。
+         两类问题：① 用户看不懂；② 内部错误文案不该出现在用户可见面。
+         现在鉴权失败统一给中文 + 稳定 errorCode（前端据此渲染「未登录」状态而不是红色报错）。 */
+      const code = String(error?.code || '');
+      const authFailure = code === 'AUTH_SESSION_REQUIRED'
+        || code === 'AUTH_SESSION_UNAUTHORIZED'
+        || error?.status === 401
+        || error?.status === 403;
+      res.status(error?.status || 401).json({
+        ok: false,
+        errorCode: authFailure ? (code || 'AUTH_SESSION_REQUIRED') : (code || 'SKILL_LIBRARY_UNAVAILABLE'),
+        /* 面向用户的文案一律中文且稳定；机器可读的原因走 errorCode。
+           本契约的测试③当场抓到过我自己的一处不一致：非鉴权分支仍在直出 error.message，
+           那同样会把内部英文漏给用户 —— 已一并收口。 */
+        error: authFailure ? '登录后即可使用技能库' : '技能库暂时不可用，请稍后重试',
+      });
       return '';
     }
   };

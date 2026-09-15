@@ -5,6 +5,7 @@ import {
   fetchSkillLibrary, createUserSkill, updateUserSkill, archiveUserSkill,
   createSkillGroup,
 } from '../../../services/skills.js';
+import { useApp } from '../../../store/AppContext';
 import { useModalScrollLock } from '../../../components/ui/useModalScrollLock.js';
 import ResizableTextarea from './ResizableTextarea.jsx';
 import './skill-library.css';
@@ -28,8 +29,14 @@ const EMPTY_DRAFT = Object.freeze({ id: '', kind: 'image', name: '', summary: ''
  * - 保存前本地校验 + 服务端校验；越权提示词由服务端 SKILL_OVERRIDE_REJECTED 拦截。
  */
 export default function SkillLibraryModal({ open, onClose, initialKind = 'image', onPick }) {
+  const { dispatch } = useApp();
   const [kind, setKind] = useState(initialKind);
-  const [state, setState] = useState({ loading: false, error: '', builtin: [], mine: [], groups: [] });
+  /* needsLogin：未登录是**一种正常状态**，不是错误。
+     2026-09-15 用户批注（图4-①「技能库怎么坏掉了」）：此前把服务端的英文原文
+     （'A signed session token is required'）直接当红色横幅显示，用户看到的就是「坏了」。
+     实测链路是好的（skills.js 发 Authorization: Bearer，服务端 contentBilling 认这个头），
+     失败原因就是「当时没有 token」—— 所以要做的是把这种情况**讲清楚并给出登录入口**。 */
+  const [state, setState] = useState({ loading: false, error: '', needsLogin: false, builtin: [], mine: [], groups: [] });
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -54,7 +61,15 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
       const library = await fetchSkillLibrary({ kind: nextKind });
       setState({ loading: false, error: '', builtin: library.builtin, mine: library.mine, groups: library.groups });
     } catch (error) {
-      setState({ loading: false, error: error?.message || '技能库加载失败', builtin: [], mine: [], groups: [] });
+      const authRequired = error?.status === 401 || error?.status === 403
+        || error?.errorCode === 'AUTH_SESSION_REQUIRED'
+        || error?.errorCode === 'AUTH_SESSION_UNAUTHORIZED';
+      setState({
+        loading: false,
+        needsLogin: authRequired,
+        error: authRequired ? '' : (error?.message || '技能库加载失败'),
+        builtin: [], mine: [], groups: [],
+      });
     }
   }, [kind]);
 
@@ -168,7 +183,24 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
           ))}
         </div>
 
-        {state.error && <div className="skill-alert" role="alert">{state.error}</div>}
+        {/* 未登录 = 正常状态，给入口而不给报错（用户批注图4-①） */}
+        {state.needsLogin && (
+          <div className="skill-login-required" role="status">
+            <ShieldCheck aria-hidden="true" size={18} />
+            <div className="skill-login-required-copy">
+              <strong>技能库需要登录后使用</strong>
+              <span>内置技能只读、可查看完整提示词；自建技能保存在你的账号里。</span>
+            </div>
+            <button
+              type="button"
+              className="skill-login-required-action"
+              onClick={() => { onClose?.(); dispatch({ type: 'SHOW_LOGIN', show: true }); }}
+            >
+              立即登录
+            </button>
+          </div>
+        )}
+        {!state.needsLogin && state.error && <div className="skill-alert" role="alert">{state.error}</div>}
         {notice && <div className="skill-notice" role="status">{notice}<button type="button" className="skill-notice-close" aria-label="关闭提示" onClick={() => setNotice('')}>×</button></div>}
 
         <div className="skill-modal-body">
@@ -203,7 +235,7 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
                   </div>
                 </li>
               ))}
-              {!state.loading && !state.builtin.length && <li className="skill-empty">该类型暂无内置技能</li>}
+              {!state.loading && !state.needsLogin && !state.builtin.length && <li className="skill-empty">该类型暂无内置技能</li>}
             </ul>
           </section>
 
@@ -227,7 +259,7 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
                   </div>
                 </li>
               ))}
-              {!state.loading && !state.mine.length && <li className="skill-empty">还没有自建技能，右侧新建一个</li>}
+              {!state.loading && !state.needsLogin && !state.mine.length && <li className="skill-empty">还没有自建技能，右侧新建一个</li>}
             </ul>
           </section>
 

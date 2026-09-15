@@ -88,6 +88,24 @@
 .skill-notice-close:hover { background: rgba(47,107,65,.12); }
 .skill-alert { background: var(--sb-danger-soft); border: 1px solid #f6d3cf; color: #a5322b; }
 .skill-notice { background: var(--sb-success-soft); border: 1px solid #cfe9d6; color: #2f6b41; }
+/* 未登录态（用户批注图4-①）：它不是错误，所以不用 danger 红，走信息色 + 一个明确的登录动作。
+   与工作台其余「需要登录」的地方同一套口径（dispatch SHOW_LOGIN），不另造一套。 */
+.skill-login-required {
+  display: flex; align-items: center; gap: var(--sk-space-md);
+  margin: var(--sk-space-md) var(--sk-space-xl) 0; padding: 12px 14px; border-radius: 12px;
+  background: var(--sb-info-soft); border: 1px solid var(--sb-info-border); color: var(--sb-ink-1);
+  flex: none;
+}
+.skill-login-required-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.skill-login-required-copy strong { font-size: 13px; font-weight: 700; line-height: 1.4; }
+.skill-login-required-copy span { font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--sb-ink-3); }
+.skill-login-required-action {
+  flex: none; padding: 7px 14px; border: 0; border-radius: 10px; cursor: pointer;
+  background: var(--sb-brand-700); color: var(--sb-neutral-0);
+  font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1.2;
+}
+.skill-login-required-action:hover { background: var(--sb-brand-800); }
+.skill-login-required-action:focus-visible { outline: 2px solid var(--sb-focus-ring-color); outline-offset: 2px; }
 .skill-modal-body {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.15fr);
