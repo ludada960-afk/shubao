@@ -5,7 +5,7 @@
   padding: 4px 10px;
   border: 1px solid var(--sb-surface-inverse, var(--sb-neutral-900));
   border-radius: var(--sb-radius-pill, 9999px);
-  background: var(--bg-card-solid, var(--sb-neutral-0));
+  background: var(--sb-surface-card, var(--sb-neutral-0));
   color: var(--sb-ink-1, var(--sb-ink-1));
   font-size: var(--sb-text-md, 13px);
   font-weight: var(--sb-weight-semibold, 600);
@@ -25,7 +25,7 @@
   padding: var(--sb-space-6, 24px);
   border: 1px solid var(--border, rgba(231, 229, 228, 0.8));
   border-radius: var(--radius-lg, 30px);
-  background: var(--bg-card-solid, var(--sb-neutral-0));
+  background: var(--sb-surface-card, var(--sb-neutral-0));
   box-shadow: var(--sb-shadow-sm, 0 1px 3px rgba(57, 45, 26, 0.06));
 }
 
@@ -41,7 +41,7 @@
 
 .eyebrow {
   margin: 0 0 4px;
-  color: var(--text-hint, var(--sb-ink-4));
+  color: var(--sb-ink-4, var(--sb-ink-4));
   font-size: var(--sb-text-xs, 11px);
   font-weight: var(--sb-weight-semibold, 600);
   letter-spacing: 0.04em;
@@ -51,7 +51,7 @@
 .sectionTitle {
   margin: 0;
   color: var(--sb-ink-1, var(--sb-ink-1));
-  font-size: var(--text-xl, 20px);
+  font-size: var(--sb-text-xl, 20px);
   line-height: 1.25;
 }
 
@@ -83,7 +83,7 @@
 .historyCopy span,
 .mutedText,
 .emptyText {
-  color: var(--text-muted, var(--sb-ink-3));
+  color: var(--sb-ink-3, var(--sb-ink-3));
   font-size: var(--sb-text-md, 13px);
 }
 
@@ -91,12 +91,12 @@
   display: block;
   margin-top: var(--sb-space-2);
   color: var(--sb-ink-1, var(--sb-ink-1));
-  font-size: var(--text-lg, 17px);
+  font-size: var(--sb-text-lg, 17px);
 }
 
 .quoteTotal {
   color: var(--sb-ink-1, var(--sb-ink-1));
-  font-size: var(--text-lg, 17px);
+  font-size: var(--sb-text-lg, 17px);
 }
 
 .quoteList,
@@ -143,13 +143,13 @@
 .tonepositive { color: var(--sb-success, var(--sb-success)); }
 .tonewarning { color: #A66A00; }
 .tonenegative { color: var(--sb-danger, var(--sb-danger)); }
-.toneneutral { color: var(--text-muted, var(--sb-ink-3)); }
+.toneneutral { color: var(--sb-ink-3, var(--sb-ink-3)); }
 
 .insufficientHint {
   margin: var(--sb-space-4, 16px) 0 0;
   padding: 10px 12px;
   border: 1px solid #E9C46A;
-  border-radius: var(--radius-sm, 8px);
+  border-radius: var(--sb-radius-sm, 8px);
   background: #FFF7D6;
   color: #7A5600;
   font-size: var(--sb-text-md, 13px);
