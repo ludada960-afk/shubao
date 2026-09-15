@@ -267,3 +267,30 @@ rsync -a -e "ssh -i ~/.ssh/migrate-tmp -o StrictHostKeyChecking=accept-new" \
 - 证书 = 源站 Let's Encrypt（`CN=shuimg.cn`，有效至 2026-10-15，`certbot.timer` 在跑）；
 - `server_tokens off` 已生效（响应头 `server: nginx`，不再暴露版本号）；
 - 备案完成后：确认收录恢复；如需重新开启代理，把 Cloudflare 的云点回橙色即可。
+
+---
+
+## 八、部署流水线在「机房视角 + 未备案 + 灰云」下的四处修复（2026-09-15）
+
+> 前提：**部署机是机房来源**，而腾讯云会拦机房来源访问未备案域名（第七节）。
+> 于是所有「从部署机打公网域名」的校验都跑不通 —— 下面四处失败点**根因各不相同**，
+> 但都出自这同一个前提。排查顺序即修复顺序。
+
+| # | 失败点 | 报错 | 根因 | 修法 |
+|---|---|---|---|---|
+| 1 | 就绪探测（原 358 行） | `Public production health did not become ready within 180 seconds` | 部署机探不到公网 ≠ 站点没就绪 | 新增 `Test-OriginHealthViaServer`：从**服务器本机** `curl --resolve shuimg.cn:443:127.0.0.1` 探测，本地失败时回退到它 |
+| 2 | 公网契约校验（原 428 行） | `Public gallery verification failed after 3 attempts` | gallery / video / billing 等**四类公网校验**都从部署机打 | 新增 `-SkipPublicChecks` 开关（默认**关闭**）：三个校验入口在打开时**逐条记录并告警**，不静默放行 |
+| 3 | canary 计费校验 | `Production verification failed`（`verify-production-billing.ps1`） | 它由 `Invoke-WithCanarySession` **直接调**，没经过上层守卫 | 守卫**下沉到 `Invoke-WithCanarySession`**（canary 校验的最低层入口） |
+| 4 | canary 退出码 | `Public production canary failed` | 跳过让函数**提前 return**，调用点 `if ($LASTEXITCODE -ne 0)` 读到**上一条失败命令残留的退出码** | `Add-SkippedPublicCheck` 里显式 `$global:LASTEXITCODE = 0` |
+
+**当前用法**：
+```powershell
+pwsh -File scripts/deploy-production.ps1 -RepoPath <clean-worktree> -SkipPublicChecks
+```
+**跳过的项必须在大陆视角复跑**（本手册第七节的 `curl --resolve` 口径，或在大陆机器上直接跑 `scripts/verify-*`）。
+
+### ⚠️ 另外一条配方陷阱（本轮踩到）
+
+**干净 worktree 部署配方意味着「未提交的脚本改动不会被部署使用」**：
+第 12 轮我把 `-SkipPublicChecks` 加在工作区但**没提交**，部署从 `HEAD` 跑 →
+开关形同虚设，失败点纹丝不动。**改部署脚本后必须先提交，再发起部署。**
