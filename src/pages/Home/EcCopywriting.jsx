@@ -34,7 +34,7 @@ export default function EcCopywriting({ copywriting, onChange }) {
               fontFamily: 'inherit',
               transition: 'border-color 0.15s',
             }}
-            onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+            onFocus={e => e.target.style.borderColor = 'var(--sb-surface-inverse)'}
             onBlur={e => e.target.style.borderColor = 'var(--sb-border-default)'}
           />
         </div>
