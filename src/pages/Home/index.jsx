@@ -153,7 +153,7 @@ export default function HomePage() {
               薯包 AI · <span style={{ opacity: 0.7 }}>智能视觉内容创作平台</span>
             </span>
 
-            <h1 style={{ fontSize: 48, fontWeight: 900, lineHeight: 1.05, color: 'var(--accent)', marginTop: 16, marginBottom: 0, letterSpacing: 'normal' }} className="homepage-h1">
+            <h1 style={{ fontSize: 48, fontWeight: 900, lineHeight: 1.05, color: 'var(--sb-surface-inverse)', marginTop: 16, marginBottom: 0, letterSpacing: 'normal' }} className="homepage-h1">
               上传创意素材，生成<span className="hero-gradient-text">专业视觉</span>
             </h1>
             <style>{`@media (min-width:640px){.homepage-h1{font-size:48px!important}}@media(min-width:1024px){.homepage-h1{font-size:48px!important}}`}</style>
