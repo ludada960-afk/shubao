@@ -216,6 +216,16 @@
 .ec-canvas-zoom-controls .ec-canvas-icon-button:hover:not(:disabled) { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-zoom-controls span { min-width: 46px; text-align: center; color: #4d5662; font-size: 11px; font-weight: 700; }
 
+/* ⚠️ 这里的 left:72px / bottom:70px **不是死声明** —— 第 81 轮复核推翻了交接文档里的旧诊断，
+   删之前请先读完这段（EcCanvas 是冻结区，跨线改动统一走画布线）：
+     · CanvasChrome.jsx:198 的 panelStyle 只在 resolveAnchoredRight() 解出 solved 时才给内联定位；
+     · anchorRect 为 null（触发按钮 querySelector 查不到）时 solved === null → **panelStyle === undefined**
+       → React 不输出 style 属性 → **本行的 left/bottom 就是唯一生效的定位**。
+   所以它不是「已被 portal 取代的残渣」，而是**兜底分支**；而这 72px 恰恰就是 index.jsx:6680
+   「面板跑到离触发元素 700px 外的画布左边」那个旧 bug 本身 —— 直接删掉本行并不会让面板
+   跟着触发元素走，只会让它退回静态位置。
+   → 正确修法（留给画布线）：让兜底也走同一套求解器（anchorRect 缺失时给一个明确的锚点），
+     而不是删掉本行。判据同 RTK §3.1-10：**要锁的是「居中/不被裁」这个判据，不是某一行写法**。 */
 .ec-canvas-layers-panel { position: absolute; z-index: 95; left: 72px; bottom: 70px; width: 288px; max-height: min(460px, calc(100% - 140px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-md); background: #fff; box-shadow: var(--ec-shadow-3); }
 .ec-canvas-layers-panel > header { height: 42px; flex: 0 0 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 12px; border-bottom: 1px solid #edf0f3; }
 .ec-canvas-layers-panel > header span { display: inline-flex; align-items: center; gap: 7px; color: #31363d; font-size: 12px; }
