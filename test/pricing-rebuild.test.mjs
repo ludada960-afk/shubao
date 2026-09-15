@@ -97,8 +97,14 @@ test('hero region uses glassmorphism and gradient orbs', async () => {
 /* ── 6) 暗色模式 ── */
 test('pricing css adapts to dark theme via [data-theme="dark"] selectors', () => {
   assert.ok(PRICING_CSS.includes('[data-theme="dark"]'), 'dark theme selector');
-  assert.ok(PRICING_CSS.includes('var(--bg-card-solid)'), 'token bg-card-solid used');
-  assert.ok(PRICING_CSS.includes('var(--text-primary)'), 'token text-primary used');
+  /* RTK §3.1-10：锁判据不锁写法。判据 =「卡片底与正文色走 token，因而暗色能自动适配」。
+     旧断言写死了 var(--bg-card-solid) / var(--text-primary) 这两个 **V2** 拼写，
+     而 D24 的正当代替（提交 6b3f0811 / d9e0ad6b）早已把它们换成
+     --sb-surface-card / --sb-ink-1 —— 于是旧断言**自那时起一直是红的**，
+     而 npm run precommit 只跑 12 条 BLOCKING 门禁、不跑全量套件，所以没人发现。
+     查证方式：git log -S 'var(--bg-card-solid)' -- src/pages/Pricing/Pricing.css。 */
+  assert.ok(/var\(--sb-surface-(card|panel|panel-solid|sunken)\)/.test(PRICING_CSS), '卡片底必须走 V3 surface token');
+  assert.ok(/var\(--sb-ink-[1-5]\)/.test(PRICING_CSS), '文字色必须走 V3 ink token');
 });
 
 /* ── 7) 响应式 4 档 -> 2 档 -> 1 档 ── */

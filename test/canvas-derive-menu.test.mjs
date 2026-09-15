@@ -105,7 +105,11 @@ test('canvas-derive-menu.css declares the 9-action tile hover lift + chip + meta
   const css = readFileSync(cssPath, 'utf8');
   assert.match(css, /\.ec-canvas-derive-tile\s*\{/, 'tile 必填');
   assert.match(css, /\.ec-canvas-derive-tile:hover\s*\{[^}]*transform:\s*translateY\(-2px\)/, 'hover lift -2px 必填');
-  assert.match(css, /\.ec-canvas-derive-tile:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/, 'hover shadow 必填');
+  /* RTK §3.1-10：**契约锁判据，不锁写法**。判据 =「hover 时给一层海拔阴影」，
+     不是「必须写成 var(--shadow-md) 这个 V2 拼写」。
+     D20-A 已把 V2 阴影族迁到 V3 海拔别名层（--shadow-md → --sb-shadow-md，见提交 3eacb8e8），
+     旧断言从那一刻起就在保护一个**已经过时的写法** —— 表达式可以换，判据不能换。 */
+  assert.match(css, /\.ec-canvas-derive-tile:hover\s*\{[^}]*box-shadow:\s*var\((--sb-)?shadow-(sm|md|lg|xl|[1-5])\)/, 'hover 必须给一层海拔阴影（V3 海拔 token）');
   assert.match(css, /\.ec-canvas-derive-tile\s+\.ec-canvas-derive-chip/, 'chip 必填');
   assert.match(css, /\.ec-canvas-derive-tile:hover\s+\.ec-canvas-derive-chip\s*\{[^}]*background:\s*var\(--accent\)/, 'hover 时 chip 变 accent 必填');
   assert.match(css, /\.ec-canvas-derive-tile\s+\.ec-canvas-derive-meta/, 'meta 必填');
