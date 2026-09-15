@@ -178,3 +178,32 @@ test('⑫ 输入框样式必须走 token：不得硬编码色值，也不得用�
   assert.match(body, /--sb-border-default/, '边框走语义 token');
   assert.match(body, /--sb-surface-card/, '底色走会随主题翻转的语义 token');
 });
+/* ═══ ⑧ 配置面板 ↔ 提示词：谁说了算（用户批注图6-⑦ 的核心困惑）═══ */
+const NOTE = 'src/pages/Home/ec/PromptAuthorityNote.jsx';
+const ECMODE = 'src/pages/Home/EcMode.jsx';
+
+test('⑬ 提示词区必须常驻「分工说明」，让用户不必猜要不要再填一遍', () => {
+  const note = read(NOTE);
+  const ecMode = read(ECMODE);
+  /* 用户原话（图6-⑦）：「用户他可能提示词里面已经写过一遍这些类似配置的这些东西了，
+     那现在我们的配置面板里面还要让他再配置一次，很有可能信息它是会冲突的，
+     然后对用户来说他也可能会很迷茫……所以我很困惑，现在该怎么去解决这个问题？」
+     判据：分工必须**写出来**（面板=保险丝/硬约束，提示词=方向盘/表达），并说明留空的含义。 */
+  assert.match(note, /配置面板里的设定/, '必须常驻一句分工说明');
+  assert.match(note, /留空\s*=\s*不限制/, '必须说明「留空 = 不限制」，否则用户不敢留空');
+  assert.match(ecMode, /<PromptAuthorityNote[\s\S]{0,120}negative=\{genSettings\.negativePrompt\}/,
+    '必须挂在提示词输入区，并接上真实的 negative（否则冲突判定没有输入）');
+});
+
+test('⑭ 冲突必须当场显性化：以配置为准，而不是默默按一个来', () => {
+  const note = read(NOTE);
+  /* 判据：两类冲突都要提示 ——
+     · 硬约束冲突（提示词要 X、面板禁止 X）→ 说明以配置为准；
+     · 结构性意图（提示词里写「3 张」「9:16」）→ 说明张数比例由套图方案决定。
+     实现上**复用既有判定**，不新造一套：canvasPromptAuthority 的两个纯函数。 */
+  assert.match(note, /detectHardConstraintConflicts/, '硬约束冲突必须复用既有判定');
+  assert.match(note, /isStructuralIntent/, '结构性意图必须复用既有判定');
+  assert.match(note, /以配置为准/, '冲突必须明确告知用户谁优先');
+  assert.match(note, /由「套图方案」决定/, '结构性意图必须指向真正的权威面板');
+  assert.ok(!/默默|静默替换/.test(note), '不得静默替换用户输入');
+});
