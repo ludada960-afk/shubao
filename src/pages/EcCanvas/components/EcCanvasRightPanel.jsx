@@ -199,7 +199,7 @@ export function EcCanvasRightPanel({
                     value={size.w}
                     aria-label="素材宽度"
                     onChange={(event) => onPatch?.({ w: Math.min(4000, Math.max(40, Number(event.target.value) || 40)) })}
-                    style={{ width: 58, height: 24, padding: '0 4px', border: '1px solid var(--border-light, rgba(15,23,42,.12))', borderRadius: 6, background: 'var(--sb-surface-card, #fff)', color: 'inherit', fontSize: 11, textAlign: 'right' }}
+                    style={{ width: 58, height: 24, padding: '0 4px', border: '1px solid var(--sb-border-subtle, rgba(15,23,42,.12))', borderRadius: 6, background: 'var(--sb-surface-card, #fff)', color: 'inherit', fontSize: 11, textAlign: 'right' }}
                   />
                   <span style={{ color: 'var(--sb-ink-4, #6b7280)' }}>×</span>
                   <input
@@ -209,7 +209,7 @@ export function EcCanvasRightPanel({
                     value={size.h}
                     aria-label="素材高度"
                     onChange={(event) => onPatch?.({ h: Math.min(4000, Math.max(40, Number(event.target.value) || 40)) })}
-                    style={{ width: 58, height: 24, padding: '0 4px', border: '1px solid var(--border-light, rgba(15,23,42,.12))', borderRadius: 6, background: 'var(--sb-surface-card, #fff)', color: 'inherit', fontSize: 11, textAlign: 'right' }}
+                    style={{ width: 58, height: 24, padding: '0 4px', border: '1px solid var(--sb-border-subtle, rgba(15,23,42,.12))', borderRadius: 6, background: 'var(--sb-surface-card, #fff)', color: 'inherit', fontSize: 11, textAlign: 'right' }}
                   />
                   <span style={{ color: 'var(--sb-ink-4, #6b7280)', fontSize: 10 }}>px</span>
                 </div>
