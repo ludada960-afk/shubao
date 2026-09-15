@@ -210,7 +210,7 @@
   background: var(--sb-danger-soft);
   color: var(--sb-danger);
   font-size: var(--sb-text-md);
-  border: 1px solid var(--red-shadow, transparent);
+  border: 1px solid var(--sb-danger-shadow-color, transparent);
 }
 .pricing-footnote {
   margin-top: var(--sb-space-2-5);
