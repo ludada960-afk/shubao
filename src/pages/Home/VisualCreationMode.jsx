@@ -933,6 +933,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
 
           <div
             className="ec-textarea-wrap ec-xhs-prompt visual-prompt-field"
+            /* 点击容器 = 聚焦内部输入框的**鼠标便利**；键盘用户直接 Tab 到 textarea，容器无需可聚焦。
+               role="group" 显式声明为容器，否则会被判为「假按钮」（可点却键盘不可达）。 */
+            role="group"
             onClick={event => { if (event.target !== promptRef.current) promptRef.current?.focus(); }}
           >
             <textarea
