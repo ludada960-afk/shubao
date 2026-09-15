@@ -10,7 +10,7 @@
   justify-content: space-between;
   gap: var(--sb-space-3);
   margin-bottom: 9px;
-  color: var(--text-muted, #777);
+  color: var(--sb-ink-3, #777);
 }
 
 .content-reference-picker-intro > div {
