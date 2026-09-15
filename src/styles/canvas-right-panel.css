@@ -180,7 +180,7 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid var(--border-light, rgba(15, 23, 42, .1));
+  border: 1px solid var(--sb-border-subtle, rgba(15, 23, 42, .1));
   border-radius: var(--sb-radius-md);
   background: var(--sb-state-hover-bg, var(--sb-neutral-100));
   color: var(--sb-ink-2, var(--sb-ink-2));
@@ -201,7 +201,7 @@
 .ec-canvas-right-panel__menu-hint {
   margin: var(--cvl-sp1, 4px) 0 0;
   padding: var(--cvl-sp3, 12px);
-  border: 1px dashed var(--border-light, rgba(15, 23, 42, .12));
+  border: 1px dashed var(--sb-border-subtle, rgba(15, 23, 42, .12));
   border-radius: 12px;
   background: var(--sb-state-hover-bg, #f8fafc);
   color: var(--sb-ink-4, var(--sb-ink-3));
@@ -351,7 +351,7 @@
   margin: 0;
   padding: 0;
   cursor: pointer;
-  transition: background var(--sb-dur-fast, 160ms) var(--ease-out, ease);
+  transition: background var(--sb-dur-fast, 160ms) var(--sb-ease-out, ease);
 }
 /* D11：range 的 outline 归零后补替代焦点环（box-shadow，不改变滑块几何） */
 .ec-canvas-right-panel__row input[type="range"]:focus-visible {
@@ -368,7 +368,7 @@
   border: 2px solid var(--sb-surface-card, var(--sb-neutral-0));
   box-shadow: 0 1px 4px rgba(12, 10, 9, .15);
   cursor: grab;
-  transition: transform 120ms var(--ease-out, ease);
+  transition: transform 120ms var(--sb-ease-out, ease);
 }
 .ec-canvas-right-panel__row input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
@@ -397,7 +397,7 @@
   font: inherit;
   font-size: var(--sb-text-xs);
   cursor: pointer;
-  transition: border-color 120ms var(--ease-out, ease);
+  transition: border-color 120ms var(--sb-ease-out, ease);
 }
 .ec-canvas-right-panel__row select:hover {
   border-color: var(--sb-border-strong);
@@ -453,10 +453,10 @@
   background: var(--sb-surface-tint);
   color: var(--sb-ink-5);
   cursor: pointer;
-  transition: background 120ms var(--ease-out, ease), color 120ms var(--ease-out, ease);
+  transition: background 120ms var(--sb-ease-out, ease), color 120ms var(--sb-ease-out, ease);
 }
 .ec-canvas-right-panel__close:hover {
-  background: var(--bg-elevated, rgba(12, 10, 9, .06));
+  background: var(--sb-surface-panel-solid, rgba(12, 10, 9, .06));
   color: var(--sb-ink-1);
 }
 .ec-canvas-right-panel__close:focus-visible {
@@ -466,7 +466,7 @@
 
 /* ── 暗色模式 ── */
 [data-theme="dark"] .ec-canvas-right-panel {
-  background: var(--bg-card, rgba(22, 24, 29, .85));
+  background: var(--sb-surface-panel, rgba(22, 24, 29, .85));
 }
 [data-theme="dark"] .ec-canvas-right-panel__hero {
   background: linear-gradient(180deg, rgba(255, 255, 255, .02) 0%, transparent 100%);
@@ -475,7 +475,7 @@
   background: var(--sb-state-hover-bg, rgba(255, 255, 255, .04));
 }
 [data-theme="dark"] .ec-canvas-right-panel__adjust {
-  background: var(--bg-elevated, rgba(255, 255, 255, .02));
+  background: var(--sb-surface-panel-solid, rgba(255, 255, 255, .02));
 }
 [data-theme="dark"] .ec-canvas-right-panel__cost {
   background: linear-gradient(135deg, var(--sb-brand-a10) 0%, rgba(37, 99, 235, .12) 100%);
