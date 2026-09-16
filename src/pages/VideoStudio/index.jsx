@@ -311,6 +311,15 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [duration, selectedProduct]);
   const sku = selectedQuote?.sku || '';
   const estimatedPoints = Math.ceil(Number(quote?.totalUnits ?? selectedQuote?.units ?? 0) / 1000);
+  /* ═══ 2026-09-16 用户批注（图2-② / 图3-①，已问到第三次）═══
+     原话：「现在不是已经有预设了一套方案在这里吗？为什么你的积分还是一积分呢？这个问题你怎么还是
+     没有回答我呀？……肯定是按他整个视频要收多少钱去告诉他呀。」
+     参考流影AI：480P/720P/1080P 各对应 120/210/525，换档位按钮上的数字立刻变。
+     这里把「整个任务要花多少」算出来挂在按钮上（方案分析费 + 成片预估）：
+       · 未确认方案 → 按钮「分析并生成方案」，积分 = 1 + 成片预估（这一档就会随模型/时长变）；
+       · 已确认方案 → 按钮「开始生成」，积分 = 成片预估（服务端报价，唯一事实源）。
+     ⚠️ 拆分说明放 title，按钮上只留一个总数 —— 用户要的是「我这一下要花多少」。 */
+  const totalJobPoints = estimatedPoints > 0 ? estimatedPoints + ANALYSIS_POINTS : 0;
   const videoPlan = useMemo(() => buildVideoPlan({
     mode,
     prompt,
@@ -1028,7 +1037,11 @@ export default function VideoStudioPage({ embedded = false }) {
                   <span><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>{/* 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？你只要保留一套就好了呀。
+   然后你的积分其实是不能在这里说的。」—— 模型列表原本一行里塞了 4 段文字
+   （型号+档位 / 描述 / 限制 / 积分），现在只留**一段描述**；
+   积分只出现在右下角按钮上，并随选择实时变化（见 totalJobPoints）。
+   ⚠️ 这里是 JSX **子节点**位置，注释必须写成 {/* … */}，写成 /* … */ 会直接编译失败。 */}</span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
               </span>
             </div>
             <div className="video-toolbar-buttons">
@@ -1054,7 +1067,7 @@ export default function VideoStudioPage({ embedded = false }) {
              ② 积分必须跟随配置实时变化（estimatedPoints 来自服务端报价，方案分析另计 1 积分）；
              ③ 按钮排版与文案一并规范化（未确认方案 = 分析并生成方案；已确认 = 开始生成）。 */}
           {/* 9-12 用户批注：面板里已经选过的配置不用在按钮旁再写一遍 → 去掉这行摘要，信息只留在各面板与按钮积分上 */}
-          <div className="video-submit-row"><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points">{ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
+          <div className="video-submit-row"><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
         </footer>
       </section>
     </section>

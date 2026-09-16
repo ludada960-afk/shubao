@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { X, Plus, Pencil, Trash2, Loader2, ShieldCheck, ChevronDown, Eye, EyeOff } from 'lucide-react';
 
 import {
@@ -19,6 +19,22 @@ const KINDS = Object.freeze([
 
 /* 9-12 用户批注：技能提示词要能写很多（skill 内容通常很长），上限 2000 → 8000；输入框也拉高。 */
 const LIMITS = Object.freeze({ name: 40, summary: 80, body: 8000 });
+
+/* ═══ 技能提示词输入框：能吃满栏内剩余空间（2026-09-16 用户批注图6-①）═══
+   用户原话：「你这边的技能提示词是不是又出问题了呀？你为什么搞这么小呢？
+   你这个框明显是可以往下拉满的呀。下面留那么多空白，要干嘛呢？」
+   根因：available / maxHeight 是按**视口高度百分比**拍的死值
+   （0.34 / 0.46 × innerHeight ≈ 276 / 374），而编辑栏里实际有 ~600px 空白。
+   现在改成**实测**：栏高 − 输入框以上的内容 − 底部提示与按钮组 − 留白。 */
+const KIND_HINT = Object.freeze({
+  image: '技能只作用于风格与表达，不会覆盖商品事实、平台规则与计费；含"忽略以上规则"一类内容会被拒绝。',
+  /* 2026-09-16 用户批注（图6-②）：「你加这句话是要干嘛呢？……可是他这里是个生视频的地方呀，
+     你加这句话有什么意义吗？……总而言之就是不能这样子驴头不对马嘴啊！」
+     —— 同一句说明原本四个技能类型共用，于是生视频里出现「覆盖商品事实」，语义完全对不上。 */
+  video: '技能只作用于镜头语言与表现方式，不会覆盖你上传的素材事实、平台规则与计费；含"忽略以上规则"一类内容会被拒绝。',
+  canvas: '技能只作用于画面风格与结构，不会覆盖画布上的素材事实、平台规则与计费；含"忽略以上规则"一类内容会被拒绝。',
+  copy: '技能只作用于文案语气与结构，不会覆盖商品事实、平台规则与计费；含"忽略以上规则"一类内容会被拒绝。',
+});
 const EMPTY_DRAFT = Object.freeze({ id: '', kind: 'image', name: '', summary: '', body: '', params: {}, groupId: '' });
 
 /**
@@ -38,6 +54,27 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
      失败原因就是「当时没有 token」—— 所以要做的是把这种情况**讲清楚并给出登录入口**。 */
   const [state, setState] = useState({ loading: false, error: '', needsLogin: false, builtin: [], mine: [], groups: [] });
   const [draft, setDraft] = useState(EMPTY_DRAFT);
+  /* 提示词框能长到多高：**实测**编辑栏剩余空间，不再用视口百分比拍脑袋
+     （见文件头注释：原先 0.34/0.46 × innerHeight 只给出 ~276px，下面留了 ~600px 空白）。 */
+  const editorColumnRef = useRef(null);
+  const [bodyAvailable, setBodyAvailable] = useState(320);
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const measure = () => {
+      const column = editorColumnRef.current;
+      const field = column?.querySelector('.skill-field:has(.rsz-textarea)');
+      if (!column || !field) return;
+      const columnBottom = column.getBoundingClientRect().bottom;
+      const fieldTop = field.getBoundingClientRect().top;
+      const used = (column.querySelector('.skill-editor-actions')?.offsetHeight || 0)
+        + (column.querySelector('.skill-hint')?.offsetHeight || 0)
+        + 40;
+      setBodyAvailable(Math.max(132, Math.round(columnBottom - fieldTop - used)));
+    };
+    measure();
+    globalThis.addEventListener('resize', measure);
+    return () => globalThis.removeEventListener('resize', measure);
+  }, [open, kind, editing]);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   /* 9-11 用户批注: 提示不能一直挂着 → 4s 自动消失, 也可手动关掉 */
@@ -263,7 +300,7 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
             </ul>
           </section>
 
-          <section className="skill-column is-editor">
+          <section className="skill-column is-editor" ref={editorColumnRef}>
             <div className="skill-column-head">
               <strong>{editing ? '编辑技能' : '新建技能'}</strong>
               <span>{editing ? `v${state.mine.find(item => item.id === draft.id)?.version || ''}` : ''}</span>
@@ -356,9 +393,9 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
                 rows={14}
                 /* 技能库是弹窗不是浮层面板：给一个基于视口的合理上限，
                    保证拉到顶之前按钮组仍留在可视区内（超出由栏内滚动兜底）。 */
-                available={Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.34)}
+                available={bodyAvailable}
                 minHeight={132}
-                maxHeight={Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.46)}
+                maxHeight={bodyAvailable}
                 placeholder={'- 模块名: 场景氛围图\n- 画面任务: 突出产品整体形象与核心气质'}
                 onChange={event => patchDraft({ body: event.target.value })}
               />
@@ -366,7 +403,7 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
             </label>
 
             <p className="skill-hint">
-              <ShieldCheck size={13} /> 技能只作用于风格与表达，不会覆盖商品事实、平台规则与计费；含"忽略以上规则"一类内容会被拒绝。
+              <ShieldCheck size={13} /> {KIND_HINT[kind] || KIND_HINT.image}
             </p>
 
             {/* 9-18（P0）「值对了，覆盖面没到」——原先只是把 token 名抄进自写规则，

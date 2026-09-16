@@ -91,8 +91,12 @@ test('④ 面板高度不得「托底」超出可用空间（那正是被截断�
      ① 面板永远贴着触发按钮（不能退化成盖住输入区的全屏层）；
      ② 内容一屏看全（不能让用户滚鼠标）。
      所以高度**严格等于该侧可用空间**（绝不越界 = 绝不截断），装不下时切紧凑档压内容。 */
-  assert.match(visual, /Math\.min\(Math\.round\(viewportHeight \* 0\.92\), desiredHeight, Math\.max\(availableSpace \|\| desiredHeight, 160\)\)/,
-    '面板高度必须严格取该侧可用空间（绝不越界，因此绝不被截断）');
+  /* 2026-09-16 二次返工：原来还把 desiredHeight(720/620/740) 当上限，于是**内容比它还高就开始滚**
+     （实测创作配方内容约 800px，被 720 卡住）。关键：max-height **不会**撑高面板，
+     面板实际高度 = 内容高度（仅受 max-height 封顶），所以上限就该直接取可用空间。 */
+  assert.match(visual, /Math\.min\(Math\.round\(viewportHeight \* 0\.92\), Math\.max\(availableSpace \|\| desiredHeight, 160\)\)/,
+    '面板高度上限必须直接取可用空间（desiredHeight 不再参与封顶，否则内容比它高就开始滚动）');
+  assert.ok(!/Math\.min\([^)]*desiredHeight, Math\.max/.test(visual), '不得再把 desiredHeight 塞进封顶表达式');
   assert.match(visual, /const compact = maxHeight < desiredHeight/, '空间不够时必须切紧凑档');
   assert.match(visual, /data-density=\{configPanelPos\.compact/, '面板必须把密度传下去（用 data-*，不用内联样式串选择器）');
   assert.match(read('src/pages/Home/VisualCreationMode.css'), /\.visual-config-panel\[data-density="compact"\]/,

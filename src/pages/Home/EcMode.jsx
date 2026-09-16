@@ -373,14 +373,16 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
      点「下一步」= 生成设计方案 → 进画布, 不再询问 (原两条路的浮层已删, 只留方案链路)。 */
   const applySkill = useCallback(skill => {
     if (!skill) return;
-    /* 内置风格技能 (premium_minimal 等) = 画面风格, 直接落到 styleSkill */
-    if (skill.key && STYLE_SKILL_KEYS.has(skill.key)) {
-      setStyleSkill(skill.key);
-      setSkillOpen(false);
-      return;
-    }
+    /* ═══ 2026-09-16 用户批注（图11-①）═══
+       原话：「电商深度这边，我在技能库里面点击使用某个技能，它依然没有被添加到输入框
+       这边来，你的视频生成那边明明是能成功的运用上来呀。」
+       根因就在下面这一行：内置风格技能（高级极简 = premium_minimal 等）走**提前 return**，
+       只改了一个用户看不见的 styleSkill，正文一个字都没写进输入框。
+       视频侧没有这个分支，所以那边一直是对的 —— 用户看到的差异正是这个提前 return。
+       现在：风格技能**既**落到 styleSkill（画面风格照旧生效）**也**把正文写进输入框。 */
+    if (skill.key && STYLE_SKILL_KEYS.has(skill.key)) setStyleSkill(skill.key);
     const body = String(skill.body || '').trim();
-    if (!body) return;
+    if (!body) { setSkillOpen(false); return; }
     /* ═══ 2026-09-16 用户批注（图5-①）═══
        原话：「技能库里面我点击使用，他并没有把技能带入到输入框这边呀。你之前的一个版本里面
        是有做到的，是有实现的。现在怎么把他们全部拿掉了呀？」

@@ -238,7 +238,13 @@ function getVisualPanelPosition(panelId, button) {
            由 CSS 收紧内边距与行高，把内容压进这块空间。
      兜底 160：触发条贴到视口边缘时（可用空间不足 160px）允许轻微越界，
            否则面板会退化成一个只能显示标题的窄条。 */
-  const maxHeight = Math.min(Math.round(viewportHeight * 0.92), desiredHeight, Math.max(availableSpace || desiredHeight, 160));
+  /* ⚠️ 2026-09-16 二次返工（用户批注图7-①：「还是没有办法一版看全啊，还是有一个滚动条在这里」）：
+     上一版把 desiredHeight(720/620/740) 也当成上限，于是**内容比它还高就开始滚** ——
+     实测创作配方面板内容约 800px，被 720 的帽子卡住 → 用户仍然要滚。
+     关键点：`max-height` **不会**把面板撑高，面板实际高度 = 内容高度（仅受 max-height 封顶），
+     所以上限就该直接取**可用空间**：内容 500 就 500（不留空），内容 800 就 800（不滚动）。
+     desiredHeight 从此只用来判断「要不要切紧凑档」，不再参与封顶。 */
+  const maxHeight = Math.min(Math.round(viewportHeight * 0.92), Math.max(availableSpace || desiredHeight, 160));
   const compact = maxHeight < desiredHeight;
   return {
     left,

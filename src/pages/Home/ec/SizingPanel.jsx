@@ -294,9 +294,16 @@ export default function SizingPanel({
                 minHeight: 48, padding: `${SPACING.sp2}px ${SPACING.sp3}px`,
                 borderRadius: 'var(--sb-radius-card)',
                 /* D2：底/描边/ring 三件套；边框恒宽，hover 只做底色 */
-                background: checked ? 'var(--sb-state-selected-bg)' : hoverRow === typeDef.key ? 'var(--sb-state-hover-bg)' : 'transparent',
-                border: `1.5px solid ${checked ? 'var(--sb-state-selected-line)' : 'transparent'}`,
-                boxShadow: checked ? 'var(--sb-shadow-ring)' : 'none',
+                /* ═══ 选中态不再「全紫」（2026-09-16 用户批注图8-②）═══
+                   原话：「你现在整个被选中的都是紫色的，就是全是紫色的，字也是紫色的，勾也是紫色的。
+                   遮罩也是紫色的，边缘也是紫色的，你觉得你这个是符合逻辑的吗？」
+                   确实不符合：**行是容器，勾才是状态**。原来把品牌紫同时刷在底/边/环/文字四处，
+                   于是四行全亮紫、识别色（每类一个色）被淹没。
+                   现在：行只做**中性强化**（浅墨底 + 中性描边），品牌色**只留在勾选框**上，
+                   识别色留给类型徽章 —— 三个信号各司其职，不再互相打架。 */
+                background: checked ? 'var(--sb-surface-tint)' : hoverRow === typeDef.key ? 'var(--sb-state-hover-bg)' : 'transparent',
+                border: `1.5px solid ${checked ? 'var(--sb-border-strong)' : 'transparent'}`,
+                boxShadow: 'none',
                 /* 交互反馈（用户批注图3-②：「你好歹要有一些动效和交互效果」）：
                    hover 时整行轻微上浮 1px —— 只动 transform，不动布局（不引起回流）。 */
                 transform: !checked && hoverRow === typeDef.key ? 'translateY(-1px)' : 'none',
@@ -338,7 +345,7 @@ export default function SizingPanel({
                 {/* 图标 + 标签 */}
                 <ImageTypeBadge iconKey={typeDef.iconKey} checked={checked} hovered={hoverRow === typeDef.key} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: FONT_SIZE.body, fontWeight: 600, color: checked ? 'var(--sb-state-selected-ink)' : 'var(--sb-text-primary)' }}>{typeDef.label}</div>
+                  <div style={{ fontSize: FONT_SIZE.body, fontWeight: checked ? 700 : 600, color: 'var(--sb-text-primary)' }}>{typeDef.label}</div>
                   <div style={{ ...helperTextStyle, marginTop: 1 }}>{typeDef.desc}</div>
                 </div>
 

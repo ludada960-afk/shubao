@@ -123,10 +123,19 @@ test('d-2 生成设置面板：hover 走中性色，selected 走品牌色（不�
 
 test('d-2 套图方案面板：勾选行与 hover 行使用不同底色 token', () => {
   const src = read('src/pages/Home/ec/SizingPanel.jsx');
-  assert.ok(
-    /checked\s*\?\s*'var\(--sb-state-selected-bg\)'\s*:\s*hoverRow[^?]*\?\s*'var\(--sb-state-hover-bg\)'/.test(src),
-    'checked 用品牌浅底、hover 用中性底，二者必须不同',
-  );
+  /* 判据（未变）：勾选行与 hover 行必须是**两条可区分的底色通道**。
+     2026-09-16 用户批注图8-②：「你现在整个被选中的都是紫色的，就是全是紫色的，字也是紫色的，
+     勾也是紫色的。遮罩也是紫色的，边缘也是紫色的，你觉得你这个是符合逻辑的吗？」
+     —— 确实不符合：**行是容器、勾才是状态**。原来把品牌紫同时刷在底/边/环/文字四处，
+     四个识别色（每类一个色）全被淹没。现在勾选行走中性强化（--sb-surface-tint），
+     品牌色只留在勾选框上。所以本条改为**解析两个分支再比较**，不再绑定具体 token 名。 */
+  const branches = src.match(/checked\s*\?\s*'([^']+)'\s*:\s*hoverRow[^?]*\?\s*'([^']+)'/);
+  assert.ok(branches, '必须能解析出 checked / hover 两条分支的底色 token');
+  assert.notEqual(branches[1], branches[2],
+    '勾选行与 hover 行必须用不同 token（否则用户分不清「已选」与「鼠标停在这」）');
+  assert.match(branches[1], /--sb-surface-tint|--sb-state-selected-bg/,
+    '勾选行只能用「选中 / 轻着色」语义的 token');
+  assert.match(branches[2], /--sb-state-hover-bg/, 'hover 行必须用 hover 语义 token');
 });
 
 test('d-2 首页模式切换：hover 只改描边（中性），selected 才上品牌色', () => {

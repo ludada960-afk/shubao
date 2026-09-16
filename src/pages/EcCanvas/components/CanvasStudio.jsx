@@ -806,7 +806,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
 const SUITE_PANEL_BUTTONS = Object.freeze([
   { key: 'settings', label: '生成设置', icon: SlidersHorizontal },
   { key: 'sizing', label: '套图方案', icon: Grid2X2 },
-  { key: 'sku', label: 'SKU变体', icon: Layers3 },
+  { key: 'sku', label: '商品规格', icon: Layers3 },
   { key: 'params', label: '商品信息', icon: Info },
   { key: 'copy', label: '内容规范', icon: FileText },
 ]);
@@ -823,7 +823,7 @@ const SUITE_PANEL_BUTTONS = Object.freeze([
    并且**没有任何一格需要被裁**（短文案全部完整显示）。 */
 const SUITE_PARAM_BUTTONS = Object.freeze([
   { key: 'sizing', label: '套图方案', icon: Grid2X2 },
-  { key: 'sku', label: 'SKU变体', icon: Layers3 },
+  { key: 'sku', label: '商品规格', icon: Layers3 },
   { key: 'params', label: '商品信息', icon: Info },
   { key: 'copy', label: '内容规范', icon: FileText },
 ]);

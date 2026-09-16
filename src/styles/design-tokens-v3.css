@@ -983,6 +983,27 @@
 }
 
 /* ── 铁律 2/3 的实现类：面板内选项控件（hover 与 selected 分离）────────── */
+/* ═══ 模型品牌标：常态收一点、hover 满格（2026-09-16 用户批注图1-①/图2-①）═══
+   与 .sb-opt 配套（模型选项行）。用 transform 而不是改尺寸 —— 不引起回流，
+   也不会让「图标占满整个框」变成默认状态。时长走权威动效 token。 */
+.ec-model-mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ec-model-mark > * {
+  transform: scale(0.88);
+  transition: transform var(--sb-dur-fast) var(--sb-ease-out);
+}
+.sb-opt:hover .ec-model-mark > *,
+.sb-opt[aria-pressed="true"] .ec-model-mark > *,
+.sb-opt[aria-checked="true"] .ec-model-mark > * {
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ec-model-mark > * { transition: none; }
+}
+
 .sb-opt {
   position: relative;
   display: flex; align-items: center; gap: var(--sb-space-2);

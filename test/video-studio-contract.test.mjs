@@ -33,7 +33,15 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /分析并生成方案/);
   assert.match(page, /确认生成方案/);
   /* 9-12 用户批注：积分统一放在按钮内（.shubao-gen-cta-points），左侧独立积分栏已去掉 */
-  assert.ok(page.includes(`分析并生成方案'}<span className="shubao-gen-cta-points">{ANALYSIS_POINTS} 积分</span>`), '方案分析积分显示在按钮内');
+  /* 2026-09-16 用户批注（图2-② / 图3-①，第三次追问）：「现在不是已经有预设了一套方案在这里吗？
+     为什么你的积分还是一积分呢？……肯定是按他整个视频要收多少钱去告诉他呀。」
+     —— 按钮上显示的是**整个任务的总价**（方案分析 + 成片预估），且随模型/时长实时变化。
+     本条守的判据一字未变：积分统一放在按钮内、不再有左侧独立积分栏。 */
+  assert.ok(page.includes('<span className="shubao-gen-cta-points"'), '积分必须在按钮内');
+  assert.match(page, /\{totalJobPoints \|\| ANALYSIS_POINTS\} 积分/, '未确认方案时按钮显示的是整个任务的总价');
+  assert.match(page, /const totalJobPoints = estimatedPoints > 0 \? estimatedPoints \+ ANALYSIS_POINTS : 0;/,
+    '总价 = 方案分析 + 成片预估（成片预估来自服务端报价，随配置变化）');
+  assert.ok(!page.includes('video-submit-meta'), '左侧独立积分栏不得回归');
   assert.match(page, /const ANALYSIS_POINTS = 1;/);
   assert.match(page, /video-generate-trigger shubao-gen-cta/);
   assert.match(page, /analyzeVideoPlan/);
@@ -69,8 +77,13 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /引用素材/);
   assert.match(page, /providerLabel/);
   assert.match(page, /tierLabel/);
-  assert.match(page, /limitations/);
-  assert.match(page, /AI 积分 \/ 次/);
+  /* 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？你只要保留一套就好了呀。
+     然后你的积分其实是不能在这里说的。」—— 模型列表原本一行塞了 4 段文字
+     （型号+档位 / 描述 / 限制 / 积分），现在只留**一段描述**。
+     判据随之更新：列表只能有一段描述，且不得再列积分（积分只出现在右下角按钮上）。 */
+  assert.match(page, /product\.description/, '模型列表必须保留一段描述');
+  assert.ok(!/<small className="video-model-limit">/.test(page), '不得再单独铺限制文案（列表只留一套描述）');
+  assert.ok(!/AI 积分 \/ 次/.test(page), '模型列表不得再写积分（积分只出现在右下角按钮上）');
   assert.doesNotMatch(page, /quickUploadRef/);
   assert.doesNotMatch(page, /脚本成片无需参考素材/);
   assert.doesNotMatch(page, /\{ key: 'mode'/);
@@ -88,7 +101,11 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(styles, /\.video-material-action\.is-image/);
   assert.match(styles, /\.video-media-preview/);
   assert.match(styles, /\.video-inline-menu/);
-  assert.match(page, /AI 积分 \/ 次/);
+  /* 2026-09-16：模型列表里的「N AI 积分 / 次」已按用户批注（图2-②「你的积分其实是不能在这里说的」）
+     移除；积分改为统一显示在右下角生成按钮上（.shubao-gen-cta-points），
+     且显示的是整个任务的总价。本条守的判据改为：**积分必须在按钮上随配置动态显示**。 */
+  assert.match(page, /shubao-gen-cta-points/, '积分必须显示在生成按钮内');
+  assert.match(page, /totalJobPoints/, '按钮上的积分必须是动态总价');
   assert.match(page, /disabled=\{!canGenerate\}/);
   assert.match(page, /video-composer/);
   assert.match(page, /video-config-trigger/);

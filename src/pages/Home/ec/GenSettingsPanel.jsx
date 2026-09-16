@@ -166,13 +166,19 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
      Gemini 之所以没被点名：它的标是异形/无底，外框看不出来。
      修法：**去掉外层底**，让品牌标自己就是那一层（文字标 OpenAI/MJ 自带浅底，
      图片标自带圆角），尺寸也不再打 0.72 折。一行一个图标，一眼一个品牌。 */
+  /* hover 时轻微放大（2026-09-16 用户批注图1-①/图2-①）：「当鼠标放上去的时候，它会自动放大，
+     动一下，这样子我觉得会更好一些」「鼠标放到哪一个选项上，它的这个图标应该会自动放大一点。
+     你现在的情况好像是图标已经占满了整个的框。我觉得你不用完全占满，就是你应该在鼠标放上去的
+     时候再让他占满」—— 所以**常态收一点、hover 满格**：常态 0.88 倍，hover 回到 1 倍。 */
   const modelIcon = (model, size) => (
-    <ModelLogo
-      logo={brandLogo(model.brand)}
-      size={size}
-      radius={Math.round(size * 0.28)}
-      style={{ display: 'block' }}
-    />
+    <span className="ec-model-mark" style={{ width: size, height: size }}>
+      <ModelLogo
+        logo={brandLogo(model.brand)}
+        size={size}
+        radius={Math.round(size * 0.28)}
+        style={{ display: 'block' }}
+      />
+    </span>
   );
 
   return (

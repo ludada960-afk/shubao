@@ -9,7 +9,13 @@
 :root {
   /* 底部按钮区（.ec-canvas-zoom-controls: bottom 14px + 高 42px）顶部 = 56px */
   --ec-canvas-bottombar-top: 56px;
-  --ec-canvas-panel-gap: 14;
+  /* ⚠️ 这里原本是 `14`（**漏了 px 单位**）—— 于是所有 `calc(… + var(--ec-canvas-panel-gap))`
+     全部变成非法值，整条声明被浏览器丢弃：
+       · .ec-wm-panel 的 bottom / max-height 丢 → 水印面板回落到静态位置；
+       · .ec-canvas-minimap 的 bottom 丢 → 小地图 `position:absolute` 没有 top/bottom，
+         直接掉到**静态位置 = 左上角**（正是用户批注图12-① 看到的「小地图弹到左上角」）。
+     一处缺单位，两个表面同时坏 —— 而且单测全绿（这是纯运行时 CSS 行为）。 */
+  --ec-canvas-panel-gap: 14px;
 }
 
 /* ── 面板本体：停靠在底栏之上 ───────────────────────────────────────────── */

@@ -82,10 +82,16 @@ test('② 拉伸上限受栏内可视空间约束，按钮组始终可见', () =
   assert.ok(modal.includes('available='), '必须传入可用高度上限');
   assert.ok(modal.includes('minHeight={132}'), '下限保持 132px（约 4-5 行，仍然好写）');
   assert.ok(modal.includes('maxHeight='), '必须有明确上限，避免把按钮组推出可视区');
-  /* 上限必须是「视口高度的一个比例」（<100%），保证拉到顶时表单其余部分仍在弹窗内 */
+  /* 2026-09-16 用户批注图6-①：「你这边的技能提示词是不是又出问题了呀？你为什么搞这么小呢？
+     你这个框明显是可以往下拉满的呀。下面留那么多空白，要干嘛呢？」
+     —— 原来用「视口高度 × 0.34 / 0.46」拍脑袋，在 813px 视口下只给出 ~276px，
+     而编辑栏里实际有 ~600px 空白。现在改成**实测栏内剩余空间**（栏底 − 字段顶 − 底部占位）。
+     本条守的判据一字未变：**上限必须受栏内可视空间约束、按钮组始终可见** ——
+     实测空间比视口比例更严格地满足这一条（它连提示行与按钮组的真实高度都扣掉了）。 */
   const maxExpr = modal.match(/maxHeight=\{([^}]*)\}/);
   assert.ok(maxExpr, 'maxHeight 必须由表达式计算，而不是写死像素');
-  const factor = Number((maxExpr[1].match(/\*\s*0?\.(\d+)/) || [])[1]);
-  assert.ok(factor > 0 && factor < 100, '上限必须是视口高度的一个小于 100% 的比例：' + maxExpr[1]);
+  assert.match(maxExpr[1], /bodyAvailable/, '上限必须来自实测的栏内可用空间（bodyAvailable）');
+  assert.ok(modal.includes('columnBottom - fieldTop - used'),
+    '必须真的有测量表达式（栏底 − 字段顶 − 底部占位），而不是换了个变量名继续拍脑袋');
   assert.ok(!/max-height:\s*46vh/.test(css), '旧的 46vh CSS 上限已被受控组件取代，避免双重约束打架');
 });

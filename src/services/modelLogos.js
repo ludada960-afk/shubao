@@ -1,7 +1,8 @@
 /**
  * 模型品牌标识（2026-09-11 用户：模型选项的 LOGO 不对，照竞品那套做）。
  * - 有官方标识的用 public/logos/*.svg（从 simple-icons 取件、已入库，单文件 0.4～2KB）；
- * - 没有可公开取件的品牌（OpenAI / Midjourney）用同尺寸的品牌色字标胶囊兜底，不伪造他人 logo。
+ * - OpenAI 取官方 Blossom 标识（openai.com/brand，抽单枚矢量路径，未改形）；Midjourney 官方无公开品牌页，
+ *   用社区 MIT 图标库 @lobehub/icons-static-svg 的同款标识。两者均写死品牌色（<img> 下 currentColor 不生效）。
  * - 尺寸与竞品一致：方形小标（16～18px），旁边跟模型名。
  */
 export const BRAND_LOGOS = Object.freeze({
@@ -15,8 +16,8 @@ export const BRAND_LOGOS = Object.freeze({
   qwen: { src: '/logos/qwen.svg', color: '#615CED', label: '通义千问' },
   deepseek: { src: '/logos/deepseek.svg', color: '#4D6BFE', label: 'DeepSeek' },
   anthropic: { src: '/logos/anthropic.svg', color: '#D97757', label: 'Anthropic' },
-  openai: { chip: 'GPT', color: '#10A37F', label: 'OpenAI' },
-  midjourney: { chip: 'MJ', color: '#1A1A1A', label: 'Midjourney' },
+  openai: { src: '/logos/openai.svg', color: '#10A37F', label: 'OpenAI' },
+  midjourney: { src: '/logos/midjourney.svg', color: '#1A1A1A', label: 'Midjourney' },
   seedream: { src: '/logos/bytedance.svg', color: '#325AB4', label: '即梦 Seedream' },
 });
 
