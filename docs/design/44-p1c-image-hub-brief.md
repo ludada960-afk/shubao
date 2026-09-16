@@ -41,3 +41,21 @@
 ## 交付
 - `src/skills/imageSkills.js`（声明源）+ Hub 页面 + 工作台页面 + 门禁测试（挂 BLOCKING）。
 - 回报：新增/改动文件清单、门禁断言条数、`npm run precommit` 结果、commit hash、以及**未做项**（如实列出）。
+---
+
+## 附：图片侧接线地图（2026-09-16 实测定位，省掉下一轮的考古）
+
+前两轮在「找到图片侧上传区」这一步上耗掉了整轮，这里把结论钉死：
+
+| 位置 | 是什么 | 接线目标 |
+|---|---|---|
+| `src/pages/Home/XhsContentMode.jsx`（113/178/1121/1152/1418 行） | **XhsSupplementDeck** —— 小红书图文的素材补充区，也是图片侧素材卡的**原型实现**（电商生图与自由创作都复用它的结构） | 换成 `MediaAssetCard`（唯一实现），删掉它内部手写的卡片结构 |
+| `src/pages/Home/VisualCreationMode.jsx`（910 行注释、1009 行计数） | 自由创作：「我的素材 ≤6 / 风格参考 ≤3」两桶，注释里写明"照小红书 XhsSupplementDeck 的完整结构（ec-xhs-media-column 包媒体条）" | 跟随 XhsSupplementDeck 一起换，不单独改 |
+| `src/pages/Home/ec/DesignDirection.jsx`（26/848 行） | 电商生图的参考素材上传 | 同上 |
+| `src/pages/Home/VisualCreationMode.css`（524 行起） | 素材条/媒体列的样式 | 卡片样式删掉，只保留布局；卡片视觉交给 `MediaAssetCard.css` |
+
+接线顺序（一轮一件，每件都跑门禁）：
+1. `XhsSupplementDeck` → `MediaAssetCard`（因为另外两处复用它，这一步的收益最大）；
+2. `VisualCreationMode` 跟随验证（它复用同一结构，预期无需改动）；
+3. `DesignDirection` 单独接；
+4. 门禁补一条：图片侧三处也不得再手写素材卡（与视频侧同一条判据）。
