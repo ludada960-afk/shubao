@@ -284,8 +284,9 @@ test('compiles an approved generation draft without billing or provider mutation
     sourceProjectAssetId: 'route-upload', stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
   store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
     versionId: version.id, expectedRevision: asset.revision });
+  /* 分镜时长必须是产品契约里的合法档位：seedance 只认 5/10/15 秒，6 秒会被预检拦下。 */
   const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
-    purpose: '产品亮相', durationMs: 6000, prompt: '镜头从远景推进到产品特写' });
+    purpose: '产品亮相', durationMs: 5000, prompt: '镜头从远景推进到产品特写' });
   store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
     assetId: asset.id, assetVersionId: version.id, role: 'scene' });
   const headers = signedHeaders(sessionTokens, ownerEmail);
@@ -1157,8 +1158,9 @@ test('preflight route enforces governance without creating a paid generation job
     stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
   store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
     versionId: version.id, expectedRevision: asset.revision });
+  /* 同上：分镜时长必须是合法档位（5/10/15），否则预检会拦下。 */
   const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
-    purpose: '产品亮相', durationMs: 6000, prompt: '镜头从远景推进到产品特写' });
+    purpose: '产品亮相', durationMs: 5000, prompt: '镜头从远景推进到产品特写' });
   store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
     assetId: asset.id, assetVersionId: version.id, role: 'scene' });
   const headers = signedHeaders(sessionTokens, ownerEmail);

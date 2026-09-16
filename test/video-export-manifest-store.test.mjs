@@ -30,7 +30,7 @@ function seedWorkbench(store, projectId) {
   store.approveAssetVersion({ ownerEmail: OWNER, projectId, assetId: videoAsset.id,
     versionId: videoVersion.id, expectedRevision: videoAsset.revision });
   const shot = store.createShot({ ownerEmail: OWNER, projectId, position: 0,
-    purpose: '产品亮相', durationMs: 4000, prompt: '稳定镜头' });
+    purpose: '产品亮相', durationMs: 5000, prompt: '稳定镜头' });
   store.bindShotAssetVersion({ ownerEmail: OWNER, projectId, shotId: shot.id,
     assetId: videoAsset.id, assetVersionId: videoVersion.id, role: 'product' });
   const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId, shotId: shot.id,

@@ -34,7 +34,8 @@ const preflight = buildVideoRendererPreflight({
   plan: {
     status: 'ready',
     options: { productId: 'seedance_standard', mode: 'smart', resolution: '720p', generateAudio: false },
-    shots: [{ id: 'shot-1', durationMs: 4000 }], totalDurationMs: 4000, quote: { points: 62 },
+    /* 镜头时长必须是合法档位：seedance 标准档只认 5/10/15 秒 */
+    shots: [{ id: 'shot-1', durationMs: 5000 }], totalDurationMs: 5000, quote: { points: 62 },
   },
   workbench: {
     assets: [{ id: 'scene-1', kind: 'scene' }],

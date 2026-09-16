@@ -2,6 +2,7 @@ import {
   VIDEO_CATALOG_VERSION,
   DEFAULT_VIDEO_PRODUCT_ID,
   getVideoProduct,
+  nearestSupportedDuration,
   validateVideoProductInput,
   videoFeatureSku,
 } from './videoCatalog.mjs';
@@ -91,8 +92,12 @@ function referenceCounts(workbench, shots) {
   return counts;
 }
 
-function quoteForShot(productId, durationMs) {
-  const duration = Math.max(4, Math.min(15, Math.ceil(Number(durationMs || 0) / 1000)));
+/* 分镜毫秒 → 计费秒数：必须吸附到产品契约里的**合法档位**。
+   原来的 Math.max(4, Math.min(15, …)) 会造出 4 秒这种上游拒收的时长
+   （seedance 2.0 只认 5/10/15），videoFeatureSku 会直接抛错。 */
+function quoteForShot(product, durationMs) {
+  const productId = product.id;
+  const duration = nearestSupportedDuration(product, Math.ceil(Number(durationMs || 0) / 1000));
   const sku = videoFeatureSku({ productId, duration });
   const quote = quoteFeature(sku, 1);
   return {
@@ -118,7 +123,8 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     if (product.public === false) throw new Error(`${product.label} 暂不向普通账号开放`);
     validateVideoProductInput({
       productId: normalized.productId,
-      duration: Math.max(product.durations.min, Math.min(product.durations.max, 8)),
+      /* 校验用的时长取产品的最小合法档位（不是写死的 8 —— 标准档只认 5/10/15）。 */
+      duration: nearestSupportedDuration(product, product.durations.min),
       mode: normalized.mode === 'smart' ? 'script' : normalized.mode,
       resolution: normalized.resolution,
       generateAudio: normalized.generateAudio,
@@ -148,7 +154,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
         blockers.push(blocker('ASSET_NOT_APPROVED', '分镜引用的素材版本不是当前已确认版本。', shotId));
       }
     });
-    const quote = product ? quoteForShot(normalized.productId, durationMs) : null;
+    const quote = product ? quoteForShot(product, durationMs) : null;
     if (quote) lineItems.push({ shotId, ...quote });
     const direction = normalizeShotDirection(shot?.direction, shot?.cameraLanguage);
     return {
@@ -172,7 +178,9 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
       preferredProductId: normalized.productId,
       mode: normalized.mode,
       resolution: normalized.resolution,
-      durationSec: Math.max(4, Math.min(15, Math.ceil((longestShotDurationMs || 8000) / 1000))),
+      durationSec: product
+        ? nearestSupportedDuration(product, Math.ceil((longestShotDurationMs || 8000) / 1000))
+        : Math.max(4, Math.min(15, Math.ceil((longestShotDurationMs || 8000) / 1000))),
       generateAudio: normalized.generateAudio,
       referenceCounts: referenceCounts(workbench, shots),
       objective: normalized.routingObjective,

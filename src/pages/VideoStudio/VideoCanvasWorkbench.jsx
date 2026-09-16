@@ -119,7 +119,7 @@ import {
 } from './videoCanvasModel.js';
 import { reusableProjectAssets, candidateJobsForProject, nextShotPosition, nextTimelinePosition, selectedCandidateForShot } from './videoProjectWorkbenchModel.js';
 import { availableUploadedAssets } from './videoProjectWorkbenchModel.js';
-import { quoteForVideoProduct, snapVideoDuration, videoDurationOptions } from './videoStudioModel.js';
+import { quoteForVideoProduct, snapVideoDuration, videoDurationChoices, videoDurationOptions } from './videoStudioModel.js';
 import './VideoCanvasWorkbench.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -1447,7 +1447,10 @@ export default function VideoCanvasWorkbench({
             {expandedShots[node.shotId] && shot && <div className="vcb-shot-editor" data-no-drag>
               <input aria-label={'镜头' + (shotIndex + 1) + '目的'} value={shotDrafts[node.shotId]?.purpose ?? shot.purpose} onChange={event => setShotDrafts(current => ({ ...current, [node.shotId]: { ...current[node.shotId], purpose: event.target.value } }))} />
               <textarea aria-label={'镜头' + (shotIndex + 1) + '提示'} rows={2} value={shotDrafts[node.shotId]?.prompt ?? shot.prompt} onChange={event => setShotDrafts(current => ({ ...current, [node.shotId]: { ...current[node.shotId], prompt: event.target.value } }))} />
-              <label><span>秒</span><input type="number" min="0.5" step="0.5" value={shotDrafts[node.shotId]?.duration ?? shot.durationMs / 1000} onChange={event => setShotDrafts(current => ({ ...current, [node.shotId]: { ...current[node.shotId], duration: event.target.value } }))} /></label>
+              {/* 分镜是「每镜一次生成」，所以分镜时长同样只能取产品声明的合法档位
+                  （seedance 2.0 只认 5/10/15 秒）——原来这里是 0.5 秒步长的自由输入框，
+                  填 3.5 秒的计划会在预检阶段被拦下，等于让用户走进死路。 */}
+              <label><span>秒</span><select aria-label={'镜头' + (shotIndex + 1) + '时长'} value={snapVideoDuration(product, shotDrafts[node.shotId]?.duration ?? shot.durationMs / 1000)} onChange={event => setShotDrafts(current => ({ ...current, [node.shotId]: { ...current[node.shotId], duration: Number(event.target.value) } }))}>{videoDurationChoices(product).map(seconds => <option key={seconds} value={seconds}>{seconds}</option>)}</select></label>
               <button type="button" data-no-drag disabled={Boolean(busy)} onClick={() => handleSaveShot(shot)}>保存调整</button>
               {!!completedJobs.length && <div className="vcb-shot-imports">
                 <span>导入已完成任务为候选：</span>

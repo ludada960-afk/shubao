@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildVideoWorkbenchPlan } from '../server/videoWorkbenchPlan.mjs';
+import { VIDEO_CATALOG_VERSION } from '../server/videoCatalog.mjs';
 
 function workbench(overrides = {}) {
   return {
@@ -62,7 +63,8 @@ test('builds a bounded per-shot quote for a valid three-shot plan', () => {
   assert.equal(plan.status, 'ready');
   assert.equal(plan.shots.length, 3);
   assert.equal(plan.totalDurationMs, 30000);
-  assert.equal(plan.quote.catalogVersion, 'video-products-2026-08-12-v3');
+  /* 版本号引用单一事实源，不在测试里再写一份字面量（升版时只改 videoCatalog）。 */
+  assert.equal(plan.quote.catalogVersion, VIDEO_CATALOG_VERSION);
   // 2026-08-26 终案后标准档积分：短(≤8s)=46 分、长(>8s)=57 分；46+57+57=160。
   assert.equal(plan.quote.points, 160);
   assert.equal(plan.quote.maximumPoints, 160);

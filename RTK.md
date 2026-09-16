@@ -1954,3 +1954,53 @@ click 事件永远不会触发**。用户看到的就是「有素材、能点开
 + **故意发非法参数**（非法 ratio / 非法时长）让上游先把请求拦下 —— 被拦 = 渠道活着且报文口径对得上，
 既验证了可达性又不产生任务。此后一律先跑零成本探针，真实出片只在需要验证出片链路时、且经用户点头才跑。
 
+## 2026-09-16 批次二十一：线上白屏 P0 —— 「构建绿 ≠ 页面能打开」
+
+### 现象与用户原话
+用户截图报「网站打不开了」：整页只有「页面出了点问题 / 发生了一个意外错误」和一个
+「Cannot access '...' before initialization」。线上从 **10:36（e9a2cd62 那次上线）** 起就是这个状态。
+
+### 根因（我造成的）
+`src/pages/Home/ec/SkillLibraryModal.jsx`：
+```
+useLayoutEffect(() => { … }, [open, kind, editing]);   // 第 61 行
+…
+const editing = Boolean(draft.id);                      // 第 115 行
+```
+**依赖数组在渲染期求值**，而 `editing` 要到第 115 行才初始化 →
+`ReferenceError: Cannot access 'editing' before initialization`（TDZ）→ 整页落到错误边界。
+责任提交是 e9a2cd62（本会话上一版），2d812fbe 仍带着它。修法：把 `const editing` 提到效果之前。
+
+### 为什么没被拦住（这一批真正的教训）
+当时的「上线验证」是 **HTTP 200 + release 符号链接 + 资源哈希逐字一致** —— 三条全绿。
+而且 `npm test` 全量绿、`npm run precommit` 全绿、源码语法完整性门禁也绿：
+**那段代码编译得非常好**。白屏只在「真的把页面渲染一遍」时才现形。
+一句话：**构建绿 ≠ 页面能打开；哈希一致 ≠ 用户能看到东西。**
+
+### 修法（体系，三件一起）
+1. `scripts/render-smoke.mjs`（新）：起静态服务跑**真实产物** → 无头浏览器渲染 →
+   断言「无 pageerror / 没有落到错误边界 / 首屏有内容」，任一不满足即 exit 1。
+   支持 `--dist` 与 `--path`，也可直接指向线上地址复核。
+2. 挂进两处：`npm run precommit` 的 `[2/4] 真实渲染冒烟`，以及
+   `deploy-production.ps1` 里「构建之后、上传之前」那一步。
+3. `test/no-tdz-before-init.test.mjs`（新，挂 BLOCKING）：按 AST 查
+   「同一函数作用域内 const/let 的引用早于声明」。自带两条自证
+   （白屏那种写法必须被抓到；嵌套闭包与 `?.` 成员访问不许误报）。
+   全仓扫 `src`（>200 文件、解析成功率 >95%）**0 处违规** —— 白屏那处是唯一一处。
+
+### 门禁自证（照本仓库的老规矩：门禁必须先证明自己会响）
+拿**线上那份坏产物**（`index-BzxheiJN.js`，与线上逐字一致）跑渲染冒烟：
+`✖ 落到错误边界：「页面出了点问题」+ ReferenceError: Cannot access '_e' before initialization`；
+修好之后同一份产物：`✔ 首屏 573 字、零运行时异常`。
+
+### 顺带发现的连带问题（都已修）
+- `videoRendererPreflight` 的时长只校验 `[min,max]`，不校验上游的秒档位白名单 ——
+  会放进「6 秒」这种上游必拒的时长，而预检是上线前最后一道。已补 `durationOptions` 判据。
+- `video-generation-reliability` 的失败行按**旧路由** `sd5-seedance-2.0` 写死，
+  而熔断按 `provider_route` 归集 —— 我改了 standard 的路由之后，熔断历史对不上，
+  断言会**假绿**。已改成从产品契约取当前 routeId。
+
+### 环境依赖（写给下一个人）
+渲染冒烟需要 `playwright`（本机 node_modules 已装，但**未声明进 package.json**）：
+缺了它会以 exit 1 明确报错并提示安装命令，**不会静默跳过** —— 门禁宁可失败也不许说假话。
+

@@ -9,10 +9,14 @@ import { VIDEO_CATALOG_VERSION } from '../server/videoCatalog.mjs';
 import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
 
 test('video pricing tier is derived server-side from delivery resolution and duration', () => {
-  assert.equal(videoFeatureSku({ productId: 'seedance_standard', duration: 4 }), 'video_seedance_standard_short');
+  /* 时长只能用产品契约里的合法档位（seedance 2.0 只认 5/10/15），
+     档位归属口径不变：≤8 秒计 short、>8 秒计 long。 */
+  assert.equal(videoFeatureSku({ productId: 'seedance_standard', duration: 5 }), 'video_seedance_standard_short');
   assert.equal(videoFeatureSku({ productId: 'seedance_standard', duration: 15 }), 'video_seedance_standard_long');
-  assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 8 }), 'video_seedance_fast_short');
-  assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 9 }), 'video_seedance_fast_long');
+  assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 5 }), 'video_seedance_fast_short');
+  assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 10 }), 'video_seedance_fast_long');
+  /* 白名单外的秒数必须直接拒绝，不得静默算成某一档 */
+  assert.throws(() => videoFeatureSku({ productId: 'seedance_fast', duration: 8 }), /只支持 5\/10\/15 秒/);
 });
 
 function createVideoGenerationHarness(t, overrides = {}) {
