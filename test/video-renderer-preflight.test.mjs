@@ -7,7 +7,8 @@ import {
   videoRendererPreflightPlanFingerprint,
 } from '../server/videoRendererPreflight.mjs';
 
-function fixture({ generateAudio = false, durationMs = 6000 } = {}) {
+/* 镜头时长必须是产品契约里的合法档位：seedance 标准档只认 5/10/15 秒（6000ms 会被预检拦下）。 */
+function fixture({ generateAudio = false, durationMs = 5000 } = {}) {
   const plan = {
     status: 'ready',
     options: {

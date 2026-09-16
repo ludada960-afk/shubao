@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+/* 产品当前路由从目录取，不在测试里写死：
+   2026-09-16 seedance_standard 的路由由 sd5-seedance-2.0 改成 seedance-2.0，
+   写死旧值会让假 provider 与 job.provider_route 失配，流程永远等下去（用例挂死）。 */
+const STANDARD_ROUTE = getVideoProduct('seedance_standard').routeId;
+
 import {
   buildProviderPayload,
   createVideoProviderRegistry,
@@ -27,7 +32,7 @@ test('Seedance adapter keeps the intermediary contract and maps every material l
   });
   const provider = registry.get('seedance_standard');
   assert.equal(provider.enabled, true);
-  assert.equal(provider.routeId, 'sd5-seedance-2.0');
+  assert.equal(provider.routeId, STANDARD_ROUTE);
 
   const payload = buildProviderPayload({
     product: getVideoProduct('seedance_standard'),
@@ -54,7 +59,7 @@ test('Seedance adapter keeps the intermediary contract and maps every material l
   assert.equal(payload.protocol, 'seedance');
   assert.equal(payload.path, '/videos');
   assert.deepEqual(payload.body, {
-    model: 'sd5-seedance-2.0',
+    model: STANDARD_ROUTE,
     prompt: '一只纸船穿过雨夜街道',
     duration: 8,
     ratio: '9:16',
@@ -107,7 +112,8 @@ test('MiniMax H3 adapter uses multimodal content and its own task endpoints', as
   });
   assert.equal(payload.protocol, 'minimax-h3');
   assert.equal(payload.path, '/videos');
-  assert.equal(payload.body.model, 'minimax-h3-2k');
+  /* 报文里的模型名 = 产品当前 routeId（从目录取，不在测试里写死）。 */
+  assert.equal(payload.body.model, getVideoProduct('minimax_h3_2k').routeId);
   assert.deepEqual(payload.body.content, [
     { type: 'text', text: '产品从桌面滑入光束中' },
     { type: 'image_url', image_url: { url: 'https://assets.example/first.png' }, role: 'first_frame' },

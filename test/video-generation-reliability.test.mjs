@@ -18,7 +18,7 @@ function providerRegistry() {
       return {
         enabled: true,
         productId,
-        routeId: 'sd5-seedance-2.0',
+        routeId: STANDARD_ROUTE,
         submit: async () => ({ id: 'test-task', progress: 0 }),
         get: async () => ({ status: 'processing', progress: 1 }),
         download: async () => { throw new Error('download is not used by this test'); },
@@ -201,7 +201,7 @@ test('a failed credit release remains truthful and is recoverable', async t => {
   const failingRegistry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => ({ id: 'provider-failed-task', progress: 0 }),
       get: async () => ({ status: 'failed', progress: 0 }),
       download: async () => { throw new Error('download must not run'); },
@@ -282,7 +282,7 @@ test('a delivered video is preserved while settlement is reconciled without refu
   const completedRegistry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => ({ id: 'provider-completed-task', progress: 0 }),
       get: async () => ({ status: 'completed', progress: 100 }),
       download: async () => new Response(Buffer.from('video-output'), {
@@ -368,7 +368,7 @@ test('a settled delivery retries only the failed works projection', async t => {
   const registry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => ({ id: 'provider-projection-task', progress: 0 }),
       get: async () => ({ status: 'completed', progress: 100 }),
       download: async () => new Response(Buffer.from('video-output'), {
@@ -454,7 +454,7 @@ test('an unknown provider submission expires to an automatic credit release', as
   const unknownSubmissionRegistry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => {
         const error = new Error('submission response was lost');
         error.code = 'VIDEO_PROVIDER_UNREACHABLE';
@@ -537,7 +537,7 @@ test('an operator can attach the recovered provider task without resubmitting', 
   const registry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => {
         submitCalls += 1;
         const error = new Error('submission response was lost');
@@ -625,8 +625,8 @@ test('provider attempts are durable before submission and retain the accepted ta
   const registry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
-      model: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
+      model: STANDARD_ROUTE,
       submit: async (_payload, key) => {
         submissionKey = key;
         const attempt = db.prepare('SELECT * FROM video_job_attempts WHERE submission_key = ?').get(key);
@@ -695,8 +695,8 @@ test('provider delivery streams to disk without buffering the complete video', a
   const registry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
-      model: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
+      model: STANDARD_ROUTE,
       submit: async () => ({ id: 'stream-task', progress: 0 }),
       get: async () => ({ status: 'completed', progress: 100 }),
       download: async () => ({
@@ -761,7 +761,7 @@ test('a truncated provider delivery is removed and never settled', async t => {
   const registry = {
     get: () => ({
       enabled: true,
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => ({ id: 'truncated-task', progress: 0 }),
       get: async () => ({ status: 'completed', progress: 100 }),
       download: async () => ({

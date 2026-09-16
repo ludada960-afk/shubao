@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { getVideoProduct } from '../server/videoCatalog.mjs';
 import { spawnSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -11,6 +12,11 @@ import { publicVideoProducts } from '../server/videoCatalog.mjs';
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
 import { createVideoProjectBridge } from '../server/videoProjectBridge.mjs';
 import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
+
+/* 产品当前路由从目录取，不在测试里写死：
+   2026-09-16 seedance_standard 的路由由 sd5-seedance-2.0 改成 seedance-2.0，
+   写死旧值会让假 provider 与 job.provider_route 失配，流程永远等下去（用例挂死）。 */
+const STANDARD_ROUTE = getVideoProduct('seedance_standard').routeId;
 
 test('project bridge audit reports a missing video_assets schema as structured JSON', t => {
   const root = mkdtempSync(join(tmpdir(), 'video-project-audit-'));
@@ -73,7 +79,7 @@ function draftJob() {
     negative_prompt: '不要水印',
     mode: 'reference',
     product_id: 'seedance_standard',
-    provider_route: 'sd5-seedance-2.0',
+    provider_route: STANDARD_ROUTE,
     catalog_version: 'video-products-v2',
     duration: 8,
     aspect_ratio: '9:16',
@@ -215,7 +221,7 @@ test('completed video jobs converge through billing, project lineage, works proj
     get: () => ({
       enabled: true,
       productId: 'seedance_standard',
-      routeId: 'sd5-seedance-2.0',
+      routeId: STANDARD_ROUTE,
       submit: async () => ({ id: 'provider-project-task', progress: 0 }),
       get: async () => ({ status: 'completed', progress: 100 }),
       download: async () => new Response(Buffer.from('project-video'), {

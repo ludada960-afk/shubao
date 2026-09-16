@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { getVideoProduct } from '../server/videoCatalog.mjs';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -7,6 +8,11 @@ import { join } from 'node:path';
 import { createVideoGeneration, videoFeatureSku } from '../server/videoGeneration.mjs';
 import { VIDEO_CATALOG_VERSION } from '../server/videoCatalog.mjs';
 import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
+
+/* 产品当前路由从目录取，不在测试里写死：
+   2026-09-16 seedance_standard 的路由由 sd5-seedance-2.0 改成 seedance-2.0，
+   写死旧值会让假 provider 与 job.provider_route 失配，流程永远等下去（用例挂死）。 */
+const STANDARD_ROUTE = getVideoProduct('seedance_standard').routeId;
 
 test('video pricing tier is derived server-side from delivery resolution and duration', () => {
   /* 时长只能用产品契约里的合法档位（seedance 2.0 只认 5/10/15），
@@ -91,7 +97,7 @@ test('reference mode accepts a video-only reference job', async t => {
     input: {
       mode: 'reference',
       prompt: '保留节奏，参考这段视频',
-      duration: 8,
+      duration: 5,
       aspectRatio: '9:16',
       resolution: '720p',
       references: { videos: [video.id] },
@@ -119,7 +125,7 @@ test('reference mode rejects an audio-only reference job before billing', async 
       input: {
         mode: 'reference',
         prompt: '根据这段音频生成广告视频',
-        duration: 8,
+        duration: 5,
         aspectRatio: '9:16',
         resolution: '720p',
         references: { audios: [audio.id] },
@@ -141,7 +147,7 @@ test('reference mode rejects an empty reference job', async t => {
       input: {
         mode: 'reference',
         prompt: '没有参考素材',
-        duration: 8,
+        duration: 5,
         aspectRatio: '9:16',
         resolution: '720p',
         references: {},
@@ -162,13 +168,13 @@ test('new jobs persist the product, route, catalog version, and provider-cost sn
       productId: 'seedance_standard',
       mode: 'script',
       prompt: '固定价格快照测试',
-      duration: 8,
+      duration: 5,
       aspectRatio: '9:16',
       resolution: '720p',
     },
   });
   assert.equal(result.job.productId, 'seedance_standard');
-  assert.equal(result.job.providerRoute, 'sd5-seedance-2.0');
+  assert.equal(result.job.providerRoute, STANDARD_ROUTE);
   assert.equal(result.job.catalogVersion, VIDEO_CATALOG_VERSION);
   assert.equal(result.job.providerCostCny, 5.07);
 });
@@ -203,7 +209,7 @@ test('an owned editable workbench project is validated before billing and receiv
     publicBaseUrl: 'https://example.com',
     input: {
       projectId: 'video-project-1', productId: 'seedance_standard', mode: 'script',
-      prompt: '加入既有项目的开场镜头', duration: 8, aspectRatio: '16:9', resolution: '720p',
+      prompt: '加入既有项目的开场镜头', duration: 5, aspectRatio: '16:9', resolution: '720p',
     },
   });
 
@@ -236,7 +242,7 @@ test('an invalid workbench target is rejected before wallet hold creation', asyn
     publicBaseUrl: 'https://example.com',
     input: {
       projectId: 'missing-project', productId: 'seedance_standard', mode: 'script',
-      prompt: '不会产生扣费', duration: 8, aspectRatio: '16:9', resolution: '720p',
+      prompt: '不会产生扣费', duration: 5, aspectRatio: '16:9', resolution: '720p',
     },
   }), error => error?.status === 404 && error?.code === 'PROJECT_NOT_FOUND');
   assert.equal(holds, 0);
@@ -270,7 +276,7 @@ test('a workbench plan hash must be approved before billing a project generation
     input: {
       projectId: 'video-project-1', workbenchPlanHash: 'a'.repeat(64),
       productId: 'seedance_standard', mode: 'script', prompt: '未确认的工作台镜头',
-      duration: 8, aspectRatio: '16:9', resolution: '720p',
+      duration: 5, aspectRatio: '16:9', resolution: '720p',
     },
   }), error => error?.status === 409 && error?.code === 'VIDEO_PLAN_APPROVAL_REQUIRED');
   assert.equal(holds, 0);
@@ -342,8 +348,8 @@ test('an accepted upstream task is never submitted again after retryable polling
   let pollCalls = 0;
   const provider = {
     enabled: true,
-    routeId: 'sd5-seedance-2.0',
-    model: 'sd5-seedance-2.0',
+    routeId: STANDARD_ROUTE,
+    model: STANDARD_ROUTE,
     submit: async () => { submitCalls += 1; return { id: 'accepted-task', progress: 0 }; },
     get: async () => {
       pollCalls += 1;
