@@ -8,27 +8,33 @@ import React, { useMemo, useState } from 'react';
    案例由 CaseCard 渲染 —— 页面里不许再手写任何配置控件。 */
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
+import { initialSkillValues } from '../../skills/skillRun.js';
 import WorkbenchShell from '../../components/media/WorkbenchShell.jsx';
 import CaseCard from '../../components/media/CaseCard.jsx';
 import '../../components/media/WorkbenchShell.css';
 import '../../components/media/CaseCard.css';
 import './SkillWorkbench.css';
 
-export default function SkillWorkbench({ board = 'image', skillId = '', values = {}, onFieldChange = () => {}, onBack = null, ctaPoints = null, onGenerate = null, history = [] }) {
+export default function SkillWorkbench({
+  board = 'image',
+  skillId = '',
+  values = {},
+  onFieldChange = () => {},
+  onBack = null,
+  ctaPoints = null,
+  ctaLabel = '立即生成',
+  ctaDisabled = false,
+  ctaHint = '',
+  status = null,
+  onGenerate = null,
+  history = [],
+}) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
   const [lightbox, setLightbox] = useState(null);
 
-  /* 字段默认值：把声明里的档位摊平成初始状态（页面不写死任何默认配置） */
-  const initial = useMemo(() => {
-    if (!skill) return {};
-    const seed = {};
-    for (const field of skill.fields) {
-      if (field.kind === 'stepper') seed[field.key] = Number(field.min || 1);
-      else seed[field.key] = '';
-    }
-    return seed;
-  }, [skill]);
+  /* 字段初始值来自声明源（skillRun.initialSkillValues）——与本页的下发参数同源 */
+  const initial = useMemo(() => (skill ? initialSkillValues(skill) : {}), [skill]);
   const current = { ...initial, ...values };
 
   if (!skill) {
@@ -37,6 +43,8 @@ export default function SkillWorkbench({ board = 'image', skillId = '', values =
 
   const cases = Array.isArray(skill.cases) ? skill.cases : [];
   const historyList = Array.isArray(history) ? history : [];
+  /* ⚠️ 大图必须跟着**当前页签**取图：历史页签里点开"示例"的图，就是图文不符的 bug。 */
+  const shown = activeTab === 'history' ? historyList : cases;
 
   return (
     <section className="skill-workbench" data-board={board}>
@@ -48,8 +56,11 @@ export default function SkillWorkbench({ board = 'image', skillId = '', values =
         fields={skill.fields}
         values={current}
         onFieldChange={onFieldChange}
-        ctaLabel="立即生成"
+        ctaLabel={ctaLabel}
         ctaPoints={ctaPoints}
+        ctaDisabled={ctaDisabled}
+        ctaHint={ctaHint}
+        status={status}
         onCta={() => onGenerate?.({ skillId: skill.id, values: current })}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -71,14 +82,14 @@ export default function SkillWorkbench({ board = 'image', skillId = '', values =
       {lightbox != null && (
         <div className="skill-workbench-lightbox" role="dialog" aria-modal="true" onMouseDown={event => { if (event.target === event.currentTarget) setLightbox(null); }}>
           <div className="skill-workbench-lightbox-body">
-            <button type="button" className="skill-workbench-lightbox-nav is-prev" aria-label="上一张" onClick={() => setLightbox((lightbox - 1 + cases.length) % cases.length)}>‹</button>
+            <button type="button" className="skill-workbench-lightbox-nav is-prev" aria-label="上一张" onClick={() => setLightbox((lightbox - 1 + shown.length) % shown.length)}>‹</button>
             <figure>
-              {cases[lightbox]?.video
-                ? <video src={cases[lightbox].video} controls autoPlay muted />
-                : <img src={cases[lightbox]?.cover || ''} alt={cases[lightbox]?.title || ''} />}
-              <figcaption>{cases[lightbox]?.title || skill.name}</figcaption>
+              {shown[lightbox]?.video
+                ? <video src={shown[lightbox].video} controls autoPlay muted />
+                : <img src={shown[lightbox]?.cover || ''} alt={shown[lightbox]?.title || ''} />}
+              <figcaption>{shown[lightbox]?.title || skill.name}</figcaption>
             </figure>
-            <button type="button" className="skill-workbench-lightbox-nav is-next" aria-label="下一张" onClick={() => setLightbox((lightbox + 1) % cases.length)}>›</button>
+            <button type="button" className="skill-workbench-lightbox-nav is-next" aria-label="下一张" onClick={() => setLightbox((lightbox + 1) % shown.length)}>›</button>
             <button type="button" className="skill-workbench-lightbox-close" aria-label="关闭" onClick={() => setLightbox(null)}>×</button>
           </div>
         </div>

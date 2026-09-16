@@ -98,3 +98,45 @@
 .media-workbench-tabs button.is-active { background: var(--sb-surface-card); color: var(--sb-ink-1); box-shadow: 0 0 0 1px rgba(17, 20, 45, .1); }
 .media-workbench-pane { min-height: 200px; }
 .media-workbench-empty { margin: 0; padding: 28px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }
+
+/* ── 上传位（FieldRenderer 的 upload 档）───────────────────────────────────────
+   缩略图直接用 MediaAssetCard 的唯一实现（扇形歪卡是本站的素材卡语言），
+   这里只负责排布与尺寸，不重复定义卡片视觉。
+   失败态就地留在卡下方并可重试 —— 不做瞬时 Toast（本项目铁律）。 */
+.media-field-upload { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 8px; }
+.media-field-upload-item { display: grid; gap: 5px; justify-items: start; }
+.media-field-upload .media-asset-card { width: 104px; }
+.media-field-upload .media-asset-card + .media-asset-card { margin-left: -14px; }
+.media-field-upload-add {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  width: 104px;
+  min-height: 78px;
+  padding: 8px 6px;
+  border: 1px dashed var(--sb-border-default);
+  border-radius: 14px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+.media-field-upload-add:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-field-upload-add:disabled { opacity: .5; cursor: not-allowed; }
+.media-field-upload-add small { font-size: 11px; color: var(--sb-ink-3); }
+.media-field-upload-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
+  font-size: 11px;
+  cursor: pointer;
+}
+.media-field-upload-retry:hover { background: var(--sb-brand-600); color: var(--sb-surface-card); }
+
+.media-workbench-cta-hint { margin: 0; font-size: 11px; color: var(--sb-ink-3); }

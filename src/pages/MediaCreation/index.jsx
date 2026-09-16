@@ -1,37 +1,56 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Download, RotateCcw, Sparkles } from 'lucide-react';
 
 /* ═══ 媒体板块页（图片 / 视频共用一个页面）═══════════════════════════════════════
    做法参照竞品实测：**一个页面按 ?id= 渲染全部技能**（他们也是 /image-creation?id=<skillId>），
    而不是"一个技能一个页面文件" —— 这是能不能批量做到 40+ 个技能的前提。
-   但表达是我们自己的：分组、卡片、文案、配色全部来自我们的声明源与 --sb-* token。
+   表达是我们自己的：分组、卡片、文案、配色全部来自声明源与 --sb-* token。
 
-   两个视图：
-     · 没有 ?id= → Hub（分组 + 案例卡网格）
-     · 有   ?id= → Skill 工作台（左配置 + 右「示例 / 历史」）
-   URL 是唯一事实源：点卡进工作台、返回键、前进键都靠它同步（可直接分享链接）。 */
+   三个视图：
+     · 无 ?id=            → Hub（分组 + 案例卡网格）
+     · 有 ?id= 且是轻技能 → Skill 工作台，**就地生成**（单图链路 /api/canvas/regenerate）
+     · 有 ?id= 且是重技能 → Skill 工作台，带着配置回到既有重流程（套图编排 / 小红书图文）
+   运行态复用既有模型（pages/Home/visualCreationModel.js 的 run/slot），
+   所以「进度 / 只重试失败项 / 存作品」的行为与自由创作完全一致，不另造一套。 */
 import { useApp } from '../../store/AppContext';
 import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
+import {
+  buildSkillRequest,
+  initialSkillValues,
+  isHandoffSkill,
+  skillGenerationSettings,
+  skillPointsEstimate,
+  validateSkillInput,
+} from '../../skills/skillRun.js';
+import {
+  buildVisualWorkRecord,
+  createVisualRun,
+  updateVisualRunSlot,
+  visualRetryIndexes,
+  visualRunIsBusy,
+} from '../Home/visualCreationModel.js';
+import { regenerateCanvasImage, saveWork } from '../../services/api';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import '../Home/MediaHub.css';
 import '../Home/SkillWorkbench.css';
 import './MediaCreation.css';
 
 const BOARD_BY_PAGE = { 'image-creation': 'image', 'video-creation': 'video' };
 
-/* 生成不在这里重写：工作台只负责"带着选好的配置进对应板块"，真正出图仍走既有引擎。 */
-const LAUNCH_BY_PIPELINE = {
-  visualCreation: { mode: 'visual' },
+/* 重流程（多分钟、多资产、带方案确认）不在这里重写：只把配置带回去。 */
+const HANDOFF_BY_PIPELINE = {
   ecommerceSuite: { mode: 'ecommerce', recipeId: 'product_suite' },
-  builtinSkill: { mode: 'ecommerce' },
   xhsNote: { mode: 'content', subMode: 'content' },
   videoSmart: { mode: 'video' },
   videoFrame: { mode: 'video' },
   videoRemake: { mode: 'video' },
   videoReference: { mode: 'video' },
 };
-/* 自由创作这条链路认识自己的四个子方向，其余新技能先落在「自由创作」里。 */
+const HANDOFF_LABEL = { ecommerceSuite: '去套图工作台', xhsNote: '去图文工作台' };
+const VIDEO_HANDOFF_LABEL = '去视频工作台';
 const VISUAL_SKILL_IDS = {
   'image.free': 'free',
   'image.poster': 'poster',
@@ -46,18 +65,80 @@ function skillFromUrl(board) {
   return board === 'video' ? (getVideoSkill(id) ? id : '') : (getImageSkill(id) ? id : '');
 }
 
+/* 错误就近显示：把人话放在 CTA 上方，而不是弹一个转瞬即逝的 Toast */
+function friendlyError(error) {
+  const message = String((error && error.message) || '').trim();
+  if (!message) return '生成失败，请重试';
+  if (/abort/i.test(message)) return '';
+  return message;
+}
+
+function RunPanel({ run, skillName, onRetry, onDownload, busy }) {
+  if (!run) return null;
+  const done = run.slots.filter(slot => slot.status === 'completed' && slot.url);
+  const failed = visualRetryIndexes(run);
+  const finished = !visualRunIsBusy(run);
+  return (
+    <section className="media-run" aria-live="polite">
+      <header className="media-run-head">
+        <strong>{busy ? '正在生成…' : (done.length ? skillName + ' · 本次结果' : '生成未完成')}</strong>
+        <span>{done.length}/{run.slots.length} 张</span>
+      </header>
+      <div className="media-run-grid">
+        {run.slots.map((slot, index) => (
+          <div className="media-run-slot" key={slot.id} data-status={slot.status}>
+            {slot.url
+              ? <img src={slot.url} alt={skillName + ' ' + (index + 1)} loading="lazy" />
+              : <span className="media-run-placeholder">{slot.status === 'failed' ? '失败' : (busy ? '生成中' : '待生成')}</span>}
+            {slot.error && <p className="media-run-error" role="alert">{slot.error}</p>}
+          </div>
+        ))}
+      </div>
+      {finished && failed.length > 0 && (
+        <div className="media-run-actions">
+          <p className="media-run-hint" role="alert">
+            <AlertCircle size={14} />{failed.length} 张没生成成功，可以只重试这几张（成功的不会重跑，也不会重复扣费）
+          </p>
+          <button type="button" className="media-run-retry" onClick={onRetry}><RotateCcw size={14} />只重试失败项</button>
+        </div>
+      )}
+      {finished && done.length > 0 && (
+        <div className="media-run-actions">
+          <a className="media-run-download" href={done[0].url} target="_blank" rel="noreferrer" download><Download size={14} />下载第一张</a>
+          <button type="button" className="media-run-again" onClick={onDownload}><Sparkles size={14} />重新生成一组</button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function MediaCreationPage() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshBillingBalance } = useApp();
   const board = BOARD_BY_PAGE[state.page] || 'image';
   const basePath = board === 'video' ? '/video-creation' : '/image-creation';
   const [skillId, setSkillId] = useState(() => skillFromUrl(board));
   const [values, setValues] = useState({});
+  const [run, setRun] = useState(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const runRef = useRef(null);
+  const abortRef = useRef(null);
 
   useEffect(() => {
     const sync = () => setSkillId(skillFromUrl(board));
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
   }, [board]);
+
+  /* 换技能 / 回 Hub 时清掉上一次的运行，避免"上一条技能的结果留在这一条上" */
+  useEffect(() => {
+    runRef.current = null;
+    setRun(null);
+    setError('');
+    setNotice('');
+  }, [board, skillId]);
+
+  useEffect(() => () => { try { abortRef.current?.abort?.(); } catch { /* 卸载时忽略 */ } }, []);
 
   const openSkill = useCallback(id => {
     window.history.pushState({}, '', basePath + '?id=' + encodeURIComponent(id));
@@ -77,38 +158,187 @@ export default function MediaCreationPage() {
     [board, skillId],
   );
 
-  const onGenerate = useCallback(({ skillId: id }) => {
-    const target = board === 'video' ? getVideoSkill(id) : getImageSkill(id);
-    if (!target) return;
-    const plan = LAUNCH_BY_PIPELINE[target.pipeline] || { mode: 'visual' };
-    const visualSkill = VISUAL_SKILL_IDS[target.id];
+  /* 生效值 = 声明源默认值 + 用户改动。校验、积分、下发参数一律基于它（与界面显示同源）。 */
+  const effectiveValues = useMemo(() => (skill ? { ...initialSkillValues(skill), ...values } : values), [skill, values]);
+  const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
+  const points = useMemo(() => (skill ? skillPointsEstimate(skill, effectiveValues) : 0), [skill, effectiveValues]);
+  const busy = visualRunIsBusy(run);
+  /* 历史：这条技能名下已保存的作品（saveWork 时写了 mediaSkillId，按它筛） */
+  const history = useMemo(() => {
+    const works = Array.isArray(state.works) ? state.works : [];
+    return works
+      .filter(work => work && (work.mediaSkillId === skill?.id))
+      .map(work => ({
+        id: String(work._saveKey || work.id || ''),
+        title: String(work.title || skill?.name || ''),
+        cover: (work.images?.[0]?.url) || (work.imageRecords?.[0]?.url) || '',
+      }))
+      .filter(item => item.cover);
+  }, [skill, state.works]);
+  /* 视频侧全部走既有视频工作台：视频是多分钟、带分镜与方案的流水线，
+     而且 videoSkills 目前没有 brief —— 就地生成会发出空提示词的扣费请求。 */
+  const handoff = board === 'video' || Boolean(skill && isHandoffSkill(skill));
+
+  /* 统一失焦：登录 / 余额不足交给既有守卫处理，其余就地显示 */
+  const handleError = useCallback((err) => {
+    const access = handleGenerationAccessError(err, dispatch, { source: 'visual_creation' });
+    if (access) return true;
+    const message = friendlyError(err);
+    if (message) setError(message);
+    return false;
+  }, [dispatch]);
+
+  /* ── 生成：命名函数，不用 useCallback 包 ──────────────────────────────────
+     ⚠️ runSlot 是**扣费点**（regenerateCanvasImage 内部会先报价再扣费）。
+        它只能由用户手势链调用：generate（CTA 的 onGenerate）与 retryFailed（重试按钮）。
+        **不许从 useEffect / 渲染期调用** —— 这条由 test/charge-requires-confirmation 守着，
+        所以这里刻意写成具名函数，让门禁能把调用链追溯到手势，而不是靠豁免放行。 */
+  async function runSlot(baseRun, index) {
+    const slot = baseRun.slots[index];
+    const request = buildSkillRequest(skill, effectiveValues, { runId: baseRun.id, slotIndex: index });
+    try {
+      const result = await regenerateCanvasImage({
+        prompt: request.prompt,
+        imageUrl: request.imageUrl,
+        referenceImages: request.referenceImages,
+        references: request.references,
+        ratio: request.ratio,
+        resolution: request.resolution,
+        imageModel: request.imageModel,
+        requestKey: slot.requestKey,
+        creationIntent: 'visual',
+        skillId: request.skillId,
+        includeMetadata: true,
+        signal: abortRef.current?.signal,
+      });
+      const next = updateVisualRunSlot(runRef.current, index, { status: 'completed', url: result.url, taskId: result.taskId || '', error: '' });
+      runRef.current = next;
+      setRun(next);
+      return true;
+    } catch (err) {
+      const next = updateVisualRunSlot(runRef.current, index, { status: 'failed', error: friendlyError(err) || '生成失败' });
+      runRef.current = next;
+      setRun(next);
+      handleError(err);
+      return false;
+    }
+  }
+
+  async function executeRun(baseRun, indexes) {
+    let current = indexes.reduce((acc, index) => updateVisualRunSlot(acc, index, { status: 'generating', error: '' }), baseRun);
+    runRef.current = current;
+    setRun(current);
+    setError('');
+    setNotice('');
+    abortRef.current = new AbortController();
+    await Promise.all(indexes.map(index => runSlot(current, index)));
+    await refreshBillingBalance?.().catch(() => undefined);
+    const finished = runRef.current;
+    if (finished && finished.slots.some(slot => slot.status === 'completed' && slot.url)) await persistRun(finished);
+  }
+
+  async function persistRun(finalRun) {
+    const settings = skillGenerationSettings(skill, effectiveValues);
+    const request = buildSkillRequest(skill, effectiveValues, { runId: finalRun.id });
+    try {
+      const record = buildVisualWorkRecord({
+        run: finalRun,
+        prompt: request.prompt,
+        skillId: settings.visualSkillId,
+        model: settings.imageModel,
+        ratio: settings.ratio,
+        resolution: settings.resolution,
+      });
+      /* 作品归到这条技能名下（buildVisualWorkRecord 只认四个视觉方向，这里补上我们的身份） */
+      const work = {
+        ...record,
+        product_name: skill.name,
+        title: skill.name,
+        category: skill.category,
+        visualSkillId: skill.id,
+        mediaSkillId: skill.id,
+        replay: { ...record.replay, mediaSkillId: skill.id, panelValues: { ...effectiveValues } },
+      };
+      const saved = await saveWork(work, state.phone);
+      dispatch({ type: 'SET_WORKS', works: [work, ...(Array.isArray(state.works) ? state.works.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id)) : [])].slice(0, 50) });
+      setNotice(saved ? '作品已保存，可在「我的作品」里继续编辑或下载' : '图片已完成，但作品云端保存暂时失败');
+      return work;
+    } catch (err) {
+      setNotice((err && err.message) || '图片已完成，但没有可保存的稳定图片');
+      return null;
+    }
+  }
+
+  /* CTA：用户手势入口① */
+  async function generate() {
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const check = validateSkillInput(skill, effectiveValues);
+    if (!check.ok) { setError('还差：' + check.missing.join('、')); return; }
+    setError('');
+    const settings = skillGenerationSettings(skill, effectiveValues);
+    const fresh = createVisualRun({ count: settings.count });
+    runRef.current = fresh;
+    setRun(fresh);
+    await executeRun(fresh, Array.from({ length: settings.count }, (_, index) => index));
+  }
+
+  /* 重试按钮：用户手势入口② —— 只重跑失败槽位（成功的不会重跑，也就不会重复扣费） */
+  async function retryFailedAssets() {
+    const current = runRef.current;
+    if (!current) return;
+    const indexes = visualRetryIndexes(current);
+    if (!indexes.length) return;
+    await executeRun(current, indexes);
+  }
+
+  function handoffToBoard() {
+    const plan = HANDOFF_BY_PIPELINE[skill.pipeline] || { mode: 'visual' };
+    const visualSkillId = VISUAL_SKILL_IDS[skill.id];
     dispatch({ type: 'NAVIGATE', page: 'home' });
     dispatch({ type: 'SET_MODE', mode: plan.mode });
     dispatch({
       type: 'SET_CREATION_LAUNCH',
       launch: {
         mode: plan.mode,
-        nonce: Date.now() + '-' + target.id,
+        nonce: Date.now() + '-' + skill.id,
         ...(plan.recipeId ? { recipeId: plan.recipeId } : {}),
         ...(plan.subMode ? { subMode: plan.subMode } : {}),
-        ...(visualSkill ? { skillId: visualSkill } : {}),
+        ...(visualSkillId ? { skillId: visualSkillId } : {}),
       },
     });
-  }, [board, dispatch]);
+  }
+
+
+  if (!skill) return <div className="media-creation"><MediaHub board={board} onOpenSkill={openSkill} /></div>;
+
+  const status = (
+    <>
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} />
+      {error && <p className="media-run-global" role="alert"><AlertCircle size={14} />{error}</p>}
+      {notice && <p className="media-run-notice">{notice}</p>}
+    </>
+  );
 
   return (
     <div className="media-creation">
-      {skill
-        ? <SkillWorkbench
-            board={board}
-            skillId={skill.id}
-            values={values}
-            onFieldChange={(key, value) => setValues(prev => ({ ...prev, [key]: value }))}
-            onBack={backToHub}
-            onGenerate={onGenerate}
-            history={[]}
-          />
-        : <MediaHub board={board} onOpenSkill={openSkill} />}
+      <SkillWorkbench
+        board={board}
+        skillId={skill.id}
+        values={values}
+        onFieldChange={(key, value) => setValues(prev => ({ ...prev, [key]: value }))}
+        onBack={backToHub}
+        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : '立即生成'}
+        ctaPoints={handoff ? null : points}
+        ctaDisabled={busy || (!handoff && !validation.ok)}
+        ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
+        status={status}
+        onGenerate={handoff ? handoffToBoard : generate}
+        history={history}
+      />
     </div>
   );
 }

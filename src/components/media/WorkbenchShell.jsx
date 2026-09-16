@@ -20,12 +20,17 @@ export default function WorkbenchShell({
   ctaLabel = '立即生成',
   ctaPoints = null,
   ctaDisabled = false,
+  /* 按钮为什么不能点，要写在按钮旁边（就近），而不是让用户自己猜 */
+  ctaHint = '',
   onCta = null,
   tabs = null,
   activeTab = 'cases',
   onTabChange = () => {},
   children = null,
   historyEmpty = '还没有生成记录',
+  /* 运行态（进度 / 结果 / 就近错误）挂在右栏页签**上方**：
+     生成是这个页面最主要的动作，结果不能藏在页签里。 */
+  status = null,
 }) {
   const tabList = tabs || [{ key: 'cases', label: '示例' }, { key: 'history', label: '历史' }];
   return (
@@ -50,8 +55,10 @@ export default function WorkbenchShell({
           </button>
           {ctaPoints != null && <span className="media-workbench-points">{ctaPoints} 积分</span>}
         </div>
+        {ctaHint && <p className="media-workbench-cta-hint">{ctaHint}</p>}
       </div>
       <div className="media-workbench-right">
+        {status}
         <div className="media-workbench-tabs" role="tablist">
           {tabList.map(tab => (
             <button
