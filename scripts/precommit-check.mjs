@@ -116,6 +116,11 @@ const BLOCKING = [
      本门禁守：每个 Skill 都有封面计划（Hub 上不许出现没封面的空卡）、
      模板/色相必须在白名单里、标题不超 8 字、提示词必须真的带上 4:3/色相/标题/禁止项。 */
   'test/cover-template-contract-0916.test.mjs',
+  /* 视频 Skill 库契约：2026-09-16 起为**硬门禁**。
+     用户批注（图 #9）：保留智能成片/首尾帧，爆款复刻转 skill，并要一份"前沿视频玩法"的 skill 库。
+     最容易犯的错是把跑不通的玩法写成能用（9-16 那批 8 条死路由就是这么来的），
+     所以本门禁把 availability（ready / needs_ref / blocked）变成**必须如实标注**的硬字段。 */
+  'test/video-skill-library-contract-0916.test.mjs',
 ];
 
 /* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */
