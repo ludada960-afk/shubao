@@ -29,6 +29,31 @@ test('① 视频侧素材卡与图片侧共用「扇形歪卡」语言', () => {
   assert.match(videoCss, /prefers-reduced-motion[\s\S]*?\.video-media-deck \.video-media-card \{ transition: none; \}/);
 });
 
+test('④ 素材卡只有一份实现，且两个板块共用（图片侧与视频侧不得各写一套）', () => {
+  const card = readFileSync('src/components/media/MediaAssetCard.jsx', 'utf8');
+  const cardCss = readFileSync('src/components/media/MediaAssetCard.css', 'utf8');
+  /* 扇形数值与图片侧同源 */
+  assert.match(cardCss, /\.media-asset-card:nth-child\(1\) \{ transform: rotate\(-4deg\); \}/);
+  assert.match(cardCss, /\.media-asset-card:nth-child\(2\) \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
+  assert.match(cardCss, /\.media-asset-card \+ \.media-asset-card \{ margin-left: -34px; \}/);
+  /* 三种素材类型同一份实现（不是三个组件） */
+  assert.match(card, /const KIND_ICON = \{ image: ImageIcon, video: Film, audio: FileAudio \};/);
+  /* 样式只走 token：不得出现硬编码色值 */
+  const hex = cardCss.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+  assert.deepEqual(hex, [], '素材卡样式不得硬编码色值：' + hex.join(', '));
+  /* 尊重减少动效偏好 */
+  assert.match(cardCss, /prefers-reduced-motion[\s\S]*?\.media-asset-card \{ transition: none; \}/);
+});
+
+test('⑤ 素材在上、提示词在下（布局唯一）', () => {
+  /* 用户批注：不要学"左边上传区、右边输入区"那套；我们自己的做法是上面素材卡、下面提示词。 */
+  assert.match(videoCss, /\.video-content-composer \{\s*display: grid;\s*gap: 0;\s*\}/, 'composer 必须是单列 grid（素材在上、提示词在下）');
+  assert.doesNotMatch(videoCss, /\.video-content-composer \{[^}]*grid-template-columns/, 'composer 不得改成左右两列');
+  const composer = videoIndex.indexOf('<section className="video-materials"');
+  const input = videoIndex.indexOf('<div className="video-composer-input">');
+  assert.ok(composer > 0 && input > composer, 'DOM 顺序必须是 素材 → 提示词');
+});
+
 test('③ 收素材的入口统一叫「全能参考」', () => {
   assert.match(videoIndex, /<strong>全能参考<\/strong>/, '视频侧素材入口必须叫「全能参考」');
   assert.doesNotMatch(videoIndex, /<strong>上传素材<\/strong>/, '旧的「上传素材」标题不得再作为入口名');
