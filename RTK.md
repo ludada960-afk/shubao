@@ -2267,3 +2267,33 @@ ratio/resolution 默认值、image2、visual/free、稳定幂等键、报价）�
 1. 视频侧工作台目前仍是"带着配置回既有视频工作台"（多分钟流水线不塞进单图工作台）；
    若要像他们的视频子页面那样就地出片（含生成脚本步骤），需要单独一轮设计。
 2. 案例与封面仍等用户产出（他跑完填 `cases[]`，首页条/Hub/封面会自动跟上）。
+
+## 2026-09-17 批次二十七：运行方式三态 + 套图字段务实化（15 场景 52 条断言）
+
+### 关键结论：CTA 的运行方式必须是**三态**，不能是一个布尔
+原来只有「是不是 handoff」。套图是**多张、按套计价**的引擎，
+一旦掉进单图分支就会**按 1 积分发一次单图请求** —— 既不是用户要的东西，也把计价搞错了。
+现在 `skillRun.skillRunKind(skill)` 明确三档：
+- `inline` 单图链路（visualCreation / builtinSkill）→ 就地出图
+- `suite`  电商套图 → 有自己的一档；**就地跑通之前走 handoff，绝不走单图**
+- `handoff` 小红书图文与视频 → 带配置回既有工作台
+门禁补了防回归断言：**套图不许被当成 inline**。
+
+### 套图字段务实化（每个字段都必须真的有作用）
+- 删「数量」：张数由**平台结构**决定，放一个不起作用的输入是骗用户。
+- 删「比例」：各图比例由平台结构逐图决定，全局比例同样不起作用。
+- 加「平台」（淘宝/抖音/小红书/拼多多/京东）：**真的参与方案计算与报价**。
+- 「结构/规格」如实标注"默认按平台智能匹配；自定义在套图工作台里配"，不做死按钮。
+
+### 套图"就地跑完"的可行性调研（结论：可行，且 fail-safe）
+- 客户端现成件：`resolveEcommercePlan({platform, sizing})` → `{images, quantity, quoteRequest}`；
+  `quoteBillingAction(quoteRequest)` → quoteId；`generateEcommerce({... billingQuoteId})` → 202 + 轮询。
+- 服务端 **在建 hold 之前先校验报价**（`ecommerceBilling.hold` → `quoteService.verify`，
+  sku 与 assetPlan.length 都要对得上）：数量对不上就**干净报错、不扣费** → fail-safe。
+- **必须注意**：部分交付时**不许整单重跑**（那会重复扣费），要复用既有「任务记录」的补跑
+  （`/api/ecommerce/jobs/:id/retry-plan` → `retry-failed`）。
+- 未做：等用户确认（要动按套计价这条钱路）。
+
+### 踩坑套件新增
+⑭ 连点「只重试失败项」：同一 tick 连点两次也只补跑一次（不重复扣费）。
+⑮ 换技能/回 Hub：上一轮结果不残留。
