@@ -19,6 +19,12 @@ import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
 import { boardOfPage, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
 import {
+  clearPendingRun,
+  hasUnsettled,
+  readPendingRun,
+  savePendingRun,
+} from '../../skills/pendingRunStore.js';
+import {
   buildSkillRequest,
   initialSkillValues,
   isHandoffSkill,
@@ -33,7 +39,7 @@ import {
   visualRetryIndexes,
   visualRunIsBusy,
 } from '../Home/visualCreationModel.js';
-import { regenerateCanvasImage, saveWork } from '../../services/api';
+import { buildCanvasGenerationBody, recoverCanvasGeneration, regenerateCanvasImage, saveWork } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useWorksSync } from '../../store/useWorksSync.js';
 import '../Home/MediaHub.css';
@@ -154,6 +160,7 @@ export default function MediaCreationPage() {
 
   useEffect(() => () => { try { abortRef.current?.abort?.(); } catch { /* 卸载时忽略 */ } }, []);
 
+
   const openSkill = useCallback(id => {
     window.history.pushState({}, '', skillDeepLink({ id, board }));
     setSkillId(id);
@@ -177,6 +184,65 @@ export default function MediaCreationPage() {
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   const points = useMemo(() => (skill ? skillPointsEstimate(skill, effectiveValues) : 0), [skill, effectiveValues]);
   const busy = visualRunIsBusy(run);
+
+  /* 进行中的运行落盘：刷新/误关标签页之后还能把图找回来（出图是要花钱的，不能白丢） */
+  useEffect(() => {
+    if (!skill || !run) return;
+    if (hasUnsettled(run)) savePendingRun(skill.id, { runId: run.id, startedAt: run.createdAt, values: effectiveValues, slots: run.slots });
+    else clearPendingRun(skill.id);
+  }, [skill, run, effectiveValues]);
+
+  /* 回到页面时：如果上一轮还没等到结果，按**同一个请求体**去服务端把结果要回来。
+     幂等键相同 → 服务端认得出是同一次请求 → **不会重复扣费**。 */
+  useEffect(() => {
+    if (!skill) return undefined;
+    const saved = readPendingRun(skill.id);
+    if (!saved || !hasUnsettled(saved)) { if (saved) clearPendingRun(skill.id); return undefined; }
+    const restored = { id: saved.runId, createdAt: saved.startedAt, slots: saved.slots };
+    runRef.current = restored;
+    setRun(restored);
+    setValues(prev => ({ ...saved.values, ...prev }));
+    setNotice('上一次的生成还没结束，正在把结果找回来…');
+    let active = true;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const pendingIndexes = saved.slots.flatMap((slot, index) => (slot.status === 'pending' || slot.status === 'generating') ? [index] : []);
+    Promise.all(pendingIndexes.map(async index => {
+      const request = buildSkillRequest(skill, { ...saved.values }, { runId: saved.runId, slotIndex: index });
+      try {
+        /* ⚠️ 必须用与生成时**同一个**构造器：request_key 是参数指纹的哈希，
+           手拼一份"看起来一样"的请求体会导致指纹对不上、查不到任何结果。 */
+        const { requestBody } = buildCanvasGenerationBody({
+          prompt: request.prompt,
+          imageUrl: request.imageUrl,
+          referenceImages: request.referenceImages,
+          references: request.references,
+          ratio: request.ratio,
+          resolution: request.resolution,
+          imageModel: request.imageModel,
+          requestKey: restored.slots[index]?.requestKey || (saved.runId + ':' + (index + 1)),
+          creationIntent: 'visual',
+          skillId: request.skillId,
+        });
+        const result = await recoverCanvasGeneration(requestBody, { signal: controller.signal });
+        if (!active) return;
+        const next = updateVisualRunSlot(runRef.current, index, { status: 'completed', url: result.url, taskId: result.taskId || '', error: '' });
+        runRef.current = next;
+        setRun(next);
+      } catch (err) {
+        if (!active) return;
+        const next = updateVisualRunSlot(runRef.current, index, { status: 'failed', error: friendlyError(err) || '这次生成没有拿到结果，可以重试' });
+        runRef.current = next;
+        setRun(next);
+      }
+    })).then(() => {
+      if (!active) return;
+      setNotice('');
+      const settled = runRef.current;
+      if (settled && settled.slots.some(slot => slot.status === 'completed' && slot.url)) persistRun(settled);
+    });
+    return () => { active = false; try { controller.abort(); } catch { /* ignore */ } };
+  }, [skill]);
   /* 历史 = 这条技能名下已保存的作品（saveWork 时写了 mediaSkillId，按它筛）。
      ⚠️ 作品列表由 useWorksSync 拉取 —— 少了这一步，刷新后历史永远是空的。 */
   const history = useMemo(() => {

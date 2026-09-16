@@ -1798,7 +1798,32 @@ async function pollCanvasGenerationResult(requestBody, { signal, maxAttempts = 1
   });
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', includeMetadata = false, signal }) {
+/* 把"已经被服务端受理、但客户端没等到结果"的生成找回来（刷新页面 / 断线 / 切走再回来）。
+   关键点：请求体与正常链路**完全相同**（含同一个 request_key 幂等键），
+   所以服务端认得出这是同一次请求 —— **不会重复扣费**。
+   技能工作台用它实现"刷新不丢图"。 */
+export async function recoverCanvasGeneration(requestBody, options = {}) {
+  return pollCanvasGenerationResult(requestBody, options);
+}
+
+/* ⚠️ 生成请求体只有这一处构造。
+   为什么必须唯一：服务端用请求体的**规范化指纹**做幂等键（server/canvasGenerationService.mjs:149-177），
+   而 request_key 在这里被替换成 stableCanvasActionId(参数指纹) —— 谁要是自己拼一份"看起来一样"的
+   请求体去查状态（比如刷新后恢复），指纹对不上就永远查不到，功能会**静默失效**。
+   所以恢复链路也必须走这个函数。 */
+export function buildCanvasGenerationBody({
+  prompt,
+  imageUrl = '',
+  referenceImages = [],
+  references = [],
+  ratio,
+  resolution = '2K',
+  imageModel = 'image2',
+  requestKey = '',
+  selection,
+  creationIntent = 'ecommerce',
+  skillId = 'free',
+}) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
   const normalizedImageModel = normalizeImageModel(imageModel);
   const logicalRequestKey = String([
@@ -1807,10 +1832,32 @@ export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages 
     creationIntent,
     skillId,
   ].join('\u0000')).slice(0, 120000);
-  const stableRequestKey = stableCanvasActionId(logicalRequestKey);
-  const billingSku = generationBillingSku(normalizedImageModel, resolution);
+  return {
+    requestBody: {
+      prompt,
+      image_url: normalizedImageUrl,
+      reference_images: referenceImages.map(normalizeCanvasImageUrl),
+      reference_metadata: references,
+      ratio,
+      resolution,
+      image_model: normalizedImageModel,
+      request_key: stableCanvasActionId(logicalRequestKey),
+      creation_intent: creationIntent,
+      skill_id: skillId,
+      ...(selection ? { selection } : {}),
+    },
+    stableRequestKey: stableCanvasActionId(logicalRequestKey),
+    normalizedImageModel,
+  };
+}
+
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', includeMetadata = false, signal }) {
+  const { requestBody: baseBody, stableRequestKey } = buildCanvasGenerationBody({
+    prompt, imageUrl, referenceImages, references, ratio, resolution, imageModel, requestKey, selection, creationIntent, skillId,
+  });
+  const billingSku = generationBillingSku(baseBody.image_model, resolution);
   const billing = await quoteCanvasAction(billingSku, stableRequestKey, { signal });
-  const requestBody = { prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), reference_metadata: references, ratio, resolution, image_model: normalizedImageModel, request_key: stableRequestKey, creation_intent: creationIntent, skill_id: skillId, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId };
+  const requestBody = { ...baseBody, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId };
   let res;
   try {
     res = await fetch(`${API_BASE}/api/canvas/regenerate`, {

@@ -42,6 +42,7 @@ const fx = {
   quoteStatus: 200,          /* 402 = 余额不足 */
   assetStatus: 200,          /* 500 = 上传失败 */
   regenerateMode: 'ok',      /* ok | fail400 | recover502 */
+  statusRemaining: 0,        /* >0 时 status 先返回"处理中"，模拟出图还没结束 */
   works: [],
 };
 const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0 };
@@ -98,6 +99,10 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/canvas/regenerate/status') {
       calls.status += 1;
+      if (fx.statusRemaining > 0) {
+        fx.statusRemaining -= 1;
+        return json(res, 202, { status: 'processing', retryAfter: 1, taskId: 'task-e2e-1' });
+      }
       return json(res, 200, { status: 'completed', url: RESULT_IMAGE, taskId: 'task-e2e-1' });
     }
     if (path === '/api/save-work') { calls.saveWork.push(parse()); return json(res, 200, { ok: true, _saveKey: 'e2e-work-1' }); }
@@ -318,6 +323,33 @@ try {
   check(historyInfo.count >= 1, '历史里能看到已保存的作品（/api/works 拉回来的）', JSON.stringify(historyInfo));
   check(historyInfo.title.includes('白底'), '历史条目是可辨认的（技能名 + 张数/时间）', JSON.stringify(historyInfo));
   await page.screenshot({ path: '.tmp/e2e/history.png' });
+
+  /* ═══ ⑪ 生成中刷新页面：图不能丢（出图是要花钱的） ═══ */
+  scenario('⑪ 生成中刷新，结果要能找回来');
+  await open();
+  await upload();
+  const beforeRecover2 = calls.saveWork.length;
+  calls.status = 0;
+  fx.regenerateMode = 'recover502';   /* 502 → 客户端转 status 轮询（模拟出图还在跑） */
+  fx.statusRemaining = 6;             /* 前面几次都还在处理中 */
+  await clickGenerate();
+  await page.waitForTimeout(1500);    /* 让它进入"生成中"并落盘 */
+  const beforeReloadStatus = calls.status;
+  await open();                       /* ← 用户刷新了页面 */
+  await page.waitForSelector('.media-run', { timeout: 15000 }).catch(() => {});
+  const restored = await page.evaluate(() => ({
+    runVisible: Boolean(document.querySelector('.media-run')),
+    notice: document.querySelector('.media-run-notice')?.textContent || '',
+    slots: document.querySelectorAll('.media-run-slot').length,
+  }));
+  check(restored.runVisible && restored.slots === 1, '刷新后这一轮生成被恢复出来（不是一片空白）', JSON.stringify(restored));
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 30000 }).catch(() => {});
+  check(calls.status > beforeReloadStatus, '刷新后按同一请求体继续向服务端要结果（幂等键相同 → 不会重复扣费）', 'status ' + beforeReloadStatus + '→' + calls.status);
+  check(await page.evaluate(() => document.querySelectorAll('.media-run-slot img').length) === 1, '结果最终落到了界面上');
+  await page.waitForTimeout(1200);
+  check(calls.saveWork.length > beforeRecover2, '找回的结果同样会存进作品（历史里看得到）', String(calls.saveWork.length - beforeRecover2));
+  fx.regenerateMode = 'ok';
+  fx.statusRemaining = 0;
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
 } finally {
