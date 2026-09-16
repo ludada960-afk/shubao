@@ -10,7 +10,7 @@ import React, { useMemo } from 'react';
 import { IMAGE_SKILLS } from '../../skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../../skills/videoSkills.js';
 import CaseCard from '../../components/media/CaseCard.jsx';
-import { coverOf } from '../../skills/skillDirectory.js';
+import { availabilityLabel, coverOf } from '../../skills/skillDirectory.js';
 import '../../components/media/CaseCard.css';
 import '../../components/media/GalleryGrid.css';
 import './MediaHub.css';
@@ -57,7 +57,7 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
                   cover={media.cover}
                   video={media.video}
                   poster={media.poster}
-                  badge={skill.availability === 'blocked' ? '即将上线' : (skill.availability === 'needs_ref' ? '需参考素材' : '')}
+                  badge={availabilityLabel(skill)}
                   onOpen={() => onOpenSkill?.(skill.id)}
                 />
               );

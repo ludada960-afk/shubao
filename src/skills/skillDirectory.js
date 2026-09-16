@@ -44,19 +44,36 @@ export function coverOf(skill) {
   };
 }
 
+/* 可用性角标只有这一份实现（首页按钮行与 Hub 卡片网格共用同一句话）。
+   ⚠️ 跑不通的技能**不许装作能用**：'blocked' 写"即将上线"、'needs_ref' 写"需参考素材"，
+      'ready' 什么都不写（默认就是能用，不需要夸一句）。 */
+export function availabilityLabel(skill) {
+  const value = skill && skill.availability;
+  if (value === 'blocked') return '即将上线';
+  if (value === 'needs_ref') return '需参考素材';
+  return '';
+}
+
 export function hasCover(skill) {
   const media = coverOf(skill);
   return Boolean(media.cover || media.video);
 }
 
-/* 首页热门技能条：精品推荐优先，然后按声明顺序补齐；**没有封面的一律不进条**
-   （首页上出现一排空卡比少放几张更糟）。案例由用户自己产出，产出后这张条会自动变长。 */
-export function hotSkills({ limit = 10 } = {}) {
-  const all = [
-    ...IMAGE_SKILLS.filter(hasCover),
-    ...VIDEO_SKILLS.filter(hasCover),
-  ];
-  const preferred = all.filter(skill => skill.category === '精品推荐');
-  const rest = all.filter(skill => skill.category !== '精品推荐');
+/* ═══ 首页/总页面的「精选推荐」技能（用户 9-17 口径）════════════════════════════
+   原话：「它们的总页面会有一个精选推荐，跟竞品是一样的；这些精品推荐其实就是首页的那些按钮，
+   作为它们的入口。鼠标放上去可以预览相关的案例，点击就进它们的子页面。」
+
+   三条规矩（都与旧的 hotSkills 不同，逐条说清为什么）：
+   ① **按板块过滤**（board）—— 旧实现把图片与视频混在一条里，
+      于是"视频生成"模式下首页出现的是四张图片技能卡（实测就是这么错的）。
+      图片板块下面只能有图片技能，视频板块下面只能有视频技能。
+   ② **不按封面过滤** —— 旧实现"没有封面就不进条"（对**卡片网格**是对的，空卡很难看）；
+      但**按钮**没有预览图也站得住：悬停时如实显示"案例补充中"，而不是干脆不出现。
+      视频技能现在一条案例都没有，若继续按封面过滤，视频板块下面会**一条入口都没有**。
+   ③ 精品推荐优先，其余按声明顺序补齐 —— 与竞品首页那一排的取法一致。 */
+export function featuredSkills({ board = '', limit = 6 } = {}) {
+  const pool = board === 'video' ? VIDEO_SKILLS : board === 'image' ? IMAGE_SKILLS : [...IMAGE_SKILLS, ...VIDEO_SKILLS];
+  const preferred = pool.filter(skill => skill.category === '精品推荐');
+  const rest = pool.filter(skill => skill.category !== '精品推荐');
   return [...preferred, ...rest].slice(0, Math.max(1, limit));
 }

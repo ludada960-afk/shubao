@@ -23,6 +23,11 @@ import { createServer } from 'node:http';
 import { readFile, stat, mkdir } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { chromium } from 'playwright';
+/* 全量扫描要用**声明源**里的技能清单（不是手抄一份 id）：
+   技能上下线时这一条会自己跟着走，不会变成一份过期的名单。 */
+import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
+import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
+import { skillVideoMode } from '../src/skills/skillRun.js';
 
 const PORT = 4197;
 const ROOT = resolve('dist');
@@ -568,26 +573,78 @@ try {
   check(xhsRestored.text.includes('厦门 3 天 2 夜'), '提示词还原回图文输入框', xhsRestored.text.slice(0, 30));
   check(xhsRestored.notice.includes('重新计费'), '明确告诉用户会重新计费', xhsRestored.notice.slice(0, 30));
 
-  /* ═══ ⑬ 首页热门技能 → 点一张直接进它的子页面（用户定的最终形态） ═══ */
-  scenario('⑬ 首页热门技能条直达子页面');
+  /* ═══ ⑬ 首页「精选推荐」按钮行：按板块给按钮、悬停出预览、点击进子页面 ═══
+     用户 9-17 口径：「把它们做成案例给做进去，就是按钮的形式，然后鼠标放到这些按钮上，
+     它就会有那种预览框，然后用户点击这些按钮就会直接进入到他们对应的 Skill 页面里面去。」
+     ⚠️ 以前这里把图片与视频混在一条里 —— 视频模式下首页出现的是四张**图片**技能卡（实测抓到过）。 */
+  scenario('⑬ 首页精选推荐按钮行（按板块 / 悬停预览 / 点击进子页面）');
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.hot-skill-strip .media-case-card', { timeout: 20000 });
-  const strip = await page.evaluate(() => ({
-    count: document.querySelectorAll('.hot-skill-strip .media-case-card').length,
-    titles: Array.from(document.querySelectorAll('.hot-skill-strip .media-case-card-title')).map(n => n.textContent),
+  await page.waitForSelector('.skill-entry-row .skill-entry-button', { timeout: 20000 });
+  await page.waitForTimeout(500);
+  const videoRow = await page.evaluate(() => ({
+    board: document.querySelector('.skill-entry-row')?.dataset.board || '',
+    head: document.querySelector('.skill-entry-head h2')?.textContent || '',
+    buttons: Array.from(document.querySelectorAll('.skill-entry-button')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    more: document.querySelector('.skill-entry-more')?.textContent || '',
   }));
-  check(strip.count > 0, '首页提示词输入区下面有热门技能', JSON.stringify(strip.titles));
-  const firstTitle = strip.titles[0];
-  await page.click('.hot-skill-strip .media-case-card-hit');
-  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  check(videoRow.board === 'video', '视频模式下按钮行是**视频板块**的', videoRow.board + ' / ' + videoRow.head);
+  check(videoRow.buttons.length >= 4, '视频板块下面有若干精选按钮（案例没到位也照样有入口）', JSON.stringify(videoRow.buttons));
+  check(!videoRow.buttons.some(text => /海报设计|白底商品图|电商商品套图/.test(text)), '视频板块下面**不许**出现图片技能', JSON.stringify(videoRow.buttons));
+  check(videoRow.more.includes('查看全部'), '右侧有「查看全部」进总页面', videoRow.more);
+
+  /* 悬停出预览框：有案例的技能显示案例（视频优先），没有案例的如实写"案例补充中" */
+  await page.hover('.skill-entry-button');
+  await page.waitForTimeout(400);
+  const hoverPreview = await page.evaluate(() => {
+    const node = document.querySelector('.skill-entry-preview');
+    return {
+      present: Boolean(node),
+      title: node?.querySelector('strong')?.textContent || '',
+      media: node?.querySelector('video') ? 'video' : (node?.querySelector('img') ? 'img' : (node?.querySelector('.skill-entry-preview-blank') ? 'blank' : 'none')),
+      cta: node?.querySelector('em')?.textContent || '',
+    };
+  });
+  check(hoverPreview.present, '鼠标放上去出现预览框');
+  check(hoverPreview.media !== 'none', '预览框里必须有明确下落（案例视频 / 案例图 / 案例补充中），不许空一块', hoverPreview.media);
+  check(hoverPreview.cta.includes('进入'), '预览框里说清"点一下会发生什么"', hoverPreview.cta);
+
+  /* 点第一个按钮 → 进它的子页面（地址、标题、返回都要对） */
+  const firstVideo = videoRow.buttons[0].replace(/需参考素材|即将上线/g, '').trim();
+  await page.click('.skill-entry-button');
+  await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   const landed = await page.evaluate(() => ({
     url: location.pathname + location.search,
     title: document.querySelector('.media-workbench-head h2')?.textContent || '',
     back: Boolean(document.querySelector('.media-workbench-back')),
+    hub: Boolean(document.querySelector('.media-hub')),
   }));
-  check(/^\/(image|video)-creation\?id=/.test(landed.url), '点热门技能进的是**它自己的子页面**（不是画布、不是别的板块）', landed.url);
-  check(landed.title === firstTitle, '进去的就是点的那一条技能', landed.title + ' vs ' + firstTitle);
+  check(/^\/(image|video)-creation\?id=/.test(landed.url), '点精选按钮进的是**它自己的子页面**（不是画布、不是别的板块）', landed.url);
+  check(landed.url.startsWith('/video-creation?id='), '视频板块的按钮进的是视频子页面', landed.url);
+  check(landed.title === firstVideo, '进去的就是点的那一条技能', landed.title + ' vs ' + firstVideo);
+  check(!landed.hub, '不会掉回 Hub');
   check(landed.back, '子页面有"返回创作"，能回到 Hub');
+
+  /* 切到图片板块：按钮必须跟着换成图片技能（同一条规则，两个板块） */
+  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.skill-entry-row .skill-entry-button', { timeout: 20000 });
+  await page.click('.homepage-mode-card.card-2');
+  await page.waitForTimeout(1200);
+  const imageRow = await page.evaluate(() => ({
+    board: document.querySelector('.skill-entry-row')?.dataset.board || '',
+    buttons: Array.from(document.querySelectorAll('.skill-entry-button')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+  }));
+  check(imageRow.board === 'image', '图片模式下按钮行是**图片板块**的', imageRow.board);
+  check(imageRow.buttons.some(text => /自由创作|海报设计/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
+  check(!imageRow.buttons.some(text => /智能成片|首尾帧|图生视频/.test(text)), '图片板块下面**不许**出现视频技能', JSON.stringify(imageRow.buttons));
+  /* 悬停一个**有案例封面**的技能 → 预览必须真的取到那张图（不是空框） */
+  await page.hover('.skill-entry-item:nth-child(2) .skill-entry-button');
+  await page.waitForTimeout(400);
+  const covered = await page.evaluate(() => {
+    const node = document.querySelector('.skill-entry-preview');
+    const img = node?.querySelector('img');
+    return { media: node?.querySelector('video') ? 'video' : (img ? 'img' : 'blank'), src: img?.getAttribute('src') || '' };
+  });
+  check(covered.media === 'img' && covered.src.startsWith('/images/'), '有案例的技能，预览框里就是那条技能的案例图', JSON.stringify(covered));
 
   /* ═══ ⑭ 连点「只重试失败项」不会重复扣费 ═══ */
   scenario('⑭ 重试连点');
@@ -735,6 +792,203 @@ try {
   check(triggerState.url === '/', '点领域名只展开面板，不会把人带走', triggerState.url);
   check(triggerState.expanded === 'true', '面板确实展开了', triggerState.expanded);
   check(triggerState.items.length >= 2, '面板里列出这个领域的全部能力', JSON.stringify(triggerState.items));
+
+  /* ═══ ⑱b 已经在媒体页上时，导航还要把人带到**正确的技能**上 ═══
+     两个总页面共用同一个组件（App.pageMap 两处指向 MediaCreationPage，key 是 _workVersion
+     而不是 page），所以跨板块跳转时组件**不会重挂载**，skillId 会停在上一块的值。
+     症状极具迷惑性：地址栏已经是 /video-creation?id=video.smart，页面却显示视频 Hub，
+     而且没有"返回创作"可点 —— 用户只会说"点了没反应"。 */
+  scenario('⑱b 媒体页之间跳转：地址栏与页面内容必须一致');
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.poster', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
+  await page.waitForTimeout(400);
+  const navTo = async (group, index) => {
+    await page.click('#creative-nav-trigger-' + group);
+    await page.waitForSelector('#creative-nav-item-' + group + '-' + index, { timeout: 10000 });
+    await page.click('#creative-nav-item-' + group + '-' + index);
+    await page.waitForTimeout(1100);
+  };
+  const pageState = () => page.evaluate(() => ({
+    url: location.pathname + location.search,
+    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    hub: Boolean(document.querySelector('.media-hub')),
+    videoComposer: Boolean(document.querySelector('.media-workbench-panel .video-studio-page')),
+    missing: document.querySelector('.media-workbench-missing')?.textContent || '',
+  }));
+  const posterState = await pageState();
+  check(posterState.title.includes('海报'), '起点确实是海报子页面', posterState.title);
+
+  /* 跨板块：图片 → 视频（组件不重挂载的那条路） */
+  await navTo('video', 0);
+  const crossBoard = await pageState();
+  check(crossBoard.url === '/video-creation?id=video.smart', '跨板块跳转后地址栏是视频技能', crossBoard.url);
+  check(!crossBoard.hub, '页面**不能**停在 Hub（地址栏说是技能、页面却是 Hub 就是自相矛盾）', JSON.stringify(crossBoard));
+  check(crossBoard.title.includes('智能成片'), '落到的是那条视频技能的子页面', crossBoard.title);
+  check(crossBoard.videoComposer, '并且视频工作台真的嵌进来了');
+
+  /* 同板块：视频 → 图片的另一条技能 */
+  await navTo('visual', 0);
+  const backToImage = await pageState();
+  check(backToImage.url === '/image-creation?id=image.free', '同板块内换技能后地址栏正确', backToImage.url);
+  check(backToImage.title.includes('自由创作'), '页面跟着换到那条技能', backToImage.title);
+  check(!backToImage.hub, '同板块换技能也不会掉回 Hub');
+
+  /* 脏链接：地址栏里是一个不属于这个板块的技能 id → 地址栏要改回 Hub（不留矛盾状态） */
+  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=image.poster', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForTimeout(1200);
+  const dirty = await pageState();
+  check(dirty.url === '/video-creation', '脏链接（技能不属于这个板块）会把地址栏改回 Hub', dirty.url);
+  check(dirty.hub, '并且如实显示 Hub', String(dirty.hub));
+
+  /* ═══ ⑲ 全量扫描：每一条技能都要能进子页面、能配齐、能发出**合法**请求 ═══
+     为什么要有这一条：上面那些场景只压了 3 条技能（白底图 / 套图 / 图文）。
+     其余 19 条图片技能如果字段→引擎的翻译写错了，静态断言看不出来
+     （服务端对非法值是**静默回落**的：ratio→1:1、resolution→2K、skill_id→free，
+      用户看到的是"生成成功但不是我选的东西"），只有真点一遍才知道。
+     所以这里把**声明源里的每一条**都走一遍：进页面 → 通用配齐 → 点生成 → 校验请求体。
+     仍然零额度：上游全部打桩。 */
+  scenario('⑲ 全量扫描：22 条图片技能 + 7 条视频技能');
+  const CONTRACT = {
+    model: new Set(['image2']),
+    ratio: new Set(['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3']),
+    resolution: new Set(['1K', '2K', '4K']),
+    skill: new Set(['free', 'poster', 'social-cover', 'brand-kv']),
+  };
+  /* 请求体合法性的**唯一判据**（下面还要拿反例自证它抓得住）——
+     这些正是服务端会**静默回落**的字段：写错了不会报错，只会"生成成功但不是我选的东西"。 */
+  const contractProblem = (body, { hasUpload = false } = {}) => {
+    if (!CONTRACT.model.has(body.image_model)) return '模型不在白名单：' + body.image_model;
+    if (!CONTRACT.ratio.has(body.ratio)) return '比例非法：' + body.ratio;
+    if (!CONTRACT.resolution.has(body.resolution)) return '清晰度非法：' + body.resolution;
+    if (body.creation_intent !== 'visual') return 'creation_intent 必须是 visual，实际 ' + body.creation_intent;
+    if (!CONTRACT.skill.has(body.skill_id)) return 'skill_id 不在服务端白名单：' + body.skill_id;
+    if (/\{\{/.test(String(body.prompt || ''))) return '提示词里残留占位符：' + String(body.prompt).slice(0, 80);
+    if (!/^canvas-[0-9a-f]+$/.test(String(body.request_key || ''))) return 'request_key 形状不对：' + body.request_key;
+    if (!body.billing_quote_id || !body.billing_action_id) return '没带报价（先报价后扣费）';
+    if (hasUpload && !body.image_url) return '有上传位但 image_url 是空的';
+    return '';
+  };
+  const sweep = async skill => {
+    const before = calls.regenerate.length;
+    const result = { id: skill.id, problem: '', sent: null };
+    try {
+      await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(skill.id), { waitUntil: 'load', timeout: 40000 });
+      await page.waitForTimeout(650);
+      const shape = await page.evaluate(() => ({
+        hub: Boolean(document.querySelector('.media-hub')),
+        missing: document.querySelector('.media-workbench-missing')?.textContent || '',
+        panel: Boolean(document.querySelector('.media-workbench-panel')),
+        title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+        points: document.querySelector('.media-workbench-points')?.textContent || '',
+        uploads: document.querySelectorAll('.media-field-upload input[type=file]').length,
+      }));
+      if (shape.hub) { result.problem = '落到了 Hub（技能没被解析出来）'; return result; }
+      if (shape.missing) { result.problem = '页面说找不到这条技能：' + shape.missing; return result; }
+      if (shape.title !== skill.name) { result.problem = '页面标题对不上：' + shape.title + ' ≠ ' + skill.name; return result; }
+      if (shape.panel) { result.problem = ''; result.panel = true; return result; }
+      /* 通用配齐：上传位放图、输入位写字、下拉选第一项、分段控件没选中就点第一个 */
+      if (shape.uploads) {
+        await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
+        await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 }).catch(() => {});
+      }
+      for (const input of await page.$$('.media-workbench-fields textarea[id^="field-"], .media-workbench-fields input[id^="field-"]')) {
+        await input.fill('E2E 扫描：一件白色陶瓷杯，柔和棚拍光').catch(() => {});
+      }
+      for (const select of await page.$$('.media-workbench-fields select[id^="field-"]')) {
+        const options = await select.$$eval('option', nodes => nodes.map(node => node.value).filter(Boolean));
+        if (options.length) await select.selectOption(options[Math.min(1, options.length - 1)]).catch(() => {});
+      }
+      await page.evaluate(() => {
+        document.querySelectorAll('.media-workbench-fields .media-field-segmented').forEach(group => {
+          if (!group.querySelector('button.is-active')) group.querySelector('button')?.click();
+        });
+      });
+      await page.waitForTimeout(220);
+      const gate = await page.evaluate(() => ({
+        disabled: document.querySelector('.media-workbench-submit')?.disabled ?? null,
+        hint: document.querySelector('.media-workbench-cta-hint')?.textContent || '',
+      }));
+      if (gate.disabled) { result.problem = '配齐之后 CTA 仍然是禁用：' + (gate.hint || '(无提示)'); return result; }
+      /* 套图是另一条钱路，已在 ⑯ 单独压过，这里只确认它报价正常 */
+      if (skill.pipeline === 'ecommerceSuite') {
+        result.suite = true;
+        if (!/\d+ 积分/.test(shape.points)) result.problem = '套图没有显示按套总价：' + shape.points;
+        return result;
+      }
+      await page.click('.media-workbench-submit');
+      await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 }).catch(() => {});
+      await page.waitForTimeout(300);
+      const landed = await page.evaluate(() => document.querySelectorAll('.media-run-slot img').length);
+      if (!landed) { result.problem = '请求发了但结果没落到工作台'; return result; }
+      if (calls.regenerate.length !== before + 1) { result.problem = '这一次点击发了 ' + (calls.regenerate.length - before) + ' 次请求'; return result; }
+      const body = calls.regenerate[calls.regenerate.length - 1] || {};
+      result.sent = body;
+      result.problem = contractProblem(body, { hasUpload: shape.uploads > 0 });
+    } catch (error) {
+      result.problem = '抛错：' + String(error?.message || error).slice(0, 120);
+    }
+    return result;
+  };
+  /* 自证：判据抓得住坏请求体，也不会误伤好请求体 ——
+     否则"全绿"可能只是判据什么都没查（本项目已有过同类教训）。 */
+  const good = { image_model: 'image2', ratio: '1:1', resolution: '2K', creation_intent: 'visual', skill_id: 'free', prompt: '一件白色陶瓷杯', request_key: 'canvas-abc123', billing_quote_id: 'q', billing_action_id: 'a' };
+  check(contractProblem(good) === '', '自证：合法请求体被判通过');
+  for (const [label, patch] of [
+    ['模型写错', { image_model: 'image9' }],
+    ['比例非法', { ratio: '1:5' }],
+    ['skill_id 不在白名单', { skill_id: 'nope' }],
+    ['提示词残留占位符', { prompt: '画一张 {{主题}}' }],
+    ['没带报价', { billing_quote_id: '' }],
+    ['有上传位却没有 image_url', { image_url: '' }],
+  ]) {
+    check(contractProblem({ ...good, ...patch }, { hasUpload: label.includes('image_url') }) !== '',
+      '自证：' + label + '必须被判红');
+  }
+  const sweepRows = [];
+  for (const skill of IMAGE_SKILLS) sweepRows.push(await sweep(skill));
+  const broken = sweepRows.filter(row => row.problem);
+  /* 覆盖面自证：每一条技能都必须落进三档之一（就地生成 / 嵌入工作台 / 按套报价），
+     没有第四种"说不上来"的状态 —— 那正是以前 CTA 点了没反应的那一类。 */
+  const classified = sweepRows.filter(row => row.sent || row.panel || row.suite);
+  check(classified.length === IMAGE_SKILLS.length, '每条图片技能都归入了明确的一档（就地/嵌入/套图）',
+    classified.length + '/' + IMAGE_SKILLS.length);
+  check(broken.length === 0, '每条图片技能都能进子页面、配齐、发出合法请求并拿到结果',
+    broken.map(row => row.id + '：' + row.problem).join(' ｜ ').slice(0, 400));
+  const generated = sweepRows.filter(row => row.sent);
+  check(generated.length >= IMAGE_SKILLS.length - 3, '绝大多数技能是**就地生成**（其余是套图与嵌进来的工作台）', String(generated.length));
+  check(generated.every(row => row.sent.image_model === 'image2'), '所有请求都用有出图记录的 image2');
+  check(sweepRows.filter(row => row.suite).length === 1, '套图那条仍然按套报价（没有掉进单图分支）');
+
+  /* 视频侧同理：7 条视频技能都要能进自己的子页面、落在自己的创作方式上 */
+  const videoSweep = [];
+  for (const skill of VIDEO_SKILLS) {
+    const row = { id: skill.id, problem: '' };
+    try {
+      await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=' + encodeURIComponent(skill.id), { waitUntil: 'load', timeout: 40000 });
+      await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
+      await page.waitForTimeout(350);
+      const shape = await page.evaluate(() => ({
+        title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+        mode: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+      }));
+      row.mode = shape.mode;
+      if (shape.title !== skill.name) row.problem = '页面标题对不上：' + shape.title + ' ≠ ' + skill.name;
+      else if (!shape.mode) row.problem = '创作方式页签没有选中项（initialMode 没落上）';
+    } catch (error) {
+      row.problem = '抛错：' + String(error?.message || error).slice(0, 100);
+    }
+    videoSweep.push(row);
+  }
+  const videoBroken = videoSweep.filter(row => row.problem);
+  check(videoSweep.length === VIDEO_SKILLS.length, '扫描覆盖了声明源里的每一条视频技能', videoSweep.length + '/' + VIDEO_SKILLS.length);
+  check(videoBroken.length === 0, '每条视频技能都能进子页面并落在自己的创作方式上',
+    videoBroken.map(row => row.id + '：' + row.problem).join(' ｜ ').slice(0, 300));
+  /* 映射本身由 skillRun 说了算：页面选中的页签必须就是 skillVideoMode 算出来的那个 */
+  const expectedMode = new Map(VIDEO_SKILLS.map(skill => [skill.id, skillVideoMode(skill)]));
+  const modeMismatch = videoSweep.filter(row => row.mode && expectedMode.get(row.id) &&
+    !row.mode.includes({ smart: '智能成片', frame: '首尾帧', remake: '爆款重构' }[expectedMode.get(row.id)] || ''));
+  check(modeMismatch.length === 0, '页签与 skillRun 的映射一致（不是各写一份）',
+    modeMismatch.map(row => row.id + '→' + row.mode).join(' ｜ '));
 
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));

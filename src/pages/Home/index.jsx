@@ -9,8 +9,13 @@ import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
-import HotSkillStrip from '../../components/media/HotSkillStrip.jsx';
-import { skillPath } from '../../skills/skillDirectory.js';
+import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
+import { featuredSkills, hubPath, skillPath } from '../../skills/skillDirectory.js';
+
+/* 首页每个板块摆几条精选推荐按钮。6 条是竞品首页那一排的量级：
+   再多就要换行成两排，反而不像"挑一个就开始"；
+   剩下的全部在总页面里（按钮行右侧那个「查看全部」）。 */
+const SKILL_ENTRY_LIMIT = 6;
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
 import { useWorksSync } from '../../store/useWorksSync.js';
 
@@ -54,6 +59,10 @@ export default function HomePage() {
   const isXHS = mode === 'content';
   const isVideo = mode === 'video';
   const isVisual = mode === 'visual';
+  /* 首页的"精选推荐"按钮行必须跟着**当前板块**走：
+     视频模式 → 视频技能；图片模式（视觉创作 / 电商生图 / 小红书图文）→ 图片技能。
+     这几个模式都属于图片家族，只有 video 是视频板块。 */
+  const skillBoard = isVideo ? 'video' : 'image';
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
@@ -239,13 +248,24 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* ═══ 热门技能（用户 9-17 定的最终形态）═══
-            位置就在提示词输入区（上面的工作台卡）**下面**：一张卡 = 一个 skill 的入口，
-            点进去直接到它的工作台（/image-creation?id=… 或 /video-creation?id=…）。
-            没有封面的 skill 不进条，避免首页出现一排空卡。 */}
+        {/* ═══ 精选推荐（用户 9-17 口径的最终形态）═══
+            位置：提示词输入区（上面的工作台卡）**下面**；形态：**一排按钮 + 悬停预览浮层**。
+            用户原话：「把它们做成案例给做进去，就是按钮的形式，然后鼠标放到这些按钮上，
+            它就会有那种预览框，然后用户点击这些按钮就会直接进入到他们对应的 Skill 页面里面去。」
+            ⚠️ 必须**按当前板块过滤**（board）：以前这里把图片与视频混在一条里，
+               于是"视频生成"模式下首页出现的是四张**图片**技能卡（实测就是这么错的）。
+               图片板块下面只能有图片技能，视频板块下面只能有视频技能。
+            数据源与总页面是同一份（skillDirectory.featuredSkills）——首页的"精选推荐"
+            就是总页面顶部那一档，两处不许各写一份清单。 */}
         <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 20px' }}>
-          <HotSkillStrip
-            limit={10}
+          <SkillEntryRow
+            board={skillBoard}
+            limit={SKILL_ENTRY_LIMIT}
+            title={'精选推荐 · ' + (skillBoard === 'video' ? '视频生成' : '图片生成')}
+            hint={skillBoard === 'video' ? '鼠标放上去看案例，点一下直接开始做视频' : '鼠标放上去看案例，点一下直接开始做图'}
+            skills={featuredSkills({ board: skillBoard, limit: SKILL_ENTRY_LIMIT })}
+            moreHref={hubPath(skillBoard)}
+            moreLabel={'查看全部' + (skillBoard === 'video' ? '视频' : '图片') + '技能'}
             onOpenSkill={skill => {
               const page = skill.board === 'video' ? 'video-creation' : 'image-creation';
               /* 先把地址换成深链，再切页面（刷新/分享/返回键都能落到同一处） */
