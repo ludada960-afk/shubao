@@ -140,3 +140,12 @@
 .media-field-upload-retry:hover { background: var(--sb-brand-600); color: var(--sb-surface-card); }
 
 .media-workbench-cta-hint { margin: 0; font-size: 11px; color: var(--sb-ink-3); }
+/* 不可开的槽位：静态说明行（不是按钮，就没有 hover/禁用的歧义） */
+.media-field-slot.is-static {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-3);
+  font-size: 12px;
+}

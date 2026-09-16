@@ -173,8 +173,13 @@ function control(kind, field, value, onChange, disabled) {
     return <UploadControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
   if (kind === 'slot') {
+    /* 没有面板可开的槽位**不做成一个点了没反应的按钮** —— 那是死控件。
+       如实告诉用户"这一步在别处配置"，把入口指向真正能改的地方。 */
+    if (!field.onPick) {
+      return <span className="media-field-slot is-static">{field.slotLabel || '待配置'}</span>;
+    }
     return (
-      <button type="button" className="media-field-slot" disabled={disabled || !field.onPick} onClick={() => field.onPick?.()}>
+      <button type="button" className="media-field-slot" disabled={disabled} onClick={() => field.onPick()}>
         {field.slotLabel || '选择文件'}
       </button>
     );

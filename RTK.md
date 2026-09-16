@@ -2120,3 +2120,54 @@ const editing = Boolean(draft.id);                      // 第 115 行
    **不许把没验证的写成能用**（9-16 那次「8 条调不通的假模型」就是反面教材）。
 3. 视频侧同样接进 `/video-creation`（页面已通，视频 skill 的字段与 availability 见 videoSkills.js）。
 4. 工作台 CTA 目前只做「带着配置回对应板块」，尚未把 fields 真实翻译成引擎参数 —— 这是下一件大事。
+
+## 2026-09-17 批次二十四：技能工作台**能真的出图了**（非 demo）
+
+### 用户口径（本轮）
+「继续做吧，有问题再问我，没有你就全部做完再报告，然后多去调研多去搞明白再做，
+别到时候返工，**做的东西不是 demo，必须是最佳的效果，不能有 bug**。」
+
+### 先调研再动手：三路并行只读调研（结论直接决定实现）
+1. **单图唯一可用链路** = `POST /api/canvas/regenerate`（前端封装 `services/api.js` 的
+   `regenerateCanvasImage`，api.js:1801）：prompt 必填；有 `image_url` 即图生图、无则文生图
+   （**同一个路由**，由 inputAssets 有无切换 mode）；`reference_images` ≤9；
+   `creation_intent='visual'` + `skill_id ∈ free|poster|social-cover|brand-kv`；
+   内部自带报价与**断线自愈轮询**（409/502/503/504/524 转 `/api/canvas/regenerate/status`，不重复扣费）。
+2. **服务端对非法值是静默回落的**（ratio→1:1、resolution→2K、skill_id→free）——
+   前端拼错时用户看到的是"成功了但不是我要的"，最难查。**所以翻译层必须自己拦。**
+3. **只有 image2 有真实出图记录**（RTK:1502 等多次 3 稳定资产验收）；9-13 新增五档
+   （sunburst/flare/mdkj/gemini3/mj）在目录里可选但**零真实出图记录** → 运行层只认 image2。
+4. **「五个内置技能」在服务端没有任何出图调用点**（grep 只命中 skillCatalog 的定义行），
+   只有 `GET /api/skills` 供展示 —— 不许假装能按 skill 名去调它们。
+5. 计费：hold → work → settle|release，**失败自动退费**；1 积分 = 1000 units；image2 2K = 1 积分/张。
+
+### 落地（commit 50e0ea93，precommit 全绿）
+- **`src/skills/skillRun.js`：字段→引擎参数的唯一翻译层**（纯函数，门禁可直接断言）：
+  `initialSkillValues` / `validateSkillInput` / `buildSkillBrief` / `skillImages` /
+  `skillGenerationSettings` / `skillPointsEstimate` / `buildSkillRequest` / `isHandoffSkill`。
+  · **初始值只有一份**：界面显示什么、校验判什么、下发什么三者同源
+    （修掉一个真实回归：界面有默认值、校验按空值判 → CTA 永远是灰的）。
+  · **图片映射 fail-closed**：主图没就绪就一张都不给，不发半截请求。
+- **FieldRenderer 新增 upload 档**：本地预览立刻可见 → 上传换服务端地址 → 失败**留在原地可重试**
+  （复用既有 `uploadEcommerceAsset`，不另写上传）。此前 slot 上传位是**死按钮**。
+- **MediaCreation 页接入真实生成**：复用 `visualCreationModel` 的 run/slot 状态机
+  （进度 / **只重试失败项** / 存作品与自由创作同构），积分按后端单价同源预估，
+  结果落在右栏页签上方，历史读该技能已保存的作品。
+- **声明层 22 条图片技能**，每条带 `brief`（提示词模板，{{字段}} 占位）与 `visual`（服务端视觉方向）。
+- 修掉既有 bug：SkillWorkbench 历史页签点开大图读的是"示例"数组（图文不符）。
+
+### 门禁
+- 新增 `test/media-skill-run-0917.test.mjs` **11 条**（brief 占位符对得上字段、上传位张数/角色合法、
+  非法参数在前端就拦、积分与后端同源、必填校验、重流程不重造、request_key 幂等…）。
+- **扣费手势门禁（铁律①）曾判红**：扣费点落在匿名回调里 → 重构成具名 `runSlot`，
+  把调用链真正做成 `generate`（CTA onClick）/ `retryFailedAssets`（重试按钮）两条手势链，
+  **没有走豁免清单**。
+
+### 还没做 / 需要用户的事
+1. **第一次真实出图验收**：本轮**故意没有触发任何付费生成**（RTK 铁律：不重复消耗线上额度）。
+   链路、参数、计费都已是生产在用同一条（VisualCreationMode / 画布都在调 `regenerateCanvasImage`），
+   但"这一条技能的字段组合真的出得来图"要跑一次才算数。
+2. **案例与封面**：仍按用户口径挂起（他自己跑案例 → 填 `cases[]` → 封面自动由案例排出）。
+3. **9 条 `needs_ref`**：图生图链路本身有实测记录（image2 带参考图编辑 37s，见
+   `docs/plan/9-11-nightly-handoff.md:135`），但**每条技能各自的效果**未验收，暂保持 needs_ref。
+4. **视频侧**仍全部走既有视频工作台（多分钟、带分镜方案的流水线），工作台不重造。
