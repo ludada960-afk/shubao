@@ -160,6 +160,27 @@ export const VIDEO_COVER_PLAN = [
   { skillId: 'video.building_grow', template: 'hero-single', accent: 'cool', subject: '建筑从地基逐层长成的三个关键帧', title: '建筑生长', subtitle: '一层层长起来' },
   { skillId: 'video.plant_grow', template: 'hero-single', accent: 'soft', subject: '植物抽芽、展叶、开花的三帧连续画面', title: '植物生长', subtitle: '时间加速的生长' },
   { skillId: 'video.interior_story', template: 'case-3up', accent: 'warm', subject: '人物在空间里一天活动的三个关键帧', title: '空间叙事', subtitle: '一支片讲一天' },
+  /* ── 调研落地的爆款玩法（2026-09-17，17 条）──
+     来源同上（docs/research/2026-09-17-video-skill-candidates.md）。
+     视频封面按竞品做法最终会替换成**一段真在播的短片**（他们卡里就是 <video>），
+     所以这里先给 poster 出图配方，等用户跑出成片再换成 mp4。 */
+  { skillId: 'video.traffic_swap', template: 'case-3up', accent: 'accent', subject: '同一个人在同一路口三套穿搭的换装关键帧', title: '红绿灯换装', subtitle: '红灯一亮换一套' },
+  { skillId: 'video.car_weekly', template: 'case-3up', accent: 'soft', subject: '车内固定机位下七套穿搭依次切换的关键帧', title: '车内换装', subtitle: '一周七套穿搭' },
+  { skillId: 'video.outfit_transition', template: 'case-3up', accent: 'accent', subject: '卡点转场换装的连续三帧画面', title: '变装转场', subtitle: '卡着音乐换装' },
+  { skillId: 'video.fog_reveal', template: 'hero-single', accent: 'cool', subject: '手指擦开雾气后商品从模糊变清晰的一帧', title: '擦雾出产品', subtitle: '擦开雾气露出来' },
+  { skillId: 'video.one_image_showcase', template: 'case-3up', accent: 'warm', subject: '一张商品图裂变成多格展示的关键帧', title: '一图裂变', subtitle: '一张图变一组镜头' },
+  { skillId: 'video.product_explode', template: 'hero-single', accent: 'warm', subject: '商品在空中炸开、零件悬浮的动态关键帧', title: '产品爆炸', subtitle: '炸开再合回去' },
+  { skillId: 'video.snack_unbox', template: 'case-3up', accent: 'warm', subject: '拆袋、倒出与捏起零食的三个关键帧', title: '零食开箱', subtitle: '拆开就想吃' },
+  { skillId: 'video.tech_rotate', template: 'hero-single', accent: 'cool', subject: '数码产品在台面上旋转展示的连续帧', title: '3C旋转展示', subtitle: '转一圈看细节' },
+  { skillId: 'video.food_craving', template: 'hero-single', accent: 'warm', subject: '食物拉丝、爆汁、冒热气的微距关键帧', title: '馋感特写', subtitle: '把馋劲拍出来' },
+  { skillId: 'video.tech_tvc', template: 'case-3up', accent: 'cool', subject: '暗场光束到产品特写与使用场景的三帧', title: '3C产品TVC', subtitle: '一支完整广告片' },
+  { skillId: 'video.home_goods_demo', template: 'case-3up', accent: 'soft', subject: '居家场景里拿出、使用与收纳商品的三帧', title: '家居演示', subtitle: '在家里用一遍' },
+  { skillId: 'video.beauty_macro', template: 'hero-single', accent: 'soft', subject: '膏体质地与上脸后皮肤状态的微距关键帧', title: '美妆特写', subtitle: '微距讲质感' },
+  { skillId: 'video.street_style', template: 'case-3up', accent: 'warm', subject: '街头走动、转身与细节展示的三个关键帧', title: '街拍带货', subtitle: '走两步演版型' },
+  { skillId: 'video.ai_styling', template: 'case-3up', accent: 'soft', subject: '同一位模特换上多套服装的关键帧', title: 'AI模特换装', subtitle: '同一个人换几套' },
+  { skillId: 'video.book_selling', template: 'case-3up', accent: 'warm', subject: '书页翻动与封面收束的三个关键帧', title: '图书带货', subtitle: '翻页讲一本书' },
+  { skillId: 'video.food_asmr', template: 'hero-single', accent: 'warm', subject: '近距离食物与餐具的高收音画面', title: '吃播ASMR', subtitle: '声音画面一起上' },
+  { skillId: 'video.store_tour', template: 'case-3up', accent: 'accent', subject: '从店门口到货架再到重点商品的三帧', title: '探店漫游', subtitle: '推门走一圈' },
 ];
 
 /* 两板块合表：封面产线（scripts/build-skill-covers.mjs）与门禁都读这一份，

@@ -192,6 +192,151 @@ export const VIDEO_SKILLS = [
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
   },
+
+  /* ── 调研落地的爆款玩法（2026-09-17）────────────────────────────────────────
+     来源：docs/research/2026-09-17-video-skill-candidates.md（20 条候选，B站/抖音/小红书/GitHub 一手取证）。
+     用户口径：「你得自己去调研，去各种插件库或者 GitHub 上面找这些相应的最好的方案，
+     甚至去 B站、抖音、小红书、微信公众号找那些别人分享出来、确确实实有很高热度的 skill 放进去。」
+     ⚠️ 每条都标了真实档位：ready = 现有路由可跑；needs_ref = 需要参考素材能力（声明支持、未实测出片）；
+        blocked 的一条（数字人口播，147.4 万播放量级）**没有**写进来假装能用 —— 它要口型/音频驱动，
+        属于上游能力缺口，等定了上游再上架。
+     ⚠️ brief 写的是"这条玩法具体怎么拍"，不是"生成高质量视频"。 */
+  {
+    id: 'video.traffic_swap', board: 'video', name: '红绿灯换装', category: '热门玩法', complexity: 'simple',
+    summary: '红灯亮起换一套衣服，卡着信号灯变装', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '红绿灯换装：人物站在路口，信号灯每变一次颜色就换一套完整穿搭（红→绿→黄三套），换装瞬间用轻微的运动模糊或遮挡带过，人物位置与镜头不动，服装材质与配色清晰可辨，节奏跟信号灯同步。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.car_weekly', board: 'video', name: '车内一周换装', category: '热门玩法', complexity: 'simple',
+    summary: '坐进车里，一周七套穿搭依次换', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'soft' },
+    brief: '车内一周换装：固定机位拍车内，同一个人依次换上七套不同穿搭（周一通勤 → 周五休闲 → 周末出游），每次切换用关门、转头或抬手遮挡过渡，坐姿与车内环境不变，服装细节清楚。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.outfit_transition', board: 'video', name: '服饰变装转场', category: '热门玩法', complexity: 'standard',
+    summary: '卡点或色卡转场，一镜换多套', capability: ['image', 'video'], availability: 'needs_ref',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '服饰变装转场：跟着音乐卡点换装，每次转场用一个道具或色卡遮住镜头（挥手、甩发、举卡片），换完立刻接下一套；人物位置、机位与光线保持一致，服装质感与配色清晰，节奏干净利落。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.fog_reveal', board: 'video', name: '擦雾出产品', category: '热门玩法', complexity: 'simple',
+    summary: '手指擦开雾气，商品从模糊里露出来', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'cool' },
+    brief: '擦雾出产品：镜头贴着一层雾面（玻璃/镜面/冷藏柜门），一只手从画面一侧擦开雾气，商品从模糊逐渐变清晰，擦过的区域留下清晰的水痕；最后停在商品特写上，光线通透、细节锐利。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.one_image_showcase', board: 'video', name: '一图裂变展示', category: '热门玩法', complexity: 'standard',
+    summary: '一张商品图，裂变成一整组展示镜头', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '一图裂变展示：从一张商品图开始，画面像卡片一样裂开成多格，每一格展示商品的一个面（正面、侧面、细节、场景、包装），最后所有格子合回完整商品；转场干净、比例一致，商品结构不变。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.product_explode', board: 'video', name: '产品爆炸展示', category: '电商专区', complexity: 'standard',
+    summary: '商品在空中炸开，零件与成分悬浮', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'warm' },
+    brief: '产品爆炸展示：商品在画面中央炸开成零件与成分，碎片向四周缓慢飞散并悬停，镜头缓慢环绕或推进，最后零件回位复原；物理感真实、节奏由慢到快再收住，商品标签全程可辨。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.snack_unbox', board: 'video', name: '零食开箱', category: '电商专区', complexity: 'simple',
+    summary: '拆袋、倒出、入口，一条龙展示', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '零食开箱：镜头俯拍桌面，手撕开包装袋、把零食倒进盘子里、捏起一块展示质地，最后放进嘴里；动作连贯、声音与画面节奏配合，包装与零食颜色真实，不出现臆造的文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.tech_rotate', board: 'video', name: '3C 旋转展示', category: '电商专区', complexity: 'simple',
+    summary: '360 度转一圈，把接口与厚度讲清楚', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'cool' },
+    brief: '3C 产品旋转展示：产品在纯色台面上缓慢旋转 360 度，途中停两次给特写（接口、按键、厚度侧面），光线干净、反射真实，屏幕与机身质感清晰，全程不出现品牌以外的文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.food_craving', board: 'video', name: '食品馋感特写', category: '电商专区', complexity: 'standard',
+    summary: '拉丝、爆汁、冒热气，把馋感拍出来', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'warm' },
+    brief: '食品馋感特写：微距镜头下食物被拉开（拉丝/爆汁/流心），热气缓缓升起，表面油光与颗粒清晰可见，镜头缓慢推进并在最诱人的一刻定格；色调暖、对比强，不出现文字与价格。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.tech_tvc', board: 'video', name: '3C 产品 TVC', category: '电商专区', complexity: 'heavy',
+    summary: '一支完整的产品广告片：悬念、特写、收束', capability: ['image', 'text'], availability: 'ready',
+    pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'cool' },
+    brief: '3C 产品 TVC：开场用暗场与一束光制造悬念，中段给产品三组特写（材质、屏幕、结构），穿插一个使用场景，结尾回到产品全景并留出放标语的安全区；镜头语言克制、节奏有起伏，色调统一。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.home_goods_demo', board: 'video', name: '家居好物演示', category: '电商专区', complexity: 'standard',
+    summary: '在家里用一遍，把省事讲清楚', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'soft' },
+    brief: '家居好物演示：真实居家场景里把商品用一遍（拿出、使用、收纳），展示它解决的问题；镜头跟着手走，光线自然，画面干净、不出现杂乱背景，商品细节清楚。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.beauty_macro', board: 'video', name: '美妆质感特写', category: '人像摄影', complexity: 'standard',
+    summary: '膏体、粉质、上脸，微距讲质感', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'soft' },
+    brief: '美妆质感特写：微距镜头依次展示膏体挤出/粉质扫过/液体流动的质感，再切到上脸后的皮肤状态（服帖、光泽、不卡粉），光线柔和不油光；颜色真实，不出现夸大功效的文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.street_style', board: 'video', name: '服装街拍带货', category: '人像摄影', complexity: 'standard',
+    summary: '街头走两步，把版型与搭配演出来', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '服装街拍带货：模特在街头自然走动、转身、整理衣领，镜头跟随并保持全身入画；展示版型、垂坠与搭配细节，光线是自然日光，背景有城市氛围但不抢主体，服装颜色真实。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.ai_styling', board: 'video', name: 'AI 模特换装', category: '人像摄影', complexity: 'standard',
+    summary: '同一模特，把几套衣服依次穿上', capability: ['image'], availability: 'needs_ref',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'soft' },
+    brief: 'AI 模特换装：保持同一位模特的脸、发型与身材不变，依次换上多套服装，每次换装用一个转身或抬手遮挡过渡；服装版型与面料质感真实，站姿与机位保持一致，不出现肢体变形。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.book_selling', board: 'video', name: '图书知识带货', category: '创意应用', complexity: 'standard',
+    summary: '翻页、金句、场景，把一本书讲清楚', capability: ['image', 'text'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '图书知识带货：书在桌面被翻开，书页依次翻动并停在几个关键页，穿插书中场景的意象画面，最后回到封面；画面干净、光线柔和，书名字迹清楚，不出现臆造的推荐语与销量数字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.food_asmr', board: 'video', name: '美食吃播 ASMR', category: '创意应用', complexity: 'standard',
+    summary: '近距离的咀嚼与热气，声音画面一起上', capability: ['image'], availability: 'needs_ref',
+    pipeline: 'videoSmart', cover: { template: 'hero-single', accent: 'warm' },
+    brief: '美食吃播 ASMR：近距离镜头对着食物与餐具，收音感强（咀嚼、撕开、倒汤、气泡），热气与油光清晰，镜头缓慢推近并保持稳定；色调暖、氛围安静，不出现文字与价格。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.store_tour', board: 'video', name: '探店漫游', category: '电商专区', complexity: 'standard',
+    summary: '推门进去走一圈，把店与货架讲明白', capability: ['image'], availability: 'needs_ref',
+    pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '探店漫游：镜头从店门口推进，沿动线走过货架与展示区，在重点商品前停留并给特写，最后停在店内最有氛围的一角；运动平稳、光线真实，空间结构一致，不出现虚构的品牌与价格。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
 ];
 export const VIDEO_SKILL_CATEGORIES = [...new Set(VIDEO_SKILLS.map(skill => skill.category))];
 
