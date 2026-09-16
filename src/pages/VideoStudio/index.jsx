@@ -45,6 +45,8 @@ import {
   hasRequiredVideoInputs,
   quoteForVideoProduct,
   resolveVideoApiMode,
+  snapVideoDuration,
+  videoDurationRange,
 } from './videoStudioModel.js';
 import { buildVideoPlan, VIDEO_PROMPT_MAX_LENGTH } from './videoPlanModel.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
@@ -267,7 +269,9 @@ export default function VideoStudioPage({ embedded = false }) {
   const [negativePrompt, setNegativePrompt] = useState('');
   const [resolution, setResolution] = useState('720p');
   const [ratio, setRatio] = useState('9:16');
-  const [duration, setDuration] = useState(8);
+  /* 默认 5 秒：上游按秒档位校验（seedance 2.0 只认 5/10/15），
+     原来写死 8 秒会让默认状态就落在上游拒收的秒数上。 */
+  const [duration, setDuration] = useState(5);
   const [sound, setSound] = useState(true);
   const [seed, setSeed] = useState(0);
   const [quote, setQuote] = useState(null);
@@ -386,9 +390,7 @@ export default function VideoStudioPage({ embedded = false }) {
 
   useEffect(() => {
     if (!selectedProduct) return;
-    const min = Number(selectedProduct.durations?.min) || 4;
-    const max = Number(selectedProduct.durations?.max) || 15;
-    setDuration(current => Math.max(min, Math.min(max, current)));
+    setDuration(current => snapVideoDuration(selectedProduct, current));
     if (!selectedProduct.resolutions?.includes(resolution)) {
       setResolution(selectedProduct.resolutions?.[0] || '720p');
     }
@@ -891,14 +893,20 @@ export default function VideoStudioPage({ embedded = false }) {
     </div>;
   };
 
+  /* 轨道范围与档位标签都来自产品契约：声明了时长白名单就只暴露合法档位，
+     避免出现「界面能选 8 秒、上游只认 5/10/15」的死角。 */
+  const durationRange = videoDurationRange(selectedProduct);
+
   const renderPanelBody = () => {
     if (activePanel === 'shot') return <>
       <div className="video-panel-section"><strong>视频画幅</strong><div className="video-ratio-grid">
         {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} />{value}</button>)}
       </div></div>
       <div className="video-panel-section"><div className="video-panel-section-title"><strong>视频时长</strong><span>{duration} 秒</span></div>
-        <input className="video-duration-range" type="range" min={selectedProduct?.durations?.min || 4} max={selectedProduct?.durations?.max || 15} step="1" value={duration} onChange={event => { setPlanReviewed(false); setDuration(Number(event.target.value)); }} />
-        <div className="video-range-labels"><span>{selectedProduct?.durations?.min || 4} 秒</span><span>{selectedProduct?.durations?.max || 15} 秒</span></div>
+        <input className="video-duration-range" type="range" min={durationRange.min} max={durationRange.max} step={durationRange.step} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
+        <div className="video-range-labels">{durationRange.declared
+          ? durationRange.options.map(seconds => <span key={seconds}>{seconds} 秒</span>)
+          : <><span>{durationRange.min} 秒</span><span>{durationRange.max} 秒</span></>}</div>
       </div>
     </>;
     if (activePanel === 'sound') return <>

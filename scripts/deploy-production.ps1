@@ -494,6 +494,9 @@ try {
   Invoke-CheckedNative -FailureMessage "Gallery source verification failed" -Command { & node $galleryVerifier --source-only }
   Invoke-CheckedNative -FailureMessage "Test suite failed" -Command { npm run test }
   Invoke-CheckedNative -FailureMessage "Production build failed" -Command { npm run build }
+  # 真实渲染冒烟（2026-09-16 白屏事故后新增）：构建绿、单测绿、资源哈希一致，页面仍可能是白的。
+  # 上线前必须用浏览器把产物渲染一遍，确认没有运行时异常、没落到错误边界、首屏有内容。
+  Invoke-CheckedNative -FailureMessage "Production render smoke failed" -Command { & node scripts/render-smoke.mjs }
   Invoke-CheckedNative -FailureMessage "Static contract check failed" -Command { npm run check }
   Invoke-CheckedNative -FailureMessage "Local video platform verification failed" -Command { & node $videoPlatformVerifier --local --no-paid-generation }
   Invoke-CheckedNative -FailureMessage "Git whitespace validation failed" -Command { git diff --check }

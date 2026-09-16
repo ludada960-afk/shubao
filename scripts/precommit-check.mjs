@@ -80,6 +80,17 @@ const BLOCKING = [
      所以本文件里有多条是**行为断言**：直接 import 服务端模块跑一遍，而不是 grep 字面量。
      另有两条是「不许偷偷开通」的守门（1080P 计费 SKU 必须保持 public:false）。 */
   'test/workbench-unify-0916.test.mjs',
+  /* 视频路由可达性：2026-09-16 起为**硬门禁**。
+     起因是一次「上架了 8 个永远调不通的模型」：上架时只核对了「中转 /v1/models 里有这个名字」，
+     但那份清单是全站目录，不代表本站凭证能调到 —— 视频端点只认声明 openai-video 的 id，
+     再叠加分组授权与渠道是否活着。结果 10 条路由里 8 条提交即被上游拒收，
+     用户侧的表现就是「模型看着有、点了就失败」（用户原话：都是些假的模型）。
+     同类风险还有第二次：时长按 [min,max] 夹取，而上游按秒档位校验（seedance 2.0 只认 5/10/15），
+     默认 8 秒的初始状态同样会被上游拒收。
+     本门禁同时守住三件事：① 公开产品只允许走台账里 verified/callable 的路由；
+     ② 每条产品路由都必须在台账里登记并带证据日期（新路由不能悄悄上线）；
+     ③ 时长只能落在白名单里，吸附不得夹取成非法值。 */
+  'test/video-catalog.test.mjs',
 ];
 
 /* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */
@@ -88,13 +99,19 @@ const ADVISORY = [];
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const failed = [];
 
-console.log('[1/3] npm run build …');
+console.log('[1/4] npm run build …');
 if (spawnSync(npm, ['run', 'build'], { stdio: 'inherit', shell: process.platform === 'win32' }).status !== 0) failed.push('npm run build');
 
-console.log('[2/3] BLOCKING 门禁（' + BLOCKING.length + ' 个）…');
+/* ⚠️ 这一格是 2026-09-16 白屏事故后补的：当时构建 exit 0、单测全绿、资源哈希逐字一致，
+   而线上整页落在错误边界（SkillLibraryModal 里 useLayoutEffect 依赖数组引用了后面才声明的
+   const editing → 渲染期 TDZ）。**构建绿不等于页面能打开**，中间缺的正是「真的渲染一遍」。 */
+console.log('[2/4] 真实渲染冒烟（产物必须能打开，不能只看构建绿）…');
+if (spawnSync(process.execPath, ['scripts/render-smoke.mjs'], { stdio: 'inherit' }).status !== 0) failed.push('真实渲染冒烟');
+
+console.log('[3/4] BLOCKING 门禁（' + BLOCKING.length + ' 个）…');
 if (spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...BLOCKING], { stdio: 'inherit' }).status !== 0) failed.push('BLOCKING 门禁');
 
-console.log('[3/3] ADVISORY 进度条（' + ADVISORY.length + ' 个，不拦提交）…');
+console.log('[4/4] ADVISORY 进度条（' + ADVISORY.length + ' 个，不拦提交）…');
 /* ⚠️ 本格曾经**对开发者说假话**（2026-09-15 修正）：ADVISORY 为空时，
    `node --test` 不带文件参数会走**默认发现** —— 于是它把 test/ 之外的东西也跑了：
    实测 fail=20 = **15 个 test/qa/ 浏览器探针脚本**（未纳入 git 的临时件，需要 dev server 才能跑）

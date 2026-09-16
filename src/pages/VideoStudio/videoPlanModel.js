@@ -56,7 +56,7 @@ function rangeLabel(duration, start, end) {
 }
 
 function buildBeats(mode, duration, material) {
-  const seconds = Math.max(4, Number(duration) || 8);
+  const seconds = Math.max(4, Number(duration) || 5);
   const middleStart = Math.max(1, Math.floor(seconds * 0.22));
   const middleEnd = Math.max(middleStart + 1, Math.ceil(seconds * 0.78));
   const sourceLabel = material.length ? `${material.length} 个参考素材` : '提示词与模型默认场景';
@@ -77,7 +77,9 @@ function buildBeats(mode, duration, material) {
   ];
 }
 
-export function buildVideoPlan({ mode = 'smart', prompt = '', files = {}, duration = 8, ratio = '9:16', resolution = '720p', sound = true, product = null } = {}) {
+/* duration 默认给 5 秒：上游按秒档位校验（seedance 2.0 只认 5/10/15），
+   原来的默认 8 秒正好落在上游拒收的秒数上；调用方应传产品契约里吸附后的合法值。 */
+export function buildVideoPlan({ mode = 'smart', prompt = '', files = {}, duration = 5, ratio = '9:16', resolution = '720p', sound = true, product = null } = {}) {
   const assets = flattenFiles(files);
   const counts = assets.reduce((result, item) => {
     if (item.kind === 'image') result.images += 1;

@@ -129,8 +129,14 @@ export const FEATURE_SKUS = freezeCatalog({
     priceFen: 1490, marginBand: 'core',
     freeReruns: 1,
   },
-  // 1080p 留档未上架（IP233 ¥6.37 报价尚未接生产路由）；public=false 使其不出现在公开目录与单位经济学看板，
-  // 价格页以「即将上线」展示。上架前必须复核该报价存续并补路由。
+  // 1080p 留档未上架；public=false 使其不出现在公开目录与单位经济学看板，价格页以「即将上线」展示。
+  // 9-16 路由复核结论（零成本探测，未花余额）：可接入的 1080p 路由是中转 seedance-2.0-1080p，
+  // 中转实时报价 ¥7.67/条（原记 ¥6.37 是更早的快照，账面成本偏乐观），链路走完渠道与参数校验后
+  // 仅因预扣 ¥7.67 超过中转余额被拒（insufficient_user_quota）。
+  // 同族另外三条 1080p 均不可用：sd2.0/sd2.5-1080p-official 在本站分组无渠道、
+  // sd7-seedance-2.0-1080p 与 seedance2.0-F-1080p 上游不认名；xn-seedance-2.5 支持 1080p 但 5 秒预扣 ¥9.36。
+  // 上架前置条件：① 中转余额 ≥ ¥7.67×并发；② 按 ¥7.67 重算毛利并把本行 providerCostCny 改准；
+  // ③ 在 videoCatalog 台账里把该路由转 verified/callable（门禁才允许 public:true）。
   video_seedance_1080p: {
     units: 73000, providerCostCny: 6.37,
     priceFen: 1890, marginBand: 'core',

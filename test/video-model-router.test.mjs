@@ -13,7 +13,7 @@ test('prefers the requested eligible product without hiding the ranked alternati
       preferredProductId: 'seedance_standard',
       mode: 'smart',
       resolution: '720p',
-      durationSec: 8,
+      durationSec: 5,
       generateAudio: true,
       objective: 'speed',
     },
@@ -30,14 +30,19 @@ test('prefers the requested eligible product without hiding the ranked alternati
 
 test('speed objective ranks fast product first when there is no preference', () => {
   const result = recommendVideoRoute({
-    request: { mode: 'reference', resolution: '720p', durationSec: 6, generateAudio: true, objective: 'speed' },
+    request: { mode: 'reference', resolution: '720p', durationSec: 5, generateAudio: true, objective: 'speed' },
   });
 
-  /* 9-11 「全上」后候选变多: speed 目标仍必须把 seedance_fast 排在候选前列并给出速度理由 */
+  /* 9-16 路由复核后公开档只保留可达路线（seedance_fast + seedance_standard 两条）：
+     speed 目标仍必须把 seedance_fast 排在候选前列并给出速度理由；
+     候选数上限 = 公开产品数，隐藏/不可达产品不得进入候选。 */
   assert.ok(result.candidates.some(candidate => candidate.productId === 'seedance_fast'));
   const fast = result.candidates.find(candidate => candidate.productId === 'seedance_fast');
   assert.match(fast.reasons.join(' '), /速度/);
-  assert.ok(result.candidates.length >= 9);
+  assert.deepEqual(
+    [...new Set(result.candidates.map(candidate => candidate.productId))].sort(),
+    ['seedance_fast', 'seedance_standard'],
+  );
 });
 
 test('fails closed when the request exceeds the public reference limit', () => {
@@ -45,7 +50,7 @@ test('fails closed when the request exceeds the public reference limit', () => {
     request: {
       mode: 'reference',
       resolution: '720p',
-      durationSec: 8,
+      durationSec: 5,
       referenceCounts: { images: 10, videos: 0, audios: 0 },
     },
   });
@@ -59,7 +64,7 @@ test('fails closed when the request exceeds the public reference limit', () => {
 
 test('does not expose hidden products as a public route', () => {
   const result = recommendVideoRoute({
-    request: { preferredProductId: 'minimax_h3_2k', mode: 'reference', resolution: '720p', durationSec: 8 },
+    request: { preferredProductId: 'minimax_h3_2k', mode: 'reference', resolution: '720p', durationSec: 5 },
   });
 
   assert.equal(result.status, 'ready');
@@ -69,20 +74,20 @@ test('does not expose hidden products as a public route', () => {
 });
 
 test('quality and cost objectives remain deterministic and expose an estimate only', () => {
-  const quality = recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'quality' } });
-  const cost = recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'cost' } });
+  const quality = recommendVideoRoute({ request: { resolution: '720p', durationSec: 10, objective: 'quality' } });
+  const cost = recommendVideoRoute({ request: { resolution: '720p', durationSec: 10, objective: 'cost' } });
 
-  /* 9-11 「全上」后 720p 候选显著增多: 断言下限 + 关键档位在场 (不写死精确条数) */
-  assert.ok(quality.candidates.length >= 9, 'quality candidates: ' + quality.candidates.length);
+  /* 9-16 路由复核后公开档收敛到可达路线：候选 = 公开产品，且必须覆盖这两档 */
+  assert.equal(quality.candidates.length, 2, 'quality candidates: ' + quality.candidates.length);
   assert.equal(cost.candidates.length, quality.candidates.length);
-  for (const id of ['seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'kling_standard', 'veo_fast', 'grok_fast']) {
+  for (const id of ['seedance_fast', 'seedance_standard']) {
     assert.ok(quality.candidates.some(candidate => candidate.productId === id), 'missing candidate ' + id);
   }
   assert.ok(quality.selected.estimatedPoints > 0);
   assert.ok(cost.selected.estimatedPoints > 0);
   assert.deepEqual(
     quality.candidates.map(candidate => candidate.productId),
-    recommendVideoRoute({ request: { resolution: '720p', durationSec: 12, objective: 'quality' } }).candidates.map(candidate => candidate.productId),
+    recommendVideoRoute({ request: { resolution: '720p', durationSec: 10, objective: 'quality' } }).candidates.map(candidate => candidate.productId),
   );
   assert.equal(quality.providerSubmission, false);
   assert.equal(quality.billingMutation, false);

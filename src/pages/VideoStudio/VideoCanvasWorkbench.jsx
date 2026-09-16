@@ -119,7 +119,7 @@ import {
 } from './videoCanvasModel.js';
 import { reusableProjectAssets, candidateJobsForProject, nextShotPosition, nextTimelinePosition, selectedCandidateForShot } from './videoProjectWorkbenchModel.js';
 import { availableUploadedAssets } from './videoProjectWorkbenchModel.js';
-import { quoteForVideoProduct } from './videoStudioModel.js';
+import { quoteForVideoProduct, snapVideoDuration, videoDurationOptions } from './videoStudioModel.js';
 import './VideoCanvasWorkbench.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -150,11 +150,10 @@ function normalizeBudgetCapInput(value) {
   return points;
 }
 
+/* 时长必须落在产品声明的合法档位上（上游按秒档位校验，如 seedance 2.0 只认 5/10/15），
+   所以这里是「吸附到最近合法档位」而不是简单夹取——夹取出来的 8 秒上游会直接拒收。 */
 function clampDurationSeconds(seconds, product) {
-  const min = Number(product?.durations?.min) || 4;
-  const max = Number(product?.durations?.max) || 15;
-  const rounded = Math.round(Number(seconds) || min);
-  return Math.max(min, Math.min(max, rounded));
+  return snapVideoDuration(product, seconds);
 }
 
 function keyFor(prefix) {
@@ -194,7 +193,7 @@ export default function VideoCanvasWorkbench({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [intent, setIntent] = useState({ goal: '', sellingPoints: '', duration: 8, ratio: '9:16', mode: 'smart', cameraMove: '' });
+  const [intent, setIntent] = useState({ goal: '', sellingPoints: '', duration: 5, ratio: '9:16', mode: 'smart', cameraMove: '' });
   const [plan, setPlan] = useState(null);
   const [generationDraft, setGenerationDraft] = useState(null);
   const [budgetCapPoints, setBudgetCapPoints] = useState('');
@@ -1288,7 +1287,11 @@ export default function VideoCanvasWorkbench({
           </label>
           <div className="vcb-intent-row">
             <label><span>时长（秒）</span>
-              <input type="number" min={product?.durations?.min || 4} max={product?.durations?.max || 15} value={intent.duration} onChange={event => setIntent(current => ({ ...current, duration: Number(event.target.value) }))} />
+              {videoDurationOptions(product).length > 1 && Array.isArray(product?.durationOptions) && product.durationOptions.length
+                ? <select value={intent.duration} onChange={event => setIntent(current => ({ ...current, duration: Number(event.target.value) }))}>
+                    {videoDurationOptions(product).map(seconds => <option key={seconds} value={seconds}>{seconds} 秒</option>)}
+                  </select>
+                : <input type="number" min={product?.durations?.min || 4} max={product?.durations?.max || 15} value={intent.duration} onChange={event => setIntent(current => ({ ...current, duration: clampDurationSeconds(Number(event.target.value), product) }))} />}
             </label>
             <label><span>比例</span>
               <select value={intent.ratio} onChange={event => setIntent(current => ({ ...current, ratio: event.target.value }))}>

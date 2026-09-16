@@ -81,7 +81,7 @@ import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
 import { buildImageMentions } from '../../../components/creation/imageMentionModel.js';
 import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Home/ec/EcommerceDesignPlanEditor.jsx';
 import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
-import { VIDEO_CREATION_MODES, hasRequiredVideoInputs } from '../../VideoStudio/videoStudioModel.js';
+import { VIDEO_CREATION_MODES, hasRequiredVideoInputs, snapVideoDuration, videoDurationChoices } from '../../VideoStudio/videoStudioModel.js';
 /* 画布弹层定位的**单一真源**（2026-09-20 用户口径）：锚触发元素向右展开、放不下向下、绝不向左翻。 */
 import { resolveAnchoredRight } from '../canvasVisualLanguage.js';
 import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
@@ -1371,11 +1371,17 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
     first: firstSources.map(source => ({ type: 'image/png', name: source.name || '首帧图' })),
     last: lastSources.map(source => ({ type: 'image/png', name: source.name || '尾帧图' })),
   };
-  const localPlan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: node.duration || 8, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
+  /* 时长档位来自产品契约：上游按秒档位校验（seedance 2.0 只认 5/10/15），
+     原先把 4~15 秒全列成可选项、兜底写死 8 秒，用户选中就会被上游拒收。
+     方案、报价、请求体统一用吸附后的 durationValue。 */
+  const selectedVideoProduct = videoProducts.find(item => item.id === (node.modelProductId || 'seedance_standard')) || videoProducts[0] || null;
+  const durationChoices = videoDurationChoices(selectedVideoProduct);
+  const durationValue = snapVideoDuration(selectedVideoProduct, node.duration);
+  const localPlan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: durationValue, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
   const analyzedPlan = previewPlan || node.videoPlan;
   const plan = analyzedPlan ? { ...localPlan, ...analyzedPlan, assets: analyzedPlan.assets?.length ? analyzedPlan.assets : localPlan.assets, beats: analyzedPlan.beats?.length ? analyzedPlan.beats : localPlan.beats, analyzed: true } : { ...localPlan, analyzed: false };
   /* 9-13 用户批注：把「62 积分」这种写死的数字换成随模型/时长变化的真实报价 */
-  const estimate = estimateVideoComposerPoints({ products: videoProducts, modelProductId: node.modelProductId || 'seedance_standard', duration: node.duration || 8 });
+  const estimate = estimateVideoComposerPoints({ products: videoProducts, modelProductId: node.modelProductId || 'seedance_standard', duration: durationValue });
   /* @ 引用：与图片/文案框同一套语义（插入提及，不在菜单里取消选中） */
   const handleToggleSource = (sourceImage, options = {}) => {
     const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
@@ -1431,10 +1437,10 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
     <div className="ec-canvas-video-controls">
       {/* 2026-09-17 用户批注：@ 键放到**最前面**（视频模型之前）。 */}
       <label className="ec-canvas-video-field is-mention"><span>引用</span><ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} /></label>
-      <label className="ec-canvas-video-field">视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => change({ modelProductId: event.target.value })}>{(videoProducts.length ? videoProducts : [{ id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' }, { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' }]).map(product => <option key={product.id} value={product.id}>{product.label}{product.tierLabel ? ` · ${product.tierLabel}` : ''}{product.quotes?.short?.points ? ` (${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次)` : ''}</option>)}</select></label>
+      <label className="ec-canvas-video-field">视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => { const nextId = event.target.value; const nextProduct = videoProducts.find(item => item.id === nextId) || null; change({ modelProductId: nextId, duration: snapVideoDuration(nextProduct, node.duration) }); }}>{(videoProducts.length ? videoProducts : [{ id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' }, { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' }]).map(product => <option key={product.id} value={product.id}>{product.label}{product.tierLabel ? ` · ${product.tierLabel}` : ''}{product.quotes?.short?.points ? ` (${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次)` : ''}</option>)}</select></label>
       <label className="ec-canvas-video-field">清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
       <label className="ec-canvas-video-field">画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
-      <label className="ec-canvas-video-field">时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+      <label className="ec-canvas-video-field">时长<select value={durationValue} onChange={event => change({ duration: Number(event.target.value) })}>{durationChoices.map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
       {/* 9-11: skill 选项 (与图片生成器同源 CANVAS_SKILLS, 预填提示词不覆盖已写内容)
           9-13 用户批注：技能入口要和另外三个框**长得一模一样**（同一个组件 + 同一个「更多技能…」进技能管理）。
           2026-09-17 用户批注（图：视频面板）：技能按钮**没有和其它四项同一套结构** ——

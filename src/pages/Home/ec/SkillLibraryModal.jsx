@@ -58,6 +58,11 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
      （见文件头注释：原先 0.34/0.46 × innerHeight 只给出 ~276px，下面留了 ~600px 空白）。 */
   const editorColumnRef = useRef(null);
   const [bodyAvailable, setBodyAvailable] = useState(320);
+  /* ⚠️ 必须声明在下面这个 useLayoutEffect **之前**：依赖数组在渲染期求值，
+     若它在效果之后才声明，React 读依赖时会抛
+     `ReferenceError: Cannot access 'editing' before initialization`（TDZ），
+     整页直接落到错误边界（2026-09-16 线上白屏事故的根因，见 RTK 批次二十）。 */
+  const editing = Boolean(draft.id);
   useLayoutEffect(() => {
     if (!open) return undefined;
     const measure = () => {
@@ -112,7 +117,6 @@ export default function SkillLibraryModal({ open, onClose, initialKind = 'image'
 
   useEffect(() => { if (open) load(kind); }, [open, kind, load]);
 
-  const editing = Boolean(draft.id);
   const groupsForKind = useMemo(() => (
     state.groups.filter(group => !group.kind || group.kind === kind)
   ), [state.groups, kind]);

@@ -114,7 +114,7 @@ import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy 
 import { quoteBillingAction } from '../../services/billing.js';
 import { analyzeVideoPlan, createVideoJob, fetchVideoCapabilities, getVideoJob, uploadVideoAsset } from '../../services/video.js';
 import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
-import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/videoStudioModel.js';
+import { resolveVideoApiMode, hasRequiredVideoInputs, snapVideoDuration } from '../VideoStudio/videoStudioModel.js';
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
 /* 4c183cd4 续命 P-G 画布 1-click chain 客户端 (用户 8-29 硬性反馈 3): 下面 3 智能按钮走 chainService
@@ -208,6 +208,16 @@ const VIDEO_FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
 function videoSku(duration, productId = 'seedance_standard') {
   const model = productId === 'seedance_fast' ? 'seedance_fast' : 'seedance_standard';
   return `video_${model}_${Number(duration) <= 8 ? 'short' : 'long'}`;
+}
+
+/* 画布视频合成器的合法时长：取所选产品声明的时长档位后吸附。
+   上游按秒档位校验（seedance 2.0 只认 5/10/15），原来的 `|| 8` 兜底正好落在被拒收的秒数上；
+   报价 SKU、幂等键、真实请求体必须共用这一个值，否则三者会对不上。 */
+function composerDurationFor(composer, videoProducts = []) {
+  const product = videoProducts.find(item => item.id === (composer?.modelProductId || 'seedance_standard'))
+    || videoProducts[0]
+    || null;
+  return snapVideoDuration(product, composer?.duration || 5);
 }
 
 function delay(milliseconds) {
@@ -4231,7 +4241,8 @@ const handlePointerUp = useCallback((e) => {
       const imageAssets = uploaded.filter(item => !['video', 'audio'].includes(item.source.kind) && (mode === 'smart' || !['first', 'last'].includes(roleFor(item.source)))).map(item => item.asset);
       const videoAssets = uploaded.filter(item => item.source.kind === 'video').map(item => item.asset);
       const audioAssets = uploaded.filter(item => item.source.kind === 'audio').map(item => item.asset);
-      const sku = videoSku(composer.duration || 8, composer.modelProductId);
+      const composerDuration = composerDurationFor(composer, videoProducts);
+      const sku = videoSku(composerDuration, composer.modelProductId);
       const quote = (await quoteBillingAction({ sku, quantity: 1 })).quote;
       const urls = Object.fromEntries(uploaded.map(item => [item.asset.id, item.asset.url]));
       const response = await createVideoJob({
@@ -4239,7 +4250,7 @@ const handlePointerUp = useCallback((e) => {
         mode: resolveVideoApiMode(mode, files),
         prompt: String(composer.prompt).trim(),
         negativePrompt: '',
-        duration: Number(composer.duration) || 8,
+        duration: composerDuration,
         aspectRatio: composer.aspectRatio || '9:16',
         resolution: composer.resolution || '720p',
         generateAudio: composer.generateAudio !== false,
@@ -4273,7 +4284,7 @@ const handlePointerUp = useCallback((e) => {
         composer.modelProductId || 'seedance_standard',
         resolveVideoApiMode(mode, files),
         String(composer.prompt).trim(),
-        Number(composer.duration) || 8,
+        composerDuration,
         composer.aspectRatio || '9:16',
         composer.resolution || '720p',
         composer.generateAudio !== false ? 'audio' : 'silent',
@@ -4361,7 +4372,7 @@ const handlePointerUp = useCallback((e) => {
         composer.id,
         mode,
         String(composer.prompt || '').trim(),
-        Number(composer.duration) || 8,
+        composerDurationFor(composer, videoProducts),
         composer.aspectRatio || '9:16',
         composer.resolution || '720p',
         composer.modelProductId || 'seedance_standard',
@@ -4375,7 +4386,7 @@ const handlePointerUp = useCallback((e) => {
         mode,
         prompt: String(composer.prompt).trim(),
         negativePrompt: '',
-        duration: Number(composer.duration) || 8,
+        duration: composerDurationFor(composer, videoProducts),
         ratio: composer.aspectRatio || '9:16',
         resolution: composer.resolution || '720p',
         sound: composer.generateAudio !== false,

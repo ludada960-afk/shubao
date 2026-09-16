@@ -1,5 +1,11 @@
 import { quoteFeature } from './billing/catalog.mjs';
-import { VIDEO_PRODUCTS, videoFeatureSku } from './videoCatalog.mjs';
+import {
+  VIDEO_PRODUCTS,
+  durationOptionsOf,
+  isDurationSupported,
+  nearestSupportedDuration,
+  videoFeatureSku,
+} from './videoCatalog.mjs';
 
 export const VIDEO_ROUTE_POLICY_VERSION = 'video-route-policy-2026-08-21-v1';
 
@@ -125,7 +131,9 @@ export function buildRouteHistoryStats(input = []) {
 }
 
 function estimatedPoints(product, durationSec) {
-  const duration = Math.max(product.durations.min, Math.min(product.durations.max, durationSec));
+  /* 上游按秒档位校验（seedance 2.0 只认 5/10/15），估值必须吸附到合法档位，
+     否则会拿一个上游根本不接受的时长去查 SKU。 */
+  const duration = nearestSupportedDuration(product, durationSec);
   const sku = videoFeatureSku({ productId: product.id, duration });
   return Math.ceil(quoteFeature(sku, 1).totalUnits / 1000);
 }
@@ -135,8 +143,12 @@ function evaluateProduct(product, request, historyStats = null) {
   const blockers = [];
   const refs = request.referenceCounts;
   const totalRefs = refs.images + refs.videos + refs.audios;
-  if (request.durationSec < product.durations.min || request.durationSec > product.durations.max) {
-    blockers.push({ code: 'DURATION_UNSUPPORTED', detail: `${product.label} 支持 ${product.durations.min}-${product.durations.max} 秒。` });
+  if (!isDurationSupported(product, request.durationSec)) {
+    const options = durationOptionsOf(product);
+    const detail = options
+      ? `${product.label} 只支持 ${options.join('/')} 秒。`
+      : `${product.label} 支持 ${product.durations.min}-${product.durations.max} 秒。`;
+    blockers.push({ code: 'DURATION_UNSUPPORTED', detail });
   }
   if (!product.modes.includes(request.mode)) {
     blockers.push({ code: 'MODE_UNSUPPORTED', detail: `${product.label} 不支持「${request.mode}」模式。` });
