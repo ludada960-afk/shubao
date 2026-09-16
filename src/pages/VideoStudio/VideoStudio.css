@@ -634,3 +634,27 @@
 /* ⚠️ 修正：此按钮是**实色深底**（bg #202126 / 白字）→ 按 §22 走**海拔**，不改底色。 */
 .video-open-canvas:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
 .video-lightbox-close:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+
+
+/* ═══ 素材卡：与图片侧「扇形歪卡」同一套语言（2026-09-16 P0 统一）═══════════════
+   用户批注（图 #2）：「他现在视频生成的样式并不是这样的…要按我们电商生图这边的
+   卡片歪过来的形式来上传素材，样式逻辑得是类似的。」
+   数值直接取自图片侧的 .visual-skill-stage-outputs（负外边距叠压 + 反向倾斜 + 上下错位），
+   两板块从此共用同一套语言 —— 判据见 test/media-language-unify-0916.test.mjs。 */
+.video-media-deck { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; }
+.video-media-deck .video-media-card { transition: transform .18s ease, box-shadow .18s ease; }
+.video-media-deck .video-media-card + .video-media-card { margin-left: -34px; }
+.video-media-deck .video-media-card:nth-child(1) { transform: rotate(-4deg); }
+.video-media-deck .video-media-card:nth-child(2) { z-index: 2; transform: rotate(4deg) translateY(-5px); }
+.video-media-deck .video-media-card:nth-child(3) { z-index: 3; transform: rotate(-2.5deg) translateY(4px); }
+.video-media-deck .video-media-card:nth-child(n + 4) { transform: rotate(2deg) translateY(-2px); }
+.video-media-deck .video-media-card:hover,
+.video-media-deck .video-media-card:focus-within {
+  z-index: 6;
+  transform: rotate(0deg) translateY(-4px) scale(1.02);
+  box-shadow: var(--sb-shadow-lg, 0 12px 28px rgba(17, 20, 45, .16));
+}
+@media (prefers-reduced-motion: reduce) {
+  .video-media-deck .video-media-card { transition: none; }
+}
+

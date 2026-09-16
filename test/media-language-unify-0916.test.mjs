@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+/* ═══ 媒体板块「同一套语言」门禁（2026-09-16 P0，起因为用户批注 图#2 / 图#5）═══════
+   用户要的是：图片生成与视频生成两个板块，**素材卡 / 布局 / 按钮必须是同一套设计语言**。
+   本批先收口两件可验证的事，并锁死防漂移：
+     ① 上传素材卡：视频侧复用图片侧「扇形歪卡」的同一组数值（负外边距叠压 + 反向倾斜 + 错位）；
+     ② 声音：主流程不再问用户「要不要生成声音」，默认出声音（上游 generate_audio 默认 true）。
+   为什么用源码断言：跨板块一致性靠 review 记不住，靠测试才守得住。
+   ⏭ 下一步（本批未做，不许在这里写假断言）：把视频侧入口名「参考」改成「全能参考」——
+     该标签在首页那层包装里，不在 VideoStudio 内，需单独定位后改。 */
+
+const videoCss = readFileSync('src/pages/VideoStudio/VideoStudio.css', 'utf8');
+const videoIndex = readFileSync('src/pages/VideoStudio/index.jsx', 'utf8');
+const imageCss = readFileSync('src/pages/Home/VisualCreationMode.css', 'utf8');
+
+test('① 视频侧素材卡与图片侧共用「扇形歪卡」语言', () => {
+  /* 图片侧的权威数值：负外边距叠压 + 反向倾斜 + 上下错位 */
+  assert.match(imageCss, /\.visual-skill-stage-outputs\.count-2 \.output-0 \{ transform: rotate\(-4deg\); \}/);
+  assert.match(imageCss, /\.visual-skill-stage-outputs\.count-2 \.output-1 \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
+  /* 视频侧必须复用同一组数值，而不是自己发明一套 */
+  assert.match(videoCss, /\.video-media-deck \.video-media-card \+ \.video-media-card \{ margin-left: -34px; \}/);
+  assert.match(videoCss, /\.video-media-deck \.video-media-card:nth-child\(1\) \{ transform: rotate\(-4deg\); \}/);
+  assert.match(videoCss, /\.video-media-deck \.video-media-card:nth-child\(2\) \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
+  /* 悬停「回正 + 抬起」 */
+  assert.match(videoCss, /\.video-media-deck \.video-media-card:hover[\s\S]*?transform: rotate\(0deg\) translateY\(-4px\) scale\(1\.02\)/);
+  /* 尊重减少动效偏好 */
+  assert.match(videoCss, /prefers-reduced-motion[\s\S]*?\.video-media-deck \.video-media-card \{ transition: none; \}/);
+});
+
+test('② 主流程不再询问「要不要生成声音」，默认出声音', () => {
+  assert.doesNotMatch(videoIndex, /key: 'sound', label: '声音'/, '「声音」面板不得再出现在主流程配置里');
+  assert.match(videoIndex, /const \[sound, setSound\] = useState\(true\)/, 'sound 必须默认 true');
+  assert.match(videoIndex, /generateAudio: sound/, '上游参数仍要真实下发');
+  assert.match(videoIndex, /selectedProduct\.frameAudio === false\) setSound\(false\)/, '产品不支持首尾帧声音时仍要自动关');
+});

@@ -95,7 +95,9 @@ const TOOLBAR_ITEMS = [
   /* 9-11 三轮用户批注: 技能库必须是一级入口 (与首页一致), 不藏在生成设置里 */
   { key: 'skills', label: '技能库', icon: Sparkles, description: '选择生视频技能，带完整提示词进入本次生成' },
   { key: 'shot', label: '镜头规格', icon: Aperture, description: '设置画幅与成片时长' },
-  { key: 'sound', label: '声音', icon: Mic2, description: '控制同期声音与音频参考' },
+  /* 9-16 用户批注（图 #5）：「默认就是视频会生成声音的呀，为什么我们自己要做一个生成声音这样子的东西呢」
+     —— 主流程撤下这个开关，`sound` 状态默认 true（上游 generate_audio 默认就是 true），
+     只有产品明确不支持时才由代码自动关（见 frameAudio 分支）。 */
   { key: 'settings', label: '生成设置', icon: Settings2, description: '设置清晰度与高级约束' },
 ];
 const VIDEO_MODE_ICONS = Object.freeze({
