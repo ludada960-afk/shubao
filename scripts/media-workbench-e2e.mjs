@@ -43,9 +43,10 @@ const fx = {
   assetStatus: 200,          /* 500 = 上传失败 */
   regenerateMode: 'ok',      /* ok | fail400 | recover502 */
   statusRemaining: 0,        /* >0 时 status 先返回"处理中"，模拟出图还没结束 */
+  suiteDelivered: 3,         /* 套图任务最终交付几张（< 方案张数 = 部分交付） */
   works: [],
 };
-const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0 };
+const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0 };
 
 const failures = [];
 const passed = [];
@@ -106,6 +107,25 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { status: 'completed', url: RESULT_IMAGE, taskId: 'task-e2e-1' });
     }
     if (path === '/api/save-work') { calls.saveWork.push(parse()); return json(res, 200, { ok: true, _saveKey: 'e2e-work-1' }); }
+    /* ── 电商套图任务：提交 → 轮询 → 交付若干张 ── */
+    if (path === '/api/generate-ecommerce') {
+      const body = parse();
+      calls.suite.push(body);
+      return json(res, 202, { taskId: 'ec-e2e-1', status: 'queued' });
+    }
+    if (path === '/api/ecommerce/jobs/ec-e2e-1') {
+      calls.suitePoll += 1;
+      const assets = Array.from({ length: fx.suiteDelivered }, (_, index) => ({
+        id: 'suite-' + index,
+        stableUrl: '/api/generated-assets/' + String(index).padStart(2, '0').repeat(32) + '.png',
+        state: 'completed',
+        label: '套图成品 ' + (index + 1),
+        role: index === 0 ? 'white_bg' : 'main_text',
+      }));
+      /* 先给一次 running（让"进度"真的走一遍），再给 completed */
+      if (calls.suitePoll === 1) return json(res, 200, { ok: true, task: { id: 'ec-e2e-1', taskId: 'ec-e2e-1', status: 'running', assets: [] } });
+      return json(res, 200, { ok: true, task: { id: 'ec-e2e-1', taskId: 'ec-e2e-1', status: 'completed', assets, output: { images: {} } } });
+    }
     if (path === '/api/auth/logout') return json(res, 200, { ok: true });
     return json(res, 200, { ok: true });
   }
@@ -420,6 +440,45 @@ try {
     title: document.querySelector('.media-workbench-head h2')?.textContent || '',
   }));
   check(!afterSwitch.run, '换到别的技能后，上一轮的结果不会留在这一页上', JSON.stringify(afterSwitch));
+
+  /* ═══ ⑯ 电商套图：就地跑完（按套计价的钱路） ═══ */
+  scenario('⑯ 套图就地跑完');
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(500);
+  const suiteBefore = await page.evaluate(() => ({
+    cta: document.querySelector('.media-workbench-submit')?.textContent || '',
+    points: document.querySelector('.media-workbench-points')?.textContent || '',
+    hint: document.querySelector('.media-workbench-cta-hint')?.textContent || '',
+    labels: Array.from(document.querySelectorAll('.media-field-label')).map(n => n.textContent),
+  }));
+  check(/\d+ 积分/.test(suiteBefore.points), '套图 CTA 显示的是**按套**的总价（不是单张价）', JSON.stringify(suiteBefore.points));
+  check(suiteBefore.labels.some(label => label.startsWith('平台')), '套图有「平台」字段（它决定套图结构与张数）', JSON.stringify(suiteBefore.labels));
+  check(!suiteBefore.labels.some(label => label.startsWith('数量')), '套图不该有"数量"（张数由平台结构决定，放了也没用）', JSON.stringify(suiteBefore.labels));
+
+  await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
+  await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 });
+  const suiteQuoteBefore = calls.quote.length;
+  await page.click('.media-workbench-submit');
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(3500);
+  const suiteBody = calls.suite[0] || {};
+  const suiteQuote = calls.quote[calls.quote.length - 1] || {};
+  const planQuantity = Number(suiteQuote.quantity || 0);
+  check(calls.quote.length > suiteQuoteBefore, '先报价再提交（不报价不生成）', JSON.stringify(suiteQuote));
+  check(planQuantity > 1, '套图按**方案张数**报价（不是 1 张）', String(planQuantity));
+  check(Boolean(suiteBody.billing_quote_id), '提交时带上报价 id（服务端据此建 hold）');
+  check(String(suiteBody.platform) === '淘宝', '平台进了请求体（它决定套图结构）', String(suiteBody.platform));
+  check(Array.isArray(suiteBody.assets?.product) && suiteBody.assets.product.length === 1, '商品图以"已拥有资产"提交（服务端不用重传）', JSON.stringify(suiteBody.assets?.product?.length));
+  check(Array.isArray(suiteBody.sizing?.images) && suiteBody.sizing.images.length > 1, 'sizing.images 带上了算好的图集（服务端据此算同一套方案）', JSON.stringify(suiteBody.sizing?.images?.length));
+  check(calls.suite.length === 1, '只提交了一次套图任务（连点不会重复下单）', String(calls.suite.length));
+  const suiteShots = await page.evaluate(() => document.querySelectorAll('.media-run-slot img').length);
+  check(suiteShots === fx.suiteDelivered, '交付了几张就显示几张', suiteShots + ' vs ' + fx.suiteDelivered);
+  const suiteNotice = await page.evaluate(() => document.querySelector('.media-run-notice')?.textContent || '');
+  check(suiteNotice.includes('任务记录') && suiteNotice.includes(String(planQuantity)), '部分交付时**引导去任务记录补跑**，不提供整单重跑', suiteNotice.slice(0, 80));
+  const suiteWork = ((calls.saveWork[calls.saveWork.length - 1] || {}).work) || {};
+  check(suiteWork.mediaSkillId === 'image.product_suite', '套图作品归到这条技能名下（历史看得到）', String(suiteWork.mediaSkillId));
+  check(String(suiteWork.taskId) === 'ec-e2e-1', '套图作品用服务端任务号当身份（不会在作品里出现两条）', String(suiteWork.taskId));
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
 } finally {

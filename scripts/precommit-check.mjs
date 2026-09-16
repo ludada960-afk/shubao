@@ -26,6 +26,10 @@ const BLOCKING = [
   'test/ink-contrast.test.mjs',
   'test/no-upstream-leakage.test.mjs',
   'test/charge-requires-confirmation.test.mjs',
+  /* 渲染期 TDZ：2026-09-17 同一个坑在同一文件踩了两次（依赖数组引用了后面才声明的 const
+     → 整页落错误边界）。2026-09-16 的线上白屏事故也是同一类。
+     判据干净：const/let 有暂时性死区、函数声明会提升 —— 依赖数组里的 const/let 必须先声明。 */
+  'test/render-order-tdz-0917.test.mjs',
   'test/pricing-single-source.test.mjs',
   /* 键盘不可达回归：2026-09-20 起**已归零**（79 → 0），因此从"进度条"升为**硬门禁**。 */
   'test/no-clickable-div.test.mjs',

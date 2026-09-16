@@ -26,6 +26,7 @@ import {
 } from '../../skills/pendingRunStore.js';
 import {
   buildSkillRequest,
+  buildSuiteRun,
   initialSkillValues,
   skillRunKind,
   isHandoffSkill,
@@ -40,7 +41,14 @@ import {
   visualRetryIndexes,
   visualRunIsBusy,
 } from '../Home/visualCreationModel.js';
-import { buildCanvasGenerationBody, recoverCanvasGeneration, regenerateCanvasImage, saveWork } from '../../services/api';
+import {
+  buildCanvasGenerationBody,
+  generateEcommerce,
+  recoverCanvasGeneration,
+  regenerateCanvasImage,
+  saveWork,
+} from '../../services/api';
+import { quoteBillingAction } from '../../services/billing.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useWorksSync } from '../../store/useWorksSync.js';
 import '../Home/MediaHub.css';
@@ -180,10 +188,22 @@ export default function MediaCreationPage() {
     [board, skillId],
   );
 
+  /* 运行方式（skillRun.skillRunKind）：inline 就地出图 / suite 套图 / handoff 回既有工作台。
+     ⚠️ 这三行必须放在 skill 之后、所有用到它们的 useMemo 之前 ——
+        依赖数组是在**渲染期**求值的，放在后面用就会 TDZ 崩整页（本项目已踩过两次）。 */
+  const runKind = board === 'video' ? 'handoff' : (skill ? skillRunKind(skill) : 'inline');
+  const suite = runKind === 'suite';
+  const handoff = runKind === 'handoff';
+
   /* 生效值 = 声明源默认值 + 用户改动。校验、积分、下发参数一律基于它（与界面显示同源）。 */
   const effectiveValues = useMemo(() => (skill ? { ...initialSkillValues(skill), ...values } : values), [skill, values]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
-  const points = useMemo(() => (skill ? skillPointsEstimate(skill, effectiveValues) : 0), [skill, effectiveValues]);
+  /* 套图按**套**计价：张数与报价必须来自与面板同一份方案计算（skillRun.buildSuiteRun） */
+  const suiteRun = useMemo(() => (skill && suite ? buildSuiteRun(skill, effectiveValues) : null), [skill, suite, effectiveValues]);
+  const points = useMemo(
+    () => (suite ? (suiteRun?.points || 0) : (skill ? skillPointsEstimate(skill, effectiveValues) : 0)),
+    [suite, suiteRun, skill, effectiveValues],
+  );
   const busy = visualRunIsBusy(run);
 
   /* 进行中的运行落盘：刷新/误关标签页之后还能把图找回来（出图是要花钱的，不能白丢） */
@@ -266,8 +286,6 @@ export default function MediaCreationPage() {
      ⚠️ 这里必须显式区分：套图走的是**多张、按套计价**的引擎，
         若它掉进单图分支，会按 1 积分发一次单图请求 —— 既不是用户要的东西，也把计价搞错了。
         所以在套图就地跑通之前，它走 handoff（带着配置回既有套图工作台），绝不走单图。 */
-  const runKind = board === 'video' ? 'handoff' : (skill ? skillRunKind(skill) : 'inline');
-  const handoff = runKind === 'handoff' || runKind === 'suite';
 
   /* 统一失焦：登录 / 余额不足交给既有守卫处理，其余就地显示 */
   const handleError = useCallback((err) => {
@@ -327,7 +345,7 @@ export default function MediaCreationPage() {
     if (finished && finished.slots.some(slot => slot.status === 'completed' && slot.url)) await persistRun(finished);
   }
 
-  async function persistRun(finalRun) {
+  async function persistRun(finalRun, taskId = '') {
     const settings = skillGenerationSettings(skill, effectiveValues);
     const request = buildSkillRequest(skill, effectiveValues, { runId: finalRun.id });
     try {
@@ -347,6 +365,9 @@ export default function MediaCreationPage() {
         category: skill.category,
         visualSkillId: skill.id,
         mediaSkillId: skill.id,
+        /* 套图：用服务端任务号当作品身份 —— 服务端也会为同一个任务落一条作品，
+           同一个 taskId 才能被合并成一条，而不是在「我的作品」里出现两条。 */
+        ...(taskId ? { taskId, _saveKey: taskId } : {}),
         replay: { ...record.replay, mediaSkillId: skill.id, panelValues: { ...effectiveValues } },
       };
       const saved = await saveWork(work, state.phone);
@@ -374,6 +395,98 @@ export default function MediaCreationPage() {
     runRef.current = fresh;
     setRun(fresh);
     await executeRun(fresh, Array.from({ length: settings.count }, (_, index) => index));
+  }
+
+  /* ── 套图：就地跑既有套图引擎（一次任务出一套 N 张，按套计价）──────────────
+     ⚠️ 这条链路上有三条钱规矩，一条都不能破：
+       ① **报价张数**必须与方案一致：用与面板同一份 resolveEcommercePlan 算（服务端建 hold 前会
+          校验报价，数量对不上就直接报错 —— 干净失败，不扣费）；
+       ② **幂等**：提交由 generateEcommerce 内部按草稿持久化的 Idempotency-Key 兜底，
+          连点不会重复下单；
+       ③ **部分交付不许整单重跑** —— 那会把已交付的那几张再买一遍。缺的图引导去「任务记录」补跑
+          （那里走 retry-plan → retry-failed，只为缺的图报价）。 */
+  async function generateSuite() {
+    if (!skill) return;
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const check = validateSkillInput(skill, effectiveValues);
+    if (!check.ok) { setError('还差：' + check.missing.join('、')); return; }
+    const plan = buildSuiteRun(skill, effectiveValues);
+    if (!plan.productInputs.length) { setError('商品图还没上传完成'); return; }
+    if (!plan.plan.quoteRequest) { setError('套图方案为空，先检查平台设置'); return; }
+
+    setError('');
+    setNotice('正在确认本次费用…');
+    let quote = null;
+    try {
+      const response = await quoteBillingAction(plan.plan.quoteRequest);
+      quote = response?.quote || null;
+    } catch (err) {
+      setNotice('');
+      handleError(err);
+      return;
+    }
+    if (!quote?.quoteId) { setNotice(''); setError('暂时无法确认本次处理费用，请重试'); return; }
+
+    const fresh = createVisualRun({ count: plan.plan.quantity });
+    let current = fresh.slots.reduce((acc, _slot, index) => updateVisualRunSlot(acc, index, { status: 'generating' }), fresh);
+    runRef.current = current;
+    setRun(current);
+    setNotice('套图任务已提交，正在出图（一套 ' + plan.plan.quantity + ' 张）…');
+    abortRef.current = new AbortController();
+
+    let delivered = 0;
+    const markRemainingFailed = reason => {
+      let settled = runRef.current;
+      settled.slots.forEach((slot, index) => {
+        if (slot.status === 'completed') return;
+        settled = updateVisualRunSlot(settled, index, { status: 'failed', error: reason });
+      });
+      runRef.current = settled;
+      setRun(settled);
+      return settled;
+    };
+
+    try {
+      const result = await generateEcommerce({
+        productName: plan.productName,
+        realShots: plan.productInputs,
+        platform: plan.platform,
+        sizing: plan.sizing,
+        generationSettings: { resolution: plan.sizing.resolution, imageModel: plan.sizing.imageModel },
+        billingQuoteId: quote.quoteId,
+        signal: abortRef.current.signal,
+        onProgress: task => {
+          const label = String(task?.message || '').trim();
+          const assets = task?.assets && typeof task.assets === 'object' ? Object.keys(task.assets).length : 0;
+          setNotice(label || ('正在出图：已交付 ' + Math.max(delivered, assets) + '/' + plan.plan.quantity + ' 张…'));
+        },
+        onImage: image => {
+          const url = String(image?.stableUrl || image?.url || '');
+          if (!url || delivered >= plan.plan.quantity) return;
+          const index = delivered;
+          delivered += 1;
+          const next = updateVisualRunSlot(runRef.current, index, { status: 'completed', url, taskId: String(image?.id || '') });
+          runRef.current = next;
+          setRun(next);
+        },
+      });
+
+      const taskId = String(result?.taskId || '');
+      const settled = markRemainingFailed('这一张没有交付');
+      if (delivered > 0) await persistRun(settled, taskId);
+      setNotice(delivered >= plan.plan.quantity
+        ? ''
+        : '已交付 ' + delivered + '/' + plan.plan.quantity + ' 张。缺的图请在左下角「任务记录」里补跑 —— 别在这一页整单重跑，那会把已交付的再买一遍。');
+    } catch (err) {
+      const message = friendlyError(err) || '套图任务没有完成';
+      markRemainingFailed(message);
+      setNotice('');
+      handleError(err);
+    }
   }
 
   /* 重试按钮：用户手势入口② —— 只重跑失败槽位（成功的不会重跑，也就不会重复扣费） */
@@ -421,12 +534,12 @@ export default function MediaCreationPage() {
         values={values}
         onFieldChange={(key, value) => setValues(prev => ({ ...prev, [key]: value }))}
         onBack={backToHub}
-        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (runKind === 'suite' ? (HANDOFF_LABEL[skill.pipeline] || '去套图工作台') : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续'))) : '立即生成'}
+        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : '立即生成'}
         ctaPoints={handoff ? null : points}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
         status={status}
-        onGenerate={handoff ? handoffToBoard : generate}
+        onGenerate={handoff ? handoffToBoard : (suite ? generateSuite : generate)}
         history={history}
       />
     </div>

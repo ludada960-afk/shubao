@@ -19,6 +19,10 @@
    ⚠️ 本文件是纯函数：不碰 DOM、不发请求，便于门禁直接断言。 */
 
 import { generationUnits } from '../services/imageModelCatalog.js';
+/* 套图方案（张数 / 各图比例 / 报价请求）**只有这一份实现**：面板、画布、首页都用它。
+   我们要就地跑套图，就必须用同一份 —— 自己另算一套张数会和服务端的方案对不上，
+   而服务端在建 hold 之前会校验报价（数量对不上直接报错），对不上就是白跑一趟。 */
+import { resolveEcommercePlan } from '../pages/Home/ec/ecommercePlanModel.js';
 
 /* 服务端唯一认得的四个视觉方向（server/visualCreationSkills.mjs:1） */
 export const SERVER_VISUAL_SKILL_IDS = Object.freeze(['free', 'poster', 'social-cover', 'brand-kv']);
@@ -180,4 +184,42 @@ export function skillRunKind(skill) {
 
 export function isHandoffSkill(skill) {
   return skillRunKind(skill) === 'handoff';
+}
+
+/* ── ⑧ 套图（suite）的就地运行参数 ──────────────────────────────────────────
+   套图与单图是**两套引擎、两套计价**：
+     · 单图：一次请求一张，按张计价（ec_image_2k = 1 积分/张）
+     · 套图：一次任务一套 N 张，先按「方案张数」报价，服务端建 hold 之前会校验报价，
+             数量对不上就干净报错、**不扣费**（fail-safe）
+   所以这里必须用与面板同一份 resolveEcommercePlan 算出张数与报价请求。 */
+export const SUITE_PLATFORMS = Object.freeze(['淘宝', '抖音', '小红书', '拼多多', '京东']);
+export const SUITE_DEFAULT_PLATFORM = '淘宝';
+
+/* 套图要的是"已拥有的资产引用"（assetId + /api/generated-assets/ 地址），
+   服务端据此直接把素材挂进方案，不会再让我们把图片重传一遍。 */
+export function suiteOwnedInputs(values = {}) {
+  return readyUploads(values.assets)
+    .filter(item => text(item.assetId) && /^\/api\/generated-assets\//i.test(text(item.url)))
+    .map(item => ({ assetId: text(item.assetId), url: text(item.url), role: 'product' }))
+    .slice(0, 6);
+}
+
+export function buildSuiteRun(skill, values = {}) {
+  const platform = SUITE_PLATFORMS.includes(text(values.platform)) ? text(values.platform) : SUITE_DEFAULT_PLATFORM;
+  const productInputs = suiteOwnedInputs(values);
+  /* 商品名是服务端必填项：取「商品信息」的第一行，没有就给一个中性占位（不编造品牌） */
+  const productName = (text(values.productParams).split(/\r?\n/).map(line => line.trim()).filter(Boolean)[0] || '').slice(0, 40) || '商品';
+  const sizing = { resolution: DEFAULT_RESOLUTION, imageModel: DEFAULT_IMAGE_MODEL };
+  const plan = resolveEcommercePlan({ platform, sizing, resolution: DEFAULT_RESOLUTION, imageModel: DEFAULT_IMAGE_MODEL });
+  const unitsPerImage = generationUnits(DEFAULT_IMAGE_MODEL, DEFAULT_RESOLUTION) || 0;
+  return {
+    platform,
+    productName,
+    productInputs,
+    /* sizing.images 是服务端认的**唯一图集来源**（generateEcommerce 会把同值镜像到 image_selections）——
+       必须把算出来的 plan.images 原样带过去，服务端才会算出同一套方案 */
+    sizing: { ...sizing, images: plan.images },
+    plan,
+    points: Number(((plan.quantity * unitsPerImage) / 1000).toFixed(2)),
+  };
 }
