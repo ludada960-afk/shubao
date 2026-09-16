@@ -61,25 +61,23 @@ export default function HomePage() {
   const ecParamsRef = useRef({});  // 第一步收集的参数
   const modeShowcaseRef = useRef(null);
 
+  /* ═══ 一级入口只剩两个：视频生成 / 图片生成 ═══════════════════════════════════
+     用户 9-17 拍板「首页入口收敛成两张卡」，43 §3.1 的判据①也是这两张（视频放前面，用户批注 #1）。
+     原来那四个模式没有消失，只是**换了入口**：
+       · 电商生图 → 技能「电商商品套图」的子页面（/image-creation?id=image.product_suite）
+       · 小红书图文 → 技能「小红书图文」的子页面
+       · 自由创作 → 技能「自由创作」的子页面
+     它们仍然可以从左侧导航与技能库进入，一条能力都没少。
+     这两张卡负责的是「我要直接生成点什么」——所以下面就是提示词输入区，再下面是热门技能。 */
   const modeOptions = [
-    {
-      mode: 'ecommerce',
-      title: '电商生图',
-      src: '/images/home/entry-ecommerce.png',
-    },
     {
       mode: 'video',
       title: '视频生成',
       src: '/images/home/entry-video.png?v=20260812',
     },
     {
-      mode: 'content',
-      title: '小红书图文',
-      src: '/images/home/entry-xhs.png?v=20260812',
-    },
-    {
       mode: 'visual',
-      title: '自由创作',
+      title: '图片生成',
       src: '/images/home/entry-visual.png?v=20260812',
     },
   ];
@@ -230,7 +228,7 @@ export default function HomePage() {
             boxShadow: isXHS || isVideo || isVisual ? undefined : 'none',
           }}>
             <div className="surface-card-inner">
-              {isVideo ? <VideoStudioPage embedded /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : !isVisual ? (
+              {isVideo ? <VideoStudioPage embedded inlineResult /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : !isVisual ? (
                 <EcMode ecStep={ecStep} setEcStep={setEcStep}
                   onStepChange={(params) => { ecParamsRef.current = params; }}
                   recoveryCheckpoint={recoveryCheckpoint}

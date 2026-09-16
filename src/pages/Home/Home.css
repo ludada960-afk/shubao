@@ -2509,16 +2509,19 @@
    · hover 只做中性底色与位移（原则 4.3），绝不发紫；
    · 补 :active（压深 + 收敛位移）与 :focus-visible（--sb-focus-ring）；
    · 全部取值来自 design-tokens-v3.css。 */
+/* 9-17：一级入口从四张收敛成两张（视频生成 / 图片生成）——
+   扇形还是同一套语言（上行张开、hover 抬起回正、选中染紫），只是两片。
+   卡片相应放大：四张时 156px，两张时 232px，视觉重量才不会塌。 */
 .homepage-mode-showcase {
-  display: flex; justify-content: center; width: min(100%, 680px); height: 174px;
+  display: flex; justify-content: center; width: min(100%, 560px); height: 174px;
   position: relative; z-index: 3; margin: var(--sb-space-5) auto -34px;
 }
 .homepage-mode-cards {
-  display: flex; align-items: flex-end; justify-content: center; width: 640px; height: 168px; gap: 0;
+  display: flex; align-items: flex-end; justify-content: center; width: 480px; height: 168px; gap: 0;
   animation: homepageModeCardsIn var(--sb-duration-slow) var(--sb-ease-out) both;
 }
 .homepage-mode-card {
-  position: relative; display: grid; flex: 0 0 auto; grid-template-rows: 28px 124px; width: 156px; height: 168px;
+  position: relative; display: grid; flex: 0 0 auto; grid-template-rows: 28px 124px; width: 232px; height: 168px;
   overflow: hidden; padding: var(--sb-space-2);
   border: 1px solid var(--sb-border-default);
   border-radius: var(--sb-radius-control);
@@ -2539,10 +2542,8 @@
 .homepage-mode-card-visual img {
   width: 100%; height: 100%; display: block; object-fit: contain;
 }
-.homepage-mode-card.card-1 { transform: rotate(-10deg); transform-origin: right bottom; margin-right: -24px; }
-.homepage-mode-card.card-2 { transform: rotate(5deg); transform-origin: left bottom; }
-.homepage-mode-card.card-3 { transform: rotate(-5deg); transform-origin: right bottom; }
-.homepage-mode-card.card-4 { transform: rotate(5deg); transform-origin: left bottom; margin-left: -16px; }
+.homepage-mode-card.card-1 { transform: rotate(-6deg); transform-origin: right bottom; margin-right: -22px; }
+.homepage-mode-card.card-2 { transform: rotate(6deg); transform-origin: left bottom; }
 /* hover：只做位移（这是卡片**本身**的交互语言）+ 中性底色，绝不染紫（原则 4.3） */
 .homepage-mode-card:hover {
   transform: translateY(-16px) rotate(0deg);
@@ -2572,13 +2573,11 @@
 @media (max-width: 640px) {
   .homepage-mode-showcase { width: 100%; height: 128px; margin-bottom: -24px; }
   .homepage-mode-cards { width: 100%; height: 124px; }
-  .homepage-mode-card { width: min(22vw,88px); height: 118px; grid-template-rows: 26px 78px; padding: 6px; }
+  .homepage-mode-card { width: min(38vw,132px); height: 118px; grid-template-rows: 26px 78px; padding: 6px; }
   .homepage-mode-card-title { gap: 3px; font-size: 10px; }
   .homepage-mode-card-title svg { display: none; }
-  .homepage-mode-card.card-1 { margin-right: -10px; transform: rotate(-7deg); }
-  .homepage-mode-card.card-2 { transform: rotate(4deg); }
-  .homepage-mode-card.card-3 { transform: rotate(-4deg); }
-  .homepage-mode-card.card-4 { margin-left: -7px; transform: rotate(5deg); }
+  .homepage-mode-card.card-1 { margin-right: -8px; transform: rotate(-5deg); }
+  .homepage-mode-card.card-2 { transform: rotate(5deg); }
 }
 
 /* Independent try-on assets keep each proof readable and make every card zoomable. */

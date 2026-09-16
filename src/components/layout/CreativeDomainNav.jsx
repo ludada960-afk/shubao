@@ -32,6 +32,7 @@ import {
   getNavigationTarget,
   isNavigationGroupActive,
 } from './creativeDomainNavigation.js';
+import { skillPath } from '../../skills/skillDirectory.js';
 
 const ICONS = {
   'shopping-bag': Package,
@@ -264,12 +265,17 @@ function CreativeDomainNav() {
       setMobileOpen(false);
       return;
     }
-    if (action.type === 'SET_MODE') {
-      if (state.page !== 'home') dispatch({ type: 'NAVIGATE', page: 'home' });
-      dispatch(action);
-      if (item?.launch) {
-        dispatch({ type: 'SET_CREATION_LAUNCH', launch: { ...item.launch, nonce: `${Date.now()}-${item.id}` } });
-      }
+    if (action.type === 'OPEN_SKILL') {
+      /* 点「海报设计」就进海报的**子页面**（用户 9-17：一级入口收敛成两个总页面，
+         具体能力都在各自技能的子页面里跑完，不再切回首页的内联模块）。
+         ⚠️ 路径必须走 skillDirectory.skillPath —— 首页热门条 / Hub / 导航三处共用一份实现，
+            这里自己拼一个 "/image-creation?id=..." 就会在改路径规则时漏掉一处。 */
+      const path = skillPath({ id: action.skillId, board: action.board });
+      window.history.pushState({}, '', path);
+      if (state.page !== action.page) dispatch({ type: 'NAVIGATE', page: action.page });
+      /* 页面**已经**在同一个总页面上时，组件不会重新挂载，靠这个事件让它重读地址栏里的技能 */
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (action.type === 'OPEN_CANVAS') {
       dispatch(action);
     } else {

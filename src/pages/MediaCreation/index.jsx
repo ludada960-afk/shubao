@@ -15,6 +15,12 @@ import { AlertCircle, Download, RotateCcw, Sparkles } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
+/* 小红书图文与视频这两条链路各自已有**跑通的完整工作台**（分步确认 / 方案弹窗 / 任务轮询）。
+   子页面的做法不是重写一遍，而是把那个组件整块嵌进来（用户 9-17：「不必生成完就跳进去画布」）。 */
+import XhsContentMode from '../Home/XhsContentMode.jsx';
+import VideoStudioPage from '../VideoStudio/index.jsx';
+import { contentResultPages, isContentResult } from '../Home/contentResultModel.js';
+import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
 import { boardOfPage, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
@@ -28,8 +34,9 @@ import {
   buildSkillRequest,
   buildSuiteRun,
   initialSkillValues,
+  skillEmbedOf,
   skillRunKind,
-  isHandoffSkill,
+  skillVideoMode,
   skillGenerationSettings,
   skillPointsEstimate,
   validateSkillInput,
@@ -59,7 +66,10 @@ import './MediaCreation.css';
 /* 板块 ↔ 总页面 的对应只有 skillDirectory 一份（首页热门条、Hub、工作台共用） */
 const BOARD_BY_PAGE = { 'image-creation': 'image', 'video-creation': 'video' };
 
-/* 重流程（多分钟、多资产、带方案确认）不在这里重写：只把配置带回去。 */
+/* ⚠️ 这一张表现在是**兜底**，当前没有任何技能会走到它：
+   小红书图文与视频都已改成 embed（把既有工作台整块嵌进本页，结果与历史都留在本页）。
+   保留它是为了"既跑不完、又没有组件可嵌"的将来 —— 那时宁可老实把人送去对应工作台，
+   也不要在这里做个半成品。判据见 skillRun.skillRunKind 的注释。 */
 const HANDOFF_BY_PIPELINE = {
   ecommerceSuite: { mode: 'ecommerce', recipeId: 'product_suite' },
   xhsNote: { mode: 'content', subMode: 'content' },
@@ -148,6 +158,11 @@ export default function MediaCreationPage() {
   const [run, setRun] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /* 视频：嵌进来的工作台把服务端的任务列表回传上来，本页据此渲染「历史」页签 */
+  const [videoJobs, setVideoJobs] = useState([]);
+  /* 视频：历史里点「用这组参数」→ 还原到创作台。nonce 让"再点同一条"也能重新生效。 */
+  const [videoSeed, setVideoSeed] = useState(null);
+  const [videoSeedNonce, setVideoSeedNonce] = useState(0);
   const runRef = useRef(null);
   const abortRef = useRef(null);
 
@@ -189,12 +204,15 @@ export default function MediaCreationPage() {
     [board, skillId],
   );
 
-  /* 运行方式（skillRun.skillRunKind）：inline 就地出图 / suite 套图 / handoff 回既有工作台。
-     ⚠️ 这三行必须放在 skill 之后、所有用到它们的 useMemo 之前 ——
+  /* 运行方式（skillRun.skillRunKind）：inline 就地出图 / suite 套图 /
+     embed 把既有工作台整块嵌进本页 / handoff 兜底（当前没有技能走这一态）。
+     ⚠️ 这几行必须放在 skill 之后、所有用到它们的 useMemo 之前 ——
         依赖数组是在**渲染期**求值的，放在后面用就会 TDZ 崩整页（本项目已踩过两次）。 */
-  const runKind = board === 'video' ? 'handoff' : (skill ? skillRunKind(skill) : 'inline');
+  const runKind = skill ? skillRunKind(skill) : 'inline';
   const suite = runKind === 'suite';
   const handoff = runKind === 'handoff';
+  /* 'xhs' | 'video' | ''：嵌哪一块既有工作台 */
+  const embed = runKind === 'embed' && skill ? skillEmbedOf(skill) : '';
 
   /* 生效值 = 声明源默认值 + 用户改动。校验、积分、下发参数一律基于它（与界面显示同源）。 */
   const effectiveValues = useMemo(() => (skill ? { ...initialSkillValues(skill), ...values } : values), [skill, values]);
@@ -269,23 +287,63 @@ export default function MediaCreationPage() {
      ⚠️ 作品列表由 useWorksSync 拉取 —— 少了这一步，刷新后历史永远是空的。 */
   const history = useMemo(() => {
     const works = Array.isArray(state.works) ? state.works : [];
-    return works
+    const fromWorks = works
       .filter(work => work && work.mediaSkillId === skill?.id)
       .map(work => {
+        /* 小红书图文的作品不是「一组图」而是「一组图 + 标题正文」：
+           图片在 cover_url / image_urls 里（contentResultModel 是唯一解析处），
+           按 work.images 去读只会得到 0 张、然后被下面的 filter 静默丢掉。 */
+        const content = isContentResult(work) ? contentResultPages(work) : [];
         const images = Array.isArray(work.images) ? work.images : (Array.isArray(work.imageRecords) ? work.imageRecords : []);
-        const urls = images.map(image => image?.url).filter(Boolean);
+        const urls = content.length ? content.map(page => page.url) : images.map(image => image?.url).filter(Boolean);
+        const time = formatWorkTime(work.createdAt || work.savedAt);
         return {
           id: String(work._saveKey || work.id || ''),
           saveKey: work._saveKey || work.id || '',
           title: String(work.title || skill?.name || ''),
-          subtitle: [urls.length ? urls.length + ' 张' : '', formatWorkTime(work.createdAt || work.savedAt)].filter(Boolean).join(' · '),
+          subtitle: [urls.length ? urls.length + ' 张' : '', time].filter(Boolean).join(' · '),
           cover: urls[0] || '',
           /* 「用这组参数」靠它还原面板：只认**这条技能自己**存下的参数 */
           values: (work.replay && work.replay.mediaSkillId === skill?.id && work.replay.panelValues) ? work.replay.panelValues : null,
+          /* 图文没有"面板参数"可还原（它的输入就是一句话提示词）→ 还原提示词本身。
+             这类记录因此也要能显示「用这组参数」按钮（判据见 SkillWorkbench）。 */
+          restore: (isContentResult(work) && String(work._inputText || '').trim()) ? { prompt: String(work._inputText).trim() } : null,
         };
       })
       .filter(item => item.cover);
-  }, [skill, state.works]);
+
+    /* 视频：服务端任务列表按技能筛出本页这一份（标记只写在本机，见 videoJobTags）。
+       ⚠️ 筛不出来**不代表任务没了** —— 上方嵌进来的工作台里的「生成记录」永远是全量。 */
+    const fromVideos = embed === 'video'
+      ? videoJobsOfSkill(videoJobs, skill?.id).map(job => {
+          const done = job.status === 'completed' && job.resultUrl;
+          const seconds = Number(job.duration) || 0;
+          return {
+            id: String(job.id || ''),
+            saveKey: String(job.id || ''),
+            title: String(job.prompt || skill?.name || '视频任务').slice(0, 60),
+            subtitle: [seconds ? seconds + ' 秒' : '', job.resolution || '', job.aspectRatio || job.aspect_ratio || ''].filter(Boolean).join(' · '),
+            cover: '',
+            /* 成片用 video 播放（CaseCard 支持），没出片就只留一行状态，不放一张空白封面 */
+            video: done ? job.resultUrl : '',
+            poster: '',
+            badge: done ? '' : String(job.status || '生成中'),
+            /* 「用这组参数」还原创作台：任务记录里存着提示词与规格，全部可以还原 */
+            restore: {
+              videoJob: {
+                prompt: String(job.prompt || ''),
+                negativePrompt: String(job.negativePrompt || job.negative_prompt || ''),
+                duration: seconds,
+                ratio: String(job.aspectRatio || job.aspect_ratio || ''),
+                resolution: String(job.resolution || ''),
+                mode: skillVideoMode(skill) || 'smart',
+              },
+            },
+          };
+        })
+      : [];
+    return [...fromVideos, ...fromWorks];
+  }, [skill, state.works, embed, videoJobs]);
   /* 运行方式（skillRun.skillRunKind）：inline 就地出图 / suite 套图 / handoff 回既有工作台。
      ⚠️ 这里必须显式区分：套图走的是**多张、按套计价**的引擎，
         若它掉进单图分支，会按 1 积分发一次单图请求 —— 既不是用户要的东西，也把计价搞错了。
@@ -505,7 +563,27 @@ export default function MediaCreationPage() {
   /* 历史操作①：用这组参数 —— **只还原面板，不直接扣费**。
      直接重跑会让用户在没看清的情况下被扣一次，与"没有用户确认绝不扣费"冲突。 */
   function reuseHistory(item) {
-    if (!item?.values) { setError('这条记录没有存下参数，无法还原'); return; }
+    if (!item) return;
+    /* ① 图文记录：能还原的只有那句话 —— 写回图文输入框（它就是这条链路的全部输入） */
+    if (item.restore?.prompt) {
+      dispatch({ type: 'SET_INPUT', text: item.restore.prompt });
+      setError('');
+      setNotice('提示词已还原，确认后点「生成图文」——这一次会重新计费');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    /* ② 视频任务：提示词与规格（时长/比例/清晰度/创作方式）一起还原回创作台 */
+    if (item.restore?.videoJob) {
+      setVideoSeed({ ...item.restore.videoJob });
+      setVideoSeedNonce(nonce => nonce + 1);
+      setError('');
+      setNotice('这条任务的提示词与规格已还原到上面的创作台，确认后点「分析并生成方案」——这一次会重新计费');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    /* ③ 图片技能：还原面板参数。**只还原面板，不直接扣费** ——
+       直接重跑会让用户在没看清的情况下被扣一次，与"没有用户确认绝不扣费"冲突。 */
+    if (!item.values) { setError('这条记录没有存下参数，无法还原'); return; }
     const keys = new Set(((skill && skill.fields) || []).map(field => field.key));
     const restored = Object.fromEntries(Object.entries(item.values).filter(([key]) => keys.has(key)));
     setValues(prev => ({ ...prev, ...restored }));
@@ -548,13 +626,47 @@ export default function MediaCreationPage() {
 
   if (!skill) return <div className="media-creation"><MediaHub board={board} onOpenSkill={openSkill} /></div>;
 
-  const status = (
+  /* 就近反馈（错误 / 提示）单独拎出来：嵌入形态下它要挂到页面**顶部**那条线上，
+     而不是塞在右栏页签上面 —— 用户点完历史里的「用这组参数」会被滚回顶部，
+     提示却留在页面下方的话，等于没提示。 */
+  const announce = (
     <>
-      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} />
       {error && <p className="media-run-global" role="alert"><AlertCircle size={14} />{error}</p>}
       {notice && <p className="media-run-notice">{notice}</p>}
     </>
   );
+  const status = (
+    <>
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} />
+      {announce}
+    </>
+  );
+
+  /* ═══ 整块嵌入的既有工作台（小红书图文 / 视频）══════════════════════════════════
+     用户 9-17：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面」。
+     这两条链路各自的参数控件与生成按钮**都在它自己的工作台里**，所以这里不再渲染通用字段栏与通用 CTA
+     （两个 CTA 会让人不知道按哪个）；结果与历史仍然落在这一页：
+       · 结果：图文走既有的结果视图，视频走嵌入工作台里的结果台（inlineResult）；
+       · 历史：右侧「历史」页签按这条技能筛（图文按 mediaSkillId，视频按本机任务标记）。
+     ⚠️ key={skill.id}：换技能必须**重挂载**嵌入的工作台 —— 否则上一条技能的提示词、素材、
+        已确认方案会留在下一次生成里（这是会花钱的串味，不是显示问题）。 */
+  const embeddedFlow = !embed ? null : (embed === 'xhs'
+    ? <XhsContentMode key={skill.id} compactMode historySkillId={skill.id} />
+    : (
+      <VideoStudioPage
+        key={skill.id}
+        embedded
+        inlineResult
+        /* 子页面里**不自动跳画布**：结果留在这一页的成片台上（用户 9-17 口径） */
+        autoOpenCanvas={false}
+        initialMode={skillVideoMode(skill)}
+        skillTag={skill.id}
+        preset={videoSeed}
+        presetNonce={videoSeedNonce}
+        onJobs={setVideoJobs}
+      />
+    ));
+  const panel = embed ? <>{announce}{embeddedFlow}</> : null;
 
   return (
     <div className="media-creation">
@@ -568,11 +680,15 @@ export default function MediaCreationPage() {
         ctaPoints={handoff ? null : points}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
-        status={status}
+        status={embed ? null : status}
         onGenerate={handoff ? handoffToBoard : (suite ? generateSuite : generate)}
         onHistoryDelete={deleteHistory}
         onHistoryReuse={reuseHistory}
         history={history}
+        panel={panel}
+        emptyHistoryHint={embed === 'video'
+          ? '这条技能还没有生成记录。这个账号的全部视频任务都在上方工作台的「生成记录」里，结果出来后会同步到这里。'
+          : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里。' : '')}
       />
     </div>
   );

@@ -55,11 +55,15 @@ function assertThumbBudget(url, context) {
   assert.ok(size <= THUMB_BUDGET_BYTES, `${context} thumb over 200KB (${Math.round(size / 1024)}KB): ${url}`);
 }
 
-test('four mode-card entry images resolve to existing webp thumbs before any PNG source', () => {
+/* 2026-09-17：一级入口从四张收敛成两张（视频生成 / 图片生成），
+   所以这里从"四张卡都有缩略图"改成"**每一张实际渲染的卡**都有缩略图"（判据不变，样本跟着界面走）。
+   ⚠️ 数字不写死：写死 4 会让这条门禁在下次增删入口时变成绊脚石，
+      而它真正要守的是"卡上的图不许直引源 PNG"。 */
+test('every rendered mode-card entry image resolves to an existing webp thumb before any PNG source', () => {
   const source = readFileSync(new URL('../src/pages/Home/index.jsx', import.meta.url), 'utf8');
   const options = source.match(/const modeOptions = \[([\s\S]*?)\n  \];/)?.[1] || '';
   const srcs = [...options.matchAll(/src: '([^']+)'/g)].map(match => match[1]);
-  assert.equal(srcs.length, 4);
+  assert.ok(srcs.length >= 2, '至少两张入口卡（实际 ' + srcs.length + '）');
   // ModeCardImage → modeCardThumb 是唯一首屏渲染路径：必须先剥 ?v= 再匹配扩展名（否则直拉源 PNG）。
   // 该行为以文本断言锁死（正则捕获组必须不含扩展名，否则会生成 *.png.webp 假路径回退到源图）；
   // 缩略产物存在性与预算用与 modeCardThumb 相同的换算在下方校验。
@@ -72,7 +76,7 @@ test('four mode-card entry images resolve to existing webp thumbs before any PNG
     assert.match(primary, /\.webp$/);
     assert.doesNotMatch(primary, /\?v=/);
     if (src.includes('?v=')) {
-      assert.match(src, /^\/images\/home\/entry-(video|xhs|visual)\.png\?v=\d{8}$/);
+      assert.match(src, /^\/images\/home\/entry-(ecommerce|video|xhs|visual)\.png\?v=\d{8}$/);
     }
     assertThumbBudget(primary, src);
   }
@@ -119,17 +123,22 @@ test('index.html keeps Google Fonts out of the render-blocking critical path', (
   assert.match(page, /rel="preconnect" href="https:\/\/fonts\.googleapis\.com"/);
   assert.match(page, /rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin/);
   assert.match(page, /rel="dns-prefetch" href="https:\/\/fonts\.gstatic\.com"/);
-  // 首屏 4 张模式卡都有预载（其中 entry-ecommerce 带 fetchpriority=high 作 LCP 候选）
+  /* 首屏的两张入口卡都要预载，其中 LCP 那张（视频生成）带 fetchpriority=high。
+     ⚠️ 预载清单必须与 modeOptions 一一对应：多预载一张已下线的图 = 白白占首屏带宽。 */
   const preloads = [...page.matchAll(/rel="preload" as="image"[^>]*href="([^"]+)"/g)].map(match => match[1]);
-  for (const thumb of [
-    '/images/.thumbs/home/entry-ecommerce.webp',
-    '/images/.thumbs/home/entry-video.webp',
-    '/images/.thumbs/home/entry-xhs.webp',
-    '/images/.thumbs/home/entry-visual.webp',
-  ]) {
+  const modeSource = readFileSync(new URL('../src/pages/Home/index.jsx', import.meta.url), 'utf8');
+  const modeOptions = modeSource.match(/const modeOptions = \[([\s\S]*?)\n  \];/)?.[1] || '';
+  const entrySrcs = [...modeOptions.matchAll(/src: '([^']+)'/g)].map(match => match[1].split('?')[0]);
+  assert.ok(entrySrcs.length >= 2, '入口卡至少两张');
+  for (const src of entrySrcs) {
+    const thumb = '/images/.thumbs/' + src.replace(/^\/images\//, '').replace(/\.png$/i, '.webp');
     assert.ok(preloads.includes(thumb), 'index.html should preload ' + thumb);
   }
-  assert.match(page, /fetchpriority="high"[^>]*href="\/images\/\.thumbs\/home\/entry-ecommerce\.webp"/);
+  /* 老模式的图不许再预载（已经不在首屏上了） */
+  for (const stale of ['/images/.thumbs/home/entry-ecommerce.webp', '/images/.thumbs/home/entry-xhs.webp']) {
+    assert.ok(!preloads.includes(stale), '下线的入口不该继续预载：' + stale);
+  }
+  assert.match(page, /fetchpriority="high"[^>]*href="\/images\/\.thumbs\/home\/entry-video\.webp"/);
 });
 
 test('mode cards render eager with fetchpriority high only on the primary card', () => {

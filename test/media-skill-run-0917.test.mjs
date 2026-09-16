@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { IMAGE_SKILLS, getImageSkill } from '../src/skills/imageSkills.js';
+import { VIDEO_CREATION_MODES } from '../src/pages/VideoStudio/videoStudioModel.js';
 import {
   DEFAULT_IMAGE_MODEL,
   MAX_REFERENCE_IMAGES,
@@ -10,7 +11,9 @@ import {
   buildSkillBrief,
   buildSkillRequest,
   isHandoffSkill,
+  skillEmbedOf,
   skillRunKind,
+  skillVideoMode,
   skillGenerationSettings,
   skillImages,
   skillPointsEstimate,
@@ -116,19 +119,49 @@ test('⑧ 必填校验能指出缺哪一项（给工作台做就近错误）', (
   assert.equal(ok.ok, true);
 });
 
-test('⑨ 运行方式三态：单图就地出、套图单独一档、小红书/视频回既有工作台', () => {
-  /* 为什么必须是三态而不是"是不是 handoff"一个布尔：
+test('⑨ 运行方式：单图就地出、套图单独一档、小红书/视频把既有工作台嵌进子页面', () => {
+  /* 为什么必须分档而不是"是不是 handoff"一个布尔：
      套图走的是**多张、按套计价**的引擎，一旦掉进单图分支，就会按 1 积分发一次单图请求 ——
-     既不是用户要的东西，也把计价搞错了。所以它必须有自己的一档。 */
+     既不是用户要的东西，也把计价搞错了。所以它必须有自己的一档。
+
+     2026-09-17 用户改口径（原话）：「生成结果直接在工作台里面展示，不必像之前一样生成完
+     就一定要跳进去画布里面……如果是在子页面的工作台生成的，结果就会在各自的子页面历史记录里面。」
+     → 小红书图文与视频从 handoff 改成 **embed**：把这两条链路**各自已有的、跑通的工作台**
+       整块嵌进子页面（不是重写一遍），结果与历史都留在本页。
+     → 判据因此收敛成一条：**这一页能不能把链路跑完并交出结果**。跑得完就没资格把人踢走。 */
   assert.equal(skillRunKind(getImageSkill('image.product_suite')), 'suite');
-  assert.equal(skillRunKind(getImageSkill('image.xhs_note')), 'handoff');
+  assert.equal(skillRunKind(getImageSkill('image.xhs_note')), 'embed');
   assert.equal(skillRunKind(getImageSkill('image.white_bg')), 'inline');
   assert.equal(skillRunKind(getImageSkill('image.retouch')), 'inline');
-  assert.equal(skillRunKind({ pipeline: 'videoSmart' }), 'handoff');
-  assert.equal(isHandoffSkill(getImageSkill('image.xhs_note')), true, '小红书图文是 SSE 套图流水线');
+  assert.equal(skillRunKind({ pipeline: 'videoSmart' }), 'embed');
+  /* 嵌哪一块由 skillEmbedOf 说了算，页面据此选组件 */
+  assert.equal(skillEmbedOf(getImageSkill('image.xhs_note')), 'xhs');
+  assert.equal(skillEmbedOf({ pipeline: 'videoFrame' }), 'video');
+  assert.equal(skillEmbedOf(getImageSkill('image.white_bg')), '');
+  /* ⚠️ 现在**没有任何技能**该走 handoff —— 它是留给"既跑不完、又没有组件可嵌"的出口。
+     本条一旦挂掉，说明有人把 embed 又改回了"把人送去别处"，先读 skillRunKind 的注释再改。 */
+  assert.equal(isHandoffSkill(getImageSkill('image.xhs_note')), false, '小红书图文已经能在子页面里跑完');
+  assert.equal(isHandoffSkill({ pipeline: 'videoSmart' }), false, '视频工作台已经嵌进子页面');
   assert.equal(isHandoffSkill(getImageSkill('image.white_bg')), false, '白底图应当就地生成');
   /* 套图**不许**被当成 inline（这条是防回归的核心） */
   assert.notEqual(skillRunKind(getImageSkill('image.product_suite')), 'inline');
+});
+
+test('⑨b 视频技能 → 创作方式页签的映射必须落在真实存在的页签上', () => {
+  /* 页签只有三档（videoStudioModel.VIDEO_CREATION_MODES = smart / frame / remake）：
+     「全能参考」不是页签，而是 smart 档带素材后由 resolveVideoApiMode **算**出来的 API 模式。
+     映射成 'reference' 会选中一个不存在的页签 —— 界面看着像没反应。 */
+  const tabs = VIDEO_CREATION_MODES.map(item => item.id);
+  for (const pipeline of ['videoSmart', 'videoFrame', 'videoRemake', 'videoReference']) {
+    const mode = skillVideoMode({ pipeline });
+    assert.ok(tabs.includes(mode), pipeline + ' → ' + mode + ' 必须是真实页签之一');
+  }
+  assert.equal(skillVideoMode({ pipeline: 'videoReference' }), 'smart', '参考链路落在 smart 档');
+  assert.equal(skillVideoMode({ pipeline: 'videoFrame' }), 'frame');
+  assert.equal(skillVideoMode({ pipeline: 'videoSmart' }), 'smart');
+  /* 认不出来的 pipeline 给空串 —— 交回工作台自己的默认值，不硬塞一个错的模式 */
+  assert.equal(skillVideoMode({ pipeline: 'nope' }), '');
+  assert.equal(skillVideoMode(null), '');
 });
 
 test('⑩ 请求装配：creation_intent 固定 visual，request_key 带 run/slot（幂等靠它）', () => {

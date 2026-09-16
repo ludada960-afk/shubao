@@ -58,6 +58,7 @@ import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
 import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
+import { tagVideoJob } from './videoJobTags.js';
 import './VideoStudio.css';
 
 /* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
@@ -272,13 +273,37 @@ function VideoPlanModal({ plan, onClose, onConfirm }) {
   </div>, document.body);
 }
 
-export default function VideoStudioPage({ embedded = false }) {
+/* ═══ 嵌入形态（子页面里整块复用本工作台）═══════════════════════════════════════
+   用户 9-17：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面……
+   如果是在子页面的工作台生成的，结果就会在各自的子页面历史记录里面。」
+   于是本组件多出四个**只在子页面用**的入参（首页那条路径一个都不传，行为与从前完全一致）：
+     · inlineResult  结果台（成片播放器 + 生成记录）在嵌入形态下也渲染 —— 生成完就在原地看成片；
+     · initialMode   按技能落创作方式页签（skillRun.skillVideoMode），不用用户自己再选一次；
+     · skillTag      这次任务属于哪条技能 → 记在本机（videoJobTags），供子页面历史筛选用；
+     · onJobs        把服务端的任务列表回传给外层，让子页面能把它渲染成自己的历史；
+     · preset/presetNonce 历史里点「用这组参数」时，把提示词与规格还原回创作台。
+     · autoOpenCanvas  成片完成后是否**自动**进画布。默认 true（独立路由与首页输入框保持 9-12 的策略：
+                       首页那两个输入框生成完自动进画布继续加工，用户 9-17 也认可这一点）。
+                       技能**子页面**必须传 false —— 用户 9-17 的原话是「生成结果直接在工作台里面展示，
+                       不必像之前一样生成完就一定要跳进去画布里面」，自动跳走等于把结果从眼前拿走。
+   ⚠️ 入参叫 preset 不叫 seed：本组件里 seed 已经是「随机种子」那个数字（下方 useState(0)），
+      同名会直接编译失败（esbuild: The symbol "seed" has already been declared）。 */
+export default function VideoStudioPage({
+  embedded = false,
+  inlineResult = false,
+  initialMode = '',
+  skillTag = '',
+  onJobs = null,
+  preset = null,
+  presetNonce = 0,
+  autoOpenCanvas = true,
+}) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false, workbenchEnabled: false, workbenchMode: 'planning', workbenchPlanningOnly: false });
   const [activeVideoProjectId, setActiveVideoProjectId] = useState('');
   const [activeVideoPlanHash, setActiveVideoPlanHash] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [mode, setMode] = useState('smart');
+  const [mode, setMode] = useState(() => initialMode || 'smart');
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);
@@ -393,6 +418,27 @@ export default function VideoStudioPage({ embedded = false }) {
     }
     listVideoJobs().then(result => setHistory(result.jobs || [])).catch(() => {});
   }, [state.logged, state.browserQa]);
+
+  /* 任务列表回传给外层（子页面把它渲染成自己的「历史」页签）。
+     ⚠️ onJobs 用 ref 持有：把它放进依赖数组，外层每次渲染换个函数字面量就会无限回传。 */
+  const onJobsRef = useRef(onJobs);
+  onJobsRef.current = onJobs;
+  useEffect(() => { onJobsRef.current?.(history); }, [history]);
+
+  /* 历史里点「用这组参数」→ 把那次任务的提示词与规格还原回创作台。
+     presetNonce 是"又点了一次同一条"的判据：没有它，第二次点同一条不会重新生效。 */
+  useEffect(() => {
+    if (!preset) return;
+    if (preset.mode && VIDEO_CREATION_MODES.some(item => item.id === preset.mode)) setMode(preset.mode);
+    if (typeof preset.prompt === 'string') setPrompt(preset.prompt);
+    if (typeof preset.negativePrompt === 'string') setNegativePrompt(preset.negativePrompt);
+    if (Number.isFinite(Number(preset.duration)) && Number(preset.duration) > 0) setDuration(Number(preset.duration));
+    if (preset.ratio) setRatio(preset.ratio);
+    if (preset.resolution) setResolution(preset.resolution);
+    if (typeof preset.sound === 'boolean') setSound(preset.sound);
+    /* 参数变了 → 之前确认过的方案不能再算数（否则会用旧方案去生成新内容） */
+    setPlanReviewed(false);
+  }, [presetNonce]);
 
   useEffect(() => {
     let active = true;
@@ -629,6 +675,15 @@ export default function VideoStudioPage({ embedded = false }) {
     clearTimeout(pollRef.current);
     try {
       const next = (await getVideoJob(id)).job;
+      /* ⚠️ 服务端这次没给出任务（网关抖动 / 任务被清理 / 响应形状变了）时，
+         **绝不能**把 undefined 写进状态：
+           ① 会把用户正在看的成片清空（明明已经出来了）；
+           ② 会往生成记录里塞一个 undefined —— 渲染 item.id 时整页白屏。
+         正确的做法是当作"这一次没问着"，过一会儿再问。 */
+      if (!next) {
+        pollRef.current = setTimeout(() => poll(id), 8000);
+        return;
+      }
       setJob(next);
       setHistory(current => [next, ...current.filter(item => item.id !== next.id)].slice(0, 20));
       if (FINAL.has(next.status)) {
@@ -700,6 +755,8 @@ export default function VideoStudioPage({ embedded = false }) {
           urls,
         },
       }, idempotencyKey);
+      /* 这次任务是哪条技能发起的 —— 只写本机标记，供子页面历史筛选（不参与计费与幂等） */
+      if (skillTag) tagVideoJob(result.job.id, skillTag);
       setJob(result.job);
       setHistory(current => [result.job, ...current.filter(item => item.id !== result.job.id)].slice(0, 20));
       void poll(result.job.id);
@@ -821,11 +878,15 @@ export default function VideoStudioPage({ embedded = false }) {
     dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
   };
 
+  /* ⚠️ autoOpenCanvas=false（技能子页面）时**不自动跳**：结果就留在这一页的成片台上，
+     想去画布继续加工的，点成片台下面那个「在画布中继续」就走同一条路。
+     判据是"这次生成发生在哪一页"，不是"用户在不在首页"。 */
   useEffect(() => {
+    if (!autoOpenCanvas) return;
     if (job?.status !== 'completed' || !job.resultUrl || openedJobRef.current === job.id) return;
     openedJobRef.current = job.id;
     openJobInCanvas(job);
-  }, [job]);
+  }, [job, autoOpenCanvas]);
 
   const materialEntries = [
     ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片', name: `图片${index + 1}` })),
@@ -1103,13 +1164,24 @@ export default function VideoStudioPage({ embedded = false }) {
     {renderFloatingPanel()}
     {planOpen && <VideoPlanModal plan={effectivePlan} onClose={() => setPlanOpen(false)} onConfirm={() => { setPlanReviewed(true); setPlanOpen(false); }} />}
 
-    {!embedded && <section className="video-result-workbench"><div className="video-stage">
-        <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>
-          {job?.status === 'completed' && job.resultUrl
-            ? <video src={job.resultUrl} controls playsInline />
-            : <div className="video-empty"><Upload size={30} /><strong>{job ? jobStatus(job) : '成片会显示在这里'}</strong><span>{job?.error || '只在确认交付后扣费，失败自动退回冻结积分'}</span>{job && !FINAL.has(job.status) && <progress max="100" value={job.progress || 2} />}</div>}
-        </div>
-        {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
+    {/* 结果台：独立路由与「嵌入 + inlineResult」（首页输入框 / 技能子页面）都要渲染 ——
+        用户口径是"生成完就在工作台里看结果"，不是"生成完必须跳进画布"。
+            ⚠️ 嵌入形态（首页输入框 / 技能子页面）下**成片台只在有任务时才铺**：
+           那块「成片会显示在这里」的空白台子有 700px 高，摆在创作台下面就是一大片空场
+           （实测截图确认过）。任务一提交（job 出现）它立刻出现，观感没有损失；
+           独立路由保留原先的常驻空台（那是它既有的版式，不改）。
+        ⚠️ 但「生成记录」**任何时候都要渲染**：它是这个账号全部视频任务的唯一入口
+           （子页面的历史是按技能筛过的一份视图，筛不到不等于任务没了）。
+           曾经把整段一起收起来过 —— 结果"标记缺失时任务就看不见了"，E2E 当场抓住。 */}
+    {(!embedded || inlineResult) && <section className="video-result-workbench"><div className="video-stage">
+        {(!embedded || job) && <>
+          <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>
+            {job?.status === 'completed' && job.resultUrl
+              ? <video src={job.resultUrl} controls playsInline />
+              : <div className="video-empty"><Upload size={30} /><strong>{job ? jobStatus(job) : '成片会显示在这里'}</strong><span>{job?.error || '只在确认交付后扣费，失败自动退回冻结积分'}</span>{job && !FINAL.has(job.status) && <progress max="100" value={job.progress || 2} />}</div>}
+          </div>
+          {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
+        </>}
         <div className="video-history">
           <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
           {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>

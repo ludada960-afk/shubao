@@ -22,10 +22,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <!-- 首屏 4 张模式卡缩略：entry-ecommerce 提前预载（LCP），其余 3 张与 DOM eager 加载去重并行 -->
-    <link rel="preload" as="image" type="image/webp" fetchpriority="high" href="/images/.thumbs/home/entry-ecommerce.webp" />
-    <link rel="preload" as="image" type="image/webp" href="/images/.thumbs/home/entry-video.webp" />
-    <link rel="preload" as="image" type="image/webp" href="/images/.thumbs/home/entry-xhs.webp" />
+    <!-- 首屏 2 张入口卡缩略（9-17 从四张收敛成两张）：第一张 entry-video 提前预载（LCP），
+         另一张与 DOM eager 加载去重并行 -->
+    <link rel="preload" as="image" type="image/webp" fetchpriority="high" href="/images/.thumbs/home/entry-video.webp" />
     <link rel="preload" as="image" type="image/webp" href="/images/.thumbs/home/entry-visual.webp" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="icon" type="image/webp" href="/images/logo-icon.webp" />

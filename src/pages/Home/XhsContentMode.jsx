@@ -226,7 +226,11 @@ function XhsInputTemplate({
   );
 }
 
-export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp, recoveryCheckpoint = null }) {
+/* historySkillId：这条工作台被**某条技能的子页面**嵌入时，由外层传入那个技能 id。
+   作用只有一个 —— 让这次生成的作品带上 mediaSkillId，于是它会出现在**那条技能的历史**里
+   （用户 9-17：「结果就会在各自的子页面历史记录里面」）。
+   首页直接用它时（不传）行为一字不变：作品照旧只进「我的作品」。 */
+export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp, recoveryCheckpoint = null, historySkillId = '' }) {
   const { state, dispatch, fetchCredits, refreshBillingBalance } = useApp();
   const { inputText, logged, ecPoints, unlimited, mode } = state;
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
@@ -839,7 +843,18 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
       dispatch({ type: 'SET_STAGE', stage: 4 });
       await new Promise(r => setTimeout(r, 800));
-      const work = { ...accepted.result, type: 'xhs-content', _contentResult: true, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
+      const work = {
+        ...accepted.result,
+        type: 'xhs-content',
+        _contentResult: true,
+        _inputText: inputText,
+        _saveKey: 'gen-' + Date.now(),
+        _preview: usePreview,
+        at: new Date().toLocaleDateString('zh-CN'),
+        id: Date.now(),
+        /* 被技能子页面嵌入时带上身份 → 这次生成会出现在那条技能的「历史」里 */
+        ...(historySkillId ? { mediaSkillId: historySkillId, visualSkillId: historySkillId } : {}),
+      };
       dispatch({ type: 'SET_RESULT', result: work });
       if (!usePreview) {
         await saveWork(work, state.phone).catch(() => null);
@@ -916,6 +931,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         _preview: usePreview,
         _saveKey: 'plog-' + Date.now(),
         images: { cover: accepted.result.cover_url },
+        ...(historySkillId ? { mediaSkillId: historySkillId, visualSkillId: historySkillId } : {}),
       };
       dispatch({ type: 'SET_RESULT', result: work });
       if (logged) {

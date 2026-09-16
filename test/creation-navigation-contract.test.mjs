@@ -13,7 +13,10 @@ test('left navigation keeps video, canvas, and works on distinct destinations', 
 
 test('source routing keeps video on the second nav and canvas on the third nav', async () => {
   const source = await fs.readFile(new URL('../src/components/layout/creativeDomainNavigation.js', import.meta.url), 'utf8');
-  assert.match(source, /id: 'video-studio'[\s\S]*?SET_MODE', mode: 'video'/);
+  /* 2026-09-17：视频那一项从「SET_MODE 切首页模块」改成「打开它自己的技能子页面」——
+     用户要求一级入口收敛成两个总页面、具体能力都在各自子页面里跑完。
+     判据不变：视频仍然挂在第二个领域、画布仍然挂在第三个领域。 */
+  assert.match(source, /id: 'video-studio'[\s\S]*?skillId: 'video\.smart'/);
   assert.match(source, /id: 'canvas'[\s\S]*?OPEN_CANVAS/);
 });
 

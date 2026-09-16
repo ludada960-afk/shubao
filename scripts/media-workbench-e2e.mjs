@@ -45,8 +45,9 @@ const fx = {
   statusRemaining: 0,        /* >0 时 status 先返回"处理中"，模拟出图还没结束 */
   suiteDelivered: 3,         /* 套图任务最终交付几张（< 方案张数 = 部分交付） */
   works: [],
+  videoJobs: [],             /* 服务端 /api/video/jobs 返回的任务（嵌入的视频工作台用它渲染生成记录） */
 };
-const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [] };
+const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0 };
 
 const failures = [];
 const passed = [];
@@ -126,6 +127,40 @@ const server = createServer(async (req, res) => {
       /* 先给一次 running（让"进度"真的走一遍），再给 completed */
       if (calls.suitePoll === 1) return json(res, 200, { ok: true, task: { id: 'ec-e2e-1', taskId: 'ec-e2e-1', status: 'running', assets: [] } });
       return json(res, 200, { ok: true, task: { id: 'ec-e2e-1', taskId: 'ec-e2e-1', status: 'completed', assets, output: { images: {} } } });
+    }
+    /* ── 视频：能力 + 任务列表（子页面里嵌入的视频工作台要用）──
+       ⚠️ 本轮**不许真实出片**，所以 POST /api/video/jobs 一律记下来并报错：
+          真被调用到就是接线错了，要让它响，不能静默放过。 */
+    if (path === '/api/video/capabilities') {
+      return json(res, 200, {
+        loading: false, generationEnabled: true, workbenchEnabled: false, directorUi: false,
+        uploadMode: 'tus', defaultProductId: 'seedance_standard',
+        resolutions: ['720p', '1080p'], durations: { min: 5, max: 10 },
+        aspectRatios: ['9:16', '16:9', '1:1'],
+        products: [{
+          id: 'seedance_standard', label: 'Seedance 2.0', tierLabel: '标准', providerLabel: 'Seedance',
+          description: '写实、动作自然的通用视频模型', default: true,
+          modes: ['script', 'reference', 'frame', 'remake'],
+          resolutions: ['720p', '1080p'], durationOptions: [5, 10],
+          durations: { min: 5, max: 10 },
+          quotes: {
+            short: { sku: 'video_seedance_standard_720p_5s', units: 92000, points: 92 },
+            long: { sku: 'video_seedance_standard_720p_10s', units: 184000, points: 184 },
+          },
+        }],
+      });
+    }
+    if (path === '/api/video/jobs' && req.method === 'POST') {
+      calls.videoJob += 1;
+      return json(res, 500, { error: 'E2E：本轮不允许真实提交视频任务' });
+    }
+    if (path === '/api/video/jobs') return json(res, 200, { jobs: fx.videoJobs });
+    /* 单条任务：点「生成记录」里的某一条时会拉它（缺这条路由会让任务状态被清成 undefined——
+       已经踩过一次，见 VideoStudioPage.poll 里的防呆注释） */
+    if (/^\/api\/video\/jobs\/[^/]+$/.test(path)) {
+      const id = decodeURIComponent(path.split('/').pop());
+      const job = fx.videoJobs.find(item => item.id === id);
+      return job ? json(res, 200, { job }) : json(res, 404, { error: '任务不存在' });
     }
     if (path === '/api/auth/logout') return json(res, 200, { ok: true });
     return json(res, 200, { ok: true });
@@ -373,23 +408,165 @@ try {
   fx.regenerateMode = 'ok';
   fx.statusRemaining = 0;
 
-  /* ═══ ⑫ 视频侧：工作台只做"带着配置回既有视频工作台"，绝不就地扣费 ═══ */
-  scenario('⑫ 视频技能不就地生成（走既有链路）');
-  const videoCharges = calls.regenerate.length + calls.quote.length;
-  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=video.smart', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
-  await page.waitForTimeout(600);
+  /* ═══ ⑫ 视频侧：把既有视频工作台**整块嵌进子页面**（用户 9-17 改口径）═══
+     原来这里断言的是"点 CTA 跳去视频工作台"，用户明确否掉了：
+     「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面」。
+     现在断言的是：工作台真的嵌进来了、创作方式按技能落位、**结果台在嵌入形态下也渲染**、
+     并且打开这一页不产生任何扣费。 */
+  scenario('⑫ 视频技能在子页面里就地跑完（既有视频工作台整块嵌入）');
+  /* ⚠️ 判据是**扣费点**，不是报价：视频创作台一进页面就会为自己的 SKU 报价（quoteBillingAction），
+     那是设计如此、不扣钱。真正会花钱的只有 regenerate（单图扣费点）与创建视频任务。 */
+  const videoCharges = calls.regenerate.length + calls.videoJob;
+  const openVideoSkill = async id => {
+    await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=' + id, { waitUntil: 'load', timeout: 40000 });
+    await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
+    await page.waitForTimeout(700);
+  };
+  await openVideoSkill('video.smart');
   const videoState = await page.evaluate(() => ({
-    cta: document.querySelector('.media-workbench-submit')?.textContent || '',
-    points: document.querySelector('.media-workbench-points')?.textContent || '',
-    uploads: document.querySelectorAll('.media-field-upload-add').length,
+    composer: Boolean(document.querySelector('.media-workbench-panel .video-composer')),
+    activeMode: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    /* 判成片台（.video-frame）而不是整段结果区：生成记录任何时候都要在 */
+    resultStage: Boolean(document.querySelector('.video-frame')),
+    genericCta: document.querySelectorAll('.media-workbench-submit').length,
+    genericFields: document.querySelectorAll('.media-workbench-fields .media-field').length,
+    tabs: Array.from(document.querySelectorAll('.media-workbench-tabs button')).map(node => node.textContent),
+    url: location.pathname + location.search,
   }));
-  check(videoState.cta.includes('去视频工作台'), '视频技能的 CTA 是"去视频工作台"（多分钟流水线不塞进单图工作台）', videoState.cta);
-  check(videoState.points === '', '不显示单图积分（不假装能就地出视频）', videoState.points);
-  await page.click('.media-workbench-submit');
-  await page.waitForTimeout(1200);
-  check(calls.regenerate.length + calls.quote.length === videoCharges, '点它**不产生任何扣费请求**', String(calls.regenerate.length + calls.quote.length - videoCharges));
-  check(await page.evaluate(() => Boolean(document.querySelector('.homepage-mode-showcase, .surface-card'))), '落到首页既有视频入口（配置带过去）');
+  check(videoState.composer, '视频工作台整块嵌进了子页面（不是又写一个壳）');
+  check(videoState.activeMode.includes('智能成片'), '创作方式页签按技能落位（video.smart → 智能成片）', videoState.activeMode);
+  /* 结果台：嵌入形态下没有任务时不占位置（否则创作台下面是 700px 空白），
+     所以这里断言的是"还没生成时不渲染"，任务出现才渲染（见下面点历史记录那一段）。 */
+  check(!videoState.resultStage, '没有任务时不铺那块空成片台（嵌入形态不留 700px 空白）', String(videoState.resultStage));
+  check(await page.evaluate(() => Boolean(document.querySelector('.video-history'))), '但「生成记录」一定要在（它是全部视频任务的唯一入口）');
+  check(videoState.genericCta === 0, '不再渲染通用 CTA（生成按钮在工作台里，两个 CTA 会让人不知道按哪个）', String(videoState.genericCta));
+  check(videoState.genericFields === 0, '不再渲染通用字段栏（参数控件就在工作台里，重复一套只会打架）', String(videoState.genericFields));
+  check(videoState.tabs.join(',') === '示例,历史', '示例 / 历史 页签都在', videoState.tabs.join(','));
+  check(videoState.url === '/video-creation?id=video.smart', '打开这一页没有跳走', videoState.url);
+  check(calls.regenerate.length + calls.videoJob === videoCharges, '光是打开这一页不产生任何扣费请求', String(calls.regenerate.length + calls.videoJob - videoCharges));
+  check(calls.videoJob === 0, '没有偷偷提交视频任务（本轮不许真实出片）', String(calls.videoJob));
+
+  /* 首尾帧技能：页签要落在「首尾帧」，而且素材区跟着变（不是永远停在智能成片） */
+  await openVideoSkill('video.frame');
+  const frameMode = await page.evaluate(() => ({
+    active: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    materialHint: document.querySelector('.video-materials header small')?.textContent || '',
+  }));
+  check(frameMode.active.includes('首尾帧'), '另一条视频技能落在自己的页签上', frameMode.active);
+  check(frameMode.materialHint.includes('首尾帧'), '素材区跟着这条链路走（首尾帧用于控制起点与终点）', frameMode.materialHint);
+
+  /* 历史：本机标记（videoJobTags）把任务按技能筛进子页面历史。
+     标记缺失时也不能丢东西 —— 全量任务永远在嵌入工作台的「生成记录」里。 */
+  scenario('⑫b 视频任务按技能进子页面历史（标记缺失时也不丢任务）');
+  fx.videoJobs = [{
+    id: 'job-e2e-video', status: 'completed', mode: 'script', sku: 'video_seedance_standard_720p_5s',
+    prompt: '白底化妆水瓶缓慢旋转，柔光扫过瓶身', duration: 5, aspectRatio: '9:16', resolution: '720p',
+    resultUrl: '/images/home/workspace-video.png', progress: 100,
+  }];
+  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=video.smart', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
+  await page.waitForTimeout(600);
+  /* 没有标记 → 子页面历史为空，但工作台的生成记录里有它（全量，不丢） */
+  await page.click('.media-workbench-tabs button:nth-child(2)');
+  await page.waitForTimeout(300);
+  const untagged = await page.evaluate(() => ({
+    empty: document.querySelector('.media-workbench-empty')?.textContent || '',
+    record: Array.from(document.querySelectorAll('.video-history button span')).map(node => node.textContent),
+  }));
+  check(untagged.empty.includes('生成记录'), '历史为空时如实指向工作台里的全量「生成记录」', untagged.empty.slice(0, 40));
+  check(untagged.record.some(text => text.includes('白底化妆水瓶')), '任务本身没有丢（生成记录里看得到）', JSON.stringify(untagged.record));
+  /* 打上"这条任务属于 video.smart"的本机标记 → 它出现在这条技能的历史里 */
+  await page.evaluate(() => localStorage.setItem('shubao:video-job-skills:v1', JSON.stringify({ 'job-e2e-video': 'video.smart' })));
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
+  await page.waitForTimeout(800);
+  await page.click('.media-workbench-tabs button:nth-child(2)');
+  await page.waitForSelector('.skill-history-item', { timeout: 10000 });
+  const tagged = await page.evaluate(() => ({
+    title: document.querySelector('.skill-history-item .media-case-card-title')?.textContent || '',
+    subtitle: document.querySelector('.skill-history-item .media-case-card-subtitle')?.textContent || '',
+    hasVideo: Boolean(document.querySelector('.skill-history-item video')),
+    actions: Array.from(document.querySelectorAll('.skill-history-item .skill-history-actions button')).map(node => node.textContent),
+  }));
+  check(tagged.title.includes('白底化妆水瓶'), '打了标记的任务进入这条技能的历史', tagged.title);
+  check(tagged.subtitle.includes('5 秒'), '历史卡片带上规格（时长 / 清晰度 / 比例）', tagged.subtitle);
+  check(tagged.hasVideo, '成片在历史卡里就是视频（不是一张死图）');
+  /* 工作台自己的「生成记录」里点一条 → 结果台出现，成片就在这一页看（不必跳画布）。
+     ⚠️ 子页面历史卡是**弹窗看大图**（我们自己的交互），点它不会切结果台 ——
+        所以这里点的是嵌进来那个工作台的生成记录。 */
+  await page.click('.video-history button');
+  await page.waitForTimeout(600);
+  const stageAfterPick = await page.evaluate(() => ({
+    stage: Boolean(document.querySelector('.video-frame')),
+    player: Boolean(document.querySelector('.video-frame video')),
+  }));
+  check(stageAfterPick.stage, '点生成记录后，结果台就在这一页出现（不必跳画布）');
+  check(stageAfterPick.player, '结果台里是可播放的成片（不是一句"去画布看"）');
+  check(tagged.actions.includes('用这组参数'), '历史条目能还原参数', JSON.stringify(tagged.actions));
+  /* 还原是**只回填、不扣费**：点完不许出现任何生成请求 */
+  const beforeReuse = calls.regenerate.length + calls.videoJob;
+  await page.click('.skill-history-item .skill-history-reuse');
+  await page.waitForTimeout(600);
+  const videoRestored = await page.evaluate(() => ({
+    /* ⚠️ 视频提示词是 contentEditable 的 div（mention-prompt-field），不是 textarea —— 读 textContent */
+    prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
+    notice: document.querySelector('.media-run-notice')?.textContent || '',
+    active: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+  }));
+  check(videoRestored.prompt.includes('白底化妆水瓶'), '提示词还原回创作台', videoRestored.prompt.slice(0, 40));
+  check(videoRestored.notice.includes('重新计费'), '明确告诉用户"确认后才会重新计费"', videoRestored.notice.slice(0, 40));
+  check(videoRestored.active.includes('智能成片'), '创作方式也跟着还原', videoRestored.active);
+  check(calls.regenerate.length + calls.videoJob === beforeReuse, '「用这组参数」不产生任何扣费请求', String(calls.regenerate.length + calls.videoJob - beforeReuse));
+
+  /* ═══ ⑫c 小红书图文：既有图文工作台整块嵌进子页面 ═══ */
+  scenario('⑫c 小红书图文在子页面里就地跑完');
+  const xhsCharges = calls.regenerate.length + calls.videoJob + calls.saveWork.length;
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.xhs_note', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-panel .xhs-workbench-card, .media-workbench-panel .xhs-content-surface', { timeout: 20000 });
+  await page.waitForTimeout(600);
+  const xhsState = await page.evaluate(() => ({
+    composer: Boolean(document.querySelector('.media-workbench-panel textarea')),
+    generate: Array.from(document.querySelectorAll('.media-workbench-panel .shubao-gen-cta')).map(node => node.textContent).join('|'),
+    genericCta: document.querySelectorAll('.media-workbench-submit').length,
+    tabs: Array.from(document.querySelectorAll('.media-workbench-tabs button')).map(node => node.textContent),
+    url: location.pathname + location.search,
+  }));
+  check(xhsState.composer, '图文工作台整块嵌进了子页面');
+  check(xhsState.generate.includes('生成图文'), '生成按钮就在嵌进来的工作台里', xhsState.generate.slice(0, 30));
+  check(xhsState.genericCta === 0, '不再渲染通用 CTA', String(xhsState.genericCta));
+  check(xhsState.tabs.join(',') === '示例,历史', '示例 / 历史 页签都在', xhsState.tabs.join(','));
+  check(xhsState.url === '/image-creation?id=image.xhs_note', '打开这一页没有跳走', xhsState.url);
+  check(calls.regenerate.length + calls.videoJob + calls.saveWork.length === xhsCharges, '光是打开这一页不产生任何扣费/生成请求');
+  /* 图文作品（cover_url / image_urls）必须出现在这条技能的历史里 —— 按 work.images 读会得到 0 张 */
+  /* ⚠️ fx 在 Node 侧（打桩服务里），不能在 page.evaluate 里改它 —— 那是浏览器上下文。 */
+  fx.works.unshift({
+    _saveKey: 'xhs-e2e-1', type: 'xhs-content', _contentResult: true, mediaSkillId: 'image.xhs_note',
+    title: '厦门 3 天 2 夜攻略', body_text: '第一天……', _inputText: '厦门 3 天 2 夜旅游攻略',
+    cover_url: '/images/visual-recipes/cases/free-glass-whale.png',
+    image_urls: ['/images/visual-recipes/cases/free-glass-whale.png'],
+    createdAt: new Date().toISOString(),
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('.media-workbench-panel textarea', { timeout: 20000 });
+  await page.waitForTimeout(800);
+  await page.click('.media-workbench-tabs button:nth-child(2)');
+  await page.waitForSelector('.skill-history-item', { timeout: 10000 });
+  const xhsHistory = await page.evaluate(() => ({
+    title: document.querySelector('.skill-history-item .media-case-card-title')?.textContent || '',
+    cover: Boolean(document.querySelector('.skill-history-item .media-case-card-cover img')),
+    actions: Array.from(document.querySelectorAll('.skill-history-item .skill-history-actions button')).map(node => node.textContent),
+  }));
+  check(xhsHistory.title.includes('厦门 3 天 2 夜'), '图文作品出现在这条技能的历史里', xhsHistory.title);
+  check(xhsHistory.cover, '图文作品的封面真的取到了（cover_url / image_urls 解析正确）');
+  check(xhsHistory.actions.includes('用这组参数'), '图文历史也能还原（还原的是那句话）', JSON.stringify(xhsHistory.actions));
+  await page.click('.skill-history-item .skill-history-reuse');
+  await page.waitForTimeout(400);
+  const xhsRestored = await page.evaluate(() => ({
+    text: document.querySelector('.media-workbench-panel textarea')?.value || '',
+    notice: document.querySelector('.media-run-notice')?.textContent || '',
+  }));
+  check(xhsRestored.text.includes('厦门 3 天 2 夜'), '提示词还原回图文输入框', xhsRestored.text.slice(0, 30));
+  check(xhsRestored.notice.includes('重新计费'), '明确告诉用户会重新计费', xhsRestored.notice.slice(0, 30));
 
   /* ═══ ⑬ 首页热门技能 → 点一张直接进它的子页面（用户定的最终形态） ═══ */
   scenario('⑬ 首页热门技能条直达子页面');
@@ -506,6 +683,58 @@ try {
   check(calls.deleteWork.length === beforeDelete + 1, '删除走既有软删除接口', String(calls.deleteWork.length - beforeDelete));
   const afterDelete = await page.evaluate(() => document.querySelectorAll('.skill-history-item').length);
   check(afterDelete === 0, '删除后历史里立刻不显示它', String(afterDelete));
+
+  /* ═══ ⑱ 左侧一级导航直达技能子页面（不是切回首页内联模块）═══ */
+  scenario('⑱ 左侧导航直达技能子页面');
+  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('#creative-nav-trigger-visual', { timeout: 20000 });
+  await page.click('#creative-nav-trigger-visual');
+  await page.waitForSelector('#creative-nav-item-visual-1', { timeout: 10000 });
+  await page.click('#creative-nav-item-visual-1');
+  await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
+  await page.waitForTimeout(500);
+  const posterLanding = await page.evaluate(() => ({
+    url: location.pathname + location.search,
+    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    back: Boolean(document.querySelector('.media-workbench-back')),
+    cta: document.querySelector('.media-workbench-submit')?.textContent || '',
+  }));
+  check(posterLanding.url === '/image-creation?id=image.poster', '点「海报设计」进的是**它自己的子页面**', posterLanding.url);
+  check(posterLanding.title.includes('海报'), '进去的就是点的那条技能', posterLanding.title);
+  check(posterLanding.back, '子页面能返回创作');
+  check(posterLanding.cta.includes('立即生成'), '图片技能就地生成（CTA 就在这一页）', posterLanding.cta);
+
+  /* 视频域：点进去要落在**嵌好的视频工作台**上，而不是首页的视频模块 */
+  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.click('#creative-nav-trigger-video');
+  await page.waitForSelector('#creative-nav-item-video-0', { timeout: 10000 });
+  await page.click('#creative-nav-item-video-0');
+  await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
+  await page.waitForTimeout(600);
+  const videoLanding = await page.evaluate(() => ({
+    url: location.pathname + location.search,
+    mode: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    resultStage: Boolean(document.querySelector('.video-result-workbench')),
+  }));
+  check(videoLanding.url === '/video-creation?id=video.smart', '点「视频生成」进的是视频子页面', videoLanding.url);
+  check(videoLanding.mode.includes('智能成片'), '进去就落在对应的创作方式上', videoLanding.mode);
+  check(videoLanding.resultStage, '结果台也在（生成完就地看，不跳画布）');
+
+  /* 领域名本身仍然只负责**展开面板**（不下发、不跳转）：
+     这条是用户 9-13 定的（点领域名就把菜单钉住，别自作主张启动第一个子项），
+     收敛架构时一并保留 —— 所以这里断言"点了它不会把人带走"。 */
+  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.click('#creative-nav-trigger-commerce');
+  await page.waitForSelector('.creative-nav-panel', { timeout: 10000 });
+  await page.waitForTimeout(600);
+  const triggerState = await page.evaluate(() => ({
+    url: location.pathname + location.search,
+    expanded: document.querySelector('#creative-nav-trigger-commerce')?.getAttribute('aria-expanded') || '',
+    items: Array.from(document.querySelectorAll('#creative-nav-panel-commerce .creative-nav-link strong')).map(node => node.textContent),
+  }));
+  check(triggerState.url === '/', '点领域名只展开面板，不会把人带走', triggerState.url);
+  check(triggerState.expanded === 'true', '面板确实展开了', triggerState.expanded);
+  check(triggerState.items.length >= 2, '面板里列出这个领域的全部能力', JSON.stringify(triggerState.items));
 
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));

@@ -11,23 +11,27 @@ const page = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const footer = readFileSync(new URL('../src/components/layout/Footer.jsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
 
-test('home presents four stable visual creation domains in one workspace family', () => {
+test('home presents the two confirmed entries (视频生成 / 图片生成) in one workspace family', () => {
   const options = source.match(/const modeOptions = \[([\s\S]*?)\n  \];/)?.[1] || '';
-  assert.equal((options.match(/mode: '(?:ecommerce|video|content|visual)'/g) || []).length, 4);
+  /* ═══ 2026-09-17 用户拍板：一级入口从**四张收敛成两张**（43 §3.1 判据①）═══
+     四个老模式没有消失，只是换了入口 —— 电商生图 → 技能「电商商品套图」的子页面、
+     小红书图文 → 技能「小红书图文」、自由创作 → 技能「自由创作」，
+     都能从左侧导航与技能库进，能力一点没少。所以这里断言的是"只剩两张入口卡"，
+     以及"两个模式各自的实现仍然装配在首页"。 */
+  assert.equal((options.match(/mode: '(?:ecommerce|video|content|visual)'/g) || []).length, 2);
   assert.doesNotMatch(options, /page: 'video-studio'/);
-  assert.match(options, /mode: 'ecommerce'[\s\S]*mode: 'video'[\s\S]*mode: 'content'[\s\S]*mode: 'visual'/);
+  assert.match(options, /mode: 'video'[\s\S]*mode: 'visual'/, '视频生成在前（用户批注 #1）');
   assert.match(options, /title: '视频生成'/);
-  assert.match(options, /title: '自由创作'/);
+  assert.match(options, /title: '图片生成'/);
   assert.match(source, /homepage-mode-cards/);
   assert.match(source, /<VideoStudioPage embedded/);
   assert.match(source, /<VisualCreationMode/);
-  assert.match(options, /entry-ecommerce\.png/);
   assert.match(options, /entry-video\.png/);
-  assert.match(options, /entry-xhs\.png/);
   assert.match(options, /entry-visual\.png/);
   assert.match(options, /entry-video\.png\?v=20260812/);
-  assert.match(options, /entry-xhs\.png\?v=20260812/);
   assert.match(options, /entry-visual\.png\?v=20260812/);
+  /* 老模式不许再作为一级入口出现，也不许把它们的素材留在 modeOptions 里 */
+  assert.doesNotMatch(options, /entry-ecommerce\.png|entry-xhs\.png/);
   assert.doesNotMatch(source, /reference-card-/);
   assert.doesNotMatch(source, /homepage-mode-indicator/);
   assert.match(source, /上传创意素材，生成/);
@@ -35,10 +39,13 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.doesNotMatch(source, /在同一个工作台完成/);
   assert.match(page, /智能视觉内容创作平台/);
   assert.match(footer, /AI 视觉内容策划、生成与编辑/);
-  assert.match(styles, /\.homepage-mode-card\.card-1 \{[^}]*rotate\(-10deg\)/);
-  assert.match(styles, /\.homepage-mode-card\.card-2 \{[^}]*rotate\(5deg\)/);
-  assert.match(styles, /\.homepage-mode-card\.card-3 \{[^}]*rotate\(-5deg\)/);
-  assert.match(styles, /\.homepage-mode-card\.card-4 \{[^}]*rotate\(5deg\)/);
+  /* 9-17 两张扇形：左片左倾、右片右倾，各以「朝内下角」为轴向外张开
+     （-6deg / +6deg，轴心 right bottom / left bottom，与四张时期同一套张开语言，
+     只是角度按片数收敛，避免两片时张开过猛像翻倒）。 */
+  assert.match(styles, /\.homepage-mode-card\.card-1 \{[^}]*rotate\(-6deg\)[^}]*transform-origin:\s*right bottom/);
+  assert.match(styles, /\.homepage-mode-card\.card-2 \{[^}]*rotate\(6deg\)[^}]*transform-origin:\s*left bottom/);
+  /* 两片必须互相压边（负外边距）才是一把扇子，不是两张并排的卡 */
+  assert.match(styles, /\.homepage-mode-card\.card-1 \{[^}]*margin-right:\s*-\d+px/);
   /* 2026-09-15 V3：hover 与 focus-visible 从「合并选择器」拆成各自独立的规则 ——
      原则 4.2 要求 focus 必须独立于 hover 可见（键盘用户看不到 hover），
      合并写法会让焦点环被 hover 的 transform 规则牵连。契约不变：hover 仍是上浮 16px。 */

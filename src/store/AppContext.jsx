@@ -47,7 +47,11 @@ const initialState = {
   priceReason: null,
   pendingPaidAction: null,
   // 模式
-  mode: 'ecommerce',  // content | ecommerce — 默认电商生图
+  /* 2026-09-17 首页收敛：一级入口只剩两张卡（视频生成 / 图片生成），
+     默认必须是**其中一张**，否则扇形是个没有选中项的 tablist（页面打开就对不上）。
+     取第一张卡（视频生成）：与卡片顺序、以及首屏 LCP 预载（entry-video，fetchpriority=high）
+     三者一致。要换默认只改这一行 —— 卡片顺序不会跟着乱。 */
+  mode: 'video',  // video | visual — 首页两张入口卡；content/ecommerce 见技能子页面与恢复链路
   creationLaunch: null,
   priceTab: 'credits',
   // 作品集

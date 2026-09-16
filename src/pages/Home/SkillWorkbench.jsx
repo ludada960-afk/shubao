@@ -33,6 +33,11 @@ export default function SkillWorkbench({
   history = [],
   onHistoryDelete = null,
   onHistoryReuse = null,
+  /* 整块嵌入的既有工作台（小红书图文 / 视频）。见 WorkbenchShell.panel 的说明：
+     非空时页面变成「通栏」形态 —— 不再渲染通用字段与通用 CTA。 */
+  panel = null,
+  /* 历史为空时那句话要跟着页面形态变：通栏页面的按钮在上方的工作台里，不是"左边" */
+  emptyHistoryHint = '',
 }) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
@@ -71,6 +76,7 @@ export default function SkillWorkbench({
         onCta={() => onGenerate?.({ skillId: skill.id, values: current })}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        panel={panel}
       >
         {activeTab === 'cases'
           ? (cases.length
@@ -89,11 +95,18 @@ export default function SkillWorkbench({
                         cover={item.cover || ''}
                         video={item.video || ''}
                         poster={item.poster || ''}
-                        onOpen={() => setLightbox(index)}
+                        /* 还没出片的视频任务：角标写状态，别让人对着一张空卡猜 */
+                        badge={item.badge || ''}
+                        /* ⚠️ 没有可看的画面就不要开大图 —— 点开只有一张空白，
+                           那是给用户挖坑（用户 9-17：「你自己先把坑踩完」）。 */
+                        onOpen={(item.cover || item.video) ? () => setLightbox(index) : null}
                       />
                       {/* 历史条目要有操作：不然用户只能看着，删不掉、也回不到那组参数 */}
                       <div className="skill-history-actions">
-                        <button type="button" className="skill-history-reuse" onClick={() => onHistoryReuse?.(item)}>用这组参数</button>
+                        {/* ⚠️ 没有可还原的参数就别放这个按钮：点了只会弹一句"无法还原"，
+                            那不是操作，是坑（用户 9-17：「你自己先把坑踩完」）。
+                            values / restore 二者有一个才认为这条记录能还原。 */}
+                        {(item.values || item.restore) && <button type="button" className="skill-history-reuse" onClick={() => onHistoryReuse?.(item)}>用这组参数</button>}
                         <button type="button" className="skill-history-delete" onClick={() => onHistoryDelete?.(item)}>删除</button>
                       </div>
                     </div>
@@ -105,7 +118,7 @@ export default function SkillWorkbench({
                   </button>
                 )}
               </>
-            : <p className="media-workbench-empty">这个技能还没有生成记录，左边配置好点「{ctaLabel}」就会存在这里</p>)
+            : <p className="media-workbench-empty">{emptyHistoryHint || <>这个技能还没有生成记录，左边配置好点「{ctaLabel}」就会存在这里</>}</p>)
         }
       </WorkbenchShell>
       {/* 用户批注：案例点击必须能放大查看并左右切换（他们做不到） */}

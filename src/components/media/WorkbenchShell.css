@@ -140,6 +140,24 @@
 .media-field-upload-retry:hover { background: var(--sb-brand-600); color: var(--sb-surface-card); }
 
 .media-workbench-cta-hint { margin: 0; font-size: 11px; color: var(--sb-ink-3); }
+/* ── 通栏形态：整块嵌入的既有工作台（小红书图文 / 视频）─────────────────────────
+   用户 9-17：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面。」
+   嵌入进来的工作台（XhsContentMode / VideoStudioPage）**本来就是通栏宽度**的
+   —— 三档创作方式页签、素材区、输入区、底栏工具条都是横向铺开的。
+   所以这里不再挤成「左窄栏 + 右内容」，改成单列：
+     ① 页头（返回 + 技能名）在最上面一行；
+     ② 被嵌入的工作台通栏；
+     ③ 「示例 / 历史」页签与内容跟在它下面 —— 结果与历史仍然都在这一页里。 */
+.media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.media-workbench-left.is-head-only { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; }
+.media-workbench-left.is-head-only .media-workbench-head { gap: 2px; }
+/* 嵌入的工作台自己带边框/底色，这里只负责让它铺满，不再加第二层卡片壳 */
+.media-workbench-panel { min-width: 0; }
+.media-workbench-panel > * { margin: 0; }
+@media (max-width: 640px) {
+  .media-workbench-left.is-head-only { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* 不可开的槽位：静态说明行（不是按钮，就没有 hover/禁用的歧义） */
 .media-field-slot.is-static {
   display: block;

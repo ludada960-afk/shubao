@@ -166,24 +166,55 @@ export function buildSkillRequest(skill, values = {}, { runId = '', slotIndex = 
   };
 }
 
-/* ── ⑦ 运行方式三态（决定 CTA 点了以后发生什么）──────────────────────────────
-   用户 9-17 口径：「生成结果直接在工作台里面展示……如果是在子页面的工作台生成的，
-   就会在各自的子页面历史记录里面。」所以能就地跑的都要就地跑完。
+/* ── ⑦ 运行方式（决定 CTA 点了以后发生什么）────────────────────────────────
+   用户 9-17 口径：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布
+   里面……如果是在子页面的工作台生成的，就会在各自的子页面历史记录里面。」
+   所以**能就地跑完的都必须就地跑完**，一条都不许把人踢出这一页。
      · 'inline'  单图链路（visualCreation / builtinSkill）—— 就地出图
-     · 'suite'   电商套图 —— **就地跑既有套图引擎**（多张、多分钟），结果同样留在工作台与历史
-     · 'handoff' 小红书图文与视频 —— 分步确认、多分钟的独立流水线，带着配置回既有工作台
-   ⚠️ 'handoff' 不代表"不重要"，而是那两条链路有自己的完整工作台（分镜/脚本确认），
-      硬塞进单页只会做出半成品。 */
+     · 'suite'   电商套图 —— 就地跑既有套图引擎（多张、多分钟），结果留在工作台与历史
+     · 'embed'   小红书图文 / 视频 —— 把它们**自己的既有工作台整块搬进子页面**
+                 （见 skillEmbedOf；不是重写一遍，是把已经跑通的组件嵌进来）
+     · 'handoff' 目前**没有技能该走这一态**，保留它是为了「确实没有组件可嵌」的将来留出口：
+                 真出现这种情况时，宁可老实说"去某某工作台继续"，也不要在这里做个半成品。
+   ⚠️ 判据只有一条：**这一页能不能把这条链路跑完并交出结果**。
+      跑得完 = inline/suite/embed（结果与历史都留在本页）；跑不完才允许 handoff。 */
 export function skillRunKind(skill) {
   const pipeline = skill && skill.pipeline;
   if (pipeline === 'ecommerceSuite') return 'suite';
-  if (pipeline === 'xhsNote') return 'handoff';
-  if (typeof pipeline === 'string' && pipeline.startsWith('video')) return 'handoff';
+  if (skillEmbedOf(skill)) return 'embed';
   return 'inline';
+}
+
+/* 可整块嵌入子页面的既有工作台：
+     · xhsNote          → 小红书图文工作台（pages/Home/XhsContentMode，首页同一份组件）
+     · videoSmart 等视频 → 视频工作台（pages/VideoStudio，首页同一份组件，embedded 形态）
+   返回组件键（'xhs' | 'video'），页面据此决定嵌哪一块；返回 '' 表示没有可嵌的组件。 */
+export function skillEmbedOf(skill) {
+  const pipeline = skill && skill.pipeline;
+  if (pipeline === 'xhsNote') return 'xhs';
+  if (typeof pipeline === 'string' && pipeline.startsWith('video')) return 'video';
+  return '';
 }
 
 export function isHandoffSkill(skill) {
   return skillRunKind(skill) === 'handoff';
+}
+
+/* 视频技能的 pipeline → 视频工作台的创作方式（composer 的 mode 页签）。
+   ⚠️ 页签只有三档（videoStudioModel.VIDEO_CREATION_MODES = smart / frame / remake），
+      「全能参考」不是一个页签 —— resolveVideoApiMode 是**按素材算**的：
+      smart 档一旦带了图片/视频/音频，API 模式自己就变成 reference。
+      所以 videoReference 系的技能要落在 smart 档（素材一上传就走参考链路），
+      映射成 'reference' 反而会选中一个不存在的页签。
+   认不出来 → 空串，交给工作台用它自己的默认值（不硬塞一个错的模式）。 */
+export const VIDEO_MODE_BY_PIPELINE = Object.freeze({
+  videoSmart: 'smart',
+  videoFrame: 'frame',
+  videoRemake: 'remake',
+  videoReference: 'smart',
+});
+export function skillVideoMode(skill) {
+  return VIDEO_MODE_BY_PIPELINE[(skill && skill.pipeline) || ''] || '';
 }
 
 /* ── ⑧ 套图（suite）的就地运行参数 ──────────────────────────────────────────
