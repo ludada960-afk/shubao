@@ -47,6 +47,7 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
               <CaseCard
                 key={skill.id}
                 title={skill.name}
+                subtitle={skill.summary}
                 cover={skill.cases?.[0]?.cover || ''}
                 video={skill.cases?.[0]?.video || ''}
                 badge={skill.availability === 'blocked' ? '即将上线' : (skill.availability === 'needs_ref' ? '需参考素材' : '')}

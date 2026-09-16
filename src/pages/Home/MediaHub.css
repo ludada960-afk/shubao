@@ -1,13 +1,34 @@
-/* MediaHub：图片 / 视频板块共用的 Hub 版式（分组标题 + 4:3 案例卡网格）
-   实测口径（知渔）：分组标题分隔、卡片只有封面 + 标题；色只用已验证 token，不写兜底色值。 */
-.media-hub { display: grid; gap: 18px; padding: 18px 22px 40px; }
+/* MediaHub：图片 / 视频板块共用的 Hub 版式
+   结构照抄竞品实测（CDP 实访已登录页面）：
+     · 分组标题 = 13px 中性灰 + 前面一根小竖条（不是粗黑大字）
+     · 网格 = 12px 间距、按可用宽度 1→6 列自适应；卡片本身是 4:3（CaseCard 里）
+   色只用已验证的 --sb-* token，不写兜底色值。 */
+.media-hub { display: grid; gap: 8px; padding: 16px 18px 40px; }
 .media-hub-head h1 { margin: 0 0 4px; font-size: 20px; color: var(--sb-ink-1); }
 .media-hub-head p { margin: 0; font-size: 13px; color: var(--sb-ink-2); }
-.media-hub-group { display: grid; gap: 10px; }
-.media-hub-group h2 { margin: 0; font-size: 14px; color: var(--sb-ink-1); }
+.media-hub-group { display: grid; gap: 12px; margin-top: 6px; }
+.media-hub-group h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 2px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--sb-ink-2);
+}
+.media-hub-group h2::before {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--sb-border-default);
+}
 .media-hub-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
 }
 .media-hub-empty { margin: 0; padding: 30px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }

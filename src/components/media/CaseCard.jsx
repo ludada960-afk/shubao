@@ -1,16 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Play } from 'lucide-react';
+import { ChevronRight, Play } from 'lucide-react';
 
-/* ═══ CaseCard：案例卡（图片板块与视频板块共用）══════════════════════════════════
-   来源：docs/design/43-media-architecture.md §4.2 与 §10.3（知渔实测）。
-   实测结论：他们的案例墙 = **统一 4:3 封面 + 标题**，分组标题分隔；卡片上不放别的元素。
-   用户批注（图 #7/#8）：案例卡要能"极快了解这个案例长什么样"，视频案例 hover 时
-   真的动起来（他们做成 hover 出现「试一试」+ 案例窗）；点击即复用。
-   成本控制（用户问过）：视频预览**进入视口且 hover 才加载**、静音、循环、
-   preload=metadata，且全局同一时刻最多一条在播 —— 47 张封面 + 若干视频也不会拖慢首屏。
-   本组件是案例卡的**唯一实现**，两个板块共用；样式数值不许各写一套。 */
+/* ═══ CaseCard：案例卡（图片板块与视频板块共用，唯一实现）═════════════════════════
+   2026-09-16 用 CDP 直连浏览器实访竞品（已登录态）扒到的**卡片真实结构**，逐条照抄：
+     · 卡片 = 4:3 圆角 16、白底、1px 细边、柔和投影；hover 上浮 2px + 阴影加深
+     · **封面铺满整张卡**（不是"图在上面、文字在下面"的两段式）
+     · 封面之上压一层**自下而上的白色渐变**（他们写的是 from-white via-white/15 to-transparent，
+       不是常见的那种黑色遮罩）：底部发白，字压在这层白上
+     · 底部一行：标题 14px 半粗 + 副标题 11px 一行截断 + 右侧一个 › 箭头
+     · 分组标题另算（见 MediaHub.css）：13px 灰色，前面一根小竖条
+   所以我之前"封面 + 下面一行标题"的做法是错的 —— 标题在**卡内底部**，封面在它下面。
+   视频案例：进入视口且 hover 才加载播放、静音、循环、同一时刻最多一条（成本控制）。 */
 export default function CaseCard({
   title = '',
+  subtitle = '',
   cover = '',
   video = '',
   badge = '',
@@ -64,8 +67,16 @@ export default function CaseCard({
             : (cover ? <img src={cover} alt={title} loading="lazy" /> : <span className="media-case-card-blank" />)}
           {video && !shouldPlay && <span className="media-case-card-play" aria-hidden="true"><Play size={16} /></span>}
         </span>
-        <span className="media-case-card-title">{title}</span>
+        {/* 自下而上的白色渐变：标题压在它上面才读得清（实测同款） */}
+        <span className="media-case-card-veil" aria-hidden="true" />
         {badge && <span className="media-case-card-badge">{badge}</span>}
+        <span className="media-case-card-caption">
+          <span className="media-case-card-titles">
+            <span className="media-case-card-title">{title}</span>
+            {subtitle && <span className="media-case-card-subtitle">{subtitle}</span>}
+          </span>
+          <span className="media-case-card-arrow" aria-hidden="true"><ChevronRight size={14} /></span>
+        </span>
       </button>
     </article>
   );

@@ -51,7 +51,10 @@ export const IMAGE_SKILLS = [
       { key: 'ratio', label: '比例', kind: 'segmented', required: true },
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
     ],
-    cases: [],
+    /* 案例即封面素材：下面这几张就是"点进去能看到的东西"，封面由它们排出来（不是另做一张）。 */
+    cases: [
+      { id: 'tide', title: '潮汐标本 · 海岸线上的时间档案', cover: '/images/visual-recipes/cases/poster-tide-exhibition.png' },
+    ],
     history: true,
   },
   {
@@ -87,7 +90,12 @@ export const IMAGE_SKILLS = [
       { key: 'skus', label: '商品规格', kind: 'slot', slotLabel: '编辑规格与张数' },
       { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 5 },
     ],
-    cases: [],
+    /* 一组真实成品：场景卖点主图 / 真实使用详情图 / 尺寸对比详情图 —— 封面就是这三张。 */
+    cases: [
+      { id: 'scene', title: '场景卖点主图', cover: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp' },
+      { id: 'usage', title: '真实使用详情图', cover: '/gallery/ecommerce/stainless-steel-sauce-container/02.webp' },
+      { id: 'size', title: '尺寸对比详情图', cover: '/gallery/ecommerce/stainless-steel-sauce-container/03.webp' },
+    ],
     history: true,
   },
   {
@@ -104,7 +112,9 @@ export const IMAGE_SKILLS = [
       { key: 'ratio', label: '比例', kind: 'segmented', required: true },
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 9 },
     ],
-    cases: [],
+    cases: [
+      { id: 'white', title: '标准识别白底图', cover: '/gallery/ecommerce/baby-bottle-product-suite/01.webp' },
+    ],
     history: true,
   },
   {
@@ -113,7 +123,7 @@ export const IMAGE_SKILLS = [
     name: '模特上身 / 试穿',
     category: '人像摄影',
     complexity: 'standard',
-    cover: { template: 'case-3up', accent: 'soft' },
+    cover: { template: 'before-after', accent: 'soft' },
     summary: '把商品穿到模特身上，姿势与场景可选',
     pipeline: 'builtinSkill',
     fields: [
@@ -122,7 +132,11 @@ export const IMAGE_SKILLS = [
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
       { key: 'scene', label: '场景', kind: 'text', placeholder: '例如：城市清晨的街道' },
     ],
-    cases: [],
+    /* 试穿类给「原图 → 成品」两张（43 §10.4：复刻/修图/试穿类一律做对比，比单张成品更说明问题）。 */
+    cases: [
+      { id: 'source', title: '商品与模特原图', cover: '/images/home/ability-tryon-example-input.png' },
+      { id: 'result', title: 'AI 试穿成品', cover: '/images/home/ability-tryon-example-output.png' },
+    ],
     history: true,
   },
   {

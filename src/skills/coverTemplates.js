@@ -33,6 +33,16 @@ export const COVER_TEMPLATES = [
     layout: '整幅以成品海报为主视觉，底部压一条半透明标题条，标题与副标题左对齐',
     slots: ['subject', 'accent', 'title', 'subtitle'],
   },
+  {
+    /* 第 4 类：修图 / 复刻 / 试穿 / 去背景这类"输入决定输出"的 skill，
+       单张成品说不清它干什么 —— 实测竞品的「提取电商白底图」封面就是原图 → 箭头 → 白底成品。
+       43 §10.4 也写了：复刻/修图类 skill 的示例一律做 before/after。 */
+    id: 'before-after',
+    name: '原图对比',
+    useFor: ['模特上身 / 试穿', '图片复刻', '去背景', '修图增强'],
+    layout: '左右并置：左边原图、右边 AI 成品，中间一个箭头；两张图等大、同一底色',
+    slots: ['subject', 'accent', 'title'],
+  },
 ];
 
 /* 色相分组：同组同色温，跨组一眼能区分（实测他们也是这么分区的）。 */
@@ -76,6 +86,100 @@ export const IMAGE_COVER_PLAN = [
   { skillId: 'image.social_cover', template: 'poster-style', accent: 'accent', subject: '一张公众号或视频号的封面成品', title: '社媒封面', subtitle: '一眼看懂主题' },
   { skillId: 'image.product_suite', template: 'case-3up', accent: 'warm', subject: '同一款商品的三种电商成品图（白底、场景、卖点）', title: '电商套图', subtitle: '白底+场景+卖点成套' },
   { skillId: 'image.white_bg', template: 'hero-single', accent: 'cool', subject: '一件商品的白底主图，多角度呈现细节', title: '白底商品图' },
-  { skillId: 'image.try_on', template: 'case-3up', accent: 'soft', subject: '同一位模特穿着商品的三张不同姿势照片', title: '模特试穿', subtitle: '姿势与场景可选' },
+  { skillId: 'image.try_on', template: 'before-after', accent: 'soft', subject: '同一位模特穿着商品的前后对照（原图 → 成品）', title: '模特试穿', subtitle: '姿势与场景可选' },
   { skillId: 'image.xhs_note', template: 'case-3up', accent: 'soft', subject: '一组小红书风格的种草图（封面 + 两张内页）', title: '小红书图文', subtitle: '真实感优先' },
 ];
+
+/* 视频板块 10 个 Skill 的封面计划：与 docs/design/45-cover-shotlist.md 同一张表。
+   两张表合起来 17 条 = Hub 上必须出现的 17 张卡；缺一条就会出现空卡（门禁拦截）。 */
+export const VIDEO_COVER_PLAN = [
+  { skillId: 'video.smart', template: 'case-3up', accent: 'accent', subject: '一段商品短片的三个关键帧（开场、特写、收束）', title: '智能成片', subtitle: '一句话起步' },
+  { skillId: 'video.frame', template: 'case-3up', accent: 'cool', subject: '同一镜头首帧与尾帧的对比画面', title: '首尾帧', subtitle: '锁定起点与终点' },
+  { skillId: 'video.remake', template: 'case-3up', accent: 'warm', subject: '参考片节奏与替换后成片的对照画面', title: '爆款复刻', subtitle: '保住节奏换内容' },
+  { skillId: 'video.image_to_video', template: 'hero-single', accent: 'warm', subject: '一件商品静图与它动起来后的画面并置', title: '图生视频' },
+  { skillId: 'video.product_motion', template: 'hero-single', accent: 'warm', subject: '商品旋转、光影扫过的动态瞬间', title: '商品动态' },
+  { skillId: 'video.content_swap', template: 'case-3up', accent: 'soft', subject: '同一段动作里人物被替换前后的对照画面', title: '内容替换', subtitle: '一键换人' },
+  { skillId: 'video.model_runway', template: 'hero-single', accent: 'soft', subject: '模特转身迈步、衣摆飘动的瞬间', title: '模特动态' },
+  { skillId: 'video.camera_move', template: 'case-3up', accent: 'accent', subject: '同一场景下推、移、环绕三种运镜的画面', title: '运镜控制', subtitle: '指定镜头怎么走' },
+  { skillId: 'video.extend', template: 'case-3up', accent: 'cool', subject: '同一镜头前后两段连续画面的衔接', title: '延长续写' },
+  { skillId: 'video.festival_spot', template: 'poster-style', accent: 'accent', subject: '节日氛围中的商品短片关键画面', title: '节日短片', subtitle: '节点氛围+商品' },
+];
+
+/* 两板块合表：封面产线（scripts/build-skill-covers.mjs）与门禁都读这一份，
+   保证「声明里有几条 Skill，磁盘上就有几张封面」。 */
+export const ALL_COVER_PLAN = [...IMAGE_COVER_PLAN, ...VIDEO_COVER_PLAN];
+
+export const COVER_ASSET_DIR = 'public/skill-covers';
+export const COVER_ROUTE_PREFIX = '/skill-covers';
+
+/* 封面文件名 = cover-<skillId>.svg（例：cover-image.poster.svg，见 45 的归档约定）。
+   归一化掉 id 里可能出现的路径分隔符，避免生成物越出资产目录。 */
+export function coverFileName(skillId) {
+  const key = String(skillId == null ? '' : skillId).trim().replace(/[\\/]+/g, '-');
+  return 'cover-' + key + '.svg';
+}
+
+export function coverRoute(skillId) {
+  return COVER_ROUTE_PREFIX + '/' + coverFileName(skillId);
+}
+
+export function getCoverPlan(skillId) {
+  const key = String(skillId == null ? '' : skillId).trim();
+  return ALL_COVER_PLAN.find(item => item.skillId === key) || null;
+}
+
+
+/* ── 封面素材从哪来：**从 skill 自己的案例（cases）来** ─────────────────────────
+   2026-09-16 用户指正：「他们的排版应该是基于里面生成案例去做的封面，不是直接做封面」。
+   所以这里不另立一套"封面素材表"——封面必须由该 skill 的 cases 排出来：
+     · 推荐位（category = 精品推荐）：封面**不烤字**，纯案例图，标题交给卡片底部的遮罩；
+     · 其它专区：封面**烤字，字在上方**（竞品的字都在上面，下面是遮罩标题）。
+   这条规则让"封面"与"点进去看到的案例"永远是同一批素材 —— 用户不会被封面骗进去。
+   版式（由 cover.template 指定）：
+     · case-3up     三张案例错落叠压（成套类：电商套图 / 多角度 / 穿搭套图）
+     · hero-single  一张案例为主体（单图类：白底图 / 商品动态 / 模特动态）
+     · poster-style 一整幅案例铺满（海报 / 社媒封面 / 节日短片 —— 案例本身就是完整画面）
+     · before-after 原图 → 成品（修图 / 复刻 / 试穿，43 §10.4 要求我们这么做） */
+
+/* 每种版式需要几张案例：不够就不能出封面（否则会出现缺角的封面）。 */
+export const COVER_LAYOUT_TILES = { 'case-3up': 3, 'before-after': 2, 'hero-single': 1, 'poster-style': 1 };
+
+export function coverLayoutOf(skill) {
+  const template = skill && skill.cover ? skill.cover.template : '';
+  return COVER_LAYOUT_TILES[template] ? template : 'hero-single';
+}
+
+/* 推荐位不烤字：竞品实测如此（推荐板块的封面没有标题文字）。 */
+export function coverShowTitle(skill) {
+  return (skill && skill.category) !== '精品推荐';
+}
+
+/* 封面用的案例图：按版式取前 N 条案例；不足则返回空（由门禁拦下，不许出半张封面）。 */
+export function coverTilesFor(skill) {
+  const need = COVER_LAYOUT_TILES[coverLayoutOf(skill)] || 1;
+  const cases = Array.isArray(skill && skill.cases) ? skill.cases : [];
+  const tiles = cases.map(item => item && item.cover).filter(Boolean);
+  return tiles.length >= need ? tiles.slice(0, need) : [];
+}
+
+/* 出图任务：只认"案例够用"的 skill。 */
+export function coverJobsFor(skills) {
+  const jobs = [];
+  const blocked = [];
+  for (const skill of skills || []) {
+    const tiles = coverTilesFor(skill);
+    if (!tiles.length) { blocked.push({ skillId: skill.id, need: COVER_LAYOUT_TILES[coverLayoutOf(skill)], have: (skill.cases || []).length }); continue; }
+    const plan = getCoverPlan(skill.id);
+    jobs.push({
+      skillId: skill.id,
+      layout: coverLayoutOf(skill),
+      accent: (plan && plan.accent) || 'neutral',
+      title: (plan && plan.title) || skill.name,
+      /* 卡片底部遮罩上的副标题（竞品实测：标题下一行小字，一行截断） */
+      subtitle: String(skill.summary || '').trim(),
+      showTitle: coverShowTitle(skill),
+      tiles,
+    });
+  }
+  return { jobs, blocked };
+}
