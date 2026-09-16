@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
-import { publicVideoProducts } from '../server/videoCatalog.mjs';
+import { publicVideoProducts, getVideoProduct } from '../server/videoCatalog.mjs';
 import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
 
 const COOLDOWN_MS = 15 * 60 * 1000;
@@ -46,6 +46,11 @@ function createService({ db, assetRoot, now, quoteVerify = () => ({}), walletSer
   }));
 }
 
+/* 熔断历史按 provider_route 归集，所以这里必须写**产品当前的 routeId**：
+   2026-09-16 seedance_standard 的路由由 sd5-seedance-2.0 改成 seedance-2.0，
+   写死旧路由会让「连续失败 → 熔断」的断言静默失效（测试假绿）。 */
+const STANDARD_ROUTE = getVideoProduct('seedance_standard').routeId;
+
 function insertTerminalRow(db, { id, status, failureClass = '' }) {
   db.prepare(`INSERT INTO video_jobs (
     id, owner_email, idempotency_key, status, mode, sku, prompt, negative_prompt,
@@ -54,8 +59,8 @@ function insertTerminalRow(db, { id, status, failureClass = '' }) {
     catalog_version, provider_cost_cny, failure_class, quote_id
   ) VALUES (?, 'history@example.com', ?, ?, 'script', 'video_seedance_standard_short',
     'history', '', 5, '16:9', '720p', 0, 0, '{}', ?, 100, '', '', '', '',
-    'seedance_standard', 'sd5-seedance-2.0', 'video-products-test', 4.355, ?, '')`)
-    .run(id, `key-${id}`, status, `provider-task-${id}`, failureClass);
+    'seedance_standard', ?, 'video-products-test', 4.355, ?, '')`)
+    .run(id, `key-${id}`, status, `provider-task-${id}`, STANDARD_ROUTE, failureClass);
 }
 
 test('migrates legacy video jobs and preserves a stable historical snapshot', t => {

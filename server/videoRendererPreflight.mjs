@@ -84,6 +84,13 @@ function normalizeCapabilities(plan, capabilities = {}) {
       min: Number.isFinite(Number(durations.min)) ? Number(durations.min) : 0,
       max: Number.isFinite(Number(durations.max)) ? Number(durations.max) : 0,
     },
+    /* 上游按**秒档位**校验（seedance 2.0 只认 5/10/15），只守住 [min,max] 会放进
+       上游必拒的 6 秒这类时长 —— 预检是上线前最后一道，必须按同一判据。 */
+    durationOptions: (() => {
+      const raw = Array.isArray(capabilities?.durationOptions) ? capabilities.durationOptions : product?.durationOptions;
+      if (!Array.isArray(raw) || !raw.length) return [];
+      return [...new Set(raw.map(value => Number(value)).filter(value => Number.isFinite(value)))].sort((a, b) => a - b);
+    })(),
     generatedAudio: capabilities?.generatedAudio === undefined
       ? product?.generatedAudio === true
       : capabilities.generatedAudio === true,
@@ -263,10 +270,16 @@ export function buildVideoRendererPreflight({
     blockers.push(blocker('CAPABILITY_RESOLUTION_UNSUPPORTED', `当前模型不支持“${resolution || '未选择'}”清晰度。`));
   }
   const durations = Array.isArray(plan?.shots) ? plan.shots : [];
+  const durationWhitelist = capabilitySnapshot.durationOptions;
   for (const shot of durations) {
     const seconds = Number(shot?.durationMs) / 1000;
-    if (!Number.isFinite(seconds) || seconds < capabilitySnapshot.durations.min || seconds > capabilitySnapshot.durations.max) {
-      blockers.push(blocker('CAPABILITY_DURATION_UNSUPPORTED', `镜头时长超出当前模型 ${capabilitySnapshot.durations.min}-${capabilitySnapshot.durations.max} 秒范围。`, { shotId: shot?.id }));
+    const outOfWhitelist = durationWhitelist.length > 0 && !durationWhitelist.includes(seconds);
+    if (!Number.isFinite(seconds) || outOfWhitelist
+      || seconds < capabilitySnapshot.durations.min || seconds > capabilitySnapshot.durations.max) {
+      const scope = durationWhitelist.length
+        ? `当前模型只支持 ${durationWhitelist.join('/')} 秒（收到 ${Number.isFinite(seconds) ? seconds : '未知'} 秒）。`
+        : `镜头时长超出当前模型 ${capabilitySnapshot.durations.min}-${capabilitySnapshot.durations.max} 秒范围。`;
+      blockers.push(blocker('CAPABILITY_DURATION_UNSUPPORTED', scope, { shotId: shot?.id }));
     }
   }
   if (Number(plan?.totalDurationMs || 0) > capabilitySnapshot.maxTotalDurationMs) {

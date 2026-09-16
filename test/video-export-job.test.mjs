@@ -27,8 +27,10 @@ const strictPreflight = buildVideoRendererPreflight({
   plan: {
     status: 'ready',
     options: { productId: 'seedance_standard', mode: 'smart', resolution: '720p', generateAudio: false },
-    shots: [{ id: 'shot-1', durationMs: 4000 }],
-    totalDurationMs: 4000,
+    /* 镜头时长必须是产品契约里的合法档位：seedance 标准档只认 5/10/15 秒，
+       写 4000ms 会被预检拦下（CAPABILITY_DURATION_UNSUPPORTED）。 */
+    shots: [{ id: 'shot-1', durationMs: 5000 }],
+    totalDurationMs: 5000,
     quote: { points: 62 },
   },
   workbench: {
