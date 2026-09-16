@@ -2028,4 +2028,30 @@ const editing = Boolean(draft.id);                      // 第 115 行
    也已搜遍 `src/pages/**/*.jsx|*.js` 未命中 → 下一步从**首页视频面板的渲染处**或从 `dist` 产物反查该文案来源。
 2. **P1a（组件三件套）**：`src/components/media/{MediaAssetCard,CaseCard,WorkbenchShell}.jsx` + 契约门禁，一次只做一件。
 3. **P1c（图片 Hub）**：照 `docs/design/44-p1c-image-hub-brief.md` 执行。
+### 会话末交接（2026-09-16 晚，第 10 轮时点）
 
+**已上线且已验证**（逐条都有 release + 全量测试通过数）：
+| 内容 | commit | 线上 release | 测试 |
+|---|---|---|---|
+| 素材卡语言统一 + 默认出声音 | 779cd6e5 | 20260916-172303 | 3831/0 |
+| 「全能参考」命名收口 | 6ee04d84 | 20260916-175040 | 3832/0 |
+| MediaAssetCard 唯一实现 | 9a09ef4f→5d7f7414 | 20260916-181312 | 3834/0 |
+| CaseCard 案例卡 | 9f1dffc3 | 20260916-182927 | 3835/0 |
+| WorkbenchShell + FieldRenderer | 13af851d | 20260916-184523 | 3836/0 |
+| 视频侧接线（删重复实现） | 7dd906a9 | 20260916-190248 | 3836/0 |
+| 死 CSS 清理 | a9b6d11a | 20260916-191906 | 3836/0 |
+| 图片侧接线地图（纯文档） | ef65d4fa | 未部署（产物无变化） | — |
+
+**门禁现状**：BLOCKING 25 个文件；`test/media-language-unify-0916.test.mjs` 7 条判据 22 项断言，
+已覆盖：扇形数值同源、素材卡/案例卡/工作台/字段渲染各自只有一份实现、
+素材在上提示词在下、入口叫「全能参考」、默认出声音、视频案例懒加载且单条播放。
+
+**下一步（照 docs/design/44 的接线地图，一轮一件）**：
+1. `XhsSupplementDeck`（定义在 `src/pages/Home/XhsContentMode.jsx`，第 113 / 178 行附近；
+   第 1121 行是它的使用处）→ 换成 `MediaAssetCard`，删掉内部手写卡片；
+2. `VisualCreationMode`（自由创作）跟随验证；3. `ec/DesignDirection` 单独接；
+4. 门禁补一条：图片侧三处也不得再手写素材卡。
+之后才是 CaseCard/WorkbenchShell 接线 → 图片 Hub（`?id=` 单页渲染）→ 视频 Hub → 封面产线。
+
+**给下一个会话的提醒**：本会话上下文已接近耗尽，剩下的都是需要连续读码的改动；
+不要在额度紧张时启动"抽组件 + 接线 + 门禁"这类复合任务（本轮已两次因此返工）。
