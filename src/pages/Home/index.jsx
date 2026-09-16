@@ -198,6 +198,27 @@ export default function HomePage() {
           </div>}
 
 
+          {/* ═══ 技能库入口（43 §3.1 两级结构的第一步）═══
+              老入口一个不动：这里只是把"按技能挑"这条新路径摆出来，
+              点进去是 /image-creation（Hub + 工作台，?id= 单页渲染）。 */}
+          {ecStep !== 2 && (
+            <div className="homepage-skill-entry">
+              <span className="homepage-skill-entry-label">或者，直接从技能库挑</span>
+              <button type="button" onClick={() => dispatch({ type: 'NAVIGATE', page: 'image-creation' })}>
+                <MdPalette size={15} />图片生成技能库
+              </button>
+              <button type="button" onClick={() => dispatch({ type: 'NAVIGATE', page: 'video-creation' })}>
+                <MdVideoLibrary size={15} />视频生成技能库
+              </button>
+            </div>
+          )}
+          <style>{`
+            .homepage-skill-entry { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+            .homepage-skill-entry-label { font-size: 13px; color: var(--sb-ink-3); }
+            .homepage-skill-entry button { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: var(--sb-radius-pill); border: 1px solid var(--sb-border-default); background: var(--sb-surface-card); color: var(--sb-ink-1); font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+            .homepage-skill-entry button:hover { transform: translateY(-1px); box-shadow: var(--sb-shadow-sm); }
+          `}</style>
+
           {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
           {!isXHS && !isVideo && !isVisual && ecStep === 2 && (
             <DesignDirection

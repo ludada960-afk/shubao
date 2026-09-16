@@ -68,6 +68,10 @@ const PATHNAME_PAGE_MAP = Object.freeze({
   '/': 'home',
   '/canvas': 'ec-canvas',
   '/video-studio': 'video-studio',
+  /* 9-17：媒体板块页（做法参照竞品 /image-creation?id=，一个页面渲染全部技能）。
+     老入口一个都没删：这四个路径只是**新增**可达地址，兼容期内并存。 */
+  '/image-creation': 'image-creation',
+  '/video-creation': 'video-creation',
   '/ec-canvas': 'ec-canvas',
   '/pricing': 'pricing',
   '/public-templates': 'public-templates',

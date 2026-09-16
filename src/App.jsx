@@ -27,6 +27,7 @@ const AdminConsolePage = React.lazy(() => import('./pages/AdminConsole/index.jsx
 const VisionFeedbackPage = React.lazy(() => import('./pages/VisionFeedback/index.jsx'));
 const ProductArchivePage = React.lazy(() => import('./pages/ProductArchive/index.jsx'));
 const PublicTemplatesPage = React.lazy(() => import('./pages/PublicTemplates/index.jsx'));
+const MediaCreationPage = React.lazy(() => import('./pages/MediaCreation/index.jsx'));
 const TermsPage = React.lazy(() => import('./pages/Legal/index.jsx').then(mod => ({ default: mod.TermsPage })));
 const PrivacyPage = React.lazy(() => import('./pages/Legal/index.jsx').then(mod => ({ default: mod.PrivacyPage })));
 import LoadingView from './pages/Generate/Loading';
@@ -318,6 +319,8 @@ function AppRouter() {
     'ec-studio': EcStudioPage,
     'ec-auto': EcAutoPage,
     'video-studio': VideoStudioPage,
+    'image-creation': MediaCreationPage,
+    'video-creation': MediaCreationPage,
     /* 9-11 修: 这里原来 admin 出现两次 (vite 报 Duplicate key "admin" in object literal), 后者覆盖前者 —— 去重保留一条 */
     admin: AdminConsolePage,
     'vision-feedback': VisionFeedbackPage,

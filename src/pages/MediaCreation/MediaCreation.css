@@ -1,0 +1,11 @@
+/* 媒体板块页：只提供页面外壳与安全区，版式交给声明源驱动的组件（Hub / WorkbenchShell） */
+.media-creation {
+  position: relative;
+  z-index: 10;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 20px 20px 72px;
+}
+@media (max-width: 720px) {
+  .media-creation { padding: 12px 12px 56px; }
+}
