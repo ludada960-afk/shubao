@@ -46,7 +46,7 @@ const fx = {
   suiteDelivered: 3,         /* 套图任务最终交付几张（< 方案张数 = 部分交付） */
   works: [],
 };
-const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0 };
+const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [] };
 
 const failures = [];
 const passed = [];
@@ -107,6 +107,7 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { status: 'completed', url: RESULT_IMAGE, taskId: 'task-e2e-1' });
     }
     if (path === '/api/save-work') { calls.saveWork.push(parse()); return json(res, 200, { ok: true, _saveKey: 'e2e-work-1' }); }
+    if (path === '/api/delete-work') { calls.deleteWork.push(parse()); return json(res, 200, { ok: true }); }
     /* ── 电商套图任务：提交 → 轮询 → 交付若干张 ── */
     if (path === '/api/generate-ecommerce') {
       const body = parse();
@@ -328,8 +329,9 @@ try {
   /* ═══ ⑩ 刷新后历史还在（走 /api/works，不靠内存） ═══ */
   scenario('⑩ 刷新后历史还在');
   fx.works = [{
-    id: 'e2e-work-1', _saveKey: 'e2e-work-1', title: '白底商品图', mediaSkillId: 'image.white_bg',
+    id: 'e2e-work-1', _saveKey: 'e2e-work-1', _ecResult: true, title: '白底商品图', mediaSkillId: 'image.white_bg',
     createdAt: Date.now(), images: [{ url: RESULT_IMAGE, label: '白底商品图 1' }],
+    replay: { mediaSkillId: 'image.white_bg', panelValues: { ratio: '4:3', clarity: '4K', count: 2 } },
   }];
   await page.evaluate(() => { localStorage.removeItem('sb-works'); });
   await open();
@@ -479,6 +481,32 @@ try {
   const suiteWork = ((calls.saveWork[calls.saveWork.length - 1] || {}).work) || {};
   check(suiteWork.mediaSkillId === 'image.product_suite', '套图作品归到这条技能名下（历史看得到）', String(suiteWork.mediaSkillId));
   check(String(suiteWork.taskId) === 'ec-e2e-1', '套图作品用服务端任务号当身份（不会在作品里出现两条）', String(suiteWork.taskId));
+
+  /* ═══ ⑰ 历史条目的操作：用这组参数 / 删除 ═══ */
+  scenario('⑰ 历史操作');
+  await open();
+  await page.click('.media-workbench-tabs button:nth-child(2)');
+  await page.waitForSelector('.skill-history-item', { timeout: 15000 });
+  check(true, '历史条目带操作行（不是只能看）');
+  await page.click('.skill-history-reuse');
+  await page.waitForTimeout(500);
+  const reused = await page.evaluate(() => {
+    const pick = prefix => Array.from(document.querySelectorAll('.media-field')).find(node => (node.querySelector('.media-field-label')?.textContent || '').startsWith(prefix));
+    return {
+      ratio: pick('比例')?.querySelector('.media-field-segmented button.is-active')?.textContent || '',
+      clarity: pick('清晰度')?.querySelector('.media-field-segmented button.is-active')?.textContent || '',
+      notice: document.querySelector('.media-run-notice')?.textContent || '',
+    };
+  });
+  check(reused.ratio.includes('4:3') && reused.clarity.includes('4K'), '「用这组参数」把面板还原成那次的样子', JSON.stringify(reused));
+  check(/计费/.test(reused.notice), '还原时明确告诉用户"确认后再点生成、会重新计费"（不偷偷扣费）', reused.notice.slice(0, 40));
+  const beforeDelete = calls.deleteWork.length;
+  await page.click('.skill-history-delete');
+  await page.waitForTimeout(1200);
+  check(calls.deleteWork.length === beforeDelete + 1, '删除走既有软删除接口', String(calls.deleteWork.length - beforeDelete));
+  const afterDelete = await page.evaluate(() => document.querySelectorAll('.skill-history-item').length);
+  check(afterDelete === 0, '删除后历史里立刻不显示它', String(afterDelete));
+
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
 } finally {

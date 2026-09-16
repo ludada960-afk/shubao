@@ -9,6 +9,9 @@ import React, { useMemo, useState } from 'react';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
 import { initialSkillValues } from '../../skills/skillRun.js';
+
+/* 历史一页给几条：够看清最近几次，又不至于一屏几十张卡 */
+const HISTORY_PAGE_SIZE = 12;
 import WorkbenchShell from '../../components/media/WorkbenchShell.jsx';
 import CaseCard from '../../components/media/CaseCard.jsx';
 import '../../components/media/WorkbenchShell.css';
@@ -28,10 +31,14 @@ export default function SkillWorkbench({
   status = null,
   onGenerate = null,
   history = [],
+  onHistoryDelete = null,
+  onHistoryReuse = null,
 }) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
   const [lightbox, setLightbox] = useState(null);
+  /* 历史分页：一次先给 12 条，多的收在「显示更多」后面（避免一屏几十张卡把页面拖垮） */
+  const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
 
   /* 字段初始值来自声明源（skillRun.initialSkillValues）——与本页的下发参数同源 */
   const initial = useMemo(() => (skill ? initialSkillValues(skill) : {}), [skill]);
@@ -72,9 +79,32 @@ export default function SkillWorkbench({
               ))}</div>
             : <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p>)
           : (historyList.length
-            ? <div className="skill-workbench-grid">{historyList.map((item, index) => (
-                <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} onOpen={() => setLightbox(index)} />
-              ))}</div>
+            ? <>
+                <div className="skill-workbench-grid">
+                  {historyList.slice(0, historyLimit).map((item, index) => (
+                    <div className="skill-history-item" key={item.id || index}>
+                      <CaseCard
+                        title={item.title || ''}
+                        subtitle={item.subtitle || ''}
+                        cover={item.cover || ''}
+                        video={item.video || ''}
+                        poster={item.poster || ''}
+                        onOpen={() => setLightbox(index)}
+                      />
+                      {/* 历史条目要有操作：不然用户只能看着，删不掉、也回不到那组参数 */}
+                      <div className="skill-history-actions">
+                        <button type="button" className="skill-history-reuse" onClick={() => onHistoryReuse?.(item)}>用这组参数</button>
+                        <button type="button" className="skill-history-delete" onClick={() => onHistoryDelete?.(item)}>删除</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {historyList.length > historyLimit && (
+                  <button type="button" className="skill-history-more" onClick={() => setHistoryLimit(limit => limit + HISTORY_PAGE_SIZE)}>
+                    显示更多（还有 {historyList.length - historyLimit} 条）
+                  </button>
+                )}
+              </>
             : <p className="media-workbench-empty">这个技能还没有生成记录，左边配置好点「{ctaLabel}」就会存在这里</p>)
         }
       </WorkbenchShell>

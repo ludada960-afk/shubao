@@ -46,6 +46,7 @@ import {
   generateEcommerce,
   recoverCanvasGeneration,
   regenerateCanvasImage,
+  deleteWork,
   saveWork,
 } from '../../services/api';
 import { quoteBillingAction } from '../../services/billing.js';
@@ -275,9 +276,12 @@ export default function MediaCreationPage() {
         const urls = images.map(image => image?.url).filter(Boolean);
         return {
           id: String(work._saveKey || work.id || ''),
+          saveKey: work._saveKey || work.id || '',
           title: String(work.title || skill?.name || ''),
           subtitle: [urls.length ? urls.length + ' 张' : '', formatWorkTime(work.createdAt || work.savedAt)].filter(Boolean).join(' · '),
           cover: urls[0] || '',
+          /* 「用这组参数」靠它还原面板：只认**这条技能自己**存下的参数 */
+          values: (work.replay && work.replay.mediaSkillId === skill?.id && work.replay.panelValues) ? work.replay.panelValues : null,
         };
       })
       .filter(item => item.cover);
@@ -498,6 +502,32 @@ export default function MediaCreationPage() {
     await executeRun(current, indexes);
   }
 
+  /* 历史操作①：用这组参数 —— **只还原面板，不直接扣费**。
+     直接重跑会让用户在没看清的情况下被扣一次，与"没有用户确认绝不扣费"冲突。 */
+  function reuseHistory(item) {
+    if (!item?.values) { setError('这条记录没有存下参数，无法还原'); return; }
+    const keys = new Set(((skill && skill.fields) || []).map(field => field.key));
+    const restored = Object.fromEntries(Object.entries(item.values).filter(([key]) => keys.has(key)));
+    setValues(prev => ({ ...prev, ...restored }));
+    setError('');
+    setNotice('参数已还原，确认后点「立即生成」——这一次会重新计费');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* 历史操作②：删除（软删除，服务端可恢复） */
+  async function deleteHistory(item) {
+    const saveKey = item?.saveKey;
+    if (!saveKey) return;
+    setError('');
+    const ok = await deleteWork(saveKey).catch(() => false);
+    if (!ok) { setError('删除失败，请稍后再试'); return; }
+    dispatch({
+      type: 'SET_WORKS',
+      works: (Array.isArray(state.works) ? state.works : []).filter(work => String(work._saveKey || work.id) !== String(saveKey)),
+    });
+    setNotice('已从历史里删除（服务端仍可恢复）');
+  }
+
   function handoffToBoard() {
     const plan = HANDOFF_BY_PIPELINE[skill.pipeline] || { mode: 'visual' };
     const visualSkillId = VISUAL_SKILL_IDS[skill.id];
@@ -540,6 +570,8 @@ export default function MediaCreationPage() {
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
         status={status}
         onGenerate={handoff ? handoffToBoard : (suite ? generateSuite : generate)}
+        onHistoryDelete={deleteHistory}
+        onHistoryReuse={reuseHistory}
         history={history}
       />
     </div>

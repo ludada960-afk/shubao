@@ -12,3 +12,24 @@
 .skill-workbench-lightbox-nav:hover { background: var(--sb-surface-tint-strong); }
 .skill-workbench-lightbox-close { position: absolute; top: -14px; right: -6px; width: 30px; height: 30px; border: 0; border-radius: 999px; background: var(--sb-surface-card); color: var(--sb-ink-1); font-size: 18px; cursor: pointer; }
 .skill-workbench-lightbox-close:hover { background: var(--sb-surface-tint-strong); }
+
+/* 历史条目：卡片下面一条操作行（删除 / 用这组参数）——不做 hover 才出现的隐藏操作，
+   键盘用户与触屏用户都要能用。 */
+.skill-history-item { display: grid; gap: 6px; align-content: start; }
+.skill-history-actions { display: flex; gap: 6px; }
+.skill-history-reuse,
+.skill-history-delete,
+.skill-history-more {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+.skill-history-reuse:hover,
+.skill-history-more:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.skill-history-delete:hover { background: var(--sb-ink-1); color: var(--sb-surface-card); }
+.skill-history-more { justify-self: start; margin-top: 10px; padding: 7px 14px; font-size: 12px; }
