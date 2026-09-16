@@ -156,7 +156,10 @@ test('food plans exclude certification and QC without a real proof asset', () =>
   assert.equal(plan.some((item) => factValues(item).some((fact) => fact.includes('certification'))), false);
 });
 
-test('plans exactly one SKU item per valid user SKU variant and preserves its fields', () => {
+/* 2026-09-16 用户裁决（原话）：「SKU 数量当然要算张数去收啊，跟其他套图规则一样。」
+   —— 本条的判据从「每个规格固定一张」改为「每个规格按它的数量出图」，
+      其余判据一字未变：字段完整保留、空行与原型污染行不计、每张图的导出目标唯一。 */
+test('每个规格按它的数量出图，字段与安全边界不变（2026-09-16 用户裁决）', () => {
   const plan = buildAssetPlan({
     productTruth: productTruth(),
     campaignBible,
@@ -170,12 +173,16 @@ test('plans exactly one SKU item per valid user SKU variant and preserves its fi
   });
   const skuItems = plan.filter((item) => item.role === 'sku');
 
-  assert.equal(skuItems.length, 2);
-  assert.deepEqual(skuItems.map(factValues), [
-    ['color:曜石黑', 'capacity:256GB', 'count:99'],
-    ['color:月岩白', 'size:标准版', 'dimLabel:120 mm'],
-  ]);
-  assert.deepEqual(skuItems.map((item) => item.id), ['sku-1', 'sku-2']);
+  /* 规格 1 写了 99（按上限 20 收口）→ 20 张；规格 2 没写数量 → 1 张；空行与原型污染行不计。 */
+  assert.equal(skuItems.length, 21);
+  assert.equal(skuItems.filter(item => item.id.startsWith('sku-1')).length, 20, '第一个规格按数量出 20 张（上限 20）');
+  assert.equal(skuItems.filter(item => item.id.startsWith('sku-2')).length, 1, '第二个规格没写数量 → 1 张');
+  assert.deepEqual(factValues(skuItems[0]), ['color:曜石黑', 'capacity:256GB', 'count:99']);
+  assert.deepEqual(factValues(skuItems[20]), ['color:月岩白', 'size:标准版', 'dimLabel:120 mm']);
+  /* 计划在生成后会按职责重排，所以这里断言**集合**而不是顺序。 */
+  const skuIds = skuItems.map(item => item.id);
+  assert.equal(new Set(skuIds).size, skuIds.length, '每张图必须有各自不同的 id（否则被计划契约判成职责重复）');
+  assert.ok(skuIds.includes('sku-1-1') && skuIds.includes('sku-1-20'), '第一个规格的 20 张都在');
   const skuTargetIds = skuItems.flatMap(item => item.exportTargets.map(target => target.targetId));
   assert.equal(new Set(skuTargetIds).size, skuTargetIds.length);
 });

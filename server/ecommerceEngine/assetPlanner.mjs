@@ -101,7 +101,10 @@ function normalizeSkus(value) {
        要进 requiredFacts 的确认闸门；而变体说明是用户对差异的自由描述，语义不同 ——
        混进去会让它被当成待核验事实，反而可能让这张图被判不合格。 */
     const note = cleanString(ownValue(sku, 'note'));
-    return [{ label: explicitLabel || fallbackLabel || `规格 ${facts.length + 1}`, facts, ...(note ? { note } : {}) }];
+    /* 2026-09-16 用户裁决：「SKU 数量当然要算张数去收啊，跟其他套图规则一样。」
+       所以 count 必须**升到顶层**参与出图张数（此前只作为 facts 里的一个事实，被 :95 排除掉）。 */
+    const count = Math.max(1, Math.min(20, Math.trunc(Number(cleanString(ownValue(sku, 'count'))) || 1)));
+    return [{ label: explicitLabel || fallbackLabel || `规格 ${facts.length + 1}`, facts, count, ...(note ? { note } : {}) }];
   });
 }
 
@@ -644,25 +647,34 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     }
   }
 
+  /* ═══ 每个规格按 count 出图（2026-09-16 用户裁决）═══
+     原话：「SKU 数量当然要算张数去收啊，跟其他套图规则一样。」
+     —— 套图方案那边是「类型 × 张数」，这边就该是「规格 × 张数」。
+     此前一个规格只出一张，UI 却能填张数、合计也按张数求和 → 报价与产出对不上。
+     ⚠️ 同一规格的多张图必须有**各自不同**的 id 与 variantIdentity，
+        否则会被计划契约判成「职责重复」而整单失败。 */
   normalizedSkus.forEach((sku, index) => {
     const skuFacts = sku.facts;
-    items.push(buildItem({
-      id: `sku-${index + 1}`,
-      role: 'sku',
-      purpose: skuPurpose(skuFacts),
-      commercialDutyKey: 'variant',
-      communicationGoal: 'Help the buyer choose the confirmed SKU variant.',
-      defaultRatio: '1:1',
-      requiredFacts: skuFacts,
-      generationMode: 'deterministic_overlay',
-      productAssetIds,
-      styleReferenceIds,
-      variantIdentity: skuVariantIdentity(skuFacts),
-      variantNote: sku.note || '',
-      category,
-      platform: normalizedPlatform,
-      sizing: normalizedSizing,
-    }));
+    const count = Math.max(1, Math.min(20, Math.trunc(Number(sku.count) || 1)));
+    for (let k = 0; k < count; k += 1) {
+      items.push(buildItem({
+        id: count > 1 ? `sku-${index + 1}-${k + 1}` : `sku-${index + 1}`,
+        role: 'sku',
+        purpose: skuPurpose(skuFacts),
+        commercialDutyKey: count > 1 ? `variant-${k + 1}` : 'variant',
+        communicationGoal: 'Help the buyer choose the confirmed SKU variant.',
+        defaultRatio: '1:1',
+        requiredFacts: skuFacts,
+        generationMode: 'deterministic_overlay',
+        productAssetIds,
+        styleReferenceIds,
+        variantIdentity: count > 1 ? `${skuVariantIdentity(skuFacts)}-${k + 1}` : skuVariantIdentity(skuFacts),
+        variantNote: sku.note || '',
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      }));
+    }
   });
 
   const roleOccurrences = new Map();

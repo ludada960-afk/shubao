@@ -48,8 +48,12 @@ export function estimateTextComposerPoints() {
    否则「报价张数」与「实际产出张数」会对不上（少报）。 */
 export function canvasValidSkuCount(skus) {
   if (!Array.isArray(skus)) return 0;
-  return skus.filter(sku => ['color', 'size', 'capacity', 'dimLabel']
-    .some(field => String(sku?.[field] || '').trim())).length;
+  /* 2026-09-16 用户裁决：「SKU 数量当然要算张数去收啊，跟其他套图规则一样。」
+     —— 与首页 resolveEcommercePlan.validSkuCount 同一口径：规格数 × 每个规格的张数。 */
+  return skus
+    .filter(sku => ['color', 'size', 'capacity', 'dimLabel']
+      .some(field => String(sku?.[field] || '').trim()))
+    .reduce((sum, sku) => sum + Math.max(1, Number(sku?.count) || 1), 0);
 }
 
 /* 套图框：与首页 planPoints 完全同源（整套张数不能退化成 1 张；SKU 变体计入张数） */

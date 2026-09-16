@@ -285,10 +285,17 @@ export function migrateLegacySizingImages(images) {
   return out;
 }
 
+/* ═══ 2026-09-16 用户裁决：SKU 数量要算张数、也要算钱 ═══
+   原话：「SKU 数量当然要算张数去收啊，跟其他套图规则一样。」
+   —— SKU 与「套图方案」里的主图/详情图/白底图是**同一维度**：那边是「类型 × 张数」，
+      这边就该是「规格 × 张数」。此前每个规格固定只算 1 张，而 SkuPanel 的合计却按 count 求和，
+      于是报价与产出对不上（正是用户一直追问的那个裂缝）。 */
 function validSkuCount(skus) {
   if (!Array.isArray(skus)) return 0;
-  return skus.filter(sku => ['color', 'size', 'capacity', 'dimLabel']
-    .some(field => String(sku?.[field] || '').trim())).length;
+  return skus
+    .filter(sku => ['color', 'size', 'capacity', 'dimLabel']
+      .some(field => String(sku?.[field] || '').trim()))
+    .reduce((sum, sku) => sum + Math.max(1, Number(sku?.count) || 1), 0);
 }
 
 export function resolveEcommercePlan({
