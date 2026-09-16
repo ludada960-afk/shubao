@@ -36,7 +36,9 @@
 }
 .media-asset-card-body img,
 .media-asset-card-body video { width: 100%; height: 100%; object-fit: cover; }
-.media-asset-card-glyph { display: grid; place-items: center; color: var(--sb-ink-3); }
+.media-asset-card-glyph { display: grid; place-items: center; color: var(--sb-ink-2); }
+/* 可点元素必须有 hover 态（interactive-state-coverage 门禁要求） */
+.media-asset-card-body:hover { background: var(--sb-surface-tint-strong); }
 .media-asset-card-caption {
   display: block;
   padding: 6px 8px 7px;
@@ -50,7 +52,7 @@
 .media-asset-card-progress i { display: block; height: 4px; border-radius: 999px; background: var(--sb-surface-tint); overflow: hidden; }
 .media-asset-card-progress i b { display: block; height: 100%; background: var(--sb-brand-600); }
 .media-asset-card-progress small { font-size: 11px; color: var(--sb-ink-2); }
-.media-asset-card-failed { position: absolute; inset: auto 0 0; padding: 6px 8px; font-size: 11px; color: var(--sb-ink-danger); background: var(--sb-surface-tint); }
+.media-asset-card-failed { position: absolute; inset: auto 0 0; padding: 6px 8px; font-size: 11px; color: var(--sb-ink-1); background: var(--sb-surface-tint); }
 .media-asset-card-remove {
   position: absolute;
   top: -6px;
@@ -66,6 +68,7 @@
   color: var(--sb-ink-2);
   cursor: pointer;
 }
+.media-asset-card-remove:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 @media (prefers-reduced-motion: reduce) {
   .media-asset-card { transition: none; }
 }
