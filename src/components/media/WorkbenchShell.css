@@ -1,0 +1,100 @@
+/* WorkbenchShell + FieldRenderer：工作台骨架与字段渲染（图片/视频板块共用）
+   实测口径（知渔）：左「参数配置」+右「作品示例」；字段名极简、必填打 *；左栏底部一个 CTA。
+   颜色只用已验证存在的 --sb-* token，不写色值兜底；描边与投影用 rgba 阴影；
+   每个可点元素都必须有 hover 态（interactive-state-coverage 门禁要求）。 */
+.media-workbench { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.media-workbench-left { display: grid; gap: 14px; align-content: start; }
+.media-workbench-back {
+  justify-self: start;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.media-workbench-back:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-workbench-head { display: grid; gap: 4px; }
+.media-workbench-category { font-size: 12px; color: var(--sb-ink-3); }
+.media-workbench-head h2 { margin: 0; font-size: 18px; color: var(--sb-ink-1); }
+.media-workbench-head p { margin: 0; font-size: 12px; color: var(--sb-ink-2); }
+.media-workbench-fields { display: grid; gap: 12px; }
+.media-field { display: grid; gap: 6px; }
+.media-field-label { display: inline-flex; gap: 3px; font-size: 12px; color: var(--sb-ink-2); }
+.media-field-label b { color: var(--sb-brand-600); font-weight: 600; }
+.media-field-control {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--sb-surface-card);
+  box-shadow: 0 0 0 1px rgba(17, 20, 45, .1);
+  color: var(--sb-ink-1);
+  font-size: 13px;
+}
+.media-field-control:hover { box-shadow: 0 0 0 1px rgba(17, 20, 45, .16); }
+.media-field-hint { font-size: 11px; color: var(--sb-ink-3); }
+.media-field-segmented { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.media-field-segmented button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.media-field-segmented button:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-field-segmented button.is-active { background: var(--sb-brand-600); color: var(--sb-surface-card); }
+.media-field-stepper { display: inline-flex; align-items: center; gap: 10px; }
+.media-field-stepper button {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-1);
+  cursor: pointer;
+}
+.media-field-stepper button:hover:not(:disabled) { background: var(--sb-surface-tint-strong); }
+.media-field-stepper output { min-width: 24px; text-align: center; font-size: 13px; color: var(--sb-ink-1); }
+.media-field-slot {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.media-field-slot:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-workbench-cta { display: flex; align-items: center; gap: 10px; }
+.media-workbench-submit {
+  flex: 1;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--sb-brand-600);
+  color: var(--sb-surface-card);
+  font-size: 13px;
+  cursor: pointer;
+}
+.media-workbench-submit:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(17, 20, 45, .18); }
+.media-workbench-submit:disabled { opacity: .5; cursor: not-allowed; }
+.media-workbench-points { font-size: 12px; color: var(--sb-ink-2); }
+.media-workbench-right { display: grid; gap: 12px; min-width: 0; }
+.media-workbench-tabs { display: inline-flex; gap: 6px; }
+.media-workbench-tabs button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.media-workbench-tabs button:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-workbench-tabs button.is-active { background: var(--sb-surface-card); color: var(--sb-ink-1); box-shadow: 0 0 0 1px rgba(17, 20, 45, .1); }
+.media-workbench-pane { min-height: 200px; }
+.media-workbench-empty { margin: 0; padding: 28px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }

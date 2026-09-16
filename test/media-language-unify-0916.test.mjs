@@ -63,6 +63,30 @@ test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加�
   assert.match(cardCss, /prefers-reduced-motion[\s\S]*?\.media-case-card-cover \{ transition: none; \}/);
 });
 
+test('⑦ 工作台骨架与字段渲染各只有一份实现，字段不得再手写控件', () => {
+  const shell = readFileSync('src/components/media/WorkbenchShell.jsx', 'utf8');
+  const field = readFileSync('src/components/media/FieldRenderer.jsx', 'utf8');
+  const shellCss = readFileSync('src/components/media/WorkbenchShell.css', 'utf8');
+  /* 骨架：左配置 + 右「示例/历史」双页签 + 左栏底部 CTA（实测结构） */
+  assert.match(shell, /className="media-workbench-left"/);
+  assert.match(shell, /className="media-workbench-right"/);
+  assert.match(shell, /\{ key: 'cases', label: '示例' \}, \{ key: 'history', label: '历史' \}/);
+  assert.match(shell, /className="media-workbench-cta"/);
+  /* 字段必须经 FieldRenderer，页面不得自己写控件 */
+  assert.match(shell, /import FieldRenderer from '\.\/FieldRenderer\.jsx';/);
+  assert.match(shell, /<FieldRenderer field=\{field\}/);
+  /* 字段渲染器支持的档位（够用即可，不许无限扩张） */
+  for (const kind of ['select', 'segmented', 'stepper', 'textarea', 'slot']) {
+    assert.match(field, new RegExp("kind === '" + kind + "'"), 'FieldRenderer 必须支持 ' + kind);
+  }
+  /* 必填标记：实测他们用 * 标注（字段名极简） */
+  assert.match(field, /const REQUIRED_MARK = '\*';/);
+  /* 样式零硬编码色值 + 可点元素有 hover */
+  const hex = shellCss.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+  assert.deepEqual(hex, [], '工作台样式不得硬编码色值：' + hex.join(', '));
+  assert.match(shellCss, /\.media-workbench-submit:hover/);
+});
+
 test('⑤ 素材在上、提示词在下（布局唯一）', () => {
   /* 用户批注：不要学"左边上传区、右边输入区"那套；我们自己的做法是上面素材卡、下面提示词。 */
   assert.match(videoCss, /\.video-content-composer \{\s*display: grid;\s*gap: 0;\s*\}/, 'composer 必须是单列 grid（素材在上、提示词在下）');
