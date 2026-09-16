@@ -20,6 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
+import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
+import '../../components/media/MediaAssetCard.css';
 import { applyCanvasSkill } from '../EcCanvas/canvasStudioModel.js';
 /* 2026-09-16 用户批注（图7-①）：视频侧自己那套 @ 触发器 + 弹出菜单**已删除**，
    改用全站共用的 ImageMentionPicker（电商生图 / 小红书图文 / 视频生成 三处同一个实现）。
@@ -181,23 +183,36 @@ function UploadStatus({ upload, onRetry }) {
   return null;
 }
 
+/* 素材卡：**只有一个实现** —— src/components/media/MediaAssetCard（图片/视频板块共用）。
+   2026-09-16 用户批注（图 #2）：「他现在视频生成的样式并不是这样的…要按我们电商生图这边的
+   卡片歪过来的形式来上传素材，样式逻辑得是类似的」。
+   此前这里手写了一套 video-media-card（扇形数值靠 CSS 复制），与图片侧是两份实现；
+   现在空态仍由本地 label 承载（要触发原生文件选择器），已选态一律交给 MediaAssetCard 渲染，
+   重复实现随之删除。判据见 test/media-language-unify-0916.test.mjs。 */
 function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef, upload, onRetry, onPreview }) {
   const file = files[0];
-  return <div className={`video-media-card video-media-picker${file ? ' has-file' : ''}`} title={file ? '双击预览' : undefined} onDoubleClick={() => { if (file && onPreview) onPreview({ file }); }}>
+  const kind = accept?.startsWith('video') ? 'video' : accept?.startsWith('audio') ? 'audio' : 'image';
+  if (file) {
+    return <MediaAssetCard
+      kind={kind}
+      src={file.previewUrl || file.url || ''}
+      label={files.length > 1 ? `${label} · ${files.length} 个` : label}
+      status={upload?.status === 'uploading' ? 'uploading' : upload?.status === 'error' ? 'error' : 'ready'}
+      progress={upload?.progress || 0}
+      onPreview={onPreview ? () => onPreview({ file }) : null}
+      onRemove={onRemove || null}
+    />;
+  }
+  return <div className="video-media-card video-media-picker">
     <label className="video-media-picker-control">
       <input ref={inputRef} type="file" accept={accept} multiple={multiple} onChange={event => {
         onChange(Array.from(event.target.files || []));
         event.target.value = '';
       }} />
-      {file ? <MediaPreview file={file} upload={upload || {}} /> : <>
-        <span className="video-media-add-icon"><Icon size={20} /></span>
-        <strong>{label}</strong>
-        <small>点击选择文件</small>
-      </>}
-      {file && <span className="video-media-caption">{files.length > 1 ? `${label} · ${files.length} 个` : label}</span>}
+      <span className="video-media-add-icon"><Icon size={20} /></span>
+      <strong>{label}</strong>
+      <small>点击选择文件</small>
     </label>
-    {file && <UploadStatus upload={upload} onRetry={onRetry} />}
-    {file && onRemove && <button type="button" className="video-media-remove" aria-label={`移除${label}`} onClick={onRemove}><X size={14} /></button>}
   </div>;
 }
 
@@ -879,18 +894,21 @@ export default function VideoStudioPage({ embedded = false }) {
         </label>)}
       </div>
       {materialEntries.length > 0 && <div className="video-media-deck">
-        {materialEntries.map(item => <article
+        {/* 已选素材一律交给唯一实现 MediaAssetCard（图片/视频板块共用），
+            这里不再手写卡片的内部结构 —— 判据见 test/media-language-unify-0916.test.mjs。 */}
+        {materialEntries.map(item => <MediaAssetCard
           key={`${item.key}-${item.index}-${item.file.name}`}
-          className={`video-media-card video-media-preview-card is-${item.kind}`}
-          title="双击预览大图 / 播放"
-          onDoubleClick={() => setLightboxEntry({ file: item.file, upload: uploadFor(item.file) })}
-        >
-          <MediaPreview file={item.file} upload={uploadFor(item.file) || {}} />
-          <span className="video-media-type">{item.label}</span>
-          <span className="video-media-caption">{item.name}</span>
-          <UploadStatus upload={uploadFor(item.file)} onRetry={() => retryUpload(item.file, item.kind)} />
-          <button type="button" className="video-media-remove" aria-label={`移除${item.file.name}`} onClick={() => removeFile(item.key, item.index)}><X size={14} /></button>
-        </article>)}
+          kind={item.kind}
+          src={item.previewUrl || item.url || ''}
+          label={item.label}
+          status={(() => {
+            const state = uploadFor(item.file)?.status;
+            return state === 'uploading' ? 'uploading' : state === 'error' ? 'error' : 'ready';
+          })()}
+          progress={uploadFor(item.file)?.progress || 0}
+          onPreview={() => setLightboxEntry({ file: item.file, upload: uploadFor(item.file) })}
+          onRemove={() => removeFile(item.key, item.index)}
+        />)}
       </div>}
     </div>;
   };

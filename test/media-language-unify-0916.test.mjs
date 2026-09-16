@@ -19,14 +19,12 @@ test('① 视频侧素材卡与图片侧共用「扇形歪卡」语言', () => {
   /* 图片侧的权威数值：负外边距叠压 + 反向倾斜 + 上下错位 */
   assert.match(imageCss, /\.visual-skill-stage-outputs\.count-2 \.output-0 \{ transform: rotate\(-4deg\); \}/);
   assert.match(imageCss, /\.visual-skill-stage-outputs\.count-2 \.output-1 \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
-  /* 视频侧必须复用同一组数值，而不是自己发明一套 */
-  assert.match(videoCss, /\.video-media-deck \.video-media-card \+ \.video-media-card \{ margin-left: -34px; \}/);
-  assert.match(videoCss, /\.video-media-deck \.video-media-card:nth-child\(1\) \{ transform: rotate\(-4deg\); \}/);
-  assert.match(videoCss, /\.video-media-deck \.video-media-card:nth-child\(2\) \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
-  /* 悬停「回正 + 抬起」 */
-  assert.match(videoCss, /\.video-media-deck \.video-media-card:hover[\s\S]*?transform: rotate\(0deg\) translateY\(-4px\) scale\(1\.02\)/);
-  /* 尊重减少动效偏好 */
-  assert.match(videoCss, /prefers-reduced-motion[\s\S]*?\.video-media-deck \.video-media-card \{ transition: none; \}/);
+  /* 视频侧已选态改为复用唯一实现 MediaAssetCard（扇形数值由组件自带），
+     视频侧只保留空态"加号卡"的同一组数值 —— 不得再手写第二套已选卡实现。 */
+  assert.doesNotMatch(videoIndex, /video-media-caption|video-media-remove/, '视频侧不得再手写已选素材卡（应交给 MediaAssetCard）');
+  assert.match(videoIndex, /import MediaAssetCard from '\.\.\/\.\.\/components\/media\/MediaAssetCard\.jsx';/);
+  assert.match(videoCss, /\.video-media-deck \.video-media-picker \+ \.video-media-picker \{ margin-left: -34px; \}/);
+  assert.match(videoCss, /\.video-media-deck \.video-media-picker:nth-child\(1\) \{ transform: rotate\(-4deg\); \}/);
 });
 
 test('④ 素材卡只有一份实现，且两个板块共用（图片侧与视频侧不得各写一套）', () => {
