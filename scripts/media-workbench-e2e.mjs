@@ -389,6 +389,37 @@ try {
   check(/^\/(image|video)-creation\?id=/.test(landed.url), '点热门技能进的是**它自己的子页面**（不是画布、不是别的板块）', landed.url);
   check(landed.title === firstTitle, '进去的就是点的那一条技能', landed.title + ' vs ' + firstTitle);
   check(landed.back, '子页面有"返回创作"，能回到 Hub');
+
+  /* ═══ ⑭ 连点「只重试失败项」不会重复扣费 ═══ */
+  scenario('⑭ 重试连点');
+  await open();
+  await upload();
+  fx.regenerateMode = 'fail400';
+  await clickGenerate();
+  await page.waitForSelector('.media-run-retry', { timeout: 20000 });
+  const beforeDouble = calls.regenerate.length;
+  fx.regenerateMode = 'ok';
+  /* 同一 tick 里连点两次（比真实双击更苛刻）：第二次必须看到"已经没得重试了" */
+  await page.evaluate(() => { const node = document.querySelector('.media-run-retry'); node?.click(); node?.click(); });
+  await page.waitForTimeout(2500);
+  check(calls.regenerate.length === beforeDouble + 1, '连点两次也只补跑一次（不会重复扣费）', beforeDouble + '→' + calls.regenerate.length);
+
+  /* ═══ ⑮ 换技能/回 Hub 时上一轮结果不许残留 ═══ */
+  scenario('⑮ 换技能清空上一轮');
+  fx.regenerateMode = 'ok';
+  await open();
+  await upload();
+  await clickGenerate();
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 });
+  await page.click('.media-workbench-back');
+  await page.waitForSelector('.media-hub', { timeout: 15000 });
+  await page.click('.media-hub .media-case-card-hit');
+  await page.waitForTimeout(1200);
+  const afterSwitch = await page.evaluate(() => ({
+    run: Boolean(document.querySelector('.media-run')),
+    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+  }));
+  check(!afterSwitch.run, '换到别的技能后，上一轮的结果不会留在这一页上', JSON.stringify(afterSwitch));
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
 } finally {

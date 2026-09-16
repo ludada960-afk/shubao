@@ -27,6 +27,7 @@ import {
 import {
   buildSkillRequest,
   initialSkillValues,
+  skillRunKind,
   isHandoffSkill,
   skillGenerationSettings,
   skillPointsEstimate,
@@ -261,9 +262,12 @@ export default function MediaCreationPage() {
       })
       .filter(item => item.cover);
   }, [skill, state.works]);
-  /* 视频侧全部走既有视频工作台：视频是多分钟、带分镜与方案的流水线，
-     而且 videoSkills 目前没有 brief —— 就地生成会发出空提示词的扣费请求。 */
-  const handoff = board === 'video' || Boolean(skill && isHandoffSkill(skill));
+  /* 运行方式（skillRun.skillRunKind）：inline 就地出图 / suite 套图 / handoff 回既有工作台。
+     ⚠️ 这里必须显式区分：套图走的是**多张、按套计价**的引擎，
+        若它掉进单图分支，会按 1 积分发一次单图请求 —— 既不是用户要的东西，也把计价搞错了。
+        所以在套图就地跑通之前，它走 handoff（带着配置回既有套图工作台），绝不走单图。 */
+  const runKind = board === 'video' ? 'handoff' : (skill ? skillRunKind(skill) : 'inline');
+  const handoff = runKind === 'handoff' || runKind === 'suite';
 
   /* 统一失焦：登录 / 余额不足交给既有守卫处理，其余就地显示 */
   const handleError = useCallback((err) => {
@@ -417,7 +421,7 @@ export default function MediaCreationPage() {
         values={values}
         onFieldChange={(key, value) => setValues(prev => ({ ...prev, [key]: value }))}
         onBack={backToHub}
-        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : '立即生成'}
+        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (runKind === 'suite' ? (HANDOFF_LABEL[skill.pipeline] || '去套图工作台') : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续'))) : '立即生成'}
         ctaPoints={handoff ? null : points}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}

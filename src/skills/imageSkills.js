@@ -92,12 +92,16 @@ export const IMAGE_SKILLS = [
     brief: '围绕商品生成一套电商图。商品信息：{{productParams}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合目标平台的图片规范。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
-      /* 结构/规格是套图专有的重配置，面板在套图工作台里 —— 这里如实说明，不做一个点了没反应的按钮 */
-      { key: 'structure', label: '结构', kind: 'slot', required: true, slotLabel: '配置套图结构', hint: '进入套图工作台后配置' },
-      { key: 'skus', label: '规格', kind: 'slot', slotLabel: '编辑规格与张数', hint: '进入套图工作台后配置' },
-      { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 5 },
-      ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 9 },
+      /* 平台决定套图结构（出几张、各是什么比例）—— 它真的参与方案计算与报价，不是装饰 */
+      { key: 'platform', label: '平台', kind: 'segmented', required: true, default: '淘宝', options: [
+        { value: '淘宝', label: '淘宝' }, { value: '抖音', label: '抖音' }, { value: '小红书', label: '小红书' },
+        { value: '拼多多', label: '拼多多' }, { value: '京东', label: '京东' },
+      ] },
+      { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 4, placeholder: '第一行写商品名，后面可以写卖点与材质' },
+      /* 结构/规格是套图专有的重配置：默认按平台智能匹配，自定义面板在套图工作台里 —— 
+         这里如实说明，不做一个点了没反应的按钮 */
+      { key: 'structure', label: '结构', kind: 'slot', slotLabel: '配置套图结构', hint: '默认按平台智能匹配；自定义结构在套图工作台里配' },
+      { key: 'skus', label: '规格', kind: 'slot', slotLabel: '编辑规格与张数', hint: '自定义 SKU 变体在套图工作台里配' },
     ],
     cases: [
       { id: 'scene', title: '场景卖点主图', cover: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp' },

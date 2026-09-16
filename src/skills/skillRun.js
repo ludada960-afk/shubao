@@ -162,8 +162,22 @@ export function buildSkillRequest(skill, values = {}, { runId = '', slotIndex = 
   };
 }
 
-/* 一键生成不了的 skill：走既有重流程（套图编排 / 小红书图文），工作台只负责带配置过去。
-   这两条链路本身是多分钟内、多资产、带方案确认的流水线，硬塞进工作台只会做出一堆半成品。 */
+/* ── ⑦ 运行方式三态（决定 CTA 点了以后发生什么）──────────────────────────────
+   用户 9-17 口径：「生成结果直接在工作台里面展示……如果是在子页面的工作台生成的，
+   就会在各自的子页面历史记录里面。」所以能就地跑的都要就地跑完。
+     · 'inline'  单图链路（visualCreation / builtinSkill）—— 就地出图
+     · 'suite'   电商套图 —— **就地跑既有套图引擎**（多张、多分钟），结果同样留在工作台与历史
+     · 'handoff' 小红书图文与视频 —— 分步确认、多分钟的独立流水线，带着配置回既有工作台
+   ⚠️ 'handoff' 不代表"不重要"，而是那两条链路有自己的完整工作台（分镜/脚本确认），
+      硬塞进单页只会做出半成品。 */
+export function skillRunKind(skill) {
+  const pipeline = skill && skill.pipeline;
+  if (pipeline === 'ecommerceSuite') return 'suite';
+  if (pipeline === 'xhsNote') return 'handoff';
+  if (typeof pipeline === 'string' && pipeline.startsWith('video')) return 'handoff';
+  return 'inline';
+}
+
 export function isHandoffSkill(skill) {
-  return ['ecommerceSuite', 'xhsNote'].includes(skill && skill.pipeline);
+  return skillRunKind(skill) === 'handoff';
 }

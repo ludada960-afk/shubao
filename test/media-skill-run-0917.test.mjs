@@ -10,6 +10,7 @@ import {
   buildSkillBrief,
   buildSkillRequest,
   isHandoffSkill,
+  skillRunKind,
   skillGenerationSettings,
   skillImages,
   skillPointsEstimate,
@@ -115,10 +116,19 @@ test('⑧ 必填校验能指出缺哪一项（给工作台做就近错误）', (
   assert.equal(ok.ok, true);
 });
 
-test('⑨ 重流程走既有链路，不在工作台里重造', () => {
-  assert.equal(isHandoffSkill(getImageSkill('image.product_suite')), true, '套图是多分钟流水线，必须回既有流程');
+test('⑨ 运行方式三态：单图就地出、套图单独一档、小红书/视频回既有工作台', () => {
+  /* 为什么必须是三态而不是"是不是 handoff"一个布尔：
+     套图走的是**多张、按套计价**的引擎，一旦掉进单图分支，就会按 1 积分发一次单图请求 ——
+     既不是用户要的东西，也把计价搞错了。所以它必须有自己的一档。 */
+  assert.equal(skillRunKind(getImageSkill('image.product_suite')), 'suite');
+  assert.equal(skillRunKind(getImageSkill('image.xhs_note')), 'handoff');
+  assert.equal(skillRunKind(getImageSkill('image.white_bg')), 'inline');
+  assert.equal(skillRunKind(getImageSkill('image.retouch')), 'inline');
+  assert.equal(skillRunKind({ pipeline: 'videoSmart' }), 'handoff');
   assert.equal(isHandoffSkill(getImageSkill('image.xhs_note')), true, '小红书图文是 SSE 套图流水线');
   assert.equal(isHandoffSkill(getImageSkill('image.white_bg')), false, '白底图应当就地生成');
+  /* 套图**不许**被当成 inline（这条是防回归的核心） */
+  assert.notEqual(skillRunKind(getImageSkill('image.product_suite')), 'inline');
 });
 
 test('⑩ 请求装配：creation_intent 固定 visual，request_key 带 run/slot（幂等靠它）', () => {
