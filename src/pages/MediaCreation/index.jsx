@@ -31,6 +31,7 @@ import {
   savePendingRun,
 } from '../../skills/pendingRunStore.js';
 import {
+  buildSkillBrief,
   buildSkillRequest,
   buildSuiteRun,
   initialSkillValues,
@@ -169,10 +170,35 @@ export default function MediaCreationPage() {
   /* 历史要能跨刷新存活：作品列表在这里同步（与首页同一份实现） */
   useWorksSync();
 
+  /* ═══ 地址栏是技能的唯一真源（两个总页面共用一个组件）══════════════════════════
+     ⚠️ 这里踩过一个真的会让人以为"功能没做"的坑：
+        图片页与视频页**是同一个组件**（App 的 pageMap 两处指向 MediaCreationPage，
+        key 还是 _workVersion 而不是 page），所以从一个板块跳到另一个板块时组件**不会重挂载**，
+        skillId 状态会停在上一块的值。于是出现：地址栏已经是 /video-creation?id=video.smart，
+        页面却显示视频 Hub（因为 getVideoSkill('image.poster') 找不到 → skill 为空 → 渲染 Hub），
+        而且没有"返回创作"可点 —— 用户只会说"点了没反应"。
+     三件事一起做才治得住：
+       ① 地址栏变化（含一级导航手动派发的 popstate）→ 重读；
+       ② **板块变化**（跨板块跳转）→ 重读（此时 board 才是新的，skillFromUrl 才能查对声明源）；
+       ③ 地址栏里的 id 若不属于当前板块（脏链接/技能下线）→ 把地址栏改回 Hub，
+          不留"URL 说是海报、页面却是 Hub"这种自相矛盾的状态。 */
   useEffect(() => {
     const sync = () => setSkillId(skillFromUrl(board));
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
+  }, [board]);
+
+  useEffect(() => {
+    setSkillId(skillFromUrl(board));
+  }, [board]);
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('id') || '';
+    if (!raw) return;
+    /* ⚠️ 判据取自**地址栏**而不是 skillId 状态：同一次提交里 setSkillId 还没生效，
+       用状态判会把刚刚跳进来的合法深链当成脏链接改掉。 */
+    const known = board === 'video' ? getVideoSkill(raw) : getImageSkill(raw);
+    if (!known) window.history.replaceState({}, '', hubPath(board));
   }, [board]);
 
   /* 换技能 / 回 Hub 时清掉上一次的运行，避免"上一条技能的结果留在这一条上" */
@@ -661,7 +687,10 @@ export default function MediaCreationPage() {
         autoOpenCanvas={false}
         initialMode={skillVideoMode(skill)}
         skillTag={skill.id}
-        preset={videoSeed}
+        /* 进子页面就把这条玩法的**配方提示词**预填进创作台（用户口径：skill = 一个具体玩法，
+           进去该看到"这条玩法该怎么拍"，而不是一个空白输入框 + 一个名字）。
+           历史里点「用这组参数」时，videoSeed 覆盖它（还原那次任务的提示词与规格）。 */
+        preset={videoSeed || { prompt: buildSkillBrief(skill, initialSkillValues(skill)), mode: skillVideoMode(skill) }}
         presetNonce={videoSeedNonce}
         onJobs={setVideoJobs}
       />

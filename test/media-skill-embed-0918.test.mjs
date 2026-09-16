@@ -80,6 +80,22 @@ test('④ 历史这一块：图文按 mediaSkillId、视频按本机标记，两
   assert.match(video, /if \(typeof preset\.prompt === 'string'\) setPrompt\(preset\.prompt\)/);
 });
 
+test('⑥ 板块切换必须重读地址栏（两个总页面共用一个组件，不重读就会停在旧技能上）', () => {
+  /* 判据：MediaCreation 必须在 board 变化时重新从地址栏解析技能。
+     这条是踩出来的：跨板块跳转时组件不重挂载（App.pageMap 两处指向同一组件、
+     key 是 _workVersion 而不是 page），skillId 会停在上一块 →
+     地址栏已经是 /video-creation?id=video.smart，页面却显示视频 Hub，而且没有"返回创作"。
+     用户只会说"点了没反应"，排查成本极高，所以用门禁锁住。 */
+  const stripped = stripComments(media);
+  assert.match(stripped, /useEffect\(\(\) => \{\s*setSkillId\(skillFromUrl\(board\)\);\s*\}, \[board\]\)/,
+    'board 变化时必须重读地址栏里的技能');
+  /* 地址栏里的技能不属于本板块时要改回 Hub，不留"URL 说是海报、页面却是 Hub"的矛盾态 */
+  assert.match(stripped, /window\.history\.replaceState\(\{\}, '', hubPath\(board\)\)/);
+  /* ⚠️ 判据必须取自地址栏而不是 skillId 状态：同一次提交里 setSkillId 还没生效，
+     用状态判会把刚跳进来的合法深链当成脏链接改掉（这条注释就是给下一次改的人看的）。 */
+  assert.match(media, /判据取自\*\*地址栏\*\*而不是 skillId 状态/);
+});
+
 test('⑤ 本机任务标记只是展示标签：不许出现在计费 / 幂等 / 重试判断里', () => {
   /* 标记的唯一用途 = 子页面历史筛选。它一旦被拿去参与计费或幂等判断，
      换台设备/清缓存就会变成"重复扣费"或"任务丢了"——那是钱的问题，不是显示问题。 */

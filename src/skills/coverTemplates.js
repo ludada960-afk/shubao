@@ -109,10 +109,35 @@ export const IMAGE_COVER_PLAN = [
   { skillId: 'image.swap_bg', template: 'before-after', accent: 'cool', subject: '原背景与替换后背景的并排对照画面', title: '换背景', subtitle: '主体留着换背景' },
   { skillId: 'image.retouch', template: 'before-after', accent: 'neutral', subject: '修图前后同一张画面的并排对照', title: '图片精修', subtitle: '一句话改到能用' },
   { skillId: 'image.style_swap', template: 'before-after', accent: 'warm', subject: '主体不变、材质替换前后的并排对照画面', title: '材质替换', subtitle: '主体不动换材质' },
+  /* ── 2026-09-17 新增（批次三十二）：A+/详情页 + 8 条爆款配方 + 8 条建筑家装 ──
+     封面计划是**用户自己去跑案例时用的出图配方**（原话：「你把每一类的封面它的整体的提示词给到我，
+     我去生成之后自己在后台上传上来」），所以每条都要写清"这张封面该长什么样"，
+     而且版式必须选对：成套类走 case-3up、单图类走 hero-single、
+     **改图类（平面转效果图 / 风格转换 / 毛坯 / 换软装 / 提质感）走 before-after** ——
+     这类 skill 单张成品说不清它干什么（43 §10.4 的实测口径）。 */
+  { skillId: 'image.aplus', template: 'case-3up', accent: 'accent', subject: '同一个商品的图文模块排版成品（左图右文、标题清晰）', title: 'A+内容图', subtitle: '图文并排讲卖点' },
+  { skillId: 'image.detail_page', template: 'poster-style', accent: 'warm', subject: '一张竖版详情页模块成品（标题 + 主图 + 说明）', title: '详情页模块', subtitle: '首屏卖点成分逐屏' },
+  { skillId: 'image.explode', template: 'hero-single', accent: 'warm', subject: '商品在半空炸开、碎片与成分定格的广告画面', title: '爆炸分解', subtitle: '碎片与成分定格' },
+  { skillId: 'image.ice_ad', template: 'poster-style', accent: 'cool', subject: '商品被封在巨型冰块中的超现实广告海报', title: '极地冰封', subtitle: '封进冰块的大场面' },
+  { skillId: 'image.float_kv', template: 'hero-single', accent: 'neutral', subject: '商品悬浮、单向侧光切过的高级静物广告画面', title: '悬浮主视觉', subtitle: '一束光切出高级感' },
+  { skillId: 'image.tvc_grid', template: 'case-3up', accent: 'accent', subject: '同一商品的九格广告分镜板（3×3、含时间码）', title: '九宫格分镜', subtitle: '一张图九个镜头' },
+  { skillId: 'image.sku_series', template: 'case-3up', accent: 'soft', subject: '同款商品不同配色整齐排列的系列图', title: 'SKU多色图', subtitle: '只换颜色不换结构' },
+  { skillId: 'image.gift_scene', template: 'hero-single', accent: 'warm', subject: '商品放在礼盒与桌面场景中的成品图', title: '礼盒场景', subtitle: '同风格可批量复制' },
+  { skillId: 'image.teardown', template: 'case-3up', accent: 'cool', subject: '商品拆成零件并列展示的工艺拆解图', title: '拆解工艺图', subtitle: '拆开讲清工艺' },
+  { skillId: 'image.diorama', template: 'hero-single', accent: 'accent', subject: '商品置于微缩立体场景中的模型感广告画面', title: '微缩场景', subtitle: '住进微缩世界' },
+  { skillId: 'image.floorplan_render', template: 'before-after', accent: 'cool', subject: '户型平面图与三维室内效果图的并排对照', title: '平面转效果图', subtitle: '户型图长出三维' },
+  { skillId: 'image.interior_style', template: 'before-after', accent: 'warm', subject: '同一空间两种装修风格的并排对照画面', title: '风格转换', subtitle: '结构不动换风格' },
+  { skillId: 'image.rough_interior', template: 'before-after', accent: 'soft', subject: '毛坯现场与精装完成效果的并排对照', title: '毛坯房设计', subtitle: '毛坯直接出精装' },
+  { skillId: 'image.day_night_still', template: 'case-3up', accent: 'cool', subject: '同一栋建筑白天、黄昏与夜晚的三张成品', title: '日夜切换', subtitle: '一张图三种天光' },
+  { skillId: 'image.furniture_swap', template: 'before-after', accent: 'accent', subject: '结构不变、家具与饰面替换前后的并排对照', title: '软硬装替换', subtitle: '只换家具不拆墙' },
+  { skillId: 'image.render_quality', template: 'before-after', accent: 'neutral', subject: '普通效果图与质感提升之后的并排对照', title: '质感提升', subtitle: '塑料感变商业级' },
+  { skillId: 'image.interior_3d', template: 'hero-single', accent: 'accent', subject: '白模渲染成照片级室内实景的成品画面', title: '室内3D渲染', subtitle: '白模变实景照片' },
+  { skillId: 'image.arch_grid', template: 'case-3up', accent: 'cool', subject: '同一栋建筑的九个视角九宫格分镜板', title: '建筑分镜', subtitle: '一张图讲完一栋楼' },
 ];
 
-/* 视频板块 10 个 Skill 的封面计划：与 docs/design/45-cover-shotlist.md 同一张表。
-   两张表合起来 17 条 = Hub 上必须出现的 17 张卡；缺一条就会出现空卡（门禁拦截）。 */
+/* 视频板块各 Skill 的封面计划：与 docs/design/45-cover-shotlist.md 同一张表。
+   ⚠️ 2026-09-17 起技能数已不止 10 条（批次三十二新增 8 条建筑家装），
+      这张表必须**跟着声明源走**：加一条 skill 就要加一条封面计划，缺一条门禁就拦。 */
 export const VIDEO_COVER_PLAN = [
   { skillId: 'video.smart', template: 'case-3up', accent: 'accent', subject: '一段商品短片的三个关键帧（开场、特写、收束）', title: '智能成片', subtitle: '一句话起步' },
   { skillId: 'video.frame', template: 'case-3up', accent: 'cool', subject: '同一镜头首帧与尾帧的对比画面', title: '首尾帧', subtitle: '锁定起点与终点' },
@@ -124,6 +149,17 @@ export const VIDEO_COVER_PLAN = [
   { skillId: 'video.camera_move', template: 'case-3up', accent: 'accent', subject: '同一场景下推、移、环绕三种运镜的画面', title: '运镜控制', subtitle: '指定镜头怎么走' },
   { skillId: 'video.extend', template: 'case-3up', accent: 'cool', subject: '同一镜头前后两段连续画面的衔接', title: '延长续写' },
   { skillId: 'video.festival_spot', template: 'poster-style', accent: 'accent', subject: '节日氛围中的商品短片关键画面', title: '节日短片', subtitle: '节点氛围+商品' },
+  /* ── 建筑家装（用户 9-17 明确要求做的一档）──
+     视频封面按竞品做法是**一段真在播的短片**（他们的卡里就是 <video>），
+     所以这里给的是一张 poster + 三个关键帧的说明；案例由用户自己跑出来再替换。 */
+  { skillId: 'video.space_tour', template: 'case-3up', accent: 'cool', subject: '镜头沿动线穿过客厅、餐厅、主卧的三个关键帧', title: '空间漫游', subtitle: '镜头走一遍空间' },
+  { skillId: 'video.light_shift', template: 'case-3up', accent: 'warm', subject: '同一空间清晨、正午、黄昏、夜晚的四帧光线对比', title: '光线变化', subtitle: '机位不动光在走' },
+  { skillId: 'video.day_night', template: 'case-3up', accent: 'cool', subject: '同一场景白天、黄昏、夜晚、雨夜的四帧对比', title: '日夜切换', subtitle: '一场戏四种天气' },
+  { skillId: 'video.furnishing_in', template: 'case-3up', accent: 'soft', subject: '空房到家具软装依次落位的三个关键帧', title: '软装进场', subtitle: '空房变样板间' },
+  { skillId: 'video.floorplan_grow', template: 'case-3up', accent: 'accent', subject: '户型图到三维空间生长的三个关键帧', title: '户型生长', subtitle: '户型图长成空间' },
+  { skillId: 'video.building_grow', template: 'hero-single', accent: 'cool', subject: '建筑从地基逐层长成的三个关键帧', title: '建筑生长', subtitle: '一层层长起来' },
+  { skillId: 'video.plant_grow', template: 'hero-single', accent: 'soft', subject: '植物抽芽、展叶、开花的三帧连续画面', title: '植物生长', subtitle: '时间加速的生长' },
+  { skillId: 'video.interior_story', template: 'case-3up', accent: 'warm', subject: '人物在空间里一天活动的三个关键帧', title: '空间叙事', subtitle: '一支片讲一天' },
 ];
 
 /* 两板块合表：封面产线（scripts/build-skill-covers.mjs）与门禁都读这一份，

@@ -110,6 +110,41 @@ export const IMAGE_SKILLS = [
     ], history: true,
   },
 
+  {
+    id: 'image.aplus', board: 'image', name: 'A+ 内容图', category: '精品推荐', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'accent' },
+    summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'poster',
+    brief: '做一张亚马逊 A+ 内容模块图。商品：{{product}}。这个模块要讲的事：{{module}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：冷萃咖啡液 250ml' },
+      { key: 'module', label: '模块主题', kind: 'textarea', rows: 3, required: true, placeholder: '例如：原料产地与烘焙曲线，配一张剖面图' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.detail_page', board: 'image', name: '详情页模块', category: '精品推荐', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'warm' },
+    summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'poster',
+    brief: '做一张电商详情页的「{{module}}」模块图。商品：{{product}}。这一屏要讲的点：{{copy}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：氨基酸洁面慕斯' },
+      { key: 'module', label: '这一屏', kind: 'segmented', required: true, default: '首屏主图', options: [
+        { value: '首屏主图', label: '首屏主图' }, { value: '卖点图解', label: '卖点图解' },
+        { value: '成分说明', label: '成分说明' }, { value: '规格参数', label: '规格参数' },
+        { value: '使用场景', label: '使用场景' },
+      ] },
+      { key: 'copy', label: '要讲的点', kind: 'textarea', rows: 3, placeholder: '例如：氨基酸配方、洗完不紧绷、一次一泵' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+
   /* ── 电商专区 ─────────────────────────────────────────────────────────── */
   {
     id: 'image.white_bg', board: 'image', name: '白底商品图', category: '电商专区', complexity: 'standard',
@@ -210,6 +245,136 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
 
+  /* ── 爆款配方（2026-09-17 调研落地）─────────────────────────────────────
+     来源：docs/research/2026-09-17-image-skill-candidates.md（22 条候选，全部带一手来源与热度证据）。
+     这里只收「ready」档（纯提示词 + 1 张商品图即可跑）：GitHub 上被反复收录、B站/小红书有高热教程。
+     ⚠️ 竞品把这些放在「电商专区」而不是精品推荐 —— 精品推荐留给日常交付的活（套图/A+/详情/白底），
+        爆款配方是"偶尔来一发"的创意玩法，放在专区里逛得到、又不挤占首页那一排。 */
+  {
+    id: 'image.explode', board: 'image', name: '爆炸分解广告图', category: '电商专区', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'warm' },
+    summary: '商品在半空炸开，碎片与成分定格', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'free',
+    brief: '商品广告：{{product}}在空中炸开分解。要求：主体碎裂成多个碎片向四周飞散，悬浮的残骸与颗粒定格在半空，{{layers}}逐层可见，电影慢动作瞬间，逼真物理，细微粉尘与液滴散落，戏剧性景深，高速摄影风格，中心主体锐利对焦，体积光，照片级真实；必须保留商品本身的形状、颜色、材质与包装文字，碎片不得遮住标签。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：冷萃咖啡液' },
+      { key: 'layers', label: '构成层', kind: 'textarea', rows: 3, required: true, placeholder: '例如：瓶身 / 液体 / 咖啡豆 / 冰块' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.ice_ad', board: 'image', name: '极地冰封海报', category: '电商专区', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'cool' },
+    summary: '商品封进巨型冰块，超现实大场面', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '超现实广告海报：{{product}}被完整封存在一块巨大的透明冰块中央，置于广袤极地冰原，{{tone}}色调，低角度仰拍突出体量感，体积光穿过冰体产生折射与内辉光，冰面裂纹细节，远处暴风雪氛围，电影级广告摄影，超现实商业大片；商品标签与轮廓必须保持清晰可辨，画面内文字逐字准确、不得臆造。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'tone', label: '色调', kind: 'segmented', required: true, default: '冷蓝', options: [
+        { value: '冷蓝', label: '冷蓝' }, { value: '银白', label: '银白' },
+        { value: '深蓝夜色', label: '深蓝夜色' }, { value: '暖调黄昏', label: '暖调黄昏' },
+      ] },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.float_kv', board: 'image', name: '悬浮主视觉', category: '电商专区', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'neutral' },
+    summary: '产品悬浮 + 单向光，高级静物广告', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'brand-kv',
+    brief: '高端产品摄影：{{product}}悬浮于画面中央，{{light}}，背景{{background}}，强烈明暗对比与几何光影切割，大面积暗部保留，产品是唯一视觉焦点，柔和反射，真实摄影质感，品牌主视觉，无杂乱元素；商品结构与包装文字必须完整保留。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'light', label: '光影', kind: 'segmented', required: true, default: '单向侧光', options: [
+        { value: '单向侧光', label: '单向侧光' }, { value: '顶光', label: '顶光' },
+        { value: '逆光轮廓', label: '逆光轮廓' }, { value: '柔光棚拍', label: '柔光棚拍' },
+      ] },
+      { key: 'background', label: '背景', kind: 'text', placeholder: '例如：深灰渐变，右侧留白' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.tvc_grid', board: 'image', name: '九宫格 TVC 分镜', category: '电商专区', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'accent' },
+    summary: '一张图出 3×3 广告分镜板', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '做一张九宫格广告分镜板（3×3）：同一个商品在九个镜头里依次出现——{{scenes}}。要求：每格是一帧独立画面，景别与机位有变化，整体色调统一，格与格之间有叙事顺序；商品在每一格里都保持结构、颜色与包装文字一致，画面内文字逐字准确。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'scenes', label: '九个镜头', kind: 'textarea', rows: 4, required: true, placeholder: '例如：全景入场 / 特写质地 / 手持使用 / 成分微距 …' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.sku_series', board: 'image', name: 'SKU 多色系列图', category: '电商专区', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'soft' },
+    summary: '同款不同配色，整齐排开', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'free',
+    brief: '做一张 SKU 多色系列图：同一款{{product}}的不同配色有序排列——{{colors}}。要求：排列整齐、间距一致，光影与质感完全一致，**只允许颜色不同**，结构与包装文字必须一致，背景干净；画面内不出现臆造的文字与价格。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'colors', label: '配色清单', kind: 'textarea', rows: 3, required: true, placeholder: '例如：雾霾蓝 / 奶油白 / 焦糖棕 / 松石绿' },
+      { key: 'layout', label: '排列', kind: 'segmented', required: true, default: '一字排开', options: [
+        { value: '一字排开', label: '一字排开' }, { value: '两行网格', label: '两行网格' }, { value: '环形', label: '环形' },
+      ] },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.gift_scene', board: 'image', name: '礼盒场景图', category: '电商专区', complexity: 'simple',
+    cover: { template: 'hero-single', accent: 'warm' },
+    summary: '商品进礼盒/桌面场景，同风格可复制', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'free',
+    brief: '把{{product}}放进{{scene}}里拍一张场景图。要求：商品是画面主角、位置自然、留白得当，环境光柔和有来处，材质与色彩克制统一，风格可以复制到同系列的其他商品上；商品结构与包装文字完整保留，不出现臆造的品牌与价格。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'scene', label: '场景', kind: 'textarea', rows: 3, required: true, placeholder: '例如：米色礼盒内衬丝带，旁边一支干花' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.teardown', board: 'image', name: '拆解工艺图', category: '电商专区', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'cool' },
+    summary: '把商品拆成零件，讲清工艺', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'free',
+    brief: '做一张工艺拆解图：把{{product}}拆成{{parts}}并列展示。要求：零件比例真实、排列有序、质感统一，像产品说明书里的爆炸图，背景干净；画面内文字逐字准确，不得臆造参数与认证标识。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'parts', label: '部件', kind: 'textarea', rows: 3, required: true, placeholder: '例如：鞋面 / 中底 / 大底 / 鞋带扣' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.diorama', board: 'image', name: '微缩场景广告', category: '电商专区', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'accent' },
+    summary: '商品住进微缩立体世界', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'free',
+    brief: '把{{product}}放进一个微缩立体场景（diorama）里：{{world}}。要求：微缩比例可信、材质分明（黏土/纸艺/树脂质感）、顶光或侧逆光塑形、浅景深，像手工模型摄影；商品本身的结构、颜色与包装文字必须保持真实可辨。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'world', label: '微缩世界', kind: 'textarea', rows: 3, required: true, placeholder: '例如：一间迷你咖啡馆，吧台、吊灯、木箱' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+
   /* ── 创意应用 ─────────────────────────────────────────────────────────── */
   {
     id: 'image.brand_kv', board: 'image', name: '品牌主视觉', category: '创意应用', complexity: 'standard',
@@ -290,6 +455,135 @@ export const IMAGE_SKILLS = [
       ] },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 9 },
+    ],
+    cases: [], history: true,
+  },
+
+  /* ── 建筑家装（用户 9-17 明确要求做）──────────────────────────────────────
+     竞品图片页 10 条都在这一档（平面转效果图 / 装修风格转换 / 毛坯家装设计 / 日夜气候切换 /
+     一键软硬装替换 / 效果图质感提升 / 室内 3D 渲染 / 生成彩色平面图 / 建筑九宫格分镜 / AI 洗图）。
+     我们照这个方向补齐：全部是**图生图**（给一张户型图 / 毛坯照 / 效果图，改出另一个版本），
+     所以 availability 基本都是 'needs_ref'（依赖参考图），只有九宫格分镜可以纯文生图。
+     ⚠️ 建筑与家装的**结构真实性**是这类技能的命门：墙体、门窗、层数、房间数量不许被模型自由发挥，
+        所以每条 brief 里都写死了"结构不变"的约束。 */
+  {
+    id: 'image.floorplan_render', board: 'image', name: '平面转效果图', category: '建筑家装', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'cool' },
+    summary: '一张户型图，长出一套三维效果图', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '把这张户型图转成三维室内效果图：{{room}}。要求：房间数量、开间进深、门窗位置与户型图**完全一致**，家具按常规布局摆放且尺度合理，顶面、地面与墙面的材质统一，光线从窗户自然进入；不要新增或删减房间，不要改动承重结构，画面里不出现文字与尺寸标注。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传户型图 / 平面图' },
+      { key: 'room', label: '空间与风格', kind: 'textarea', rows: 3, required: true, placeholder: '例如：三室两厅，现代简约，原木+白墙' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.interior_style', board: 'image', name: '装修风格转换', category: '建筑家装', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'warm' },
+    summary: '同一个空间，换成另一种装修风格', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '把这张室内照片的装修风格改成「{{style}}」。要求：空间结构、门窗位置、房间尺寸与机位**完全不变**，只更换硬装材质、家具款式、软装与配色；光线方向与原图一致，材质质感真实（木纹、石材、织物可辨），不出现变形、穿模与多余文字。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传空间照片' },
+      { key: 'style', label: '目标风格', kind: 'segmented', required: true, default: '现代简约', options: [
+        { value: '现代简约', label: '现代简约' }, { value: '奶油风', label: '奶油风' },
+        { value: '侘寂风', label: '侘寂风' }, { value: '中古风', label: '中古风' },
+        { value: '工业风', label: '工业风' }, { value: '新中式', label: '新中式' },
+      ] },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.rough_interior', board: 'image', name: '毛坯房设计', category: '建筑家装', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'soft' },
+    summary: '毛坯现场照，直接出精装方案', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '把这张毛坯房照片做成精装完成后的样子：{{plan}}。要求：墙体、梁柱、门窗与管道位置**完全保留**，只在其上增加吊顶、地面、墙面饰面与家具；机位与透视不变，光线从原有窗户进入，材质真实、色温统一，不出现结构改动与文字标注。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'reference', slotLabel: '上传毛坯现场照' },
+      { key: 'plan', label: '设计要点', kind: 'textarea', rows: 3, required: true, placeholder: '例如：无主灯、岩板电视墙、原木地板、浅灰墙面' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.day_night_still', board: 'image', name: '日夜气候切换', category: '建筑家装', complexity: 'simple',
+    cover: { template: 'hero-single', accent: 'cool' },
+    summary: '同一张图，出白天 / 黄昏 / 夜晚三版', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '把这张建筑 / 空间图改成「{{moment}}」的样子。要求：建筑结构、机位、构图与材质**完全不变**，只改变光线方向、色温、天空与阴影；室内灯光在夜景中要自然亮起并有真实反射，地面湿度与反光符合天气设定，不出现结构变化与文字。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑 / 空间图' },
+      { key: 'moment', label: '时间与天气', kind: 'segmented', required: true, default: '黄昏', options: [
+        { value: '清晨', label: '清晨' }, { value: '正午', label: '正午' },
+        { value: '黄昏', label: '黄昏' }, { value: '夜晚', label: '夜晚' }, { value: '雨夜', label: '雨夜' },
+      ] },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.furniture_swap', board: 'image', name: '软硬装替换', category: '建筑家装', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'accent' },
+    summary: '结构不动，只换家具与饰面', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '保持这张空间图的结构与机位**完全不变**，把家具与饰面替换成：{{target}}。要求：只替换可移动家具、灯具、软装与墙地面饰面，墙体、门窗、梁柱与尺寸不动；新家具的比例与透视要和空间吻合，材质光影统一，不出现漂浮、穿模与文字。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传空间图' },
+      { key: 'target', label: '替换成', kind: 'textarea', rows: 3, required: true, placeholder: '例如：布艺沙发换皮质沙发，地毯换木地板，主灯换轨道灯' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.render_quality', board: 'image', name: '效果图质感提升', category: '建筑家装', complexity: 'simple',
+    cover: { template: 'hero-single', accent: 'neutral' },
+    summary: '把普通效果图提到商业出图水准', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '提升这张效果图的画面质感，不改变任何结构、家具与机位。要求：修正材质反射与粗糙度，让木纹、石材、金属、织物各自可辨；补足环境光遮蔽与柔和阴影，降低塑料感与噪点，提亮暗部但不死黑，整体色温统一、画面干净通透，达到商业出图水准。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传效果图' },
+      { key: 'focus', label: '重点', kind: 'text', placeholder: '例如：主灯的金属反射、木地板的纹理' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.interior_3d', board: 'image', name: '室内 3D 渲染', category: '建筑家装', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'accent' },
+    summary: '模型截图 / 白模，渲染成真实照片', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '把这张室内模型图 / 白模渲染成照片级实景：{{style}}。要求：结构、家具位置与机位**完全不变**，只为材质赋予真实的反射与粗糙度，加上自然光与人工光的混合照明、接触阴影与景深；材质层次分明、色温统一，不出现结构变化、文字与水印。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传模型图 / 白模' },
+      { key: 'style', label: '风格', kind: 'segmented', required: true, default: '现代简约', options: [
+        { value: '现代简约', label: '现代简约' }, { value: '奶油风', label: '奶油风' },
+        { value: '侘寂风', label: '侘寂风' }, { value: '中古风', label: '中古风' },
+      ] },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.arch_grid', board: 'image', name: '建筑九宫格分镜', category: '建筑家装', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'cool' },
+    summary: '一张九宫格讲完一栋建筑', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '做一张建筑九宫格分镜板（3×3）：{{scenes}}。要求：九格是同一栋建筑的九个视角或时段，透视与结构一致，格与格之间有叙事顺序（远景 → 中景 → 细节 → 室内 → 夜景），色调统一，不出现文字、标注与水印。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑图（可选）' },
+      { key: 'scenes', label: '九个镜头', kind: 'textarea', rows: 4, required: true, placeholder: '例如：远景全景 / 入口 / 幕墙细节 / 中庭 / 室内大厅 …' },
+      ratioField(),
     ],
     cases: [], history: true,
   },

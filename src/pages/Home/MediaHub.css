@@ -6,3 +6,28 @@
 .media-hub-head h1 { margin: 0 0 4px; font-size: 20px; color: var(--sb-ink-1); }
 .media-hub-head p { margin: 0; font-size: 13px; color: var(--sb-ink-2); }
 .media-hub-empty { margin: 0; padding: 30px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }
+
+/* ── 顶部快捷筛选页签（照竞品实测结构：图片页 8 档、视频页 4 档）─────────────
+   每一档后面那个数字是该档的技能条数 —— 竞品没有，但"这一档里有多少个"是用户
+   决定要不要点进去的第一依据，白给的信息没有理由不写。 */
+.media-hub-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.media-hub-tabs button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 15px; border-radius: var(--sb-radius-pill);
+  border: 1px solid var(--sb-border-default); background: var(--sb-surface-card);
+  color: var(--sb-ink-2); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+  transition: background-color var(--sb-duration-fast) var(--sb-ease-out),
+              border-color var(--sb-duration-fast) var(--sb-ease-out),
+              color var(--sb-duration-fast) var(--sb-ease-out);
+}
+.media-hub-tabs button span { font-size: 11px; font-weight: 700; color: var(--sb-ink-3); }
+.media-hub-tabs button:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-hub-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-hub-tabs button:active { background: var(--sb-surface-tint-strong); }
+/* 当前档：品牌紫描边 + 品牌浅底（与全站"当前选中"同一套语义，原则 6.1 合法场合①） */
+.media-hub-tabs button.is-active {
+  border-color: var(--sb-state-selected-line);
+  background: var(--sb-state-selected-bg);
+  color: var(--sb-state-selected-ink);
+}
+.media-hub-tabs button.is-active span { color: var(--sb-state-selected-ink); }

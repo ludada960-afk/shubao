@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 /* ═══ MediaHub：图片 / 视频两个板块共用的 Hub 页面 ═══════════════════════════════
    依据 docs/design/43-media-architecture.md §3（信息架构）与 §10（知渔实测）。
@@ -32,6 +32,14 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
     return order.map(category => ({ category, skills: map.get(category) }));
   }, [config]);
 
+  /* ═══ 顶部快捷筛选页签（照竞品实测结构）═══════════════════════════════════════
+     竞品两个总页面顶部都有一排分类页签（实测：图片页 8 档、视频页 4 档），
+     点一下就只看那一档 —— 我们的分类本来就声明在技能里（skill.category），
+     所以这排页签**不是一份手写清单**：技能增删/换组，页签自己跟着走。
+     ⚠️ 「全部」是默认档：先让人看见"这里有多少东西"，再让他收窄。 */
+  const [activeCategory, setActiveCategory] = useState('');
+  const shown = activeCategory ? groups.filter(group => group.category === activeCategory) : groups;
+
   return (
     <section className="media-hub" data-board={board}>
       <header className="media-hub-head">
@@ -40,8 +48,29 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
           <p>{config.hint}</p>
         </div>
       </header>
+      {groups.length > 0 && (
+        <div className="media-hub-tabs" role="tablist" aria-label={config.title + '技能分类'}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!activeCategory}
+            className={!activeCategory ? 'is-active' : ''}
+            onClick={() => setActiveCategory('')}
+          >全部<span>{config.skills.length}</span></button>
+          {groups.map(group => (
+            <button
+              key={group.category}
+              type="button"
+              role="tab"
+              aria-selected={activeCategory === group.category}
+              className={activeCategory === group.category ? 'is-active' : ''}
+              onClick={() => setActiveCategory(group.category)}
+            >{group.category}<span>{group.skills.length}</span></button>
+          ))}
+        </div>
+      )}
       {groups.length === 0 && <p className="media-hub-empty">{emptyHint || '暂时没有可用的技能'}</p>}
-      {groups.map(group => (
+      {shown.map(group => (
         <section className="media-gallery-group" key={group.category}>
           <h2>{group.category}</h2>
           <div className="media-gallery-grid">

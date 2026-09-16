@@ -437,8 +437,13 @@ try {
     genericFields: document.querySelectorAll('.media-workbench-fields .media-field').length,
     tabs: Array.from(document.querySelectorAll('.media-workbench-tabs button')).map(node => node.textContent),
     url: location.pathname + location.search,
+    /* 视频提示词是 contentEditable 的 div（mention-prompt-field），读 textContent */
+    prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
   }));
   check(videoState.composer, '视频工作台整块嵌进了子页面（不是又写一个壳）');
+  /* 用户口径：skill = 一个具体玩法，进子页面就该看到"这条玩法该怎么拍"，
+     而不是一个空白输入框 + 一个名字。所以每条视频技能的配方提示词必须被预填进创作台。 */
+  check(videoState.prompt.includes('开场 1 秒'), '进子页面就把这条玩法的配方提示词预填进创作台', videoState.prompt.slice(0, 40));
   check(videoState.activeMode.includes('智能成片'), '创作方式页签按技能落位（video.smart → 智能成片）', videoState.activeMode);
   /* 结果台：嵌入形态下没有任务时不占位置（否则创作台下面是 700px 空白），
      所以这里断言的是"还没生成时不渲染"，任务出现才渲染（见下面点历史记录那一段）。 */
@@ -456,9 +461,22 @@ try {
   const frameMode = await page.evaluate(() => ({
     active: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
     materialHint: document.querySelector('.video-materials header small')?.textContent || '',
+    prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
   }));
   check(frameMode.active.includes('首尾帧'), '另一条视频技能落在自己的页签上', frameMode.active);
   check(frameMode.materialHint.includes('首尾帧'), '素材区跟着这条链路走（首尾帧用于控制起点与终点）', frameMode.materialHint);
+  check(frameMode.prompt.includes('第一张图作为镜头起点'), '换一条技能，预填的配方提示词也跟着换（不是一句写死的话）', frameMode.prompt.slice(0, 40));
+
+  /* 建筑家装（用户 9-17 明确要求做的一档）：子页面 + 工作台 + 配方提示词都要在 */
+  await openVideoSkill('video.floorplan_grow');
+  const archMode = await page.evaluate(() => ({
+    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
+    composer: Boolean(document.querySelector('.media-workbench-panel .video-studio-page')),
+  }));
+  check(archMode.title.includes('户型生长'), '建筑家装技能有自己的子页面', archMode.title);
+  check(archMode.composer, '建筑家装技能的工作台就是嵌进来的创作台', String(archMode.composer));
+  check(archMode.prompt.includes('户型图开始生长出三维空间'), '建筑家装技能预填自己的配方提示词', archMode.prompt.slice(0, 40));
 
   /* 历史：本机标记（videoJobTags）把任务按技能筛进子页面历史。
      标记缺失时也不能丢东西 —— 全量任务永远在嵌入工作台的「生成记录」里。 */
@@ -645,6 +663,40 @@ try {
     return { media: node?.querySelector('video') ? 'video' : (img ? 'img' : 'blank'), src: img?.getAttribute('src') || '' };
   });
   check(covered.media === 'img' && covered.src.startsWith('/images/'), '有案例的技能，预览框里就是那条技能的案例图', JSON.stringify(covered));
+
+  /* ═══ ⑬b 两个总页面顶部的分类页签（照竞品结构：点一档只看那一档） ═══ */
+  scenario('⑬b 总页面分类页签（按声明自动成档，点一档只看那一档）');
+  for (const [board, pagePath] of [['image', '/image-creation'], ['video', '/video-creation']]) {
+    await page.goto('http://127.0.0.1:' + PORT + pagePath, { waitUntil: 'load', timeout: 40000 });
+    await page.waitForSelector('.media-hub-tabs button', { timeout: 20000 });
+    await page.waitForTimeout(500);
+    const all = await page.evaluate(() => ({
+      tabs: Array.from(document.querySelectorAll('.media-hub-tabs button')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+      active: document.querySelector('.media-hub-tabs button.is-active')?.textContent.replace(/\s+/g, ' ').trim() || '',
+      cards: document.querySelectorAll('.media-hub .media-case-card').length,
+      groups: Array.from(document.querySelectorAll('.media-gallery-group h2')).map(node => node.textContent),
+    }));
+    check(all.tabs[0].startsWith('全部'), board + ' Hub 第一档是「全部」', all.tabs[0]);
+    check(all.active === all.tabs[0], board + ' Hub 默认停在「全部」', all.active);
+    check(all.tabs.length >= 3, board + ' Hub 至少有 3 档分类', JSON.stringify(all.tabs));
+    /* 「全部」档的卡片数必须等于各档之和（页签不是手写清单，是声明源算出来的） */
+    /* ⚠️ 条数写在档名**后面**（"精品推荐4"），所以要剥掉前导非数字 —— 剥尾部只会得到 NaN */
+    const countOf = label => Number(String(label).replace(/^\D+/, '')) || 0;
+    const sum = all.tabs.slice(1).reduce((total, label) => total + countOf(label), 0);
+    check(sum === all.cards, board + ' Hub 各档条数之和 = 全部条数（页签由声明源算出）', sum + ' vs ' + all.cards);
+    /* 点第二档 → 只剩那一组，且卡片数与该档条数一致 */
+    const second = all.tabs[1];
+    await page.click('.media-hub-tabs button:nth-child(2)');
+    await page.waitForTimeout(350);
+    const one = await page.evaluate(() => ({
+      active: document.querySelector('.media-hub-tabs button.is-active')?.textContent.replace(/\s+/g, ' ').trim() || '',
+      groups: Array.from(document.querySelectorAll('.media-gallery-group h2')).map(node => node.textContent),
+      cards: document.querySelectorAll('.media-hub .media-case-card').length,
+    }));
+    check(one.active === second, board + ' Hub 点一档之后当前档正确', one.active + ' vs ' + second);
+    check(one.groups.length === 1 && one.cards === countOf(second),
+      board + ' Hub 只显示那一档的技能', JSON.stringify(one));
+  }
 
   /* ═══ ⑭ 连点「只重试失败项」不会重复扣费 ═══ */
   scenario('⑭ 重试连点');
