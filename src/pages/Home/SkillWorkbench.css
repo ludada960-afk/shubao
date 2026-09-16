@@ -1,0 +1,14 @@
+/* SkillWorkbench：工作台页面的版式补充（骨架本身在 WorkbenchShell.css）
+   色只用已验证 token；每个可点元素都要有 hover 态。 */
+.skill-workbench { display: block; }
+.skill-workbench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.media-workbench-missing { padding: 40px 0; text-align: center; font-size: 13px; color: var(--sb-ink-2); }
+.skill-workbench-lightbox { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(17, 20, 45, .62); }
+.skill-workbench-lightbox-body { position: relative; display: flex; align-items: center; gap: 12px; max-width: min(1080px, 92vw); }
+.skill-workbench-lightbox-body figure { margin: 0; display: grid; gap: 8px; }
+.skill-workbench-lightbox-body img, .skill-workbench-lightbox-body video { max-width: min(900px, 84vw); max-height: 74vh; border-radius: 12px; display: block; }
+.skill-workbench-lightbox-body figcaption { font-size: 13px; color: var(--sb-surface-card); text-align: center; }
+.skill-workbench-lightbox-nav { width: 38px; height: 38px; border: 0; border-radius: 999px; background: var(--sb-surface-card); color: var(--sb-ink-1); font-size: 20px; cursor: pointer; }
+.skill-workbench-lightbox-nav:hover { background: var(--sb-surface-tint-strong); }
+.skill-workbench-lightbox-close { position: absolute; top: -14px; right: -6px; width: 30px; height: 30px; border: 0; border-radius: 999px; background: var(--sb-surface-card); color: var(--sb-ink-1); font-size: 18px; cursor: pointer; }
+.skill-workbench-lightbox-close:hover { background: var(--sb-surface-tint-strong); }
