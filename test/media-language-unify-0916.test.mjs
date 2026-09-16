@@ -45,6 +45,24 @@ test('④ 素材卡只有一份实现，且两个板块共用（图片侧与视�
   assert.match(cardCss, /prefers-reduced-motion[\s\S]*?\.media-asset-card \{ transition: none; \}/);
 });
 
+test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加载且静音、样式零硬编码色', () => {
+  const card = readFileSync('src/components/media/CaseCard.jsx', 'utf8');
+  const cardCss = readFileSync('src/components/media/CaseCard.css', 'utf8');
+  /* 实测口径：统一 4:3 封面（风格一致的机械保证） */
+  assert.match(cardCss, /aspect-ratio: 4 \/ 3/);
+  /* 视频案例：进入视口 + hover 才播、静音、循环、只取元数据 */
+  assert.match(card, /new IntersectionObserver/, '视频案例必须懒加载（进入视口才准备）');
+  assert.match(card, /const shouldPlay = Boolean\(video\) && inView && hovering;/);
+  assert.match(card, /muted loop playsInline preload="metadata"/);
+  /* 同一时刻最多一条在播（防止几十条视频同时占用带宽） */
+  assert.match(card, /querySelectorAll\('video\[data-case-preview\]'\)/);
+  /* 样式零硬编码色值 + 可点元素有 hover 态 */
+  const hex = cardCss.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+  assert.deepEqual(hex, [], '案例卡样式不得硬编码色值：' + hex.join(', '));
+  assert.match(cardCss, /\.media-case-card-hit:hover \.media-case-card-cover/);
+  assert.match(cardCss, /prefers-reduced-motion[\s\S]*?\.media-case-card-cover \{ transition: none; \}/);
+});
+
 test('⑤ 素材在上、提示词在下（布局唯一）', () => {
   /* 用户批注：不要学"左边上传区、右边输入区"那套；我们自己的做法是上面素材卡、下面提示词。 */
   assert.match(videoCss, /\.video-content-composer \{\s*display: grid;\s*gap: 0;\s*\}/, 'composer 必须是单列 grid（素材在上、提示词在下）');

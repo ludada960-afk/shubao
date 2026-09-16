@@ -1,0 +1,62 @@
+/* CaseCard：案例卡唯一实现（图片/视频板块共用）
+   实测口径（知渔）：统一 4:3 封面 + 标题，卡片上不放别的元素。
+   颜色只用已验证存在的 --sb-* token，不写色值兜底；描边与投影用 rgba 阴影。 */
+.media-case-card { position: relative; min-width: 0; }
+.media-case-card-hit {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.media-case-card-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;         /* 统一 4:3：风格一致的机械保证（实测同款） */
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sb-surface-tint);
+  box-shadow: 0 0 0 1px rgba(17, 20, 45, .07), 0 4px 14px rgba(17, 20, 45, .07);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-case-card-cover img,
+.media-case-card-cover video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-case-card-hit:hover .media-case-card-cover,
+.media-case-card-hit:focus-visible .media-case-card-cover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 0 1px rgba(17, 20, 45, .09), 0 12px 26px rgba(17, 20, 45, .14);
+}
+.media-case-card-blank { display: block; width: 100%; height: 100%; background: var(--sb-surface-tint-strong); }
+.media-case-card-play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  box-shadow: 0 2px 8px rgba(17, 20, 45, .18);
+}
+.media-case-card-title { font-size: 13px; color: var(--sb-ink-1); }
+.media-case-card-hit:hover .media-case-card-title { color: var(--sb-brand-600); }
+.media-case-card-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--sb-ink-1);
+  background: var(--sb-surface-card);
+  box-shadow: 0 2px 8px rgba(17, 20, 45, .12);
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-case-card-cover { transition: none; }
+}
