@@ -12,7 +12,7 @@ import RecoveryShelf from './ec/RecoveryShelf';
 import HotSkillStrip from '../../components/media/HotSkillStrip.jsx';
 import { skillPath } from '../../skills/skillDirectory.js';
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
-import { loadWorks } from '../../services/api';
+import { useWorksSync } from '../../store/useWorksSync.js';
 
 /**
  * 薯包AI 首页 — 灵图结构精确复刻
@@ -88,14 +88,8 @@ export default function HomePage() {
     clearLegacyEcommerceDraftState();
   }, []);
 
-  useEffect(() => {
-    if (!state.logged || !state.phone || state.browserQa) return undefined;
-    let active = true;
-    loadWorks(state.phone).then(works => {
-      if (active && Array.isArray(works)) dispatch({ type: 'SET_WORKS', works });
-    }).catch(() => {});
-    return () => { active = false; };
-  }, [state.logged, state.phone, state.browserQa, dispatch]);
+  /* 作品列表同步走共用 hook（媒体板块页用的是同一份，避免"首页有历史、子页面没有"） */
+  useWorksSync();
 
   // 当结果被清除（新建作品）时，重置步骤
   useEffect(() => {

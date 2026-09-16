@@ -35,6 +35,7 @@ import {
 } from '../Home/visualCreationModel.js';
 import { regenerateCanvasImage, saveWork } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { useWorksSync } from '../../store/useWorksSync.js';
 import '../Home/MediaHub.css';
 import '../Home/SkillWorkbench.css';
 import './MediaCreation.css';
@@ -65,6 +66,14 @@ function skillFromUrl(board) {
   const id = (params.get('id') || '').trim();
   if (!id) return '';
   return board === 'video' ? (getVideoSkill(id) ? id : '') : (getImageSkill(id) ? id : '');
+}
+
+/* 历史条目上的时间：同一条技能会生成很多次，只写技能名根本分不清哪次是哪次 */
+function formatWorkTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = number => String(number).padStart(2, '0');
+  return pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }
 
 /* 错误就近显示：把人话放在 CTA 上方，而不是弹一个转瞬即逝的 Toast */
@@ -126,6 +135,9 @@ export default function MediaCreationPage() {
   const runRef = useRef(null);
   const abortRef = useRef(null);
 
+  /* 历史要能跨刷新存活：作品列表在这里同步（与首页同一份实现） */
+  useWorksSync();
+
   useEffect(() => {
     const sync = () => setSkillId(skillFromUrl(board));
     window.addEventListener('popstate', sync);
@@ -165,16 +177,22 @@ export default function MediaCreationPage() {
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   const points = useMemo(() => (skill ? skillPointsEstimate(skill, effectiveValues) : 0), [skill, effectiveValues]);
   const busy = visualRunIsBusy(run);
-  /* 历史：这条技能名下已保存的作品（saveWork 时写了 mediaSkillId，按它筛） */
+  /* 历史 = 这条技能名下已保存的作品（saveWork 时写了 mediaSkillId，按它筛）。
+     ⚠️ 作品列表由 useWorksSync 拉取 —— 少了这一步，刷新后历史永远是空的。 */
   const history = useMemo(() => {
     const works = Array.isArray(state.works) ? state.works : [];
     return works
-      .filter(work => work && (work.mediaSkillId === skill?.id))
-      .map(work => ({
-        id: String(work._saveKey || work.id || ''),
-        title: String(work.title || skill?.name || ''),
-        cover: (work.images?.[0]?.url) || (work.imageRecords?.[0]?.url) || '',
-      }))
+      .filter(work => work && work.mediaSkillId === skill?.id)
+      .map(work => {
+        const images = Array.isArray(work.images) ? work.images : (Array.isArray(work.imageRecords) ? work.imageRecords : []);
+        const urls = images.map(image => image?.url).filter(Boolean);
+        return {
+          id: String(work._saveKey || work.id || ''),
+          title: String(work.title || skill?.name || ''),
+          subtitle: [urls.length ? urls.length + ' 张' : '', formatWorkTime(work.createdAt || work.savedAt)].filter(Boolean).join(' · '),
+          cover: urls[0] || '',
+        };
+      })
       .filter(item => item.cover);
   }, [skill, state.works]);
   /* 视频侧全部走既有视频工作台：视频是多分钟、带分镜与方案的流水线，

@@ -68,14 +68,14 @@ export default function SkillWorkbench({
         {activeTab === 'cases'
           ? (cases.length
             ? <div className="skill-workbench-grid">{cases.map((item, index) => (
-                <CaseCard key={item.id || index} title={item.title || ''} cover={item.cover || ''} video={item.video || ''} onOpen={() => setLightbox(index)} />
+                <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} onOpen={() => setLightbox(index)} />
               ))}</div>
             : <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p>)
           : (historyList.length
             ? <div className="skill-workbench-grid">{historyList.map((item, index) => (
-                <CaseCard key={item.id || index} title={item.title || ''} cover={item.cover || ''} video={item.video || ''} onOpen={() => setLightbox(index)} />
+                <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} onOpen={() => setLightbox(index)} />
               ))}</div>
-            : <p className="media-workbench-empty">还没有生成记录</p>)
+            : <p className="media-workbench-empty">这个技能还没有生成记录，左边配置好点「{ctaLabel}」就会存在这里</p>)
         }
       </WorkbenchShell>
       {/* 用户批注：案例点击必须能放大查看并左右切换（他们做不到） */}
