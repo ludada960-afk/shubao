@@ -93,9 +93,14 @@ try {
     console.error(`[render-smoke] 找不到 ${join(distDir, 'index.html')} —— 先跑 npm run build`);
     process.exit(1);
   }
-  const { chromium } = await import('playwright');
+  const { chromium } = await import('playwright').catch(() => {
+    throw new Error('缺少无头浏览器工具 playwright —— 先跑：npm install（它已在 devDependencies 里），再跑：npx playwright install chromium');
+  });
   const server = await startStaticServer(distDir);
-  browser = await chromium.launch();
+  browser = await chromium.launch().catch(error => {
+    /* 包在、浏览器内核不在（换机器/重装环境最常见）——把补救命令直接说出来 */
+    throw new Error(`无头浏览器启动失败（多半是浏览器内核没装）：先跑 npx playwright install chromium。原始错误：${error?.message || error}`);
+  });
   const page = await browser.newPage();
   const runtimeErrors = [];
   page.on('pageerror', error => runtimeErrors.push(String(error?.message || error)));
