@@ -18,7 +18,8 @@ function fixture() {
       id: 'shot-1',
       position: 0,
       purpose: 'hero reveal',
-      durationMs: 8000,
+      /* 分镜时长必须是产品契约里的合法档位（seedance 标准档只认 5/10/15 秒）。 */
+      durationMs: 5000,
       prompt: 'A premium product reveal',
       direction: {
         shotScale: 'macro',
