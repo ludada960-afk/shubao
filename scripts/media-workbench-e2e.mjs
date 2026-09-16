@@ -350,6 +350,45 @@ try {
   check(calls.saveWork.length > beforeRecover2, '找回的结果同样会存进作品（历史里看得到）', String(calls.saveWork.length - beforeRecover2));
   fx.regenerateMode = 'ok';
   fx.statusRemaining = 0;
+
+  /* ═══ ⑫ 视频侧：工作台只做"带着配置回既有视频工作台"，绝不就地扣费 ═══ */
+  scenario('⑫ 视频技能不就地生成（走既有链路）');
+  const videoCharges = calls.regenerate.length + calls.quote.length;
+  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=video.smart', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(600);
+  const videoState = await page.evaluate(() => ({
+    cta: document.querySelector('.media-workbench-submit')?.textContent || '',
+    points: document.querySelector('.media-workbench-points')?.textContent || '',
+    uploads: document.querySelectorAll('.media-field-upload-add').length,
+  }));
+  check(videoState.cta.includes('去视频工作台'), '视频技能的 CTA 是"去视频工作台"（多分钟流水线不塞进单图工作台）', videoState.cta);
+  check(videoState.points === '', '不显示单图积分（不假装能就地出视频）', videoState.points);
+  await page.click('.media-workbench-submit');
+  await page.waitForTimeout(1200);
+  check(calls.regenerate.length + calls.quote.length === videoCharges, '点它**不产生任何扣费请求**', String(calls.regenerate.length + calls.quote.length - videoCharges));
+  check(await page.evaluate(() => Boolean(document.querySelector('.homepage-mode-showcase, .surface-card'))), '落到首页既有视频入口（配置带过去）');
+
+  /* ═══ ⑬ 首页热门技能 → 点一张直接进它的子页面（用户定的最终形态） ═══ */
+  scenario('⑬ 首页热门技能条直达子页面');
+  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.hot-skill-strip .media-case-card', { timeout: 20000 });
+  const strip = await page.evaluate(() => ({
+    count: document.querySelectorAll('.hot-skill-strip .media-case-card').length,
+    titles: Array.from(document.querySelectorAll('.hot-skill-strip .media-case-card-title')).map(n => n.textContent),
+  }));
+  check(strip.count > 0, '首页提示词输入区下面有热门技能', JSON.stringify(strip.titles));
+  const firstTitle = strip.titles[0];
+  await page.click('.hot-skill-strip .media-case-card-hit');
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  const landed = await page.evaluate(() => ({
+    url: location.pathname + location.search,
+    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    back: Boolean(document.querySelector('.media-workbench-back')),
+  }));
+  check(/^\/(image|video)-creation\?id=/.test(landed.url), '点热门技能进的是**它自己的子页面**（不是画布、不是别的板块）', landed.url);
+  check(landed.title === firstTitle, '进去的就是点的那一条技能', landed.title + ' vs ' + firstTitle);
+  check(landed.back, '子页面有"返回创作"，能回到 Hub');
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
 } finally {
