@@ -2003,4 +2003,29 @@ const editing = Boolean(draft.id);                      // 第 115 行
 ### 环境依赖（写给下一个人）
 渲染冒烟需要 `playwright`（本机 node_modules 已装，但**未声明进 package.json**）：
 缺了它会以 exit 1 明确报错并提示安装命令，**不会静默跳过** —— 门禁宁可失败也不许说假话。
+## 2026-09-16 批次二十二：重构开工（P0 已上线）+ 一条调度教训
+
+### 已上线（线上 release 20260916-172303-779cd6e5，入口 index-BHZAF9M7.js）
+- **素材卡语言统一**：视频侧 `.video-media-deck` 逐值复用图片侧 `.visual-skill-stage-outputs`
+  （负外边距叠压 -34px、rotate(-4deg)/rotate(4deg) translateY(-5px)、hover 回正抬起、respect reduced-motion）。
+  线上核验方式：`grep -c video-media-deck /var/www/shubao/current/assets/style-*.css` → 命中。
+- **默认出声音**：主流程撤下「声音」开关（sound 默认 true，仅产品不支持首尾帧声音时代码自动关）。
+- 新门禁 `test/media-language-unify-0916.test.mjs`（BLOCKING 25 个文件）：断言视频侧复用的就是图片侧那组数值。
+- 全量 `npm test` 3831/0；precommit 构建 exit 0 + 渲染冒烟 ✔ + 25 文件全绿。
+
+### 蓝图与简报（后续所有工作的依据）
+- `docs/design/43-media-architecture.md`：双板块 + Skill 声明式契约（§4 语言三层、§5 契约与三档复杂度、§10 知渔实测）。
+- `docs/design/44-p1c-image-hub-brief.md`：图片 Hub 实施简报（单页 `?id=` 渲染、7 条 Skill 声明表、4 条判据）。
+
+### ⚠️ 教训：并行子代理的粒度必须切到「单文件可验证」
+本轮一次性派了两个子代理（P1a 抽组件 / P1b 视频侧收口）在**同一工作树**里并行，结果：
+40 多分钟**零文件产出**（一个卡在 DS 层门禁的 token 规则上探索，一个卡在找不到标签），最后被中止。
+两条教训：① 同一工作树里并行会抢构建/提交锁，**同一时间只应有一条写线**；
+② 给子代理的任务必须切到「一个文件 + 一条可跑的命令 + 明确验收」，不要给"抽三件套 + 门禁"这种复合任务。
+
+### 下一轮从哪儿接（按此顺序）
+1. **P1b 收尾（小）**：入口名「参考」→「全能参考」。已确认它**不在** `src/pages/VideoStudio`（`VIDEO_CREATION_MODES` = 智能成片/首尾帧/爆款重构，无「参考」），
+   也已搜遍 `src/pages/**/*.jsx|*.js` 未命中 → 下一步从**首页视频面板的渲染处**或从 `dist` 产物反查该文案来源。
+2. **P1a（组件三件套）**：`src/components/media/{MediaAssetCard,CaseCard,WorkbenchShell}.jsx` + 契约门禁，一次只做一件。
+3. **P1c（图片 Hub）**：照 `docs/design/44-p1c-image-hub-brief.md` 执行。
 

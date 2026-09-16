@@ -976,7 +976,7 @@ export default function VideoStudioPage({ embedded = false }) {
       </div>
       <section className="video-content-composer">
         <section className="video-materials" aria-label="上传素材">
-          <header><div><Upload size={17} /><span><strong>上传素材</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : mode === 'remake' ? '先上传参考视频，再补充要替换的商品素材' : '支持图片、视频和音频，智能成片可只写一句话起步'}</small></span></div>{assetCount > 0 && <b>{assetCount} 个</b>}</header>
+          <header><div><Upload size={17} /><span><strong>全能参考</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : mode === 'remake' ? '先上传参考视频，再补充要替换的商品素材' : '支持图片、视频和音频，智能成片可只写一句话起步'}</small></span></div>{assetCount > 0 && <b>{assetCount} 个</b>}</header>
           {renderAssetPickers()}
         </section>
         <div className="video-composer-input">

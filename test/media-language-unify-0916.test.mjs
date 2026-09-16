@@ -8,8 +8,8 @@ import test from 'node:test';
      ① 上传素材卡：视频侧复用图片侧「扇形歪卡」的同一组数值（负外边距叠压 + 反向倾斜 + 错位）；
      ② 声音：主流程不再问用户「要不要生成声音」，默认出声音（上游 generate_audio 默认 true）。
    为什么用源码断言：跨板块一致性靠 review 记不住，靠测试才守得住。
-   ⏭ 下一步（本批未做，不许在这里写假断言）：把视频侧入口名「参考」改成「全能参考」——
-     该标签在首页那层包装里，不在 VideoStudio 内，需单独定位后改。 */
+     ③ 命名：视频侧收素材的入口统一叫「全能参考」（它收的正是图片/视频/音频三类，
+        用户批注：「应该是叫做全能参考吧」）。 */
 
 const videoCss = readFileSync('src/pages/VideoStudio/VideoStudio.css', 'utf8');
 const videoIndex = readFileSync('src/pages/VideoStudio/index.jsx', 'utf8');
@@ -27,6 +27,11 @@ test('① 视频侧素材卡与图片侧共用「扇形歪卡」语言', () => {
   assert.match(videoCss, /\.video-media-deck \.video-media-card:hover[\s\S]*?transform: rotate\(0deg\) translateY\(-4px\) scale\(1\.02\)/);
   /* 尊重减少动效偏好 */
   assert.match(videoCss, /prefers-reduced-motion[\s\S]*?\.video-media-deck \.video-media-card \{ transition: none; \}/);
+});
+
+test('③ 收素材的入口统一叫「全能参考」', () => {
+  assert.match(videoIndex, /<strong>全能参考<\/strong>/, '视频侧素材入口必须叫「全能参考」');
+  assert.doesNotMatch(videoIndex, /<strong>上传素材<\/strong>/, '旧的「上传素材」标题不得再作为入口名');
 });
 
 test('② 主流程不再询问「要不要生成声音」，默认出声音', () => {
