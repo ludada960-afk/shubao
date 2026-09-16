@@ -135,13 +135,20 @@ if (spawnSync(npm, ['run', 'build'], { stdio: 'inherit', shell: process.platform
 /* ⚠️ 这一格是 2026-09-16 白屏事故后补的：当时构建 exit 0、单测全绿、资源哈希逐字一致，
    而线上整页落在错误边界（SkillLibraryModal 里 useLayoutEffect 依赖数组引用了后面才声明的
    const editing → 渲染期 TDZ）。**构建绿不等于页面能打开**，中间缺的正是「真的渲染一遍」。 */
-console.log('[2/4] 真实渲染冒烟（产物必须能打开，不能只看构建绿）…');
+console.log('[2/5] 真实渲染冒烟（产物必须能打开，不能只看构建绿）…');
 if (spawnSync(process.execPath, ['scripts/render-smoke.mjs'], { stdio: 'inherit' }).status !== 0) failed.push('真实渲染冒烟');
 
-console.log('[3/4] BLOCKING 门禁（' + BLOCKING.length + ' 个）…');
+/* ⚠️ 这一格是 2026-09-17 补的：渲染冒烟只能证明"页面能打开"，证明不了
+   "技能工作台真的能把字段翻译成引擎参数、出图、存作品、失败能只重试失败项"。
+   所以把**端到端**也挂进来（上游 /api/* 按服务端真实契约打桩 → 零额度消耗）。
+   它抓到过一个真 bug：上传用旧闭包写回，缩略图上传成功后消失。 */
+console.log('[3/5] 技能工作台端到端（字段→参数→出图→存作品→失败重试）…');
+if (spawnSync(process.execPath, ['scripts/media-workbench-e2e.mjs'], { stdio: 'inherit' }).status !== 0) failed.push('技能工作台端到端');
+
+console.log('[4/5] BLOCKING 门禁（' + BLOCKING.length + ' 个）…');
 if (spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...BLOCKING], { stdio: 'inherit' }).status !== 0) failed.push('BLOCKING 门禁');
 
-console.log('[4/4] ADVISORY 进度条（' + ADVISORY.length + ' 个，不拦提交）…');
+console.log('[5/5] ADVISORY 进度条（' + ADVISORY.length + ' 个，不拦提交）…');
 /* ⚠️ 本格曾经**对开发者说假话**（2026-09-15 修正）：ADVISORY 为空时，
    `node --test` 不带文件参数会走**默认发现** —— 于是它把 test/ 之外的东西也跑了：
    实测 fail=20 = **15 个 test/qa/ 浏览器探针脚本**（未纳入 git 的临时件，需要 dev server 才能跑）

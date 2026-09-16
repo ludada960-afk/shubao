@@ -10,7 +10,9 @@ import React, { useMemo } from 'react';
 import { IMAGE_SKILLS } from '../../skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../../skills/videoSkills.js';
 import CaseCard from '../../components/media/CaseCard.jsx';
+import { coverOf } from '../../skills/skillDirectory.js';
 import '../../components/media/CaseCard.css';
+import '../../components/media/GalleryGrid.css';
 import './MediaHub.css';
 
 const BOARDS = {
@@ -40,20 +42,26 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
       </header>
       {groups.length === 0 && <p className="media-hub-empty">{emptyHint || '暂时没有可用的技能'}</p>}
       {groups.map(group => (
-        <section className="media-hub-group" key={group.category}>
+        <section className="media-gallery-group" key={group.category}>
           <h2>{group.category}</h2>
-          <div className="media-hub-grid">
-            {group.skills.map(skill => (
-              <CaseCard
-                key={skill.id}
-                title={skill.name}
-                subtitle={skill.summary}
-                cover={skill.cases?.[0]?.cover || ''}
-                video={skill.cases?.[0]?.video || ''}
-                badge={skill.availability === 'blocked' ? '即将上线' : (skill.availability === 'needs_ref' ? '需参考素材' : '')}
-                onOpen={() => onOpenSkill?.(skill.id)}
-              />
-            ))}
+          <div className="media-gallery-grid">
+            {group.skills.map(skill => {
+              /* 封面取法与首页热门条**同一份实现**（skillDirectory.coverOf）：
+                 视频卡优先用视频（真实在播），cover 当 poster。 */
+              const media = coverOf(skill);
+              return (
+                <CaseCard
+                  key={skill.id}
+                  title={skill.name}
+                  subtitle={skill.summary}
+                  cover={media.cover}
+                  video={media.video}
+                  poster={media.poster}
+                  badge={skill.availability === 'blocked' ? '即将上线' : (skill.availability === 'needs_ref' ? '需参考素材' : '')}
+                  onOpen={() => onOpenSkill?.(skill.id)}
+                />
+              );
+            })}
           </div>
         </section>
       ))}

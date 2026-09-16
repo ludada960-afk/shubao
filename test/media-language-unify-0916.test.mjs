@@ -50,7 +50,11 @@ test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加�
   assert.match(cardCss, /aspect-ratio: 4 \/ 3/);
   /* 视频案例：进入视口 + hover 才播、静音、循环、只取元数据 */
   assert.match(card, /new IntersectionObserver/, '视频案例必须懒加载（进入视口才准备）');
-  assert.match(card, /const shouldPlay = Boolean\(video\) && inView && hovering;/);
+  /* 9-17 用户口径变更：竞品视频板块的卡是**真的在播**（他们的 <video> 带 autoplay），
+     我们照做但更省 —— 进视口才播、离开视口立刻暂停（屏幕外的视频不偷跑流量与解码），
+     prefers-reduced-motion 下退回"只 hover 播"。判据随之改成这条新口径。 */
+  assert.match(card, /const shouldPlay = Boolean\(video\) && inView && \(hovering \|\| !REDUCED_MOTION\(\)\);/);
+  assert.match(card, /setInView\(entry.isIntersecting\)/, '视口外必须能停下来（旧实现只在进入时置 true）');
   assert.match(card, /muted loop playsInline preload="metadata"/);
   /* 同一时刻最多一条在播（防止几十条视频同时占用带宽） */
   assert.match(card, /querySelectorAll\('video\[data-case-preview\]'\)/);

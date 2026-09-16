@@ -1,0 +1,5 @@
+/* 首页热门技能条：只负责"它是页面上的一段"，网格与分组标题走 GalleryGrid.css */
+.hot-skill-strip { display: grid; gap: 10px; margin-top: 26px; }
+.hot-skill-strip-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.hot-skill-strip-head h2 { margin: 0; font-size: 15px; color: var(--sb-ink-1); }
+.hot-skill-strip-head p { margin: 0; font-size: 12px; color: var(--sb-ink-3); }

@@ -9,6 +9,8 @@ import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
+import HotSkillStrip from '../../components/media/HotSkillStrip.jsx';
+import { skillPath } from '../../skills/skillDirectory.js';
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
 import { loadWorks } from '../../services/api';
 
@@ -243,6 +245,23 @@ export default function HomePage() {
               <div hidden={!isVisual}><VisualCreationMode recoveryCheckpoint={recoveryCheckpoint} initialSkillId={state.creationLaunch?.skillId || null} /></div>
             </div>
           </div>
+        </div>
+
+        {/* ═══ 热门技能（用户 9-17 定的最终形态）═══
+            位置就在提示词输入区（上面的工作台卡）**下面**：一张卡 = 一个 skill 的入口，
+            点进去直接到它的工作台（/image-creation?id=… 或 /video-creation?id=…）。
+            没有封面的 skill 不进条，避免首页出现一排空卡。 */}
+        <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 20px' }}>
+          <HotSkillStrip
+            limit={10}
+            onOpenSkill={skill => {
+              const page = skill.board === 'video' ? 'video-creation' : 'image-creation';
+              /* 先把地址换成深链，再切页面（刷新/分享/返回键都能落到同一处） */
+              window.history.pushState({}, '', skillPath(skill));
+              dispatch({ type: 'NAVIGATE', page });
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         </div>
 
         {/* 案例发现区 */}

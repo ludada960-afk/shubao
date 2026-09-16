@@ -17,6 +17,7 @@ import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
+import { boardOfPage, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
 import {
   buildSkillRequest,
   initialSkillValues,
@@ -38,6 +39,7 @@ import '../Home/MediaHub.css';
 import '../Home/SkillWorkbench.css';
 import './MediaCreation.css';
 
+/* 板块 ↔ 总页面 的对应只有 skillDirectory 一份（首页热门条、Hub、工作台共用） */
 const BOARD_BY_PAGE = { 'image-creation': 'image', 'video-creation': 'video' };
 
 /* 重流程（多分钟、多资产、带方案确认）不在这里重写：只把配置带回去。 */
@@ -114,8 +116,8 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy }) {
 
 export default function MediaCreationPage() {
   const { state, dispatch, refreshBillingBalance } = useApp();
-  const board = BOARD_BY_PAGE[state.page] || 'image';
-  const basePath = board === 'video' ? '/video-creation' : '/image-creation';
+  const board = boardOfPage(state.page);
+  const basePath = hubPath(board);
   const [skillId, setSkillId] = useState(() => skillFromUrl(board));
   const [values, setValues] = useState({});
   const [run, setRun] = useState(null);
@@ -141,17 +143,17 @@ export default function MediaCreationPage() {
   useEffect(() => () => { try { abortRef.current?.abort?.(); } catch { /* 卸载时忽略 */ } }, []);
 
   const openSkill = useCallback(id => {
-    window.history.pushState({}, '', basePath + '?id=' + encodeURIComponent(id));
+    window.history.pushState({}, '', skillDeepLink({ id, board }));
     setSkillId(id);
     setValues({});
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [basePath]);
+  }, [board]);
 
   const backToHub = useCallback(() => {
     window.history.pushState({}, '', basePath);
     setSkillId('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [basePath]);
+  }, [board]);
 
   const skill = useMemo(
     () => (skillId ? (board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId)) : null),

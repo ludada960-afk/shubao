@@ -1,0 +1,31 @@
+/* 卡片网格 + 分组标题（首页热门技能条 / 图片 Hub / 视频 Hub 共用一份）
+   实测口径（竞品 /apps 与 /image-creation 两个总页面用的是同一套）：
+     · 分组标题 = 13px 中性灰 + 前面一根小竖条（不是粗黑大字）
+     · 网格 = 12px 间距、按可用宽度自适应；卡片本身是 4:3（CaseCard 里）
+   三个地方共用这一份，避免"首页的卡片比 Hub 里大一圈"这类漂移。 */
+.media-gallery { display: grid; gap: 12px; }
+.media-gallery-group { display: grid; gap: 12px; margin-top: 6px; }
+.media-gallery-group > h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 2px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--sb-ink-2);
+}
+.media-gallery-group > h2::before {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--sb-border-default);
+}
+.media-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}

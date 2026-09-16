@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ImagePlus, RotateCcw } from 'lucide-react';
 
 import MediaAssetCard from './MediaAssetCard.jsx';
@@ -35,11 +35,22 @@ function revoke(item) {
 function UploadControl({ field, value, onChange, disabled }) {
   const inputRef = useRef(null);
   const items = Array.isArray(value) ? value : [];
+  /* ⚠️ 上传是异步的：回调回来时闭包里的 items 已经是旧数组了。
+     曾经因此把"上传完成"写回成**上传之前**的数组 —— 缩略图上传成功后消失（E2E 抓到）。
+     所以所有改动都基于 itemsRef（随每次提交同步更新），而不是渲染期的闭包。 */
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  const commit = next => { itemsRef.current = next; onChange(next); };
+
   const maxImages = Math.max(1, Number(field.maxImages || 1));
   const multiple = maxImages > 1;
   const full = items.length >= maxImages;
 
-  const patchAt = (index, next) => onChange(items.map((item, i) => (i === index ? { ...item, ...next } : item)));
+  const patchAt = (index, next) => {
+    const base = itemsRef.current;
+    if (index < 0 || index >= base.length) return;
+    commit(base.map((item, i) => (i === index ? { ...item, ...next } : item)));
+  };
 
   const uploadAt = async (index, file) => {
     if (!file) { patchAt(index, { status: 'error', error: '文件已失效，请重新选择' }); return; }
@@ -47,7 +58,7 @@ function UploadControl({ field, value, onChange, disabled }) {
       const asset = await uploadEcommerceAsset({ file, role: field.role || 'product' });
       const url = String(asset?.url || asset?.stableUrl || '').trim();
       if (!url) throw new Error('上传后没有拿到可用地址');
-      const previous = items[index];
+      const previous = itemsRef.current[index];
       if (previous && previous.previewUrl !== url) revoke(previous);
       patchAt(index, { url, previewUrl: asset?.previewUrl || url, name: asset?.name || file.name, assetId: asset?.assetId || '', status: 'ready', progress: 100, error: '', file: undefined });
     } catch (error) {
@@ -58,10 +69,10 @@ function UploadControl({ field, value, onChange, disabled }) {
   const handleFiles = selected => {
     const files = Array.from(selected || []).filter(file => file && String(file.type || '').startsWith('image/'));
     if (!files.length) return;
-    const room = Math.max(0, maxImages - items.length);
-    const accepted = files.slice(0, room);
+    const base = itemsRef.current;
+    const accepted = files.slice(0, Math.max(0, maxImages - base.length));
     if (!accepted.length) return;
-    const start = items.length;
+    const start = base.length;
     const drafts = accepted.map(file => ({
       url: '',
       previewUrl: (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : '',
@@ -70,11 +81,15 @@ function UploadControl({ field, value, onChange, disabled }) {
       progress: 30,
       file,
     }));
-    onChange([...items, ...drafts]);
+    commit([...base, ...drafts]);
     accepted.forEach((file, offset) => { uploadAt(start + offset, file); });
   };
 
-  const removeAt = index => { revoke(items[index]); onChange(items.filter((_, i) => i !== index)); };
+  const removeAt = index => {
+    const base = itemsRef.current;
+    revoke(base[index]);
+    commit(base.filter((_, i) => i !== index));
+  };
 
   return (
     <span className="media-field-upload" data-empty={items.length ? 'false' : 'true'}>
