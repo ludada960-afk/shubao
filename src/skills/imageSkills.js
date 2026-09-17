@@ -204,7 +204,7 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一套 A+ 内容模块图。商品与卖点：{{productParams}}。设计风格：{{style}}{{styleNote}}。目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
+    brief: '做一套 A+ 内容模块图。商品与卖点：{{productParams}}。设计风格：{{style}}。目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
     /* 字段顺序与措辞照竞品 A+ 页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
        产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
@@ -766,7 +766,7 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '按参考图复刻一张新图，复刻程度：{{degree}}；统一复刻要求：{{rules}}。' +
       '（参考排版 = 只借排版与背景结构、人物关系，配色按商品本身来；高度复刻 = 连构图、版式、配色与细节一起复刻，只把商品与卖点换掉。）' +
-      '内容必须是{{productParams}}本身，不要照搬参考图里的品牌与文字。' +
+      '内容必须是{{product}}本身，不要照搬参考图里的品牌与文字。' +
       '目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。',
     /* 字段顺序与措辞照竞品图片复刻页实测：
        商品信息 0/4（核心卖点*）→ 上传商品图 0/4（成组打包）→ 上传参考图 0/20 →
