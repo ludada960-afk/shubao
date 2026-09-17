@@ -128,3 +128,42 @@ test('② 主流程不再询问「要不要生成声音」，默认出声音', (
   assert.match(videoIndex, /generateAudio: sound/, '上游参数仍要真实下发');
   assert.match(videoIndex, /selectedProduct\.frameAudio === false\) setSound\(false\)/, '产品不支持首尾帧声音时仍要自动关');
 });
+
+/* ═══ ⑧ 案例卡的悬停进度条（用户批注 #6，照 liuyingai 实测抄，2026-09-19 批 H-6）══════════
+   用户原话：「当你的鼠标滑动过去任何一个按钮上面……你下面这条进度条还会从左往右充满。
+   然后你的鼠标离开的话……它下面的进度条会从右往左再变回去。这个速度会非常的快。」
+   ⚠️ 关于「速度非常快」这一点，实测与用户描述**不一致**：liuyingai 的 computed 与 5 点采样
+      都是 **700ms**（400ms 时走了 87.2%），没有找到任何更短的配置。
+      所以这里按**实测值**抄（0.7s），没有为了迎合那句描述去改短 —— 抄就该抄实测。
+   判据守的是「机制」而不是「某个数值」：
+     ① 高 4px、贴卡底、圆角 0；② 默认 width:0 → 悬停 width:100%；
+     ③ **靠 width 过渡，不是 transform/scaleX**（他们也是 width）；
+     ④ transition 的 property/duration/timing 三项都对得上；
+     ⑤ 纯装饰：aria-hidden + pointer-events:none；⑥ 减少动效偏好下不做过渡。 */
+test("⑧ 案例卡悬停进度条：宽度过渡的 4px 渐变条，与 liuyingai 实测同一套机制", () => {
+  const card = readFileSync("src/components/media/CaseCard.jsx", "utf8");
+  const cardCss = readFileSync("src/components/media/CaseCard.css", "utf8");
+  /* ① 元素与无障碍：它是装饰，不能抢点击、不能进无障碍树 */
+  assert.match(card, /<span className="media-case-card-progress" aria-hidden="true" \/>/);
+  /* ② 尺寸与位置 */
+  assert.match(cardCss, /\.media-case-card-progress \{[^}]*height: 4px;/);
+  assert.match(cardCss, /\.media-case-card-progress \{[^}]*left: 0;[^}]*bottom: 0;/);
+  assert.match(cardCss, /\.media-case-card-progress \{[^}]*pointer-events: none;/);
+  /* ③ 默认收、悬停满 —— 而且**必须**是 width，不是 transform */
+  assert.match(cardCss, /\.media-case-card-progress \{[^}]*width: 0;/);
+  assert.match(cardCss, /\.media-case-card-hit:hover \.media-case-card-progress,[\s\S]{0,80}width: 100%;/);
+  assert.match(cardCss, /\.media-case-card-hit:focus-visible \.media-case-card-progress \{ width: 100%; \}/, "键盘用户同样能看到它充满");
+  const barRule = cardCss.slice(cardCss.indexOf(".media-case-card-progress {"), cardCss.indexOf(".media-case-card-hit:hover .media-case-card-progress"));
+  assert.doesNotMatch(barRule, /transform/, "liuyingai 用的是 width 过渡，不是 scaleX —— 照抄机制");
+  assert.doesNotMatch(barRule, /scaleX/, "同上");
+  /* ④ 过渡三件套（实测值：width / 0.7s / cubic-bezier(.4,0,.2,1)） */
+  assert.match(barRule, /transition: width \.7s cubic-bezier\(\.4, 0, \.2, 1\);/);
+  /* ⑤ 渐变必须是**我们自己的**品牌档，不是他们那对 #0076F5 → #7D28CC */
+  assert.match(barRule, /linear-gradient\(to right, var\(--sb-brand-500\), var\(--sb-brand-700\)\)/);
+  assert.doesNotMatch(cardCss, /#0076F5|#7D28CC/i, "不抄他们的品牌色，否则站里会出现两套紫");
+  /* ⑥ 减少动效：这一条**必须在主规则之后**（媒体查询不加特异性，谁在后面谁赢） */
+  const reduceIdx = cardCss.lastIndexOf("@media (prefers-reduced-motion: reduce)");
+  const mainIdx = cardCss.indexOf(".media-case-card-progress {");
+  assert.ok(reduceIdx > mainIdx, "减少动效的覆盖必须写在主规则之后，否则会被主规则盖掉（等于失效）");
+  assert.match(cardCss.slice(reduceIdx), /\.media-case-card-progress \{ transition: none; \}/);
+});

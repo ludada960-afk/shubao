@@ -101,6 +101,24 @@
   .media-case-card-monogram { transition: none; }
   .media-case-card-hit:hover .media-case-card-monogram { transform: none; }
 }
+/* ═══ 悬停进度条（照 liuyingai 实测，docs/design/54 §1「进度条」）═══════════════════════
+   实测值逐条搬过来：高 4px / bottom:0 / left:0 / 圆角 0 /
+   默认 width:0 → 悬停 width:100% / transition: width .7s cubic-bezier(.4,0,.2,1)。
+   **不是** transform 或 scaleX（他们也是 width，实测 transform: none）。
+   颜色换成我们自己的品牌档（见 CaseCard.jsx 里的说明）。 */
+.media-case-card-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 4px;
+  border-radius: 0;
+  pointer-events: none;
+  background-image: linear-gradient(to right, var(--sb-brand-500), var(--sb-brand-700));
+  transition: width .7s cubic-bezier(.4, 0, .2, 1);
+}
+.media-case-card-hit:hover .media-case-card-progress,
+.media-case-card-hit:focus-visible .media-case-card-progress { width: 100%; }
 .media-case-card-play {
   position: absolute;
   right: 10px;
@@ -173,4 +191,8 @@
 @media (prefers-reduced-motion: reduce) {
   .media-case-card-cover { transition: none; }
   .media-case-card-hit, .media-case-card-arrow { transition: none; }
+  /* ⚠️ 这一条**必须放在文件末尾**：媒体查询不增加特异性，同样的选择器谁在后面谁赢。
+     先前把它写在 .media-case-card-progress 主规则**之前**，会被后面的 transition 覆盖掉
+     （等于减少动效偏好完全失效）。 */
+  .media-case-card-progress { transition: none; }
 }

@@ -123,6 +123,18 @@ export default function CaseCard({
           </span>
           <span className="media-case-card-arrow" aria-hidden="true"><ChevronRight size={14} /></span>
         </span>
+        {/* ═══ 悬停时从左往右充满的 4px 渐变条（2026-09-19 批 H-6，用户批注 #6）═══════════
+            用户原话：「当你的鼠标滑动过去任何一个按钮上面……你下面这条进度条还会从左往右充满。
+            然后你的鼠标离开的话……它下面的进度条会从右往左再变回去。」
+            这是照着 liuyingai 实测抄的（docs/design/54）：
+              · 高 4px、绝对定位 bottom:0 / left:0、圆角 0；
+              · 默认 width:0，悬停 width:100% —— **是 width 过渡，不是 transform / scaleX**（实测确认）；
+              · transition: width .7s cubic-bezier(.4, 0, .2, 1)（实测 computed 与 5 点采样都是 700ms）；
+              · 左边缘钉死不动 ⇒ 进入时右边缘向右推进（左→右充满），离开时收缩（右→左收回）。
+            ⚠️ 唯一不照抄的地方是**颜色**：他们用 #0076F5 → #7D28CC（他们的品牌色），
+              我们用 --sb-brand-500 → --sb-brand-700 —— 抄形状不抄品牌色，否则站里会出现两套紫。
+            ⚠️ 它是纯装饰：aria-hidden + pointer-events:none，不抢点击、不进无障碍树。 */}
+        <span className="media-case-card-progress" aria-hidden="true" />
       </button>
     </article>
   );
