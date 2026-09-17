@@ -16,7 +16,7 @@
 
 | 板块 | 条数 | 官方 | 高星库 | 竞品 | 自研 |
 |---|---|---|---|---|---|
-| 图片 | 40 | 0 | 15 | 14 | 11 |
+| 图片 | 50 | 0 | 25 | 14 | 11 |
 | 视频 | 42 | 25 | 10 | 6 | 1 |
 
 来源渠道（登记时查询的真实 star）：
@@ -159,6 +159,132 @@
 - **封面出图配方**：版式 `poster-style` · 色相 `warm` · 标题「详情页模块」 · 主体：一张竖版详情页模块成品（标题 + 主图 + 说明）
 
 ### 电商专区
+
+#### 直播带货主图 · `image.live_ui`
+
+- **一句话**：一张图做出直播间的界面感
+- **子页面**：`/image-creation?id=image.live_ui`
+- **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
+- **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
+  - 具体位置：`cases/ecommerce.md#Case89 E-commerce Live Stream UI Mockup`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ecommerce.md
+  - 说明：官方仓库的直播 UI 假图配方（主播 + 两侧品牌色块 + 底部信息条）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张直播带货主图（界面感）：画面主体是主播举着{{product}}对着镜头介绍，笑容自然、眼神看镜头；左右两侧是品牌色块与{{brand}}字样，底部压一条促销信息条，右上角留出人气/点赞的数字位。整体像直播截屏但更精致，画面内文字逐字准确、不得臆造价格与销量数字。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > { "type": "live stream UI mockup", "subject": { "description": "portrait of {argument name=\"host name\" default=\"Elon Musk\"}, smiling, wearing a black t-shirt with a white technical schematic graphic", "background": "left side shows a screen with '{argument name=\"left background logo\" default=\"SPACEX\"}' text, right side shows a red '{argument name=\"right background logo\" default=\"Tesla T logo\"}' and a dark car" }, "ui_overlay": { "top_header": { "host_info": "avatar, name '{argument name=\"host name\" default=\"Elon Musk\"}', subtext '55.6万本场点赞', red '关注' button", "rank_badge": "gold coin icon with '全站第1名'", "viewer_stats": "3 top viewer avatars with '12.3w', '8.6w', '5.7w', total '68.7万', 'X' close button", "right_links": "'更多直播 >', '礼物展馆 0/24' with blue '经典' tag" }, "mid_left_gifts": { "count": 2, "items": [ "avatar '科技爱好者', '送小心心', heart icon x 1314", "avatar '星辰大海', '送火箭', rocket icon x 666" ] }, "bottom_left_chat": { "system_message": "level 37 badge '宇宙漫游者 加入了直播间'", "message_count": 7, "messages": [ "小火箭: 马斯克!未来可期!🚀", "future: 特斯拉Model 2什么时候出?", "星空梦想家: SpaceX今年能上火星吗?", "AI探索者: Neuralink进展如何?", "帅气的网友: 马总好!", "Mars: 第一次来你的直播,超激动!", "用户123: 讲讲AI吧,会取代人类吗?" ] }, "bot
+
+- **来源自带案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ui_case89/output.jpg
+
+- **封面出图配方**：版式 `poster-style` · 色相 `accent` · 标题「直播带货主图」 · 主体：直播间画面感的主图（主播举商品 + 两侧品牌色块）
+
+#### 卖点标注图解 · `image.callout_diagram`
+
+- **一句话**：一根根引线把成分与卖点标出来
+- **子页面**：`/image-creation?id=image.callout_diagram`
+- **可用性**：ready（现有链路可跑）
+- **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
+  - 具体位置：`cases/ecommerce.md#Case14 冰淇淋配料标注广告`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ecommerce.md
+  - 说明：官方仓库的标注图解配方（引线指向 + 短标注）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张卖点标注图解：{{product}}居中竖放，四周用细引线连到要强调的部位，每条引线配一行短标注——{{points}}。要求：标注排版整齐、指向准确、字号统一，背景干净；画面内文字逐字准确，不得臆造数据与认证标识。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > { "resolution": "8K", "aspect_ratio": "3:4", "image_type": "photorealistic commercial product render", "scene_description": { "main_subject": "A vertically centered ice cream bar mounted on a wooden stick", "orientation": "upright, front-facing, slightly elevated perspective", "composition": "single product centered with surrounding ingredient labels and curved arrows" }, "background": { "color": "warm golden-yellow gradient", "texture": "smooth, matte, evenly illuminated", "lighting_falloff": "subtle vignette, darker towards edges" }, "lighting": { "type": "studio lighting", "key_light": "soft frontal light emphasizing chocolate gloss", "fill_light": "balanced fill preserving texture detail", "specular_highlights": "visible on melted chocolate coating", "shadows": "soft shadow beneath the stick" }, "ice_cream_bar": { "shape": "rounded rectangular bar", "surface": "smooth with visible embedded inclusions", "layers": [ { "layer_position": "top coating", "material": "milk chocolate", "state": "melted and dripping", "texture": "glossy, thick, fluid", "details": [ "multiple chocolate drips flowing downward", "irregular almond pieces embedded in coating", "rounded drip edges pulled by g
+
+- **封面出图配方**：版式 `case-3up` · 色相 `warm` · 标题「卖点标注图解」 · 主体：商品居中、四周引线标注卖点的图解成品
+
+#### 巨型产品广告 · `image.giant_product`
+
+- **一句话**：把人放进巨型商品的尺度里
+- **子页面**：`/image-creation?id=image.giant_product`
+- **可用性**：ready（现有链路可跑）
+- **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
+  - 具体位置：`cases/ad-creative.md#Case42 Ray-Ban 巨型飞行员墨镜广告`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ad-creative.md
+  - 说明：官方仓库巨型产品配方（人物与巨型商品同框 + 背景品牌大字）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 极简商业广告：把{{product}}放大成巨型装置，人物以自然姿态倚靠或站在它旁边形成尺度反差；单色渐变背景，背景压一行巨大的品牌字{{brand}}，镜面地板带柔和反射，棚拍光干净通透。商品细节与包装文字必须清晰可辨。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > Minimalist commercial ad featuring oversized Ray-Ban Aviator sunglasses, ultra-clean design. A young woman in all-white outfit leans casually against the giant sunglasses, relaxed confident pose, eyes closed, also holding a regular-sized pair in her hand. Soft gradient golden background with large bold white “RAY-BAN” text behind. Glossy reflective floor, soft studio lighting, modern high-end product photography. Small top-right text “Designed by Mr Das”. Bottom center tagline in small white font: “Iconic vision, every look.”
+
+- **封面出图配方**：版式 `poster-style` · 色相 `accent` · 标题「巨型产品广告」 · 主体：人物倚靠巨型商品、背景压品牌大字的广告
+
+#### 热带饮品海报 · `image.tropical_poster`
+
+- **一句话**：夏天汽水那种亮到发光的海报
+- **子页面**：`/image-creation?id=image.tropical_poster`
+- **可用性**：ready（现有链路可跑）
+- **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
+  - 具体位置：`cases/ecommerce.md#Case115 Tropical Citrus Soda Ad Poster`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ecommerce.md
+  - 说明：官方仓库热带饮品海报配方
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张热带风饮品海报：{{product}}居中偏右、略微左倾，瓶身挂满冰凉水珠，内部液体透出光感；背景是明亮的热带色块与水果切片（{{fruits}}），底部压一行{{slogan}}。整体明亮、饱和度高、夏日氛围强，包装上的文字必须清晰准确。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > Create a vibrant tropical commercial poster for a citrus soda bottle, in a bright summer advertising style. Show a single large plastic bottle of {argument name="product name" default="Soda"} centered slightly to the right, tilted a little left, with a yellow cap and transparent bottle covered in cold condensation droplets, filled with glowing golden-orange soda. The label should feature sliced oranges and citrus artwork with the brand text "{argument name="product name" default="Soda"}", the phrase "aux agrumes d'été", and a small green "500 ml" mark. Use a sunny beach background with vivid blue sky, turquoise ocean, soft clouds, and blurred tropical palm leaves entering from the upper right corner. Add dramatic water splashes around the base of the bottle, scattered clear ice cubes, and 5 visible citrus pieces in the foreground: 2 orange wedges, 1 lime half, 1 grapefruit half, and 1 partial orange slice at the far right edge. Place large French promotional text on the left: a huge white headline "{argument name="headline text" default="Soda"}" with a small splash accent above it, then yellow script text "aux agrumes d'été" underneath. Add a yellow paint-stroke badge at mid-left w
+
+- **来源自带案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case115/output.jpg
+
+- **封面出图配方**：版式 `poster-style` · 色相 `warm` · 标题「热带饮品海报」 · 主体：热带风饮品海报（水珠 + 水果 + 明亮色块）
+
+#### 单色糖果系广告 · `image.mono_pastel_ad`
+
+- **一句话**：整张一个色，巨型品牌字压阵
+- **子页面**：`/image-creation?id=image.mono_pastel_ad`
+- **可用性**：ready（现有链路可跑）
+- **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
+  - 具体位置：`cases/ecommerce.md#Case159 Pastel Blue Crocs Fashion Ad`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ecommerce.md
+  - 说明：官方仓库单色系配方（巨型品牌字 + 镜面地板 + 品牌标位）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张单色系商业海报：整张图只用一个色系（{{tone}}），背景是巨大的{{brand}}无衬线粗体字几乎顶满画面高度，{{product}}放在字前作为视觉焦点，地面是高反光镜面、有柔和倒影；右上角留一小块品牌标位。画面内文字逐字准确、不得臆造。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > A high-end studio advertising poster for {argument name="brand name" default="crocs"}, in a monochrome pastel blue and white color palette, with a glossy reflective floor and a soft sky-blue backdrop. The background is dominated by the word {argument name="headline text" default="CROCS"} in gigantic bold white condensed sans-serif letters spanning nearly the full height of the image. In the top-right corner, add small white text reading "Designed with ChatGPT". Feature 3 adult women with shoulder-length wavy light brown to dark blonde hair, all wearing loose oversized white long-sleeve tops and flowing white wide-leg pants, styled as minimalist fashion models with relaxed neutral expressions. Their faces are intentionally obscured or blurred. One model reclines against an enormous upright white clog shoe on the left side, one model sits casually on top of a giant white clog on the upper right, and one model lounges on the floor at the lower right, leaning back on one arm while seated partly on a glossy blue sphere. Include 2 oversized white clog shoes as hero props: one standing vertically on the left showing the sole and side profile, and one angled on blue crystalline blocks at c
+
+- **来源自带案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case159/output.jpg
+
+- **封面出图配方**：版式 `poster-style` · 色相 `soft` · 标题「单色糖果系」 · 主体：单色系海报：巨型品牌字 + 镜面倒影
+
+#### 中式广告板 · `image.grain_ad_board`
+
+- **一句话**：中文排版的电商广告板（一屏讲完）
+- **子页面**：`/image-creation?id=image.grain_ad_board`
+- **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
+- **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
+  - 具体位置：`cases/ecommerce.md#Case154 Premium Grain Powder Ad Board`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ecommerce.md
+  - 说明：官方仓库中文电商广告板配方（中文排版 + 卖点 + 规格带）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张中文电商广告板：{{product}}作为主视觉居右，左侧排中文标题{{title}}与三到四条短卖点（{{points}}），底部一条规格信息带（净含量 / 规格 / 卖点图标）；配色厚重（{{tone}}），中文用粗衬线或黑体、层级分明。所有中文必须逐字准确、笔画完整，不得臆造成分与认证。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > {"type":"Chinese e-commerce product marketing board","product":{"category":"instant grain powder drink","brand":"五谷磨房","name":"核桃芝麻黑豆粉","packaging":"matte black retail box with gold Chinese typography and a large swirling bowl graphic on the front, plus individual black sachets inside","net weight":"320g (32g×10袋)"},"style":{"overall":"premium dark food advertising layout","color palette":["black","deep brown","warm gold","beige","walnut brown"],"lighting":"dramatic studio lighting with glossy highlights and warm rim light","mood":"luxurious, nourishing, healthy, appetizing"},"layout":{"format":"single tall composite board divided into 5 major sections plus a bottom storyboard table","sections":[{"title":"主图/Main image","position":"top-left","count":8,"labels":["五谷磨房","核桃芝麻黑豆粉","32g×10袋 独立包装","五黑谷物","香浓醇厚","独立小袋","即冲即饮","product box and drink cup"]},{"title":"详情页/Details page","position":"top-right","count":5,"labels":["黑芝麻","黑豆","黑米","核桃","谷物粉"]},{"title":"香浓细腻 顺滑好喝","position":"mid-right","count":4,"labels":["一冲即饮 营养美味","粉质细腻 Fine powder","浓香醇厚 Rich & Smooth","营养代餐 Nutritious"]},{"title":"冲泡方式 HOW TO MAKE","position":"mid-left lower","count":3,"labels":["1 倒入一袋粉(32g)","2 加入200ml 
+
+- **来源自带案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case154/output.jpg
+
+- **封面出图配方**：版式 `poster-style` · 色相 `warm` · 标题「中式广告板」 · 主体：中文排版的电商广告板（标题 + 卖点 + 规格带）
 
 #### 白底商品图 · `image.white_bg`
 
@@ -458,6 +584,85 @@
 
 ### 创意应用
 
+#### 液态 Logo 海报 · `image.liquid_logo`
+
+- **一句话**：品牌 logo 变成一滩会流动的液体
+- **子页面**：`/image-creation?id=image.liquid_logo`
+- **可用性**：ready（现有链路可跑）
+- **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
+  - 具体位置：`cases/ad-creative.md#Case37 SPLASH 液态 Logo 时尚海报`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ad-creative.md
+  - 说明：官方仓库液态 Logo 配方；原文强调"轮廓必须仍然是 logo 本身"
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张品牌主视觉：{{brand}}的 logo 变成一滩有体积的液态物质——**轮廓必须仍然是品牌 logo 本身**（不是圆形、不是随便一团），表面有水珠与飞溅细节；周围是动态水花，背景压一行巨大的{{brand}}字，整体像高定时尚大片。画面里的字样必须逐字准确。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > Hyper-realistic fashion campaign poster for brand "SPLASH". A girl (matching the reference photo exactly, same face) seated confidently atop a gleaming, water-like 3D SPLASH logo surrounded by dynamic water splash effects. Editorial pose: one leg loose, one bent. Enormous bold "SPLASH" typography fills the background, partially behind her. Small tagline reads: "Own Your Style." Clothing: contemporary black streetwear (blazer, fitted top, trousers, sneakers). Lighting: cinematic studio setup with soft key light and rim light, glossy reflections on the liquid logo. Style: luxury fashion campaign aesthetic (Zara / H&M), polished clean environment. Shot with an 85mm lens, shallow depth of field, 8K resolution, ultra-detailed, photorealistic.
+
+- **封面出图配方**：版式 `poster-style` · 色相 `cool` · 标题「液态 Logo」 · 主体：品牌标志变成液态物质的主视觉成品
+
+#### 地景 Logo 幻象 · `image.landscape_logo`
+
+- **一句话**：品牌形状藏进山川地貌里
+- **子页面**：`/image-creation?id=image.landscape_logo`
+- **可用性**：ready（现有链路可跑）
+- **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
+  - 具体位置：`cases/ad-creative.md#Case36 隐藏 Logo 地景幻象`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ad-creative.md
+  - 说明：官方仓库地景幻象配方（形状由地貌构成，不许后期贴图）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张"潜意识广告"风景照：把{{brand}}的标志形状**藏进自然地貌本身**——由山脊、沙丘、海岸或雪原的走势自然构成，看起来像地形巧合，不是后期贴上去的图案；光线是自然环境光，画面里不出现任何文字与 logo 贴图。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > Create a subliminal advertising landscape photograph where a recognizable brand logo (like the Apple logo, Nike swoosh, or Batman symbol) is secretly embedded into a breathtaking natural environment (like snowy mountains, dense jungle, sand dunes, or ocean coastline). The logo must be formed entirely by the physical geography of the terrain — NOT overlaid digitally. The main body of the logo appears as a carved void (a deep valley, cliff edge, or sharp color contrast in the terrain), while any disconnected elements (like Apple's leaf) float as a suspended island of rock and earth in the misty sky above. Camera: wide aerial drone shot, landscape stretching vast and majestic across the frame. Atmosphere: dramatic and moody — heavy swirling clouds, rolling mist through valleys, crepuscular god rays bursting through gaps in the clouds, defining the hidden silhouette. Visual rule: at first glance it must look like a 100% authentic nature photo. The brand logo only emerges as an optical illusion (pareidolia) on second look. Edges must be slightly jagged and organic, shaped by real geological features like cliff faces and treelines — never perfect vector shapes. Lighting: high contrast be
+
+- **封面出图配方**：版式 `poster-style` · 色相 `cool` · 标题「地景 Logo」 · 主体：品牌形状由山川地貌自然构成的风景画面
+
+#### 贴纸现实拼贴 · `image.sticker_collage`
+
+- **一句话**：在原图上贴满手绘贴纸与便签
+- **子页面**：`/image-creation?id=image.sticker_collage`
+- **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
+- **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
+  - 具体位置：`cases/ad-creative.md#Case181 Sticker Reality Product Collage`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ad-creative.md
+  - 说明：官方仓库贴纸拼贴配方（保主体构图，叠加贴纸/剪贴/便签）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 保持照片的主体、构图与背景**完全不动**，把它改造成"贴纸现实"拼贴：在画面上叠一层像实体贴纸、纸片剪贴与胶带便签的元素，位置略带错位与重叠，像手工剪贴簿；再混入手绘涂鸦（图标、箭头、下划线）。贴纸边缘要有真实投影。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > Edit this image while preserving the original subject, composition, and background. Transform the scene into a “sticker reality” collage: * Add elements that look like physical stickers, paper cutouts, and taped notes layered over the image * Use slight misalignment and overlapping placement to create a natural scrapbook feel Incorporate hand-drawn doodles mixed with sticker-like graphics such as icons, shapes, and labels. Add subtle paper textures, torn edges, and tape details to enhance realism. Ensure the product remains the main focal point while the collage elements build around it. Balance the composition so it feels rich and layered but still visually pleasing, not cluttered. The final result should feel like a real photo transformed into a creative scrapbook composition.
+
+- **来源自带案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ad-creative_case181/output.jpg
+
+- **封面出图配方**：版式 `before-after` · 色相 `soft` · 标题「贴纸拼贴」 · 主体：同一张照片贴满贴纸与便签前后的并排对照
+
+#### 展厅静物主视觉 · `image.showroom_still`
+
+- **一句话**：限定发售那种高级静物台面
+- **子页面**：`/image-creation?id=image.showroom_still`
+- **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
+- **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
+  - 具体位置：`cases/ad-creative.md#Case27 Showroom Still Life Merch Drop`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/blob/main/cases/ad-creative.md
+  - 说明：官方仓库限量发售静物配方（品牌分析 → 台面静物）
+- **我们的配方提示词**（子页面里预填）：
+
+  > 做一张"展厅静物"主视觉，用来宣布限定发售：把{{product}}放在几何台面上，周围配少量呼应品牌的实物道具（{{props}}），背景是干净的展台墙面与柔和的顶光；配色以品牌色为主，构图克制、留白充足，像高端杂志的静物大片。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > [BRAND NAME]. You are a Creative Director and Still Life Photographer for a high-fashion hypebeast magazine. YOUR TASK: Design a premium "Showroom Still Life" image to announce a limited merch drop for [BRAND NAME]. STEP 1: BRAND ANALYSIS Study [BRAND NAME]: identify its industry and signature physical product (e.g., "Spalding" = basketballs, "McDonald's" = burger packaging, "Visa" = metal cards). Choose the Color Palette: - Background: a deep, rich, textured tone from the brand's secondary colors (Teal, Navy, Burgundy, or Slate Grey). - Merch: a warm or neutral accent tone (Camel, Orange, or Cream) that pops against the backdrop. - Apparel Piece: select something that fits the brand's energy (Varsity Letterman Jacket, Heavyweight Hoodie, Canvas Tote, or Wool Scarf). STEP 2: SET DESIGN Main Prop: a clean, modern White Powder-Coated Metal Rack or shelving unit. Layout: - The apparel piece hangs casually from the rack or a hanger, showing off its texture. - On the rack shelves, stack several units of the brand's core product (e.g., basketballs, cans, boxes). - Backdrop: hand-painted canvas in the chosen deep background color, with visible brushstrokes for that studio aesthetic. STEP 
+
+- **封面出图配方**：版式 `hero-single` · 色相 `neutral` · 标题「展厅静物」 · 主体：限定发售的展厅静物台面成品画面
+
 #### 品牌主视觉 · `image.brand_kv`
 
 - **一句话**：把品牌调性扩成一套画面语言
@@ -504,7 +709,7 @@
   - 跟踪链接：https://laoyu.quantv.com
 - **我们的配方提示词**（子页面里预填）：
 
-  > 按参考图的构图与画面节奏复刻一张新图，把主体换成我的素材。补充要求：{{prompt}}。保留参考图的版式结构、光线方向与色调关系，但内容必须是我的商品或人物，不要照搬参考图里的品牌与文字。
+  > 按参考图复刻一张新图，复刻程度：{{degree}}；统一要求：{{rules}}。补充要求：{{prompt}}。（参考排版 = 只借排版与背景结构、人物关系，配色按商品本身来；高度复刻 = 连构图、版式、配色与细节一起复刻，只把商品与卖点换掉。）内容必须是{{product}}本身，不要照搬参考图里的品牌与文字。
 
 - **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
 

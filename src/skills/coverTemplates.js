@@ -133,6 +133,17 @@ export const IMAGE_COVER_PLAN = [
   { skillId: 'image.render_quality', template: 'before-after', accent: 'neutral', subject: '普通效果图与质感提升之后的并排对照', title: '质感提升', subtitle: '塑料感变商业级' },
   { skillId: 'image.interior_3d', template: 'hero-single', accent: 'accent', subject: '白模渲染成照片级室内实景的成品画面', title: '室内3D渲染', subtitle: '白模变实景照片' },
   { skillId: 'image.arch_grid', template: 'case-3up', accent: 'cool', subject: '同一栋建筑的九个视角九宫格分镜板', title: '建筑分镜', subtitle: '一张图讲完一栋楼' },
+  /* 库里的爆款配方（第二批） */
+  { skillId: 'image.live_ui', template: 'poster-style', accent: 'accent', subject: '直播间画面感的主图（主播举商品 + 两侧品牌色块）', title: '直播带货主图', subtitle: '一张图做出直播间' },
+  { skillId: 'image.callout_diagram', template: 'case-3up', accent: 'warm', subject: '商品居中、四周引线标注卖点的图解成品', title: '卖点标注图解', subtitle: '引线把卖点标出来' },
+  { skillId: 'image.giant_product', template: 'poster-style', accent: 'accent', subject: '人物倚靠巨型商品、背景压品牌大字的广告', title: '巨型产品广告', subtitle: '把人放进商品尺度里' },
+  { skillId: 'image.liquid_logo', template: 'poster-style', accent: 'cool', subject: '品牌标志变成液态物质的主视觉成品', title: '液态 Logo', subtitle: 'logo 会流动' },
+  { skillId: 'image.landscape_logo', template: 'poster-style', accent: 'cool', subject: '品牌形状由山川地貌自然构成的风景画面', title: '地景 Logo', subtitle: '形状藏进地貌' },
+  { skillId: 'image.sticker_collage', template: 'before-after', accent: 'soft', subject: '同一张照片贴满贴纸与便签前后的并排对照', title: '贴纸拼贴', subtitle: '贴上贴纸与便签' },
+  { skillId: 'image.showroom_still', template: 'hero-single', accent: 'neutral', subject: '限定发售的展厅静物台面成品画面', title: '展厅静物', subtitle: '限定发售那种高级感' },
+  { skillId: 'image.tropical_poster', template: 'poster-style', accent: 'warm', subject: '热带风饮品海报（水珠 + 水果 + 明亮色块）', title: '热带饮品海报', subtitle: '夏天就要亮到发光' },
+  { skillId: 'image.mono_pastel_ad', template: 'poster-style', accent: 'soft', subject: '单色系海报：巨型品牌字 + 镜面倒影', title: '单色糖果系', subtitle: '整张一个色' },
+  { skillId: 'image.grain_ad_board', template: 'poster-style', accent: 'warm', subject: '中文排版的电商广告板（标题 + 卖点 + 规格带）', title: '中式广告板', subtitle: '一屏讲完一件事' },
 ];
 
 /* 视频板块各 Skill 的封面计划：与 docs/design/45-cover-shotlist.md 同一张表。

@@ -90,6 +90,116 @@
    ],
    "via": "primary"
   },
+  "image.live_ui": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "89",
+   "title": "E-commerce Live Stream UI Mockup",
+   "sourceLink": "https://x.com/sjbbxhz/status/2045684734714380687",
+   "prompt": "{ \"type\": \"live stream UI mockup\", \"subject\": { \"description\": \"portrait of {argument name=\\\"host name\\\" default=\\\"Elon Musk\\\"}, smiling, wearing a black t-shirt with a white technical schematic graphic\", \"background\": \"left side shows a screen with '{argument name=\\\"left background logo\\\" default=\\\"SPACEX\\\"}' text, right side shows a red '{argument name=\\\"right background logo\\\" default=\\\"Tesla T logo\\\"}' and a dark car\" }, \"ui_overlay\": { \"top_header\": { \"host_info\": \"avatar, name '{argument name=\\\"host name\\\" default=\\\"Elon Musk\\\"}', subtext '55.6万本场点赞', red '关注' button\", \"rank_badge\": \"gold coin icon with '全站第1名'\", \"viewer_stats\": \"3 top viewer avatars with '12.3w', '8.6w', '5.7w', total '68.7万', 'X' close button\", \"right_links\": \"'更多直播 >', '礼物展馆 0/24' with blue '经典' tag\" }, \"mid_left_gifts\": { \"count\": 2, \"items\": [ \"avatar '科技爱好者', '送小心心', heart icon x 1314\", \"avatar '星辰大海', '送火箭', rocket icon x 666\" ] }, \"bottom_left_chat\": { \"system_message\": \"level 37 badge '宇宙漫游者 加入了直播间'\", \"message_count\": 7, \"messages\": [ \"小火箭: 马斯克!未来可期!🚀\", \"future: 特斯拉Model 2什么时候出?\", \"星空梦想家: SpaceX今年能上火星吗?\", \"AI探索者: Neuralink进展如何?\", \"帅气的网友: 马总好!\", \"Mars: 第一次来你的直播,超激动!\", \"用户123: 讲讲AI吧,会取代人类吗?\" ] }, \"bottom_right_product_card\": { \"hot_tag\": \"orange '热卖 x 1888'\", \"image\": \"Tesla Cybertruck\", \"title\": \"{argument name=\\\"product name\\\" default=\\\"特斯拉Cybertruck 电动皮卡\\\"}\", \"price\": \"{argument name=\\\"product price\\\" default=\\\"¥ 1,618,000\\\"}\", \"button\": \"red '抢' button\", \"floating_animation\": \"translucent hearts floating up the right edge\" }, \"bottom_bar\": { \"input_field\": \"'说点什么...'\", \"icons\": [\"smiley face\", \"three dots\", \"shopping cart\", \"gift box\", \"share\"] } } }",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ui_case89/output.jpg"
+   ],
+   "via": "primary"
+  },
+  "image.callout_diagram": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "14",
+   "title": "冰淇淋配料标注广告",
+   "sourceLink": "https://x.com/iamaiistudio/status/2067465624683700642",
+   "prompt": "{ \"resolution\": \"8K\", \"aspect_ratio\": \"3:4\", \"image_type\": \"photorealistic commercial product render\", \"scene_description\": { \"main_subject\": \"A vertically centered ice cream bar mounted on a wooden stick\", \"orientation\": \"upright, front-facing, slightly elevated perspective\", \"composition\": \"single product centered with surrounding ingredient labels and curved arrows\" }, \"background\": { \"color\": \"warm golden-yellow gradient\", \"texture\": \"smooth, matte, evenly illuminated\", \"lighting_falloff\": \"subtle vignette, darker towards edges\" }, \"lighting\": { \"type\": \"studio lighting\", \"key_light\": \"soft frontal light emphasizing chocolate gloss\", \"fill_light\": \"balanced fill preserving texture detail\", \"specular_highlights\": \"visible on melted chocolate coating\", \"shadows\": \"soft shadow beneath the stick\" }, \"ice_cream_bar\": { \"shape\": \"rounded rectangular bar\", \"surface\": \"smooth with visible embedded inclusions\", \"layers\": [ { \"layer_position\": \"top coating\", \"material\": \"milk chocolate\", \"state\": \"melted and dripping\", \"texture\": \"glossy, thick, fluid\", \"details\": [ \"multiple chocolate drips flowing downward\", \"irregular almond pieces embedded in coating\", \"rounded drip edges pulled by gravity\" ] }, { \"layer_position\": \"left interior\", \"material\": \"chocolate ice cream\", \"texture\": \"dense, creamy\", \"color\": \"deep cocoa brown\" }, { \"layer_position\": \"right interior\", \"material\": \"vanilla ice cream\", \"texture\": \"smooth and creamy\", \"color\": \"warm pale ivory\" } ] }, \"stick\": { \"material\": \"light natural wood\", \"position\": \"centered below the bar\", \"finish\": \"matte\" }, \"ingredient_callouts\": { \"style\": \"clean black sans-serif uppercase labels with thin curved arrows\", \"placement\": [ { \"label\": \"ALMOND\", \"points_to\": \"almond chunks embedded in chocolate coating\", \"position\": \"upper right\" }, { \"label\": \"CHOCOLATE\", \"points_to\": \"brown ice cream core\", \"position\": \"middle left\" }, { \"label\": \"VANILLA\", \"points_to\": \"light vanilla ice cream core\", \"position\": \"upper left\" } ] }, \"style_keywords\": [ \"luxury food advertising\", \"editorial product poster\", \"ingredient breakdown visual\", \"hyper-real textures\", \"clean commercial composition\" ] }",
+   "assets": [],
+   "via": "primary"
+  },
+  "image.giant_product": {
+   "lib": "gpt-image2-ad",
+   "file": "ad-creative.md",
+   "caseId": "42",
+   "title": "Ray-Ban 巨型飞行员墨镜广告",
+   "sourceLink": "https://x.com/MrDasOnX/status/2068024611074367579",
+   "prompt": "Minimalist commercial ad featuring oversized Ray-Ban Aviator sunglasses, ultra-clean design. A young woman in all-white outfit leans casually against the giant sunglasses, relaxed confident pose, eyes closed, also holding a regular-sized pair in her hand. Soft gradient golden background with large bold white “RAY-BAN” text behind. Glossy reflective floor, soft studio lighting, modern high-end product photography. Small top-right text “Designed by Mr Das”. Bottom center tagline in small white font: “Iconic vision, every look.”",
+   "assets": [],
+   "via": "primary"
+  },
+  "image.liquid_logo": {
+   "lib": "gpt-image2-ad",
+   "file": "ad-creative.md",
+   "caseId": "37",
+   "title": "SPLASH 液态 Logo 时尚海报",
+   "sourceLink": "https://x.com/iamaiistudio/status/2065979523229975021",
+   "prompt": "Hyper-realistic fashion campaign poster for brand \"SPLASH\". A girl (matching the reference photo exactly, same face) seated confidently atop a gleaming, water-like 3D SPLASH logo surrounded by dynamic water splash effects. Editorial pose: one leg loose, one bent. Enormous bold \"SPLASH\" typography fills the background, partially behind her. Small tagline reads: \"Own Your Style.\" Clothing: contemporary black streetwear (blazer, fitted top, trousers, sneakers). Lighting: cinematic studio setup with soft key light and rim light, glossy reflections on the liquid logo. Style: luxury fashion campaign aesthetic (Zara / H&M), polished clean environment. Shot with an 85mm lens, shallow depth of field, 8K resolution, ultra-detailed, photorealistic.",
+   "assets": [],
+   "via": "primary"
+  },
+  "image.landscape_logo": {
+   "lib": "gpt-image2-ad",
+   "file": "ad-creative.md",
+   "caseId": "36",
+   "title": "隐藏 Logo 地景幻象",
+   "sourceLink": "https://x.com/iamaiistudio/status/2066191259354689714",
+   "prompt": "Create a subliminal advertising landscape photograph where a recognizable brand logo (like the Apple logo, Nike swoosh, or Batman symbol) is secretly embedded into a breathtaking natural environment (like snowy mountains, dense jungle, sand dunes, or ocean coastline). The logo must be formed entirely by the physical geography of the terrain — NOT overlaid digitally. The main body of the logo appears as a carved void (a deep valley, cliff edge, or sharp color contrast in the terrain), while any disconnected elements (like Apple's leaf) float as a suspended island of rock and earth in the misty sky above. Camera: wide aerial drone shot, landscape stretching vast and majestic across the frame. Atmosphere: dramatic and moody — heavy swirling clouds, rolling mist through valleys, crepuscular god rays bursting through gaps in the clouds, defining the hidden silhouette. Visual rule: at first glance it must look like a 100% authentic nature photo. The brand logo only emerges as an optical illusion (pareidolia) on second look. Edges must be slightly jagged and organic, shaped by real geological features like cliff faces and treelines — never perfect vector shapes. Lighting: high contrast between dark shadowed valleys (dense forests) and bright snow or sunlit highlights. Sun partially hidden behind clouds or the floating landmass, backlighting the entire scene. Mood: cinematic, majestic, subtly surreal. Output: 1:1 square, photorealistic, National Geographic aerial photography aesthetic.",
+   "assets": [],
+   "via": "primary"
+  },
+  "image.sticker_collage": {
+   "lib": "gpt-image2-ad",
+   "file": "ad-creative.md",
+   "caseId": "181",
+   "title": "Sticker Reality Product Collage",
+   "sourceLink": "https://x.com/oggii_0/status/2056061748806090940",
+   "prompt": "Edit this image while preserving the original subject, composition, and background. Transform the scene into a “sticker reality” collage: * Add elements that look like physical stickers, paper cutouts, and taped notes layered over the image * Use slight misalignment and overlapping placement to create a natural scrapbook feel Incorporate hand-drawn doodles mixed with sticker-like graphics such as icons, shapes, and labels. Add subtle paper textures, torn edges, and tape details to enhance realism. Ensure the product remains the main focal point while the collage elements build around it. Balance the composition so it feels rich and layered but still visually pleasing, not cluttered. The final result should feel like a real photo transformed into a creative scrapbook composition.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ad-creative_case181/output.jpg"
+   ],
+   "via": "primary"
+  },
+  "image.showroom_still": {
+   "lib": "gpt-image2-ad",
+   "file": "ad-creative.md",
+   "caseId": "27",
+   "title": "Showroom Still Life Merch Drop",
+   "sourceLink": "https://x.com/iamaiistudio/status/2062279671618957656",
+   "prompt": "[BRAND NAME]. You are a Creative Director and Still Life Photographer for a high-fashion hypebeast magazine. YOUR TASK: Design a premium \"Showroom Still Life\" image to announce a limited merch drop for [BRAND NAME]. STEP 1: BRAND ANALYSIS Study [BRAND NAME]: identify its industry and signature physical product (e.g., \"Spalding\" = basketballs, \"McDonald's\" = burger packaging, \"Visa\" = metal cards). Choose the Color Palette: - Background: a deep, rich, textured tone from the brand's secondary colors (Teal, Navy, Burgundy, or Slate Grey). - Merch: a warm or neutral accent tone (Camel, Orange, or Cream) that pops against the backdrop. - Apparel Piece: select something that fits the brand's energy (Varsity Letterman Jacket, Heavyweight Hoodie, Canvas Tote, or Wool Scarf). STEP 2: SET DESIGN Main Prop: a clean, modern White Powder-Coated Metal Rack or shelving unit. Layout: - The apparel piece hangs casually from the rack or a hanger, showing off its texture. - On the rack shelves, stack several units of the brand's core product (e.g., basketballs, cans, boxes). - Backdrop: hand-painted canvas in the chosen deep background color, with visible brushstrokes for that studio aesthetic. STEP 3: BRANDING DETAILS Apparel: feature premium physical branding via Chenille Patches, Embroidered Logos, or Screen Print on the sleeve or back. It should look like a genuinely expensive garment. Products: ensure the [BRAND NAME] logo is clearly visible on all stacked items. STEP 4: PHOTOGRAPHY Lighting: soft, directional side window light with realistic soft shadows and rich texture highlights. Focal length: 50mm or 85mm. Sharp focus on the merch, gentle background falloff. STEP 5: GRAPHIC OVERLAY Left-aligned composition: - Large, clean white [BRAND NAME] logo placed in the negative space on the left. - Beneath the logo, small white text with the brand's official tagline.",
+   "assets": [],
+   "via": "primary"
+  },
+  "image.tropical_poster": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "115",
+   "title": "E-commerce Main Image - Tropical Citrus Soda Ad Poster",
+   "sourceLink": "https://x.com/edimakorfr/status/2047635133466124726",
+   "prompt": "Create a vibrant tropical commercial poster for a citrus soda bottle, in a bright summer advertising style. Show a single large plastic bottle of {argument name=\"product name\" default=\"Soda\"} centered slightly to the right, tilted a little left, with a yellow cap and transparent bottle covered in cold condensation droplets, filled with glowing golden-orange soda. The label should feature sliced oranges and citrus artwork with the brand text \"{argument name=\"product name\" default=\"Soda\"}\", the phrase \"aux agrumes d'été\", and a small green \"500 ml\" mark. Use a sunny beach background with vivid blue sky, turquoise ocean, soft clouds, and blurred tropical palm leaves entering from the upper right corner. Add dramatic water splashes around the base of the bottle, scattered clear ice cubes, and 5 visible citrus pieces in the foreground: 2 orange wedges, 1 lime half, 1 grapefruit half, and 1 partial orange slice at the far right edge. Place large French promotional text on the left: a huge white headline \"{argument name=\"headline text\" default=\"Soda\"}\" with a small splash accent above it, then yellow script text \"aux agrumes d'été\" underneath. Add a yellow paint-stroke badge at mid-left with the text \"LA FRAÎCHEUR QUI PÉTILLE !\". Add a vertical feature list on the lower left with 3 round icons and French captions: \"SAVEURS NATURELLES\", \"SANS COLORANTS ARTIFICIELS\", and \"EXTRA RAFRAÎCHISSANT\". Add a green brushstroke banner at the bottom left reading \"FORMAT PRATIQUE 500 ml\". Add a round beige eco-style seal at the bottom right with green outline and leaf motif, containing the text \"{argument name=\"seal text\" default=\"PLAISIR FRUITÉ À CHAQUE GORGÉE\"}\". Lighting should be glossy and high-energy with strong sun flare from the upper left, saturated citrus colors, crisp packaging detail, realistic droplets, and polished supermarket-ad realism.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case115/output.jpg"
+   ],
+   "via": "primary"
+  },
+  "image.mono_pastel_ad": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "159",
+   "title": "E-commerce Main Image - Pastel Blue Crocs Fashion Ad",
+   "sourceLink": "https://x.com/SPEEDAI07/status/2047907058079650035",
+   "prompt": "A high-end studio advertising poster for {argument name=\"brand name\" default=\"crocs\"}, in a monochrome pastel blue and white color palette, with a glossy reflective floor and a soft sky-blue backdrop. The background is dominated by the word {argument name=\"headline text\" default=\"CROCS\"} in gigantic bold white condensed sans-serif letters spanning nearly the full height of the image. In the top-right corner, add small white text reading \"Designed with ChatGPT\". Feature 3 adult women with shoulder-length wavy light brown to dark blonde hair, all wearing loose oversized white long-sleeve tops and flowing white wide-leg pants, styled as minimalist fashion models with relaxed neutral expressions. Their faces are intentionally obscured or blurred. One model reclines against an enormous upright white clog shoe on the left side, one model sits casually on top of a giant white clog on the upper right, and one model lounges on the floor at the lower right, leaning back on one arm while seated partly on a glossy blue sphere. Include 2 oversized white clog shoes as hero props: one standing vertically on the left showing the sole and side profile, and one angled on blue crystalline blocks at center-right showing the upper and toe box. Both clogs are classic foam slip-on style with perforation holes, chunky tread, heel straps, and circular logo rivets. The center-right clog is decorated with exactly 8 visible charms pinned to the upper: a blue-green iridescent round charm, a white daisy with yellow center, a black-and-white round emblem near the strap, a small \"CROCS\" word charm, a dark flower, a peace-hand sign, an orange smiley face, a white cloud, and an orange flower. Scatter exactly 7 glossy floating or grounded blue spheres of varying sizes around the set: one large sphere behind the left model, one medium sphere floating near center, one medium sphere at bottom left foreground, one medium sphere used as a seat under the lower-right model, one small sphere near the upper left, and 2 additional blue spheres integrated into the composition. Add translucent sculptural gel-like forms at the far left and far right edges, plus angular blue crystal-like rocks beneath the right shoe. At the bottom center, place white promotional copy in a clean sans-serif font: {argument name=\"tagline line 1\" default=\"Made for comfort, worn for confidence.\"} on the first line and {argument name=\"tagline line 2\" default=\"Because life feels better when your feet stop complaining.\"} on the second line. Beneath that, show 4 minimalist feature icons with labels in white: \"ICONIC COMFORT\", \"LIGHTWEIGHT\", \"EASY TO CLEAN\", and \"UNIQUELY YOU\". Place the {argument name=\"logo text\" default=\"crocs\"} logo in bold lowercase white at the bottom center with a small trademark symbol. The overall style should feel like a premium surreal fashion campaign, clean editorial lighting, soft shadows, glossy textures, airy composition, and modern lifestyle product advertising.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case159/output.jpg"
+   ],
+   "via": "primary"
+  },
+  "image.grain_ad_board": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "154",
+   "title": "E-commerce Main Image - Premium Grain Powder Ad Board",
+   "sourceLink": "https://x.com/WooGabriel76263/status/2047988112094101770",
+   "prompt": "{\"type\":\"Chinese e-commerce product marketing board\",\"product\":{\"category\":\"instant grain powder drink\",\"brand\":\"五谷磨房\",\"name\":\"核桃芝麻黑豆粉\",\"packaging\":\"matte black retail box with gold Chinese typography and a large swirling bowl graphic on the front, plus individual black sachets inside\",\"net weight\":\"320g (32g×10袋)\"},\"style\":{\"overall\":\"premium dark food advertising layout\",\"color palette\":[\"black\",\"deep brown\",\"warm gold\",\"beige\",\"walnut brown\"],\"lighting\":\"dramatic studio lighting with glossy highlights and warm rim light\",\"mood\":\"luxurious, nourishing, healthy, appetizing\"},\"layout\":{\"format\":\"single tall composite board divided into 5 major sections plus a bottom storyboard table\",\"sections\":[{\"title\":\"主图/Main image\",\"position\":\"top-left\",\"count\":8,\"labels\":[\"五谷磨房\",\"核桃芝麻黑豆粉\",\"32g×10袋 独立包装\",\"五黑谷物\",\"香浓醇厚\",\"独立小袋\",\"即冲即饮\",\"product box and drink cup\"]},{\"title\":\"详情页/Details page\",\"position\":\"top-right\",\"count\":5,\"labels\":[\"黑芝麻\",\"黑豆\",\"黑米\",\"核桃\",\"谷物粉\"]},{\"title\":\"香浓细腻 顺滑好喝\",\"position\":\"mid-right\",\"count\":4,\"labels\":[\"一冲即饮 营养美味\",\"粉质细腻 Fine powder\",\"浓香醇厚 Rich & Smooth\",\"营养代餐 Nutritious\"]},{\"title\":\"冲泡方式 HOW TO MAKE\",\"position\":\"mid-left lower\",\"count\":3,\"labels\":[\"1 倒入一袋粉(32g)\",\"2 加入200ml 热水或牛奶\",\"3 搅拌均匀 即可享用\"]},{\"title\":\"一杯好谷物 轻松好生活\",\"position\":\"lower-left\",\"count\":4,\"labels\":[\"元气早餐\",\"办公室下午茶\",\"健身代餐\",\"睡前暖饮\"]},{\"title\":\"独立小袋 随身携带\",\"position\":\"lower-right\",\"count\":3,\"labels\":[\"独立小袋 便携卫生\",\"锁住新鲜 防潮防氧化\",\"1袋1杯 精准份量\"]},{\"title\":\"视频推广广告 seedance 2.0 视频提示词 + 分镜头脚本\",\"position\":\"bottom full width\",\"count\":7,\"labels\":[\"镜头1 开场-产品展示\",\"镜头2 食材特写\",\"镜头3 倒粉入杯\",\"镜头4 冲泡搅拌\",\"镜头5 饮用场景\",\"镜头6 产品卖点\",\"镜头7 结尾口号\"]}],\"grid\":\"top area split into left main image and right detail page; middle area split into preparation guide and feature panel; lower area split into lifestyle scenarios and sachet carry section; bottom is a full-width tabular storyboard\"},\"scene_elements\":{\"ingredients\":[{\"name\":\"black sesame\",\"form\":\"small black seeds in a round bowl\"},{\"name\":\"black beans\",\"form\":\"glossy whole beans in a round bowl\"},{\"name\":\"black rice\",\"form\":\"dark long grains in a round bowl\"},{\"name\":\"walnuts\",\"form\":\"walnut halves in a round bowl\"},{\"name\":\"grain powder\",\"form\":\"light beige powder in a round bowl\"}],\"serving\":{\"drink\":\"thick gray-brown sesame walnut bean beverage with smooth surface swirl\",\"cup\":\"transparent glass cup with handle\",\"utensil\":\"metal spoon stirring or resting inside drink\"},\"supporting props\":[\"walnuts on table\",\"scattered black beans\",\"grain stalks or wheat stems\",\"dark tabletop\",\"ingredient bowls\",\"open package showing 5 visible sachets\"]},\"text_treatment\":{\"headline_font\":\"bold elegant Chinese display type in metallic gold\",\"body_font\":\"clean sans serif Chinese with occasional English subtitles\",\"accent\":\"thin gold divider lines and circular ingredient frames\"},\"camera_and_composition\":{\"product_shots\":\"front-facing hero box, angled sachet display box, close-up beverage macro\",\"food_photography\":\"high-detail commercial food styling, shallow depth of field, crisp texture emphasis\",\"aspect_ratio\":\"portrait, approximately 9:16\"},\"quality\":\"ultra-detailed commercial design mockup, polished e-commerce key visual plus details page plus ad storyboard, 4K\"}",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case154/output.jpg"
+   ],
+   "via": "primary"
+  },
   "image.white_bg": {
    "lib": "gpt-image2-ecommerce",
    "file": "ecommerce.md",

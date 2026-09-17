@@ -180,6 +180,159 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
 
+  /* ── 库里的爆款配方（第二批，2026-09-17）──────────────────────────────────
+     全部来自 EvoLinkAI/awesome-gpt-image-2-API-and-Prompts（17,199★）的电商 / 广告创意用例，
+     每条 brief 都是**照那条用例的原文结构**写的中文版（出处登记在 skillSources.js，
+     原文提示词与自带素材在 docs/design/skill-recipe-library.json）。 */
+  {
+    id: 'image.live_ui', board: 'image', name: '直播带货主图', category: '电商专区', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'accent' },
+    summary: '一张图做出直播间的界面感', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'poster',
+    brief: '做一张直播带货主图（界面感）：画面主体是主播举着{{product}}对着镜头介绍，笑容自然、眼神看镜头；左右两侧是品牌色块与{{brand}}字样，底部压一条促销信息条，右上角留出人气/点赞的数字位。整体像直播截屏但更精致，画面内文字逐字准确、不得臆造价格与销量数字。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'brand', label: '品牌名', kind: 'text', required: true, placeholder: '出现在画面两侧的字' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.callout_diagram', board: 'image', name: '卖点标注图解', category: '电商专区', complexity: 'standard',
+    cover: { template: 'case-3up', accent: 'warm' },
+    summary: '一根根引线把成分与卖点标出来', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '做一张卖点标注图解：{{product}}居中竖放，四周用细引线连到要强调的部位，每条引线配一行短标注——{{points}}。要求：标注排版整齐、指向准确、字号统一，背景干净；画面内文字逐字准确，不得臆造数据与认证标识。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'points', label: '标注点', kind: 'textarea', rows: 3, required: true, placeholder: '每行一条，例如：\n0 蔗糖\n真实果肉\n冷压工艺' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.giant_product', board: 'image', name: '巨型产品广告', category: '电商专区', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'accent' },
+    summary: '把人放进巨型商品的尺度里', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '极简商业广告：把{{product}}放大成巨型装置，人物以自然姿态倚靠或站在它旁边形成尺度反差；单色渐变背景，背景压一行巨大的品牌字{{brand}}，镜面地板带柔和反射，棚拍光干净通透。商品细节与包装文字必须清晰可辨。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'product', slotLabel: '上传商品图（可含人物参考）' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'brand', label: '品牌字', kind: 'text', required: true, placeholder: '背景那行大字' },
+      ratioField(),
+      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.liquid_logo', board: 'image', name: '液态 Logo 海报', category: '创意应用', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'cool' },
+    summary: '品牌 logo 变成一滩会流动的液体', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'brand-kv',
+    brief: '做一张品牌主视觉：{{brand}}的 logo 变成一滩有体积的液态物质——**轮廓必须仍然是品牌 logo 本身**（不是圆形、不是随便一团），表面有水珠与飞溅细节；周围是动态水花，背景压一行巨大的{{brand}}字，整体像高定时尚大片。画面里的字样必须逐字准确。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传品牌 logo 或主视觉参考' },
+      { key: 'brand', label: '品牌名', kind: 'text', required: true },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.landscape_logo', board: 'image', name: '地景 Logo 幻象', category: '创意应用', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'cool' },
+    summary: '品牌形状藏进山川地貌里', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'brand-kv',
+    brief: '做一张"潜意识广告"风景照：把{{brand}}的标志形状**藏进自然地貌本身**——由山脊、沙丘、海岸或雪原的走势自然构成，看起来像地形巧合，不是后期贴上去的图案；光线是自然环境光，画面里不出现任何文字与 logo 贴图。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传品牌标志参考（可选）' },
+      { key: 'brand', label: '品牌名', kind: 'text', required: true },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.sticker_collage', board: 'image', name: '贴纸现实拼贴', category: '创意应用', complexity: 'simple',
+    cover: { template: 'before-after', accent: 'soft' },
+    summary: '在原图上贴满手绘贴纸与便签', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'free',
+    brief: '保持照片的主体、构图与背景**完全不动**，把它改造成"贴纸现实"拼贴：在画面上叠一层像实体贴纸、纸片剪贴与胶带便签的元素，位置略带错位与重叠，像手工剪贴簿；再混入手绘涂鸦（图标、箭头、下划线）。贴纸边缘要有真实投影。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传要改造的照片' },
+      { key: 'notes', label: '便签内容', kind: 'textarea', rows: 2, placeholder: '例如：NEW / 限时 / 主推款' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.showroom_still', board: 'image', name: '展厅静物主视觉', category: '创意应用', complexity: 'standard',
+    cover: { template: 'hero-single', accent: 'neutral' },
+    summary: '限定发售那种高级静物台面', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'brand-kv',
+    brief: '做一张"展厅静物"主视觉，用来宣布限定发售：把{{product}}放在几何台面上，周围配少量呼应品牌的实物道具（{{props}}），背景是干净的展台墙面与柔和的顶光；配色以品牌色为主，构图克制、留白充足，像高端杂志的静物大片。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'props', label: '道具', kind: 'text', placeholder: '例如：金属托盘、亚克力方块、干花' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.tropical_poster', board: 'image', name: '热带饮品海报', category: '电商专区', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'warm' },
+    summary: '夏天汽水那种亮到发光的海报', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '做一张热带风饮品海报：{{product}}居中偏右、略微左倾，瓶身挂满冰凉水珠，内部液体透出光感；背景是明亮的热带色块与水果切片（{{fruits}}），底部压一行{{slogan}}。整体明亮、饱和度高、夏日氛围强，包装上的文字必须清晰准确。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'fruits', label: '水果元素', kind: 'text', placeholder: '例如：橙子、青柠、薄荷叶' },
+      { key: 'slogan', label: '标语', kind: 'text', placeholder: '可选，逐字准确' },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.mono_pastel_ad', board: 'image', name: '单色糖果系广告', category: '电商专区', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'soft' },
+    summary: '整张一个色，巨型品牌字压阵', pipeline: 'visualCreation', availability: 'ready',
+    visual: 'poster',
+    brief: '做一张单色系商业海报：整张图只用一个色系（{{tone}}），背景是巨大的{{brand}}无衬线粗体字几乎顶满画面高度，{{product}}放在字前作为视觉焦点，地面是高反光镜面、有柔和倒影；右上角留一小块品牌标位。画面内文字逐字准确、不得臆造。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'brand', label: '品牌字', kind: 'text', required: true },
+      { key: 'tone', label: '色系', kind: 'segmented', default: '冷调单色', options: [
+        { value: '冷调单色', label: '冷调' }, { value: '暖调单色', label: '暖调' },
+        { value: '粉调单色', label: '粉调' }, { value: '中性灰', label: '中性' },
+      ] },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'image.grain_ad_board', board: 'image', name: '中式广告板', category: '电商专区', complexity: 'standard',
+    cover: { template: 'poster-style', accent: 'warm' },
+    summary: '中文排版的电商广告板（一屏讲完）', pipeline: 'visualCreation', availability: 'needs_ref',
+    visual: 'poster',
+    brief: '做一张中文电商广告板：{{product}}作为主视觉居右，左侧排中文标题{{title}}与三到四条短卖点（{{points}}），底部一条规格信息带（净含量 / 规格 / 卖点图标）；配色厚重（{{tone}}），中文用粗衬线或黑体、层级分明。所有中文必须逐字准确、笔画完整，不得臆造成分与认证。',
+    fields: [
+      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'product', slotLabel: '上传商品图 / 包装图' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      { key: 'title', label: '中文主标题', kind: 'text', required: true, placeholder: '例如：核桃芝麻黑豆粉' },
+      { key: 'points', label: '卖点', kind: 'textarea', rows: 3, placeholder: '每行一条短卖点' },
+      { key: 'tone', label: '色调', kind: 'segmented', default: '黑金', options: [
+        { value: '黑金', label: '黑金' }, { value: '米白', label: '米白' }, { value: '中国红', label: '中国红' },
+      ] },
+      ratioField(),
+    ],
+    cases: [], history: true,
+  },
+
   /* ── 电商专区 ─────────────────────────────────────────────────────────── */
   {
     id: 'image.white_bg', board: 'image', name: '白底商品图', category: '电商专区', complexity: 'standard',
@@ -453,15 +606,27 @@ export const IMAGE_SKILLS = [
       { name: '原图（输入的参考图）', hint: '你上传的那张，作为复刻基准' },
       { name: '复刻图（保持构图与版式）', hint: '换掉商品与卖点，构图节奏不变' },
     ],
+    /* 复刻程度照竞品做成二选一（他们：参考排版 / 高度复刻，各带一句说明）。
+       ⚠️ 这里如实说清：两种口径的差别**体现在提示词的严格程度**上（图生图链路是同一条），
+          不是在引擎里切了不同模型 —— 写清楚才不会让用户以为换了引擎。 */
     id: 'image.copy', board: 'image', name: '图文复刻', category: '创意应用', complexity: 'standard',
     cover: { template: 'before-after', accent: 'cool' },
     summary: '保住构图与节奏，换成自己的内容', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '按参考图的构图与画面节奏复刻一张新图，把主体换成我的素材。补充要求：{{prompt}}。保留参考图的版式结构、光线方向与色调关系，但内容必须是我的商品或人物，不要照搬参考图里的品牌与文字。',
+    brief: '按参考图复刻一张新图，复刻程度：{{degree}}；统一要求：{{rules}}。补充要求：{{prompt}}。' +
+      '（参考排版 = 只借排版与背景结构、人物关系，配色按商品本身来；高度复刻 = 连构图、版式、配色与细节一起复刻，只把商品与卖点换掉。）' +
+      '内容必须是{{product}}本身，不要照搬参考图里的品牌与文字。',
     fields: [
       { key: 'source', label: '原图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传要复刻的图' },
-      { key: 'reference', label: '参考', kind: 'upload', maxImages: 3, role: 'reference', slotLabel: '上传自己的素材' },
-      { key: 'prompt', label: '要求', kind: 'textarea', rows: 3 },
+      { key: 'reference', label: '商品图', kind: 'upload', maxImages: 4, role: 'product', slotLabel: '上传自己的商品图（成组打包参考）' },
+      { key: 'product', label: '商品名', kind: 'text', required: true },
+      /* 复刻程度照竞品二选一；差别体现在提示词的严格程度（同一条图生图链路，不是换引擎） */
+      { key: 'degree', label: '复刻程度', kind: 'segmented', required: true, default: '参考排版', options: [
+        { value: '参考排版', label: '参考排版' },
+        { value: '高度复刻', label: '高度复刻' },
+      ] },
+      { key: 'rules', label: '统一要求', kind: 'textarea', rows: 2, placeholder: '可选，例如：文案统一用英文、人物姿势保持不变、不要替换商品配色' },
+      { key: 'prompt', label: '补充要求', kind: 'textarea', rows: 2 },
       ratioField(),
     ],
     cases: [], history: true,
