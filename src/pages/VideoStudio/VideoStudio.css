@@ -591,15 +591,27 @@
   box-shadow: var(--sb-shadow-sm);
 }
 .video-mode-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-/* ═══ 选中态：从"品牌紫一套"改成**反色面**（2026-09-19 批 H-2）═══════════════════════
-   用户批注 #5-①：「为什么你这些按钮都是紫色的呢？就整个页面看起来一大堆紫色的。很不舒服呀。」
-   站内"当前选中"原来一律是 品牌紫描边 + 品牌浅底 + 品牌字，于是每个控件都贡献一块紫。
-   现在选中 = **深墨实底 + 白字**（与主 CTA 同一族，但更小），
-   品牌紫只留给"图标/链接"这类小面积点缀与唯一一颗主 CTA。 */
+/* ═══ 选中态：改成 liuyingai 那套交互语言（2026-09-19 批 I-⑨）═══════════════════════════
+   用户批注 #1-4（坐标 34.3% / 35.8%）原话：
+     「你**选中为什么是黑色的，完全没有做UI设计啊**，我前面不是叫你学流影AI的做法去做吗，
+       然后不要做这种紫色风格了，不好看啊，学流影AI那种按钮和UI交互的视觉语言去做啊。」
+
+   【先说一个实打实的 bug】批 H-2 我把选中态改成"深墨实底 + 白字"，但**下面第 631 行**
+   又写了一条 .is-selected .video-mode-copy strong { color: var(--sb-ink-1) } ——
+   深墨字压在深墨底上，**选中那一档的文字根本读不出来**（实测截图里就是一团黑）。
+   用户看到的"黑色"就是它：一个没有字的黑块。这条已一并删掉。
+
+   【再说设计】照 docs/design/54 实测的 liuyingai 纪律：
+     · 按钮/卡片默认是**中性面**，选中**不是**大面积反色/品牌色；
+     · **颜色只落在小面积上** —— 那个图标磁贴：品牌渐变 + 白色字形；
+     · 文字跟着变成品牌色（他们的标题也是一变蓝），底色只做一档中性加深。
+   所以现在：底 = --sb-surface-tint-strong（中性加深，不是黑）、描边 = --sb-border-strong、
+   图标磁贴 = 品牌渐变 + 白字形、标题 = --sb-ink-brand、小圆点 = 品牌色。
+   ⚠️ 配色纪律没破：全站大面积仍然只有主 CTA 一处品牌色，这里用的是一块 24×24 的磁贴。 */
 .video-mode-tabs button.is-selected {
-  border-color: var(--sb-surface-inverse);
-  background: var(--sb-surface-inverse);
-  color: var(--sb-ink-on-dark);
+  border-color: var(--sb-border-strong);
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
   box-shadow: none;
 }
 /* 那颗小圆点只在未选中时出现（选中态由描边+底色表达，不需要再点一个点） */
@@ -610,7 +622,7 @@
   background: var(--sb-border-strong);
   transition: background .18s ease;
 }
-.video-mode-tabs button.is-selected > i { background: var(--sb-ink-1); }
+.video-mode-tabs button.is-selected > i { background: var(--sb-ink-brand); }
 .video-mode-icon {
   width: 24px;
   height: 24px;
@@ -622,13 +634,19 @@
   transition: color .18s ease, background .18s ease;
 }
 .video-mode-tabs button:hover .video-mode-icon { transform: none; }
-.video-mode-tabs button.is-selected .video-mode-icon { color: var(--sb-ink-1); background: var(--sb-surface-card); }
+/* 选中：图标磁贴吃品牌渐变 + 白字形（liuyingai 的招牌动作，颜色只在这 24×24 里） */
+.video-mode-tabs button.is-selected .video-mode-icon {
+  color: var(--sb-brand-ink);
+  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
+}
 .video-mode-copy { min-width: 0; display: inline-flex !important; align-items: center; gap: 0; }
 /* 窄按钮里**只留名字**：那句解释（"一句话起步、素材可选"）放进 title 属性 —— 
    用户要的是"一眼看出这是两个可点的按钮"，而不是在一块面板里读两行说明。 */
 .video-mode-tabs .video-mode-copy strong { font-size: 14px; font-weight: 700; }
 .video-mode-tabs .video-mode-copy small { display: none; }
-.video-mode-tabs button.is-selected .video-mode-copy strong { color: var(--sb-ink-1); }
+/* ⚠️ 批 I-⑨：这条原来写的是 color: var(--sb-ink-1)（深墨字）——
+   配上批 H-2 的深墨底就是"黑底黑字"（=用户说的"选中为什么是黑色的"）。现在跟图标磁贴同色。 */
+.video-mode-tabs button.is-selected .video-mode-copy strong { color: var(--sb-ink-brand); }
 .video-composer-input > .mention-prompt-field {
   width: 100%;
   min-height: 92px;

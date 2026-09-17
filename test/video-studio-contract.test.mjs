@@ -113,6 +113,19 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.doesNotMatch(page, /\{ key: 'assets'/);
   assert.match(styles, /\.video-mode-tabs/);
   assert.match(styles, /button\.is-selected \.video-mode-copy strong/);
+  /* ═══ 2026-09-19 批 I-⑨：选中态**不许再出现黑底黑字**（用户批注 #1-4）═════════════════
+     用户原话：「你**选中为什么是黑色的，完全没有做UI设计啊**，我前面不是叫你学流影AI的做法
+     去做吗，然后不要做这种紫色风格了，不好看啊，学流影AI那种按钮和UI交互的视觉语言去做啊。」
+     这是真发过一次的事故：批 H-2 把选中态改成深墨实底 + 白字，但下面
+     .is-selected .video-mode-copy strong 那条又写了 --sb-ink-1（深墨）——
+     深墨字压深墨底，**选中那一档的文字整块读不出来**，用户看到的就是一团没有字的黑块。
+     这条门禁同时守可读与配色三件事：
+       ① 选中态不得再用反色面（--sb-surface-inverse）；
+       ② 选中态标题不得再落回 --sb-ink-1（那正是黑底黑字里的另一半）；
+       ③ 品牌色必须落在**小面积**的图标磁贴上（liuyingai 的纪律：颜色只在小面积）。 */
+  assert.doesNotMatch(styles, /\.video-mode-tabs button\.is-selected \{[^}]*--sb-surface-inverse/, '选中态不得再用反色面（用户 #1-4：选中为什么是黑色的）');
+  assert.doesNotMatch(styles, /\.video-mode-tabs button\.is-selected \.video-mode-copy strong \{[^}]*--sb-ink-1/, '选中态标题不得用深墨（会与底色撞成黑底黑字）');
+  assert.match(styles, /\.video-mode-tabs button\.is-selected \.video-mode-icon \{[^}]*linear-gradient/, '选中态的品牌色必须落在小面积图标磁贴上（liuyingai 纪律）');
   /* 2026-09-14 §18 灰阶迁移：白字改用 --sb-neutral-0（值不变）。断言「解析后为白」。 */
   assert.match(styles, /color:\s*(#fff\b|var\(--sb-neutral-0\))/);
   assert.doesNotMatch(styles, /\.video-model-mark\.is-seedance\s*\{\s*background:\s*conic-gradient/);
