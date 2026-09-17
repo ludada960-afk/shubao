@@ -3395,3 +3395,44 @@ pwsh -NoProfile -File scripts/deploy-production.ps1 -RepoPath F:/da/_deploy-b39 
   若用户要的是与它并列的独立「生成记录」项，需先确认，避免两项指向同一处。
 - 若要让用户知道「还有 8 个模型在接通」：需 `/api/video/capabilities` 多回一个 `unavailableProducts`，
   属「让界面更好看」而非「让能力可用」，本轮未做。
+### 批次四十（续四）：批 H-5 —— 素材卡两边完全一致 + 视频配置面板去标题
+
+#### 1. 用户澄清了 #5-②：「就是图一的卡要跟图二的卡样式完全一致，就是文案可以不一样啊」
+（图一 = 视频生成首页的三张素材卡，图二 = 图片生成首页的两张素材卡）
+
+CDP 逐项对账两个首页的 `.ec-xhs-add-card` 计算样式：
+| | 视频首页 | 图片首页 |
+|---|---|---|
+| 边框 | `1.6px dashed rgba(12,10,9,.1)` | 同 |
+| 圆角 / 底色 / display / direction / align / padding | 12px / 白 / flex / column / center / 0 | 全同 |
+| **外壳尺寸** | **86×108** | **95×115** |
+两张卡本来就是**同一个组件**（`EcommerceAddCard`），除尺寸外逐项相同 ——
+而 95×115 正是 86×108 旋转 5° 后的**包围盒**（86·cos5+108·sin5≈95.1，108·cos5+86·sin5≈115.1）。
+**「看起来不一样」的全部来源就是歪不歪**：图片侧那两张卡带着 ±5° 倾斜，视频侧是正的
+（批 G 时按用户「不必向左歪、向右歪就是正常的放」清零过，用 `.video-material-strip` 前缀压住了它）。
+
+修法：**把图片侧拉直**，而不是把视频侧弄歪 —— 用户同一轮里说过「不必歪」，
+拉直是唯一能同时满足两句话的做法。复测：两边现在都是 86×108，逐项相同。
+
+⚠️ 踩到一个**切片边界陷阱**（值得记）：`test/design-tokens-v3-adoption` 用
+`css.indexOf('.ec-xhs-card-product')` 当 slice 的**结束边界**。如果为了「干净」把这两个已经变成
+`transform:none` 的选择器删掉，`indexOf` 会返回 **-1**，`slice(a, -1)` 不报错，
+而是**静默地改变了检查范围** —— 门禁从此检查的是另一段 CSS。所以选择器保留、值改成 none，并在注释里写明原因。
+（`VideoStudio.css` 里那条「选择器必须带 `.video-material-strip` 前缀才压得住」的注释同样依赖它存在。）
+
+#### 2. 视频配置面板去掉顶部标题（用户批注 #10）
+「配置这边不就这三个维度吗？你要搞那么复杂干什么呢？还有那些多余的上面的标题什么的那些都不要呀。」
+图片侧在批 H-1 已经删过同一块，视频侧当时漏了（于是两边配置面板长得不一样）。补上 `aria-label` 保读屏。
+
+#### 3. ⚠️ 一条**端到端偶发**（重跑即绿，不是代码问题，但要记下来）
+第一次跑 precommit 时，场景 ⑫b 在 `page.click('.media-workbench-tabs button:nth-child(2)')`（历史页签）
+超时 30s：locator **resolved** 到了按钮，但 click 一直被拦截（`attempting click action` 反复重试）。
+工作树内容一字未改，**重跑 precommit 直接通过**。
+→ 这是内嵌视频工作台里的**点击拦截竞态**（大概率是某个浮层/动画在收尾时压住了页签），
+  与本次改动无关；但它会偶发地把发布流程卡在 precommit。下次再遇到，先重跑一次再判断。
+
+#### 4. 发布（批 H-5）
+- 发布提交：**cdadf158** → release `/var/www/shubao/releases/20260918-001346-cdadf158`。
+- **产物逐字节核对**：`assets/index-Ce2gZLp2.js` `8ae5a89d…42b2`、
+  `assets/style-D1MWofuR.css` `e903bb77…22ea` —— 本地与线上完全一致。
+- precommit 通过（第二次）+ 全量 npm run test 3917 条 / 3907 pass / 0 fail / 10 skip。
