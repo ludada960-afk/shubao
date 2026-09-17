@@ -61,9 +61,14 @@
   background: linear-gradient(140deg, var(--sb-surface-tint) 0%, var(--sb-surface-tint-strong) 100%);
   color: var(--sb-ink-3);
 }
-.media-case-card-blank[data-accent='warm'] { background: linear-gradient(140deg, var(--sb-brand-50) 0%, var(--sb-surface-tint-strong) 100%); }
-.media-case-card-blank[data-accent='cool'] { background: linear-gradient(140deg, var(--sb-brand-100) 0%, var(--sb-surface-tint) 100%); }
-.media-case-card-blank[data-accent='soft'] { background: linear-gradient(140deg, var(--sb-surface-card) 0%, var(--sb-brand-50) 100%); }
+/* ⚠️ 2026-09-19 批 H-2：四个 accent 变体**取消紫色底**。
+   理由：总页面一屏 42 张卡，其中 38 张没有案例图 —— 每张铺一层淡紫渐变，
+   合起来就是用户说的「整个页面一大堆紫色的」（批注 #5-①）。
+   现在四档 accent 只在**中性灰的深浅**上有差别（浅/中/更浅/白），
+   紫色只留在中间那个两字字标上（小面积）—— 这正是 liuyingai 的纪律：颜色只落在小面积上。 */
+.media-case-card-blank[data-accent='warm'] { background: linear-gradient(140deg, var(--sb-surface-tint) 0%, var(--sb-surface-tint-strong) 100%); }
+.media-case-card-blank[data-accent='cool'] { background: linear-gradient(140deg, var(--sb-surface-card) 0%, var(--sb-surface-tint-strong) 100%); }
+.media-case-card-blank[data-accent='soft'] { background: linear-gradient(140deg, var(--sb-surface-tint-strong) 0%, var(--sb-surface-card) 100%); }
 /* 字标：42→50px、brand-300→brand-400。
    第一版实测偏"洗掉了"（浅紫压浅底，整排卡看着像禁用态），所以提一档色与字号；
    再叠一层白色径向光晕，让字标看起来是**浮在色面上的印记**而不是没印上去。 */

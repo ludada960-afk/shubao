@@ -57,7 +57,7 @@
 .video-materials > header span { display: grid; gap: 2px; }
 .video-materials > header strong { color: #312d29; font-size: 13px; }
 .video-materials > header small { color: #948c84; font-size: 10px; }
-.video-materials > header b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: #f1ecff; color: var(--sb-brand-600); font-size: 10px; }
+.video-materials > header b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; }
 /* ═══ 全屏创作台（用户批注 3 的「全屏」按钮）═════════════════════════════════════
    走浏览器原生 Fullscreen API（requestFullscreen），所以这里要做的只有一件事：
    全屏之后把页面底色补上 —— 不补的话全屏区域背后是透明+白字，成片台会看不清。
@@ -75,13 +75,15 @@
    （transition 里去掉 transform 的 .2s 也不再需要 —— 抬起统一走 .18s，与站点其余卡片同档。） */
 .video-media-add-card,.video-media-picker { overflow: hidden; border: 1.5px dashed rgba(112,92,72,.28); color: #5f574f; transition: border-color .18s ease,box-shadow .18s ease,background .18s ease,transform .18s ease; }
 .video-media-add-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 9px; text-align: center; cursor: pointer; }
-.video-media-add-card:hover,.video-media-picker:hover { z-index: 2; border-color: var(--sb-brand-a55); background: var(--sb-neutral-0); box-shadow: 0 12px 26px rgba(71,49,30,.14); transform: translateY(-3px); }
+.video-media-add-card:hover,.video-media-picker:hover { z-index: 2; border-color: var(--sb-border-strong); background: var(--sb-neutral-0); box-shadow: 0 12px 26px rgba(71,49,30,.14); transform: translateY(-3px); }
 .video-media-add-card input,.video-media-picker input { display: none; }
-.video-media-add-icon { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--sb-brand-a10); border-radius: 50%; background: var(--sb-brand-50); color: var(--sb-brand-600); }
+/* 空态"加号"的图标磁贴：默认**中性底 + 品牌色图标**（照 liuyingai 的默认态 —— 颜色只落在图标上，
+   不铺底色）。见 docs/design/54。 */
+.video-media-add-icon { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--sb-border-default); border-radius: 50%; background: var(--sb-surface-card); color: var(--sb-brand-600); }
 .video-media-add-card strong,.video-media-picker strong { max-width: 100%; overflow: hidden; color: #37312c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .video-media-add-card small,.video-media-picker small { color: #9a9188; font-size: 10px; line-height: 1.35; }
-.video-media-preview { width: 100%; height: 100%; display: block; object-fit: contain; background: #f4f1ed; }
-.video-media-audio-preview { width: 100%; height: 100%; display: grid; place-content: center; gap: 7px; background: linear-gradient(145deg, var(--sb-brand-50), #fff5e8); color: var(--sb-brand-600); text-align: center; }
+.video-media-preview { width: 100%; height: 100%; display: block; object-fit: contain; background: var(--sb-surface-sunken); }
+.video-media-audio-preview { width: 100%; height: 100%; display: grid; place-content: center; gap: 7px; background: var(--sb-surface-sunken); color: var(--sb-ink-2); text-align: center; }
 .video-media-audio-preview small { color: #766e66; font-size: 10px; font-weight: 700; }
 .video-upload-status { position: absolute; z-index: 2; right: 6px; bottom: 22px; left: 6px; min-height: 18px; display: flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box; padding: 4px 6px; border: 0; border-radius: 6px; background: rgba(31,28,26,.86); color: var(--sb-neutral-0); font: 700 9px/1 inherit; }
 .video-upload-status.is-uploading { display: grid; gap: 4px; }
@@ -191,7 +193,7 @@
 
 /* 素材区右上角的两颗按钮（清空素材 / 全屏）—— 用户批注 3 点名要的两个 */
 .video-materials-actions { display: flex; align-items: center; gap: 8px; }
-.video-materials-actions > b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: #f1ecff; color: var(--sb-brand-600); font-size: 10px; }
+.video-materials-actions > b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; }
 .video-materials-clear,
 .video-materials-fullscreen {
   display: inline-flex; align-items: center; gap: 5px;
@@ -207,7 +209,7 @@
 .video-materials-fullscreen:focus-visible { box-shadow: var(--sb-focus-ring); outline: none; }
 .video-icon-tool,.video-model-trigger { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(45,39,34,.1); border-radius: 8px; background: var(--sb-neutral-0); color: #645e58; cursor: pointer; }
 .video-icon-tool { width: 34px; padding: 0; }
-.video-icon-tool:hover,.video-model-trigger:hover { border-color: var(--sb-brand-a32); background: #faf7ff; color: var(--sb-brand-600); }
+.video-icon-tool:hover,.video-model-trigger:hover { border-color: var(--sb-border-strong); background: var(--sb-surface-tint); color: var(--sb-ink-1); }
 .video-model-trigger { padding: 0 10px; gap: 7px; font: 700 11px/1 inherit; }
 /* 9-11 三轮: 模型控件与其它配置按钮同款 (两行 + 同高) */
 .video-config-trigger.is-model { min-width: 210px; }
@@ -216,7 +218,7 @@
 .video-inline-menu { position: absolute; z-index: 8; left: 0; bottom: calc(100% + 8px); width: min(330px,calc(100vw - 36px)); max-height: min(58vh, 460px); overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 12px; background: var(--sb-surface-panel-solid); box-shadow: 0 15px 40px rgba(45,33,24,.16); }
 .video-inline-menu > strong { display: block; padding: 5px 7px 8px; color: #8d857d; font-size: 10px; }
 .video-inline-menu > button { width: 100%; min-height: 42px; padding: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-radius: 8px; background: transparent; color: #3c3732; text-align: left; cursor: pointer; }
-.video-inline-menu > button:hover,.video-inline-menu > button.is-selected { background: #f5f1ff; color: var(--sb-brand-600); }
+.video-inline-menu > button:hover,.video-inline-menu > button.is-selected { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .video-inline-menu button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-inline-menu button small { color: #9a928a; font-size: 10px; white-space: nowrap; }
 .video-inline-menu.is-model { width: 310px; }
@@ -243,8 +245,8 @@
   cursor: pointer;
   transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
 }
-.video-config-trigger:hover { transform: translateY(-1px); border-color: var(--sb-brand-a32); background: #fcfaff; box-shadow: 0 7px 18px rgba(62,43,26,.09); }
-.video-config-trigger.is-open { border-color: #8465ff; background: #f6f1ff; color: var(--sb-brand-600); box-shadow: 0 6px 18px var(--sb-brand-a18); }
+.video-config-trigger:hover { transform: translateY(-1px); border-color: var(--sb-border-strong); background: var(--sb-surface-tint); box-shadow: 0 7px 18px rgba(62,43,26,.09); }
+.video-config-trigger.is-open { border-color: var(--sb-border-strong); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); box-shadow: 0 6px 18px var(--sb-brand-a18); }
 .video-config-trigger > span { min-width: 0; flex: 1; display: grid; gap: 2px; text-align: left; }
 .video-config-trigger small { color: #99918a; font-size: 10px; font-weight: 600; }
 .video-config-trigger strong { overflow: hidden; color: #2d2925; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
@@ -273,9 +275,11 @@
 .video-submit-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
 .video-submit-row button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 16px var(--sb-brand-a32); }
 .video-submit-row button:disabled { background: #e5e3e0; box-shadow: none; color: #a8a39e; cursor: not-allowed; }
-/* 次按钮：与主按钮同高，渐变描边区分主次层级 */
-.video-submit-row .video-plan-trigger { min-height: 44px; padding: 0 15px; border: 1px solid transparent; border-radius: 8px; background: linear-gradient(#fffdfa,#fffdfa) padding-box, linear-gradient(135deg, var(--sb-brand-a55), rgba(209,77,181,.55)) border-box; box-shadow: none; color: var(--sb-brand-600); font-size: 12px; }
-.video-submit-row .video-plan-trigger:hover:not(:disabled), .video-submit-row .video-plan-trigger:focus-visible { background: linear-gradient(#f6f1ff,#f6f1ff) padding-box, linear-gradient(135deg, var(--sb-brand-600), var(--sb-brand-600)) border-box; box-shadow: 0 6px 16px var(--sb-brand-a18); }
+/* 次按钮（分析并生成方案）：**中性**。原来用"紫→品红渐变描边 + 紫字"来区分主次，
+   结果整页两颗按钮都是紫的（用户批注 #5-①：「为什么你这些按钮都是紫色的呢？整个页面一大堆紫色」）。
+   现在的主次靠**实心 vs 描边**表达，不靠颜色：主 CTA 实心反色面，次按钮白底细描边 + 墨色字。 */
+.video-submit-row .video-plan-trigger { min-height: 44px; padding: 0 15px; border: 1px solid var(--sb-border-default); border-radius: 8px; background: var(--sb-surface-card); box-shadow: none; color: var(--sb-ink-1); font-size: 12px; }
+.video-submit-row .video-plan-trigger:hover:not(:disabled), .video-submit-row .video-plan-trigger:focus-visible { background: linear-gradient(var(--sb-surface-tint-strong),var(--sb-surface-tint-strong)) padding-box, linear-gradient(135deg, var(--sb-ink-1), var(--sb-ink-1)) border-box; box-shadow: 0 6px 16px var(--sb-brand-a18); }
 .video-submit-row .video-generate-trigger.is-armed { box-shadow: 0 8px 20px var(--sb-brand-a32), 0 0 0 3px var(--sb-brand-a18); }
 .video-submit-row .video-generate-trigger.is-armed > svg:first-child { color: #ffe9c9; }
 .video-submit-row button.is-busy > svg:first-child { animation: video-spin .9s linear infinite; }
@@ -289,7 +293,7 @@
 .video-plan-header h2 { margin: 8px 0 5px; color: #292622; font-size: 20px; line-height: 1.3; }
 .video-plan-header p { margin: 0; color: #938a81; font-size: 12px; line-height: 1.6; }
 .video-plan-close { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(68,55,43,.1); border-radius: 12px; background: var(--sb-neutral-0); color: #81786f; cursor: pointer; }
-.video-plan-close:hover { border-color: var(--sb-brand-a32); color: var(--sb-brand-600); }
+.video-plan-close:hover { border-color: var(--sb-border-strong); color: var(--sb-brand-600); }
 .video-plan-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 18px 26px 0; overflow: hidden; border: 1px solid rgba(68,55,43,.09); border-radius: 12px; background: rgba(68,55,43,.08); }
 .video-plan-summary > div { min-width: 0; display: grid; gap: 5px; padding: 13px 14px; background: var(--sb-neutral-0); }
 .video-plan-summary small,.video-plan-material-item small { color: #9b9289; font-size: 10px; }
@@ -300,17 +304,17 @@
 .video-plan-section-title strong { color: #39332e; font-size: 13px; }
 .video-plan-section-title span { color: #9a9188; font-size: 10px; }
 .video-plan-material-map { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.video-plan-material-item { min-width: 0; min-height: 74px; display: grid; align-content: center; gap: 4px; padding: 11px 12px; border: 1px solid var(--sb-brand-a18); border-radius: 12px; background: #faf7ff; }
+.video-plan-material-item { min-width: 0; min-height: 74px; display: grid; align-content: center; gap: 4px; padding: 11px 12px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-tint); }
 .video-plan-material-item > span { color: var(--sb-brand-600); font-size: 10px; font-weight: 800; }
 .video-plan-material-item strong { overflow: hidden; color: #403832; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .video-plan-material-item p { margin: 2px 0 0; color: #81776f; font-size: 10px; line-height: 1.45; }
-.video-plan-strategy { padding: 11px 12px; border: 1px solid var(--sb-brand-a18); border-radius: 12px; background: #faf8ff; color: #62584f; font-size: 11px; line-height: 1.6; }
+.video-plan-strategy { padding: 11px 12px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-tint); color: #62584f; font-size: 11px; line-height: 1.6; }
 /* 9-12 用户批注：模型图标原来是深色渐变底，看起来一团黑（xAI 本身就是黑标更明显）。
    改成竞品那种「白底细边 + 彩色品牌标」，图标本身保持官方配色。 */
 .video-model-mark { flex: 0 0 auto; width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 6px; background: var(--sb-neutral-0); border: 1px solid rgba(61,50,41,.10); color: inherit; }
 .video-inline-menu.is-model button > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
 .video-inline-menu.is-model b { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.video-inline-menu.is-model b em { padding: 2px 5px; border-radius: 4px; background: #f0ecff; color: var(--sb-brand-600); font-size: 10px; font-style: normal; }
+.video-inline-menu.is-model b em { padding: 2px 5px; border-radius: 4px; background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; font-style: normal; }
 .video-inline-menu.is-model .video-model-limit { color: #a0785e; }
 .video-plan-beats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .video-plan-beats article { min-width: 0; min-height: 120px; display: grid; align-content: space-between; gap: 10px; padding: 12px; border: 1px solid rgba(68,55,43,.1); border-radius: 12px; background: var(--sb-neutral-0); }
@@ -320,7 +324,7 @@
 .video-plan-beats article p { margin: 0; color: #90877e; font-size: 11px; line-height: 1.55; }
 .video-plan-beats article > small { overflow: hidden; color: #aaa198; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .video-plan-notices { padding-top: 16px; border-top: 1px solid rgba(68,55,43,.08); }
-.video-plan-notice { display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px; border: 1px solid #e7e0ff; border-radius: 12px; background: #faf8ff; color: var(--sb-brand-600); }
+.video-plan-notice { display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-tint); color: var(--sb-ink-1); }
 .video-plan-notice.is-blocking { border-color: #f7c9c9; background: #fff8f8; color: #c44242; }
 .video-plan-notice > span { min-width: 0; display: grid; gap: 3px; }
 .video-plan-notice strong { color: #4a3f39; font-size: 11px; }
@@ -345,7 +349,7 @@
 }
 .video-config-panel::after { content: ''; position: absolute; left: var(--video-panel-anchor-x); bottom: -6px; width: 12px; height: 12px; border-right: 1px solid rgba(68,55,43,.11); border-bottom: 1px solid rgba(68,55,43,.11); background: rgba(255,255,255,.96); transform: rotate(45deg); }
 .video-config-panel > header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 11px; padding: 16px 18px; border-bottom: 1px solid rgba(68,55,43,.08); background: var(--sb-surface-panel-solid); }
-.video-config-panel > header > span { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--sb-brand-a10); border-radius: 12px; background: #f7f3ff; color: #714cf1; }
+.video-config-panel > header > span { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--sb-border-default); border-radius: 12px; background: #f7f3ff; color: #714cf1; }
 .video-config-panel > header div { display: grid; gap: 3px; }
 .video-config-panel > header strong { font-size: 16px; }
 .video-config-panel > header small { color: #9a928a; font-size: 11px; }
@@ -353,8 +357,8 @@
 
 .video-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .video-mode-grid button { min-height: 82px; padding: 13px; display: grid; align-content: center; gap: 6px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; text-align: left; cursor: pointer; }
-.video-mode-grid button:hover { border-color: var(--sb-brand-a32); background: #fbf9ff; }
-.video-mode-grid button.is-selected { border-color: #7957f5; background: #f5efff; box-shadow: inset 0 0 0 1px rgba(121,87,245,.1); }
+.video-mode-grid button:hover { border-color: var(--sb-border-strong); background: var(--sb-surface-tint); }
+.video-mode-grid button.is-selected { border-color: var(--sb-ink-1); background: #f5efff; box-shadow: inset 0 0 0 1px rgba(121,87,245,.1); }
 .video-mode-grid span { color: #2d2925; font-size: 13px; font-weight: 800; }
 .video-mode-grid small { color: #8e8780; font-size: 11px; line-height: 1.45; }
 
@@ -365,13 +369,13 @@
 .video-panel-section-title span { color: var(--sb-brand-600); font-size: 12px; font-weight: 800; }
 .video-ratio-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 7px; }
 .video-ratio-grid button { min-height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; color: #68615a; font: 700 11px/1 inherit; cursor: pointer; }
-.video-ratio-grid button.is-selected { border-color: #7957f5; background: #f4eeff; color: var(--sb-brand-600); }
+.video-ratio-grid button.is-selected { border-color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .video-ratio-grid i { width: 18px; max-height: 24px; border: 2px solid currentColor; border-radius: 4px; }
 .video-duration-range { width: 100%; accent-color: var(--sb-brand-600); }
 .video-range-labels { display: flex; justify-content: space-between; color: #aaa29a; font-size: 10px; }
 .video-resolution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .video-resolution-grid button { min-height: 66px; padding: 10px 13px; display: grid; gap: 4px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; text-align: left; cursor: pointer; }
-.video-resolution-grid button.is-selected { border-color: #7957f5; background: #f4eeff; color: var(--sb-brand-600); }
+.video-resolution-grid button.is-selected { border-color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .video-resolution-grid b { font-size: 14px; }
 .video-resolution-grid span { color: #928a82; font-size: 11px; }
 .video-sound-choice { width: 100%; min-height: 74px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(64,55,48,.1); border-radius: 12px; background: #faf9f7; cursor: pointer; }
@@ -381,13 +385,13 @@
 .video-sound-choice small { color: #928a82; font-size: 11px; }
 .video-sound-choice > i { width: 35px; height: 20px; position: relative; border-radius: var(--sb-radius-pill); background: #d8d4cf; transition: background .2s; }
 .video-sound-choice > i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--sb-neutral-0); box-shadow: 0 1px 4px rgba(12,10,9,.2); transition: transform .2s; }
-.video-sound-choice.is-selected { border-color: rgba(121,87,245,.35); background: #faf7ff; }
-.video-sound-choice.is-selected > i { background: #7957f5; }
+.video-sound-choice.is-selected { border-color: rgba(121,87,245,.35); background: var(--sb-surface-tint); }
+.video-sound-choice.is-selected > i { background: var(--sb-ink-1); }
 .video-sound-choice.is-selected > i::after { transform: translateX(15px); }
 .video-panel-field { display: grid; gap: 7px; margin-top: 16px; color: #3f3934; font-size: 12px; font-weight: 800; }
 .video-panel-field textarea,.video-panel-field input { width: 100%; box-sizing: border-box; border: 1px solid rgba(64,55,48,.12); border-radius: 8px; background: #faf9f7; padding: 10px 11px; color: #302c28; font: 500 12px/1.55 inherit; outline: 0; }
 .video-panel-field textarea { min-height: 72px; resize: vertical; }
-.video-panel-field textarea:focus,.video-panel-field input:focus { border-color: #7957f5; box-shadow: 0 0 0 3px rgba(121,87,245,.09); }
+.video-panel-field textarea:focus,.video-panel-field input:focus { border-color: var(--sb-ink-1); box-shadow: 0 0 0 3px rgba(121,87,245,.09); }
 .video-panel-field.compact { grid-template-columns: auto 120px 1fr; align-items: center; }
 .video-panel-field.compact small { color: #9b938b; font-weight: 500; }
 
@@ -403,7 +407,7 @@
 .video-history-title { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
 .video-history-title span,.video-history-empty { color: #8a837b; font-size: 11px; }
 .video-history button { min-height: 46px; padding: 8px 10px; display: flex; justify-content: space-between; gap: 12px; border: 1px solid #e7e2dc; background: var(--sb-neutral-0); text-align: left; cursor: pointer; }
-.video-history button.active { border-color: var(--sb-brand-600); box-shadow: inset 3px 0 var(--sb-brand-600); }
+.video-history button.active { border-color: var(--sb-brand-600); box-shadow: inset 3px 0 var(--sb-ink-1); }
 .video-history button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-history button small { flex: 0 0 auto; color: #777068; }
 .video-open-canvas { margin-top: 14px; min-height: 42px; padding: 0 18px; border: 0; border-radius: 8px; background: #202126; color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; }
@@ -525,11 +529,15 @@
   box-shadow: var(--sb-shadow-sm);
 }
 .video-mode-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-/* 选中：品牌紫描边 + 品牌浅底 + 品牌字（与全站 segmented / 页签同一套"当前选中"语义） */
+/* ═══ 选中态：从"品牌紫一套"改成**反色面**（2026-09-19 批 H-2）═══════════════════════
+   用户批注 #5-①：「为什么你这些按钮都是紫色的呢？就整个页面看起来一大堆紫色的。很不舒服呀。」
+   站内"当前选中"原来一律是 品牌紫描边 + 品牌浅底 + 品牌字，于是每个控件都贡献一块紫。
+   现在选中 = **深墨实底 + 白字**（与主 CTA 同一族，但更小），
+   品牌紫只留给"图标/链接"这类小面积点缀与唯一一颗主 CTA。 */
 .video-mode-tabs button.is-selected {
-  border-color: var(--sb-state-selected-line);
-  background: var(--sb-state-selected-bg);
-  color: var(--sb-state-selected-ink);
+  border-color: var(--sb-surface-inverse);
+  background: var(--sb-surface-inverse);
+  color: var(--sb-ink-on-dark);
   box-shadow: none;
 }
 /* 那颗小圆点只在未选中时出现（选中态由描边+底色表达，不需要再点一个点） */
@@ -540,7 +548,7 @@
   background: var(--sb-border-strong);
   transition: background .18s ease;
 }
-.video-mode-tabs button.is-selected > i { background: var(--sb-state-selected-ink); }
+.video-mode-tabs button.is-selected > i { background: var(--sb-ink-1); }
 .video-mode-icon {
   width: 24px;
   height: 24px;
@@ -548,17 +556,17 @@
   place-items: center;
   border-radius: 8px;
   color: var(--sb-brand-600);
-  background: var(--sb-brand-50);
+  background: var(--sb-surface-tint);
   transition: color .18s ease, background .18s ease;
 }
 .video-mode-tabs button:hover .video-mode-icon { transform: none; }
-.video-mode-tabs button.is-selected .video-mode-icon { color: var(--sb-state-selected-ink); background: var(--sb-surface-card); }
+.video-mode-tabs button.is-selected .video-mode-icon { color: var(--sb-ink-1); background: var(--sb-surface-card); }
 .video-mode-copy { min-width: 0; display: inline-flex !important; align-items: center; gap: 0; }
 /* 窄按钮里**只留名字**：那句解释（"一句话起步、素材可选"）放进 title 属性 —— 
    用户要的是"一眼看出这是两个可点的按钮"，而不是在一块面板里读两行说明。 */
 .video-mode-tabs .video-mode-copy strong { font-size: 14px; font-weight: 700; }
 .video-mode-tabs .video-mode-copy small { display: none; }
-.video-mode-tabs button.is-selected .video-mode-copy strong { color: var(--sb-state-selected-ink); }
+.video-mode-tabs button.is-selected .video-mode-copy strong { color: var(--sb-ink-1); }
 .video-composer-input > .mention-prompt-field {
   width: 100%;
   min-height: 92px;
@@ -637,7 +645,7 @@
 .video-lightbox-body header strong { font-size: 13px; color: #37312c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-lightbox-close { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: none; border-radius: 50%; background: #f2efeb; color: #5f574f; cursor: pointer; }
 .video-lightbox-body img, .video-lightbox-body video { display: block; width: 100%; max-height: 68vh; object-fit: contain; background: #14110e; }
-.video-lightbox-audio { display: grid; place-items: center; gap: 18px; padding: 48px 20px; background: linear-gradient(145deg, var(--sb-brand-50), #fff5e8); color: var(--sb-brand-600); }
+.video-lightbox-audio { display: grid; place-items: center; gap: 18px; padding: 48px 20px; background: var(--sb-surface-sunken); color: var(--sb-brand-600); }
 .video-lightbox-audio audio { width: min(480px, 90%); }
 .video-lightbox-body footer { padding: 9px 16px; color: #9a9188; font-size: 11px; text-align: center; border-top: 1px solid rgba(73,59,46,.08); }
 .video-upload-status.is-completed { right: auto; left: 6px; bottom: 22px; min-width: 0; min-height: 0; width: 17px; height: 17px; padding: 0; justify-content: center; border-radius: 50%; background: rgba(25,126,87,.9); }
@@ -664,7 +672,7 @@
   transition: background .16s ease, color .16s ease, border-color .16s ease;
 }
 .video-fuse-group button:hover { background: var(--sb-surface-tint-strong); }
-.video-fuse-group button.is-selected { background: var(--sb-brand-600); border-color: var(--sb-brand-600); color: var(--sb-surface-card); }
+.video-fuse-group button.is-selected { background: var(--sb-surface-inverse); border-color: var(--sb-surface-inverse); color: var(--sb-surface-card); }
 .video-fuse-note {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 6px 0 0; font-size: 12px; color: var(--sb-ink-2);

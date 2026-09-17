@@ -2570,7 +2570,9 @@
 .homepage-mode-card.is-active {
   border-color: var(--sb-state-selected-line);
   background: var(--sb-state-selected-bg);
-  box-shadow: 0 0 0 3px var(--sb-brand-ring), var(--sb-shadow-lg);
+  /* ⚠️ 2026-09-19 批 H-2：选中环从品牌紫改成**墨色**（用户批注 #5-①「一大堆紫色」）。
+     选中态的语义是「当前项」，不是「品牌」，所以它跟 selected-* 三个 token 一起收成中性。 */
+  box-shadow: 0 0 0 3px var(--sb-state-selected-bg), var(--sb-shadow-lg);
 }
 .homepage-mode-showcase + .surface-card { position: relative; z-index: 4; }
 @keyframes homepageModeCardsIn {

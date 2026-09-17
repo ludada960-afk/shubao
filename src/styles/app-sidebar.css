@@ -90,6 +90,14 @@
   cursor: pointer;
   transition: background-color .18s ease, color .18s ease;
 }
+/* ═══ 图标磁贴：照 liuyingai 的「默认无色、悬停才上渐变」（2026-09-19 批 H-2）═══════════
+   实测（docs/design/54）：他们的默认态是**白底 + 有颜色的图标**，
+   悬停时只把 56×56 的**图标磁贴**换成 linear-gradient(135deg, #0076F5, #7D28CC) + scale(1.05) + 图标转白，
+   卡本体只做一次极轻的底色变化。整套"高级感"就来自这条纪律：**颜色只落在小面积上**。
+   我们原来的做法正相反 —— 磁贴是灰的、选中时整块铺品牌渐变、外面还套一层紫底，
+   于是"整个页面一大堆紫色"（用户批注 #5-①）。
+   ⚠️ 端点用我们自己的 --sb-brand-500/700，不抄他们的 #0076F5/#7D28CC ——
+      那是他们的品牌色，混进来会变成两套紫。 */
 .app-sidebar-tile {
   display: grid;
   place-items: center;
@@ -98,21 +106,32 @@
   border-radius: 12px;
   background: var(--sb-surface-card);
   box-shadow: var(--sb-shadow-sm);
-  color: var(--sb-ink-2);
-  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, background-color .18s ease, color .18s ease;
+  color: var(--sb-brand-600);
+  transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), box-shadow .22s ease, background-image .22s ease, color .18s ease;
 }
 .app-sidebar-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: .01em;
+  /* 字是"打上去的"这件事，靠字号/字重/字距三件套解决（用户批注 #11-①：
+     「你下面这些字应该怎么去设计他们，你现在的情况是这些字是直接打上来的，完全没有任何的设计」）：
+     11.5→12px、700→800、字距 .01em→.02em、行高收到 1.1，让两行标签像一个"标签块"而不是一行文本。 */
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: .02em;
   white-space: nowrap;
+  transition: color .18s ease;
 }
 .app-sidebar-cell:hover { background: var(--sb-hover-bg); color: var(--sb-ink-1); }
-.app-sidebar-cell:hover .app-sidebar-tile { transform: translateY(-2px); box-shadow: var(--sb-shadow-3); }
+.app-sidebar-cell:hover .app-sidebar-tile {
+  background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
+  color: var(--sb-brand-ink);
+  transform: scale(1.05);
+  box-shadow: 0 8px 18px var(--sb-brand-a32);
+}
+.app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-ink-1); }
 .app-sidebar-cell:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
-/* 选中态：左侧指示条 + 品牌紫磁贴 + 白图标 + 近黑标签（一眼看出我在哪一页） */
+/* 选中态：**只有磁贴**上渐变（与 hover 同一套视觉），文字转墨色 + 左侧一条细指示条。
+   不再有"品牌浅底铺满整格"—— 那是紫色的主要来源之一。 */
 .app-sidebar-cell.is-active { color: var(--sb-ink-1); }
 .app-sidebar-cell.is-active::before {
   content: '';
@@ -122,16 +141,18 @@
   width: 3px;
   height: 26px;
   border-radius: 0 3px 3px 0;
-  background: var(--sb-brand-600);
+  background: var(--sb-ink-1);
   transform: translateY(-50%);
 }
 .app-sidebar-cell.is-active .app-sidebar-tile {
-  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-600));
+  background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  box-shadow: 0 8px 18px rgba(124, 58, 237, .28);
+  box-shadow: 0 8px 18px var(--sb-brand-a32);
 }
+.app-sidebar-cell.is-active .app-sidebar-label { font-weight: 900; }
 
 /* 底部主动作：开始创作（窄栏里的唯一实色按钮） */
+/* 底部主动作：这一屏唯一的实色按钮（保留品牌渐变 —— 它是"主 CTA"，紫要有且只在这里） */
 .app-sidebar-cta {
   flex: 0 0 auto;
   display: grid;
@@ -141,13 +162,13 @@
   padding: 0;
   border: 0;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-600));
+  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  box-shadow: 0 10px 22px rgba(124, 58, 237, .26);
+  box-shadow: 0 10px 22px var(--sb-brand-a32);
   cursor: pointer;
   transition: transform .18s ease, box-shadow .18s ease;
 }
-.app-sidebar-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(124, 58, 237, .34); }
+.app-sidebar-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 28px var(--sb-brand-a32); }
 .app-sidebar-cta:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
 /* 窄屏：再收一档（只留图标磁贴，文字退场），但导航本身**不消失** ——

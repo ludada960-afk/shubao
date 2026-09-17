@@ -795,12 +795,25 @@
       权威层（V3）不该依赖遗留层（V2），否则 V3 自己都不自洽。
       迁移时已确认 --footer-actions-gap 解析后就是 12px，故此处直接取本层档位。 */
 
-  /* 状态派生（八态） */
+  /* ═══ 状态派生（八态）══════════════════════════════════════════════════════════════
+     ⚠️ 2026-09-19 批 H-2：**「选中」从品牌紫改成中性墨色**（这是用户批注 #5-① 的正解）。
+        用户原话：「为什么你这些按钮都是紫色的呢？就整个页面看起来一大堆紫色的。很不舒服呀
+        你知道吗？而且你这些按钮做的过分简单了。」
+        根因不在某几个按钮，而在**这三个 token 的定义**：
+          selected-bg / selected-line / selected-ink 全站 67 处引用，
+          而它们以前一律等于品牌紫的浅底 / 浅描边 / 品牌字 ——
+          于是每一个 segmented、每一个 chip、每一个页签、每一行选中都贡献一块紫。
+        改法（照 liuyingai 的纪律：**颜色只落在小面积上**，见 docs/design/54）：
+          选中 = 中性浅底 + **墨色描边** + 墨色字。区分"选中"靠对比度与描边，不靠色相。
+          品牌紫从此只出现在：唯一一颗主 CTA、图标/链接这类小面积点缀、
+          以及悬停时那一块小磁贴的渐变。
+        ⚠️ 这不是"少用点紫色"的调参，是**语义修正**：选中态表达的是"当前项"，
+          与品牌色无关；把两者绑在一起才会出现"整页都是紫的"。 */
   --sb-state-hover-bg:      rgba(12, 10, 9, 0.035);
   --sb-state-active-bg:     rgba(12, 10, 9, 0.06);
-  --sb-state-selected-bg:   var(--sb-brand-50);
-  --sb-state-selected-line: var(--sb-brand-200);
-  --sb-state-selected-ink:  var(--sb-brand-600);
+  --sb-state-selected-bg:   var(--sb-surface-tint-strong);
+  --sb-state-selected-line: var(--sb-ink-1);
+  --sb-state-selected-ink:  var(--sb-ink-1);
   --sb-state-disabled-bg:   rgba(12, 10, 9, 0.04);
   --sb-state-disabled-ink:  var(--sb-ink-5);
   --sb-focus-ring:          var(--sb-shadow-ring);
@@ -860,9 +873,10 @@
 
   --sb-state-hover-bg:      rgba(255, 255, 255, 0.06);
   --sb-state-active-bg:     rgba(255, 255, 255, 0.10);
-  --sb-state-selected-bg:   rgba(124, 58, 237, 0.20);
-  --sb-state-selected-line: rgba(167, 139, 250, 0.40);
-  --sb-state-selected-ink:  #C4B5FD;
+  /* 深色主题同一条语义（浅色下是"中性浅底 + 墨色描边"，深色下就是"中性亮底 + 亮描边"） */
+  --sb-state-selected-bg:   rgba(255, 255, 255, 0.14);
+  --sb-state-selected-line: rgba(255, 255, 255, 0.72);
+  --sb-state-selected-ink:  #FFFFFF;
   --sb-state-disabled-bg:   rgba(255, 255, 255, 0.05);
 }
 
