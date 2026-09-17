@@ -3436,3 +3436,46 @@ CDP 逐项对账两个首页的 `.ec-xhs-add-card` 计算样式：
 - **产物逐字节核对**：`assets/index-Ce2gZLp2.js` `8ae5a89d…42b2`、
   `assets/style-D1MWofuR.css` `e903bb77…22ea` —— 本地与线上完全一致。
 - precommit 通过（第二次）+ 全量 npm run test 3917 条 / 3907 pass / 0 fail / 10 skip。
+### 批次四十（续五）：批 H-6 —— liuyingai 的按钮交互落地 + 端到端偶发的真根因
+
+#### 1. 案例卡悬停 4px 渐变进度条（用户批注 #6，照 docs/design/54 实测抄）
+用户原话：「当你的鼠标滑动过去任何一个按钮上面……你下面这条进度条还会从左往右充满。
+然后你的鼠标离开的话……它下面的进度条会从右往左再变回去。这个速度会非常的快。」
+
+逐条搬 liuyingai 的实测值：高 4px / bottom:0 / left:0 / 圆角 0 / 默认 width:0 → 悬停 width:100% /
+transition: width .7s cubic-bezier(.4,0,.2,1)；**靠 width 过渡，不是 transform/scaleX**（他们也是 width）。
+唯一不照抄的是颜色：他们用 #0076F5 → #7D28CC（他们的品牌色），我们用 --sb-brand-500 → -700。
+
+实测（CDP 读计算样式，卡宽 295）：
+`height 4px` / `left 0` / `bottom 0` / `width 0` /
+`background-image linear-gradient(to right, rgb(139,92,246), rgb(109,40,217))` /
+`transition-property width` / `duration 0.7s` / `cubic-bezier(0.4,0,0.2,1)` / `transform none` /
+`pointer-events none` / `aria-hidden true`。
+
+⚠️ 两处如实说明：
+① **「速度非常快」与实测不符**：liuyingai 的 computed 与 5 点采样都是 700ms（400ms 时 87.2%），
+   没有任何更短的配置。按实测值抄 0.7s，没有为迎合那句描述改短。
+② **真实鼠标 hover 的时序采样没测成**：代理的 /hover 路由算坐标不带滚动补偿，
+   而直连 9222 的 /json/list 返回 404（不是标准 CDP HTTP 端点）。所以「悬停 → 充满」这一环
+   由**门禁断言 CSS 规则**保证（新增 ⑧ 共 8 条：尺寸/位置/width 过渡/非 transform/过渡三件套/
+   品牌渐变/纯装饰/减少动效），而不是由实测时序保证。
+
+⚠️ 顺带修掉一个 CSS 顺序坑：减少动效那条覆盖最初写在主规则**之前** ——
+媒体查询不增加特异性，后来的主规则会把它盖掉（等于减少动效完全失效）。已移到文件末尾，
+并把**顺序本身**写成门禁判据（reduceIdx > mainIdx），防止下一个人挪回去。
+
+#### 2. 端到端偶发超时的**真根因**（前两轮各出现一次，这次查清了）
+症状：场景 ⑰ 点「历史」页签时 `page.click` 超时 30s，locator **resolved** 到了按钮但点不中。
+根因：**顶栏是 `position: sticky; top: 0` 的固定横条**。任何「把元素滚进视口」的动作
+（锚点跳转、键盘 Tab、Playwright 的 `scrollIntoViewIfNeeded`）默认都按「滚到视口顶」计算，
+于是目标被顶栏盖住、hit-test 命中的是顶栏 —— Playwright 会**一直重试却从不真正派发点击**
+（所以它不是「偶发慢」而是**卡死**；这也解释了「元素明明在那里却点不中」）。
+修法：`.media-workbench-tabs { scroll-margin-top: 108px }`。
+**这不只是给测试让路** —— 真实用户用键盘 Tab / 锚点跳转时落点同样会被顶栏吃掉，修的是同一个问题。
+验证：修完连跑两次 precommit 均通过（改前两次里红一次）。
+
+#### 3. 发布（批 H-6）
+- 发布提交：**8ba0ff64** → release `/var/www/shubao/releases/20260918-005018-8ba0ff64`。
+- **产物逐字节核对**：`assets/index-CEFtQHQ_.js` `47e79e2a…9512`、
+  `assets/style-CzVUvqqX.css` `f28c1d1c…1c26` —— 本地与线上完全一致。
+- precommit 通过 ×2 + 全量 npm run test **3918 条 / 3908 pass / 0 fail / 10 skip**。
