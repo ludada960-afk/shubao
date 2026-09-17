@@ -94,8 +94,15 @@ function TopBar() {
           </span>
         </button>
 
-        <CreativeDomainNav />
-
+        {/* ═══ 2026-09-19 批 H-4（用户批注 #11-⑤）：「包括你上面的导航栏也是一样的情况。
+            不应该还是左边 LOGO 中间是导航栏。你要看一下别人是怎么做的。」═══════════════
+            原来这里是 [左 LOGO] [中 图片生成/视频生成 域导航] [右 账户] 的标准三段式。
+            现在中间那一段**从顶栏移走**，改成页面内容区顶部的一条**板块切换条**
+            （见下面 .app-board-bar）—— 理由：顶栏的三段式在每一页都占着最贵的位置，
+            而"我现在在哪个板块"只在两个总页面/子页面上才有意义；
+            首页/画布/作品页的顶栏不该被一条用不上的导航占着。
+            ⚠️ CreativeDomainNav 组件本身**没有删**（它承载两个域的数据契约，
+              4 个门禁在读它），只是换了挂载位置。 */}
         {/* Right: 按钮组 */}
         <div className="topbar-actions">
           <ThemeSwitcher />
@@ -283,6 +290,10 @@ function AppRouter() {
     {shell(<>
       <TaskSidebar />
       <TopBar />
+      {/* 板块切换条：只在两个总页面 / 子页面上出现（首页有自己的两张入口卡，不需要它） */}
+      {(page === 'image-creation' || page === 'video-creation') && (
+        <div className="app-board-bar"><CreativeDomainNav /></div>
+      )}
       <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: 'var(--sb-ink-4)' }}>加载中…</div>}>
         <PageComponent key={state._workVersion || 0} />
       </React.Suspense>

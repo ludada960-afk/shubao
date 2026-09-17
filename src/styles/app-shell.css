@@ -10,13 +10,21 @@
   padding-top: 28px;
 }
 
+/* ═══ 2026-09-19 批 H-4：顶栏从「三段式」改成「两端式」═════════════════════════════════
+   用户批注 #11-⑤：「不应该还是左边 LOGO 中间是导航栏。」
+   原来 grid 是三列（左 1fr / 中 auto / 右 1fr），中间那一列专门留给域导航。
+   域导航搬走之后，三列会让右侧按钮组掉进中间列 —— 所以这里同时把布局改成两端式：
+   左 LOGO、右按钮组，中间留白（flex + space-between）。
+   实测过的对照：竞品的顶栏在子页面是「左 返回总页面 / 中 子页面名称 / 右 积分·账户」
+   （用户批注 #12），我们不做返回总页面那一格是因为子页面自己的页头已经有「← 返回创作」，
+   加第二处会变成两个返回按钮。 */
 .topbar-row {
   max-width: 1680px;
   margin: 0 auto;
   padding-inline: 36px;
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sb-space-3);
 }
 
@@ -281,7 +289,7 @@
 .creative-nav-glyph--archive .creative-nav-glyph-stack { width: 14px; height: 10px; border-radius: 4px; }
 
 @media (max-width: 1100px) and (min-width: 640px) {
-  .topbar-row { grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr); padding-inline: 20px; }
+  .topbar-row { padding-inline: 20px; }
   .creative-nav-trigger { padding-inline: 7px; font-size: var(--sb-text-xs); }
   .creative-nav-trigger-label { display: none; }
   .creative-nav-trigger-glyph { width: 20px; height: 20px; }
@@ -651,6 +659,21 @@
 .app-topbar.is-compact .topbar-brand-mark { width: 24px; height: 24px; }
 .app-topbar.is-compact .creative-nav-panel { padding-block: 4px; }
 @media (prefers-reduced-motion: reduce) { .app-topbar { transition: none; } }
+
+/* ═══ 板块切换条：两个总页面 / 子页面内容区的最上面一条（用户批注 #11-⑤ 的落点）════════
+   形态：一条**贴内容**的浅色横条，左对齐放域导航触发器，右侧留空。
+   它不是第二个顶栏 —— 没有背景模糊、没有阴影、不 sticky（滚走就滚走，它不是常驻导航）。 */
+.app-board-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sb-space-3);
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 36px 4px;
+}
+@media (max-width: 900px) {
+  .app-board-bar { padding-inline: 14px; }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    §22 / 原则 4.7 —— 可点必有 hover（移动端创作导航 + 品牌链接，6 处缺口）
