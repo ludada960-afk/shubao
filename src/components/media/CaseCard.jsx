@@ -93,7 +93,9 @@ export default function CaseCard({
           ) : cover ? (
             <img src={cover} alt={title} loading="lazy" />
           ) : (
-            <span className="media-case-card-blank" />
+            /* 没有案例封面时不能留一块空白（批 E：卡大了以后空块更显眼）——
+               与首页精选卡同一个口径：如实写"案例补充中"。 */
+            <span className="media-case-card-blank"><Play size={15} />案例补充中</span>
           )}
           {video && !shouldPlay && <span className="media-case-card-play" aria-hidden="true"><Play size={16} /></span>}
         </span>

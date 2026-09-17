@@ -1,7 +1,7 @@
 /* SkillWorkbench：工作台页面的版式补充（骨架本身在 WorkbenchShell.css）
    色只用已验证 token；每个可点元素都要有 hover 态。 */
 .skill-workbench { display: block; }
-.skill-workbench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.skill-workbench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 15px; }
 .media-workbench-missing { padding: 40px 0; text-align: center; font-size: 13px; color: var(--sb-ink-2); }
 .skill-workbench-lightbox { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(17, 20, 45, .62); }
 /* 对照类案例的大图：两张并排 + 各自小标注（原图 / 成品） */
@@ -10,14 +10,19 @@
 .skill-workbench-lightbox-compare img { max-height: 62vh; width: auto; border-radius: var(--sb-radius-card); }
 .skill-workbench-lightbox-compare em { font-size: 11px; font-style: normal; color: var(--sb-ink-3); text-align: center; }
 
-/* 交付清单（示例页签在还没有案例时的正文）：编号 + 名称 + 一句说明 */
-.skill-deliverable-lead { margin: 0 0 10px; font-size: 12px; color: var(--sb-ink-3); }
-.skill-deliverable-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.skill-deliverable-list li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-card); background: var(--sb-surface-card); }
-.skill-deliverable-no { font-size: 12px; font-weight: 800; color: var(--sb-brand-700); }
-.skill-deliverable-copy { display: grid; gap: 2px; min-width: 0; }
-.skill-deliverable-copy strong { font-size: 13px; color: var(--sb-ink-1); }
-.skill-deliverable-copy small { font-size: 11px; color: var(--sb-ink-3); }
+/* ═══ 交付清单（示例页签在还没有案例时的正文）══════════════════════════════════════
+   2026-09-18 批 F：照竞品实测版式 —— 他们的编号清单是 **4 列网格**（每列 292、间距 15），
+   不是我们原来那条一条竖着排的长列表。用户原话：「示例区是一份编号清单，不是一堆没出处的图」，
+   而"编号 + 名称 + 一句说明"在一个 4 列网格里才读得出"这一套一共有几样"。
+   编号 01/02… 是清单的骨架，字号也照他们那一档放大（12 → 15）。 */
+.skill-deliverable-lead { margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: var(--sb-ink-3); }
+.skill-deliverable-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin: 0; padding: 0; list-style: none; }
+.skill-deliverable-list li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: start; padding: 14px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-card); transition: border-color .18s ease, box-shadow .18s ease; }
+.skill-deliverable-list li:hover { border-color: var(--sb-border-strong); box-shadow: var(--sb-shadow-sm); }
+.skill-deliverable-no { font-size: 15px; font-weight: 800; color: var(--sb-brand-700); }
+.skill-deliverable-copy { display: grid; gap: 3px; min-width: 0; }
+.skill-deliverable-copy strong { font-size: 15px; font-weight: 600; color: var(--sb-ink-1); }
+.skill-deliverable-copy small { font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
 
 .skill-workbench-lightbox-body { position: relative; display: flex; align-items: center; gap: 12px; max-width: min(1080px, 92vw); }
 .skill-workbench-lightbox-body figure { margin: 0; display: grid; gap: 8px; }

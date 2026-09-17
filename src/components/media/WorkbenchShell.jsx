@@ -8,6 +8,23 @@ import React from 'react';
    （他们做不到，明确要求我们做到）；右侧除了示例还要有「历史」页签。
    本组件是工作台的**唯一骨架**：两个板块的 skill 页都必须用它，
    字段一律经 FieldRenderer 渲染，页面里不许再手写控件。 */
+/* ═══ 2026-09-18 批 F：左栏按**分组**排（照竞品实测结构）══════════════════════════════
+   竞品工作台的左栏是分块的：基础信息 / 上传图片 → 目标市场 → 产品卖点与设计风格 →
+   套图结构配置，每块有一个小标题，块与块之间一条浅分割线。
+   我们原来是**一条平铺的字段流** —— 十几个字段从上排到底，用户看不出"这几格是一件事"。
+   分组从哪来：声明源里每个 field 写一个 group 名（不写就落在"默认组"），
+   本组件按**字段出现的先后**决定组的先后（不是另写一张顺序表 —— 那会有第二份真相）。 */
+function groupFields(fields) {
+  const order = [];
+  const map = new Map();
+  for (const field of fields) {
+    const name = field.group || '';
+    if (!map.has(name)) { map.set(name, []); order.push(name); }
+    map.get(name).push(field);
+  }
+  return order.map(name => ({ name, fields: map.get(name) }));
+}
+
 export default function WorkbenchShell({
   title = '',
   subtitle = '',
@@ -36,6 +53,23 @@ export default function WorkbenchShell({
      ⚠️ 只能由用户手势触发：这里是 onClick，页面侧那条链路也必须挂在手势上
         （由 test/charge-requires-confirmation 守着）。 */
   parseAction = null,
+  /* ═══ sections：只读清单块（照竞品「包含模块 已选 0/16」的形态）═════════════════
+     竞品 A+ 页有一块 16 个**可勾选**模块；我们的张数与报价由方案算死，
+     照抄成可勾选会让报价与产出对不上（RTK 批次三十六已定性）。
+     所以同一份清单做成**只读**：每条前面一个勾，标题后面写「已选 N/N」——
+     用户看到的是"这一套会交出哪几样、全都交"，而不是一个会改价钱的开关。
+     形态：{ key, title, note, items: [{ name, hint }] } */
+  sections = [],
+  /* ═══ paidActions：字段旁的付费动作（照竞品实测）═════════════════════════════════
+     竞品工作台里有三颗**明码标价**的按钮长在字段旁边：
+       · 一键解析 · 0.20 积分（解析商品图 → 自动填卖点）
+       · AI生成 · 0.10 积分/张（帮写卖点）
+       · AI推荐风格分析 · 0.10 积分（分析参考图，推荐风格）
+     他们的口径与我们一致：付费动作写清价钱、点一下才扣。所以这几颗按**同一形态**收进来，
+     通过 actions 参数渲染（array of { key, label, points, onRun, runnable, reason, busy }）。
+     ⚠️ 没接通的**不许渲染成按钮**：传 runnable:false + reason，界面如实写清为什么不能点 ——
+        给一个点了没反应的付费按钮比不给更糟（本项目铁律）。 */
+  paidActions = [],
   /* ═══ panel：整块嵌入的既有工作台（小红书图文 / 视频）═══════════════════════════
      用户 9-17 口径：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布」。
      小红书图文与视频这两条链路**各自已有跑通的完整工作台**（分步确认、方案弹窗、任务轮询），
@@ -87,11 +121,58 @@ export default function WorkbenchShell({
             </button>
           )}
           {parseAction?.hint && <p className="media-workbench-parse-hint">{parseAction.hint}</p>}
-          <div className="media-workbench-fields">
-            {fields.map(field => (
-              <FieldSlot key={field.key} field={field} value={values[field.key]} onChange={onFieldChange} disabled={disabled} />
-            ))}
-          </div>
+          {paidActions.length > 0 && (
+            <div className="media-workbench-paid-actions">
+              {paidActions.map(action => (action.runnable ? (
+                <button
+                  key={action.key || action.label}
+                  type="button"
+                  className={'media-workbench-paid' + (action.busy ? ' is-busy' : '')}
+                  disabled={disabled || action.busy}
+                  onClick={() => action.onRun?.()}
+                >
+                  <span>{action.busy ? (action.busyLabel || '处理中…') : action.label}</span>
+                  {action.points != null && <em>{action.points} 积分</em>}
+                </button>
+              ) : (
+                <span className="media-workbench-paid is-off" key={action.key || action.label} title={action.reason || ''}>
+                  <span>{action.label}</span>
+                  {action.points != null && <em>{action.points} 积分</em>}
+                  <small>{action.reason || '暂未开放'}</small>
+                </span>
+              )))}
+            </div>
+          )}
+          {groupFields(fields).map(group => (
+            <section className="media-workbench-group" key={group.name || 'default'}>
+              {group.name && <h3 className="media-workbench-group-title">{group.name}</h3>}
+              <div className="media-workbench-fields">
+                {group.fields.map(field => (
+                  <FieldSlot key={field.key} field={field} value={values[field.key]} onChange={onFieldChange} disabled={disabled} />
+                ))}
+              </div>
+            </section>
+          ))}
+          {sections.map(section => (
+            <section className="media-workbench-group media-workbench-checklist" key={section.key || section.title}>
+              <h3 className="media-workbench-group-title">
+                {section.title}
+                <span className="media-workbench-checklist-count">已选 {section.items.length}/{section.items.length}</span>
+              </h3>
+              {section.note && <p className="media-workbench-group-note">{section.note}</p>}
+              <ul className="media-workbench-checklist-items">
+                {section.items.map(item => (
+                  <li key={item.name}>
+                    <span className="media-workbench-checklist-check" aria-hidden="true">✓</span>
+                    <span className="media-workbench-checklist-copy">
+                      <strong>{item.name}</strong>
+                      {item.hint && <small>{item.hint}</small>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
           <div className="media-workbench-cta">
             <button type="button" className="media-workbench-submit" disabled={disabled || ctaDisabled} onClick={() => onCta?.()}>
               {ctaLabel}

@@ -10,15 +10,17 @@
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--sb-border-default);
-  border-radius: 16px;
+  /* 批 E（用户批注 14「封面要占主导」）：圆角 16 → 18、阴影更沉一点 ——
+     卡片大了以后 16 的圆角配 280 宽会显得"方"，阴影也得跟着加一档才托得住。 */
+  border-radius: 18px;
   background: var(--sb-surface-card);
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 5px 18px rgba(15, 23, 42, .08);
+  box-shadow: 0 6px 22px rgba(15, 23, 42, .09);
   transition: transform .24s ease, box-shadow .24s ease;
 }
 .media-case-card-hit:hover,
-.media-case-card-hit:focus-visible { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(15, 23, 42, .14); }
+.media-case-card-hit:focus-visible { transform: translateY(-4px); box-shadow: 0 16px 38px rgba(15, 23, 42, .16); }
 .media-case-card-cover {
   position: absolute;
   inset: 0;
@@ -42,7 +44,22 @@
 .media-case-card-cover img,
 .media-case-card-cover video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .media-case-card-hit:hover .media-case-card-cover { transform: scale(1.04); }
-.media-case-card-blank { display: block; width: 100%; height: 100%; background: var(--sb-surface-tint-strong); }
+/* 还没有案例的技能：封面位不是"一块什么都没有的灰"。
+   卡放大到 260 宽以后，纯灰空块占了整张卡的 3/4，看着像加载失败；
+   这里给它一个居中标记 + 一句实话（与首页精选卡上的"案例补充中"同一口径：
+   没有案例是**如实**的，不是坏掉了）。 */
+.media-case-card-blank {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-3);
+  font-size: 12.5px;
+  font-weight: 600;
+}
 .media-case-card-play {
   position: absolute;
   right: 10px;
@@ -73,13 +90,15 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  /* 批 E：卡大了，标题区跟着放大（14/11 → 15.5/12.5）——
+     280 宽的卡配 14px 标题会显得"字小图大"，主次反过来。 */
+  padding: 16px 18px;
 }
 .media-case-card-titles { min-width: 0; flex: 1; display: block; }
 .media-case-card-title {
   display: block;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15.5px;
+  font-weight: 800;
   line-height: 1.25;
   color: var(--sb-ink-1);
   overflow: hidden;
@@ -88,9 +107,9 @@
 }
 .media-case-card-subtitle {
   display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  line-height: 1.3;
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.4;
   color: var(--sb-ink-2);
   overflow: hidden;
   text-overflow: ellipsis;

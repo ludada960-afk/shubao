@@ -1,31 +1,41 @@
-/* 卡片网格 + 分组标题（首页热门技能条 / 图片 Hub / 视频 Hub 共用一份）
-   实测口径（竞品 /apps 与 /image-creation 两个总页面用的是同一套）：
-     · 分组标题 = 13px 中性灰 + 前面一根小竖条（不是粗黑大字）
-     · 网格 = 12px 间距、按可用宽度自适应；卡片本身是 4:3（CaseCard 里）
+/* ═══ 卡片网格 + 分组标题（首页热门条 / 图片 Hub / 视频 Hub 共用一份）═══════════════
+   实测口径（竞品 /apps 与 /image-creation 两个总页面用的是同一套）。
+   ⚠️ 2026-09-18 批 E（用户批注 13 / 14）：原话是
+     「你这个总的 skill 页面他们的视觉上看起来就是很小气，我需要你像他们那样子去拉满视觉」
+     「你做得太窄太小气了，人家的卡片是很大的、封面占主导」。
+   实测我们改前的样子：**一行挤 5 张 214×160 的卡**、间距 12、标题 14、
+   分组标题 13px/500 —— 密度像一份表格，不像一个"选一个开始做"的橱窗。
+   所以这一版把"拉满"拆成四条可判据的改动（都在下面这几行里，不散落）：
+     ① 一行 4 张（minmax 200 → 236）：卡片 214×160 → 约 280×210，封面面积 +80%；
+        （实测标定：minmax 264 在 1440 视口下只排 3 张、单卡 353 宽 —— 太大就成了海报墙，
+          竞品那种"一眼四张"的目录感反而没了。236 是这一档宽度下刚好四张的值。）
+     ② 间距 12 → 18（组内）：卡片之间要有呼吸，密不透风就是"小气"的来源；
+     ③ 分组标题 13/500 → 17/800（近黑）：分组是**层级信息**，得看得见（原则 6.1：不染品牌色）；
+     ④ 卡片圆角 16 → 18、hover 上浮 2 → 4（见 CaseCard.css）：符合"封面占主导"的重量。
    三个地方共用这一份，避免"首页的卡片比 Hub 里大一圈"这类漂移。 */
-.media-gallery { display: grid; gap: 12px; }
-.media-gallery-group { display: grid; gap: 12px; margin-top: 6px; }
+.media-gallery { display: grid; gap: 16px; }
+.media-gallery-group { display: grid; gap: 16px; margin-top: 10px; }
 .media-gallery-group > h2 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
-  padding: 12px 0 2px;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: .02em;
-  color: var(--sb-ink-2);
+  padding: 14px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .01em;
+  color: var(--sb-ink-1);
 }
 .media-gallery-group > h2::before {
   content: '';
   display: inline-block;
-  width: 2px;
-  height: 14px;
+  width: 3px;
+  height: 18px;
   border-radius: 2px;
-  background: var(--sb-border-default);
+  background: var(--sb-border-strong);
 }
 .media-gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  gap: 18px;
 }

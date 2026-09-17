@@ -41,7 +41,19 @@ test('② 字段只能用 FieldRenderer 登记过的档位（页面不得手写�
       assert.ok(FIELD_KINDS.includes(field.kind), '未登记的字段档位：' + skill.id + ' / ' + field.key + ' = ' + field.kind);
       assert.equal(kinds.has(field.key), false, '同一 Skill 内 key 必须唯一：' + skill.id + ' / ' + field.key);
       kinds.add(field.key);
-      assert.ok(field.label && field.label.length <= 6, '字段名要极简（实测口径：就"比例""清晰度"这种）：' + skill.id + ' / ' + field.key);
+      /* ⚠️ 2026-09-18 批 F：这条原来卡的是 **label 长度 ≤ 6**（"就'比例''清晰度'这种"）。
+         改判据的理由（不是为了让测试过而放宽）：用户批注 17 的原话是
+         「你要真的去抓他们的**字段名**、全部选项、上传位数、按钮价格、编号交付清单，然后照着做，
+         不要凭想象」—— 竞品有几个字段名本身就超过 6 字：
+           「统一复刻要求（选填）」(10)、「上传姿势参考图」(7)、「上传背景参考图」(7)。
+         照着抄与"≤6 字"直接冲突，而**用户的口径优先**。所以这条守的是它本来的意图：
+           · 短标签必须**短**（≤6）—— 这是绝大多数（90+ 条技能字段）；
+           · 超长的必须在声明里写明**为什么**（field.longLabelReason），
+             否则就是随手写长的 —— 那才是这条门禁真正要拦的东西。 */
+      const longLabelOk = field.label.length <= 6
+        || (typeof field.longLabelReason === 'string' && field.longLabelReason.trim().length >= 12);
+      assert.ok(field.label && longLabelOk,
+        '字段名要极简（超 6 字必须在声明里写 longLabelReason 说明为什么）：' + skill.id + ' / ' + field.key + ' = ' + field.label);
       if (field.kind === 'stepper') assert.ok(Number(field.min) >= 1 && Number(field.max) >= Number(field.min), 'stepper 必须有合法区间：' + skill.id + ' / ' + field.key);
     }
   }

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Library, RotateCcw } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ImagePlus, Library, Maximize2, RotateCcw, X } from 'lucide-react';
 
 import MediaAssetCard from './MediaAssetCard.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
@@ -183,6 +184,70 @@ function UploadControl({ field, value, onChange, disabled }) {
   );
 }
 
+/* 多行文本 + 「放大」：放大框要有自己的开合状态，所以单独成一个组件
+   （control() 是普通函数，不能在它里面用 useState —— 那是 hooks 规则，会整页崩）。 */
+function TextareaControl({ field, value, onChange, disabled }) {
+  const [expanded, setExpanded] = useState(false);
+  const id = 'field-' + field.key;
+  const common = { id, disabled, 'aria-label': field.label };
+  return (
+    <span className="media-field-textarea">
+      <textarea
+        {...common}
+        className="media-field-control"
+        rows={field.rows || 3}
+        maxLength={field.maxLength || 2000}
+        placeholder={field.placeholder || ''}
+        value={value ?? ''}
+        onChange={event => onChange(event.target.value)}
+      />
+      {/* 「放大」：竞品在卖点框右上角那一颗 —— 点开一个居中的大编辑框。
+          为什么值得做：他们的 placeholder 是一份**多行字段模板**（产品名/核心卖点/…），
+          在 150px 高的框里写五段字确实憋屈；他们做了放大，我们也得有。 */}
+      {field.expandable !== false && (
+        <button
+          type="button"
+          className="media-field-expand"
+          disabled={disabled}
+          aria-label={(field.label || '文本') + '放大编辑'}
+          title="放大编辑"
+          onClick={() => setExpanded(true)}
+        ><Maximize2 size={13} />放大</button>
+      )}
+      {expanded && createPortal(
+        <div
+          className="media-field-expand-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={(field.label || '文本') + '放大编辑'}
+          onMouseDown={event => { if (event.target === event.currentTarget) setExpanded(false); }}
+        >
+          <div className="media-field-expand-body">
+            <header>
+              <strong>{field.label || '编辑'}</strong>
+              <span>{String(value ?? '').length}/{field.maxLength || 2000}</span>
+              <button type="button" className="media-field-expand-close" aria-label="关闭放大编辑" onClick={() => setExpanded(false)}><X size={16} /></button>
+            </header>
+            <textarea
+              autoFocus
+              className="media-field-control"
+              maxLength={field.maxLength || 2000}
+              placeholder={field.placeholder || ''}
+              value={value ?? ''}
+              onChange={event => onChange(event.target.value)}
+              onKeyDown={event => { if (event.key === 'Escape') setExpanded(false); }}
+            />
+            <footer>
+              <button type="button" className="media-field-expand-done" onClick={() => setExpanded(false)}>完成</button>
+            </footer>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </span>
+  );
+}
+
 function control(kind, field, value, onChange, disabled) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
@@ -225,19 +290,7 @@ function control(kind, field, value, onChange, disabled) {
       </span>
     );
   }
-  if (kind === 'textarea') {
-    return (
-      <textarea
-        {...common}
-        className="media-field-control"
-        rows={field.rows || 3}
-        maxLength={field.maxLength || 2000}
-        placeholder={field.placeholder || ''}
-        value={value ?? ''}
-        onChange={event => onChange(event.target.value)}
-      />
-    );
-  }
+  if (kind === 'textarea') return <TextareaControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   if (kind === 'upload') {
     return <UploadControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }

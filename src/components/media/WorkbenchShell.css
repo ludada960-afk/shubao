@@ -2,8 +2,46 @@
    实测口径（知渔）：左「参数配置」+右「作品示例」；字段名极简、必填打 *；左栏底部一个 CTA。
    颜色只用已验证存在的 --sb-* token，不写色值兜底；描边与投影用 rgba 阴影；
    每个可点元素都必须有 hover 态（interactive-state-coverage 门禁要求）。 */
-.media-workbench { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 22px; align-items: start; }
-.media-workbench-left { display: grid; gap: 14px; align-content: start; }
+/* ═══ 2026-09-18 批 F：工作台版式对齐竞品实测（用户批注 15 / 16 / 17）═══════════════
+   竞品实测（CDP 量过，见 docs/design/50-quantv-subpage-field-spec.md）：
+     · 左栏（参数列）宽 **570**，可用内容宽 **520**，内边距 24.8/19.84；
+     · 控件：select 高 **52**、圆角 10、1px 浅边（rgb(225,225,225)）、白底、字号 **16.12**；
+       textarea 圆角 12、内边距 14.88、行高 24.8；
+     · 字段标签在控件**上方**，字号 16.12 / 500 / 近黑；
+     · 区块标题（基础信息 / 上传图片 / 复刻设置…）字号 **17.36** / 500；
+     · 右栏是一整块**白面板**（圆角 12、内边距 24.8/29.76），页签在它内部；
+     · 示例区是 4 列网格（每列 292、间距 14.88），条目是**编号清单**（01 白底主图…）。
+   用户原话：「他们里面的那些工作台都是可以下拉的，做的很长……你要真的去抓他们的字段名、
+   全部选项、上传位数、按钮价格、编号交付清单，然后照着做，不要凭想象。」
+   所以下面这些数值**不是我调的，是量出来的**；只做一件事：把 px 换成我们的 token/整数档
+   （52 → 52，16.12 → 16，17.36 → 17，14.88 → 15），避免引入一堆小数。 */
+.media-workbench { display: grid; grid-template-columns: minmax(320px, 570px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.media-workbench-left {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+  padding: 24px 20px 28px;
+  border-right: 1px solid var(--sb-border-subtle);
+}
+/* 分组（基础信息 / 上传图片 / 复刻设置 …）：标题 + 分割线，块与块之间留得住呼吸 */
+.media-workbench-group { display: grid; gap: 12px; }
+.media-workbench-group + .media-workbench-group { padding-top: 22px; border-top: 1px solid var(--sb-border-subtle); }
+.media-workbench-group-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--sb-ink-1);
+}
+.media-workbench-group-note { margin: 0; font-size: 13px; line-height: 1.55; color: var(--sb-ink-3); }
+/* 只读交付清单（照竞品「包含模块 已选 0/16」的形态；不可勾选是钱路上的硬约束） */
+.media-workbench-checklist-count { font-size: 15px; font-weight: 600; color: var(--sb-ink-3); }
+.media-workbench-checklist-items { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
+.media-workbench-checklist-check { flex: 0 0 auto; font-size: 15px; font-weight: 800; color: var(--sb-brand-600); line-height: 1.5; }
+.media-workbench-checklist-copy { display: grid; gap: 1px; min-width: 0; }
+.media-workbench-checklist-copy strong { font-size: 15px; font-weight: 600; color: var(--sb-ink-1); }
+.media-workbench-checklist-copy small { font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
 .media-workbench-back {
   justify-self: start;
   padding: 4px 10px;
@@ -15,11 +53,11 @@
   cursor: pointer;
 }
 .media-workbench-back:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
-.media-workbench-head { display: grid; gap: 4px; }
-.media-workbench-category { font-size: 12px; color: var(--sb-ink-3); }
-.media-workbench-head h2 { margin: 0; font-size: 18px; color: var(--sb-ink-1); }
-.media-workbench-head p { margin: 0; font-size: 12px; color: var(--sb-ink-2); }
-.media-workbench-fields { display: grid; gap: 12px; }
+.media-workbench-head { display: grid; gap: 6px; }
+.media-workbench-category { font-size: 13px; color: var(--sb-ink-3); }
+.media-workbench-head h2 { margin: 0; font-size: 24px; line-height: 1.2; color: var(--sb-ink-1); }
+.media-workbench-head p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--sb-ink-2); }
+.media-workbench-fields { display: grid; gap: 18px; }
 /* 一键解析：付费前置动作（0.2 积分）。价格写在按钮上，别让人猜；
    它是"帮我把字段填好"的动作，不是生成动作 —— 所以用次级按钮的视觉重量。 */
 .media-workbench-parse {
@@ -35,46 +73,131 @@
 .media-workbench-parse:active:not(:disabled) { background: var(--sb-surface-tint-strong); }
 .media-workbench-parse:disabled { opacity: .55; cursor: not-allowed; }
 .media-workbench-parse em { font-style: normal; font-size: 12px; font-weight: 800; color: var(--sb-brand-700); }
-.media-workbench-parse-hint { margin: 0; font-size: 11px; color: var(--sb-ink-3); }
-.media-field { display: grid; gap: 6px; }
-.media-field-label { display: inline-flex; gap: 3px; font-size: 12px; color: var(--sb-ink-2); }
+.media-workbench-parse-hint { margin: 0; font-size: 13px; color: var(--sb-ink-3); }
+/* ── 付费动作（一键解析 / AI生成 / AI推荐风格分析）：价钱必须写在按钮上 ─────────────
+   竞品实测：那颗按钮是「AI推荐 · 0.10 积分」的实底按钮，价钱就在标签里。
+   未接通的动作渲染成**静态说明行**（带原因），不是按钮 —— 点了没反应最伤信任。 */
+.media-workbench-paid-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.media-workbench-paid {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 45px; padding: 10px 18px; flex: 1 1 auto;
+  border: 1px solid var(--sb-border-default); border-radius: 10px;
+  background: var(--sb-surface-card); color: var(--sb-ink-1);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.media-workbench-paid:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
+.media-workbench-paid:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-workbench-paid:disabled { opacity: .6; cursor: not-allowed; }
+.media-workbench-paid em { font-style: normal; font-size: 14px; font-weight: 700; color: var(--sb-brand-700); }
+.media-workbench-paid.is-off { flex-direction: column; align-items: flex-start; gap: 2px; cursor: default; border-style: dashed; }
+.media-workbench-paid.is-off:hover { background: var(--sb-surface-card); border-color: var(--sb-border-default); }
+.media-workbench-paid.is-off small { font-size: 12px; color: var(--sb-ink-3); }
+/* 字段：标签在上、控件在下（竞品实测同款）。控件高 52 —— 他们的 select 就是 52，
+   我们原来是 8px 内边距的自适应高度（约 34），在一栏 520 宽的表单里显得很"小气"。 */
+.media-field { display: grid; gap: 8px; }
+.media-field-label { display: inline-flex; gap: 3px; font-size: 16px; font-weight: 500; color: var(--sb-ink-1); }
 .media-field-label b { color: var(--sb-brand-600); font-weight: 600; }
 .media-field-control {
   width: 100%;
-  padding: 8px 10px;
-  border: 0;
+  min-height: 52px;
+  padding: 12px 15px;
+  border: 1px solid var(--sb-border-default);
   border-radius: 10px;
   background: var(--sb-surface-card);
-  box-shadow: 0 0 0 1px rgba(17, 20, 45, .1);
+  box-shadow: none;
   color: var(--sb-ink-1);
-  font-size: 13px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.6;
 }
-.media-field-control:hover { box-shadow: 0 0 0 1px rgba(17, 20, 45, .16); }
-.media-field-hint { font-size: 11px; color: var(--sb-ink-3); }
-.media-field-segmented { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 12px; resize: vertical; }
+.media-field-control:hover { border-color: var(--sb-border-strong); }
+.media-field-control:focus-visible { outline: none; border-color: var(--sb-brand); box-shadow: var(--sb-focus-ring); }
+.media-field-hint { font-size: 13px; color: var(--sb-ink-3); }
+/* ── 多行文本的「放大」（照竞品那颗按钮：卖点框右上角）────────────────────────── */
+.media-field-textarea { position: relative; display: block; }
+.media-field-expand {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.media-field-expand:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
+.media-field-expand:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-field-expand:disabled { opacity: .5; cursor: not-allowed; }
+/* 放大编辑框：居中一个够大的编辑面，内容长了在里面滚 */
+.media-field-expand-modal {
+  position: fixed; inset: 0; z-index: 1200;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: rgba(17, 20, 45, .45);
+}
+.media-field-expand-body {
+  display: grid; gap: 14px;
+  width: min(760px, 100%);
+  padding: 20px 22px 18px;
+  border-radius: 16px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-3);
+}
+.media-field-expand-body header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.media-field-expand-body header strong { font-size: 18px; font-weight: 700; color: var(--sb-ink-1); }
+.media-field-expand-body header span { margin-left: auto; font-size: 13px; color: var(--sb-ink-3); }
+.media-field-expand-close {
+  display: grid; place-items: center; width: 32px; height: 32px;
+  border: 0; border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-tint); color: var(--sb-ink-2); cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
+}
+.media-field-expand-close:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-field-expand-body textarea { min-height: min(52vh, 420px); }
+.media-field-expand-body footer { display: flex; justify-content: flex-end; }
+.media-field-expand-done {
+  min-height: 45px; padding: 10px 26px;
+  border: 0; border-radius: 10px;
+  background: var(--sb-brand-600); color: var(--sb-surface-card);
+  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: background-color .18s ease;
+}
+.media-field-expand-done:hover { background: var(--sb-brand-700); }
+.media-field-expand-done:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-field-segmented { display: flex; gap: 8px; flex-wrap: wrap; }
 .media-field-segmented button {
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 9px;
-  background: var(--sb-surface-tint);
+  flex: 1 1 auto;
+  min-height: 45px;
+  padding: 10px 14px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 10px;
+  background: var(--sb-surface-card);
   color: var(--sb-ink-2);
-  font-size: 12px;
+  font: inherit;
+  font-size: 15px;
   cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
 }
-.media-field-segmented button:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
-.media-field-segmented button.is-active { background: var(--sb-brand-600); color: var(--sb-surface-card); }
-.media-field-stepper { display: inline-flex; align-items: center; gap: 10px; }
+.media-field-segmented button:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
+.media-field-segmented button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-field-segmented button.is-active {
+  background: var(--sb-state-selected-bg);
+  color: var(--sb-state-selected-ink);
+  border-color: var(--sb-state-selected-line);
+}
+.media-field-stepper { display: inline-flex; align-items: center; gap: 12px; }
 .media-field-stepper button {
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--sb-surface-tint);
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 10px;
+  background: var(--sb-surface-card);
   color: var(--sb-ink-1);
+  font-size: 17px;
   cursor: pointer;
 }
-.media-field-stepper button:hover:not(:disabled) { background: var(--sb-surface-tint-strong); }
-.media-field-stepper output { min-width: 24px; text-align: center; font-size: 13px; color: var(--sb-ink-1); }
+.media-field-stepper button:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
+.media-field-stepper output { min-width: 30px; text-align: center; font-size: 16px; font-weight: 600; color: var(--sb-ink-1); }
 .media-field-slot {
   padding: 10px 12px;
   border: 0;
@@ -85,70 +208,96 @@
   cursor: pointer;
 }
 .media-field-slot:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
-.media-workbench-cta { display: flex; align-items: center; gap: 10px; }
+/* 主 CTA：竞品那颗是 55px 高、510 宽的整行按钮，积分写在按钮里。
+   我们的口径一样（价格必须在按钮上），尺寸对齐到同一档。 */
+.media-workbench-cta { display: flex; align-items: center; gap: 12px; }
 .media-workbench-submit {
   flex: 1;
-  padding: 10px 16px;
+  min-height: 55px;
+  padding: 14px 20px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--sb-brand-600);
   color: var(--sb-surface-card);
-  font-size: 13px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
+  transition: box-shadow .18s ease, background-color .18s ease;
 }
-.media-workbench-submit:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(17, 20, 45, .18); }
+.media-workbench-submit:hover:not(:disabled) { background: var(--sb-brand-700); box-shadow: 0 8px 22px rgba(17, 20, 45, .2); }
+.media-workbench-submit:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-workbench-submit:disabled { opacity: .5; cursor: not-allowed; }
-.media-workbench-points { font-size: 12px; color: var(--sb-ink-2); }
-.media-workbench-right { display: grid; gap: 12px; min-width: 0; }
-.media-workbench-tabs { display: inline-flex; gap: 6px; }
+.media-workbench-points { font-size: 15px; font-weight: 600; color: var(--sb-ink-2); }
+/* 右栏 = 一整块白面板（竞品实测：圆角 12、内边距 24.8/29.76、白底、铺满高度）。
+   页签在面板**内部**，不是浮在面板外面的一排药丸。 */
+.media-workbench-right {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding: 24px 28px 28px;
+  border-radius: 12px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-sm);
+}
+.media-workbench-tabs { display: inline-flex; gap: 4px; }
 .media-workbench-tabs button {
-  padding: 6px 12px;
+  padding: 9px 18px;
   border: 0;
-  border-radius: 999px;
-  background: var(--sb-surface-tint);
-  color: var(--sb-ink-2);
-  font-size: 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sb-ink-3);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
 }
 .media-workbench-tabs button:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
-.media-workbench-tabs button.is-active { background: var(--sb-surface-card); color: var(--sb-ink-1); box-shadow: 0 0 0 1px rgba(17, 20, 45, .1); }
+.media-workbench-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-workbench-tabs button.is-active { background: var(--sb-surface-card); color: var(--sb-ink-1); box-shadow: var(--sb-shadow-sm); }
 .media-workbench-pane { min-height: 200px; }
-.media-workbench-empty { margin: 0; padding: 28px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }
+.media-workbench-empty { margin: 0; padding: 36px 0; text-align: center; font-size: 15px; color: var(--sb-ink-3); }
 
 /* ── 上传位（FieldRenderer 的 upload 档）───────────────────────────────────────
    缩略图直接用 MediaAssetCard 的唯一实现（扇形歪卡是本站的素材卡语言），
    这里只负责排布与尺寸，不重复定义卡片视觉。
    失败态就地留在卡下方并可重试 —— 不做瞬时 Toast（本项目铁律）。 */
-.media-field-upload { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 8px; }
+/* 上传卡尺寸对齐竞品实测：他们的上传区是 390×119 的虚线大卡（不是 104px 小方块）——
+   上传是这条链路的第一步，卡太小会让人以为"随便传一张就行"。 */
+.media-field-upload { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 10px; }
 .media-field-upload-item { display: grid; gap: 5px; justify-items: start; }
-.media-field-upload .media-asset-card { width: 104px; }
+.media-field-upload .media-asset-card { width: 120px; }
 .media-field-upload .media-asset-card + .media-asset-card { margin-left: -14px; }
 .media-field-upload-add {
   display: grid;
   place-items: center;
-  gap: 4px;
-  width: 104px;
-  min-height: 78px;
-  padding: 8px 6px;
-  border: 1px dashed var(--sb-border-default);
-  border-radius: 14px;
+  gap: 8px;
+  width: 100%;
+  max-width: 390px;
+  min-height: 119px;
+  padding: 16px 12px;
+  border: 1px dashed var(--sb-border-strong);
+  border-radius: 12px;
   background: var(--sb-surface-tint);
   color: var(--sb-ink-2);
-  font-size: 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background .18s ease, color .18s ease;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
 }
 .media-field-upload-add:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .media-field-upload-add:disabled { opacity: .5; cursor: not-allowed; }
-.media-field-upload-add small { font-size: 11px; color: var(--sb-ink-3); }
+.media-field-upload-add small { font-size: 14px; font-weight: 400; color: var(--sb-ink-3); }
 /* 第二个入口：从资产库选择（竞品实测同款）。它是**并列**的第二条路，不是次要按钮 ——
    上一轮刚生成的成品要再用一次，走这里比"下载再上传"少两步。 */
 .media-field-upload-library {
-  display: inline-flex; align-items: center; gap: 5px;
-  align-self: center; padding: 8px 12px;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-chip);
-  background: var(--sb-surface-card); color: var(--sb-ink-2);
-  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  align-self: center; min-height: 45px; padding: 10px 18px;
+  border: 1px solid var(--sb-border-default); border-radius: 10px;
+  background: var(--sb-surface-card); color: var(--sb-ink-1);
+  font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;
   transition: background-color .18s ease, color .18s ease, border-color .18s ease;
 }
 .media-field-upload-library:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
@@ -156,7 +305,7 @@
 .media-field-upload-library:active:not(:disabled) { background: var(--sb-surface-tint-strong); }
 .media-field-upload-library:disabled { opacity: .5; cursor: not-allowed; }
 /* 说明文案：能传什么、能传多大，写在卡片下面（照竞品原文） */
-.media-field-upload-hint { flex-basis: 100%; font-size: 11px; color: var(--sb-ink-3); }
+.media-field-upload-hint { flex-basis: 100%; font-size: 14px; color: var(--sb-ink-3); }
 .media-field-upload-retry {
   display: inline-flex;
   align-items: center;
@@ -171,7 +320,7 @@
 }
 .media-field-upload-retry:hover { background: var(--sb-brand-600); color: var(--sb-surface-card); }
 
-.media-workbench-cta-hint { margin: 0; font-size: 11px; color: var(--sb-ink-3); }
+.media-workbench-cta-hint { margin: 0; font-size: 14px; color: var(--sb-ink-3); }
 /* ── 通栏形态：整块嵌入的既有工作台（小红书图文 / 视频）─────────────────────────
    用户 9-17：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面。」
    嵌入进来的工作台（XhsContentMode / VideoStudioPage）**本来就是通栏宽度**的

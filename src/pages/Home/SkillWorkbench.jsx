@@ -44,8 +44,14 @@ export default function SkillWorkbench({
      （「01 白底主图 02 品牌主视觉海报 …」），而不是一堆没有出处的图。
      对我们的套图/详情图这类技能，这份清单**由方案真源算出来**（随平台变），不是手写死的。 */
   deliverables = [],
+  /* 只读清单块（照竞品「包含模块 已选 0/16」的形态，见 WorkbenchShell.sections 的说明）。
+     它与 deliverables 分工不同：deliverables 进**右栏**（编号清单，替代还没有案例的示例区），
+     sections 进**左栏**（是配置的一部分，比如 A+ 的 16 个模块）。 */
+  sections = [],
   /* 一键解析（付费前置动作，见 WorkbenchShell 的说明） */
   parseAction = null,
+  /* 字段旁的付费动作（AI生成卖点 / AI推荐风格分析…），见 WorkbenchShell.paidActions */
+  paidActions = [],
 }) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
@@ -88,16 +94,23 @@ export default function SkillWorkbench({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         panel={panel}
+        sections={sections}
         parseAction={parseAction}
+        paidActions={paidActions}
       >
+        /* ═══ 示例页签：**先给编号交付清单，再给案例图** ═════════════════════════════════
+           2026-09-18 批 F（用户批注 17）：「示例区是一份**编号清单**（01 白底主图 02 品牌主视觉海报…），
+           不是一堆没出处的图。」
+           我们改前是"有案例就只给图、没案例才给清单" —— 于是最该说清"这一套交什么"的
+           套图（有 3 张案例）反而看不到清单。现在两样都给：清单在上（它是**交付契约**），
+           案例图在下（案例是"长什么样"，不是"交什么"）。 */
         {activeTab === 'cases'
-          ? (cases.length
-            ? <div className="skill-workbench-grid">{cases.map((item, index) => (
-                <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} before={item.before || ''} onOpen={() => setLightbox(index)} />
-              ))}</div>
-            : (Array.isArray(deliverables) && deliverables.length
-              ? <>
-                  <p className="skill-deliverable-lead">这个技能交付以下几样（示例图等你的案例补上）：</p>
+          ? <>
+              {Array.isArray(deliverables) && deliverables.length > 0 && (
+                <>
+                  <p className="skill-deliverable-lead">
+                    {cases.length ? '这一套按顺序交付以下几样（示例图在下面）：' : '这个技能交付以下几样（示例图等你的案例补上）：'}
+                  </p>
                   <ol className="skill-deliverable-list">
                     {deliverables.map((item, index) => (
                       <li key={(item && item.name) || index}>
@@ -110,7 +123,13 @@ export default function SkillWorkbench({
                     ))}
                   </ol>
                 </>
-              : <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p>))
+              )}
+              {cases.length
+                ? <div className="skill-workbench-grid">{cases.map((item, index) => (
+                    <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} before={item.before || ''} onOpen={() => setLightbox(index)} />
+                  ))}</div>
+                : (!deliverables.length ? <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p> : null)}
+            </>
           : (historyList.length
             ? <>
                 <div className="skill-workbench-grid">
