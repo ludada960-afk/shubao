@@ -69,6 +69,12 @@
 .video-materials > header strong { color: #312d29; font-size: 13px; }
 .video-materials > header small { color: #948c84; font-size: 10px; }
 .video-materials > header b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: #f1ecff; color: var(--sb-brand-600); font-size: 10px; }
+/* ═══ 全屏创作台（用户批注 3 的「全屏」按钮）═════════════════════════════════════
+   走浏览器原生 Fullscreen API（requestFullscreen），所以这里要做的只有一件事：
+   全屏之后把页面底色补上 —— 不补的话全屏区域背后是透明+白字，成片台会看不清。
+   高度用 100vh + 内部滚动：全屏的意义是"素材、输入框、配置都在一屏里够得着"，
+   把内容拉变形反而更糟。 */
+.video-composer.is-fullscreen { height: 100vh; overflow-y: auto; padding: 18px 0 40px; background: var(--sb-surface-page); }
 
 .video-media-deck { min-height: 120px; display: flex; align-items: stretch; gap: 11px; overflow-x: auto; overflow-y: hidden; padding: 3px 2px 7px; scrollbar-width: thin; scrollbar-color: rgba(91,75,61,.22) transparent; }
 .video-media-deck.is-empty { align-items: center; }
@@ -140,20 +146,57 @@
 /* 2026-09-16：底栏那个重复的 @ 已删除（改为全站共用的 ImageMentionPicker，
    挂在输入框下方那一行）—— 原先用来藏它的 :has() 规则一并没有了。 */
 .video-material-workspace { display: grid; gap: 12px; }
-.video-material-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.video-material-action { position: relative; min-width: 0; min-height: 86px; display: grid; grid-template-columns: 34px minmax(0,1fr); grid-template-rows: auto auto; align-content: center; column-gap: 10px; padding: 13px 14px; overflow: hidden; border: 1px solid rgba(68,55,43,.10); border-radius: 12px; background: var(--sb-neutral-0); cursor: pointer; transition: border-color .18s ease,background .18s ease,transform .18s ease; }
-.video-material-action:hover { transform: translateY(-2px); border-color: var(--sb-brand-a32); }
-.video-material-action input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
-.video-material-action > span { grid-row: 1 / 3; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 12px; }
-.video-material-action strong { align-self: end; color: #3e3833; font-size: 12px; }
-.video-material-action small { align-self: start; overflow: hidden; color: #938a82; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.video-material-action b { position: absolute; top: 9px; right: 10px; min-width: 20px; height: 20px; display: grid; place-items: center; border-radius: 12px; background: var(--sb-neutral-0); color: #574c45; box-shadow: 0 3px 12px rgba(45,33,24,.12); font-size: 10px; }
-.video-material-action.is-image { background: linear-gradient(145deg,var(--sb-neutral-0) 15%,#fff4e9); }
-.video-material-action.is-image > span { background: #ffe7d2; color: #bd6326; }
-.video-material-action.is-video { background: linear-gradient(145deg,var(--sb-neutral-0) 15%,#eef0ff); }
-.video-material-action.is-video > span { background: #dfe3ff; color: #5058c8; }
-.video-material-action.is-audio { background: linear-gradient(145deg,var(--sb-neutral-0) 15%,#ecf8f4); }
-.video-material-action.is-audio > span { background: #d8f1e9; color: #27826b; }
+/* ═══ 素材条：三张**对称**卡片（图片 / 视频 / 音频）═════════════════════════════════
+   2026-09-18 用户批注 3：「视频素材改成三张对称卡片，样式从图片侧复制，不要歪卡。」
+   原来这里是三个 .video-material-action（自带一整套背景 / 图标底色 / 计数徽章的"另一种卡"），
+   那正是"同一个产品里素材卡有两个答案"的来源。整块换成图片侧那一套：
+   .ec-xhs-media-column / .ec-xhs-media-strip / .ec-xhs-upload-card（同一份实现，
+   结构与组件见 VideoStudio/index.jsx 的 renderAssetPickers）。
+   本文件只写两条覆盖：① 三张等宽（"对称"的落点）；② 不许歪。 */
+.video-material-column { padding: 0; }
+.video-material-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  min-height: 0;
+  padding: 4px 2px 8px;
+  overflow: visible;
+}
+/* 卡高 148（图片侧是 86×108 的竖卡，等比放大到 348 宽时若只有 108 高就成了三颗扁按钮）。
+   148/348 ≈ 0.43，与图片侧 108/86 ≈ 1.26 的竖势不同 —— 但这里是三等分的**行**，
+   要的是"三块一样大、一样高、不歪"，不是复刻长宽比。 */
+.video-material-strip .ec-xhs-upload-card { height: 148px; }
+/* ⚠️ 选择器必须带 .video-material-strip 前缀才压得住 .ec-xhs-card-product（同为"单类"）。
+   图片侧靠那张卡的 ±5deg 倾斜做视觉节奏（散落纸片的意象）；这里是三个并列的**种类**，
+   倾斜就是用户说的"歪卡" → 在这一层清零。 */
+.video-material-strip .ec-xhs-upload-card,
+.video-material-strip .ec-xhs-upload-card:hover,
+.video-material-strip .ec-xhs-upload-card:focus-visible { transform: none; }
+.video-material-strip .ec-xhs-upload-card { width: 100%; height: 148px; flex: 1 1 auto; }
+.video-material-strip .ec-xhs-upload-card:hover,
+.video-material-strip .ec-xhs-upload-card:focus-visible { transform: translateY(-4px); }
+/* 三个 file input 不参与布局（放在卡片外面，避免 label + onClick 触发两次选择器） */
+.video-material-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
+/* 卡上的上传进度：窄卡里贴卡内底部，沿用深底白字的既有语义（同 .video-upload-status） */
+.video-material-strip .ec-xhs-card-status { position: absolute; inset: auto 6px 26px; padding: 3px 6px; border-radius: 6px; background: rgba(31,28,26,.86); color: var(--sb-neutral-0); font-size: 9px; font-weight: 700; text-align: center; }
+
+/* 素材区右上角的两颗按钮（清空素材 / 全屏）—— 用户批注 3 点名要的两个 */
+.video-materials-actions { display: flex; align-items: center; gap: 8px; }
+.video-materials-actions > b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: #f1ecff; color: var(--sb-brand-600); font-size: 10px; }
+.video-materials-clear,
+.video-materials-fullscreen {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.video-materials-clear:hover,
+.video-materials-fullscreen:hover { background: var(--sb-hover-bg); border-color: var(--sb-border-strong); color: var(--sb-ink-1); }
+.video-materials-clear:focus-visible,
+.video-materials-fullscreen:focus-visible { box-shadow: var(--sb-focus-ring); outline: none; }
 .video-icon-tool,.video-model-trigger { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(45,39,34,.1); border-radius: 8px; background: var(--sb-neutral-0); color: #645e58; cursor: pointer; }
 .video-icon-tool { width: 34px; padding: 0; }
 .video-icon-tool:hover,.video-model-trigger:hover { border-color: var(--sb-brand-a32); background: #faf7ff; color: var(--sb-brand-600); }
@@ -391,7 +434,8 @@
   .video-composer-input { min-height: 150px; padding: 16px 14px 12px; }
   .video-toolbar { padding: 12px; }
   .video-toolbar-buttons { grid-template-columns: 1fr; }
-  .video-material-actions { grid-template-columns: 1fr; }
+  /* 窄屏下三张素材卡仍然保持一行（"对称"是契约，不是宽屏才有的效果）——
+     只是把卡的宽度交给网格，卡片自己 height 固定 108px 不变。 */
   .video-resolution-grid { grid-template-columns: 1fr; }
   .video-media-guidance { min-width: 190px; }
   .video-panel-field.compact { grid-template-columns: 1fr; }
@@ -486,11 +530,6 @@
 .video-mode-tabs .video-mode-copy small { overflow: hidden; color: #978e86; font-size: 11px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 .video-mode-tabs button.is-selected .video-mode-copy strong { color: #292622; }
 .video-mode-tabs button.is-selected .video-mode-copy small { color: #817970; }
-.video-material-action { min-height: 96px; padding: 14px 16px; }
-.video-material-action > span { width: 40px; height: 40px; border-radius: 12px; }
-.video-material-action strong { font-size: 13px; }
-.video-material-action small { font-size: 11px; }
-.video-material-action b { top: 11px; right: 12px; min-width: 22px; height: 22px; font-size: 10px; }
 .video-composer-input > .mention-prompt-field {
   width: 100%;
   min-height: 92px;

@@ -706,15 +706,25 @@ try {
      所以判据不能再用「自由创作 / 海报设计」—— 那是独立 skill，从左侧导航与总页面进，不占精选位。 */
   check(imageRow.buttons.some(text => /商品套图|图片复刻|去除背景/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
   check(!imageRow.buttons.some(text => /智能成片|首尾帧|图生视频/.test(text)), '图片板块下面**不许**出现视频技能', JSON.stringify(imageRow.buttons));
-  /* 悬停一个**有案例封面**的技能 → 预览必须真的取到那张图（不是空框） */
-  await page.hover('.skill-entry-card');
-  await page.waitForTimeout(400);
-  const covered = await page.evaluate(() => {
-    const node = document.querySelector('.skill-entry-veil');
-    const img = node?.querySelector('img');
-    return { media: node?.querySelector('video') ? 'video' : (img ? 'img' : 'blank'), src: img?.getAttribute('src') || '' };
-  });
-  check(covered.media === 'img' && covered.src.startsWith('/images/'), '有案例的技能，预览框里就是那条技能的案例图', JSON.stringify(covered));
+  /* 悬停一个**真的有案例封面**的技能 → 封面必须真的取到那张图（不是空框）。
+     ⚠️ 这里必须**先挑出有封面的那一张**再悬停，不能假设第一张就有：
+        批 A 之后图片侧精选就是竞品那 6 条，其中只有「商品套图 / AI换装」有案例封面，
+        其余四条按既有口径如实显示"案例补充中"（用户还没跑出案例）。
+        旧写法悬停第一张 → 命中的正是没有封面的那张 → 断言红，而封面逻辑本身是对的
+        ——那就是一条"测的是运气不是判据"的断言。 */
+  const coveredIndex = await page.evaluate(() => Array.from(document.querySelectorAll('.skill-entry-card')).findIndex(card => card.querySelector('.skill-entry-cover img')));
+  check(coveredIndex >= 0, '图片板块的精选里至少有一条带案例（否则下面这条断言无从谈起）', String(coveredIndex));
+  if (coveredIndex >= 0) {
+    await page.hover('.skill-entry-card:nth-child(' + (coveredIndex + 1) + ')');
+    await page.waitForTimeout(400);
+    const covered = await page.evaluate(index => {
+      const card = document.querySelectorAll('.skill-entry-card')[index];
+      const img = card?.querySelector('.skill-entry-cover img');
+      const name = card?.querySelector('.skill-entry-copy strong')?.textContent.replace(/\s+/g, ' ').trim() || '';
+      return { name, media: img ? 'img' : 'blank', src: img?.getAttribute('src') || '' };
+    }, coveredIndex);
+    check(covered.media === 'img' && covered.src.startsWith('/'), '有案例的技能，封面上就是那条技能的案例图', JSON.stringify(covered));
+  }
 
   /* ═══ ⑬b 两个总页面顶部的分类页签（照竞品结构：点一档只看那一档） ═══ */
   scenario('⑬b 总页面分类页签（按声明自动成档，点一档只看那一档）');

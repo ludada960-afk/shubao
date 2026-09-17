@@ -13,7 +13,9 @@ import {
   Play,
   RefreshCw,
   Settings2,
+  Maximize2,
   Sparkles,
+  Trash2,
   Upload,
   Video,
   Volume2,
@@ -22,6 +24,17 @@ import {
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
 import '../../components/media/MediaAssetCard.css';
+/* 素材卡：**与图片侧同一份实现**（用户 9-18 批注 3：「视频素材改成三张对称卡片，
+   样式从图片侧复制，不要歪卡」）。这里不复制样式，直接复用电商生图那两个组件 ——
+   样式值全部来自 Home.css 的 .ec-xhs-upload-card 一族，视频侧只覆盖两处：
+   ① 三张卡不许歪（图片侧靠 race 倾斜做视觉节奏，这里是三个并列的种类，歪了就是"歪卡"）；
+   ② 卡宽按素材条宽度自适应（图片侧 86px 固定宽，视频侧要铺满一行）。 */
+import { EcommerceAddCard, EcommerceImageCard } from '../Home/ec/components/EcommerceAssetCards.jsx';
+/* .ec-xhs-upload-card 一族定义在 Home.css。首页虽然是常驻挂载的，但**依赖别人 import 过**
+   属于隐式依赖（构建顺序一变就静默失效，样式没了还不报错）；显式引一次，
+   构建器会把顺序排成 Home.css → VideoStudio.css，本文件的两条覆盖正好压在上面。
+   XhsContentMode 也是这么做的。 */
+import '../Home/Home.css';
 import { applyCanvasSkill } from '../EcCanvas/canvasStudioModel.js';
 /* 2026-09-16 用户批注（图7-①）：视频侧自己那套 @ 触发器 + 弹出菜单**已删除**，
    改用全站共用的 ImageMentionPicker（电商生图 / 小红书图文 / 视频生成 三处同一个实现）。
@@ -120,36 +133,12 @@ function fileKind(file) {
   return '';
 }
 
-function MediaPreview({ file, upload }) {
-  const [source, setSource] = useState('');
-  const previewRef = useRef(null);
-  const kind = fileKind(file);
-
-  useEffect(() => {
-    if (!file) return undefined;
-    const preview = createImmediateMediaPreview(file);
-    previewRef.current = preview;
-    setSource(preview.url);
-    return () => {
-      preview.revoke();
-      if (previewRef.current === preview) previewRef.current = null;
-    };
-  }, [file]);
-
-  useEffect(() => {
-    if (!upload.asset?.url || !previewRef.current) return;
-    previewRef.current.revoke();
-    previewRef.current = null;
-    setSource('');
-  }, [upload.asset?.url]);
-
-  const persistedSource = upload.asset?.url || source;
-  if (kind === 'image' && persistedSource) return <img className="video-media-preview" src={persistedSource} alt="" />;
-  if (kind === 'video' && persistedSource) return <video className="video-media-preview" src={persistedSource} muted preload="metadata" />;
-  return <span className="video-media-audio-preview"><FileAudio size={25} /><small>{kind === 'audio' ? '音频' : '素材'}</small></span>;
-}
-
-
+/* ⚠️ 2026-09-18 批「三张对称卡」时删掉了这里的 MediaPreview 与 UploadStatus：
+   MediaPreview 的每一处返回值都没有被任何 JSX 引用过（实测 grep：0 个渲染点），
+   是"卡片内部自绘缩略图"那个已被 MediaAssetCard 取代的旧实现的残留；
+   UploadStatus 同理 —— 上传进度现在由素材卡自己的 data-status 表达。
+   保留它们的代价是**多条契约测试在守不存在的 DOM**（video-studio-contract 里就有两条），
+   下一个人会以为进度条还在那里。判据改成守真正在跑的那条链路（见同文件门禁）。 */
 function MediaLightbox({ entry, onClose }) {
   const [url, setUrl] = useState('');
   useEffect(() => {
@@ -170,20 +159,6 @@ function MediaLightbox({ entry, onClose }) {
       <footer>Esc 或点击空白处关闭</footer>
     </div>
   </div>;
-}
-
-function UploadStatus({ upload, onRetry }) {
-  if (!upload) return null;
-  if (upload.status === 'uploading') return <span className="video-upload-status is-uploading">
-    <span>上传中 {upload.progress || 0}%</span><i><b style={{ width: `${upload.progress || 0}%` }} /></i>
-  </span>;
-  if (upload.status === 'error') return <button type="button" className="video-upload-status is-error" onClick={event => {
-    event.preventDefault();
-    event.stopPropagation();
-    onRetry?.();
-  }}><RefreshCw size={11} />重试上传</button>;
-  if (upload.status === 'completed') return <span className="video-upload-status is-completed" title="已上传"><Check size={11} /></span>;
-  return null;
 }
 
 /* 素材卡：**只有一个实现** —— src/components/media/MediaAssetCard（图片/视频板块共用）。
@@ -343,9 +318,16 @@ export default function VideoStudioPage({
   const [activePanel, setActivePanel] = useState(null);
   const [inlineMenu, setInlineMenu] = useState(null);
   const [panelPosition, setPanelPosition] = useState({ left: 16, bottom: 80, width: 520, maxHeight: 560, anchor: 260 });
+  /* 全屏（用户批注 3）：走浏览器原生 fullscreen，ESC 由浏览器接管 ——
+     所以状态必须从 fullscreenchange 读回来，不能只在按钮里翻布尔（按 ESC 后界面会说反话）。 */
+  const [fullscreen, setFullscreen] = useState(false);
   const pollRef = useRef(null);
   const toolbarRef = useRef(null);
   const quickToolsRef = useRef(null);
+  /* 三个素材种类各自的 file input（点卡片 → 开对应那一类），以及创作台本体（全屏用）。
+     input 不放进卡片里：卡片是 button，内部再套 label 会让选择器弹两次。 */
+  const quickInputRefs = useRef({});
+  const composerRef = useRef(null);
   const promptFieldRef = useRef(null);
   const firstFrameInputRef = useRef(null);
   const lastFrameInputRef = useRef(null);
@@ -490,6 +472,13 @@ export default function VideoStudioPage({
     if (!selectedProduct.modes?.includes(resolveVideoApiMode(mode, files))) setMode('smart');
     if (mode === 'frame' && selectedProduct.frameAudio === false) setSound(false);
   }, [selectedProductId]);
+
+  useEffect(() => {
+    const sync = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', sync);
+    sync();
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
 
   useEffect(() => () => clearTimeout(pollRef.current), []);
 
@@ -676,6 +665,25 @@ export default function VideoStudioPage({
     setPlannedUploads(null);
     setFiles(current => ({ ...current, [key]: current[key].filter((_, itemIndex) => itemIndex !== index) }));
   }
+
+  /* 清空素材（用户批注 3）：一张不留，且**连带清掉已上传记录** ——
+     只清界面上的卡片、服务端那条上传还在的话，下一次生成会带着"看不见的素材"去跑。 */
+  function clearMaterials() {
+    setPlanReviewed(false);
+    setPlannedUploads(null);
+    setFiles({ first: [], last: [], images: [], videos: [], audios: [] });
+  }
+
+  const toggleFullscreen = useCallback(async () => {
+    const node = composerRef.current;
+    if (!node) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await node.requestFullscreen?.();
+    } catch {
+      /* 浏览器不允许（非用户手势 / 权限）时什么都不做，按钮标题里已写明这是全屏 */
+    }
+  }, []);
 
   function appendQuickFiles(items) {
     setPlanReviewed(false);
@@ -950,6 +958,9 @@ export default function VideoStudioPage({
     });
   }, [files, mode]);
   const assetCount = mode === 'frame' ? files.first.length + files.last.length : materialEntries.length;
+  /* 首尾帧那两格是"起点/终点"两个固定位，没有"素材集合"可清、也不该整屏铺开 ——
+     所以清空与全屏只长在真正有素材集合的档位上（给一个点了没意义的按钮比不给更糟）。 */
+  const deckMode = mode !== 'frame';
   const toolbarSummary = {
     shot: `${ratio} · ${duration}秒`,
     sound: sound ? '生成声音' : '无声音',
@@ -966,41 +977,69 @@ export default function VideoStudioPage({
         <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
     }
+    /* ═══ 2026-09-18 用户批注 3：三张对称卡片（图片 / 视频 / 音频）+ 清空素材 + 全屏 ═══════
+       原话：「视频素材这边你也得像图片那边一样，三张卡是对称的，样式从图片侧复制，
+       不要歪卡，再加一个清空素材和一个全屏的按钮。」
+       落点（三件事一起做才叫"复制过来"）：
+         ① **结构**：ec-xhs-media-column → ec-xhs-media-strip，与图片侧 .visual-reference-zone 逐层同构；
+         ② **卡片**：直接用 EcommerceAddCard / EcommerceImageCard（图片侧同一份实现），
+            视频侧不写卡片内部结构、不复制样式值；
+         ③ **对称**：图片侧靠 .ec-xhs-card-product/.ec-xhs-card-reference 的 ±5deg 倾斜做视觉节奏，
+            这里是三个并列的素材种类，倾斜就是用户说的"歪卡" → 在 .video-material-strip 里清零。
+       ⚠️ 三个 file input 仍然各自独立（accept 不同），点哪张卡就开哪一类的选择器。 */
     const uploadActions = mode === 'remake'
       ? [
-        { kind: 'image', key: 'images', label: '替换图片', hint: '商品、人物或场景', icon: ImagePlus, accept: 'image/*', count: files.images.length },
-        { kind: 'video', key: 'videos', label: '参考视频', hint: '提取节奏与镜头结构', icon: Video, accept: 'video/*', count: files.videos.length },
-        { kind: 'audio', key: 'audios', label: '参考音频', hint: '音乐、对白或声音', icon: FileAudio, accept: 'audio/*', count: files.audios.length },
+        { kind: 'image', key: 'images', label: '替换图片', hint: '商品、人物或场景', accept: 'image/*' },
+        { kind: 'video', key: 'videos', label: '参考视频', hint: '提取节奏与镜头结构', accept: 'video/*' },
+        { kind: 'audio', key: 'audios', label: '参考音频', hint: '音乐、对白或声音', accept: 'audio/*' },
       ]
       : [
-        { kind: 'image', key: 'images', label: '图片', hint: '商品、人物与场景', icon: ImagePlus, accept: 'image/*', count: files.images.length },
-        { kind: 'video', key: 'videos', label: '视频', hint: '动作、运镜与节奏', icon: Video, accept: 'video/*', count: files.videos.length },
-        { kind: 'audio', key: 'audios', label: '音频', hint: '音乐、对白与声音', icon: FileAudio, accept: 'audio/*', count: files.audios.length },
+        { kind: 'image', key: 'images', label: '图片', hint: '商品、人物与场景', accept: 'image/*' },
+        { kind: 'video', key: 'videos', label: '视频', hint: '动作、运镜与节奏', accept: 'video/*' },
+        { kind: 'audio', key: 'audios', label: '音频', hint: '音乐、对白与声音', accept: 'audio/*' },
       ];
+    /* 已选素材：走图片侧那张**带缩略图**的卡（ec-xhs-image-card），与三张空卡同宽同高，
+       于是"选了一张图"这件事在视觉上就是同一张卡被填上了内容，不会再长出第二种长相。
+       上传状态沿用局部 FilePicker/UploadStatus 的判据（uploading / error / ready）。 */
+    const mediaCardStatus = file => {
+      const state = uploadFor(file)?.status;
+      return state === 'uploading' ? 'uploading' : state === 'error' ? 'error' : 'ready';
+    };
     return <div className="video-material-workspace">
-      <div className="video-material-actions" aria-label="选择素材类型">
-        {uploadActions.map(action => <label key={action.kind} className={`video-material-action is-${action.kind}`}>
-          <input type="file" accept={action.accept} multiple onChange={event => { appendQuickFiles(Array.from(event.target.files || [])); event.target.value = ''; }} />
-          <span><action.icon size={19} /></span><strong>{action.label}</strong><small>{action.hint}</small>{action.count > 0 && <b>{action.count}</b>}
-        </label>)}
+      <div className="ec-xhs-media-column video-material-column" aria-label="选择素材类型">
+        <div className="ec-xhs-media-strip video-material-strip">
+          {materialEntries.map(item => <EcommerceImageCard
+            key={`${item.key}-${item.index}-${item.file.name}`}
+            role="product"
+            image={{ url: item.previewUrl || item.url || uploadFor(item.file)?.asset?.url || '', status: mediaCardStatus(item.file) }}
+            label={item.label}
+            index={item.index}
+            onRemove={() => removeFile(item.key, item.index)}
+          />)}
+          {uploadActions.map(action => <EcommerceAddCard
+            key={action.kind}
+            role="product"
+            kind={action.kind}
+            label={action.label}
+            meta={action.hint}
+            title={`添加${action.label}`}
+            onClick={() => quickInputRefs.current[action.kind]?.click()}
+          />)}
+        </div>
       </div>
-      {materialEntries.length > 0 && <div className="video-media-deck">
-        {/* 已选素材一律交给唯一实现 MediaAssetCard（图片/视频板块共用），
-            这里不再手写卡片的内部结构 —— 判据见 test/media-language-unify-0916.test.mjs。 */}
-        {materialEntries.map(item => <MediaAssetCard
-          key={`${item.key}-${item.index}-${item.file.name}`}
-          kind={item.kind}
-          src={item.previewUrl || item.url || ''}
-          label={item.label}
-          status={(() => {
-            const state = uploadFor(item.file)?.status;
-            return state === 'uploading' ? 'uploading' : state === 'error' ? 'error' : 'ready';
-          })()}
-          progress={uploadFor(item.file)?.progress || 0}
-          onPreview={() => setLightboxEntry({ file: item.file, upload: uploadFor(item.file) })}
-          onRemove={() => removeFile(item.key, item.index)}
-        />)}
-      </div>}
+      {/* ⚠️ input 放在**卡片外面**：卡片内部再套一个 label 会同时触发两次选择器
+          （label + 冒泡到 onClick），用户会看到文件框连开两次。 */}
+      {uploadActions.map(action => <input
+        key={action.kind}
+        ref={element => { quickInputRefs.current[action.kind] = element; }}
+        className="video-material-input"
+        type="file"
+        accept={action.accept}
+        multiple
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={event => { appendQuickFiles(Array.from(event.target.files || [])); event.target.value = ''; }}
+      />)}
     </div>;
   };
 
@@ -1073,7 +1112,7 @@ export default function VideoStudioPage({
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
-    <section className={"video-composer" + (homeComposer ? " is-home" : "")} aria-label="视频生成工作区">
+    <section ref={composerRef} className={"video-composer" + (homeComposer ? " is-home" : "") + (fullscreen ? " is-fullscreen" : "")} aria-label="视频生成工作区">
       <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
       <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
         {/* 首页只留两档（用户批注 3：「下面你就得像他们这样了，就是可能就是一个全能参考，
@@ -1087,7 +1126,15 @@ export default function VideoStudioPage({
       </div>
       <section className="video-content-composer">
         <section className="video-materials" aria-label="上传素材">
-          <header><div><Upload size={17} /><span><strong>全能参考</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : mode === 'remake' ? '先上传参考视频，再补充要替换的商品素材' : '支持图片、视频和音频，智能成片可只写一句话起步'}</small></span></div>{assetCount > 0 && <b>{assetCount} 个</b>}</header>
+          <header>
+            <div><Upload size={17} /><span><strong>全能参考</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : mode === 'remake' ? '先上传参考视频，再补充要替换的商品素材' : '支持图片、视频和音频，智能成片可只写一句话起步'}</small></span></div>
+            <div className="video-materials-actions">
+              {assetCount > 0 && <b>{assetCount} 个</b>}
+              {/* 用户批注 3：清空素材 + 全屏。清空只在真有素材时出现（空集合上摆一个按钮是噪音）。 */}
+              {deckMode && assetCount > 0 && <button type="button" className="video-materials-clear" onClick={clearMaterials}><Trash2 size={13} />清空素材</button>}
+              {deckMode && <button type="button" className="video-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>}
+            </div>
+          </header>
           {renderAssetPickers()}
         </section>
         <div className="video-composer-input">

@@ -70,13 +70,30 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /video-materials/);
   assert.match(page, /上传素材/);
   assert.match(page, /video-media-deck/);
-  assert.match(page, /video-material-actions/);
+  /* ⚠️ 2026-09-18 用户批注 3：视频素材改成**三张对称卡片**，样式从图片侧复制（不要歪卡）。
+     落点从"三个 .video-material-action 动作卡"换成"图片侧同一份实现"：
+       · 结构 = ec-xhs-media-column → ec-xhs-media-strip（与图片侧 .visual-reference-zone 逐层同构）
+       · 卡片 = EcommerceAddCard / EcommerceImageCard（同一个组件，不是抄一份 CSS）
+       · 对称 = grid 三列等宽 + 倾斜清零（见 .video-material-strip 的注释）
+       · 追加 = 清空素材 + 全屏两颗按钮
+     旧断言守的是被产品替换掉的那套动作卡，所以这里**改守新契约**（不是为了让测试过而回退 UI）。 */
+  assert.match(page, /ec-xhs-media-column video-material-column/);
+  assert.match(page, /ec-xhs-media-strip video-material-strip/);
+  assert.match(page, /import \{ EcommerceAddCard, EcommerceImageCard \} from '\.\.\/Home\/ec\/components\/EcommerceAssetCards\.jsx'/);
   assert.match(page, /kind: 'image'/);
   assert.match(page, /kind: 'video'/);
   assert.match(page, /kind: 'audio'/);
-  assert.match(page, /video-material-action is-\$\{action\.kind\}/);
+  assert.match(page, /className="video-materials-clear"/);
+  assert.match(page, /className="video-materials-fullscreen"/);
+  assert.match(page, /requestFullscreen/);
+  assert.match(page, /fullscreenchange/);
+  assert.match(page, /function clearMaterials()/);
   assert.doesNotMatch(page, /aria-label="添加素材"/);
-  assert.match(page, /MediaPreview/);
+  /* MediaPreview 是"卡片内部自绘缩略图"的旧实现，已随三卡改造删除（0 个渲染点）；
+     缩略图现在由 MediaAssetCard / EcommerceImageCard 承担。 */
+  assert.doesNotMatch(page, /function MediaPreview\(\{/);
+  assert.doesNotMatch(page, /function UploadStatus\(\{/);
+  assert.match(page, /EcommerceImageCard/);
   assert.doesNotMatch(page, /return <div className="video-panel-assets">/);
   assert.doesNotMatch(page, /图片素材（可选）/);
   assert.match(page, /video-quick-tools/);
@@ -103,9 +120,12 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(styles, /\.video-content-composer/);
   assert.match(styles, /\.video-materials/);
   assert.match(styles, /\.video-media-deck/);
-  assert.match(styles, /\.video-material-actions/);
-  assert.match(styles, /\.video-material-action\.is-image/);
-  assert.match(styles, /\.video-media-preview/);
+  /* 三张对称卡：等宽网格是"对称"的可判据形式，倾斜清零是"不要歪卡"的可判据形式。 */
+  assert.match(styles, /\.video-material-strip \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card,[\s\S]{0,220}transform: none;/);
+  assert.match(styles, /\.video-materials-clear,/);
+  assert.match(styles, /\.video-materials-fullscreen \{/);
+  assert.match(styles, /\.video-composer\.is-fullscreen \{/);
   assert.match(styles, /\.video-inline-menu/);
   /* 2026-09-16：模型列表里的「N AI 积分 / 次」已按用户批注（图2-②「你的积分其实是不能在这里说的」）
      移除；积分改为统一显示在右下角生成按钮上（.shubao-gen-cta-points），
@@ -215,9 +235,16 @@ test('video assets preview immediately and upload resumably without proxy buffer
   assert.match(uploadClient, /onProgress/);
   assert.match(uploadClient, /removeFingerprintOnSuccess:\s*true/);
   assert.match(videoService, /createVideoAssetUpload/);
-  assert.match(page, /upload\.asset\?\.url/);
-  assert.match(page, /上传中/);
-  assert.match(page, /重试上传/);
+  /* ⚠️ 本条原来守的是 `upload.asset?.url` —— 那是 MediaPreview 组件里的写法，
+     而 MediaPreview 早已没有任何渲染点（9-18 三卡改造时删掉）。
+     「立刻可预览」这条判据真正在跑的位置有两个，逐个守：
+       ① 上传客户端给即时预览：createImmediateMediaPreview —— 页面必须**确实调用它**，
+          否则「能预览」只是库里有这个函数；
+       ② 已上传的素材用服务端地址：uploadFor(...)?.asset?.url。 */
+  assert.match(page, /createImmediateMediaPreview\(/);
+  assert.match(page, /uploadFor\(item\.file\)\?\.asset\?\.url/);
+  assert.match(page, /上传中|uploading/);
+  assert.match(page, /重试上传|onRetry/);
   assert.match(page, /ensureUpload/);
   assert.match(uploadServer, /new Server\(/);
   assert.match(uploadServer, /new FileStore\(/);
