@@ -36,21 +36,86 @@ const CLARITY = [
 
 /* 这两个字段在 20 多条技能里重复出现，**只能有一份定义**（含默认值）。
    默认值必须与 skillRun.js 的回落值一致：界面显示什么，就跑什么。 */
-const ratioField = () => ({ key: 'ratio', label: '比例', kind: 'segmented', options: RATIO, required: true, default: '1:1' });
+const ratioField = (options = RATIO) => ({ key: 'ratio', label: '比例', kind: 'segmented', group: '生成设置', options, required: true, default: options[0].value });
+/* ⚠️ 竞品图片复刻页的比例是 **16 档**（自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16 / 5:4 / 4:5 / 4:3 / 3:4 /
+   21:9 / 9:21 / 1:3 / 3:1 / 2:1 / 1:2）。我们**不能**照抄这 16 档 ——
+   服务端对比例有白名单（skillRun.LEGAL_RATIOS 六个值），非法值会被**静默回落成 1:1**，
+   多写一档就是给用户挖坑（RTK 批次三十六已定性）。
+   所以这里只放白名单里的档位，并在字段 hint 里如实写明"引擎支持这几种"。 */
 
-/* 跨境卖家刚需的两个档位（照竞品实测：他们的每一个电商技能都有这两个下拉）。
-   ⚠️ 它们**只进提示词**，不改变引擎协议 —— 市场影响文案与合规习惯，语言决定画面里的文字。 */
-const MARKET = [
+/* ═══ 2026-09-18 批 F：跨境字段的**全部选项照竞品实测原文**══════════════════════════
+   依据：CDP 实测（一次一标签、抓完即关），逐条原文见 docs/design/50-quantv-subpage-field-spec.md。
+   用户原话：「你要真的去抓他们的字段名、全部选项、上传位数、按钮价格、编号交付清单，
+   然后照着做，不要凭想象。」
+   所以这三张表是**量出来的**，不是我想出来的：
+     · 目标市场 9 档（套图版）/ 13 档（A+、详情图版，多出巴西·阿根廷·智利·墨西哥）
+     · 目标平台 5 档（套图版淘宝在最前；详情图版京东在拼多多前 —— 顺序也照他们）
+     · 语言 13 档 + 「无文字」（A+ 的原文里那一档就叫「无文字」；
+       套图叫「无文字」，详情图没有这一档）
+   ⚠️ 它们**只进提示词**，不改变引擎协议 —— 市场影响文案与合规习惯，语言决定画面里的文字。
+      所以加档位是安全的（不会像比例那样被服务端静默回落）。 */
+const MARKET_BASE = [
   { value: '中国', label: '中国' }, { value: '美国', label: '美国' }, { value: '欧洲', label: '欧洲' },
   { value: '东南亚', label: '东南亚' }, { value: '日本', label: '日本' }, { value: '韩国', label: '韩国' },
 ];
-const LANGUAGE = [
-  { value: '简体中文', label: '简体中文' }, { value: 'English', label: 'English' },
-  { value: '日本語', label: '日本語' }, { value: '한국어', label: '한국어' }, { value: '不出现文字', label: '不出现文字' },
+const MARKET_WIDE = [
+  { value: '中国', label: '中国' }, { value: '欧洲', label: '欧洲' }, { value: '东南亚', label: '东南亚' },
+  { value: '美国', label: '美国' }, { value: '日本', label: '日本' }, { value: '韩国', label: '韩国' },
+  { value: '南非', label: '南非' }, { value: '新加坡', label: '新加坡' }, { value: '巴西', label: '巴西' },
+  { value: '阿根廷', label: '阿根廷' }, { value: '智利', label: '智利' }, { value: '墨西哥', label: '墨西哥' },
+  { value: '俄罗斯', label: '俄罗斯' },
 ];
-const marketField = () => ({ key: 'market', label: '目标市场', kind: 'segmented', options: MARKET, default: '中国' });
-const languageField = () => ({ key: 'language', label: '文案语言', kind: 'segmented', options: LANGUAGE, default: '简体中文' });
-const clarityField = () => ({ key: 'clarity', label: '清晰度', kind: 'segmented', options: CLARITY, required: true, default: '2K' });
+/* 套图的目标市场是 9 档（含南非/新加坡/俄罗斯），A+ 与详情图是 13 档 —— 两版都照原文收着 */
+const MARKET_SUITE = [
+  { value: '中国', label: '中国' }, { value: '美国', label: '美国' }, { value: '欧洲', label: '欧洲' },
+  { value: '东南亚', label: '东南亚' }, { value: '日本', label: '日本' }, { value: '韩国', label: '韩国' },
+  { value: '南非', label: '南非' }, { value: '新加坡', label: '新加坡' }, { value: '俄罗斯', label: '俄罗斯' },
+];
+const LANGUAGE_FULL = [
+  { value: 'English', label: 'English' }, { value: '简体中文', label: '简体中文' }, { value: '日本語', label: '日本語' },
+  { value: '俄语', label: '俄语' }, { value: '韩语', label: '韩语' }, { value: '法语', label: '法语' },
+  { value: '德语', label: '德语' }, { value: '泰语', label: '泰语' }, { value: '巴西语', label: '巴西语' },
+  { value: '西班牙语', label: '西班牙语' }, { value: '越南语', label: '越南语' }, { value: '马来西亚语', label: '马来西亚语' },
+  { value: '繁体中文', label: '繁体中文（必须使用2K及以上）' },
+];
+const PLATFORM_SUITE = [
+  { value: '淘宝', label: '淘宝' }, { value: '抖音', label: '抖音' }, { value: '小红书', label: '小红书' },
+  { value: '拼多多', label: '拼多多' }, { value: '京东', label: '京东' },
+];
+const PLATFORM_WIDE = [
+  { value: '淘宝', label: '淘宝' }, { value: '抖音', label: '抖音' }, { value: '小红书', label: '小红书' },
+  { value: '京东', label: '京东' }, { value: '拼多多', label: '拼多多' },
+];
+/* 市场/语言用下拉（竞品是 select —— 9~13 档用 segmented 会撑成两三行药丸，
+   那是"我们自己的长相"，不是他们的）。 */
+const marketField = (options = MARKET_BASE) => ({ key: 'market', label: '目标市场', kind: 'select', group: '基础信息', options, default: options[0].value });
+const languageField = (label = '文案语言', options = LANGUAGE_FULL) => ({ key: 'language', label, kind: 'select', group: '基础信息', options, default: options[0].value });
+const platformField = (options = PLATFORM_SUITE) => ({ key: 'platform', label: '目标平台', kind: 'select', group: '基础信息', options, default: options[0].value });
+const clarityField = () => ({ key: 'clarity', label: '分辨率', kind: 'segmented', group: '生成设置', options: CLARITY, required: true, default: '2K' });
+const countField = (max = 6) => ({ key: 'count', label: '生成数量', kind: 'stepper', group: '生成设置', min: 1, max });
+/* 上传位的组名照竞品：他们的上传区就在「基础信息 → 上传图片」这一块里 */
+/* 上传位：竞品在它下面还跟一串同组的字段（产品卖点 / 设计风格…），
+   所以 uploadField 允许带一个 after（同组、紧跟其后的字段），顺序与竞品一致。 */
+function uploadField({ after = [], ...extra } = {}) {
+  const base = { key: 'assets', label: '素材', kind: 'upload', group: '上传图片', required: true, role: 'product', slotLabel: '上传商品图', ...extra };
+  return after.length ? [base, ...after] : base;
+}
+/* 设计风格：竞品是三选一分段（AI推荐 / 参考排版 / 自定义要求），
+   选中之后下面才是「AI推荐风格分析 · 0.10 积分」那颗付费按钮。
+   ⚠️ 分析与出图是**两个付费动作**（他们 0.10 / 0.10，我们 0.2 / 按张）——
+      这里只声明"有这一档"，按钮与计价落在工作台（价款必须写在按钮上）。 */
+function styleFields(group) {
+  return [
+    { key: 'style', label: '设计风格', kind: 'segmented', group,
+      options: [
+        { value: 'AI推荐', label: 'AI推荐' },
+        { value: '参考排版', label: '参考排版' },
+        { value: '自定义要求', label: '自定义要求' },
+      ], default: 'AI推荐' },
+    { key: 'styleNote', label: '自定义风格要求', longLabelReason: '照竞品原文（他们那颗三选一里就叫「自定义要求」，我们补全成"自定义风格要求"以免和别处的"要求"混）', kind: 'textarea', rows: 2, group,
+      placeholder: '选「自定义要求」时写在这里，例如：奶油白背景、柔光棚拍、右上角留白放标题' },
+  ];
+}
 
 export const IMAGE_SKILLS = [
   /* ── 精品推荐：推荐位，封面只用图、不烤字（实测口径）──────────────────────── */
@@ -108,20 +173,22 @@ export const IMAGE_SKILLS = [
     summary: '主图、场景图、卖点图成套交付', pipeline: 'ecommerceSuite', availability: 'ready',
     visual: 'free',
     brief: '围绕商品生成一套电商图。商品信息：{{productParams}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合{{platform}}的图片规范与目标市场的审美习惯。',
+    /* 字段顺序 = 竞品实测顺序：上传图片 → 目标市场 → 目标平台 → 文案语言 →
+       产品卖点与设计风格。分组名也照他们的区块名。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
-      /* 平台决定套图结构（出几张、各是什么比例）—— 它真的参与方案计算与报价，不是装饰 */
-      { key: 'platform', label: '平台', kind: 'segmented', required: true, default: '淘宝', options: [
-        { value: '淘宝', label: '淘宝' }, { value: '抖音', label: '抖音' }, { value: '小红书', label: '小红书' },
-        { value: '拼多多', label: '拼多多' }, { value: '京东', label: '京东' },
-      ] },
-      { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 4, placeholder: '第一行写商品名，后面可以写卖点与材质（也可以先上传商品图，点上面的一键解析）' },
-      marketField(),
-      languageField(),
-      /* 结构/规格是套图专有的重配置：默认按平台智能匹配，自定义面板在套图工作台里 —— 
+      uploadField({ maxImages: 6 }),
+      marketField(MARKET_SUITE),
+      platformField(PLATFORM_SUITE),
+      languageField('文案语言', LANGUAGE_FULL.concat([{ value: '无文字', label: '无文字' }])),
+      /* ⚠️ 商品参数的真实 key 是 productParams（buildSuiteRun 从它的**第一行**取商品名），
+         只有界面 label 改成竞品那份措辞 —— 改 key 会让套图拿不到商品名。 */
+      { key: 'productParams', label: '产品卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', maxLength: 2000,
+        placeholder: '产品名：\n核心卖点：\n适用人群：\n期望场景：\n尺寸参数：' },
+      ...styleFields('产品卖点与设计风格'),
+      /* 结构/规格是套图专有的重配置：默认按平台智能匹配，自定义面板在套图工作台里 ——
          这里如实说明，不做一个点了没反应的按钮 */
-      { key: 'structure', label: '结构', kind: 'slot', slotLabel: '配置套图结构', hint: '默认按平台智能匹配；自定义结构在套图工作台里配' },
-      { key: 'skus', label: '规格', kind: 'slot', slotLabel: '编辑规格与张数', hint: '自定义 SKU 变体在套图工作台里配' },
+      { key: 'structure', label: '结构', kind: 'slot', group: '套图结构配置', slotLabel: '配置套图结构', hint: '默认按平台智能匹配；自定义结构在套图工作台里配' },
+      { key: 'skus', label: '规格', kind: 'slot', group: '套图结构配置', slotLabel: '编辑规格与张数', hint: '自定义 SKU 变体在套图工作台里配' },
     ],
     cases: [
       { id: 'scene', title: '场景卖点主图', cover: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp' },
@@ -137,23 +204,58 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一张 A+ 内容模块图。商品：{{product}}。这个模块要讲的事：{{module}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
+    brief: '做一套 A+ 内容模块图。商品与卖点：{{productParams}}。设计风格：{{style}}{{styleNote}}。目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
+    /* 字段顺序与措辞照竞品 A+ 页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
+       产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：冷萃咖啡液 250ml' },
-      { key: 'module', label: '模块主题', kind: 'textarea', rows: 3, required: true, placeholder: '例如：原料产地与烘焙曲线，配一张剖面图' },
-      marketField(),
-      languageField(),
+      uploadField({ maxImages: 6 }),
+      marketField(MARKET_WIDE),
+      platformField(PLATFORM_WIDE),
+      languageField('输出语言', LANGUAGE_FULL),
+      { key: 'productParams', label: '核心卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', required: true,
+        placeholder: '产品名：\n核心卖点：\n适用人群：\n期望场景：\n尺寸参数：' },
+      { key: 'style', label: '爆款风格', kind: 'segmented', group: '产品卖点与设计风格', default: 'AI推荐',
+        options: [
+          { value: 'AI推荐', label: 'AI推荐' },
+          { value: '参考/自定义风格', label: '参考/自定义风格' },
+        ] },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
+      countField(6),
     ],
-    /* 交付清单照竞品那份（他们 A+ 页列出 16 个可勾选模块；我们做成只读的交付说明，
-       因为我们的张数与报价由方案算死，可勾选会让钱对不上）。 */
+    /* ═══ 「包含模块」：竞品 A+ 页那 16 条，**逐条原文**照抄（名称 + 它自己那句说明）═══
+       实测来源见 docs/design/50-quantv-subpage-field-spec.md（CDP 实访，一次一标签）。
+       他们那边是**可勾选**的（已选 0/16，勾几个出几个、价钱跟着变）；
+       我们的张数与报价由方案算死（服务端建 hold 前会校验报价），照抄成可勾选会让
+       报价与产出对不上 —— 这是钱的问题，所以做成**只读**清单（RTK 批次三十六已定性，
+       门禁 test/workbench-quantv-parity-0918 第 ④ 条守着"不许照抄可勾选模块"）。
+       清单内容与顺序照他们的 16 条，一条不少。 */
+    modules: [
+      { name: '首屏主视觉', hint: '传递核心价值' },
+      { name: '核心卖点图', hint: '突出差异化优势' },
+      { name: '使用场景图', hint: '呈现真实使用场景' },
+      { name: '多角度图', hint: '多角度呈现外观' },
+      { name: '场景氛围图', hint: '展示使用场景' },
+      { name: '商品细节图', hint: '放大材质与工艺' },
+      { name: '品牌故事图', hint: '传达品牌理念' },
+      { name: '尺寸/容量/尺码图', hint: '展示规格信息' },
+      { name: '效果对比图', hint: '使用前后效果对比' },
+      { name: '详细规格/参数表', hint: '展示详细商品数据' },
+      { name: '工艺制作图', hint: '展示工艺制作过程' },
+      { name: '配件/赠品图', hint: '明确收货的所有物品' },
+      { name: '系列展示图', hint: '多色或多SKU展示' },
+      { name: '商品成分图', hint: '展示配方/材质/成分' },
+      { name: '售后保障图', hint: '说明质保退换政策' },
+      { name: '使用建议图', hint: '商品使用的注意事项' },
+    ],
+    /* 示例区的编号清单照竞品 A+ 页实测：01 功能总览图 02 技术细节图 03 生活方式图
+       04 品牌主视觉 05 场景展示图 06 品牌故事图 */
     deliverables: [
       { name: '功能总览图', hint: '把产品的几项核心功能一次讲完' },
       { name: '技术细节图', hint: '放大结构、材质与做工' },
       { name: '生活方式图', hint: '放进真实使用场景' },
       { name: '品牌主视觉', hint: '统一的品牌调性与留白' },
+      { name: '场景展示图', hint: '把商品放进它真正被使用的环境' },
+      { name: '品牌故事图', hint: '讲清这个品牌为什么做这件产品' },
     ],
     cases: [], history: true,
   },
@@ -164,19 +266,23 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一张电商详情页的「{{module}}」模块图。商品：{{product}}。这一屏要讲的点：{{copy}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
+    brief: '做一套电商详情页的模块图。商品与卖点：{{productParams}}。风格取向：{{style}}。目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
+    /* 字段顺序与措辞照竞品详情图页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
+       产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：氨基酸洁面慕斯' },
-      { key: 'module', label: '这一屏', kind: 'segmented', required: true, default: '首屏主图', options: [
-        { value: '首屏主图', label: '首屏主图' }, { value: '卖点图解', label: '卖点图解' },
-        { value: '成分说明', label: '成分说明' }, { value: '规格参数', label: '规格参数' },
-        { value: '使用场景', label: '使用场景' },
-      ] },
-      { key: 'copy', label: '要讲的点', kind: 'textarea', rows: 3, placeholder: '例如：氨基酸配方、洗完不紧绷、一次一泵' },
-      marketField(),
-      languageField(),
+      uploadField({ maxImages: 6 }),
+      marketField(MARKET_WIDE),
+      platformField(PLATFORM_WIDE),
+      languageField('输出语言', LANGUAGE_FULL),
+      { key: 'productParams', label: '核心卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', required: true,
+        placeholder: '建议包含以下信息生成更精准：\n1.产品名称\n2.核心卖点\n3.适用人群\n4.期望场景\n5.尺寸参数' },
+      { key: 'style', label: '爆款风格', kind: 'segmented', group: '产品卖点与设计风格', default: '爆款风格',
+        options: [
+          { value: '爆款风格', label: '爆款风格' },
+          { value: '参考/自定义风格', label: '参考/自定义风格' },
+        ] },
       ratioField(),
+      countField(6),
     ],
     /* 竞品详情图页的示例清单是「01 高效率销售转化详情页 02 场景氛围与情感共鸣详情页
        03 医学专研与极简信任详情页 04 产品规格参数图」——我们按单屏模块如实列。 */
@@ -414,13 +520,31 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'soft' },
     summary: '把商品穿到模特身上，姿势场景可选', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
-    brief: '把商品穿到模特身上。场景：{{scene}}。保留模特的五官、身材比例与肤色，商品要贴合身体、褶皱与垂坠自然，光线统一；不要改变商品的颜色与图案。',
+    brief: '把衣服穿到模特身上（{{mode}}）。补充要求：{{scene}}。保留模特的五官、身材比例与肤色；衣服要贴合身体、褶皱与垂坠自然，面料质感、图案与版型必须与衣服图一致，光线统一；不要改变衣服的颜色与图案。',
+    /* ═══ 字段逐条照竞品实测（?tool=ai-outfit）══════════════════════════════════════
+       模特选择（上传模特图 0/1）→ 服装选择（套装 / 多件）→ 上传衣服图 0/1 →
+       Pose 参考（可选）→ 背景参考（可选）→ 模型 / 分辨率 / 比例 / 生成张数 1-4。
+       上传文案原文：「点击或拖拽上传图片 · 支持 JPG、JPEG、PNG、WEBP，单张不超过 10 MB」
+       ＋可选位写「可选素材，不上传也可生成」。
+       ⚠️ 模特图必须排在**第一个 upload 位**：skillImages 取第一个位当主图（image_url），
+          这条链路的语义是"把衣服穿到这个模特身上"，模特才是底图。
+          竞品也是这么排的（模特在上、衣服在下）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
-      { key: 'model', label: '模特', kind: 'upload', maxImages: 1, role: 'person', slotLabel: '选模特图' },
-      { key: 'scene', label: '场景', kind: 'text', placeholder: '例如：城市清晨的街道' },
+      { key: 'model', label: '上传模特图', kind: 'upload', group: '模特选择', maxImages: 1, role: 'person', required: true,
+        slotLabel: '点击或拖拽上传图片', hint: '模特底图：衣服会穿到这张图上的人身上' },
+      { key: 'mode', label: '服装选择', kind: 'segmented', group: '服装选择', default: '套装',
+        options: [{ value: '套装', label: '套装' }, { value: '多件', label: '多件' }] },
+      { key: 'assets', label: '上传衣服图', kind: 'upload', group: '服装选择', maxImages: 1, role: 'product', required: true,
+        slotLabel: '点击或拖拽上传图片', hint: '要穿上去的衣服：真实面料、图案与版型要保住' },
+      { key: 'pose', label: '上传姿势参考图', longLabelReason: '照竞品原文逐字（他们 ?tool=ai-outfit 的上传位标题就叫这个）', kind: 'upload', group: 'Pose 参考（可选）', maxImages: 1, role: 'reference',
+        slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
+      { key: 'backdrop', label: '上传背景参考图', longLabelReason: '照竞品原文逐字（他们 ?tool=ai-outfit 的上传位标题就叫这个）', kind: 'upload', group: '背景参考（可选）', maxImages: 1, role: 'scene',
+        slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
+      { key: 'scene', label: '补充要求', kind: 'textarea', rows: 3, group: '生成设置',
+        placeholder: '例如：城市清晨的街道，自然光，模特站着回头看镜头' },
       ratioField(),
       clarityField(),
+      { key: 'count', label: '生成张数', kind: 'stepper', group: '生成设置', min: 1, max: 4 },
     ],
     cases: [
       { id: 'source', title: '商品与模特原图', cover: '/images/home/ability-tryon-example-input.png' },
@@ -623,8 +747,14 @@ export const IMAGE_SKILLS = [
     /* 竞品「图片复刻」页的示例清单是「01 原图 02 原图 03 原图 04 复刻图 05 复刻图 06 复刻图」——
        成对展示"原图 → 复刻图"，我们也按这个口径交付（before/after 版式）。 */
     deliverables: [
-      { name: '原图（输入的参考图）', hint: '你上传的那张，作为复刻基准' },
-      { name: '复刻图（保持构图与版式）', hint: '换掉商品与卖点，构图节奏不变' },
+      /* 竞品的示例编号清单是**成对**的：01 原图 02 原图 03 原图 04 复刻图 05 复刻图 06 复刻图。
+         我们按同样的读法列：三张原图 → 三张复刻图（"你给 3 张，我照 3 张还你"）。 */
+      { name: '原图', hint: '你上传的参考图，作为复刻基准（按参考图数量成组）' },
+      { name: '原图', hint: '第二张参考图（同上）' },
+      { name: '原图', hint: '第三张参考图（同上）' },
+      { name: '复刻图', hint: '换掉商品与卖点，构图、版式与节奏保持不变' },
+      { name: '复刻图', hint: '第二张成品（与上面对应）' },
+      { name: '复刻图', hint: '第三张成品（与上面对应）' },
     ],
     /* 复刻程度照竞品做成二选一（他们：参考排版 / 高度复刻，各带一句说明）。
        ⚠️ 这里如实说清：两种口径的差别**体现在提示词的严格程度**上（图生图链路是同一条），
@@ -634,21 +764,35 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'cool' },
     summary: '保住构图与节奏，换成自己的内容', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '按参考图复刻一张新图，复刻程度：{{degree}}；统一要求：{{rules}}。补充要求：{{prompt}}。' +
+    brief: '按参考图复刻一张新图，复刻程度：{{degree}}；统一复刻要求：{{rules}}。' +
       '（参考排版 = 只借排版与背景结构、人物关系，配色按商品本身来；高度复刻 = 连构图、版式、配色与细节一起复刻，只把商品与卖点换掉。）' +
-      '内容必须是{{product}}本身，不要照搬参考图里的品牌与文字。',
+      '内容必须是{{productParams}}本身，不要照搬参考图里的品牌与文字。' +
+      '目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。',
+    /* 字段顺序与措辞照竞品图片复刻页实测：
+       商品信息 0/4（核心卖点*）→ 上传商品图 0/4（成组打包）→ 上传参考图 0/20 →
+       复刻设置（复刻程度 + 统一复刻要求）→ 目标市场/目标平台/文案语言 → 生成设置。 */
     fields: [
-      { key: 'source', label: '原图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传要复刻的图' },
-      { key: 'reference', label: '商品图', kind: 'upload', maxImages: 4, role: 'product', slotLabel: '上传自己的商品图（成组打包参考）' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      /* 复刻程度照竞品二选一；差别体现在提示词的严格程度（同一条图生图链路，不是换引擎） */
-      { key: 'degree', label: '复刻程度', kind: 'segmented', required: true, default: '参考排版', options: [
+      /* ⚠️ 上传商品图必须 required：它是这条链路的主图（skillImages 取第一个 upload 位当 image_url），
+         不 required 的话「只填了卖点就能点生成」—— 那会跑成**文生图**，
+         而这条技能叫"复刻"，用户要的是拿着他的商品图去图生图。竞品也是先要求上传商品图。 */
+      { key: 'reference', label: '上传商品图', kind: 'upload', maxImages: 4, group: '商品信息', role: 'product', required: true,
+        slotLabel: '点击或拖拽上传图片', hint: '商品图会作为一组打包参考，最多 4 张' },
+      { key: 'product', label: '核心卖点', kind: 'textarea', rows: 5, group: '商品信息', required: true,
+        placeholder: '建议包含以下信息生成更精准：\n1.产品名称\n2.核心卖点\n3.适用人群\n4.期望场景\n5.产品尺寸' },
+      { key: 'source', label: '上传参考图', kind: 'upload', maxImages: 20, group: '参考图', role: 'reference',
+        slotLabel: '点击或拖拽上传图片', hint: '风格参考，最多 20 张' },
+      /* 复刻程度照竞品二选一（各带一句说明）；差别体现在提示词的严格程度（同一条图生图链路，不是换引擎） */
+      { key: 'degree', label: '复刻程度', kind: 'segmented', group: '复刻设置', required: true, default: '参考排版', options: [
         { value: '参考排版', label: '参考排版' },
         { value: '高度复刻', label: '高度复刻' },
-      ] },
-      { key: 'rules', label: '统一要求', kind: 'textarea', rows: 2, placeholder: '可选，例如：文案统一用英文、人物姿势保持不变、不要替换商品配色' },
-      { key: 'prompt', label: '补充要求', kind: 'textarea', rows: 2 },
+      ], hint: '参考排版：参考排版、背景结构与人物关系，配色按商品本身设计。高度复刻：复刻参考图构图、版式、配色与细节，替换商品和卖点。' },
+      { key: 'rules', label: '统一复刻要求（选填）', longLabelReason: '照竞品原文逐字（他们 ?tool=image-clone 的字段名就是「统一复刻要求（选填）」）', kind: 'textarea', rows: 3, group: '复刻设置',
+        placeholder: '例如：文案统一用英文、模特姿势保持不变、参考图不要替换商品色。' },
+      marketField(MARKET_BASE),
+      platformField(PLATFORM_SUITE),
+      languageField('文案语言', LANGUAGE_FULL.filter(item => item.value !== '繁体中文')),
       ratioField(),
+      countField(4),
     ],
     cases: [], history: true,
   },
@@ -887,11 +1031,17 @@ export const IMAGE_SKILLS = [
     summary: '去掉背景，出透明底或纯色底', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
     brief: '去掉背景，只保留主体。底色：{{mode}}。主体边缘要干净，发丝与透明材质要处理好，不要残留原背景，也不要改变主体本身的颜色与结构。',
+    /* 一键类：工作台极简（竞品 ?tool=remove-background 实测就是极简形态）：
+       标题「最多上传 5 张图片」+ 0/5 计数 + 一个「+」上传位 → 一颗
+       「去除背景 / 消耗 0.40 积分」→ 示例是「原图 ↔ 去背景后」两图对照。
+       ⚠️ 我们的底色选项（透明/白色/纯色）是**多的那一档**：竞品只出透明底，
+          我们保留是因为服务端这条链路本来就支持纯色底 —— 多给的是能力，不是坑
+          （每一项都真的进了提示词，见 brief 的 {{mode}}）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传图片' },
-      { key: 'mode', label: '底色', kind: 'segmented', required: true, options: [
+      uploadField({ maxImages: 5, slotLabel: '点击或拖拽上传图片', hint: '最多上传 5 张图片，一次批量去背景' }),
+      { key: 'mode', label: '底色', kind: 'segmented', group: '输出设置', required: true, options: [
         { value: '透明', label: '透明' }, { value: '白色', label: '白色' }, { value: '纯色', label: '纯色' },
-      ] },
+      ], hint: '透明底可直接叠在任何背景上；纯色底适合主图规范' },
       ratioField(),
     ],
     cases: [], history: true,

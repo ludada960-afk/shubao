@@ -895,7 +895,9 @@ try {
     labels: Array.from(document.querySelectorAll('.media-field-label')).map(n => n.textContent),
   }));
   check(/\d+ 积分/.test(suiteBefore.points), '套图 CTA 显示的是**按套**的总价（不是单张价）', JSON.stringify(suiteBefore.points));
-  check(suiteBefore.labels.some(label => label.startsWith('平台')), '套图有「平台」字段（它决定套图结构与张数）', JSON.stringify(suiteBefore.labels));
+  /* 2026-09-18 批 F：字段名照竞品改成「目标平台」（他们那一栏就叫这个）。
+     判据仍然咬住**这个字段存在且在选项池里**，只是名字跟着竞品走。 */
+  check(suiteBefore.labels.some(label => label.startsWith('目标平台')), '套图有「目标平台」字段（它决定套图结构与张数）', JSON.stringify(suiteBefore.labels));
   check(!suiteBefore.labels.some(label => label.startsWith('数量')), '套图不该有"数量"（张数由平台结构决定，放了也没用）', JSON.stringify(suiteBefore.labels));
 
   await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
@@ -934,7 +936,9 @@ try {
     const pick = prefix => Array.from(document.querySelectorAll('.media-field')).find(node => (node.querySelector('.media-field-label')?.textContent || '').startsWith(prefix));
     return {
       ratio: pick('比例')?.querySelector('.media-field-segmented button.is-active')?.textContent || '',
-      clarity: pick('清晰度')?.querySelector('.media-field-segmented button.is-active')?.textContent || '',
+      /* 字段名照竞品从「清晰度」改成「分辨率」（他们那一栏叫分辨率）。
+         ⚠️ 这里必须同时认两种写法：这条断言守的是"还原回那次的值"，不是"字段叫什么"。 */
+      clarity: (pick('分辨率') || pick('清晰度'))?.querySelector('.media-field-segmented button.is-active')?.textContent || '',
       notice: document.querySelector('.media-run-notice')?.textContent || '',
     };
   });
@@ -1095,9 +1099,13 @@ try {
       if (shape.missing) { result.problem = '页面说找不到这条技能：' + shape.missing; return result; }
       if (shape.title !== skill.name) { result.problem = '页面标题对不上：' + shape.title + ' ≠ ' + skill.name; return result; }
       if (shape.panel) { result.problem = ''; result.panel = true; return result; }
-      /* 通用配齐：上传位放图、输入位写字、下拉选第一项、分段控件没选中就点第一个 */
+      /* 通用配齐：上传位放图、输入位写字、下拉选第一项、分段控件没选中就点第一个。
+         ⚠️ 每个上传位的 input 是**独立的**（accept 不同、位次不同），
+            只给第一个放图会让"多个上传位都是必填"的技能（AI换装：模特图 + 衣服图）配不齐 ——
+            setInputFiles 传选择器时只会命中**第一个**元素。逐位放图才叫"通用配齐"。 */
       if (shape.uploads) {
-        await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
+        const inputs = await page.$$('.media-field-upload input[type=file]');
+        for (const input of inputs) await input.setInputFiles(UPLOAD_FILE).catch(() => {});
         await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 }).catch(() => {});
       }
       for (const input of await page.$$('.media-workbench-fields textarea[id^="field-"], .media-workbench-fields input[id^="field-"]')) {

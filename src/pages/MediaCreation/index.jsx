@@ -438,6 +438,22 @@ export default function MediaCreationPage() {
     });
   }, [skill, suite, suiteRun]);
 
+  /* ═══ 左栏的只读清单块（照竞品「包含模块 已选 0/16」的形态）════════════════════════
+     竞品那一块是**可勾选**的；我们的张数与报价由方案算死，所以只做只读展示 ——
+     用户看到的是"这一套会交出哪几样、全都交"，不是"勾几个改价钱"。
+     ⚠️ 清单内容来自声明源（skill.modules，逐条照抄竞品原文），页面不写死任何一条。 */
+  const sections = useMemo(() => {
+    if (!skill) return [];
+    const modules = Array.isArray(skill.modules) ? skill.modules : [];
+    if (!modules.length) return [];
+    return [{
+      key: 'modules',
+      title: '包含模块',
+      note: '这一套会全部交付（我们的张数与报价由平台方案算死，不能像竞品那样勾选改价）',
+      items: modules,
+    }];
+  }, [skill]);
+
   /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
      照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。
      ⚠️ 它**扣费**（SKU ec_ai_assistant = 200 units = 0.2 积分），所以：
@@ -448,17 +464,30 @@ export default function MediaCreationPage() {
      解析结果（商品名 / 品类 / 材质 / 尺寸 / 保养）按技能声明的 fills 回填到对应字段。 */
   const [parsing, setParsing] = useState(false);
   const parseSpec = skill && skill.parse && !embed ? skill.parse : null;
-  async function parseProductInfo() {
+  /* ⚠️ 解析的**取图位**必须按目标字段算，不能统一读 values.assets：
+     「图片复刻」没有 assets（它的两个上传位叫 reference / source），
+      写死 assets 会让那颗按钮永远提示"先上传商品图"—— 明明是死路却看着像能用。
+     判据：目标字段是卖点类 → 第一个 upload 位就是商品图；其余情况取 assets。
+     见 test/workbench-quantv-parity-0918 第 ⑤ 条（它自带反例）。 */
+  function parseSourceUrls(target) {
+    const isPoints = target === 'product' || target === 'productParams';
+    const slots = (skill?.fields || []).filter(field => field.kind === 'upload');
+    const key = isPoints && slots.length ? slots[0].key : 'assets';
+    return (Array.isArray(effectiveValues[key]) ? effectiveValues[key] : [])
+      .filter(item => item && item.status === 'ready' && item.url)
+      .map(item => item.url);
+  }
+  /* target：回填到哪个字段。缺省用声明源里的 fills（一键解析那颗按钮走这条）。 */
+  async function parseProductInfo(target = '') {
     if (!skill || !parseSpec || parsing) return;
     if (!state.logged) {
       dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
       dispatch({ type: 'SHOW_LOGIN', show: true });
       return;
     }
-    const ready = (Array.isArray(effectiveValues.assets) ? effectiveValues.assets : [])
-      .filter(item => item && item.status === 'ready' && item.url)
-      .map(item => item.url);
-    if (!ready.length) { setError('先上传商品图，再点一键解析'); return; }
+    const field = target || parseSpec.fills || 'productParams';
+    const ready = parseSourceUrls(field);
+    if (!ready.length) { setError('先上传商品图，再点它'); return; }
     setParsing(true);
     setError('');
     setNotice('正在解析商品信息…（本次消耗 0.2 积分）');
@@ -473,11 +502,10 @@ export default function MediaCreationPage() {
         result?.maintenance ? '保养：' + result.maintenance : '',
       ].filter(Boolean);
       const filled = lines.join('\n');
-      const target = parseSpec.fills || 'productParams';
       if (!filled) { setNotice(''); setError('没解析出可用信息，换一张更清楚的商品图再试'); return; }
-      setValues(prev => ({ ...prev, [target]: filled }));
+      setValues(prev => ({ ...prev, [field]: filled }));
       await refreshBillingBalance?.().catch(() => undefined);
-      setNotice('已解析并填入' + (target === 'product' ? '商品名' : '商品信息') + '（消耗 0.2 积分），确认后再生成');
+      setNotice('已解析并填入' + (field === 'product' ? '核心卖点' : '商品信息') + '（消耗 0.2 积分），确认后再生成');
     } catch (err) {
       setNotice('');
       handleError(err);
@@ -494,6 +522,49 @@ export default function MediaCreationPage() {
     if (message) setError(message);
     return false;
   }, [dispatch]);
+
+  /* ═══ 字段旁的付费动作：照竞品实测那几颗（AI生成卖点 / AI推荐风格分析）════════════
+     竞品在这两处各有一颗明码标价的按钮（他们 0.10 积分）。
+     我们对应的是既有链路 /api/ecommerce/auto-recognize（读图 + 归纳商品字段），
+     计费 SKU 是 ec_ai_assistant = 200 units = **0.2 积分**（与「一键解析」同一颗 SKU）。
+     ⚠️ 计价改成 0.10 是**动钱路**的事（catalog 里每条 SKU 都带真实上游成本与毛利带），
+        必须用户点头，不许静默调价 —— 所以按钮上如实写 0.2 积分，不照抄他们的数字。
+     ⚠️ 只渲染**真的接通**的动作：runnable:false 的一律渲染成带原因的说明行，
+        绝不做一个点了没反应的付费按钮（给死按钮比不给更糟）。
+     ⚠️ 依赖数组里的 parseProductInfo 是**函数声明**（会提升），不是 const ——
+        这里若引用后面才声明的 const，就是本项目踩过两次的渲染期 TDZ 白屏。 */
+  const paidActions = useMemo(() => {
+    if (!skill || embed) return [];
+    const list = [];
+    /* ① AI生成卖点：套图 / A+ / 详情图 / 复刻四条都有卖点字段，回填到它自己那一个 */
+    const pointsField = (skill.fields || []).find(field => field.key === 'productParams' || field.key === 'product');
+    if (pointsField) {
+      list.push({
+        key: 'ai-points',
+        label: 'AI生成 · ' + pointsField.label,
+        points: 0.2,
+        runnable: true,
+        busy: parsing,
+        busyLabel: '正在生成…',
+        onRun: () => { void parseProductInfo(pointsField.key); },
+      });
+    }
+    /* ② AI推荐风格分析：竞品在「设计风格」那一排下面还有一颗（他们 0.10 积分）。
+       我们没有"风格分析"这条链路（auto-recognize 只回商品字段，不回风格）——
+       如实说明，不做死按钮。等上游接上再翻成 runnable:true。 */
+    const hasStyle = (skill.fields || []).some(field => field.key === 'style');
+    if (hasStyle) {
+      list.push({
+        key: 'style-analysis',
+        label: 'AI推荐风格分析',
+        points: null,
+        runnable: false,
+        reason: '还没有接通：现有解析接口只回商品字段、不回风格 — 所以不放按钮',
+      });
+    }
+    return list;
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [skill, embed, parsing]);
 
   /* ── 生成：命名函数，不用 useCallback 包 ──────────────────────────────────
      ⚠️ runSlot 是**扣费点**（regenerateCanvasImage 内部会先报价再扣费）。
@@ -849,12 +920,17 @@ export default function MediaCreationPage() {
         history={history}
         panel={panel}
         deliverables={deliverables}
+        sections={sections}
+        paidActions={paidActions}
         parseAction={parseSpec ? {
           label: parseSpec.label || '一键解析',
           points: 0.2,
           busy: parsing,
           hint: '上传商品图后点它，自动把商品名 / 品类 / 材质 / 尺寸填好',
-          onRun: parseProductInfo,
+          /* ⚠️ 必须包一层：onClick 会把**点击事件对象**当第一个参数传进来，
+             而 parseProductInfo 的第一个参数是"回填到哪个字段" —— 直接挂上去
+             会把事件对象当成字段名写进 values，而且必填校验会莫名通过。 */
+          onRun: () => { void parseProductInfo(); },
         } : null}
         emptyHistoryHint={embed === 'video'
           ? '这条技能还没有生成记录。这个账号的全部视频任务都在上方工作台的「生成记录」里，结果出来后会同步到这里。'

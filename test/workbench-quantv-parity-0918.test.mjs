@@ -55,10 +55,36 @@ test('③ 示例区有编号交付清单，且套图的清单与方案真源同�
   }
 });
 
-test('④ 不许照抄「可勾选模块」：张数与报价由方案算死，勾选会让钱对不上', () => {
-  assert.doesNotMatch(skills + media, /selectedModules|moduleSelector|包含模块/);
+/* ⚠️ 2026-09-18 批 F：这条断言**改了判据**（不是为了让测试过而回退 UI）。
+   起因：用户批注 17 要求「示例区是一份编号清单……你要真的去抓他们的编号交付清单，照着做」，
+   于是我们把竞品 A+ 页那 16 个模块逐条抄进了声明源（skill.modules），
+   并在左栏渲染成**只读**清单（标题照他们的「包含模块」+「已选 16/16」）——
+   用户看到的是"这一套会交出哪几样、全都交"。
+   旧断言写的是 /包含模块/ 这四个字：它拦的是**字面量**，于是把只读清单也一起拦了。
+   而这条门禁真正要守的是**机制**：勾选会改变张数与报价 = 钱会对不上。
+   判据改成三条可执行、且咬住机制的断言：
+     ① 声明源里不许有可勾选模块字段（selectableModules / 任何 modules 选项被当参数用）；
+     ② 页面里不许有"已选模块 → 张数/报价"的计算（moduleSelection / selectedModules 参与 quantity/points）；
+     ③ 只读清单必须是**不可点的静态结构**（li + span），不是按钮 —— 点了不能改价钱。
+   这样才能同时满足"清单内容照抄"与"钱路不许被勾选改掉"。 */
+test('④ 可勾选模块仍然不许出现（清单只读是因为钱：张数与报价由方案算死）', () => {
   for (const skill of IMAGE_SKILLS) {
     assert.equal(skill.selectableModules, undefined, skill.id + ' 不许出现可勾选模块');
   }
+  /* 声明源里的 modules 只能是"名称 + 一句说明"（只读清单的内容），不许带 checked/selected/quantity */
+  for (const skill of IMAGE_SKILLS) {
+    for (const item of (skill.modules || [])) {
+      assert.equal(item.checked, undefined, skill.id + ' 的模块不许带勾选状态');
+      assert.equal(item.quantity, undefined, skill.id + ' 的模块不许带张数（张数由方案算）');
+    }
+  }
+  /* 页面侧：不许有"已选模块"这种状态参与计价 */
+  assert.doesNotMatch(media, /selectedModules|moduleSelection|选中模块/);
+  assert.doesNotMatch(media, /modules[\s\S]{0,120}(quantity|points)\s*[:=]/, '模块不许参与张数/报价计算');
+  /* 只读清单必须渲染成静态结构（li），不是按钮 */
+  const shell = read('src/components/media/WorkbenchShell.jsx');
+  const checklist = shell.slice(shell.indexOf('media-workbench-checklist-items'), shell.indexOf('media-workbench-checklist-items') + 900);
+  assert.match(checklist, /<li key=\{item\.name\}>/, '清单条目必须是 li（静态），不许是可点的 button');
+  assert.match(checklist, /media-workbench-checklist-check/, '每条前面一个勾（照竞品形态），但不可点');
   assert.match(read('docs/design/47-quantv-workbench-teardown.md'), /明确不照抄/, '拆解文档要写清哪些没抄、为什么');
 });
