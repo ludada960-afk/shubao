@@ -38,7 +38,14 @@ test('homepage clips only horizontal decoration so sticky mobile actions can fol
 
 test('mobile top bar keeps the product brand on one line without crowding account actions', () => {
   assert.match(appSource, /app-topbar/);
-  assert.match(appSource, /className="topbar-row"/);
+  /* ⚠️ 2026-09-19 批 I-③（门禁改判据，理由如下）：
+     原来这条断言的是字面量 className="topbar-row"。批 I-③ 给这一行加了
+     **子页面修饰类**（className={'topbar-row' + (subpageHeader ? ' is-subpage' : '')}，
+     用户批注 #12 要求子页面顶栏换成「左返回/中名称/右积分账户」三格），
+     字面量形式就不存在了。
+     判据改成「这一行仍然存在、且类名仍然是 topbar-row（可带修饰类）」——
+     断言的原意（移动端顶栏这一行没被改名/删掉）一字不变，只是允许了修饰类。 */
+  assert.match(appSource, /className={[^}]*'topbar-row'[^}]*}/);
   assert.match(appSource, /className="topbar-brand"/);
   assert.match(appSource, /className="topbar-actions"/);
   assert.match(shellMobileRules, /\.topbar-logo \{[^}]*white-space:\s*nowrap/);
