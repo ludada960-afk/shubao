@@ -300,6 +300,15 @@ export default function VideoStudioPage({
   presetNonce = 0,
   autoOpenCanvas = true,
 }) {
+  /* ═══ 首页形态 vs 技能子页面形态（用户 9-18 批注 2 / 3 / 8 / 9 / 10 / 11 / 12）══════
+     用户口径：「首页就是要让用户快速的去生成去跑一遍呀，你不要把功能做的太杂了，做的太杂，
+     没有人会去用你的」「选模型的地方只能选模型」「配置就是这么点而已，更精细化的配置
+     就是要进到相关的子页面里面去做的」。
+     判据：首页用的是 <VideoStudioPage embedded inlineResult />（**没有 skillTag、没有 initialMode**）；
+     skill 子页面一定带 skillTag（MediaCreation 传的）。所以 skillTag 为空 = 首页形态。
+     ⚠️ 子页面形态下**一个功能都不许少**：三档创作方式、技能库、镜头规格、运镜、"只改一个元素"、
+        生成记录，全部保持原样（用户批注 15：子页面才是精细化调参的地方）。 */
+  const homeComposer = Boolean(embedded) && !skillTag;
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false, workbenchEnabled: false, workbenchMode: 'planning', workbenchPlanningOnly: false });
   const [activeVideoProjectId, setActiveVideoProjectId] = useState('');
@@ -1064,10 +1073,12 @@ export default function VideoStudioPage({
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
-    <section className="video-composer" aria-label="视频生成工作区">
+    <section className={"video-composer" + (homeComposer ? " is-home" : "")} aria-label="视频生成工作区">
       <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
       <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
-        {VIDEO_CREATION_MODES.map(item => {
+        {/* 首页只留两档（用户批注 3：「下面你就得像他们这样了，就是可能就是一个全能参考，
+            还有一个首尾针的切换按钮而已」）。爆款重构是独立 skill，从左侧导航/总页面进。 */}
+        {(homeComposer ? VIDEO_CREATION_MODES.filter(item => item.id === 'smart' || item.id === 'frame') : VIDEO_CREATION_MODES).map(item => {
           const ModeIcon = VIDEO_MODE_ICONS[item.id] || Clapperboard;
           return <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setMode(item.id); }}>
             <span className="video-mode-icon" aria-hidden="true"><ModeIcon size={18} /></span><span className="video-mode-copy"><strong>{item.label}</strong><small>{item.hint}</small></span><i aria-hidden="true" />
@@ -1197,7 +1208,7 @@ export default function VideoStudioPage({
               </span>
             </div>
             <div className="video-toolbar-buttons">
-            {TOOLBAR_ITEMS.map(item => {
+            {(homeComposer ? TOOLBAR_ITEMS.filter(item => item.key !== 'skills' && item.key !== 'shot') : TOOLBAR_ITEMS).map(item => {
               const Icon = item.icon;
               const isOpen = activePanel === item.key;
               return <button
@@ -1246,10 +1257,23 @@ export default function VideoStudioPage({
           {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
         </>}
         <div className="video-history">
+          {/* 首页只留一个入口（用户批注 2：「你像生成记录这个就没有必要放在这里呀，
+              这个最多就是放一个按钮而已，让用户跳到我的作品里面去」）。
+              子页面照旧铺完整的生成记录 —— 它是这个账号全部视频任务的唯一入口。 */}
+          {homeComposer ? (
+            <button
+              type="button"
+              className="video-history-more"
+              onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
+            >我生成的作品 →</button>
+          ) : (
+          <>
           <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
           {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
             <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
           </button>) : <p className="video-history-empty">暂无视频任务</p>}
+          </>
+          )}
         </div>
       </div></section>}
     {!embedded && capabilities.directorUi === true && state.logged && <DirectorWorkbench capabilities={capabilities} />}
