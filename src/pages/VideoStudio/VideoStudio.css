@@ -28,12 +28,29 @@
 .video-balance { border: 1px solid #292b31; background: #202126; color: var(--sb-neutral-0); border-radius: 8px; padding: 10px 14px; text-align: left; cursor: pointer; }
 .video-balance strong { display: block; margin-top: 2px; }
 
+/* ═══ 2026-09-19 批 H-2：视频创作台**照抄图片侧那一个整框**（用户批注 #3-③ / #5-③）══════
+   用户原话（说了两遍）：
+     「你这里整个框它是上面是图片上传区，下面是提示词的输入区，为什么你视频那边不是这样呢？
+       而且视频生成那边它的背景色也完全不一样，我觉得是不行的，你两者必须统一呀，
+       视频生成那边应该照抄这边的整个样式过去呀。」
+     「然后你现在这一整块啊，你都要重新设计一下，你要去看一下我们图片生成那边具体是怎么做的，
+       就是包括背景的这个渐变色，你现在也是不一样的，然后渐变的比例你也是不一样的，
+       然后你这里为什么会是两个输入框？…你应该完全照抄图片生成那边的布局。
+       它是一整个框里面包含了上传素材以及输入的区域，明白吗？」
+   量到的差异（两边原本的 CSS 值）：
+     图片侧 .ec-xhs-composer：**一个**盒子，暖色从左铺开、右侧自然回到白 ——
+       linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%)，
+       上传区与 textarea 都在它里面（textarea 自身透明无边框）。
+     视频侧（改前）：白盒子 .video-composer + **另一个**奶油色盒子 .video-composer-input，
+       于是看上去是"两个输入框"，背景色与渐变比例也都对不上。
+   改法：把同一条渐变搬到 .video-composer 上，并把 .video-composer-input 变成**透明无边框**的
+     输入区（结构上仍是两个 div，但视觉上只有一个框）。 */
 .video-composer {
   width: 100%;
   overflow: hidden;
   border: 1px solid rgba(52, 43, 35, .08);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, .97);
+  border-radius: 16px;
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, var(--sb-neutral-0) 79%, var(--sb-neutral-0) 100%);
   box-shadow: 0 18px 52px rgba(67, 48, 31, .09);
 }
 
@@ -102,15 +119,16 @@
 .video-media-guidance > span { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 12px; color: #786f66; }
 .video-media-guidance i { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-style: normal; }
 
+/* 输入区不再是"第二个框"：与图片侧一致 —— 透明、无边框、直接坐在同一个暖色面上 */
 .video-composer-input {
   min-height: 150px;
   margin: 0 22px;
-  padding: 18px 20px 12px;
+  padding: 10px 2px 12px;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(112, 84, 58, .07);
-  border-radius: 16px;
-  background: #fff8ee;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .video-composer-input > textarea {
