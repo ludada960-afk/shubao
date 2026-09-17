@@ -68,12 +68,26 @@
   gap: 0;
 }
 
-.video-materials { margin: 0 22px 14px; padding: 14px 16px 13px; border: 1px solid rgba(112,84,58,.09); border-radius: 12px; background: linear-gradient(118deg,#fff7eb 0%,#fffdf8 55%,var(--sb-neutral-0) 100%); box-shadow: inset 0 1px rgba(255,255,255,.82); }
-.video-materials > header { margin-bottom: 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.video-materials > header > div { display: flex; align-items: center; gap: 9px; color: var(--sb-brand-600); }
-.video-materials > header span { display: grid; gap: 2px; }
-.video-materials > header strong { color: #312d29; font-size: 13px; }
-.video-materials > header small { color: #948c84; font-size: 10px; }
+/* ═══ 2026-09-19 批 I-⑧（用户批注 #1-6，坐标 50.8% / 44.1%）：**把这一层框拿掉** ═══════════
+   用户原话：「而且为什么要有个框呢，你没看明白图片生成那边的做法吗，
+   **他是一个大框把上传素材的区域和文字输入的区域框起来啊**，你照抄不就好了吗。」
+   实测对账（CDP 读两边的计算样式）：
+     | | 图片侧 .visual-composer-surface | 视频侧（改前） |
+     |---|---|---|
+     | 上传区 | **直接躺在外框里**（.visual-reference-zone 无边框无底色） | 自己还套了一层：border 1px + radius 12 + 两层渐变底 |
+     | 输入区 | 直接躺在外框里 | 直接躺在外框里 |
+   —— 也就是说视频侧有**两层框**：外面一层 .video-composer、里面又给素材区套了一层。
+   图片侧只有一层。用户要的是后者，所以这一层全部拆掉（边框 / 圆角 / 底色 / 内阴影）。
+   ⚠️ 保留左右外边距与上下留白：外框现在是**唯一**的一层，"内容贴不贴边"这件事
+      就得由它自己说清（对齐 mode-tabs 的 22px 与图片侧的呼吸感）。
+   旧值留档：margin: 0 22px 14px; padding: 14px 16px 13px; border: 1px solid rgba(112,84,58,.09);
+             border-radius: 12px; background: linear-gradient(118deg,#fff7eb,#fffdf8,var(--sb-neutral-0));
+             box-shadow: inset 0 1px 0 rgba(255,255,255,.82); */
+.video-materials { margin: 0 22px 14px; padding: 2px 0 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+/* 2026-09-19 批 I-⑦：这一行文字已整行删除（用户批注 #1-3 + #1-7，见 JSX 里的说明）。
+   表头现在只剩右侧那组**动作**按钮（N 个 / 清空素材 / 全屏），所以靠右对齐。
+   下面三条 header > div / span / strong / small 的规则随之作废，一并删掉（不留死 CSS）。 */
+.video-materials > header { margin-bottom: 11px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .video-materials > header b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; }
 /* ═══ 全屏创作台（用户批注 3 的「全屏」按钮）═════════════════════════════════════
    走浏览器原生 Fullscreen API（requestFullscreen），所以这里要做的只有一件事：

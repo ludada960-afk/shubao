@@ -471,11 +471,15 @@ try {
   await openVideoSkill('video.frame');
   const frameMode = await page.evaluate(() => ({
     active: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
-    materialHint: document.querySelector('.video-materials header small')?.textContent || '',
+    /* ⚠️ 2026-09-19 批 I-⑦：素材区标题那行文字被用户**整行删除**了
+       （批注 #1-3「不要冲突啊」+ #1-7「这里也不该有文字啊，上面选中切换区就好了呀」），
+       所以判据不能再读那句提示。换成读**首尾帧那两格本身** ——
+       这比原来更强：原来只看一句文案有没有跟着换，现在看的是界面结构真的换成了两格。 */
+    frameDeck: document.querySelector('.video-media-deck.is-frame')?.textContent || '',
     prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
   }));
   check(frameMode.active.includes('首尾帧'), '另一条视频技能落在自己的页签上', frameMode.active);
-  check(frameMode.materialHint.includes('首尾帧'), '素材区跟着这条链路走（首尾帧用于控制起点与终点）', frameMode.materialHint);
+  check(frameMode.frameDeck.includes('首帧') && frameMode.frameDeck.includes('尾帧'), '素材区跟着这条链路走（真的换成首帧 + 尾帧两格，不是只换一句文案）', frameMode.frameDeck.slice(0, 60));
   check(frameMode.prompt.includes('第一张图作为镜头起点'), '换一条技能，预填的配方提示词也跟着换（不是一句写死的话）', frameMode.prompt.slice(0, 40));
 
   /* 建筑家装（用户 9-17 明确要求做的一档）：子页面 + 工作台 + 配方提示词都要在 */
