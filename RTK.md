@@ -2876,3 +2876,42 @@ slot = result（结果区动作）/ field（控件）/ none（没有能力，必
    而不是等部署脚本在凌晨告诉你。
 全量 `npm run test`：**3911 条 / 3901 pass / 0 fail**。
 
+
+---
+
+## 批次（三十三）：把媒体改造真正发上线上（shuimg.cn）
+
+### 用户报『线上没变化，我根本没办法体验』—— 排查出两个真阻塞，都修掉了
+**阻塞①：一条红了很久的契约测试挡住了部署。**
+- 线上最近一次 release `20260916-172303-779cd6e5` 就在我这条分支上，`779cd6e5..HEAD` 只差 42 个提交（全是媒体那一整套）；
+  部署脚本第一步是全量 `npm run test`（3911 条），它红了：`test/video-studio-contract.test.mjs` 断言
+  `useState('smart')` 字面量，而 `e0278254` 把源码改成 `useState(() => initialMode || 'smart')`（技能子页面要落在自己那一档）。
+  源码是对的，**是断言在守实现细节**；而这条测试不在 precommit 的 BLOCKING 名单里 → 提交全绿、部署永远红、线上停在旧版。
+- 修法：① 默认创作方式提炼成常量 `DEFAULT_VIDEO_MODE`（videoStudioModel.js）；② 断言改成守默认值本身；
+  ③ **把该契约测试挂进 precommit BLOCKING**（同类漂移必须在提交时暴露）。全量测试 3911 / 3901 pass / 0 fail。
+
+**阻塞②：工作区里的白空格校验挡住了发布。**
+- 脚本在仓库里跑 `git diff --check`（502 行），而我这条工作区里有**别人的在途改动**（docs/32-before-baseline 等）
+  与大量 CRLF 行尾噪声 → 校验必红。这里**不能**去动别人的文件。
+- 正确做法（也是本仓库既有约定）：**从干净检出发布** —— `git worktree add <dir> --detach HEAD`，
+  给该目录建 `node_modules` junction（构建要用），再 `deploy-production.ps1 -RepoPath <dir>`。
+  （`git worktree list` 里本来就有 `F:/da/_deploy-clean` 这种发布用检出，说明这是既有做法。）
+
+**阻塞③（非阻塞，但会让脚本回滚）：部署机到公网域名的 443 不通。**
+- 实测：`curl https://shuimg.cn/` → 000（80 端口 301 正常、SSH 正常、百度/GitHub 的 HTTPS 正常）→
+  公网图库/视频契约校验在这台机器上**物理上跑不通**，脚本按设计**自动回滚**（第一次发布就是这样被回滚的，站点没坏）。
+- 用 RTK 记过的专用开关重发：`-ValidationProfile frontend -SkipPublicChecks`（跳过的项逐条告警，
+  **需在大陆视角复跑** —— 用户浏览器就是那个视角）。
+
+### 结果（已上线并核对）
+- 部署结论：`Deployed 0a4b09cf to https://shuimg.cn/`，PM2 pid 749175，600 秒 canary + 启动快照 + 旧 release 清理均通过。
+- 源站核对：`current` → `/var/www/shubao/releases/20260917-130125-0a4b09cf`，
+  其 `index.html` 入口 = `assets/index-B2Qo59Ob.js`，与本地 dist **完全同一个 bundle**。
+- 线上现在包含：两张卡首页 + 92 条技能两个总页面与子页面工作台 + 一键解析 + 辅助能力融合 + 建筑家装全档。
+
+### 下次发布照这个流程走
+1. `git worktree add <clean> --detach HEAD` + node_modules junction；
+2. `pwsh scripts/deploy-production.ps1 -ValidationProfile frontend -RepoPath <clean> -SkipPublicChecks`；
+3. 核对 `/var/www/shubao/current` 与本地 dist 的入口 bundle 同名；
+4. 让用户硬刷新（Ctrl+F5）看新版。
+
