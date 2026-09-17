@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
 import { Check, Info, LayoutTemplate, Layers3, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 import {
-  MdAspectRatio,
   MdAutoAwesome,
-  MdCampaign,
+  MdCropFree,
+  MdLayers,
   MdCheckCircle,
   MdClose,
   MdDownload,
@@ -13,10 +13,8 @@ import {
   MdHighQuality,
   MdImage,
   MdOpenInNew,
-  MdPalette,
   MdRefresh,
   MdSend,
-  MdShare,
   MdTune,
   MdZoomOutMap,
   MdChevronLeft,
@@ -61,13 +59,6 @@ const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const VISUAL_SHOWCASE_AUTO_DWELL_MS = 9000;
 const VISUAL_SHOWCASE_MANUAL_DWELL_MS = 15000;
-const VISUAL_SKILL_ICONS = {
-  free: MdAutoAwesome,
-  poster: MdCampaign,
-  'social-cover': MdShare,
-  'brand-kv': MdPalette,
-};
-
 function referenceId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -176,12 +167,19 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
   );
 }
 
-function VisualSpecsPanel({ selectedSkill, ratio, count, onRatioChange, onCountChange, busy }) {
+/* ═══ 2026-09-18 批 C（用户批注 6 / 11 / 12）═══════════════════════════════════
+   用户原话：「最前面应该是选模型的面板，第二个是分辨率、尺寸和数量那些东西。」
+   所以首页的底栏配置是**四档顺序**：模型 → 分辨率 → 尺寸 → 数量。
+   落地方式：模型 + 分辨率同属"生成设置"面板（GenSettingsPanel，与电商生图同源），
+   尺寸与数量各自一个面板 —— 于是触发条的先后顺序就是用户要的那个顺序，
+   而每个面板仍然只讲一件事（一个面板里再分两个组会让"第二个是什么"变得含糊）。
+   ⚠️ 子页面的精细配置不在这里：那个是 MediaCreation/** 的工作台，功能一个不少。 */
+function VisualSizePanel({ selectedSkill, ratio, onRatioChange, busy }) {
   const options = VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id));
   return (
     <div className="visual-subpanel">
       <div className="visual-panel-section">
-        <div className="visual-panel-section-heading"><Monitor /><div><strong>输出画幅</strong><small>选择与当前创作方向匹配的画面比例</small></div></div>
+        <div className="visual-panel-section-heading"><Monitor /><div><strong>画面尺寸</strong><small>选择与当前创作方向匹配的画面比例</small></div></div>
         <div className="visual-ratio-grid">
           {options.map(option => {
             const selected = ratio === option.id;
@@ -189,6 +187,13 @@ function VisualSpecsPanel({ selectedSkill, ratio, count, onRatioChange, onCountC
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function VisualCountPanel({ count, onCountChange, busy }) {
+  return (
+    <div className="visual-subpanel">
       <div className="visual-panel-section">
         <div className="visual-panel-section-heading"><Layers3 /><div><strong>生成数量</strong><small>一次生成多张，方便比较不同构图方向</small></div></div>
         <div className="visual-count-grid">
@@ -207,7 +212,9 @@ function getVisualPanelPosition(panelId, button) {
   /* 9-11 二轮用户批注: 面板打开要「一眼看全」— 提高目标高度, 并用满可用空间 (最多 92vh)
      注：**高度**按面板内容多寡分档是有依据的（内容量不同），
      而**宽度**没有这种依据（都是单/双列表单），故宽度统一走唯一真源。 */
-  const desiredHeight = { recipe: 720, specs: 620, settings: 740 }[panelId] || 620;
+  /* 面板高度只用来判断「要不要切紧凑档」—— 尺寸/数量两个面板内容少，目标高就小。
+     ⚠️ 这里**不该**出现 width：宽度只有 resolvePanelWidth 一份真源。 */
+  const desiredHeight = { recipe: 720, size: 520, count: 360, settings: 740 }[panelId] || 620;
   const width = resolvePanelWidth(viewportWidth);
   const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16));
   const gap = 10;
@@ -799,9 +806,10 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const renderConfigPanel = () => {
     if (!activeConfigPanel) return null;
     const panelMeta = {
-      /* 9-11 二轮用户批注: 面板头图标必须与下方触发按钮图标一致 (三块面板统一) */
+      /* 9-11 二轮用户批注: 面板头图标必须与下方触发按钮图标一致 (四块面板统一) */
       recipe: { title: `${selectedSkill.title}方向`, description: '调整本次最重要的画面侧重', icon: <MdAutoAwesome /> },
-      specs: { title: '画面规格', description: '设置发布比例与本次生成数量', icon: <MdAspectRatio /> },
+      size: { title: '画面尺寸', description: '设置发布比例', icon: <MdCropFree /> },
+      count: { title: '生成数量', description: '一次生成几张', icon: <MdLayers /> },
       settings: { title: '生成设置', description: '沿用电商生图的模型与清晰度控制', icon: <MdHighQuality /> },
     }[activeConfigPanel];
     /* ⚠️ 上面这段说明只能放这里（JS 注释），不能写成 {/* … *\/} 塞进 createPortal 的参数位 ——
@@ -835,7 +843,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         </div>
         <div className="visual-config-panel-body">
           {activeConfigPanel === 'recipe' && <VisualRecipePanel selectedSkill={selectedSkill} skillControl={skillControl} updateSkillControl={updateSkillControl} panelValues={panelValues} updatePanelValue={updatePanelValue} busy={busy} />}
-          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} count={count} onRatioChange={setRatio} onCountChange={setCount} busy={busy} />}
+          {activeConfigPanel === 'size' && <VisualSizePanel selectedSkill={selectedSkill} ratio={ratio} onRatioChange={setRatio} busy={busy} />}
+          {activeConfigPanel === 'count' && <VisualCountPanel count={count} onCountChange={setCount} busy={busy} />}
           {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} />}
         </div>
       </div>,
@@ -851,29 +860,13 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         <p>选择创作方向，再用一句话和参考图开始。</p>
       </header>
 
-      <div className="visual-skill-grid" role="listbox" aria-label="创作配方">
-        {VISUAL_CREATION_SKILLS.map(skill => {
-          const selected = skill.id === skillId;
-          const SkillIcon = VISUAL_SKILL_ICONS[skill.id] || MdAutoAwesome;
-          return (
-            <button
-              type="button"
-              role="option"
-              aria-selected={selected}
-              className={`visual-skill-option${selected ? ' is-selected' : ''}`}
-              key={skill.id}
-              onClick={() => setSkillId(skill.id)}
-            >
-              <span className="visual-skill-icon" aria-hidden="true"><SkillIcon /></span>
-              <span className="visual-skill-title">
-                <strong>{skill.title}</strong>
-                <small>{skill.shortDescription}</small>
-                {selected && <MdCheckCircle aria-label="已选择" />}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ═══ 2026-09-18 批 C：首页不再有「四个模式卡」═══════════════════════════════
+          用户批注 6：「下面你就得像他们这样了」+ 批注 11/12：首页只留「我的素材 + 风格参考」
+          两张卡 + 输入框 + 配置。原来那一排 自由创作 / 海报设计 / 社媒封面 / 品牌主视觉
+          **不是被删掉**，它们本来就是独立 skill（左侧导航与总页面都能直达），
+          而首页这一页的定位是「三秒跑一次」（用户原话：不要把功能做得太杂）。
+          ⚠️ 这一页仍然带着创作方向（skillId 默认 free，深链可指定），
+             配方面板与案例台照旧渲染 —— 少的只是那份"让人先做选择题"的入口。 */}
 
       <section className={`visual-skill-stage visual-layout-${selectedShowcase?.layout?.type || 'editorial-grid'}${showcaseSlide % 2 ? ' is-alternate' : ''}`} aria-label={`${selectedSkill.title}效果预览`}>
         <div className="visual-skill-stage-copy">
@@ -1013,20 +1006,32 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         {/* ═══ 底栏：左侧工具胶囊 + 右侧统一生成按钮（按钮内动态积分），照小红书图文那套 ═══ */}
         <div className="ec-workbench-actions xhs-template-actions visual-parameter-bar">
           <div className="ec-workbench-primary-row">
+            {/* ⚠️ 触发条的**先后顺序就是用户要的配置顺序**（批注 12 原话：
+                「最前面应该是选模型的面板，第二个是分辨率、尺寸和数量那些东西」）：
+                 ① 生成设置 = 模型 + 分辨率（最前）
+                 ② 画面尺寸 = 比例
+                 ③ 生成数量
+                 ④ 创作配方（本轮唯一的"非参数"控件，放最后，不占用户点名的那三档）
+               改顺序时**必须连着改这里**，别只改面板实现 —— 用户看的是这条。 */}
             <div className="ec-workbench-tools xhs-template-tools visual-config-cluster" aria-label="生成配置">
-              <button type="button" ref={element => { configButtonRefs.current.recipe = element; }} className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
-                <MdAutoAwesome aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
-                <MdTune aria-hidden="true" />
-              </button>
-              <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
-                <MdAspectRatio aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{ratio} · {count} 张</strong></span>
-                <MdTune aria-hidden="true" />
-              </button>
               <button type="button" ref={element => { configButtonRefs.current.settings = element; }} className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
                 <MdHighQuality aria-hidden="true" />
                 <span className="visual-config-trigger-copy"><small>生成设置</small><strong>{model.label} · {resolution}</strong></span>
+                <MdTune aria-hidden="true" />
+              </button>
+              <button type="button" ref={element => { configButtonRefs.current.size = element; }} className={`visual-config-trigger${activeConfigPanel === 'size' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'size'} onClick={() => toggleConfigPanel('size')}>
+                <MdCropFree aria-hidden="true" />
+                <span className="visual-config-trigger-copy"><small>画面尺寸</small><strong>{ratio}</strong></span>
+                <MdTune aria-hidden="true" />
+              </button>
+              <button type="button" ref={element => { configButtonRefs.current.count = element; }} className={`visual-config-trigger${activeConfigPanel === 'count' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'count'} onClick={() => toggleConfigPanel('count')}>
+                <MdLayers aria-hidden="true" />
+                <span className="visual-config-trigger-copy"><small>生成数量</small><strong>{count} 张</strong></span>
+                <MdTune aria-hidden="true" />
+              </button>
+              <button type="button" ref={element => { configButtonRefs.current.recipe = element; }} className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
+                <MdAutoAwesome aria-hidden="true" />
+                <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
                 <MdTune aria-hidden="true" />
               </button>
             </div>
