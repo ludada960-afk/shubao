@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Download, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 
 /* ═══ 媒体板块页（图片 / 视频共用一个页面）═══════════════════════════════════════
@@ -193,7 +193,7 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
   );
 }
 
-export default function MediaCreationPage() {
+export default function MediaCreationPage({ onSubpageHeader = null }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const board = boardOfPage(state.page);
   const basePath = hubPath(board);
@@ -281,6 +281,21 @@ export default function MediaCreationPage() {
     () => (skillId ? (board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId)) : null),
     [board, skillId],
   );
+
+  /* ═══ 把子页面的「我是谁 / 返回去哪」交给顶栏（2026-09-19 批 H-8，用户批注 #12）══════
+     子页面顶栏写定为「左 返回 / 中 名称 / 右 积分账户」；这三格里有两格的内容只有本页知道，
+     所以由本页 publish 到 AppRouter，再由 TopBar 渲染。
+     ⚠️ useLayoutEffect 而不是 useEffect：后者在**浏览器绘制之后**才跑，
+        会先画一帧「LOGO 顶栏」再跳成「返回顶栏」—— 深链直接进子页面时这一帧很明显。
+     ⚠️ 深链（/image-creation?id=xxx 直接打开）也必须 publish：那不是"没进子页面"，
+        用户第一眼看到的就是这一页，顶栏同样得是返回 + 名称。
+     ⚠️ 卸载/返回 Hub 时置 null：否则顶栏会留着上一条技能的名字（见 AppRouter 的 reset）。 */
+  useLayoutEffect(() => {
+    if (!onSubpageHeader) return undefined;
+    if (!skill) { onSubpageHeader(null); return undefined; }
+    onSubpageHeader({ name: skill.name, onBack: backToHub });
+    return () => onSubpageHeader(null);
+  }, [onSubpageHeader, skill, backToHub]);
 
   /* 运行方式（skillRun.skillRunKind）：inline 就地出图 / suite 套图 /
      embed 把既有工作台整块嵌进本页 / handoff 兜底（当前没有技能走这一态）。
@@ -1049,8 +1064,11 @@ export default function MediaCreationPage() {
         skillId={skill.id}
         values={values}
         onFieldChange={(key, value) => setValues(prev => ({ ...prev, [key]: value }))}
-        onBack={backToHub}
-        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : '立即生成'}
+        /* ⚠️ 2026-09-19 批 H-8：**不再**往工作台里传 onBack。
+           用户批注 #12 把子页面顶栏写定为「左 返回 / 中 名称 / 右 积分账户」——
+           返回控件在**顶栏**。原来工作台左栏里还有一个「← 返回创作」，
+           两个按钮都回同一个 Hub、上下相距不到 200px，是纯冗余（用户最烦这种）。
+           backToHub 本身没消失：它现在作为顶栏返回按钮的 onClick 被 publish 上去（见上面的 useLayoutEffect）。 */        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : '立即生成'}
         ctaPoints={handoff ? null : points}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}

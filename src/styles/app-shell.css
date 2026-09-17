@@ -15,9 +15,11 @@
    原来 grid 是三列（左 1fr / 中 auto / 右 1fr），中间那一列专门留给域导航。
    域导航搬走之后，三列会让右侧按钮组掉进中间列 —— 所以这里同时把布局改成两端式：
    左 LOGO、右按钮组，中间留白（flex + space-between）。
-   实测过的对照：竞品的顶栏在子页面是「左 返回总页面 / 中 子页面名称 / 右 积分·账户」
-   （用户批注 #12），我们不做返回总页面那一格是因为子页面自己的页头已经有「← 返回创作」，
-   加第二处会变成两个返回按钮。 */
+   ⚠️ 2026-09-19 批 H-8 更正：这里原来写着「不做返回那一格，因为子页面页头已经有返回按钮」。
+      用户批注 #12 把子页面顶栏写死成三格（左 返回 / 中 名称 / 右 积分·账户），
+      所以现在**照做**：子页面顶栏恢复三格（见下面的 .topbar-row.is-subpage），
+      同时把工作台左栏里那个「← 返回创作」**删掉** —— 两个按钮回的是同一个 Hub，
+      留两个才是用户最烦的那种冗余。 */
 .topbar-row {
   max-width: 1680px;
   margin: 0 auto;
@@ -81,6 +83,58 @@
   align-items: center;
   gap: var(--sb-space-2-5);
   justify-self: end;
+}
+
+/* ═══ 三级顶栏的第三级：子页面（2026-09-19 批 H-8，用户批注 #12 逐字）══════════════════
+   批注原文把子页面顶栏的三个格子定死了：**左 返回 / 中 名称 / 右 积分账户**。
+   所以子页面上这一行从「两端式」切回**三格网格**（.is-subpage 只在子页面挂上）：
+     · grid-template-columns 用 minmax(0,1fr) auto minmax(0,1fr) ——
+       两侧等宽才能让中间那一格**真正居中**在整行上（不是"居中于剩余空间"）；
+       用 minmax(0,·) 而不是 1fr 是因为 1fr 的最小尺寸是 auto：
+       长技能名会把两侧挤破、把右上的积分账户顶出屏幕。
+     · 中间那格自己再加 max-width + 省略号兜底（技能名最长 6 个汉字，正常到不了）。
+   颜色纪律：这一格是**中性**的，不发紫 —— 与批 H-2「去紫色泛滥」同一条纪律，
+   全站唯一允许大面积的品牌色是主 CTA。 */
+.topbar-row.is-subpage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+/* 返回：中性文字按钮。默认透明底 + 次要墨色，悬停走 --sb-hover-bg（中性灰，绝不发紫）。 */
+.topbar-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 var(--sb-space-3);
+  border: 0;
+  border-radius: var(--sb-radius-md);
+  background: transparent;
+  color: var(--sb-ink-2);
+  font: inherit;
+  font-size: var(--sb-text-base);
+  font-weight: var(--sb-weight-bold);
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
+}
+.topbar-back:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.topbar-back:focus { outline: 0 solid transparent; }
+.topbar-back:focus-visible { outline: 0 solid transparent; box-shadow: var(--sb-shadow-ring); }
+@media (prefers-reduced-motion: reduce) { .topbar-back { transition: none; } }
+
+/* 名称：整行正中。字号取 18px（--sb-text-xl，"小节标题"档），
+   比 LOGO 的 24px 低一档 —— 它是"我在哪"，不是品牌。 */
+.topbar-title {
+  justify-self: center;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--sb-ink-1);
+  font-size: var(--sb-text-xl);
+  font-weight: var(--sb-weight-bold);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* Creative-domain navigation: a functional glass layer above the visual canvas. */

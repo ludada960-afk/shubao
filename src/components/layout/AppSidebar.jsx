@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import {
-  FolderOpen, Home, Image as ImageIcon, Images, Layers,
-  Sparkles, Video,
+  FolderOpen, Home, Image as ImageIcon, Images, Layers, Video,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
 import { hubPath } from '../../skills/skillDirectory.js';
@@ -93,16 +92,11 @@ export default function AppSidebar() {
         {workspace.map(item => cell(item))}
       </div>
 
-      {/* 底部一颗「开始创作」：窄栏也要有一个明确的主动作（原来那四个图标栏里它是主按钮） */}
-      <button
-        type={'button'}
-        className={'app-sidebar-cta'}
-        title={'开始创作'}
-        aria-label={'开始创作'}
-        onClick={() => { dispatch({ type: 'NEW_WORK' }); goHome(); }}
-      >
-        <Sparkles size={20} aria-hidden={'true'} />
-      </button>
-    </nav>
+      {/* ═══ 2026-09-19 批 I-③（用户批注 #1，坐标 2.5% / 95.6%）══════════════════════════
+          这里原来有一颗品牌渐变的「开始创作」悬浮按钮。用户原话：
+          「这个按钮为什么会在这里，很别扭啊，没有什么意义呀。」
+          它的问题是**语义空转**：点下去 = 回首页（goHome），而首页就在它正上方一格，
+          同一屏里有两个去同一个地方的东西，其中一个还是整栏唯一的实色主 CTA。
+          删掉它之后，这一栏只剩导航本身，"当前在哪"不再跟"要去哪"抢注意力。 */}    </nav>
   );
 }

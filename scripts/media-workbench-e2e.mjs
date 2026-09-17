@@ -715,14 +715,14 @@ try {
   const landed = await page.evaluate(() => ({
     url: location.pathname + location.search,
     title: document.querySelector('.media-workbench-head h2')?.textContent || '',
-    back: Boolean(document.querySelector('.media-workbench-back')),
+    back: Boolean(document.querySelector('.topbar-back')),
     hub: Boolean(document.querySelector('.media-hub')),
   }));
   check(/^\/(image|video)-creation\?id=/.test(landed.url), '点精选按钮进的是**它自己的子页面**（不是画布、不是别的板块）', landed.url);
   check(landed.url.startsWith('/video-creation?id='), '视频板块的按钮进的是视频子页面', landed.url);
   check(landed.title === firstVideo, '进去的就是点的那一条技能', landed.title + ' vs ' + firstVideo);
   check(!landed.hub, '不会掉回 Hub');
-  check(landed.back, '子页面有「返回创作」，能回到 Hub');
+  check(landed.back, '子页面顶栏有「返回」，能回到 Hub（批 H-8：返回控件从工作台左栏搬到顶栏，用户批注 #12）');
 
   /* 切到图片板块：按钮必须跟着换成图片技能（同一条规则，两个板块） */
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
@@ -901,7 +901,7 @@ try {
   await upload();
   await clickGenerate();
   await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 });
-  await page.click('.media-workbench-back');
+  await page.click('.topbar-back');
   await page.waitForSelector('.media-hub', { timeout: 15000 });
   await page.click('.media-hub .media-case-card-hit');
   await page.waitForTimeout(1200);
@@ -998,12 +998,12 @@ try {
   const suiteLanding = await page.evaluate(() => ({
     url: location.pathname + location.search,
     title: document.querySelector('.media-workbench-head h2')?.textContent || '',
-    back: Boolean(document.querySelector('.media-workbench-back')),
+    back: Boolean(document.querySelector('.topbar-back')),
     cta: document.querySelector('.media-workbench-submit')?.textContent || '',
   }));
   check(suiteLanding.url === '/image-creation?id=image.product_suite', '点图片域第一条进的是**它自己的子页面**', suiteLanding.url);
   check(suiteLanding.title.includes('商品套图'), '进去的就是点的那条技能', suiteLanding.title);
-  check(suiteLanding.back, '子页面能返回创作');
+  check(suiteLanding.back, '子页面顶栏能返回创作');
   check(suiteLanding.cta.includes('立即生成'), '图片技能就地生成（CTA 就在这一页）', suiteLanding.cta);
 
   /* 视频域：点进去要落在**嵌好的视频工作台**上，而不是首页的视频模块 */
@@ -1042,7 +1042,12 @@ try {
      两个总页面共用同一个组件（App.pageMap 两处指向 MediaCreationPage，key 是 _workVersion
      而不是 page），所以跨板块跳转时组件**不会重挂载**，skillId 会停在上一块的值。
      症状极具迷惑性：地址栏已经是 /video-creation?id=video.smart，页面却显示视频 Hub，
-     而且没有"返回创作"可点 —— 用户只会说"点了没反应"。 */
+     而且没有返回按钮可点 —— 用户只会说"点了没反应"。
+
+     ⚠️ 2026-09-19 批 I-③：**分类切换条现在只在总页面上出现**（用户批注 #12 把子页面顶栏
+     写死成「左 返回 / 中 名称 / 右 积分账户」，没有第三格给分类）。
+     所以跨板块导航的真实用户路径变成「子页面 → 点返回 → 总页面 → 切板块」，
+     navTo() 跟着走这条路径；本场景压的仍然是**跨板块跳转不重挂载**，与入口位置无关。 */
   scenario('⑱b 媒体页之间跳转：地址栏与页面内容必须一致');
   /* ⚠️ 2026-09-19 批 G：起点从 image.poster（自由创作，一级入口被用户撤掉）
      改成图片域第一条 image.product_suite。这条压的是**跨板块跳转不重挂载**，与具体技能无关。 */
@@ -1050,6 +1055,12 @@ try {
   await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   await page.waitForTimeout(400);
   const navTo = async (group, index) => {
+    /* 子页面里没有分类切换条 —— 先按顶栏的「返回」回总页面（批 I-③，见上面的说明）。 */
+    if (await page.$('.topbar-back')) {
+      await page.click('.topbar-back');
+      await page.waitForSelector('.app-board-bar', { timeout: 15000 });
+      await page.waitForTimeout(400);
+    }
     await page.click('#creative-nav-trigger-' + group);
     await page.waitForSelector('#creative-nav-item-' + group + '-' + index, { timeout: 10000 });
     await page.click('#creative-nav-item-' + group + '-' + index);

@@ -5,7 +5,7 @@ import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp, pathnameToPage } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
-import { FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -48,7 +48,16 @@ import ThemeSwitcher from './components/layout/ThemeSwitcher.jsx';
    它承载「图片生成 / 视频生成」两个总页面与各自的精品推荐入口。 */
 
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
-function TopBar() {
+/* ═══ 三级顶栏（2026-09-19 批 H-8，用户批注 #11-⑤ / #12 / #13）══════════════════════
+   用户的原始要求把三级的顶栏分别说清楚了：
+     · 首页（一级）  ：左 LOGO + 右积分账户；
+     · 总页面（二级）：分类 + 右积分账户（分类就是 CreativeDomainNav，见 .app-board-bar）；
+     · 子页面（三级）：**左 返回 + 中 名称 + 右 积分账户**（批注 #12 逐字）。
+   子页面的「我是谁」由页面自己 publish 上来（MediaCreation 用 useLayoutEffect 调
+   onSubpageHeader），因为只有它知道当前是哪条技能、返回要回到哪个 Hub。
+   ⚠️ 为什么是 useLayoutEffect 而不是 useEffect：useEffect 在**浏览器绘制之后**才跑，
+     会先闪一帧「LOGO 顶栏」再换成「返回顶栏」；layout effect 在绘制前跑，不闪。 */
+function TopBar({ subpageHeader = null }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
   const canAdmin = state.accountAccess?.role === 'owner';
@@ -81,7 +90,22 @@ function TopBar() {
   return (
     <div className={'app-topbar' + (compact ? ' is-compact' : '')} style={{ zIndex: 'var(--sb-z-sticky)', userSelect: 'none' }}>
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
-      <div className="topbar-row">
+      <div className={'topbar-row' + (subpageHeader ? ' is-subpage' : '')}>
+        {/* ═══ 三级顶栏的左/中两格（见 TopBar 顶部注释）═══════════════════════════════
+            子页面：左「返回」+ 中「名称」；其余两级：左「LOGO」+ 中留空。
+            ⚠️ 子页面上**不渲染 LOGO**：用户批注 #12 把子页面顶栏的三个格子写死了
+               （左返回 / 中名称 / 右积分账户），多一个 LOGO 就变成四格。 */}
+        {subpageHeader ? (<>
+          <button
+            type="button"
+            className="topbar-back"
+            onClick={() => subpageHeader.onBack?.()}
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>返回</span>
+          </button>
+          <span className="topbar-title" title={subpageHeader.name || ''}>{subpageHeader.name}</span>
+        </>) : (<>
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
         {/* D11 键盘可达：Logo 是「回首页」导航动作 → button + 重置默认样式（外观零变化） */}
         <button type="button" className="topbar-brand" aria-label="回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
@@ -93,6 +117,7 @@ function TopBar() {
             薯包 AI
           </span>
         </button>
+        </>)}
 
         {/* ═══ 2026-09-19 批 H-4（用户批注 #11-⑤）：「包括你上面的导航栏也是一样的情况。
             不应该还是左边 LOGO 中间是导航栏。你要看一下别人是怎么做的。」═══════════════
@@ -158,6 +183,10 @@ function AppRouter() {
   const { page, genState, result, galleryItem } = state;
   const dialog = useDialog();
   const canAdmin = state.accountAccess?.role === 'owner';
+  /* 三级顶栏：子页面自己 publish「我是谁 / 返回去哪」（见 TopBar 顶部注释）。
+     ⚠️ 换页必须清空 —— 否则从子页面回到 Hub 时，顶栏会残留上一条技能的名字。 */
+  const [subpageHeader, setSubpageHeader] = React.useState(null);
+  useEffect(() => { setSubpageHeader(null); }, [page]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -289,13 +318,16 @@ function AppRouter() {
   return (<>
     {shell(<>
       <TaskSidebar />
-      <TopBar />
-      {/* 板块切换条：只在两个总页面 / 子页面上出现（首页有自己的两张入口卡，不需要它） */}
-      {(page === 'image-creation' || page === 'video-creation') && (
+      <TopBar subpageHeader={subpageHeader} />
+      {/* 板块切换条：只在**总页面**上出现。
+          ⚠️ 2026-09-19 批 H-8：子页面（选了某条技能）**不再显示它** ——
+             用户批注 #12 把子页面顶栏写定为「左返回 / 中名称 / 右积分账户」，
+             没有第三格给分类；而且人在子页面里，"我在哪个板块"已经不是问题了。 */}
+      {(page === 'image-creation' || page === 'video-creation') && !subpageHeader && (
         <div className="app-board-bar"><CreativeDomainNav /></div>
       )}
       <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: 'var(--sb-ink-4)' }}>加载中…</div>}>
-        <PageComponent key={state._workVersion || 0} />
+        <PageComponent key={state._workVersion || 0} onSubpageHeader={setSubpageHeader} />
       </React.Suspense>
     </>)}
     {(galleryItem || (genState === 'result' && shouldShowNoteModal({ page, result }))) && (

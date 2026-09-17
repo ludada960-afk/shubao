@@ -1256,7 +1256,7 @@ export default function VideoStudioPage({
                   <ChevronDown size={14} />
                 </button>
                 {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
-                /* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
+                {/* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
                    你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
                    —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），
                       现在只留**一段描述**；积分只出现在右下角按钮上，并随选择实时变化。
@@ -1267,7 +1267,7 @@ export default function VideoStudioPage({
                      ② 容器收尾处多了一个右花括号，同样被当成文本节点渲染。
                    现在：正文里不再出现任何注释符号，容器只有一个花括号收尾。
                    ⚠️ 往后的规矩：JSX 子节点位置的注释用花括号包起来（表达式容器），
-                      并且**正文里绝不能再写注释符号**。 */
+                      并且**正文里绝不能再写注释符号**。 */}
                 </span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}
                 {/* ═══ 未上架模型：**只读**一行实话（2026-09-19 批 H-7）══════════════════════
                     用户批注 #7 原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，

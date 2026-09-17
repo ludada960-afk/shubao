@@ -237,9 +237,16 @@
   z-index: 15;
   border: 1px solid rgba(255,255,255,.86);
   border-radius: 8px;
-  background: rgba(252,252,253,.93);
+  /* ═══ 2026-09-19 批 I-①（用户批注 #6「这里全部乱码了」/ #7「这里也是乱码了」）═════════
+     根因**不是**编码问题，是**浮层半透明**：原来是 rgba(252,252,253,.93) + blur(24px)。
+     首页把「图片生成」和「视频生成」两个创作台都挂在 DOM 里（切模式只切显隐），
+     所以浮层背后正好压着**另一个创作台的正文**；93% 的不透明度让那层字透出来，
+     与浮层自己的字叠在一起 —— 用户看到的就是"一堆乱码"。
+     （实测：视频模型浮层截图里能直接读出背后那台的「全能参考 / 用两张图定义镜头起点与终点」。）
+     修法：浮层一律**不透明**（--sb-surface-panel-solid = #FFFFFF）。
+     这同时修掉两处：画面规格浮层（批注 #6）与生图模型浮层（批注 #7，同一份 CSS）。 */
+  background: var(--sb-surface-panel-solid);
   box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06);
-  backdrop-filter: blur(24px) saturate(135%);
 }
 
 .visual-config-panel::after {
@@ -250,7 +257,7 @@
   height: 12px;
   border-right: 1px solid rgba(255,255,255,.9);
   border-bottom: 1px solid rgba(255,255,255,.9);
-  background: rgba(252,252,253,.96);
+  background: var(--sb-surface-panel-solid);
   content: '';
   transform: translateX(-50%) rotate(45deg);
 }
@@ -264,8 +271,8 @@
   gap: 11px;
   padding: 14px 16px 12px;
   border-bottom: 1px solid rgba(45,41,38,.08);
-  background: rgba(252,252,253,.90);
-  backdrop-filter: blur(18px);
+  /* 表头也必须不透明：它是 sticky 的，滚动时正文会从它下面经过（同上，批 I-①）。 */
+  background: var(--sb-surface-panel-solid);
 }
 
 .visual-config-panel-icon {

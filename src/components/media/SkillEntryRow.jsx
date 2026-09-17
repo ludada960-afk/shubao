@@ -99,10 +99,14 @@ export default function SkillEntryRow({
   return (
     <section className="skill-entry-row" data-board={board} aria-label={title}>
       <header className="skill-entry-head">
-        <div>
-          <h2>{title}</h2>
-          <p>{hint}</p>
-        </div>
+        {/* ═══ 2026-09-19 批 I-④（用户批注 #2-4 / #2-5）═══════════════════════════════════════
+            原话：「然后这行字都不要，不能给用户看，**这些是给我交待的，不是给用户看的呀**。」
+            以及：「这里的这行字不要。」
+            删掉的是标题下面那行说明（hint）。它写的是**我们内部的交互说明**
+            （"鼠标放上去看案例，点一下直接开始做图/做视频"）—— 那是写给我自己看的注解，
+            不是给用户的产品文案。用户看到的是"这网站还要教我鼠标怎么用"。
+            ⚠️ hint 这个 prop 保留但**不再渲染**：调用方还在传，删 prop 会让 useSkillEntryRow
+               之类的调用点报 lint；下次清理时一起删。 */}
         {moreHref && <a className="skill-entry-more" href={moreHref}>{moreLabel || '查看全部'}<ArrowRight size={14} /></a>}
       </header>
 
@@ -137,10 +141,15 @@ export default function SkillEntryRow({
         })}
       </div>
 
-      {/* 触屏没有 hover：按钮本身就是入口（悬停只是桌面上的加速器，不是必经步骤） */}
-      <p className="skill-entry-tip">
-        {active ? <><Sparkles size={13} />{active.name} · {active.summary}</> : '鼠标放上去看案例预览，点一下直接开始'}
-      </p>
+      {/* ═══ 2026-09-19 批 I-④（用户批注 #2-4，坐标 33.4% / 94.4%）═══════════════════════
+          这一整段（.skill-entry-tip）**整块删除**。用户原话同上：
+          「然后这行字都不要，不能给用户看，这些是给我交待的，不是给用户看的呀。」
+          它同时承担了两个不该给用户看的角色：
+            ① 默认文案是一句操作说明（"鼠标放上去看案例预览，点一下直接开始"）；
+            ② 悬停后会变成「技能名 · summary」——但 summary 已经在上面的预览窗里出现，
+               页面上再挂一条灰字只是噪声。
+          触屏可达性没有因此丢：按钮本身就是入口（hover 从来只是桌面上的加速器）。 */}
+
 
       {active && anchor && createPortal(
         <div

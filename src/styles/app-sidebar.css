@@ -151,25 +151,10 @@
 }
 .app-sidebar-cell.is-active .app-sidebar-label { font-weight: 900; }
 
-/* 底部主动作：开始创作（窄栏里的唯一实色按钮） */
-/* 底部主动作：这一屏唯一的实色按钮（保留品牌渐变 —— 它是"主 CTA"，紫要有且只在这里） */
-.app-sidebar-cta {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
-  color: var(--sb-brand-ink);
-  box-shadow: 0 10px 22px var(--sb-brand-a32);
-  cursor: pointer;
-  transition: transform .18s ease, box-shadow .18s ease;
-}
-.app-sidebar-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 28px var(--sb-brand-a32); }
-.app-sidebar-cta:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+/* ═══ 2026-09-19 批 I-③：底部那颗「开始创作」实色按钮**已删除**（用户批注 #1：
+   「这个按钮为什么会在这里，很别扭啊，没有什么意义呀」）。
+   它点下去只是回首页，而首页就在正上方一格 —— 语义空转，且抢走导航本身的注意力。
+   规则一并删除（不留死 CSS）；焦点可达性不受影响：它是被删掉的元素，不是被藏起来的。 */
 
 /* 窄屏：再收一档（只留图标磁贴，文字退场），但导航本身**不消失** ——
    用户批注 #7-② 要的就是常驻 */
@@ -181,6 +166,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-sidebar-tile, .app-sidebar-brand, .app-sidebar-cta { transition: none; }
-  .app-sidebar-cell:hover .app-sidebar-tile, .app-sidebar-brand:hover, .app-sidebar-cta:hover { transform: none; }
+  .app-sidebar-tile, .app-sidebar-brand { transition: none; }
+  .app-sidebar-cell:hover .app-sidebar-tile, .app-sidebar-brand:hover { transform: none; }
 }

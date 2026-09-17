@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ChevronDown, Monitor, Palette, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, Monitor, Palette, Sparkles } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelResolutions, normalizeImageModel } from '../../../services/imageModelCatalog.js';
@@ -243,6 +243,17 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                   >
                     {modelIcon(model, ICON_SIZE.modelOption)}
                     {modelRow(model, active)}
+                    {/* ═══ 2026-09-19 批 I-②（用户批注 #5）══════════════════════════════════════
+                        原话：「点了哪个模型就是哪个模型作为按钮完全替代上去显示在按钮上啊，
+                        你为什么这里还是有个向下的箭头呀，不是应该打钩吗，
+                        而且右边这么多留白干什么，应该紧凑一些呀。」
+                        ① 选中项的右侧指示器从"什么都没有"改成**打钩**（之前只有底色变化，
+                           列表里根本看不出哪一个是当前生效的）；
+                        ② 打钩同时吃掉右侧那片留白（它顶到行尾，行就不再是"左边一撮字 +
+                           右边一大片空"）。未选中项保留**同宽占位**，避免选中时整行宽度跳动。 */}
+                    {active
+                      ? <Check size={15} aria-hidden="true" style={{ flexShrink: 0, marginLeft: 'auto', color: 'var(--sb-state-selected-ink)' }} />
+                      : <span aria-hidden="true" style={{ flexShrink: 0, marginLeft: 'auto', width: 15, height: 15 }} />}
                   </button>
                 );
               })}
