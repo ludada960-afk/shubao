@@ -15,13 +15,25 @@
    全部选项、上传位数、按钮价格、编号交付清单，然后照着做，不要凭想象。」
    所以下面这些数值**不是我调的，是量出来的**；只做一件事：把 px 换成我们的 token/整数档
    （52 → 52，16.12 → 16，17.36 → 17，14.88 → 15），避免引入一堆小数。 */
-.media-workbench { display: grid; grid-template-columns: minmax(320px, 570px) minmax(0, 1fr); gap: 24px; align-items: start; }
+/* 批 I-⑥：两块面板之间是缝（24→28）—— 用户批注 #8-4「两个区域之间都没有任何间隙，这是对的吗」。 */
+.media-workbench { display: grid; grid-template-columns: minmax(320px, 570px) minmax(0, 1fr); gap: 28px; align-items: start; }
 .media-workbench-left {
   display: grid;
   gap: 22px;
   align-content: start;
   padding: 24px 20px 28px;
-  border-right: 1px solid var(--sb-border-subtle);
+  /* ═══ 2026-09-19 批 I-⑥（用户批注 #8-2 / #8-4）══════════════════════════════════════
+     原话：「工作台和案例区……完全抵住了左右两边」「两个区域之间都没有任何间隙，这是对的吗」。
+     根因：子页面底色是纯白，而**只有右栏**是白面板 —— 左栏原来只有一条 border-right，
+     在白底上既看不出"这是一块"，也看不出"两块之间有缝"，整页读起来是一整片白。
+     现在左栏补上**同样的面板身份**（白底 + 一圈描边 + 同样的圆角），
+     与右栏（.media-workbench-right，竞品实测那份白面板）成对 ——
+     两块之间的 24px 才真的读成"间隙"，而不是"一句话被切开"。
+     ⚠️ 用 1px 描边而不是底色：子页面的三级视觉语言里，L3 是**工作面最安静**的一档，
+        底色必须保持纯白（见 MediaCreation.css 的分级注释），所以用描边界定而不染色。 */
+  border: 1px solid var(--sb-border-default);
+  border-radius: 12px;
+  background: var(--sb-surface-card);
 }
 /* ═══ 左栏滚动上限（2026-09-19 用户批注 #15）═══════════════════════════════════════
    原话：「左栏应该有上限才对，到达一定的临界值就要往下拉呀。」
@@ -269,6 +281,10 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   padding: 24px 28px 28px;
   border-radius: 12px;
   background: var(--sb-surface-card);
+  /* 批 I-⑥：与左栏成对 —— 两块面板用**同一条描边**，中间那 24px 才读得成"间隙"。
+     原来只有 box-shadow（白底白页上约等于看不见），两块的分界全靠左栏那条 border-right，
+     而左栏一改成面板，那条 border-right 就没了，必须在这里补上。 */
+  border: 1px solid var(--sb-border-default);
   box-shadow: var(--sb-shadow-sm);
 }
 /* ⚠️ scroll-margin-top 是**给浏览器滚动起见留出粘顶栏的位置**，不是装饰：
