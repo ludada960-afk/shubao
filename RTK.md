@@ -3084,3 +3084,14 @@ skill 子页面一定带 skillTag。**子页面形态下功能一个不少**（�
    之后干净检出里全量 3916 条 / 3906 pass / 0 fail / 10 skip，与工作树一致。
 （另注：`cmd /c mklink /J` 在这套 PowerShell 里引号会被吃掉、报 'Parameter format not correct'，
  用 `New-Item -ItemType Junction` 最稳。）
+
+### 发布结果（2026-09-18 17:0x）
+- 发布提交：**f60d28e2**（分支 codex/ecommerce-stability）；release 目录 `/var/www/shubao/releases/20260917-164831-f60d28e2`，
+  `current` 软链已指向它；PM2 `shubao-production` online（重启 38 次计数为历史累计，本次 +1）。
+- **入口 bundle 逐字节核对**：`index-CXt3W4jc.js`，本地 dist 与线上 sha256 完全一致
+  （7e006a03…e720，641457 字节），`index.html` 里引用的就是它。
+- 服务端健康：`{"ok":true,"ready":true}`；nginx 配置校验通过；canary 10 分钟窗口跑完。
+- 按 `-SkipPublicChecks` 跳过的公网校验（部署机到 shuimg.cn 443 不通，见批次三十三）：
+  gallery / video / 认证校验 / canary 会话校验 —— **需要用户在大陆视角复跑**（用浏览器打开站点复验）。
+- 站点的**浏览器侧复验由用户完成**：我这台机器 flush 到 shuimg.cn 的 443 同样不通（CDP 打开是 ERR_CONNECTION_CLOSED），
+  所以上面用的是「源站侧 curl + 产物 sha256 逐字节比对」等效判据。
