@@ -1084,6 +1084,8 @@ export default function VideoStudioPage({
       id="video-floating-panel"
       className="video-config-panel"
       data-panel={activePanel}
+      role="dialog"
+      aria-label={meta?.label || '视频配置面板'}
       style={{
         left: panelPosition.left,
         bottom: panelPosition.bottom,
@@ -1092,7 +1094,13 @@ export default function VideoStudioPage({
         '--video-panel-anchor-x': `${panelPosition.anchor}px`,
       }}
     >
-      <header><span><Icon size={19} /></span><div><strong>{meta?.label}</strong><small>{meta?.description}</small></div></header>
+      {/* ⚠️ 2026-09-19 批 H-5（用户批注 #10）：
+          「配置这边不就这三个维度吗？你要搞那么复杂干什么呢？
+            还有那些多余的上面的标题什么的那些都不要呀，就只要这个分辨率画面比例视频时长就可以了呀。」
+          —— 面板顶部的**图标 + 标题 + 描述**整块删除（图片侧在批 H-1 已经删过同一块，
+             这里当时漏了，于是两边的配置面板长得不一样）。
+          面板是被工具栏那颗按钮点开的，用户知道自己在配什么；再来一行大字只是噪声。
+          aria-label 仍然带标题（见下面的 aria-label 属性），读屏不受影响。 */}
       <div className="video-config-panel-body">{renderPanelBody()}</div>
     </section>, document.body);
   };
