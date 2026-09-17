@@ -258,8 +258,12 @@ function TextareaControl({ field, value, onChange, disabled }) {
       图片类型是方案真源 IMAGE_TYPES 的事，控件只负责渲染。 */
 function CountsControl({ field, value, onChange, disabled }) {
   const rows = Array.isArray(field.rows) ? field.rows : [];
+  /* ⚠️ 值的形状由 skillRun.initialSkillValues 落地（counts 分支把每行的 default 播种进去），
+     这里的 row.default 是**兜底**：万一某条调用方没走 initialSkillValues，
+     也不至于把整组显示成 0（那会让用户以为"它坏了"）。 */
   const current = value && typeof value === 'object' ? value : {};
-  const total = rows.reduce((sum, row) => sum + Math.max(0, Number(current[row.key]) || 0), 0);
+  const countOf = row => Math.max(0, Number(current[row.key] ?? row.default) || 0);
+  const total = rows.reduce((sum, row) => sum + countOf(row), 0);
   const minTotal = Math.max(1, Number(field.minTotal) || 1);
   const setOne = (key, next) => {
     const max = Math.max(0, Number(rows.find(row => row.key === key)?.max) || 9);
@@ -269,7 +273,7 @@ function CountsControl({ field, value, onChange, disabled }) {
   return (
     <span className="media-field-counts">
       {rows.map(row => {
-        const count = Math.max(0, Number(current[row.key]) || 0);
+        const count = countOf(row);
         const max = Math.max(0, Number(row.max) || 9);
         return (
           <span className="media-field-count-row" key={row.key}>

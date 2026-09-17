@@ -207,14 +207,20 @@ export const IMAGE_SKILLS = [
           { value: '自定义配置', label: '自定义配置' },
         ],
         hint: '智能匹配：AI 按商品图与平台自动匹配合适的套图结构；自定义配置：自己定各类型出几张' },
+      /* ⚠️ 2026-09-19 批 G：这一组此前**只是显示**（没有消费者、没有默认值、没有校验），
+          用户看到的是一排 0 且改了不影响出图 —— 典型的「装出来的功能」。本轮三处一起补：
+            ① 每行给 default（白底 1 / 主图 3 / 透明 1 / 详情 2 = **7 张**，与竞品「至少 7 张」同档）；
+            ② minTotal 提到 7，合计不足时 validateSkillInput 会拦住 CTA 并说明差多少；
+            ③ skillRun.buildSuiteRun 把它当套图的图集来源（张数/报价/服务端方案三者同源）。 */
       { key: 'structureCounts', label: '各类型张数', kind: 'counts', group: '套图结构配置',
         visibleWhen: { key: 'structure', equals: '自定义配置' },
-        minTotal: 1,
+        required: true,
+        minTotal: 7,
         rows: [
-          { key: 'white_bg', label: '白底首图', hint: '纯白底产品居中，电商必选', max: 3 },
-          { key: 'main_text', label: '商品主图', hint: '核心卖点展示，可含促销文字', max: 5 },
-          { key: 'transparent', label: '透明 PNG', hint: '去底素材，方便二次设计', max: 3 },
-          { key: 'detail', label: '详情图', hint: '长图讲清卖点与参数', max: 6 },
+          { key: 'white_bg', label: '白底首图', hint: '纯白底产品居中，电商必选', max: 3, default: 1 },
+          { key: 'main_text', label: '商品主图', hint: '核心卖点展示，可含促销文字', max: 5, default: 3 },
+          { key: 'transparent', label: '透明 PNG', hint: '去底素材，方便二次设计', max: 3, default: 1 },
+          { key: 'detail', label: '详情图', hint: '长图讲清卖点与参数', max: 6, default: 2 },
         ] },
       { key: 'skus', label: '规格', kind: 'slot', group: '套图结构配置', slotLabel: '编辑规格与张数', hint: '自定义 SKU 变体在套图工作台里配' },
     ],

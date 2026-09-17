@@ -55,9 +55,33 @@ export function initialSkillValues(skill) {
       seed[field.key] = field.default ?? (field.options?.[0]?.value ?? '');
       continue;
     }
+    /* ═══ counts（按类型配张数，套图「自定义配置」那一组）═══════════════════════════
+       ⚠️ 2026-09-19 批 G：这里原来没有 counts 分支 —— 于是它被当成字符串初始化成 ''，
+          步进器从 0 起步、合计 0 张，用户点开「自定义配置」看到的是一排 0。 */
+    if (field.kind === 'counts') {
+      seed[field.key] = Object.fromEntries(
+        (Array.isArray(field.rows) ? field.rows : []).map(row => [row.key, Math.max(0, Number(row.default) || 0)]),
+      );
+      continue;
+    }
     seed[field.key] = field.kind === 'upload' ? [] : '';
   }
   return seed;
+}
+
+/* 字段当前**可不可见**（visibleWhen 的唯一定义处）。
+   校验、取值、渲染三处都问这一份，避免「界面上没显示但被算进必填」或反过来。 */
+export function skillFieldVisible(field, values = {}) {
+  const rule = field && field.visibleWhen;
+  if (!rule || !rule.key) return true;
+  return values[rule.key] === rule.equals;
+}
+
+/* counts 的合计（声明里的 minTotal 是**下限**，与界面末尾那行「当前共 N 张」同源） */
+export function skillCountsTotal(field, values = {}) {
+  const value = values[field && field.key];
+  const rows = Array.isArray(field && field.rows) ? field.rows : [];
+  return rows.reduce((sum, row) => sum + Math.max(0, Number(value && value[row.key]) || 0), 0);
 }
 
 /* ── ① 必填校验：给工作台做「就近错误」，不是提交后才报错 ──
@@ -67,12 +91,22 @@ export function validateSkillInput(skill, values = {}) {
   values = effective;
   const missing = [];
   for (const field of (skill && skill.fields) || []) {
+    /* 隐藏的字段不参与校验：套图的「各类型张数」只在选了「自定义配置」时才存在，
+       拿它去拦「智能匹配」那条路是错的（用户根本没看见这一项）。 */
+    if (!skillFieldVisible(field, values)) continue;
     if (!field.required) continue;
     if (field.kind === 'upload') {
       if (!readyUploads(values[field.key]).length) missing.push(field.label);
       continue;
     }
     if (field.kind === 'stepper') continue;   /* stepper 永远有值 */
+    /* ⚠️ 2026-09-19 批 G：counts 的"填了没有"不是看字符串，而是看**合计张数** ——
+       它决定这次出几张、报多少价，合计为 0 等于"零张订单"，必须拦住。 */
+    if (field.kind === 'counts') {
+      const min = Math.max(1, Number(field.minTotal) || 1);
+      if (skillCountsTotal(field, values) < min) missing.push(field.label + '（至少 ' + min + ' 张）');
+      continue;
+    }
     if (!text(values[field.key])) missing.push(field.label);
   }
   return { ok: missing.length === 0, missing };
@@ -240,7 +274,25 @@ export function buildSuiteRun(skill, values = {}) {
   const productInputs = suiteOwnedInputs(values);
   /* 商品名是服务端必填项：取「商品信息」的第一行，没有就给一个中性占位（不编造品牌） */
   const productName = (text(values.productParams).split(/\r?\n/).map(line => line.trim()).filter(Boolean)[0] || '').slice(0, 40) || '商品';
-  const sizing = { resolution: DEFAULT_RESOLUTION, imageModel: DEFAULT_IMAGE_MODEL };
+  /* ═══ 2026-09-19 批 G（用户批注 #10）：「自定义配置选中之后，里面还有其他的配置可以做呀」═══
+     那一组按类型配的张数（structureCounts）此前**只是显示** —— 没有任何地方消费它：
+     用户把白底图从 1 调到 4，出图张数与报价一个字都不变。那正是"装出来的功能"。
+     现在接上：选了「自定义配置」就把这组张数当成套图的图集来源（sizing.images），
+     于是**张数、报价、服务端方案**三者同源（都走 resolveEcommercePlan 这一份计算）。
+     ⚠️ 只在「自定义配置」时生效：选「智能匹配」时这张表根本不显示（visibleWhen），
+        拿一个用户看不见的值去报价是错的。
+     ⚠️ 合计为 0 时**不接管**（回落到平台预设）—— 零张订单没有任何意义，
+        而且校验层（validateSkillInput）本来就会把它拦在 CTA 之前。 */
+  const customCounts = values.structure === '自定义配置' && values.structureCounts && typeof values.structureCounts === 'object'
+    ? Object.entries(values.structureCounts)
+        .map(([key, count]) => ({ key, count: Math.max(0, Number(count) || 0) }))
+        .filter(item => item.count > 0)
+    : [];
+  const sizing = {
+    resolution: DEFAULT_RESOLUTION,
+    imageModel: DEFAULT_IMAGE_MODEL,
+    ...(customCounts.length ? { images: customCounts } : {}),
+  };
   const plan = resolveEcommercePlan({ platform, sizing, resolution: DEFAULT_RESOLUTION, imageModel: DEFAULT_IMAGE_MODEL });
   const unitsPerImage = generationUnits(DEFAULT_IMAGE_MODEL, DEFAULT_RESOLUTION) || 0;
   return {
