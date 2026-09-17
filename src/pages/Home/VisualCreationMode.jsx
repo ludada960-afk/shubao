@@ -852,7 +852,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} resolution={resolution} onRatioChange={setRatio} onResolutionChange={setResolution} busy={busy} />}
           {/* 模型面板：只留模型选择（清晰度已经挪进「画面规格」——用户要的是"打开就能看到
               分辨率和尺寸"，把它留在模型面板里等于逼用户点两次） */}
-          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
+          {/* ⚠️ openModelList：用户批注 #3-①「点击这个按钮之后就应该是默认往下拉选模型呀」——
+              面板一打开就是模型清单本身，不再让用户点第二次。 */}
+          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} openModelList value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
         </div>
       </div>,
       document.body,

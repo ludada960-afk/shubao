@@ -985,7 +985,10 @@ try {
         图片域的第 0 条就是「商品套图」（image.product_suite）。
         判据本身没变：点导航项要落到**它自己的技能子页面**，而不是切回首页内联模块。 */
   scenario('⑱ 左侧导航直达技能子页面');
-  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  /* ⚠️ 2026-09-19 批 H-4：起点从首页改成图片总页面 —— 域导航（板块切换条）现在只挂在
+     两个总页面/子页面上，首页有自己的两张入口卡，不再被这条用不上的导航占位。
+     所以"点域导航"这件事在首页已经不存在，要先落到某个总页面。 */
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('#creative-nav-trigger-image', { timeout: 20000 });
   await page.click('#creative-nav-trigger-image');
   await page.waitForSelector('#creative-nav-item-image-0', { timeout: 10000 });
@@ -1004,7 +1007,7 @@ try {
   check(suiteLanding.cta.includes('立即生成'), '图片技能就地生成（CTA 就在这一页）', suiteLanding.cta);
 
   /* 视频域：点进去要落在**嵌好的视频工作台**上，而不是首页的视频模块 */
-  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
   await page.click('#creative-nav-trigger-video');
   await page.waitForSelector('#creative-nav-item-video-0', { timeout: 10000 });
   await page.click('#creative-nav-item-video-0');
@@ -1022,7 +1025,7 @@ try {
   /* 领域名本身仍然只负责**展开面板**（不下发、不跳转）：
      这条是用户 9-13 定的（点领域名就把菜单钉住，别自作主张启动第一个子项），
      收敛架构时一并保留 —— 所以这里断言的是「点了它不会把人带走」。 */
-  await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
   await page.click('#creative-nav-trigger-image');
   await page.waitForSelector('.creative-nav-panel', { timeout: 10000 });
   await page.waitForTimeout(600);
@@ -1031,7 +1034,7 @@ try {
     expanded: document.querySelector('#creative-nav-trigger-image')?.getAttribute('aria-expanded') || '',
     items: Array.from(document.querySelectorAll('#creative-nav-panel-image .creative-nav-link strong')).map(node => node.textContent),
   }));
-  check(triggerState.url === '/', '点领域名只展开面板，不会把人带走', triggerState.url);
+  check(triggerState.url === '/image-creation', '点领域名只展开面板，不会把人带走', triggerState.url);
   check(triggerState.expanded === 'true', '面板确实展开了', triggerState.expanded);
   check(triggerState.items.length >= 6, '面板里列出这个总页面的全部精品能力', JSON.stringify(triggerState.items));
 

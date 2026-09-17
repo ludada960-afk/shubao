@@ -70,7 +70,7 @@ const RESOLUTIONS = [
    2026-09-19 用户批注 #5-①/#6：「首页图片只要两个面板，一个是选模型的，另一个把尺寸、数量、
    清晰度集合在一起，打开就能看到分辨率和尺寸」。所以首页把清晰度挪进「画面规格」面板，
    模型面板只留模型 —— 选项值与回落逻辑仍由本组件的 imageModelResolutions 提供，不另写一份。 */
-export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null, hideResolution = false }) {
+export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null, hideResolution = false, openModelList = false }) {
   const safeValue = value || {};
   const selectedModel = normalizeImageModel(safeValue.imageModel);
   const currentDef = IMAGE_MODELS.find(model => model.id === selectedModel);
@@ -98,7 +98,13 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
      取整行而不是取色块按钮：AnchoredPortal 的「点外部即关闭」只认锚点子树，
      若只锚色块，用户点色值输入框调整数值时会被判成「点了外面」而把色盘关掉。 */
   const pickerRowRef = useRef(null);
-  const [modelListOpen, setModelListOpen] = useState(false);
+  /* ⚠️ 2026-09-19 批 H-4（用户批注 #3-① / #9）：
+     「你这里模型为什么不是自动张开的呢？点击这个按钮之后就应该是默认往下拉选模型呀。」
+     根因：这一层列表默认是关的 —— 用户点开「生图模型」那颗按钮之后，还要**再点一次**
+     面板里的下一级按钮才能看到模型清单（两步）。首页那颗触发按钮本来就只有一个用途
+     （选模型），所以把列表的初始开合交给调用方决定：首页传 openModelList，
+     一打开面板就是清单本身；电商生图那边的通用「生成设置」面板不传，保持原样（那里一屏有多个分组）。 */
+  const [modelListOpen, setModelListOpen] = useState(openModelList === true);
   /* 注：本组件不再自管 hover 状态 —— .sb-opt 用 CSS 伪类表达 hover，
      既满足 D2「hover 只做底色」，又避免内联 style 覆盖声明式伪类。 */
 

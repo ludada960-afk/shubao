@@ -72,7 +72,18 @@ test('积分对照表：模型 / units / 积分 / 描述 全部可解析且与�
 /* ── ① 默认折叠 + ③ 默认不锁定 ── */
 test('面板默认折叠模型列表，行高压缩到 ≤44px（配合一屏看全）', () => {
   const panel = read('src/pages/Home/ec/GenSettingsPanel.jsx');
-  assert.ok(panel.includes('const [modelListOpen, setModelListOpen] = useState(false)'), '模型列表默认折叠');
+  /* ⚠️ 2026-09-19 批 H-4（用户批注 #3-①「点击这个按钮之后就应该是默认往下拉选模型呀」）：
+     这一条原来断言的是**写死的** useState(false)。那个写法把"默认折叠"钉死在了组件里，
+     于是首页那颗只有"选模型"一个用途的触发按钮，点开之后还要用户再点第二次才看得到清单。
+     现在初始开合由调用方给（openModelList prop）：
+       · 首页「生图模型」面板传 openModelList → 一打开就是清单；
+       · 电商生图那边的通用「生成设置」面板不传 → 保持折叠（那里一屏有多个分组）。
+     判据改成守**这个机制**，而不是守某个写死的初值 —— 只改默认值不改机制的话，
+     下一个人还是会把两种场景绑死在同一个初值上。 */
+  assert.ok(panel.includes('useState(openModelList === true)'), '模型列表的初始开合由调用方决定');
+  assert.ok(panel.includes('openModelList = false'), '缺省仍然是折叠（通用面板不受影响）');
+  assert.match(read('src/pages/Home/VisualCreationMode.jsx'), /openModelList/,
+    '首页那颗只有"选模型"一个用途的按钮必须传 openModelList');
   assert.ok(panel.includes('aria-expanded={modelListOpen}'), '折叠按钮暴露展开状态');
   /* ⚠️ 2026-09-15 更新：判据是「展开后每一个已上线档位都能选到」。
      当前已选的那一个改由正上方的触发按钮承担（用户批注图6-⑨ 要求不要重复显示同一项），
