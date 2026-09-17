@@ -3479,3 +3479,43 @@ transition: width .7s cubic-bezier(.4,0,.2,1)；**靠 width 过渡，不是 tran
 - **产物逐字节核对**：`assets/index-CEFtQHQ_.js` `47e79e2a…9512`、
   `assets/style-CzVUvqqX.css` `f28c1d1c…1c26` —— 本地与线上完全一致。
 - precommit 通过 ×2 + 全量 npm run test **3918 条 / 3908 pass / 0 fail / 10 skip**。
+
+### 批次四十（续六）：批 H-7 —— 「10 个模型为什么不见了」的 UI 那一半 + 发布 + 把「服务端没发上去」这个疑点查到底
+
+#### 1. 用户批注 #7 的原话与事实核对
+用户原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，为什么现在都不见了呢？」
+核对结果（docs/design/55）：`VIDEO_PRODUCTS` **确实有 10 个**，不是被删了，是**只有 2 个能真跑通**：
+- public ×2：Seedance 2.0 Fast（route `agv-seedance2.0fast`，实测 ¥0.91）、Seedance 2.0 标准（route `seedance-2.0`，可调 ¥5.07）。
+- 隐藏 ×8：unreachable ×5（Grok 极速 / 通义万相 3.0 / 可灵 3.0 / 可灵 3.0 Pro / Veo 3.1 Fast）、
+  blocked ×2（Seedance 2.5 ¥1.872/s、MiniMax H3 2K ¥7.41 —— 中转余额不足）、unverified ×1（MiniMax H3 768P ¥0.364/s）。
+
+**为什么不能把 8 个直接放出来**：服务端在遇到非法模型时**静默降级**到别的引擎。
+把跑不通的模型摆进选购清单，用户点了、扣了钱、出的是另一个引擎的片子 —— 这是拿用户的钱换一个错误结果。
+所以做法是：**不放开下单，但如实告知**（新增 `unavailableVideoProducts()`，只吐 id/label/tierLabel/routeState/reason，
+不吐报价/分辨率/时长 —— 免得看起来像可以买）。
+
+落地：模型下拉底部一行 `<p className="video-model-unavailable">另外 N 个模型正在接通：…（原因）</p>`。
+线上实测返回：`UNAVAIL n=8`，8 条 label/routeState/reason 全部正确，public 仍然只有 2 个。
+
+#### 2. 发布（批 H-7）
+- 发布提交：**796127c8** → release `/var/www/shubao/releases/20260918-012921-796127c8`，PM2 `shubao-production` online（pid 930203）。
+- precommit 通过 + 全量 `npm run test` **3919 条 / 3909 pass / 0 fail / 10 skip**。
+
+#### 3. 查清一个我先前误判的疑点：「服务端改动没发上去」（结论：**发了**，先前判断是错的）
+先前看到 release 目录里**没有 `server/`**，而 PM2 的 script path 是 `/home/ubuntu/shubao/server/index.mjs`、
+exec cwd `/home/ubuntu/shubao`，于是怀疑「部署脚本只发前端静态资源，服务端代码压根没更新」。
+**这个怀疑是错的**，实测三步否掉了它：
+1. `/home/ubuntu/shubao/server/videoCatalog.mjs` 里 `grep -c unavailableVideoProducts` = **1**（文件时间戳 Sep 18 01:29，正是本次发布时刻）。
+2. `/home/ubuntu/shubao/server/videoGeneration.mjs` 里 `unavailableProducts: registry` = **1**。
+3. 运行中的实例直接问：**服务端在 3002 端口**（不是 3001 —— 先前 curl 3001 空响应就是这个原因）
+   `curl 127.0.0.1:3002/api/video/capabilities` → http=200，body 里 `unavailableProducts` 存在。
+→ **部署脚本是把 server/ 发到 `/home/ubuntu/shubao`（PM2 的工作目录），`/var/www/shubao/current` 只放前端静态产物**。
+两条路径本来就分开，release 目录里没有 server/ 是**正常现象**，不是缺口。
+
+#### 4. 产物逐字节核对（前端）
+本地 `dist/index.html` 与线上 `/var/www/shubao/current/index.html` 引用的入口**完全一致**：
+`assets/index-x01vLGeE.js` + `assets/style-NtoY4YAK.css`。
+
+⚠️ 教训（写给下一次）：核对产物**要从 `index.html` 里读入口文件名再比对**，
+不要 `Get-FileHash dist/assets/index-*.js` —— `assets/` 下有**几百个** `index-<hash>.js` 代码分块，
+通配符会把几百行 hash 全打出来，既看不出结论又淹掉上下文。
