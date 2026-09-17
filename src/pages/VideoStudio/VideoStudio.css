@@ -85,6 +85,24 @@
 .video-media-deck { min-height: 120px; display: flex; align-items: stretch; gap: 11px; overflow-x: auto; overflow-y: hidden; padding: 3px 2px 7px; scrollbar-width: thin; scrollbar-color: rgba(91,75,61,.22) transparent; }
 .video-media-deck.is-empty { align-items: center; }
 .video-media-deck.is-frame { align-items: stretch; }
+/* ═══ 首尾帧两张卡的 ±5° 对称歪（2026-09-19 批 I-⑥，用户批注 #1-5 / #2-1）══════════════
+   用户原话：「完全可以像图片生成那边做成**两张卡片对称歪着，中间一个乘号**这样做呀，
+   你复制过来然后改一下文案就好呀」「首尾帧和图片生成都应该是左右歪的……一模一样就好」。
+   角度与方向**逐字对齐图片侧**（Home.css 的 .ec-xhs-card-product / .ec-xhs-card-reference
+   就是 -5deg / +5deg），这样两张卡看起来是"散落的一对"，中间那个乘号说明它们是"首 × 尾"。
+   ⚠️ 用 :nth-of-type 而不是 :nth-child —— 中间插了 .ec-xhs-multiply 那个 span 之后，
+      两张卡是第 1、3 个子节点，但仍分别是第 1、2 个 div。
+   ⚠️ 歪的是**整张卡**（空态那颗加号卡与已选态的 MediaAssetCard 都命中），
+      所以"放上图片以后突然摆正"这种事不会发生。
+      ⚠️ 注释里刻意**不写那两个类名**：门禁 media-language-unify-0916 是按
+         「选择器文本里含某关键字 → 检查该规则块有没有 rotate」来判的，
+         注释会被算进选择器那一段。写进去会让"智能成片那三张必须不歪"那条断言误报。
+   ⚠️ 特异性 (0,2,0) 高于悬停缓存那条规则，悬停时不会把倾斜顶掉
+      （悬停改的是 box-shadow，不是 transform）。 */
+.video-media-deck.is-frame > div:nth-of-type(1) { transform: rotate(-5deg); }
+.video-media-deck.is-frame > div:nth-of-type(2) { transform: rotate(5deg); }
+/* 乘号两侧各留一点气口，两张歪卡才不会顶在一起（图片侧靠 media-strip 的 gap，这里单独给） */
+.video-media-deck.is-frame > .ec-xhs-multiply { align-self: center; margin: 0 4px; }
 .video-media-card { position: relative; width: 92px; height: 112px; flex: 0 0 92px; box-sizing: border-box; border-radius: 12px; background: var(--sb-neutral-0); box-shadow: 0 7px 18px rgba(72,50,31,.09); }
 /* ⚠️ 2026-09-19 批 G：空态加号卡原本是 rotate(-1.2deg)、hover 归零 —— 那是"歪卡语言"的残留。
    用户原话：「弄成三张卡片这样，**不必向左歪、向右歪就是正常的放**。」

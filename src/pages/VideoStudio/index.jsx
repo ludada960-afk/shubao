@@ -971,8 +971,22 @@ export default function VideoStudioPage({
 
   const renderAssetPickers = () => {
     if (mode === 'frame') {
+      /* ═══ 2026-09-19 批 I-⑥（用户批注 #1-5 / #2-1）══════════════════════════════════════
+         原话：「这两张卡片依然没有学习图片生成那边的样式啊……首尾帧的是两张卡片，
+         完全可以像图片生成那边做成**两张卡片对称歪着，中间一个乘号**这样做呀，
+         你复制过来然后改一下文案就好呀。」
+         以及：「首尾帧和图片生成都应该是左右歪的，然后样式要统一这种呀，一模一样就好。」
+         落点就是「复制过来改文案」这五个字：
+           · 中间那个乘号直接用图片侧**同一个**节点（.ec-xhs-multiply，定义在 Home.css），
+             不新造一个长得像的；
+           · ±5° 对称歪由 CSS 按位置给（见 VideoStudio.css 的 .is-frame 两条），
+             ⚠️ 用 :nth-of-type(1)/(2) 而不是 :nth-child —— 中间插了那个 span，
+             两张卡是第 1、3 个子节点，但仍是第 1、2 个 div。
+           · 歪的是**外壳**，所以空态（.video-media-picker）与已选态（MediaAssetCard）
+             两种长相都会跟着歪，不会"放上图片以后突然摆正"。 */
       return <div className="video-media-deck is-frame">
         <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} upload={uploadFor(files.first[0])} onRetry={() => retryUpload(files.first[0], 'image')} />
+        <span className="ec-xhs-multiply" aria-hidden="true">×</span>
         <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} upload={uploadFor(files.last[0])} onRetry={() => retryUpload(files.last[0], 'image')} />
         <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
@@ -1135,7 +1149,13 @@ export default function VideoStudioPage({
       <section className="video-content-composer">
         <section className="video-materials" aria-label="上传素材">
           <header>
-            <div><Upload size={17} /><span><strong>全能参考</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : mode === 'remake' ? '先上传参考视频，再补充要替换的商品素材' : '支持图片、视频和音频，智能成片可只写一句话起步'}</small></span></div>
+            {/* ═══ 2026-09-19 批 I-⑦（用户批注 #1-3，坐标 27.1% / 34.8%）═══════════════════════
+                原话：「这里要么叫智能成品，要么叫全能参考，**不要冲突啊**。」
+                冲突是真的：上面那排模式页签叫「智能成片」，下面这块素材区的标题却叫
+                「全能参考」—— 一块区域顶着另一个模式的名字，用户分不清自己在哪一档。
+                改法：这一块就是**素材上传区**（它的 aria-label 一直是这么写的），
+                标题跟着叫「上传素材」；"我现在是哪一档"由上面那排页签承担，一处说清一件事。 */}
+            <div><Upload size={17} /><span><strong>上传素材</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : mode === 'remake' ? '先上传参考视频，再补充要替换的商品素材' : '支持图片、视频和音频，智能成片可只写一句话起步'}</small></span></div>
             <div className="video-materials-actions">
               {assetCount > 0 && <b>{assetCount} 个</b>}
               {/* 用户批注 3：清空素材 + 全屏。清空只在真有素材时出现（空集合上摆一个按钮是噪音）。 */}

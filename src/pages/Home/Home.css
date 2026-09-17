@@ -461,26 +461,27 @@
               border-color var(--sb-duration-normal) var(--sb-ease-out),
               box-shadow var(--sb-duration-normal) var(--sb-ease-out);
 }
-/* ═══ 素材卡：把 ±5° 的倾斜删掉（2026-09-19 批 H-5）══════════════════════════════════
-   用户批注 #5-② 澄清原话：「这个你不知道吗，就是图一的卡要跟图二的卡样式完全一致，
-   就是文案可以不一样啊。」（图一 = 视频生成首页的三张素材卡，图二 = 图片生成首页的两张素材卡）
-   实测对账（CDP 读两个首页的 .ec-xhs-add-card 计算样式）：
-     | | 视频首页 | 图片首页 |
-     |---|---|---|
-     | 边框 | 1.6px dashed rgba(12,10,9,.1) | 同 |
-     | 圆角 / 底色 / display / direction / align / padding | 12px / 白 / flex / column / center / 0 | 全同 |
-     | **外壳尺寸** | **86×108** | **95×115** |
-   两张卡本来就是**同一个组件**（EcommerceAddCard），除尺寸外逐项相同；
-   而 95×115 正是 86×108 旋转 5° 后的**包围盒**（86·cos5 + 108·sin5 ≈ 95.1，108·cos5 + 86·sin5 ≈ 115.1）。
-   —— 也就是说，"看起来不一样"的全部来源就是**歪不歪**。
-   用户在同一轮里还说过「不必向左歪、向右歪就是正常的放」，所以这里**把图片侧拉直**，
-   而不是把视频侧弄歪：两边完全一致，且都不歪。这是唯一能同时满足两句话的做法。
-   ⚠️ 选择器本身**必须保留**（哪怕值已经不需要）：
-      test/design-tokens-v3-adoption.test.mjs 用 `css.indexOf('.ec-xhs-card-product')` 当**切片边界**，
-      删掉这两个选择器会让那条断言切到 -1 而静默改变检查范围。
-      同理 VideoStudio.css 里那条「选择器必须带 .video-material-strip 前缀才压得住」的注释依赖它存在。 */
-.ec-xhs-card-product { transform: none; }
-.ec-xhs-card-reference { transform: none; }
+/* ═══ 素材卡的 ±5° 对称歪：**批 H-5 删错了，批 I 改回来**（2026-09-19）═══════════════
+   【批 H-5 的错判】当时用户说「图一的卡要跟图二的卡样式完全一致」，我实测出图片侧外壳是
+   95×115、视频侧是 86×108，而 95×115 正好等于 86×108 旋转 5° 的包围盒
+   （86·cos5 + 108·sin5 ≈ 95.1，108·cos5 + 86·sin5 ≈ 115.1），于是判定
+   「看起来不一样的全部来源就是歪不歪」→ **把图片侧拉直**。
+
+   【批 I 用户明确否掉了这个判断】原话：
+     「之前这两张卡片不是左右歪的吗，你为什么要改呀，你应该改回去啊，
+       **之前左右对称歪才是对的呀**，视频生成那边要抄的就是这边的样式呀，
+       只是智能成片那边不要歪而已，**首尾帧和图片生成都应该是左右歪的**。」
+   —— 用户要的不是"两边都不歪"，是"**两边都歪**"。所以这里恢复 ±5°。
+
+   【两边仍然一致】视频侧的三张素材卡由 VideoStudio.css 的
+   .video-material-strip .ec-xhs-upload-card { transform: none } 压平
+   （选择器带前缀，特异性更高）—— 那正是用户说的「智能成片那边不要歪」。
+   也就是说：**图片侧（我的素材 / 风格参考）歪，视频侧"智能成片"不歪，两边各按用户口径。**
+   ⚠️ 选择器本身必须保留：test/design-tokens-v3-adoption.test.mjs 用
+      `css.indexOf('.ec-xhs-card-product')` 当**切片边界**，删掉会让那条断言切到 -1
+      而静默改变检查范围。 */
+.ec-xhs-card-product { transform: rotate(-5deg); }
+.ec-xhs-card-reference { transform: rotate(5deg); }
 .ec-xhs-add-card {
   display: flex;
   flex-direction: column;

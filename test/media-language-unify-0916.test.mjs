@@ -20,8 +20,19 @@ test('① 视频侧素材卡与图片侧共用「对齐卡片」语言（同尺�
      视频侧只保留空态"加号卡"的排布规则 —— 不得再手写第二套已选卡实现。 */
   assert.doesNotMatch(videoIndex, /video-media-caption|video-media-remove/, '视频侧不得再手写已选素材卡（应交给 MediaAssetCard）');
   assert.match(videoIndex, /import MediaAssetCard from '\.\.\/\.\.\/components\/media\/MediaAssetCard\.jsx';/);
-  /* ⚠️ 零倾斜：两个板块的素材卡都不许再有 rotate —— 这是用户本轮最直接的一句否定。
-     断言必须**只看素材卡自己的规则块**：这两个文件里还有别处的 rotate
+  /* ═══ 倾斜：门禁改判据（2026-09-19 批 I-⑥），理由是用户把口径**按档位拆开了** ═══════════
+     本门禁原来断言的是「视频侧素材带一律零倾斜」。用户第 14 轮批注原话：
+       「之前这两张卡片不是左右歪的吗，你为什么要改呀，你应该改回去啊，
+         之前左右对称歪才是对的呀，视频生成那边要抄的就是这边的样式呀，
+         **只是智能成片那边不要歪而已**，首尾帧和图片生成都应该是左右歪的，
+         然后样式要统一这种呀，一模一样就好。」
+     —— 三档口径：图片侧（我的素材 / 风格参考）**歪**；视频侧**首尾帧歪**；视频侧**智能成片不歪**。
+     所以判据从「视频侧一律零倾斜」改成**按档位分别断言**：
+       · .video-material-strip（智能成片 / 爆款重构那三张素材卡）→ 仍然**零倾斜**
+         （用户说的"不要歪"就是这一档，一个字节没松）；
+       · .video-media-deck.is-frame（首尾帧那两格）→ **必须**有 ±5° 对称倾斜（新增要求）。
+     这不是放宽标准，是把原本混在一起的两档拆开写清。
+     ⚠️ 断言必须**只看素材卡自己的规则块**：这两个文件里还有别处的 rotate
      （箭头 rotate(45deg)、spinner rotate(360deg)、以及首页电商案例台的扇形摆法），
      拿全文扫会误判成"素材卡又歪了"，进而逼着下一轮去改那些不相干的东西。 */
   const rulesMatching = (css, needle) => {
@@ -32,8 +43,19 @@ test('① 视频侧素材卡与图片侧共用「对齐卡片」语言（同尺�
     return out.join('\n');
   };
   assert.doesNotMatch(rulesMatching(videoCss, 'video-media-picker'), /rotate\(/, '视频侧素材卡不许再倾斜');
-  assert.doesNotMatch(rulesMatching(videoCss, 'video-media-deck'), /rotate\(/, '视频侧素材带不许再倾斜');
-  assert.doesNotMatch(rulesMatching(videoCss, 'video-material-strip'), /rotate\(/, '视频素材带不许再倾斜');
+  /* 「智能成片 / 爆款重构」那一档：三张素材卡仍然零倾斜（用户口径里"不要歪"的就是这一档）。
+     ⚠️ 原来这里还断言 video-media-deck 整块零倾斜 —— 首尾帧两格现在**要求**歪，
+        所以那条整块断言被下面的正向断言取代（见上）。 */
+  assert.doesNotMatch(rulesMatching(videoCss, 'video-material-strip'), /rotate\(/, '视频素材带（智能成片/爆款重构三卡）不许倾斜');
+  /* 首尾帧两格：±5° **对称**倾斜，照图片侧同款角度与方向（用户批注 #1-5 / #2-1） */
+  assert.match(videoCss, /\.video-media-deck\.is-frame > div:nth-of-type\(1\) \{ transform: rotate\(-5deg\); \}/, '首帧格必须 -5°');
+  assert.match(videoCss, /\.video-media-deck\.is-frame > div:nth-of-type\(2\) \{ transform: rotate\(5deg\); \}/, '尾帧格必须 +5°（与首帧对称）');
+  /* 对称歪的两格之间那个乘号：复用图片侧同一个节点，不许另造一个长得像的 */
+  assert.match(videoIndex, /<span className="ec-xhs-multiply" aria-hidden="true">×<\/span>/, '首尾帧中间必须有乘号（复用图片侧 .ec-xhs-multiply）');
+  /* 图片侧（我的素材 / 风格参考）：±5° 对称歪，且方向与上面首尾帧一致 */
+  const imageHomeCss = readFileSync('src/pages/Home/Home.css', 'utf8');
+  assert.match(imageHomeCss, /\.ec-xhs-card-product \{ transform: rotate\(-5deg\); \}/, '图片侧"我的素材"必须 -5°');
+  assert.match(imageHomeCss, /\.ec-xhs-card-reference \{ transform: rotate\(5deg\); \}/, '图片侧"风格参考"必须 +5°（左右对称）');
   assert.doesNotMatch(rulesMatching(videoCss, 'media-asset-card'), /rotate\(/, '视频侧已选素材卡不许再倾斜');
   /* 图片侧：上传卡（ec-xhs-upload-card 一族）本身不倾斜；倾斜的是首页那张"两卡对比"的展示位，
      不在本门禁的射程里 —— 这里只守住素材卡规则块。 */
@@ -117,9 +139,16 @@ test('⑤ 素材在上、提示词在下（布局唯一）', () => {
   assert.ok(composer > 0 && input > composer, 'DOM 顺序必须是 素材 → 提示词');
 });
 
-test('③ 收素材的入口统一叫「全能参考」', () => {
-  assert.match(videoIndex, /<strong>全能参考<\/strong>/, '视频侧素材入口必须叫「全能参考」');
-  assert.doesNotMatch(videoIndex, /<strong>上传素材<\/strong>/, '旧的「上传素材」标题不得再作为入口名');
+test('③ 收素材的入口叫「上传素材」，不得顶着模式页签的名字', () => {
+  /* ═══ 2026-09-19 批 I-⑦：门禁改判据（用户批注 #1-3，坐标 27.1% / 34.8%）═══════════════
+     原来这条要求入口叫「全能参考」。用户第 14 轮原话：
+       「这里要么叫智能成品，要么叫全能参考，**不要冲突啊**。」
+     冲突是实打实的：上面那排模式页签叫「智能成片」，下面这块素材区却顶着一个
+     「全能参考」—— 一块区域挂着另一个模式的名字，用户分不清自己在哪一档。
+     现在：素材区就按它的 aria-label 叫「上传素材」；"我在哪一档"由上面那排页签独家承担。
+     （「全能参考」这个名字本身没被否定，被否定的是**它出现在这里**。） */
+  assert.match(videoIndex, /<strong>上传素材<\/strong>/, '视频侧素材入口必须叫「上传素材」');
+  assert.doesNotMatch(videoIndex, /<strong>全能参考<\/strong>/, '「全能参考」不得再作为素材区标题（它与模式页签「智能成片」冲突）');
 });
 
 test('② 主流程不再询问「要不要生成声音」，默认出声音', () => {
