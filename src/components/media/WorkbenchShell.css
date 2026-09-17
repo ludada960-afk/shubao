@@ -271,7 +271,14 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   background: var(--sb-surface-card);
   box-shadow: var(--sb-shadow-sm);
 }
-.media-workbench-tabs { display: inline-flex; gap: 4px; }
+/* ⚠️ scroll-margin-top 是**给浏览器滚动起见留出粘顶栏的位置**，不是装饰：
+   顶栏是 position: sticky; top: 0 的一条固定高度的横条；任何"把某个元素滚进视口"的动作
+   （锚点跳转、键盘 Tab、以及 Playwright 的 scrollIntoViewIfNeeded）默认都按「滚到视口顶」计算，
+   于是目标会被**顶栏盖住**，落点在顶栏底下 —— 点击/聚焦都会被顶栏接收。
+   实测症状：端到端场景 ⑰ 点「历史」页签时偶发超时 30s（locator 找到了元素，
+   但 hit-test 命中的是顶栏，Playwright 反复重试却从不真正派发点击）。
+   值为顶栏高度（80px）留出余量。 */
+.media-workbench-tabs { display: inline-flex; gap: 4px; scroll-margin-top: 108px; }
 .media-workbench-tabs button {
   padding: 9px 18px;
   border: 0;
