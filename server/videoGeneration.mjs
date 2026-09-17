@@ -1525,6 +1525,12 @@ export function createVideoGeneration({
         model: defaultProduct?.id || '',
         defaultProductId: defaultProduct?.id || DEFAULT_VIDEO_PRODUCT_ID,
         products,
+        /* ⚠️ 2026-09-19 批 H-7：**只读**的"未上架模型"清单，给界面一句实话用。
+           用户原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，为什么现在都不见了呢？」
+           —— 目录里确实有 10 个，但只有 2 个 public:true，界面上一个字都没说。
+           这份清单**不参与**产品选择 / 路由 / 计费：没有 quotes、没有 resolutions、没有 modes，
+           前端拿到它只能渲染成一行说明（见 VideoStudio 的模型下拉底部）。 */
+        unavailableProducts: registry.unavailableProducts(),
         billing: { currency: 'ec_points', unit: 'generation' },
         durations,
         resolutions,

@@ -1268,7 +1268,21 @@ export default function VideoStudioPage({
                    现在：正文里不再出现任何注释符号，容器只有一个花括号收尾。
                    ⚠️ 往后的规矩：JSX 子节点位置的注释用花括号包起来（表达式容器），
                       并且**正文里绝不能再写注释符号**。 */
-                </span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
+                </span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}
+                {/* ═══ 未上架模型：**只读**一行实话（2026-09-19 批 H-7）══════════════════════
+                    用户批注 #7 原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，
+                    为什么现在都不见了呢？」—— 目录里确实有 10 个，只有 2 个上架，
+                    而界面上一个字都没说，于是看起来像被删了。
+                    ⚠️ 它**不是按钮**、不可选、不进路由：服务端那份 unavailableProducts
+                      刻意不带 quotes / resolutions / modes —— 拿不到能提交的字段，
+                      也就不可能被误做成"点了会失败"的选项。这是本项目对"死按钮"的一贯口径。 */}
+                {Array.isArray(capabilities.unavailableProducts) && capabilities.unavailableProducts.length > 0 && (
+                  <p className="video-model-unavailable">
+                    另外 {capabilities.unavailableProducts.length} 个模型正在接通：
+                    {capabilities.unavailableProducts.map(item => item.label + "（" + item.reason + "）").join("、")}
+                  </p>
+                )}
+              </div>}
               </span>
             </div>
             <div className="video-toolbar-buttons">

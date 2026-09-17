@@ -332,6 +332,18 @@
 .video-model-mark { flex: 0 0 auto; width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 6px; background: var(--sb-neutral-0); border: 1px solid rgba(61,50,41,.10); color: inherit; }
 .video-inline-menu.is-model button > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
 .video-inline-menu.is-model b { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+/* ═══ 未上架模型那一行（2026-09-19 批 H-7）════════════════════════════════════════════════
+   它是**说明**不是选项：中性灰、没有 hover、没有边框、不可点。
+   视觉上必须明显区别于上面的可选行，否则用户会去点它。 */
+.video-model-unavailable {
+  margin: 6px 2px 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--sb-border-subtle);
+  color: var(--sb-ink-3);
+  font-size: 11px;
+  line-height: 1.6;
+  cursor: default;
+}
 .video-inline-menu.is-model b em { padding: 2px 5px; border-radius: 4px; background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; font-style: normal; }
 .video-inline-menu.is-model .video-model-limit { color: #a0785e; }
 .video-plan-beats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

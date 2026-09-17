@@ -265,3 +265,42 @@ test('video assets preview immediately and upload resumably without proxy buffer
   assert.match(nginx, /client_max_body_size\s+64m/);
   assert.match(nginx, /proxy_request_buffering\s+off/);
 });
+
+
+/* ═══ 未上架模型：只能显示，不能变成选项（2026-09-19 批 H-7，用户批注 #7）══════════════════
+   用户原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，为什么现在都不见了呢？」
+   —— 目录里确实有 10 个（`server/videoCatalog.mjs` 的 VIDEO_PRODUCTS），只有 2 个 public:true，
+   另外 8 个被上游可达性 / 中转余额挡住，而界面上一个字都没说，看起来就像被删了。
+   这条判据守的是「**让它可见，但绝不可选**」这条边界：
+     ① 服务端把这 8 个做成只读清单（id/label/tierLabel/routeState/reason），
+        **不带** quotes / resolutions / modes —— 前端拿不到能提交的字段；
+     ② 客户端的模型下拉把它渲染成 <p>（说明），**不是** <button>；
+     ③ reason 必须来自路由台账状态，不是手写的安慰话。 */
+test("⑨ 未上架的视频模型：可见但不可选（只读清单 + 非按钮渲染）", async () => {
+  const [catalog, generation, page, styles] = await Promise.all([
+    source("../server/videoCatalog.mjs"),
+    source("../server/videoGeneration.mjs"),
+    source("../src/pages/VideoStudio/index.jsx"),
+    source("../src/pages/VideoStudio/VideoStudio.css"),
+  ]);
+  /* ① 服务端：有导出、按 ROUTE_REACHABILITY 给原因、且**只**带展示字段 */
+  assert.match(catalog, /export function unavailableVideoProducts\(\)/);
+  assert.match(catalog, /const UNAVAILABLE_REASON = Object\.freeze\(\{/);
+  const fn = catalog.slice(catalog.indexOf("export function unavailableVideoProducts()"));
+  for (const productField of ["quotes", "resolutions", "modes", "durations"]) {
+    assert.doesNotMatch(fn.slice(0, fn.indexOf("\n}")), new RegExp(productField),
+      "只读清单不许带 " + productField + " —— 带了就等于给前端留了一条能提交的路");
+  }
+  assert.match(generation, /unavailableProducts: registry\.unavailableProducts\(\),/);
+  /* ② 客户端：渲染成说明（<p>），不是按钮 */
+  assert.match(page, /capabilities\.unavailableProducts/);
+  /* 切片的起点要用**整段开标签**：用类名本身去 indexOf 会命中标签内部，
+     slice 之后就少了 <p className= 这一段，断言会误报（这一条就是这么写错又被抓出来的）。 */
+  const noteStart = page.indexOf('<p className="video-model-unavailable">');
+  assert.ok(noteStart > 0, "必须有一段 video-model-unavailable 的说明");
+  const note = page.slice(noteStart, noteStart + 420);
+  assert.match(note, /<p className="video-model-unavailable">/, "必须渲染成 <p>，不能是 button");
+  assert.doesNotMatch(note, /<button/, "未上架的模型不许做成可点按钮（点了会失败）");
+  /* ③ 样式：中性说明行、不可点 */
+  assert.match(styles, /\.video-model-unavailable \{[^}]*cursor: default;/);
+});

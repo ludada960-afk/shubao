@@ -491,3 +491,33 @@ export function publicVideoProducts({ includeHidden = false } = {}) {
       },
     }));
 }
+
+/* ═══ 未上架模型清单（只读，给界面一句实话用）══════════════════════════════════════════
+   2026-09-19 批 H-7。为什么需要它：用户问「我们之前明明做了特别多的模型啊，起码有差不多 10 个，
+   为什么现在都不见了呢？」—— 目录里**确实有 10 个**，但只有 2 个 public:true，
+   另外 8 个被上游可达性 / 中转余额挡住，而界面上**一个字都没说**，于是看起来像"被删了"。
+   ⚠️ 这份清单**只能用来显示**，绝不允许拿它生成 / 路由 / 计费：
+      id / label / tierLabel / reason 四项都是只读的展示字段，没有任何可提交的字段。
+      "能选"与"只是告诉你它在接通"是两件事，混在一起就是"用户选了会失败"的老问题。
+   ⚠️ reason 按**路由台账状态**给（ROUTE_REACHABILITY），不是手写的安慰话：
+      unreachable 上游不认 / blocked 余额不足 / unverified 报文待确认。 */
+const UNAVAILABLE_REASON = Object.freeze({
+  unreachable: "上游暂未开放该模型",
+  blocked: "中转账户余额不足",
+  unverified: "上游报文口径确认中",
+});
+
+export function unavailableVideoProducts() {
+  return Object.values(VIDEO_PRODUCTS)
+    .filter(product => product.public !== true)
+    .map(product => {
+      const state = ROUTE_REACHABILITY[product.routeId]?.state || "unverified";
+      return {
+        id: product.id,
+        label: product.label,
+        tierLabel: product.tierLabel || "",
+        routeState: state,
+        reason: UNAVAILABLE_REASON[state] || UNAVAILABLE_REASON.unverified,
+      };
+    });
+}

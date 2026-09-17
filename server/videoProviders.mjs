@@ -1,4 +1,4 @@
-import { getVideoProduct, publicVideoProducts, VIDEO_PRODUCTS } from './videoCatalog.mjs';
+import { getVideoProduct, publicVideoProducts, unavailableVideoProducts, VIDEO_PRODUCTS } from './videoCatalog.mjs';
 
 function clean(value, max = 500) {
   return String(value ?? '').trim().slice(0, max);
@@ -282,6 +282,10 @@ export function createVideoProviderRegistry({
     },
     publicProducts(options) {
       return publicVideoProducts(options);
+    },
+    /* 只读的"未上架模型"清单（给界面一句实话用，不参与路由 / 计费）——见 videoCatalog 里的说明 */
+    unavailableProducts() {
+      return unavailableVideoProducts();
     },
   };
 }
