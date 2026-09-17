@@ -989,7 +989,11 @@ export default function MediaCreationPage() {
   }
 
 
-  if (!skill) return <div className="media-creation"><MediaHub board={board} onOpenSkill={openSkill} /></div>;
+  /* data-surface 是**三级视觉语言**的挂点（用户批注 #11-④）：
+       hub = 总页面（浏览面，近白微暖）· subpage = 子页面（工作面，纯白）。
+       首页（营销面）不在这里 —— 它是暖米底，由 .homepage-shell 一族负责。
+       挂成属性而不是两个类名，是为了让"这一屏属于哪一级"在 DOM 上可被断言。 */
+  if (!skill) return <div className="media-creation" data-surface="hub"><MediaHub board={board} onOpenSkill={openSkill} /></div>;
 
   /* 就近反馈（错误 / 提示）单独拎出来：嵌入形态下它要挂到页面**顶部**那条线上，
      而不是塞在右栏页签上面 —— 用户点完历史里的「用这组参数」会被滚回顶部，
@@ -1039,7 +1043,7 @@ export default function MediaCreationPage() {
   const panel = embed ? <>{announce}{embeddedFlow}</> : null;
 
   return (
-    <div className="media-creation">
+    <div className="media-creation" data-surface="subpage">
       <SkillWorkbench
         board={board}
         skillId={skill.id}
