@@ -3073,3 +3073,14 @@ skill 子页面一定带 skillTag。**子页面形态下功能一个不少**（�
 ⚠️ 教训（写下来）：precommit 只跑 38 个 BLOCKING 文件 + 渲染冒烟 + 端到端，**不等于全量**。
    本轮 11 条红里 9 条只被全量抓到 —— 而部署脚本第一步就是全量测试，
    所以「precommit 全绿」不能当成「发得出去」。发版前**必须**跑一次全量。
+
+### 发布流程**踩到的新坑**（批次三十三那套流程缺了一步，必须补上）
+干净检出发布时，给发布目录建 node_modules junction **不能指向主仓库 F:/da/shubao/node_modules** ——
+主仓库那份是**空的/不完整**的（没有 playwright）。实测：junction 指向主仓库时，
+全量测试 7 条红全是 `ERR_MODULE_NOT_FOUND: Cannot find package 'playwright'`
+（canvas 两条 / home 两条 / psd-exporter / video 两条），部署脚本第一步 `npm run test` 直接 exit 1。
+✅ 正确做法：junction 指向**本工作树的** node_modules ——
+   `New-Item -ItemType Junction -Path <干净检出>\node_modules -Target F:\da\shubao\.worktrees\codex-ecommerce-stability\node_modules`
+   之后干净检出里全量 3916 条 / 3906 pass / 0 fail / 10 skip，与工作树一致。
+（另注：`cmd /c mklink /J` 在这套 PowerShell 里引号会被吃掉、报 'Parameter format not correct'，
+ 用 `New-Item -ItemType Junction` 最稳。）
