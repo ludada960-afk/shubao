@@ -635,12 +635,12 @@ try {
      ⚠️ 以前这里把图片与视频混在一条里 —— 视频模式下首页出现的是四张**图片**技能卡（实测抓到过）。 */
   scenario('⑬ 首页精选推荐按钮行（按板块 / 悬停预览 / 点击进子页面）');
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.skill-entry-row .skill-entry-button', { timeout: 20000 });
+  await page.waitForSelector('.skill-entry-row .skill-entry-card', { timeout: 20000 });
   await page.waitForTimeout(500);
   const videoRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
     head: document.querySelector('.skill-entry-head h2')?.textContent || '',
-    buttons: Array.from(document.querySelectorAll('.skill-entry-button')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-open')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
     more: document.querySelector('.skill-entry-more')?.textContent || '',
   }));
   check(videoRow.board === 'video', '视频模式下按钮行是**视频板块**的', videoRow.board + ' / ' + videoRow.head);
@@ -649,10 +649,10 @@ try {
   check(videoRow.more.includes('查看全部'), '右侧有「查看全部」进总页面', videoRow.more);
 
   /* 悬停出预览框：有案例的技能显示案例（视频优先），没有案例的如实写"案例补充中" */
-  await page.hover('.skill-entry-button');
+  await page.hover('.skill-entry-card');
   await page.waitForTimeout(400);
   const hoverPreview = await page.evaluate(() => {
-    const node = document.querySelector('.skill-entry-preview');
+    const node = document.querySelector('.skill-entry-veil');
     return {
       present: Boolean(node),
       title: node?.querySelector('strong')?.textContent || '',
@@ -666,7 +666,7 @@ try {
 
   /* 点第一个按钮 → 进它的子页面（地址、标题、返回都要对） */
   const firstVideo = videoRow.buttons[0].replace(/需参考素材|即将上线/g, '').trim();
-  await page.click('.skill-entry-button');
+  await page.click('.skill-entry-card .skill-entry-open');
   await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   const landed = await page.evaluate(() => ({
     url: location.pathname + location.search,
@@ -682,12 +682,12 @@ try {
 
   /* 切到图片板块：按钮必须跟着换成图片技能（同一条规则，两个板块） */
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.skill-entry-row .skill-entry-button', { timeout: 20000 });
+  await page.waitForSelector('.skill-entry-row .skill-entry-card', { timeout: 20000 });
   await page.click('.homepage-mode-card.card-2');
   await page.waitForTimeout(1200);
   const imageRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
-    buttons: Array.from(document.querySelectorAll('.skill-entry-button')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-open')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
   }));
   check(imageRow.board === 'image', '图片模式下按钮行是**图片板块**的', imageRow.board);
   check(imageRow.buttons.some(text => /自由创作|海报设计/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
@@ -696,7 +696,7 @@ try {
   await page.hover('.skill-entry-item:nth-child(2) .skill-entry-button');
   await page.waitForTimeout(400);
   const covered = await page.evaluate(() => {
-    const node = document.querySelector('.skill-entry-preview');
+    const node = document.querySelector('.skill-entry-veil');
     const img = node?.querySelector('img');
     return { media: node?.querySelector('video') ? 'video' : (img ? 'img' : 'blank'), src: img?.getAttribute('src') || '' };
   });

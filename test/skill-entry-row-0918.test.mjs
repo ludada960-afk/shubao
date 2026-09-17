@@ -38,7 +38,10 @@ test('① 按钮行只显示当前板块的技能（视频模式下不许出现�
 });
 
 test('② 有悬停预览框；没有案例时如实写"案例补充中"，不留一块空白', () => {
-  assert.match(row, /className="skill-entry-preview"/);
+  /* 9-18 用户批注 4/5：精选卡片照抄 flova —— 小封面 + 文字 + 很大的按钮，
+     悬停出「试一试」+ 毛玻璃遮罩，封面视频真的会播。旧的药丸按钮 + 悬停浮层已替换。 */
+  assert.match(row, /skill-entry-veil/, '毛玻璃遮罩必须在');
+  assert.match(row, /skill-entry-try/, '试一试大按钮必须在');
   assert.match(row, /onMouseEnter=\{\(\) => setActiveId\(skill\.id\)\}/);
   assert.match(row, /onMouseLeave=\{\(\) => setActiveId/);
   /* 媒体三种情形都要有明确下落：视频 → <video>、图 → <img>、都没有 → 一句实话 */
@@ -49,11 +52,10 @@ test('② 有悬停预览框；没有案例时如实写"案例补充中"，不�
   assert.match(row, /import \{ availabilityLabel, coverOf \} from '\.\.\/\.\.\/skills\/skillDirectory\.js'/);
 });
 
-test('③ 点击进子页面，且键盘用户同样能用（按钮原生可达、Escape 能收起预览）', () => {
+test('③ 键盘可达：聚焦就点亮卡片（卡片本身就是入口，不再是可展开的浮层）', () => {
   assert.match(row, /onClick=\{\(\) => onOpenSkill\?\.\(skill\)\}/);
-  assert.match(row, /onFocus=\{\(\) => setActiveId\(skill\.id\)\}/, '键盘聚焦也要出预览（不然键盘用户看不到案例）');
-  assert.match(row, /event\.key === 'Escape'/, 'Escape 要能收起预览');
-  assert.match(row, /aria-expanded=\{open\}/);
+  assert.match(row, /onFocus=\{\(\) => setActiveId\(skill\.id\)\}/, '键盘聚焦也要点亮卡片（不然键盘用户看不到案例）');
+  assert.match(row, /muted[\s\S]{0,160}autoPlay/, '封面视频必须静音且自动播放（用户批注 5）');
   /* 首页点击必须走 skillPath（与 Hub / 总页面同一份算法） */
   assert.match(stripComments(home), /window\.history\.pushState\(\{\}, '', skillPath\(skill\)\)/);
 });

@@ -1,86 +1,88 @@
-/* SkillEntryRow：技能入口按钮行（图片/视频两个板块共用同一套长相）
-   用户 9-17 口径：按钮形式 + 鼠标悬停出预览框 + 点击进子页面。
-   颜色一律走 --sb-* token，不写死色值；每个可点元素都有 hover / focus-visible / active 三态
-   （interactive-state-coverage 与 focus-visible-baseline 两条门禁守着）。 */
-.skill-entry-row { display: grid; gap: 12px; margin-top: 26px; }
-.skill-entry-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.skill-entry-head h2 { margin: 0; font-size: 15px; color: var(--sb-ink-1); }
-.skill-entry-head p { margin: 0; font-size: 12px; color: var(--sb-ink-3); }
+/* ═══ 精选技能卡片行（flova 式大卡）═══════════════════════════════════════════════
+   用户 9-18 批注 4/5 点名照抄 flova.tv：小封面 + 文字描述 + 很大的按钮；
+   悬停出「试一试」+ 毛玻璃遮罩；预览窗里的视频真的会播。
+   替换掉 9-17 那版"药丸按钮 + 悬停浮层"（用户批注 2/7/13/14：太窄、太小气、看不到）。 */
+
+.skill-entry-row { display: flex; flex-direction: column; gap: 16px; }
+
+.skill-entry-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.skill-entry-head h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--sb-ink-1); }
+.skill-entry-head p { margin: 6px 0 0; font-size: 13px; color: var(--sb-ink-3); }
 .skill-entry-more {
-  display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
-  font-size: 12px; font-weight: 700; color: var(--sb-brand-700); text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 800; color: var(--sb-brand-600); text-decoration: none;
+  padding: 8px 14px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-card);
+  border: 1px solid var(--sb-border-default);
+  transition: transform .18s ease, box-shadow .18s ease;
 }
-.skill-entry-more:hover { color: var(--sb-brand-600); }
-.skill-entry-more:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); border-radius: var(--sb-radius-chip); }
+.skill-entry-more:hover { transform: translateY(-1px); box-shadow: var(--sb-shadow-sm); }
 
-/* 一排药丸按钮：换行排布，窄屏也不会挤成一条 */
-.skill-entry-list { display: flex; flex-wrap: wrap; gap: 10px; }
-/* ⚠️ 预览浮层要盖在下面的内容上，所以每一项都必须是定位基准，且行本身不许裁切 */
-.skill-entry-item { position: relative; }
-.skill-entry-button {
+/* 卡片：封面占主导（用户批注 14：「他们做的是很大的……整体看起来会比较饱满」） */
+.skill-entry-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 18px;
+}
+
+.skill-entry-card {
+  border-radius: 18px;
+  background: var(--sb-surface-card);
+  border: 1px solid var(--sb-border-default);
+  box-shadow: var(--sb-shadow-sm);
+  overflow: hidden;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.skill-entry-card:hover,
+.skill-entry-card.is-open { transform: translateY(-3px); box-shadow: var(--sb-shadow-3); border-color: var(--sb-brand-border); }
+
+.skill-entry-open {
+  display: block; width: 100%; padding: 0; border: 0; background: none;
+  text-align: left; cursor: pointer; font: inherit;
+}
+
+.skill-entry-cover {
+  position: relative; display: block; width: 100%;
+  aspect-ratio: 16 / 10; overflow: hidden;
+  background: var(--sb-surface-tint-strong);
+}
+.skill-entry-cover img,
+.skill-entry-cover video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.skill-entry-blank {
+  display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; gap: 8px;
+  color: var(--sb-ink-3); font-size: 13px; font-weight: 600;
+}
+
+/* 悬停：毛玻璃遮罩 + 「试一试」大按钮（flova 同款） */
+.skill-entry-veil {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(18, 16, 28, 0.34);
+  backdrop-filter: blur(6px);
+  opacity: 0; transition: opacity .2s ease;
+}
+.skill-entry-card:hover .skill-entry-veil,
+.skill-entry-card.is-open .skill-entry-veil,
+.skill-entry-open:focus-visible .skill-entry-veil { opacity: 1; }
+.skill-entry-try {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 16px; border-radius: var(--sb-radius-pill);
-  border: 1px solid var(--sb-border-default); background: var(--sb-surface-card);
-  color: var(--sb-ink-1); font-size: 13px; font-weight: 700; font-family: inherit;
-  cursor: pointer;
-  transition: transform var(--sb-duration-fast) var(--sb-ease-out),
-              box-shadow var(--sb-duration-fast) var(--sb-ease-out),
-              border-color var(--sb-duration-fast) var(--sb-ease-out),
-              background-color var(--sb-duration-fast) var(--sb-ease-out);
+  padding: 12px 26px; border-radius: var(--sb-radius-pill);
+  background: var(--sb-brand-600); color: var(--sb-surface-card);
+  font-size: 15px; font-weight: 800;
+  box-shadow: 0 10px 26px rgba(17, 20, 45, .28);
 }
-.skill-entry-button:hover { transform: translateY(-1px); border-color: var(--sb-border-strong); box-shadow: var(--sb-shadow-sm); }
-.skill-entry-button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.skill-entry-button:active { transform: translateY(0); box-shadow: none; }
-/* 选中（悬停/聚焦）的按钮与浮层是同一件事的两面：描边走品牌色，让人知道下面这块是它的 */
-.skill-entry-button.is-open { border-color: var(--sb-state-selected-line); box-shadow: var(--sb-shadow-sm); }
-.skill-entry-name { white-space: nowrap; }
+
 .skill-entry-flag {
-  padding: 1px 7px; border-radius: var(--sb-radius-pill);
-  background: var(--sb-surface-tint-strong); color: var(--sb-ink-3);
-  font-size: 10px; font-weight: 700; white-space: nowrap;
+  position: absolute; top: 10px; left: 10px; z-index: 1;
+  padding: 4px 9px; border-radius: var(--sb-radius-pill);
+  background: rgba(255, 255, 255, .92); color: var(--sb-ink-2);
+  font-size: 11px; font-weight: 700;
 }
 
-/* ── 预览浮层：一张 4:3 的案例（视频会静音自动播）+ 名字 + 一句话 + 进入提示 ── */
-.skill-entry-preview {
-  position: absolute; left: 0; top: calc(100% + 10px); z-index: 30;
-  display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 12px; align-items: center;
-  width: min(340px, calc(100vw - 40px)); padding: 12px;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-card);
-  background: var(--sb-surface-card); box-shadow: var(--sb-shadow-lg);
-  animation: skillEntryPreviewIn var(--sb-duration-fast) var(--sb-ease-out) both;
+.skill-entry-copy { display: block; padding: 13px 15px 16px; }
+.skill-entry-copy strong { display: block; font-size: 15.5px; font-weight: 800; color: var(--sb-ink-1); }
+.skill-entry-copy small {
+  display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.55; color: var(--sb-ink-3);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-@keyframes skillEntryPreviewIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-.skill-entry-preview-media {
-  display: block; overflow: hidden; aspect-ratio: 4 / 3;
-  border-radius: var(--sb-radius-chip); background: var(--sb-surface-tint-strong);
-}
-.skill-entry-preview-media img,
-.skill-entry-preview-media video { display: block; width: 100%; height: 100%; object-fit: cover; }
-.skill-entry-preview-blank {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  width: 100%; height: 100%; color: var(--sb-ink-3); font-size: 11px; font-weight: 700;
-}
-.skill-entry-preview-copy { display: grid; gap: 4px; min-width: 0; }
-.skill-entry-preview-copy strong { font-size: 14px; color: var(--sb-ink-1); }
-.skill-entry-preview-copy small { font-size: 12px; line-height: 1.5; color: var(--sb-ink-2); }
-.skill-entry-preview-copy em {
-  display: inline-flex; align-items: center; gap: 4px; margin-top: 2px;
-  font-size: 11px; font-style: normal; font-weight: 800; color: var(--sb-brand-700);
-}
-/* 鼠标要能从按钮走到浮层上（不然刚移上去浮层就没了），所以这一段必须相连 */
-.skill-entry-item:hover .skill-entry-preview { animation: none; }
 
-/* 触屏没有 hover：预览浮层不出现，只在行尾留一句摘要（点击仍然直接进子页面） */
-.skill-entry-tip { display: none; margin: 0; font-size: 12px; color: var(--sb-ink-3); }
-@media (hover: none) {
-  .skill-entry-preview { display: none; }
-  .skill-entry-tip:not(:empty) { display: block; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .skill-entry-button { transition: none; }
-  .skill-entry-preview { animation: none; }
-}
-@media (max-width: 640px) {
-  .skill-entry-list { gap: 8px; }
-  .skill-entry-button { padding: 8px 13px; font-size: 12px; }
-}
+.skill-entry-tip { margin: 0; min-height: 18px; font-size: 12.5px; color: var(--sb-ink-3); }
