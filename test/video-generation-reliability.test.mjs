@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
-import { publicVideoProducts, getVideoProduct } from '../server/videoCatalog.mjs';
+import { publicVideoProducts, unavailableVideoProducts, getVideoProduct } from '../server/videoCatalog.mjs';
 import { withConfirmedPlan } from './helpers/video-plan-fixture.mjs';
 
 const COOLDOWN_MS = 15 * 60 * 1000;
@@ -25,6 +25,7 @@ function providerRegistry() {
       };
     },
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
 }
 
@@ -207,6 +208,7 @@ test('a failed credit release remains truthful and is recoverable', async t => {
       download: async () => { throw new Error('download must not run'); },
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = createService({
     db,
@@ -290,6 +292,7 @@ test('a delivered video is preserved while settlement is reconciled without refu
       }),
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = withConfirmedPlan(createVideoGeneration({
     db,
@@ -376,6 +379,7 @@ test('a settled delivery retries only the failed works projection', async t => {
       }),
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = withConfirmedPlan(createVideoGeneration({
     db,
@@ -465,6 +469,7 @@ test('an unknown provider submission expires to an automatic credit release', as
       download: async () => { throw new Error('download must not run'); },
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = createService({
     db,
@@ -557,6 +562,7 @@ test('an operator can attach the recovered provider task without resubmitting', 
       },
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = createService({
     db,
@@ -641,6 +647,7 @@ test('provider attempts are durable before submission and retain the accepted ta
       download: async () => { throw new Error('download must not run'); },
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = createService({
     db,
@@ -711,6 +718,7 @@ test('provider delivery streams to disk without buffering the complete video', a
       }),
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = createService({
     db,
@@ -775,6 +783,7 @@ test('a truncated provider delivery is removed and never settled', async t => {
       }),
     }),
     publicProducts: () => publicVideoProducts(),
+    unavailableProducts: () => unavailableVideoProducts(),
   };
   const service = createService({
     db,
