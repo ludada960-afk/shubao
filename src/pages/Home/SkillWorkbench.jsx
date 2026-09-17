@@ -43,6 +43,8 @@ export default function SkillWorkbench({
      （「01 白底主图 02 品牌主视觉海报 …」），而不是一堆没有出处的图。
      对我们的套图/详情图这类技能，这份清单**由方案真源算出来**（随平台变），不是手写死的。 */
   deliverables = [],
+  /* 一键解析（付费前置动作，见 WorkbenchShell 的说明） */
+  parseAction = null,
 }) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
@@ -82,6 +84,7 @@ export default function SkillWorkbench({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         panel={panel}
+        parseAction={parseAction}
       >
         {activeTab === 'cases'
           ? (cases.length

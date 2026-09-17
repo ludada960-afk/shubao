@@ -32,6 +32,12 @@ test('② 出处必须带可核对的信息：kind 白名单 + ref/repo/stars/no
     if (source.kind === 'ours') {
       /* 自研的也必须说清理由 —— 不写 note 就等于"我自己编的" */
       assert.ok(String(source.note || '').length >= 8, skillId + ' 声明为自研，必须写清为什么不需要外部来源');
+      if (source.reference) {
+        /* 自研技能可以挂一条"参考效果"（同类里最好的公开配方），但同样必须可核对 */
+        assert.ok(String(source.reference.ref || '').length >= 4, skillId + ' 的参考配方必须指到具体 case');
+        assert.ok(String(source.reference.repo || '').length >= 4, skillId + ' 的参考配方必须写明仓库');
+        assert.ok(Number(source.reference.stars) > 0, skillId + ' 的参考配方必须登记 star');
+      }
       continue;
     }
     assert.ok(String(source.ref || '').length >= 4, skillId + ' 必须指到具体文件/锚点（ref）');

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronRight, Play } from 'lucide-react';
+import { ArrowRight, ChevronRight, Play } from 'lucide-react';
 
 /* ═══ CaseCard：案例卡（图片板块与视频板块共用，唯一实现）═════════════════════════
    2026-09-16/17 用 CDP 直连竞品（已登录态）扒到的**卡片真实结构**，逐条照抄机制：
@@ -26,6 +26,11 @@ export default function CaseCard({
   badge = '',
   onOpen = null,
   className = '',
+  /* ⚠️ 复刻 / 修图 / 换背景这类 skill 的案例**一张图说不清它干什么** ——
+     竞品实测（43 §10.2）：他们的复刻类示例一律做成「原图 ↔ AI 作品」两图对照。
+     所以卡片支持第二种封面形态：给 before 就走对照版式（左原图 → 右成品），
+     没给就还是原来的单图封面。两种形态共用同一张卡、同一套遮罩与标题。 */
+  before = '',
 }) {
   const articleRef = useRef(null);
   const videoRef = useRef(null);
@@ -70,16 +75,26 @@ export default function CaseCard({
     >
       <button type="button" className="media-case-card-hit" onClick={() => onOpen?.()} aria-label={title ? title + '（查看案例）' : '查看案例'}>
         <span className="media-case-card-cover">
-          {video
-            ? <video
-                ref={videoRef}
-                data-case-preview
-                src={video}
-                poster={poster || cover || undefined}
-                /* 门禁逐字断言这一串：静音 + 循环 + 内联播放 + 只取元数据（不整包下载） */
-                muted loop playsInline preload="metadata"
-              />
-            : (cover ? <img src={cover} alt={title} loading="lazy" /> : <span className="media-case-card-blank" />)}
+          {before && cover ? (
+            <span className="media-case-card-compare">
+              <img src={before} alt={(title || '案例') + ' · 原图'} loading="lazy" />
+              <span className="media-case-card-compare-arrow" aria-hidden="true"><ArrowRight size={13} /></span>
+              <img src={cover} alt={(title || '案例') + ' · 成品'} loading="lazy" />
+            </span>
+          ) : video ? (
+            <video
+              ref={videoRef}
+              data-case-preview
+              src={video}
+              poster={poster || cover || undefined}
+              /* 门禁逐字断言这一串：静音 + 循环 + 内联播放 + 只取元数据（不整包下载） */
+              muted loop playsInline preload="metadata"
+            />
+          ) : cover ? (
+            <img src={cover} alt={title} loading="lazy" />
+          ) : (
+            <span className="media-case-card-blank" />
+          )}
           {video && !shouldPlay && <span className="media-case-card-play" aria-hidden="true"><Play size={16} /></span>}
         </span>
         {/* 自下而上的白色渐变：标题压在它上面才读得清（实测同款） */}

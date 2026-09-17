@@ -130,3 +130,19 @@ for (const skill of ALL) {
 }
 writeFileSync(new URL('../docs/design/skill-recipe-library.json', import.meta.url), JSON.stringify(snapshot, null, 1));
 console.log('技能 ' + ALL.length + ' 条，其中可追溯配方 ' + matched + ' 条已写入 docs/design/skill-recipe-library.json');
+
+/* ── 候选池：**还没落成技能**的配方，按来源库（＝板块）分类 ────────────────────
+   用户问：「库里还有几十条可用配方是指的是全部是图片吗，还是有一些是视频的呢？」
+   → 这份文件就是答案：图片库（gpt-image-2 的电商/广告创意/海报/人像）与
+     视频库（Seedance 官方用例 + 商用玩法）各自还剩哪些没用。 */
+const used = new Set(Object.values(snapshot.bySkill).map(item => item.lib + '#' + item.caseId));
+const pool = { note: '还没落成技能的候选配方（用户挑完我再落成 skill）。刷新：node scripts/refresh-skill-recipes.mjs', byLib: {} };
+for (const item of cases) {
+  const key = item.lib + '#' + item.id;
+  if (used.has(key)) continue;
+  if (!pool.byLib[item.lib]) pool.byLib[item.lib] = [];
+  pool.byLib[item.lib].push({ caseId: item.id, title: item.title, sourceLink: item.ref || '', prompt: item.prompt.slice(0, 1500), assets: item.assets });
+}
+writeFileSync(new URL('../docs/design/skill-recipe-pool.json', import.meta.url), JSON.stringify(pool, null, 1));
+const counts = Object.entries(pool.byLib).map(([lib, list]) => lib + '=' + list.length).join(' · ');
+console.log('候选池：' + counts);

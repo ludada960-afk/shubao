@@ -53,6 +53,7 @@ import {
   visualRunIsBusy,
 } from '../Home/visualCreationModel.js';
 import {
+  autoRecognizeEcommerce,
   buildCanvasGenerationBody,
   generateEcommerce,
   recoverCanvasGeneration,
@@ -393,6 +394,54 @@ export default function MediaCreationPage() {
       return { name, hint: [ratio, type ? type.desc : ''].filter(Boolean).join(' · ') };
     });
   }, [skill, suite, suiteRun]);
+
+  /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
+     照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。
+     ⚠️ 它**扣费**（SKU ec_ai_assistant = 200 units = 0.2 积分），所以：
+        ① 只能由用户手势触发（按钮 onClick），不许放进 effect / 渲染期
+           —— 由 test/charge-requires-confirmation 守着；
+        ② 没登录先走登录守卫，不发请求；
+        ③ 报价在 autoRecognizeEcommerce 内部完成（先报价后扣费），失败就近提示。
+     解析结果（商品名 / 品类 / 材质 / 尺寸 / 保养）按技能声明的 fills 回填到对应字段。 */
+  const [parsing, setParsing] = useState(false);
+  const parseSpec = skill && skill.parse && !embed ? skill.parse : null;
+  async function parseProductInfo() {
+    if (!skill || !parseSpec || parsing) return;
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const ready = (Array.isArray(effectiveValues.assets) ? effectiveValues.assets : [])
+      .filter(item => item && item.status === 'ready' && item.url)
+      .map(item => item.url);
+    if (!ready.length) { setError('先上传商品图，再点一键解析'); return; }
+    setParsing(true);
+    setError('');
+    setNotice('正在解析商品信息…（本次消耗 0.2 积分）');
+    try {
+      const result = await autoRecognizeEcommerce({ smartBrief: '', refShots: ready.slice(0, 5) });
+      const product = result?.product || {};
+      const lines = [
+        String(product.name || '').trim(),
+        product.category ? '品类：' + product.category : '',
+        product.material ? '材质：' + product.material : '',
+        product.dimensions ? '尺寸：' + product.dimensions : '',
+        result?.maintenance ? '保养：' + result.maintenance : '',
+      ].filter(Boolean);
+      const filled = lines.join('\n');
+      const target = parseSpec.fills || 'productParams';
+      if (!filled) { setNotice(''); setError('没解析出可用信息，换一张更清楚的商品图再试'); return; }
+      setValues(prev => ({ ...prev, [target]: filled }));
+      await refreshBillingBalance?.().catch(() => undefined);
+      setNotice('已解析并填入' + (target === 'product' ? '商品名' : '商品信息') + '（消耗 0.2 积分），确认后再生成');
+    } catch (err) {
+      setNotice('');
+      handleError(err);
+    } finally {
+      setParsing(false);
+    }
+  }
 
   /* 统一失焦：登录 / 余额不足交给既有守卫处理，其余就地显示 */
   const handleError = useCallback((err) => {
@@ -735,6 +784,13 @@ export default function MediaCreationPage() {
         history={history}
         panel={panel}
         deliverables={deliverables}
+        parseAction={parseSpec ? {
+          label: parseSpec.label || '一键解析',
+          points: 0.2,
+          busy: parsing,
+          hint: '上传商品图后点它，自动把商品名 / 品类 / 材质 / 尺寸填好',
+          onRun: parseProductInfo,
+        } : null}
         emptyHistoryHint={embed === 'video'
           ? '这条技能还没有生成记录。这个账号的全部视频任务都在上方工作台的「生成记录」里，结果出来后会同步到这里。'
           : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里。' : '')}

@@ -27,6 +27,31 @@
 - 图片配方库（电商 35 / 广告创意 54 / 海报 / 人像 / 对比，每条带成品图与出处） —— EvoLinkAI/awesome-gpt-image-2-API-and-Prompts（17,199★）
 - 竞品产品侧实测清单（图片 110 / 视频 32） —— 知渔 AI（laoyu.quantv.com）
 
+## 候选池（还没落成技能的配方，按板块分）
+
+| 来源库 | 板块 | 还剩 |
+|---|---|---|
+| seedance-official | 视频 · 上游官方用例 | 35 条 |
+| seedance-commercial | 视频 · 商用玩法 | 4 条 |
+| gpt-image2-ecommerce | 图片 · 电商 | 18 条 |
+| gpt-image2-ad | 图片 · 广告创意 | 45 条 |
+| gpt-image2-poster | 图片 · 海报 | 276 条 |
+| gpt-image2-portrait | 图片 · 人像 | 199 条 |
+
+完整清单（含每条的原配方提示词与自带素材）在 `docs/design/skill-recipe-pool.json`；下面只列名字方便你挑：
+
+**视频 · 上游官方用例**（35 条）：角色场景一致性 · 复杂转场一致性 · 舞蹈动作 + 推拉运镜 · 多角色打斗（枫叶林） · 打斗 + 环��运镜（双视频参考） · 科幻眼镜穿越多世界 · 羽绒服广告创意复刻 · 水墨太极功夫 · 角色变装特效（玫瑰蔓延） · 拼图破碎转场 + 文字替换 · 金色粒子片头 · 吃泡面抽象行为艺术 · 驴骑摩托车脑洞广告（延长 15s） · 咖啡品牌片尾（延长 15s） · 街头向日葵（向前延长 10s） · 地产纪录片旁白音色 · 猫狗脱口秀对话 · 豫剧《铡美案》 · 电影级 MV（夕阳悬崖） · 多语言家庭欢庆 · 西语特战队战前对话 · 参考音色·起床叫人 · 猴子奶茶店（四川口音） · 科普风格西游记解说 · 飞机窗外到机舱内（梦幻） · 谍战片街道跟踪 · 木屋围炉推进 · 主观视角过山车 · 颠覆剧情（古装桥上推落） · 颠覆剧情（酒吧零食广告） · 主唱替换（乐队演出） · 风光大片卡点转场 · 动漫分镜 + 战斗卡点 · 崩溃大叫（镜子前） · 人物变熊（喜剧爆发）
+
+**视频 · 商用玩法**（4 条）：4. 穿搭变装 · 7. 广告复刻 - 无人机 · 8. 真人短剧 - 豪门恩怨 · 9. AI漫剧 - 武侠
+
+**图片 · 电商**（18 条）：E-commerce Main Image - Traditional Chinese Art and Porcelain Vases · E-commerce Main Image - Sustainable T-Shirt Plantable Tag Ad · E-commerce Main Image - Elegant Cosmetic Poster Prompt · E-commerce Main Image - Minimalist Product Ad: PURE CRUNCH · Döner Commercial Food Photography Set · 3D Pixel Food Transformation · Ancient Palace Perfume Ad · Plush Soda Can Product Shot · VOLT Goal Celebration Ad · Lightning Storm Supercar Ad · Luxury Jewelry Contrast Campaign · Miniature Brand Universe Shoe · Romantic Smartphone Couple Scene Product Shot · 花卉精华液产品特写 · 花卉精华产品大片 · 香辣番茄辣酱产品特写 · 悬浮美食摄影组图 · VOLT Rush 柑橘爆发
+
+**图片 · 广告创意**（45 条）：Anime Character Brand Identity & Merch Board · Dark Mode Marketing Case Study UI · 18-Panel Mascot Brand Identity Document · Japanese Chinese Food Delivery Flyer · Pastel Jellyfish Room Goods Poster · Magical Seed Packet Diorama · Luxury Chronograph Watch Ad · Neon Nike Lumina Ad Poster · Streetwear Sneaker Poster Ad · Editorial Osaka Six Sweatshirt Ad · Editorial Perfume Shot on Moss · Editorial Perfume Bottle in Golden Fur · Luxury Miniature Dubai City Model · Parody Luxury Product Advertisement · Luxury poster for fictional AI ad printer · Luxury chocolate campaign system · Urban fruit juice ad poster · Miniature City Diamond Necklace Ad · Watermelon Lime Beverage Ad Poster · Berry Loud Acai Bowl Food Ad · Luxury Fragrance Campaign Portrait · Berry Splash Cafe Campaign · Fast Food Hero Poster · Matcha Granola Ad Poster · Foam Clogs Ad Poster · Energy Drink Stadium Ad · Soft Serve Cozy Aesthetic · Adidas Futuristic Drop Ad Poster 9:16 · Luxury Linen Texture Editorial Poster · Luxury Watch Dramatic Beam Product Shot · 可口可乐百事雪碧品牌 KV 对比 · 奢华运动鞋编辑网格 · 无线耳机生活方式广告 · Kinder Joy 吊椅场景 · 隐形护盾防晒广告 · OBSIDIAN 咖啡品牌企划 · 椰香天堂护肤广告 · 逆向重组产品特效广告 · 葡萄揭示罐装产品大片 · Noir Elixir 香水广告 · 荧光泡沫 Logo 主视觉 · STARKIDZ 宇宙望远镜广告 · 纪念碑感时计时尚广告 · 涂鸦逃脱工作室冲刺 · 地铁 CCTV 惊悚画面
+
+**图片 · 海报**（276 条）：月语石墨肖像 · 涂鸦破墙海报 · 霓虹暗影缪斯 · 茶园故事书拼贴 · Vintage Amalfi Travel Poster · Chengdu Food Map Illustration · 2026 Spring Guangzhou City Poster · Doodle Sketch AI Builder · Futuristic Mandala Illustration · Super Famicom Poster Style · Browser Game Ad Creative Poster · Surreal Koi Nebula Illustration · Ink-Curve Guangzhou Aesthetics Poster · Guangdong Super League Invitation Poster · Spring 2026 Guangzhou Promo Poster · Epic Silhouette World Poster · Spring Guangzhou City Poster · Science Encyclopedia Vertical Poster · Journey to the West Chinese Comic · Character Relationship Map Poster · New Chinese Ink Landscape Poster · AI Builder Doodle Sketch · Character Visual Vertical Poster · Science Encyclopedia Infographic · Fictional Anime Movie Poster · Product Ad Redesign · Dark-Fantasy Guangzhou City Poster · Science Fiction Movie Poster · Refreshing Summer Udon Ad · Handwritten Medical Prescription Sheet · Silicon Valley 2026 Promo Poster · Japanese Supermarket Sale Flyer · Dark Epic Concept Poster · Pilates Studio Ad Poster · Sony A7 Exploded View Breakdown Prompt · 1900 Istiklal Street Panorama Prompt · Theme Science Encyclopedia Card · Chili Pork Cooking Flowchart · Cinematic Infographic Concept Poster · A full-body outdoor shot captures a young Caucasian woman, possibly in her la... · A professional product photography shot of a cold sparkling water · 360 Equirectangular Panorama Image · Soft poetic children's book illustration with watercolor and gouache textures... · Aspect Ratio: 9:16 Vertical · Hangzhou West Lake Travel Poster · Dongfang Bubai Wuxia Character Poster · A Chinese Odyssey 90s Hong Kong Poster · Journey to the West Daughter Kingdom Poster · Royal Tramp Character Poster · generate an image of a racing car poster with its spec and pricing · Charlie Chaplin Product Poster Redesign · Luxury Sportswear Basketball Athlete Campaign Poster · Epic Career Moments Cinematic Poster Template · Avant-Garde Basketball Sculpture Sports Fashion Ad · Avant-Garde Tennis Racket Sculpture Sports Fashion Ad · Surrealist Liquor Brand High Fashion Poster · Premium Food Recipe Poster Elegant Layout · Luxury Fashion Magazine Cover Black and White · Surrealist Rolex Luxury Watch Fashion Poster · Peacock Botanical Vintage Symmetrical Art Print
+
+**图片 · 人像**（199 条）：单色棚拍人像九宫格 · 海岸白日梦胶片人像 · Cinematic Minimal Portrait · Japanese Onsen Ryokan Portrait · 35mm Flash Editorial Portrait · Mirror Selfie Bedroom Portrait · Soft Airy 35mm Portrait · 9:16 Cosplayer Portrait Screenshot · Urban Turn-Back Street Portrait · Sam Altman Skatepark Snapshot · Korean Idol 3x3 Grid Portrait · CCD Camera Flash Korean Idol · Korean Idol 3x3 Collage Portrait · Soft Black Mist Editorial Portrait · Fujifilm Strawberry School Portrait · Soft Black Mist Idol Portrait · Fujifilm Couple Portrait · AI Self-Perception Portrait · Create the most realistic front page design of a vintage newspaper featuring ... · Magazine Travel Guide Feature Article · analyze this photo and give me a detailed JSON prompt that recreates it. brea... · CALMING GREEN TEA Film Kit displayed frontally, the open box shows soft sage-... · Ultra-realistic product photography of a rich strawberry soft-serve ice cream... · A hyper-realistic UI/UX mockup displayed on a slim modern laptop placed on a ... · Ultra-realistic cinematic DSLR photograph of an 18-year-old handsome young ma... · Candid Bedroom Selfie Photorealistic Portrait · Musician Leaving Bodega Night Cinematic Portrait · Old Delhi Sweet Shop Storefront Documentary Photo · Cyberpunk Sci-Fi Side Profile Portrait · Realistic Candid Bedroom Recording Portrait · Toddler Crayon Scribble Art Style Portrait · Restored Vintage Mother and Child Portrait · Damaged Vintage Mother and Child Photo · Ink-Etched Family Portrait · Vintage Engraved Hoodie Portrait · Dreamy Backlit Editorial Portrait · 3D Cartoon Character Render · Young Woman in Sequin Dress on Stairs · Luxury Studio Outfit Transformation · Blonde Maid in Warm Cafe · Dreamy Oriental female portrait prompt · Monochrome Hermes-Inspired Avatar · Cyber Crystal Anime Girl Portrait · Pastel Lavender Anime Girl Portrait · Lavender AI Girl in Memory Space · Pastel AI Assistant Anime Portrait · Dark Gatorade-Style Portrait · Portrait of a Gentle Woman with Glasses · Dreamy Underwater Woman With Translucent Fish · Japanese Classroom Long Hair Snapshot · Cozy Catgirl Pajama Night Portrait · Collectible Figure Workspace Photo · Rainy Bus Stop Portrait · CCD flash beauty portrait template · Black-and-red streetwear campaign portrait · Luxury Golf Editorial Collage · Selective-Color Editorial Portrait · Analog Idol Portrait · White Suit Red Backdrop Portrait · Monochrome Glitch Profile Portrait
+
 ## 图片板块
 
 ### 精品推荐
@@ -35,6 +60,7 @@
 
 - **一句话**：一句话起步，画面方向自己定
 - **子页面**：`/image-creation?id=image.free`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们自己的自由创作链路（visualCreation + image2）
@@ -55,6 +81,7 @@
 
 - **一句话**：先立主视觉，再排信息层级
 - **子页面**：`/image-creation?id=image.poster`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/poster_zh-CN.md#Case4 Chinese Minimalist S-Shaped Poster`
@@ -77,6 +104,7 @@
 
 - **一句话**：缩略图里也看得清主题
 - **子页面**：`/image-creation?id=image.social_cover`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case90 4-Panel Japanese Digital Ad Banner Grid`
@@ -98,6 +126,7 @@
 
 - **一句话**：主图、场景图、卖点图成套交付
 - **子页面**：`/image-creation?id=image.product_suite`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们自己的套图引擎（resolveEcommercePlan 按平台算张数与报价），服务端流水线自研
@@ -118,6 +147,7 @@
 
 - **一句话**：图文并排的模块图，把卖点讲清楚
 - **子页面**：`/image-creation?id=image.aplus`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case155 Earbuds E-commerce Infographic`
@@ -140,6 +170,7 @@
 
 - **一句话**：首屏、卖点、成分、参数，逐屏出图
 - **子页面**：`/image-creation?id=image.detail_page`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case116 Industrial Design Presentation Sheet`
@@ -164,6 +195,7 @@
 
 - **一句话**：一张图做出直播间的界面感
 - **子页面**：`/image-creation?id=image.live_ui`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case89 E-commerce Live Stream UI Mockup`
@@ -186,6 +218,7 @@
 
 - **一句话**：一根根引线把成分与卖点标出来
 - **子页面**：`/image-creation?id=image.callout_diagram`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case14 冰淇淋配料标注广告`
@@ -205,6 +238,7 @@
 
 - **一句话**：把人放进巨型商品的尺度里
 - **子页面**：`/image-creation?id=image.giant_product`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case42 Ray-Ban 巨型飞行员墨镜广告`
@@ -224,6 +258,7 @@
 
 - **一句话**：夏天汽水那种亮到发光的海报
 - **子页面**：`/image-creation?id=image.tropical_poster`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case115 Tropical Citrus Soda Ad Poster`
@@ -246,6 +281,7 @@
 
 - **一句话**：整张一个色，巨型品牌字压阵
 - **子页面**：`/image-creation?id=image.mono_pastel_ad`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case159 Pastel Blue Crocs Fashion Ad`
@@ -268,6 +304,7 @@
 
 - **一句话**：中文排版的电商广告板（一屏讲完）
 - **子页面**：`/image-creation?id=image.grain_ad_board`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case154 Premium Grain Powder Ad Board`
@@ -290,6 +327,7 @@
 
 - **一句话**：干净白底，多角度呈现细节
 - **子页面**：`/image-creation?id=image.white_bg`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们已跑通的内置技能链路（builtinSkill）
@@ -310,6 +348,7 @@
 
 - **一句话**：把商品放进真实使用场景
 - **子页面**：`/image-creation?id=image.scene`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们已跑通的内置技能链路
@@ -330,6 +369,7 @@
 
 - **一句话**：放大材质与工艺，给出结构证据
 - **子页面**：`/image-creation?id=image.material`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们已跑通的内置技能链路
@@ -350,6 +390,7 @@
 
 - **一句话**：同一商品，多角度保持一致
 - **子页面**：`/image-creation?id=image.multi_angle`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们已跑通的内置技能链路
@@ -370,6 +411,7 @@
 
 - **一句话**：把商品穿到模特身上，姿势场景可选
 - **子页面**：`/image-creation?id=image.try_on`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们已跑通的内置技能链路
@@ -390,6 +432,7 @@
 
 - **一句话**：商品＋角色＋场景三份素材批量出图
 - **子页面**：`/image-creation?id=image.batch`
+- **作用层级**：辅助能力（融进主技能 image.product_suite 的流程里，不单独作为入口）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：我们自研链路 · 
   - 说明：我们已跑通的内置技能链路
@@ -410,6 +453,7 @@
 
 - **一句话**：商品在半空炸开，碎片与成分定格
 - **子页面**：`/image-creation?id=image.explode`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case109 VR Headset Exploded View Poster`
@@ -432,6 +476,7 @@
 
 - **一句话**：商品封进巨型冰块，超现实大场面
 - **子页面**：`/image-creation?id=image.ice_ad`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case113 Luxury Amber Perfume Ad`
@@ -454,6 +499,7 @@
 
 - **一句话**：产品悬浮 + 单向光，高级静物广告
 - **子页面**：`/image-creation?id=image.float_kv`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case161 Premium product studio shot template`
@@ -476,6 +522,7 @@
 
 - **一句话**：一张图出 3×3 广告分镜板
 - **子页面**：`/image-creation?id=image.tvc_grid`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case2 9-Panel Product TVC Storyboard`
@@ -498,6 +545,7 @@
 
 - **一句话**：同款不同配色，整齐排开
 - **子页面**：`/image-creation?id=image.sku_series`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case116 Industrial Design Presentation Sheet`
@@ -520,6 +568,7 @@
 
 - **一句话**：商品进礼盒/桌面场景，同风格可复制
 - **子页面**：`/image-creation?id=image.gift_scene`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case118 Luxury Perfume Ad on Marble Vanity`
@@ -542,6 +591,7 @@
 
 - **一句话**：把商品拆成零件，讲清工艺
 - **子页面**：`/image-creation?id=image.teardown`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case109 VR Headset Exploded View Poster`
@@ -564,6 +614,7 @@
 
 - **一句话**：商品住进微缩立体世界
 - **子页面**：`/image-creation?id=image.diorama`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case1 Miniature Diorama Skincare Advertisement`
@@ -588,6 +639,7 @@
 
 - **一句话**：品牌 logo 变成一滩会流动的液体
 - **子页面**：`/image-creation?id=image.liquid_logo`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case37 SPLASH 液态 Logo 时尚海报`
@@ -607,6 +659,7 @@
 
 - **一句话**：品牌形状藏进山川地貌里
 - **子页面**：`/image-creation?id=image.landscape_logo`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case36 隐藏 Logo 地景幻象`
@@ -626,6 +679,7 @@
 
 - **一句话**：在原图上贴满手绘贴纸与便签
 - **子页面**：`/image-creation?id=image.sticker_collage`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case181 Sticker Reality Product Collage`
@@ -648,6 +702,7 @@
 
 - **一句话**：限定发售那种高级静物台面
 - **子页面**：`/image-creation?id=image.showroom_still`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case27 Showroom Still Life Merch Drop`
@@ -667,6 +722,7 @@
 
 - **一句话**：把品牌调性扩成一套画面语言
 - **子页面**：`/image-creation?id=image.brand_kv`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case45 Glossier 品牌世界拼贴`
@@ -686,6 +742,7 @@
 
 - **一句话**：中文标题与画面一起排
 - **子页面**：`/image-creation?id=image.cn_poster`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 创意应用 / 中文海报一键生成`
@@ -703,6 +760,7 @@
 
 - **一句话**：保住构图与节奏，换成自己的内容
 - **子页面**：`/image-creation?id=image.copy`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 精品推荐 / 图片复刻`
@@ -719,6 +777,7 @@
 
 - **一句话**：沿着一张参考图再生成几张
 - **子页面**：`/image-creation?id=image.similar`
+- **作用层级**：辅助能力（融进主技能 image.copy 的流程里，不单独作为入口）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 创意应用 / 相似图生成`
@@ -735,6 +794,7 @@
 
 - **一句话**：一组配图加标题正文，真实感优先
 - **子页面**：`/image-creation?id=image.xhs_note`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：我们自己的小红书图文链路（SSE 流水线），不进画布
@@ -757,6 +817,7 @@
 
 - **一句话**：一张户型图，长出一套三维效果图
 - **子页面**：`/image-creation?id=image.floorplan_render`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 平面转建筑效果图`
@@ -773,6 +834,7 @@
 
 - **一句话**：同一个空间，换成另一种装修风格
 - **子页面**：`/image-creation?id=image.interior_style`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 装修风格转换`
@@ -789,6 +851,7 @@
 
 - **一句话**：毛坯现场照，直接出精装方案
 - **子页面**：`/image-creation?id=image.rough_interior`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 毛坯家装设计`
@@ -805,6 +868,7 @@
 
 - **一句话**：同一张图，出白天 / 黄昏 / 夜晚三版
 - **子页面**：`/image-creation?id=image.day_night_still`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 日夜气候切换`
@@ -821,6 +885,7 @@
 
 - **一句话**：结构不动，只换家具与饰面
 - **子页面**：`/image-creation?id=image.furniture_swap`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 一键软硬装替换`
@@ -837,6 +902,7 @@
 
 - **一句话**：把普通效果图提到商业出图水准
 - **子页面**：`/image-creation?id=image.render_quality`
+- **作用层级**：辅助能力（融进主技能 image.interior_3d 的流程里，不单独作为入口）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 效果图质感提升`
@@ -853,6 +919,7 @@
 
 - **一句话**：模型截图 / 白模，渲染成真实照片
 - **子页面**：`/image-creation?id=image.interior_3d`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 室内3D模型渲染`
@@ -869,6 +936,7 @@
 
 - **一句话**：一张九宫格讲完一栋建筑
 - **子页面**：`/image-creation?id=image.arch_grid`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 建筑室内 / 建筑九宫格分镜`
@@ -887,6 +955,7 @@
 
 - **一句话**：皮肤、光线与质感一起收拾干净
 - **子页面**：`/image-creation?id=image.portrait`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/portrait_zh-CN.md#Case7 Luxury Glam Beauty Portrait`
@@ -909,6 +978,7 @@
 
 - **一句话**：保留五官，换一个发型
 - **子页面**：`/image-creation?id=image.hairstyle`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：我们自研链路 · 
   - 说明：换发型走我们已跑通的内置技能链路（保五官 + 图生图）；开源侧没有专门覆盖换发型的成熟提示词库，只有虚拟试衣类（OOTDiffusion 6,593★），两者不是一回事，不硬套
@@ -924,6 +994,7 @@
 
 - **一句话**：同一个人，换几种姿势
 - **子页面**：`/image-creation?id=image.pose`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/poster_zh-CN.md#Case134 16-Panel Dance Pose Reference Sheet`
@@ -948,6 +1019,7 @@
 
 - **一句话**：去掉背景，出透明底或纯色底
 - **子页面**：`/image-creation?id=image.remove_bg`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：去背景走我们已跑通的内置技能链路；竞品把它放在精品推荐位（产品侧可对标），但开源提示词库里没有专门的去背景配方，不编一个 Case 号
@@ -963,6 +1035,7 @@
 
 - **一句话**：人物或商品留着，背景换掉
 - **子页面**：`/image-creation?id=image.swap_bg`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 电商专区 / 一键模特换背景`
@@ -979,6 +1052,7 @@
 
 - **一句话**：一张图加一句要求，改到能用
 - **子页面**：`/image-creation?id=image.retouch`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 电商专区 / 照片高质量精修`
@@ -995,6 +1069,7 @@
 
 - **一句话**：主体不动，换材质或风格
 - **子页面**：`/image-creation?id=image.style_swap`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`图片制作 / 电商专区 / 商品风格材质更换`
@@ -1015,6 +1090,7 @@
 
 - **一句话**：一句话起步，镜头与节奏交给模型
 - **子页面**：`/video-creation?id=video.smart`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · Seedance 2.0 九大商用玩法（卡尔的AI沃茨）（2415★）
   - 具体位置：`prompts/commercial-use-cases.md#2 商业广告`
@@ -1034,6 +1110,7 @@
 
 - **一句话**：两张图锁定镜头起点与终点，中间交给模型
 - **子页面**：`/video-creation?id=video.frame`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
   - 说明：首尾帧是用户批注 #9 点名保留的入口，走我们既有的首尾帧链路；上游公开配方里没有以首尾帧为核心的同款写法，不硬套别的配方
@@ -1049,6 +1126,7 @@
 
 - **一句话**：保留参考片的节奏与镜头结构，换上你的内容
 - **子页面**：`/video-creation?id=video.remake`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/02-camera-movement.md#2-3-2-7 超跑广告运镜复刻`
@@ -1075,6 +1153,7 @@
 
 - **一句话**：商品旋转、光影扫过、材质微距，用在主图与详情首屏
 - **子页面**：`/video-creation?id=video.product_motion`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/02-camera-movement.md#2-3-2-3 产品旋转特写（平板电脑）`
@@ -1101,6 +1180,7 @@
 
 - **一句话**：上传人物视频和人物图片，一键换人（知渔同款玩法）
 - **子页面**：`/video-creation?id=video.content_swap`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-2 角色替换 + 风格一致`
@@ -1126,6 +1206,7 @@
 
 - **一句话**：360 度转一圈，把接口与厚度讲清楚
 - **子页面**：`/video-creation?id=video.tech_rotate`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/02-camera-movement.md#2-3-2-3 产品旋转特写（平板电脑）`
@@ -1151,6 +1232,7 @@
 
 - **一句话**：推门进去走一圈，把店与货架讲明白
 - **子页面**：`/video-creation?id=video.store_tour`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/07-continuity.md#2-3-7-1 街头到屋顶追踪跑步`
@@ -1181,6 +1263,7 @@
 
 - **一句话**：一张商品图动起来，适合主图视频与详情动效
 - **子页面**：`/video-creation?id=video.image_to_video`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · Seedance 2.0 九大商用玩法（卡尔的AI沃茨）（2415★）
   - 具体位置：`prompts/commercial-use-cases.md#6 动态海报`
@@ -1200,6 +1283,7 @@
 
 - **一句话**：推、拉、摇、移、环绕，指定镜头怎么走
 - **子页面**：`/video-creation?id=video.camera_move`
+- **作用层级**：辅助能力（融进主技能 video.smart 的流程里，不单独作为入口）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/02-camera-movement.md#2-3-2-1 希区柯克变焦 + 机械臂环绕`
@@ -1228,6 +1312,7 @@
 
 - **一句话**：红灯亮起换一套衣服，卡着信号灯变装
 - **子页面**：`/video-creation?id=video.traffic_swap`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/03-creative-effects.md#2-3-3-2 鱼眼换装闪切`
@@ -1259,6 +1344,7 @@
 
 - **一句话**：坐进车里，一周七套穿搭依次换
 - **子页面**：`/video-creation?id=video.car_weekly`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/09-music-sync.md#2-3-9-1 时尚换装卡点`
@@ -1288,6 +1374,7 @@
 
 - **一句话**：卡点或色卡转场，一镜换多套
 - **子页面**：`/video-creation?id=video.outfit_transition`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/03-creative-effects.md#2-3-3-2 鱼眼换装闪切`
@@ -1319,6 +1406,7 @@
 
 - **一句话**：手指擦开雾气，商品从模糊里露出来
 - **子页面**：`/video-creation?id=video.fog_reveal`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case37 SPLASH 液态 Logo`
@@ -1338,6 +1426,7 @@
 
 - **一句话**：一张商品图，裂变成一整组展示镜头
 - **子页面**：`/video-creation?id=video.one_image_showcase`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case116 Industrial Design Presentation Sheet`
@@ -1360,6 +1449,7 @@
 
 - **一句话**：把分镜脚本逐格拍成成片
 - **子页面**：`/video-creation?id=video.storyboard_to_video`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/04-story-completion.md#2-3-4-2 分镜脚本转视频`
@@ -1384,6 +1474,7 @@
 
 - **一句话**：一张首帧带出上下左右多个场景
 - **子页面**：`/video-creation?id=video.scene_stitch`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-6 多场景空间拼接`
@@ -1413,6 +1504,7 @@
 
 - **一句话**：多张图跟着音乐卡点依次出来
 - **子页面**：`/video-creation?id=video.beat_mashup`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/09-music-sync.md#2-3-9-2 多风格图片卡点混剪`
@@ -1446,6 +1538,7 @@
 
 - **一句话**：让模特照片走起来：转身、迈步、衣摆飘动
 - **子页面**：`/video-creation?id=video.model_runway`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/09-music-sync.md#2-3-9-1 时尚换装卡点`
@@ -1475,6 +1568,7 @@
 
 - **一句话**：膏体、粉质、上脸，微距讲质感
 - **子页面**：`/video-creation?id=video.beauty_macro`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case114 Skincare Product Studio Shot`
@@ -1497,6 +1591,7 @@
 
 - **一句话**：街头走两步，把版型与搭配演出来
 - **子页面**：`/video-creation?id=video.street_style`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/02-camera-movement.md#2-3-2-2 拐角追逐 + 多场景跟拍`
@@ -1527,6 +1622,7 @@
 
 - **一句话**：同一模特，把几套衣服依次穿上
 - **子页面**：`/video-creation?id=video.ai_styling`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-2 角色替换 + 风格一致`
@@ -1554,6 +1650,7 @@
 
 - **一句话**：接着上一段往下拍，保持主体与光线连续
 - **子页面**：`/video-creation?id=video.extend`
+- **作用层级**：辅助能力（融进主技能 video.smart 的流程里，不单独作为入口）
 - **可用性**：blocked（上游能力暂缺，上架前必须转 ready）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/05-video-extension.md#2-3-5-2 健身广告（延长 6s）`
@@ -1581,6 +1678,7 @@
 
 - **一句话**：节点氛围 + 商品，适合大促与节日投放
 - **子页面**：`/video-creation?id=video.festival_spot`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · Seedance 2.0 九大商用玩法（卡尔的AI沃茨）（2415★）
   - 具体位置：`prompts/commercial-use-cases.md#3 品牌宣传`
@@ -1600,6 +1698,7 @@
 
 - **一句话**：翻页、金句、场景，把一本书讲清楚
 - **子页面**：`/video-creation?id=video.book_selling`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/04-story-completion.md#2-3-4-1 漫画分格动态演绎`
@@ -1625,6 +1724,7 @@
 
 - **一句话**：近距离的咀嚼与热气，声音画面一起上
 - **子页面**：`/video-creation?id=video.food_asmr`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/06-audio-voice.md#2-3-6-0 鱼眼马头 + 多视频音效参考`
@@ -1652,6 +1752,7 @@
 
 - **一句话**：只改指定元素，其它一律不动
 - **子页面**：`/video-creation?id=video.scene_edit`
+- **作用层级**：辅助能力（融进主技能 video.product_placement 的流程里，不单独作为入口）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/08-video-editing.md#2-3-8-4 背景添加大白鲨 + 发色修改`
@@ -1680,6 +1781,7 @@
 
 - **一句话**：镜头沿动线走一遍，把空间讲明白
 - **子页面**：`/video-creation?id=video.space_tour`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/07-continuity.md#2-3-7-1 街头到屋顶追踪跑步`
@@ -1708,6 +1810,7 @@
 
 - **一句话**：机位不动，只让光线与阴影走一遍
 - **子页面**：`/video-creation?id=video.light_shift`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`视频制作 / 建筑室内 / 光线变化`
@@ -1725,6 +1828,7 @@
 
 - **一句话**：白天到雨夜，同一场景的四种天气
 - **子页面**：`/video-creation?id=video.day_night`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`视频制作 / 建筑室内 / 日夜气候切换`
@@ -1741,6 +1845,7 @@
 
 - **一句话**：家具与软装依次落位，空房变样板间
 - **子页面**：`/video-creation?id=video.furnishing_in`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`视频制作 / 建筑室内 / 软装进场`
@@ -1757,6 +1862,7 @@
 
 - **一句话**：从户型图长出一整套三维空间
 - **子页面**：`/video-creation?id=video.floorplan_grow`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`视频制作 / 建筑室内 / 户型生长`
@@ -1773,6 +1879,7 @@
 
 - **一句话**：建筑从地基逐层长起来
 - **子页面**：`/video-creation?id=video.building_grow`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`视频制作 / 建筑室内 / 建筑生长`
@@ -1789,6 +1896,7 @@
 
 - **一句话**：抽芽、展叶、开花，时间加速的连续动作
 - **子页面**：`/video-creation?id=video.plant_grow`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：竞品产品侧 · 知渔 AI 实测清单（图片 110 条 / 视频 32 条）
   - 具体位置：`视频制作 / 建筑室内 / 植物生长`
@@ -1805,6 +1913,7 @@
 
 - **一句话**：一支短片讲这个空间的一天
 - **子页面**：`/video-creation?id=video.interior_story`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/04-story-completion.md#2-3-4-3 图片情绪发散成视频`
@@ -1835,6 +1944,7 @@
 
 - **一句话**：商品在空中炸开，零件与成分悬浮
 - **子页面**：`/video-creation?id=video.product_explode`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（广告创意用例）（17199★）
   - 具体位置：`cases/ad-creative.md#Case109 VR Headset Exploded View Poster`
@@ -1857,6 +1967,7 @@
 
 - **一句话**：拆袋、倒出、入口，一条龙展示
 - **子页面**：`/video-creation?id=video.snack_unbox`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · Seedance 2.0 九大商用玩法（卡尔的AI沃茨）（2415★）
   - 具体位置：`prompts/commercial-use-cases.md#5 直播带货`
@@ -1876,6 +1987,7 @@
 
 - **一句话**：拉丝、爆汁、冒热气，把馋感拍出来
 - **子页面**：`/video-creation?id=video.food_craving`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · awesome-gpt-image-2（电商用例）（17199★）
   - 具体位置：`cases/ecommerce.md#Case162 Premium food photography template`
@@ -1898,6 +2010,7 @@
 
 - **一句话**：一支完整的产品广告片：悬念、特写、收束
 - **子页面**：`/video-creation?id=video.tech_tvc`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：高星开源库 · Seedance 2.0 九大商用玩法（卡尔的AI沃茨）（2415★）
   - 具体位置：`prompts/commercial-use-cases.md#2 商业广告`
@@ -1917,6 +2030,7 @@
 
 - **一句话**：在家里用一遍，把省事讲清楚
 - **子页面**：`/video-creation?id=video.home_goods_demo`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/10-emotion.md#2-3-10-2 油烟机广告（情绪对比）`
@@ -1943,6 +2057,7 @@
 
 - **一句话**：正侧背、材质与细节，一次讲完
 - **子页面**：`/video-creation?id=video.multi_angle_showcase`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：ready（现有链路可跑）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-5 产品多角度展示（包包）`
@@ -1969,6 +2084,7 @@
 
 - **一句话**：把商品自然放进已有视频里
 - **子页面**：`/video-creation?id=video.product_placement`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/08-video-editing.md#2-3-8-5 炸鸡店产品植入`
@@ -1995,6 +2111,7 @@
 
 - **一句话**：包装与卖点文字全程不糊、不改样
 - **子页面**：`/video-creation?id=video.text_consistency`
+- **作用层级**：主技能（用户直接进来干的一件活儿，独立子页面工作台）
 - **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
 - **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
   - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-4 商品细节 + 文字一致性（磁吸蝴蝶结广告）`

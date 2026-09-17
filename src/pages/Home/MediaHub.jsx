@@ -25,11 +25,17 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
   const groups = useMemo(() => {
     const order = [];
     const map = new Map();
+    /* 辅助能力单独收在最后一组：它们是被主技能调用的「一步」，
+       混在正常分类里会让人以为那是一个能独立干完的活儿。 */
+    const assistants = config.skills.filter(skill => skill.tier === 'assistant');
     for (const skill of config.skills) {
+      if (skill.tier === 'assistant') continue;
       if (!map.has(skill.category)) { map.set(skill.category, []); order.push(skill.category); }
       map.get(skill.category).push(skill);
     }
-    return order.map(category => ({ category, skills: map.get(category) }));
+    const list = order.map(category => ({ category, skills: map.get(category) }));
+    if (assistants.length) list.push({ category: '辅助能力', skills: assistants, assistantGroup: true });
+    return list;
   }, [config]);
 
   /* ═══ 顶部快捷筛选页签（照竞品实测结构）═══════════════════════════════════════
@@ -73,6 +79,10 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
       {shown.map(group => (
         <section className="media-gallery-group" key={group.category}>
           <h2>{group.category}</h2>
+          {/* 辅助能力说清它是什么：不是让你从这里开始，而是它会在主技能里被用到 */}
+          {group.assistantGroup && (
+            <p className="media-hub-group-note">这些是某个主技能流程里的一步（不是独立入口），也可以直接点开单独用。</p>
+          )}
           <div className="media-gallery-grid">
             {group.skills.map(skill => {
               /* 封面取法与首页热门条**同一份实现**（skillDirectory.coverOf）：

@@ -27,6 +27,18 @@
   background: var(--sb-surface-tint);
   transition: transform .4s ease;
 }
+/* ── 对照版式（复刻 / 修图 / 换背景这类"输入决定输出"的 skill）────────────────
+   竞品实测（43 §10.2）：他们的复刻类示例是「原图 ↔ AI 作品」两图并置 + 中间一个箭头。
+   单张成品说不清这类 skill 干什么，所以版式跟着 skill 类型走，而不是所有卡一个样。 */
+.media-case-card-compare { display: grid; grid-template-columns: 1fr 1fr; width: 100%; height: 100%; }
+.media-case-card-compare img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-case-card-compare-arrow {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  box-shadow: var(--sb-shadow-sm);
+}
 .media-case-card-cover img,
 .media-case-card-cover video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .media-case-card-hit:hover .media-case-card-cover { transform: scale(1.04); }

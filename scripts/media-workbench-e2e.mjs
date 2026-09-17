@@ -52,7 +52,7 @@ const fx = {
   works: [],
   videoJobs: [],             /* 服务端 /api/video/jobs 返回的任务（嵌入的视频工作台用它渲染生成记录） */
 };
-const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0 };
+const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, recognize: [] };
 
 const failures = [];
 const passed = [];
@@ -111,6 +111,17 @@ const server = createServer(async (req, res) => {
         return json(res, 202, { status: 'processing', retryAfter: 1, taskId: 'task-e2e-1' });
       }
       return json(res, 200, { status: 'completed', url: RESULT_IMAGE, taskId: 'task-e2e-1' });
+    }
+    /* 一键解析（付费前置动作，0.2 积分 = SKU ec_ai_assistant）。上游打桩，零额度。 */
+    if (path === '/api/ecommerce/auto-recognize') {
+      const body = parse();
+      calls.recognize.push(body);
+      return json(res, 200, {
+        product: { name: '白瓷马克杯 350ml', category: '家居生活', material: '骨瓷', dimensions: '9x9x10 cm' },
+        skus: [{ color: '月岩白', size: '350ml', capacity: '350ml', dimLabel: '9x9x10cm' }],
+        style_skill: 'premium_minimal',
+        maintenance: '可用洗碗机清洗',
+      });
     }
     if (path === '/api/save-work') { calls.saveWork.push(parse()); return json(res, 200, { ok: true, _saveKey: 'e2e-work-1' }); }
     if (path === '/api/delete-work') { calls.deleteWork.push(parse()); return json(res, 200, { ok: true }); }
@@ -698,6 +709,60 @@ try {
       board + ' Hub 只显示那一档的技能', JSON.stringify(one));
   }
 
+  /* ═══ ⑳ 一键解析（付费前置动作，照竞品做法）═══
+     竞品实测：他们的商品套图 / A+ / 详情图页都有一个「一键解析 · 0.20 积分」，
+     上传商品图后点它，商品名/卖点自动填好。我们用的是现成的
+     /api/ecommerce/auto-recognize（视觉识别 + LLM 结构化），计费 SKU 是既有的
+     ec_ai_assistant = 200 units = 0.2 积分 —— 与竞品同价。 */
+  scenario('⑳ 一键解析（0.2 积分，先报价再解析，未登录不发请求）');
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-parse', { timeout: 20000 });
+  const parseButton = await page.evaluate(() => document.querySelector('.media-workbench-parse')?.textContent.replace(/\s+/g, ' ').trim() || '');
+  check(parseButton.includes('一键解析') && parseButton.includes('0.2 积分'), '解析按钮上写着它要多少钱（扣费动作不许让人猜）', parseButton);
+  /* 没上传就点：就地提醒，不发任何请求（更不扣费） */
+  const recognizeBefore = calls.recognize.length;
+  await page.click('.media-workbench-parse');
+  await page.waitForTimeout(500);
+  const noUpload = await page.evaluate(() => document.querySelector('.media-run-global')?.textContent || '');
+  check(calls.recognize.length === recognizeBefore, '没上传商品图时点了也不发请求（不扣费）', String(calls.recognize.length - recognizeBefore));
+  check(noUpload.includes('先上传'), '就地告诉用户缺什么', noUpload.slice(0, 30));
+
+  /* 上传之后点：先报价（ec_ai_assistant）→ 再解析 → 字段自动填好 */
+  await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
+  await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 });
+  const quoteBefore = calls.quote.length;
+  await page.click('.media-workbench-parse');
+  await page.waitForFunction(() => {
+    const box = document.querySelector('.media-workbench-fields textarea');
+    return box && /白瓷马克杯/.test(box.value || '');
+  }, null, { timeout: 20000 }).catch(() => {});
+  const parsed = await page.evaluate(() => {
+    const box = document.querySelector('.media-workbench-fields textarea');
+    return { value: box?.value || '', notice: document.querySelector('.media-run-notice')?.textContent || '' };
+  });
+  const parseQuote = calls.quote[calls.quote.length - 1] || {};
+  check(calls.quote.length > quoteBefore && parseQuote.sku === 'ec_ai_assistant', '解析前先报价（SKU = ec_ai_assistant）', JSON.stringify(parseQuote));
+  check(calls.recognize.length === recognizeBefore + 1, '只发一次解析请求', String(calls.recognize.length - recognizeBefore));
+  check(Array.isArray(calls.recognize[0]?.refShots) && calls.recognize[0].refShots.length === 1, '解析请求带上了上传的商品图', JSON.stringify(calls.recognize[0]?.refShots || []));
+  check(Boolean(calls.recognize[0]?.billing_quote_id && calls.recognize[0]?.billing_action_id), '解析请求带上了报价（先报价后扣费）');
+  check(parsed.value.includes('白瓷马克杯') && parsed.value.includes('家居生活'), '解析结果回填进「商品信息」字段', parsed.value.slice(0, 40));
+  check(parsed.notice.includes('0.2 积分'), '告诉用户这次解析花了多少积分', parsed.notice.slice(0, 40));
+
+  /* 未登录：只弹登录，不发解析请求（钱规矩） */
+  /* ⚠️ 与场景 ⑥ 同一套做法：既阻止 initScript 再种会话，也要把已有的 sb-auth 删掉 ——
+     只种 no-session 标记的话，上一页留下的会话还在，页面其实**仍然是登录态**。 */
+  await page.evaluate(SUPPRESS_SEED);
+  await page.evaluate(() => localStorage.removeItem('sb-auth'));
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-parse', { timeout: 20000 });
+  const recognizeBeforeLogin = calls.recognize.length;
+  await page.click('.media-workbench-parse');
+  await page.waitForTimeout(600);
+  check(calls.recognize.length === recognizeBeforeLogin, '未登录点解析：不发请求（不会偷偷扣费）');
+  /* 与场景 ⑥ 用同一个选择器（登录弹窗是既有的 .ld-overlay / .ld-card，不另造一个） */
+  check(await page.evaluate(() => Boolean(document.querySelector('.ld-overlay, .ld-card'))), '未登录时引导去登录');
+  await page.evaluate(ALLOW_SEED);
+
   /* ═══ ⑭ 连点「只重试失败项」不会重复扣费 ═══ */
   scenario('⑭ 重试连点');
   await open();
@@ -925,7 +990,10 @@ try {
     const result = { id: skill.id, problem: '', sent: null };
     try {
       await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(skill.id), { waitUntil: 'load', timeout: 40000 });
-      await page.waitForTimeout(650);
+      /* ⚠️ 不许用固定 sleep 等页面：技能字段一多，650ms 就会在"标题还没渲染"时断言，
+         于是出现"标题对不上"的假失败（实测踩到：5 条新技能全被判红，人工一看页面是好好的）。 */
+      await page.waitForSelector('.media-workbench-head h2, .media-workbench-panel, .media-hub', { timeout: 20000 });
+      await page.waitForTimeout(200);
       const shape = await page.evaluate(() => ({
         hub: Boolean(document.querySelector('.media-hub')),
         missing: document.querySelector('.media-workbench-missing')?.textContent || '',

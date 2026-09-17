@@ -20,6 +20,22 @@
 .media-workbench-head h2 { margin: 0; font-size: 18px; color: var(--sb-ink-1); }
 .media-workbench-head p { margin: 0; font-size: 12px; color: var(--sb-ink-2); }
 .media-workbench-fields { display: grid; gap: 12px; }
+/* 一键解析：付费前置动作（0.2 积分）。价格写在按钮上，别让人猜；
+   它是"帮我把字段填好"的动作，不是生成动作 —— 所以用次级按钮的视觉重量。 */
+.media-workbench-parse {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; padding: 10px 12px;
+  border: 1px dashed var(--sb-border-strong); border-radius: var(--sb-radius-control);
+  background: var(--sb-surface-tint); color: var(--sb-ink-1);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out);
+}
+.media-workbench-parse:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-brand-500); }
+.media-workbench-parse:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-workbench-parse:active:not(:disabled) { background: var(--sb-surface-tint-strong); }
+.media-workbench-parse:disabled { opacity: .55; cursor: not-allowed; }
+.media-workbench-parse em { font-style: normal; font-size: 12px; font-weight: 800; color: var(--sb-brand-700); }
+.media-workbench-parse-hint { margin: 0; font-size: 11px; color: var(--sb-ink-3); }
 .media-field { display: grid; gap: 6px; }
 .media-field-label { display: inline-flex; gap: 3px; font-size: 12px; color: var(--sb-ink-2); }
 .media-field-label b { color: var(--sb-brand-600); font-weight: 600; }
@@ -125,6 +141,22 @@
 .media-field-upload-add:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .media-field-upload-add:disabled { opacity: .5; cursor: not-allowed; }
 .media-field-upload-add small { font-size: 11px; color: var(--sb-ink-3); }
+/* 第二个入口：从资产库选择（竞品实测同款）。它是**并列**的第二条路，不是次要按钮 ——
+   上一轮刚生成的成品要再用一次，走这里比"下载再上传"少两步。 */
+.media-field-upload-library {
+  display: inline-flex; align-items: center; gap: 5px;
+  align-self: center; padding: 8px 12px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-chip);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.media-field-upload-library:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
+.media-field-upload-library:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-field-upload-library:active:not(:disabled) { background: var(--sb-surface-tint-strong); }
+.media-field-upload-library:disabled { opacity: .5; cursor: not-allowed; }
+/* 说明文案：能传什么、能传多大，写在卡片下面（照竞品原文） */
+.media-field-upload-hint { flex-basis: 100%; font-size: 11px; color: var(--sb-ink-3); }
 .media-field-upload-retry {
   display: inline-flex;
   align-items: center;

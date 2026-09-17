@@ -66,6 +66,26 @@ lines.push('- 图片配方库（电商 35 / 广告创意 54 / 海报 / 人像 / 
 lines.push('- 竞品产品侧实测清单（图片 110 / 视频 32） —— 知渔 AI（laoyu.quantv.com）');
 lines.push('');
 
+/* 候选池：还没落成技能的配方（分清是图片库还是视频库）—— 用户挑完我再落成 skill。 */
+try {
+  const pool = JSON.parse(readFileSync(new URL('../docs/design/skill-recipe-pool.json', import.meta.url), 'utf8'));
+  const LABEL = { 'gpt-image2-ecommerce': '图片 · 电商', 'gpt-image2-ad': '图片 · 广告创意', 'gpt-image2-poster': '图片 · 海报', 'gpt-image2-portrait': '图片 · 人像', 'seedance-official': '视频 · 上游官方用例', 'seedance-commercial': '视频 · 商用玩法' };
+  lines.push('## 候选池（还没落成技能的配方，按板块分）');
+  lines.push('');
+  lines.push('| 来源库 | 板块 | 还剩 |');
+  lines.push('|---|---|---|');
+  for (const [lib, list] of Object.entries(pool.byLib)) {
+    lines.push('| ' + lib + ' | ' + (LABEL[lib] || '未分类') + ' | ' + list.length + ' 条 |');
+  }
+  lines.push('');
+  lines.push('完整清单（含每条的原配方提示词与自带素材）在 `docs/design/skill-recipe-pool.json`；下面只列名字方便你挑：');
+  lines.push('');
+  for (const [lib, list] of Object.entries(pool.byLib)) {
+    lines.push('**' + (LABEL[lib] || lib) + '**（' + list.length + ' 条）：' + list.slice(0, 60).map(item => item.title).join(' · '));
+    lines.push('');
+  }
+} catch { /* 没有候选池文件就跳过这一节 */ }
+
 for (const board of ['image', 'video']) {
   lines.push('## ' + boardLabel(board) + '板块');
   lines.push('');
@@ -82,6 +102,9 @@ for (const board of ['image', 'video']) {
       lines.push('');
       lines.push('- **一句话**：' + skill.summary);
       lines.push('- **子页面**：`' + skillPath(skill) + '`');
+      lines.push('- **作用层级**：' + (skill.tier === 'assistant'
+        ? '辅助能力（融进主技能 ' + (skill.belongsTo || '?') + ' 的流程里，不单独作为入口）'
+        : '主技能（用户直接进来干的一件活儿，独立子页面工作台）'));
       lines.push('- **可用性**：' + skill.availability + (skill.availability === 'ready' ? '（现有链路可跑）' : skill.availability === 'needs_ref' ? '（需要参考素材路由，声明支持但未实测出片）' : '（上游能力暂缺，上架前必须转 ready）'));
       lines.push('- **来源**：' + (KIND_LABEL[source.kind] || source.kind) + ' · ' + (source.name || '') + (source.stars ? '（' + source.stars + '★）' : ''));
       if (source.ref) lines.push('  - 具体位置：`' + source.ref + '`');

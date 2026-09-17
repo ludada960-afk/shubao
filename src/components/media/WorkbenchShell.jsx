@@ -31,6 +31,11 @@ export default function WorkbenchShell({
   /* 运行态（进度 / 结果 / 就近错误）挂在右栏页签**上方**：
      生成是这个页面最主要的动作，结果不能藏在页签里。 */
   status = null,
+  /* 一键解析（照竞品做法）：付费前置动作，放在字段区**上方** —— 用户先上传商品图，
+     解析完字段自动填好，再改细节。价格必须写在按钮上（扣费动作不许让人猜多少钱）。
+     ⚠️ 只能由用户手势触发：这里是 onClick，页面侧那条链路也必须挂在手势上
+        （由 test/charge-requires-confirmation 守着）。 */
+  parseAction = null,
   /* ═══ panel：整块嵌入的既有工作台（小红书图文 / 视频）═══════════════════════════
      用户 9-17 口径：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布」。
      小红书图文与视频这两条链路**各自已有跑通的完整工作台**（分步确认、方案弹窗、任务轮询），
@@ -70,6 +75,18 @@ export default function WorkbenchShell({
               {subtitle && <p>{subtitle}</p>}
             </header>
           )}
+          {parseAction && (
+            <button
+              type="button"
+              className={`media-workbench-parse${parseAction.busy ? ' is-busy' : ''}`}
+              disabled={disabled || parseAction.busy || parseAction.disabled}
+              onClick={() => parseAction.onRun?.()}
+            >
+              <span>{parseAction.busy ? '正在解析…' : (parseAction.label || '一键解析')}</span>
+              {parseAction.points != null && <em>{parseAction.points} 积分</em>}
+            </button>
+          )}
+          {parseAction?.hint && <p className="media-workbench-parse-hint">{parseAction.hint}</p>}
           <div className="media-workbench-fields">
             {fields.map(field => (
               <FieldSlot key={field.key} field={field} value={values[field.key]} onChange={onFieldChange} disabled={disabled} />

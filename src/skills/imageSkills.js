@@ -99,6 +99,10 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.product_suite', board: 'image', name: '电商商品套图', category: '精品推荐', complexity: 'heavy',
+    /* 一键解析（照竞品做法：付费前置动作）。我们用现成的 /api/ecommerce/auto-recognize
+       （视觉识别 + LLM 结构化），计费 SKU 是既有的 ec_ai_assistant = 200 units = **0.2 积分**，
+       与竞品的 0.20 积分一致。fills 指向它回填哪个字段。 */
+    parse: { fills: 'productParams', label: '一键解析商品信息' },
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '主图、场景图、卖点图成套交付', pipeline: 'ecommerceSuite', availability: 'ready',
     visual: 'free',
@@ -110,7 +114,7 @@ export const IMAGE_SKILLS = [
         { value: '淘宝', label: '淘宝' }, { value: '抖音', label: '抖音' }, { value: '小红书', label: '小红书' },
         { value: '拼多多', label: '拼多多' }, { value: '京东', label: '京东' },
       ] },
-      { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 4, placeholder: '第一行写商品名，后面可以写卖点与材质' },
+      { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 4, placeholder: '第一行写商品名，后面可以写卖点与材质（也可以先上传商品图，点上面的一键解析）' },
       marketField(),
       languageField(),
       /* 结构/规格是套图专有的重配置：默认按平台智能匹配，自定义面板在套图工作台里 —— 
@@ -127,6 +131,7 @@ export const IMAGE_SKILLS = [
 
   {
     id: 'image.aplus', board: 'image', name: 'A+ 内容图', category: '精品推荐', complexity: 'standard',
+    parse: { fills: 'product', label: '一键解析商品信息' },
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
@@ -152,6 +157,7 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.detail_page', board: 'image', name: '详情页模块', category: '精品推荐', complexity: 'standard',
+    parse: { fills: 'product', label: '一键解析商品信息' },
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
@@ -417,6 +423,9 @@ export const IMAGE_SKILLS = [
     ], history: true,
   },
   {
+    /* tier: assistant —— "批量"是**执行方式**（一次出多张），素材结构本身就是套图的变体；
+       用户不会为了"批量"单独进一个页面，他是在套图/多角度里选一次出几张。 */
+    tier: 'assistant', belongsTo: 'image.product_suite',
     id: 'image.batch', board: 'image', name: '批量商品图', category: '电商专区', complexity: 'standard',
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '商品＋角色＋场景三份素材批量出图', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -632,6 +641,10 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
+    /* tier: assistant —— 它不是"一个活儿"，而是"沿着一张参考图再多出几张"这种**运行方式**。
+       竞品也没有单独的"相似图"入口：这是生成时的一个参数，不是用户会专门进来的页面。
+       所以它不进首页精选与主档，只在「辅助能力」里可查（也可以直接开链接用）。 */
+    tier: 'assistant', belongsTo: 'image.copy',
     id: 'image.similar', board: 'image', name: '相似图生成', category: '创意应用', complexity: 'simple',
     cover: { template: 'hero-single', accent: 'neutral' },
     summary: '沿着一张参考图再生成几张', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -750,6 +763,9 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
+    /* tier: assistant —— 它的输入是**已经有的一张效果图**，产出是同一张图更高级的版本，
+       属于出图后的收尾修饰（改反射/补阴影/去塑料感），不是独立创作入口。 */
+    tier: 'assistant', belongsTo: 'image.interior_3d',
     id: 'image.render_quality', board: 'image', name: '效果图质感提升', category: '建筑家装', complexity: 'simple',
     cover: { template: 'before-after', accent: 'neutral' },
     summary: '把普通效果图提到商业出图水准', pipeline: 'visualCreation', availability: 'needs_ref',

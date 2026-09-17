@@ -72,7 +72,12 @@ export function hasCover(skill) {
       视频技能现在一条案例都没有，若继续按封面过滤，视频板块下面会**一条入口都没有**。
    ③ 精品推荐优先，其余按声明顺序补齐 —— 与竞品首页那一排的取法一致。 */
 export function featuredSkills({ board = '', limit = 6 } = {}) {
-  const pool = board === 'video' ? VIDEO_SKILLS : board === 'image' ? IMAGE_SKILLS : [...IMAGE_SKILLS, ...VIDEO_SKILLS];
+  /* ⚠️ 辅助能力（tier === 'assistant'）**不进精选推荐**：
+     它们是某个主技能流程里的一步（提质感 / 换材质 / 延长 / 改画面 / 批量 / 相似图），
+     不是用户会专门进来干的一件活儿。放进入口只会让人点进去发现「这不是一个完整的活儿」。
+     判据与归属写在声明源里（tier / belongsTo），由 test/skill-tier-0918 守着。 */
+  const pool = (board === 'video' ? VIDEO_SKILLS : board === 'image' ? IMAGE_SKILLS : [...IMAGE_SKILLS, ...VIDEO_SKILLS])
+    .filter(skill => skill.tier !== 'assistant');
   const preferred = pool.filter(skill => skill.category === '精品推荐');
   const rest = pool.filter(skill => skill.category !== '精品推荐');
   return [...preferred, ...rest].slice(0, Math.max(1, limit));

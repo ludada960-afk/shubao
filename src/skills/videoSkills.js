@@ -103,6 +103,10 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
+    /* tier: assistant —— "镜头怎么走"是**一个控制项**，不是一种玩法/活儿。
+       竞品没有单独的"运镜"技能：它写在提示词里，跟主体、场景一起描述。
+       所以它降级为辅助能力（用户仍可直达，但首页与主档不占位）。 */
+    tier: 'assistant', belongsTo: 'video.smart',
     id: 'video.camera_move', board: 'video', name: '运镜控制', category: '热门玩法', complexity: 'standard',
     summary: '推、拉、摇、移、环绕，指定镜头怎么走', capability: ['image', 'text'], availability: 'ready',
     pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
@@ -114,6 +118,9 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
+    /* tier: assistant —— 输入是**已有的成片**，属于成片之后的加工动作，
+       不该占一个创作入口（用户不会"我想延长续写"作为出发点）。 */
+    tier: 'assistant', belongsTo: 'video.smart',
     id: 'video.extend', board: 'video', name: '延长续写', category: '创意应用', complexity: 'standard',
     summary: '接着上一段往下拍，保持主体与光线连续', capability: ['video'], availability: 'blocked',
     pipeline: 'videoRemake', cover: { template: 'case-3up', accent: 'cool' },
@@ -366,6 +373,9 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
+    /* tier: assistant —— 输入是已有视频，属于编辑动作（换发色 / 加背景物 / 去杂物），
+       通常发生在"产品植入 / 内容替换"这类主技能之后。 */
+    tier: 'assistant', belongsTo: 'video.product_placement',
     id: 'video.scene_edit', board: 'video', name: '画面修改', category: '创意应用', complexity: 'standard',
     summary: '只改指定元素，其它一律不动', capability: ['video'], availability: 'needs_ref',
     pipeline: 'videoRemake', cover: { template: 'before-after', accent: 'accent' },
