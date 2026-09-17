@@ -105,6 +105,21 @@ for (const board of ['image', 'video']) {
       lines.push('- **作用层级**：' + (skill.tier === 'assistant'
         ? '辅助能力（融进主技能 ' + (skill.belongsTo || '?') + ' 的流程里，不单独作为入口）'
         : '主技能（用户直接进来干的一件活儿，独立子页面工作台）'));
+      /* 融合形态：辅助能力必须写清"长在哪、以什么形态出现、用户从哪一步点到它"。
+         判据与界面同源（skillDirectory.fuseActionsOf / fusionLabel），这里只做转述。 */
+      if (skill.tier === 'assistant') {
+        const fuses = skill.fuses || {};
+        const SLOT_LABEL = { result: '结果区动作', field: '控件', none: '当前不具备' };
+        const into = Array.isArray(fuses.into) ? fuses.into : [];
+        const names = into.map(id => (id === '*' ? '（任何同板块主技能）'
+          : ((ALL.find(item => item.id === id) || {}).name || id)));
+        lines.push('- **融合形态**：' + (SLOT_LABEL[fuses.slot] || fuses.slot || '?')
+          + (fuses.label ? '「' + fuses.label + '」' : '')
+          + (fuses.slot === 'none'
+            ? ' —— ' + (fuses.reason || '')
+            : '，出现在：' + names.join(' / ')));
+        if (fuses.note) lines.push('  - 说明：' + fuses.note);
+      }
       lines.push('- **可用性**：' + skill.availability + (skill.availability === 'ready' ? '（现有链路可跑）' : skill.availability === 'needs_ref' ? '（需要参考素材路由，声明支持但未实测出片）' : '（上游能力暂缺，上架前必须转 ready）'));
       lines.push('- **来源**：' + (KIND_LABEL[source.kind] || source.kind) + ' · ' + (source.name || '') + (source.stars ? '（' + source.stars + '★）' : ''));
       if (source.ref) lines.push('  - 具体位置：`' + source.ref + '`');

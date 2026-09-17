@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { IMAGE_SKILLS, getImageSkill } from '../src/skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
-import { featuredSkills } from '../src/skills/skillDirectory.js';
+import { FUSE_SLOTS, canCarryResultAsInput, featuredSkills, fuseActionsOf } from '../src/skills/skillDirectory.js';
 
 /* ═══ 技能分层：主技能 vs 辅助能力（2026-09-17 用户口径）══════════════════════════
    用户原话：「有些功能我觉得不一定是真正给用户单独用的，你要知道，有些 skill 其实是**辅助作用**的，
@@ -59,6 +59,133 @@ test('④ 自证：每条辅助能力都能说清「它属于哪一步」', () =
     const text = String(skill.summary || '') + String(skill.brief || '');
     assert.ok(KEYWORDS.some(word => text.includes(word)), skill.id + ' 看不出它是辅助能力（summary/brief 里没有加工或运行方式的语义）');
   }
+});
+
+/* ═══ 融合：辅助能力必须真的"长在主技能身上"（2026-09-18 用户口径）═════════════════
+   用户原话：「有些 skill 其实是辅助作用的……融合在一些主 skill 里面，
+   你自己要先深度思考他们的作用呀。」只写一句 belongsTo 不算融合 ——
+   下面这几条守的就是"融合必须落到界面上的一个真实控件/按钮，而且不许偷偷扣费"。 */
+
+test('⑥ 每条辅助能力都必须声明融合形态；没有能力的必须写明原因（不许假装有）', () => {
+  for (const skill of ALL.filter(item => item.tier === 'assistant')) {
+    const fuses = skill.fuses;
+    assert.ok(fuses && typeof fuses === 'object', skill.id + ' 缺少 fuses：辅助能力必须说清它长在哪、以什么形态出现');
+    assert.ok(FUSE_SLOTS.includes(fuses.slot), skill.id + ' 的 fuses.slot 非法：' + fuses.slot);
+    assert.ok(String(fuses.label || '').trim(), skill.id + ' 的 fuses 缺少 label（界面上按钮/控件叫什么）');
+    const into = Array.isArray(fuses.into) ? fuses.into : [];
+    if (fuses.slot === 'none') {
+      /* 没有能力就不放按钮 —— 但必须写明为什么，否则下一个人会以为只是忘了接 */
+      assert.equal(into.length, 0, skill.id + ' 标了 none 就不该再声明 into');
+      assert.ok(String(fuses.reason || '').trim().length >= 20, skill.id + ' 标了 none 必须写明原因（至少 20 字）');
+      assert.equal(skill.availability, 'blocked', skill.id + ' 既然没有能力，availability 必须是 blocked（不许写成 ready）');
+    } else {
+      assert.ok(into.length > 0, skill.id + ' 的 fuses.into 为空：融合关系必须写清长在谁身上');
+    }
+  }
+});
+
+test('⑦ 融合的落点必须是真实存在的主技能（辅助不许挂辅助、也不许指向不存在的 id）', () => {
+  for (const skill of ALL.filter(item => item.tier === 'assistant')) {
+    const fuses = skill.fuses || {};
+    const into = Array.isArray(fuses.into) ? fuses.into : [];
+    for (const target of into) {
+      if (target === '*') continue;
+      const owner = ALL.find(item => item.id === target);
+      assert.ok(owner, skill.id + ' 的 fuses.into 指向了不存在的技能：' + target);
+      assert.notEqual(owner.tier, 'assistant', skill.id + ' 不能融进另一条辅助能力：' + target);
+      assert.equal(owner.board, skill.board, skill.id + ' 跨板块融合了（' + owner.board + '）：' + target);
+    }
+    /* belongsTo 必须落在融合落点里，否则会出现"文档说属于 A、界面长在 B" */
+    if (fuses.slot !== 'none' && !into.includes('*')) {
+      assert.ok(into.includes(skill.belongsTo), skill.id + ' 的 belongsTo（' + skill.belongsTo + '）不在 fuses.into 里');
+    }
+  }
+  /* '*' 只允许给"与内容无关"的那几条（运行方式/控制项）—— 结果类动作必须点名 */
+  const wildcard = ALL.filter(skill => skill.tier === 'assistant' && (skill.fuses?.into || []).includes('*'));
+  assert.deepEqual(wildcard.map(skill => skill.id).sort(),
+    ['image.batch', 'image.similar', 'video.camera_move'],
+    "into '*' 只给与内容无关的辅助能力（数量/相似图/运镜），其余必须点名到具体主技能");
+});
+
+test('⑧ 融合不许只是声明：结果区按钮与控件都必须有真实消费点', () => {
+  /* 结果区动作：主技能出完图后，工作台要真的把动作取出来并渲染成按钮 */
+  const page = read('src/pages/MediaCreation/index.jsx');
+  assert.match(page, /fuseActionsOf\(board, skill\.id, 'result'\)/, '结果区动作没有从 skillDirectory.fuseActionsOf 取（可能又写了一套判据）');
+  assert.match(page, /<RunPanel[^>]*fuseActions=\{fuseActions\}/, '取值了但没交给 RunPanel 渲染');
+  assert.match(page, /className="media-run-next-btn"/, 'RunPanel 里没有渲染这个按钮');
+  assert.match(page, /canCarryResultAsInput\(carryUrl\)/, '没有做"地址能不能被下一步读回"的把关');
+  /* 控件类：视频侧两个控件必须有真实实现（cameraMoves.js）并被创作台引入 */
+  const moves = read('src/pages/VideoStudio/cameraMoves.js');
+  assert.match(moves, /export const CAMERA_MOVES/);
+  assert.match(moves, /export const SCENE_EDITS/);
+  assert.match(moves, /export function composeVideoPrompt/);
+  const studio = read('src/pages/VideoStudio/index.jsx');
+  assert.match(studio, /from '\.\/cameraMoves\.js'/, 'VideoStudio 没引入融合控件模块');
+  assert.match(studio, /className="video-fuse-row"/, 'VideoStudio 没有渲染融合控件行');
+  assert.match(studio, /prompt: composedPrompt/, '融合控件的指令没有进入下发的请求体');
+  assert.match(studio, /composedPrompt,/, '幂等键没有用同一份 composedPrompt（两处不同源会造成重放事故）');
+  /* 数量（image.batch 的融合形态）：主技能里必须真有「数量」控件 */
+  const withCount = IMAGE_SKILLS.filter(skill => skill.tier !== 'assistant'
+    && (skill.fields || []).some(field => field.key === 'count' && field.kind === 'stepper'));
+  assert.ok(withCount.length >= 10, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
+});
+
+test('⑨ 自证：结果地址白名单与服务端同源（服务端读不回来的地址不许带给下一步）', () => {
+  /* 这一条是"自证"而不是复述：直接读服务端解析图片输入的那三个正则，
+     再用同样的样本比对**客户端判据的结论**，两边不一致就说明有人改了服务端没改前端。 */
+  const server = read('server/imageInput.mjs');
+  assert.match(server, /const GENERATED_ASSET_RE = \/\^\\\/api\\\/generated-assets/);
+  assert.match(server, /const TEMP_IMAGE_RE = \/\^\\\/api\\\/ec-temp-img/);
+  assert.match(server, /const DATA_IMAGE_RE = \/\^data:/);
+  assert.match(server, /if \(!\['http:', 'https:'\]\.includes\(parsed\.protocol\)\) throw new Error\('图片地址无效'\)/);
+
+  const stable = '/api/generated-assets/' + 'b'.repeat(64) + '.png';
+  const cases = [
+    [stable, true, '稳定作品地址（服务端按 hash 读本地文件）'],
+    ['/api/ec-temp-img/abc-1_2.webp', true, '临时上传地址'],
+    ['data:image/png;base64,iVBORw0KGgo=', true, 'data URL'],
+    ['https://cdn.example.com/a.jpg', true, '外链'],
+    ['', false, '空地址'],
+    ['/api/generated-assets/notahash.png', false, '形状不对的资产地址'],
+    ['blob:http://localhost/xxx', false, 'blob 地址（服务端不认）'],
+    ['javascript:alert(1)', false, '非图片协议'],
+  ];
+  for (const [url, expected, why] of cases) {
+    assert.equal(canCarryResultAsInput(url), expected, why + '：' + url);
+  }
+});
+
+test('⑩ 融合动作不许偷偷扣费（点它只是把结果带过去，生成仍要用户再点一次）', () => {
+  const page = read('src/pages/MediaCreation/index.jsx');
+  /* 取出 fuseFromResult 这个函数体，断言里面没有任何生成/扣费调用 */
+  const start = page.indexOf('function fuseFromResult');
+  assert.ok(start > 0, '找不到 fuseFromResult');
+  const body = page.slice(start, page.indexOf('\n  }', start));
+  for (const banned of ['regenerateCanvasImage', 'generateEcommerce', 'await ']) {
+    assert.equal(body.includes(banned), false, 'fuseFromResult 里出现了 ' + banned + '（融合动作不许触发生成/扣费）');
+  }
+  assert.match(body, /openSkill\(target\.id/, 'fuseFromResult 应当只是切到目标技能并预填素材位');
+  assert.match(body, /会重新计费/, '必须告诉用户下一步点生成会重新计费');
+});
+
+test('⑪ 视频融合控件是纯函数：追加顺序、标点、空值都不许飘', async () => {
+  /* 这一条守的是"钱"：幂等键与请求体都取 composeVideoPrompt 的结果，
+     拼装不稳定的后果是"同一份素材+同一句话"算出两个键 → 服务端认不出是同一次 → 重复扣费。 */
+  const { CAMERA_MOVES, SCENE_EDITS, cameraInstruction, composeVideoPrompt, sceneEditInstruction } = await import('../src/pages/VideoStudio/cameraMoves.js');
+  assert.equal(CAMERA_MOVES[0].value, '', '第一项必须是"自动"（默认不干预用户的提示词）');
+  assert.equal(cameraInstruction(''), '', '自动档不追加任何字');
+  assert.equal(cameraInstruction('push'), '镜头缓慢推近主体');
+  assert.equal(sceneEditInstruction(''), '');
+  assert.match(sceneEditInstruction('hair'), /一律不动/, '编辑指令必须强调"其余一律不动"（否则模型会把整段重拍）');
+  assert.ok(SCENE_EDITS.length >= 4, '编辑意图至少四档（不指定 + 三个具体动作）');
+
+  assert.equal(composeVideoPrompt('', []), '', '空提示词 + 无追加 = 空');
+  assert.equal(composeVideoPrompt('主体转动', ['镜头推近']), '主体转动。镜头推近。', '原话在前、追加在后，中间补句号');
+  assert.equal(composeVideoPrompt('主体转动。', ['镜头推近']), '主体转动。镜头推近。', '原话末尾已有句号时不重复');
+  assert.equal(composeVideoPrompt('', ['镜头推近']), '镜头推近。', '只有追加句时不留前导标点');
+  /* 确定性：同样的输入连算两次必须一模一样（幂等键的前提） */
+  const first = composeVideoPrompt('主体转动', ['镜头推近', '只去掉杂物']);
+  assert.equal(composeVideoPrompt('主体转动', ['镜头推近', '只去掉杂物']), first, '同样的输入必须得到同样的字符串');
 });
 
 test('⑤ 装饰：图片技能里「成品类」的仍然是主技能（不许把能独立交付的降级）', () => {

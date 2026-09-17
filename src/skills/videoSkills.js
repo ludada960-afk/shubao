@@ -107,6 +107,12 @@ export const VIDEO_SKILLS = [
        竞品没有单独的"运镜"技能：它写在提示词里，跟主体、场景一起描述。
        所以它降级为辅助能力（用户仍可直达，但首页与主档不占位）。 */
     tier: 'assistant', belongsTo: 'video.smart',
+    /* 融合形态：**控件**。运镜是创作台里的一个控制项（镜头怎么走），不是一种玩法 ——
+       它长在视频创作台的「运镜」chip 行上，选中后写进提示词的镜头段（见 VideoStudio/cameraMoves.js）。 */
+    fuses: {
+      slot: 'field', into: ['*'], label: '运镜',
+      note: '运镜＝视频创作台里的「运镜」控件，选中后作为镜头运动写进提示词，对所有视频技能生效',
+    },
     id: 'video.camera_move', board: 'video', name: '运镜控制', category: '热门玩法', complexity: 'standard',
     summary: '推、拉、摇、移、环绕，指定镜头怎么走', capability: ['image', 'text'], availability: 'ready',
     pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
@@ -121,6 +127,13 @@ export const VIDEO_SKILLS = [
     /* tier: assistant —— 输入是**已有的成片**，属于成片之后的加工动作，
        不该占一个创作入口（用户不会"我想延长续写"作为出发点）。 */
     tier: 'assistant', belongsTo: 'video.smart',
+    /* 融合形态：**none（当前没有这个能力）**。服务端只能"从首尾帧生成"或"改写已有视频"，
+       没有"接着原片末帧往下拍"这条路（见 9-16 路由可达性台账）。没有能力就不放按钮 ——
+       放一个点了不会出片的按钮，比没有这个功能更伤。 */
+    fuses: {
+      slot: 'none', into: [], label: '延长续写',
+      reason: '服务端当前没有"接着上一段往下拍"的能力（需要原片末帧延续 + 时长续接），所以视频结果区不放这个按钮；等上游能力具备再升 ready',
+    },
     id: 'video.extend', board: 'video', name: '延长续写', category: '创意应用', complexity: 'standard',
     summary: '接着上一段往下拍，保持主体与光线连续', capability: ['video'], availability: 'blocked',
     pipeline: 'videoRemake', cover: { template: 'case-3up', accent: 'cool' },
@@ -376,6 +389,13 @@ export const VIDEO_SKILLS = [
     /* tier: assistant —— 输入是已有视频，属于编辑动作（换发色 / 加背景物 / 去杂物），
        通常发生在"产品植入 / 内容替换"这类主技能之后。 */
     tier: 'assistant', belongsTo: 'video.product_placement',
+    /* 融合形态：**控件**。它本质是"爆款复刻/产品植入"这一档里的**编辑指令**：
+       同一份参考视频 + 一句"只改哪个元素"。所以它长在 remake 档创作台的「只改一个元素」chip 行上。 */
+    fuses: {
+      slot: 'field', label: '只改一个元素',
+      into: ['video.product_placement', 'video.content_swap', 'video.remake'],
+      note: '在参考视频上只改指定元素（换发色 / 加背景物 / 去杂物），其余一律不动',
+    },
     id: 'video.scene_edit', board: 'video', name: '画面修改', category: '创意应用', complexity: 'standard',
     summary: '只改指定元素，其它一律不动', capability: ['video'], availability: 'needs_ref',
     pipeline: 'videoRemake', cover: { template: 'before-after', accent: 'accent' },

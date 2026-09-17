@@ -51,6 +51,28 @@
 .media-run-global { display: flex; align-items: center; gap: 6px; margin: 0; padding: 9px 12px; border-radius: 12px; background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 12px; }
 .media-run-notice { margin: 0; font-size: 12px; color: var(--sb-ink-2); }
 
+/* ═══ 结果区的「拿这张图接着做」2026-09-18 ═════════════════════════════════════════
+   辅助能力（提升质感 / 再来一张相似的）长在**主技能的结果区**，不再单独占一张卡。
+   点它只把这张结果带到下一条链路的素材位上，不生成、不扣费。 */
+.media-run-next { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.media-run-next-label { font-size: 12px; font-weight: 600; color: var(--sb-ink-2); }
+/* 融合动作带过来的说明：与普通提示区分开（它是一条"你刚被带到这里"的交接说明） */
+.media-run-carry { margin: 0; padding: 9px 12px; border-radius: 12px; background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 12px; }
+.media-run-next-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--sb-brand-600);
+  border-radius: 999px;
+  background: var(--sb-surface-card);
+  color: var(--sb-brand-600);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.media-run-next-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 20, 45, .14); background: var(--sb-surface-tint-strong); }
+
 @media (max-width: 720px) {
   .media-creation { padding: 12px 12px 56px; }
 }

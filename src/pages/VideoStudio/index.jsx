@@ -59,6 +59,7 @@ import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import { tagVideoJob } from './videoJobTags.js';
+import { CAMERA_MOVES, SCENE_EDITS, cameraInstruction, composeVideoPrompt, sceneEditInstruction } from './cameraMoves.js';
 import './VideoStudio.css';
 
 /* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
@@ -380,7 +381,25 @@ export default function VideoStudioPage({
     productId: selectedProduct?.id || '', mode, prompt, negativePrompt, duration, ratio, resolution, sound, seed,
     files: Object.fromEntries(Object.entries(files).map(([key, items]) => [key, (items || []).map(file => ({ name: file.name, size: file.size, type: file.type, modified: file.lastModified }))])),
   }), [duration, files, mode, negativePrompt, prompt, ratio, resolution, seed, selectedProduct?.id, sound]);
+  /* ═══ 融合控件（运镜 / 只改一个元素）═══════════════════════════════════════════
+     声明源里的 video.camera_move 与 video.scene_edit 是**辅助能力**，它们不占独立玩法，
+     而是长在这个创作台里的两个控制项（用户 9-17：「融合在一些主 skill 里面」）。
+     选中后只做一件事：往真正下发的提示词末尾追加一句明确的镜头/编辑指令。
+     ⚠️ 幂等键与请求体都取这一份 composedPrompt —— 两处不同源就会出现
+        "键一样、内容不一样"的重放事故（用户以为没重复扣费，其实跑的是另一次生成）。 */
+  const [cameraMove, setCameraMove] = useState('');
+  const [sceneEdit, setSceneEdit] = useState('');
   const activeAnalysis = analyzedSignature === planSignature ? analyzedPlan : null;
+  const extraInstructions = useMemo(
+    () => [cameraInstruction(cameraMove), sceneEditInstruction(sceneEdit)].filter(Boolean),
+    [cameraMove, sceneEdit],
+  );
+  /* ⚠️ 只有 activeAnalysis 存在时才取它的 optimizedPrompt（方案确认过的那版），
+      否则取用户输入的原文 —— 其余情况一律不拼，避免把"还没分析"的提示词当分析结果用。 */
+  const composedPrompt = useMemo(
+    () => composeVideoPrompt(activeAnalysis ? activeAnalysis.optimizedPrompt : prompt, extraInstructions),
+    [activeAnalysis, prompt, extraInstructions],
+  );
   const effectivePlan = useMemo(() => activeAnalysis ? {
     ...videoPlan,
     ...activeAnalysis,
@@ -725,7 +744,7 @@ export default function VideoStudioPage({
         'video-job',
         analyzedSignature || planSignature,
         selectedProduct?.id || '',
-        String(activeAnalysis.optimizedPrompt || prompt || '').trim(),
+        composedPrompt,
         mode,
         duration,
         ratio,
@@ -738,7 +757,7 @@ export default function VideoStudioPage({
         workbenchPlanHash: activeVideoPlanHash || undefined,
         productId: selectedProduct.id,
         mode: resolveVideoApiMode(mode, files),
-        prompt: activeAnalysis.optimizedPrompt || prompt,
+        prompt: composedPrompt,
         negativePrompt,
         duration,
         aspectRatio: ratio,
@@ -1091,6 +1110,48 @@ export default function VideoStudioPage({
               </span>
             ))}
           </div>
+          {/* ═══ 融合控件：运镜 / 只改一个元素 ═══════════════════════════════════════════
+             这两条在技能库里是「辅助能力」（video.camera_move / video.scene_edit）——
+              它们不是一个独立的活儿，而是创作时的两个控制项，所以长在这里，
+              不占技能入口（用户 9-17：「融合在一些主 skill 里面」）。
+              运镜对所有创作方式都成立；「只改一个元素」只对"爆款复刻/产品植入/内容替换"
+              这类**基于已有成片**的档位成立（remake），别的档位没有"原片"可改。 */}
+          <div className="video-fuse-row">
+            <div className="video-fuse-group" role="group" aria-label="运镜">
+              <span className="video-fuse-label">运镜</span>
+              {CAMERA_MOVES.map(move => (
+                <button
+                  key={move.value || 'auto'}
+                  type="button"
+                  className={cameraMove === move.value ? 'is-selected' : ''}
+                  aria-pressed={cameraMove === move.value}
+                  onClick={() => setCameraMove(move.value)}
+                >{move.label}</button>
+              ))}
+            </div>
+            {mode === 'remake' && (
+              <div className="video-fuse-group" role="group" aria-label="只改一个元素">
+                <span className="video-fuse-label">只改一个元素</span>
+                {SCENE_EDITS.map(edit => (
+                  <button
+                    key={edit.value || 'none'}
+                    type="button"
+                    className={sceneEdit === edit.value ? 'is-selected' : ''}
+                    aria-pressed={sceneEdit === edit.value}
+                    onClick={() => setSceneEdit(edit.value)}
+                  >{edit.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* 追加了什么必须**照实显示**：这两句话会被拼到提示词末尾一起送给模型，
+              藏着不说等于偷偷改了用户的提示词。 */}
+          {extraInstructions.length > 0 && (
+            <p className="video-fuse-note">
+              将追加到提示词：{extraInstructions.join('；')}
+              <button type="button" onClick={() => { setCameraMove(''); setSceneEdit(''); }}>清空</button>
+            </p>
+          )}
           {/* 2026-09-16 用户批注（图7-②）：「你下面没有必要写这个限制多少次，还有右边这个
               『提交时锁定本次费用』这一句，就是你这行可以去掉的，不需要去提示这个。」
               → 整行删除。字数上限是**约束**不是**说明**：MentionPromptField 到 1200 会自己截断，

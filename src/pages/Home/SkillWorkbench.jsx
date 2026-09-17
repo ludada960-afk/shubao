@@ -9,6 +9,7 @@ import React, { useMemo, useState } from 'react';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
 import { initialSkillValues } from '../../skills/skillRun.js';
+import { fusionLabel } from '../../skills/skillDirectory.js';
 
 /* 历史一页给几条：够看清最近几次，又不至于一屏几十张卡 */
 const HISTORY_PAGE_SIZE = 12;
@@ -69,7 +70,10 @@ export default function SkillWorkbench({
     <section className="skill-workbench" data-board={board}>
       <WorkbenchShell
         title={skill.name}
-        subtitle={skill.summary}
+        /* 辅助能力：副标题说清"它长在哪"（fusionLabel 与 Hub 卡片、文档同一份口径）——
+           用户从直达链接进来时必须第一眼知道：这不是一个能独立干完的活儿，
+           而是某条主技能流程里的一步。 */
+        subtitle={skill.tier === 'assistant' ? (fusionLabel(skill) || skill.summary) : skill.summary}
         category={skill.category}
         onBack={onBack}
         fields={skill.fields}

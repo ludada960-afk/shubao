@@ -578,6 +578,35 @@
 .video-skill-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
 .video-skill-row .ec-skill-entry { margin-left: 0; }
 
+/* ═══ 融合控件（运镜 / 只改一个元素）2026-09-18 ═══════════════════════════════════
+   这两条在技能库里是「辅助能力」，不是一个独立的活儿 —— 它们长在创作台里当控制项
+   （video.camera_move / video.scene_edit，声明源 fuses.slot === 'field'）。
+   样式沿用技能胶囊那一行的节奏：小字标签 + 一排胶囊，选中态用品牌色。 */
+.video-fuse-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 8px 0 0; }
+.video-fuse-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.video-fuse-label { font-size: 12px; font-weight: 600; color: var(--sb-ink-2); }
+.video-fuse-group button {
+  padding: 5px 11px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 999px;
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+.video-fuse-group button:hover { background: var(--sb-surface-tint-strong); }
+.video-fuse-group button.is-selected { background: var(--sb-brand-600); border-color: var(--sb-brand-600); color: var(--sb-surface-card); }
+.video-fuse-note {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 6px 0 0; font-size: 12px; color: var(--sb-ink-2);
+}
+.video-fuse-note button {
+  border: 0; background: none; padding: 0; font-size: 12px; color: var(--sb-brand-600); cursor: pointer; text-decoration: underline;
+}
+/* 可点必有 hover（门禁 test/interactive-state-coverage ②）：中性/透明底一律用 --sb-hover-bg */
+.video-fuse-note button:hover { background-color: var(--sb-hover-bg); border-radius: 6px; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    §22 / 原则 4.7 —— 可点必有 hover（视频工作台，9 处缺口）
    ───────────────────────────────────────────────────────────────────────────

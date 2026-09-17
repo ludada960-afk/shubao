@@ -489,6 +489,33 @@ try {
   check(archMode.composer, '建筑家装技能的工作台就是嵌进来的创作台', String(archMode.composer));
   check(archMode.prompt.includes('户型图开始生长出三维空间'), '建筑家装技能预填自己的配方提示词', archMode.prompt.slice(0, 40));
 
+  /* ═══ 视频侧的融合控件：运镜 / 只改一个元素（辅助能力长在创作台里）═══
+     这两条在技能库里的身份是"辅助能力"（video.camera_move / video.scene_edit）——
+     它们不是一个独立的活儿，而是创作时的两个控制项，所以必须长在这个创作台上。 */
+  await openVideoSkill('video.smart');
+  const cameraRow = await page.evaluate(() => ({
+    row: Boolean(document.querySelector('.video-fuse-row')),
+    group: Array.from(document.querySelectorAll('.video-fuse-group')).map(node => node.getAttribute('aria-label')),
+    moves: Array.from(document.querySelectorAll('.video-fuse-group[aria-label="运镜"] button')).map(node => node.textContent.trim()),
+  }));
+  check(cameraRow.row, '创作台里有融合控件行（辅助能力长在这里，不占技能入口）', String(cameraRow.row));
+  check(cameraRow.group.includes('运镜'), '「运镜」是一个控制项（不是一条要单独进子页面的玩法）', cameraRow.group.join('/'));
+  check(cameraRow.moves.includes('推近') && cameraRow.moves.includes('环绕'), '运镜给的是具体镜头走法（推近/拉远/环绕/平移/固定机位）', cameraRow.moves.join('/'));
+  await page.click('.video-fuse-group[aria-label="运镜"] button:has-text("推近")');
+  await page.waitForSelector('.video-fuse-note', { timeout: 10000 });
+  const cameraNote = await page.evaluate(() => document.querySelector('.video-fuse-note')?.textContent || '');
+  check(cameraNote.includes('镜头缓慢推近主体'), '选中后**照实显示**会被追加进提示词的那句话（不偷偷改用户的提示词）', cameraNote.slice(0, 40));
+  check(cameraRow.group.filter(label => label === '只改一个元素').length === 0, '智能成片档不出现「只改一个元素」（没有原片可改，不给用不了的控件）');
+
+  /* 爆款复刻/产品植入这一档才有"只改一个元素"（它的输入本来就是一条参考视频） */
+  await openVideoSkill('video.product_placement');
+  const editRow = await page.evaluate(() => ({
+    group: Array.from(document.querySelectorAll('.video-fuse-group')).map(node => node.getAttribute('aria-label')),
+    edits: Array.from(document.querySelectorAll('.video-fuse-group[aria-label="只改一个元素"] button')).map(node => node.textContent.trim()),
+  }));
+  check(editRow.group.includes('只改一个元素'), '基于已有成片的档位（产品植入）出现「只改一个元素」', editRow.group.join('/'));
+  check(editRow.edits.includes('换发色') && editRow.edits.includes('去杂物'), '给的是具体的编辑意图（换发色/加背景物/去杂物）', editRow.edits.join('/'));
+
   /* 历史：本机标记（videoJobTags）把任务按技能筛进子页面历史。
      标记缺失时也不能丢东西 —— 全量任务永远在嵌入工作台的「生成记录」里。 */
   scenario('⑫b 视频任务按技能进子页面历史（标记缺失时也不丢任务）');
@@ -762,6 +789,44 @@ try {
   /* 与场景 ⑥ 用同一个选择器（登录弹窗是既有的 .ld-overlay / .ld-card，不另造一个） */
   check(await page.evaluate(() => Boolean(document.querySelector('.ld-overlay, .ld-card'))), '未登录时引导去登录');
   await page.evaluate(ALLOW_SEED);
+
+  /* ═══ ㉑ 结果区的融合动作（辅助能力"长在主技能里"，点了不扣费）═══
+     用户 9-17 口径：「有些 skill 其实是辅助作用的……融合在一些主 skill 里面，
+     你自己要先深度思考他们的作用呀。」这条场景就验证"融合"是真的：
+     ① 效果图类主技能出完图，结果区长出「提升质感」「再来一张相似的」；
+     ② 点它**不生成、不报价**，只是把这张结果落到目标技能的素材位上；
+     ③ 落位之后 CTA 立刻可点（用户只需再点一次「立即生成」，那一次才计费）。 */
+  scenario('㉑ 结果区的融合动作（辅助能力长在主技能里，点了不扣费）');
+  fx.regenerateMode = 'ok';
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.interior_3d', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await upload();
+  const fuseCharges = calls.regenerate.length;
+  const fuseQuotes = calls.quote.length;
+  await clickGenerate();
+  await page.waitForSelector('.media-run-next-btn', { timeout: 20000 });
+  const fuseLabels = await page.evaluate(() => Array.from(document.querySelectorAll('.media-run-next-btn')).map(node => node.textContent.replace(/\s+/g, '').trim()));
+  check(fuseLabels.includes('提升质感'), '效果图类主技能的结果区长出「提升质感」（辅助能力不占独立入口，长在这里）', fuseLabels.join('/'));
+  check(fuseLabels.includes('再来一张相似的'), '任何出图结果都能「再来一张相似的」', fuseLabels.join('/'));
+  check(calls.regenerate.length === fuseCharges + 1, '这一步只跑了用户点的那一次生成', String(calls.regenerate.length - fuseCharges));
+
+  await page.click('.media-run-next-btn:has-text("提升质感")');
+  /* ⚠️ 等真实渲染，不等地址栏：pushState 是同步的，地址一变就断言会读到**还没重渲染**的 DOM
+     （这是本脚本踩过的"假失败"老毛病：断言跑在 React 提交之前）。 */
+  await page.waitForSelector('.media-run-carry', { timeout: 15000 });
+  await page.waitForFunction(() => (document.querySelector('.media-workbench-head h2')?.textContent || '').includes('效果图质感提升'), null, { timeout: 15000 });
+  const fused = await page.evaluate(() => ({
+    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    filled: document.querySelectorAll('.media-asset-card').length,
+    notice: document.querySelector('.media-run-carry')?.textContent || '',
+    url: location.pathname + location.search,
+  }));
+  check(fused.title.includes('效果图质感提升'), '跳到了这条辅助能力的子页面（地址栏同步）', fused.url);
+  check(fused.filled === 1, '刚才那张结果已经落在它的素材位上（用户不用再传一次）', String(fused.filled));
+  check(fused.notice.includes('会重新计费'), '说清下一步点生成会重新计费', fused.notice.slice(0, 46));
+  check(calls.regenerate.length === fuseCharges + 1, '点融合动作**没有发起生成**（钱还在用户手里）', String(calls.regenerate.length - fuseCharges));
+  check(calls.quote.length === fuseQuotes + 1, '点融合动作也不额外报价（报价只跟着那次生成）', String(calls.quote.length - fuseQuotes));
+  check(await ctaDisabled() === false, '素材位已就绪，用户只要再点一次「立即生成」');
 
   /* ═══ ⑭ 连点「只重试失败项」不会重复扣费 ═══ */
   scenario('⑭ 重试连点');

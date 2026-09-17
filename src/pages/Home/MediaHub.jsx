@@ -10,7 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { IMAGE_SKILLS } from '../../skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../../skills/videoSkills.js';
 import CaseCard from '../../components/media/CaseCard.jsx';
-import { availabilityLabel, coverOf } from '../../skills/skillDirectory.js';
+import { availabilityLabel, coverOf, fusionLabel } from '../../skills/skillDirectory.js';
 import '../../components/media/CaseCard.css';
 import '../../components/media/GalleryGrid.css';
 import './MediaHub.css';
@@ -92,7 +92,9 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
                 <CaseCard
                   key={skill.id}
                   title={skill.name}
-                  subtitle={skill.summary}
+                  /* 辅助能力卡片：副标题说清"它长在谁身上"（fusionLabel 与文档同源），
+                     而不是再抄一遍 summary —— 用户看这一组时最想知道的就是它从哪进去。 */
+                  subtitle={skill.tier === 'assistant' ? (fusionLabel(skill) || skill.summary) : skill.summary}
                   cover={media.cover}
                   video={media.video}
                   poster={media.poster}

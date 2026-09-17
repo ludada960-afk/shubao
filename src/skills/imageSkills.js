@@ -426,6 +426,12 @@ export const IMAGE_SKILLS = [
     /* tier: assistant —— "批量"是**执行方式**（一次出多张），素材结构本身就是套图的变体；
        用户不会为了"批量"单独进一个页面，他是在套图/多角度里选一次出几张。 */
     tier: 'assistant', belongsTo: 'image.product_suite',
+    /* 融合形态：**控件**。批量不是一种玩法，是"这一次出几张" —— 它长在各主技能的「数量」控件上
+       （21 条主技能已声明），张数与报价同源（skillGenerationSettings.count + skillPointsEstimate）。 */
+    fuses: {
+      slot: 'field', into: ['*'], label: '数量',
+      note: '批量＝各技能里的「数量」控件：一次出 N 张，报价按 N 倍算，扣费在点生成时发生',
+    },
     id: 'image.batch', board: 'image', name: '批量商品图', category: '电商专区', complexity: 'standard',
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '商品＋角色＋场景三份素材批量出图', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -645,6 +651,12 @@ export const IMAGE_SKILLS = [
        竞品也没有单独的"相似图"入口：这是生成时的一个参数，不是用户会专门进来的页面。
        所以它不进首页精选与主档，只在「辅助能力」里可查（也可以直接开链接用）。 */
     tier: 'assistant', belongsTo: 'image.copy',
+    /* 融合形态：**结果区动作**。任何一条出图技能出来后，都能"拿这张图再来一张相似的"。
+       into 写 '*' 是有意的：相似图与内容无关，只与刚才那张图有关。 */
+    fuses: {
+      slot: 'result', into: ['*'], label: '再来一张相似的',
+      note: '沿着刚才那张结果的画风再出一张变体（保留构图语言，不逐像素复制）',
+    },
     id: 'image.similar', board: 'image', name: '相似图生成', category: '创意应用', complexity: 'simple',
     cover: { template: 'hero-single', accent: 'neutral' },
     summary: '沿着一张参考图再生成几张', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -766,6 +778,13 @@ export const IMAGE_SKILLS = [
     /* tier: assistant —— 它的输入是**已经有的一张效果图**，产出是同一张图更高级的版本，
        属于出图后的收尾修饰（改反射/补阴影/去塑料感），不是独立创作入口。 */
     tier: 'assistant', belongsTo: 'image.interior_3d',
+    /* 融合形态：**结果区动作**，只长在"产出效果图"的那几条建筑家装主技能上 ——
+       别的品类的主技能没有"商业出图质感"这件事，硬挂上去只会让用户困惑。 */
+    fuses: {
+      slot: 'result', label: '提升质感',
+      into: ['image.interior_3d', 'image.floorplan_render', 'image.interior_style', 'image.rough_interior', 'image.day_night_still'],
+      note: '把刚出的这张效果图提到商业出图水准（改反射、补阴影、去塑料感），结构与机位不动',
+    },
     id: 'image.render_quality', board: 'image', name: '效果图质感提升', category: '建筑家装', complexity: 'simple',
     cover: { template: 'before-after', accent: 'neutral' },
     summary: '把普通效果图提到商业出图水准', pipeline: 'visualCreation', availability: 'needs_ref',

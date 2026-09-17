@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Download, RotateCcw, Sparkles } from 'lucide-react';
+import { AlertCircle, Download, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 
 /* ═══ 媒体板块页（图片 / 视频共用一个页面）═══════════════════════════════════════
    做法参照竞品实测：**一个页面按 ?id= 渲染全部技能**（他们也是 /image-creation?id=<skillId>），
@@ -26,7 +26,7 @@ import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
-import { boardOfPage, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
+import { boardOfPage, canCarryResultAsInput, fuseActionsOf, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
 import {
   clearPendingRun,
   hasUnsettled,
@@ -115,11 +115,22 @@ function friendlyError(error) {
   return message;
 }
 
-function RunPanel({ run, skillName, onRetry, onDownload, busy }) {
+function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse }) {
   if (!run) return null;
   const done = run.slots.filter(slot => slot.status === 'completed' && slot.url);
   const failed = visualRetryIndexes(run);
   const finished = !visualRunIsBusy(run);
+  /* ═══ 结果区的「下一步」：辅助能力长在这里，而不是单独占一张卡 ═══════════════════
+     用户 9-17 口径：「有些 skill 其实是辅助作用的……融合在一些主 skill 里面」。
+     所以刚出一张图时，把**主技能的下游动作**直接摆在这一排（照这张图提升质感 / 再来一张相似的）。
+     ⚠️ 点它**只把这张结果带过去、绝不生成**（不扣费）—— 与"没有用户确认绝不扣费"一致：
+        用户到了下一条链路还会再点一次「立即生成」，那一次才计费。
+     ⚠️ 地址读不回来就不显示（canCarryResultAsInput 对着服务端白名单判）——
+        宁可少一个按钮，也不许用户点了之后撞"图片地址无效"。 */
+  const carryUrl = done.length ? String(done[0].url || '') : '';
+  const usable = finished && carryUrl && canCarryResultAsInput(carryUrl)
+    ? fuseActions.filter(action => action && action.skillId)
+    : [];
   return (
     <section className="media-run" aria-live="polite">
       <header className="media-run-head">
@@ -148,6 +159,22 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy }) {
         <div className="media-run-actions">
           <a className="media-run-download" href={done[0].url} target="_blank" rel="noreferrer" download><Download size={14} />下载第一张</a>
           <button type="button" className="media-run-again" onClick={onDownload}><Sparkles size={14} />重新生成一组</button>
+        </div>
+      )}
+      {usable.length > 0 && (
+        <div className="media-run-next" aria-label="下一步可以">
+          <span className="media-run-next-label">拿这张图接着做</span>
+          {usable.map(action => (
+            <button
+              key={action.skillId}
+              type="button"
+              className="media-run-next-btn"
+              title={action.note || ''}
+              onClick={() => onFuse?.(action, carryUrl)}
+            >
+              <Wand2 size={14} />{action.label}
+            </button>
+          ))}
         </div>
       )}
     </section>
@@ -205,21 +232,30 @@ export default function MediaCreationPage() {
     if (!known) window.history.replaceState({}, '', hubPath(board));
   }, [board]);
 
-  /* 换技能 / 回 Hub 时清掉上一次的运行，避免"上一条技能的结果留在这一条上" */
+  /* 换技能 / 回 Hub 时清掉上一次的运行，避免"上一条技能的结果留在这一条上"。
+     ⚠️ 融合动作（"拿这张图接着做"）会在同一次切换里留下一条提示，而那一次提示
+        正是用户理解"刚才发生了什么、下一步该点哪"的唯一线索 —— 这里必须让它活过清理，
+        否则用户只看到页面跳了、素材位多了张图，不知道为什么。 */
+  const carryHintRef = useRef('');
+  const [carryHint, setCarryHint] = useState('');
   useEffect(() => {
     runRef.current = null;
     setRun(null);
     setError('');
     setNotice('');
+    setCarryHint(carryHintRef.current || '');
+    carryHintRef.current = '';
   }, [board, skillId]);
 
   useEffect(() => () => { try { abortRef.current?.abort?.(); } catch { /* 卸载时忽略 */ } }, []);
 
 
-  const openSkill = useCallback(id => {
+  /* seed：融合动作把"上一步那张结果"带进来时用的初始素材位。
+     ⚠️ 只写值、不触发生成 —— 扣费一律等用户再点「立即生成」。 */
+  const openSkill = useCallback((id, seed = null) => {
     window.history.pushState({}, '', skillDeepLink({ id, board }));
     setSkillId(id);
-    setValues({});
+    setValues(seed && typeof seed === 'object' ? seed : {});
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [board]);
 
@@ -254,6 +290,13 @@ export default function MediaCreationPage() {
     [suite, suiteRun, skill, effectiveValues],
   );
   const busy = visualRunIsBusy(run);
+
+  /* 这条主技能出完图以后，结果区该长出哪些辅助动作（声明源里的 fuses.slot === 'result'）。
+     取法只有 skillDirectory.fuseActionsOf 一份 —— 页面不许自己写"哪些技能能接哪一步"。 */
+  const fuseActions = useMemo(
+    () => (skill && board ? fuseActionsOf(board, skill.id, 'result') : []),
+    [board, skill],
+  );
 
   /* 进行中的运行落盘：刷新/误关标签页之后还能把图找回来（出图是要花钱的，不能白丢） */
   useEffect(() => {
@@ -494,6 +537,7 @@ export default function MediaCreationPage() {
     setRun(current);
     setError('');
     setNotice('');
+    setCarryHint('');   /* 用户已经动手了，带过来的那条说明就该退场 */
     abortRef.current = new AbortController();
     await Promise.all(indexes.map(index => runSlot(current, index)));
     await refreshBillingBalance?.().catch(() => undefined);
@@ -686,6 +730,25 @@ export default function MediaCreationPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  /* ═══ 结果区的融合动作：把"刚才那张结果"带进辅助链路 ══════════════════════════
+     用户 9-17 口径：「有些 skill 其实是辅助作用的……融合在一些主 skill 里面」。
+     这一步做三件事，顺序不能换：
+       ① 找到目标能力的**第一个上传位**（skillImages 就是拿它当主图，所以必须是它）；
+       ② 用这张结果的地址预填成一张已就绪素材（字段值的形状由 FieldRenderer 定义）；
+       ③ 跳到那条能力的子页面，并说清"下一步点哪里、这一次会重新计费"。
+     ⚠️ 绝不在这里调用生成 —— 扣费必须由用户再点一次 CTA（test/charge-requires-confirmation）。 */
+  function fuseFromResult(action, url) {
+    if (!action || !action.skillId || !url) return;
+    const target = board === 'video' ? getVideoSkill(action.skillId) : getImageSkill(action.skillId);
+    if (!target) { setError('这条能力已经下线了'); return; }
+    const slot = (target.fields || []).find(field => field.kind === 'upload');
+    if (!slot) { setError('这条能力没有能接收图片的素材位'); return; }
+    /* ⚠️ 走**独立通道**（carryHint）而不是共用的 notice：上一次运行结束时异步落下的
+       「作品已保存」会晚一步把 notice 顶掉，用户就看不到"我刚才那一下到底干了什么"。 */
+    carryHintRef.current = '已把刚才那张结果放进「' + target.name + '」的素材位，确认后点「立即生成」——这一次会重新计费';
+    openSkill(target.id, { [slot.key]: [{ status: 'ready', url, name: '上一步的结果' }] });
+  }
+
   /* 历史操作②：删除（软删除，服务端可恢复） */
   async function deleteHistory(item) {
     const saveKey = item?.saveKey;
@@ -727,11 +790,13 @@ export default function MediaCreationPage() {
     <>
       {error && <p className="media-run-global" role="alert"><AlertCircle size={14} />{error}</p>}
       {notice && <p className="media-run-notice">{notice}</p>}
+      {/* 融合动作带过来的说明：说清"这张结果是从哪来的、下一步点哪里、会不会再花钱" */}
+      {carryHint && <p className="media-run-carry">{carryHint}</p>}
     </>
   );
   const status = (
     <>
-      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} />
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} />
       {announce}
     </>
   );

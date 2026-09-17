@@ -71,6 +71,74 @@ export function hasCover(skill) {
       但**按钮**没有预览图也站得住：悬停时如实显示"案例补充中"，而不是干脆不出现。
       视频技能现在一条案例都没有，若继续按封面过滤，视频板块下面会**一条入口都没有**。
    ③ 精品推荐优先，其余按声明顺序补齐 —— 与竞品首页那一排的取法一致。 */
+/* ═══ 融合关系：辅助能力不是卡片，而是长在主技能身上的一次动作 ═══════════════════
+   用户 9-17 口径：「有些 skill 其实是辅助作用的……融合在一些主 skill 里面，
+   你自己要先深度思考他们的作用呀。」所以 tier === 'assistant' 的每一条**必须**声明
+   它长在谁身上、以什么形态出现（fuses.slot）：
+     · 'result' 主技能**结果区**里的一次动作 —— 拿刚才那张结果当输入，转到这条链路再跑一遍
+     · 'field'  主技能**控件区**里的一个控制项 —— 数量 / 运镜 / 只改一个元素
+     · 'none'   当前**不具备这个能力**：既不放按钮也不放控件，必须写明 reason（不许假装有）
+   into 写 '*' 表示"同板块任何主技能都适用"（相似图 / 数量 / 运镜属于这一类）。
+   ⚠️ 判据只有这一份：工作台的按钮、文档里的说明都从这里取，不许各自再写一套。 */
+export const FUSE_SLOTS = Object.freeze(['result', 'field', 'none']);
+
+export function skillFusion(skill) {
+  return (skill && skill.fuses) || null;
+}
+
+/* 主技能该长出哪些辅助动作（默认取结果区那一类） */
+export function fuseActionsOf(board, skillId, slot = 'result') {
+  const id = String(skillId || '');
+  if (!id) return [];
+  return skillsOfBoard(board).filter(skill => {
+    if (skill.tier !== 'assistant') return false;
+    const fuses = skillFusion(skill);
+    if (!fuses || fuses.slot !== slot) return false;
+    const into = Array.isArray(fuses.into) ? fuses.into : [];
+    return into.includes('*') || into.includes(id);
+  }).map(skill => ({
+    skillId: skill.id,
+    name: skill.name,
+    label: skillFusion(skill).label || skill.name,
+    note: skillFusion(skill).note || '',
+  }));
+}
+
+/* 辅助能力在界面上怎么解释"它长在哪" —— 口径只有这一份（Hub 卡片用它当副标题）。
+   ⚠️ 用户看到一条辅助能力时最该知道的就是这个：它不是一个能独立干完的活儿，
+      而是主技能里的一个按钮/控件。写"提质感/相似图"这种名字而不写落点，等于让人猜。 */
+export function fusionLabel(skill) {
+  const fuses = skillFusion(skill);
+  if (!fuses) return '';
+  if (fuses.slot === 'none') return '暂未开放：' + String(fuses.reason || '上游能力不具备');
+  const into = Array.isArray(fuses.into) ? fuses.into : [];
+  if (into.includes('*')) {
+    return fuses.slot === 'result'
+      ? '出图后在结果区点「' + fuses.label + '」'
+      : '在各技能的「' + fuses.label + '」控件上选';
+  }
+  const names = into.map(id => {
+    const hit = IMAGE_SKILLS.find(item => item.id === id) || VIDEO_SKILLS.find(item => item.id === id);
+    return hit ? hit.name : id;
+  });
+  return '在「' + names.join('、') + '」的结果区点「' + fuses.label + '」';
+}
+
+/* 「刚才那张结果」能不能当下一步的输入。
+   ⚠️ 镜像服务端 server/imageInput.mjs 的白名单（稳定作品地址 / 临时地址 / data URL / 外链）：
+      服务端读不回来的地址就不给带 —— 否则用户会在下一页撞一句"图片地址无效"，
+      而他根本不知道是自己上一步的结果不能复用。白名单由 test/skill-tier-0918 对着服务端源码守。 */
+const STABLE_ASSET_RE = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|jpeg|png|webp)$/i;
+const TEMP_IMAGE_RE = /^\/api\/ec-temp-img\/[^/]+$/i;
+const DATA_IMAGE_RE = /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/i;
+const REMOTE_IMAGE_RE = /^https?:\/\//i;
+
+export function canCarryResultAsInput(url) {
+  const value = String(url || '').trim();
+  if (!value) return false;
+  return STABLE_ASSET_RE.test(value) || TEMP_IMAGE_RE.test(value) || DATA_IMAGE_RE.test(value) || REMOTE_IMAGE_RE.test(value);
+}
+
 export function featuredSkills({ board = '', limit = 6 } = {}) {
   /* ⚠️ 辅助能力（tier === 'assistant'）**不进精选推荐**：
      它们是某个主技能流程里的一步（提质感 / 换材质 / 延长 / 改画面 / 批量 / 相似图），
