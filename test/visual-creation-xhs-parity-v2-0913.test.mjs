@@ -21,15 +21,21 @@ test('composer 顶部不再有「我的素材 0/6 + 长提示」标题行（素�
 });
 
 test('素材上限说明按小红书位置（@引用行）与措辞（计数+格式）表达，不再有提示句', () => {
-  /* 9-13 三轮：与小红书一致 —— 素材区下方不再有独立提示行；
-     上限说明移入 @引用行右侧（同小红书 ref-hint 位置），只写「我的素材 N/6 · 风格参考 N/3 · JPG/PNG/WebP」 */
+  /* ⚠️ 2026-09-19 批 H（用户批注 #3）：那一行「素材/风格参考 + 计数 + 格式」被用户点名删除：
+     「这一句不要放啊……素材和风格图你完全不用说有多少张呀？」
+     判据反转成：**汇总计数与格式说明都不许再上屏**；
+     但 .visual-limit-note 这个位置保留给唯一一句信息量不为零的话 ——
+     「就绪参考图超过服务端一次能吃下的 8 张时，告诉用户这次会用到几张」。 */
   assert.ok(!source.includes('visual-upload-hint'), '独立提示行已删除');
   assert.ok(!source.includes('主体或参考图都可以'), '自造提示句已删除');
-  assert.match(source, /visual-limit-note/, '上限说明在 @引用行（小红书 ref-hint 位置）');
-  assert.match(source, /我的素材 \{materials\.length\}\/\{MAX_REFERENCES\}/, '我的素材计数可见');
-  assert.match(source, /风格参考 \{styles\.length\}\/\{MAX_STYLE_REFERENCES\}/, '风格参考计数可见');
-  assert.match(source, /JPG\/PNG\/WebP/, '格式说明仍在');
-  assert.match(source, /MAX_STYLE_REFERENCES = 3/, '风格参考上限常量');
+  assert.match(source, /visual-limit-note/, '这个位置保留给「超限告知」那一句');
+  assert.doesNotMatch(source, /我的素材 \{materials\.length\}\/\{MAX_REFERENCES\}/, '不再显示我的素材计数');
+  assert.doesNotMatch(source, /风格参考 \{styles\.length\}\/\{MAX_STYLE_REFERENCES\}/, '不再显示风格参考计数');
+  assert.doesNotMatch(source, /JPG\/PNG\/WebP\}<\/span>/, '格式说明也不再堆在这一行');
+  assert.match(source, /serverCappedReferences > 0/, '超限时才提示，且只说这一件事');
+  /* 上限常量：素材口放开到 30 / 风格 12（用户：「张数应该多一些呀……不应该过分的去限制」） */
+  assert.match(source, /MAX_REFERENCES = 30/, '素材上传口放开');
+  assert.match(source, /MAX_STYLE_REFERENCES = 12/, '风格参考上传口放开');
 });
 
 test('超限时给 toast 提示且不静默丢弃', () => {

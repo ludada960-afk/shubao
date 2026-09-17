@@ -51,9 +51,19 @@ import {
 import './VisualCreationMode.css';
 import { IMAGE_PROMPT_LIMIT } from '../../constants/promptLimits.js';
 
-const MAX_REFERENCES = 6;
-/* 9-13 二轮批注：跟小红书图文一致 ——「我的素材 ≤6 张；风格参考 ≤3 张」分别上限 */
-const MAX_STYLE_REFERENCES = 3;
+/* ═══ 2026-09-19 批 H（用户批注 #3）：「张数应该多一些呀。正常来说，比如说一些电商用户，
+   他可能就是几张他自己的产品图，后面就全部都是竞品的图了，那电商的竞品图可能有十几张、
+   几十张的都有呀。你不应该过分的去限制呀。他上传的多，你就应该往右边去扩展呀。
+   然后给他一条可以向右边滑动的那种滑动条就可以呀。」
+   所以上传口从 6/3 放到 **30/12**（素材条本来就是横向滚动的，多了就往右排）。
+   ⚠️ **上传口 ≠ 这次会带进生成的张数**：服务端 /api/generate 对 reference_images 的硬上限是 8
+     （server/index.mjs：「if (!Array.isArray(referenceImages) || referenceImages.length > 8)」）。
+     超出部分**会如实告诉用户**（见下面的 effective-reference-note），不做"传了 30 张只用 8 张
+     却一声不吭"的事。上传口放开是为了让用户把竞品图一次性摆好、随时挑着用。 */
+const MAX_REFERENCES = 30;
+const MAX_STYLE_REFERENCES = 12;
+/* 服务端能带进一次生成的参考图上限（与 server/index.mjs 的 8 对齐；见 skillRun.MAX_REFERENCE_IMAGES） */
+const SERVER_REFERENCE_LIMIT = 8;
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 /* ═══ 2026-09-19 用户批注 #2-②：首页案例台整块删掉，随之删掉"案例轮播"的三个常量
@@ -187,7 +197,7 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
    所以：分辨率 + 尺寸 + 数量**同一个面板一屏铺开**（照竞品那个『分辨率 / 图片尺寸』面板的形态：
    一行档位、点一下就好），不要再让用户为了一次生成点开三个面板。
    ⚠️ 分辨率仍走 GenSettingsPanel 的权威选项（跟模型能力绑定，1K/2K/4K 白名单不在本文件里另写）。 */
-function VisualSpecsPanel({ selectedSkill, ratio, count, resolution, onRatioChange, onCountChange, onResolutionChange, busy }) {
+function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onResolutionChange, busy }) {
   const options = VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id));
   const RES = [{ key: '1K', hint: '试方向' }, { key: '2K', hint: '推荐' }, { key: '4K', hint: '看细节' }];
   return (
@@ -210,13 +220,11 @@ function VisualSpecsPanel({ selectedSkill, ratio, count, resolution, onRatioChan
           })}
         </div>
       </div>
-      <div className="visual-panel-section">
-        <div className="visual-panel-section-heading"><Layers3 /><div><strong>生成数量</strong><small>一次多张，方便比较构图</small></div></div>
-        <div className="visual-count-grid">
-          {[1, 2, 3, 4].map(value => <button type="button" key={value} className={`visual-count-card${count === value ? ' is-selected' : ''}`} onClick={() => !busy && onCountChange(value)} disabled={busy} aria-pressed={count === value}><strong>{value}</strong><span>{value === 1 ? '单张' : value + ' 张对比'}</span>{count === value && <Check />}</button>)}
-        </div>
-      </div>
-      <div className="visual-panel-note"><Info /><span>模型、分辨率与数量会同步影响预计 AI 积分；生成前仍可随时调整。</span></div>
+      {/* ⚠️ 2026-09-19 批 H（用户批注 #1）：「这个生成数量我觉得也不应该有，就是默认一张，
+          因为其他家也是这么做的。」—— 「生成数量」整块（1/2/3/4 四张卡）删除，恒定 1 张。
+          count 这个 state 仍然保留（值恒为 1），因为它一路带着 runId/slot 的语义，
+          删掉它反而会牵动生成链路；只是用户不再有地方改它。 */}
+      <div className="visual-panel-note"><Info /><span>模型与分辨率会同步影响预计 AI 积分；生成前仍可随时调整。</span></div>
     </div>
   );
 }
@@ -355,6 +363,10 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const retryIndexes = visualRetryIndexes(run);
   const successfulSlots = run?.slots?.filter(slot => slot.status === 'completed') || [];
   const canGenerate = Boolean(prompt.trim() || materials.length || styles.length);
+  /* 一次生成里**真的会带进请求**的参考图张数（服务端上限 8）：
+     超出部分如实写在 @引用行右侧，不让用户以为传了 30 张就用了 30 张。 */
+  const readyReferenceCount = [...materials, ...styles].length;
+  const serverCappedReferences = Math.max(0, readyReferenceCount - SERVER_REFERENCE_LIMIT);
   const generationEstimate = visualGenerationEstimate({ imageModel, resolution, count });
   const estimatedPoints = generationEstimate.points;
   /* 结果图灯箱的条目在打开时才冻结（openResultPreview），这样换 skill / 重新生成
@@ -830,13 +842,14 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           '--visual-panel-anchor-x': `${Math.max(28, Math.min(configPanelPos.width - 28, configPanelPos.anchorX - configPanelPos.left))}px`,
         }}
       >
-        <div className="visual-config-panel-header">
-          <span className="visual-config-panel-icon">{panelMeta?.icon}</span>
-          <div><strong>{panelMeta?.title}</strong><span>{panelMeta?.description}</span></div>
-        </div>
+        {/* ⚠️ 2026-09-19 批 H（用户批注 #3-② / #10）：
+            「然后你这里为什么还要有这些标题之类这些东西呢？不需要呀。」
+            「配置这边不就这三个维度吗？你要搞那么复杂干什么呢？还有那些多余的上面的标题什么的那些都不要呀。」
+            面板顶部的**图标 + 标题 + 一句说明**整块删除 —— 用户点的是「画面规格」这颗按钮，
+            面板是它的直接延伸，再来一行大字只是噪声。aria-label 仍然带着标题，读屏不受影响。 */}
         <div className="visual-config-panel-body">
           {activeConfigPanel === 'recipe' && <VisualRecipePanel selectedSkill={selectedSkill} skillControl={skillControl} updateSkillControl={updateSkillControl} panelValues={panelValues} updatePanelValue={updatePanelValue} busy={busy} />}
-          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} count={count} resolution={resolution} onRatioChange={setRatio} onCountChange={setCount} onResolutionChange={setResolution} busy={busy} />}
+          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} resolution={resolution} onRatioChange={setRatio} onResolutionChange={setResolution} busy={busy} />}
           {/* 模型面板：只留模型选择（清晰度已经挪进「画面规格」——用户要的是"打开就能看到
               分辨率和尺寸"，把它留在模型面板里等于逼用户点两次） */}
           {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
@@ -979,8 +992,18 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               selectionMode="insert"
               onToggle={image => insertMentionInTextarea(promptRef, prompt, setPrompt, image.label)}
             />
-            {/* 9-13 三轮批注：上限说明按小红书位置（@引用行右侧，同小红书 ref-hint 的位置）与措辞（计数 + 格式，不加自造句子） */}
-            <span className="visual-limit-note">我的素材 {materials.length}/{MAX_REFERENCES} · 风格参考 {styles.length}/{MAX_STYLE_REFERENCES} · JPG/PNG/WebP</span>
+            {/* ⚠️ 2026-09-19 批 H（用户批注 #3）：「这一句不要放啊，你放这句干什么呢？用户不需要看这个的。
+                素材和风格图你完全不用说有多少张呀？」
+                —— 「我的素材 0/30 · 风格参考 0/12 · JPG/PNG/WebP」整行删除。
+                格式与上限不再堆在界面上：能传什么格式由文件选择器的 accept 与错误提示承担，
+                上限到了卡片自己会消失（继续添加那颗加号卡）。
+                唯一保留的一句是**信息量不为零**的那句：当就绪的参考图超过服务端一次能吃下的张数时，
+                告诉用户这次会用到几张（见 effective-reference-note）。 */}
+            {serverCappedReferences > 0 && (
+              <span className="visual-limit-note">
+                本次会用到前 {SERVER_REFERENCE_LIMIT} 张参考图，多出的 {serverCappedReferences} 张这次不带上
+              </span>
+            )}
           </div>
         </div>
 
@@ -1009,7 +1032,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               </button>
               <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
                 <MdCropFree aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{resolution} · {ratio} · {count} 张</strong></span>
+                {/* 触发按钮只体现「分辨率 + 比例」两个维度（数量恒为 1，不再上屏） */}
+                <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{resolution} · {ratio}</strong></span>
                 <MdTune aria-hidden="true" />
               </button>
             </div>

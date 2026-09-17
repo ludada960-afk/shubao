@@ -127,8 +127,11 @@ export function buildSkillBrief(skill, values = {}) {
 }
 
 /* ── ③ 图片：第一个上传位当主图（image_url），其余当参考图（reference_images）──
-   服务端上限 9 张参考图；超出直接截断（服务端也会截，但我们在前端就截，免得用户以为多传了有用）。 */
-export const MAX_REFERENCE_IMAGES = 9;
+   ⚠️ 2026-09-19 批 H：这里原来写 9，而服务端是 **8** ——
+      server/index.mjs 的 /api/generate 明确「referenceImages.length > 8」直接 400。
+      实测后果：用户传满 9 张参考图时，请求被服务端拒绝、生成失败，而前端的截断逻辑
+      却以为自己已经处理好了。两边对齐到 8（服务端是唯一权威）。 */
+export const MAX_REFERENCE_IMAGES = 8;
 
 export function skillImages(skill, values = {}) {
   const slots = ((skill && skill.fields) || []).filter(field => field.kind === 'upload');

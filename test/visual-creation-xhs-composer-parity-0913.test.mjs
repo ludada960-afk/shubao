@@ -52,10 +52,13 @@ test('上传区与输入区在同一张卡片内（照小红书那套结构标�
 });
 
 test('文案：素材区「我的素材 / 风格参考」分桶计数；不含违禁词', () => {
-  /* 9-13 二轮批注：顶部标题行已删，计数与上限移入素材区提示行（照小红书位置） */
+  /* ⚠️ 2026-09-19 批 H（用户批注 #3）：「这一句不要放啊，你放这句干什么呢？用户不需要看这个的。
+     素材和风格图你完全不用说有多少张呀？」—— @引用行右侧那行汇总计数整行删除，判据反转。
+     （每张卡自己的名字「我的素材 N」不是汇总计数，仍然保留 —— 见下面那条正面断言。） */
   assert.match(source, /我的素材/, '素材区文案用「我的素材」');
-  assert.ok(source.includes('{materials.length}/{MAX_REFERENCES}'), '我的素材计数保留');
-  assert.ok(source.includes('{styles.length}/{MAX_STYLE_REFERENCES}'), '风格参考计数保留');
+  assert.ok(!source.includes('{materials.length}/{MAX_REFERENCES}'), '不再显示素材汇总计数');
+  assert.ok(!source.includes('{styles.length}/{MAX_STYLE_REFERENCES}'), '不再显示风格参考汇总计数');
+  assert.match(source, /label=\{`我的素材 \$\{index \+ 1\}`\}/, '每张素材卡自己的名字仍在');
   assert.ok(!source.includes('风格参考只影响构图与色调'), '9-13 三轮：自造提示句已随小红书对齐删除');
   for (const word of ['上游', '供应商', '备用', '任务号']) {
     assert.ok(!source.includes(word), '自由创作文案不得出现「' + word + '」');

@@ -1247,11 +1247,20 @@ export default function VideoStudioPage({
                   <span><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>{/* 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？你只要保留一套就好了呀。
-   然后你的积分其实是不能在这里说的。」—— 模型列表原本一行里塞了 4 段文字
-   （型号+档位 / 描述 / 限制 / 积分），现在只留**一段描述**；
-   积分只出现在右下角按钮上，并随选择实时变化（见 totalJobPoints）。
-   ⚠️ 这里是 JSX **子节点**位置，注释必须写成 {/* … */}，写成 /* … */ 会直接编译失败。 */}</span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
+                /* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
+                   你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
+                   —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），
+                      现在只留**一段描述**；积分只出现在右下角按钮上，并随选择实时变化。
+                   ═══ 2026-09-19 批 H 修（用户批注 #11-②「你这下面完全是乱码的」）═══════
+                   根因有两条，都在这一个注释容器里：
+                     ① 注释正文里**又写了注释符号本身**（成对的斜杠星号）——
+                        注释在那一对符号处就**提前结束**了，后面的正文变成 JSX 文本被渲染出来；
+                     ② 容器收尾处多了一个右花括号，同样被当成文本节点渲染。
+                   现在：正文里不再出现任何注释符号，容器只有一个花括号收尾。
+                   ⚠️ 往后的规矩：JSX 子节点位置的注释用花括号包起来（表达式容器），
+                      并且**正文里绝不能再写注释符号**。 */
+                </span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
               </span>
             </div>
             <div className="video-toolbar-buttons">
@@ -1294,7 +1303,15 @@ export default function VideoStudioPage({
         ⚠️ 但「生成记录」**任何时候都要渲染**：它是这个账号全部视频任务的唯一入口
            （子页面的历史是按技能筛过的一份视图，筛不到不等于任务没了）。
            曾经把整段一起收起来过 —— 结果"标记缺失时任务就看不见了"，E2E 当场抓住。 */}
-    {(!embedded || inlineResult) && <section className="video-result-workbench"><div className="video-stage">
+    {/* ═══ 2026-09-19 批 H（用户批注 #5-④）：「你这一块就不要吧，就是这个生成的作品啊，
+        包括后面这个白色的底，你就都拿掉吧，你先拿掉吧，我感觉真的太难看了。」
+        —— 首页创作台的**空成片台 + 白底卡 + 「我生成的作品」按钮**整块删除。
+        为什么可以删而没有信息损失：
+          · 空成片台在没任务时本来就只是一句「成片会显示在这里」；
+          · 「我生成的作品」本来就是把人送到画布的作品页 —— 左侧导航**已经有「我的作品」**这一项，
+            同一件事不需要在同一屏出现两次（这也是用户批注 #11-③「不如就放到左边的导航栏里」的落点）。
+        子页面（!homeComposer）照旧铺完整生成记录 —— 那是这个账号全部视频任务的唯一入口。 */}
+    {(!embedded || inlineResult) && !homeComposer && <section className="video-result-workbench"><div className="video-stage">
         {(!embedded || job) && <>
           <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>
             {job?.status === 'completed' && job.resultUrl

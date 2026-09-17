@@ -46,8 +46,15 @@ test('visual creation is a complete conversation-style image workbench', () => {
      9-13 三轮批注：上限按小红书位置（@引用行）与措辞（计数+格式），不再有自造提示句 */
   assert.match(source, /我的素材/);
   assert.match(source, /JPG\/PNG\/WebP/);
-  assert.match(source, /我的素材 \{materials\.length\}\/\{MAX_REFERENCES\}/);
-  assert.match(source, /风格参考 \{styles\.length\}\/\{MAX_STYLE_REFERENCES\}/);
+  /* ⚠️ 2026-09-19 批 H（用户批注 #3）：「这一句不要放啊……素材和风格图你完全不用说有多少张呀？」
+     —— 「我的素材 n/30 · 风格参考 n/12 · JPG/PNG/WebP」整行**已删除**，判据随之反转：
+     界面上不许再出现“素材/风格参考 + 计数 + 斜杠 + 上限”这行。 */
+  assert.doesNotMatch(source, /我的素材 \{materials\.length\}\//);
+  assert.doesNotMatch(source, /风格参考 \{styles\.length\}\//);
+  assert.doesNotMatch(source, /JPG\/PNG\/WebP\}<\/span>/);
+  /* 反向守住"别把格式与上限也一起删没了"：accept 仍然限制格式，上限仍在声明里 */
+  assert.match(source, /ACCEPTED_IMAGE_TYPES/);
+  assert.match(source, /const MAX_REFERENCES = \d+;/, '上传口上限必须仍然存在（只是不再上屏）');
   /* 9-13：提示词引导按子页面走 selectedSkill.promptHint（缺省回落到通用文案） */
   assert.match(source, /selectedSkill\.promptHint/);
   assert.match(source, /只重试失败项/);
@@ -100,10 +107,18 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /画面尺寸/);
   assert.match(source, /生成数量/);
   /* 分辨率 / 尺寸 / 数量必须落在**同一个** VisualSpecsPanel 里（用户要的是"一屏配好"） */
-  const specs = source.slice(source.indexOf('function VisualSpecsPanel'), source.indexOf('function getVisualPanelPosition'));
-  for (const text of ['分辨率', '画面尺寸', '生成数量']) {
+  /* ⚠️ 一律在**剥掉注释**的源码上比："为什么删掉生成数量"这段解释本身就会写到那四个字，
+     带注释比会让这条断言靠注释通过（等于没测）。 */
+  const sourceCode = stripComments(source);
+  const specs = sourceCode.slice(sourceCode.indexOf('function VisualSpecsPanel'), sourceCode.indexOf('function getVisualPanelPosition'));
+  for (const text of ['分辨率', '画面尺寸']) {
     assert.ok(specs.includes(text), `「${text}」必须在同一个画面规格面板里，而不是各自一个面板`);
   }
+  /* ⚠️ 2026-09-19 批 H（用户批注 #1）：「这个生成数量我觉得也不应该有，就是默认一张，
+     因为其他家也是这么做的。」—— 数量选择器整块删除（判据反转）。 */
+  assert.doesNotMatch(sourceCode, /生成数量/);
+  assert.doesNotMatch(sourceCode, /visual-count-grid|visual-count-card|VisualCountPanel/);
+  assert.doesNotMatch(stylesCode, /\.visual-count-grid|\.visual-count-card/);
   assert.doesNotMatch(source, /VisualSizePanel|VisualCountPanel/);
   const bar = source.slice(source.indexOf('aria-label="生成配置"'), source.indexOf('visual-generate-button'));
   /* 数的是**按钮实例**（className={`visual-config-trigger…）而不是裸类名 ——
@@ -136,8 +151,9 @@ test('visual creation is a complete conversation-style image workbench', () => {
      **已被产品决定删掉的**那份入口 —— 继续守它等于逼着下一轮把卡片加回来。 */
   assert.doesNotMatch(source, /visual-skill-option|visual-skill-grid|VISUAL_SKILL_ICONS/);
   assert.doesNotMatch(stylesCode, /\.visual-skill-option|\.visual-skill-grid/);
-  assert.match(source, /我的素材 \{materials\.length\}/);
-  assert.match(source, /风格参考 \{styles\.length\}/);
+  /* 卡片标签仍然是「我的素材 N / 风格参考 N」（那是每张图自己的名字，不是汇总行） */
+  assert.match(source, /label=\{`我的素材 \$\{index \+ 1\}`\}/);
+  assert.match(source, /label=\{`风格参考 \$\{index \+ 1\}`\}/);
 
   /* ═══ 样式契约 ═══════════════════════════════════════════════════════════════ */
   assert.match(styles, /width:\s*min\(1240px,\s*100%\)/);

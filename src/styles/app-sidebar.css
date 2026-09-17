@@ -9,15 +9,25 @@
 :root { --sb-app-sidebar-w: 0px; }
 
 .app-shell { display: flex; align-items: stretch; min-height: 100vh; --sb-app-sidebar-w: 96px; }
-.app-main { flex: 1 1 auto; min-width: 0; }
+.app-main { flex: 1 1 auto; min-width: 0; margin-left: var(--sb-app-sidebar-w); }
 
+/* ═══ 2026-09-19 批 H：侧栏从 sticky 改成 **fixed**（用户批注 #2）═════════════════════
+   用户原话：「你做的这个左边导航栏为什么会在上面呢。就是我整个首页往下拉，
+   它为什么不会下来呢？你这莫名其妙的完全就是乱来。」
+   为什么不是"再调一下 sticky"：
+     sticky 的效果取决于**最近的滚动容器**是谁，而这条链上有一堆变量 ——
+     body 有 overflow-x: hidden、首页根节点有 overflowX: 'clip'、.app-shell 又是
+     align-items: stretch 的 flex 容器。headless 里探针读到 navTop 恒为 0（看起来是对的），
+     但用户实机看到的是列表跟着页面滚走了 —— 说明这条链在真实浏览器里不是我以为的那样。
+     与其继续猜，不如用**不依赖任何祖先**的写法：fixed 相对视口定位，
+     高度就是视口高度（inset: 0 auto 0 0），无论页面怎么滚、祖先有什么 overflow，它都不动。
+   ⚠️ fixed 会让元素脱离文档流，所以左栏宽度改用 .app-main 的 margin-left 让位
+     （--sb-app-sidebar-w 仍是唯一事实源；画布页不渲染侧栏时该变量为 0，行为不变）。 */
 .app-sidebar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  inset: 0 auto 0 0;
   z-index: var(--sb-z-sticky);
-  flex: 0 0 96px;
   width: 96px;
-  height: 100vh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -144,7 +154,7 @@
    用户批注 #7-② 要的就是常驻 */
 @media (max-width: 900px) {
   .app-shell { --sb-app-sidebar-w: 76px; }
-  .app-sidebar { flex-basis: 76px; width: 76px; padding-inline: 6px; }
+  .app-sidebar { width: 76px; padding-inline: 6px; }
   .app-sidebar-label { display: none; }
   .app-sidebar-cell { width: 60px; padding: 7px 4px; }
 }
