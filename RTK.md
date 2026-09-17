@@ -3161,3 +3161,27 @@ skill 子页面一定带 skillTag。**子页面形态下功能一个不少**（�
 92 条技能里只有 4 条有真实案例图；其余 88 条按既有口径**如实**显示「案例补充中」——
 它现在是**有设计的字标位**（accent 渐变 + 两字字标），不再是「一块坏掉的灰」。
 要真正让总页面变成案例墙，需要用户先跑出案例（铁律：不许伪造生成结果）。
+### 发布结果（2026-09-17 20:1x）
+- 发布提交：**7428c5e2**（上一个已发布提交是本批的 `2652a236`，两个都发过一遍：
+  先发 2652a236，随后补了「套图自定义配置真的生效」再发 7428c5e2 —— 线上现在就是后者）。
+- release 目录 `/var/www/shubao/releases/20260917-201051-7428c5e2`，`current` 软链已指向它。
+- **入口 bundle 逐字节核对**：`assets/index-CUd7rk6s.js`，
+  本地 dist 与线上 sha256 完全一致（`fb27fddfae587982556daa92a1ab26153024f76753b11a102ce7fc062219634a`，637866 字节），
+  `current/index.html` 里引用的就是它。
+- 服务端健康：`{"ok":true,"ready":true,"service":"shubao","pid":850180,...}`；PM2 `shubao-production` online。
+- 按 `-SkipPublicChecks` 跳过的公网校验（部署机到 shuimg.cn 443 不通）：
+  gallery / video / 认证校验 / canary 会话校验 —— **需要用户在大陆视角复跑**（用浏览器打开站点复验）。
+- 这台机器到 shuimg.cn 的 443 同样不通，所以上面用的是「源站侧 curl + 产物 sha256 逐字节比对」等效判据。
+
+### 发布命令（这一轮实际用的，干净检出那一步别再踩坑）
+```powershell
+# 1) 干净检出到独立目录（不要复用主仓库工作区）
+git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C . \
+    worktree add F:/da/_deploy-b39 --detach 7428c5e2
+# 2) node_modules 用 junction 指向**本工作树**（指主仓库会缺 playwright，全量测试直接 7 条红）
+New-Item -ItemType Junction -Path F:/da/_deploy-b39/node_modules \
+    -Target F:\da\shubao\.worktrees\codex-ecommerce-stability\node_modules
+# 3) 发布
+$env:SHUBAO_CANARY_SESSION_TOKEN = [Environment]::GetEnvironmentVariable('SHUBAO_CANARY_SESSION_TOKEN','User')
+pwsh -NoProfile -File scripts/deploy-production.ps1 -RepoPath F:/da/_deploy-b39 -SkipPublicChecks
+```
