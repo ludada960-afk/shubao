@@ -3297,3 +3297,56 @@ pwsh -NoProfile -File scripts/deploy-production.ps1 -RepoPath F:/da/_deploy-b39 
   ⚠️ 本轮三个提交里有两次是**纯 CSS 改动** —— 入口 JS 的哈希会**保持不变**（JS 里没有样式）。
      只看 `index-*.js` 会误判成「没发出去」，必须同时核对 `style-*.css`。
 - precommit 通过 + 全量 npm run test 3917 条 / 3907 pass / 0 fail / 10 skip。
+### 批次四十（续二）：批 H-4 —— 顶栏两端式 + 模型按钮一步展开
+
+#### 1. 顶栏从「三段式」改成「两端式」（用户批注 #11-⑤）
+用户原话：「包括你上面的导航栏也是一样的情况。不应该还是左边 LOGO 中间是导航栏。
+你要看一下别人是怎么做的。你照抄竞品的设计方案是对的。」
+
+改前 `.topbar-row` 是 `grid-template-columns: minmax(220px,1fr) auto minmax(220px,1fr)`，
+中间那一列专留给域导航（图片生成/视频生成）—— 就是用户说的「左 LOGO 中间导航栏」。
+改法：
+- 域导航**从顶栏移走**，挂到内容区顶部的一条 `.app-board-bar`（只在两个总页面/子页面上渲染）；
+- `.topbar-row` 同时改成 `display:flex; justify-content:space-between`（三列变两端，
+  否则中间列空着会把右侧按钮组挤到中间）；
+- 首页不再有这条切换条 —— 首页自己有那两张入口卡，不需要一条用不上的导航占着顶栏。
+
+实测（CDP，三档页面各读一次 DOM）：
+| 页面 | `.app-board-bar` | `.topbar-row` 子元素 |
+|---|---|---|
+| `/` | 无 | `[topbar-brand, topbar-actions]` |
+| `/image-creation` | 有（图片生成 视频生成）| `[topbar-brand, topbar-actions]` |
+| `/image-creation?id=…` | 有 | `[topbar-brand, topbar-actions]` |
+三档的 `display` 都是 `flex` / `justify-content: space-between`。
+
+⚠️ `CreativeDomainNav.jsx` **没有删**（它承载两个域的数据契约，4 个门禁在读它），只换了挂载位置。
+
+#### 2. 模型按钮点开即见清单（用户批注 #3-① / #9）
+根因：`GenSettingsPanel` 里 `useState(false)` 把「默认折叠」**写死在组件里**，
+于是首页那颗只有「选模型」一个用途的触发按钮，点开之后还要用户再点第二次才看得到清单。
+改成初始开合由调用方给（`openModelList` prop）：首页传、通用「生成设置」面板不传。
+
+#### 3. 判据改动的两处（都写明理由）
+- `gen-settings-panel-model-copy-0914`：原判据断言的是**写死的那个初值**，
+  改成守机制（`useState(openModelList === true)` + 缺省 false + 首页必须传）——
+  只改默认值不改机制的话，下一个人还会把两种场景绑死在同一个初值上。
+- `scripts/media-workbench-e2e` 场景⑱：域导航搬家后首页上已经没有 `#creative-nav-trigger-image`，
+  起点从 `/` 改成 `/image-creation`（顺带把「点领域名不会把人带走」的期望 URL 一起改）。
+  ⚠️ 这类「选择器跟着 UI 搬家」的红，表现形式是 `waitForSelector Timeout` —— 看着像产品坏了，其实是判据过期。
+
+#### 4. 发布（批 H-4）
+- 发布提交：**f441362d** → release `/var/www/shubao/releases/20260917-233548-f441362d`。
+- **产物逐字节核对**：`assets/index-PNzGJOCi.js` `3df28f6dc9bb5f3f2a2f369e12e9146a6ad53d7607f9e0964c0e6d797cbc7550`，
+  `assets/style-3QawmKxi.css` `fbf65a50fbf73617c4b37f8275441cb20ad91f3e93c835f067bc0229460f3b80` —— 本地与线上完全一致。
+- precommit 通过 + 全量 npm run test 3917 条 / 3907 pass / 0 fail / 10 skip。
+
+#### 5. 批 H 仍未做（目标继续挂着）
+1. **视频模型清单恢复**（#7）：「起码有差不多 10 个模型吧，为什么现在都不见了呢？」——
+   视频模型清单来自服务端 `capabilities.products`，**必须先核实线上实际给几个**；
+   本地没有后端时 `products` 是空数组，看不到真实清单。凭印象往目录里加模型会静默回落到别的引擎（钱与结果都不对）。
+2. **卡片与图片生成侧统一**（#5-②）：两个板块的卡片本来就是同一个组件（`CaseCard`），
+   差别只在视频卡渲染 `<video>`、图片卡渲染 `<img>`；用户说「具体哪里不一样，我也说不出来」，
+   当前证据不足以定位，需要用户再指一次具体是哪一张卡。
+3. **生成记录入口进左侧导航**（#11-③）：H-1 已经把首页那颗按钮删掉了，
+   而左侧导航本来就有「我的作品」（打开作品页）—— 这一条按现状已满足，未做额外改动；
+   如果用户要的是**独立的「生成记录」项**（与「我的作品」并列），需要用户确认，避免两项指向同一个地方。
