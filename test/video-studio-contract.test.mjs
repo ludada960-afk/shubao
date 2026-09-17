@@ -52,7 +52,13 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /reusable = plannedUploads/);
   assert.doesNotMatch(page, /不调用上游，也不会扣积分/);
   assert.match(page, /planReviewed/);
-  assert.match(page, /useState\('smart'\)/);
+  /* 默认创作方式 = 智能成片。
+     ⚠️ 原来这条断言写的是字面量 useState('smart')，9-17 支持技能子页面用 initialMode 指定
+        自己那一档（skillVideoMode）之后就变成**守实现细节**：源码合规、断言却红，
+        而它当时不在 precommit 的 BLOCKING 名单里，只在部署时跑 —— 结果是提交全绿、部署永远红，
+        线上一个月没更新。现在改成守**默认值本身**（常量），改默认值才报错，改写法不报错。 */
+  assert.match(page, /useState\(\(\) => initialMode \|\| DEFAULT_VIDEO_MODE\)/);
+  assert.match(page, /DEFAULT_VIDEO_MODE/);
   assert.match(page, /video-mode-tabs/);
   assert.match(page, /把创意素材变成吸引人的短片/);
   assert.doesNotMatch(page, /变成可交付的视频/);

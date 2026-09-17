@@ -43,6 +43,7 @@ import {
   createVideoAssetUpload,
 } from '../../services/video.js';
 import {
+  DEFAULT_VIDEO_MODE,
   VIDEO_CREATION_MODES,
   hasRequiredVideoInputs,
   quoteForVideoProduct,
@@ -304,7 +305,8 @@ export default function VideoStudioPage({
   const [activeVideoProjectId, setActiveVideoProjectId] = useState('');
   const [activeVideoPlanHash, setActiveVideoPlanHash] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [mode, setMode] = useState(() => initialMode || 'smart');
+  /* 默认创作方式 = 智能成片；技能子页面用 initialMode 指定自己那一档（skillVideoMode） */
+  const [mode, setMode] = useState(() => initialMode || DEFAULT_VIDEO_MODE);
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);

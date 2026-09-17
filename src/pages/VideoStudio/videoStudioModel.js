@@ -1,3 +1,10 @@
+/* 视频创作台的**默认创作方式**（9-18 提炼成常量）。
+   9-17 起技能子页面会用 preset 指定 initialMode（skillVideoMode），没有技能上下文时才回到这个默认值。
+   提炼成常量是为了让断言能守「默认是什么」，而不是守「某一行怎么写」——
+   test/video-studio-contract 之前写的是字面量 useState('smart')，于是支持 initialMode 之后
+   那条断言变成守实现细节，一改就红、却没人发现（它不在 precommit 的 BLOCKING 名单里，只在部署时跑）。 */
+export const DEFAULT_VIDEO_MODE = 'smart';
+
 export const VIDEO_CREATION_MODES = [
   { id: 'smart', label: '智能成片', hint: '一句话起步，素材可选' },
   { id: 'frame', label: '首尾帧', hint: '用两张图锁定镜头起点和终点' },

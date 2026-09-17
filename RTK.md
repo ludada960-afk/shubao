@@ -2852,3 +2852,27 @@ slot = result（结果区动作）/ field（控件）/ none（没有能力，必
    但『从资产库弹窗里直接上传』仍未做（旧批次遗留，属资产库页面，不属本次媒体页）。
 5. **候选池**：视频还剩 39 条、图片还剩 538 条配方（docs/design/skill-recipe-pool.json），等用户挑。
 
+
+---
+
+## 批次（三十二）：线上一个月没更新的真正原因（部署阻塞）
+
+### 用户报『线上没变化，我根本没办法体验』—— 查出来的是一条**红了很久的契约测试**
+- 事实核对：线上最近一次 release 是 `20260916-172303-779cd6e5`，**就在我这条分支上**，
+  即发布确实从 `codex/ecommerce-stability` 走；`779cd6e5..HEAD` 只差 **42 个提交**，全是媒体那一整套
+  （之前看到的『领先 1299』是跟一条早已过期的 `codex/ecommerce-release` 分支比，不算数）。
+- 部署脚本第一步是**全量 `npm run test`**（3911 条），这一步红了：
+  `test/video-studio-contract.test.mjs` 断言 `useState('smart')` 字面量，
+  而我在 `e0278254`（首页两张卡 + 重流程搬进子页面）把源码改成 `useState(() => initialMode || 'smart')`
+  —— 源码是对的（技能子页面要落在自己那一档），**是断言在守实现细节**。
+- **为什么一个月没人发现**：这条测试**不在 precommit 的 BLOCKING 名单里**，
+  precommit 只跑 BLOCKING 那 34 个文件 → 提交全绿；只有部署脚本跑全量测试 → 红。
+  于是『本地全绿、部署永远失败、线上停在旧版』，谁都以为功能没做。
+
+### 修法（三件事一起做）
+1. 默认创作方式提炼成常量 `DEFAULT_VIDEO_MODE = 'smart'`（videoStudioModel.js），页面用它；
+2. 契约断言改成**守默认值本身**（`initialMode || DEFAULT_VIDEO_MODE`），改写法不再报错、改默认值才报错；
+3. **把 `test/video-studio-contract.test.mjs` 挂进 precommit BLOCKING** —— 同类漂移必须在提交时暴露，
+   而不是等部署脚本在凌晨告诉你。
+全量 `npm run test`：**3911 条 / 3901 pass / 0 fail**。
+
