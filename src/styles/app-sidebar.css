@@ -1,0 +1,140 @@
+/* ═══ 左侧常驻导航（2026-09-18 用户批注 #1 / #14）═══════════════════════════════════
+   用户口径：「总页面必须有一个常驻入口，左边导航栏很适合做」+「平时张开，需要时可折叠」。
+   布局契约：外壳是 flex —— 侧栏是一列（可折叠宽度），主内容是一列；
+   内容区不需要各自加 padding-left（少改一处就少一处漂移）。
+   ⚠️ 折叠态沿用原来那个悬浮胶囊的观感（老用户熟悉的图标栏），展开态才是完整菜单。 */
+
+/* 侧栏宽度暴露给全站固定定位元素（任务列表 dock 等）避让用。
+   没有侧栏的页面（画布）默认 0 —— 那些页面的浮层行为与从前完全一致。 */
+:root { --app-sidebar-w: 0px; }
+
+.app-shell { display: flex; align-items: stretch; min-height: 100vh; --app-sidebar-w: 248px; }
+.app-shell:has(.app-sidebar.is-collapsed) { --app-sidebar-w: 72px; }
+@media (max-width: 1180px) { .app-shell { --app-sidebar-w: 72px; } }
+.app-main { flex: 1 1 auto; min-width: 0; }
+
+.app-sidebar {
+  flex: 0 0 248px;
+  width: 248px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 12px 16px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.92);
+  border-right: 1px solid var(--sb-border-default);
+  backdrop-filter: blur(18px);
+  transition: width .2s ease, flex-basis .2s ease;
+  z-index: var(--sb-z-sticky);
+}
+.app-sidebar.is-collapsed { flex-basis: 72px; width: 72px; padding-inline: 12px; }
+
+.app-sidebar-head { display: flex; align-items: center; gap: 8px; }
+.app-sidebar-home,
+.app-sidebar-item,
+.app-sidebar-toggle,
+.app-sidebar-caret,
+.app-sidebar-subitem {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--sb-ink-1);
+}
+.app-sidebar-home {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+.app-sidebar-home:hover { background-color: var(--sb-hover-bg); }
+.app-sidebar-home[aria-current='page'] { background: var(--sb-surface-tint-strong); color: var(--sb-brand-600); }
+.app-sidebar-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--sb-ink-2);
+}
+.app-sidebar-toggle:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.app-sidebar.is-collapsed .app-sidebar-home { justify-content: center; padding: 0; }
+.app-sidebar.is-collapsed .app-sidebar-head { flex-direction: column; }
+
+.app-sidebar-scroll { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; }
+
+.app-sidebar-group { display: flex; flex-direction: column; gap: 2px; }
+.app-sidebar-group-row { display: flex; align-items: center; gap: 4px; }
+.app-sidebar-group-row .app-sidebar-item { flex: 1 1 auto; }
+
+.app-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--sb-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.app-sidebar-item:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.app-sidebar-item.is-active { background: var(--sb-surface-tint-strong); color: var(--sb-brand-600); }
+.app-sidebar-item svg { flex: 0 0 auto; }
+
+.app-sidebar-caret {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--sb-ink-3);
+}
+.app-sidebar-caret:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.app-sidebar-caret svg { transition: transform .18s ease; }
+.app-sidebar-caret svg.is-open { transform: rotate(180deg); }
+
+.app-sidebar-sublist { list-style: none; margin: 2px 0 6px; padding: 0 0 0 12px; display: flex; flex-direction: column; gap: 1px; }
+.app-sidebar-subitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--sb-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-sidebar-subitem:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.app-sidebar-subitem.is-active { background: var(--sb-surface-tint-strong); color: var(--sb-brand-600); font-weight: 700; }
+.app-sidebar-subitem.is-more { color: var(--sb-brand-600); font-weight: 700; }
+
+.app-sidebar-divider { height: 1px; margin: 8px 6px; background: var(--sb-border-subtle); }
+
+.app-sidebar.is-collapsed .app-sidebar-label,
+.app-sidebar.is-collapsed .app-sidebar-sublist { display: none; }
+.app-sidebar.is-collapsed .app-sidebar-item { justify-content: center; padding: 0; }
+.app-sidebar.is-collapsed .app-sidebar-caret { display: none; }
+
+/* 窄屏：默认折叠成图标栏，避免正文被压得过窄 */
+@media (max-width: 1180px) {
+  .app-sidebar { flex-basis: 72px; width: 72px; }
+  .app-sidebar .app-sidebar-label,
+  .app-sidebar .app-sidebar-sublist { display: none; }
+  .app-sidebar .app-sidebar-item,
+  .app-sidebar .app-sidebar-home { justify-content: center; padding: 0; }
+  .app-sidebar .app-sidebar-caret { display: none; }
+}

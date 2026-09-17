@@ -55,7 +55,7 @@ const clarityField = () => ({ key: 'clarity', label: '清晰度', kind: 'segment
 export const IMAGE_SKILLS = [
   /* ── 精品推荐：推荐位，封面只用图、不烤字（实测口径）──────────────────────── */
   {
-    id: 'image.free', board: 'image', name: '自由创作', category: '精品推荐', complexity: 'simple',
+    id: 'image.free', board: 'image', name: '自由创作', category: '创意应用', complexity: 'simple',
     cover: { template: 'hero-single', accent: 'neutral' },
     summary: '一句话起步，画面方向自己定', pipeline: 'visualCreation', availability: 'ready',
     visual: 'free',
@@ -68,7 +68,7 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'image.poster', board: 'image', name: '海报设计', category: '精品推荐', complexity: 'simple',
+    id: 'image.poster', board: 'image', name: '海报设计', category: '创意应用', complexity: 'simple',
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '先立主视觉，再排信息层级', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
@@ -84,7 +84,7 @@ export const IMAGE_SKILLS = [
     ], history: true,
   },
   {
-    id: 'image.social_cover', board: 'image', name: '社媒封面', category: '精品推荐', complexity: 'simple',
+    id: 'image.social_cover', board: 'image', name: '社媒封面', category: '创意应用', complexity: 'simple',
     cover: { template: 'poster-style', accent: 'accent' },
     summary: '缩略图里也看得清主题', pipeline: 'visualCreation', availability: 'ready',
     visual: 'social-cover',
@@ -98,7 +98,8 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'image.product_suite', board: 'image', name: '电商商品套图', category: '精品推荐', complexity: 'heavy',
+    featuredRank: 1,
+    id: 'image.product_suite', board: 'image', name: '商品套图', category: '精品推荐', complexity: 'heavy',
     /* 一键解析（照竞品做法：付费前置动作）。我们用现成的 /api/ecommerce/auto-recognize
        （视觉识别 + LLM 结构化），计费 SKU 是既有的 ec_ai_assistant = 200 units = **0.2 积分**，
        与竞品的 0.20 积分一致。fills 指向它回填哪个字段。 */
@@ -130,7 +131,8 @@ export const IMAGE_SKILLS = [
   },
 
   {
-    id: 'image.aplus', board: 'image', name: 'A+ 内容图', category: '精品推荐', complexity: 'standard',
+    featuredRank: 2,
+    id: 'image.aplus', board: 'image', name: 'A+内容', category: '精品推荐', complexity: 'standard',
     parse: { fills: 'product', label: '一键解析商品信息' },
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -156,7 +158,8 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'image.detail_page', board: 'image', name: '详情页模块', category: '精品推荐', complexity: 'standard',
+    featuredRank: 3,
+    id: 'image.detail_page', board: 'image', name: '详情图', category: '精品推荐', complexity: 'standard',
     parse: { fills: 'product', label: '一键解析商品信息' },
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -405,7 +408,9 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'image.try_on', board: 'image', name: '模特试穿', category: '电商专区', complexity: 'standard',
+    featuredRank: 6,
+    /* 命名对齐竞品（用户 9-18 批注 16）：「他们叫 AI 换装，我们也可以跟他们一样去叫 AI 换装」。 */
+    id: 'image.try_on', board: 'image', name: 'AI换装', category: '精品推荐', complexity: 'standard',
     cover: { template: 'before-after', accent: 'soft' },
     summary: '把商品穿到模特身上，姿势场景可选', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
@@ -624,7 +629,8 @@ export const IMAGE_SKILLS = [
     /* 复刻程度照竞品做成二选一（他们：参考排版 / 高度复刻，各带一句说明）。
        ⚠️ 这里如实说清：两种口径的差别**体现在提示词的严格程度**上（图生图链路是同一条），
           不是在引擎里切了不同模型 —— 写清楚才不会让用户以为换了引擎。 */
-    id: 'image.copy', board: 'image', name: '图文复刻', category: '创意应用', complexity: 'standard',
+    featuredRank: 4,
+    id: 'image.copy', board: 'image', name: '图片复刻', category: '精品推荐', complexity: 'standard',
     cover: { template: 'before-after', accent: 'cool' },
     summary: '保住构图与节奏，换成自己的内容', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
@@ -875,7 +881,8 @@ export const IMAGE_SKILLS = [
 
   /* ── 图片编辑：统一形态「一张图 + 一句要求」────────────────────────────── */
   {
-    id: 'image.remove_bg', board: 'image', name: '去除背景', category: '图片编辑', complexity: 'standard',
+    featuredRank: 5,
+    id: 'image.remove_bg', board: 'image', name: '去除背景', category: '精品推荐', complexity: 'standard',
     cover: { template: 'hero-single', accent: 'cool' },
     summary: '去掉背景，出透明底或纯色底', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',

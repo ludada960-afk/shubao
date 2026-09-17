@@ -39,86 +39,13 @@ import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
 import AccountEntitlementControl from './components/billing/AccountEntitlementControl.jsx';
 import MemberCenterModal from './pages/Home/MemberCenterModal.jsx';
 import CreativeDomainNav from './components/layout/CreativeDomainNav.jsx';
+import AppSidebar from './components/layout/AppSidebar.jsx';
+import './styles/app-sidebar.css';
 import ThemeSwitcher from './components/layout/ThemeSwitcher.jsx';
 
-function SideNav() {
-  const { state, dispatch } = useApp();
-  const { page } = state;
-  const requestLogin = target => {
-    const destination = typeof target === 'string' ? target : target?.type === 'OPEN_CANVAS' ? 'ec-canvas' : target?.page;
-    dispatch({
-      type: 'SET_LOGIN_INTENT',
-      intent: { destination, source: state.page, ...(typeof target === 'object' && target?.tab ? { canvasTab: target.tab } : {}) },
-    });
-    dispatch({ type: 'SHOW_LOGIN', show: true });
-  };
-  const items = [
-    {
-      icon: Sparkles,
-      motion: 'sparkles',
-      label: '开始创作',
-      isPrimary: true,
-      active: page === 'home',
-      onClick: () => dispatch({ type: 'NEW_WORK' }),
-    },
-    /* 9-11 用户批注#9 (裁决: 方案一): 侧栏「视频创作」按钮移除 — 视频入口收敛到顶部「视频生成」域
-       (首页视频模块 + 工作台) 与画布内视频生成器/发往视频项目, 侧栏不再放重复入口。 */
-    {
-      icon: LayoutGrid,
-      motion: 'grid',
-      label: '画布',
-      active: page === 'ec-canvas',
-      onClick: () => {
-        if (!state.logged) return requestLogin('ec-canvas');
-        dispatch({ type: 'OPEN_CANVAS' });
-      },
-    },
-    {
-      icon: FolderOpen,
-      motion: 'folder',
-      label: '作品',
-      active: false,
-      onClick: () => {
-        if (!state.logged) return requestLogin('works');
-        dispatch({ type: 'OPEN_CANVAS', tab: 'works' });
-      },
-    },
-    {
-      icon: Images,
-      motion: 'assets',
-      label: '素材',
-      active: page === 'ec-canvas' && state.canvasEntryTab === 'assets',
-      onClick: () => {
-        if (!state.logged) return requestLogin({ type: 'OPEN_CANVAS', tab: 'assets' });
-        dispatch({ type: 'OPEN_CANVAS', tab: 'assets' });
-      },
-    },
-  ];
-
-  return (
-    <nav className="app-side-nav" aria-label="快速创作导航">
-      {items.map(item => {
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.label}
-            type="button"
-            onClick={item.onClick}
-            aria-label={item.label}
-            aria-current={item.active ? 'page' : undefined}
-            data-nav-icon={item.motion}
-            className={`app-side-nav-item${item.isPrimary ? ' is-primary' : ''}${item.active ? ' is-active' : ''}`}
-          >
-            <span className={`app-side-nav-icon motion-${item.motion}`} aria-hidden="true">
-              <Icon size={item.isPrimary ? 19 : 20} strokeWidth={2.1} />
-            </span>
-            <span className="app-side-nav-tooltip" role="tooltip" aria-hidden="true">{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
+/* 旧的悬浮图标栏 SideNav 已删除（用户 9-18 批注 #1）：它既放不下技能入口，
+   又只有图标——用户看不懂每个按钮是什么。取而代之的是左侧常驻导航 AppSidebar，
+   它承载「图片生成 / 视频生成」两个总页面与各自的精品推荐入口。 */
 
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
@@ -338,13 +265,22 @@ function AppRouter() {
     message: '案例用于查看效果，生成自己的作品后即可继续编辑或下载。',
   });
 
+  /* ═══ 外壳：左侧常驻导航 + 主内容（用户 9-18 批注 #1：总页面必须有常驻入口）═══════
+     canvas 页整屏自己排版，所以它的外壳里不渲染侧栏（与旧行为一致）。 */
+  const shell = content => (page === 'ec-canvas'
+    ? <>{content}</>
+    : <div className="app-shell"><AppSidebar /><div className="app-main">{content}</div></div>);
+
+  /* ⚠️ TaskSidebar 必须在外壳**内部**：它靠 .app-shell 提供的 --app-sidebar-w 让位给左侧导航；
+     放到外壳外面就只能继承 :root 的 0 值，于是又被侧栏压住（这是实测出来的）。 */
   return (<>
-    {page !== 'ec-canvas' && <SideNav />}
-    <TaskSidebar />
-    {page !== 'ec-canvas' && <TopBar />}
-    <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: 'var(--sb-ink-4)' }}>加载中…</div>}>
-      <PageComponent key={state._workVersion || 0} />
-    </React.Suspense>
+    {shell(<>
+      <TaskSidebar />
+      <TopBar />
+      <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: 'var(--sb-ink-4)' }}>加载中…</div>}>
+        <PageComponent key={state._workVersion || 0} />
+      </React.Suspense>
+    </>)}
     {(galleryItem || (genState === 'result' && shouldShowNoteModal({ page, result }))) && (
       <NoteModal
         item={previewItem}

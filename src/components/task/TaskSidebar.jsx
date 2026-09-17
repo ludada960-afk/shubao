@@ -115,7 +115,9 @@ export default function TaskSidebar() {
       ref={dockRef}
       style={{
         position: 'fixed',
-        left: 16,
+        /* 让位左侧常驻导航（用户 9-18 批注 #1 新增侧栏）：--app-sidebar-w 由 .app-shell 提供，
+           没有侧栏的页面（画布）回落到 0，浮层位置与从前完全一致。 */
+        left: 'calc(var(--app-sidebar-w, 0px) + 16px)',
         bottom: 86,
         zIndex: 'var(--sb-z-panel)',
         display: 'flex',

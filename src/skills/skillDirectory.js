@@ -146,7 +146,11 @@ export function featuredSkills({ board = '', limit = 6 } = {}) {
      判据与归属写在声明源里（tier / belongsTo），由 test/skill-tier-0918 守着。 */
   const pool = (board === 'video' ? VIDEO_SKILLS : board === 'image' ? IMAGE_SKILLS : [...IMAGE_SKILLS, ...VIDEO_SKILLS])
     .filter(skill => skill.tier !== 'assistant');
-  const preferred = pool.filter(skill => skill.category === '精品推荐');
+  /* 精品位顺序由 featuredRank 决定（1,2,3…），与文件里的声明顺序解耦 ——
+     用户 9-18 批注 13：「他们精品推荐放的是哪些 skill，我们就照抄他们的做法」，
+     所以这一档的成员与顺序是**照竞品对齐的产品决策**，不该被"技能写在文件第几行"左右。 */
+  const preferred = pool.filter(skill => skill.category === '精品推荐')
+    .sort((a, b) => (a.featuredRank || 99) - (b.featuredRank || 99));
   const rest = pool.filter(skill => skill.category !== '精品推荐');
   return [...preferred, ...rest].slice(0, Math.max(1, limit));
 }
