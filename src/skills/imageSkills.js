@@ -37,6 +37,19 @@ const CLARITY = [
 /* 这两个字段在 20 多条技能里重复出现，**只能有一份定义**（含默认值）。
    默认值必须与 skillRun.js 的回落值一致：界面显示什么，就跑什么。 */
 const ratioField = () => ({ key: 'ratio', label: '比例', kind: 'segmented', options: RATIO, required: true, default: '1:1' });
+
+/* 跨境卖家刚需的两个档位（照竞品实测：他们的每一个电商技能都有这两个下拉）。
+   ⚠️ 它们**只进提示词**，不改变引擎协议 —— 市场影响文案与合规习惯，语言决定画面里的文字。 */
+const MARKET = [
+  { value: '中国', label: '中国' }, { value: '美国', label: '美国' }, { value: '欧洲', label: '欧洲' },
+  { value: '东南亚', label: '东南亚' }, { value: '日本', label: '日本' }, { value: '韩国', label: '韩国' },
+];
+const LANGUAGE = [
+  { value: '简体中文', label: '简体中文' }, { value: 'English', label: 'English' },
+  { value: '日本語', label: '日本語' }, { value: '한국어', label: '한국어' }, { value: '不出现文字', label: '不出现文字' },
+];
+const marketField = () => ({ key: 'market', label: '目标市场', kind: 'segmented', options: MARKET, default: '中国' });
+const languageField = () => ({ key: 'language', label: '文案语言', kind: 'segmented', options: LANGUAGE, default: '简体中文' });
 const clarityField = () => ({ key: 'clarity', label: '清晰度', kind: 'segmented', options: CLARITY, required: true, default: '2K' });
 
 export const IMAGE_SKILLS = [
@@ -89,7 +102,7 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '主图、场景图、卖点图成套交付', pipeline: 'ecommerceSuite', availability: 'ready',
     visual: 'free',
-    brief: '围绕商品生成一套电商图。商品信息：{{productParams}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合目标平台的图片规范。',
+    brief: '围绕商品生成一套电商图。商品信息：{{productParams}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合{{platform}}的图片规范与目标市场的审美习惯。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
       /* 平台决定套图结构（出几张、各是什么比例）—— 它真的参与方案计算与报价，不是装饰 */
@@ -98,6 +111,8 @@ export const IMAGE_SKILLS = [
         { value: '拼多多', label: '拼多多' }, { value: '京东', label: '京东' },
       ] },
       { key: 'productParams', label: '商品信息', kind: 'textarea', rows: 4, placeholder: '第一行写商品名，后面可以写卖点与材质' },
+      marketField(),
+      languageField(),
       /* 结构/规格是套图专有的重配置：默认按平台智能匹配，自定义面板在套图工作台里 —— 
          这里如实说明，不做一个点了没反应的按钮 */
       { key: 'structure', label: '结构', kind: 'slot', slotLabel: '配置套图结构', hint: '默认按平台智能匹配；自定义结构在套图工作台里配' },
@@ -115,13 +130,23 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一张亚马逊 A+ 内容模块图。商品：{{product}}。这个模块要讲的事：{{module}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
+    brief: '做一张 A+ 内容模块图。商品：{{product}}。这个模块要讲的事：{{module}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
       { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：冷萃咖啡液 250ml' },
       { key: 'module', label: '模块主题', kind: 'textarea', rows: 3, required: true, placeholder: '例如：原料产地与烘焙曲线，配一张剖面图' },
+      marketField(),
+      languageField(),
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
+    ],
+    /* 交付清单照竞品那份（他们 A+ 页列出 16 个可勾选模块；我们做成只读的交付说明，
+       因为我们的张数与报价由方案算死，可勾选会让钱对不上）。 */
+    deliverables: [
+      { name: '功能总览图', hint: '把产品的几项核心功能一次讲完' },
+      { name: '技术细节图', hint: '放大结构、材质与做工' },
+      { name: '生活方式图', hint: '放进真实使用场景' },
+      { name: '品牌主视觉', hint: '统一的品牌调性与留白' },
     ],
     cases: [], history: true,
   },
@@ -130,7 +155,7 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一张电商详情页的「{{module}}」模块图。商品：{{product}}。这一屏要讲的点：{{copy}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
+    brief: '做一张电商详情页的「{{module}}」模块图。商品：{{product}}。这一屏要讲的点：{{copy}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 3, role: 'product', slotLabel: '上传商品图' },
       { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：氨基酸洁面慕斯' },
@@ -140,7 +165,17 @@ export const IMAGE_SKILLS = [
         { value: '使用场景', label: '使用场景' },
       ] },
       { key: 'copy', label: '要讲的点', kind: 'textarea', rows: 3, placeholder: '例如：氨基酸配方、洗完不紧绷、一次一泵' },
+      marketField(),
+      languageField(),
       ratioField(),
+    ],
+    /* 竞品详情图页的示例清单是「01 高效率销售转化详情页 02 场景氛围与情感共鸣详情页
+       03 医学专研与极简信任详情页 04 产品规格参数图」——我们按单屏模块如实列。 */
+    deliverables: [
+      { name: '高效率销售转化详情页', hint: '首屏把卖点与购买理由说清' },
+      { name: '场景氛围与情感共鸣详情页', hint: '把商品放进生活场景' },
+      { name: '成分 / 材质说明详情页', hint: '讲清配方、材质与工艺' },
+      { name: '产品规格参数图', hint: '尺寸、容量、型号一览' },
     ],
     cases: [], history: true,
   },
@@ -412,6 +447,12 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
+    /* 竞品「图片复刻」页的示例清单是「01 原图 02 原图 03 原图 04 复刻图 05 复刻图 06 复刻图」——
+       成对展示"原图 → 复刻图"，我们也按这个口径交付（before/after 版式）。 */
+    deliverables: [
+      { name: '原图（输入的参考图）', hint: '你上传的那张，作为复刻基准' },
+      { name: '复刻图（保持构图与版式）', hint: '换掉商品与卖点，构图节奏不变' },
+    ],
     id: 'image.copy', board: 'image', name: '图文复刻', category: '创意应用', complexity: 'standard',
     cover: { template: 'before-after', accent: 'cool' },
     summary: '保住构图与节奏，换成自己的内容', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -468,7 +509,7 @@ export const IMAGE_SKILLS = [
         所以每条 brief 里都写死了"结构不变"的约束。 */
   {
     id: 'image.floorplan_render', board: 'image', name: '平面转效果图', category: '建筑家装', complexity: 'standard',
-    cover: { template: 'hero-single', accent: 'cool' },
+    cover: { template: 'before-after', accent: 'cool' },
     summary: '一张户型图，长出一套三维效果图', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '把这张户型图转成三维室内效果图：{{room}}。要求：房间数量、开间进深、门窗位置与户型图**完全一致**，家具按常规布局摆放且尺度合理，顶面、地面与墙面的材质统一，光线从窗户自然进入；不要新增或删减房间，不要改动承重结构，画面里不出现文字与尺寸标注。',
@@ -482,7 +523,7 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.interior_style', board: 'image', name: '装修风格转换', category: '建筑家装', complexity: 'standard',
-    cover: { template: 'case-3up', accent: 'warm' },
+    cover: { template: 'before-after', accent: 'warm' },
     summary: '同一个空间，换成另一种装修风格', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '把这张室内照片的装修风格改成「{{style}}」。要求：空间结构、门窗位置、房间尺寸与机位**完全不变**，只更换硬装材质、家具款式、软装与配色；光线方向与原图一致，材质质感真实（木纹、石材、织物可辨），不出现变形、穿模与多余文字。',
@@ -500,7 +541,7 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.rough_interior', board: 'image', name: '毛坯房设计', category: '建筑家装', complexity: 'standard',
-    cover: { template: 'hero-single', accent: 'soft' },
+    cover: { template: 'before-after', accent: 'soft' },
     summary: '毛坯现场照，直接出精装方案', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '把这张毛坯房照片做成精装完成后的样子：{{plan}}。要求：墙体、梁柱、门窗与管道位置**完全保留**，只在其上增加吊顶、地面、墙面饰面与家具；机位与透视不变，光线从原有窗户进入，材质真实、色温统一，不出现结构改动与文字标注。',
@@ -514,7 +555,7 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.day_night_still', board: 'image', name: '日夜气候切换', category: '建筑家装', complexity: 'simple',
-    cover: { template: 'hero-single', accent: 'cool' },
+    cover: { template: 'case-3up', accent: 'cool' },
     summary: '同一张图，出白天 / 黄昏 / 夜晚三版', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '把这张建筑 / 空间图改成「{{moment}}」的样子。要求：建筑结构、机位、构图与材质**完全不变**，只改变光线方向、色温、天空与阴影；室内灯光在夜景中要自然亮起并有真实反射，地面湿度与反光符合天气设定，不出现结构变化与文字。',
@@ -531,7 +572,7 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.furniture_swap', board: 'image', name: '软硬装替换', category: '建筑家装', complexity: 'standard',
-    cover: { template: 'case-3up', accent: 'accent' },
+    cover: { template: 'before-after', accent: 'accent' },
     summary: '结构不动，只换家具与饰面', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '保持这张空间图的结构与机位**完全不变**，把家具与饰面替换成：{{target}}。要求：只替换可移动家具、灯具、软装与墙地面饰面，墙体、门窗、梁柱与尺寸不动；新家具的比例与透视要和空间吻合，材质光影统一，不出现漂浮、穿模与文字。',
@@ -545,7 +586,7 @@ export const IMAGE_SKILLS = [
   },
   {
     id: 'image.render_quality', board: 'image', name: '效果图质感提升', category: '建筑家装', complexity: 'simple',
-    cover: { template: 'hero-single', accent: 'neutral' },
+    cover: { template: 'before-after', accent: 'neutral' },
     summary: '把普通效果图提到商业出图水准', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '提升这张效果图的画面质感，不改变任何结构、家具与机位。要求：修正材质反射与粗糙度，让木纹、石材、金属、织物各自可辨；补足环境光遮蔽与柔和阴影，降低塑料感与噪点，提亮暗部但不死黑，整体色温统一、画面干净通透，达到商业出图水准。',

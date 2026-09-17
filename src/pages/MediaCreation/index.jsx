@@ -20,6 +20,9 @@ import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 import XhsContentMode from '../Home/XhsContentMode.jsx';
 import VideoStudioPage from '../VideoStudio/index.jsx';
 import { contentResultPages, isContentResult } from '../Home/contentResultModel.js';
+/* 套图的交付清单必须与**方案真源**同源（IMAGE_TYPES 的标签 + resolveEcommercePlan 算出的张数），
+   否则会出现"示例里写着 5 样、实际只交付 3 样"这种自相矛盾（计价按张数走，写错就是钱的问题）。 */
+import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
@@ -375,6 +378,22 @@ export default function MediaCreationPage() {
         若它掉进单图分支，会按 1 积分发一次单图请求 —— 既不是用户要的东西，也把计价搞错了。
         所以在套图就地跑通之前，它走 handoff（带着配置回既有套图工作台），绝不走单图。 */
 
+  /* 交付清单：套图走方案算出来的真实清单；其它技能（A+/详情图/复刻）走声明源里的 deliverables。
+     ⚠️ 竞品那套「包含模块」是**可勾选**的（勾几个就出几个、价钱跟着变）；
+        我们的套图张数与报价由平台方案算死，**不能**照抄成可勾选 —— 那会让报价与产出对不上。
+        所以这里只做**只读的交付说明**，如实告诉用户"这一套会交出哪几样、各几张"。 */
+  const deliverables = useMemo(() => {
+    if (!skill) return [];
+    const declared = Array.isArray(skill.deliverables) ? skill.deliverables : [];
+    if (!suite || !suiteRun?.plan?.images?.length) return declared;
+    return suiteRun.plan.images.map(image => {
+      const type = IMAGE_TYPES.find(item => item.key === image.key);
+      const name = (type ? type.label : image.key) + ' × ' + (image.count || 1);
+      const ratio = image.ratio ? image.ratio : (type ? type.defaultRatio : '');
+      return { name, hint: [ratio, type ? type.desc : ''].filter(Boolean).join(' · ') };
+    });
+  }, [skill, suite, suiteRun]);
+
   /* 统一失焦：登录 / 余额不足交给既有守卫处理，其余就地显示 */
   const handleError = useCallback((err) => {
     const access = handleGenerationAccessError(err, dispatch, { source: 'visual_creation' });
@@ -715,6 +734,7 @@ export default function MediaCreationPage() {
         onHistoryReuse={reuseHistory}
         history={history}
         panel={panel}
+        deliverables={deliverables}
         emptyHistoryHint={embed === 'video'
           ? '这条技能还没有生成记录。这个账号的全部视频任务都在上方工作台的「生成记录」里，结果出来后会同步到这里。'
           : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里。' : '')}

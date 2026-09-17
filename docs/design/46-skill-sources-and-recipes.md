@@ -17,7 +17,7 @@
 | 板块 | 条数 | 官方 | 高星库 | 竞品 | 自研 |
 |---|---|---|---|---|---|
 | 图片 | 40 | 0 | 15 | 14 | 11 |
-| 视频 | 39 | 22 | 10 | 6 | 1 |
+| 视频 | 42 | 25 | 10 | 6 | 1 |
 
 来源渠道（登记时查询的真实 star）：
 
@@ -37,12 +37,17 @@
 - **子页面**：`/image-creation?id=image.free`
 - **可用性**：ready（现有链路可跑）
 - **来源**：我们自研链路 · 
-  - 说明：我们自己的自由创作链路（visualCreation + image2），无外部配方依赖
+  - 说明：我们自己的自由创作链路（visualCreation + image2）
 - **我们的配方提示词**（子页面里预填）：
 
   > 自由创作：{{prompt}}。画面要有一个明确的视觉焦点，空间关系可信，光线有来处，配色克制统一；不要出现水印、logo、二维码或价格文字。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > GPT Image 2 Prompt Create a creative commercial advertising poster for [PRODUCT NAME], a [PRODUCT TYPE], inspired by vibrant tropical product campaigns. Place the product as a large hero object on the center-right with realistic glossy reflections, sharp label details, and premium lighting. Add a stylish model sitting beside or slightly in front of the product, naturally interacting with it by [MODEL ACTION]. The model should look [MOOD], wearing [OUTFIT STYLE], and should not cover the product label.
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ad-creative_case178/output.jpg
 
 - **封面出图配方**：版式 `hero-single` · 色相 `neutral` · 标题「自由创作」 · 主体：一张风格鲜明的生成插画或摄影作品
 
@@ -98,9 +103,14 @@
   - 说明：我们自己的套图引擎（resolveEcommercePlan 按平台算张数与报价），服务端流水线自研
 - **我们的配方提示词**（子页面里预填）：
 
-  > 围绕商品生成一套电商图。商品信息：{{productParams}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合目标平台的图片规范。
+  > 围绕商品生成一套电商图。商品信息：{{productParams}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合{{platform}}的图片规范与目标市场的审美习惯。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > Prompt 1: Create a cinematic hero image of a gourmet cheeseburger on a dark stone surface with glossy brioche bun, melted cheese, crisp lettuce, tomato, grilled patty, sauce, realistic texture, appetizing steam, warm side light, shallow depth of field, premium food commercial style, no text/logos/watermark. Prompt 2: Create a 9-cell hybrid keyframe-to-transition storyboard sheet for a 15-second gourmet burger ad, moving from empty surface to ingredient assembly to final macro hero shot. Use large S cells and smaller T cells, motion arrows, ghosted ingredient positions, steam, sauce trails, and camera push-in icons. Style: premium food commercial, warm lighting, rich texture, appetizing, cinematic, minimal labels only. No logos, no watermark.
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ecommerce_case163/output.jpg
 
 - **封面出图配方**：版式 `case-3up` · 色相 `warm` · 标题「电商套图」 · 主体：同一款商品的三种电商成品图（白底、场景、卖点）
 
@@ -115,7 +125,7 @@
   - 说明：A+ 图文模块的信息图配方
 - **我们的配方提示词**（子页面里预填）：
 
-  > 做一张亚马逊 A+ 内容模块图。商品：{{product}}。这个模块要讲的事：{{module}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。
+  > 做一张 A+ 内容模块图。商品：{{product}}。这个模块要讲的事：{{module}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。
 
 - **来源原文提示词**（照它生成案例）：
 
@@ -137,7 +147,7 @@
   - 说明：详情页分屏模块的网格版式
 - **我们的配方提示词**（子页面里预填）：
 
-  > 做一张电商详情页的「{{module}}」模块图。商品：{{product}}。这一屏要讲的点：{{copy}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。
+  > 做一张电商详情页的「{{module}}」模块图。商品：{{product}}。这一屏要讲的点：{{copy}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。
 
 - **来源原文提示词**（照它生成案例）：
 
@@ -161,7 +171,12 @@
 
   > 生成干净的白底商品图：商品完整居中、边缘锐利、比例真实，柔和的棚拍光影带出材质与体积感，保留商品自身的颜色、结构与文字；不要添加道具、场景或任何文字。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > A high-end enthusiast ATX gaming motherboard product photo on a dark studio background, shown in a three-quarter top-down perspective angled from the lower left toward the upper right. The board is mostly matte black and gunmetal with sharp geometric armor plates, brushed metal textures, and subtle RGB edge lighting in blue, purple, and magenta. Feature an exposed modern Intel-style CPU socket near the upper center, 4 black DIMM memory slots on the right, large VRM heatsinks across the top and upper left, and multiple reinforced PCIe slots in the lower half. Include 3 major branded heatsink zones: a tall rear I/O shroud at upper left with an illuminated RGB eye logo and the text "MAXIMUS HERO", a left-side chipset/slot armor piece with the text "SUPREMEFX", and a large angular lower-right chipset cover with a silver ROG-style emblem plus a lower strip that reads "FOR THOSE WHO DARE". Show detailed capacitors, headers, power connectors, debug display reading "88" at the top right, and a small round start button nearby. Ultra-detailed commercial product photography, crisp focus across the board, realistic reflections on metal, premium luxury tech aesthetic, dramatic low-key lighting,
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case153/output.jpg
 
 - **封面出图配方**：版式 `hero-single` · 色相 `cool` · 标题「白底商品图」 · 主体：一件商品的白底主图，细节清楚
 
@@ -176,7 +191,12 @@
 
   > 把商品放进真实使用场景：{{scene}}。商品要保持可辨认的结构、颜色与材质，场景的光线、透视与投影要和商品对得上，像一张真实拍出来的生活照；不要出现文字或水印。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > A warm, editorial-style lifestyle product photo shot indoors from a low close-up angle, focused on a woman's lower legs and feet as she tries on 1 pair of black leather backless loafers with tan faux-fur lining. One loafer is worn on the right foot and the left foot is bare, hovering just above the textured cream shag rug, while the second matching loafer lies on the rug in the lower left foreground. The shoes have smooth black leather uppers, a rounded almond toe, open mule-style heel, plush brown fur spilling out around the opening, and a small polished gold horsebit hardware detail across the vamp. The model wears cropped medium-blue denim jeans with a raw frayed hem. The setting is a cozy minimalist interior with a cream rug featuring 2 thin irregular black lines, a neutral wall, and a leaning rectangular mirror with a medium wood frame in the upper right background, softly reflecting the rug and part of the scene. Use soft natural window light, shallow depth of field, subtle film grain, realistic skin texture, muted beige and black palette, relaxed candid composition, premium fashion catalog mood, high detail, photorealistic.
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case117/output.jpg
 
 - **封面出图配方**：版式 `case-3up` · 色相 `warm` · 标题「场景种草图」 · 主体：同一商品在真实使用场景里的三张成品图
 
@@ -191,7 +211,12 @@
 
   > 拍一张材质与工艺的细节特写，重点：{{focus}}。用微距级的景深与侧光把纹理、接缝与做工交代清楚，画面干净有质感；不要虚构商品上不存在的结构或接口。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > A soft {argument name="bottle color" default="cream-colored"} bottle with a {argument name="pump color" default="pastel yellow"} pump stands on a matte podium, surrounded by silky foam and {argument name="flowers" default="chamomile blossoms"}. The background is a pale yellow gradient with subtle bubble details. The label emphasizes organic chamomile and calming care. Fresh chamomile flowers accentuate the gentle appeal.
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case114/output.jpg
 
 - **封面出图配方**：版式 `case-3up` · 色相 `cool` · 标题「材质细节」 · 主体：同一商品材质与工艺的三张微距特写
 
@@ -206,7 +231,12 @@
 
   > 生成商品的多角度成套图，视角：{{angle}}。同一件商品在同一组光线与背景下的连拍感，比例、颜色与细节在各角度之间保持一致；不要改变商品结构。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > Core Subject: [{argument name="reference" default="use the uploaded image"}, keep the details, typography and structure locked 100%] Layout & Composition: A {argument name="presentation type" default="professional industrial design presentation sheet"}. The image should be organized into a clean grid system. Top Row: A 3x3 layout showing top-down flat lay views and close-up macro details of materials. Middle Section: Three hero shots of the product standing upright in different color ways (Matte Black, Arctic White, and accented variants). The products should be slightly tilted to show depth and form. Bottom Section: A dynamic "floating" composition featuring two products overlapping at opposing angles to showcase the front and side profiles simultaneously. Environment & Lighting: Set against a minimalist, neutral studio gray background. Soft top-down lighting with realistic contact shadows. High-end product photography aesthetic. Style & Finish: Matte textures, clean silhouettes, and sharp edges. Leave designated blank areas on the product surfaces for "Placeholder Branding" and "Graphic Mockups." 4k resolution, Unreal Engine 5 render style, hyper-realistic, clean aesthetic.
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case116/output.jpg
 
 - **封面出图配方**：版式 `case-3up` · 色相 `cool` · 标题「多角度套图」 · 主体：同一商品正面、侧面与俯视的多角度成套图
 
@@ -221,7 +251,12 @@
 
   > 把商品穿到模特身上。场景：{{scene}}。保留模特的五官、身材比例与肤色，商品要贴合身体、褶皱与垂坠自然，光线统一；不要改变商品的颜色与图案。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > Create a premium streetwear fashion campaign poster inspired by modern Asian apparel advertising. Full body portrait of a stylish young male model standing confidently with legs crossed at the ankles, hands inside jacket pockets, head turned slightly upward and sideways with a calm thoughtful expression. Curly tousled medium length hair with soft volume. Slim athletic build. Outfit includes a dark olive green padded hooded jacket worn open, clean white crewneck sweatshirt underneath with a tiny chest logo, relaxed black cargo style trousers, and minimal white sneakers. Styling is clean, youthful, and contemporary. Background is a vibrant electric blue seamless studio backdrop with subtle gradient lighting, soft glow streaks, and glossy floor reflection. Lighting is soft studio light with gentle shadows and polished commercial finish. Graphic poster layout with giant bold condensed sans serif text reading “JEANSWEST” vertically stretched across the background behind the model in light gray white. Add large text on lower right reading “JW26”. Composition should feel premium, trendy, clean, commercial, youthful, modern fashion ad campaign. Sharp focus, ultra realistic fabric texture, 
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case71/output.jpg
 
 - **封面出图配方**：版式 `before-after` · 色相 `soft` · 标题「模特试穿」 · 主体：商品平铺图与模特穿着成品的对照画面
 
@@ -236,7 +271,12 @@
 
   > 用商品图、人物图与场景图合成电商成品图。补充要求：{{prompt}}。三份素材的主体特征都要保留：商品不变形、人物五官不漂移、场景光线与主体一致；不要出现文字。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > Old money Hamptons editorial, tall blonde woman late 20s, serene elegant expression, wearing cream cashmere cable sweater, pleated beige tennis skirt, pearl earrings, Hermès silk scarf, leather flats, Slim Aarons photography style, medium format film photography, sitting on a white wooden porch of a Cape Cod house, golden hour light, ocean in the background
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case57/output.jpg
 
 - **封面出图配方**：版式 `case-3up` · 色相 `warm` · 标题「批量商品图」 · 主体：商品、人物与场景三份素材合成的一组成品图
 
@@ -497,7 +537,12 @@
 
   > 围绕这个主题做一组小红书配图。主题：{{prompt}}。文风：{{style}}。要求：真实感优先，像手机随手拍出来的生活记录，不要做成广告海报；不出现水印与二维码。
 
-- **来源原文提示词**：暂无（该来源是竞品产品侧或我们自研链路，没有公开配方可抄；需要时以竞品子页面的实际做法为准）
+- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：
+
+  > for GPT-2: Create a single image storyboard with 9 cinematic frames arranged in a  3×3 grid. Each frame is a widescreen 16:9 panel with a film aspect ratio  letterbox. Style: ultra-cinematic sci-fi blockbuster mixed with premium  airline commercial. Think Blade Runner 2049 color grading meets a UEFA  Champions League broadcast opener meets a luxury brand TVC.
+
+- **参考案例素材**（1 个）：
+  - https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case292/output.jpg
 
 - **封面出图配方**：版式 `case-3up` · 色相 `soft` · 标题「小红书图文」 · 主体：一组小红书种草图（封面加两张内页）
 
@@ -1130,6 +1175,66 @@
 
 - **封面出图配方**：版式 `case-3up` · 色相 `accent` · 标题「分镜转视频」 · 主体：分镜脚本与对应成片的三帧对照
 
+#### 多场景拼接 · `video.scene_stitch`
+
+- **一句话**：一张首帧带出上下左右多个场景
+- **子页面**：`/video-creation?id=video.scene_stitch`
+- **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
+- **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
+  - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-6 多场景空间拼接`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-seedance-2.5-guide/blob/main/use-cases/zh-CN/01-consistency.md
+  - 说明：官方原话："把@图片1作为画面的首帧图，第一人称视角……上方场景参考@图片2，左边场景参考@图片3"
+- **我们的配方提示词**（子页面里预填）：
+
+  > 以上传的主图为画面首帧，第一人称视角：镜头先看正前方，再依次转向左侧与右侧，把旁边几张参考图里的场景无缝拼接到同一个空间里；转场跟随视线，透视与光线保持一致，商品在各场景中位置与比例合理，不出现错位或重复。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > 把@图片1作为画面的首帧图，第一人称视角，参考@视频1的运镜效果，上方场景参考 @图片2，左边场景参考@图片3，右边场景参考@图片4。
+
+- **来源自带案例素材**（8 个）：
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref1.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref2.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref3.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref4.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref1.jpg
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref1.mp4
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/result.jpg
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/result.mp4
+
+- **封面出图配方**：版式 `case-3up` · 色相 `accent` · 标题「多场景拼接」 · 主体：首帧主图与左右两个场景无缝拼接的三帧
+
+#### 卡点混剪 · `video.beat_mashup`
+
+- **一句话**：多张图跟着音乐卡点依次出来
+- **子页面**：`/video-creation?id=video.beat_mashup`
+- **可用性**：ready（现有链路可跑）
+- **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
+  - 具体位置：`use-cases/zh-CN/09-music-sync.md#2-3-9-2 多风格图片卡点混剪`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-seedance-2.5-guide/blob/main/use-cases/zh-CN/09-music-sync.md
+  - 说明：官方"音乐卡点"章的图片混剪用例
+- **我们的配方提示词**（子页面里预填）：
+
+  > 把上传的多张图做成音乐卡点混剪：每一张在鼓点或重拍上切换，镜头运动方式每两拍变化一次（推近 / 横移 / 轻微旋转），过渡干净不拖影；整体色调统一，节奏与音乐贴合，不出现文字与水印。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > @图片1@图片2@图片3@图片4@图片5@图片6@图片7中的图片根据@视频中的画面关键帧的位置 和整体节奏进行卡点，画面中的人物更有动感，整体画面风格更梦幻，画面张力强，可根据 音乐及画面需求自行改变参考图的景别，及补充画面的光影变化
+
+- **来源自带案例素材**（10 个）：
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref1.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref2.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref3.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref4.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref5.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref6.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref1.jpg
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref1.mp4
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/result.jpg
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/result.mp4
+
+- **封面出图配方**：版式 `case-3up` · 色相 `soft` · 标题「卡点混剪」 · 主体：多张图跟着鼓点依次切换的三个关键帧
+
 ### 人像摄影
 
 #### 模特动态 · `video.model_runway`
@@ -1680,3 +1785,27 @@
   - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/5/result.mp4
 
 - **封面出图配方**：版式 `case-3up` · 色相 `warm` · 标题「产品植入」 · 主体：商品被自然放进原片场景的三个关键帧
+
+#### 文字一致性广告 · `video.text_consistency`
+
+- **一句话**：包装与卖点文字全程不糊、不改样
+- **子页面**：`/video-creation?id=video.text_consistency`
+- **可用性**：needs_ref（需要参考素材路由，声明支持但未实测出片）
+- **来源**：上游官方用例 · Seedance 2.5 官方 use-cases（中文）（403★）
+  - 具体位置：`use-cases/zh-CN/01-consistency.md#2-3-1-4 商品细节 + 文字一致性（磁吸蝴蝶结广告）`
+  - 跟踪链接：https://github.com/EvoLinkAI/awesome-seedance-2.5-guide/blob/main/use-cases/zh-CN/01-consistency.md
+  - 说明：官方原话用 0-2 秒/3-6 秒逐段写画面与画外音 —— 这条配方专门解决"包装文字糊掉"的电商硬伤
+- **我们的配方提示词**（子页面里预填）：
+
+  > 按分秒写清每个镜头的画面与口播：0-2 秒快速四格闪切，把商品的四个款式/配色依次定格，特写材质与包装上的品牌字样；3-6 秒给一次结构或五金特写；7-12 秒切换三到四个使用场景；最后几秒并排陈列全部款式收尾。全程包装文字、Logo 与配色必须逐帧一致、清晰不糊，不出现臆造的品牌与价格。
+
+- **来源原文提示词**（照它生成案例）：
+
+  > 0-2秒画面：快速四格闪切，红、粉、紫、豹纹四款蝴蝶结依次定格，特写缎面光泽与 "chéri" 品牌字样。画外音"Chéri 자석 리본으로 무궁무진한 아름다움을 연출해 보세요!" 3-6秒画面：特写银色磁吸扣 "咔嗒" 吸合，再轻轻一拉分开，展示丝滑质感与便捷性。 画外音"단 1초 만에 잠그고, 최고의 스타일을 완성하세요!" 7-12秒画面：快速切换佩戴场景：酒红款别在大衣领口；粉色款绑在马尾；紫色款系在包带； 豹纹款挂在西装领。画外音"코트, 가방, 헤어 액세서리까지, 다재다능하고 개성 넘치는 스타일을 완성하세요!" 13-15秒画面：四款蝴蝶结并排陈列，品牌名 "chéri, 당신에게 즉각적인 아름다움을 선사합니다!"
+
+- **来源自带案例素材**（3 个）：
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/4/ref1.png
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/4/result.jpg
+  - https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/4/result.mp4
+
+- **封面出图配方**：版式 `case-3up` · 色相 `warm` · 标题「文字一致性」 · 主体：四个款式依次定格、包装文字全程清晰的三帧

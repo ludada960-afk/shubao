@@ -108,10 +108,24 @@ const snapshot = {
 let matched = 0;
 for (const skill of ALL) {
   const source = SKILL_SOURCES[skill.id];
-  if (!source || source.kind === 'ours' || source.kind === 'competitor') continue;
-  const hit = matchOne(source);
-  if (!hit) { console.warn('匹配不上（引用写错了？）：' + skill.id + ' ← ' + source.ref); continue; }
-  snapshot.bySkill[skill.id] = { lib: hit.lib, file: hit.file, caseId: hit.id, title: hit.title, sourceLink: hit.ref || '', prompt: hit.prompt, assets: hit.assets };
+  if (!source) continue;
+  /* 主来源是官方/高星库 → 直接匹配那条 case；
+     主来源是自研/竞品（没有公开配方）→ 退到 reference（"参考效果"，用来对标最佳效果出案例）。 */
+  const primary = ['official', 'repo'].includes(source.kind) ? source : null;
+  const fallback = !primary && source.reference ? source.reference : null;
+  const hit = primary ? matchOne(primary) : (fallback ? matchOne(fallback) : null);
+  if (primary && !hit) { console.warn('匹配不上（引用写错了？）：' + skill.id + ' ← ' + primary.ref); continue; }
+  if (!hit) continue;
+  snapshot.bySkill[skill.id] = {
+    lib: hit.lib,
+    file: hit.file,
+    caseId: hit.id,
+    title: hit.title,
+    sourceLink: hit.ref || '',
+    prompt: hit.prompt,
+    assets: hit.assets,
+    via: primary ? 'primary' : 'reference',
+  };
   matched += 1;
 }
 writeFileSync(new URL('../docs/design/skill-recipe-library.json', import.meta.url), JSON.stringify(snapshot, null, 1));

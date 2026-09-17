@@ -92,7 +92,17 @@ for (const board of ['image', 'video']) {
       lines.push('');
       lines.push('  > ' + String(skill.brief || '（这条技能没有 brief）').replace(/\n/g, ' '));
       lines.push('');
-      if (recipe) {
+      if (recipe && recipe.via === 'reference') {
+        lines.push('- **参考效果配方**（这条技能是我们自研/以竞品为准，没有公开配方可抄；下面这条是同类里最好的公开效果，用它当出案例的基准）：');
+        lines.push('');
+        lines.push('  > ' + String(recipe.prompt).slice(0, 1200));
+        lines.push('');
+        if (recipe.assets.length) {
+          lines.push('- **参考案例素材**（' + recipe.assets.length + ' 个）：');
+          for (const url of recipe.assets) lines.push('  - ' + url);
+          lines.push('');
+        }
+      } else if (recipe) {
         lines.push('- **来源原文提示词**（照它生成案例）：');
         lines.push('');
         lines.push('  > ' + String(recipe.prompt).slice(0, 1200));

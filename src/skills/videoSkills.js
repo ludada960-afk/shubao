@@ -381,6 +381,34 @@ export const VIDEO_SKILLS = [
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
   },
+
+  /* ── 官方用例再补 3 条电商向（2026-09-17 第二轮）───────────────────────────────
+     这三条来自官方 01 一致性章与 09 音乐卡点章，都是电商直接用得上的硬需求：
+     包装文字一致性、多场景拼接、卡点混剪。出处见 skillSources.js。 */
+  {
+    id: 'video.text_consistency', board: 'video', name: '文字一致性广告', category: '电商专区', complexity: 'standard',
+    summary: '包装与卖点文字全程不糊、不改样', capability: ['image', 'text'], availability: 'needs_ref',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '按分秒写清每个镜头的画面与口播：0-2 秒快速四格闪切，把商品的四个款式/配色依次定格，特写材质与包装上的品牌字样；3-6 秒给一次结构或五金特写；7-12 秒切换三到四个使用场景；最后几秒并排陈列全部款式收尾。全程包装文字、Logo 与配色必须逐帧一致、清晰不糊，不出现臆造的品牌与价格。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.scene_stitch', board: 'video', name: '多场景拼接', category: '热门玩法', complexity: 'standard',
+    summary: '一张首帧带出上下左右多个场景', capability: ['image'], availability: 'needs_ref',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '以上传的主图为画面首帧，第一人称视角：镜头先看正前方，再依次转向左侧与右侧，把旁边几张参考图里的场景无缝拼接到同一个空间里；转场跟随视线，透视与光线保持一致，商品在各场景中位置与比例合理，不出现错位或重复。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.beat_mashup', board: 'video', name: '卡点混剪', category: '热门玩法', complexity: 'standard',
+    summary: '多张图跟着音乐卡点依次出来', capability: ['image'], availability: 'ready',
+    pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'soft' },
+    brief: '把上传的多张图做成音乐卡点混剪：每一张在鼓点或重拍上切换，镜头运动方式每两拍变化一次（推近 / 横移 / 轻微旋转），过渡干净不拖影；整体色调统一，节奏与音乐贴合，不出现文字与水印。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
 ];
 export const VIDEO_SKILL_CATEGORIES = [...new Set(VIDEO_SKILLS.map(skill => skill.category))];
 

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import { ImagePlus, RotateCcw } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ImagePlus, Library, RotateCcw } from 'lucide-react';
 
 import MediaAssetCard from './MediaAssetCard.jsx';
+import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
 import { uploadEcommerceAsset } from '../../services/api';
 
 /* ═══ FieldRenderer：Skill 工作台的字段渲染器（唯一实现）══════════════════════════
@@ -32,8 +33,21 @@ function revoke(item) {
   }
 }
 
+/* 上传位的说明文案：**照竞品实测原文**（43 §10.2「上传卡文案统一」）——
+   他们每一张上传卡下面都写着同一句，用户一眼就知道能传什么、能传多大，
+   不用先失败一次才知道。我们原来什么都没写。 */
+const UPLOAD_HINT = '支持 JPG、JPEG、PNG，单张不超过 10MB';
+/* 竞品实测文案（43 §10.2 + 9-17 复核）：上传卡都写着「点击或拖拽上传图片」+「最多 N 张」。
+   两件事一起做才有意义：写了"可拖拽"就得真的能拖 —— 只写不做就是给自己挖坑。 */
+const uploadCopy = maxImages => '点击或拖拽上传图片 · 最多 ' + maxImages + ' 张';
+
 function UploadControl({ field, value, onChange, disabled }) {
   const inputRef = useRef(null);
+  /* ⚠️ 上传位有**两个**入口（竞品实测：选择文件 / 从资产库选择）：
+     只给「选择文件」的话，用户上一轮刚生成的成品想再用一次就得先下载再上传 ——
+     而资产库里的东西本来就是可以直接引用的。 */
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const items = Array.isArray(value) ? value : [];
   /* ⚠️ 上传是异步的：回调回来时闭包里的 items 已经是旧数组了。
      曾经因此把"上传完成"写回成**上传之前**的数组 —— 缩略图上传成功后消失（E2E 抓到）。
@@ -92,7 +106,20 @@ function UploadControl({ field, value, onChange, disabled }) {
   };
 
   return (
-    <span className="media-field-upload" data-empty={items.length ? 'false' : 'true'}>
+    <span
+      className={'media-field-upload' + (dragging ? ' is-dragging' : '')}
+      data-empty={items.length ? 'false' : 'true'}
+      /* 拖拽上传：与「选择文件」共用同一条 handleFiles（不另写一条上传逻辑） */
+      onDragOver={event => { if (disabled) return; event.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={event => {
+        if (disabled) return;
+        event.preventDefault();
+        setDragging(false);
+        const dropped = Array.from(event.dataTransfer?.files || []).filter(file => /^image\//.test(file.type));
+        if (dropped.length) handleFiles(dropped);
+      }}
+    >
       {items.map((item, index) => (
         <span className="media-field-upload-item" key={(item.name || 'item') + '-' + index}>
           <MediaAssetCard
@@ -111,11 +138,18 @@ function UploadControl({ field, value, onChange, disabled }) {
         </span>
       ))}
       {!full && (
-        <button type="button" className="media-field-upload-add" disabled={disabled} onClick={() => inputRef.current?.click()}>
-          <ImagePlus size={18} />
-          <span>{field.slotLabel || '添加图片'}</span>
-          {multiple && <small>{items.length}/{maxImages}</small>}
-        </button>
+        <>
+          <button type="button" className="media-field-upload-add" disabled={disabled} onClick={() => inputRef.current?.click()}>
+            <ImagePlus size={18} />
+            <span>{field.slotLabel || '选择文件'}</span>
+            {multiple && <small>{items.length}/{maxImages}</small>}
+          </button>
+          {/* 第二个入口：从资产库选（与竞品一致）。选中的资产已经是服务端稳定地址，
+              直接进生成请求，不重新上传一遍。 */}
+          <button type="button" className="media-field-upload-library" disabled={disabled} onClick={() => setLibraryOpen(true)}>
+            <Library size={15} />从资产库选择
+          </button>
+        </>
       )}
       <input
         ref={inputRef}
@@ -124,6 +158,26 @@ function UploadControl({ field, value, onChange, disabled }) {
         multiple={multiple}
         hidden
         onChange={event => { handleFiles(event.target.files); event.target.value = ''; }}
+      />
+      <small className="media-field-upload-hint">{uploadCopy(maxImages) + ' · ' + UPLOAD_HINT}</small>
+      <ProjectAssetPicker
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        mediaKind="image"
+        multi={multiple}
+        title={(field.slotLabel || '素材') + ' · 从资产库选择'}
+        onPick={assets => {
+          const picked = (Array.isArray(assets) ? assets : [])
+            .map(asset => ({
+              url: String(asset?.stableUrl || asset?.url || ''),
+              assetId: String(asset?.projectAssetId || asset?.assetId || ''),
+              name: String(asset?.name || '资产库素材'),
+              status: 'ready',
+            }))
+            .filter(item => item.url);
+          if (picked.length) commit([...itemsRef.current, ...picked].slice(0, maxImages));
+          setLibraryOpen(false);
+        }}
       />
     </span>
   );

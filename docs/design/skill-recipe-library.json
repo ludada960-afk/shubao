@@ -18,6 +18,18 @@
   "https://raw.githubusercontent.com/EvoLinkAI/awesome-seedance-2.5-guide/main/use-cases/zh-CN/10-emotion.md"
  ],
  "bySkill": {
+  "image.free": {
+   "lib": "gpt-image2-ad",
+   "file": "ad-creative.md",
+   "caseId": "24",
+   "title": "Tropical Product Ad Poster",
+   "sourceLink": "https://x.com/AIwithAliya/status/2054553101236080714",
+   "prompt": "GPT Image 2 Prompt Create a creative commercial advertising poster for [PRODUCT NAME], a [PRODUCT TYPE], inspired by vibrant tropical product campaigns. Place the product as a large hero object on the center-right with realistic glossy reflections, sharp label details, and premium lighting. Add a stylish model sitting beside or slightly in front of the product, naturally interacting with it by [MODEL ACTION]. The model should look [MOOD], wearing [OUTFIT STYLE], and should not cover the product label.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ad-creative_case178/output.jpg"
+   ],
+   "via": "reference"
+  },
   "image.poster": {
    "lib": "gpt-image2-poster",
    "file": "poster.md",
@@ -27,7 +39,8 @@
    "prompt": "极简新中式美学风格，画面以淡雅的灰白色为底，呈现出一种纸艺剪影般的立体感。 一条S形蜿蜒的裂痕状边缘将画面分割，仿佛撕开了一层纸面，露出内部色彩斑斓的东方山水景象。 裂口内，一条蜿蜒的河流自上而下贯穿整个构图，河水以深浅不一的蓝色渲染，层次分明，仿佛流动的丝带。 河岸两侧点缀着青翠的山丘与梯田，色彩柔和，绿红交织，展现出田园的宁静之美。 沿河而建的古风建筑错落有致，飞檐翘角，白墙黛瓦，在光影的映衬下更显古朴典雅。 岸边树木葱茏，枝叶轻盈，一艘小船静泊于水中央，增添了几分悠然意境。 整体构图呈S形曲线，富有韵律感，仿佛自然与人文的和谐共生。 画作边缘采用撕纸效果，营造出立体浮雕般的视觉体验。 下方题字“东方美学”以黑色楷体书写，日期“2026/04/18”与红色印章相呼应，底部“CHINA”字样庄重醒目，署名“@LIYUE”低调收尾，整体氛围静谧深远，充满诗意与哲思。",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case4/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.social_cover": {
    "lib": "gpt-image2-ad",
@@ -38,7 +51,20 @@
    "prompt": "{ \"type\": \"2x2 grid of Japanese digital advertisement banners\", \"layout\": { \"structure\": \"4 equal quadrants\", \"quadrants\": [ { \"position\": \"top-left\", \"theme\": \"Travel\", \"subject\": \"A couple holding hands on a white sand beach, looking out at turquoise ocean water under a bright blue sky.\", \"elements\": [\"red hibiscus flower in bottom left corner\"], \"text_labels\": [ \"今年こそ、解き放て。\", \"{argument name=\\\"travel destination\\\" default=\\\"沖縄旅行\\\"}\", \"3日間の癒やし旅\", \"航空券+ホテル\", \"39,800円〜\", \"絶景、グルメ、体験 ぜんぶ叶う!\" ], \"icons\": { \"count\": 3, \"descriptions\": [\"airplane\", \"hotel building\", \"car\"] } }, { \"position\": \"top-right\", \"theme\": \"Skincare\", \"subject\": \"Close-up portrait of a young woman with glowing, dewy skin, eyes closed, gently touching her cheeks.\", \"elements\": [ \"soft pink gradient background\", \"dynamic water splash effects\", \"pink cosmetic jar labeled '{argument name=\\\"skincare product name\\\" default=\\\"LUMIÈRE\\\"} Brightening Gel'\" ], \"text_labels\": [ \"毛穴・くすみ卒業!\", \"透明感あふれる\", \"水光肌へ\", \"新感覚スキンケア\", \"初回限定 78%OFF\", \"{argument name=\\\"discount price\\\" default=\\\"1,980円\\\"}\" ], \"badges\": { \"count\": 3, \"style\": \"gold circular\", \"labels\": [\"毛穴ケア\", \"高保湿\", \"ハリ・ツヤ\"] } }, { \"position\": \"bottom-left\", \"theme\": \"Gourmet Food\", \"subject\": \"Thick, sliced, medium-rare steak sizzling on a dark grill plate.\", \"elements\": [ \"garlic chips\", \"rosemary sprig\", \"dark background with smoke and glowing embers\" ], \"text_labels\": [ \"とろける旨さ!\", \"{argument name=\\\"food item\\\" default=\\\"黒毛和牛\\\"}\", \"贅沢ステーキ\", \"期間限定\", \"特別価格\", \"通常価格 8,980円\", \"4,980円\" ], \"badges\": { \"count\": 1, \"style\": \"red circular\", \"labels\": [\"A4 A5等級\"] } }, { \"position\": \"bottom-right\", \"theme\": \"Online Education\", \"subject\": \"Young man in a blue shirt studying at a desk, writing in a notebook next to an open laptop.\", \"elements\": [\"bright indoor lighting\", \"desk environment\"], \"text_labels\": [ \"スキマ時間で\", \"{argument name=\\\"education goal\\\" default=\\\"最短合格!\\\"}\", \"オンライン資格講座\", \"スマホで完結\", \"効率学習で差がつく!\", \"今だけ! 受講料 20%OFF\" ], \"badges\": { \"count\": 1, \"style\": \"blue circular\", \"labels\": [\"受講者数 10万人 突破!\"] }, \"icons\": { \"count\": 2, \"descriptions\": [\"smartphone\", \"open book\"] } } ] } }",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ui_case90/output.jpg"
-   ]
+   ],
+   "via": "primary"
+  },
+  "image.product_suite": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "3",
+   "title": "Burger hero image plus 9-cell ad storyboard",
+   "sourceLink": "https://x.com/Gdgtify/status/2049449869530775877",
+   "prompt": "Prompt 1: Create a cinematic hero image of a gourmet cheeseburger on a dark stone surface with glossy brioche bun, melted cheese, crisp lettuce, tomato, grilled patty, sauce, realistic texture, appetizing steam, warm side light, shallow depth of field, premium food commercial style, no text/logos/watermark. Prompt 2: Create a 9-cell hybrid keyframe-to-transition storyboard sheet for a 15-second gourmet burger ad, moving from empty surface to ingredient assembly to final macro hero shot. Use large S cells and smaller T cells, motion arrows, ghosted ingredient positions, steam, sauce trails, and camera push-in icons. Style: premium food commercial, warm lighting, rich texture, appetizing, cinematic, minimal labels only. No logos, no watermark.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ecommerce_case163/output.jpg"
+   ],
+   "via": "reference"
   },
   "image.aplus": {
    "lib": "gpt-image2-ecommerce",
@@ -49,7 +75,8 @@
    "prompt": "High-impact e-commerce infographic for \"{argument name=\"product\" default=\"Apple Pods Pro 3\"}\" wireless earbuds. Foreground: An extreme close-up of a hand holding an open glossy white wireless earbud charging case toward the camera. Inside the case are two sleek white earbuds with black speaker accents. A small glowing green LED indicator is visible on the front of the case. The hand and case have slight macro-lens depth blur for realism. Mid-ground: A {argument name=\"model\" default=\"confident young woman\"} with tan skin, brown eyes, and dark hair tied in a messy bun. She has natural makeup with a dewy glow. She is wearing a plain {argument name=\"clothing\" default=\"yellow athletic t-shirt\"} (no logos). One white earbud is in her ear. She is looking directly at the camera with a subtle, confident expression. Background: Clean soft gray gradient studio backdrop with shallow depth of field. Diagonal rainbow prism lens flares and soft light leaks across the scene. Several blurred floating white earbuds in the background for depth and motion. Lighting: Soft professional studio lighting with glossy highlights on the product, subtle rim light on the model, high dynamic range. Typography (modern sans-serif, white): Top center (behind model): Large bold text “AIRPODS” Top right: “Apple Pods Pro 3” Mid-left: “Premium sound and noise cancellation” Mid-right: Large bold “30” with “hours of battery life” Bottom-right: Large bold “1” with “year warranty” Style: Ultra-realistic, commercial product photography, 8k resolution, sharp focus on product case, shallow depth of field, vibrant yet clean color palette, premium advertising aesthetic.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case155/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.detail_page": {
    "lib": "gpt-image2-ecommerce",
@@ -60,7 +87,80 @@
    "prompt": "Core Subject: [{argument name=\"reference\" default=\"use the uploaded image\"}, keep the details, typography and structure locked 100%] Layout & Composition: A {argument name=\"presentation type\" default=\"professional industrial design presentation sheet\"}. The image should be organized into a clean grid system. Top Row: A 3x3 layout showing top-down flat lay views and close-up macro details of materials. Middle Section: Three hero shots of the product standing upright in different color ways (Matte Black, Arctic White, and accented variants). The products should be slightly tilted to show depth and form. Bottom Section: A dynamic \"floating\" composition featuring two products overlapping at opposing angles to showcase the front and side profiles simultaneously. Environment & Lighting: Set against a minimalist, neutral studio gray background. Soft top-down lighting with realistic contact shadows. High-end product photography aesthetic. Style & Finish: Matte textures, clean silhouettes, and sharp edges. Leave designated blank areas on the product surfaces for \"Placeholder Branding\" and \"Graphic Mockups.\" 4k resolution, Unreal Engine 5 render style, hyper-realistic, clean aesthetic.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case116/output.jpg"
-   ]
+   ],
+   "via": "primary"
+  },
+  "image.white_bg": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "153",
+   "title": "E-commerce Main Image - Premium Gaming Motherboard Studio Shot",
+   "sourceLink": "https://x.com/rojassartorio/status/2048019666816163867",
+   "prompt": "A high-end enthusiast ATX gaming motherboard product photo on a dark studio background, shown in a three-quarter top-down perspective angled from the lower left toward the upper right. The board is mostly matte black and gunmetal with sharp geometric armor plates, brushed metal textures, and subtle RGB edge lighting in blue, purple, and magenta. Feature an exposed modern Intel-style CPU socket near the upper center, 4 black DIMM memory slots on the right, large VRM heatsinks across the top and upper left, and multiple reinforced PCIe slots in the lower half. Include 3 major branded heatsink zones: a tall rear I/O shroud at upper left with an illuminated RGB eye logo and the text \"MAXIMUS HERO\", a left-side chipset/slot armor piece with the text \"SUPREMEFX\", and a large angular lower-right chipset cover with a silver ROG-style emblem plus a lower strip that reads \"FOR THOSE WHO DARE\". Show detailed capacitors, headers, power connectors, debug display reading \"88\" at the top right, and a small round start button nearby. Ultra-detailed commercial product photography, crisp focus across the board, realistic reflections on metal, premium luxury tech aesthetic, dramatic low-key lighting, clean black seamless backdrop, no cables, no CPU, no RAM, no other objects.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case153/output.jpg"
+   ],
+   "via": "reference"
+  },
+  "image.scene": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "117",
+   "title": "E-commerce Main Image - Luxury Fur-Lined Loafer Lifestyle Photo",
+   "sourceLink": "https://x.com/dynamicwangs/status/2047580984342925545",
+   "prompt": "A warm, editorial-style lifestyle product photo shot indoors from a low close-up angle, focused on a woman's lower legs and feet as she tries on 1 pair of black leather backless loafers with tan faux-fur lining. One loafer is worn on the right foot and the left foot is bare, hovering just above the textured cream shag rug, while the second matching loafer lies on the rug in the lower left foreground. The shoes have smooth black leather uppers, a rounded almond toe, open mule-style heel, plush brown fur spilling out around the opening, and a small polished gold horsebit hardware detail across the vamp. The model wears cropped medium-blue denim jeans with a raw frayed hem. The setting is a cozy minimalist interior with a cream rug featuring 2 thin irregular black lines, a neutral wall, and a leaning rectangular mirror with a medium wood frame in the upper right background, softly reflecting the rug and part of the scene. Use soft natural window light, shallow depth of field, subtle film grain, realistic skin texture, muted beige and black palette, relaxed candid composition, premium fashion catalog mood, high detail, photorealistic.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case117/output.jpg"
+   ],
+   "via": "reference"
+  },
+  "image.material": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "114",
+   "title": "E-commerce Main Image - Skincare Product Studio Shot",
+   "sourceLink": "https://x.com/Strength04_X/status/2047636636847231222",
+   "prompt": "A soft {argument name=\"bottle color\" default=\"cream-colored\"} bottle with a {argument name=\"pump color\" default=\"pastel yellow\"} pump stands on a matte podium, surrounded by silky foam and {argument name=\"flowers\" default=\"chamomile blossoms\"}. The background is a pale yellow gradient with subtle bubble details. The label emphasizes organic chamomile and calming care. Fresh chamomile flowers accentuate the gentle appeal.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case114/output.jpg"
+   ],
+   "via": "reference"
+  },
+  "image.multi_angle": {
+   "lib": "gpt-image2-ecommerce",
+   "file": "ecommerce.md",
+   "caseId": "116",
+   "title": "E-commerce Main Image - Industrial Design Presentation Sheet",
+   "sourceLink": "https://x.com/ShamsAmin56/status/2047627860752621647",
+   "prompt": "Core Subject: [{argument name=\"reference\" default=\"use the uploaded image\"}, keep the details, typography and structure locked 100%] Layout & Composition: A {argument name=\"presentation type\" default=\"professional industrial design presentation sheet\"}. The image should be organized into a clean grid system. Top Row: A 3x3 layout showing top-down flat lay views and close-up macro details of materials. Middle Section: Three hero shots of the product standing upright in different color ways (Matte Black, Arctic White, and accented variants). The products should be slightly tilted to show depth and form. Bottom Section: A dynamic \"floating\" composition featuring two products overlapping at opposing angles to showcase the front and side profiles simultaneously. Environment & Lighting: Set against a minimalist, neutral studio gray background. Soft top-down lighting with realistic contact shadows. High-end product photography aesthetic. Style & Finish: Matte textures, clean silhouettes, and sharp edges. Leave designated blank areas on the product surfaces for \"Placeholder Branding\" and \"Graphic Mockups.\" 4k resolution, Unreal Engine 5 render style, hyper-realistic, clean aesthetic.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case116/output.jpg"
+   ],
+   "via": "reference"
+  },
+  "image.try_on": {
+   "lib": "gpt-image2-poster",
+   "file": "poster.md",
+   "caseId": "71",
+   "title": "Streetwear Fashion Campaign Asian Apparel Poster",
+   "sourceLink": "https://x.com/harboriis/status/2047921293123895520",
+   "prompt": "Create a premium streetwear fashion campaign poster inspired by modern Asian apparel advertising. Full body portrait of a stylish young male model standing confidently with legs crossed at the ankles, hands inside jacket pockets, head turned slightly upward and sideways with a calm thoughtful expression. Curly tousled medium length hair with soft volume. Slim athletic build. Outfit includes a dark olive green padded hooded jacket worn open, clean white crewneck sweatshirt underneath with a tiny chest logo, relaxed black cargo style trousers, and minimal white sneakers. Styling is clean, youthful, and contemporary. Background is a vibrant electric blue seamless studio backdrop with subtle gradient lighting, soft glow streaks, and glossy floor reflection. Lighting is soft studio light with gentle shadows and polished commercial finish. Graphic poster layout with giant bold condensed sans serif text reading “JEANSWEST” vertically stretched across the background behind the model in light gray white. Add large text on lower right reading “JW26”. Composition should feel premium, trendy, clean, commercial, youthful, modern fashion ad campaign. Sharp focus, ultra realistic fabric texture, cinematic lighting, balanced negative space, sleek branding design, high resolution, vertical poster ratio.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case71/output.jpg"
+   ],
+   "via": "reference"
+  },
+  "image.batch": {
+   "lib": "gpt-image2-poster",
+   "file": "poster.md",
+   "caseId": "52",
+   "title": "6-Block Fashion Campaign Prompt Formula",
+   "sourceLink": "https://x.com/anacoding/status/2046904999045628114",
+   "prompt": "Old money Hamptons editorial, tall blonde woman late 20s, serene elegant expression, wearing cream cashmere cable sweater, pleated beige tennis skirt, pearl earrings, Hermès silk scarf, leather flats, Slim Aarons photography style, medium format film photography, sitting on a white wooden porch of a Cape Cod house, golden hour light, ocean in the background",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case57/output.jpg"
+   ],
+   "via": "reference"
   },
   "image.explode": {
    "lib": "gpt-image2-ad",
@@ -71,7 +171,8 @@
    "prompt": "{ \"type\": \"exploded view product diagram poster\", \"subject\": \"VR headset\", \"style\": \"clean high-tech 3D render, studio lighting, glowing accents\", \"background\": \"{argument name=\\\"background color\\\" default=\\\"soft purple and blue gradient\\\"}\", \"header\": { \"logo\": \"∞ {argument name=\\\"product name\\\" default=\\\"Meta Quest 3\\\"}\", \"subtitle\": \"{argument name=\\\"main catchphrase\\\" default=\\\"まったく新しい現実を、まったく新しい構造から。\\\"}\" }, \"layout\": { \"centerpiece\": \"vertically stacked exploded view of a VR headset showing 9 distinct layers of internal components: outer shell, camera sensors, motherboard with chip, pancake lenses, internal frame, battery packs, side straps, top strap, and facial interface cushion.\", \"callout_labels\": { \"count\": 8, \"left_side\": [ \"Snapdragon® XR2 Gen 2\\n圧倒的な処理性能でリアルタイムな体験を。\", \"調整可能なIPD機構\\n幅広いユーザーに快適なフィット感を。\", \"精密設計されたヘッドストラップ\\n快適さと安定性を追求したエルゴノミクス。\" ], \"right_side\": [ \"フェイスプレート\\n洗練されたデザインと最適な重量バランス。\", \"トラッキングカメラ\\n高精度な位置トラッキングと環境認識を実現。\", \"パンケーキレンズ\\n薄型設計で広い視野角と鮮明な映像を提供。\", \"高性能バッテリー\\n長時間駆動を支える最適化された電源設計。\", \"柔らかなフェイスインターフェース\\n長時間でも快適な装着感を実現。\" ] }, \"footer\": { \"left_text_block\": { \"headline\": \"{argument name=\\\"bottom headline\\\" default=\\\"体験は、構造から進化する。\\\"}\", \"body\": \"一つひとつのパーツに、没入体験を支える最先端テクノロジーとこだわりの設計。Meta Quest 3は、未来を感じさせる体験を内部から生み出しています。\" }, \"right_logo\": \"∞ Meta\" } } }",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case109/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.ice_ad": {
    "lib": "gpt-image2-ecommerce",
@@ -82,7 +183,8 @@
    "prompt": "A luxurious cinematic product photograph of a classic rectangular perfume bottle inspired by {argument name=\"brand label\" default=\"N°5 CHANEL PARIS PARFUM\"}, placed upright on a glossy black marble surface with white veining. The bottle is centered slightly to the right, made of clear faceted glass with a large transparent crystal stopper, filled with rich amber-gold perfume that glows from within. Tiny condensation droplets cover the glass, adding texture and realism. Dramatic warm lighting from the upper left creates golden highlights, deep reflections on the marble, and a soft luminous bloom in the background. Wisps of elegant smoke curl around the bottle on both sides, enhancing a moody high-end advertisement feel. Dark background, shallow depth of field, ultra-detailed studio product photography, luxury beauty campaign aesthetic, crisp focus on the bottle, realistic reflections, warm black-and-gold color palette. Add a small white {argument name=\"corner logo\" default=\"Pollo.ai\"} in the top-right corner. Square composition, premium commercial ad, photorealistic, high contrast, refined and sophisticated.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case113/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.float_kv": {
    "lib": "gpt-image2-ecommerce",
@@ -93,7 +195,8 @@
    "prompt": "Create a premium product studio image of a [PRODUCT] for [BRAND], designed in line with [BRAND REFERENCE]. Show the [PRODUCT] floating against a clean light gray to soft white gradient background with a minimal high-end tech aesthetic. The [PRODUCT] should feel sleek, modern, refined, and premium, with subtle illuminated accents in [LIGHTING COLOR]. Use a three-quarter front angle so both earcups are visible, with detailed industrial design elements. Include the [BRAND] name cleanly on the product. Lighting should be soft, controlled, and editorial, with crisp highlights, soft shadows, and a subtle colored rim light or glow in [LIGHTING COLOR]. Emphasize material realism and clean geometric forms. Keep the background uncluttered and minimal. No extra props, no people, no text overlays, no packaging, and no distracting elements. Focus entirely on the [PRODUCT] as the hero product.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case161/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.tvc_grid": {
    "lib": "gpt-image2-ecommerce",
@@ -104,7 +207,8 @@
    "prompt": "Using the provided reference image, transform the single casual product photo into a polished e-commerce TVC storyboard board for a {argument name=\"video duration\" default=\"15-second\"} ad in a {argument name=\"aspect ratio\" default=\"9:16\"} vertical format, presented as a 9-panel grid. Keep the same blue-and-white ceramic ashtray as the product base, but restage it across cinematic advertising shots with warm premium lighting, shallow depth of field, and a refined lifestyle desktop environment. Add a dark storyboard layout with Chinese titles and timing for each panel. Include exactly 9 scenes: 1) environment-establishing wide shot with desk, books, window, and the product placed in context; 2) hero product medium shot on the table; 3) extreme close-up of the blue floral craftsmanship pattern; 4) use case showing a hand placing a cigarette into the ashtray with visible smoke; 5) top-down capacity display showing multiple cigarette butts inside; 6) cleaning scene under running water in a sink with a hand holding the product; 7) bottom-detail close-up showing the underside and anti-slip pads; 8) mood/lifestyle scene at night with the product on a desk, smoke rising, and ambient lamp light; 9) brand closing frame with the product as the hero plus Chinese marketing text. Add the overall header text “产品TVC分镜脚本(15秒 / 9:16竖屏 / 9宫格)” and a product subtitle naming it {argument name=\"product name\" default=\"青花瓷烟灰缸\"}. Give each of the 9 panels a Chinese scene title and timestamp, plus small descriptive Chinese copy beneath each image in the style of a professional commercial shot list. Use premium, realistic commercial photography throughout, consistent product identity, elegant Chinese aesthetic, and a clean high-end storyboard presentation.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case160/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.sku_series": {
    "lib": "gpt-image2-ecommerce",
@@ -115,7 +219,8 @@
    "prompt": "Core Subject: [{argument name=\"reference\" default=\"use the uploaded image\"}, keep the details, typography and structure locked 100%] Layout & Composition: A {argument name=\"presentation type\" default=\"professional industrial design presentation sheet\"}. The image should be organized into a clean grid system. Top Row: A 3x3 layout showing top-down flat lay views and close-up macro details of materials. Middle Section: Three hero shots of the product standing upright in different color ways (Matte Black, Arctic White, and accented variants). The products should be slightly tilted to show depth and form. Bottom Section: A dynamic \"floating\" composition featuring two products overlapping at opposing angles to showcase the front and side profiles simultaneously. Environment & Lighting: Set against a minimalist, neutral studio gray background. Soft top-down lighting with realistic contact shadows. High-end product photography aesthetic. Style & Finish: Matte textures, clean silhouettes, and sharp edges. Leave designated blank areas on the product surfaces for \"Placeholder Branding\" and \"Graphic Mockups.\" 4k resolution, Unreal Engine 5 render style, hyper-realistic, clean aesthetic.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case116/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.gift_scene": {
    "lib": "gpt-image2-ecommerce",
@@ -126,7 +231,8 @@
    "prompt": "A luxury e-commerce advertising photo of a premium perfume bottle on a polished gray-and-white marble vanity, shot in a warm cinematic studio style with soft golden lighting, shallow depth of field, and elegant reflections. The composition is square and high-end, with the perfume bottle centered slightly right of frame and promotional text on the left. The bottle is a tall sculpted hourglass-shaped glass flacon with smoky transparent gray glass fading darker at the base, a glossy gold spherical cap, a gold collar engraved with fine branding, and a large metallic gold interlocking monogram on the front. Keep the branding-inspired feel but do not add extra products. In the foreground left, include 1 cut-crystal bowl with a gold rim, partially cropped. In the background right, include 1 brushed gold cylindrical vase holding 1 bouquet of soft white flowers, blurred. Behind the bottle, add 1 black marble rectangular box with subtle white veining and gold trim. In the lower right foreground, include 1 draped piece of champagne-colored satin fabric, softly out of focus. The background should be dark, luxurious, and softly blurred, with rich brown-black tones and a vertical shadowed panel on the left to support typography. Add elegant serif headline text on the upper left reading {argument name=\"headline text\" default=\"Premium Perfume,\"} in large warm beige letters, with a smaller serif subheading beneath reading {argument name=\"tagline\" default=\"Subtlety and Elegance\"}, plus a thin short gold horizontal line below the subheading. Place a small white logo in the top-right corner reading {argument name=\"brand logo\" default=\"Pollo.ai\"}. Emphasize premium materials, realistic glass refraction, gold metallic highlights, luxury product photography, refined composition, soft bokeh, and upscale beauty-ad aesthetics.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case118/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.teardown": {
    "lib": "gpt-image2-ad",
@@ -137,7 +243,8 @@
    "prompt": "{ \"type\": \"exploded view product diagram poster\", \"subject\": \"VR headset\", \"style\": \"clean high-tech 3D render, studio lighting, glowing accents\", \"background\": \"{argument name=\\\"background color\\\" default=\\\"soft purple and blue gradient\\\"}\", \"header\": { \"logo\": \"∞ {argument name=\\\"product name\\\" default=\\\"Meta Quest 3\\\"}\", \"subtitle\": \"{argument name=\\\"main catchphrase\\\" default=\\\"まったく新しい現実を、まったく新しい構造から。\\\"}\" }, \"layout\": { \"centerpiece\": \"vertically stacked exploded view of a VR headset showing 9 distinct layers of internal components: outer shell, camera sensors, motherboard with chip, pancake lenses, internal frame, battery packs, side straps, top strap, and facial interface cushion.\", \"callout_labels\": { \"count\": 8, \"left_side\": [ \"Snapdragon® XR2 Gen 2\\n圧倒的な処理性能でリアルタイムな体験を。\", \"調整可能なIPD機構\\n幅広いユーザーに快適なフィット感を。\", \"精密設計されたヘッドストラップ\\n快適さと安定性を追求したエルゴノミクス。\" ], \"right_side\": [ \"フェイスプレート\\n洗練されたデザインと最適な重量バランス。\", \"トラッキングカメラ\\n高精度な位置トラッキングと環境認識を実現。\", \"パンケーキレンズ\\n薄型設計で広い視野角と鮮明な映像を提供。\", \"高性能バッテリー\\n長時間駆動を支える最適化された電源設計。\", \"柔らかなフェイスインターフェース\\n長時間でも快適な装着感を実現。\" ] }, \"footer\": { \"left_text_block\": { \"headline\": \"{argument name=\\\"bottom headline\\\" default=\\\"体験は、構造から進化する。\\\"}\", \"body\": \"一つひとつのパーツに、没入体験を支える最先端テクノロジーとこだわりの設計。Meta Quest 3は、未来を感じさせる体験を内部から生み出しています。\" }, \"right_logo\": \"∞ Meta\" } } }",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case109/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.diorama": {
    "lib": "gpt-image2-ecommerce",
@@ -148,7 +255,8 @@
    "prompt": "A hyper-realistic miniature diorama product advertisement featuring an oversized luxury skincare pump bottle labeled \"LUXEVEIL Skin Science – Radiance Nourishing Body Lotion\" in cream/beige with a polished gold pump top, placed on a circular platform. Tiny figurine construction workers dressed in yellow coveralls and white hard hats swarm around the bottle climbing scaffolding, painting the bottle with rollers, operating a tower crane, working near industrial tanks and pipework, and unloading a miniature flatbed truck. The scene includes metal scaffolding structures, industrial silos, orange traffic cones, wooden barricades, and storage barrels. The overall color palette is warm beige, cream, gold, and mustard yellow. Studio photography style with soft diffused lighting, no shadows, clean beige background. The concept metaphorically shows workers \"crafting\" or \"building\" the perfect lotion. Tilt-shift miniature aesthetic, ultra-detailed, commercial product photography, 8K resolution, photorealistic CGI render.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case151/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.brand_kv": {
    "lib": "gpt-image2-ad",
@@ -157,7 +265,20 @@
    "title": "Glossier 品牌世界拼贴",
    "sourceLink": "https://x.com/iamaiistudio/status/2069120574287392978",
    "prompt": "Act as a world-class creative director, brand strategist, and editorial art director with deep expertise in high-impact campaign systems for global brands. Create a bold, visually explosive, densely layered editorial moodboard collage that captures an entire brand identity system in a single frame. The result should feel raw, expressive, and intentionally chaotic, like a brand world exploding on the canvas. BRAND INPUTS: BRAND NAME: GLOSSIER PRODUCT TYPE: beauty / skincare PRIMARY COLOR: soft pink SECONDARY COLOR: white ACCENT: translucent gloss PERSONALITY: fresh, minimal, youthful, clean SLOGAN: SKIN FIRST COMPOSITION: Build a dense, overlapping collage that mixes: • real product photography and lifestyle imagery • packaging elements: bags, boxes, labels, stickers • typography snippets and brand phrases • hand-drawn doodles and illustrated graphics • icons, symbols, and badge / stamp elements • abstract blobs, squiggles, and starbursts • UI-style cards, menus, and label panels • editorial cutouts layered with depth The layout should feel: • asymmetrical, not grid-based • intentionally messy but visually balanced • like a Pinterest board crossed with a high-end campaign shoot • expressive, youthful, and saturated with brand identity VISUAL EXECUTION: Include elements such as: • product packaging mockups (bags, boxes, tags) • a lifestyle shot of someone interacting with the brand • bold headline typography blocks • illustrated objects interacting with real photography • merch items: t-shirt, tote bag, cap • playful graphic overlays and brand-consistent texture COLOR RULES: • strictly adhere to the brand palette • dominant use of soft pink throughout • white for contrast and layering • avoid introducing off-brand colors • high contrast and visually commanding TYPOGRAPHY: • mix of editorial serif and clean sans-serif • bold headlines paired with small UI-style text • brand name and slogan integrated naturally into the layout FINAL FEEL: This must look like a creative direction board for a global campaign. Not a clean layout, not a grid, not minimal. It must feel alive, layered, and brand-heavy, a visual identity snapshot that is highly shareable and scroll-stopping.",
-   "assets": []
+   "assets": [],
+   "via": "primary"
+  },
+  "image.xhs_note": {
+   "lib": "gpt-image2-poster",
+   "file": "poster.md",
+   "caseId": "229",
+   "title": "9-Frame Cinematic Storyboard Grid",
+   "sourceLink": "https://x.com/guicastellanos1/status/2056425976763146366",
+   "prompt": "for GPT-2: Create a single image storyboard with 9 cinematic frames arranged in a  3×3 grid. Each frame is a widescreen 16:9 panel with a film aspect ratio  letterbox. Style: ultra-cinematic sci-fi blockbuster mixed with premium  airline commercial. Think Blade Runner 2049 color grading meets a UEFA  Champions League broadcast opener meets a luxury brand TVC.",
+   "assets": [
+    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case292/output.jpg"
+   ],
+   "via": "reference"
   },
   "image.portrait": {
    "lib": "gpt-image2-portrait",
@@ -168,7 +289,8 @@
    "prompt": "Luxury Glam Beauty Portrait:, Beautiful Black woman, youthful spirit, creamy vanilla, silk press, mahogany red, subtle confidence, textured fabric, sapphire blue, minimal jewelry, beachside breeze, lens flare effect, nostalgic, cinematic lens, symmetrical composition, soft focus, high fashion photography, monochromatic, dewy finish, mysterious tension, layered elements",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/portrait_case7/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "image.pose": {
    "lib": "gpt-image2-poster",
@@ -179,7 +301,8 @@
    "prompt": "{\"type\":\"dance pose reference sheet\",\"style\":\"clean studio pose chart, photoreal fitness-dance reference, white seamless background, sharp full-body photography, soft even lighting, minimal shadows, thin black grid lines separating panels\",\"subject\":{\"count\":1,\"person\":{\"gender_presentation\":\"female\",\"age_appearance\":\"young adult\",\"build\":\"slim athletic toned dancer\",\"skin_tone\":\"light tan\",\"hair\":{\"color\":\"{argument name=\\\"hair color\\\" default=\\\"dark brown\\\"}\",\"style\":\"high ponytail with loose strands\"},\"outfit\":{\"count\":3,\"items\":[\"white fitted sports bra or cropped athletic tank\",\"baggy blue-gray jogger pants\",\"white sneakers\"]}}},\"layout\":{\"rows\":4,\"columns\":4,\"total_panels\":16,\"numbering\":\"black panel numbers in the top-left corner of each cell, labeled 1 through 16\",\"sections\":[{\"title\":\"pose grid\",\"position\":\"full page\",\"count\":16,\"labels\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\",\"16\"]}]},\"poses\":{\"count\":16,\"items\":[{\"panel\":1,\"description\":\"wide stance, knees bent, torso upright, right arm extended straight to the right in a pointing gesture, left arm bent near the body\"},{\"panel\":2,\"description\":\"deep low squat facing forward, feet wide apart, one hand lifted in front of the chest, the other resting near the thigh\"},{\"panel\":3,\"description\":\"low floor-supported pose, leaning back on one hand with hips low, one knee bent under the body, opposite arm stretched diagonally upward\"},{\"panel\":4,\"description\":\"standing on one leg with the other knee raised, one arm curved overhead, opposite arm extended to the right in a strong dance line\"},{\"panel\":5,\"description\":\"deep squat with legs wide, one hand on thigh and the other arm reaching straight upward\"},{\"panel\":6,\"description\":\"light upright pose with one knee lifted and both arms relaxed outward for balance\"},{\"panel\":7,\"description\":\"wide stance with both arms crossed tightly in front of the chest, feet planted apart\"},{\"panel\":8,\"description\":\"low crouch close to the floor, one hand braced on the ground, the other arm crossing the torso\"},{\"panel\":9,\"description\":\"dynamic side-leaning wide stance, one arm bent upward beside the head, opposite arm pointing strongly to the right\"},{\"panel\":10,\"description\":\"compact crouch with weight centered low, one elbow resting near a knee and head tilted slightly downward\"},{\"panel\":11,\"description\":\"deep side lunge with one leg extended long to the side, one hand on the floor and the other arm reaching straight up\"},{\"panel\":12,\"description\":\"upright wide-legged stance, one arm extended vertically overhead, the other hand relaxed near the hip\"},{\"panel\":13,\"description\":\"standing balance pose with one knee raised and both hands held low near the thighs\"},{\"panel\":14,\"description\":\"low horse stance with knees bent wide and forearms crossed in front of the chest\"},{\"panel\":15,\"description\":\"kneeling or very low crouched pose with one hand on the floor and the other resting on the raised knee\"},{\"panel\":16,\"description\":\"high side kick, balancing on one leg while the other leg extends horizontally, both arms bent in a guarded fighting pose\"}]},\"intent\":\"a {argument name=\\\"sheet purpose\\\" default=\\\"dance move sheet chart that can also be used for combat pose reference\\\"}, emphasizing silhouette variety, balance, rhythm, and dynamic athletic body lines\",\"image_size\":\"landscape 16:9\"}",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case134/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "video.smart": {
    "lib": "seedance-commercial",
@@ -188,7 +311,8 @@
    "title": "2. 商业广告 - 运动饮料",
    "sourceLink": "",
    "prompt": "为图中产品生成一个精美高级的运动饮料广告，注意分镜编排，明快的节奏和快剪，高级的商业广告。",
-   "assets": []
+   "assets": [],
+   "via": "primary"
   },
   "video.remake": {
    "lib": "seedance-official",
@@ -203,7 +327,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/7/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/7/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/7/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.image_to_video": {
    "lib": "seedance-commercial",
@@ -212,7 +337,8 @@
    "title": "6. 动态海报",
    "sourceLink": "",
    "prompt": "一个15秒竖屏 9:16 的卡点音乐短片，背景音乐使用@音频1，视频全程保持固定机位景别不变，就像是在一个固定的位置定点拍摄一样，视频中的元素陆续按@图片1中的九宫格分镜依次显现，从左上角第一个镜头作为开始从左到右、从上到下依次推进。",
-   "assets": []
+   "assets": [],
+   "via": "primary"
   },
   "video.product_motion": {
    "lib": "seedance-official",
@@ -227,7 +353,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/3/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/3/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/3/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.content_swap": {
    "lib": "seedance-official",
@@ -241,7 +368,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/2/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.model_runway": {
    "lib": "seedance-official",
@@ -259,7 +387,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/1/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.camera_move": {
    "lib": "seedance-official",
@@ -276,7 +405,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/1/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.extend": {
    "lib": "seedance-official",
@@ -292,7 +422,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-5/2/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-5/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-5/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.festival_spot": {
    "lib": "seedance-commercial",
@@ -301,7 +432,8 @@
    "title": "3. 品牌宣传 - 无印良品",
    "sourceLink": "",
    "prompt": "帮我生成一个讲述无印良品这个品牌的宣传片，中间植入这个台灯",
-   "assets": []
+   "assets": [],
+   "via": "primary"
   },
   "video.space_tour": {
    "lib": "seedance-official",
@@ -318,7 +450,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-7/1/ref5.png",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-7/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-7/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.interior_story": {
    "lib": "seedance-official",
@@ -335,7 +468,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/3/ref5.png",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/3/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/3/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.traffic_swap": {
    "lib": "seedance-official",
@@ -355,7 +489,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-3/2/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-3/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-3/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.car_weekly": {
    "lib": "seedance-official",
@@ -373,7 +508,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/1/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.outfit_transition": {
    "lib": "seedance-official",
@@ -393,7 +529,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-3/2/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-3/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-3/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.fog_reveal": {
    "lib": "gpt-image2-ad",
@@ -402,7 +539,8 @@
    "title": "SPLASH 液态 Logo 时尚海报",
    "sourceLink": "https://x.com/iamaiistudio/status/2065979523229975021",
    "prompt": "Hyper-realistic fashion campaign poster for brand \"SPLASH\". A girl (matching the reference photo exactly, same face) seated confidently atop a gleaming, water-like 3D SPLASH logo surrounded by dynamic water splash effects. Editorial pose: one leg loose, one bent. Enormous bold \"SPLASH\" typography fills the background, partially behind her. Small tagline reads: \"Own Your Style.\" Clothing: contemporary black streetwear (blazer, fitted top, trousers, sneakers). Lighting: cinematic studio setup with soft key light and rim light, glossy reflections on the liquid logo. Style: luxury fashion campaign aesthetic (Zara / H&M), polished clean environment. Shot with an 85mm lens, shallow depth of field, 8K resolution, ultra-detailed, photorealistic.",
-   "assets": []
+   "assets": [],
+   "via": "primary"
   },
   "video.one_image_showcase": {
    "lib": "gpt-image2-ecommerce",
@@ -413,7 +551,8 @@
    "prompt": "Core Subject: [{argument name=\"reference\" default=\"use the uploaded image\"}, keep the details, typography and structure locked 100%] Layout & Composition: A {argument name=\"presentation type\" default=\"professional industrial design presentation sheet\"}. The image should be organized into a clean grid system. Top Row: A 3x3 layout showing top-down flat lay views and close-up macro details of materials. Middle Section: Three hero shots of the product standing upright in different color ways (Matte Black, Arctic White, and accented variants). The products should be slightly tilted to show depth and form. Bottom Section: A dynamic \"floating\" composition featuring two products overlapping at opposing angles to showcase the front and side profiles simultaneously. Environment & Lighting: Set against a minimalist, neutral studio gray background. Soft top-down lighting with realistic contact shadows. High-end product photography aesthetic. Style & Finish: Matte textures, clean silhouettes, and sharp edges. Leave designated blank areas on the product surfaces for \"Placeholder Branding\" and \"Graphic Mockups.\" 4k resolution, Unreal Engine 5 render style, hyper-realistic, clean aesthetic.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case116/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "video.product_explode": {
    "lib": "gpt-image2-ad",
@@ -424,7 +563,8 @@
    "prompt": "{ \"type\": \"exploded view product diagram poster\", \"subject\": \"VR headset\", \"style\": \"clean high-tech 3D render, studio lighting, glowing accents\", \"background\": \"{argument name=\\\"background color\\\" default=\\\"soft purple and blue gradient\\\"}\", \"header\": { \"logo\": \"∞ {argument name=\\\"product name\\\" default=\\\"Meta Quest 3\\\"}\", \"subtitle\": \"{argument name=\\\"main catchphrase\\\" default=\\\"まったく新しい現実を、まったく新しい構造から。\\\"}\" }, \"layout\": { \"centerpiece\": \"vertically stacked exploded view of a VR headset showing 9 distinct layers of internal components: outer shell, camera sensors, motherboard with chip, pancake lenses, internal frame, battery packs, side straps, top strap, and facial interface cushion.\", \"callout_labels\": { \"count\": 8, \"left_side\": [ \"Snapdragon® XR2 Gen 2\\n圧倒的な処理性能でリアルタイムな体験を。\", \"調整可能なIPD機構\\n幅広いユーザーに快適なフィット感を。\", \"精密設計されたヘッドストラップ\\n快適さと安定性を追求したエルゴノミクス。\" ], \"right_side\": [ \"フェイスプレート\\n洗練されたデザインと最適な重量バランス。\", \"トラッキングカメラ\\n高精度な位置トラッキングと環境認識を実現。\", \"パンケーキレンズ\\n薄型設計で広い視野角と鮮明な映像を提供。\", \"高性能バッテリー\\n長時間駆動を支える最適化された電源設計。\", \"柔らかなフェイスインターフェース\\n長時間でも快適な装着感を実現。\" ] }, \"footer\": { \"left_text_block\": { \"headline\": \"{argument name=\\\"bottom headline\\\" default=\\\"体験は、構造から進化する。\\\"}\", \"body\": \"一つひとつのパーツに、没入体験を支える最先端テクノロジーとこだわりの設計。Meta Quest 3は、未来を感じさせる体験を内部から生み出しています。\" }, \"right_logo\": \"∞ Meta\" } } }",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case109/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "video.snack_unbox": {
    "lib": "seedance-commercial",
@@ -433,7 +573,8 @@
    "title": "5. 直播带货 - SK-II面霜",
    "sourceLink": "",
    "prompt": "生成一段 15 秒带货口播视频，产品为图中面霜。要求人物亲手涂手上，给出近景展示，侧脸转动展示细节，镜头从半身到特写切换 3 次。口播要包含卖点，最后给出强行动号召。自动生成字幕，节奏紧凑，带轻微环境音。",
-   "assets": []
+   "assets": [],
+   "via": "primary"
   },
   "video.tech_rotate": {
    "lib": "seedance-official",
@@ -448,7 +589,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/3/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/3/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/3/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.food_craving": {
    "lib": "gpt-image2-ecommerce",
@@ -459,7 +601,8 @@
    "prompt": "Create a square [ASPECT RATIO] premium food photography image of a steaming [FOOD] served in a dark black stone bowl or cast-iron skillet on a wooden board. The dish should look hot, glossy, spicy, and freshly served, with bite-sized pieces of browned protein, dried red chilies, green scallions, white onion, garlic, chili flakes, and visible Sichuan peppercorns coated in a deep red, oily Szechuan sauce. Use a slightly elevated close-up camera angle with shallow depth of field. Make the food the clear hero of the image, centered and richly detailed. Add visible steam rising naturally from the dish. Surround the bowl with subtle restaurant-style props like a dark red tray, scattered dried chilies, peppercorns, a small sauce bowl, or a blurred teapot in the background. Lighting should feel warm, moody, and editorial, like a high-end restaurant food shoot. Emphasize realistic textures and keep the image appetizing, realistic, cinematic, and polished. Avoid text, logos, hands, people, utensils covering the food, cartoon styling, fake plastic textures, excessive symmetry, or an overly clean stock-photo look.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case162/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "video.tech_tvc": {
    "lib": "seedance-commercial",
@@ -468,7 +611,8 @@
    "title": "2. 商业广告 - 运动饮料",
    "sourceLink": "",
    "prompt": "为图中产品生成一个精美高级的运动饮料广告，注意分镜编排，明快的节奏和快剪，高级的商业广告。",
-   "assets": []
+   "assets": [],
+   "via": "primary"
   },
   "video.home_goods_demo": {
    "lib": "seedance-official",
@@ -483,7 +627,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-10/2/ref3.png",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-10/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-10/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.beauty_macro": {
    "lib": "gpt-image2-ecommerce",
@@ -494,7 +639,8 @@
    "prompt": "A soft {argument name=\"bottle color\" default=\"cream-colored\"} bottle with a {argument name=\"pump color\" default=\"pastel yellow\"} pump stands on a matte podium, surrounded by silky foam and {argument name=\"flowers\" default=\"chamomile blossoms\"}. The background is a pale yellow gradient with subtle bubble details. The label emphasizes organic chamomile and calming care. Fresh chamomile flowers accentuate the gentle appeal.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case114/output.jpg"
-   ]
+   ],
+   "via": "primary"
   },
   "video.street_style": {
    "lib": "seedance-official",
@@ -513,7 +659,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/2/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-2/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.ai_styling": {
    "lib": "seedance-official",
@@ -527,7 +674,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/2/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.book_selling": {
    "lib": "seedance-official",
@@ -541,7 +689,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/1/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.food_asmr": {
    "lib": "seedance-official",
@@ -557,7 +706,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-6/1/ref2.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-6/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-6/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.store_tour": {
    "lib": "seedance-official",
@@ -574,7 +724,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-7/1/ref5.png",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-7/1/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-7/1/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.multi_angle_showcase": {
    "lib": "seedance-official",
@@ -589,7 +740,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/5/ref3.png",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/5/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/5/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.product_placement": {
    "lib": "seedance-official",
@@ -604,7 +756,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/5/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/5/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/5/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.scene_edit": {
    "lib": "seedance-official",
@@ -619,7 +772,8 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/4/ref1.mp4",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/4/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-8/4/result.mp4"
-   ]
+   ],
+   "via": "primary"
   },
   "video.storyboard_to_video": {
    "lib": "seedance-official",
@@ -632,7 +786,62 @@
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/2/ref1.png",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/2/result.jpg",
     "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-4/2/result.mp4"
-   ]
+   ],
+   "via": "primary"
+  },
+  "video.text_consistency": {
+   "lib": "seedance-official",
+   "file": "sd-01-consistency.md",
+   "caseId": "2-3-1-4",
+   "title": "商品细节 + 文字一致性（磁吸蝴蝶结广告）",
+   "sourceLink": "",
+   "prompt": "0-2秒画面：快速四格闪切，红、粉、紫、豹纹四款蝴蝶结依次定格，特写缎面光泽与 \"chéri\" 品牌字样。画外音\"Chéri 자석 리본으로 무궁무진한 아름다움을 연출해 보세요!\" 3-6秒画面：特写银色磁吸扣 \"咔嗒\" 吸合，再轻轻一拉分开，展示丝滑质感与便捷性。 画外音\"단 1초 만에 잠그고, 최고의 스타일을 완성하세요!\" 7-12秒画面：快速切换佩戴场景：酒红款别在大衣领口；粉色款绑在马尾；紫色款系在包带； 豹纹款挂在西装领。画外音\"코트, 가방, 헤어 액세서리까지, 다재다능하고 개성 넘치는 스타일을 완성하세요!\" 13-15秒画面：四款蝴蝶结并排陈列，品牌名 \"chéri, 당신에게 즉각적인 아름다움을 선사합니다!\"",
+   "assets": [
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/4/ref1.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/4/result.jpg",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/4/result.mp4"
+   ],
+   "via": "primary"
+  },
+  "video.scene_stitch": {
+   "lib": "seedance-official",
+   "file": "sd-01-consistency.md",
+   "caseId": "2-3-1-6",
+   "title": "多场景空间拼接",
+   "sourceLink": "",
+   "prompt": "把@图片1作为画面的首帧图，第一人称视角，参考@视频1的运镜效果，上方场景参考 @图片2，左边场景参考@图片3，右边场景参考@图片4。",
+   "assets": [
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref1.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref2.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref3.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref4.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref1.jpg",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/ref1.mp4",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/result.jpg",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-1/6/result.mp4"
+   ],
+   "via": "primary"
+  },
+  "video.beat_mashup": {
+   "lib": "seedance-official",
+   "file": "sd-09-music-sync.md",
+   "caseId": "2-3-9-2",
+   "title": "多风格图片卡点混剪",
+   "sourceLink": "",
+   "prompt": "@图片1@图片2@图片3@图片4@图片5@图片6@图片7中的图片根据@视频中的画面关键帧的位置 和整体节奏进行卡点，画面中的人物更有动感，整体画面风格更梦幻，画面张力强，可根据 音乐及画面需求自行改变参考图的景别，及补充画面的光影变化",
+   "assets": [
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref1.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref2.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref3.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref4.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref5.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref6.png",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref1.jpg",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/ref1.mp4",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/result.jpg",
+    "https://pub-babc88c25d274cfeb8b2ae0cd0816872.r2.dev/assets/2-3-9/2/result.mp4"
+   ],
+   "via": "primary"
   }
  }
 }

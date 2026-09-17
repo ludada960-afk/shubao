@@ -38,6 +38,11 @@ export default function SkillWorkbench({
   panel = null,
   /* 历史为空时那句话要跟着页面形态变：通栏页面的按钮在上方的工作台里，不是"左边" */
   emptyHistoryHint = '',
+  /* 交付清单：这条技能最终会交出哪几样东西（编号 + 名称 + 一句说明）。
+     竞品实测（9-17 复核）：他们每个 skill 的示例区都是这样一份编号清单
+     （「01 白底主图 02 品牌主视觉海报 …」），而不是一堆没有出处的图。
+     对我们的套图/详情图这类技能，这份清单**由方案真源算出来**（随平台变），不是手写死的。 */
+  deliverables = [],
 }) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
@@ -81,9 +86,24 @@ export default function SkillWorkbench({
         {activeTab === 'cases'
           ? (cases.length
             ? <div className="skill-workbench-grid">{cases.map((item, index) => (
-                <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} onOpen={() => setLightbox(index)} />
+                <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} before={item.before || ''} onOpen={() => setLightbox(index)} />
               ))}</div>
-            : <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p>)
+            : (Array.isArray(deliverables) && deliverables.length
+              ? <>
+                  <p className="skill-deliverable-lead">这个技能交付以下几样（示例图等你的案例补上）：</p>
+                  <ol className="skill-deliverable-list">
+                    {deliverables.map((item, index) => (
+                      <li key={(item && item.name) || index}>
+                        <span className="skill-deliverable-no">{String(index + 1).padStart(2, '0')}</span>
+                        <span className="skill-deliverable-copy">
+                          <strong>{item.name}</strong>
+                          {item.hint && <small>{item.hint}</small>}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              : <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p>))
           : (historyList.length
             ? <>
                 <div className="skill-workbench-grid">
@@ -95,6 +115,7 @@ export default function SkillWorkbench({
                         cover={item.cover || ''}
                         video={item.video || ''}
                         poster={item.poster || ''}
+                        before={item.before || ''}
                         /* 还没出片的视频任务：角标写状态，别让人对着一张空卡猜 */
                         badge={item.badge || ''}
                         /* ⚠️ 没有可看的画面就不要开大图 —— 点开只有一张空白，
@@ -127,9 +148,15 @@ export default function SkillWorkbench({
           <div className="skill-workbench-lightbox-body">
             <button type="button" className="skill-workbench-lightbox-nav is-prev" aria-label="上一张" onClick={() => setLightbox((lightbox - 1 + shown.length) % shown.length)}>‹</button>
             <figure>
-              {shown[lightbox]?.video
-                ? <video src={shown[lightbox].video} controls autoPlay muted />
-                : <img src={shown[lightbox]?.cover || ''} alt={shown[lightbox]?.title || ''} />}
+              {/* 对照类案例在大图里也要保持"原图 → 成品"的读法（不然放大之后反而看不懂了） */}
+              {shown[lightbox]?.before && shown[lightbox]?.cover
+                ? <span className="skill-workbench-lightbox-compare">
+                    <span><img src={shown[lightbox].before} alt="原图" /><em>原图</em></span>
+                    <span><img src={shown[lightbox].cover} alt="成品" /><em>成品</em></span>
+                  </span>
+                : shown[lightbox]?.video
+                  ? <video src={shown[lightbox].video} controls autoPlay muted />
+                  : <img src={shown[lightbox]?.cover || ''} alt={shown[lightbox]?.title || ''} />}
               <figcaption>{shown[lightbox]?.title || skill.name}</figcaption>
             </figure>
             <button type="button" className="skill-workbench-lightbox-nav is-next" aria-label="下一张" onClick={() => setLightbox((lightbox + 1) % shown.length)}>›</button>

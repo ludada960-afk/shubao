@@ -137,6 +137,9 @@ const BLOCKING = [
   'test/skill-entry-row-0918.test.mjs',
   /* 重流程嵌入子页面（小红书图文 / 视频）：结果留在本页、不许自动跳画布、换技能必须重挂载。 */
   'test/media-skill-embed-0918.test.mjs',
+  /* 工作台按技能定制（对齐竞品实测）：上传位两个入口与拖拽、跨境字段真的进提示词、
+     编号交付清单与方案真源同源、**不许照抄可勾选模块**（张数与报价由方案算死）。 */
+  'test/workbench-quantv-parity-0918.test.mjs',
 ];
 
 /* 当前没有进度条类门禁（键盘可达已归零）。将来若有"已知未完成量"，加在这里，不要塞进 BLOCKING。 */
