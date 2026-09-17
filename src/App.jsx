@@ -266,9 +266,15 @@ function AppRouter() {
   });
 
   /* ═══ 外壳：左侧常驻导航 + 主内容（用户 9-18 批注 #1：总页面必须有常驻入口）═══════
-     canvas 页整屏自己排版，所以它的外壳里不渲染侧栏（与旧行为一致）。 */
+     canvas 页整屏自己排版，所以它的外壳里不渲染侧栏（与旧行为一致）。
+     ⚠️ 2026-09-18 修：这里必须是一个**纵向 flex 容器**。
+        批 A 之前 canvas 页用 height:100vh 且与 topbar **重叠**（topbar 浮在它上面），
+        现在 topbar 是文档流里的一条 80px 固定条 —— 若容器不是 flex，
+        canvas 页的 100vh 会比可用高度多出 80px，底部工具条被顶出视口（实测 dock y=920 / 视口 900）。
+        做成 flex 列之后，画布页用 flex:1 吃满剩余高度（见 EcCanvas.css 的注释）。
+        非画布页面：.app-shell 是 flex item，min-height:100vh 保证正常撑高与滚动不变。 */
   const shell = content => (page === 'ec-canvas'
-    ? <>{content}</>
+    ? <div className="app-frame">{content}</div>
     : <div className="app-shell"><AppSidebar /><div className="app-main">{content}</div></div>);
 
   /* ⚠️ TaskSidebar 必须在外壳**内部**：它靠 .app-shell 提供的 --sb-app-sidebar-w 让位给左侧导航；

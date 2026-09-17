@@ -57,8 +57,18 @@
   --ec-canvas-action-font: 12px;
   --ec-canvas-meta-font: 10px;
   --ec-canvas-control-gap: 4px;
-  width: 100vw;
-  height: 100vh;
+  /* ═══ 2026-09-18 修：画布页高度不能再按 100vh（批 A 顶部导航带来的真 bug）═══════════
+     批 A 给外壳加了常驻左侧导航与一个 **80px 高的顶部导航**（.app-topbar），
+     而画布页排在那条 topbar **下面** —— 于是「100vh」比实际可用高度多出 80px：
+     页面底边落到 980（视口只有 900），画布底部工具条被顶出视口。
+     实测证据：base 版 dock 在 y=840（居中偏差 0px、9/9 探针命中），
+     改后 dock 在 y=920（探针 0/9，全被裁）—— 由 test/canvas-bottom-dock-live-centered-0920 抓到。
+     ⚠️ 这不是"测试太严"：底栏工具条点不到是**真**事故（用户点不到下载/图层）。
+     修法：宽度占满、高度取**父级剩下的空间**（flex 纵向：topbar 固定 80，本页 flex:1）。
+     父级（#root 那个 div）是块级流体高度，加 flex 列布局后本页自然吃满剩余 820px。 */
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   background: var(--canvas-bg);
   color: var(--canvas-ink);

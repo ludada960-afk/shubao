@@ -1,3 +1,11 @@
+/* ═══ 画布页的外壳（2026-09-18）：纵向 flex，让画布页吃满 topbar 之外的剩余高度 ═══════
+   为什么必须有：批 A 之前 canvas 页与 topbar 是**重叠**的（topbar 浮在上面），
+   height:100vh 刚好等于视口；现在 topbar 进了文档流（80px），
+   若容器不是 flex，100vh 会比可用高度多 80px → 画布底部工具条被顶出视口。
+   实测：修前 dock 在 y=920（视口 900，探针 0/9 命中），修后应在 y=840。
+   注意 min-height 也写成 100vh：内容更高的页面（例如画布报错态）仍能正常滚动。 */
+.app-frame { display: flex; flex-direction: column; min-height: 100vh; }
+
 .app-topbar {
   padding-top: 28px;
 }
