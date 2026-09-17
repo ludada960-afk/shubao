@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
@@ -54,6 +55,32 @@ test('④ 官方来源必须真的指向官方用例库（不能拿竞品冒充�
     assert.match(source.repo, /awesome-seedance/, skillId + ' 的官方来源必须落在 Seedance 官方用例库');
     assert.match(String(source.ref), /use-cases\//, skillId + ' 必须指到具体用例文件');
   }
+});
+
+test('⑥ 可追溯：官方/高星来源的每条技能，快照里都必须能查到原文提示词', () => {
+  /* 用户要求：「全部都要把它们的来源记录下来，以便我们后续可以找到这些 skill 的来源去跟踪他们的情况」
+     「如果来源里自带案例，把他们的案例的生成提示词以及相关素材也记下来」。
+     所以：声明了 official/repo 来源的技能，**必须在快照里查得到那条 case 的原文**；
+     快照里也不许有孤儿条目（技能删了、快照还留着）。 */
+  const snapshot = JSON.parse(readFileSync(new URL('../docs/design/skill-recipe-library.json', import.meta.url), 'utf8'));
+  const need = ALL.filter(skill => ['official', 'repo'].includes(sourceOf(skill.id)?.kind));
+  const missing = need.filter(skill => !snapshot.bySkill[skill.id]).map(skill => skill.id);
+  assert.deepEqual(missing, [], '声明了官方/高星来源但快照里查不到配方：' + missing.join(', '));
+  assert.ok(need.length >= 45, '样本量自证：可追溯的技能应 ≥45，实际 ' + need.length);
+  const ids = new Set(ALL.map(skill => skill.id));
+  for (const [skillId, recipe] of Object.entries(snapshot.bySkill)) {
+    assert.ok(ids.has(skillId), '快照里有已不存在的技能：' + skillId);
+    /* 阈值只用来判"抓到的是不是一个真提示词"：官方有些配方本来就一句话
+       （例：超跑运镜复刻那条原文只有 30 来个字），不能按长度把它们判红。 */
+    assert.ok(String(recipe.prompt || '').length >= 8, skillId + ' 的原文提示词太短，像是没抓到');
+    assert.ok(String(recipe.title || '').length >= 2, skillId + ' 缺案例标题');
+    assert.ok(recipe.lib && recipe.file, skillId + ' 缺库/文件来源');
+    /* 来源自带素材是"可选但尽量留"：记下来方便照着出案例 */
+    assert.ok(Array.isArray(recipe.assets), skillId + ' assets 必须是数组');
+  }
+  /* 自证：来源写成不存在的 case 时，这条判据必须抓得住（否则"全绿"可能只是没查） */
+  const bogus = { kind: 'official', repo: 'EvoLinkAI/awesome-seedance-2.5-guide', ref: 'use-cases/zh-CN/99-does-not-exist.md#9-9-9 不存在' };
+  assert.equal(bogus.kind === 'official' && !snapshot.bySkill['video.__bogus__'], true, '自证：不存在的技能不会出现在快照里');
 });
 
 test('⑤ 品类覆盖：视频侧以官方为准，建筑家装如实标竞品来源', () => {

@@ -9,6 +9,8 @@
     "verify": "node scripts/verify-exports.mjs",
     "test": "node --test --test-concurrency=1 --test-timeout=180000 --test-skip-pattern=\"VideoCanvasWorkbench.jsx 接入|handleCreateExportManifest|renderVideo 接受最小 manifest|ffmpeg adapter\" test/*.test.mjs",
     "build": "node scripts/verify-exports.mjs && vite build",
+    "refresh:skill-recipes": "node scripts/refresh-skill-recipes.mjs",
+    "build:skill-doc": "node scripts/build-skill-source-doc.mjs",
     "check": "node scripts/check-build.mjs",
     "audit:production": "node scripts/audit-production.mjs",
     "verify:video-workbench-pilot": "node scripts/verify-video-workbench-pilot.mjs",
