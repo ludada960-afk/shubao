@@ -39,6 +39,14 @@ const VIDEO_BASE_FIELDS = [
 
 export const VIDEO_SKILLS = [
   {
+    /* ═══ 精品推荐（7 条，对齐竞品那一档的槽位）═══════════════════════════════════
+       用户 9-17：「视频的精品推荐现在只有 2 条，竞品是 7 条 —— 可以，改吧，不知道改什么就学他就好。」
+       竞品精品推荐 7 条 = 视频创作 / 探店视频 / 爆款复刻 / 数字人 / 视频高清 / 视频字幕去除 / 内容替换。
+       我们有的直接对上：视频创作→**智能成片**、探店视频→**探店漫游**、爆款复刻→**爆款复刻**、
+       内容替换→**内容替换**；他们没有、我们用户点名的**首尾帧**保留；
+       剩下两个槽位（数字人 / 视频高清 / 去字幕）上游能力不具备，用我们最能打的两条补：
+       **商品动态展示**（商品类第一）与 **3C 旋转展示**（细节展示类第一）。
+       首页视频那一排取前 6 条，所以声明顺序 = 首页顺序，别随手挪。 */
     id: 'video.smart', board: 'video', name: '智能成片', category: '精品推荐', complexity: 'standard',
     summary: '一句话起步，镜头与节奏交给模型', capability: ['image', 'video', 'audio'], availability: 'ready',
     pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'accent' },
@@ -55,7 +63,7 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'video.remake', board: 'video', name: '爆款复刻', category: '热门玩法', complexity: 'standard',
+    id: 'video.remake', board: 'video', name: '爆款复刻', category: '精品推荐', complexity: 'standard',
     summary: '保留参考片的节奏与镜头结构，换上你的内容', capability: ['video', 'image'], availability: 'needs_ref',
     pipeline: 'videoRemake', cover: { template: 'case-3up', accent: 'warm' },
     brief: '参考上传视频的节奏与镜头结构，把内容替换成我的商品：保留原来的分镜顺序、景别变化与卡点，画面主体换成我的商品并保持结构、颜色与包装文字一致，光线与原片接近，不出现形变。',
@@ -71,7 +79,7 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'video.product_motion', board: 'video', name: '商品动态展示', category: '电商专区', complexity: 'simple',
+    id: 'video.product_motion', board: 'video', name: '商品动态展示', category: '精品推荐', complexity: 'simple',
     summary: '商品旋转、光影扫过、材质微距，用在主图与详情首屏', capability: ['image'], availability: 'ready',
     pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'warm' },
     brief: '商品动态展示：从静置开始，缓慢旋转展示结构与材质，光从侧后方扫过突出质感，微距掠过关键细节，最后回到正面全景。背景干净，主体全程锐利对焦，不出现文字与价格。',
@@ -79,7 +87,7 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'video.content_swap', board: 'video', name: '内容替换', category: '热门玩法', complexity: 'standard',
+    id: 'video.content_swap', board: 'video', name: '内容替换', category: '精品推荐', complexity: 'standard',
     summary: '上传人物视频和人物图片，一键换人（知渔同款玩法）', capability: ['video', 'image'], availability: 'needs_ref',
     pipeline: 'videoRemake', cover: { template: 'case-3up', accent: 'soft' },
     brief: '保留上传视频里人物的动作与镜头运动，把人物替换成我上传的图片中的人：五官、发型、肤色与服装与图片保持一致，动作连贯自然，边缘干净，不出现脸部抖动或糊边。',
@@ -131,7 +139,7 @@ export const VIDEO_SKILLS = [
   {
     id: 'video.space_tour', board: 'video', name: '空间漫游', category: '建筑家装', complexity: 'standard',
     summary: '镜头沿动线走一遍，把空间讲明白', capability: ['image'], availability: 'ready',
-    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'cool' },
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'cool' },
     brief: '用上传的空间图做一段漫游：镜头从入口缓慢推进，沿动线依次掠过主要区域（客厅 → 餐厅 → 主卧），最后停在视觉中心。运动平稳、透视一致、光线自然，空间比例与材质保持真实，不出现家具变形或穿模。',
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
@@ -139,7 +147,7 @@ export const VIDEO_SKILLS = [
   {
     id: 'video.light_shift', board: 'video', name: '光线变化', category: '建筑家装', complexity: 'simple',
     summary: '机位不动，只让光线与阴影走一遍', capability: ['image'], availability: 'ready',
-    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'warm' },
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
     brief: '机位固定不动，只让光线随时间变化：清晨冷调 → 正午明亮 → 黄昏暖调 → 夜晚灯光亮起。阴影方向与色温随之平滑过渡，画面结构、家具位置保持不变，过渡自然无跳变。',
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
@@ -147,7 +155,7 @@ export const VIDEO_SKILLS = [
   {
     id: 'video.day_night', board: 'video', name: '日夜气候切换', category: '建筑家装', complexity: 'standard',
     summary: '白天到雨夜，同一场景的四种天气', capability: ['image'], availability: 'ready',
-    pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'cool' },
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'cool' },
     brief: '同一个场景在日夜与天气之间切换：白天 → 黄昏 → 夜晚 → 雨夜，云层、反光与地面湿度随之变化，镜头缓慢平移，建筑与空间结构全程保持不变，过渡平滑。',
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
@@ -258,7 +266,7 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'video.tech_rotate', board: 'video', name: '3C 旋转展示', category: '电商专区', complexity: 'simple',
+    id: 'video.tech_rotate', board: 'video', name: '3C 旋转展示', category: '精品推荐', complexity: 'simple',
     summary: '360 度转一圈，把接口与厚度讲清楚', capability: ['image'], availability: 'ready',
     pipeline: 'videoReference', cover: { template: 'hero-single', accent: 'cool' },
     brief: '3C 产品旋转展示：产品在纯色台面上缓慢旋转 360 度，途中停两次给特写（接口、按键、厚度侧面），光线干净、反射真实，屏幕与机身质感清晰，全程不出现品牌以外的文字。',
@@ -330,10 +338,46 @@ export const VIDEO_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'video.store_tour', board: 'video', name: '探店漫游', category: '电商专区', complexity: 'standard',
+    id: 'video.store_tour', board: 'video', name: '探店漫游', category: '精品推荐', complexity: 'standard',
     summary: '推门进去走一圈，把店与货架讲明白', capability: ['image'], availability: 'needs_ref',
     pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'accent' },
     brief: '探店漫游：镜头从店门口推进，沿动线走过货架与展示区，在重点商品前停留并给特写，最后停在店内最有氛围的一角；运动平稳、光线真实，空间结构一致，不出现虚构的品牌与价格。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+
+  /* ── 官方用例里我们缺的 4 条（2026-09-17 补）──────────────────────────────────
+     来源：EvoLinkAI/awesome-seedance-2.5-guide（403★）的官方 use-cases —— 每条都按官方那条
+     用例的**结构**落地（不是我自己编的玩法）。出处登记在 src/skills/skillSources.js。 */
+  {
+    id: 'video.multi_angle_showcase', board: 'video', name: '多角度展示', category: '电商专区', complexity: 'standard',
+    summary: '正侧背、材质与细节，一次讲完', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'cool' },
+    brief: '对上传的商品做一次商业化摄像展示：正面、侧面与背面依次出现，表面材质与五金细节各给一次特写，镜头缓慢环绕并保持主体居中；光线干净、反射真实，商品结构与包装文字全程一致。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.product_placement', board: 'video', name: '产品植入', category: '电商专区', complexity: 'standard',
+    summary: '把商品自然放进已有视频里', capability: ['video', 'image'], availability: 'needs_ref',
+    pipeline: 'videoRemake', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '把上传的商品植入已有视频：保留原片的人物动作、镜头运动与节奏不变，在指定位置自然地放入商品（桌面、手中或背景货架），并给一次手部特写；商品结构与包装文字清晰，光影与原片一致，不出现悬浮或边缘发虚。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.scene_edit', board: 'video', name: '画面修改', category: '创意应用', complexity: 'standard',
+    summary: '只改指定元素，其它一律不动', capability: ['video'], availability: 'needs_ref',
+    pipeline: 'videoRemake', cover: { template: 'before-after', accent: 'accent' },
+    brief: '只修改画面里指定的那个元素（换发色 / 加一个背景物体 / 去掉杂物），其余一律不动：原片的人物、动作、镜头与构图保持不变，新增元素的光影、景深与色温要和原片一致，不出现边缘割裂或闪烁。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.storyboard_to_video', board: 'video', name: '分镜转视频', category: '热门玩法', complexity: 'heavy',
+    summary: '把分镜脚本逐格拍成成片', capability: ['image', 'text'], availability: 'ready',
+    pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '按上传的分镜脚本逐格生成视频：每个分镜的景别、动作与台词按脚本走，镜头之间用干净的切或短过渡衔接，整体节奏统一；角色、场景与商品在各分镜中保持一致，不出现人物变形或商品改样。',
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
   },

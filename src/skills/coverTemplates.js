@@ -181,6 +181,10 @@ export const VIDEO_COVER_PLAN = [
   { skillId: 'video.book_selling', template: 'case-3up', accent: 'warm', subject: '书页翻动与封面收束的三个关键帧', title: '图书带货', subtitle: '翻页讲一本书' },
   { skillId: 'video.food_asmr', template: 'hero-single', accent: 'warm', subject: '近距离食物与餐具的高收音画面', title: '吃播ASMR', subtitle: '声音画面一起上' },
   { skillId: 'video.store_tour', template: 'case-3up', accent: 'accent', subject: '从店门口到货架再到重点商品的三帧', title: '探店漫游', subtitle: '推门走一圈' },
+  { skillId: 'video.multi_angle_showcase', template: 'case-3up', accent: 'cool', subject: '同一商品正面、侧面与细节的三帧', title: '多角度展示', subtitle: '一次讲完各个面' },
+  { skillId: 'video.product_placement', template: 'case-3up', accent: 'warm', subject: '商品被自然放进原片场景的三个关键帧', title: '产品植入', subtitle: '放进已有视频里' },
+  { skillId: 'video.scene_edit', template: 'before-after', accent: 'accent', subject: '同一画面修改前后的并排对照（只换指定元素）', title: '画面修改', subtitle: '只改指定的那一处' },
+  { skillId: 'video.storyboard_to_video', template: 'case-3up', accent: 'accent', subject: '分镜脚本与对应成片的三帧对照', title: '分镜转视频', subtitle: '按脚本逐格拍' },
 ];
 
 /* 两板块合表：封面产线（scripts/build-skill-covers.mjs）与门禁都读这一份，
