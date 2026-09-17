@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { MdAutoAwesome, MdEdit, MdPalette, MdShoppingCart, MdVideoLibrary } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
@@ -10,7 +10,7 @@ import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
 import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
-import { featuredSkills, hubPath, skillPath } from '../../skills/skillDirectory.js';
+import { featuredSkills, hubPath, skillPath, skillsOfBoard } from '../../skills/skillDirectory.js';
 
 /* ═══ 首页每个板块摆几条精选推荐按钮 ═══════════════════════════════════════════════
    2026-09-19 用户批注 #4：「这里的 skill 他们本身只是个按钮。它是像这样子排列成
@@ -65,6 +65,31 @@ export default function HomePage() {
      视频模式 → 视频技能；图片模式（视觉创作 / 电商生图 / 小红书图文）→ 图片技能。
      这几个模式都属于图片家族，只有 video 是视频板块。 */
   const skillBoard = isVideo ? 'video' : 'image';
+  /* ═══ 2026-09-19 批 I-7（用户批注 #2-6，坐标 52.0% / 79.5%）══════════════════════════════
+     原话：「你这里其实应该放的是像他们那样，**各个skill分类的切换区**和更多skill的按钮，
+     这个按钮就是通向我们总图片页面和总视频页面的地方啊。」
+     照 flova 实测（docs/design/52 §2.1）做那排分类页签，但**不手写清单** ——
+     分类本来就声明在技能里（skill.category），所以页签跟着声明源自己走（与总页面同一份口径）。
+     ⚠️ 「全部」那一档回到精品位（featuredSkills）：首页的第一眼仍然是"我们推荐什么"，
+        切到某一档才展开那一档的全部技能。 */
+  const [skillCategory, setSkillCategory] = useState('');
+  const boardSkills = useMemo(() => skillsOfBoard(skillBoard), [skillBoard]);
+  const skillCategories = useMemo(() => {
+    const map = new Map();
+    for (const skill of boardSkills) {
+      if (skill.tier === 'assistant') continue;   /* 辅助能力是被调用的"一步"，不进首页分类 */
+      map.set(skill.category, (map.get(skill.category) || 0) + 1);
+    }
+    return [...map].map(([name, count]) => ({ name, count }));
+  }, [boardSkills]);
+  const rowSkills = useMemo(() => {
+    if (!skillCategory) return featuredSkills({ board: skillBoard, limit: SKILL_ENTRY_LIMIT });
+    return boardSkills
+      .filter(skill => skill.tier !== 'assistant' && skill.category === skillCategory)
+      .slice(0, 24);
+  }, [skillCategory, boardSkills, skillBoard]);
+  /* 换板块时那一档分类可能不存在了 —— 必须清掉，否则会停在一个空列表上。 */
+  useEffect(() => { setSkillCategory(''); }, [skillBoard]);
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
@@ -266,7 +291,14 @@ export default function HomePage() {
                  · previewAssets：它的案例封面（最多 3 张）——没有案例就是空数组，
                    预览窗里如实显示「案例补充中」；
                  · detail：一句"它是干什么的"，优先用 outcome（能力描述），没有就用 summary。 */
-            skills={featuredSkills({ board: skillBoard, limit: SKILL_ENTRY_LIMIT }).map(skill => ({
+            /* 批 I-7：这排页签取的是**声明源**（skillDirectory.skillsOfBoard），
+               与总页面顶部那排分类同一份口径 —— 技能增删/换组，两处一起跟着走。 */
+            categories={skillCategories}
+            activeCategory={skillCategory}
+            onCategory={setSkillCategory}
+            /* ⚠️ 换分类时按新列表重取数（原来这两行写死了 featuredSkills，
+               切了分类也还是那 9 条）。 */
+            skills={rowSkills.map(skill => ({
               ...skill,
               detail: skill.outcome || '',
               previewAssets: (Array.isArray(skill.cases) ? skill.cases : [])

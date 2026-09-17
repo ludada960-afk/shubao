@@ -22,6 +22,39 @@
 .skill-entry-more:hover { transform: translateY(-1px); box-shadow: var(--sb-shadow-sm); }
 
 /* 按钮行：一行滑过去（flova 同款），不折行 */
+/* ═══ 分类切换区（2026-09-19 批 I-7，用户批注 #2-6）══════════════════════════════════════
+   数值逐条照 flova 实测（docs/design/52 §2.1）：
+     · 整行高 **44**；每档文字 **14px / 600**；
+     · 两档之间是一条 **1px 竖线、高 16**，左右各留 **20px**（他们的写法是 before 伪元素 mx-20 h-16 w-px）；
+     · 选中档走品牌色，未选中是次要墨色，**过渡 .15s cubic-bezier(.4,0,.2,1)**（他们原文）。
+   ⚠️ 他们那套是深底上的白字（未选中 rgba(255,255,255,.3)），我们是浅底，
+      所以"未选中"翻译成 --sb-ink-3（同一个层级关系：能看见、但不抢）。
+   ⚠️ 横滑不折行：分类多起来时整行可横向滚动，滚动条隐藏（他们也是 scrollbar-hide）。 */
+.skill-entry-categories {
+  display: flex; align-items: center; min-height: 44px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.skill-entry-categories::-webkit-scrollbar { display: none; }
+.skill-entry-categories button {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; height: 44px; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600; line-height: 1;
+  color: var(--sb-ink-3);
+  white-space: nowrap;
+  transition: color .15s cubic-bezier(.4,0,.2,1);
+}
+.skill-entry-categories button:hover { color: var(--sb-ink-1); }
+.skill-entry-categories button.is-active { color: var(--sb-ink-brand); }
+.skill-entry-categories button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); border-radius: var(--sb-radius-md); }
+/* 竖线分隔：除第一档外，每档前面一条 1px 竖线，左右各 20px */
+.skill-entry-categories button + button { margin-left: 20px; }
+.skill-entry-categories button + button::before {
+  content: ''; width: 1px; height: 16px; margin-right: 20px;
+  background: var(--sb-border-default);
+}
+@media (prefers-reduced-motion: reduce) { .skill-entry-categories button { transition: none; } }
+
 .skill-entry-buttons {
   display: flex;
   gap: 11px;

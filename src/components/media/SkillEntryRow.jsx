@@ -35,6 +35,16 @@ export default function SkillEntryRow({
   onOpenSkill = null,
   moreHref = '',
   moreLabel = '',
+  /* ═══ 分类切换区（2026-09-19 批 I-7，用户批注 #2-6）═══════════════════════════════════
+     原话：「你这里其实应该放的是像他们那样，**各个skill分类的切换区**和更多skill的按钮，
+     这个按钮就是通向我们总图片页面和总视频页面的地方啊。」
+     尺寸照 flova 实测（docs/design/52 §2.1）：整行高 44、文字 14px/600、
+     两档之间是一条 1px 竖线（左右各 20px 边距）、选中档走品牌色。
+     ⚠️ categories 由调用方从**声明源**算好传进来（首页传 skillDirectory.skillsOfBoard），
+        这一层不自己造清单 —— 与总页面顶部那排分类同一份口径。 */
+  categories = [],
+  activeCategory = '',
+  onCategory = null,
 }) {
   const [activeId, setActiveId] = useState('');
   const [anchor, setAnchor] = useState(null);
@@ -109,6 +119,29 @@ export default function SkillEntryRow({
                之类的调用点报 lint；下次清理时一起删。 */}
         {moreHref && <a className="skill-entry-more" href={moreHref}>{moreLabel || '查看全部'}<ArrowRight size={14} /></a>}
       </header>
+
+      {/* 分类切换区：照 flova 实测那排页签（不手写清单，档位来自声明源） */}
+      {categories.length > 0 && (
+        <div className="skill-entry-categories" role="tablist" aria-label={title + '技能分类'}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!activeCategory}
+            className={!activeCategory ? 'is-active' : ''}
+            onClick={() => onCategory?.('')}
+          >全部</button>
+          {categories.map(item => (
+            <button
+              key={item.name}
+              type="button"
+              role="tab"
+              aria-selected={activeCategory === item.name}
+              className={activeCategory === item.name ? 'is-active' : ''}
+              onClick={() => onCategory?.(item.name)}
+            >{item.name}</button>
+          ))}
+        </div>
+      )}
 
       <div className="skill-entry-buttons">
         {list.map(skill => {

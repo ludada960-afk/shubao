@@ -112,7 +112,14 @@ test('⑤ 图片与视频共用同一套按钮行（不许各写一份），旧�
   assert.doesNotMatch(home, /HotSkillStrip|hot-skill-strip/);
   /* 两个板块共用：组件不按 board 分支渲染两套 DOM，只换数据与文案 */
   assert.match(row, /data-board=\{board\}/);
-  assert.equal((row.match(/<button/g) || []).length, 1, '按钮行只有一处按钮实现（一个 map 渲染全部）');
+  /* ═══ 2026-09-19 批 I-7：判据收窄到「skill 按钮只有一处实现」（用户批注 #2-6）═══════════
+     原判据数的是文件里 <button 的出现次数 == 1。批 I-7 按用户批注 #2-6
+     「你这里其实应该放的是像他们那样，**各个skill分类的切换区**和更多skill的按钮」
+     加了一排**分类页签**（它当然是 button，而且一个 map 渲染 7 档）—— 于是这条从 1 变成 3，红了。
+     ⚠️ 但这条门禁**要守的东西没变**：它守的是「图片与视频不许各写一份 **skill 按钮**」，
+        不是「这个文件里只能有一个 button」。分类页签是**另一个控件**，不是第二份 skill 按钮实现。
+     所以判据改成数 .skill-entry-button 这个类名的出现次数（仍然是 1 = 一个 map 渲染全部）。 */
+  assert.equal((row.match(/className=\{'skill-entry-button'/g) || []).length, 1, 'skill 按钮只有一处实现（一个 map 渲染全部）');
   /* 可用性角标也只有一份实现（Hub 卡片与首页按钮共用同一句话） */
   assert.match(hub, /badge=\{availabilityLabel\(skill\)\}/);
   assert.equal(availabilityLabel({ availability: 'blocked' }), '即将上线');
