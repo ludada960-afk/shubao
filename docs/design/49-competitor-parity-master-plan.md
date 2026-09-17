@@ -97,3 +97,46 @@
 | 比例 16 档 | 只放服务端白名单档位（非法值会被静默回落，多写一档就是给用户挖坑） |
 | 多模型选择 | 图片只给有真实出图记录的 image2；视频按后端 catalog（不造假选择） |
 | 延长续写 | 服务端无"接着末帧往下拍"能力 → 不放按钮，声明里写明原因 |
+
+---
+
+## 七、施工进度与续作指引（2026-09-18 交接给下一个会话）
+
+### 现在在哪个分支、做到哪了
+- 工作树：`F:/da/shubao/.worktrees/codex-ecommerce-stability`，分支 `codex/ecommerce-stability`。
+- 已完成的批次（每批都有独立提交与验证）：
+  | 批次 | 提交 | 内容 |
+  |---|---|---|
+  | A | `ec451ada` | 左侧常驻导航（展开/折叠 + 两个总页面分组 + 精品推荐直达）；图片精品位照抄知渔 6 条；模特试穿改名 AI换装；修掉旧图标栏与任务悬浮钮遮挡 |
+  | D | `2f01b779` | 精选技能卡照抄 flova（封面+描述+悬停毛玻璃「试一试」大按钮+视频自动播放）；本规划文档 |
+  | B | `282c0e1f` | 首页视频创作台极简化（只留两档创作方式、移除技能库/镜头规格/运镜/生成记录 → 换成「我生成的作品」按钮） |
+- 线上状态：`https://shuimg.cn/` 目前是 `0a4b09cf`（**不含** A/B/D 三批）；A/B/D **尚未发布**。
+
+### 续作顺序（不要跳步）
+1. **批 C — 首页图片创作台精简**（用户批注 6/11/12）
+   - 落点：`src/pages/Home/VisualCreationMode.jsx` + 同名 css；模式切换用 `visualSkillById(skillId)`，四个模式卡（自由创作/海报设计/社媒封面/品牌主视觉）要**从首页拿掉**（它们已是独立 skill，从左侧导航/总页面进）。
+   - 保留：我的素材 / 风格参考两张卡 + 提示词输入框 + 配置面板。
+   - 配置顺序必须是 **模型 → 分辨率 → 尺寸/比例 → 数量**（用户原话：「最前面应该是选模型的面板，第二个是分辨率、尺寸和数量那些东西」）。
+2. **视频素材三张对称卡**（用户批注 3）：图片/视频/音频三张同款卡片，样式**从图片侧复制**（`src/components/media/MediaAssetCard.jsx` + css），不要歪卡；再加「清空素材」与全屏按钮。
+3. **批 E — 总页面视觉拉满**（用户批注 13/14）：`src/pages/Home/MediaHub.jsx/.css`，卡片放大、封面占主导、间距拉开。
+4. **批 F — 子页面工作台逐条 1:1**（用户批注 15/16/17，最大一块）
+   - 先用 CDP 抓知渔每个子页面工作台的真实结构（见第五节取证纪律），**一次只开一个标签页、看完立即 `/close`**。
+   - 顺序：商品套图 `?tool=product-listing-set` → A+ `?tool=aplus-content` → 详情图 `?tool=detail-image` → 图片复刻 `?tool=image-clone` → 去除背景 / AI换装。
+   - 我们对应技能：`image.product_suite` / `image.aplus` / `image.detail_page` / `image.copy` / `image.remove_bg` / `image.try_on`。
+5. 全部做完 → **发线上**（发布流程见 RTK 批次三十三：干净检出 + `-RepoPath` + `-SkipPublicChecks`，因为部署机到公网域名 443 不通；发完核对 `/var/www/shubao/current` 的入口 bundle 与本地 `dist` 同名）。
+
+### 每个批次的固定验收（缺一不可）
+```powershell
+cd F:/da/shubao/.worktrees/codex-ecommerce-stability
+npm run build                                   # 必须 exit 0
+node --test test/<相关门禁>.test.mjs             # 相关门禁
+npm run precommit                               # 34 条 BLOCKING
+node scripts/media-workbench-e2e.mjs            # 193 条断言（跑前必须先 build，脚本会检查产物新旧）
+```
+再补一张 1440px 实机截图（写法见 `.tmp/shot-*.mjs`：起个静态服务 + Playwright）。
+
+### 续作时必须知道的坑（都已踩过）
+- **子代理在这个环境里不可用**：两次派发都无疾而终、不留任何改动 → 自己顺序做。
+- **可点必有 hover**（`test/interactive-state-coverage`）、**不许引用不存在的 token**（`test/token-vars-defined`）——这两条最容易在写新 UI 时踩。
+- **改门禁要改在点子上**：`test/skill-entry-row-0918` 曾断言旧药丸按钮的 DOM，改 UI 时要把断言改成新契约（并写清为什么），不要为了让测试过而回退 UI。
+- 首页与子页面的差异判据已经建立（视频侧 `homeComposer = embedded && !skillTag`），**子页面功能一个都不许少**。
