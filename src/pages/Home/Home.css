@@ -2536,25 +2536,56 @@
        现在两张等宽等高、同一条基线，中间留一条 12px 的缝 —— 靠栅格说话，不靠错位；
      · **不再互相盖**：负外边距只保留"整组探进下面白色工作台卡"的那一处（那是有意的层次）。
    尺寸：两张 232 宽 + 12 缝 = 476，与原来 480 的占位基本一致（页面节奏不变）。 */
+/* ═══ 2026-09-19 批 I-⑤：这把扇子**加回来**（用户批注 #4-1 + #1-8）══════════════════════
+   用户对着「潮际好麦」那张图说（#4-1，坐标 51.4% / 29.8%）：
+     「然后图片生成和视频生成切换卡片样式，你好好看看，应该抄他们这种做法，
+       就是**背景圆角的框，里面是卡片扇形张开的样式，外面是白色，上面标题是黑色，
+       然后对称的斜放着啊**。」
+   另一条（#1-8，坐标 49.0% / 8.6%）说的是同一处：
+     「上面的卡片也是**这个标题有白色背景啊**，你自己没看到很别扭吗，不能想办法解决吗，
+       而且你这个背景也不好看啊。」
+
+   【为什么改了两次】批 G 我按「不必向左歪、向右歪就是正常的放」把整组旋转删掉，
+   把判据从"扇形歪卡"改成"零倾斜"（那条注释里还写着"继续守旧判据等于逼着下一轮把歪卡加回来"）。
+   这一轮用户就是要求加回来 —— 而且是**同时**要求：一张白底的卡 + 扇子 = 他要的形态。
+   所以这一版把两件事一起做：
+     ① **一张圆角的框**（.homepage-mode-cards 自己成为那层白底），两片卡**透明**；
+     ② 两片卡**对称斜放**（-5° / +5°，支点在底边中点，所以下沿仍然是一条水平线、
+        整组探进下面那张工作台卡的层次不变）。
+   ① 同时解掉 #1-8：标题不再各有一块自己的白底（那正是用户说的"这个标题有白色背景"）——
+      白底上收到**一层**，标题直接落在它上面，"外面是白色"也就成立了。
+
+   【几何】232×168 绕底边中点转 5° 后包围盒 ≈ 245.7×187.6（高度 +19.6，左右各外扩 6.85）。
+   所以：卡片尺寸不变，缝 12→20（外扩吃掉的余量），框 476×168 → 548×196，
+   外层 showcase 高 174→196、下边距 -34→-62（保持与改造前**同样的重叠量**，层次不掉）。 */
 .homepage-mode-showcase {
-  display: flex; justify-content: center; width: min(100%, 560px); height: 174px;
-  position: relative; z-index: 3; margin: var(--sb-space-5) auto -34px;
+  display: flex; justify-content: center; width: min(100%, 560px); height: 196px;
+  position: relative; z-index: 3; margin: var(--sb-space-5) auto -62px;
 }
 .homepage-mode-cards {
-  display: flex; align-items: flex-end; justify-content: center; width: 476px; height: 168px; gap: 12px;
+  display: flex; align-items: flex-end; justify-content: center; width: 548px; height: 196px; gap: 20px;
+  padding: 0 26px 8px;
+  border-radius: 24px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-lg);
   animation: homepageModeCardsIn var(--sb-duration-slow) var(--sb-ease-out) both;
 }
 .homepage-mode-card {
   position: relative; display: grid; flex: 0 0 auto; grid-template-rows: 28px 124px; width: 232px; height: 168px;
   overflow: hidden; padding: var(--sb-space-2);
-  border: 1px solid var(--sb-border-default);
+  /* ⚠️ 批 I-⑤：这两条从"白卡 + 描边"改成**全透明** —— 白色上收到外层那一张框。
+     卡本身靠 hover 的中性底 + 位移表达"可点"，不再各占一块白。 */
+  border: 1px solid transparent;
   border-radius: var(--sb-radius-control);
-  color: var(--sb-text-primary); background: var(--sb-surface-card); cursor: pointer; font-family: inherit;
-  box-shadow: var(--sb-shadow-lg); transform-origin: 50% 100%;
+  color: var(--sb-text-primary); background: transparent; cursor: pointer; font-family: inherit;
+  box-shadow: none; transform-origin: 50% 100%;
   transition: transform var(--sb-duration-normal) var(--sb-ease-out),
               border-color var(--sb-duration-fast) var(--sb-ease-out),
               background-color var(--sb-duration-fast) var(--sb-ease-out);
 }
+/* 对称斜放：左边那片逆时针、右边那片顺时针，支点都在底边中点（下沿仍是一条水平线）。 */
+.homepage-mode-card.card-1 { transform: rotate(-5deg); }
+.homepage-mode-card.card-2 { transform: rotate(5deg); }
 .homepage-mode-card-title {
   display: flex; align-items: center; justify-content: center; gap: var(--sb-space-1);
   font-size: var(--sb-text-sm); font-weight: var(--sb-weight-bold); white-space: nowrap;
@@ -2569,16 +2600,22 @@
 /* ⚠️ 这里原来是两条**造倾斜**的规则（card-1 逆时针 6° + 向右压 -22px、card-2 顺时针 6°）。
    它们已被删除（用户同轮明确否掉了歪卡）；保留两条空规则会让"没有倾斜"这件事
    变成"看不见的约定"，所以这里写清：**两张卡不加任何 transform 基线**。 */
-/* hover：只做位移（这是卡片**本身**的交互语言）+ 中性底色，绝不染紫（原则 4.3） */
+/* hover：只做位移（这是卡片**本身**的交互语言）+ 中性底色，绝不染紫（原则 4.3）
+   ⚠️ 批 I-⑤：上面这条是**基线**（两片共用）；下面两条按片把旋转带回去 ——
+      不带的话，鼠标一移上去卡片就"啪"地回正，扇子当场散架。 */
 .homepage-mode-card:hover {
   transform: translateY(-14px);
-  background: var(--sb-surface-card);
+  background: var(--sb-hover-bg);
   border-color: var(--sb-border-strong);
 }
+.homepage-mode-card.card-1:hover { transform: translateY(-14px) rotate(-5deg); }
+.homepage-mode-card.card-2:hover { transform: translateY(-14px) rotate(5deg); }
 /* active：按下时收敛位移，给出按压反馈（原则 4.1） */
 .homepage-mode-card:active {
   transform: translateY(-8px);
 }
+.homepage-mode-card.card-1:active { transform: translateY(-8px) rotate(-5deg); }
+.homepage-mode-card.card-2:active { transform: translateY(-8px) rotate(5deg); }
 /* focus-visible：键盘用户必须看得见（原则 4.2，旧实现用自定义 outline 且未走 token） */
 .homepage-mode-card:focus-visible {
   outline: none;
@@ -2586,6 +2623,10 @@
 }
 /* selected：品牌紫描边 + 品牌浅底 + 品牌字，持久（原则 4.3 / 6.1） */
 .homepage-mode-card.is-active {
+  /* ⚠️ 批 I-⑤：这一条**没有改值**，保持 --sb-state-selected-* 这两个语义 token。
+     卡改成透明之后选中态照样成立：浅底落在透明卡上，正好补出"这一片是当前项"。
+     （--sb-state-selected-line / -bg 在批 H-2 已经从品牌紫收成中性墨色，
+       所以这里既守住了语义 token，也没有把紫色放回来。） */
   border-color: var(--sb-state-selected-line);
   background: var(--sb-state-selected-bg);
   /* ⚠️ 2026-09-19 批 H-2：选中环从品牌紫改成**墨色**（用户批注 #5-①「一大堆紫色」）。
@@ -2598,8 +2639,9 @@
   to { opacity: 1; transform: translateY(0); }
 }
 @media (max-width: 640px) {
-  .homepage-mode-showcase { width: 100%; height: 128px; margin-bottom: -24px; }
-  .homepage-mode-cards { width: 100%; height: 124px; gap: 8px; }
+  /* 批 I-⑤：窄屏也要留出扇子的外扩余量（转 5° 后左右各外扩约 6px + 框的内边距） */
+  .homepage-mode-showcase { width: 100%; height: 142px; margin-bottom: -38px; }
+  .homepage-mode-cards { width: 100%; height: 142px; gap: 10px; padding: 0 12px 6px; border-radius: 18px; }
   .homepage-mode-card { width: min(38vw,132px); height: 118px; grid-template-rows: 26px 78px; padding: 6px; }
   .homepage-mode-card-title { gap: 3px; font-size: 10px; }
   .homepage-mode-card-title svg { display: none; }

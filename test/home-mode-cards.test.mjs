@@ -39,22 +39,35 @@ test('home presents the two confirmed entries (视频生成 / 图片生成) in o
   assert.doesNotMatch(source, /在同一个工作台完成/);
   assert.match(page, /智能视觉内容创作平台/);
   assert.match(footer, /AI 视觉内容策划、生成与编辑/);
-  /* ═══ 2026-09-19 批 G：这两张入口卡**从「扇形歪卡」改成「对齐卡片」**（判据反转）═════
-     ⚠️ 这一条改的是产品口径，不是为了让测试变绿而回退 UI。
-     旧判据守的是「左片左倾 -6°、右片右倾 +6°、两片互相压边 -22px」那把扇子。
-     用户这一轮的原话（同一次批注里，说的是同一类歪卡）：「弄成三张卡片这样，
-     **不必向左歪、向右歪就是正常的放**」；「你这个就是个 demo 呀……没有任何的设计」。
-     于是本批把整组旋转删掉、把两片改成**等宽等高 + 同一条基线 + 12px 的缝**。
-     继续守旧的 rotate(-6deg) 等于逼着下一轮把歪卡加回来 —— 所以判据整条换掉。
-     新契约守三件事：
-       ① 零倾斜：这两张卡**没有**任何 rotate（含 hover / active 的回正写法）；
-       ② 对称：两片同宽（由 .homepage-mode-card 的单一宽度规则给出）、中间有缝；
-       ③ 唯一保留的负外边距是**整组**探进下面那张白色工作台卡（那是有意的层次，不是穿模）。 */
-  assert.doesNotMatch(styles, /\.homepage-mode-card[^{]*\{[^}]*rotate\(/, '入口卡不许再倾斜');
-  assert.doesNotMatch(styles, /\.homepage-mode-card:hover\s*\{[^}]*rotate\(/);
-  assert.doesNotMatch(styles, /\.homepage-mode-card:active\s*\{[^}]*rotate\(/);
-  assert.doesNotMatch(styles, /\.homepage-mode-card\.card-1 \{[^}]*margin-right:\s*-\d+px/, '两片不再互相压边');
-  assert.match(styles, /\.homepage-mode-cards \{[^}]*gap:\s*12px/, '两片之间是缝，不是负外边距');
+  /* ═══ 2026-09-19 批 I-⑤：判据**第二次反转** —— 扇子又回来了（用户批注 #4-1）══════════
+     ⚠️ 这一条同样改的是产品口径，不是为了让测试变绿而回退 UI。
+     批 G 把这两张卡从「扇形歪卡」改成「对齐卡片」（零倾斜），理由写在上面那条注释里：
+     「继续守旧的 rotate(-6deg) 等于逼着下一轮把歪卡加回来」。**这一轮用户就是要求加回来**：
+       用户对着「潮际好麦」那张图说：「图片生成和视频生成切换卡片样式……应该抄他们这种做法，
+       就是**背景圆角的框，里面是卡片扇形张开的样式，外面是白色，上面标题是黑色，
+       然后对称的斜放着啊**。」
+     （配套的 #1-8：「上面的卡片也是**这个标题有白色背景啊**……而且你这个背景也不好看啊」——
+       所以白色从"每张卡各一块"上收到"整组一张框"，卡变透明。）
+
+     新契约（守的是**用户这一次要的那把扇子**，不是无边界的"随便歪"）：
+       ① **必须**对称倾斜：card-1 -5° / card-2 +5°，且支点在底边中点
+          （transform-origin: 50% 100%）—— 下沿仍是一条水平线，整组的层次不变；
+       ② **必须**对称：两片同宽（单一宽度规则 232）、中间是缝（20px）而不是负外边距叠压；
+       ③ hover / active **必须把旋转带回去** —— 不带就会"鼠标一移上去卡片就回正"，
+          扇子当场散架（这是这一版最容易漏、也最难看的一处）；
+       ④ 两条负外边距仍然只允许"整组探进下面那张工作台卡"那一处。 */
+  assert.match(styles, /\.homepage-mode-card\.card-1 \{ transform: rotate\(-5deg\); \}/, '左片必须 -5°（用户 #4-1：对称的斜放着）');
+  assert.match(styles, /\.homepage-mode-card\.card-2 \{ transform: rotate\(5deg\); \}/, '右片必须 +5°（与左片对称）');
+  assert.match(styles, /\.homepage-mode-card \{[^}]*transform-origin:\s*50% 100%/, '支点必须在底边中点（下沿才是一条水平线）');
+  assert.match(styles, /\.homepage-mode-card\.card-1:hover \{ transform: translateY\(-14px\) rotate\(-5deg\); \}/, 'hover 必须把旋转带回去（否则一悬停扇子就散架）');
+  assert.match(styles, /\.homepage-mode-card\.card-2:hover \{ transform: translateY\(-14px\) rotate\(5deg\); \}/, 'hover 必须把旋转带回去');
+  assert.match(styles, /\.homepage-mode-card\.card-1:active \{ transform: translateY\(-8px\) rotate\(-5deg\); \}/, 'active 也要带回旋转');
+  assert.doesNotMatch(styles, /\.homepage-mode-card\.card-1 \{[^}]*margin-right:\s*-\d+px/, '两片不互相压边（歪的是角度，不是位置）');
+  assert.match(styles, /\.homepage-mode-cards \{[^}]*gap:\s*20px/, '两片之间是缝（转 5° 后左右各外扩约 7px，缝要留够），不是负外边距');
+  /* 圆角的框：白色上收到**一层**（#4-1 的「背景圆角的框…外面是白色」+ #1-8 的「标题有白色背景」） */
+  assert.match(styles, /\.homepage-mode-cards \{[^}]*border-radius:\s*24px/, '整组必须有一张圆角的框');
+  assert.match(styles, /\.homepage-mode-cards \{[^}]*background:\s*var\(--sb-surface-card\)/, '框是白色（用户 #4-1：外面是白色）');
+  assert.match(styles, /\.homepage-mode-card \{[^}]*background:\s*transparent/, '卡本身必须透明（白色不许各占一块 —— 用户 #1-8）');
   assert.match(styles, /\.homepage-mode-card \{[^}]*width:\s*232px/, '两片同宽（单一宽度规则）');
   /* 2026-09-15 V3：hover 与 focus-visible 从「合并选择器」拆成各自独立的规则 ——
      原则 4.2 要求 focus 必须独立于 hover 可见（键盘用户看不到 hover），
