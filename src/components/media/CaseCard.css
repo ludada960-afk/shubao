@@ -44,21 +44,57 @@
 .media-case-card-cover img,
 .media-case-card-cover video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .media-case-card-hit:hover .media-case-card-cover { transform: scale(1.04); }
-/* 还没有案例的技能：封面位不是"一块什么都没有的灰"。
-   卡放大到 260 宽以后，纯灰空块占了整张卡的 3/4，看着像加载失败；
-   这里给它一个居中标记 + 一句实话（与首页精选卡上的"案例补充中"同一口径：
-   没有案例是**如实**的，不是坏掉了）。 */
+/* ═══ 没有案例时的**字标位**（2026-09-19 批 G 重做）═══════════════════════════════════
+   背景：批 E 把卡放大到 260 之后，纯灰空块占了整张卡的 3/4，看着像加载失败。
+   实测总页面：92 条技能里 88 条没有案例图 —— 一片灰底 = 整个页面像坏了。
+   现在这一格是**有设计的位置**：
+     · 按 skill 声明的 accent 铺一层同族浅渐变（4 档，全部只用已验证存在的 --sb-* token）；
+     · 正中一个两字**字标**（品牌浅色 --sb-brand-300，当水印用，不与标题抢读）；
+     · 右下角一枚小胶囊如实写「案例补充中」（诚实信息一点不少）。
+   动效：字标随卡片 hover 轻微放大，与有图卡的封面缩放同一节奏（同一张卡，两种封面）。 */
 .media-case-card-blank {
-  display: flex;
+  position: relative;
+  display: grid;
+  place-items: center;
   width: 100%;
   height: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--sb-surface-tint-strong);
+  background: linear-gradient(140deg, var(--sb-surface-tint) 0%, var(--sb-surface-tint-strong) 100%);
   color: var(--sb-ink-3);
-  font-size: 12.5px;
-  font-weight: 600;
+}
+.media-case-card-blank[data-accent='warm'] { background: linear-gradient(140deg, var(--sb-brand-50) 0%, var(--sb-surface-tint-strong) 100%); }
+.media-case-card-blank[data-accent='cool'] { background: linear-gradient(140deg, var(--sb-brand-100) 0%, var(--sb-surface-tint) 100%); }
+.media-case-card-blank[data-accent='soft'] { background: linear-gradient(140deg, var(--sb-surface-card) 0%, var(--sb-brand-50) 100%); }
+/* 字标：42→50px、brand-300→brand-400。
+   第一版实测偏"洗掉了"（浅紫压浅底，整排卡看着像禁用态），所以提一档色与字号；
+   再叠一层白色径向光晕，让字标看起来是**浮在色面上的印记**而不是没印上去。 */
+.media-case-card-monogram {
+  font-size: 50px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .06em;
+  color: var(--sb-brand-400);
+  text-shadow: 0 0 26px var(--sb-surface-card);
+  transition: transform .3s ease;
+}
+.media-case-card-hit:hover .media-case-card-monogram { transform: scale(1.06); }
+.media-case-card-blank-note {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--sb-surface-panel);
+  color: var(--sb-ink-4);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-case-card-monogram { transition: none; }
+  .media-case-card-hit:hover .media-case-card-monogram { transform: none; }
 }
 .media-case-card-play {
   position: absolute;

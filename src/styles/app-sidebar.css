@@ -1,140 +1,155 @@
-/* ═══ 左侧常驻导航（2026-09-18 用户批注 #1 / #14）═══════════════════════════════════
-   用户口径：「总页面必须有一个常驻入口，左边导航栏很适合做」+「平时张开，需要时可折叠」。
-   布局契约：外壳是 flex —— 侧栏是一列（可折叠宽度），主内容是一列；
-   内容区不需要各自加 padding-left（少改一处就少一处漂移）。
-   ⚠️ 折叠态沿用原来那个悬浮胶囊的观感（老用户熟悉的图标栏），展开态才是完整菜单。 */
+/* ═══ 左侧常驻导航 · 窄栏竖排（2026-09-19 用户批注 #7 重写）═══════════════════════════
+   形态照 flova.tv（实测：aside 90px、每项 40×47、图标 30×30 在文字上方、column 排列）。
+   我们取 96px：中文四字标签「图片生成 / 无限画布」要放得下。
+   ⚠️ 折叠按钮已删（用户：「甚至可以不要这个折叠按钮了」）——宽度固定，不需要折叠。
+   视觉语言按原来那套图标栏的规格升级：暖色分层底 + 发丝描边 + 图标磁贴 + 左侧指示条。 */
 
 /* 侧栏宽度暴露给全站固定定位元素（任务列表 dock 等）避让用。
    没有侧栏的页面（画布）默认 0 —— 那些页面的浮层行为与从前完全一致。 */
 :root { --sb-app-sidebar-w: 0px; }
 
-.app-shell { display: flex; align-items: stretch; min-height: 100vh; --sb-app-sidebar-w: 248px; }
-.app-shell:has(.app-sidebar.is-collapsed) { --sb-app-sidebar-w: 72px; }
-@media (max-width: 1180px) { .app-shell { --sb-app-sidebar-w: 72px; } }
+.app-shell { display: flex; align-items: stretch; min-height: 100vh; --sb-app-sidebar-w: 96px; }
 .app-main { flex: 1 1 auto; min-width: 0; }
 
 .app-sidebar {
-  flex: 0 0 248px;
-  width: 248px;
   position: sticky;
   top: 0;
+  z-index: var(--sb-z-sticky);
+  flex: 0 0 96px;
+  width: 96px;
   height: 100vh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 12px 16px;
-  box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.92);
-  border-right: 1px solid var(--sb-border-default);
-  backdrop-filter: blur(18px);
-  transition: width .2s ease, flex-basis .2s ease;
-  z-index: var(--sb-z-sticky);
-}
-.app-sidebar.is-collapsed { flex-basis: 72px; width: 72px; padding-inline: 12px; }
-
-.app-sidebar-head { display: flex; align-items: center; gap: 8px; }
-.app-sidebar-home,
-.app-sidebar-item,
-.app-sidebar-toggle,
-.app-sidebar-caret,
-.app-sidebar-subitem {
-  border: 0;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-  color: var(--sb-ink-1);
-}
-.app-sidebar-home {
-  flex: 1 1 auto;
-  display: flex;
   align-items: center;
-  gap: 10px;
-  height: 40px;
-  padding: 0 10px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 800;
+  gap: 8px;
+  padding: 16px 8px 18px;
+  /* 暖色分层底：与全站营销面同一族，但压到最浅一档（导航是骨架，不该抢内容） */
+  background: linear-gradient(180deg, var(--sb-surface-card) 0%, var(--sb-surface-tint) 100%);
+  border-right: 1px solid var(--sb-border-subtle);
 }
-.app-sidebar-home:hover { background-color: var(--sb-hover-bg); }
-.app-sidebar-home[aria-current='page'] { background: var(--sb-surface-tint-strong); color: var(--sb-brand-600); }
-.app-sidebar-toggle {
+
+/* 品牌标：页头那颗番茄（点击回首页） */
+.app-sidebar-brand {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-sm);
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.app-sidebar-brand img { display: block; border-radius: 10px; }
+.app-sidebar-brand:hover { transform: translateY(-2px); box-shadow: var(--sb-shadow-3); }
+.app-sidebar-brand:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+
+.app-sidebar-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  scrollbar-width: none;
+}
+.app-sidebar-scroll::-webkit-scrollbar { width: 0; }
+
+.app-sidebar-divider { width: 36px; height: 1px; margin: 6px 0; background: var(--sb-border-subtle); }
+
+/* ── 每一格：图标磁贴在上、文字在下（flova 同款）────────────────────────────── */
+.app-sidebar-cell {
+  position: relative;
+  width: 78px;
+  padding: 8px 4px 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--sb-ink-3);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
+}
+.app-sidebar-tile {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-sm);
+  color: var(--sb-ink-2);
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, background-color .18s ease, color .18s ease;
+}
+.app-sidebar-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.app-sidebar-cell:hover { background: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.app-sidebar-cell:hover .app-sidebar-tile { transform: translateY(-2px); box-shadow: var(--sb-shadow-3); }
+.app-sidebar-cell:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+
+/* 选中态：左侧指示条 + 品牌紫磁贴 + 白图标 + 近黑标签（一眼看出我在哪一页） */
+.app-sidebar-cell.is-active { color: var(--sb-ink-1); }
+.app-sidebar-cell.is-active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 3px;
+  height: 26px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sb-brand-600);
+  transform: translateY(-50%);
+}
+.app-sidebar-cell.is-active .app-sidebar-tile {
+  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-600));
+  color: var(--sb-brand-ink);
+  box-shadow: 0 8px 18px rgba(124, 58, 237, .28);
+}
+
+/* 底部主动作：开始创作（窄栏里的唯一实色按钮） */
+.app-sidebar-cta {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  color: var(--sb-ink-2);
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-600));
+  color: var(--sb-brand-ink);
+  box-shadow: 0 10px 22px rgba(124, 58, 237, .26);
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
-.app-sidebar-toggle:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
-.app-sidebar.is-collapsed .app-sidebar-home { justify-content: center; padding: 0; }
-.app-sidebar.is-collapsed .app-sidebar-head { flex-direction: column; }
+.app-sidebar-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(124, 58, 237, .34); }
+.app-sidebar-cta:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
-.app-sidebar-scroll { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; }
-
-.app-sidebar-group { display: flex; flex-direction: column; gap: 2px; }
-.app-sidebar-group-row { display: flex; align-items: center; gap: 4px; }
-.app-sidebar-group-row .app-sidebar-item { flex: 1 1 auto; }
-
-.app-sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 38px;
-  padding: 0 10px;
-  border-radius: 11px;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--sb-ink-2);
-  white-space: nowrap;
-  overflow: hidden;
+/* 窄屏：再收一档（只留图标磁贴，文字退场），但导航本身**不消失** ——
+   用户批注 #7-② 要的就是常驻 */
+@media (max-width: 900px) {
+  .app-shell { --sb-app-sidebar-w: 76px; }
+  .app-sidebar { flex-basis: 76px; width: 76px; padding-inline: 6px; }
+  .app-sidebar-label { display: none; }
+  .app-sidebar-cell { width: 60px; padding: 7px 4px; }
 }
-.app-sidebar-item:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
-.app-sidebar-item.is-active { background: var(--sb-surface-tint-strong); color: var(--sb-brand-600); }
-.app-sidebar-item svg { flex: 0 0 auto; }
 
-.app-sidebar-caret {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  color: var(--sb-ink-3);
-}
-.app-sidebar-caret:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
-.app-sidebar-caret svg { transition: transform .18s ease; }
-.app-sidebar-caret svg.is-open { transform: rotate(180deg); }
-
-.app-sidebar-sublist { list-style: none; margin: 2px 0 6px; padding: 0 0 0 12px; display: flex; flex-direction: column; gap: 1px; }
-.app-sidebar-subitem {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 7px 10px;
-  border-radius: 9px;
-  font-size: 13px;
-  color: var(--sb-ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.app-sidebar-subitem:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
-.app-sidebar-subitem.is-active { background: var(--sb-surface-tint-strong); color: var(--sb-brand-600); font-weight: 700; }
-.app-sidebar-subitem.is-more { color: var(--sb-brand-600); font-weight: 700; }
-
-.app-sidebar-divider { height: 1px; margin: 8px 6px; background: var(--sb-border-subtle); }
-
-.app-sidebar.is-collapsed .app-sidebar-label,
-.app-sidebar.is-collapsed .app-sidebar-sublist { display: none; }
-.app-sidebar.is-collapsed .app-sidebar-item { justify-content: center; padding: 0; }
-.app-sidebar.is-collapsed .app-sidebar-caret { display: none; }
-
-/* 窄屏：默认折叠成图标栏，避免正文被压得过窄 */
-@media (max-width: 1180px) {
-  .app-sidebar { flex-basis: 72px; width: 72px; }
-  .app-sidebar .app-sidebar-label,
-  .app-sidebar .app-sidebar-sublist { display: none; }
-  .app-sidebar .app-sidebar-item,
-  .app-sidebar .app-sidebar-home { justify-content: center; padding: 0; }
-  .app-sidebar .app-sidebar-caret { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar-tile, .app-sidebar-brand, .app-sidebar-cta { transition: none; }
+  .app-sidebar-cell:hover .app-sidebar-tile, .app-sidebar-brand:hover, .app-sidebar-cta:hover { transform: none; }
 }

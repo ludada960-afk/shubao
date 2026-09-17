@@ -66,7 +66,11 @@ const RESOLUTIONS = [
    2026-09-15 删除，改用 PanelPrimitives.GroupTitle（全站唯一实现）。
    原则 6.1（分组标签不染品牌色）仍然成立：GroupTitle 的墨色是中性 --sb-ink-1。 */
 
-export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null }) {
+/* hideResolution：把「清晰度」这一段让给调用方自己渲染。
+   2026-09-19 用户批注 #5-①/#6：「首页图片只要两个面板，一个是选模型的，另一个把尺寸、数量、
+   清晰度集合在一起，打开就能看到分辨率和尺寸」。所以首页把清晰度挪进「画面规格」面板，
+   模型面板只留模型 —— 选项值与回落逻辑仍由本组件的 imageModelResolutions 提供，不另写一份。 */
+export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null, hideResolution = false }) {
   const safeValue = value || {};
   const selectedModel = normalizeImageModel(safeValue.imageModel);
   const currentDef = IMAGE_MODELS.find(model => model.id === selectedModel);
@@ -240,8 +244,8 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
           )}
         </div>
 
-        {/* ── 分组 2：清晰度 ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
+        {/* ── 分组 2：清晰度（hideResolution 时整段不渲染，改由调用方的「画面规格」面板承担） ── */}
+        {!hideResolution && <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
           <GroupTitle icon={Monitor}>清晰度</GroupTitle>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resolutionChoices.length}, minmax(0, 1fr))`, gap: 'var(--sb-space-2)' }}>
             {resolutionChoices.map(r => {
@@ -279,7 +283,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
               );
             })}
           </div>
-        </div>
+        </div>}
 
         {/* ── 分组 3：品牌主色调（默认未锁定） ── */}
         {onBrandColorsChange && (

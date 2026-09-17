@@ -1,21 +1,32 @@
-import React, { useState } from 'react';
-import { ArrowRight, Play } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowRight, Play, Sparkles } from 'lucide-react';
 import { availabilityLabel, coverOf } from '../../skills/skillDirectory.js';
 import './SkillEntryRow.css';
 
-/* ═══ SkillEntryRow：精选技能卡片行（首页两个板块共用）════════════════════════════════
-   形态依据 = 用户 2026-09-18 批注 4 / 5（点名照抄 flova.tv 的 skill 卡）：
-     原话「人家其实是前面有一个小封面，然后后面就是他的文字描述，然后他的按钮做的是很大的」
-          「你看鼠标放上去，它是有一个试一试出现，然后后面有一个毛玻璃遮罩这样的动态UI变化」
-          「下面的这些预览窗里面视频它是真的会自己加载动起来的……点击上面那个试一试那个按钮的时候，
-            它是真的会进入到相关的子页面里面去」
-   所以这一版把 9-17 那个「一排药丸按钮 + 悬停浮层」换成**大卡片**：
-     · 封面（有视频就先播视频，静音循环、进视口即播）→ 名称 → 一句描述 → 大 CTA；
-     · 悬停/聚焦：封面上盖一层毛玻璃遮罩 + 「试一试」大按钮（flova 同款交互）；
-     · 点卡片任意处或 CTA 都进**同一条技能的子页面**（地址算法只有 skillDirectory.skillPath 一份）。
-   ⚠️ 数据源与总页面网格、左侧导航完全同一份（featuredSkills / skillPath），三处不许各写一套。
-   ⚠️ 没有案例的技能照旧出现在这里（封面上如实写"案例补充中"）——
+/* ═══ SkillEntryRow：精选技能**按钮**行 + 悬停预览窗（2026-09-19 用户批注 #3 / #4）═══════
+   用户原话（连着三条，缺一条都做不对）：
+     · 「把他们做成像那家竞品一样。https://flova.tv/zh-CN/ 他们是按钮的形式去展示。
+        然后鼠标放上去这些按钮，他们会有这个试一试的按钮出来。」
+     · 「这里的 skill 他们本身只是个按钮。它是像这样子排列成 9 个 skill 的按钮作为入口。
+        然后鼠标放上去的话，他们就会有下面的这个预览窗出来。」
+     · 「预览窗里面你就直接拿我们现成的、我刚刚跟你说的左边是介绍、右边是图片的那个样式
+        过来用就好了。过来这里当成预览窗里面的形式就可以了。」
+
+   所以形态 = **flova 的机制** + **我们自己的内容版式**：
+     ① 按钮：图标磁贴 + 名字，圆角矩形，横向排列（flova 实测：按钮高 60、圆角 14、
+        图标 44×44、标题 14/700、间距 10；悬停时按钮本体**零位移**，只换边框/底色）；
+     ② 「试一试」长在**按钮自己**的覆盖层上（flova 实测如此，不在浮窗里）；
+     ③ 悬停 → 按钮**正下方**浮出预览窗（flova 实测：fixed + 定位到按钮下方、水平居中、间隙 10；
+        移开有 ~300ms 延迟才关，不是立刻消失）；
+     ④ 预览窗内容 = 我们那份「左介绍 + 右案例图」的版式（原本是首页的案例台，
+        用户批注 #2-② 要求把它从首页删掉、搬到这里当预览窗）。
+
+   ⚠️ 数据源与总页面网格、左侧栏完全同一份（featuredSkills / skillPath），三处不许各写一套。
+   ⚠️ 没有案例的技能照旧出现在这里（预览里如实写「案例补充中」）——
       否则视频板块在用户跑出案例之前会一条入口都没有。 */
+const CLOSE_DELAY_MS = 300;   /* flova 实测：移开后不立刻消失（Radix HoverCard 的 closeDelay 语义） */
+
 export default function SkillEntryRow({
   board = 'image',
   title = '精选推荐',
@@ -26,9 +37,64 @@ export default function SkillEntryRow({
   moreLabel = '',
 }) {
   const [activeId, setActiveId] = useState('');
+  const [anchor, setAnchor] = useState(null);
+  const closeTimer = useRef(null);
+  const activeRef = useRef(null);
   const list = Array.isArray(skills) ? skills : [];
-  if (!list.length) return null;
   const active = list.find(skill => skill.id === activeId) || null;
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) { globalThis.clearTimeout(closeTimer.current); closeTimer.current = null; }
+  }, []);
+
+  /* 定位：预览窗浮在**按钮正下方、水平居中**（flova 同款，间隙 10） */
+  const place = useCallback(node => {
+    const el = node || activeRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(600, globalThis.innerWidth - 32);
+    const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, globalThis.innerWidth - width - 16));
+    /* ⚠️ 下方放不下就翻到按钮**上面**（预览窗约 200 高 + 页脚遮不住）。
+       判据：下方剩余空间 < 240 且上方空间更大 —— 不翻的话靠页面底部的按钮会把浮窗压出视口。 */
+    const estimated = 220;
+    const below = globalThis.innerHeight - rect.bottom - 10;
+    const above = rect.top - 10;
+    const flip = below < estimated && above > below;
+    setAnchor({
+      left,
+      top: flip ? undefined : rect.bottom + 10,
+      bottom: flip ? globalThis.innerHeight - rect.top + 10 : undefined,
+      width,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!activeId) return undefined;
+    const onViewport = () => place();
+    globalThis.addEventListener('resize', onViewport);
+    globalThis.addEventListener('scroll', onViewport, true);
+    const onKey = event => { if (event.key === 'Escape') setActiveId(''); };
+    globalThis.addEventListener('keydown', onKey);
+    return () => {
+      globalThis.removeEventListener('resize', onViewport);
+      globalThis.removeEventListener('scroll', onViewport, true);
+      globalThis.removeEventListener('keydown', onKey);
+    };
+  }, [activeId, place]);
+
+  useEffect(() => () => cancelClose(), [cancelClose]);
+  if (!list.length) return null;
+
+  const openPreview = (node, skill) => {
+    cancelClose();
+    activeRef.current = node;
+    setActiveId(skill.id);
+    place(node);
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = globalThis.setTimeout(() => setActiveId(''), CLOSE_DELAY_MS);
+  };
 
   return (
     <section className="skill-entry-row" data-board={board} aria-label={title}>
@@ -40,60 +106,75 @@ export default function SkillEntryRow({
         {moreHref && <a className="skill-entry-more" href={moreHref}>{moreLabel || '查看全部'}<ArrowRight size={14} /></a>}
       </header>
 
-      <div className="skill-entry-list">
+      <div className="skill-entry-buttons">
         {list.map(skill => {
           const preview = coverOf(skill);
           const flag = availabilityLabel(skill);
-          const open = activeId === skill.id;
+          const isOpen = activeId === skill.id;
           return (
-            <article
-              className={'skill-entry-card' + (open ? ' is-open' : '')}
+            <button
               key={skill.id}
-              onMouseEnter={() => setActiveId(skill.id)}
-              onMouseLeave={() => setActiveId(current => (current === skill.id ? '' : current))}
+              type="button"
+              ref={node => { if (isOpen) activeRef.current = node; }}
+              className={'skill-entry-button' + (isOpen ? ' is-open' : '')}
+              aria-label={skill.name + ' · 试一试'}
+              onMouseEnter={event => openPreview(event.currentTarget, skill)}
+              onMouseLeave={scheduleClose}
+              onFocus={event => openPreview(event.currentTarget, skill)}
+              onBlur={scheduleClose}
+              onClick={() => onOpenSkill?.(skill)}
             >
-              <button
-                type="button"
-                className="skill-entry-open"
-                aria-label={skill.name + ' · 试一试'}
-                onFocus={() => setActiveId(skill.id)}
-                onBlur={() => setActiveId(current => (current === skill.id ? '' : current))}
-                onClick={() => onOpenSkill?.(skill)}
-              >
-                <span className="skill-entry-cover">
-                  {preview.video ? (
-                    <video
-                      src={preview.video}
-                      poster={preview.poster || preview.cover || undefined}
-                      muted
-                      loop
-                      playsInline
-                      autoPlay
-                      preload="metadata"
-                    />
-                  ) : preview.cover ? (
-                    <img src={preview.cover} alt="" loading="lazy" />
-                  ) : (
-                    <span className="skill-entry-blank"><Play size={16} />案例补充中</span>
-                  )}
-                  {/* 悬停毛玻璃遮罩 + 大按钮（flova 同款）：这是"试一试"的入口 */}
-                  <span className="skill-entry-veil" aria-hidden="true">
-                    <span className="skill-entry-try">试一试<ArrowRight size={15} /></span>
-                  </span>
-                  {flag && <span className="skill-entry-flag">{flag}</span>}
-                </span>
-                <span className="skill-entry-copy">
-                  <strong>{skill.name}</strong>
-                  <small>{skill.summary}</small>
-                </span>
-              </button>
-            </article>
+              <span className="skill-entry-glyph" aria-hidden="true">
+                {preview.cover
+                  ? <img src={preview.cover} alt="" loading="lazy" />
+                  : <Play size={16} />}
+              </span>
+              <span className="skill-entry-name">{skill.name}</span>
+              {flag && <span className="skill-entry-flag">{flag}</span>}
+              <span className="skill-entry-try">试一试<ArrowRight size={14} /></span>
+            </button>
           );
         })}
       </div>
 
-      {/* 触屏没有 hover：卡片本身就是入口（悬停只是桌面上的加速器，不是必经步骤） */}
-      <p className="skill-entry-tip">{active ? active.name + ' · ' + active.summary : ''}</p>
+      {/* 触屏没有 hover：按钮本身就是入口（悬停只是桌面上的加速器，不是必经步骤） */}
+      <p className="skill-entry-tip">
+        {active ? <><Sparkles size={13} />{active.name} · {active.summary}</> : '鼠标放上去看案例预览，点一下直接开始'}
+      </p>
+
+      {active && anchor && createPortal(
+        <div
+          className="skill-preview"
+          style={{ left: anchor.left, top: anchor.top, bottom: anchor.bottom, width: anchor.width }}
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+          role="dialog"
+          aria-label={active.name + ' 预览'}
+        >
+          <div className="skill-preview-copy">
+            <span className="skill-preview-eyebrow"><Sparkles size={13} />{active.name}</span>
+            <strong>{active.summary}</strong>
+            <p>{active.detail || active.outcome || '点「试一试」进入它自己的工作台，参数已经替你调好。'}</p>
+            <span className="skill-preview-cta">进入「{active.name}」工作台<ArrowRight size={14} /></span>
+          </div>
+          <div className="skill-preview-art" aria-hidden="true">
+            {/* 没有案例时给**三格**占位（不是一格）—— 一格会让浮窗右栏塌成一条，
+                三格才维持住"左介绍 + 右案例"的版式；每格都如实写「案例补充中」。 */}
+            {(active.previewAssets && active.previewAssets.length
+              ? active.previewAssets
+              : [{ label: '案例补充中' }, { label: '案例补充中' }, { label: '案例补充中' }])
+              .slice(0, 3)
+              .map((item, index) => (
+                <span className={'skill-preview-shot is-' + index} key={(item.src || item.label) + index}>
+                  {item.src
+                    ? <img src={item.src} alt="" loading="lazy" />
+                    : <span className="skill-preview-blank"><Play size={14} />案例补充中</span>}
+                </span>
+              ))}
+          </div>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }

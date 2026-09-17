@@ -13,10 +13,17 @@ test('left navigation keeps video, canvas, and works on distinct destinations', 
 
 test('source routing keeps video on the second nav and canvas on the third nav', async () => {
   const source = await fs.readFile(new URL('../src/components/layout/creativeDomainNavigation.js', import.meta.url), 'utf8');
-  /* 2026-09-17：视频那一项从「SET_MODE 切首页模块」改成「打开它自己的技能子页面」——
-     用户要求一级入口收敛成两个总页面、具体能力都在各自子页面里跑完。
-     判据不变：视频仍然挂在第二个领域、画布仍然挂在第三个领域。 */
-  assert.match(source, /id: 'video-studio'[\s\S]*?skillId: 'video\.smart'/);
+  /* ⚠️ 2026-09-19 批 G 换判据（依据用户批注 #7-①）：
+     原判据断的是「第一个域里有 id: 'video-studio' 这一项」——那次视频域还只有一条入口。
+     现在视频域跟图片域一样是**总页面**，下拉里是本板块 6 条精品技能
+     （用户原话：「这些现在都是跟其他的 skill 是平级的……他们都会进入到各自的子页面里面去」）。
+     所以「视频挂在第二个域」这件事改成断言：**第二个域就是视频域、且它的 items 全是 video.* 子页面**；
+     「画布挂在第三个」仍然断言它在工作台组里走 OPEN_CANVAS（行为一字未改）。 */
+  const groups = source.slice(source.indexOf('export const CREATIVE_NAV_GROUPS'), source.indexOf('export function navigationGroupById'));
+  const videoGroup = groups.slice(groups.indexOf("id: 'video'"));
+  assert.ok(groups.indexOf("id: 'image'") < groups.indexOf("id: 'video'"), '图片域在前、视频域在后（与顶栏一致）');
+  assert.match(videoGroup, /items:\s*GROUP_ITEMS\.video/, '视频域列的是本板块的精品技能');
+  assert.match(source, /const GROUP_ITEMS = Object\.freeze\(\{[\s\S]*?video: Object\.freeze\(\[[\s\S]*?skillId: 'video\.smart'/);
   assert.match(source, /id: 'canvas'[\s\S]*?OPEN_CANVAS/);
 });
 

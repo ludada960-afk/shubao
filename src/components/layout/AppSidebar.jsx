@@ -1,60 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
-  ChevronDown, FolderOpen, Home, Image as ImageIcon, Images, Layers,
-  NotebookPen, PanelLeftClose, PanelLeftOpen, ShoppingBag, Sparkles, Video, Wand2,
+  FolderOpen, Home, Image as ImageIcon, Images, Layers,
+  Sparkles, Video,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
-import { hubPath, skillPath } from '../../skills/skillDirectory.js';
-import { skillsOfBoard } from '../../skills/skillDirectory.js';
+import { hubPath } from '../../skills/skillDirectory.js';
 
-/* ═══ 左侧常驻导航（2026-09-18 用户批注 #1 / #14）══════════════════════════════════
-   用户原话：「我们现在这些 skill 他们的总页面必须是有一个常驻入口的。左边的导航栏其实是
-   很适合做的，你就直接把他们给做进左边的导航栏按钮这里面吧。而且我认为也许左边的导航栏
-   他们也得是一个张开的形式了……是不是可以有一个把它们作为侧边栏再折叠起来的一个设计呢？
-   就是平时可以张开，但是如果用户需要折叠的时候，他们又可以被折叠起来这样。」
+/* ═══ 左侧常驻导航 · 窄栏竖排（2026-09-19 用户批注 #7 重构）══════════════════════════
+   用户原话（这一轮最重的一条）：
+     「左边这个导航栏啊，我觉得你还不如就抄这一家的做法。https://flova.tv/zh-CN/
+      就是上面是图标，下面是文字。这样的左边导航栏它就不会看起来很大。知渔AI那种我觉得
+      也不是特别的好。我觉得像 flova 这种这样做的话，左边的导航栏就会比较小。
+      甚至可以不要这个折叠按钮了，连折叠按钮都可以不用做。」
+     「包括导航栏，你也得重构导航栏，我觉得你目前来说就先做视频生成和电商生成的这两个
+      总页面的入口就可以。然后整体的样式，整体的逻辑，你要按原来这四个导航栏去设计。」
+     「你这个 UI 跟我们现在整个的视觉语言完全不是一回事……你这个就是个 demo 呀。
+      必须有非常前沿的美感和设计语言。」
 
-   三条设计判断（写下来，免得下次又靠感觉）：
-   ① **默认展开**：只有图标时用户不知道每个按钮是什么（用户原话），展开才能建立心智；
-      折叠态保留原图标栏的观感（老用户熟悉的那个悬浮胶囊样式），一键切换。
-   ② **技能入口分两级**：一级是"图片生成 / 视频生成"两个总页面（常驻、点了进 Hub），
-      二级是这两个总页面下的**精品推荐**（照竞品那 6 / 7 条，用户批注 #13 要求对齐），
-      最后一行的「查看全部 N 个技能」进总页面。这样"总页面有常驻入口"和
-      "首页保持干净"两件事同时成立。
-   ③ **技能清单不在这里手抄**：一律从声明源（skillsOfBoard + 精品位）取，
-      技能改名/上下线这里自动跟着变（抄一份必然漂移）。 */
-
-const COLLAPSE_KEY = 'sb-sidebar-collapsed';
-
-function readCollapsed() {
-  try {
-    const raw = window.localStorage.getItem(COLLAPSE_KEY);
-    if (raw == null) return false;          /* 默认展开（用户口径：平时张开） */
-    return raw === '1';
-  } catch { return false; }
-}
+   所以这一版是**重写**，不是调参。三条设计决定：
+     ① **形态照 flova**（实测：aside 宽 90px、每项 40×47、图标 30×30 在文字上方、
+        flex-direction:column）；我们取 96px（中文四字标签「图片生成」要放得下）。
+        折叠按钮**删掉**（用户明说可以不要）—— 宽度固定就没有折叠这回事。
+     ② **入口只留两个总页面**（图片生成 / 视频生成）+ 首页 + 三个工作区入口。
+        电商生图 / 小红书图文 / 自由创作**从这里下架**：用户批注 #5-②「他们现在没有这种
+        高度定制的入口了，他们只有高度定制的子页面。他们的入口就是从我们这里下面的推荐 skill
+        进去，或者是从图片生成的那个总页面那里进去」。
+     ③ **视觉语言按原来那四个图标栏的规格来**（用户：「原来是怎么设计的你就怎么设计」）：
+        沿用 app-shell.css 里那套 motion-* 图标动效与小尺寸档位，但把「悬浮胶囊」升级成
+        **常驻窄栏**：暖色分层底 + 发丝描边 + 图标磁贴 + 选中态左侧指示条。
+   ⚠️ 技能清单**不在这里手抄**（这一版连精品推荐子列表都不放了）—— 入口是首页推荐位与总页面。 */
 
 export default function AppSidebar() {
   const { state, dispatch } = useApp();
-  const { page, mode } = state;
-  const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [openGroups, setOpenGroups] = useState({ image: true, video: true });
-  /* 地址栏是技能身份的真源（子页面就是 ?id=）——导航要据此点亮 */
-  const [activeSkillId, setActiveSkillId] = useState(() => new URLSearchParams(window.location.search).get('id') || '');
-
-  useEffect(() => {
-    const sync = () => setActiveSkillId(new URLSearchParams(window.location.search).get('id') || '');
-    window.addEventListener('popstate', sync);
-    return () => window.removeEventListener('popstate', sync);
-  }, []);
-
-  useEffect(() => {
-    /* 换页时重读一次：pushState 之后 popstate 不会触发 */
-    setActiveSkillId(new URLSearchParams(window.location.search).get('id') || '');
-  }, [page]);
-
-  useEffect(() => {
-    try { window.localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch { /* 隐私模式忽略 */ }
-  }, [collapsed]);
+  const { page } = state;
 
   const requestLogin = target => {
     const destination = typeof target === 'string' ? target : target?.type === 'OPEN_CANVAS' ? 'ec-canvas' : target?.page;
@@ -65,154 +43,66 @@ export default function AppSidebar() {
     dispatch({ type: 'SHOW_LOGIN', show: true });
   };
 
-  /* 精品位清单：与首页那一排、总页面顶部同一份数据源（featuredSkills 的排序规则） */
-  const boards = useMemo(() => ([
-    { id: 'image', label: '图片生成', icon: ImageIcon, skills: skillsOfBoard('image').filter(skill => skill.category === '精品推荐' && skill.tier !== 'assistant').sort((a, b) => (a.featuredRank || 99) - (b.featuredRank || 99)), total: skillsOfBoard('image').filter(skill => skill.tier !== 'assistant').length },
-    { id: 'video', label: '视频生成', icon: Video, skills: skillsOfBoard('video').filter(skill => skill.category === '精品推荐' && skill.tier !== 'assistant').sort((a, b) => (a.featuredRank || 99) - (b.featuredRank || 99)), total: skillsOfBoard('video').filter(skill => skill.tier !== 'assistant').length },
+  /* 两个总页面 —— 用户批注 #7-②：「你目前来说就先做视频生成和电商生成的这两个总页面的入口就可以」 */
+  const hubs = useMemo(() => ([
+    { key: 'image', label: '图片生成', icon: ImageIcon, page: 'image-creation', motion: 'grid' },
+    { key: 'video', label: '视频生成', icon: Video, page: 'video-creation', motion: 'video' },
   ]), []);
 
-  const openSkill = skill => {
-    window.history.pushState({}, '', skillPath(skill));
-    dispatch({ type: 'NAVIGATE', page: skill.board === 'video' ? 'video-creation' : 'image-creation' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const workspace = [
+    { key: 'canvas', label: '无限画布', icon: Layers, motion: 'canvas', active: page === 'ec-canvas', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS' }) : requestLogin('ec-canvas')) },
+    { key: 'works', label: '我的作品', icon: FolderOpen, motion: 'folder', active: false, onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'works' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'works' })) },
+    { key: 'assets', label: '我的资产', icon: Images, motion: 'assets', active: page === 'ec-canvas' && state.canvasEntryTab === 'assets', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'assets' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'assets' })) },
+  ];
 
+  const goHome = () => {
+    window.history.pushState({}, '', '/');
+    dispatch({ type: 'NAVIGATE', page: 'home' });
+  };
   const openHub = board => {
     window.history.pushState({}, '', hubPath(board));
     dispatch({ type: 'NAVIGATE', page: board === 'video' ? 'video-creation' : 'image-creation' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const goMode = nextMode => {
-    window.history.pushState({}, '', '/');
-    dispatch({ type: 'NAVIGATE', page: 'home' });
-    dispatch({ type: 'SET_MODE', mode: nextMode });
-  };
-
-  const workspace = [
-    { key: 'canvas', label: '无限画布', icon: Layers, active: page === 'ec-canvas', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS' }) : requestLogin('ec-canvas')) },
-    { key: 'works', label: '我的作品', icon: FolderOpen, active: false, onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'works' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'works' })) },
-    { key: 'assets', label: '我的资产', icon: Images, active: page === 'ec-canvas' && state.canvasEntryTab === 'assets', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'assets' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'assets' })) },
-  ];
-
-  const modes = [
-    { key: 'ecommerce', label: '电商生图', icon: ShoppingBag },
-    { key: 'content', label: '小红书图文', icon: NotebookPen },
-    { key: 'visual', label: '自由创作', icon: Wand2 },
-  ];
+  const cell = ({ key, label, icon: Icon, motion, active, onClick }) => (
+    <button
+      key={key}
+      type={'button'}
+      className={'app-sidebar-cell' + (active ? ' is-active' : '')}
+      onClick={onClick}
+      title={label}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span className={'app-sidebar-tile motion-' + motion} aria-hidden={'true'}><Icon size={19} /></span>
+      <span className={'app-sidebar-label'}>{label}</span>
+    </button>
+  );
 
   return (
-    <nav className={'app-sidebar' + (collapsed ? ' is-collapsed' : '')} aria-label="主导航">
-      <div className="app-sidebar-head">
-        <button
-          type="button"
-          className="app-sidebar-home"
-          aria-current={page === 'home' ? 'page' : undefined}
-          onClick={() => { window.history.pushState({}, '', '/'); dispatch({ type: 'NAVIGATE', page: 'home' }); }}
-        >
-          <Sparkles size={18} aria-hidden="true" />
-          <span className="app-sidebar-label">首页</span>
-        </button>
-        <button
-          type="button"
-          className="app-sidebar-toggle"
-          aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'}
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed(value => !value)}
-        >
-          {collapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
-        </button>
+    <nav className={'app-sidebar'} aria-label={'主导航'}>
+      <button type={'button'} className={'app-sidebar-brand'} onClick={goHome} title={'薯包 AI · 首页'} aria-label={'薯包 AI 首页'}>
+        <img src={'/images/logo.png'} alt={''} width={30} height={30} />
+      </button>
+
+      <div className={'app-sidebar-scroll'}>
+        {cell({ key: 'home', label: '首页', icon: Home, motion: 'sparkles', active: page === 'home', onClick: goHome })}
+        <div className={'app-sidebar-divider'} role={'presentation'} />
+        {hubs.map(item => cell({ ...item, active: page === item.page, onClick: () => openHub(item.key) }))}
+        <div className={'app-sidebar-divider'} role={'presentation'} />
+        {workspace.map(item => cell(item))}
       </div>
 
-      <div className="app-sidebar-scroll">
-        {boards.map(board => {
-          const Icon = board.icon;
-          const open = collapsed ? false : openGroups[board.id] !== false;
-          const hubActive = page === (board.id === 'video' ? 'video-creation' : 'image-creation');
-          return (
-            <section className="app-sidebar-group" key={board.id}>
-              <div className="app-sidebar-group-row">
-                <button
-                  type="button"
-                  className={'app-sidebar-item is-group' + (hubActive && !activeSkillId ? ' is-active' : '')}
-                  onClick={() => { openHub(board.id); if (!collapsed) setOpenGroups(current => ({ ...current, [board.id]: true })); }}
-                  title={board.label}
-                >
-                  <Icon size={18} aria-hidden="true" />
-                  <span className="app-sidebar-label">{board.label}</span>
-                </button>
-                {!collapsed && (
-                  <button
-                    type="button"
-                    className="app-sidebar-caret"
-                    aria-label={(open ? '收起' : '展开') + board.label + '的精品推荐'}
-                    aria-expanded={open}
-                    onClick={() => setOpenGroups(current => ({ ...current, [board.id]: !open }))}
-                  >
-                    <ChevronDown size={15} className={open ? 'is-open' : ''} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-              {open && (
-                <ul className="app-sidebar-sublist">
-                  {board.skills.map(skill => (
-                    <li key={skill.id}>
-                      <button
-                        type="button"
-                        className={'app-sidebar-subitem' + (activeSkillId === skill.id ? ' is-active' : '')}
-                        onClick={() => openSkill(skill)}
-                      >
-                        {skill.name}
-                      </button>
-                    </li>
-                  ))}
-                  <li>
-                    <button type="button" className="app-sidebar-subitem is-more" onClick={() => openHub(board.id)}>
-                      查看全部 {board.total} 个技能
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </section>
-          );
-        })}
-
-        <div className="app-sidebar-divider" role="presentation" />
-
-        {modes.map(item => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className={'app-sidebar-item' + (page === 'home' && mode === item.key ? ' is-active' : '')}
-              onClick={() => goMode(item.key)}
-              title={item.label}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span className="app-sidebar-label">{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="app-sidebar-divider" role="presentation" />
-
-        {workspace.map(item => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className={'app-sidebar-item' + (item.active ? ' is-active' : '')}
-              onClick={item.onClick}
-              title={item.label}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span className="app-sidebar-label">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* 底部一颗「开始创作」：窄栏也要有一个明确的主动作（原来那四个图标栏里它是主按钮） */}
+      <button
+        type={'button'}
+        className={'app-sidebar-cta'}
+        title={'开始创作'}
+        aria-label={'开始创作'}
+        onClick={() => { dispatch({ type: 'NEW_WORK' }); goHome(); }}
+      >
+        <Sparkles size={20} aria-hidden={'true'} />
+      </button>
     </nav>
   );
 }

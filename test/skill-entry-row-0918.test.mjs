@@ -7,60 +7,107 @@ import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
 import { availabilityLabel, featuredSkills } from '../src/skills/skillDirectory.js';
 
-/* ═══ 首页「精选推荐」按钮行（2026-09-17 用户口径）═════════════════════════════════
-   用户原话：「把它们做成案例给做进去，就是**按钮**的形式，然后鼠标放到这些按钮上，
-   它就会有那种**预览框**，然后用户点击这些按钮就会直接进入到他们对应的 Skill 页面里面去。」
-   「图片生成是图片生成，视频生成是视频生成……即便入口不一样，UI 设计、风格设计、视觉方案、
-    整体交互，必须是同一套体系。」
+/* ═══ 首页「精选推荐」按钮行（2026-09-19 批 G 重写，依据用户批注 #3 / #4）══════════════
+   用户原话（三条，缺一条都做不对）：
+     · 「把他们做成像那家竞品一样。https://flova.tv/zh-CN/ 他们是按钮的形式去展示。
+        然后鼠标放上去这些按钮，他们会有这个试一试的按钮出来。」
+     · 「这里的 skill 他们本身只是个按钮。它是像这样子排列成 9 个 skill 的按钮作为入口。
+        然后鼠标放上去的话，他们就会有下面的这个预览窗出来。」
+     · 「预览窗里面你就直接拿我们现成的、我刚刚跟你说的左边是介绍、右边是图片的那个样式
+        过来用就好了。」
 
-   这一条守四件事（每一件以前都真的错过）：
-     ① 按板块过滤 —— 旧实现把图片与视频混在一条里，视频模式下首页出现的是四张**图片**技能卡；
-     ② 悬停有预览框，没有案例时**如实写"案例补充中"**（不是一块空白、也不是干脆不出现）；
-     ③ 点击走 skillPath（与 Hub、总页面共用一份路径算法）；
-     ④ 图片与视频**共用同一个组件**，不许各写一套按钮行。 */
+   ⚠️ 判据为什么整条换掉（不是为了让测试变绿而回退 UI）：
+   这一条原来守的是**上一版**的形态 —— 小封面大卡片 + 毛玻璃遮罩（.skill-entry-veil）+
+     卡片内自动播放的封面视频 + 6 条精选。用户看过之后把形态整个否掉了：
+     「这三个框你是要重做的」「鼠标放上去，它们会有这个试一试的按钮出来」。
+     所以旧判据守的东西**已被产品决定删除**，继续守等于逼着下一轮把卡片加回来。
+   新判据守的是 flova 实测出来的那套机制（docs/design/52-flova-nav-and-skill-buttons.md）：
+     ① 9 个**按钮**作为入口，一行横排、挤不下就横向滑（不是折行）；
+     ② 「试一试」长在**按钮自己**的覆盖层上（实测 flova 就在按钮上，不在浮窗里）；
+     ③ 悬停 → 按钮**正下方**浮出预览窗，移开有 ~300ms 延迟才关；
+     ④ 按钮**悬停零位移**（浮窗按按钮位置算，按钮一动浮窗就抖）；
+     ⑤ 预览窗内容 = 左介绍 + 右案例图（用户指定的版式）。 */
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const row = read('src/components/media/SkillEntryRow.jsx');
+const rowCss = read('src/components/media/SkillEntryRow.css');
 const home = read('src/pages/Home/index.jsx');
 const hub = read('src/pages/Home/MediaHub.jsx');
 
-test('① 按钮行只显示当前板块的技能（视频模式下不许出现图片技能）', () => {
-  const video = featuredSkills({ board: 'video', limit: 6 });
-  const image = featuredSkills({ board: 'image', limit: 6 });
+test('① 9 个按钮作为入口，且只显示当前板块的技能（视频模式下不许出现图片技能）', () => {
+  const video = featuredSkills({ board: 'video', limit: 9 });
+  const image = featuredSkills({ board: 'image', limit: 9 });
   assert.ok(video.every(skill => skill.board === 'video'), '视频板块只能有视频技能');
   assert.ok(image.every(skill => skill.board === 'image'), '图片板块只能有图片技能');
-  assert.equal(video.length + image.length, 12, '两个板块各 6 条精选');
+  assert.equal(video.length, 9, '视频板块要能凑满 9 个按钮');
+  assert.equal(image.length, 9, '图片板块要能凑满 9 个按钮');
   /* 首页必须按当前模式算出板块再传下去 —— 这一条是防"又把两个板块混起来" */
   const stripped = stripComments(home);
   assert.match(stripped, /const skillBoard = isVideo \? 'video' : 'image';/);
   assert.match(stripped, /board=\{skillBoard\}/);
-  assert.match(stripped, /skills=\{featuredSkills\(\{ board: skillBoard, limit: SKILL_ENTRY_LIMIT \}\)\}/);
+  /* 「像这样子排列成 9 个 skill 的按钮作为入口」—— 条数是**写死的 9**，不是凑出来的默认值 */
+  assert.match(stripped, /const SKILL_ENTRY_LIMIT = 9;/);
+  assert.match(stripped, /limit: SKILL_ENTRY_LIMIT/);
 });
 
-test('② 有悬停预览框；没有案例时如实写"案例补充中"，不留一块空白', () => {
-  /* 9-18 用户批注 4/5：精选卡片照抄 flova —— 小封面 + 文字 + 很大的按钮，
-     悬停出「试一试」+ 毛玻璃遮罩，封面视频真的会播。旧的药丸按钮 + 悬停浮层已替换。 */
-  assert.match(row, /skill-entry-veil/, '毛玻璃遮罩必须在');
-  assert.match(row, /skill-entry-try/, '试一试大按钮必须在');
-  assert.match(row, /onMouseEnter=\{\(\) => setActiveId\(skill\.id\)\}/);
-  assert.match(row, /onMouseLeave=\{\(\) => setActiveId/);
-  /* 媒体三种情形都要有明确下落：视频 → <video>、图 → <img>、都没有 → 一句实话 */
-  assert.match(row, /preview\.video[\s\S]{0,200}<video/);
-  assert.match(row, /preview\.cover[\s\S]{0,200}<img/);
+test('② 悬停预览窗：按钮正下方、左介绍 + 右案例图；没有案例时如实写"案例补充中"', () => {
+  /* ②-a 预览窗本体：portal 到 body + fixed 定位（不能被祖先的 overflow 裁掉） */
+  assert.match(row, /createPortal/);
+  assert.match(row, /className="skill-preview"/);
+  assert.match(rowCss, /\.skill-preview \{[^}]*position: fixed;/);
+  /* ②-b 左介绍 + 右案例图（用户指定的版式） */
+  assert.match(row, /skill-preview-copy/);
+  assert.match(row, /skill-preview-art/);
+  assert.match(rowCss, /\.skill-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.15fr\)/);
+  /* ②-c 位置：贴在按钮**下方**、间隙 10（flova 实测 10.2），下方放不下才翻到上面 */
+  assert.match(row, /rect\.bottom \+ 10/);
+  assert.match(row, /globalThis\.innerHeight - rect\.top \+ 10/);
+  /* ②-d 移开不立刻消失（flova 实测仍有 ~300ms 的 closeDelay） */
+  assert.match(row, /const CLOSE_DELAY_MS = 300;/);
+  assert.match(row, /setTimeout\(\(\) => setActiveId\(''\), CLOSE_DELAY_MS\)/);
+  /* ②-e 没有案例的技能照旧出现，预览里如实写「案例补充中」，且给**三格**维持版式 */
   assert.match(row, /案例补充中/);
-  /* 预览媒体按 coverOf 取（封面取法只有一份实现） */
+  assert.match(row, /previewAssets/);
+  /* ②-f 封面取法只有一份实现 */
   assert.match(row, /import \{ availabilityLabel, coverOf \} from '\.\.\/\.\.\/skills\/skillDirectory\.js'/);
 });
 
-test('③ 键盘可达：聚焦就点亮卡片（卡片本身就是入口，不再是可展开的浮层）', () => {
+test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零位移', () => {
+  assert.match(row, /skill-entry-try/);
+  assert.match(row, /试一试/);
+  /* ⚠️ 这条是全篇最容易做错的一条：浮窗位置按按钮 rect 算，按钮一 transform 浮窗就跟着抖。 */
+  /* 「试一试」默认隐形，悬停 / 聚焦 / 已展开时才浮上来 */
+  assert.match(rowCss, /\.skill-entry-button:hover \.skill-entry-try/);
+  assert.match(rowCss, /\.skill-entry-button:focus-visible \.skill-entry-try/);
+  assert.match(rowCss, /\.skill-entry-try \{[^}]*position: absolute;/);
+  /* ⚠️ 必须在**剥掉注释**的样式上比：按钮自己那条声明旁边就写着一行
+     「悬停不改 transform」的说明注释，带注释比会把解释本身当成命中。 */
+  const rowCssCode = stripComments(rowCss);
+  const buttonBlock = rowCssCode.slice(rowCssCode.indexOf('.skill-entry-button {'), rowCssCode.indexOf('.skill-entry-glyph {'));
+  assert.doesNotMatch(buttonBlock, /transform/, '按钮本体悬停不许位移/缩放');
+  /* 按钮的 hover / is-open / focus-visible 三个态都在上面那段 slice 里，
+     所以"零位移"这一条已经覆盖到位 —— 不需要再单独扫一遍全文件：
+     .skill-entry-button:hover .skill-entry-try 是**里面的「试一试」**要动（那是它出现的动作），
+     拿全文件扫会把它误判成按钮本体位移。 */
+  /* 按钮是"窄按钮"不是"宽卡片"：高度有明确档位，宽度由内容决定（flex: 0 0 auto） */
+  assert.match(rowCss, /\.skill-entry-button \{[^}]*flex: 0 0 auto;/);
+  assert.match(rowCss, /\.skill-entry-button \{[^}]*min-height: 60px;/);
+  assert.match(rowCss, /\.skill-entry-button \{[^}]*border-radius: 14px;/);
+  assert.match(rowCss, /\.skill-entry-glyph \{[^}]*width: 44px;[^}]*height: 44px;/);
+  /* 一行横排、挤不下横向滑（不是折成两排） */
+  assert.match(rowCss, /\.skill-entry-buttons \{[^}]*display: flex;[^}]*overflow-x: auto;/);
+});
+
+test('④ 键盘可达 + 首页点击走 skillPath（与 Hub / 总页面共用一份算法）', () => {
   assert.match(row, /onClick=\{\(\) => onOpenSkill\?\.\(skill\)\}/);
-  assert.match(row, /onFocus=\{\(\) => setActiveId\(skill\.id\)\}/, '键盘聚焦也要点亮卡片（不然键盘用户看不到案例）');
-  assert.match(row, /muted[\s\S]{0,160}autoPlay/, '封面视频必须静音且自动播放（用户批注 5）');
-  /* 首页点击必须走 skillPath（与 Hub / 总页面同一份算法） */
+  /* 键盘用户拿不到 hover：聚焦即开预览窗，Escape 关闭 */
+  assert.match(row, /onFocus=\{event => openPreview\(event\.currentTarget, skill\)\}/);
+  assert.match(row, /onBlur=\{scheduleClose\}/);
+  assert.match(row, /event\.key === 'Escape'/);
   assert.match(stripComments(home), /window\.history\.pushState\(\{\}, '', skillPath\(skill\)\)/);
 });
 
-test('④ 图片与视频共用同一套按钮行（不许各写一份），旧的卡片条已删除', () => {
+test('⑤ 图片与视频共用同一套按钮行（不许各写一份），旧的卡片条已删除', () => {
   assert.ok(!existsSync(new URL('../src/components/media/HotSkillStrip.jsx', import.meta.url)), '旧的卡片条必须删掉，避免两份实现');
   assert.doesNotMatch(home, /HotSkillStrip|hot-skill-strip/);
   /* 两个板块共用：组件不按 board 分支渲染两套 DOM，只换数据与文案 */
@@ -73,11 +120,11 @@ test('④ 图片与视频共用同一套按钮行（不许各写一份），旧�
   assert.equal(availabilityLabel({ availability: 'ready' }), '');
 });
 
-test('⑤ 精选推荐的取数只在声明源里做一次（两个板块都能给满 6 条，且都是能跑的）', () => {
-  const video = featuredSkills({ board: 'video', limit: 6 });
-  const image = featuredSkills({ board: 'image', limit: 6 });
-  assert.equal(video.length, Math.min(6, VIDEO_SKILLS.length));
-  assert.equal(image.length, Math.min(6, IMAGE_SKILLS.length));
+test('⑥ 精选推荐的取数只在声明源里做一次（两个板块都能给满 9 条，且都是能跑的）', () => {
+  const video = featuredSkills({ board: 'video', limit: 9 });
+  const image = featuredSkills({ board: 'image', limit: 9 });
+  assert.equal(video.length, Math.min(9, VIDEO_SKILLS.length));
+  assert.equal(image.length, Math.min(9, IMAGE_SKILLS.length));
   /* blocked 的技能不许进首页按钮行（跑不通的东西不该出现在一级入口上） */
   for (const skill of [...video, ...image]) {
     assert.notEqual(skill.availability, 'blocked', skill.id + ' 还没跑通，不该出现在首页精选里');

@@ -57,11 +57,13 @@ const ITEM_ICONS = {
   'folder-open': FolderOpen,
 };
 
+/* 领域主题色。⚠️ 2026-09-19 批 G：一级域从 4 个收敛成 2 个（图片生成 / 视频生成），
+   旧域名（commerce / content / visual）在这张表里已经没有对应项 ——
+   保留它们会让"某个不存在的域"静默拿到一套主题，所以整表按现状重写；
+   CSS 里那几套 --creative-nav-theme-* 变量也一并按两个域收口。 */
 const DOMAIN_THEMES = Object.freeze({
-  commerce: 'commerce',
+  image: 'image',
   video: 'video',
-  content: 'content',
-  visual: 'visual',
   workspace: 'workspace',
 });
 
@@ -77,12 +79,8 @@ function CreativeNavGlyph({ Icon, motion, size = 25 }) {
   );
 }
 
-const DESKTOP_PANEL_WIDTHS = Object.freeze({
-  commerce: 460,
-  video: 460,
-  content: 460,
-  visual: 460,
-});
+/* 两域都是 6 条技能的同一形态面板，宽度同一个值（原来四个域各写一行同值，是四份重复）。 */
+const DESKTOP_PANEL_WIDTHS = Object.freeze({ image: 460, video: 460 });
 
 function getDesktopPanelWidth(group) {
   return DESKTOP_PANEL_WIDTHS[group.id] || 520;
@@ -96,7 +94,7 @@ function CreativeDomainNav() {
   const { state, dispatch } = useApp();
   const [openGroupId, setOpenGroupId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileGroupId, setMobileGroupId] = useState('commerce');
+  const [mobileGroupId, setMobileGroupId] = useState('image');
   const [scrolled, setScrolled] = useState(false);
   const [panelPosition, setPanelPosition] = useState(null);
   const [pinnedGroupId, setPinnedGroupId] = useState(null);
@@ -321,7 +319,7 @@ function CreativeDomainNav() {
   };
 
   const renderGroupPanel = group => {
-    const theme = DOMAIN_THEMES[group.id] || 'commerce';
+    const theme = DOMAIN_THEMES[group.id] || 'image';
     return (
       <div className={`creative-nav-panel creative-nav-panel--${theme} creative-nav-panel--items-${group.items.length}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
         <div className="creative-nav-panel-links">
@@ -429,7 +427,7 @@ function CreativeDomainNav() {
                 );
               })}
             </div>
-            <button type="button" className="creative-nav-mobile-primary" onClick={() => runTarget(mobileGroupId || 'commerce', CREATIVE_NAV_GROUPS.find(group => group.id === (mobileGroupId || 'commerce'))?.items[0]?.id)}><Plus size={16} /> 开始创作</button>
+            <button type="button" className="creative-nav-mobile-primary" onClick={() => runTarget(mobileGroupId || 'image', CREATIVE_NAV_GROUPS.find(group => group.id === (mobileGroupId || 'commerce'))?.items[0]?.id)}><Plus size={16} /> 开始创作</button>
           </aside>
         </div>,
         document.body,

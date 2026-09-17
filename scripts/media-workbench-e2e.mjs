@@ -635,50 +635,82 @@ try {
      ⚠️ 以前这里把图片与视频混在一条里 —— 视频模式下首页出现的是四张**图片**技能卡（实测抓到过）。 */
   scenario('⑬ 首页精选推荐按钮行（按板块 / 悬停预览 / 点击进子页面）');
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.skill-entry-row .skill-entry-card', { timeout: 20000 });
+  await page.waitForSelector('.skill-entry-row .skill-entry-button', { timeout: 20000 });
   await page.waitForTimeout(500);
   const videoRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
     head: document.querySelector('.skill-entry-head h2')?.textContent || '',
-    /* ⚠️ 只取技能名（.skill-entry-copy strong）。9-18 照抄 flova 之后卡片的按钮里
-       还包着封面与「试一试」浮层，整块 textContent 会把 CTA 文案混进技能名里。 */
-    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-copy strong')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    /* ⚠️ 取按钮里那行**技能名**（.skill-entry-name）。按钮里还包着图标磁贴与「试一试」
+       浮层，整块 textContent 会把 CTA 文案混进技能名里。 */
+    buttons: Array.from(document.querySelectorAll('.skill-entry-button .skill-entry-name')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
     more: document.querySelector('.skill-entry-more')?.textContent || '',
   }));
   check(videoRow.board === 'video', '视频模式下按钮行是**视频板块**的', videoRow.board + ' / ' + videoRow.head);
-  check(videoRow.buttons.length >= 4, '视频板块下面有若干精选按钮（案例没到位也照样有入口）', JSON.stringify(videoRow.buttons));
+  /* ⚠️ 2026-09-19 批 G：用户批注 #4 要的是「像这样子排列成 **9 个** skill 的按钮作为入口」。 */
+  check(videoRow.buttons.length === 9, '视频板块给满 9 个按钮入口', JSON.stringify(videoRow.buttons));
   check(!videoRow.buttons.some(text => /海报设计|白底商品图|电商商品套图/.test(text)), '视频板块下面**不许**出现图片技能', JSON.stringify(videoRow.buttons));
   check(videoRow.more.includes('查看全部'), '右侧有「查看全部」进总页面', videoRow.more);
 
-  /* 悬停出预览框：有案例的技能显示案例（视频优先），没有案例的如实写"案例补充中" */
-  await page.hover('.skill-entry-card');
-  await page.waitForTimeout(400);
-  /* 9-18 改版（照抄 flova，见 SkillEntryRow.jsx 顶部注释）后的契约：
-     悬停 → 封面上盖**毛玻璃遮罩**，里面是一个**大按钮「试一试」**；
-     封面本身必须给得出下落 —— 视频 / 案例图 / 一句实话「案例补充中」，不许留空。
-     旧断言找的是「悬停浮层 + 一句进哪里」的浮窗形态，已随 UI 一起退役。 */
+  /* ── 悬停出**预览窗**（用户批注 #3 / #4 的形态）────────────────────────────────
+     ⚠️ 这里的判据整段换过：旧契约是「封面上盖毛玻璃遮罩 + 一个大按钮」——
+        那是上一版的卡片形态，用户看过之后明确否掉了（原话：「鼠标放上去这些按钮，
+        他们会有这个试一试的按钮出来」「鼠标放上去的话，他们就会有下面的这个预览窗出来」）。
+     新契约：
+       ① 悬停按钮 → 按钮下方浮出 .skill-preview（portal 到 body，fixed 定位）；
+       ② 预览窗里是**左介绍 + 右案例图**（.skill-preview-copy / .skill-preview-art）；
+       ③ 「试一试」长在**按钮自己**身上（.skill-entry-try），不在浮窗里；
+       ④ 没有案例的技能，预览窗右栏给满 3 格并如实写「案例补充中」。 */
+  const firstButton = await page.evaluate(() => {
+    const btn = document.querySelector('.skill-entry-button');
+    const r = btn.getBoundingClientRect();
+    return { name: btn.querySelector('.skill-entry-name')?.textContent.trim() || '', height: Math.round(r.height) };
+  });
+  await page.hover('.skill-entry-button');
+  await page.waitForTimeout(500);
   const hoverPreview = await page.evaluate(() => {
-    const card = document.querySelector('.skill-entry-card');
-    const veil = card?.querySelector('.skill-entry-veil');
-    const cover = card?.querySelector('.skill-entry-cover');
-    const opaque = veil ? getComputedStyle(veil).opacity : '0';
+    const btn = document.querySelector('.skill-entry-button');
+    const panel = document.querySelector('.skill-preview');
+    const rect = panel?.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    const tryNode = btn.querySelector('.skill-entry-try');
     return {
-      present: Boolean(veil),
-      veilVisible: Number(opaque) > 0.9,
-      blur: veil ? (getComputedStyle(veil).backdropFilter || getComputedStyle(veil).webkitBackdropFilter || '') : '',
-      cta: veil?.querySelector('.skill-entry-try')?.textContent.replace(/\s+/g, ' ').trim() || '',
-      media: cover?.querySelector('video') ? 'video' : (cover?.querySelector('img') ? 'img' : (cover?.querySelector('.skill-entry-blank') ? 'blank' : 'none')),
+      present: Boolean(panel),
+      inBody: Boolean(panel && panel.parentElement === document.body),
+      position: panel ? getComputedStyle(panel).position : '',
+      followBelow: rect ? Math.round(rect.top - btnRect.bottom) : null,
+      hasCopy: Boolean(panel?.querySelector('.skill-preview-copy strong')),
+      shots: panel ? panel.querySelectorAll('.skill-preview-shot').length : 0,
+      copyText: panel?.querySelector('.skill-preview-copy p')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) || '',
+      tryOnButton: Boolean(tryNode),
+      tryOpacity: tryNode ? Number(getComputedStyle(tryNode).opacity) : -1,
+      insidePanel: Boolean(panel?.querySelector('.skill-entry-try')),
+      buttonHeight: Math.round(btnRect.height),
     };
   });
-  check(hoverPreview.present, '鼠标放上去出现毛玻璃遮罩（flova 同款）');
-  check(hoverPreview.veilVisible, '遮罩必须真的显示出来（不是 opacity:0 的摆设）', String(hoverPreview.veilVisible));
-  check(/blur\(/.test(hoverPreview.blur), '遮罩必须是毛玻璃（backdrop-filter: blur）', hoverPreview.blur);
-  check(hoverPreview.cta.includes('试一试'), '遮罩里就是「试一试」大按钮', hoverPreview.cta);
-  check(hoverPreview.media !== 'none', '封面必须有明确下落（案例视频 / 案例图 / 案例补充中），不许空一块', hoverPreview.media);
+  check(hoverPreview.present, '鼠标放到按钮上浮出预览窗', JSON.stringify(hoverPreview));
+  check(hoverPreview.inBody, '预览窗挂在 body 下（不被祖先的 overflow 裁掉）');
+  check(hoverPreview.position === 'fixed', '预览窗是 fixed 定位', hoverPreview.position);
+  check(hoverPreview.followBelow !== null && hoverPreview.followBelow >= 4 && hoverPreview.followBelow <= 18,
+    '预览窗贴在按钮**正下方**（间隙 10 上下）', String(hoverPreview.followBelow));
+  check(hoverPreview.hasCopy && hoverPreview.copyText.length > 4, '预览窗左栏是这条技能的介绍', hoverPreview.copyText);
+  check(hoverPreview.shots === 3, '预览窗右栏是**三格**案例位（没有案例也给满三格维持版式）', String(hoverPreview.shots));
+  check(hoverPreview.tryOnButton && hoverPreview.tryOpacity > 0.9 && !hoverPreview.insidePanel,
+    '「试一试」长在按钮自己身上、悬停时浮出来（不在浮窗里）', 'opacity=' + hoverPreview.tryOpacity + ' inPanel=' + hoverPreview.insidePanel);
+  /* 按钮是**窄按钮**不是宽卡片：高 60 上下（flova 实测 60），一整行横排 */
+  check(hoverPreview.buttonHeight >= 54 && hoverPreview.buttonHeight <= 68, '按钮是窄按钮（高 60 上下）', String(hoverPreview.buttonHeight));
 
-  /* 点第一个按钮 → 进它的子页面（地址、标题、返回都要对） */
-  const firstVideo = videoRow.buttons[0].replace(/需参考素材|即将上线/g, '').trim();
-  await page.click('.skill-entry-card .skill-entry-open');
+  /* 移开 → 有 ~300ms 的关闭延迟（flova 实测同款），不是立刻消失 */
+  await page.mouse.move(6, 500);
+  await page.waitForTimeout(120);
+  const stillOpen = await page.evaluate(() => Boolean(document.querySelector('.skill-preview')));
+  check(stillOpen, '鼠标移开后预览窗**不立刻**消失（有 ~300ms 延迟，够用户把鼠标移进去）');
+  await page.waitForTimeout(900);
+  const closedNow = await page.evaluate(() => Boolean(document.querySelector('.skill-preview')));
+  check(!closedNow, '延迟过后预览窗自己收起来');
+
+  /* 点按钮 → 进它的子页面（地址、标题、返回都要对） */
+  const firstVideo = firstButton.name.replace(/需参考素材|即将上线/g, '').trim();
+  await page.click('.skill-entry-button');
   await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   const landed = await page.evaluate(() => ({
     url: location.pathname + location.search,
@@ -690,40 +722,36 @@ try {
   check(landed.url.startsWith('/video-creation?id='), '视频板块的按钮进的是视频子页面', landed.url);
   check(landed.title === firstVideo, '进去的就是点的那一条技能', landed.title + ' vs ' + firstVideo);
   check(!landed.hub, '不会掉回 Hub');
-  check(landed.back, '子页面有"返回创作"，能回到 Hub');
+  check(landed.back, '子页面有「返回创作」，能回到 Hub');
 
   /* 切到图片板块：按钮必须跟着换成图片技能（同一条规则，两个板块） */
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.skill-entry-row .skill-entry-card', { timeout: 20000 });
+  await page.waitForSelector('.skill-entry-row .skill-entry-button', { timeout: 20000 });
   await page.click('.homepage-mode-card.card-2');
   await page.waitForTimeout(1200);
   const imageRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
-    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-copy strong')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    buttons: Array.from(document.querySelectorAll('.skill-entry-button .skill-entry-name')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
   }));
   check(imageRow.board === 'image', '图片模式下按钮行是**图片板块**的', imageRow.board);
-  /* 图片板块的精选就是**竞品那 6 条**（批 A 对齐：商品套图 / A+内容 / 详情图 / 图片复刻 / 去除背景 / AI换装），
-     所以判据不能再用「自由创作 / 海报设计」—— 那是独立 skill，从左侧导航与总页面进，不占精选位。 */
+  check(imageRow.buttons.length === 9, '图片板块同样给满 9 个按钮入口', String(imageRow.buttons.length));
   check(imageRow.buttons.some(text => /商品套图|图片复刻|去除背景/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
   check(!imageRow.buttons.some(text => /智能成片|首尾帧|图生视频/.test(text)), '图片板块下面**不许**出现视频技能', JSON.stringify(imageRow.buttons));
-  /* 悬停一个**真的有案例封面**的技能 → 封面必须真的取到那张图（不是空框）。
-     ⚠️ 这里必须**先挑出有封面的那一张**再悬停，不能假设第一张就有：
-        批 A 之后图片侧精选就是竞品那 6 条，其中只有「商品套图 / AI换装」有案例封面，
-        其余四条按既有口径如实显示"案例补充中"（用户还没跑出案例）。
-        旧写法悬停第一张 → 命中的正是没有封面的那张 → 断言红，而封面逻辑本身是对的
-        ——那就是一条"测的是运气不是判据"的断言。 */
-  const coveredIndex = await page.evaluate(() => Array.from(document.querySelectorAll('.skill-entry-card')).findIndex(card => card.querySelector('.skill-entry-cover img')));
+  /* 悬停一个**真的有案例封面**的技能 → 预览窗右栏必须真的取到那张图（不是空框）。
+     ⚠️ 必须先**挑出有封面的那一张**再悬停：多数技能还没有案例图，
+        悬停第一张往往命中的是没有封面的那张 —— 那是「测的是运气不是判据」。 */
+  const coveredIndex = await page.evaluate(() => Array.from(document.querySelectorAll('.skill-entry-button'))
+    .findIndex(btn => Boolean(btn.querySelector('.skill-entry-glyph img'))));
   check(coveredIndex >= 0, '图片板块的精选里至少有一条带案例（否则下面这条断言无从谈起）', String(coveredIndex));
   if (coveredIndex >= 0) {
-    await page.hover('.skill-entry-card:nth-child(' + (coveredIndex + 1) + ')');
-    await page.waitForTimeout(400);
-    const covered = await page.evaluate(index => {
-      const card = document.querySelectorAll('.skill-entry-card')[index];
-      const img = card?.querySelector('.skill-entry-cover img');
-      const name = card?.querySelector('.skill-entry-copy strong')?.textContent.replace(/\s+/g, ' ').trim() || '';
-      return { name, media: img ? 'img' : 'blank', src: img?.getAttribute('src') || '' };
-    }, coveredIndex);
-    check(covered.media === 'img' && covered.src.startsWith('/'), '有案例的技能，封面上就是那条技能的案例图', JSON.stringify(covered));
+    await page.hover('.skill-entry-button:nth-child(' + (coveredIndex + 1) + ')');
+    await page.waitForTimeout(500);
+    const covered = await page.evaluate(() => {
+      const panel = document.querySelector('.skill-preview');
+      const img = panel?.querySelector('.skill-preview-shot img');
+      return { src: img?.getAttribute('src') || '', shots: panel?.querySelectorAll('.skill-preview-shot').length || 0 };
+    });
+    check(Boolean(covered.src) && covered.src.startsWith('/'), '有案例的技能，预览窗右栏就是它自己的案例图', JSON.stringify(covered));
   }
 
   /* ═══ ⑬b 两个总页面顶部的分类页签（照竞品结构：点一档只看那一档） ═══ */
@@ -951,25 +979,29 @@ try {
   const afterDelete = await page.evaluate(() => document.querySelectorAll('.skill-history-item').length);
   check(afterDelete === 0, '删除后历史里立刻不显示它', String(afterDelete));
 
-  /* ═══ ⑱ 左侧一级导航直达技能子页面（不是切回首页内联模块）═══ */
+  /* ═══ ⑱ 左侧一级导航直达技能子页面（不是切回首页内联模块）═══
+     ⚠️ 2026-09-19 批 G：域从 4 个收敛成 2 个（图片生成 / 视频生成），
+        所以这里点的是 #creative-nav-trigger-image，而不是已撤掉的 …-visual / …-commerce；
+        图片域的第 0 条就是「商品套图」（image.product_suite）。
+        判据本身没变：点导航项要落到**它自己的技能子页面**，而不是切回首页内联模块。 */
   scenario('⑱ 左侧导航直达技能子页面');
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('#creative-nav-trigger-visual', { timeout: 20000 });
-  await page.click('#creative-nav-trigger-visual');
-  await page.waitForSelector('#creative-nav-item-visual-1', { timeout: 10000 });
-  await page.click('#creative-nav-item-visual-1');
+  await page.waitForSelector('#creative-nav-trigger-image', { timeout: 20000 });
+  await page.click('#creative-nav-trigger-image');
+  await page.waitForSelector('#creative-nav-item-image-0', { timeout: 10000 });
+  await page.click('#creative-nav-item-image-0');
   await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   await page.waitForTimeout(500);
-  const posterLanding = await page.evaluate(() => ({
+  const suiteLanding = await page.evaluate(() => ({
     url: location.pathname + location.search,
     title: document.querySelector('.media-workbench-head h2')?.textContent || '',
     back: Boolean(document.querySelector('.media-workbench-back')),
     cta: document.querySelector('.media-workbench-submit')?.textContent || '',
   }));
-  check(posterLanding.url === '/image-creation?id=image.poster', '点「海报设计」进的是**它自己的子页面**', posterLanding.url);
-  check(posterLanding.title.includes('海报'), '进去的就是点的那条技能', posterLanding.title);
-  check(posterLanding.back, '子页面能返回创作');
-  check(posterLanding.cta.includes('立即生成'), '图片技能就地生成（CTA 就在这一页）', posterLanding.cta);
+  check(suiteLanding.url === '/image-creation?id=image.product_suite', '点图片域第一条进的是**它自己的子页面**', suiteLanding.url);
+  check(suiteLanding.title.includes('商品套图'), '进去的就是点的那条技能', suiteLanding.title);
+  check(suiteLanding.back, '子页面能返回创作');
+  check(suiteLanding.cta.includes('立即生成'), '图片技能就地生成（CTA 就在这一页）', suiteLanding.cta);
 
   /* 视频域：点进去要落在**嵌好的视频工作台**上，而不是首页的视频模块 */
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
@@ -989,19 +1021,19 @@ try {
 
   /* 领域名本身仍然只负责**展开面板**（不下发、不跳转）：
      这条是用户 9-13 定的（点领域名就把菜单钉住，别自作主张启动第一个子项），
-     收敛架构时一并保留 —— 所以这里断言"点了它不会把人带走"。 */
+     收敛架构时一并保留 —— 所以这里断言的是「点了它不会把人带走」。 */
   await page.goto('http://127.0.0.1:' + PORT + '/', { waitUntil: 'load', timeout: 40000 });
-  await page.click('#creative-nav-trigger-commerce');
+  await page.click('#creative-nav-trigger-image');
   await page.waitForSelector('.creative-nav-panel', { timeout: 10000 });
   await page.waitForTimeout(600);
   const triggerState = await page.evaluate(() => ({
     url: location.pathname + location.search,
-    expanded: document.querySelector('#creative-nav-trigger-commerce')?.getAttribute('aria-expanded') || '',
-    items: Array.from(document.querySelectorAll('#creative-nav-panel-commerce .creative-nav-link strong')).map(node => node.textContent),
+    expanded: document.querySelector('#creative-nav-trigger-image')?.getAttribute('aria-expanded') || '',
+    items: Array.from(document.querySelectorAll('#creative-nav-panel-image .creative-nav-link strong')).map(node => node.textContent),
   }));
   check(triggerState.url === '/', '点领域名只展开面板，不会把人带走', triggerState.url);
   check(triggerState.expanded === 'true', '面板确实展开了', triggerState.expanded);
-  check(triggerState.items.length >= 2, '面板里列出这个领域的全部能力', JSON.stringify(triggerState.items));
+  check(triggerState.items.length >= 6, '面板里列出这个总页面的全部精品能力', JSON.stringify(triggerState.items));
 
   /* ═══ ⑱b 已经在媒体页上时，导航还要把人带到**正确的技能**上 ═══
      两个总页面共用同一个组件（App.pageMap 两处指向 MediaCreationPage，key 是 _workVersion
@@ -1009,7 +1041,9 @@ try {
      症状极具迷惑性：地址栏已经是 /video-creation?id=video.smart，页面却显示视频 Hub，
      而且没有"返回创作"可点 —— 用户只会说"点了没反应"。 */
   scenario('⑱b 媒体页之间跳转：地址栏与页面内容必须一致');
-  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.poster', { waitUntil: 'load', timeout: 40000 });
+  /* ⚠️ 2026-09-19 批 G：起点从 image.poster（自由创作，一级入口被用户撤掉）
+     改成图片域第一条 image.product_suite。这条压的是**跨板块跳转不重挂载**，与具体技能无关。 */
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   await page.waitForTimeout(400);
   const navTo = async (group, index) => {
@@ -1025,8 +1059,8 @@ try {
     videoComposer: Boolean(document.querySelector('.media-workbench-panel .video-studio-page')),
     missing: document.querySelector('.media-workbench-missing')?.textContent || '',
   }));
-  const posterState = await pageState();
-  check(posterState.title.includes('海报'), '起点确实是海报子页面', posterState.title);
+  const suiteState = await pageState();
+  check(suiteState.title.includes('商品套图'), '起点确实是商品套图子页面', suiteState.title);
 
   /* 跨板块：图片 → 视频（组件不重挂载的那条路） */
   await navTo('video', 0);
@@ -1036,15 +1070,15 @@ try {
   check(crossBoard.title.includes('智能成片'), '落到的是那条视频技能的子页面', crossBoard.title);
   check(crossBoard.videoComposer, '并且视频工作台真的嵌进来了');
 
-  /* 同板块：视频 → 图片的另一条技能 */
-  await navTo('visual', 0);
+  /* 同板块：视频 → 图片的另一条技能（图片域第 0 条 = 商品套图） */
+  await navTo('image', 0);
   const backToImage = await pageState();
-  check(backToImage.url === '/image-creation?id=image.free', '同板块内换技能后地址栏正确', backToImage.url);
-  check(backToImage.title.includes('自由创作'), '页面跟着换到那条技能', backToImage.title);
+  check(backToImage.url === '/image-creation?id=image.product_suite', '同板块内换技能后地址栏正确', backToImage.url);
+  check(backToImage.title.includes('商品套图'), '页面跟着换到那条技能', backToImage.title);
   check(!backToImage.hub, '同板块换技能也不会掉回 Hub');
 
   /* 脏链接：地址栏里是一个不属于这个板块的技能 id → 地址栏要改回 Hub（不留矛盾状态） */
-  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=image.poster', { waitUntil: 'load', timeout: 40000 });
+  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
   await page.waitForTimeout(1200);
   const dirty = await pageState();
   check(dirty.url === '/video-creation', '脏链接（技能不属于这个板块）会把地址栏改回 Hub', dirty.url);

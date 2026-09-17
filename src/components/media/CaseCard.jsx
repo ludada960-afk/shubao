@@ -31,6 +31,11 @@ export default function CaseCard({
      所以卡片支持第二种封面形态：给 before 就走对照版式（左原图 → 右成品），
      没给就还是原来的单图封面。两种形态共用同一张卡、同一套遮罩与标题。 */
   before = '',
+  /* ═══ 字标位（没有案例图时的封面）══════════════════════════════════════════════
+     accent：skill 声明的色系（warm / cool / soft / neutral，见各 skill 的 cover.accent）；
+     monogram：名字前两字。两者都只在**没有案例图**时才会被用到。 */
+  accent = 'neutral',
+  monogram = '',
 }) {
   const articleRef = useRef(null);
   const videoRef = useRef(null);
@@ -93,9 +98,18 @@ export default function CaseCard({
           ) : cover ? (
             <img src={cover} alt={title} loading="lazy" />
           ) : (
-            /* 没有案例封面时不能留一块空白（批 E：卡大了以后空块更显眼）——
-               与首页精选卡同一个口径：如实写"案例补充中"。 */
-            <span className="media-case-card-blank"><Play size={15} />案例补充中</span>
+            /* ═══ 没有案例封面时的**字标位**（2026-09-19 批 G 重做）═════════════════════
+               原来是"一块灰底 + 居中一行小字"。批 E 把卡放大到 260 以后，
+               总页面上 88/92 张卡都没有案例图 —— 一整片灰底看着就是加载失败，
+               用户的原话是「你这个就是个 demo 呀……没有任何的设计」。
+               现在：按 skill 声明的 accent 铺一层同族浅渐变，中间放一个**两字字标**
+               （品牌浅色调，当水印用，不跟标题抢读），右下角留一枚小胶囊写「案例补充中」。
+               诚实信息一个不少（没有案例就说没有案例），但看上去是**刻意的字标位**，
+               不是一张坏图。⚠️ 有案例图的卡一个字都没动。 */
+            <span className="media-case-card-blank" data-accent={accent}>
+              {monogram && <span className="media-case-card-monogram" aria-hidden="true">{monogram}</span>}
+              <span className="media-case-card-blank-note"><Play size={12} />案例补充中</span>
+            </span>
           )}
           {video && !shouldPlay && <span className="media-case-card-play" aria-hidden="true"><Play size={16} /></span>}
         </span>

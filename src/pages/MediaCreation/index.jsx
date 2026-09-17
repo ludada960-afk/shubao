@@ -54,6 +54,7 @@ import {
 } from '../Home/visualCreationModel.js';
 import {
   autoRecognizeEcommerce,
+  polishECText,
   buildCanvasGenerationBody,
   generateEcommerce,
   recoverCanvasGeneration,
@@ -67,6 +68,17 @@ import { useWorksSync } from '../../store/useWorksSync.js';
 import '../Home/MediaHub.css';
 import '../Home/SkillWorkbench.css';
 import './MediaCreation.css';
+
+/* 服务端 /api/ecommerce/auto-recognize 把风格归一成这 5 个 key（见 server/index.mjs 的 STYLE_MAP），
+   这里做**唯一的反查**：key → 界面上给用户看的中文名。
+   ⚠️ 两处必须同步改：服务端 STYLE_MAP 加档时，这里要跟着加，否则会出现"分析成功但没名字"。 */
+const STYLE_SKILL_LABEL = Object.freeze({
+  premium_minimal: '高级极简',
+  lifestyle_scene: '生活场景',
+  fashion_editorial: '时尚杂志',
+  warm_natural: '自然暖调',
+  tech_precision: '科技精工',
+});
 
 /* 板块 ↔ 总页面 的对应只有 skillDirectory 一份（首页热门条、Hub、工作台共用） */
 const BOARD_BY_PAGE = { 'image-creation': 'image', 'video-creation': 'video' };
@@ -463,6 +475,13 @@ export default function MediaCreationPage() {
         ③ 报价在 autoRecognizeEcommerce 内部完成（先报价后扣费），失败就近提示。
      解析结果（商品名 / 品类 / 材质 / 尺寸 / 保养）按技能声明的 fills 回填到对应字段。 */
   const [parsing, setParsing] = useState(false);
+  /* ② 文案润色 / ③ 风格分析各自的在途态：两颗按钮要能**各转各的**，
+     共用一个 busy 会让"点了一颗两颗一起转"，看不出到底哪颗在跑。 */
+  const [polishing, setPolishing] = useState(false);
+  const [analyzingStyle, setAnalyzingStyle] = useState(false);
+  /* ③ 的产物：分析出来的风格名（写回 note 常驻显示，不是一闪而过的 toast ——
+     付费买到的结论必须留在页面上）。 */
+  const [styleVerdict, setStyleVerdict] = useState('');
   const parseSpec = skill && skill.parse && !embed ? skill.parse : null;
   /* ⚠️ 解析的**取图位**必须按目标字段算，不能统一读 values.assets：
      「图片复刻」没有 assets（它的两个上传位叫 reference / source），
@@ -477,6 +496,23 @@ export default function MediaCreationPage() {
       .filter(item => item && item.status === 'ready' && item.url)
       .map(item => item.url);
   }
+  /* 字段 key → 界面上那个 label（提示语里要说"人话"，不能把 key 抛给用户） */
+  function fieldLabel(key) {
+    return (skill?.fields || []).find(field => field.key === key)?.label || '';
+  }
+
+  /* ③ 的取图位：**所有上传位里已经就绪的图**（商品图 + 参考图都算）。
+     与 ① 的 parseSourceUrls 有意不同：① 只认"商品图那一个位"，
+     ③ 要的是"用户给过的全部视觉证据"—— 参考排版、场景参考都在里面。 */
+  function styleRefUrls() {
+    const urls = [];
+    for (const slot of (skill?.fields || []).filter(field => field.kind === 'upload')) {
+      const list = Array.isArray(effectiveValues[slot.key]) ? effectiveValues[slot.key] : [];
+      for (const item of list) if (item && item.status === 'ready' && item.url) urls.push(item.url);
+    }
+    return urls.slice(0, 5);
+  }
+
   /* target：回填到哪个字段。缺省用声明源里的 fills（一键解析那颗按钮走这条）。 */
   async function parseProductInfo(target = '') {
     if (!skill || !parseSpec || parsing) return;
@@ -514,6 +550,86 @@ export default function MediaCreationPage() {
     }
   }
 
+  /* ═══ ② AI 润色：把已写好的卖点交给 /api/polish-ec-text（SKU ec_ai_assistant = 0.2 积分）═══
+     这是**另一条上游**，不是 auto-recognize 的换皮：识别链路只回结构化商品字段，
+     润色链路才回文案。用户批注 #14 要"每颗按钮都真的有效"，所以它必须有自己的产物。 */
+  async function polishPoints(target) {
+    if (!skill || polishing) return;
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const text = String(effectiveValues[target] || '').trim();
+    /* ⚠️ 空内容**不做死按钮**：点了必须有事发生 —— 就地告诉用户缺什么、缺的那一步在哪。
+       （给一个点了没反应的付费按钮比不给更糟，是本项目铁律。） */
+    if (!text) {
+      setNotice('');
+      setError('先写几句' + (fieldLabel(target) || '内容') + '，或先点上面的「一键解析商品信息」把商品信息填出来');
+      return;
+    }
+    setPolishing(true);
+    setError('');
+    setNotice('正在润色' + (fieldLabel(target) || '内容') + '…（本次消耗 0.2 积分）');
+    try {
+      const source = String(effectiveValues.productParams || effectiveValues.product || '').trim();
+      const productName = source.split('\n')[0].trim();
+      const result = await polishECText({
+        text,
+        product_name: productName || skill.name,
+        category: skill.name,
+      });
+      const polished = String(result?.polished || '').trim();
+      if (!polished) { setNotice(''); setError('这次没有返回可用文案，稍后再试'); return; }
+      setValues(prev => ({ ...prev, [target]: polished }));
+      await refreshBillingBalance?.().catch(() => undefined);
+      setNotice('已润色并写回' + (fieldLabel(target) || '') + '（消耗 0.2 积分），确认后再生成');
+    } catch (err) {
+      setNotice('');
+      handleError(err);
+    } finally {
+      setPolishing(false);
+    }
+  }
+
+  /* ═══ ③ AI 推荐风格分析（竞品那颗 0.10 积分风格的按钮）═══════════════════════════
+     输入与①不同：①看**商品图**回字段，③看**参考图 + 已填商品信息**，回它判定的风格。
+     上游是同一条 auto-recognize —— 它本来就在同一次推理里同时给出 product / style_skill /
+     skus，所以这不是"同一颗按钮换个名字"，而是同一次分析能力的**第三种用法**。
+     产物落在两处：把「设计风格」切到「AI推荐」（口径一致），并把判定结果常驻在按钮下面。 */
+  async function analyzeStyle(target) {
+    if (!skill || analyzingStyle) return;
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const refs = styleRefUrls();
+    const brief = String(effectiveValues.productParams || effectiveValues.product || '').trim();
+    if (!refs.length && !brief) {
+      setNotice('');
+      setError('先上传商品图或参考图，或者把商品信息填好，再点它');
+      return;
+    }
+    setAnalyzingStyle(true);
+    setError('');
+    setNotice('正在分析参考图与商品信息…（本次消耗 0.2 积分）');
+    try {
+      const result = await autoRecognizeEcommerce({ smartBrief: brief, refShots: refs });
+      const label = STYLE_SKILL_LABEL[result?.style_skill] || '';
+      if (!label) { setNotice(''); setError('这次没分析出明确的风格，换一张更聚焦的参考图再试'); return; }
+      setStyleVerdict(label);
+      if (target) setValues(prev => ({ ...prev, [target]: 'AI推荐' }));
+      await refreshBillingBalance?.().catch(() => undefined);
+      setNotice('推荐风格：' + label + '（消耗 0.2 积分）');
+    } catch (err) {
+      setNotice('');
+      handleError(err);
+    } finally {
+      setAnalyzingStyle(false);
+    }
+  }
+
   /* 统一失焦：登录 / 余额不足交给既有守卫处理，其余就地显示 */
   const handleError = useCallback((err) => {
     const access = handleGenerationAccessError(err, dispatch, { source: 'visual_creation' });
@@ -523,48 +639,69 @@ export default function MediaCreationPage() {
     return false;
   }, [dispatch]);
 
-  /* ═══ 字段旁的付费动作：照竞品实测那几颗（AI生成卖点 / AI推荐风格分析）════════════
-     竞品在这两处各有一颗明码标价的按钮（他们 0.10 积分）。
-     我们对应的是既有链路 /api/ecommerce/auto-recognize（读图 + 归纳商品字段），
-     计费 SKU 是 ec_ai_assistant = 200 units = **0.2 积分**（与「一键解析」同一颗 SKU）。
+  /* ═══ 字段旁的付费动作：**三颗按钮，三条真的走得通的路**（2026-09-19 批 G 逐颗接通）═══
+     用户批注 #14 原话：「你这三个按钮里面只有一个按钮是有效的……你要真正的去点击它的
+     各种按钮，还有它的各个选项。」—— 照做：三颗各自打**不同的输入、不同的产物**，
+     没有一颗是摆设（上一版第③颗是 runnable:false 的说明行，正是用户说的「无效」）。
+       ① 一键解析商品信息（上面的 parseAction）：读**商品图** → 回填商品信息字段（auto-recognize）
+       ② AI 润色 · 卖点：把已写好的卖点交给 /api/polish-ec-text 润色回填（polishECText）——
+          **另一条上游**：识别链路只回结构化商品字段，润色链路才回文案。
+       ③ AI 推荐风格分析：读**参考图 + 已填商品信息**，拿回模型判定的 style_skill，
+          把「设计风格」切到「AI推荐」并把判定结果常驻显示在按钮下面。
+          上游与①同一条，但这不是「换个名字」：auto-recognize 本来就在同一次推理里
+          同时给出 product / style_skill / skus，①③ 是这份分析能力的两种用法。
+     计费：三颗都走 ec_ai_assistant = 200 units = **0.2 积分**（与竞品那两颗 0.10 不同）。
      ⚠️ 计价改成 0.10 是**动钱路**的事（catalog 里每条 SKU 都带真实上游成本与毛利带），
         必须用户点头，不许静默调价 —— 所以按钮上如实写 0.2 积分，不照抄他们的数字。
-     ⚠️ 只渲染**真的接通**的动作：runnable:false 的一律渲染成带原因的说明行，
-        绝不做一个点了没反应的付费按钮（给死按钮比不给更糟）。
-     ⚠️ 依赖数组里的 parseProductInfo 是**函数声明**（会提升），不是 const ——
-        这里若引用后面才声明的 const，就是本项目踩过两次的渲染期 TDZ 白屏。 */
+     ⚠️ 前置条件不满足时**仍然渲染成按钮**，点了就地说明缺什么（见 polishPoints 的空文本分支）——
+        渲染成禁用行会让用户以为按钮坏了；有明确回应的按钮才是活的。
+     ⚠️ 依赖数组里的 parseProductInfo / polishPoints / analyzeStyle 都是**函数声明**（会提升），
+        不是 const —— 这里若引用后面才声明的 const，就是本项目踩过两次的渲染期 TDZ 白屏。 */
   const paidActions = useMemo(() => {
     if (!skill || embed) return [];
     const list = [];
-    /* ① AI生成卖点：套图 / A+ / 详情图 / 复刻四条都有卖点字段，回填到它自己那一个 */
+    /* ② AI 润色 · 卖点：套图 / A+ / 详情图 / 复刻四条都有卖点字段，润色回填到它自己那一个。
+       ⚠️ 它**不**调 parseProductInfo —— 那一颗是「读图回字段」，这一颗是「把手上的文案改好」，
+          两条上游不同（auto-recognize vs polish-ec-text），产物也不同。 */
     const pointsField = (skill.fields || []).find(field => field.key === 'productParams' || field.key === 'product');
     if (pointsField) {
+      const pointsDraft = String(effectiveValues[pointsField.key] || '').trim();
       list.push({
-        key: 'ai-points',
-        label: 'AI生成 · ' + pointsField.label,
+        key: 'ai-polish',
+        label: 'AI 润色 · ' + pointsField.label,
         points: 0.2,
         runnable: true,
-        busy: parsing,
-        busyLabel: '正在生成…',
-        onRun: () => { void parseProductInfo(pointsField.key); },
+        busy: polishing,
+        busyLabel: '正在润色…',
+        note: pointsDraft
+          ? '把上面这段' + pointsField.label + '按商品与平台改得更像人写的，再写回原处'
+          : '先写几句' + pointsField.label + '，或先点上面的「一键解析商品信息」',
+        onRun: () => { void polishPoints(pointsField.key); },
       });
     }
-    /* ② AI推荐风格分析：竞品在「设计风格」那一排下面还有一颗（他们 0.10 积分）。
-       我们没有"风格分析"这条链路（auto-recognize 只回商品字段，不回风格）——
-       如实说明，不做死按钮。等上游接上再翻成 runnable:true。 */
-    const hasStyle = (skill.fields || []).some(field => field.key === 'style');
-    if (hasStyle) {
+    /* ③ AI 推荐风格分析：竞品在「设计风格」那一排下面还有一颗（他们 0.10 积分）。
+       我们的上游其实**能**回风格 —— /api/ecommerce/auto-recognize 的返回里就带 style_skill
+       （server/index.mjs 的 STYLE_MAP 把模型答案归一成 5 个 key），只是上一版没接上，
+       于是把它写成了 runnable:false 的说明行 —— 那正是用户说的「三个按钮只有一个有效」。
+       现在接上：读参考图 + 已填商品信息 → 判定风格 → 把「设计风格」切到「AI推荐」并常驻结论。 */
+    const styleField = (skill.fields || []).find(field => field.key === 'style');
+    if (styleField) {
       list.push({
         key: 'style-analysis',
-        label: 'AI推荐风格分析',
-        points: null,
-        runnable: false,
-        reason: '还没有接通：现有解析接口只回商品字段、不回风格 — 所以不放按钮',
+        label: 'AI 推荐风格分析',
+        points: 0.2,
+        runnable: true,
+        busy: analyzingStyle,
+        busyLabel: '正在分析…',
+        note: styleVerdict
+          ? '推荐风格：' + styleVerdict + '（已把「' + styleField.label + '」切到 AI推荐，出图按它走）'
+          : '读参考图与已填商品信息，判定风格并把「' + styleField.label + '」切到 AI推荐',
+        onRun: () => { void analyzeStyle(styleField.key); },
       });
     }
     return list;
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [skill, embed, parsing]);
+  }, [skill, embed, parsing, polishing, analyzingStyle, styleVerdict, effectiveValues]);
 
   /* ── 生成：命名函数，不用 useCallback 包 ──────────────────────────────────
      ⚠️ runSlot 是**扣费点**（regenerateCanvasImage 内部会先报价再扣费）。

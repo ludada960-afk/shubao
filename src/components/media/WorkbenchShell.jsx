@@ -124,16 +124,22 @@ export default function WorkbenchShell({
           {paidActions.length > 0 && (
             <div className="media-workbench-paid-actions">
               {paidActions.map(action => (action.runnable ? (
-                <button
-                  key={action.key || action.label}
-                  type="button"
-                  className={'media-workbench-paid' + (action.busy ? ' is-busy' : '')}
-                  disabled={disabled || action.busy}
-                  onClick={() => action.onRun?.()}
-                >
-                  <span>{action.busy ? (action.busyLabel || '处理中…') : action.label}</span>
-                  {action.points != null && <em>{action.points} 积分</em>}
-                </button>
+                /* 2026-09-19 批 G：每颗按钮下面多一行 note —— 它写两件事：
+                   这颗按钮**会做什么**（点之前就看得见），以及**买到手的结论**
+                   （例如风格分析出的那个风格名，常驻在这里，不是一闪而过的 toast）。
+                   付费动作的产物必须留在页面上，否则用户付了钱只看到一个 toast。 */
+                <div className="media-workbench-paid-item" key={action.key || action.label}>
+                  <button
+                    type="button"
+                    className={'media-workbench-paid' + (action.busy ? ' is-busy' : '')}
+                    disabled={disabled || action.busy || action.disabled}
+                    onClick={() => action.onRun?.()}
+                  >
+                    <span>{action.busy ? (action.busyLabel || '处理中…') : action.label}</span>
+                    {action.points != null && <em>{action.points} 积分</em>}
+                  </button>
+                  {action.note && <small className="media-workbench-paid-note">{action.note}</small>}
+                </div>
               ) : (
                 <span className="media-workbench-paid is-off" key={action.key || action.label} title={action.reason || ''}>
                   <span>{action.label}</span>
@@ -148,7 +154,7 @@ export default function WorkbenchShell({
               {group.name && <h3 className="media-workbench-group-title">{group.name}</h3>}
               <div className="media-workbench-fields">
                 {group.fields.map(field => (
-                  <FieldSlot key={field.key} field={field} value={values[field.key]} onChange={onFieldChange} disabled={disabled} />
+                  <FieldSlot key={field.key} field={field} value={values[field.key]} values={values} onChange={onFieldChange} disabled={disabled} />
                 ))}
               </div>
             </section>
@@ -206,6 +212,6 @@ export default function WorkbenchShell({
 
 /* 字段走统一渲染器（同目录 FieldRenderer）；这里单独包一层只是为了少一次 import 往返。 */
 import FieldRenderer from './FieldRenderer.jsx';
-function FieldSlot({ field, value, onChange, disabled }) {
-  return <FieldRenderer field={field} value={value} disabled={disabled} onChange={next => onChange(field.key, next)} />;
+function FieldSlot({ field, value, onChange, disabled, values }) {
+  return <FieldRenderer field={field} value={value} values={values} disabled={disabled} onChange={next => onChange(field.key, next)} />;
 }

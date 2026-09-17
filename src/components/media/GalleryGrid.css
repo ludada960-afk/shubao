@@ -34,8 +34,19 @@
   border-radius: 2px;
   background: var(--sb-border-strong);
 }
+/* ═══ 2026-09-19 用户批注 #9：**一行 6 个、左右填满、一屏十来个** ═══════════════════════
+   原话：「https://laoyu.quantv.com/image-creation 你好好看一下，人家一行是有 6 个案例的，
+   而且他是左右都已经填满了，他们一屏就有十几个案例。然后他们的信息是填的非常满的，
+   这样的话他们的封面就会变得很大。用户一眼就会觉得能够看清很多的信息。」
+   竞品实测：视口 2560、内容吃满（约 2468），6 列 × 约 380px。
+   所以列数**按可用宽度分档固定**（不是 auto-fill 随缘）：宽屏 6 列、往下逐档降。
+   卡片宽度由列数决定、页面被填满（不再有 1240 宽度上限，见 MediaCreation.css）。 */
 .media-gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
 }
+@media (max-width: 1720px) { .media-gallery-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 1380px) { .media-gallery-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1040px) { .media-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px)  { .media-gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }

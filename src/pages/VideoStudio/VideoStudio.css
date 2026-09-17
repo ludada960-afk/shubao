@@ -41,21 +41,10 @@
 .video-composer-heading h2 { margin: 6px 0 4px; font-size: 24px; line-height: 1.25; letter-spacing: 0; }
 .video-composer-heading p { margin: 0; color: #827b73; font-size: 13px; }
 
-.video-mode-tabs {
-  margin: 0 22px 14px;
-  padding: 4px;
-  display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
-  gap: 4px;
-  border: 1px solid rgba(61,50,41,.07);
-  border-radius: 12px;
-  background: #f3f2f4;
-}
-.video-mode-tabs button { min-width: 0; min-height: 56px; padding: 8px 12px; display: grid; place-content: center; gap: 3px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--sb-ink-3); text-align: center; cursor: pointer; transition: background .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease; }
-.video-mode-tabs button:hover { color: #3d3732; background: rgba(255,255,255,.65); }
-.video-mode-tabs button.is-selected { border-color: rgba(83,64,58,.09); background: var(--sb-neutral-0); color: #2d2925; box-shadow: 0 4px 13px rgba(55,39,25,.08); }
-.video-mode-tabs strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.video-mode-tabs span { overflow: hidden; color: #9a928a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ 这里原本是「整行灰底 + 三等分格子」—— 那正是用户批注 #1-① 说的"一条这么宽的框"。
+   窄按钮的实现全部在下方 .video-mode-tabs 那一节（本文件后写的那条覆盖它）。 */
+.video-mode-tabs { margin: 0 22px 14px; }
+.video-mode-tabs strong { font-size: 14px; font-weight: 700; }
 
 .video-content-composer {
   display: grid;
@@ -80,9 +69,13 @@
 .video-media-deck.is-empty { align-items: center; }
 .video-media-deck.is-frame { align-items: stretch; }
 .video-media-card { position: relative; width: 92px; height: 112px; flex: 0 0 92px; box-sizing: border-box; border-radius: 12px; background: var(--sb-neutral-0); box-shadow: 0 7px 18px rgba(72,50,31,.09); }
-.video-media-add-card,.video-media-picker { overflow: hidden; border: 1.5px dashed rgba(112,92,72,.28); color: #5f574f; transition: transform .2s ease,border-color .2s ease,box-shadow .2s ease,background .2s ease; }
-.video-media-add-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 9px; text-align: center; cursor: pointer; transform: rotate(-1.2deg); }
-.video-media-add-card:hover,.video-media-picker:hover { z-index: 2; border-color: var(--sb-brand-a55); background: var(--sb-neutral-0); box-shadow: 0 12px 26px rgba(71,49,30,.14); transform: translateY(-3px) rotate(0); }
+/* ⚠️ 2026-09-19 批 G：空态加号卡原本是 rotate(-1.2deg)、hover 归零 —— 那是"歪卡语言"的残留。
+   用户原话：「弄成三张卡片这样，**不必向左歪、向右歪就是正常的放**。」
+   所以空态与已选态都走同一条规则：**对齐 + 只抬起**。
+   （transition 里去掉 transform 的 .2s 也不再需要 —— 抬起统一走 .18s，与站点其余卡片同档。） */
+.video-media-add-card,.video-media-picker { overflow: hidden; border: 1.5px dashed rgba(112,92,72,.28); color: #5f574f; transition: border-color .18s ease,box-shadow .18s ease,background .18s ease,transform .18s ease; }
+.video-media-add-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 9px; text-align: center; cursor: pointer; }
+.video-media-add-card:hover,.video-media-picker:hover { z-index: 2; border-color: var(--sb-brand-a55); background: var(--sb-neutral-0); box-shadow: 0 12px 26px rgba(71,49,30,.14); transform: translateY(-3px); }
 .video-media-add-card input,.video-media-picker input { display: none; }
 .video-media-add-icon { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--sb-brand-a10); border-radius: 50%; background: var(--sb-brand-50); color: var(--sb-brand-600); }
 .video-media-add-card strong,.video-media-picker strong { max-width: 100%; overflow: hidden; color: #37312c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -153,27 +146,42 @@
    .ec-xhs-media-column / .ec-xhs-media-strip / .ec-xhs-upload-card（同一份实现，
    结构与组件见 VideoStudio/index.jsx 的 renderAssetPickers）。
    本文件只写两条覆盖：① 三张等宽（"对称"的落点）；② 不许歪。 */
+/* ═══ 2026-09-19 用户批注 #1-②③ / #2-①（第三次强调，这次照做）═══════════════════════
+   原话（三条一起看才完整）：
+     · 「你直接拿图片生成那边的那种卡片样式过来用……弄成三张卡片这样，然后不必向左歪、
+        向右歪就是正常的放就可以了。」
+     · 「上传完素材，它是会在这里面向右挤的。如果素材过于多的话，向右挤，就会有下面有一条滑动条。」
+     · 「并不是像你现在这样，你现在这样添加完的素材是在上面显示……你会把这个框变得非常的高。
+        用户的浏览是需要一直滑动的，那这是不对的，你应该让用户一屏就可以看全所有的信息。」
+   改前错在哪（诊断写下来，免得再犯）：我把它做成 grid repeat(3,1fr) —— 三等分的**行**，
+   卡被拉成 348×148 的扁块；而且已选素材是**另起一行**铺在下面，越传越高，一屏看不全。
+   现在（= 图片侧那套逻辑本身）：
+     ① 一行横向排列（flex-nowrap + overflow-x:auto）：已选素材与三张添加卡**同一条带子**，
+        传进来的素材把后面的卡往右挤，挤不下就出横向滚动条；
+     ② 卡尺寸取图片侧那一档（86×108 竖卡 + 虚线边 + 圆形图标 + 标题 + 一行说明），**不倾斜**；
+     ③ 带子高度固定，**素材再多也不长高** → 一屏看全（用户点名的判据）。 */
 .video-material-column { padding: 0; }
 .video-material-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 12px;
   min-height: 0;
-  padding: 4px 2px 8px;
-  overflow: visible;
+  padding: 4px 2px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
-/* 卡高 148（图片侧是 86×108 的竖卡，等比放大到 348 宽时若只有 108 高就成了三颗扁按钮）。
-   148/348 ≈ 0.43，与图片侧 108/86 ≈ 1.26 的竖势不同 —— 但这里是三等分的**行**，
-   要的是"三块一样大、一样高、不歪"，不是复刻长宽比。 */
-.video-material-strip .ec-xhs-upload-card { height: 148px; }
-/* ⚠️ 选择器必须带 .video-material-strip 前缀才压得住 .ec-xhs-card-product（同为"单类"）。
-   图片侧靠那张卡的 ±5deg 倾斜做视觉节奏（散落纸片的意象）；这里是三个并列的**种类**，
-   倾斜就是用户说的"歪卡" → 在这一层清零。 */
+.video-material-strip::-webkit-scrollbar { height: 8px; }
+.video-material-strip::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(91, 75, 61, .22); }
+/* ⚠️ 选择器必须带 .video-material-strip 前缀才压得住 .ec-xhs-card-product（同为单类）。
+   图片侧靠那张卡的 ±5deg 倾斜做视觉节奏（散落纸片的意象）；这里是并排的素材位，
+   倾斜就是用户说的歪卡 → 在这一层清零。 */
 .video-material-strip .ec-xhs-upload-card,
 .video-material-strip .ec-xhs-upload-card:hover,
 .video-material-strip .ec-xhs-upload-card:focus-visible { transform: none; }
-.video-material-strip .ec-xhs-upload-card { width: 100%; height: 148px; flex: 1 1 auto; }
+/* 卡尺寸 = 图片侧那一档（86×108），且**不许被 flex 拉伸**：flex:0 0 auto。 */
+.video-material-strip .ec-xhs-upload-card { width: 86px; height: 108px; flex: 0 0 86px; }
 .video-material-strip .ec-xhs-upload-card:hover,
 .video-material-strip .ec-xhs-upload-card:focus-visible { transform: translateY(-4px); }
 /* 三个 file input 不参与布局（放在卡片外面，避免 label + onClick 触发两次选择器） */
@@ -475,61 +483,82 @@
   border-radius: 20px;
   box-shadow: 0 18px 52px rgba(67, 48, 31, .09);
 }
+/* ═══ 2026-09-19 用户批注 #1-①：创作方式必须是**窄按钮**，不是一条宽框 ═══════════════════
+   原话：「你的智能成片和你这个首尾帧的设计是不对的。就是你这个背景怎么会是一条这么宽的框呢？
+   你再好好看一下我们竞品那边。他们是非常窄的，两个小按钮而已。你现在做的太宽的话，
+   实际上根本就看不出来这是一个可以点的按钮……从视觉语言上你要有一套自己的逻辑，
+   要有主次之分，要有一些设计层面的东西在里面。」
+   诊断（写下来）：改前是一条 **整行渐变底 + 两个 min-height:66px 的等分块**，
+   于是它读起来像"一块背景面板"，而不是"两个可点的开关" ——
+   判据很直接：**按钮的宽度由文字决定（inline-flex），不由容器决定（grid 1fr）**；
+   底不再是一条通栏（去背景），只留按钮自己那一层白底 + 边框 + 阴影。
+   选中态用品牌紫（全站"当前选中"的唯一语义），未选中是中性纸片。 */
 .video-mode-tabs {
-  min-height: 76px;
-  align-items: stretch;
-  gap: 7px;
-  padding: 5px;
-  border-radius: 12px;
-  background: linear-gradient(110deg, #f2effc 0%, #f6f4f1 52%, #fff2eb 100%);
+  min-height: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
 }
 .video-mode-tabs button {
   position: relative;
-  min-height: 66px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: 1fr;
-  place-content: center;
+  min-height: 40px;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 10px 15px;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-2);
   text-align: left;
-  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, color .2s ease, transform .2s ease;
+  cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
 }
-.video-mode-tabs button:hover { transform: translateY(-2px); }
+.video-mode-tabs button:hover {
+  transform: none;
+  border-color: var(--sb-border-strong);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  box-shadow: var(--sb-shadow-sm);
+}
+.video-mode-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+/* 选中：品牌紫描边 + 品牌浅底 + 品牌字（与全站 segmented / 页签同一套"当前选中"语义） */
 .video-mode-tabs button.is-selected {
-  border-color: rgba(112,88,218,.24);
-  background: rgba(255,255,255,.94);
-  color: #292622;
-  box-shadow: 0 8px 20px rgba(83,62,47,.1);
+  border-color: var(--sb-state-selected-line);
+  background: var(--sb-state-selected-bg);
+  color: var(--sb-state-selected-ink);
+  box-shadow: none;
 }
+/* 那颗小圆点只在未选中时出现（选中态由描边+底色表达，不需要再点一个点） */
 .video-mode-tabs button > i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #d9d2cd;
-  transition: background .2s ease, transform .2s ease;
+  background: var(--sb-border-strong);
+  transition: background .18s ease;
 }
-/* 4px 选中指示条：非品牌时刻（品牌时刻白名单仅 logo/hero/空态插画），按裁定 2 去渐变改品牌紫纯色。 */
-.video-mode-tabs button.is-selected > i { width: 4px; height: 24px; border-radius: 4px; background: var(--sb-brand-600); transform: none; }
+.video-mode-tabs button.is-selected > i { background: var(--sb-state-selected-ink); }
 .video-mode-icon {
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   display: grid !important;
   place-items: center;
-  border-radius: 12px;
-  color: #7867dc;
-  background: #f0ebff;
-  transition: color .2s ease, background .2s ease, transform .2s ease;
+  border-radius: 8px;
+  color: var(--sb-brand-600);
+  background: var(--sb-brand-50);
+  transition: color .18s ease, background .18s ease;
 }
-.video-mode-tabs button:hover .video-mode-icon { transform: rotate(-7deg) scale(1.08); }
-.video-mode-tabs button.is-selected .video-mode-icon { color: #173b38; background: #7ee2cf; }
-.video-mode-copy { min-width: 0; display: grid !important; gap: 4px; }
-.video-mode-tabs .video-mode-copy strong { font-size: 14px; }
-.video-mode-tabs .video-mode-copy small { overflow: hidden; color: #978e86; font-size: 11px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-.video-mode-tabs button.is-selected .video-mode-copy strong { color: #292622; }
-.video-mode-tabs button.is-selected .video-mode-copy small { color: #817970; }
+.video-mode-tabs button:hover .video-mode-icon { transform: none; }
+.video-mode-tabs button.is-selected .video-mode-icon { color: var(--sb-state-selected-ink); background: var(--sb-surface-card); }
+.video-mode-copy { min-width: 0; display: inline-flex !important; align-items: center; gap: 0; }
+/* 窄按钮里**只留名字**：那句解释（"一句话起步、素材可选"）放进 title 属性 —— 
+   用户要的是"一眼看出这是两个可点的按钮"，而不是在一块面板里读两行说明。 */
+.video-mode-tabs .video-mode-copy strong { font-size: 14px; font-weight: 700; }
+.video-mode-tabs .video-mode-copy small { display: none; }
+.video-mode-tabs button.is-selected .video-mode-copy strong { color: var(--sb-state-selected-ink); }
 .video-composer-input > .mention-prompt-field {
   width: 100%;
   min-height: 92px;
@@ -712,22 +741,21 @@
 .video-lightbox-close:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 
 
-/* ═══ 素材卡：与图片侧「扇形歪卡」同一套语言（2026-09-16 P0 统一）═══════════════
-   用户批注（图 #2）：「他现在视频生成的样式并不是这样的…要按我们电商生图这边的
-   卡片歪过来的形式来上传素材，样式逻辑得是类似的。」
-   数值直接取自图片侧的 .visual-skill-stage-outputs（负外边距叠压 + 反向倾斜 + 上下错位），
-   两板块从此共用同一套语言 —— 判据见 test/media-language-unify-0916.test.mjs。 */
+/* ═══ 素材卡：与图片侧共用同一套「对齐卡片」语言（2026-09-19 批 G 改口径）═══════════
+   ⚠️ 这里原先抄的是「扇形歪卡」（负外边距叠压 + 反向倾斜 + 上下错位），依据是 9-16 用户批注
+      「要按我们电商生图这边的卡片**歪过来**的形式来上传素材」。本轮用户**推翻了自己这句话**：
+      「弄成三张卡片这样，**不必向左歪、向右歪就是正常的放**。」
+      「上传完素材，它是会在这里面向右挤的……如果素材过于多的话，就会有下面有一条滑动条。」
+   所以：**零倾斜 + 正常间距 + 向右排 + 挤不下横向滑**。
+   ⚠️ 空态"加号卡"（.video-media-picker）走的是同一条规则 —— 空态与已选态必须同尺寸，
+      否则加号卡放进去的一瞬间整排会跳一下。 */
 .video-media-deck { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; }
-.video-media-deck .video-media-picker { transition: transform .18s ease, box-shadow .18s ease; }
-.video-media-deck .video-media-picker + .video-media-picker { margin-left: -34px; }
-.video-media-deck .video-media-picker:nth-child(1) { transform: rotate(-4deg); }
-.video-media-deck .video-media-picker:nth-child(2) { z-index: 2; transform: rotate(4deg) translateY(-5px); }
-.video-media-deck .video-media-picker:nth-child(3) { z-index: 3; transform: rotate(-2.5deg) translateY(4px); }
-.video-media-deck .video-media-picker:nth-child(n + 4) { transform: rotate(2deg) translateY(-2px); }
+.video-media-deck .video-media-picker { transition: box-shadow .18s ease; }
+/* 悬停只抬起，不旋转也不缩放：横排里缩放会让后面的卡跟着跳。 */
 .video-media-deck .video-media-picker:hover,
 .video-media-deck .video-media-picker:focus-within {
   z-index: 6;
-  transform: rotate(0deg) translateY(-4px) scale(1.02);
+  transform: translateY(-4px);
   box-shadow: var(--sb-shadow-lg, 0 12px 28px rgba(17, 20, 45, .16));
 }
 @media (prefers-reduced-motion: reduce) {

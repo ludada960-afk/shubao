@@ -12,10 +12,12 @@ import RecoveryShelf from './ec/RecoveryShelf';
 import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
 import { featuredSkills, hubPath, skillPath } from '../../skills/skillDirectory.js';
 
-/* 首页每个板块摆几条精选推荐按钮。6 条是竞品首页那一排的量级：
-   再多就要换行成两排，反而不像"挑一个就开始"；
-   剩下的全部在总页面里（按钮行右侧那个「查看全部」）。 */
-const SKILL_ENTRY_LIMIT = 6;
+/* ═══ 首页每个板块摆几条精选推荐按钮 ═══════════════════════════════════════════════
+   2026-09-19 用户批注 #4：「这里的 skill 他们本身只是个按钮。它是像这样子排列成
+   **9 个 skill 的按钮**作为入口。然后鼠标放上去的话，他们就会有下面的这个预览窗出来。」
+   —— 所以是 9 条，一行滑过去（不折行）。取数仍是 skillDirectory.featuredSkills
+   （精品位优先、不足时按声明顺序补齐），不手写清单。 */
+const SKILL_ENTRY_LIMIT = 9;
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
 import { useWorksSync } from '../../store/useWorksSync.js';
 
@@ -169,7 +171,20 @@ export default function HomePage() {
 
           {!state.browserQa && <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />}
 
-          {/* ═══ 主模式切换：卡片本身就是工作台入口 ═══ */}
+          {/* ═══ 顶级入口：视频生成 / 图片生成 两张**总页面**入口卡（2026-09-19 批 G 重做）══════
+             ⚠️ 先说清楚这一块**为什么留着**（用户批注 #2-② / #7 的边界）：
+               删的是「左边介绍文案 + 右边演示图」那块**案例台**（.visual-skill-stage，已删），
+               以及它安排在「精选 skill 按钮」里的预览窗（已搬过去）；
+               而用户同一条批注里明确说：「你目前来说就先做视频生成和电商生成的这两个总页面的
+               **入口**就可以」—— 所以这两张**入口卡**是用户点名要保留的那两个入口，不是被否掉的那块。
+             ⚠️ 本轮把它们**重做**了（用户批注 #7：「你这个就是个 demo 呀……没有任何的设计」）：
+               · 拉直：原来 card-1 是 rotate(-6deg)、card-2 是 rotate(6deg)，hover 再转回来 ——
+                 与同轮那句「不必向左歪、向右歪就是正常的放」正面冲突，整组旋转全删；
+               · 对称：两张等宽等高、同一基线，中间一条 12px 的缝（原来是左右各歪各的、宽窄不一）；
+               · 不再互相盖：原来 card-1 有 margin-right: -22px，两张卡是**叠**在一起的；
+               · 标题从「压在图上的 10px 小字」改成卡内一行正常的 label + 右侧箭头（可读性）。
+             形态：两张卡从下面那张白色工作台卡后面**露出一截**（这是有意的层次，不是穿模）——
+             所以 .homepage-mode-showcase 的负 margin 与 .surface-card 的 z-index 是一对，不能只改一边。 */}
           {ecStep !== 2 && <div
             ref={modeShowcaseRef}
             className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : isVideo ? 'is-video' : isVisual ? 'is-visual' : 'is-commerce'}`}
@@ -190,7 +205,7 @@ export default function HomePage() {
                       if (option.mode !== 'ecommerce') setEcStep(1);
                     }}
                   >
-                    <span className="homepage-mode-card-title"><ModeIcon size={16} />{option.title}</span>
+                    <span className="homepage-mode-card-title"><ModeIcon size={14} />{option.title}</span>
                     <span className="homepage-mode-card-visual">
                       <ModeCardImage src={option.src} alt={`${option.title}案例`} priority={index === 0} />
                     </span>
@@ -247,7 +262,18 @@ export default function HomePage() {
             limit={SKILL_ENTRY_LIMIT}
             title={'精选推荐 · ' + (skillBoard === 'video' ? '视频生成' : '图片生成')}
             hint={skillBoard === 'video' ? '鼠标放上去看案例，点一下直接开始做视频' : '鼠标放上去看案例，点一下直接开始做图'}
-            skills={featuredSkills({ board: skillBoard, limit: SKILL_ENTRY_LIMIT })}
+            /* 每条技能补两样预览窗要用的东西（都从声明源取，页面不写死）：
+                 · previewAssets：它的案例封面（最多 3 张）——没有案例就是空数组，
+                   预览窗里如实显示「案例补充中」；
+                 · detail：一句"它是干什么的"，优先用 outcome（能力描述），没有就用 summary。 */
+            skills={featuredSkills({ board: skillBoard, limit: SKILL_ENTRY_LIMIT }).map(skill => ({
+              ...skill,
+              detail: skill.outcome || '',
+              previewAssets: (Array.isArray(skill.cases) ? skill.cases : [])
+                .map(item => ({ src: item.cover || '', label: item.title || '' }))
+                .filter(item => item.src)
+                .slice(0, 3),
+            }))}
             moreHref={hubPath(skillBoard)}
             moreLabel={'查看全部' + (skillBoard === 'video' ? '视频' : '图片') + '技能'}
             onOpenSkill={skill => {

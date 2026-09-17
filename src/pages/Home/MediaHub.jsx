@@ -33,7 +33,14 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
       if (!map.has(skill.category)) { map.set(skill.category, []); order.push(skill.category); }
       map.get(skill.category).push(skill);
     }
+    /* ═══ 2026-09-19 用户批注 #10：「你的精品推荐为什么在下面呢？它不是应该在最上面吗？」═══
+       实测确认：改前按**声明顺序**出组，精品推荐（featuredRank 那几条）夹在中间甚至靠后。
+       推荐位的作用就是**第一眼看见** —— 放下面等于没推荐。
+       实现：分组照旧从声明源算（不手写清单），只是把「精品推荐」这一组提到最前。 */
     const list = order.map(category => ({ category, skills: map.get(category) }));
+    const FEATURED = '精品推荐';
+    const featuredIndex = list.findIndex(group => group.category === FEATURED);
+    if (featuredIndex > 0) list.unshift(list.splice(featuredIndex, 1)[0]);
     if (assistants.length) list.push({ category: '辅助能力', skills: assistants, assistantGroup: true });
     return list;
   }, [config]);
@@ -88,6 +95,9 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
               /* 封面取法与首页热门条**同一份实现**（skillDirectory.coverOf）：
                  视频卡优先用视频（真实在播），cover 当 poster。 */
               const media = coverOf(skill);
+              /* 没有案例图时的字标位：色系取 skill 自己声明的 cover.accent（唯一真源），
+                 字标取名字前两字（去掉空格，中英混排也不会取到空白）。 */
+              const monogram = String(skill.name || '').replace(/\s+/g, '').slice(0, 2);
               return (
                 <CaseCard
                   key={skill.id}
@@ -99,6 +109,8 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
                   video={media.video}
                   poster={media.poster}
                   badge={availabilityLabel(skill)}
+                  accent={skill.cover?.accent || 'neutral'}
+                  monogram={monogram}
                   onOpen={() => onOpenSkill?.(skill.id)}
                 />
               );

@@ -248,6 +248,50 @@ function TextareaControl({ field, value, onChange, disabled }) {
   );
 }
 
+/* ═══ counts：一组「类型 × 张数」的步进器（2026-09-19 用户批注 #13）════════════════════
+   竞品套图工作台底部那两张大卡「智能匹配 / 自定义配置」，选中**自定义配置**之后
+   下面会展开一组按类型配张数的步进器（用户原话：「自定义配置选中之后，里面还有其他的配置
+   可以做呀，这些你都没深度的调研吗」）。
+   本档位就是那一组：每一行 = 类型名 + 一句用途 + 张数步进器；末尾一行合计，
+   合计数字直接来自用户当前的选择（**不是**写死的文案）。
+   ⚠️ 类型取值范围由**声明源**给（field.rows），这里不写死任何业务类型 ——
+      图片类型是方案真源 IMAGE_TYPES 的事，控件只负责渲染。 */
+function CountsControl({ field, value, onChange, disabled }) {
+  const rows = Array.isArray(field.rows) ? field.rows : [];
+  const current = value && typeof value === 'object' ? value : {};
+  const total = rows.reduce((sum, row) => sum + Math.max(0, Number(current[row.key]) || 0), 0);
+  const minTotal = Math.max(1, Number(field.minTotal) || 1);
+  const setOne = (key, next) => {
+    const max = Math.max(0, Number(rows.find(row => row.key === key)?.max) || 9);
+    const clamped = Math.max(0, Math.min(max, next));
+    onChange({ ...current, [key]: clamped });
+  };
+  return (
+    <span className="media-field-counts">
+      {rows.map(row => {
+        const count = Math.max(0, Number(current[row.key]) || 0);
+        const max = Math.max(0, Number(row.max) || 9);
+        return (
+          <span className="media-field-count-row" key={row.key}>
+            <span className="media-field-count-copy">
+              <strong>{row.label}{row.smart ? <em>AI智能匹配</em> : null}</strong>
+              {row.hint ? <small>{row.hint}</small> : null}
+            </span>
+            <span className="media-field-stepper">
+              <button type="button" disabled={disabled || count <= 0} aria-label={row.label + ' 减少'} onClick={() => setOne(row.key, count - 1)}>−</button>
+              <output>{count}</output>
+              <button type="button" disabled={disabled || count >= max} aria-label={row.label + ' 增加'} onClick={() => setOne(row.key, count + 1)}>+</button>
+            </span>
+          </span>
+        );
+      })}
+      <p className="media-field-counts-total" data-ok={total >= minTotal ? 'true' : 'false'}>
+        当前共 <b>{total}</b> 张{minTotal > 1 ? '，至少 ' + minTotal + ' 张' : ''}
+      </p>
+    </span>
+  );
+}
+
 function control(kind, field, value, onChange, disabled) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
@@ -291,6 +335,9 @@ function control(kind, field, value, onChange, disabled) {
     );
   }
   if (kind === 'textarea') return <TextareaControl field={field} value={value} onChange={onChange} disabled={disabled} />;
+  if (kind === 'counts') {
+    return <CountsControl field={field} value={value} onChange={onChange} disabled={disabled} />;
+  }
   if (kind === 'upload') {
     return <UploadControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
@@ -319,8 +366,14 @@ function control(kind, field, value, onChange, disabled) {
   );
 }
 
-export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false }) {
+export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null }) {
   const kind = field.kind || 'text';
+  /* ═══ visibleWhen：字段的条件显示（2026-09-19 用户批注 #13）═════════════════════════
+     竞品的「自定义配置」选中之后才会展开下面那组张数配置 —— 未选中时它不该占地方。
+     判据写在**声明源**里（field.visibleWhen = { key, equals }），不散在页面里。 */
+  if (field.visibleWhen && values && String(values[field.visibleWhen.key] ?? '') !== String(field.visibleWhen.equals ?? '')) {
+    return null;
+  }
   return (
     <label className="media-field" data-kind={kind}>
       <span className="media-field-label">

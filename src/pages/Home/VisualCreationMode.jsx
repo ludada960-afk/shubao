@@ -7,7 +7,6 @@ import {
   MdCropFree,
   MdLayers,
   MdCheckCircle,
-  MdClose,
   MdDownload,
   MdErrorOutline,
   MdHighQuality,
@@ -19,6 +18,7 @@ import {
   MdZoomOutMap,
   MdChevronLeft,
   MdChevronRight,
+  MdClose,
 } from 'react-icons/md';
 
 import { useApp } from '../../store/AppContext';
@@ -28,7 +28,6 @@ import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
 import { EcommerceAddCard, EcommerceImageCard } from './ec/components/EcommerceAssetCards.jsx';
-import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
 /* 面板宽度的**唯一事实源**（ec/panelVisualLanguage.js）。
    此前本文件另有一份宽度表 { recipe: 440, specs: 500, settings: 460 } —— 那是「第二套真相」，
@@ -57,8 +56,12 @@ const MAX_REFERENCES = 6;
 const MAX_STYLE_REFERENCES = 3;
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const VISUAL_SHOWCASE_AUTO_DWELL_MS = 9000;
-const VISUAL_SHOWCASE_MANUAL_DWELL_MS = 15000;
+/* ═══ 2026-09-19 用户批注 #2-②：首页案例台整块删掉，随之删掉"案例轮播"的三个常量
+   （自动停留 9s / 手动停留 15s）与 showcaseLoadingPolicy —— 它们的唯一消费者是
+   那块被删掉的展示位。删的是**轮播机制**，不是案例数据：
+   selectedSkill.showcases 仍由 visualCreationModel 提供（深链子页面还要按 skill 取案例图），
+   而首页的「左介绍 + 右案例」版式已整体搬进精选 skill 的悬停预览窗
+   （components/media/SkillEntryRow.jsx，规格见 docs/design/52）。 */
 function referenceId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -82,16 +85,18 @@ function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
   else globalThis.setTimeout?.(restore, 0);
 }
 
+/* 结果灯箱翻页：条目列表跟着 previewItem.items 走（打开时冻结的那一批），
+   返回时**必须把 items 带上**，否则翻第二下就退化成单张了。 */
+function stepPreview(current, direction) {
+  const list = current?.items || (current ? [current] : []);
+  if (list.length < 2) return current;
+  const index = list.findIndex(item => item.src === current.src);
+  return { ...list[(index + direction + list.length) % list.length], items: list };
+}
+
 function generationErrorMessage(error) {
   if (error?.name === 'AbortError') return '生成已取消';
   return error?.message || '图片生成失败，请稍后重试';
-}
-
-function showcaseLoadingPolicy(index) {
-  return {
-    loading: index < 3 ? 'eager' : 'lazy',
-    fetchPriority: index === 0 ? 'high' : 'auto',
-  };
 }
 
 const VISUAL_RATIO_META = {
@@ -174,12 +179,30 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
    尺寸与数量各自一个面板 —— 于是触发条的先后顺序就是用户要的那个顺序，
    而每个面板仍然只讲一件事（一个面板里再分两个组会让"第二个是什么"变得含糊）。
    ⚠️ 子页面的精细配置不在这里：那个是 MediaCreation/** 的工作台，功能一个不少。 */
-function VisualSizePanel({ selectedSkill, ratio, onRatioChange, busy }) {
+/* ═══ 2026-09-19 用户批注 #5-① / #6（第二次强调）：首页图片配置**只要两个面板** ═════════
+   原话：「图片生成这里只要两个面板就可以了，一个是选模型的面板，另一个就是把这些尺寸啊、
+   数量啊、清晰度啊集合到同一个面板里面的就可以了。你抄都不会抄吗？知渔那边的做法你不能抄吗」
+   「你看你不能抄它这种样式吗？就直接打开就可以看到分辨率和尺寸这些东西，然后直接配置好就可以生成，
+   这样是最快让用户生成的，就是要这样呀。」
+   所以：分辨率 + 尺寸 + 数量**同一个面板一屏铺开**（照竞品那个『分辨率 / 图片尺寸』面板的形态：
+   一行档位、点一下就好），不要再让用户为了一次生成点开三个面板。
+   ⚠️ 分辨率仍走 GenSettingsPanel 的权威选项（跟模型能力绑定，1K/2K/4K 白名单不在本文件里另写）。 */
+function VisualSpecsPanel({ selectedSkill, ratio, count, resolution, onRatioChange, onCountChange, onResolutionChange, busy }) {
   const options = VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id));
+  const RES = [{ key: '1K', hint: '试方向' }, { key: '2K', hint: '推荐' }, { key: '4K', hint: '看细节' }];
   return (
     <div className="visual-subpanel">
       <div className="visual-panel-section">
-        <div className="visual-panel-section-heading"><Monitor /><div><strong>画面尺寸</strong><small>选择与当前创作方向匹配的画面比例</small></div></div>
+        <div className="visual-panel-section-heading"><MdHighQuality /><div><strong>分辨率</strong><small>越高越清晰，也越贵</small></div></div>
+        <div className="visual-spec-row">
+          {RES.map(item => {
+            const selected = resolution === item.key;
+            return <button type="button" key={item.key} className={`visual-spec-chip${selected ? ' is-selected' : ''}`} onClick={() => !busy && onResolutionChange(item.key)} disabled={busy} aria-pressed={selected}><strong>{item.key}</strong><small>{item.hint}</small></button>;
+          })}
+        </div>
+      </div>
+      <div className="visual-panel-section">
+        <div className="visual-panel-section-heading"><Monitor /><div><strong>画面尺寸</strong><small>和发布位置匹配的横竖比例</small></div></div>
         <div className="visual-ratio-grid">
           {options.map(option => {
             const selected = ratio === option.id;
@@ -187,23 +210,17 @@ function VisualSizePanel({ selectedSkill, ratio, onRatioChange, busy }) {
           })}
         </div>
       </div>
+      <div className="visual-panel-section">
+        <div className="visual-panel-section-heading"><Layers3 /><div><strong>生成数量</strong><small>一次多张，方便比较构图</small></div></div>
+        <div className="visual-count-grid">
+          {[1, 2, 3, 4].map(value => <button type="button" key={value} className={`visual-count-card${count === value ? ' is-selected' : ''}`} onClick={() => !busy && onCountChange(value)} disabled={busy} aria-pressed={count === value}><strong>{value}</strong><span>{value === 1 ? '单张' : value + ' 张对比'}</span>{count === value && <Check />}</button>)}
+        </div>
+      </div>
+      <div className="visual-panel-note"><Info /><span>模型、分辨率与数量会同步影响预计 AI 积分；生成前仍可随时调整。</span></div>
     </div>
   );
 }
 
-function VisualCountPanel({ count, onCountChange, busy }) {
-  return (
-    <div className="visual-subpanel">
-      <div className="visual-panel-section">
-        <div className="visual-panel-section-heading"><Layers3 /><div><strong>生成数量</strong><small>一次生成多张，方便比较不同构图方向</small></div></div>
-        <div className="visual-count-grid">
-          {[1, 2, 3, 4].map(value => <button type="button" key={value} className={`visual-count-card${count === value ? ' is-selected' : ''}`} onClick={() => !busy && onCountChange(value)} disabled={busy} aria-pressed={count === value}><strong>{value}</strong><span>{value === 1 ? '单张探索' : `${value} 张对比`}</span>{count === value && <Check />}</button>)}
-        </div>
-      </div>
-      <div className="visual-panel-note"><Info /><span>模型、清晰度与生成数量会同步影响预计 AI 积分；生成前仍可随时调整。</span></div>
-    </div>
-  );
-}
 
 function getVisualPanelPosition(panelId, button) {
   const rect = button.getBoundingClientRect();
@@ -214,7 +231,7 @@ function getVisualPanelPosition(panelId, button) {
      而**宽度**没有这种依据（都是单/双列表单），故宽度统一走唯一真源。 */
   /* 面板高度只用来判断「要不要切紧凑档」—— 尺寸/数量两个面板内容少，目标高就小。
      ⚠️ 这里**不该**出现 width：宽度只有 resolvePanelWidth 一份真源。 */
-  const desiredHeight = { recipe: 720, size: 520, count: 360, settings: 740 }[panelId] || 620;
+  const desiredHeight = { recipe: 720, specs: 700, settings: 360 }[panelId] || 620;
   const width = resolvePanelWidth(viewportWidth);
   const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16));
   const gap = 10;
@@ -299,8 +316,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   /* 9-13 二轮批注：超限/格式问题时给 toast（小红书同款顶部浮层），不静默丢弃 */
   const [toast, setToast] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [showcaseSlide, setShowcaseSlide] = useState(0);
-  const [showcaseManualRevision, setShowcaseManualRevision] = useState(0);
+  /* 9-13 二轮批注：结果图灯箱。⚠️ 它现在的数据源**只有**本次生成出来的图 ——
+     首页案例台删掉之后，这个灯箱不再承担"看案例"的职责（那是精选 skill 悬停窗的事），
+     它只服务一件事：把刚生成的结果放大看清。 */
   const [previewItem, setPreviewItem] = useState(null);
   const [activeConfigPanel, setActiveConfigPanel] = useState(null);
   /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 */
@@ -339,9 +357,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const canGenerate = Boolean(prompt.trim() || materials.length || styles.length);
   const generationEstimate = visualGenerationEstimate({ imageModel, resolution, count });
   const estimatedPoints = generationEstimate.points;
-  const showcases = selectedSkill.showcases || [];
-  const selectedShowcase = showcases[showcaseSlide] || showcases[0];
-  const previewItems = selectedShowcase?.assets || [];
+  /* 结果图灯箱的条目在打开时才冻结（openResultPreview），这样换 skill / 重新生成
+     都不会让已经打开的那一屏错位。 */
+  const previewItems = previewItem?.items || (previewItem ? [previewItem] : []);
 
   useEffect(() => {
     if (!initialSkillId || initialSkillId === skillId) return;
@@ -350,11 +368,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
 
   useEffect(() => {
     if (!previewItem) return undefined;
-    const move = direction => setPreviewItem(current => {
-      if (!current || previewItems.length < 2) return current;
-      const index = previewItems.findIndex(item => item.src === current.src);
-      return previewItems[(index + direction + previewItems.length) % previewItems.length];
-    });
+    /* 条目列表冻结在 previewItem.items 里（打开那一刻的快照），
+       所以这个 effect 只依赖 previewItem —— 不会因为 run 每次渲染产生新数组而反复重挂监听。 */
+    const move = direction => setPreviewItem(current => stepPreview(current, direction));
     const onKeyDown = event => {
       if (event.key === 'Escape') setPreviewItem(null);
       if (event.key === 'ArrowLeft') move(-1);
@@ -362,7 +378,21 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     };
     globalThis.addEventListener?.('keydown', onKeyDown);
     return () => globalThis.removeEventListener?.('keydown', onKeyDown);
-  }, [previewItem, previewItems]);
+  }, [previewItem]);
+
+  /* 打开结果灯箱：把当前这一批**生成成功**的图一起冻结进 items，左右键可连续翻看。 */
+  const openResultPreview = slot => {
+    const items = successfulSlots
+      .filter(item => item.url)
+      .map((item, index) => ({
+        key: item.id,
+        src: item.url,
+        label: `${selectedSkill.title}结果 ${index + 1}`,
+        alt: `${selectedSkill.title}结果 ${index + 1}`,
+      }));
+    const current = items.find(item => item.key === slot.id);
+    if (current) setPreviewItem({ ...current, items });
+  };
   const skillControl = skillControlValues[skillId] || selectedSkill.control?.options?.[0] || '';
   /* 照小红书图文那套：ImageMentionPicker 的 images 数组（name 生成 @参考图 N 标签）。
      9-13 二轮批注：我的素材按 source、风格参考按 style 传，与小红书 XhsSupplementDeck 一致 */
@@ -384,8 +414,6 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   ], [materials, styles]);
 
   useEffect(() => {
-    setShowcaseSlide(0);
-    setShowcaseManualRevision(0);
     setPreviewItem(null);
     /* 9-13 二轮批注：切子页面时底部参数默认值按该板块最合适的画幅重置 */
     if (restoreRatioRef.current) {
@@ -425,22 +453,6 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     setStyles([]);
     setNotice('');
   }, [recoveryCheckpoint]);
-
-  useEffect(() => {
-    const media = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
-    if (media?.matches) return undefined;
-    const delay = showcaseManualRevision ? VISUAL_SHOWCASE_MANUAL_DWELL_MS : VISUAL_SHOWCASE_AUTO_DWELL_MS;
-    const timer = globalThis.setTimeout(() => {
-      setShowcaseSlide(current => (current + 1) % Math.max(1, showcases.length));
-      setShowcaseManualRevision(0);
-    }, delay);
-    return () => globalThis.clearTimeout(timer);
-  }, [skillId, showcaseSlide, showcaseManualRevision, showcases.length]);
-
-  const chooseShowcaseSlide = index => {
-    setShowcaseSlide(index);
-    setShowcaseManualRevision(revision => revision + 1);
-  };
 
   useEffect(() => {
     runRef.current = run;
@@ -785,32 +797,13 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     setActiveConfigPanel(panelId);
   };
 
-  const showcaseCard = (item, className, index = 0) => item ? (
-    <button
-      type="button"
-      key={`${item.src}-${item.label}-${className}`}
-      className={`visual-skill-stage-card ${className}`}
-      style={{ '--case-ratio': item.ratio?.replace(':', ' / ') || '1 / 1' }}
-      onClick={() => setPreviewItem(item)}
-      aria-label={`放大查看${item.label}`}
-    >
-      <ResponsiveImage src={item.src} alt={item.alt || item.label} variant="thumb" ratio={item.ratio || '1:1'}
-        loading={showcaseLoadingPolicy(index).loading} fetchPriority={showcaseLoadingPolicy(index).fetchPriority}
-        sizes="(min-width:1080px) 22vw, 32vw" style={{ width: '100%', background: '#f7f5f7' }}
-        imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-      <span>{item.label}</span>
-      <MdZoomOutMap aria-hidden="true" />
-    </button>
-  ) : null;
-
   const renderConfigPanel = () => {
     if (!activeConfigPanel) return null;
     const panelMeta = {
-      /* 9-11 二轮用户批注: 面板头图标必须与下方触发按钮图标一致 (四块面板统一) */
+      /* 9-11 二轮用户批注: 面板头图标必须与下方触发按钮图标一致 */
       recipe: { title: `${selectedSkill.title}方向`, description: '调整本次最重要的画面侧重', icon: <MdAutoAwesome /> },
-      size: { title: '画面尺寸', description: '设置发布比例', icon: <MdCropFree /> },
-      count: { title: '生成数量', description: '一次生成几张', icon: <MdLayers /> },
-      settings: { title: '生成设置', description: '沿用电商生图的模型与清晰度控制', icon: <MdHighQuality /> },
+      specs: { title: '画面规格', description: '分辨率、尺寸与数量都在这一屏里配好', icon: <MdCropFree /> },
+      settings: { title: '生图模型', description: '选择这次用哪个模型出图', icon: <MdHighQuality /> },
     }[activeConfigPanel];
     /* ⚠️ 上面这段说明只能放这里（JS 注释），不能写成 {/* … *\/} 塞进 createPortal 的参数位 ——
        createPortal(expr, container) 只接受表达式，那样写会直接编译失败
@@ -843,9 +836,10 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         </div>
         <div className="visual-config-panel-body">
           {activeConfigPanel === 'recipe' && <VisualRecipePanel selectedSkill={selectedSkill} skillControl={skillControl} updateSkillControl={updateSkillControl} panelValues={panelValues} updatePanelValue={updatePanelValue} busy={busy} />}
-          {activeConfigPanel === 'size' && <VisualSizePanel selectedSkill={selectedSkill} ratio={ratio} onRatioChange={setRatio} busy={busy} />}
-          {activeConfigPanel === 'count' && <VisualCountPanel count={count} onCountChange={setCount} busy={busy} />}
-          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} />}
+          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} count={count} resolution={resolution} onRatioChange={setRatio} onCountChange={setCount} onResolutionChange={setResolution} busy={busy} />}
+          {/* 模型面板：只留模型选择（清晰度已经挪进「画面规格」——用户要的是"打开就能看到
+              分辨率和尺寸"，把它留在模型面板里等于逼用户点两次） */}
+          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
         </div>
       </div>,
       document.body,
@@ -854,40 +848,27 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
 
   return (
     <section className="visual-creation" aria-labelledby="visual-creation-title">
+      {/* ═══ 2026-09-19 用户批注 #2-②（第三次强调，这次照做）═══════════════════════════
+          原话：「上面这一块就是左边是介绍这个功能的文案、右边是几张演示图的？你都可以拿去直接
+          应用在我们现在下面的那块精选 skill 那块地方做预览。**但是你这里就应该把它删掉呀，
+          这里就不能有呀，你明白吗？现在首页这两块视频生成和图片生成的地方，它就只能是这种
+          上传区和输入区，不要有这种预览的地方，预览的地方必须在他们下面的那些按钮里面做预览。**」
+          所以：首页图片生成 = 上传区 + 输入区 + 配置条，**案例台整块删掉**。
+          那份「左介绍 + 右案例图」的版式没有丢 —— 它会被搬到首页精选 skill 的**悬停预览窗**里
+          （见 components/media/SkillEntryRow 与 docs/design/52）。
+          ⚠️ selectedSkill / showcases 仍然保留：配方面板、提示词占位、深链 skillId 都还要用它们。 */}
+
+      {/* ═══ 页头：这里不能再叫「自由创作」（用户批注 #5-②）══════════════════════════════
+          原话：「我们现在不能再给之前的那几个页面，就是电商生成、小红书图文、自由创作，
+          他们单独做一个首页的入口了。他们现在只有高度定制的子页面。他们的入口就是从我们这里
+          下面的推荐 skill 进去，或者是从图片生成的那个总页面那里进去。」
+          所以这一块的标题写**板块名 + 一句"你要做什么"**，与视频那块对称（视频是
+          「视频生成 / 把创意素材变成吸引人的短片」）。 */}
       <header className="visual-creation-heading">
-        <span className="visual-creation-kicker"><MdAutoAwesome />自由创作</span>
-        <h2 id="visual-creation-title">自由创作，做出可继续编辑的视觉</h2>
-        <p>选择创作方向，再用一句话和参考图开始。</p>
+        <span className="visual-creation-kicker"><MdImage />图片生成</span>
+        <h2 id="visual-creation-title">把一句话变成能用的图</h2>
+        <p>上传素材或直接描述画面，选好模型与规格就能开始。</p>
       </header>
-
-      {/* ═══ 2026-09-18 批 C：首页不再有「四个模式卡」═══════════════════════════════
-          用户批注 6：「下面你就得像他们这样了」+ 批注 11/12：首页只留「我的素材 + 风格参考」
-          两张卡 + 输入框 + 配置。原来那一排 自由创作 / 海报设计 / 社媒封面 / 品牌主视觉
-          **不是被删掉**，它们本来就是独立 skill（左侧导航与总页面都能直达），
-          而首页这一页的定位是「三秒跑一次」（用户原话：不要把功能做得太杂）。
-          ⚠️ 这一页仍然带着创作方向（skillId 默认 free，深链可指定），
-             配方面板与案例台照旧渲染 —— 少的只是那份"让人先做选择题"的入口。 */}
-
-      <section className={`visual-skill-stage visual-layout-${selectedShowcase?.layout?.type || 'editorial-grid'}${showcaseSlide % 2 ? ' is-alternate' : ''}`} aria-label={`${selectedSkill.title}效果预览`}>
-        <div className="visual-skill-stage-copy">
-          <span><MdAutoAwesome />{selectedSkill.title}</span>
-          <strong>{selectedShowcase?.title || selectedSkill.shortDescription}</strong>
-          <p>{selectedShowcase?.description || selectedSkill.outcome}</p>
-          <div className="visual-showcase-controls" role="tablist" aria-label={`${selectedSkill.title}案例视图`}>
-            {showcases.map((item, index) => <button type="button" role="tab" key={item.title} aria-label={item.title} aria-selected={showcaseSlide === index} className={showcaseSlide === index ? 'is-active' : ''} onClick={() => chooseShowcaseSlide(index)} />)}
-          </div>
-        </div>
-        <div className="visual-skill-stage-art">
-          <div className={`visual-skill-stage-outputs is-chapter count-${selectedShowcase?.assets?.length || 0}`}>
-            {(selectedShowcase?.assets || []).map((item, index) => showcaseCard(item, `visual-skill-stage-output output-${index}`, index))}
-          </div>
-        </div>
-        <div className="visual-ability-rail" aria-label={`${selectedSkill.title}能力说明`}>
-          <div><span>01</span><small>输入保真</small><strong>{selectedSkill.preserves}</strong></div>
-          <div><span>02</span><small>生成能力</small><strong>{selectedSkill.outcome}</strong></div>
-          <div><span>03</span><small>适用任务</small><strong>{selectedSkill.bestFor}</strong></div>
-        </div>
-      </section>
 
       <div className="visual-creation-composer">
         {/* ═══ 素材上传区 + 输入区 + @引用：照抄小红书图文那套（ec-xhs-composer 暖色渐变面），只改文案 ═══ */}
@@ -1013,25 +994,22 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                  ③ 生成数量
                  ④ 创作配方（本轮唯一的"非参数"控件，放最后，不占用户点名的那三档）
                改顺序时**必须连着改这里**，别只改面板实现 —— 用户看的是这条。 */}
+            {/* ═══ 2026-09-19 用户批注 #5-①（第二次强调）：首页图片**只要两个面板** ═══════════
+                原话：「一个是选模型的面板，另一个就是把这些尺寸啊、数量啊、清晰度啊集合到同一个
+                面板里面的就可以了。」所以这里只剩两颗触发按钮：
+                  ① 生图模型（只选模型）② 画面规格（分辨率 · 尺寸 · 数量，一屏配好）。
+                原来的「创作配方」触发也一并撤下：用户批注 #5-② 明确说首页不该再有
+                「自由创作」这类高度定制的入口（它们是跟别的 skill 平级的子页面）。
+                配方面板本身仍然保留在组件里（深链指定技能时还会用到），只是首页不再暴露入口。 */}
             <div className="ec-workbench-tools xhs-template-tools visual-config-cluster" aria-label="生成配置">
               <button type="button" ref={element => { configButtonRefs.current.settings = element; }} className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
                 <MdHighQuality aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>生成设置</small><strong>{model.label} · {resolution}</strong></span>
+                <span className="visual-config-trigger-copy"><small>生图模型</small><strong>{model.label}</strong></span>
                 <MdTune aria-hidden="true" />
               </button>
-              <button type="button" ref={element => { configButtonRefs.current.size = element; }} className={`visual-config-trigger${activeConfigPanel === 'size' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'size'} onClick={() => toggleConfigPanel('size')}>
+              <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
                 <MdCropFree aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>画面尺寸</small><strong>{ratio}</strong></span>
-                <MdTune aria-hidden="true" />
-              </button>
-              <button type="button" ref={element => { configButtonRefs.current.count = element; }} className={`visual-config-trigger${activeConfigPanel === 'count' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'count'} onClick={() => toggleConfigPanel('count')}>
-                <MdLayers aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>生成数量</small><strong>{count} 张</strong></span>
-                <MdTune aria-hidden="true" />
-              </button>
-              <button type="button" ref={element => { configButtonRefs.current.recipe = element; }} className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
-                <MdAutoAwesome aria-hidden="true" />
-                <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
+                <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{resolution} · {ratio} · {count} 张</strong></span>
                 <MdTune aria-hidden="true" />
               </button>
             </div>
@@ -1071,7 +1049,13 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             {run.slots.map((slot, index) => (
               <article className={`visual-result-item is-${slot.status}`} key={slot.id}>
                 {slot.url ? (
-                  <img src={slot.url} alt={`${selectedSkill.title}结果 ${index + 1}`} width="512" height="512" loading="lazy" decoding="async" fetchpriority="auto" />
+                  /* 9-13 二轮批注：结果图可点开放大（原来只能下载）。
+                     放大镜按钮**只在 hover/focus 时浮出**，不占版面 —— 一屏看全的前提下
+                     给"看清细节"留一条路，而不是把图做大。 */
+                  <button type="button" className="visual-result-zoom" onClick={() => openResultPreview(slot)} aria-label={`放大查看${selectedSkill.title}结果 ${index + 1}`} title="放大查看">
+                    <img src={slot.url} alt={`${selectedSkill.title}结果 ${index + 1}`} width="512" height="512" loading="lazy" decoding="async" fetchpriority="auto" />
+                    <span className="visual-result-zoom-hint"><MdZoomOutMap aria-hidden="true" />放大</span>
+                  </button>
                 ) : slot.status === 'failed' ? (
                   <div className="visual-result-state"><MdErrorOutline /><span>{slot.error}</span></div>
                 ) : (
@@ -1096,6 +1080,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
         <div className="visual-toast" role="status" aria-live="polite" data-toast-type={toast.type}>{toast.message}</div>
       )}
 
+      {/* 结果图灯箱：Escape 关、左右键翻（见上面的 keydown effect + 结果网格的放大按钮）。
+          条目在打开那一刻冻结成 previewItem.items，所以这里只按 items 翻页。 */}
       {previewItem && (
         <div className="visual-preview-dialog" role="dialog" aria-modal="true" aria-label={previewItem.label} onMouseDown={event => {
           if (event.currentTarget === event.target) setPreviewItem(null);
@@ -1103,8 +1089,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           <div className="visual-preview-dialog-content">
             <button type="button" className="visual-preview-close" aria-label="关闭预览" onClick={() => setPreviewItem(null)}><MdClose /></button>
             {previewItems.length > 1 && <>
-              <button type="button" className="visual-preview-previous" aria-label="查看上一张" title="上一张" onClick={() => setPreviewItem(current => { const index = previewItems.findIndex(item => item.src === current?.src); return previewItems[(index - 1 + previewItems.length) % previewItems.length]; })}><MdChevronLeft /></button>
-              <button type="button" className="visual-preview-next" aria-label="查看下一张" title="下一张" onClick={() => setPreviewItem(current => { const index = previewItems.findIndex(item => item.src === current?.src); return previewItems[(index + 1) % previewItems.length]; })}><MdChevronRight /></button>
+              <button type="button" className="visual-preview-previous" aria-label="查看上一张" title="上一张" onClick={() => setPreviewItem(current => stepPreview(current, -1))}><MdChevronLeft /></button>
+              <button type="button" className="visual-preview-next" aria-label="查看下一张" title="下一张" onClick={() => setPreviewItem(current => stepPreview(current, 1))}><MdChevronRight /></button>
             </>}
             <img src={previewItem.src} alt={previewItem.alt || previewItem.label} width="1024" height="1024" loading="eager" decoding="async" fetchpriority="high" />
             <strong>{previewItem.label}</strong>

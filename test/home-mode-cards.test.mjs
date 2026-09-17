@@ -39,17 +39,27 @@ test('home presents the two confirmed entries (视频生成 / 图片生成) in o
   assert.doesNotMatch(source, /在同一个工作台完成/);
   assert.match(page, /智能视觉内容创作平台/);
   assert.match(footer, /AI 视觉内容策划、生成与编辑/);
-  /* 9-17 两张扇形：左片左倾、右片右倾，各以「朝内下角」为轴向外张开
-     （-6deg / +6deg，轴心 right bottom / left bottom，与四张时期同一套张开语言，
-     只是角度按片数收敛，避免两片时张开过猛像翻倒）。 */
-  assert.match(styles, /\.homepage-mode-card\.card-1 \{[^}]*rotate\(-6deg\)[^}]*transform-origin:\s*right bottom/);
-  assert.match(styles, /\.homepage-mode-card\.card-2 \{[^}]*rotate\(6deg\)[^}]*transform-origin:\s*left bottom/);
-  /* 两片必须互相压边（负外边距）才是一把扇子，不是两张并排的卡 */
-  assert.match(styles, /\.homepage-mode-card\.card-1 \{[^}]*margin-right:\s*-\d+px/);
+  /* ═══ 2026-09-19 批 G：这两张入口卡**从「扇形歪卡」改成「对齐卡片」**（判据反转）═════
+     ⚠️ 这一条改的是产品口径，不是为了让测试变绿而回退 UI。
+     旧判据守的是「左片左倾 -6°、右片右倾 +6°、两片互相压边 -22px」那把扇子。
+     用户这一轮的原话（同一次批注里，说的是同一类歪卡）：「弄成三张卡片这样，
+     **不必向左歪、向右歪就是正常的放**」；「你这个就是个 demo 呀……没有任何的设计」。
+     于是本批把整组旋转删掉、把两片改成**等宽等高 + 同一条基线 + 12px 的缝**。
+     继续守旧的 rotate(-6deg) 等于逼着下一轮把歪卡加回来 —— 所以判据整条换掉。
+     新契约守三件事：
+       ① 零倾斜：这两张卡**没有**任何 rotate（含 hover / active 的回正写法）；
+       ② 对称：两片同宽（由 .homepage-mode-card 的单一宽度规则给出）、中间有缝；
+       ③ 唯一保留的负外边距是**整组**探进下面那张白色工作台卡（那是有意的层次，不是穿模）。 */
+  assert.doesNotMatch(styles, /\.homepage-mode-card[^{]*\{[^}]*rotate\(/, '入口卡不许再倾斜');
+  assert.doesNotMatch(styles, /\.homepage-mode-card:hover\s*\{[^}]*rotate\(/);
+  assert.doesNotMatch(styles, /\.homepage-mode-card:active\s*\{[^}]*rotate\(/);
+  assert.doesNotMatch(styles, /\.homepage-mode-card\.card-1 \{[^}]*margin-right:\s*-\d+px/, '两片不再互相压边');
+  assert.match(styles, /\.homepage-mode-cards \{[^}]*gap:\s*12px/, '两片之间是缝，不是负外边距');
+  assert.match(styles, /\.homepage-mode-card \{[^}]*width:\s*232px/, '两片同宽（单一宽度规则）');
   /* 2026-09-15 V3：hover 与 focus-visible 从「合并选择器」拆成各自独立的规则 ——
      原则 4.2 要求 focus 必须独立于 hover 可见（键盘用户看不到 hover），
      合并写法会让焦点环被 hover 的 transform 规则牵连。契约不变：hover 仍是上浮 16px。 */
-  assert.match(styles, /\.homepage-mode-card:hover \{[\s\S]*?transform:\s*translateY\(-16px\) rotate\(0deg\)/);
+  assert.match(styles, /\.homepage-mode-card:hover \{[\s\S]*?transform:\s*translateY\(-14px\)/);
   assert.match(styles, /\.homepage-mode-card:focus-visible/);
   assert.match(styles, /\.homepage-mode-card:active/);
   assert.doesNotMatch(styles, /\.homepage-mode-card\.is-active[^}]*rotate\(0\)/);

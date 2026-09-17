@@ -202,10 +202,12 @@
 .creative-nav-link-action > svg { transform: translateX(-3px); transition: transform 180ms ease, color 180ms ease; }
 .creative-nav-link:hover .creative-nav-link-action small, .creative-nav-link:focus-visible .creative-nav-link-action small { opacity: 1; transform: translateX(0); }
 .creative-nav-link:hover .creative-nav-link-action > svg, .creative-nav-link:focus-visible .creative-nav-link-action > svg { color: currentColor; transform: translateX(2px); }
-.creative-nav-panel--commerce { color: #7657e8; }
+/* ⚠️ 2026-09-19 批 G：一级域从 4 个收敛成 2 个（图片生成 / 视频生成），
+   所以原来 4 套主题色收敛成 2 套 —— commerce / content / visual 那三行已经没有宿主元素，
+   留着就是"文档里描述不存在的东西"。图片生成用品牌紫（它现在是主入口），
+   视频生成保留原来的青。 */
+.creative-nav-panel--image { color: #7657e8; }
 .creative-nav-panel--video { color: #2e9da8; }
-.creative-nav-panel--content { color: #e06b67; }
-.creative-nav-panel--visual { color: #d25cae; }
 .creative-nav-panel--workspace { color: #6d7d8f; }
 
 .creative-nav-link--layers { --nav-item-accent: #7657e8; }

@@ -10,7 +10,10 @@
       新增 skill 仍然只需要加一条声明，不写页面、不写控件。 */
 
 export const SKILL_COMPLEXITIES = ['simple', 'standard', 'heavy'];
-export const FIELD_KINDS = ['select', 'segmented', 'stepper', 'textarea', 'text', 'slot', 'upload'];
+/* counts：一组「类型 × 张数」的步进器（2026-09-19 用户批注 #13）。
+   竞品套图工作台选中「自定义配置」后展开的那组配置就是这个档位 ——
+   它不是"另一个 stepper"，因为它一次渲染多行、并且自带一行合计。 */
+export const FIELD_KINDS = ['select', 'segmented', 'stepper', 'textarea', 'text', 'slot', 'upload', 'counts'];
 export const IMAGE_PIPELINES = [
   'visualCreation',   // 自由创作/海报/封面的既有链路（含参考图，单图同步）
   'ecommerceSuite',   // 电商套图（多分钟、多资产、带方案确认的既有流水线）
@@ -187,7 +190,32 @@ export const IMAGE_SKILLS = [
       ...styleFields('产品卖点与设计风格'),
       /* 结构/规格是套图专有的重配置：默认按平台智能匹配，自定义面板在套图工作台里 ——
          这里如实说明，不做一个点了没反应的按钮 */
-      { key: 'structure', label: '结构', kind: 'slot', group: '套图结构配置', slotLabel: '配置套图结构', hint: '默认按平台智能匹配；自定义结构在套图工作台里配' },
+      /* ═══ 套图结构配置（2026-09-19 用户批注 #12 / #13 逐条照竞品）══════════════════════
+         批注 #12：「你看它下面是什么东西？下面明明是智能匹配和自定义配置呀，你搞的是什么呀」
+         批注 #13：「而且自定义配置选中之后，里面还有其他的配置可以做呀，这些你都没深度的调研吗」
+         竞品实测：两张**大卡**（不是下拉、不是说明行）——
+           · 智能匹配：AI智能分析商品图，匹配合适的 Listing 套图
+           · 自定义配置：可自由调整各类型图片数量，至少选择 7 张
+         选中「自定义配置」→ 下面展开按类型的张数步进器（他们：白底图 1 / 场景图 3 / 卖点图 3 /
+         其他 0，末尾一行「当前共 7 张，至少 7 张」）。
+         ⚠️ 与竞品的一处**有意差异**：他们的类型叫「白底图 / 场景图 / 卖点图 / 其他」，
+            我们的类型由方案真源 IMAGE_TYPES 决定（白底首图 / 商品主图 / 透明 PNG / 详情图）——
+            张数与报价都按这四个类型算，抄他们的名字会让面板与服务端方案对不上（钱的事）。 */
+      { key: 'structure', label: '套图结构', kind: 'segmented', group: '套图结构配置', default: '智能匹配',
+        options: [
+          { value: '智能匹配', label: '智能匹配' },
+          { value: '自定义配置', label: '自定义配置' },
+        ],
+        hint: '智能匹配：AI 按商品图与平台自动匹配合适的套图结构；自定义配置：自己定各类型出几张' },
+      { key: 'structureCounts', label: '各类型张数', kind: 'counts', group: '套图结构配置',
+        visibleWhen: { key: 'structure', equals: '自定义配置' },
+        minTotal: 1,
+        rows: [
+          { key: 'white_bg', label: '白底首图', hint: '纯白底产品居中，电商必选', max: 3 },
+          { key: 'main_text', label: '商品主图', hint: '核心卖点展示，可含促销文字', max: 5 },
+          { key: 'transparent', label: '透明 PNG', hint: '去底素材，方便二次设计', max: 3 },
+          { key: 'detail', label: '详情图', hint: '长图讲清卖点与参数', max: 6 },
+        ] },
       { key: 'skus', label: '规格', kind: 'slot', group: '套图结构配置', slotLabel: '编辑规格与张数', hint: '自定义 SKU 变体在套图工作台里配' },
     ],
     cases: [

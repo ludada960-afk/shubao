@@ -23,6 +23,33 @@
   padding: 24px 20px 28px;
   border-right: 1px solid var(--sb-border-subtle);
 }
+/* ═══ 左栏滚动上限（2026-09-19 用户批注 #15）═══════════════════════════════════════
+   原话：「左栏应该有上限才对，到达一定的临界值就要往下拉呀。」
+   原实现：左栏跟着内容无限长，整页越滚越长 —— 用户滚到中段就再也看不到右栏，
+   而右栏恰恰是"这一套到底交什么"的答案（编号清单 + 案例图）。
+   现在：宽屏下左栏**粘住**并带自己的滚动条（过了临界值就在栏内往下拉），
+        右栏一直留在视口里；窄屏是单列，不粘也不设上限 ——
+        单列里再套一层内滚动只会变成"滚动条里套滚动条"。
+   ⚠️ scrollbar-gutter: stable 是必须的：不预留槽位的话，内容一超过临界值
+      出现滚动条，整栏宽度会跳一下，右栏跟着位移。 */
+@media (min-width: 1024px) {
+  .media-workbench-left:not(.is-head-only) {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+  }
+}
+
+/* 窄屏：两列挤不下就老老实实一列（原来根本没有这条 —— 中间那档宽度下左栏被压到 320 以下） */
+@media (max-width: 1023px) {
+  .media-workbench { grid-template-columns: minmax(0, 1fr); }
+  .media-workbench-left { border-right: 0; }
+}
+
 /* 分组（基础信息 / 上传图片 / 复刻设置 …）：标题 + 分割线，块与块之间留得住呼吸 */
 .media-workbench-group { display: grid; gap: 12px; }
 .media-workbench-group + .media-workbench-group { padding-top: 22px; border-top: 1px solid var(--sb-border-subtle); }
@@ -77,10 +104,14 @@
 /* ── 付费动作（一键解析 / AI生成 / AI推荐风格分析）：价钱必须写在按钮上 ─────────────
    竞品实测：那颗按钮是「AI推荐 · 0.10 积分」的实底按钮，价钱就在标签里。
    未接通的动作渲染成**静态说明行**（带原因），不是按钮 —— 点了没反应最伤信任。 */
-.media-workbench-paid-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.media-workbench-paid-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: start; }
+/* 2026-09-19 批 G：一颗动作 = 按钮 + 它下面那行说明。说明写两件事：
+   点之前告诉你这颗会做什么，点之后把买到手的结论留在这儿。 */
+.media-workbench-paid-item { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.media-workbench-paid-note { font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
 .media-workbench-paid {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 45px; padding: 10px 18px; flex: 1 1 auto;
+  width: 100%; min-height: 45px; padding: 10px 18px;
   border: 1px solid var(--sb-border-default); border-radius: 10px;
   background: var(--sb-surface-card); color: var(--sb-ink-1);
   font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
@@ -260,7 +291,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-workbench-empty { margin: 0; padding: 36px 0; text-align: center; font-size: 15px; color: var(--sb-ink-3); }
 
 /* ── 上传位（FieldRenderer 的 upload 档）───────────────────────────────────────
-   缩略图直接用 MediaAssetCard 的唯一实现（扇形歪卡是本站的素材卡语言），
+   缩略图直接用 MediaAssetCard 的唯一实现（对齐卡片是本站的素材卡语言），
    这里只负责排布与尺寸，不重复定义卡片视觉。
    失败态就地留在卡下方并可重试 —— 不做瞬时 Toast（本项目铁律）。 */
 /* 上传卡尺寸对齐竞品实测：他们的上传区是 390×119 的虚线大卡（不是 104px 小方块）——
@@ -268,7 +299,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-field-upload { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 10px; }
 .media-field-upload-item { display: grid; gap: 5px; justify-items: start; }
 .media-field-upload .media-asset-card { width: 120px; }
-.media-field-upload .media-asset-card + .media-asset-card { margin-left: -14px; }
+/* 上传位里卡更小一档（120），叠压改成栅格间距 —— 见 MediaAssetCard.css 的口径变更注释。 */
+.media-field-upload .media-asset-card { flex: 0 0 120px; }
 .media-field-upload-add {
   display: grid;
   place-items: center;

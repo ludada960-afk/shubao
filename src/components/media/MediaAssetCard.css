@@ -1,8 +1,15 @@
-/* MediaAssetCard：素材卡唯一实现（图片/视频板块共用）
-   扇形叠放数值与图片侧 .visual-skill-stage-outputs 同源（见 test/media-language-unify-0916.test.mjs）。
-   颜色只用**已验证存在**的 --sb-* token（--sb-surface-card / --sb-surface-tint / --sb-ink-* /
-   --sb-brand-600 / --sb-ink-danger），不写色值兜底；描边与投影用 rgba 阴影表达，
-   以避免引入未定义的边界/阴影 token（幽灵变量门禁会拦，且浏览器会静默失效）。 */
+/* ═══ MediaAssetCard：素材卡唯一实现（图片/视频板块共用）═══════════════════════════
+   ⚠️ 2026-09-19 批 G：这一组数值从「扇形歪卡」改成「对齐卡片」，是**用户口径变更**，
+      不是为了让测试变绿而回退 UI。用户原话（视频素材三张卡）：
+        「你直接拿图片生成那边的那种卡片样式过来用……弄成三张卡片这样，
+          **不必向左歪、向右歪就是正常的放**。」
+        「上传完素材，它是会在这里面向右挤的……如果素材过于多的话，就会有下面有一条滑动条。」
+      所以新的共用语言 = 同一尺寸 + 同一间距 + **零倾斜** + 一行往右排、挤不下横向滑。
+      旧的那套（负外边距叠压 + 反向倾斜 + 上下错位）连同它的 hover 归零旋转一起删掉：
+      歪的是装饰，不是产品语言；而且歪卡片和"向右挤 + 滑动条"是互相打架的。
+   ⚠️ 颜色只用**已验证存在**的 --sb-* token（--sb-surface-card / --sb-surface-tint / --sb-ink-* /
+      --sb-brand-600 / --sb-ink-danger），不写色值兜底；描边与投影用 rgba 阴影表达，
+      以避免引入未定义的边界/阴影 token（幽灵变量门禁会拦，且浏览器会静默失效）。 */
 .media-asset-card {
   position: relative;
   width: 148px;
@@ -11,15 +18,13 @@
   box-shadow: 0 0 0 1px rgba(17, 20, 45, .08), 0 4px 14px rgba(17, 20, 45, .08);
   transition: transform .18s ease, box-shadow .18s ease;
 }
-.media-asset-card + .media-asset-card { margin-left: -34px; }
-.media-asset-card:nth-child(1) { transform: rotate(-4deg); }
-.media-asset-card:nth-child(2) { z-index: 2; transform: rotate(4deg) translateY(-5px); }
-.media-asset-card:nth-child(3) { z-index: 3; transform: rotate(-2.5deg) translateY(4px); }
-.media-asset-card:nth-child(n + 4) { transform: rotate(2deg) translateY(-2px); }
+/* 卡与卡之间是**间距**，不是负外边距叠压：叠压会让"上传了 8 张"看起来像 3 张。 */
+.media-asset-card { flex: 0 0 148px; }
+/* 悬停只**抬起**，不旋转也不缩放：缩放会改动占位宽度，横排里后面的卡会跟着跳。 */
 .media-asset-card:hover,
 .media-asset-card:focus-within {
   z-index: 6;
-  transform: rotate(0deg) translateY(-4px) scale(1.02);
+  transform: translateY(-4px);
   box-shadow: 0 0 0 1px rgba(17, 20, 45, .1), 0 12px 28px rgba(17, 20, 45, .16);
 }
 .media-asset-card-body {

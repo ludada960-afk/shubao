@@ -15,25 +15,44 @@ const videoCss = readFileSync('src/pages/VideoStudio/VideoStudio.css', 'utf8');
 const videoIndex = readFileSync('src/pages/VideoStudio/index.jsx', 'utf8');
 const imageCss = readFileSync('src/pages/Home/VisualCreationMode.css', 'utf8');
 
-test('① 视频侧素材卡与图片侧共用「扇形歪卡」语言', () => {
-  /* 图片侧的权威数值：负外边距叠压 + 反向倾斜 + 上下错位 */
-  assert.match(imageCss, /\.visual-skill-stage-outputs\.count-2 \.output-0 \{ transform: rotate\(-4deg\); \}/);
-  assert.match(imageCss, /\.visual-skill-stage-outputs\.count-2 \.output-1 \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
-  /* 视频侧已选态改为复用唯一实现 MediaAssetCard（扇形数值由组件自带），
-     视频侧只保留空态"加号卡"的同一组数值 —— 不得再手写第二套已选卡实现。 */
+test('① 视频侧素材卡与图片侧共用「对齐卡片」语言（同尺寸 / 同间距 / 零倾斜 / 横向排）', () => {
+  /* 视频侧已选态复用唯一实现 MediaAssetCard（尺寸与视觉由组件自带），
+     视频侧只保留空态"加号卡"的排布规则 —— 不得再手写第二套已选卡实现。 */
   assert.doesNotMatch(videoIndex, /video-media-caption|video-media-remove/, '视频侧不得再手写已选素材卡（应交给 MediaAssetCard）');
   assert.match(videoIndex, /import MediaAssetCard from '\.\.\/\.\.\/components\/media\/MediaAssetCard\.jsx';/);
-  assert.match(videoCss, /\.video-media-deck \.video-media-picker \+ \.video-media-picker \{ margin-left: -34px; \}/);
-  assert.match(videoCss, /\.video-media-deck \.video-media-picker:nth-child\(1\) \{ transform: rotate\(-4deg\); \}/);
+  /* ⚠️ 零倾斜：两个板块的素材卡都不许再有 rotate —— 这是用户本轮最直接的一句否定。
+     断言必须**只看素材卡自己的规则块**：这两个文件里还有别处的 rotate
+     （箭头 rotate(45deg)、spinner rotate(360deg)、以及首页电商案例台的扇形摆法），
+     拿全文扫会误判成"素材卡又歪了"，进而逼着下一轮去改那些不相干的东西。 */
+  const rulesMatching = (css, needle) => {
+    const out = [];
+    const re = /([^{}]+)\{([^{}]*)\}/g;
+    let match;
+    while ((match = re.exec(css))) if (match[1].includes(needle)) out.push(match[2]);
+    return out.join('\n');
+  };
+  assert.doesNotMatch(rulesMatching(videoCss, 'video-media-picker'), /rotate\(/, '视频侧素材卡不许再倾斜');
+  assert.doesNotMatch(rulesMatching(videoCss, 'video-media-deck'), /rotate\(/, '视频侧素材带不许再倾斜');
+  assert.doesNotMatch(rulesMatching(videoCss, 'video-material-strip'), /rotate\(/, '视频素材带不许再倾斜');
+  assert.doesNotMatch(rulesMatching(videoCss, 'media-asset-card'), /rotate\(/, '视频侧已选素材卡不许再倾斜');
+  /* 图片侧：上传卡（ec-xhs-upload-card 一族）本身不倾斜；倾斜的是首页那张"两卡对比"的展示位，
+     不在本门禁的射程里 —— 这里只守住素材卡规则块。 */
+  assert.doesNotMatch(rulesMatching(imageCss, 'media-asset-card'), /rotate\(/, '图片侧素材卡不许再倾斜');
+  /* 悬停只抬起（不旋转、不缩放：横排里缩放会让后面的卡跟着跳） */
+  assert.match(videoCss, /\.video-media-deck \.video-media-picker:hover,[\s\S]{0,120}transform: translateY\(-4px\);/);
+  /* 空态"加号卡"与已选卡同尺寸档，否则加号卡放进去的一瞬间整排会跳 */
+  assert.match(videoCss, /\.video-media-picker \{ width: 136px; flex-basis: 136px; \}/);
 });
 
 test('④ 素材卡只有一份实现，且两个板块共用（图片侧与视频侧不得各写一套）', () => {
   const card = readFileSync('src/components/media/MediaAssetCard.jsx', 'utf8');
   const cardCss = readFileSync('src/components/media/MediaAssetCard.css', 'utf8');
-  /* 扇形数值与图片侧同源 */
-  assert.match(cardCss, /\.media-asset-card:nth-child\(1\) \{ transform: rotate\(-4deg\); \}/);
-  assert.match(cardCss, /\.media-asset-card:nth-child\(2\) \{ z-index: 2; transform: rotate\(4deg\) translateY\(-5px\); \}/);
-  assert.match(cardCss, /\.media-asset-card \+ \.media-asset-card \{ margin-left: -34px; \}/);
+  /* 对齐卡片数值与图片侧同源：同尺寸（148 档）+ 零倾斜 + 卡间是间距不是负外边距叠压。
+     ⚠️ 叠压会让"上传了 8 张"看起来像 3 张 —— 这正是用户说"素材过于多就要有滑动条"要解决的问题。 */
+  assert.match(cardCss, /\.media-asset-card \{[^}]*flex: 0 0 148px;/);
+  assert.doesNotMatch(cardCss, /rotate\(/, '素材卡不许再倾斜');
+  assert.doesNotMatch(cardCss, /margin-left: -/, '卡与卡之间不许再用负外边距叠压');
+  assert.match(cardCss, /\.media-asset-card:hover,[\s\S]{0,120}transform: translateY\(-4px\);/);
   /* 三种素材类型同一份实现（不是三个组件） */
   assert.match(card, /const KIND_ICON = \{ image: ImageIcon, video: Film, audio: FileAudio \};/);
   /* 样式只走 token：不得出现硬编码色值 */

@@ -121,8 +121,17 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(styles, /\.video-materials/);
   assert.match(styles, /\.video-media-deck/);
   /* 三张对称卡：等宽网格是"对称"的可判据形式，倾斜清零是"不要歪卡"的可判据形式。 */
-  assert.match(styles, /\.video-material-strip \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card,[\s\S]{0,220}transform: none;/);
+  /* ⚠️ 2026-09-19 判据随用户批注 #1-②/#2-① 一起更新（不是为了让测试过而回退 UI）：
+     原判据守的是「三列等宽网格」—— 用户看过之后明确否掉了那个形态：
+     「你直接拿图片生成那边的那种卡片样式过来用……弄成三张卡片这样，不必向左歪、向右歪就是正常的放。
+      上传完素材，它是会在这里面向右挤的。如果素材过于多的话，向右挤，就会有下面有一条滑动条。」
+     新契约守三件事：
+       ① 一条**横向带子**（flex-nowrap + overflow-x:auto）—— 素材向右挤，挤不下出滑动条；
+       ② 卡尺寸取图片侧那一档（86×108）且**不被拉伸**（flex: 0 0 86px）；
+       ③ 倾斜清零（"不要歪卡"）。 */
+  assert.match(styles, /\.video-material-strip \{[^}]*display: flex;[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;/);
+  assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card \{[^}]*flex: 0 0 86px;/);
+  assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card,[\s\S]{0,260}transform: none;/);
   assert.match(styles, /\.video-materials-clear,/);
   assert.match(styles, /\.video-materials-fullscreen \{/);
   assert.match(styles, /\.video-composer\.is-fullscreen \{/);

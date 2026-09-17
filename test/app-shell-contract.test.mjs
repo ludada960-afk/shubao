@@ -29,10 +29,17 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(app, /className="app-shell"/);
   assert.match(app, /<AppSidebar \/>/);
   assert.match(app, /page === 'ec-canvas'[\s\S]{0,80}app-frame/, '画布页走独立外壳（不吃侧栏、吃满 topbar 之外的高度）');
-  /* ② 侧栏承载两个总页面与精品推荐 */
+  /* ② 侧栏承载两个总页面（2026-09-19 用户批注 #7 再收敛：连精品推荐子列表也不放了）
+     原话：「我说的逻辑就是电商生图、小红书图文、自由创作这些全部都不能有了。这些现在都是
+     跟其他的 skill 是平级的东西……入口就只有首页下面的这个推荐 skill 这里，或者是视频生成和
+     图片生成的总页面那里。」
+     所以侧栏只剩：首页 + 图片生成 + 视频生成 + 三个工作区入口。 */
   const sidebar = readFileSync(new URL('../src/components/layout/AppSidebar.jsx', import.meta.url), 'utf8');
-  assert.match(sidebar, /hubPath\('image'\)|hubPath\(board\)/);
-  assert.match(sidebar, /featuredSkills/);
+  assert.match(sidebar, /hubPath\(board\)|hubPath\(/);
+  assert.match(sidebar, /label: '图片生成'/);
+  assert.match(sidebar, /label: '视频生成'/);
+  assert.ok(!/label: '电商生图'|label: '小红书图文'|label: '自由创作'/.test(sidebar),
+    '电商生图 / 小红书图文 / 自由创作 不许再出现在一级导航里（它们是跟别的 skill 平级的子页面）');
   assert.match(sidebar, /app-sidebar/);
   assert.match(app, /const canAdmin = state\.accountAccess\?\.role === 'owner'/);
   assert.match(app, /const canAdmin = state\.accountAccess\?\.role === 'owner'/);
