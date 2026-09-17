@@ -39,6 +39,11 @@
   display: block; width: 100%; padding: 0; border: 0; background: none;
   text-align: left; cursor: pointer; font: inherit;
 }
+/* 可点必有 hover（test/interactive-state-coverage ②）：按钮自己必须给得出反馈。
+   封面那半由毛玻璃遮罩承担（见 .skill-entry-veil），文字那半在这里补 ——
+   两半都看得见，且不需要把 100% 宽的按钮再套一层底色（那会把卡片内边距刷成色块）。 */
+.skill-entry-open:hover .skill-entry-copy { background-color: var(--sb-hover-bg); }
+.skill-entry-open:focus-visible .skill-entry-copy { background-color: var(--sb-hover-bg); }
 
 .skill-entry-cover {
   position: relative; display: block; width: 100%;

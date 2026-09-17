@@ -6,11 +6,11 @@
 
 /* 侧栏宽度暴露给全站固定定位元素（任务列表 dock 等）避让用。
    没有侧栏的页面（画布）默认 0 —— 那些页面的浮层行为与从前完全一致。 */
-:root { --app-sidebar-w: 0px; }
+:root { --sb-app-sidebar-w: 0px; }
 
-.app-shell { display: flex; align-items: stretch; min-height: 100vh; --app-sidebar-w: 248px; }
-.app-shell:has(.app-sidebar.is-collapsed) { --app-sidebar-w: 72px; }
-@media (max-width: 1180px) { .app-shell { --app-sidebar-w: 72px; } }
+.app-shell { display: flex; align-items: stretch; min-height: 100vh; --sb-app-sidebar-w: 248px; }
+.app-shell:has(.app-sidebar.is-collapsed) { --sb-app-sidebar-w: 72px; }
+@media (max-width: 1180px) { .app-shell { --sb-app-sidebar-w: 72px; } }
 .app-main { flex: 1 1 auto; min-width: 0; }
 
 .app-sidebar {

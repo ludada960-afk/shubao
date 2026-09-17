@@ -640,7 +640,9 @@ try {
   const videoRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
     head: document.querySelector('.skill-entry-head h2')?.textContent || '',
-    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-open')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    /* ⚠️ 只取技能名（.skill-entry-copy strong）。9-18 照抄 flova 之后卡片的按钮里
+       还包着封面与「试一试」浮层，整块 textContent 会把 CTA 文案混进技能名里。 */
+    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-copy strong')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
     more: document.querySelector('.skill-entry-more')?.textContent || '',
   }));
   check(videoRow.board === 'video', '视频模式下按钮行是**视频板块**的', videoRow.board + ' / ' + videoRow.head);
@@ -651,18 +653,28 @@ try {
   /* 悬停出预览框：有案例的技能显示案例（视频优先），没有案例的如实写"案例补充中" */
   await page.hover('.skill-entry-card');
   await page.waitForTimeout(400);
+  /* 9-18 改版（照抄 flova，见 SkillEntryRow.jsx 顶部注释）后的契约：
+     悬停 → 封面上盖**毛玻璃遮罩**，里面是一个**大按钮「试一试」**；
+     封面本身必须给得出下落 —— 视频 / 案例图 / 一句实话「案例补充中」，不许留空。
+     旧断言找的是「悬停浮层 + 一句进哪里」的浮窗形态，已随 UI 一起退役。 */
   const hoverPreview = await page.evaluate(() => {
-    const node = document.querySelector('.skill-entry-veil');
+    const card = document.querySelector('.skill-entry-card');
+    const veil = card?.querySelector('.skill-entry-veil');
+    const cover = card?.querySelector('.skill-entry-cover');
+    const opaque = veil ? getComputedStyle(veil).opacity : '0';
     return {
-      present: Boolean(node),
-      title: node?.querySelector('strong')?.textContent || '',
-      media: node?.querySelector('video') ? 'video' : (node?.querySelector('img') ? 'img' : (node?.querySelector('.skill-entry-preview-blank') ? 'blank' : 'none')),
-      cta: node?.querySelector('em')?.textContent || '',
+      present: Boolean(veil),
+      veilVisible: Number(opaque) > 0.9,
+      blur: veil ? (getComputedStyle(veil).backdropFilter || getComputedStyle(veil).webkitBackdropFilter || '') : '',
+      cta: veil?.querySelector('.skill-entry-try')?.textContent.replace(/\s+/g, ' ').trim() || '',
+      media: cover?.querySelector('video') ? 'video' : (cover?.querySelector('img') ? 'img' : (cover?.querySelector('.skill-entry-blank') ? 'blank' : 'none')),
     };
   });
-  check(hoverPreview.present, '鼠标放上去出现预览框');
-  check(hoverPreview.media !== 'none', '预览框里必须有明确下落（案例视频 / 案例图 / 案例补充中），不许空一块', hoverPreview.media);
-  check(hoverPreview.cta.includes('进入'), '预览框里说清"点一下会发生什么"', hoverPreview.cta);
+  check(hoverPreview.present, '鼠标放上去出现毛玻璃遮罩（flova 同款）');
+  check(hoverPreview.veilVisible, '遮罩必须真的显示出来（不是 opacity:0 的摆设）', String(hoverPreview.veilVisible));
+  check(/blur\(/.test(hoverPreview.blur), '遮罩必须是毛玻璃（backdrop-filter: blur）', hoverPreview.blur);
+  check(hoverPreview.cta.includes('试一试'), '遮罩里就是「试一试」大按钮', hoverPreview.cta);
+  check(hoverPreview.media !== 'none', '封面必须有明确下落（案例视频 / 案例图 / 案例补充中），不许空一块', hoverPreview.media);
 
   /* 点第一个按钮 → 进它的子页面（地址、标题、返回都要对） */
   const firstVideo = videoRow.buttons[0].replace(/需参考素材|即将上线/g, '').trim();
@@ -687,13 +699,15 @@ try {
   await page.waitForTimeout(1200);
   const imageRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
-    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-open')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
+    buttons: Array.from(document.querySelectorAll('.skill-entry-card .skill-entry-copy strong')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
   }));
   check(imageRow.board === 'image', '图片模式下按钮行是**图片板块**的', imageRow.board);
-  check(imageRow.buttons.some(text => /自由创作|海报设计/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
+  /* 图片板块的精选就是**竞品那 6 条**（批 A 对齐：商品套图 / A+内容 / 详情图 / 图片复刻 / 去除背景 / AI换装），
+     所以判据不能再用「自由创作 / 海报设计」—— 那是独立 skill，从左侧导航与总页面进，不占精选位。 */
+  check(imageRow.buttons.some(text => /商品套图|图片复刻|去除背景/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
   check(!imageRow.buttons.some(text => /智能成片|首尾帧|图生视频/.test(text)), '图片板块下面**不许**出现视频技能', JSON.stringify(imageRow.buttons));
   /* 悬停一个**有案例封面**的技能 → 预览必须真的取到那张图（不是空框） */
-  await page.hover('.skill-entry-item:nth-child(2) .skill-entry-button');
+  await page.hover('.skill-entry-card');
   await page.waitForTimeout(400);
   const covered = await page.evaluate(() => {
     const node = document.querySelector('.skill-entry-veil');

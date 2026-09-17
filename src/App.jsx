@@ -271,7 +271,7 @@ function AppRouter() {
     ? <>{content}</>
     : <div className="app-shell"><AppSidebar /><div className="app-main">{content}</div></div>);
 
-  /* ⚠️ TaskSidebar 必须在外壳**内部**：它靠 .app-shell 提供的 --app-sidebar-w 让位给左侧导航；
+  /* ⚠️ TaskSidebar 必须在外壳**内部**：它靠 .app-shell 提供的 --sb-app-sidebar-w 让位给左侧导航；
      放到外壳外面就只能继承 :root 的 0 值，于是又被侧栏压住（这是实测出来的）。 */
   return (<>
     {shell(<>
