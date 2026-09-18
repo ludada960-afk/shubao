@@ -1103,7 +1103,11 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      ⚠️ 预览里写的每一句都必须是**真的会发生的事**：规格来自当前选中的值、交付清单来自
         声明源或平台方案。绝不写"AI 已经帮你写好了"这种我们没做的事。 */
   const dialog = useDialog();
-  const previewStep = Boolean(skill?.previewStep) && !handoff;
+  /* ⚠️ **套图（suite）不再叠一层对话框**：它自己的流程本来就是"先出方案 + 报价，确认后才跑"
+     （方案编辑器 + 报价弹窗），那**就是**这条技能的预览步 —— 再叠一层就是让用户连点两次确认。
+     所以：对话框只给"点下去会直接出图"的那几条预览型技能（A+内容 / 详情图）；
+     套图的按钮文案照样写「生成预览」（它确实先给方案），但走它自己那套确认。 */
+  const previewStep = Boolean(skill?.previewStep) && !handoff && !suite;
   const buildPreviewBody = () => {
     const specRows = [
       ['生成模型', effectiveValues.imageModel],

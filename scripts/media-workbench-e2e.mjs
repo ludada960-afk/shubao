@@ -255,7 +255,27 @@ const upload = async () => {
   await page.waitForSelector('.media-asset-card', { timeout: 15000 });
   await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 });
 };
-const clickGenerate = async () => { await page.click('.media-workbench-submit'); };
+/* ═══ 2026-09-19 批 J-⑭：主按钮后面多了一道**预览确认** ═══════════════════════════════════
+   用户批注 image#1：「图片的话，他在生成的配置做好之后**进行预览，然后再去生成**」。
+   所以 A+内容 / 详情图这两条**预览型**技能点下去先出预览对话框，确认之后才真发请求。
+   这个助手把这两步一起做掉 —— 别在每个调用点各写一遍。
+   ⚠️ 套图（suite）**不叠这一层**：它自己的流程本来就是"先出方案 + 报价、确认后才跑"，
+      再叠一层就是让用户连点两次确认。 */
+const clickGenerate = async () => {
+  await page.click('.media-workbench-submit');
+  const preview = await page.waitForSelector('[role="dialog"] button', { timeout: 1200 }).catch(() => null);
+  if (preview) {
+    const confirmed = await page.evaluate(() => {
+      const dialog = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"]');
+      if (!dialog) return false;
+      const button = [...dialog.querySelectorAll('button')].find(node => /确认生成/.test(node.textContent || ''));
+      if (!button) return false;
+      button.click();
+      return true;
+    });
+    if (confirmed) await page.waitForTimeout(300);
+  }
+};
 const ctaDisabled = () => page.evaluate(() => document.querySelector('.media-workbench-submit')?.disabled ?? null);
 
 try {
@@ -977,7 +997,7 @@ try {
   await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
   await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 });
   const suiteQuoteBefore = calls.quote.length;
-  await page.click('.media-workbench-submit');
+  await clickGenerate();
   await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(3500);
   const suiteBody = calls.suite[0] || {};
@@ -1243,7 +1263,7 @@ try {
         if (!/\d+ 积分/.test(shape.points)) result.problem = '套图没有显示按套总价：' + shape.points;
         return result;
       }
-      await page.click('.media-workbench-submit');
+      await clickGenerate();
       await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 }).catch(() => {});
       await page.waitForTimeout(300);
       const landed = await page.evaluate(() => document.querySelectorAll('.media-run-slot img').length);
