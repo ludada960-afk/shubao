@@ -1017,7 +1017,11 @@ try {
   check(suiteLanding.url === '/image-creation?id=image.product_suite', '点图片域第一条进的是**它自己的子页面**', suiteLanding.url);
   check(suiteLanding.title.includes('商品套图'), '进去的就是点的那条技能', suiteLanding.title);
   check(suiteLanding.back, '子页面顶栏能返回创作');
-  check(suiteLanding.cta.includes('立即生成'), '图片技能就地生成（CTA 就在这一页）', suiteLanding.cta);
+  /* ⚠️ 2026-09-19 批 I-11：按钮文案从通用的「立即生成」改成**说的是真发生的事**：
+     技能自带 ctaLabel（去除背景那条就是「去除背景」）→ 否则「生成图片」。
+     这条断言守的是「**CTA 就在这一页**、点下去就地出图」（不是"文案必须叫立即生成"），
+     所以判据跟着改成"有一颗能点的主按钮、且它不叫『去工作台继续』"——那才是"就地"的反面。 */
+  check(/生成图片|去除背景|生成预览/.test(suiteLanding.cta), '图片技能就地生成（CTA 就在这一页）', suiteLanding.cta);
 
   /* 视频域：点进去要落在**嵌好的视频工作台**上，而不是首页的视频模块 */
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });

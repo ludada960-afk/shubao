@@ -1094,6 +1094,11 @@ export const IMAGE_SKILLS = [
     id: 'image.remove_bg', board: 'image', name: '去除背景', category: '精品推荐', complexity: 'standard',
     cover: { template: 'hero-single', accent: 'cool' },
     summary: '去掉背景，出透明底或纯色底', pipeline: 'builtinSkill', availability: 'ready',
+    /* 批 I-11：一键类技能的主按钮用**自己的动作名**，不用通用的「生成图片」——
+       竞品这一页的主 CTA 原文就是「去除背景 / 消耗 0.40 积分」（见 docs/design/50 第 165 行）。
+       按钮上写"要做的那件事"，比写"生成"更准确：这一条不是"生成一张新图"，
+       是"把已有这张图的背景去掉"。 */
+    ctaLabel: '去除背景',
     visual: 'free',
     brief: '去掉背景，只保留主体。底色：{{mode}}。主体边缘要干净，发丝与透明材质要处理好，不要残留原背景，也不要改变主体本身的颜色与结构。',
     /* 一键类：工作台极简（竞品 ?tool=remove-background 实测就是极简形态）：

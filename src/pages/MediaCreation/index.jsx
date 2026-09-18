@@ -1099,7 +1099,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
            用户批注 #12 把子页面顶栏写定为「左 返回 / 中 名称 / 右 积分账户」——
            返回控件在**顶栏**。原来工作台左栏里还有一个「← 返回创作」，
            两个按钮都回同一个 Hub、上下相距不到 200px，是纯冗余（用户最烦这种）。
-           backToHub 本身没消失：它现在作为顶栏返回按钮的 onClick 被 publish 上去（见上面的 useLayoutEffect）。 */        ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : '立即生成'}
+           backToHub 本身没消失：它现在作为顶栏返回按钮的 onClick 被 publish 上去（见上面的 useLayoutEffect）。 */        /* ═══ 2026-09-19 批 I-11：主按钮文案按 skill 走，且必须**说的是真发生的事** ═══════════════
+   用户批注 #1-1 原话：「他们的**不同skill有不同的策略**，这个 A+ 内容是生成预览，
+   后续才会生成图片的，有些 skill 是直接生成图片，不会生成预览，**所以这个你自己也得做好判断啊**。」
+   按用户要求去对比了竞品每个页面的主 CTA 原文（docs/design/50，CDP 实访）：
+     商品套图 / A+内容 / 详情图 → **生成预览**（0.10 积分，两步走）
+     图片复刻 / AI换装           → **生成图片**（0.60 积分，直出）
+     去除背景                    → **去除背景**（0.40 积分，一键，用自己的动作名）
+   ⚠️ **我们这三条"预览型"目前没有预览步**：点下去就是按张真出图、按张真扣费
+      （我们 1.00 积分/张，竞品的预览只要 0.10）。所以按钮上**不能写「生成预览」** ——
+      那会变成一句假话：用户以为先看到草稿，实际已经在花钱出正片了。
+      诚实做法：写「生成图片」（= 真的会发生的事），把"要不要给这三条加预览步"留给用户拍板。
+   所以这里的取值顺序是：技能自带 ctaLabel（如「去除背景」）→ 默认「生成图片」。 */
+      ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : (skill.ctaLabel || '生成图片')}
         ctaPoints={handoff ? null : points}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
