@@ -506,3 +506,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-tutorial-actions button:hover { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
 .media-tutorial-actions button.is-primary:hover { background: var(--sb-ink-2); border-color: var(--sb-ink-2); }
 .media-tutorial-actions button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+
+/* 嵌入形态的页头是一行三格（返回 / 标题 / 教学示例），所以按钮靠右排。 */
+.media-workbench-left.is-head-only { grid-template-columns: auto minmax(0, 1fr) auto; }
+.media-workbench-tutorial.is-head { justify-self: end; }
+@media (max-width: 720px) { .media-workbench-left.is-head-only { grid-template-columns: minmax(0, 1fr); } .media-workbench-tutorial.is-head { justify-self: start; } }

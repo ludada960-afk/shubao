@@ -99,6 +99,14 @@ export default function WorkbenchShell({
         <>
           <div className="media-workbench-left is-head-only">
             {onBack && <button type="button" className="media-workbench-back" onClick={onBack}>← 返回创作</button>}
+            {/* ═══ 批 J-⑭：**嵌入形态也要有教学示例入口**（视频 / 小红书这两条链路就是嵌入形态）═══
+                用户要的「按教学示例做深度匹配」主要说的就是视频侧；入口只做在非嵌入形态等于
+                视频页面上根本没有这个门。放在页头这一行的末尾（窄屏会折到下一行）。 */}
+            {tutorial && (
+              <button type="button" className="media-workbench-tutorial is-head" onClick={() => setTutorialOpen(true)}>
+                怎么用这条技能
+              </button>
+            )}
             {(category || title) && (
               <header className="media-workbench-head">
                 {category && <span className="media-workbench-category">{category}</span>}
