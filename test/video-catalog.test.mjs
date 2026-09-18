@@ -59,7 +59,12 @@ test('public products only ride routes that are verified or callable', () => {
      从今往后，public:true 只允许台账里 verified / callable 的路由。 */
   assert.deepEqual(publicRouteViolations(), []);
   const publics = publicVideoProducts();
-  assert.deepEqual(publics.map(product => product.id), ['seedance_fast', 'seedance_standard']);
+  /* 批 J-⑫（2026-09-19）：公开档回到 5 条 —— 下面这个 for 循环才是真正的判据
+     （每一条公开档的路由台账都必须是 verified / callable）；这里锁的是**清单本身**，
+     防止有人绕过台账偷偷加档。 */
+  assert.deepEqual(publics.map(product => product.id), [
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+  ]);
   for (const product of publics) {
     const entry = routeReachability(getVideoProduct(product.id).routeId);
     assert.ok(['verified', 'callable'].includes(entry.state));
@@ -133,7 +138,16 @@ test('video product validation rejects unsupported duration, mode, resolution, a
 
 test('public products omit hidden routes and private provider details', () => {
   const products = publicVideoProducts();
-  assert.deepEqual(products.map(product => product.id), ['seedance_fast', 'seedance_standard']);
+  /* ⚠️ 2026-09-19 批 J-⑫：公开档 2 → **5**。
+     用户批注 #10：「我说的有很多的模型，不是让你去抄他的模型，是我们原本就有很多的模型……
+     我是让你把之前的那些模型找回来呀。被你搞丢了你知道吗？」
+     恢复的依据不是"用户要就给"，是**当天重新实测**：三条通道的参数校验都接住了探针
+     （零成本，见 ROUTE_REACHABILITY 的 2026-09-19 evidence），价格也早在 billing/catalog 里备好。
+     仍然「not a public model name」的那几条（可灵 / Veo / MiniMax 2K / sd5 族）**继续留在只读清单**——
+     点了必失败的东西不许变成选项。 */
+  assert.deepEqual(products.map(product => product.id), [
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+  ]);
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
   assert.equal(products.every(product => !('routeId' in product) && !('credential' in product)), true);
   assert.equal(products.find(product => product.id === 'seedance_fast').providerLabel, '字节跳动');
@@ -151,6 +165,10 @@ test('public products omit hidden routes and private provider details', () => {
   const all = publicVideoProducts({ includeHidden: true });
   assert.equal(all.length, 10);
   assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS));
-  assert.equal(all.filter(product => product.id === 'minimax_h3_768p').length, 1);
-  assert.equal(getVideoProduct('minimax_h3_768p').public, false);
+  assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);
+  assert.equal(getVideoProduct('kling_standard').public, false);
+  /* 恢复上架的那三条：老数据仍可读、且现在**可公开可选** */
+  assert.equal(getVideoProduct('minimax_h3_768p').public, true);
+  assert.equal(getVideoProduct('wan_standard').public, true);
+  assert.equal(getVideoProduct('grok_fast').public, true);
 });

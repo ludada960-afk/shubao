@@ -1,6 +1,7 @@
 import { FEATURE_SKUS, quoteFeature } from './billing/catalog.mjs';
 
-export const VIDEO_CATALOG_VERSION = 'video-products-2026-09-16-v4';
+/* 批 J-⑫：v4 → v5（2026-09-19 重新实测可达性，公开档 2 → 5）。 */
+export const VIDEO_CATALOG_VERSION = 'video-products-2026-09-19-v5';
 export const DEFAULT_VIDEO_PRODUCT_ID = 'seedance_standard';
 
 function deepFreeze(value) {
@@ -55,25 +56,25 @@ export const ROUTE_REACHABILITY = deepFreeze({
     state: 'blocked',
     billingMode: 'per_request',
     quoteCny: 7.67,
-    evidence: '2026-09-16 走完渠道与参数校验，仅因预扣 ¥7.67 超过中转余额被拒（insufficient_user_quota）；充值后可直接接生产路由',
+    evidence: '2026-09-19 复测：预扣 ¥7.67 > 当前余额 ¥6.98（insufficient_user_quota）⇒ 仍 blocked。**充值即可解**，与代码无关',
   },
   'minimax-h3': {
-    state: 'unverified',
+    state: 'callable',
     billingMode: 'per_second',
     quoteCny: 0.364,
-    evidence: '2026-09-16 渠道活着（用 seedance 报文提交被上游指出字段不符，说明通道在、报文口径不同）；需用 minimax content 报文复核后转 callable',
+    evidence: '2026-09-19 零成本复核（minimax content 报文 + 非法时长）：上游参数校验接住并回 unsupported video duration ⇒ 渠道活着、报文口径对得上 ⇒ callable。¥0.364/秒，5 秒约 ¥1.82，低于当前中转余额',
   },
   'minimax-h3-per-request': {
     state: 'blocked',
     billingMode: 'per_request',
     quoteCny: 7.41,
-    evidence: '2026-09-16 走完渠道与参数校验，仅因预扣 ¥7.41 超过中转余额被拒',
+    evidence: '2026-09-19 复测：渠道活着（参数校验接住非法时长）；预扣 ¥7.41 > 当前余额 ¥6.98 ⇒ 仍 blocked。**充值即可解**',
   },
   'xn-seedance-2.5': {
     state: 'blocked',
     billingMode: 'per_second',
     quoteCny: 1.872,
-    evidence: '2026-09-16 走完渠道与分辨率校验（1080p 合法），仅因预扣 ¥9.36 超过中转余额被拒',
+    evidence: '2026-09-19 复测：渠道活着（参数校验接住非法时长）；5 秒预扣 ¥9.36 > 当前余额 ¥6.98 ⇒ 仍 blocked。**充值即可解**，与代码无关',
   },
   'sd5-seedance-2.0': {
     state: 'unreachable',
@@ -92,14 +93,18 @@ export const ROUTE_REACHABILITY = deepFreeze({
     evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达',
   },
   'grok-imagine-video': {
-    state: 'unreachable',
-    evidence: '2026-09-16 该 id 未声明 openai-video；同族 grok-video 声明了但上游不认该名',
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 0.104,
+    evidence: '2026-09-19 零成本复核：非法时长走到**预扣费**那一步（insufficient_user_quota，按秒折算 ¥0.104/秒）⇒ 路由存在且已定价（09-16 的「上游不认该名」是针对同族 grok-video，不是这一条）',
   },
   'grok-video': { state: 'unreachable', evidence: '2026-09-16 声明 openai-video 但上游返回 not a public model name' },
   'grok-video-1.5': { state: 'unreachable', evidence: '2026-09-16 同 grok-video' },
   'xn-wan3.0': {
-    state: 'unreachable',
-    evidence: '2026-09-16 声明 openai-video，但提交返回「模型聚合条件不支持」/字段不符，无法出片',
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 0.455,
+    evidence: '2026-09-19 零成本复核：非法时长被上游参数校验接住（unsupported video duration）⇒ 渠道活着。09-16 那次「聚合条件不支持」已不复现；¥0.455/条，低于当前中转余额',
   },
   'kling-3.0': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video；上游可用性面板亦为 degraded' },
   'kling-3.0-pro': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video；上游可用性面板亦为 degraded' },
@@ -237,8 +242,23 @@ export const VIDEO_PRODUCTS = deepFreeze({
     concurrency: 2,
     pollIntervalMs: 10000,
   },
+  /* ═══ 2026-09-19 批 J-⑫：**恢复上架**（用户批注 #10）═══════════════════════════════════════
+     用户原话：「视频生成这边，你真的是要气死我了。**我说的有很多的模型，不是让你去抄他的模型，
+     是我们原本就有很多的模型**，好吗？你之前做过有一版，它是有**很多模型**在这里的，但是你最近
+     这几版不知道怎么回事，做着做着就**只剩下两个模型**了。**我是让你把之前的那些模型找回来呀。
+     被你搞丢了你知道吗？**」
+     上一轮（批 H-7）把它们做成了「可见但不可选」的只读清单 —— 用户还是不满意：
+     他要的是**能选**。而当时的判据（09-16 台账）今天已经有两条不成立了，所以本轮**重新实测**：
+       · 全部零成本（故意用非法时长提交 → 上游参数校验在**生成之前**拦下，
+         不产生任务、不产生费用；两次探针的原始响应都留在这条台账的 evidence 里）；
+       · 实测结果：minimax-h3（本条）/ xn-wan3.0 / grok-imagine-video 三条通道**今天都是活的**；
+         kling-3.0 / kling-3.0-pro / veo-3.1-fast / minimax-h3-2k / sd5-* 仍然是
+         「not a public model name」→ 那几条继续留在只读清单里（点了必失败的东西不许变成选项）。
+     ⚠️ 恢复上架的前提是**价格早就备好了**：billing/catalog.mjs 里
+        video_minimax_h3_768p_short/long 与 providerCostCny 一直在，只是被可达性挡着。 */
   /* 9-16 下架: minimax-h3-768p 未声明 openai-video, 视频端点不可达。
-     改接同族活路由 minimax-h3(¥0.364/秒, 走 minimax content 报文), 待用该报文复核后开 public。 */
+     改接同族活路由 minimax-h3(¥0.364/秒, 走 minimax content 报文), 待用该报文复核后开 public。
+     9-19 复核通过（见 ROUTE_REACHABILITY 的 evidence）→ **public: true**。 */
   minimax_h3_768p: {
     id: 'minimax_h3_768p',
     label: 'MiniMax H3 768P',
@@ -248,7 +268,7 @@ export const VIDEO_PRODUCTS = deepFreeze({
     limitations: '按秒计费；参考视频与参考音频不限，首尾帧需两张图。',
     routeId: 'minimax-h3',
     credential: 'minimax',
-    public: false,
+    public: true,
     default: false,
     durations: { min: 5, max: 15 },
     resolutions: ['720p'],
@@ -271,7 +291,7 @@ export const VIDEO_PRODUCTS = deepFreeze({
     limitations: '仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'grok-imagine-video',
     credential: 'seedance',
-    public: false,
+    public: true,
     default: false,
     durations: { min: 5, max: 10 },
     resolutions: ['720p'],
@@ -291,7 +311,7 @@ export const VIDEO_PRODUCTS = deepFreeze({
     limitations: '单张参考图；仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'xn-wan3.0',
     credential: 'seedance',
-    public: false,
+    public: true,
     default: false,
     durations: { min: 5, max: 10 },
     resolutions: ['720p'],
