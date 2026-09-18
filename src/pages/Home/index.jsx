@@ -7,6 +7,8 @@ import VideoStudioPage from '../VideoStudio';
 import VisualCreationMode from './VisualCreationMode';
 import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
+/* 批 J-⑨：首页案例表达区复用**既有**的那一块（小红书模式一直在用），不重写版式。 */
+import { CreationShowcase } from './CreationShowcase.jsx';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
 import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
@@ -321,7 +323,27 @@ export default function HomePage() {
           />
         </div>
 
-        {/* 案例发现区 */}
+        {/* ═══ 2026-09-19 批 J-⑨：原来那一整块「左文案 + 右效果图」的案例表达区回来了 ═══════════
+            用户原话（批注 #4-1 / #4-2）：
+              「我是真的不知道你是怎么想的。我们**原来不是有这些案例在首页的这些板块这里**吗？
+                你为什么**没有把原来的做法直接挪过来**呢。你为什么要自己重新做呢？」
+              「原本在我们的图片上传区和提示词输入区的上面，它是有这些相关的案例表达区的，
+                那些案例表达区**左边就是描述这个板块的作用和价值的文案，右边就是这些图片的生成效果**。
+                你可以直接把**那一整个的板块拿过来，放到这下面的预览区里面去**呀。」
+            做法：**复用现成的 CreationShowcase**（小红书模式里一直在用的那一块，一行没重写），
+            按当前创作模式给 mode —— 电商/视频/自由创作各自那份 COPY 与真实素材都在它自己里面。
+            ⚠️ 「不重做」在这里就是**不写新的版式**：这一块是既有组件，不是照着重画一遍。
+            ⚠️ 真实案例网格（灵感发现 / 43 个案例 / 做同款）**保留在它下面**：
+               那是上一轮用户确认过的能力，本轮的原话是"把原来那块挪过来"，
+               没有一句说要删——删掉它等于回退一个已交付的功能。
+               两块的分工：上面讲"这个板块能给你什么"（原版式），下面给"别人做出来的长什么样"（真实案例）。 */}
+        {!isXHS && (
+          <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 20px 0' }}>
+            <CreationShowcase mode={isVideo ? 'video' : isVisual ? 'visual' : 'ecommerce'} />
+          </div>
+        )}
+
+        {/* 案例发现区：真实案例网格 */}
         <GallerySection maxItems={48} onUseSameStyle={restoreGalleryCheckpoint} />
       </div>
       <Footer />
