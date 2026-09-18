@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /* ═══ WorkbenchShell：Skill 工作台骨架（图片/视频两板块共用）═══════════════════════
    来源：docs/design/43-media-architecture.md §3.1 与 §10.2（知渔实测结构）。
@@ -80,7 +81,16 @@ export default function WorkbenchShell({
        · 只保留页头（返回 + 技能名）、被嵌入的工作台、以及右侧状态与「示例 / 历史」页签。
      panel 为空时布局与从前**完全一致**（两个板块的其余技能都走那条路）。 */
   panel = null,
+  /* ═══ tutorial：教学示例（用户批注 image#1 的后半句）═══════════════════════════════════════
+     用户原话：「他视频制作这边的子页面**绝大部分是有教学示例的**，你要**结合教学示例做深度匹配**，
+     按他的讲解 + 工作台里真实有的按钮和功能去做规划和设计。」
+     竞品实测形态（docs/design/59）：弹窗三段式 —— ① 顶部成片视频 ② 中部 SOP 全文 ③ 底部操作条。
+     ⚠️ 我们**只放真东西**：媒体位只接受这条技能**真实存在的案例封面**；没有就如实写
+        「教学示例还在制作中」，绝不放占位假视频/假图（本站铁律：生成结果一律不许伪造）。
+     ⚠️ 文字块也不是编的：全部来自声明源（字段分组 / 交付清单 / 能力说明）。 */
+  tutorial = null,
 }) {
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const tabList = tabs || [{ key: 'cases', label: '示例' }, { key: 'history', label: '历史' }];
   const embedded = Boolean(panel);
   return (
@@ -108,6 +118,11 @@ export default function WorkbenchShell({
               {title && <h2>{title}</h2>}
               {subtitle && <p>{subtitle}</p>}
             </header>
+          )}
+          {tutorial && (
+            <button type="button" className="media-workbench-tutorial" onClick={() => setTutorialOpen(true)}>
+              怎么用这条技能
+            </button>
           )}
           {parseAction && (
             <button
@@ -241,6 +256,48 @@ export default function WorkbenchShell({
           {activeTab === 'history' && !children ? <p className="media-workbench-empty">{historyEmpty}</p> : children}
         </div>
       </div>
+      {/* ═══ 教学示例（三段式，照竞品 59 号实测的形态）══════════════════════════════════════ */}
+      {tutorialOpen && tutorial && createPortal(
+        <div className="media-tutorial-scrim" role="presentation" onMouseDown={() => setTutorialOpen(false)}>
+          <section
+            className="media-tutorial"
+            role="dialog"
+            aria-modal="true"
+            aria-label={(title || '这条技能') + ' 怎么用'}
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <header className="media-tutorial-head">
+              <div>
+                <strong>{(title || '这条技能') + ' · 怎么用'}</strong>
+                <span>先把这条技能要做的事看清楚，再动手配</span>
+              </div>
+              <button type="button" aria-label="关闭" onClick={() => setTutorialOpen(false)}>关闭</button>
+            </header>
+            <div className="media-tutorial-body">
+              <div className="media-tutorial-media">
+                {tutorial.media.length > 0
+                  ? tutorial.media.map(src => <img key={src} src={src} alt="" loading="lazy" />)
+                  : <p className="media-tutorial-empty">这条技能的教学示例还在制作中 —— 等第一条真实成片出来，这里就会换成它。</p>}
+              </div>
+              {tutorial.blocks.map(block => (
+                <div className="media-tutorial-block" key={block.title}>
+                  <strong>{block.title}</strong>
+                  <ul>{block.lines.map(line => <li key={line}>{line}</li>)}</ul>
+                </div>
+              ))}
+            </div>
+            <footer className="media-tutorial-actions">
+              <button type="button" onClick={() => setTutorialOpen(false)}>回去配置</button>
+              <button
+                type="button"
+                className="is-primary"
+                onClick={() => { setTutorialOpen(false); globalThis.document.querySelector('.media-workbench-submit')?.focus(); }}
+              >开始生成</button>
+            </footer>
+          </section>
+        </div>,
+        globalThis.document.body,
+      )}
     </section>
   );
 }

@@ -467,3 +467,34 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   color: var(--sb-ink-3);
   font-size: 12px;
 }
+
+/* ═══ 教学示例（批 J-⑭ 后半句：照竞品「教学示例」的形态）══════════════════════════════════
+   竞品实测（docs/design/59）：入口在页面上，点开是**弹窗三段式** ——
+   ① 顶部成片视频 ② 中部 SOP 全文 ③ 底部操作条。我们照这个**结构**做，内容只用真东西。 */
+.media-workbench-tutorial {
+  align-self: flex-start; min-height: 32px; padding: 0 12px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: 700 13px/1 inherit; cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.media-workbench-tutorial:hover { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); color: var(--sb-ink-1); }
+.media-workbench-tutorial:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-tutorial-scrim { position: fixed; inset: 0; z-index: var(--sb-z-top); display: grid; place-items: center; padding: 20px; background: var(--sb-scrim); }
+.media-tutorial { width: min(720px, 100%); max-height: min(80vh, 720px); overflow: auto; border: 1px solid var(--sb-border-subtle); border-radius: 16px; background: var(--sb-surface-card); box-shadow: var(--sb-shadow-5); }
+.media-tutorial-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid var(--sb-border-subtle); }
+.media-tutorial-head strong { display: block; font-size: 16px; color: var(--sb-ink-1); }
+.media-tutorial-head span { display: block; margin-top: 4px; font-size: 12px; color: var(--sb-ink-3); }
+.media-tutorial-head button { min-height: 30px; padding: 0 12px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-md); background: var(--sb-surface-card); color: var(--sb-ink-2); font: 700 12px/1 inherit; cursor: pointer; }
+.media-tutorial-body { display: grid; gap: 16px; padding: 18px 20px; }
+.media-tutorial-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.media-tutorial-media img { display: block; width: 100%; border-radius: 12px; }
+/* 没有真实素材时的**如实空态**：不留空框、不放占位假图（本站铁律）。 */
+.media-tutorial-empty { grid-column: 1 / -1; margin: 0; padding: 22px 16px; border: 1px dashed var(--sb-border-default); border-radius: 12px; color: var(--sb-ink-3); font-size: 13px; text-align: center; }
+.media-tutorial-block strong { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 800; color: var(--sb-ink-2); }
+.media-tutorial-block ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; }
+.media-tutorial-block li { font-size: 13px; line-height: 1.6; color: var(--sb-ink-2); }
+.media-tutorial-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px 18px; border-top: 1px solid var(--sb-border-subtle); }
+.media-tutorial-actions button { min-height: 36px; padding: 0 16px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-md); background: var(--sb-surface-card); color: var(--sb-ink-1); font: 700 13px/1 inherit; cursor: pointer; }
+.media-tutorial-actions button.is-primary { border-color: var(--sb-ink-1); background: var(--sb-ink-1); color: var(--sb-neutral-0); }
+@media (prefers-reduced-motion: reduce) { .media-workbench-tutorial { transition: none; } }

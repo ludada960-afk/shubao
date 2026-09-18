@@ -44,6 +44,9 @@ export default function SkillWorkbench({
      （「01 白底主图 02 品牌主视觉海报 …」），而不是一堆没有出处的图。
      对我们的套图/详情图这类技能，这份清单**由方案真源算出来**（随平台变），不是手写死的。 */
   deliverables = [],
+  /* 批 J-⑭：教学示例（弹窗三段式）。页面算好传下来，这里只做**透传** ——
+     ⚠️ 这一层是**显式列 props** 的，漏一行就等于没传（本轮就踩了：按钮不出现）。 */
+  tutorial = null,
   /* 只读清单块（照竞品「包含模块 已选 0/16」的形态，见 WorkbenchShell.sections 的说明）。
      它与 deliverables 分工不同：deliverables 进**右栏**（编号清单，替代还没有案例的示例区），
      sections 进**左栏**（是配置的一部分，比如 A+ 的 16 个模块）。 */
@@ -94,6 +97,7 @@ export default function SkillWorkbench({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         panel={panel}
+        tutorial={tutorial}
         sections={sections}
         parseAction={parseAction}
         paidActions={paidActions}

@@ -1173,6 +1173,32 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     return suite ? generateSuite() : generate();
   };
 
+  /* ═══ 2026-09-19 批 J-⑭ 后半句：教学示例（用户批注 image#1）═══════════════════════════════
+     用户原话：「他视频制作这边的子页面**绝大部分是有教学示例的**，你要**结合教学示例做深度匹配**，
+     按他的讲解 + 工作台里**真实有的按钮和功能**去做规划和设计。」
+     ⚠️ 内容全部来自**声明源**，一句都不编：媒体位只放这条技能**真实存在的案例封面**，
+        没有就如实写「教学示例还在制作中」（本站铁律：生成结果一律不许伪造）；
+        文字块 = 要准备什么（字段分组）/ 它会交出什么（交付清单）/ 这条技能在做什么（能力说明）。 */
+  const tutorial = useMemo(() => {
+    if (!skill) return null;
+    const media = (Array.isArray(skill.cases) ? skill.cases : [])
+      .map(item => item && item.cover)
+      .filter(Boolean)
+      .slice(0, 3);
+    const blocks = [];
+    const groups = [];
+    for (const field of skill.fields || []) if (field.group && !groups.includes(field.group)) groups.push(field.group);
+    if (groups.length) blocks.push({ title: "要准备什么", lines: groups });
+    if (deliverables.length) {
+      blocks.push({
+        title: "它会交出什么",
+        lines: deliverables.map(item => item.name + (item.hint ? "（" + item.hint + "）" : "")),
+      });
+    }
+    const about = skill.outcome || skill.summary || skill.brief || skill.description || "";
+    if (about) blocks.push({ title: "这条技能在做什么", lines: [about] });
+    return { media, blocks };
+  }, [skill, deliverables]);
   return (
     <div className="media-creation" data-surface="subpage">
       <SkillWorkbench
@@ -1211,6 +1237,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onHistoryReuse={reuseHistory}
         history={history}
         panel={panel}
+        tutorial={tutorial}
         deliverables={deliverables}
         sections={sections}
         paidActions={paidActions}
