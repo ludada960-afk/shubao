@@ -652,17 +652,50 @@ try {
   await page.waitForTimeout(500);
   const videoRow = await page.evaluate(() => ({
     board: document.querySelector('.skill-entry-row')?.dataset.board || '',
-    head: document.querySelector('.skill-entry-head h2')?.textContent || '',
+    head: document.querySelector('.skill-entry-nav')?.textContent || '',
     /* ⚠️ 取按钮里那行**技能名**（.skill-entry-name）。按钮里还包着图标磁贴与「试一试」
        浮层，整块 textContent 会把 CTA 文案混进技能名里。 */
     buttons: Array.from(document.querySelectorAll('.skill-entry-button .skill-entry-name')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
     more: document.querySelector('.skill-entry-more')?.textContent || '',
   }));
   check(videoRow.board === 'video', '视频模式下按钮行是**视频板块**的', videoRow.board + ' / ' + videoRow.head);
-  /* ⚠️ 2026-09-19 批 G：用户批注 #4 要的是「像这样子排列成 **9 个** skill 的按钮作为入口」。 */
-  check(videoRow.buttons.length === 9, '视频板块给满 9 个按钮入口', JSON.stringify(videoRow.buttons));
+  /* ⚠️ 2026-09-19 批 J-⑦：条数 9 → **8**。用户批注 #3-3 把 flova 的热门 skill 数清楚了：
+     「他们是有两行的。他们**上面是5个按钮，下面是三个按钮**。」5 + 3 = 8。 */
+  check(videoRow.buttons.length === 8, '视频板块给满 8 个按钮入口（上 5 下 3）', JSON.stringify(videoRow.buttons));
   check(!videoRow.buttons.some(text => /海报设计|白底商品图|电商商品套图/.test(text)), '视频板块下面**不许**出现图片技能', JSON.stringify(videoRow.buttons));
   check(videoRow.more.includes('查看全部'), '右侧有「查看全部」进总页面', videoRow.more);
+
+  /* ── 批 J-⑦⑧：**两行（上 5 下 3）** + 「更多 skill」在分类页签那一行的右边 ───────────
+     用户批注 #3-3：「你又确实是没有看明白**他们是有两行的。他们上面是5个按钮，
+     下面是三个按钮**。」批注 #4-3：「flova 是放在 **skill 的分类这个地方的右边**有个
+     更多 skill 的按钮。」 */
+  const rowShape = await page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll('.skill-entry-button'));
+    const byTop = new Map();
+    btns.forEach(btn => {
+      const top = Math.round(btn.getBoundingClientRect().top);
+      byTop.set(top, (byTop.get(top) || 0) + 1);
+    });
+    const grid = document.querySelector('.skill-entry-buttons');
+    const cats = document.querySelector('.skill-entry-categories');
+    const more = document.querySelector('.skill-entry-more');
+    const cr = cats?.getBoundingClientRect();
+    const mr = more?.getBoundingClientRect();
+    return {
+      rows: Array.from(byTop.values()),
+      gridDisplay: grid ? getComputedStyle(grid).display : '',
+      overflowX: grid ? getComputedStyle(grid).overflowX : '',
+      scrolls: grid ? grid.scrollWidth > grid.clientWidth + 1 : false,
+      sameLineAsCategories: Boolean(cr && mr && Math.abs(cr.top - mr.top) < 14),
+      moreRightOfCategories: Boolean(cr && mr && mr.left > cr.right - 4),
+    };
+  });
+  check(rowShape.rows.length === 2 && rowShape.rows[0] === 5 && rowShape.rows[1] === 3,
+    '热门 skill 是**两行：上 5 下 3**', JSON.stringify(rowShape.rows));
+  check(rowShape.gridDisplay === 'grid' && !rowShape.scrolls && rowShape.overflowX !== 'auto',
+    '折行不横滑（横向滑会把第二行藏起来）', rowShape.gridDisplay + ' overflowX=' + rowShape.overflowX);
+  check(rowShape.sameLineAsCategories && rowShape.moreRightOfCategories,
+    '「更多 skill」在分类页签**那一行的右边**', JSON.stringify(rowShape));
 
   /* ── 悬停出**预览窗**（用户批注 #3 / #4 的形态）────────────────────────────────
      ⚠️ 这里的判据整段换过：旧契约是「封面上盖毛玻璃遮罩 + 一个大按钮」——
@@ -747,7 +780,7 @@ try {
     buttons: Array.from(document.querySelectorAll('.skill-entry-button .skill-entry-name')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
   }));
   check(imageRow.board === 'image', '图片模式下按钮行是**图片板块**的', imageRow.board);
-  check(imageRow.buttons.length === 9, '图片板块同样给满 9 个按钮入口', String(imageRow.buttons.length));
+  check(imageRow.buttons.length === 8, '图片板块同样给满 8 个按钮入口（上 5 下 3）', String(imageRow.buttons.length));
   check(imageRow.buttons.some(text => /商品套图|图片复刻|去除背景/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
   check(!imageRow.buttons.some(text => /智能成片|首尾帧|图生视频/.test(text)), '图片板块下面**不许**出现视频技能', JSON.stringify(imageRow.buttons));
   /* 悬停一个**真的有案例封面**的技能 → 预览窗右栏必须真的取到那张图（不是空框）。
