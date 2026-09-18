@@ -239,11 +239,15 @@ export default function WorkbenchShell({
               </section>
             );
           })}
+          {/* ═══ 2026-09-19 批 K-E：主按钮**整栏宽 + 价格写在按钮里面**（照竞品形态）═══════════
+              60 号文档实测：竞品主按钮 510.1×54.5（= 整栏宽），文案两行「立即生成视频 / 预计 12.00 积分」。
+              我们原来把积分**并排在按钮外面**，按钮只剩 458（实测），比规格窄 52px。
+              视频侧的按钮早就是这个形态（「分析并生成方案 / 1 积分」两行）—— 图片侧这次跟上。 */}
           <div className="media-workbench-cta">
             <button type="button" className="media-workbench-submit" disabled={disabled || ctaDisabled} onClick={() => onCta?.()}>
-              {ctaLabel}
+              <span className="media-workbench-submit-label">{ctaLabel}</span>
+              {ctaPoints != null && <small className="media-workbench-points">{ctaPoints} 积分</small>}
             </button>
-            {ctaPoints != null && <span className="media-workbench-points">{ctaPoints} 积分</span>}
           </div>
           {ctaHint && <p className="media-workbench-cta-hint">{ctaHint}</p>}
         </div>

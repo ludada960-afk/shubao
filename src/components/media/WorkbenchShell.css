@@ -323,15 +323,19 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
    在滚动容器里用 sticky bottom 达到同一个效果：**滚到哪儿按钮都在**。
    ⚠️ 必须给底色，否则下面的字段会从按钮底下透出来。 */
 .media-workbench-cta {
-  display: flex; align-items: center; gap: 12px;
+  display: grid;
   position: sticky; bottom: 0;
   padding-top: 12px;
   background: var(--sb-surface-card);
 }
+/* 批 K-E：整栏宽 + 两行（动作 / 积分）—— 照竞品主按钮的形态（510.1×54.5，价格写在按钮里）。 */
 .media-workbench-submit {
-  flex: 1;
+  width: 100%;
+  display: grid;
+  gap: 2px;
   min-height: 55px;
-  padding: 14px 20px;
+  /* 两行（动作 19 + 积分 20 + 行距 2）配 7px 上下内边距 ≈ 55px —— 与规格的 54.5 对齐 */
+  padding: 7px 20px;
   border: 0;
   border-radius: 12px;
   background: var(--sb-brand-600);
@@ -345,7 +349,10 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-workbench-submit:hover:not(:disabled) { background: var(--sb-brand-700); box-shadow: 0 8px 22px rgba(17, 20, 45, .2); }
 .media-workbench-submit:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-workbench-submit:disabled { opacity: .5; cursor: not-allowed; }
-.media-workbench-points { font-size: 15px; font-weight: 600; color: var(--sb-ink-2); }
+.media-workbench-submit-label { font-size: 16px; font-weight: 700; line-height: 1.2; }
+/* ⚠️ 积分现在长在**品牌色按钮里面**，所以颜色要按"按钮上的文字"给（白 82%），
+   不能再沿用 ink-2 —— 那是给浅底用的，放到品牌底上会看不清。 */
+.media-workbench-points { font-size: 13px; font-weight: 600; color: color-mix(in srgb, var(--sb-surface-card) 82%, transparent); }
 /* 右栏 = 一整块白面板（竞品实测：圆角 12、内边距 24.8/29.76、白底、铺满高度）。
    页签在面板**内部**，不是浮在面板外面的一排药丸。 */
 .media-workbench-right {
