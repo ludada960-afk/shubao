@@ -50,7 +50,7 @@
    ⚠️ scrollbar-gutter: stable 是必须的：不预留槽位的话，内容一超过临界值
       出现滚动条，整栏宽度会跳一下，右栏跟着位移。 */
 @media (min-width: 1024px) {
-  .media-workbench-left:not(.is-head-only) {
+  .media-workbench-left {
     position: sticky;
     top: 16px;
     max-height: calc(100dvh - 32px);
@@ -487,14 +487,24 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
       ① 让 [页头 + 工作台] 同处左栏、[示例/历史] 独占右栏（grid-template-areas 或把两者包进一个网格子项）；
       ② 视频工作台本身要能收进 570 栏（现在它是按 1090 横向铺开的：素材区 + 底栏工具条一行排开）。
       这两条是**下一轮的 K-E 主任务**，判据见 RTK 的 K-E 小节（含本轮实测数值）。 */
-.media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 570px) minmax(0, 1fr); gap: 20px; }
 /* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
    VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
    在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */
-.media-workbench-left.is-head-only { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; }
+.media-workbench-left.is-head-only { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 16px; }
+.media-workbench-head-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; }
 .media-workbench-left.is-head-only .media-workbench-head { gap: 2px; }
 /* 嵌入的工作台自己带边框/底色，这里只负责让它铺满，不再加第二层卡片壳 */
-.media-workbench-panel { min-width: 0; }
+/* ⚠️ 批 K-E：工作台收窄时（容器 < 900px）底栏工具条必须换行 ——
+   实测它有 ~892px 的内在最小宽度（视频模型/技能库/镜头规格/生成设置/分析并生成方案 一行排开），
+   容器比它窄就溢出，而 .video-composer 是 overflow:hidden ⇒ **右端会被裁掉**。
+   用**容器查询**而不是视口媒体查询：这里的约束是"栏有多宽"，不是"屏幕有多宽"。 */
+.media-workbench-panel { min-width: 0; container-type: inline-size; }
+@container (max-width: 900px) {
+  .video-toolbar { flex-direction: column; align-items: stretch; }
+  .video-toolbar-controls { flex-wrap: wrap; }
+  .video-toolbar-buttons { flex-wrap: wrap; }
+}
 .media-workbench-panel > * { margin: 0; }
 @media (max-width: 640px) {
   .media-workbench-left.is-head-only { grid-template-columns: minmax(0, 1fr); }
@@ -549,7 +559,10 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-tutorial-actions button.is-primary:hover { background: var(--sb-ink-2); border-color: var(--sb-ink-2); }
 .media-tutorial-actions button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
-/* 嵌入形态的页头是一行三格（返回 / 标题 / 教学示例），所以按钮靠右排。 */
-.media-workbench-left.is-head-only { grid-template-columns: auto minmax(0, 1fr) auto; }
+/* 嵌入形态的页头是一行三格（返回 / 标题 / 教学示例），所以按钮靠右排。
+   ⚠️ 2026-09-19 批 K-E：这一条原来是写给**左栏本身**的（那时页头就是整个左栏），
+      现在页头搬进了 .media-workbench-head-row，三格要写在**那一层**上 ——
+      写在左栏上会让左栏变成三列，把工作台挤到中间那一列（实测：1240 的栏里工作台只剩 814）。 */
+.media-workbench-head-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 .media-workbench-tutorial.is-head { justify-self: end; }
-@media (max-width: 720px) { .media-workbench-left.is-head-only { grid-template-columns: minmax(0, 1fr); } .media-workbench-tutorial.is-head { justify-self: start; } }
+@media (max-width: 720px) { .media-workbench-head-row { grid-template-columns: minmax(0, 1fr); } .media-workbench-tutorial.is-head { justify-self: start; } }
