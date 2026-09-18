@@ -498,3 +498,11 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-tutorial-actions button { min-height: 36px; padding: 0 16px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-md); background: var(--sb-surface-card); color: var(--sb-ink-1); font: 700 13px/1 inherit; cursor: pointer; }
 .media-tutorial-actions button.is-primary { border-color: var(--sb-ink-1); background: var(--sb-ink-1); color: var(--sb-neutral-0); }
 @media (prefers-reduced-motion: reduce) { .media-workbench-tutorial { transition: none; } }
+
+/* ═══ 可点元素必须有 hover（全站铁律，门禁 clickable-hover-contract 守着）══════════════════
+   弹层里的三颗按钮（关闭 / 回去配置 / 开始生成）当时漏了 hover，被门禁当场拦下。 */
+.media-tutorial-head button:hover { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); color: var(--sb-ink-1); }
+.media-tutorial-head button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-tutorial-actions button:hover { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
+.media-tutorial-actions button.is-primary:hover { background: var(--sb-ink-2); border-color: var(--sb-ink-2); }
+.media-tutorial-actions button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
