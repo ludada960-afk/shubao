@@ -299,12 +299,15 @@
    只在这里改**密度**，不改字号/颜色 —— 密集不等于变小字，可读性优先。 */
 .visual-config-panel[data-density="compact"] .visual-panel-section { padding: 9px 14px 0; }
 .visual-config-panel[data-density="compact"] .visual-panel-section-heading { margin-bottom: 5px; }
-.visual-config-panel[data-density="compact"] .visual-choice-list,
-.visual-config-panel[data-density="compact"] .visual-choice-grid,
-.visual-config-panel[data-density="compact"] .visual-ratio-grid,
-.visual-config-panel[data-density="compact"] .visual-choice-card,
-.visual-config-panel[data-density="compact"] .visual-ratio-card,
+/* ⚠️ 批 J-⑪：这一条原来把**容器和卡片本身**也压成 26×26 ——
+   `.visual-choice-list / .visual-choice-grid / .visual-ratio-grid` 是栅格容器、
+   `.visual-choice-card / .visual-ratio-card` 是**装着文字的卡**：
+   一旦切到紧凑档，整个网格会塌成 26px 宽、卡片变成 26px 方块里的溢出文字。
+   紧凑档只该收**图标**的尺寸（那才是有余量可收的东西），不该压缩内容容器。
+   现在只留 .visual-choice-icon。 */
 .visual-config-panel[data-density="compact"] .visual-choice-icon { width: 26px; height: 26px; flex-basis: 26px; }
+/* 紧凑档要收的是**卡的纵向留白**，不是卡的宽度 */
+.visual-config-panel[data-density="compact"] .visual-ratio-card { min-height: 78px; padding: 7px 5px; gap: 4px; }
 .visual-config-panel[data-density="compact"] .visual-panel-note { margin: 8px 14px 10px; padding: 6px 8px; }
 .visual-config-panel[data-density="compact"] .visual-config-panel-header { padding: 10px 14px 9px; }
 
@@ -341,7 +344,10 @@
 .visual-panel-section-heading strong { color: #3b3540; font-size: 12px; font-weight: 800; }
 .visual-panel-section-heading small { color: #99919b; font-size: 10px; line-height: 1.35; }
 .visual-choice-list,.visual-choice-grid,.visual-ratio-grid { display: grid; gap: 7px; }
-.visual-choice-grid,.visual-ratio-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.visual-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 批 J-⑪：画面尺寸 6 档 ⇒ **三列两行**（视频侧是 6 档一行，因为它的卡只有比例一行字；
+   我们的卡多一行**真实像素尺寸**，需要宽度 —— 照抄的是它的**卡片语言**，不是列数）。 */
+.visual-ratio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .visual-style-option { grid-template-columns: 92px minmax(0, 1fr) auto; min-height: 76px; padding: 7px; }
 .visual-style-option-image { width: 92px; height: 60px; flex: 0 0 92px; object-fit: cover; border: 1px solid rgba(45,41,38,.08); border-radius: 8px; background: #f4f1f6; }
 .visual-style-option .visual-choice-copy small { white-space: normal; }
@@ -354,12 +360,39 @@
 .visual-choice-card-compact { min-height: 44px; padding: 7px 8px; }
 .visual-choice-card-compact .visual-choice-icon { width: 27px; height: 27px; flex-basis: 27px; border-radius: 8px; }
 .visual-choice-card-compact .visual-choice-icon svg { width: 13px; height: 13px; }
-.visual-ratio-card { min-height: 58px; }
-.visual-ratio-shape-wrap { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 8px; background: #f5f4f6; }
-.visual-ratio-card.is-selected .visual-ratio-shape-wrap { background: #f0eaff; }
-.visual-ratio-card > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 2px; }
-.visual-ratio-card strong { color: #3a3440; font-size: 11px; font-weight: 800; }
-.visual-ratio-card small { color: #958d98; font-size: 10px; white-space: nowrap; }
+/* ═══ 2026-09-19 批 J-⑪：画面尺寸的卡片（用户批注 #7-4 / #8 / #9）═════════════════════════
+   用户原话：「你这些**尺寸的样式啊做的实在太差了**，你不能照抄他们的样子吗？
+   他们会有**很多很多个尺寸的规格**可以给人选的，为什么你没有呢？你只有这四个吗？
+   还有你为什么做的这么丑呢？」以及「（视频生成这边是长这样的）**你照抄吧，我求求你了。**」
+
+   ⚠️ 这一条不是"再调调参数"：**实测改前这些卡根本没有样式** ——
+      display:block、border 是浏览器默认的 `1.6px outset`、border-radius 0、padding 0、
+      背景 #f0f0f0。`.visual-ratio-card` 只有 min-height 与两条字号，缺的正是**卡片本体那一层**。
+      所以用户看到的是"几个浏览器默认按钮挤在一起"，说丑是准确的判断。
+
+   改成**逐值照抄视频侧** `.video-ratio-grid button`（VideoStudio.css:433-435）：
+      1px 描边 / 8px 圆角 / 暖灰底 / 竖排居中 / gap 7 / min-height 65 /
+      选中 = 墨色描边 + --sb-surface-tint-strong。
+   ⚠️ 只把颜色换成 token（--sb-neutral-50 对 #faf9f7、--sb-ink-2 对 #68615a）：
+      不引入硬编码色值（token 棘轮按文件计数）。
+   ⚠️ 图形跟着 **currentColor** 走（视频侧的 `border: 2px solid currentColor` 同款）——
+      整张卡只有一个颜色源，选中时文字转墨色、图形自动跟着转。 */
+.visual-ratio-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; min-height: 96px; padding: 9px 6px;
+  border: 1px solid var(--sb-border-subtle); border-radius: 8px;
+  background: var(--sb-neutral-50); color: var(--sb-ink-2);
+  font: 700 11px/1 inherit; text-align: center; cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.visual-ratio-card:hover:not(:disabled):not(.is-selected) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
+.visual-ratio-card.is-selected { border-color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.visual-ratio-card:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.visual-ratio-card:disabled { opacity: .55; cursor: not-allowed; }
+.visual-ratio-shape-wrap { display: grid; place-items: center; }
+.visual-ratio-card strong { font-size: 12px; font-weight: 800; line-height: 1; }
+.visual-ratio-card small { font-size: 10px; line-height: 1; white-space: nowrap; color: var(--sb-ink-3); font-variant-numeric: tabular-nums; }
+.visual-ratio-card.is-selected small { color: var(--sb-ink-2); }
 .visual-ratio-shape { display: block; }
 .visual-spec-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .visual-spec-chip {

@@ -34,6 +34,7 @@ import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
    同一个产品里同一类浮层面板却有三组宽度，正是用户说的「面板宽不统一」。
    现统一走 resolvePanelWidth（480 标准档 + 窄屏兜底），并接受 PANEL_WIDTH_TABLE 的审计。 */
 import { resolvePanelWidth } from './ec/panelVisualLanguage.js';
+import { IMAGE_RATIOS, imagePixelLabel } from '../../services/imageSizeCatalog.js';
 import {
   VISUAL_CREATION_SKILLS,
   VISUAL_RATIO_OPTIONS,
@@ -129,11 +130,16 @@ const VISUAL_OPTION_HINTS = {
   活动信息优先: '为活动内容预留明确的传播层级',
 };
 
-function VisualRatioShape({ ratio, active }) {
+/* ═══ 批 J-⑪：比例图形改**中性 currentColor**（用户批注 #7-4 要照抄视频侧）═══════════════
+   视频侧那套是 `.video-ratio-grid i { border: 2px solid currentColor }` —— 图形跟着**卡片文字色**走，
+   选中时卡片文字转墨色、图形自然跟着转墨色，不需要第二个颜色源。
+   ⚠️ 改前这里写死 #7c3aed（品牌紫）：既破了"选中态走中性墨色"（批 H-2 的裁定），
+      又多了一处硬编码色值。现在整张卡片只有 currentColor 一个颜色源。 */
+function VisualRatioShape({ ratio }) {
   const [width, height] = VISUAL_RATIO_META[ratio]?.shape || [24, 24];
   return (
     <svg className="visual-ratio-shape" width={width + 4} height={height + 4} viewBox={`0 0 ${width + 4} ${height + 4}`} aria-hidden="true">
-      <rect x="2" y="2" width={width} height={height} rx="3" fill={active ? '#7c3aed' : 'transparent'} stroke={active ? '#7c3aed' : 'rgba(12,10,9,.32)'} strokeWidth="1.5" />
+      <rect x="2" y="2" width={width} height={height} rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -198,12 +204,23 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
    一行档位、点一下就好），不要再让用户为了一次生成点开三个面板。
    ⚠️ 分辨率仍走 GenSettingsPanel 的权威选项（跟模型能力绑定，1K/2K/4K 白名单不在本文件里另写）。 */
 function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onResolutionChange, busy }) {
-  const options = VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id));
+  /* ═══ 批 J-⑪：画面尺寸给满六档（用户批注 #7-4 / #8 / #9）══════════════════════════════════
+     用户原话：「他们会有**很多很多个尺寸的规格**可以给人选的，为什么你没有呢？
+     **你只有这四个吗？**还有你为什么做的这么丑呢？」
+     「（视频侧）**你照抄吧，我求求你了。**」
+     改前：选项 = 该技能自己声明的 3~4 档 ⇒ 用户看到"四个"。
+     现在：选项 = **能生成的六档**（imageSizeCatalog 里那张与服务端逐值一致的表，
+          门禁 image-size-catalog-parity 第 ② 条逐个跑过 resolveGenerationSize，
+          确认六档全都真的照做、没有任何一档会被静默回落）。
+           技能自己的顺序只决定**默认值**（visualSkillDefaultRatio 取 ratios[0]，行为不变）。 */
+  const options = VISUAL_RATIO_OPTIONS.filter(option => IMAGE_RATIOS.includes(option.id));
   const RES = [{ key: '1K', hint: '试方向' }, { key: '2K', hint: '推荐' }, { key: '4K', hint: '看细节' }];
   return (
     <div className="visual-subpanel">
       <div className="visual-panel-section">
-        <div className="visual-panel-section-heading"><MdHighQuality /><div><strong>分辨率</strong><small>越高越清晰，也越贵</small></div></div>
+        {/* ⚠️ 批 J-⑪（用户批注 #7-2）：分组标题下面那行小字**删除** ——「这里不需要有这些副标题」。
+            分组标题只说这一组是什么；"越高越清晰、也越贵"是解释性文案，用户已经不需要被解释。 */}
+        <div className="visual-panel-section-heading"><MdHighQuality /><div><strong>分辨率</strong></div></div>
         <div className="visual-spec-row">
           {RES.map(item => {
             const selected = resolution === item.key;
@@ -212,11 +229,28 @@ function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onR
         </div>
       </div>
       <div className="visual-panel-section">
-        <div className="visual-panel-section-heading"><Monitor /><div><strong>画面尺寸</strong><small>和发布位置匹配的横竖比例</small></div></div>
+        {/* ⚠️ 批 J-⑪（用户批注 #7-3）：同上，这一组的副标题也删掉 ——「这里也不要附标题」。 */}
+        <div className="visual-panel-section-heading"><Monitor /><div><strong>画面尺寸</strong></div></div>
+        {/* 卡片 = 比例图形 + 比例 + **真实像素尺寸**（照视频侧 .video-ratio-grid button 的做法：
+            竖排居中、描边卡、选中走墨色）。像素值来自能生成的唯一真源，不是装饰。 */}
         <div className="visual-ratio-grid">
           {options.map(option => {
             const selected = ratio === option.id;
-            return <button type="button" key={option.id} className={`visual-ratio-card${selected ? ' is-selected' : ''}`} onClick={() => !busy && onRatioChange(option.id)} disabled={busy} aria-pressed={selected}><span className="visual-ratio-shape-wrap"><VisualRatioShape ratio={option.id} active={selected} /></span><span><strong>{option.label.replace(/\s+/g, ' ')}</strong><small>{VISUAL_RATIO_META[option.id]?.usage}</small></span>{selected && <Check className="visual-choice-check" />}</button>;
+            return (
+              <button
+                type="button"
+                key={option.id}
+                className={'visual-ratio-card' + (selected ? ' is-selected' : '')}
+                onClick={() => !busy && onRatioChange(option.id)}
+                disabled={busy}
+                aria-pressed={selected}
+                aria-label={option.id + ' ' + imagePixelLabel(resolution, option.id)}
+              >
+                <span className="visual-ratio-shape-wrap"><VisualRatioShape ratio={option.id} /></span>
+                <strong>{option.id}</strong>
+                <small>{imagePixelLabel(resolution, option.id)}</small>
+              </button>
+            );
           })}
         </div>
       </div>
@@ -224,7 +258,10 @@ function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onR
           因为其他家也是这么做的。」—— 「生成数量」整块（1/2/3/4 四张卡）删除，恒定 1 张。
           count 这个 state 仍然保留（值恒为 1），因为它一路带着 runId/slot 的语义，
           删掉它反而会牵动生成链路；只是用户不再有地方改它。 */}
-      <div className="visual-panel-note"><Info /><span>模型与分辨率会同步影响预计 AI 积分；生成前仍可随时调整。</span></div>
+      {/* ⚠️ 批 J-⑪（用户批注 #7-1）：「为什么会有这个描述呢？**这描述不要**。」
+          面板底部那句「模型与分辨率会同步影响预计 AI 积分；生成前仍可随时调整。」**整块删除** ——
+          积分本来就在生成按钮里写着，这句话既没告诉用户任何新东西，又把面板撑长。
+          （Info 图标同时撤下：它只为这一句而存在。） */}
     </div>
   );
 }

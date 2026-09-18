@@ -1,5 +1,19 @@
 import { isPersistentEcommerceImageUrl } from '../../utils/workRecords.js';
 import { generationUnits } from '../../services/imageModelCatalog.js';
+import { IMAGE_RATIOS } from '../../services/imageSizeCatalog.js';
+
+/* ═══ 批 J-⑪：画面尺寸**给满六档**（用户批注 #7-4）═════════════════════════════════════════
+   用户原话：「他们会有**很多很多个尺寸的规格**可以给人选的，为什么你没有呢？**你只有这四个吗？**」
+   改前：每个技能只声明 3~4 档，画面规格面板就只列那几个 —— 用户看到的是"四个"。
+   现在：把该技能**最合适的那几档放前面**（第一档仍然是它的默认值，visualSkillDefaultRatio 取 [0]，
+        行为不变），后面**补全到 IMAGE_RATIOS 全部六档**。
+   ⚠️ 敢补全的依据不是"想给更多"，是**服务端六档全都真的照做**：
+      test/image-size-catalog-parity 第 ② 条逐个 resolution × ratio 跑过 resolveGenerationSize，
+      确认没有任何一档会被静默回落（不在表里的比例会被悄悄改成 1:1，那种档位绝不放进 UI）。 */
+function ratioOrder(preferred) {
+  const head = preferred.filter(ratio => IMAGE_RATIOS.includes(ratio));
+  return Object.freeze([...head, ...IMAGE_RATIOS.filter(ratio => !head.includes(ratio))]);
+}
 import { productionCaseById } from './productionCaseCatalog.js';
 
 function visualShowcases(caseId, first, second) {
@@ -41,7 +55,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       Object.freeze({ id: 'composition', label: '构图关系', options: Object.freeze(['自动规划', '主体延展', '连续叙事']) }),
       Object.freeze({ id: 'continuity', label: '画面连续性', options: Object.freeze(['保留主体关系', '允许自由变化']) }),
     ]),
-    ratios: Object.freeze(['1:1', '3:4', '4:3', '9:16']),
+    ratios: ratioOrder(['1:1', '3:4', '4:3', '9:16']),
     showcases: visualShowcases('free',
       {
         title: '从灵感到完整场景',
@@ -79,7 +93,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       Object.freeze({ id: 'headline', label: '标题层级', options: Object.freeze(['主标题优先', '标题 + 卖点', '标题 + 行动信息']) }),
       Object.freeze({ id: 'layout', label: '版式结构', options: Object.freeze(['编辑网格', '主视觉聚焦', '信息分栏']) }),
     ]),
-    ratios: Object.freeze(['3:4', '4:3', '1:1']),
+    ratios: ratioOrder(['3:4', '4:3', '1:1']),
     showcases: visualShowcases('poster',
       {
         title: '先聚焦，再排信息',
@@ -118,7 +132,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       Object.freeze({ id: 'platform', label: '平台构图', options: Object.freeze(['移动端缩略图', '横向头图', '视频封面', '全屏竖版']) }),
       Object.freeze({ id: 'headline', label: '标题策略', options: Object.freeze(['痛点钩子', '结果先行', '清单结构', '教程步骤']) }),
     ]),
-    ratios: Object.freeze(['3:4', '21:9', '16:9', '9:16']),
+    ratios: ratioOrder(['3:4', '21:9', '16:9', '9:16']),
     showcases: visualShowcases('social-cover',
       {
         title: '移动端一眼读懂',
@@ -156,7 +170,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       Object.freeze({ id: 'touchpoint', label: '品牌触点', options: Object.freeze(['主KV', '零售横幅', '社媒方图', '现场导视']) }),
       Object.freeze({ id: 'identity', label: '识别系统', options: Object.freeze(['锁定品牌色', '锁定产品结构', '锁定光影材质']) }),
     ]),
-    ratios: Object.freeze(['16:9', '21:9', '1:1', '3:4']),
+    ratios: ratioOrder(['16:9', '21:9', '1:1', '3:4']),
     showcases: visualShowcases('brand-kv',
       {
         title: '从产品到品牌世界',
