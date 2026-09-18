@@ -21,8 +21,18 @@ import { availabilityLabel, featuredSkills } from '../src/skills/skillDirectory.
      卡片内自动播放的封面视频 + 6 条精选。用户看过之后把形态整个否掉了：
      「这三个框你是要重做的」「鼠标放上去，它们会有这个试一试的按钮出来」。
      所以旧判据守的东西**已被产品决定删除**，继续守等于逼着下一轮把卡片加回来。
+   ⚠️ 2026-09-19 批 J-⑦ 二次修正（用户批注 #3-3，翻案在明处）：
+    上一版把 flova 的热门 skill 读成"一行横排、挤不下横向滑"。用户这一轮把数说清楚了：
+      「你又确实是没有看明白**他们是有两行的。他们上面是5个按钮，下面是三个按钮**。
+       然后他们的样式是采用什么样的技术，比如说**毛玻璃**，然后他们的交互这些东西
+       你都没有抄明白呀，你最好是自己**挪一下鼠标**去看一下。」
+    以及「他们是**左边有图片，右边是文字**，然后鼠标放上去才会出现那个**遮罩**，
+    遮罩上面是**试一试**」。
+    所以：条数 9 → **8**（5 + 3）、排布改成**五列栅格**（删掉横向滚动），
+    「试一试」从右侧小药丸改成**覆盖整块按钮的毛玻璃遮罩**。这是产品决定，不是为了让测试变绿。
+
    新判据守的是 flova 实测出来的那套机制（docs/design/52-flova-nav-and-skill-buttons.md）：
-     ① 9 个**按钮**作为入口，一行横排、挤不下就横向滑（不是折行）；
+     ① 8 个**按钮**作为入口，五列栅格 ⇒ 上 5 下 3；
      ② 「试一试」长在**按钮自己**的覆盖层上（实测 flova 就在按钮上，不在浮窗里）；
      ③ 悬停 → 按钮**正下方**浮出预览窗，移开有 ~300ms 延迟才关；
      ④ 按钮**悬停零位移**（浮窗按按钮位置算，按钮一动浮窗就抖）；
@@ -34,19 +44,19 @@ const rowCss = read('src/components/media/SkillEntryRow.css');
 const home = read('src/pages/Home/index.jsx');
 const hub = read('src/pages/Home/MediaHub.jsx');
 
-test('① 9 个按钮作为入口，且只显示当前板块的技能（视频模式下不许出现图片技能）', () => {
-  const video = featuredSkills({ board: 'video', limit: 9 });
-  const image = featuredSkills({ board: 'image', limit: 9 });
+test('① 8 个按钮作为入口（上 5 下 3），且只显示当前板块的技能（视频模式下不许出现图片技能）', () => {
+  const video = featuredSkills({ board: 'video', limit: 8 });
+  const image = featuredSkills({ board: 'image', limit: 8 });
   assert.ok(video.every(skill => skill.board === 'video'), '视频板块只能有视频技能');
   assert.ok(image.every(skill => skill.board === 'image'), '图片板块只能有图片技能');
-  assert.equal(video.length, 9, '视频板块要能凑满 9 个按钮');
-  assert.equal(image.length, 9, '图片板块要能凑满 9 个按钮');
+  assert.equal(video.length, 8, '视频板块要能凑满 8 个按钮（上 5 下 3）');
+  assert.equal(image.length, 8, '图片板块要能凑满 8 个按钮（上 5 下 3）');
   /* 首页必须按当前模式算出板块再传下去 —— 这一条是防"又把两个板块混起来" */
   const stripped = stripComments(home);
   assert.match(stripped, /const skillBoard = isVideo \? 'video' : 'image';/);
   assert.match(stripped, /board=\{skillBoard\}/);
-  /* 「像这样子排列成 9 个 skill 的按钮作为入口」—— 条数是**写死的 9**，不是凑出来的默认值 */
-  assert.match(stripped, /const SKILL_ENTRY_LIMIT = 9;/);
+  /* 「上面是5个按钮，下面是三个按钮」—— 条数是**写死的 8**，不是凑出来的默认值 */
+  assert.match(stripped, /const SKILL_ENTRY_LIMIT = 8;/);
   assert.match(stripped, /limit: SKILL_ENTRY_LIMIT/);
 });
 
@@ -94,8 +104,40 @@ test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零�
   assert.match(rowCss, /\.skill-entry-button \{[^}]*min-height: 60px;/);
   assert.match(rowCss, /\.skill-entry-button \{[^}]*border-radius: 14px;/);
   assert.match(rowCss, /\.skill-entry-glyph \{[^}]*width: 44px;[^}]*height: 44px;/);
-  /* 一行横排、挤不下横向滑（不是折成两排） */
-  assert.match(rowCss, /\.skill-entry-buttons \{[^}]*display: flex;[^}]*overflow-x: auto;/);
+  /* ═══ 批 J-⑦：**两行（上 5 下 3）**，不是一行横排 + 横向滑 ═══════════════════════════
+     用户批注 #3-3 原话见文件头。8 条 + 五列栅格 = 上 5 下 3，正好是他数的那个数。 */
+  assert.match(rowCss, /\.skill-entry-buttons \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/,
+    '热门 skill 必须走五列栅格（8 条 ⇒ 上 5 下 3）');
+  assert.doesNotMatch(rowCss, /\.skill-entry-buttons \{[^}]*overflow-x: auto;/,
+    '折行之后不能再横向滑（滑动会把第二行藏起来）');
+  /* 窄屏只降列数，不许回到横向滑 */
+  for (const cols of [4, 3, 2]) {
+    assert.match(rowCss, new RegExp('@media \\(max-width: \\d+px\\) \\{ \\.skill-entry-buttons \\{ grid-template-columns: repeat\\(' + cols + ', minmax\\(0, 1fr\\)\\); \\} \\}'),
+      '窄屏要降到 ' + cols + ' 列（降列，不是横向滑）');
+  }
+});
+
+/* ═══ 批 J-⑦：悬停出的是**遮罩**（毛玻璃），试一试在遮罩上 —— 用户批注 #3-3 ═══════════════
+   原话：「他们是左边有图片，右边是文字，然后**鼠标放上去才会出现那个遮罩，遮罩上面是试一试**。
+   然后他们会有一个预览窗，可以看到他们的描述和样式……他们的样式是采用什么样的技术，
+   比如说**毛玻璃**。」
+   改前：试一试是从右侧滑进来的小药丸 —— 那不是遮罩，只盖住按钮右边一小块。 */
+test('⑦ 悬停出整块毛玻璃遮罩，试一试落在遮罩上', () => {
+  assert.match(rowCss, /\.skill-entry-try \{[^}]*position: absolute; inset: 0;/,
+    '试一试必须是**整块**覆盖层（inset:0），不是右侧一颗小药丸');
+  assert.match(rowCss, /\.skill-entry-try \{[^}]*border-radius: inherit;/,
+    '遮罩圆角要继承按钮（按钮不能加 overflow:hidden —— 会裁掉右上角的能力标签）');
+  assert.match(rowCss, /\.skill-entry-try \{[^}]*background: var\(--sb-glass-panel\)/,
+    '遮罩底走全站唯一那颗毛玻璃 token');
+  assert.match(rowCss, /\.skill-entry-try \{[^}]*backdrop-filter: blur\(var\(--sb-blur-panel\)\) saturate\(var\(--sb-saturate-glass\)\)/,
+    '毛玻璃的模糊/饱和度走 token（用户明说"毛玻璃"）');
+  /* 遮罩会盖住文字层，所以那句话必须还能被读到一次 —— 按钮自己的 aria-label 里有「试一试」 */
+  assert.match(row, /aria-label=\{skill\.name \+ ' · 试一试'\}/);
+  assert.match(row, /className="skill-entry-try" aria-hidden="true"/,
+    '遮罩是纯装饰，别把「试一试」读两遍');
+  /* 预览窗同一颗玻璃底（浮层与遮罩同一门语言） */
+  const previewBlock = rowCss.slice(rowCss.indexOf('.skill-preview {'), rowCss.indexOf('.skill-preview-copy'));
+  assert.match(previewBlock, /background: var\(--sb-glass-panel\)/, '预览窗也是毛玻璃');
 });
 
 test('④ 键盘可达 + 首页点击走 skillPath（与 Hub / 总页面共用一份算法）', () => {
@@ -127,11 +169,11 @@ test('⑤ 图片与视频共用同一套按钮行（不许各写一份），旧�
   assert.equal(availabilityLabel({ availability: 'ready' }), '');
 });
 
-test('⑥ 精选推荐的取数只在声明源里做一次（两个板块都能给满 9 条，且都是能跑的）', () => {
-  const video = featuredSkills({ board: 'video', limit: 9 });
-  const image = featuredSkills({ board: 'image', limit: 9 });
-  assert.equal(video.length, Math.min(9, VIDEO_SKILLS.length));
-  assert.equal(image.length, Math.min(9, IMAGE_SKILLS.length));
+test('⑥ 精选推荐的取数只在声明源里做一次（两个板块都能给满 8 条，且都是能跑的）', () => {
+  const video = featuredSkills({ board: 'video', limit: 8 });
+  const image = featuredSkills({ board: 'image', limit: 8 });
+  assert.equal(video.length, Math.min(8, VIDEO_SKILLS.length));
+  assert.equal(image.length, Math.min(8, IMAGE_SKILLS.length));
   /* blocked 的技能不许进首页按钮行（跑不通的东西不该出现在一级入口上） */
   for (const skill of [...video, ...image]) {
     assert.notEqual(skill.availability, 'blocked', skill.id + ' 还没跑通，不该出现在首页精选里');

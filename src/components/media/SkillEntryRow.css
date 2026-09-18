@@ -9,10 +9,14 @@
 
 .skill-entry-row { display: flex; flex-direction: column; gap: 16px; }
 
-.skill-entry-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.skill-entry-head h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--sb-ink-1); }
-.skill-entry-head p { margin: 6px 0 0; font-size: 13px; color: var(--sb-ink-3); }
+/* ═══ 批 J-⑧：分类页签与「更多 skill」**同一行的两头**（用户批注 #4-3）═══════════════════
+   用户原话：「flova 他们是放在**skill的分类这个地方的右边有个更多skill的按钮**。」
+   改前是两行（标题一行放"更多"，分类另一行）；现在标题那行整块删掉，
+   换成这一行：左边分类页签、右边「更多 skill」。 */
+.skill-entry-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.skill-entry-nav .skill-entry-categories { flex: 1 1 auto; min-width: 0; }
 .skill-entry-more {
+  flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 13px; font-weight: 800; color: var(--sb-brand-600); text-decoration: none;
   padding: 8px 14px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-card);
@@ -55,17 +59,24 @@
 }
 @media (prefers-reduced-motion: reduce) { .skill-entry-categories button { transition: none; } }
 
+/* ═══ 2026-09-19 批 J-⑦：**两行（上 5 下 3）**—— 用户批注 #3-3 ══════════════════════════
+   用户原话：「你又确实是没有看明白**他们是有两行的。他们上面是5个按钮，下面是三个按钮**。
+   然后他们的样式是采用什么样的技术，比如说**毛玻璃**，然后他们的交互这些东西你都没有抄明白呀，
+   你最好是自己**挪一下鼠标**去看一下。」
+   ⚠️ 这一条**推翻了上一版的判据**（上一版写的是"一行横排、挤不下横向滑，不是折成两排"）。
+      那是我看错的部分：用户这一轮把 flova 的热门 skill 数清楚了 —— **两行、5 + 3**。
+      所以改成五列栅格：首页传 8 条（SKILL_ENTRY_LIMIT），正好落成上 5 下 3；
+      横向滚动条与 scroll-snap 一并删掉（折行之后没有"挤不下"这回事了）。
+   ⚠️ 窄屏逐档降列（5→4→3→2），**不是**回到横向滑 —— 滑动会把第二行藏起来。 */
 .skill-entry-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 11px;
-  overflow-x: auto;
-  overflow-y: visible;
   padding: 4px 2px 10px;
-  scrollbar-width: thin;
-  scroll-snap-type: x proximity;
 }
-.skill-entry-buttons::-webkit-scrollbar { height: 8px; }
-.skill-entry-buttons::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(91, 75, 61, .2); }
+@media (max-width: 1180px) { .skill-entry-buttons { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 860px) { .skill-entry-buttons { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .skill-entry-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .skill-entry-button {
   position: relative;
@@ -74,7 +85,11 @@
   align-items: center;
   gap: 10px;
   min-height: 60px;
-  padding: 8px 38px 8px 8px;
+  width: 100%;
+  min-width: 0;
+  /* ⚠️ 批 J-⑦：右边那 38px 原来是给「试一试」小药丸让位用的 —— 现在它是**整块遮罩**，
+     不再占位，所以右内边距收回 12px（名字因此能多显示两个字）。 */
+  padding: 8px 12px 8px 8px;
   border: 1px solid var(--sb-border-default);
   border-radius: 14px;
   background: var(--sb-surface-card);
@@ -106,7 +121,12 @@
 }
 .skill-entry-glyph img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.skill-entry-name { font-size: 14px; font-weight: 700; white-space: nowrap; }
+/* 左图右文里的"文"：占满剩余宽度、放不下就省略号（栅格列宽固定，不许把按钮撑破）。 */
+.skill-entry-name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px; font-weight: 700;
+}
 .skill-entry-flag {
   position: absolute; top: -7px; left: 12px;
   padding: 1px 7px; border-radius: 999px;
@@ -115,21 +135,31 @@
   font-size: 10px; font-weight: 800;
 }
 
-/* 试一试长在按钮自己的覆盖层上（flova 实测如此，不在浮窗里）：
-   默认隐形，悬停/聚焦时浮上来 —— 它是点一下会发生什么的那句话。 */
+/* ═══ 2026-09-19 批 J-⑦：悬停出现的是**遮罩**，试一试就在遮罩上 ═════════════════════════
+   用户原话（批注 #3-3）：「他们是左边有图片，右边是文字，然后**鼠标放上去才会出现那个遮罩，
+   遮罩上面是试一试**……他们的样式是采用什么样的技术，比如说**毛玻璃**。」
+   改前：试一试是一颗小药丸，从右侧滑进来 —— 那**不是遮罩**，它只盖住了按钮右边一小块。
+   改后：整块按钮被一层**毛玻璃遮罩**盖住（inset:0 + border-radius:inherit），
+   试一试居中落在遮罩上。玻璃底走全站唯一那颗 --sb-glass-panel
+   （design-tokens-v3 §"毛玻璃与遮罩的允许/禁止矩阵"），模糊/饱和度走 --sb-blur-panel / --sb-saturate-glass。
+   ⚠️ 不给按钮加 overflow:hidden —— 那样会把右上角那颗「能力标签」（.skill-entry-flag，
+      它是 top:-7px 探出去的）一起裁掉；圆角改用 border-radius: inherit 继承。 */
 .skill-entry-try {
-  position: absolute; right: 10px; top: 50%;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 999px;
-  background: var(--sb-brand-600); color: var(--sb-brand-ink);
-  font-size: 12px; font-weight: 700; white-space: nowrap;
-  opacity: 0; transform: translateY(-50%) translateX(-4px);
-  transition: opacity .18s ease, transform .18s ease;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  border-radius: inherit;
+  background: var(--sb-glass-panel);
+  backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  color: var(--sb-brand-600);
+  font-size: 13px; font-weight: 800; letter-spacing: .02em; white-space: nowrap;
+  opacity: 0;
+  transition: opacity .18s ease;
   pointer-events: none;
 }
 .skill-entry-button:hover .skill-entry-try,
 .skill-entry-button.is-open .skill-entry-try,
-.skill-entry-button:focus-visible .skill-entry-try { opacity: 1; transform: translateY(-50%) translateX(0); }
+.skill-entry-button:focus-visible .skill-entry-try { opacity: 1; }
 
 .skill-entry-tip { display: inline-flex; align-items: center; gap: 6px; margin: 0; min-height: 18px; font-size: 12.5px; color: var(--sb-ink-3); }
 
@@ -143,7 +173,11 @@
   gap: 18px;
   padding: 20px 22px;
   border-radius: 18px;
-  background: var(--sb-surface-card);
+  /* 批 J-⑦：预览窗也走同一颗毛玻璃底（用户 #3-3 明说他们的做法是"毛玻璃"）——
+     与上面那块遮罩同一颗 token，浮层与遮罩才是同一门语言。 */
+  background: var(--sb-glass-panel);
+  backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
   border: 1px solid var(--sb-border-default);
   box-shadow: 0 24px 60px rgba(15, 23, 42, .22), 0 4px 12px rgba(15, 23, 42, .08);
   animation: skill-preview-in .16s ease-out;

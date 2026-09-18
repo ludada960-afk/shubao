@@ -108,7 +108,14 @@ export default function SkillEntryRow({
 
   return (
     <section className="skill-entry-row" data-board={board} aria-label={title}>
-      <header className="skill-entry-head">
+      {/* ═══ 2026-09-19 批 J-⑧：分类页签 + 「更多 skill」在**同一行的两头**（用户批注 #4-3）═══
+          原话：「你这个按钮肯定也不是放这里的呀，你没有看明白他们是怎么做的吗？
+          flova 他们是放在 **skill 的分类这个地方的右边有个更多 skill 的按钮**。」
+          改前：它单独占一行（.skill-entry-head），分类页签在它下面一行 —— 两行各说各的；
+          而 flova 是**一行**：左边一排分类、右边一个「更多 skill」。
+          ⚠️ 原来的 .skill-entry-head 因此**整块删掉**：标题与说明早就删了，
+             它最后剩下的那件事就是把「更多」推到右边 —— 那件事现在由这一行自己做。 */}
+      <header className="skill-entry-nav">
         {/* ═══ 2026-09-19 批 I-④（用户批注 #2-4 / #2-5）═══════════════════════════════════════
             原话：「然后这行字都不要，不能给用户看，**这些是给我交待的，不是给用户看的呀**。」
             以及：「这里的这行字不要。」
@@ -117,31 +124,31 @@ export default function SkillEntryRow({
             不是给用户的产品文案。用户看到的是"这网站还要教我鼠标怎么用"。
             ⚠️ hint 这个 prop 保留但**不再渲染**：调用方还在传，删 prop 会让 useSkillEntryRow
                之类的调用点报 lint；下次清理时一起删。 */}
-        {moreHref && <a className="skill-entry-more" href={moreHref}>{moreLabel || '查看全部'}<ArrowRight size={14} /></a>}
-      </header>
-
-      {/* 分类切换区：照 flova 实测那排页签（不手写清单，档位来自声明源） */}
-      {categories.length > 0 && (
-        <div className="skill-entry-categories" role="tablist" aria-label={title + '技能分类'}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!activeCategory}
-            className={!activeCategory ? 'is-active' : ''}
-            onClick={() => onCategory?.('')}
-          >全部</button>
-          {categories.map(item => (
+        {/* 分类切换区：照 flova 实测那排页签（不手写清单，档位来自声明源） */}
+        {categories.length > 0 && (
+          <div className="skill-entry-categories" role="tablist" aria-label={title + ' 技能分类'}>
             <button
-              key={item.name}
               type="button"
               role="tab"
-              aria-selected={activeCategory === item.name}
-              className={activeCategory === item.name ? 'is-active' : ''}
-              onClick={() => onCategory?.(item.name)}
-            >{item.name}</button>
-          ))}
-        </div>
-      )}
+              aria-selected={!activeCategory}
+              className={!activeCategory ? 'is-active' : ''}
+              onClick={() => onCategory?.('')}
+            >全部</button>
+            {categories.map(item => (
+              <button
+                key={item.name}
+                type="button"
+                role="tab"
+                aria-selected={activeCategory === item.name}
+                className={activeCategory === item.name ? 'is-active' : ''}
+                onClick={() => onCategory?.(item.name)}
+              >{item.name}</button>
+            ))}
+          </div>
+        )}
+        {/* 更多 skill：就在分类页签的**右边**（用户批注 #4-3，flova 的做法） */}
+        {moreHref && <a className="skill-entry-more" href={moreHref}>{moreLabel || '更多 skill'}<ArrowRight size={14} /></a>}
+      </header>
 
       <div className="skill-entry-buttons">
         {list.map(skill => {
@@ -168,7 +175,10 @@ export default function SkillEntryRow({
               </span>
               <span className="skill-entry-name">{skill.name}</span>
               {flag && <span className="skill-entry-flag">{flag}</span>}
-              <span className="skill-entry-try">试一试<ArrowRight size={14} /></span>
+              {/* 遮罩（批 J-⑦）：覆盖整块按钮的毛玻璃层，试一试居中落在它上面。
+                  ⚠️ aria-hidden：按钮自己的 aria-label 里已经有「· 试一试」，
+                     这里再读一遍就是同一句话说两次。 */}
+              <span className="skill-entry-try" aria-hidden="true">试一试<ArrowRight size={14} /></span>
             </button>
           );
         })}

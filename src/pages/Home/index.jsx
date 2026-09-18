@@ -17,7 +17,10 @@ import { featuredSkills, hubPath, skillPath, skillsOfBoard } from '../../skills/
    **9 个 skill 的按钮**作为入口。然后鼠标放上去的话，他们就会有下面的这个预览窗出来。」
    —— 所以是 9 条，一行滑过去（不折行）。取数仍是 skillDirectory.featuredSkills
    （精品位优先、不足时按声明顺序补齐），不手写清单。 */
-const SKILL_ENTRY_LIMIT = 9;
+/* 批 J-⑦：9 → 8。用户批注 #3-3 把 flova 的热门 skill 数清楚了：
+   「他们是有两行的。他们**上面是5个按钮，下面是三个按钮**。」5 + 3 = 8。
+   ⚠️ 配合 SkillEntryRow 的五列栅格：8 条正好落成上 5 下 3；写 9 的话第二行会变成 4 个。 */
+const SKILL_ENTRY_LIMIT = 8;
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
 import { useWorksSync } from '../../store/useWorksSync.js';
 
