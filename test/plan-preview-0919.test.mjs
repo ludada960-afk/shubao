@@ -112,12 +112,27 @@ test('计费：ec_plan_preview = 0.5 积分/次，先报价后扣的 SKU 口径�
   assert.ok(face >= 0.13, '面值要盖住 0.5 积分的现金锚');
 });
 
-test('一个组件两个入口：图片侧「生成预览」已经用上它（视频侧是 K-D）', () => {
+test('一个组件两个入口：图片侧「生成预览」与视频侧「代为撰写」用同一份对话框', () => {
   const imageSide = read('src/pages/MediaCreation/index.jsx');
   assert.match(imageSide, /components\/plan-preview\/PlanPreviewDialog\.jsx/, '图片侧必须引用共用对话框');
   assert.match(imageSide, /setPlanPreview\(\{/, '图片侧的「生成预览」要打开三步方案预览');
   assert.match(imageSide, /collectPlanMaterials/, '要把用户上传的素材带进方案预览');
   assert.match(imageSide, /onSkip=\{/, '降级时要有出口（模型不可用时方案是空的，不能堵死主流程）');
+  /* ── 批 K-D：视频侧「代为撰写」入口（提示词框旁，同一份组件）── */
+  const videoSide = read('src/pages/VideoStudio/index.jsx');
+  assert.match(videoSide, /components\/plan-preview\/PlanPreviewDialog\.jsx/, '视频侧必须引用**同一份**对话框');
+  assert.match(videoSide, /surface="video"/, '视频侧的 surface 必须是 video（服务端按它选档位与权限）');
+  assert.match(videoSide, /video-dawei-entry/, '入口按钮要有自己的类名（样式与图片侧一样是纯文字按钮）');
+  assert.match(videoSide, /setPrompt\(String\(text \|\| ''\)\.slice\(0, VIDEO_PROMPT_MAX_LENGTH\)\)/,
+    '「确认脚本并应用」要把方案正文写回脚本输入框');
+  /* 空输入时照知渔实测：只给一句提示、**不发任何请求**（他们 0 次网络请求、0 积分）。 */
+  const dawei = videoSide.slice(videoSide.indexOf('const runDawei'), videoSide.indexOf('const applyDaweiPreview'));
+  assert.match(dawei, /请先上传参考元素或简单描述脚本。/);
+  assert.ok(dawei.indexOf('请先上传参考元素或简单描述脚本。') < dawei.indexOf('uploadVideoAsset'),
+    '空输入的拦截必须发生在任何上传/请求之前');
+  const videoCss = read('src/pages/VideoStudio/VideoStudio.css');
+  assert.match(videoCss, /\.video-dawei-entry \{/);
+  assert.match(videoCss, /background: transparent;/, '照知渔的克制口径：不加胶囊底色');
   const dialog = read('src/components/plan-preview/PlanPreviewDialog.jsx');
   /* 三步的标题两套文案都在同一个组件里（用户明说「文案表述可以不一样」） */
   assert.match(dialog, /分析素材/);

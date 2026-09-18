@@ -54,6 +54,7 @@ import {
   listVideoJobs,
   createImmediateMediaPreview,
   createVideoAssetUpload,
+  uploadVideoAsset,
 } from '../../services/video.js';
 import {
   DEFAULT_VIDEO_MODE,
@@ -74,6 +75,8 @@ import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import { tagVideoJob } from './videoJobTags.js';
 import { CAMERA_MOVES, SCENE_EDITS, cameraInstruction, composeVideoPrompt, sceneEditInstruction } from './cameraMoves.js';
+/* 批 K-D：视频侧「代为撰写」与图片侧「生成预览」共用同一个三步方案预览对话框 */
+import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
 import './VideoStudio.css';
 
 /* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
@@ -310,6 +313,11 @@ export default function VideoStudioPage({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [planOpen, setPlanOpen] = useState(false);
+  /* ═══ 2026-09-19 批 K-D：视频侧「代为撰写」═══════════════════════════════════════════════
+     用户第 16 轮原话：「视频生成这边的话，代为撰写，它就是代为撰写。它的原理就是**帮你把这个视频的
+     脚本给完善起来**。」「他们这两套东西**本质上都是一个设计方案**，只是在它里面**有不同的入口**。」
+     ⇒ 与图片侧「生成预览」共用**同一份** PlanPreviewDialog（服务端也是同一条 /api/plan-preview）。 */
+  const [daweiPreview, setDaweiPreview] = useState(null);
   const [planReviewed, setPlanReviewed] = useState(false);
   const [analyzedPlan, setAnalyzedPlan] = useState(null);
   const [analyzedSignature, setAnalyzedSignature] = useState('');
@@ -926,6 +934,40 @@ export default function VideoStudioPage({
     openJobInCanvas(job);
   }, [job, autoOpenCanvas]);
 
+  /* 批 K-D：视频侧「代为撰写」= 图片侧「生成预览」的同一条流水线（同一个对话框、同一个端点）。
+     ⚠️ 空输入时照知渔的实测行为：**只给一句提示，不发任何请求** ——
+        他们原文是「请先上传参考元素或简单描述脚本。」（实测 0 次网络请求、不消耗任何积分）。 */
+  const runDawei = async () => {
+    if (!String(prompt || '').trim()) {
+      setError('请先上传参考元素或简单描述脚本。');
+      return undefined;
+    }
+    setError('');
+    const materials = [];
+    for (const [index, file] of files.images.slice(0, 6).entries()) {
+      try {
+        const asset = await uploadVideoAsset(file, 'image');
+        materials.push({
+          id: String(asset?.id || asset?.assetId || ('video-image-' + (index + 1))),
+          name: String(file?.name || ('图片' + (index + 1))),
+          url: String(asset?.url || ''),
+        });
+      } catch {
+        /* 单张素材传不上去就跳过：少一张参考图不该让整条流水线失败。 */
+      }
+    }
+    setDaweiPreview({ materials, prompt: String(prompt || '').trim() });
+    return undefined;
+  };
+
+  /* 「确认并应用」= 把方案正文写回脚本输入框（知渔第 3 步原文也是「确认脚本并应用」）。 */
+  const applyDaweiPreview = text => {
+    setPrompt(String(text || '').slice(0, VIDEO_PROMPT_MAX_LENGTH));
+    setPlanReviewed(false);
+    setDaweiPreview(null);
+    return undefined;
+  };
+
   const materialEntries = [
     ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片', name: `图片${index + 1}` })),
     ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频', name: `视频${index + 1}` })),
@@ -1200,6 +1242,15 @@ export default function VideoStudioPage({
                 <button type="button" aria-label={`移除技能 ${skill.name}`} onClick={() => setUserSkills(current => current.filter(item => item.id !== skill.id))}>×</button>
               </span>
             ))}
+            {/* ═══ 批 K-D：视频侧的「代为撰写」入口 ═══════════════════════════════════════════
+                位置照知渔实测：**输入框旁**（他们放在输入框下方那一行的右端，原文「代为撰写」）。
+                ⚠️ 它是一条**纯文字按钮**，不是胶囊：无底色、无边框、无圆角，靠 font-bold + 80% 透明度
+                  + sparkles 图标区分于正文（docs/design/61 §3 原话：「重点在克制：不要给它加胶囊底色」）。
+                点开的是与图片侧「生成预览」**同一份**三步方案预览，只是文案与入口不同。 */}
+            <button type="button" className="video-dawei-entry" onClick={runDawei}>
+              <Sparkles size={14} />
+              代为撰写
+            </button>
           </div>
           {/* ═══ 融合控件：运镜 / 只改一个元素 ═══════════════════════════════════════════
              这两条在技能库里是「辅助能力」（video.camera_move / video.scene_edit）——
@@ -1412,6 +1463,19 @@ export default function VideoStudioPage({
           onProjectChange={setActiveVideoProjectId}
           onPlanApprovalChange={setActiveVideoPlanHash}
         />
+    )}
+    {/* 批 K-D：视频侧「代为撰写」——与图片侧「生成预览」是**同一个组件、同一条服务端流水线**。 */}
+    {daweiPreview && (
+      <PlanPreviewDialog
+        open
+        surface="video"
+        skillName={skillTag || '视频创作'}
+        prompt={daweiPreview.prompt}
+        materials={daweiPreview.materials}
+        onClose={() => setDaweiPreview(null)}
+        onApply={applyDaweiPreview}
+        onSkip={() => setDaweiPreview(null)}
+      />
     )}
   </main>;
 }

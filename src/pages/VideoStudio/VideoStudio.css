@@ -862,3 +862,30 @@
   .video-media-deck .video-media-picker { transition: none; }
 }
 
+
+
+/* ═══ 批 K-D：视频侧「代为撰写」入口（纯文字按钮，不是胶囊）═══════════════════════════════
+   规格来自知渔实测（docs/design/61 §3 位置 B）：inline-flex / gap 4.96 / font-bold /
+   色 = 正文 80% 不透明、hover 提亮到 100% / **无底色、无边框、无圆角** / 图标与文字同色。
+   原文那一行的口径：「重点在克制：不要给它加胶囊底色。」 */
+.video-dawei-entry {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--sb-ink-1) 80%, transparent);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 22px;
+  cursor: pointer;
+  transition: color .15s cubic-bezier(.4, 0, .2, 1);
+}
+
+.video-dawei-entry:hover,
+.video-dawei-entry:focus-visible {
+  color: var(--sb-ink-1);
+}
