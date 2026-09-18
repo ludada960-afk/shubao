@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MdAutoAwesome,
   MdCheckCircle,
@@ -44,6 +45,34 @@ export default function TaskSidebar() {
   const [retryErrors, setRetryErrors] = useState({});
   const [dismissErrors, setDismissErrors] = useState({});
   const dockRef = useRef(null);
+
+  /* ═══ 批 J-④：这个按钮从"左下角浮着"搬进**左边导航栏**（用户批注 #2-4）═══════════════════
+     用户原话：「你这个**生成过程的这个按钮不应该放在这里**呀，我都说了你应该**放到左边的
+     导航栏里面去**，你可以放在导航栏的**下面这个位置**啊。然后你要跟上面的那些按钮做
+     **同样的那种规划**。」
+     改前：position:fixed + left:侧栏宽+16 + bottom:86 —— 一颗**孤零零浮在内容区左下角**的
+     图标按钮，跟导航栏没有任何视觉关系（用户框的就是它，坐标 7.1% / 89.3%）。
+     改后：**挂进侧栏底部**（AppSidebar 的 .app-sidebar-foot 插槽），并且**整格复用
+     .app-sidebar-cell** —— 同一块面、同一条底边渐变进度条、同一个 hover 充能、同一套文字
+     变色。「同样的那种规划」落到实现上就是**同一个 class**，不是"看起来像"。
+     ⚠️ 画布页整屏自己排版、**不渲染侧栏**，那里没有插槽 —— 此时自动回落到原来的左下角
+        浮按钮（全站唯一没有侧栏的页面，行为与从前一致）。
+     ⚠️ 用 layoutEffect 而非 useEffect：它在**浏览器绘制之前**同步补一次渲染，
+        所以不会出现"先闪一下浮按钮、再跳到侧栏"。每次都重新取一次节点，这样
+        画布页⟷普通页来回切时能自愈（挂载/卸载都会跟着变）。 */
+  const [slot, setSlot] = useState(null);
+  useLayoutEffect(() => {
+    const node = document.getElementById('sb-task-dock-slot');
+    if (node !== slot) setSlot(node);
+  });
+  const inline = Boolean(slot);
+
+  /* 底边那条进度条在导航格上是 **hover 充能**（纯装饰），在这一格上放**真实进度** ——
+     同一门语言，但这一条说的是真话：有任务在跑、且后端报了张数时才出现。 */
+  const activeTasks = tasks.filter(task => ACTIVE_STATES.has(task.status));
+  const plannedTotal = activeTasks.reduce((sum, task) => sum + (Number(task.total) || 0), 0);
+  const plannedDone = activeTasks.reduce((sum, task) => sum + (Number(task.done) || 0), 0);
+  const barPercent = plannedTotal > 0 ? Math.min(100, Math.round((plannedDone / plannedTotal) * 100)) : null;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -109,11 +138,92 @@ export default function TaskSidebar() {
     }
   };
 
-  return (
-    <div
-      className="task-sidebar"
-      ref={dockRef}
+  const triggerIcon = activeCount > 0
+    ? <MdHourglassTop size={inline ? 19 : 20} className="animate-spin" />
+    : errorCount > 0 ? <MdError size={inline ? 19 : 20} /> : <MdAutoAwesome size={inline ? 19 : 20} />;
+
+  /* ═══ 侧栏格（批 J-④）：**整格就是 .app-sidebar-cell** ═══════════════════════════════
+     与上面那几格同一块面、同一条底边渐变进度条、同一个 hover 充能、同一套文字变色。
+     ⚠️ 有真实进度时挂 has-progress —— CSS 里会把装饰性的 hover 条藏掉，
+        两条进度条不会同时出现（否则"充能"和"真进度"会互相打架）。 */
+  const sidebarTrigger = (
+    <button
+      type="button"
+      className={
+        'app-sidebar-cell app-sidebar-task'
+        + (open ? ' is-active' : '')
+        + (activeCount > 0 ? ' is-live' : '')
+        + (barPercent === null ? '' : ' has-progress')
+      }
+      title="生成过程"
+      aria-label="打开任务列表"
+      aria-expanded={open}
+      aria-controls="global-task-dock-panel"
+      onClick={() => setOpen(value => !value)}
+    >
+      <span className="app-sidebar-tile" aria-hidden="true">{triggerIcon}</span>
+      <span className="app-sidebar-label">生成过程</span>
+      {noticeCount > 0 && (
+        <span className={'app-sidebar-task-badge' + (errorCount > 0 ? ' is-error' : '')} aria-hidden="true">
+          {noticeCount}
+        </span>
+      )}
+      {barPercent !== null && (
+        <span className="app-sidebar-task-bar" style={{ width: barPercent + '%' }} aria-hidden="true" />
+      )}
+    </button>
+  );
+
+  /* ═══ 浮按钮（只剩画布页在用）：没有侧栏可供挂载时的回落形态 ═══════════════════════ */
+  const floatingTrigger = (
+    <button
+      type="button"
+      aria-label="打开任务列表"
+      aria-expanded={open}
+      aria-controls="global-task-dock-panel"
+      onClick={() => setOpen(value => !value)}
       style={{
+        position: 'relative',
+        width: 46,
+        height: 46,
+        border: '1px solid rgba(70, 52, 38, 0.1)',
+        borderRadius: 'var(--sb-radius-lg)',
+        background: activeCount > 0 ? '#1f8a83' : '#fffaf4',
+        color: activeCount > 0 ? 'var(--sb-neutral-0)' : '#554a42',
+        boxShadow: '0 12px 30px rgba(84, 55, 35, 0.16)',
+        cursor: 'pointer',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      {triggerIcon}
+      {noticeCount > 0 && (
+        <span style={{
+          position: 'absolute',
+          top: -7,
+          right: -7,
+          minWidth: 20,
+          height: 20,
+          padding: '0 5px',
+          borderRadius: 'var(--sb-radius-pill)',
+          background: errorCount > 0 ? '#c34f49' : '#db7c2d',
+          color: 'var(--sb-neutral-0)',
+          border: '2px solid #fffaf4',
+          fontSize: 'var(--sb-text-xs)',
+          fontWeight: 800,
+          lineHeight: '16px',
+        }}>
+          {noticeCount}
+        </span>
+      )}
+    </button>
+  );
+
+  const dock = (
+    <div
+      className={inline ? 'app-sidebar-task-host' : 'task-sidebar'}
+      ref={dockRef}
+      style={inline ? undefined : {
         position: 'fixed',
         /* 让位左侧常驻导航（用户 9-18 批注 #1 新增侧栏）：--sb-app-sidebar-w 由 .app-shell 提供，
            没有侧栏的页面（画布）回落到 0，浮层位置与从前完全一致。 */
@@ -125,57 +235,27 @@ export default function TaskSidebar() {
         gap: 'var(--sb-space-2-5)',
       }}
     >
-      <button
-        type="button"
-        aria-label="打开任务列表"
-        aria-expanded={open}
-        aria-controls="global-task-dock-panel"
-        onClick={() => setOpen(value => !value)}
-        style={{
-          position: 'relative',
-          width: 46,
-          height: 46,
-          border: '1px solid rgba(70, 52, 38, 0.1)',
-          borderRadius: 'var(--sb-radius-lg)',
-          background: activeCount > 0 ? '#1f8a83' : '#fffaf4',
-          color: activeCount > 0 ? 'var(--sb-neutral-0)' : '#554a42',
-          boxShadow: '0 12px 30px rgba(84, 55, 35, 0.16)',
-          cursor: 'pointer',
-          display: 'grid',
-          placeItems: 'center',
-        }}
-      >
-        {activeCount > 0
-          ? <MdHourglassTop size={20} className="animate-spin" />
-          : errorCount > 0 ? <MdError size={20} /> : <MdAutoAwesome size={20} />}
-        {noticeCount > 0 && (
-          <span style={{
-            position: 'absolute',
-            top: -7,
-            right: -7,
-            minWidth: 20,
-            height: 20,
-            padding: '0 5px',
-            borderRadius: 'var(--sb-radius-pill)',
-            background: errorCount > 0 ? '#c34f49' : '#db7c2d',
-            color: 'var(--sb-neutral-0)',
-            border: '2px solid #fffaf4',
-            fontSize: 'var(--sb-text-xs)',
-            fontWeight: 800,
-            lineHeight: '16px',
-          }}>
-            {noticeCount}
-          </span>
-        )}
-      </button>
+      {inline ? sidebarTrigger : floatingTrigger}
 
       {open && (
         <section
           id="global-task-dock-panel"
           aria-label="最近的生成任务"
           style={{
-            width: 'min(350px, calc(100vw - 84px))',
-            maxHeight: 'min(620px, calc(100vh - 150px))',
+            /* ═══ 面板落点随挂载形态走（批 J-④）═════════════════════════════════════════
+               侧栏形态：按钮在**侧栏底部**，面板就开在侧栏**右边**、与视口底对齐
+                 （不再有"让位侧栏"的偏移量 —— 它本来就在侧栏外面）。
+               浮按钮形态（画布页）：与从前的数值一模一样，一行不动。 */
+            ...(inline ? {
+              position: 'fixed',
+              left: 'calc(var(--sb-app-sidebar-w, 0px) + 12px)',
+              bottom: 16,
+              zIndex: 'var(--sb-z-panel)',
+              width: 'min(350px, calc(100vw - var(--sb-app-sidebar-w, 0px) - 24px))',
+              maxHeight: 'min(620px, calc(100vh - 32px))',
+            } : {}),
+            width: inline ? undefined : 'min(350px, calc(100vw - 84px))',
+            maxHeight: inline ? undefined : 'min(620px, calc(100vh - 150px))',
             overflow: 'hidden',
             border: '1px solid rgba(70, 52, 38, 0.1)',
             borderRadius: 'var(--sb-radius-2xl)',
@@ -382,4 +462,7 @@ export default function TaskSidebar() {
       )}
     </div>
   );
+
+  /* 侧栏存在 → 挂进侧栏底部插槽；不存在（画布页）→ 原地做左下角浮按钮。 */
+  return inline ? createPortal(dock, slot) : dock;
 }

@@ -194,6 +194,77 @@
 }
 .app-sidebar-cell.is-active .app-sidebar-label { font-weight: 900; }
 
+/* ═══ 2026-09-19 批 J-④：底部「生成过程」格（用户批注 #2-4）═══════════════════════════════
+   用户原话：「你这个**生成过程的这个按钮不应该放在这里**呀……**放到左边的导航栏里面去**，
+   你可以放在导航栏的**下面这个位置**啊。然后你要跟上面的那些按钮做**同样的那种规划**。」
+   「同样的规划」落到实现上 = **同一个 class**：这一格就是 .app-sidebar-cell ——
+   面、底边渐变进度条、hover 充能、文字变色全部继承，**没有第二套数值**。
+   ⚠️ 唯一的差别：导航格的进度条是 **hover 充能**（纯装饰）；
+      这一格在有任务在跑时放**真实进度**（has-progress 时把装饰条藏起来，避免两条打架）——
+      同一门语言，但这一条说的是真话。 */
+.app-sidebar-foot {
+  width: 100%;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+/* 它不是导航项，是"状态区" —— 用一条发丝线与上面隔开（空插槽时不画）。 */
+.app-sidebar-foot:not(:empty)::before {
+  content: '';
+  width: 36px;
+  height: 1px;
+  margin: 2px 0 6px;
+  background: var(--sb-border-subtle);
+}
+.app-sidebar-task-host {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.app-sidebar-task { flex: 0 0 auto; }
+/* 计数角标：钉在图标磁贴的右上角（磁贴 38px 居中 ⇒ 右缘距格子右缘 20px）。 */
+.app-sidebar-task-badge {
+  position: absolute;
+  top: 4px;
+  right: 20px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-brand-600);
+  color: var(--sb-neutral-0);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 2px var(--sb-neutral-25);
+}
+.app-sidebar-task-badge.is-error { background: var(--sb-danger); }
+/* 真进度条：几何与过渡**逐条照上面那条 hover 充能条**（4px / bottom 0 / left 0 /
+   width .7s cubic-bezier(.4,0,.2,1)）—— 换的是数据来源，不是长相。 */
+.app-sidebar-task-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background-image: linear-gradient(to right, var(--sb-brand-500), var(--sb-brand-700));
+  /* ⚠️ 这一行与上面 .app-sidebar-cell::after 的那一行**逐字相同**（含空格）——
+     不是"差不多的曲线"，是同一条。门禁按字符串比，改一处就必须两处一起改。 */
+  transition: width .7s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+}
+.app-sidebar-task.has-progress::after { display: none; }
+/* 有任务在跑：磁贴常亮品牌渐变（与选中态同一套），不看 hover 也知道"在生成"。 */
+.app-sidebar-task.is-live .app-sidebar-tile {
+  background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
+  color: var(--sb-brand-ink);
+  box-shadow: 0 8px 18px var(--sb-brand-a32);
+}
+
 /* ═══ 2026-09-19 批 I-③：底部那颗「开始创作」实色按钮**已删除**（用户批注 #1：
    「这个按钮为什么会在这里，很别扭啊，没有什么意义呀」）。
    它点下去只是回首页，而首页就在正上方一格 —— 语义空转，且抢走导航本身的注意力。
@@ -206,9 +277,11 @@
   .app-sidebar { width: 76px; padding-inline: 6px; }
   .app-sidebar-label { display: none; }
   .app-sidebar-cell { width: 60px; padding: 7px 4px; }
+  /* 窄栏里磁贴左缘 11px、宽 38 ⇒ 角标右缘距格子右缘 11px（跟着格子重新算） */
+  .app-sidebar-task-badge { right: 11px; top: 3px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-sidebar-tile, .app-sidebar-brand, .app-sidebar-cell::after { transition: none; }
+  .app-sidebar-tile, .app-sidebar-brand, .app-sidebar-cell::after, .app-sidebar-task-bar { transition: none; }
   .app-sidebar-cell:hover .app-sidebar-tile, .app-sidebar-brand:hover { transform: none; }
 }
