@@ -1067,7 +1067,14 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       .slice(0, 3);
     const blocks = [];
     const groups = [];
-    for (const field of skill.fields || []) if (field.group && !groups.includes(field.group)) groups.push(field.group);
+    /* ⚠️ 有分组用分组名（图片侧的技能都分了组）；**没有分组就用字段名** ——
+       视频侧那 42 条技能的字段就是「模型 / 清晰度 / 时长 / 运镜」这几档，本身已经是一份
+       "你要准备什么" 的清单元数据。不加这条兜底，视频侧的教学示例就只剩一块正文
+       （而这恰恰是用户要"按教学示例深度匹配"的那一侧）。 */
+    for (const field of skill.fields || []) {
+      const label = field.group || field.label;
+      if (label && !groups.includes(label)) groups.push(label);
+    }
     if (groups.length) blocks.push({ title: "要准备什么", lines: groups });
     if (deliverables.length) {
       blocks.push({
