@@ -584,3 +584,408 @@
 2. 面板 L1 半透明导致页面文字透出（见 11.5 附注）；
 3. 能力卡选中态仍为 `1px solid rgb(130, 105, 231)` + 淡紫渐变（未纳入本批）。
 
+---
+
+## 12. 改后复测（第一批全量落地后 · 数字对比）
+
+> **采集时间**：第一批全部提交后（HEAD `4bfe7192`）
+> **口径**：与基线**逐字一致** —— 视口 **1440×900**、`deviceScaleFactor: 2`、`locale: zh-CN`、同一入口、同一套选择器（直接复用 §1 那份 `_measurements.json` 的 selector 集重采）。尺寸 `offsetWidth/offsetHeight`，其余取 `getComputedStyle` 实际值。
+> **只读声明**：本节仅截图与测量，**未修改任何 src**，未 commit，未 `git add`。
+> **改后数据**：`after/_after.json`、`_after-pages.json`、`_after-composers.json`、`_audit-current.txt`
+
+### 12.1 截图对应关系（after/ 与 before 同名）
+
+| before | after | 内容 |
+|---|---|---|
+| `01-home-ec-default.png` | `after/01-home-ec-default.png` | 首页电商生图默认态 |
+| `02-home-ec-bottom-params-bar.png` | `after/02-home-ec-bottom-params-bar.png` | 底部参数栏 + 主 CTA |
+| `03-home-ec-upload-cards.png` | `after/03-home-ec-upload-cards.png` | 两个上传卡 |
+| `04-home-ec-gen-settings-modal.png` | `after/04-home-ec-gen-settings-modal.png` | 生成设置面板（整屏） |
+| `05-home-ec-gen-settings-modal-crop.png` | `after/05-home-ec-gen-settings-modal-crop.png` | 生成设置面板（特写） |
+| `20-canvas-ec-default.png` | `after/20-canvas-ec-default.png` | 画布默认态 |
+| `21/22/23-canvas-*` | `after/21/22/23-canvas-*` | 画布顶栏 / 底部栏 / 小地图 |
+| `30–33-canvas-composer-*` | `after/30–33-canvas-composer-*` | 画布四个生成框操作台 |
+| `40/42-canvas-node-selected*` | `after/40/42-canvas-node-selected*` | 画布节点选中态 |
+| `70-works-gallery-empty.png` | `after/70-works-gallery-empty.png` | 作品集（空库） |
+| `80/81-pricing-*` | `after/80/81-pricing-*` | 定价页 |
+| —（新增） | `after/10-home-ec-cta-enabled.png` | CTA 可用态 |
+| —（新增） | `after/12-home-ec-cta-hover-crop.png` | CTA hover |
+| —（新增） | `after/13-home-ec-cta-focus-visible-crop.png` | CTA focus-visible |
+
+### 12.2 生成设置面板
+
+| 项 | before | after | 结论 |
+|---|---|---|---|
+| **面板底色** | `rgba(252, 252, 253, 0.93)`（冷白） | `rgba(255, 255, 255, 0.92)` = `--sb-glass-panel` | ✅ 换 token；但**仍是半透明**（见 12.5） |
+| **面板圆角** | `8px` | **`20px`** = `--sb-radius-panel` | ✅ 归入四档 |
+| **面板边框** | `1px solid rgba(255,255,255,0.86)`（白描边≈无） | `1px solid rgba(12, 10, 9, 0.06)` = `--sb-border-subtle` | ✅ 边界可见 |
+| **面板阴影** | `rgba(37,30,24,0.18) 0 28px 80px, rgba(37,30,24,0.06) 0 2px 10px` | **`none`** | 🔴 **回退！见 12.5** |
+| **毛玻璃** | 未收敛 | `blur(24px) saturate(1.8)` = `--sb-blur-panel` / `--sb-saturate-glass` | ✅ 40px/220% 已收敛 |
+| **分组区底色** | 纯白卡 `rgb(255,255,255)` + `1px` 描边 | **`rgba(0, 0, 0, 0)`** 透明 | ✅ **D7 达成** |
+| **分组区边框/阴影** | 有边框 | `0px none` / `none` | ✅ |
+| **清晰度分段高度** | **36px**（`--sb-control-lg`，见 commit `d93219ae` 说明） | **`44px`** | ✅ **36→44**，实测证实 |
+| **模型行高度** | `438×40` | `438×40` | ➖ 不变 |
+
+#### hover 与 selected 是否真的不同？（给出两态实际色值差）
+
+**✅ 是，且是色相差（灰 vs 紫），不是透明度微调。**
+
+| 控件 | 默认 | hover | selected |
+|---|---|---|---|
+| 「2K 高清·推荐」 | — | **hover 无变化**（已是选中） | `bg=rgb(245,243,255)` / `color=rgb(124,58,237)` / `border=1px solid rgb(221,214,254)` |
+| 「1K 标准·试方向」 | `bg=rgba(12,10,9,0.03)` / `c=rgb(26,22,20)` | `bg=rgba(12,10,9,0.035)` / `c=rgb(26,22,20)`（**文字色不动**） | `bg=rgb(245,243,255)` / `c=rgb(124,58,237)` |
+| 「4K 超清·看细节」 | `bg=rgba(12,10,9,0.03)` | `bg=rgba(12,10,9,0.035)` | 同 1K 的 selected 配方 |
+| 「GPT Image 2」模型行 | `bg=rgba(12,10,9,0.03)` | `bg=rgba(12,10,9,0.035)` | — |
+
+**两态差**：hover 只在**中性灰**上加 0.5% 不透明度（`0.03→0.035`）；selected 则整体切到**品牌紫族**（底 `#F5F3FF`、字 `#7C3AED`、描边 `#DDD6FE`）。
+→ **色相不同（灰/紫）+ 文字色不同 + 描边有无不同**，用户可分辨「鼠标停在这」与「这个选中了」。
+
+> 对照 before：hover 与 selected **都**往紫走，差异仅 `rgba(12,10,9,0.03) → rgba(12,10,9,0.035)`。**已修复。**
+
+### 12.3 电商主 CTA
+
+| 项 | before | after（可用态） | 结论 |
+|---|---|---|---|
+| **底色** | 紫→粉→橙**三色渐变** | **`rgb(124, 58, 237)` 纯色 = `#7C3AED`** | ✅ 纯色 |
+| **`backgroundImage`** | `linear-gradient(...)` | **`none`** | ✅ 渐变已停 |
+| **圆角** | `10px` | `8px` = `--sb-radius-control` | ✅ |
+| **高度** | `40px` | **`44px`** = `--sb-control-touch` | ✅ |
+| **focus 态** | **不存在** | **存在**：`box-shadow: rgba(124,58,237,0.32) 0 0 0 3px` = `--sb-focus-ring` | ✅ 新增 |
+| **hover** | `translateY(-1px)` 位移 | `rgb(124,58,237) → rgb(109,40,217)` 只压深 | ✅ 原则 4.3 |
+| **禁用态** | `rgb(229,229,229)` / `rgb(170,170,170)` | `rgba(12,10,9,0.04)` / `rgb(176,170,165)` | ✅ token 化 |
+
+### 12.4 两个上传卡
+
+| 卡 | before | after | 结论 |
+|---|---|---|---|
+| 产品图 | `2px solid var(--red)` | `2px dashed rgba(12, 10, 9, 0.1)` | ✅ |
+| 参考图 | `2px solid var(--blue)` | `2px dashed rgba(12, 10, 9, 0.1)` | ✅ |
+
+**实测两卡 computedStyle 完全一致**（`86×108`、`rgb(255,255,255)`、`12px` 圆角）。
+另注：圆角由 `16px` → `12px`（`--sb-radius-card`，归入四档）；阴影由 `rgba(57,45,26,0.055) 0 5px 10px` → `none`（见 12.5 一并讨论）。
+
+### 12.5 🔴 回退项（改前有、改后没有 —— 必须单独列出）
+
+> 这类是**净损失**，与「改了但没改好」不同，建议优先处理。
+
+| # | 控件 | 回退内容 | before | after | 判定 |
+|---|---|---|---|---|---|
+| **R1** | **生成设置面板** `.ec-config-panel` | **失去全部外阴影** | `rgba(37,30,24,0.18) 0 28px 80px, rgba(37,30,24,0.06) 0 2px 10px` | **`none`** | 🔴 **真 bug，已定因** |
+| **R2** | **首页模式卡** `.homepage-mode-card` | **失去全部卡片阴影（4 张全丢）** | 选中 `rgba(64,48,36,0.19) 0 22px 42px` + 3px 紫环；未选中 `rgba(64,48,36,0.14) 0 16px 34px` | **全部 `none`** | 🔴 净损失 |
+| **R3** | **上传卡** `.ec-xhs-upload-card` | 失去轻微浮起阴影 | `rgba(57,45,26,0.055) 0 5px 10px` | `none` | 🟡 轻微，但属净损失 |
+
+#### R1 根因（已在浏览器内证实）
+
+`src/pages/Home/Home.css:2338`：
+
+```css
+.ec-config-panel { box-shadow: var(--sb-shadow-xl) !important; }
+```
+
+但 token 阶梯**只定义到 `--sb-shadow-0`…`--sb-shadow-5`**，**全仓没有任何一处定义 `--sb-shadow-xl`**（`Select-String --sb-shadow-xl` 仅命中 Home.css:2338 这一处**使用**，0 处**定义**）。
+
+浏览器实测：
+
+| 探针 | 结果 |
+|---|---|
+| `getPropertyValue('--sb-shadow-xl')` | **`(未定义)`** |
+| `div.style.boxShadow = 'var(--sb-shadow-xl)'` 解析 | **`none`** |
+| 对照 `var(--sb-shadow-5)` | `rgba(57, 45, 26, 0.16) 0px 28px 90px 0px, rgba(57, 45, 26, 0.08) 0px 8px 24px 0px` |
+
+→ CSS 中**未定义的 `var()` 回退为初始值**，`box-shadow` 初始值即 `none`。**面板因此完全没有投影**。
+
+**建议修法**（供决策，我未改）：把 `Home.css:2338` 的 `--sb-shadow-xl` 改为 `--sb-shadow-5`（面板这类浮层对应 shadow-4/5 档）；或补一个 `--sb-shadow-xl` 别名指向 `--sb-shadow-5`。
+
+> 附带说明：R1 面板叠加了 `backdrop-filter: blur(24px) saturate(1.8)`，视觉上仍能与背景区分，所以**不是"完全看不出是浮层"**，但相比 before 明确损失了浮起感。
+
+### 12.6 `node scripts/design-audit.mjs` 关键指标「基线 → 当前」
+
+> ⚠️ **脚本自身有一处失效**：它在结尾读 `src/styles/sb-tokens.css`，但该文件已更名为 `design-tokens-v3.css`，导致**跑到 ⑤ 就崩**（`ENOENT`，exit=1）。①②③③b③c 各段指标在崩溃前已正常输出，下表取自这些段落。
+
+| 指标 | 基线 | 当前 | 变化 | 目标 |
+|---|---|---|---|---|
+| hex 硬编码 | **5789 次 / 1810 值** | **5838 次 / 1811 值** | 🔴 **+49 次 / +1 值（上升）** | 0 |
+| 字号档位 | **27 档** | **27 档** | ➖ 持平（12px×162 / 11px×133 / 13px×97 / 10px×61） | 9 档 |
+| 圆角档位 | **21 档** | **21 档** | ➖ 持平（8px×128 / 10px×67 / 6px×44 / 50px×39） | 8 档 |
+| z-index 裸值 | **32 个** | **32 个** | ➖ 持平 | 9 档 |
+| gap 非阶梯值 | **908/1562（58%）** | **906/1559（58%）** | ➖ 基本持平 | 0% |
+| 品牌紫硬编码 | **159 次 / 150 行 / 38 文件** | **159 次 / 150 行 / 34 文件** | 🟢 **使用文件 38 → 34（收敛 4 个）** | 0 |
+| `rgba(124,58,237,α)` | **99 处 / 31 α** | **99 处 / 31 α** | ➖ 持平 | ≤5 档 |
+| 悬停位移站点 | **85 处 / 20 档**（>4px 高风险 5 处） | **85 处 / 20 档**（>4px 高风险 5 处） | ➖ 持平 | ≤3 档 |
+| 裸 `outline:none` | **80 处** | **70 处** | 🟢 **-10** | 0 |
+| `<div onClick>` | **107 处** | **97 处** | 🟢 **-10** | 0 |
+| `focus-visible` 覆盖 | **115 次** | **124 次** | 🟢 **+9** | 保持 ✅ |
+| `backdrop-filter` 文件数 | **41 个** | **41 个** | ➖ 持平 | ≤3 |
+| 危险色用作文案/标识 | **5 处** | **5 处** | ➖ 持平 | 0 |
+| `prefers-reduced-motion` | **32 处** | **32 处** | ➖ 持平 | 保持 ✅ |
+
+**读数要点**
+- 🟢 **确实在改善**：`outline:none` -10、`<div onClick>` -10、`focus-visible` +9、品牌紫使用文件 -4。方向正确。
+- 🔴 **但"碎片化"三巨头（hex / 字号 / 圆角 / gap）纹丝未动**：hex 甚至 **+49 次**。说明本批改的是**局部组件**，尚未触及全局碎片化存量；hex 上升很可能来自新增的 token 定义文件本身（`design-tokens-v3.css` 里的 hex 被计入）。
+- ⚠️ **口径提示**：该脚本把 token 定义文件里的 hex 也计入"硬编码"，因此"token 化越彻底、hex 计数反而越高"是这套口径的固有假象。**建议脚本排除 token 定义文件**（与它已排除 `sb-tokens.css` 的意图一致，只是文件名没跟着改）。
+
+### 12.7 本批复测结论
+
+| 目标 | 结果 |
+|---|---|
+| 生成设置面板：底色/分组底/圆角/控件高度 | ✅ 分组底透明（D7 达成）、圆角 8→20、**分段 36→44** |
+| hover 与选中态是否真的不同 | ✅ **是**，灰(中性) vs 紫(品牌) 色相可辨；selected 稳定不抖 |
+| 主 CTA 品牌紫纯色 | ✅ `rgb(124,58,237)`、`backgroundImage: none` |
+| 主 CTA focus 态存在 | ✅ `rgba(124,58,237,0.32) 0 0 0 3px` |
+| 上传卡边框统一 | ✅ 两卡 computedStyle 一致 |
+| **是否有回退项** | 🔴 **有 3 项**：R1 面板失去全部阴影（`--sb-shadow-xl` 未定义，**真 bug**）、R2 首页模式卡 4 张全丢阴影、R3 上传卡失去轻微浮起 |
+
+**优先处理建议**：R1（一行修复，且是明确的 token 名错误）→ R2/R3（确认是"刻意去掉阴影走描边分层"还是误删）。
+
+**采集环境备注**：复测期间另一 agent 正在并发编辑 `src/NoteModal.jsx`，其 Vite transform 间歇性返回 500（`#root` 为空、页面全白）。我采用**轮询直到 `#root` 有子节点**的方式取健康态，全部测量均在页面正常渲染时完成；该 500 与本次改造无关，最终该文件已恢复 200。
+
+---
+
+## 13. B1 迁移后复测（三列对照 + 回退项排查）
+
+> **背景**：§C B1 批 1a（Home.css 379 处）+ 批 1b（首页其余 14 文件 242 处）硬编码色值 → token；六面板圆角收敛 + 选中态改 ring；底部操作区挂 .ui-modal-footer（5 → 16 文件）；可达性改造。
+> **口径**：与基线逐字一致（1440x900 @ DSF2、locale zh-CN、同一份 246 条选择器集）。
+> **环境**：独立 vite 端口 5180（未动他人 5173）；进入测量前跑健康判据（无 vite-error-overlay + 关键节点已挂载 + 正文非「加载中」），不健康则重试导航。
+> **只读**：未改 src、未 commit、未 git add。
+> **数据**：after/_b1-home.json、_b1-pages.json、_b1-pixeldiff.json、_b1-diff-heatmap.png
+
+### 13.1 健康网关结果
+
+| 页面 | 尝试次数 | 结果 |
+|---|---|---|
+| 首页 | **attempt 1** | ✅ 一次通过 |
+| 生成设置面板 | attempt 1 | ✅ |
+| 画布 ?qa=ec-canvas | **attempt 1** | ✅ |
+| 定价页 | **attempt 1** | ✅ |
+
+**全部一次通过，无需重试** —— 上一轮遇到的瞬时白屏（并发 agent 编辑 NoteModal.jsx 导致的 500）本次未复现。
+
+> 环境备注：测量全部完成后，我起的 5180 端口 vite 进程因 **EBUSY** 退出 —— 另一 agent 的编辑器临时文件（src/pages/VideoStudio/VideoStudio.css~RF268ce77.TMP）被 FSWatcher 监听失败。属环境噪声，**发生在我所有测量之后**，不影响本节数据。
+
+### 13.2 三列对照：基线 → 上次改后 → 本次（10 个代表点）
+
+| # | 控件 | 指标 | 基线 | 上次改后 | 本次 | 判定 |
+|---|---|---|---|---|---|---|
+| 1 | 下一步 CTA（可用） | bg / color | 紫→粉→橙渐变 | rgb(124,58,237) | **rgb(124,58,237)** | ✅ 保持 |
+| 2 | 上传卡·产品图 | border | 2px solid var(--red) | 2px dashed rgba(12,10,9,0.1) | **同左** | ✅ 保持 |
+| 3 | 上传卡·参考图 | border | 2px solid var(--blue) | 2px dashed rgba(12,10,9,0.1) | **同左** | ✅ 保持（两卡一致） |
+| 4 | 生成设置面板容器 | bg / border / radius | rgba(252,252,253,.93) / 白描边 / 8px | rgba(255,255,255,.92) / rgba(12,10,9,.06) / 20px | **同左** | ✅ 保持 |
+| 5 | 面板内「2K」选中 | bg / color / border | 纯灰块 + 淡紫描边 | rgb(245,243,255) / rgb(124,58,237) / rgb(221,214,254) | **rgb(245,243,255) / rgb(124,58,237) / rgb(124,58,237)** | 🔄 描边改 ring（见 13.4） |
+| 6 | 面板内「1K」默认 | bg | rgb(229,229,229) 纯灰 | rgba(12,10,9,0.03) | **rgb(244,244,244)** | 🔄 底色变浅（见 13.4） |
+| 7 | 能力卡（选中） | bg / border | 渐变 / rgb(130,105,231) | 同基线 | **同基线** | ➖ 本批未动 |
+| 8 | 首页模式卡（选中） | bg / border | rgba(255,255,255,.96) / 紫 | rgb(245,243,255) / rgb(221,214,254) | **同左** | ✅ 保持 |
+| 9 | 首页模式卡（未选中） | bg / border | rgba(255,255,255,.96) | rgb(255,255,255) / rgba(12,10,9,.1) | **同左** | ✅ 保持 |
+| 10 | 参数 chip（底栏） | bg / border | rgba(255,255,255,.84) / rgba(35,31,27,.11) | rgb(255,255,255) / rgba(12,10,9,.1) | **同左** | ✅ 保持 |
+
+### 13.3 🔴 回退项（本批新发现，优先级最高）
+
+#### R4 —— `--sb-shadow-sm/md/lg` 全部未定义，导致全站卡片阴影消失（`--sb-shadow-xl` 同类 bug 的第二处，且更大）
+
+上一轮发现 `--sb-shadow-xl` 未定义（已修，现 0 处使用）。**本次系统扫描发现同类问题仍在，且范围更大**：
+
+| token | 是否定义 | var() 解析结果 | 使用处 |
+|---|---|---|---|
+| `--sb-shadow-0` … `--sb-shadow-5` | ✅ 已定义 | 正常 | — |
+| **`--sb-shadow-sm`** | ❌ **未定义** | **none** | **4 处 / 2 文件** |
+| **`--sb-shadow-md`** | ❌ **未定义** | **none** | **10 处 / 3 文件** |
+| **`--sb-shadow-lg`** | ❌ **未定义** | **none** | **9 处 / 4 文件** |
+| `--sb-shadow-xl` | ❌ 未定义 | none | 0 处（已改掉） |
+
+**浏览器实测（直接探针）**：
+```
+--sb-shadow-sm     defined=false  resolves=none
+--sb-shadow-md     defined=false  resolves=none
+--sb-shadow-lg     defined=false  resolves=none
+对照 --sb-shadow-3  defined=true   resolves=rgba(57, 45, 26, 0.1) 0px 4px 16px 0px
+```
+
+**实测受影响元素（首页，shadow 全部为 none）**：
+
+| 元素 | 基线 shadow | 本次 | CSS 位置 |
+|---|---|---|---|
+| `.homepage-mode-card`（4 张模式卡） | rgba(64,48,36,0.14) 0 16px 34px | **none** | Home.css:2511 `var(--sb-shadow-lg)` |
+| `.ec-config-trigger`（参数 chip） | rgba(45,38,31,0.06) 0 4px 14px | **none** | Home.css:2251 `var(--sb-shadow-sm)` |
+| `.ec-xhs-upload-card`（上传卡） | rgba(57,45,26,0.055) 0 5px 10px | **none** | Home.css:442 `var(--sb-shadow-sm)` |
+| `.ec-workbench-cta`（主 CTA） | — | **none** | Home.css:2438 `var(--sb-shadow-md)` |
+| `.ec-xhs-add-card:hover` | — | **none** | Home.css:466 `var(--sb-shadow-md)` |
+
+**全站扫描结果**：box-shadow 中出现 var() 引用共 **65 处**，其中解析为 **none 的 32 处**。除上述 `--sb-shadow-*` 外，还包括：`--sb-brand-a32`（3 处，含 `.shubao-gen-cta`）、`--sb-brand-a18`、`--sb-brand-ring`、`--nav-item-accent`、`--red`/`--blue`/`--shadow-red`（旧色名，首页已迁移故失效）、`--xy-*`（React Flow 自带变量，属第三方）。
+
+**修法建议**（供决策，我未改）：
+1. 在 design-tokens-v3.css 补别名：`--sb-shadow-sm: var(--sb-shadow-1); --sb-shadow-md: var(--sb-shadow-3); --sb-shadow-lg: var(--sb-shadow-4);`（或把使用处直接改成数字档）；
+2. 把「token 必须已定义」纳入 design-audit.mjs 或测试门禁 —— 未定义 var() 静默回退为 none，**不报错、不警告**，正是这类 bug 能连出两处的原因。
+
+### 13.4 变化项（非回退，但需确认是否符合预期）
+
+| 项 | 上次改后 | 本次 | 说明 |
+|---|---|---|---|
+| 面板内选中态描边 | 1px solid rgb(221,214,254) | 1px solid rgb(124,58,237) 品牌紫 | 选中态改 ring 后描边更饱和；**边框宽度恒为 1px，无布局抖动**（符合本批「零抖动」目标） |
+| 面板内选项默认底 | rgba(12,10,9,0.03) | rgb(244,244,244) | 由半透明黑改为不透明浅灰，观感更实，但**不再是「值等价」** |
+| 面板内 hover 底 | rgba(12,10,9,0.035) | rgb(237,237,237) | 同上，hover 与默认仍可区分（244 → 237） |
+| 选中项 hover | 无变化 | rgb(245,243,255) → rgb(237,233,254) | **新增** hover 反馈，选中态不再死板 ✅ |
+
+> ⚠️ 注意：`rgb(244,244,244)` 是**纯中性灰（R=G=B）**，而 token 体系的中性色是暖灰 rgba(12,10,9,α) / #F5F1EA 一族。该值疑似**新增的硬编码**，建议核对是否为 `.sb-opt` 预置类引入。
+
+### 13.5 像素级对比（首页整屏 before vs now）
+
+| 指标 | 数值 |
+|---|---|
+| 对比尺寸 | 2880x1800（5,184,000 px） |
+| 差异像素数 | 286,599 |
+| **差异像素占比** | **5.5285%** |
+| **最大通道色差 Δ** | **234** |
+| 平均色差 Δ | 0.5439 |
+| Δ>8 像素占比 | 1.4666% |
+| Δ>32 像素占比 | 0.2872% |
+
+**差异定位（9x6 网格）**：差异**高度集中**在 r2c2–r2c6（y=600–900，即**模式卡轮播带**），该带内 Δ>8 占比 17.9%–25.9%、maxΔ 177–234；其余网格几乎全为 0。
+
+**热力图**（after/_b1-diff-heatmap.png）显示差异轮廓**恰好是 4 张模式卡的边缘/阴影区**，印证 13.3 的结论：**首页整屏的视觉差异，主要来自模式卡丢失阴影**（外加左上 logo 的抗锯齿噪声）。
+
+> **判定**：5.53% / maxΔ 234 **远超**「值等价」量级（对标上次 /ec-studio 的 0.0722%、/pricing 的 maxΔ ≤3）。**结论：本批首页改造不是「值等价」，而是有可见视觉变化** —— 且变化主因是 R4 阴影丢失这个 bug，而非有意设计。修掉 R4 后应重跑本项，预期可回落到 <0.1% / maxΔ ≤3 量级。
+
+### 13.6 本批结论
+
+| 目标 | 结果 |
+|---|---|
+| token 化后色值「值等价」 | ⚠️ **部分达成**：10 个代表点中 7 个完全保持；面板内底色 3 个点有可见变化（13.4） |
+| 选中态改 ring、零布局抖动 | ✅ **达成**：边框宽度恒 1px，选中/默认/hover 三态可辨 |
+| 全站无第二处 shadow token 同类 bug | ❌ **未达成**：发现 **--sb-shadow-sm/md/lg 三个 token 同样未定义**，影响 23 处 / 5 文件，是更大范围的同类问题（R4） |
+| 浮起类容器是否仍有阴影 | ❌ **否**：模式卡 / 参数 chip / 上传卡 / 主 CTA **全部 shadow: none** |
+| 可达性（焦点环、语义按钮） | ✅ 保持：CTA focus-visible 存在且 Tab 可达；--sb-focus-ring 正常解析 |
+
+**优先处理**：R4（补 3 个 shadow token 别名 + 加「token 必须已定义」门禁）→ 修完重跑 13.5 像素对比确认回落。
+
+---
+
+## 14. R4 修复复验（阴影回归 + 幽灵变量 + 像素差异）
+
+> **修复提交**：`4d7896cc`（补 `--sb-shadow-sm/md/lg/xl` 别名）、`9becfad7`（补语义色 `-bg`/`-line` 别名 + 新增幽灵变量门禁 `test/token-vars-defined.test.mjs`）
+> **口径**：与基线逐字一致（1440x900 @ DSF2、locale zh-CN、同选择器集）。
+> **环境**：独立 vite 端口 **5181**（未动他人 5173）；健康判据**一次通过（attempt 1，无重试）**。只读：未改 src、未 commit、未 git add。
+> **数据**：`after/_r4-reverify.json`、`_r4-pixeldiff.json`、`_r4-diff-heatmap.png`、`pixel-home-now-r4.png`
+
+### 14.1 阴影是否回来了 —— ✅ 基本回来（1 项为设计使然）
+
+**token 别名已生效**（浏览器直测）：
+```
+--sb-shadow-sm  raw=0 1px 2px rgba(57,45,26,0.05)   resolves=rgba(57, 45, 26, 0.05) 0px 1px 2px 0px
+--sb-shadow-md  raw=0 4px 16px rgba(57,45,26,0.10)  resolves=rgba(57, 45, 26, 0.1) 0px 4px 16px 0px
+--sb-shadow-lg  raw=0 12px 36px rgba(57,45,26,0.13) resolves=rgba(57, 45, 26, 0.13) 0px 12px 36px 0px, ...
+--sb-shadow-xl  raw=0 28px 90px rgba(57,45,26,0.16) resolves=rgba(57, 45, 26, 0.16) 0px 28px 90px 0px, ...
+```
+
+| 元素 | 上次（R4 未修） | **本次** | 判定 |
+|---|---|---|---|
+| `.homepage-mode-card.card-1`（选中） | none | **`rgba(124,58,237,0.32) 0 0 0 3px, rgba(57,45,26,0.13) 0 12px 36px`** | ✅ 回来 |
+| `.homepage-mode-card.card-2` | none | **`rgba(57,45,26,0.13) 0 12px 36px, rgba(57,45,26,0.06) 0 2px 8px`** | ✅ |
+| `.homepage-mode-card.card-3` | none | **同 card-2** | ✅ |
+| `.homepage-mode-card.card-4` | none | **同 card-2** | ✅ |
+| `.ec-config-trigger`（参数 chip） | none | **`rgba(57,45,26,0.05) 0px 1px 2px`** | ✅ |
+| `.ec-xhs-upload-card`（上传卡） | none | **`rgba(57,45,26,0.05) 0px 1px 2px`** | ✅ |
+| `.ec-workbench-cta`（默认=禁用） | none | `none` | ➖ **设计使然**（见下） |
+| `.ec-workbench-cta`（**可用态**） | none | **`rgba(57,45,26,0.1) 0px 4px 16px`** | ✅ 回来 |
+
+**关于 `.ec-workbench-cta`**：默认态确实为 `none`，但这是 **CSS 明确规定的禁用态**：
+```css
+Home.css:2438  .ec-workbench-cta { box-shadow: var(--sb-shadow-md); }
+Home.css:2452  .ec-workbench-cta:disabled { box-shadow: none; cursor: not-allowed; }
+```
+实测三态：
+| 态 | disabled | box-shadow |
+|---|---|---|
+| 默认（未输入描述） | `true` | `none` ← 禁用态设计 |
+| 输入描述后（可用） | `false` | **`rgba(57,45,26,0.1) 0px 4px 16px 0px`** |
+| Tab 聚焦（focus-visible） | `false` | **`rgba(124,58,237,0.32) 0px 0px 0px 3px`**（焦点环） |
+→ **不是回退**：`--sb-shadow-md` 已生效，只是被 `:disabled { box-shadow: none }` 覆盖。**只要按钮可用就有阴影。**
+
+### 14.2 全站幽灵变量复查 —— 数字大幅下降，且**我上次的 32 处高估了**
+
+| 口径 | 上次 | **本次** |
+|---|---|---|
+| box-shadow 中 `var()` 引用总数 | 65 | **66** |
+| 解析为 `none`（我上次的原始口径） | **32** | **23** |
+
+**但要修正我上次的统计口径**：那 23 处里**大部分是假阳性**。我的扫描器把每个 token **单独当作整个 `box-shadow` 值**测试 —— 而像 `--sb-brand-a32` 这类**颜色 token** 本就该作为颜色分量使用，单独测必然是 `none`。实测证明：
+```
+var(--sb-brand-a32)                  => none            ← 我的旧扫描器做法（假阳性）
+0 5px 14px var(--sb-brand-a32)       => rgba(124, 58, 237, 0.32) 0px 5px 14px  ← 真实用法，正常
+0 0 0 3px var(--sb-brand-ring)       => rgba(124, 58, 237, 0.32) 0px 0px 0px 3px ← 正常
+```
+
+**按正确口径重新归类本次 23 处**：
+
+| 类别 | 处数 | 说明 |
+|---|---|---|
+| 颜色 token 被当整体值测试（**假阳性**） | **15** | `--sb-brand-a32`(6)、`--sb-brand-a18`(3)、`--shadow-red`(2)、`--nav-item-accent`、`--red`、`--blue`、`--sb-brand-ring`、`--sb-danger-hover`、`--sb-brand-600` —— 均**已在用色分量，实际生效** |
+| React Flow 自带 `--xy-*` | **6** | 第三方库内部变量，非本项目 token |
+| **真正的幽灵变量** | **2** | 均为 `--shadow-red @ .gen-btn.xhs` |
+
+**真正的 2 处也已确认是「注释里的历史记录」，非活代码**：
+```
+src/pages/Home/Home.css:238
+  ① 幽灵变量：var(--shadow-red) 全仓无定义 → box-shadow 静默失效；
+```
+全仓搜 `var(--shadow-red)` **仅命中这一行注释**（源码里已注明该问题）；搜 `--shadow-red:` **0 处定义**。
+
+> **结论：真实幽灵变量 = 0 处（活代码）**。R4 已完整修复，且新门禁 `test/token-vars-defined.test.mjs` 已在源头拦住同类问题。
+
+### 14.3 像素对比重跑 —— ⚠️ **未回落到 <0.1%**（5.2923% / maxDelta 235）
+
+| 指标 | 基线→上次改后 | **基线→本次** | 预期 |
+|---|---|---|---|
+| **diffPct** | 5.5285% | **5.2923%** | <0.1% ❌ |
+| **maxDelta** | 234 | **235** | ≤3 ❌ |
+| 平均 Δ | 0.5439 | 0.4837 | — |
+| Δ>8 占比 | 1.4666% | **1.1226%** ↓ | — |
+| Δ>32 占比 | 0.2872% | **0.3344%** ↑ | — |
+
+**差异仍高度集中在 r2c2–r2c6（模式卡轮播带）**：
+```
+r2   7.1/90   0.0/0   20.6/177   18.6/234   3.6/235   2.9/234   1.1/234   0.0/0   0.0/0
+```
+
+#### 为什么没回落？—— **不是 bug，是有意的设计变更**
+
+我逐点采样并比对了模式卡的实测值，**发现残留差异来自三处「刻意的 token 归一化」，而非阴影丢失**：
+
+**① 模式卡阴影被换成 token 档（diff 主因）**
+
+git blame 确认是 commit `51bf2346`（首页主模式切换 token 化）**有意为之**：
+```diff
+- box-shadow: 0 16px 34px rgba(64,48,36,.14);        /* 硬编码 */
++ box-shadow: var(--sb-shadow-lg);                    /* = 0 12px 36px rgba(57,45,26,.13) */
+```
+| | 基线 | 本次 |
+|---|---|---|
+| 未选中卡 | `rgba(64,48,36,0.14) 0 16px 34px` | `rgba(57,45,26,0.13) 0 12px 36px`（**偏移 16→12、模糊 34→36、色相 64,48,36→57,45,26**） |
+| 选中卡 | `rgba(109,93,252,0.12) 0 0 0 3px, rgba(64,48,36,0.19) 0 22px 42px` | `rgba(124,58,237,0.32) 0 0 0 3px, rgba(57,45,26,0.13) 0 12px 36px` |
+
+阴影**偏移量 22px→12px 缩小了 45%**，投影面积明显变化 → 这正是 r2 带数万像素差异的来源。**这是「值不等价」的 token 归并**，属设计决策，需产品/设计确认是否接受。
+
+**② 选中态 ring 变强**：`rgba(109,93,252,0.12)` → `rgba(124,58,237,0.32)`，α 从 0.12 提到 0.32（约 2.7 倍），环更明显。
+
+**③ 卡片底色/描边**：实测 `bg`/`border` 与**基线一致**（`rgb(245,243,255)` / `rgb(221,214,254)`）——这部分不是差异源。
+
+#### 采样证据（r2 带内实际像素）
+```
+(900,700)  基线 rgb(255,255,254)  现在 rgb(245,243,255)  d=12   ← 选中卡底色（基线白→现在淡紫）
+(1100,700) 基线 rgb(252,251,250)  现在 rgb(242,239,251)  d=12   ← 同上
+(700,700)  基线 rgb(245,234,214)  现在 rgb(245,234,214)  d=0    ← 非卡片区完全一致
+(1300,700) 基线 rgb(221,170,140)  现在 rgb(221,170,140)  d=0    ← 图片区一致
+```
+→ **卡片以外的区域像素完全一致**，证明差异确由卡片本身的设计变更引起。
+
+### 14.4 结论
+
+| 目标 | 结果 |
+|---|---|
+| ① 阴影是否回来 | ✅ **回来**：模式卡×4 / 参数 chip / 上传卡 / **CTA 可用态** 均有阴影；CTA 默认态 `none` 是 `:disabled` 设计规定 |
+| ② 幽灵变量复查 | ✅ **真实幽灵 = 0**（活代码）；原始口径 32 → 23，其中 15 假阳性 + 6 第三方 + 2 已注明注释 |
+| ③ 像素回落 <0.1% / maxDelta ≤3 | ❌ **未回落**（5.2923% / 235）；但**已定性：不是 bug，是模式卡阴影/选中环的刻意 token 归一化**（commit `51bf2346`） |
+
+**建议**：
+1. **R4 可关闭** —— 阴影 bug 已修复且有效；
+2. 像素对比项要达标，需产品/设计**确认是否接受模式卡阴影从 `0 16px 34px/.14` 改为 `0 12px 36px/.13`**。若要「值等价」，应把 `--sb-shadow-lg` 的值调回接近基线的档位，或给模式卡单独指定更接近的档；
+3. **修正像素对比的验收口径**：本次证明「整屏 diffPct」会把**有意的设计变更**算成噪声。建议改为**分区段对比**（卡片区 / 非卡片区分别统计）—— 本次非卡片区实测 `d=0`，即可精准证明「改动是局部的、有意的」。
+4. 建议把**我的扫描器口径**（颜色 token 不可单独当 box-shadow 测）写进 `design-audit.mjs` 的说明，避免后续把颜色 token 误报成幽灵变量。

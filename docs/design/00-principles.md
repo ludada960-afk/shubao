@@ -388,15 +388,19 @@ R = |translateY| + 放大外扩
 
 ### 原则 5.1 — 对比度硬门槛
 
-> ### 📌 D23 补充（按**用途**分两档，全站一致）
+> ### 📌 D25 补充（按**实际底色**判，全站一致）
 > | 档 | 判据 | 适用 |
 > |---|---|---|
-> | **文字档** | 白底 `#FFFFFF` **与**页底 `#F5EFE4` **两个底都 ≥4.5:1** | `color:` 用在文本上（含链接、标签、按钮文字） |
+> | **文字档** | 在它**实际所处的底色**上 ≥4.5:1 | `color:` 用在文本上（含链接、标签、按钮文字） |
 > | **图形档** | ≥3:1（WCAG 1.4.11） | 图标 / 描边 / 点缀 / 填充 |
 >
-> **文字一律用 `-strong` 档**：`--sb-ink-brand-strong` / `-danger-strong` / `-success-strong` / `-warning-strong` / `-info-strong`。
-> 原档（`--sb-ink-danger/success/warning`）**保留作图形档，不再允许直接当正文色**。
-> 门禁：`test/ink-contrast.test.mjs`。详见 `40-decisions.md` **D23**。
+> **关键：脱离底色谈 ink 对比度是没有意义的。**同一个 token 落在品牌浅底上达标、
+> 落在页底上不达标，结论取决于**它实际在哪**。无法静态判定时，列入豁免并
+> **写明理由**，不许默认放行。
+>
+> **`-strong` 仅 danger 一族**（D22 原判，**不得凭对称性补档**）：仅 `--sb-ink-danger-strong`。
+> 其余（brand/success/warning/info）**无 -strong**，用原档即可。
+> 门禁：`test/ink-contrast.test.mjs`（含「非 danger 的 -strong 必须报错」守护）。详见 `40-decisions.md` **D25**（D23 已废除）。
 
 | 文本类型 | 最低对比度 | WCAG |
 |---|---|---|
