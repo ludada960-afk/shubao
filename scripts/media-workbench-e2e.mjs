@@ -752,6 +752,8 @@ try {
       followBelow: rect ? Math.round(rect.top - btnRect.bottom) : null,
       hasCopy: Boolean(panel?.querySelector('.skill-preview-copy strong')),
       shots: panel ? panel.querySelectorAll('.skill-preview-shot').length : 0,
+      /* 右栏里**真的取到图**的格子数（空占位不算）——用户要的是"放入对应的那种界面" */
+      shotImages: panel ? panel.querySelectorAll('.skill-preview-shot img').length : 0,
       copyText: panel?.querySelector('.skill-preview-copy p')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) || '',
       tryOnButton: Boolean(tryNode),
       tryOpacity: tryNode ? Number(getComputedStyle(tryNode).opacity) : -1,
@@ -765,7 +767,19 @@ try {
   check(hoverPreview.followBelow !== null && hoverPreview.followBelow >= 4 && hoverPreview.followBelow <= 18,
     '预览窗贴在按钮**正下方**（间隙 10 上下）', String(hoverPreview.followBelow));
   check(hoverPreview.hasCopy && hoverPreview.copyText.length > 4, '预览窗左栏是这条技能的介绍', hoverPreview.copyText);
-  check(hoverPreview.shots === 3, '预览窗右栏是**三格**案例位（没有案例也给满三格维持版式）', String(hoverPreview.shots));
+  /* ═══ 2026-09-19 用户新批注（箭头从案例区指到预览窗）═════════════════════════════════════
+     原话：「你这些**预览窗里面**，放入**对应的这种界面**，看我的箭头表示」——
+     预览窗右栏要放**真实的案例图**（跟下面那块案例区同一个真源），不是三个空框。
+     所以判据从「必须三格」改成「**有真图就显示真图，没有才退回如实占位**」：
+       · 有图（≥1 张 img）→ 通过；
+       · 一张图都没有 → 必须给满 3 个「案例补充中」格子（维持版式，且**如实**说没有）。 */
+  const shots = hoverPreview.shots;
+  const realImages = hoverPreview.shotImages;
+  check(
+    (realImages >= 1 && shots >= 1) || (realImages === 0 && shots === 3),
+    '预览窗右栏是真实案例图（没有素材时才退回三格如实占位）',
+    'shots=' + shots + ' imgs=' + realImages,
+  );
   check(hoverPreview.tryOnButton && hoverPreview.tryOpacity > 0.9 && !hoverPreview.insidePanel,
     '「试一试」长在按钮自己身上、悬停时浮出来（不在浮窗里）', 'opacity=' + hoverPreview.tryOpacity + ' inPanel=' + hoverPreview.insidePanel);
   /* 按钮是**窄按钮**不是宽卡片：高 60 上下（flova 实测 60），一整行横排 */
