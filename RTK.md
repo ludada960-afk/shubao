@@ -4032,6 +4032,32 @@ A：④「生成过程」移进左导航（同一套语言）。
    workbench-panel-ux 第 ㉒ 条当场拦下。改成**只给触发行补描述**（#5-2 的真实落点）。
 
 ### 本轮验证
+### J-⑬ 视频创作台 vs 图片侧：**实测差异已量出来**（下一轮直接照这张表改）
+用户 #11-1/#12-1：「你这个框**直接照抄图片生成那边的样式**不可以吗？你这个跟他完全就不一样呀……
+你连这些**尺寸，布局规格**你都没有搞明白吗？」「看一下代码呀……尺寸啊，框的大小呀，间距啊，阴影啊，
+渐变啊，颜色的色系呀，按钮啊，这些都可以抄呀」
+
+探针（本地 CDP，两条深链各跑一次）：
+  图片侧 `http://localhost:5231/image-creation?id=image.product_suite`
+  视频侧 `http://localhost:5231/video-creation` → 点第一张 `.media-case-card-hit` → `/video-creation?id=video.smart`
+  ⚠️ 视频 hub 的卡片点开后 id 形如 `video.smart`；图片侧是 `image.product_suite`。
+     **id 写错会静默回落成 hub**，探针会全 null —— 那是「没测到」，不是「侧栏没渲染」。
+
+| 量 | 图片侧（商品套图） | 视频侧（智能成片） |
+|---|---|---|
+| `.media-creation` | 1948 宽 / pad `20px 134px 72px` / 白底 | **同** ✓ |
+| `.media-workbench` gap | **28px** | **18px** ✗ |
+| 栏结构 | **两栏并排**：left 570×938 + right 1082×428 | **三块竖堆**：left 1680×128(`is-head-only`) + `media-workbench-panel` 1680×842 + right 1680×314 ✗ |
+| 左栏 | 570 宽，pad `24px 20px 28px`，r12，白底，0.8px `rgba(12,10,9,.1)` | 同**样式**但**整行 1680 宽** ✗ |
+| 中间 `media-workbench-panel` | 图片侧没有这一块 | **完全无样式**（pad 0 / r 0 / 透明 / 无边框）✗ |
+| 右栏 | 1082×428，pad `24px 28px 28px`，r12，白底 + `rgba(57,45,26,.05) 0 1 2` | 同**样式**但 1680×314（整行）✗ |
+
+**结论：差的不是配色，是「布局规格」** —— 视频侧把工作台主体（那块 842 高的裸 div）竖着塞进单列，
+而图片侧是「左栏配参数 / 右栏看结果」的两栏。用户说的「框」就是那块 842 高的裸 div。
+改法（下一轮）：给视频侧套上图片侧同一套两栏骨架（`src/components/media/WorkbenchShell.jsx` +
+`src/pages/MediaCreation/MediaCreation.css` 的 `.media-workbench-left/right`），并同步 `.media-workbench`
+的 gap 与栏宽；`.media-workbench-panel` 要么上同一张卡（r12 + 0.8px 描边 + 白底），要么并进右栏。
+⚠️ 动手前先看 e2e 里 `.media-workbench-*` 的选择器（批 J-⑦⑧ 刚动过那批断言）。
 全量 3930 测试 / 3920 通过 / 0 失败；precommit ✅（250 门禁 + e2e 207 断言）；已部署并线上复核。
 用户 #5-2：「右边不要留白这么多呀……为什么你的第一个模型下面没有副标题呢？」
 副标题那半句的根因：面板一打开清单就张开（openModelList）⇒ **触发行就是清单第一行**，而它写死 showDesc=false。
