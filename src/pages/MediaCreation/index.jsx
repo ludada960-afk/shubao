@@ -436,7 +436,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       .filter(item => item.cover);
 
     /* 视频：服务端任务列表按技能筛出本页这一份（标记只写在本机，见 videoJobTags）。
-       ⚠️ 筛不出来**不代表任务没了** —— 上方嵌进来的工作台里的「生成记录」永远是全量。 */
+       ⚠️ 筛不出来**不代表任务没了** —— 它的结果仍然在「我的作品」里（用户口径：
+          子页面生成的东西，一边进这条技能的历史、一边进我的作品）。 */
     const fromVideos = embed === 'video'
       ? videoJobsOfSkill(videoJobs, skill?.id).map(job => {
           const done = job.status === 'completed' && job.resultUrl;
@@ -1223,9 +1224,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
              会把事件对象当成字段名写进 values，而且必填校验会莫名通过。 */
           onRun: () => { void parseProductInfo(); },
         } : null}
+        /* ═══ 2026-09-19 用户口径（本轮澄清，原文）═══════════════════════════════════════════
+           「各个子skill自己的页面跑生成的话，一方面是会在工作台右边的**历史**里面展示自己这个
+             skill 生成的历史记录，另一方面**同时也**会进入**我的作品**里面去。」
+           「「生成记录」是什么鬼，不需要啊，左边导航栏有**我的作品**就够了。」
+           所以空态文案改成说**这件事本身**：这条技能的历史在这里，同时也会进「我的作品」——
+           不再把用户指去别处找什么「生成记录」（那个东西不存在，也不该存在）。 */
         emptyHistoryHint={embed === 'video'
-          ? '这条技能还没有生成记录。这个账号的全部视频任务都在上方工作台的「生成记录」里，结果出来后会同步到这里。'
-          : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里。' : '')}
+          ? '这条技能还没有生成记录。在这里生成的视频会出现在这一栏里，同时也会进「我的作品」。'
+          : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里，同时也会进「我的作品」。' : '')}
       />
     </div>
   );
