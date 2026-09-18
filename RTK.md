@@ -4235,3 +4235,16 @@ D 组：⑭看竞品视频 skill 教学示例学「代为撰写」→ 图片侧�
 K-C 图片侧「预览」升级成方案预览三步（0.5 积分/次，SKU `ec_plan_preview`）→
 K-D 视频侧「代为撰写」（同一条流水线，入口在提示词框旁）→
 K-E 视频侧所有 skill 子页面 1:1 + 图片侧子页面回到同一套规格。
+
+### K-C 起点图（下一轮直接从这里开工，别再翻一遍）
+- **三步流水线的形态**（用户原话拆解）：① 素材理解（**可编辑纠偏**）→ ② 方向/偏好（照知渔三个维度的真实档位）
+  → ③ 方案预览（可改、确认后应用）→ 再生成。取证在 `docs/design/61-quantv-dawei-chuanxie.md`。
+- **图片侧入口**：`src/pages/MediaCreation/index.jsx` 的 `previewStep`（约 1138-1260 行，批 J-⑭ 建的），
+  现在只是一个确认对话框；要把它升级成三步。
+- **视频侧已经有一条同类链路可复用**：`src/pages/VideoStudio/index.jsx:849` 调
+  `quoteBillingAction({ sku: 'video_plan_analysis', quantity: 1 })` + `POST /api/video/plans`
+  （`server/index.mjs:4755`，服务端实现见 `server/videoPlanning.mjs`）。
+- ⚠️ **价格要统一**：老 SKU `video_plan_analysis` 是 **1 积分**（1000 units），而用户这一轮拍的是
+  **0.5 积分 / 次**（`ec_plan_preview` = 500 units）。两边是同一个东西（用户原话：「这两套东西本质上
+  都是一个设计方案」）⇒ 落地时要**一个价**，并把老 SKU 的处置写清楚（改价 or 并存 + 说明），别留两个价。
+- ⚠️ **入口文案**：图片侧按钮写「生成预览」（竞品原文），视频侧写「代为撰写」——文案可不同，逻辑必须同一条。
