@@ -34,8 +34,16 @@
   align-items: center;
   gap: 8px;
   padding: 16px 8px 18px;
-  /* 暖色分层底：与全站营销面同一族，但压到最浅一档（导航是骨架，不该抢内容） */
-  background: linear-gradient(180deg, var(--sb-surface-card) 0%, var(--sb-surface-tint) 100%);
+  /* ═══ 2026-09-19 批 J-⑤（用户批注 #12-2）：底色换到与页面**同一族** ═════════════════════
+     用户原话：「你左边导航栏这里，我感觉这个背景色似乎也很突兀，就是你的**过渡不够丝滑**。
+     你好好想一下这个背景色应该怎么安排会比较好吧？」
+     改前它是 linear-gradient(白 → 3% 黑) —— 纯白起步、灰收尾；
+     而右边的页面是 linear-gradient(neutral-25 → neutral-100) —— 近白起步、**暖**收尾。
+     两边**不是一个色系**：顶上差一点点、底下越拉越开，x=96 那条边上就出现一道缝。
+     现在换成与页面**同一组 token**（neutral-25 → 50 → 100），两边同起同收。
+     ⚠️ 侧栏是 position: fixed（不随页面滚），所以它**必须**自带底、不能透明 ——
+        透明的话滚动时它会显出色块在变。这里求的是"同一族"，不是"同一层"。 */
+  background: linear-gradient(180deg, var(--sb-neutral-25) 0%, var(--sb-neutral-50) 42%, var(--sb-neutral-100) 100%);
   border-right: 1px solid var(--sb-border-subtle);
 }
 

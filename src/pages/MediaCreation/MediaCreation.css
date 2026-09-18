@@ -43,8 +43,29 @@
      L2 总页面 = --sb-neutral-25 (#FDFBF7 近白微暖) —— 浏览面，底色退到几乎无感，让案例网格说话
      L3 子页面 = --sb-neutral-0 (#FFFFFF 纯白) —— 工作面，左栏靠边框与内滚动分区，不用底色分区
    ⚠️ 三级用的是**同一族的三个档位**，不是三种无关的颜色 —— 层级要读得出来，但不能像三个产品。 */
+/* ═══ 2026-09-19 批 J-②：总页面的底色上提到**整个外壳一层**（用户批注 #2-2）═══════════════
+   用户原话：「你这个**背景色做成全白真的很难看**……你要有一个**全局的意识**，就是整个页面的背景是怎么做的……
+   而不是说一块一块的去改。我觉得你应该整个去改。就比如说你现在上面这个导航的区域，还有中间的总页面，
+   他们**应该是一个整体的背景色去做一个区块规划**的，而不是像你现在这样它是**三块背景拼接**到一起。」
+   实测（CDP）改前：body 暖米 rgb(245,239,228) 铺满 0..3156；顶栏**透明**（所以露出的是暖米）；
+   .media-creation 从 y=72 起又是自己那条近白渐变 rgb(253,251,247) → **y=72 处有一条硬缝**，
+   左右还有侧栏/顶栏/内容三块不同色。这就是用户看到的三块拼接。
+   改法：渐变**上提到 .app-shell 这一层**（它同时罩住左导航与主区），顶栏与内容全部透明 ——
+   于是整页只有**一条**连续的背景，从最顶上一直流到底。
+   ⚠️ 用 :has() 限定在"这一个页面上确实是总页面"时才生效：
+      · 支持 :has()（现代 Chrome）→ 外壳出渐变，一条到底；
+      · 不支持 → 外壳没有背景，而 .media-creation 也已经透明 → 露出的是一致的暖米底，
+        **仍然是一块**（只是没有那条渐变），不会退回三块拼接。两种情况都不会难看。
+   ⚠️ 子页面（L3 纯白工作面）**不动**：它仍然是白底，因为那是"干活的地方"，与总页面不是一个层级。 */
+.app-shell:has(.media-creation[data-surface='hub']) {
+  background: linear-gradient(180deg, var(--sb-neutral-25) 0%, var(--sb-neutral-50) 480px, var(--sb-neutral-100) 100%);
+}
+.app-shell:has(.media-creation[data-surface='hub']) .app-main {
+  background: none;
+}
+/* 总页面本体透明 —— 它现在把底色交给了外壳那一条（它就是"整体"的一部分，不该自己再铺一层）。 */
 .media-creation[data-surface='hub'] {
-  background: linear-gradient(180deg, var(--sb-neutral-25) 0%, var(--sb-neutral-50) 420px, var(--sb-neutral-100) 100%);
+  background: none;
 }
 .media-creation[data-surface='subpage'] {
   background: var(--sb-neutral-0);
