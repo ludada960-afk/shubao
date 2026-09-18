@@ -87,3 +87,56 @@ xn-wan3.0                      ¥0.455 | advanced/advanced-one/default | ratio=0
 `sd-2.5-js2` ¥3.38 · `seedance-2.0-mini` ¥3.77 · `seedance-2.0-fast` ¥3.77 · `seedance-2.0-4k` ¥5.85
 
 ⚠️ **用户明确要求：现在不要跑这些模型**（他后期自己跑）。本文件里的数字全部来自**只读接口**，没有任何生成请求。
+
+---
+
+## 五、2026-09-19 零成本探针复核（批 K-B 第一半）
+
+手法：故意用**非法时长**提交 —— 上游参数校验在**生成之前**拦下 ⇒ 渠道活着、模型名对得上。
+⚠️ 见下面「探针安全事故」一节：**不是每条路由都校验时长**。
+
+```
+sd-2.0-933-medium          ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥441.558000","data":null}
+sd-2.0-933-max             ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥623.376000","data":null}
+seedance-2.0-fast-480p     ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥324.675000","data":null}
+seedance-2.0-480p          ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥584.415000","data":null}
+seedance-2.0-fast-720p     ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥974.025000","data":null}
+seedance-2.0-720p          ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥1266.232500","data":null}
+sd-2.0-js900               ALIVE          | {"code":"fail_to_fetch_task","message":"{\"error\":{\"code\":\"invalid_video_parameters\",\"message\":\"durati
+sd-2.0-as                  ALIVE          | {"code":"fail_to_fetch_task","message":"{\"error\":{\"code\":\"invalid_video_parameters\",\"message\":\"durati
+sd-2.0-js                  ALIVE          | {"code":"fail_to_fetch_task","message":"{\"error\":{\"code\":\"invalid_video_parameters\",\"message\":\"durati
+sd-2.5-js2                 ALIVE          | {"code":"fail_to_fetch_task","message":"{\"error\":{\"code\":\"invalid_video_parameters\",\"message\":\"durati
+seedance-2.0-mini          ALIVE          | {"code":"fail_to_fetch_task","message":"{\"code\":\"invalid_duration\",\"message\":\"该模型不支持此时长，请改用支持的秒数后重试。\",
+seedance-2.0-fast          ALIVE          | {"code":"fail_to_fetch_task","message":"{\"code\":\"invalid_duration\",\"message\":\"该模型不支持此时长，请改用支持的秒数后重试。\",
+seedance-2.0-4k            OTHER          | {"code":"model_price_error","message":"quota conversion (QuotaFromFloat) overflow: original=2.922075e+09, clam
+xn-seedance-2.0            ALIVE          | {"error": {"message": "unsupported video duration", "type": "reference_asset_error"}}
+xn-seedance-2.0-fast       ALIVE          | {"error": {"message": "unsupported video duration", "type": "reference_asset_error"}}
+xn-seedance-2.0-second     ALIVE          | {"error": {"message": "unsupported video duration", "type": "reference_asset_error"}}
+xn-seedance-2.5            ALIVE          | {"error": {"message": "unsupported video duration", "type": "reference_asset_error"}}
+xn-minimax-h3              ALIVE          | {"error": {"message": "unsupported video duration", "type": "reference_asset_error"}}
+xn-minimax-h3-second       ALIVE          | {"error": {"message": "unsupported video duration", "type": "reference_asset_error"}}
+ip233-minimax-h3           ALIVE(quota)   | {"code":"insufficient_user_quota","message":"预扣费额度失败, 用户剩余额度: ¥6.122880, 需要预扣费额度: ¥363.636000","data":null}
+grok-video                 UNREACHABLE    | {"code":"fail_to_fetch_task","message":"{\"error\":{\"code\":\"\",\"message\":\"Invalid request: model grok-vi
+grok-video-1.5             UNREACHABLE    | {"code":"fail_to_fetch_task","message":"{\"error\":{\"code\":\"\",\"message\":\"Invalid request: model grok-vi
+sd-reference-image-25      OTHER          | {"id":"task_SbjFf6iogm8jpBEEygQKg7ZsqxRXiE05","task_id":"task_SbjFf6iogm8jpBEEygQKg7ZsqxRXiE05","object":"vide
+sd-reference-image         OTHER          | {"code":"fail_to_fetch_task","message":"{\"code\": \"INVALID_TASK_PARAMETERS\", \"message\": \"durationSeconds
+```
+
+### 结论
+- **可用的（ALIVE / ALIVE(quota)）**：`sd-2.0-933-medium` `sd-2.0-933-max` `sd-2.0-js900` `sd-2.0-as`
+  `sd-2.0-js` `sd-2.5-js2` `seedance-2.0-480p` `seedance-2.0-fast-480p` `seedance-2.0-720p`
+  `seedance-2.0-fast-720p` `seedance-2.0-mini` `seedance-2.0-fast` `seedance-2.0-4k`
+  `xn-seedance-2.0` `xn-seedance-2.0-fast` `xn-seedance-2.0-second` `xn-seedance-2.5`
+  `xn-minimax-h3` `xn-minimax-h3-second` `ip233-minimax-h3` —— **20 条左右**，
+  这就是用户说的「很多模型」的真实来源；上一版台账（09-16）把它们大量误判成不可达。
+- **真不可达**：`grok-video` `grok-video-1.5`（上游回 not a public model name）。
+- 注：ALIVE(quota) 那些是因为探针用了 999 秒才把预扣费放大到几百元；按正常 5 秒算单价都在 ¥0.3~3。
+
+### ⚠️ 探针安全事故（必须如实记，也要改手法）
+`sd-reference-image-25` **不校验时长**：非法报文被它 200 收下并**真的建了任务**
+（`task_SbjFf6iogm8jpBEEygQKg7ZsqxRXiE05`）。这已经是第二次了（第一次是第 3 轮的 `omni-fast`）。
+- 代价：按该模型单价 **≤ ¥0.91**（第一次 omni-fast ≤¥0.86）。两次合计 **≤ ¥1.8**，均由我误建，如实报备。
+- **新的探针纪律**（写进代码注释与本文件）：
+  1. **不再对"未知校验行为"的路由盲发探针**；
+  2. 先读该模型在中转的**文档页**拿到它自己的参数集，再用**对它非法**的字段去试；
+  3. 仍然不能确认的，**宁可标成"未验证"也不探**。
