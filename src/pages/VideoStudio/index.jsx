@@ -1301,7 +1301,10 @@ export default function VideoStudioPage({
                       也就不可能被误做成"点了会失败"的选项。这是本项目对"死按钮"的一贯口径。 */}
                 {Array.isArray(capabilities.unavailableProducts) && capabilities.unavailableProducts.length > 0 && (
                   <p className="video-model-unavailable">
-                    另外 {capabilities.unavailableProducts.length} 个模型正在接通：
+                    {/* 2026-09-19 批 K-B：原来是「正在接通」—— 但可灵/Veo 三条的真实理由是
+                        「上游已下架该模型」，两句话凑在一起自相矛盾。改成中性且对四种台账状态
+                        （unreachable / blocked / unverified / retired）都成立的说法。 */}
+                    另外 {capabilities.unavailableProducts.length} 个模型暂不可选：
                     {capabilities.unavailableProducts.map(item => item.label + "（" + item.reason + "）").join("、")}
                   </p>
                 )}
