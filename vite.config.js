@@ -32,6 +32,20 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3001',
     },
+    /* ═══ 2026-09-19：把编辑器的临时目录排除在文件监视之外 ═══════════════════════════════
+       症状：dev server 会**毫无征兆地整个崩掉**，栈顶是
+         Error: EBUSY: resource busy or locked, watch '...\.RTK.md.19908.<uuid>.tmpdir\RTK.md.tmp'
+       根因不是我们的代码 —— 是"改文件"这个动作本身：写盘工具走的是
+       **同目录临时文件 + rename**（.RTK.md.<pid>.<uuid>.tmpdir/RTK.md.tmp），
+       而 vite 的 watcher 会把仓库里任何新出现的路径都收进去监视；
+       Windows 上那个临时文件在 rename 的瞬间是**被占用**的 → watcher 抛 EBUSY → 进程退出。
+       所以每次编辑根目录下的文件（RTK.md 这种）都有概率把开发服务器打死，
+       然后下一轮 work 就全是"页面打不开"的假故障。
+       修法：把这类临时目录整类排除（它们永远不会是页面资源）。
+       ⚠️ 不要改成 chokidar 的 usePolling：那会更慢，而且没解决"watch 一个不该 watch 的路径"。 */
+    watch: {
+      ignored: ['**/.*.tmpdir/**', '**/*.tmpdir/**'],
+    },
   },
   build: {
         cssCodeSplit: false,
