@@ -166,7 +166,13 @@ export function skillImages(skill, values = {}) {
 export function skillGenerationSettings(skill, values = {}) {
   const ratio = text(values.ratio);
   const resolution = (text(values.clarity) || DEFAULT_RESOLUTION).toUpperCase();
-  const count = Math.max(1, Math.min(9, Number.parseInt(values.count, 10) || 1));
+  /* ⚠️ 2026-09-19 批 I-9：上限从 **9 → 16**。
+     原因是「包含模块」那条链：A+ 内容有 16 个模块，勾满就是 16 张，
+     而这里一直夹在 9 —— 结果是"用户勾了 16 个，只出 9 张、也只收 9 张的钱"，
+     一个**静默的错**（不报错、不提示，用户只会觉得少给了）。
+     16 是当前声明源里模块数的上限（imageSkills 的 A+ 那 16 条），
+     其它技能靠 countField(n) 自己声明上限（都 ≤ 9），所以抬这条不会放宽它们。 */
+  const count = Math.max(1, Math.min(16, Number.parseInt(values.count, 10) || 1));
   const visual = SERVER_VISUAL_SKILL_IDS.includes(skill && skill.visual) ? skill.visual : 'free';
   return {
     ratio: LEGAL_RATIOS.has(ratio) ? ratio : '1:1',

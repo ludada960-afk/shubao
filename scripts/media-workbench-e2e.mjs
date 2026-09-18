@@ -221,7 +221,16 @@ if (srcChangedAt > distBuiltAt) {
 await new Promise(r => server.listen(PORT, '127.0.0.1', r));
 await mkdir('.tmp/e2e', { recursive: true });
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+/* ═══ 2026-09-19 批 I-9：端到端跑在 prefers-reduced-motion: reduce 下 ═══════════════════════
+   症状：场景里点「示例 / 历史」页签偶发 `page.click: element is not stable`，30 秒超时
+   （同一版本独立跑两次能过、在 precommit 里又红 —— 典型的时序型 flake，不是功能坏了）。
+   根因是页面里有**持续运行**的动效：案例区的视频预览在播、出图槽位在陆续落图、
+   首页模式卡有入场动画 —— Playwright 的"元素稳定"判据要求连续两帧位置不变，
+   在这种页面上可能永远不成立。
+   改法：端到端统一按「减少动效」跑（站点本来就实现了这套覆盖，见各处 prefers-reduced-motion），
+   动效停下来，稳定性判据自然成立 —— 这是**关掉噪声**，不是**跳过检查**：
+   元素可见性、可点性、是否被别的元素挡住（那正是之前粘顶栏那个真 bug 的抓手）一条都没绕过。 */
+const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
 const SEED_SESSION = () => {
   const future = new Date(Date.now() + 3600 * 1000).toISOString();
   localStorage.setItem('sb-auth', JSON.stringify({ id: 'e2e@example.com', email: 'e2e@example.com', nickname: 'E2E', token: 'e2e-token', expiresAt: future }));
@@ -1189,7 +1198,17 @@ try {
       await page.waitForTimeout(300);
       const landed = await page.evaluate(() => document.querySelectorAll('.media-run-slot img').length);
       if (!landed) { result.problem = '请求发了但结果没落到工作台'; return result; }
-      if (calls.regenerate.length !== before + 1) { result.problem = '这一次点击发了 ' + (calls.regenerate.length - before) + ' 次请求'; return result; }
+      /* ═══ 2026-09-19 批 I-9：判据从「一次点击 = 一次请求」改成「请求数 = 按钮上写的张数」══════
+         原来这条压的是就地生成那条单图链路（一次点击出一张）。
+         「包含模块」打通之后，A+ 内容是**勾几个模块出几张**（用户批注 #3-2：
+         「选中多少个模块就是多少张」），于是一次点击会发 N 次请求 —— 这是**对的**行为，
+         旧判据把它当成了错。
+         ⚠️ 新判据比旧判据**更强**：旧判据只看是不是 1 次（不看钱），
+            新判据要求「实际请求数」与「按钮上写的积分数」对得上 ——
+            这才咬住勾几个出几张、收几张的钱这条链。 */
+      const expected = Math.max(1, Number.parseInt(String(shape.points).match(/(\d+)\s*积分/)?.[1] || '1', 10));
+      const fired = calls.regenerate.length - before;
+      if (fired !== expected) { result.problem = '请求数 ' + fired + ' 与按钮上的积分 ' + expected + ' 对不上（勾几个出几张、收几张的钱）'; return result; }
       const body = calls.regenerate[calls.regenerate.length - 1] || {};
       result.sent = body;
       result.problem = contractProblem(body, { hasUpload: shape.uploads > 0 });

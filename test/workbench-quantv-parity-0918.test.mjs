@@ -67,24 +67,45 @@ test('③ 示例区有编号交付清单，且套图的清单与方案真源同�
      ② 页面里不许有"已选模块 → 张数/报价"的计算（moduleSelection / selectedModules 参与 quantity/points）；
      ③ 只读清单必须是**不可点的静态结构**（li + span），不是按钮 —— 点了不能改价钱。
    这样才能同时满足"清单内容照抄"与"钱路不许被勾选改掉"。 */
-test('④ 可勾选模块仍然不许出现（清单只读是因为钱：张数与报价由方案算死）', () => {
+test('④ 模块可勾选（用户 2026-09-19 批 I 亲自批准），勾选数与报价必须同源', () => {
+  /* ═══ 2026-09-19 批 I-9：这条门禁**按用户指示反转**，原判据与理由是反的 ═══════════════════
+     原判据：「可勾选模块仍然不许出现（清单只读是因为钱：张数与报价由方案算死）」。
+     用户第 14 轮批注原话（就在那张 A+ 内容的截图上）：
+       「这些按钮都是不能点击的，完全是死按钮……你连按钮都没法交互，
+         那背后的生成逻辑肯定也是没打通的呀，要彻底的打通逻辑呀。」
+       「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗，
+         为什么要自己写多少张的数量呢？」
+     并在对话里明确批准：「『包含模块』的勾选框——让勾选真的生效（少勾一张、报价跟着变）是可以的」。
+     ⚠️ 原来那条担心的**不是能不能点，是点了以后钱会不会对不上** —— 那个担心是对的。
+        所以这一版不是删掉它，而是换成一组**咬住钱路**的断言：
+          ① 声明源不许出现可勾选字段（勾选是界面状态，不是声明出来的字段）；
+          ② 声明源里的 modules 仍然只能是「名称 + 一句说明」，不许带 checked/quantity；
+          ③ 勾选数必须**唯一地**驱动张数（注入 effectiveValues.count），不许在页面里另算一份；
+          ④ 报价必须从**同一个** effectiveValues 取数 —— 勾几个出几张、收几张的钱，同源；
+             这才是原来那条门禁真正要守的东西（两个数字各自演化才是会出事的地方）；
+          ⑤ 一个都不许勾到底：0 张不是一个能下单的请求。 */
   for (const skill of IMAGE_SKILLS) {
-    assert.equal(skill.selectableModules, undefined, skill.id + ' 不许出现可勾选模块');
+    assert.equal(skill.selectableModules, undefined, skill.id + ' 不许把勾选做成声明字段（勾选是界面状态）');
   }
-  /* 声明源里的 modules 只能是"名称 + 一句说明"（只读清单的内容），不许带 checked/selected/quantity */
   for (const skill of IMAGE_SKILLS) {
     for (const item of (skill.modules || [])) {
-      assert.equal(item.checked, undefined, skill.id + ' 的模块不许带勾选状态');
-      assert.equal(item.quantity, undefined, skill.id + ' 的模块不许带张数（张数由方案算）');
+      assert.equal(item.checked, undefined, skill.id + ' 的模块声明不许带勾选状态');
+      assert.equal(item.quantity, undefined, skill.id + ' 的模块声明不许带张数');
     }
   }
-  /* 页面侧：不许有"已选模块"这种状态参与计价 */
-  assert.doesNotMatch(media, /selectedModules|moduleSelection|选中模块/);
-  assert.doesNotMatch(media, /modules[\s\S]{0,120}(quantity|points)\s*[:=]/, '模块不许参与张数/报价计算');
-  /* 只读清单必须渲染成静态结构（li），不是按钮 */
+  /* ③ 勾选数 → 张数：唯一入口是注入 effectiveValues */
+  assert.match(media, /skillModules\.length\) return \{ \.\.\.base, count: Math\.max\(1, selectedModules\.length\) \}/,
+    '勾选数必须以 count 注入 effectiveValues（张数的唯一真源）');
+  /* ④ 报价从同一个 effectiveValues 取数 */
+  assert.match(media, /skillPointsEstimate\(skill, effectiveValues\)/, '报价必须与张数同源（不许各算一份）');
+  /* ⑤ 最后一个不许取消 */
+  assert.match(media, /if \(next\.size >= skillModules\.length\) return previous;/, '不许把模块全部取消（0 张不能下单）');
+  /* 清单必须是真能点的控件（用户批注 #10：死按钮） */
   const shell = read('src/components/media/WorkbenchShell.jsx');
-  const checklist = shell.slice(shell.indexOf('media-workbench-checklist-items'), shell.indexOf('media-workbench-checklist-items') + 900);
-  assert.match(checklist, /<li key=\{item\.name\}>/, '清单条目必须是 li（静态），不许是可点的 button');
-  assert.match(checklist, /media-workbench-checklist-check/, '每条前面一个勾（照竞品形态），但不可点');
+  const start = shell.indexOf('media-workbench-checklist-items');
+  const checklist = shell.slice(start, start + 2200);
+  assert.match(checklist, /role="checkbox"/, '清单条目必须是 checkbox（用户 #10：不许是死按钮）');
+  assert.match(checklist, /aria-checked=\{on\}/, '勾选态必须对读屏可见');
+  assert.match(checklist, /section\.onToggle\?\.\(item\.name\)/, '点一下必须能改状态');
   assert.match(read('docs/design/47-quantv-workbench-teardown.md'), /明确不照抄/, '拆解文档要写清哪些没抄、为什么');
 });

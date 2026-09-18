@@ -78,6 +78,54 @@
 .media-workbench-checklist-items { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
 .media-workbench-checklist-check { flex: 0 0 auto; font-size: 15px; font-weight: 800; color: var(--sb-brand-600); line-height: 1.5; }
+/* ═══ 可勾选那一档（2026-09-19 批 I-9，用户批注 #10）═══════════════════════════════════════
+   用户原话：「这些按钮都是不能点击的，完全是死按钮。」
+   勾选框做成**方形描边 + 选中填品牌色对勾**（不是把原来那个 ✓ 换个颜色 ——
+   原来那是一个纯装饰的字符，看不出"这里能点"）。整行是点击区（min-height 44，触屏规范）。
+   ⚠️ 未选中：只留一个空方框，字色降到 --sb-ink-2；选中：方框填品牌色 + 白勾 + 字回到 --sb-ink-1。
+      这就是"勾了几个一眼看得出来"的全部依据。 */
+.media-workbench-checklist.is-selectable .media-workbench-checklist-items li { padding: 0; }
+.media-workbench-checklist-toggle {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 2px;
+  border: 0;
+  border-radius: var(--sb-radius-md);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .16s ease;
+}
+.media-workbench-checklist-toggle:hover { background: var(--sb-hover-bg); }
+.media-workbench-checklist-toggle:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-workbench-checklist-toggle .media-workbench-checklist-check {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--sb-border-strong);
+  border-radius: 4px;
+  background: var(--sb-surface-card);
+  color: var(--sb-brand-ink);
+  font-size: 12px;
+  line-height: 1;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+.media-workbench-checklist-toggle.is-on .media-workbench-checklist-check {
+  border-color: var(--sb-ink-brand);
+  background: var(--sb-ink-brand);
+}
+.media-workbench-checklist-toggle .media-workbench-checklist-copy strong { color: var(--sb-ink-2); }
+.media-workbench-checklist-toggle.is-on .media-workbench-checklist-copy strong { color: var(--sb-ink-1); }
+@media (prefers-reduced-motion: reduce) {
+  .media-workbench-checklist-toggle,
+  .media-workbench-checklist-toggle .media-workbench-checklist-check { transition: none; }
+}
 .media-workbench-checklist-copy { display: grid; gap: 1px; min-width: 0; }
 .media-workbench-checklist-copy strong { font-size: 15px; font-weight: 600; color: var(--sb-ink-1); }
 .media-workbench-checklist-copy small { font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }

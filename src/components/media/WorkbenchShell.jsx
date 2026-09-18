@@ -159,26 +159,61 @@ export default function WorkbenchShell({
               </div>
             </section>
           ))}
-          {sections.map(section => (
-            <section className="media-workbench-group media-workbench-checklist" key={section.key || section.title}>
-              <h3 className="media-workbench-group-title">
-                {section.title}
-                <span className="media-workbench-checklist-count">已选 {section.items.length}/{section.items.length}</span>
-              </h3>
-              {section.note && <p className="media-workbench-group-note">{section.note}</p>}
-              <ul className="media-workbench-checklist-items">
-                {section.items.map(item => (
-                  <li key={item.name}>
-                    <span className="media-workbench-checklist-check" aria-hidden="true">✓</span>
-                    <span className="media-workbench-checklist-copy">
-                      <strong>{item.name}</strong>
-                      {item.hint && <small>{item.hint}</small>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+          {sections.map(section => {
+            /* ═══ 可勾选的清单块（2026-09-19 批 I-9，用户批注 #10 / #3-2）═══════════════════════
+               用户原话：「这些按钮都是不能点击的，完全是死按钮……你连按钮都没法交互，
+                 那背后的生成逻辑肯定也是没打通的呀，要彻底的打通逻辑呀。」
+               以及：「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗，
+                 为什么要自己写多少张的数量呢？」
+               ⚠️ 只有调用方**显式声明 selectable** 才渲染成可勾选 ——
+                  其余清单块（历史上那些真的只读的）行为一个字不变。 */
+            const selectable = section.selectable === true;
+            const checkedCount = selectable
+              ? section.items.filter(item => item.checked !== false).length
+              : section.items.length;
+            return (
+              <section className={'media-workbench-group media-workbench-checklist' + (selectable ? ' is-selectable' : '')} key={section.key || section.title}>
+                <h3 className="media-workbench-group-title">
+                  {section.title}
+                  <span className="media-workbench-checklist-count">已选 {checkedCount}/{section.items.length}</span>
+                </h3>
+                {section.note && <p className="media-workbench-group-note">{section.note}</p>}
+                <ul className="media-workbench-checklist-items">
+                  {section.items.map(item => {
+                    const on = item.checked !== false;
+                    if (!selectable) {
+                      return (
+                        <li key={item.name}>
+                          <span className="media-workbench-checklist-check" aria-hidden="true">✓</span>
+                          <span className="media-workbench-checklist-copy">
+                            <strong>{item.name}</strong>
+                            {item.hint && <small>{item.hint}</small>}
+                          </span>
+                        </li>
+                      );
+                    }
+                    return (
+                      <li key={item.name}>
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          className={'media-workbench-checklist-toggle' + (on ? ' is-on' : '')}
+                          onClick={() => section.onToggle?.(item.name)}
+                        >
+                          <span className="media-workbench-checklist-check" aria-hidden="true">{on ? '✓' : ''}</span>
+                          <span className="media-workbench-checklist-copy">
+                            <strong>{item.name}</strong>
+                            {item.hint && <small>{item.hint}</small>}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
           <div className="media-workbench-cta">
             <button type="button" className="media-workbench-submit" disabled={disabled || ctaDisabled} onClick={() => onCta?.()}>
               {ctaLabel}

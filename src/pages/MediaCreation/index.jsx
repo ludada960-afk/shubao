@@ -308,7 +308,28 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const embed = runKind === 'embed' && skill ? skillEmbedOf(skill) : '';
 
   /* 生效值 = 声明源默认值 + 用户改动。校验、积分、下发参数一律基于它（与界面显示同源）。 */
-  const effectiveValues = useMemo(() => (skill ? { ...initialSkillValues(skill), ...values } : values), [skill, values]);
+  /* ═══ 包含模块：勾选真的生效（2026-09-19 批 I-9，用户批注 #10 / #3-2）═══════════════════
+     用户原话：「这些按钮都是不能点击的，完全是死按钮……你连按钮都没法交互，
+       那背后的生成逻辑肯定也是没打通的呀，要彻底的打通逻辑呀。」
+     以及：「**选中多少个模块就是多少张**，并且对应他自己的模块主题不是吗，
+       为什么要自己写多少张的数量呢？」
+     所以这里把三件事接成一条链：
+       勾选 → selectedModules → effectiveValues.count → 报价（skillPointsEstimate）
+                                              → 出图循环（skillGenerationSettings.count）
+     ⚠️ 接在 effectiveValues 上是**故意的**：报价、校验、下发请求三处早就都从它取数，
+        注入这一个字段就等于三处同时生效，不需要在页面里各写一遍。 */
+  const [moduleOff, setModuleOff] = useState(() => new Set());
+  useEffect(() => { setModuleOff(new Set()); }, [skill && skill.id]);
+  const skillModules = useMemo(() => (skill && Array.isArray(skill.modules) ? skill.modules : []), [skill]);
+  const selectedModules = useMemo(
+    () => skillModules.filter(module => !moduleOff.has(module.name)),
+    [skillModules, moduleOff],
+  );
+  const effectiveValues = useMemo(() => {
+    const base = skill ? { ...initialSkillValues(skill), ...values } : values;
+    if (skillModules.length) return { ...base, count: Math.max(1, selectedModules.length) };
+    return base;
+  }, [skill, values, skillModules, selectedModules]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   /* 套图按**套**计价：张数与报价必须来自与面板同一份方案计算（skillRun.buildSuiteRun） */
   const suiteRun = useMemo(() => (skill && suite ? buildSuiteRun(skill, effectiveValues) : null), [skill, suite, effectiveValues]);
@@ -470,16 +491,26 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      用户看到的是"这一套会交出哪几样、全都交"，不是"勾几个改价钱"。
      ⚠️ 清单内容来自声明源（skill.modules，逐条照抄竞品原文），页面不写死任何一条。 */
   const sections = useMemo(() => {
-    if (!skill) return [];
-    const modules = Array.isArray(skill.modules) ? skill.modules : [];
-    if (!modules.length) return [];
+    if (!skill || !skillModules.length) return [];
     return [{
       key: 'modules',
       title: '包含模块',
-      note: '这一套会全部交付（我们的张数与报价由平台方案算死，不能像竞品那样勾选改价）',
-      items: modules,
+      /* 用户批注 #3-2 原话：「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗。」
+         —— 所以那句说明也跟着改成"勾几个出几张"，不再说"全都交、不能改价"。 */
+      note: '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
+      selectable: true,
+      items: skillModules.map(module => ({ ...module, checked: !moduleOff.has(module.name) })),
+      onToggle: name => setModuleOff(previous => {
+        const next = new Set(previous);
+        if (next.has(name)) next.delete(name); else next.add(name);
+        /* ⚠️ 一个都不勾 = 要生成 0 张 —— 那不是一个可以下单的请求（报价算不出来、
+           出图循环空转）。所以**最后一个不许取消**：点了没反应，比"点了之后按钮变灰
+           但用户不知道为什么"更容易理解。 */
+        if (next.size >= skillModules.length) return previous;
+        return next;
+      }),
     }];
-  }, [skill]);
+  }, [skill, skillModules, moduleOff]);
 
   /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
      照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。

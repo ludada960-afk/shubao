@@ -199,9 +199,16 @@ export function visualSkillDefaultRatio(skillId) {
   return ratios[0] || '1:1';
 }
 
+/* ⚠️ 2026-09-19 批 I-9：上限 4 → **16**（两处都要改：预估与建 run）。
+   原因：「包含模块」那条链打通之后，A+ 内容勾满 16 个模块就是 16 张，
+   而这里一直夹在 4 —— 于是第 5 张开始 updateVisualRunSlot 直接抛
+   RangeError('visual run slot is out of range')，整条链路崩在中间。
+   ⚠️ 4 是**自由创作那条流**的档位上限（它的 stepper 最多就是 4），不是服务端限制：
+      出图是一个请求一张、由前端循环驱动，服务端没有"一次几张"的概念。
+      所以抬这条不会放宽自由创作（它的 count 到不了 4 以上），只是让技能那条链能跑满。 */
 export function visualGenerationEstimate({ imageModel = 'image2', resolution = '2K', count = 1 } = {}) {
   const unitsPerImage = generationUnits(imageModel, resolution) || 0;
-  const quantity = Math.max(1, Math.min(4, Number.parseInt(count, 10) || 1));
+  const quantity = Math.max(1, Math.min(16, Number.parseInt(count, 10) || 1));
   return {
     points: Number(((unitsPerImage * quantity) / 1000).toFixed(3)),
     unitsPerImage,
@@ -211,7 +218,8 @@ export function visualGenerationEstimate({ imageModel = 'image2', resolution = '
 
 export function createVisualRun({ runId, count = 1, createdAt = Date.now() } = {}) {
   const id = cleanString(runId) || `visual-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
-  const slotCount = Math.max(1, Math.min(4, Number.parseInt(count, 10) || 1));
+  /* 同上：4 → 16。少改这一处就会在"第 5 张"上抛 slot out of range（实测踩过）。 */
+  const slotCount = Math.max(1, Math.min(16, Number.parseInt(count, 10) || 1));
   return {
     id,
     createdAt,
