@@ -27,7 +27,9 @@ test('J-⑭ ① 三条预览型技能在声明源里标记 previewStep（页面�
 });
 
 test('J-⑭ ② 主按钮先出预览、确认后才生成，且预览本身不收费', () => {
-  assert.match(page, /const previewStep = Boolean\(skill\?\.previewStep\) && !handoff;/);
+  /* ⚠️ suite（套图）**不叠这一层**：它自己就是"先出方案 + 报价、确认后才跑"，再叠一层
+     就是让用户连点两次确认（这条是 e2e 当场拦下来的）。 */
+  assert.match(page, /const previewStep = Boolean\(skill\?\.previewStep\) && !handoff && !suite;/);
   assert.match(page, /const dialog = useDialog\(\);/);
   assert.match(page, /await dialog\.confirm\(\{/);
   assert.match(page, /confirmLabel: '确认生成'/, '确认键说的是"确认生成"');
