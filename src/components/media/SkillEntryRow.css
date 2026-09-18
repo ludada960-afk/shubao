@@ -215,3 +215,10 @@
   .skill-preview { animation: none; }
   .skill-entry-button, .skill-entry-try, .skill-entry-more { transition: none; }
 }
+
+/* 批 J：预览窗里那句"图来自哪"的说明（只在退到本板块案例时出现）。 */
+.skill-preview-note { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
+
+/* 批 J：预览窗右栏**只有一张图时让它占满**（退到本板块案例就是这种情况）。
+   三格并排是给"三条技能案例"用的；只有一条时留三分之二空白，看起来就像没做完。 */
+.skill-preview-art > .skill-preview-shot:only-child { width: 100%; aspect-ratio: 4 / 3; }

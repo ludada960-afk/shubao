@@ -208,6 +208,9 @@ export default function SkillEntryRow({
             <strong>{active.summary}</strong>
             <p>{active.detail || active.outcome || '点「试一试」进入它自己的工作台，参数已经替你调好。'}</p>
             <span className="skill-preview-cta">进入「{active.name}」工作台<ArrowRight size={14} /></span>
+            {/* 批 J：图来自本板块真源时**如实说一句**（不冒充成这条技能的结果）。
+                ⚠️ 写在文案栏**里面** —— 放到两栏之间会把 grid 多撑出一行、右栏被挤下去。 */}
+            {active.previewFromBoard && <p className="skill-preview-note">本板块真实案例 · 这条技能自己的案例还在补充</p>}
           </div>
           <div className="skill-preview-art" aria-hidden="true">
             {/* 没有案例时给**三格**占位（不是一格）—— 一格会让浮窗右栏塌成一条，

@@ -9,6 +9,8 @@ import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 /* 批 J-⑨：首页案例表达区复用**既有**的那一块（小红书模式一直在用），不重写版式。 */
 import { CreationShowcase } from './CreationShowcase.jsx';
+/* 批 J：预览窗的「对应的那种界面」要的就是这一块案例真源（与下面那块案例区同源）。 */
+import { productionCaseById } from './productionCaseCatalog.js';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
 import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
@@ -303,14 +305,34 @@ export default function HomePage() {
             onCategory={setSkillCategory}
             /* ⚠️ 换分类时按新列表重取数（原来这两行写死了 featuredSkills，
                切了分类也还是那 9 条）。 */
-            skills={rowSkills.map(skill => ({
-              ...skill,
-              detail: skill.outcome || '',
-              previewAssets: (Array.isArray(skill.cases) ? skill.cases : [])
+            skills={rowSkills.map(skill => {
+              /* ═══ 批 J（用户批注：箭头从下面那块案例区指到悬停预览窗）═══════════════════════
+                 原话：「你这些**预览窗里面**，放入**对应的这种界面**，看我的箭头表示」——
+                 箭头起点是页面上那块「左文案 + 右效果图」的案例区（有真实图片），
+                 终点是 skill 按钮的悬停预览窗（当时是三个「案例补充中」的空框）。
+                 改法：预览窗的图**优先用这条技能自己的案例**；自己没有就**退到本板块的真实案例**
+                 （与下面那块案例区**同一个真源** productionCaseById），并**如实标注**它来自本板块 ——
+                 绝不把别的技能的案例冒充成这条技能的结果（本站铁律：生成结果不许伪造）。 */
+              const own = (Array.isArray(skill.cases) ? skill.cases : [])
                 .map(item => ({ src: item.cover || '', label: item.title || '' }))
-                .filter(item => item.src)
-                .slice(0, 3),
-            }))}
+                .filter(item => item.src);
+              /* ⚠️ 视频板块的案例**不是** catalog 里的某个 case id（'video' 会抛
+                 「未知 · production case: video」并把整页打崩 —— 实测踩过），
+                 它是那张工作台截图，与 CreationShowcase 的 VideoPreview **同一份素材**。
+                 图片板块走真源 productCaseById，档位与案例区（套图 / 上身）保持一致。 */
+              const boardAssets = skill.board === 'video'
+                ? [{ src: '/images/home/workspace-video-v2.png', label: '视频工作台案例' }]
+                : (productionCaseById(skill.pipeline === 'anything_tryon' ? 'tryon-angles' : 'product-suite').assets || [])
+                  .map(item => ({ src: item.src || '', label: item.label || '' }))
+                  .filter(item => item.src);
+              const shown = own.length ? own : boardAssets;
+              return {
+                ...skill,
+                detail: skill.outcome || '',
+                previewAssets: shown.slice(0, 3),
+                previewFromBoard: !own.length && boardAssets.length > 0,
+              };
+            })}
             moreHref={hubPath(skillBoard)}
             moreLabel={'查看全部' + (skillBoard === 'video' ? '视频' : '图片') + '技能'}
             onOpenSkill={skill => {
