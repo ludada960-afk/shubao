@@ -16,7 +16,10 @@
    所以下面这些数值**不是我调的，是量出来的**；只做一件事：把 px 换成我们的 token/整数档
    （52 → 52，16.12 → 16，17.36 → 17，14.88 → 15），避免引入一堆小数。 */
 /* 批 I-⑥：两块面板之间是缝（24→28）—— 用户批注 #8-4「两个区域之间都没有任何间隙，这是对的吗」。 */
-.media-workbench { display: grid; grid-template-columns: minmax(320px, 570px) minmax(0, 1fr); gap: 28px; align-items: start; }
+/* 批 K（60 号文档 §1）：缝 **19.84** + 外圈 padding **19.84** 两层，都露出面板下面那层底。
+   我们原来是 gap 28 一层。⚠️ 那层底不是他们的冷灰 #f0f2f5，是我们自己的 --sb-surface-page（暖米）——
+   用户的要求是「用我们自己的视觉语言照他们的思路做」，不是抄他们的颜色。 */
+.media-workbench { display: grid; grid-template-columns: minmax(320px, 570px) minmax(0, 1fr); gap: 20px; align-items: start; }
 .media-workbench-left {
   display: grid;
   gap: 22px;
@@ -31,8 +34,10 @@
      两块之间的 24px 才真的读成"间隙"，而不是"一句话被切开"。
      ⚠️ 用 1px 描边而不是底色：子页面的三级视觉语言里，L3 是**工作面最安静**的一档，
         底色必须保持纯白（见 MediaCreation.css 的分级注释），所以用描边界定而不染色。 */
-  border: 1px solid var(--sb-border-default);
-  border-radius: 12px;
+  /* 批 K（60 号文档 §1）：他们是**白面板、无圆角**，靠与下面那层底的色差界定边界；
+     我们原来是"整块圆角卡 + 四周描边"。改成同一套：圆角 0、四周不描边，只留右边一条 0.8px 分割线。 */
+  border-radius: 0;
+  border-right: 1px solid var(--sb-border-subtle);
   background: var(--sb-surface-card);
 }
 /* ═══ 左栏滚动上限（2026-09-19 用户批注 #15）═══════════════════════════════════════
@@ -70,9 +75,13 @@
 .media-workbench-group-title {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin: 0;
-  font-size: 17px;
+  /* 批 K（60 号文档 §4）——**他们把层级做反了，我们原来也做反了**：
+     分组标题 **16.12 / 500 / 灰**（#6b7280），字段标签 **17.36 / 500 / 近黑**（#111827）。
+     也就是"字段名比分组名更重更亮"。我们原来是分组标题 17px 近黑、字段标签 16px 近黑 —— 两档一样重，
+     层次读不出来。现在按他们的关系改：分组标题降一档、转灰。 */
+  font-size: 16px;
   font-weight: 500;
-  color: var(--sb-ink-1);
+  color: var(--sb-ink-3);
 }
 .media-workbench-group-note { margin: 0; font-size: 13px; line-height: 1.55; color: var(--sb-ink-3); }
 /* 只读交付清单（照竞品「包含模块 已选 0/16」的形态；不可勾选是钱路上的硬约束） */
@@ -195,7 +204,7 @@
 /* 字段：标签在上、控件在下（竞品实测同款）。控件高 52 —— 他们的 select 就是 52，
    我们原来是 8px 内边距的自适应高度（约 34），在一栏 520 宽的表单里显得很"小气"。 */
 .media-field { display: grid; gap: 8px; }
-.media-field-label { display: inline-flex; gap: 3px; font-size: 16px; font-weight: 500; color: var(--sb-ink-1); }
+.media-field-label { display: inline-flex; gap: 3px; font-size: 17px; font-weight: 500; color: var(--sb-ink-1); }
 .media-field-label b { color: var(--sb-brand-600); font-weight: 600; }
 .media-field-control {
   width: 100%;
@@ -210,7 +219,7 @@
   font-size: 16px;
   line-height: 1.6;
 }
-textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 12px; resize: vertical; }
+textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 14px; resize: vertical; }
 .media-field-control:hover { border-color: var(--sb-border-strong); }
 .media-field-control:focus-visible { outline: none; border-color: var(--sb-brand); box-shadow: var(--sb-focus-ring); }
 .media-field-hint { font-size: 13px; color: var(--sb-ink-3); }
@@ -309,7 +318,16 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-field-slot:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 /* 主 CTA：竞品那颗是 55px 高、510 宽的整行按钮，积分写在按钮里。
    我们的口径一样（价格必须在按钮上），尺寸对齐到同一档。 */
-.media-workbench-cta { display: flex; align-items: center; gap: 12px; }
+/* 批 K（60 号文档 §3）：竞品的 CTA **不在滚动器里**（它排在滚动器外面，所以永远看得见），
+   我们左栏是"整栏 sticky + 内部滚动"，CTA 在滚动内容的末尾 —— 字段一多，按钮就被滚出去了。
+   在滚动容器里用 sticky bottom 达到同一个效果：**滚到哪儿按钮都在**。
+   ⚠️ 必须给底色，否则下面的字段会从按钮底下透出来。 */
+.media-workbench-cta {
+  display: flex; align-items: center; gap: 12px;
+  position: sticky; bottom: 0;
+  padding-top: 12px;
+  background: var(--sb-surface-card);
+}
 .media-workbench-submit {
   flex: 1;
   min-height: 55px;
@@ -334,8 +352,9 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   display: grid;
   gap: 18px;
   min-width: 0;
-  padding: 24px 28px 28px;
-  border-radius: 12px;
+  padding: 25px 30px 28px;
+  /* 批 K：竞品实测 radius **14.88**、pad 24.8/29.76（60 号文档 §1）。 */
+  border-radius: 15px;
   background: var(--sb-surface-card);
   /* 批 I-⑥：与左栏成对 —— 两块面板用**同一条描边**，中间那 24px 才读得成"间隙"。
      原来只有 box-shadow（白底白页上约等于看不见），两块的分界全靠左栏那条 border-right，
