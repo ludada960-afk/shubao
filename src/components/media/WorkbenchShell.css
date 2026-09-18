@@ -147,9 +147,15 @@
 .media-workbench-fields { display: grid; gap: 18px; }
 /* 一键解析：付费前置动作（0.2 积分）。价格写在按钮上，别让人猜；
    它是"帮我把字段填好"的动作，不是生成动作 —— 所以用次级按钮的视觉重量。 */
+/* ⚠️ 2026-09-19 用户批注（框 12.4%,25.4% → 38.2%,32.2%）：
+   「你这种按钮为什么做的那么的宽呢？就是**右边有大量的空白**，我不明白为什么这个按钮要做到这么宽呢？」
+   改前是 width:100% + space-between —— 标签贴左、价格贴右，中间拉出一大片空。
+   竞品那颗「一键解析 · 0.20 积分」是**按内容宽**的紧凑胶囊。
+   所以：宽度交给内容，靠左站（容器是拉伸的，用 justify-self 让它别被拉满）。 */
 .media-workbench-parse {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; padding: 10px 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: auto; max-width: 100%; justify-self: start; align-self: start;
+  padding: 9px 14px;
   border: 1px dashed var(--sb-border-strong); border-radius: var(--sb-radius-control);
   background: var(--sb-surface-tint); color: var(--sb-ink-1);
   font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
