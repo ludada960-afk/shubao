@@ -64,7 +64,9 @@
 
 /* 分组（基础信息 / 上传图片 / 复刻设置 …）：标题 + 分割线，块与块之间留得住呼吸 */
 .media-workbench-group { display: grid; gap: 12px; }
-.media-workbench-group + .media-workbench-group { padding-top: 22px; border-top: 1px solid var(--sb-border-subtle); }
+/* ⚠️ 2026-09-19：分组间距按竞品实测对齐 —— 他们是 **39.68px**（docs/design/60 §4），
+   我们原来是 22px，只有他们的 55%。用户说「多少间距……你都没有做好」说的就是这类差。 */
+.media-workbench-group + .media-workbench-group { padding-top: 40px; border-top: 1px solid var(--sb-border-subtle); }
 .media-workbench-group-title {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin: 0;
@@ -382,12 +384,16 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   display: grid;
   place-items: center;
   gap: 8px;
+  /* ═══ 2026-09-19 用户批注（框 11.6%,50.5% → 38.6%,67.9%）═══════════════════════════════
+      「你这种**上传框为什么就不能够适配满**呢？你现在**右边流出来一点**，真的是很别扭呀。」
+      根因就是下面这行 `max-width: 390px`：在 519.5 宽的内容盒里它只长到 390，右边空出 129。
+      竞品实测（docs/design/60 §4）：上传框 **510.9 / 519.5 = 98.3% 撑满**、左侧留白 0、**没有 max-width**，
+      虚线 **2.4px**、圆角 **18**。所以这里：删 max-width、虚线 1→2px、圆角 12→16。 */
   width: 100%;
-  max-width: 390px;
   min-height: 119px;
   padding: 16px 12px;
-  border: 1px dashed var(--sb-border-strong);
-  border-radius: 12px;
+  border: 2px dashed var(--sb-border-strong);
+  border-radius: 16px;
   background: var(--sb-surface-tint);
   color: var(--sb-ink-2);
   font: inherit;
