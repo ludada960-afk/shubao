@@ -52,7 +52,7 @@ const fx = {
   works: [],
   videoJobs: [],             /* 服务端 /api/video/jobs 返回的任务（嵌入的视频工作台用它渲染生成记录） */
 };
-const calls = { assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, recognize: [] };
+const calls = { planPreview: [], assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, recognize: [] };
 
 const failures = [];
 const passed = [];
@@ -85,6 +85,39 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/billing/balance') return json(res, 200, { ok: true, currency: 'ec_points', balance: 999, unlimited: false, credits: 999 });
     if (path === '/api/billing/catalog') return json(res, 200, { ok: true, products: [] });
+    /* ── 批 K-C：三步方案预览（图片侧「生成预览」/ 视频侧「代为撰写」共用）──
+       打桩返回一份**固定方案**，让 e2e 能像真实用户那样把三步走完；
+       ⚠️ 这是桩数据，不是线上真跑出来的结果（本站铁律：生成结果不许伪造）。 */
+    if (path === '/api/plan-preview/options') {
+      const surface = url.searchParams.get('surface') === 'video' ? 'video' : 'image';
+      return json(res, 200, {
+        surface,
+        directions: [
+          { key: 'business', label: '业务场景', options: [{ value: 'ecommerce', label: '电商带货', prompt: '侧重商品卖点与下单引导。' }] },
+          { key: 'content', label: surface === 'video' ? '内容类型' : '画面用途', options: [{ value: 'main', label: '主图', prompt: '干净利落的主图。' }] },
+          { key: 'shot', label: '拍摄方式', options: [{ value: 'studio', label: '白底棚拍', prompt: '纯白底棚拍，柔和主光。' }] },
+        ],
+      });
+    }
+    if (path === '/api/plan-preview') {
+      const body = parse();
+      calls.planPreview.push(body);
+      return json(res, 200, {
+        plan: {
+          surface: body.surface === 'video' ? 'video' : 'image',
+          degraded: false,
+          materials: [],
+          plan: {
+            title: 'E2E 打桩方案',
+            summary: 'E2E 打桩：一段方案概述。',
+            promptText: 'E2E 打桩方案正文：一件白色陶瓷杯，柔和棚拍光。',
+            steps: [{ index: 1, title: '开场', detail: '特写' }],
+            notes: ['E2E 打桩数据'],
+          },
+        },
+        billing: { charged: true, units: 500 },
+      });
+    }
     if (path === '/api/works') return json(res, 200, fx.works);
     if (path === '/api/ecommerce/assets') {
       if (fx.assetStatus !== 200) return json(res, fx.assetStatus, { error: '原图上传失败' });
@@ -280,6 +313,30 @@ const clickGenerate = async () => {
       return true;
     });
     if (confirmed) await page.waitForTimeout(300);
+  }
+  /* ═══ 批 K-C：预览型技能（A+内容 / 详情图）现在先出**三步方案预览** ═══════════════════
+     用户第 16 轮把图片侧的「预览」升级成了与知渔「代为撰写」同源的三步流水线：
+     继续生成（0.5 积分/次，先弹计费确认）→ ① 素材理解 → ② 方向与偏好 → ③ 方案预览 → 确认并应用。
+     这里就按**一个真实用户会做的动作**走完它，然后再点一次 CTA 才是真出图。
+     ⚠️ 模型不可用时方案会走降级（不扣费），那时第三步给的是「跳过方案，直接生成」——
+        对话框若没有这个出口就是死胡同（这一条是接线时实测卡住才发现的）。 */
+  if (await page.$('.plan-preview-card')) {
+    /* ⚠️ 用 Playwright 自己的 click，不用 page.evaluate 里手写按钮匹配：
+       上一版手写匹配在 e2e 里点不动（实测卡在计费确认页），Playwright 的 click 会等元素可点。 */
+    /* 三步都走**主按钮**：确认页=继续生成、第 1/2 步=下一步、第 3 步=确认方案并应用（降级时=跳过方案，直接生成）。
+       ⚠️ 不要用 button:last-child 之类的结构选择器：底部还有「重新生成方案」，
+          实测结构选择器会误命中它，把流程打回计费确认页（e2e 当场卡住才发现）。 */
+    await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector('.plan-preview-steps, .plan-preview-confirm', { timeout: 25000 }).catch(() => {});
+    for (let i = 0; i < 3; i += 1) {
+      if (!(await page.$('.plan-preview-card'))) break;
+      await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(300);
+    }
+    await page.waitForTimeout(200);
+    /* 对话框已经关掉（方案已应用 / 已跳过）才点第二次；还开着就让它照原样失败，
+       别用 catch 把「对话框堵死主流程」这种真问题吞掉。 */
+    if (!(await page.$('.plan-preview-card'))) await page.click('.media-workbench-submit');
   }
 };
 const ctaDisabled = () => page.evaluate(() => document.querySelector('.media-workbench-submit')?.disabled ?? null);

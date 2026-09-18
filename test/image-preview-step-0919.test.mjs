@@ -26,23 +26,30 @@ test('J-⑭ ① 三条预览型技能在声明源里标记 previewStep（页面�
   assert.equal((skills.match(/previewStep: true/g) || []).length, 3, '只有三条');
 });
 
-test('J-⑭ ② 主按钮先出预览、确认后才生成，且预览本身不收费', () => {
-  /* ⚠️ suite（套图）**不叠这一层**：它自己就是"先出方案 + 报价、确认后才跑"，再叠一层
+test('J-⑭ ② + K-C：主按钮先出预览，而预览现在**就是**三步方案预览（0.5 积分/次，先确认后扣）', () => {
+  /* ⚠️ suite（套图）**不叠这一层**：它自己就是「先出方案 + 报价、确认后才跑」，再叠一层
      就是让用户连点两次确认（这条是 e2e 当场拦下来的）。 */
   assert.match(page, /const previewStep = Boolean\(skill\?\.previewStep\) && !handoff && !suite;/);
-  assert.match(page, /const dialog = useDialog\(\);/);
-  assert.match(page, /await dialog\.confirm\(\{/);
-  assert.match(page, /confirmLabel: '确认生成'/, '确认键说的是"确认生成"');
-  assert.match(page, /cancelLabel: '返回修改'/, '取消键说的是"返回修改"（不是含糊的"取消"）');
-  assert.match(page, /if \(!confirmed\) return undefined;/, '取消就不生成');
-  assert.match(page, /return suite \? generateSuite\(\) : generate\(\);/, '确认之后真的调生成函数');
-  /* 预览体里必须写清"这次要发什么" —— 规格 + 交付清单 + 内容 */
-  for (const head of ['这次的输出规格', '这一套会交出', '这次会带上的内容']) {
-    assert.ok(page.includes(head), '预览体缺少一块：' + head);
-  }
-  /* ⚠️ 不许在预览这一步扣钱：全文件里不得出现"预览计费/扣积分"的调用 */
-  const previewBlock = page.slice(page.indexOf('const buildPreviewBody'), page.indexOf('const onGenerate'));
-  assert.ok(!/quote|billing|扣费|扣积分/.test(previewBlock), '预览这一步不许有任何计费动作');
+  assert.match(page, /setPlanPreview\(\{/, "预览型技能点主按钮要打开三步方案预览");
+  assert.match(page, /collectPlanMaterials\(effectiveValues, skill\)/, "要把用户上传的素材带进方案预览");
+  assert.match(page, /collectPlanPrompt\(effectiveValues, skill\)/, "要把用户填的需求带进方案预览");
+  assert.match(page, /<PlanPreviewDialog/, "用共用的三步对话框（与视频侧「代为撰写」同一份）");
+  assert.match(page, /onApply=\{applyPlanPreview\}/);
+  assert.match(page, /onSkip=\{skipPlanPreview\}/, "降级时要有出口，不能是死胡同");
+  assert.match(page, /const \[planApplied, setPlanApplied\] = useState\(false\);/,
+    "方案应用之后要记住，否则用户再点生成会又弹一次方案预览（实测踩到的真 bug）");
+  assert.match(page, /const key = planPreviewTargetKey\(skill\);/, "确认并应用要写回配置里的文字字段");
+  /* ⚠️ 批 K-C 改判：批 J-⑭ 那条「预览这一步不许有任何计费动作」**已作废** ——
+     那时预览只是把配置摊开看一眼；现在它会真的调用模型（素材理解 + 方案生成），
+     所以按用户拍板的 0.5 积分/次收费。计费动作在**对话框内部**，仍然先报价后扣、失败不扣。 */
+  const planDialog = read("src/components/plan-preview/PlanPreviewDialog.jsx");
+  assert.match(planDialog, /quotePlanPreview/);
+  assert.match(planDialog, /继续生成/);
+  assert.match(planDialog, /失败不扣积分/);
+  assert.match(planDialog, /跳过方案，直接生成/, "降级出口（模型不可用时方案是空的）");
+  const previewBlock = page.slice(page.indexOf("const previewStep"), page.indexOf("const runGenerate"));
+  assert.ok(!/quoteBillingAction|composePlanPreview/.test(previewBlock),
+    "页面本体不许自己发起计费或请求，一律交给对话框");
 });
 
 test('J-⑭ ③ 按钮文案：预览型写「生成预览」（有预览步才敢这么写）', () => {

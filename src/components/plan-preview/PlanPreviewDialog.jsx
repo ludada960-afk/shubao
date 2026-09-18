@@ -65,6 +65,11 @@ export default function PlanPreviewDialog({
   materials = [],
   onClose,
   onApply,
+  /* ⚠️ 降级出口：模型不可用时方案正文是空的，「确认并应用」按不了 ——
+     不给出口就是一个**死胡同**（用户既没拿到方案、也走不到生成）。
+     这一条实测踩到过：e2e 走到这里卡住，才发现对话框把主流程堵死了。
+     跳过 = 不应用任何方案、直接回到原来的生成路径（没扣费，也没什么可应用的）。 */
+  onSkip,
 }) {
   const copy = copyOf(surface);
   const [stage, setStage] = useState('confirm');
@@ -285,14 +290,16 @@ export default function PlanPreviewDialog({
               </button>
               {step < 2
                 ? <button type="button" className="plan-preview-btn is-primary" onClick={() => setStep(step + 1)}>下一步</button>
-                : (
-                  <button
-                    type="button"
-                    className="plan-preview-btn is-primary"
-                    disabled={!String(planText || '').trim()}
-                    onClick={() => onApply?.(String(planText || '').trim(), plan)}
-                  >{copy.apply}</button>
-                )}
+                : (plan?.degraded
+                  ? <button type="button" className="plan-preview-btn is-primary" onClick={() => onSkip?.()}>跳过方案，直接生成</button>
+                  : (
+                    <button
+                      type="button"
+                      className="plan-preview-btn is-primary"
+                      disabled={!String(planText || '').trim()}
+                      onClick={() => onApply?.(String(planText || '').trim(), plan)}
+                    >{copy.apply}</button>
+                  ))}
             </footer>
           </>
         )}

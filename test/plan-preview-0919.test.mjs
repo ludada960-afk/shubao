@@ -112,12 +112,12 @@ test('计费：ec_plan_preview = 0.5 积分/次，先报价后扣的 SKU 口径�
   assert.ok(face >= 0.13, '面值要盖住 0.5 积分的现金锚');
 });
 
-test('共用对话框：三步 + 计费确认四件套都在同一个组件里（两个入口将来共用它）', () => {
-  /* ⚠️ **入口接线本轮先不上**（下一轮与 e2e 同一批交）：图片侧 previewStep 一接上，
-     media-workbench e2e 里"点主按钮就出图"的三条断言、以及 charge-requires-confirmation
-     的"扣费点必须追溯到用户手势"链条都会跟着变 —— 那几处必须**同一批**改完再上，
-     否则就是带着红灯上线（本项目的铁律：每批都要全量测试 + 门禁 + e2e 全绿）。
-     所以本轮交付的是**可被两个入口共用的那一半**：服务端流水线 + SKU + 这个对话框。 */
+test('一个组件两个入口：图片侧「生成预览」已经用上它（视频侧是 K-D）', () => {
+  const imageSide = read('src/pages/MediaCreation/index.jsx');
+  assert.match(imageSide, /components\/plan-preview\/PlanPreviewDialog\.jsx/, '图片侧必须引用共用对话框');
+  assert.match(imageSide, /setPlanPreview\(\{/, '图片侧的「生成预览」要打开三步方案预览');
+  assert.match(imageSide, /collectPlanMaterials/, '要把用户上传的素材带进方案预览');
+  assert.match(imageSide, /onSkip=\{/, '降级时要有出口（模型不可用时方案是空的，不能堵死主流程）');
   const dialog = read('src/components/plan-preview/PlanPreviewDialog.jsx');
   /* 三步的标题两套文案都在同一个组件里（用户明说「文案表述可以不一样」） */
   assert.match(dialog, /分析素材/);

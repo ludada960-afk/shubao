@@ -14,7 +14,8 @@ import { AlertCircle, Download, RotateCcw, Sparkles, Wand2 } from 'lucide-react'
    所以「进度 / 只重试失败项 / 存作品」的行为与自由创作完全一致，不另造一套。 */
 import { useApp } from '../../store/AppContext';
 /* 批 J-⑭：预览型技能要"先预览、确认后再生成"，用全站统一的对话框承载预览体。 */
-import { useDialog } from '../../components/ui/DialogProvider.jsx';
+/* 批 K-C：图片侧「预览」= 三步方案预览（与视频侧「代为撰写」共用同一份组件与同一条服务端流水线） */
+import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
 import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 /* 小红书图文与视频这两条链路各自已有**跑通的完整工作台**（分步确认 / 方案弹窗 / 任务轮询）。
@@ -193,6 +194,48 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
       )}
     </section>
   );
+}
+
+/* ═══ 批 K-C：三步方案预览要用的三个取值器 ═══════════════════════════════════════════════
+   为什么写在组件外：它们是纯函数，而且**不能**再往组件里加 hook（这个文件的提前返回踩过雷）。 */
+export function collectPlanMaterials(values, skill) {
+  const out = [];
+  for (const field of (skill?.fields || []).filter(item => item.kind === 'upload')) {
+    const items = Array.isArray(values?.[field.key]) ? values[field.key] : [];
+    for (const item of items) {
+      if (!item || item.status !== 'ready') continue;
+      out.push({
+        id: String(item.assetId || item.url || (field.key + '-' + out.length)),
+        name: String(item.name || field.label || '素材'),
+        url: String(item.url || ''),
+        previewUrl: String(item.previewUrl || ''),
+      });
+      if (out.length >= 6) return out;
+    }
+  }
+  return out;
+}
+
+/* 需求正文 = 用户在这条技能里填的所有文字字段（规格类不进，它们不是"需求"）。 */
+export function collectPlanPrompt(values, skill) {
+  const rows = [];
+  for (const field of skill?.fields || []) {
+    if (field.kind === 'upload') continue;
+    if (['imageModel', 'resolution', 'ratio', 'count'].includes(field.key)) continue;
+    const value = values?.[field.key];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    rows.push((field.label || field.key) + '：' + value.trim());
+  }
+  return rows.join('\n').slice(0, 1500);
+}
+
+/* 「确认并应用」写回哪个字段：优先多行文本位，其次名字像需求的，最后兜底第一个非上传字段。 */
+export function planPreviewTargetKey(skill) {
+  const fields = (skill?.fields || []).filter(field => field.kind !== 'upload');
+  const textarea = fields.find(field => field.kind === 'textarea');
+  if (textarea) return textarea.key;
+  const preferred = fields.find(field => /prompt|desc|require|content|brief|文案|描述|需求/i.test(String(field.key)));
+  return String((preferred || fields[0])?.key || '');
 }
 
 export default function MediaCreationPage({ onSubpageHeader = null }) {
@@ -1049,8 +1092,25 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      整页塌成错误页。实测：在子页面点顶栏「返回」→ 地址栏变回 /image-creation，**页面一片空白只剩报错**。
      （这是 e2e 抓到的：它点完返回等 .media-hub，等 15s 等不到。之前那条 .topbar-back 点击超时
        把真正的症状盖住了 —— 元素"不稳定"其实是因为**它所在的树正在崩**。）
-     ⚠️ 规则：**任何新加的 hook 都得放在最早的那个提前返回之前**，不能图省事写在 JSX 前面。 */
-  const dialog = useDialog();
+     ⚠️ 规则：**任何新加的 hook 都得放在最早的那个提前返回之前**，不能图省事写在 JSX 前面。
+     （批 K-C：原来这里还有一个 useDialog()，是预览确认框用的；现在预览走三步方案预览组件，
+       它已经没有调用方了，于是**连 hook 带 import 一起删掉** —— 留着就是一段没人用的死代码。
+       ⚠️ 踩坑记录：删 import 时漏删了这里的调用，实测**整页塌成错误页**
+       「useDialog is not defined」——e2e 因为只钩了 pageerror 没抓到，是我用 CDP 直接读页面文案才看见的。） */
+  /* ═══ 2026-09-19 批 K-C：图片侧「预览」升级成三步方案预览 ═══════════════════════════════════
+     用户第 16 轮原话：「图片生成这边是没有这个代为撰写的，这个分析方案的步骤是在那个**预览**的那个地方……
+     这个预览实际上就跟这个代为撰写是一样的东西……它实际上就是**一个设计方案**。然后再进行生成。」
+     ⇒ 入口留在配置面板的「生成预览」按钮（previewStep 那两条技能），
+       点开就是与视频侧**同一份**三步对话框（① 素材理解可改 ② 方向与偏好 ③ 方案预览可改、确认并应用）。
+     ⚠️ 它是 state 不是 hook，但**照样必须待在这里**（最早的提前返回之前）——
+       上一轮教学示例的 useMemo 写在返回之后，点「返回」直接把整页搞崩过。 */
+  const [planPreview, setPlanPreview] = useState(null);
+  /* ⚠️ 批 K-C 实测抓到的真 bug：方案应用之后如果不再记一笔，用户点「生成图片」会**又弹一次**
+     三步方案预览（previewStep 仍然是 true）—— 用户会以为点了没反应，其实是又回到了方案页。
+     e2e 当场卡在这里：对话框走完了、第二次点 CTA 又把对话框打开了。
+     ⇒ 记住「这条技能这次已经出过方案」，第二次点 CTA 就直接生成。换技能时重置。 */
+  const [planApplied, setPlanApplied] = useState(false);
+  useEffect(() => { setPlanApplied(false); }, [skill?.id]);
   /* ═══ 2026-09-19 批 J-⑭ 后半句：教学示例（用户批注 image#1）═══════════════════════════════
      用户原话：「他视频制作这边的子页面**绝大部分是有教学示例的**，你要**结合教学示例做深度匹配**，
      按他的讲解 + 工作台里**真实有的按钮和功能**去做规划和设计。」
@@ -1152,68 +1212,45 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      所以：对话框只给"点下去会直接出图"的那几条预览型技能（A+内容 / 详情图）；
      套图的按钮文案照样写「生成预览」（它确实先给方案），但走它自己那套确认。 */
   const previewStep = Boolean(skill?.previewStep) && !handoff && !suite;
-  const buildPreviewBody = () => {
-    const specRows = [
-      ['生成模型', effectiveValues.imageModel],
-      ['清晰度', effectiveValues.resolution],
-      ['画面比例', effectiveValues.ratio],
-      ['数量', effectiveValues.count],
-    ].filter(row => row[1] !== undefined && row[1] !== null && String(row[1]).trim() !== '');
-    const labelOf = key => (skill?.fields || []).find(field => field.key === key)?.label || key;
-    const specKeys = ['imageModel', 'resolution', 'ratio', 'count'];
-    const contentRows = Object.entries(effectiveValues || {})
-      .filter(entry => !specKeys.includes(entry[0]) && typeof entry[1] === 'string' && entry[1].trim() !== '')
-      .slice(0, 6)
-      .map(entry => labelOf(entry[0]) + '：' + String(entry[1]).slice(0, 110));
-    const listStyle = { display: 'grid', gap: 6, margin: 0, padding: 0, listStyle: 'none' };
-    const headStyle = { margin: '0 0 6px', fontSize: 12, fontWeight: 800, color: 'var(--sb-ink-2)' };
-    return (
-      <div style={{ display: 'grid', gap: 16 }}>
-        {specRows.length > 0 && (
-          <div>
-            <p style={headStyle}>这次的输出规格</p>
-            <ul style={listStyle}>
-              {specRows.map(row => <li key={row[0]} style={{ fontSize: 13, color: 'var(--sb-ink-2)' }}>{row[0]}：<strong>{String(row[1])}</strong></li>)}
-            </ul>
-          </div>
-        )}
-        {deliverables.length > 0 && (
-          <div>
-            <p style={headStyle}>这一套会交出</p>
-            <ol style={{ ...listStyle, paddingLeft: 18, listStyle: 'decimal' }}>
-              {deliverables.map(item => (
-                <li key={item.name} style={{ fontSize: 13, color: 'var(--sb-ink-2)' }}>
-                  {item.name}{item.hint ? <span style={{ color: 'var(--sb-ink-3)' }}>（{item.hint}）</span> : null}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-        {contentRows.length > 0 && (
-          <div>
-            <p style={headStyle}>这次会带上的内容</p>
-            <ul style={listStyle}>
-              {contentRows.map(row => <li key={row} style={{ fontSize: 13, color: 'var(--sb-ink-3)' }}>{row}</li>)}
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  };
+  /* ⚠️ 批 K-C **改判**（有授权的改判，依据 docs/design/62-batch-K-annotations.md 第一节/第二节）：
+     批 J-⑭ 时这一步不额外收费，因为那时它只是把配置摊开看一眼、没有任何模型调用；
+     现在它升级成**三步方案预览**（素材理解 → 方向偏好 → 方案生成），**真的会调用模型**，
+     所以按用户拍板的 **0.5 积分/次** 收费（SKU ec_plan_preview：先报价、用户确认才扣、失败不扣）。
+     旧的 buildPreviewBody（把配置摊开看一眼的那一版）已删除：它没有调用方了。 */
   /* 预览型的技能改走这条路；其余技能（去除背景 / 图片复刻 / AI换装…）点下去就是直出，
      与现在完全一致 —— 用户批注 #1-1：「有些 skill 是直接生成图片，不会生成预览」。 */
+  /* ⚠️ 真出图这一步单独起一个**命名处理器**：charge-requires-confirmation 门禁要求
+     「每个扣费点都能追溯到用户手势」，而 onGenerate 是三元表达式里的箭头函数，
+     AST 拿不到稳定函数名 → 追溯会断在 (anonymous) 上（实测：把调用挪进 runGenerate 后门禁转绿，
+     之前它是靠函数体里的 dialog.confirm 当锚点才过的 —— 那个确认框已经被 K-C 的三步对话框取代）。 */
+  const runGenerate = () => (suite ? generateSuite() : generate());
   const onGenerate = handoff ? handoffToBoard : async () => {
-    if (previewStep) {
-      const confirmed = await dialog.confirm({
-        title: '生成预览 · ' + skill.name,
-        message: '确认之后才开始生成，积分在生成时扣。',
-        confirmLabel: '确认生成',
-        cancelLabel: '返回修改',
-        body: buildPreviewBody(),
+    if (previewStep && !planApplied) {
+      /* 批 K-C：预览型技能先走**三步方案预览**（0.5 积分/次，点之前弹计费确认，失败不扣）。
+         「确认并应用」把方案正文写回配置里的文字字段，用户再点一次才是真出图 ——
+         与知渔第 3 步「确认脚本并应用」同一口径（他们也是应用回输入框，再点生成）。 */
+      setPlanPreview({
+        materials: collectPlanMaterials(effectiveValues, skill),
+        prompt: collectPlanPrompt(effectiveValues, skill),
       });
-      if (!confirmed) return undefined;
+      return undefined;
     }
-    return suite ? generateSuite() : generate();
+    return runGenerate();
+  };
+
+  const applyPlanPreview = text => {
+    const key = planPreviewTargetKey(skill);
+    if (key) setValues(previous => ({ ...previous, [key]: text }));
+    setPlanPreview(null);
+    setPlanApplied(true);
+    return undefined;
+  };
+
+  /* 降级时（模型没连上、方案是空的、一分钱没扣）的出口：关掉对话框，直接走原来的生成路径。 */
+  const skipPlanPreview = () => {
+    setPlanPreview(null);
+    setPlanApplied(true);
+    return undefined;
   };
 
   /* ═══ 2026-09-19 批 J-⑭ 后半句：教学示例（用户批注 image#1）═══════════════════════════════
@@ -1287,6 +1324,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
           ? '这条技能还没有生成记录。在这里生成的视频会出现在这一栏里，同时也会进「我的作品」。'
           : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里，同时也会进「我的作品」。' : '')}
       />
+      {/* 批 K-C：三步方案预览（图片侧入口）。与视频侧「代为撰写」是同一个组件、同一条服务端流水线。 */}
+      {planPreview && (
+        <PlanPreviewDialog
+          open
+          surface="image"
+          skillName={skill.name}
+          prompt={planPreview.prompt}
+          materials={planPreview.materials}
+          onClose={() => setPlanPreview(null)}
+          onApply={applyPlanPreview}
+          onSkip={skipPlanPreview}
+        />
+      )}
     </div>
   );
 }

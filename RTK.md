@@ -4260,10 +4260,23 @@ K-E 视频侧所有 skill 子页面 1:1 + 图片侧子页面回到同一套规�
 - 前端 `src/components/plan-preview/PlanPreviewDialog.jsx`：计费确认（预计消耗积分 / 计费明细 /
   「实际扣费以方案生成为准，失败不扣积分」/ [取消][继续生成]）→ 三步条 → 素材理解可编辑 textarea
   → 三维档位 → 方案正文可改 + 「确认方案并应用」。
-- ⚠️ **入口接线本轮刻意没上**（图片侧 previewStep 与视频侧提示词框旁都还没接）：一接上，
-  media-workbench e2e 的「点主按钮就出图」三条断言、以及 charge-requires-confirmation 的
-  「扣费点必须追溯到用户手势」链条都要**同批**改。本轮先把**可被两个入口共用的那一半**
-  （服务端流水线 + SKU + 对话框组件）交掉并上线，接线 + e2e + 手势链下一轮同批交。
+- ✅ **图片侧入口已接**（previewStep 那两条：A+内容 / 详情图；视频侧是 K-D）。接线与 e2e / 手势链同批改完：
+  · media-workbench e2e 的 clickGenerate 现在会像真实用户那样走完对话框（继续生成 → 下一步 → 下一步 →
+    确认方案并应用 / 降级时「跳过方案，直接生成」），然后再点一次 CTA 才是真出图；
+  · e2e 的打桩服务端补了 GET /api/plan-preview/options 与 POST /api/plan-preview 两条；
+  · charge-requires-confirmation 那条门禁**换锚点**了：原来 onGenerate 是靠函数体里的 dialog.confirm
+    当「用户已确认」的锚点才过检；K-C 用三步对话框取代了它，锚点就没了 —— 改成把真出图这一步
+    单独起一个**命名处理器** runGenerate（门禁的 NAMED_HANDLER 认它），追溯重新成立。
+
+⚠️ **接线时抓到并修掉的真 bug（不是 e2e 的问题，是用户的真问题）**：
+  方案应用之后如果没有记住「这次已经出过方案」，用户再点「生成图片」会**又弹一次三步方案预览** ——
+  表现就是「点了没反应」。e2e 当场卡死在这里。修法：planApplied 这个 state + 换技能时重置。
+⚠️ 另一个死胡同：模型不可用时方案正文是空的，「确认方案并应用」按不了，用户既没拿到方案也走不到生成。
+  现在降级态给的是「**跳过方案，直接生成**」（没扣费，也没什么可应用的）。
+⚠️ 踩坑两条：① 删 useDialog 的 import 时漏删了调用 → 整页塌成「useDialog is not defined」，
+  **e2e 只钩了 pageerror 没抓到**，是用 CDP 直接读页面文案才看见的（这个排查手段要记牢）；
+  ② e2e 里用 button:last-child 这种结构选择器会误命中「重新生成方案」，把流程打回计费确认页 ——
+  改用 .plan-preview-btn.is-primary（底部三个按钮里只有前进动作是主按钮）。
 
 **价格定案**：新 SKU `ec_plan_preview` = 500 units = **0.5 积分/次**（成本口径 0.03，面值毛利 ≈74%）。
 老 SKU `video_plan_analysis`（1 积分）**保留不动** —— 它服务历史账单，新流水线一律走新 SKU，
