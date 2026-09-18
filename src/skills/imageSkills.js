@@ -177,6 +177,9 @@ export const IMAGE_SKILLS = [
   {
     featuredRank: 1,
     id: 'image.product_suite', board: 'image', name: '商品套图', category: '精品推荐', complexity: 'heavy',
+    /* 批 J-⑭：这三条是**预览型**（竞品对应 CTA 也是「生成预览」）。
+       previewStep = 点主按钮**先出预览、确认后才真出图扣费**。 */
+    previewStep: true,
     /* 一键解析（照竞品做法：付费前置动作）。我们用现成的 /api/ecommerce/auto-recognize
        （视觉识别 + LLM 结构化），计费 SKU 是既有的 ec_ai_assistant = 200 units = **0.2 积分**，
        与竞品的 0.20 积分一致。fills 指向它回填哪个字段。 */
@@ -243,6 +246,9 @@ export const IMAGE_SKILLS = [
   {
     featuredRank: 2,
     id: 'image.aplus', board: 'image', name: 'A+内容', category: '精品推荐', complexity: 'standard',
+    /* 批 J-⑭：这三条是**预览型**（竞品对应 CTA 也是「生成预览」）。
+       previewStep = 点主按钮**先出预览、确认后才真出图扣费**。 */
+    previewStep: true,
     parse: { fills: 'product', label: '一键解析商品信息' },
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
@@ -327,6 +333,9 @@ export const IMAGE_SKILLS = [
   {
     featuredRank: 3,
     id: 'image.detail_page', board: 'image', name: '详情图', category: '精品推荐', complexity: 'standard',
+    /* 批 J-⑭：这三条是**预览型**（竞品对应 CTA 也是「生成预览」）。
+       previewStep = 点主按钮**先出预览、确认后才真出图扣费**。 */
+    previewStep: true,
     parse: { fills: 'product', label: '一键解析商品信息' },
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',

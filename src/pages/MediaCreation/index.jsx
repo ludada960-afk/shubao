@@ -13,6 +13,8 @@ import { AlertCircle, Download, RotateCcw, Sparkles, Wand2 } from 'lucide-react'
    运行态复用既有模型（pages/Home/visualCreationModel.js 的 run/slot），
    所以「进度 / 只重试失败项 / 存作品」的行为与自由创作完全一致，不另造一套。 */
 import { useApp } from '../../store/AppContext';
+/* 批 J-⑭：预览型技能要"先预览、确认后再生成"，用全站统一的对话框承载预览体。 */
+import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 /* 小红书图文与视频这两条链路各自已有**跑通的完整工作台**（分步确认 / 方案弹窗 / 任务轮询）。
@@ -1088,6 +1090,84 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     ));
   const panel = embed ? <>{announce}{embeddedFlow}</> : null;
 
+  /* ═══ 2026-09-19 批 J-⑭：预览型技能**先预览、确认后再生成** ═══════════════════════════════
+     用户原话（这一轮最重的一条）：
+       「它里面有一个叫**代为撰写**的功能。这个功能它实际上就是**我们图片生成那边的板块里面的
+        那个预览的功能**。只是图片的话，他在生成的配置做好之后**进行预览，然后再去生成**，
+        这样的流程会更合理一些……**但他们的内在逻辑其实是一样的。**
+        你照抄他的思路去做就对了，**整个UI和设计你也要跟他一样去做**。」
+     所以：商品套图 / A+内容 / 详情图这三条（竞品对应 CTA 原文也是「生成预览」）
+     点主按钮**先摊开"这次到底要发什么"**，用户确认之后才真出图、才扣积分。
+     ⚠️ 竞品那一步是**花积分**的（生成预览 0.10）；我们这一步**不额外收费** ——
+        它只是把配置摊开看一眼，生成时仍按原价扣。要不要收费是定价决定，不由这一轮擅自定。
+     ⚠️ 预览里写的每一句都必须是**真的会发生的事**：规格来自当前选中的值、交付清单来自
+        声明源或平台方案。绝不写"AI 已经帮你写好了"这种我们没做的事。 */
+  const dialog = useDialog();
+  const previewStep = Boolean(skill?.previewStep) && !handoff;
+  const buildPreviewBody = () => {
+    const specRows = [
+      ['生成模型', effectiveValues.imageModel],
+      ['清晰度', effectiveValues.resolution],
+      ['画面比例', effectiveValues.ratio],
+      ['数量', effectiveValues.count],
+    ].filter(row => row[1] !== undefined && row[1] !== null && String(row[1]).trim() !== '');
+    const labelOf = key => (skill?.fields || []).find(field => field.key === key)?.label || key;
+    const specKeys = ['imageModel', 'resolution', 'ratio', 'count'];
+    const contentRows = Object.entries(effectiveValues || {})
+      .filter(entry => !specKeys.includes(entry[0]) && typeof entry[1] === 'string' && entry[1].trim() !== '')
+      .slice(0, 6)
+      .map(entry => labelOf(entry[0]) + '：' + String(entry[1]).slice(0, 110));
+    const listStyle = { display: 'grid', gap: 6, margin: 0, padding: 0, listStyle: 'none' };
+    const headStyle = { margin: '0 0 6px', fontSize: 12, fontWeight: 800, color: 'var(--sb-ink-2)' };
+    return (
+      <div style={{ display: 'grid', gap: 16 }}>
+        {specRows.length > 0 && (
+          <div>
+            <p style={headStyle}>这次的输出规格</p>
+            <ul style={listStyle}>
+              {specRows.map(row => <li key={row[0]} style={{ fontSize: 13, color: 'var(--sb-ink-2)' }}>{row[0]}：<strong>{String(row[1])}</strong></li>)}
+            </ul>
+          </div>
+        )}
+        {deliverables.length > 0 && (
+          <div>
+            <p style={headStyle}>这一套会交出</p>
+            <ol style={{ ...listStyle, paddingLeft: 18, listStyle: 'decimal' }}>
+              {deliverables.map(item => (
+                <li key={item.name} style={{ fontSize: 13, color: 'var(--sb-ink-2)' }}>
+                  {item.name}{item.hint ? <span style={{ color: 'var(--sb-ink-3)' }}>（{item.hint}）</span> : null}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        {contentRows.length > 0 && (
+          <div>
+            <p style={headStyle}>这次会带上的内容</p>
+            <ul style={listStyle}>
+              {contentRows.map(row => <li key={row} style={{ fontSize: 13, color: 'var(--sb-ink-3)' }}>{row}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+  /* 预览型的技能改走这条路；其余技能（去除背景 / 图片复刻 / AI换装…）点下去就是直出，
+     与现在完全一致 —— 用户批注 #1-1：「有些 skill 是直接生成图片，不会生成预览」。 */
+  const onGenerate = handoff ? handoffToBoard : async () => {
+    if (previewStep) {
+      const confirmed = await dialog.confirm({
+        title: '生成预览 · ' + skill.name,
+        message: '确认之后才开始生成，积分在生成时扣。',
+        confirmLabel: '确认生成',
+        cancelLabel: '返回修改',
+        body: buildPreviewBody(),
+      });
+      if (!confirmed) return undefined;
+    }
+    return suite ? generateSuite() : generate();
+  };
+
   return (
     <div className="media-creation" data-surface="subpage">
       <SkillWorkbench
@@ -1111,12 +1191,17 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       那会变成一句假话：用户以为先看到草稿，实际已经在花钱出正片了。
       诚实做法：写「生成图片」（= 真的会发生的事），把"要不要给这三条加预览步"留给用户拍板。
    所以这里的取值顺序是：技能自带 ctaLabel（如「去除背景」）→ 默认「生成图片」。 */
-      ctaLabel={handoff ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续')) : (skill.ctaLabel || '生成图片')}
+      /* ⚠️ 2026-09-19 批 J-⑭：三条预览型技能现在**真的有预览步**（见上面 previewStep 那段），
+         所以按钮可以、也必须写真话「生成预览」—— 竞品那三条页面的 CTA 原文也是「生成预览」。
+         之前这里只能写「生成图片」，是因为当时点下去就是按张真出图、按钮写「预览」会是假话。 */
+      ctaLabel={handoff
+        ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续'))
+        : (skill.previewStep ? '生成预览' : (skill.ctaLabel || '生成图片'))}
         ctaPoints={handoff ? null : points}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
         status={embed ? null : status}
-        onGenerate={handoff ? handoffToBoard : (suite ? generateSuite : generate)}
+        onGenerate={onGenerate}
         onHistoryDelete={deleteHistory}
         onHistoryReuse={reuseHistory}
         history={history}

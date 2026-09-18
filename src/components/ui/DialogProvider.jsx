@@ -50,6 +50,9 @@ export function DialogProvider({ children }) {
           ⚠️ 原来注释写的是「若要收敛应由设计裁定改暖」—— 那次裁定就是 D34。 */}
       <section role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(420px, 100%)', border: '1px solid var(--sb-border-subtle)', borderRadius: 16, background: 'var(--sb-neutral-0)', boxShadow: 'var(--sb-shadow-5)', padding: 22 }}>
         <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}><div><h2 id="app-dialog-title" style={{ margin: 0, fontSize: 18 }}>{dialog.title}</h2>{dialog.message && <p style={{ margin: '8px 0 0', color: 'var(--sb-ink-3)', fontSize: 13, lineHeight: 1.6 }}>{dialog.message}</p>}</div>{dialog.hideClose !== true && <button type="button" aria-label="关闭" title="关闭" onClick={() => finish(dialog.kind === 'text' ? null : false)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, border: 0, borderRadius: 8, background: 'var(--sb-neutral-100)', cursor: 'pointer' }}><MdClose size={16} /></button>}</header>
+        {/* ═══ 批 J-⑭：对话框支持**富文本体**（生成预览要把"这次到底发什么"摊开给用户看）
+            ⚠️ 只是**多一个可选插槽**：不传 body 时渲染结果与从前逐字节相同。 */}
+        {dialog.body && <div style={{ marginTop: 14 }}>{dialog.body}</div>}
         {dialog.kind === 'text' && <input autoFocus value={dialog.value} onChange={event => setDialog(current => ({ ...current, value: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter' && dialog.value.trim()) finish(dialog.value.trim()); if (event.key === 'Escape') finish(null); }} placeholder={dialog.placeholder} style={{ boxSizing: 'border-box', width: '100%', marginTop: 18, padding: '11px 12px', border: '1px solid var(--sb-border-default)', borderRadius: 8, outline: 0, font: 'inherit' }} />}
         {/* 9-16 对齐全站底部操作区规范（--footer-actions-*）：
              按钮间距 8 → 12px；按钮高度 38 → 36px 统一档 + 最小宽 88px + 圆角 10px（主次等重）。
