@@ -138,13 +138,11 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
       {/* ═══ 2026-09-19 批 J-⑩（用户批注 #5-2）══════════════════════════════════════════
           原话：「这里我都跟你说过了，**右边不要留白这么多**呀，你现在这些模型的选项看起来
           就很不突出，因为你右边留白的部分实在太过于多了。」
-          改前：名字与徽章挨在一起（图6-⑨ 的旧修法），两人挤在行的左半边，
-                整行右边空出一大片 —— 选项看起来"轻飘飘、不突出"。
-          改后：**徽章归到行尾**（名字在左、定位标签在右），右边那一片空白由**真实内容**填掉；
-                描述仍然独占第二行、整行宽。
-          ⚠️ 与图6-⑨ 那次修法不冲突：那次禁的是"名字与徽章中间空一大片、下一行没东西"，
-             现在中间没有空档（名字与徽章各占一头，由 flex 撑满），第二行还有整行描述。 */}
-      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sb-space-2)', minWidth: 0 }}>
+          ⚠️ 这一行**保持**名字与徽章挨着（图6-⑨「消除按钮内两侧大片空白」的修法不动）：
+             本条投诉的真正落点是**第一行（触发行）几乎整行空白** + 它没有副标题 ——
+             见下面触发行的 showDesc。把徽章顶到行尾会让"名字与徽章中间空一片"回来，
+             那正是图6-⑨ 已经修掉的毛病，不能为了这一条把它放回去。 */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sb-space-2)', minWidth: 0 }}>
         <strong style={{
           fontSize: 'var(--sb-text-xs)',
           fontWeight: 'var(--sb-weight-semibold)',

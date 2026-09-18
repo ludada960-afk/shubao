@@ -6,6 +6,14 @@ import {
   normalizeRouteHistory,
   recommendVideoRoute,
 } from '../server/videoModelRouter.mjs';
+import { publicVideoProducts } from '../server/videoCatalog.mjs';
+
+/* ═══ 批 J-⑫（2026-09-19）：这几条原来把「公开档 == 2 条」写死在断言里 ═══════════════════════
+   用户批注 #10 要求把丢掉的模型找回来，本轮零成本复核后公开档 2 → 5
+   （minimax_h3_768p / grok_fast / wan_standard 恢复上架，证据在 ROUTE_REACHABILITY）。
+   判据的**本意没变**：候选 = 公开档，隐藏/不可达的永不进入。
+   所以这里不再写死那两条 id，改成**从公开目录算**——加档/下档都不用再改测试。 */
+const PUBLIC_IDS = publicVideoProducts().map(product => product.id);
 
 test('prefers the requested eligible product without hiding the ranked alternatives', () => {
   const result = recommendVideoRoute({
@@ -41,7 +49,7 @@ test('speed objective ranks fast product first when there is no preference', () 
   assert.match(fast.reasons.join(' '), /速度/);
   assert.deepEqual(
     [...new Set(result.candidates.map(candidate => candidate.productId))].sort(),
-    ['seedance_fast', 'seedance_standard'],
+    [...PUBLIC_IDS].sort(),
   );
 });
 
@@ -78,9 +86,9 @@ test('quality and cost objectives remain deterministic and expose an estimate on
   const cost = recommendVideoRoute({ request: { resolution: '720p', durationSec: 10, objective: 'cost' } });
 
   /* 9-16 路由复核后公开档收敛到可达路线：候选 = 公开产品，且必须覆盖这两档 */
-  assert.equal(quality.candidates.length, 2, 'quality candidates: ' + quality.candidates.length);
+  assert.equal(quality.candidates.length, PUBLIC_IDS.length, 'quality candidates: ' + quality.candidates.length);
   assert.equal(cost.candidates.length, quality.candidates.length);
-  for (const id of ['seedance_fast', 'seedance_standard']) {
+  for (const id of PUBLIC_IDS) {
     assert.ok(quality.candidates.some(candidate => candidate.productId === id), 'missing candidate ' + id);
   }
   assert.ok(quality.selected.estimatedPoints > 0);

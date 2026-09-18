@@ -11,6 +11,7 @@ import {
   updateVisualRunSlot,
   visualRetryIndexes,
 } from '../src/pages/Home/visualCreationModel.js';
+import { IMAGE_RATIOS } from '../src/services/imageSizeCatalog.js';
 import { buildGalleryRemixCheckpoint } from '../src/pages/Home/galleryRemixModel.js';
 
 const stableUrl = seed => `/api/generated-assets/${seed.repeat(64).slice(0, 64)}.png`;
@@ -43,7 +44,13 @@ test('visual skills explain the transformation before the user selects one', () 
 test('visual recipes expose platform-native ratios and a reusable generation snapshot', () => {
   const social = VISUAL_CREATION_SKILLS.find(skill => skill.id === 'social-cover');
   assert.deepEqual(social.control.options, ['小红书', '公众号', 'B站', '抖音']);
-  assert.deepEqual(social.ratios, ['3:4', '21:9', '16:9', '9:16']);
+  /* ⚠️ 2026-09-19 批 J-⑪：画面尺寸给满六档（用户批注 #7-4「你只有这四个吗？」）。
+     该技能**最合适的四档仍然排在前面**（第一档是它的默认值，visualSkillDefaultRatio 取 [0]，
+     切技能时的默认行为一个字没变），后面补全到能生成的六档。
+     敢补全的依据：test/image-size-catalog-parity 第 ② 条逐个跑过服务端的 resolveGenerationSize，
+     确认六档全都真的照做（不在表里的比例服务端会**静默回落成 1:1**）。 */
+  assert.deepEqual(social.ratios.slice(0, 4), ['3:4', '21:9', '16:9', '9:16'], '最合适的几档仍在前面');
+  assert.deepEqual([...social.ratios].sort(), [...IMAGE_RATIOS].sort(), '其余补全到能生成的六档');
   assert.ok(social.panels.some(panel => panel.id === 'platform'));
   assert.ok(social.panels.some(panel => panel.id === 'headline'));
 
@@ -110,8 +117,11 @@ test('visual generation estimate follows the same model and resolution units as 
 
 test('visual skill ratio falls back to a ratio supported by the selected recipe', () => {
   assert.equal(resolveVisualSkillRatio('social-cover', '21:9'), '21:9');
-  assert.equal(resolveVisualSkillRatio('poster', '21:9'), '3:4');
-  assert.equal(resolveVisualSkillRatio('brand-kv', '4:3'), '16:9');
+  assert.equal(resolveVisualSkillRatio('poster', '21:9'), '21:9', '六档之间可以自由切换（用户 #7-4：「很多很多个尺寸」）');
+  assert.equal(resolveVisualSkillRatio('brand-kv', '4:3'), '4:3');
+  /* 合法六档之外的比例仍然回落到该技能的第一档（默认值语义没变） */
+  assert.equal(resolveVisualSkillRatio('poster', '5:4'), '3:4', '非法比例回落该技能第一档');
+  assert.equal(resolveVisualSkillRatio('brand-kv', 'nope'), '16:9');
 });
 
 test('visual runs keep stable slot request keys and retry only failed slots', () => {
