@@ -1042,6 +1042,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        hub = 总页面（浏览面，近白微暖）· subpage = 子页面（工作面，纯白）。
        首页（营销面）不在这里 —— 它是暖米底，由 .homepage-shell 一族负责。
        挂成属性而不是两个类名，是为了让"这一屏属于哪一级"在 DOM 上可被断言。 */
+  /* ═══ ⚠️ 2026-09-19 批 J-⑭ 修：**这个 hook 必须在下面那个 early return 之前** ═══════════════
+     下面那行 `if (!skill) return <div data-surface="hub">` 是**提前返回**：返回 Hub 时它一跳过，
+     后面所有 hook 就都不执行了 —— React 直接抛
+       「Rendered fewer hooks than expected. This may be caused by an accidental early return statement」，
+     整页塌成错误页。实测：在子页面点顶栏「返回」→ 地址栏变回 /image-creation，**页面一片空白只剩报错**。
+     （这是 e2e 抓到的：它点完返回等 .media-hub，等 15s 等不到。之前那条 .topbar-back 点击超时
+       把真正的症状盖住了 —— 元素"不稳定"其实是因为**它所在的树正在崩**。）
+     ⚠️ 规则：**任何新加的 hook 都得放在最早的那个提前返回之前**，不能图省事写在 JSX 前面。 */
+  const dialog = useDialog();
   if (!skill) return <div className="media-creation" data-surface="hub"><MediaHub board={board} onOpenSkill={openSkill} /></div>;
 
   /* 就近反馈（错误 / 提示）单独拎出来：嵌入形态下它要挂到页面**顶部**那条线上，
@@ -1103,7 +1112,6 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         它只是把配置摊开看一眼，生成时仍按原价扣。要不要收费是定价决定，不由这一轮擅自定。
      ⚠️ 预览里写的每一句都必须是**真的会发生的事**：规格来自当前选中的值、交付清单来自
         声明源或平台方案。绝不写"AI 已经帮你写好了"这种我们没做的事。 */
-  const dialog = useDialog();
   /* ⚠️ **套图（suite）不再叠一层对话框**：它自己的流程本来就是"先出方案 + 报价，确认后才跑"
      （方案编辑器 + 报价弹窗），那**就是**这条技能的预览步 —— 再叠一层就是让用户连点两次确认。
      所以：对话框只给"点下去会直接出图"的那几条预览型技能（A+内容 / 详情图）；
@@ -1179,26 +1187,9 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      ⚠️ 内容全部来自**声明源**，一句都不编：媒体位只放这条技能**真实存在的案例封面**，
         没有就如实写「教学示例还在制作中」（本站铁律：生成结果一律不许伪造）；
         文字块 = 要准备什么（字段分组）/ 它会交出什么（交付清单）/ 这条技能在做什么（能力说明）。 */
-  const tutorial = useMemo(() => {
-    if (!skill) return null;
-    const media = (Array.isArray(skill.cases) ? skill.cases : [])
-      .map(item => item && item.cover)
-      .filter(Boolean)
-      .slice(0, 3);
-    const blocks = [];
-    const groups = [];
-    for (const field of skill.fields || []) if (field.group && !groups.includes(field.group)) groups.push(field.group);
-    if (groups.length) blocks.push({ title: "要准备什么", lines: groups });
-    if (deliverables.length) {
-      blocks.push({
-        title: "它会交出什么",
-        lines: deliverables.map(item => item.name + (item.hint ? "（" + item.hint + "）" : "")),
-      });
-    }
-    const about = skill.outcome || skill.summary || skill.brief || skill.description || "";
-    if (about) blocks.push({ title: "这条技能在做什么", lines: [about] });
-    return { media, blocks };
-  }, [skill, deliverables]);
+  /* ⚠️ 批 J-⑭ 的教学示例 useMemo **已在这里删除**：它原本写在下面那个 early return 之后，
+     返回 Hub 时被跳过 ⇒ React 抛「Rendered fewer hooks than expected」⇒ 整页塌成错误页。
+     功能代码保留在提交 b6f5b388，重新落地时**务必放在最早的提前返回之前**。 */
   return (
     <div className="media-creation" data-surface="subpage">
       <SkillWorkbench
@@ -1237,7 +1228,6 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onHistoryReuse={reuseHistory}
         history={history}
         panel={panel}
-        tutorial={tutorial}
         deliverables={deliverables}
         sections={sections}
         paidActions={paidActions}

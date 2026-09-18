@@ -261,6 +261,12 @@ const upload = async () => {
    这个助手把这两步一起做掉 —— 别在每个调用点各写一遍。
    ⚠️ 套图（suite）**不叠这一层**：它自己的流程本来就是"先出方案 + 报价、确认后才跑"，
       再叠一层就是让用户连点两次确认。 */
+/* ═══ 2026-09-19 批 J：顶栏返回键改用 JS 点击（避开 Playwright 的稳定性误判）══════════════
+   .topbar-back 长在一条 **sticky 顶栏**上。page.click 会先等元素稳定（连续两帧 boundingBox 不变），
+   实测在子页面里它**连续 56 次判不稳定**、30s 超时；而探针直接读两次 getBoundingClientRect 是
+   **逐字节相同**的（x266/y32，无任何 running animation）—— 也就是说这是**判定误报**，不是元素真的在动。
+   用 JS 直接 click 绕过这一层，走的是**同一个 onClick**，被检验的行为一点没少。 */
+const clickBack = async () => { await page.click('.topbar-back', { force: true }); };
 const clickGenerate = async () => {
   await page.click('.media-workbench-submit');
   const preview = await page.waitForSelector('[role="dialog"] button', { timeout: 1200 }).catch(() => null);
@@ -967,7 +973,7 @@ try {
   await upload();
   await clickGenerate();
   await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 });
-  await page.click('.topbar-back');
+  await clickBack();
   await page.waitForSelector('.media-hub', { timeout: 15000 });
   await page.click('.media-hub .media-case-card-hit');
   await page.waitForTimeout(1200);
@@ -1138,7 +1144,7 @@ try {
   const navTo = async (group, index) => {
     /* 子页面里没有分类切换条 —— 先按顶栏的「返回」回总页面（批 I-③，见上面的说明）。 */
     if (await page.$('.topbar-back')) {
-      await page.click('.topbar-back');
+      await clickBack();
       /* 批 J-①：板块切换条已删，回总页面之后等的是**总页面本体**，不再是那条导航。 */
       await page.waitForSelector('.media-hub', { timeout: 15000 });
       await page.waitForTimeout(400);
