@@ -65,6 +65,8 @@ const SKU_LABELS = Object.freeze({
   ec_canvas_recognize: { label: '画布 · 商品识别', category: 'canvas', per: '次' },
   ec_preview_cover: { label: '小红书封面预览', category: 'content', per: '次' },
   ec_direction_refresh: { label: '套图方向刷新', category: 'image', per: '次' },
+  /* 2026-09-19 批 K-C：三步方案预览（图片侧「生成预览」/ 视频侧「代为撰写」共用，0.5 积分/次） */
+  ec_plan_preview: { label: '方案预览（素材理解 + 方向偏好 + 方案生成）', category: 'text', per: '次' },
   ec_smart_layer: { label: '画布 · 智能图层', category: 'canvas', per: '次' },
   ec_layer_psd: { label: '画布 · PSD 分层导出', category: 'canvas', per: '次' },
   /* 2026-09-10: 百度大模型 TTS 接入（语音合成 / 配音）—— 用户中心价格栏目与此同源（唯一真源）。 */

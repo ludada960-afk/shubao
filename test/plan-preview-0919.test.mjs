@@ -1,0 +1,145 @@
+// test/plan-preview-0919.test.mjs
+// 批 K-C / K-D：三步方案预览（图片侧「预览」与视频侧「代为撰写」同源）
+// 权威原文：docs/design/62-batch-K-annotations.md §3（用户原话）与 §二（定价 0.5 积分/次）
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import {
+  PLAN_PREVIEW_DIRECTIONS,
+  PLAN_PREVIEW_SURFACES,
+  buildLocalPlanPreview,
+  buildPlanPreviewRequest,
+  createPlanPreviewService,
+  normalizePlanPreview,
+  normalizeSurface,
+  planPreviewDirections,
+} from '../server/planPreview.mjs';
+import { FEATURE_SKUS, pointsFaceAnchorCny, quoteFeature } from '../server/billing/catalog.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const read = relative => readFileSync(join(ROOT, relative), 'utf8');
+
+test('两个表面都有三个维度的档位结构（照知渔的业务场景 / 内容类型 / 拍摄方式）', () => {
+  assert.deepEqual([...PLAN_PREVIEW_SURFACES], ['image', 'video']);
+  for (const surface of PLAN_PREVIEW_SURFACES) {
+    const dimensions = planPreviewDirections(surface);
+    assert.equal(dimensions.length, 3, surface + ' 必须是三个维度');
+    assert.deepEqual(dimensions.map(item => item.key), ['business', 'content', 'shot']);
+    for (const dimension of dimensions) {
+      assert.ok(dimension.label, surface + ' 的维度要有中文名');
+      assert.ok(dimension.options.length >= 4, surface + ' 的 ' + dimension.key + ' 档位太少');
+      for (const option of dimension.options) {
+        assert.ok(option.value && option.label && option.prompt, '每个档位都要有 value/label/prompt');
+      }
+    }
+  }
+  /* 视频侧的档位是**他们线上 config 的真实选项**，不是我编的（docs/design/61 §5 抄录）。 */
+  const video = planPreviewDirections('video');
+  assert.deepEqual(video[0].options.map(item => item.label), ['电商带货', '同城到店', '上门服务', '教育培训']);
+  assert.deepEqual(video[1].options.map(item => item.label), ['带货', '种草', '卖点钩子', '剧情演绎', '生活记录']);
+  assert.deepEqual(video[2].options.map(item => item.label), ['桌拍开箱', '真人口播', '一镜到底', '运动跟拍', '品牌TVC']);
+  assert.equal(Object.isFrozen(PLAN_PREVIEW_DIRECTIONS), true);
+  assert.equal(normalizeSurface('VIDEO'), 'video');
+  assert.equal(normalizeSurface('乱写'), 'image');
+});
+
+test('请求体把用户选的方向翻成提示词，且不把原图塞进请求', () => {
+  const request = buildPlanPreviewRequest({
+    surface: 'video',
+    prompt: '给这款保温杯做一支短视频',
+    skillName: '智能成片',
+    direction: { business: 'local_store', content: 'hook', shot: 'tabletop' },
+    materials: [{ id: 'a1', name: '主图.jpg', url: 'https://shuimg.cn/x.jpg' }],
+  });
+  assert.match(request.systemPrompt, /materials/);
+  assert.match(request.systemPrompt, /plan/);
+  assert.match(request.userPrompt, /同城专属福利/);
+  assert.match(request.userPrompt, /开场一秒抛最强卖点钩子/);
+  assert.match(request.userPrompt, /桌拍、开箱、细节特写/);
+  assert.match(request.userPrompt, /id=a1 name=主图\.jpg/);
+  assert.equal(request.surface, 'video');
+});
+
+test('归一化：字段名对得上就照抄，对不上就补结构，绝不把 undefined 漏给前端', () => {
+  const normalized = normalizePlanPreview({
+    materials: [{ id: 'm1', name: '图1', understanding: '这是商品正面白底图' }],
+    plan: {
+      title: '保温杯种草短片',
+      summary: '一句话讲清保温时长',
+      promptText: '镜头一：……',
+      steps: [{ title: '开场', detail: '特写' }, '中段'],
+      notes: ['不要出现价格'],
+    },
+  }, { surface: 'video' });
+  assert.equal(normalized.materials.length, 1);
+  assert.equal(normalized.plan.steps.length, 2);
+  assert.equal(normalized.plan.steps[1].title, '中段');
+  assert.equal(normalized.plan.notes[0], '不要出现价格');
+  assert.equal(normalized.degraded, false);
+});
+
+test('降级：模型不可用时**如实说没分析过**，不假装、也不扣费', async () => {
+  const service = createPlanPreviewService({ completeText: async () => { throw new Error('模型超时'); } });
+  const composed = await service.compose({ surface: 'image', prompt: '做一套主图', materials: [{ id: 'm1', name: '主图.jpg' }] });
+  assert.equal(composed.degraded, true);
+  assert.match(composed.reason, /模型超时/);
+  assert.match(composed.materials[0].understanding, /还没有真正读过这张素材/);
+  assert.equal(composed.plan.promptText, '');
+  assert.match(composed.plan.notes.join(' '), /失败不扣积分/);
+  const local = buildLocalPlanPreview({ surface: 'image' }, '');
+  assert.equal(local.degraded, true);
+});
+
+test('模型返回非 JSON 也走降级，不抛异常', async () => {
+  const service = createPlanPreviewService({ completeText: async () => '抱歉，我无法完成。' });
+  const composed = await service.compose({ surface: 'image', prompt: 'x' });
+  assert.equal(composed.degraded, true);
+  assert.match(composed.reason, /无法解析/);
+});
+
+test('计费：ec_plan_preview = 0.5 积分/次，先报价后扣的 SKU 口径与用户拍板一致', () => {
+  const feature = FEATURE_SKUS.ec_plan_preview;
+  assert.ok(feature, 'SKU ec_plan_preview 必须存在');
+  assert.equal(feature.units, 500, '0.5 积分 = 500 units');
+  assert.equal(quoteFeature('ec_plan_preview', 1).totalUnits, 500);
+  assert.equal(feature.providerCostCny, 0.03);
+  /* 全局 70% 地板：成本不得超过面值的 27% */
+  const face = 500 * pointsFaceAnchorCny();
+  assert.ok(feature.providerCostCny <= face * 0.27, '成本口径过不了 70% 毛利地板');
+  assert.ok(face >= 0.13, '面值要盖住 0.5 积分的现金锚');
+});
+
+test('共用对话框：三步 + 计费确认四件套都在同一个组件里（两个入口将来共用它）', () => {
+  /* ⚠️ **入口接线本轮先不上**（下一轮与 e2e 同一批交）：图片侧 previewStep 一接上，
+     media-workbench e2e 里"点主按钮就出图"的三条断言、以及 charge-requires-confirmation
+     的"扣费点必须追溯到用户手势"链条都会跟着变 —— 那几处必须**同一批**改完再上，
+     否则就是带着红灯上线（本项目的铁律：每批都要全量测试 + 门禁 + e2e 全绿）。
+     所以本轮交付的是**可被两个入口共用的那一半**：服务端流水线 + SKU + 这个对话框。 */
+  const dialog = read('src/components/plan-preview/PlanPreviewDialog.jsx');
+  /* 三步的标题两套文案都在同一个组件里（用户明说「文案表述可以不一样」） */
+  assert.match(dialog, /分析素材/);
+  assert.match(dialog, /素材理解/);
+  assert.match(dialog, /确认脚本并应用/);
+  assert.match(dialog, /确认方案并应用/);
+  /* 计费确认弹窗的四件套：价格 / 明细 / 说明 / 两个按钮（照他们弹窗的信息层级） */
+  assert.match(dialog, /预计消耗积分/);
+  assert.match(dialog, /计费明细/);
+  assert.match(dialog, /失败不扣积分/);
+  assert.match(dialog, /取消/);
+  assert.match(dialog, /继续生成/);
+  assert.match(dialog, /0\.5 积分/);
+});
+
+test('服务端只有一条流水线：图片侧与视频侧共用 /api/plan-preview', () => {
+  const server = read('server/index.mjs');
+  assert.match(server, /app\.post\('\/api\/plan-preview'/, '必须有统一的方案预览端点');
+  assert.match(server, /sku: 'ec_plan_preview'/);
+  assert.match(server, /PLAN_PREVIEW_PROMPT_REQUIRED/, '空需求必须在建 hold 之前拒绝（不许为无效请求扣费）');
+  assert.match(server, /DEGRADED_LOCAL_PLAN/, '兜底不收费');
+  /* SSRF 闸：素材地址只允许本站 host */
+  assert.match(server, /planPreviewAssetUrl/);
+  assert.match(server, /url\.host !== host/);
+});

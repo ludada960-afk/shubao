@@ -201,6 +201,18 @@ export const FEATURE_SKUS = freezeCatalog({
   video_seedance_mini_short: { units: 31317, providerCostCny: 3.77, priceFen: 820, marginBand: 'traffic', freeReruns: 0 },
   video_seedance_mini_long: { units: 31317, providerCostCny: 3.77, priceFen: 820, marginBand: 'traffic', freeReruns: 0 },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
+  /* ═══ 2026-09-19 批 K-C：三步方案预览（图片侧「预览」/ 视频侧「代为撰写」共用一条流水线）═══
+     用户第 16 轮把定价权交给我（docs/design/62 §一）：「收多少合适？这个我感觉应该你自己来定」，
+     我在 §二 定的口径是 **0.5 积分 / 次**，理由三条都在那份文档里：
+       ① 比知渔（0.60 = 0.10/张素材 + 0.50/次拆解 + 0.10/条脚本）低一档；
+       ② 比站内 0.2 那一档（一键解析 / AI 润色 / 方向分析）重，但远低于出一张正片；
+       ③ **一次一个数**，不按张、不按步叠加，用户点之前就知道花多少。
+     ⚠️ 成本 0.03 是「一次视觉模型调用」的记账口径（比 video_plan_analysis 的 0.05 低，
+       因为那条要出 2600 token 的结构化分镜，这条产出更短）；面值 0.5×锚 ≈ ¥0.131，
+       实测毛利 ≈74%，过得了全局 70% 地板。
+     ⚠️ 老的 video_plan_analysis（1 积分）**保留**：它是同一件事的另一条入口，
+       改价会动老账单口径；两个入口共用新 SKU，老 SKU 只服务历史记录。 */
+  ec_plan_preview: { units: 500, providerCostCny: 0.03 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
   xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },

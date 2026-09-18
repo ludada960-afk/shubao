@@ -1,0 +1,462 @@
+/* ═══ 三步方案预览（批 K-C / K-D）══════════════════════════════════════════════════════════
+   一份样式、两个入口（图片侧「生成预览」/ 视频侧「代为撰写」）。
+   数值来源：知渔「代为撰写」计费弹窗与三步面板的实测（docs/design/61-quantv-dawei-chuanxie.md）：
+     卡片 595×560 / 圆角 19.84 / 内边距 29.76 / 阴影 0 24.8px 74.4px；
+     三步条 grid 3 列 gap 12、每步圆角 12、序号圆点 28 圆；
+     素材卡缩略图 96×90 + 右侧可编辑 textarea（resize-y）。
+   颜色一律走站内 token（本项目的样式门禁连注释里的色值字面量都扫）。 */
+
+.plan-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--sb-surface-inverse) 62%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.plan-preview-card {
+  width: min(595px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 30px;
+  border-radius: 20px;
+  border: 1px solid var(--sb-border-subtle);
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-xl);
+  overflow: hidden;
+}
+
+.plan-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-preview-head strong {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--sb-ink-1);
+}
+
+.plan-preview-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--sb-radius-sm);
+  background: transparent;
+  color: var(--sb-ink-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease;
+}
+
+.plan-preview-close:hover,
+.plan-preview-close:focus-visible {
+  background: var(--sb-surface-sunken);
+  color: var(--sb-ink-1);
+}
+
+/* ── 计费确认（照他们弹窗的信息层级：价格行 → 计费明细 → 说明 → 两个按钮）── */
+.plan-preview-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plan-preview-cost {
+  display: grid;
+  gap: 8px;
+}
+
+.plan-preview-cost > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-preview-cost span {
+  font-size: 14px;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-cost strong {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sb-ink-1);
+}
+
+.plan-preview-detail {
+  padding: 14px 16px;
+  border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface-sunken);
+}
+
+.plan-preview-detail p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-detail ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.plan-preview-detail li {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--sb-ink-2);
+}
+
+.plan-preview-detail li span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-brand-soft);
+  color: var(--sb-ink-brand);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-preview-detail li b {
+  font-weight: 500;
+}
+
+.plan-preview-detail li em {
+  font-style: normal;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-note,
+.plan-preview-empty,
+.plan-preview-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-error {
+  /* 文字用 -strong：ink-contrast 门禁的 D25 口径把 --sb-ink-danger 归在**图形档**，
+     当文字色用要先登记豁免；这里没必要开豁免，直接用专供文字的那一档。 */
+  color: var(--sb-ink-danger-strong);
+}
+
+.plan-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.plan-preview-btn {
+  min-width: 92px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-control);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-2);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.plan-preview-btn:hover,
+.plan-preview-btn:focus-visible {
+  border-color: var(--sb-border-strong);
+  color: var(--sb-ink-1);
+  background: var(--sb-surface-sunken);
+}
+
+.plan-preview-btn.is-primary {
+  border-color: transparent;
+  background: var(--sb-brand);
+  color: var(--sb-ink-on-dark);
+  box-shadow: var(--sb-shadow-sm);
+}
+
+.plan-preview-btn.is-primary:hover,
+.plan-preview-btn.is-primary:focus-visible {
+  background: var(--sb-brand-hover);
+  color: var(--sb-ink-on-dark);
+}
+
+.plan-preview-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* ── 运行中（他们用 134×134 环形进度 + 轮播文案；这里用 token 化的环 + 轮播）── */
+.plan-preview-running {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 0;
+}
+
+.plan-preview-ring {
+  width: 134px;
+  height: 134px;
+  border-radius: var(--sb-radius-pill);
+  border: 8px solid var(--sb-surface-sunken);
+  border-top-color: var(--sb-brand);
+  animation: plan-preview-spin 1.1s linear infinite;
+}
+
+.plan-preview-running strong {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--sb-ink-1);
+}
+
+.plan-preview-running small {
+  font-size: 14px;
+  color: var(--sb-ink-3);
+}
+
+@keyframes plan-preview-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-preview-ring { animation-duration: 3s; }
+}
+
+/* ── 三步条（他们：grid 3 列 gap 12、每步圆角 12、序号圆点 28）── */
+.plan-preview-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-preview-steps li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--sb-border-subtle);
+  background: var(--sb-surface-card);
+}
+
+.plan-preview-steps li span {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-sunken);
+  color: var(--sb-ink-3);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.plan-preview-steps li b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sb-ink-2);
+}
+
+.plan-preview-steps li small {
+  font-size: 12px;
+  color: var(--sb-ink-4);
+}
+
+.plan-preview-steps li.is-active {
+  border-color: var(--sb-brand-border);
+  background: var(--sb-brand-soft);
+}
+
+.plan-preview-steps li.is-active span,
+.plan-preview-steps li.is-done span {
+  background: var(--sb-brand);
+  color: var(--sb-ink-on-dark);
+}
+
+.plan-preview-steps li.is-active b { color: var(--sb-ink-1); }
+.plan-preview-steps li.is-done b { color: var(--sb-ink-2); }
+
+/* ── 面板主体（他们：第 3 步不显示标题栏，第 2 步显示「创作脚本」，否则「素材分析」）── */
+.plan-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 2px;
+}
+
+.plan-preview-body-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sb-ink-1);
+}
+
+.plan-preview-materials {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-preview-material {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.plan-preview-material img,
+.plan-preview-material-blank {
+  width: 96px;
+  height: 90px;
+  border-radius: var(--sb-radius-md);
+  border: 1px solid var(--sb-border-subtle);
+  background: var(--sb-surface-sunken);
+  object-fit: cover;
+}
+
+.plan-preview-material textarea,
+.plan-preview-text {
+  width: 100%;
+  min-height: 90px;
+  padding: 10px 12px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-md);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.plan-preview-material textarea:focus-visible,
+.plan-preview-text:focus-visible {
+  outline: none;
+  border-color: var(--sb-border-focus);
+  box-shadow: var(--sb-shadow-ring);
+}
+
+.plan-preview-text {
+  min-height: 180px;
+}
+
+.plan-preview-directions {
+  display: grid;
+  gap: 16px;
+}
+
+.plan-preview-direction {
+  display: grid;
+  gap: 8px;
+}
+
+.plan-preview-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.plan-preview-options button {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-chip);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-2);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.plan-preview-options button:hover,
+.plan-preview-options button:focus-visible {
+  border-color: var(--sb-brand-border);
+  background: var(--sb-brand-soft);
+  color: var(--sb-ink-brand);
+}
+
+.plan-preview-options button.is-selected {
+  border-color: transparent;
+  background: var(--sb-brand);
+  color: var(--sb-ink-on-dark);
+}
+
+.plan-preview-plan {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-preview-summary {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--sb-ink-2);
+}
+
+.plan-preview-outline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.plan-preview-outline li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--sb-radius-md);
+  background: var(--sb-surface-sunken);
+}
+
+.plan-preview-outline li b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sb-ink-1);
+}
+
+.plan-preview-outline li span {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-notes {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sb-ink-3);
+}

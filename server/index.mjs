@@ -202,6 +202,7 @@ import { createVideoUploadService } from './videoUploadService.mjs';
 import { createVideoReconciliation } from './videoReconciliation.mjs';
 import { readVideoPlatformFlags } from './config.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
+import { createPlanPreviewService, normalizeSurface as normalizePlanSurface, planPreviewDirections } from './planPreview.mjs';
 import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -4047,6 +4048,14 @@ function createVideoPlanningTextClient({ timeoutMs = 90_000 } = {}) {
   }
   return createEcommerceVlmClient({ timeoutMs, retryDelaysMs: [] });
 }
+/* 批 K-C/D：三步方案预览 —— 图片侧「预览」与视频侧「代为撰写」共用这一条流水线
+   （用户原话：「这两套东西本质上都是一个设计方案，只是入口不同」）。 */
+const planPreviewService = createPlanPreviewService({
+  completeText: request => (Array.isArray(request?.images) && request.images.length
+    ? createEcommerceVlmClient({ timeoutMs: 90_000, retryDelaysMs: [] })
+    : createVideoPlanningTextClient({ timeoutMs: 60_000 })).completeText(request),
+});
+
 const videoPlanningService = createVideoPlanningService({
   /* 9-11 实测: 一次完整方案分析 (2600 tokens 结构化 JSON) 在 gpt-5.6-luna 上约 36-40s,
      原 30s 预算必然超时并被兜底接管 → 提到 90s, 让真实方案有机会完成 (失败仍有本地兜底)。 */
@@ -4813,6 +4822,118 @@ app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
     });
   }
 });
+/* ═══ 批 K-C / K-D：三步方案预览（图片侧「预览」+ 视频侧「代为撰写」）══════════════════════
+   抄的是知渔「代为撰写」的三步（docs/design/61-quantv-dawei-chuanxie.md）：
+     ① 素材理解（可编辑纠偏）② 方向与偏好（三维档位）③ 方案预览（可改、确认后应用）。
+   计费：**0.5 积分/次**（SKU ec_plan_preview），先报价 → 用户确认 → 才调用模型；失败不扣。
+   ⚠️ 降级（本地兜底方案）**不收费** —— 与 /api/video/plans 同一口径，兜底不算交付。 */
+function authenticatePlanPreviewRequest(req, res, next) {
+  if (normalizePlanSurface(req.body?.surface || req.query?.surface) === 'video') {
+    return authenticateVideoRequest(req, res, next);
+  }
+  return authenticateEcommerceRequest(req, res, next);
+}
+
+/* 方向与偏好：公开读，不需要登录（对话框要在点之前就把三档渲染出来）。 */
+app.get('/api/plan-preview/options', (req, res) => {
+  const surface = normalizePlanSurface(req.query?.surface);
+  res.json({ surface, directions: planPreviewDirections(surface) });
+});
+
+const PLAN_PREVIEW_MATERIAL_LIMIT = 6;
+const PLAN_PREVIEW_MATERIAL_BYTES = 3 * 1024 * 1024;
+
+/* 只允许读**本站自己**的素材地址：素材 URL 来自请求体，放开就是 SSRF。
+   同源判定用请求自己的 host，既挡住外站，也挡住内网地址。 */
+function planPreviewAssetUrl(raw, host) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    if (host && url.host !== host) return '';
+    if (/^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|169\.254\.)/i.test(url.hostname)) return '';
+    return url.toString();
+  } catch { return ''; }
+}
+
+async function inlinePlanPreviewMaterials(materials, host) {
+  const images = [];
+  let bytes = 0;
+  for (const item of materials.slice(0, PLAN_PREVIEW_MATERIAL_LIMIT)) {
+    const url = planPreviewAssetUrl(item?.url, host);
+    if (!url) continue;
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!response.ok) continue;
+      const type = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(type)) continue;
+      const buffer = Buffer.from(await response.arrayBuffer());
+      bytes += buffer.length;
+      if (bytes > PLAN_PREVIEW_MATERIAL_BYTES) break;
+      images.push('data:' + (type === 'image/jpg' ? 'image/jpeg' : type) + ';base64,' + buffer.toString('base64'));
+    } catch {
+      /* 单张素材读不到就跳过：少一张参考图不该让整条流水线失败（用户会看到素材理解里少了一条）。 */
+    }
+  }
+  return images;
+}
+
+app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) => {
+  const surface = normalizePlanSurface(req.body?.surface);
+  const { billingQuoteId: quoteId, actionId } = req.body || {};
+  const prompt = String(req.body?.prompt || '').trim();
+  /* 与 /api/video/plans 同一条铁律：**为无效请求扣费**是禁止的 —— 空需求在建 hold 之前就拒。 */
+  if (!prompt) {
+    return res.status(400).json({ code: 'PLAN_PREVIEW_PROMPT_REQUIRED', error: '请先简单描述你要做的东西' });
+  }
+  const materials = (Array.isArray(req.body?.materials) ? req.body.materials : [])
+    .slice(0, PLAN_PREVIEW_MATERIAL_LIMIT)
+    .map((item, index) => ({
+      id: String(item?.id || 'material-' + (index + 1)).slice(0, 80),
+      name: String(item?.name || '素材 ' + (index + 1)).slice(0, 120),
+      url: String(item?.url || '').slice(0, 2000),
+    }));
+  try {
+    const images = await inlinePlanPreviewMaterials(materials, req.get('host'));
+    const payload = {
+      surface,
+      prompt,
+      materials,
+      direction: req.body?.direction,
+      skillName: req.body?.skillName,
+      images,
+    };
+    const composed = await planPreviewService.compose(payload);
+    if (composed?.degraded) {
+      return res.json({ plan: composed, billing: { charged: false, reason: 'DEGRADED_LOCAL_PLAN' } });
+    }
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_plan_preview',
+      referenceType: 'ec_plan_preview',
+      providerCostCny: 0.03,
+      metadata: { action: 'ec_plan_preview', feature: surface === 'video' ? 'video_generation' : 'ecommerce' },
+      work: async () => {
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(composed)).digest('hex');
+        return { ...composed, url: 'plan-preview:' + fingerprint };
+      },
+    });
+    const { url: _reference, ...plan } = billed.result;
+    return res.json({ plan, billing: billed.billing });
+  } catch (error) {
+    return res.status(error?.status || 500).json({
+      error: error?.message || '方案预览失败',
+      code: error?.code,
+      required: error?.required,
+      available: error?.available,
+      billing: error?.billing,
+    });
+  }
+});
+
 app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
   try {
     const kind = String(req.headers['x-video-asset-kind'] || '').trim().toLowerCase();
