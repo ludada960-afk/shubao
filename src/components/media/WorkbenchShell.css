@@ -432,7 +432,23 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
      ① 页头（返回 + 技能名）在最上面一行；
      ② 被嵌入的工作台通栏；
      ③ 「示例 / 历史」页签与内容跟在它下面 —— 结果与历史仍然都在这一页里。 */
-.media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+/* ═══ 2026-09-19 批 J-⑬：嵌入形态下，视频创作台的「框」照图片侧的数值来 ═══════════════════
+   用户批注 #11-1：「你这个框**直接照抄图片生成那边的样式**不可以吗？你这个跟他完全就不一样呀
+   ……**你的代码不是可以复用的吗**……你连这些**尺寸，布局规格**你都没有搞明白吗？」
+   批注 #12-1：「看一下代码呀。代码上这些尺寸啊，框的大小呀，**间距**啊，**阴影**啊，渐变啊，
+   **颜色的色系**呀，按钮啊，这些设计和UI和交互你都可以抄呀，为什么不能抄呢？」
+   实测两条深链之后的差（表在 RTK.md「J-⑬」）：
+     图片侧的栏卡 = **圆角 12 / 1px --sb-border-default / 白底 / --sb-shadow-sm / 栏间 28px**；
+     视频侧被用户框住的那颗 .video-composer = 圆角 20 / 另一条描边色 / 透明底 /
+       `rgba(67,48,31,.09) 0 18px 52px`（重得多）/ 栏间 18px。
+   所以这一条只做一件事：**把图片侧那几个数搬过来**。
+   ⚠️ **不重写版式**：视频工作台（页签 / 素材区 / 输入区 / 底栏工具条）本来就是横向铺开的，
+      把它挤进图片侧那条 570 的窄栏会把内容压坏 —— 那不是"照抄"，那是另一种乱来。
+      照抄的是**框的数值**（尺寸口径 / 圆角 / 描边 / 底色 / 阴影 / 栏间距），版式各随其内容。 */
+.media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+/* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
+   VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
+   在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */
 .media-workbench-left.is-head-only { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; }
 .media-workbench-left.is-head-only .media-workbench-head { gap: 2px; }
 /* 嵌入的工作台自己带边框/底色，这里只负责让它铺满，不再加第二层卡片壳 */
