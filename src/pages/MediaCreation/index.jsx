@@ -523,6 +523,16 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const deliverables = useMemo(() => {
     if (!skill) return [];
     const declared = Array.isArray(skill.deliverables) ? skill.deliverables : [];
+    /* ═══ 批 K-E：视频侧右栏与图片侧**结构对齐** ═══════════════════════════════════════════
+       线上实测：图片子页面的「示例」页签给的是一份**编号交付清单**（01 白底主图 02 …），
+       而视频子页面只剩一句「示例正在补充，先直接生成试试。」—— 同一条工作台两边结构不一样，
+       这正是用户说的「视频生成这一块要跟图片生成这边是一样的」。
+       视频技能的交付物本身是确定的（一条成片），如实写清即可；
+       ⚠️ **不写死规格数字**（模型/清晰度/时长/比例都是用户在左边自己选的），
+          免得写出一句与实际不符的话 —— 本站铁律：界面上每一句都得是真的会发生的事。 */
+    if (!declared.length && embed === 'video') {
+      return [{ name: '成片 × 1', hint: '按你在左边选的模型、清晰度、时长与比例交付一条短视频' }];
+    }
     if (!suite || !suiteRun?.plan?.images?.length) return declared;
     return suiteRun.plan.images.map(image => {
       const type = IMAGE_TYPES.find(item => item.key === image.key);
@@ -530,7 +540,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       const ratio = image.ratio ? image.ratio : (type ? type.defaultRatio : '');
       return { name, hint: [ratio, type ? type.desc : ''].filter(Boolean).join(' · ') };
     });
-  }, [skill, suite, suiteRun]);
+  }, [skill, suite, suiteRun, embed]);
 
   /* ═══ 左栏的只读清单块（照竞品「包含模块 已选 0/16」的形态）════════════════════════
      竞品那一块是**可勾选**的；我们的张数与报价由方案算死，所以只做只读展示 ——
