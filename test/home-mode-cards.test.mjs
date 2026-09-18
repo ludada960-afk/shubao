@@ -91,6 +91,29 @@ test('home presents the two confirmed entries (视频生成 / 图片生成) in o
   assert.match(styles, /\.homepage-mode-card-visual img \{[^}]*object-fit:\s*contain/);
 });
 
+/* ═══ 批 J-⑥：选中那一片要再抬高一点点（用户批注 #5-1，2026-09-19）════════════════════════
+   用户原话：「用户他点击这两张卡片的任意一张，他应该是会再抬高一点点的。你现在情况就是
+   这两张他都是埋下去的。如果用户他点击其中一张，选中其中一张的话，他应该再稍微抬高一点点。」
+   改前选中态只有"描边 + 浅底"、**位置与未选中一模一样** —— 那就是"都是埋下去的"。
+   契约：选中 = 抬 10px（比 hover 的 14px 轻一档，因为它是持久状态不是掠过反馈），
+   且每一条都要把 ±5° 的旋转带回去（不带的话选中瞬间扇子就散架）。 */
+test('J-⑥ 选中的模式卡比未选中的再抬高一点点，且旋转不掉', () => {
+  assert.match(styles, /\.homepage-mode-card\.card-1\.is-active \{ transform: translateY\(-10px\) rotate\(-5deg\); \}/,
+    '左片选中要抬 10px 并保住 -5°');
+  assert.match(styles, /\.homepage-mode-card\.card-2\.is-active \{ transform: translateY\(-10px\) rotate\(5deg\); \}/,
+    '右片选中要抬 10px 并保住 +5°');
+  /* 选中与未选中必须在**同一个方向**上拉开差距：抬起来，而不是压下去。 */
+  const lift = Number(styles.match(/\.homepage-mode-card\.card-1\.is-active \{ transform: translateY\((-?\d+)px\)/)?.[1]);
+  assert.ok(lift < 0, '选中必须是"抬起来"（负的 translateY），不能是压下去');
+  const hoverLift = Number(styles.match(/\.homepage-mode-card\.card-1:hover \{ transform: translateY\((-?\d+)px\)/)?.[1]);
+  assert.ok(Math.abs(lift) < Math.abs(hoverLift), '选中的抬升要**轻于** hover（持久状态 vs 掠过反馈）');
+  /* 选中之后仍然要能响应 hover / 按下（否则选中那片变成一潭死水）。 */
+  assert.match(styles, /\.homepage-mode-card\.card-1\.is-active:hover \{ transform: translateY\(-16px\) rotate\(-5deg\); \}/,
+    '选中 + hover 要再抬一点');
+  assert.match(styles, /\.homepage-mode-card\.card-2\.is-active:active \{ transform: translateY\(-6px\) rotate\(5deg\); \}/,
+    '选中 + 按下要有按压反馈');
+});
+
 test('mode cards use original normalized artwork with transparent margins', async () => {
   const assets = [
     '../public/images/home/entry-ecommerce.png',

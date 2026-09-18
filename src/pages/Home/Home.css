@@ -2633,6 +2633,25 @@
      选中态的语义是「当前项」，不是「品牌」，所以它跟 selected-* 三个 token 一起收成中性。 */
   box-shadow: 0 0 0 3px var(--sb-state-selected-bg), var(--sb-shadow-lg);
 }
+/* ═══ 2026-09-19 批 J-⑥：选中那一片要**再抬高一点点**（用户批注 #5-1）══════════════════
+   用户原话：「然后用户他**点击这两张卡片的任意一张，他应该是会再抬高一点点的**。
+   你现在情况就是**这两张他都是埋下去的**。如果用户他点击其中一张，选中其中一张的话，
+   他应该**再稍微抬高一点点**。」
+   改前：选中态只有"描边 + 浅底"，**位置跟没选中时一模一样** —— 两片平躺在框里，
+   正是用户说的"都是埋下去的"：选中在视觉上只换了个色，卡片本身没有站起来。
+   改后（k-fashionshop 的做法）：选中那一片**抬 10px**，比 hover 的 14px 轻一档 ——
+   它是"停在这儿"的持久状态，不是鼠标掠过的那种瞬时反馈。
+   ⚠️ 六条状态各抬一档、且**每条都把旋转带回去**（不带的话，选中那一瞬间扇子就散架）：
+        静止 0 / 悬停 -14 / 按下 -8；选中 -10 / 选中悬停 -16 / 选中按下 -6。
+   ⚠️ 这六条必须排在基线的 :hover / :active 之后：同权重（0,3,0）靠后取胜，
+      选中态才不会被单片的 hover 规则顶掉。 */
+.homepage-mode-card.card-1.is-active { transform: translateY(-10px) rotate(-5deg); }
+.homepage-mode-card.card-2.is-active { transform: translateY(-10px) rotate(5deg); }
+.homepage-mode-card.card-1.is-active:hover { transform: translateY(-16px) rotate(-5deg); }
+.homepage-mode-card.card-2.is-active:hover { transform: translateY(-16px) rotate(5deg); }
+.homepage-mode-card.card-1.is-active:active { transform: translateY(-6px) rotate(-5deg); }
+.homepage-mode-card.card-2.is-active:active { transform: translateY(-6px) rotate(5deg); }
+
 .homepage-mode-showcase + .surface-card { position: relative; z-index: 4; }
 @keyframes homepageModeCardsIn {
   from { opacity: 0; transform: translateY(8px); }
