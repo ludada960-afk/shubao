@@ -1,7 +1,9 @@
 import { FEATURE_SKUS, quoteFeature } from './billing/catalog.mjs';
 
-/* 批 J-⑫：v4 → v5（2026-09-19 重新实测可达性，公开档 2 → 5）。 */
-export const VIDEO_CATALOG_VERSION = 'video-products-2026-09-19-v5';
+/* 批 J-⑫：v4 → v5（2026-09-19 重新实测可达性，公开档 2 → 5）。
+   批 K-B：v5 → v6（2026-09-19 二次实测：改用**模型解析**判据取代「预扣费」判据，
+   公开档 5 → 10；可灵/Veo 三条确认上游已下架）。 */
+export const VIDEO_CATALOG_VERSION = 'video-products-2026-09-19-v6';
 export const DEFAULT_VIDEO_PRODUCT_ID = 'seedance_standard';
 
 function deepFreeze(value) {
@@ -26,7 +28,19 @@ function deepFreeze(value) {
      blocked     可接入，但本站中转余额不足，提交即被预扣费拦下
      unverified  渠道活着但本站报文口径尚未确认
      unreachable 上游不认该模型名 / 无渠道 / 未定价 / 聚合条件不支持
-   门禁：public:true 只允许 verified / callable，见 test/video-route-reachability.test.mjs。 */
+     retired     上游**曾经**有、现在已下架（老任务仍可读，但不能再选）
+   门禁：public:true 只允许 verified / callable，见 test/video-route-reachability.test.mjs。
+
+   ⚠️ 2026-09-19 批 K-B 的**判据纠错**（这条比模型本身更重要）：
+   09-19 上午那一轮把「预扣费失败（insufficient_user_quota）」当成「渠道活着」的证据，
+   于是把 seedance-2.0-480p/720p/fast-480p/fast-720p 等判成了 ALIVE —— **这是错的**。
+   本轮用**不存在的模型名**做对照实验才看清顺序：
+     · 模型名不存在 → 503 {"code":"model_not_found","message":"No available channel for model ..."}
+     · 模型名存在、时长非法 → 400 参数校验报文
+     · 有些渠道**先扣费再解析模型名**，余额不足时回 403 insufficient_user_quota，
+       这个报文里**看不出模型名认不认**（对照实验：同一个 403 也出现在真模型上，
+       而 4 条 seedance-2.0-* 在 /v1/models 里根本没有 openai-video 声明）。
+   现在只用一条判据：**该模型名能不能走到参数校验**（400 且报文是参数错 = 渠道活着）。 */
 export const ROUTE_REACHABILITY = deepFreeze({
   'agv-seedance2.0fast': {
     state: 'verified',
@@ -56,7 +70,7 @@ export const ROUTE_REACHABILITY = deepFreeze({
     state: 'blocked',
     billingMode: 'per_request',
     quoteCny: 7.67,
-    evidence: '2026-09-19 复测：预扣 ¥7.67 > 当前余额 ¥6.98（insufficient_user_quota）⇒ 仍 blocked。**充值即可解**，与代码无关',
+    evidence: '2026-09-19 复测：预扣 ¥7.67 > 当前余额 ¥5.11（insufficient_user_quota）⇒ 仍 blocked。**充值即可解**，与代码无关',
   },
   'minimax-h3': {
     state: 'callable',
@@ -68,13 +82,82 @@ export const ROUTE_REACHABILITY = deepFreeze({
     state: 'blocked',
     billingMode: 'per_request',
     quoteCny: 7.41,
-    evidence: '2026-09-19 复测：渠道活着（参数校验接住非法时长）；预扣 ¥7.41 > 当前余额 ¥6.98 ⇒ 仍 blocked。**充值即可解**',
+    evidence: '2026-09-19 批 K-B 复测：模型名可解析（渠道活着）；预扣 ¥7.41 > 当前余额 ¥5.11 ⇒ 仍 blocked。**充值即可解**',
   },
   'xn-seedance-2.5': {
     state: 'blocked',
     billingMode: 'per_second',
     quoteCny: 1.872,
-    evidence: '2026-09-19 复测：渠道活着（参数校验接住非法时长）；5 秒预扣 ¥9.36 > 当前余额 ¥6.98 ⇒ 仍 blocked。**充值即可解**，与代码无关',
+    evidence: '2026-09-19 复测：渠道活着（参数校验接住非法时长）；5 秒预扣 ¥9.36 > 当前余额 ¥5.11 ⇒ 仍 blocked。**充值即可解**，与代码无关',
+  },
+  /* ═══ 2026-09-19 批 K-B：本轮实测「模型名能走到参数校验」的活路由 ═══════════════════════
+     全部零成本（非法时长 = 1 秒，上游参数校验在生成之前拦下，不建任务不扣费）。
+     报文里带出了各自真实的时长区间，所以下面的 durations 不是猜的。 */
+  'sd-2.5-js2': {
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 3.38,
+    evidence: '2026-09-19 批 K-B：非法时长被上游接住并回「duration 1s out of range for sd-2.5-js2; allowed 4-30」⇒ 渠道活着、时长区间 4-30 秒是上游自己报的；按条 ¥3.38，10 图/10 视频/10 音频；站内产品 Seedance 2.5 取 5/10/15 秒（⊂4-30）',
+  },
+  'sd-2.0-js': {
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 2.6,
+    evidence: '2026-09-19 批 K-B：上游回「duration 1s out of range for sd-2.0-js; allowed 4-15」⇒ 渠道活着、时长 4-15 秒；按条 ¥2.6，9 图/3 视频/3 音频',
+  },
+  'sd-2.0-js900': {
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 2.08,
+    evidence: '2026-09-19 批 K-B：上游回「duration 1s out of range for sd-2.0-js900; allowed 4-15」⇒ 渠道活着且时长区间 4-15 秒；按条 ¥2.08（轻量档，仅 9 张参考图）',
+  },
+  'sd-2.0-as': {
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 2.21,
+    evidence: '2026-09-19 批 K-B：上游回「duration 1s is not available for sd-2.0-as; allowed 5, 10, 15」⇒ 渠道活着、只认 5/10/15 秒；按条 ¥2.21（未上架）',
+  },
+  'sd-2.0-933-medium': {
+    state: 'callable',
+    billingMode: 'per_second',
+    quoteCny: 0.442,
+    evidence: '2026-09-19 批 K-B：上游回「duration 1s out of range for sd-2.0-933-medium; allowed 4-15」⇒ 渠道活着、时长 4-15 秒；按秒 ¥0.442（未上架：按秒 × 15 秒会击穿按条 SKU 的短长两档口径）',
+  },
+  'sd-2.0-933-max': {
+    state: 'callable',
+    billingMode: 'per_second',
+    quoteCny: 0.624,
+    evidence: '2026-09-19 批 K-B：上游回「duration 1s out of range for sd-2.0-933-max; allowed 4-15」⇒ 渠道活着、时长 4-15 秒；按秒 ¥0.624（同上，未上架）',
+  },
+  'xn-minimax-h3': {
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 3.64,
+    evidence: '2026-09-19 批 K-B：非法时长被上游接住（unsupported video duration）⇒ 渠道活着；按条 ¥3.64，支持 4-15 秒、480p/720p/1440p、30 图/30 视频/30 音频参考、支持人脸',
+  },
+  'xn-minimax-h3-second': {
+    state: 'callable',
+    billingMode: 'per_second',
+    quoteCny: 0.364,
+    evidence: '2026-09-19 批 K-B：非法时长被上游接住（unsupported video duration）⇒ 渠道活着；按秒 ¥0.364',
+  },
+  'ip233-minimax-h3': {
+    state: 'callable',
+    billingMode: 'per_second',
+    quoteCny: 0.364,
+    evidence: '2026-09-19 批 K-B：上游把合法秒数直接报了出来「minimax-h3 supported seconds: 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15」⇒ 渠道活着且时长口径明确；按秒 ¥0.364，支持到 2160p',
+  },
+  'xn-seedance-2.0': {
+    state: 'callable',
+    billingMode: 'per_request',
+    quoteCny: 6.63,
+    evidence: '2026-09-19 批 K-B：非法时长被上游接住（unsupported video duration）⇒ 渠道活着；按条 ¥6.63（余额不足，未上架）',
+  },
+  'xn-seedance-2.0-fast': {
+    state: 'callable',
+    billingMode: 'per_second',
+    quoteCny: 0.715,
+    evidence: '2026-09-19 批 K-B：非法时长被上游接住（unsupported video duration）⇒ 渠道活着；按秒 ¥0.715',
   },
   'sd5-seedance-2.0': {
     state: 'unreachable',
@@ -88,9 +171,20 @@ export const ROUTE_REACHABILITY = deepFreeze({
     state: 'unreachable',
     evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达',
   },
+  /* 2026-09-19 批 K-B 更正：09-16 的「未声明 openai-video」已不成立 —— 本轮实测该模型名
+     **解析得出来且已定价**（403 预扣费 ¥5.850000，正好等于 billing 里记的 ¥5.85/条），
+     只是余额 ¥5.11 < ¥5.85 ⇒ blocked。**充值即可解**。 */
   'minimax-h3-2k': {
-    state: 'unreachable',
-    evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达',
+    state: 'blocked',
+    billingMode: 'per_request',
+    quoteCny: 5.85,
+    evidence: '2026-09-19 批 K-B 实测：非法时长请求返回 403 insufficient_user_quota「需要预扣费额度: ¥5.850000」⇒ 模型名可解析、渠道在、价目与账面一致；余额 ¥5.11 不足故 blocked',
+  },
+  'seedance-2.0-4k': {
+    state: 'blocked',
+    billingMode: 'per_request',
+    quoteCny: 5.85,
+    evidence: '2026-09-19 批 K-B 实测：非法时长请求返回 403 insufficient_user_quota「需要预扣费额度: ¥5.850000」⇒ 渠道在、按条 ¥5.85；余额 ¥5.11 不足故 blocked',
   },
   'grok-imagine-video': {
     state: 'callable',
@@ -106,14 +200,20 @@ export const ROUTE_REACHABILITY = deepFreeze({
     quoteCny: 0.455,
     evidence: '2026-09-19 零成本复核：非法时长被上游参数校验接住（unsupported video duration）⇒ 渠道活着。09-16 那次「聚合条件不支持」已不复现；¥0.455/条，低于当前中转余额',
   },
-  'kling-3.0': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video；上游可用性面板亦为 degraded' },
-  'kling-3.0-pro': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video；上游可用性面板亦为 degraded' },
-  'veo-3.1-fast': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
+  /* 2026-09-19 批 K-B：三条**确认上游已下架**（不再是"暂未开放"）。对照实验里它们与
+     伪造模型名走的是同一条路：上游回「model kling-3.0 is not a public model name」。
+     这就是用户批注里「被你搞丢了」的那三条 —— 丢的原因不在我们代码，在上游没有这些模型了。 */
+  'kling-3.0': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：提交回 not a public model name，/v1/models 无此名 ⇒ 上游已下架' },
+  'kling-3.0-pro': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0' },
+  'veo-3.1-fast': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
-  'seedance-2.0-720p': { state: 'unreachable', evidence: '2026-09-16 声明 openai-video 但上游返回 not a public model name' },
-  'seedance-2.0-fast-720p': { state: 'unreachable', evidence: '2026-09-16 同 seedance-2.0-720p' },
-  'seedance-2.0-480p': { state: 'unreachable', evidence: '2026-09-16 同 seedance-2.0-720p' },
-  'seedance-2.0-fast-480p': { state: 'unreachable', evidence: '2026-09-16 同 seedance-2.0-720p' },
+  /* 2026-09-19 批 K-B 复核：四条都维持 unreachable —— 它们**不在** /v1/models 的 openai-video
+     清单里，且提交回「not a public model name」。09-19 上午那版台账把它们记成 ALIVE(quota)
+     是判据用错了（见文件头的判据纠错）。 */
+  'seedance-2.0-720p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：提交回 not a public model name；且 /v1/models 里该名未声明 openai-video（上午那版 ALIVE(quota) 是判据误用，已纠正）' },
+  'seedance-2.0-fast-720p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：同 seedance-2.0-720p' },
+  'seedance-2.0-480p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：同 seedance-2.0-720p' },
+  'seedance-2.0-fast-480p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：同 seedance-2.0-720p' },
   'sd2.0-720p-official': { state: 'unreachable', evidence: '2026-09-16 本站分组（default/distributor）下无可用渠道' },
   'sd2.5-720p-official': { state: 'unreachable', evidence: '2026-09-16 本站分组（default/distributor）下无可用渠道' },
   'sd2.0-1080p-official': { state: 'unreachable', evidence: '2026-09-16 本站分组（default/distributor）下无可用渠道' },
@@ -382,48 +482,126 @@ export const VIDEO_PRODUCTS = deepFreeze({
     concurrency: 1,
     pollIntervalMs: 10000,
   },
-  /* 9-16: sd8-seedance-2.5 未声明 openai-video；改接同族活路由 xn-seedance-2.5（¥1.872/秒），
-     该路由已通过分辨率校验，但 5 秒预扣 ¥9.36 超过当前中转余额，充值后可直接开 public。 */
+  /* ═══ 2026-09-19 批 K-B：**恢复上架**（用户批注「把之前的那些模型找回来呀」）═══════════
+     原路由 xn-seedance-2.5（¥1.872/秒，5 秒 ¥9.36）被中转余额挡死，属于"充值才能解"；
+     本轮在**同族按条版**里找到更便宜且今天实测活着的 sd-2.5-js2（¥3.38/条，4-30 秒，
+     10 图/10 视频/10 音频）。成本降 33%，**用户价分文未动**（¥11.01 / 43000 units）。
+     时长区间 4-30 秒是上游报文自己报出来的（见 ROUTE_REACHABILITY 的 evidence），不是猜的。 */
   seedance_25: {
     id: 'seedance_25',
     label: 'Seedance 2.5',
     providerLabel: '字节跳动',
     tierLabel: '画质升级',
     description: '新一代画质与一致性，细节和材质表现更好，适合品牌主推片。',
-    limitations: '仅 720P；高峰期排队更久；不支持参考视频与参考音频。',
-    routeId: 'xn-seedance-2.5',
+    limitations: '仅 720P；参考视频与参考音频各最多 10 个；生成时间更长，高峰期排队更久。',
+    routeId: 'sd-2.5-js2',
     credential: 'seedance',
-    public: false,
+    public: true,
     default: false,
-    durations: { min: 5, max: 15 },
+    durations: { min: 5, max: 30 },
+    durationOptions: [5, 10, 15],
     resolutions: ['720p'],
     modes: ['script', 'reference'],
     generatedAudio: true,
     frameAudio: false,
-    limits: { images: 9, videos: 0, audios: 0, total: 9 },
+    limits: { images: 10, videos: 10, audios: 10, total: 30 },
     concurrency: 1,
     pollIntervalMs: 12000,
   },
-  /* 9-16: minimax-h3-2k 未声明 openai-video；改接按条计费的活路由 minimax-h3-per-request，
-     预扣 ¥7.41 超过当前中转余额；2K 输出待充值后实测复核。 */
+  /* ═══ 2026-09-19 批 K-B：**恢复上架** ═══════════════════════════════════════════════
+     两条 2K 级路由今天都实测到了：
+       · minimax-h3-per-request（¥7.41/条）→ 预扣 ¥7.41 > 余额 ¥5.11，**仍 blocked**；
+       · minimax-h3-2k（¥5.85/条）→ 预扣 ¥5.85 > 余额 ¥5.11，**仍 blocked**；
+       · xn-minimax-h3（¥3.64/条，4-15 秒，480p/720p/1440p，30 图/30 视频/30 音频）→ 活着且余额够。
+     于是改接 xn-minimax-h3：**用户价分文未动**（¥16.9 / 65000 units），成本从 ¥5.85 降到 ¥3.64。
+     ⚠️ 输出档位是 1440p（中转 minimax 主路由的分档是 720p/1440p/2160p，没有 '2K' 这个写法），
+       报文里由 videoProviders 的 MINIMAX_RESOLUTION 把 '2k' 映射成 '1440p'。 */
   minimax_h3_2k: {
     id: 'minimax_h3_2k',
     label: 'MiniMax H3 2K',
     providerLabel: 'MiniMax',
     tierLabel: '2K 精制',
-    description: '支持 2K、多模态和首尾帧的精制路线，适合高质量短片。',
-    limitations: '按条计费；仅 2K 输出，生成时间更长。',
-    routeId: 'minimax-h3-per-request',
+    description: '支持 1440P 精制输出、多模态参考与首尾帧，适合高质量短片与品牌主推片。',
+    limitations: '按条计费；输出 1440P；参考图/视频/音频各最多 30 个；生成时间更长。',
+    routeId: 'xn-minimax-h3',
     credential: 'minimax',
-    public: false,
+    public: true,
     default: false,
     durations: { min: 5, max: 15 },
+    durationOptions: [5, 10, 15],
     resolutions: ['2k'],
     modes: ['script', 'reference', 'frame', 'remake'],
     generatedAudio: true,
     frameAudio: false,
-    limits: { images: 9, videos: 3, audios: 3, total: 12 },
+    limits: { images: 30, videos: 30, audios: 30, total: 90 },
     concurrency: 1,
+    pollIntervalMs: 10000,
+  },
+  /* ═══ 2026-09-19 批 K-B 新增三档：都是今天实测「模型名能走到参数校验」的活路由 ═══════════
+     定价沿用站内既有规则（成本/(1−54%) 取整到分，units = 现金价 × 3819 向上取整，
+     引流带 floor 40%）——**没有新造规则，也没有动任何老价格**。 */
+  sd_js900: {
+    id: 'sd_js900',
+    label: 'Seedance 2.0 轻量 720P',
+    providerLabel: '字节跳动',
+    tierLabel: '轻量按条',
+    description: '按条计费的轻量通道，固定 720P，出片稳定，适合批量试稿与日常更新。',
+    limitations: '按条计费；仅支持 9 张参考图，不支持参考视频与参考音频。',
+    routeId: 'sd-2.0-js900',
+    credential: 'seedance',
+    public: true,
+    default: false,
+    durations: { min: 5, max: 15 },
+    durationOptions: [5, 10, 15],
+    resolutions: ['720p'],
+    modes: ['script', 'reference'],
+    generatedAudio: true,
+    frameAudio: false,
+    limits: { images: 9, videos: 0, audios: 0, total: 9 },
+    concurrency: 2,
+    pollIntervalMs: 10000,
+  },
+  sd_js: {
+    id: 'sd_js',
+    label: 'Seedance 2.0 满参数 720P',
+    providerLabel: '字节跳动',
+    tierLabel: '多模态按条',
+    description: '固定 720P 的满参数按条通道，参考图、参考视频、参考音频都能带，适合复杂镜头。',
+    limitations: '按条计费；仅 720P；参考图最多 9 张、参考视频与参考音频各最多 3 个。',
+    routeId: 'sd-2.0-js',
+    credential: 'seedance',
+    public: true,
+    default: false,
+    durations: { min: 5, max: 15 },
+    durationOptions: [5, 10, 15],
+    resolutions: ['720p'],
+    modes: ['script', 'reference'],
+    generatedAudio: true,
+    frameAudio: false,
+    limits: { images: 9, videos: 3, audios: 3, total: 15 },
+    concurrency: 2,
+    pollIntervalMs: 10000,
+  },
+  seedance_mini: {
+    id: 'seedance_mini',
+    label: 'Seedance 2.0 Mini',
+    providerLabel: '字节跳动',
+    tierLabel: '轻量多模态',
+    description: '轻量版多模态通道，文生/图生/多模态/首尾帧都能做，480P 与 720P 双档可选。',
+    limitations: '按条计费；输出最高 720P；首尾帧模式不支持生成声音。',
+    routeId: 'seedance-2.0-mini',
+    credential: 'seedance',
+    public: true,
+    default: false,
+    durations: { min: 5, max: 15 },
+    durationOptions: [5, 10, 15],
+    /* 720p 放第一位：前端切产品时按 resolutions[0] 兜底，480p 放前面会让默认档掉到 480p */
+    resolutions: ['720p', '480p'],
+    modes: ['script', 'reference', 'frame', 'remake'],
+    generatedAudio: true,
+    frameAudio: false,
+    limits: { images: 9, videos: 3, audios: 3, total: 15 },
+    concurrency: 2,
     pollIntervalMs: 10000,
   },
 });
@@ -523,6 +701,7 @@ export function publicVideoProducts({ includeHidden = false } = {}) {
       unreachable 上游不认 / blocked 余额不足 / unverified 报文待确认。 */
 const UNAVAILABLE_REASON = Object.freeze({
   unreachable: "上游暂未开放该模型",
+  retired: "上游已下架该模型",
   blocked: "中转账户余额不足",
   unverified: "上游报文口径确认中",
 });

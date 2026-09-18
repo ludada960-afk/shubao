@@ -33,6 +33,10 @@ test('video products expose one curated stable contract', () => {
     'veo_fast',
     'seedance_25',
     'minimax_h3_2k',
+    /* 2026-09-19 批 K-B 新增三档（都是当天实测能走到参数校验的活路由） */
+    'sd_js900',
+    'sd_js',
+    'seedance_mini',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
   assert.equal(getVideoProduct('seedance_standard').label, 'Seedance 2.0 标准');
@@ -43,7 +47,8 @@ test('video products expose one curated stable contract', () => {
 });
 
 test('every product route is registered in the reachability ledger with evidence', () => {
-  const states = new Set(['verified', 'callable', 'blocked', 'unverified', 'unreachable']);
+  /* 批 K-B 新增 retired：上游**曾经**有、现在已下架（可灵 / Veo 三条走这个状态） */
+  const states = new Set(['verified', 'callable', 'blocked', 'unverified', 'unreachable', 'retired']);
   for (const product of Object.values(VIDEO_PRODUCTS)) {
     const entry = routeReachability(product.routeId);
     assert.ok(entry.state !== 'unknown', `产品 ${product.id} 的路由 ${product.routeId} 未登记进台账`);
@@ -62,16 +67,27 @@ test('public products only ride routes that are verified or callable', () => {
   /* 批 J-⑫（2026-09-19）：公开档回到 5 条 —— 下面这个 for 循环才是真正的判据
      （每一条公开档的路由台账都必须是 verified / callable）；这里锁的是**清单本身**，
      防止有人绕过台账偷偷加档。 */
+  /* 批 K-B（2026-09-19）：公开档 5 → **10**。恢复的依据是当天重新实测：
+     ① 判据纠错 —— 只用「模型名能不能走到参数校验」这一条（见 videoCatalog 文件头的判据纠错），
+        上午那版把「预扣费失败」当活着的证据，导致 4 条 seedance-2.0-* 被误判成 ALIVE；
+     ② 余额挡死的两条改接同族更便宜的活路由（Seedance 2.5 → sd-2.5-js2、2K → xn-minimax-h3），
+        用户价分文未动；
+     ③ 新增三档（sd_js900 / sd_js / seedance_mini）走的都是当天实测活着的按条路由。 */
   assert.deepEqual(publics.map(product => product.id), [
     'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+    'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
   for (const product of publics) {
     const entry = routeReachability(getVideoProduct(product.id).routeId);
     assert.ok(['verified', 'callable'].includes(entry.state));
   }
-  assert.equal(getVideoProduct('minimax_h3_2k').public, false);
+  /* 上游已下架的三条**不许**变成选项（点了必失败），但老数据仍要读得出来 */
+  assert.equal(getVideoProduct('kling_standard').public, false);
   assert.equal(getVideoProduct('kling_pro').public, false);
   assert.equal(getVideoProduct('veo_fast').public, false);
+  for (const id of ['kling_standard', 'kling_pro', 'veo_fast']) {
+    assert.equal(routeReachability(getVideoProduct(id).routeId).state, 'retired');
+  }
 });
 
 test('video feature sku follows product and the upstream duration whitelist', () => {
@@ -147,6 +163,7 @@ test('public products omit hidden routes and private provider details', () => {
      点了必失败的东西不许变成选项。 */
   assert.deepEqual(products.map(product => product.id), [
     'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+    'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
   assert.equal(products.every(product => !('routeId' in product) && !('credential' in product)), true);
@@ -163,7 +180,7 @@ test('public products omit hidden routes and private provider details', () => {
   assert.equal(products.every(product => !JSON.stringify(product).includes('providerCostCny')), true);
   /* 隐藏档仍可查（老任务/管理端需要），但不能出现在公开目录里 */
   const all = publicVideoProducts({ includeHidden: true });
-  assert.equal(all.length, 10);
+  assert.equal(all.length, 13);
   assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS));
   assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);
   assert.equal(getVideoProduct('kling_standard').public, false);
@@ -171,4 +188,16 @@ test('public products omit hidden routes and private provider details', () => {
   assert.equal(getVideoProduct('minimax_h3_768p').public, true);
   assert.equal(getVideoProduct('wan_standard').public, true);
   assert.equal(getVideoProduct('grok_fast').public, true);
+  /* 批 K-B 恢复上架的两条：Seedance 2.5 与 MiniMax 2K */
+  assert.equal(getVideoProduct('seedance_25').public, true);
+  assert.equal(getVideoProduct('seedance_25').routeId, 'sd-2.5-js2');
+  assert.deepEqual(getVideoProduct('seedance_25').limits, { images: 10, videos: 10, audios: 10, total: 30 });
+  assert.equal(getVideoProduct('minimax_h3_2k').public, true);
+  assert.equal(getVideoProduct('minimax_h3_2k').routeId, 'xn-minimax-h3');
+  assert.deepEqual(getVideoProduct('minimax_h3_2k').limits, { images: 30, videos: 30, audios: 30, total: 90 });
+  /* 新增三档的报价锚：短长同价（按条路由与时长无关） */
+  const quotes = new Map(products.map(product => [product.id, product.quotes.short]));
+  assert.deepEqual(quotes.get('sd_js900'), { sku: 'video_sd_js900_short', units: 17263, points: 18 });
+  assert.deepEqual(quotes.get('sd_js'), { sku: 'video_sd_js_short', units: 21578, points: 22 });
+  assert.deepEqual(quotes.get('seedance_mini'), { sku: 'video_seedance_mini_short', units: 31317, points: 32 });
 });

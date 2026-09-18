@@ -144,6 +144,14 @@ const SKU_LABELS = {
   ec_direction_refresh: '电商 · 方向刷新',
   ec_smart_layer: '电商 · 智能图层',
   ec_layer_psd: '电商 · PSD 图层',
+  /* 2026-09-19 批 K-B 新增三档（追加在末尾：这个文件的行号被
+     test/no-upstream-leakage.test.mjs 的豁免表按行号钉着，中间插行会让豁免表整片错位） */
+  video_sd_js900_short: 'Seedance 2.0 轻量 720P · 短片',
+  video_sd_js900_long: 'Seedance 2.0 轻量 720P · 长片',
+  video_sd_js_short: 'Seedance 2.0 满参数 720P · 短片',
+  video_sd_js_long: 'Seedance 2.0 满参数 720P · 长片',
+  video_seedance_mini_short: 'Seedance 2.0 Mini · 短片',
+  video_seedance_mini_long: 'Seedance 2.0 Mini · 长片',
 };
 
 const PRODUCT_LABELS = {

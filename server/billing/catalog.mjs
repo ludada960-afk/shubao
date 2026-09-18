@@ -166,10 +166,16 @@ export const FEATURE_SKUS = freezeCatalog({
   video_kling_pro_long: { units: 32000, providerCostCny: 3.77, priceFen: 813, marginBand: 'traffic', freeReruns: 0 },
   video_veo_fast_short: { units: 11000, providerCostCny: 1.17, priceFen: 262, marginBand: 'traffic', freeReruns: 0 },
   video_veo_fast_long: { units: 11000, providerCostCny: 1.17, priceFen: 262, marginBand: 'traffic', freeReruns: 0 },
-  video_seedance_25_short: { units: 43000, providerCostCny: 5.07, priceFen: 1101, marginBand: 'traffic', freeReruns: 0 },
-  video_seedance_25_long: { units: 43000, providerCostCny: 5.07, priceFen: 1101, marginBand: 'traffic', freeReruns: 0 },
+  /* 2026-09-19 批 K-B：Seedance 2.5 改接按条活路由 sd-2.5-js2（¥3.38/条，4-30 秒，10/10/10），
+     原 xn-seedance-2.5 按秒 ¥1.872（5 秒 ¥9.36）被余额挡死。**用户价分文未动**（¥11.01 / 43000 units），
+     记账成本按新路由改准 5.07 → 3.38（面值毛利 54.9% → 67.0%）。 */
+  video_seedance_25_short: { units: 43000, providerCostCny: 3.38, priceFen: 1101, marginBand: 'traffic', freeReruns: 0 },
+  video_seedance_25_long: { units: 43000, providerCostCny: 3.38, priceFen: 1101, marginBand: 'traffic', freeReruns: 0 },
+  /* 2026-09-19 批 K-B：2K 档改接 xn-minimax-h3（按条 ¥3.64，4-15 秒，480p/720p/1440p，30/30/30），
+     原 minimax-h3-per-request（¥7.41）与 minimax-h3-2k（¥5.85）都被余额挡住。
+     **用户价分文未动**（¥16.9 / 65000 units），记账成本 5.85 → 3.64（主力带毛利 62.6% → 75.6%）。 */
   video_minimax_h3_2k_short: {
-    units: 65000, providerCostCny: 5.85,
+    units: 65000, providerCostCny: 3.64,
     priceFen: 1690, marginBand: 'core',
     freeReruns: 0, public: true,
   },
@@ -179,10 +185,21 @@ export const FEATURE_SKUS = freezeCatalog({
   // 按 78:68 积分比折算 ¥16.9 毛利 92.5% 仍稳，保留 5 毛溢价区隔短长。priceFen 1690 = ¥16.9，
   // 1 元 = 100 分锚。units 仍按工作室包面值 199/760000 反推后向上取整为 57000。
   video_minimax_h3_2k_long: {
-    units: 65000, providerCostCny: 5.85,
+    units: 65000, providerCostCny: 3.64,
     priceFen: 1690, marginBand: 'core',
     freeReruns: 0, public: true,
   },
+  /* ── 2026-09-19 批 K-B 新增三档（用户批注「把之前的那些模型找回来」）─────────────────────
+     定价**沿用站内既有规则**，没有新造口径：
+       用户价 = 记账成本 / (1 − 54%) 取整到分；units = 现金价 × 3819 向上取整（工作室包面值锚）；
+       marginBand 全部引流带（floor 40%），实测面值毛利均为 51.0%。
+     成本取中转 /api/pricing 今日报价（¥2.08 / ¥2.6 / ¥3.77 每条的按条版）。 */
+  video_sd_js900_short: { units: 17263, providerCostCny: 2.08, priceFen: 452, marginBand: 'traffic', freeReruns: 0 },
+  video_sd_js900_long: { units: 17263, providerCostCny: 2.08, priceFen: 452, marginBand: 'traffic', freeReruns: 0 },
+  video_sd_js_short: { units: 21578, providerCostCny: 2.6, priceFen: 565, marginBand: 'traffic', freeReruns: 0 },
+  video_sd_js_long: { units: 21578, providerCostCny: 2.6, priceFen: 565, marginBand: 'traffic', freeReruns: 0 },
+  video_seedance_mini_short: { units: 31317, providerCostCny: 3.77, priceFen: 820, marginBand: 'traffic', freeReruns: 0 },
+  video_seedance_mini_long: { units: 31317, providerCostCny: 3.77, priceFen: 820, marginBand: 'traffic', freeReruns: 0 },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.

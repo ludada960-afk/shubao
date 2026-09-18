@@ -20,9 +20,14 @@ test('video_minimax_h3_2k 两档统一 ¥16.9 / 65000 units (9-11 成本更正�
   }
 });
 
-test('h3 成本口径锁定 IP233 权威价目 ¥5.85/条 (原 0.76 为 poke 中转价)', () => {
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_short.providerCostCny, 5.85);
-  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_long.providerCostCny, 5.85);
+test('h3 成本口径锁定当前路由的权威价目 ¥3.64/条 (9-19 批 K-B 换路由)', () => {
+  /* 2026-09-19 批 K-B：2K 档从 minimax-h3-per-request（¥7.41，余额挡死）改接
+     xn-minimax-h3（按条 ¥3.64，4-15 秒，480p/720p/1440p，30/30/30）。
+     **用户价分文未动**（¥16.9 / 65000 units），只是记账成本跟着真实路由改准；
+     主力带毛利 62.6% → 75.6%。旧口径 ¥5.85 是 minimax-h3-2k 那条（今天实测仍在，
+     但预扣 ¥5.85 > 余额 ¥5.11 ⇒ blocked）。 */
+  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_short.providerCostCny, 3.64);
+  assert.equal(FEATURE_SKUS.video_minimax_h3_2k_long.providerCostCny, 3.64);
 });
 
 test('margin gate report classifies h3 as core-band ok with ¥16.9 anchor', () => {

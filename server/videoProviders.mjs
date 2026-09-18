@@ -123,13 +123,40 @@ function minimaxContent(product, job) {
   return content;
 }
 
+/* 中转文档（https://new.ip233.com/docs/models）里 MiniMax 主路由的字段是
+   seconds / resolution / size / prompt，resolution 的取值是 720p / 1440p / 2160p ——
+   **没有 '2K' 这个写法**。2026-09-19 批 K-B 之前这里把 resolution 写死成 '2K'，
+   等于给一条只认 720p/1080p 的路由发了它不认识的档位（公开档 minimax_h3_768p 走的就是这条）。
+   现在改成**按产品声明的清晰度发**；文档字段与旧字段同时带上（Go 解码器忽略未知字段），
+   所以 content/duration/ratio 这套旧报文继续兼容。 */
+const MINIMAX_RESOLUTION = Object.freeze({
+  '480p': '480p',
+  '720p': '720p',
+  '1080p': '1080p',
+  '1440p': '1440p',
+  '2160p': '2160p',
+  /* 站内产品目录里 2K 档的写法是 '2k'；中转 minimax 分档里最接近的是 1440p */
+  '2k': '1440p',
+});
+
+export function minimaxResolutionOf(resolution) {
+  const raw = clean(resolution, 20).toLowerCase();
+  return MINIMAX_RESOLUTION[raw] || '720p';
+}
+
 function minimaxPayload(product, job) {
+  const duration = Number(job?.duration);
+  const ratio = clean(job?.aspect_ratio, 20);
   return {
     model: product.routeId,
     content: minimaxContent(product, job),
-    duration: Number(job?.duration),
-    resolution: '2K',
-    ratio: clean(job?.aspect_ratio, 20),
+    prompt: clean(job?.prompt, 7000),
+    /* 文档口径：秒数字段是 seconds（字符串），比例字段是 size */
+    seconds: String(duration),
+    duration,
+    resolution: minimaxResolutionOf(job?.resolution),
+    size: ratio,
+    ratio,
     generate_audio: job?.generate_audio === 1 || job?.generate_audio === true,
   };
 }

@@ -108,15 +108,18 @@ export const LEAK_RULES = [
 */
 export const ALLOWLIST = {
   'src/pages/Legal/index.jsx:54:supplier-cn': '隐私政策法定披露：告知数据会传给模型服务商，未点名任何具体厂商，属用户知情权',
-  'src/pages/AdminConsole/index.jsx:211:supplier-cn': '管理后台 owner-only（App.jsx 路由 admin + 服务端 requireOwner），用户端不可达',
-  'src/pages/AdminConsole/index.jsx:211:channel-cn': '管理后台 owner-only：视频模型通道分组标题',
-  'src/pages/AdminConsole/index.jsx:313:upstream-cn': '管理后台 owner-only：上游单价运维字段',
-  'src/pages/AdminConsole/index.jsx:330:upstream-cn': '管理后台 owner-only：上游成本账本',
-  'src/pages/AdminConsole/index.jsx:331:upstream-cn': '管理后台 owner-only：上游累计扣费',
-  'src/pages/AdminConsole/index.jsx:334:upstream-cn': '管理后台 owner-only：上游请求计数',
-  'src/pages/AdminConsole/index.jsx:360:upstream-cn': '管理后台 owner-only：上游成本汇总',
-  'src/pages/AdminConsole/index.jsx:360:channel-cn': '管理后台 owner-only：支付通道费',
-  'src/pages/AdminConsole/index.jsx:333:provider-word': '管理后台 owner-only：aria-label 拼接 provider.label',
+  /* ⚠️ 豁免表按**行号**做键，所以 AdminConsole 里插/删行必须同步搬这张表。
+     2026-09-19 批 K-B：SKU_LABELS 末尾追加了 6 条新档 + 2 行注释（+8 行），
+     下面 AdminConsole 的键已整体 +8（原 211/313/330/331/334/360/333 → 219/321/338/339/342/368/341）。 */
+  'src/pages/AdminConsole/index.jsx:219:supplier-cn': '管理后台 owner-only（App.jsx 路由 admin + 服务端 requireOwner），用户端不可达',
+  'src/pages/AdminConsole/index.jsx:219:channel-cn': '管理后台 owner-only：视频模型通道分组标题',
+  'src/pages/AdminConsole/index.jsx:321:upstream-cn': '管理后台 owner-only：上游单价运维字段',
+  'src/pages/AdminConsole/index.jsx:338:upstream-cn': '管理后台 owner-only：上游成本账本',
+  'src/pages/AdminConsole/index.jsx:339:upstream-cn': '管理后台 owner-only：上游累计扣费',
+  'src/pages/AdminConsole/index.jsx:342:upstream-cn': '管理后台 owner-only：上游请求计数',
+  'src/pages/AdminConsole/index.jsx:368:upstream-cn': '管理后台 owner-only：上游成本汇总',
+  'src/pages/AdminConsole/index.jsx:368:channel-cn': '管理后台 owner-only：支付通道费',
+  'src/pages/AdminConsole/index.jsx:341:provider-word': '管理后台 owner-only：aria-label 拼接 provider.label',
 };
 
 /* ═══════════════ 4. 扫描实现 ═══════════════ */

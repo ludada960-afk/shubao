@@ -56,16 +56,22 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     video_seedance_standard_long: { units: 57000, priceFen: 1490, providerCostCny: 5.07, isPublic: true },
     video_seedance_1080p: { units: 73000, priceFen: 1890, providerCostCny: 6.37, isPublic: false },
     // 9-11: 成本口径更正为 IP233 权威价目 ¥5.85/条 (原 0.76 是 poke 中转价),
-    // 定价改 ¥16.9/65000 units 并归主力带 (60% 地板), 实测毛利 62.6%
-    video_minimax_h3_2k_short: { units: 65000, priceFen: 1690, providerCostCny: 5.85, isPublic: true },
-    video_minimax_h3_2k_long: { units: 65000, priceFen: 1690, providerCostCny: 5.85, isPublic: true },
+    // 定价改 ¥16.9/65000 units 并归主力带 (60% 地板)。
+    // 9-19 批 K-B: 2K 档改接 xn-minimax-h3 (按条 ¥3.64)，用户价分文未动，记账成本改准 3.64。
+    video_minimax_h3_2k_short: { units: 65000, priceFen: 1690, providerCostCny: 3.64, isPublic: true },
+    video_minimax_h3_2k_long: { units: 65000, priceFen: 1690, providerCostCny: 3.64, isPublic: true },
     /* 9-11 「全上」6 档 */
     video_grok_fast_short: { units: 6900, priceFen: 179, providerCostCny: 0.83, isPublic: true },
     video_wan_standard_short: { units: 4000, priceFen: 100, providerCostCny: 0.455, isPublic: true },
     video_kling_standard_short: { units: 16000, priceFen: 409, providerCostCny: 1.82, isPublic: true },
     video_kling_pro_short: { units: 32000, priceFen: 813, providerCostCny: 3.77, isPublic: true },
     video_veo_fast_short: { units: 11000, priceFen: 262, providerCostCny: 1.17, isPublic: true },
-    video_seedance_25_short: { units: 43000, priceFen: 1101, providerCostCny: 5.07, isPublic: true },
+    // 9-19 批 K-B: Seedance 2.5 改接按条活路由 sd-2.5-js2 (¥3.38)，用户价分文未动。
+    video_seedance_25_short: { units: 43000, priceFen: 1101, providerCostCny: 3.38, isPublic: true },
+    /* 9-19 批 K-B 新增三档：成本/(1−54%) 取整到分，units = 现金价 × 3819 向上取整 */
+    video_sd_js900_short: { units: 17263, priceFen: 452, providerCostCny: 2.08, isPublic: true },
+    video_sd_js_short: { units: 21578, priceFen: 565, providerCostCny: 2.6, isPublic: true },
+    video_seedance_mini_short: { units: 31317, priceFen: 820, providerCostCny: 3.77, isPublic: true },
   };
   for (const [sku, tier] of Object.entries(expected)) {
     const feature = FEATURE_SKUS[sku];
@@ -100,14 +106,16 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
 
   const report = videoMarginGateReport();
   const bySku = new Map(report.map(row => [row.sku, row]));
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 22);
+  /* 9-19 批 K-B: 22 → 28（新增 sd_js900 / sd_js / seedance_mini 各短长两档） */
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 28);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);
   for (const [sku, floor] of [
     ['video_seedance_standard_long', 0.60],
     ['video_seedance_1080p', 0.60],
-    /* 9-11: 成本更正为 ¥5.85/条后, 2K 档从高端带改判主力带 (60% 地板), 实测 62.6% */
+    /* 9-11: 成本更正后 2K 档从高端带改判主力带 (60% 地板);
+       9-19 批 K-B 换到 xn-minimax-h3 (¥3.64) 后主力带毛利 75.6% */
     ['video_minimax_h3_2k_short', 0.60],
     ['video_minimax_h3_2k_long', 0.60],
   ]) {
@@ -149,17 +157,20 @@ test('audited margins are locked against silent cost drift under the tiered band
   assert.ok(Math.abs(rerunExposure - 0.2905) < 0.001, 'free-rerun exposure drifted: ' + rerunExposure.toFixed(4));
 });
 
-test('minimax h3 2k books the authoritative IP233 list price (9-11 更正: ¥5.85/条)', () => {
+test('minimax h3 2k books the authoritative IP233 list price (9-19 换路由后: ¥3.64/条)', () => {
   const anchor = pointsFaceAnchorCny();
   // 9-11：以 IP233 权威价目（/api/pricing）为准 —— minimax-h3-2k = ¥5.85/条；
-  // 原 0.76 是 poke2api 中转路线价，已退役。定价 ¥16.9/65000 units，主力带毛利 62.6%。
+  // 原 0.76 是 poke2api 中转路线价，已退役。定价 ¥16.9/65000 units。
+  // 9-19 批 K-B：¥7.41（per-request）与 ¥5.85（minimax-h3-2k）两条都被中转余额 ¥5.11 挡住，
+  // 改接当天实测活着的 xn-minimax-h3（按条 ¥3.64，4-15 秒，480p/720p/1440p，30/30/30）。
+  // **用户价分文未动**，主力带毛利 62.6% → 75.6%。
   const auditedMargins = {
-    video_minimax_h3_2k_short: 0.626,
-    video_minimax_h3_2k_long: 0.626,
+    video_minimax_h3_2k_short: 0.756,
+    video_minimax_h3_2k_long: 0.756,
   };
   for (const [sku, expectedMargin] of Object.entries(auditedMargins)) {
     const feature = FEATURE_SKUS[sku];
-    assert.equal(feature.providerCostCny, 5.85, sku + ' books the authoritative IP233 list price');
+    assert.equal(feature.providerCostCny, 3.64, sku + ' books the authoritative IP233 list price');
     const margin = contributionMarginOf(feature, feature.units * anchor);
     assert.ok(Math.abs(margin - expectedMargin) < 0.002,
       sku + ' margin drifted: ' + margin.toFixed(4) + ' vs audited ' + expectedMargin);

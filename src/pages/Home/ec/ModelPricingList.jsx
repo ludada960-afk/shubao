@@ -12,6 +12,9 @@ import './model-pricing.css';
  */
 const SKU_BRAND = [
   [/^video_seedance/, 'bytedance'],
+  /* 2026-09-19 批 K-B：sd_* 一族（Seedance 2.0/2.5 的按条通道）也是字节的，
+     不写这条会掉到下面的 openai 兜底，价格清单里就挂错 logo 了。 */
+  [/^video_sd_/, 'bytedance'],
   [/^video_kling/, 'kuaishou'],
   [/^video_minimax/, 'minimax'],
   [/^video_veo/, 'google'],

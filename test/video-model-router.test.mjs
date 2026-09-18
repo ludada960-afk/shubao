@@ -59,7 +59,9 @@ test('fails closed when the request exceeds the public reference limit', () => {
       mode: 'reference',
       resolution: '720p',
       durationSec: 5,
-      referenceCounts: { images: 10, videos: 0, audios: 0 },
+      /* 批 K-B：公开档里参考图上限最高的已是 30（MiniMax H3 2K），
+         所以「超出上限」的样本要跟着抬到 31，否则这条门禁测的就不是上限了。 */
+      referenceCounts: { images: 31, videos: 0, audios: 0 },
     },
   });
 
