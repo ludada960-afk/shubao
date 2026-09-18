@@ -92,12 +92,45 @@
   gap: 5px;
   border: 0;
   border-radius: 14px;
-  background: none;
+  /* ═══ 2026-09-19 批 J-③：按钮与文字要"在同一个维度里"（用户批注 #2-3）════════════════════
+     用户原话：「你的**按钮跟你按钮的那些字，他是有一些游离感的**……你的按钮跟你的字，
+     它必须是能看得出他们是在**同一个维度**里面的。就比如说你是不是应该把你的按钮和它的名字
+     **下面再加一条那种进度条**那种东西，就是我之前让你去抄**流影AI**他们UI里面的那种做法呀。
+     他们是有**渐变的**，然后下面那条**进度条是会随着鼠标放上去和离开去充能它以及回落**的。
+     然后他们的**字也是会跟着变色**的。」
+     改前：格子本身没有任何底（background: none），只有里面那颗白色磁贴**带阴影浮着**，
+     文字另起一行落在格子外面 —— 视觉上就是"一个浮片 + 一行字"，两块各自为政。
+     改后：**格子自己有底**（图标与文字坐在同一块面上），磁贴去掉阴影不再"浮"，
+     两者共享同一个 hover 面、同一条底边进度条 —— 这才叫同一个维度。 */
+  background: var(--sb-surface-tint);
   color: var(--sb-ink-3);
   font: inherit;
   cursor: pointer;
+  overflow: hidden;
   transition: background-color .18s ease, color .18s ease;
 }
+/* ═══ 底边渐变进度条：**hover 从左往右充能、离开从右往左回落** ═══════════════════════════
+   数值逐条照 docs/design/54 §1（liuyingai 实测，也是本站在案例卡上已经用过的那一套）：
+   高 4px / bottom:0 / left:0 / 圆角 0 / 默认 width:0 → 悬停 width:100% /
+   transition: width .7s cubic-bezier(.4,0,.2,1)。
+   ⚠️ 靠 width 过渡，不是 transform / scaleX（实测确认）；左边缘钉死不动 ⇒
+      进入时右边缘向右推进，离开时收缩回左 —— 就是用户说的"充能 / 回落"。
+   ⚠️ 它是纯装饰：aria-hidden 语义上没有内容，pointer-events 不参与命中（由格子本身承担）。 */
+.app-sidebar-cell::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 4px;
+  background-image: linear-gradient(to right, var(--sb-brand-500), var(--sb-brand-700));
+  transition: width .7s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+}
+.app-sidebar-cell:hover::after,
+.app-sidebar-cell:focus-visible::after { width: 100%; }
+/* 选中档的进度条**常亮**：它就是"当前在这一格"的持久表达。 */
+.app-sidebar-cell.is-active::after { width: 100%; }
 /* ═══ 图标磁贴：照 liuyingai 的「默认无色、悬停才上渐变」（2026-09-19 批 H-2）═══════════
    实测（docs/design/54）：他们的默认态是**白底 + 有颜色的图标**，
    悬停时只把 56×56 的**图标磁贴**换成 linear-gradient(135deg, #0076F5, #7D28CC) + scale(1.05) + 图标转白，
@@ -113,7 +146,8 @@
   height: 38px;
   border-radius: 12px;
   background: var(--sb-surface-card);
-  box-shadow: var(--sb-shadow-sm);
+  /* ⚠️ 批 J-③：**阴影去掉** —— 那颗阴影正是"浮片与文字不在一个维度"的来源。
+     现在磁贴与文字坐在格子同一块面上，磁贴只是面上的一小块浅色。 */
   color: var(--sb-brand-600);
   transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), box-shadow .22s ease, background-image .22s ease, color .18s ease;
 }
@@ -135,12 +169,13 @@
   transform: scale(1.05);
   box-shadow: 0 8px 18px var(--sb-brand-a32);
 }
-.app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-ink-1); }
+.app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-ink-brand); }
 .app-sidebar-cell:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
 /* 选中态：**只有磁贴**上渐变（与 hover 同一套视觉），文字转墨色 + 左侧一条细指示条。
    不再有"品牌浅底铺满整格"—— 那是紫色的主要来源之一。 */
-.app-sidebar-cell.is-active { color: var(--sb-ink-1); }
+.app-sidebar-cell.is-active { color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); }
+.app-sidebar-cell.is-active .app-sidebar-label { color: var(--sb-ink-brand); }
 .app-sidebar-cell.is-active::before {
   content: '';
   position: absolute;
@@ -174,6 +209,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-sidebar-tile, .app-sidebar-brand { transition: none; }
+  .app-sidebar-tile, .app-sidebar-brand, .app-sidebar-cell::after { transition: none; }
   .app-sidebar-cell:hover .app-sidebar-tile, .app-sidebar-brand:hover { transform: none; }
 }
