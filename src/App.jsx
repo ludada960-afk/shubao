@@ -4,7 +4,6 @@
 import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp, pathnameToPage } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
-import { MdCheck } from 'react-icons/md';
 import { ArrowLeft, FolderOpen, Images, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
@@ -155,14 +154,20 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
             onLogin={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
           />
 
-          {/* 登录 */}
+          {/* ═══ 批 J（用户批注 #2-5 / #3-2）：「右边的那些**积分啊，会员中心呀，登录啊**这些东西，
+              都要抄他们的，这样的一套**表述的语言**会更好。」
+              实测我们这里原来是一颗写着「**已登录**」的按钮，可它点下去是**退出登录**
+              （onClick 里就是 signOut）—— 标签说的是"状态"，动作却是"登出"，
+              这是最容易让人误点的一类文案（用户以为点一下是看账号信息）。
+              改成**按它真正干的事命名**：退出登录。登录态本身由旁边那颗账户/积分控件显示，
+              不靠这颗按钮再说一遍 —— 与 flova「左边账号状态、右边动作」的分工一致。 */}
           {logged ? (
             <button
               type="button"
               className="topbar-action-button"
               onClick={async () => { await signOut(); dispatch({ type: 'SET_LOGGED', logged: false, phone: '' }); }}
             >
-              <MdCheck size={16} /> 已登录
+              退出登录
             </button>
           ) : (
             <button
