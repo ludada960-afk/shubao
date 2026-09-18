@@ -57,7 +57,9 @@ import ThemeSwitcher from './components/layout/ThemeSwitcher.jsx';
    onSubpageHeader），因为只有它知道当前是哪条技能、返回要回到哪个 Hub。
    ⚠️ 为什么是 useLayoutEffect 而不是 useEffect：useEffect 在**浏览器绘制之后**才跑，
      会先闪一帧「LOGO 顶栏」再换成「返回顶栏」；layout effect 在绘制前跑，不闪。 */
-function TopBar({ subpageHeader = null }) {
+/* 批 J-①（用户批注 #2-1/#3-1/#3-2）：总页面顶栏不渲染 LOGO —— 左导航顶上已经有了，
+   同一件事说两遍还各占一格。总页面整行只剩右侧的积分/账户（照 flova「拉到最右边」）。 */
+function TopBar({ subpageHeader = null, isBoard = false }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
   const canAdmin = state.accountAccess?.role === 'owner';
@@ -90,7 +92,7 @@ function TopBar({ subpageHeader = null }) {
   return (
     <div className={'app-topbar' + (compact ? ' is-compact' : '')} style={{ zIndex: 'var(--sb-z-sticky)', userSelect: 'none' }}>
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
-      <div className={'topbar-row' + (subpageHeader ? ' is-subpage' : '')}>
+      <div className={'topbar-row' + (subpageHeader ? ' is-subpage' : '') + (isBoard && !subpageHeader ? ' is-board' : '')}>
         {/* ═══ 三级顶栏的左/中两格（见 TopBar 顶部注释）═══════════════════════════════
             子页面：左「返回」+ 中「名称」；其余两级：左「LOGO」+ 中留空。
             ⚠️ 子页面上**不渲染 LOGO**：用户批注 #12 把子页面顶栏的三个格子写死了
@@ -105,7 +107,7 @@ function TopBar({ subpageHeader = null }) {
             <span>返回</span>
           </button>
           <span className="topbar-title" title={subpageHeader.name || ''}>{subpageHeader.name}</span>
-        </>) : (<>
+        </>) : isBoard ? null : (<>
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
         {/* D11 键盘可达：Logo 是「回首页」导航动作 → button + 重置默认样式（外观零变化） */}
         <button type="button" className="topbar-brand" aria-label="回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
@@ -318,14 +320,14 @@ function AppRouter() {
   return (<>
     {shell(<>
       <TaskSidebar />
-      <TopBar subpageHeader={subpageHeader} />
+      <TopBar subpageHeader={subpageHeader} isBoard={page === 'image-creation' || page === 'video-creation'} />
       {/* 板块切换条：只在**总页面**上出现。
           ⚠️ 2026-09-19 批 H-8：子页面（选了某条技能）**不再显示它** ——
              用户批注 #12 把子页面顶栏写定为「左返回 / 中名称 / 右积分账户」，
              没有第三格给分类；而且人在子页面里，"我在哪个板块"已经不是问题了。 */}
-      {(page === 'image-creation' || page === 'video-creation') && !subpageHeader && (
-        <div className="app-board-bar"><CreativeDomainNav /></div>
-      )}
+      {/* 批 J-①：板块切换条**整条删除**（用户批注 #2-1：「他们的上面……也没有那两个导航栏的」）。
+          实测：左导航里本来就有「图片生成 / 视频生成」两个入口，顶上再来一条 = 同一件事说两遍。
+          CreativeDomainNav 组件没删（承载两个域的数据契约、多个门禁在读它），只是不再挂在页面上。 */}
       <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: 'var(--sb-ink-4)' }}>加载中…</div>}>
         <PageComponent key={state._workVersion || 0} onSubpageHeader={setSubpageHeader} />
       </React.Suspense>

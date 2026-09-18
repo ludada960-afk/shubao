@@ -1001,11 +1001,13 @@ try {
   /* ⚠️ 2026-09-19 批 H-4：起点从首页改成图片总页面 —— 域导航（板块切换条）现在只挂在
      两个总页面/子页面上，首页有自己的两张入口卡，不再被这条用不上的导航占位。
      所以"点域导航"这件事在首页已经不存在，要先落到某个总页面。 */
+  /* ⚠️ 2026-09-19 批 J-①：**板块切换条整条删除了**（用户批注 #2-1：「他们的上面……也没有那两个导航栏的」）。
+     所以「点域导航第一条进子页面」这个入口不存在了 —— 现在的真实路径是：
+     左导航点「图片生成」→ 落到总页面 → 点总页面上的第一条技能卡 → 进它的子页面。
+     判据守的东西没变：**点进去要落到它自己的技能子页面**，不是切回首页内联模块。 */
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('#creative-nav-trigger-image', { timeout: 20000 });
-  await page.click('#creative-nav-trigger-image');
-  await page.waitForSelector('#creative-nav-item-image-0', { timeout: 10000 });
-  await page.click('#creative-nav-item-image-0');
+  await page.waitForSelector('.media-case-card-hit', { timeout: 20000 });
+  await page.click('.media-case-card-hit');
   await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
   await page.waitForTimeout(500);
   const suiteLanding = await page.evaluate(() => ({
@@ -1024,10 +1026,11 @@ try {
   check(/生成图片|去除背景|生成预览/.test(suiteLanding.cta), '图片技能就地生成（CTA 就在这一页）', suiteLanding.cta);
 
   /* 视频域：点进去要落在**嵌好的视频工作台**上，而不是首页的视频模块 */
+  /* 批 J-①：同上 —— 视频域从**左导航**进去，再点总页面上的第一条技能卡。 */
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
-  await page.click('#creative-nav-trigger-video');
-  await page.waitForSelector('#creative-nav-item-video-0', { timeout: 10000 });
-  await page.click('#creative-nav-item-video-0');
+  await page.click('.app-sidebar-cell[title="视频生成"]');
+  await page.waitForSelector('.media-case-card-hit', { timeout: 20000 });
+  await page.click('.media-case-card-hit');
   await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
   await page.waitForTimeout(600);
   const videoLanding = await page.evaluate(() => ({
@@ -1042,18 +1045,26 @@ try {
   /* 领域名本身仍然只负责**展开面板**（不下发、不跳转）：
      这条是用户 9-13 定的（点领域名就把菜单钉住，别自作主张启动第一个子项），
      收敛架构时一并保留 —— 所以这里断言的是「点了它不会把人带走」。 */
+  /* ⚠️ 2026-09-19 批 J-①：这一小节原来压的是「点领域名只展开面板、不把人带走」。
+     板块切换条整条删除之后，那个 trigger 在页面上已经不存在了 —— 再断言它等于断言一个不存在的东西。
+     换成的判据**比原来更贴用户口径**：总页面上**只有一条**横条（顶栏），没有第二条导航条；
+     而导航能力并没有丢 —— 两个板块的入口在左导航里（下面两条断言就是点它）。 */
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
-  await page.click('#creative-nav-trigger-image');
-  await page.waitForSelector('.creative-nav-panel', { timeout: 10000 });
-  await page.waitForTimeout(600);
-  const triggerState = await page.evaluate(() => ({
+  await page.waitForSelector('.media-creation', { timeout: 20000 });
+  const headerState = await page.evaluate(() => ({
     url: location.pathname + location.search,
-    expanded: document.querySelector('#creative-nav-trigger-image')?.getAttribute('aria-expanded') || '',
-    items: Array.from(document.querySelectorAll('#creative-nav-panel-image .creative-nav-link strong')).map(node => node.textContent),
+    boardBar: Boolean(document.querySelector('.app-board-bar')),
+    topbarBrand: Boolean(document.querySelector('.topbar-brand')),
+    sidebarBoards: Array.from(document.querySelectorAll('.app-sidebar-cell')).map(n => n.getAttribute('title')).filter(t => t === '图片生成' || t === '视频生成'),
+    actionsRight: (() => { const a = document.querySelector('.topbar-actions')?.getBoundingClientRect(); return a ? Math.round(a.x) : 0; })(),
+    halfWidth: Math.round(window.innerWidth / 2),
   }));
-  check(triggerState.url === '/image-creation', '点领域名只展开面板，不会把人带走', triggerState.url);
-  check(triggerState.expanded === 'true', '面板确实展开了', triggerState.expanded);
-  check(triggerState.items.length >= 6, '面板里列出这个总页面的全部精品能力', JSON.stringify(triggerState.items));
+  check(headerState.url === '/image-creation', '停在图片总页面', headerState.url);
+  check(!headerState.boardBar, '总页面没有第二条导航条（用户 #2-1：也没有那两个导航栏的）', String(headerState.boardBar));
+  check(!headerState.topbarBrand, '总页面顶栏没有 LOGO（用户 #2-1：上面是没有左上角这个薯包AI的）', String(headerState.topbarBrand));
+  check(headerState.sidebarBoards.length === 2, '两个板块的入口都在左导航里（导航能力没丢）', JSON.stringify(headerState.sidebarBoards));
+  /* 判据用**相对位置**（视口的一半）而不是写死 1200 —— 断言在不同视口下都要成立。 */
+  check(headerState.actionsRight > headerState.halfWidth, '积分/账户拉到右边（用户 #3-2）', headerState.actionsRight + ' vs ' + headerState.halfWidth);
 
   /* ═══ ⑱b 已经在媒体页上时，导航还要把人带到**正确的技能**上 ═══
      两个总页面共用同一个组件（App.pageMap 两处指向 MediaCreationPage，key 是 _workVersion
@@ -1075,12 +1086,14 @@ try {
     /* 子页面里没有分类切换条 —— 先按顶栏的「返回」回总页面（批 I-③，见上面的说明）。 */
     if (await page.$('.topbar-back')) {
       await page.click('.topbar-back');
-      await page.waitForSelector('.app-board-bar', { timeout: 15000 });
+      /* 批 J-①：板块切换条已删，回总页面之后等的是**总页面本体**，不再是那条导航。 */
+      await page.waitForSelector('.media-hub', { timeout: 15000 });
       await page.waitForTimeout(400);
     }
-    await page.click('#creative-nav-trigger-' + group);
-    await page.waitForSelector('#creative-nav-item-' + group + '-' + index, { timeout: 10000 });
-    await page.click('#creative-nav-item-' + group + '-' + index);
+    /* 批 J-①：板块切换条已删 —— 跨板块从现在起走**左导航**（它本来就有这两个入口）。 */
+    await page.click('.app-sidebar-cell[title="' + (group === 'video' ? '视频生成' : '图片生成') + '"]');
+    await page.waitForSelector('.media-case-card-hit', { timeout: 20000 });
+    await page.click('.media-case-card-hit');
     await page.waitForTimeout(1100);
   };
   const pageState = () => page.evaluate(() => ({
