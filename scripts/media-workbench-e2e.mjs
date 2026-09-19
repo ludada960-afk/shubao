@@ -775,7 +775,10 @@ try {
   });
   check(rowShape.rows.length === 2 && rowShape.rows[0] === 5 && rowShape.rows[1] === 3,
     '热门 skill 是**两行：上 5 下 3**', JSON.stringify(rowShape.rows));
-  check(rowShape.gridDisplay === 'grid' && !rowShape.scrolls && rowShape.overflowX !== 'auto',
+  /* ⚠️ 批 L-4：容器从"五列栅格"改成"flex 折行 + 居中"（用户要的是 flova 那种居中）。
+     判据的**本意**不变：**折行、且不横滑**（横滑会把第二行藏起来）。所以这里接受 grid/flex 两种排布，
+     真正咬住的仍是上面那条「上 5 下 3」与下面的 scrolls / overflowX。 */
+  check(['grid', 'flex'].includes(rowShape.gridDisplay) && !rowShape.scrolls && rowShape.overflowX !== 'auto',
     '折行不横滑（横向滑会把第二行藏起来）', rowShape.gridDisplay + ' overflowX=' + rowShape.overflowX);
   check(rowShape.sameLineAsCategories && rowShape.moreRightOfCategories,
     '「更多 skill」在分类页签**那一行的右边**', JSON.stringify(rowShape));

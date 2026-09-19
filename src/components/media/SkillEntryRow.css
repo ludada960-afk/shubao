@@ -68,15 +68,22 @@
       所以改成五列栅格：首页传 8 条（SKILL_ENTRY_LIMIT），正好落成上 5 下 3；
       横向滚动条与 scroll-snap 一并删掉（折行之后没有"挤不下"这回事了）。
    ⚠️ 窄屏逐档降列（5→4→3→2），**不是**回到横向滑 —— 滑动会把第二行藏起来。 */
+/* ═══ 2026-09-19 批 L-4：**改成居中 + 内容宽**（用户第 17 轮批注 #4，图1）══════════════════
+   用户原话：「下面这些按钮区域的样式你做的也不对（flova.tv/zh-CN）。你现在这些**字左右两边留白
+   都特别多**。而且你**为什么不居中**呢？人家是 **9 个案例**的按钮。但是人家是**有居中**的呀。
+   而且你**整体的这些间距呀，大小呀，还有样式呀**，这些东西你都没有做到最好。你能不能就**完全去照抄他**呢？」
+   ⇒ 原来是**五列等宽栅格**：每颗按钮被拉到列宽（width:100%），文字只占左边一小截，
+     右边全是空 —— 这就是用户看到的「字左右两边留白特别多」，而且整排是左对齐的。
+   flova 实测：按钮**宽度随文案**（170–242 不等）、高度 54、圆角 14、**整排居中**（两行各自的中心
+   对齐在同一竖线上：1059.5 / 1058.5）。所以这里换成 flex 折行 + justify-content: center，
+   按钮宽度回到内容宽 —— 与 flova 同一种排布。 */
 .skill-entry-buttons {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 11px;
   padding: 4px 2px 10px;
 }
-@media (max-width: 1180px) { .skill-entry-buttons { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 860px) { .skill-entry-buttons { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .skill-entry-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .skill-entry-button {
   position: relative;
@@ -85,8 +92,12 @@
   align-items: center;
   gap: 10px;
   min-height: 60px;
-  width: 100%;
-  min-width: 0;
+  /* 批 L-4：宽度随内容（照 flova 实测：他们按钮 170–242 不等），不再被栅格拉到列宽。
+     min-width 200 同时**保证一排正好 5 颗**（5×200 + 4×11 = 1044 ≤ 1240 容器；
+     6 颗要 1255 就折行）—— 用户 J-⑦ 数过的那句「上面 5 个、下面 3 个」因此仍然成立，
+     而整排是**居中**的（L-4 要的那一条）。 */
+  width: auto;
+  min-width: 200px;
   /* ⚠️ 批 J-⑦：右边那 38px 原来是给「试一试」小药丸让位用的 —— 现在它是**整块遮罩**，
      不再占位，所以右内边距收回 12px（名字因此能多显示两个字）。 */
   padding: 8px 12px 8px 8px;

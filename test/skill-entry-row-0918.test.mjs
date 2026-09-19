@@ -104,17 +104,21 @@ test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零�
   assert.match(rowCss, /\.skill-entry-button \{[^}]*min-height: 60px;/);
   assert.match(rowCss, /\.skill-entry-button \{[^}]*border-radius: 14px;/);
   assert.match(rowCss, /\.skill-entry-glyph \{[^}]*width: 44px;[^}]*height: 44px;/);
-  /* ═══ 批 J-⑦：**两行（上 5 下 3）**，不是一行横排 + 横向滑 ═══════════════════════════
-     用户批注 #3-3 原话见文件头。8 条 + 五列栅格 = 上 5 下 3，正好是他数的那个数。 */
-  assert.match(rowCss, /\.skill-entry-buttons \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/,
-    '热门 skill 必须走五列栅格（8 条 ⇒ 上 5 下 3）');
+  /* ═══ 2026-09-19 批 L-4 **改判**（有授权的改判，依据 docs/design/63-batch-L-annotations.md 图1-④）═══
+     用户第 17 轮原话：「下面这些按钮区域的样式你做的也不对（flova.tv/zh-CN）。你现在这些**字左右
+     两边留白都特别多**。而且你**为什么不居中**呢？人家是 **9 个案例**的按钮。但是人家是**有居中**的呀。」
+     ⇒ 批 J-⑦ 的「五列等宽栅格」正是「字左边一小截、右边全是空」的来源（按钮被拉到列宽）。
+       用户现在要的是 flova 那种**内容宽 + 整排居中**，所以改成 flex 折行 + justify-content: center。
+     ⚠️ 但 J-⑦ 数过的「上面 5 个、下面 3 个」**仍然成立**：靠按钮 min-width 200 保证一排正好 5 颗
+       （5×200 + 4×11 = 1044 ≤ 1240 容器；6 颗要 1255 就折行）。实测两行各 5 / 3，且**两行同心**（中心都在 1070）。 */
+  assert.match(rowCss, /\.skill-entry-buttons \{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*justify-content: center;/,
+    '热门 skill 必须折行 + 居中（L-4：人家是有居中的）');
+  assert.match(rowCss, /\.skill-entry-button \{[^}]*min-width: 200px;/,
+    'min-width 200 保证一排正好 5 颗（J-⑦ 的上 5 下 3 仍然成立）');
   assert.doesNotMatch(rowCss, /\.skill-entry-buttons \{[^}]*overflow-x: auto;/,
     '折行之后不能再横向滑（滑动会把第二行藏起来）');
-  /* 窄屏只降列数，不许回到横向滑 */
-  for (const cols of [4, 3, 2]) {
-    assert.match(rowCss, new RegExp('@media \\(max-width: \\d+px\\) \\{ \\.skill-entry-buttons \\{ grid-template-columns: repeat\\(' + cols + ', minmax\\(0, 1fr\\)\\); \\} \\}'),
-      '窄屏要降到 ' + cols + ' 列（降列，不是横向滑）');
-  }
+  assert.doesNotMatch(rowCss, /\.skill-entry-button \{[^}]*width: 100%;/,
+    '按钮不许再被拉到列宽（那正是「字左右两边留白特别多」的根因）');
 });
 
 /* ═══ 批 J-⑦：悬停出的是**遮罩**（毛玻璃），试一试在遮罩上 —— 用户批注 #3-3 ═══════════════
