@@ -81,7 +81,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 11px;
+  gap: 10px;   /* 批 M：11 → 10（flova 实测行内/行间都是 10） */
   padding: 4px 2px 10px;
 }
 
@@ -91,7 +91,13 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 60px;
+  /* ═══ 2026-09-19 批 M：**逐值对齐 flova 的精选 Skills 胶囊**（用户新批注）══════════════════
+     用户原话：「像这样去做，**9 个**，大小间距样式什么的，都要一致，**文案图标按我们的来**就行，
+     然后**该空着的就空着先**。」
+     flova 实测：胶囊 **高 54 / 圆角 14 / padding 8px 0 / 内嵌图标 40×40 / 行间距 10**，
+     宽度随文案（170–220），两行居中。
+     ⇒ 我们原来是 60 高、图标 44 —— 这两条按他们的数改；宽度仍是内容宽（我们文案更短）。 */
+  min-height: 54px;
   /* 批 L-4：宽度随内容（照 flova 实测：他们按钮 170–242 不等），不再被栅格拉到列宽。
      min-width 200 同时**保证一排正好 5 颗**（5×200 + 4×11 = 1044 ≤ 1240 容器；
      6 颗要 1255 就折行）—— 用户 J-⑦ 数过的那句「上面 5 个、下面 3 个」因此仍然成立，
@@ -100,7 +106,9 @@
   min-width: 200px;
   /* ⚠️ 批 J-⑦：右边那 38px 原来是给「试一试」小药丸让位用的 —— 现在它是**整块遮罩**，
      不再占位，所以右内边距收回 12px（名字因此能多显示两个字）。 */
-  padding: 8px 12px 8px 8px;
+  /* 上下 6（不是 8）：图标 40 + 上下各 6 + 描边 2 = **54**，与 flova 实测的胶囊高度逐值相同。
+     左右比他们的 padding:0 稍宽一点 —— 我们文案更短，纯 0 会让图标贴着边。 */
+  padding: 6px 12px 6px 8px;
   border: 1px solid var(--sb-border-default);
   border-radius: 14px;
   background: var(--sb-surface-card);
@@ -123,8 +131,9 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  /* 批 M：44 → **40**（flova 实测内嵌图标就是 40×40） */
+  width: 40px;
+  height: 40px;
   overflow: hidden;
   border-radius: 6px;
   background: var(--sb-surface-tint-strong);

@@ -744,7 +744,7 @@ try {
   check(videoRow.board === 'video', '视频模式下按钮行是**视频板块**的', videoRow.board + ' / ' + videoRow.head);
   /* ⚠️ 2026-09-19 批 J-⑦：条数 9 → **8**。用户批注 #3-3 把 flova 的热门 skill 数清楚了：
      「他们是有两行的。他们**上面是5个按钮，下面是三个按钮**。」5 + 3 = 8。 */
-  check(videoRow.buttons.length === 8, '视频板块给满 8 个按钮入口（上 5 下 3）', JSON.stringify(videoRow.buttons));
+  check(videoRow.buttons.length === 9, '视频板块给满 9 个按钮入口（批 M：上 5 下 4）', JSON.stringify(videoRow.buttons));
   check(!videoRow.buttons.some(text => /海报设计|白底商品图|电商商品套图/.test(text)), '视频板块下面**不许**出现图片技能', JSON.stringify(videoRow.buttons));
   check(videoRow.more.includes('查看全部'), '右侧有「查看全部」进总页面', videoRow.more);
 
@@ -773,8 +773,8 @@ try {
       moreRightOfCategories: Boolean(cr && mr && mr.left > cr.right - 4),
     };
   });
-  check(rowShape.rows.length === 2 && rowShape.rows[0] === 5 && rowShape.rows[1] === 3,
-    '热门 skill 是**两行：上 5 下 3**', JSON.stringify(rowShape.rows));
+  check(rowShape.rows.length === 2 && rowShape.rows[0] === 5 && rowShape.rows[1] === 4,
+    '热门 skill 是**两行：上 5 下 4**（批 M：用户明确说 9 个，flova 实测就是 5+4）', JSON.stringify(rowShape.rows));
   /* ⚠️ 批 L-4：容器从"五列栅格"改成"flex 折行 + 居中"（用户要的是 flova 那种居中）。
      判据的**本意**不变：**折行、且不横滑**（横滑会把第二行藏起来）。所以这里接受 grid/flex 两种排布，
      真正咬住的仍是上面那条「上 5 下 3」与下面的 scrolls / overflowX。 */
@@ -880,7 +880,7 @@ try {
     buttons: Array.from(document.querySelectorAll('.skill-entry-button .skill-entry-name')).map(node => node.textContent.replace(/\s+/g, ' ').trim()),
   }));
   check(imageRow.board === 'image', '图片模式下按钮行是**图片板块**的', imageRow.board);
-  check(imageRow.buttons.length === 8, '图片板块同样给满 8 个按钮入口（上 5 下 3）', String(imageRow.buttons.length));
+  check(imageRow.buttons.length === 9, '图片板块同样给满 9 个按钮入口（批 M：上 5 下 4）', String(imageRow.buttons.length));
   check(imageRow.buttons.some(text => /商品套图|图片复刻|去除背景/.test(text)), '图片板块下面是图片技能', JSON.stringify(imageRow.buttons));
   check(!imageRow.buttons.some(text => /智能成片|首尾帧|图生视频/.test(text)), '图片板块下面**不许**出现视频技能', JSON.stringify(imageRow.buttons));
   /* 悬停一个**真的有案例封面**的技能 → 预览窗右栏必须真的取到那张图（不是空框）。

@@ -24,7 +24,15 @@ import { featuredSkills, hubPath, skillPath, skillsOfBoard } from '../../skills/
 /* 批 J-⑦：9 → 8。用户批注 #3-3 把 flova 的热门 skill 数清楚了：
    「他们是有两行的。他们**上面是5个按钮，下面是三个按钮**。」5 + 3 = 8。
    ⚠️ 配合 SkillEntryRow 的五列栅格：8 条正好落成上 5 下 3；写 9 的话第二行会变成 4 个。 */
-const SKILL_ENTRY_LIMIT = 8;
+/* ═══ 2026-09-19 批 M：**8 → 9**（用户新批注）═══════════════════════════════════════════════
+   用户原话（对着 flova 的精选 Skills 两行圈出来）：「像这样去做，**9 个**，大小间距样式什么的，
+   都要一致，文案图标按我们的来就行，然后**该空着的就空着先**。」
+   —— 批 J-⑦ 当时数的是「上 5 下 3」= 8；这一轮用户明确说 **9**，按 9 走。
+   flova 实测两行是 **5 + 4 = 9**（第一行 5 颗、第二行 4 颗，两行同心）。
+   ⚠️ 一排仍靠按钮 min-width 200 保证只放得下 5 颗（5×200 + 4×10 = 1040 ≤ 1240 容器；
+      6 颗要 1250 就折行）⇒ 9 条自然落成 **5 + 4**，与 flova 同形。
+   ⚠️ 「该空着的就空着先」：取数仍只在声明源里做一次，凑不满 9 条就**空着**，不拿别的技能补位。 */
+const SKILL_ENTRY_LIMIT = 9;
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
 import { useWorksSync } from '../../store/useWorksSync.js';
 

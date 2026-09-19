@@ -44,19 +44,19 @@ const rowCss = read('src/components/media/SkillEntryRow.css');
 const home = read('src/pages/Home/index.jsx');
 const hub = read('src/pages/Home/MediaHub.jsx');
 
-test('① 8 个按钮作为入口（上 5 下 3），且只显示当前板块的技能（视频模式下不许出现图片技能）', () => {
-  const video = featuredSkills({ board: 'video', limit: 8 });
-  const image = featuredSkills({ board: 'image', limit: 8 });
+test('① 9 个按钮作为入口（上 5 下 4），且只显示当前板块的技能（视频模式下不许出现图片技能）', () => {
+  const video = featuredSkills({ board: 'video', limit: 9 });
+  const image = featuredSkills({ board: 'image', limit: 9 });
   assert.ok(video.every(skill => skill.board === 'video'), '视频板块只能有视频技能');
   assert.ok(image.every(skill => skill.board === 'image'), '图片板块只能有图片技能');
-  assert.equal(video.length, 8, '视频板块要能凑满 8 个按钮（上 5 下 3）');
-  assert.equal(image.length, 8, '图片板块要能凑满 8 个按钮（上 5 下 3）');
+  assert.equal(video.length, 9, '视频板块要能凑满 9 个按钮（批 M：上 5 下 4）');
+  assert.equal(image.length, 9, '图片板块要能凑满 9 个按钮（批 M：上 5 下 4）');
   /* 首页必须按当前模式算出板块再传下去 —— 这一条是防"又把两个板块混起来" */
   const stripped = stripComments(home);
   assert.match(stripped, /const skillBoard = isVideo \? 'video' : 'image';/);
   assert.match(stripped, /board=\{skillBoard\}/);
   /* 「上面是5个按钮，下面是三个按钮」—— 条数是**写死的 8**，不是凑出来的默认值 */
-  assert.match(stripped, /const SKILL_ENTRY_LIMIT = 8;/);
+  assert.match(stripped, /const SKILL_ENTRY_LIMIT = 9;/);
   assert.match(stripped, /limit: SKILL_ENTRY_LIMIT/);
 });
 
@@ -101,9 +101,11 @@ test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零�
      拿全文件扫会把它误判成按钮本体位移。 */
   /* 按钮是"窄按钮"不是"宽卡片"：高度有明确档位，宽度由内容决定（flex: 0 0 auto） */
   assert.match(rowCss, /\.skill-entry-button \{[^}]*flex: 0 0 auto;/);
-  assert.match(rowCss, /\.skill-entry-button \{[^}]*min-height: 60px;/);
+  /* 批 M：60 → **54**（flova 实测胶囊高 54，逐值对齐） */
+  assert.match(rowCss, /\.skill-entry-button \{[^}]*min-height: 54px;/);
   assert.match(rowCss, /\.skill-entry-button \{[^}]*border-radius: 14px;/);
-  assert.match(rowCss, /\.skill-entry-glyph \{[^}]*width: 44px;[^}]*height: 44px;/);
+  /* 批 M：图标 44 → **40**（flova 实测内嵌图标 40×40） */
+  assert.match(rowCss, /\.skill-entry-glyph \{[^}]*width: 40px;[^}]*height: 40px;/);
   /* ═══ 2026-09-19 批 L-4 **改判**（有授权的改判，依据 docs/design/63-batch-L-annotations.md 图1-④）═══
      用户第 17 轮原话：「下面这些按钮区域的样式你做的也不对（flova.tv/zh-CN）。你现在这些**字左右
      两边留白都特别多**。而且你**为什么不居中**呢？人家是 **9 个案例**的按钮。但是人家是**有居中**的呀。」
