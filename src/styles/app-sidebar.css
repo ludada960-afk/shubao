@@ -74,7 +74,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  /* ═══ 2026-09-19 批 L-5：**间距加大**（用户第 17 轮批注 #5，图1）══════════════════════════
+     用户原话：「这些**导航栏的按钮区域你应该再保持一些间距**呀，你现在有点**太挤**了，
+     而且你现在的样子**没有抄到位**。人家**鼠标放上去之后，是有一个背景渐变色**在的。」
+     实测（生产环境，2048 视口）：我们的格子上下间距是 **4px**（同组内），
+     只有分组分隔线那两处是 21/22px —— 一组里 71px 高的格子只隔 4px，正是"太挤"。
+     flova 实测：他们每个导航项高 47、**项间距 15px**。这里取 10px（我们格子更高 71px，
+     10px 的缝在视觉上与他们 15px 的呼吸感同档）。 */
+  gap: 10px;
   scrollbar-width: none;
 }
 .app-sidebar-scroll::-webkit-scrollbar { width: 0; }
@@ -162,7 +169,15 @@
   white-space: nowrap;
   transition: color .18s ease;
 }
-.app-sidebar-cell:hover { background: var(--sb-hover-bg); color: var(--sb-ink-1); }
+/* ═══ 批 L-5：hover 的**背景渐变色**（用户批注 #5 原话见上）══════════════════════════════
+   改前是一条**平的** --sb-hover-bg（灰底），用户要的是"有一个背景渐变色在"。
+   用品牌色的 alpha 档做一层很轻的斜向渐变（--sb-brand-a18 → --sb-brand-a05）：
+   它是"面上有一层光"，不是"整块染紫" —— 与批 H-2 定下的「颜色只落在小面积上」不冲突
+   （大面积仍然是中性面，渐变只在这 78×71 的格子里）。 */
+.app-sidebar-cell:hover {
+  background-image: linear-gradient(160deg, var(--sb-brand-a18), var(--sb-brand-a05));
+  color: var(--sb-ink-1);
+}
 .app-sidebar-cell:hover .app-sidebar-tile {
   background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
   color: var(--sb-brand-ink);

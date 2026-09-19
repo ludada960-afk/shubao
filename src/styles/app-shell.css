@@ -20,10 +20,18 @@
       所以现在**照做**：子页面顶栏恢复三格（见下面的 .topbar-row.is-subpage），
       同时把工作台左栏里那个「← 返回创作」**删掉** —— 两个按钮回的是同一个 Hub，
       留两个才是用户最烦的那种冗余。 */
+/* ═══ 2026-09-19 批 L-7：整栏**往右拉**（用户第 17 轮批注 #7 图1 / #3 图2）═══════════════
+   用户原话：「右边这边的。整个**积分登录等等的栏也得往右拉**呀。我不是跟你说过要抄他们的吗？
+   （flova.tv/zh-CN）你为什么没去做呢？」「你看这些充值，还有积分，还有登录账号的这些东西
+   都要**放右边**呀。整体的大小，间距的东西你都要调整好呀。」
+   实测（生产环境，2048 视口）：我们的「去登录」右边缘停在 **right:174** —— 右边空了一大条；
+   根因就是这里 max-width:1680 + margin:auto 把整行居中，宽屏下左右各留 184px。
+   flova 实测：他们的右上角收到 **right: 4–15**（几乎贴边）。
+   ⇒ 整行改成**铺满 + 24px 内边距**（不再限宽居中），右上角因此落到 right≈24，与 flova 同档。 */
 .topbar-row {
-  max-width: 1680px;
-  margin: 0 auto;
-  padding-inline: 36px;
+  max-width: none;
+  margin: 0;
+  padding-inline: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
