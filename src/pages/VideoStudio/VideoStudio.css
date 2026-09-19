@@ -595,12 +595,25 @@
   cursor: pointer;
   transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
 }
+/* ═══ 2026-09-19 批 L-3 + L-9：hover 的图标吃**渐变底**（照流影 AI）═══════════════════════
+   用户第 17 轮批注 #3（图1）原话：「你**这两个按钮还是没有做到位**。我既然已经跟你说了去**抄流影 AI**
+   的做法，你就去抄呀。**为什么你左边导航栏里面有把这些按钮的样式做好，你这边为什么不做呢？**」
+   批注 #4（图4）原话：「还有就是你现在**这些按钮里面的图标这个位置你还是没有抄到位**呀。
+   人家**鼠标放上去之后，是渐变的图标背景色**，你看不出来吗？」
+   ⇒ 两条是同一件事：**图标磁贴的渐变底**（左导航 .creative-nav-item-icon 那套做法）+ 按钮本体的
+     accent 混色描边/底色。所以这里把左导航的 hover 语言搬过来：
+       · 按钮：描边/底色按品牌色混色（左导航用的是 color-mix(currentColor …)，这里用品牌 token）；
+       · 图标：24×24 磁贴吃**品牌渐变 + 白字形**（与选中态同一套语言，hover 是"预告"，选中是"停住"）。 */
 .video-mode-tabs button:hover {
   transform: none;
-  border-color: var(--sb-border-strong);
-  background: var(--sb-surface-card);
+  border-color: var(--sb-brand-border);
+  background: var(--sb-brand-soft);
   color: var(--sb-ink-1);
   box-shadow: var(--sb-shadow-sm);
+}
+.video-mode-tabs button:hover .video-mode-icon {
+  color: var(--sb-ink-on-dark);
+  background: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-600));
 }
 .video-mode-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 /* ═══ 选中态：改成 liuyingai 那套交互语言（2026-09-19 批 I-⑨）═══════════════════════════
