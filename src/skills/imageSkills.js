@@ -169,9 +169,8 @@ export const IMAGE_SKILLS = [
     brief: '设计一张海报。主题：{{topic}}。画面：{{prompt}}。要求：单一视觉焦点、清晰的信息层级与阅读顺序，并留出安全的标题区；画面内的文字必须逐字准确，不得臆造文案、日期、价格或 logo。',
     fields: [
       { key: 'topic', label: '主题', kind: 'text', required: true, placeholder: '例如：夏夜爵士音乐节' },
-      { key: 'prompt', label: '描述', kind: 'textarea', rows: 3 },
+      { key: 'prompt', label: '画面描述', kind: 'textarea', rows: 3 },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
@@ -414,13 +413,24 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '一根根引线把成分与卖点标出来', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '做一张卖点标注图解：{{product}}居中竖放，四周用细引线连到要强调的部位，每条引线配一行短标注——{{points}}。要求：标注排版整齐、指向准确、字号统一，背景干净；画面内文字逐字准确，不得臆造数据与认证标识。',
+    brief: '做一张卖点标注图解：主视觉是{{product}}，画面描述：{{prompt}}。字体：{{font}}。要求：用细引线连到要强调的部位、每条引线配一行短标注，标注排版整齐、指向准确、字号统一，背景干净；画面内文字逐字准确，不得臆造数据与认证标识。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（5 → 6）══════════════════════════════════════
+       知渔「爆款商品文字海报」逐字：
+         主题 [singleText 必填 help="海报上的标题文字"] · 上传产品图 [file **可选**] ·
+         画面描述 [multiText 必填 ph="补充画面描述，让画面更丰富"] · 字体 [radio 必填 6 档] ·
+         生成尺寸 [radio 必填 7 档] · 分辨率 [select 必填 1K标准/2K高清/4K超清]
+       ⇒ 我们多一格「标注点」、少一格「字体」；而且他们的产品图是**可选**（不上传就靠描述写）。
+          按他们改：主题 / 上传产品图（可选）/ 画面描述 / 字体 / 比例 / 分辨率。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      { key: 'points', label: '标注点', kind: 'textarea', rows: 3, required: true, placeholder: '每行一条，例如：\n0 蔗糖\n真实果肉\n冷压工艺' },
+      { key: 'product', label: '主题', kind: 'text', required: true, group: '主题与画面', placeholder: '海报上的标题文字' },
+      { key: 'assets', label: '上传产品图', kind: 'upload', maxImages: 1, role: 'product', group: '主题与画面', slotLabel: '上传商品图（可选，不上传就按描述画）' },
+      { key: 'prompt', label: '画面描述', kind: 'textarea', rows: 3, required: true, group: '主题与画面', placeholder: '补充画面描述，让画面更丰富' },
+      { key: 'font', label: '字体', kind: 'segmented', group: '主题与画面', options: [
+        { value: '书法体', label: '书法体' }, { value: '无衬线体', label: '无衬线体' },
+        { value: '霓虹灯字', label: '霓虹灯字' }, { value: '书写体', label: '书写体' },
+        { value: '哥特体', label: '哥特体' }, { value: '自定义', label: '自定义' },
+      ] },
       ratioField(),
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -430,14 +440,18 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'accent' },
     summary: '把人放进巨型商品的尺度里', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '极简商业广告：把{{product}}放大成巨型装置，人物以自然姿态倚靠或站在它旁边形成尺度反差；单色渐变背景，背景压一行巨大的品牌字{{brand}}，镜面地板带柔和反射，棚拍光干净通透。商品细节与包装文字必须清晰可辨。',
+    brief: '极简商业广告：把{{subject}}放大成巨型装置，人物以自然姿态倚靠或站在它旁边形成尺度反差；单色渐变背景，镜面地板带柔和反射，棚拍光干净通透。{{instruction}}。商品细节与包装文字必须清晰可辨。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
+       知渔「夏季蔬果巨物场景化摄影」的 inputConfigs 逐字：
+         蔬菜水果名字 [singleText 必填] · 替换指令 [multiText 必填] · 比例 [3:2/4:3/16:9] · 清晰度 [1K标清/2K高清/4K超清]
+       我们原来是 素材/商品名/品牌字/比例/数量/分辨率 —— **多了两个他们没用的（品牌字、数量）**，
+       而且他们的第一个字段是「蔬菜水果名字」（一个名字输入），不是上传位。按他们改。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'product', slotLabel: '上传商品图（可含人物参考）' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      { key: 'brand', label: '品牌字', kind: 'text', required: true, placeholder: '背景那行大字' },
+      { key: 'subject', label: '蔬菜水果名字', longLabelReason: '照知渔原文逐字：他们这一页的第一个字段名就叫「蔬菜水果名字」（这是一个纯文本输入，不是上传位）',
+        kind: 'text', required: true, group: '主题', placeholder: '例如：柠檬、草莓、牛油果' },
+      { key: 'instruction', label: '替换指令', kind: 'textarea', rows: 3, required: true, group: '主题',
+        placeholder: '例如：把水果放大成巨型装置，人物站在旁边形成尺度反差' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -508,14 +522,16 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '夏天汽水那种亮到发光的海报', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '做一张热带风饮品海报：{{product}}居中偏右、略微左倾，瓶身挂满冰凉水珠，内部液体透出光感；背景是明亮的热带色块与水果切片（{{fruits}}），底部压一行{{slogan}}。整体明亮、饱和度高、夏日氛围强，包装上的文字必须清晰准确。',
+    brief: '做一张热带风饮品海报：{{drink}}居中偏右、略微左倾，瓶身挂满冰凉水珠，内部液体透出光感；背景是明亮的热带色块与水果切片，整体明亮、饱和度高、夏日氛围强，包装上的文字必须清晰准确。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 3）══════════════════════════════════════
+       知渔「极简日系饮品海报」的 inputConfigs 逐字：
+         饮料名称 [singleText 必填] · 比例 [7 档] · 清晰度 [2K高清/4K超清]
+       我们原来是 素材/商品名/水果元素/标语/比例/分辨率 —— **多三格**（上传位、水果元素、标语）。
+       他们的这一页就是"给个名字直接出图"，照他们收成 3 格。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      { key: 'fruits', label: '水果元素', kind: 'text', placeholder: '例如：橙子、青柠、薄荷叶' },
-      { key: 'slogan', label: '标语', kind: 'text', placeholder: '可选，逐字准确' },
+      { key: 'drink', label: '饮料名称', longLabelReason: '照知渔原文逐字：他们这一页的字段名就叫「饮料名称」（纯文本输入，没有上传位）',
+        kind: 'text', required: true, group: '主题', placeholder: '例如：青柠气泡水' },
       ratioField(),
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -567,12 +583,21 @@ export const IMAGE_SKILLS = [
     cover: { template: 'hero-single', accent: 'cool' },
     summary: '干净白底，多角度呈现细节', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
-    brief: '生成干净的白底商品图：商品完整居中、边缘锐利、比例真实，柔和的棚拍光影带出材质与体积感，保留商品自身的颜色、结构与文字；不要添加道具、场景或任何文字。',
+    brief: '把商品从原图里抠出来，输出{{mode}}的白底/透明底商品图：商品完整居中、边缘锐利、比例真实，柔和的棚拍光影带出材质与体积感，保留商品自身的颜色、结构与文字；不要添加道具、场景或任何文字。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（4 → 2）══════════════════════════════════════
+       知渔「提取电商白底图」逐字只有 **2 格**：
+         上传图片（最好是1：1的比例）[file 必填] · 抠图模式 [radio 必填：透明背景 | 白色背景]
+       我们原来是 素材/比例/分辨率/数量 —— **多三格**（比例、分辨率、数量他们都没有）。
+       ⚠️ 「抠图模式：透明背景 | 白色背景」正是我上一版从「去除背景」删掉的那一档 ——
+          它属于**这一页**（知渔把"纯去背"和"去背后选底色"拆成两个页面）。现在归位。
+       ⚠️ 这一页的 brief 也随之改成"抠图"语义（原来是"生成白底图"）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
-      ratioField(),
-      clarityField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 9 },
+      { key: 'assets', label: '上传图片（最好是1：1的比例）',
+        longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（最好是1：1的比例）」',
+        kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
+      { key: 'mode', label: '抠图模式', kind: 'segmented', required: true, group: '输出设置', options: [
+        { value: '透明背景', label: '透明背景' }, { value: '白色背景', label: '白色背景' },
+      ] },
     ],
     cases: [
       { id: 'white', title: '标准识别白底图', cover: '/gallery/ecommerce/baby-bottle-product-suite/01.webp' },
@@ -583,13 +608,17 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '把商品放进真实使用场景', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
-    brief: '把商品放进真实使用场景：{{scene}}。商品要保持可辨认的结构、颜色与材质，场景的光线、透视与投影要和商品对得上，像一张真实拍出来的生活照；不要出现文字或水印。',
+    brief: '把商品放进真实使用场景。{{scene}}。商品要保持可辨认的结构、颜色与材质，场景的光线、透视与投影要和商品对得上，像一张真实拍出来的生活照；不要出现文字或水印。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（5 → 4）══════════════════════════════════════
+       知渔「商品场景展示」逐字：
+         上传商品图 [file 必填] · 修图指令 [multiText 必填（他们给了完整占位文案）] · 比例 [7 档] · 分辨率 [1K标准/2K高清/4K超清]
+       我们多一格「数量」；而且他们的第二格叫「修图指令」且是一段多行指令（不是一个短场景词）—— 按他们改。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
-      { key: 'scene', label: '场景', kind: 'text', placeholder: '例如：周末早晨的厨房台面' },
+      { key: 'assets', label: '上传商品图', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
+      { key: 'scene', label: '修图指令', kind: 'textarea', rows: 3, required: true,
+        placeholder: '请输入商品展示图设计指令，如：设计一张展示图，突出产品的主要功能和特点，背景使用浅色调以突出产品，加入一些动态元素使图像更具吸引力，整体风格简洁大方，符合现代审美等。' },
       ratioField(),
       clarityField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
     ],
     cases: [], history: true,
   },
@@ -700,14 +729,17 @@ export const IMAGE_SKILLS = [
     cover: { template: 'hero-single', accent: 'warm' },
     summary: '商品在半空炸开，碎片与成分定格', pipeline: 'visualCreation', availability: 'ready',
     visual: 'free',
-    brief: '商品广告：{{product}}在空中炸开分解。要求：主体碎裂成多个碎片向四周飞散，悬浮的残骸与颗粒定格在半空，{{layers}}逐层可见，电影慢动作瞬间，逼真物理，细微粉尘与液滴散落，戏剧性景深，高速摄影风格，中心主体锐利对焦，体积光，照片级真实；必须保留商品本身的形状、颜色、材质与包装文字，碎片不得遮住标签。',
+    brief: '商品广告：商品在空中炸开分解。{{layers}}。要求：主体碎裂成多个碎片向四周飞散，悬浮的残骸与颗粒定格在半空，逐层可见，电影慢动作瞬间，逼真物理，细微粉尘与液滴散落，戏剧性景深，高速摄影风格，中心主体锐利对焦，体积光，照片级真实；必须保留商品本身的形状、颜色、材质与包装文字，碎片不得遮住标签。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
+       知渔「电影级高端产品爆炸瞬间海报」逐字：
+         上传图片（产品图）[file 必填] · 替换指令 [multiText 必填] · 比例 [7 档] · 清晰度 [1K标准/2K高清/4K超清]
+       我们多两格（商品名、数量）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true, placeholder: '例如：冷萃咖啡液' },
-      { key: 'layers', label: '构成层', kind: 'textarea', rows: 3, required: true, placeholder: '例如：瓶身 / 液体 / 咖啡豆 / 冰块' },
+      { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
+        kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'layers', label: '替换指令', kind: 'textarea', rows: 3, required: true,
+        placeholder: '例如：主体碎裂成碎片向四周飞散，瓶身 / 液体 / 咖啡豆 / 冰块逐层可见' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -717,17 +749,16 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'cool' },
     summary: '商品封进巨型冰块，超现实大场面', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '超现实广告海报：{{product}}被完整封存在一块巨大的透明冰块中央，置于广袤极地冰原，{{tone}}色调，低角度仰拍突出体量感，体积光穿过冰体产生折射与内辉光，冰面裂纹细节，远处暴风雪氛围，电影级广告摄影，超现实商业大片；商品标签与轮廓必须保持清晰可辨，画面内文字逐字准确、不得臆造。',
+    brief: '超现实广告海报：商品被完整封存在一块巨大的透明冰块中央，置于广袤极地冰原，背景压一行巨大的品牌字「{{brand}}」，低角度仰拍突出体量感，体积光穿过冰体产生折射与内辉光，冰面裂纹细节，远处暴风雪氛围，电影级广告摄影，超现实商业大片；商品标签与轮廓必须保持清晰可辨，画面内文字逐字准确、不得臆造。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
+       知渔「极地冰封巨型广告海报」逐字：
+         上传图片（产品图）[file 必填] · 品牌名 [singleText 必填] · 比例 [7 档] · 清晰度 [1K标准/2K高清/4K超清]
+       我们多两格（色调、数量），而他们的第二格是**品牌名** —— 按他们改。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      { key: 'tone', label: '色调', kind: 'segmented', required: true, default: '冷蓝', options: [
-        { value: '冷蓝', label: '冷蓝' }, { value: '银白', label: '银白' },
-        { value: '深蓝夜色', label: '深蓝夜色' }, { value: '暖调黄昏', label: '暖调黄昏' },
-      ] },
+      { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
+        kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'brand', label: '品牌名', kind: 'text', required: true, placeholder: '画面里那行品牌字，逐字准确' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -737,17 +768,17 @@ export const IMAGE_SKILLS = [
     cover: { template: 'hero-single', accent: 'neutral' },
     summary: '产品悬浮 + 单向光，高级静物广告', pipeline: 'visualCreation', availability: 'ready',
     visual: 'brand-kv',
-    brief: '高端产品摄影：{{product}}悬浮于画面中央，{{light}}，背景{{background}}，强烈明暗对比与几何光影切割，大面积暗部保留，产品是唯一视觉焦点，柔和反射，真实摄影质感，品牌主视觉，无杂乱元素；商品结构与包装文字必须完整保留。',
+    brief: '高端产品摄影：商品悬浮于画面中央，强烈明暗对比与几何光影切割，大面积暗部保留，产品是唯一视觉焦点，柔和反射，真实摄影质感，品牌主视觉，无杂乱元素；商品结构与包装文字必须完整保留。{{instruction}}。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
+       知渔「蓝白降落伞悬浮产品创意3D渲染广告」逐字：
+         上传图片（产品图）[file 必填] · 替换指令 [multiText 必填] · 比例 [7 档] · 清晰度 [1K标准/2K高清/4K超清]
+       我们多两格（光影、背景自由文本），他们的第二格是**替换指令** —— 按他们改。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      { key: 'light', label: '光影', kind: 'segmented', required: true, default: '单向侧光', options: [
-        { value: '单向侧光', label: '单向侧光' }, { value: '顶光', label: '顶光' },
-        { value: '逆光轮廓', label: '逆光轮廓' }, { value: '柔光棚拍', label: '柔光棚拍' },
-      ] },
-      { key: 'background', label: '背景', kind: 'text', placeholder: '例如：深灰渐变，右侧留白' },
+      { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
+        kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'instruction', label: '替换指令', kind: 'textarea', rows: 3, required: true,
+        placeholder: '例如：产品悬浮在蓝白降落伞下方，浅蓝渐变背景，柔和顶光' },
       ratioField(),
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -757,13 +788,15 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '一张图出 3×3 广告分镜板', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '做一张九宫格广告分镜板（3×3）：同一个商品在九个镜头里依次出现——{{scenes}}。要求：每格是一帧独立画面，景别与机位有变化，整体色调统一，格与格之间有叙事顺序；商品在每一格里都保持结构、颜色与包装文字一致，画面内文字逐字准确。',
+    brief: '做一张九宫格广告分镜板（3×3）：同一个商品在九个镜头里依次出现。要求：每格是一帧独立画面，景别与机位有变化，整体色调统一，格与格之间有叙事顺序；商品在每一格里都保持结构、颜色与包装文字一致，画面内文字逐字准确。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（5 → 3）══════════════════════════════════════
+       知渔「汽水广告九宫格」的 inputConfigs 逐字：
+         上传图片（汽水图）[file 必填] · 比例 [7 档] · 清晰度 [1K标准/2K高清/4K超清]
+       我们多两格（商品名、九个镜头自由文本）—— 他们的镜头顺序由"九宫格"这个模板本身决定。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'product', label: '商品名', kind: 'text', required: true },
-      { key: 'scenes', label: '九个镜头', kind: 'textarea', rows: 4, required: true, placeholder: '例如：全景入场 / 特写质地 / 手持使用 / 成分微距 …' },
+      { key: 'assets', label: '上传图片（汽水图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（汽水图）」',
+        kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
       ratioField(),
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -1065,14 +1098,11 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '把这张室内照片的装修风格改成「{{style}}」。要求：空间结构、门窗位置、房间尺寸与机位**完全不变**，只更换硬装材质、家具款式、软装与配色；光线方向与原图一致，材质质感真实（木纹、石材、织物可辨），不出现变形、穿模与多余文字。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传空间照片' },
-      { key: 'style', label: '目标风格', kind: 'segmented', required: true, default: '现代简约', options: [
-        { value: '现代简约', label: '现代简约' }, { value: '奶油风', label: '奶油风' },
-        { value: '侘寂风', label: '侘寂风' }, { value: '中古风', label: '中古风' },
-        { value: '工业风', label: '工业风' }, { value: '新中式', label: '新中式' },
-      ] },
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传空间照片' },
+      /* 批 O-⑥：知渔「装修风格转换」的第二格是**自由指令**（multiText 必填，带完整占位文案），
+         不是一个风格选择器 —— 按他们改成指令输入（判据：功能区一模一样） */
+      { key: 'style', label: '家装指令', kind: 'textarea', rows: 3, required: true, placeholder: '请输入您的家装修改指令，如：将客厅的墙壁颜色改为浅蓝色，增加一些现代风格的家具，地板更换为木质地板等。' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
@@ -1113,13 +1143,11 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '把这张建筑 / 空间图改成「{{moment}}」的样子。要求：建筑结构、机位、构图与材质**完全不变**，只改变光线方向、色温、天空与阴影；室内灯光在夜景中要自然亮起并有真实反射，地面湿度与反光符合天气设定，不出现结构变化与文字。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑 / 空间图' },
-      { key: 'moment', label: '时间与天气', kind: 'segmented', required: true, default: '黄昏', options: [
-        { value: '清晨', label: '清晨' }, { value: '正午', label: '正午' },
-        { value: '黄昏', label: '黄昏' }, { value: '夜晚', label: '夜晚' }, { value: '雨夜', label: '雨夜' },
-      ] },
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑 / 空间图' },
+      /* 批 O-⑥：知渔「日夜气候切换」的第二格是**修图指令**（multiText 必填）—— 按他们改 */
+      { key: 'moment', label: '修图指令', kind: 'textarea', rows: 3, required: true,
+        placeholder: '例如：把画面改成黄昏时分，暖橙色侧光，天空有渐变的晚霞' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
@@ -1132,10 +1160,9 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '保持这张空间图的结构与机位**完全不变**，把家具与饰面替换成：{{target}}。要求：只替换可移动家具、灯具、软装与墙地面饰面，墙体、门窗、梁柱与尺寸不动；新家具的比例与透视要和空间吻合，材质光影统一，不出现漂浮、穿模与文字。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传空间图' },
-      { key: 'target', label: '替换成', kind: 'textarea', rows: 3, required: true, placeholder: '例如：布艺沙发换皮质沙发，地毯换木地板，主灯换轨道灯' },
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传空间图' },
+      { key: 'target', label: '家装指令', kind: 'textarea', rows: 3, required: true, placeholder: '例如：布艺沙发换皮质沙发，地毯换木地板，主灯换轨道灯' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
@@ -1160,10 +1187,11 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '提升这张效果图的画面质感，不改变任何结构、家具与机位。要求：修正材质反射与粗糙度，让木纹、石材、金属、织物各自可辨；补足环境光遮蔽与柔和阴影，降低塑料感与噪点，提亮暗部但不死黑，整体色温统一、画面干净通透，达到商业出图水准。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传效果图' },
-      { key: 'focus', label: '重点', kind: 'text', placeholder: '例如：主灯的金属反射、木地板的纹理' },
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传效果图' },
+      /* 批 O-⑥：知渔「效果图质感提升」的第二格是**后期指令**（multiText 必填）—— 按他们改 */
+      { key: 'focus', label: '后期指令', kind: 'textarea', rows: 3, required: true,
+        placeholder: '例如：增强金属与玻璃的反射、补上接触阴影、去掉塑料感' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
@@ -1176,13 +1204,13 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '把这张室内模型图 / 白模渲染成照片级实景：{{style}}。要求：结构、家具位置与机位**完全不变**，只为材质赋予真实的反射与粗糙度，加上自然光与人工光的混合照明、接触阴影与景深；材质层次分明、色温统一，不出现结构变化、文字与水印。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传模型图 / 白模' },
-      { key: 'style', label: '风格', kind: 'segmented', required: true, default: '现代简约', options: [
-        { value: '现代简约', label: '现代简约' }, { value: '奶油风', label: '奶油风' },
-        { value: '侘寂风', label: '侘寂风' }, { value: '中古风', label: '中古风' },
-      ] },
+      { key: 'assets', label: '上传3D模型图（必选）',
+        longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传3D模型图（必选）」，括号里的"必选"是他们写在标题里的',
+        kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传模型图 / 白模' },
+      /* 批 O-⑥：知渔「室内3D模型渲染」的第二格是**图片编辑指令**（multiText 必填）—— 按他们改 */
+      { key: 'style', label: '图片编辑指令', kind: 'textarea', rows: 3, required: true,
+        placeholder: '描述渲染风格、材质、光照等' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
@@ -1264,11 +1292,15 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '让同一个人换几种姿势：{{pose}}。保持五官、发型、体型与服装一致，只改变姿态与镜头角度，光线与背景保持同一套；不要出现多余的肢体。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'person', slotLabel: '上传人物图' },
-      { key: 'pose', label: '姿势', kind: 'text', placeholder: '例如：侧身回眸、手插口袋' },
+      /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（5 → 4）══════════════════════════════════════
+         知渔「人物姿势参考」逐字（**两格都是上传位，没有文本指令**）：
+           上传高清模特图 [file 必填] · 上传姿势图 [file 必填] · 比例 [7 档] · 选择分辨率 [2K高清/4K超清]
+         我们原来是 素材(1) + 「姿势」自由文本 + 比例 + 数量 + 分辨率 —— 语义整个不对：
+         他们要的是**给一张姿势参考图**，我们却让用户用文字描述姿势。按他们改成两个上传位。 */
+      { key: 'assets', label: '上传高清模特图', longLabelReason: '照知渔原文逐字：他们这一页的第一个上传位标题就叫「上传高清模特图」',
+        kind: 'upload', required: true, maxImages: 1, role: 'person', slotLabel: '上传人物图' },
+      { key: 'pose', label: '上传姿势图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传姿势参考图' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,
@@ -1309,12 +1341,21 @@ export const IMAGE_SKILLS = [
     summary: '人物或商品留着，背景换掉', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
     brief: '保留主体，把背景换成我给的这张（或按下面的要求）：{{prompt}}。主体的光线要与新背景对得上，投影方向一致，边缘融合自然；不要改变主体的形态与颜色。',
+    /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（标签与必填态对齐）══════════════════════════════
+       知渔「一键模特换背景」逐字：
+         上传原模特图 [file 必填] · 上传场景图 [file **可选**] ·
+         自定义输入背景提示词（选填）[multiText 可选 ph="请输入背景的相关词" help="背景的相关词"] ·
+         比例 [7 档] · 分辨率 [1K标准/2K高清/4K超清]
+       字段数我们本来也是 5，差的是**标签与必填态**：他们第二格是可选、第三格标题带"（选填）"——
+       照他们改（文案可以不一样，但"哪一格可选"是逻辑，必须一致）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传原图' },
-      { key: 'backdrop', label: '背景', kind: 'upload', maxImages: 1, role: 'scene', slotLabel: '上传背景图' },
-      { key: 'prompt', label: '要求', kind: 'textarea', rows: 3 },
+      { key: 'assets', label: '上传原模特图', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传原模特图」',
+        kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传原图' },
+      { key: 'backdrop', label: '上传场景图', kind: 'upload', maxImages: 1, role: 'scene', slotLabel: '上传背景图（可选，不上传就按下面的词生成）' },
+      { key: 'prompt', label: '自定义输入背景提示词（选填）',
+        longLabelReason: '照知渔原文逐字：他们这一页的第三格标题就叫「自定义输入背景提示词（选填）」',
+        kind: 'textarea', rows: 3, placeholder: '请输入背景的相关词' },
       ratioField(),
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [], history: true,

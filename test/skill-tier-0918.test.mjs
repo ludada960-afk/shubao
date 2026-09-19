@@ -124,10 +124,27 @@ test('⑧ 融合不许只是声明：结果区按钮与控件都必须有真实�
   assert.match(studio, /className="video-fuse-row"/, 'VideoStudio 没有渲染融合控件行');
   assert.match(studio, /prompt: composedPrompt/, '融合控件的指令没有进入下发的请求体');
   assert.match(studio, /composedPrompt,/, '幂等键没有用同一份 composedPrompt（两处不同源会造成重放事故）');
-  /* 数量（image.batch 的融合形态）：主技能里必须真有「数量」控件 */
+  /* ═══ 数量（image.batch 的融合形态）：主技能里必须真有「数量」控件 ═══════════════════════
+     这条守的是**机制**：批量不是一个只写在声明里的概念，而是真的以「数量」控件长在主技能工作台上，
+     并且有真实消费点（skillRun 把它算进 generationSettings 的 count，报价与出图张数同源）。
+     ═══ 2026-09-19 批 O-⑥：阈值 10 → 8，**依据是用户哪一句原话** ═════════════════════════
+     用户第 19 轮原话：「我希望你这个图片生成这边，你也要**全部去把这些子页面 1:1 的去把它们抄过来**。」
+     以及「你**抄的完全就没有对上**」。
+     本批按知渔的 inputConfigs 逐条核对后发现：**知渔那 7 个页面上根本没有「数量/张数」这一档**
+     （装修风格转换 / 日夜气候切换 / 一键软硬装替换 / 效果图质感提升 / 室内3D模型渲染 /
+       人物姿势参考 / 海报设计 —— 实测字段都只有 上传图片 + 一句指令 + 比例 + 分辨率 四格），
+     我们却给它们各自加了一个「数量」。按 1:1 的口径把这些**多出来的**删掉之后，
+     带「数量」控件的主技能从 16 降到 9。
+     ⇒ 改的是**事实数字**，不是判据：这条要守的"数量控件必须真实存在于主技能里"一个字没动，
+        而且还**补强**了下半段（断言这个控件真的进了 generationSettings.count，见下方新增断言）。
+        ⚠️ 以后若再删「数量」，请先确认知渔对应页确实没有这一档 —— 不许为了让断言过而删功能。 */
   const withCount = IMAGE_SKILLS.filter(skill => skill.tier !== 'assistant'
     && (skill.fields || []).some(field => field.key === 'count' && field.kind === 'stepper'));
-  assert.ok(withCount.length >= 10, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
+  assert.ok(withCount.length >= 8, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
+  /* 补强：数量控件必须**有真实消费点** —— 进 generationSettings 的 count（张数与报价同源） */
+  const skillRunSrc = read('src/skills/skillRun.js');
+  assert.match(skillRunSrc, /values\.count/, '数量控件的值没有被 skillRun 消费（那就只是画了一个控件）');
+  assert.match(skillRunSrc, /Math\.max\(1, Math\.min\(16, Number\.parseInt\(values\.count/, '数量必须进 generationSettings.count（张数与报价的唯一真源）');
 });
 
 test('⑨ 自证：结果地址白名单与服务端同源（服务端读不回来的地址不许带给下一步）', () => {

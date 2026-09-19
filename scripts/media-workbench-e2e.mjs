@@ -280,13 +280,41 @@ const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', error => pageErrors.push(String(error?.message || error)));
 
-const WORKBENCH = '/image-creation?id=image.white_bg';
+/* ═══ 2026-09-19 批 O-⑥：这条脚本的「标准工作台」换了锚点 ═══════════════════════════════
+   原来是 image.white_bg —— 但本批按知渔 1:1 把它改成了
+   「上传图片（最好是1：1的比例）+ 抠图模式」两格（知渔「提取电商白底图」的原文形态，
+   那个页面**没有比例档**），于是脚本里"比例默认值已选中"这条断言失去了对象。
+   ⚠️ 该改的是**锚点**，不是把 1:1 的修复退回去（用户第 19 轮：「你抄的完全就没有对上」
+      「全部去把这些子页面 1:1 的去把它们抄过来」）。
+   换成 **image.material（材质细节）**：它的字段是「素材 / 重点 / 比例 / 分辨率 / 数量」——
+   与原锚点（素材 / 比例 / 分辨率 / 数量）**结构最接近**：有上传位、有比例、有分辨率，
+   而且那格文字不是必填 —— 这条脚本原来那批断言（缺素材禁用 / 比例默认选中 / 上传重试解禁 /
+   生成契约 / 作品归档）全部继续成立，不用为了迁就字段改动去改它们要验的行为。
+   ⚠️ 第一版我换成了 image.scene，它多一格**必填**的「修图指令」，于是"只传图 → CTA 仍禁用"
+      （那是正确行为）把三条断言打红了；换成 image.material 之后不需要为它补特例。 */
+const ANCHOR_SKILL_ID = 'image.material';
+const WORKBENCH = '/image-creation?id=' + ANCHOR_SKILL_ID;
 const url = () => 'http://127.0.0.1:' + PORT + WORKBENCH;
 const open = async () => { await page.goto(url(), { waitUntil: 'load', timeout: 40000 }); await page.waitForSelector('.media-workbench-submit', { timeout: 20000 }); await page.waitForTimeout(400); };
+/* ═══ 2026-09-19 批 O-⑥：上传之后还要把**必填的文字字段**填上 ═══════════════════════════
+   锚点换成 image.scene 之后（知渔「商品场景展示」同款形态），工作台多了一格必填的「修图指令」
+   —— 知渔那一页的 multiText 也是**必填**（他们的 inputConfigs 里 optional=false），
+   所以"只传图不写指令 → CTA 仍然禁用"是**正确行为**，不是 bug。
+   这条脚本于是要像**一个真实用户**那样把它填上：填了才允许生成。 */
+const fillRequiredText = async () => {
+  /* 直接定位 <textarea> 本体（.media-field-textarea 是外层容器，fill 用不了） */
+  const boxes = await page.$$('.media-field textarea');
+  for (const box of boxes) {
+    const filled = await box.evaluate(node => Boolean((node.value || '').trim()));
+    if (!filled) { await box.click(); await box.fill('测试用的修图指令：浅色背景，突出产品'); }
+  }
+  await page.waitForTimeout(150);
+};
 const upload = async () => {
   await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
   await page.waitForSelector('.media-asset-card', { timeout: 15000 });
   await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 });
+  await fillRequiredText();
 };
 /* ═══ 2026-09-19 批 J-⑭：主按钮后面多了一道**预览确认** ═══════════════════════════════════
    用户批注 image#1：「图片的话，他在生成的配置做好之后**进行预览，然后再去生成**」。
@@ -351,7 +379,12 @@ try {
     points: document.querySelector('.media-workbench-points')?.textContent || '',
     activeRatio: document.querySelector('.media-field-segmented button.is-active')?.textContent || '',
   }));
-  check(gate.hint.includes('素材'), '禁用原因就写在按钮旁', gate.hint);
+  /* ⚠️ 批 O-⑥：判据是「**禁用原因就近写在按钮旁、并点名缺了什么**」，
+     不是"必须出现「素材」这两个字"—— 标签照知渔改过之后（上传商品图 / 上传图片…）
+     绑字面量会让这条断言变成"改个字段名就红"。改成：非空 + 点名当前上传字段的 label。 */
+  const uploadLabel = await page.evaluate(() => document.querySelector('.media-field-label')?.textContent?.replace('*', '').trim() || '');
+  check(gate.hint.trim().length > 0 && uploadLabel && gate.hint.includes(uploadLabel),
+    '禁用原因就写在按钮旁，且点名缺的是哪个字段', gate.hint + ' | label=' + uploadLabel);
   check(gate.points.includes('1'), '积分按后端单价预估（image2 2K = 1 积分）', gate.points);
   check(gate.activeRatio.includes('1:1'), '比例默认值已选中（不逼用户把每个必填都点一遍）', gate.activeRatio);
 
@@ -376,7 +409,13 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 });
   const body = calls.regenerate[0] || {};
   check(calls.regenerate.length === 1, '只发起 1 次生成（数量=1）', String(calls.regenerate.length));
-  check(body.prompt && body.prompt.includes('白底') && !body.prompt.includes('{{'), '提示词由 brief 真实拼出且无残留占位符', String(body.prompt).slice(0, 60));
+  /* ⚠️ 批 O-⑥：原来这里写死 '白底'（旧锚点 image.white_bg 的 brief 词）。
+     判据是「**提示词由 brief 真实拼出、且没有残留占位符**」，不是"必须出现某个词"——
+     绑死某个词会让"换个锚点技能"变成"改一处断言"，那是脆的。改成：非空 + 无 {{占位符}} + 与声明源里这条技能的 brief 对得上。 */
+  const anchorBrief = IMAGE_SKILLS.find(s => s.id === ANCHOR_SKILL_ID)?.brief || '';
+  check(body.prompt && !body.prompt.includes('{{') && anchorBrief.slice(0, 12).replace(/\{\{[^}]+\}\}/g, '') !== '' 
+    && body.prompt.includes(anchorBrief.split('{{')[0].trim().slice(0, 8)),
+    '提示词由 brief 真实拼出且无残留占位符', String(body.prompt).slice(0, 60));
   check(/\/api\/generated-assets\/[a-f0-9]{64}\.png$/.test(String(body.image_url)), '主素材进入 image_url（图生图）', String(body.image_url));
   check(body.ratio === '1:1' && body.resolution === '2K', '比例/清晰度取声明默认值', body.ratio + '/' + body.resolution);
   check(body.image_model === 'image2', '模型是唯一有出图记录的 image2', String(body.image_model));
@@ -391,7 +430,7 @@ try {
   await page.waitForFunction(() => /作品已保存|云端保存暂时失败/.test(document.querySelector('.media-run-notice')?.textContent || ''), null, { timeout: 15000 }).catch(() => {});
   const work = (calls.saveWork[0] || {}).work || {};
   check(calls.saveWork.length === 1, '完成后自动保存作品');
-  check(work.mediaSkillId === 'image.white_bg', '作品归到这条技能名下（历史按它筛）', String(work.mediaSkillId));
+  check(work.mediaSkillId === ANCHOR_SKILL_ID, '作品归到这条技能名下（历史按它筛）', String(work.mediaSkillId));
   check(Array.isArray(work.images) && work.images.length === 1, '作品里带着这次生成的图', String((work.images || []).length));
 
   /* ═══ ⑤ 失败 → 就近错误 + 只重试失败项 + 同一幂等键 ═══ */
@@ -471,10 +510,12 @@ try {
 
   /* ═══ ⑩ 刷新后历史还在（走 /api/works，不靠内存） ═══ */
   scenario('⑩ 刷新后历史还在');
+  /* ⚠️ 批 O-⑥：种子作品原来写死 image.white_bg（旧锚点）。判据是
+     「**这条技能自己的历史里能看到已保存的作品**」—— 所以要跟着锚点走，不能写死 id。 */
   fx.works = [{
-    id: 'e2e-work-1', _saveKey: 'e2e-work-1', _ecResult: true, title: '白底商品图', mediaSkillId: 'image.white_bg',
-    createdAt: Date.now(), images: [{ url: RESULT_IMAGE, label: '白底商品图 1' }],
-    replay: { mediaSkillId: 'image.white_bg', panelValues: { ratio: '4:3', clarity: '4K', count: 2 } },
+    id: 'e2e-work-1', _saveKey: 'e2e-work-1', _ecResult: true, title: '材质细节图', mediaSkillId: ANCHOR_SKILL_ID,
+    createdAt: Date.now(), images: [{ url: RESULT_IMAGE, label: '材质细节图 1' }],
+    replay: { mediaSkillId: ANCHOR_SKILL_ID, panelValues: { ratio: '4:3', clarity: '4K', count: 2 } },
   }];
   await page.evaluate(() => { localStorage.removeItem('sb-works'); });
   await open();
@@ -486,7 +527,7 @@ try {
     subtitle: document.querySelector('.media-case-card-subtitle')?.textContent || '',
   }));
   check(historyInfo.count >= 1, '历史里能看到已保存的作品（/api/works 拉回来的）', JSON.stringify(historyInfo));
-  check(historyInfo.title.includes('白底'), '历史条目是可辨认的（技能名 + 张数/时间）', JSON.stringify(historyInfo));
+  check(historyInfo.title.includes('材质'), '历史条目是可辨认的（技能名 + 张数/时间）', JSON.stringify(historyInfo));
   await page.screenshot({ path: '.tmp/e2e/history.png' });
 
   /* ═══ ⑪ 生成中刷新页面：图不能丢（出图是要花钱的） ═══ */
@@ -1038,7 +1079,13 @@ try {
   check(fused.notice.includes('会重新计费'), '说清下一步点生成会重新计费', fused.notice.slice(0, 46));
   check(calls.regenerate.length === fuseCharges + 1, '点融合动作**没有发起生成**（钱还在用户手里）', String(calls.regenerate.length - fuseCharges));
   check(calls.quote.length === fuseQuotes + 1, '点融合动作也不额外报价（报价只跟着那次生成）', String(calls.quote.length - fuseQuotes));
-  check(await ctaDisabled() === false, '素材位已就绪，用户只要再点一次「立即生成」');
+  /* ⚠️ 批 O-⑥：目标技能（image.render_quality）的工作台按知渔 1:1 抄过来之后，
+     多了一格**必填**的「后期指令」（知渔那一页的 multiText 也是必填）——
+     素材带过来了但指令还没写时 CTA 仍禁用是**正确行为**。
+     所以这里分两步：先确认真的是"只差指令"，再填上，最后才断言可点。 */
+  check(await ctaDisabled() === true, '素材带过来了，但必填的后期指令还没写时仍然不允许生成');
+  await fillRequiredText();
+  check(await ctaDisabled() === false, '素材位已就绪 + 指令写完，用户只要再点一次「立即生成」');
 
   /* ═══ ⑭ 连点「只重试失败项」不会重复扣费 ═══ */
   scenario('⑭ 重试连点');
