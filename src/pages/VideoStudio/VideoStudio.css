@@ -84,6 +84,15 @@
              border-radius: 12px; background: linear-gradient(118deg,#fff7eb,#fffdf8,var(--sb-neutral-0));
              box-shadow: inset 0 1px 0 rgba(255,255,255,.82); */
 .video-materials { margin: 0 22px 14px; padding: 2px 0 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+
+/* ═══ 批 N：skill 子页面按**声明源**渲染工作台时的容器 ═════════════════════════════════
+   用户第 18 轮原话：「他们这些 skill 页面……**每个工作台都是不一样的呀**……对应的一比一去抄啊」。
+   左右外边距沿用素材区那一档（22px），块的间距由 VideoWorkbench.css 的
+   .video-wb-block + .video-wb-block（40px + 一条分隔线）给 —— 与图片侧 .media-workbench-group 同一口径。 */
+.video-content-composer.is-workbench { padding: 0 22px 14px; }
+.video-content-composer.is-workbench .video-workbench-blocks { min-width: 0; }
+/* 工作台形态下这一块只剩「运镜」那一行与就近错误 —— 不需要输入区的 150px 最小高度 */
+.video-content-composer.is-workbench .video-composer-input { min-height: 0; padding-top: 0; }
 /* 2026-09-19 批 I-⑦：这一行文字已整行删除（用户批注 #1-3 + #1-7，见 JSX 里的说明）。
    表头现在只剩右侧那组**动作**按钮（N 个 / 清空素材 / 全屏），所以靠右对齐。
    下面三条 header > div / span / strong / small 的规则随之作废，一并删掉（不留死 CSS）。 */

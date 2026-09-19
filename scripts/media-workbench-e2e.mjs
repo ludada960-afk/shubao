@@ -533,7 +533,7 @@ try {
   await openVideoSkill('video.smart');
   const videoState = await page.evaluate(() => ({
     composer: Boolean(document.querySelector('.media-workbench-panel .video-composer')),
-    activeMode: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    activeMode: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
     /* 判成片台（.video-frame）而不是整段结果区：生成记录任何时候都要在 */
     resultStage: Boolean(document.querySelector('.video-frame')),
     genericCta: document.querySelectorAll('.media-workbench-submit').length,
@@ -547,7 +547,10 @@ try {
   /* 用户口径：skill = 一个具体玩法，进子页面就该看到"这条玩法该怎么拍"，
      而不是一个空白输入框 + 一个名字。所以每条视频技能的配方提示词必须被预填进创作台。 */
   check(videoState.prompt.includes('开场 1 秒'), '进子页面就把这条玩法的配方提示词预填进创作台', videoState.prompt.slice(0, 40));
-  check(videoState.activeMode.includes('智能成片'), '创作方式页签按技能落位（video.smart → 智能成片）', videoState.activeMode);
+  /* ⚠️ 批 N：子页面不再显示创作方式页签（依据见下面视频侧全量扫描那一段引用的用户原话），
+     读的是 <main data-video-mode>。判据不变：这一页必须落在 video.smart 对应的那一档。 */
+  check(videoState.activeMode.includes('智能成片') || videoState.activeMode.includes('smart'),
+    '创作方式按技能落位（video.smart → 智能成片）', videoState.activeMode);
   /* 结果台：嵌入形态下没有任务时不占位置（否则创作台下面是 700px 空白），
      所以这里断言的是"还没生成时不渲染"，任务出现才渲染（见下面点历史记录那一段）。 */
   check(!videoState.resultStage, '没有任务时不铺那块空成片台（嵌入形态不留 700px 空白）', String(videoState.resultStage));
@@ -562,7 +565,7 @@ try {
   /* 首尾帧技能：页签要落在「首尾帧」，而且素材区跟着变（不是永远停在智能成片） */
   await openVideoSkill('video.frame');
   const frameMode = await page.evaluate(() => ({
-    active: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    active: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
     /* ⚠️ 2026-09-19 批 I-⑦：素材区标题那行文字被用户**整行删除**了
        （批注 #1-3「不要冲突啊」+ #1-7「这里也不该有文字啊，上面选中切换区就好了呀」），
        所以判据不能再读那句提示。换成读**首尾帧那两格本身** ——
@@ -578,7 +581,17 @@ try {
   await openVideoSkill('video.floorplan_grow');
   const archMode = await page.evaluate(() => ({
     title: document.querySelector('.media-workbench-head h2')?.textContent || '',
-    prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
+    /* ═══ 2026-09-19 批 N：**判据不变，锚点换了一处** ═══════════════════════════════════
+       判据一个字没动 ——「进子页面就带着**这条 skill 自己的配方提示词**（不是空白）」。
+       换的是观测点：批 N 起，建筑室内那一档按知渔同款页面渲染
+       （知渔 /apps?id=cmra7sgh… 淋浴展示实测：**只有「参考图（要求：X图）」+「比例」两块，
+         没有补充说明框**，见 docs/design/64 §8.3），所以我们也不再给这一档一个输入框。
+       ⇒ 配方改读 <main class="video-studio-page" data-video-recipe="…">（页面如实挂着的当前配方）；
+         有补充说明框的那几档（探店 / 爆款复刻 / 脚本型）仍然优先读输入框里的内容 ——
+         两种形态同一份断言。 */
+    prompt: document.querySelector('.video-prompt-mentions')?.textContent
+      || document.querySelector('.video-studio-page')?.dataset.videoRecipe
+      || '',
     composer: Boolean(document.querySelector('.media-workbench-panel .video-studio-page')),
   }));
   check(archMode.title.includes('户型生长'), '建筑家装技能有自己的子页面', archMode.title);
@@ -668,11 +681,12 @@ try {
     /* ⚠️ 视频提示词是 contentEditable 的 div（mention-prompt-field），不是 textarea —— 读 textContent */
     prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
     notice: document.querySelector('.media-run-notice')?.textContent || '',
-    active: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    active: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
   }));
   check(videoRestored.prompt.includes('白底化妆水瓶'), '提示词还原回创作台', videoRestored.prompt.slice(0, 40));
   check(videoRestored.notice.includes('重新计费'), '明确告诉用户"确认后才会重新计费"', videoRestored.notice.slice(0, 40));
-  check(videoRestored.active.includes('智能成片'), '创作方式也跟着还原', videoRestored.active);
+  check(videoRestored.active.includes('智能成片') || videoRestored.active.includes('smart'),
+    '创作方式也跟着还原', videoRestored.active);
   check(calls.regenerate.length + calls.videoJob === beforeReuse, '「用这组参数」不产生任何扣费请求', String(calls.regenerate.length + calls.videoJob - beforeReuse));
 
   /* ═══ ⑫c 小红书图文：既有图文工作台整块嵌进子页面 ═══ */
@@ -1168,11 +1182,12 @@ try {
   await page.waitForTimeout(600);
   const videoLanding = await page.evaluate(() => ({
     url: location.pathname + location.search,
-    mode: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+    mode: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
     resultStage: Boolean(document.querySelector('.video-result-workbench')),
   }));
   check(videoLanding.url === '/video-creation?id=video.smart', '点「视频生成」进的是视频子页面', videoLanding.url);
-  check(videoLanding.mode.includes('智能成片'), '进去就落在对应的创作方式上', videoLanding.mode);
+  check(videoLanding.mode.includes('智能成片') || videoLanding.mode.includes('smart'),
+    '进去就落在对应的创作方式上', videoLanding.mode);
   check(videoLanding.resultStage, '结果台也在（生成完就地看，不跳画布）');
 
   /* 领域名本身仍然只负责**展开面板**（不下发、不跳转）：
@@ -1397,7 +1412,18 @@ try {
   check(generated.every(row => row.sent.image_model === 'image2'), '所有请求都用有出图记录的 image2');
   check(sweepRows.filter(row => row.suite).length === 1, '套图那条仍然按套报价（没有掉进单图分支）');
 
-  /* 视频侧同理：7 条视频技能都要能进自己的子页面、落在自己的创作方式上 */
+  /* 视频侧同理：7 条视频技能都要能进自己的子页面、落在自己的创作方式上。
+     ═══ 2026-09-19 批 N：**判据不变，锚点换了一处** ═══════════════════════════════════════
+     判据一个字没动 ——「进子页面就落在**它自己那一档**创作方式上」（initialMode 真的落上了）。
+     换的是**观测点**：批 N 起，skill 子页面按声明源渲染自己的工作台，
+     **不再显示**「智能成片 / 首尾帧 / 爆款重构」那排页签。
+     依据是用户第 18 轮原话：
+       「他们这些 skill 页面……**每个工作台都是不一样的呀**，你现在完全没抄，
+         **用的依然是我们之前首页的视频生成版本糊弄我**……对应的一比一去抄啊」
+     以及知渔 20 个视频 skill 页的实测（docs/design/64 §8）：**没有任何一页有创作方式切换** ——
+     创作方式是**这条 skill 自带的属性**，不是让用户在页面上再选一次的东西。
+     ⇒ 现在读的是 <main class="video-studio-page" data-video-mode="smart">（页面如实挂着的当前档位）；
+        页签还在的形态（首页输入框 / 独立路由）仍然优先读页签 —— 两种形态同一份断言。 */
   const videoSweep = [];
   for (const skill of VIDEO_SKILLS) {
     const row = { id: skill.id, problem: '' };
@@ -1407,11 +1433,11 @@ try {
       await page.waitForTimeout(350);
       const shape = await page.evaluate(() => ({
         title: document.querySelector('.media-workbench-head h2')?.textContent || '',
-        mode: document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || '',
+        mode: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
       }));
       row.mode = shape.mode;
       if (shape.title !== skill.name) row.problem = '页面标题对不上：' + shape.title + ' ≠ ' + skill.name;
-      else if (!shape.mode) row.problem = '创作方式页签没有选中项（initialMode 没落上）';
+      else if (!shape.mode) row.problem = '创作方式没有落上（initialMode 没生效 / data-video-mode 缺失）';
     } catch (error) {
       row.problem = '抛错：' + String(error?.message || error).slice(0, 100);
     }
@@ -1423,8 +1449,16 @@ try {
     videoBroken.map(row => row.id + '：' + row.problem).join(' ｜ ').slice(0, 300));
   /* 映射本身由 skillRun 说了算：页面选中的页签必须就是 skillVideoMode 算出来的那个 */
   const expectedMode = new Map(VIDEO_SKILLS.map(skill => [skill.id, skillVideoMode(skill)]));
-  const modeMismatch = videoSweep.filter(row => row.mode && expectedMode.get(row.id) &&
-    !row.mode.includes({ smart: '智能成片', frame: '首尾帧', remake: '爆款重构' }[expectedMode.get(row.id)] || ''));
+  /* 映射本身由 skillRun 说了算：页面落在的那一档必须就是 skillVideoMode 算出来的那个。
+     ⚠️ 批 N：子页面不再显示页签（依据见上面那一段引用的用户原话），
+        所以这里同时接受**档位 id**（data-video-mode）与**页签文案**（首页/独立路由仍读得到）——
+        判据没变，变的只是"从哪儿读"。 */
+  const MODE_LABEL = { smart: '智能成片', frame: '首尾帧', remake: '爆款重构' };
+  const modeMismatch = videoSweep.filter(row => {
+    const expected = expectedMode.get(row.id);
+    if (!row.mode || !expected) return false;
+    return !row.mode.includes(expected) && !row.mode.includes(MODE_LABEL[expected] || '');
+  });
   check(modeMismatch.length === 0, '页签与 skillRun 的映射一致（不是各写一份）',
     modeMismatch.map(row => row.id + '→' + row.mode).join(' ｜ '));
 

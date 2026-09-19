@@ -74,7 +74,8 @@ import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import { tagVideoJob } from './videoJobTags.js';
-import { CAMERA_MOVES, SCENE_EDITS, cameraInstruction, composeVideoPrompt, sceneEditInstruction } from './cameraMoves.js';
+import { CAMERA_MOVES, SCENE_EDITS, cameraInstruction, composeVideoPrompt, sceneEditInstruction, swapInstruction } from './cameraMoves.js';
+import VideoWorkbench from '../../components/media/VideoWorkbench.jsx';
 /* 批 K-D：视频侧「代为撰写」与图片侧「生成预览」共用同一个三步方案预览对话框 */
 import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
 import './VideoStudio.css';
@@ -277,6 +278,12 @@ export default function VideoStudioPage({
   preset = null,
   presetNonce = 0,
   autoOpenCanvas = true,
+  /* ═══ 批 N：这条 skill 的**左栏工作台规格**（来自声明源 src/skills/videoWorkbenches.js）═══
+     用户第 18 轮：「他们这些 skill 页面……每个工作台都是不一样的呀，你现在完全没抄，
+       用的依然是我们之前首页的视频生成版本糊弄我……对应的一比一去抄啊」。
+     传了它 = 子页面按**这条 skill 自己的**工作台渲染（知渔 20 个页面逐页抄来的规格）；
+     不传（首页输入框 / 独立路由）= 与从前**完全一致**，一个像素都不动。 */
+  workbench = null,
 }) {
   /* ═══ 首页形态 vs 技能子页面形态（用户 9-18 批注 2 / 3 / 8 / 9 / 10 / 11 / 12）══════
      用户口径：「首页就是要让用户快速的去生成去跑一遍呀，你不要把功能做的太杂了，做的太杂，
@@ -295,6 +302,10 @@ export default function VideoStudioPage({
   /* 默认创作方式 = 智能成片；技能子页面用 initialMode 指定自己那一档（skillVideoMode） */
   const [mode, setMode] = useState(() => initialMode || DEFAULT_VIDEO_MODE);
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
+  /* ═══ 批 N：按 skill 声明的**多槽位素材**（知渔：探店素材 0/6、模特选择 0/3、穿搭图1/2/3、椅子图…）═══
+     为什么不塞进 files.images：知渔的每一块素材都有自己的**标题、说明、上限、接受类型**，
+     合并成一堆就再也说不出"这一张是门店照还是模特照"。上传与生成仍走**同一条链路**（下面合并）。 */
+  const [slotFiles, setSlotFiles] = useState({});
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
@@ -306,6 +317,9 @@ export default function VideoStudioPage({
   const [duration, setDuration] = useState(5);
   const [sound, setSound] = useState(true);
   const [seed, setSeed] = useState(0);
+  /* 批 N：知渔「内容替换」页里的两颗胶囊（换模特 / 换产品）—— 它是**一个控制项**，
+     选中后往提示词追加一句明确的替换指令（与运镜 / 只改一个元素同一条机制）。 */
+  const [swapTarget, setSwapTarget] = useState('model');
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState('');
   const [job, setJob] = useState(null);
@@ -392,7 +406,7 @@ export default function VideoStudioPage({
   const [sceneEdit, setSceneEdit] = useState('');
   const activeAnalysis = analyzedSignature === planSignature ? analyzedPlan : null;
   const extraInstructions = useMemo(
-    () => [cameraInstruction(cameraMove), sceneEditInstruction(sceneEdit)].filter(Boolean),
+    () => [cameraInstruction(cameraMove), sceneEditInstruction(sceneEdit), swapInstruction(swapTarget)].filter(Boolean),
     [cameraMove, sceneEdit],
   );
   /* ⚠️ 只有 activeAnalysis 存在时才取它的 optimizedPrompt（方案确认过的那版），
@@ -639,6 +653,8 @@ export default function VideoStudioPage({
       const kind = key === 'videos' ? 'video' : key === 'audios' ? 'audio' : 'image';
       items.forEach(file => selected.set(file, kind));
     });
+    /* 批 N：按 skill 声明的槽位素材（全部是图片）走同一条上传链路 */
+    Object.values(slotFiles).forEach(items => (Array.isArray(items) ? items : []).forEach(file => selected.set(file, 'image')));
     selected.forEach((kind, file) => {
       if (!uploadsRef.current.has(file)) void startUpload(file, kind).catch(() => {});
     });
@@ -649,7 +665,7 @@ export default function VideoStudioPage({
     });
     refreshUploads();
     return undefined;
-  }, [files, refreshUploads, startUpload, state.logged]);
+  }, [files, slotFiles, refreshUploads, startUpload, state.logged]);
 
   useEffect(() => () => {
     uploadsRef.current.forEach(entry => entry.abort?.());
@@ -680,6 +696,17 @@ export default function VideoStudioPage({
     setPlanReviewed(false);
     setPlannedUploads(null);
     setFiles({ first: [], last: [], images: [], videos: [], audios: [] });
+    setSlotFiles({});
+  }
+  /* 批 N：槽位素材的增删。replace=true 表示整组替换（删掉某一张），否则是追加。 */
+  function updateSlotFiles(slotKey, next, options = {}) {
+    setPlanReviewed(false);
+    setPlannedUploads(null);
+    setSlotFiles(current => {
+      const limit = Number(options.limit || 0) || 9;
+      const merged = options.replace ? next : [...(current[slotKey] || []), ...next];
+      return { ...current, [slotKey]: merged.slice(0, limit) };
+    });
   }
 
   const toggleFullscreen = useCallback(async () => {
@@ -747,9 +774,10 @@ export default function VideoStudioPage({
     setError('');
     setSubmitting(true);
     try {
+      /* 批 N：按 skill 声明的**槽位素材**也是这次生成的输入（它们与「图片」同一类，只是各有各的标题） */
       const selected = mode === 'frame'
         ? { first: files.first, last: files.last, images: [], videos: [], audios: [] }
-        : { first: [], last: [], images: files.images, videos: files.videos, audios: files.audios };
+        : { first: [], last: [], images: [...files.images, ...slotImageFiles], videos: files.videos, audios: files.audios };
       const reusable = plannedUploads?.signature === planSignature ? plannedUploads.assets : null;
       const [first, last, images, videos, audios] = reusable
         ? [reusable.first, reusable.last, reusable.images, reusable.videos, reusable.audios]
@@ -842,7 +870,7 @@ export default function VideoStudioPage({
     try {
       const selected = mode === 'frame'
         ? { first: files.first, last: files.last, images: [], videos: [], audios: [] }
-        : { first: [], last: [], images: files.images, videos: files.videos, audios: files.audios };
+        : { first: [], last: [], images: [...files.images, ...slotImageFiles], videos: files.videos, audios: files.audios };
       const inspected = await inspectVideoPlanningFiles(selected);
       const originalImageCount = selected.first.length + selected.last.length + selected.images.length;
       const analysisFrames = inspected.frames.slice(0, Math.max(0, 9 - originalImageCount));
@@ -968,8 +996,13 @@ export default function VideoStudioPage({
     return undefined;
   };
 
+  const workbenchMode = Boolean(embedded && workbench && (workbench.blocks || []).length);
+  const slotEntries = useMemo(() => Object.entries(slotFiles)
+    .flatMap(([slotKey, items]) => (Array.isArray(items) ? items : []).map((file, index) => ({ file, slotKey, index }))), [slotFiles]);
+  const slotImageFiles = useMemo(() => slotEntries.map(item => item.file), [slotEntries]);
   const materialEntries = [
     ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片', name: `图片${index + 1}` })),
+    ...slotEntries.map((item, index) => ({ file: item.file, key: 'slots', index, kind: 'image', label: '图片', name: `图片${files.images.length + index + 1}` })),
     ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频', name: `视频${index + 1}` })),
     ...files.audios.map((file, index) => ({ file, key: 'audios', index, kind: 'audio', label: '音频', name: `音频${index + 1}` })),
   ];
@@ -1172,13 +1205,32 @@ export default function VideoStudioPage({
     setInlineMenu(null);
   };
 
-  return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`}>
+  /* ⚠️ data-video-mode 是**当前创作方式**的稳定观测点（批 N）：
+     子页面按 skill 声明渲染工作台之后不再显示「智能成片 / 首尾帧 / 爆款重构」那排页签
+     （知渔 20 个 skill 页都没有 —— 创作方式是 skill 自带的属性），
+     但"这一页落在哪一档"这件事仍然必须可观测、可断言，所以把它如实挂在这里。 */
+  /* ⚠️ data-video-recipe 是**这条 skill 的配方提示词**（进子页面时被预填进创作台的那一份）。
+     为什么要有这个观测点：知渔「建筑室内」那 9 页（我们对应的是单参考图 + 比例那一档）
+     **页面上没有补充说明框** —— 他们的"怎么拍"是模板自带的，我们的对应物就是声明源里的 brief。
+     照抄之后这一档不再有输入框，但"配方真的被带进这次生成"这件事仍然必须可断言，
+     所以把它如实挂在页面上（值与预填进 prompt 的是同一份，不是另写一份）。 */
+  return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`} data-video-mode={mode} data-video-recipe={preset?.prompt || ''}>
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
     <section ref={composerRef} className={"video-composer" + (homeComposer ? " is-home" : "") + (fullscreen ? " is-fullscreen" : "")} aria-label="视频生成工作区">
       <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
-      <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
+      {/* ═══ 批 N：skill 子页面**不显示创作方式切换** ═══════════════════════════════════════
+          依据（用户第 18 轮原话）：「他们这些 skill 页面……**每个工作台都是不一样的呀**，
+            你现在完全没抄，**用的依然是我们之前首页的视频生成版本糊弄我**」。
+          知渔 20 个视频 skill 页实测（docs/design/64 §8）：**没有任何一页有创作方式切换** ——
+            创作方式是**这条 skill 自带的属性**（探店视频就是探店视频），不是让用户在页面上再选一次。
+          我们原来所有子页面都顶着「智能成片 / 首尾帧 / 爆款重构」三档，正是"每页长得都一样"的来源。
+          做法：workbenchMode 下整块不渲染；mode 仍由 skillVideoMode(skill) 通过 initialMode 定死。
+          ⚠️ 与批 I 那条「子页面一个功能都不许少」的关系：那条针对的是**精细化调参控件**
+            （技能库 / 镜头规格 / 生成设置 / 运镜 / 生成记录）—— 它们全部保留；
+            这里去掉的是"换一种玩法"，那是**换一个 skill**，入口在 hub 与左侧导航，不是在这一页里。 */}
+      {!workbenchMode && <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
         {/* 首页只留两档（用户批注 3：「下面你就得像他们这样了，就是可能就是一个全能参考，
             还有一个首尾针的切换按钮而已」）。爆款重构是独立 skill，从左侧导航/总页面进。 */}
         {(homeComposer ? VIDEO_CREATION_MODES.filter(item => item.id === 'smart' || item.id === 'frame') : VIDEO_CREATION_MODES).map(item => {
@@ -1187,9 +1239,37 @@ export default function VideoStudioPage({
             <span className="video-mode-icon" aria-hidden="true"><ModeIcon size={18} /></span><span className="video-mode-copy"><strong>{item.label}</strong><small>{item.hint}</small></span><i aria-hidden="true" />
           </button>;
         })}
-      </div>
-      <section className="video-content-composer">
-        <section className="video-materials" aria-label="上传素材">
+      </div>}
+      <section className={'video-content-composer' + (workbenchMode ? ' is-workbench' : '')}>
+        {/* ═══ 批 N：子页面按**这条 skill 自己的**工作台渲染（声明源 src/skills/videoWorkbenches.js）═══
+            用户第 18 轮原话：「他们这些 skill 页面……**每个工作台都是不一样的呀**，你现在完全没抄，
+              用的依然是我们之前首页的视频生成版本糊弄我……**对应的一比一去抄啊**」。
+            规格逐条来自知渔 20 个视频 skill 页面的 CDP 抄录（docs/design/64 §8），
+            页面里**不写死任何一块**。
+            ⚠️ 首页输入框与独立路由**不传 workbench** ⇒ 走下面那条分支，行为与从前一个像素都不变。 */}
+        {workbenchMode && <VideoWorkbench
+          workbench={workbench}
+          slots={slotFiles}
+          onSlotFiles={updateSlotFiles}
+          prompt={prompt}
+          onPromptChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH)); }}
+          values={{ ratio, duration, swapMode: swapTarget }}
+          onValueChange={(bind, value) => {
+            setPlanReviewed(false);
+            if (bind === 'ratio') setRatio(String(value));
+            else if (bind === 'duration') setDuration(Number(value) || 5);
+            else if (bind === 'swapMode') setSwapTarget(String(value));
+          }}
+          mentions={mentionedAssets}
+          promptFieldRef={promptFieldRef}
+          promptMaxLength={VIDEO_PROMPT_MAX_LENGTH}
+          onFilesPasted={files => appendQuickFiles(files)}
+          disabled={submitting}
+          uploadFor={uploadFor}
+          retryUpload={retryUpload}
+          onRunAction={key => { if (key === 'script') runDawei(); else if (key === 'analyze') openVideoPlan(); }}
+        />}
+        {!workbenchMode && <section className="video-materials" aria-label="上传素材">
           <header>
             {/* ═══ 2026-09-19 批 I-⑦（用户批注 #1-3 与 #1-7，坐标同一列 27%）══════════════════
                 两条批注说的是同一行字：
@@ -1209,8 +1289,9 @@ export default function VideoStudioPage({
             </div>
           </header>
           {renderAssetPickers()}
-        </section>
+        </section>}
         <div className="video-composer-input">
+          {!workbenchMode && <>
           <MentionPromptField
             ref={promptFieldRef}
             id="video-prompt"
@@ -1252,6 +1333,7 @@ export default function VideoStudioPage({
               代为撰写
             </button>
           </div>
+          </>}
           {/* ═══ 融合控件：运镜 / 只改一个元素 ═══════════════════════════════════════════
              这两条在技能库里是「辅助能力」（video.camera_move / video.scene_edit）——
               它们不是一个独立的活儿，而是创作时的两个控制项，所以长在这里，

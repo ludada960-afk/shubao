@@ -29,6 +29,7 @@ import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
+import { getVideoWorkbench } from '../../skills/videoWorkbenches.js';
 import { boardOfPage, canCarryResultAsInput, fuseActionsOf, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
 import {
   clearPendingRun,
@@ -1191,6 +1192,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         key={skill.id}
         embedded
         inlineResult
+        /* ═══ 批 N：这条 skill 的**左栏工作台规格**（声明源 src/skills/videoWorkbenches.js）═══════
+            用户第 18 轮：「他们这些 skill 页面……**每个工作台都是不一样的呀**，你现在完全没抄，
+              用的依然是我们之前首页的视频生成版本糊弄我……**对应的一比一去抄啊**」。
+            规格逐条抄自知渔 20 个视频 skill 页面（docs/design/64 §8 的逐字抄录）。
+            没有声明的工作台（辅助能力那三条，它们本来就没有自己的子页面）= null ⇒ 与从前一致。 */
+        workbench={getVideoWorkbench(skill.id)}
         /* 子页面里**不自动跳画布**：结果留在这一页的成片台上（用户 9-17 口径） */
         autoOpenCanvas={false}
         initialMode={skillVideoMode(skill)}

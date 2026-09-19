@@ -29,6 +29,14 @@ export const SCENE_EDITS = [
   { value: 'clean', label: '去杂物', instruction: '只去掉画面里的指定杂物并补全背景，其余内容一律不动' },
 ];
 
+/* 批 N：知渔「内容替换」页的两颗胶囊（换模特 / 换产品）—— 同一套「控件 ↔ 一句指令」的机制。
+   他们的页面把这两颗放在素材块下面，选中后整条链路就按这个对象替换；
+   我们照同一条逻辑：选中后往提示词追加一句明确的替换指令，其余内容不动。 */
+export const SWAP_TARGETS = [
+  { value: 'model', label: '换模特', instruction: '把原片里的人物替换成我上传的人物图片，动作、镜头与背景保持与原片一致' },
+  { value: 'product', label: '换产品', instruction: '把原片里的商品替换成我上传的商品图片，人物、动作、镜头与背景保持与原片一致' },
+];
+
 function instructionOf(list, value) {
   const hit = list.find(item => item.value === String(value || ''));
   return hit ? hit.instruction : '';
@@ -40,6 +48,10 @@ export function cameraInstruction(value) {
 
 export function sceneEditInstruction(value) {
   return instructionOf(SCENE_EDITS, value);
+}
+
+export function swapInstruction(value) {
+  return instructionOf(SWAP_TARGETS, value);
 }
 
 function tidy(value) {
