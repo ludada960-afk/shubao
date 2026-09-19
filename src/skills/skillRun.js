@@ -32,7 +32,9 @@ export const DEFAULT_IMAGE_MODEL = 'image2';
 export const DEFAULT_RESOLUTION = '2K';
 
 /* 字段 key → 服务端 ratio 的合法值（服务端不认的写法在这里就拦住，不让它静默回落） */
-const LEGAL_RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9', '21:9']);
+/* 批 O-⑦：加 2:3 / 3:2 —— 与服务端 modelCatalog.LEGAL_IMAGE_SIZES 的键**逐值一致**
+   （必须同时加：界面能给的恰好是引擎认得的，多一档就是"选了被静默回落成 1:1"） */
+const LEGAL_RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '2:3', '3:2']);
 const LEGAL_RESOLUTIONS = new Set(['1K', '2K', '4K']);
 
 function text(value) {
