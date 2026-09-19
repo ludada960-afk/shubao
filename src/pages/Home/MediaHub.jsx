@@ -111,6 +111,13 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
                   badge={availabilityLabel(skill)}
                   accent={skill.cover?.accent || 'neutral'}
                   monogram={monogram}
+                  /* 批 M：**按钮预览窗**右栏的案例图 —— 取这条 skill 自己声明的案例封面，最多 3 张。
+                     一条都没有就传空数组，预览窗会**三格占位**并如实写「案例补充中」（不许放假图）。
+                     ⚠️ 只取这条 skill 自己的案例：不拿本板块别的技能的图来冒充（首页那边也守同一条）。 */
+                  previewShots={(Array.isArray(skill.cases) ? skill.cases : [])
+                    .map(item => item && item.cover)
+                    .filter(Boolean)
+                    .slice(0, 3)}
                   onOpen={() => onOpenSkill?.(skill.id)}
                 />
               );

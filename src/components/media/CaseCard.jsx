@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronRight, Play } from 'lucide-react';
+import { ArrowRight, ChevronRight, Play, Sparkles } from 'lucide-react';
 
 /* ═══ CaseCard：案例卡（图片板块与视频板块共用，唯一实现）═════════════════════════
    2026-09-16/17 用 CDP 直连竞品（已登录态）扒到的**卡片真实结构**，逐条照抄机制：
@@ -36,6 +36,13 @@ export default function CaseCard({
      monogram：名字前两字。两者都只在**没有案例图**时才会被用到。 */
   accent = 'neutral',
   monogram = '',
+  /* ═══ 批 M：**按钮的预览窗**要用到的案例图（最多 3 张）══════════════════════════════════════
+     用户第 17 轮追加批注原话：「**也不只是视频的 hub 啊，视频和图片生成的按钮预览窗都要用这个样式
+     去做啊**……是我们**电商生图、万物上身、小红书图文、自由创作、封面设计、海报**这些都有做」；
+     追问后确认：「把之前做的这块**拿来当预览窗展示**就可以，**对应相应的 skill 进去**，
+     其他的就**先占位**就好，后续我会自己跑完给你的」。
+     ⇒ 形态 = 首页那一块「左文案 + 右案例图」；没有案例就**三格占位**并如实写"案例补充中"（不许放假图）。 */
+  previewShots = [],
 }) {
   const articleRef = useRef(null);
   const videoRef = useRef(null);
@@ -136,6 +143,31 @@ export default function CaseCard({
             ⚠️ 它是纯装饰：aria-hidden + pointer-events:none，不抢点击、不进无障碍树。 */}
         <span className="media-case-card-progress" aria-hidden="true" />
       </button>
+      {/* ═══ 批 M：**按钮预览窗**（左文案 + 右案例图）══════════════════════════════════════════
+          悬停时浮在卡片上方。内容**跟着这条 skill 走**（名字 / 一句说明 / 它的案例图）；
+          没有案例图的技能**三格占位**并如实写「案例补充中」—— 本站铁律：不许放假图。
+          ⚠️ 它挂在 <article> 里（不是 <button> 里）：浮窗里有文字，塞进按钮会让
+             "按钮的可读名字"变成一大段；而且点击仍然只走按钮那一层。 */}
+      {hovering && (
+        <div className="media-case-card-preview" role="dialog" aria-label={(title || '技能') + ' 预览'}>
+          <div className="media-case-card-preview-copy">
+            <span className="media-case-card-preview-eyebrow"><Sparkles size={13} />{title}</span>
+            {subtitle && <strong>{subtitle}</strong>}
+            <p>点一下进入它自己的工作台，参数已经替你调好。</p>
+            <span className="media-case-card-preview-cta">进入「{title}」工作台<ArrowRight size={14} /></span>
+            {(!previewShots || previewShots.length === 0) && (
+              <p className="media-case-card-preview-note">这条技能的案例还在补充，先给你留了位置。</p>
+            )}
+          </div>
+          <div className="media-case-card-preview-art" aria-hidden="true">
+            {(previewShots && previewShots.length ? previewShots : [null, null, null]).slice(0, 3).map((shot, index) => (
+              shot
+                ? <span className="media-case-card-preview-shot" key={shot + '-' + index}><img src={shot} alt="" loading="lazy" /></span>
+                : <span className="media-case-card-preview-shot is-blank" key={'blank-' + index}><Play size={12} />案例补充中</span>
+            ))}
+          </div>
+        </div>
+      )}
     </article>
   );
 }

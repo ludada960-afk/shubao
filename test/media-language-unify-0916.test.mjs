@@ -87,16 +87,18 @@ test('④ 素材卡只有一份实现，且两个板块共用（图片侧与视�
 test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加载且静音、样式零硬编码色', () => {
   const card = readFileSync('src/components/media/CaseCard.jsx', 'utf8');
   const cardCss = readFileSync('src/components/media/CaseCard.css', 'utf8');
-  /* ═══ 2026-09-19 批 L-8 **改判**（依据 docs/design/63-batch-L-annotations.md 图2-①）═══════════
-     用户第 17 轮原话：「（flova.tv/zh-CN）我这次**直接圈出来给你**，你知道要怎么抄了吗？
-     你就 **1:1 的去抄他们**就好了……最多就是里面的**文案改一下**就行了……然后里面的**预览就是……
-     用我们之前的那些**左边文字，右边是几张案例图**的样式放上去就好了。」
-     ⇒ 原来的「4:3 封面铺满 + 标题压在下沿渐变上」被换成**横版两栏**（左文字 / 右案例图），
-       所以 4:3 这条判据作废；新契约是"两栏栅格 + 右栏是图片位"。 */
-  assert.match(cardCss, /\.media-case-card-hit \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 42%\)/,
-    '案例卡是**左文字 + 右案例图**两栏（批 L-8）');
-  assert.match(cardCss, /\.media-case-card-cover \{[^}]*grid-column: 2/, '右栏是图片位');
-  assert.match(cardCss, /\.media-case-card-caption \{[^}]*grid-column: 1/, '左栏是文字位');
+  /* ═══ 2026-09-19 批 M：**L-8 已回退**（用户当场否掉，依据 docs/design/63 的同日追加批注）═══════
+     用户看到图片/视频总页面的卡片后说：「你在搞啥呀？你为什么把这些**图片生成和视频生成的总页面的
+     封面**也拿去改了呢。这个**左边文字，右边数图**的这个做法，**我什么时候叫你这样做了呀**？」
+     ⇒ 卡片本体回到**竖版 4:3 封面铺满**；「左文案 + 右案例图」只出现在**悬停预览窗**里。
+       所以 4:3 这条判据**恢复**，并新增一条：预览窗必须存在且是两栏（左文案 / 右案例图）。 */
+  assert.match(cardCss, /aspect-ratio: 4 \/ 3/, '案例卡本体是 4:3 封面铺满（L-8 已回退）');
+  assert.doesNotMatch(cardCss, /\.media-case-card-hit \{[^}]*grid-template-columns:/,
+    '卡片本体不许再被改成两栏（那是 L-8 被用户否掉的那一版）');
+  assert.match(cardCss, /\.media-case-card-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 44%\)/,
+    '**按钮预览窗**才是「左文案 + 右案例图」两栏（批 M）');
+  assert.match(card, /media-case-card-preview-art/, '预览窗右栏是案例图位');
+  assert.match(card, /案例补充中/, '没有案例时如实占位（不许放假图）');
   /* 视频案例：进入视口 + hover 才播、静音、循环、只取元数据 */
   assert.match(card, /new IntersectionObserver/, '视频案例必须懒加载（进入视口才准备）');
   /* 9-17 用户口径变更：竞品视频板块的卡是**真的在播**（他们的 <video> 带 autoplay），

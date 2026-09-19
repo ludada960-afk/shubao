@@ -2,26 +2,18 @@
    结构照抄竞品实测（CDP 实访）：4:3 卡、封面铺满、自下而上白色渐变、底部标题+副标题+箭头。
    颜色只用 --sb-* token，不写色值兜底（门禁断言本文件零硬编码色值）。 */
 .media-case-card { position: relative; min-width: 0; }
-/* ═══ 2026-09-19 批 L-8：卡片改成**左文字 + 右案例图**的横版（用户第 17 轮批注 #1，图2）═══════
-   用户原话：「（flova.tv/zh-CN）我这次**直接圈出来给你**，你知道要怎么抄了吗？你就 **1:1 的去抄他们**
-   就好了……整个样式和 UI 设计你就抄他们的就好了。最多就是里面的**文案改一下**就行了……
-   然后里面的**预览就是……用我们之前的那些左边文字，右边是几张案例图的样式**放上去就好了。」
-   ⇒ 原来是**竖版**（4:3 封面铺满 + 标题压在封面下沿的渐变上）；
-     现在改成横版两栏：**左 = 标题/副标题/箭头（文字）**，**右 = 案例图区**。
-     ⚠️ 右栏现在装的是**已有的那一张封面**（视频侧 42 条技能目前都还没有真实案例图，
-        它们如实显示"案例补充中"——本站铁律：不许放假图）。等用户线上跑出真实案例，
-        右栏按同一套版式放多张（.media-case-card-cover 已经是可复用的图片位）。
-   ⚠️ 对照版式（复刻/修图那类「原图 ↔ 作品」两图并置）走的是 cover 里的 .media-case-card-compare，
-     它在右栏里同样成立。 */
+/* ═══ 2026-09-19 批 M **回退 L-8**（用户当场否掉，原话逐字）═══════════════════════════════
+   用户看到图片/视频总页面的卡片后说：「你在搞啥呀？你为什么把这些**图片生成和视频生成的总页面的
+   封面**也拿去改了呢。这个**左边文字，右边数图**的这个做法，**我什么时候叫你这样做了呀**？」
+   ⇒ L-8 把「卡片本体」改成了左文字 + 右案例图的横版 —— **用户要的不是卡片本体，是「按钮的预览窗」**。
+     所以这里**逐条回退**成原来的竖版（4:3 封面铺满 + 标题压在封面下沿的渐变上）；
+     「左文案 + 右案例图」只出现在**悬停浮窗**里（见本文件末尾的 .media-case-card-preview）。 */
 .media-case-card-hit {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 42%);
-  align-items: stretch;
-  gap: 14px;
+  display: block;
   width: 100%;
-  min-height: 158px;
-  padding: 14px;
+  aspect-ratio: 4 / 3;          /* 统一 4:3：风格一致的机械保证（实测同款） */
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--sb-border-default);
   /* 批 E（用户批注 14「封面要占主导」）：圆角 16 → 18、阴影更沉一点 ——
@@ -36,12 +28,10 @@
 .media-case-card-hit:hover,
 .media-case-card-hit:focus-visible { transform: translateY(-4px); box-shadow: 0 16px 38px rgba(15, 23, 42, .16); }
 .media-case-card-cover {
-  position: relative;
-  grid-column: 2;
-  grid-row: 1;
+  position: absolute;
+  inset: 0;
   display: block;
   overflow: hidden;
-  border-radius: 12px;
   background: var(--sb-surface-tint);
   transition: transform .4s ease;
 }
@@ -113,6 +103,58 @@
   font-weight: 700;
   white-space: nowrap;
 }
+/* ═══ 批 M：**按钮预览窗**（左文案 + 右案例图）══════════════════════════════════════════════
+   用户第 17 轮追加批注：「视频和图片生成的**按钮预览窗**都要用这个样式去做啊……
+   是我们电商生图、万物上身、小红书图文、自由创作、封面设计、海报这些都有做」；
+   追问后：「把之前做的这块**拿来当预览窗展示**就可以，对应相应的 skill 进去，
+   其他的就**先占位**就好」。
+   形态照首页那一块（SkillEntryRow 的 .skill-preview）：两栏 —— 左文案 / 右案例图，
+   没有案例就**三格占位**（一格会让右栏塌成一条）。
+   ⚠️ 浮在卡片**上方**（bottom: calc(100% + 10px)），不遮住卡片自己的标题；
+      z-index 抬到 5，压在相邻卡片之上（网格里相邻卡片会重叠）。 */
+.media-case-card-preview {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 44%);
+  gap: 14px;
+  width: min(420px, 88vw);
+  padding: 16px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 16px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-xl);
+  pointer-events: none;
+  animation: media-case-preview-in .16s var(--sb-ease-out, ease-out) both;
+}
+@keyframes media-case-preview-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.media-case-card-preview-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; justify-content: center; }
+.media-case-card-preview-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; color: var(--sb-brand-600);
+}
+.media-case-card-preview-copy > strong { font-size: 16px; font-weight: 800; line-height: 1.35; color: var(--sb-ink-1); }
+.media-case-card-preview-copy > p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--sb-ink-2); }
+.media-case-card-preview-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-brand); }
+.media-case-card-preview-note { font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
+.media-case-card-preview-art { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.media-case-card-preview-shot {
+  display: grid; place-items: center;
+  width: 33.33%; aspect-ratio: 3 / 4;
+  overflow: hidden; border-radius: 10px;
+  background: var(--sb-surface-tint-strong);
+  box-shadow: var(--sb-shadow-sm);
+}
+.media-case-card-preview-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-case-card-preview-shot.is-blank { gap: 4px; font-size: 10px; color: var(--sb-ink-3); text-align: center; }
+@media (max-width: 900px) { .media-case-card-preview { display: none; } }
+@media (prefers-reduced-motion: reduce) { .media-case-card-preview { animation: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   .media-case-card-monogram { transition: none; }
   .media-case-card-hit:hover .media-case-card-monogram { transform: none; }
@@ -156,9 +198,10 @@
   background: linear-gradient(to top, var(--sb-neutral-0) 0%, rgba(255, 255, 255, .15) 45%, rgba(255, 255, 255, 0) 78%);
 }
 .media-case-card-caption {
-  position: relative;
-  grid-column: 1;
-  grid-row: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
   display: flex;
   align-items: flex-end;
