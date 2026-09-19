@@ -61,6 +61,58 @@
   }
 }
 
+/* ═══ 2026-09-19 批 O-④：子页面整块工作区**锁在视口内** ════════════════════════════════
+   用户第 19 轮原话（逐字）：
+     「然后你**下面那个生成预览那个按钮，我现在也是点不到的**。就**完全是被截断一部分**了，你不知道吗？」
+   实测根因（本地 1064×1018，id=image.product_suite）：
+     · .app-topbar 实测 **72px**（0..72）；.media-creation 从 y=72 起，高 **1258** → 文档高 1330 > 视口 1018；
+     · .media-workbench-left 高 986（= sticky 的 calc(100dvh-32px)），可它**自然位置在 y=92**
+       （72 顶栏 + 20 本页 padding-top）⇒ 92+986 = **1078**，比视口底还低 60px；
+     · 主 CTA 落在 y=983..1050，**比视口底 1018 还低 32px** ——
+       elementFromPoint(按钮中心 1023) 实测返回 **null**（点在视口之外）⇒ 就是"点不到、被截断"。
+   知渔的做法（CDP 实测 laoyu /image-creation?tool=product-listing-set）：
+     他们的 main 是 `flex h-[calc(100vh-56px)] min-h-0 w-full flex-col gap-4 overflow-y-auto p-4`
+     —— **整块工作区锁在视口高度内，两栏各自内部滚动**，页面本身不滚。
+   所以这里照同一套：子页面容器 = 视口高 - 顶栏高，工作台吃满剩余高度，
+   两栏各自 height:100% + 内部滚动；左栏原来的 sticky 在"容器已经锁高"之后不再需要。 */
+@media (min-width: 1024px) {
+  .media-creation[data-surface="subpage"] {
+    /* 72px = .app-topbar 实测高度（见上）；底内边距从 72 收到 20，把空间还给工作区 */
+    height: calc(100dvh - 72px);
+    min-height: 0;
+    padding-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .media-creation[data-surface="subpage"] > .skill-workbench {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .media-creation[data-surface="subpage"] .media-workbench {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    /* 锁高之后两栏要**一样高**（原来 align-items:start 让左栏不被拉伸） */
+    align-items: stretch;
+  }
+  .media-creation[data-surface="subpage"] .media-workbench-left {
+    position: static;
+    max-height: none;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-gutter: stable;
+  }
+  .media-creation[data-surface="subpage"] .media-workbench-right {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 /* 窄屏：两列挤不下就老老实实一列（原来根本没有这条 —— 中间那档宽度下左栏被压到 320 以下） */
 @media (max-width: 1023px) {
   .media-workbench { grid-template-columns: minmax(0, 1fr); }
