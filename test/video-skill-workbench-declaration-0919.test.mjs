@@ -34,7 +34,12 @@ const studio = stripComments(read('src/pages/VideoStudio/index.jsx'));
 const media = stripComments(read('src/pages/MediaCreation/index.jsx'));
 const spec = read('docs/design/64-quantv-video-skill-pages.md');
 
-/* 知渔 20 条视频 skill 子页面（docs/design/64 §8 抄录表，含本轮补上的「短剧风格」） */
+/* 知渔视频 skill 子页面 —— **31 条**（docs/design/64 §8 抄录表）。
+   ⚠️ 本轮**更正**：上一版只列了 20 条（用户给的 19 条 + 本轮补的「短剧风格」），
+      实测 /apps 的「视频制作」区一共 **31 张卡片**（.tmp/laoyu2/video-apps-urls.json 逐张点开拿到），
+      漏掉的 11 条是建筑室内第二批（室内装修/卧室就寝/餐厅聚餐/家装布置/建筑生长/植物生长/
+      建筑分镜电影制作/商业热闹/寒冬降临/建筑图转视频）+ 创意应用的趣味脱口秀。
+      用户第 18 轮原话：「就是这**每个页面你都要点进去抄**呀」⇒ 一条都不能少。 */
 const QUANTV_PAGES = [
   'https://laoyu.quantv.com/ai-video',
   'https://laoyu.quantv.com/content-replace',
@@ -56,6 +61,18 @@ const QUANTV_PAGES = [
   'https://laoyu.quantv.com/apps?id=cmr973iuh011n2xm0giaodt4m',
   'https://laoyu.quantv.com/apps?id=cmr96y3mb00ys2xm0z0y7540a',
   'https://laoyu.quantv.com/apps?id=cmr96q1ai00u82xm0zp8dhinr',
+  /* ── 第二批 11 条（本轮补全）────────────────────────────────────────────── */
+  'https://laoyu.quantv.com/apps?id=cmr96eilw00p42xm0uocpkuwp',
+  'https://laoyu.quantv.com/apps?id=cmr96b5p400mb2xm006sh9o35',
+  'https://laoyu.quantv.com/apps?id=cmr965qf700k52xm0d3q3g1dv',
+  'https://laoyu.quantv.com/apps?id=cmr960avj00j52xm0cv4e527q',
+  'https://laoyu.quantv.com/apps?id=cmr95whex00hm2xm0mxtqjly9',
+  'https://laoyu.quantv.com/apps?id=cmr95g674008o2xm0e6tk58ne',
+  'https://laoyu.quantv.com/apps?id=cmr1w901f011114i3dyig00lf',
+  'https://laoyu.quantv.com/apps?id=cmr1w8xhw010z14i3i9kz9a7q',
+  'https://laoyu.quantv.com/apps?id=cmr1w8rja010u14i3hpueua4o',
+  'https://laoyu.quantv.com/apps?id=cmr1w8lt2010q14i3bfmj1xvn',
+  'https://laoyu.quantv.com/apps?id=cmr1w7n9000z114i3rvzyd4c8',
 ];
 
 /* 这三条是**辅助能力**（tier: assistant），它们没有自己的子页面 ——
@@ -82,7 +99,7 @@ test('① 每条主档视频 skill 都有自己的工作台（不许所有子页
   assert.ok(shapes.size >= 6, '工作台形态只有 ' + shapes.size + ' 种 —— 用户要的是"每个工作台都不一样"');
 });
 
-test('② 每条工作台都写着它抄的是知渔哪一页，20 条 URL 一条不少', () => {
+test('② 每条工作台都写着它抄的是知渔哪一页，31 条 URL 一条不少', () => {
   const used = new Set();
   for (const [id, item] of Object.entries(VIDEO_WORKBENCHES)) {
     if (item.sourceNote) continue; // 首尾帧：知渔没有对应页，如实标注（下面单独断言）

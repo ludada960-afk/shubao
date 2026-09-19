@@ -170,7 +170,28 @@ const storeVisitWorkbench = ({ source = 'https://laoyu.quantv.com/store-visit-vi
   ],
 });
 
-/* ⑧ 首尾帧（知渔没有对应页，保留我们自己的两张卡；如实标注出处） */
+/* ⑨ 首尾图型 —— 知渔「室内装修」「家装布置」「建筑生长」「植物生长」：
+   两格上传（首图要求 + 尾图要求）+ 比例。 */
+const firstLastRefWorkbench = ({ source, headline = '', firstNote = '首图', lastNote = '尾图', ratioOrder = RATIO_INTERIOR }) => ({
+  source, headline,
+  blocks: [
+    uploadBlock({ key: 'first', title: firstNote, max: 1, hint: '点击或拖拽上传图片', acceptHint: IMAGE_ACCEPT_HINT }),
+    uploadBlock({ key: 'last', title: lastNote, max: 1, hint: '点击或拖拽上传图片', acceptHint: IMAGE_ACCEPT_HINT }),
+    ratioChips(ratioOrder),
+  ],
+});
+
+/* ⑩ 参考图 + 比例 + 时长 —— 知渔「建筑分镜电影制作」「寒冬降临」 */
+const refRatioDurationWorkbench = ({ source, headline = '', requirement = '', durationOptions = [5, 10, 15] } = {}) => ({
+  source, headline,
+  blocks: [
+    uploadBlock({ key: 'reference', title: requirement ? '参考图（要求：' + requirement + '）' : '参考图', max: 1, hint: '点击或拖拽上传图片', acceptHint: IMAGE_ACCEPT_HINT }),
+    ratioChips(RATIO_INTERIOR),
+    { key: 'duration', kind: 'chips', title: '时长', required: true, bind: 'duration', options: durationOptions.map(v => ({ label: String(v), value: v })) },
+  ],
+});
+
+/* ⑪ 首尾帧（知渔没有对应页，保留我们自己的两张卡；如实标注出处） */
 const framesWorkbench = () => ({
   source: '',
   sourceNote: '知渔没有首尾帧页 —— 这一条保留我们自己的两张卡（沿用图片侧对称歪卡的样式）',
@@ -212,8 +233,19 @@ export const VIDEO_WORKBENCHES = {
   'video.day_night': S({ source: 'https://laoyu.quantv.com/apps?id=cmr97klck001i9vzg58za4env', requirement: '人视图', headline: '通过单图的控制，实现平滑的变化效果，适合展示日夜气候切换' }),
   'video.furnishing_in': S({ source: 'https://laoyu.quantv.com/apps?id=cmr973iuh011n2xm0giaodt4m', requirement: '人视图', headline: '通过单图的控制，实现平滑的变化效果，适合展示室内软装增加' }),
   'video.floorplan_grow': S({ source: 'https://laoyu.quantv.com/apps?id=cmr9777qu013q2xm0qrvn3cdi', requirement: '平面图', headline: '通过单图的控制，实现平滑的平面转 3D 变化效果，适合展示室内户型' }),
-  'video.building_grow': S({ source: 'https://laoyu.quantv.com/apps?id=cmr9777qu013q2xm0qrvn3cdi', requirement: '建筑图', headline: '通过单图的控制，实现平滑的生长变化效果，适合展示建筑外观' }),
-  'video.plant_grow': S({ source: 'https://laoyu.quantv.com/apps?id=cmr9777qu013q2xm0qrvn3cdi', requirement: '绿植图', headline: '通过单图的控制，实现平滑的生长变化效果，适合展示植物生长' }),
+  /* ⚠️ 建筑生长 & 植物生长：知渔实测是**首尾图**（首图要求 + 尾图要求，两个上传框），
+     不是单参考图 —— 上一版映射错了一档（且 URL 也抄错了），本轮一并修正。
+     证据：docs/design/64 §8.5 / .tmp/laoyu2/pages3/25-building-grow.json / 26-plant-grow.json */
+  'video.building_grow': firstLastRefWorkbench({
+    source: 'https://laoyu.quantv.com/apps?id=cmr95whex00hm2xm0mxtqjly9',
+    headline: '通过首图与尾图的控制，实现平滑的建筑生长效果，适合展示建筑生长变化',
+    firstNote: '首图要求：建筑场景空地图', lastNote: '尾图要求：建筑效果图',
+  }),
+  'video.plant_grow': firstLastRefWorkbench({
+    source: 'https://laoyu.quantv.com/apps?id=cmr95g674008o2xm0e6tk58ne',
+    headline: '通过首图与尾图的控制，实现平滑的生长变化效果，适合展示景观生长变化',
+    firstNote: '首图要求：景观空地图', lastNote: '尾图要求：景观效果图',
+  }),
   'video.interior_story': P({ materialNote: '上传空间图片，最多 6 张' }),
 
   /* ── 电商专区 ───────────────────────────────────────────────────────────── */
