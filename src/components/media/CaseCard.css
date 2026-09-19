@@ -117,15 +117,22 @@
   left: 0;
   bottom: calc(100% + 10px);
   z-index: 5;
+  /* ⚠️ 逐值照**首页那个已有的预览窗**（.skill-preview）—— 用户第 17 轮追加批注原话：
+     「我说的是你之前这种部分的样式啊，**左边文字右边三张案例图**，你之前明明有这种做法啊，
+     你是找不到了还是干嘛呢，我看线上用的悬浮预览窗还是你之前做错的版本啊」
+     ⇒ 两栏比例 1fr / 1.15fr（**图那栏更宽**）、gap 18、padding 20/22、圆角 18、
+       毛玻璃底 + 同一条阴影 —— 与首页那一份**逐值相同**，只是这里用 absolute 贴卡片而不是 portal。 */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 44%);
-  gap: 14px;
-  width: min(420px, 88vw);
-  padding: 16px;
-  border: 1px solid var(--sb-border-subtle);
-  border-radius: 16px;
-  background: var(--sb-surface-card);
-  box-shadow: var(--sb-shadow-xl);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 18px;
+  width: min(560px, 92vw);
+  padding: 20px 22px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 18px;
+  background: var(--sb-glass-panel);
+  backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .22), 0 4px 12px rgba(15, 23, 42, .08);
   pointer-events: none;
   animation: media-case-preview-in .16s var(--sb-ease-out, ease-out) both;
 }
@@ -142,11 +149,11 @@
 .media-case-card-preview-copy > p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--sb-ink-2); }
 .media-case-card-preview-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-brand); }
 .media-case-card-preview-note { font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
-.media-case-card-preview-art { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.media-case-card-preview-art { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
 .media-case-card-preview-shot {
   display: grid; place-items: center;
   width: 33.33%; aspect-ratio: 3 / 4;
-  overflow: hidden; border-radius: 10px;
+  overflow: hidden; border-radius: 12px;   /* 与首页预览窗的案例图位逐值相同 */
   background: var(--sb-surface-tint-strong);
   box-shadow: var(--sb-shadow-sm);
 }

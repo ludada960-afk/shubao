@@ -95,8 +95,8 @@ test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加�
   assert.match(cardCss, /aspect-ratio: 4 \/ 3/, '案例卡本体是 4:3 封面铺满（L-8 已回退）');
   assert.doesNotMatch(cardCss, /\.media-case-card-hit \{[^}]*grid-template-columns:/,
     '卡片本体不许再被改成两栏（那是 L-8 被用户否掉的那一版）');
-  assert.match(cardCss, /\.media-case-card-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 44%\)/,
-    '**按钮预览窗**才是「左文案 + 右案例图」两栏（批 M）');
+  assert.match(cardCss, /\.media-case-card-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.15fr\)/,
+    '**按钮预览窗**才是「左文案 + 右三张案例图」两栏，且两栏比例与首页那一份逐值相同（批 M）');
   assert.match(card, /media-case-card-preview-art/, '预览窗右栏是案例图位');
   assert.match(card, /案例补充中/, '没有案例时如实占位（不许放假图）');
   /* 视频案例：进入视口 + hover 才播、静音、循环、只取元数据 */
