@@ -1,0 +1,5314 @@
+[
+ {
+  "title": "智能图片G2",
+  "cat": "绘画模型",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "生图指令（jpg.png格式）",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": true,
+    "max": 8,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "生图指令",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": false,
+    "max": 1,
+    "ph": "描述画面",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "尺寸比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "智能图片Na",
+  "cat": "绘画模型",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "绘画描述",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": true,
+    "max": 8,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "绘画描述",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": false,
+    "max": 1,
+    "ph": "描述画面，有参考图片时，输入 @ 引用图片",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "生成尺寸",
+    "ty": "radio",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "即梦seedream5.0pro",
+  "cat": "绘画模型",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "参考图",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": true,
+    "max": 8,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "绘画描述",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": false,
+    "max": 1,
+    "ph": "描述画面，有参考图片时，输入 @ 引用图片",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "生成尺寸",
+    "ty": "radio",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "模型选择",
+    "ty": "radio",
+    "vn": "model",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 1
+   },
+   {
+    "t": "清晰度（有参考图就不要使用2k的）",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "提取分镜图的单张分镜图",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "分镜图（带编号）",
+    "ty": "file",
+    "vn": "image",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "需要提取哪个编号的分镜",
+    "ty": "number",
+    "vn": "input",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "提取人像白底图",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "破屏而出创意人像视觉作品",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "超现实电光虚影人像创作",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "极简日系饮品海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "饮料名称",
+    "ty": "singleText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "时尚手账风女孩穿搭拆解贴纸",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人物全身穿服装的图片）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "高端奢华生活方式社交媒体数字拼贴",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（女性人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "创意九宫格手绘涂鸦写实摄影",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "女生发型分析卡16宫格真人图鉴",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "同一人物角色设定图生成指令",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "超写实剪贴簿风少女拼图海报",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "极简高级产品剖面剧场广告图",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "夏季蔬果巨物场景化摄影",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "蔬菜水果名字",
+    "ty": "singleText",
+    "vn": "mingzi",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "高端食品商业广告摄影",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "品牌名",
+    "ty": "singleText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "高端品牌产品光场特效商业广告海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "品牌名",
+    "ty": "singleText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "电影级高端产品爆炸瞬间海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "韩国高端时尚杂志动感多图排版",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "服装图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "咖啡馆人像摄影",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "服装图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "汽水广告九宫格",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（汽水图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "食物爆炸瞬间",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（模特图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传图片（食物图）",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "极地冰封巨型广告海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "品牌名",
+    "ty": "singleText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "蓝白降落伞悬浮产品创意3D渲染广告",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "复古胶片感夜景人像",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传图片（服装图）",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "水面映入兰花少女超写实人像",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "唐风幻想春日仙侠女主精修写真",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "电影级商业摄影",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "清爽叙事海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "品牌名",
+    "ty": "singleText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "产品名字",
+    "ty": "singleText",
+    "vn": "canpinmingzi",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "奢侈时尚广告海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（产品图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "品牌名",
+    "ty": "singleText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "极简人物特写",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（人像图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "养生按摩宣传",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "主题",
+    "ty": "multiText",
+    "vn": "input",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "东方美学电影海报",
+  "cat": "游戏动漫",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "主题",
+    "ty": "multiText",
+    "vn": "input",
+    "opt": false,
+    "max": 1,
+    "ph": "描述主题，根据主题内容生成东方美学电影海报",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "绘画风格",
+    "ty": "radio",
+    "vn": "visual_style",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 20
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "小红书爆款复刻",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "原图",
+    "ty": "file",
+    "vn": "goods_image_urls",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "参考图",
+    "ty": "file",
+    "vn": "cankao_image_ulrls",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "建筑九宫格分镜",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "参考图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "大师风格",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 9
+   },
+   {
+    "t": "光影调节",
+    "ty": "radio",
+    "vn": "guangyingtiaojie",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 9
+   },
+   {
+    "t": "创意描述（可选）",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "平面转建筑效果图",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "参考图",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "建筑类型",
+    "ty": "select",
+    "vn": "jianzhuleixing",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 6
+   },
+   {
+    "t": "建筑气质",
+    "ty": "radio",
+    "vn": "jianzhuqizhi",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 4
+   },
+   {
+    "t": "场地环境",
+    "ty": "radio",
+    "vn": "changdihuanjing",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 4
+   },
+   {
+    "t": "光影氛围",
+    "ty": "radio",
+    "vn": "guangyingfenwei",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "更多描述",
+    "ty": "multiText",
+    "vn": "gengduomiaosu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "select",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "识别产品卖点",
+  "cat": "电商专区",
+  "cost": 0.05,
+  "price": 0.25,
+  "fields": [
+   {
+    "t": "产品图",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   }
+  ]
+ },
+ {
+  "title": "复刻详情页",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "产品图",
+    "ty": "file",
+    "vn": "goods_image_urls",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "参考图",
+    "ty": "file",
+    "vn": "cankao_image_ulrls",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "清晰度",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "合照大头贴",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "人物图片1",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "人物图片2",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   },
+   {
+    "t": "人物关系",
+    "ty": "radio",
+    "vn": "guanxi",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 6
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "一键生成分镜图",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "参考图1",
+    "ty": "file",
+    "vn": "image1",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "参考图2",
+    "ty": "file",
+    "vn": "image2",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "参考图3",
+    "ty": "file",
+    "vn": "image3",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "参考图4",
+    "ty": "file",
+    "vn": "image4",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "分镜数（建议是数量为 2-25）",
+    "ty": "number",
+    "vn": "shot_number",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "分镜描述",
+    "ty": "multiText",
+    "vn": "input",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "电商海报设计",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "产品卖点（可选，不用很复杂，简单一点）",
+    "ty": "multiText",
+    "vn": "text_5",
+    "opt": true,
+    "max": 1,
+    "ph": "买一送一，满99减30",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "人物姿势参考",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传高清模特图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传姿势图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "批量出图电商图",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传产品图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 2,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传角色图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 2,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传场景图",
+    "ty": "file",
+    "vn": "image_3",
+    "opt": false,
+    "max": 2,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "自定义提示词",
+    "ty": "multiText",
+    "vn": "yaoqiu",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "select",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 10
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "婚纱照一键生成",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传人像照",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传婚纱",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传礼服",
+    "ty": "file",
+    "vn": "image_3",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择风格",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 11
+   },
+   {
+    "t": "其他要求",
+    "ty": "multiText",
+    "vn": "yaoqiu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "select",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 10
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "试纱照生成",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传人像照",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传婚纱与配饰",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 8,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": " 选择背景",
+    "ty": "radio",
+    "vn": "beijing",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "选择背景图",
+    "ty": "file",
+    "vn": "beijingtu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "其他要求",
+    "ty": "radio",
+    "vn": "yaoqiu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 5
+   },
+   {
+    "t": "比例",
+    "ty": "select",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 10
+   },
+   {
+    "t": "清晰度",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "产品展示批量图",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "产品图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "提示词",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择参考图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "select",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 10
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "Logo风格转换",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "LOGO风格",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 12
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "中文海报一键生成",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "主题",
+    "ty": "singleText",
+    "vn": "zhuti",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入海报主题",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "画面描述",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": false,
+    "max": 1,
+    "ph": "补充画面描述，让画面更丰富",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "用途",
+    "ty": "radio",
+    "vn": "yongtu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "生成尺寸",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "字体",
+    "ty": "radio",
+    "vn": "ziti",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 6
+   },
+   {
+    "t": "颜色",
+    "ty": "radio",
+    "vn": "yanse",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 15
+   },
+   {
+    "t": "效果",
+    "ty": "radio",
+    "vn": "xiaoguo",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 18
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "相似图生成",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传参考图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "参考强度",
+    "ty": "radio",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键脸部试妆",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传人物参考图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传妆造参考图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "人物多角度生成",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择视角（多选）",
+    "ty": "select",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 5
+   },
+   {
+    "t": "选择光照",
+    "ty": "radio",
+    "vn": "text_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 5
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键生成3D手办",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择材质",
+    "ty": "radio",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 5
+   },
+   {
+    "t": "选择视角",
+    "ty": "radio",
+    "vn": "text_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 4
+   },
+   {
+    "t": "其他需求（选填）",
+    "ty": "multiText",
+    "vn": "text_3",
+    "opt": true,
+    "max": 1,
+    "ph": "请输入其他需求（选填）",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键图片融合",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片（2-4张图）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 4,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "多语言海报翻译",
+  "cat": "创意应用",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传海报",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择翻译语言",
+    "ty": "radio",
+    "vn": "yuyan",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 21
+   },
+   {
+    "t": "生成尺寸",
+    "ty": "radio",
+    "vn": "rabio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 8
+   },
+   {
+    "t": "分辨率",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "3D模型渲染",
+  "cat": "游戏动漫",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传3D模型图（必选）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "图片编辑指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "描述渲染风格、材质、光照等",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "线稿一键渲染",
+  "cat": "游戏动漫",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传手绘或软件线稿（必选）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "正向提示词（选填）",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "描述渲染风格、材质、色彩等（选填）",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键提取线稿",
+  "cat": "游戏动漫",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "快速提取线稿",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "将实物照片转为线稿，纯黑白风格，无任何其他颜色，黑色单线条，线条粗细均匀，清晰锐利，无多余笔触，极简风格。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "人像变清晰",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入人像照片的修图指令，如：将照片中的人物肤色调整为自然健康的肤色，去除面部瑕疵，增强眼睛的明亮度，调整整体光影效果，使照片更加清晰和有质感等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "真人转漫画",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "风格选择",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 21
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "AI证件照",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传人物参考图",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择底色",
+    "ty": "radio",
+    "vn": "yanse",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   },
+   {
+    "t": "额外需求（选填）",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": true,
+    "max": 1,
+    "ph": "请输入额外需求",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "AI换脸",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传原图",
+    "ty": "file",
+    "vn": "image1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传人脸图",
+    "ty": "file",
+    "vn": "image2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "效果图质感提升",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "后期指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入您的图片后期修改指令，如：清晰美化图片，调整色调为暖色系，增加光影效果等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "室内3D模型渲染",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传3D模型图（必选）",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "图片编辑指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "描述渲染风格、材质、光照等",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "生成彩色平面图",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "彩平图风格",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 11
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "装修风格转换",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传需要进行风格转换的室内空间图片",
+    "opts": 0
+   },
+   {
+    "t": "家装指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入您的家装修改指令，如：将客厅的墙壁颜色改为浅蓝色，增加一些现代风格的家具，地板更换为木质地板等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "毛坯家装设计",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择装修风格",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 5
+   },
+   {
+    "t": "其他需求",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": true,
+    "max": 1,
+    "ph": "描述您想要的其他装修需求...",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "日夜气候切换",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入照片的气候修改指令，例如：&quot;将照片中的白天场景修改为夜晚场景，保留细节和色彩&quot;。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "一键软硬装替换",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "家装指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入您的家装修改指令，如：将客厅的墙壁颜色改为浅蓝色，增加一些现代风格的家具，地板更换为木质地板等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "图片换风格",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传参考图",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "风格选择",
+    "ty": "radio",
+    "vn": "fengge",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 22
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键美化图片",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入商品照片的修图指令，如:调整商品的颜色使其更加鲜艳，去除商品表面的瑕疵，增强商品的质感和细节，使商品在照片中更加突出和吸引人等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "任意图片去色",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "文案",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "将整张图片转为黑白灰度效果，完全去除彩色信息，保留原有光影、纹理与轮廓，明暗过渡自然，画面清晰不变形",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "一键高级感",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入高奢感商品修图指令....",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "一键去水印",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键裁剪图片",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "裁剪比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "图片提示词解析",
+  "cat": "图片编辑",
+  "cost": 0.05,
+  "price": 0.25,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   }
+  ]
+ },
+ {
+  "title": "老照片修复",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "选择修复模型",
+    "ty": "radio",
+    "vn": "text",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "图片变清晰",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "图片画质增强",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "radio",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "AI抠图",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "抠图模式",
+    "ty": "radio",
+    "vn": "yanse",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 1
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "一键转粘土风格",
+  "cat": "游戏动漫",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "额外要求（选填）",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入您的额外要求，如：粘土质感，手工捏制的效果等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "AI换发型",
+  "cat": "人像摄影",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传需要换发型的人物照片",
+    "opts": 0
+   },
+   {
+    "t": "图片编辑指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "描述想要的发型和发色...",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "图片局部重绘",
+  "cat": "图片编辑",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "重绘区域描述",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入重绘区域描述",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "AI洗图",
+  "cat": "建筑室内",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "后期指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": true,
+    "max": 1,
+    "ph": "描述需要提取的服装部位和展示方式",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "提取模特穿搭",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传参考图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "其他需求",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": true,
+    "max": 1,
+    "ph": "描述需要提取的服装部位和展示方式",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "电商场景加模特",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "产品图",
+    "ty": "file",
+    "vn": "image_3",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传模特图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传场景图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "可自定义输入模特，背景的描述",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "一键模特换背景",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传原模特图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传场景图",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "自定义输入背景提示词（选填）",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": true,
+    "max": 1,
+    "ph": "请输入背景的相关词",
+    "help": "背景的相关词",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "商品场景展示",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传商品图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入商品展示图设计指令，如：设计一张展示图，突出产品的主要功能和特点，背景使用浅色调以突出产品，加入一些动态元素使图像更具吸引力，整体风格简洁大方，符合现代审美等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "电商图万物替换",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传替换物品图片",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换需求补充",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入画面操作的指令，例如：保持图1不变，将图2的物品融入图1主体，调整光影色调使其协调自然",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "产品包装设计",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入商品的包装设计指令，如：设计一个现代简约风格的包装，使用环保材料，突出品牌的高端形象，颜色以蓝色和白色为主，加入一些几何图形元素，使包装看起来更加时尚和吸引人等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "人物多姿势生成",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传人物图",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "额外需求",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": true,
+    "max": 1,
+    "ph": "描述需要生成的姿势类型，如：站立、坐姿、行走等~",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "电商产品和模特精修",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入商品照片的修图指令，如：调整商品的颜色使其更加鲜艳，去除商品表面的瑕疵，增强商品的质感和细节，使商品在照片中更加突出和吸引人等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "照片高质量精修",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "修图指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入人像照片的修图指令，如：将照片中的人物肤色调整为自然健康的肤色，去除面部瑕疵，增强眼睛的明亮度，调整整体光影效果，使照片更加清晰和有质感等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "商品风格材质更换",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "替换指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入商品替换指令，如：将牛仔裤替换为黑色皮裤，风格改为朋克风，增加铆钉装饰等。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "画面主体迁移融合",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传第一张图片",
+    "ty": "file",
+    "vn": "image_1",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传第二张图片",
+    "ty": "file",
+    "vn": "image_2",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "后期指令",
+    "ty": "multiText",
+    "vn": "text_1",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入画面操作的指令，如用图1中的主体替换图2女孩手上的物品。",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "爆款商品文字海报",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "主题",
+    "ty": "singleText",
+    "vn": "zhuti",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "海报上的标题文字",
+    "opts": 0
+   },
+   {
+    "t": "上传产品图",
+    "ty": "file",
+    "vn": "cankaotu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "画面描述",
+    "ty": "multiText",
+    "vn": "miaoshu",
+    "opt": false,
+    "max": 1,
+    "ph": "补充画面描述，让画面更丰富",
+    "help": "下面没有的选项，可以在描述里面写上（如果不上传产品图的，自己写上产品的名称）",
+    "opts": 0
+   },
+   {
+    "t": "字体",
+    "ty": "radio",
+    "vn": "ziti",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 6
+   },
+   {
+    "t": "生成尺寸",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "提取电商白底图",
+  "cat": "电商专区",
+  "cost": 0.06,
+  "price": 0.6,
+  "fields": [
+   {
+    "t": "上传图片（最好是1：1的比例）",
+    "ty": "file",
+    "vn": "image",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "抠图模式",
+    "ty": "radio",
+    "vn": "mode",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 2
+   }
+  ]
+ },
+ {
+  "title": "跨境电商图文翻译",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传海报",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "海报比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "选择翻译语言",
+    "ty": "radio",
+    "vn": "yuzhong",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 21
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "OOTD服装穿搭",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传人物图",
+    "ty": "file",
+    "vn": "renwu_image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "上传服装/单品图（1-8张）",
+    "ty": "file",
+    "vn": "clothes_image_urls",
+    "opt": false,
+    "max": 8,
+    "ph": "",
+    "help": "上传衣裤/裙装/鞋子/帽子/首饰/道具等，支持多件搭配",
+    "opts": 0
+   },
+   {
+    "t": "穿搭描述（选填）",
+    "ty": "multiText",
+    "vn": "miaoshu",
+    "opt": true,
+    "max": 1,
+    "ph": "描述搭配效果，如：外套敞开穿，围巾系在脖子上，手提包挎在左肩..",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "模特试穿试戴",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传模特图",
+    "ty": "file",
+    "vn": "mote_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传模特照片，将自动穿戴所选饰品",
+    "opts": 0
+   },
+   {
+    "t": "上传饰品图",
+    "ty": "file",
+    "vn": "shoes_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传想要穿戴的饰品图片（项链、耳饰、眼镜、帽子等）",
+    "opts": 0
+   },
+   {
+    "t": "图片比例",
+    "ty": "select",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "图片比例",
+    "opts": 5
+   },
+   {
+    "t": "描述",
+    "ty": "singleText",
+    "vn": "miaosu",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "需要替换的部分（比如头发）",
+    "opts": 0
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "模特试鞋",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传模特图",
+    "ty": "file",
+    "vn": "mote_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传模特照片（需露出脚部）",
+    "opts": 0
+   },
+   {
+    "t": "上传鞋子图",
+    "ty": "file",
+    "vn": "shoes_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传想要试穿的鞋子图片",
+    "opts": 0
+   },
+   {
+    "t": "额外需求（选填）",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": true,
+    "max": 1,
+    "ph": "比如换什么姿势",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "图片比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 5
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "商品多角度多视图",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传原图",
+    "ty": "file",
+    "vn": "images",
+    "opt": false,
+    "max": 8,
+    "ph": "",
+    "help": "上传需要生成多角度展示的商品图片，最多 10 张",
+    "opts": 0
+   },
+   {
+    "t": "选择视角（多选）",
+    "ty": "select",
+    "vn": "project",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 6
+   },
+   {
+    "t": "细节补充",
+    "ty": "multiText",
+    "vn": "beizhu",
+    "opt": true,
+    "max": 1,
+    "ph": "补充描述，如商品材质、场景要求、光线风格等...",
+    "help": "补充描述，如商品材质、场景要求、光线风格等...",
+    "opts": 0
+   },
+   {
+    "t": "比例",
+    "ty": "radio",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 7
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "商品宣传爆款复刻",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传商品图",
+    "ty": "file",
+    "vn": "goods_image_urls",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传商品图片，AI 自动选取最佳",
+    "opts": 0
+   },
+   {
+    "t": "上传参考图",
+    "ty": "file",
+    "vn": "cankao_image_ulrls",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传竞品爆款图，建议单张完整商品展示图，非长图截屏",
+    "opts": 0
+   },
+   {
+    "t": "商品名称",
+    "ty": "singleText",
+    "vn": "goods",
+    "opt": true,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 0
+   },
+   {
+    "t": "核心卖点",
+    "ty": "multiText",
+    "vn": "hexinmaidian",
+    "opt": false,
+    "max": 1,
+    "ph": "请输入产品核心卖点",
+    "help": "请输入产品的核心卖点（30字以内）",
+    "opts": 0
+   },
+   {
+    "t": "输出比例",
+    "ty": "select",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "选择生成图片的宽高比例",
+    "opts": 5
+   },
+   {
+    "t": "文案语言",
+    "ty": "select",
+    "vn": "language",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 4
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ },
+ {
+  "title": "多场景穿搭套图",
+  "cat": "电商专区",
+  "cost": 0,
+  "price": 0,
+  "fields": [
+   {
+    "t": "上传服饰图片",
+    "ty": "file",
+    "vn": "image_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传需要生成套图的服饰图片，支持多角度（正面、背面、细节等）",
+    "opts": 0
+   },
+   {
+    "t": "选择模特",
+    "ty": "file",
+    "vn": "mote_url",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "上传模特图片，AI 将基于此分析场景并生成穿搭效果",
+    "opts": 0
+   },
+   {
+    "t": "补充描述",
+    "ty": "multiText",
+    "vn": "text",
+    "opt": true,
+    "max": 1,
+    "ph": "可选：补充你希望的场景、姿态、画面构图要求",
+    "help": "输入额外的场景偏好，AI 会在推荐场景时参考你的要求",
+    "opts": 0
+   },
+   {
+    "t": "出图比例",
+    "ty": "select",
+    "vn": "ratio",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "选择生成图片的宽高比例，「自适应」将根据模特图自动匹配最接近的比例",
+    "opts": 10
+   },
+   {
+    "t": "分辨率",
+    "ty": "select",
+    "vn": "resolution",
+    "opt": false,
+    "max": 1,
+    "ph": "",
+    "help": "",
+    "opts": 3
+   }
+  ]
+ }
+]

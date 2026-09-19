@@ -1,0 +1,392 @@
+[
+ {
+  "id": "image.free",
+  "name": "自由创作",
+  "status": "NO_MAP",
+  "ours": "描述 / 比例 / 数量"
+ },
+ {
+  "id": "image.poster",
+  "name": "海报设计",
+  "quantv": "中文海报一键生成",
+  "counts": "4 vs 8",
+  "theirs": "主题 / 画面描述 / 用途 / 生成尺寸 / 字体 / 颜色 / 效果 / 选择分辨率",
+  "ours": "主题 / 描述 / 比例 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.social_cover",
+  "name": "社媒封面",
+  "status": "NO_MAP",
+  "ours": "主题 / 描述 / 比例 / 数量"
+ },
+ {
+  "id": "image.product_suite",
+  "name": "商品套图",
+  "status": "NO_MAP",
+  "ours": "素材 / 目标市场 / 目标平台 / 文案语言 / 产品卖点 / 设计风格 / 自定义风格要求 / 套图结构 / 各类型张数 / 规格"
+ },
+ {
+  "id": "image.aplus",
+  "name": "A+内容",
+  "status": "NO_MAP",
+  "ours": "素材 / 目标市场 / 目标平台 / 输出语言 / 核心卖点 / 爆款风格 / 自定义风格要求"
+ },
+ {
+  "id": "image.detail_page",
+  "name": "详情图",
+  "status": "NO_MAP",
+  "ours": "素材 / 目标市场 / 目标平台 / 输出语言 / 核心卖点 / 爆款风格 / 比例 / 生成数量"
+ },
+ {
+  "id": "image.live_ui",
+  "name": "直播带货主图",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 品牌名 / 比例 / 数量"
+ },
+ {
+  "id": "image.callout_diagram",
+  "name": "卖点标注图解",
+  "quantv": "爆款商品文字海报",
+  "counts": "4 vs 6",
+  "theirs": "主题 / 上传产品图 / 画面描述 / 字体 / 生成尺寸 / 分辨率",
+  "ours": "素材 / 商品名 / 标注点 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.giant_product",
+  "name": "巨型产品广告",
+  "quantv": "夏季蔬果巨物场景化摄影",
+  "counts": "5 vs 4",
+  "theirs": "蔬菜水果名字 / 替换指令 / 比例 / 清晰度",
+  "ours": "素材 / 商品名 / 品牌字 / 比例 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.liquid_logo",
+  "name": "液态 Logo 海报",
+  "status": "NO_MAP",
+  "ours": "素材 / 品牌名 / 比例"
+ },
+ {
+  "id": "image.landscape_logo",
+  "name": "地景 Logo 幻象",
+  "status": "NO_MAP",
+  "ours": "素材 / 品牌名 / 比例"
+ },
+ {
+  "id": "image.sticker_collage",
+  "name": "贴纸现实拼贴",
+  "status": "NO_MAP",
+  "ours": "素材 / 便签内容 / 比例"
+ },
+ {
+  "id": "image.showroom_still",
+  "name": "展厅静物主视觉",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 道具 / 比例"
+ },
+ {
+  "id": "image.tropical_poster",
+  "name": "热带饮品海报",
+  "quantv": "极简日系饮品海报",
+  "counts": "5 vs 3",
+  "theirs": "饮料名称 / 比例 / 清晰度",
+  "ours": "素材 / 商品名 / 水果元素 / 标语 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.mono_pastel_ad",
+  "name": "单色糖果系广告",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 品牌字 / 色系 / 比例"
+ },
+ {
+  "id": "image.grain_ad_board",
+  "name": "中式广告板",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 中文主标题 / 卖点 / 色调 / 比例"
+ },
+ {
+  "id": "image.white_bg",
+  "name": "白底商品图",
+  "quantv": "提取电商白底图",
+  "counts": "4 vs 2",
+  "theirs": "上传图片（最好是1：1的比例） / 抠图模式",
+  "ours": "素材 / 比例 / 分辨率 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.scene",
+  "name": "场景种草图",
+  "quantv": "商品场景展示",
+  "counts": "5 vs 4",
+  "theirs": "上传商品图 / 修图指令 / 比例 / 分辨率",
+  "ours": "素材 / 场景 / 比例 / 分辨率 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.material",
+  "name": "材质细节",
+  "status": "NO_MAP",
+  "ours": "素材 / 重点 / 比例 / 分辨率 / 数量"
+ },
+ {
+  "id": "image.multi_angle",
+  "name": "多角度套图",
+  "quantv": "商品多角度多视图",
+  "counts": "5 vs 5",
+  "theirs": "上传原图 / 选择视角（多选） / 细节补充 / 比例 / 分辨率",
+  "ours": "素材 / 角度 / 比例 / 分辨率 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.try_on",
+  "name": "AI换装",
+  "quantv": "多场景穿搭套图",
+  "counts": "9 vs 5",
+  "theirs": "上传服饰图片 / 选择模特 / 补充描述 / 出图比例 / 分辨率",
+  "ours": "上传模特图 / 服装选择 / 上传衣服图 / 上传姿势参考图 / 上传背景参考图 / 补充要求 / 比例 / 分辨率 / 生成张数",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.batch",
+  "name": "批量商品图",
+  "quantv": "批量出图电商图",
+  "counts": "6 vs 6",
+  "theirs": "上传产品图 / 上传角色图 / 上传场景图 / 自定义提示词 / 比例 / 分辨率",
+  "ours": "素材 / 角色 / 场景 / 要求 / 比例 / 分辨率",
+  "status": "SAME"
+ },
+ {
+  "id": "image.explode",
+  "name": "爆炸分解广告图",
+  "quantv": "电影级高端产品爆炸瞬间海报",
+  "counts": "5 vs 4",
+  "theirs": "上传图片（产品图） / 替换指令 / 比例 / 清晰度",
+  "ours": "素材 / 商品名 / 构成层 / 比例 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.ice_ad",
+  "name": "极地冰封海报",
+  "quantv": "极地冰封巨型广告海报",
+  "counts": "5 vs 4",
+  "theirs": "上传图片（产品图） / 品牌名 / 比例 / 清晰度",
+  "ours": "素材 / 商品名 / 色调 / 比例 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.float_kv",
+  "name": "悬浮主视觉",
+  "quantv": "蓝白降落伞悬浮产品创意3D渲染广告",
+  "counts": "5 vs 4",
+  "theirs": "上传图片（产品图） / 替换指令 / 比例 / 清晰度",
+  "ours": "素材 / 商品名 / 光影 / 背景 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.tvc_grid",
+  "name": "九宫格 TVC 分镜",
+  "quantv": "汽水广告九宫格",
+  "counts": "4 vs 3",
+  "theirs": "上传图片（汽水图） / 比例 / 清晰度",
+  "ours": "素材 / 商品名 / 九个镜头 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.sku_series",
+  "name": "SKU 多色系列图",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 配色清单 / 排列 / 比例"
+ },
+ {
+  "id": "image.gift_scene",
+  "name": "礼盒场景图",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 场景 / 比例"
+ },
+ {
+  "id": "image.teardown",
+  "name": "拆解工艺图",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 部件 / 比例"
+ },
+ {
+  "id": "image.diorama",
+  "name": "微缩场景广告",
+  "status": "NO_MAP",
+  "ours": "素材 / 商品名 / 微缩世界 / 比例"
+ },
+ {
+  "id": "image.brand_kv",
+  "name": "品牌主视觉",
+  "status": "NO_MAP",
+  "ours": "主题 / 品牌 / 描述 / 比例"
+ },
+ {
+  "id": "image.cn_poster",
+  "name": "中文海报",
+  "quantv": "中文海报一键生成",
+  "counts": "5 vs 8",
+  "theirs": "主题 / 画面描述 / 用途 / 生成尺寸 / 字体 / 颜色 / 效果 / 选择分辨率",
+  "ours": "主题 / 描述 / 用途 / 字体 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.copy",
+  "name": "图片复刻",
+  "status": "NO_MAP",
+  "ours": "上传商品图 / 核心卖点 / 上传参考图 / 复刻程度 / 统一复刻要求（选填） / 目标市场 / 目标平台 / 文案语言 / 比例 / 生成数量"
+ },
+ {
+  "id": "image.similar",
+  "name": "相似图生成",
+  "quantv": "相似图生成",
+  "counts": "3 vs 4",
+  "theirs": "上传参考图 / 参考强度 / 比例 / 选择分辨率",
+  "ours": "参考图 / 强度 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.xhs_note",
+  "name": "小红书图文",
+  "status": "NO_MAP",
+  "ours": "素材 / 描述 / 文风 / 比例 / 数量"
+ },
+ {
+  "id": "image.floorplan_render",
+  "name": "平面转效果图",
+  "quantv": "平面转建筑效果图",
+  "counts": "4 vs 8",
+  "theirs": "参考图 / 建筑类型 / 建筑气质 / 场地环境 / 光影氛围 / 更多描述 / 比例 / 清晰度",
+  "ours": "素材 / 空间与风格 / 比例 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.interior_style",
+  "name": "装修风格转换",
+  "quantv": "装修风格转换",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 家装指令 / 比例 / 分辨率",
+  "ours": "素材 / 目标风格 / 比例 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.rough_interior",
+  "name": "毛坯房设计",
+  "quantv": "毛坯家装设计",
+  "counts": "4 vs 5",
+  "theirs": "上传图片 / 选择装修风格 / 其他需求 / 比例 / 选择分辨率",
+  "ours": "素材 / 设计要点 / 比例 / 数量",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.day_night_still",
+  "name": "日夜气候切换",
+  "quantv": "日夜气候切换",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 修图指令 / 比例 / 分辨率",
+  "ours": "素材 / 时间与天气 / 比例 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.furniture_swap",
+  "name": "软硬装替换",
+  "quantv": "一键软硬装替换",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 家装指令 / 比例 / 分辨率",
+  "ours": "素材 / 替换成 / 比例 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.render_quality",
+  "name": "效果图质感提升",
+  "quantv": "效果图质感提升",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 后期指令 / 比例 / 分辨率",
+  "ours": "素材 / 重点 / 比例 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.interior_3d",
+  "name": "室内 3D 渲染",
+  "quantv": "室内3D模型渲染",
+  "counts": "4 vs 4",
+  "theirs": "上传3D模型图（必选） / 图片编辑指令 / 比例 / 分辨率",
+  "ours": "素材 / 风格 / 比例 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.arch_grid",
+  "name": "建筑九宫格分镜",
+  "quantv": "建筑九宫格分镜",
+  "counts": "3 vs 6",
+  "theirs": "参考图 / 大师风格 / 光影调节 / 创意描述（可选） / 比例 / 清晰度",
+  "ours": "素材 / 九个镜头 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.portrait",
+  "name": "人像精修",
+  "quantv": "人像变清晰",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 修图指令 / 比例 / 分辨率",
+  "ours": "素材 / 要求 / 比例 / 分辨率",
+  "status": "SAME"
+ },
+ {
+  "id": "image.hairstyle",
+  "name": "换发型",
+  "quantv": "AI换发型",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 图片编辑指令 / 比例 / 分辨率",
+  "ours": "素材 / 发型 / 比例 / 分辨率",
+  "status": "SAME"
+ },
+ {
+  "id": "image.pose",
+  "name": "姿势生成",
+  "quantv": "人物姿势参考",
+  "counts": "4 vs 4",
+  "theirs": "上传高清模特图 / 上传姿势图 / 比例 / 选择分辨率",
+  "ours": "素材 / 姿势 / 比例 / 数量",
+  "status": "SAME"
+ },
+ {
+  "id": "image.remove_bg",
+  "name": "去除背景",
+  "quantv": "AI抠图",
+  "counts": "3 vs 4",
+  "theirs": "上传图片 / 抠图模式 / 比例 / 选择分辨率",
+  "ours": "素材 / 底色 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.swap_bg",
+  "name": "换背景",
+  "quantv": "一键模特换背景",
+  "counts": "4 vs 5",
+  "theirs": "上传原模特图 / 上传场景图 / 自定义输入背景提示词（选填） / 比例 / 分辨率",
+  "ours": "素材 / 背景 / 要求 / 比例",
+  "status": "DIFF"
+ },
+ {
+  "id": "image.retouch",
+  "name": "图片精修",
+  "quantv": "一键美化图片",
+  "counts": "4 vs 4",
+  "theirs": "上传图片 / 修图指令 / 比例 / 分辨率",
+  "ours": "素材 / 要求 / 比例 / 分辨率",
+  "status": "SAME"
+ },
+ {
+  "id": "image.style_swap",
+  "name": "材质替换",
+  "quantv": "图片换风格",
+  "counts": "4 vs 4",
+  "theirs": "上传参考图 / 风格选择 / 比例 / 选择分辨率",
+  "ours": "素材 / 材质 / 比例 / 分辨率",
+  "status": "SAME"
+ }
+]

@@ -137,3 +137,60 @@ CTA：**[生成图片]** ·「消耗 0.60 积分」·「请先上传模特图和
 | O-⑨ | **商品套图分组结构**：把「上传图片」并回「基础信息」组 | `.tmp/laoyu2/pages-img/q01-product-suite.json` |
 | O-⑩ | **映射重做**：白底商品图 ≠ 提取电商白底图（我们是"生成"、他们是"抠图"），要重新找对应页 | `.tmp/laoyu2/image-field-diff.json` 的 NO_MAP 20 条 |
 | O-⑪ | **案例区**：用户明说「先空着」（他现在看到的案例不对） | docs/design/66 |
+
+
+---
+
+## 5. O-⑦ 深挖结论：知渔的 **2:3 / 3:2** 两档**不能只改界面**（本轮查清，未实施）
+
+用户要求「所有的逻辑、所有的布局、所有的规范都得是一模一样的」⇒ 比例档位要照知渔收成 7 档：
+
+> 知渔原文（`?id=cmppdls9…` 毛坯家装设计等，`inputConfigs` 的 ratio 字段逐字）：
+> `1:1方图 | 2:3竖版长图 | 3:2横版摄影 | 3:4竖版海报 | 4:3横版主图 | 9:16手机竖屏 | 16:9手机横屏`
+
+我们目前是 **5 档**（`1:1 / 3:4 / 4:3 / 9:16 / 16:9`，`imageSkills.js` 的 RATIO）。差 **2:3 与 3:2**。
+
+### 为什么不能只改声明源（**改了就一定是 bug**）
+```
+server/ecommerceEngine/modelCatalog.mjs:129
+  const ratio = Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio) ? requestedRatio : '1:1';
+```
+服务端对不认的比例**静默回落成 1:1**（不报错、不提示）。
+而 `src/services/imageSizeCatalog.js` 第 9 行写得很清楚：
+「UI 能给的**恰好就是这张表的键**，一个不多、一个不少」——
+所以"界面加两档、引擎没加"= 用户选 2:3、拿到 1:1，**而且没有任何提示**。
+
+### 一个 2:3/3:2 要同时改 **5 处**（缺一处就是静默错）
+| # | 位置 | 改什么 | 依据 |
+|---|---|---|---|
+| 1 | `server/ecommerceEngine/modelCatalog.mjs` `LEGAL_IMAGE_SIZES` | 三档分辨率各加 `2:3` / `3:2` | 权威尺寸表 |
+| 2 | `src/services/imageSizeCatalog.js` `LEGAL_IMAGE_SIZES` | **逐值镜像**第 1 处 | `test/image-size-catalog-parity.test.mjs` 逐值比对 |
+| 3 | `src/skills/skillRun.js:35` `LEGAL_RATIOS` | 加两个值 | 前端白名单，拦在静默回落之前 |
+| 4 | `server/ecommerceEngine/ecommerceBilling.mjs` | **按尺寸计费的分类器** | 该文件自己的注释写着真实事故：「4K 的 3840x2160 / 3584x1536 被当成 2K **少收费**，1K 的 1024x576 / 1008x432 被当成 2K **多收费**」——新增尺寸不登记就是同一类事故 |
+| 5 | `test/ecommerce-model-routing.test.mjs:12` | `assert.deepEqual(LEGAL_IMAGE_SIZES, {...})` 逐值钉死 | 硬门禁 |
+
+### 尺寸怎么算（**必须先过两个校验**，不许猜）
+```
+modelCatalog.mjs: MAX_EDGE = 3840 ; MAX_PIXELS = 8_294_400
+```
+按这两个上限算出来的合法值（**精确比例**，与现有条目同一风格：两边都是 16 的倍数）：
+
+| 分辨率 | 2:3 | 3:2 | 校验 |
+|---|---|---|---|
+| 1K | `672x1008` | `1008x672` | 672/1008 = 2/3 ✓ 长边 ≤1024 ✓ |
+| 2K | `1344x2016` | `2016x1344` | 精确 2:3 ✓ |
+| 4K | `2304x3456` | `3456x2304` | 长边 3456 ≤3840 ✓；像素 7,962,624 ≤ 8,294,400 ✓ |
+
+⚠️ **4K 那一档不能想当然写 2560x3840**：长边虽然等于 3840，但像素 9,830,400 **超过 MAX_PIXELS 8,294,400**，会被 `validateGenerationSize` 拦下。
+
+### 落地顺序（**别跳步**）
+1. 先改 1→2→3→4 四处 + 门禁 5；
+2. 跑 `node --test test/ecommerce-model-routing.test.mjs test/image-size-catalog-parity.test.mjs test/ecommerce-asset-planner.test.mjs`；
+3. **变异测试**：把引擎里的 2:3 删掉、界面保留 → 必须有一条门禁报红（守的正是"UI 多给一档"这个 bug）；
+4. 全量 `npm test` + `npm run precommit`；
+5. **真出一张 2:3 的图**验证上游接受（这条要花积分，按纪律先问用户）；
+6. 最后才把 `imageSkills.js` 的 `RATIO` 换成知渔那 7 档（含副说明的标签）。
+
+### 附带一条（同源问题）
+知渔的**分辨率**档位是 `1K / 2K / 4K`（有的页面写 `2K高清 / 4K超清`，有的含 `1K标准`）——
+我们的 `CLARITY` 已经是 `1K/2K/4K` ✓，**这一条已经对上**，只是**标签文案**可以照他们的副说明补。

@@ -1,0 +1,26 @@
+[
+ {
+  "name": "商品套图",
+  "url": "https://laoyu.quantv.com/image-creation?tool=product-listing-set"
+ },
+ {
+  "name": "A+内容",
+  "url": "https://laoyu.quantv.com/image-creation?tool=aplus-content"
+ },
+ {
+  "name": "详情图",
+  "url": "https://laoyu.quantv.com/image-creation?tool=detail-image"
+ },
+ {
+  "name": "图片复刻",
+  "url": "https://laoyu.quantv.com/image-creation?tool=image-clone"
+ },
+ {
+  "name": "去除背景",
+  "url": "https://laoyu.quantv.com/image-creation?tool=remove-background"
+ },
+ {
+  "name": "AI换装",
+  "url": "https://laoyu.quantv.com/image-creation?tool=ai-outfit"
+ }
+]

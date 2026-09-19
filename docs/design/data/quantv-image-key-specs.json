@@ -1,0 +1,717 @@
+{
+ "建筑九宫格分镜": [
+  {
+   "title": "参考图",
+   "type": "file",
+   "vn": "image_1",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "大师风格",
+   "type": "radio",
+   "vn": "fengge",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "韦斯·安德森风格",
+     "label": "韦斯·安德森风格"
+    },
+    {
+     "value": "罗杰·迪金斯风格",
+     "label": "罗杰·迪金斯风格"
+    },
+    {
+     "value": "王家卫风格",
+     "label": "王家卫风格"
+    },
+    {
+     "value": "克里斯托弗·诺兰风格",
+     "label": "克里斯托弗·诺兰风格"
+    },
+    {
+     "value": "宫崎骏风格",
+     "label": "宫崎骏风格"
+    },
+    {
+     "value": "新海诚风格",
+     "label": "新海诚风格"
+    },
+    {
+     "value": "李安风格",
+     "label": "李安风格"
+    },
+    {
+     "value": "大卫·芬奇风格",
+     "label": "大卫·芬奇风格"
+    },
+    {
+     "value": "丹尼斯·维伦纽瓦风格",
+     "label": "丹尼斯·维伦纽瓦风格"
+    }
+   ]
+  },
+  {
+   "title": "光影调节",
+   "type": "radio",
+   "vn": "guangyingtiaojie",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "自然光感",
+     "label": "自然光感"
+    },
+    {
+     "value": "柔和逆光",
+     "label": "柔和逆光"
+    },
+    {
+     "value": "几何光影",
+     "label": "几何光影"
+    },
+    {
+     "value": "暖调氛围",
+     "label": "暖调氛围"
+    },
+    {
+     "value": "蓝调时刻",
+     "label": "蓝调时刻"
+    },
+    {
+     "value": "黄昏时刻",
+     "label": "黄昏时刻"
+    },
+    {
+     "value": "晨雾柔光",
+     "label": "晨雾柔光"
+    },
+    {
+     "value": "夜晚时分",
+     "label": "夜晚时分"
+    },
+    {
+     "value": "明亮通透",
+     "label": "明亮通透"
+    }
+   ]
+  },
+  {
+   "title": "创意描述（可选）",
+   "type": "multiText",
+   "vn": "text_1",
+   "optional": true,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "比例",
+   "type": "radio",
+   "vn": "ratio",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1:1",
+     "label": "1:1"
+    },
+    {
+     "value": "2:3",
+     "label": "2:3"
+    },
+    {
+     "value": "3:2",
+     "label": "3:2"
+    },
+    {
+     "value": "3:4",
+     "label": "3:4"
+    },
+    {
+     "value": "4:3",
+     "label": "4:3"
+    },
+    {
+     "value": "9:16",
+     "label": "9:16"
+    },
+    {
+     "value": "16:9",
+     "label": "16:9"
+    }
+   ]
+  },
+  {
+   "title": "清晰度",
+   "type": "radio",
+   "vn": "resolution",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1K",
+     "label": "1K"
+    },
+    {
+     "value": "2K",
+     "label": "2K"
+    },
+    {
+     "value": "4K",
+     "label": "4K"
+    }
+   ]
+  }
+ ],
+ "平面转建筑效果图": [
+  {
+   "title": "参考图",
+   "type": "file",
+   "vn": "image_url",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "建筑类型",
+   "type": "select",
+   "vn": "jianzhuleixing",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "别墅设计",
+     "label": "别墅设计"
+    },
+    {
+     "value": "住宅设计",
+     "label": "住宅设计"
+    },
+    {
+     "value": "办公建筑",
+     "label": "办公建筑"
+    },
+    {
+     "value": "商业建筑",
+     "label": "商业建筑"
+    },
+    {
+     "value": "校园建筑",
+     "label": "校园建筑"
+    },
+    {
+     "value": "博览建筑",
+     "label": "博览建筑"
+    }
+   ]
+  },
+  {
+   "title": "建筑气质",
+   "type": "radio",
+   "vn": "jianzhuqizhi",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "现代简约",
+     "label": "现代简约"
+    },
+    {
+     "value": "精致曲线",
+     "label": "精致曲线"
+    },
+    {
+     "value": "典雅中式",
+     "label": "典雅中式"
+    },
+    {
+     "value": "稳重石材",
+     "label": "稳重石材"
+    }
+   ]
+  },
+  {
+   "title": "场地环境",
+   "type": "radio",
+   "vn": "changdihuanjing",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "住宅环境",
+     "label": "住宅环境"
+    },
+    {
+     "value": "城市街区",
+     "label": "城市街区"
+    },
+    {
+     "value": "自然环境",
+     "label": "自然环境"
+    },
+    {
+     "value": "滨水临湖",
+     "label": "滨水临湖"
+    }
+   ]
+  },
+  {
+   "title": "光影氛围",
+   "type": "radio",
+   "vn": "guangyingfenwei",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "晴朗日光",
+     "label": "晴朗日光"
+    },
+    {
+     "value": "柔和逆光",
+     "label": "柔和逆光"
+    },
+    {
+     "value": "写实静谧",
+     "label": "写实静谧"
+    },
+    {
+     "value": "阴天雾感",
+     "label": "阴天雾感"
+    },
+    {
+     "value": "黎明晨光",
+     "label": "黎明晨光"
+    },
+    {
+     "value": "夕阳暖光",
+     "label": "夕阳暖光"
+    },
+    {
+     "value": "夜景灯光",
+     "label": "夜景灯光"
+    },
+    {
+     "value": "质感蓝调",
+     "label": "质感蓝调"
+    }
+   ]
+  },
+  {
+   "title": "更多描述",
+   "type": "multiText",
+   "vn": "gengduomiaosu",
+   "optional": true,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "比例",
+   "type": "select",
+   "vn": "ratio",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1:1",
+     "label": "1:1"
+    },
+    {
+     "value": "2:3",
+     "label": "2:3"
+    },
+    {
+     "value": "3:2",
+     "label": "3:2"
+    },
+    {
+     "value": "3:4",
+     "label": "3:4"
+    },
+    {
+     "value": "4:3",
+     "label": "4:3"
+    },
+    {
+     "value": "9:16",
+     "label": "9:16"
+    },
+    {
+     "value": "16:9",
+     "label": "16:9"
+    }
+   ]
+  },
+  {
+   "title": "清晰度",
+   "type": "select",
+   "vn": "resolution",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1K",
+     "label": "1K"
+    },
+    {
+     "value": "2K",
+     "label": "2K"
+    },
+    {
+     "value": "4K",
+     "label": "4K"
+    }
+   ]
+  }
+ ],
+ "毛坯家装设计": [
+  {
+   "title": "上传图片",
+   "type": "file",
+   "vn": "image_url",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "选择装修风格",
+   "type": "radio",
+   "vn": "fengge",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "轻奢奶油风",
+     "label": "轻奢奶油风"
+    },
+    {
+     "value": "现代简约风",
+     "label": "现代简约风"
+    },
+    {
+     "value": "北欧风",
+     "label": "北欧风"
+    },
+    {
+     "value": "中国风",
+     "label": "中国风"
+    },
+    {
+     "value": "工业复古风",
+     "label": "工业复古风"
+    }
+   ]
+  },
+  {
+   "title": "其他需求",
+   "type": "multiText",
+   "vn": "text",
+   "optional": true,
+   "max": 1,
+   "placeholder": "描述您想要的其他装修需求...",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "比例",
+   "type": "radio",
+   "vn": "ratio",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1:1",
+     "label": "1:1方图"
+    },
+    {
+     "value": "2:3",
+     "label": "2:3竖版长图"
+    },
+    {
+     "value": "3:2",
+     "label": "3:2横版摄影"
+    },
+    {
+     "value": "3:4",
+     "label": "3:4竖版海报"
+    },
+    {
+     "value": "4:3",
+     "label": "4:3横版主图"
+    },
+    {
+     "value": "9:16",
+     "label": "9:16手机竖屏"
+    },
+    {
+     "value": "16:9",
+     "label": "16:9手机横屏"
+    }
+   ]
+  },
+  {
+   "title": "选择分辨率",
+   "type": "select",
+   "vn": "resolution",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "2K",
+     "label": "2K高清"
+    },
+    {
+     "value": "4K",
+     "label": "4K超清"
+    }
+   ]
+  }
+ ],
+ "AI抠图": [
+  {
+   "title": "上传图片",
+   "type": "file",
+   "vn": "image_url",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "抠图模式",
+   "type": "radio",
+   "vn": "yanse",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "白色背景",
+     "label": "白色背景"
+    }
+   ]
+  },
+  {
+   "title": "比例",
+   "type": "radio",
+   "vn": "ratio",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1:1",
+     "label": "1:1方图"
+    },
+    {
+     "value": "2:3",
+     "label": "2:3竖版长图"
+    },
+    {
+     "value": "3:2",
+     "label": "3:2横版摄影"
+    },
+    {
+     "value": "3:4",
+     "label": "3:4竖版海报"
+    },
+    {
+     "value": "4:3",
+     "label": "4:3横版主图"
+    },
+    {
+     "value": "9:16",
+     "label": "9:16手机竖屏"
+    },
+    {
+     "value": "16:9",
+     "label": "16:9手机横屏"
+    }
+   ]
+  },
+  {
+   "title": "选择分辨率",
+   "type": "select",
+   "vn": "resolution",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "2K",
+     "label": "2K高清"
+    },
+    {
+     "value": "4K",
+     "label": "4K超清"
+    }
+   ]
+  }
+ ],
+ "一键模特换背景": [
+  {
+   "title": "上传原模特图",
+   "type": "file",
+   "vn": "image_1",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "上传场景图",
+   "type": "file",
+   "vn": "image_2",
+   "optional": true,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "自定义输入背景提示词（选填）",
+   "type": "multiText",
+   "vn": "text_1",
+   "optional": true,
+   "max": 1,
+   "placeholder": "请输入背景的相关词",
+   "help": "背景的相关词",
+   "options": []
+  },
+  {
+   "title": "比例",
+   "type": "radio",
+   "vn": "ratio",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1:1",
+     "label": "1:1 方图"
+    },
+    {
+     "value": "2:3",
+     "label": "2:3 竖版长图"
+    },
+    {
+     "value": "3:2",
+     "label": "3:2 横版摄影"
+    },
+    {
+     "value": "3:4",
+     "label": "3:4 竖版海报"
+    },
+    {
+     "value": "4:3",
+     "label": "4:3 横版主图"
+    },
+    {
+     "value": "9:16",
+     "label": "9:16 手机竖屏"
+    },
+    {
+     "value": "16:9",
+     "label": "16:9 手机横屏"
+    }
+   ]
+  },
+  {
+   "title": "分辨率",
+   "type": "select",
+   "vn": "resolution",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "1K",
+     "label": "1K 标准"
+    },
+    {
+     "value": "2K",
+     "label": "2K 高清"
+    },
+    {
+     "value": "4K",
+     "label": "4K 超清"
+    }
+   ]
+  }
+ ],
+ "提取电商白底图": [
+  {
+   "title": "上传图片（最好是1：1的比例）",
+   "type": "file",
+   "vn": "image",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": []
+  },
+  {
+   "title": "抠图模式",
+   "type": "radio",
+   "vn": "mode",
+   "optional": false,
+   "max": 1,
+   "placeholder": "",
+   "help": "",
+   "options": [
+    {
+     "value": "透明背景",
+     "label": "透明背景"
+    },
+    {
+     "value": "白色背景",
+     "label": "白色背景"
+    }
+   ]
+  }
+ ]
+}
