@@ -64,10 +64,20 @@ test('home presents the two confirmed entries (视频生成 / 图片生成) in o
   assert.match(styles, /\.homepage-mode-card\.card-1:active \{ transform: translateY\(-8px\) rotate\(-5deg\); \}/, 'active 也要带回旋转');
   assert.doesNotMatch(styles, /\.homepage-mode-card\.card-1 \{[^}]*margin-right:\s*-\d+px/, '两片不互相压边（歪的是角度，不是位置）');
   assert.match(styles, /\.homepage-mode-cards \{[^}]*gap:\s*20px/, '两片之间是缝（转 5° 后左右各外扩约 7px，缝要留够），不是负外边距');
-  /* 圆角的框：白色上收到**一层**（#4-1 的「背景圆角的框…外面是白色」+ #1-8 的「标题有白色背景」） */
-  assert.match(styles, /\.homepage-mode-cards \{[^}]*border-radius:\s*24px/, '整组必须有一张圆角的框');
-  assert.match(styles, /\.homepage-mode-cards \{[^}]*background:\s*var\(--sb-surface-card\)/, '框是白色（用户 #4-1：外面是白色）');
-  assert.match(styles, /\.homepage-mode-card \{[^}]*background:\s*transparent/, '卡本身必须透明（白色不许各占一块 —— 用户 #1-8）');
+  /* ═══ 2026-09-19 批 L-1 **改判**（有授权的改判，依据 docs/design/63-batch-L-annotations.md 图1-①）═══
+     用户第 17 轮原话：「之前我不是有让你去改这几个地方吗？你为什么没有改呢？上面这两张卡片这里
+     我都跟你说了，你**直接照抄这家的**呀（marketing.k-fashionshop.com）……而且你**后面为什么会有
+     那个白色的底色**呢？那个**白色的一整块的方形底色那块你要拿掉**呀。」
+     ⇒ 批 I-⑤ 的「白色上收到整组一层圆角框、卡本身透明」**已被用户明确否掉**，
+       新的契约照 k-fashionshop 实测：**卡片自己是白卡**（圆角 8 + 描边 + 浅阴影），
+       整组**没有**容器底板。下面三条断言跟着改判。 */
+  assert.doesNotMatch(styles, /\.homepage-mode-cards \{[^}]*background:\s*var\(--sb-surface-card\)/,
+    '整组的白色方形底色必须拿掉（用户批注 #1 原话）');
+  assert.doesNotMatch(styles, /\.homepage-mode-cards \{[^}]*border-radius:\s*24px/, '整组不再是一张圆角框');
+  assert.match(styles, /\.homepage-mode-card \{[^}]*background:\s*var\(--sb-surface-card\)/,
+    '卡片自己是白卡（照 k-fashionshop 实测：卡片本体白底）');
+  assert.match(styles, /\.homepage-mode-card \{[^}]*border-radius:\s*8px/,
+    '卡片圆角 8px（k-fashionshop 实测 rounded-lg = 8px）');
   assert.match(styles, /\.homepage-mode-card \{[^}]*width:\s*232px/, '两片同宽（单一宽度规则）');
   /* 2026-09-15 V3：hover 与 focus-visible 从「合并选择器」拆成各自独立的规则 ——
      原则 4.2 要求 focus 必须独立于 hover 可见（键盘用户看不到 hover），

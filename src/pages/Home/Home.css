@@ -2562,23 +2562,30 @@
   display: flex; justify-content: center; width: min(100%, 560px); height: 196px;
   position: relative; z-index: 3; margin: var(--sb-space-5) auto -62px;
 }
+/* ═══ 2026-09-19 批 L-1：**外面那一整块白色方形底色拿掉**（用户第 17 轮批注 #1）══════════
+   用户原话：「而且你**后面为什么会有那个白色的底色**呢？那个**白色的一整块的方形底色那块你要拿掉**呀。」
+   ⇒ 上一版（批 I-⑤）把白色"上收到一层"做成整组的圆角白框；用户现在明确否掉它。
+     新的形态照 k-fashionshop 的卡片区（实测：卡片本身是**白卡**，圆角 8、带描边，
+     里面一块圆角 8 的图；整组直接落在页面底色上，**没有**任何容器底板）：
+     · .homepage-mode-cards 只剩布局（flex + 缝 + 高度），底色/圆角/阴影全删；
+     · 白色回到**每一张卡自己**身上（这正是"照抄这家的卡片"该有的样子）。 */
 .homepage-mode-cards {
-  display: flex; align-items: flex-end; justify-content: center; width: 548px; height: 196px; gap: 20px;
-  padding: 0 26px 8px;
-  border-radius: 24px;
-  background: var(--sb-surface-card);
-  box-shadow: var(--sb-shadow-lg);
+  display: flex; align-items: flex-end; justify-content: center; width: auto; height: 196px; gap: 20px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   animation: homepageModeCardsIn var(--sb-duration-slow) var(--sb-ease-out) both;
 }
 .homepage-mode-card {
   position: relative; display: grid; flex: 0 0 auto; grid-template-rows: 28px 124px; width: 232px; height: 168px;
   overflow: hidden; padding: var(--sb-space-2);
-  /* ⚠️ 批 I-⑤：这两条从"白卡 + 描边"改成**全透明** —— 白色上收到外层那一张框。
-     卡本身靠 hover 的中性底 + 位移表达"可点"，不再各占一块白。 */
-  border: 1px solid transparent;
-  border-radius: var(--sb-radius-control);
-  color: var(--sb-text-primary); background: transparent; cursor: pointer; font-family: inherit;
-  box-shadow: none; transform-origin: 50% 100%;
+  /* ⚠️ 批 L-1：白卡回来了 —— 但这次是**照 k-fashionshop 实测的数值**：
+     卡片本体 8px 圆角 + 白底 + 描边 + 一层浅阴影（他们实测 rounded-lg = 8px、bg 白、有 border）。 */
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 8px;
+  color: var(--sb-text-primary); background: var(--sb-surface-card); cursor: pointer; font-family: inherit;
+  box-shadow: var(--sb-shadow-sm); transform-origin: 50% 100%;
   transition: transform var(--sb-duration-normal) var(--sb-ease-out),
               border-color var(--sb-duration-fast) var(--sb-ease-out),
               background-color var(--sb-duration-fast) var(--sb-ease-out);
@@ -2628,7 +2635,10 @@
      （--sb-state-selected-line / -bg 在批 H-2 已经从品牌紫收成中性墨色，
        所以这里既守住了语义 token，也没有把紫色放回来。） */
   border-color: var(--sb-state-selected-line);
-  background: var(--sb-state-selected-bg);
+  /* ⚠️ 2026-09-19 批 L-1：底色回到**白卡**。用户这一轮要的是 k-fashionshop 那种白卡
+     （「直接照抄这家」），而灰底会让选中的那张看起来"不是同一套卡"。
+     选中信号改为三样：描边 + 选中环 + **抬高 10px**（批 J-⑥ 已定的那档），不再靠灰底。 */
+  background: var(--sb-surface-card);
   /* ⚠️ 2026-09-19 批 H-2：选中环从品牌紫改成**墨色**（用户批注 #5-①「一大堆紫色」）。
      选中态的语义是「当前项」，不是「品牌」，所以它跟 selected-* 三个 token 一起收成中性。 */
   box-shadow: 0 0 0 3px var(--sb-state-selected-bg), var(--sb-shadow-lg);
