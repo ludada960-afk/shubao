@@ -1462,6 +1462,44 @@ try {
   check(modeMismatch.length === 0, '页签与 skillRun 的映射一致（不是各写一份）',
     modeMismatch.map(row => row.id + '→' + row.mode).join(' ｜ '));
 
+  /* ═══ ⑳ 子页面版式契约：整块工作区锁在视口内 + 主 CTA 真的点得到 ═══════════════════════
+     用户第 19 轮原话（逐字，docs/design/66）：
+       「你这个工作台的左边，还有你右边的案例区的右边都有**大量的留白**，
+        你为什么不能**直接适配他们拉满**呢？
+        然后你**下面那个生成预览那个按钮，我现在也是点不到的**。就**完全是被截断一部分**了。」
+     这两条都是**实机坐标**，静态断言守不住（RTK §3.1-10）——所以在这里用真浏览器量。
+     ⚠️ 变异测试：把 WorkbenchShell.css 里 subpage 那段 height/overflow 注释掉，
+        本场景立刻红（CTA 会落到视口外、elementFromPoint 返回 null），恢复后绿。 */
+  scenario('㉑ 子页面：工作区锁视口 + 主 CTA 可点 + 左右拉满');
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent('image.product_suite'), { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(600);
+  const layout = await page.evaluate(() => {
+    const cta = document.querySelector('.media-workbench-submit');
+    const r = cta.getBoundingClientRect();
+    const probe = document.elementFromPoint(r.x + r.width / 2, r.y + Math.min(r.height / 2, 20));
+    const mc = document.querySelector('.media-creation');
+    const wb = document.querySelector('.media-workbench');
+    const mcr = mc.getBoundingClientRect();
+    const wbr = wb.getBoundingClientRect();
+    return {
+      vh: window.innerHeight,
+      docScroll: document.documentElement.scrollHeight,
+      ctaBottom: Math.round(r.bottom),
+      ctaInViewport: r.bottom <= window.innerHeight && r.top >= 0,
+      ctaHittable: Boolean(probe && (probe === cta || cta.contains(probe))),
+      gapLeft: Math.round(wbr.left - mcr.left),
+      gapRight: Math.round((mcr.left + mcr.width) - (wbr.left + wbr.width)),
+    };
+  });
+  check(layout.docScroll <= layout.vh + 2, '子页面本身不滚动（工作区锁在视口内，照知渔 main 的 h-[calc(100vh-56px)]）',
+    'docH=' + layout.docScroll + ' vh=' + layout.vh);
+  check(layout.ctaInViewport, '主 CTA 完整落在视口内（不是被截断一半）',
+    'ctaBottom=' + layout.ctaBottom + ' vh=' + layout.vh);
+  check(layout.ctaHittable, '主 CTA 中心点命中按钮本体（elementFromPoint —— 点得到才是能用）', String(layout.ctaHittable));
+  check(layout.gapLeft <= 40 && layout.gapRight <= 40, '工作台左右拉满（与顶栏同一条线，不是各留 136px 的大片空白）',
+    'left=' + layout.gapLeft + ' right=' + layout.gapRight);
+
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
 } finally {
