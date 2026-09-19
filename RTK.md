@@ -4410,6 +4410,20 @@ CTA 窄的原因找到了：.media-workbench-cta 是 flex 行，按钮 flex:1 �
 门禁 test/home-mode-cards.test.mjs 同步改判（整组不许有白底/圆角框；卡必须是白卡 + 圆角 8）。
 线上实测：整组 484×196 · radius 0 / bg 透明 / shadow none；两张卡 246×188 · radius 8 · 白底；选中那张 translateY(-10px)。
 
-**批 L 剩余**：L-2 主区域照抄图片侧 · L-3 两个模式按钮抄流影 AI · L-4 skill 按钮区照抄 flova（居中/留白/间距）·
-L-5 左导航间距 + hover 背景渐变 · L-6 左上 LOGO 站名 · L-7 右上积分登录右拉 · L-8 视频 hub 卡片 1:1 ·
-L-9 按钮图标 hover 渐变底色。
+### L-3 + L-9 模式按钮 hover 的**渐变图标底**（4c851467，已上线复核）
+批注 #3：「这两个按钮还是没有做到位……**为什么你左边导航栏里面有把这些按钮的样式做好，你这边为什么不做呢？**」
+批注 #4：「这些按钮里面的**图标**这个位置你还是没有抄到位呀。人家**鼠标放上去之后，是渐变的图标背景色**。」
+⇒ 两条是同一件事：**图标磁贴的渐变底**（左导航 .creative-nav-item-icon 的做法）+ 按钮本体的 accent 混色。
+按钮 hover = brand-border + brand-soft；图标 hover = `linear-gradient(135deg, brand-400, brand-600)` + 白字形。
+**线上复核**（读线上实际加载的样式表）：两条规则都在，梯度声明逐字为
+`background: linear-gradient(135deg,var(--sb-brand-400),var(--sb-brand-600))`；同一元素的**选中态**磁贴实测
+`linear-gradient(135deg, rgb(139,92,246), rgb(109,40,217))` 生效 ⇒ 渐变机制在该元素上成立。
+
+⚠️ **一条验证方法论（记下来，别再浪费时间）**：真实 hover 的视觉**本地验不到** ——
+   本机 dist 没有后端，而 **Playwright 会把 navigator.webdriver 置真 → 触发站内的 browserQa 分支**，
+   模式按钮整块不渲染（实测 count=0，两次）；CDP 那个浏览器又不支持派发真实鼠标事件。
+   可行的替代：① 读 `document.styleSheets` 确认规则随包发出；② 看同一元素**选中态**的渐变是否生效。
+   真 hover 的视觉复核只能放到线上（线上可用 CDP 浏览器，它不是 webdriver）。
+
+**批 L 剩余**：L-2 主区域照抄图片侧 · L-4 skill 按钮区照抄 flova（居中/留白/间距）·
+L-5 左导航间距 + hover 背景渐变 · L-6 左上 LOGO 站名 · L-7 右上积分登录右拉 · L-8 视频 hub 卡片 1:1。
