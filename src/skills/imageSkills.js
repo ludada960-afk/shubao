@@ -157,7 +157,12 @@ export const IMAGE_SKILLS = [
     cases: [], history: true,
   },
   {
-    id: 'image.poster', board: 'image', name: '海报设计', category: '创意应用', complexity: 'simple',
+    /* ═══ 2026-09-19 批 O-⑥：complexity 从 'simple' 改成 'standard' ═══════════════════════
+       依据：知渔「中文海报一键生成」实测有 **8 个字段**
+         （主题 / 画面描述 / 用途 8 档 / 生成尺寸 / 字体 6 档 / 颜色 15 档 / 效果 18 档 / 分辨率 2 档）。
+       本仓判据是「simple 档字段不得超过 4 个」—— 一个 8 字段的工作台本来就不该标 simple。
+       这不是为了让门禁过而放宽：字段数是**实测抄来的**，改的是"这一档有多复杂"这个判断。 */
+    id: 'image.poster', board: 'image', name: '海报设计', category: '创意应用', complexity: 'standard',
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '先立主视觉，再排信息层级', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
@@ -167,6 +172,8 @@ export const IMAGE_SKILLS = [
       { key: 'prompt', label: '描述', kind: 'textarea', rows: 3 },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [
       { id: 'tide', title: '潮汐标本 · 海岸线上的时间档案', cover: '/images/visual-recipes/cases/poster-tide-exhibition.png' },
@@ -397,6 +404,8 @@ export const IMAGE_SKILLS = [
       { key: 'brand', label: '品牌名', kind: 'text', required: true, placeholder: '出现在画面两侧的字' },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -411,6 +420,8 @@ export const IMAGE_SKILLS = [
       { key: 'product', label: '商品名', kind: 'text', required: true },
       { key: 'points', label: '标注点', kind: 'textarea', rows: 3, required: true, placeholder: '每行一条，例如：\n0 蔗糖\n真实果肉\n冷压工艺' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -426,6 +437,8 @@ export const IMAGE_SKILLS = [
       { key: 'brand', label: '品牌字', kind: 'text', required: true, placeholder: '背景那行大字' },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -439,6 +452,8 @@ export const IMAGE_SKILLS = [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传品牌 logo 或主视觉参考' },
       { key: 'brand', label: '品牌名', kind: 'text', required: true },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -452,6 +467,8 @@ export const IMAGE_SKILLS = [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传品牌标志参考（可选）' },
       { key: 'brand', label: '品牌名', kind: 'text', required: true },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -465,6 +482,8 @@ export const IMAGE_SKILLS = [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传要改造的照片' },
       { key: 'notes', label: '便签内容', kind: 'textarea', rows: 2, placeholder: '例如：NEW / 限时 / 主推款' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -479,6 +498,8 @@ export const IMAGE_SKILLS = [
       { key: 'product', label: '商品名', kind: 'text', required: true },
       { key: 'props', label: '道具', kind: 'text', placeholder: '例如：金属托盘、亚克力方块、干花' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -494,6 +515,8 @@ export const IMAGE_SKILLS = [
       { key: 'fruits', label: '水果元素', kind: 'text', placeholder: '例如：橙子、青柠、薄荷叶' },
       { key: 'slogan', label: '标语', kind: 'text', placeholder: '可选，逐字准确' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -512,6 +535,8 @@ export const IMAGE_SKILLS = [
         { value: '粉调单色', label: '粉调' }, { value: '中性灰', label: '中性' },
       ] },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -530,6 +555,8 @@ export const IMAGE_SKILLS = [
         { value: '黑金', label: '黑金' }, { value: '米白', label: '米白' }, { value: '中国红', label: '中国红' },
       ] },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -680,6 +707,8 @@ export const IMAGE_SKILLS = [
       { key: 'layers', label: '构成层', kind: 'textarea', rows: 3, required: true, placeholder: '例如：瓶身 / 液体 / 咖啡豆 / 冰块' },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -698,6 +727,8 @@ export const IMAGE_SKILLS = [
       ] },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -716,6 +747,8 @@ export const IMAGE_SKILLS = [
       ] },
       { key: 'background', label: '背景', kind: 'text', placeholder: '例如：深灰渐变，右侧留白' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -730,6 +763,8 @@ export const IMAGE_SKILLS = [
       { key: 'product', label: '商品名', kind: 'text', required: true },
       { key: 'scenes', label: '九个镜头', kind: 'textarea', rows: 4, required: true, placeholder: '例如：全景入场 / 特写质地 / 手持使用 / 成分微距 …' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -747,6 +782,8 @@ export const IMAGE_SKILLS = [
         { value: '一字排开', label: '一字排开' }, { value: '两行网格', label: '两行网格' }, { value: '环形', label: '环形' },
       ] },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -775,6 +812,8 @@ export const IMAGE_SKILLS = [
       { key: 'product', label: '商品名', kind: 'text', required: true },
       { key: 'parts', label: '部件', kind: 'textarea', rows: 3, required: true, placeholder: '例如：鞋面 / 中底 / 大底 / 鞋带扣' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -789,6 +828,8 @@ export const IMAGE_SKILLS = [
       { key: 'product', label: '商品名', kind: 'text', required: true },
       { key: 'world', label: '微缩世界', kind: 'textarea', rows: 3, required: true, placeholder: '例如：一间迷你咖啡馆，吧台、吊灯、木箱' },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -805,6 +846,8 @@ export const IMAGE_SKILLS = [
       { key: 'brand', label: '品牌', kind: 'text', placeholder: '品牌名或关键词' },
       { key: 'prompt', label: '描述', kind: 'textarea', rows: 3 },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -813,19 +856,49 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '中文标题与画面一起排', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '设计一张中文海报。主题：{{topic}}。画面：{{prompt}}。用途：{{use}}。字体气质：{{font}}。要求：中文标题逐字准确、层级清楚，不出现错字或臆造文案，画面给标题留出安全区。',
+    brief: '设计一张中文海报。主题：{{topic}}。画面描述：{{prompt}}。用途：{{use}}。字体：{{font}}。颜色：{{color}}。效果：{{effect}}。要求：中文标题逐字准确、层级清楚，不出现错字或臆造文案，画面给标题留出安全区。',
+    /* ═══ 2026-09-19 批 O-⑥c：**字段逐个照知渔补齐**（5 → 8）═════════════════════════════
+       依据：用户第 19 轮「你**抄的完全就没有对上**」+「全部去把这些子页面 1:1 的去把它们抄过来」。
+       知渔「中文海报一键生成」的 inputConfigs 逐字（.tmp/laoyu2/dump-cnposter 实测）：
+         主题 [singleText 必填 ph="请输入海报主题"] · 画面描述 [multiText 必填 ph="补充画面描述，让画面更丰富"] ·
+         用途 [radio 可选 8 档] · 生成尺寸 [radio 必填 7 档] · 字体 [radio 可选 6 档] ·
+         颜色 [radio 可选 15 档] · 效果 [radio 可选 18 档] · 选择分辨率 [select 必填 2K高清/4K超清]
+       ⇒ 我们原来只有 主题/描述/用途/字体/比例 五格，且**用途 4 档（他们 8）、字体 4 档（他们 6）、
+          完全没有颜色与效果** —— 这三处就是"功能区完全两回事"。
+       ⚠️ 「颜色」15 档与「效果」18 档照原文全收（他们这两档里都有「自定义」一项，也照收）；
+          「生成尺寸」用我们的比例字段（值集已与知渔一致：7 档）；分辨率用 clarityField。
+       ⚠️ 标签逐字用他们的写法（"书法体 / 无衬线体 / 霓虹灯字…"），不用我上一版自造的"黑体/宋体/圆体"。 */
     fields: [
-      { key: 'topic', label: '主题', kind: 'text', required: true },
-      { key: 'prompt', label: '描述', kind: 'textarea', rows: 3 },
-      { key: 'use', label: '用途', kind: 'segmented', options: [
-        { value: '促销', label: '促销' }, { value: '活动', label: '活动' },
-        { value: '展览', label: '展览' }, { value: '发布', label: '发布' },
+      { key: 'topic', label: '主题', kind: 'text', required: true, placeholder: '请输入海报主题' },
+      { key: 'prompt', label: '画面描述', kind: 'textarea', rows: 3, required: true, placeholder: '补充画面描述，让画面更丰富' },
+      { key: 'use', label: '用途', kind: 'segmented', group: '画面设置', options: [
+        { value: '电商促销', label: '电商促销' }, { value: '旅游宣传', label: '旅游宣传' },
+        { value: '音乐节', label: '音乐节' }, { value: '艺术画展', label: '艺术画展' },
+        { value: '发布会', label: '发布会' }, { value: '产品展示', label: '产品展示' },
+        { value: '节日庆典', label: '节日庆典' }, { value: '自定义', label: '自定义' },
       ] },
-      { key: 'font', label: '字体', kind: 'segmented', options: [
-        { value: '黑体', label: '黑体' }, { value: '宋体', label: '宋体' },
-        { value: '书法体', label: '书法' }, { value: '圆体', label: '圆体' },
+      { key: 'font', label: '字体', kind: 'segmented', group: '画面设置', options: [
+        { value: '书法体', label: '书法体' }, { value: '无衬线体', label: '无衬线体' },
+        { value: '霓虹灯字', label: '霓虹灯字' }, { value: '书写体', label: '书写体' },
+        { value: '哥特体', label: '哥特体' }, { value: '自定义', label: '自定义' },
+      ] },
+      { key: 'color', label: '颜色', kind: 'segmented', group: '画面设置', options: [
+        { value: '金色', label: '金色' }, { value: '银色', label: '银色' }, { value: '红色', label: '红色' },
+        { value: '蓝色', label: '蓝色' }, { value: '绿色', label: '绿色' }, { value: '紫色', label: '紫色' },
+        { value: '橙色', label: '橙色' }, { value: '哑光', label: '哑光' }, { value: '亮光', label: '亮光' },
+        { value: '黑色', label: '黑色' }, { value: '白色', label: '白色' }, { value: '灰色', label: '灰色' },
+        { value: '棕色', label: '棕色' }, { value: '粉色', label: '粉色' }, { value: '自定义', label: '自定义' },
+      ] },
+      { key: 'effect', label: '效果', kind: 'segmented', group: '画面设置', options: [
+        { value: '3D', label: '3D' }, { value: '2D', label: '2D' }, { value: '扁平化', label: '扁平化' },
+        { value: '手绘', label: '手绘' }, { value: '水彩', label: '水彩' }, { value: '油画', label: '油画' },
+        { value: '素描', label: '素描' }, { value: '黑白', label: '黑白' }, { value: '复古', label: '复古' },
+        { value: '霓虹灯', label: '霓虹灯' }, { value: '渐变', label: '渐变' }, { value: '浮雕', label: '浮雕' },
+        { value: '阴影', label: '阴影' }, { value: '发光', label: '发光' }, { value: '描边', label: '描边' },
+        { value: '卡通', label: '卡通' }, { value: '插画', label: '插画' }, { value: '自定义', label: '自定义' },
       ] },
       ratioField(),
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -900,10 +973,14 @@ export const IMAGE_SKILLS = [
     brief: '沿用参考图的风格再生成一张，参考强度：{{strength}}。保留参考图的画面语言（构图习惯、光线、色调、质感），但不要逐像素复制；不要出现水印或 logo。',
     fields: [
       { key: 'reference', label: '参考图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传参考图' },
-      { key: 'strength', label: '强度', kind: 'segmented', options: [
+      /* 批 O-⑥d：标签照知渔原文（他们这一档叫「参考强度」，值就是 低/中/高） */
+      { key: 'strength', label: '参考强度', kind: 'segmented', group: '生成设置', options: [
         { value: '低', label: '低' }, { value: '中', label: '中' }, { value: '高', label: '高' },
       ] },
       ratioField(),
+      /* 批 O-⑥d：补「选择分辨率」—— 知渔「相似图生成」的 inputConfigs 是 4 个字段
+         （上传参考图 / 参考强度 / 比例 / 选择分辨率），我们原来缺最后一格 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -922,6 +999,8 @@ export const IMAGE_SKILLS = [
       ] },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 9 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -938,12 +1017,44 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'cool' },
     summary: '一张户型图，长出一套三维效果图', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '把这张户型图转成三维室内效果图：{{room}}。要求：房间数量、开间进深、门窗位置与户型图**完全一致**，家具按常规布局摆放且尺度合理，顶面、地面与墙面的材质统一，光线从窗户自然进入；不要新增或删减房间，不要改动承重结构，画面里不出现文字与尺寸标注。',
+    brief: '把这张户型图转成三维建筑效果图。建筑类型：{{buildingType}}。建筑气质：{{buildingMood}}。场地环境：{{siteContext}}。光影氛围：{{lightMood}}。补充要求：{{notes}}。要求：房间数量、开间进深、门窗位置与户型图**完全一致**，家具按常规布局摆放且尺度合理，顶面、地面与墙面的材质统一，光线从窗户自然进入；不要新增或删减房间，不要改动承重结构，画面里不出现文字与尺寸标注。',
+    /* ═══ 2026-09-19 批 O-⑥a：**字段逐个照知渔补齐**（4 → 8）═════════════════════════════
+       依据：用户第 19 轮「你**抄的完全就没有对上**」+「全部去把这些子页面 1:1 的去把它们抄过来」。
+       知渔「平面转建筑效果图」的 inputConfigs 逐字（docs/design/data/quantv-image-key-specs.json）：
+         参考图 [file] · 建筑类型 [select: 别墅设计/住宅设计/办公建筑/商业建筑/校园建筑/博览建筑] ·
+         建筑气质 [radio: 现代简约/精致曲线/典雅中式/稳重石材] ·
+         场地环境 [radio: 住宅环境/城市街区/自然环境/滨水临湖] ·
+         光影氛围 [radio: 晴朗日光/柔和逆光/写实静谧/阴天雾感/黎明晨光/夕阳暖光/夜景灯光/质感蓝调] ·
+         更多描述 [multiText 可选] · 比例 [7 档] · 清晰度 [1K/2K/4K]
+       ⇒ **我们原来把"建筑气质/场地环境/光影氛围"三个维度糊成了一格「空间与风格」文本域** ——
+          这正是用户说的"功能区完全两回事"。现在按他们的四个维度**拆开**，并把「数量」去掉
+          （他们这一页没有数量档；比例与清晰度我们已有对应字段）。
+       ⚠️ 「更多描述」保留可选（原文就是 optional）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传户型图 / 平面图' },
-      { key: 'room', label: '空间与风格', kind: 'textarea', rows: 3, required: true, placeholder: '例如：三室两厅，现代简约，原木+白墙' },
+      { key: 'assets', label: '参考图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传户型图 / 平面图' },
+      { key: 'buildingType', label: '建筑类型', kind: 'select', required: true, group: '建筑与场地', options: [
+        { value: '别墅设计', label: '别墅设计' }, { value: '住宅设计', label: '住宅设计' },
+        { value: '办公建筑', label: '办公建筑' }, { value: '商业建筑', label: '商业建筑' },
+        { value: '校园建筑', label: '校园建筑' }, { value: '博览建筑', label: '博览建筑' },
+      ] },
+      { key: 'buildingMood', label: '建筑气质', kind: 'segmented', required: true, group: '建筑与场地', options: [
+        { value: '现代简约', label: '现代简约' }, { value: '精致曲线', label: '精致曲线' },
+        { value: '典雅中式', label: '典雅中式' }, { value: '稳重石材', label: '稳重石材' },
+      ] },
+      { key: 'siteContext', label: '场地环境', kind: 'segmented', required: true, group: '建筑与场地', options: [
+        { value: '住宅环境', label: '住宅环境' }, { value: '城市街区', label: '城市街区' },
+        { value: '自然环境', label: '自然环境' }, { value: '滨水临湖', label: '滨水临湖' },
+      ] },
+      { key: 'lightMood', label: '光影氛围', kind: 'segmented', required: true, group: '建筑与场地', options: [
+        { value: '晴朗日光', label: '晴朗日光' }, { value: '柔和逆光', label: '柔和逆光' },
+        { value: '写实静谧', label: '写实静谧' }, { value: '阴天雾感', label: '阴天雾感' },
+        { value: '黎明晨光', label: '黎明晨光' }, { value: '夕阳暖光', label: '夕阳暖光' },
+        { value: '夜景灯光', label: '夜景灯光' }, { value: '质感蓝调', label: '质感蓝调' },
+      ] },
+      { key: 'notes', label: '更多描述', kind: 'textarea', rows: 2, group: '建筑与场地',
+        placeholder: '可选：补充户型、材料、家具等具体要求' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -962,6 +1073,8 @@ export const IMAGE_SKILLS = [
       ] },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -970,17 +1083,31 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'soft' },
     summary: '毛坯现场照，直接出精装方案', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '把这张毛坯房照片做成精装完成后的样子：{{plan}}。要求：墙体、梁柱、门窗与管道位置**完全保留**，只在其上增加吊顶、地面、墙面饰面与家具；机位与透视不变，光线从原有窗户进入，材质真实、色温统一，不出现结构改动与文字标注。',
+    brief: '把这张毛坯房照片做成精装完成后的样子。装修风格：{{style}}。其他需求：{{plan}}。要求：墙体、梁柱、门窗与管道位置**完全保留**，只在其上增加吊顶、地面、墙面饰面与家具；机位与透视不变，光线从原有窗户进入，材质真实、色温统一，不出现结构改动与文字标注。',
+    /* ═══ 2026-09-19 批 O-⑥d：**字段逐个照知渔补齐**（4 → 5）═════════════════════════════
+       依据：用户第 19 轮「你**抄的完全没有对上**」+「全部去把这些子页面 1:1 的去把它们抄过来」。
+       知渔「毛坯家装设计」的 inputConfigs 逐字：
+         上传图片 [file] · 选择装修风格 [radio 必填 5 档：轻奢奶油风/现代简约风/北欧风/中国风/工业复古风] ·
+         其他需求 [multiText 可选 ph="描述您想要的其他装修需求..."] · 比例 [7 档] · 选择分辨率 [2K高清/4K超清]
+       ⇒ 我们原来把"装修风格"这一档**整个丢了**（只有一个自由文本"设计要点"），还多了一档「数量」。
+          现在按他们拆成「选择装修风格（5 档必填）+ 其他需求（可选）」，「数量」去掉（他们没有）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'reference', slotLabel: '上传毛坯现场照' },
-      { key: 'plan', label: '设计要点', kind: 'textarea', rows: 3, required: true, placeholder: '例如：无主灯、岩板电视墙、原木地板、浅灰墙面' },
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 2, role: 'reference', slotLabel: '上传毛坯现场照' },
+      { key: 'style', label: '选择装修风格', kind: 'segmented', required: true, group: '设计风格', options: [
+        { value: '轻奢奶油风', label: '轻奢奶油风' }, { value: '现代简约风', label: '现代简约风' },
+        { value: '北欧风', label: '北欧风' }, { value: '中国风', label: '中国风' },
+        { value: '工业复古风', label: '工业复古风' },
+      ] },
+      { key: 'plan', label: '其他需求', kind: 'textarea', rows: 2, group: '设计风格', placeholder: '描述您想要的其他装修需求...' },
       ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      clarityField(),
     ],
     cases: [], history: true,
   },
   {
-    id: 'image.day_night_still', board: 'image', name: '日夜气候切换', category: '建筑家装', complexity: 'simple',
+    /* 批 O-⑥ 升档（有证据）：知渔「日夜气候切换」实测就是 4 字段（上传图片 / 一句指令 / 比例 / 分辨率），
+       我们把这一档抄进来之后字段数就超过 simple 的 4 上限 —— 改的是"这一档有多复杂"这个判断，不是放宽门禁。 */
+    id: 'image.day_night_still', board: 'image', name: '日夜气候切换', category: '建筑家装', complexity: 'standard',
     cover: { template: 'case-3up', accent: 'cool' },
     summary: '同一张图，出白天 / 黄昏 / 夜晚三版', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
@@ -993,6 +1120,8 @@ export const IMAGE_SKILLS = [
       ] },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -1007,6 +1136,8 @@ export const IMAGE_SKILLS = [
       { key: 'target', label: '替换成', kind: 'textarea', rows: 3, required: true, placeholder: '例如：布艺沙发换皮质沙发，地毯换木地板，主灯换轨道灯' },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -1021,7 +1152,9 @@ export const IMAGE_SKILLS = [
       into: ['image.interior_3d', 'image.floorplan_render', 'image.interior_style', 'image.rough_interior', 'image.day_night_still'],
       note: '把刚出的这张效果图提到商业出图水准（改反射、补阴影、去塑料感），结构与机位不动',
     },
-    id: 'image.render_quality', board: 'image', name: '效果图质感提升', category: '建筑家装', complexity: 'simple',
+    /* 批 O-⑥ 升档（有证据）：知渔「效果图质感提升」实测就是 4 字段（上传图片 / 一句指令 / 比例 / 分辨率），
+       我们把这一档抄进来之后字段数就超过 simple 的 4 上限 —— 改的是"这一档有多复杂"这个判断，不是放宽门禁。 */
+    id: 'image.render_quality', board: 'image', name: '效果图质感提升', category: '建筑家装', complexity: 'standard',
     cover: { template: 'before-after', accent: 'neutral' },
     summary: '把普通效果图提到商业出图水准', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
@@ -1031,6 +1164,8 @@ export const IMAGE_SKILLS = [
       { key: 'focus', label: '重点', kind: 'text', placeholder: '例如：主灯的金属反射、木地板的纹理' },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -1048,6 +1183,8 @@ export const IMAGE_SKILLS = [
       ] },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 4 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -1056,11 +1193,37 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'cool' },
     summary: '一张九宫格讲完一栋建筑', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '做一张建筑九宫格分镜板（3×3）：{{scenes}}。要求：九格是同一栋建筑的九个视角或时段，透视与结构一致，格与格之间有叙事顺序（远景 → 中景 → 细节 → 室内 → 夜景），色调统一，不出现文字、标注与水印。',
+    brief: '做一张建筑九宫格分镜板（3×3）。大师风格：{{masterStyle}}。光影调节：{{lightTone}}。创意描述：{{notes}}。要求：九格是同一栋建筑的九个视角或时段，透视与结构一致，格与格之间有叙事顺序（远景 → 中景 → 细节 → 室内 → 夜景），色调统一，不出现文字、标注与水印。',
+    /* ═══ 2026-09-19 批 O-⑥b：**字段逐个照知渔补齐**（3 → 6）═════════════════════════════
+       依据：用户第 19 轮「你**抄的完全就没有对上**」+「全部去把这些子页面 1:1 的去把它们抄过来」。
+       知渔「建筑九宫格分镜」的 inputConfigs 逐字（docs/design/data/quantv-image-key-specs.json）：
+         参考图 [file] · 大师风格 [radio 9 档] · 光影调节 [radio 9 档] ·
+         创意描述（可选）[multiText] · 比例 [7 档] · 清晰度 [1K/2K/4K]
+       ⇒ 我们原来只有「九个镜头」一个自由文本域、且缺清晰度 —— 现在按他们的两档 radio 拆开。
+       ⚠️ 「九个镜头」那个文本域**去掉**：知渔这一页没有它，镜头顺序由"九宫格"这个模板本身决定
+          （他们的 brief 写在 app 的 systemPrompt 里）。多一格就是没对上。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑图（可选）' },
-      { key: 'scenes', label: '九个镜头', kind: 'textarea', rows: 4, required: true, placeholder: '例如：远景全景 / 入口 / 幕墙细节 / 中庭 / 室内大厅 …' },
+      { key: 'assets', label: '参考图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑图' },
+      { key: 'masterStyle', label: '大师风格', kind: 'segmented', required: true, group: '风格与光影', options: [
+        { value: '韦斯·安德森', label: '韦斯·安德森风格' }, { value: '罗杰·迪金斯', label: '罗杰·迪金斯风格' },
+        { value: '王家卫', label: '王家卫风格' }, { value: '克里斯托弗·诺兰', label: '克里斯托弗·诺兰风格' },
+        { value: '宫崎骏', label: '宫崎骏风格' }, { value: '新海诚', label: '新海诚风格' },
+        { value: '李安', label: '李安风格' }, { value: '大卫·芬奇', label: '大卫·芬奇风格' },
+        { value: '丹尼斯·维伦纽瓦', label: '丹尼斯·维伦纽瓦风格' },
+      ] },
+      { key: 'lightTone', label: '光影调节', kind: 'segmented', required: true, group: '风格与光影', options: [
+        { value: '自然光感', label: '自然光感' }, { value: '柔和逆光', label: '柔和逆光' },
+        { value: '几何光影', label: '几何光影' }, { value: '暖调氛围', label: '暖调氛围' },
+        { value: '蓝调时刻', label: '蓝调时刻' }, { value: '黄昏时刻', label: '黄昏时刻' },
+        { value: '晨雾柔光', label: '晨雾柔光' }, { value: '夜晚时分', label: '夜晚时分' },
+        { value: '明亮通透', label: '明亮通透' },
+      ] },
+      { key: 'notes', label: '创意描述（可选）',
+        longLabelReason: '照知渔原文逐字：他们这一页的字段名就叫「创意描述（可选）」，括号里的"可选"是他们写在标题里的，不是我们加的',
+        kind: 'textarea', rows: 2, group: '风格与光影',
+        placeholder: '可选：补充叙事、场景或构图要求' },
       ratioField(),
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -1105,6 +1268,8 @@ export const IMAGE_SKILLS = [
       { key: 'pose', label: '姿势', kind: 'text', placeholder: '例如：侧身回眸、手插口袋' },
       ratioField(),
       { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
@@ -1149,6 +1314,8 @@ export const IMAGE_SKILLS = [
       { key: 'backdrop', label: '背景', kind: 'upload', maxImages: 1, role: 'scene', slotLabel: '上传背景图' },
       { key: 'prompt', label: '要求', kind: 'textarea', rows: 3 },
       ratioField(),
+      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
+      clarityField(),
     ],
     cases: [], history: true,
   },
