@@ -58,16 +58,26 @@ test('③ 上传位必须声明张数与合法角色，且真的走 upload 档',
   assert.ok(uploadFields >= 10, '图片侧应当有足量的上传位（实测套数：' + uploadFields + '）');
 });
 
+/* 2026-09-19 批 O-⑥：这条门禁换了**取样的 skill 字段**，判据没动。
+   判据仍旧是那三件：用户填的内容真的进提示词 / 不留占位符 / 未填的可选字段不留半截标点。
+   变的是 image.poster 的字段：本批按知渔「电商海报设计」把它从「主题 + 画面描述」改成
+   「上传图片 + 产品卖点可选(points) + 比例 + 分辨率」——
+   依据是用户第 19 轮「你抄的完全就没有对上」「全部去把这些子页面 1:1 的去把它们抄过来」。 */
 test('④ 提示词真的把用户填的内容填进去，且不留半截标点', () => {
   const skill = getImageSkill('image.poster');
-  const filled = buildSkillBrief(skill, { topic: '夏夜爵士音乐节', prompt: '暖色灯光下的一支萨克斯' });
-  assert.match(filled, /夏夜爵士音乐节/);
-  assert.match(filled, /暖色灯光下的一支萨克斯/);
-  assert.doesNotMatch(filled, /\{\{/, '不许把占位符原样喂给模型');
+  const filled = buildSkillBrief(skill, { points: '买一送一，满99减30' });
+  assert.match(filled, /买一送一/);
+  assert.doesNotMatch(filled, /[{][{]/ , '不许把占位符原样喂给模型');
   /* 未填的可选字段不能留下「：。」这种断句 */
-  const sparse = buildSkillBrief(skill, { topic: '春季书展' });
-  assert.doesNotMatch(sparse, /[，。；：]\s*[，。；：]/);
-  assert.doesNotMatch(sparse, /\{\{/);
+  const sparse = buildSkillBrief(skill, {});
+  assert.doesNotMatch(sparse, /[，。；：][ ]*[，。；：]/);
+  assert.doesNotMatch(sparse, /[{][{]/);
+  /* 另一个技能再验一次：两个字段都要进提示词（免得只剩单字段覆盖） */
+  const cn = getImageSkill('image.cn_poster');
+  const cnFilled = buildSkillBrief(cn, { topic: '春季书展', prompt: '暖色灯光下的展台' });
+  assert.match(cnFilled, /春季书展/);
+  assert.match(cnFilled, /暖色灯光下的展台/);
+  assert.doesNotMatch(cnFilled, /[{][{]/);
 });
 
 test('⑤ 图片：第一张主图进 image_url，其余进参考图，且有上限', () => {

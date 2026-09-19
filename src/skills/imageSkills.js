@@ -166,12 +166,21 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '先立主视觉，再排信息层级', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '设计一张海报。主题：{{topic}}。画面：{{prompt}}。要求：单一视觉焦点、清晰的信息层级与阅读顺序，并留出安全的标题区；画面内的文字必须逐字准确，不得臆造文案、日期、价格或 logo。',
+    brief: '设计一张电商海报：以我上传的这张商品图为主视觉。产品卖点：{{points}}。要求：单一视觉焦点、清晰的信息层级与阅读顺序，并留出安全的标题区；画面内的文字必须逐字准确，不得臆造文案、日期、价格或 logo。',
+    /* ═══ 2026-09-19 批 O-⑥：**映射改正 + 字段照抄** ═══════════════════════════════════════
+       ⚠️ 我原来的映射表把「海报设计」指到了「中文海报一键生成」—— **串页了**
+          （中文海报一键生成 8 字段，是 image.cn_poster 的对应页）。
+       它真正的对应页是知渔的「**电商海报设计**」，inputConfigs 逐字：
+         上传图片 [file 必填] · 产品卖点（可选，不用很复杂，简单一点）[multiText **可选**] ·
+         比例 [7 档] · 分辨率 [1K标准/2K高清/4K超清]
+       ⇒ 我们原来是 主题 + 画面描述（两个自由文本框，没有上传位），与他们的**结构完全不同**：
+          他们是"上传商品图 + 可选卖点"，我们却让用户凭空描述一张海报。按他们改。 */
     fields: [
-      { key: 'topic', label: '主题', kind: 'text', required: true, placeholder: '例如：夏夜爵士音乐节' },
-      { key: 'prompt', label: '画面描述', kind: 'textarea', rows: 3 },
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
+      { key: 'points', label: '产品卖点（可选，不用很复杂，简单一点）',
+        longLabelReason: '照知渔原文逐字：他们这一页的第二格标题就叫「产品卖点（可选，不用很复杂，简单一点）」',
+        kind: 'textarea', rows: 2, placeholder: '买一送一，满99减30' },
       ratioField(),
-      /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
       clarityField(),
     ],
     cases: [
@@ -209,7 +218,15 @@ export const IMAGE_SKILLS = [
     /* 字段顺序 = 竞品实测顺序：上传图片 → 目标市场 → 目标平台 → 文案语言 →
        产品卖点与设计风格。分组名也照他们的区块名。 */
     fields: [
-      uploadField({ maxImages: 6 }),
+      /* ═══ 2026-09-19 批 O-⑨：**上传位并回「基础信息」组**（照知渔的分组结构）═══════════
+         依据：知渔 ?tool=product-listing-set 实测（CDP 全文，docs/design/67 §2）左栏是
+           「**基础信息**」【上传图片 0/6 → 目标市场 9 → 目标平台 5 → 文案语言 14】
+           →「产品卖点与设计风格」→「套图结构配置」
+         —— 上传位在**基础信息组里面**，不是独立的一组。
+         我们原来把它单独拎出来当第一组，于是分组顺序与他们差一组（多一个「上传图片」头）。
+         ⚠️ 上传位的 label 仍是「素材」（我们自己叫得顺），但**归组**必须与他们一致 ——
+            分组是布局（要一模一样），字段名是文案（可以不一样）。 */
+      uploadField({ maxImages: 6, group: '基础信息' }),
       marketField(MARKET_SUITE),
       platformField(PLATFORM_SUITE),
       languageField('文案语言', LANGUAGE_FULL.concat([{ value: '无文字', label: '无文字' }])),
