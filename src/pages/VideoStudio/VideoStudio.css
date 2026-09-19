@@ -544,6 +544,25 @@
   padding: 0;
   background: transparent;
 }
+/* ═══ 2026-09-19 批 L-2：**首页的视频主区域照抄图片侧那张外层白卡** ═══════════════════════
+   用户第 17 轮批注 #2（图1）原话：「你这块区域**为什么不能照抄图片生成那边的样式**过来呢？
+   我前面已经跟你提过需求了呀，你为什么没有去做呢？你是做着做着就不做了，还是怎么样呢？我都搞不明白。」
+   实测对比（首页，2048 视口）：
+     · 图片侧是**两层**：外层白卡 .visual-creation（padding clamp(20,2.3vw,30) / 白底 / 圆角 8 /
+       描边 rgba(74,61,70,.09) / 阴影 0 24px 60px rgba(57,40,31,.13)）＋ 内层暖色渐变 .ec-xhs-composer（圆角 16）；
+     · 视频侧只有**一层**：渐变直接铺在 .video-composer 上（圆角 12、浅阴影），**没有那张外层白卡**。
+   ⇒ 给视频侧补上同一张外层白卡（数值逐条照抄 .visual-creation），并把内层渐变框的圆角对齐 16。
+     选择器用 .surface-card-inner > ... 限定**首页那一处**：媒体工作台里的嵌入形态
+     （.media-workbench-panel > ...）不受影响。 */
+.surface-card-inner > .video-studio-page.is-embedded {
+  padding: clamp(20px, 2.3vw, 30px);
+  box-sizing: border-box;
+  background: var(--sb-neutral-0);
+  border: 1px solid rgba(74, 61, 70, .09);
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgba(57, 40, 31, .13);
+}
+.surface-card-inner > .video-studio-page.is-embedded .video-composer { border-radius: 16px; }
 /* ═══ 2026-09-19 批 J-⑬：嵌入形态的框**逐值照图片侧**（用户批注 #11-1 / #12-1）═══════════
    用户原话：「你这个框**直接照抄图片生成那边的样式**不可以吗？你这个跟他完全就不一样呀……
    你连这些**尺寸，布局规格**你都没有搞明白吗？」「代码上这些尺寸啊，框的大小呀，间距啊，
