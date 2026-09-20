@@ -1,6 +1,52 @@
 /* SkillWorkbench：工作台页面的版式补充（骨架本身在 WorkbenchShell.css）
    色只用已验证 token；每个可点元素都要有 hover 态。 */
 .skill-workbench { display: block; }
+/* ═══ 2026-09-19 批 Q-⑧：skill 子页面的**示例方卡**（照知渔实测 247×247 + 左上角编号胶囊）═══
+   知渔那一档：四列、正方形、间距 13、左上角半透明白底胶囊（12.576px/500、内边距 4.192/8.384、圆角 8），
+   卡片底色是浅灰。这里的类名与总页面的 .media-case-card **分开** —— 总页面那套 4:3 卡是用户确认过的，
+   不能混用（批 M 的教训：改错地方会被当场否掉）。 */
+.skill-example-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 900px) { .skill-example-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.skill-example-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 14px;
+  background: var(--sb-surface-tint);
+  cursor: pointer;
+  transition: border-color .18s ease, transform .18s ease;
+}
+.skill-example-tile:hover { border-color: var(--sb-border-strong); transform: translateY(-2px); }
+.skill-example-tile:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.skill-example-media { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; }
+.skill-example-media img, .skill-example-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.skill-example-media.is-empty { font-size: 12.576px; color: var(--sb-ink-3); }
+.skill-example-tag {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  max-width: calc(100% - 24px);
+  padding: 4.192px 8.384px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sb-surface-card) 80%, transparent);
+  color: var(--sb-ink-1);
+  font-size: 12.576px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .skill-workbench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 15px; }
 .media-workbench-missing { padding: 40px 0; text-align: center; font-size: 13px; color: var(--sb-ink-2); }
 .skill-workbench-lightbox { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(17, 20, 45, .62); }

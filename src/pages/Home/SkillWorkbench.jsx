@@ -132,10 +132,28 @@ export default function SkillWorkbench({
                   </ol>
                 </>
               )}
+              {/* ═══ 2026-09-19 批 Q-⑧：案例图改成**知渔那一档的方形示例卡** ═══════════════════════
+                  CDP 实测知渔 skill 子页面的示例区（.tmp/qy-right-col.mjs）：
+                    · 四列网格，每格 **247×247（正方形）**、间距 13；
+                    · 每格左上角一枚**半透明白底胶囊角标**：编号 + 名称，字号 **12.576px/500**、
+                      内边距 4.192px 8.384px、圆角 8；
+                    · 卡片底色是浅灰（没图时就是一块干净的浅灰，不是"加载失败"的样子）。
+                  我们原来是 4:3 卡 + 标题压在底部渐变上（那是**总页面**的卡片语言，用户已确认）。
+                  子页面里的示例是"这一套交付长什么样"，形态跟知渔走：方卡 + 左上角角标。
+                  ⚠️ 没有案例图的那几条仍然如实写「示例补充中」，不放假图。 */}
               {cases.length
-                ? <div className="skill-workbench-grid">{cases.map((item, index) => (
-                    <CaseCard key={item.id || index} title={item.title || ''} subtitle={item.subtitle || ''} cover={item.cover || ''} video={item.video || ''} poster={item.poster || ''} before={item.before || ''} onOpen={() => setLightbox(index)} />
-                  ))}</div>
+                ? <ol className="skill-example-grid">{cases.map((item, index) => (
+                    <li key={item.id || index}>
+                      <button type="button" className="skill-example-tile" onClick={() => setLightbox(index)}>
+                        {item.cover || item.video
+                          ? <span className="skill-example-media">
+                              {item.video ? <video src={item.video} poster={item.poster || ''} muted loop playsInline preload="metadata" /> : <img src={item.cover} alt="" loading="lazy" />}
+                            </span>
+                          : <span className="skill-example-media is-empty">示例补充中</span>}
+                        <span className="skill-example-tag">{item.title || '示例'}</span>
+                      </button>
+                    </li>
+                  ))}</ol>
                 : (!deliverables.length ? <p className="media-workbench-empty">示例正在补充，先直接生成试试。</p> : null)}
             </>
           : (historyList.length
