@@ -5192,3 +5192,15 @@ store-visit-video /content-replace /digital-human /video-high-definition /video-
 `test/video-route-subpage-parity-0921.test.mjs`（新增 4 条门禁）。
 证据脚本（不入库）：`.tmp/zc-probe-ours.mjs`、`zc-probe-qy-swap.mjs`、`zc-probe-qy-fields.mjs`、
 `zc-probe-typography.mjs`、`zc-probe-sticky.mjs`、`zc-verify-online-S.mjs`、`zc-mutate.mjs`（变异测试）。
+
+### 批 S 补记（同一夜，部署之后的最后两轮核验）
+
+· **反向核验**（`.tmp/zc-verify-online-controls.mjs`，线上真页面）：
+  · app 型视频页 `?id=video.light_shift` / `?id=video.product_motion` **仍有**「参数配置」组头 ✓
+    （首个字段 y=265，与路由型的 233 差的就是那一行组头）——证明改动是**按页**生效，不是全站砍掉；
+  · 图片侧 `?id=image.copy` 分组原样（商品信息 / 参考图 / 复刻设置 / 基础信息 / 生成设置）✓；
+  · 改动页与对照页共 5 个页面：**零运行时异常、无一落到错误边界**（白屏 P0 的守卫）。
+· **提交**：`d144bfb9`（代码 + 门禁）→ 已部署线上；`965b7ae1`（RTK + 交接文档）**未部署** ——
+  它只改文档、不改变构建产物（与批十六那次"图片侧接线地图 未部署"同一口径）。
+· 部署仓库 `F:/da/_deploy-b39` 停在 `d144bfb9`；工作树 tracked 改动 **0**（252 个 CRLF 噪声文件
+  已还原成 LF，见 §七第一条踩坑）。
