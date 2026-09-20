@@ -15,14 +15,19 @@
    不是我们原来那条一条竖着排的长列表。用户原话：「示例区是一份编号清单，不是一堆没出处的图」，
    而"编号 + 名称 + 一句说明"在一个 4 列网格里才读得出"这一套一共有几样"。
    编号 01/02… 是清单的骨架，字号也照他们那一档放大（12 → 15）。 */
-.skill-deliverable-lead { margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: var(--sb-ink-3); }
+/* ═══ 2026-09-19 批 Q：右栏（示例 / 历史）的字号层级也照知渔过了一遍 ═══════════════════════
+   用户批注：「工作台和右边案例历史区**所有地方**都要把这个问题再过一遍，看看哪些地方要处理。」
+   CDP 实测知渔右栏：示例卡编号（「01 白底主图」那种角标）**12.576px/500**、正文说明 12.576px/400、
+   而我们的清单编号是 15px/800（比正文重一大截）、标题 15px/600 —— 层级靠"加粗"硬撑，与他们的做法不一致。
+   ⇒ 按他们的关系改：编号 12.576/500（品牌色区分，不靠 800 的字重）、标题 13.624/500、副标 12.576/400、导语 13.624/400。 */
+.skill-deliverable-lead { margin: 0 0 14px; font-size: 13.624px; line-height: 1.5; color: var(--sb-ink-3); }
 .skill-deliverable-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin: 0; padding: 0; list-style: none; }
 .skill-deliverable-list li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: start; padding: 14px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-card); transition: border-color .18s ease, box-shadow .18s ease; }
 .skill-deliverable-list li:hover { border-color: var(--sb-border-strong); box-shadow: var(--sb-shadow-sm); }
-.skill-deliverable-no { font-size: 15px; font-weight: 800; color: var(--sb-brand-700); }
+.skill-deliverable-no { font-size: 12.576px; font-weight: 500; color: var(--sb-brand-700); }
 .skill-deliverable-copy { display: grid; gap: 3px; min-width: 0; }
-.skill-deliverable-copy strong { font-size: 15px; font-weight: 600; color: var(--sb-ink-1); }
-.skill-deliverable-copy small { font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
+.skill-deliverable-copy strong { font-size: 13.624px; font-weight: 500; color: var(--sb-ink-1); }
+.skill-deliverable-copy small { font-size: 12.576px; line-height: 1.5; color: var(--sb-ink-3); }
 
 .skill-workbench-lightbox-body { position: relative; display: flex; align-items: center; gap: 12px; max-width: min(1080px, 92vw); }
 .skill-workbench-lightbox-body figure { margin: 0; display: grid; gap: 8px; }

@@ -791,7 +791,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         /* ⚠️ 标签里**不写价格** —— 价格由 points 走 em 渲染（按钮上那 0.2 积分）。
            知渔那一页写的是「AI生成 · 0.10 积分/张」（**他们的价格**），我们按自己的真价显示，
            两处都写就会出现"0.10 积分/张 0.2 积分"这种自相矛盾。 */
-        label: 'AI 生成', 
+        /* ═══ 2026-09-19 批 Q：**改名叫「一键润色卖点」** ══════════════════════════════════════
+           用户批注：「这个按钮不该就 AI 生成吧，他们叫一键解析更贴切，我们想想有没有更合适的叫法啊，
+             你抄东西不能只抄表面啊。」
+           —— 它做的事是"把已写好的卖点交给模型改写回填"，叫「AI 生成」会让人以为是从零生成。
+             按知渔「一键解析」的命名法改成动宾结构：**一键润色卖点**（做什么、对谁做，一眼看懂）。 */
+        label: '一键润色卖点',
         points: 0.2,
         runnable: true,
         busy: polishing,
@@ -812,13 +817,18 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        知渔实测：选「参考排版 / 参考自定义风格」时，那一行下面换出来的是**上传区 + 设计要求**，
        而「AI推荐风格分析」那颗按钮只在 AI 档下出现（.tmp/laoyu2/qy-suite-switch.mjs）。
        我们上一版不管切到哪一档，这颗都挂在那儿 —— 用户批注 #3-2「这两个按钮打开里面都是空的」。 */
-    const styleDefault = styleField?.default;
-    const onStyleAiPane = !styleDefault || String(effectiveValues.style ?? styleDefault) === String(styleDefault);
-    if (styleField && onStyleAiPane) {
+    /* ═══ 2026-09-19 批 Q：**这颗不再随切换消失** ═════════════════════════════════════════════
+       用户批注（本轮）：「为什么我切换了一下按钮就没有右上角的 AI 积分呢？」
+       —— 我上一版按知渔"分析按钮只在 AI 档出现"做了显隐，用户的实际感受是"切一下功能就没了"。
+         功能不该因为切档而消失（切档只换下面的内容区：上传参考图 / 设计要求 / 结论栏），
+         所以恢复成**三档都在**。 */
+    if (styleField) {
       list.push({
         key: 'style-analysis',
         anchor: styleField.key,
-        label: 'AI 推荐',
+        /* 批 Q：同理改名为「一键解析风格」（知渔那一页叫「AI推荐风格分析 · 0.10 积分」，
+           我们沿用自己「一键解析 XX」的命名法，用户说这样更贴切）。 */
+        label: '一键解析风格',
         points: 0.2,
         runnable: true,
         busy: analyzingStyle,

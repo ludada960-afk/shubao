@@ -143,7 +143,14 @@
      我们原来是 16px —— 比竞品大一档。
      ⚠️ 上面批 K 记的 16.12 是**字段标签**那一档（他们那一页实测 14.672 ≈ 15）；
         分组标题在同一页是 **13** —— 两档不一样，之前混用了，这次按实测分开。 */
-  font-size: 13px;
+  /* ═══ 2026-09-19 批 Q：**13 → 13.624**（逐元素实测重校）═════════════════════════════════
+     用户批注（本轮）：「你的层次也没抄到位，你现在很多标题是没有着重号的，你是看不出来他的
+       一些字体是加粗的吗，这是层级关系啊，你要有逻辑的去处理设计上的问题。」
+     CDP 逐元素量出来的知渔这套层级（.tmp/qy-type-theirs2.mjs）：
+       组标题 13.624px/500（灰）< 字段标题 14.672px/500（近黑）< 药丸与下拉 14.672px/500；
+       说明文字 12.576px/400；CTA 文案 14.672px/500、CTA 价格 12.576px/400。
+     ⇒ 字号与字重**逐档照他们**，不再自己定一套（我们原来 13 / 15 / 16px 混着走）。 */
+  font-size: 13.624px;
   font-weight: 500;
   color: var(--sb-ink-3);
   /* 标题行右端可能并排两颗动作（教学示例入口 + 一键解析）—— 让它们靠右、按内容宽 */
@@ -178,10 +185,10 @@
 .media-workbench-inline-action em { font-style: normal; color: var(--sb-brand-700); font-weight: 600; }
 .media-workbench-inline-action.is-off { color: var(--sb-ink-4); cursor: default; }
 /* 只读交付清单（照竞品「包含模块 已选 0/16」的形态；不可勾选是钱路上的硬约束） */
-.media-workbench-checklist-count { font-size: 15px; font-weight: 600; color: var(--sb-ink-3); }
+.media-workbench-checklist-count { font-size: 12.576px; font-weight: 500; color: var(--sb-ink-3); }
 .media-workbench-checklist-items { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
-.media-workbench-checklist-check { flex: 0 0 auto; font-size: 15px; font-weight: 800; color: var(--sb-brand-600); line-height: 1.5; }
+.media-workbench-checklist-check { flex: 0 0 auto; font-size: 12.576px; font-weight: 500; color: var(--sb-brand-600); line-height: 1.5; }
 /* ═══ 可勾选那一档（2026-09-19 批 I-9，用户批注 #10）═══════════════════════════════════════
    用户原话：「这些按钮都是不能点击的，完全是死按钮。」
    勾选框做成**方形描边 + 选中填品牌色对勾**（不是把原来那个 ✓ 换个颜色 ——
@@ -231,7 +238,7 @@
   .media-workbench-checklist-toggle .media-workbench-checklist-check { transition: none; }
 }
 .media-workbench-checklist-copy { display: grid; gap: 1px; min-width: 0; }
-.media-workbench-checklist-copy strong { font-size: 15px; font-weight: 600; color: var(--sb-ink-1); }
+.media-workbench-checklist-copy strong { font-size: 13.624px; font-weight: 500; color: var(--sb-ink-1); }
 .media-workbench-checklist-copy small { font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
 .media-workbench-back {
   justify-self: start;
@@ -358,13 +365,15 @@
   box-shadow: none;
   color: var(--sb-ink-1);
   font-family: inherit;
-  font-size: 16px;
+  /* 批 Q：控件里的字与知渔同档（文本域 13.624/400、下拉值 14.672/500） */
+  font-size: 13.624px;
   line-height: 1.6;
 }
 textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 14px; resize: vertical; }
 .media-field-control:hover { border-color: var(--sb-border-strong); }
 .media-field-control:focus-visible { outline: none; border-color: var(--sb-brand); box-shadow: var(--sb-focus-ring); }
-.media-field-hint { font-size: 13px; color: var(--sb-ink-3); }
+/* 字段说明：知渔 12.576px/400（我们原来 13px） */
+.media-field-hint { font-size: 12.576px; color: var(--sb-ink-3); }
 /* ── 多行文本的「放大」（照竞品那颗按钮：卖点框右上角）────────────────────────── */
 .media-field-textarea { position: relative; display: block; }
 .media-field-expand {
@@ -424,7 +433,9 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   background: var(--sb-surface-card);
   color: var(--sb-ink-2);
   font: inherit;
-  font-size: 15px;
+  /* 批 Q：知渔的药丸是 **14.672px/500**（我们原来 15px/400 —— 用户说的"没有着重号"就是这里） */
+  font-size: 14.672px;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color .18s ease, border-color .18s ease, color .18s ease;
 }
@@ -459,7 +470,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   cursor: pointer;
 }
 .media-field-stepper button:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
-.media-field-stepper output { min-width: 30px; text-align: center; font-size: 16px; font-weight: 600; color: var(--sb-ink-1); }
+.media-field-stepper output { min-width: 30px; text-align: center; font-size: 14.672px; font-weight: 600; color: var(--sb-ink-1); }
 .media-field-slot {
   padding: 10px 12px;
   border: 0;
@@ -503,10 +514,12 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-workbench-submit:hover:not(:disabled) { background: var(--sb-brand-700); box-shadow: 0 8px 22px rgba(17, 20, 45, .2); }
 .media-workbench-submit:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-workbench-submit:disabled { opacity: .5; cursor: not-allowed; }
-.media-workbench-submit-label { font-size: 16px; font-weight: 700; line-height: 1.2; }
+/* 批 Q：CTA 文案照知渔 —— 14.672px/500（原来是 16px/700，比他们大一号还更重） */
+.media-workbench-submit-label { font-size: 14.672px; font-weight: 500; line-height: 1.2; }
 /* ⚠️ 积分现在长在**品牌色按钮里面**，所以颜色要按"按钮上的文字"给（白 82%），
    不能再沿用 ink-2 —— 那是给浅底用的，放到品牌底上会看不清。 */
-.media-workbench-points { font-size: 13px; font-weight: 600; color: color-mix(in srgb, var(--sb-surface-card) 82%, transparent); }
+/* 批 Q：CTA 里的价格照知渔 —— 12.576px/400（原来 13px/600，抢了主文案的层级） */
+.media-workbench-points { font-size: 12.576px; font-weight: 400; color: color-mix(in srgb, var(--sb-surface-card) 82%, transparent); }
 /* 右栏 = 一整块白面板（竞品实测：圆角 12、内边距 24.8/29.76、白底、铺满高度）。
    页签在面板**内部**，不是浮在面板外面的一排药丸。 */
 .media-workbench-right {
@@ -547,7 +560,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   background: transparent;
   color: var(--sb-ink-3);
   font: inherit;
-  font-size: 16px;
+  /* 批 Q：页签与字段标题同档（知渔那一排页签是 13.624px/500）—— 原来 16px 比字段名还大 */
+  font-size: 13.624px;
   font-weight: 500;
   cursor: pointer;
   transition: background-color .18s ease, color .18s ease;
@@ -556,7 +570,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-workbench-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-workbench-tabs button.is-active { background: var(--sb-surface-card); color: var(--sb-ink-1); box-shadow: var(--sb-shadow-sm); }
 .media-workbench-pane { min-height: 200px; }
-.media-workbench-empty { margin: 0; padding: 36px 0; text-align: center; font-size: 15px; color: var(--sb-ink-3); }
+.media-workbench-empty { margin: 0; padding: 36px 0; text-align: center; font-size: 13.624px; color: var(--sb-ink-3); }
 
 /* ── 上传位（FieldRenderer 的 upload 档）───────────────────────────────────────
    缩略图直接用 MediaAssetCard 的唯一实现（对齐卡片是本站的素材卡语言），
