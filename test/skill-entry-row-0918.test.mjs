@@ -78,8 +78,14 @@ test('② 悬停预览窗：按钮正下方、左介绍 + 右案例图；没有�
   /* ②-e 没有案例的技能照旧出现，预览里如实写「案例补充中」，且给**三格**维持版式 */
   assert.match(row, /案例补充中/);
   assert.match(row, /previewAssets/);
-  /* ②-f 封面取法只有一份实现 */
-  assert.match(row, /import \{ availabilityLabel, coverOf \} from '\.\.\/\.\.\/skills\/skillDirectory\.js'/);
+  /* ②-f 封面取法只有一份实现
+     ⚠️ 2026-09-21 批 T：这条断言里的 `availabilityLabel` **本轮按用户口径删掉了**
+        （「这 9 个案例按钮……不需要写这个，需参考素材这几个字」），所以 import 少一个名字。
+        判据没变（"封面取法只有一份实现、来自声明源"），变的是那个组件不再需要 availabilityLabel。 */
+  assert.match(row, /import \{ coverOf \} from '\.\.\/\.\.\/skills\/skillDirectory\.js'/);
+  /* ⚠️ 这条负向断言必须**先剥注释**：我在那个位置留了一段解释（"availabilityLabel 没有删，
+     总页面的卡片还在用它"）—— 直接比字符串会把知识当成用法（本仓栽过好几次的同一个坑）。 */
+  assert.doesNotMatch(stripComments(row), /availabilityLabel/, '按钮行不再消费 availabilityLabel（角标已删）');
 });
 
 test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零位移', () => {
@@ -115,12 +121,29 @@ test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零�
        （5×200 + 4×11 = 1044 ≤ 1240 容器；6 颗要 1255 就折行）。实测两行各 5 / 3，且**两行同心**（中心都在 1070）。 */
   assert.match(rowCss, /\.skill-entry-buttons \{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*justify-content: center;/,
     '热门 skill 必须折行 + 居中（L-4：人家是有居中的）');
-  assert.match(rowCss, /\.skill-entry-button \{[^}]*min-width: 200px;/,
-    'min-width 200 保证一排正好 5 颗（J-⑦ 的上 5 下 3 仍然成立）');
+  /* ═══ 2026-09-21 批 T **改判**（依据本轮用户原话，逐字）════════════════════════════════════
+     用户原话：「然后你这些设置面板下面的这 9 个案例按钮。他们不需要写这个，需参考素材这几个字呀，
+     而且他们这些按钮里面的样式做的也不够好。左边是图片，右边是文字，我觉得虽然这个布局是可以，
+     但是你应该**再做的紧凑些**呀，就是你右边的这些文字，他们的**左右两边都有大量的空白**，
+     你要**再做挤一些**呀。」
+     ⇒ 上一版用 `min-width: 200px` 保证"一排正好 5 颗"—— 那 200px 正是用户看到的两片空白
+       （四个汉字的技能名约 56px，却要占满 200px 宽的胶囊）。本轮判据改成**宽度随内容**，
+       与 flova 实测的 170–242 同一个做法；折行 + 整排居中不变。
+     ⚠️ 代价说清楚：一排不一定还是 5 颗（实测 6+3）—— 用户本轮要的是"挤一些"，
+        行内颗数由文案长度决定，这是内容宽的必然结果，不再用最小宽度去凑数。 */
+  assert.doesNotMatch(rowCss, /\.skill-entry-button \{[^}]*min-width: 200px;/,
+    '不再用 min-width 200 撑宽按钮（那正是用户说的"左右两边大量的空白"）');
   assert.doesNotMatch(rowCss, /\.skill-entry-buttons \{[^}]*overflow-x: auto;/,
     '折行之后不能再横向滑（滑动会把第二行藏起来）');
   assert.doesNotMatch(rowCss, /\.skill-entry-button \{[^}]*width: 100%;/,
     '按钮不许再被拉到列宽（那正是「字左右两边留白特别多」的根因）');
+  /* 批 T 新增：悬停特效照 liuyingai.cn 那张卡片（充能条 / 图标放大 / 文字变色）—— 见 CSS 里的实测表 */
+  assert.match(rowCss, /\.skill-entry-button::after \{[^}]*width: 0;/,
+    '充能条常态宽度 0（悬停才长满）');
+  assert.match(rowCss, /\.skill-entry-button:hover::after,[\s\S]{0,80}\{[^}]*width: 100%;/,
+    '悬停时充能条长满（liuyingai 实测 700ms）');
+  assert.match(rowCss, /\.skill-entry-button:hover \.skill-entry-glyph,[\s\S]{0,120}\.skill-entry-glyph \{[^}]*transform: scale\(1\.05\);/,
+    '图标磁贴悬停放大 1.05（liuyingai 逐值）');
 });
 
 /* ═══ 批 J-⑦：悬停出的是**遮罩**（毛玻璃），试一试在遮罩上 —— 用户批注 #3-3 ═══════════════

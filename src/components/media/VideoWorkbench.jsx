@@ -135,6 +135,15 @@ function SlotUpload({
 export default function VideoWorkbench({
   workbench = null,
   groupTitle = '参数配置',
+  /* ═══ 批 T（2026-09-21）：**按块存的文本值** ═══════════════════════════════════════════════
+     为什么要有它：原来所有 text 块共用同一个 `prompt`（"每页只有一个文本格"是当时的前提）。
+     用户本轮要求把知渔「门店信息」那一格补上（它自己的页面上在「门店信息」标题下有一个
+     458×149 的可编辑输入框，占位是四段式），于是同一页出现**两个**文本格 ——
+     共用一份状态会让两格互相镜像（在 A 里打字，B 里也出现同样的话）。
+     ⇒ prompt 仍然是"主文本格"（补充说明/脚本，走既有的 prompt/onPromptChange），
+       其它文本格按 block.key 存进 blockValues；两个口子都保留，既有调用点一个不用改。 */
+  blockValues = {},
+  onBlockValueChange = () => {},
   slots = {},
   onSlotFiles = () => {},
   prompt = '',
@@ -217,6 +226,10 @@ export default function VideoWorkbench({
         }
         if (block.kind === 'text') {
           const action = block.action;
+          /* 主文本格（补充说明 / 脚本）走 prompt；其它文本格（门店信息这类）走 blockValues */
+          const isPrimary = block.key === 'prompt';
+          const value = isPrimary ? prompt : String(blockValues[block.key] || '');
+          const change = isPrimary ? onPromptChange : next => onBlockValueChange(block.key, next);
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
               <h3 className="media-field-label"><span>{block.title}</span></h3>
@@ -246,20 +259,21 @@ export default function VideoWorkbench({
               )}
               <div className="video-wb-mention-hint">{block.mentionHint}</div>
               <MentionPromptField
-                ref={promptFieldRef}
+                ref={isPrimary ? promptFieldRef : undefined}
                 id={`video-workbench-prompt-${index}`}
-                value={prompt}
+                value={value}
                 mentions={mentions}
                 maxLength={promptMaxLength}
-                onChange={onPromptChange}
+                onChange={change}
                 onFilesPasted={onFilesPasted || undefined}
                 placeholder={block.placeholder || ''}
                 /* 与创作台里的提示词框**同一个类名**：@ 提及的蓝色胶囊样式由 .video-prompt-mentions 给，
                    两处必须长得一样（这一条也是端到端脚本读提示词的锚点） */
                 className="video-prompt-mentions video-wb-prompt"
               />
-              <div className="video-wb-counter">{prompt.length} / {block.max}</div>
-              {block.emptyTitle && !String(prompt || '').trim() && (
+              <div className="video-wb-counter">{value.length} / {block.max}</div>
+              {value.length >= Number(block.max || 0) && <div className="video-wb-counter is-full">已到字数上限</div>}
+              {block.emptyTitle && !String(value || '').trim() && (
                 <div className="video-wb-empty">
                   <strong>{block.emptyTitle}</strong>
                   <small>{block.emptyHint}</small>

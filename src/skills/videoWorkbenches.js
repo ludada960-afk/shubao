@@ -136,7 +136,19 @@ const pageStoreVisit = (extra = {}) => ({
   ...extra,
   blocks: [
     uploadBlock({ key: 'storeMaterials', title: '探店素材', note: '上传门店环境、商品和服务过程图片', max: 6, hint: '点击或拖拽上传图片' }),
-    actionBlock({ key: 'storeInfo', title: '门店信息', note: '先上传探店素材，再让 AI 识别门店环境与卖点', actions: [ANALYZE_ACTION] }),
+    /* ═══ 批 T（2026-09-21）：门店信息**补上可编辑输入框**（用户：「你分析出来了就去解决啊」）═════
+       知渔那一页实测（.tmp/qy-fields.txt）：在「门店信息」标题下面有一个 **458×149 的输入框**，
+       占位是四段式「一、门店基础视觉信息 / 二、空间环境细节 / 三、可复用探店镜头提示词素材库 /
+       四、信息校验备注」—— AI 分析的结果就落在那里，而且**用户可以改**。
+       我们原来这一格只有一个「AI分析」按钮，没有落点（分析结果只能去方案弹层里看）——
+       与知渔的字段形态对不上。现在改成"标题 + 付费动作 + 可编辑输入框"，
+       用 text 块的 action 能力（它本来就同时支持这两样），把那一页的占位文案逐字抄过来。 */
+    textBlock({
+      key: 'storeInfo', title: '门店信息', max: 2000,
+      placeholder: '一、门店基础视觉信息\n二、空间环境细节\n三、可复用探店镜头提示词素材库\n四、信息校验备注',
+      mentionHint: '可先让 AI 分析探店素材，把结论落在这里再改；这一格会作为门店背景一起下发',
+      action: { ...ANALYZE_ACTION, note: '识别门店环境与卖点，结论写进这一格' },
+    }),
     uploadBlock({ key: 'models', title: '模特选择', note: '上传模特图片，作为探店视频人物参考', max: 3, hint: '点击或拖拽上传模特图片', acceptHint: '支持 JPG、JPEG、PNG，最多 3 张' }),
     textBlock({
       key: 'prompt', title: '补充说明', max: 5000,

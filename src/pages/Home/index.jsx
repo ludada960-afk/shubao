@@ -8,7 +8,8 @@ import VisualCreationMode from './VisualCreationMode';
 import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 /* 批 J-⑨：首页案例表达区复用**既有**的那一块（小红书模式一直在用），不重写版式。 */
-import { CreationShowcase } from './CreationShowcase.jsx';
+/* 批 T：CreationShowcase 的 import 一并撤掉（首页不再渲染它；组件本身留在
+   XhsContentMode 里继续用，那边是 import 自己那份） */
 /* 批 J：预览窗的「对应的那种界面」要的就是这一块案例真源（与下面那块案例区同源）。 */
 import { productionCaseById } from './productionCaseCatalog.js';
 import Footer from '../../components/layout/Footer';
@@ -296,7 +297,13 @@ export default function HomePage() {
                图片板块下面只能有图片技能，视频板块下面只能有视频技能。
             数据源与总页面是同一份（skillDirectory.featuredSkills）——首页的"精选推荐"
             就是总页面顶部那一档，两处不许各写一份清单。 */}
-        <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '0 20px' }}>
+        {/* ═══ 批 T（2026-09-21）：这一层与上方创作区之间**留出呼吸**（用户本轮原话）════════════
+            原话：「然后上面的标签页……他们都基本上**贴到上面的提示词输入区**了。
+            你为什么不保持一些**上下间距**呢？」
+            实测（改前）：创作台底沿 y=1088、分类页签顶沿 y=1119 —— 只有 31px，
+            而那一行本身高 44，视觉上就是"贴着"。
+            ⇒ padding-top 0 → 34：加上 .skill-entry-row 自己的 gap(22)，标签页与按钮两行都松开了。 */}
+        <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '34px 20px 0' }}>
           <SkillEntryRow
             board={skillBoard}
             limit={SKILL_ENTRY_LIMIT}
@@ -353,25 +360,16 @@ export default function HomePage() {
           />
         </div>
 
-        {/* ═══ 2026-09-19 批 J-⑨：原来那一整块「左文案 + 右效果图」的案例表达区回来了 ═══════════
-            用户原话（批注 #4-1 / #4-2）：
-              「我是真的不知道你是怎么想的。我们**原来不是有这些案例在首页的这些板块这里**吗？
-                你为什么**没有把原来的做法直接挪过来**呢。你为什么要自己重新做呢？」
-              「原本在我们的图片上传区和提示词输入区的上面，它是有这些相关的案例表达区的，
-                那些案例表达区**左边就是描述这个板块的作用和价值的文案，右边就是这些图片的生成效果**。
-                你可以直接把**那一整个的板块拿过来，放到这下面的预览区里面去**呀。」
-            做法：**复用现成的 CreationShowcase**（小红书模式里一直在用的那一块，一行没重写），
-            按当前创作模式给 mode —— 电商/视频/自由创作各自那份 COPY 与真实素材都在它自己里面。
-            ⚠️ 「不重做」在这里就是**不写新的版式**：这一块是既有组件，不是照着重画一遍。
-            ⚠️ 真实案例网格（灵感发现 / 43 个案例 / 做同款）**保留在它下面**：
-               那是上一轮用户确认过的能力，本轮的原话是"把原来那块挪过来"，
-               没有一句说要删——删掉它等于回退一个已交付的功能。
-               两块的分工：上面讲"这个板块能给你什么"（原版式），下面给"别人做出来的长什么样"（真实案例）。 */}
-        {!isXHS && (
-          <div className="homepage-shell" style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 20px 0' }}>
-            <CreationShowcase mode={isVideo ? 'video' : isVisual ? 'visual' : 'ecommerce'} />
-          </div>
-        )}
+        {/* ═══ 批 T（2026-09-21）：首页这一整块「案例表达区」**删除**（用户本轮原话，逐字）══════
+            原话：「然后在下面这块：视频生成案例 / 从参考素材到可确认的成片方案 / 一句话描述镜头目标，
+            系统先整理素材、节奏和交付规格，再进入生成。 / 视频创作 / 真实生成结果 / 案例仅用于展示能力 /
+            素材分析 / 镜头方案 / 确认生成 这块**整体删掉，不要放这里**。」
+            为什么删了不算丢功能：批 J-⑨ 当初把它搬回首页，是为了落实用户上一轮那句
+            「你可以直接把**那一整个的板块拿过来，放到这下面的预览区里面去**呀」——
+            落点是「**skill 按钮的悬停预览窗**」，而那一份早就搬进去了（SkillEntryRow 的
+            .skill-preview：左介绍 + 右案例图，用的就是同一份素材）。首页再摆一份 =
+            同一句话在一屏里说两遍，而且把真实案例网格（GallerySection）推得很远。
+            ⚠️ 组件本身**没有删**：小红书图文模式（XhsContentMode）仍在用它，那边是它的正确位置。 */}
 
         {/* 案例发现区：真实案例网格 */}
         <GallerySection maxItems={48} onUseSameStyle={restoreGalleryCheckpoint} />

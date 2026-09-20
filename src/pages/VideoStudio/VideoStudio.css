@@ -106,6 +106,17 @@
 .video-composer.is-fullscreen { height: 100vh; overflow-y: auto; padding: 18px 0 40px; background: var(--sb-surface-page); }
 
 .video-media-deck { min-height: 120px; display: flex; align-items: stretch; gap: 11px; overflow-x: auto; overflow-y: hidden; padding: 3px 2px 7px; scrollbar-width: thin; scrollbar-color: rgba(91,75,61,.22) transparent; }
+/* ═══ 批 T（2026-09-21）：首尾帧那两张**歪卡**不再被容器裁掉（用户本轮原话，逐字）══════════
+   原话：「你再看一下图五。你现在这两张**上传素材的卡片，他们的周边是有边框，会截断卡片样式**的。
+   你这个问题也是要解决掉呀。」
+   根因（CDP 实测，.tmp/recon-framecards.json）：容器 .video-media-deck 是 `overflow: auto hidden`
+   —— 横向可滚、**纵向裁切**；而这两张卡各转了 ±5°（批 I-⑥ 照图片侧那对歪卡），
+   旋转后的外接矩形比卡片本身高：145×123 转 5° → 高 135（+23），
+   容器内容区只有 112（122 减上下内边距 3+7）⇒ 上下各被切掉约 11px，
+   看起来就是"卡片被外框截断"。图片侧那对歪卡不会：它的条带没有纵向裁切。
+   ⇒ 给这一档补足容纳旋转外接矩形的余量（内容区 112 → 136：上 14 / 下 16），
+     不关掉 overflow —— 关掉会让卡片在窄屏下溢出到相邻区块上面。 */
+.video-media-deck.is-frame { padding: 14px 2px 16px; }
 .video-media-deck.is-empty { align-items: center; }
 .video-media-deck.is-frame { align-items: stretch; }
 /* ═══ 首尾帧两张卡的 ±5° 对称歪（2026-09-19 批 I-⑥，用户批注 #1-5 / #2-1）══════════════
@@ -273,8 +284,17 @@
 /* 9-11 三轮: 模型控件与其它配置按钮同款 (两行 + 同高) */
 .video-config-trigger.is-model { min-width: 210px; }
 .video-inline-control { position: relative; display: inline-flex; }
-/* 9-12 用户批注：展开面板左侧被截断 → 回到「贴着触发按钮、在其正上方」的定位（不再水平居中） */
-.video-inline-menu { position: absolute; z-index: 8; left: 0; bottom: calc(100% + 8px); width: min(330px,calc(100vw - 36px)); max-height: min(58vh, 460px); overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 12px; background: var(--sb-surface-panel-solid); box-shadow: 0 15px 40px rgba(45,33,24,.16); }
+/* ═══ 批 T（2026-09-21）：模型菜单改为**居中于按钮上方**的视口浮层（用户本轮原话，逐字）══════
+   原话：「你现在这些张开的面板是会打架的……而且他们是**可以超出这些输入框的界限**的。
+   你必须让这些向上张开的配置面板，他们要**居中于按钮的上方**。」
+   ⚠️ 这条**推翻了 9-12 那条判据**（原文写在下面）：那时的写法是 `left: 0`、贴按钮左缘展开，
+      理由是"水平居中会让左侧被视口截断"。截断的真实原因是当时它是 absolute 元素、
+      被 `.video-composer { overflow: hidden }` 裁掉 —— 那是**定位方式的错**，不是居中的错。
+      本轮的解法：改 `position: fixed`（已实测祖先链上无 transform/filter，不会被裁），
+      坐标由 positionModelMenu 按按钮矩形算并夹在视口 12px 安全边内 —— 既居中又不会被截断。
+      门禁 test/video-model-menu-0912 的对应断言随本轮用户口径一并更新（那里写了依据）。
+   旧值留档：position: absolute; z-index: 8; left: 0; bottom: calc(100% + 8px)。 */
+.video-inline-menu { position: fixed; z-index: 90; max-height: min(58vh, 460px); overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 12px; background: var(--sb-surface-panel-solid); box-shadow: 0 15px 40px rgba(45,33,24,.16); }
 .video-inline-menu > strong { display: block; padding: 5px 7px 8px; color: #8d857d; font-size: 10px; }
 .video-inline-menu > button { width: 100%; min-height: 42px; padding: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-radius: 8px; background: transparent; color: #3c3732; text-align: left; cursor: pointer; }
 .video-inline-menu > button:hover,.video-inline-menu > button.is-selected { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
@@ -424,7 +444,10 @@
 .video-config-panel > header div { display: grid; gap: 3px; }
 .video-config-panel > header strong { font-size: 16px; }
 .video-config-panel > header small { color: #9a928a; font-size: 11px; }
-.video-config-panel-body { padding: 17px 18px 20px; }
+/* 面板内边距：批 T 从 17/18/20 改成 **25 四周**（照知渔 dashboard 那张面板实测的 24.8）——
+   它同时让「3 张 150 宽的比例卡 + 2 条 10 的缝 = 470」正好落在面板内宽里（521 − 2×25 = 471），
+   两边的数是互相咬合的，改一个另一个就不成立。 */
+.video-config-panel-body { padding: 25px; }
 
 .video-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .video-mode-grid button { min-height: 82px; padding: 13px; display: grid; align-content: center; gap: 6px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; text-align: left; cursor: pointer; }
@@ -438,18 +461,84 @@
 .video-panel-section > strong,.video-panel-section-title strong { font-size: 13px; }
 .video-panel-section-title { display: flex; align-items: center; justify-content: space-between; }
 .video-panel-section-title span { color: var(--sb-brand-600); font-size: 12px; font-weight: 800; }
-.video-ratio-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 7px; }
-.video-ratio-grid button { min-height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; color: #68615a; font: 700 11px/1 inherit; cursor: pointer; }
+.video-ratio-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 7px; }.video-ratio-grid button { min-height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; color: #68615a; font: 700 11px/1 inherit; cursor: pointer; }
 .video-ratio-grid button.is-selected { border-color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .video-ratio-grid i { width: 18px; max-height: 24px; border: 2px solid currentColor; border-radius: 4px; }
 .video-duration-range { width: 100%; accent-color: var(--sb-brand-600); }
 .video-range-labels { display: flex; justify-content: space-between; color: #aaa29a; font-size: 10px; }
-.video-resolution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.video-resolution-grid button { min-height: 66px; padding: 10px 13px; display: grid; gap: 4px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; text-align: left; cursor: pointer; }
+.video-resolution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }.video-resolution-grid button { min-height: 66px; padding: 10px 13px; display: grid; gap: 4px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; text-align: left; cursor: pointer; }
 .video-resolution-grid button.is-selected { border-color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .video-resolution-grid b { font-size: 14px; }
 .video-resolution-grid span { color: #928a82; font-size: 11px; }
 .video-sound-choice { width: 100%; min-height: 74px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(64,55,48,.1); border-radius: 12px; background: #faf9f7; cursor: pointer; }
+
+/* ═══ 批 T（2026-09-21）：技能子页面左栏的**吸底条**（用户本轮原话，逐字）══════════════════
+   原话（对着我上一批报的那条差异）：「**吸底条抄他们的吧**」。
+   实测知渔 /store-visit-video（落档 .tmp/sticky-compare.txt）：左栏滚动 0 → 820 → 913 的过程中，
+   「模型 + 视频设置 + CTA」始终停在 y=867 / 944 不动（elementFromPoint 一直命中按钮本体）；
+   我们原来是整列一起滚 —— CTA 要到 y=1449~1599，滚到底才看得见。
+   ⚠️ **不要用 position: sticky**（我第一版就是那么写的，实测不成立）：sticky 只能在父元素的
+      内容盒里挪动，而工具栏是 .video-composer 的最后一个子节点，底边本就贴着内容盒底边 ——
+      没有可挪余量；补占位后它在**开头**被拉进视口、一旦往下滚就跟着内容飘走（实测 790 → 440），
+      因为 sticky 的 bottom 只能"把已经在视口下方的东西拉上来"，不能"把要飘走的东西按住"。
+   ⇒ 改用知渔那套**真结构**（纯 CSS 可达，不动组件协议）：
+      左栏（.media-workbench-left）flex 列、不滚
+        └ 面板（.media-workbench-panel）撑满剩余高度
+            └ .video-composer.is-workbench  flex 列、100% 高
+                ├ .video-content-composer.is-workbench  **唯一滚动区**（flex:1 + overflow-y:auto）
+                └ .video-toolbar                       恒在底部（flex:0 0 auto）
+      —— 这样"滚动的是内容、不动的是底栏"，与知渔同一种行为，也顺带解决了长表单里
+         CTA 要滚到底才找得到的问题。
+   旧值留档（第一版的错误做法）：.video-composer.is-workbench > .video-toolbar
+      { position: sticky; bottom: 0 } + .video-composer.is-workbench::after { height: 220px }。 */
+.video-composer.is-workbench {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+.video-content-composer.is-workbench {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.video-composer.is-workbench > .video-toolbar {
+  flex: 0 0 auto;
+  background: var(--sb-neutral-0);
+  border-top: 1px solid rgba(28, 25, 23, .08);
+  padding-bottom: 12px;
+}
+
+/* ═══ 批 T（2026-09-21）：生成设置的三组控件**照知渔 dashboard 那张面板**（用户指着图八说照抄）═════
+   逐值来源（CDP 实测，.tmp/qy-settings-report.txt；20 分之一像素的那个值来自 Tailwind 的 rem 换算，
+   这里取整到 1px —— 视觉上无差，别为了"逐位相同"去写 14.88px 这种假精度）：
+     分辨率药丸：**230×45**（两枚等宽，间距 10）/ 圆角 15 / 文字 16px·500
+                 选中 = #f0f0f0 底 + 1px 深描边；未选中 = #f5f5f5 底 + 1px 浅描边
+     比例卡片：  **150×61**（3 列 × 2 行，间距 10）/ 圆角 15 / 卡内上图形下文案（13.6px·400）
+     视频时长：  滑块 + 数字框（40×26）+ 单位 s，**不铺刻度文案**
+   颜色走我们自己的 token（抄机制不抄长相 —— 本站一贯纪律），几何照抄。 */
+.video-resolution-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.video-resolution-pills button {
+  min-height: 45px; padding: 10px; border: 1px solid rgba(64,55,48,.12); border-radius: 15px;
+  background: #f5f5f5; color: var(--sb-ink-1); font-size: 16px; font-weight: 500; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.video-resolution-pills button:hover:not(:disabled):not(.is-selected) { background: var(--sb-surface-tint-strong); }
+.video-resolution-pills button.is-selected { border-color: var(--sb-ink-1); background: #f0f0f0; }
+.video-ratio-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.video-ratio-cards button {
+  min-height: 61px; padding: 10px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid rgba(64,55,48,.12); border-radius: 15px; background: #f5f5f5; color: #333; font-size: 13.5px; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.video-ratio-cards button:hover:not(:disabled):not(.is-selected) { background: var(--sb-surface-tint-strong); }
+.video-ratio-cards button.is-selected { border-color: var(--sb-ink-1); background: #f0f0f0; color: var(--sb-ink-1); }
+.video-ratio-cards i { width: 20px; max-height: 22px; border: 2px solid currentColor; border-radius: 4px; }
+.video-duration-inline { display: flex; align-items: center; gap: 10px; }
+.video-duration-inline .video-duration-range { flex: 1 1 auto; min-width: 0; }
+.video-duration-number { width: 48px; min-height: 26px; padding: 2px 6px; border: 1px solid rgba(64,55,48,.12); border-radius: 8px; background: var(--sb-neutral-0); color: var(--sb-ink-1); font-size: 16px; font-weight: 500; text-align: center; }
+.video-duration-inline > span { color: var(--sb-ink-2); font-size: 15px; }
 .video-sound-choice > span { display: grid; grid-template-columns: auto 1fr; gap: 3px 9px; text-align: left; }
 .video-sound-choice svg { grid-row: 1/3; align-self: center; color: #756d65; }
 .video-sound-choice strong { font-size: 13px; }
@@ -588,6 +677,52 @@
   border: 1px solid var(--sb-border-default);
   border-radius: 12px;
   box-shadow: var(--sb-shadow-sm);
+}
+
+/* ═══ 批 T（2026-09-21）：**暖色渐变面只包"素材 + 输入"**，标题与底部参数栏移到它外面 ═══════
+   用户原话（本轮，逐字）：「你现在首页的这个视频生成和图片生成的整块区域，现在样式都是没有对齐的。
+   我都跟你说过很多次了，你这个视频生成的 UI 要去照搬这个图片生成这边的 UI 去做呀。你现在连
+   **什么东西是包着什么东西的**，然后他们之间的**间距**，他们的**样式**你都没有抄到位呀。然后
+   **哪些按钮是在黄色渐变区的外面，哪些样式是包含在里面的**，你现在其实都没有搞明白，你知道吗？
+   你必须要按照我的要求去把他们尽可能的视觉方案要统一呀。」
+   实测对账（2048 视口，CDP 逐元素读计算样式）：
+     | | 图片侧 .visual-creation | 视频侧（改前） |
+     |---|---|---|
+     | 标题 | **在黄区外面**（heading y=452，黄区从 y=544 起） | 在黄区**里面**（heading y=453，黄区从 452 起） |
+     | 黄区包住的东西 | 素材条 + 提示词 + @ 行 | 标题 + 创作方式页签 + 素材 + 提示词 + **模型/生成设置/CTA** |
+     | 模型·规格·CTA | **在黄区外面**（白底 .visual-parameter-bar，y=854，自带 1px 上边框） | 在黄区**里面**（.video-toolbar y=1010，而黄区一直到 1088） |
+   ⇒ 视频侧照图片侧重排成四段：
+     [标题] → [创作方式页签] → [**暖色面**：素材 + 输入] → [参数栏：模型 / 生成设置 / CTA（白底 + 上边框）]
+   ⚠️ 只改**非 workbenchMode** 的那条分支（首页 + 独立创作台）。技能子页面走
+      .video-composer.is-workbench，仍然保持"整块一个暖色盒"（那是批 Q-⑥ 照知渔子页面收口过的样子，
+      两组判据说的是两件事，不要互相推翻）。 */
+.video-studio-page.is-embedded .video-composer:not(.is-workbench) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  overflow: visible;
+}
+.video-composer:not(.is-workbench) { background: none; overflow: visible; }
+/* 暖色面：渐变与圆角逐值复用图片侧那条（本文件第 41-47 行记录的就是照它抄来的那条） */
+.video-composer-surface {
+  padding: 14px 22px 12px;
+  border: 1px solid rgba(52, 43, 35, .08);
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, var(--sb-neutral-0) 79%, var(--sb-neutral-0) 100%);
+  box-shadow: 0 18px 52px rgba(67, 48, 31, .09);
+}
+/* 面内的两块**贴边**：它们原来各自带 22px 外边距（那是"外层盒还要让开一圈"的写法），
+   现在那一圈由 .video-composer-surface 自己的内边距给，再留外边距就成了双层缩进。 */
+.video-composer-surface .video-materials { margin: 0; }
+.video-composer-surface .video-composer-input { padding: 0; }
+/* 参数栏回到白底 + 上边框（与图片侧 .visual-parameter-bar 同一条语言：min-height 79 / 12px 2px 14px） */
+.video-composer:not(.is-workbench) > .video-toolbar {
+  min-height: 79px;
+  padding: 12px 22px 14px;
+  background: var(--sb-neutral-0);
+  border-top: 1px solid rgba(28, 25, 23, .08);
 }
 /* ═══ 2026-09-19 用户批注 #1-①：创作方式必须是**窄按钮**，不是一条宽框 ═══════════════════
    原话：「你的智能成片和你这个首尾帧的设计是不对的。就是你这个背景怎么会是一条这么宽的框呢？

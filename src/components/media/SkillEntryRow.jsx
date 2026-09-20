@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, Play, Sparkles } from 'lucide-react';
-import { availabilityLabel, coverOf } from '../../skills/skillDirectory.js';
+import { coverOf } from '../../skills/skillDirectory.js';
 import './SkillEntryRow.css';
 
 /* ═══ SkillEntryRow：精选技能**按钮**行 + 悬停预览窗（2026-09-19 用户批注 #3 / #4）═══════
@@ -151,13 +151,20 @@ export default function SkillEntryRow({
       </header>
 
       <div className="skill-entry-buttons">
-        {list.map(skill => {
+        {list.map((skill, index) => {
           const preview = coverOf(skill);
-          const flag = availabilityLabel(skill);
           const isOpen = activeId === skill.id;
+          /* ═══ 批 T（2026-09-21）：**两行均分**的断行点 ═══════════════════════════════════════
+             按钮在本轮改成"宽度随内容"（用户：「再做挤一些」），于是 9 颗挤进了第一行、
+             第二行只剩 1 颗（e2e 当场报 `[8,1]`）——那是明显的版式事故，不是"更紧凑"。
+             这里在**中间**插一个占满整行的断点，让两行尽量均分：9 → 5+4、8 → 4+4。
+             用户批 M 数过的就是"上 5 下 4"（flova 的 9 颗也是这个形状），这条判据没变，
+             变的是"用什么保证它"：从 min-width 撑宽（会造成大量空白）换成显式断行。
+             ⚠️ 只有一行放得下时才不断（≤4 颗）：硬断会把 3 颗切成 2+1。 */
+          const breakAfter = list.length > 4 ? Math.ceil(list.length / 2) - 1 : -1;
           return (
+            <React.Fragment key={skill.id}>
             <button
-              key={skill.id}
               type="button"
               ref={node => { if (isOpen) activeRef.current = node; }}
               className={'skill-entry-button' + (isOpen ? ' is-open' : '')}
@@ -174,12 +181,21 @@ export default function SkillEntryRow({
                   : <Play size={16} />}
               </span>
               <span className="skill-entry-name">{skill.name}</span>
-              {flag && <span className="skill-entry-flag">{flag}</span>}
+              {/* ═══ 批 T（2026-09-21）：这里原来挂着一颗「需参考素材」角标 —— **整块删除** ═══════
+                  用户本轮原话（逐字）：「然后你这些设置面板下面的这 9 个案例按钮。
+                  他们**不需要写这个，需参考素材这几个字**呀，而且他们这些按钮里面的样式
+                  做的也不够好……你要再做挤一些呀。」
+                  ⚠️ 信息没有隐瞒：这条技能要参考图这件事，进它自己的子页面后会在字段说明里
+                     写得更清楚（那才是用户真正需要看到它的地方）；而挂在按钮左上角探出去的
+                     那颗角标，正是用户上一次说的"按钮被边框截断"的同源问题。
+                  ⚠️ availabilityLabel 没有删 —— 总页面的技能卡片（MediaHub）仍照常渲染它。 */}
               {/* 遮罩（批 J-⑦）：覆盖整块按钮的毛玻璃层，试一试居中落在它上面。
                   ⚠️ aria-hidden：按钮自己的 aria-label 里已经有「· 试一试」，
                      这里再读一遍就是同一句话说两次。 */}
               <span className="skill-entry-try" aria-hidden="true">试一试<ArrowRight size={14} /></span>
             </button>
+            {index === breakAfter && <span className="skill-entry-break" aria-hidden="true" />}
+            </React.Fragment>
           );
         })}
       </div>

@@ -96,6 +96,29 @@
   letter-spacing: 0.03em;
 }
 
+/* ═══ 批 T（2026-09-21）：品牌标改成**上 LOGO 下文字**，并且只占左侧图标栏那一列 ═════════
+   用户原话：「我们现在首页左上角的薯包 AI 和 LOGO 是**出界的**，你应该做成**上面 LOGO
+   下面文字**呀，然后**左边导航栏往下挪**呀。」
+   实测（2048 视口，改前）：横排 [42×42 标] + gap16 + [薯包 AI 24px] —— 字标右边缘到 **x=167**，
+   而左侧图标栏只有 **0..96** ⇒ 文字**越界 71px** 压进内容区，和页面内容抢同一条基线。
+   ⇒ 竖向堆叠；整组宽度就是那一列的宽度（96），水平居中在 x=48 ——
+     与下面每一格（9..87）的中线是同一条；顶栏因此变高，图标栏首格下移（见 app-sidebar.css
+     的 .app-sidebar-scroll padding-top），两者不再挤在一起。
+   ⚠️ 这里写死 96 而不是用 --sb-app-sidebar-w：画布页的外壳是 .app-frame 且**不渲染侧栏**，
+     那个变量在那边是 0，用变量会把这一格压成 0 宽。 */
+.topbar-brand {
+  width: 96px;
+  height: auto;
+  /* 抵消 .topbar-row 的 24px 内边距：这一格要从 x=0 起，才能与图标栏那 96px 对齐 */
+  margin-left: -24px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.topbar-brand-mark { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px; }
+.topbar-logo { font-size: 13px; font-weight: 800; letter-spacing: 0.02em; }
+
 .topbar-actions {
   display: flex;
   flex-shrink: 0;

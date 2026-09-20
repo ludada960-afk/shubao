@@ -734,6 +734,26 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
    容器比它窄就溢出，而 .video-composer 是 overflow:hidden ⇒ **右端会被裁掉**。
    用**容器查询**而不是视口媒体查询：这里的约束是"栏有多宽"，不是"屏幕有多宽"。 */
 .media-workbench-panel { min-width: 0; container-type: inline-size; }
+
+/* ═══ 批 T（2026-09-21）：左栏改成**「内容滚动 + 底栏钉住」**（用户：「吸底条抄他们的吧」）════════
+   知渔 /store-visit-video 实测：左栏滚动时「模型 + 视频设置 + CTA」不动（.tmp/sticky-compare.txt）。
+   要做到同一件事，左栏的网格行必须是 **auto + 1fr**：技能信息卡按内容高、工作台面板吃掉剩下的高度 ——
+   面板这才有一个**确定的高度**可以内部滚动；否则面板高度=内容高，滚动条就跑到整个左栏上去了。
+   这是"吸底条"的前半截，后半截在 VideoStudio.css 的 .video-composer.is-workbench
+   （flex 列：内容区 flex:1 滚动、工具栏 flex:0 0 auto 常驻）。
+   ⚠️ 只影响视频工作台那一支：图片侧左栏是普通表单流（没有"底栏"这个概念），用 :has() 精确限定。 */
+.media-workbench-left.is-head-only { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-content: stretch; gap: 16px; }
+.media-workbench-left.is-head-only > .media-workbench-panel:has(.video-content-composer.is-workbench) { min-height: 0; }
+/* ⚠️ 高度链必须一路传下去，断一环 `height: 100%` 就无从解析（实测踩到）：
+   .media-workbench-panel（定高）→ 它的直接子节点（.video-studio-page）→ .video-composer →
+   .video-content-composer（真正的滚动区）。中间那一层是内容高的话，链就断了，
+   滚动条会重新跑到整个左栏上，"底栏不动"也就不成立。 */
+.media-workbench-left.is-head-only > .media-workbench-panel:has(.video-content-composer.is-workbench) > * { height: 100%; }
+/* ⚠️ 左栏本身必须**继续可滚**（我试过 overflow: hidden，结果把面板下面那块「生成记录/成片台」
+   一起裁掉、用户再也到不了 —— 实测发现后立刻回退）。
+   所以这里的结论是：**底栏在面板内钉住**（滚动的是工作台内容），
+   而整个左栏仍可滚（去够下面的生成记录）—— 与知渔 /content-replace 那一页的行为一致
+   （他们也只有 /store-visit-video 是整栏钉死的，两种做法在他们站内并存）。 */
 @container (max-width: 900px) {
   .video-toolbar { flex-direction: column; align-items: stretch; }
   .video-toolbar-controls { flex-wrap: wrap; }

@@ -305,15 +305,16 @@ test("⑨ 未上架的视频模型：可见但不可选（只读清单 + 非按�
       "只读清单不许带 " + productField + " —— 带了就等于给前端留了一条能提交的路");
   }
   assert.match(generation, /unavailableProducts: registry\.unavailableProducts\(\),/);
-  /* ② 客户端：渲染成说明（<p>），不是按钮 */
-  assert.match(page, /capabilities\.unavailableProducts/);
-  /* 切片的起点要用**整段开标签**：用类名本身去 indexOf 会命中标签内部，
-     slice 之后就少了 <p className= 这一段，断言会误报（这一条就是这么写错又被抓出来的）。 */
-  const noteStart = page.indexOf('<p className="video-model-unavailable">');
-  assert.ok(noteStart > 0, "必须有一段 video-model-unavailable 的说明");
-  const note = page.slice(noteStart, noteStart + 420);
-  assert.match(note, /<p className="video-model-unavailable">/, "必须渲染成 <p>，不能是 button");
-  assert.doesNotMatch(note, /<button/, "未上架的模型不许做成可点按钮（点了会失败）");
-  /* ③ 样式：中性说明行、不可点 */
-  assert.match(styles, /\.video-model-unavailable \{[^}]*cursor: default;/);
+  /* ② 客户端：**不再渲染那一行说明**（2026-09-21 批 T 改判，依据用户本轮原话）═════════════════
+     用户原话（逐字）：「你这些视频生成模型下面的这句：另外 4 个模型暂不可选：Grok 极速（上游已下架
+     该模型）、可灵 3.0（上游已下架该模型）、可灵 3.0 Pro（上游已下架该模型）、Veo 3.1 Fast
+     （上游已下架该模型）**没有必要展示啊，要把它删掉**。」
+     ⇒ 上一版那条「必须有一段 video-model-unavailable 的说明」是批 H-7 立的，
+       背景是用户当时问"模型为什么都不见了"，所以补一行实话解释；
+       现在这些模型已从目录下架干净，再挂一串"暂不可选 + 上游已下架"是对用户无用的内部账。
+     ⚠️ **"不许做成可点按钮"这条判据没有放宽**（那才是钱路红线）：
+        服务端仍然不返回可提交字段（下面 ① 的断言一个字没动），前端也一个字都不再渲染它 ——
+        "没渲染"比"渲染成不可点的 <p>"更强。 */
+  assert.doesNotMatch(page, /video-model-unavailable/, '不再渲染未上架模型那一行说明（用户本轮要求删掉）');
+  assert.doesNotMatch(page, /capabilities\.unavailableProducts/, '前端不再消费那份清单（服务端仍保留，老任务可读）');
 });

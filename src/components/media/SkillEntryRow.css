@@ -7,14 +7,20 @@
      他们的浮窗是单栏层叠的深色卡（340×255）；
      用户明确要求浮窗里用**我们自己的**左介绍 + 右案例图版式 —— 照用户口径做。 */
 
-.skill-entry-row { display: flex; flex-direction: column; gap: 16px; }
+.skill-entry-row { display: flex; flex-direction: column; gap: 22px; }
 
 /* ═══ 批 J-⑧：分类页签与「更多 skill」**同一行的两头**（用户批注 #4-3）═══════════════════
    用户原话：「flova 他们是放在**skill的分类这个地方的右边有个更多skill的按钮**。」
    改前是两行（标题一行放"更多"，分类另一行）；现在标题那行整块删掉，
-   换成这一行：左边分类页签、右边「更多 skill」。 */
-.skill-entry-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.skill-entry-nav .skill-entry-categories { flex: 1 1 auto; min-width: 0; }
+   换成这一行：左边分类页签、右边「更多 skill」。
+   ═══ 批 T（2026-09-21）：**整行居中**（用户本轮原话，逐字）══════════════════════════════
+   原话：「然后上面的标签页：全部 / 精品推荐 / 热门玩法 / 人像摄影 / 创意应用 / 建筑家装 / 电商专区 /
+   查看全部视频技能 这些应该**尽可能居中**呀。而且他们都基本上**贴到上面的提示词输入区**了。
+   你为什么不保持一些**上下间距**呢？」
+   ⇒ 从 space-between（标签靠左、更多靠右）改成 **center**：标签与「查看全部…技能」
+     作为一个整体居中；上下间距由 .skill-entry-row 的 gap(22) 与首页那一层的 padding-top(34) 给。 */
+.skill-entry-nav { display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.skill-entry-nav .skill-entry-categories { flex: 0 1 auto; min-width: 0; }
 .skill-entry-more {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 6px;
@@ -81,7 +87,11 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;   /* 批 M：11 → 10（flova 实测行内/行间都是 10） */
+  /* ═══ 批 T（2026-09-21）：间距 10 → **12**（用户本轮原话）═════════════════════════════════
+     原话：「你现在**下面的按钮之间间距都不统一**，而且要**稍微有些呼吸感**啊。」
+     ⚠️ 上一条判据（批 M 的 11→10）来自 flova 实测，本轮用户对着 liuyingai 的版式提要求，
+        以用户口径为准：间距统一到 12，横竖同值（不再横 12 竖 10）。 */
+  gap: 12px;
   padding: 4px 2px 10px;
 }
 
@@ -98,17 +108,19 @@
      宽度随文案（170–220），两行居中。
      ⇒ 我们原来是 60 高、图标 44 —— 这两条按他们的数改；宽度仍是内容宽（我们文案更短）。 */
   min-height: 54px;
-  /* 批 L-4：宽度随内容（照 flova 实测：他们按钮 170–242 不等），不再被栅格拉到列宽。
-     min-width 200 同时**保证一排正好 5 颗**（5×200 + 4×11 = 1044 ≤ 1240 容器；
-     6 颗要 1255 就折行）—— 用户 J-⑦ 数过的那句「上面 5 个、下面 3 个」因此仍然成立，
-     而整排是**居中**的（L-4 要的那一条）。 */
+  /* ═══ 批 T（2026-09-21）：**去掉 min-width: 200px**（用户本轮原话，逐字）═════════════════════
+     原话：「而且他们这些按钮里面的样式做的也不够好。左边是图片，右边是文字，我觉得虽然这个布局
+     是可以，但是你应该**再做的紧凑些**呀，就是你右边的这些文字，他们的**左右两边都有大量的空白**，
+     你要**再做挤一些**呀。」
+     200 是批 L-4 为了让"一排正好 5 颗"而写的**最小宽度**——它正是那两片空白的来源：
+     四个汉字的技能名 ≈ 56px，却要占满 200px 的胶囊。
+     ⇒ 宽度回到**内容宽**（与 flova 实测的 170–242 同一个做法：他们的按钮也是宽窄不一的），
+       整排仍然居中（.skill-entry-buttons 的 justify-content: center 没动）。 */
   width: auto;
-  min-width: 200px;
   /* ⚠️ 批 J-⑦：右边那 38px 原来是给「试一试」小药丸让位用的 —— 现在它是**整块遮罩**，
-     不再占位，所以右内边距收回 12px（名字因此能多显示两个字）。 */
-  /* 上下 6（不是 8）：图标 40 + 上下各 6 + 描边 2 = **54**，与 flova 实测的胶囊高度逐值相同。
-     左右比他们的 padding:0 稍宽一点 —— 我们文案更短，纯 0 会让图标贴着边。 */
-  padding: 6px 12px 6px 8px;
+     不再占位，所以右内边距收回 12px（名字因此能多显示两个字）。
+     批 T：左右再各收紧 3px（用户"再做挤一些"），图标与文字间距保持 10。 */
+  padding: 6px 10px 6px 7px;
   border: 1px solid var(--sb-border-default);
   border-radius: 14px;
   background: var(--sb-surface-card);
@@ -118,13 +130,52 @@
   scroll-snap-align: start;
   /* ⚠️ 悬停**不改 transform**（flova 实测按钮零位移）——
      浮窗是相对按钮位置算的，按钮一动浮窗就会跟着抖。 */
-  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, color .3s cubic-bezier(.4,0,.2,1);
 }
+
+/* ═══ 批 T（2026-09-21）：悬停特效照 **liuyingai.cn「技术亮点」卡片**逐项抄（CDP 实测）══════
+   用户原话（逐字）：「我之前一直叫你去抄这家的做法：https://liuyingai.cn/ …… 人家现在不仅是
+   鼠标放上去有**下面那个充能条**的特效，他们还有**图标渐变和放大**的效果，**文字也会跟着变色**，
+   **按钮块的背景色也会变色**的，这些细节你要抄明白啊，而且你完全可以鼠标放上去看看是怎么样的，
+   不能纯靠我描述给你啊。」
+   实测（.tmp/recon-liuying2.json，真鼠标事件触达 :hover 后读计算样式）：
+     | 元素 | 常态 | 悬停 | 过渡 |
+     |---|---|---|---|
+     | 卡片 | bg #ffffff | bg #f5f7fa | all 500ms cubic-bezier(.4,0,.2,1) |
+     | 图标框 56×56 圆角16 描边0.8 | bg #f5f7fa | **scale(1.05)** + linear-gradient(135deg,#0076f5,#7d28cc) + 描边透明 | all 500ms |
+     | 图标 | 品牌色 | **#fff** | colors 500ms |
+     | 卡片标题 | #0a1a29 | **品牌色** | colors 500ms |
+     | 描述 | 次要墨色 | 近黑 90% | colors 150ms |
+     | **充能条** 4px 贴底 | 宽 0 | **宽 100%**，linear-gradient(90deg, 品牌 → 紫) | all 700ms |
+   ⚠️ 我们与他们的两处必须保留的差别（不是没抄）：
+     ① 底色/文字色走**我们自己的 --sb-* token**（本站铁律：抄机制不抄长相）；
+     ② 我们这颗按钮悬停时还有一层**毛玻璃遮罩 + 「试一试」**（用户批 J-⑦ 点名要的 flova 做法，
+        门禁 test/skill-entry-row-0918 钉着）—— 所以**图标磁贴与充能条走 z-index 抬到遮罩之上**，
+        否则用户要的"图标渐变 + 充能条"会被那层玻璃糊掉（那才是真的没抄到位）。 */
 .skill-entry-button:hover,
 .skill-entry-button.is-open {
   border-color: var(--sb-state-selected-line);
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-brand);
   box-shadow: 0 10px 26px rgba(15, 23, 42, .12), 0 0 0 1px var(--sb-state-selected-line);
 }
+/* 充能条：贴底 4px，宽 0 → 100%（liuyingai 实测 700ms） */
+.skill-entry-button::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 0;
+  height: 4px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(90deg, var(--sb-brand-600), var(--sb-brand-700));
+  transition: width .7s cubic-bezier(.4, 0, .2, 1);
+  pointer-events: none;
+}
+.skill-entry-button:hover::after,
+.skill-entry-button.is-open::after,
+.skill-entry-button:focus-visible::after { width: 100%; }
 .skill-entry-button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
 .skill-entry-glyph {
@@ -138,22 +189,39 @@
   border-radius: 6px;
   background: var(--sb-surface-tint-strong);
   color: var(--sb-ink-2);
+  /* 批 T：图标磁贴**抬到遮罩之上**（见上面那张实测表的说明） */
+  position: relative;
+  z-index: 2;
+  transition: transform .5s cubic-bezier(.4, 0, .2, 1), background-color .5s cubic-bezier(.4, 0, .2, 1), color .5s cubic-bezier(.4, 0, .2, 1);
 }
 .skill-entry-glyph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 图标磁贴：悬停放大 1.05 + 品牌色底 + 图标转白（liuyingai 逐值：scale 1.05 / 500ms） */
+.skill-entry-button:hover .skill-entry-glyph,
+.skill-entry-button.is-open .skill-entry-glyph {
+  transform: scale(1.05);
+  background: var(--sb-brand-600);
+  color: var(--sb-neutral-0);
+}
+/* 有封面图时不铺品牌底（那会把封面盖掉）—— 只保留放大 */
+.skill-entry-button:hover .skill-entry-glyph:has(img),
+.skill-entry-button.is-open .skill-entry-glyph:has(img) { background: var(--sb-surface-tint-strong); }
 
-/* 左图右文里的"文"：占满剩余宽度、放不下就省略号（栅格列宽固定，不许把按钮撑破）。 */
+/* 左图右文里的"文"：占满剩余宽度、放不下就省略号。
+   批 T：不再 flex:1 撑满（那会重新制造两片空白）—— 宽度随文字，胶囊因此紧凑。 */
 .skill-entry-name {
-  flex: 1 1 auto; min-width: 0;
+  flex: 0 1 auto; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 14px; font-weight: 700;
+  transition: color .5s cubic-bezier(.4, 0, .2, 1);
 }
-.skill-entry-flag {
-  position: absolute; top: -7px; left: 12px;
-  padding: 1px 7px; border-radius: 999px;
-  background: var(--sb-surface-card); color: var(--sb-ink-2);
-  border: 1px solid var(--sb-border-default);
-  font-size: 10px; font-weight: 800;
-}
+/* ═══ 批 T（2026-09-21）：两行之间的**显式断行点** ═════════════════════════════════════════
+   按钮改成"宽度随内容"之后，9 颗会挤进第一行、第二行只剩 1 颗（e2e 实测报 `[8,1]`）。
+   与用户批 M 数过的「上 5 下 4」冲突，也不是"更紧凑"该有的样子。
+   ⇒ 在中间插一个占满整行的零高断点（9 → 5+4、8 → 4+4），两行各自居中的规则不变。 */
+.skill-entry-break { flex-basis: 100%; height: 0; width: 0; }
+
+/* 批 T：「需参考素材」角标（.skill-entry-flag）随用户本轮批注**整条删除**，不留死 CSS ——
+   它渲染的那句话已经不在页面上了（说明写在 SkillEntryRow.jsx 的对应位置）。 */
 
 /* ═══ 2026-09-19 批 J-⑦：悬停出现的是**遮罩**，试一试就在遮罩上 ═════════════════════════
    用户原话（批注 #3-3）：「他们是左边有图片，右边是文字，然后**鼠标放上去才会出现那个遮罩，

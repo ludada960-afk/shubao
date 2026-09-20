@@ -113,6 +113,16 @@ const FINAL = new Set(['completed', 'failed', 'needs_review']);
 /* 方案分析固定 1 积分（与计费 SKU video_plan_analysis 一致），显示在按钮上而不是写死在说明里 */
 const ANALYSIS_POINTS = 1;
 
+/* ═══ 批 T（2026-09-21）：暖色渐变面的**条件外壳**（照图片侧的包覆关系）════════════════════
+   为什么单独抽一个组件而不是内联三元：外壳要多包一层 div，若写成
+   `{cond ? <div>{children}</div> : children}`，React 每次渲染都会看到一个新的元素类型，
+   子树会被**整棵重挂载** —— 提示词、已选素材、已确认方案全部丢（那是会花钱的 bug）。
+   放在模块作用域里，类型是稳定的；开关切换时才重建。
+   不成立时返回 fragment：**不套任何元素**（子页面工作台保持原样，一个像素不动）。 */
+function ComposerSurface({ on, children }) {
+  return on ? <div className="video-composer-surface">{children}</div> : <>{children}</>;
+}
+
 const TOOLBAR_ITEMS = [
   /* 9-11 三轮用户批注: 技能库必须是一级入口 (与首页一致), 不藏在生成设置里 */
   { key: 'skills', label: '技能库', icon: Sparkles, description: '选择生视频技能，带完整提示词进入本次生成' },
@@ -311,6 +321,8 @@ export default function VideoStudioPage({
      为什么不塞进 files.images：知渔的每一块素材都有自己的**标题、说明、上限、接受类型**，
      合并成一堆就再也说不出"这一张是门店照还是模特照"。上传与生成仍走**同一条链路**（下面合并）。 */
   const [slotFiles, setSlotFiles] = useState({});
+  /* 批 T：工作台里**除主文本格以外**的文本（门店信息这类），按 block.key 存 —— 见 VideoWorkbench 的说明 */
+  const [blockTexts, setBlockTexts] = useState({});
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
@@ -344,6 +356,9 @@ export default function VideoStudioPage({
   const [planning, setPlanning] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
   const [inlineMenu, setInlineMenu] = useState(null);
+  /* 批 T：模型菜单的浮层坐标（居中于按钮上方；与配置面板同一套算法，见 positionModelMenu） */
+  const [modelAnchor, setModelAnchor] = useState(null);
+  const modelButtonRef = useRef(null);
   const [panelPosition, setPanelPosition] = useState({ left: 16, bottom: 80, width: 520, maxHeight: 560, anchor: 260 });
   /* 全屏（用户批注 3）：走浏览器原生 fullscreen，ESC 由浏览器接管 ——
      所以状态必须从 fullscreenchange 读回来，不能只在按钮里翻布尔（按 ESC 后界面会说反话）。 */
@@ -420,10 +435,26 @@ export default function VideoStudioPage({
     [workbench, cameraMove, sceneEdit, swapTarget],
   );
   /* ⚠️ 只有 activeAnalysis 存在时才取它的 optimizedPrompt（方案确认过的那版），
-      否则取用户输入的原文 —— 其余情况一律不拼，避免把"还没分析"的提示词当分析结果用。 */
+      否则取用户输入的原文 —— 其余情况一律不拼，避免把"还没分析"的提示词当分析结果用。
+      批 T：工作台里的**非主文本格**（门店信息这类）作为背景信息拼在最前面，
+      与页面上从上到下的阅读顺序一致；空的不拼（不留空段）。 */
+  const workbenchContext = useMemo(() => {
+    const blocks = workbench?.blocks || [];
+    return blocks
+      .filter(block => block.kind === 'text' && block.key !== 'prompt')
+      .map(block => {
+        const text = String(blockTexts[block.key] || '').trim();
+        return text ? block.title + '：' + text : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }, [workbench, blockTexts]);
   const composedPrompt = useMemo(
-    () => composeVideoPrompt(activeAnalysis ? activeAnalysis.optimizedPrompt : prompt, extraInstructions),
-    [activeAnalysis, prompt, extraInstructions],
+    () => composeVideoPrompt(
+      [workbenchContext, activeAnalysis ? activeAnalysis.optimizedPrompt : prompt].filter(Boolean).join('\n'),
+      extraInstructions,
+    ),
+    [workbenchContext, activeAnalysis, prompt, extraInstructions],
   );
   const effectivePlan = useMemo(() => activeAnalysis ? {
     ...videoPlan,
@@ -520,7 +551,11 @@ export default function VideoStudioPage({
     if (!button) return;
     const rect = button.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const preferred = key === 'settings' ? 600 : key === 'assets' ? 580 : 520;
+    /* ═══ 批 T：生成设置面板宽度取**知渔 dashboard 的实测值 521**（用户指着图八说照抄）═══════
+       他们那一栏的内宽因此正好是 521 − 2×25 = 471 = 3 张 150 宽的比例卡 + 2 条 10 的缝 ——
+       这不是随手写的数，是"照抄"这条要求落到的具体几何（实测见 .tmp/qy-settings-report.txt）。
+       其余面板（镜头规格 / 声音）宽度不变，它们没有对应页可比。 */
+    const preferred = key === 'settings' ? 521 : key === 'assets' ? 580 : 520;
     const width = Math.min(Math.max(360, preferred), viewportWidth - 24);
     const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12));
     setPanelPosition({
@@ -532,10 +567,45 @@ export default function VideoStudioPage({
     });
   }, [activePanel]);
 
+  /* ═══ 批 T（2026-09-21）：模型菜单的**定位 + 与配置面板互斥**（用户本轮原话，逐字）══════════
+     原话：「你再看一下图七。你现在这些**张开的面板是会打架的**。我点击这些按钮。他们向上张开面板
+     就必须**只能有一个张开**，不能互相打架，明白吗？而且他们是**可以超出这些输入框的界限**的。
+     你必须让这些向上张开的配置面板，他们要**居中于按钮的上方**。」
+     改前（实测 .tmp/ours-cta.txt 同法）：模型菜单是 `.video-inline-control` 里的 absolute 元素，
+     `left: 0; bottom: calc(100% + 8px)` —— 它贴着按钮**左边**展开（9-12 为了让"左侧不被截断"
+     才这么写的，那条判据本轮被用户推翻），而且被 `.video-composer { overflow: hidden }` 裁掉；
+     更糟的是它与工具栏那套 `.video-config-panel`（activePanel）**两套状态各自为政**，
+     两件事可以同时展开、叠在一起 —— 用户截图里看到的就是这个。
+     ⇒ ① 位置：`position: fixed` + 由按钮矩形算出**居中于按钮上方**的坐标（视口 12px 安全边内夹取）；
+        ② 越界：fixed 元素不受任何祖先 overflow 裁切（已实测祖先链上无 transform/filter）；
+        ③ 互斥：openPanel 关模型菜单、开模型菜单关面板（见下面两处）。 */
+  const positionModelMenu = useCallback(() => {
+    const button = modelButtonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const width = Math.min(360, viewportWidth - 24);
+    setModelAnchor({
+      left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12)),
+      bottom: Math.max(12, window.innerHeight - rect.top + 8),
+      width,
+    });
+  }, []);
+
+  const toggleModelMenu = useCallback(() => {
+    setInlineMenu(current => {
+      if (current === 'model') return null;
+      setActivePanel(null);        /* 互斥：模型菜单展开时收起配置面板 */
+      positionModelMenu();
+      return 'model';
+    });
+  }, [positionModelMenu]);
+
   const openPanel = useCallback((key) => {
     /* 9-11 三轮批注: 技能库是一级入口 (直接弹技能库, 不再是浮层面板) */
     if (key === 'skills') {
       setActivePanel(null);
+      setInlineMenu(null);         /* 互斥：技能库弹层也是"向上张开"的一层，不能与模型菜单叠着 */
       setSkillOpen(current => !current);
       return;
     }
@@ -543,6 +613,7 @@ export default function VideoStudioPage({
       setActivePanel(null);
       return;
     }
+    setInlineMenu(null);           /* 互斥：配置面板展开时收起模型菜单（用户本轮：只能有一个张开） */
     positionPanel(key);
     setActivePanel(key);
   }, [activePanel, positionPanel]);
@@ -1165,9 +1236,38 @@ export default function VideoStudioPage({
       {mode !== 'frame' && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" onPreview={setLightboxEntry} icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} upload={uploadFor(files.audios[0])} onRetry={() => retryUpload(files.audios[0], 'audio')} /></div>}
     </>;
     if (activePanel === 'settings') return <>
-      <div className="video-panel-section"><strong>清晰度</strong><div className="video-resolution-grid">
-        {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}><b>{value.toUpperCase()}</b><span>{value === '2k' ? '精制成片' : '正式成片'}</span></button>)}
-      </div></div>
+      {/* ═══ 批 T（2026-09-21）：生成设置**照知渔 dashboard 那张面板重做**（用户本轮原话）═══════
+          原话：「另外我跟你说过很多遍了。你这个**生成设置现在里面的东西完全是错的**，你要
+          **照抄图八的这些面板样式** https://laoyu.quantv.com/dashboard 去做呀。」
+          实测那张面板（CDP 逐元素读计算样式，落档 .tmp/qy-settings-report.txt）：
+            · 面板：宽 521 / 内边距 24.8 / 圆角 19.84 / 白底 / 描边 rgba(0,0,0,.06) / 最高 min(60vh,520)
+            · 分辨率：**两颗等宽药丸** 230×45（圆角 14.88 / 选中=#f0f0f0 底 + 0.8px 深描边）
+            · 画面比例：**3 列 × 2 行卡片** 150×61（卡里上面是画幅图形、下面是档位文案）
+            · 视频时长：**滑块 + 数字框 + 单位 s**（不在滑块下面铺一排刻度文案）
+          我们原来这一栏是「清晰度（两张大卡，每张带一句说明）+ 避免出现的内容（文本域）+ 随机种子」——
+          三样都和那一页对不上，正是用户说的"里面完全是错的"。现在三组照抄。
+          ⚠️ 比例与时长**只在首页这一档出现**：首页按用户定的形态只有「模型 / 生成设置」两颗按钮，
+            所以这一栏承担知渔「视频设置」的完整内容；子页面的工具栏里「镜头规格」已经管画幅与时长，
+            两边都放同一件事就是重复（那才是"没抄明白"）。判据可复查：homeComposer。 */}
+      <div className="video-panel-section"><strong>清晰度</strong>
+        <div className="video-resolution-pills">
+          {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}>{value.toUpperCase()}</button>)}
+        </div>
+      </div>
+      {homeComposer && <>
+        <div className="video-panel-section"><strong>画面比例</strong>
+          <div className="video-ratio-cards">
+            {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} aria-hidden="true" /><span>{value}</span></button>)}
+          </div>
+        </div>
+        <div className="video-panel-section"><strong>视频时长</strong>
+          <div className="video-duration-inline">
+            <input className="video-duration-range" type="range" min={durationRange.min} max={durationRange.max} step={durationRange.step} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
+            <input className="video-duration-number" type="number" min={durationRange.min} max={durationRange.max} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
+            <span>s</span>
+          </div>
+        </div>
+      </>}
       <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => { setPlanReviewed(false); setNegativePrompt(event.target.value); }} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
       {/* 9-12 用户批注：技能相关从生成设置里去掉 —— 已选技能显示在工具栏「技能库」上（见 toolbarSummary.skills） */}
       <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
@@ -1228,13 +1328,19 @@ export default function VideoStudioPage({
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
-    <section ref={composerRef} className={"video-composer" + (homeComposer ? " is-home" : "") + (fullscreen ? " is-fullscreen" : "")} aria-label="视频生成工作区">
+    <section ref={composerRef} className={"video-composer" + (homeComposer ? " is-home" : "") + (workbenchMode ? " is-workbench" : "") + (fullscreen ? " is-fullscreen" : "")} aria-label="视频生成工作区">
       {/* ═══ 2026-09-19 批 Q-⑥：**子页面不再渲染这块营销大标题** ═══════════════════════════════
           用户批注（本轮）：「你不能把整体的东西往上面顶上去吗？为什么一定要放到下面去呢？」
           知渔的视频子页面左栏从「返回」→「信息卡 411x128」→「参数配置」直接开始，
           **没有**「视频生成」角标 + 「把创意素材变成吸引人的短片」这种大标题（那是首页的写法）。
           首页与独立路由（!embedded）行为不变 —— 它们本来就该有这块。 */}
-      {!workbenchMode && <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>}
+      {/* ═══ 批 T（2026-09-21）：独立路由**不再重复画一遍标题**（用户「按知渔收口」）══════════════
+          实测（.tmp 里的 /video-studio 探针）：这一页同时渲染了 `.video-studio-heading`
+          （页面级大标题「从创意素材到营销成片」）与这里的 `.video-composer-heading`
+          （「视频生成 / 把创意素材变成吸引人的短片 / 选择创作方式…」）—— 同一页两套标题，
+          把第一个字段推到 **y≈504**（知渔 /ai-video 是 179）。
+          首页那一档只有这一个标题（宿主卡里没有别的标题），所以**只在独立路由去掉重复的那一份**。 */}
+      {!workbenchMode && embedded && <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>}
       {/* ═══ 批 N：skill 子页面**不显示创作方式切换** ═══════════════════════════════════════
           依据（用户第 18 轮原话）：「他们这些 skill 页面……**每个工作台都是不一样的呀**，
             你现在完全没抄，**用的依然是我们之前首页的视频生成版本糊弄我**」。
@@ -1255,6 +1361,7 @@ export default function VideoStudioPage({
           </button>;
         })}
       </div>}
+      <ComposerSurface on={!workbenchMode}>
       <section className={'video-content-composer' + (workbenchMode ? ' is-workbench' : '')}>
         {/* ═══ 批 N：子页面按**这条 skill 自己的**工作台渲染（声明源 src/skills/videoWorkbenches.js）═══
             用户第 18 轮原话：「他们这些 skill 页面……**每个工作台都是不一样的呀**，你现在完全没抄，
@@ -1267,6 +1374,8 @@ export default function VideoStudioPage({
           groupTitle={groupTitle}
           slots={slotFiles}
           onSlotFiles={updateSlotFiles}
+          blockValues={blockTexts}
+          onBlockValueChange={(key, value) => { setPlanReviewed(false); setBlockTexts(current => ({ ...current, [key]: String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH) })); }}
           prompt={prompt}
           onPromptChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH)); }}
           values={{ ratio, duration, swapMode: swapTarget }}
@@ -1414,6 +1523,8 @@ export default function VideoStudioPage({
           {error && <div className="video-error">{error}</div>}
           {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
         </div>
+      </section>
+      </ComposerSurface>
 
         <footer className="video-toolbar" ref={toolbarRef}>
           <div className="video-toolbar-controls">
@@ -1422,12 +1533,12 @@ export default function VideoStudioPage({
                  用户说的「为什么跟其他板块的艾特键不一样」—— 现在只剩输入框下方那一个共用组件。 */}
               <span className="video-inline-control">
                 {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
-                <button type="button" className="video-config-trigger is-model" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}>
+                <button ref={modelButtonRef} type="button" className={'video-config-trigger is-model' + (inlineMenu === 'model' ? ' is-open' : '')} aria-expanded={inlineMenu === 'model'} onClick={toggleModelMenu}>
                   <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} />
                   <span><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width }}><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
                 {/* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
                    你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
                    —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），
@@ -1441,22 +1552,16 @@ export default function VideoStudioPage({
                    ⚠️ 往后的规矩：JSX 子节点位置的注释用花括号包起来（表达式容器），
                       并且**正文里绝不能再写注释符号**。 */}
                 </span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}
-                {/* ═══ 未上架模型：**只读**一行实话（2026-09-19 批 H-7）══════════════════════
-                    用户批注 #7 原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，
-                    为什么现在都不见了呢？」—— 目录里确实有 10 个，只有 2 个上架，
-                    而界面上一个字都没说，于是看起来像被删了。
-                    ⚠️ 它**不是按钮**、不可选、不进路由：服务端那份 unavailableProducts
-                      刻意不带 quotes / resolutions / modes —— 拿不到能提交的字段，
-                      也就不可能被误做成"点了会失败"的选项。这是本项目对"死按钮"的一贯口径。 */}
-                {Array.isArray(capabilities.unavailableProducts) && capabilities.unavailableProducts.length > 0 && (
-                  <p className="video-model-unavailable">
-                    {/* 2026-09-19 批 K-B：原来是「正在接通」—— 但可灵/Veo 三条的真实理由是
-                        「上游已下架该模型」，两句话凑在一起自相矛盾。改成中性且对四种台账状态
-                        （unreachable / blocked / unverified / retired）都成立的说法。 */}
-                    另外 {capabilities.unavailableProducts.length} 个模型暂不可选：
-                    {capabilities.unavailableProducts.map(item => item.label + "（" + item.reason + "）").join("、")}
-                  </p>
-                )}
+                {/* ═══ 批 T（2026-09-21）：未上架模型那一行说明**整块删除**（用户本轮原话）═════
+                    原话：「你这些视频生成模型下面的这句：另外 4 个模型暂不可选：Grok 极速（上游已下架
+                    该模型）、可灵 3.0（上游已下架该模型）、可灵 3.0 Pro（上游已下架该模型）、
+                    Veo 3.1 Fast（上游已下架该模型）**没有必要展示啊，要把它删掉**。」
+                    它与批 H-7 的取舍不同：那时用户问的是「模型为什么都不见了」，
+                    所以补一行实话解释；现在这些模型已经**从目录里下架干净**，
+                    再在模型面板底下挂一串"暂不可选 + 上游已下架"是对用户毫无用处的内部账。
+                    能力没丢：服务端那份**未上架清单**仍然保留（老任务 / 老订单仍能解析），
+                    只是前端不再渲染它 —— 门禁 test/video-studio-contract 也按这一条改了判据
+                    （依据就是上面那句用户原话）。 */}
               </div>}
               </span>
             </div>
@@ -1485,7 +1590,6 @@ export default function VideoStudioPage({
           {/* 9-12 用户批注：面板里已经选过的配置不用在按钮旁再写一遍 → 去掉这行摘要，信息只留在各面板与按钮积分上 */}
           <div className="video-submit-row"><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
         </footer>
-      </section>
     </section>
 
     {renderFloatingPanel()}
