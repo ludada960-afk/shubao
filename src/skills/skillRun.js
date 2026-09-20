@@ -18,7 +18,7 @@
 
    ⚠️ 本文件是纯函数：不碰 DOM、不发请求，便于门禁直接断言。 */
 
-import { generationUnits } from '../services/imageModelCatalog.js';
+import { generationUnits, imageModelResolutions, normalizeImageModel } from '../services/imageModelCatalog.js';
 /* 套图方案（张数 / 各图比例 / 报价请求）**只有这一份实现**：面板、画布、首页都用它。
    我们要就地跑套图，就必须用同一份 —— 自己另算一套张数会和服务端的方案对不上，
    而服务端在建 hold 之前会校验报价（数量对不上直接报错），对不上就是白跑一趟。 */
@@ -37,6 +37,45 @@ export const DEFAULT_RESOLUTION = '2K';
 /* 批 P：加 4:5 / 5:4（知渔「批量出图电商图」的 10 档比例里有这两档）—— 与引擎尺寸表同批。 */
 const LEGAL_RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '2:3', '3:2', '4:5', '5:4']);
 const LEGAL_RESOLUTIONS = new Set(['1K', '2K', '4K']);
+
+/* ═══ 2026-09-19 批 R：比例里的「自适应」——**唯一实现** ═════════════════════════════════════
+   用户第 21 轮原话：「比例里的「自适应」我不知道是不是指原来各个 skill 自己的尺寸比例方案，
+   各个 skill 他们自己有最适配的方案吗，有的话就可以作为自适应去做吧？」
+   去知渔自己的文案里查了（不能靠猜）：他们「出图比例」那一格的 help 原文是
+     「选择生成图片的宽高比例，「自适应」将根据模特图自动匹配最接近的比例」
+   （证据：docs/design/data/quantv-image-workbenches.json 的 help 字段）
+   ⇒ 不是"每个技能配一个固定比例"，而是**拿上传的那张主图的实际宽高，就近取我们支持的一档**。
+   声明侧只写字面量 ADAPTIVE_RATIO（照知渔原文），取值在这里做：
+   量宽高在控件层完成（上传就绪时读一次 naturalWidth/Height，写进条目的 width/height），
+   本文件只做纯计算 —— 不碰 DOM，门禁可以直接断言。 */
+export const ADAPTIVE_RATIO = '自适应';
+/* 没有主图宽高时回落到 1:1（与 ratioField 的默认档口径一致：界面显示什么，就跑什么） */
+export const FALLBACK_RATIO = '1:1';
+
+/** 就近取一档合法比例：按**对数距离**比（2:3 与 3:2 到 1:1 的距离相同，
+ *  线性比会把"扁"和"长"算得不对称）。相同距离取声明顺序靠前的那个。 */
+export function nearestLegalRatio(width, height) {
+  const w = Number(width) || 0;
+  const h = Number(height) || 0;
+  if (!(w > 0) || !(h > 0)) return '';
+  const target = Math.log(w / h);
+  let best = '';
+  let bestDistance = Infinity;
+  for (const ratio of LEGAL_RATIOS) {
+    const [a, b] = ratio.split(':').map(Number);
+    if (!(a > 0) || !(b > 0)) continue;
+    const distance = Math.abs(Math.log(a / b) - target);
+    if (distance < bestDistance - 1e-9) { bestDistance = distance; best = ratio; }
+  }
+  return best;
+}
+
+/* 比例字段的默认档（声明里的 default，取不到就是 1:1）。 */
+function defaultSkillRatio(skill) {
+  const field = ((skill && skill.fields) || []).find(item => item.key === 'ratio');
+  const declared = text(field && field.default);
+  return LEGAL_RATIOS.has(declared) ? declared : FALLBACK_RATIO;
+}
 
 function text(value) {
   /* 多选字段的值是**数组**（知渔「选择视角（多选）」那一格，2026-09-19 批 P）——
@@ -145,12 +184,20 @@ export function buildSkillBrief(skill, values = {}) {
       却以为自己已经处理好了。两边对齐到 8（服务端是唯一权威）。 */
 export const MAX_REFERENCE_IMAGES = 8;
 
+/* 条目的实际宽高：上传就绪时由控件量一次写进条目（FieldRenderer 的 measureBox）——
+   批 R 的「自适应」比例要用它。没量到就返回 null（回落 1:1，不猜一个尺寸出来）。 */
+function imageBox(item) {
+  const width = Number(item && item.width) || 0;
+  const height = Number(item && item.height) || 0;
+  return width > 0 && height > 0 ? { width, height } : null;
+}
+
 export function skillImages(skill, values = {}) {
   const slots = ((skill && skill.fields) || []).filter(field => field.kind === 'upload');
   const primary = slots[0] ? readyUploads(values[slots[0].key]) : [];
   /* fail-closed：主图没就绪就一张图都不给。
      半截素材只会生成出"看着像成功了、其实不是我要的"结果 —— 那是最难查的一类 bug。 */
-  if (slots.length && slots[0].required && !primary.length) return { imageUrl: '', referenceImages: [], references: [] };
+  if (slots.length && slots[0].required && !primary.length) return { imageUrl: '', referenceImages: [], references: [], primaryBox: null };
   const imageUrl = primary.length ? text(primary[0].url) : '';
   const referenceImages = [];
   const references = [];
@@ -171,13 +218,25 @@ export function skillImages(skill, values = {}) {
   if (imageUrl) {
     references.unshift({ url: imageUrl, assetId: text(primary[0].assetId), displayName: text(primary[0].name), role: slots[0].role || 'product', order: 0 });
   }
-  return { imageUrl, referenceImages, references: references.slice(0, MAX_REFERENCE_IMAGES) };
+  return { imageUrl, referenceImages, references: references.slice(0, MAX_REFERENCE_IMAGES), primaryBox: imageBox(primary[0]) };
 }
 
-/* ── ④ 生成参数：比例 / 清晰度 / 数量 / 模型 / 服务端视觉方向 ── */
+/* ── ④ 生成参数：比例 / 清晰度 / 数量 / 模型 / 服务端视觉方向 ──
+   ⚠️ 批 R：**模型**从声明里来（field.key = 'imageModel'，选项引用
+      services/imageModelCatalog.js 那一份目录，见 imageSkills 的 modelField）。
+      从前这里写死 DEFAULT_IMAGE_MODEL —— 界面给不给模型是界面的事，
+      但"用户选的模型必须真的进入请求、并且真的参与计费"是这一层的责任：
+      skillPointsEstimate 读的就是同一个 settings，改模型 → 报价跟着变，不会各说各话。 */
 export function skillGenerationSettings(skill, values = {}) {
-  const ratio = text(values.ratio);
-  const resolution = (text(values.clarity) || DEFAULT_RESOLUTION).toUpperCase();
+  /* 比例：显式档位按原值；'自适应' 按**主图实际宽高**就近取一档
+     （知渔的 help 原文口径，见文件上方 nearestLegalRatio）；量不到主图就回落声明里的默认档。 */
+  const askedRatio = text(values.ratio);
+  const box = askedRatio === ADAPTIVE_RATIO ? (skillImages(skill, values).primaryBox || null) : null;
+  const adaptiveRatio = box ? nearestLegalRatio(box.width, box.height) : '';
+  const ratio = askedRatio === ADAPTIVE_RATIO
+    ? (adaptiveRatio || defaultSkillRatio(skill))
+    : (LEGAL_RATIOS.has(askedRatio) ? askedRatio : defaultSkillRatio(skill));
+  const askedResolution = (text(values.clarity) || DEFAULT_RESOLUTION).toUpperCase();
   /* ⚠️ 2026-09-19 批 I-9：上限从 **9 → 16**。
      原因是「包含模块」那条链：A+ 内容有 16 个模块，勾满就是 16 张，
      而这里一直夹在 9 —— 结果是"用户勾了 16 个，只出 9 张、也只收 9 张的钱"，
@@ -186,13 +245,40 @@ export function skillGenerationSettings(skill, values = {}) {
      其它技能靠 countField(n) 自己声明上限（都 ≤ 9），所以抬这条不会放宽它们。 */
   const count = Math.max(1, Math.min(16, Number.parseInt(values.count, 10) || 1));
   const visual = SERVER_VISUAL_SKILL_IDS.includes(skill && skill.visual) ? skill.visual : 'free';
+  /* 模型：不认识的取值回落到有出图记录的 image2（normalizeImageModel 自带兜底） */
+  const imageModel = normalizeImageModel(values.imageModel, DEFAULT_IMAGE_MODEL);
+  /* 清晰度不能超出这个模型的档位（例：Midjourney 上游只有 1K/2K）。
+     允许的档位来自**模型目录**（imageModelCatalog.imageModelResolutions），不另立一份。 */
+  const allowedResolutions = imageModelResolutions(imageModel).filter(item => LEGAL_RESOLUTIONS.has(item));
+  const resolution = allowedResolutions.includes(askedResolution)
+    ? askedResolution
+    : (allowedResolutions.includes(DEFAULT_RESOLUTION) ? DEFAULT_RESOLUTION : allowedResolutions[0]);
   return {
-    ratio: LEGAL_RATIOS.has(ratio) ? ratio : '1:1',
-    resolution: LEGAL_RESOLUTIONS.has(resolution) ? resolution : DEFAULT_RESOLUTION,
+    ratio: LEGAL_RATIOS.has(ratio) ? ratio : FALLBACK_RATIO,
+    resolution: resolution || DEFAULT_RESOLUTION,
     count,
-    imageModel: DEFAULT_IMAGE_MODEL,
+    imageModel,
     visualSkillId: visual,
   };
+}
+
+/* ═══ 批 R：字段之间的联动夹取（声明源写 field.optionsFrom）════════════════════════════════
+   真事：模型选了 Midjourney（上游只有 1K/2K）而清晰度停在 4K —— 界面显示 4K、
+   请求按 2K 跑、也按 2K 计费。那正是"看着是 A、跑的是 B"。
+   所以换模型的同一刻，把依赖它的字段夹回合法档（唯一判据 = 声明里的 optionsFrom.map）。 */
+export function reconcileFieldValues(fields, values = {}) {
+  const next = { ...values };
+  for (const field of Array.isArray(fields) ? fields : []) {
+    const rule = field && field.optionsFrom;
+    if (!rule || !rule.key || !rule.map) continue;
+    const allowed = rule.map[String(next[rule.key] ?? '')];
+    if (!Array.isArray(allowed) || !allowed.length) continue;
+    const current = text(next[field.key]);
+    /* 夹取给**该模型能给的最高的那一档**（allowed 按低→高声明）：
+       用户原来选的是更高的档，被夹时不该被悄悄降到最低 —— 那是"少给了还不说"。 */
+    if (current && !allowed.some(value => String(value) === current)) next[field.key] = allowed[allowed.length - 1];
+  }
+  return next;
 }
 
 /* ── ⑤ 积分预估：单位与后端 catalog 同源（1 积分 = 1000 units），只用于按钮上展示 ── */

@@ -27,7 +27,10 @@ import { chromium } from 'playwright';
    技能上下线时这一条会自己跟着走，不会变成一份过期的名单。 */
 import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
-import { skillVideoMode } from '../src/skills/skillRun.js';
+import { nearestLegalRatio, skillVideoMode } from '../src/skills/skillRun.js';
+/* 模型白名单**从目录里来**（批 R）：页面上能选的每一档，都是请求里允许出现的那几档。
+   手抄一份 ['image2'] 会在目录加档时变成"页面能选、请求判非法"的假红。 */
+import { SELECTABLE_IMAGE_MODELS, generationUnits } from '../src/services/imageModelCatalog.js';
 
 const PORT = 4197;
 const ROOT = resolve('dist');
@@ -38,6 +41,9 @@ const MIME = {
   '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.mp4': 'video/mp4',
 };
 const UPLOAD_FILE = 'public/gallery/ecommerce/baby-bottle-product-suite/01.webp';
+/* 「自适应」比例那一条要的是**非正方图**：这张是 2400x1792（2048x2048 的方图下，
+   自适应与回落值都是 1:1，分不出"真的按图取档"还是"其实在回落"）。 */
+const ADAPTIVE_UPLOAD_FILE = 'public/images/visual-recipes/cases/free-glass-whale.png';
 const RESULT_FILE = 'public/images/visual-recipes/cases/free-glass-whale.png';
 const RESULT_ASSET = 'b'.repeat(64) + '.png';       /* 服务端"持久化资产"的真实形状 */
 const RESULT_IMAGE = '/api/generated-assets/' + RESULT_ASSET;
@@ -1349,7 +1355,11 @@ try {
      仍然零额度：上游全部打桩。 */
   scenario('⑲ 全量扫描：22 条图片技能 + 7 条视频技能');
   const CONTRACT = {
-    model: new Set(['image2']),
+    /* ⚠️ 批 R：模型从"只有 image2"放开成**目录里可选的每一档** ——
+       因为图片复刻 / AI换装这两页现在真的有「模型选择」了（用户第 21 轮口径：
+       「他们子页面的模型不也是首页的模型吗，直接引用就好了呀」）。
+       放开不等于放松：下面还多了一条更强的断言 —— 请求里的模型必须**等于页面上选中的那一档**。 */
+    model: new Set(SELECTABLE_IMAGE_MODELS.map(model => model.id)),
     ratio: new Set(['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3']),
     resolution: new Set(['1K', '2K', '4K']),
     skill: new Set(['free', 'poster', 'social-cover', 'brand-kv']),
@@ -1438,7 +1448,10 @@ try {
       const gate = await page.evaluate(() => ({
         disabled: document.querySelector('.media-workbench-submit')?.disabled ?? null,
         hint: document.querySelector('.media-workbench-cta-hint')?.textContent || '',
+        /* 页面上**当前选中**的模型（有这一格的技能才非空）——下面要断言请求里的模型与它一致 */
+        modelShown: document.querySelector('.media-workbench-fields select[id="field-imageModel"]')?.value || '',
       }));
+      result.modelShown = gate.modelShown;
       if (gate.disabled) { result.problem = '配齐之后 CTA 仍然是禁用：' + (gate.hint || '(无提示)'); return result; }
       /* 套图是另一条钱路，已在 ⑯ 单独压过，这里只确认它报价正常 */
       if (skill.pipeline === 'ecommerceSuite') {
@@ -1468,10 +1481,21 @@ try {
            否则拿 0.5 去跟请求数比（实测报"请求数 16 与按钮上的积分 5 对不上"）。
          ⚠️ 判据本身没变，仍然咬「勾几个出几张、收几张的钱」。 */
       const pointsNow = await page.evaluate(() => document.querySelector('.media-workbench-points')?.textContent || '');
-      const expected = Math.max(1, Number.parseInt(String(pointsNow).match(/(\d+)\s*积分/)?.[1] || '1', 10));
+      /* ⚠️ 批 R：**单价不再是恒定的 1 积分/张**（页面上能选模型了，Midjourney 2K 是 3.5 积分/张），
+         所以"请求数 == 按钮上的积分数"这条旧写法会把 1.5 积分读成 5（正则 \d+ 咬到了小数点后面）。
+         判据换成**钱**本身，而且比旧判据更强：
+           按钮上的积分  ==  请求数 × 该模型该清晰度的单价（单价来自模型目录，与后端 SKU 同源）。
+         判据要守的东西一个字没变：勾几个出几张、收几张的钱。 */
+      const points = Number.parseFloat(String(pointsNow).match(/(\d+(?:\.\d+)?)\s*积分/)?.[1] || '');
       const fired = calls.regenerate.length - before;
-      if (fired !== expected) { result.problem = '请求数 ' + fired + ' 与按钮上的积分 ' + expected + ' 对不上（勾几个出几张、收几张的钱）'; return result; }
       const body = calls.regenerate[calls.regenerate.length - 1] || {};
+      const unit = generationUnits(body.image_model, body.resolution) / 1000;
+      if (!(points > 0)) { result.problem = '按钮上没有积分报价：' + pointsNow; return result; }
+      if (!(unit > 0)) { result.problem = '算不出单价（模型 ' + body.image_model + ' / 清晰度 ' + body.resolution + '）'; return result; }
+      if (Math.abs(fired * unit - points) > 0.001) {
+        result.problem = '请求数 ' + fired + ' × 单价 ' + unit + ' = ' + (fired * unit) + '，与按钮上的 ' + points + ' 积分对不上（勾几个出几张、收几张的钱）';
+        return result;
+      }
       result.sent = body;
       result.problem = contractProblem(body, { hasUpload: shape.uploads > 0 });
     } catch (error) {
@@ -1506,8 +1530,101 @@ try {
     broken.map(row => row.id + '：' + row.problem).join(' ｜ ').slice(0, 400));
   const generated = sweepRows.filter(row => row.sent);
   check(generated.length >= IMAGE_SKILLS.length - 3, '绝大多数技能是**就地生成**（其余是套图与嵌进来的工作台）', String(generated.length));
-  check(generated.every(row => row.sent.image_model === 'image2'), '所有请求都用有出图记录的 image2');
+  /* ⚠️ 批 R：判据从"所有请求都用 image2"升级成**"页面显示什么模型，请求就发什么模型"**——
+     旧判据是"模型写死"时代的产物；现在有「模型选择」的页面上用户能换档，
+     真正要咬的是"显示的和跑的是同一个"（本项目铁律：不许"看着是 A、跑的是 B"）。
+     没有这一格的技能仍然必须是默认档 image2。 */
+  const wrongModel = generated.filter(row => row.sent.image_model !== (row.modelShown || 'image2'));
+  check(wrongModel.length === 0, '请求里的模型与页面上选中的那一档一致（没有这一格的技能用默认 image2）',
+    wrongModel.map(row => row.id + '：显示 ' + (row.modelShown || 'image2') + ' 发了 ' + row.sent.image_model).join(' ｜ ').slice(0, 300));
+  check(generated.some(row => row.modelShown && row.modelShown !== 'image2'),
+    '扫描里真的覆盖到了"换成别的模型"的技能（否则这条断言是空转）',
+    generated.filter(row => row.modelShown).map(row => row.id + '=' + row.modelShown).join(','));
   check(sweepRows.filter(row => row.suite).length === 1, '套图那条仍然按套报价（没有掉进单图分支）');
+
+  /* ═══ ⑳ 模型选择 / 比例「自适应」：**真的点一遍**（批 R）═════════════════════════════════
+     用户第 21 轮原话：「模型选择不用纠结啊，他们子页面的模型不也是首页的模型吗，直接引用就好了呀，
+       比例里的「自适应」……各个 skill 他们自己有最适配的方案吗，有的话就可以作为自适应去做吧？
+       你先确保你现在线上所有的 skill 来源和工作台功能打通，所有适配方案都确确实实没有任何问题
+       我们再来跑案例，你自己要深度核查一遍。」
+     判据三条，缺一条就是"装出来的功能"：
+       ① 选中的模型真的进请求，且 CTA 上的积分跟着变（模型参与计费）；
+       ② 分辨率不许超出模型档位：Midjourney 上游只有 1K/2K → 4K 那一颗消失，且请求是 2K；
+       ③ 「自适应」按上传图就近取档：打桩资产是 2400x1792 的 PNG（RESULT_FILE）→ 请求比例 4:3，
+          并且「自适应」这个**界面档位**不许出现在请求里。 */
+  scenario('⑳ 模型选择与自适应比例（真点一遍）');
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.copy', { waitUntil: 'load', timeout: 40000 });
+  /* 等的是**这一页真的渲染出工作台**（.media-workbench-panel 是"嵌进来的工作台"那一支的选择器，
+     图片复刻走的是普通工作台 —— 等错了选择器会 20s 超时，实测踩到）。 */
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  /* ⚠️ 这一页有**两个**上传位（上传商品图 / 上传参考图）：setInputFiles 传选择器会命中多个，
+     必须 .first() 明确指向第一个（否则 Playwright 的严格模式直接抛错）。 */
+  await page.locator('.media-field-upload input[type=file]').first().setInputFiles(ADAPTIVE_UPLOAD_FILE);
+  /* 等宽高量出来（异步 Image 加载）——等不到也要**留下现场**，不要抛出去变成"脚本自身失败" */
+  const box = await page.waitForFunction(
+    () => document.querySelector('.media-field-upload-item[data-box]')?.dataset.box || '',
+    null, { timeout: 20000 },
+  ).then(handle => handle.jsonValue()).catch(() => '');
+  if (!/^\d+x\d+$/.test(box)) {
+    /* 失败时把**现场**留下：条目状态 + 上传后那张图的地址 + 浏览器能不能把它读回来
+       （自适应量不到宽高时，这三样就是全部可能的原因） */
+    const state = await page.evaluate(async () => {
+      const src = document.querySelector('.media-field-upload-item img')?.getAttribute('src') || '';
+      const loaded = await new Promise(resolve => {
+        if (!src) { resolve('no-src'); return; }
+        const probe = new Image();
+        probe.onload = () => resolve(probe.naturalWidth + 'x' + probe.naturalHeight);
+        probe.onerror = () => resolve('load-error');
+        probe.src = src;
+      });
+      return {
+        fields: [...document.querySelectorAll('.media-field-upload')].map(node => ({
+          empty: node.dataset.empty,
+          items: [...node.querySelectorAll('.media-field-upload-item')].map(item => item.dataset.box || '(未量到)'),
+          retry: node.querySelector('.media-field-upload-retry')?.textContent || '',
+        })),
+        src,
+        loaded,
+      };
+    });
+    check(false, '上传就绪后量到了实际宽高（「自适应」按它取档）', box + ' ｜ ' + JSON.stringify(state).slice(0, 260));
+  } else {
+    check(true, '上传就绪后量到了实际宽高（「自适应」按它取档）', box);
+  }
+  await page.fill('textarea[id="field-product"]', '白色陶瓷杯，350ml，家用').catch(() => {});
+  const priceOf = () => page.evaluate(() => (document.querySelector('.media-workbench-points')?.textContent || '').trim());
+  const clarityPills = () => page.evaluate(() => [...document.querySelectorAll('.media-field-segmented[aria-label="分辨率"] button')].map(node => node.textContent.trim()));
+  const activeClarity = () => page.evaluate(() => document.querySelector('.media-field-segmented[aria-label="分辨率"] button.is-active')?.textContent.trim() || '');
+  check((await clarityPills()).length === 3, '默认模型（GPT Image 2）分辨率是三档 1K/2K/4K', (await clarityPills()).join('/'));
+  await page.click('.media-field-segmented[aria-label="分辨率"] button:nth-child(3)');
+  await page.waitForTimeout(160);
+  check((await activeClarity()).startsWith('4K'), '三档全支持的模型可以选 4K', await activeClarity());
+  const priceBefore = await priceOf();
+  await page.selectOption('select[id="field-imageModel"]', 'midjourney');
+  await page.waitForTimeout(220);
+  const priceAfter = await priceOf();
+  check(priceBefore !== priceAfter && /积分/.test(priceAfter), '换模型后按钮上的积分跟着变（模型真的参与计费）', priceBefore + ' → ' + priceAfter);
+  const pillsAfter = await clarityPills();
+  check(pillsAfter.length === 2 && !pillsAfter.some(text => text.startsWith('4K')),
+    '换成 Midjourney 后 4K 那一档消失（上游只有 1K/2K，不给做不到的档）', pillsAfter.join('/'));
+  check((await activeClarity()).startsWith('2K'), '原来选中的 4K 被夹到 2K（不是显示 4K、按 2K 跑）', await activeClarity());
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.media-field-segmented[aria-label="比例"] button')]
+      .find(node => node.textContent.trim() === '自适应')?.click();
+  });
+  await page.waitForTimeout(160);
+  const before20 = calls.regenerate.length;
+  await clickGenerate();
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 20000 }).catch(() => {});
+  const body20 = calls.regenerate[calls.regenerate.length - 1] || {};
+  check(calls.regenerate.length === before20 + 1, '这一次点击只发一次请求', String(calls.regenerate.length - before20));
+  check(body20.image_model === 'midjourney', '请求里的模型 = 页面上选中的那一档', String(body20.image_model));
+  check(body20.resolution === '2K', '请求里的清晰度落在模型支持的档位里', String(body20.resolution));
+  const [boxW, boxH] = box.split('x').map(Number);
+  check(body20.ratio === nearestLegalRatio(boxW, boxH) && body20.ratio !== '自适应',
+    '「自适应」= 按上传图就近取一档，且界面档位不下发给引擎', String(body20.ratio) + '（上传图 ' + box + '）');
+  check(body20.ratio === '4:3', '上传的是 2400x1792 的非方图 → 就近取 4:3（换了上传图这条期望值跟着变）', String(body20.ratio));
+
 
   /* 视频侧同理：7 条视频技能都要能进自己的子页面、落在自己的创作方式上。
      ═══ 2026-09-19 批 N：**判据不变，锚点换了一处** ═══════════════════════════════════════

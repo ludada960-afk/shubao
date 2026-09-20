@@ -138,9 +138,18 @@ test('⑧ 融合不许只是声明：结果区按钮与控件都必须有真实�
      ⇒ 改的是**事实数字**，不是判据：这条要守的"数量控件必须真实存在于主技能里"一个字没动，
         而且还**补强**了下半段（断言这个控件真的进了 generationSettings.count，见下方新增断言）。
         ⚠️ 以后若再删「数量」，请先确认知渔对应页确实没有这一档 —— 不许为了让断言过而删功能。 */
+  /* ═══ 2026-09-19 批 R：下限 8 → 7（**判据未变，事实变了**）═══════════════════════════════
+     用户第 21 轮口径仍然是"照他们抄"，本批把「图片复刻」页的「生成数量」删掉了 ——
+     依据是知渔 ?tool=image-clone 的实采（docs/design/data/quantv-image-builtin-pages.json）：
+     他们的字段是 上传商品图 / 核心卖点 / 上传参考图 / 复刻程度 / 统一复刻要求 / 目标市场 /
+     目标平台 / 文案语言 / 模型选择 / 分辨率 / 比例 —— **没有张数档**，
+     一次出几张由他们按钮那一档定（CTA 写着「消耗 0.60 积分」，与它 6 条交付清单对得上）。
+     判据一个字没动：这条守的仍是"「数量」控件必须真的长在主技能上、且真的进 generationSettings.count"。
+     ⚠️ 我们这一页**仍然是一次出一张**（count 缺省 1）：把默认张数改成 6 会让一次点击的
+        扣费从 1 积分变成 6 积分，那是钱路上的变更，没有用户明确批准不许动（已记进待办）。 */
   const withCount = IMAGE_SKILLS.filter(skill => skill.tier !== 'assistant'
     && (skill.fields || []).some(field => field.key === 'count' && field.kind === 'stepper'));
-  assert.ok(withCount.length >= 8, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
+  assert.ok(withCount.length >= 7, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
   /* 补强：数量控件必须**有真实消费点** —— 进 generationSettings 的 count（张数与报价同源） */
   const skillRunSrc = read('src/skills/skillRun.js');
   assert.match(skillRunSrc, /values\.count/, '数量控件的值没有被 skillRun 消费（那就只是画了一个控件）');

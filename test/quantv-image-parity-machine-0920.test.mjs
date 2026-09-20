@@ -135,9 +135,15 @@ test('③ 有对应页的 28 条：字段数 / 控件 / 档位数 / 档位文案
    内置页没有 inputConfigs 接口，字段只能从 DOM 取（docs/design/data/quantv-image-builtin-pages.json，
    CDP 实采：左栏全文 + 原生 select 的全部选项）。这里比对**机器可判**的那部分：
    三个跨境下拉（目标市场 / 目标平台 / 语言）的全部选项逐值相等，以及上传位数。
-   ⚠️ 「模型选择」与「自适应比例」我们**故意不抄**（换模型 = 换计费 SKU，是钱路上的决定；
-      "自适应"我们引擎没有这一档，给了会被服务端静默回落成 1:1）—— 这两条写在声明源的注释里，
-      不在下面的断言里假装抄了。 */
+   ⚠️ 2026-09-19 批 R：原来这里写着「模型选择与自适应比例**故意不抄**」，现在**两条都补上了**
+      （用户第 21 轮原话：「模型选择不用纠结啊，他们子页面的模型不也是首页的模型吗，直接引用就好了呀，
+        比例里的「自适应」……各个 skill 他们自己有最适配的方案吗，有的话就可以作为自适应去做吧？」）。
+      两条各自的落地方式不一样，所以下面的断言也不一样：
+        · 模型选择：我们**引用自己的模型目录**（services/imageModelCatalog.js，与首页同一个），
+          档位文案不是他们的 —— 所以只断言"这一格在、且选项来自目录"，逐档相等由
+          test/image-model-selection-0921.test.mjs 守。
+        · 自适应：知渔自己的 help 原文就是「「自适应」将根据模特图自动匹配最接近的比例」，
+          我们照这个语义实现（skillRun.nearestLegalRatio），档位照他们排在第一档。 */
 const builtin = JSON.parse(readFileSync(new URL('../docs/design/data/quantv-image-builtin-pages.json', import.meta.url), 'utf8'));
 const builtinBySkill = new Map(builtin.pages.map(page => [page.skill, page]));
 const skillById = new Map(IMAGE_SKILLS.map(skill => [skill.id, skill]));
@@ -169,6 +175,32 @@ test('④ 内置页：三个跨境下拉的全部选项逐值相等（知渔原�
   const tryOn = builtinBySkill.get('image.try_on');
   const countField2 = skillById.get('image.try_on').fields.find(field => field.key === 'count');
   assert.equal(countField2.max, tryOn.selects[2].length, 'AI 换装的生成张数上限要与知渔一致（1-4）');
+  /* ═══ 批 R：图片复刻 / AI换装这两页的「模型选择」与比例「自适应」逐档对齐 ═══════════════
+     知渔 ?tool=image-clone 的比例实测（本文件引用的同一份实采数据，先从 panelText 里核一遍：
+     下面这张 theirsRatio 表里的每一档都必须真的出现在他们的页面上，避免"我记错了"。） */
+  for (const skillId of ['image.copy', 'image.try_on']) {
+    const page = builtinBySkill.get(skillId);
+    const modelIndex = page.selects.findIndex(options => options.length === 1 && options[0] === '智能图片image');
+    const clarityIndex = page.selects.findIndex(options => options.join('/') === '1K/2K/4K');
+    assert.ok(modelIndex >= 0, skillId + '：知渔这一页有「模型选择」这一格');
+    assert.ok(clarityIndex >= 0, skillId + '：知渔这一页有「分辨率」这一格（1K/2K/4K）');
+    assert.ok(skillById.get(skillId).fields.some(field => field.key === 'imageModel'), skillId + '：我们也要有模型选择这一格');
+    assert.deepEqual(fieldOptions(skillId, 'clarity'), page.selects[clarityIndex].map(norm), skillId + '：分辨率档位与知渔逐档一致');
+  }
+  /* 比例：他们有多少档、我们就照着给（引擎认得的那些），一档不多一档不少 */
+  const ENGINE_GAP = ['9:21', '2:1', '1:2'];   /* 引擎尺寸表里还没有这三个尺寸（见声明源注释） */
+  const RATIO_EVIDENCE = {
+    'image.copy': ['自适应', '1:1', '3:2', '2:3', '16:9', '9:16', '5:4', '4:5', '4:3', '3:4', '21:9', '9:21', '2:1', '1:2'],
+    'image.try_on': ['自适应', '1:1', '3:2', '2:3', '16:9', '9:16'],
+  };
+  for (const [skillId, theirsRatio] of Object.entries(RATIO_EVIDENCE)) {
+    const page = builtinBySkill.get(skillId);
+    for (const value of theirsRatio) {
+      assert.ok(page.panelText.includes(value), skillId + '：知渔这一页的比例里应当有「' + value + '」（实采原文变了要重新核）');
+    }
+    assert.deepEqual(fieldOptions(skillId, 'ratio'), theirsRatio.filter(value => !ENGINE_GAP.includes(value)).map(norm),
+      skillId + '：我们的比例档位 = 他们那些档位里引擎认得的部分（缺的只有尺寸表还没补的三档）');
+  }
   /* 去除背景：知渔写「最多上传 5 张图片 / 0/5」，我们也是 5 */
   const removeBg = skillById.get('image.remove_bg').fields.find(field => field.key === 'assets');
   assert.match(builtinBySkill.get('image.remove_bg').panelText, /最多上传 5 张图片/, '内置页原文要写着 5 张');

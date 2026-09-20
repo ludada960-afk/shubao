@@ -26,6 +26,36 @@ import { uploadEcommerceAsset } from '../../services/api';
       只有 status === 'ready' 且带 url 的条目会进入生成请求。 */
 const REQUIRED_MARK = '*';
 
+/* 条目的实际宽高（批 R）：上传就绪后量一次，写进条目（width / height）。
+   为什么要量：比例里的「自适应」= 按**主图实际宽高**就近取一档
+   （知渔自己的 help 原文：「「自适应」将根据模特图自动匹配最接近的比例」），
+   而请求组装（skills/skillRun.js）是纯函数、不碰 DOM —— 量宽高只能在这一层做。
+   量不到（跨域失败 / 地址失效）就不写：取值侧回落 1:1，绝不猜一个尺寸出来。 */
+function measureBox(url) {
+  return new Promise(resolve => {
+    if (!url || typeof Image === 'undefined') { resolve(null); return; }
+    const image = new Image();
+    image.onload = () => resolve({ width: image.naturalWidth || 0, height: image.naturalHeight || 0 });
+    image.onerror = () => resolve(null);
+    image.src = url;
+  });
+}
+
+/* 量**用户本地选的那张文件**（批 R）：object URL 一定加载得出来 ——
+   不依赖上传后的地址能不能被浏览器读回（跨域 / 防盗链 / CDN 变换都量不到）。
+   上传位有两个入口（选文件 / 从资产库选择），资产库那条没有 File，走 measureBox(url)。 */
+function measureFile(file) {
+  return new Promise(resolve => {
+    if (!file || typeof Image === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) { resolve(null); return; }
+    const objectUrl = URL.createObjectURL(file);
+    const done = box => { try { URL.revokeObjectURL(objectUrl); } catch { /* 已回收则忽略 */ } resolve(box); };
+    const image = new Image();
+    image.onload = () => done({ width: image.naturalWidth || 0, height: image.naturalHeight || 0 });
+    image.onerror = () => done(null);
+    image.src = objectUrl;
+  });
+}
+
 /* blob 预览地址在替换/移除时统一回收，避免长会话里泄漏 */
 function revoke(item) {
   const url = item && item.previewUrl;
@@ -56,6 +86,24 @@ function UploadControl({ field, value, onChange, disabled }) {
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
   const commit = next => { itemsRef.current = next; onChange(next); };
+  /* 量过宽高的地址记账：失败也记账，避免每次渲染都重试同一个地址（死循环）。 */
+  const measuredRef = useRef(new Set());
+  useEffect(() => {
+    items.forEach(item => {
+      const url = item && item.status === 'ready' ? String(item.url || '') : '';
+      if (!url) return;
+      if (Number(item.width) > 0 && Number(item.height) > 0) return;
+      if (measuredRef.current.has(url)) return;
+      measuredRef.current.add(url);
+      measureBox(url).then(box => {
+        if (!box || !(box.width > 0) || !(box.height > 0)) return;
+        /* 按地址回填（不按下标：异步回来时数组可能已经变过） */
+        const base = itemsRef.current;
+        if (!base.some(entry => entry && String(entry.url || '') === url)) return;
+        commit(base.map(entry => (entry && String(entry.url || '') === url ? { ...entry, width: box.width, height: box.height } : entry)));
+      });
+    });
+  }, [items]);
 
   const maxImages = Math.max(1, Number(field.maxImages || 1));
   const multiple = maxImages > 1;
@@ -88,7 +136,11 @@ function UploadControl({ field, value, onChange, disabled }) {
     const accepted = files.slice(0, Math.max(0, maxImages - base.length));
     if (!accepted.length) return;
     const start = base.length;
-    const drafts = accepted.map(file => ({
+    /* uid：这一次上传尝试的稳定标记（批 R）。异步量宽高回来时要靠它确认"这一格还是刚才那张"——
+       上传成功会把 previewUrl 从 blob 换成服务端地址，所以**不能**用 previewUrl 当标记。 */
+    const stamp = Date.now().toString(36);
+    const drafts = accepted.map((file, offset) => ({
+      uid: stamp + '-' + offset,
       url: '',
       previewUrl: (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : '',
       name: file.name,
@@ -98,6 +150,18 @@ function UploadControl({ field, value, onChange, disabled }) {
     }));
     commit([...base, ...drafts]);
     accepted.forEach((file, offset) => { uploadAt(start + offset, file); });
+    /* 本地量一次宽高（与上传并行，互不依赖）：量到了就回填 —— 回填前先确认这一格还是原来那张
+       （previewUrl 变了说明位置被换过，宁可不回填，也不要把尺寸写到别的图上）。 */
+    accepted.forEach((file, offset) => {
+      const index = start + offset;
+      const uid = drafts[offset].uid;
+      measureFile(file).then(box => {
+        if (!box || !(box.width > 0) || !(box.height > 0)) return;
+        const current = itemsRef.current[index];
+        if (!current || current.uid !== uid) return;
+        commit(itemsRef.current.map((entry, i) => (i === index ? { ...entry, width: box.width, height: box.height } : entry)));
+      });
+    });
   };
 
   const removeAt = index => {
@@ -139,8 +203,15 @@ function UploadControl({ field, value, onChange, disabled }) {
           </>
         ) : (
           <span className="media-field-upload-items">
+            {/* data-box（批 R）：量到的实际宽高。这是**真实状态**，不是给测试用的假钩子 ——
+                比例选「自适应」时出图比例就是按它就近取的；E2E 用它当"量宽高已完成"的等待锚点
+                （异步 Image 加载，没有别的可观测信号）。 */}
             {items.map((item, index) => (
-              <span className="media-field-upload-item" key={(item.name || 'item') + '-' + index}>
+              <span
+                className="media-field-upload-item"
+                key={(item.name || 'item') + '-' + index}
+                data-box={item.width > 0 && item.height > 0 ? item.width + 'x' + item.height : undefined}
+              >
                 <MediaAssetCard
                   kind="image"
                   src={item.previewUrl || item.url || ''}
@@ -418,6 +489,20 @@ function CountsControl({ field, value, onChange, disabled }) {
   );
 }
 
+/* ═══ optionsFrom：这一格的选项**跟着另一个字段变**（2026-09-19 批 R）═══════════════════════
+   真事：模型目录里 Midjourney 上游只有 1K/2K（imageModelCatalog 的 resolutions），
+   而「分辨率」是静态的 1K/2K/4K —— 选了它再点 4K，就是给了一个我们做不到的档。
+   判据写在**声明源**里：field.optionsFrom = { key: 'imageModel', map: { midjourney: ['1K','2K'] } }；
+   没列进 map 的取值 = 不限制（其余模型三档全支持）。声明里没有这条就完全照旧。 */
+function resolveFieldOptions(field, values) {
+  const options = Array.isArray(field.options) ? field.options : [];
+  const rule = field.optionsFrom;
+  if (!rule || !rule.key || !values) return options;
+  const allowed = rule.map ? rule.map[String(values[rule.key] ?? '')] : null;
+  if (!Array.isArray(allowed) || !allowed.length) return options;
+  return options.filter(option => allowed.some(value => String(value) === String(option.value)));
+}
+
 function control(kind, field, value, onChange, disabled) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
@@ -488,6 +573,8 @@ function control(kind, field, value, onChange, disabled) {
    不传 = 与从前完全一致。 */
 export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null }) {
   const kind = field.kind || 'text';
+  /* 选项可能随别的字段变（optionsFrom，见上）——控件拿到的是**过滤后**的那一份 */
+  const renderField = field.optionsFrom ? { ...field, options: resolveFieldOptions(field, values) } : field;
   const uploadCount = Array.isArray(value) ? value.length : 0;
   /* ═══ visibleWhen：字段的条件显示（2026-09-19 用户批注 #13）═════════════════════════
      竞品的「自定义配置」选中之后才会展开下面那组张数配置 —— 未选中时它不该占地方。
@@ -510,7 +597,7 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
           )}
         </span>
       ))}
-      {control(kind, field, value, onChange, disabled)}
+      {control(kind, renderField, value, onChange, disabled)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
     </label>
   );

@@ -47,6 +47,7 @@ import {
   buildSkillRequest,
   buildSuiteRun,
   initialSkillValues,
+  reconcileFieldValues,
   skillEmbedOf,
   skillRunKind,
   skillVideoMode,
@@ -1324,7 +1325,11 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         board={board}
         skillId={skill.id}
         values={values}
-        onFieldChange={(key, value) => setValues(prev => ({ ...prev, [key]: value }))}
+        /* ⚠️ 2026-09-19 批 R：改一个字段要**连带夹取**依赖它的字段（声明源写 optionsFrom）。
+           真事：模型选 Midjourney（上游只有 1K/2K）时清晰度若停在 4K，
+           界面显示 4K、请求按 2K 跑、也按 2K 计费 —— "看着是 A、跑的是 B"。
+           夹取规则只有一份实现（skillRun.reconcileFieldValues），这里不另写一遍。 */
+        onFieldChange={(key, value) => setValues(prev => reconcileFieldValues(skill.fields, { ...prev, [key]: value }))}
         /* ⚠️ 2026-09-19 批 H-8：**不再**往工作台里传 onBack。
            用户批注 #12 把子页面顶栏写定为「左 返回 / 中 名称 / 右 积分账户」——
            返回控件在**顶栏**。原来工作台左栏里还有一个「← 返回创作」，

@@ -2,12 +2,22 @@
    依据 docs/design/43-media-architecture.md §5 与 docs/design/44-p1c-image-hub-brief.md；
    能力盘参照竞品目录接口（2026-09-16 实访，104 个应用 / 8 个分组）——**参照结构，不抄表达**。
 
-   ⚠️ 不声明「模型」字段：模型由路由层按 capability 注入（43 §5.3），
-      在图片侧台账补齐前，运行层只认 image2（见 src/skills/skillRun.js）。
+   ⚠️ 2026-09-19 批 R：**模型选择**这一格现在真的接上了（用户第 21 轮原话：
+      「模型选择不用纠结啊，他们子页面的模型不也是首页的模型吗，直接引用就好了呀」）。
+      仍照知渔的页面范围给 —— 他们的工作台里只有 3 页有「模型选择」：
+        · 图片复刻（?tool=image-clone，select 一档「智能图片image」）
+        · AI换装（?tool=ai-outfit，同上）
+        · 即梦seedream5.0pro（app 页，radio 一档）—— 这个应用我们没有对应技能
+      其余 101 个应用页**根本没有这一格**（证据：quantv-image-workbenches.json 逐字段）。
+      所以不给全站每页都塞一个模型下拉 —— 那是我们自己的长相，不是他们的。
+      选项目录引用 services/imageModelCatalog.js 那一份（首页同一个目录），不另立一份。
    ⚠️ availability 如实标注：'ready' = 现有链路已验证；'needs_ref' = 依赖参考图/图生图
       （链路已声明支持、尚未实测出片）。不许把没验证的写成能用。
    ⚠️ brief 是这个 skill 的**提示词模板**：{{字段key}} 会被工作台填进去。
       新增 skill 仍然只需要加一条声明，不写页面、不写控件。 */
+
+import { SELECTABLE_IMAGE_MODELS, imageModelResolutions } from '../services/imageModelCatalog.js';
+import { ADAPTIVE_RATIO } from './skillRun.js';
 
 export const SKILL_COMPLEXITIES = ['simple', 'standard', 'heavy'];
 /* counts：一组「类型 × 张数」的步进器（2026-09-19 用户批注 #13）。
@@ -16,6 +26,30 @@ export const SKILL_COMPLEXITIES = ['simple', 'standard', 'heavy'];
 /* cards = 整幅选项卡（知渔「套图结构配置」那两张 437x82 的卡，批 Q 新增）——
    与 segmented 的区别：说明写在卡里、整幅宽度、右上角一个 ✓。 */
 export const FIELD_KINDS = ['select', 'segmented', 'cards', 'stepper', 'textarea', 'text', 'slot', 'upload', 'counts'];
+
+/* ═══ 2026-09-19 批 R：「模型选择」的**唯一一份选项来源** ═══════════════════════════════════
+   目录在 services/imageModelCatalog.js（首页的模型挑选器读的也是它）——
+   这里只做两件事：把目录摊成 options、把「哪些模型不支持 4K」摊成 optionsFrom 的映射表。
+   两张表**都是从目录算出来的**，不手写：目录里改了档位/上限，界面跟着变。 */
+const MODEL_OPTIONS = SELECTABLE_IMAGE_MODELS.map(model => ({ value: model.id, label: model.label }));
+/* 默认档 = 目录第一档（GPT Image 2，通用主力，也是唯一有真实出图记录的那一档）。
+   门禁 test/image-model-selection-0921.test.mjs 断言它 === skillRun.DEFAULT_IMAGE_MODEL。 */
+const DEFAULT_MODEL_ID = SELECTABLE_IMAGE_MODELS[0].id;
+/* 只收「档位不全」的模型（目前只有 Midjourney：上游只有 1K/2K）。
+   全支持 1K/2K/4K 的模型不进表 —— 没限制就不写限制，免得将来目录改了三处对不上。 */
+const MODEL_RESOLUTION_LIMITS = Object.fromEntries(
+  SELECTABLE_IMAGE_MODELS
+    .map(model => [model.id, imageModelResolutions(model.id)])
+    .filter(entry => entry[1].length < 3),
+);
+
+/** 模型选择：**选项来自目录，价格来自目录**（换模型 → CTA 上的积分跟着变，
+ *  因为 skillPointsEstimate 走的就是同一个 settings.imageModel）。 */
+const modelField = () => ({
+  key: 'imageModel', label: '模型选择', kind: 'select', group: '生成设置',
+  options: MODEL_OPTIONS, default: DEFAULT_MODEL_ID, required: true,
+  hint: '不同模型的画质取向与积分单价不同，选完后按钮上的积分会跟着变',
+});
 export const IMAGE_PIPELINES = [
   'visualCreation',   // 自由创作/海报/封面的既有链路（含参考图，单图同步）
   'ecommerceSuite',   // 电商套图（多分钟、多资产、带方案确认的既有流水线）
@@ -106,11 +140,29 @@ const CLARITY_2 = [
 /* label 可改：知渔「爆款商品文字海报」「中文海报一键生成」这两页里，比例那一格的标题就叫
    「生成尺寸」（不是「比例」）—— 文案照他们。 */
 const ratioField = (options = RATIO, label = '比例', group = '生成设置') => ({ key: 'ratio', label, kind: 'segmented', group, options, required: true, default: options[0].value });
-/* ⚠️ 竞品图片复刻页的比例是 **16 档**（自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16 / 5:4 / 4:5 / 4:3 / 3:4 /
-   21:9 / 9:21 / 1:3 / 3:1 / 2:1 / 1:2）。我们**不能**照抄这 16 档 ——
-   服务端对比例有白名单（skillRun.LEGAL_RATIOS 六个值），非法值会被**静默回落成 1:1**，
-   多写一档就是给用户挖坑（RTK 批次三十六已定性）。
-   所以这里只放白名单里的档位，并在字段 hint 里如实写明"引擎支持这几种"。 */
+/* ═══ 2026-09-19 批 R：图片复刻 / AI换装这两页的比例**照知渔逐档抄**（含「自适应」）═════════
+   知渔 ?tool=image-clone 实测（docs/design/data/quantv-image-builtin-pages.json）：
+     自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16 / 5:4 / 4:5 / 4:3 / 3:4 / 21:9 / 9:21 / 2:1 / 1:2（14 档）
+   我们**只给引擎认得的**（skillRun.LEGAL_RATIOS 十个 + 自适应）——非法值会被服务端
+   **静默回落成 1:1**，多写一档就是给用户挖坑（RTK 批次三十六已定性）。
+   如实缺的 3 档：9:21 / 2:1 / 1:2（引擎尺寸表里还没有这三个尺寸，要加得先定尺寸并实测上游收不收）。
+   「自适应」不是"推荐一个固定比例"——知渔自己的 help 原文是
+   「「自适应」将根据模特图自动匹配最接近的比例」，实现见 skillRun.nearestLegalRatio。 */
+const RATIO_ADAPTIVE = { value: ADAPTIVE_RATIO, label: ADAPTIVE_RATIO };
+/* 图片复刻：知渔那一页的 14 档去掉引擎不支持的 3 档，顺序照他们 */
+const RATIO_CLONE = [
+  RATIO_ADAPTIVE,
+  { value: '1:1', label: '1:1' }, { value: '3:2', label: '3:2' }, { value: '2:3', label: '2:3' },
+  { value: '16:9', label: '16:9' }, { value: '9:16', label: '9:16' }, { value: '5:4', label: '5:4' },
+  { value: '4:5', label: '4:5' }, { value: '4:3', label: '4:3' }, { value: '3:4', label: '3:4' },
+  { value: '21:9', label: '21:9' },
+];
+/* AI换装：知渔那一页是 自适应 + 5 档，我们**一档不缺**（6 档全在引擎白名单里） */
+const RATIO_TRYON = [
+  RATIO_ADAPTIVE,
+  { value: '1:1', label: '1:1' }, { value: '3:2', label: '3:2' }, { value: '2:3', label: '2:3' },
+  { value: '16:9', label: '16:9' }, { value: '9:16', label: '9:16' },
+];
 
 /* ═══ 2026-09-18 批 F：跨境字段的**全部选项照竞品实测原文**══════════════════════════
    依据：CDP 实测（一次一标签、抓完即关），逐条原文见 docs/design/50-quantv-subpage-field-spec.md。
@@ -165,7 +217,13 @@ const PLATFORM_WIDE = [
 const marketField = (options = MARKET_BASE) => ({ key: 'market', label: '目标市场', kind: 'select', group: '基础信息', options, default: options[0].value });
 const languageField = (label = '文案语言', options = LANGUAGE_FULL) => ({ key: 'language', label, kind: 'select', group: '基础信息', options, default: options[0].value });
 const platformField = (options = PLATFORM_SUITE) => ({ key: 'platform', label: '目标平台', kind: 'select', group: '基础信息', options, default: options[0].value });
-const clarityField = ({ options = CLARITY_3, label = '分辨率' } = {}) => ({ key: 'clarity', label, kind: 'segmented', group: '生成设置', options, required: true, default: '2K' });
+/* optionsFrom：这一格的档位**跟着模型变**（批 R）——
+   模型目录里写着哪些模型不支持 4K（目前只有 Midjourney），选了它这一格就只剩 1K/2K。
+   没有这一条的话，界面会给出一个做不到的档：显示 4K、请求按 2K 跑（看着是 A、跑的是 B）。 */
+const clarityField = ({ options = CLARITY_3, label = '分辨率' } = {}) => ({
+  key: 'clarity', label, kind: 'segmented', group: '生成设置', options, required: true, default: '2K',
+  optionsFrom: { key: 'imageModel', map: MODEL_RESOLUTION_LIMITS },
+});
 const countField = (max = 6) => ({ key: 'count', label: '生成数量', kind: 'stepper', group: '生成设置', min: 1, max });
 /* 上传位的组名照竞品：他们的上传区就在「基础信息 → 上传图片」这一块里 */
 /* 上传位：竞品在它下面还跟一串同组的字段（产品卖点 / 设计风格…），
@@ -877,23 +935,16 @@ export const IMAGE_SKILLS = [
         slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
       { key: 'backdrop', label: '上传背景参考图', longLabelReason: '照竞品原文逐字（他们 ?tool=ai-outfit 的上传位标题就叫这个）', kind: 'upload', group: '背景参考（可选）', maxImages: 1, role: 'scene',
         slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
-      /* ═══ 批 P：这一页照知渔逐格对齐（他们 ?tool=ai-outfit 的实测，见 docs/design/data/quantv-image-pages.json）═══
+      /* ═══ 这一页照知渔逐格对齐（他们 ?tool=ai-outfit 的实测，见 docs/design/data/quantv-image-pages.json）═══
          他们的格子是：模特选择 → 服装选择（套装 / 多件）→ 上传衣服图 → Pose 参考（可选）→ 背景参考（可选）
                    → 模型选择 → 分辨率（1K / 2K / 4K）→ 比例（自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16）→ 生成张数（1-4）
-         ⇒ 我们原来多一格「补充要求」（他们**没有**这一格，多出来的字段就是"没对上"）——本批删掉。
-         ⚠️ 两处**如实保留的差异**（都不是漏抄，理由写在下面）：
-            · 「模型选择」：他们的下拉是"智能图片image"。我们的模型由路由层按 capability 注入、
-              **换模型就换计费 SKU**，属钱路上的决定（批 O-⑧ 已定性，等用户拍板）——本轮不加假下拉。
-            · 比例里的「自适应」：我们引擎没有这一档（服务端对未知比例会**静默回落成 1:1**），
-              给了就是坑，所以照抄他们其余 5 档。 */
-      ratioField([
-        { value: '1:1', label: '1:1' },
-        { value: '3:2', label: '3:2' },
-        { value: '2:3', label: '2:3' },
-        { value: '16:9', label: '16:9' },
-        { value: '9:16', label: '9:16' },
-      ]),
-      clarityField(),
+         ⇒ 我们原来多一格「补充要求」（他们**没有**这一格，多出来的字段就是"没对上"）——批 Q 已删。
+         ⇒ 批 R 补齐了最后两处差异：「模型选择」与比例里的「自适应」（原来不敢加的理由都已解决：
+            模型现在真进请求、真参与计费；自适应按主图宽高就近取档，不是假档位）。 */
+      modelField(),
+      /* 裸档位同图片复刻页（他们 AI换装页的分辨率也是 1K / 2K / 4K） */
+      clarityField({ options: CLARITY_3_PLAIN }),
+      ratioField(RATIO_TRYON),
       { key: 'count', label: '生成张数', kind: 'stepper', group: '生成设置', min: 1, max: 4 },
     ],
     cases: [
@@ -1219,8 +1270,17 @@ export const IMAGE_SKILLS = [
       marketField(MARKET_BASE),
       { ...platformField(PLATFORM_SUITE), span: 'half' },
       { ...languageField('文案语言', LANGUAGE_CLONE), span: 'half' },
-      ratioField(),
-      countField(4),
+      /* ═══ 批 R：这一页最后两格也照知渔补齐 ═══════════════════════════════════════════════
+         他们的顺序是：… 文案语言 → **模型选择** → **分辨率**（1K/2K/4K）→ 比例（14 档，含自适应）。
+         ⇒ 我们原来缺模型选择与分辨率两格、却多出一格「生成数量」（他们这一页**没有**张数档：
+            一次出几张由他们的「生成图片」按钮那一档定），本批删掉，并补上缺的两格。
+         ⚠️ 「生成数量」删掉后，批量能力仍在本技能里可达：出图后的结果区动作
+            （相似图 / 再来一张）与套图结构那边都能一次出多张，不是把能力砍了。 */
+      modelField(),
+      /* 分辨率照知渔这一页的**裸档位**（他们实测就是 1K / 2K / 4K，没有「标准/高清/超清」后缀 ——
+         证据 docs/design/data/quantv-image-builtin-pages.json 的 selects[4] 与 panelText 一致） */
+      clarityField({ options: CLARITY_3_PLAIN }),
+      ratioField(RATIO_CLONE),
     ],
     cases: [], history: true,
   },
