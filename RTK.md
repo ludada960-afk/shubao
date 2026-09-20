@@ -5054,3 +5054,141 @@ image.copy.panelText 里 14 档：自适应/1:1/3:2/2:3/16:9/9:16/5:4/4:5/4:3/3:
 · 新增仓库根 `ZCODE-HANDOFF.md`：项目是什么 / 铁律原话 / 代码地图 / 取证方法 / 硬规范 / 工作流
   （test → precommit → build+e2e → 部署 → 线上复验）/ 当前状态 / 本批改动 / **待用户拍板清单** /
   给 zcode 的起手式模板。
+
+---
+
+# 批 S（2026-09-21 深夜，用户睡觉期间自主继续）：视频侧路由型子页面逐页对标 —— 第一批（1 个真 bug + 2 处 1:1 差异）
+
+用户这一轮的指令只有一句：「把所有要做的任务最大程度去做完，我要去睡觉了」。
+所以本批按交接文档 §9 的起手式自己选方向（方向①：视频侧 7 条独立路由页逐页对标知渔）。
+
+## 一、先把「7 条独立路由页」这个事实查清（交接文档有一处记错了）
+
+交接文档 §2.3 / §8.6 写着「VideoStudio 含 7 条独立路由页：/ai-video /video-recreation /
+store-visit-video /content-replace /digital-human /video-high-definition /video-subtitle-removal」。
+**实测不成立**（全仓 grep：那 7 个字符串只出现在 quantvVideoParity 的**证据清单**里）：
+· 我们自己的路由只有 `/video-creation`（视频总页面）与 `/video-studio`（独立创作台）；
+· 那 7 条是**知渔**的路由；我们对它们的方式是「一条技能一个 `?id=` 子页面」。
+· 4 条有对应技能：video.smart ↔ /ai-video、video.remake ↔ /video-recreation、
+  video.store_tour ↔ /store-visit-video、video.content_swap ↔ /content-replace；
+· 另外 3 条（数字人 / 视频高清 / 视频字幕去除）**我们没有对应技能** —— 见 §待拍板。
+⇒ §8.6 说的「~400px 头重」也不是这几页：我们这 4 条子页面首个字段在 **y=253**（本批改到 233），
+  真正头重的是独立创作台 `/video-studio`（首个字段 **y≈504**：32px 大标题 + 24px 标题 + 创作方式页签 + 素材区；
+  知渔 /ai-video 的第一格在 y=179，整块工作区锁在视口内、两栏各自内部滚）。
+
+## 二、真 bug：用户没选过的「换人」指令被塞进提示词（本批最重要的一件）
+
+现象（CDP 实测）：`?id=video.smart`（纯脚本型的「视频创作」）左栏写着
+「将追加到提示词：把原片里的人物替换成我上传的人物图片，动作、镜头与背景保持与原片一致」——
+这一页**根本没有「替换对象」控件**，也没有"原片"可换。
+根因：`extraInstructions` 把三条指令**无条件**拼进去，而 `swapTarget` 的初始值是 `'model'`。
+⚠️ 那个默认值本身是**对的**：CDP 实点知渔 /content-replace，白底就在「换模特」上，
+点「换产品」白底会移动（证据已落 .tmp/qy-swap-default.txt）—— 错的是"不在这一页也追加"。
+它不只是显示问题：`composedPrompt` 同时进 `createVideoJob` 的 `prompt` **与幂等键** ⇒ 真发给模型。
+第二半：`useMemo` 的依赖数组 `[cameraMove, sceneEdit]` **漏了 swapTarget** ⇒ 用户在内容替换页
+点「换产品」，追加的那句仍然是「换模特」。
+
+修法：抽成纯函数 `cameraMoves.workbenchExtraInstructions({ blocks, cameraMove, sceneEdit, swapTarget })` ——
+**只有这一页真的渲染了那个控件，它的值才允许进提示词**（替换对象由 `bind === 'swapMode'` 派生；
+运镜 / 只改一个元素是创作台恒定渲染的两个控件，选了才追加）；依赖数组补 `workbench` 与 `swapTarget`。
+线上复验（真点）：video.smart / remake / store_tour 的追加说明**消失**；content_swap **保留**，
+点「换产品」→ 商品那一句、点回「换模特」→ 人物那一句 ✓。
+
+## 三、1:1 差异一：路由型页面的「参数配置」组头
+
+批 Q-⑥ 给视频子页面加了「参数配置」组头，那一版照的是 **app 页**。
+本批把知渔 **32 个视频子页面逐个计数**（`quantv-video-pages.json` 的 panelText 全文检索，
+纪律见 RTK 第 16 条"要证不存在必须打计数，不能用截断的列表"）：
+· 有「参数配置」**25** 条（24 个 app 页 + 1 条路由页「视频字幕去除」）
+· **没有 7** 条：6 条路由页（视频创作 / 爆款复刻 / 探店视频 / 内容替换 / 数字人 / 视频高清）+ 趣味脱口秀
+⇒ **路由型页面左栏没有组头**（第一格直接是字段），app 页有组头 —— 两种都要照抄。
+判据从对照表**派生**（`quantvVideoParity.quantvVideoShowsParamGroup`：counterpart 是 `/apps?id=` 才有组头），
+页面里不写第二份名单。实测：`?id=video.smart` 首个字段 **253 → 233**。
+自有玩法（counterpart: null）知渔没有对应页可比 ⇒ 沿用现状（渲染组头），并在注释里写明这是
+"不改动既有页面"的取法（32 条里 25 条有组头，是多数形态）。
+
+## 四、1:1 差异二：「替换对象」多出来的字段标题
+
+知渔那两颗药丸**上方没有任何文字**（实测全文：`从资产库选择 → 换模特 → 换产品` 紧挨着）。
+我们多写了一个「替换对象」标题。按"竞品没有的不许自己加"去掉：声明里保留 `title`（读屏/机检要用）
++ 新增 `hideLabel: true`，渲染层尊重它（图片侧 FieldRenderer 早有同名字段，这是视频侧补齐）。
+
+## 五、门禁（新增 4 条，含变异自证）
+
+`test/video-route-subpage-parity-0921.test.mjs`：
+① 幻影指令：遍历全部 42 条工作台声明，**没有 swapMode 那一格的页面，追加指令必须是空数组**；
+   反向自证把控件加回去必须出现、换档位必须换句子；并断言「声明了替换对象的技能清单 ==
+   ['video.content_swap']」（清单变了要有实测依据）。
+② 组头：**对着证据做计数**（32 / 25 / 7 + 那 7 条的名单 + 7 条路由页里只有字幕去除有组头），
+   再断言判据派生结果与页面类型逐条一致。
+③ 接线：MediaCreation 按对照表传、VideoStudio 透传、渲染层只在非空时画那一行、两列网格保留。
+④ 替换对象无标题：证据原文 + `hideLabel` + 渲染层尊重它。
+★ **变异自证三连**（`.tmp/zc-mutate.mjs`：改回 bug 写法 → 跑门禁 → 自动还原）：
+   去掉 `hasSwapControl` 判断 → ① 红；组头改回无条件渲染 → ③ 红；忽略 `hideLabel` → ④ 红。
+   三条都"会响"，不是空跑的契约。
+
+## 六、验证链（全部真跑过，零额度消耗）
+
+| 步骤 | 结果 |
+|---|---|
+| `npm run test`（改动前基线） | **3971 / 3968 pass / 0 fail / 3 skipped**（356.9s） |
+| `npm run test`（改动后） | **3975 / 3972 pass / 0 fail**（新增 4 条 = 本批门禁） |
+| `npm run precommit` | 构建 exit 0 + **BLOCKING 259 / 259 全绿** |
+| `npm run build` + `node scripts/media-workbench-e2e.mjs` | 构建 11.4s + **229 条断言全绿**（上游打桩） |
+| 部署 | `d144bfb9` → https://shuimg.cn/（脚本自带测试关卡通过） |
+| 线上复验 | 见 §二/§三；入口 JS `assets/index-DNJSs4Pk.js` 与本地构建**哈希逐字一致** |
+
+## 七、踩坑（本批新增两条，第一条很重要）
+
+· ⚠️⚠️ **在这个工作树里绝对不要用 `git checkout -- .` 清理换行符噪声**：
+  我用它清理 252 个纯 CRLF 噪声文件，结果**把自己刚改的 6 个源文件一起还原了**
+  （`git checkout -- .` 恢复的是"全部已跟踪改动"，它不分是噪声还是真改动）。
+  正确做法：`git checkout -- <逐个列出的噪声文件路径>`，或者干脆不清理、提交时只写显式路径。
+  恢复代价：6 处改动全部重做，重做后靠 `git diff --stat --ignore-cr-at-eol` 与通过全量测试的那版
+  **逐项相同（6 files, +84/-8）** 才敢不重跑整套 —— 否则必须重跑。
+· ⚠️ **判"测试跑完没有"不能只看 `/^# pass/`**：本仓 `node --test` 用 spec reporter，
+  汇总行是 `ℹ pass 3975`。我按 `# pass` 判断，误以为基线还在跑，白等了十几分钟
+  （日志其实早就写完了）。
+· 工作树里那 252 个「已修改」文件是**纯 CRLF 噪声**：`git diff --ignore-cr-at-eol` 之后只剩一个
+  临时草稿文件。committed blob 是 LF、工作树里某些文件是 CRLF（方向与直觉相反）——
+  看到 `git diff --stat` 全是"整文件改写、增删行数相等"就是它。
+
+## 八、待用户拍板（睡醒看一眼就行，我没有擅自做）
+
+1. **知渔有、我们没有的 3 条视频路由页**（都有实测证据）：
+   · `/video-high-definition`（视频高清）：上传视频 0/1 + 视频设置（输出分辨率 720p / 1080p / 2k +
+     FPS 30fps / 60fps）+ CTA「视频高清 消耗 0.50 积分」。
+     ⚠️ 其中的 **1080p 我们卡在中转余额**（SKU 已留档但 `public:false`）⇒ 做它 = 动钱路，要您点头。
+   · `/video-subtitle-removal`（视频字幕去除）：视频模型「智能去字幕」+ 参数配置 + 上传原视频 0/1 +
+     字幕标记方式（**自动标记 / 手动标记**两张卡，各带一行说明）+「本次消耗 0.04 积分」+「立即生成」。
+   · `/digital-human`（数字人）：左栏是**步骤式**（01 IP深度学习 / 02 音视频生成 / 04 标题标签关键词 /
+     自动化控制台）+「生成爆款文案（0.25 积分）」+ 视频类型（口播文案 / 剧情文案）+ 文案类型
+     （人设型 / 卖点型 / 行业+人设）+ 产品/业务 + 卖点+价格 + 其他要求 —— 形态与其它页完全不同。
+2. **门店信息缺一个可编辑输入框**（video.store_tour ↔ /store-visit-video）：
+   知渔那一页「门店信息」标题下有一个 **458×149 的输入框**，占位是四段式
+   「一、门店基础视觉信息 / 二、空间环境细节 / 三、可复用探店镜头提示词素材库 / 四、信息校验备注」，
+   AI 分析的结果落在那里、可编辑。我们这一格只有「AI分析」按钮，没有落点。
+   ⚠️ 做它要先改 VideoWorkbench：现在**所有 text 块共用同一个 prompt 状态**（"每页只有一个文本格"
+   是当前前提），加第二个文本格必须先把文本状态改成按块存 —— 组件级改动，放下一批。
+3. **吸底条**：知渔 /store-visit-video 把「模型 + 视频设置 + CTA」**钉在左栏底部**
+   （实测滚动 0 / 820 / 913 时它们都在 y=867 / 944 不动，`elementFromPoint` 始终命中）；
+   我们这 4 页是全列一起滚（CTA 在 y=1449~1599，滚到底才看得到，命中正常）。
+   ⚠️ 但他们自己的 `/content-replace` **也不吸底**（CTA 随内容滚到 y=923）—— 他们两边不一致，
+   照哪一种要您说一句。
+4. **`/video-studio`（独立创作台）头重**：首个字段在 y≈504，就是交接文档 §8.6 记的那一条
+   （文档把页面认错了）。要不要按知渔 /ai-video 收口（他们第一格 y=179、工作区锁视口、两栏各自滚），
+   请给一句话 —— 这一页现在只有 URL 与「公开模板」入口能到，不是主入口。
+5. （备忘）子页面上的「运镜 / 只改一个元素 / 技能库 / 镜头规格」是**用户批注 15 明确要求保留**的
+   （「子页面才是精细化调参的地方」），本批**没有动**，只是在源码注释里把这条依据标清楚了。
+
+## 九、本批改了哪些文件
+
+`src/pages/VideoStudio/cameraMoves.js`（新增唯一组装点）·
+`src/pages/VideoStudio/index.jsx`（用它 + 透传 groupTitle）·
+`src/components/media/VideoWorkbench.jsx`（组头可空 + hideLabel）·
+`src/skills/videoWorkbenches.js`（swapMode 声明 hideLabel）·
+`src/skills/quantvVideoParity.js`（新增 quantvVideoShowsParamGroup）·
+`src/pages/MediaCreation/index.jsx`（按对照表传 groupTitle）·
+`test/video-route-subpage-parity-0921.test.mjs`（新增 4 条门禁）。
+证据脚本（不入库）：`.tmp/zc-probe-ours.mjs`、`zc-probe-qy-swap.mjs`、`zc-probe-qy-fields.mjs`、
+`zc-probe-typography.mjs`、`zc-probe-sticky.mjs`、`zc-verify-online-S.mjs`、`zc-mutate.mjs`（变异测试）。
