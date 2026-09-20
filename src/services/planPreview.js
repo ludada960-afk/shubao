@@ -8,6 +8,12 @@ import { normalizeEntitlement } from '../store/entitlementState.js';
    图片侧「预览」与视频侧「代为撰写」**共用这一份客户端**（服务端也是同一份实现）。
    定价 0.5 积分/次（SKU ec_plan_preview），先报价 → 用户确认 → 才请求；失败不扣。 */
 export const PLAN_PREVIEW_SKU = 'ec_plan_preview';
+/* 这一步的**价格**（积分）——工作台的「生成预览」按钮上要写它（批 Q）。
+   用户批注 #3-6 原话：「我不明白为什么生成一下预览就要 7 点积分，我们的竞品他们就只有 0 点几的积分，
+     你为什么不把那个生成预览的积分放上去呢？」
+   根因：那条按钮原来显示的是**整单出图**的报价（套图 7 积分），不是"预览这一步"的价格。
+   服务端定价就在 server/billing/catalog.mjs：ec_plan_preview = 500 units = **0.5 积分/次**。 */
+export const PLAN_PREVIEW_POINTS = 0.5;
 
 function headers(extra = {}) {
   const token = getSessionToken();

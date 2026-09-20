@@ -192,12 +192,17 @@ export default function WorkbenchShell({
                       · 一键解析（批 O-⑪ 从"整行按钮+整行说明"搬来）
                       ⚠️ 门禁 test/skill-tutorial-0919 只要求入口存在（类名 + 文案 + 三段式弹层），
                          不规定位置；弹层与数据一个字没动，只是渲染位置变了。 */}
-                  {index === 0 && tutorial && (
-                    <button type="button" className="media-workbench-tutorial is-inline" onClick={() => setTutorialOpen(true)}>
-                      怎么用这条技能
-                    </button>
-                  )}
-                  {parseAction && index === 0 && (
+                  {/* ═══ 2026-09-19 批 Q：**左栏第一行只留组名**（照知渔）══════════════════════════
+                      用户批注 #2-4（框选我们左栏顶上那一行）：「你看这个就是他们没有的，你为什么会有这个部分呢？
+                        这部分要拿掉呀。」
+                      知渔实测：左栏第一行就是「基础信息」四个字，没有任何按钮（一键解析在**产品卖点与设计风格**
+                        那一行，教学示例不在左栏）。
+                      ⇒ 「怎么用这条技能」不再渲染进左栏（它在**顶栏**那一行已经是既有实现：
+                        MediaCreation 的 media-workbench-tutorial is-topbar，功能一点没少，
+                        门禁 test/skill-tutorial-0919 只要求入口存在）；
+                        一键解析落到**它声明的那个分组**（parseAction.group），不再一律挤在第一组。 */}
+                  {tutorial && index === 0 && null}
+                  {parseAction && (parseAction.group ? group.name === parseAction.group : index === 0) && (
                     <button
                       type="button"
                       className={`media-workbench-parse${parseAction.busy ? ' is-busy' : ''}`}

@@ -38,9 +38,9 @@ function revoke(item) {
    他们每一张上传卡下面都写着同一句，用户一眼就知道能传什么、能传多大，
    不用先失败一次才知道。我们原来什么都没写。 */
 const UPLOAD_HINT = '支持 JPG、JPEG、PNG，单张不超过 10MB';
-/* 竞品实测文案（43 §10.2 + 9-17 复核）：上传卡都写着「点击或拖拽上传图片」+「最多 N 张」。
-   两件事一起做才有意义：写了"可拖拽"就得真的能拖 —— 只写不做就是给自己挖坑。 */
-const uploadCopy = maxImages => '点击或拖拽上传图片 · 最多 ' + maxImages + ' 张';
+/* 上传框内的两行文案现在是**固定原文**（「点击或拖拽上传图片」+「支持 JPG…」），
+   照知渔实测；技能自己的说明走 field.hint 挂在框下面（批 Q）。
+   ⇒ 原来的 uploadCopy(maxImages) 拼串实现已无调用方，删掉（死代码不留）。 */
 
 function UploadControl({ field, value, onChange, disabled }) {
   const inputRef = useRef(null);
@@ -121,37 +121,54 @@ function UploadControl({ field, value, onChange, disabled }) {
         if (dropped.length) handleFiles(dropped);
       }}
     >
-      {items.map((item, index) => (
-        <span className="media-field-upload-item" key={(item.name || 'item') + '-' + index}>
-          <MediaAssetCard
-            kind="image"
-            src={item.previewUrl || item.url || ''}
-            label={item.status === 'error' ? '' : (item.name || '')}
-            status={item.status === 'ready' ? 'ready' : (item.status === 'error' ? 'error' : 'uploading')}
-            progress={item.status === 'uploading' ? (item.progress || 40) : 0}
-            onRemove={() => removeAt(index)}
-          />
-          {item.status === 'error' && (
-            <button type="button" className="media-field-upload-retry" onClick={() => { patchAt(index, { status: 'uploading', progress: 40, error: '' }); uploadAt(index, item.file); }}>
-              <RotateCcw size={12} />{item.error || '重试'}
-            </button>
-          )}
-        </span>
-      ))}
-      {!full && (
-        <>
-          <button type="button" className="media-field-upload-add" disabled={disabled} onClick={() => inputRef.current?.click()}>
-            <ImagePlus size={18} />
-            <span>{field.slotLabel || '选择文件'}</span>
-            {multiple && <small>{items.length}/{maxImages}</small>}
+      {/* ═══ 2026-09-19 批 Q：**一个框**（照知渔实测，用户批注 #2-5）═══════════════════════════
+         用户原话：「他们这个部分是一体的，你知道吗？就是上传素材，还有从资产库里面选择，
+           他们是在同一个地方的呀。同一个框里面去进行的呀。同一个框里面有这么两个按钮，
+           然后它还有一些文案是在说可以上传哪些素材，然后大小是多少，这些东西你也没有抄到位呀。」
+         知渔实测（docs/design/data/quantv-image-builtin-pages.json 同批量的 .tmp/laoyu2/qy-suite-layout.json）：
+           虚线框 432x168、radius 18px、dashed 1.6px、padding 20.96/16.768，**框内**从上到下是
+           ① 图标 ② 「点击或拖拽上传图片」(14.672px/500) ③ 「支持 JPG、JPEG、PNG，单张不超过 10MB」(12.576px)
+           ④ **两颗按钮同一排**：「选择文件」88x37 + 「从资产库选择」138x37。
+         我们原来是：一个  卡（按钮文案是"上传商品图"）+ 框**外**一颗「从资产库选择」+ 框外一行说明 ⇒ 就是用户说的"没抄到位"。 */}
+      <span className="media-field-upload-box">
+        {items.length === 0 ? (
+          <>
+            <ImagePlus size={30} strokeWidth={1.4} className="media-field-upload-icon" />
+            <strong className="media-field-upload-title">点击或拖拽上传图片</strong>
+            <small className="media-field-upload-hint">{field.acceptHint || UPLOAD_HINT}</small>
+          </>
+        ) : (
+          <span className="media-field-upload-items">
+            {items.map((item, index) => (
+              <span className="media-field-upload-item" key={(item.name || 'item') + '-' + index}>
+                <MediaAssetCard
+                  kind="image"
+                  src={item.previewUrl || item.url || ''}
+                  label={item.status === 'error' ? '' : (item.name || '')}
+                  status={item.status === 'ready' ? 'ready' : (item.status === 'error' ? 'error' : 'uploading')}
+                  progress={item.status === 'uploading' ? (item.progress || 40) : 0}
+                  onRemove={() => removeAt(index)}
+                />
+                {item.status === 'error' && (
+                  <button type="button" className="media-field-upload-retry" onClick={() => { patchAt(index, { status: 'uploading', progress: 40, error: '' }); uploadAt(index, item.file); }}>
+                    <RotateCcw size={12} />{item.error || '重试'}
+                  </button>
+                )}
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="media-field-upload-actions">
+          <button type="button" className="media-field-upload-add" disabled={disabled || full} onClick={() => inputRef.current?.click()}>
+            选择文件
           </button>
           {/* 第二个入口：从资产库选（与竞品一致）。选中的资产已经是服务端稳定地址，
               直接进生成请求，不重新上传一遍。 */}
-          <button type="button" className="media-field-upload-library" disabled={disabled} onClick={() => setLibraryOpen(true)}>
+          <button type="button" className="media-field-upload-library" disabled={disabled || full} onClick={() => setLibraryOpen(true)}>
             <Library size={15} />从资产库选择
           </button>
-        </>
-      )}
+        </span>
+      </span>
       <input
         ref={inputRef}
         type="file"
@@ -160,7 +177,8 @@ function UploadControl({ field, value, onChange, disabled }) {
         hidden
         onChange={event => { handleFiles(event.target.files); event.target.value = ''; }}
       />
-      <small className="media-field-upload-hint">{uploadCopy(maxImages) + ' · ' + UPLOAD_HINT}</small>
+      {/* ⚠️ 技能自己的说明（如「商品图会作为一组打包参考，最多 6 张」）由**外层统一的 field.hint**
+          渲染（就在控件下面那行）——这里**不能**再渲染一次，实测会连出两行一样的说明。 */}
       <ProjectAssetPicker
         open={libraryOpen}
         onClose={() => setLibraryOpen(false)}
@@ -249,6 +267,41 @@ function SegmentedControl({ field, value, onChange, disabled }) {
           onClick={() => setExpanded(false)}
         >收起</button>
       )}
+    </span>
+  );
+}
+
+/* ═══ cards：整幅选项卡（2026-09-19 批 Q，照知渔「套图结构配置」实测）══════════════════
+   用户批注 #3-3：「你不需要把这些说明写出来的，没有意义呀……他们也没有做这些呀」+
+   #3-4：「你下面一整块的排版都是乱的」。
+   知渔实测（.tmp/laoyu2/qy-suite-layout.json）：
+     两张卡各 **437×82**、圆角、白底、选中那颗右上角一个 ✓，
+     说明文字**写在卡片里面**（「AI智能分析商品图，匹配合适的 Listing 套图」/「可自由调整各类型图片数量，至少选择7张」），
+     不是像我们那样在卡片下面另起一段说明。
+   ⇒ 声明源写 field.kind = 'cards'，options 带 hint，控件把 hint 放进卡里。 */
+function CardsControl({ field, value, onChange, disabled }) {
+  return (
+    <span className="media-field-cards" role="radiogroup" aria-label={field.label}>
+      {(field.options || []).map(option => {
+        const on = String(value) === String(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            className={'media-field-card' + (on ? ' is-active' : '')}
+            onClick={() => onChange(option.value)}
+          >
+            <span className="media-field-card-copy">
+              <strong>{option.label}</strong>
+              {option.hint ? <small>{option.hint}</small> : null}
+            </span>
+            <span className="media-field-card-check" aria-hidden="true">{on ? '✓' : ''}</span>
+          </button>
+        );
+      })}
     </span>
   );
 }
@@ -399,6 +452,9 @@ function control(kind, field, value, onChange, disabled) {
   if (kind === 'counts') {
     return <CountsControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
+  if (kind === 'cards') {
+    return <CardsControl field={field} value={value} onChange={onChange} disabled={disabled} />;
+  }
   if (kind === 'upload') {
     return <UploadControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
@@ -432,6 +488,7 @@ function control(kind, field, value, onChange, disabled) {
    不传 = 与从前完全一致。 */
 export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null }) {
   const kind = field.kind || 'text';
+  const uploadCount = Array.isArray(value) ? value.length : 0;
   /* ═══ visibleWhen：字段的条件显示（2026-09-19 用户批注 #13）═════════════════════════
      竞品的「自定义配置」选中之后才会展开下面那组张数配置 —— 未选中时它不该占地方。
      判据写在**声明源**里（field.visibleWhen = { key, equals }），不散在页面里。 */
@@ -439,13 +496,20 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
     return null;
   }
   return (
-    <label className="media-field" data-kind={kind}>
-      {labelOverride || (
+    <label className="media-field" data-kind={kind} data-span={field.span || undefined}>
+      {/* hideLabel：声明里仍要写 label（契约与读屏都用它），但这一格**页面上不画标题** ——
+          知渔「套图结构配置」那一组只有组标题 + 两张卡，卡片上面没有第二个标题（批 Q）。 */}
+      {labelOverride ? labelOverride : (field.hideLabel ? null : (
         <span className="media-field-label">
           {field.label}
           {field.required ? <b aria-hidden="true">{REQUIRED_MARK}</b> : null}
+          {/* ═══ 批 Q：上传位的计数在**标题行右端**（照知渔：「上传图片 0/6」都在同一行）
+              ——我们原来把它塞在框里那颗按钮上（"上传商品图 0/6"），位置就不是他们的了。 */}
+          {kind === 'upload' && Number(field.maxImages) > 1 && (
+            <em className="media-field-count">{uploadCount}/{field.maxImages}</em>
+          )}
         </span>
-      )}
+      ))}
       {control(kind, field, value, onChange, disabled)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
     </label>

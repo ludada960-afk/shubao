@@ -19,14 +19,30 @@ const workbench = read('src/pages/Home/SkillWorkbench.jsx');
 const media = stripComments(read('src/pages/MediaCreation/index.jsx'));
 const skills = stripComments(read('src/skills/imageSkills.js'));
 
-test('① 上传位：两个入口 + 竞品同款文案，且真的实现了拖拽', () => {
-  assert.match(field, /从资产库选择/);
+test('① 上传位：一个框、两个入口、竞品同款文案，且真的实现了拖拽', () => {
+  /* ═══ 2026-09-19 批 Q：这条的**判据没变**（两个入口 + 竞品同款文案 + 真能拖），
+     变的是"竞品同款文案长什么样"这个事实。上一版上传位是「一个 + 卡 + 框外一颗从资产库选择」，
+     文案拼成「点击或拖拽上传图片 · 最多 N 张」；知渔实测（.tmp/laoyu2/qy-suite-layout.json）是
+     **一个虚线框**，框里两行固定原文 + 两颗按钮同一排：
+       「点击或拖拽上传图片」/「支持 JPG、JPEG、PNG，单张不超过 10MB」/ 选择文件 / 从资产库选择。
+     用户批注 #2-5 原话：「他们这个部分是一体的……上传素材，还有从资产库里面选择，
+       他们是在同一个地方的呀。同一个框里面去进行的呀。」
+     ⇒「最多 N 张」这句现在由**字段自己的 hint**（挂在框下面那行）承担，框内不再拼串。 */
+  assert.match(field, /media-field-upload-box/, '上传位必须是一个框');
   assert.match(field, /点击或拖拽上传图片/);
-  assert.match(field, /最多 ' \+ maxImages \+ ' 张/);
   assert.match(field, /单张不超过 10MB/);
+  assert.match(field, /从资产库选择/);
+  /* 两颗按钮必须在**同一个框里**（框结束标签之前出现） */
+  const boxBlock = field.slice(field.indexOf('media-field-upload-box'), field.indexOf('media-field-upload-actions'));
+  assert.ok(boxBlock.length > 0, '框的结构必须存在');
+  const buttonsBlock = field.slice(field.indexOf('media-field-upload-actions'));
+  assert.match(buttonsBlock.slice(0, 900), /media-field-upload-add/, '「选择文件」在框内');
+  assert.match(buttonsBlock.slice(0, 900), /media-field-upload-library/, '「从资产库选择」在框内');
   assert.match(field, /onDrop=\{event => \{/);
   assert.match(field, /onDragOver=\{event => \{/);
   assert.match(field, /handleFiles\(dropped\)/, '拖进来的文件必须走与「选择文件」同一条上传逻辑');
+  /* 上限仍然要如实写在页面上（技能自己的 hint，例如「商品图会作为一组打包参考，最多 6 张」） */
+  assert.match(skills, /最多 6 张/, '上传上限要写在字段说明里（用户看得见）');
 });
 
 test('② 跨境字段真的进了提示词（套图 / A+ / 详情图）', () => {

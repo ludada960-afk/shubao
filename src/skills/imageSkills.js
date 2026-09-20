@@ -13,7 +13,9 @@ export const SKILL_COMPLEXITIES = ['simple', 'standard', 'heavy'];
 /* counts：一组「类型 × 张数」的步进器（2026-09-19 用户批注 #13）。
    竞品套图工作台选中「自定义配置」后展开的那组配置就是这个档位 ——
    它不是"另一个 stepper"，因为它一次渲染多行、并且自带一行合计。 */
-export const FIELD_KINDS = ['select', 'segmented', 'stepper', 'textarea', 'text', 'slot', 'upload', 'counts'];
+/* cards = 整幅选项卡（知渔「套图结构配置」那两张 437x82 的卡，批 Q 新增）——
+   与 segmented 的区别：说明写在卡里、整幅宽度、右上角一个 ✓。 */
+export const FIELD_KINDS = ['select', 'segmented', 'cards', 'stepper', 'textarea', 'text', 'slot', 'upload', 'counts'];
 export const IMAGE_PIPELINES = [
   'visualCreation',   // 自由创作/海报/封面的既有链路（含参考图，单图同步）
   'ecommerceSuite',   // 电商套图（多分钟、多资产、带方案确认的既有流水线）
@@ -192,9 +194,30 @@ function styleFields(group) {
        点「自定义要求」它还是原样，用户看到的就是"这个切换点了没反应"。
        现在它只在选中「自定义要求」时才出现（visibleWhen 的判据写在声明源里，
        与 imageSkills 里「自定义配置」那条同源，不散在页面里）。 */
-    { key: 'styleNote', label: '自定义风格要求', longLabelReason: '照竞品原文（他们那颗三选一里就叫「自定义要求」，我们补全成"自定义风格要求"以免和别处的"要求"混）', kind: 'textarea', rows: 2, group,
+    /* ═══ 2026-09-19 批 Q：**三档各自的内容逐档照抄（CDP 逐个点过）** ═════════════════════
+       用户批注 #3-1：「你这个地方怎么会没有这个输入框呢？他们是有输入框的呀，你没有输入框的话，
+         那你这个 AI 推荐要推荐在哪里呢？你肯定要有一个输入框让 AI 推荐把结果给显示在里面呀。
+         你现在是不是连这些按钮，它们背后的逻辑你都没有弄明白呀？」
+       用户批注 #3-2：「而且你这两个按钮都没做这方面的工作呀。这两个按钮现在打开里面都是空的。」
+       实测（.tmp/laoyu2/qy-suite-switch.mjs，三颗逐一点过）：
+         · 点「参考排版」→ 出现**「风格/排版参考图（可选）0/5」上传框**
+         · 点「自定义要求」→ 出现**「设计要求」文本框**
+         · 点「AI推荐」  → 出现**「AI推荐风格分析 · 0.10 积分」按钮**，结论落进一个**可编辑输入框**
+       ⇒ 上一版只有「自定义要求」有东西，另两档点开是空的 = 死切换。现在三档各有一份自己的内容。 */
+    { key: 'styleRef', label: '风格/排版参考图（可选）',
+      longLabelReason: '照知渔原文逐字：点「参考排版」之后出现的上传位就叫「风格/排版参考图（可选）」',
+      kind: 'upload', group, maxImages: 5, role: 'reference',
+      visibleWhen: { key: 'style', equals: '参考排版' },
+      slotLabel: '上传参考图', hint: '上传你想参考的排版与风格，最多 5 张' },
+    { key: 'styleNote', label: '设计要求',
+      longLabelReason: '照知渔原文逐字：点「自定义要求」之后出现的文本框标题就叫「设计要求」',
+      kind: 'textarea', rows: 3, group,
       visibleWhen: { key: 'style', equals: '自定义要求' },
-      placeholder: '选「自定义要求」时写在这里，例如：奶油白背景、柔光棚拍、右上角留白放标题' },
+      placeholder: '写清你想要的风格、材质、光线与排版要求' },
+    { key: 'styleBrief', label: '设计风格要求',
+      kind: 'textarea', rows: 3, group,
+      visibleWhen: { key: 'style', equals: 'AI推荐' },
+      placeholder: '点「AI 推荐」后，结论会写在这里，可以直接改' },
   ];
 }
 
@@ -284,10 +307,16 @@ export const IMAGE_SKILLS = [
          我们原来把它单独拎出来当第一组，于是分组顺序与他们差一组（多一个「上传图片」头）。
          ⚠️ 上传位的 label 仍是「素材」（我们自己叫得顺），但**归组**必须与他们一致 ——
             分组是布局（要一模一样），字段名是文案（可以不一样）。 */
-      uploadField({ maxImages: 6, group: '基础信息' }),
+      /* ═══ 2026-09-19 批 Q：标题照知渔叫「上传图片」（他们那一页的字段标题就是这四个字），
+         计数 0/6 由渲染器放在标题行右端；框内文案与两颗按钮由渲染器统一渲染（见 FieldRenderer）。 */
+      { key: 'assets', label: '上传图片', longLabelReason: '照知渔原文逐字：他们这一页的字段标题就叫「上传图片」',
+        kind: 'upload', group: '基础信息', required: true, maxImages: 6, role: 'product',
+        slotLabel: '上传商品图', hint: '商品图会作为一组打包参考，最多 6 张' },
       marketField(MARKET_SUITE),
-      platformField(PLATFORM_SUITE),
-      languageField('文案语言', LANGUAGE_FULL.concat([{ value: '无文字', label: '无文字' }])),
+      /* ═══ 批 Q：目标平台 + 文案语言 **同一排**（知渔实测 212 + 13 + 212 = 437）══════════
+         用户批注 #2-6：「这两个东西是在同一排的，你为什么要做成两排呢？……右边一大片全是白色的。」 */
+      { ...platformField(PLATFORM_SUITE), span: 'half' },
+      { ...languageField('文案语言', LANGUAGE_FULL.concat([{ value: '无文字', label: '无文字' }])), span: 'half' },
       /* ⚠️ 商品参数的真实 key 是 productParams（buildSuiteRun 从它的**第一行**取商品名），
          只有界面 label 改成竞品那份措辞 —— 改 key 会让套图拿不到商品名。 */
       { key: 'productParams', label: '产品卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', maxLength: 2000,
@@ -306,12 +335,16 @@ export const IMAGE_SKILLS = [
          ⚠️ 与竞品的一处**有意差异**：他们的类型叫「白底图 / 场景图 / 卖点图 / 其他」，
             我们的类型由方案真源 IMAGE_TYPES 决定（白底首图 / 商品主图 / 透明 PNG / 详情图）——
             张数与报价都按这四个类型算，抄他们的名字会让面板与服务端方案对不上（钱的事）。 */
-      { key: 'structure', label: '套图结构', kind: 'segmented', group: '套图结构配置', default: '智能匹配',
+      /* 批 Q：hideLabel —— 知渔那一组只有**组标题「套图结构配置」+ 两张卡**，
+         卡片上面没有第二个标题（我们原来多一行「套图结构」，就是多出来的东西）。
+         label 仍然要写：声明契约要求非空、读屏也用它，只是**不画出来**。 */
+      { key: 'structure', label: '套图结构', hideLabel: true, kind: 'cards', group: '套图结构配置', default: '智能匹配',
+        /* ═══ 批 Q：说明文字**放进卡里**（知渔就是这么摆的），不要在卡下面另起一段 ═══════════
+           用户批注 #3-3：「你不需要把这些说明写出来的，没有意义呀……他们也没有做这些呀」 */
         options: [
-          { value: '智能匹配', label: '智能匹配' },
-          { value: '自定义配置', label: '自定义配置' },
-        ],
-        hint: '智能匹配：AI 按商品图与平台自动匹配合适的套图结构；自定义配置：自己定各类型出几张' },
+          { value: '智能匹配', label: '智能匹配', hint: 'AI智能分析商品图，匹配合适的 Listing 套图' },
+          { value: '自定义配置', label: '自定义配置', hint: '可自由调整各类型图片数量，至少选择 7 张' },
+        ] },
       /* ⚠️ 2026-09-19 批 G：这一组此前**只是显示**（没有消费者、没有默认值、没有校验），
           用户看到的是一排 0 且改了不影响出图 —— 典型的「装出来的功能」。本轮三处一起补：
             ① 每行给 default（白底 1 / 主图 3 / 透明 1 / 详情 2 = **7 张**，与竞品「至少 7 张」同档）；
@@ -321,13 +354,18 @@ export const IMAGE_SKILLS = [
         visibleWhen: { key: 'structure', equals: '自定义配置' },
         required: true,
         minTotal: 7,
+        /* 批 Q：每行去掉我们自己加的那句 hint —— 知渔那四行（白底图 / 场景图 / 卖点图 / 其他）
+           只有类型名与 −/+，没有说明（用户批注 #3-5：「不要过多的添加其他的文案上去」）。 */
         rows: [
-          { key: 'white_bg', label: '白底首图', hint: '纯白底产品居中，电商必选', max: 3, default: 1 },
-          { key: 'main_text', label: '商品主图', hint: '核心卖点展示，可含促销文字', max: 5, default: 3 },
-          { key: 'transparent', label: '透明 PNG', hint: '去底素材，方便二次设计', max: 3, default: 1 },
-          { key: 'detail', label: '详情图', hint: '长图讲清卖点与参数', max: 6, default: 2 },
+          { key: 'white_bg', label: '白底首图', max: 3, default: 1 },
+          { key: 'main_text', label: '商品主图', max: 5, default: 3 },
+          { key: 'transparent', label: '透明 PNG', max: 3, default: 1 },
+          { key: 'detail', label: '详情图', max: 6, default: 2 },
         ] },
-      { key: 'skus', label: '规格', kind: 'slot', group: '套图结构配置', slotLabel: '编辑规格与张数', hint: '自定义 SKU 变体在套图工作台里配' },
+      /* ═══ 批 Q：删掉「规格」这一格 ═══════════════════════════════════════════════════
+         用户批注 #3-5：「下面这些规格什么的，这些说明也完全没有意义，竞争对手没有的东西，
+           我们就不要乱做，你明白吗？……只有文案上面你可以改变一下表述，
+           但是你不要过多的添加其他的文案上去。」—— 知渔这一页没有「规格」字段。 */
     ],
     cases: [
       { id: 'scene', title: '场景卖点主图', cover: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp' },
@@ -352,8 +390,9 @@ export const IMAGE_SKILLS = [
     fields: [
       uploadField({ maxImages: 6 }),
       marketField(MARKET_WIDE),
-      platformField(PLATFORM_WIDE),
-      languageField('输出语言', LANGUAGE_FULL),
+      /* 批 Q：目标平台 + 输出语言**同一排**（与商品套图同一口径；知渔实测 212 + 13 + 212） */
+      { ...platformField(PLATFORM_WIDE), span: 'half' },
+      { ...languageField('输出语言', LANGUAGE_FULL), span: 'half' },
       { key: 'productParams', label: '核心卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', required: true,
         placeholder: '产品名：\n核心卖点：\n适用人群：\n期望场景：\n尺寸参数：' },
       { key: 'style', label: '爆款风格', kind: 'segmented', group: '产品卖点与设计风格', default: 'AI推荐',
@@ -439,8 +478,9 @@ export const IMAGE_SKILLS = [
     fields: [
       uploadField({ maxImages: 6 }),
       marketField(MARKET_WIDE),
-      platformField(PLATFORM_WIDE),
-      languageField('输出语言', LANGUAGE_FULL),
+      /* 批 Q：目标平台 + 输出语言**同一排**（与商品套图同一口径；知渔实测 212 + 13 + 212） */
+      { ...platformField(PLATFORM_WIDE), span: 'half' },
+      { ...languageField('输出语言', LANGUAGE_FULL), span: 'half' },
       { key: 'productParams', label: '核心卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', required: true,
         placeholder: '建议包含以下信息生成更精准：\n1.产品名称\n2.核心卖点\n3.适用人群\n4.期望场景\n5.尺寸参数' },
       { key: 'style', label: '爆款风格', kind: 'segmented', group: '产品卖点与设计风格', default: '爆款风格',
@@ -1127,8 +1167,8 @@ export const IMAGE_SKILLS = [
       { key: 'rules', label: '统一复刻要求（选填）', longLabelReason: '照竞品原文逐字（他们 ?tool=image-clone 的字段名就是「统一复刻要求（选填）」）', kind: 'textarea', rows: 3, group: '复刻设置',
         placeholder: '例如：文案统一用英文、模特姿势保持不变、参考图不要替换商品色。' },
       marketField(MARKET_BASE),
-      platformField(PLATFORM_SUITE),
-      languageField('文案语言', LANGUAGE_CLONE),
+      { ...platformField(PLATFORM_SUITE), span: 'half' },
+      { ...languageField('文案语言', LANGUAGE_CLONE), span: 'half' },
       ratioField(),
       countField(4),
     ],

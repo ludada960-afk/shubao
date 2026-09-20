@@ -382,7 +382,16 @@ try {
   /* ⚠️ 批 O-⑥：判据是「**禁用原因就近写在按钮旁、并点名缺了什么**」，
      不是"必须出现「素材」这两个字"—— 标签照知渔改过之后（上传商品图 / 上传图片…）
      绑字面量会让这条断言变成"改个字段名就红"。改成：非空 + 点名当前上传字段的 label。 */
-  const uploadLabel = await page.evaluate(() => document.querySelector('.media-field-label')?.textContent?.replace('*', '').trim() || '');
+  /* ⚠️ 批 Q：上传位的计数（0/6）现在也在标签行里（照知渔：「上传图片 0/6」同一行），
+     直接取 textContent 会把计数粘进字段名（实测拿到 "素材0/6"），断言就对不上了。
+     这里只取**字段名本身**：去掉必填星号与计数。 */
+  const uploadLabel = await page.evaluate(() => {
+    const label = document.querySelector('.media-field-label');
+    if (!label) return '';
+    const clone = label.cloneNode(true);
+    clone.querySelectorAll('b, .media-field-count').forEach(node => node.remove());
+    return clone.textContent.trim();
+  });
   check(gate.hint.trim().length > 0 && uploadLabel && gate.hint.includes(uploadLabel),
     '禁用原因就写在按钮旁，且点名缺的是哪个字段', gate.hint + ' | label=' + uploadLabel);
   check(gate.points.includes('1'), '积分按后端单价预估（image2 2K = 1 积分）', gate.points);
@@ -1427,7 +1436,16 @@ try {
          ⚠️ 新判据比旧判据**更强**：旧判据只看是不是 1 次（不看钱），
             新判据要求「实际请求数」与「按钮上写的积分数」对得上 ——
             这才咬住勾几个出几张、收几张的钱这条链。 */
-      const expected = Math.max(1, Number.parseInt(String(shape.points).match(/(\d+)\s*积分/)?.[1] || '1', 10));
+      /* ═══ 批 Q（用户批注 #3-6）：**预览型技能的按钮价格变了** ═══════════════════════════
+         用户原话：「我不明白为什么生成一下预览就要 7 点积分，我们的竞品他们就只有 0 点几的积分，
+           你为什么不把那个生成预览的积分放上去呢？」
+         ⇒ previewStep 那三条（商品套图 / A+ / 详情图）第一次点的是「生成预览」（0.5 积分/次，
+           SKU ec_plan_preview），按钮上写的就是这一步的价格；**方案应用之后**按钮回到
+           「生成图片」并显示真实出图报价。所以这条判据必须在**点完之后再读一次价格**，
+           否则拿 0.5 去跟请求数比（实测报"请求数 16 与按钮上的积分 5 对不上"）。
+         ⚠️ 判据本身没变，仍然咬「勾几个出几张、收几张的钱」。 */
+      const pointsNow = await page.evaluate(() => document.querySelector('.media-workbench-points')?.textContent || '');
+      const expected = Math.max(1, Number.parseInt(String(pointsNow).match(/(\d+)\s*积分/)?.[1] || '1', 10));
       const fired = calls.regenerate.length - before;
       if (fired !== expected) { result.problem = '请求数 ' + fired + ' 与按钮上的积分 ' + expected + ' 对不上（勾几个出几张、收几张的钱）'; return result; }
       const body = calls.regenerate[calls.regenerate.length - 1] || {};

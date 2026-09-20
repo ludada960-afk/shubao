@@ -113,7 +113,9 @@ test('③ 编号交付清单照竞品原文（套图 8 / A+ 6 / 详情图 4 / �
 
 test('④ 上传位数照竞品原文（一条都不能少）', () => {
   const maxOf = (id, label) => byLabel(id, label)?.maxImages;
-  assert.equal(maxOf('image.product_suite', '素材'), 6, '套图 0/6');
+  /* ⚠️ 2026-09-19 批 Q：字段名从「素材」改成「上传图片」——照知渔原文（他们那一页的字段标题
+     就是「上传图片」，0/6 的计数在标题行右端）。**判据与数值都没变**（还是 0/6 六张）。 */
+  assert.equal(maxOf('image.product_suite', '上传图片'), 6, '套图 0/6');
   assert.equal(maxOf('image.copy', '上传商品图'), 4, '复刻商品图 0/4（成组打包）');
   assert.equal(maxOf('image.copy', '上传参考图'), 20, '复刻参考图 0/20');
   assert.equal(maxOf('image.try_on', '上传模特图'), 1, '换装模特图 0/1');

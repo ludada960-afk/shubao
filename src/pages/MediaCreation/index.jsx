@@ -16,6 +16,9 @@ import { useApp } from '../../store/AppContext';
 /* 批 J-⑭：预览型技能要"先预览、确认后再生成"，用全站统一的对话框承载预览体。 */
 /* 批 K-C：图片侧「预览」= 三步方案预览（与视频侧「代为撰写」共用同一份组件与同一条服务端流水线） */
 import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
+/* 批 Q：「生成预览」按钮上要写**预览这一步**的价格（0.5 积分/次，SKU ec_plan_preview），
+   不是整单出图的报价 —— 用户批注 #3-6。价格常量与服务端 catalog 同源（写在 planPreview.js）。 */
+import { PLAN_PREVIEW_POINTS } from '../../services/planPreview.js';
 import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 /* 小红书图文与视频这两条链路各自已有**跑通的完整工作台**（分步确认 / 方案弹窗 / 任务轮询）。
@@ -722,7 +725,10 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       const label = STYLE_SKILL_LABEL[result?.style_skill] || '';
       if (!label) { setNotice(''); setError('这次没分析出明确的风格，换一张更聚焦的参考图再试'); return; }
       setStyleVerdict(label);
-      if (target) setValues(prev => ({ ...prev, [target]: 'AI推荐' }));
+      /* 批 Q（用户批注 #3-1）：「你没有输入框的话，那你这个 AI 推荐要推荐在哪里呢？
+         你肯定要有一个输入框让 AI 推荐把结果给显示在里面呀。」⇒ 结论写进**可编辑的输入框**，
+         不是只挂在按钮下面的一句提示（提示会随下一次操作消失，用户也没法改）。 */
+      if (target) setValues(prev => ({ ...prev, [target]: 'AI推荐', styleBrief: label }));
       await refreshBillingBalance?.().catch(() => undefined);
       setNotice('推荐风格：' + label + '（消耗 0.2 积分）');
     } catch (err) {
@@ -1317,7 +1323,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       ctaLabel={handoff
         ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续'))
         : (skill.previewStep ? '生成预览' : (skill.ctaLabel || '生成图片'))}
-        ctaPoints={handoff ? null : points}
+        /* ═══ 2026-09-19 批 Q：**预览型技能，按钮上写的是"预览这一步"的价格** ═══════════════
+           用户批注 #3-6：「我不明白为什么生成一下预览就要 7 点积分，我们的竞品他们就只有 0 点几的积分，
+             你为什么不把那个生成预览的积分放上去呢？」
+           原来是拿**整单出图**的报价（套图 7 积分）当预览价。预览这一步的真实价格是
+           ec_plan_preview = 0.5 积分/次（用户已批准，先报价→确认→才扣）。
+           方案确认之后按钮回到「生成图片」并显示真实出图报价（那时才是 7）。 */
+        ctaPoints={handoff ? null : ((skill.previewStep && !planApplied) ? PLAN_PREVIEW_POINTS : points)}
         ctaDisabled={busy || (!handoff && !validation.ok)}
         ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
         status={embed ? null : status}
@@ -1332,6 +1344,9 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         paidActions={paidActions}
         parseAction={parseSpec ? {
           label: parseSpec.label || '一键解析',
+          /* 批 Q：知渔把「一键解析 · 0.20 积分」放在**「产品卖点与设计风格」那一行**的右端，
+             不是左栏第一行（第一行只有组名「基础信息」）—— 见 .tmp/laoyu2/qy-suite-layout.json。 */
+          group: '产品卖点与设计风格',
           points: 0.2,
           busy: parsing,
           hint: '上传商品图后点它，自动把商品名 / 品类 / 材质 / 尺寸填好',
