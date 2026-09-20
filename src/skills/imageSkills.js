@@ -388,7 +388,7 @@ export const IMAGE_SKILLS = [
     /* 字段顺序与措辞照竞品 A+ 页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
        产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
-      uploadField({ maxImages: 6 }),
+      uploadField({ maxImages: 6, group: '基础信息' }),
       marketField(MARKET_WIDE),
       /* 批 Q：目标平台 + 输出语言**同一排**（与商品套图同一口径；知渔实测 212 + 13 + 212） */
       { ...platformField(PLATFORM_WIDE), span: 'half' },
@@ -493,7 +493,7 @@ export const IMAGE_SKILLS = [
     /* 字段顺序与措辞照竞品详情图页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
        产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
-      uploadField({ maxImages: 6 }),
+      uploadField({ maxImages: 6, group: '基础信息' }),
       marketField(MARKET_WIDE),
       /* 批 Q：目标平台 + 输出语言**同一排**（与商品套图同一口径；知渔实测 212 + 13 + 212） */
       { ...platformField(PLATFORM_WIDE), span: 'half' },
