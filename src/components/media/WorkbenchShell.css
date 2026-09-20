@@ -263,6 +263,9 @@
    ⇒ 声明源给字段写 span: 'half' 就占半列，默认仍占整行 —— 顺序照声明，不改任何现有页面的默认行为。 */
 .media-workbench-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 13px; }
 .media-workbench-fields > .media-field { grid-column: 1 / -1; }
+/* 视频侧的块（参考图 / 比例 / 时长 …）都是整幅的 —— 它们不是"半宽字段"，
+   不写这条就会被两列网格压成半宽（实测上传框被挤到 200px 宽、说明文字折行）。 */
+.media-workbench-fields > .video-wb-block { grid-column: 1 / -1; }
 .media-workbench-fields > .media-field[data-span="half"] { grid-column: span 1; }
 /* 一键解析：付费前置动作（0.2 积分）。价格写在按钮上，别让人猜；
    它是"帮我把字段填好"的动作，不是生成动作 —— 所以用次级按钮的视觉重量。 */
@@ -697,6 +700,31 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 /* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
    VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
    在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */
+/* ═══ 2026-09-19 批 Q-⑥：嵌入形态（视频子页面）顶上的**紧凑信息卡**（照知渔 411x128）══════
+   知渔那页左栏是：返回一行 → 信息卡（技能名 + 一句话说明 + 分类标签）→「参数配置」组；
+   **内容从 y=73 就开始了**。我们原来那块是"教学入口 + 分类 + 24px 大标题 + 副标题 + 视频生成角标 +
+   一句营销大标题"，实测把第一个字段推到 **y=329**（用户：「上面这部分留白是为什么要留白呢？」）。 */
+.media-skill-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 14px;
+  background: var(--sb-surface-card);
+}
+.media-skill-card-copy { display: grid; gap: 4px; min-width: 0; }
+.media-skill-card-copy strong { font-size: 14.672px; font-weight: 500; color: var(--sb-ink-1); }
+.media-skill-card-copy p { margin: 0; font-size: 12.576px; line-height: 1.5; color: var(--sb-ink-3); }
+.media-skill-card-side { display: grid; justify-items: end; gap: 6px; flex: 0 0 auto; }
+.media-skill-card-tag {
+  padding: 3px 9px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 999px;
+  font-size: 12.576px;
+  color: var(--sb-ink-3);
+}
 .media-workbench-left.is-head-only { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 16px; }
 .media-workbench-head-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 14px; }
 .media-workbench-left.is-head-only .media-workbench-head { gap: 2px; }

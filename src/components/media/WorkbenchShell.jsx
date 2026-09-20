@@ -97,24 +97,31 @@ export default function WorkbenchShell({
     <section className={`media-workbench${embedded ? ' is-embedded-flow' : ''}`}>
       {embedded ? (
         <>
+          {/* ═══ 2026-09-19 批 Q-⑥：嵌入形态（视频子页面）顶上的那一大块**照知渔收成一张紧凑信息卡** ═══
+              用户批注（本轮，对着视频子页面）：「你不能把整体的东西往上面顶上去吗？」
+                以及前面那轮：「这个就是他们没有的，你为什么会有这个部分呢？这部分要拿掉呀。」
+              CDP 实测知渔的视频子页面（/apps?id=… 光线变化）左栏结构：
+                ① 返回广场（一行，34 高）
+                ② **信息卡 411x128**：缩略图 + 技能名 + 一句话说明 + 分类标签
+                ③ 「参数配置」组（字段从这里开始）—— 内容区**从 y=73 就开始**，没有任何营销大标题。
+              我们原来这一块是：怎么用这条技能 + 分类 + 24px 大标题 + 副标题 + 视频生成角标 +
+                「把创意素材变成吸引人的短片」大标题 + 一句说明（实测把第一个字段推到了 **y=329**）。
+              ⇒ 收成知渔那张卡（标题 + 一句说明 + 分类标签；我们**没有**技能缩略图，就不放假图），
+                教学示例入口并进卡片右上角（门禁 test/skill-tutorial-0919 要求它必须存在）。 */}
           <div className="media-workbench-left is-head-only">
-            <div className="media-workbench-head-row">
-            {onBack && <button type="button" className="media-workbench-back" onClick={onBack}>← 返回创作</button>}
-            {/* ═══ 批 J-⑭：**嵌入形态也要有教学示例入口**（视频 / 小红书这两条链路就是嵌入形态）═══
-                用户要的「按教学示例做深度匹配」主要说的就是视频侧；入口只做在非嵌入形态等于
-                视频页面上根本没有这个门。放在页头这一行的末尾（窄屏会折到下一行）。 */}
-            {tutorial && (
-              <button type="button" className="media-workbench-tutorial is-head" onClick={() => setTutorialOpen(true)}>
-                怎么用这条技能
-              </button>
-            )}
-            {(category || title) && (
-              <header className="media-workbench-head">
-                {category && <span className="media-workbench-category">{category}</span>}
-                {title && <h2>{title}</h2>}
+            <div className="media-skill-card">
+              <div className="media-skill-card-copy">
+                {title && <strong>{title}</strong>}
                 {subtitle && <p>{subtitle}</p>}
-              </header>
-            )}
+              </div>
+              <div className="media-skill-card-side">
+                {category && <span className="media-skill-card-tag">{category}</span>}
+                {tutorial && (
+                  <button type="button" className="media-workbench-tutorial is-head" onClick={() => setTutorialOpen(true)}>
+                    怎么用这条技能
+                  </button>
+                )}
+              </div>
             </div>
             <div className="media-workbench-panel">{panel}</div>
           </div>

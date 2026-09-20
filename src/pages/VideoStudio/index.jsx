@@ -1219,7 +1219,12 @@ export default function VideoStudioPage({
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
     <section ref={composerRef} className={"video-composer" + (homeComposer ? " is-home" : "") + (fullscreen ? " is-fullscreen" : "")} aria-label="视频生成工作区">
-      <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
+      {/* ═══ 2026-09-19 批 Q-⑥：**子页面不再渲染这块营销大标题** ═══════════════════════════════
+          用户批注（本轮）：「你不能把整体的东西往上面顶上去吗？为什么一定要放到下面去呢？」
+          知渔的视频子页面左栏从「返回」→「信息卡 411x128」→「参数配置」直接开始，
+          **没有**「视频生成」角标 + 「把创意素材变成吸引人的短片」这种大标题（那是首页的写法）。
+          首页与独立路由（!embedded）行为不变 —— 它们本来就该有这块。 */}
+      {!workbenchMode && <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>}
       {/* ═══ 批 N：skill 子页面**不显示创作方式切换** ═══════════════════════════════════════
           依据（用户第 18 轮原话）：「他们这些 skill 页面……**每个工作台都是不一样的呀**，
             你现在完全没抄，**用的依然是我们之前首页的视频生成版本糊弄我**」。

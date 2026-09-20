@@ -152,13 +152,20 @@ export default function VideoWorkbench({
   const blocks = useMemo(() => (workbench?.blocks || []), [workbench]);
   if (!blocks.length) return null;
   return (
-    <div className="video-workbench-blocks" data-workbench={workbench?.source || 'local'}>
+    /* ═══ 2026-09-19 批 Q-⑥：**整块包进「参数配置」组**（照知渔视频子页面实测）══════════════
+       知渔那一页左栏是「参数配置」一个组头，底下才是 参考图（要求：人视图）/ 比例 这些字段；
+       我们原来把每个块各自当成一个**组**（组标题 = 块标题），于是页面上看不到「参数配置」，
+       而且块标题用的是**组标题**那一档字（比字段名还轻）。
+       ⇒ 外面包一个组、块标题改用字段标题那一档（.media-field-label，14.672/500 近黑）。 */
+    <section className="media-workbench-group video-workbench-blocks" data-workbench={workbench?.source || 'local'}>
+      <h3 className="media-workbench-group-title"><span>参数配置</span></h3>
+      <div className="media-workbench-fields">
       {blocks.map((block, index) => {
         if (block.kind === 'upload') {
           const files = slots[block.key] || [];
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-workbench-group-title">
+              <h3 className="media-field-label">
                 <span>{block.title}</span>
                 <span className="video-wb-count">{files.length}/{block.max}</span>
               </h3>
@@ -179,7 +186,7 @@ export default function VideoWorkbench({
           const current = values[block.bind] ?? '';
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-workbench-group-title">
+              <h3 className="media-field-label">
                 <span>{block.title}{block.required && <i className="video-wb-required" aria-hidden="true">*</i>}</span>
               </h3>
               <span className="media-field-segmented video-wb-chips" role="group" aria-label={block.title}>
@@ -201,7 +208,7 @@ export default function VideoWorkbench({
           const action = block.action;
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-workbench-group-title"><span>{block.title}</span></h3>
+              <h3 className="media-field-label"><span>{block.title}</span></h3>
               {action && (
                 <div className="media-workbench-paid-actions">
                   {action.wired ? (
@@ -253,7 +260,7 @@ export default function VideoWorkbench({
         if (block.kind === 'panel') {
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-workbench-group-title"><span>{block.title}</span></h3>
+              <h3 className="media-field-label"><span>{block.title}</span></h3>
               {block.note && <p className="media-workbench-group-note">{block.note}</p>}
               <div className="media-workbench-paid-actions">
                 {(block.actions || []).map(action => (action.wired ? (
@@ -278,7 +285,7 @@ export default function VideoWorkbench({
         if (block.kind === 'note') {
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-workbench-group-title"><span>{block.title}</span></h3>
+              <h3 className="media-field-label"><span>{block.title}</span></h3>
               <ul className="video-wb-notes">
                 {(block.items || []).map(item => (
                   <li key={item.label}><i aria-hidden="true">•</i><span><strong>{item.label}</strong>{item.detail}</span></li>
@@ -290,7 +297,7 @@ export default function VideoWorkbench({
         if (block.kind === 'tags') {
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-workbench-group-title"><span>{block.title}</span></h3>
+              <h3 className="media-field-label"><span>{block.title}</span></h3>
               <div className="video-wb-tags">
                 {(block.items || []).map(item => <span key={item}>{item}</span>)}
               </div>
@@ -299,6 +306,7 @@ export default function VideoWorkbench({
         }
         return null;
       })}
-    </div>
+      </div>
+    </section>
   );
 }
