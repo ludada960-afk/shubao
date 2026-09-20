@@ -158,7 +158,11 @@ const pageContentSwap = (extra = {}) => ({
     uploadBlock({ key: 'referenceVideo', title: '参考视频（最长支持15秒）', max: 1, hint: '点击或拖拽视频上传', acceptHint: '支持 MP4、WEBM、MOV，50M以内', accept: VIDEO_ACCEPT }),
     uploadBlock({ key: 'sourceImage', title: '上传图片（模特或产品）', max: 1, hint: '点击或拖拽图片上传', acceptHint: '支持 PNG、JPG、JPEG，10M以内' }),
     uploadBlock({ key: 'background', title: '背景图（可上传，未上传则不替换背景（注：景别切换的不建议换背景））', max: 1, hint: '点击或拖拽图片上传', acceptHint: '支持 PNG、JPG、JPEG，10M以内' }),
-    { key: 'swapMode', kind: 'chips', title: '替换对象', bind: 'swapMode', options: [{ label: '换模特', value: 'model' }, { label: '换产品', value: 'product' }] },
+    /* ⚠️ 批 S：知渔那一页这两颗药丸**上方没有字段标题**（CDP 实测：全文里
+       「从资产库选择 → 换模特 → 换产品」之间没有任何文字；两颗药丸 y=1154）。
+       我们原来多写了一个「替换对象」标题 = 他们页面上没有的东西。按"一模一样"的要求去掉，
+       标题仍留在声明里（读屏与机检要用），只是不画出来。 */
+    { key: 'swapMode', kind: 'chips', title: '替换对象', hideLabel: true, bind: 'swapMode', options: [{ label: '换模特', value: 'model' }, { label: '换产品', value: 'product' }] },
   ],
 });
 

@@ -35,6 +35,8 @@ import { getImageSkill } from '../../skills/imageSkills.js';
 import { isQuantvAppPage } from '../../skills/quantvImageParity.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
 import { getVideoWorkbench } from '../../skills/videoWorkbenches.js';
+/* 批 S：视频子页面的「参数配置」组头照知渔逐页计数决定 —— 判据同样来自对照表 */
+import { quantvVideoShowsParamGroup } from '../../skills/quantvVideoParity.js';
 import { boardOfPage, canCarryResultAsInput, fuseActionsOf, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
 import {
   clearPendingRun,
@@ -1238,6 +1240,14 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
             规格逐条抄自知渔 20 个视频 skill 页面（docs/design/64 §8 的逐字抄录）。
             没有声明的工作台（辅助能力那三条，它们本来就没有自己的子页面）= null ⇒ 与从前一致。 */
         workbench={getVideoWorkbench(skill.id)}
+        /* ═══ 批 S：视频子页面的「参数配置」组头**照知渔逐页全量计数**决定（不是全站一刀切）═════
+           证据：docs/design/data/quantv-video-pages.json 的 32 条 panelText 全文检索 ——
+             · 有「参数配置」25 条：24 个 app 页 + 1 条路由页（视频字幕去除）
+             · 没有 7 条：6 条路由页（视频创作 / 爆款复刻 / 探店视频 / 内容替换 / 数字人 / 视频高清）
+               + 趣味脱口秀（app）
+           ⇒ 路由型（/ai-video 这一族）**不渲染组头**（第一格直接是字段），app 页保持组头。
+           判据从对照表派生（quantvVideoShowsParamGroup），页面里不写第二份名单。 */
+        groupTitle={quantvVideoShowsParamGroup(skill.id) ? '参数配置' : ''}
         /* 子页面里**不自动跳画布**：结果留在这一页的成片台上（用户 9-17 口径） */
         autoOpenCanvas={false}
         initialMode={skillVideoMode(skill)}

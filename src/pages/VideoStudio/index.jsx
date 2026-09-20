@@ -74,7 +74,7 @@ import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import { tagVideoJob } from './videoJobTags.js';
-import { CAMERA_MOVES, SCENE_EDITS, cameraInstruction, composeVideoPrompt, sceneEditInstruction, swapInstruction } from './cameraMoves.js';
+import { CAMERA_MOVES, SCENE_EDITS, composeVideoPrompt, workbenchExtraInstructions } from './cameraMoves.js';
 import VideoWorkbench from '../../components/media/VideoWorkbench.jsx';
 /* 批 K-D：视频侧「代为撰写」与图片侧「生成预览」共用同一个三步方案预览对话框 */
 import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
@@ -284,6 +284,11 @@ export default function VideoStudioPage({
      传了它 = 子页面按**这条 skill 自己的**工作台渲染（知渔 20 个页面逐页抄来的规格）；
      不传（首页输入框 / 独立路由）= 与从前**完全一致**，一个像素都不动。 */
   workbench = null,
+  /* ═══ 批 S：左栏那一行组头（「参数配置」）═══════════════════════════════════════════════
+     知渔视频侧 32 个子页面**逐条计数**：25 条有这一行、7 条没有（6 条路由页 + 趣味脱口秀）。
+     ⇒ 组头由页面按对照表传进来（quantvVideoShowsParamGroup），不在渲染层写死一刀切。
+     ⚠️ 属性名与图片侧 WorkbenchShell 的同名入参一致（groupTitle），两处判据同一份。 */
+  groupTitle = '参数配置',
 }) {
   /* ═══ 首页形态 vs 技能子页面形态（用户 9-18 批注 2 / 3 / 8 / 9 / 10 / 11 / 12）══════
      用户口径：「首页就是要让用户快速的去生成去跑一遍呀，你不要把功能做的太杂了，做的太杂，
@@ -405,9 +410,14 @@ export default function VideoStudioPage({
   const [cameraMove, setCameraMove] = useState('');
   const [sceneEdit, setSceneEdit] = useState('');
   const activeAnalysis = analyzedSignature === planSignature ? analyzedPlan : null;
+  /* ⚠️ 批 S 修 bug：这里原来无条件把三条指令拼进去，而 swapTarget 的初始值是 'model'
+     ⇒ 每个视频页面（含没有"替换对象"控件的视频创作 / 爆款复刻 / 探店视频）都往提示词里
+        悄悄追加「把原片里的人物替换成我上传的人物图片…」，界面上还写着"将追加到提示词"。
+     现在改成**由这一页真的声明了哪些控件派生**（规则与理由见 cameraMoves.js 的
+     workbenchExtraInstructions，纯函数、门禁直接断言）。 */
   const extraInstructions = useMemo(
-    () => [cameraInstruction(cameraMove), sceneEditInstruction(sceneEdit), swapInstruction(swapTarget)].filter(Boolean),
-    [cameraMove, sceneEdit],
+    () => workbenchExtraInstructions({ blocks: workbench?.blocks || [], cameraMove, sceneEdit, swapTarget }),
+    [workbench, cameraMove, sceneEdit, swapTarget],
   );
   /* ⚠️ 只有 activeAnalysis 存在时才取它的 optimizedPrompt（方案确认过的那版），
       否则取用户输入的原文 —— 其余情况一律不拼，避免把"还没分析"的提示词当分析结果用。 */
@@ -1254,6 +1264,7 @@ export default function VideoStudioPage({
             ⚠️ 首页输入框与独立路由**不传 workbench** ⇒ 走下面那条分支，行为与从前一个像素都不变。 */}
         {workbenchMode && <VideoWorkbench
           workbench={workbench}
+          groupTitle={groupTitle}
           slots={slotFiles}
           onSlotFiles={updateSlotFiles}
           prompt={prompt}

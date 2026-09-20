@@ -114,6 +114,23 @@ export function quantvVideoCounterpartOf(skillId) {
   return QUANTV_VIDEO_COUNTERPARTS[skillId] || null;
 }
 
+/* ═══ 左栏「参数配置」组头：知渔视频侧**全量计数**的结论（不是抽样）═══════════════════════
+   用户铁律：「所有的逻辑，所有的布局，所有的规范都得是一模一样的」。
+   批 Q-⑥ 给视频子页面加了「参数配置」组头，那一版是照 **app 页**实测的（/apps?id=… 有组头）——
+   本轮把 32 个子页面**逐条计数**（证据 docs/design/data/quantv-video-pages.json 的 panelText 全文检索）：
+     · 有「参数配置」**25** 条：24 个 app 页 + 1 条路由页（视频字幕去除）
+     · **没有** **7** 条：6 条路由页（视频创作 / 爆款复刻 / 探店视频 / 内容替换 / 数字人 / 视频高清）
+       + 趣味脱口秀（app）
+   ⇒ **路由型页面左栏没有组头**（第一格直接是字段），app 页有组头 —— 两种都要一模一样。
+   ⚠️ 判据从对照表**派生**，不在页面里再写一份名单（上一版的教训：名单写两处必然漂移）。
+   ⚠️ 自有玩法（counterpart: null）知渔没有对应页可比：沿用现状（按 app 型渲染组头）——
+      32 条里 25 条有组头，这是多数形态，且这是"不改动既有页面"的保守取法。 */
+export function quantvVideoShowsParamGroup(skillId) {
+  const record = QUANTV_VIDEO_COUNTERPARTS[skillId];
+  if (!record || !record.counterpart) return true;
+  return String(record.counterpart).includes('/apps?id=');
+}
+
 export function videoSkillsWithCounterpart() {
   return Object.entries(QUANTV_VIDEO_COUNTERPARTS)
     .filter(([, v]) => v && v.counterpart)

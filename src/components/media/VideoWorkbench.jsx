@@ -134,6 +134,7 @@ function SlotUpload({
 
 export default function VideoWorkbench({
   workbench = null,
+  groupTitle = '参数配置',
   slots = {},
   onSlotFiles = () => {},
   prompt = '',
@@ -158,7 +159,13 @@ export default function VideoWorkbench({
        而且块标题用的是**组标题**那一档字（比字段名还轻）。
        ⇒ 外面包一个组、块标题改用字段标题那一档（.media-field-label，14.672/500 近黑）。 */
     <section className="media-workbench-group video-workbench-blocks" data-workbench={workbench?.source || 'local'}>
-      <h3 className="media-workbench-group-title"><span>参数配置</span></h3>
+      {/* ═══ 批 S：这一行组头**照知渔逐页计数**决定要不要渲染 ══════════════════════════════════
+          知渔视频侧 32 个子页面全文检索：25 条有「参数配置」、7 条没有（6 条路由页 + 趣味脱口秀）。
+          批 Q-⑥ 那一版是按 **app 页**实测加的，于是路由型的四条（视频创作 / 爆款复刻 /
+          探店视频 / 内容替换）也顶了一个他们的页面上没有的组头。
+          ⇒ groupTitle 为空串时**不渲染这一行**（外层 section 与两列网格保留，布局不受影响）；
+            判据由页面从对照表派生传入（quantvVideoShowsParamGroup），这里不做任何猜测。 */}
+      {groupTitle ? <h3 className="media-workbench-group-title"><span>{groupTitle}</span></h3> : null}
       <div className="media-workbench-fields">
       {blocks.map((block, index) => {
         if (block.kind === 'upload') {
@@ -186,9 +193,13 @@ export default function VideoWorkbench({
           const current = values[block.bind] ?? '';
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-field-label">
-                <span>{block.title}{block.required && <i className="video-wb-required" aria-hidden="true">*</i>}</span>
-              </h3>
+              {/* 知渔有的控件**没有标题**（「换模特 / 换产品」那两颗药丸上方是一片空白）——
+                  声明里写 hideLabel: true，标题仍留给读屏（aria-label），只是不画出来。 */}
+              {!block.hideLabel && (
+                <h3 className="media-field-label">
+                  <span>{block.title}{block.required && <i className="video-wb-required" aria-hidden="true">*</i>}</span>
+                </h3>
+              )}
               <span className="media-field-segmented video-wb-chips" role="group" aria-label={block.title}>
                 {(block.options || []).map(option => (
                   <button

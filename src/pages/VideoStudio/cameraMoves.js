@@ -65,3 +65,26 @@ export function composeVideoPrompt(prompt, instructions = []) {
   const parts = [tidy(prompt), ...instructions.map(tidy)].filter(Boolean);
   return parts.length ? parts.join('。') + '。' : '';
 }
+
+/* ═══ 追加指令的**唯一组装点**（批 S）═══════════════════════════════════════════════════
+   修的是一个**真 bug**（用户没选过的指令被塞进提示词）：原来这一步把三条指令无条件拼在一起，
+   而替换对象的初始值是 'model'（照知渔 /content-replace 那一页的默认选中档），于是
+   **每一个**视频页面 —— 包括根本没有"替换对象"控件的「视频创作 / 爆款复刻 / 探店视频」——
+   下发的提示词末尾都带着「把原片里的人物替换成我上传的人物图片…」，界面上也照实写着
+   「将追加到提示词：…」。用户从没选过这条指令，那几页也没有"原片"可换。
+
+   判据（只有这一页真的渲染了那个控件，它的值才允许进提示词）：
+     · 运镜 / 只改一个元素 —— 创作台恒定渲染的两个控件，选了就追加（默认空值 = 不追加）；
+     · 替换对象 —— 只有声明了 bind:'swapMode' 的工作台才有那一格（知渔 31 个子页面里只有
+       /content-replace 有），所以它的指令必须**由 blocks 派生**，不能按状态默认值拼。
+   ⚠️ 依赖数组必须含 blocks / swapTarget：漏掉 swapTarget 会让用户点了「换产品」而提示词
+      还是「换模特」（同一类静默不一致，本批次一并修掉）。 */
+export function workbenchExtraInstructions({ blocks = [], cameraMove = '', sceneEdit = '', swapTarget = '' } = {}) {
+  const list = Array.isArray(blocks) ? blocks : [];
+  const hasSwapControl = list.some(block => block && block.bind === 'swapMode');
+  return [
+    cameraInstruction(cameraMove),
+    sceneEditInstruction(sceneEdit),
+    hasSwapControl ? swapInstruction(swapTarget) : '',
+  ].filter(Boolean);
+}
