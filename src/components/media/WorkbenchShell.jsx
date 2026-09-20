@@ -15,7 +15,10 @@ import { createPortal } from 'react-dom';
    我们原来是**一条平铺的字段流** —— 十几个字段从上排到底，用户看不出"这几格是一件事"。
    分组从哪来：声明源里每个 field 写一个 group 名（不写就落在"默认组"），
    本组件按**字段出现的先后**决定组的先后（不是另写一张顺序表 —— 那会有第二份真相）。 */
-function groupFields(fields) {
+function groupFields(fields, mergeTitle = '') {
+  /* mergeTitle：把全部字段并进**一个**组（知渔的应用市场 app 页就是这样：左栏只有一个「参数配置」）。
+     内置 ?tool= 页保持各自的分组名（基础信息 / 产品卖点与设计风格 / 套图结构配置 …）。 */
+  if (mergeTitle) return [{ name: mergeTitle, fields }];
   const order = [];
   const map = new Map();
   for (const field of fields) {
@@ -32,6 +35,8 @@ export default function WorkbenchShell({
   category = '',
   onBack = null,
   fields = [],
+  /* 单组标题：应用市场来的那 28 条页面传「参数配置」（照知渔），内置页不传 */
+  groupTitle = '',
   values = {},
   onFieldChange = () => {},
   disabled = false,
@@ -184,7 +189,7 @@ export default function WorkbenchShell({
               )))}
             </div>
           )}
-          {groupFields(fields).map((group, index) => (
+          {groupFields(fields, groupTitle).map((group, index) => (
             <section className="media-workbench-group" key={group.name || 'default'}>
               {/* ⚠️ 批 O-⑫：标题行在**第一组**即使没有组名也要渲染 ——
                   教学示例入口与一键解析都落在这里；若挂在 group.name 条件里，

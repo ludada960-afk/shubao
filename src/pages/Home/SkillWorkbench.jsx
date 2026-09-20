@@ -55,6 +55,8 @@ export default function SkillWorkbench({
   parseAction = null,
   /* 字段旁的付费动作（AI生成卖点 / AI推荐风格分析…），见 WorkbenchShell.paidActions */
   paidActions = [],
+  /* 单组标题：应用市场来的 app 页传「参数配置」（知渔那边左栏只有一个组头），内置页不传 */
+  groupTitle = '',
 }) {
   const skill = board === 'video' ? getVideoSkill(skillId) : getImageSkill(skillId);
   const [activeTab, setActiveTab] = useState('cases');
@@ -98,6 +100,7 @@ export default function SkillWorkbench({
         onTabChange={setActiveTab}
         panel={panel}
         tutorial={tutorial}
+        groupTitle={groupTitle}
         sections={sections}
         parseAction={parseAction}
         paidActions={paidActions}

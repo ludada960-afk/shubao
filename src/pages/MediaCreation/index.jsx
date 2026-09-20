@@ -31,6 +31,8 @@ import { contentResultPages, isContentResult } from '../Home/contentResultModel.
 import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
+/* 批 Q-⑨：app 页要在左栏只显示一个「参数配置」组头 —— 判据来自对照表本身 */
+import { isQuantvAppPage } from '../../skills/quantvImageParity.js';
 import { getVideoSkill } from '../../skills/videoSkills.js';
 import { getVideoWorkbench } from '../../skills/videoWorkbenches.js';
 import { boardOfPage, canCarryResultAsInput, fuseActionsOf, hubPath, skillPath as skillDeepLink } from '../../skills/skillDirectory.js';
@@ -1361,6 +1363,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         history={history}
         panel={panel}
         tutorial={tutorial}
+        /* ═══ 2026-09-19 批 Q-⑨：app 页左栏**只有一个「参数配置」组头**（照知渔实测）═══════════
+           CDP 逐页量过（.tmp/qy-paramgroup2.mjs）：知渔电商海报设计 / 相似图生成 / 平面转建筑效果图
+           的左栏都是 技能名 → 分类 → **参数配置**(y≈202) → 第一个字段(y≈252)，只有一个组头。
+           内置 ?tool= 页（商品套图 / A+ / 详情图 / 复刻 / 去背 / 换装）是真有分组名的，保持原样。
+           判据来自对照表本身（quantvImageParity.isQuantvAppPage），不在页面里再写一份名单。 */
+        groupTitle={skill && board === 'image' && isQuantvAppPage(skill.id) ? '参数配置' : ''}
         deliverables={deliverables}
         sections={sections}
         paidActions={paidActions}

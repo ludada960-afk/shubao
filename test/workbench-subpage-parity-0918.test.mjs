@@ -29,9 +29,18 @@ const fieldsOf = id => getImageSkill(id).fields;
 const byLabel = (id, label) => fieldsOf(id).find(field => field.label === label);
 
 test('① 工作台按区块分组，组名与顺序照竞品实测', () => {
-  /* 骨架支持分组：按**字段出现的先后**决定组的先后（不是另写一张顺序表 —— 那会有第二份真相） */
-  assert.match(shell, /function groupFields\(fields\)/);
+  /* 骨架支持分组：按**字段出现的先后**决定组的先后（不是另写一张顺序表 —— 那会有第二份真相）
+     ⚠️ 2026-09-19 批 Q-⑨：签名多了第二个参数 mergeTitle（判据没变，仍是"按字段顺序成组"）——
+        应用市场来的 app 页在知渔那边**只有一个「参数配置」组头**（CDP 逐页量过：
+        技能名 → 分类 → 参数配置@y≈202 → 第一个字段@y≈252），内置 ?tool= 页才是真分组。
+        所以渲染层多了一个"并成一组"的开关，两边的分组事实各按各的走。 */
+  assert.match(shell, /function groupFields\(fields, mergeTitle = ''\)/);
+  assert.match(shell, /if \(mergeTitle\) return \[\{ name: mergeTitle, fields \}\];/, '单组模式要真的并成一组');
   assert.match(shell, /media-workbench-group-title/);
+  /* 页面侧：app 页必须传「参数配置」，且判据来自对照表（不在页面里再写一份名单） */
+  const media = read('src/pages/MediaCreation/index.jsx');
+  assert.match(media, /groupTitle=\{skill && board === 'image' && isQuantvAppPage\(skill\.id\) \? '参数配置' : ''\}/,
+    'app 页要传单组标题「参数配置」（照知渔），内置页不传');
 
   const groupNames = id => {
     const order = [];

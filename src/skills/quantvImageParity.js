@@ -87,6 +87,20 @@ export const QUANTV_IMAGE_COUNTERPARTS = Object.freeze({
   'image.xhs_note': { counterpart: null, reason: '小红书图文：走的是我们自己的图文链路（嵌入工作台），知渔的「小红书爆款复刻」是图片复刻' },
 });
 
+/* ═══ 2026-09-19 批 Q-⑨：**应用市场那 28 条：左栏只有一个「参数配置」组头** ════════════════════
+   用户批注：「排版设计还有功能这些东西你必须跟他们做到全程一模一样」。
+   CDP 实测（.tmp/qy-paramgroup2.mjs，逐页线上量过）：知渔的 app 页左栏是
+     技能名 / 分类 / **参数配置**(y≈202) / 第一个字段(y≈252) —— **只有一个组头**；
+   而内置 ?tool= 页（商品套图 / A+ / 详情图 / 复刻 / 去背 / 换装）是**真有分组名**的
+     （基础信息 / 产品卖点与设计风格 / 套图结构配置 …）。
+   我们上一版给 app 页也分了组（画面设置 / 生成设置 / 主题 …），等于凭空多出组头。
+   ⇒ 渲染层用这一条：app 页把全部字段并进一个组「参数配置」（内置页保持各自的分组）。
+   ⚠️ 判据来自**对照表本身**（kind === 'app'），不是页面里再写一份名单。 */
+export function isQuantvAppPage(skillId) {
+  const record = QUANTV_IMAGE_COUNTERPARTS[skillId];
+  return Boolean(record && record.kind === 'app');
+}
+
 /* 有对应页的那些（门禁用它来核对覆盖率） */
 export function quantvCounterpartOf(skillId) {
   return QUANTV_IMAGE_COUNTERPARTS[skillId] || null;
