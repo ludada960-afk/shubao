@@ -146,6 +146,8 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--sb-ink-3);
+  /* 标题行右端可能并排两颗动作（教学示例入口 + 一键解析）—— 让它们靠右、按内容宽 */
+  flex-wrap: wrap;
 }
 .media-workbench-group-note { margin: 0; font-size: 13px; line-height: 1.55; color: var(--sb-ink-3); }
 
@@ -628,6 +630,21 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   font: 700 13px/1 inherit; cursor: pointer;
   transition: background-color .16s ease, border-color .16s ease, color .16s ease;
 }
+/* ═══ 2026-09-19 批 O-⑫：**行内形态**（在第一组的标题行右端，与「一键解析」并排）═══════════
+   它原来在左栏顶部独占一整行 —— 实测 50 条图片技能逐页量，左栏顶部空白 **全站统一 78px**
+   （padding-top 24 + 这颗按钮 32 + grid gap 22），而知渔 ?tool=product-listing-set 是 **21px**。
+   移到标题行之后省掉 54px，左栏内容基本贴顶（与知渔同口径）。
+   ⚠️ 弹层与数据一个字没动，只是渲染位置变了（门禁只要求入口存在，不规定位置）。 */
+.media-workbench-tutorial.is-inline {
+  align-self: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--sb-ink-3);
+  font: 500 12px/1 inherit;
+}
+.media-workbench-tutorial.is-inline:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .media-workbench-tutorial:hover { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); color: var(--sb-ink-1); }
 .media-workbench-tutorial:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-tutorial-scrim { position: fixed; inset: 0; z-index: var(--sb-z-top); display: grid; place-items: center; padding: 20px; background: var(--sb-scrim); }

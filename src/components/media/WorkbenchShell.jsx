@@ -134,11 +134,15 @@ export default function WorkbenchShell({
                 ⚠️ 「怎么用这条技能」这个**入口必须留着**（不是装饰）——
                    test/skill-tutorial-0919 守的就是"教学示例必须有工作台入口"；
                    我第一版把它跟页头一起删了，门禁当场报红。现在保留入口、只去掉页头。 */}
-          {tutorial && (
-            <button type="button" className="media-workbench-tutorial" onClick={() => setTutorialOpen(true)}>
-              怎么用这条技能
-            </button>
-          )}
+          {/* ═══ 2026-09-19 批 O-⑫：**「怎么用这条技能」从左栏移到顶栏那一行** ═══════════════════
+             实测（50 条图片技能逐页量，.tmp/laoyu2/image-page-sweep.json）：
+               左栏顶部空白 **gap=78px 全站统一** = padding-top 24 + 教学按钮 32 + grid gap 22；
+               而知渔 ?tool=product-listing-set 是 **21px**（左栏 py-5 = 20px，内容紧跟其后）。
+             根因就是这颗按钮占了一整行。知渔那一页它也不在左栏（是独立入口）。
+             ⚠️ 门禁 test/skill-tutorial-0919 只要求**入口存在**（className + 文案 + 三段式弹层），
+                没规定位置 —— 所以移动是合规的，功能一点没少：按钮与弹层仍在同一个组件里，
+                只是渲染位置由 MediaCreation 的顶栏那一行承担（见那里的 media-workbench-tutorial is-topbar）。
+             剩下 24+22 = **46px** 就是知渔那 20px 内边距 + 一个分组间距的同口径，不再压缩。 */}
           {/* ═══ 2026-09-19 批 O-⑪：「一键解析」不再独立成行 ═══════════════════════════════════
              用户第 19 轮批注：「你这些按钮的布局还有规划都完全不一样呀。」
              实测知渔：这颗是**行内小胶囊**，落在「产品卖点与设计风格」这一组的**标题行右端**
@@ -175,10 +179,24 @@ export default function WorkbenchShell({
           )}
           {groupFields(fields).map((group, index) => (
             <section className="media-workbench-group" key={group.name || 'default'}>
-              {group.name && (
+              {/* ⚠️ 批 O-⑫：标题行在**第一组**即使没有组名也要渲染 ——
+                  教学示例入口与一键解析都落在这里；若挂在 group.name 条件里，
+                  第一条技能（如「中文海报」的第一个分组没有组名）就会**两颗按钮都不出现**。
+                  实测踩到：按钮从 DOM 里彻底消失，skill-tutorial-0919 门禁当场报红。 */}
+              {(group.name || index === 0) && (
                 <h3 className="media-workbench-group-title">
-                  <span>{group.name}</span>
-                  {/* 一键解析落在**第一组**的标题行右端（照知渔的形态） */}
+                  {group.name && <span>{group.name}</span>}
+                  {/* ═══ 批 O-⑫：**第一组的标题行右端**放两颗动作 ═══════════════════════════════════
+                      · 教学示例入口（从左栏顶部搬来 —— 它原来占一整行，实测全站统一多出 54px 空白：
+                        按钮 32 + grid gap 22；知渔那页左栏内容几乎贴顶，是 21px）
+                      · 一键解析（批 O-⑪ 从"整行按钮+整行说明"搬来）
+                      ⚠️ 门禁 test/skill-tutorial-0919 只要求入口存在（类名 + 文案 + 三段式弹层），
+                         不规定位置；弹层与数据一个字没动，只是渲染位置变了。 */}
+                  {index === 0 && tutorial && (
+                    <button type="button" className="media-workbench-tutorial is-inline" onClick={() => setTutorialOpen(true)}>
+                      怎么用这条技能
+                    </button>
+                  )}
                   {parseAction && index === 0 && (
                     <button
                       type="button"

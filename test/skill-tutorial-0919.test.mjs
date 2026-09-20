@@ -18,7 +18,17 @@ const bridge = read('src/pages/Home/SkillWorkbench.jsx');
 const css = read('src/components/media/WorkbenchShell.css');
 
 test('J-⑭⑤ 教学示例：三段式结构 + 工作台入口', () => {
-  assert.match(shell, /className="media-workbench-tutorial"/);
+  /* ═══ 2026-09-19 批 O-⑫：这条断言**换了判据的锚点，判据本身没动** ═════════════════════════
+     判据仍旧是「教学示例必须有工作台入口」（这一条守的是功能，不是写法）。
+     变的是入口的**类名形态**：本批按知渔把入口从左栏顶部（独占一整行）搬进**第一个分组的标题行**
+     —— 实测 50 条图片技能逐页量，左栏顶部空白**全站统一 78px**（padding-top 24 + 这颗按钮 32 +
+     grid gap 22），而知渔 ?tool=product-listing-set 是 **21px**。
+     移动后类名多了个位置修饰（media-workbench-tutorial is-inline），原来那条
+     `className="media-workbench-tutorial"` 的**字面量匹配**就再也匹配不上了 ——
+     而它本来要守的是"入口在"，不是"类名后面不许跟别的类"。
+     依据：用户第 19 轮「你上面留白那么多，是要干嘛呢？」+「其他页面也要这样抄」。
+     ⇒ 改成匹配**类名开头**（后跟引号或空格），两种形态都认；文案与三段式弹层的断言原样保留。 */
+  assert.match(shell, /className="media-workbench-tutorial[" ]/, '教学示例入口必须在（类名后允许跟位置修饰）');
   assert.match(shell, /怎么用这条技能/);
   assert.match(shell, /className="media-tutorial-media"/, '① 媒体段');
   assert.match(shell, /className="media-tutorial-block"/, '② 正文段');
