@@ -129,7 +129,11 @@ const server = createServer(async (req, res) => {
       if (fx.assetStatus !== 200) return json(res, fx.assetStatus, { error: '原图上传失败' });
       calls.assets += 1;
       calls.assetRole = req.headers['x-ecommerce-asset-role'] || '';
-      const assetId = 'a'.repeat(64) + '.png';
+      /* ⚠️ 2026-09-21：资产地址**每次上传都不一样**（原来是固定的 'a'*64）。
+         固定的地址让"上传 3 张参考图"变成"3 张一模一样的图" —— 于是
+         「第 i 次运行只带第 i 张参考图」这条断言在 e2e 里**永远分不出来**（实测踩到）。
+         真实服务端每次上传本来就返回不同的持久化地址，这里照真实形状来（64 位十六进制）。 */
+      const assetId = calls.assets.toString(16).padStart(64, '0') + '.png';
       return json(res, 200, {
         original: { assetId, url: '/api/generated-assets/' + assetId, role: req.headers['x-ecommerce-asset-role'] || 'product' },
         preview: { url: '/api/generated-assets/' + assetId + '?variant=thumb' },
@@ -1624,6 +1628,33 @@ try {
   check(body20.ratio === nearestLegalRatio(boxW, boxH) && body20.ratio !== '自适应',
     '「自适应」= 按上传图就近取一档，且界面档位不下发给引擎', String(body20.ratio) + '（上传图 ' + box + '）');
   check(body20.ratio === '4:3', '上传的是 2400x1792 的非方图 → 就近取 4:3（换了上传图这条期望值跟着变）', String(body20.ratio));
+
+  /* ═══ ⑳b 图片复刻：**上传几张参考图就复刻几张**（2026-09-21 用户第 22 轮口径）══════════════
+     用户原话：「他这里的案例指的是上面 3 张原图分别对应下面 3 张的复刻结果啊，用户上传一张肯定就复刻
+       一张，上传两张就复刻两张，上传 3 张就复刻 3 张不是吗？」
+     知渔示例区原文：「上传风格参考图与商品图包，AI 按参考图数量批量输出风格高度一致的商品主图。」
+     这一条要真的点一遍才算数：3 张参考图 → 按钮上 3 积分 → 3 次请求 → **3 张不同的参考图**
+     （如果 3 次请求带的是同一张，那就是"装出来的功能"）。 */
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.copy', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  const uploads = page.locator('.media-field-upload input[type=file]');
+  await uploads.nth(0).setInputFiles(ADAPTIVE_UPLOAD_FILE);
+  await uploads.nth(1).setInputFiles([ADAPTIVE_UPLOAD_FILE, ADAPTIVE_UPLOAD_FILE, ADAPTIVE_UPLOAD_FILE]);
+  await page.waitForFunction(() => document.querySelectorAll('.media-field-upload-item[data-box]').length >= 2, null, { timeout: 20000 }).catch(() => {});
+  await page.fill('textarea[id="field-product"]', '白色陶瓷杯，350ml，家用').catch(() => {});
+  await page.waitForTimeout(400);
+  const points3 = await page.evaluate(() => (document.querySelector('.media-workbench-points')?.textContent || '').trim());
+  check(/3\s*积分/.test(points3), '参考图 3 张 → 按钮上就是 3 积分（按张报价，点之前看得到）', points3);
+  const before3 = calls.regenerate.length;
+  await clickGenerate();
+  await page.waitForFunction(count => document.querySelectorAll('.media-run-slot img').length >= count, 3, { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const fired3 = calls.regenerate.slice(before3);
+  check(fired3.length === 3, '3 张参考图 → 真的发 3 次请求（上传几张就复刻几张）', String(fired3.length));
+  const refs3 = fired3.map(body => (body.reference_images || [])[0] || '');
+  check(new Set(refs3).size === 3, '3 次请求带的是**3 张不同的**参考图（否则就是 3 张一模一样的图）', refs3.join(' ｜ ').slice(0, 200));
+  check(fired3.every(body => body.image_url === fired3[0].image_url), '商品图始终是主图（image_url 三次一致）');
+  check(new Set(fired3.map(body => body.request_key)).size === 3, '三次运行的幂等键互不相同');
 
 
   /* 视频侧同理：7 条视频技能都要能进自己的子页面、落在自己的创作方式上。

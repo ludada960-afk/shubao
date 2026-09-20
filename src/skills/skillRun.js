@@ -192,7 +192,15 @@ function imageBox(item) {
   return width > 0 && height > 0 ? { width, height } : null;
 }
 
-export function skillImages(skill, values = {}) {
+/* 逐张跑：声明 skill.runsFollow = '<上传位 key>' 的技能，**一次运行只服务那一张参考图**
+   （第 i 次运行只带第 i 张）。图片复刻就是这么回事 —— 见 skillRunsFollow 的注释。 */
+export function skillRunsFollow(skill) {
+  const key = text(skill && skill.runsFollow);
+  if (!key) return '';
+  return ((skill && skill.fields) || []).some(field => field.key === key && field.kind === 'upload') ? key : '';
+}
+
+export function skillImages(skill, values = {}, { slotIndex = 0 } = {}) {
   const slots = ((skill && skill.fields) || []).filter(field => field.kind === 'upload');
   const primary = slots[0] ? readyUploads(values[slots[0].key]) : [];
   /* fail-closed：主图没就绪就一张图都不给。
@@ -201,8 +209,26 @@ export function skillImages(skill, values = {}) {
   const imageUrl = primary.length ? text(primary[0].url) : '';
   const referenceImages = [];
   const references = [];
+  /* 主图位里**除第一张以外**的也要当参考图发出去（2026-09-21 修）——
+     知渔那一格的原文是「商品图会作为一组打包参考，最多 4 张」，我们却只发了第一张：
+     用户传满 4 张时，计数写着 4/4、实际只用了 1 张，另外 3 张**静默丢掉**（最难查的那类 bug）。 */
+  for (const item of primary.slice(1)) {
+    if (referenceImages.length >= MAX_REFERENCE_IMAGES) break;
+    referenceImages.push(text(item.url));
+    references.push({
+      url: text(item.url),
+      assetId: text(item.assetId),
+      displayName: text(item.name),
+      role: slots[0].role || 'product',
+      order: referenceImages.length - 1,
+    });
+  }
+  const runsFollow = skillRunsFollow(skill);
   for (const field of slots.slice(1)) {
-    for (const item of readyUploads(values[field.key])) {
+    let items = readyUploads(values[field.key]);
+    /* 逐张跑的技能：这一次运行只带**第 slotIndex 张**（第 0 次带第 0 张…） */
+    if (runsFollow === field.key && items.length) items = [items[slotIndex % items.length]];
+    for (const item of items) {
       if (referenceImages.length >= MAX_REFERENCE_IMAGES) break;
       referenceImages.push(text(item.url));
       references.push({
@@ -243,7 +269,18 @@ export function skillGenerationSettings(skill, values = {}) {
      一个**静默的错**（不报错、不提示，用户只会觉得少给了）。
      16 是当前声明源里模块数的上限（imageSkills 的 A+ 那 16 条），
      其它技能靠 countField(n) 自己声明上限（都 ≤ 9），所以抬这条不会放宽它们。 */
-  const count = Math.max(1, Math.min(16, Number.parseInt(values.count, 10) || 1));
+  /* ═══ 2026-09-21（用户第 22 轮）：逐张跑的技能，张数 = **上传了几张就出几张** ═══════════════
+     用户原话（逐字）：「他这里的案例指的是上面 3 张原图分别对应下面 3 张的复刻结果啊，
+       用户上传一张肯定就复刻一张，上传两张就复刻两张，上传 3 张就复刻 3 张不是吗？」
+     知渔自己的示例区原文也是这么写的：「上传风格参考图与商品图包，AI **按参考图数量**批量输出
+       风格高度一致的商品主图」（2026-09-21 CDP 实采，见 docs/design/data/quantv-image-builtin-pages.json）。
+     ⇒ 声明 skill.runsFollow = '参考图那一格' 的技能：count = 那一格已就绪的张数（没有就 1 张）。
+        ⚠️ 我们上一批按"固定 6 张"理解是**错的**（6 只是他们示例区 3 原图 + 3 复刻图的配对示意）。 */
+  const runsFollow = skillRunsFollow(skill);
+  const followed = runsFollow ? readyUploads(values[runsFollow]).length : 0;
+  const count = runsFollow
+    ? Math.max(1, followed)
+    : Math.max(1, Math.min(16, Number.parseInt(values.count, 10) || 1));
   const visual = SERVER_VISUAL_SKILL_IDS.includes(skill && skill.visual) ? skill.visual : 'free';
   /* 模型：不认识的取值回落到有出图记录的 image2（normalizeImageModel 自带兜底） */
   const imageModel = normalizeImageModel(values.imageModel, DEFAULT_IMAGE_MODEL);
@@ -291,7 +328,8 @@ export function skillPointsEstimate(skill, values = {}) {
 /* ── ⑥ 组装成 regenerateCanvasImage 的入参（页面只调这一个函数）── */
 export function buildSkillRequest(skill, values = {}, { runId = '', slotIndex = 0 } = {}) {
   const brief = buildSkillBrief(skill, values);
-  const images = skillImages(skill, values);
+  /* slotIndex 一路传到 skillImages：逐张跑的技能靠它决定"这一次带哪一张参考图" */
+  const images = skillImages(skill, values, { slotIndex });
   const settings = skillGenerationSettings(skill, values);
   return {
     prompt: brief,

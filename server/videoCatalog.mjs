@@ -186,11 +186,13 @@ export const ROUTE_REACHABILITY = deepFreeze({
     quoteCny: 5.85,
     evidence: '2026-09-19 批 K-B 实测：非法时长请求返回 403 insufficient_user_quota「需要预扣费额度: ¥5.850000」⇒ 渠道在、按条 ¥5.85；余额 ¥5.11 不足故 blocked',
   },
+  /* 2026-09-21 复核：**上游已下架** —— /v1/models（115 个）里没有 grok-imagine-video，
+     用户也确认中转站已经没有了 ⇒ 转 retired、产品 public:false（点了必失败的东西不许变成选项）。 */
   'grok-imagine-video': {
-    state: 'callable',
+    state: 'retired',
     billingMode: 'per_request',
     quoteCny: 0.104,
-    evidence: '2026-09-19 零成本复核：非法时长走到**预扣费**那一步（insufficient_user_quota，按秒折算 ¥0.104/秒）⇒ 路由存在且已定价（09-16 的「上游不认该名」是针对同族 grok-video，不是这一条）',
+    evidence: '2026-09-21 零成本复核：GET /v1/models 返回 115 个模型，其中**没有** grok-imagine-video（同批其余 12 条路由全在）；用户亦确认中转站已下架 ⇒ retired。（历史：2026-09-19 零成本探针曾走到预扣费那一步 ¥0.104/秒 ⇒ 当时是 callable）',
   },
   'grok-video': { state: 'unreachable', evidence: '2026-09-16 声明 openai-video 但上游返回 not a public model name' },
   'grok-video-1.5': { state: 'unreachable', evidence: '2026-09-16 同 grok-video' },
@@ -382,6 +384,16 @@ export const VIDEO_PRODUCTS = deepFreeze({
   /* ── 9-16 下架批次（路由复核不可达，全部 public:false；老任务数据仍可读，符合「老数据必须可读」）──
      上架时只核对了「目录里有这个名字」，没有确认视频端点可达；这批路由要么未声明 openai-video，
      要么上游不认该模型名、无本站分组渠道或未定价。恢复上架的唯一路径：台账转 verified/callable。 */
+  /* ═══ 2026-09-21：**下架**（用户第 22 轮原话：「视频模型有些现在下架了，你就拿走吧，
+     没有了就不用显示出来了」）═══════════════════════════════════════════════════════════════
+     证据（零成本、只读）：`GET https://api-new.ip233.com/v1/models` 当日返回 **115** 个模型，
+     逐条比对目录里全部 13 条路由 —— 只有 `grok-imagine-video` **不在**清单里
+     （其余 public 档 seedance_fast / seedance_standard / minimax-h3 / xn-wan3.0 / sd-2.5-js2 /
+      xn-minimax-h3 / sd-2.0-js900 / sd-2.0-js / seedance-2.0-mini 全在）。
+     与用户的口径一致 ⇒ 按 9-16 那批下架的做法处理：**public:false**（老任务/老订单仍可读，
+     计费 SKU video_grok_fast_* 保留），台账转 retired。
+     ⚠️ 没有做"非法时长提交"探针：那条手法在 sd-reference-image-25 上**真的建过任务**
+        （见 docs/design/61 的探针安全事故），本次只用只读 /models + 用户口径两条证据。 */
   grok_fast: {
     id: 'grok_fast',
     label: 'Grok 极速',
@@ -391,7 +403,7 @@ export const VIDEO_PRODUCTS = deepFreeze({
     limitations: '仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'grok-imagine-video',
     credential: 'seedance',
-    public: true,
+    public: false,
     default: false,
     durations: { min: 5, max: 10 },
     resolutions: ['720p'],

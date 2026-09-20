@@ -73,8 +73,13 @@ test('public products only ride routes that are verified or callable', () => {
      ② 余额挡死的两条改接同族更便宜的活路由（Seedance 2.5 → sd-2.5-js2、2K → xn-minimax-h3），
         用户价分文未动；
      ③ 新增三档（sd_js900 / sd_js / seedance_mini）走的都是当天实测活着的按条路由。 */
+  /* ═══ 2026-09-21：公开档 10 → **9**（判据未变，事实变了）════════════════════════════════
+     用户第 22 轮原话：「视频模型有些现在下架了，你就拿走吧，没有了就不用显示出来了」。
+     零成本复核（只读 /v1/models，115 个模型）：grok-imagine-video **不在**清单里
+     （同批其余 12 条路由全在）⇒ 按台账口径转 retired、产品 public:false。
+     这一条守的东西一个字没变：**public:true 只允许走 verified / callable 的路由**。 */
   assert.deepEqual(publics.map(product => product.id), [
-    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard',
     'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
   for (const product of publics) {
@@ -161,8 +166,10 @@ test('public products omit hidden routes and private provider details', () => {
      （零成本，见 ROUTE_REACHABILITY 的 2026-09-19 evidence），价格也早在 billing/catalog 里备好。
      仍然「not a public model name」的那几条（可灵 / Veo / MiniMax 2K / sd5 族）**继续留在只读清单**——
      点了必失败的东西不许变成选项。 */
+  /* 2026-09-21：grok_fast 因上游已下架转 public:false（只读 /v1/models 复核 + 用户口径），
+     公开档 10 → 9；判据未变（"点了必失败的东西不许变成选项"）。 */
   assert.deepEqual(products.map(product => product.id), [
-    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'grok_fast', 'wan_standard',
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard',
     'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
@@ -187,7 +194,10 @@ test('public products omit hidden routes and private provider details', () => {
   /* 恢复上架的那三条：老数据仍可读、且现在**可公开可选** */
   assert.equal(getVideoProduct('minimax_h3_768p').public, true);
   assert.equal(getVideoProduct('wan_standard').public, true);
-  assert.equal(getVideoProduct('grok_fast').public, true);
+  /* 2026-09-21 下架：上游已无 grok-imagine-video（只读 /v1/models 复核 + 用户口径）——
+     老数据仍可读（id 还在目录里），但不再出现在公开目录里。 */
+  assert.equal(getVideoProduct('grok_fast').public, false);
+  assert.equal(routeReachability('grok-imagine-video').state, 'retired');
   /* 批 K-B 恢复上架的两条：Seedance 2.5 与 MiniMax 2K */
   assert.equal(getVideoProduct('seedance_25').public, true);
   assert.equal(getVideoProduct('seedance_25').routeId, 'sd-2.5-js2');
