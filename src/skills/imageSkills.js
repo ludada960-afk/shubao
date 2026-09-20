@@ -395,9 +395,14 @@ export const IMAGE_SKILLS = [
       { ...languageField('输出语言', LANGUAGE_FULL), span: 'half' },
       { key: 'productParams', label: '核心卖点', kind: 'textarea', rows: 5, group: '产品卖点与设计风格', required: true,
         placeholder: '产品名：\n核心卖点：\n适用人群：\n期望场景：\n尺寸参数：' },
-      { key: 'style', label: '爆款风格', kind: 'segmented', group: '产品卖点与设计风格', default: 'AI推荐',
+      /* ═══ 2026-09-19 批 Q：两档各自的**内容**照知渔深度点击实测 ═══════════════════════════
+         实测（.tmp/qy-deepclick-theirs3.mjs）：
+           · 选「爆款风格」   → 下面出现 **「AI推荐风格选择」**（AI 分析的结论栏）
+           · 选「参考/自定义风格」→ 下面出现 **「风格/排版参考图（可选）0/5」上传框 + 「设计要求」文本框**
+         我们上一版只有一个「自定义风格要求」挂在第二档上，第一档点开是空的（用户批注 #3-2）。 */
+      { key: 'style', label: '爆款风格', kind: 'segmented', group: '产品卖点与设计风格', default: '爆款风格',
         options: [
-          { value: 'AI推荐', label: 'AI推荐' },
+          { value: '爆款风格', label: '爆款风格' },
           { value: '参考/自定义风格', label: '参考/自定义风格' },
         ] },
       /* 批 I-8：切到「参考/自定义风格」要有东西换出来（用户批注 #2-1 指着竞品那句
@@ -405,9 +410,21 @@ export const IMAGE_SKILLS = [
          竞品那边换出来的是「风格/排版参考图（0/5）」上传区 + 「设计要求」输入框；
          我们这一条技能本来就有上传位与自定义要求这两个字段，只是**原来没有跟切换联动**，
          所以点上去像死按钮。这里把「自定义风格要求」挂到这一档上。 */
-      { key: 'styleNote', label: '自定义风格要求', longLabelReason: '照竞品原文（他们那颗两选一里叫「参考/自定义风格」，写要求的那一栏叫「自定义要求」），沿用 styleFields 那份同名措辞，两边不各写一套。', kind: 'textarea', rows: 2, group: '产品卖点与设计风格',
+      { key: 'styleRef', label: '风格/排版参考图（可选）',
+        longLabelReason: '照知渔原文逐字：点「参考/自定义风格」之后出现的上传位就叫「风格/排版参考图（可选）」',
+        kind: 'upload', group: '产品卖点与设计风格', maxImages: 5, role: 'reference',
+        visibleWhen: { key: 'style', equals: '参考/自定义风格' },
+        slotLabel: '上传参考图', hint: '上传你想参考的排版与风格，最多 5 张' },
+      { key: 'styleNote', label: '设计要求',
+        longLabelReason: '照知渔原文逐字：点「参考/自定义风格」之后出现的文本框标题就叫「设计要求」',
+        kind: 'textarea', rows: 3, group: '产品卖点与设计风格',
         visibleWhen: { key: 'style', equals: '参考/自定义风格' },
         placeholder: '参考哪一套排版/风格，或直接写要求：奶油白背景、柔光棚拍、右上角留白放标题' },
+      { key: 'styleBrief', label: 'AI推荐风格选择',
+        longLabelReason: '照知渔原文逐字：选「爆款风格」时下面那一栏就叫「AI推荐风格选择」',
+        kind: 'textarea', rows: 3, group: '产品卖点与设计风格',
+        visibleWhen: { key: 'style', equals: '爆款风格' },
+        placeholder: '点上面的「AI 推荐」后，分析结论会写在这里，可以直接改' },
       /* ═══ 2026-09-19 批 I-10：这里**删掉了整块「生成设置」（比例 + 数量）**══════════════════
          用户批注 #3-2 原话：「而且这个**生成设置又是什么鬼**啊，**人家没有这个呀**，
            选中多少个模块就是多少张，并且对应他自己的模块主题不是吗，
@@ -488,6 +505,25 @@ export const IMAGE_SKILLS = [
           { value: '爆款风格', label: '爆款风格' },
           { value: '参考/自定义风格', label: '参考/自定义风格' },
         ] },
+      /* ═══ 2026-09-19 批 Q：两档各自的**内容**（照知渔详情图页深度点击实测）══════════════════
+         · 爆款风格   → 「AI推荐风格选择」（分析结论栏，可改）
+         · 参考/自定义风格 → 「风格/排版参考图（可选）0/5」+「设计要求」
+         上一版这一条**两档点开都是空的**（用户批注 #3-2：「这两个按钮现在打开里面都是空的」）。 */
+      { key: 'styleRef', label: '风格/排版参考图（可选）',
+        longLabelReason: '照知渔原文逐字：点「参考/自定义风格」之后出现的上传位就叫「风格/排版参考图（可选）」',
+        kind: 'upload', group: '产品卖点与设计风格', maxImages: 5, role: 'reference',
+        visibleWhen: { key: 'style', equals: '参考/自定义风格' },
+        slotLabel: '上传参考图', hint: '上传你想参考的排版与风格，最多 5 张' },
+      { key: 'styleNote', label: '设计要求',
+        longLabelReason: '照知渔原文逐字：点「参考/自定义风格」之后出现的文本框标题就叫「设计要求」',
+        kind: 'textarea', rows: 3, group: '产品卖点与设计风格',
+        visibleWhen: { key: 'style', equals: '参考/自定义风格' },
+        placeholder: '参考哪一套排版/风格，或直接写要求：奶油白背景、柔光棚拍、右上角留白放标题' },
+      { key: 'styleBrief', label: 'AI推荐风格选择',
+        longLabelReason: '照知渔原文逐字：选「爆款风格」时下面那一栏就叫「AI推荐风格选择」',
+        kind: 'textarea', rows: 3, group: '产品卖点与设计风格',
+        visibleWhen: { key: 'style', equals: '爆款风格' },
+        placeholder: '点上面的「AI 推荐」后，分析结论会写在这里，可以直接改' },
       ratioField(),
       countField(6),
     ],
@@ -821,8 +857,20 @@ export const IMAGE_SKILLS = [
         slotLabel: '点击或拖拽上传图片', hint: '模特底图：衣服会穿到这张图上的人身上' },
       { key: 'mode', label: '服装选择', kind: 'segmented', group: '服装选择', default: '套装',
         options: [{ value: '套装', label: '套装' }, { value: '多件', label: '多件' }] },
+      /* ═══ 2026-09-19 批 Q：服装选择的**两档各有内容**（知渔深度点击实测）════════════════════
+         实测（.tmp/qy-deepclick-theirs3.mjs）：
+           · 选「套装」→ 一格「上传衣服图」
+           · 选「多件」→ **变成「上传上装」+「上传下装」两格**（一次传上下两件）
+         我们上一版两档都是一格，点「多件」什么都不变 —— 又一颗没有反馈的切换（用户批注 #3-2 的同一类问题）。 */
       { key: 'assets', label: '上传衣服图', kind: 'upload', group: '服装选择', maxImages: 1, role: 'product', required: true,
+        visibleWhen: { key: 'mode', equals: '套装' },
         slotLabel: '点击或拖拽上传图片', hint: '要穿上去的衣服：真实面料、图案与版型要保住' },
+      { key: 'top', label: '上传上装', kind: 'upload', group: '服装选择', maxImages: 1, role: 'product',
+        visibleWhen: { key: 'mode', equals: '多件' },
+        slotLabel: '点击或拖拽上传图片', hint: '上装：衬衫 / 外套 / T 恤' },
+      { key: 'bottom', label: '上传下装', kind: 'upload', group: '服装选择', maxImages: 1, role: 'product',
+        visibleWhen: { key: 'mode', equals: '多件' },
+        slotLabel: '点击或拖拽上传图片', hint: '下装：裤子 / 半裙' },
       { key: 'pose', label: '上传姿势参考图', longLabelReason: '照竞品原文逐字（他们 ?tool=ai-outfit 的上传位标题就叫这个）', kind: 'upload', group: 'Pose 参考（可选）', maxImages: 1, role: 'reference',
         slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
       { key: 'backdrop', label: '上传背景参考图', longLabelReason: '照竞品原文逐字（他们 ?tool=ai-outfit 的上传位标题就叫这个）', kind: 'upload', group: '背景参考（可选）', maxImages: 1, role: 'scene',

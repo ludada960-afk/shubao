@@ -728,7 +728,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       /* 批 Q（用户批注 #3-1）：「你没有输入框的话，那你这个 AI 推荐要推荐在哪里呢？
          你肯定要有一个输入框让 AI 推荐把结果给显示在里面呀。」⇒ 结论写进**可编辑的输入框**，
          不是只挂在按钮下面的一句提示（提示会随下一次操作消失，用户也没法改）。 */
-      if (target) setValues(prev => ({ ...prev, [target]: 'AI推荐', styleBrief: label }));
+      /* ⚠️ 写回的是**那个字段自己的默认档**（`style.default`）——两条内置页的档位名不一样
+         （商品套图叫「AI推荐」、A+/详情图叫「爆款风格」），硬写 'AI推荐' 会让 A+/详情图落到一个
+         **不存在的档位**上（界面显示"没选中任何一档"）。 */
+      if (target) {
+        const styleDefault = (skill.fields || []).find(field => field.key === target)?.default || 'AI推荐';
+        setValues(prev => ({ ...prev, [target]: styleDefault, styleBrief: label }));
+      }
       await refreshBillingBalance?.().catch(() => undefined);
       setNotice('推荐风格：' + label + '（消耗 0.2 积分）');
     } catch (err) {
@@ -802,7 +808,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        于是把它写成了 runnable:false 的说明行 —— 那正是用户说的「三个按钮只有一个有效」。
        现在接上：读参考图 + 已填商品信息 → 判定风格 → 把「设计风格」切到「AI推荐」并常驻结论。 */
     const styleField = (skill.fields || []).find(field => field.key === 'style');
-    if (styleField) {
+    /* ═══ 2026-09-19 批 Q：这颗只在**"AI 推荐"那一档**出现（照知渔）══════════════════════════
+       知渔实测：选「参考排版 / 参考自定义风格」时，那一行下面换出来的是**上传区 + 设计要求**，
+       而「AI推荐风格分析」那颗按钮只在 AI 档下出现（.tmp/laoyu2/qy-suite-switch.mjs）。
+       我们上一版不管切到哪一档，这颗都挂在那儿 —— 用户批注 #3-2「这两个按钮打开里面都是空的」。 */
+    const styleDefault = styleField?.default;
+    const onStyleAiPane = !styleDefault || String(effectiveValues.style ?? styleDefault) === String(styleDefault);
+    if (styleField && onStyleAiPane) {
       list.push({
         key: 'style-analysis',
         anchor: styleField.key,
@@ -812,8 +824,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         busy: analyzingStyle,
         busyLabel: '正在分析…',
         note: styleVerdict
-          ? '推荐风格：' + styleVerdict + '（已把「' + styleField.label + '」切到 AI推荐，出图按它走）'
-          : '读参考图与已填商品信息，判定风格并把「' + styleField.label + '」切到 AI推荐',
+          ? '推荐风格：' + styleVerdict + '（已把「' + styleField.label + '」切到 AI 档，出图按它走）'
+          : '读参考图与已填商品信息，判定风格并把「' + styleField.label + '」切到 AI 档',
         onRun: () => { void analyzeStyle(styleField.key); },
       });
     }
