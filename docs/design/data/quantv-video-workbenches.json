@@ -1,0 +1,1328 @@
+{
+ "fetchedAt": "2026-09-20T03:42:12.927Z",
+ "source": "https://laoyu.quantv.com/apps (视频市场) · /api/app-market-apps?page=1&pageSize=500&enabled=true",
+ "categories": [
+  {
+   "id": "cms8rz29f00j378ukoy27xmk0",
+   "name": "精品推荐",
+   "enabled": true
+  },
+  {
+   "id": "cmp0zcvib0000115dwejj85rf",
+   "name": "电商带货",
+   "enabled": true
+  },
+  {
+   "id": "cmqqctjdk02r3mjmf9smgn2v7",
+   "name": "剧情带货",
+   "enabled": true
+  },
+  {
+   "id": "cmpur9upg000012wlj6kh6uvb",
+   "name": "风格转换",
+   "enabled": false
+  },
+  {
+   "id": "cmpqjstli002qdwyram9mwxkd",
+   "name": "建筑室内",
+   "enabled": true
+  },
+  {
+   "id": "cmpqjsk59002pdwyro1zekwin",
+   "name": "创意玩法",
+   "enabled": false
+  },
+  {
+   "id": "cmp0zfgdd0000mwflsjm7k5l2",
+   "name": "创意应用",
+   "enabled": true
+  },
+  {
+   "id": "cmp0z9bt80000kv0wvkj4x1p9",
+   "name": "电商产品",
+   "enabled": false
+  },
+  {
+   "id": "cmp0z84pw0000dx10b1fol0eu",
+   "name": "视频模型",
+   "enabled": true
+  },
+  {
+   "id": "cmp0z1iz7000010uvo9g177mx",
+   "name": "舞蹈视频",
+   "enabled": false
+  }
+ ],
+ "enabledCount": 25,
+ "allCount": 67,
+ "apps": [
+  {
+   "id": "cmtcjqf9z0gj013d07tcgvool",
+   "title": "内容替换",
+   "category": "精品推荐",
+   "cost": 0,
+   "price": 0,
+   "description": "说明：上传人物视频和人物图片即可一键视频换人！根据参考视频生成5秒视频 大概需要15分钟左右。",
+   "fieldCount": 6,
+   "inputConfigs": [
+    {
+     "title": "参考视频(最长15秒，一个人物效果最佳，多人物替换请在无限画布中使用)",
+     "type": "file",
+     "variableName": "video",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "上传图片（模特或产品）",
+     "type": "file",
+     "variableName": "image",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "背景图（可选，上传了就自动换背景，没上传就不换）",
+     "type": "file",
+     "variableName": "beijingtu",
+     "optional": true,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "换的类型",
+     "type": "radio",
+     "variableName": "text",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "换产品",
+      "换模特"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "生成秒数(对应参考视频秒数)",
+     "type": "select",
+     "variableName": "duration",
+     "optional": false,
+     "hidden": false,
+     "default": "10",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmra7sgh009eg9vzgzwmnn68g",
+   "title": "淋浴展示",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "通过单图的控制，实现平滑的运镜效果，适合展示细节",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：淋浴图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmra7o96y09cj9vzg3oml6su6",
+   "title": "台盆展示",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "通过单图的控制，实现平滑的运镜穿梭效果，适合展示建筑外观全景变化",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：台盆图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmra7k5zy09am9vzg3m52gaud",
+   "title": "灯具展示",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "通过单图的控制，实现平滑的运镜效果，适合展示灯具细节",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：灯具图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmra7fik209979vzgmz2vpwy7",
+   "title": "餐桌展示",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "实现平滑的运镜效果，适合展示餐桌细节",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：餐桌图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr97klck001i9vzg58za4env",
+   "title": "光线变化",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "通过单图的控制，实现平滑的变化效果，适合展示室内光线变化",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：人视图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr9777qu013q2xm0qrvn3cdi",
+   "title": "户型生长",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过单图的控制，实现平滑的平面转3D变化效果，适合展示室内户型",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：平面图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr973iuh011n2xm0giaodt4m",
+   "title": "软装进场",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过单图的控制，实现平滑的变化效果，适合展示室内软装增加",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：人视图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr96y3mb00ys2xm0z0y7540a",
+   "title": "浴室洗漱",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过单图的控制，实现平滑的人物进行活动效果，适合展示空间洗漱活动",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：浴室图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr96q1ai00u82xm0zp8dhinr",
+   "title": "书房学习",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过单图的控制，实现平滑的人物进行活动效果，适合展示学习活动",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：书房图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr96eilw00p42xm0uocpkuwp",
+   "title": "室内装修",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过首图与尾图的控制，实现平滑的装修效果，适合展示室内装修变化",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "首图要求：室内毛坯图",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "尾图要求：室内效果图",
+     "type": "file",
+     "variableName": "image_2",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr96b5p400mb2xm006sh9o35",
+   "title": "卧室就寝",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过单图的控制，实现平滑的人物进行活动效果，适合展示空间就寝活动",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：卧室图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr965qf700k52xm0d3q3g1dv",
+   "title": "餐厅聚餐",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过单图的控制，实现平滑的人物进行活动效果，适合展示空间聚餐活动",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：餐厅图）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr960avj00j52xm0cv4e527q",
+   "title": "家装布置",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过首图与尾图的控制，实现平滑的室内布置效果，适合展示室内布置变化",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "首图要求：室内空房图",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "尾图要求：室内效果图",
+     "type": "file",
+     "variableName": "image_2",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr95whex00hm2xm0mxtqjly9",
+   "title": "建筑生长",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过首图与尾图的控制，实现平滑的建筑生长效果，适合展示建筑生长变化。",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "首图要求：建筑场景空地图",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "尾图要求：建筑效果图",
+     "type": "file",
+     "variableName": "image_2",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr95g674008o2xm0e6tk58ne",
+   "title": "植物生长",
+   "category": "建筑室内",
+   "cost": 2.55,
+   "price": 4.95,
+   "description": "通过首图与尾图的控制，实现平滑的生长效果，适合展示景观生长变化。",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "首图要求：景观空地图",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "尾图要求：景观效果图",
+     "type": "file",
+     "variableName": "image_2",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr94utrm000b2xm0zvqfb49a",
+   "title": "模特服装展示",
+   "category": "电商带货",
+   "cost": 7.85,
+   "price": 15.05,
+   "description": "模特旋转椅子依次展示服装",
+   "fieldCount": 4,
+   "inputConfigs": [
+    {
+     "title": "穿搭图1",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "穿搭图2",
+     "type": "file",
+     "variableName": "image_2",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "穿搭图3",
+     "type": "file",
+     "variableName": "image_3",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "椅子图",
+     "type": "file",
+     "variableName": "yizitu",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w901f011114i3dyig00lf",
+   "title": "建筑分镜电影制作",
+   "category": "建筑室内",
+   "cost": 0,
+   "price": 0,
+   "description": "通过分镜单图的控制，实现完整叙事递进效果，适合展示整个项目演示",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：分镜图需包含多个分镜）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "时长",
+     "type": "radio",
+     "variableName": "duration",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "5",
+      "10",
+      "15"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w8xhw010z14i3i9kz9a7q",
+   "title": "商业热闹",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "通过单图的控制，实现平滑的变化效果，适合展示建筑环境时间变化",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：人视图，带环境）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w8rja010u14i3hpueua4o",
+   "title": "寒冬降临",
+   "category": "建筑室内",
+   "cost": 2.592,
+   "price": 5,
+   "description": "通过单图的控制，实现平滑的变化效果，适合展示建筑环境季节变化",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "参考图（要求：鸟瞰图，带环境）",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "时长",
+     "type": "radio",
+     "variableName": "duration",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "5",
+      "10",
+      "15"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w8lt2010q14i3bfmj1xvn",
+   "title": "建筑图转视频",
+   "category": "建筑室内",
+   "cost": 0.144,
+   "price": 0.4,
+   "description": "镜头环绕从远到近，图转视频",
+   "fieldCount": 2,
+   "inputConfigs": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "variableName": "image_1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "1:1",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9",
+      "21:9"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w7wvz00z914i3f5h4hifu",
+   "title": "现代豪门婆媳矛盾、狗血抓马冲突、儿媳逆袭反转",
+   "category": "电商带货",
+   "cost": 0,
+   "price": 0,
+   "description": "现代豪门婆媳矛盾、狗血抓马冲突、儿媳逆袭反转",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "variableName": "image",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "时长（15S效果最好）",
+     "type": "select",
+     "variableName": "duration",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "10",
+      "15"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "9:16",
+      "16:9",
+      "1:1",
+      "3:4",
+      "4:3"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w7twq00z514i3hw6s0clk",
+   "title": "华丽古典后宫宫斗狗血反转带货风格",
+   "category": "电商带货",
+   "cost": 0,
+   "price": 0,
+   "description": "华丽古典后宫宫斗狗血反转带货风格",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "variableName": "image",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "时长（15S效果最好）",
+     "type": "select",
+     "variableName": "duration",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "10",
+      "15"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "9:16",
+      "16:9",
+      "1:1",
+      "3:4",
+      "4:3"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w7qqt00z314i3r4rnmzfs",
+   "title": "[短剧风格]豪门恩怨狗血反转带货短剧风格",
+   "category": "电商带货",
+   "cost": 0,
+   "price": 0,
+   "description": "[短剧风格]豪门恩怨狗血反转带货短剧风格",
+   "fieldCount": 3,
+   "inputConfigs": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "variableName": "image",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "时长（15S效果最好）",
+     "type": "select",
+     "variableName": "duration",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "10",
+      "15"
+     ],
+     "maxImages": 1
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "9:16",
+      "16:9",
+      "1:1",
+      "3:4",
+      "4:3"
+     ],
+     "maxImages": 1
+    }
+   ]
+  },
+  {
+   "id": "cmr1w7n9000z114i3rvzyd4c8",
+   "title": "趣味脱口秀",
+   "category": "创意应用",
+   "cost": 12.6225,
+   "price": 24,
+   "description": "趣味脱口秀",
+   "fieldCount": 5,
+   "inputConfigs": [
+    {
+     "title": "主题",
+     "type": "multiText",
+     "variableName": "input1",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "角色图",
+     "type": "file",
+     "variableName": "juese",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "脱口秀名字",
+     "type": "multiText",
+     "variableName": "mingzi",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 1
+    },
+    {
+     "title": "带货产品图（可选）",
+     "type": "file",
+     "variableName": "chanpintu",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [],
+     "maxImages": 8
+    },
+    {
+     "title": "比例 ",
+     "type": "radio",
+     "variableName": "ratio",
+     "optional": false,
+     "hidden": false,
+     "default": "",
+     "placeholder": "",
+     "help": "",
+     "options": [
+      "9:16",
+      "16:9",
+      "4:3",
+      "3:4",
+      "1:1"
+     ],
+     "maxImages": 1
+    }
+   ]
+  }
+ ]
+}

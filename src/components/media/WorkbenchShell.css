@@ -386,6 +386,18 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   color: var(--sb-state-selected-ink);
   border-color: var(--sb-state-selected-line);
 }
+/* 「更多」：选项多于 6 档时第 7 个位置那颗（照知渔实测形态，2026-09-19 批 P）
+   与同排药丸等高（他们那颗就是普普通通一颗药丸），只是描边虚一点、字色淡一点 ——
+   一眼能看出"这颗是开合的，不是选项"。 */
+.media-field-segmented button.media-field-more {
+  flex: 0 1 auto;
+  border-style: dashed;
+  background: transparent;
+  color: var(--sb-ink-2);
+  font-weight: 500;
+}
+.media-field-segmented button.media-field-more:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-field-segmented button.media-field-more.is-open { border-style: solid; }
 .media-field-stepper { display: inline-flex; align-items: center; gap: 12px; }
 .media-field-stepper button {
   width: 40px;

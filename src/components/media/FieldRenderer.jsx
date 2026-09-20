@@ -184,6 +184,75 @@ function UploadControl({ field, value, onChange, disabled }) {
   );
 }
 
+/* ═══ segmented：选项药丸 + 「更多」收折（2026-09-19 批 P，照知渔实测形态）══════════════
+   用户第 20 轮原话：「工作台**该滑动的地方要滑动，要选项的地方要选项，该切换的地方要切换，抄到位**」。
+   知渔实测（docs/design/data/quantv-image-pages.json 逐页实采）：
+     选项超过 6 个时**只铺前 6 个**，第 7 个位置是一颗「更多」——
+     · 中文海报：用途(8)=6+更多、颜色(15)=6+更多、效果(18)=6+更多、字体(6)=**不折**、选择分辨率(2)=不折；
+     · 图片换风格：风格选择(22)=6+更多；相似图生成的比例(7)=6+更多；
+     · 批量出图：比例(10)=6+更多。
+   ⇒ 判据就是「多于 6 档 → 折」，不是拍脑袋：他们那 6 档及以下都铺满、没有「更多」。
+   为什么必须做：18 颗药丸铺开来会把左栏撑成一面墙（他们的左栏永远只有 6 颗高）。
+   ⚠️ 例外要能声明：field.maxVisible 可以逐字段改（例如「光影氛围」实测 8 档是铺满的）；
+   ⚠️ 当前选中的那一档若落在折叠区里，**必须继续显示** —— 否则界面会假装"没选"。
+      所以 expanded 的判据是「点过更多」**或**「选中的档位不在前 6 个里」。 */
+function SegmentedControl({ field, value, onChange, disabled }) {
+  const options = Array.isArray(field.options) ? field.options : [];
+  const limit = Math.max(1, Number(field.maxVisible ?? 6) || 6);
+  const collapsible = field.collapsible !== false && options.length > limit;
+  /* ═══ 多选（2026-09-19 批 P）═══════════════════════════════════════════════════════════
+     知渔「商品多角度多视图」那一格叫「**选择视角（多选）**」—— 正面/侧面/背面/俯视/仰视/45度角
+     可以同时选中几个，出的是一组多角度的图。我们原来只能单选，等于把他们的玩法砍了一半。
+     声明源写 field.multiple = true，这里就把值当**数组**处理（skillRun 侧负责拼进提示词）。 */
+  const multiple = field.multiple === true;
+  const selectedList = multiple ? (Array.isArray(value) ? value : []) : [];
+  const isOn = option => (multiple ? selectedList.some(v => String(v) === String(option.value)) : String(value) === String(option.value));
+  const pick = option => {
+    if (!multiple) { onChange(option.value); return; }
+    const exists = selectedList.some(v => String(v) === String(option.value));
+    onChange(exists ? selectedList.filter(v => String(v) !== String(option.value)) : [...selectedList, option.value]);
+  };
+  /* 折叠时若**有任一**选中项落在折叠区，同样要铺开（否则用户看不到自己选了什么） */
+  const selectedIndex = multiple ? options.findIndex(option => isOn(option)) : options.findIndex(option => isOn(option));
+  const [expanded, setExpanded] = useState(false);
+  const mustShowAll = !collapsible || expanded || selectedIndex >= limit;
+  const shown = mustShowAll ? options : options.slice(0, limit);
+  return (
+    <span className={'media-field-segmented' + (multiple ? ' is-multiple' : '')} role="group" aria-label={field.label}>
+      {shown.map(option => (
+        <button
+          key={option.value}
+          type="button"
+          disabled={disabled}
+          aria-pressed={isOn(option)}
+          className={isOn(option) ? 'is-active' : ''}
+          onClick={() => pick(option)}
+        >{option.label}</button>
+      ))}
+      {collapsible && !mustShowAll && (
+        <button
+          type="button"
+          className="media-field-more"
+          aria-expanded="false"
+          aria-label={(field.label || '选项') + ' 展开全部 ' + options.length + ' 项'}
+          disabled={disabled}
+          onClick={() => setExpanded(true)}
+        >更多</button>
+      )}
+      {collapsible && expanded && selectedIndex < limit && (
+        <button
+          type="button"
+          className="media-field-more is-open"
+          aria-expanded="true"
+          aria-label={(field.label || '选项') + ' 收起'}
+          disabled={disabled}
+          onClick={() => setExpanded(false)}
+        >收起</button>
+      )}
+    </span>
+  );
+}
+
 /* 多行文本 + 「放大」：放大框要有自己的开合状态，所以单独成一个组件
    （control() 是普通函数，不能在它里面用 useState —— 那是 hooks 规则，会整页崩）。 */
 function TextareaControl({ field, value, onChange, disabled }) {
@@ -309,20 +378,8 @@ function control(kind, field, value, onChange, disabled) {
     );
   }
   if (kind === 'segmented') {
-    return (
-      <span className="media-field-segmented" role="group" aria-label={field.label}>
-        {(field.options || []).map(option => (
-          <button
-            key={option.value}
-            type="button"
-            disabled={disabled}
-            aria-pressed={String(value) === String(option.value)}
-            className={String(value) === String(option.value) ? 'is-active' : ''}
-            onClick={() => onChange(option.value)}
-          >{option.label}</button>
-        ))}
-      </span>
-    );
+    /* 选项药丸 + 「更多」收折（照知渔；见上面 SegmentedControl 的注释） */
+    return <SegmentedControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
   if (kind === 'stepper') {
     const min = Number(field.min ?? 1);

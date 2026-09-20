@@ -1,0 +1,6277 @@
+{
+ "fetchedAt": "2026-09-19",
+ "source": "https://laoyu.quantv.com/api/app-market-apps?page=1&pageSize=200&enabled=true（图片市场 104 条；字段声明 = 每个 app 的 inputConfigs）",
+ "note": "门禁用它核对「我们的工作台字段 ↔ 知渔对应页字段」；hidden:true 的字段在页面上不渲染，比对时必须滤掉。",
+ "apps": [
+  {
+   "id": "cmps29inu01jopb87rav799rj",
+   "title": "智能图片G2",
+   "categoryId": "cmpcee0zo000011pzahq09aek",
+   "fields": [
+    {
+     "title": "生图指令（jpg.png格式）",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 8,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "生图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述画面"
+    },
+    {
+     "title": "尺寸比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "4:3 横版主图",
+      "3:4 竖版海报",
+      "3:2 横版摄影",
+      "2:3 竖版长图",
+      "16:9 手机横屏",
+      "9:16 手机竖屏",
+      "21:9 超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmps261k501jmpb87m05vwf4r",
+   "title": "智能图片Na",
+   "categoryId": "cmpcee0zo000011pzahq09aek",
+   "fields": [
+    {
+     "title": "绘画描述",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 8,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "绘画描述",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述画面，有参考图片时，输入 @ 引用图片"
+    },
+    {
+     "title": "生成尺寸",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "3:2横版摄影",
+      "2:3竖版长图",
+      "16:9手机横屏",
+      "9:16手机竖屏",
+      "21:9超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmps21l3u01jkpb87iqb5jmbq",
+   "title": "即梦seedream5.0pro",
+   "categoryId": "cmpcee0zo000011pzahq09aek",
+   "fields": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 8,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "绘画描述",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述画面，有参考图片时，输入 @ 引用图片"
+    },
+    {
+     "title": "生成尺寸",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "4:3横版主图",
+      "3:4竖版海报",
+      "3:2横版摄影",
+      "2:3竖版长图",
+      "16:9手机横屏",
+      "9:16手机竖屏",
+      "21:9超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "模型选择",
+     "type": "radio",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [
+      "图片5.0pro"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度（有参考图就不要使用2k的）",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标清",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmsa3m45s020q7kp9frwvqqwo",
+   "title": "提取分镜图的单张分镜图",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "分镜图（带编号）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "需要提取哪个编号的分镜",
+     "type": "number",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cms01miqu008xz98s5mtb9q39",
+   "title": "提取人像白底图",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrzzok9f63533591o4rh25l5",
+   "title": "破屏而出创意人像视觉作品",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrywxd2g5kw03591dyd3evik",
+   "title": "超现实电光虚影人像创作",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrvryywr3b2w3591pnmyaxhe",
+   "title": "极简日系饮品海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "饮料名称",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrq2bqtj0mg93hdwvp4aflhb",
+   "title": "时尚手账风女孩穿搭拆解贴纸",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（人物全身穿服装的图片）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrojlpkj2g92rykqx03h3490",
+   "title": "高端奢华生活方式社交媒体数字拼贴",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（女性人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrojd78f2fzdrykqr7dygii3",
+   "title": "创意九宫格手绘涂鸦写实摄影",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmroi7yhh2eqmrykqho5w2fqg",
+   "title": "女生发型分析卡16宫格真人图鉴",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmroi3o5e2eoirykquh9eqk5d",
+   "title": "同一人物角色设定图生成指令",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "3:2",
+      "4:3",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrohyadh2elgrykq89rkf1jz",
+   "title": "超写实剪贴簿风少女拼图海报",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrng33es1xr3rykqg2xlf7kh",
+   "title": "极简高级产品剖面剧场广告图",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrndn80w1vvrrykqgxrphqrh",
+   "title": "夏季蔬果巨物场景化摄影",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "蔬菜水果名字",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "3:2",
+      "4:3",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标清",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrnd548x1vdmrykqt38es647",
+   "title": "高端食品商业广告摄影",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "品牌名",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrn3vx5d1i97rykqzisj24i3",
+   "title": "高端品牌产品光场特效商业广告海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "品牌名",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrn3vq131i8qrykqz7okw2b2",
+   "title": "电影级高端产品爆炸瞬间海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrm2tkil10furykqgm1jggeg",
+   "title": "韩国高端时尚杂志动感多图排版",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "服装图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrm2j0og1072rykq1n4scl3b",
+   "title": "咖啡馆人像摄影",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "服装图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrk8h7e823fiah7d3r0xvlfr",
+   "title": "汽水广告九宫格",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（汽水图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrk82zq92350ah7dtwxkybef",
+   "title": "食物爆炸瞬间",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（模特图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传图片（食物图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrk7vgnm22yjah7dsv4sgij2",
+   "title": "极地冰封巨型广告海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "品牌名",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrj8ghjh1qa6ah7dihczkoth",
+   "title": "蓝白降落伞悬浮产品创意3D渲染广告",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrj77nc21pa5ah7dxhsz7zn6",
+   "title": "复古胶片感夜景人像",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传图片（服装图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrj711n41p2vah7d2fm68b7s",
+   "title": "水面映入兰花少女超写实人像",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrj6doqb1ojbah7dd0knj630",
+   "title": "唐风幻想春日仙侠女主精修写真",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrfzx3yg015oah7davr87ryk",
+   "title": "电影级商业摄影",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrfy68yr0etx10mm7xcx6y6t",
+   "title": "清爽叙事海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "品牌名",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "产品名字",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrfy5y7b0etp10mmcr85c2x0",
+   "title": "奢侈时尚广告海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（产品图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "品牌名",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmresbtuo002610mml2xnxv51",
+   "title": "极简人物特写",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片（人像图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K标准",
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmreoc6n603iw13umba5yqv62",
+   "title": "养生按摩宣传",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "主题",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "16:9",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "1:1"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K",
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrda3lt704lzvyck59ffvy95",
+   "title": "东方美学电影海报",
+   "categoryId": "cmpmaf67h000211u0oevkcs2b",
+   "fields": [
+    {
+     "title": "主题",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述主题，根据主题内容生成东方美学电影海报"
+    },
+    {
+     "title": "绘画风格",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "水墨",
+      "水彩",
+      "油画",
+      "素描",
+      "二次元",
+      "写实",
+      "卡通",
+      "涂鸦",
+      "国风3D",
+      "3D渲染",
+      "像素风",
+      "赛博朋克",
+      "蒸汽朋克",
+      "复古",
+      "极简",
+      "超现实",
+      "RPG游戏风",
+      "独立游戏风",
+      "卡牌游戏风",
+      "手游立绘风"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmrd3x1id0dyocq6p2p0udoj7",
+   "title": "小红书爆款复刻",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "原图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K",
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmr32say401aj5bh7lhjt0ulz",
+   "title": "建筑九宫格分镜",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "大师风格",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "韦斯·安德森风格",
+      "罗杰·迪金斯风格",
+      "王家卫风格",
+      "克里斯托弗·诺兰风格",
+      "宫崎骏风格",
+      "新海诚风格",
+      "李安风格",
+      "大卫·芬奇风格",
+      "丹尼斯·维伦纽瓦风格"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "光影调节",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "自然光感",
+      "柔和逆光",
+      "几何光影",
+      "暖调氛围",
+      "蓝调时刻",
+      "黄昏时刻",
+      "晨雾柔光",
+      "夜晚时分",
+      "明亮通透"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "创意描述（可选）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K",
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmr32rkqk01ae5bh7709a0bui",
+   "title": "平面转建筑效果图",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "建筑类型",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "别墅设计",
+      "住宅设计",
+      "办公建筑",
+      "商业建筑",
+      "校园建筑",
+      "博览建筑"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "建筑气质",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "现代简约",
+      "精致曲线",
+      "典雅中式",
+      "稳重石材"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "场地环境",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "住宅环境",
+      "城市街区",
+      "自然环境",
+      "滨水临湖"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "光影氛围",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "晴朗日光",
+      "柔和逆光",
+      "写实静谧",
+      "阴天雾感",
+      "黎明晨光",
+      "夕阳暖光",
+      "夜景灯光",
+      "质感蓝调"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "更多描述",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K",
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmqors61x010smjmfpet1v5mo",
+   "title": "识别产品卖点",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "产品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmqnd6zof03q9j0l3bosi05u7",
+   "title": "复刻详情页",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "产品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K",
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmq991goq011oikykarxyf9nj",
+   "title": "合照大头贴",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "人物图片1",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "人物图片2",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "9:16 手机竖屏",
+      "3:4 竖版海报",
+      "2:3 竖版长图"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "人物关系",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "情侣",
+      "闺蜜",
+      "好友",
+      "同学",
+      "兄弟",
+      "朋友"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmq20v16t03wh11azxzxw8kjw",
+   "title": "一键生成分镜图",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "参考图1",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "参考图2",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "参考图3",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "参考图4",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "分镜数（建议是数量为 2-25）",
+     "type": "number",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "分镜描述",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmq0jkxl101sj11azdge8ngqt",
+   "title": "电商海报设计",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "产品卖点（可选，不用很复杂，简单一点）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "买一送一，满99减30"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpsc52yp0011ng26jjuddknu",
+   "title": "人物姿势参考",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传高清模特图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传姿势图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpsbc5ap000eng26uj3ux436",
+   "title": "批量出图电商图",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传产品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 2,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传角色图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 2,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传场景图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 2,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "自定义提示词",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "4:5 小红书封面",
+      "5:4 产品主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏",
+      "21:9 超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpsaocfk000cng26od8rdumw",
+   "title": "婚纱照一键生成",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传人像照",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传婚纱",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传礼服",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择风格",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "传统中式",
+      "新中式",
+      "森系草坪风",
+      "海边纪实风",
+      "法式浪漫",
+      "欧式宫廷",
+      "民国复古",
+      "胶片港风",
+      "彩纱童话风",
+      "水下婚纱",
+      "电影氛围感"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "其他要求",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "4:5小红书封面",
+      "5:4产品主图",
+      "9:16手机竖屏",
+      "16:9手机横屏",
+      "21:9超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmps9cvi80001ng26ekt95p06",
+   "title": "试纱照生成",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传人像照",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传婚纱与配饰",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 8,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": " 选择背景",
+     "type": "radio",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "法式庄园",
+      "韩系极简",
+      "森系草坪",
+      "中式庭院",
+      "复古宫廷",
+      "纯色背景",
+      "酒店礼堂",
+      "欧式花园"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择背景图",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "其他要求",
+     "type": "radio",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "人物姿势",
+      "人物朝向",
+      "构图",
+      "光影",
+      "景深"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "4:5小红书封面",
+      "5:4产品主图",
+      "9:16手机竖屏",
+      "16:9手机横屏",
+      "21:9超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "清晰度",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmps8rb6z001b5zahlta61dab",
+   "title": "产品展示批量图",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "产品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "提示词",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "4:5 小红书封面",
+      "5:4 产品主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏",
+      "21:9 超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpqiwo4w002cdwyruq0ahlbi",
+   "title": "Logo风格转换",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "LOGO风格",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      " 毛绒抱枕",
+      "冰淇淋图标",
+      "炫彩半透明",
+      "3D科技玻璃",
+      "水墨图标",
+      "乐高玩具",
+      "羊毛织物图标",
+      "青铜材质图标",
+      "野兽毛胚",
+      "翡翠雕花",
+      "水元素",
+      "3D卡通"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpqiqghx002adwyrx6cvw3i1",
+   "title": "中文海报一键生成",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "主题",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入海报主题"
+    },
+    {
+     "title": "画面描述",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "补充画面描述，让画面更丰富"
+    },
+    {
+     "title": "用途",
+     "type": "radio",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "电商促销",
+      "旅游宣传",
+      "音乐节",
+      "艺术画展",
+      "发布会",
+      "产品展示",
+      "节日庆典",
+      "自定义"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "生成尺寸",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "4:3横版主图",
+      "3:4竖版海报",
+      "3:2横版摄影",
+      "2:3竖版长图",
+      "16:9手机横屏",
+      "9:16手机竖屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "字体",
+     "type": "radio",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "书法体",
+      "无衬线体",
+      "霓虹灯字",
+      "书写体",
+      "哥特体",
+      "自定义"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "颜色",
+     "type": "radio",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "金色",
+      "银色",
+      "红色",
+      "蓝色",
+      "绿色",
+      "紫色",
+      "橙色",
+      "哑光",
+      "亮光",
+      "黑色",
+      "白色",
+      "灰色",
+      "棕色",
+      "粉色",
+      "自定义"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "效果",
+     "type": "radio",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "3D",
+      "2D",
+      "扁平化",
+      "手绘",
+      "水彩",
+      "油画",
+      "素描",
+      "黑白",
+      "复古",
+      "霓虹灯",
+      "渐变",
+      "浮雕",
+      "阴影",
+      "发光",
+      "描边",
+      "卡通",
+      "插画",
+      "自定义"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpqiad3w0026dwyr95fylrw4",
+   "title": "相似图生成",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "参考强度",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "低",
+      "中",
+      "高"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppi44ui0020dwyrwthado6t",
+   "title": "一键脸部试妆",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传人物参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传妆造参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpphyx91001ydwyrvcmjpwct",
+   "title": "人物多角度生成",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择视角（多选）",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "正面",
+      "侧面",
+      "背面",
+      "俯视",
+      "仰视"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择光照",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "自然光",
+      "测光",
+      "逆光",
+      "顶光",
+      "环境光"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpphomvz001udwyr9s5lqfi2",
+   "title": "一键生成3D手办",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择材质",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "塑料",
+      "金属",
+      "陶瓷",
+      "木质",
+      "卡通材质"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择视角",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "正面",
+      "侧面",
+      "45度角",
+      "细节特写"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "其他需求（选填）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入其他需求（选填）"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpph9zq10011dwyrbqwqvutc",
+   "title": "一键图片融合",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传图片（2-4张图）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 4,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppgrodn000zdwyr7ynrj12x",
+   "title": "多语言海报翻译",
+   "categoryId": "cmpmafa6b000311u0th2sdo0c",
+   "fields": [
+    {
+     "title": "上传海报",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择翻译语言",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "英语",
+      "法语",
+      "德语",
+      "西班牙语",
+      "俄语",
+      "日语",
+      "韩语",
+      "中文",
+      "葡萄牙语",
+      "阿拉伯语",
+      "泰语",
+      "越南语",
+      "荷兰语",
+      "瑞典语",
+      "挪威语",
+      "丹麦语",
+      "芬兰语",
+      "波兰语",
+      "土耳其语",
+      "希腊语",
+      "意大利语"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "生成尺寸",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "4:3 横版主图",
+      "3:4 竖版海报",
+      "3:2 横版摄影",
+      "2:3 竖版长图",
+      "16:9 手机横屏",
+      "9:16 手机竖屏",
+      "21:9 超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppgmr40000xdwyrpwsj5co6",
+   "title": "3D模型渲染",
+   "categoryId": "cmpmaf67h000211u0oevkcs2b",
+   "fields": [
+    {
+     "title": "上传3D模型图（必选）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "图片编辑指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述渲染风格、材质、光照等"
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppgj00m000tdwyrvtwhzdmx",
+   "title": "线稿一键渲染",
+   "categoryId": "cmpmaf67h000211u0oevkcs2b",
+   "fields": [
+    {
+     "title": "上传手绘或软件线稿（必选）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "正向提示词（选填）",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述渲染风格、材质、色彩等（选填）"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppgcrti000rdwyriq1aholh",
+   "title": "一键提取线稿",
+   "categoryId": "cmpmaf67h000211u0oevkcs2b",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "快速提取线稿",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "将实物照片转为线稿，纯黑白风格，无任何其他颜色，黑色单线条，线条粗细均匀，清晰锐利，无多余笔触，极简风格。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppfyccq000ndwyrtv2u0u4k",
+   "title": "人像变清晰",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入人像照片的修图指令，如：将照片中的人物肤色调整为自然健康的肤色，去除面部瑕疵，增强眼睛的明亮度，调整整体光影效果，使照片更加清晰和有质感等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppfi44y000hdwyrehnupiyn",
+   "title": "真人转漫画",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "风格选择",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "精致韩漫",
+      "写实",
+      "新莫奈花园",
+      "中国红",
+      "赛博机械",
+      "3D",
+      "玩偶",
+      "动画电影",
+      "可爱玩偶",
+      "丑萌粘土",
+      "陶瓷娃娃",
+      "浪漫光影",
+      "国风-水墨",
+      "精致美漫",
+      "莫奈花园",
+      "水彩风",
+      "水墨",
+      "梦幻",
+      "日漫",
+      "动漫",
+      "天使"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppfb74u000fdwyro3962be1",
+   "title": "AI证件照",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传人物参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择底色",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "蓝底",
+      "红底",
+      "白底"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "额外需求（选填）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入额外需求"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppevdm8000ddwyrltourlm7",
+   "title": "AI换脸",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传原图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传人脸图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppe3ram0009dwyrvqtp2b48",
+   "title": "效果图质感提升",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "后期指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入您的图片后期修改指令，如：清晰美化图片，调整色调为暖色系，增加光影效果等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppe2d6y0007dwyrwhcmotn2",
+   "title": "室内3D模型渲染",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传3D模型图（必选）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "图片编辑指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述渲染风格、材质、光照等"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppe0mad0005dwyre5xvlitx",
+   "title": "生成彩色平面图",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "彩平图风格",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "彩色铅笔",
+      "彩虹渐变",
+      "马克笔",
+      "淡彩色块",
+      "3D立体",
+      "极简风",
+      "水彩风",
+      "纯色高亮",
+      "景观鸟瞰",
+      "奶油风",
+      "高级灰"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppdorzs0003dwyrv2aozl2t",
+   "title": "装修风格转换",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "家装指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入您的家装修改指令，如：将客厅的墙壁颜色改为浅蓝色，增加一些现代风格的家具，地板更换为木质地板等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppdls900001dwyrdxork3qk",
+   "title": "毛坯家装设计",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择装修风格",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "轻奢奶油风",
+      "现代简约风",
+      "北欧风",
+      "中国风",
+      "工业复古风"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "其他需求",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述您想要的其他装修需求..."
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppd7ak7000fim821wjqb8fo",
+   "title": "日夜气候切换",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入照片的气候修改指令，例如：&quot;将照片中的白天场景修改为夜晚场景，保留细节和色彩&quot;。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主 图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppd5cn2000dim825vko4c1a",
+   "title": "一键软硬装替换",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "家装指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入您的家装修改指令，如：将客厅的墙壁颜色改为浅蓝色，增加一些现代风格的家具，地板更换为木质地板等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppcy7k6000bim82qe4yl0tw",
+   "title": "图片换风格",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "风格选择",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "精致韩漫",
+      "写实",
+      "新莫奈花园",
+      "中国红",
+      "赛博机械",
+      "3D",
+      "玩偶",
+      "动画电影",
+      "可爱玩偶",
+      "丑萌粘土",
+      "陶瓷娃娃",
+      "浪漫光影",
+      "国风-水墨",
+      "精致美漫",
+      "莫奈花园",
+      "水彩风",
+      "水墨",
+      "梦幻",
+      "日漫",
+      "动漫",
+      "天使",
+      "油画"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高i请",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppcoe3r0009im82ydjztcsh",
+   "title": "一键美化图片",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入商品照片的修图指令，如:调整商品的颜色使其更加鲜艳，去除商品表面的瑕疵，增强商品的质感和细节，使商品在照片中更加突出和吸引人等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppcia3b0007im82x48r52mh",
+   "title": "任意图片去色",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "文案",
+     "type": "multiText",
+     "optional": false,
+     "hidden": true,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "将整张图片转为黑白灰度效果，完全去除彩色信息，保留原有光影、纹理与轮廓，明暗过渡自然，画面清晰不变形"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppcb14d0005im8242ll3e1v",
+   "title": "一键高级感",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入高奢感商品修图指令...."
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppc51aw0003im82mt4qgxhf",
+   "title": "一键去水印",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmppbv8iz0001im82vgjnzkxb",
+   "title": "一键裁剪图片",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "裁剪比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp9htft0040fhl6mufb70cm",
+   "title": "图片提示词解析",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp98jj5003yfhl612p0hpq1",
+   "title": "老照片修复",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择修复模型",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "照片修复",
+      "照片上色"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp8uzic003wfhl6ino8rk2z",
+   "title": "图片变清晰",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp8mmvf003rfhl6ss2idtsa",
+   "title": "图片画质增强",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp8a7h4003mfhl6n2hwg6ka",
+   "title": "AI抠图",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "抠图模式",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "白色背景"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp76wns0029fhl6n22fsfqc",
+   "title": "一键转粘土风格",
+   "categoryId": "cmpmaf67h000211u0oevkcs2b",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "额外要求（选填）",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入您的额外要求，如：粘土质感，手工捏制的效果等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1方图",
+      "2:3竖版长图",
+      "3:2横版摄影",
+      "3:4竖版海报",
+      "4:3横版主图",
+      "9:16手机竖屏",
+      "16:9手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "2K高清",
+      "4K超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp6p258001efhl6oo4xjiro",
+   "title": "AI换发型",
+   "categoryId": "cmpmaf1e6000111u0gradyz5j",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "图片编辑指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述想要的发型和发色..."
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp67pht0017fhl6b8yldmfb",
+   "title": "图片局部重绘",
+   "categoryId": "cmpdpvrdd000071hdcmyfh5qf",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "重绘区域描述",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入重绘区域描述"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1",
+      "2:3",
+      "3:2",
+      "3:4",
+      "4:3",
+      "9:16",
+      "16:9"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K",
+      "2K",
+      "4K"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpp5rlcx000mfhl6121ivvqy",
+   "title": "AI洗图",
+   "categoryId": "cmpmaewjo000011u0cql1ac66",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "后期指令",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述需要提取的服装部位和展示方式"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpl7xuhg00b9jwjxvqsnobeo",
+   "title": "提取模特穿搭",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "其他需求",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述需要提取的服装部位和展示方式"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpl7re9b00b7jwjx6sucwfh5",
+   "title": "电商场景加模特",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "产品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传模特图",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传场景图",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "可自定义输入模特，背景的描述",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpl7iimr00b5jwjxnnrdfai4",
+   "title": "一键模特换背景",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传原模特图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传场景图",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "自定义输入背景提示词（选填）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入背景的相关词"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpl7953r00b3jwjxzwkhag4f",
+   "title": "商品场景展示",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传商品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入商品展示图设计指令，如：设计一张展示图，突出产品的主要功能和特点，背景使用浅色调以突出产品，加入一些动态元素使图像更具吸引力，整体风格简洁大方，符合现代审美等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1  方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpl08z0t001rcw0no3ixifhh",
+   "title": "电商图万物替换",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传替换物品图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换需求补充",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入画面操作的指令，例如：保持图1不变，将图2的物品融入图1主体，调整光影色调使其协调自然"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkzq9c8000fcw0n34te0ojf",
+   "title": "产品包装设计",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入商品的包装设计指令，如：设计一个现代简约风格的包装，使用环保材料，突出品牌的高端形象，颜色以蓝色和白色为主，加入一些几何图形元素，使包装看起来更加时尚和吸引人等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkzkwfl0003cw0nivkje10c",
+   "title": "人物多姿势生成",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传人物图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "额外需求",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述需要生成的姿势类型，如：站立、坐姿、行走等~"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkyylpk0001cw0ntidsq2z6",
+   "title": "电商产品和模特精修",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入商品照片的修图指令，如：调整商品的颜色使其更加鲜艳，去除商品表面的瑕疵，增强商品的质感和细节，使商品在照片中更加突出和吸引人等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkyp2g00017pdvyyqb9qcvj",
+   "title": "照片高质量精修",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "修图指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入人像照片的修图指令，如：将照片中的人物肤色调整为自然健康的肤色，去除面部瑕疵，增强眼睛的明亮度，调整整体光影效果，使照片更加清晰和有质感等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkymu7i0015pdvy583ypp3g",
+   "title": "商品风格材质更换",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "替换指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入商品替换指令，如：将牛仔裤替换为黑色皮裤，风格改为朋克风，增加铆钉装饰等。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkyfiiz0013pdvy7ew6yt5x",
+   "title": "画面主体迁移融合",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传第一张图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传第二张图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "后期指令",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入画面操作的指令，如用图1中的主体替换图2女孩手上的物品。"
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 手机竖屏",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpky78ec0011pdvyt1e5e8pm",
+   "title": "爆款商品文字海报",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "主题",
+     "type": "singleText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传产品图",
+     "type": "file",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "画面描述",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "补充画面描述，让画面更丰富"
+    },
+    {
+     "title": "字体",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "书法体",
+      "无衬线体",
+      "霓虹灯字",
+      "书写体",
+      "哥特体",
+      "自定义"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "生成尺寸",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "4:3 横版主图",
+      "3:4 竖版海报",
+      "3:2 横版摄影",
+      "2:3 竖版长图",
+      "16:9 手机横屏",
+      "9:16 手机竖屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkwl86g000xpdvyabret02g",
+   "title": "提取电商白底图",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传图片（最好是1：1的比例）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "抠图模式",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "透明背景",
+      "白色背景"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpkuuo9h000vpdvymuk08wva",
+   "title": "跨境电商图文翻译",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传海报",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "海报比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "选择翻译语言",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "英语",
+      "法语",
+      "德语",
+      "西班牙语",
+      "俄语",
+      "日语",
+      "韩语",
+      "意大利语",
+      "葡萄牙语",
+      "阿拉伯语",
+      "泰语",
+      "越南语",
+      "荷兰语",
+      "瑞典语",
+      "挪威语",
+      "丹麦语",
+      "芬兰语",
+      "波兰语",
+      "土耳其语",
+      "希腊语",
+      "自定义"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpf7eoas0009swk52qnfxidt",
+   "title": "OOTD服装穿搭",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传人物图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传服装/单品图（1-8张）",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 8,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "穿搭描述（选填）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "描述搭配效果，如：外套敞开穿，围巾系在脖子上，手提包挎在左肩.."
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpf7b6v60007swk5epbf6o9j",
+   "title": "模特试穿试戴",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传模特图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传饰品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "图片比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "描述",
+     "type": "singleText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpf73dkq0005swk5m0zdpf8x",
+   "title": "模特试鞋",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传模特图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传鞋子图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "额外需求（选填）",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "比如换什么姿势"
+    },
+    {
+     "title": "图片比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpf6uqxo0003swk5zl14xuma",
+   "title": "商品多角度多视图",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传原图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 8,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择视角（多选）",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "正面",
+      "侧面",
+      "背面",
+      "俯视",
+      "仰视",
+      "45度角"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "细节补充",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "补充描述，如商品材质、场景要求、光线风格等..."
+    },
+    {
+     "title": "比例",
+     "type": "radio",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpf6kqd00001swk5trxzgwdg",
+   "title": "商品宣传爆款复刻",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传商品图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "上传参考图",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "商品名称",
+     "type": "singleText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "核心卖点",
+     "type": "multiText",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "请输入产品核心卖点"
+    },
+    {
+     "title": "输出比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "文案语言",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "中文",
+      "韩文",
+      "日文",
+      "英文"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  },
+  {
+   "id": "cmpf5zr9f001g2nz4fb346io7",
+   "title": "多场景穿搭套图",
+   "categoryId": "cmpmacpab0000wx8jpas3sg2d",
+   "fields": [
+    {
+     "title": "上传服饰图片",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "选择模特",
+     "type": "file",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": ""
+    },
+    {
+     "title": "补充描述",
+     "type": "multiText",
+     "optional": true,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [],
+     "placeholder": "可选：补充你希望的场景、姿态、画面构图要求"
+    },
+    {
+     "title": "出图比例",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1:1 方图",
+      "2:3 竖版长图",
+      "3:2 横版摄影",
+      "3:4 竖版海报",
+      "4:3 横版主图",
+      "4:5 小红书封面",
+      "5:4 产品主图",
+      "9:16 手机竖屏",
+      "16:9 手机横屏",
+      "21:9 超横屏"
+     ],
+     "placeholder": ""
+    },
+    {
+     "title": "分辨率",
+     "type": "select",
+     "optional": false,
+     "hidden": false,
+     "maxImages": 1,
+     "options": [
+      "1K 标准",
+      "2K 高清",
+      "4K 超清"
+     ],
+     "placeholder": ""
+    }
+   ]
+  }
+ ]
+}

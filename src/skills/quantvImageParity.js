@@ -18,6 +18,14 @@
 
 export const QUANTV_IMAGE_BASE = 'https://laoyu.quantv.com';
 
+/* ═══ 2026-09-19 批 P：URL 形态修正 ═══════════════════════════════════════════════════
+   图片侧的 app 页在知渔是「/image-creation?id=…」，不是「/apps?id=…」——后者是**视频**市场的路由。
+   实测（CDP，2026-09-19）：把图片 app 的 id 拼到 /apps 上，页面直接显示「应用不存在」；
+   也就是说本文件上一版记的 28 条对照 URL 全都打不开，等于对照表没法复查。
+   本批逐条改成 /image-creation?id=…，并用同一批 URL 把 34 个对照页 DOM 实采了一遍
+   （docs/design/data/quantv-image-pages.json，errors=0）。
+   门禁 test/quantv-image-parity-machine-0920 守着这条形态：对照页 URL 必须能被真的打开。 */
+
 /* 对照记录：id → { counterpart, kind, note } */
 export const QUANTV_IMAGE_COUNTERPARTS = Object.freeze({
   /* ── 内置 ?tool= 页（知渔的"精品推荐"六条，不是应用市场里的 app）─────────────── */
@@ -28,35 +36,35 @@ export const QUANTV_IMAGE_COUNTERPARTS = Object.freeze({
   'image.remove_bg': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?tool=remove-background', kind: 'builtin', note: '去除背景：**零字段**（只有「最多上传 5 张图片」0/5 + 一个「+」+ CTA），无底色无比例' },
   'image.try_on': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?tool=ai-outfit', kind: 'builtin', note: 'AI换装：模特选择 / 服装选择(套装|多件) / 上传衣服图 / Pose 参考(可选) / 背景参考(可选) / 模型选择 / 分辨率 / 比例 / 生成张数' },
 
-  /* ── 应用市场 app（/apps?id=…）────────────────────────────────────────────── */
-  'image.poster': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmq0jkxl101sj11azdge8ngqt', kind: 'app', note: '电商海报设计：上传图片 + 产品卖点(可选) + 比例 + 分辨率（**不是**「中文海报一键生成」——那是 cn_poster 的对应页）' },
-  'image.cn_poster': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpqiqghx002adwyrx6cvw3i1', kind: 'app', note: '中文海报一键生成：8 字段（主题/画面描述/用途 8/生成尺寸/字体 6/颜色 15/效果 18/分辨率）' },
-  'image.similar': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpqiad3w0026dwyr95fylrw4', kind: 'app', note: '相似图生成：上传参考图 + 参考强度(低|中|高) + 比例 + 选择分辨率' },
-  'image.callout_diagram': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpky78ec0011pdvyt1e5e8pm', kind: 'app', note: '爆款商品文字海报：主题 + 上传产品图(可选) + 画面描述 + 字体 6 + 生成尺寸 + 分辨率' },
-  'image.giant_product': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmrndn80w1vvrrykqgxrphqrh', kind: 'app', note: '夏季蔬果巨物场景化摄影：蔬菜水果名字(纯文本) + 替换指令 + 比例(3 档) + 清晰度' },
-  'image.tropical_poster': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmrvryywr3b2w3591pnmyaxhe', kind: 'app', note: '极简日系饮品海报：饮料名称 + 比例 + 清晰度（**无上传位**）' },
-  'image.scene': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpl7953r00b3jwjxzwkhag4f', kind: 'app', note: '商品场景展示：上传商品图 + 修图指令 + 比例 + 分辨率' },
-  'image.swap_bg': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpl7iimr00b5jwjxnnrdfai4', kind: 'app', note: '一键模特换背景：上传原模特图 + 上传场景图(可选) + 自定义输入背景提示词(选填) + 比例 + 分辨率' },
-  'image.style_swap': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppcy7k6000bim82qe4yl0tw', kind: 'app', note: '图片换风格：上传参考图 + 风格选择(22 档) + 比例 + 选择分辨率' },
-  'image.retouch': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppcoe3r0009im82ydjztcsh', kind: 'app', note: '一键美化图片：上传图片 + 修图指令 + 比例 + 分辨率' },
-  'image.portrait': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppfyccq000ndwyrtv2u0u4k', kind: 'app', note: '人像变清晰：上传图片 + 修图指令 + 比例 + 分辨率' },
-  'image.hairstyle': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpp6p258001efhl6oo4xjiro', kind: 'app', note: 'AI换发型：上传图片 + 图片编辑指令 + 比例 + 分辨率' },
-  'image.pose': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpsc52yp0011ng26jjuddknu', kind: 'app', note: '人物姿势参考：上传高清模特图 + 上传姿势图 + 比例 + 选择分辨率（**两格都是上传位**）' },
-  'image.explode': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmrn3vq131i8qrykqz7okw2b2', kind: 'app', note: '电影级高端产品爆炸瞬间海报：上传图片（产品图）+ 替换指令 + 比例 + 清晰度' },
-  'image.ice_ad': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmrk7vgnm22yjah7dsv4sgij2', kind: 'app', note: '极地冰封巨型广告海报：上传图片（产品图）+ 品牌名 + 比例 + 清晰度' },
-  'image.float_kv': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmrj8ghjh1qa6ah7dihczkoth', kind: 'app', note: '蓝白降落伞悬浮产品创意3D渲染广告：上传图片（产品图）+ 替换指令 + 比例 + 清晰度' },
-  'image.tvc_grid': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmrk8h7e823fiah7d3r0xvlfr', kind: 'app', note: '汽水广告九宫格：上传图片（汽水图）+ 比例 + 清晰度' },
-  'image.multi_angle': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpf6uqxo0003swk5zl14xuma', kind: 'app', note: '商品多角度多视图：上传原图(最多 8) + 选择视角(多选 6 档) + 细节补充 + 比例 + 分辨率' },
-  'image.batch': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpsbc5ap000eng26uj3ux436', kind: 'app', note: '批量出图电商图：上传产品图 + 角色图 + 场景图 + 自定义提示词 + 比例(10 档) + 分辨率' },
-  'image.floorplan_render': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmr32rkqk01ae5bh7709a0bui', kind: 'app', note: '平面转建筑效果图：8 字段（参考图 / 建筑类型 6 / 建筑气质 4 / 场地环境 4 / 光影氛围 8 / 更多描述 / 比例 / 清晰度）' },
-  'image.interior_style': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppdorzs0003dwyrv2aozl2t', kind: 'app', note: '装修风格转换：上传图片 + 家装指令 + 比例 + 分辨率' },
-  'image.rough_interior': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppdls900001dwyrdxork3qk', kind: 'app', note: '毛坯家装设计：上传图片 + 选择装修风格(5) + 其他需求 + 比例 + 选择分辨率' },
-  'image.furniture_swap': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppd5cn2000dim825vko4c1a', kind: 'app', note: '一键软硬装替换：上传图片 + 家装指令 + 比例 + 分辨率' },
-  'image.interior_3d': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppe2d6y0007dwyrwhcmotn2', kind: 'app', note: '室内3D模型渲染：上传3D模型图（必选）+ 图片编辑指令 + 比例 + 分辨率' },
-  'image.day_night_still': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppd7ak7000fim821wjqb8fo', kind: 'app', note: '日夜气候切换：上传图片 + 修图指令 + 比例 + 分辨率' },
-  'image.render_quality': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmppe3ram0009dwyrvqtp2b48', kind: 'app', note: '效果图质感提升：上传图片 + 后期指令 + 比例 + 分辨率' },
-  'image.arch_grid': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmr32say401aj5bh7lhjt0ulz', kind: 'app', note: '建筑九宫格分镜：6 字段（参考图 / 大师风格 9 / 光影调节 9 / 创意描述(可选) / 比例 / 清晰度）' },
-  'image.white_bg': { counterpart: QUANTV_IMAGE_BASE + '/apps?id=cmpkwl86g000xpdvyabret02g', kind: 'app', note: '提取电商白底图：上传图片（最好是1：1的比例）+ 抠图模式(透明背景|白色背景) —— 与「去除背景」是**两页**' },
+  /* ── 应用市场 app（/image-creation?id=…）────────────────────────────────────────────── */
+  'image.poster': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmq0jkxl101sj11azdge8ngqt', kind: 'app', note: '电商海报设计：上传图片 + 产品卖点(可选) + 比例 + 分辨率（**不是**「中文海报一键生成」——那是 cn_poster 的对应页）' },
+  'image.cn_poster': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpqiqghx002adwyrx6cvw3i1', kind: 'app', note: '中文海报一键生成：8 字段（主题/画面描述/用途 8/生成尺寸/字体 6/颜色 15/效果 18/分辨率）' },
+  'image.similar': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpqiad3w0026dwyr95fylrw4', kind: 'app', note: '相似图生成：上传参考图 + 参考强度(低|中|高) + 比例 + 选择分辨率' },
+  'image.callout_diagram': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpky78ec0011pdvyt1e5e8pm', kind: 'app', note: '爆款商品文字海报：主题 + 上传产品图(可选) + 画面描述 + 字体 6 + 生成尺寸 + 分辨率' },
+  'image.giant_product': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmrndn80w1vvrrykqgxrphqrh', kind: 'app', note: '夏季蔬果巨物场景化摄影：蔬菜水果名字(纯文本) + 替换指令 + 比例(3 档) + 清晰度' },
+  'image.tropical_poster': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmrvryywr3b2w3591pnmyaxhe', kind: 'app', note: '极简日系饮品海报：饮料名称 + 比例 + 清晰度（**无上传位**）' },
+  'image.scene': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpl7953r00b3jwjxzwkhag4f', kind: 'app', note: '商品场景展示：上传商品图 + 修图指令 + 比例 + 分辨率' },
+  'image.swap_bg': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpl7iimr00b5jwjxnnrdfai4', kind: 'app', note: '一键模特换背景：上传原模特图 + 上传场景图(可选) + 自定义输入背景提示词(选填) + 比例 + 分辨率' },
+  'image.style_swap': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppcy7k6000bim82qe4yl0tw', kind: 'app', note: '图片换风格：上传参考图 + 风格选择(22 档) + 比例 + 选择分辨率' },
+  'image.retouch': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppcoe3r0009im82ydjztcsh', kind: 'app', note: '一键美化图片：上传图片 + 修图指令 + 比例 + 分辨率' },
+  'image.portrait': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppfyccq000ndwyrtv2u0u4k', kind: 'app', note: '人像变清晰：上传图片 + 修图指令 + 比例 + 分辨率' },
+  'image.hairstyle': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpp6p258001efhl6oo4xjiro', kind: 'app', note: 'AI换发型：上传图片 + 图片编辑指令 + 比例 + 分辨率' },
+  'image.pose': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpsc52yp0011ng26jjuddknu', kind: 'app', note: '人物姿势参考：上传高清模特图 + 上传姿势图 + 比例 + 选择分辨率（**两格都是上传位**）' },
+  'image.explode': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmrn3vq131i8qrykqz7okw2b2', kind: 'app', note: '电影级高端产品爆炸瞬间海报：上传图片（产品图）+ 替换指令 + 比例 + 清晰度' },
+  'image.ice_ad': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmrk7vgnm22yjah7dsv4sgij2', kind: 'app', note: '极地冰封巨型广告海报：上传图片（产品图）+ 品牌名 + 比例 + 清晰度' },
+  'image.float_kv': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmrj8ghjh1qa6ah7dihczkoth', kind: 'app', note: '蓝白降落伞悬浮产品创意3D渲染广告：上传图片（产品图）+ 替换指令 + 比例 + 清晰度' },
+  'image.tvc_grid': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmrk8h7e823fiah7d3r0xvlfr', kind: 'app', note: '汽水广告九宫格：上传图片（汽水图）+ 比例 + 清晰度' },
+  'image.multi_angle': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpf6uqxo0003swk5zl14xuma', kind: 'app', note: '商品多角度多视图：上传原图(最多 8) + 选择视角(多选 6 档) + 细节补充 + 比例 + 分辨率' },
+  'image.batch': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpsbc5ap000eng26uj3ux436', kind: 'app', note: '批量出图电商图：上传产品图 + 角色图 + 场景图 + 自定义提示词 + 比例(10 档) + 分辨率' },
+  'image.floorplan_render': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmr32rkqk01ae5bh7709a0bui', kind: 'app', note: '平面转建筑效果图：8 字段（参考图 / 建筑类型 6 / 建筑气质 4 / 场地环境 4 / 光影氛围 8 / 更多描述 / 比例 / 清晰度）' },
+  'image.interior_style': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppdorzs0003dwyrv2aozl2t', kind: 'app', note: '装修风格转换：上传图片 + 家装指令 + 比例 + 分辨率' },
+  'image.rough_interior': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppdls900001dwyrdxork3qk', kind: 'app', note: '毛坯家装设计：上传图片 + 选择装修风格(5) + 其他需求 + 比例 + 选择分辨率' },
+  'image.furniture_swap': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppd5cn2000dim825vko4c1a', kind: 'app', note: '一键软硬装替换：上传图片 + 家装指令 + 比例 + 分辨率' },
+  'image.interior_3d': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppe2d6y0007dwyrwhcmotn2', kind: 'app', note: '室内3D模型渲染：上传3D模型图（必选）+ 图片编辑指令 + 比例 + 分辨率' },
+  'image.day_night_still': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppd7ak7000fim821wjqb8fo', kind: 'app', note: '日夜气候切换：上传图片 + 修图指令 + 比例 + 分辨率' },
+  'image.render_quality': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmppe3ram0009dwyrvqtp2b48', kind: 'app', note: '效果图质感提升：上传图片 + 后期指令 + 比例 + 分辨率' },
+  'image.arch_grid': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmr32say401aj5bh7lhjt0ulz', kind: 'app', note: '建筑九宫格分镜：6 字段（参考图 / 大师风格 9 / 光影调节 9 / 创意描述(可选) / 比例 / 清晰度）' },
+  'image.white_bg': { counterpart: QUANTV_IMAGE_BASE + '/image-creation?id=cmpkwl86g000xpdvyabret02g', kind: 'app', note: '提取电商白底图：上传图片（最好是1：1的比例）+ 抠图模式(透明背景|白色背景) —— 与「去除背景」是**两页**' },
 
   /* ── 我们自有、知渔没有对应页（"没有"也是明确结论）────────────────────────────
      判据：关键词与字段形态**双路比对都不过**。

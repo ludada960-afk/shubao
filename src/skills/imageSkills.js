@@ -43,15 +43,67 @@ const RATIO = [
   { value: '9:16', label: '9:16 手机竖屏' },
   { value: '16:9', label: '16:9 手机横屏' },
 ];
-const CLARITY = [
+/* ═══ 2026-09-19 批 P：分辨率/清晰度的**档位与写法逐页照知渔**══════════════════════════
+   依据：docs/design/data/quantv-image-pages.json（34 个对照页 CDP 实采）+ catalog.json 的 inputConfigs。
+   实测这**不是一套**档位，各页写法都不一样：
+     · 三档「1K 标准 / 2K 高清 / 4K 超清」—— 电商海报设计 / 商品多角度多视图 / 批量出图 / 商品场景展示 / 一键模特换背景；
+     · 三档**无空格**「1K标准 / 2K高清 / 4K超清」—— 电影级爆炸 / 极地冰封 / 悬浮主视觉 / 汽水广告九宫格 / 装修系五页；
+     · 三档**只有数字**「1K / 2K / 4K」—— 平面转建筑效果图 / 建筑九宫格分镜；
+     · 三档「1K 标清 / 2K 高清 / 4K 超清」—— 夏季蔬果巨物（他们写作"标清"）；
+     · **两档**「2K 高清 / 4K 超清」—— 中文海报 / 相似图 / 毛坯家装 / 图片换风格 / 人物姿势参考 / 极简日系饮品。
+   ⇒ 这一页给几档、叫什么，全部照那一页抄。值仍是 1K/2K/4K（引擎口径），只有**标签**照他们。
+     默认值保持 2K（与 skillRun 的回落口径一致：界面显示什么，就跑什么）。 */
+/* ═══ 2026-09-19 批 P：比例药丸**两种写法 + 两种顺序**（逐页实采）══════════════════════
+   · 带后缀（1:1 方图 / 2:3 竖版长图 / …）—— 电商海报设计 / 商品场景展示 / 商品多角度多视图 /
+     批量出图 / 一键模特换背景 / 中文海报那一类页面（我们的 RATIO）；
+   · **只有数字**（1:1 / 2:3 / …）—— 电影级爆炸 / 极地冰封 / 悬浮主视觉 / 汽水广告九宫格 /
+     平面转建筑效果图 / 建筑九宫格分镜（他们的建筑室内页与电商专区的"爆款配方"页都是这种）；
+   · 顺序也不一样：中文海报 / 爆款商品文字海报这两页的实测顺序是
+     1:1 → 4:3 → 3:4 → 3:2 → 2:3 → 16:9 → 9:16（与他们自己接口里的数组顺序不同，以页面为准）。
+   值仍是 1:1/2:3/… （引擎口径），只有**标签与顺序**照他们。 */
+const RATIO_BARE = [
+  { value: '1:1', label: '1:1' },
+  { value: '2:3', label: '2:3' },
+  { value: '3:2', label: '3:2' },
+  { value: '3:4', label: '3:4' },
+  { value: '4:3', label: '4:3' },
+  { value: '9:16', label: '9:16' },
+  { value: '16:9', label: '16:9' },
+];
+const RATIO_SIZED = [
+  { value: '1:1', label: '1:1方图' },
+  { value: '4:3', label: '4:3横版主图' },
+  { value: '3:4', label: '3:4竖版海报' },
+  { value: '3:2', label: '3:2横版摄影' },
+  { value: '2:3', label: '2:3竖版长图' },
+  { value: '16:9', label: '16:9手机横屏' },
+  { value: '9:16', label: '9:16手机竖屏' },
+];
+const CLARITY_3 = [
+  { value: '1K', label: '1K 标准' },
+  { value: '2K', label: '2K 高清' },
+  { value: '4K', label: '4K 超清' },
+];
+const CLARITY_3_TIGHT = [
+  { value: '1K', label: '1K标准' },
+  { value: '2K', label: '2K高清' },
+  { value: '4K', label: '4K超清' },
+];
+const CLARITY_3_PLAIN = [
   { value: '1K', label: '1K' },
   { value: '2K', label: '2K' },
   { value: '4K', label: '4K' },
 ];
+const CLARITY_2 = [
+  { value: '2K', label: '2K 高清' },
+  { value: '4K', label: '4K 超清' },
+];
 
 /* 这两个字段在 20 多条技能里重复出现，**只能有一份定义**（含默认值）。
    默认值必须与 skillRun.js 的回落值一致：界面显示什么，就跑什么。 */
-const ratioField = (options = RATIO) => ({ key: 'ratio', label: '比例', kind: 'segmented', group: '生成设置', options, required: true, default: options[0].value });
+/* label 可改：知渔「爆款商品文字海报」「中文海报一键生成」这两页里，比例那一格的标题就叫
+   「生成尺寸」（不是「比例」）—— 文案照他们。 */
+const ratioField = (options = RATIO, label = '比例', group = '生成设置') => ({ key: 'ratio', label, kind: 'segmented', group, options, required: true, default: options[0].value });
 /* ⚠️ 竞品图片复刻页的比例是 **16 档**（自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16 / 5:4 / 4:5 / 4:3 / 3:4 /
    21:9 / 9:21 / 1:3 / 3:1 / 2:1 / 1:2）。我们**不能**照抄这 16 档 ——
    服务端对比例有白名单（skillRun.LEGAL_RATIOS 六个值），非法值会被**静默回落成 1:1**，
@@ -93,6 +145,11 @@ const LANGUAGE_FULL = [
   { value: '西班牙语', label: '西班牙语' }, { value: '越南语', label: '越南语' }, { value: '马来西亚语', label: '马来西亚语' },
   { value: '繁体中文', label: '繁体中文（必须使用2K及以上）' },
 ];
+/* ═══ 批 P：图片复刻页的语言是 **11 档**（逐页实采）══════════════════════════════════
+   ?tool=image-clone 的语言下拉实测只有：English / 简体中文 / 日本語 / 俄语 / 韩语 / 法语 /
+   德语 / 泰语 / 巴西语 / 西班牙语 / 越南语 —— 比 A+/详情图少了「马来西亚语」，也比套图少了「无文字」。
+   上一版我们照 LANGUAGE_FULL 给了 12 档（多一个马来西亚语），逐页比对时就被抓出来了。 */
+const LANGUAGE_CLONE = LANGUAGE_FULL.filter(item => !['马来西亚语', '繁体中文'].includes(item.value));
 const PLATFORM_SUITE = [
   { value: '淘宝', label: '淘宝' }, { value: '抖音', label: '抖音' }, { value: '小红书', label: '小红书' },
   { value: '拼多多', label: '拼多多' }, { value: '京东', label: '京东' },
@@ -106,7 +163,7 @@ const PLATFORM_WIDE = [
 const marketField = (options = MARKET_BASE) => ({ key: 'market', label: '目标市场', kind: 'select', group: '基础信息', options, default: options[0].value });
 const languageField = (label = '文案语言', options = LANGUAGE_FULL) => ({ key: 'language', label, kind: 'select', group: '基础信息', options, default: options[0].value });
 const platformField = (options = PLATFORM_SUITE) => ({ key: 'platform', label: '目标平台', kind: 'select', group: '基础信息', options, default: options[0].value });
-const clarityField = () => ({ key: 'clarity', label: '分辨率', kind: 'segmented', group: '生成设置', options: CLARITY, required: true, default: '2K' });
+const clarityField = ({ options = CLARITY_3, label = '分辨率' } = {}) => ({ key: 'clarity', label, kind: 'segmented', group: '生成设置', options, required: true, default: '2K' });
 const countField = (max = 6) => ({ key: 'count', label: '生成数量', kind: 'stepper', group: '生成设置', min: 1, max });
 /* 上传位的组名照竞品：他们的上传区就在「基础信息 → 上传图片」这一块里 */
 /* 上传位：竞品在它下面还跟一串同组的字段（产品卖点 / 设计风格…），
@@ -181,6 +238,7 @@ export const IMAGE_SKILLS = [
         longLabelReason: '照知渔原文逐字：他们这一页的第二格标题就叫「产品卖点（可选，不用很复杂，简单一点）」',
         kind: 'textarea', rows: 2, placeholder: '买一送一，满99减30' },
       ratioField(),
+      /* 批 P：照知渔「电商海报设计」这一页的写法 —— 三档「1K 标准 / 2K 高清 / 4K 超清」 */
       clarityField(),
     ],
     cases: [
@@ -442,12 +500,14 @@ export const IMAGE_SKILLS = [
       { key: 'product', label: '主题', kind: 'text', required: true, group: '主题与画面', placeholder: '海报上的标题文字' },
       { key: 'assets', label: '上传产品图', kind: 'upload', maxImages: 1, role: 'product', group: '主题与画面', slotLabel: '上传商品图（可选，不上传就按描述画）' },
       { key: 'prompt', label: '画面描述', kind: 'textarea', rows: 3, required: true, group: '主题与画面', placeholder: '补充画面描述，让画面更丰富' },
-      { key: 'font', label: '字体', kind: 'segmented', group: '主题与画面', options: [
+      /* 批 P：知渔这一页的「字体」是**必填**（optional=false），我们原来没标必填 —— 照他们标上 */
+      { key: 'font', label: '字体', kind: 'segmented', required: true, group: '主题与画面', options: [
         { value: '书法体', label: '书法体' }, { value: '无衬线体', label: '无衬线体' },
         { value: '霓虹灯字', label: '霓虹灯字' }, { value: '书写体', label: '书写体' },
         { value: '哥特体', label: '哥特体' }, { value: '自定义', label: '自定义' },
       ] },
-      ratioField(),
+      /* 批 P：他们这一格的标题是「生成尺寸」（不是「比例」）—— 文案照他们 */
+      ratioField(RATIO_SIZED, '生成尺寸'),
       clarityField(),
     ],
     cases: [], history: true,
@@ -457,19 +517,30 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'accent' },
     summary: '把人放进巨型商品的尺度里', pipeline: 'visualCreation', availability: 'ready',
     visual: 'poster',
-    brief: '极简商业广告：把{{subject}}放大成巨型装置，人物以自然姿态倚靠或站在它旁边形成尺度反差；单色渐变背景，镜面地板带柔和反射，棚拍光干净通透。{{instruction}}。商品细节与包装文字必须清晰可辨。',
+    brief: '极简商业广告：把{{subject}}放大成巨型装置，人物以自然姿态倚靠或站在它旁边形成尺度反差；单色渐变背景，镜面地板带柔和反射，棚拍光干净通透。画面要有一个明确的视觉焦点，空间关系可信，光线有来处；商品细节与包装文字必须清晰可辨。',
     /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
        知渔「夏季蔬果巨物场景化摄影」的 inputConfigs 逐字：
-         蔬菜水果名字 [singleText 必填] · 替换指令 [multiText 必填] · 比例 [3:2/4:3/16:9] · 清晰度 [1K标清/2K高清/4K超清]
+         蔬菜水果名字 [singleText 必填] · 替换指令 [multiText **hidden:true**] · 比例 [3:2/4:3/16:9] · 清晰度 [1K标清/2K高清/4K超清]
        我们原来是 素材/商品名/品牌字/比例/数量/分辨率 —— **多了两个他们没用的（品牌字、数量）**，
-       而且他们的第一个字段是「蔬菜水果名字」（一个名字输入），不是上传位。按他们改。 */
+       而且他们的第一个字段是「蔬菜水果名字」（一个名字输入），不是上传位。按他们改。
+       ═══ 2026-09-19 批 P：再核一层 —— **「替换指令」在知渔是 hidden:true** ═══════════════════
+       逐页实采（docs/design/data/quantv-image-pages.json）里这一页左栏只有三格：
+         蔬菜水果名字 * | 比例 * 3:2 4:3 16:9 | 清晰度 * 1K标清 2K高清 4K超清
+       「替换指令」根本没渲染（他们拿它当内置提示词，不让用户改）。我们照抄成可见输入框是错的：
+       用户会以为"这段长文案是我要写的"。⇒ 删掉这一格；比例收成他们那 3 档；清晰度照他们写「标清」。 */
     fields: [
       { key: 'subject', label: '蔬菜水果名字', longLabelReason: '照知渔原文逐字：他们这一页的第一个字段名就叫「蔬菜水果名字」（这是一个纯文本输入，不是上传位）',
         kind: 'text', required: true, group: '主题', placeholder: '例如：柠檬、草莓、牛油果' },
-      { key: 'instruction', label: '替换指令', kind: 'textarea', rows: 3, required: true, group: '主题',
-        placeholder: '例如：把水果放大成巨型装置，人物站在旁边形成尺度反差' },
-      ratioField(),
-      clarityField(),
+      ratioField([
+        { value: '3:2', label: '3:2' },
+        { value: '4:3', label: '4:3' },
+        { value: '16:9', label: '16:9' },
+      ]),
+      clarityField({ label: '清晰度', options: [
+        { value: '1K', label: '1K标清' },
+        { value: '2K', label: '2K高清' },
+        { value: '4K', label: '4K超清' },
+      ] }),
     ],
     cases: [], history: true,
   },
@@ -545,11 +616,14 @@ export const IMAGE_SKILLS = [
          饮料名称 [singleText 必填] · 比例 [7 档] · 清晰度 [2K高清/4K超清]
        我们原来是 素材/商品名/水果元素/标语/比例/分辨率 —— **多三格**（上传位、水果元素、标语）。
        他们的这一页就是"给个名字直接出图"，照他们收成 3 格。 */
+    /* ═══ 2026-09-19 批 P：这一页只剩两格 —— 他们的「比例」是 hidden:true ═════════════════
+       逐页实采左栏：「饮料名称 * | 清晰度 * 2K高清 4K超清」—— 比例那一格根本没渲染
+       （他们把它藏了，出图尺寸由内置提示词定）。我们原来照着 inputConfigs 摆了一格 7 档比例，
+       用户选了它却不生效（服务端仍按他们那套出图）—— 就是我们最忌讳的"死控件"。⇒ 去掉。 */
     fields: [
       { key: 'drink', label: '饮料名称', longLabelReason: '照知渔原文逐字：他们这一页的字段名就叫「饮料名称」（纯文本输入，没有上传位）',
         kind: 'text', required: true, group: '主题', placeholder: '例如：青柠气泡水' },
-      ratioField(),
-      clarityField(),
+      clarityField({ label: '清晰度', options: CLARITY_2 }),
     ],
     cases: [], history: true,
   },
@@ -611,7 +685,8 @@ export const IMAGE_SKILLS = [
     fields: [
       { key: 'assets', label: '上传图片（最好是1：1的比例）',
         longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（最好是1：1的比例）」',
-        kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
+        /* 批 P：知渔这一页的上传位是 **maxImages=1**（一次一张），我们原来给了 6 —— 照他们收成 1 */
+        kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
       { key: 'mode', label: '抠图模式', kind: 'segmented', required: true, group: '输出设置', options: [
         { value: '透明背景', label: '透明背景' }, { value: '白色背景', label: '白色背景' },
       ] },
@@ -631,7 +706,8 @@ export const IMAGE_SKILLS = [
          上传商品图 [file 必填] · 修图指令 [multiText 必填（他们给了完整占位文案）] · 比例 [7 档] · 分辨率 [1K标准/2K高清/4K超清]
        我们多一格「数量」；而且他们的第二格叫「修图指令」且是一段多行指令（不是一个短场景词）—— 按他们改。 */
     fields: [
-      { key: 'assets', label: '上传商品图', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
+      /* 批 P：知渔这一页的上传位是 **maxImages=1**（一张商品图），我们原来给了 6 —— 照他们收成 1 */
+      { key: 'assets', label: '上传商品图', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
       { key: 'scene', label: '修图指令', kind: 'textarea', rows: 3, required: true,
         placeholder: '请输入商品展示图设计指令，如：设计一张展示图，突出产品的主要功能和特点，背景使用浅色调以突出产品，加入一些动态元素使图像更具吸引力，整体风格简洁大方，符合现代审美等。' },
       ratioField(),
@@ -659,16 +735,28 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'cool' },
     summary: '同一商品，多角度保持一致', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
-    brief: '生成商品的多角度成套图，视角：{{angle}}。同一件商品在同一组光线与背景下的连拍感，比例、颜色与细节在各角度之间保持一致；不要改变商品结构。',
+    brief: '生成商品的多角度成套图，视角：{{angle}}。同一件商品在同一组光线与背景下的连拍感，比例、颜色与细节在各角度之间保持一致；不要改变商品结构。细节补充：{{detail}}。',
+    /* ═══ 2026-09-19 批 P：整页照知渔重排（5 格 → 5 格，但**内容全不一样**）═══════════════
+       知渔「商品多角度多视图」逐页实采左栏：
+         上传原图 [file 必填，最多 **8** 张] · 选择视角（**多选**）[6 档：正面/侧面/背面/俯视/仰视/45度角] ·
+         细节补充 [multiText **可选**，占位"补充描述，如商品材质、场景要求、光线风格等..."] ·
+         比例 [7 档] · 分辨率 [1K 标准/2K 高清/4K 超清]
+       我们的旧版：素材(最多 6) / 角度(只有 4 档：正面·侧面·背面·俯视，而且**单选**) / 比例 / 分辨率 / 数量。
+       ⇒ 三处是"功能区两回事"：① 视角少两档且不能多选（他们的卖点就是"多选视角一次出多张"）；
+          ② 没有「细节补充」这一格；③ 我们多一格「数量」，他们那页没有。全部照他们改。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
-      { key: 'angle', label: '角度', kind: 'segmented', required: true, options: [
+      { key: 'assets', label: '上传原图', longLabelReason: '照知渔原文逐字：这一页的上传位标题就是「上传原图」',
+        kind: 'upload', required: true, maxImages: 8, role: 'product', slotLabel: '上传商品图' },
+      { key: 'angle', label: '选择视角（多选）', longLabelReason: '照知渔原文逐字：这一页第二格叫「选择视角（多选）」，括号里的"多选"是他们写的',
+        kind: 'segmented', required: true, multiple: true, options: [
         { value: '正面', label: '正面' }, { value: '侧面', label: '侧面' },
         { value: '背面', label: '背面' }, { value: '俯视', label: '俯视' },
+        { value: '仰视', label: '仰视' }, { value: '45度角', label: '45度角' },
       ] },
+      { key: 'detail', label: '细节补充', kind: 'textarea', rows: 2,
+        placeholder: '补充描述，如商品材质、场景要求、光线风格等...' },
       ratioField(),
       clarityField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
     ],
     cases: [], history: true,
   },
@@ -679,7 +767,7 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'soft' },
     summary: '把商品穿到模特身上，姿势场景可选', pipeline: 'builtinSkill', availability: 'ready',
     visual: 'free',
-    brief: '把衣服穿到模特身上（{{mode}}）。补充要求：{{scene}}。保留模特的五官、身材比例与肤色；衣服要贴合身体、褶皱与垂坠自然，面料质感、图案与版型必须与衣服图一致，光线统一；不要改变衣服的颜色与图案。',
+    brief: '把衣服穿到模特身上（{{mode}}）。保留模特的五官、身材比例与肤色；衣服要贴合身体、褶皱与垂坠自然，面料质感、图案与版型必须与衣服图一致，光线统一；不要改变衣服的颜色与图案。',
     /* ═══ 字段逐条照竞品实测（?tool=ai-outfit）══════════════════════════════════════
        模特选择（上传模特图 0/1）→ 服装选择（套装 / 多件）→ 上传衣服图 0/1 →
        Pose 参考（可选）→ 背景参考（可选）→ 模型 / 分辨率 / 比例 / 生成张数 1-4。
@@ -699,9 +787,22 @@ export const IMAGE_SKILLS = [
         slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
       { key: 'backdrop', label: '上传背景参考图', longLabelReason: '照竞品原文逐字（他们 ?tool=ai-outfit 的上传位标题就叫这个）', kind: 'upload', group: '背景参考（可选）', maxImages: 1, role: 'scene',
         slotLabel: '点击或拖拽上传图片', hint: '可选素材，不上传也可生成' },
-      { key: 'scene', label: '补充要求', kind: 'textarea', rows: 3, group: '生成设置',
-        placeholder: '例如：城市清晨的街道，自然光，模特站着回头看镜头' },
-      ratioField(),
+      /* ═══ 批 P：这一页照知渔逐格对齐（他们 ?tool=ai-outfit 的实测，见 docs/design/data/quantv-image-pages.json）═══
+         他们的格子是：模特选择 → 服装选择（套装 / 多件）→ 上传衣服图 → Pose 参考（可选）→ 背景参考（可选）
+                   → 模型选择 → 分辨率（1K / 2K / 4K）→ 比例（自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16）→ 生成张数（1-4）
+         ⇒ 我们原来多一格「补充要求」（他们**没有**这一格，多出来的字段就是"没对上"）——本批删掉。
+         ⚠️ 两处**如实保留的差异**（都不是漏抄，理由写在下面）：
+            · 「模型选择」：他们的下拉是"智能图片image"。我们的模型由路由层按 capability 注入、
+              **换模型就换计费 SKU**，属钱路上的决定（批 O-⑧ 已定性，等用户拍板）——本轮不加假下拉。
+            · 比例里的「自适应」：我们引擎没有这一档（服务端对未知比例会**静默回落成 1:1**），
+              给了就是坑，所以照抄他们其余 5 档。 */
+      ratioField([
+        { value: '1:1', label: '1:1' },
+        { value: '3:2', label: '3:2' },
+        { value: '2:3', label: '2:3' },
+        { value: '16:9', label: '16:9' },
+        { value: '9:16', label: '9:16' },
+      ]),
       clarityField(),
       { key: 'count', label: '生成张数', kind: 'stepper', group: '生成设置', min: 1, max: 4 },
     ],
@@ -727,10 +828,24 @@ export const IMAGE_SKILLS = [
     brief: '用商品图、人物图与场景图合成电商成品图。补充要求：{{prompt}}。三份素材的主体特征都要保留：商品不变形、人物五官不漂移、场景光线与主体一致；不要出现文字。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 2, role: 'product', slotLabel: '上传商品图' },
-      { key: 'character', label: '角色', kind: 'upload', maxImages: 2, role: 'person', slotLabel: '上传人物图' },
-      { key: 'backdrop', label: '场景', kind: 'upload', maxImages: 2, role: 'scene', slotLabel: '上传场景图' },
-      { key: 'prompt', label: '要求', kind: 'textarea', rows: 3 },
-      ratioField(),
+      /* 批 P：知渔这一页三格素材**都是必填**（角色图 / 场景图 optional=false），我们原来没标必填 */
+      { key: 'character', label: '上传角色图', longLabelReason: '照知渔原文逐字：这一页第二格叫「上传角色图」', kind: 'upload', maxImages: 2, required: true, role: 'person', slotLabel: '上传人物图' },
+      { key: 'backdrop', label: '上传场景图', longLabelReason: '照知渔原文逐字：这一页第三格叫「上传场景图」', kind: 'upload', maxImages: 2, required: true, role: 'scene', slotLabel: '上传场景图' },
+      { key: 'prompt', label: '自定义提示词', longLabelReason: '照知渔原文逐字：这一页第四格叫「自定义提示词」', kind: 'textarea', rows: 3, required: true },
+      /* 批 P：知渔这一页的比例是 **10 档**（比常规 7 档多 4:5 小红书封面 / 5:4 产品主图 / 21:9 超横屏）——
+         这三档我们引擎原来没有，本批连尺寸表一起加齐（见 modelCatalog.LEGAL_IMAGE_SIZES 批 P 注释）。 */
+      ratioField([
+        { value: '1:1', label: '1:1 方图' },
+        { value: '2:3', label: '2:3 竖版长图' },
+        { value: '3:2', label: '3:2 横版摄影' },
+        { value: '3:4', label: '3:4 竖版海报' },
+        { value: '4:3', label: '4:3 横版主图' },
+        { value: '4:5', label: '4:5 小红书封面' },
+        { value: '5:4', label: '5:4 产品主图' },
+        { value: '9:16', label: '9:16 手机竖屏' },
+        { value: '16:9', label: '16:9 手机横屏' },
+        { value: '21:9', label: '21:9 超横屏' },
+      ]),
       clarityField(),
     ],
     cases: [], history: true,
@@ -746,18 +861,20 @@ export const IMAGE_SKILLS = [
     cover: { template: 'hero-single', accent: 'warm' },
     summary: '商品在半空炸开，碎片与成分定格', pipeline: 'visualCreation', availability: 'ready',
     visual: 'free',
-    brief: '商品广告：商品在空中炸开分解。{{layers}}。要求：主体碎裂成多个碎片向四周飞散，悬浮的残骸与颗粒定格在半空，逐层可见，电影慢动作瞬间，逼真物理，细微粉尘与液滴散落，戏剧性景深，高速摄影风格，中心主体锐利对焦，体积光，照片级真实；必须保留商品本身的形状、颜色、材质与包装文字，碎片不得遮住标签。',
+    brief: '商品广告：商品在空中炸开分解。主体碎裂成多个碎片向四周飞散，悬浮的残骸与颗粒定格在半空，逐层可见，电影慢动作瞬间，逼真物理，细微粉尘与液滴散落，戏剧性景深，高速摄影风格，中心主体锐利对焦，体积光，照片级真实；必须保留商品本身的形状、颜色、材质与包装文字，碎片不得遮住标签。',
     /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
        知渔「电影级高端产品爆炸瞬间海报」逐字：
          上传图片（产品图）[file 必填] · 替换指令 [multiText 必填] · 比例 [7 档] · 清晰度 [1K标准/2K高清/4K超清]
        我们多两格（商品名、数量）。 */
+    /* ═══ 2026-09-19 批 P：**「替换指令」在知渔是 hidden:true**，页面上没有这一格 ═══════════
+       逐页实采左栏：上传图片（产品图）| 比例 * 1:1 2:3 3:2 3:4 4:3 9:16 更多 | 清晰度 * 1K标准 2K高清 4K超清
+       —— 三格，没有"替换指令"（那是他们的内置提示词）。照抄成可见输入框＝让用户以为这段要自己写。 */
     fields: [
       { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
         kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'layers', label: '替换指令', kind: 'textarea', rows: 3, required: true,
-        placeholder: '例如：主体碎裂成碎片向四周飞散，瓶身 / 液体 / 咖啡豆 / 冰块逐层可见' },
-      ratioField(),
-      clarityField(),
+      /* 批 P：比例药丸只有数字（1:1 / 2:3 / …），照他们这一页 */
+      ratioField(RATIO_BARE),
+      clarityField({ label: '清晰度', options: CLARITY_3_TIGHT }),
     ],
     cases: [], history: true,
   },
@@ -775,8 +892,9 @@ export const IMAGE_SKILLS = [
       { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
         kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
       { key: 'brand', label: '品牌名', kind: 'text', required: true, placeholder: '画面里那行品牌字，逐字准确' },
-      ratioField(),
-      clarityField(),
+      /* 批 P：比例药丸只有数字（照他们这一页） */
+      ratioField(RATIO_BARE),
+      clarityField({ label: '清晰度', options: CLARITY_3_TIGHT }),
     ],
     cases: [], history: true,
   },
@@ -785,18 +903,19 @@ export const IMAGE_SKILLS = [
     cover: { template: 'hero-single', accent: 'neutral' },
     summary: '产品悬浮 + 单向光，高级静物广告', pipeline: 'visualCreation', availability: 'ready',
     visual: 'brand-kv',
-    brief: '高端产品摄影：商品悬浮于画面中央，强烈明暗对比与几何光影切割，大面积暗部保留，产品是唯一视觉焦点，柔和反射，真实摄影质感，品牌主视觉，无杂乱元素；商品结构与包装文字必须完整保留。{{instruction}}。',
+    brief: '高端产品摄影：商品悬浮于画面中央，强烈明暗对比与几何光影切割，大面积暗部保留，产品是唯一视觉焦点，柔和反射，真实摄影质感，品牌主视觉，无杂乱元素；商品结构与包装文字必须完整保留。画面要有一个明确的视觉焦点，空间关系可信，光线有来处。',
     /* ═══ 2026-09-19 批 O-⑥：字段逐个照知渔（6 → 4）══════════════════════════════════════
        知渔「蓝白降落伞悬浮产品创意3D渲染广告」逐字：
          上传图片（产品图）[file 必填] · 替换指令 [multiText 必填] · 比例 [7 档] · 清晰度 [1K标准/2K高清/4K超清]
        我们多两格（光影、背景自由文本），他们的第二格是**替换指令** —— 按他们改。 */
+    /* ═══ 2026-09-19 批 P：**「替换指令」在知渔是 hidden:true**，页面上没有这一格 ═══════════
+       逐页实采左栏：上传图片（产品图）| 比例 * 1:1 2:3 3:2 3:4 4:3 9:16 更多 | 清晰度 * 1K标准 2K高清 4K超清 */
     fields: [
       { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
         kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'instruction', label: '替换指令', kind: 'textarea', rows: 3, required: true,
-        placeholder: '例如：产品悬浮在蓝白降落伞下方，浅蓝渐变背景，柔和顶光' },
-      ratioField(),
-      clarityField(),
+      /* 批 P：比例药丸只有数字（照他们这一页） */
+      ratioField(RATIO_BARE),
+      clarityField({ label: '清晰度', options: CLARITY_3_TIGHT }),
     ],
     cases: [], history: true,
   },
@@ -813,8 +932,9 @@ export const IMAGE_SKILLS = [
     fields: [
       { key: 'assets', label: '上传图片（汽水图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（汽水图）」',
         kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      ratioField(),
-      clarityField(),
+      /* 批 P：这一页的比例药丸**只有数字**（1:1 / 2:3 / …），没有"方图/竖版长图"后缀 —— 照他们 */
+      ratioField(RATIO_BARE),
+      clarityField({ label: '清晰度', options: CLARITY_3_TIGHT }),
     ],
     cases: [], history: true,
   },
@@ -927,6 +1047,15 @@ export const IMAGE_SKILLS = [
         { value: '发布会', label: '发布会' }, { value: '产品展示', label: '产品展示' },
         { value: '节日庆典', label: '节日庆典' }, { value: '自定义', label: '自定义' },
       ] },
+      /* ═══ 2026-09-19 批 P：**「生成尺寸」在第 4 格，不在最后** ═══════════════════════════
+         逐页实采（docs/design/data/quantv-image-pages.json）他们的左栏顺序是：
+           主题 | 画面描述 | 用途(8) | **生成尺寸(7)** | 字体(6) | 颜色(15) | 效果(18) | 选择分辨率(2)
+         我们原来是 主题/画面描述/用途/字体/颜色/效果/比例/分辨率 —— **尺寸掉到了最后**，
+         用户按他们的顺序找尺寸会找不到。照他们的位置摆回第 4 格，标题也照他们叫「生成尺寸」。 */
+      /* ⚠️ group 也写「画面设置」：工作台是按**分组**渲染的（同组的字段按声明顺序排），
+         如果它落在「生成设置」组里，就会被排到字体/颜色/效果**后面**去 ——
+         知渔那一页的顺序是 用途 → 生成尺寸 → 字体 → 颜色 → 效果，位置错了就等于没抄对。 */
+      ratioField(RATIO_SIZED, '生成尺寸', '画面设置'),
       { key: 'font', label: '字体', kind: 'segmented', group: '画面设置', options: [
         { value: '书法体', label: '书法体' }, { value: '无衬线体', label: '无衬线体' },
         { value: '霓虹灯字', label: '霓虹灯字' }, { value: '书写体', label: '书写体' },
@@ -947,8 +1076,8 @@ export const IMAGE_SKILLS = [
         { value: '阴影', label: '阴影' }, { value: '发光', label: '发光' }, { value: '描边', label: '描边' },
         { value: '卡通', label: '卡通' }, { value: '插画', label: '插画' }, { value: '自定义', label: '自定义' },
       ] },
-      ratioField(),
-      clarityField(),
+      /* 批 P：他们的分辨率是**两档**（2K高清 / 4K超清）且标题叫「选择分辨率」—— 照他们 */
+      clarityField({ label: '选择分辨率', options: CLARITY_2 }),
     ],
     cases: [], history: true,
   },
@@ -999,7 +1128,7 @@ export const IMAGE_SKILLS = [
         placeholder: '例如：文案统一用英文、模特姿势保持不变、参考图不要替换商品色。' },
       marketField(MARKET_BASE),
       platformField(PLATFORM_SUITE),
-      languageField('文案语言', LANGUAGE_FULL.filter(item => item.value !== '繁体中文')),
+      languageField('文案语言', LANGUAGE_CLONE),
       ratioField(),
       countField(4),
     ],
@@ -1023,14 +1152,16 @@ export const IMAGE_SKILLS = [
     brief: '沿用参考图的风格再生成一张，参考强度：{{strength}}。保留参考图的画面语言（构图习惯、光线、色调、质感），但不要逐像素复制；不要出现水印或 logo。',
     fields: [
       { key: 'reference', label: '参考图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传参考图' },
-      /* 批 O-⑥d：标签照知渔原文（他们这一档叫「参考强度」，值就是 低/中/高） */
-      { key: 'strength', label: '参考强度', kind: 'segmented', group: '生成设置', options: [
+      /* 批 O-⑥d：标签照知渔原文（他们这一档叫「参考强度」，值就是 低/中/高）
+         批 P：这一格在知渔是**必填**（optional=false），我们原来没标必填 —— 照他们标上 */
+      { key: 'strength', label: '参考强度', kind: 'segmented', required: true, group: '生成设置', options: [
         { value: '低', label: '低' }, { value: '中', label: '中' }, { value: '高', label: '高' },
       ] },
       ratioField(),
       /* 批 O-⑥d：补「选择分辨率」—— 知渔「相似图生成」的 inputConfigs 是 4 个字段
          （上传参考图 / 参考强度 / 比例 / 选择分辨率），我们原来缺最后一格 */
-      clarityField(),
+      /* 批 P：他们这一格是**两档**（2K高清 / 4K超清），标题就叫「选择分辨率」—— 照他们 */
+      clarityField({ label: '选择分辨率', options: CLARITY_2 }),
     ],
     cases: [], history: true,
   },
@@ -1095,7 +1226,8 @@ export const IMAGE_SKILLS = [
         { value: '住宅环境', label: '住宅环境' }, { value: '城市街区', label: '城市街区' },
         { value: '自然环境', label: '自然环境' }, { value: '滨水临湖', label: '滨水临湖' },
       ] },
-      { key: 'lightMood', label: '光影氛围', kind: 'segmented', required: true, group: '建筑与场地', options: [
+      /* 批 P：这一格实测是 **8 档全铺**（他们那页没有「更多」）—— maxVisible 显式声明 */
+      { key: 'lightMood', label: '光影氛围', kind: 'segmented', required: true, group: '建筑与场地', maxVisible: 8, options: [
         { value: '晴朗日光', label: '晴朗日光' }, { value: '柔和逆光', label: '柔和逆光' },
         { value: '写实静谧', label: '写实静谧' }, { value: '阴天雾感', label: '阴天雾感' },
         { value: '黎明晨光', label: '黎明晨光' }, { value: '夕阳暖光', label: '夕阳暖光' },
@@ -1103,8 +1235,10 @@ export const IMAGE_SKILLS = [
       ] },
       { key: 'notes', label: '更多描述', kind: 'textarea', rows: 2, group: '建筑与场地',
         placeholder: '可选：补充户型、材料、家具等具体要求' },
-      ratioField(),
-      clarityField(),
+      /* 批 P：这一页的比例是**只有数字的 7 档**，而且**铺满**（他们那页没出现「更多」）—— maxVisible 显式声明 */
+      { ...ratioField(RATIO_BARE), maxVisible: 7 },
+      /* 批 P：这一页的清晰度只有数字（1K / 2K / 4K），没有"标准/高清/超清"后缀 —— 照他们 */
+      clarityField({ label: '清晰度', options: CLARITY_3_PLAIN }),
     ],
     cases: [], history: true,
   },
@@ -1139,7 +1273,8 @@ export const IMAGE_SKILLS = [
        ⇒ 我们原来把"装修风格"这一档**整个丢了**（只有一个自由文本"设计要点"），还多了一档「数量」。
           现在按他们拆成「选择装修风格（5 档必填）+ 其他需求（可选）」，「数量」去掉（他们没有）。 */
     fields: [
-      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 2, role: 'reference', slotLabel: '上传毛坯现场照' },
+      /* 批 P：知渔这一页的上传位是 **maxImages=1**（一张毛坯现场照），我们原来给了 2 */
+      { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传毛坯现场照' },
       { key: 'style', label: '选择装修风格', kind: 'segmented', required: true, group: '设计风格', options: [
         { value: '轻奢奶油风', label: '轻奢奶油风' }, { value: '现代简约风', label: '现代简约风' },
         { value: '北欧风', label: '北欧风' }, { value: '中国风', label: '中国风' },
@@ -1147,7 +1282,8 @@ export const IMAGE_SKILLS = [
       ] },
       { key: 'plan', label: '其他需求', kind: 'textarea', rows: 2, group: '设计风格', placeholder: '描述您想要的其他装修需求...' },
       ratioField(),
-      clarityField(),
+      /* 批 P：他们这一格是**两档**（2K高清 / 4K超清），标题叫「选择分辨率」 */
+      clarityField({ label: '选择分辨率', options: CLARITY_2 }),
     ],
     cases: [], history: true,
   },
@@ -1249,14 +1385,16 @@ export const IMAGE_SKILLS = [
           （他们的 brief 写在 app 的 systemPrompt 里）。多一格就是没对上。 */
     fields: [
       { key: 'assets', label: '参考图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传建筑图' },
-      { key: 'masterStyle', label: '大师风格', kind: 'segmented', required: true, group: '风格与光影', options: [
+      /* 批 P：9 档实测**铺满**（他们那页没有「更多」）—— maxVisible 显式声明 */
+      { key: 'masterStyle', label: '大师风格', kind: 'segmented', required: true, group: '风格与光影', maxVisible: 9, options: [
         { value: '韦斯·安德森', label: '韦斯·安德森风格' }, { value: '罗杰·迪金斯', label: '罗杰·迪金斯风格' },
         { value: '王家卫', label: '王家卫风格' }, { value: '克里斯托弗·诺兰', label: '克里斯托弗·诺兰风格' },
         { value: '宫崎骏', label: '宫崎骏风格' }, { value: '新海诚', label: '新海诚风格' },
         { value: '李安', label: '李安风格' }, { value: '大卫·芬奇', label: '大卫·芬奇风格' },
         { value: '丹尼斯·维伦纽瓦', label: '丹尼斯·维伦纽瓦风格' },
       ] },
-      { key: 'lightTone', label: '光影调节', kind: 'segmented', required: true, group: '风格与光影', options: [
+      /* 批 P：9 档实测**铺满**（他们那页没有「更多」）—— maxVisible 显式声明 */
+      { key: 'lightTone', label: '光影调节', kind: 'segmented', required: true, group: '风格与光影', maxVisible: 9, options: [
         { value: '自然光感', label: '自然光感' }, { value: '柔和逆光', label: '柔和逆光' },
         { value: '几何光影', label: '几何光影' }, { value: '暖调氛围', label: '暖调氛围' },
         { value: '蓝调时刻', label: '蓝调时刻' }, { value: '黄昏时刻', label: '黄昏时刻' },
@@ -1267,8 +1405,10 @@ export const IMAGE_SKILLS = [
         longLabelReason: '照知渔原文逐字：他们这一页的字段名就叫「创意描述（可选）」，括号里的"可选"是他们写在标题里的，不是我们加的',
         kind: 'textarea', rows: 2, group: '风格与光影',
         placeholder: '可选：补充叙事、场景或构图要求' },
-      ratioField(),
-      clarityField(),
+      /* 批 P：比例只有数字的 7 档，且实测**铺满**（没有「更多」）—— 照他们 */
+      { ...ratioField(RATIO_BARE), maxVisible: 7 },
+      /* 批 P：这一页的清晰度只有数字（1K / 2K / 4K）—— 照他们 */
+      clarityField({ label: '清晰度', options: CLARITY_3_PLAIN }),
     ],
     cases: [], history: true,
   },
@@ -1282,7 +1422,8 @@ export const IMAGE_SKILLS = [
     brief: '精修这张人像。要求：{{prompt}}。保留人物原本的五官特征与身份识别度，皮肤处理自然、保留质感与毛孔，光线过渡干净；不要过度磨皮，不要改变脸型。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'person', slotLabel: '上传人像图' },
-      { key: 'prompt', label: '要求', kind: 'textarea', rows: 3 },
+      /* 批 P：知渔这一页的第二格是**必填**的「修图指令」（optional=false），我们原来没标必填 */
+      { key: 'prompt', label: '修图指令', longLabelReason: '照知渔原文逐字：人像变清晰这一页的第二格叫「修图指令」', kind: 'textarea', rows: 3, required: true },
       ratioField(),
       clarityField(),
     ],
@@ -1293,10 +1434,19 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'soft' },
     summary: '保留五官，换一个发型', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '保留人物五官与脸型，把发型换成：{{style}}。发丝走向、发量感与光线要自然可信，肤色与背景保持一致；不要改变人物的身份特征。',
+    brief: '保留人物五官与脸型，按这条指令换发型：{{style}}。发丝走向、发量感与光线要自然可信，肤色与背景保持一致；不要改变人物的身份特征。',
+    /* ═══ 2026-09-19 批 P：第二格照知渔改成**多行「图片编辑指令」**═══════════════════════════
+       知渔「AI换发型」逐字：上传图片 [file] · 图片编辑指令 [multiText **必填**，
+         默认值「给人物更换黑长直发型 发丝顺滑 自然垂落 发尾齐整」，
+         占位「描述想要的发型和发色...」] · 比例 [7 档] · 分辨率 [1K 标准/2K 高清/4K 超清]
+       我们原来是一格**单行**「发型」（还选填）—— 他们要的是一句完整的编辑指令（含发色、发质、
+       走向），单行写不下，而且不填就跑（他们必填）。⇒ 改成多行 + 必填 + 照抄他们的默认值与占位。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'person', slotLabel: '上传人像图' },
-      { key: 'style', label: '发型', kind: 'text', placeholder: '例如：齐肩短发、微卷' },
+      { key: 'assets', label: '上传图片', longLabelReason: '照知渔原文逐字：这一页的上传位标题就是「上传图片」', kind: 'upload', required: true, maxImages: 1, role: 'person', slotLabel: '上传人像图' },
+      { key: 'style', label: '图片编辑指令', longLabelReason: '照知渔原文逐字：这一页第二格叫「图片编辑指令」',
+        kind: 'textarea', rows: 2, required: true,
+        default: '给人物更换黑长直发型 发丝顺滑 自然垂落 发尾齐整',
+        placeholder: '描述想要的发型和发色...' },
       ratioField(),
       clarityField(),
     ],
@@ -1318,7 +1468,8 @@ export const IMAGE_SKILLS = [
         kind: 'upload', required: true, maxImages: 1, role: 'person', slotLabel: '上传人物图' },
       { key: 'pose', label: '上传姿势图', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传姿势参考图' },
       ratioField(),
-      clarityField(),
+      /* 批 P：他们这一格是**两档**（2K高清 / 4K超清），标题叫「选择分辨率」 */
+      clarityField({ label: '选择分辨率', options: CLARITY_2 }),
     ],
     cases: [], history: true,
   },
@@ -1384,8 +1535,9 @@ export const IMAGE_SKILLS = [
     visual: 'free',
     brief: '按这个要求修图：{{prompt}}。只做要求的改动，画面其他部分保持原样；不要改变主体的结构、文字与颜色关系，不要添加原本不存在的东西。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传图片' },
-      { key: 'prompt', label: '要求', kind: 'textarea', rows: 3, placeholder: '例如：把背景杂物清掉，光线调亮一点' },
+      { key: 'assets', label: '上传图片', longLabelReason: '照知渔原文逐字：一键美化图片这一页的上传位标题就是「上传图片」', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传图片' },
+      /* 批 P：知渔这一页第二格叫「修图指令」且**必填**（我们原来叫「要求」且选填） */
+      { key: 'prompt', label: '修图指令', longLabelReason: '照知渔原文逐字：这一页第二格叫「修图指令」', kind: 'textarea', rows: 3, required: true, placeholder: '例如：把背景杂物清掉，光线调亮一点' },
       ratioField(),
       clarityField(),
     ],
@@ -1396,12 +1548,33 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'warm' },
     summary: '主体不动，换材质或风格', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '主体不动，把材质或风格换成：{{material}}。新材质的反光、纹理与质感要真实可信，并与环境光一致；保持主体的形状、比例与结构不变。',
+    brief: '主体不动，把风格材质换成「{{material}}」。新材质的反光、纹理与质感要真实可信，并与环境光一致；保持主体的形状、比例与结构不变。',
+    /* ═══ 2026-09-19 批 P：第二格照知渔换成**22 档「风格选择」**═══════════════════════════
+       知渔「图片换风格」逐字（副标题就写着"保持结构不变更换风格材质"—— 与我们的"材质替换"是同一件事）：
+         上传参考图 [file 必填] · 风格选择 [radio **必填 22 档**] · 比例 [7 档] · 选择分辨率 [2K高清/4K超清]
+         22 档原文：精致韩漫 / 写实 / 新莫奈花园 / 中国红 / 赛博机械 / 3D / 玩偶 / 动画电影 / 可爱玩偶 /
+                   丑萌粘土 / 陶瓷娃娃 / 浪漫光影 / 国风-水墨 / 精致美漫 / 莫奈花园 / 水彩风 / 水墨 /
+                   梦幻 / 日漫 / 动漫 / 天使 / 油画
+       我们原来是一格**单行自由文本「材质」**（还得用户自己打"磨砂陶瓷、原木"）——
+       他们给的是 22 个点一下就换的风格（前 6 个铺开 + 「更多」收折，见 FieldRenderer 的收折规则）。 */
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传图片' },
-      { key: 'material', label: '材质', kind: 'text', placeholder: '例如：磨砂陶瓷、原木' },
+      { key: 'assets', label: '上传参考图', longLabelReason: '照知渔原文逐字：图片换风格这一页的上传位标题就是「上传参考图」', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传图片' },
+      { key: 'material', label: '风格选择', longLabelReason: '照知渔原文逐字：这一页第二格叫「风格选择」', kind: 'segmented', required: true, options: [
+        { value: '精致韩漫', label: '精致韩漫' }, { value: '写实', label: '写实' },
+        { value: '新莫奈花园', label: '新莫奈花园' }, { value: '中国红', label: '中国红' },
+        { value: '赛博机械', label: '赛博机械' }, { value: '3D', label: '3D' },
+        { value: '玩偶', label: '玩偶' }, { value: '动画电影', label: '动画电影' },
+        { value: '可爱玩偶', label: '可爱玩偶' }, { value: '丑萌粘土', label: '丑萌粘土' },
+        { value: '陶瓷娃娃', label: '陶瓷娃娃' }, { value: '浪漫光影', label: '浪漫光影' },
+        { value: '国风-水墨', label: '国风-水墨' }, { value: '精致美漫', label: '精致美漫' },
+        { value: '莫奈花园', label: '莫奈花园' }, { value: '水彩风', label: '水彩风' },
+        { value: '水墨', label: '水墨' }, { value: '梦幻', label: '梦幻' },
+        { value: '日漫', label: '日漫' }, { value: '动漫', label: '动漫' },
+        { value: '天使', label: '天使' }, { value: '油画', label: '油画' },
+      ] },
       ratioField(),
-      clarityField(),
+      /* 批 P：他们这一格是**两档**（2K高清 / 4K超清），标题叫「选择分辨率」 */
+      clarityField({ label: '选择分辨率', options: CLARITY_2 }),
     ],
     cases: [], history: true,
   },

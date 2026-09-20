@@ -125,9 +125,14 @@ test('⑦ 积分预估与后端单价同源（image2 2K 单张 = 1 积分）', (
 test('⑧ 必填校验能指出缺哪一项（给工作台做就近错误）', () => {
   const skill = getImageSkill('image.retouch');
   /* 比例/清晰度有声明默认值，不该被算成"没填"（这正是一次真实回归：界面有默认值、
-     校验却按空值判，CTA 会一直是灰的） */
+     校验却按空值判，CTA 会一直是灰的）
+     ═══ 2026-09-19 批 P：期望值从 ['素材'] 改成 ['上传图片','修图指令'] ═══════════════════
+     判据没变（缺哪一项就报哪一项的**字段名**），变的是"这一页有哪些必填字段"这个事实：
+     知渔「一键美化图片」逐字是 上传图片 [file 必填] + 修图指令 [multiText **必填**] + 比例 + 分辨率
+     （docs/design/data/quantv-image-apps.json）。我们上一版叫「素材 / 要求」且要求是选填 ——
+     照他们改完之后，空值下**两项都缺**才是对的。 */
   assert.equal(validateSkillInput(skill, {}).ok, false);
-  assert.deepEqual(validateSkillInput(skill, {}).missing, ['素材']);
+  assert.deepEqual(validateSkillInput(skill, {}).missing, ['上传图片', '修图指令']);
   const ok = validateSkillInput(skill, {
     assets: [{ url: 'https://cdn.example.com/a.png', status: 'ready' }],
     prompt: '把背景杂物清掉',

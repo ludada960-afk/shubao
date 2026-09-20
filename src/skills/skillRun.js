@@ -34,10 +34,14 @@ export const DEFAULT_RESOLUTION = '2K';
 /* 字段 key → 服务端 ratio 的合法值（服务端不认的写法在这里就拦住，不让它静默回落） */
 /* 批 O-⑦：加 2:3 / 3:2 —— 与服务端 modelCatalog.LEGAL_IMAGE_SIZES 的键**逐值一致**
    （必须同时加：界面能给的恰好是引擎认得的，多一档就是"选了被静默回落成 1:1"） */
-const LEGAL_RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '2:3', '3:2']);
+/* 批 P：加 4:5 / 5:4（知渔「批量出图电商图」的 10 档比例里有这两档）—— 与引擎尺寸表同批。 */
+const LEGAL_RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9', '21:9', '2:3', '3:2', '4:5', '5:4']);
 const LEGAL_RESOLUTIONS = new Set(['1K', '2K', '4K']);
 
 function text(value) {
+  /* 多选字段的值是**数组**（知渔「选择视角（多选）」那一格，2026-09-19 批 P）——
+     拼进提示词时按「、」连起来；其余类型行为一个字没变。 */
+  if (Array.isArray(value)) return value.map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean).join('、');
   return typeof value === 'string' ? value.trim() : '';
 }
 
@@ -54,6 +58,12 @@ export function initialSkillValues(skill) {
   for (const field of (skill && skill.fields) || []) {
     if (field.kind === 'stepper') { seed[field.key] = Number(field.min || 1); continue; }
     if (field.kind === 'segmented' || field.kind === 'select') {
+      /* 多选（multiple）：值是数组。默认给第一档选中 —— 与单选同一口径（"界面显示什么就跑什么"），
+         用户再按需加选；不预选的话必填校验会直接把 CTA 卡住，那不是他们的样子。 */
+      if (field.multiple) {
+        seed[field.key] = Array.isArray(field.default) ? field.default.slice() : [field.options?.[0]?.value ?? ''].filter(Boolean);
+        continue;
+      }
       seed[field.key] = field.default ?? (field.options?.[0]?.value ?? '');
       continue;
     }

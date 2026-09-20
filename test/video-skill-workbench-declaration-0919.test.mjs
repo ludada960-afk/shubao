@@ -92,26 +92,37 @@ test('① 每条主档视频 skill 都有自己的工作台（不许所有子页
   for (const id of ASSISTANT_IDS) {
     assert.equal(VIDEO_WORKBENCHES[id], undefined, id + ' 是辅助能力，不该占一个工作台');
   }
-  /* 工作台之间**必须真的不一样**：如果每条都长一个样，那就是没抄 */
+  /* 工作台之间**必须真的不一样**：如果每条都长一个样，那就是没抄。
+     批 P：统计范围从"只有借了知渔 URL 的"改成**全部工作台** —— 上一版正是这条筛选让我
+     把自有玩法都硬指到一个 URL 上（凑够形态数），现在如实统计。 */
   const shapes = new Set(Object.values(VIDEO_WORKBENCHES)
-    .filter(item => item.source)
     .map(item => item.blocks.map(block => block.kind + ':' + (block.title || '')).join('|')));
-  assert.ok(shapes.size >= 6, '工作台形态只有 ' + shapes.size + ' 种 —— 用户要的是"每个工作台都不一样"');
+  assert.ok(shapes.size >= 20, '工作台形态只有 ' + shapes.size + ' 种 —— 用户要的是"每个工作台都不一样"');
 });
 
-test('② 每条工作台都写着它抄的是知渔哪一页，31 条 URL 一条不少', () => {
+/* ═══ 批 P：这条门禁**判据变了**（不是放宽，是改正）═══════════════════════════════════
+   上一版要求**每一条**工作台都写着知渔 URL —— 于是我把 8 条自有玩法都指到了「灯具展示」那一页充数。
+   用户第 20 轮要的是"对应知渔的各个子页面"，不是"每条都硬找一个页面"。
+   现在：有对应页的（16 条）必须写 URL 且 URL 在 31 条实采清单里；自有的（26 条）必须 source: null
+   + sourceNote 讲清为什么没有。逐条口径在 src/skills/quantvVideoParity.js，机检在
+   test/quantv-video-parity-machine-0920.test.mjs（那份是对着实采证据比字段的）。 */
+test('② 工作台的出处如实二分：有对应页的写 URL，自有的写清为什么没有', () => {
   const used = new Set();
   for (const [id, item] of Object.entries(VIDEO_WORKBENCHES)) {
-    if (item.sourceNote) continue; // 首尾帧：知渔没有对应页，如实标注（下面单独断言）
-    assert.ok(String(item.source || '').startsWith('https://laoyu.quantv.com/'), id + ' 没写取证出处');
-    used.add(item.source);
+    if (item.source) {
+      assert.ok(String(item.source).startsWith('https://laoyu.quantv.com/'), id + ' 的取证出处不是知渔的 URL');
+      used.add(item.source);
+      continue;
+    }
+    assert.equal(item.source ?? null, null, id + ' 的 source 必须是 null（不许借 URL 充数）');
+    assert.ok(String(item.sourceNote || '').length >= 10, id + ' 没写清"为什么知渔没有对应页"');
   }
-  /* 我们**用到**的知渔页面必须是抄录表里的真页面 */
-  for (const url of used) assert.ok(QUANTV_PAGES.includes(url), url + ' 不在 20 条抄录表里');
-  /* 抄录表本身必须完整：20 条 URL 全部落在文档里（含本轮补上的「短剧风格」） */
+  /* 我们**用到**的知渔页面必须是实采清单里的真页面 */
+  for (const url of used) assert.ok(QUANTV_PAGES.includes(url), url + ' 不在 31 条实采清单里');
+  /* 实采清单本身必须完整：31 条 URL 一条不少地落在抄录档里 */
   for (const url of QUANTV_PAGES) assert.ok(spec.includes(url), '抄录档里缺 ' + url);
-  assert.match(spec, /cmr1w7qqt00z314i3r4rnmzfs/, '「短剧风格」那条 URL 必须进抄录档（本轮补上的第 20 条）');
-  /* 首尾帧如实标注"知渔没有对应页" */
+  assert.match(spec, /cmr1w7qqt00z314i3r4rnmzfs/, '「短剧风格」那条 URL 必须进抄录档');
+  /* 首尾帧如实标注"知渔没有对应页"（用户点名的玩法，知渔确实没有） */
   const frames = getVideoWorkbench('video.frame');
   assert.ok(frames.sourceNote, '首尾帧要如实写明知渔没有对应页');
 });

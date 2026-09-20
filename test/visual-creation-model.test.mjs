@@ -119,8 +119,15 @@ test('visual skill ratio falls back to a ratio supported by the selected recipe'
   assert.equal(resolveVisualSkillRatio('social-cover', '21:9'), '21:9');
   assert.equal(resolveVisualSkillRatio('poster', '21:9'), '21:9', '六档之间可以自由切换（用户 #7-4：「很多很多个尺寸」）');
   assert.equal(resolveVisualSkillRatio('brand-kv', '4:3'), '4:3');
-  /* 合法六档之外的比例仍然回落到该技能的第一档（默认值语义没变） */
-  assert.equal(resolveVisualSkillRatio('poster', '5:4'), '3:4', '非法比例回落该技能第一档');
+  /* 合法档位之外的比例仍然回落到该技能的第一档（默认值语义没变）
+     ⚠️ 2026-09-19 批 P：用来举例的非法值从 '5:4' 换成 '9:21' —— 判据没变，
+        变的是"哪些比例合法"这个事实：4:5 / 5:4 本批**已经进引擎**（知渔「批量出图电商图」的
+        10 档比例里有它们，用户第 20 轮：「要选项的地方要选项……抄到位」），
+        所以 5:4 现在**应该**原样返回（上面的 poster 断言也印证了）。
+        '9:21' 是知渔「图片复刻」页有、我们**故意不抄**的那一档（引擎没有对应尺寸，
+        抄进界面就是"选了被静默回落成 1:1"），拿它当非法值举例才站得住。 */
+  assert.equal(resolveVisualSkillRatio('poster', '5:4'), '5:4', '5:4 已是合法档位（批 P 新增）');
+  assert.equal(resolveVisualSkillRatio('poster', '9:21'), '3:4', '非法比例回落该技能第一档');
   assert.equal(resolveVisualSkillRatio('brand-kv', 'nope'), '16:9');
 });
 
