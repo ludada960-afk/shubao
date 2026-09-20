@@ -121,34 +121,33 @@ export default function WorkbenchShell({
         </>
       ) : (
         <div className="media-workbench-left">
-          {onBack && <button type="button" className="media-workbench-back" onClick={onBack}>← 返回创作</button>}
-          {(category || title) && (
-            <header className="media-workbench-head">
-              {category && <span className="media-workbench-category">{category}</span>}
-              {title && <h2>{title}</h2>}
-              {subtitle && <p>{subtitle}</p>}
-            </header>
-          )}
+          {/* ═══ 2026-09-19 批 O-⑪：**左栏顶部这一整块搬走**（照知渔）══════════════════════════
+             用户第 19 轮批注（对着我们的商品套图页）：
+               「然后你这两个为什么不是在上面呢？**你上面留白那么多，是要干嘛呢？**」
+             实测：我们左栏从 y=92 开始，第一个内容块却在 **y=484** —— 上方空了 **392px**，
+             被「技能名页头(82) + 怎么用这条技能(32) + 一键解析(39) + 解析说明(20) + 两块付费大卡(85)」占掉。
+             知渔那一页左栏**直接从「基础信息」y=107 开始**（几乎贴顶），
+               · 技能名在他们那儿是**顶栏里那个 H1**（居中，16.8px/500）；
+               · 「怎么用这条技能」不在左栏，是独立入口；
+               · 付费动作全部是**行内胶囊**（见上面 anchor 那段）。
+             ⇒ 技能名/分类/一句话搬去顶栏（由 MediaCreation 的 subpage 顶栏承担，已是既有实现）。
+                ⚠️ 「怎么用这条技能」这个**入口必须留着**（不是装饰）——
+                   test/skill-tutorial-0919 守的就是"教学示例必须有工作台入口"；
+                   我第一版把它跟页头一起删了，门禁当场报红。现在保留入口、只去掉页头。 */}
           {tutorial && (
             <button type="button" className="media-workbench-tutorial" onClick={() => setTutorialOpen(true)}>
               怎么用这条技能
             </button>
           )}
-          {parseAction && (
-            <button
-              type="button"
-              className={`media-workbench-parse${parseAction.busy ? ' is-busy' : ''}`}
-              disabled={disabled || parseAction.busy || parseAction.disabled}
-              onClick={() => parseAction.onRun?.()}
-            >
-              <span>{parseAction.busy ? '正在解析…' : (parseAction.label || '一键解析')}</span>
-              {parseAction.points != null && <em>{parseAction.points} 积分</em>}
-            </button>
-          )}
-          {parseAction?.hint && <p className="media-workbench-parse-hint">{parseAction.hint}</p>}
-          {paidActions.length > 0 && (
+          {/* ═══ 2026-09-19 批 O-⑪：「一键解析」不再独立成行 ═══════════════════════════════════
+             用户第 19 轮批注：「你这些按钮的布局还有规划都完全不一样呀。」
+             实测知渔：这颗是**行内小胶囊**，落在「产品卖点与设计风格」这一组的**标题行右端**
+               （「一键解析 · 0.20 积分」，190×34，描边 0.8、透明底、胶囊圆角），
+               而不是像我们原来那样：一整行按钮 + 一整行说明 + 两条 85 高的大卡，把左栏顶上撑出 390px 空白。
+             下面 renderGroupTitle() 会把它渲染进对应分组的标题行。 */}
+          {paidActions.filter(a => !a.anchor).length > 0 && (
             <div className="media-workbench-paid-actions">
-              {paidActions.map(action => (action.runnable ? (
+              {paidActions.filter(a => !a.anchor).map(action => (action.runnable ? (
                 /* 2026-09-19 批 G：每颗按钮下面多一行 note —— 它写两件事：
                    这颗按钮**会做什么**（点之前就看得见），以及**买到手的结论**
                    （例如风格分析出的那个风格名，常驻在这里，不是一闪而过的 toast）。
@@ -174,14 +173,77 @@ export default function WorkbenchShell({
               )))}
             </div>
           )}
-          {groupFields(fields).map(group => (
+          {groupFields(fields).map((group, index) => (
             <section className="media-workbench-group" key={group.name || 'default'}>
-              {group.name && <h3 className="media-workbench-group-title">{group.name}</h3>}
+              {group.name && (
+                <h3 className="media-workbench-group-title">
+                  <span>{group.name}</span>
+                  {/* 一键解析落在**第一组**的标题行右端（照知渔的形态） */}
+                  {parseAction && index === 0 && (
+                    <button
+                      type="button"
+                      className={`media-workbench-parse${parseAction.busy ? ' is-busy' : ''}`}
+                      disabled={disabled || parseAction.busy || parseAction.disabled}
+                      onClick={() => parseAction.onRun?.()}
+                    >
+                      <span>{parseAction.busy ? '正在解析…' : (parseAction.label || '一键解析')}</span>
+                      {parseAction.points != null && <em>{parseAction.points} 积分</em>}
+                    </button>
+                  )}
+                </h3>
+              )}
               <div className="media-workbench-fields">
-                {group.fields.map(field => (
-                  <FieldSlot key={field.key} field={field} value={values[field.key]} values={values} onChange={onFieldChange} disabled={disabled} />
-                ))}
+                {group.fields.map(field => {
+                  /* ═══ 2026-09-19 批 O-⑪：付费动作**贴着字段标签右端**（照知渔的形态）═══════════
+                     用户第 19 轮批注（对着我们的商品套图页）原话：
+                       「你这些按钮的布局还有规划都完全不一样呀。」
+                       「然后你这两个为什么不是在上面呢？你上面留白那么多，是要干嘛呢？」
+                     实测知渔 ?tool=product-listing-set：
+                       「产品卖点」这一行的**右端**并排两颗**行内小胶囊**「放大」「AI生成 · 0.10 积分/张」
+                       （y 与字段标签同高，167×29，透明底、无边框、字号 12.6）。
+                     我们原来把付费动作做成**两块 254×85 的大卡**、独立成行、离字段很远 —— 就是"布局完全不一样"。
+                     ⇒ 动作声明里带 anchor（字段 key）时，渲染进那个字段的标签行；
+                        不带 anchor 的仍旧走下面那条老路（其余页面行为不变）。 */
+                  const anchored = paidActions.filter(a => a.anchor === field.key);
+                  const label = (
+                    <span className="media-field-label">
+                      {field.label}{field.required && <b aria-hidden="true">*</b>}
+                      {anchored.length > 0 && (
+                        <span className="media-field-inline-actions">
+                          {anchored.map(action => (action.runnable ? (
+                            <button
+                              key={action.key || action.label}
+                              type="button"
+                              className={'media-workbench-inline-action' + (action.busy ? ' is-busy' : '')}
+                              disabled={disabled || action.busy || action.disabled}
+                              onClick={() => action.onRun?.()}
+                            >
+                              {action.busy ? (action.busyLabel || '处理中…') : action.label}
+                              {action.points != null && <em>{action.points} 积分</em>}
+                            </button>
+                          ) : (
+                            <span className="media-workbench-inline-action is-off" key={action.key || action.label} title={action.reason || ''}>
+                              {action.label}{action.points != null && <em>{action.points} 积分</em>}
+                            </span>
+                          )))}
+                        </span>
+                      )}
+                    </span>
+                  );
+                  return (
+                    <FieldSlot
+                      key={field.key}
+                      field={field}
+                      value={values[field.key]}
+                      values={values}
+                      onChange={onFieldChange}
+                      disabled={disabled}
+                      labelOverride={anchored.length > 0 ? label : null}
+                    />
+                  );
+                })}
               </div>
+              {/* 带 anchor 的动作已经渲染进字段行（见上面的 media-field-inline-actions） */}
             </section>
           ))}
           {sections.map(section => {
@@ -318,6 +380,6 @@ export default function WorkbenchShell({
 
 /* 字段走统一渲染器（同目录 FieldRenderer）；这里单独包一层只是为了少一次 import 往返。 */
 import FieldRenderer from './FieldRenderer.jsx';
-function FieldSlot({ field, value, onChange, disabled, values }) {
-  return <FieldRenderer field={field} value={value} values={values} disabled={disabled} onChange={next => onChange(field.key, next)} />;
+function FieldSlot({ field, value, onChange, disabled, values, labelOverride = null }) {
+  return <FieldRenderer field={field} value={value} values={values} disabled={disabled} labelOverride={labelOverride} onChange={next => onChange(field.key, next)} />;
 }

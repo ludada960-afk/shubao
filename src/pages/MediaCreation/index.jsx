@@ -771,7 +771,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       const pointsDraft = String(effectiveValues[pointsField.key] || '').trim();
       list.push({
         key: 'ai-polish',
-        label: 'AI 润色 · ' + pointsField.label,
+        /* ═══ 2026-09-19 批 O-⑪：**anchor = 贴着这个字段的标签行渲染**（照知渔）══════════════
+           用户第 19 轮批注：「你这些按钮的布局还有规划都完全不一样呀。」
+           实测知渔：这颗按钮是**行内小胶囊**，挂在「产品卖点」那一行的右端（与字段标题同高），
+           不是独立成行的大卡。anchor 让渲染器把它放进对应的字段标签行里。 */
+        anchor: pointsField.key,
+        /* ⚠️ 标签里**不写价格** —— 价格由 points 走 em 渲染（按钮上那 0.2 积分）。
+           知渔那一页写的是「AI生成 · 0.10 积分/张」（**他们的价格**），我们按自己的真价显示，
+           两处都写就会出现"0.10 积分/张 0.2 积分"这种自相矛盾。 */
+        label: 'AI 生成', 
         points: 0.2,
         runnable: true,
         busy: polishing,
@@ -791,7 +799,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     if (styleField) {
       list.push({
         key: 'style-analysis',
-        label: 'AI 推荐风格分析',
+        anchor: styleField.key,
+        label: 'AI 推荐',
         points: 0.2,
         runnable: true,
         busy: analyzingStyle,

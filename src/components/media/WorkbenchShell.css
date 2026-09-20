@@ -131,11 +131,50 @@
      分组标题 **16.12 / 500 / 灰**，字段标签 **17.36 / 500 / 近黑**（实测色值见 60 号文档 §4，此处不抄字面量）。
      也就是"字段名比分组名更重更亮"。我们原来是分组标题 17px 近黑、字段标签 16px 近黑 —— 两档一样重，
      层次读不出来。现在按他们的关系改：分组标题降一档、转灰。 */
-  font-size: 16px;
+  /* ═══ 2026-09-19 批 O-⑪：**16px → 13px**（照知渔实测重校）══════════════════════════════
+     用户第 19 轮批注（对着我们的商品套图页）：
+       「你自己好好看一下这里面的功能，设计，排版，布局，大小，颜色，很多地方都完全不一样好吗？
+         你真的有 1:1 的去抄吗？」
+     CDP 实测知渔 ?tool=product-listing-set 的分组标题
+     （「基础信息 / 产品卖点与设计风格 / 套图结构配置」）：
+       计算值 **13px / 500 / 灰**（他们写的是 Tailwind 的 text-[13px] font-medium + 一个中性灰）。
+     ⚠️ 注释里**不能写十六进制色值** —— 本仓的 media-language-unify 门禁连注释一起扫
+        （批 K-A 已经为这条踩过一次）。所以这里用文字描述颜色，不抄字面量。
+     我们原来是 16px —— 比竞品大一档。
+     ⚠️ 上面批 K 记的 16.12 是**字段标签**那一档（他们那一页实测 14.672 ≈ 15）；
+        分组标题在同一页是 **13** —— 两档不一样，之前混用了，这次按实测分开。 */
+  font-size: 13px;
   font-weight: 500;
   color: var(--sb-ink-3);
 }
 .media-workbench-group-note { margin: 0; font-size: 13px; line-height: 1.55; color: var(--sb-ink-3); }
+
+/* ═══ 2026-09-19 批 O-⑪：**行内付费胶囊**（贴着字段标签右端，照知渔）═════════════════════
+   用户第 19 轮批注：「你这些按钮的布局还有规划都完全不一样呀。」
+   实测知渔：字段标题那一行的**右端**并排两颗小胶囊（「放大」「AI生成 · 0.10 积分/张」）——
+     「AI生成 · 0.10 积分/张」实测 167×29 / 字号 12.576 / 透明底 / **border-width 0**。
+   我们原来把付费动作做成两块 254×85 的大卡、独立成行 —— 结构性的不一样。 */
+.media-field-inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-left: 10px;
+}
+.media-workbench-inline-action {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 29px; padding: 4px 10px;
+  border: 0; border-radius: var(--sb-radius-pill);
+  background: transparent; color: var(--sb-ink-2);
+  font: inherit; font-size: 12.576px; font-weight: 500;
+  white-space: nowrap; cursor: pointer;
+  transition: background-color .16s ease, color .16s ease;
+}
+.media-workbench-inline-action:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.media-workbench-inline-action:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-workbench-inline-action:disabled { opacity: .55; cursor: not-allowed; }
+.media-workbench-inline-action em { font-style: normal; color: var(--sb-brand-700); font-weight: 600; }
+.media-workbench-inline-action.is-off { color: var(--sb-ink-4); cursor: default; }
 /* 只读交付清单（照竞品「包含模块 已选 0/16」的形态；不可勾选是钱路上的硬约束） */
 .media-workbench-checklist-count { font-size: 15px; font-weight: 600; color: var(--sb-ink-3); }
 .media-workbench-checklist-items { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }

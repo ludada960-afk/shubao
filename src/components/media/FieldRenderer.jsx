@@ -370,7 +370,10 @@ function control(kind, field, value, onChange, disabled) {
   );
 }
 
-export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null }) {
+/* labelOverride：调用方可以**整块替换标签行**（2026-09-19 批 O-⑪）。
+   用途只有一个 —— 把付费动作渲染成"贴着字段标签右端"的行内胶囊（照知渔的形态）。
+   不传 = 与从前完全一致。 */
+export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null }) {
   const kind = field.kind || 'text';
   /* ═══ visibleWhen：字段的条件显示（2026-09-19 用户批注 #13）═════════════════════════
      竞品的「自定义配置」选中之后才会展开下面那组张数配置 —— 未选中时它不该占地方。
@@ -380,10 +383,12 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
   }
   return (
     <label className="media-field" data-kind={kind}>
-      <span className="media-field-label">
-        {field.label}
-        {field.required ? <b aria-hidden="true">{REQUIRED_MARK}</b> : null}
-      </span>
+      {labelOverride || (
+        <span className="media-field-label">
+          {field.label}
+          {field.required ? <b aria-hidden="true">{REQUIRED_MARK}</b> : null}
+        </span>
+      )}
       {control(kind, field, value, onChange, disabled)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
     </label>

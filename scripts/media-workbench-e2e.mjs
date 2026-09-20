@@ -621,7 +621,7 @@ try {
   /* 建筑家装（用户 9-17 明确要求做的一档）：子页面 + 工作台 + 配方提示词都要在 */
   await openVideoSkill('video.floorplan_grow');
   const archMode = await page.evaluate(() => ({
-    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
     /* ═══ 2026-09-19 批 N：**判据不变，锚点换了一处** ═══════════════════════════════════
        判据一个字没动 ——「进子页面就带着**这条 skill 自己的配方提示词**（不是空白）」。
        换的是观测点：批 N 起，建筑室内那一档按知渔同款页面渲染
@@ -912,10 +912,10 @@ try {
   /* 点按钮 → 进它的子页面（地址、标题、返回都要对） */
   const firstVideo = firstButton.name.replace(/需参考素材|即将上线/g, '').trim();
   await page.click('.skill-entry-button');
-  await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
+  await page.waitForSelector('.topbar-title, .media-workbench-head h2', { timeout: 20000 });
   const landed = await page.evaluate(() => ({
     url: location.pathname + location.search,
-    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
     back: Boolean(document.querySelector('.topbar-back')),
     hub: Boolean(document.querySelector('.media-hub')),
   }));
@@ -1067,9 +1067,17 @@ try {
   /* ⚠️ 等真实渲染，不等地址栏：pushState 是同步的，地址一变就断言会读到**还没重渲染**的 DOM
      （这是本脚本踩过的"假失败"老毛病：断言跑在 React 提交之前）。 */
   await page.waitForSelector('.media-run-carry', { timeout: 15000 });
-  await page.waitForFunction(() => (document.querySelector('.media-workbench-head h2')?.textContent || '').includes('效果图质感提升'), null, { timeout: 15000 });
+  /* ⚠️ 2026-09-19 批 O-⑪：**判据没变，锚点换了** ——
+     判据仍是「跳到了这条辅助能力的子页面（标题对得上）」。
+     换锚点的原因：本批按知渔把**技能名页头从左栏搬到了顶栏**（知渔那一页的技能名就是顶栏里那个 H1，
+     左栏直接从「基础信息」开始 —— 用户批注②「你上面留白那么多，是要干嘛呢？」）。
+     ⇒ 标题改从 `.topbar-title`（子页面顶栏中间那一格）读，兜底再读左栏 h2（嵌入形态仍在左栏）。 */
+  await page.waitForFunction(() => {
+    const t = document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || '';
+    return t.includes('效果图质感提升');
+  }, null, { timeout: 15000 });
   const fused = await page.evaluate(() => ({
-    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    title: document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || '',
     filled: document.querySelectorAll('.media-asset-card').length,
     notice: document.querySelector('.media-run-carry')?.textContent || '',
     url: location.pathname + location.search,
@@ -1114,7 +1122,7 @@ try {
   await page.waitForTimeout(1200);
   const afterSwitch = await page.evaluate(() => ({
     run: Boolean(document.querySelector('.media-run')),
-    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
   }));
   check(!afterSwitch.run, '换到别的技能后，上一轮的结果不会留在这一页上', JSON.stringify(afterSwitch));
 
@@ -1202,11 +1210,11 @@ try {
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation', { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('.media-case-card-hit', { timeout: 20000 });
   await page.click('.media-case-card-hit');
-  await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
+  await page.waitForSelector('.topbar-title, .media-workbench-head h2', { timeout: 20000 });
   await page.waitForTimeout(500);
   const suiteLanding = await page.evaluate(() => ({
     url: location.pathname + location.search,
-    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
     back: Boolean(document.querySelector('.topbar-back')),
     cta: document.querySelector('.media-workbench-submit')?.textContent || '',
   }));
@@ -1275,7 +1283,7 @@ try {
   /* ⚠️ 2026-09-19 批 G：起点从 image.poster（自由创作，一级入口被用户撤掉）
      改成图片域第一条 image.product_suite。这条压的是**跨板块跳转不重挂载**，与具体技能无关。 */
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.media-workbench-head h2', { timeout: 20000 });
+  await page.waitForSelector('.topbar-title, .media-workbench-head h2', { timeout: 20000 });
   await page.waitForTimeout(400);
   const navTo = async (group, index) => {
     /* 子页面里没有分类切换条 —— 先按顶栏的「返回」回总页面（批 I-③，见上面的说明）。 */
@@ -1293,7 +1301,7 @@ try {
   };
   const pageState = () => page.evaluate(() => ({
     url: location.pathname + location.search,
-    title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+    title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
     hub: Boolean(document.querySelector('.media-hub')),
     videoComposer: Boolean(document.querySelector('.media-workbench-panel .video-studio-page')),
     missing: document.querySelector('.media-workbench-missing')?.textContent || '',
@@ -1358,13 +1366,14 @@ try {
       await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(skill.id), { waitUntil: 'load', timeout: 40000 });
       /* ⚠️ 不许用固定 sleep 等页面：技能字段一多，650ms 就会在"标题还没渲染"时断言，
          于是出现"标题对不上"的假失败（实测踩到：5 条新技能全被判红，人工一看页面是好好的）。 */
-      await page.waitForSelector('.media-workbench-head h2, .media-workbench-panel, .media-hub', { timeout: 20000 });
+      /* 批 O-⑪：技能名页头已按知渔搬到**顶栏**，扫描的"页面就绪"锚点同步加上 .topbar-title */
+      await page.waitForSelector('.topbar-title, .media-workbench-head h2, .media-workbench-panel, .media-hub', { timeout: 20000 });
       await page.waitForTimeout(200);
       const shape = await page.evaluate(() => ({
         hub: Boolean(document.querySelector('.media-hub')),
         missing: document.querySelector('.media-workbench-missing')?.textContent || '',
         panel: Boolean(document.querySelector('.media-workbench-panel')),
-        title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+        title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
         points: document.querySelector('.media-workbench-points')?.textContent || '',
         uploads: document.querySelectorAll('.media-field-upload input[type=file]').length,
       }));
@@ -1479,7 +1488,7 @@ try {
       await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
       await page.waitForTimeout(350);
       const shape = await page.evaluate(() => ({
-        title: document.querySelector('.media-workbench-head h2')?.textContent || '',
+        title: (document.querySelector('.topbar-title')?.textContent || document.querySelector('.media-workbench-head h2')?.textContent || ''),
         mode: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
       }));
       row.mode = shape.mode;

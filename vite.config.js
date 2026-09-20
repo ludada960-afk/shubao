@@ -44,7 +44,22 @@ export default defineConfig({
        修法：把这类临时目录整类排除（它们永远不会是页面资源）。
        ⚠️ 不要改成 chokidar 的 usePolling：那会更慢，而且没解决"watch 一个不该 watch 的路径"。 */
     watch: {
-      ignored: ['**/.*.tmpdir/**', '**/*.tmpdir/**'],
+      ignored: [
+        '**/.*.tmpdir/**', '**/*.tmpdir/**',
+        /* ═══ 2026-09-20：把**浏览器 profile 目录**也排除掉（同一类事故，第二次踩） ═══════════
+           症状同上：dev server 毫无征兆整个崩掉，栈顶是
+             EBUSY: resource busy or locked, watch '....tmpchrome-qa-profileLocal State<uuid>.tmp'
+           根因：用 CDP 驱动 Chrome 时，profile 如果落在仓库里（.tmp/chrome-*-profile），
+           Chrome 会一直持有 Cookies / Local State 这些文件；vite 的 watcher 把它们收进来监视 →
+           一有 rename 就 EBUSY → 进程退出，接着所有"页面打不开"的排查都变成假故障。
+           修法两条一起：
+             ① 本文件把 profile 目录整类排除；
+             ② 起 CDP 浏览器时把 --user-data-dir 放到**仓库外**（我已经改成用户主 profile 了）。
+           ⚠️ 判定法：dev server 崩了先看栈顶是不是 EBUSY + watch 某个 profile 文件，是的话直接归到这里，
+              不要去怀疑业务代码。 */
+        '**/.tmp/chrome-*/**', '**/.tmp/chrome-*', '**/chrome-*-profile/**',
+        '**/playwright-chrome/**', '**/cdp-*/**', '**/*.tmp',
+      ],
     },
   },
   build: {

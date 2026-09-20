@@ -144,6 +144,18 @@
   cursor: pointer;
   transition: background-color .18s ease, color .18s ease;
 }
+/* ═══ 2026-09-19 批 O-⑪：**子页面顶栏让出侧栏宽度**（修用户批注③）═══════════════════════
+   用户第 19 轮批注（对着我们的商品套图页，框住左上角那个返回按钮）原话：
+     「你这个按钮为什么**歪到左边的导航栏里去了**呢？」
+   实测：我们「返回」在 **x=24** —— 那是**窗口最左边**。
+   根因：批 L-6 把顶栏改成"向左跨过图标栏"（为了让字标落到 x=24），
+         于是整条 .topbar-row 从 x=0 起；子页面那三格栅格的第一格也就从 0 起，
+         返回按钮落在图标导航栏那一片上面。
+   知渔 ?tool=product-listing-set 实测：「返回图片创作」在 **x=267**
+         （侧栏 250 + 他们 main 的 p-4/16）—— **与左栏内容左对齐**，不在窗口边上。
+   ⇒ 子页面顶栏内边距改成让出侧栏宽度：返回落在内容列的左边缘，与下面的工作台对齐。
+      ⚠️ 只改子页面（is-subpage）：总页面/首页那条"跨过图标栏"的规则（批 L-6）不动。 */
+.topbar-row.is-subpage { padding-left: calc(var(--sb-app-sidebar-w, 96px) + 24px); }
 .topbar-back:hover { background-color: var(--sb-hover-bg); color: var(--sb-ink-1); }
 .topbar-back:focus { outline: 0 solid transparent; }
 .topbar-back:focus-visible { outline: 0 solid transparent; box-shadow: var(--sb-shadow-ring); }
@@ -161,6 +173,21 @@
   line-height: 1.2;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* ═══ 2026-09-19 批 O-⑪：**子页面顶栏标题照知渔**（用户批注④）═════════════════════════════
+   用户原话：「这个商品套图它作为主标题是不是也太小了呢？」
+   实测对照（同一口径）：
+     知渔 ?tool=product-listing-set 的顶栏 H1：「商品套图」**16.768px / 字重 500** / 行高 25.15 / 白字（深色顶栏）
+     我们：                              **18px / 字重 700**
+   ⇒ 我们**不是更小**，是**字重更重**：700 在同一尺寸下会显得又粗又堵，
+     放在顶栏那一条细线上，观感就是"标题被压住了"。
+   按知渔改：**字重 700 → 500**，字号收到 **17px**（知渔 16.768 的整数档）。
+   ⚠️ 只改子页面（is-subpage）—— 总页面/首页顶栏的字号字重不动。
+   ⚠️ 这条与批 J 的"子页面顶栏三格"（左返回/中名称/右积分账户）不冲突：只调字。 */
+.topbar-row.is-subpage .topbar-title {
+  font-size: 17px;
+  font-weight: 500;
 }
 
 /* Creative-domain navigation: a functional glass layer above the visual canvas. */
