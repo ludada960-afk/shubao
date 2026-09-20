@@ -573,7 +573,9 @@ export const IMAGE_SKILLS = [
        ⇒ 我们多一格「标注点」、少一格「字体」；而且他们的产品图是**可选**（不上传就靠描述写）。
           按他们改：主题 / 上传产品图（可选）/ 画面描述 / 字体 / 比例 / 分辨率。 */
     fields: [
-      { key: 'product', label: '主题', kind: 'text', required: true, group: '主题与画面', placeholder: '海报上的标题文字' },
+      /* 批 Q：去掉我们自己加的 placeholder —— 知渔「爆款商品文字海报」那一格没有占位文案
+         （用户：「竞争对手没有的东西，我们就不要乱做……不要过多的添加其他的文案上去」）。 */
+      { key: 'product', label: '主题', kind: 'text', required: true, group: '主题与画面' },
       { key: 'assets', label: '上传产品图', kind: 'upload', maxImages: 1, role: 'product', group: '主题与画面', slotLabel: '上传商品图（可选，不上传就按描述画）' },
       { key: 'prompt', label: '画面描述', kind: 'textarea', rows: 3, required: true, group: '主题与画面', placeholder: '补充画面描述，让画面更丰富' },
       /* 批 P：知渔这一页的「字体」是**必填**（optional=false），我们原来没标必填 —— 照他们标上 */
@@ -606,7 +608,7 @@ export const IMAGE_SKILLS = [
        用户会以为"这段长文案是我要写的"。⇒ 删掉这一格；比例收成他们那 3 档；清晰度照他们写「标清」。 */
     fields: [
       { key: 'subject', label: '蔬菜水果名字', longLabelReason: '照知渔原文逐字：他们这一页的第一个字段名就叫「蔬菜水果名字」（这是一个纯文本输入，不是上传位）',
-        kind: 'text', required: true, group: '主题', placeholder: '例如：柠檬、草莓、牛油果' },
+        kind: 'text', required: true, group: '主题' },
       ratioField([
         { value: '3:2', label: '3:2' },
         { value: '4:3', label: '4:3' },
@@ -698,7 +700,7 @@ export const IMAGE_SKILLS = [
        用户选了它却不生效（服务端仍按他们那套出图）—— 就是我们最忌讳的"死控件"。⇒ 去掉。 */
     fields: [
       { key: 'drink', label: '饮料名称', longLabelReason: '照知渔原文逐字：他们这一页的字段名就叫「饮料名称」（纯文本输入，没有上传位）',
-        kind: 'text', required: true, group: '主题', placeholder: '例如：青柠气泡水' },
+        kind: 'text', required: true, group: '主题' },
       clarityField({ label: '清晰度', options: CLARITY_2 }),
     ],
     cases: [], history: true,
@@ -979,7 +981,7 @@ export const IMAGE_SKILLS = [
     fields: [
       { key: 'assets', label: '上传图片（产品图）', longLabelReason: '照知渔原文逐字：他们这一页的上传位标题就叫「上传图片（产品图）」',
         kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
-      { key: 'brand', label: '品牌名', kind: 'text', required: true, placeholder: '画面里那行品牌字，逐字准确' },
+      { key: 'brand', label: '品牌名', kind: 'text', required: true },
       /* 批 P：比例药丸只有数字（照他们这一页） */
       ratioField(RATIO_BARE),
       clarityField({ label: '清晰度', options: CLARITY_3_TIGHT }),
@@ -1321,8 +1323,7 @@ export const IMAGE_SKILLS = [
         { value: '黎明晨光', label: '黎明晨光' }, { value: '夕阳暖光', label: '夕阳暖光' },
         { value: '夜景灯光', label: '夜景灯光' }, { value: '质感蓝调', label: '质感蓝调' },
       ] },
-      { key: 'notes', label: '更多描述', kind: 'textarea', rows: 2, group: '建筑与场地',
-        placeholder: '可选：补充户型、材料、家具等具体要求' },
+      { key: 'notes', label: '更多描述', kind: 'textarea', rows: 2, group: '建筑与场地' },
       /* 批 P：这一页的比例是**只有数字的 7 档**，而且**铺满**（他们那页没出现「更多」）—— maxVisible 显式声明 */
       { ...ratioField(RATIO_BARE), maxVisible: 7 },
       /* 批 P：这一页的清晰度只有数字（1K / 2K / 4K），没有"标准/高清/超清"后缀 —— 照他们 */
@@ -1491,8 +1492,7 @@ export const IMAGE_SKILLS = [
       ] },
       { key: 'notes', label: '创意描述（可选）',
         longLabelReason: '照知渔原文逐字：他们这一页的字段名就叫「创意描述（可选）」，括号里的"可选"是他们写在标题里的，不是我们加的',
-        kind: 'textarea', rows: 2, group: '风格与光影',
-        placeholder: '可选：补充叙事、场景或构图要求' },
+        kind: 'textarea', rows: 2, group: '风格与光影' },
       /* 批 P：比例只有数字的 7 档，且实测**铺满**（没有「更多」）—— 照他们 */
       { ...ratioField(RATIO_BARE), maxVisible: 7 },
       /* 批 P：这一页的清晰度只有数字（1K / 2K / 4K）—— 照他们 */
