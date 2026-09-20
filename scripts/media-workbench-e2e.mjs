@@ -1390,6 +1390,29 @@ try {
       if (shape.missing) { result.problem = '页面说找不到这条技能：' + shape.missing; return result; }
       if (shape.title !== skill.name) { result.problem = '页面标题对不上：' + shape.title + ' ≠ ' + skill.name; return result; }
       if (shape.panel) { result.problem = ''; result.panel = true; return result; }
+      /* ═══ 批 Q-⑦：**每一条"切换必须换出东西"的承诺都要真的换出来**（用户：「不能让一些按钮
+         或者配置成为死的配置」）══════════════════════════════════════════════════════════
+         声明源里写了 visibleWhen 的字段 = "选到这一档它才出现"。这条就逐个验证：
+         点到那一档 → 它必须真的出现在 DOM 里；点不到、或点完不出现，都判红。
+         与"纯取值型"切换（比例 / 分辨率，它们本来就不该改变字段）区分开：只查有 visibleWhen 的。 */
+      const gates = (skill.fields || []).filter(field => field.visibleWhen && field.visibleWhen.key);
+      for (const gate of gates) {
+        const controller = (skill.fields || []).find(field => field.key === gate.visibleWhen.key);
+        const option = (controller?.options || []).find(item => String(item.value) === String(gate.visibleWhen.equals));
+        if (!option) { result.problem = gate.label + ' 的 visibleWhen 指向了一个不存在的档位：' + gate.visibleWhen.equals; return result; }
+        const clicked = await page.evaluate(label => {
+          const button = [...document.querySelectorAll('.media-field-segmented button, .media-field-cards button')]
+            .find(node => (node.innerText || '').trim().startsWith(label));
+          if (!button) return false;
+          button.click();
+          return true;
+        }, option.label);
+        await page.waitForTimeout(260);
+        const revealed = await page.evaluate(label => [...document.querySelectorAll('.media-field')]
+          .some(node => node.getBoundingClientRect().height > 0 && ((node.querySelector('.media-field-label') || {}).innerText || '').startsWith(label.slice(0, 6))), gate.label);
+        if (!clicked) { result.problem = '切不到「' + option.label + '」（控制器里找不到这颗药丸）'; return result; }
+        if (!revealed) { result.problem = '切到「' + option.label + '」之后「' + gate.label + '」没有出现（死配置）'; return result; }
+      }
       /* 通用配齐：上传位放图、输入位写字、下拉选第一项、分段控件没选中就点第一个。
          ⚠️ 每个上传位的 input 是**独立的**（accept 不同、位次不同），
             只给第一个放图会让"多个上传位都是必填"的技能（AI换装：模特图 + 衣服图）配不齐 ——
