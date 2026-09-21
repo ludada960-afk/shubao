@@ -149,13 +149,14 @@ const ratioField = (options = RATIO, label = '比例', group = '生成设置') =
    「自适应」不是"推荐一个固定比例"——知渔自己的 help 原文是
    「「自适应」将根据模特图自动匹配最接近的比例」，实现见 skillRun.nearestLegalRatio。 */
 const RATIO_ADAPTIVE = { value: ADAPTIVE_RATIO, label: ADAPTIVE_RATIO };
-/* 图片复刻：知渔那一页的 14 档去掉引擎不支持的 3 档，顺序照他们 */
+/* 图片复刻：知渔那一页的 14 档，顺序照他们 —— 批 X 起**一档不缺**（引擎已补那三档） */
 const RATIO_CLONE = [
   RATIO_ADAPTIVE,
   { value: '1:1', label: '1:1' }, { value: '3:2', label: '3:2' }, { value: '2:3', label: '2:3' },
   { value: '16:9', label: '16:9' }, { value: '9:16', label: '9:16' }, { value: '5:4', label: '5:4' },
   { value: '4:5', label: '4:5' }, { value: '4:3', label: '4:3' }, { value: '3:4', label: '3:4' },
-  { value: '21:9', label: '21:9' },
+  { value: '21:9', label: '21:9' }, { value: '9:21', label: '9:21' }, { value: '2:1', label: '2:1' },
+  { value: '1:2', label: '1:2' },
 ];
 /* AI换装：知渔那一页是 自适应 + 5 档，我们**一档不缺**（6 档全在引擎白名单里） */
 const RATIO_TRYON = [

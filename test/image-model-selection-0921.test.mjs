@@ -139,7 +139,8 @@ test('⑤ 比例「自适应」= 按主图实际宽高就近取一档（知渔 h
   assert.equal(nearestLegalRatio(900, 1600), '9:16');
   assert.equal(nearestLegalRatio(1600, 900), '16:9');
   assert.equal(nearestLegalRatio(1000, 1500), '2:3');
-  assert.equal(nearestLegalRatio(2000, 1000), '16:9', '2:1 不在我们的白名单里，就近取 16:9');
+  /* ⚠️ 批 X：2:1 现在是**合法档**了（本批补的），所以换一个仍不在白名单里的例子（5:3 = 1.6667）。 */
+  assert.equal(nearestLegalRatio(1600, 1000), '3:2', '16:10（1.6）不在白名单里，对数距离最近的是 3:2（1.5）');
   assert.equal(nearestLegalRatio(0, 0), '', '量不到宽高就返回空，不许猜一个比例出来');
 
   const skill = getImageSkill('image.copy');

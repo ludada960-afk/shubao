@@ -127,7 +127,9 @@ test('visual skill ratio falls back to a ratio supported by the selected recipe'
         '9:21' 是知渔「图片复刻」页有、我们**故意不抄**的那一档（引擎没有对应尺寸，
         抄进界面就是"选了被静默回落成 1:1"），拿它当非法值举例才站得住。 */
   assert.equal(resolveVisualSkillRatio('poster', '5:4'), '5:4', '5:4 已是合法档位（批 P 新增）');
-  assert.equal(resolveVisualSkillRatio('poster', '9:21'), '3:4', '非法比例回落该技能第一档');
+  /* ⚠️ 批 X：'9:21' 现在是**合法档**了（本批补进引擎尺寸表），所以非法值举例换成 '5:3'
+     —— 判据没变（"非法比例回落该技能第一档"），变的是事实。 */
+  assert.equal(resolveVisualSkillRatio('poster', '5:3'), '3:4', '非法比例回落该技能第一档');
   assert.equal(resolveVisualSkillRatio('brand-kv', 'nope'), '16:9');
 });
 
