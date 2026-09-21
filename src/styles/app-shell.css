@@ -116,8 +116,10 @@
   justify-content: center;
   gap: 5px;
 }
-.topbar-brand-mark { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px; }
-.topbar-logo { font-size: 13px; font-weight: 800; letter-spacing: 0.02em; }
+/* ═══ 批 W（2026-09-21）：品牌标**再大一些**（用户原话：「首页左上角的薯包 AI 和 LOGO 再大一些呀」）══
+   34 → 40（图标），13 → 15（文字）—— 仍收在图标栏那一列里（列宽 96，居中于 x=48）。 */
+.topbar-brand-mark { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; }
+.topbar-logo { font-size: 15px; font-weight: 800; letter-spacing: 0.02em; }
 
 .topbar-actions {
   display: flex;

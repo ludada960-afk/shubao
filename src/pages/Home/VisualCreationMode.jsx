@@ -899,7 +899,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   };
 
   return (
-    <section className="visual-creation" aria-labelledby="visual-creation-title">
+      <section className="visual-creation" aria-label="图片生成工作区">
       {/* ═══ 2026-09-19 用户批注 #2-②（第三次强调，这次照做）═══════════════════════════
           原话：「上面这一块就是左边是介绍这个功能的文案、右边是几张演示图的？你都可以拿去直接
           应用在我们现在下面的那块精选 skill 那块地方做预览。**但是你这里就应该把它删掉呀，
@@ -910,17 +910,16 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           （见 components/media/SkillEntryRow 与 docs/design/52）。
           ⚠️ selectedSkill / showcases 仍然保留：配方面板、提示词占位、深链 skillId 都还要用它们。 */}
 
-      {/* ═══ 页头：这里不能再叫「自由创作」（用户批注 #5-②）══════════════════════════════
-          原话：「我们现在不能再给之前的那几个页面，就是电商生成、小红书图文、自由创作，
-          他们单独做一个首页的入口了。他们现在只有高度定制的子页面。他们的入口就是从我们这里
-          下面的推荐 skill 进去，或者是从图片生成的那个总页面那里进去。」
-          所以这一块的标题写**板块名 + 一句"你要做什么"**，与视频那块对称（视频是
-          「视频生成 / 把创意素材变成吸引人的短片」）。 */}
-      <header className="visual-creation-heading">
-        <span className="visual-creation-kicker"><MdImage />图片生成</span>
-        <h2 id="visual-creation-title">把一句话变成能用的图</h2>
-        <p>上传素材或直接描述画面，选好模型与规格就能开始。</p>
-      </header>
+      {/* ═══ 批 W（2026-09-21）：**标题区整块删除**（用户原话，逐字）══════════════════════════════
+          原话：「你的视频生成和图片生成上面的标题文案：『视频生成 / 把创意素材变成吸引人的短片 /
+          选择创作方式……』『图片生成 / 把一句话变成能用的图 / 上传素材或直接描述画面……』
+          **这些都不要了，去掉之后，把下面的内容和功能适配上去**，
+          不能因为去掉一块部分你就没把其他的内容适配了哦。」
+          ⇒ 删掉这三行（角标 / 大标题 / 说明）。工作区的标题由**顶栏**承担（MediaCreation 的子页面
+             顶栏本来就有技能名/板块名），所以信息没有丢；下面的暖色面直接接上（见 CSS 里
+             `.visual-creation-composer` 的上间距那一处适配）。
+          ⚠️ `id="visual-creation-title"` 这个锚点被 aria-labelledby 引用过，所以把标题名挪到
+             工作区自己的 aria-label 上（读屏仍然知道这一块是什么），不留悬空引用。 */}
 
       <div className="visual-creation-composer">
         {/* ═══ 素材上传区 + 输入区 + @引用：照抄小红书图文那套（ec-xhs-composer 暖色渐变面），只改文案 ═══ */}

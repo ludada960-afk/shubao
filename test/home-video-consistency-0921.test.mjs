@@ -52,8 +52,11 @@ test('③ 视频侧两个面板照图片侧的规格（同一档宽度 / 圆角 
   /* 两处宽度都是 480（生成设置面板 + 模型菜单） */
   assert.match(videoPage, /const preferred = key === 'settings' \? 480/, '生成设置面板宽度 = 480');
   assert.match(videoPage, /const width = Math\.min\(480, viewportWidth - 24\)/, '模型菜单宽度 = 480');
-  /* 建模行照 .sb-opt 的规格 */
-  assert.match(videoCss, /\.video-inline-menu > button \{[^}]*padding: 8px 12px;[^}]*border-radius: 12px;[^}]*background: #f4f4f4;/, '模型行照图片侧 .sb-opt 的规格');
+  /* 建模行照 .sb-opt 的规格 —— ⚠️ 批 W 改判：底色换成站内那颗"凹槽底" token（设计 token 棘轮门禁
+     不许新写 hex），并且**排布改成靠左**（用户图一：「视频生成的模型选择现在是乱码的情况了」——
+     更宽的行里 space-between 把图标与文案拉到两端，看起来就是乱码）。 */
+  assert.match(videoCss, /\.video-inline-menu > button \{[^}]*padding: 8px 12px;[^}]*border-radius: 12px;[^}]*background: var\(--sb-surface-sunken\);/, '模型行照图片侧的规格（内边距/圆角/浅底）');
+  assert.match(videoCss, /\.video-inline-menu\.is-model > button \{ justify-content: flex-start;/, '模型行必须靠左排布（否则图标与文案被拉到两端 = 用户说的"乱码"）');
 });
 
 test('④ 面板吸附按钮：滚动与缩放都重新定位（模型菜单补上了图片侧一直有的那两个监听）', () => {
@@ -63,12 +66,22 @@ test('④ 面板吸附按钮：滚动与缩放都重新定位（模型菜单补�
   assert.match(videoPage, /window\.removeEventListener\('scroll', followButton, true\)/, '卸载时移除监听（不许泄漏）');
 });
 
-test('⑤ 去掉"没东西可滚"的滚动条：滚动权交给内层 body', () => {
-  assert.match(visualCss, /\.visual-config-panel \{ overflow: visible; \}/, '图片侧面板自身不再滚（那条滚动条是小箭头溢出 8px 骗出来的）');
-  assert.match(visualCss, /\.visual-config-panel-body \{ max-height: inherit; overflow-y: auto; \}/, '图片侧滚动权在 body');
-  assert.match(videoCss, /\.video-config-panel-body \{ max-height: inherit; overflow-y: auto; \}/, '视频侧同一个口径');
+test('⑤ 面板不出现"没东西可滚"的滚动条，但**该滚的时候必须能滚**（批 W 改判）', () => {
+  /* ═══ 批 U → 批 W 的改判链（两条用户口径直接冲突，后一条更严重）══════════════════════════════
+     批 U：用户说「他们右边都有一个……滚动条，问题是他们根本没有那么多信息可以去滚动呀……很多余啊」
+           ⇒ 我改成"面板自身不滚、滚动权交给内层 body"。
+     批 W：用户图三「你图片生成这边的**画面尺寸下面是被截断的**呀」——
+           那个写法里 `max-height: inherit` 继承的是面板的**像素值**，而面板当时 `overflow: visible`，
+           内容一长就顶出视口、**下面被切掉且滚不到**（比一条多余的滚动条严重得多）。
+     ⇒ 现在：**面板自己滚**（该滚的时候能滚），用"给面板补 6px 下内边距把那个小箭头收进内边距盒"
+      的办法消掉假滚动条 —— 两个诉求同时满足，不需要二选一。 */
+  assert.match(visualCss, /\.visual-config-panel \{ overflow-y: auto; padding-bottom: 6px; \}/,
+    '面板自己滚 + 用内边距把箭头收进去（既不截断内容，也不出现那条"多余"的滚动条）');
+  assert.doesNotMatch(visualCss, /\.visual-config-panel \{ overflow: visible; \}/, '不许再回到"面板不滚"的写法（内容会被截断）');
+  assert.match(visualCss, /\.visual-config-panel-body \{ max-height: none; overflow-y: visible; \}/, '内层不再抢占滚动权');
   const cls = (videoCss.match(/\.video-config-panel,\s*\.video-inline-menu \{[\s\S]*?\}/) || [''])[0];
-  assert.match(cls, /overflow: visible;/, '视频侧面板同样不再自己滚');
+  assert.match(videoCss, /\.video-config-panel-body \{ max-height: inherit; overflow-y: auto; \}/, '视频侧面板仍按同一个口径处理内容滚动');
+  assert.match(cls, /overflow: visible;/, '视频侧浮层自身不做滚动容器（滚动交给 body）');
 });
 
 test('⑥ 首页暖区留白照图片侧（8px 10px 10px），且首页不再渲染「代为撰写」', () => {

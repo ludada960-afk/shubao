@@ -658,32 +658,20 @@ try {
   check(archMode.composer, '建筑家装技能的工作台就是嵌进来的创作台', String(archMode.composer));
   check(archMode.prompt.includes('户型图开始生长出三维空间'), '建筑家装技能预填自己的配方提示词', archMode.prompt.slice(0, 40));
 
-  /* ═══ 视频侧的融合控件：运镜 / 只改一个元素（辅助能力长在创作台里）═══
-     这两条在技能库里的身份是"辅助能力"（video.camera_move / video.scene_edit）——
-     它们不是一个独立的活儿，而是创作时的两个控制项，所以必须长在这个创作台上。 */
+  /* ═══ 视频侧的融合控件（运镜 / 只改一个元素）—— **批 W 整组删除**（用户原话，逐字）═══════════
+     原话：「第 4 条**运镜这个没必要啊，这个没有什么意思，去掉**。」
+     （第 4 条指的是我在 RTK 里报的"这两行知渔没有、与你批注 15 冲突"——用户判定：去掉。）
+     ⇒ 这一组断言（控件行、六档镜头走法、追加说明、只改一个元素）**整组作废**：主体已经不在页面上了。
+     ⚠️ 运行层的机制没动：`workbenchExtraInstructions` 仍然按"这一页真的渲染了哪些控件"决定追加什么，
+        控件没了 ⇒ 恒不追加 —— 那条判据由批 S 的 test/video-route-subpage-parity-0921 继续守着。 */
   await openVideoSkill('video.smart');
-  const cameraRow = await page.evaluate(() => ({
+  const fuseGone = await page.evaluate(() => ({
     row: Boolean(document.querySelector('.video-fuse-row')),
-    group: Array.from(document.querySelectorAll('.video-fuse-group')).map(node => node.getAttribute('aria-label')),
-    moves: Array.from(document.querySelectorAll('.video-fuse-group[aria-label="运镜"] button')).map(node => node.textContent.trim()),
+    note: Boolean(document.querySelector('.video-fuse-note')),
+    groups: document.querySelectorAll('.video-fuse-group').length,
   }));
-  check(cameraRow.row, '创作台里有融合控件行（辅助能力长在这里，不占技能入口）', String(cameraRow.row));
-  check(cameraRow.group.includes('运镜'), '「运镜」是一个控制项（不是一条要单独进子页面的玩法）', cameraRow.group.join('/'));
-  check(cameraRow.moves.includes('推近') && cameraRow.moves.includes('环绕'), '运镜给的是具体镜头走法（推近/拉远/环绕/平移/固定机位）', cameraRow.moves.join('/'));
-  await page.click('.video-fuse-group[aria-label="运镜"] button:has-text("推近")');
-  await page.waitForSelector('.video-fuse-note', { timeout: 10000 });
-  const cameraNote = await page.evaluate(() => document.querySelector('.video-fuse-note')?.textContent || '');
-  check(cameraNote.includes('镜头缓慢推近主体'), '选中后**照实显示**会被追加进提示词的那句话（不偷偷改用户的提示词）', cameraNote.slice(0, 40));
-  check(cameraRow.group.filter(label => label === '只改一个元素').length === 0, '智能成片档不出现「只改一个元素」（没有原片可改，不给用不了的控件）');
-
-  /* 爆款复刻/产品植入这一档才有"只改一个元素"（它的输入本来就是一条参考视频） */
-  await openVideoSkill('video.product_placement');
-  const editRow = await page.evaluate(() => ({
-    group: Array.from(document.querySelectorAll('.video-fuse-group')).map(node => node.getAttribute('aria-label')),
-    edits: Array.from(document.querySelectorAll('.video-fuse-group[aria-label="只改一个元素"] button')).map(node => node.textContent.trim()),
-  }));
-  check(editRow.group.includes('只改一个元素'), '基于已有成片的档位（产品植入）出现「只改一个元素」', editRow.group.join('/'));
-  check(editRow.edits.includes('换发色') && editRow.edits.includes('去杂物'), '给的是具体的编辑意图（换发色/加背景物/去杂物）', editRow.edits.join('/'));
+  check(!fuseGone.row && !fuseGone.note && fuseGone.groups === 0,
+    '运镜 / 只改一个元素整组已下线（知渔 31 个子页面里一个都没有）', JSON.stringify(fuseGone));
 
   /* 历史：本机标记（videoJobTags）把任务按技能筛进子页面历史。
      标记缺失时也不能丢东西 —— 全量任务永远在嵌入工作台的「生成记录」里。 */

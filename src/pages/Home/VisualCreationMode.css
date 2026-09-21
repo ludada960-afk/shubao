@@ -249,16 +249,16 @@
   box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06);
 }
 
-/* ═══ 批 U（2026-09-21）：**去掉那条"没东西可滚"的滚动条**（用户本轮原话，逐字）══════════════
-   原话：「还有就是你图片生成这边的两个面板，他们右边都有一个鼠标滚轮上下滚动的一个滚动条，
-   问题是他们**根本没有那么多信息可以去滚动**呀。你加这个滚动条是要干什么呢？很多余啊。」
-   实测（.tmp/imgpanel-container.txt）：面板 clientH **537** / scrollH **545** —— 只多 8px，
-   而多出来的那 8px **不是内容**：是下面那个指向按钮的小箭头（`::after` 的 bottom:-6px）。
-   它一溢出，`overflow-y: auto` 就画出一条滚动条，而用户滚不动任何东西 —— 正是他说的"多余"。
-   ⇒ 滚动权交给**内层 body**（`max-height: inherit` 继承面板的 maxHeight），面板自己不再滚：
-     内容真的超长时照样能滚，而被箭头"骗"出来的那条不再出现。 */
-.visual-config-panel { overflow: visible; }
-.visual-config-panel-body { max-height: inherit; overflow-y: auto; }
+/* ═══ 批 W（2026-09-21）：**改回"面板自己滚 + 用内边距把箭头收进去"**（用户图三）══════════════
+   原话：「你图片生成这边的**画面尺寸下面是被截断的**呀。」
+   根因是我上一批（批 U）的写法：把 `overflow` 从面板挪到内层 body + `max-height: inherit` ——
+   `inherit` 继承的是**面板的 max-height（一个像素值）**，但面板本身这会儿是 `overflow: visible`，
+   于是内容一长就直接顶出视口、**下面被切掉且滚不到**（比原来那条"多余的滚动条"严重得多）。
+   ⇒ 回到"面板自己滚"，但换一种办法消掉那条假滚动条：
+     箭头 `::after` 是 `bottom: -6px`（探出面板 6px），只要给面板补 6px 下内边距，
+     箭头就落在**内边距盒里**、不再算溢出 —— 滚动条自然不出现，而面板该滚的时候还能滚。 */
+.visual-config-panel { overflow-y: auto; padding-bottom: 6px; }
+.visual-config-panel-body { max-height: none; overflow-y: visible; }
 
 .visual-config-panel::after {
   position: absolute;

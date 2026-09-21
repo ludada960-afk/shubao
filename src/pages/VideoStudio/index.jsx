@@ -1300,7 +1300,11 @@ export default function VideoStudioPage({
           </div>
         </div>
       </>}
-      <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => { setPlanReviewed(false); setNegativePrompt(event.target.value); }} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
+      {/* ═══ 批 W（2026-09-21）：**「避免出现的内容」整块删除**（用户原话，逐字）══════════════════
+          原话（图二）：「这个**避免出现的内容去掉**，这块**没有意义**。」
+          ⚠️ 状态与请求体字段都**保留**（negativePrompt 仍会随请求下发，默认空字符串），
+             只是页面上不再给这一格 —— 删的是一块用户判断为无意义的输入，不是抽掉一个链路。
+          ⚠️ 知渔那两页也没有这一格（他们的负面约束写在各自模板的提示词里）。 */}
       {/* 9-12 用户批注：技能相关从生成设置里去掉 —— 已选技能显示在工具栏「技能库」上（见 toolbarSummary.skills） */}
       <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
     </>;
@@ -1372,7 +1376,14 @@ export default function VideoStudioPage({
           （「视频生成 / 把创意素材变成吸引人的短片 / 选择创作方式…」）—— 同一页两套标题，
           把第一个字段推到 **y≈504**（知渔 /ai-video 是 179）。
           首页那一档只有这一个标题（宿主卡里没有别的标题），所以**只在独立路由去掉重复的那一份**。 */}
-      {!workbenchMode && embedded && <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>}
+      {/* ═══ 批 W（2026-09-21）：**「视频生成」标题区整块删除**（用户原话，逐字）══════════════════
+          原话：「你的视频生成和图片生成上面的标题文案：『视频生成 / 把创意素材变成吸引人的短片 /
+          选择创作方式，上传参考素材，再描述你要的镜头和节奏。』……（图片生成那三行同理）
+          **这些都不要了，去掉之后，把下面的内容和功能适配上去**，
+          不能因为去掉一块部分你就没把其他的内容适配了哦。」
+          ⇒ 标题、副标题整块下线；创作方式页签与素材区随之**上移接上**（见 VideoStudio.css 里
+             .video-composer-surface 的 margin-top 那一处适配）。
+             ⚠️ 知渔的视频子页面也没有这块营销标题（批 Q-⑥ 已按它收过一次口），现在首页这一档也去掉。 */}
       {/* ═══ 批 N：skill 子页面**不显示创作方式切换** ═══════════════════════════════════════
           依据（用户第 18 轮原话）：「他们这些 skill 页面……**每个工作台都是不一样的呀**，
             你现在完全没抄，**用的依然是我们之前首页的视频生成版本糊弄我**」。
@@ -1498,48 +1509,14 @@ export default function VideoStudioPage({
             </button>}
           </div>
           </>}
-          {/* ═══ 融合控件：运镜 / 只改一个元素 ═══════════════════════════════════════════
-             这两条在技能库里是「辅助能力」（video.camera_move / video.scene_edit）——
-              它们不是一个独立的活儿，而是创作时的两个控制项，所以长在这里，
-              不占技能入口（用户 9-17：「融合在一些主 skill 里面」）。
-              运镜对所有创作方式都成立；「只改一个元素」只对"爆款复刻/产品植入/内容替换"
-              这类**基于已有成片**的档位成立（remake），别的档位没有"原片"可改。 */}
-          <div className="video-fuse-row">
-            <div className="video-fuse-group" role="group" aria-label="运镜">
-              <span className="video-fuse-label">运镜</span>
-              {CAMERA_MOVES.map(move => (
-                <button
-                  key={move.value || 'auto'}
-                  type="button"
-                  className={cameraMove === move.value ? 'is-selected' : ''}
-                  aria-pressed={cameraMove === move.value}
-                  onClick={() => setCameraMove(move.value)}
-                >{move.label}</button>
-              ))}
-            </div>
-            {mode === 'remake' && (
-              <div className="video-fuse-group" role="group" aria-label="只改一个元素">
-                <span className="video-fuse-label">只改一个元素</span>
-                {SCENE_EDITS.map(edit => (
-                  <button
-                    key={edit.value || 'none'}
-                    type="button"
-                    className={sceneEdit === edit.value ? 'is-selected' : ''}
-                    aria-pressed={sceneEdit === edit.value}
-                    onClick={() => setSceneEdit(edit.value)}
-                  >{edit.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* 追加了什么必须**照实显示**：这两句话会被拼到提示词末尾一起送给模型，
-              藏着不说等于偷偷改了用户的提示词。 */}
-          {extraInstructions.length > 0 && (
-            <p className="video-fuse-note">
-              将追加到提示词：{extraInstructions.join('；')}
-              <button type="button" onClick={() => { setCameraMove(''); setSceneEdit(''); }}>清空</button>
-            </p>
-          )}
+          {/* ═══ 批 W（2026-09-21）：融合控件（运镜 / 只改一个元素）**整行删除**（用户原话，逐字）════
+             原话：「第 4 条**运镜这个没必要啊，这个没有什么意思，去掉**。」
+             （上文第 4 条 = 我在 RTK 里报的「运镜 / 只改一个元素这两行知渔没有」那条冲突。）
+             ⚠️ 这两条本来就是**我们自己的**融合控件（用户 9-17 那句「融合在一些主 skill 里面」的产物），
+                知渔 31 个子页面里**一个都没有** —— 用户本轮判定它们没有价值，于是按"照抄"的原则去掉。
+             ⚠️ 运行层的机制**保留**（`workbenchExtraInstructions` 仍然只追加"这一页真的渲染过的控件"
+                的值；控件没了 ⇒ cameraMove/sceneEdit 恒为空 ⇒ 不会往提示词里追加任何东西，
+                这是批 S 那条门禁守的行为，一个字没动）。 */}
           {/* 2026-09-16 用户批注（图7-②）：「你下面没有必要写这个限制多少次，还有右边这个
               『提交时锁定本次费用』这一句，就是你这行可以去掉的，不需要去提示这个。」
               → 整行删除。字数上限是**约束**不是**说明**：MentionPromptField 到 1200 会自己截断，

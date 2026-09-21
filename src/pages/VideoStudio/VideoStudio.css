@@ -60,7 +60,7 @@
 
 /* ⚠️ 这里原本是「整行灰底 + 三等分格子」—— 那正是用户批注 #1-① 说的"一条这么宽的框"。
    窄按钮的实现全部在下方 .video-mode-tabs 那一节（本文件后写的那条覆盖它）。 */
-.video-mode-tabs { margin: 0 22px 14px; }
+.video-mode-tabs { margin: 18px 16px 12px; }
 .video-mode-tabs strong { font-size: 14px; font-weight: 700; }
 
 .video-content-composer {
@@ -755,12 +755,15 @@
 /* 面内的两块**贴边**：它们原来各自带 22px 外边距（那是"外层盒还要让开一圈"的写法），
    现在那一圈由 .video-composer-surface 自己的内边距给，再留外边距就成了双层缩进。 */
 .video-composer-surface .video-materials { margin: 0; }
+/* ═══ 批 W（2026-09-21）：素材卡（图片/视频/音频）**往右一点、往上一点**（用户原话，逐字）════════
+   原话：「你的视频生成的图片上传区和提示词输入框这里，**图片视频音频太左了呀，都快贴到边缘了，
+   挪右一点，然后向上再挪一点点**。」
+   实测对照：图片侧的素材条自己还有一层内边距（`.ec-xhs-media-strip` 是 8px 10px），
+   所以它的卡片离面边是 10 + 10 = **20px**；我们这边卡片直接吃面的 10px 内边距 —— 于是"贴边"。
+   ⇒ 给素材区补同一层内边距（左右各 10），并把它的上边距收掉（向上挪）。 */
+.video-composer-surface .video-materials { padding: 0 10px; }
+.video-composer-surface .video-materials > header { margin-bottom: 0; }
 .video-composer-surface .video-composer-input { padding: 0; }
-/* ═══ 批 U：素材区那一行（N 个 / 清空素材 / 全屏）与卡片**贴紧**（用户：「把全屏往下放一点，
-   图片、视频、音频往上面再挤一些」）—— 实测改前 header 在 y=632、卡片从 y=671 起，
-   中间空 39px；现在 header 自己不再撑高、卡片直接跟上。 */
-.video-composer-surface .video-materials > header { margin-bottom: 2px; }
-.video-composer-surface .video-materials { padding-top: 0; }
 /* 参数栏回到白底 + 上边框（与图片侧 .visual-parameter-bar 同一条语言：min-height 79 / 12px 2px 14px） */
 .video-composer:not(.is-workbench) > .video-toolbar {
   min-height: 79px;
@@ -782,7 +785,11 @@
   min-height: 0;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  /* ═══ 批 W（2026-09-21）：两颗页签之间加气口、整排**往左挪一点**（用户原话，逐字）════════════
+     原话：「另外就是**智能成片和首尾帧两个按钮贴得太近了，中间稍微有点留白呀**，
+     然后**往左边挪一点点**。」
+     ⇒ 间距 10 → 14；左外边距 22 → 16（整排左移 6px，与下面暖色面那条 10px 内边距同一族）。 */
+  gap: 14px;
   padding: 0;
   border-radius: 0;
   background: none;
@@ -942,9 +949,17 @@
 }
 /* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
 .video-config-panel-body { max-height: inherit; overflow-y: auto; }
-/* 模型行照 `.sb-opt` 的规格（图片侧那一套） */
-.video-inline-menu > button { padding: 8px 12px; border-radius: 12px; background: #f4f4f4; gap: 8px; min-height: 44px; }
+/* 模型行照 `.sb-opt` 的规格（图片侧那一套）：内边距 8/12、圆角 12、浅底、最小高 44 */
+.video-inline-menu > button { padding: 8px 12px; border-radius: 12px; background: var(--sb-surface-sunken); gap: 8px; min-height: 44px; }
 .video-inline-menu > button:hover, .video-inline-menu > button.is-selected { background: var(--sb-surface-tint-strong); }
+
+/* ═══ 批 W（2026-09-21）：模型行**回到左对齐**（用户图一：「视频生成的模型选择现在是乱码的情况了」）══
+   根因是我上一批（批 U）把面板宽度从 360 改成 480、同时把行换成 `.sb-opt` 的内边距，
+   而行的 `justify-content: space-between`（2 个子节点：图标 + 文案）在**更宽的行**里
+   把两半拉到了行两端 —— 图标贴最左、文案贴最右、中间一大片空，看起来就是"乱码"。
+   ⇒ 照图片侧 `.sb-opt` 的真实排布：**靠左、图标与文案相邻**，文案占满剩余宽度并左对齐。 */
+.video-inline-menu.is-model > button { justify-content: flex-start; align-items: center; }
+.video-inline-menu.is-model > button > span { flex: 1 1 auto; min-width: 0; text-align: left; }
 .video-inline-menu.is-model > button { align-items: flex-start; min-height: 72px; }
 .video-inline-menu.is-model .video-model-mark { margin-top: 1px; }
 .video-inline-menu.is-model button b { font-size: 13px; }

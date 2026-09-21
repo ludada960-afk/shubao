@@ -121,7 +121,14 @@ test('⑧ 融合不许只是声明：结果区按钮与控件都必须有真实�
   assert.match(moves, /export function composeVideoPrompt/);
   const studio = read('src/pages/VideoStudio/index.jsx');
   assert.match(studio, /from '\.\/cameraMoves\.js'/, 'VideoStudio 没引入融合控件模块');
-  assert.match(studio, /className="video-fuse-row"/, 'VideoStudio 没有渲染融合控件行');
+  /* ═══ 批 W（2026-09-21）：这条断言**按用户原话改判**（不是放宽）════════════════════════════
+     上一版要求创作台渲染 `.video-fuse-row`（运镜 / 只改一个元素两个融合控件）。
+     用户本轮原话（逐字）：「第 4 条**运镜这个没必要啊，这个没有什么意思，去掉**。」
+     ⇒ 那一行整组下线（知渔 31 个子页面里本来一个都没有）。
+     判据的**意图没变**（"辅助能力必须有真实实现、且它的值真的进请求体"）：
+       ① 模块与纯函数仍在（上一条断言）；② 控件的值仍走 composedPrompt 进请求体与幂等键（下面两条）。
+     所以这里把"必须渲染控件行"换成"**控件行不得再渲染**"（负向断言，更严）。 */
+  assert.doesNotMatch(studio, /className="video-fuse-row"/, '运镜/只改一个元素已按用户口径下线，不许再渲染');
   assert.match(studio, /prompt: composedPrompt/, '融合控件的指令没有进入下发的请求体');
   assert.match(studio, /composedPrompt,/, '幂等键没有用同一份 composedPrompt（两处不同源会造成重放事故）');
   /* ═══ 数量（image.batch 的融合形态）：主技能里必须真有「数量」控件 ═══════════════════════
