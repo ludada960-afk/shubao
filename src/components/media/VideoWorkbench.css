@@ -10,8 +10,33 @@
       · 这里只补视频侧独有的三样：上传框（知渔原样：虚线大框 + 两行说明 + 框内两颗按钮）、
         脚本计数与空态、要求清单与只读胶囊行。 */
 
-.video-workbench-blocks { display: grid; gap: 0; }
-.video-wb-block + .video-wb-block { padding-top: 40px; border-top: 1px solid var(--sb-border-subtle); }
+/* ═══ 批 V（2026-09-21）：块改成**知渔那种一张一张的白卡**（用户图六/图七：「这工作台是两回事啊」）══
+   用户原话：「像我们这个爆款复刻的这个子页面，你现在跟他做的也完全不一样呀，**这工作台是两回事**啊。
+   你到底还有多少东西没有抄到位啊？……你必须深度的再复查一遍。」
+   实测知渔 /video-recreation 左栏（CDP 逐层量，落档 .tmp/qy-remake-report.txt）：
+     每块 = **独立白卡**：底 #fff / 描边 0.8px #e5e7eb / 圆角 19.84 / 内边距 24.8；
+     卡里的次级信息（参考视频要求那一段）再套一层 **#f8fafc 浅灰子卡**（圆角 14.88）；
+     上传框是 **2.4px 虚线 #b8b8b8、圆角 14**。
+   我们原来是"一条到底"的平铺写法：块透明、块与块之间一条发丝线 + 40px 上边距 ——
+   所以在用户眼里根本不是同一套工作台。
+   ⚠️ 换算口径沿用本文件开头的约定：他们的根字号 19.84px，rem 类数值 ÷1.24 落到我们的档位
+     （19.84→16、24.8→20、14.88→12）；px 字面量（虚线 2.4、圆角 14）原样保留。 */
+.video-workbench-blocks { display: grid; gap: 16px; }
+.video-wb-block {
+  padding: 20px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 16px;
+  background: var(--sb-surface-card);
+}
+/* 旧写法（发丝线 + 40px 上边距）作废：现在每块自带整圈描边与圆角，再留那条线就成了双线 */
+.video-wb-block + .video-wb-block { padding-top: 20px; border-top: 1px solid var(--sb-border-default); }
+/* 清单 / 只读胶囊行：照知渔套一层浅灰子卡（用站内"凹槽底"那颗 token，不抄他们的 hex） */
+.video-wb-notes, .video-wb-tags {
+  padding: 12px 14px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 12px;
+  background: var(--sb-surface-sunken);
+}
 
 /* 计数（知渔：区块标题行右端 0/6，14px/500/灰） */
 .video-wb-count { font-size: 14px; font-weight: 500; color: var(--sb-ink-3); }
@@ -28,8 +53,10 @@
   width: 100%;
   min-height: 160px;
   padding: 20px 16px;
-  border: 2px dashed var(--sb-border-strong);
-  border-radius: 16px;
+  /* 批 V：虚线照知渔实测的**形态**（2.4px 粗虚线 / 圆角 14）—— 颜色用站内那颗"强调描边" token，
+     不抄他们的那个 hex（本站纪律：抄机制不抄长相，色值一律走 --sb-*）。 */
+  border: 2.4px dashed var(--sb-border-strong);
+  border-radius: 14px;
   background: var(--sb-surface-card);
   text-align: center;
   transition: border-color .18s ease, background-color .18s ease;

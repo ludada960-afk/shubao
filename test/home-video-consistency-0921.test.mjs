@@ -84,6 +84,29 @@ test('⑦ 各子页面里那颗重复的「一键解析商品信息」不再渲�
   assert.deepEqual(notices, [], '文案里不得再让用户去点「一键解析商品信息」：' + notices.join(' | '));
 });
 
+test('⑨ 视频子页面左栏照知渔的**卡片语言**（白卡 / 描边 / 圆角 / 浅灰子卡 / 虚线框）', () => {
+  const wbCss = read('src/components/media/VideoWorkbench.css');
+  /* 用户：「像我们这个爆款复刻的这个子页面……**这工作台是两回事**啊」——
+     实测知渔 /video-recreation：每块是一张白卡（#fff / 0.8px #e5e7eb / 圆角 19.84 / 内边距 24.8），
+     要求清单与只读胶囊再套一层 #f8fafc 浅灰子卡，上传框是 2.4px 虚线 #b8b8b8 圆角 14。 */
+  assert.match(wbCss, /\.video-wb-block \{[^}]*border: 1px solid var\(--sb-border-default\);[^}]*border-radius: 16px;[^}]*background: var\(--sb-surface-card\);/,
+    '每一块要是独立白卡（描边/圆角 16/白底）—— 色值走站内 token（不抄他们的 hex，见设 token 棘轮门禁）');
+  assert.match(wbCss, /\.video-wb-block \{[^}]*padding: 20px;/, '卡内边距 20（他们 24.8 ÷ 1.24）');
+  assert.match(wbCss, /\.video-workbench-blocks \{ display: grid; gap: 16px; \}/, '卡与卡之间 16 间距');
+  assert.match(wbCss, /\.video-wb-notes, \.video-wb-tags \{[\s\S]{0,160}background: var\(--sb-surface-sunken\);/, '清单/胶囊套浅灰子卡（凹槽底 token）');
+  assert.match(wbCss, /\.video-wb-upload \{[\s\S]{0,320}border: 2\.4px dashed var\(--sb-border-strong\);/, '上传框虚线照他们实测的形态（2.4px 粗虚线）');
+  /* 左栏不再压一层暖色盒子（那是"两回事"最刺眼的一条） */
+  assert.match(videoCss, /\.video-composer\.is-workbench \{[\s\S]{0,240}background: none;/, '子页面左栏不再有暖色底');
+});
+
+test('⑩ 上一批的四条判据仍然成立（回归）', () => {
+  /* 顶栏不压缩 / 试一试无毛玻璃 / 面板同一档宽 / 面板吸附 —— 都是本轮用户点名过的 */
+  assert.doesNotMatch(shellCss, /\.app-topbar\.is-compact \{[^}]*padding-top/);
+  assert.doesNotMatch(rowCss, /\.skill-entry-try \{[^}]*backdrop-filter/);
+  assert.match(videoPage, /const preferred = key === 'settings' \? 480/);
+  assert.match(videoPage, /window\.addEventListener\('scroll', followButton, true\)/);
+});
+
 test('⑧ AI 分析结论自动落进「门店信息」那一格（用户：「可以吧，让它自动落进去」）', () => {
   /* 纯函数：喂一份 plan，断言该进四段的进了、空的不留空段 */
   const text = planToContextText({
