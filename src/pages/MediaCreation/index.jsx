@@ -612,6 +612,29 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     return (skill?.fields || []).find(field => field.key === key)?.label || '';
   }
 
+  /* ═══ 批 U（2026-09-21）：`parseProductInfo` **删除**，回填并进 ③ 那次调用 ═════════════════════
+     用户本轮原话：「『产品卖点与设计风格，一键解析商品信息，0.2 积分』这个**也是多余的**呀，
+     下面不是都有一键润色卖点和一键解析风格吗，**各个子页面应该都有这个问题，你要去掉呀**。」
+     ⇒ 组行那颗按钮不再渲染（`parseAction={null}`）；**但它背后那条"读图回填商品字段"的能力不能丢**：
+       ③「一键解析风格」调用的本来就是**同一条上游** `autoRecognizeEcommerce`
+       （返回里同时有 product 与 style_skill，见本文件下方 paidActions 的注释），
+       所以把回填并进 ③ —— 一次点击、一次扣费、两份产物（商品字段 + 推荐风格）。
+     ⚠️ 钱路门禁（test/charge-requires-confirmation）当场抓到过这一删除的副作用：
+       `parseProductInfo` 失去了用户手势入口、变成"无人察觉即可扣费"的悬挂链路。
+       并进 ③ 之后，它的手势入口就是「一键解析风格」那颗按钮 —— 门禁恢复绿，且没有走豁免清单。 */
+
+  /* ③ 之下的回填：把同一次分析的 product 片段写成商品字段（**只在空的时候写**，不覆盖用户已写内容） */
+  function productInfoText(result) {
+    const product = result?.product || {};
+    return [
+      String(product.name || '').trim(),
+      product.category ? '品类：' + product.category : '',
+      product.material ? '材质：' + product.material : '',
+      product.dimensions ? '尺寸：' + product.dimensions : '',
+      result?.maintenance ? '保养：' + result.maintenance : '',
+    ].filter(Boolean).join('\n');
+  }
+
   /* ③ 的取图位：**所有上传位里已经就绪的图**（商品图 + 参考图都算）。
      与 ① 的 parseSourceUrls 有意不同：① 只认"商品图那一个位"，
      ③ 要的是"用户给过的全部视觉证据"—— 参考排版、场景参考都在里面。 */
@@ -624,42 +647,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     return urls.slice(0, 5);
   }
 
-  /* target：回填到哪个字段。缺省用声明源里的 fills（一键解析那颗按钮走这条）。 */
-  async function parseProductInfo(target = '') {
-    if (!skill || !parseSpec || parsing) return;
-    if (!state.logged) {
-      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
-      dispatch({ type: 'SHOW_LOGIN', show: true });
-      return;
-    }
-    const field = target || parseSpec.fills || 'productParams';
-    const ready = parseSourceUrls(field);
-    if (!ready.length) { setError('先上传商品图，再点它'); return; }
-    setParsing(true);
-    setError('');
-    setNotice('正在解析商品信息…（本次消耗 0.2 积分）');
-    try {
-      const result = await autoRecognizeEcommerce({ smartBrief: '', refShots: ready.slice(0, 5) });
-      const product = result?.product || {};
-      const lines = [
-        String(product.name || '').trim(),
-        product.category ? '品类：' + product.category : '',
-        product.material ? '材质：' + product.material : '',
-        product.dimensions ? '尺寸：' + product.dimensions : '',
-        result?.maintenance ? '保养：' + result.maintenance : '',
-      ].filter(Boolean);
-      const filled = lines.join('\n');
-      if (!filled) { setNotice(''); setError('没解析出可用信息，换一张更清楚的商品图再试'); return; }
-      setValues(prev => ({ ...prev, [field]: filled }));
-      await refreshBillingBalance?.().catch(() => undefined);
-      setNotice('已解析并填入' + (field === 'product' ? '核心卖点' : '商品信息') + '（消耗 0.2 积分），确认后再生成');
-    } catch (err) {
-      setNotice('');
-      handleError(err);
-    } finally {
-      setParsing(false);
-    }
-  }
+  /* ═══ 批 U：原来这里有一个 `parseProductInfo`（组行那颗「一键解析商品信息」的手势入口）═══════════
+     用户本轮把它整块去掉了 ⇒ 这一条就**没有独立入口**了。它不能以"函数留着但没人调"的形式存在：
+     钱路门禁（test/charge-requires-confirmation）会当场判红 ——
+     「这些扣费点既追溯不到用户手势、也不在豁免清单里 —— 用户可能在毫无察觉时被扣费」。
+     ⇒ 回填逻辑改成下面那个纯函数 `productInfoText`，由 ③「一键解析风格」在同一次调用里使用
+       （同一条上游、同一次扣费、两份产物）；扣费点因此仍然挂在**用户点过的那颗按钮**上。 */
 
   /* ═══ ② AI 润色：把已写好的卖点交给 /api/polish-ec-text（SKU ec_ai_assistant = 0.2 积分）═══
      这是**另一条上游**，不是 auto-recognize 的换皮：识别链路只回结构化商品字段，
@@ -676,7 +669,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        （给一个点了没反应的付费按钮比不给更糟，是本项目铁律。） */
     if (!text) {
       setNotice('');
-      setError('先写几句' + (fieldLabel(target) || '内容') + '，或先点上面的「一键解析商品信息」把商品信息填出来');
+      setError('先写几句' + (fieldLabel(target) || '内容') + '，再点这颗按钮润色');
       return;
     }
     setPolishing(true);
@@ -741,7 +734,20 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         setValues(prev => ({ ...prev, [target]: styleDefault, styleBrief: label }));
       }
       await refreshBillingBalance?.().catch(() => undefined);
-      setNotice('推荐风格：' + label + '（消耗 0.2 积分）');
+      /* 批 U：同一次分析里的 product 片段**一并回填商品字段** ——
+         这原来是组行那颗「一键解析商品信息」干的活（同一条上游：autoRecognizeEcommerce
+         的返回里同时有 product 与 style_skill）。用户本轮把那颗按钮去掉了，
+         能力不能跟着丢，所以并进这一次点击里：一次扣费、两份产物（推荐风格 + 商品字段）。
+         ⚠️ 只在字段为空时写 —— 用户自己写过的内容不许被模型覆盖。 */
+      const infoTarget = parseSpec?.fills || 'productParams';
+      const infoText = productInfoText(result);
+      const alreadyWritten = String(effectiveValues[infoTarget] || '').trim();
+      if (infoText && !alreadyWritten && (skill.fields || []).some(field => field.key === infoTarget)) {
+        setValues(prev => ({ ...prev, [infoTarget]: infoText }));
+        setNotice('推荐风格：' + label + '；' + (infoTarget === 'product' ? '核心卖点' : '商品信息') + '也一并填好了（消耗 0.2 积分）');
+      } else {
+        setNotice('推荐风格：' + label + '（消耗 0.2 积分）');
+      }
     } catch (err) {
       setNotice('');
       handleError(err);
@@ -808,7 +814,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         busyLabel: '正在润色…',
         note: pointsDraft
           ? '把上面这段' + pointsField.label + '按商品与平台改得更像人写的，再写回原处'
-          : '先写几句' + pointsField.label + '，或先点上面的「一键解析商品信息」',
+          : '先写几句' + pointsField.label + '，再点这颗按钮润色',
         onRun: () => { void polishPoints(pointsField.key); },
       });
     }
@@ -1387,19 +1393,16 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         deliverables={deliverables}
         sections={sections}
         paidActions={paidActions}
-        parseAction={parseSpec ? {
-          label: parseSpec.label || '一键解析',
-          /* 批 Q：知渔把「一键解析 · 0.20 积分」放在**「产品卖点与设计风格」那一行**的右端，
-             不是左栏第一行（第一行只有组名「基础信息」）—— 见 .tmp/laoyu2/qy-suite-layout.json。 */
-          group: '产品卖点与设计风格',
-          points: 0.2,
-          busy: parsing,
-          hint: '上传商品图后点它，自动把商品名 / 品类 / 材质 / 尺寸填好',
-          /* ⚠️ 必须包一层：onClick 会把**点击事件对象**当第一个参数传进来，
-             而 parseProductInfo 的第一个参数是"回填到哪个字段" —— 直接挂上去
-             会把事件对象当成字段名写进 values，而且必填校验会莫名通过。 */
-          onRun: () => { void parseProductInfo(); },
-        } : null}
+        /* ═══ 批 U（2026-09-21）：左栏那一颗「一键解析商品信息」**整块删除**（用户本轮原话）════
+           原话：「你看一下图一，『产品卖点与设计风格，一键解析商品信息，0.2 积分』，这个**也是多余的**呀，
+           下面不是都有一键润色卖点和一键解析风格吗，**各个子页面应该都有这个问题，你要去掉呀**。」
+           —— 三颗都挂在同一片区域上：组行那颗读**商品图**回填商品字段，下面两颗一颗润色卖点文字、
+              一颗判设计风格；而「判风格」与「读商品图」本来就是**同一次 auto-recognize 推理的两种用法**
+              （见下面 paidActions 的注释），所以组行那一颗是重复入口。
+           ⇒ 不再渲染 parseAction（组件那一侧的能力保留、调用点传 null，别的页面要复用还有路）；
+              parseProductInfo 这条链路仍然活着：它现在是「一键解析风格」那次调用的同一份产物。
+           ⚠️ 两处提到它的说明文案一并改掉（否则页面上会指着一颗不存在的按钮让用户去点）。 */
+        parseAction={null}
         /* ═══ 2026-09-19 用户口径（本轮澄清，原文）═══════════════════════════════════════════
            「各个子skill自己的页面跑生成的话，一方面是会在工作台右边的**历史**里面展示自己这个
              skill 生成的历史记录，另一方面**同时也**会进入**我的作品**里面去。」

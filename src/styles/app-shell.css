@@ -781,13 +781,16 @@
   }
 }
 
-/* 滚动感知紧凑态：板块切换 + 积分始终可见 */
-.app-topbar { position: sticky; top: 0; transition: padding .18s ease, background .18s ease, box-shadow .18s ease; }
-.app-topbar.is-compact { padding-top: var(--sb-space-2); background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 1px 0 rgba(15,23,42,0.06); }
-.app-topbar.is-compact .topbar-row { padding-block: 4px; }
-.app-topbar.is-compact .topbar-logo { font-size: var(--sb-text-base); }
-.app-topbar.is-compact .topbar-brand-mark { width: 24px; height: 24px; }
-.app-topbar.is-compact .creative-nav-panel { padding-block: 4px; }
+/* ═══ 批 U（2026-09-21）：滚动时**头部不再压缩**（用户本轮原话，逐字）═══════════════════════
+   原话：「图片生成这边的这个面板，我只要一打开的话，首页左上角 LOGO 和右上角的登录按钮
+   都会**向上面挤压**，你这个是**绝对不对的**。」
+   实测（线上 420px 滚动）：改前 `is-compact` 把 padding-top 28→8、行高 50→42、标 42→34，
+   头部整块从 80 掉到 **69**，LOGO 从 y=28 跳到 **12** —— 用户看到的"挤压"就是这个跳动
+   （触发条件是滚动，不是打开面板；但结果一样：头会跳）。
+   这一档本来就是**我们自己加的**（原文「滚动感知紧凑态」，没有任何用户口径依据），
+   所以按用户口径去掉几何压缩，只保留毛玻璃底与发丝描边 —— 滚动时头部纹丝不动。 */
+.app-topbar { position: sticky; top: 0; transition: background .18s ease, box-shadow .18s ease; }
+.app-topbar.is-compact { background: rgba(255,255,255,0.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 1px 0 rgba(15,23,42,0.06); }
 @media (prefers-reduced-motion: reduce) { .app-topbar { transition: none; } }
 
 /* ═══ 板块切换条：两个总页面 / 子页面内容区的最上面一条（用户批注 #11-⑤ 的落点）════════

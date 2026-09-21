@@ -704,9 +704,16 @@
   overflow: visible;
 }
 .video-composer:not(.is-workbench) { background: none; overflow: visible; }
-/* 暖色面：渐变与圆角逐值复用图片侧那条（本文件第 41-47 行记录的就是照它抄来的那条） */
+/* 暖色面：渐变与圆角逐值复用图片侧那条（本文件第 41-47 行记录的就是照它抄来的那条）
+   ═══ 批 U（2026-09-21）：内边距**照图片侧的 8px 10px 10px**（用户本轮原话）═══════════════════
+   原话：「还有视频生成这边你现在的这个**暖黄色输入框的周边**了。我已经跟你说过了，你要去抄
+   图片生成那边的样式呀，**那边是没有那么多留白的呀**。你是不是应该把全屏给往下放一点，
+   然后图片、视频、音频往上面再挤一些呢？还有你下面的那个输入区和 @ 都应该往左边和下面适配啊。」
+   实测：图片侧 .visual-composer-surface 的内边距就是 **8 / 10 / 10**（本轮 CDP 复测），
+   我们上一版是 14 / 22 / 12 —— 上下各多 6、左右各多 12，那就是用户说的"那么多留白"。
+   ⇒ 逐值改成同一组；面内的两块不再自己带外边距（见下面的两条 override）。 */
 .video-composer-surface {
-  padding: 14px 22px 12px;
+  padding: 8px 10px 10px;
   border: 1px solid rgba(52, 43, 35, .08);
   border-radius: 16px;
   overflow: hidden;
@@ -717,6 +724,11 @@
    现在那一圈由 .video-composer-surface 自己的内边距给，再留外边距就成了双层缩进。 */
 .video-composer-surface .video-materials { margin: 0; }
 .video-composer-surface .video-composer-input { padding: 0; }
+/* ═══ 批 U：素材区那一行（N 个 / 清空素材 / 全屏）与卡片**贴紧**（用户：「把全屏往下放一点，
+   图片、视频、音频往上面再挤一些」）—— 实测改前 header 在 y=632、卡片从 y=671 起，
+   中间空 39px；现在 header 自己不再撑高、卡片直接跟上。 */
+.video-composer-surface .video-materials > header { margin-bottom: 2px; }
+.video-composer-surface .video-materials { padding-top: 0; }
 /* 参数栏回到白底 + 上边框（与图片侧 .visual-parameter-bar 同一条语言：min-height 79 / 12px 2px 14px） */
 .video-composer:not(.is-workbench) > .video-toolbar {
   min-height: 79px;
@@ -872,7 +884,35 @@
 .video-model-mark b { font: 800 13px/1 ui-sans-serif,system-ui,sans-serif; transform: skewX(-11deg); }
 .video-model-mark.is-seedance { background: var(--sb-neutral-0); box-shadow: inset 0 0 0 1px rgba(61,50,41,.10); }
 .video-model-mark.is-minimax { background: var(--sb-neutral-0); }
-.video-inline-menu.is-model { width: 360px; }
+.video-inline-menu.is-model { width: 480px; }
+
+/* ═══ 批 U（2026-09-21）：视频侧两个面板**照图片侧的规格**（用户本轮原话，逐字）═══════════════
+   原话：「我感觉你做东西一直没有一个大局观……你现在**视频生成和图片生成的这两块地方，
+   他们下面其实做的东西都是类似的，都是选模型，还有一个配置这两个按钮**，那他们的面板为什么
+   不能做样式一致的做法呢？也就是说他们的**比例大小、他们里面做的东西、他们的一些规格、色彩、
+   UI、交互，我觉得都应该保持一致**呀。我先告诉你这个图片生成这边要怎么改吧，
+   然后你**视频生成那边就按照图片生成这边的规格去做**。」
+   实测图片侧 `.visual-config-panel`（本轮 CDP，落档 .tmp/imgpanel-container.txt）：
+     宽 480 / 圆角 **8** / 底 `--sb-surface-panel-solid`（纯白，不透明）/ 描边 1px rgba(255,255,255,.86)
+     / 阴影 `0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06)`
+     / 行 `.sb-opt`：内边距 8px 12px、圆角 12、底 #f4f4f4、gap 8、最小高 44
+   ⇒ 两个视频面板全部换成这一组值（原来是我们自己的 521/圆角 12/另一条阴影、模型行另一套）。
+     宽度不再按内容猜：与图片侧同一档 **480**（`positionPanel` 与 `positionModelMenu` 同步改）。
+   ⚠️ 这条**推翻上一版**（上一版照的是知渔 dashboard 的 521 / 内边距 25）—— 依据是本轮这句
+     「视频生成按照图片生成这边的规格做」：**站内一致**优先于**照抄竞品的具体数字**。 */
+.video-config-panel,
+.video-inline-menu {
+  border: 1px solid rgba(255, 255, 255, .86);
+  border-radius: 8px;
+  background: var(--sb-surface-panel-solid);
+  box-shadow: 0 28px 80px rgba(37, 30, 24, .18), 0 2px 10px rgba(37, 30, 24, .06);
+  overflow: visible;
+}
+/* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
+.video-config-panel-body { max-height: inherit; overflow-y: auto; }
+/* 模型行照 `.sb-opt` 的规格（图片侧那一套） */
+.video-inline-menu > button { padding: 8px 12px; border-radius: 12px; background: #f4f4f4; gap: 8px; min-height: 44px; }
+.video-inline-menu > button:hover, .video-inline-menu > button.is-selected { background: var(--sb-surface-tint-strong); }
 .video-inline-menu.is-model > button { align-items: flex-start; min-height: 72px; }
 .video-inline-menu.is-model .video-model-mark { margin-top: 1px; }
 .video-inline-menu.is-model button b { font-size: 13px; }

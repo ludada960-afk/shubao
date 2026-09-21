@@ -146,27 +146,37 @@ test('③ 「试一试」长在按钮自己的覆盖层上，且按钮悬停零�
     '图标磁贴悬停放大 1.05（liuyingai 逐值）');
 });
 
-/* ═══ 批 J-⑦：悬停出的是**遮罩**（毛玻璃），试一试在遮罩上 —— 用户批注 #3-3 ═══════════════
-   原话：「他们是左边有图片，右边是文字，然后**鼠标放上去才会出现那个遮罩，遮罩上面是试一试**。
-   然后他们会有一个预览窗，可以看到他们的描述和样式……他们的样式是采用什么样的技术，
-   比如说**毛玻璃**。」
-   改前：试一试是从右侧滑进来的小药丸 —— 那不是遮罩，只盖住按钮右边一小块。 */
-test('⑦ 悬停出整块毛玻璃遮罩，试一试落在遮罩上', () => {
+/* ═══ 批 J-⑦ → 批 U（2026-09-21）**改判**：悬停时**内容隐藏 + 原地「试一试」**（照 flova 实测）═══
+   上一版（批 J-⑦）守的是"整块毛玻璃遮罩，试一试落在遮罩上"，依据是用户批注 #3-3 那句
+   「鼠标放上去才会出现那个遮罩，遮罩上面是试一试……他们的样式比如说毛玻璃」。
+   用户本轮原话（逐字）：「我们现在的推荐 skill 这些按钮，鼠标放上去的**试一试是变形的**，
+   你要抄图三的做法呀：https://flova.tv/zh-CN/ ，鼠标放上去的样式我也给你看了，你自己最好
+   **操作个鼠标去看看**，不要仅凭我这样说去做判断。」
+   实测 flova（真鼠标事件 + 读 DOM，落档 .tmp/flova-hover-report.txt）：
+     按钮里那一层 `… md:group-hover:invisible …`（装着封面图 + 标题）**悬停时整层 visibility: hidden**，
+     按钮自己的底与圆角不变、**没有第二层底**；「试一试」是原地换上去的纯文字。
+   ⇒ 我们那层半透明毛玻璃会让底下的字透出来，与「试一试」叠在一起 —— 那正是"变形"。
+     新判据：① 悬停时内容（图标 + 名字）**隐藏**；② 「试一试」仍是整块覆盖层、圆角继承；
+             ③ **不再铺第二层底/毛玻璃**（底就是按钮自己那一层）。
+   ⚠️ 预览窗（浮层）继续走毛玻璃 token —— 那是浮层，与按钮内的悬停态是两件事。 */
+test('⑦ 悬停：内容隐藏 + 原地「试一试」（照 flova，不再压毛玻璃）', () => {
   assert.match(rowCss, /\.skill-entry-try \{[^}]*position: absolute; inset: 0;/,
-    '试一试必须是**整块**覆盖层（inset:0），不是右侧一颗小药丸');
+    '试一试仍是**整块**覆盖层（inset:0），不是右侧一颗小药丸');
   assert.match(rowCss, /\.skill-entry-try \{[^}]*border-radius: inherit;/,
-    '遮罩圆角要继承按钮（按钮不能加 overflow:hidden —— 会裁掉右上角的能力标签）');
-  assert.match(rowCss, /\.skill-entry-try \{[^}]*background: var\(--sb-glass-panel\)/,
-    '遮罩底走全站唯一那颗毛玻璃 token');
-  assert.match(rowCss, /\.skill-entry-try \{[^}]*backdrop-filter: blur\(var\(--sb-blur-panel\)\) saturate\(var\(--sb-saturate-glass\)\)/,
-    '毛玻璃的模糊/饱和度走 token（用户明说"毛玻璃"）');
-  /* 遮罩会盖住文字层，所以那句话必须还能被读到一次 —— 按钮自己的 aria-label 里有「试一试」 */
+    '覆盖层圆角要继承按钮（按钮不能加 overflow:hidden —— 会裁掉右上角的能力标签）');
+  assert.match(rowCss, /\.skill-entry-button:hover \.skill-entry-name,[\s\S]{0,400}visibility: hidden;/,
+    '悬停时名字要隐藏（flova 的 group-hover:invisible 就是这条）');
+  assert.match(rowCss, /\.skill-entry-button:hover \.skill-entry-glyph,[\s\S]{0,400}visibility: hidden;/,
+    '悬停时图标也要隐藏（否则会与「试一试」叠在一起 = 用户说的"变形"）');
+  assert.doesNotMatch(rowCss, /\.skill-entry-try \{[^}]*backdrop-filter/,
+    '不再压毛玻璃（用户：「试一试是变形的」，实测 flova 没有第二层底）');
+  /* 那句话必须还能被读到一次 —— 按钮自己的 aria-label 里有「试一试」 */
   assert.match(row, /aria-label=\{skill\.name \+ ' · 试一试'\}/);
   assert.match(row, /className="skill-entry-try" aria-hidden="true"/,
-    '遮罩是纯装饰，别把「试一试」读两遍');
-  /* 预览窗同一颗玻璃底（浮层与遮罩同一门语言） */
+    '覆盖层是纯装饰，别把「试一试」读两遍');
+  /* 预览窗（浮层）仍走同一颗玻璃底 */
   const previewBlock = rowCss.slice(rowCss.indexOf('.skill-preview {'), rowCss.indexOf('.skill-preview-copy'));
-  assert.match(previewBlock, /background: var\(--sb-glass-panel\)/, '预览窗也是毛玻璃');
+  assert.match(previewBlock, /background: var\(--sb-glass-panel\)/, '预览窗仍是毛玻璃（浮层与按钮悬停态是两件事）');
 });
 
 test('④ 键盘可达 + 首页点击走 skillPath（与 Hub / 总页面共用一份算法）', () => {

@@ -1008,29 +1008,42 @@ try {
       board + ' Hub 只显示那一档的技能', JSON.stringify(one));
   }
 
-  /* ═══ ⑳ 一键解析（付费前置动作，照竞品做法）═══
-     竞品实测：他们的商品套图 / A+ / 详情图页都有一个「一键解析 · 0.20 积分」，
-     上传商品图后点它，商品名/卖点自动填好。我们用的是现成的
-     /api/ecommerce/auto-recognize（视觉识别 + LLM 结构化），计费 SKU 是既有的
-     ec_ai_assistant = 200 units = 0.2 积分 —— 与竞品同价。 */
-  scenario('⑳ 一键解析（0.2 积分，先报价再解析，未登录不发请求）');
+  /* ═══ ⑳ 付费前置动作（照竞品做法）—— 批 U 改判：目标从「一键解析商品信息」换成「一键解析风格」══
+     竞品实测：他们的商品套图 / A+ / 详情图页都有一个「一键解析 · 0.20 积分」。
+     我们用的是现成的 /api/ecommerce/auto-recognize（视觉识别 + LLM 结构化），
+     计费 SKU 是既有的 ec_ai_assistant = 200 units = 0.2 积分 —— 与竞品同价。
+     ⚠️ 2026-09-21 批 U **改判（判据没变，目标变了）**：用户本轮原话
+       「『产品卖点与设计风格，一键解析商品信息，0.2 积分』这个**也是多余的**呀，下面不是都有
+        一键润色卖点和一键解析风格吗，**各个子页面应该都有这个问题，你要去掉呀**。」
+     ⇒ 组行那一颗（`.media-workbench-parse`）**不再渲染**，所以这条场景改点同页仍在的
+       「一键解析风格」（`.media-workbench-inline-action`）——它调的是**同一条上游**、
+       走**同一个 SKU**，而且现在**把商品字段一并回填**（原来那颗按钮的产物并进来了）。
+       场景要守的东西一条没少：钱写在按钮上 / 没输入不发请求 / 先报价后扣费 / 未登录不发请求。 */
+  scenario('⑳ 付费前置动作（0.2 积分，先报价再解析，未登录不发请求）');
+  const ANALYZE_SELECTOR = 'button.media-workbench-inline-action:has-text("一键解析风格")';
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.media-workbench-parse', { timeout: 20000 });
-  const parseButton = await page.evaluate(() => document.querySelector('.media-workbench-parse')?.textContent.replace(/\s+/g, ' ').trim() || '');
-  check(parseButton.includes('一键解析') && parseButton.includes('0.2 积分'), '解析按钮上写着它要多少钱（扣费动作不许让人猜）', parseButton);
+  await page.waitForSelector(ANALYZE_SELECTOR, { timeout: 20000 });
+  /* ⚠️ `:has-text()` 是 **Playwright 的选择器**，只能在 page.click / waitForSelector 里用；
+     传给 page.evaluate 就落到浏览器的 querySelectorAll 上，会报 "not a valid selector"（本轮踩到）。
+     所以取值这一处按文本在 JS 里筛。 */
+  const parseButton = await page.evaluate(() => {
+    const el = [...document.querySelectorAll('button.media-workbench-inline-action')].find(button => /一键解析风格/.test(button.textContent || ''));
+    return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+  });
+  check(parseButton.includes('一键解析风格') && parseButton.includes('0.2 积分'), '解析按钮上写着它要多少钱（扣费动作不许让人猜）', parseButton);
   /* 没上传就点：就地提醒，不发任何请求（更不扣费） */
   const recognizeBefore = calls.recognize.length;
-  await page.click('.media-workbench-parse');
+  await page.click(ANALYZE_SELECTOR);
   await page.waitForTimeout(500);
   const noUpload = await page.evaluate(() => document.querySelector('.media-run-global')?.textContent || '');
   check(calls.recognize.length === recognizeBefore, '没上传商品图时点了也不发请求（不扣费）', String(calls.recognize.length - recognizeBefore));
   check(noUpload.includes('先上传'), '就地告诉用户缺什么', noUpload.slice(0, 30));
 
-  /* 上传之后点：先报价（ec_ai_assistant）→ 再解析 → 字段自动填好 */
+  /* 上传之后点：先报价（ec_ai_assistant）→ 再解析 → 风格判定 + 商品字段一并填好 */
   await page.setInputFiles('.media-field-upload input[type=file]', UPLOAD_FILE);
   await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress'), null, { timeout: 15000 });
   const quoteBefore = calls.quote.length;
-  await page.click('.media-workbench-parse');
+  await page.click(ANALYZE_SELECTOR);
   await page.waitForFunction(() => {
     const box = document.querySelector('.media-workbench-fields textarea');
     return box && /白瓷马克杯/.test(box.value || '');
@@ -1044,7 +1057,7 @@ try {
   check(calls.recognize.length === recognizeBefore + 1, '只发一次解析请求', String(calls.recognize.length - recognizeBefore));
   check(Array.isArray(calls.recognize[0]?.refShots) && calls.recognize[0].refShots.length === 1, '解析请求带上了上传的商品图', JSON.stringify(calls.recognize[0]?.refShots || []));
   check(Boolean(calls.recognize[0]?.billing_quote_id && calls.recognize[0]?.billing_action_id), '解析请求带上了报价（先报价后扣费）');
-  check(parsed.value.includes('白瓷马克杯') && parsed.value.includes('家居生活'), '解析结果回填进「商品信息」字段', parsed.value.slice(0, 40));
+  check(parsed.value.includes('白瓷马克杯') && parsed.value.includes('家居生活'), '解析结果回填进「商品信息」字段（原来那颗按钮的产物并进了这一次点击）', parsed.value.slice(0, 40));
   check(parsed.notice.includes('0.2 积分'), '告诉用户这次解析花了多少积分', parsed.notice.slice(0, 40));
 
   /* 未登录：只弹登录，不发解析请求（钱规矩） */
@@ -1053,9 +1066,9 @@ try {
   await page.evaluate(SUPPRESS_SEED);
   await page.evaluate(() => localStorage.removeItem('sb-auth'));
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=image.product_suite', { waitUntil: 'load', timeout: 40000 });
-  await page.waitForSelector('.media-workbench-parse', { timeout: 20000 });
+  await page.waitForSelector(ANALYZE_SELECTOR, { timeout: 20000 });
   const recognizeBeforeLogin = calls.recognize.length;
-  await page.click('.media-workbench-parse');
+  await page.click(ANALYZE_SELECTOR);
   await page.waitForTimeout(600);
   check(calls.recognize.length === recognizeBeforeLogin, '未登录点解析：不发请求（不会偷偷扣费）');
   /* 与场景 ⑥ 用同一个选择器（登录弹窗是既有的 .ld-overlay / .ld-card，不另造一个） */

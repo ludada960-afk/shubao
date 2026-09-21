@@ -88,3 +88,44 @@ export function workbenchExtraInstructions({ blocks = [], cameraMove = '', scene
     hasSwapControl ? swapInstruction(swapTarget) : '',
   ].filter(Boolean);
 }
+
+/* ═══ 把方案分析的结论写成工作台里那一格「背景信息」的四段式文本（批 U）══════════════════════
+   用户原话（2026-09-21，回答我上一批的提问）：「**可以吧，让它自动落进去**」——
+   指知渔 /store-visit-video 那张页面的行为：「门店信息」标题下的输入框是 AI 分析的**落点**，
+   结论写进去、用户还能直接改（我们上一批只做出了"可编辑"，没有落点）。
+   判据来源：知渔那一格的占位原文就是四段式
+     「一、门店基础视觉信息 / 二、空间环境细节 / 三、可复用探店镜头提示词素材库 / 四、信息校验备注」
+     （docs/design/data/quantv-video-pages.json 的 panelInputs）——所以这里按同样四段组织，
+     素材逐条进「一」与「二」、分镜逐拍进「三」、第四段如实写"由 AI 分析生成、可直接修改"。
+   ⚠️ 纯函数：门禁可以直接喂一份 plan 断言"该进的进了、空的不留空段"，不必跑视频。
+   ⚠️ 调用方**只在那一格为空时**才写（绝不覆盖用户已经写下的内容）。 */
+export function planToContextText(plan) {
+  const text = value => String(value == null ? '' : value).trim();
+  const list = value => (Array.isArray(value) ? value : []);
+  const safe = plan && typeof plan === 'object' ? plan : {};
+
+  const basics = [text(safe.summary), text(safe.creativeStrategy)].filter(Boolean);
+  const assets = list(safe.assets).map(asset => {
+    const name = text(asset?.name) || text(asset?.role);
+    const observations = list(asset?.observations).map(text).filter(Boolean);
+    const use = text(asset?.use);
+    const line = [name, ...observations, use].filter(Boolean).join('；');
+    return line;
+  }).filter(Boolean);
+  const beats = list(safe.beats).map(beat => {
+    const time = text(beat?.time);
+    const label = text(beat?.label);
+    const detail = text(beat?.detail);
+    const line = [[time, label].filter(Boolean).join(' '), detail].filter(Boolean).join('：');
+    return line;
+  }).filter(Boolean);
+
+  const sections = [
+    basics.length ? '一、门店基础视觉信息\n' + basics.join('\n') : '',
+    assets.length ? '二、空间环境细节\n' + assets.map(line => '· ' + line).join('\n') : '',
+    beats.length ? '三、可复用探店镜头提示词素材库\n' + beats.map(line => '· ' + line).join('\n') : '',
+    (basics.length || assets.length || beats.length) ? '四、信息校验备注\n· 以上由 AI 分析生成，可直接修改；改完会作为门店背景一起下发' : '',
+  ].filter(Boolean);
+
+  return sections.join('\n\n').slice(0, 2000);
+}

@@ -249,6 +249,17 @@
   box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06);
 }
 
+/* ═══ 批 U（2026-09-21）：**去掉那条"没东西可滚"的滚动条**（用户本轮原话，逐字）══════════════
+   原话：「还有就是你图片生成这边的两个面板，他们右边都有一个鼠标滚轮上下滚动的一个滚动条，
+   问题是他们**根本没有那么多信息可以去滚动**呀。你加这个滚动条是要干什么呢？很多余啊。」
+   实测（.tmp/imgpanel-container.txt）：面板 clientH **537** / scrollH **545** —— 只多 8px，
+   而多出来的那 8px **不是内容**：是下面那个指向按钮的小箭头（`::after` 的 bottom:-6px）。
+   它一溢出，`overflow-y: auto` 就画出一条滚动条，而用户滚不动任何东西 —— 正是他说的"多余"。
+   ⇒ 滚动权交给**内层 body**（`max-height: inherit` 继承面板的 maxHeight），面板自己不再滚：
+     内容真的超长时照样能滚，而被箭头"骗"出来的那条不再出现。 */
+.visual-config-panel { overflow: visible; }
+.visual-config-panel-body { max-height: inherit; overflow-y: auto; }
+
 .visual-config-panel::after {
   position: absolute;
   left: var(--visual-panel-anchor-x);

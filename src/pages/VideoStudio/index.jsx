@@ -74,7 +74,7 @@ import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import VideoCanvasWorkbench from './VideoCanvasWorkbench.jsx';
 import DirectorWorkbench from './DirectorWorkbench.jsx';
 import { tagVideoJob } from './videoJobTags.js';
-import { CAMERA_MOVES, SCENE_EDITS, composeVideoPrompt, workbenchExtraInstructions } from './cameraMoves.js';
+import { CAMERA_MOVES, SCENE_EDITS, composeVideoPrompt, planToContextText, workbenchExtraInstructions } from './cameraMoves.js';
 import VideoWorkbench from '../../components/media/VideoWorkbench.jsx';
 /* 批 K-D：视频侧「代为撰写」与图片侧「生成预览」共用同一个三步方案预览对话框 */
 import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
@@ -555,7 +555,14 @@ export default function VideoStudioPage({
        他们那一栏的内宽因此正好是 521 − 2×25 = 471 = 3 张 150 宽的比例卡 + 2 条 10 的缝 ——
        这不是随手写的数，是"照抄"这条要求落到的具体几何（实测见 .tmp/qy-settings-report.txt）。
        其余面板（镜头规格 / 声音）宽度不变，它们没有对应页可比。 */
-    const preferred = key === 'settings' ? 521 : key === 'assets' ? 580 : 520;
+    /* ═══ 批 U（2026-09-21）：宽度统一到**图片侧那一档 480**（用户本轮原话）══════════════════════
+       原话：「视频生成和图片生成的这两块地方……都是选模型，还有一个配置这两个按钮，那他们的面板
+       为什么不能做样式一致的做法呢？……**比例大小、里面做的东西、规格、色彩、UI、交互都应该保持
+       一致**呀。……视频生成那边就**按照图片生成这边的规格去做**。」
+       ⇒ 这条**推翻上一版**（上一版照知渔 dashboard 用了 521 + 内边距 25，那组数是"照抄竞品"来的）；
+         本轮用户要的是**站内两个板块一致**，所以两个视频面板（生成设置 / 镜头规格 / 模型菜单）
+         全部对齐图片侧 `.visual-config-panel` 的 **480**。 */
+    const preferred = key === 'settings' ? 480 : key === 'assets' ? 480 : 480;
     const width = Math.min(Math.max(360, preferred), viewportWidth - 24);
     const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12));
     setPanelPosition({
@@ -584,7 +591,8 @@ export default function VideoStudioPage({
     if (!button) return;
     const rect = button.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const width = Math.min(360, viewportWidth - 24);
+    /* 批 U：宽度与图片侧的模型面板同一档（480）—— 用户要求两块保持一致的规格 */
+    const width = Math.min(480, viewportWidth - 24);
     setModelAnchor({
       left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12)),
       bottom: Math.max(12, window.innerHeight - rect.top + 8),
@@ -654,6 +662,16 @@ export default function VideoStudioPage({
       if (quickToolsRef.current?.contains(target)) return;
       setInlineMenu(null);
     };
+    /* ═══ 批 U（2026-09-21）：面板必须**吸在按钮上**（用户本轮原话，逐字）═══════════════════════
+       原话：「你现在这个视频模型的面板是**会脱离你的这个按钮的**，这个是不行的，**一定是要吸附在
+       上面的**。」
+       根因：模型菜单是 `position: fixed` + **开面板那一刻**算出来的坐标（positionModelMenu），
+       之后页面一滚、窗口一缩，按钮跑了，面板还钉在原地 —— 两张皮。
+       图片侧的面板一直有这两个监听（见 VisualCreationMode 里同一个 effect），视频侧漏了。
+       ⇒ 补齐：滚动（捕获阶段，左栏内部滚也吃得到）与缩放都重新定位，与配置面板同一个口径。 */
+    const followButton = () => positionModelMenu();
+    window.addEventListener('resize', followButton);
+    window.addEventListener('scroll', followButton, true);
     const closeOnEscape = event => {
       if (event.key === 'Escape') setInlineMenu(null);
     };
@@ -662,8 +680,10 @@ export default function VideoStudioPage({
     return () => {
       document.removeEventListener('pointerdown', closeMenu);
       document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', followButton);
+      window.removeEventListener('scroll', followButton, true);
     };
-  }, [inlineMenu]);
+  }, [inlineMenu, positionModelMenu]);
 
   const refreshUploads = useCallback(() => setUploadRevision(value => value + 1), []);
 
@@ -997,6 +1017,18 @@ export default function VideoStudioPage({
       });
       setPlannedUploads({ signature: planSignature, assets: { first, last, images, videos, audios } });
       setAnalyzedPlan(result.plan);
+      /* ═══ 批 U：分析结论**自动落进**工作台里那一格「背景信息」（用户：「可以吧，让它自动落进去」）═══
+         知渔那一页的行为是：AI 分析完，结论直接写在「门店信息」的输入框里、用户还能改。
+         我们上一批只做了"可编辑"，没有落点 —— 这一条补上。
+         ⚠️ 两条纪律：① **只在那一格为空时**写（绝不覆盖用户已经写下的内容）；
+                    ② 只写声明了这种"非主文本格"的技能（探店漫游那一页有，别的页没有就不写）。 */
+      const contextBlock = (workbench?.blocks || []).find(block => block.kind === 'text' && block.key !== 'prompt');
+      if (contextBlock) {
+        const filled = planToContextText(result.plan);
+        if (filled) {
+          setBlockTexts(current => (String(current[contextBlock.key] || '').trim() ? current : { ...current, [contextBlock.key]: filled }));
+        }
+      }
       setAnalyzedSignature(planSignature);
       setPlanReviewed(false);
       setPlanOpen(true);
@@ -1452,11 +1484,18 @@ export default function VideoStudioPage({
                 位置照知渔实测：**输入框旁**（他们放在输入框下方那一行的右端，原文「代为撰写」）。
                 ⚠️ 它是一条**纯文字按钮**，不是胶囊：无底色、无边框、无圆角，靠 font-bold + 80% 透明度
                   + sparkles 图标区分于正文（docs/design/61 §3 原话：「重点在克制：不要给它加胶囊底色」）。
-                点开的是与图片侧「生成预览」**同一份**三步方案预览，只是文案与入口不同。 */}
-            <button type="button" className="video-dawei-entry" onClick={runDawei}>
+                点开的是与图片侧「生成预览」**同一份**三步方案预览，只是文案与入口不同。
+                ═══ 批 U（2026-09-21）：**首页那一档不再渲染它**（用户本轮原话，逐字）══════════════
+                原话：「还有你下面的那个输入区和 @ 都应该往左边和下面适配啊，然后那个**代为撰写
+                首页这边是不需要的，我们的竞争对手他们也没有这个呀**。」
+                实测确是如此：知渔 /ai-video（我们要照的那一页）输入框那一行只有 @，没有「代为撰写」
+                —— 那一颗出现在**其它**路由页（爆款复刻 / 探店视频那几条）里。
+                独立创作台（/video-studio，不是首页）保留：那一页是"首页输入框"的等价物，
+                且它的方案入口只有这一个；首页的等价入口是右下角那颗主 CTA（分析并生成方案）。 */}
+            {!homeComposer && <button type="button" className="video-dawei-entry" onClick={runDawei}>
               <Sparkles size={14} />
               代为撰写
-            </button>
+            </button>}
           </div>
           </>}
           {/* ═══ 融合控件：运镜 / 只改一个元素 ═══════════════════════════════════════════
