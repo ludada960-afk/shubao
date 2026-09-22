@@ -211,3 +211,37 @@ test('public products omit hidden routes and private provider details', () => {
   assert.deepEqual(quotes.get('sd_js'), { sku: 'video_sd_js_short', units: 21578, points: 22 });
   assert.deepEqual(quotes.get('seedance_mini'), { sku: 'video_seedance_mini_short', units: 31317, points: 32 });
 });
+
+/* 2026-09-23：用户原话「480P / 1080P 这个为什么不能做呢，https://new.ip233.com/docs/models
+   你再好好看看文档，确定是没有的吗？」—— 复核结论分两半，这门禁把两半都钉住：
+   （一）**480P 能做，而且已经开了一档**：上游文档站（数据源就是 /api/pricing，
+        pricing_version=ip233-route-v2）里 routeId 逐字相同的两条在 default 分组下给出
+        per_second 480p 报价，且都**不高于**各自 720p 的报价 ⇒ 同价提供不会让毛利变差：
+          xn-wan3.0   480p ¥0.26/秒 vs 720p ¥0.325/秒 → 站内 wan_standard 开 480P
+          （另一条是 seedance_mini，早就双档）
+   （二）**1080P 只差定价决定**：同两条路由的 1080p 报价是 720p 的 1.4~2.9 倍
+        （xn-wan3.0 0.455 vs 0.325；xn-seedance-2.0-second 1.859 vs 0.65），
+        而站内是**按条固定价**、清晰度不进 SKU 也不进扣费口径 ⇒ 同价开 1080P 等于降价，
+        属定价决定，须用户批准，故本轮**故意不开**（这个断言就是「不许偷偷开」）。 */
+test('480P 档按上游文档价目开（比 720P 便宜才允许开），1080P 仍需定价批准', () => {
+  const wan = getVideoProduct('wan_standard');
+  assert.deepEqual(wan.resolutions, ['720p', '480p']);
+
+  /* 与 seedance_mini 同一条规矩：720p 必须在第一位，否则前端按 resolutions[0] 兜底时
+     默认档会从 720p 掉到 480p */
+  for (const id of ['wan_standard', 'seedance_mini']) {
+    assert.equal(getVideoProduct(id).resolutions[0], '720p', `${id} 的第一档必须是 720p`);
+  }
+
+  /* 480P 只在有文档价目证据的档位开：除此之外任何产品都不许出现 480p，除非补了新证据 */
+  const with480 = Object.values(VIDEO_PRODUCTS).filter(p => p.resolutions.includes('480p')).map(p => p.id);
+  assert.deepEqual(with480.sort(), ['seedance_mini', 'wan_standard']);
+
+  /* 1080p 在站内一个公开档都不许有（上游要么是另一条 blocked 路由，要么是定价决定） */
+  const with1080 = Object.values(VIDEO_PRODUCTS).filter(p => p.public === true && p.resolutions.includes('1080p'));
+  assert.deepEqual(with1080, []);
+
+  /* 上游文档里那两条**名字逐字相同**的路由，就是上面两条判断的来源 */
+  assert.equal(wan.routeId, 'xn-wan3.0');
+  assert.equal(routeReachability('xn-wan3.0').state, 'callable');
+});

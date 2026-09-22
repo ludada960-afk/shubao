@@ -40,7 +40,16 @@ function deepFreeze(value) {
      · 有些渠道**先扣费再解析模型名**，余额不足时回 403 insufficient_user_quota，
        这个报文里**看不出模型名认不认**（对照实验：同一个 403 也出现在真模型上，
        而 4 条 seedance-2.0-* 在 /v1/models 里根本没有 openai-video 声明）。
-   现在只用一条判据：**该模型名能不能走到参数校验**（400 且报文是参数错 = 渠道活着）。 */
+   现在只用一条判据：**该模型名能不能走到参数校验**（400 且报文是参数错 = 渠道活着）。
+
+   ⚠️ 2026-09-23 复测（用户点名要看上游文档里的 480p/1080p，故按上面③再验一遍）：
+   上面第 ① 条**不能当证据用** —— seedance-2.0-{480p,fast-480p,720p,fast-720p} 这四条
+   在 /v1/models 里**在册、且明明白白声明了 openai-video**，/api/pricing 也查得到，
+   但一提交就回「model <id> is not a public model name」（与 09-19 批 K-B 结论一致）：
+   清单是全站目录，本站凭证/渠道并没有这些名字。**只看清单会把死路记成活路**
+   （09-19 上午那版台账就是这么错的）；只有提交进到参数校验才算活。
+   同日 1080p 那条报文不同：拿到的是 403 余额不足（预扣 ¥7.67 > 余额 ¥5.108880），
+   不是「名字不存在」⇒ 它比上面四条更接近可用，**充值后是否真能出片仍需一次真跑**。 */
 export const ROUTE_REACHABILITY = deepFreeze({
   'agv-seedance2.0fast': {
     state: 'verified',
@@ -70,7 +79,7 @@ export const ROUTE_REACHABILITY = deepFreeze({
     state: 'blocked',
     billingMode: 'per_request',
     quoteCny: 7.67,
-    evidence: '2026-09-19 复测：预扣 ¥7.67 > 当前余额 ¥5.11（insufficient_user_quota）⇒ 仍 blocked。**充值即可解**，与代码无关',
+    evidence: '2026-09-23 复测：预扣 ¥7.67 > 当前余额 ¥5.108880（insufficient_user_quota）⇒ 仍 blocked。**充值即可解**，与代码无关；报文是「余额不足」而非「名字不存在」——说明这条比四条 seedance-2.0-* 死路由更接近可用，但充值后能否真出片仍需一次真跑（零成本探针无法证明）',
   },
   'minimax-h3': {
     state: 'callable',
@@ -209,13 +218,14 @@ export const ROUTE_REACHABILITY = deepFreeze({
   'kling-3.0-pro': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0' },
   'veo-3.1-fast': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
-  /* 2026-09-19 批 K-B 复核：四条都维持 unreachable —— 它们**不在** /v1/models 的 openai-video
-     清单里，且提交回「not a public model name」。09-19 上午那版台账把它们记成 ALIVE(quota)
-     是判据用错了（见文件头的判据纠错）。 */
-  'seedance-2.0-720p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：提交回 not a public model name；且 /v1/models 里该名未声明 openai-video（上午那版 ALIVE(quota) 是判据误用，已纠正）' },
-  'seedance-2.0-fast-720p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：同 seedance-2.0-720p' },
-  'seedance-2.0-480p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：同 seedance-2.0-720p' },
-  'seedance-2.0-fast-480p': { state: 'unreachable', evidence: '2026-09-19 批 K-B 复核：同 seedance-2.0-720p' },
+  /* 2026-09-19 批 K-B 复核 + 2026-09-23 复测：四条都维持 unreachable —— 提交回
+     「not a public model name」。（09-23 复测已证实：这四条**在** /v1/models 里且声明了
+     openai-video，所以「没声明」不是理由；真正的理由是本站凭证调不到这个名字。
+     09-19 上午那版台账把它们记成 ALIVE(quota) 是判据用错了，见文件头的判据纠错。） */
+  'seedance-2.0-720p': { state: 'unreachable', evidence: '2026-09-23 复测（零成本 duration=1）：提交回 model seedance-2.0-720p is not a public model name；⚠️ 该名在 /v1/models 里在册且声明 openai-video，故**声明不能当活路由的证据**' },
+  'seedance-2.0-fast-720p': { state: 'unreachable', evidence: '2026-09-23 复测：同 seedance-2.0-720p（not a public model name）' },
+  'seedance-2.0-480p': { state: 'unreachable', evidence: '2026-09-23 复测：同 seedance-2.0-720p（not a public model name）。用户问「480P 到底有没有」的答案：**这四条路由没有**，能调到的 480p 档是 minimax 系（见 xn-minimax-h3）与站内已公开的 Seedance 2.0 Mini' },
+  'seedance-2.0-fast-480p': { state: 'unreachable', evidence: '2026-09-23 复测：同 seedance-2.0-480p' },
   'sd2.0-720p-official': { state: 'unreachable', evidence: '2026-09-16 本站分组（default/distributor）下无可用渠道' },
   'sd2.5-720p-official': { state: 'unreachable', evidence: '2026-09-16 本站分组（default/distributor）下无可用渠道' },
   'sd2.0-1080p-official': { state: 'unreachable', evidence: '2026-09-16 本站分组（default/distributor）下无可用渠道' },
@@ -419,14 +429,25 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: '通义万相 3.0',
     providerLabel: '阿里通义',
     tierLabel: '通用性价比',
-    description: '国产主流路线，商品与场景稳定性好，价格低，适合日常出片。',
-    limitations: '单张参考图；仅 720P；不支持参考视频、参考音频与首尾帧。',
+    description: '国产主流路线，商品与场景稳定性好，价格低，480P/720P 双档，适合日常出片。',
+    limitations: '单张参考图；480P 与 720P 双档；不支持参考视频、参考音频与首尾帧。',
+    /* 2026-09-23：补 480P 档。证据 = 上游**文档站自己的价目**（new.ip233.com/docs/models 的
+       数据源就是 /api/pricing，pricing_version=ip233-route-v2），其中 **xn-wan3.0 这一行**
+       （路由名与本产品 routeId 逐字相同）在 default 分组下给出：
+         per_second: 480p ¥0.26/秒 ｜ 720p ¥0.325/秒 ｜ 1080p ¥0.455/秒
+       ⇒ 480p 是**比现有 720p 更便宜**的一档，同价提供不会让毛利变差（站内按条固定价，
+          清晰度不进 SKU 也不进扣费口径），所以这一档可以直接开。
+       ⚠️ 1080p 同一行也在售（¥0.455/秒），但比 720p 贵 ⇒ 同价开 1080p 是**定价决定**，
+          须用户点头，本轮不动。⚠️ 本档位尚未有真实出片记录：按站内口径，
+          上游拒收不扣费，故失败不会误扣；首条真实 480p 账单落库后须回来校准这一行。 */
     routeId: 'xn-wan3.0',
     credential: 'seedance',
     public: true,
     default: false,
     durations: { min: 5, max: 10 },
-    resolutions: ['720p'],
+    /* 720p 放第一位：与 seedance_mini 同一条规矩 —— 前端切产品时按 resolutions[0] 兜底，
+       480p 放前面会让默认档悄悄掉到 480p */
+    resolutions: ['720p', '480p'],
     modes: ['script', 'reference'],
     generatedAudio: false,
     frameAudio: false,
