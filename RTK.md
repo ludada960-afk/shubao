@@ -5734,3 +5734,118 @@ canary/源站探测，**没有**我独立点一遍的复验 —— 480P 那一�
 5. 图片侧比例的线上 UI 复验（批 X 欠的）。
 6. **等用户给 1080P 的定价口径**（或口头接受同价）→ 一行就能开。
 7. 用首条真实账单校准 `wan_standard` 的「按秒 / 按条」成本口径。
+
+---
+
+# 批 Z-②/③（2026-09-23 夜）：预览窗改上图下文 + 全屏照知渔做居中白卡 + 92 页深度适配普查
+
+用户原话：「全部做吧，我要睡觉了，**尽最大可能拉满去做**。」
+
+## 一、批 Z-② 预览窗：左文案+右三图 → **上图下文**（用户图七）
+
+用户图七（flova）口径：「上面一张图、下面**一句话**说明 + 少量标签」，要**精简**、整块更高级、毛玻璃要做上去。
+
+改了两处（**必须两处一起改**，否则首页与子页面两套长相）：
+· 首页悬停预览窗：`src/components/media/SkillEntryRow.jsx`（art 在前 / body 在后）+ `SkillEntryRow.css`
+· 子页面卡片预览窗：`src/components/media/CaseCard.jsx`（`MediaHub` / `SkillWorkbench` 用它）+ `CaseCard.css`
+
+具体：
+· 版式单列（`grid-template-columns: minmax(0, 1fr)`），DOM 顺序 art → body（写成 body 在前就是"上文下图"，与原话反了 —— 门禁断言了顺序）；
+· 主图**只留一张 16:9**（原来三格 3:4 竖图是给两栏版式撑版面的；上图下文里三格会把浮窗撑高、把"精简"读没）；没有案例时仍是**一格**如实写「案例补充中」；
+· 下面只留三样：技能名（eyebrow）+ **一句话**（声明源的 summary，缺失才退到能力描述）+ **少量标签**（分类 / 「配图来自本板块真实案例」）；
+· 原来那句单独的灰字来源说明**收进标签行**（信息不丢、版面不涨；"不许把别的技能案例冒充成这条技能的"这条铁律仍成立）；
+· 毛玻璃底**保留**（用户明确要），仍是项目唯一允许的玻璃 token `--sb-glass-panel`；
+· 浮窗宽度 600 → **440**，翻转判据的估算高度 220 → **380**（旧值会在页面底部误判"放得下"，浮窗底部被切掉 —— 这是本项目"改 overflow/尺寸必须复验"那条老坑的同类）。
+
+## 二、批 Z-③ 全屏：整屏铺开 → **知渔式居中白色圆角大卡**（用户图八）
+
+用户图八：他们全屏是一张**居中的白色圆角大卡**，卡内 = 模式页签 + 素材格 + 提示词 + 底部两条参数卡。
+
+做法（`src/pages/VideoStudio/index.jsx` + `VideoStudio.css`）：
+· 给全屏容器的全部内容套一层 `.video-composer-card`：**非全屏 `display: contents`**（对布局完全透明，普通态与改动前逐像素一致；本文件 538 行已有同款先例），**全屏才算那张卡**（`min(1240px)` 居中 + 白底 + 24 圆角 + 大投影）；
+· ⚠️ 卡**只能做在内层**：全屏元素自己被 UA 样式锁成 100%×100% + `margin: 0`（!important），给它自己加宽度/圆角画不出来 —— 这是本轮最容易走错的一步；
+· 顺带修掉一个**点了没反应**的坑：两颗参数卡（视频模型 / 生成设置）的浮层是 `createPortal(..., document.body)`，而全屏下浏览器**只画全屏元素这棵子树** ⇒ 全屏之后点这两颗按钮什么都不出现。挂载点改成"全屏时挂进全屏元素自己"，非全屏仍是 body。
+
+## 三、验证链
+
+| 步骤 | 结果 |
+|---|---|
+| `npm run test` | **3986 / 3976 pass / 0 fail / 10 skipped** |
+| `npm run precommit` | 构建 exit 0 ｜ 渲染冒烟通过 ｜ 真实浏览器 e2e **225 条断言全绿** ｜ BLOCKING 门禁 **260 条全绿** |
+| 提交 | `1476ec6b` |
+| 部署 | 见本文件下一节（同批连着部署） |
+
+判据同步更新（都是"用户改向、事实变了"，不是放宽）：
+`test/skill-entry-row-0918.test.mjs`（②-b 改上图下文 + 单列 + 主图唯一 + 标签行；②-e 去掉"三格"）｜
+`test/media-language-unify-0916.test.mjs`（CaseCard 预览窗同改，并保留"两处同一门语言"这条）｜
+`test/video-studio-contract.test.mjs`（新增全屏白卡四问 + 浮层挂载点必须跟全屏走）｜
+`scripts/media-workbench-e2e.mjs`（悬停预览窗断言改成：有一句话 + 图在文案之上 + 主图恰好 1 张）。
+
+## 四、⚠️ 本轮踩到的坑（值得记，因为它差点让我去"修"一个不存在的 bug）
+
+本机 shell 是 **cmd**：`;` **不是命令分隔符**。我写了
+`npm run precommit > log 2>&1; node -e "..."` —— 整行被当成 `npm` 的参数，
+npm 报 `invalid config before="const t=require(...)"`，而那句被污染的配置**一路传进了构建**，
+esbuild 于是报了个**假语法错误**（"The character } is not valid inside a JSX element"）。
+我用 esbuild 单独解析 HEAD 版与工作区版**两份都通过**，才确认是假红。
+⇒ 规矩：这个 shell 里**不要用 `;` 串命令**（用两次工具调用或 `&&`）；多行 node 代码**写成 .tmp 下的脚本文件**跑，
+不要塞进 `node -e`（多行 -e 在这个 shell 里会静默无输出）。
+
+## 五、92 页「深度适配」普查（用户第三项：每个按钮每个选项每个解析都要适配好）
+
+派了子代理做**只读普查**（不猜、只报"现在声明了什么"），结论按文件:行号落在这里，下一批照它干活：
+
+### 5.1 清单与总数
+· 图片 **50** 条：`src/skills/imageSkills.js:283-1743`（`IMAGE_SKILLS`），字段**内联**在每条 skill 的 `fields`；
+· 视频 **42** 条：`src/skills/videoSkills.js:40-442`（`VIDEO_SKILLS`）；
+· ⚠️ **视频 42 条里 41 条的字段是同一个共享常量** `VIDEO_BASE_FIELDS`（`videoSkills.js:34-38`：模型/清晰度/时长），
+  只有 `video.camera_move` 多一格运镜。⇒ 视频侧的"差异"全在 `videoWorkbenches.js` 的 blocks 上，字段层没有逐 skill 声明。
+
+### 5.2 视频工作台覆盖
+`src/skills/videoWorkbenches.js` 共 **39** 个 key；渲染开关 `workbenchMode` 在 `VideoStudio/index.jsx:1112`
+（要求 `embedded && workbench && blocks.length`）。所以**落到通用创作台**的有 4 条：
+· `video.frame`（`:244-249` 有定义但 **blocks: []** —— 空声明）；
+· `video.camera_move` / `video.extend` / `video.scene_edit`（assistant 三兄弟，**故意没有**定义：
+  `test/video-skill-workbench-declaration-0919.test.mjs:92-94` 反而要求它们不许有）——但它们在 Hub 里**可点**（`Home/MediaHub.jsx:44`），点进去就是通用创作台。
+· 真正渲染专属块的是 **38** 条。付费动作只有两颗 SKU：`生成脚本 dawei 0.5 分` / `AI 分析 analyze 1 分`（`videoWorkbenches.js:75-77`）。
+
+### 5.3 两个**系统性空白**（这是"看起来都差不多"的根因）
+1. **示例区几乎是空的**：图片 **43/50** 条 `cases=[]`（只有 poster / product_suite / white_bg / try_on 有案例图），
+   编号交付清单只有 3 条（aplus / detail_page / copy）；视频 **42/42** 全空（声明源里**不许**放案例：
+   `test/video-skill-workbench-declaration-0919.test.mjs:190-192`）。
+   ⇒ 子页面右栏现在只有一句通用兜底「示例正在补充，先直接生成试试。」（`Home/SkillWorkbench.jsx:160`）
+     与视频侧的「成片 × 1」（`MediaCreation/index.jsx:542-544`）。
+   ⚠️ 要真填满得**真出图/真出片**（花钱）或另找素材源 —— 属要用户拍板的事，本轮没动。
+2. **形态重复**：视频侧按 blocks 的 kind 序列统计，最大一组 **8 条同形**（`upload+chips+chips+text`：
+   one_image_showcase / beat_mashup / product_explode / snack_unbox / food_craving / text_consistency / beauty_macro / festival_spot），
+   第二组 **5 条同形**（`upload+chips+text`）。门禁只要求"形态种类 ≥ 20"（`:98-100`），**没要求每条唯一**。
+
+### 5.4 深度门禁的覆盖面（用户问"到底适配没适配"的硬答案）
+· **没有一条门禁守"每条 skill 都必须有深度适配的字段声明"**。
+· 现有穷举比对只覆盖**有对照页的那部分**：图片 **34/50**（28 app + 6 builtin，其中 builtin 只比下拉与上传位）、
+  视频 **16/42**（9 app + 4 route + 3 只比 source）。
+  ⇒ **图片 16 条 + 视频 26 条（合计 42 条"自有玩法"）只被"形状合法 + 条数 + source:null + 有 reason"守着**，
+    没有逐字段/逐选项的深度门禁。
+· 最低门槛：图片 `fields.length >= 1`（`test/skill-declaration-contract-0916.test.mjs:32`）、
+  视频 `>= 3`（`test/video-skill-library-contract-0916.test.mjs:25`，而那 3 格是共享常量）。
+
+### 5.5 最薄的几条（下一批优先）
+`video.frame`（空 blocks）｜`video.camera_move` / `video.extend`（blocked）/ `video.scene_edit`（Hub 可点但落通用台）｜
+`image.remove_bg`（全仓字段最少：1 格上传、0 选项、0 比例 —— ⚠️ 但它**有知渔逐值比对背书**
+`test/quantv-image-parity-machine-0920.test.mjs`，也就是说"少"是照抄的结果，不是漏抄，别乱加）｜
+`video.one_image_showcase` 等 8 条同形｜`video.car_weekly` / `video.scene_stitch` / `video.ai_styling`（3 条同形、无文本无动作）。
+
+### 5.6 另一件顺手查清的事：解析动作的真实接线
+· 图片侧 `parse` 只在 3 条声明（`imageSkills.js:353/442/547`），但渲染侧**一律传 `parseAction={null}`**
+  （`MediaCreation/index.jsx:1405`，批 U 整块删掉）⇒ 「一键解析商品信息」全站不出现（能力并入"一键解析风格"，与用户口径一致）；
+· 活着的付费动作只有两颗：「一键润色卖点」= 有 `productParams|product` 字段的 **13 条**（`:792`）；
+  「一键解析风格」= 有 `style` 字段的 8 条去掉 embed 的 xhs_note → **7 条**（`:826` + `:787`）；
+· 其余 **37 条图片 skill 的子页面没有任何解析/分析类动作**（只有上传、选档、生成）。
+
+## 六、下一批（承接，未变）
+1. 示例区（图片 43 条 + 视频 42 条）—— 要用户拍板：真出图填 / 找素材源 / 保持如实说"补充中"。
+2. 视频 42 条的字段层目前是共享常量，若要对齐知渔"每页不一样"，得把差异从 blocks 层提到字段层。
+3. 给 42 条"自有玩法"补**深度门禁**（现在只守形状），否则下次没人能证明"适配过"。
+4. 图片侧新增三档尺寸（9:21 / 2:1 / 1:2）的付费实测（要花钱，等用户）。
+5. 1080P 的定价口径（等用户）。
+6. 线上点击复验（本环境连不到公网源站，两批都欠着）。
