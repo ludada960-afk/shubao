@@ -834,4 +834,6 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
       写在左栏上会让左栏变成三列，把工作台挤到中间那一列（实测：1240 的栏里工作台只剩 814）。 */
 .media-workbench-head-row { grid-template-columns: auto minmax(0, 1fr) auto; }
 .media-workbench-tutorial.is-head { justify-self: end; }
+/* 批 Y：图标形态（用户：「怎么用这条技能……这些东西没有必要存在呀」）—— 保留入口、去掉那行字 */
+.media-workbench-tutorial.is-icon { justify-self: end; display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border-radius: 8px; }
 @media (max-width: 720px) { .media-workbench-head-row { grid-template-columns: minmax(0, 1fr); } .media-workbench-tutorial.is-head { justify-self: start; } }

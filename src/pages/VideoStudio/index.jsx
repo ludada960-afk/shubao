@@ -1286,7 +1286,9 @@ export default function VideoStudioPage({
           {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}>{value.toUpperCase()}</button>)}
         </div>
       </div>
-      {homeComposer && <>
+      {/* ═══ 批 Y：「镜头规格」那颗按钮已下线 ⇒ 画幅与时长**并进这一面板**（照知渔的「视频设置」）═══
+          知渔的「视频设置」就是 分辨率 / 画面比例 / 视频时长 三组，我们原来把后两组拆在另一颗按钮里。 */}
+      <>
         <div className="video-panel-section"><strong>画面比例</strong>
           <div className="video-ratio-cards">
             {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} aria-hidden="true" /><span>{value}</span></button>)}
@@ -1582,7 +1584,17 @@ export default function VideoStudioPage({
               </span>
             </div>
             <div className="video-toolbar-buttons">
-            {(homeComposer ? TOOLBAR_ITEMS.filter(item => item.key !== 'skills' && item.key !== 'shot') : TOOLBAR_ITEMS).map(item => {
+            {/* ═══ 批 Y（2026-09-21）：工具栏**只留「模型 + 生成设置」两颗**（用户原话，逐字）════════
+                原话：「你的视频生成的各个子页面问题还是非常的多，比如你现在**很多的配置面板**和什么运镜、
+                **怎么使用这条技能，这些都是不要的东西啊，这些东西没有必要存在呀**……
+                尽可能一比一的去核对知渔那边的做法，跟他们尽可能一致，**很多多余的部分该拿掉的就拿掉**。」
+                实测知渔 /video-recreation 底栏就是**两张卡**（模型 / 视频设置）+ 整条 CTA ⇒
+                我们原来四颗（视频模型 / 技能库 / 镜头规格 / 生成设置）里：
+                  · **镜头规格**（画幅 + 时长）与「生成设置」重复 —— 它的内容已经并进生成设置（见 renderPanelBody）；
+                  · **技能库**在子页面上是冗余的（这一页的"技能"就是它自己；再挂一个别的技能正文进脚本 =
+                    两个技能混在一份提示词里）—— 首页那一档本来就不显示它，现在子页面也不显示。
+                ⇒ 两处都过滤掉，所有形态统一成「模型 + 生成设置」两颗卡 + CTA（与知渔同形）。 */}
+            {TOOLBAR_ITEMS.filter(item => item.key !== 'skills' && item.key !== 'shot').map(item => {
               const Icon = item.icon;
               const isOpen = activePanel === item.key;
               return <button

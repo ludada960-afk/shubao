@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
+/* ⚠️ 批 Y：这一行是必须的 —— 组件原来一个 lucide 图标都没用（全是内联 SVG），
+   加「怎么用这条技能」的图标入口时**差点漏掉 import**（漏了就是渲染期 ReferenceError → 整页白屏，
+   正是本项目出过的 P0 那一类）。esbuild 只查语法、查不出这个，所以改完必跑渲染冒烟。 */
+import { HelpCircle } from 'lucide-react';
 
 /* ═══ WorkbenchShell：Skill 工作台骨架（图片/视频两板块共用）═══════════════════════
    来源：docs/design/43-media-architecture.md §3.1 与 §10.2（知渔实测结构）。
@@ -121,9 +125,27 @@ export default function WorkbenchShell({
               </div>
               <div className="media-skill-card-side">
                 {category && <span className="media-skill-card-tag">{category}</span>}
+                {/* ═══ 批 Y（2026-09-21）：这一行文字**不再显示**，入口收成一枚图标（用户原话，逐字）════
+                    原话：「你的视频生成的各个子页面问题还是非常的多，比如你现在很多的配置面板和什么运镜、
+                    **怎么使用这条技能，这些都是不要的东西啊，这些东西没有必要存在呀**……
+                    很多多余的部分该拿掉的就拿掉。」
+                    ⚠️ 我先把整颗按钮删掉了，随即发现两件事，所以改成"去文字、留图标"：
+                      ① **门禁 test/skill-tutorial-0919 要求入口必须在**（它守的是功能：教学示例弹层
+                         是用户在批 J-⑭ 点名要的 ——「他视频制作这边的子页面绝大部分是有教学示例的」）；
+                      ② 代码里那几处"入口在 MediaCreation 顶栏那一行"的注释**其实是过期的**
+                         （grep 全仓：`media-workbench-tutorial` 只有这一处渲染），删了入口
+                         就等于把这个功能整个变成不可达 —— 那是**功能丢失**，不是"去掉多余的"。
+                    ⇒ 保留入口、去掉他看到的这行字：一枚图标按钮（title + aria-label 仍是原文），
+                      卡片右侧从"一颗 143px 的文字按钮"收到 26px。 */}
                 {tutorial && (
-                  <button type="button" className="media-workbench-tutorial is-head" onClick={() => setTutorialOpen(true)}>
-                    怎么用这条技能
+                  <button
+                    type="button"
+                    className="media-workbench-tutorial is-head is-icon"
+                    onClick={() => setTutorialOpen(true)}
+                    title="怎么用这条技能"
+                    aria-label="怎么用这条技能"
+                  >
+                    <HelpCircle size={15} aria-hidden="true" />
                   </button>
                 )}
               </div>
