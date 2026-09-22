@@ -148,6 +148,23 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(styles, /\.video-materials-clear,/);
   assert.match(styles, /\.video-materials-fullscreen \{/);
   assert.match(styles, /\.video-composer\.is-fullscreen \{/);
+  /* ═══ 2026-09-23 批 Z-③：全屏 = **知渔式居中白色圆角大卡**（用户图八）════════════════════
+     用户原话：他们的全屏是一张居中的白色圆角大卡，卡内 = 模式页签 + 素材格 + 提示词 +
+     底部两条参数卡；我们现在是整屏铺开。这条判据守四件事：
+       ① 卡做在**内层**（.video-composer-card）而不是全屏元素自己 —— 后者被 UA 样式
+          锁成 100%×100% + margin:0，宽度/圆角根本画不出来；
+       ② 非全屏时内层 wrapper 必须 `display: contents`（对布局透明，普通态逐像素不变）；
+       ③ 全屏时那张卡要有：宽度上限 + 居中 + 白底 + 圆角；
+       ④ 两颗参数卡的浮层挂载点必须跟全屏走 —— 挂在 body 上的浮层在全屏下不渲染
+          （浏览器只画全屏元素这棵子树），点了没反应的坑就出在这里。 */
+  assert.match(page, /className="video-composer-card"/, '内容要套一层卡容器（全屏那张卡的载体）');
+  assert.match(styles, /\.video-composer-card \{ display: contents; \}/, '非全屏时 wrapper 对布局透明');
+  assert.match(styles, /\.video-composer\.is-fullscreen \.video-composer-card \{[^}]*width: min\(1240px/);
+  assert.match(styles, /\.video-composer\.is-fullscreen \.video-composer-card \{[^}]*margin: 24px auto/);
+  assert.match(styles, /\.video-composer\.is-fullscreen \.video-composer-card \{[^}]*background: var\(--sb-surface-card\)/);
+  assert.match(styles, /\.video-composer\.is-fullscreen \.video-composer-card \{[^}]*border-radius: 24px/);
+  assert.match(page, /fullscreen && composerRef\.current \? composerRef\.current : document\.body/,
+    '全屏时参数面板要挂进全屏元素（否则全屏下点了没反应）');
   assert.match(styles, /\.video-inline-menu/);
   /* 2026-09-16：模型列表里的「N AI 积分 / 次」已按用户批注（图2-②「你的积分其实是不能在这里说的」）
      移除；积分改为统一显示在右下角生成按钮上（.shubao-gen-cta-points），

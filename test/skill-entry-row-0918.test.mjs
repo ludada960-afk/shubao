@@ -60,22 +60,33 @@ test('① 9 个按钮作为入口（上 5 下 4），且只显示当前板块的
   assert.match(stripped, /limit: SKILL_ENTRY_LIMIT/);
 });
 
-test('② 悬停预览窗：按钮正下方、左介绍 + 右案例图；没有案例时如实写"案例补充中"', () => {
+test('② 悬停预览窗：按钮正下方、上图下文；没有案例时如实写"案例补充中"', () => {
   /* ②-a 预览窗本体：portal 到 body + fixed 定位（不能被祖先的 overflow 裁掉） */
   assert.match(row, /createPortal/);
   assert.match(row, /className="skill-preview"/);
   assert.match(rowCss, /\.skill-preview \{[^}]*position: fixed;/);
-  /* ②-b 左介绍 + 右案例图（用户指定的版式） */
-  assert.match(row, /skill-preview-copy/);
+  /* ②-b **上图下文**（用户图七原话：「上面一张图、下面**一句话**说明 + 少量标签」，
+     要精简、整块更高级）。判据由"左介绍 + 右三图"改为：
+       · 单列（两栏的 grid-template-columns: minmax(0,1fr) minmax(0,1.15fr) 那版式本轮作废）；
+       · DOM 顺序必须是 art 在前、body 在后（写成 body 在前就是"上文下图"，与原话反了）；
+       · 图只留**一张**（原来三格 3:4 竖图是给两栏撑版式用的）。 */
   assert.match(row, /skill-preview-art/);
-  assert.match(rowCss, /\.skill-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.15fr\)/);
+  assert.match(row, /skill-preview-body/);
+  assert.match(row, /skill-preview-art[\s\S]*?skill-preview-body/, '上图下文：图必须在文案之前');
+  assert.match(rowCss, /\.skill-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.doesNotMatch(rowCss, /\.skill-preview \{[^}]*minmax\(0, 1\.15fr\)/, '两栏版式已按用户口径作废');
+  assert.equal((row.match(/skill-preview-shot/g) || []).length, 1, '主图只留一张（三格是旧版式）');
+  assert.match(rowCss, /\.skill-preview-shot \{[^}]*aspect-ratio: 16 \/ 9/);
+  /* ②-b2 「少量标签」：分类 + （退到本板块时才有的）来源说明，都在标签行里 */
+  assert.match(row, /skill-preview-tags/);
+  assert.match(row, /skill-preview-tag/);
   /* ②-c 位置：贴在按钮**下方**、间隙 10（flova 实测 10.2），下方放不下才翻到上面 */
   assert.match(row, /rect\.bottom \+ 10/);
   assert.match(row, /globalThis\.innerHeight - rect\.top \+ 10/);
   /* ②-d 移开不立刻消失（flova 实测仍有 ~300ms 的 closeDelay） */
   assert.match(row, /const CLOSE_DELAY_MS = 300;/);
   assert.match(row, /setTimeout\(\(\) => setActiveId\(''\), CLOSE_DELAY_MS\)/);
-  /* ②-e 没有案例的技能照旧出现，预览里如实写「案例补充中」，且给**三格**维持版式 */
+  /* ②-e 没有案例的技能照旧出现，预览里如实写「案例补充中」（一格，不再凑三格） */
   assert.match(row, /案例补充中/);
   assert.match(row, /previewAssets/);
   /* ②-f 封面取法只有一份实现
@@ -175,7 +186,7 @@ test('⑦ 悬停：内容隐藏 + 原地「试一试」（照 flova，不再压�
   assert.match(row, /className="skill-entry-try" aria-hidden="true"/,
     '覆盖层是纯装饰，别把「试一试」读两遍');
   /* 预览窗（浮层）仍走同一颗玻璃底 */
-  const previewBlock = rowCss.slice(rowCss.indexOf('.skill-preview {'), rowCss.indexOf('.skill-preview-copy'));
+  const previewBlock = rowCss.slice(rowCss.indexOf('.skill-preview {'), rowCss.indexOf('.skill-preview-body'));
   assert.match(previewBlock, /background: var\(--sb-glass-panel\)/, '预览窗仍是毛玻璃（浮层与按钮悬停态是两件事）');
 });
 

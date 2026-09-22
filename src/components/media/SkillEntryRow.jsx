@@ -62,11 +62,15 @@ export default function SkillEntryRow({
     const el = node || activeRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const width = Math.min(600, globalThis.innerWidth - 32);
+    /* 2026-09-23 批 Z-②：改成上图下文之后浮窗不需要 600 宽了 —— 一张 16:9 主图 + 三行字，
+       440 宽在 1440/1920 下都是"收紧的一块"（用户要的"精简"），窄屏照旧撑满可视宽。 */
+    const width = Math.min(440, globalThis.innerWidth - 32);
     const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, globalThis.innerWidth - width - 16));
     /* ⚠️ 下方放不下就翻到按钮**上面**（预览窗约 200 高 + 页脚遮不住）。
-       判据：下方剩余空间 < 240 且上方空间更大 —— 不翻的话靠页面底部的按钮会把浮窗压出视口。 */
-    const estimated = 220;
+       判据：下方剩余空间 < 240 且上方空间更大 —— 不翻的话靠页面底部的按钮会把浮窗压出视口。
+       ⚠️ 批 Z-② 同步改数：估算高度按新版式算 —— 16:9 主图(440×0.5625≈248) + 文案≈95
+       + 内边距 26 ≈ 370。用旧值 220 会在页面底部误判"放得下"，浮窗底部被切掉。 */
+    const estimated = 380;
     const below = globalThis.innerHeight - rect.bottom - 10;
     const above = rect.top - 10;
     const flip = below < estimated && above > below;
@@ -219,29 +223,28 @@ export default function SkillEntryRow({
           role="dialog"
           aria-label={active.name + ' 预览'}
         >
-          <div className="skill-preview-copy">
-            <span className="skill-preview-eyebrow"><Sparkles size={13} />{active.name}</span>
-            <strong>{active.summary}</strong>
-            <p>{active.detail || active.outcome || '点「试一试」进入它自己的工作台，参数已经替你调好。'}</p>
-            <span className="skill-preview-cta">进入「{active.name}」工作台<ArrowRight size={14} /></span>
-            {/* 批 J：图来自本板块真源时**如实说一句**（不冒充成这条技能的结果）。
-                ⚠️ 写在文案栏**里面** —— 放到两栏之间会把 grid 多撑出一行、右栏被挤下去。 */}
-            {active.previewFromBoard && <p className="skill-preview-note">本板块真实案例 · 这条技能自己的案例还在补充</p>}
-          </div>
           <div className="skill-preview-art" aria-hidden="true">
-            {/* 没有案例时给**三格**占位（不是一格）—— 一格会让浮窗右栏塌成一条，
-                三格才维持住"左介绍 + 右案例"的版式；每格都如实写「案例补充中」。 */}
-            {(active.previewAssets && active.previewAssets.length
-              ? active.previewAssets
-              : [{ label: '案例补充中' }, { label: '案例补充中' }, { label: '案例补充中' }])
-              .slice(0, 3)
-              .map((item, index) => (
-                <span className={'skill-preview-shot is-' + index} key={(item.src || item.label) + index}>
-                  {item.src
-                    ? <img src={item.src} alt="" loading="lazy" />
-                    : <span className="skill-preview-blank"><Play size={14} />案例补充中</span>}
-                </span>
-              ))}
+            {/* ⚠️ 只放**一张**主图（16:9 横幅）。原来这里是三格 3:4 竖图，是为了撑住
+               "左介绍 + 右案例"的两栏版式；改成上图下文之后，三格会把浮窗压得很高、
+               把"精简"读没。没有案例时仍是**一格**如实写「案例补充中」——
+               不凑三格充版式（用户要的是"上面一张图、下面一句话"）。 */}
+            <span className="skill-preview-shot">
+              {active.previewAssets && active.previewAssets[0] && active.previewAssets[0].src
+                ? <img src={active.previewAssets[0].src} alt="" loading="lazy" />
+                : <span className="skill-preview-blank"><Play size={14} />案例补充中</span>}
+            </span>
+          </div>
+          <div className="skill-preview-body">
+            <span className="skill-preview-eyebrow"><Sparkles size={13} />{active.name}</span>
+            {/* 一句话说明：优先 summary（声明源里就是一句话），没有再退到能力描述 */}
+            <strong>{active.summary || active.detail || active.outcome || '点「试一试」进入它自己的工作台，参数已经替你调好。'}</strong>
+            {/* 少量标签：分类 + （配图退到本板块时才有的）来源说明。
+               来源那句原来是单独一段灰字，按"精简"收进标签行 —— 信息不丢、版面不涨。 */}
+            <span className="skill-preview-tags">
+              {active.category ? <span className="skill-preview-tag">{active.category}</span> : null}
+              {active.previewFromBoard ? <span className="skill-preview-tag is-note">配图来自本板块真实案例</span> : null}
+            </span>
+            <span className="skill-preview-cta">进入「{active.name}」工作台<ArrowRight size={14} /></span>
           </div>
         </div>,
         document.body,

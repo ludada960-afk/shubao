@@ -270,17 +270,19 @@
 .skill-entry-tip { display: inline-flex; align-items: center; gap: 6px; margin: 0; min-height: 18px; font-size: 12.5px; color: var(--sb-ink-3); }
 
 /* ═══ 悬停预览窗：按钮正下方、水平居中（flova 实测间隙 10.2）═══════════════════════════
-   内容 = 我们的左介绍 + 右案例图版式（用户批注 #2-② 要求把它从首页搬到这里）。 */
+   2026-09-23 批 Z-②：版式按用户图七（flova）改成**上图下文** ——
+   用户原话：「上面一张图、下面**一句话**说明 + 少量标签」，要**精简**、整块要更高级。
+   这里原来是"左介绍 + 右三图"两栏（用户批注 #2-② 那批的版式），本轮由用户明确改向。 */
 .skill-preview {
   position: fixed;
   z-index: 1000;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 18px;
-  padding: 20px 22px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 12px 14px;
   border-radius: 18px;
-  /* 批 J-⑦：预览窗也走同一颗毛玻璃底（用户 #3-3 明说他们的做法是"毛玻璃"）——
-     与上面那块遮罩同一颗 token，浮层与遮罩才是同一门语言。 */
+  /* 批 J-⑦：预览窗走项目唯一允许的玻璃面板底（design-tokens-v3 §11 白名单 token）——
+     与遮罩同一颗 token，浮层与遮罩才是同一门语言。毛玻璃本轮**保留**（用户明确要）。 */
   background: var(--sb-glass-panel);
   backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
   -webkit-backdrop-filter: blur(var(--sb-blur-panel)) saturate(var(--sb-saturate-glass));
@@ -290,41 +292,40 @@
 }
 @keyframes skill-preview-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
-.skill-preview-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; justify-content: center; }
-.skill-preview-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--sb-brand-600); }
-.skill-preview-copy > strong { font-size: 17px; font-weight: 800; line-height: 1.35; color: var(--sb-ink-1); }
-.skill-preview-copy > p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--sb-ink-2); }
-.skill-preview-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-3); }
-
-.skill-preview-art { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+/* 上：**一张** 16:9 主图铺满整宽。原来是右栏三格 3:4 竖图（为了撑两栏版式），
+   改成上图下文后三格会把浮窗撑得很高，"精简"就没了 ⇒ 只留主图一张。 */
+.skill-preview-art { display: block; min-width: 0; }
 .skill-preview-shot {
   display: grid; place-items: center;
-  width: 33.33%; aspect-ratio: 3 / 4;
+  width: 100%; aspect-ratio: 16 / 9;
   overflow: hidden; border-radius: 12px;
   background: var(--sb-surface-tint-strong);
   box-shadow: var(--sb-shadow-sm);
 }
-/* ⚠️ 这里原本是「左歪 -3° / 中抬 -5px / 右歪 +3°」的扇形摆法，本轮**拉直**：
-   用户在视频素材那一块的原话是「不必向左歪、向右歪，就是正常的放」——
-   同一种"歪卡片"语气在这个浮窗里同样不成立，而且三张歪图会把"左介绍 + 右案例"
-   的版式读成装饰。改成**一排对齐的等大三图**（3:4 竖版，间距 10），
-   与总页面案例网格的语言一致：靠栅格与留白说话，不靠倾斜。 */
-.skill-preview-shot.is-1 { z-index: 1; }
 .skill-preview-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .skill-preview-blank { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sb-ink-3); }
 
+/* 下：技能名 + 一句话 + 少量标签 + 入口（三行以内） */
+.skill-preview-body { display: grid; gap: 7px; min-width: 0; padding: 0 4px 2px; }
+.skill-preview-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--sb-brand-600); }
+.skill-preview-body > strong { font-size: 15px; font-weight: 800; line-height: 1.45; color: var(--sb-ink-1); }
+.skill-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.skill-preview-tag {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
+  border-radius: 999px; background: var(--sb-surface-sunken);
+  color: var(--sb-ink-2); font-size: 11.5px; font-weight: 700;
+}
+/* 「配图来自本板块真实案例」那条如实说明：比分类标签轻一档，别抢注意力 */
+.skill-preview-tag.is-note { background: var(--sb-surface-tint-strong); color: var(--sb-ink-3); font-weight: 600; }
+.skill-preview-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-3); }
+
 @media (max-width: 760px) {
-  .skill-preview { grid-template-columns: minmax(0, 1fr); }
-  .skill-preview-art { display: none; }
+  /* 上图下文在窄屏本来就成立（浮窗宽度 = 视口宽 - 32），所以**不再隐藏图**——
+     原来隐藏是因为两栏版式在窄屏挤不下；现在只需把主图压扁一点，少占一屏。 */
+  .skill-preview { padding: 10px 10px 12px; }
+  .skill-preview-shot { aspect-ratio: 4 / 3; }
 }
 @media (prefers-reduced-motion: reduce) {
   .skill-preview { animation: none; }
   .skill-entry-button, .skill-entry-try, .skill-entry-more { transition: none; }
 }
-
-/* 批 J：预览窗里那句"图来自哪"的说明（只在退到本板块案例时出现）。 */
-.skill-preview-note { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
-
-/* 批 J：预览窗右栏**只有一张图时让它占满**（退到本板块案例就是这种情况）。
-   三格并排是给"三条技能案例"用的；只有一条时留三分之二空白，看起来就像没做完。 */
-.skill-preview-art > .skill-preview-shot:only-child { width: 100%; aspect-ratio: 4 / 3; }

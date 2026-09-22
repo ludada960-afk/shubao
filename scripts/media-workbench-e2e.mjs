@@ -851,9 +851,11 @@ try {
         他们会有这个试一试的按钮出来」「鼠标放上去的话，他们就会有下面的这个预览窗出来」）。
      新契约：
        ① 悬停按钮 → 按钮下方浮出 .skill-preview（portal 到 body，fixed 定位）；
-       ② 预览窗里是**左介绍 + 右案例图**（.skill-preview-copy / .skill-preview-art）；
+       ② 预览窗里是**上图下文**（.skill-preview-art 在上、.skill-preview-body 在下）——
+          2026-09-23 批 Z-② 按用户图七改的：原话「上面一张图、下面**一句话**说明 + 少量标签」，
+          所以"左介绍 + 右案例图"那版判据作废；图上只留**一张**主图（16:9）；
        ③ 「试一试」长在**按钮自己**身上（.skill-entry-try），不在浮窗里；
-       ④ 没有案例的技能，预览窗右栏给满 3 格并如实写「案例补充中」。 */
+       ④ 没有案例的技能，预览窗上图如实写「案例补充中」（不再凑三格）。 */
   const firstButton = await page.evaluate(() => {
     const btn = document.querySelector('.skill-entry-button');
     const r = btn.getBoundingClientRect();
@@ -867,16 +869,23 @@ try {
     const rect = panel?.getBoundingClientRect();
     const btnRect = btn.getBoundingClientRect();
     const tryNode = btn.querySelector('.skill-entry-try');
+    const art = panel?.querySelector('.skill-preview-art');
+    const body = panel?.querySelector('.skill-preview-body');
+    /* 上图下文：图的顶沿必须在文案的顶沿**之上**（写成"上文下图"就是与原话反了） */
+    const artRect = art?.getBoundingClientRect();
+    const bodyRect = body?.getBoundingClientRect();
     return {
       present: Boolean(panel),
       inBody: Boolean(panel && panel.parentElement === document.body),
       position: panel ? getComputedStyle(panel).position : '',
       followBelow: rect ? Math.round(rect.top - btnRect.bottom) : null,
-      hasCopy: Boolean(panel?.querySelector('.skill-preview-copy strong')),
+      hasLine: Boolean(panel?.querySelector('.skill-preview-body strong')),
+      hasTags: Boolean(panel?.querySelector('.skill-preview-tags .skill-preview-tag')),
+      artAboveBody: Boolean(artRect && bodyRect && artRect.top <= bodyRect.top + 1),
       shots: panel ? panel.querySelectorAll('.skill-preview-shot').length : 0,
-      /* 右栏里**真的取到图**的格子数（空占位不算）——用户要的是"放入对应的那种界面" */
+      /* 主图里**真的取到图**的格子数（空占位不算）——用户要的是"放入对应的那种界面" */
       shotImages: panel ? panel.querySelectorAll('.skill-preview-shot img').length : 0,
-      copyText: panel?.querySelector('.skill-preview-copy p')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) || '',
+      lineText: panel?.querySelector('.skill-preview-body strong')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) || '',
       tryOnButton: Boolean(tryNode),
       tryOpacity: tryNode ? Number(getComputedStyle(tryNode).opacity) : -1,
       insidePanel: Boolean(panel?.querySelector('.skill-entry-try')),
@@ -888,18 +897,20 @@ try {
   check(hoverPreview.position === 'fixed', '预览窗是 fixed 定位', hoverPreview.position);
   check(hoverPreview.followBelow !== null && hoverPreview.followBelow >= 4 && hoverPreview.followBelow <= 18,
     '预览窗贴在按钮**正下方**（间隙 10 上下）', String(hoverPreview.followBelow));
-  check(hoverPreview.hasCopy && hoverPreview.copyText.length > 4, '预览窗左栏是这条技能的介绍', hoverPreview.copyText);
+  check(hoverPreview.hasLine && hoverPreview.lineText.length > 4, '预览窗下面有一句话说明', hoverPreview.lineText);
+  check(hoverPreview.artAboveBody, '预览窗是上图下文（图在文案之上）', JSON.stringify({ artAboveBody: hoverPreview.artAboveBody }));
+  check(hoverPreview.shots === 1, '主图只留一张（三格是旧两栏版式，已按用户口径作废）', String(hoverPreview.shots));
   /* ═══ 2026-09-19 用户新批注（箭头从案例区指到预览窗）═════════════════════════════════════
      原话：「你这些**预览窗里面**，放入**对应的这种界面**，看我的箭头表示」——
-     预览窗右栏要放**真实的案例图**（跟下面那块案例区同一个真源），不是三个空框。
-     所以判据从「必须三格」改成「**有真图就显示真图，没有才退回如实占位**」：
+     预览窗的主图要放**真实的案例图**（跟下面那块案例区同一个真源），不是空框。
+     所以判据是「**有真图就显示真图，没有才退回如实占位**」：
        · 有图（≥1 张 img）→ 通过；
-       · 一张图都没有 → 必须给满 3 个「案例补充中」格子（维持版式，且**如实**说没有）。 */
+       · 一张图都没有 → 那一格必须**如实**写「案例补充中」（不许放假图）。 */
   const shots = hoverPreview.shots;
   const realImages = hoverPreview.shotImages;
   check(
-    (realImages >= 1 && shots >= 1) || (realImages === 0 && shots === 3),
-    '预览窗右栏是真实案例图（没有素材时才退回三格如实占位）',
+    (realImages >= 1 && shots === 1) || (realImages === 0 && shots === 1),
+    '预览窗主图是真实案例图（没有素材时那一格如实占位）',
     'shots=' + shots + ' imgs=' + realImages,
   );
   check(hoverPreview.tryOnButton && hoverPreview.tryOpacity > 0.9 && !hoverPreview.insidePanel,
@@ -959,7 +970,7 @@ try {
       const img = panel?.querySelector('.skill-preview-shot img');
       return { src: img?.getAttribute('src') || '', shots: panel?.querySelectorAll('.skill-preview-shot').length || 0 };
     });
-    check(Boolean(covered.src) && covered.src.startsWith('/'), '有案例的技能，预览窗右栏就是它自己的案例图', JSON.stringify(covered));
+    check(Boolean(covered.src) && covered.src.startsWith('/'), '有案例的技能，预览窗那张主图就是它自己的案例图', JSON.stringify(covered));
   }
 
   /* ═══ ⑬b 两个总页面顶部的分类页签（照竞品结构：点一档只看那一档） ═══ */

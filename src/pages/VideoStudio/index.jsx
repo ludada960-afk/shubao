@@ -1317,6 +1317,11 @@ export default function VideoStudioPage({
     if (!activePanel) return null;
     const meta = TOOLBAR_ITEMS.find(item => item.key === activePanel);
     const Icon = meta?.icon || Settings2;
+    /* ⚠️ 2026-09-23 批 Z-③：**全屏时这个浮层的挂载点必须是全屏元素自己**。
+       挂到 document.body 的浮层在全屏下根本不渲染（浏览器在 top layer 里只画全屏元素
+       这棵子树）——也就是说全屏之后"视频模型 / 生成设置"两颗参数卡点了没反应。
+       照知渔（用户图八）的口径，这两颗参数卡本来就该在卡内可用，所以容器跟着全屏走。
+       非全屏仍是 document.body（行为与改动前一致）。 */
     return createPortal(<section
       id="video-floating-panel"
       className="video-config-panel"
@@ -1339,7 +1344,7 @@ export default function VideoStudioPage({
           面板是被工具栏那颗按钮点开的，用户知道自己在配什么；再来一行大字只是噪声。
           aria-label 仍然带标题（见下面的 aria-label 属性），读屏不受影响。 */}
       <div className="video-config-panel-body">{renderPanelBody()}</div>
-    </section>, document.body);
+    </section>, fullscreen && composerRef.current ? composerRef.current : document.body);
   };
 
   const promptPlaceholder = mode === 'remake'
@@ -1367,6 +1372,14 @@ export default function VideoStudioPage({
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
     <section ref={composerRef} className={"video-composer" + (homeComposer ? " is-home" : "") + (workbenchMode ? " is-workbench" : "") + (fullscreen ? " is-fullscreen" : "")} aria-label="视频生成工作区">
+      {/* ═══ 2026-09-23 批 Z-③：全屏照知渔 = **一张居中的白色圆角大卡**（用户图八）═══════════
+          用户原话：他们全屏是一张居中的白色圆角大卡，卡内 = 模式页签 + 素材格 + 提示词 +
+          底部两条参数卡。所以这里给全部内容套一层卡容器：
+            · 非全屏：`.video-composer-card { display: contents }` —— 对布局完全透明，
+              子元素仍当直接子元素参与 .video-composer 的排版（改动前后逐像素一致）；
+            · 全屏：它才变成那张卡（宽度上限 + 居中 + 白底 + 圆角 + 大投影），见 VideoStudio.css。
+          ⚠️ 卡只能做在内层：全屏元素自己被 UA 样式锁成 100%×100% + margin:0，改不动它的盒子。 */}
+      <div className="video-composer-card">
       {/* ═══ 2026-09-19 批 Q-⑥：**子页面不再渲染这块营销大标题** ═══════════════════════════════
           用户批注（本轮）：「你不能把整体的东西往上面顶上去吗？为什么一定要放到下面去呢？」
           知渔的视频子页面左栏从「返回」→「信息卡 411x128」→「参数配置」直接开始，
@@ -1618,6 +1631,7 @@ export default function VideoStudioPage({
           {/* 9-12 用户批注：面板里已经选过的配置不用在按钮旁再写一遍 → 去掉这行摘要，信息只留在各面板与按钮积分上 */}
           <div className="video-submit-row"><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
         </footer>
+      </div>
     </section>
 
     {renderFloatingPanel()}

@@ -99,11 +99,39 @@
 .video-materials > header { margin-bottom: 11px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .video-materials > header b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; }
 /* ═══ 全屏创作台（用户批注 3 的「全屏」按钮）═════════════════════════════════════
-   走浏览器原生 Fullscreen API（requestFullscreen），所以这里要做的只有一件事：
-   全屏之后把页面底色补上 —— 不补的话全屏区域背后是透明+白字，成片台会看不清。
+   走浏览器原生 Fullscreen API（requestFullscreen）。
+   ═══ 2026-09-23 批 Z-③：全屏样式照知渔（用户图八）════════════════════════════════════
+   用户原话：他们的全屏是**一张居中的白色圆角大卡**，卡内从上到下 = 模式页签 + 素材格 +
+   提示词 + 底部两条参数卡；我们现在是**整屏铺开**（一条到底、没有"卡片"这个容器）。
+   做法：全屏容器只负责"铺页面底色 + 内部滚动"，真正的那张卡由内层
+   `.video-composer-card` 画（宽度上限 + 居中 + 白底 + 圆角 + 大投影）。
+   ⚠️ 为什么卡必须做在**内层**：全屏元素自己被 UA 样式锁成 100%×100%、margin:0，
+     给 .video-composer.is-fullscreen 自己加宽度/圆角是画不出来的（改不动它的盒子）。
+   ⚠️ 内层 wrapper 在**非全屏**下是 `display: contents`（对布局完全透明），
+     所以普通态/嵌入态的排版与改动前逐像素一致 —— 本文件 538 行已有同款先例。
    高度用 100vh + 内部滚动：全屏的意义是"素材、输入框、配置都在一屏里够得着"，
    把内容拉变形反而更糟。 */
-.video-composer.is-fullscreen { height: 100vh; overflow-y: auto; padding: 18px 0 40px; background: var(--sb-surface-page); }
+.video-composer.is-fullscreen { height: 100vh; overflow-y: auto; padding: 0; background: var(--sb-surface-page); }
+
+/* 非全屏：对布局**完全透明**（子元素仍当作 .video-composer 的直接子元素参与排版） */
+.video-composer-card { display: contents; }
+/* 全屏：知渔那张"居中的白色圆角大卡" */
+.video-composer.is-fullscreen .video-composer-card {
+  display: flex;
+  flex-direction: column;
+  width: min(1240px, calc(100vw - 64px));
+  min-height: calc(100vh - 56px);
+  margin: 24px auto 32px;
+  padding: 16px 18px 20px;
+  border-radius: 24px;
+  background: var(--sb-surface-card);
+  border: 1px solid var(--sb-border-default);
+  box-shadow: 0 32px 80px rgba(15, 23, 42, .18);
+}
+/* 卡内的四段（页签 / 素材面 / 输入 / 底部参数卡）在卡里是**贴着卡宽**排的，
+   所以要把它们自己的"通栏"量收回来一点，否则卡内左右会各顶死一条边。 */
+.video-composer.is-fullscreen .video-composer-card > .video-mode-tabs { margin: 0 0 10px; }
+.video-composer.is-fullscreen .video-composer-card > .video-content-composer { flex: 1 1 auto; min-height: 0; }
 
 .video-media-deck { min-height: 120px; display: flex; align-items: stretch; gap: 11px; overflow-x: auto; overflow-y: hidden; padding: 3px 2px 7px; scrollbar-width: thin; scrollbar-color: rgba(91,75,61,.22) transparent; }
 /* ═══ 批 T（2026-09-21）：首尾帧那两张**歪卡**不再被容器裁掉（用户本轮原话，逐字）══════════

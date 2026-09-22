@@ -95,9 +95,18 @@ test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加�
   assert.match(cardCss, /aspect-ratio: 4 \/ 3/, '案例卡本体是 4:3 封面铺满（L-8 已回退）');
   assert.doesNotMatch(cardCss, /\.media-case-card-hit \{[^}]*grid-template-columns:/,
     '卡片本体不许再被改成两栏（那是 L-8 被用户否掉的那一版）');
-  assert.match(cardCss, /\.media-case-card-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.15fr\)/,
-    '**按钮预览窗**才是「左文案 + 右三张案例图」两栏，且两栏比例与首页那一份逐值相同（批 M）');
-  assert.match(card, /media-case-card-preview-art/, '预览窗右栏是案例图位');
+  /* ═══ 2026-09-23 批 Z-②：预览窗版式由用户**再次改向** ═══════════════════════════════════
+     用户图七（flova）原话：「上面一张图、下面**一句话**说明 + 少量标签」，要精简、整块更高级。
+     ⇒ 两栏（1fr / 1.15fr）判据作废，改成**上图下文**；但"两处逐值同一门语言"这条判据不变
+       （首页 SkillEntryRow 一份、子页面 CaseCard 一份，长相必须一致）。 */
+  assert.match(cardCss, /\.media-case-card-preview \{[^}]*grid-template-columns: minmax\(0, 1fr\);/,
+    '按钮预览窗是**上图下文**单列（批 Z-② 按用户图七改向）');
+  assert.doesNotMatch(cardCss, /\.media-case-card-preview \{[^}]*minmax\(0, 1\.15fr\)/,
+    '两栏版式已作废（用户要的是"上面一张图、下面一句话"）');
+  assert.match(card, /media-case-card-preview-art[\s\S]*?media-case-card-preview-body/,
+    '上图下文：图必须在文案之前');
+  assert.match(card, /media-case-card-preview-tags/, '下面要有"少量标签"那一行');
+  assert.match(card, /media-case-card-preview-art/, '预览窗上栏是案例图位');
   assert.match(card, /案例补充中/, '没有案例时如实占位（不许放假图）');
   /* 视频案例：进入视口 + hover 才播、静音、循环、只取元数据 */
   assert.match(card, /new IntersectionObserver/, '视频案例必须懒加载（进入视口才准备）');

@@ -117,16 +117,15 @@
   left: 0;
   bottom: calc(100% + 10px);
   z-index: 5;
-  /* ⚠️ 逐值照**首页那个已有的预览窗**（.skill-preview）—— 用户第 17 轮追加批注原话：
-     「我说的是你之前这种部分的样式啊，**左边文字右边三张案例图**，你之前明明有这种做法啊，
-     你是找不到了还是干嘛呢，我看线上用的悬浮预览窗还是你之前做错的版本啊」
-     ⇒ 两栏比例 1fr / 1.15fr（**图那栏更宽**）、gap 18、padding 20/22、圆角 18、
-       毛玻璃底 + 同一条阴影 —— 与首页那一份**逐值相同**，只是这里用 absolute 贴卡片而不是 portal。 */
+  /* ⚠️ 与首页那份预览窗（.skill-preview）**逐值同一门语言**（下方数值两处必须一起改）。
+     2026-09-23 批 Z-②：两处同步改成**上图下文** —— 用户图七原话「上面一张图、下面**一句话**
+     说明 + 少量标签」，要精简。这里原来是两栏 1fr / 1.15fr（用户第 17 轮要的"左边文字
+     右边三张案例图"），本轮由用户明确改向，所以判据与版式一起换。 */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 18px;
-  width: min(560px, 92vw);
-  padding: 20px 22px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: min(440px, 92vw);
+  padding: 12px 12px 14px;
   border: 1px solid var(--sb-border-default);
   border-radius: 18px;
   background: var(--sb-glass-panel);
@@ -140,25 +139,31 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.media-case-card-preview-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; justify-content: center; }
-.media-case-card-preview-eyebrow {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 800; color: var(--sb-brand-600);
-}
-.media-case-card-preview-copy > strong { font-size: 16px; font-weight: 800; line-height: 1.35; color: var(--sb-ink-1); }
-.media-case-card-preview-copy > p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--sb-ink-2); }
-.media-case-card-preview-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-brand); }
-.media-case-card-preview-note { font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
-.media-case-card-preview-art { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+/* 上：一张 16:9 主图；下：技能名 + 一句话 + 少量标签 + 入口 */
+.media-case-card-preview-art { display: block; min-width: 0; }
 .media-case-card-preview-shot {
   display: grid; place-items: center;
-  width: 33.33%; aspect-ratio: 3 / 4;
+  width: 100%; aspect-ratio: 16 / 9;
   overflow: hidden; border-radius: 12px;   /* 与首页预览窗的案例图位逐值相同 */
   background: var(--sb-surface-tint-strong);
   box-shadow: var(--sb-shadow-sm);
 }
 .media-case-card-preview-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .media-case-card-preview-shot.is-blank { gap: 4px; font-size: 10px; color: var(--sb-ink-3); text-align: center; }
+.media-case-card-preview-body { display: grid; gap: 7px; min-width: 0; padding: 0 4px 2px; }
+.media-case-card-preview-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; color: var(--sb-brand-600);
+}
+.media-case-card-preview-body > strong { font-size: 15px; font-weight: 800; line-height: 1.45; color: var(--sb-ink-1); }
+.media-case-card-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.media-case-card-preview-tag {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
+  border-radius: 999px; background: var(--sb-surface-sunken);
+  color: var(--sb-ink-2); font-size: 11.5px; font-weight: 700;
+}
+.media-case-card-preview-tag.is-note { background: var(--sb-surface-tint-strong); color: var(--sb-ink-3); font-weight: 600; }
+.media-case-card-preview-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-brand); }
 @media (max-width: 900px) { .media-case-card-preview { display: none; } }
 @media (prefers-reduced-motion: reduce) { .media-case-card-preview { animation: none; } }
 

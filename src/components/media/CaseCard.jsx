@@ -150,21 +150,26 @@ export default function CaseCard({
              "按钮的可读名字"变成一大段；而且点击仍然只走按钮那一层。 */}
       {hovering && (
         <div className="media-case-card-preview" role="dialog" aria-label={(title || '技能') + ' 预览'}>
-          <div className="media-case-card-preview-copy">
-            <span className="media-case-card-preview-eyebrow"><Sparkles size={13} />{title}</span>
-            {subtitle && <strong>{subtitle}</strong>}
-            <p>点一下进入它自己的工作台，参数已经替你调好。</p>
-            <span className="media-case-card-preview-cta">进入「{title}」工作台<ArrowRight size={14} /></span>
-            {(!previewShots || previewShots.length === 0) && (
-              <p className="media-case-card-preview-note">这条技能的案例还在补充，先给你留了位置。</p>
-            )}
-          </div>
+          {/* ═══ 2026-09-23 批 Z-②：与首页那份预览窗**同步改成上图下文**（用户图七）═══════════
+              首页一份（SkillEntryRow）、子页面一份（这里），两处必须同一门语言 ——
+              长相不一致，用户看到的就是"你又在两个地方做了两套"。
+              图只留**一张** 16:9 主图（三格 3:4 是旧两栏版式用的），没有案例时仍如实写
+              「案例补充中」；下面只留技能名 + 一句话 + 少量标签 + 入口。 */}
           <div className="media-case-card-preview-art" aria-hidden="true">
-            {(previewShots && previewShots.length ? previewShots : [null, null, null]).slice(0, 3).map((shot, index) => (
-              shot
-                ? <span className="media-case-card-preview-shot" key={shot + '-' + index}><img src={shot} alt="" loading="lazy" /></span>
-                : <span className="media-case-card-preview-shot is-blank" key={'blank-' + index}><Play size={12} />案例补充中</span>
-            ))}
+            {previewShots && previewShots[0]
+              ? <span className="media-case-card-preview-shot"><img src={previewShots[0]} alt="" loading="lazy" /></span>
+              : <span className="media-case-card-preview-shot is-blank"><Play size={12} />案例补充中</span>}
+          </div>
+          <div className="media-case-card-preview-body">
+            <span className="media-case-card-preview-eyebrow"><Sparkles size={13} />{title}</span>
+            <strong>{subtitle || '点一下进入它自己的工作台，参数已经替你调好。'}</strong>
+            <span className="media-case-card-preview-tags">
+              {badge ? <span className="media-case-card-preview-tag">{badge}</span> : null}
+              {(!previewShots || previewShots.length === 0)
+                ? <span className="media-case-card-preview-tag is-note">案例还在补充</span>
+                : null}
+            </span>
+            <span className="media-case-card-preview-cta">进入「{title}」工作台<ArrowRight size={14} /></span>
           </div>
         </div>
       )}
