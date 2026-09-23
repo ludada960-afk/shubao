@@ -114,8 +114,15 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
 
   const report = videoMarginGateReport();
   const bySku = new Map(report.map(row => [row.sku, row]));
-  /* 9-19 批 K-B: 22 → 28（新增 sd_js900 / sd_js / seedance_mini 各短长两档） */
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 28);
+  /* 9-19 批 K-B: 22 → 28（新增 sd_js900 / sd_js / seedance_mini 各短长两档）
+     ═══ 2026-09-25 批 AI: 28 → **32** —— 新增两条**本地方案**的短长档 ═══════════════════════════
+     用户本轮原话：「**按这个价开吧**，其他的也继续做」（批准我给的报价：视频高清 0.50 积分/条、
+     字幕去除 0.04 积分/秒）。这两条**不走上游模型**（用户：「为什么一切都要追究模型呢」）：
+     高清＝本地 ffmpeg scale、去字幕＝本地 delogo，所以 providerCostCny 记 0 并带 localEngine 标记
+     （新增的显式类别，见 catalog 里 contributionMarginOf 的批注：localEngine 必须记 0，
+       其他 SKU 仍必须是正数 —— 守的还是"不许拿 0 假装成本"）。
+     ⚠️ 两条 **public: false 起步**：本地渲染/擦除的生成链路接通前不放出可点档位。 */
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 32);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);

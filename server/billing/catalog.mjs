@@ -199,6 +199,23 @@ export const FEATURE_SKUS = freezeCatalog({
     priceFen: 1690, marginBand: 'core',
     freeReruns: 0, public: true,
   },
+  /* ═══ 2026-09-25 批 AI：**本地方案**的收费项（用户批准的价）═══════════════════════════════
+     用户原话：「**按这个价开吧**，其他的也继续做」—— 对应我给的报价：
+       · 视频高清 0.50 积分/条（照知渔那页的价位）
+       · 视频字幕去除 0.04 积分/秒（照知渔）
+     这两个功能**不走上游模型**（用户原话：「为什么一切都要追究模型呢」）：
+       · 高清 = 本地 ffmpeg `scale`（server/videoExportRender.mjs 的 output 约定，已上线）
+       · 去字幕 = 本地 ffmpeg `delogo`（手动框选字幕区域；自动识别后补）
+     ⇒ providerCostCny 记 **0**（只有本机 CPU 时间，没有上游账单）—— 这不是"漏记成本"，
+       而是这两个功能的成本**确实为零**；面值毛利因此接近 100%，是引流款。
+     ⚠️ 秒价怎么落到 SKU：站内计费是"SKU.units × 数量"，所以去字幕按 **40 units/秒** 记
+        （0.04 积分/秒 ⇒ 10 秒的片子扣 400 units = 0.4 积分），与"按秒"口径等价、不需要改计费架构。
+     ⚠️ 两条 **public: false 起步**：生成链路（本地渲染/擦除的接线）接通前不放出可点档位 ——
+        "点了必失败的东西不许变成选项"是本站铁律。 */
+  video_upscale_local_short: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: false },
+  video_upscale_local_long: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: false },
+  video_desubtitle_local_short: { units: 40, providerCostCny: 0, localEngine: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: false },
+  video_desubtitle_local_long: { units: 40, providerCostCny: 0, localEngine: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: false },
   /* ── 2026-09-19 批 K-B 新增三档（用户批注「把之前的那些模型找回来」）─────────────────────
      定价**沿用站内既有规则**，没有新造口径：
        用户价 = 记账成本 / (1 − 54%) 取整到分；units = 现金价 × 3819 向上取整（工作室包面值锚）；
@@ -305,7 +322,9 @@ export function assertContributionMargin(item, unitPriceCny) {
     throw new TypeError('feature item is required');
   }
   const unitPrice = toDecimalRational(unitPriceCny, 'unit price');
-  const providerCost = toDecimalRational(item.providerCostCny, 'provider cost');
+  /* 本地引擎（localEngine）没有上游账单，成本就是 0 —— 见 contributionMarginOf 的批注；
+     这里同样跳过"成本必须为正"的断言，但仍走完整的毛利地板校验（面值 − 3% 手续费 − 0）。 */
+  const providerCost = toDecimalRational(item.localEngine === true ? 0 : item.providerCostCny, 'provider cost');
   const commonScale = Math.max(unitPrice.scale, providerCost.scale);
   const unitPriceNumerator = unitPrice.numerator * 10n ** BigInt(commonScale - unitPrice.scale);
   const providerCostNumerator = providerCost.numerator * 10n ** BigInt(commonScale - providerCost.scale);
@@ -335,7 +354,18 @@ export function pointsFaceAnchorCny() {
 export function contributionMarginOf(item, unitPriceCny) {
   assertPositiveFinite(unitPriceCny, 'unit price');
   if (!item || typeof item !== 'object') throw new TypeError('feature item is required');
-  assertPositiveFinite(item.providerCostCny, 'provider cost');
+  /* ═══ 2026-09-25 批 AI：**本地引擎** SKU 允许记账成本为 0 ═══════════════════════════════════
+     原来这条死守"成本必须是正数"，用意是防"漏记成本"（把有上游账单的档位写成 0 来假装高毛利）。
+     但本地方案（视频高清的 ffmpeg 缩放、去字幕的 delogo）**确实没有上游账单**，成本就是 0。
+     ⇒ 新增一个显式类别：\`localEngine: true\` 的 SKU 必须记 0，其他 SKU 仍然必须是正数 ——
+        守的东西没变（不许拿 0 假装成本），只是把"真的没有上游成本"这件事变成一个可断言的类别。 */
+  if (item.localEngine === true) {
+    if (item.providerCostCny !== 0) {
+      throw new TypeError('localEngine SKU must book zero provider cost（本地引擎没有上游账单，不许记正数）');
+    }
+  } else {
+    assertPositiveFinite(item.providerCostCny, 'provider cost');
+  }
   return (unitPriceCny - unitPriceCny * 0.03 - item.providerCostCny) / unitPriceCny;
 }
 
