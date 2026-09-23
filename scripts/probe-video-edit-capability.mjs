@@ -46,6 +46,10 @@ const readEnv = key => {
 const PROMPTS = {
   upscale: `把这段视频画质提升到 ${RESOLUTION}：保持原有构图、动作、光线与主体不变，只提高清晰度与细节，不新增或删减画面内容，不改变镜头运动。`,
   desubtitle: '去掉画面里所有的字幕文字与贴片文字：保留人物、动作、镜头、背景与光线不变，把字幕区域用周围的画面内容自然补全，不留色块与模糊斑。',
+  /* 2026-09-24：用户要求「最小的一次成本跑」—— 把两个问题压进**一次提交**：
+     同一条视频既要求去字幕、又要求提到目标分辨率，输出一看就能同时回答两件事。 */
+  minimal: '去掉画面里所有的字幕文字与贴片文字，并把画质提升到 ' + RESOLUTION
+    + '：保留人物、动作、镜头、背景与光线不变，字幕区域用周围的画面内容自然补全、不留色块与模糊斑，同时提高清晰度与细节，不新增或删减画面内容。',
 };
 
 async function main() {
@@ -66,17 +70,22 @@ async function main() {
     return;
   }
 
-  const modes = MODE === 'both' ? ['upscale', 'desubtitle'] : [MODE];
-  for (const mode of modes) {
+  const modes = MODE === 'both' ? ['upscale', 'desubtitle'] : [MODE];  for (const mode of modes) {
     const body = {
       model: 'omni-v2v',
       prompt: PROMPTS[mode] || PROMPTS.upscale,
-      duration: 5,
-      resolution: RESOLUTION,
-      /* 载荷形状按站内 seedance 适配器那一套（server/videoProviders.mjs 的 referenceData）：
-         参考视频走 reference_video_urls。⚠️ 这是**推测**，探针的意义之一就是验证它对不对 ——
-         若上游回参数错，把它的原文贴在报告里，我据此改适配器。 */
-      reference_video_urls: [VIDEO],
+      /* ⚠️ 2026-09-24：字段名与参数范围**逐条照 /api/pricing 的 api_doc**（omni-v2v 那一条）——
+         第一版我照站内 seedance 适配器猜了 reference_video_urls + duration + resolution，
+         被上游回 invalid_reference（400，失败不计费）。文档原文：
+           · 参考视频字段叫 `reference_videos`（数组，最多 2 条，每条 ≤8MB/≤1920×1080）；
+           · 参考图叫 `reference_image_urls`（与视频混用最多 2 张）；
+           · `aspect_ratio` 只支持 16:9 / 9:16；
+           · **输出分辨率固定 720p**（可省略；传了必须是 720p == 高清这件事它做不了，见下）；
+           · 参数表里**没有 duration**，而且明文写着"仅使用本页列出的字段，未列字段不要发送"。
+         ⇒ 也就是说：omni-v2v 只能回答"**去字幕**"（视频转视频重绘），
+            "视频高清"得换支持参考视频 + 1080p 输出的路由（xn-wan3.0 / minimax-h3，文档同页有写）。 */
+      aspect_ratio: '16:9',
+      reference_videos: [VIDEO],
     };
     console.log(`\n--- 提交 [${mode}] ---`);
     const res = await fetch(`${base}/videos`, {

@@ -10,7 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { IMAGE_SKILLS } from '../../skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../../skills/videoSkills.js';
 import CaseCard from '../../components/media/CaseCard.jsx';
-import { availabilityLabel, coverOf, fusionLabel } from '../../skills/skillDirectory.js';
+import { coverOf, fusionLabel } from '../../skills/skillDirectory.js';
 import '../../components/media/CaseCard.css';
 import '../../components/media/GalleryGrid.css';
 import './MediaHub.css';
@@ -114,7 +114,12 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
                   cover={media.cover}
                   video={media.video}
                   poster={media.poster}
-                  badge={availabilityLabel(skill)}
+                  /* ═══ 2026-09-24：**角标整块去掉**（用户本轮原话：「Hub『需参考素材』角标一起去掉」）═══
+                     上一批（批 T）只按那句话的**范围**（首页那排 9 个案例按钮）删了首页那一处，
+                     Hub 卡片上的这颗角标被留了下来 —— 现在按用户口径**一起删**。
+                     ⚠️ 删的只是**卡片上的角标**：availability 这个**声明字段一个字没动**
+                        （它仍是"跑不通的技能不许装作能用"的依据，也是台账/门禁读的那份数据）；
+                        availabilityLabel() 这个取词函数与它的单测也保留（谁以后再要显示还能用）。 */
                   accent={skill.cover?.accent || 'neutral'}
                   monogram={monogram}
                   /* 批 M：**按钮预览窗**右栏的案例图 —— 取这条 skill 自己声明的案例封面，最多 3 张。

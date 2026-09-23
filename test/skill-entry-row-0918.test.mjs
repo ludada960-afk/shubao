@@ -212,8 +212,14 @@ test('⑤ 图片与视频共用同一套按钮行（不许各写一份），旧�
         不是「这个文件里只能有一个 button」。分类页签是**另一个控件**，不是第二份 skill 按钮实现。
      所以判据改成数 .skill-entry-button 这个类名的出现次数（仍然是 1 = 一个 map 渲染全部）。 */
   assert.equal((row.match(/className=\{'skill-entry-button'/g) || []).length, 1, 'skill 按钮只有一处实现（一个 map 渲染全部）');
-  /* 可用性角标也只有一份实现（Hub 卡片与首页按钮共用同一句话） */
-  assert.match(hub, /badge=\{availabilityLabel\(skill\)\}/);
+  /* ═══ 2026-09-24：**角标从两个地方一起去掉**（判据反转，依据是用户本轮原话）═══════════════
+     原判据守的是「可用性角标只有一份实现（Hub 卡片与首页按钮共用同一句话）」——
+     上一批按用户那句话的**范围**（首页那排 9 个案例按钮）只删了首页那一处，Hub 卡片保留了角标。
+     用户本轮原话：「**Hub「需参考素材」角标一起去掉**」⇒ 两处都不再显示角标。
+     ⚠️ 变的只是**显示**：availability 声明字段、availabilityLabel 取词函数与下面的单测**全部保留**
+        （"跑不通的技能不许装作能用"这条口径仍然由声明与台账守着）。负向断言先剥注释。 */
+  assert.doesNotMatch(stripComments(hub), /badge=\{availabilityLabel/,
+    'Hub 卡片不再显示可用性角标（用户：Hub「需参考素材」角标一起去掉）');
   assert.equal(availabilityLabel({ availability: 'blocked' }), '即将上线');
   assert.equal(availabilityLabel({ availability: 'needs_ref' }), '需参考素材');
   assert.equal(availabilityLabel({ availability: 'ready' }), '');
