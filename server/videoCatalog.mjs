@@ -256,6 +256,14 @@ export const ROUTE_REACHABILITY = deepFreeze({
         而失败 —— 所以只有 ① 装机确认 + ② 建单前的 `ffmpegAvailable()` 预检（缺了就不收钱、
         直接 503）两道都在，才允许把它放进可公开的产品里。 */
   'local-ffmpeg': { state: 'callable', evidence: '2026-09-25 批 AM：本机 ffmpeg 8.1.1 与线上 apt 安装的 ffmpeg 均实测出片（scale / fps / delogo）；本地方案的上架前提是"装机 + 建单前预检"，见 server/videoLocalAdapter.mjs 的 ffmpegAvailable' },
+  /* ═══ 2026-09-26 批 AR：**火山 AI MediaKit**（字幕擦除，自动标记那一档）══════════════════════════
+     用户拍板：「我觉得自己接去字幕很麻烦，**不如就直接接火山API**吧」+「自动标记卖多少就按你说的来吧」。
+     这是**上游**（不是本机）：站内片子先上传到 MediaKit 换 `mediakit://{file_id}`，再提交擦除任务、轮询、下载。
+     ⚠️ 状态为什么是 unverified 而不是 callable：**还没真跑过一次** ——
+        Key 已配好并用只读请求验真（真 Key 走到业务层、坏 Key 403，对照证据见 .tmp/zc-volc-key-contrast.mjs），
+        但用户**账户未充值**（火山后付费也要余额，欠费 72h 连新任务都拒）⇒ 付费调用一次都没发。
+        等跑通 `.tmp/zc-volc-subtitle-probe.mjs`（30 秒片标准版约 ¥0.20），把证据与日期写进这里再转 callable。 */
+  'volc-media-kit-subtitle': { state: 'unverified', evidence: '2026-09-26：契约已按官方文档实现（Bearer API Key、POST /api/v1/tools/erase-video-subtitle、GET /api/v1/tasks/{id}，见 server/volcSubtitleErase.mjs）；Key 用只读请求验真（真 Key→业务层 404 / 坏 Key→403 AccessDenied）。**未做付费实测**：账户未充值（后付费也要余额）。上架前必须跑一次真片子并把结果记回这里' },
   'wan3.0-video': { state: 'blocked', evidence: '2026-09-23 批 AC 探针：403 insufficient_user_quota（预扣 ¥6.37 > 余额 ¥4.2478）⇒ 活着但余额不足，充值即开' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
   /* 2026-09-19 批 K-B 复核 + 2026-09-23 复测：四条都维持 unreachable —— 提交回
@@ -817,6 +825,42 @@ export const VIDEO_PRODUCTS = deepFreeze({
     concurrency: 2,
     pollIntervalMs: 1000,
   },
+  /* ═══ 2026-09-26 批 AR：**自动标记**（火山 AI MediaKit 字幕擦除）═════════════════════════════════
+     与 `desubtitle_local` 是**同一件事的两条实现**（用户口径：「自动标记卖多少就按你说的来吧」）：
+       · desubtitle_local —— 手动框选区域 → 本机 ffmpeg delogo（0.04 积分/秒，成本 0）
+       · desubtitle_volc  —— 自动检测 → 火山 MediaKit 擦除（0.05 积分/秒，成本 0.4 元/分钟）
+     为什么是**两个产品**而不是一个产品里加个开关：站内 SKU 名由产品 id 派生（`video_${id}_${short|long}`），
+     两条路成本不同、价也不同，只能各自一条档（与 1080P、2K 档"一族一条产品"同一做法）。
+
+     ⚠️ `videoProcess: true` = **"处理已有视频"这一类产品**的声明（本次新引入的类别）：
+        输入契约与本地方案一样（**一条源视频 + 时长**，没有提示词、没有比例、不要拍摄方案），
+        区别只在**在哪儿执行**（localEngine → 本机；credential 'volc' → 火山）。
+        createJob 按这个标记走 processProduct 那条校验；派发时再按 localEngine / credential 分流。
+     ⚠️ `localSpec: { auto: true }` —— 这一档**没有用户要填的规格**：自动检测由上游完成
+        （官方边界：字幕须在画面下方 50% 以内且横向偏中央、文字高占画面 1%~10%、白色、仅中英文）。
+     ⚠️ `public: false`：凭据已配、契约已实现，但**没跑过一次真片子**（账户未充值）⇒ 不许公开（铁律）。 */
+  desubtitle_volc: {
+    id: 'desubtitle_volc',
+    label: '视频字幕去除 · 自动',
+    providerLabel: '火山引擎',
+    tierLabel: '智能去字幕',
+    description: '上传视频，自动识别并去除画面中的字幕（火山 AI MediaKit 字幕擦除）。',
+    limitations: '自动识别只认画面下方 50% 以内、横向偏中央、白色、中英文的字幕；按秒计费。',
+    routeId: 'volc-media-kit-subtitle',
+    credential: 'volc',
+    videoProcess: true,
+    public: false,
+    default: false,
+    durations: { min: 1, max: 300 },
+    resolutions: [],
+    modes: ['process'],
+    localSpec: { resolution: false, fps: false, regions: false, auto: true },
+    generatedAudio: false,
+    frameAudio: false,
+    limits: { images: 0, videos: 1, audios: 0, total: 1 },
+    concurrency: 2,
+    pollIntervalMs: 5000,
+  },
 });
 
 function productId(value) {
@@ -884,10 +928,19 @@ export function isLocalEngineProduct(product) {
   return product?.localEngine === true;
 }
 
+/* ═══ 2026-09-26 批 AR：**"不是模型"的产品**（不进模型选择器）══════════════════════════════════
+   · localEngine   —— 本机渲染（视频高清 / 手动去字幕）
+   · videoProcess  —— 处理已有视频的上游档（火山自动去字幕）
+   共同点：都**不吃提示词**，用户从各自的 skill 子页面进入。放进模型下拉＝用户会在「视频创作」里
+   选到一条点了必失败的档位（与本地那两条同一条纪律）。 */
+export function isNonModelProduct(product) {
+  return product?.localEngine === true || product?.videoProcess === true;
+}
+
 export function publicVideoProducts({ includeHidden = false } = {}) {
   return Object.values(VIDEO_PRODUCTS)
     .filter(product => product.public === true || includeHidden)
-    .filter(product => !isLocalEngineProduct(product))
+    .filter(product => !isNonModelProduct(product))
     .map(product => ({
       id: product.id,
       label: product.label,

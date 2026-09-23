@@ -51,6 +51,9 @@ test('video products expose one curated stable contract', () => {
        但它们**不进模型选择器**（publicVideoProducts 会跳过 localEngine）—— 见下面那条断言。 */
     'upscale_local',
     'desubtitle_local',
+    /* ═══ 2026-09-26 批 AR：+1（判据未变，事实变了）—— 自动标记那条走火山 MediaKit，
+       是"处理已有视频"的**上游**档（videoProcess: true），与本地那两条共用输入契约。 */
+    'desubtitle_volc',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
   assert.equal(getVideoProduct('seedance_standard').label, 'Seedance 2.0 标准');
@@ -227,13 +230,25 @@ test('public products omit hidden routes and private provider details', () => {
      ═══ 批 AN：13 → **15**（判据未变，事实变了）—— 1080P 两条**是**模型（走上游路由、
      吃提示词、由用户选），所以进模型清单；其中 seedance_1080p 靠 public:false 挡在公开目录外
      （includeHidden:true 是管理端视角，两条都该在）。 */
-  assert.equal(all.length, 15, '模型清单 15 条（13 条原有 + 两条 1080P；本地方案不算模型）');
+  /* ═══ 批 AR：模型清单仍 15 条（判据未变，事实变了）—— 自动标记那条**不是模型**：
+     它不吃提示词，进了模型下拉就会让用户在「视频创作」里选到一条点了必失败的档位。
+     判据从"排除 localEngine"扩成"排除不是模型的产品（localEngine / videoProcess）"。 */
+  assert.equal(all.length, 15, '模型清单 15 条（13 条原有 + 两条 1080P；非模型产品不算）');
   assert.ok(all.some(product => product.id === 'wan_1080p'), '通义万相 1080P 是模型，要在模型清单里');
   assert.ok(all.some(product => product.id === 'seedance_1080p'), 'Seedance 1080P 也是模型（隐藏档仅管理端可见）');
   const localIds = Object.keys(VIDEO_PRODUCTS).filter(id => getVideoProduct(id).localEngine === true);
   assert.deepEqual(localIds.sort(), ['desubtitle_local', 'upscale_local']);
-  assert.deepEqual(all.filter(product => localIds.includes(product.id)), [], '本地方案不许出现在模型清单里');
-  assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS).filter(id => !localIds.includes(id)));
+  /* ═══ 批 AR：判据从"排除本地方案"扩成"排除**不是模型的产品**"═════════════════════════════════
+     现在有两类非模型产品：localEngine（本机渲染）与 videoProcess（上游"处理已有视频"，
+     目前是火山自动去字幕）。两者都**不吃提示词**，进了模型下拉 = 用户会在「视频创作」里
+     选到一条点了必失败的档位 —— 守的东西一个字没变，只是这类产品多了第二个成员。 */
+  const nonModelIds = Object.keys(VIDEO_PRODUCTS).filter(id => {
+    const product = getVideoProduct(id);
+    return product.localEngine === true || product.videoProcess === true;
+  });
+  assert.deepEqual(nonModelIds.sort(), ['desubtitle_local', 'desubtitle_volc', 'upscale_local']);
+  assert.deepEqual(all.filter(product => nonModelIds.includes(product.id)), [], '非模型产品不许出现在模型清单里');
+  assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS).filter(id => !nonModelIds.includes(id)));
   assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);
   /* ═══ 2026-09-23 批 AC：可灵两条**恢复上架**（判据反转，依据是当日实测）══════════════════════
      09-21 它们是 public:false，理由是台账 retired（上游回 not a public model name）。

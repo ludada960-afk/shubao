@@ -343,9 +343,11 @@ test('⑦ 派发点：产品声明决定链路（本地方案有本地适配器�
   assert.equal(getVideoProduct(DESUBTITLE).localEngine, true);
   assert.equal(getVideoProduct('seedance_standard').localEngine, undefined);
   const source = readFileSync(new URL('../server/videoGeneration.mjs', import.meta.url), 'utf8');
-  const dispatch = source.slice(source.indexOf('function providerForJob'), source.indexOf('function providerForJob') + 1200);
-  assert.match(dispatch, /isLocalEngineProduct\(product\)\) return localProviderFor\(product\)/,
-    '派发点必须按产品声明分流（上游走 registry、本地走 localProviderFor）');
+  const dispatch = source.slice(source.indexOf('function providerForJob'), source.indexOf('function providerForJob') + 1600);
+  /* 批 AR：判据从"localEngine → localProviderFor"扩成"**处理已有视频的产品 → processProviderFor**"
+     （本机 lc / 上游火山共用这条契约）。要证明的事没变：派发按**产品声明**分流，不是按路由名猜。 */
+  assert.match(dispatch, /isProcessProduct\(product\)\) return processProviderFor\(product\)/,
+    '派发点必须按产品声明分流（处理已有视频 → 本机或火山；其余 → 上游生成 registry）');
   const providers = readFileSync(new URL('../server/videoProviders.mjs', import.meta.url), 'utf8');
   assert.match(providers, /if \(product\.localEngine === true\) continue;/,
     '上游注册表必须跳过本地方案（不许给它们建一条永远 disabled 的上游适配器）');

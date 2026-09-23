@@ -4,7 +4,7 @@ import { copyFile, link, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { quoteFeature, billableQuantity } from './billing/catalog.mjs';
+import { FEATURE_SKUS, quoteFeature, billableQuantity, billableProviderCost } from './billing/catalog.mjs';
 import {
   DEFAULT_VIDEO_PRODUCT_ID,
   VIDEO_CATALOG_VERSION,
@@ -17,6 +17,7 @@ import {
 } from './videoCatalog.mjs';
 import { createLocalVideoAdapter, ffmpegAvailable, probeDurationSeconds } from './videoLocalAdapter.mjs';
 import { validateLocalPlanInput } from './localVideoPlan.mjs';
+import { createVolcSubtitleAdapter, volcSubtitleReadiness } from './volcSubtitleErase.mjs';
 import {
   buildProviderPayload,
   createVideoProviderRegistry,
@@ -219,6 +220,9 @@ export function createVideoGeneration({
   ownerReads = true,
   readNewState = true,
   validateWorkbenchPlanApproval = null,
+  /* 火山 MediaKit 凭据与"测试用 fetch 注入"（默认都从环境/全局取） */
+  volcApiKey = process.env.VOLC_MEDIAKIT_API_KEY || '',
+  volcFetchImpl = null,
 } = {}) {
   if (!db || !walletService || !quoteService || typeof upsertWork !== 'function') {
     throw new TypeError('video generation dependencies are required');
@@ -367,6 +371,23 @@ export function createVideoGeneration({
     if (!localAdapters.has(product.id)) localAdapters.set(product.id, createLocalVideoAdapter({ product }));
     return localAdapters.get(product.id);
   }
+  /* ═══ 火山 AI MediaKit 适配器（2026-09-26 批 AR，自动标记那一档）══════════════════════════════
+     与上游视频适配器同形（submit / get / download），但走的是 MediaKit 那套契约
+     （Bearer API Key、POST /tools/erase-video-subtitle、GET /tasks/{id}）。
+     ⚠️ `volcFetchImpl` 只为**测试与诊断**注入（默认 fetch）：有了它，整条链路能在不花钱、
+        不联网的情况下跑端到端（假 MediaKit 回任务号、回成片地址），这正是"账户未充值也要验证"的办法。 */
+  const volcAdapter = createVolcSubtitleAdapter({
+    apiKey: clean(volcApiKey, 500),
+    fetchImpl: volcFetchImpl || fetch,
+  });
+  function volcProviderFor() {
+    return {
+      ...volcAdapter,
+      routeId: 'volc-media-kit-subtitle',
+      productId: 'desubtitle_volc',
+    };
+  }
+  const VOLC_ROUTE = 'volc-media-kit-subtitle';
   /* 本机渲染组件的可用性（ffmpeg 在不在）。进程起来之后异步探一次，缓存起来给 circuitHealth /
      capabilities 这两处**同步**读；真正的权威判定在 createJob 里 await 一次（见 assertLocalEngineReady）——
      探针是"启动时的乐观默认 + 建单时的实测"，两道合起来才不会出现"页面亮着、点了 503"。 */
@@ -438,6 +459,13 @@ export function createVideoGeneration({
        本地也不该走"熔断"：它没有上游渠道可抖，只有"装了/没装"这一个事实。 */
     if (isLocalEngineProduct(product)) {
       return { status: localEngineReady ? 'ready' : 'unavailable', reason: localEngineReady ? '' : 'local_engine_missing' };
+    }
+    /* ═══ 火山字幕擦除（2026-09-26 批 AR）：健康度 = **凭据在不在** ══════════════════════════════
+       它同样不在上游"生成"registry 里（MediaKit 不是视频生成模型），照旧判会得到 credential_missing
+       ⇒ 建单被 admitProduct 拦成 503「该视频产品暂时不可用」，永远进不去。
+       它也不该走熔断：真正决定"能不能跑"的是**账户余额**（运维事实），代码这边只有"有没有 Key"。 */
+    if (product.videoProcess === true && product.credential === 'volc') {
+      return { status: volcAdapter.enabled ? 'ready' : 'unavailable', reason: volcAdapter.enabled ? '' : 'volc_key_missing' };
     }
     const provider = registry.get(product.id);
     if (!provider?.enabled) return { status: 'unavailable', reason: 'credential_missing' };
@@ -637,14 +665,57 @@ export function createVideoGeneration({
     };
   }
 
+  /* ═══ 处理已有视频的产品（本机 or 上游，2026-09-26 批 AR）═════════════════════════════════════
+     两类产品共用同一份**输入契约**（一条源视频 + 时长），区别只在"谁执行"：
+       · localEngine: true      → 本机 ffmpeg（videoLocalAdapter）
+       · videoProcess: true     → 上游（目前只有火山 MediaKit 的自动字幕擦除）
+     派发点按**产品声明**分流 —— 与 AM 批同一套纪律：链路只在产品目录里定义一次。 */
+  function isProcessProduct(product) {
+    return product?.localEngine === true || product?.videoProcess === true;
+  }
+  function processProviderFor(product) {
+    if (product.localEngine === true) return localProviderFor(product);
+    if (product.videoProcess === true && product.credential === 'volc') return volcProviderFor();
+    throw httpError(503, 'VIDEO_PROCESS_ENGINE_UNKNOWN', '这类产品的执行引擎未登记，暂不可用');
+  }
+
+  /* 火山那条的派发报文：站内片子是**带签名的内网地址**，火山拉不到 ⇒ 先上传换 `mediakit://{file_id}`
+     （官方那条"本地上传"路：取上传票据 → 纯二进制 PUT → 提交时用 mediakit:// 协议）。
+     ⚠️ 上传发生在**建单之后、提交之前**（和本机渲染一样，失败会走既有的失败退费），
+        不会因为上传失败而多收钱。 */
+  async function volcProviderPayload(job) {
+    const filePath = await sourceFilePathFor(parseJson(job.refs_json, {}));
+    if (!filePath) throw httpError(400, 'VIDEO_REFERENCE_NOT_FOUND', '源视频不存在或不属于当前账号');
+    const provider = volcProviderFor();
+    if (!provider.enabled) {
+      throw httpError(503, 'VOLC_SUBTITLE_NOT_CONFIGURED', volcSubtitleReadiness('').reason, { retryable: true });
+    }
+    const uploaded = await provider.uploadLocalFile({ filePath, fileName: `${job.id}.mp4` });
+    return {
+      videoUrl: uploaded.videoUrl,
+      mode: 'Subtitle',        /* 自动检测字幕（官方另一档 Text 会连人名地名一起擦，我们不用） */
+      modelVersion: 'v5',
+    };
+  }
+
+  async function processPayloadFor(product, job) {
+    if (product.localEngine === true) return localProviderPayload(job);
+    return volcProviderPayload(job);
+  }
+
   function providerForJob(job) {
     const product = getVideoProduct(job.product_id);
-    /* ═══ 派发点（2026-09-25 批 AM，交接第①步）══════════════════════════════════════════════
-       判据是**产品声明**（localEngine），不是路由名或模式 —— 声明了 localEngine 的产品一定走本地
-       适配器，其余一律走上游注册表。这样"哪条链路"这件事只有一处能定义（产品目录），
-       不会出现"目录说是本地的、跑的是上游"那种账对不上的情况（本地方案的成本记 0）。 */
-    if (isLocalEngineProduct(product)) return localProviderFor(product);
+    /* ═══ 派发点（2026-09-25 批 AM；2026-09-26 批 AR 加了"处理已有视频"这一类）═══════════════════
+       判据是**产品声明**，不是路由名：
+         · localEngine: true  → 本机 ffmpeg 适配器（零上游成本）
+         · videoProcess: true → 上游"处理已有视频"的适配器（目前火山 MediaKit 字幕擦除）
+         · 其余               → 上游**生成**注册表（videoProviders）
+       这样"哪条链路"只有一处能定义（产品目录），不会出现"目录说是本地的、跑的是上游"那种
+       账对不上的情况（成本口径按产品声明记）。 */
+    if (isProcessProduct(product)) return processProviderFor(product);
     const provider = registry.get(job.product_id);
+    /* ⚠️ 火山那条不走 registry（它不是"生成"视频的模型），但它的 routeId 也要与 job 对得上 ——
+       下面这句在 processProviderFor 里等价地保证了（适配器自带 routeId）。 */
     if (!provider?.enabled || provider.routeId !== job.provider_route) {
       throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中', { retryable: true });
     }
@@ -1075,8 +1146,10 @@ export function createVideoGeneration({
           return;
         }
         const jobProduct = getVideoProduct(job.product_id);
-        const providerPayload = isLocalEngineProduct(jobProduct)
-          ? localProviderPayload(job)
+        /* 处理已有视频的产品（本机 lc / 上游火山）：报文不是"生成"那套（没有提示词/比例），
+           而是"源视频 + 规格/区域"（本机）或"上传后的 mediakit:// + 自动检测"（火山）。 */
+        const providerPayload = isProcessProduct(jobProduct)
+          ? await processPayloadFor(jobProduct, job)
           : buildProviderPayload({ product: jobProduct, job }).body;
         const attempt = attemptStore.begin({
           jobId: job.id,
@@ -1107,8 +1180,10 @@ export function createVideoGeneration({
            上游那条路要 get() 轮询 1440 次等出片；本地是同步的（videoLocalAdapter.submit 内部就是
            renderVideo），所以只取一次终态、落库、走**既有的** complete()（计费结算、作品落库、
            项目投影都在里面）。⚠️ 不写"假轮询"（sleep 几次再问）—— 那只会让用户多等几秒，
-           还会让失败分类变成"超时"而不是"渲染失败"。 */
-        if (isLocalEngineProduct(getVideoProduct(job.product_id))) {
+           还会让失败分类变成"超时"而不是"渲染失败"。
+           ⚠️ 2026-09-26 批 AR：判据从 localEngine 改成"处理已有视频且是**本机**执行" ——
+              火山那条同样是 process 产品，但它**是异步上游**，要走下面的正常轮询（不能同步取终态）。 */
+        if (jobProduct.localEngine === true) {
           const localResult = await provider.get(job.provider_task_id);
           if (clean(localResult?.status, 40).toLowerCase() !== 'completed' || !localResult?.downloadUrl) {
             throw httpError(502, 'VIDEO_LOCAL_RENDER_FAILED', clean(localResult?.reason, 200) || '本地渲染失败，请重试');
@@ -1260,14 +1335,22 @@ export function createVideoGeneration({
        ⇒ 本地方案不套用上游那几道（提示词必填 / 比例必填 / 方案闸门 / validateVideoProductInput），
          因为它们要求的东西用户在一张只有"上传视频 + 分辨率"的页面上根本给不出来；
          反过来，本地会跑 validateLocalPlanInput（时长必须是真值、分辨率必须在白名单里、
-         去字幕必须有区域）—— 校验一点没少，只是换成了这类方案真正需要的字段。 */
-    const localEngine = isLocalEngineProduct(product);
-    if (localEngine) {
+         去字幕必须有区域）—— 校验一点没少，只是换成了这类方案真正需要的字段。
+       ⚠️ 2026-09-26 批 AR：这批的 `processProduct` 把上面那段从"本地"推广成**"处理已有视频"**——
+          本机执行（localEngine）与上游执行（videoProcess，目前只有火山自动字幕擦除）**共用同一份
+          输入契约**，所以校验、方案闸门豁免、比例豁免都按同一个标记走；执行在哪由派发点决定。 */
+    const processProduct = isProcessProduct(product);
+    if (product.localEngine === true) {
       await assertLocalEngineReady();
+    } else if (product.videoProcess === true && product.credential === 'volc') {
+      /* 上游处理（火山）：凭据缺失就 503，**不建单不冻结积分** —— 与 ffmpeg 预检同一条纪律 */
+      if (!volcAdapter.enabled) {
+        throw httpError(503, 'VOLC_SUBTITLE_NOT_CONFIGURED', volcSubtitleReadiness('').reason, { retryable: true });
+      }
     } else if (!registry.get(product.id)?.enabled) {
       throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中');
     }
-    const localPlan = localEngine ? (() => {
+    const localPlan = processProduct ? (() => {
       try {
         return validateLocalPlanInput({ product, input });
       } catch (error) {
@@ -1288,7 +1371,7 @@ export function createVideoGeneration({
     let compiled = { planHash: '' };
     let prompt = '';
     let negativePrompt = '';
-    if (!localEngine) {
+    if (!processProduct) {
       /* 上游那条路：闸门 + 编译**都在这里**（服务端权威，客户端绕不过）。
          用 IIFE 的意义只有一个：`const prompt = compiled.prompt` 这两行必须**字面留在
          createJob 内** —— test/video-plan-billing-chain-0918 与 plan-affects-output-audit-0918
@@ -1311,17 +1394,17 @@ export function createVideoGeneration({
       prompt = upstream.prompt;
       negativePrompt = upstream.negativePrompt;
     }
-    const duration = localEngine ? localPlan.duration : Number(input?.duration);
-    const resolution = localEngine ? localPlan.resolution : clean(input?.resolution, 20).toLowerCase();
+    const duration = processProduct ? localPlan.duration : Number(input?.duration);
+    const resolution = processProduct ? localPlan.resolution : clean(input?.resolution, 20).toLowerCase();
     /* 本地方案**不改比例**（原样交付，不裁不补）⇒ 记空串，不冒充一个它没用过的比例 */
-    const aspectRatio = localEngine ? '' : clean(input?.aspectRatio, 20);
-    const mode = localEngine
-      ? 'local'
+    const aspectRatio = processProduct ? '' : clean(input?.aspectRatio, 20);
+    const mode = processProduct
+      ? (product.videoProcess === true ? 'process' : 'local')
       : (['script', 'frame', 'reference', 'remake'].includes(input?.mode) ? input.mode : 'script');
-    const localSpecs = localEngine ? { fps: localPlan.fps, regions: localPlan.regions } : null;
+    const localSpecs = processProduct ? { fps: localPlan.fps, regions: localPlan.regions } : null;
     const seed = Number.isSafeInteger(Number(input?.seed)) ? Number(input.seed) : 0;
-    if (!localEngine && !prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
-    if (!localEngine) {
+    if (!processProduct && !prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
+    if (!processProduct) {
       try {
         validateVideoProductInput({
           productId: product.id,
@@ -1336,7 +1419,7 @@ export function createVideoGeneration({
       if (!RATIOS.has(aspectRatio)) throw httpError(400, 'VIDEO_FORMAT_INVALID', '视频规格不支持');
     }
     const references = normalizeReferences(ownerEmail, input?.references, publicBaseUrl);
-    if (mode === 'local' && references.videos.length !== 1) {
+    if (processProduct && references.videos.length !== 1) {
       throw httpError(400, 'VIDEO_LOCAL_SOURCE_REQUIRED', '请先上传要处理的视频（一次一条）');
     }
     /* ═══ 本地方案的时长必须与源文件相符（2026-09-25 批 AM）══════════════════════════════════════
@@ -1345,7 +1428,7 @@ export function createVideoGeneration({
        所以建单前用 ffprobe 量一次**真实时长**：明显短报（>2 秒）直接拒，不建单、不收费。
        ⚠️ 量不出来（ffprobe 不可用/容器异常）不拦：宁可放行也不误伤正常用户 ——
           上面那道 ffmpegAvailable 预检已经保证"本机能渲染"，这里只是多一道防少报的闸。 */
-    if (mode === 'local') {
+    if (processProduct) {
       const probed = await probeSourceSeconds(references);
       if (probed && localPlan.duration < probed - 2) {
         throw httpError(400, 'VIDEO_LOCAL_DURATION_MISMATCH',
@@ -1402,6 +1485,10 @@ export function createVideoGeneration({
           否则 quoteService.verify 逐字段比对会 409；这条一致性由 test/video-local-dispatch-0925 守。 */
     const quantity = billableQuantity({ sku, seconds: duration });
     const expectedQuote = quoteFeature(sku, quantity);
+    /* ⚠️ 这一单的**真实上游成本**（批 AR）：按秒的 SKU 的 providerCostCny 记的是"每秒成本"
+       （与 units 一样按秒归一，否则启动期的单位毛利门禁会误判），所以入账要乘上份数。
+       按条档 quantity=1 ⇒ 与从前逐值相同（既有档位一个字节没变）。 */
+    const jobProviderCostCny = billableProviderCost({ sku, quantity });
     const verified = quoteService.verify({ quoteId: clean(billingQuoteId, 5000), ownerEmail, expectedQuote });
     const id = crypto.randomUUID();
     const admission = admitProduct(product.id);
@@ -1447,7 +1534,7 @@ export function createVideoGeneration({
       ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, ownerEmail, requestKey, mode, sku, prompt, negativePrompt, duration, aspectRatio,
         resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
-        product.id, product.routeId, VIDEO_CATALOG_VERSION, expectedQuote.providerCostCny, '', verified.quoteId,
+        product.id, product.routeId, VIDEO_CATALOG_VERSION, jobProviderCostCny, '', verified.quoteId,
         compiled.planHash || '',
         localSpecs ? JSON.stringify(localSpecs) : '',
       );
@@ -1714,6 +1801,31 @@ export function createVideoGeneration({
       };
     },
     capabilities() {
+      /* ═══ 自动标记那一档的可售状态（2026-09-26 批 AR）═════════════════════════════════════════
+         「视频字幕去除」页上的「自动标记」选项**只有在** ①产品已公开（跑过一次真片子、台账转 callable）
+         且 ②凭据已配 时才可点。两个条件缺一，前端就保持"不可选 + 写明原因"（现在的默认状态）。
+         这份状态是**只读**的：前端只拿它决定要不要放开那个选项，价格仍走 /api/billing/quote。 */
+      const subtitleAutoProduct = getVideoProduct('desubtitle_volc');
+      const subtitleAutoReady = subtitleAutoProduct.public === true && volcAdapter.enabled === true;
+      /* 报价从这里给（与 localProducts 同一形状）：页面上那一档的价格**来自目录**，不在页面里写死 */
+      const autoSkuShort = videoFeatureSku({ productId: subtitleAutoProduct.id, duration: subtitleAutoProduct.durations.min });
+      const autoSkuLong = videoFeatureSku({ productId: subtitleAutoProduct.id, duration: Math.max(subtitleAutoProduct.durations.min, Math.min(9, subtitleAutoProduct.durations.max)) });
+      const autoQuantityOf = sku => (FEATURE_SKUS[sku]?.perSecond === true ? 'seconds' : 'clip');
+      const subtitleAuto = {
+        productId: subtitleAutoProduct.id,
+        available: subtitleAutoReady,
+        mode: 'auto',
+        billingQuantity: autoQuantityOf(autoSkuShort),
+        quotes: {
+          short: { sku: autoSkuShort, units: quoteFeature(autoSkuShort, 1).units, points: Math.ceil(quoteFeature(autoSkuShort, 1).units / 1000) },
+          long: { sku: autoSkuLong, units: quoteFeature(autoSkuLong, 1).units, points: Math.ceil(quoteFeature(autoSkuLong, 1).units / 1000) },
+        },
+        reason: subtitleAutoReady
+          ? ''
+          : (!volcAdapter.enabled
+            ? volcSubtitleReadiness('').reason
+            : '自动标记尚未完成首次实测（等火山账户充值到位、跑通一次真片子后开放）'),
+      };
       const products = registry.publicProducts({ includeHidden: allowHiddenProducts })
         .map(product => ({
           ...product,
@@ -1745,6 +1857,8 @@ export function createVideoGeneration({
            把"点了必失败"变成"如实说明 + 不可点"。 */
         localProducts: localVideoProducts({ includeHidden: allowHiddenProducts }),
         localEngineReady,
+        /* 自动标记那一档能不能点（只读；产品公开 + 凭据齐 才算就绪，见上面那段注释） */
+        subtitleAuto,
         unavailableProducts: registry.unavailableProducts(),
         /* ⚠️ 2026-09-19 批 H-7：**只读**的"未上架模型"清单，给界面一句实话用。
            用户原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，为什么现在都不见了呢？」

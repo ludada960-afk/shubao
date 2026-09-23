@@ -126,7 +126,10 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
      新增 1080P 四档：通义万相 1080P（22/44 积分 = 现价 ×2，文档价 ¥0.455/秒）
      与 Seedance 1080P（92/114 积分 = ×2，预扣 ¥7.67/条）。Seedance 那两个 public:false（卡余额）。
      价格口径的逐值证据在 test/video-1080p-tiers-0925.test.mjs。 */
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 36);
+  /* ═══ 2026-09-26 批 AR：36 → **38**（判据未变，事实变了）══════════════════════════════════════
+     新增「视频字幕去除（自动）」两档：50 units/秒 = 0.05 积分/秒（用户批的价），
+     成本按每秒记 ¥0.4/60（火山字幕擦除标准版 0.4 元/分钟）。 */
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 38);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);

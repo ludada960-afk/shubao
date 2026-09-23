@@ -507,6 +507,11 @@ export default function VideoStudioPage({
   const localPlan = workbenchMode ? videoSkillPlanOf(workbenchSkillId) : null;
   const localEngine = localPlan?.engine === LOCAL_RENDER_ENGINE;
   const localProducts = Array.isArray(capabilities.localProducts) ? capabilities.localProducts : [];
+  /* ═══ 2026-09-26 批 AR：**自动标记**那一档的服务端状态（只读）══════════════════════════════════
+     它走火山 MediaKit（不是本机、不是"模型"），所以既不在 localProducts 里也不在模型清单里 ——
+     单独一份状态：产品公开 + 凭据齐 = 可用；不可用时前端保持"不可选 + 写明原因"。 */
+  const subtitleAuto = capabilities.subtitleAuto || null;
+  const subtitleAutoReady = subtitleAuto?.available === true;
   const localProduct = localEngine
     ? localProducts.find(product => product.id === localPlan.productId) || null
     : null;
@@ -528,6 +533,12 @@ export default function VideoStudioPage({
   }, [localEngine, workbench]);
   /* 槽位素材的种类**由声明决定**：原来一律按 image 上传 —— 视频槽位会被当成图片传上去
      （服务端 415）。本地方案的两个上传位都是视频，所以这一条必须按块声明走。 */
+  /* 去字幕页的「自动标记」：服务端说可用才放开（否则保持声明源里的 disabled + 原因） */
+  const workbenchOptionOverrides = useMemo(() => (
+    localEngine && subtitleAutoReady
+      ? { 'markMode:auto': { disabled: false } }
+      : {}
+  ), [localEngine, subtitleAutoReady]);
   const localSourceFile = localSourceKey ? (slotFiles[localSourceKey] || [])[0] || null : null;
   const localSourceSeconds = Number(sourceSeconds) || 0;
   /* 源视频在本地的可播地址（对象 URL）：① 区域框选要在它上面拖框；② 时长探针读它的元数据。
@@ -567,20 +578,32 @@ export default function VideoStudioPage({
       probe.removeAttribute('src');
     };
   }, [localEngine, sourcePreview]);
+  /* 本地方案的"子模式"：手动（本机 delarea）与自动（火山）是同一页的两条实现，
+     各自一个产品、各自一档价。选中的是哪条由这一页的「字幕标记方式」决定。 */
+  const autoModeSelected = localEngine && String(markMode) === 'auto' && subtitleAutoReady;
+  const activeProcessProduct = autoModeSelected
+    ? {
+      id: subtitleAuto.productId,
+      billingQuantity: subtitleAuto.billingQuantity,
+      quotes: subtitleAuto.quotes,
+      localSpec: { resolution: false, fps: false, regions: false, auto: true },
+      engine: 'volc',
+    }
+    : (localProduct ? { ...localProduct, engine: 'local' } : null);
   const selectedQuote = useMemo(() => {
     /* 本地方案不走上游那套产品契约（它没有 durationOptions 白名单），报价另算：
        quantity 可能是秒数（去字幕 0.04 积分/秒），见 videoStudioModel 的 localQuoteFor。 */
-    if (localEngine) return localProduct ? localQuoteFor(localProduct, localSourceSeconds) : null;
+    if (localEngine) return activeProcessProduct ? localQuoteFor(activeProcessProduct, localSourceSeconds) : null;
     if (!selectedProduct) return null;
     try {
       return quoteForVideoProduct(selectedProduct, duration);
     } catch {
       return null;
     }
-  }, [duration, localEngine, localProduct, localSourceSeconds, selectedProduct]);
+  }, [activeProcessProduct, duration, localEngine, localSourceSeconds, selectedProduct]);
   const sku = selectedQuote?.sku || '';
   const estimatedPoints = localEngine
-    ? localJobPoints(localProduct, localSourceSeconds)
+    ? localJobPoints(activeProcessProduct, localSourceSeconds)
     : Math.ceil(Number(quote?.totalUnits ?? selectedQuote?.units ?? 0) / 1000);
   /* ═══ 2026-09-16 用户批注（图2-② / 图3-①，已问到第三次）═══
      原话：「现在不是已经有预设了一套方案在这里吗？为什么你的积分还是一积分呢？这个问题你怎么还是
@@ -1103,7 +1126,7 @@ export default function VideoStudioPage({
        ③ `localSpecs` = { fps, regions } —— 分辨率与时长已有列，这两样只属于本地方案。
      ⚠️ 幂等键把规格与区域也算进去：改了分辨率或重框了区域就是**另一次处理**（与上游同一条纪律）。 */
   async function submitLocalJob() {
-    if (!localProduct) {
+    if (!activeProcessProduct) {
       setError('该功能暂时不可用，请稍后再试');
       return;
     }
@@ -1115,7 +1138,7 @@ export default function VideoStudioPage({
       setError('还没读出这条视频的时长，请稍候或重新选择文件');
       return;
     }
-    if (localSpec.regions && !regions.length) {
+    if (activeProcessProduct.localSpec?.regions && !regions.length) {
       setError('请先在视频上框选要擦除的字幕区域');
       return;
     }
@@ -1126,15 +1149,15 @@ export default function VideoStudioPage({
       if (!source?.id) throw new Error('源视频上传失败，请重试');
       const idempotencyKey = stableCanvasActionId([
         'video-local-job',
-        localProduct.id,
+        activeProcessProduct.id,
         source.id,
         resolution,
-        localSpec.fps ? String(outputFps || '') : '',
-        localSpec.regions ? JSON.stringify(regions) : '',
+        activeProcessProduct.localSpec?.fps ? String(outputFps || '') : '',
+        activeProcessProduct.localSpec?.regions ? JSON.stringify(regions) : '',
         String(localSourceSeconds),
       ].join('\u0000'));
       const result = await createVideoJob({
-        productId: localProduct.id,
+        productId: activeProcessProduct.id,
         mode: 'local',
         duration: localSourceSeconds,
         resolution,
@@ -1143,8 +1166,8 @@ export default function VideoStudioPage({
         generateAudio: false,
         billingQuoteId: quote.quoteId,
         localSpecs: {
-          fps: localSpec.fps ? outputFps : null,
-          regions: localSpec.regions ? regions : [],
+          fps: activeProcessProduct.localSpec?.fps ? outputFps : null,
+          regions: activeProcessProduct.localSpec?.regions ? regions : [],
         },
         references: { videos: [source.id], urls: { [source.id]: source.url } },
       }, idempotencyKey);
@@ -1263,8 +1286,12 @@ export default function VideoStudioPage({
      报价到手 + 源视频在 + 时长读出来了 + （要区域的那一档）区域框好了 + 本机渲染组件在。
      上游那条一字未动。 */
   const localReady = localEngine
-    ? Boolean(localProduct && localEngineReady && quote?.quoteId && localSourceFile && localSourceSeconds
-      && (!localSpec.regions || regions.length))
+    ? Boolean(
+      activeProcessProduct && quote?.quoteId && localSourceFile && localSourceSeconds
+      /* 本机执行才需要 ffmpeg；自动档（火山）不需要本机渲染组件 */
+      && (autoModeSelected || localEngineReady)
+      && (!activeProcessProduct.localSpec?.regions || regions.length),
+    )
     : false;
   const canGenerate = localEngine
     ? localReady && !submitting
@@ -1735,6 +1762,7 @@ export default function VideoStudioPage({
           prompt={prompt}
           onPromptChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH)); }}
           values={{ ratio, duration, swapMode: swapTarget, resolution, fps: outputFps, markMode }}
+          optionOverrides={workbenchOptionOverrides}
           onValueChange={(bind, value) => {
             setPlanReviewed(false);
             if (bind === 'ratio') setRatio(String(value));

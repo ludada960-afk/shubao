@@ -244,6 +244,24 @@ export const FEATURE_SKUS = freezeCatalog({
   video_upscale_local_long: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: true },
   video_desubtitle_local_short: { units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: true },
   video_desubtitle_local_long: { units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: true },
+  /* ═══ 2026-09-26 批 AR：**自动标记**（用户批准的价：0.05 积分/秒）══════════════════════════════════
+     用户原话：「**自动标记卖多少就按你说的来吧**」（指我算出来的建议档）。
+     实现走**火山 AI MediaKit 字幕擦除**（用户拍板「不如就直接接火山API」），上游单价（原文）：
+       · 标准版 **0.4 元/分钟**（基准 1 元/分钟 × 系数 0.4）⇒ ¥0.006667/秒
+       · 计费口径是"**累计擦除时长**"（未指定时段时 = 输出时长），毫秒级累计换算成分钟。
+     ⚠️ **perSecond 的 SKU：这里记的是"每秒成本"**（与 units 一样按秒归一），
+        作业落库时按 `成本 × 秒数` 记这一单的真实成本（见 videoGeneration.createJob）。
+        为什么这样归一：启动期的毛利门禁（assertCatalogMarginGates）是**按单位面值**算的，
+        若这里记整单成本，按秒的档会被算成巨亏而拒绝启动（而实际并不亏）。
+     ⚠️ 与手动档的对比（同一件事的两条路）：
+        手动（本机 delogo）0.04 积分/秒、成本 0；自动（火山标准版）0.05 积分/秒、成本 ¥0.006667/秒
+        ⇒ 毛利 97% vs 46.1%，**自动档不能与手动档同价**（同价只有 33.3%，跌破 40% 地板）。
+        推导与验算在 docs/design/71，门禁 test/media-kit-cost-model-0925 逐值守着。
+     ⚠️ **public: false 起步**：凭据已配（server/.env），但**账户未充值**（火山后付费也要余额，
+        欠费 72 小时连新任务都会被拒）⇒ 还没真跑过一次。等充值 + 跑通探针，
+        把这里与产品的 public 一起翻 true（与 1080P 的 Seedance 那条同一套做法）。 */
+  video_desubtitle_volc_short: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: false },
+  video_desubtitle_volc_long: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: false },
   /* ── 2026-09-19 批 K-B 新增三档（用户批注「把之前的那些模型找回来」）─────────────────────
      定价**沿用站内既有规则**，没有新造口径：
        用户价 = 记账成本 / (1 − 54%) 取整到分；units = 现金价 × 3819 向上取整（工作室包面值锚）；
@@ -366,6 +384,21 @@ export function billableQuantity({ sku, seconds } = {}) {
     throw new TypeError('per-second SKU requires a positive duration');
   }
   return Math.max(1, Math.ceil(value));
+}
+
+/* ═══ 这一单的**真实上游成本**（按秒的 SKU 要乘秒数）═══════════════════════════════════════════════
+   单价口径：SKU.providerCostCny 对按条档是"每条成本"，对 `perSecond` 档是"**每秒成本**"
+   （与 units 的归一方式一致，启动期毛利门禁按单位面值算，见 catalog 里 auto 档的注释）。
+   所以落库到 video_jobs.provider_cost_cny（这是结算时真正记账的数）时必须乘上份数 ——
+   否则按秒档会把"一秒的成本"当成整单成本记，账面上少记成本（而这是钱路，不能少记）。
+   ⚠️ 按条档 quantity=1 ⇒ 结果与从前逐值相同（既有档位一个字节没变）。 */
+export function billableProviderCost({ sku, quantity = 1, seconds } = {}) {
+  const count = Number.isSafeInteger(Number(quantity)) && Number(quantity) > 0
+    ? Number(quantity)
+    : billableQuantity({ sku, seconds });
+  const feature = FEATURE_SKUS[sku];
+  if (!feature) throw new Error(`Unknown feature SKU: ${sku}`);
+  return Number(feature.providerCostCny) * count;
 }
 
 export function assertContributionMargin(item, unitPriceCny) {

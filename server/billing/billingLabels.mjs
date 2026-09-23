@@ -113,6 +113,9 @@ const SKU_LABELS = Object.freeze({
   video_upscale_local_long: { label: 'AI 视频 · 视频高清', category: 'video', per: '条' },
   video_desubtitle_local_short: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '秒' },
   video_desubtitle_local_long: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '秒' },
+  /* 批 AR：自动标记那一档（火山擦除，0.05 积分/秒）—— 标签写明"自动"以免与手动档混淆 */
+  video_desubtitle_volc_short: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '秒' },
+  video_desubtitle_volc_long: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '秒' },
   xhs_image_set_2k: { label: '小红书图文套装（1 封面 + 8 配图）', category: 'content', per: '套' },
   content_full_set: { label: '小红书内容集', category: 'content', per: '套' },
 });

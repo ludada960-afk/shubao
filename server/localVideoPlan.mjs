@@ -99,8 +99,13 @@ export function billableSecondsOf(manifest) {
       缺了它，收费只能猜、渲染只能截断 —— 所以宁可拒单（400），也不默认一个值。
    ⚠️ 一条源视频都不给 = 无事可做：调用方在 references 那一层先拒（LOCAL_PLAN_SOURCE_REQUIRED）。 */
 export function validateLocalPlanInput({ product, input = {} } = {}) {
-  if (!product || product.localEngine !== true) {
-    throw Object.assign(new Error('本地方案校验只能用于 localEngine 产品'), { code: 'LOCAL_PLAN_PRODUCT_MISMATCH' });
+  /* ⚠️ 2026-09-26 批 AR：判据从 `localEngine === true` 放宽到「**处理已有视频**这类产品」
+     （`localEngine` 本机执行 / `videoProcess` 交上游执行，例如火山字幕擦除）。
+     放宽的是"谁来执行"，**没有**放宽输入契约 —— 这类产品的输入都是"一条源视频 + 时长"，
+     都不是提示词/比例/拍摄方案那套。判据换个写法而已，校验一条没少。 */
+  const processesExistingVideo = product?.localEngine === true || product?.videoProcess === true;
+  if (!processesExistingVideo) {
+    throw Object.assign(new Error('本地方案校验只能用于"处理已有视频"的产品'), { code: 'LOCAL_PLAN_PRODUCT_MISMATCH' });
   }
   const spec = product.localSpec || {};
   const rawSeconds = Number(input.duration);
@@ -133,7 +138,9 @@ export function validateLocalPlanInput({ product, input = {} } = {}) {
   }
 
   /* 区域：只有声明了才收；非法区域**逐条丢弃**（delogo 编不出参数就不该下滤镜），
-     一条都没剩下则拒单 —— "去字幕"没有区域等于什么都没做。 */
+     一条都没剩下则拒单 —— "去字幕"没有区域等于什么都没做。
+     ⚠️ 例外：`spec.auto === true`（自动标记那一档，交火山检测）**本来就没有区域可框** ——
+        它的"要做的事"由上游完成，所以这一格不参与"非空"判定。 */
   let regions = [];
   if (spec.regions === true) {
     regions = (Array.isArray(input.regions) ? input.regions : []).map(normalizeRegion).filter(Boolean).slice(0, 8);
@@ -142,9 +149,9 @@ export function validateLocalPlanInput({ product, input = {} } = {}) {
     }
   }
 
-  /* 至少要有一样"要做的事"：分辨率或区域。与 buildLocalRenderManifest 的 LOCAL_PLAN_EMPTY 同一条纪律，
-     区别只是这里在建单前就拦住（不收费）。 */
-  if (!resolution && !regions.length) {
+  /* 至少要有一样"要做的事"：分辨率、区域，或"交给上游自动检测"。
+     与 buildLocalRenderManifest 的 LOCAL_PLAN_EMPTY 同一条纪律，区别只是这里在建单前就拦住（不收费）。 */
+  if (!resolution && !regions.length && spec.auto !== true) {
     throw Object.assign(new Error('本地方案至少需要一个规格（分辨率）或一个擦除区域'), { code: 'LOCAL_PLAN_EMPTY' });
   }
 

@@ -47,7 +47,9 @@ test('video studio is an authenticated durable billed workspace embedded in home
      本地 = 成片报价本身。守的东西没变：**按钮上的积分就是"这一下要花多少"**，且随配置实时变化。 */
   assert.match(page, /const totalJobPoints = localEngine\s*?\n?\s*\? estimatedPoints\s*?\n?\s*: \(estimatedPoints > 0 \? estimatedPoints \+ ANALYSIS_POINTS : 0\);/,
     '总价 = 方案分析 + 成片预估（成片预估来自服务端报价）；本地方案不收方案分析费');
-  assert.match(page, /localJobPoints\(localProduct, localSourceSeconds\)/, '本地方案的预估积分必须来自目录报价（不许在页面里写死）');
+  /* 批 AR：本地方案那一页现在有**两条实现**（手动=本机 / 自动=火山），页面按选中的那一档取产品，
+     所以变量名从 localProduct 变成 activeProcessProduct —— 守的东西没变：预估积分必须来自目录报价。 */
+  assert.match(page, /localJobPoints\(activeProcessProduct, localSourceSeconds\)/, '预估积分必须来自目录报价（不许在页面里写死）');
   assert.ok(!page.includes('video-submit-meta'), '左侧独立积分栏不得回归');
   assert.match(page, /const ANALYSIS_POINTS = 1;/);
   assert.match(page, /video-generate-trigger shubao-gen-cta/);

@@ -158,6 +158,12 @@ export default function VideoWorkbench({
   onPromptChange = () => {},
   values = {},
   onValueChange = () => {},
+  /* ═══ 2026-09-26 批 AR：**选项覆写**（页面按能力放开某个默认不可选的档）═══════════════════════
+     唯一用途：去字幕页的「自动标记」在服务端报告"可用"之前是**不可选**的（合同写在声明源里），
+     可用之后由页面把它放开 —— 判据形如 `{ 'markMode:auto': { disabled: false } }`。
+     ⚠️ 为什么不由渲染层自己问能力：渲染层只认声明源（本文件头部的纪律），
+        能力是页面的事（它才拿得到 capabilities）；这里只做"按 key 覆写"这一件机械的事。 */
+  optionOverrides = {},
   mentions = [],
   promptFieldRef = null,
   promptMaxLength = 0,
@@ -218,20 +224,26 @@ export default function VideoWorkbench({
                 </h3>
               )}
               <span className="media-field-segmented video-wb-chips" role="group" aria-label={block.title}>
-                {(block.options || []).map(option => (
-                  <button
-                    key={String(option.value)}
-                    type="button"
-                    /* ⚠️ 批 AM：单个选项也可以**不可选**（自动标记那一档没接通）。
-                       与"接不通的付费动作渲染成静态说明行"同一条纪律：
-                       **不许把点了没有反应 / 点了报错的东西做成能点的选项**。 */
-                    disabled={disabled || option.disabled === true}
-                    title={option.disabled ? (option.reason || '暂未开放') : (option.note || '')}
-                    aria-pressed={String(current) === String(option.value)}
-                    className={String(current) === String(option.value) ? 'is-active' : ''}
-                    onClick={() => onValueChange(block.bind, option.value)}
-                  >{option.label}</button>
-                ))}
+                {(block.options || []).map(option => {
+                  /* 选项覆写（见 props 注释）：只允许改 disabled —— 其余字段一律以声明源为准，
+                     免得页面从这里偷偷改标签/取值，那会让"界面写的"与"声明里写的"两处漂移。 */
+                  const override = optionOverrides[`${block.key}:${option.value}`] || {};
+                  const optionDisabled = option.disabled === true && override.disabled !== false;
+                  return (
+                    <button
+                      key={String(option.value)}
+                      type="button"
+                      /* ⚠️ 批 AM：单个选项也可以**不可选**（自动标记那一档没接通时）。
+                         与"接不通的付费动作渲染成静态说明行"同一条纪律：
+                         **不许把点了没有反应 / 点了报错的东西做成能点的选项**。 */
+                      disabled={disabled || optionDisabled}
+                      title={optionDisabled ? (override.reason || option.reason || '暂未开放') : (option.note || '')}
+                      aria-pressed={String(current) === String(option.value)}
+                      className={String(current) === String(option.value) ? 'is-active' : ''}
+                      onClick={() => onValueChange(block.bind, option.value)}
+                    >{option.label}</button>
+                  );
+                })}
               </span>
               {/* 每个选项自己的说明行（知渔在两颗胶囊下面各写了一句用途）；
                   不可选的档位把**原因**也写出来 —— 用户看得到"为什么现在不能选"。 */}
