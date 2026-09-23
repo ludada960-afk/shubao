@@ -6708,3 +6708,38 @@ Wav2Lip 13,220★（**仓库无 LICENSE**）、HeyGem 15,564★（>10 万用户�
 · 数字人：形态与价格建议在 docs/design/72，**只等用户定价**（钱路铁律：新增收费项须他拍板）；
 · 阿里云 IMS 数字人（文字→数字人，无需自带视频）：9.9 元/分钟、**计费精确到秒** ⇒ 8 秒 ¥1.32 / 15 秒 ¥2.48；
   且 IMS 是**订阅制**（没订阅报 `Forbidden.SubscriptionRequired`，官方建议先买 20 元功能体验月包）。
+
+---
+
+# 批 AT（2026-09-26 收尾）：部署踩坑纠正 + 「自动标记」最终状态
+
+## 一、两个坑（都出在我自己手上，写下来免得下次重犯）
+
+1. **`; echo ...` 不能出现在 pwsh 命令尾巴上**（cmd 里 `;` 不是分隔符）：
+   我写 `pwsh -File deploy-production.ps1 ... ; echo "DEPLOY_EXIT=$?"` ⇒ 那些 token 被当成参数喂进脚本，
+   脚本内部的 ssh 参数被污染（日志里出现 `Identity file DEPLOY_EXIT=$? not accessible` /
+   `Could not resolve hostname ;`），部署在**准备阶段**就退出。**发版命令后面不要接任何东西。**
+2. **发版脚本自己管理 `.env`：Key 必须在"发版之前"就写进文件**。
+   我在上一次发版的 **600 秒 canary 窗口里**执行了 `pm2 restart`（为了装火山 Key）⇒
+   ① canary 守卫检测到"进程在观察期内重启过"，判 `PM2 process restarted during canary: A -> B` 失败；
+   ② 失败后的回滚步骤把 `.env` **还原**成发版开始时的快照 ⇒ 我那次装的 Key 被抹掉了。
+   ⇒ 正确顺序：**先把 Key 写进线上 .env（不重启）→ 再发版**（发版自己会重启并把 Key 带上）；
+      并且**发版期间绝对不要碰生产**（canary 就在观察"有没有人动过"）。
+
+## 二、「自动标记」最终状态（本批部署后）
+
+· 收费项 `video_desubtitle_volc_{short,long}`：**0.05 积分/秒**（用户批准的价），按秒计费、公开；
+· 产品 `desubtitle_volc`：videoProcess（上游"处理已有视频"），台账 `volc-media-kit-subtitle` = **callable**
+  （真机实测证据：任务 amk-tool-erase-video-subtitle-1355189656834 → completed、5.967 秒、扣费约 ¥0.04）；
+· 线上火山 Key 已写入 `/home/ubuntu/shubao/.env` 与 `server/.env`（发版前的正确时机）；
+· `capabilities.subtitleAuto.available` 随 Key 到位变 true ⇒ 去字幕页「自动标记」可选；
+· 实测三处字段纠错（取票据要带 body+file_size ｜ upload_url 6079 字符不许截断 ｜
+  成片在 `result.video_url`）都写进了 `server/volcSubtitleErase.mjs` 的注释。
+
+## 三、数字人（等用户定价）
+
+知渔的策略已查清并落档 `docs/design/72`：**他们走"换口型"**（模型入参只有 source_video_url +
+source_audio_url + duration；形象只能自带真人视频；bundle 里无 lipsync 关键词），报价 2.40 积分/分钟
+（会员 1.8 / 贴牌 1.5）+ 6 个 0.125 的小步骤 + 一键自动整包 3.15。
+我们的落点：火山**视频口型对齐 1 元/分钟**（同一把 Key）⇒ 建议卖 **0.12 积分/秒**
+（15 秒≈1.8 积分、毛利 44%，比知渔的 ¥ 单价便宜约 20%）。**只等用户点头定价**。
