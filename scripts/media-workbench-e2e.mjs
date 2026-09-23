@@ -1046,6 +1046,42 @@ try {
       board + ' Hub 只显示那一档的技能', JSON.stringify(one));
   }
 
+  /* ═══ 2026-09-23 批 AD：**辅助能力卡片点开去哪**（真浏览器验证）═════════════════════════════
+     运镜控制 / 延长续写 / 画面修改 这三条按设计**没有自己的工作台**
+     （门禁 video-skill-workbench-declaration-0919 ① 反而要求它们不许有）：
+     它们是长在别的技能创作台上的控件 / 动作。所以"点自己"会落进通用的视频创作台 = 死胡同，
+     而文案却写着"也可以直接点开单独用"。本轮把跳转改成按 belongsTo 进它所属的主技能工作台，
+     这条在真实浏览器里点一次，把这个行为钉住。 */
+  scenario('⑬c 辅助能力卡片点开进的是它所属的工作台（不是它自己的空白页）');
+  await page.goto('http://127.0.0.1:' + PORT + '/video-creation', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-hub-tabs button', { timeout: 20000 });
+  await page.waitForTimeout(400);
+  const assistantGroup = await page.evaluate(() => {
+    const tab = Array.from(document.querySelectorAll('.media-hub-tabs button')).find(node => node.textContent.includes('辅助能力'));
+    if (tab) tab.click();
+    return Boolean(tab);
+  });
+  check(assistantGroup, '视频 Hub 有「辅助能力」这一档');
+  await page.waitForTimeout(400);
+  const assistantTitles = await page.evaluate(() => Array.from(document.querySelectorAll('.media-hub .media-case-card'))
+    .map(card => card.querySelector('.media-case-card-title')?.textContent.trim() || ''));
+  check(assistantTitles.length >= 3, '「辅助能力」档里能看到那 3 条', JSON.stringify(assistantTitles));
+  const clickedAssistant = await page.evaluate(() => {
+    const card = Array.from(document.querySelectorAll('.media-hub .media-case-card'))
+      .find(node => (node.querySelector('.media-case-card-title')?.textContent || '').includes('运镜控制'));
+    const hit = card?.querySelector('.media-case-card-hit');
+    if (hit) hit.click();
+    return Boolean(hit);
+  });
+  check(clickedAssistant, '点到了「运镜控制」这张卡');
+  await page.waitForTimeout(900);
+  const assistantLanded = await page.evaluate(() => ({ url: location.pathname + location.search, hub: Boolean(document.querySelector('.media-hub')) }));
+  check(!assistantLanded.hub, '点辅助能力卡片会离开 Hub（进了工作台）', assistantLanded.url);
+  check(assistantLanded.url.includes('video.smart'),
+    '进的是它**所属**的主技能工作台（运镜控制 → 智能成片），不是它自己的空白页', assistantLanded.url);
+  check(!assistantLanded.url.includes('video.camera_move'),
+    '没有落进运镜控制自己的页面（那一页没有工作台，点了等于死胡同）', assistantLanded.url);
+
   /* ═══ ⑳ 付费前置动作（照竞品做法）—— 批 U 改判：目标从「一键解析商品信息」换成「一键解析风格」══
      竞品实测：他们的商品套图 / A+ / 详情图页都有一个「一键解析 · 0.20 积分」。
      我们用的是现成的 /api/ecommerce/auto-recognize（视觉识别 + LLM 结构化），

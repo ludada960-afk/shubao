@@ -5,6 +5,7 @@ import test from 'node:test';
 import { IMAGE_SKILLS, getImageSkill } from '../src/skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
 import { FUSE_SLOTS, canCarryResultAsInput, featuredSkills, fuseActionsOf } from '../src/skills/skillDirectory.js';
+import { stripComments } from '../scripts/lib/token-scope.mjs';
 
 /* ═══ 技能分层：主技能 vs 辅助能力（2026-09-17 用户口径）══════════════════════════
    用户原话：「有些功能我觉得不一定是真正给用户单独用的，你要知道，有些 skill 其实是**辅助作用**的，
@@ -49,6 +50,16 @@ test('③ Hub 把辅助能力单独成组并说明用途（不许混进正常分
   assert.match(hub, /category: '辅助能力'/);
   assert.match(hub, /不是独立入口/);
   assert.match(hub, /assistantGroup/);
+  /* ═══ 2026-09-23 批 AD：点开去哪 —— 这是本轮新钉的一条 ═══════════════════════════════════
+     辅助能力按设计**没有自己的工作台**（门禁 video-skill-workbench-declaration-0919 ① 反而要求
+     它们不许有），所以"点自己"会落进通用创作台、而那个台子上没有这个能力 ⇒ 死胡同。
+     判据：assistant 卡片必须按 belongsTo 跳到真正能用到它的那条技能；文案里不许再出现
+     "也可以直接点开单独用"这种与事实相反的说法。 */
+  assert.match(hub, /onOpen=\{\(\) => onOpenSkill\?\.\(skill\.tier === 'assistant' && skill\.belongsTo \? skill\.belongsTo : skill\.id\)\}/,
+    '辅助能力卡片必须跳它所属的工作台（点自己 = 死胡同）');
+  assert.doesNotMatch(stripComments(hub), /也可以直接点开单独用/,
+    '旧文案与事实相反：它们没有自己的工作台（⚠️ 负向断言必须先剥注释 —— 旧文案正躺在说明批注里，'
+    + '直接比字符串会把"引用了这句话的注释"当成"还在用它"，本仓栽过好几次）');
 });
 
 test('④ 自证：每条辅助能力都能说清「它属于哪一步」', () => {

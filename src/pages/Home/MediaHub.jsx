@@ -86,9 +86,15 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
       {shown.map(group => (
         <section className="media-gallery-group" key={group.category}>
           <h2>{group.category}</h2>
-          {/* 辅助能力说清它是什么：不是让你从这里开始，而是它会在主技能里被用到 */}
+          {/* 辅助能力说清它是什么：不是让你从这里开始，而是它会在主技能里被用到。
+              ═══ 2026-09-23 批 AD：这句话的**后半句原来是错的** ═══════════════════════════════
+              旧文案：「…也可以直接点开单独用。」—— 但这 3 条按设计**没有自己的工作台**
+              （门禁 test/video-skill-workbench-declaration-0919 ① 反而要求它们不许有）：
+              它们是"长在别的技能创作台上的控件 / 动作"（运镜是创作台里的一个控件、延长续写是结果区的动作）。
+              点自己 = 落进通用的视频创作台，而那个台子上根本没有这个能力 —— 是死胡同。
+              所以文案改成如实说清"点开去哪"，跳转也跟着改（见下面 onOpen）。 */}
           {group.assistantGroup && (
-            <p className="media-hub-group-note">这些是某个主技能流程里的一步（不是独立入口），也可以直接点开单独用。</p>
+            <p className="media-hub-group-note">这些是某个主技能流程里的一步，不是独立入口 —— 点开直接进它所属技能的工作台，在那里用它。</p>
           )}
           <div className="media-gallery-grid">
             {group.skills.map(skill => {
@@ -118,7 +124,15 @@ export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHin
                     .map(item => item && item.cover)
                     .filter(Boolean)
                     .slice(0, 3)}
-                  onOpen={() => onOpenSkill?.(skill.id)}
+                  /* ═══ 2026-09-23 批 AD：辅助能力点开**进它所属技能的工作台** ═══════════════════
+                     它们没有自己的工作台（按设计，见上面那句文案的批注），所以点自己 =
+                     落进通用创作台 = 死胡同。按 belongsTo 跳到真正能用到它的那个技能：
+                       运镜控制 → 智能成片（运镜控件在那个创作台上，对所有视频技能生效）
+                       延长续写 → 智能成片（结果区的动作）
+                       画面修改 → 产品植入（它声明归属的那条）
+                     没有 belongsTo 的才回退到自己（门禁 ⑥ 要求 assistant 必须声明融合形态，
+                     所以正常都有；回退只是防御）。 */
+                  onOpen={() => onOpenSkill?.(skill.tier === 'assistant' && skill.belongsTo ? skill.belongsTo : skill.id)}
                 />
               );
             })}
