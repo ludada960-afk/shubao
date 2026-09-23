@@ -82,6 +82,14 @@ export const QUANTV_VIDEO_COUNTERPARTS = Object.freeze({
         追究模型呢」）。"知渔的页面"仍是唯一依据 —— 字段、档位、价目都照它。 */
   'video.upscale': { counterpart: QUANTV_VIDEO_BASE + '/video-high-definition', kind: 'page', note: '视频高清：上传视频 0/1 + 视频设置（输出分辨率 720p/1080p/2k + FPS 30fps/60fps）+ 消耗 0.50 积分（**没有模型格**）' },
   'video.desubtitle': { counterpart: QUANTV_VIDEO_BASE + '/video-subtitle-removal', kind: 'page', note: '视频字幕去除：视频模型（静态一行「智能去字幕」，不是选择器）+ 上传原视频 0/1 + 字幕标记方式（自动标记 / 手动标记：放大视频并手动框选字幕区域）+ 本次消耗 0.04 积分' },
+  /* ═══ 2026-09-26 批 AU：数字人（口型对齐）═════════════════════════════════════════════════════
+     知渔 /digital-human 的实采 panelText 是**第 01 步「IP 深度学习」**那一屏（生成爆款文案 0.25 积分 /
+     视频类型 口播·剧情 / 文案类型 人设型·卖点型 / 行业+人设·产品/业务·卖点+价格·其他要求），
+     整条流水线的字段在 docs/design/72 的六步表里（02 音视频生成 = 音色三来源 + 选择形象（只能自带视频）
+     + 生成口播视频 2.40 积分/分钟）。
+     ⇒ 我们这一页抄的是**第 02 步的形态**（形象 + 音频 → 口播视频），不是第 01 步的文案表单：
+        文案那一步是"IP 深度学习"整条流水线的一环，我们没有那条链路，就不做样子的输入框。 */
+  'video.digital_human': { counterpart: QUANTV_VIDEO_BASE + '/digital-human', kind: 'page', note: '数字人：知渔叫「数字人」，实查就是换口型（模型入参 source_video_url + source_audio_url，bundle 里 lipsync/heygen 全库 0 命中）；他们 02 步 = 音色 + 选择形象（只能自带视频，新账号无内置形象）+ 生成口播视频 2.40 积分/分钟 ⇒ 我们这页 = 人物视频 + 驱动配音两格' },
 
   /* ── 知渔有同形态的页面：字段形态照抄，玩法不同（kind: 'shape'）───────────────── */
   'video.image_to_video': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w8lt2010q14i3bfmj1xvn', kind: 'shape', note: '建筑图转视频是"单图 → 视频"这一形态（参考图 + 比例六档，比同族多一档 21:9）；我们这条是通用图生视频' },

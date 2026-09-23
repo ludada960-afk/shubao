@@ -45,11 +45,17 @@ test('① 对照表覆盖全部 56 条视频 skill：有对应页的写 URL，�
      用户原话：「难道你没有什么比如 github 上的一些开源项目可以实现吗，**为什么一切都要追究模型呢**」
      —— 这两条不走上游模型（本机 ffmpeg scale / delogo），但它们**有知渔的对应页**
      （/video-high-definition 与 /video-subtitle-removal，都是路由页）⇒ 判据没变：
-     有对应页写 URL + 字段形态照那一页，变的是条数（有对应页 30 → 32，自有 26 条不变）。 */
-  assert.equal(ids.length, 58, '视频 skill 数量变了');
-  /* 32 = 25 条 kind:'page'/'app'（知渔有同一件事的页面）+ 5 条 kind:'shape'（同形态，玩法不同）
-          + 2 条本地方案的知渔路由页（批 AM） */
-  assert.equal(videoSkillsWithCounterpart().length, 32, '有对应页的条数变了');
+     有对应页写 URL + 字段形态照那一页，变的是条数（有对应页 30 → 32，自有 26 条不变）。
+     ═══ 2026-09-26 批 AU：58 → **59**（+1 条数字人）══════════════════════════════════════════════
+     用户原话：「数字人要不要用对口型的，你先看一下知渔他们那边是什么策略」→「**数字人你也可以做**」。
+     它有知渔的对应页（/digital-human，路由页）⇒ 判据一个字没改（有对应页写 URL + 字段照那页），
+     变的是条数：有对应页 32 → 33，自有仍是 26。
+     ⚠️ 这条技能目前是 `availability: 'blocked'`（即将上线）—— 原因见 videoSkills 里的说明：
+        一次真调用都没跑过 + 价未签字。条数照样要算进去（它是一条**已声明**的 skill）。 */
+  assert.equal(ids.length, 59, '视频 skill 数量变了');
+  /* 33 = 25 条 kind:'page'/'app'（知渔有同一件事的页面）+ 5 条 kind:'shape'（同形态，玩法不同）
+          + 2 条本地方案的知渔路由页（批 AM）+ 1 条数字人（批 AU） */
+  assert.equal(videoSkillsWithCounterpart().length, 33, '有对应页的条数变了');
   assert.equal(videoSkillsWithoutCounterpart().length, 26, '自有玩法的条数变了');
   for (const id of videoSkillsWithoutCounterpart()) {
     const reason = QUANTV_VIDEO_COUNTERPARTS[id].reason || '';

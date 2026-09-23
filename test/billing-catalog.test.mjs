@@ -129,7 +129,12 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
   /* ═══ 2026-09-26 批 AR：36 → **38**（判据未变，事实变了）══════════════════════════════════════
      新增「视频字幕去除（自动）」两档：50 units/秒 = 0.05 积分/秒（用户批的价），
      成本按每秒记 ¥0.4/60（火山字幕擦除标准版 0.4 元/分钟）。 */
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 38);
+  /* ═══ 2026-09-26 批 AU：38 → **40**（判据未变，事实变了）══════════════════════════════════════
+     新增「数字人（火山口型对齐）」两档：120 units/秒 = 0.12 积分/秒，
+     成本按每秒记 ¥1/60（口型对齐官方价 1 元/分钟，按输出时长计费）。
+     ⚠️ 这两档 **public: false**：一次真调用都没跑过 + 价未签字（见 catalog 里的注释）——
+        门禁在这里只数条数，公开与否由 video-catalog 那两条门禁守。 */
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 40);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);

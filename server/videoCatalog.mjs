@@ -264,6 +264,17 @@ export const ROUTE_REACHABILITY = deepFreeze({
         但用户**账户未充值**（火山后付费也要余额，欠费 72h 连新任务都拒）⇒ 付费调用一次都没发。
         等跑通 `.tmp/zc-volc-subtitle-probe.mjs`（30 秒片标准版约 ¥0.20），把证据与日期写进这里再转 callable。 */
   'volc-media-kit-subtitle': { state: 'callable', evidence: '2026-09-26 真机实测出片：6 秒测试片走本地上传（取票据必须带 file_size ｜ PUT 纯二进制 ｜ mediakit://file_id），任务 amk-tool-erase-video-subtitle-1355189656834 返回 completed、result.duration=5.967 秒、result.video_url 有值；计费与文档一致（约 0.04 元）。契约细节与两处实测纠错见 server/volcSubtitleErase.mjs 注释' },
+  /* ═══ 2026-09-26 批 AU：**火山 AI MediaKit 视频口型对齐**（数字人那一档）═══════════════════════
+     用户对数字人的要求（原话）：「数字人要不要用对口型的，你先看一下知渔他们那边是什么策略」→
+     实查结论（docs/design/72）：知渔的"数字人"就是**换口型**（模型入参只有 source_video_url +
+     source_audio_url，整个 bundle 里 lipsync/heygen/hedra 全库 0 命中）⇒ 我们照同一形态做。
+     上游：同一把 MediaKit Key，`POST /api/v1/tools/lip-sync`，官方口径 **1 元/分钟**
+     （比阿里云 IMS 数字人的 9.9 元/分钟便宜 10 倍）。
+     ⚠️ 为什么是 unverified 而不是 callable：**一次真调用都没跑过** ——
+        口型对齐要先有一段"单人真人出镜"的视频素材，我手上没有这种素材；
+        而铁律里"不许跑付费生成（哪怕验证一下）"，一次 15 秒的口型调用约 ¥0.25。
+        ⇒ 状态如实记 unverified、产品 public:false，等用户拿真素材跑通一次再把证据写进这里。 */
+  'volc-media-kit-lipsync': { state: 'unverified', evidence: '2026-09-26 批 AU：契约按官方文档写入 server/volcLipSync.mjs（Bearer Key 鉴权、tools/lip-sync 提交、tasks/{id} 轮询、mediakit:// 本地上传），**尚无真机调用证据**（缺"单人真人出镜"素材，且付费调用须用户点头）；计费口径 1 元/分钟待实测校准' },
   'wan3.0-video': { state: 'blocked', evidence: '2026-09-23 批 AC 探针：403 insufficient_user_quota（预扣 ¥6.37 > 余额 ¥4.2478）⇒ 活着但余额不足，充值即开' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
   /* 2026-09-19 批 K-B 复核 + 2026-09-23 复测：四条都维持 unreachable —— 提交回
@@ -859,6 +870,40 @@ export const VIDEO_PRODUCTS = deepFreeze({
     generatedAudio: false,
     frameAudio: false,
     limits: { images: 0, videos: 1, audios: 0, total: 1 },
+    concurrency: 2,
+    pollIntervalMs: 5000,
+  },
+  /* ═══ 2026-09-26 批 AU：**数字人（火山口型对齐）**═════════════════════════════════════════════
+     与 `desubtitle_volc` 同一类（`videoProcess: true` + `credential: 'volc'`），但输入契约**多一样**：
+     它要 **一条真人视频 + 一段驱动音频**（`localSpec: { audio: true }` ⇒ createJob 多校验一个音频）。
+     为什么音频是硬要求而不是可选：口型对齐的产出长度由**音频**决定，没有音频这条链路无事可做 ——
+     放成"有就传、没有也能点"会让用户点了才失败（铁律：不可用的功能不许变成选项）。
+
+     ⚠️ 时长口径：这一档的 `durations` 是**音频时长**（1 秒 ~ 30 分钟，照官方上限），
+        与源视频时长无关；计费按秒（见 SKU video_lipsync_volc_*）。
+        官方限制"仅支持单人真人出镜视频"，超出这个前提上游会失败 —— 写在 limitations 里，
+        用户在建单前就能看到，而不是失败之后才知道。
+     ⚠️ **public: false**：路由台账是 unverified（一次真调用都没跑过）⇒ 现在点不出来。
+        翻 public 的两个前提都写在台账 evidence 里：真机跑通一次 + 用户对价签字。 */
+  lipsync_volc: {
+    id: 'lipsync_volc',
+    label: '数字人 · 口型对齐',
+    providerLabel: '火山引擎',
+    tierLabel: '口型对齐',
+    description: '上传一段真人出镜视频与一段配音，让人物按配音开口说这段话。',
+    limitations: '只支持单人真人出镜的 MP4 视频（正脸、水平转动不超过 45 度）；配音支持 mp3/wav/m4a 等；按配音时长计费；上游平均耗时约是配音时长的 6~8 倍。',
+    routeId: 'volc-media-kit-lipsync',
+    credential: 'volc',
+    videoProcess: true,
+    public: false,
+    default: false,
+    durations: { min: 1, max: 1800 },
+    resolutions: [],
+    modes: ['process'],
+    localSpec: { resolution: false, fps: false, regions: false, auto: true, audio: true },
+    generatedAudio: false,
+    frameAudio: false,
+    limits: { images: 0, videos: 1, audios: 1, total: 2 },
     concurrency: 2,
     pollIntervalMs: 5000,
   },

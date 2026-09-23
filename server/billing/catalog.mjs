@@ -260,6 +260,22 @@ export const FEATURE_SKUS = freezeCatalog({
      ✅ **2026-09-26 已翻 public**：用户充值 ¥5 后跑通一次真机实测（6 秒片 → completed、扣费约 0.04 元）。 */
   video_desubtitle_volc_short: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
   video_desubtitle_volc_long: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
+  /* ═══ 2026-09-26 批 AU：**数字人（火山口型对齐）**的收费项 ═══════════════════════════════════
+     上游单价（官方文档原文）：**视频口型对齐 1 元/分钟** ⇒ ¥0.016667/秒（比阿里云 IMS 数字人的
+     9.9 元/分钟便宜 10 倍 —— 那条是我们评估后放弃的方案，理由见 docs/design/72）。
+     售价定 **0.12 积分/秒**（= 120 units/秒，priceFen 12）：
+       · 面值 120 units × ¥0.0002618 = ¥0.03142/秒，成本 ¥0.016667/秒 ⇒ 面值毛利 **46.9%**，
+         过得了引流带 40% 地板（与自动去字幕的 46.1% 同一档水位）；
+       · 对标知渔：他们的"口播视频 2.40 积分/分钟"（其 1 积分≈¥1 ⇒ 约 ¥2.4/分钟），
+         我们 0.12 积分/秒 = 7.2 积分/分钟 ≈ ¥1.89/分钟面值 ⇒ **比知渔便宜约 21%**。
+     ⚠️ **perSecond 的 SKU 记的是"每秒成本"**（与 units 同口径按秒归一）——理由见上面自动去字幕那段：
+        启动期毛利门禁按单位面值算，记整单成本会把按秒的档算成巨亏而拒绝启动。
+     ⚠️ **public: false**：路由台账 unverified（一次真调用都没跑过）⇒ 现在不可售。
+        翻 public 的两个前提：① 真机跑通一次（要用户给"单人真人出镜"素材）；
+        ② **用户对价签字**（这一档的价格是我按文档成本推的，用户尚未对数字人报价点头 ——
+        铁律：未经批准不得新增收费项）。 */
+  video_lipsync_volc_short: { units: 120, providerCostCny: 1 / 60, perSecond: true, priceFen: 12, marginBand: 'traffic', freeReruns: 0, public: false },
+  video_lipsync_volc_long: { units: 120, providerCostCny: 1 / 60, perSecond: true, priceFen: 12, marginBand: 'traffic', freeReruns: 0, public: false },
   /* ── 2026-09-19 批 K-B 新增三档（用户批注「把之前的那些模型找回来」）─────────────────────
      定价**沿用站内既有规则**，没有新造口径：
        用户价 = 记账成本 / (1 − 54%) 取整到分；units = 现金价 × 3819 向上取整（工作室包面值锚）；

@@ -37,6 +37,12 @@ export const VIDEO_AVAILABILITY = ['ready', 'needs_ref', 'blocked'];
    skill 声明里要引用它，而 const 有暂时性死区 —— 放到文件末尾就是渲染期 TDZ
    （本仓 2026-09-17 那条硬门禁 test/no-tdz-before-init 守的正是这类写法）。 */
 export const LOCAL_RENDER_ENGINE = 'local-render';
+/* ═══ 上游"处理已有视频"引擎（2026-09-26 批 AU）════════════════════════════════════════════════
+   数字人（火山口型对齐）与本地那两条**输入契约相同**（一条源素材 + 规格，没有提示词、不要方案），
+   区别只在"谁执行"：local-render = 本机 ffmpeg，upstream-process = 上游 MediaKit。
+   为什么值得单独一个常量而不是复用 local-render：页面要按它决定"要不要检查本机 ffmpeg"
+   —— 数字人不需要本机渲染组件，套用 local-render 会把它误判成"组件没装好、不能生成"。 */
+export const UPSTREAM_PROCESS_ENGINE = 'upstream-process';
 
 /* 视频技能的工作台就是**嵌进子页面的创作台本身**（视频生成 3 档：智能成片 / 首尾帧 / 爆款重构），
    所以这里的 fields 只声明"这条玩法要用到哪些输入"，真正可点的控件在创作台里
@@ -641,6 +647,44 @@ export const VIDEO_SKILLS = [
     fields: [
       { key: 'source', label: '上传视频', kind: 'upload', required: true },
       { key: 'markMode', label: '字幕标记方式', kind: 'segmented', required: true, longLabelReason: '照知渔原文逐字：他们这一格的标题就叫「字幕标记方式」（六个字）' },
+    ],
+    cases: [], history: true,
+  },
+  /* ═══ 2026-09-26 批 AU：**数字人（口型对齐）**═════════════════════════════════════════════════
+     用户口径：「数字人要不要用对口型的，你先看一下知渔他们那边是什么策略」→「数字人你也可以做」「可以开」。
+     知渔策略实查（docs/design/72，逐条有出处）：他们的"数字人"就是**换口型** ——
+     模型入参只有 `source_video_url` + `source_audio_url`，bundle 里 lipsync/heygen/hedra 全库 0 命中，
+     界面上一句"对口型"都不提；他们的 6 步流水线里这一档卖 **2.40 积分/分钟**。
+     ⇒ 我们照**同一形态**做：用户给一段真人出镜视频 + 一段驱动配音 → 出成片。
+        上游火山 AI MediaKit 口型对齐 **1 元/分钟**（阿里云 IMS 9.9 元/分钟，贵 10 倍 ⇒ 不选它）。
+
+     ⚠️ **availability: 'blocked'（即将上线）**：这一条不是"做不完"，是**两道门都还没过** ——
+        ① 一次真调用都没跑过（手上没有"单人真人出镜"素材，付费调用要用户点头）；
+        ② 价格是我按文档成本推的（0.12 积分/秒），**用户尚未对数字人报价签字**。
+        铁律：不可用 / 未接通的功能一律不许变成可点的选项。所以：
+        产品 `public: false`、SKU `public: false`、技能 `availability: 'blocked'`（角标「即将上线」）、
+        创作台对这条方案**禁用生成按钮并写明原因**（见 VideoStudio 的 processPlanBlocked）。
+        两道门都过了之后，把这里改成 'ready' 同时翻两个 public —— 与 1080P 的 Seedance 同一套做法。 */
+  {
+    id: 'video.digital_human', board: 'video', name: '数字人', category: '精品推荐', complexity: 'standard',
+    summary: '上传真人出镜视频与一段配音，让人物按配音开口说这段话', capability: ['video', 'audio'], availability: 'blocked',
+    pipeline: 'videoLocal', cover: { template: 'case-3up', accent: 'cool' },
+    plan: {
+      engine: UPSTREAM_PROCESS_ENGINE,
+      steps: ['ingest', 'align', 'deliver'],
+      /* 照知渔：形象**只能自带**（他们新账号下没有任何内置虚拟形象，导入视频即当临时形象）——
+         我们不做虚拟形象库：零肖像权风险、也不替用户造一张脸。 */
+      defaults: {},
+      userFields: ['source', 'audio'],
+      hideModel: true,
+      modelLabel: '口型对齐',
+      engineLabel: '火山口型对齐',
+      productId: 'lipsync_volc',
+      note: '上游火山 AI MediaKit 口型对齐（1 元/分钟）：只支持单人真人出镜视频，按音频时长计费',
+    },
+    fields: [
+      { key: 'source', label: '人物视频', kind: 'upload', required: true },
+      { key: 'audio', label: '驱动配音', kind: 'upload', required: true },
     ],
     cases: [], history: true,
   },

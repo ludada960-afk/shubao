@@ -109,10 +109,14 @@ test('② 「参数配置」组头：知渔 32 个子页面**逐条计数**（25
     const isApp = String(record.counterpart).includes('/apps?id=');
     if (!isApp) routeSkills.push(id);
   }
+  /* ═══ 2026-09-26 批 AU：清单 +1（判据未变，事实变了）—— 数字人对着知渔的**路由页**
+     /digital-human（它本来就在"没有参数配置组头"那 7 条名单里，见 quantvVideoParity 的
+     PAGES_WITHOUT_PARAM_GROUP）。所以这一条进 routeSkills，且它的组头判据依旧是 false。 */
   assert.deepEqual(routeSkills.sort(),
-    ['video.book_selling', 'video.content_swap', 'video.desubtitle', 'video.food_asmr', 'video.remake',
-      'video.smart', 'video.store_tour', 'video.tech_tvc', 'video.upscale'].sort(),
-    '对到知渔**路由页**的技能清单变了（批 AM 新增 upsale/desubtitle 两条本地方案，都对着知渔的路由页）');
+    ['video.book_selling', 'video.content_swap', 'video.desubtitle', 'video.digital_human',
+      'video.food_asmr', 'video.remake', 'video.smart', 'video.store_tour', 'video.tech_tvc',
+      'video.upscale'].sort(),
+    '对到知渔**路由页**的技能清单变了（批 AM 新增 upsale/desubtitle 两条本地方案、批 AU 新增数字人，都对知渔的路由页）');
   /* 自有玩法没有对应页可比：沿用现状（渲染组头）—— 这一条是"不改动既有页面"的取舍，写在这里备查 */
   for (const [id, record] of Object.entries(QUANTV_VIDEO_COUNTERPARTS)) {
     if (record.counterpart) continue;

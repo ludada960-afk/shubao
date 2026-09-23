@@ -30,6 +30,10 @@ const IMAGE_ACCEPT_HINT = '支持 JPG、JPEG、PNG，单张不超过 10MB';
 const VIDEO_ACCEPT_HINT = '支持 MP4、MOV 等视频格式';
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
 const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm';
+/* 口型对齐（数字人）的音频口：格式**照火山官方文档**（mp3 / aac / wav / m4a / flac），
+   与知渔那一页无关 —— 这条是我们自己的上游约束，写成本地文案时按上游来，不按竞品来。 */
+const AUDIO_ACCEPT_HINT = '支持 MP3、WAV、M4A 等音频格式';
+const AUDIO_ACCEPT = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/flac,audio/x-flac';
 
 /* 知渔两套比例档位（**顺序不同**，照抄时别串；实测见 docs/design/data/quantv-video-pages.json）：
    · 电商带货那三条 = 9:16 / 16:9 / 1:1 / 3:4 / 4:3
@@ -656,6 +660,35 @@ export const VIDEO_WORKBENCHES = {
       /* 手动标记的落点：放大 + 拖框选区域（坐标按**源视频像素**换算，服务端 delogo 直接用） */
       { key: 'regions', kind: 'region', title: '框选字幕区域', for: 'source',
         hint: '在上面的视频里拖出一个框，把字幕框住（可框多个区域，也可以放大后再框）' },
+    ],
+  },
+  /* ═══ 2026-09-26 批 AU：数字人（口型对齐）那一页 ═══════════════════════════════════════════════
+     字段照**知渔 /digital-human**（实采在 docs/design/data/quantv-video-pages.json）+ docs/design/72
+     的六步流水线：他们 02「音视频生成」那一步就是「音色（自带/克隆/资产库）+ **选择形象（只能自带视频）**
+     + 生成口播视频」。他们的形象下拉只有「请选择形象 / 从我的资产选择 / 已导入视频」，
+     新账号下没有任何内置虚拟形象 —— 我们照这个形态：**形象只让用户自带真人视频**。
+     ⚠️ 音频这一格：我们**没有**接 TTS（MediaKit 里压根没有语音合成工具，见 volcLipSync 的文档出处），
+        所以只做"上传配音"，不假装有"输入文案自动配音"；文案留一行说明讲清怎么拿到音频。
+     ⚠️ 这一页整体是 `availability: 'blocked'`（即将上线）：产品 public:false + SKU public:false，
+        创作台对这条方案禁用生成并写明原因（铁律：不可用的功能不许变成可点的选项）。 */
+  'video.digital_human': {
+    source: 'https://laoyu.quantv.com/digital-human',
+    headline: '上传真人出镜视频与一段配音，让人物按配音开口说这段话',
+    blocks: [
+      /* 照去字幕那一页的形态：知渔把"视频模型"做成静态一行，我们同样不给选（docs/design/69） */
+      { key: 'engine', kind: 'static', title: '驱动方式', value: '口型对齐' },
+      uploadBlock({
+        key: 'source', title: '人物视频', max: 1, hint: '点击上传视频',
+        note: '单人正对镜头、面部无遮挡；水平转动不超过 45 度',
+        acceptHint: '支持 MP4，最长 30 分钟', accept: VIDEO_ACCEPT,
+      }),
+      uploadBlock({
+        key: 'audio', title: '驱动配音', max: 1, hint: '点击上传音频',
+        note: '成片长度跟着这段配音走（视频短了会循环播放画面）',
+        acceptHint: AUDIO_ACCEPT_HINT, accept: AUDIO_ACCEPT,
+      }),
+      /* 文案留档：为什么这一格不是"输入文案自动配音"——我们没有这条链路，不许做成假的输入框 */
+      { key: 'audioNote', kind: 'static', title: '配音从哪来', value: '先在站内合成配音，或直接上传你已有的录音' },
     ],
   },
 };

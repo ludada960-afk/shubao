@@ -149,6 +149,17 @@ export const SKILL_SOURCES = Object.freeze({
         写法（scale / delogo 滤镜链）是我们自己的实现，出处如实写 competitor。 */
   'video.upscale': { ...QUANTV, ref: '视频制作 / 视频高清（/video-high-definition）', note: '输出分辨率 720p/1080p/2k + FPS 30/60 与 0.50 积分/条照抄知渔；实现是本机 ffmpeg scale（不走上游模型）' },
   'video.desubtitle': { ...QUANTV, ref: '视频制作 / 视频字幕去除（/video-subtitle-removal）', note: '字幕标记方式（自动/手动）与 0.04 积分/秒照抄知渔；手动那一档＝本机 ffmpeg delogo 区域擦除，自动那一档未接通（标注不可选）' },
+  /* ═══ 2026-09-26 批 AU：数字人（口型对齐）═════════════════════════════════════════════════════
+     出处是**两处实证**，都写在这里，别只写一处：
+       ① 知渔 /digital-human（路由页，实采在 docs/design/data/quantv-video-pages.json）——
+          产品形态照它：形象**只能自带视频**（他们新账号下没有任何内置虚拟形象），
+          02 音视频生成那一步就是"音色 + 选择形象 + 生成口播视频 2.40 积分/分钟"；
+       ② 知渔的**模型登记表**（GET /api/models 那条 "Digital Human"）—— 入参只有
+          `source_video_url` + `source_audio_url` ⇒ 他们界面叫"数字人"，实现就是**换口型**
+          （bundle 里 lipsync/heygen/hedra/wav2lip 全库 0 命中）。
+     审计留档在 docs/design/72。上游选**火山 AI MediaKit 口型对齐**（1 元/分钟）——
+     这一条不是抄知渔，是我们自己按成本选的：阿里云 IMS 数字人 9.9 元/分钟贵 10 倍。 */
+  'video.digital_human': { ...QUANTV, ref: '视频制作 / 数字人（/digital-human）', note: '形象自带视频 + 驱动音频这一形态照知渔（他们的"数字人"实为换口型，入参 source_video_url + source_audio_url）；他们卖 2.40 积分/分钟，我们走火山 AI MediaKit 口型对齐（1 元/分钟成本）' },
 });
 
 export function sourceOf(skillId) {

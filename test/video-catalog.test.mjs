@@ -54,6 +54,10 @@ test('video products expose one curated stable contract', () => {
     /* ═══ 2026-09-26 批 AR：+1（判据未变，事实变了）—— 自动标记那条走火山 MediaKit，
        是"处理已有视频"的**上游**档（videoProcess: true），与本地那两条共用输入契约。 */
     'desubtitle_volc',
+    /* ═══ 2026-09-26 批 AU：+1（判据未变，事实变了）—— 数字人（火山口型对齐）：
+       同样是 videoProcess + credential 'volc'，但输入契约多一样（人物视频 + **驱动音频**），
+       且它在册**不代表公开**：public 仍是 false（未实测 + 价未签字，见 videoCatalog 的注释）。 */
+    'lipsync_volc',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
   assert.equal(getVideoProduct('seedance_standard').label, 'Seedance 2.0 标准');
@@ -246,7 +250,7 @@ test('public products omit hidden routes and private provider details', () => {
     const product = getVideoProduct(id);
     return product.localEngine === true || product.videoProcess === true;
   });
-  assert.deepEqual(nonModelIds.sort(), ['desubtitle_local', 'desubtitle_volc', 'upscale_local']);
+  assert.deepEqual(nonModelIds.sort(), ['desubtitle_local', 'desubtitle_volc', 'lipsync_volc', 'upscale_local']);
   assert.deepEqual(all.filter(product => nonModelIds.includes(product.id)), [], '非模型产品不许出现在模型清单里');
   assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS).filter(id => !nonModelIds.includes(id)));
   assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);

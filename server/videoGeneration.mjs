@@ -18,6 +18,7 @@ import {
 import { createLocalVideoAdapter, ffmpegAvailable, probeDurationSeconds } from './videoLocalAdapter.mjs';
 import { validateLocalPlanInput } from './localVideoPlan.mjs';
 import { createVolcSubtitleAdapter, volcSubtitleReadiness } from './volcSubtitleErase.mjs';
+import { createVolcLipSyncAdapter, volcLipSyncReadiness } from './volcLipSync.mjs';
 import {
   buildProviderPayload,
   createVideoProviderRegistry,
@@ -380,6 +381,15 @@ export function createVideoGeneration({
     apiKey: clean(volcApiKey, 500),
     fetchImpl: volcFetchImpl || fetch,
   });
+  /* ═══ 火山 AI MediaKit：**口型对齐**（2026-09-26 批 AU，数字人那一档）══════════════════════════
+     同一把 Key、同一套上传骨架（volcMediaKitClient），只是提交到 `/tools/lip-sync`。
+     用户对数字人的要求是照知渔的形态（docs/design/72）：真人视频 + 驱动音频 → 口播成片。
+     ⚠️ 这一档的路由台账是 unverified（一次真调用都没跑过）⇒ 产品与 SKU 都是 public:false，
+        派发点仍然接好（契约忠实 + 失败可诊断），等真机跑通再翻 —— 与 1080P 的 Seedance 同一套做法。 */
+  const lipSyncAdapter = createVolcLipSyncAdapter({
+    apiKey: clean(volcApiKey, 500),
+    fetchImpl: volcFetchImpl || fetch,
+  });
   function volcProviderFor() {
     return {
       ...volcAdapter,
@@ -387,7 +397,16 @@ export function createVideoGeneration({
       productId: 'desubtitle_volc',
     };
   }
+  function lipSyncProviderFor() {
+    return {
+      ...lipSyncAdapter,
+      routeId: 'volc-media-kit-lipsync',
+      productId: 'lipsync_volc',
+    };
+  }
   const VOLC_ROUTE = 'volc-media-kit-subtitle';
+  /* 口型对齐那条的路由名（批 AU）：派发与健康度都要按**产品**分流，不能只看"credential 是不是 volc" */
+  const VOLC_LIPSYNC_ROUTE = 'volc-media-kit-lipsync';
   /* 本机渲染组件的可用性（ffmpeg 在不在）。进程起来之后异步探一次，缓存起来给 circuitHealth /
      capabilities 这两处**同步**读；真正的权威判定在 createJob 里 await 一次（见 assertLocalEngineReady）——
      探针是"启动时的乐观默认 + 建单时的实测"，两道合起来才不会出现"页面亮着、点了 503"。 */
@@ -465,7 +484,11 @@ export function createVideoGeneration({
        ⇒ 建单被 admitProduct 拦成 503「该视频产品暂时不可用」，永远进不去。
        它也不该走熔断：真正决定"能不能跑"的是**账户余额**（运维事实），代码这边只有"有没有 Key"。 */
     if (product.videoProcess === true && product.credential === 'volc') {
-      return { status: volcAdapter.enabled ? 'ready' : 'unavailable', reason: volcAdapter.enabled ? '' : 'volc_key_missing' };
+      /* 批 AU：这族现在有**两条**（字幕擦除 / 口型对齐），Key 是同一把 ⇒ 判据相同；
+         但 reason 要能分清是哪条路（诊断时"哪把钥匙缺了"必须一眼看出）。 */
+      const ready = product.routeId === VOLC_LIPSYNC_ROUTE ? lipSyncAdapter.enabled : volcAdapter.enabled;
+      const missing = product.routeId === VOLC_LIPSYNC_ROUTE ? 'volc_lipsync_key_missing' : 'volc_key_missing';
+      return { status: ready ? 'ready' : 'unavailable', reason: ready ? '' : missing };
     }
     const provider = registry.get(product.id);
     if (!provider?.enabled) return { status: 'unavailable', reason: 'credential_missing' };
@@ -675,7 +698,14 @@ export function createVideoGeneration({
   }
   function processProviderFor(product) {
     if (product.localEngine === true) return localProviderFor(product);
-    if (product.videoProcess === true && product.credential === 'volc') return volcProviderFor();
+    /* ═══ 火山这一族按**路由**分流（2026-09-26 批 AU）══════════════════════════════════════════
+       批 AR 时只有一个火山产品，判据写成"credential === 'volc'"就够了；批 AU 加了口型对齐，
+       两条路都是 credential 'volc' 但提交到不同端点 —— 只看 credential 会把数字人的任务
+       提到字幕擦除的接口上去（出了账也算不明白）。所以改成按 **routeId** 判。 */
+    if (product.videoProcess === true && product.credential === 'volc') {
+      if (product.routeId === VOLC_LIPSYNC_ROUTE) return lipSyncProviderFor();
+      return volcProviderFor();
+    }
     throw httpError(503, 'VIDEO_PROCESS_ENGINE_UNKNOWN', '这类产品的执行引擎未登记，暂不可用');
   }
 
@@ -698,8 +728,28 @@ export function createVideoGeneration({
     };
   }
 
+  /* ═══ 口型对齐那条的派发报文（2026-09-26 批 AU）══════════════════════════════════════════════
+     与字幕擦除同一套思路（站内文件 → 上传换 mediakit:// → 提交），差别是**要传两个文件**：
+     人物视频 + 驱动音频。音频也走同一个票据协议（MediaKit 的上传接口不分媒体类型）。
+     ⚠️ 上传发生在建单之后、提交之前 —— 上传失败走既有的失败退费，不会因为上传失败多收钱。 */
+  async function volcLipSyncPayload(job) {
+    const refs = parseJson(job.refs_json, {});
+    const videoPath = await sourceFilePathFor(refs);
+    if (!videoPath) throw httpError(400, 'VIDEO_REFERENCE_NOT_FOUND', '人物视频不存在或不属于当前账号');
+    const audioPath = await audioFilePathFor(refs);
+    if (!audioPath) throw httpError(400, 'VIDEO_AUDIO_REFERENCE_NOT_FOUND', '驱动音频不存在或不属于当前账号');
+    const provider = lipSyncProviderFor();
+    if (!provider.enabled) {
+      throw httpError(503, 'VOLC_LIPSYNC_NOT_CONFIGURED', volcLipSyncReadiness('').reason, { retryable: true });
+    }
+    const video = await provider.uploadLocalFile({ filePath: videoPath, fileName: `${job.id}-person.mp4` });
+    const audio = await provider.uploadLocalFile({ filePath: audioPath, fileName: `${job.id}-voice.mp3` });
+    return { videoUrl: video.mediaUrl, audioUrl: audio.mediaUrl };
+  }
+
   async function processPayloadFor(product, job) {
     if (product.localEngine === true) return localProviderPayload(job);
+    if (product.routeId === VOLC_LIPSYNC_ROUTE) return volcLipSyncPayload(job);
     return volcProviderPayload(job);
   }
 
@@ -734,6 +784,24 @@ export function createVideoGeneration({
   }
   async function probeSourceSeconds(references) {
     const filePath = await sourceFilePathFor(references);
+    if (!filePath) return null;
+    return probeDurationSeconds(filePath).catch(() => null);
+  }
+
+  /* ═══ 驱动音频的**源文件路径**（2026-09-26 批 AU，数字人那一档）═══════════════════════════════
+     与 sourceFilePathFor 同形、同一套白名单规则（basename 收口，不许拼出目录穿越），
+     只是取 refs.audios[0] 而不是 refs.videos[0]。
+     为什么数字人的时长要按**音频**核对：口型对齐的产出长度由音频决定（人物视频多长不重要），
+     而计费是按秒 —— 拿视频时长当账本会两种方向都错（视频短了少收、长了多收）。 */
+  async function audioFilePathFor(references) {
+    const audioId = clean((Array.isArray(references?.audios) ? references.audios[0] : '') || '', 140);
+    if (!audioId) return null;
+    const row = db.prepare('SELECT file_name FROM video_assets WHERE id = ?').get(audioId);
+    if (!row) return null;
+    return resolve(inputRoot, basename(row.file_name || audioId));
+  }
+  async function probeAudioSeconds(references) {
+    const filePath = await audioFilePathFor(references);
     if (!filePath) return null;
     return probeDurationSeconds(filePath).catch(() => null);
   }
@@ -1343,9 +1411,13 @@ export function createVideoGeneration({
     if (product.localEngine === true) {
       await assertLocalEngineReady();
     } else if (product.videoProcess === true && product.credential === 'volc') {
-      /* 上游处理（火山）：凭据缺失就 503，**不建单不冻结积分** —— 与 ffmpeg 预检同一条纪律 */
-      if (!volcAdapter.enabled) {
-        throw httpError(503, 'VOLC_SUBTITLE_NOT_CONFIGURED', volcSubtitleReadiness('').reason, { retryable: true });
+      /* 上游处理（火山）：凭据缺失就 503，**不建单不冻结积分** —— 与 ffmpeg 预检同一条纪律。
+         批 AU 起这里有两条路（字幕擦除 / 口型对齐），分开报原因：用户要知道缺的是哪一把钥匙。 */
+      const ready = product.routeId === VOLC_LIPSYNC_ROUTE ? lipSyncAdapter.enabled : volcAdapter.enabled;
+      if (!ready) {
+        const code = product.routeId === VOLC_LIPSYNC_ROUTE ? 'VOLC_LIPSYNC_NOT_CONFIGURED' : 'VOLC_SUBTITLE_NOT_CONFIGURED';
+        const reason = product.routeId === VOLC_LIPSYNC_ROUTE ? volcLipSyncReadiness('').reason : volcSubtitleReadiness('').reason;
+        throw httpError(503, code, reason, { retryable: true });
       }
     } else if (!registry.get(product.id)?.enabled) {
       throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中');
@@ -1401,7 +1473,13 @@ export function createVideoGeneration({
     const mode = processProduct
       ? (product.videoProcess === true ? 'process' : 'local')
       : (['script', 'frame', 'reference', 'remake'].includes(input?.mode) ? input.mode : 'script');
-    const localSpecs = processProduct ? { fps: localPlan.fps, regions: localPlan.regions } : null;
+    /* ⚠️ 批 AU：把"这一单要不要驱动音频"一起落库 —— 数字人是按**音频秒数**计费的，
+       事后对账（"这 6 秒是怎么来的"）只能靠这行；缺了它就只能翻上游账单倒推。
+       ⚠️ 这里直接读产品声明，**不能**用下面那个 requiresAudio 常量：那行在本函数里声明的更晚，
+          const 有暂时性死区（本仓 test/no-tdz-before-init 是硬门禁，2026-09-16 白屏事故同一类）。 */
+    const localSpecs = processProduct
+      ? { fps: localPlan.fps, regions: localPlan.regions, ...(product.localSpec?.audio === true ? { audio: true } : {}) }
+      : null;
     const seed = Number.isSafeInteger(Number(input?.seed)) ? Number(input.seed) : 0;
     if (!processProduct && !prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
     if (!processProduct) {
@@ -1422,6 +1500,15 @@ export function createVideoGeneration({
     if (processProduct && references.videos.length !== 1) {
       throw httpError(400, 'VIDEO_LOCAL_SOURCE_REQUIRED', '请先上传要处理的视频（一次一条）');
     }
+    /* ═══ 有的方案**还要一样输入**：驱动音频（2026-09-26 批 AU，数字人口型对齐）══════════════════
+       `localSpec.audio: true` 的产品（目前只有 lipsync_volc）必须恰好一个音频 ——
+       产出长度由音频决定、没有音频这条链路无事可做。
+       ⚠️ 为什么放在**建单前**：建单后才发现缺音频，任务会落 failed 并退费（用户白等一轮）。
+          缺什么输入是"用户现在就能补齐"的事，就该在扣费之前说清楚。 */
+    const requiresAudio = processProduct && product.localSpec?.audio === true;
+    if (requiresAudio && references.audios.length !== 1) {
+      throw httpError(400, 'VIDEO_AUDIO_REFERENCE_REQUIRED', '请上传一段驱动配音（一次一段）');
+    }
     /* ═══ 本地方案的时长必须与源文件相符（2026-09-25 批 AM）══════════════════════════════════════
        去字幕**按秒计费**，而秒数是客户端报上来的（浏览器读元数据）—— 不核对的话，
        报 1 秒、实际 60 秒就是少收 59 秒的钱（0.04 积分/秒 → 少收 2.36 积分）。
@@ -1429,10 +1516,11 @@ export function createVideoGeneration({
        ⚠️ 量不出来（ffprobe 不可用/容器异常）不拦：宁可放行也不误伤正常用户 ——
           上面那道 ffmpegAvailable 预检已经保证"本机能渲染"，这里只是多一道防少报的闸。 */
     if (processProduct) {
-      const probed = await probeSourceSeconds(references);
+      /* 有驱动音频的方案（数字人）按**音频**量时长：产出长度由音频决定，视频时长与账无关 */
+      const probed = requiresAudio ? await probeAudioSeconds(references) : await probeSourceSeconds(references);
       if (probed && localPlan.duration < probed - 2) {
         throw httpError(400, 'VIDEO_LOCAL_DURATION_MISMATCH',
-          `视频时长与申报不符（申报 ${localPlan.duration} 秒，实际约 ${Math.round(probed)} 秒），请重新选择文件`);
+          `${requiresAudio ? '配音时长' : '视频时长'}与申报不符（申报 ${localPlan.duration} 秒，实际约 ${Math.round(probed)} 秒），请重新选择文件`);
       }
     }
     if (mode === 'frame' && (!references.firstImage || !references.lastImage)) throw httpError(400, 'VIDEO_FRAME_REQUIRED', '首尾帧模式需要两张图片');
@@ -1826,6 +1914,29 @@ export function createVideoGeneration({
             ? volcSubtitleReadiness('').reason
             : '自动标记尚未完成首次实测（等火山账户充值到位、跑通一次真片子后开放）'),
       };
+      /* ═══ 数字人（口型对齐）那一档的可售状态（2026-09-26 批 AU）═══════════════════════════════
+         与 subtitleAuto 同一形状（只读）：前端只拿它决定"这一页能不能点"，
+         价格仍走目录里的 SKU。**当前必然是不可用**，两个原因都如实说：
+           ① 路由台账 unverified（一次真调用都没跑过）⇒ 产品 public:false；
+           ② 哪怕产品公开了，凭据没配也点不了。
+         ⚠️ 这一档还多一道：**价没签字**（120 units/秒 是我按文档成本推的）——
+            所以 reason 里明确写出来，免得"产品公开了却还是点不动"被当成 bug。 */
+      const lipSyncProduct = getVideoProduct('lipsync_volc');
+      const lipSyncSkuShort = videoFeatureSku({ productId: lipSyncProduct.id, duration: lipSyncProduct.durations.min });
+      const lipSyncSkuLong = videoFeatureSku({ productId: lipSyncProduct.id, duration: Math.max(lipSyncProduct.durations.min, Math.min(9, lipSyncProduct.durations.max)) });
+      const lipSyncQuote = sku => ({ sku, units: quoteFeature(sku, 1).units, points: Math.ceil(quoteFeature(sku, 1).units / 1000) });
+      const digitalHuman = {
+        productId: lipSyncProduct.id,
+        available: lipSyncProduct.public === true && lipSyncAdapter.enabled === true,
+        requiresAudio: true,
+        billingQuantity: FEATURE_SKUS[lipSyncSkuShort]?.perSecond === true ? 'seconds' : 'clip',
+        quotes: { short: lipSyncQuote(lipSyncSkuShort), long: lipSyncQuote(lipSyncSkuLong) },
+        reason: lipSyncProduct.public === true && lipSyncAdapter.enabled === true
+          ? ''
+          : (!lipSyncAdapter.enabled
+            ? volcLipSyncReadiness('').reason
+            : '数字人尚未完成首次实测与定价确认（等一段真人出镜素材跑通一次、价格由你点头后开放）'),
+      };
       const products = registry.publicProducts({ includeHidden: allowHiddenProducts })
         .map(product => ({
           ...product,
@@ -1859,6 +1970,8 @@ export function createVideoGeneration({
         localEngineReady,
         /* 自动标记那一档能不能点（只读；产品公开 + 凭据齐 才算就绪，见上面那段注释） */
         subtitleAuto,
+        /* 数字人（口型对齐）能不能点（只读；同样是"产品公开 + 凭据齐"，另加"价已签字"这个前提） */
+        digitalHuman,
         unavailableProducts: registry.unavailableProducts(),
         /* ⚠️ 2026-09-19 批 H-7：**只读**的"未上架模型"清单，给界面一句实话用。
            用户原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，为什么现在都不见了呢？」

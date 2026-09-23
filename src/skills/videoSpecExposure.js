@@ -58,6 +58,13 @@ export const VIDEO_SPEC_EXPOSURE = Object.freeze({
             渲染成"标题 + 值"的只读行（智能去字幕），**不给模型选择器** —— 本地方案没有模型可选。 */
   'video.upscale': { model: false, clarity: true, duration: false },   // 视频高清
   'video.desubtitle': { model: true, clarity: false, duration: false },   // 视频字幕去除
+  /* ═══ 2026-09-26 批 AU：数字人（口型对齐）═════════════════════════════════════════════════════
+     派生自知渔 /digital-human 的实采 panelText（那页抓到的是第 01 步「IP 深度学习」的文案表单：
+     「生成爆款文案（0.25 积分）· 视频类型 口播/剧情 · 文案类型 人设型/卖点型 · 行业+人设/
+     产品业务/卖点+价格/其他要求」）——**三项都没有**（没有"模型"、没有"清晰度/分辨率"、没有"时长"），
+     所以与 fallback 同形。这一页露出来的两格是**我们自己的输入契约**（人物视频 / 驱动配音），
+     不是知渔那页的规格格 —— 与"规格暴露"这件事不是一回事。 */
+  'video.digital_human': { model: false, clarity: false, duration: false },   // 数字人
 });
 
 /* 知渔没有对应页的自有玩法：不暴露这三项（与"建筑室内那一族"的形态一致） */

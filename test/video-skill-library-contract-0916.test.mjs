@@ -31,14 +31,20 @@ test('① 每条声明形状合法：id 前缀、复杂度、pipeline、封面�
        守的东西没变（不许写空壳技能），只是承认两种形态：
          · 走上游生成的：沿用 3 格（模型 / 清晰度 / 时长）；
          · 本地方案（plan.engine 声明了的）：按方案给 ≥2 格，且**不许出现 model 字段**
-           （模型是实现细节，不进用户字段）。 */
-    const localPlan = skill.plan && skill.plan.engine === 'local-render';
-    assert.ok(skill.fields.length >= (localPlan ? 2 : 3),
-      (localPlan ? '本地方案至少要声明 2 格用户字段：' : '视频 skill 至少要模型/清晰度/时长：') + skill.id);
-    if (localPlan) {
+           （模型是实现细节，不进用户字段）。
+       ═══ 2026-09-26 批 AU：判据从"engine === local-render"推广成"**声明了 engine 的方案**"═════
+       批 AU 新增的数字人用的是第二个方案引擎 `upstream-process`（上游处理已有视频：入口是
+       人物视频 + 驱动配音两格，同样不吃提示词、同样不套上游那三格）。
+       判据的本意（上面那段）是"**方案声明的页面**按方案给字段，不按上游那三格"——
+       引擎有几种不是判据的一部分，所以这里改成看 `plan.engine` 有没有声明。
+       守的东西一个字没变：方案页仍要 ≥2 格用户字段、仍不许出现 model 字段、仍必须 hideModel。 */
+    const planDriven = Boolean(skill.plan && skill.plan.engine);
+    assert.ok(skill.fields.length >= (planDriven ? 2 : 3),
+      (planDriven ? '方案页至少要声明 2 格用户字段：' : '视频 skill 至少要模型/清晰度/时长：') + skill.id);
+    if (planDriven) {
       assert.equal(skill.fields.some(field => field.key === 'model'), false,
-        '本地方案不许把「模型」放进用户字段（docs/design/69）：' + skill.id);
-      assert.equal(skill.plan.hideModel, true, '本地方案必须显式声明 hideModel: ' + skill.id);
+        '方案页不许把「模型」放进用户字段（docs/design/69）：' + skill.id);
+      assert.equal(skill.plan.hideModel, true, '方案页必须显式声明 hideModel: ' + skill.id);
     }
     for (const field of skill.fields) {
       assert.ok(FIELD_KINDS.includes(field.kind), '未登记字段档位：' + skill.id + '/' + field.key);
