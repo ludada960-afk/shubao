@@ -25,6 +25,24 @@ export function outputFpsOf(manifest) {
   return Number.isFinite(fps) && fps >= 24 && fps <= 60 ? Math.round(fps) : null;
 }
 
+/* ═══ 2026-09-25 批 AM：**时长**与**保留原声**（本地方案真出片时必须的两件事）═══════════════════
+   两条都是"没声明就与从前逐字节一致"的加法，理由各自不同：
+     · duration：原来恒为 `-t 10`。上游那条路（导出工作台）的片段本来就短，10 秒够用；
+       但本地方案处理的是**用户自己的整条片子** —— 一条 60 秒的片子被悄悄截成 10 秒，
+       那不是"高清 10 秒"，是交付事故。所以清单给了 duration 就用它，没给仍是 10。
+     · keepAudio：原来只 `-map [final]`（只有视频轨），高清/去字幕出来的片子会**没有声音**。
+       本地方案要的是"原片 + 那一处改动"，所以声明 keepAudio 时才把第一条输入的音轨也带上
+       （`-map 0:a?` 可选映射：源片没有声音时不会让 ffmpeg 报错），音轨统一转 aac 以兼容 mp4 容器。 */
+export function outputDurationOf(manifest) {
+  const seconds = Number(manifest?.duration);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return Math.min(seconds, 3600);
+}
+
+export function keepsSourceAudio(manifest) {
+  return manifest?.keepAudio === true;
+}
+
 /* ═══ 2026-09-25 批 AJ：**区域擦除**（字幕去除的本地实现）═══════════════════════════════════════
    用户口径（两轮之前那句最关键的纠正）：「难道你没有什么比如 github 上的一些开源项目可以实现吗，
    为什么一切都要追究模型呢」—— 字幕去除不必是"某条上游去字幕模型"：
@@ -78,15 +96,20 @@ export async function renderVideo(manifest) {
   const inputArgs = manifest.timeline.clips.flatMap(clip => ['-i', clip.url || 'testsrc=size=320x240:rate=30:duration=2']);
   // concat（+ 可选的 scale / fps）
   const { filterComplex, target } = buildFilterChain(manifest);
+  const duration = outputDurationOf(manifest);
+  const withAudio = keepsSourceAudio(manifest);
 
   const args = [
     '-y',
     ...inputArgs,
     '-filter_complex', filterComplex,
     '-map', target,
+    /* 保留原声（只在清单声明 keepAudio 时加）：`-map 0:a?` 的 `?` 让"源片没有音轨"不报错 */
+    ...(withAudio ? ['-map', '0:a?', '-c:a', 'aac', '-b:a', '160k'] : []),
     '-c:v', 'libx264',
     '-preset', 'ultrafast',
-    '-t', '10',
+    /* 清单给了时长就按它（本地方案处理整条片子）；没给仍是 10 秒（既有导出链路逐字节不变） */
+    '-t', String(duration ?? 10),
     outPath,
   ];
 
@@ -95,7 +118,7 @@ export async function renderVideo(manifest) {
     let stderr = '';
     proc.stderr.on('data', d => { stderr += d.toString(); });
     proc.on('close', code => {
-      if (code === 0) resolve({ path: outPath, duration: 10, error: null, output: manifest?.output || null });
+      if (code === 0) resolve({ path: outPath, duration: duration ?? 10, error: null, output: manifest?.output || null });
       else resolve({ path: null, duration: 0, error: `ffmpeg exit ${code}: ${stderr.slice(-500)}` });
     });
     proc.on('error', err => resolve({ path: null, duration: 0, error: err.message }));

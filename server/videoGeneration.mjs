@@ -4,15 +4,19 @@ import { copyFile, link, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { quoteFeature } from './billing/catalog.mjs';
+import { quoteFeature, billableQuantity } from './billing/catalog.mjs';
 import {
   DEFAULT_VIDEO_PRODUCT_ID,
   VIDEO_CATALOG_VERSION,
   VIDEO_PRODUCTS,
   getVideoProduct,
+  isLocalEngineProduct,
+  localVideoProducts,
   validateVideoProductInput,
   videoFeatureSku as catalogVideoFeatureSku,
 } from './videoCatalog.mjs';
+import { createLocalVideoAdapter, ffmpegAvailable } from './videoLocalAdapter.mjs';
+import { validateLocalPlanInput } from './localVideoPlan.mjs';
 import {
   buildProviderPayload,
   createVideoProviderRegistry,
@@ -104,6 +108,15 @@ function extensionFor(contentType) {
     'audio/x-wav': '.wav', 'audio/webm': '.webm',
   };
   return values[contentType] || '';
+}
+
+/* 本地渲染的产物固定是 mp4（renderVideo 里 `-c:v libx264` + .mp4 落盘），
+   这里按扩展名反推 content-type，走与上游成片**同一条**落库校验（见 persistLocalOutput）。 */
+function contentTypeForFile(filePath) {
+  const name = String(filePath || '').toLowerCase();
+  if (name.endsWith('.webm')) return 'video/webm';
+  if (name.endsWith('.mov')) return 'video/quicktime';
+  return 'video/mp4';
 }
 
 async function responseJson(response) {
@@ -311,6 +324,10 @@ export function createVideoGeneration({
     /* 方案留痕列（2026-09-18）：记录本单用的是哪份拍摄方案，便于出问题回查。
        内部字段，绝不出现在任何用户可见文案里；空串 = 本列上线前的历史单。 */
     ['plan_hash', "TEXT NOT NULL DEFAULT ''"],
+    /* 本地方案的规格（2026-09-25 批 AM）：JSON `{ fps, regions }` —— 本地渲染清单里
+       除了"分辨率/时长"（已有列）之外的两样东西。单独开一列而不是塞进 refs_json：
+       refs_json 是"参考素材"的语义，混进规格会让素材查询与诊断都变味。 */
+    ['local_specs', "TEXT NOT NULL DEFAULT ''"],
   ];
   for (const [column, definition] of migrations) {
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
@@ -338,6 +355,33 @@ export function createVideoGeneration({
       : null,
   });
   const selectJob = db.prepare('SELECT * FROM video_jobs WHERE id = ?');
+  /* ═══ 本地方案的适配器（2026-09-25 批 AM）══════════════════════════════════════════════════
+     与上游适配器**同形**（submit / get / download / describe），只是实现换成本机 ffmpeg：
+       · 上游：POST /videos → 轮询 → 下载 content（异步、按条/按秒花钱）
+       · 本地：buildLocalRenderManifest → renderVideo（**同步**、零上游成本）
+     ⚠️ 为什么按产品各建一个：适配器的 routeId/productId 要跟着产品走（诊断与钩子都读它），
+        而且本地任务表是进程内的 —— 共用一份会让两个产品的 taskId 撞在一起。
+     ⚠️ 本地**不做假轮询**：submit 返回时片子已经落盘，get 直接回终态（见 processJob 的分支）。 */
+  const localAdapters = new Map();
+  function localProviderFor(product) {
+    if (!localAdapters.has(product.id)) localAdapters.set(product.id, createLocalVideoAdapter({ product }));
+    return localAdapters.get(product.id);
+  }
+  /* 本机渲染组件的可用性（ffmpeg 在不在）。进程起来之后异步探一次，缓存起来给 circuitHealth /
+     capabilities 这两处**同步**读；真正的权威判定在 createJob 里 await 一次（见 assertLocalEngineReady）——
+     探针是"启动时的乐观默认 + 建单时的实测"，两道合起来才不会出现"页面亮着、点了 503"。 */
+  let localEngineReady = true;
+  void ffmpegAvailable()
+    .then(result => { localEngineReady = result.ok === true; })
+    .catch(() => { localEngineReady = false; });
+
+  async function assertLocalEngineReady() {
+    const result = await ffmpegAvailable();
+    localEngineReady = result.ok === true;
+    if (!localEngineReady) {
+      throw httpError(503, 'VIDEO_LOCAL_ENGINE_UNAVAILABLE', '本机渲染组件未就绪，该功能暂时不可用', { retryable: true });
+    }
+  }
   const routeCapacities = Object.fromEntries(Object.values(VIDEO_PRODUCTS).map(product => [
     product.routeId,
     maxConcurrent === 0 ? 0 : Math.min(product.concurrency, Math.max(1, Number(maxConcurrent) || product.concurrency)),
@@ -387,6 +431,14 @@ export function createVideoGeneration({
 
   function circuitHealth(productId) {
     const product = getVideoProduct(productId);
+    /* ═══ 本地方案的健康度 = "这台机器上有没有 ffmpeg"（2026-09-25 批 AM）══════════════════
+       不能沿用上游那条判据（registry.get(product.id)?.enabled）—— 本地产品**故意**不在上游
+       registry 里（videoProviders 跳过 localEngine），照旧判会得到 credential_missing ⇒
+       建单被 admitProduct 拦成 503「该视频产品暂时不可用」，本地链路永远进不去。
+       本地也不该走"熔断"：它没有上游渠道可抖，只有"装了/没装"这一个事实。 */
+    if (isLocalEngineProduct(product)) {
+      return { status: localEngineReady ? 'ready' : 'unavailable', reason: localEngineReady ? '' : 'local_engine_missing' };
+    }
     const provider = registry.get(product.id);
     if (!provider?.enabled) return { status: 'unavailable', reason: 'credential_missing' };
     const rows = circuitHistory(product.routeId);
@@ -586,6 +638,12 @@ export function createVideoGeneration({
   }
 
   function providerForJob(job) {
+    const product = getVideoProduct(job.product_id);
+    /* ═══ 派发点（2026-09-25 批 AM，交接第①步）══════════════════════════════════════════════
+       判据是**产品声明**（localEngine），不是路由名或模式 —— 声明了 localEngine 的产品一定走本地
+       适配器，其余一律走上游注册表。这样"哪条链路"这件事只有一处能定义（产品目录），
+       不会出现"目录说是本地的、跑的是上游"那种账对不上的情况（本地方案的成本记 0）。 */
+    if (isLocalEngineProduct(product)) return localProviderFor(product);
     const provider = registry.get(job.product_id);
     if (!provider?.enabled || provider.routeId !== job.provider_route) {
       throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中', { retryable: true });
@@ -651,8 +709,61 @@ export function createVideoGeneration({
     }
   }
 
-  function verifiedDeliveryForJob(job) {
-    const delivery = db.prepare("SELECT * FROM video_deliveries WHERE job_id = ? AND verification_state = 'verified'").get(job.id);
+  /* ═══ 本地方案的派发报文（2026-09-25 批 AM）════════════════════════════════════════════════
+     上游的报文由 videoProviders.buildProviderPayload 生成（模型/提示词/比例/参考素材）；
+     本地方案吃的是**完全不同的东西**：一条源视频 + 规格/区域。所以这里单独构造，交给
+     videoLocalAdapter.submit → buildLocalRenderManifest → renderVideo。
+     ⚠️ 源视频为什么给**绝对路径**而不是签名 URL：ffmpeg 不走我们的鉴权，签名 URL 它拉不到；
+        而站内素材（上传/资产库）本来就落在 inputRoot 里，直接读文件既快又不会因为
+        公网域名/证书/带宽出问题。路径由 `basename()` 收口，不许拼出目录穿越。
+     ⚠️ 找不到源文件就**抛错**（failing 在建单之后、渲染之前），让任务落 failed 并退费 ——
+        比拿一个不存在的路径去 spawn 更早、更清楚地报出问题。 */
+  function localProviderPayload(job) {
+    const product = getVideoProduct(job.product_id);
+    const refs = parseJson(job.refs_json, {});
+    const sourceId = clean((Array.isArray(refs.videos) ? refs.videos[0] : '') || '', 140);
+    const row = sourceId
+      ? db.prepare('SELECT * FROM video_assets WHERE id = ? AND owner_email = ?').get(sourceId, job.owner_email)
+      : null;
+    if (!row) throw httpError(400, 'VIDEO_REFERENCE_NOT_FOUND', '源视频不存在或不属于当前账号');
+    const specs = parseJson(job.local_specs, {});
+    const filePath = resolve(inputRoot, basename(row.file_name || row.id));
+    return {
+      sourceUrl: filePath,
+      resolution: job.resolution || '',
+      fps: specs.fps ?? null,
+      regions: Array.isArray(specs.regions) ? specs.regions : [],
+      duration: Number(job.duration) || 0,
+      label: product.label,
+    };
+  }
+
+  /* 本地成片的落库：与上游成片**同一条**通道（persistOutput 的校验/哈希/两行入库），
+     只是数据来源从 HTTP 响应换成磁盘文件 —— 包成 Response 再喂给 persistOutput，
+     这样"内容类型/体积/截断/校验和"四道校验一处都不少，将来改也只改一处。 */
+  async function persistLocalOutput(job, filePath) {
+    const sourcePath = resolve(String(filePath || ''));
+    let info;
+    try {
+      info = await stat(sourcePath);
+    } catch {
+      throw httpError(502, 'VIDEO_OUTPUT_MISSING', '本地渲染没有产出文件，请重试');
+    }
+    if (!info.isFile() || info.size <= 0) throw httpError(502, 'VIDEO_OUTPUT_MISSING', '本地渲染没有产出文件，请重试');
+    const contentType = contentTypeForFile(sourcePath);
+    const response = new Response(Readable.toWeb(fs.createReadStream(sourcePath)), {
+      headers: { 'content-type': contentType, 'content-length': String(info.size) },
+    });
+    try {
+      return await persistOutput(job, response);
+    } finally {
+      /* 渲染中间产物用完即删：它的唯一归宿就是 outputRoot 里那条正式资产，
+         留着只会让磁盘里堆满 render-*.mp4（本地渲染每次都要落一个）。 */
+      await fs.promises.rm(sourcePath, { force: true }).catch(() => {});
+    }
+  }
+
+  function verifiedDeliveryForJob(job) {    const delivery = db.prepare("SELECT * FROM video_deliveries WHERE job_id = ? AND verification_state = 'verified'").get(job.id);
     if (!delivery) return null;
     const asset = db.prepare('SELECT id FROM video_assets WHERE id = ? AND owner_email = ?').get(delivery.id, job.owner_email);
     if (!asset) return null;
@@ -947,10 +1058,10 @@ export function createVideoGeneration({
           markSubmissionUnknown(job);
           return;
         }
-        const providerPayload = buildProviderPayload({
-          product: getVideoProduct(job.product_id),
-          job,
-        }).body;
+        const jobProduct = getVideoProduct(job.product_id);
+        const providerPayload = isLocalEngineProduct(jobProduct)
+          ? localProviderPayload(job)
+          : buildProviderPayload({ product: jobProduct, job }).body;
         const attempt = attemptStore.begin({
           jobId: job.id,
           submissionKey: (() => {
@@ -976,6 +1087,21 @@ export function createVideoGeneration({
           provider_task_id: clean(submitted.id, 200),
           progress: Math.max(0, Math.min(99, Number(submitted.progress) || 0)),
         });
+        /* ═══ 本地渲染：submit 返回时片子已经落盘，这里**不做轮询**（2026-09-25 批 AM）═══════
+           上游那条路要 get() 轮询 1440 次等出片；本地是同步的（videoLocalAdapter.submit 内部就是
+           renderVideo），所以只取一次终态、落库、走**既有的** complete()（计费结算、作品落库、
+           项目投影都在里面）。⚠️ 不写"假轮询"（sleep 几次再问）—— 那只会让用户多等几秒，
+           还会让失败分类变成"超时"而不是"渲染失败"。 */
+        if (isLocalEngineProduct(getVideoProduct(job.product_id))) {
+          const localResult = await provider.get(job.provider_task_id);
+          if (clean(localResult?.status, 40).toLowerCase() !== 'completed' || !localResult?.downloadUrl) {
+            throw httpError(502, 'VIDEO_LOCAL_RENDER_FAILED', clean(localResult?.reason, 200) || '本地渲染失败，请重试');
+          }
+          const output = await persistLocalOutput(job, localResult.downloadUrl);
+          if (job.current_attempt_id) attemptStore.markDelivered(job.current_attempt_id);
+          await complete(job, output);
+          return;
+        }
       }
       let transientFailures = 0;
       const recoveredDelivery = verifiedDeliveryForJob(job);
@@ -1112,9 +1238,26 @@ export function createVideoGeneration({
     if (!product.public && !allowHiddenProducts) {
       throw httpError(400, 'VIDEO_PRODUCT_UNAVAILABLE', '该视频产品暂未开放');
     }
-    if (!registry.get(product.id)?.enabled) {
+    /* ═══ 本地方案 vs 上游：从这里开始分成**两条输入契约**（2026-09-25 批 AM）══════════════════
+       上游：提示词 + 比例 + 时长白名单 + 参考素材 + **方案闸门**（收了方案的钱，方案必须影响产出）；
+       本地：一条源视频 + 规格（分辨率/帧率）或区域（框选字幕），**没有提示词、没有比例**。
+       ⇒ 本地方案不套用上游那几道（提示词必填 / 比例必填 / 方案闸门 / validateVideoProductInput），
+         因为它们要求的东西用户在一张只有"上传视频 + 分辨率"的页面上根本给不出来；
+         反过来，本地会跑 validateLocalPlanInput（时长必须是真值、分辨率必须在白名单里、
+         去字幕必须有区域）—— 校验一点没少，只是换成了这类方案真正需要的字段。 */
+    const localEngine = isLocalEngineProduct(product);
+    if (localEngine) {
+      await assertLocalEngineReady();
+    } else if (!registry.get(product.id)?.enabled) {
       throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中');
     }
+    const localPlan = localEngine ? (() => {
+      try {
+        return validateLocalPlanInput({ product, input });
+      } catch (error) {
+        throw httpError(400, error?.code || 'VIDEO_LOCAL_PLAN_INVALID', error.message);
+      }
+    })() : null;
     /* ═══ 方案闸门 + 编译（服务端权威 · 2026-09-18 总统筹拍板）═══════════════════
        改动前实测：构造一个「无方案」请求 → **202 建单成功**（46,000 单位被 hold）。
        前端只用 planReviewed 拦，构造请求就能绕过 —— 收钱不出活，且方案对成片零影响。
@@ -1122,37 +1265,54 @@ export function createVideoGeneration({
          ① 闸门：没有可用方案 / 未确认 → 400（用户可读文案），**不出片、不扣费**；
          ② 编译：方案结构（分镜/节奏/必须保留）进 prompt 最前，风险约束进 negativePrompt。
        三层权威排序沿用 canvasPromptAuthority 的 PROMPT_LAYER（不新造一套）：
-         硬约束(1) > 方案结构(2) > 用户内容文案(3)。 */
-    assertVideoPlanConfirmed({
-      plan: input?.videoPlan,
-      planConfirmed: input?.planConfirmed === true,
-    });
-    const compiled = compileVideoRequest({
-      prompt: input?.prompt,
-      negativePrompt: input?.negativePrompt,
-      plan: input?.videoPlan,
-    });
-    const prompt = compiled.prompt;
-    const negativePrompt = compiled.negativePrompt;
-    const duration = Number(input?.duration);
-    const resolution = clean(input?.resolution, 20).toLowerCase();
-    const aspectRatio = clean(input?.aspectRatio, 20);
-    const mode = ['script', 'frame', 'reference', 'remake'].includes(input?.mode) ? input.mode : 'script';
-    const seed = Number.isSafeInteger(Number(input?.seed)) ? Number(input.seed) : 0;
-    if (!prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
-    try {
-      validateVideoProductInput({
-        productId: product.id,
-        duration,
-        mode,
-        resolution,
-        generateAudio: input?.generateAudio !== false,
+         硬约束(1) > 方案结构(2) > 用户内容文案(3)。
+       ⚠️ 只对**上游生成**生效：本地方案的"方案"就是那份渲染清单（分辨率/帧率/区域），
+          它已经由 validateLocalPlanInput 校验过，且不产生模型侧的口味问题 ——
+          要一个"拍摄方案预览"再来处理一条已有视频，既不合逻辑也会凭空多收一次分析费。 */
+    let compiled = { planHash: '' };
+    let prompt = '';
+    let negativePrompt = '';
+    if (!localEngine) {
+      assertVideoPlanConfirmed({
+        plan: input?.videoPlan,
+        planConfirmed: input?.planConfirmed === true,
       });
-    } catch (error) {
-      throw httpError(400, 'VIDEO_PRODUCT_INPUT_INVALID', error.message);
+      compiled = compileVideoRequest({
+        prompt: input?.prompt,
+        negativePrompt: input?.negativePrompt,
+        plan: input?.videoPlan,
+      });
+      prompt = compiled.prompt;
+      negativePrompt = compiled.negativePrompt;
     }
-    if (!RATIOS.has(aspectRatio)) throw httpError(400, 'VIDEO_FORMAT_INVALID', '视频规格不支持');
+    const duration = localEngine ? localPlan.duration : Number(input?.duration);
+    const resolution = localEngine ? localPlan.resolution : clean(input?.resolution, 20).toLowerCase();
+    /* 本地方案**不改比例**（原样交付，不裁不补）⇒ 记空串，不冒充一个它没用过的比例 */
+    const aspectRatio = localEngine ? '' : clean(input?.aspectRatio, 20);
+    const mode = localEngine
+      ? 'local'
+      : (['script', 'frame', 'reference', 'remake'].includes(input?.mode) ? input.mode : 'script');
+    const localSpecs = localEngine ? { fps: localPlan.fps, regions: localPlan.regions } : null;
+    const seed = Number.isSafeInteger(Number(input?.seed)) ? Number(input.seed) : 0;
+    if (!localEngine && !prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
+    if (!localEngine) {
+      try {
+        validateVideoProductInput({
+          productId: product.id,
+          duration,
+          mode,
+          resolution,
+          generateAudio: input?.generateAudio !== false,
+        });
+      } catch (error) {
+        throw httpError(400, 'VIDEO_PRODUCT_INPUT_INVALID', error.message);
+      }
+      if (!RATIOS.has(aspectRatio)) throw httpError(400, 'VIDEO_FORMAT_INVALID', '视频规格不支持');
+    }
     const references = normalizeReferences(ownerEmail, input?.references, publicBaseUrl);
+    if (mode === 'local' && references.videos.length !== 1) {
+      throw httpError(400, 'VIDEO_LOCAL_SOURCE_REQUIRED', '请先上传要处理的视频（一次一条）');
+    }
     if (mode === 'frame' && (!references.firstImage || !references.lastImage)) throw httpError(400, 'VIDEO_FRAME_REQUIRED', '首尾帧模式需要两张图片');
     if (mode === 'reference' && !references.images.length && !references.videos.length) {
       throw httpError(400, 'VIDEO_VISUAL_REFERENCE_REQUIRED', references.audios.length
@@ -1196,7 +1356,13 @@ export function createVideoGeneration({
     }
 
     const sku = videoFeatureSku({ productId: product.id, duration });
-    const expectedQuote = quoteFeature(sku, 1);
+    /* ═══ 计费数量（2026-09-25 批 AM）══════════════════════════════════════════════════════════
+       原来恒为 `quoteFeature(sku, 1)`（按条）。去字幕是**按秒**计价（用户批准的 0.04 积分/秒），
+       所以数量改由 catalog 的 billableQuantity 统一裁定：perSecond 的 SKU 取秒数，其余恒为 1。
+       ⚠️ 前端的报价令牌必须用同一个数量（它从 /api/video/capabilities 的 billingQuantity 读规则），
+          否则 quoteService.verify 逐字段比对会 409；这条一致性由 test/video-local-dispatch-0925 守。 */
+    const quantity = billableQuantity({ sku, seconds: duration });
+    const expectedQuote = quoteFeature(sku, quantity);
     const verified = quoteService.verify({ quoteId: clean(billingQuoteId, 5000), ownerEmail, expectedQuote });
     const id = crypto.randomUUID();
     const admission = admitProduct(product.id);
@@ -1210,7 +1376,11 @@ export function createVideoGeneration({
           quoteId: verified.quoteId,
           idempotencyKey: `video-hold:${id}`,
           expiresAt: verified.expiresAt,
-          items: [{ key: 'video', sku, units: expectedQuote.units }],
+          /* ⚠️ 冻结的是 **totalUnits**（= units × 数量），不是单价 —— walletService.createHold
+             把 items[].units 直接求和当成冻结额。按条的 SKU 两者相等（数量 1，以前看不出差别），
+             但按秒的 SKU 若写成 units 就只冻 0.04 积分（12 秒的片子少冻 440 units）。
+             这条由 test/video-local-dispatch-0925 的第⑤条钉住（480 = 40 × 12）。 */
+          items: [{ key: 'video', sku, units: expectedQuote.totalUnits }],
           metadata: {
             source: 'video_generation',
             taskId: id,
@@ -1233,12 +1403,14 @@ export function createVideoGeneration({
       db.prepare(`INSERT INTO video_jobs (
         id, owner_email, idempotency_key, status, mode, sku, prompt, negative_prompt,
         duration, aspect_ratio, resolution, generate_audio, seed, refs_json, hold_id,
-        product_id, provider_route, catalog_version, provider_cost_cny, failure_class, quote_id, plan_hash
-      ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        product_id, provider_route, catalog_version, provider_cost_cny, failure_class, quote_id, plan_hash,
+        local_specs
+      ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, ownerEmail, requestKey, mode, sku, prompt, negativePrompt, duration, aspectRatio,
         resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
         product.id, product.routeId, VIDEO_CATALOG_VERSION, expectedQuote.providerCostCny, '', verified.quoteId,
         compiled.planHash || '',
+        localSpecs ? JSON.stringify(localSpecs) : '',
       );
       jobPersisted = true;
       if (projectBridge) {
@@ -1487,7 +1659,8 @@ export function createVideoGeneration({
           productId: product.id,
           label: product.label,
           routeId: product.routeId,
-          configured: adapter?.enabled === true,
+          /* 本地方案的"配置好了没"= 本机有没有 ffmpeg（它没有上游 adaptor 可问） */
+          configured: isLocalEngineProduct(product) ? localEngineReady : adapter?.enabled === true,
           public: product.public === true,
           availability: health.status,
           reason: health.reason || '',
@@ -1525,6 +1698,15 @@ export function createVideoGeneration({
         model: defaultProduct?.id || '',
         defaultProductId: defaultProduct?.id || DEFAULT_VIDEO_PRODUCT_ID,
         products,
+        /* ═══ 本地方案（2026-09-25 批 AM）：与"模型"分开放的只读清单 ═══════════════════════════
+           两条 skill 子页面（视频高清 / 视频字幕去除）按这份清单选产品、算价、决定露哪几格。
+           **不进 products**：它们不是模型 —— 混进模型下拉，用户会在"视频创作"里选到一条
+           不吃提示词的档位（点了必失败，见 videoCatalog 的说明）。
+           `localEngineReady` 是本机能不能渲染的**实测**结果（ffmpeg 在不在）：前端据此
+           把"点了必失败"变成"如实说明 + 不可点"。 */
+        localProducts: localVideoProducts({ includeHidden: allowHiddenProducts }),
+        localEngineReady,
+        unavailableProducts: registry.unavailableProducts(),
         /* ⚠️ 2026-09-19 批 H-7：**只读**的"未上架模型"清单，给界面一句实话用。
            用户原话：「我们之前明明做了特别多的模型啊。起码有差不多 10 个模型吧，为什么现在都不见了呢？」
            —— 目录里确实有 10 个，但只有 2 个 public:true，界面上一个字都没说。

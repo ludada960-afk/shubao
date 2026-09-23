@@ -14,9 +14,47 @@
       那会让"按上游成本定的价"配上"零成本实现"，账就乱了）。 */
 import { createReadStream } from 'node:fs';
 import { basename } from 'node:path';
+import { spawn } from 'node:child_process';
 
 import { buildLocalRenderManifest } from './localVideoPlan.mjs';
 import { renderVideo } from './videoExportRender.mjs';
+
+/* ═══ 本机有没有 ffmpeg —— **建单前**必须问一次 ═══════════════════════════════════════════════
+   为什么这不是"多余的健康检查"：本地方案的可达性就是"这台机器上有没有 ffmpeg"
+   （见 videoCatalog 的 local-ffmpeg 台账）。线上第一次部署时实测**没有装**（`command -v ffmpeg` 空），
+   如果不预检就放开档位，用户点下去会走完建单（冻结积分）→ 渲染 spawn ENOENT → 失败退费，
+   正是铁律里"点了必失败"那一类。所以：
+     · 建单前调用 ffmpegAvailable()：缺了就 503「本机渲染组件未就绪」，**不建单、不冻结积分**；
+     · 结果缓存（进程内），避免每个任务都 spawn 一次。
+   ⚠️ 缓存只在"已知可用"时长期有效；不可用时也缓存（否则每次建单都 spawn 一次探测）。 */
+let ffmpegProbe = null;
+
+export function ffmpegAvailable({ probe = 'ffmpeg', timeoutMs = 5000 } = {}) {
+  if (ffmpegProbe) return Promise.resolve(ffmpegProbe);
+  ffmpegProbe = new Promise(resolve => {
+    let settled = false;
+    const done = ok => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok, detail: ok ? 'ffmpeg available' : 'ffmpeg not available' });
+    };
+    try {
+      const proc = spawn(probe, ['-version'], { stdio: ['ignore', 'ignore', 'ignore'] });
+      const timer = setTimeout(() => { try { proc.kill(); } catch {} done(false); }, timeoutMs);
+      timer.unref?.();
+      proc.on('error', () => { clearTimeout(timer); done(false); });
+      proc.on('close', code => { clearTimeout(timer); done(code === 0); });
+    } catch {
+      done(false);
+    }
+  });
+  return ffmpegProbe;
+}
+
+/* 单测/诊断用：把探测结果清掉（下次调用重新 spawn） */
+export function resetFfmpegProbe() {
+  ffmpegProbe = null;
+}
 
 export function createLocalVideoAdapter({ product, render = renderVideo, now = () => Date.now() } = {}) {
   if (!product || typeof product !== 'object') throw new TypeError('product is required');

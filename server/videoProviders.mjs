@@ -270,6 +270,11 @@ export function createVideoProviderRegistry({
   const alternateAdapters = new Map();
   const backupEnabled = Boolean(backup && backup.baseUrl);
   for (const product of Object.values(VIDEO_PRODUCTS)) {
+    /* ⚠️ 2026-09-25 批 AM：**本地方案**（localEngine）不走上游，这里不给它们建适配器 ——
+       它们的派发在 videoGeneration.providerForJob 里走 createLocalVideoAdapter。
+       不为它们建一条 credential 取不到 token 的"永远 disabled"的上游适配器，
+       免得日后有人看到 registry.get('upscale_local') 存在就以为它该走上游。 */
+    if (product.localEngine === true) continue;
     const token = clean(credentials?.[product.credential], 500);
     adapters.set(product.id, createAdapter({
       product,

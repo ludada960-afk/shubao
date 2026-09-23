@@ -37,6 +37,12 @@ test('video products expose one curated stable contract', () => {
     'sd_js900',
     'sd_js',
     'seedance_mini',
+    /* ═══ 2026-09-25 批 AM：**本地方案**两条（判据未变，事实变了）══════════════════════════════
+       「视频高清」「视频字幕去除」不走上游模型，走本机 ffmpeg（user:「为什么一切都要追究模型呢」）。
+       它们仍是**产品**（有 id / 时长 / 分辨率 / SKU），所以进这份 id 清单；
+       但它们**不进模型选择器**（publicVideoProducts 会跳过 localEngine）—— 见下面那条断言。 */
+    'upscale_local',
+    'desubtitle_local',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
   assert.equal(getVideoProduct('seedance_standard').label, 'Seedance 2.0 标准');
@@ -196,8 +202,16 @@ test('public products omit hidden routes and private provider details', () => {
   assert.equal(products.every(product => !JSON.stringify(product).includes('providerCostCny')), true);
   /* 隐藏档仍可查（老任务/管理端需要），但不能出现在公开目录里 */
   const all = publicVideoProducts({ includeHidden: true });
-  assert.equal(all.length, 13);
-  assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS));
+  /* ═══ 2026-09-25 批 AM：13 → 13（**目录多了两条本地方案，但模型清单一条没多**）══════════════
+     判据的本意是「模型清单 = 所有产品」，从本批起不再是 —— 本地方案不是模型：
+     把它们放进模型下拉，用户会在「视频创作」里选到一条**不吃提示词**的档位（点了必失败）。
+     所以这里改守两件事：① 模型清单里一条本地产品都没有；
+     ② 本地产品的报价与规格走另一份只读清单 localVideoProducts（两条都在）。 */
+  assert.equal(all.length, 13, '模型清单仍是 13 条（本地方案不算模型）');
+  const localIds = Object.keys(VIDEO_PRODUCTS).filter(id => getVideoProduct(id).localEngine === true);
+  assert.deepEqual(localIds.sort(), ['desubtitle_local', 'upscale_local']);
+  assert.deepEqual(all.filter(product => localIds.includes(product.id)), [], '本地方案不许出现在模型清单里');
+  assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS).filter(id => !localIds.includes(id)));
   assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);
   /* ═══ 2026-09-23 批 AC：可灵两条**恢复上架**（判据反转，依据是当日实测）══════════════════════
      09-21 它们是 public:false，理由是台账 retired（上游回 not a public model name）。
@@ -253,9 +267,17 @@ test('480P 档按上游文档价目开（比 720P 便宜才允许开），1080P 
   const with480 = Object.values(VIDEO_PRODUCTS).filter(p => p.resolutions.includes('480p')).map(p => p.id);
   assert.deepEqual(with480.sort(), ['seedance_mini', 'wan_standard']);
 
-  /* 1080p 在站内一个公开档都不许有（上游要么是另一条 blocked 路由，要么是定价决定） */
-  const with1080 = Object.values(VIDEO_PRODUCTS).filter(p => p.public === true && p.resolutions.includes('1080p'));
+  /* ═══ 2026-09-25 批 AM：**判据收窄**（不是放宽，是它的前提本地方案不成立）══════════════════
+     这条原来写「1080p 在站内一个公开档都不许有」。它的理由是**成本**：上游 1080P 比 720P 贵
+     1.4~2.9 倍（同一条路由的按秒价），而站内是按条固定价 ⇒ 同价开 1080P 等于降价，须用户批准。
+     本地方案没有这个前提 —— 高清是**本机重采样**（billing/catalog 里 localEngine 类别记成本 0），
+     而且知渔那一页就是 720p / 1080p / 2k **同一个价**（0.50 积分/条，我们的 SKU 与它同价）。
+     ⇒ 判据改成：**非本地的**公开档里不许出现 1080p（上游成本那条理由原样有效）。 */
+  const with1080 = Object.values(VIDEO_PRODUCTS)
+    .filter(p => p.public === true && p.localEngine !== true && p.resolutions.includes('1080p'));
   assert.deepEqual(with1080, []);
+  assert.deepEqual(getVideoProduct('upscale_local').resolutions, ['720p', '1080p', '2k'],
+    '本地方案照知渔那一页：输出分辨率三档一个价（成本 0，不存在"同价即降价"）');
 
   /* 上游文档里那两条**名字逐字相同**的路由，就是上面两条判断的来源 */
   assert.equal(wan.routeId, 'xn-wan3.0');

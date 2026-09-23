@@ -12,6 +12,8 @@
      · 页面只能给"用户填的东西"（分辨率 / 区域），**不许**知道 manifest 的形状；
      · 清单形状一变（例如以后加逐帧增强），改这里一处就够，页面与派发层都不用动。
    ⚠️ 与 docs/design/69 的 `plan` 设计一致：技能＝方案，模型/实现细节不进用户字段。 */
+import { outputFpsOf } from './videoExportRender.mjs';
+
 const RESOLUTION_LABELS = Object.freeze({ '480p': '480p', '720p': '720p', '1080p': '1080p', '2k': '1440p', '1440p': '1440p', '4k': '2160p', '2160p': '2160p' });
 const MAX_DURATION_SECONDS = 300;
 
@@ -54,7 +56,10 @@ export function normalizeRegion(region) {
 export function buildLocalRenderManifest({ sourceUrl, resolution = '', fps = null, regions = [], duration = 0, label = '' } = {}) {
   const source = assertLocalSource(sourceUrl);
   const clips = [{ url: source }];
-  const manifest = { timeline: { clips }, label: cleanText(label, 120) };
+  /* ⚠️ keepAudio: true —— 本地方案是"处理已有素材"，用户要的是**原片 + 那一处改动**：
+     高清之后没有声音、去字幕之后变成默片，都是交付事故（上游生成路线没这个问题：片子是新生成的）。
+     渲染层见到这个标记才映射音频（见 videoExportRender.renderVideo 的说明）。 */
+  const manifest = { timeline: { clips }, keepAudio: true, label: cleanText(label, 120) };
 
   const outputResolution = normalizeOutputResolution(resolution);
   const cleanFps = Number(fps);
@@ -82,4 +87,66 @@ export function buildLocalRenderManifest({ sourceUrl, resolution = '', fps = nul
 export function billableSecondsOf(manifest) {
   const seconds = Number(manifest?.duration);
   return Number.isFinite(seconds) && seconds > 0 ? Math.min(Math.round(seconds), MAX_DURATION_SECONDS) : 0;
+}
+
+/* ═══ 本地方案的**作业输入**校验（2026-09-25 批 AM，建单前跑）══════════════════════════════════
+   与上游那条 validateVideoProductInput **分开**，因为两者的前提完全不同：
+     · 上游：提示词 + 比例 + 时长白名单 + 参考素材（用户描述"要什么片子"）；
+     · 本地：**一条源视频** + 规格（分辨率 / 帧率）或区域（框选字幕）—— 没有提示词、没有比例。
+   把这条塞进上游那条校验里，只会让"本地方案"被迫声明它根本不需要的字段
+   （那正是用户骂的"模型/清晰度/时长全做进去"）。
+   ⚠️ 时长为什么必填：它是**计费数量**（去字幕按秒）与渲染长度（`-t`）的共同来源。
+      缺了它，收费只能猜、渲染只能截断 —— 所以宁可拒单（400），也不默认一个值。
+   ⚠️ 一条源视频都不给 = 无事可做：调用方在 references 那一层先拒（LOCAL_PLAN_SOURCE_REQUIRED）。 */
+export function validateLocalPlanInput({ product, input = {} } = {}) {
+  if (!product || product.localEngine !== true) {
+    throw Object.assign(new Error('本地方案校验只能用于 localEngine 产品'), { code: 'LOCAL_PLAN_PRODUCT_MISMATCH' });
+  }
+  const spec = product.localSpec || {};
+  const rawSeconds = Number(input.duration);
+  if (!Number.isInteger(rawSeconds) || rawSeconds < 1 || rawSeconds > MAX_DURATION_SECONDS) {
+    throw Object.assign(
+      new Error(`本地方案需要一个 1~${MAX_DURATION_SECONDS} 秒的源视频时长（当前：${cleanText(input.duration, 20) || '空'}）`),
+      { code: 'LOCAL_PLAN_DURATION_INVALID' },
+    );
+  }
+
+  /* 分辨率：产品声明了才有这一格；给了不认识的档位一律**拒单**（不静默降级成"原样交付"，
+     否则用户选了 1080p 却拿到原分辨率，属于"看着是 A、跑的是 B"）。 */
+  const requestedResolution = cleanText(input.resolution, 20).toLowerCase();
+  let resolution = '';
+  if (spec.resolution === true) {
+    resolution = normalizeOutputResolution(requestedResolution);
+    const allowed = Array.isArray(product.resolutions) ? product.resolutions : [];
+    if (!resolution || (allowed.length && !allowed.includes(resolution))) {
+      throw Object.assign(
+        new Error(`视频高清需要选择输出分辨率（${allowed.join(' / ') || '720p / 1080p / 2k'}）`),
+        { code: 'LOCAL_PLAN_RESOLUTION_INVALID' },
+      );
+    }
+  }
+
+  /* 帧率：产品声明了才认；不认识的档位同样拒单（与分辨率同一条纪律） */
+  const fps = spec.fps === true ? outputFpsOf(input.fps) : null;
+  if (spec.fps === true && input.fps != null && input.fps !== '' && fps === null) {
+    throw Object.assign(new Error('帧率只支持 30 / 60'), { code: 'LOCAL_PLAN_FPS_INVALID' });
+  }
+
+  /* 区域：只有声明了才收；非法区域**逐条丢弃**（delogo 编不出参数就不该下滤镜），
+     一条都没剩下则拒单 —— "去字幕"没有区域等于什么都没做。 */
+  let regions = [];
+  if (spec.regions === true) {
+    regions = (Array.isArray(input.regions) ? input.regions : []).map(normalizeRegion).filter(Boolean).slice(0, 8);
+    if (!regions.length) {
+      throw Object.assign(new Error('请先在视频上框选要擦除的字幕区域'), { code: 'LOCAL_PLAN_REGION_REQUIRED' });
+    }
+  }
+
+  /* 至少要有一样"要做的事"：分辨率或区域。与 buildLocalRenderManifest 的 LOCAL_PLAN_EMPTY 同一条纪律，
+     区别只是这里在建单前就拦住（不收费）。 */
+  if (!resolution && !regions.length) {
+    throw Object.assign(new Error('本地方案至少需要一个规格（分辨率）或一个擦除区域'), { code: 'LOCAL_PLAN_EMPTY' });
+  }
+
+  return { duration: rawSeconds, resolution, fps, regions };
 }

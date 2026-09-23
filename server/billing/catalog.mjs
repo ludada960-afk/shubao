@@ -209,13 +209,20 @@ export const FEATURE_SKUS = freezeCatalog({
      ⇒ providerCostCny 记 **0**（只有本机 CPU 时间，没有上游账单）—— 这不是"漏记成本"，
        而是这两个功能的成本**确实为零**；面值毛利因此接近 100%，是引流款。
      ⚠️ 秒价怎么落到 SKU：站内计费是"SKU.units × 数量"，所以去字幕按 **40 units/秒** 记
-        （0.04 积分/秒 ⇒ 10 秒的片子扣 400 units = 0.4 积分），与"按秒"口径等价、不需要改计费架构。
+       （0.04 积分/秒 ⇒ 10 秒的片子扣 400 units = 0.4 积分），与"按秒"口径等价、不需要改计费架构。
+       ⇒ 这一条靠 `perSecond: true` 落地（见下面的 billableQuantity）：数量 = 秒数，其余 SKU 恒为 1。
+          ⚠️ 数量**只此一处**能定义：前端的报价数量与服务端的 hold 数量都走 billableQuantity
+             （菜单与扣费各写一份就是"看着 0.5、扣的是 0.04"那类事故）。
      ⚠️ 两条 **public: false 起步**：生成链路（本地渲染/擦除的接线）接通前不放出可点档位 ——
-        "点了必失败的东西不许变成选项"是本站铁律。 */
-  video_upscale_local_short: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: false },
-  video_upscale_local_long: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: false },
-  video_desubtitle_local_short: { units: 40, providerCostCny: 0, localEngine: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: false },
-  video_desubtitle_local_long: { units: 40, providerCostCny: 0, localEngine: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: false },
+        "点了必失败的东西不许变成选项"是本站铁律。
+     ═══ 2026-09-25 批 AM：**翻成 public: true（链路已接通 + 线上装了 ffmpeg）**═══════════════
+       交接文档 docs/design/70 的第三步：派发层已挂进作业流水线（videoGeneration 按 localEngine
+       选本地适配器）、两条 skill 子页面已按知渔字段做好、本机与线上都实测过 ffmpeg 出片
+       ⇒ 现在这两条是"点得出片子"的档位，可以开卖。价格**一分未动**（0.50 积分/条、0.04 积分/秒）。 */
+  video_upscale_local_short: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_upscale_local_long: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_desubtitle_local_short: { units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_desubtitle_local_long: { units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: true },
   /* ── 2026-09-19 批 K-B 新增三档（用户批注「把之前的那些模型找回来」）─────────────────────
      定价**沿用站内既有规则**，没有新造口径：
        用户价 = 记账成本 / (1 − 54%) 取整到分；units = 现金价 × 3819 向上取整（工作室包面值锚）；
@@ -315,6 +322,29 @@ export function quoteFeature(sku, quantity) {
     currency: feature.currency ?? 'ec_points',
     providerCostCny: feature.providerCostCny,
   };
+}
+
+/* ═══ SKU 的**计费数量**（唯一事实源）═══════════════════════════════════════════════════════
+   2026-09-25 批 AM。站内计费 = `units × 数量`，而绝大多数 SKU 是"按条"（数量恒为 1）。
+   本地方案里的「视频字幕去除」是**按秒**计价（用户批准的 0.04 积分/秒 ⇒ 40 units/秒），
+   所以它在目录里带 `perSecond: true`，数量 = 源视频的**整秒数**（向上取整：不足一秒按一秒算，
+   与"按实际用时计费"的常识一致，也不会因为 10.2 秒的片子算出小数单位）。
+
+   ⚠️ 为什么要有这个函数而不是各处自己写 `seconds ? seconds : 1`：
+      前端的报价令牌（/api/billing/quote 的 quantity）与服务端建单时的 hold 数量必须**逐值相等**
+      —— quoteService.verify 会逐字段比对，不一致就是 409「费用确认不一致」；
+      更糟的情况是两边各写一套规则时**恰好都能过**，于是"显示扣 0.5、实际扣 0.04"。
+      所以规则只此一份，前端从 /api/video/capabilities 的 billingQuantity 读到它。
+   ⚠️ 上游 SKU 的行为**逐字节不变**：没有 perSecond 标记一律返回 1。 */
+export function billableQuantity({ sku, seconds } = {}) {
+  if (!Object.hasOwn(FEATURE_SKUS, sku)) throw new Error(`Unknown feature SKU: ${sku}`);
+  const feature = FEATURE_SKUS[sku];
+  if (feature.perSecond !== true) return 1;
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new TypeError('per-second SKU requires a positive duration');
+  }
+  return Math.max(1, Math.ceil(value));
 }
 
 export function assertContributionMargin(item, unitPriceCny) {

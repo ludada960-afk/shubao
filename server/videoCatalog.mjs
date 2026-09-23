@@ -240,6 +240,16 @@ export const ROUTE_REACHABILITY = deepFreeze({
   'omni-v2v': { state: 'callable', evidence: '2026-09-23 批 AC 零成本探针：提交回 400 invalid_reference（该模型需要参考素材）⇒ 渠道活着、名字可解析；文档价 ¥1.15128/条。用途（视频高清 / 去字幕）**未实测**，上架前必须有一次真实出片' },
   'omni-v2v-no-water': { state: 'callable', evidence: '2026-09-23 批 AC：同 omni-v2v；文档价 ¥1.3455/条' },
   'omni-fast': { state: 'callable', evidence: '2026-09-23 批 AC 探针**真的建了任务**（该路由不校验非法时长，task_GewlyXIKqBqJCRqCupaPa28XlebVeB7H，扣 ¥0.86112 —— 余额 5.108880 → 4.247760 可对账）⇒ 渠道活着；**这条路由没有参数校验兜底，探针必须带真实意图**，不要再拿它试错' },
+  /* ═══ 2026-09-25 批 AM：**本机渲染**（不是上游路由）═══════════════════════════════════════════
+     这是台账里第一条**设备侧**的实现：视频高清（ffmpeg scale/fps）与字幕去除（ffmpeg delogo）
+     不调任何上游，所以"可达性"= 这台机器上有没有 ffmpeg，而不是中转渠道活不活。
+     登记为 `callable`（门禁只认 verified/callable 才允许上架）并且**如实写清证据边界**：
+       · 2026-09-25 本机（Windows / ffmpeg 8.1.1）实跑通：scale / fps / delogo 三条滤镜链出片；
+       · 2026-09-25 线上（114.132.157.250）apt 安装 ffmpeg 后 `ffmpeg -version` 可用 —— 见批 AM 的 RTK 记录。
+     ⚠️ 与上游路由的本质差别：它**不会**因为余额/渠道抖动而失败，但会因为"这台机器没有 ffmpeg"
+        而失败 —— 所以只有 ① 装机确认 + ② 建单前的 `ffmpegAvailable()` 预检（缺了就不收钱、
+        直接 503）两道都在，才允许把它放进可公开的产品里。 */
+  'local-ffmpeg': { state: 'callable', evidence: '2026-09-25 批 AM：本机 ffmpeg 8.1.1 与线上 apt 安装的 ffmpeg 均实测出片（scale / fps / delogo）；本地方案的上架前提是"装机 + 建单前预检"，见 server/videoLocalAdapter.mjs 的 ffmpegAvailable' },
   'wan3.0-video': { state: 'blocked', evidence: '2026-09-23 批 AC 探针：403 insufficient_user_quota（预扣 ¥6.37 > 余额 ¥4.2478）⇒ 活着但余额不足，充值即开' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
   /* 2026-09-19 批 K-B 复核 + 2026-09-23 复测：四条都维持 unreachable —— 提交回
@@ -669,6 +679,74 @@ export const VIDEO_PRODUCTS = deepFreeze({
     concurrency: 2,
     pollIntervalMs: 10000,
   },
+  /* ═══ 2026-09-25 批 AM：**本地方案的两条产品**（流程的最后一步接线）═══════════════════════════
+     用户口径（两轮前那句方向性纠正，也是 docs/design/69 的立论）：
+       「难道你没有什么比如 github 上的一些开源项目可以实现吗，**为什么一切都要追究模型呢**，
+       你确定这是最佳的路径吗」「全部做完」
+     ⇒ 「视频高清」「视频字幕去除」不是两条上游模型，而是两个**方案**：
+         · upscale_local   = 上传视频 → 本机 ffmpeg scale（+fps）→ 交付（0.50 积分/条）
+         · desubtitle_local = 上传视频 →（手动框选字幕区域）→ 本机 ffmpeg delogo → 交付（0.04 积分/秒）
+
+     ⚠️ 三条设计约束（都不是随手写的）：
+       ① `localEngine: true` —— 作业流水线**按这个标记**选本地适配器（videoGeneration.providerForJob）；
+          SKU 名由 `video_${id}_${short|long}` 派生，所以 id 必须正好是 `upscale_local` /
+          `desubtitle_local`，才能对上 billing/catalog 里那四条已批准的收费项（价格一分未动）。
+       ② **不进模型选择器**：publicVideoProducts() 会跳过 localEngine 产品（它们不是模型，
+          用户从各自的 skill 子页面进入，那两页本来就没有模型格 —— 照知渔）。
+          报价走 localVideoProducts()，给子页面用。
+       ③ `modes: ['local']` —— 本地方案不接受"文生视频/参考素材"那套模式：
+          它要吃的是**一条源视频 + 规格/区域**，不是提示词。所以 createJob 里对 localEngine
+          走 validateLocalPlanInput 那一条校验（提示词/比例/方案闸门都不适用）。
+     ⚠️ `durations: { min: 1, max: 300 }` = 源视频秒数（不是"要生成几秒"）：上限 300 与
+        localVideoPlan.MAX_DURATION_SECONDS 同源；短/长档仍按 ≤8 秒分界（两条 L 档同价，
+        去字幕那一档按秒计费 —— 见 billing/catalog 的 billableQuantity）。 */
+  upscale_local: {
+    id: 'upscale_local',
+    label: '视频高清',
+    providerLabel: '本机渲染',
+    tierLabel: '本地处理',
+    description: '提升视频清晰度与画面质量。',
+    limitations: '按本机重采样提升分辨率与帧率（近似超分），不做 AI 细节重建；按条计费。',
+    routeId: 'local-ffmpeg',
+    credential: 'local',
+    localEngine: true,
+    public: true,
+    default: false,
+    durations: { min: 1, max: 300 },
+    resolutions: ['720p', '1080p', '2k'],
+    modes: ['local'],
+    /* 本地方案自己的规格声明（用户字段只有这两格，照知渔「视频设置」那一块） */
+    localSpec: { resolution: true, fps: true, regions: false },
+    generatedAudio: false,
+    frameAudio: false,
+    limits: { images: 0, videos: 1, audios: 0, total: 1 },
+    concurrency: 2,
+    /* 本地渲染是同步的（submit 返回即成片），这个值只为满足既有契约的字段形状 */
+    pollIntervalMs: 1000,
+  },
+  desubtitle_local: {
+    id: 'desubtitle_local',
+    label: '视频字幕去除',
+    providerLabel: '本机渲染',
+    tierLabel: '本地处理',
+    description: '上传视频，去除画面中的字幕。',
+    limitations: '当前支持手动框选字幕区域（本机 delogo 区域擦除）；自动识别待接通；按秒计费。',
+    routeId: 'local-ffmpeg',
+    credential: 'local',
+    localEngine: true,
+    public: true,
+    default: false,
+    durations: { min: 1, max: 300 },
+    /* 去字幕不改分辨率（原样交付），所以这一格**没有**可选档位；留空数组让"没有这一格"可断言 */
+    resolutions: [],
+    modes: ['local'],
+    localSpec: { resolution: false, fps: false, regions: true },
+    generatedAudio: false,
+    frameAudio: false,
+    limits: { images: 0, videos: 1, audios: 0, total: 1 },
+    concurrency: 2,
+    pollIntervalMs: 1000,
+  },
 });
 
 function productId(value) {
@@ -726,9 +804,20 @@ function publicQuote(sku) {
   return { sku, units: quote.totalUnits, points: Math.ceil(quote.totalUnits / 1000) };
 }
 
+/* ═══ 本地方案（localEngine）**不进模型选择器**（2026-09-25 批 AM）═════════════════════════════
+   判据只有一条：它不是模型，是方案（docs/design/69）。
+     · 「视频高清」「视频字幕去除」的用户入口是各自的 skill 子页面（那两页没有模型格，照知渔）；
+       把它们塞进模型下拉，用户会在"视频创作"里选到一条**不吃提示词**的档位 —— 点了必失败。
+     · 它们的报价与规格走 localVideoProducts()，形状与模型清单分开，前端按需取。
+   ⚠️ 这不是"藏起来"：产品本身 public: true（可建单、SKU 可报价），只是不出现在**模型**清单里。 */
+export function isLocalEngineProduct(product) {
+  return product?.localEngine === true;
+}
+
 export function publicVideoProducts({ includeHidden = false } = {}) {
   return Object.values(VIDEO_PRODUCTS)
     .filter(product => product.public === true || includeHidden)
+    .filter(product => !isLocalEngineProduct(product))
     .map(product => ({
       id: product.id,
       label: product.label,
@@ -753,6 +842,46 @@ export function publicVideoProducts({ includeHidden = false } = {}) {
         long: publicQuote(videoFeatureSku({ productId: product.id, duration: longQuoteSeconds(product) })),
       },
     }));
+}
+
+/* ═══ 本地方案的**只读**清单（给两条 skill 子页面用）══════════════════════════════════════════
+   形状与模型清单（publicVideoProducts）分开：模型清单进"模型选择器"，这份进 skill 子页面。
+   每一项都带**页面要用的三样事实**：
+     · quotes        —— 价格从目录来（不许在页面里写死"0.50 积分"）；
+     · billingQuantity —— 计费数量规则（'clip' = 一条一次 / 'seconds' = 按秒 ×数量，见 billableQuantity）；
+     · localSpec     —— 这一页暴露哪几格（分辨率 / 帧率 / 区域）。
+   ⚠️ 报的价是**单价**：按秒那一档的 quotes.short.units 是「每单位（每秒）的 units」，
+      页面自己乘秒数（乘完再向上取整到积分显示），乘错了不会报错、只会少收/多收 ——
+      所以 test/video-local-dispatch-0925 会逐值比对它与 billing/catalog 的 billableQuantity。 */
+export function localVideoProducts({ includeHidden = false } = {}) {
+  return Object.values(VIDEO_PRODUCTS)
+    .filter(isLocalEngineProduct)
+    .filter(product => product.public === true || includeHidden)
+    .map(product => {
+      const skuShort = videoFeatureSku({ productId: product.id, duration: product.durations.min });
+      const skuLong = videoFeatureSku({ productId: product.id, duration: longQuoteSeconds(product) });
+      const shortQuote = quoteFeature(skuShort, 1);
+      const longQuote = quoteFeature(skuLong, 1);
+      /* 计费数量规则由 SKU 的 perSecond 标记派生（billing/catalog 的 billableQuantity 是它的执行者）：
+         'seconds' ⇒ 页面按"秒数 × 单价"报价；'clip' ⇒ 一条一次。 */
+      const quantityOf = sku => (FEATURE_SKUS[sku]?.perSecond === true ? 'seconds' : 'clip');
+      return {
+        id: product.id,
+        label: product.label,
+        description: product.description,
+        limitations: product.limitations,
+        public: true,
+        durations: { ...product.durations },
+        resolutions: [...product.resolutions],
+        modes: [...product.modes],
+        localSpec: { ...product.localSpec },
+        billingQuantity: quantityOf(skuShort),
+        quotes: {
+          short: { sku: skuShort, units: shortQuote.units, points: Math.ceil(shortQuote.units / 1000), perSecond: quantityOf(skuShort) === 'seconds' },
+          long: { sku: skuLong, units: longQuote.units, points: Math.ceil(longQuote.units / 1000), perSecond: quantityOf(skuLong) === 'seconds' },
+        },
+      };
+    });
 }
 
 /* ═══ 未上架模型清单（只读，给界面一句实话用）══════════════════════════════════════════
