@@ -78,20 +78,26 @@ test('public products only ride routes that are verified or callable', () => {
      零成本复核（只读 /v1/models，115 个模型）：grok-imagine-video **不在**清单里
      （同批其余 12 条路由全在）⇒ 按台账口径转 retired、产品 public:false。
      这一条守的东西一个字没变：**public:true 只允许走 verified / callable 的路由**。 */
+  /* ═══ 2026-09-23 批 AC：公开档 9 → **11**（判据未变，事实变了）════════════════════════════
+     可灵两条恢复上架：探针回 400 invalid_duration ⇒ 名字可解析、渠道活着
+     （09-19 那条 not a public model name 已不复现）。这一条守的东西一个字没变：
+     **public:true 只允许走 verified / callable 的路由**（下面那个 for 循环照旧逐条核）。 */
   assert.deepEqual(publics.map(product => product.id), [
     'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard',
+    'kling_standard', 'kling_pro',
     'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
   for (const product of publics) {
     const entry = routeReachability(getVideoProduct(product.id).routeId);
     assert.ok(['verified', 'callable'].includes(entry.state));
   }
-  /* 上游已下架的三条**不许**变成选项（点了必失败），但老数据仍要读得出来 */
-  assert.equal(getVideoProduct('kling_standard').public, false);
-  assert.equal(getVideoProduct('kling_pro').public, false);
+  /* 上游确实没有了的那一条**不许**变成选项（点了必失败），但老数据仍要读得出来 */
   assert.equal(getVideoProduct('veo_fast').public, false);
-  for (const id of ['kling_standard', 'kling_pro', 'veo_fast']) {
-    assert.equal(routeReachability(getVideoProduct(id).routeId).state, 'retired');
+  assert.equal(routeReachability('veo-3.1-fast').state, 'retired');
+  /* 可灵两条本轮已核实**活着**（400 invalid_duration）⇒ 不再是 retired，恢复到公开档 */
+  for (const id of ['kling_standard', 'kling_pro']) {
+    assert.equal(getVideoProduct(id).public, true, id + ' 已恢复上架');
+    assert.equal(routeReachability(getVideoProduct(id).routeId).state, 'callable');
   }
 });
 
@@ -167,9 +173,12 @@ test('public products omit hidden routes and private provider details', () => {
      仍然「not a public model name」的那几条（可灵 / Veo / MiniMax 2K / sd5 族）**继续留在只读清单**——
      点了必失败的东西不许变成选项。 */
   /* 2026-09-21：grok_fast 因上游已下架转 public:false（只读 /v1/models 复核 + 用户口径），
-     公开档 10 → 9；判据未变（"点了必失败的东西不许变成选项"）。 */
+     公开档 10 → 9；判据未变（"点了必失败的东西不许变成选项"）。
+     ═══ 2026-09-23 批 AC：公开档 9 → **11** —— 可灵两条本轮实测渠道活着（400 invalid_duration），
+     按同一条判据（"能用才显示"）恢复上架；判据字面一个字没改。 */
   assert.deepEqual(products.map(product => product.id), [
     'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard',
+    'kling_standard', 'kling_pro',
     'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
@@ -190,7 +199,14 @@ test('public products omit hidden routes and private provider details', () => {
   assert.equal(all.length, 13);
   assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS));
   assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);
-  assert.equal(getVideoProduct('kling_standard').public, false);
+  /* ═══ 2026-09-23 批 AC：可灵两条**恢复上架**（判据反转，依据是当日实测）══════════════════════
+     09-21 它们是 public:false，理由是台账 retired（上游回 not a public model name）。
+     本轮零成本探针把那条结论推翻了：kling-3.0 / kling-3.0-pro 回 **400 invalid_duration**
+     ⇒ 名字可解析、渠道活着。按"能用就显示"的既有做法恢复上架，用户价分文未动。 */
+  assert.equal(getVideoProduct('kling_standard').public, true, '可灵 3.0 已恢复上架（2026-09-23 实测渠道活着）');
+  assert.equal(getVideoProduct('kling_pro').public, true, '可灵 3.0 Pro 同上');
+  assert.equal(routeReachability('kling-3.0').state, 'callable');
+  assert.equal(routeReachability('kling-3.0-pro').state, 'callable');
   /* 恢复上架的那三条：老数据仍可读、且现在**可公开可选** */
   assert.equal(getVideoProduct('minimax_h3_768p').public, true);
   assert.equal(getVideoProduct('wan_standard').public, true);

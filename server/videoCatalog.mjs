@@ -214,9 +214,33 @@ export const ROUTE_REACHABILITY = deepFreeze({
   /* 2026-09-19 批 K-B：三条**确认上游已下架**（不再是"暂未开放"）。对照实验里它们与
      伪造模型名走的是同一条路：上游回「model kling-3.0 is not a public model name」。
      这就是用户批注里「被你搞丢了」的那三条 —— 丢的原因不在我们代码，在上游没有这些模型了。 */
-  'kling-3.0': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：提交回 not a public model name，/v1/models 无此名 ⇒ 上游已下架' },
-  'kling-3.0-pro': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0' },
-  'veo-3.1-fast': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0' },
+  /* ═══ 2026-09-23 批 AC：**可灵两条又活了**（上游重新开放），retired → callable ═══════════════
+     今日零成本探针（非法时长 duration=1，参数校验在生成之前拦下）：
+       kling-3.0      → 400 invalid_duration「该模型不支持此时长，请改用支持的秒数后重试。」
+       kling-3.0-pro  → 400 invalid_duration（同上）
+     ⇒ 名字解析成功、渠道活着（不再是 09-19 的 not a public model name）。
+     文档价目同日在售：kling-3.0 ¥1.82/条、kling-3.0-pro ¥3.77/条 —— 与站内既有 SKU 记账一致
+     （video_kling_standard_* 16000 units / video_kling_pro_* 32000 units），所以**价格不用动**。
+     ⚠️ 这是本项目第二次出现"上游状态变了"（第一次是 09-19 的四条 seedance 变死）；
+        教训是同一件事的两面：**台账是快照，不是事实**，必须定期用探针复核。 */
+  'kling-3.0': { state: 'callable', evidence: '2026-09-23 批 AC 复测：提交回 400 invalid_duration（参数校验接住）⇒ 渠道活着、名字可解析；09-19 记的 not a public model name 已不复现（上游重新开放）。文档价 ¥1.82/条，与站内既有 SKU 一致' },
+  'kling-3.0-pro': { state: 'callable', evidence: '2026-09-23 批 AC 复测：同 kling-3.0（400 invalid_duration）；文档价 ¥3.77/条，与站内既有 SKU 一致' },
+  'veo-3.1-fast': { state: 'retired', evidence: '2026-09-19 批 K-B 复核：同 kling-3.0 —— ⚠️ 2026-09-23 没有复测 veo（可灵两条已活，veo 待下一次探针复核）' },
+  /* ═══ 2026-09-23 批 AC：**视频转视频（v2v）第一次被登记** ═══════════════════════════════════
+     用户问「数字人 / 视频高清 / 视频字幕去除 这些是必须上游模型有这些能力吗，难道不是因为
+     skill 封装的方案吗」——他说得对：我上一轮只按**模型名里有没有关键词**下结论，漏掉了
+     "用一条通用 v2v 路由 + skill 封装"这条路。今日探针把这条路找到了：
+       omni-v2v / omni-v2v-no-water → 400 invalid_reference「该模型需要参考素材，请补充后重试。」
+     ⇒ **渠道活着、我们的凭证能调**（这不是"名字不存在"，是"缺参考素材"的参数错）。
+     文档：Omni 视频转视频 ¥1.15128/条（无水印 ¥1.3455/条）。
+     ⚠️ 状态先记 callable 而**不是 verified**：输入输出契约（能不能按指定分辨率重绘 /
+        能不能按提示词擦掉字幕）**没有实测过**，要一次真实出片才能定；
+        在那之前不许把任何产品挂在它上面（门禁只允许 verified/callable 上架，
+        但这里更严：**callable 只代表渠道活，不代表这个用途成立** —— 用途要单独实测）。 */
+  'omni-v2v': { state: 'callable', evidence: '2026-09-23 批 AC 零成本探针：提交回 400 invalid_reference（该模型需要参考素材）⇒ 渠道活着、名字可解析；文档价 ¥1.15128/条。用途（视频高清 / 去字幕）**未实测**，上架前必须有一次真实出片' },
+  'omni-v2v-no-water': { state: 'callable', evidence: '2026-09-23 批 AC：同 omni-v2v；文档价 ¥1.3455/条' },
+  'omni-fast': { state: 'callable', evidence: '2026-09-23 批 AC 探针**真的建了任务**（该路由不校验非法时长，task_GewlyXIKqBqJCRqCupaPa28XlebVeB7H，扣 ¥0.86112 —— 余额 5.108880 → 4.247760 可对账）⇒ 渠道活着；**这条路由没有参数校验兜底，探针必须带真实意图**，不要再拿它试错' },
+  'wan3.0-video': { state: 'blocked', evidence: '2026-09-23 批 AC 探针：403 insufficient_user_quota（预扣 ¥6.37 > 余额 ¥4.2478）⇒ 活着但余额不足，充值即开' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
   /* 2026-09-19 批 K-B 复核 + 2026-09-23 复测：四条都维持 unreachable —— 提交回
      「not a public model name」。（09-23 复测已证实：这四条**在** /v1/models 里且声明了
@@ -464,7 +488,13 @@ export const VIDEO_PRODUCTS = deepFreeze({
     limitations: '仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'kling-3.0',
     credential: 'seedance',
-    public: false,
+    /* ═══ 2026-09-23 批 AC：**恢复上架**（09-21 曾按"上游没有这个模型"下架）═══════════════════
+       下架依据（09-21）：台账 state: retired（提交回 not a public model name）。
+       本轮实测推翻了它：探针回 400 invalid_duration ⇒ 名字可解析、渠道活着。
+       ⇒ 照本项目"恢复上架"的既有做法（批 J-⑫ / K-B 都做过）：台账转 callable、产品 public:true。
+       ⚠️ 用户价**分文未动**：video_kling_standard_* 的 SKU 与 units 一个字没改
+          （文档价 ¥1.82/条与它记账一致），这不是新增收费项，是把既有档位重新可见。 */
+    public: true,
     default: false,
     durations: { min: 5, max: 10 },
     resolutions: ['720p'],
@@ -484,7 +514,9 @@ export const VIDEO_PRODUCTS = deepFreeze({
     limitations: '仅 720P；不支持参考视频与参考音频。',
     routeId: 'kling-3.0-pro',
     credential: 'seedance',
-    public: false,
+    /* 2026-09-23 批 AC：同 kling_standard —— 探针回 invalid_duration ⇒ 渠道活着，恢复上架；
+       用户价分文未动（video_kling_pro_* 的 SKU 与 units 未改）。 */
+    public: true,
     default: false,
     durations: { min: 5, max: 10 },
     resolutions: ['720p'],
