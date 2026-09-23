@@ -6,6 +6,8 @@ import { specExposureOf } from '../../skills/videoSpecExposure.js';
    docs/design/69 的 `plan`：engine='local-render' / hideModel / productId 都从这一份取，
    页面里不写第二份判断（"哪一页不给模型格"只有一个出处）。 */
 import { LOCAL_RENDER_ENGINE, videoSkillPlanOf } from '../../skills/videoSkills.js';
+/* 批 AO：每条视频子页面的**方案默认规格**（比例/时长/清晰度）—— 判据是工作台声明的第一档 */
+import { videoPlanSettingsOf } from '../../skills/videoPlanSettings.js';
 import {
   Aperture,
   Check,
@@ -413,6 +415,28 @@ export default function VideoStudioPage({
   const specExposure = workbenchMode
     ? specExposureOf(workbenchSkillId)
     : { model: true, clarity: true, duration: true };
+  /* ═══ 2026-09-25 批 AO：**方案默认规格**（docs/design/69 §3.2 的"规格由方案定"）══════════════
+     现状（批 AG 之前）：每条子页面进创作台都用同一套全局初值（9:16 / 5 秒 / 720P）——
+     于是「建筑图转视频」和「豪门恩怨短剧」进去长得一模一样，用户还得自己改一遍，
+     这正是用户骂的"千页一面"的另一半（那一半是 AG 解决的"露不露"，这一半是"默认是什么"）。
+     现在：每页用**它自己那一页**的默认档起步（判据 = 工作台声明的第一档，唯一事实源；
+     本地方案显式声明的 defaults 优先）。
+     ⚠️ **只应用一次 / 每个技能一次**：用 ref 记住已应用的技能 id —— 否则用户在创作台里改过的
+        比例会被这里反复覆盖回默认值（本仓"注释过期差点删掉功能"那类坑的反面：这里必须防的是
+        "默认值偷偷覆盖用户输入"）。
+     ⚠️ 位置很重要：这个 effect 必须**声明在 preset（历史"用这组参数"还原）之前**，
+        这样"还原历史"总是后跑、总是赢（用户明确点了还原，就该覆盖方案默认）。 */
+  const planSettingsAppliedRef = useRef('');
+  useEffect(() => {
+    if (!workbenchMode || !workbenchSkillId) return;
+    if (planSettingsAppliedRef.current === workbenchSkillId) return;
+    planSettingsAppliedRef.current = workbenchSkillId;
+    const settings = videoPlanSettingsOf(workbenchSkillId);
+    setRatio(settings.ratio);
+    setDuration(settings.duration);
+    setResolution(settings.resolution);
+    setPlanReviewed(false);
+  }, [workbenchMode, workbenchSkillId]);
   const slotKindOf = useCallback(slotKey => {
     const block = (workbench?.blocks || []).find(item => item.key === slotKey && item.kind === 'upload');
     const accept = String(block?.accept || '');
