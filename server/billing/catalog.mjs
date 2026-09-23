@@ -158,8 +158,18 @@ export const FEATURE_SKUS = freezeCatalog({
      口径: 用户价 = 成本/(1−54%), units = priceCny × 3819 向上取整; 按条成本与时长无关时短长同价。 */
   video_grok_fast_short: { units: 6900, providerCostCny: 0.83, priceFen: 179, marginBand: 'traffic', freeReruns: 0 },
   video_grok_fast_long: { units: 8600, providerCostCny: 1.04, priceFen: 223, marginBand: 'traffic', freeReruns: 0 },
-  video_wan_standard_short: { units: 4000, providerCostCny: 0.455, priceFen: 100, marginBand: 'traffic', freeReruns: 0 },
-  video_wan_standard_long: { units: 4000, providerCostCny: 0.455, priceFen: 100, marginBand: 'traffic', freeReruns: 0 },
+  /* ═══ 2026-09-24 批 AE：**通义万相改价**（用户原话：「通义万相这条档位：改价吧」）═══════════
+     为什么必须改：这条档位原来记的是「按条 ¥0.455」，而**上游文档写的是按秒**
+     （xn-wan3.0 的 api_doc：「按秒计费，所选分辨率单价 × seconds」；resolution_prices：
+      480p ¥0.26/秒、720p ¥0.325/秒、1080p ¥0.455/秒 —— 0.455 正是 1080p 的**每秒价**，
+      不是每条的价）。⇒ 原来 4 积分（面值 ¥1.047）连 5 秒 720p 的 ¥1.625 都盖不住，**在亏**。
+     新价按项目既有口径（面值 ≥ 成本/0.60，即引流档下限 40%）取**最低合规价**：
+       · short（5 秒，720p 成本 ¥1.625）→ 11 积分（面值 ¥2.8765）⇒ 成本占比 56.5%、毛利 43.5% ✓
+       · long（10 秒，720p 成本 ¥3.25） → 22 积分（面值 ¥5.4839，按门禁口径毛利 40.7%）✓
+     ⚠️ 比 4 积分贵了 2.75~5.25 倍 —— 这不是"想涨价"，是**原来就低于成本**；
+        若用户觉得太贵，正解是**下线这条档位**，而不是继续亏着卖。 */
+  video_wan_standard_short: { units: 11000, providerCostCny: 1.625, priceFen: 271, marginBand: 'traffic', freeReruns: 0 },
+  video_wan_standard_long: { units: 22000, providerCostCny: 3.25, priceFen: 542, marginBand: 'traffic', freeReruns: 0 },
   video_kling_standard_short: { units: 16000, providerCostCny: 1.82, priceFen: 409, marginBand: 'traffic', freeReruns: 0 },
   video_kling_standard_long: { units: 16000, providerCostCny: 1.82, priceFen: 409, marginBand: 'traffic', freeReruns: 0 },
   video_kling_pro_short: { units: 32000, providerCostCny: 3.77, priceFen: 813, marginBand: 'traffic', freeReruns: 0 },

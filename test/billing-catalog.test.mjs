@@ -62,7 +62,15 @@ test('video quotes follow the approved 2026-08-26 retail tiers', () => {
     video_minimax_h3_2k_long: { units: 65000, priceFen: 1690, providerCostCny: 3.64, isPublic: true },
     /* 9-11 「全上」6 档 */
     video_grok_fast_short: { units: 6900, priceFen: 179, providerCostCny: 0.83, isPublic: true },
-    video_wan_standard_short: { units: 4000, priceFen: 100, providerCostCny: 0.455, isPublic: true },
+    /* ═══ 2026-09-24 批 AE：通义万相**改价**（判据反转，依据 = 用户明确批准 + 上游按秒价）═══════
+       用户原话：「通义万相这条档位：**改价吧**」。
+       旧值（4000 units / ¥1.00 / 记账成本 0.455）是按**误读的"按条价"**定的；上游文档
+       （xn-wan3.0 的 api_doc）写的是**按秒**：720p ¥0.325/秒 ⇒ 5 秒 ¥1.625、10 秒 ¥3.25
+       —— 0.455 其实是 1080p 的**每秒**价。⇒ 旧价连成本都盖不住，是在亏。
+       新值 = 项目既有口径（面值 ≥ 成本/0.60，引流档下限 40%）的**最低合规价**：
+         short 11000 units（面值 ¥2.8765，成本占比 56.5%）｜ long 21000 units（¥5.4916，59.2%）。 */
+    video_wan_standard_short: { units: 11000, priceFen: 271, providerCostCny: 1.625, isPublic: true },
+    video_wan_standard_long: { units: 22000, priceFen: 542, providerCostCny: 3.25, isPublic: true },
     video_kling_standard_short: { units: 16000, priceFen: 409, providerCostCny: 1.82, isPublic: true },
     video_kling_pro_short: { units: 32000, priceFen: 813, providerCostCny: 3.77, isPublic: true },
     video_veo_fast_short: { units: 11000, priceFen: 262, providerCostCny: 1.17, isPublic: true },
