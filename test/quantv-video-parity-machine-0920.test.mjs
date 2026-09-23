@@ -29,14 +29,21 @@ const pages = JSON.parse(readFileSync(new URL('../docs/design/data/quantv-video-
 const appById = new Map(evidence.apps.map(app => [app.id, app]));
 const norm = value => String(value ?? '').replace(/[\s（）()：:，,。、\[\]【】·\-]/g, '');
 
-test('① 对照表覆盖全部 42 条视频 skill：有对应页的写 URL，自有的写理由', () => {
+test('① 对照表覆盖全部 56 条视频 skill：有对应页的写 URL，自有的写理由', () => {
   const ids = VIDEO_SKILLS.map(skill => skill.id);
   const mapped = Object.keys(QUANTV_VIDEO_COUNTERPARTS);
   assert.deepEqual(mapped.filter(id => !ids.includes(id)), [], '对照表里有仓库里不存在的 skill');
   assert.deepEqual(ids.filter(id => !mapped.includes(id)), [], '有 skill 没进对照表');
-  assert.equal(ids.length, 42, '视频 skill 数量变了');
-  /* 16 = 11 条 kind:'page'（知渔有同一件事的页面）+ 5 条 kind:'shape'（同形态，玩法不同） */
-  assert.equal(videoSkillsWithCounterpart().length, 16, '有对应页的条数变了');
+  /* ═══ 2026-09-23 批 AA：42 → **56**（+14 条照知渔补齐的页）═══════════════════════════════
+     用户原话：「你不如**全抄知渔**的视频生成和图片生成的 skill 子页面…**工作台直接照抄他的就好**，
+     其他你自己硬造的子页面我觉得**就去掉吧**，**尽可能跟他一致**。」
+     ⇒ 本轮把知渔"建筑室内"那 10 页（淋浴 / 台盆 / 灯具 / 餐桌展示、浴室洗漱、书房学习、
+       卧室就寝、餐厅聚餐、室内装修、家装布置）+ "电商带货"那 4 页（三条短剧风格 + 趣味脱口秀）
+       逐字段照抄进来。判据没变（对照表要覆盖全部 skill、有对应页写 URL、自有写理由），
+       变的是**条数**：有对应页 16 → 30，自有 26 条不变。 */
+  assert.equal(ids.length, 56, '视频 skill 数量变了');
+  /* 30 = 25 条 kind:'page'/'app'（知渔有同一件事的页面）+ 5 条 kind:'shape'（同形态，玩法不同） */
+  assert.equal(videoSkillsWithCounterpart().length, 30, '有对应页的条数变了');
   assert.equal(videoSkillsWithoutCounterpart().length, 26, '自有玩法的条数变了');
   for (const id of videoSkillsWithoutCounterpart()) {
     const reason = QUANTV_VIDEO_COUNTERPARTS[id].reason || '';
@@ -68,7 +75,7 @@ test('② 工作台的 source 与对照表**逐条一致**（不许借 URL 充�
   }
 });
 
-test('③ 对到 app 页的 9 条：字段数 / 上传位数 / 比例档 / 时长档 与那一页逐值相等', () => {
+test('③ 对到 app 页的 23 条：字段数 / 上传位数 / 比例档 / 时长档 与那一页逐值相等', () => {
   const problems = [];
   let compared = 0;
   for (const [id, record] of Object.entries(QUANTV_VIDEO_COUNTERPARTS)) {
@@ -105,7 +112,7 @@ test('③ 对到 app 页的 9 条：字段数 / 上传位数 / 比例档 / 时�
     }
     compared++;
   }
-  assert.equal(compared, 9, '参与机检的 app 对照条数变了：' + compared);
+  assert.equal(compared, 23, '参与机检的 app 对照条数变了：' + compared);
   assert.deepEqual(problems, [], '与知渔对应页对不上的地方：\n  ' + problems.join('\n  '));
 });
 

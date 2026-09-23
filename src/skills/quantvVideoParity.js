@@ -80,6 +80,25 @@ export const QUANTV_VIDEO_COUNTERPARTS = Object.freeze({
   'video.book_selling': { counterpart: QUANTV_VIDEO_BASE + '/ai-video', kind: 'shape', note: '脚本型：形态同「视频创作」（素材 0/6 + 脚本 + 代为撰写）' },
   'video.food_asmr': { counterpart: QUANTV_VIDEO_BASE + '/ai-video', kind: 'shape', note: '脚本型：形态同「视频创作」（素材 0/6 + 脚本 + 代为撰写）' },
 
+  /* ═══ 2026-09-23 批 AA：照知渔补齐的那 14 页 ═══════════════════════════════════════════
+     用户原话：「你不如**全抄知渔**的视频生成和图片生成的 skill 子页面…**工作台直接照抄他的就好**，
+     其他你自己硬造的子页面我觉得**就去掉吧**，**尽可能跟他一致**。」
+     全部 kind: 'app'（都在知渔应用市场里），字段逐条照实采 json；note 写清抄到的是什么。 */
+  'video.shower_showcase': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmra7sgh009eg9vzgzwmnn68g', kind: 'app', note: '淋浴展示：参考图（要求：淋浴图）+ 比例五档' },
+  'video.basin_showcase': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmra7o96y09cj9vzg3oml6su6', kind: 'app', note: '台盆展示：参考图（要求：台盆图）+ 比例五档' },
+  'video.lighting_showcase': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmra7k5zy09am9vzg3m52gaud', kind: 'app', note: '灯具展示：参考图（要求：灯具图）+ 比例五档' },
+  'video.dining_table_showcase': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmra7fik209979vzgmz2vpwy7', kind: 'app', note: '餐桌展示：参考图（要求：餐桌图）+ 比例五档' },
+  'video.bathroom_activity': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr96y3mb00ys2xm0z0y7540a', kind: 'app', note: '浴室洗漱：参考图（要求：浴室图）+ 比例五档（人物活动）' },
+  'video.study_activity': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr96q1ai00u82xm0zp8dhinr', kind: 'app', note: '书房学习：参考图（要求：书房图）+ 比例五档（人物活动）' },
+  'video.bedroom_activity': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr96b5p400mb2xm006sh9o35', kind: 'app', note: '卧室就寝：参考图（要求：卧室图）+ 比例五档（人物活动）' },
+  'video.dining_activity': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr965qf700k52xm0d3q3g1dv', kind: 'app', note: '餐厅聚餐：参考图（要求：餐厅图）+ 比例五档（人物活动）' },
+  'video.interior_renovation': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr96eilw00p42xm0uocpkuwp', kind: 'app', note: '室内装修：首图要求：室内毛坯图 + 尾图要求：室内效果图 + 比例五档' },
+  'video.home_staging': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr960avj00j52xm0cv4e527q', kind: 'app', note: '家装布置：首图要求：室内空房图 + 尾图要求：室内效果图 + 比例五档' },
+  'video.drama_modern_family': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w7wvz00z914i3f5h4hifu', kind: 'app', note: '现代豪门婆媳：参考图 1 + 时长 10/15 + 比例（9:16 打头）' },
+  'video.drama_palace': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w7twq00z514i3hw6s0clk', kind: 'app', note: '华丽古典后宫：参考图 1 + 时长 10/15 + 比例（9:16 打头）' },
+  'video.drama_feud': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w7qqt00z314i3r4rnmzfs', kind: 'app', note: '豪门恩怨短剧：参考图 1 + 时长 10/15 + 比例（9:16 打头）' },
+  'video.talk_show': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w7n9000z114i3rvzyd4c8', kind: 'app', note: '趣味脱口秀：主题 + 角色图 0/1 + 脱口秀名字 + 带货产品图 0/8 + 比例（9:16 打头）' },
+
   /* ── 知渔**没有**对应页：我们自有的玩法（"没有"也是明确结论，不借 URL 充数）─────── */
   'video.frame': { counterpart: null, reason: '首尾帧：知渔 31 个子页面里没有这一档（他们视频侧只有单图 / 首尾图 / 脚本 / 参考视频四种形态，没有"首尾帧"页）' },
   'video.product_motion': { counterpart: null, reason: '商品动态展示：知渔的"单图控制"页是按对象拆的（淋浴 / 台盆 / 灯具 / 餐桌展示），没有通用商品运镜页' },

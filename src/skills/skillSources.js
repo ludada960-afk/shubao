@@ -123,6 +123,26 @@ export const SKILL_SOURCES = Object.freeze({
   'image.swap_bg': { ...QUANTV, ref: '图片制作 / 电商专区 / 一键模特换背景' },
   'image.retouch': { ...QUANTV, ref: '图片制作 / 电商专区 / 照片高质量精修' },
   'image.style_swap': { ...QUANTV, ref: '图片制作 / 电商专区 / 商品风格材质更换' },
+
+  /* ═══ 2026-09-23 批 AA：照知渔补齐的 14 页 ═══════════════════════════════════════════════
+     用户原话：「你不如**全抄知渔**的视频生成和图片生成的 skill 子页面…**工作台直接照抄他的就好**…
+     尽可能跟他一致」。
+     ⇒ 出处一律 'competitor'（QUANTV = 竞品产品侧清单，定义见本文件第 13 行），
+       ref 指向知渔的分组与页面名，可回查 docs/design/data/quantv-video-pages.json。 */
+  'video.shower_showcase': { ...QUANTV, ref: '视频制作 / 建筑室内 / 淋浴展示' },
+  'video.basin_showcase': { ...QUANTV, ref: '视频制作 / 建筑室内 / 台盆展示' },
+  'video.lighting_showcase': { ...QUANTV, ref: '视频制作 / 建筑室内 / 灯具展示' },
+  'video.dining_table_showcase': { ...QUANTV, ref: '视频制作 / 建筑室内 / 餐桌展示' },
+  'video.bathroom_activity': { ...QUANTV, ref: '视频制作 / 建筑室内 / 浴室洗漱' },
+  'video.study_activity': { ...QUANTV, ref: '视频制作 / 建筑室内 / 书房学习' },
+  'video.bedroom_activity': { ...QUANTV, ref: '视频制作 / 建筑室内 / 卧室就寝' },
+  'video.dining_activity': { ...QUANTV, ref: '视频制作 / 建筑室内 / 餐厅聚餐' },
+  'video.interior_renovation': { ...QUANTV, ref: '视频制作 / 建筑室内 / 室内装修' },
+  'video.home_staging': { ...QUANTV, ref: '视频制作 / 建筑室内 / 家装布置' },
+  'video.drama_modern_family': { ...QUANTV, ref: '视频制作 / 电商带货 / 现代豪门婆媳' },
+  'video.drama_palace': { ...QUANTV, ref: '视频制作 / 电商带货 / 华丽古典后宫' },
+  'video.drama_feud': { ...QUANTV, ref: '视频制作 / 电商带货 / [短剧风格]豪门恩怨' },
+  'video.talk_show': { ...QUANTV, ref: '视频制作 / 电商带货 / 趣味脱口秀' },
 });
 
 export function sourceOf(skillId) {

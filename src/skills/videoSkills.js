@@ -439,6 +439,139 @@ export const VIDEO_SKILLS = [
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
   },
+
+  /* ═══ 2026-09-23 批 AA：**照知渔补齐它那 18 个"他们有我们没有"的页面** ═══════════════════════
+     用户原话：「你不如**全抄知渔**的视频生成和图片生成的 skill 子页面，就是**不要自己胡乱造新的 skill** 呀…
+     至于其他的 skill 子页面…**工作台直接照抄他的就好**，其他你自己硬造的子页面我觉得**就去掉吧**，
+     **尽可能跟他一致**。」
+     ⇒ 本轮先把知渔**建筑室内**那 10 页 + **电商带货**那 4 页补上（都是纯声明：字段与文案逐条照
+       docs/design/data/quantv-video-pages.json 的实采结果，summary 直接用他们页面上的原话）。
+     ⚠️ 差集里还剩 4 页**上游不具备能力**，本轮**故意没做**（不是不愿意做，是做了就是点了必失败的假按钮）：
+       · **数字人** /digital-human —— 上游 116 条模型里**没有任何**数字人/唇形同步/口播模型
+         （按 human|avatar|lipsync|lip-sync|talk|heygen|hedra|presenter 全表检索 = 0 条命中）；
+       · **视频字幕去除** /video-subtitle-removal —— 同样 0 条（subtitle|watermark|erase|inpaint|delogo 全表检索）；
+       · **视频高清** /video-high-definition —— 命中 3 条全是**图片**超分（mdkj-super-gpt-image-*-1k/2k/4k），
+         没有视频超分路由；
+       · **内容替换(app)** —— 这一条我们**早就有**（video.content_swap），只是它归在"热门玩法"里，
+         不是知渔那个 app 的字段形态。
+       ⇒ 这三条要真上，得先有上游路由（或换一家中转），否则就是"文档里有、点了报错"那一类事故。 */
+  /* ── 建筑室内 · 单图运镜族（8 条，知渔原话照抄）────────────────────────────────── */
+  {
+    id: 'video.shower_showcase', board: 'video', name: '淋浴展示', category: '建筑家装', complexity: 'simple',
+    summary: '通过单图的控制，实现平滑的运镜效果，适合展示细节', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'cool' },
+    brief: '以上传的淋浴间图片为唯一参考图，机位在空间内平滑运镜：从花洒与墙面的材质细节缓慢推进，再横移掠过玻璃隔断与地漏，最后停在水流与石材纹理的特写上。运动平稳、透视一致、光线自然，空间结构不发生变化，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.basin_showcase', board: 'video', name: '台盆展示', category: '建筑家装', complexity: 'simple',
+    summary: '通过单图的控制，实现平滑的运镜穿梭效果，适合展示细节', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'cool' },
+    brief: '以上传的台盆图片为唯一参考图，镜头做一次穿梭式运镜：从镜柜与台面的整体关系推近，穿过水龙头与盆沿的弧线，最后停在陶瓷与金属的质感特写。全程平滑不抖动，透视与比例保持一致，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.lighting_showcase', board: 'video', name: '灯具展示', category: '建筑家装', complexity: 'simple',
+    summary: '通过单图的控制，实现平滑的运镜效果，适合展示灯具细节', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '以上传的灯具图片为唯一参考图，镜头围绕灯具做平滑运镜：先给整体造型的定场，再缓慢推近灯罩与灯体的材质，最后带出灯光在墙面上的光斑。光比与色温自然，灯具结构不变形，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.dining_table_showcase', board: 'video', name: '餐桌展示', category: '建筑家装', complexity: 'simple',
+    summary: '实现平滑的运镜效果，适合展示餐桌细节', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '以上传的餐桌图片为唯一参考图，镜头沿桌面做一次平滑的横移与轻微俯冲：从餐桌整体推进到桌面的木纹与摆件，再抬起带出餐椅与空间关系。运动匀速、透视一致、光线自然，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  /* ── 建筑室内 · 单图人物活动族（4 条）────────────────────────────────────────── */
+  {
+    id: 'video.bathroom_activity', board: 'video', name: '浴室洗漱', category: '建筑家装', complexity: 'standard',
+    summary: '通过单图的控制，实现平滑的人物进行活动效果，适合展示空间洗漱活动', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'cool' },
+    brief: '以上传的浴室图片为唯一参考图，画面里加入一个人在空间中的自然活动：走到台盆前、开水、低头洗手，动作连贯不机械，镜头轻微跟随后缓慢后退露出空间全貌。人物比例与投影合理，空间结构与材质保持不变，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.study_activity', board: 'video', name: '书房学习', category: '建筑家装', complexity: 'standard',
+    summary: '通过单图的控制，实现平滑的人物进行活动效果，适合展示学习活动', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'soft' },
+    brief: '以上传的书房图片为唯一参考图，画面里加入一个人在空间中的自然活动：拉开椅子坐下、翻开书、提笔书写，动作连贯自然，镜头缓慢推进到桌面与台灯的光域。人物比例、投影与透视合理，空间结构不变，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.bedroom_activity', board: 'video', name: '卧室就寝', category: '建筑家装', complexity: 'standard',
+    summary: '通过单图的控制，实现平滑的人物进行活动效果，适合展示空间就寝活动', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '以上传的卧室图片为唯一参考图，画面里加入一个人在空间中的自然活动：走到床边坐下、掀开被子躺下，床头灯亮起，动作舒缓自然；镜头缓慢后退并轻微下降，最后停在安静的空间全景。人物比例与光影真实，空间结构不变，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.dining_activity', board: 'video', name: '餐厅聚餐', category: '建筑家装', complexity: 'standard',
+    summary: '通过单图的控制，实现平滑的人物进行活动效果，适合展示空间聚餐活动', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '以上传的餐厅图片为唯一参考图，画面里加入几个人在餐桌旁的自然活动：落座、传递餐具、举杯，动作幅度自然不夸张，镜头缓慢环绕餐桌并轻微推近到餐食与餐具细节。人物比例、椅子位置与投影合理，空间结构不变，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  /* ── 建筑室内 · 首尾图族（2 条）────────────────────────────────────────────── */
+  {
+    id: 'video.interior_renovation', board: 'video', name: '室内装修', category: '建筑家装', complexity: 'standard',
+    summary: '通过首图与尾图的控制，实现平滑的装修效果，适合展示室内装修变化', capability: ['frames'], availability: 'needs_ref',
+    pipeline: 'videoFrame', cover: { template: 'case-3up', accent: 'cool' },
+    brief: '首图是室内毛坯图、尾图是装好的效果图：画面从毛坯开始，墙体找平、地面铺贴、柜体与家具依次落位成型，中间过程连续不跳变，最后平滑停在效果图那一帧。空间结构与尺寸全程不变，透视一致，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.home_staging', board: 'video', name: '家装布置', category: '建筑家装', complexity: 'standard',
+    summary: '通过首图与尾图的控制，实现平滑的室内布置效果，适合展示室内布置变化', capability: ['frames'], availability: 'needs_ref',
+    pipeline: 'videoFrame', cover: { template: 'case-3up', accent: 'soft' },
+    brief: '首图是室内空房图、尾图是布置完的效果图：软装与家具按顺序进场落位（地毯 → 沙发 → 边几 → 灯具 → 挂画），动作轻快自然，镜头缓慢后退展示整体效果。空间结构与比例不变，最后平滑停在效果图那一帧，不出现水印与文字。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  /* ── 电商带货 · 短剧风格（3 条，知渔的"参考图 1 + 时长 10/15 + 比例"形态）───────── */
+  {
+    id: 'video.drama_modern_family', board: 'video', name: '现代豪门婆媳', category: '电商带货', complexity: 'standard',
+    summary: '现代豪门婆媳矛盾、狗血抓马冲突、儿媳逆袭反转', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '按上传的参考图（人物 / 场景）拍一段现代豪门婆媳短剧：开场先给一个压抑的对峙镜头，中段提高冲突强度（摔东西、转身离场、特写表情），结尾用儿媳逆袭的反转收住并自然带出要卖的商品。竖屏构图、人物表演自然、光线偏冷调，字幕与台词不烧进画面。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.drama_palace', board: 'video', name: '华丽古典后宫', category: '电商带货', complexity: 'standard',
+    summary: '华丽古典后宫宫斗狗血反转带货风格', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'warm' },
+    brief: '按上传的参考图拍一段华丽古典后宫宫斗短剧：服化道华丽、场景金红主色，开场是低位视角的压迫镜头，中段用眼神特写与转身制造狗血冲突，结尾反转并带出商品。竖屏构图、动作幅度克制有戏、光影华丽，字幕与台词不烧进画面。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  {
+    id: 'video.drama_feud', board: 'video', name: '豪门恩怨短剧', category: '电商带货', complexity: 'standard',
+    summary: '[短剧风格]豪门恩怨狗血反转带货短剧风格', capability: ['image'], availability: 'ready',
+    pipeline: 'videoReference', cover: { template: 'case-3up', accent: 'accent' },
+    brief: '按上传的参考图拍一段豪门恩怨短剧：开场用雨夜、车灯或大宅远景定调，中段揭旧账式对峙（推拉镜头 + 面部特写），结尾反转并自然带出商品。竖屏构图、表演克制、色调偏冷，字幕与台词不烧进画面。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
+  /* ── 电商带货 · 趣味脱口秀（知渔：主题 + 角色图 + 脱口秀名字 + 带货产品图 0/8 + 比例）── */
+  {
+    id: 'video.talk_show', board: 'video', name: '趣味脱口秀', category: '电商带货', complexity: 'standard',
+    summary: '一个人一支麦，把商品讲成段子', capability: ['image', 'text'], availability: 'ready',
+    pipeline: 'videoSmart', cover: { template: 'case-3up', accent: 'soft' },
+    brief: '按上传的角色图做一段脱口秀短视频：角色站在麦克风前讲关于这个商品的段子，表情与手势自然、有停顿有包袱，镜头在近景与中景之间切换；带货产品图在最自然的笑点处进入画面（产品特写或举起来展示）。竖屏为主，现场感光线，字幕与台词不烧进画面。',
+    fields: VIDEO_BASE_FIELDS,
+    cases: [], history: true,
+  },
 ];
 export const VIDEO_SKILL_CATEGORIES = [...new Set(VIDEO_SKILLS.map(skill => skill.category))];
 

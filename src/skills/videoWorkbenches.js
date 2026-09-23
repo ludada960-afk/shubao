@@ -38,6 +38,11 @@ const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/webm';
 const RATIO_EC = ['9:16', '16:9', '1:1', '3:4', '4:3'];
 const RATIO_INTERIOR = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const RATIO_INTERIOR_WIDE = ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9'];
+/* ⚠️ 2026-09-23 批 AA：趣味脱口秀那一页的比例顺序**与短剧三页不是同一套** ——
+   知渔那页实测是 9:16 / 16:9 / **4:3 / 3:4 / 1:1**（机检逐值比对抓出来的：
+   我照短剧那套写成 1:1 / 3:4 / 4:3 时，门禁直接报了"比例档位对不上"）。
+   比例档位是**顺序敏感**的，所以单独留一条常量，不要图省事复用 RATIO_EC。 */
+const RATIO_TALK = ['9:16', '16:9', '4:3', '3:4', '1:1'];
 
 const ratioChips = (order = RATIO_INTERIOR) => ({
   key: 'ratio', kind: 'chips', title: '比例', required: true, bind: 'ratio',
@@ -206,13 +211,16 @@ const pageFirstLast = ({ source, headline = '', first, last, ratioOrder = RATIO_
   ],
 });
 
-/* ⑧ 参考图 + 比例 + 时长（建筑分镜电影制作 / 寒冬降临）。 */
-const pageRefRatioDuration = ({ source, headline = '', requirement, durationOptions = [5, 10, 15] }) => ({
+/* ⑧ 参考图 + 比例 + 时长（建筑分镜电影制作 / 寒冬降临）。
+   ⚠️ 2026-09-23 批 AA：补 `ratioOrder` —— 短剧风格三页的比例顺序是 **9:16 打头**
+      （知渔那三页的实测按钮顺序：9:16 / 16:9 / 1:1 / 3:4 / 4:3，即 RATIO_EC），
+      与他们建筑室内那几页的 1:1 打头不同。不传就还是建筑那套顺序（既有页面行为不变）。 */
+const pageRefRatioDuration = ({ source, headline = '', requirement, durationOptions = [5, 10, 15], ratioOrder = RATIO_INTERIOR }) => ({
   source,
   headline,
   blocks: [
     uploadBlock({ key: 'reference', title: '参考图（要求：' + requirement + '）', max: 1, hint: '点击或拖拽上传图片' }),
-    ratioChips(RATIO_INTERIOR),
+    ratioChips(ratioOrder),
     { key: 'duration', kind: 'chips', title: '时长', required: true, bind: 'duration', options: durationOptions.map(v => ({ label: String(v), value: v })) },
   ],
 });
@@ -535,6 +543,60 @@ export const VIDEO_WORKBENCHES = {
   }),
   'video.book_selling': pageAiVideo({ headline: '翻页、金句、场景，把一本书讲清楚', materialNote: '上传图书或封面图，最多 6 张' }),
   'video.food_asmr': pageAiVideo({ headline: '近距离的咀嚼与热气，声音画面一起上', materialNote: '上传食品图片，最多 6 张' }),
+
+  /* ═══ 2026-09-23 批 AA：照知渔补的那 14 页 ═══════════════════════════════════════════════
+     用户原话：「**全抄知渔**的…skill 子页面…**工作台直接照抄他的就好**…**尽可能跟他一致**」。
+     字段逐条照 docs/design/data/quantv-video-pages.json 的实采结果：
+       · 建筑室内单图族 8 页 = 参考图（要求：X）+ 比例五档（1:1 打头）；
+       · 首尾图族 2 页 = 首图要求 / 尾图要求 + 比例五档；
+       · 短剧风格 3 页 = 参考图 + 时长（只有 10 / 15）+ 比例（9:16 打头）；
+       · 趣味脱口秀 = 主题 + 角色图 + 脱口秀名字 + 带货产品图（0/8）+ 比例（9:16 打头）。 */
+  'video.shower_showcase': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmra7sgh009eg9vzgzwmnn68g', requirement: '淋浴图', headline: '通过单图的控制，实现平滑的运镜效果，适合展示细节' }),
+  'video.basin_showcase': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmra7o96y09cj9vzg3oml6su6', requirement: '台盆图', headline: '通过单图的控制，实现平滑的运镜穿梭效果，适合展示细节' }),
+  'video.lighting_showcase': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmra7k5zy09am9vzg3m52gaud', requirement: '灯具图', headline: '通过单图的控制，实现平滑的运镜效果，适合展示灯具细节' }),
+  'video.dining_table_showcase': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmra7fik209979vzgmz2vpwy7', requirement: '餐桌图', headline: '实现平滑的运镜效果，适合展示餐桌细节' }),
+  'video.bathroom_activity': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmr96y3mb00ys2xm0z0y7540a', requirement: '浴室图', headline: '通过单图的控制，实现平滑的人物进行活动效果，适合展示空间洗漱活动' }),
+  'video.study_activity': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmr96q1ai00u82xm0zp8dhinr', requirement: '书房图', headline: '通过单图的控制，实现平滑的人物进行活动效果，适合展示学习活动' }),
+  'video.bedroom_activity': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmr96b5p400mb2xm006sh9o35', requirement: '卧室图', headline: '通过单图的控制，实现平滑的人物进行活动效果，适合展示空间就寝活动' }),
+  'video.dining_activity': pageSingleRef({ source: 'https://laoyu.quantv.com/apps?id=cmr965qf700k52xm0d3q3g1dv', requirement: '餐厅图', headline: '通过单图的控制，实现平滑的人物进行活动效果，适合展示空间聚餐活动' }),
+  'video.interior_renovation': pageFirstLast({
+    source: 'https://laoyu.quantv.com/apps?id=cmr96eilw00p42xm0uocpkuwp',
+    headline: '通过首图与尾图的控制，实现平滑的装修效果，适合展示室内装修变化',
+    first: '首图要求：室内毛坯图', last: '尾图要求：室内效果图',
+  }),
+  'video.home_staging': pageFirstLast({
+    source: 'https://laoyu.quantv.com/apps?id=cmr960avj00j52xm0cv4e527q',
+    headline: '通过首图与尾图的控制，实现平滑的室内布置效果，适合展示室内布置变化',
+    first: '首图要求：室内空房图', last: '尾图要求：室内效果图',
+  }),
+  'video.drama_modern_family': pageRefRatioDuration({
+    source: 'https://laoyu.quantv.com/apps?id=cmr1w7wvz00z914i3f5h4hifu',
+    headline: '现代豪门婆媳矛盾、狗血抓马冲突、儿媳逆袭反转',
+    requirement: '人物或场景图', durationOptions: [10, 15], ratioOrder: RATIO_EC,
+  }),
+  'video.drama_palace': pageRefRatioDuration({
+    source: 'https://laoyu.quantv.com/apps?id=cmr1w7twq00z514i3hw6s0clk',
+    headline: '华丽古典后宫宫斗狗血反转带货风格',
+    requirement: '人物或场景图', durationOptions: [10, 15], ratioOrder: RATIO_EC,
+  }),
+  'video.drama_feud': pageRefRatioDuration({
+    source: 'https://laoyu.quantv.com/apps?id=cmr1w7qqt00z314i3r4rnmzfs',
+    headline: '豪门恩怨狗血反转带货短剧风格',
+    requirement: '人物或场景图', durationOptions: [10, 15], ratioOrder: RATIO_EC,
+  }),
+  /* 趣味脱口秀：知渔那页的按钮顺序是 9:16 打头；两个文本框（主题 / 脱口秀名字）+ 两个上传位
+     （角色图 0/1、带货产品图 0/8）—— 字段与顺序照实采，没有各加一格。 */
+  'video.talk_show': {
+    source: 'https://laoyu.quantv.com/apps?id=cmr1w7n9000z114i3rvzyd4c8',
+    headline: '一个人一支麦，把商品讲成段子',
+    blocks: [
+      textBlock({ key: 'topic', title: '主题', max: 2000, placeholder: '请输入', required: true }),
+      uploadBlock({ key: 'character', title: '角色图', max: 1, hint: '点击或拖拽上传图片' }),
+      textBlock({ key: 'showName', title: '脱口秀名字', max: 2000, placeholder: '请输入' }),
+      uploadBlock({ key: 'products', title: '带货产品图（可选）', max: 8, hint: '点击或拖拽上传图片' }),
+      ratioChips(RATIO_TALK),
+    ],
+  },
   /* ⚠️ 辅助能力（tier: assistant）**不给工作台** —— 画面修改 / 延长续写 / 运镜控制这三条
      没有自己的子页面，按 fuses 声明长在别的技能的创作台上（见 videoSkills.js 的 fuses）。
      门禁 test/video-skill-workbench-declaration-0919 ① 守的就是这条。 */
