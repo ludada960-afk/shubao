@@ -3,6 +3,7 @@ import {
   VIDEO_PRODUCTS,
   durationOptionsOf,
   isDurationSupported,
+  isNonModelProduct,
   nearestSupportedDuration,
   videoFeatureSku,
 } from './videoCatalog.mjs';
@@ -219,8 +220,9 @@ export function recommendVideoRoute({ request: input = {}, products = null, hist
        路由器的职责是"按能力 / 成本 / 余额在**上游模型**之间挑一条"（见文件头的设计）。
        视频高清 / 视频字幕去除不是模型：没有上游成本、不吃提示词与参考素材，由各自的 skill
        子页面直接指定产品（plan.productId）。一旦被自动路由选中，用户会拿一条"按秒计费、
-       不吃提示词"的档位去跑文生视频 —— 点了必失败。 */
-    .filter(product => product?.localEngine !== true);
+       不吃提示词"的档位去跑文生视频 —— 点了必失败。批 AR 起这类产品还包括 videoProcess
+       （火山自动去字幕），所以判据统一用目录里的 isNonModelProduct，不再在路由器里各写一份。 */
+    .filter(product => !isNonModelProduct(product));
   /* 9-11(全上后候选变多): 可用性优先于评分 —— 时长/模式/清晰度/素材不满足的档位不能排在候选第一位,
      否则工作台推荐的第一个选项会在用户点击时才报「不支持」。排序: 可用户 > 评分 > id 稳定序。 */
   const candidates = publicProducts

@@ -103,16 +103,22 @@ test('④ 状态映射与结果字段：running→processing、completed→成�
 test('⑤ 本地上传：先取上传票据，再用**纯二进制 PUT**（文档原文严禁 multipart），最后用 mediakit:// 提交', async () => {
   const calls = [];
   const fetchImpl = fakeFetch(async (url, options) => {
-    calls.push({ url, method: options.method, contentType: options.headers?.['Content-Type'], hasStream: Boolean(options.body?.pipe) });
+    calls.push({ url, method: options.method, contentType: options.headers?.['Content-Type'], hasStream: Boolean(options.body?.pipe), body: typeof options.body === 'string' ? options.body : undefined });
+    /* 字段名照 2026-09-26 实测：响应在 result 里，且 file_id **自带 mediakit:// 前缀** */
     if (url.endsWith('/tools-sync/request-media-upload-url')) {
-      return jsonResponse({ success: true, upload_url: 'https://tos.example.com/put?sig=1', file_id: 'file-9' });
+      return jsonResponse({
+        success: true,
+        task_id: 'amk-ticket-1',
+        result: { file_id: 'mediakit://file-9', method: 'PUT', upload_headers: [], upload_url: 'https://tos.example.com/put?sig=1' },
+      });
     }
     if (url.startsWith('https://tos.example.com/put')) return new Response('', { status: 200 });
     return jsonResponse({ success: true, task_id: 'task-9' });
   });
   const adapter = createVolcSubtitleAdapter({ apiKey: KEY, baseUrl: BASE, fetchImpl });
   const uploaded = await adapter.uploadLocalFile({ filePath: 'package.json', fileName: 'clip.mp4' });
-  assert.equal(uploaded.videoUrl, 'mediakit://file-9', '提交任务时用 mediakit:// 协议');
+  assert.equal(uploaded.videoUrl, 'mediakit://file-9', '提交任务时用 mediakit:// 协议（file_id 自带前缀，不许再拼一次）');
+  assert.equal(String(JSON.parse(String(calls[0].body)).file_name), 'clip.mp4', '取票据必须带 JSON body（空 body 上游回 400）');
   assert.equal(calls[1].method, 'PUT');
   assert.equal(calls[1].contentType, 'application/octet-stream', '纯二进制流（严禁 multipart/form-data）');
   assert.equal(calls[1].hasStream, true, 'body 是文件流');

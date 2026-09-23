@@ -78,7 +78,11 @@ function fakeMediakit() {
   const state = { polls: 0 };
   return async (url, options = {}, calls = []) => {
     if (url.endsWith('/tools-sync/request-media-upload-url')) {
-      return new Response(JSON.stringify({ success: true, upload_url: 'https://tos.example.test/put?sig=1', file_id: 'file-777' }), { status: 200, headers: { 'content-type': 'application/json' } });
+      /* 字段名照 2026-09-26 实测（响应在 result 里、file_id 自带 mediakit://） */
+      return new Response(JSON.stringify({
+        success: true,
+        result: { file_id: 'mediakit://file-777', method: 'PUT', upload_headers: [], upload_url: 'https://tos.example.test/put?sig=1' },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.startsWith('https://tos.example.test/put')) return new Response('', { status: 200 });
     if (url.endsWith('/tools/erase-video-subtitle')) {
@@ -120,17 +124,21 @@ test('① 收费项：0.05 积分/秒、按秒计费、未实测前 public:false
   assert.equal(short.units, 50, '0.05 积分/秒 = 50 units/秒（用户批的价）');
   assert.equal(long.units, 50);
   assert.equal(short.perSecond, true, '按秒计费');
-  assert.equal(short.public, false, '没跑过一次真片子 ⇒ 不许公开');
+  /* ═══ 2026-09-26 翻公开（事实变了，判据没变）═══════════════════════════════════════════════════
+     判据一直是"跑通一次真片子才许公开"；用户充值 ¥5 后我们真跑了一次（6 秒片 → completed、
+     拿到成片地址、扣费约 ¥0.04），所以这两条从 false 变 true —— 变的是事实，不是标准。 */
+  assert.equal(short.public, true, '已实测出片 ⇒ 允许公开');
   /* 上游成本口径：0.4 元/分钟 ⇒ 每秒 ¥0.006667（按秒归一） */
   assert.ok(Math.abs(short.providerCostCny - 0.4 / 60) < 1e-6, '成本按"每秒"记（与 units 同归一）');
   /* 落库/结算用的**整单成本**要乘秒数 */
   assert.ok(Math.abs(billableProviderCost({ sku: 'video_desubtitle_volc_short', quantity: 6 }) - 6 * 0.4 / 60) < 1e-9);
   const product = getVideoProduct(PRODUCT_ID);
-  assert.equal(product.public, false, '产品也不许公开');
+  assert.equal(product.public, true, '产品随实测一起翻公开');
   assert.equal(product.videoProcess, true, '声明"处理已有视频"这一类');
   assert.equal(product.credential, 'volc');
   assert.deepEqual(product.localSpec, { resolution: false, fps: false, regions: false, auto: true }, '自动档没有用户要填的规格');
-  assert.equal(routeReachability(product.routeId).state, 'unverified', '还没实测 ⇒ 台账如实记 unverified（不是 callable）');
+  assert.equal(routeReachability(product.routeId).state, 'callable', '实测出片 ⇒ 台账转 callable（证据与日期写在 videoCatalog 里）');
+  assert.match(String(routeReachability(product.routeId).evidence), /2026-09-26/, '台账必须有实测日期');
 });
 
 test('② 建单契约：源视频 + 时长（无提示词/比例/方案闸门）；缺视频或缺时长一律 400 且不收费', async t => {

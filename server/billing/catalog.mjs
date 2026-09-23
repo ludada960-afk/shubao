@@ -257,11 +257,9 @@ export const FEATURE_SKUS = freezeCatalog({
         手动（本机 delogo）0.04 积分/秒、成本 0；自动（火山标准版）0.05 积分/秒、成本 ¥0.006667/秒
         ⇒ 毛利 97% vs 46.1%，**自动档不能与手动档同价**（同价只有 33.3%，跌破 40% 地板）。
         推导与验算在 docs/design/71，门禁 test/media-kit-cost-model-0925 逐值守着。
-     ⚠️ **public: false 起步**：凭据已配（server/.env），但**账户未充值**（火山后付费也要余额，
-        欠费 72 小时连新任务都会被拒）⇒ 还没真跑过一次。等充值 + 跑通探针，
-        把这里与产品的 public 一起翻 true（与 1080P 的 Seedance 那条同一套做法）。 */
-  video_desubtitle_volc_short: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: false },
-  video_desubtitle_volc_long: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: false },
+     ✅ **2026-09-26 已翻 public**：用户充值 ¥5 后跑通一次真机实测（6 秒片 → completed、扣费约 0.04 元）。 */
+  video_desubtitle_volc_short: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_desubtitle_volc_long: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
   /* ── 2026-09-19 批 K-B 新增三档（用户批注「把之前的那些模型找回来」）─────────────────────
      定价**沿用站内既有规则**，没有新造口径：
        用户价 = 记账成本 / (1 − 54%) 取整到分；units = 现金价 × 3819 向上取整（工作室包面值锚）；

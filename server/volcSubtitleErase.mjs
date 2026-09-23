@@ -30,6 +30,7 @@
    · 只做 HTTP，不引 SDK：鉴权是 Bearer Key，官方文档里这个产品也没有语言 SDK 章节。
    * 与上游视频适配器**同形**（submit / get / download），所以作业流水线不需要第二套分支。 */
 import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 
 const DEFAULT_BASE_URL = 'https://mediakit.cn-beijing.volces.com/api/v1';
 const POLL_PATH = taskId => `/tasks/${encodeURIComponent(String(taskId || ''))}`;
@@ -50,17 +51,21 @@ function normalizeStatus(value) {
   return status || 'unknown';
 }
 
-/* 从火山返回体里取任务 id 与结果地址：字段名照文档，取不到就报错（不猜第二套名字） */
+/* 从火山返回体里取任务 id 与结果地址：字段名照**实测**（2026-09-26 对线上真实响应核过）
+   完成态形状：{ success, task_id, task_type, status: 'completed', result: { duration: 5.967, video_url } }
+   —— 成片地址在 **result.video_url**，时长在 **result.duration**（秒，带小数，就是计费的"累计擦除时长"）。
+   ⚠️ 第一版我按文档猜成顶层 video_url，结果任务跑通了却取不到成片地址（"completed 但地址为空"）。
+      这类字段位置**只能看真实响应** —— 文档里没有完整样例（本仓铁律：不许猜字段名）。 */
 function taskIdOf(payload) {
-  return clean(payload?.task_id ?? payload?.data?.task_id ?? payload?.Result?.task_id, 200);
+  return clean(payload?.task_id ?? payload?.result?.task_id ?? payload?.data?.task_id, 200);
 }
 function resultOf(payload) {
-  const source = payload?.data ?? payload?.Result ?? payload ?? {};
+  const source = payload?.result ?? payload?.data ?? payload?.Result ?? payload ?? {};
   return {
     status: normalizeStatus(source.status ?? payload?.status),
-    videoUrl: clean(source.video_url ?? source.Result?.video_url, 2000),
-    duration: Number(source.duration ?? source.Result?.duration) || 0,
-    message: clean(source.message ?? payload?.error ?? payload?.message, 300),
+    videoUrl: clean(source.video_url ?? source.output?.video_url, 8000),
+    duration: Number(source.duration) || 0,
+    message: clean(source.message ?? payload?.error?.message ?? payload?.error ?? payload?.message, 300),
   };
 }
 
@@ -162,25 +167,55 @@ export function createVolcSubtitleAdapter({
       return response;
     },
     /* 本地上传：站内片子是带签名的地址，火山拉不到 ⇒ 走 mediakit:// 那条路（文档 2536891）。
-       返回 `mediakit://{file_id}`，submit 时当 video_url 用。 */
+       ⚠️ 字段名**实测过**（不是猜的，2026-09-26 对线上真实响应核过）：
+          · 必须带 **JSON body**（空 body 会回 400「invalid empty request body」）——`file_name` 就够；
+          · 响应在 `result` 里：`{ file_id, method, upload_headers, upload_url }`；
+          · **`file_id` 本身就以 `mediakit://` 开头**（不要再拼一次前缀，否则变成 mediakit://mediakit://…）；
+          · PUT 时要带上它给的 `upload_headers`（这次是空数组，但不许假设它永远空）。 */
     async uploadLocalFile({ filePath, fileName = '' } = {}) {
       if (!filePath) throw codedError('VOLC_SUBTITLE_UPLOAD_INPUT_REQUIRED', '缺少要上传的视频文件');
+      /* ⚠️ 实测教训（2026-09-26）：**票据里必须带 file_size** —— 只带 file_name 时票据能拿到，
+         但随后的 PUT 会回 400 `{"code":4000,"message":"Bad Request"}`（上传地址与申报大小对不上）。
+         所以这里先 stat 一次，把字节数一并申报。 */
+      const info = await stat(filePath).catch(() => null);
+      if (!info?.isFile() || info.size <= 0) {
+        throw codedError('VOLC_SUBTITLE_UPLOAD_INPUT_REQUIRED', '要上传的视频文件不存在或是空的');
+      }
       const ticket = await request('/tools-sync/request-media-upload-url', {
         method: 'POST',
-        body: JSON.stringify({ file_name: clean(fileName, 200) || undefined }),
+        body: JSON.stringify({ file_name: clean(fileName, 200) || 'clip.mp4', file_size: info.size }),
       });
-      const uploadUrl = clean(ticket?.upload_url ?? ticket?.data?.upload_url, 2000);
-      const fileId = clean(ticket?.file_id ?? ticket?.data?.file_id, 200);
+      const result = ticket?.result ?? ticket?.data ?? {};
+      /* ⚠️ **不许对 upload_url 用默认长度的 clean() 截断**：实测这条签名 URL 有 **6079 字符**
+         （带一长串 Authorization JWT），截到 2000 就变成"票据拿得到、PUT 回 400 Bad Request"
+         那种最难查的错（真机上我在这上面连踩两次才定位到）。给足 12000 的上限，并把原因写下来。 */
+      const uploadUrl = clean(result.upload_url, 12000);
+      const fileId = clean(result.file_id, 500);
+      const uploadHeaders = Array.isArray(result.upload_headers) ? result.upload_headers : [];
+      const method = clean(result.method, 10).toUpperCase() || 'PUT';
       if (!uploadUrl || !fileId) throw codedError('VOLC_SUBTITLE_UPLOAD_TICKET_MISSING', '没有拿到上传地址');
       /* 文档原文：**必须用纯二进制流上传，严禁 multipart/form-data** */
+      const headers = { 'Content-Type': 'application/octet-stream' };
+      for (const item of uploadHeaders) {
+        if (item && item.key) headers[clean(item.key, 100)] = clean(item.value, 500);
+      }
       const upload = await fetchImpl(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/octet-stream' },
+        method,
+        headers,
         body: createReadStream(filePath),
         duplex: 'half',
       });
-      if (!upload.ok) throw codedError('VOLC_SUBTITLE_UPLOAD_FAILED', '视频上传到火山失败', { retryable: true });
-      return { fileId, videoUrl: `mediakit://${fileId}` };
+      if (!upload.ok) {
+        /* 带上真实状态与响应片段 —— 上传失败时要有得查（本仓铁律：诊断信息不许省） */
+        const detail = await upload.text().catch(() => '');
+        throw codedError('VOLC_SUBTITLE_UPLOAD_FAILED', '视频上传到火山失败', {
+          retryable: true,
+          providerStatus: upload.status,
+          providerDetail: clean(detail, 300),
+        });
+      }
+      /* file_id 已带协议前缀；万一上游哪天不带，这里补上（两种都兼容） */
+      return { fileId, videoUrl: /^mediakit:\/\//.test(fileId) ? fileId : `mediakit://${fileId}` };
     },
   };
 }
