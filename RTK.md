@@ -6651,3 +6651,60 @@ Wav2Lip 13,220★（**仓库无 LICENSE**）、HeyGem 15,564★（>10 万用户�
 ② **充值**：火山账号实名认证 → 充 ¥10 左右 → 我把台账状态从 unverified 转 callable（跑一次 `.tmp/zc-volc-subtitle-probe.mjs`，
    花约 ¥0.05）→ 翻 public → 逐页探针 → 发版；
 ③ **数字人**：选路线（建议火山口型对齐 0.12 积分/秒）。
+
+---
+
+# 批 AS（2026-09-26 续）：**「自动标记」真机实测跑通并翻公开** + 知渔数字人策略查清
+
+用户原话：「**火山充值了 5 块**」「数字人要不要用对口型的，**你先看一下知渔他们那边是什么策略**」。
+
+## 一、真机实测（付费约 ¥0.04，一次；`.tmp/zc-volc-subtitle-probe.mjs`）
+
+对**线上真接口**跑通全链路：造 6 秒测试片 → 取上传票据 → PUT 上传 → `mediakit://file_id` →
+提交 `amk-tool-erase-video-subtitle-1355189656834` → 轮询到 `completed` → `result.duration=5.967 秒`、
+`result.video_url` 有值。计费与文档一致（5.967/60 × 0.4 元/分钟 ≈ ¥0.04）。
+
+**靠"看真实响应"修掉三处（都是猜字段名必死的点，逐条记下）**：
+1. **取票据必须带 JSON body**（空 body 回 400 `invalid empty request body`），且要一起申报 `file_size`；
+2. **`upload_url` 长 6079 字符** —— 我原来用 `clean(url, 2000)` 截断了它 ⇒ PUT 回 400 `{"code":4000,"Bad Request"}`；
+   这种"票据拿得到、上传失败"最难查（连踩两次才定位）；
+3. **完成态成片地址在 `result.video_url`、时长在 `result.duration`** —— 第一版按文档猜顶层 `video_url`，
+   任务跑通了却取不到成片（文档无完整样例）。
+   ⇒ 顺手给上传失败的错误补上 `providerStatus`/`providerDetail`（否则下次又是黑盒）。
+
+## 二、翻公开（判据没变：跑通一次真片子才许公开）
+
+· 台账 `volc-media-kit-subtitle`：unverified → **callable**；
+· 产品 `desubtitle_volc.public` → true；`video_desubtitle_volc_{short,long}` → public: true（50 units/秒 = 0.05 积分/秒）；
+· `capabilities.subtitleAuto` → `{ available: true, billingQuantity: 'seconds', quotes }` ⇒
+  去字幕页的「自动标记」从"不可选 + 写原因"变成**可选**（前端按能力放开；声明源里仍留保守默认）。
+· 顺带修一个真 bug：**路由器漏了 `videoProcess`** —— 产品一翻 public，火山那条就进了模型路由候选
+  （用户会在「视频创作」里被推荐一条不吃提示词的档位）⇒ 路由器改用目录里的 `isNonModelProduct`。
+
+## 三、知渔数字人策略（用户点名要查，已落档 docs/design/72）
+
+**他们走的就是"换口型"**（实查证据）：
+· 模型入参只有 `source_video_url + source_audio_url + duration(分钟)`（`GET /api/models` 里那条
+  `name: "Digital Human"`）；**没有** text→avatar / image→avatar 参数；
+· 形象只能自带：「选择形象」下拉只有 `请选择形象 / + 从我的资产选择 / 已导入视频`，新账号**无内置形象**；
+  导入原文「视频导入成功：已作为临时形象…或再生成口播视频」；
+· 后端做人像检测（失败文案 `ICDetectVideoNoAvailablePerson → 未检测到人物`）；
+· bundle 里 `对口型 / lipsync / heygen / hedra / sadtalker / wav2lip / musetalk` **全库 0 命中** ⇒
+  把"换口型"**包装成"数字人"卖**，界面一句"对口型"都不提。
+
+**产品形态与价格**：6 步流水线（IP深度学习 → 音视频生成 → 剪辑 → 标题标签 → 字幕音乐 → 封面）+ **一键自动模式 3.15 积分**；
+口播视频 **2.40 积分/分钟**（会员 1.8 / 贴牌 1.5；他们 1 积分 ≈ ¥1 ⇒ 约 ¥2.4/分钟）；
+小步骤各 0.125（文案 0.25、视频学习识别 0.25）。⚠️ 他们页面气泡写「积分/秒」与自己登记表（`priceUnit: 分钟`）对不上，
+是他们的文案 bug，不必照抄。
+
+**我们的落点（等用户点头定价）**：火山 **视频口型对齐 1 元/分钟**（同一把 MediaKit Key，
+`POST /api/v1/tools/lip-sync`，入参 video_url + audio_url，限制"单人真人出镜、≤30 分钟"）
+⇒ 15 秒成本 ¥0.25 ⇒ 建议 **0.12 积分/秒**（15 秒≈1.8 积分，毛利 44%，比知渔的 ¥ 单价便宜约 20%）。
+技术形态与「自动标记」完全同形（一个 provider 适配器 + 一页 skill + 计费 + 门禁），可复用刚跑通的上传链路。
+
+## 四、状态
+
+· 自动标记：**已实测、已翻公开、已发版**（本批部署记录见下）——用户充的 ¥5 里花了约 ¥0.04；
+· 数字人：形态与价格建议在 docs/design/72，**只等用户定价**（钱路铁律：新增收费项须他拍板）；
+· 阿里云 IMS 数字人（文字→数字人，无需自带视频）：9.9 元/分钟、**计费精确到秒** ⇒ 8 秒 ¥1.32 / 15 秒 ¥2.48；
+  且 IMS 是**订阅制**（没订阅报 `Forbidden.SubscriptionRequired`，官方建议先买 20 元功能体验月包）。
