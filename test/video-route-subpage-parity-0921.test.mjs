@@ -91,18 +91,28 @@ test('② 「参数配置」组头：知渔 32 个子页面**逐条计数**（25
   assert.deepEqual(routes.filter(page => String(page.panelText || '').includes('参数配置')).map(page => page.title),
     ['视频字幕去除'], '7 条路由页里只有这一条有组头');
 
-  /* 判据从对照表派生：路由型（/ai-video 这一族）不渲染组头，app 页保持组头 */
+  /* ═══ 2026-09-25 批 AM：**判据从"按页面类型"升级成"按实采逐条"**（不是放宽，是更严）═══════
+     原来写 `quantvVideoShowsParamGroup(id) === 是否 app 页` —— 那是多数形态的近似。
+     知渔 32 页逐条计数里有一条例外：**视频字幕去除**（路由页）**有**「参数配置」。
+     批 AM 把这条技能接上之后，例外就成了必须处理的事实，所以现在改成：
+     对**每一条**有对应页的技能，拿它那一页的实采全文核对「有没有参数配置」——
+     逐条对着证据比，比"按类型猜"严。 */
+  const pageByUrl = new Map(evidence.pages.map(page => [String(page.url || ''), page]));
   const routeSkills = [];
   for (const [id, record] of Object.entries(QUANTV_VIDEO_COUNTERPARTS)) {
     if (!record.counterpart) continue;
+    const page = pageByUrl.get(String(record.counterpart));
+    assert.ok(page, id + ' 的对照页不在实采清单里：' + record.counterpart);
+    const fromEvidence = String(page.panelText || '').includes('参数配置');
+    assert.equal(quantvVideoShowsParamGroup(id), fromEvidence,
+      id + ' 的组头判据与知渔那一页的实采不一致（' + record.counterpart + '）');
     const isApp = String(record.counterpart).includes('/apps?id=');
-    assert.equal(quantvVideoShowsParamGroup(id), isApp,
-      id + ' 的组头判据与它对应的页面类型不一致（' + record.counterpart + '）');
     if (!isApp) routeSkills.push(id);
   }
   assert.deepEqual(routeSkills.sort(),
-    ['video.book_selling', 'video.content_swap', 'video.food_asmr', 'video.remake', 'video.smart', 'video.store_tour', 'video.tech_tvc'].sort(),
-    '对到知渔**路由页**的技能清单变了');
+    ['video.book_selling', 'video.content_swap', 'video.desubtitle', 'video.food_asmr', 'video.remake',
+      'video.smart', 'video.store_tour', 'video.tech_tvc', 'video.upscale'].sort(),
+    '对到知渔**路由页**的技能清单变了（批 AM 新增 upsale/desubtitle 两条本地方案，都对着知渔的路由页）');
   /* 自有玩法没有对应页可比：沿用现状（渲染组头）—— 这一条是"不改动既有页面"的取舍，写在这里备查 */
   for (const [id, record] of Object.entries(QUANTV_VIDEO_COUNTERPARTS)) {
     if (record.counterpart) continue;

@@ -40,10 +40,16 @@ test('① 对照表覆盖全部 56 条视频 skill：有对应页的写 URL，�
      ⇒ 本轮把知渔"建筑室内"那 10 页（淋浴 / 台盆 / 灯具 / 餐桌展示、浴室洗漱、书房学习、
        卧室就寝、餐厅聚餐、室内装修、家装布置）+ "电商带货"那 4 页（三条短剧风格 + 趣味脱口秀）
        逐字段照抄进来。判据没变（对照表要覆盖全部 skill、有对应页写 URL、自有写理由），
-       变的是**条数**：有对应页 16 → 30，自有 26 条不变。 */
-  assert.equal(ids.length, 56, '视频 skill 数量变了');
-  /* 30 = 25 条 kind:'page'/'app'（知渔有同一件事的页面）+ 5 条 kind:'shape'（同形态，玩法不同） */
-  assert.equal(videoSkillsWithCounterpart().length, 30, '有对应页的条数变了');
+       变的是**条数**：有对应页 16 → 30，自有 26 条不变。
+     ═══ 2026-09-25 批 AM：56 → **58**（+2 条本地方案：视频高清 / 视频字幕去除）══════════════
+     用户原话：「难道你没有什么比如 github 上的一些开源项目可以实现吗，**为什么一切都要追究模型呢**」
+     —— 这两条不走上游模型（本机 ffmpeg scale / delogo），但它们**有知渔的对应页**
+     （/video-high-definition 与 /video-subtitle-removal，都是路由页）⇒ 判据没变：
+     有对应页写 URL + 字段形态照那一页，变的是条数（有对应页 30 → 32，自有 26 条不变）。 */
+  assert.equal(ids.length, 58, '视频 skill 数量变了');
+  /* 32 = 25 条 kind:'page'/'app'（知渔有同一件事的页面）+ 5 条 kind:'shape'（同形态，玩法不同）
+          + 2 条本地方案的知渔路由页（批 AM） */
+  assert.equal(videoSkillsWithCounterpart().length, 32, '有对应页的条数变了');
   assert.equal(videoSkillsWithoutCounterpart().length, 26, '自有玩法的条数变了');
   for (const id of videoSkillsWithoutCounterpart()) {
     const reason = QUANTV_VIDEO_COUNTERPARTS[id].reason || '';

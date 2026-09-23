@@ -56,6 +56,47 @@ export function resetFfmpegProbe() {
   ffmpegProbe = null;
 }
 
+/* ═══ 源视频的**真实时长**（ffprobe 量，不信客户端申报）═════════════════════════════════════════
+   为什么需要：去字幕按秒计费，秒数是浏览器报上来的 —— 报 1 秒、实际 60 秒就是少收 2.36 积分。
+   ffprobe 是 ffmpeg 自带的（apt 装 ffmpeg 时一起装），输出格式取 `format=duration`（秒，字符串）。
+   ⚠️ 量不出来就返回 null（**不拦**）：这一道只为防少报，不该因为它自己的环境问题误伤正常用户；
+      真正决定"能不能渲染"的是建单前的 ffmpegAvailable 预检。 */
+export function probeDurationSeconds(filePath, { probe = 'ffprobe', timeoutMs = 15000 } = {}) {
+  return new Promise(resolve => {
+    if (!filePath) {
+      resolve(null);
+      return;
+    }
+    let stdout = '';
+    let settled = false;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    try {
+      const proc = spawn(probe, [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        String(filePath),
+      ], { stdio: ['ignore', 'pipe', 'ignore'] });
+      const timer = setTimeout(() => { try { proc.kill(); } catch {} finish(null); }, timeoutMs);
+      timer.unref?.();
+      proc.stdout.on('data', chunk => { stdout += chunk.toString(); });
+      proc.on('error', () => { clearTimeout(timer); finish(null); });
+      proc.on('close', code => {
+        clearTimeout(timer);
+        if (code !== 0) return finish(null);
+        const seconds = Number(String(stdout).trim());
+        return finish(Number.isFinite(seconds) && seconds > 0 ? seconds : null);
+      });
+    } catch {
+      finish(null);
+    }
+  });
+}
+
 export function createLocalVideoAdapter({ product, render = renderVideo, now = () => Date.now() } = {}) {
   if (!product || typeof product !== 'object') throw new TypeError('product is required');
   if (product.localEngine !== true) {

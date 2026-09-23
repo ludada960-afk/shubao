@@ -3,6 +3,7 @@ import { ImagePlus, Library, RotateCcw, Sparkles, Video as VideoIcon } from 'luc
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
+import VideoRegionPicker from './VideoRegionPicker.jsx';
 import './VideoWorkbench.css';
 
 /* ═══ VideoWorkbench：视频 skill 子页面的**左栏工作台**（按声明源渲染）═══════════════
@@ -146,6 +147,13 @@ export default function VideoWorkbench({
   onBlockValueChange = () => {},
   slots = {},
   onSlotFiles = () => {},
+  /* ═══ 2026-09-25 批 AM：**时长为实**的两样 ═══════════════════════════════════════════════
+     ① slotPreviews —— 槽位里已上传素材的可播地址（key = block.key）。区域框选要在**用户上传的
+        那条视频**上拖框，所以它需要原始文件的临时地址（对象 URL 或服务端资产地址）；
+     ② regions / onRegionsChange —— 框选结果按**源像素**存在页面上（服务端 delogo 直接用）。 */
+  slotPreviews = {},
+  regions = [],
+  onRegionsChange = () => {},
   prompt = '',
   onPromptChange = () => {},
   values = {},
@@ -214,13 +222,30 @@ export default function VideoWorkbench({
                   <button
                     key={String(option.value)}
                     type="button"
-                    disabled={disabled}
+                    /* ⚠️ 批 AM：单个选项也可以**不可选**（自动标记那一档没接通）。
+                       与"接不通的付费动作渲染成静态说明行"同一条纪律：
+                       **不许把点了没有反应 / 点了报错的东西做成能点的选项**。 */
+                    disabled={disabled || option.disabled === true}
+                    title={option.disabled ? (option.reason || '暂未开放') : (option.note || '')}
                     aria-pressed={String(current) === String(option.value)}
                     className={String(current) === String(option.value) ? 'is-active' : ''}
                     onClick={() => onValueChange(block.bind, option.value)}
                   >{option.label}</button>
                 ))}
               </span>
+              {/* 每个选项自己的说明行（知渔在两颗胶囊下面各写了一句用途）；
+                  不可选的档位把**原因**也写出来 —— 用户看得到"为什么现在不能选"。 */}
+              {(block.options || []).some(option => option.note || option.reason) && (
+                <ul className="video-wb-option-notes">
+                  {(block.options || []).filter(option => option.note || option.reason).map(option => (
+                    <li key={`note-${String(option.value)}`} className={option.disabled ? 'is-off' : ''}>
+                      <strong>{option.label}</strong>
+                      <span>{option.note}</span>
+                      {option.disabled && <em>{option.reason || '暂未开放'}</em>}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           );
         }
@@ -326,6 +351,36 @@ export default function VideoWorkbench({
               <div className="video-wb-tags">
                 {(block.items || []).map(item => <span key={item}>{item}</span>)}
               </div>
+            </section>
+          );
+        }
+        if (block.kind === 'static') {
+          /* 知渔有些行是**纯文案**：例如去字幕页的「视频模型 · 智能去字幕」（实采里它只是文本，
+             不在 panelButtons 里 ⇒ 不是可选控件）。照它的位置与内容画出来，但不给选 ——
+             这比"干脆不画"更接近那一页，也比"画成选择器"诚实（本地方案没有模型可选）。 */
+          return (
+            <section className="media-workbench-group video-wb-block" key={block.key}>
+              <div className="video-wb-static">
+                <span>{block.title}</span>
+                <strong>{block.value}</strong>
+              </div>
+            </section>
+          );
+        }
+        if (block.kind === 'region') {
+          /* 区域框选（去字幕那一页的手动标记）：在**上面那个上传块**选中/上传的那条视频上拖框。 */
+          const sourceKey = block.for || '';
+          const preview = slotPreviews[sourceKey] || '';
+          return (
+            <section className="media-workbench-group video-wb-block" key={block.key}>
+              <h3 className="media-field-label"><span>{block.title}</span></h3>
+              <VideoRegionPicker
+                videoUrl={preview}
+                regions={regions}
+                onChange={onRegionsChange}
+                hint={block.hint || ''}
+                disabled={disabled}
+              />
             </section>
           );
         }

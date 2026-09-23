@@ -27,6 +27,19 @@ const videoGeneration = read('server/videoGeneration.mjs');
 const serverIndex = read('server/index.mjs');
 const canvas = read('src/pages/EcCanvas/index.jsx');
 
+/* ═══ 2026-09-25 批 AM：**切片判据换成"整个函数体"**（不是放宽，是去掉一个魔数）═══════════════
+   本文件原来用「createJob 起点的前 9000 字符」当窗口。那个窗口限制的其实不是
+   "闸门在不在建单之前"，而是"注释能写多长"：本批给 createJob 加了本地方案那条分支
+   （含必要的说明），INSERT 挪到了 10010 —— 闸门与 INSERT 的相对顺序一个字没变，
+   红的却是注释字数。改成按函数体切：**要证明的事完全一样**，而且不再因为多写几句注释误报。 */
+/* 返回 createJob 函数体的**结束下标**（数字）：整个函数体就是它的判据窗口，
+   不设魔数长度（详见上面那段说明：窗口限制的是注释字数，不是闸门的相对位置）。 */
+function functionEnd(source, startIndex) {
+  const rest = source.slice(startIndex);
+  const end = rest.indexOf('\n  }\n');
+  return end > 0 ? startIndex + end : startIndex + 12000;
+}
+
 const PLAN = {
   summary: '夏日清爽',
   creativeStrategy: '快节奏',
@@ -98,7 +111,7 @@ test('assertVideoPlanConfirmed：无方案 / 未确认 / 非 true 都拒绝', ()
 test('闸门与编译都在 createJob 内（服务端权威，客户端绕不过）', () => {
   const start = videoGeneration.indexOf('async function createJob(');
   assert.ok(start > 0, '必须能找到 createJob');
-  const seg = videoGeneration.slice(start, start + 9000);
+  const seg = videoGeneration.slice(start, functionEnd(videoGeneration, start));
   assert.match(seg, /assertVideoPlanConfirmed\(/, 'createJob 内必须有方案闸门');
   assert.match(seg, /compileVideoRequest\(/, 'createJob 内必须做方案编译');
   assert.match(seg, /const prompt = compiled\.prompt;/, '落库的 prompt 必须是编译结果');
@@ -139,7 +152,7 @@ test('闸门文案必须原样到达用户（400 + 可读中文，不是 500 兜
 
 test('闸门在 prompt 校验之后、建单之前（拒绝时不产生 job、不扣费）', () => {
   const start = videoGeneration.indexOf('async function createJob(');
-  const seg = videoGeneration.slice(start, start + 9000);
+  const seg = videoGeneration.slice(start, functionEnd(videoGeneration, start));
   const iGate = seg.indexOf('assertVideoPlanConfirmed(');
   const iInsert = seg.indexOf('INSERT INTO video_jobs');
   assert.ok(iGate > 0 && iInsert > iGate, '闸门必须在 INSERT 之前');

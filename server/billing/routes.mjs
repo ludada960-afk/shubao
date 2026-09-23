@@ -1,4 +1,4 @@
-import { FEATURE_SKUS, PRODUCTS, quoteFeature } from './catalog.mjs';
+import { FEATURE_SKUS, PRODUCTS, billableQuantity, quoteFeature } from './catalog.mjs';
 import { buildBillingRules, buildLedgerTransactions } from './billingLabels.mjs';
 import { quoteVideoMeter, listVideoMeterTiers } from './videoMeter.mjs';
 
@@ -298,10 +298,18 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
     quote: handler((req, res) => {
       const ownerEmail = ownerFor(req);
       const sku = identifier(req.body?.sku, 'sku');
-      const quantity = pageNumber(req.body?.quantity, 1, 'quantity');
       // 只给公开可售的 SKU 报价：内部/灰度 SKU（public:false）及下架项不发报价令牌
       const feature = FEATURE_SKUS[sku];
       if (!feature || feature.enabled === false || feature.public === false) throw codedError('BILLING_REQUEST_INVALID');
+      /* ═══ 2026-09-25 批 AM：**按秒计价的 SKU，份数由服务端算** ═══════════════════════════════════
+         去字幕是 0.04 积分/秒（40 units/秒），份数 = 视频整秒数。这个份数**只能由服务端定**
+         （与建单时的 hold 逐值相等，否则 quoteService.verify 直接 409）：
+         客户端只报"这条片子多少秒"这个事实，不报份数、更不报金额。
+         ⇒ 前端可以传 `seconds`，也可以什么都不传（默认 quantity=1，与既有 SKU 的行为一致）。 */
+      const seconds = Number(req.body?.seconds);
+      const quantity = feature.perSecond === true && Number.isFinite(seconds) && seconds > 0
+        ? billableQuantity({ sku, seconds })
+        : pageNumber(req.body?.quantity, 1, 'quantity');
       const quote = quoteFeature(sku, quantity);
       const reference = quoteService.issue({ ownerEmail, quote });
       return res.json({ quote: publicQuote({ ...quote, ...reference }) });

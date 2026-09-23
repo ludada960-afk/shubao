@@ -46,6 +46,18 @@ export const VIDEO_SPEC_EXPOSURE = Object.freeze({
   'video.drama_palace': { model: false, clarity: false, duration: true },   // 华丽古典后宫
   'video.drama_feud': { model: false, clarity: false, duration: true },   // 豪门恩怨短剧
   'video.talk_show': { model: false, clarity: false, duration: false },   // 趣味脱口秀
+  /* ═══ 2026-09-25 批 AM：本地方案两条（照知渔两条路由页派生）══════════════════════════════════
+     派生判据（门禁 test/video-spec-exposure-0924 用同一份实采全文重算）：
+       · 视频高清   /video-high-definition 的 panelText 里有「输出分辨率」⇒ clarity: true；
+         没有「模型」与「时长」⇒ 另两项 false。
+         ⚠️ 这一格的落点与上游不同：它不在创作台的「生成设置」面板里，而是**这一页自己的字段块**
+            （知渔也把它放在「视频设置」下）。所以创作台那边见到本地方案就不再重复画一遍
+            （判据：workbench 里已经声明了 bind 为 resolution 的块 ⇒ 创作台不再渲染清晰度段）。
+       · 视频字幕去除 /video-subtitle-removal 的 panelText 里有「视频模型」⇒ model: true。
+         ⚠️ 但它是**静态一行**（不在 panelButtons 里 ⇒ 不是可选控件）：所以这一页按 plan.hideModel
+            渲染成"标题 + 值"的只读行（智能去字幕），**不给模型选择器** —— 本地方案没有模型可选。 */
+  'video.upscale': { model: false, clarity: true, duration: false },   // 视频高清
+  'video.desubtitle': { model: true, clarity: false, duration: false },   // 视频字幕去除
 });
 
 /* 知渔没有对应页的自有玩法：不暴露这三项（与"建筑室内那一族"的形态一致） */

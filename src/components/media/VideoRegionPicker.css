@@ -1,0 +1,170 @@
+/* ═══ 字幕区域框选（视频字幕去除那一页）═══════════════════════════════════════════════════════
+   知渔 /video-subtitle-removal 的「手动标记：放大视频并手动框选字幕区域」——
+   控件实现在 VideoRegionPicker.jsx，这里只负责长相：
+     · 舞台固定高度 + 深色底（`--sb-surface-inverse`，与站内其它视频预览同一族）；
+     · 区域框用品牌色描边 + 品牌淡色填充（`--sb-brand-a18` 是既有的 18% 品牌透明档，
+       不新造色值）；编号胶囊用品牌底白字；
+     · 放大时给画布加 scale，舞台可滚动，让用户能拖看画面其余部分。
+   ⚠️ 色值一律走 --sb-* token（design-token-ratchet 门禁守着：任何文件都不许新增硬编码色值）。 */
+.video-region-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sb-space-2-5, 10px);
+}
+
+.video-region-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sb-space-1, 4px);
+  padding: var(--sb-space-5, 20px) var(--sb-space-4, 16px);
+  border: 1px dashed var(--sb-border-default);
+  border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface-tint);
+  text-align: center;
+}
+
+.video-region-empty strong {
+  font-size: var(--sb-text-sm, 14px);
+  color: var(--sb-ink-1);
+}
+
+.video-region-empty small {
+  font-size: var(--sb-text-xs, 12px);
+  color: var(--sb-ink-3);
+}
+
+.video-region-stage {
+  position: relative;
+  max-height: 280px;
+  overflow: auto;
+  border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface-inverse);
+}
+
+.video-region-canvas {
+  position: relative;
+  width: 100%;
+  transform-origin: top left;
+}
+
+.video-region-video {
+  display: block;
+  width: 100%;
+  border-radius: var(--sb-radius-lg);
+}
+
+.video-region-surface {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.video-region-box {
+  position: absolute;
+  border: 2px solid var(--sb-brand);
+  background: var(--sb-brand-a18);
+  border-radius: var(--sb-radius-xs);
+  display: block;
+}
+
+.video-region-box i {
+  position: absolute;
+  top: -10px;
+  left: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--sb-space-1, 4px);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-brand);
+  color: var(--sb-ink-on-dark);
+  font-size: var(--sb-text-2xs, 11px);
+  font-style: normal;
+  line-height: 18px;
+  text-align: center;
+}
+
+.video-region-box.is-draft {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.video-region-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sb-space-2-5, 10px);
+  flex-wrap: wrap;
+}
+
+.video-region-zoom,
+.video-region-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sb-space-1-5, 6px);
+  height: var(--sb-control-h-sm, 32px);
+  padding: 0 var(--sb-control-px-md, 12px);
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font-size: var(--sb-text-sm, 13px);
+  cursor: pointer;
+  transition: background-color var(--sb-duration-fast, 120ms) var(--sb-ease-out, ease);
+}
+
+/* 可点就有反馈（interactive-state-coverage 门禁：看不见的可点 = 不可用） */
+.video-region-zoom:hover,
+.video-region-clear:hover { background: var(--sb-hover-bg); }
+.video-region-zoom:active,
+.video-region-clear:active { background: var(--sb-active-bg); }
+
+.video-region-zoom[aria-pressed='true'] {
+  border-color: var(--sb-brand);
+  color: var(--sb-ink-brand);
+  background: var(--sb-brand-soft);
+}
+
+.video-region-count {
+  font-size: var(--sb-text-xs, 12px);
+  color: var(--sb-ink-3);
+}
+
+.video-region-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sb-space-1, 4px);
+}
+
+.video-region-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sb-space-2, 8px);
+  padding: var(--sb-space-1, 4px) var(--sb-space-2, 8px);
+  border-radius: var(--sb-radius-sm);
+  background: var(--sb-surface-tint);
+  font-size: var(--sb-text-xs, 12px);
+  color: var(--sb-ink-2);
+}
+
+.video-region-list button {
+  border: none;
+  border-radius: var(--sb-radius-sm);
+  background: none;
+  color: var(--sb-ink-3);
+  font-size: var(--sb-text-md, 15px);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--sb-duration-fast, 120ms) var(--sb-ease-out, ease);
+}
+
+.video-region-list button:hover { background: var(--sb-hover-bg); }
+.video-region-list button:active { background: var(--sb-active-bg); }
+
+.video-region-hint {
+  font-size: var(--sb-text-xs, 12px);
+  color: var(--sb-ink-3);
+}

@@ -101,6 +101,12 @@ const SKU_LABELS = Object.freeze({
   video_sd_js_long: { label: 'AI 视频 · Seedance 2.0 满参数 720P', category: 'video', per: '条' },
   video_seedance_mini_short: { label: 'AI 视频 · Seedance 2.0 Mini', category: 'video', per: '条' },
   video_seedance_mini_long: { label: 'AI 视频 · Seedance 2.0 Mini', category: 'video', per: '条' },
+  /* 2026-09-25 批 AM：本地方案两条（不走上游模型，本机 ffmpeg 处理）—— 标签如实写它做的是什么，
+     去字幕按**秒**计费（0.04 积分/秒）所以 per 写「秒」，用户对账时能自己对上。 */
+  video_upscale_local_short: { label: 'AI 视频 · 视频高清', category: 'video', per: '条' },
+  video_upscale_local_long: { label: 'AI 视频 · 视频高清', category: 'video', per: '条' },
+  video_desubtitle_local_short: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '秒' },
+  video_desubtitle_local_long: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '秒' },
   xhs_image_set_2k: { label: '小红书图文套装（1 封面 + 8 配图）', category: 'content', per: '套' },
   content_full_set: { label: '小红书内容集', category: 'content', per: '套' },
 });

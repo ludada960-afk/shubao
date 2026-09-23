@@ -214,7 +214,13 @@ export function recommendVideoRoute({ request: input = {}, products = null, hist
   if (request.invalidMode) blockers.push({ code: 'MODE_INVALID', detail: '创作模式无效，已拒绝自动路由。' });
   if (request.invalidObjective) warnings.push('未识别的路由偏好已回退为均衡。');
   const publicProducts = (products ? Object.values(products) : Object.values(VIDEO_PRODUCTS))
-    .filter(product => product?.public === true);
+    .filter(product => product?.public === true)
+    /* ═══ 2026-09-25 批 AM：**本地方案不进模型路由** ═════════════════════════════════════════════
+       路由器的职责是"按能力 / 成本 / 余额在**上游模型**之间挑一条"（见文件头的设计）。
+       视频高清 / 视频字幕去除不是模型：没有上游成本、不吃提示词与参考素材，由各自的 skill
+       子页面直接指定产品（plan.productId）。一旦被自动路由选中，用户会拿一条"按秒计费、
+       不吃提示词"的档位去跑文生视频 —— 点了必失败。 */
+    .filter(product => product?.localEngine !== true);
   /* 9-11(全上后候选变多): 可用性优先于评分 —— 时长/模式/清晰度/素材不满足的档位不能排在候选第一位,
      否则工作台推荐的第一个选项会在用户点击时才报「不支持」。排序: 可用户 > 评分 > id 稳定序。 */
   const candidates = publicProducts

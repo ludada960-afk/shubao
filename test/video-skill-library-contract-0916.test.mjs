@@ -22,7 +22,24 @@ test('① 每条声明形状合法：id 前缀、复杂度、pipeline、封面�
     assert.ok(['simple', 'standard', 'heavy'].includes(skill.complexity));
     assert.ok(VIDEO_PIPELINES.includes(skill.pipeline), 'pipeline 必须指向既有引擎：' + skill.id);
     assert.ok(skill.cover && skill.cover.template);
-    assert.ok(skill.fields.length >= 3, '视频 skill 至少要模型/清晰度/时长：' + skill.id);
+    /* ═══ 2026-09-25 批 AM：**判据改了（有依据的改判，不是放宽）**══════════════════════════════
+       原来写「视频 skill 至少要模型/清晰度/时长」—— 那条判据默认每条 skill 都共用
+       VIDEO_BASE_FIELDS 那三格。而用户 2026-09-24 的方向性批评（docs/design/69）正是
+       冲着这三格来的：「你为什么还有这种**模型 / 清晰度 / 时长都全部做进去**的情况呢」。
+       ⇒ 本地方案（视频高清 / 视频字幕去除）按方案声明字段：**没有模型格**，只有这一页真有的
+          那两格（上传视频 + 输出分辨率 / 字幕标记方式）。
+       守的东西没变（不许写空壳技能），只是承认两种形态：
+         · 走上游生成的：沿用 3 格（模型 / 清晰度 / 时长）；
+         · 本地方案（plan.engine 声明了的）：按方案给 ≥2 格，且**不许出现 model 字段**
+           （模型是实现细节，不进用户字段）。 */
+    const localPlan = skill.plan && skill.plan.engine === 'local-render';
+    assert.ok(skill.fields.length >= (localPlan ? 2 : 3),
+      (localPlan ? '本地方案至少要声明 2 格用户字段：' : '视频 skill 至少要模型/清晰度/时长：') + skill.id);
+    if (localPlan) {
+      assert.equal(skill.fields.some(field => field.key === 'model'), false,
+        '本地方案不许把「模型」放进用户字段（docs/design/69）：' + skill.id);
+      assert.equal(skill.plan.hideModel, true, '本地方案必须显式声明 hideModel: ' + skill.id);
+    }
     for (const field of skill.fields) {
       assert.ok(FIELD_KINDS.includes(field.kind), '未登记字段档位：' + skill.id + '/' + field.key);
       assert.ok(field.label.length <= 6, '字段名要短：' + skill.id + '/' + field.key);

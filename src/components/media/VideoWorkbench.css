@@ -126,3 +126,24 @@
 
 /* 付费动作按钮里的图标与文字同色（与图片侧同一口径） */
 .media-workbench-paid span svg { flex: 0 0 auto; }
+
+/* ═══ 批 AM（2026-09-25）：本地方案两条页面用到的两类块 ═══════════════════════════════════════ */
+
+/* 选项自带的说明行（知渔在「自动标记 / 手动标记」两颗胶囊下面各写了一句用途）+
+   不可选档位的原因（自动标记那一档没接通 —— 不许做点了没反应的假选项）。 */
+.video-wb-option-notes { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.video-wb-option-notes li { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
+.video-wb-option-notes li strong { font-weight: 600; color: var(--sb-ink-2); }
+.video-wb-option-notes li.is-off strong,
+.video-wb-option-notes li.is-off span { color: var(--sb-ink-4); }
+.video-wb-option-notes li em { font-style: normal; color: var(--sb-ink-warning); }
+
+/* 纯文案行（知渔去字幕页「视频模型 · 智能去字幕」那一行是文本，不是选择器：
+   实采里它不在 panelButtons 中 ⇒ 不可点。我们照它的位置与内容画，但不给选）。 */
+.video-wb-static { display: flex; align-items: baseline; gap: 10px; font-size: 13.5px; }
+.video-wb-static span { color: var(--sb-ink-3); }
+.video-wb-static strong { font-weight: 600; color: var(--sb-ink-1); }
+
+/* 不可选的胶囊（`disabled` 的 chips 选项）：灰掉但仍然看得出是"这一档存在" */
+.video-wb-chips button:disabled { cursor: not-allowed; opacity: 0.45; }
+.video-wb-chips button:not(:disabled):hover { background: var(--sb-hover-bg); }

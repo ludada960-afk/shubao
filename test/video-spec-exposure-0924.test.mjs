@@ -51,7 +51,16 @@ test('① 规格暴露表与知渔实采一致（手改必红）', () => {
 
 test('② 核查结论的样本量自证：知渔几乎没有这几格', () => {
   const rows = Object.values(VIDEO_SPEC_EXPOSURE);
-  assert.equal(rows.filter(row => row.clarity).length, 0, '知渔没有任何一页有「清晰度」这一格');
+  /* ═══ 2026-09-25 批 AM：**判据跟着事实走**（本地方案那两页进来了）══════════════════════════
+     原来这条写「知渔没有任何一页有清晰度」，那是**30 个上游技能页**的核查结论。
+     批 AM 新增的两条本地方案同样有知渔对应页，其中「视频高清」那一页**确实有**输出分辨率
+     （"视频设置 · 输出分辨率 720p/1080p/2k"）—— 于是"0 页"这句话不再成立。
+     判据改成逐条说清楚：**有清晰度的那一页就是视频高清**（别的页仍一页都没有），
+     它不是例外而是事实：知渔的高清页本来就是给用户选输出分辨率的。
+     ⚠️ 这不是放宽：`clarity: true` 的落点是**那一页自己的字段块**（见 videoWorkbenches 的
+        resolution chips），创作台不再重复画一格（见 VideoStudio 的 pageOwnsField 判据）。 */
+  const clarityRows = Object.entries(VIDEO_SPEC_EXPOSURE).filter(([, row]) => row.clarity).map(([id]) => id);
+  assert.deepEqual(clarityRows, ['video.upscale'], '知渔侧只有「视频高清」那一页有分辨率/清晰度这一格');
   assert.ok(rows.filter(row => row.model).length <= 6, '知渔只有个位数页面有「模型」格');
   assert.ok(rows.filter(row => row.duration).length <= 8, '知渔只有个位数页面有「时长」格');
   assert.ok(rows.length >= 28, '有对应页的技能应 ≥28 条，实际 ' + rows.length);

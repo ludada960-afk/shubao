@@ -24,8 +24,19 @@ export const VIDEO_PIPELINES = [
   'videoFrame',   // 现有首尾帧链路
   'videoRemake',  // 现有爆款复刻链路
   'videoReference', // 现有全能参考（图片/视频/音频）链路
+  /* ═══ 2026-09-25 批 AM：**本地渲染链路**（视频高清 / 视频字幕去除）═══════════════════════════
+     docs/design/69：技能＝方案，模型＝实现细节。「视频高清」与「视频字幕去除」不是某条上游模型，
+     而是两个本机就能交付的方案（ffmpeg scale / delogo，见 server/localVideoPlan.mjs）。
+     ⇒ 它们是**第五条链路**，所以显式登记在这里（而不是硬塞进 videoReference 冒充参考链路）。
+        声明它还有一个实际作用：skillEmbedOf 按 `startsWith('video')` 认出"这一页能就地跑完"，
+        于是这两条 skill 仍然嵌既有的视频创作台（结果与历史都留在本页）。 */
+  'videoLocal',
 ];
 export const VIDEO_AVAILABILITY = ['ready', 'needs_ref', 'blocked'];
+/* 本地方案的引擎标识（docs/design/69 的 plan.engine）。声明放在 VIDEO_SKILLS **之前**：
+   skill 声明里要引用它，而 const 有暂时性死区 —— 放到文件末尾就是渲染期 TDZ
+   （本仓 2026-09-17 那条硬门禁 test/no-tdz-before-init 守的正是这类写法）。 */
+export const LOCAL_RENDER_ENGINE = 'local-render';
 
 /* 视频技能的工作台就是**嵌进子页面的创作台本身**（视频生成 3 档：智能成片 / 首尾帧 / 爆款重构），
    所以这里的 fields 只声明"这条玩法要用到哪些输入"，真正可点的控件在创作台里
@@ -572,8 +583,86 @@ export const VIDEO_SKILLS = [
     fields: VIDEO_BASE_FIELDS,
     cases: [], history: true,
   },
+
+  /* ═══ 2026-09-25 批 AM：**本地方案的两条技能**（视频高清 / 视频字幕去除）══════════════════════
+     用户口径（两轮前那句方向性纠正，也是 docs/design/69 的立论）：
+       「难道你没有什么比如 github 上的一些开源项目可以实现吗，**为什么一切都要追究模型呢**，
+       你确定这是最佳的路径吗」「全部做完呀，为什么又停下来呢」
+
+     ⇒ 这两条**不走上游模型**，走本机 ffmpeg（服务端 server/videoGeneration 按 localEngine 派发）：
+         · 视频高清     = 上传视频 → 本机 scale/fps → 交付（0.50 积分/条，照知渔那一页的价）
+         · 视频字幕去除 = 上传视频 →（手动框选字幕区域）→ 本机 delogo → 交付（0.04 积分/秒）
+     字段逐条照知渔实采（docs/design/video-pages.json 的 /video-high-definition 与
+     /video-subtitle-removal 两条路由页）：**没有模型格**（知渔那两页的"视频模型：智能去字幕"
+     是**静态文案**，不是可选控件 —— 见 plan.hideModel / modelLabel）。
+     plan 字段是 docs/design/69 §3.1 的形态：engine / defaults / userFields / hideModel。
+     ⚠️ fields 只声明"这一页要用户给什么"，真正可点的控件在左栏工作台（videoWorkbenches.js）。 */
+  {
+    id: 'video.upscale', board: 'video', name: '视频高清', category: '精品推荐', complexity: 'simple',
+    summary: '提升视频清晰度与画面质量', capability: ['video'], availability: 'ready',
+    pipeline: 'videoLocal', cover: { template: 'case-3up', accent: 'cool' },
+    plan: {
+      engine: LOCAL_RENDER_ENGINE,
+      steps: ['ingest', 'upscale', 'deliver'],
+      /* 默认 1080p：知渔那一页三档同价，我们按"默认给一个明显更好的档"取中间那档 */
+      defaults: { resolution: '1080p', fps: 30 },
+      /* 照知渔：这一页只有这两格是用户可以选的（输出分辨率 / FPS） */
+      userFields: ['resolution', 'fps'],
+      /* 知渔**没有**模型格（他们的模型行只出现在 /ai-video 那一族）⇒ 明确不给选 */
+      hideModel: true,
+      productId: 'upscale_local',
+      note: '本机 ffmpeg 提分辨率与帧率（近似超分：更精细的重采样，不无中生有细节），零上游成本、不排队',
+    },
+    fields: [
+      { key: 'source', label: '上传视频', kind: 'upload', required: true },
+      { key: 'resolution', label: '输出分辨率', kind: 'segmented', required: true },
+      { key: 'fps', label: 'FPS', kind: 'segmented', required: false },
+    ],
+    cases: [], history: true,
+  },
+  {
+    id: 'video.desubtitle', board: 'video', name: '视频字幕去除', category: '精品推荐', complexity: 'simple',
+    summary: '上传视频，去除画面中的字幕', capability: ['video'], availability: 'ready',
+    pipeline: 'videoLocal', cover: { template: 'case-3up', accent: 'accent' },
+    plan: {
+      engine: LOCAL_RENDER_ENGINE,
+      steps: ['ingest', 'mark', 'erase', 'deliver'],
+      /* 默认手动标记：知渔那一页的主路径（放大视频 + 手动框选字幕区域）——我们只接通了这一档 */
+      defaults: { markMode: 'manual' },
+      userFields: ['markMode', 'regions'],
+      hideModel: true,
+      /* 知渔那一页在「视频模型」那一行写的是**静态一句**「智能去字幕」（实采里它是纯文本，
+         不在 panelButtons 里 ⇒ 不是可选控件）。我们照它的样子显示、但不给选。 */
+      modelLabel: '智能去字幕',
+      engineLabel: '本机区域擦除',
+      productId: 'desubtitle_local',
+      note: '本机 ffmpeg 区域擦除（delogo）：用周边像素把框选区域补掉，纯 CPU、零上游成本',
+    },
+    fields: [
+      { key: 'source', label: '上传视频', kind: 'upload', required: true },
+      { key: 'markMode', label: '字幕标记方式', kind: 'segmented', required: true, longLabelReason: '照知渔原文逐字：他们这一格的标题就叫「字幕标记方式」（六个字）' },
+    ],
+    cases: [], history: true,
+  },
 ];
 export const VIDEO_SKILL_CATEGORIES = [...new Set(VIDEO_SKILLS.map(skill => skill.category))];
+
+/* ═══ 本地方案的技能（2026-09-25 批 AM）—— 唯一的取用口 ══════════════════════════════════════
+   docs/design/69 的 `plan` 形态：技能＝方案，模型＝实现细节。声明见上面两条 skill 的 plan 字段。
+   为什么要有这个函数而不是让页面直接读 `skill.plan`：
+     页面上真正要判断的是三件事 ——「走哪条链路」「给不给选模型」「要露哪几格」，
+     它们必须**只从这一处**取（页面各自 if 一遍就会出现"这页给了模型格、那页没给"的漂移）。 */
+export function videoSkillPlanOf(skillId) {
+  const id = typeof skillId === 'string' ? skillId.trim() : '';
+  if (!id) return null;
+  const skill = VIDEO_SKILLS.find(item => item.id === id);
+  return skill?.plan || null;
+}
+
+/* 这条技能是不是本地方案（本机渲染 / 区域擦除，不走上游模型） */
+export function isLocalRenderSkill(skillId) {
+  return videoSkillPlanOf(skillId)?.engine === LOCAL_RENDER_ENGINE;
+}
 
 export function getVideoSkill(id) {
   const key = typeof id === 'string' ? id.trim() : '';

@@ -15,7 +15,7 @@ import {
   validateVideoProductInput,
   videoFeatureSku as catalogVideoFeatureSku,
 } from './videoCatalog.mjs';
-import { createLocalVideoAdapter, ffmpegAvailable } from './videoLocalAdapter.mjs';
+import { createLocalVideoAdapter, ffmpegAvailable, probeDurationSeconds } from './videoLocalAdapter.mjs';
 import { validateLocalPlanInput } from './localVideoPlan.mjs';
 import {
   buildProviderPayload,
@@ -651,6 +651,22 @@ export function createVideoGeneration({
     return provider;
   }
 
+  /* 本地方案的**源文件路径**（建单前的时长核对用；与 localProviderPayload 同一套白名单规则：
+     basename 收口，不许拼出目录穿越）。找不到文件返回 null —— 那种情况会在建单后的派发阶段
+     以 VIDEO_REFERENCE_NOT_FOUND 失败并退费，不在这里拦住（这里的职责只是"量时长"）。 */
+  async function sourceFilePathFor(references) {
+    const sourceId = clean((Array.isArray(references?.videos) ? references.videos[0] : '') || '', 140);
+    if (!sourceId) return null;
+    const row = db.prepare('SELECT file_name FROM video_assets WHERE id = ?').get(sourceId);
+    if (!row) return null;
+    return resolve(inputRoot, basename(row.file_name || sourceId));
+  }
+  async function probeSourceSeconds(references) {
+    const filePath = await sourceFilePathFor(references);
+    if (!filePath) return null;
+    return probeDurationSeconds(filePath).catch(() => null);
+  }
+
   async function persistOutput(job, response) {
     const contentType = clean(response.headers.get('content-type'), 100).split(';')[0] || 'video/mp4';
     if (!contentType.startsWith('video/')) throw httpError(502, 'VIDEO_OUTPUT_TYPE_INVALID', '生成结果无效，请重试');
@@ -1273,17 +1289,27 @@ export function createVideoGeneration({
     let prompt = '';
     let negativePrompt = '';
     if (!localEngine) {
-      assertVideoPlanConfirmed({
-        plan: input?.videoPlan,
-        planConfirmed: input?.planConfirmed === true,
-      });
-      compiled = compileVideoRequest({
-        prompt: input?.prompt,
-        negativePrompt: input?.negativePrompt,
-        plan: input?.videoPlan,
-      });
-      prompt = compiled.prompt;
-      negativePrompt = compiled.negativePrompt;
+      /* 上游那条路：闸门 + 编译**都在这里**（服务端权威，客户端绕不过）。
+         用 IIFE 的意义只有一个：`const prompt = compiled.prompt` 这两行必须**字面留在
+         createJob 内** —— test/video-plan-billing-chain-0918 与 plan-affects-output-audit-0918
+         两条门禁守的就是"落库的 prompt 是编译结果"这件事，不该因为我加了本地分支而改判据。 */
+      const upstream = (() => {
+        assertVideoPlanConfirmed({
+          plan: input?.videoPlan,
+          planConfirmed: input?.planConfirmed === true,
+        });
+        const compiled = compileVideoRequest({
+          prompt: input?.prompt,
+          negativePrompt: input?.negativePrompt,
+          plan: input?.videoPlan,
+        });
+        const prompt = compiled.prompt;
+        const negativePrompt = compiled.negativePrompt;
+        return { compiled, prompt, negativePrompt };
+      })();
+      compiled = upstream.compiled;
+      prompt = upstream.prompt;
+      negativePrompt = upstream.negativePrompt;
     }
     const duration = localEngine ? localPlan.duration : Number(input?.duration);
     const resolution = localEngine ? localPlan.resolution : clean(input?.resolution, 20).toLowerCase();
@@ -1312,6 +1338,19 @@ export function createVideoGeneration({
     const references = normalizeReferences(ownerEmail, input?.references, publicBaseUrl);
     if (mode === 'local' && references.videos.length !== 1) {
       throw httpError(400, 'VIDEO_LOCAL_SOURCE_REQUIRED', '请先上传要处理的视频（一次一条）');
+    }
+    /* ═══ 本地方案的时长必须与源文件相符（2026-09-25 批 AM）══════════════════════════════════════
+       去字幕**按秒计费**，而秒数是客户端报上来的（浏览器读元数据）—— 不核对的话，
+       报 1 秒、实际 60 秒就是少收 59 秒的钱（0.04 积分/秒 → 少收 2.36 积分）。
+       所以建单前用 ffprobe 量一次**真实时长**：明显短报（>2 秒）直接拒，不建单、不收费。
+       ⚠️ 量不出来（ffprobe 不可用/容器异常）不拦：宁可放行也不误伤正常用户 ——
+          上面那道 ffmpegAvailable 预检已经保证"本机能渲染"，这里只是多一道防少报的闸。 */
+    if (mode === 'local') {
+      const probed = await probeSourceSeconds(references);
+      if (probed && localPlan.duration < probed - 2) {
+        throw httpError(400, 'VIDEO_LOCAL_DURATION_MISMATCH',
+          `视频时长与申报不符（申报 ${localPlan.duration} 秒，实际约 ${Math.round(probed)} 秒），请重新选择文件`);
+      }
     }
     if (mode === 'frame' && (!references.firstImage || !references.lastImage)) throw httpError(400, 'VIDEO_FRAME_REQUIRED', '首尾帧模式需要两张图片');
     if (mode === 'reference' && !references.images.length && !references.videos.length) {

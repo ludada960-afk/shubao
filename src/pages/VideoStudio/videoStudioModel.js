@@ -84,3 +84,43 @@ export function hasRequiredVideoInputs(mode, files = {}) {
   if (mode === 'remake') return Boolean(files.images?.length && files.videos?.length);
   return true;
 }
+
+/* ═══ 本地方案的计费数量与报价（2026-09-25 批 AM）══════════════════════════════════════════════
+   两条本地方案的计价口径**不一样**（都是用户批准过的价）：
+     · 视频高清   0.50 积分/条  —— 数量恒为 1，与时长无关；
+     · 视频字幕去除 0.04 积分/秒 —— 数量 = 源视频整秒数（不足一秒按一秒算）。
+   服务端那份规则在 server/billing/catalog.mjs 的 billableQuantity（唯一事实源：建 hold 用的就是它），
+   这里这一份是**报价用**的镜像：数量必须与它逐值相等，否则 quoteService.verify 会 409
+   「费用确认不一致」。镜像不许漂移 —— test/video-local-dispatch-0925 用同一批样本
+   同时断言两边（含 12.4 秒 → 13 这种边界）。
+
+   ⚠️ 数量规则来自**服务端**（capabilities 里每个本地产品的 billingQuantity），页面不自己判断
+      "哪个产品按秒"：产品目录改一条，页面不用跟着改。 */
+export function localBillableQuantity(product, seconds) {
+  if (product?.billingQuantity !== 'seconds') return 1;
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.max(1, Math.ceil(value));
+}
+
+/* 本地产品在这一档时长下的报价（sku + units + 积分）：
+   quantity = localBillableQuantity(...)，short/long 仍按 ≤8 秒分界（与服务端 videoFeatureSku 同源）。 */
+export function localQuoteFor(product, seconds) {
+  if (!product || typeof product !== 'object') return null;
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const tier = value <= 8 ? 'short' : 'long';
+  const quote = product.quotes?.[tier];
+  if (!quote) return null;
+  const quantity = localBillableQuantity(product, value);
+  if (!quantity) return null;
+  return { ...quote, quantity, totalUnits: quote.units * quantity };
+}
+
+/* 本地产品在这档时长下要花多少积分（按钮上那个数字）：
+   按条的档 = 固定值；按秒的档 = 秒数 × 单价 —— 向上取整到整数积分（界面只显示整数积分，
+   与既有 estimatedPoints 同一口径：Math.ceil(totalUnits / 1000)）。 */
+export function localJobPoints(product, seconds) {
+  const quote = localQuoteFor(product, seconds);
+  return quote ? Math.ceil(quote.totalUnits / 1000) : 0;
+}

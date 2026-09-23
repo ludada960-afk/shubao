@@ -72,6 +72,16 @@ export const QUANTV_VIDEO_COUNTERPARTS = Object.freeze({
   'video.building_grow': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr95whex00hm2xm0mxtqjly9', kind: 'page', note: '建筑生长：首图要求：建筑场景空地图 + 尾图要求：建筑效果图 + 比例' },
   'video.plant_grow': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr95g674008o2xm0e6tk58ne', kind: 'page', note: '植物生长：首图要求：景观空地图 + 尾图要求：景观效果图 + 比例' },
   'video.storyboard_to_video': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w901f011114i3dyig00lf', kind: 'page', note: '建筑分镜电影制作：参考图（要求：分镜图需包含多个分镜）+ 比例 + 时长 5/10/15' },
+  /* ═══ 2026-09-25 批 AM：**本地方案的两条路由页**（视频高清 / 视频字幕去除）═══════════════════
+     这两条是知渔的**路由页**（/video-high-definition、/video-subtitle-removal，不是 /apps?id=…），
+     实采全文在 docs/design/data/quantv-video-pages.json 里，逐字抄录：
+       · 视频高清：上传视频 0/1 + 视频设置（输出分辨率 720p/1080p/2k、FPS 30fps/60fps）+ 消耗 0.50 积分
+       · 视频字幕去除：视频模型（静态一行「智能去字幕」）+ 上传原视频 0/1 + 字幕标记方式
+         （自动标记 / 手动标记：放大视频并手动框选字幕区域）+ 本次消耗 0.04 积分
+     ⚠️ 它们**不走上游模型**：高清＝本机 ffmpeg scale、去字幕＝本机 delogo（user:「为什么一切都要
+        追究模型呢」）。"知渔的页面"仍是唯一依据 —— 字段、档位、价目都照它。 */
+  'video.upscale': { counterpart: QUANTV_VIDEO_BASE + '/video-high-definition', kind: 'page', note: '视频高清：上传视频 0/1 + 视频设置（输出分辨率 720p/1080p/2k + FPS 30fps/60fps）+ 消耗 0.50 积分（**没有模型格**）' },
+  'video.desubtitle': { counterpart: QUANTV_VIDEO_BASE + '/video-subtitle-removal', kind: 'page', note: '视频字幕去除：视频模型（静态一行「智能去字幕」，不是选择器）+ 上传原视频 0/1 + 字幕标记方式（自动标记 / 手动标记：放大视频并手动框选字幕区域）+ 本次消耗 0.04 积分' },
 
   /* ── 知渔有同形态的页面：字段形态照抄，玩法不同（kind: 'shape'）───────────────── */
   'video.image_to_video': { counterpart: QUANTV_VIDEO_BASE + '/apps?id=cmr1w8lt2010q14i3bfmj1xvn', kind: 'shape', note: '建筑图转视频是"单图 → 视频"这一形态（参考图 + 比例六档，比同族多一档 21:9）；我们这条是通用图生视频' },
@@ -137,17 +147,29 @@ export function quantvVideoCounterpartOf(skillId) {
    用户铁律：「所有的逻辑，所有的布局，所有的规范都得是一模一样的」。
    批 Q-⑥ 给视频子页面加了「参数配置」组头，那一版是照 **app 页**实测的（/apps?id=… 有组头）——
    本轮把 32 个子页面**逐条计数**（证据 docs/design/data/quantv-video-pages.json 的 panelText 全文检索）：
-     · 有「参数配置」**25** 条：24 个 app 页 + 1 条路由页（视频字幕去除）
-     · **没有** **7** 条：6 条路由页（视频创作 / 爆款复刻 / 探店视频 / 内容替换 / 数字人 / 视频高清）
-       + 趣味脱口秀（app）
-   ⇒ **路由型页面左栏没有组头**（第一格直接是字段），app 页有组头 —— 两种都要一模一样。
-   ⚠️ 判据从对照表**派生**，不在页面里再写一份名单（上一版的教训：名单写两处必然漂移）。
-   ⚠️ 自有玩法（counterpart: null）知渔没有对应页可比：沿用现状（按 app 型渲染组头）——
-      32 条里 25 条有组头，这是多数形态，且这是"不改动既有页面"的保守取法。 */
+     · 有「参数配置」**25** 条；**没有**的 **7** 条（下面这份名单就是那 7 条，逐字来自实采）。
+   ⇒ 判据不能用"app 页有、路由页没有"去猜：那两句话各有一个反例 ——
+       · **视频字幕去除**（路由页）实测**有**组头；
+       · **趣味脱口秀**（app 页）实测**没有**组头。
+     所以这里直接登记**没有组头的那 7 个 URL**（要证"没有"就把名单摊开，不用近似规则），
+     门禁 test/video-route-subpage-parity-0921 拿这份名单与实采 json **逐条**核对：
+     名单与证据一旦漂移就红。 */
+const PAGES_WITHOUT_PARAM_GROUP = new Set([
+  QUANTV_VIDEO_BASE + '/ai-video',                  // 视频创作
+  QUANTV_VIDEO_BASE + '/video-recreation',          // 爆款复刻
+  QUANTV_VIDEO_BASE + '/store-visit-video',         // 探店视频
+  QUANTV_VIDEO_BASE + '/content-replace',           // 内容替换（路由页）
+  QUANTV_VIDEO_BASE + '/digital-human',             // 数字人
+  QUANTV_VIDEO_BASE + '/video-high-definition',     // 视频高清
+  QUANTV_VIDEO_BASE + '/apps?id=cmr1w7n9000z114i3rvzyd4c8',   // 趣味脱口秀（app 页里唯一没有组头的）
+]);
+
 export function quantvVideoShowsParamGroup(skillId) {
   const record = QUANTV_VIDEO_COUNTERPARTS[skillId];
+  /* 自有玩法（counterpart: null）知渔没有对应页可比：沿用现状（渲染组头）——
+     32 条里 25 条有组头，这是多数形态，且这是"不改动既有页面"的保守取法。 */
   if (!record || !record.counterpart) return true;
-  return String(record.counterpart).includes('/apps?id=');
+  return !PAGES_WITHOUT_PARAM_GROUP.has(String(record.counterpart));
 }
 
 export function videoSkillsWithCounterpart() {

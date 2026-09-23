@@ -172,7 +172,13 @@ test('⑤ 接线：子页面按这条 skill 的声明渲染，首页与独立路
   assert.match(studio, /<VideoWorkbench/, '页面必须渲染声明源，不许写死块');
   /* 槽位素材必须真的进生成请求 —— 否则"抄了界面但没接线"，那是假功能 */
   assert.match(studio, /images: \[\.\.\.files\.images, \.\.\.slotImageFiles\]/, '槽位素材必须进生成请求');
-  assert.match(studio, /Object\.values\(slotFiles\)\.forEach/, '槽位素材必须走同一条上传链路');
+  /* ⚠️ 2026-09-25 批 AM：**判据跟着事实改**（不是放宽）——
+     原来写 `Object.values(slotFiles).forEach`（那时槽位只有图片，种类恒为 image）。
+     本地方案的上传位是**视频**（视频高清 / 去字幕的源片），一律传成 image 会被服务端 415 拒收，
+     所以改成按 **block 声明的 accept** 判种类：`Object.entries(slotFiles).forEach` + slotKindOf。
+     这条守的还是原来那件事：槽位素材走**同一条**上传链路（不是另开一条通路）。 */
+  assert.match(studio, /Object\.entries\(slotFiles\)\.forEach/, '槽位素材必须走同一条上传链路');
+  assert.match(studio, /slotKindOf\(slotKey\)/, '槽位种类必须按块声明判（视频槽位不能当图片传）');
 });
 
 test('⑥ 案例区：知渔页签已取证；我们不改名（用户把这一栏叫「历史」）', () => {

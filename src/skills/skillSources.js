@@ -142,6 +142,13 @@ export const SKILL_SOURCES = Object.freeze({
   'video.drama_palace': { ...QUANTV, ref: '视频制作 / 电商带货 / 华丽古典后宫' },
   'video.drama_feud': { ...QUANTV, ref: '视频制作 / 电商带货 / [短剧风格]豪门恩怨' },
   'video.talk_show': { ...QUANTV, ref: '视频制作 / 电商带货 / 趣味脱口秀' },
+  /* ═══ 2026-09-25 批 AM：本地方案两条（不走上游模型，走本机 ffmpeg）═══════════════════════════
+     出处仍是竞品产品侧（知渔的两条**路由页**）：字段、档位与价目照抄，实现换成本机渲染
+     （user:「难道你没有什么比如 github 上的一些开源项目可以实现吗，为什么一切都要追究模型呢」）。
+     ⚠️ 没有登记成 'repo'：ffmpeg 是工具库不是"配方来源"；这一页的**产品形态**来自知渔，
+        写法（scale / delogo 滤镜链）是我们自己的实现，出处如实写 competitor。 */
+  'video.upscale': { ...QUANTV, ref: '视频制作 / 视频高清（/video-high-definition）', note: '输出分辨率 720p/1080p/2k + FPS 30/60 与 0.50 积分/条照抄知渔；实现是本机 ffmpeg scale（不走上游模型）' },
+  'video.desubtitle': { ...QUANTV, ref: '视频制作 / 视频字幕去除（/video-subtitle-removal）', note: '字幕标记方式（自动/手动）与 0.04 积分/秒照抄知渔；手动那一档＝本机 ffmpeg delogo 区域擦除，自动那一档未接通（标注不可选）' },
 });
 
 export function sourceOf(skillId) {

@@ -39,8 +39,15 @@ test('video studio is an authenticated durable billed workspace embedded in home
      本条守的判据一字未变：积分统一放在按钮内、不再有左侧独立积分栏。 */
   assert.ok(page.includes('<span className="shubao-gen-cta-points"'), '积分必须在按钮内');
   assert.match(page, /\{totalJobPoints \|\| ANALYSIS_POINTS\} 积分/, '未确认方案时按钮显示的是整个任务的总价');
-  assert.match(page, /const totalJobPoints = estimatedPoints > 0 \? estimatedPoints \+ ANALYSIS_POINTS : 0;/,
-    '总价 = 方案分析 + 成片预估（成片预估来自服务端报价，随配置变化）');
+  /* ═══ 2026-09-25 批 AM：**判据跟着事实改**（上游那一条一个字没动）═════════════════════════════
+     原来这里写死一行字面量 `estimatedPoints > 0 ? estimatedPoints + ANALYSIS_POINTS : 0`。
+     本批加了本地方案（视频高清 / 视频字幕去除）—— 它**没有"分析并生成方案"那一步**：
+     它的方案就是渲染清单（分辨率 / 帧率 / 框选区域），不存在模型侧的口味要确认，
+     收那 1 积分等于凭空多收。⇒ 总价分两条：上游 = 方案分析 + 成片预估（原判据原样保留），
+     本地 = 成片报价本身。守的东西没变：**按钮上的积分就是"这一下要花多少"**，且随配置实时变化。 */
+  assert.match(page, /const totalJobPoints = localEngine\s*?\n?\s*\? estimatedPoints\s*?\n?\s*: \(estimatedPoints > 0 \? estimatedPoints \+ ANALYSIS_POINTS : 0\);/,
+    '总价 = 方案分析 + 成片预估（成片预估来自服务端报价）；本地方案不收方案分析费');
+  assert.match(page, /localJobPoints\(localProduct, localSourceSeconds\)/, '本地方案的预估积分必须来自目录报价（不许在页面里写死）');
   assert.ok(!page.includes('video-submit-meta'), '左侧独立积分栏不得回归');
   assert.match(page, /const ANALYSIS_POINTS = 1;/);
   assert.match(page, /video-generate-trigger shubao-gen-cta/);

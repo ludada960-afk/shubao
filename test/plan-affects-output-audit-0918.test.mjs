@@ -13,6 +13,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+
+/* ═══ 2026-09-25 批 AM：**切片判据换成"整个函数体"**（不是放宽，是去掉一个魔数）═══════════════════
+   原来用「createJob 起点的前 9000 字符」当窗口。那个窗口限制的其实不是"闸门在不在建单之前"，
+   而是"注释能写多长"：本批给 createJob 加了本地方案那条分支（含必要的说明），INSERT 挪到了
+   10010 —— 闸门与 INSERT 的相对顺序一个字没变，红的却是注释字数。改成按函数体切：
+   **要证明的事完全一样**，而且不再因为后来人多写几句注释就误报。 */
+/* 返回 createJob 函数体的**结束下标**（数字）：整个函数体就是它的判据窗口，
+   不设魔数长度（详见上面那段说明：窗口限制的是注释字数，不是闸门的相对位置）。 */
+function functionEnd(source, startIndex) {
+  const rest = source.slice(startIndex);
+  const end = rest.indexOf('\n  }\n');
+  return end > 0 ? startIndex + end : startIndex + 12000;
+}
 const canvas = read('src/pages/EcCanvas/index.jsx');
 
 /* ── ① 视频生成：方案必须进请求 ─────────────────────────────────── */
@@ -27,7 +40,7 @@ test('视频：请求体带结构化方案 + 确认标记', () => {
 test('视频：服务端把方案编译进 prompt（不是客户端自己拼）', () => {
   const gen = read('server/videoGeneration.mjs');
   const start = gen.indexOf('async function createJob(');
-  const seg = gen.slice(start, start + 9000);
+  const seg = gen.slice(start, functionEnd(gen, start));
   assert.match(seg, /compileVideoRequest\(/, '服务端必须编译方案');
   assert.match(seg, /const prompt = compiled\.prompt;/, '落库 prompt = 编译结果');
 });
@@ -76,7 +89,7 @@ test('不变式：视频链有服务端闸门（无方案/未确认 → 400，�
   const gen = read('server/videoGeneration.mjs');
   assert.match(gen, /assertVideoPlanConfirmed\(/, '必须有服务端闸门');
   const start = gen.indexOf('async function createJob(');
-  const seg = gen.slice(start, start + 9000);
+  const seg = gen.slice(start, functionEnd(gen, start));
   assert.ok(seg.indexOf('assertVideoPlanConfirmed(') < seg.indexOf('INSERT INTO video_jobs'),
     '闸门必须在建单之前（拒绝时零副作用）');
 });

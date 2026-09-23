@@ -300,6 +300,41 @@ test('⑥ 端到端：本地方案的单走本机渲染 → 成片落库（上�
   assert.equal(upstreamCalls.length, 0);
 });
 
+test('⑧ 前端/服务端的计费数量规则**逐值一致**（漂移了就是"显示 0.5、扣 0.04"那类事故）', async () => {
+  /* 服务端那一份（建 hold 用的）在 server/billing/catalog.mjs 的 billableQuantity；
+     前端那一份（报价用的）在 src/pages/VideoStudio/videoStudioModel.js 的 localBillableQuantity。
+     两份必须同源同值 —— 这个门禁就是它们的"同源"证明（跨层，单看一边看不出来）。 */
+  const { localBillableQuantity, localQuoteFor, localJobPoints } = await import('../src/pages/VideoStudio/videoStudioModel.js');
+  const clip = { billingQuantity: 'clip', quotes: { short: { sku: 'video_upscale_local_short', units: 500 }, long: { sku: 'video_upscale_local_long', units: 500 } } };
+  const perSecond = { billingQuantity: 'seconds', quotes: { short: { sku: 'video_desubtitle_local_short', units: 40 }, long: { sku: 'video_desubtitle_local_long', units: 40 } } };
+  for (const seconds of [1, 5, 8, 9, 12, 12.4, 30, 60.01]) {
+    assert.equal(
+      localBillableQuantity(clip, seconds),
+      billableQuantity({ sku: 'video_upscale_local_short', seconds }),
+      '按条那一档的数量必须与 billableQuantity 一致（seconds=' + seconds + '）',
+    );
+    assert.equal(
+      localBillableQuantity(perSecond, seconds),
+      billableQuantity({ sku: 'video_desubtitle_local_short', seconds }),
+      '按秒那一档的数量必须与 billableQuantity 一致（seconds=' + seconds + '）',
+    );
+  }
+  /* 报价合同也对着目录比：units × 数量 = totalUnits，且积分算法与界面一致（向上取整到整数积分） */
+  const ten = localQuoteFor(perSecond, 10);
+  const tenServer = quoteFeature('video_desubtitle_local_long', billableQuantity({ sku: 'video_desubtitle_local_long', seconds: 10 }));
+  assert.equal(ten.sku, tenServer.sku);
+  assert.equal(ten.totalUnits, tenServer.totalUnits, '10 秒 = 400 units（0.4 积分）');
+  assert.equal(localJobPoints(perSecond, 10), 1, '界面按整数积分显示：0.4 → 1（与 estimatedPoints 同一口径）');
+  const clipQuote = localQuoteFor(clip, 30);
+  assert.equal(clipQuote.totalUnits, 500, '按条那一档与时长无关');
+  assert.equal(localJobPoints(clip, 30), 1, '0.50 积分 → 1');
+  /* 时长读不出来（0 / 负数 / 非数）时不许报出一个假的价：宁可返回 0，让按钮保持禁用 */
+  for (const bad of [0, -3, Number.NaN, undefined, 'abc']) {
+    assert.equal(localQuoteFor(perSecond, bad), null, '读不到时长就不报价：' + String(bad));
+    assert.equal(localJobPoints(perSecond, bad), 0);
+  }
+});
+
 test('⑦ 派发点：产品声明决定链路（本地方案有本地适配器，上游产品没有）', () => {
   /* 判据从**产品声明**派生：localEngine 的产品必须能被本地适配器认领；
      上游产品拿给本地适配器必须被拒绝（防止有人把上游档位接到本地链路上 —— 那会让

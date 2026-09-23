@@ -600,6 +600,64 @@ export const VIDEO_WORKBENCHES = {
   /* ⚠️ 辅助能力（tier: assistant）**不给工作台** —— 画面修改 / 延长续写 / 运镜控制这三条
      没有自己的子页面，按 fuses 声明长在别的技能的创作台上（见 videoSkills.js 的 fuses）。
      门禁 test/video-skill-workbench-declaration-0919 ① 守的就是这条。 */
+
+  /* ═══ 2026-09-25 批 AM：**本地方案的两页**（视频高清 / 视频字幕去除）═════════════════════════
+     字段逐条照知渔实采（docs/design/data/quantv-video-pages.json 的两条路由页 panelText）：
+
+     /video-high-definition（视频高清）：
+       上传视频 / 0-1 / 点击上传视频 / 支持 MP4、MOV 等常用视频格式
+       视频设置 · 输出分辨率 720p 1080p 2k · FPS 30fps 60fps
+       视频高清 · 消耗 0.50 积分
+     ⇒ 两组 chips 都**真的进请求**：输出分辨率 = 本地 scale 的目标高度，FPS = 本地 fps 滤镜。
+       （知渔这两格也是可选控件，只是他们渲染成了 div 而不是 button，所以不在 panelButtons 里。）
+
+     /video-subtitle-removal（视频字幕去除）：
+       视频模型 · 智能去字幕（**静态一行**，不在 panelButtons 里 ⇒ 不是可选控件）
+       参数配置 · 上传原视频 / 点击上传参考视频 / 支持 MP4、MOV 等常用视频格式
+       字幕标记方式 · 自动标记（无需框选字幕位置，上传后直接生成）/ 手动标记（放大视频并手动框选字幕区域）
+       本次消耗 0.04 积分
+     ⇒ 自动标记需要视觉模型定位字幕（我们**没接通**）⇒ 那一档渲染成**不可选 + 写明原因**，
+       不许做成点了没反应或者点了报错的假选项（铁律：不可用的功能不许变成选项）。
+       手动那一档是真的：框选区域 → 服务端 delogo（region 块就是那个"放大 + 框选"的落点）。 */
+  'video.upscale': {
+    source: 'https://laoyu.quantv.com/video-high-definition',
+    headline: '提升视频清晰度与画面质量',
+    blocks: [
+      uploadBlock({
+        key: 'source', title: '上传视频', max: 1, hint: '点击上传视频',
+        acceptHint: VIDEO_ACCEPT_HINT, accept: VIDEO_ACCEPT,
+      }),
+      { key: 'resolution', kind: 'chips', title: '输出分辨率', required: true, bind: 'resolution',
+        options: [{ label: '720p', value: '720p' }, { label: '1080p', value: '1080p' }, { label: '2k', value: '2k' }] },
+      { key: 'fps', kind: 'chips', title: 'FPS', bind: 'fps',
+        options: [{ label: '30fps', value: 30 }, { label: '60fps', value: 60 }] },
+    ],
+  },
+  'video.desubtitle': {
+    source: 'https://laoyu.quantv.com/video-subtitle-removal',
+    headline: '上传视频，去除画面中的字幕',
+    blocks: [
+      /* 知渔那一行「视频模型 / 智能去字幕」是静态文案（不是选择器）——照它的位置与内容渲染，
+         但不给选：本地方案没有模型可选（docs/design/69：模型是实现细节）。 */
+      { key: 'engine', kind: 'static', title: '视频模型', value: '智能去字幕' },
+      uploadBlock({
+        key: 'source', title: '上传原视频', max: 1, hint: '点击上传参考视频',
+        acceptHint: VIDEO_ACCEPT_HINT, accept: VIDEO_ACCEPT,
+      }),
+      { key: 'markMode', kind: 'chips', title: '字幕标记方式', required: true, bind: 'markMode',
+        options: [
+          /* 自动标记：需要视觉模型定位字幕区域 —— **没有接通**，如实标不可选 + 写原因，
+             与「不许放假按钮」同一条纪律（本仓的付费动作也是这个处理方式）。 */
+          { label: '自动标记', value: 'auto', disabled: true,
+            note: '无需框选字幕位置，上传后直接生成。',
+            reason: '自动识别字幕位置需要视觉模型，尚未接通；现在请用「手动标记」框选字幕区域。' },
+          { label: '手动标记', value: 'manual', note: '放大视频并手动框选字幕区域。' },
+        ] },
+      /* 手动标记的落点：放大 + 拖框选区域（坐标按**源视频像素**换算，服务端 delogo 直接用） */
+      { key: 'regions', kind: 'region', title: '框选字幕区域', for: 'source',
+        hint: '在上面的视频里拖出一个框，把字幕框住（可框多个区域，也可以放大后再框）' },
+    ],
+  },
 };
 
 /* ═══ 知渔右栏页签（**取证记录**，不是我们要渲染的文案）═══════════════════════════════

@@ -2,6 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { VIDEO_WORKBENCHES } from '../../skills/videoWorkbenches.js';
 import { specExposureOf } from '../../skills/videoSpecExposure.js';
+/* ═══ 2026-09-25 批 AM：本地方案（视频高清 / 视频字幕去除）的技能声明 ═══════════════════════════
+   docs/design/69 的 `plan`：engine='local-render' / hideModel / productId 都从这一份取，
+   页面里不写第二份判断（"哪一页不给模型格"只有一个出处）。 */
+import { LOCAL_RENDER_ENGINE, videoSkillPlanOf } from '../../skills/videoSkills.js';
 import {
   Aperture,
   Check,
@@ -62,6 +66,8 @@ import {
   DEFAULT_VIDEO_MODE,
   VIDEO_CREATION_MODES,
   hasRequiredVideoInputs,
+  localJobPoints,
+  localQuoteFor,
   quoteForVideoProduct,
   resolveVideoApiMode,
   snapVideoDuration,
@@ -337,6 +343,15 @@ export default function VideoStudioPage({
   const [duration, setDuration] = useState(5);
   const [sound, setSound] = useState(true);
   const [seed, setSeed] = useState(0);
+  /* ═══ 2026-09-25 批 AM：本地方案的两格规格 + 框选区域 + 源视频时长 ═══════════════════════════
+     为什么时长要单独存：去字幕**按秒计费**（0.04 积分/秒），而且服务端要求它是**真值**
+     （建单校验 LOCAL_PLAN_DURATION_INVALID）。它从用户上传的那条视频里读
+     （HTMLVideoElement.duration，见下方的探针），不是让用户手填。 */
+  const [outputFps, setOutputFps] = useState(null);
+  const [markMode, setMarkMode] = useState('manual');
+  const [regions, setRegions] = useState([]);
+  const [sourceSeconds, setSourceSeconds] = useState(0);
+  const [sourcePreview, setSourcePreview] = useState('');
   /* 批 N：知渔「内容替换」页里的两颗胶囊（换模特 / 换产品）—— 它是**一个控制项**，
      选中后往提示词追加一句明确的替换指令（与运镜 / 只改一个元素同一条机制）。 */
   const [swapTarget, setSwapTarget] = useState('model');
@@ -386,16 +401,163 @@ export default function VideoStudioPage({
     || products.find(product => product.id === capabilities.defaultProductId)
     || products[0]
     || null;
+  const workbenchMode = Boolean(embedded && workbench && (workbench.blocks || []).length);
+  const workbenchSkillId = useMemo(() => {
+    if (skillId) return skillId;                       // 显式传进来的（MediaCreation 传 skill.id）
+    if (!workbench) return '';
+    /* 回退：对象身份反查 —— ⚠️ 实测这条**不可靠**（拿到的是不同引用，会成全空），
+       所以 MediaCreation 那边改成了显式传 id；这里只作兜底，不要把主路径压在这上面。 */
+    const hit = Object.entries(VIDEO_WORKBENCHES).find(([, value]) => value === workbench);
+    return hit ? hit[0] : '';
+  }, [skillId, workbench]);
+  const specExposure = workbenchMode
+    ? specExposureOf(workbenchSkillId)
+    : { model: true, clarity: true, duration: true };
+  const slotKindOf = useCallback(slotKey => {
+    const block = (workbench?.blocks || []).find(item => item.key === slotKey && item.kind === 'upload');
+    const accept = String(block?.accept || '');
+    if (accept.includes('video')) return 'video';
+    if (accept.includes('audio')) return 'audio';
+    return 'image';
+  }, [workbench]);
+
+  const slotEntries = useMemo(() => Object.entries(slotFiles)
+    .flatMap(([slotKey, items]) => (Array.isArray(items) ? items : []).map((file, index) => ({ file, slotKey, index }))), [slotFiles]);
+  /* 槽位里的**图片**才并进 images：视频/音频槽位（本地方案的源视频）有自己的归属 ——
+     把它们塞进参考图会让上游那条路收到一条视频当图片（服务端会 400）。 */
+  const slotImageFiles = useMemo(
+    () => slotEntries.filter(item => slotKindOf(item.slotKey) === 'image').map(item => item.file),
+    [slotEntries, slotKindOf],
+  );
+  const slotVideoFiles = useMemo(
+    () => slotEntries.filter(item => slotKindOf(item.slotKey) === 'video').map(item => item.file),
+    [slotEntries, slotKindOf],
+  );
+  const materialEntries = [
+    ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片', name: `图片${index + 1}` })),
+    ...slotEntries.map((item, index) => ({ file: item.file, key: 'slots', index, kind: 'image', label: '图片', name: `图片${files.images.length + index + 1}` })),
+    ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频', name: `视频${index + 1}` })),
+    ...files.audios.map((file, index) => ({ file, key: 'audios', index, kind: 'audio', label: '音频', name: `音频${index + 1}` })),
+  ];
+  const mentionedAssets = useMemo(() => {
+    if (mode === 'frame') {
+      return [...files.first, ...files.last].map((file, index) => ({
+        file,
+        id: `video-frame-${index + 1}`,
+        sourceNodeId: `video-frame-${index + 1}`,
+        kind: 'image',
+        name: `图片${index + 1}`,
+        label: `@图片${index + 1}`,
+      }));
+    }
+    const counters = { image: 0, video: 0, audio: 0 };
+    const names = { image: '图片', video: '视频', audio: '音频' };
+    return materialEntries.map(item => {
+      counters[item.kind] += 1;
+      const name = `${names[item.kind]}${counters[item.kind]}`;
+      return {
+        file: item.file,
+        id: `video-${item.kind}-${counters[item.kind]}`,
+        sourceNodeId: `video-${item.kind}-${counters[item.kind]}`,
+        kind: item.kind,
+        name,
+        label: `@${name}`,
+      };
+    });
+  }, [files, mode]);
+
+  /* ⚠️ 这条判据（嵌入形态 + 有工作台声明）**必须声明在下面那批 useMemo 之前**：批 AM 的
+     本地方案那一段要用它，而 const 有暂时性死区（依赖数组是渲染期求值）——
+     test/no-tdz-before-init 是硬门禁，本仓 2026-09-16 的白屏事故就是这一类。 */
+
+  /* ═══ 2026-09-25 批 AM：**本地方案**（视频高清 / 视频字幕去除，docs/design/69 的 plan）════════
+     这两条不走上游模型：本机 ffmpeg 提分辨率 / 擦字幕。声明源是 skill 的 plan 字段，
+     页面据此决定四件事（都**只在这里判一次**）：
+       · 产品：不是"用户选的模型"，而是方案指定的那一条（plan.productId）；
+       · 模型格：**不给**（plan.hideModel）—— 上游那套"选模型"在这里没有意义；
+       · 规格格：照知渔那一页给（输出分辨率 / FPS / 字幕标记方式），值进 localSpecs；
+       · 生成闸门：**不要**"分析并生成方案"（那是上游生成的方案费；本地方案的方案就是渲染清单）。
+     ⚠️ 这一段必须放在**任何引用它的 useMemo/useEffect 之前**：依赖数组在渲染期求值，
+        const 有暂时性死区 —— 放到后面就是整页落错误边界（本仓 2026-09-16 白屏事故同一类，
+        test/no-tdz-before-init 是硬门禁）。 */
+  const localPlan = workbenchMode ? videoSkillPlanOf(workbenchSkillId) : null;
+  const localEngine = localPlan?.engine === LOCAL_RENDER_ENGINE;
+  const localProducts = Array.isArray(capabilities.localProducts) ? capabilities.localProducts : [];
+  const localProduct = localEngine
+    ? localProducts.find(product => product.id === localPlan.productId) || null
+    : null;
+  const localSpec = localProduct?.localSpec || {};
+  /* 本机渲染组件（ffmpeg）在不在 —— 服务端实测过报（capabilities.localEngineReady）。
+     缺了就如实说明 + 禁用，而不是让用户点了等一句"本机渲染组件未就绪"。 */
+  const localEngineReady = capabilities.localEngineReady !== false;
+  /* 页面自己声明过的字段（bind = resolution / fps …）：创作台**不重复画**同一格 ——
+     同一个值两处渲染就是"改了一处、另一处还显示旧值"那类 bug 的温床。 */
+  const pageOwnsField = useCallback(
+    key => (workbench?.blocks || []).some(block => block.bind === key),
+    [workbench],
+  );
+  /* 本地方案的源视频槽位：**从声明源派生**（哪个上传块的 accept 收视频），不在页面里写死 key */
+  const localSourceKey = useMemo(() => {
+    if (!localEngine) return '';
+    const block = (workbench?.blocks || []).find(item => item.kind === 'upload' && String(item.accept || '').includes('video'));
+    return block?.key || '';
+  }, [localEngine, workbench]);
+  /* 槽位素材的种类**由声明决定**：原来一律按 image 上传 —— 视频槽位会被当成图片传上去
+     （服务端 415）。本地方案的两个上传位都是视频，所以这一条必须按块声明走。 */
+  const localSourceFile = localSourceKey ? (slotFiles[localSourceKey] || [])[0] || null : null;
+  const localSourceSeconds = Number(sourceSeconds) || 0;
+  /* 源视频在本地的可播地址（对象 URL）：① 区域框选要在它上面拖框；② 时长探针读它的元数据。
+     用对象 URL 而不是服务端地址：文件刚选进来就能用（不必等上传完），也不受签名地址过期影响。 */
+  useEffect(() => {
+    if (!localEngine || !localSourceFile) {
+      setSourcePreview('');
+      return undefined;
+    }
+    const url = URL.createObjectURL(localSourceFile);
+    setSourcePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [localEngine, localSourceFile]);
+  /* ═══ 源视频时长探针（本地方案的计费数量与渲染长度都要它）═══════════════════════════════════
+     去字幕按秒计费（0.04 积分/秒）⇒ 服务端**必须**拿到真实秒数（缺失直接 400，不猜、不默认）。
+     这里用 HTMLVideoElement 读元数据（与浏览器实际播放到的一致），向上取整到整秒：
+     不足一秒按一秒算 —— 与服务端 billableQuantity 同一口径（两处都取整，才不会 409）。 */
+  useEffect(() => {
+    if (!localEngine || !sourcePreview) {
+      setSourceSeconds(0);
+      return undefined;
+    }
+    let cancelled = false;
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+    probe.muted = true;
+    const onLoaded = () => {
+      if (cancelled) return;
+      const value = Number(probe.duration);
+      setSourceSeconds(Number.isFinite(value) && value > 0 ? Math.min(300, Math.ceil(value)) : 0);
+    };
+    probe.addEventListener('loadedmetadata', onLoaded);
+    probe.src = sourcePreview;
+    return () => {
+      cancelled = true;
+      probe.removeEventListener('loadedmetadata', onLoaded);
+      probe.removeAttribute('src');
+    };
+  }, [localEngine, sourcePreview]);
   const selectedQuote = useMemo(() => {
+    /* 本地方案不走上游那套产品契约（它没有 durationOptions 白名单），报价另算：
+       quantity 可能是秒数（去字幕 0.04 积分/秒），见 videoStudioModel 的 localQuoteFor。 */
+    if (localEngine) return localProduct ? localQuoteFor(localProduct, localSourceSeconds) : null;
     if (!selectedProduct) return null;
     try {
       return quoteForVideoProduct(selectedProduct, duration);
     } catch {
       return null;
     }
-  }, [duration, selectedProduct]);
+  }, [duration, localEngine, localProduct, localSourceSeconds, selectedProduct]);
   const sku = selectedQuote?.sku || '';
-  const estimatedPoints = Math.ceil(Number(quote?.totalUnits ?? selectedQuote?.units ?? 0) / 1000);
+  const estimatedPoints = localEngine
+    ? localJobPoints(localProduct, localSourceSeconds)
+    : Math.ceil(Number(quote?.totalUnits ?? selectedQuote?.units ?? 0) / 1000);
   /* ═══ 2026-09-16 用户批注（图2-② / 图3-①，已问到第三次）═══
      原话：「现在不是已经有预设了一套方案在这里吗？为什么你的积分还是一积分呢？这个问题你怎么还是
      没有回答我呀？……肯定是按他整个视频要收多少钱去告诉他呀。」
@@ -403,8 +565,12 @@ export default function VideoStudioPage({
      这里把「整个任务要花多少」算出来挂在按钮上（方案分析费 + 成片预估）：
        · 未确认方案 → 按钮「分析并生成方案」，积分 = 1 + 成片预估（这一档就会随模型/时长变）；
        · 已确认方案 → 按钮「开始生成」，积分 = 成片预估（服务端报价，唯一事实源）。
-     ⚠️ 拆分说明放 title，按钮上只留一个总数 —— 用户要的是「我这一下要花多少」。 */
-  const totalJobPoints = estimatedPoints > 0 ? estimatedPoints + ANALYSIS_POINTS : 0;
+     ⚠️ 拆分说明放 title，按钮上只留一个总数 —— 用户要的是「我这一下要花多少」。
+     ⚠️ 批 AM：本地方案**没有**"方案分析"这一步（1 积分）—— 它的"方案"就是渲染清单，
+        不存在模型侧的口味问题，收那 1 积分等于凭空多收钱。所以总价 = 成片报价本身。 */
+  const totalJobPoints = localEngine
+    ? estimatedPoints
+    : (estimatedPoints > 0 ? estimatedPoints + ANALYSIS_POINTS : 0);
   const videoPlan = useMemo(() => buildVideoPlan({
     mode,
     prompt,
@@ -523,13 +689,27 @@ export default function VideoStudioPage({
     setQuote(null);
     setQuoteError('');
     if (!sku) return () => { active = false; };
-    quoteBillingAction({ sku, quantity: 1 })
+    /* ═══ 批 AM：份数一律由**服务端**定 ═══════════════════════════════════════════════════════
+       去字幕按秒计价（0.04 积分/秒），份数 = 视频整秒数 —— 这个数只有服务端能算
+       （它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）。
+       所以这里只报"这条片子多少秒"这个**事实**，不报份数、更不报金额：
+       按条的 SKU 仍然 quantity=1（客户端传的 seconds 会被忽略）。
+       ⚠️ 这是 pricing-single-source 门禁要的方向：前端不得把"算出来的份数/金额"发给服务端。 */
+    quoteBillingAction(localEngine
+      ? { sku, seconds: localSourceSeconds || 1 }
+      : { sku, quantity: 1 })
       .then(result => { if (active) setQuote(result.quote); })
       .catch(() => { if (active) setQuoteError('费用确认暂时不可用'); });
     return () => { active = false; };
-  }, [sku]);
+  }, [localEngine, localSourceSeconds, sku]);
+
+  /* 源视频换了（或时长读出来了）⇒ 之前的报价作废重报：按秒计价时"秒数变了价就变了"。
+     依赖里带 selectedQuote?.quantity 就够了（它就是秒数），不必再盯 sourceSeconds。 */
 
   useEffect(() => {
+    /* 本地方案不套上游那套产品契约（时长白名单 / 清晰度档位 / 创作模式），
+       它的规格由页面自己的控件与源视频决定 —— 见 localPlan 那一段的说明。 */
+    if (localEngine) return;
     if (!selectedProduct) return;
     setDuration(current => snapVideoDuration(selectedProduct, current));
     if (!selectedProduct.resolutions?.includes(resolution)) {
@@ -538,6 +718,18 @@ export default function VideoStudioPage({
     if (!selectedProduct.modes?.includes(resolveVideoApiMode(mode, files))) setMode('smart');
     if (mode === 'frame' && selectedProduct.frameAudio === false) setSound(false);
   }, [selectedProductId]);
+
+  /* ═══ 本地方案的**默认规格**（照 plan.defaults 落一次）══════════════════════════════════════
+     为什么要有这一步：上游那条路是靠"选产品"把默认值带出来的（选哪条模型反推出分辨率/时长）；
+     本地方案没有模型可选，默认值只能来自方案声明（docs/design/69 的 `defaults`：
+     「规格由方案定，不由用户逐页调」）。只在进入有本地方案的那一页时落一次。 */
+  useEffect(() => {
+    if (!localEngine || !localProduct) return;
+    const defaults = localPlan?.defaults || {};
+    if (localSpec.resolution && defaults.resolution) setResolution(String(defaults.resolution));
+    setOutputFps(localSpec.fps ? (Number(defaults.fps) || 30) : null);
+    setMarkMode(String(defaults.markMode || 'manual'));
+  }, [localEngine, localPlan, localProduct, localSpec.fps, localSpec.resolution]);
 
   useEffect(() => {
     const sync = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -757,8 +949,12 @@ export default function VideoStudioPage({
       const kind = key === 'videos' ? 'video' : key === 'audios' ? 'audio' : 'image';
       items.forEach(file => selected.set(file, kind));
     });
-    /* 批 N：按 skill 声明的槽位素材（全部是图片）走同一条上传链路 */
-    Object.values(slotFiles).forEach(items => (Array.isArray(items) ? items : []).forEach(file => selected.set(file, 'image')));
+    /* 批 N：按 skill 声明的槽位素材走同一条上传链路 ——
+       ⚠️ 批 AM：种类按**块声明**给（原来一律 image，本地方案的视频槽位会被传成图片） */
+    Object.entries(slotFiles).forEach(([slotKey, items]) => {
+      const kind = slotKindOf(slotKey);
+      (Array.isArray(items) ? items : []).forEach(file => selected.set(file, kind));
+    });
     selected.forEach((kind, file) => {
       if (!uploadsRef.current.has(file)) void startUpload(file, kind).catch(() => {});
     });
@@ -769,7 +965,7 @@ export default function VideoStudioPage({
     });
     refreshUploads();
     return undefined;
-  }, [files, slotFiles, refreshUploads, startUpload, state.logged]);
+  }, [files, refreshUploads, slotFiles, slotKindOf, startUpload, state.logged]);
 
   useEffect(() => () => {
     uploadsRef.current.forEach(entry => entry.abort?.());
@@ -873,8 +1069,93 @@ export default function VideoStudioPage({
     }
   }
 
+  /* ═══ 本地方案的提交（2026-09-25 批 AM）═══════════════════════════════════════════════════════
+     与上游那条路**不是同一份报文**：本地方案要的是「一条源视频 + 规格（分辨率/帧率）或区域」，
+     没有提示词、没有比例、没有拍摄方案（服务端对 localEngine 走 validateLocalPlanInput）。
+     三条与上游不同的地方，逐条都有理由：
+       ① `mode: 'local'` —— 服务端按产品声明认这一档（`modes: ['local']`）；
+       ② `duration` = **源视频整秒数**（探针读出来的）：它是计费数量（去字幕按秒）与渲染长度，
+          也是服务端建单前的必填校验项 —— 缺失会被拒（不猜、不默认）；
+       ③ `localSpecs` = { fps, regions } —— 分辨率与时长已有列，这两样只属于本地方案。
+     ⚠️ 幂等键把规格与区域也算进去：改了分辨率或重框了区域就是**另一次处理**（与上游同一条纪律）。 */
+  async function submitLocalJob() {
+    if (!localProduct) {
+      setError('该功能暂时不可用，请稍后再试');
+      return;
+    }
+    if (!localSourceFile) {
+      setError('请先上传要处理的视频');
+      return;
+    }
+    if (!localSourceSeconds) {
+      setError('还没读出这条视频的时长，请稍候或重新选择文件');
+      return;
+    }
+    if (localSpec.regions && !regions.length) {
+      setError('请先在视频上框选要擦除的字幕区域');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      const [source] = await uploadFiles([localSourceFile], 'video');
+      if (!source?.id) throw new Error('源视频上传失败，请重试');
+      const idempotencyKey = stableCanvasActionId([
+        'video-local-job',
+        localProduct.id,
+        source.id,
+        resolution,
+        localSpec.fps ? String(outputFps || '') : '',
+        localSpec.regions ? JSON.stringify(regions) : '',
+        String(localSourceSeconds),
+      ].join('\u0000'));
+      const result = await createVideoJob({
+        productId: localProduct.id,
+        mode: 'local',
+        duration: localSourceSeconds,
+        resolution,
+        /* 本地方案不裁比例、不用提示词：服务端也是这么收的（空串是"这一栏不适用"的明确写法） */
+        aspectRatio: '',
+        generateAudio: false,
+        billingQuoteId: quote.quoteId,
+        localSpecs: {
+          fps: localSpec.fps ? outputFps : null,
+          regions: localSpec.regions ? regions : [],
+        },
+        references: { videos: [source.id], urls: { [source.id]: source.url } },
+      }, idempotencyKey);
+      recordCreatedJob(result);
+    } catch (generationError) {
+      if (generationError?.status === 402 || generationError?.code === 'BILLING_INSUFFICIENT_CREDITS') {
+        dispatch({ type: 'OPEN_PAYWALL', reason: 'INSUFFICIENT_CREDITS' });
+      }
+      setError(generationError?.message || '任务创建失败，请稍后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /* ═══ 建单成功之后的三件事（本地方案与上游共用这一处）══════════════════════════════════════════
+     原位打技能标记 → 结果上台 → 开始轮询。抽出来不只是为了少写两遍：
+     ① `tagVideoJob` 只允许在"创建成功之后"出现一次（test/media-skill-embed-0918 ⑤ 守的就是
+        它不许混进计费/幂等判断）—— 复制第二份就会被那条门禁抓住，而这里只有一处；
+     ② 三条动作少一条都会出真问题（不给标记 → 子页面历史里看不到这次任务；
+        不上台 → 用户以为没跑；不轮询 → 永远停在"提交中"）。 */
+  function recordCreatedJob(result) {
+    if (skillTag) tagVideoJob(result.job.id, skillTag);
+    setJob(result.job);
+    setHistory(current => [result.job, ...current.filter(item => item.id !== result.job.id)].slice(0, 20));
+    void poll(result.job.id);
+  }
+
   async function handleGenerate() {
-    if (submitting || !quote?.quoteId || !planReviewed || !effectivePlan.ready || !activeAnalysis || analyzedSignature !== planSignature) return;
+    if (submitting || !quote?.quoteId) return;
+    /* 本地方案：报价到手就能跑（没有"先出方案、确认后再生成"那一步）。 */
+    if (localEngine) {
+      await submitLocalJob();
+      return;
+    }
+    if (!planReviewed || !effectivePlan.ready || !activeAnalysis || analyzedSignature !== planSignature) return;
     setError('');
     setSubmitting(true);
     try {
@@ -934,10 +1215,7 @@ export default function VideoStudioPage({
         },
       }, idempotencyKey);
       /* 这次任务是哪条技能发起的 —— 只写本机标记，供子页面历史筛选（不参与计费与幂等） */
-      if (skillTag) tagVideoJob(result.job.id, skillTag);
-      setJob(result.job);
-      setHistory(current => [result.job, ...current.filter(item => item.id !== result.job.id)].slice(0, 20));
-      void poll(result.job.id);
+      recordCreatedJob(result);
     } catch (generationError) {
       if (generationError?.status === 402 || generationError?.code === 'BILLING_INSUFFICIENT_CREDITS') {
         dispatch({ type: 'OPEN_PAYWALL', reason: 'INSUFFICIENT_CREDITS' });
@@ -957,7 +1235,16 @@ export default function VideoStudioPage({
     .reduce((sum, key) => sum + (Array.isArray(files?.[key]) ? files[key].length : 0), 0);
   const hasAnyInput = uploadedFileCount > 0 || Boolean(String(prompt || '').trim());
   const canAnalyze = capabilities.generationEnabled && selectedProduct && hasAnyInput;
-  const canGenerate = capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning;
+  /* 本地方案的可生成判据（与上游不同，见 submitLocalJob 的说明）：
+     报价到手 + 源视频在 + 时长读出来了 + （要区域的那一档）区域框好了 + 本机渲染组件在。
+     上游那条一字未动。 */
+  const localReady = localEngine
+    ? Boolean(localProduct && localEngineReady && quote?.quoteId && localSourceFile && localSourceSeconds
+      && (!localSpec.regions || regions.length))
+    : false;
+  const canGenerate = localEngine
+    ? localReady && !submitting
+    : (capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning);
 
   const openVideoPlan = async () => {
     setError('');
@@ -1112,7 +1399,6 @@ export default function VideoStudioPage({
     return undefined;
   };
 
-  const workbenchMode = Boolean(embedded && workbench && (workbench.blocks || []).length);
   /* ═══ 2026-09-24 批 AG：**规格暴露**（用户：「为什么还有这种模型 / 清晰度 / 时长都全部做进去的情况呢，
      我不是说了所有子页面一比一对应知渔的视频生成和图片生成的页面吗」）═══════════════════════════
      逐页探针（真浏览器，30 个有对照页的技能）查出：**每一页都渲染同一套** ——
@@ -1120,52 +1406,6 @@ export default function VideoStudioPage({
      而知渔那 30 页里：**清晰度 0 页有、模型 5 页有、时长 6 页有**。
      ⇒ 子页面按 `videoSpecExposure`（由知渔实采派生、有门禁钉住）决定这三格露不露；
        首页/独立路由（非子页面）保持原样（它是"通用创作台"，本来就该给全部规格）。 */
-  const workbenchSkillId = useMemo(() => {
-    if (skillId) return skillId;                       // 显式传进来的（MediaCreation 传 skill.id）
-    if (!workbench) return '';
-    /* 回退：对象身份反查 —— ⚠️ 实测这条**不可靠**（拿到的是不同引用，会成全空），
-       所以 MediaCreation 那边改成了显式传 id；这里只作兜底，不要把主路径压在这上面。 */
-    const hit = Object.entries(VIDEO_WORKBENCHES).find(([, value]) => value === workbench);
-    return hit ? hit[0] : '';
-  }, [skillId, workbench]);
-  const specExposure = workbenchMode
-    ? specExposureOf(workbenchSkillId)
-    : { model: true, clarity: true, duration: true };
-  const slotEntries = useMemo(() => Object.entries(slotFiles)
-    .flatMap(([slotKey, items]) => (Array.isArray(items) ? items : []).map((file, index) => ({ file, slotKey, index }))), [slotFiles]);
-  const slotImageFiles = useMemo(() => slotEntries.map(item => item.file), [slotEntries]);
-  const materialEntries = [
-    ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片', name: `图片${index + 1}` })),
-    ...slotEntries.map((item, index) => ({ file: item.file, key: 'slots', index, kind: 'image', label: '图片', name: `图片${files.images.length + index + 1}` })),
-    ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频', name: `视频${index + 1}` })),
-    ...files.audios.map((file, index) => ({ file, key: 'audios', index, kind: 'audio', label: '音频', name: `音频${index + 1}` })),
-  ];
-  const mentionedAssets = useMemo(() => {
-    if (mode === 'frame') {
-      return [...files.first, ...files.last].map((file, index) => ({
-        file,
-        id: `video-frame-${index + 1}`,
-        sourceNodeId: `video-frame-${index + 1}`,
-        kind: 'image',
-        name: `图片${index + 1}`,
-        label: `@图片${index + 1}`,
-      }));
-    }
-    const counters = { image: 0, video: 0, audio: 0 };
-    const names = { image: '图片', video: '视频', audio: '音频' };
-    return materialEntries.map(item => {
-      counters[item.kind] += 1;
-      const name = `${names[item.kind]}${counters[item.kind]}`;
-      return {
-        file: item.file,
-        id: `video-${item.kind}-${counters[item.kind]}`,
-        sourceNodeId: `video-${item.kind}-${counters[item.kind]}`,
-        kind: item.kind,
-        name,
-        label: `@${name}`,
-      };
-    });
-  }, [files, mode]);
   const assetCount = mode === 'frame' ? files.first.length + files.last.length : materialEntries.length;
   /* 首尾帧那两格是"起点/终点"两个固定位，没有"素材集合"可清、也不该整屏铺开 ——
      所以清空与全屏只长在真正有素材集合的档位上（给一个点了没意义的按钮比不给更糟）。 */
@@ -1302,7 +1542,11 @@ export default function VideoStudioPage({
           ⚠️ 比例与时长**只在首页这一档出现**：首页按用户定的形态只有「模型 / 生成设置」两颗按钮，
             所以这一栏承担知渔「视频设置」的完整内容；子页面的工具栏里「镜头规格」已经管画幅与时长，
             两边都放同一件事就是重复（那才是"没抄明白"）。判据可复查：homeComposer。 */}
-      {specExposure.clarity && (
+      {/* ⚠️ 批 AM：本地方案的「输出分辨率」长在**它自己的字段块**里（照知渔把这一格放在
+          「视频设置」下那一页的左栏，而不是通用创作台的生成设置里）。
+          判据：工作台已经声明了 bind='resolution' 的块 ⇒ 这里不再画第二份（同一格两处渲染，
+          改了这处那处还显示旧值）。 */}
+      {specExposure.clarity && !pageOwnsField('resolution') && (
       <div className="video-panel-section"><strong>清晰度</strong>
         <div className="video-resolution-pills">
           {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}>{value.toUpperCase()}</button>)}
@@ -1457,16 +1701,25 @@ export default function VideoStudioPage({
           groupTitle={groupTitle}
           slots={slotFiles}
           onSlotFiles={updateSlotFiles}
+          /* 批 AM：槽位里已选素材的可播地址（区域框选要拿它当画布）——
+             key 是块 key，只有本地方案那条视频会用上 */
+          slotPreviews={localSourceKey ? { [localSourceKey]: sourcePreview } : {}}
+          regions={regions}
+          onRegionsChange={next => { setPlanReviewed(false); setRegions(next); }}
           blockValues={blockTexts}
           onBlockValueChange={(key, value) => { setPlanReviewed(false); setBlockTexts(current => ({ ...current, [key]: String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH) })); }}
           prompt={prompt}
           onPromptChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH)); }}
-          values={{ ratio, duration, swapMode: swapTarget }}
+          values={{ ratio, duration, swapMode: swapTarget, resolution, fps: outputFps, markMode }}
           onValueChange={(bind, value) => {
             setPlanReviewed(false);
             if (bind === 'ratio') setRatio(String(value));
             else if (bind === 'duration') setDuration(Number(value) || 5);
             else if (bind === 'swapMode') setSwapTarget(String(value));
+            /* 本地方案的两格（知渔「视频设置」下的输出分辨率与 FPS）：直接进请求 */
+            else if (bind === 'resolution') setResolution(String(value));
+            else if (bind === 'fps') setOutputFps(Number(value) || null);
+            else if (bind === 'markMode') setMarkMode(String(value));
           }}
           mentions={mentionedAssets}
           promptFieldRef={promptFieldRef}
@@ -1577,7 +1830,17 @@ export default function VideoStudioPage({
           />
           {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
           {error && <div className="video-error">{error}</div>}
-          {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
+          {/* ═══ 批 AM：本地方案的两句"实话"（照"不许放点了必失败的东西"那条铁律）══════════════
+              ① 本机渲染组件不在（服务端实测报的 localEngineReady=false）⇒ 说明 + 按钮禁用；
+              ② 源视频时长还没读出来 ⇒ 说明为什么按钮还不能点（按秒计费要用它）。
+              两句都不是安慰话，是**当前真实状态**，所以都带得出"下一步做什么"。 */}
+          {localEngine && !localEngineReady && (
+            <div className="video-error">本机渲染组件未就绪，该功能暂时不可用；已上传的素材不会计费。</div>
+          )}
+          {localEngine && localEngineReady && localSourceFile && !localSourceSeconds && (
+            <div className="video-error">正在读取视频时长…（按秒计费的档位需要先读到时长）</div>
+          )}
+          {!capabilities.loading && !capabilities.generationEnabled && !localEngine && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
         </div>
       </section>
       </ComposerSurface>
@@ -1587,7 +1850,10 @@ export default function VideoStudioPage({
             <div className="video-quick-tools" ref={quickToolsRef}>
               {/* 2026-09-16：这里原来还有一个重复的 @（底栏版）。两套 @ 两套菜单正是
                  用户说的「为什么跟其他板块的艾特键不一样」—— 现在只剩输入框下方那一个共用组件。 */}
-               {specExposure.model && <span className="video-inline-control">
+               {/* ⚠️ 批 AM：本地方案**不给模型格**（plan.hideModel）—— 它不是"某个模型"，
+                   而是本机渲染的一个方案；知渔那两页也没有模型选择器（去字幕页的
+                   「视频模型：智能去字幕」是静态文案，由工作台的 static 块渲染）。 */}
+               {specExposure.model && !localPlan?.hideModel && <span className="video-inline-control">
                 {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
                 <button ref={modelButtonRef} type="button" className={'video-config-trigger is-model' + (inlineMenu === 'model' ? ' is-open' : '')} aria-expanded={inlineMenu === 'model'} onClick={toggleModelMenu}>
                   <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} />
@@ -1654,7 +1920,27 @@ export default function VideoStudioPage({
              ② 积分必须跟随配置实时变化（estimatedPoints 来自服务端报价，方案分析另计 1 积分）；
              ③ 按钮排版与文案一并规范化（未确认方案 = 分析并生成方案；已确认 = 开始生成）。 */}
           {/* 9-12 用户批注：面板里已经选过的配置不用在按钮旁再写一遍 → 去掉这行摘要，信息只留在各面板与按钮积分上 */}
+          {/* ═══ 批 AM：本地方案**没有"分析并生成方案"那一步**（不再收那 1 积分）══════════════
+              它的"方案"就是渲染清单（分辨率/帧率/区域），没有模型侧的口味要确认，
+              所以直接给「开始生成」，价格 = 这一单的报价本身。上游那条路的两次点击一字未动。 */}
+          {localEngine ? (
+            <div className="video-submit-row"><div className="video-submit-actions">
+              <button
+                type="button"
+                className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`}
+                disabled={!canGenerate}
+                onClick={handleGenerate}
+                title={localSpec.regions
+                  ? '按源视频时长计费：0.04 积分/秒'
+                  : '按条计费：0.50 积分/条'}
+              >
+                {quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />
+                {submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}
+              </button>
+            </div></div>
+          ) : (
           <div className="video-submit-row"><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
+          )}
         </footer>
       </div>
     </section>
