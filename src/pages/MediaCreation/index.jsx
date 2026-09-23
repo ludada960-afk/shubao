@@ -33,7 +33,7 @@ import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 /* 批 Q-⑨：app 页要在左栏只显示一个「参数配置」组头 —— 判据来自对照表本身 */
 import { isQuantvAppPage } from '../../skills/quantvImageParity.js';
-import { getVideoSkill } from '../../skills/videoSkills.js';
+import { getVideoSkill, videoSkillPlanOf } from '../../skills/videoSkills.js';
 import { getVideoWorkbench } from '../../skills/videoWorkbenches.js';
 /* 批 S：视频子页面的「参数配置」组头照知渔逐页计数决定 —— 判据同样来自对照表 */
 import { quantvVideoShowsParamGroup } from '../../skills/quantvVideoParity.js';
@@ -542,6 +542,18 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        ⚠️ **不写死规格数字**（模型/清晰度/时长/比例都是用户在左边自己选的），
           免得写出一句与实际不符的话 —— 本站铁律：界面上每一句都得是真的会发生的事。 */
     if (!declared.length && embed === 'video') {
+      /* ⚠️ 批 AM：本地方案（视频高清 / 视频字幕去除）**没有模型 / 时长 / 比例**这几样 ——
+         它们处理的是你已经拍好的片子，规格只有"输出分辨率 / 帧率 / 擦除区域"。
+         照抄上面那句会写出一句与实际不符的话（本站铁律：界面上每一句都得是真的会发生的事）。 */
+      const localPlan = videoSkillPlanOf(skill.id);
+      if (localPlan?.engine === 'local-render') {
+        return [{
+          name: '成片 × 1',
+          hint: localPlan.userFields?.includes('regions')
+            ? '在你上传的那条视频上按框选的区域擦除字幕，原声与其余画面原样保留'
+            : '按你选的输出分辨率与帧率处理你上传的那条视频，原声与画面内容原样保留',
+        }];
+      }
       return [{ name: '成片 × 1', hint: '按你在左边选的模型、清晰度、时长与比例交付一条短视频' }];
     }
     if (!suite || !suiteRun?.plan?.images?.length) return declared;

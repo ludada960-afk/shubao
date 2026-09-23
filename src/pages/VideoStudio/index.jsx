@@ -1898,7 +1898,14 @@ export default function VideoStudioPage({
                   · **技能库**在子页面上是冗余的（这一页的"技能"就是它自己；再挂一个别的技能正文进脚本 =
                     两个技能混在一份提示词里）—— 首页那一档本来就不显示它，现在子页面也不显示。
                 ⇒ 两处都过滤掉，所有形态统一成「模型 + 生成设置」两颗卡 + CTA（与知渔同形）。 */}
-            {TOOLBAR_ITEMS.filter(item => item.key !== 'skills' && item.key !== 'shot').map(item => {
+            {TOOLBAR_ITEMS
+              /* ⚠️ 批 AM：本地方案的子页面**不给「生成设置」**（清晰度 / 比例 / 时长 / Seed）——
+                 那几样对"处理一条已有片子"没有意义：分辨率与帧率是这一页自己的字段，
+                 比例不裁、时长由源片决定、Seed 也没有模型可播种；知渔那两页同样没有这一栏
+                 （他们有「视频设置」，即本页那两组字段）。上游页面一字未动。 */
+              .filter(item => item.key !== 'skills' && item.key !== 'shot'
+                && !(localEngine && item.key === 'settings'))
+              .map(item => {
               const Icon = item.icon;
               const isOpen = activePanel === item.key;
               return <button
