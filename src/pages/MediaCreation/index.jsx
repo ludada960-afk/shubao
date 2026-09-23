@@ -1248,6 +1248,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
             规格逐条抄自知渔 20 个视频 skill 页面（docs/design/64 §8 的逐字抄录）。
             没有声明的工作台（辅助能力那三条，它们本来就没有自己的子页面）= null ⇒ 与从前一致。 */
         workbench={getVideoWorkbench(skill.id)}
+        /* 批 AG：把 skill id 一并传下去 —— 创作台要按 videoSpecExposure 决定
+           「模型 / 清晰度 / 时长」这三格露不露（照知渔那一页，用户口径：一比一对应）。
+           ⚠️ 探针实测过：靠对象身份在创作台里反查 id 会拿到空值（拿到的是不同的引用），
+              于是全都走了 fallback（三项全隐藏）—— 连知渔**有**模型格的 5 页也被隐藏了。
+              所以这里必须**显式传**，不许再靠身份反查。 */
+        workbenchSkillId={skill?.id || ''}
         /* ═══ 批 S：视频子页面的「参数配置」组头**照知渔逐页全量计数**决定（不是全站一刀切）═════
            证据：docs/design/data/quantv-video-pages.json 的 32 条 panelText 全文检索 ——
              · 有「参数配置」25 条：24 个 app 页 + 1 条路由页（视频字幕去除）

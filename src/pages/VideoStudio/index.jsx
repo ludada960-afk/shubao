@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { VIDEO_WORKBENCHES } from '../../skills/videoWorkbenches.js';
+import { specExposureOf } from '../../skills/videoSpecExposure.js';
 import {
   Aperture,
   Check,
@@ -294,6 +296,7 @@ export default function VideoStudioPage({
      传了它 = 子页面按**这条 skill 自己的**工作台渲染（知渔 20 个页面逐页抄来的规格）；
      不传（首页输入框 / 独立路由）= 与从前**完全一致**，一个像素都不动。 */
   workbench = null,
+  workbenchSkillId: skillId = '',
   /* ═══ 批 S：左栏那一行组头（「参数配置」）═══════════════════════════════════════════════
      知渔视频侧 32 个子页面**逐条计数**：25 条有这一行、7 条没有（6 条路由页 + 趣味脱口秀）。
      ⇒ 组头由页面按对照表传进来（quantvVideoShowsParamGroup），不在渲染层写死一刀切。
@@ -1110,6 +1113,24 @@ export default function VideoStudioPage({
   };
 
   const workbenchMode = Boolean(embedded && workbench && (workbench.blocks || []).length);
+  /* ═══ 2026-09-24 批 AG：**规格暴露**（用户：「为什么还有这种模型 / 清晰度 / 时长都全部做进去的情况呢，
+     我不是说了所有子页面一比一对应知渔的视频生成和图片生成的页面吗」）═══════════════════════════
+     逐页探针（真浏览器，30 个有对照页的技能）查出：**每一页都渲染同一套** ——
+     生成设置面板里固定有「清晰度 / 画面比例 / 视频时长」，工具栏固定有一颗「模型」。
+     而知渔那 30 页里：**清晰度 0 页有、模型 5 页有、时长 6 页有**。
+     ⇒ 子页面按 `videoSpecExposure`（由知渔实采派生、有门禁钉住）决定这三格露不露；
+       首页/独立路由（非子页面）保持原样（它是"通用创作台"，本来就该给全部规格）。 */
+  const workbenchSkillId = useMemo(() => {
+    if (skillId) return skillId;                       // 显式传进来的（MediaCreation 传 skill.id）
+    if (!workbench) return '';
+    /* 回退：对象身份反查 —— ⚠️ 实测这条**不可靠**（拿到的是不同引用，会成全空），
+       所以 MediaCreation 那边改成了显式传 id；这里只作兜底，不要把主路径压在这上面。 */
+    const hit = Object.entries(VIDEO_WORKBENCHES).find(([, value]) => value === workbench);
+    return hit ? hit[0] : '';
+  }, [skillId, workbench]);
+  const specExposure = workbenchMode
+    ? specExposureOf(workbenchSkillId)
+    : { model: true, clarity: true, duration: true };
   const slotEntries = useMemo(() => Object.entries(slotFiles)
     .flatMap(([slotKey, items]) => (Array.isArray(items) ? items : []).map((file, index) => ({ file, slotKey, index }))), [slotFiles]);
   const slotImageFiles = useMemo(() => slotEntries.map(item => item.file), [slotEntries]);
@@ -1281,11 +1302,13 @@ export default function VideoStudioPage({
           ⚠️ 比例与时长**只在首页这一档出现**：首页按用户定的形态只有「模型 / 生成设置」两颗按钮，
             所以这一栏承担知渔「视频设置」的完整内容；子页面的工具栏里「镜头规格」已经管画幅与时长，
             两边都放同一件事就是重复（那才是"没抄明白"）。判据可复查：homeComposer。 */}
+      {specExposure.clarity && (
       <div className="video-panel-section"><strong>清晰度</strong>
         <div className="video-resolution-pills">
           {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}>{value.toUpperCase()}</button>)}
         </div>
       </div>
+      )}
       {/* ═══ 批 Y：「镜头规格」那颗按钮已下线 ⇒ 画幅与时长**并进这一面板**（照知渔的「视频设置」）═══
           知渔的「视频设置」就是 分辨率 / 画面比例 / 视频时长 三组，我们原来把后两组拆在另一颗按钮里。 */}
       <>
@@ -1294,6 +1317,7 @@ export default function VideoStudioPage({
             {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} aria-hidden="true" /><span>{value}</span></button>)}
           </div>
         </div>
+        {specExposure.duration && (
         <div className="video-panel-section"><strong>视频时长</strong>
           <div className="video-duration-inline">
             <input className="video-duration-range" type="range" min={durationRange.min} max={durationRange.max} step={durationRange.step} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
@@ -1301,6 +1325,7 @@ export default function VideoStudioPage({
             <span>s</span>
           </div>
         </div>
+        )}
       </>}
       {/* ═══ 批 W（2026-09-21）：**「避免出现的内容」整块删除**（用户原话，逐字）══════════════════
           原话（图二）：「这个**避免出现的内容去掉**，这块**没有意义**。」
@@ -1562,7 +1587,7 @@ export default function VideoStudioPage({
             <div className="video-quick-tools" ref={quickToolsRef}>
               {/* 2026-09-16：这里原来还有一个重复的 @（底栏版）。两套 @ 两套菜单正是
                  用户说的「为什么跟其他板块的艾特键不一样」—— 现在只剩输入框下方那一个共用组件。 */}
-              <span className="video-inline-control">
+               {specExposure.model && <span className="video-inline-control">
                 {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
                 <button ref={modelButtonRef} type="button" className={'video-config-trigger is-model' + (inlineMenu === 'model' ? ' is-open' : '')} aria-expanded={inlineMenu === 'model'} onClick={toggleModelMenu}>
                   <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} />
@@ -1593,8 +1618,8 @@ export default function VideoStudioPage({
                     能力没丢：服务端那份**未上架清单**仍然保留（老任务 / 老订单仍能解析），
                     只是前端不再渲染它 —— 门禁 test/video-studio-contract 也按这一条改了判据
                     （依据就是上面那句用户原话）。 */}
-              </div>}
-              </span>
+               </div>}
+               </span>}
             </div>
             <div className="video-toolbar-buttons">
             {/* ═══ 批 Y（2026-09-21）：工具栏**只留「模型 + 生成设置」两颗**（用户原话，逐字）════════
