@@ -6243,3 +6243,83 @@ node scripts/probe-video-edit-capability.mjs --video <视频直链> --mode upsca
   但两次实测一次**超时失败**、一次长时间卡住 ⇒ **这条路不可靠**，视频高清/去字幕已改走本地 ffmpeg。
 · **别再猜上游字段名**：`/api/pricing` 每个模型都带完整 `api_doc`（参数表+示例+限制+计费+是否失败计费）。
 · 余额 **¥4.24776**；本轮上游实际支出只有 omni-fast 那次失误的 **¥0.86112**（已记台账）。
+
+---
+
+# 批 AM（2026-09-25）：**本地视频链路三步全部做完 + 两条 SKU 上架**（视频高清 / 视频字幕去除）
+
+用户本轮只有两句话：「**全部做完呀，为什么又停下来呢，你不能持续做完需求任务吗**」
+「按这个价开吧，其他的也继续做」——交接文档 docs/design/70 的三步照做，没有重新设计。
+
+## 一、这一步做完了什么（三步全绿）
+
+| 步 | 内容 | 提交 | 门禁 |
+|---|---|---|---|
+| ① | **派发层挂进作业流水线**：`videoGeneration.providerForJob` 按产品声明的 `localEngine` 分流（本地走 `createLocalVideoAdapter`，上游仍走 `videoProviders` registry）；本地分支 submit 即出片、**不做假轮询**；成片走**既有的** `persistOutput` 四道校验与两行入库（video_assets + video_deliveries）；建单前 `ffmpegAvailable()` 预检（缺 ffmpeg 就 503，不建单不冻结积分） | `6a3c6f1e` | `test/video-local-dispatch-0925`（8 条） |
+| ② | **两条 skill 页面**（照知渔字段、**不带模型格**）：视频高清＝上传视频 + 输出分辨率(720p/1080p/2k) + FPS(30/60)；字幕去除＝静态一行「视频模型 智能去字幕」+ 上传原视频 + 字幕标记方式（自动｜手动框选）+ 区域框选控件。按 docs/design/69 的 `plan` 形态声明（`engine:'local-render'`、`hideModel:true`、`userFields` 只露该露的） | `80573e90` + `554ea8a3` | 声明类门禁 6 条 + 真机逐页探针 |
+| ③ | **两条 SKU 翻 `public: true`**（0.50 积分/条、0.04 积分/秒，**价格一分未动**）+ 发版 | 见下方部署行 | 全量 test 4011 条 + precommit（260 条 BLOCKING） |
+
+**关键判据（每条都有实测证据）**
+· 上线前**线上没有 ffmpeg**（`command -v ffmpeg` 为空）——这是本轮最关键的发现：
+  不装它，两条 SKU 就是"点了必失败"。已 `apt-get install ffmpeg`（4.4.2）并用
+  `.tmp/zc-render-smoke.sh` 在**线上**跑通三条滤镜链：720p→1080p@60 + 原声保留、
+  delogo 不缩放、12 秒源片不被截成 10 秒。
+· 真机逐页探针（`.tmp/zc-am-page-probe.mjs`，dist/ + API 桩 + 真上传 6 秒测试片）：
+  视频高清页 = 1080p 默认选中 + CTA「开始生成 1 积分（可点）」+ 无模型格 + 无「分析并生成方案」；
+  字幕去除页 = 静态模型行 + 自动标记**不可点**（写明原因）+ 手动标记选中 +
+  框选出一条 **512 × 61 @ (64, 270)** 的区域（源像素）+ CTA 可点；
+  上游对照页（智能成片）**一字未变**（有模型格 + 分析并生成方案 2 积分）。
+
+## 二、顺带修掉的真 bug（都不是"为了让测试过"）
+
+1. **按秒计费的冻结额少算**：`createHold` 的 `items[].units` 是**冻结总额**（walletService 直接求和），
+   原来传的是单价 —— 按条的 SKU 两者相等所以看不出来，按秒的会少冻 440 units（12 秒的片子
+   只冻 0.04 积分）。已改 `expectedQuote.totalUnits`，门禁第⑤条钉住「12 秒 = 480 units」。
+2. **本机任务标记不许复制**：`tagVideoJob` 抽成 `recordCreatedJob` 一处调用
+   （`test/media-skill-embed-0918` ⑤ 守的就是它不许出现在计费/幂等/循环里）。
+3. **渲染层两处**：`-t 10` 恒截断（60 秒的片子会被悄悄截成 10 秒）→ 清单给了 duration 就用它；
+   只映射视频轨导致成片**没有声音** → 清单声明 `keepAudio` 时映射 `-map 0:a?` + aac。
+   两条都是"没声明就与从前逐字节一致"的加法。
+4. **槽位素材种类**：工作台上传位原来一律按 image 传，本地方案的**视频**槽位会被服务端 415 拒收
+   → 改成按块声明的 accept 判种类（`slotKindOf`）。
+5. **报价的份数由服务端定**：`/api/billing/quote` 支持 `seconds`，perSecond 的 SKU 用
+   `billableQuantity` 算份数 —— 前端只报"这条片子多少秒"这个事实，不报份数不报金额
+   （`pricing-single-source` 门禁要的就是这个方向）。
+6. **建单前 ffprobe 核对真实时长**（明显短报 >2 秒直接拒）：按秒计费的前提，不核对就是少收钱。
+7. **本地方案不进模型路由**（`videoModelRouter`）：它不是模型、不吃提示词，被自动路由选中
+   = 用户拿一条按秒计费的档位去跑文生视频（点了必失败）。
+
+## 三、判据改动台账（事实变了 / 去魔数，逐条都写在测试注释里）
+
+· `video-skill-library-contract-0916`：字段数判据从"至少 3 格（模型/清晰度/时长）"改成
+  「本地方案 ≥2 格且**不许有 model 字段**」——原判据与用户的方向性批评（docs/design/69）冲突。
+· `video-spec-exposure-0924`：「知渔 0 页有清晰度」→「有且只有**视频高清**那一页有」——
+  它确实有「输出分辨率」这一格（实采 panelText 可查）。
+· `video-route-subpage-parity-0921`：组头判据从"按页面类型猜（app 有 / 路由页没有）"
+  改成**对着实采逐条比** —— 两个反例都是事实：路由页「视频字幕去除」**有**组头、
+  app 页「趣味脱口秀」**没有**。
+· `video-catalog.test`：「1080p 公开档为零」收窄为「**非本地**的公开档不许有 1080p」——
+  那条判据的前提是"上游 1080P 更贵、同价即降价"；本地方案成本为 0，且知渔那页就是三档一个价。
+· 两个 plan 门禁（`video-plan-billing-chain-0918` / `plan-affects-output-audit-0918`）：
+  「前 9000 字符」的魔数窗口 → **整个 createJob 函数体**。窗口限制的其实是"注释能写多长"，
+  本批加了本地分支的说明后 INSERT 挪到 10010，闸门与 INSERT 的相对顺序一个字没变却红了。
+· `video-studio-contract`：总价判据分两条（上游 = 方案分析 + 成片预估；本地 = 报价本身，
+  因为本地方案**没有**"分析并生成方案"这一步，收那 1 积分等于凭空多收）。
+
+## 四、现在的状态 / 下一棒注意
+
+· **两条 SKU 已 public**：`video_upscale_local_{short,long}`（500 units/条）、
+  `video_desubtitle_local_{short,long}`（40 units/秒，带 `perSecond: true`）。
+  **改价仍需用户点头**（钱路铁律）；这次只是把已批准的价落地。
+· **自动标记（去字幕）没接通**：需要视觉模型定位字幕区域。页面上它是**不可选**并写明原因的
+  选项（不是死按钮）。要做的话：抽帧 → VLM 定位 → 换算成源像素 → 复用同一条 delogo 链路；
+  代价是每次多一次视觉模型调用（要定价 → 必须用户拍板）。
+· **数字人**（docs/design/69 §3.3 的第三条）仍未开工：文案生成 → TTS（站内已有 `ec_tts_voice`）
+  → 本地口型合成（Wav2Lip/SadTalker）→ 交付。卡在算力评估（CPU 跑 Wav2Lip 慢、GPU 要钱）。
+  接的方式与本次完全一样：一个 `plan.engine='local-render'`（或新 engine）+ 一个 localEngine 产品。
+· **1080P 家族档**（用户说"比 720P 贵一倍"）仍未开：判据与成本表在上一批的 RTK 段里，
+  属**定价决定**，等用户点头才动（`test/video-catalog.test` 那条 1080P 断言仍守着非本地档）。
+· **线上 ffmpeg 是硬前提**：换机/重装镜像后必须重新确认（`command -v ffmpeg`）。
+  代码侧已有建单前预检 + 页面"本机渲染组件未就绪"的如实提示兜底。
+· **本地方案的成本口径**：billing/catalog 里 `localEngine: true` 必须记 `providerCostCny: 0`
+  （门禁守着），毛利 ≈ 97%（面值只扣 3% 手续费）。
