@@ -5,7 +5,7 @@ import { specExposureOf } from '../../skills/videoSpecExposure.js';
 /* ═══ 2026-09-25 批 AM：本地方案（视频高清 / 视频字幕去除）的技能声明 ═══════════════════════════
    docs/design/69 的 `plan`：engine='local-render' / hideModel / productId 都从这一份取，
    页面里不写第二份判断（"哪一页不给模型格"只有一个出处）。 */
-import { LOCAL_RENDER_ENGINE, videoSkillPlanOf } from '../../skills/videoSkills.js';
+import { LOCAL_RENDER_ENGINE, UPSTREAM_PROCESS_ENGINE, videoSkillPlanOf } from '../../skills/videoSkills.js';
 /* 批 AO：每条视频子页面的**方案默认规格**（比例/时长/清晰度）—— 判据是工作台声明的第一档 */
 import { videoPlanSettingsOf } from '../../skills/videoPlanSettings.js';
 import {
@@ -506,6 +506,17 @@ export default function VideoStudioPage({
         test/no-tdz-before-init 是硬门禁）。 */
   const localPlan = workbenchMode ? videoSkillPlanOf(workbenchSkillId) : null;
   const localEngine = localPlan?.engine === LOCAL_RENDER_ENGINE;
+  /* ═══ 2026-09-26 批 AU：**上游处理的方案页**（数字人）暂时不许生成 ═════════════════════════════
+     数字人的方案引擎是 upstream-process（真人视频 + 驱动配音 → 火山口型对齐），
+     它的产品与 SKU 现在都是 public:false（一次真调用都没跑过 + 价未经用户签字）。
+     ⚠️ 为什么要在页面上拦：这一页若走"上游生成"那条默认分支，用户填了文件、点一下，
+        会拿默认模型出一条**普通视频**并照常扣费 —— 那既不是他要的数字人，
+        也违反"不可用的功能不许变成可点的选项"（铁律）。
+     ⇒ 判据取**服务端的只读状态**（capabilities.digitalHuman.available），不在页面里写死条件；
+        状态一变（翻公开）这里自动放开，不用改页面。 */
+  const upstreamProcessPlan = localPlan?.engine === UPSTREAM_PROCESS_ENGINE;
+  const processPlanBlocked = upstreamProcessPlan && capabilities.digitalHuman?.available !== true;
+  const processPlanBlockedReason = capabilities.digitalHuman?.reason || '这个功能还在施工中，暂时不能生成。';
   const localProducts = Array.isArray(capabilities.localProducts) ? capabilities.localProducts : [];
   /* ═══ 2026-09-26 批 AR：**自动标记**那一档的服务端状态（只读）══════════════════════════════════
      它走火山 MediaKit（不是本机、不是"模型"），所以既不在 localProducts 里也不在模型清单里 ——
@@ -1293,9 +1304,11 @@ export default function VideoStudioPage({
       && (!activeProcessProduct.localSpec?.regions || regions.length),
     )
     : false;
-  const canGenerate = localEngine
-    ? localReady && !submitting
-    : (capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning);
+  const canGenerate = processPlanBlocked
+    ? false
+    : (localEngine
+      ? localReady && !submitting
+      : (capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning));
 
   const openVideoPlan = async () => {
     setError('');
@@ -1893,6 +1906,10 @@ export default function VideoStudioPage({
             <div className="video-error">正在读取视频时长…（按秒计费的档位需要先读到时长）</div>
           )}
           {!capabilities.loading && !capabilities.generationEnabled && !localEngine && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
+          {/* 批 AU：上游处理的方案页（数字人）还没接通 —— 原因取自服务端只读状态，不写死文案 */}
+          {processPlanBlocked && (
+            <div className="video-error">{processPlanBlockedReason}</div>
+          )}
         </div>
       </section>
       </ComposerSurface>
