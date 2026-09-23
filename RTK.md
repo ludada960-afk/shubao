@@ -5924,3 +5924,50 @@ esbuild 于是报了个**假语法错误**（"The character } is not valid insid
 | `npm run precommit` | 构建 exit 0 ｜ 渲染冒烟通过 ｜ 真实浏览器 e2e **225 条断言全绿** ｜ BLOCKING 门禁 **260 条全绿** |
 | 提交 | `2ade827a` |
 | 视频 skill 数 | 42 → **56**（有对应页 16 → 30；自有 26 条不变） |
+
+---
+
+# 批 AA 附录（2026-09-23）：数字人/高清/字幕这三条，我把"能不能做"查到了底
+
+用户追问：「**数字人和三条短剧风格**是重资产（要数字人模特 + 剧情模板），这些**很难吗**…**不能因为难就不做呀**」。
+本轮把这个"难在哪"查成了可核对的三层证据（都不是"我不想做"）：
+
+## 一、上游（IP233 中转）：没有通路
+`GET /v1/models` 116 条全表检索（零成本只读）：
+· `human|avatar|digital|lipsync|lip-sync|talk|heygen|hedra|presenter` → **0 条**（数字人 / 唇形同步）；
+· `subtitle|watermark|erase|inpaint|delogo` → **0 条**（视频字幕去除）；
+· 视频高清：命中 3 条**全是图片超分**（`mdkj-super-gpt-image-2-1k/2k/4k`），没有视频超分路由。
+
+## 二、开源侧（GitHub，本轮实测**能连**）：这三条也没有"可直接内嵌"的高热度方案
+用户要求「上 github 或者各个社媒找高热度 skill」，于是按 star 排序查了一遍：
+
+| 方向 | 头部结果 | 结论 |
+|---|---|---|
+| **短剧** | `HBAI-Ltd/Toonflow-app` **★15,911**（开源一站式 AI 短剧创作）｜`Forget-C/Jellyfish` **★6,476**（剧本→分镜→成片的短剧工作台） | **刚需被证实**（一万六千星 + 六千五百星）⇒ 你说"短剧是用户刚需"是对的，所以那三页我做了 |
+| Seedance 提示词 | `dexhunter/seedance2-skill` ★3,882｜`songguoxs/seedance-prompt-skill` ★2,833｜`ZeroLu/awesome-seedance` ★2,486｜`YouMind-OpenLab/awesome-seedance-2-prompts` ★2,028 | 提示词侧热度极高 → 我们每条 skill 的 `brief` 本来就登记了这些库的 stars（台账 `src/skills/skillSources.js`） |
+| 电商生图 | `gpt-img-2/ai-image-prompt-cookbook` ★95｜`QIYU-JACKMAN/codexQIYU-image-workflow` ★81（跨境电商务：主图 / 详情页 / 一比一复刻 / 风格裂变 / 批量改尺寸 / 批量 SKU） | 中热度、可用 |
+| **数字人** | `xisheng687/jimeng-digital-human-skill` **★0**｜`zd186/Digital-Human-and-Lip-Synchronization` **★0**｜`Lamarrsdrip/digital-human-studio` **★0** | **开源侧没有高热度成熟方案**，三条还都是"本地部署"型 |
+| **视频超分** | `AaronFeng753/Waifu2x-Extension-GUI` ★17,038（**本地 GUI 工具**）｜`sczhou/Upscale-A-Video` ★1,475（**CVPR 论文代码**） | 高热度但**全是本地 GPU 推理**，不是可调用的 API |
+| **字幕去除** | `Rats20/EraseSubtitles` ★34（视频修补）｜`linkic0/remove-subtitle` ★0（要 ProPainter + CUDA） | 同上：本地 GPU 方案 |
+
+⇒ 这三条的共同点是：**我们没有任何可调用的模型通路**。我们的架构是"调上游 API + 按次计费"，
+   没有通路时做出来的页面就是一个点了必失败的空壳按钮 —— 而"点了必失败的东西不许变成选项"是**你自己定的铁律**
+   （本项目还因此下架过 8 条假模型）。
+
+## 三、我们仓库自己的登记：这两件事**早就被标成 P3**
+`server/templates/builtinTemplates.mjs` 里有一条 **T5「口播带货」模板**，画布里已经有
+`tts` 与 **`lip-sync`（对口型成片）** 两个节点，但明确写着：
+> P3 门控：tts / lip-sync 不在 P1 白名单 → **诚实 unsupported，不 mock、不发起扣费运行**；
+> gateNote：'…音视频能力即将上线，本期不可扣费运行'
+
+`server/canvas/graphRunPlan.mjs` / `graphRunRoutes.mjs` 也把 `tts` / `lip-sync` 列在"暂不支持"清单里。
+⇒ 也就是说**数字人不是被漏掉，是被诚实地放在"等通路"这一档**。我没有在后面偷偷造一个假页面。
+
+## 四、数字人真要落地，只有三条路（都需要你先拍一条）
+1. **换/加一家有数字人 API 的中转**（ip233 之外），我按同一套路由台账接进来 —— 最干净；
+2. **上游开通音频驱动能力**后再接（现有 `xn-minimax-h3` 声明了"30 音频参考 + 支持人脸"，
+   `sd-2.5-js2` 声明"10 音频"）—— 但**"支持音频参考"是否等于"口型同步"未经实测**，
+   要验证就得花一次钱跑一条真实任务（你说过付费实测你自己来跑，所以这一步等你）；
+3. 自建 GPU 服务（Waifu2x / ProPainter / 唇形模型那一类）—— 那是基础设施项目，不是页面改造。
+
+**我推荐第 1 条**：一次选型就能把数字人 + 视频高清 + 字幕去除三页一起点亮，而且不碰我们现有的计费口径。
