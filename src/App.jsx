@@ -106,7 +106,15 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
             <span>返回</span>
           </button>
           <span className="topbar-title" title={subpageHeader.name || ''}>{subpageHeader.name}</span>
-        </>) : isBoard ? null : (<>
+        </>) : (<>
+        {/* ═══ 2026-09-24 批 AV：总页面**也要渲染 LOGO**（用户图五批注 3）══════════════════════════
+            用户原话：「然后为什么我进来这个图片生成和视频生成的**总页面**这里**左上角的 LOGO
+            会不见了呢**。这个也很突兀啊，你要搞进来啊。」
+            这是一次**回归**，不是设计取舍出问题：批 J-① 当初把总页面的 LOGO 去掉，理由是
+            「左导航顶上已经有了，同一件事说两遍」—— 但**批 L-6 随后把左导航顶上那颗品牌标
+            也撤掉了**（改成顶栏一颗）。两条各自成立、合起来的结果是总页面**一颗都没有**了。
+            ⇒ 现在左侧品牌标只在顶栏这一处（唯一实现），三类页面（首页/总页面/子页面）里
+              首页与总页面都走这一份；子页面按批 J-① 的定论仍是「返回 + 名称」，不加第四格。 */}
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
         {/* D11 键盘可达：Logo 是「回首页」导航动作 → button + 重置默认样式（外观零变化） */}
         <button type="button" className="topbar-brand" aria-label="回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}

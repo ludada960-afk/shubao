@@ -121,15 +121,22 @@ export default function HomePage() {
        · 自由创作 → 技能「自由创作」的子页面
      它们仍然可以从左侧导航与技能库进入，一条能力都没少。
      这两张卡负责的是「我要直接生成点什么」——所以下面就是提示词输入区，再下面是热门技能。 */
+  /* ═══ 2026-09-24 批 AV：两张入口卡补一句**它到底是干什么的**（用户图二批注 4）═══════════════
+     用户原话：「这两张卡片他们作为切换区。他们其实做的还是有点太简单了。就是在视觉上你应该让
+     用户能够比较看明白就比如说你这**两个标题。太普通了**。」
+     ⇒ 卡面从"一个图标 + 两个字的标题"变成"图标块 + 标题 + 一句话"（照留影AI 十二宫格的
+       标题/说明两层结构），动效走同一套（图标块渐变 + 标题变色 + 底部能量条），见 Home.css。 */
   const modeOptions = [
     {
       mode: 'video',
       title: '视频生成',
+      hint: '一段文字或一张图，出可投放的短片',
       src: '/images/home/entry-video.png?v=20260812',
     },
     {
       mode: 'visual',
       title: '图片生成',
+      hint: '商品图、海报、小红书图文成套出',
       src: '/images/home/entry-visual.png?v=20260812',
     },
   ];
@@ -246,10 +253,19 @@ export default function HomePage() {
                       if (option.mode !== 'ecommerce') setEcStep(1);
                     }}
                   >
-                    <span className="homepage-mode-card-title"><ModeIcon size={14} />{option.title}</span>
+                    {/* ═══ 2026-09-24 批 AV：卡面重做（用户图二批注 4「这两个标题太普通了」）═══════
+                        结构照留影AI 十二宫格那套（docs/design/54）：**图标块 + 标题 + 一句话**。
+                        动效也照它那一套（Home.css 里逐值写着）：悬停时图标块铺品牌渐变、图标转白、
+                        标题转品牌色、底部 4px 能量条从左到右充满、右下角浮起一层柔光。 */}
+                    <span className="homepage-mode-card-title">
+                      <span className="homepage-mode-card-glyph" aria-hidden="true"><ModeIcon size={14} /></span>
+                      <span className="homepage-mode-card-name">{option.title}</span>
+                    </span>
+                    <span className="homepage-mode-card-hint">{option.hint}</span>
                     <span className="homepage-mode-card-visual">
                       <ModeCardImage src={option.src} alt={`${option.title}案例`} priority={index === 0} />
                     </span>
+                    <span className="homepage-mode-card-glow" aria-hidden="true" />
                   </button>
                 );
               })}

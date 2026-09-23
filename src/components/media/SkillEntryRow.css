@@ -302,22 +302,23 @@
   background: var(--sb-surface-tint-strong);
   box-shadow: var(--sb-shadow-sm);
 }
-.skill-preview-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.skill-preview-shot img {
+  width: 100%; height: 100%;
+  /* ═══ 2026-09-24 批 AV：cover → **contain + 居中**（用户图一批注，与 CaseCard 同步）═════════════
+     用户原话：「你是一个正方形的图片，1:1 的这种图片。你放进来之后，你下面的那部分是会被截断的，
+     因为你的预览窗是长方形……是不是其实比如说用**居中**来展示会更好呢」。
+     cover 会把 1:1 的图上下裁掉；contain + center 让整张图完整可见、水平垂直都居中，
+     再由 JS 把框收窄到贴近图的比例（shotRatio），所以方图不会左右留两条空带。 */
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
 .skill-preview-blank { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--sb-ink-3); }
 
-/* 下：技能名 + 一句话 + 少量标签 + 入口（三行以内） */
+/* 下：**只留两行** —— 技能名 + 这张图的主题（2026-09-24 批 AV 按用户图一/图五批注删掉标签与入口） */
 .skill-preview-body { display: grid; gap: 7px; min-width: 0; padding: 0 4px 2px; }
 .skill-preview-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--sb-brand-600); }
 .skill-preview-body > strong { font-size: 15px; font-weight: 800; line-height: 1.45; color: var(--sb-ink-1); }
-.skill-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.skill-preview-tag {
-  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
-  border-radius: 999px; background: var(--sb-surface-sunken);
-  color: var(--sb-ink-2); font-size: 11.5px; font-weight: 700;
-}
-/* 「配图来自本板块真实案例」那条如实说明：比分类标签轻一档，别抢注意力 */
-.skill-preview-tag.is-note { background: var(--sb-surface-tint-strong); color: var(--sb-ink-3); font-weight: 600; }
-.skill-preview-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-3); }
 
 @media (max-width: 760px) {
   /* 上图下文在窄屏本来就成立（浮窗宽度 = 视口宽 - 32），所以**不再隐藏图**——

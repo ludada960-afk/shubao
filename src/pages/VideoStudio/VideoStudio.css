@@ -289,8 +289,13 @@
 /* 卡上的上传进度：窄卡里贴卡内底部，沿用深底白字的既有语义（同 .video-upload-status） */
 .video-material-strip .ec-xhs-card-status { position: absolute; inset: auto 6px 26px; padding: 3px 6px; border-radius: 6px; background: rgba(31,28,26,.86); color: var(--sb-neutral-0); font-size: 9px; font-weight: 700; text-align: center; }
 
-/* 素材区右上角的两颗按钮（清空素材 / 全屏）—— 用户批注 3 点名要的两个 */
-.video-materials-actions { display: flex; align-items: center; gap: 8px; }
+/* ═══ 素材动作（清空素材 / 全屏）—— 2026-09-24 批 AV：从素材格**右上角**搬到「@ 那一行」的右端 ══
+   用户原话（图二批注 6）：「我搞不明白你这三张卡片上面为什么要有这么多留白呢。右边的这个
+   **全屏按钮**，你可以想一下放在其他地方或者怎么样。你也许可以放在 **@ 的那一层**那里吧，
+   然后上面就不要留白这么多呀，稍微往上面调整呀！」
+   量过：那一行高 26，把三张素材卡整整压下去 24px（对照图片侧：素材卡上方没有这一行）。
+   ⇒ 现在它长在 `.video-skill-row` 里，`margin-left: auto` 推到最右 —— 不额外占高度。 */
+.video-materials-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .video-materials-actions > b { padding: 4px 8px; border-radius: var(--sb-radius-pill); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 10px; }
 .video-materials-clear,
 .video-materials-fullscreen {
@@ -816,8 +821,19 @@
   /* ═══ 批 W（2026-09-21）：两颗页签之间加气口、整排**往左挪一点**（用户原话，逐字）════════════
      原话：「另外就是**智能成片和首尾帧两个按钮贴得太近了，中间稍微有点留白呀**，
      然后**往左边挪一点点**。」
-     ⇒ 间距 10 → 14；左外边距 22 → 16（整排左移 6px，与下面暖色面那条 10px 内边距同一族）。 */
-  gap: 14px;
+     ⇒ 间距 10 → 14；左外边距 22 → 16（整排左移 6px，与下面暖色面那条 10px 内边距同一族）。
+     ═══ 2026-09-24 批 AV：**上边距再收一档 + 两档之间再放开一点**（用户图二批注 1 / 3）══════
+     批注 1 原话：「你这里留这么一大片空白是要干什么呢？……你应该得知道间距是什么样才是最舒服的呀，
+     你现在这个间距实在是太过于大了。我不是有跟你说过视频生成这边，你要模仿图片生成那边的做法吗？
+     ……你看一下图片生成那边这个部分是留多少间距呀？你跟他一样去留这个间距不就好了吗？」
+     批注 3 原话：「这两个按钮之间你就不能够有一点间距吗？这两个按钮都堵到一块了。
+     一点点呼吸感你都不能给他们保留吗？」
+     实测（1620×1000，本地 dist）：创作卡顶沿 432 → 页签顶沿 481 = **49px**；
+     同一次测量里图片侧的**第一块内容**（暖色面）离卡顶只有 **32px** —— 这就是"太大"的那 17px。
+     ⇒ 页签的上边距按差额收掉（18 → 0，整排落到卡顶 +32 的那条线上），
+       同时把两档之间的气口从 14 放到 **20**（批注 3 要的"呼吸感"）。 */
+  gap: 20px;
+  margin-top: 0;
   padding: 0;
   border-radius: 0;
   background: none;

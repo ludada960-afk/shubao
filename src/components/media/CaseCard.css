@@ -121,10 +121,11 @@
      2026-09-23 批 Z-②：两处同步改成**上图下文** —— 用户图七原话「上面一张图、下面**一句话**
      说明 + 少量标签」，要精简。这里原来是两栏 1fr / 1.15fr（用户第 17 轮要的"左边文字
      右边三张案例图"），本轮由用户明确改向，所以判据与版式一起换。 */
+  --case-preview-w: min(440px, 92vw);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  width: min(440px, 92vw);
+  width: var(--case-preview-w);
   padding: 12px 12px 14px;
   border: 1px solid var(--sb-border-default);
   border-radius: 18px;
@@ -135,11 +136,23 @@
   pointer-events: none;
   animation: media-case-preview-in .16s var(--sb-ease-out, ease-out) both;
 }
+/* ═══ 2026-09-24 批 AV：预览窗的**对齐**（用户图五批注）════════════════════════════════════════
+   用户原话：「我搞不明白你为什么鼠标放上去之后，整个案例不是居中在你这个窗口的……因为你现在是
+   往右边挤的，导致其实会有一部分案例是没办法展示全的，**它会被右边给截断**」。
+   改前它一律 left:0 锚在卡片左边 —— 靠右那一列卡片的浮窗就直接顶出视口。
+   现在由 JS 量一次卡片位置给 data-align，三种各自兜住：
+     · left   = 卡片在左半区 ⇒ 浮窗左对齐（原来的行为）
+     · center = 卡片在中间   ⇒ 浮窗相对卡片水平居中
+     · right  = 卡片在右半区 ⇒ 浮窗**右对齐**（右边缘与卡片右边缘对齐，绝不越出视口）
+   ⚠️ 居中用 left 计算而不是 transform:translateX(-50%) —— 入场动画用的就是 transform，
+      两处抢同一个属性会把动画打歪（translateY 会被覆盖）。 */
+.media-case-card-preview[data-align='center'] { left: calc(50% - var(--case-preview-w) / 2); }
+.media-case-card-preview[data-align='right'] { left: auto; right: 0; }
 @keyframes media-case-preview-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-/* 上：一张 16:9 主图；下：技能名 + 一句话 + 少量标签 + 入口 */
+/* 上：一张主图（框的宽高比**跟着图走**，见 JSX 里的 shotRatio）；下：技能名 + 这张图的主题 */
 .media-case-card-preview-art { display: block; min-width: 0; }
 .media-case-card-preview-shot {
   display: grid; place-items: center;
@@ -148,7 +161,18 @@
   background: var(--sb-surface-tint-strong);
   box-shadow: var(--sb-shadow-sm);
 }
-.media-case-card-preview-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* ═══ 2026-09-24 批 AV：**contain + 居中**（用户图一批注）══════════════════════════════════════
+   用户原话：「你是一个正方形的图片，1:1 的这种图片。你放进来之后，你下面的那部分是会被截断的，
+   因为你的预览窗是长方形的……是不是其实比如说用**居中**来展示会更好呢」。
+   改前是 object-fit: cover —— 1:1 的图塞进 16:9 的框，上下各裁掉一截，用户看到的正是"被截断的那张"。
+   现在：contain + object-position: center（整张图完整可见、水平垂直都居中），
+   框本身还会被 JS 收窄到贴近图的比例（shotRatio），所以方图不会左右留两条空带。 */
+.media-case-card-preview-shot img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
 .media-case-card-preview-shot.is-blank { gap: 4px; font-size: 10px; color: var(--sb-ink-3); text-align: center; }
 .media-case-card-preview-body { display: grid; gap: 7px; min-width: 0; padding: 0 4px 2px; }
 .media-case-card-preview-eyebrow {
@@ -156,14 +180,6 @@
   font-size: 12px; font-weight: 800; color: var(--sb-brand-600);
 }
 .media-case-card-preview-body > strong { font-size: 15px; font-weight: 800; line-height: 1.45; color: var(--sb-ink-1); }
-.media-case-card-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.media-case-card-preview-tag {
-  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
-  border-radius: 999px; background: var(--sb-surface-sunken);
-  color: var(--sb-ink-2); font-size: 11.5px; font-weight: 700;
-}
-.media-case-card-preview-tag.is-note { background: var(--sb-surface-tint-strong); color: var(--sb-ink-3); font-weight: 600; }
-.media-case-card-preview-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--sb-ink-brand); }
 @media (max-width: 900px) { .media-case-card-preview { display: none; } }
 @media (prefers-reduced-motion: reduce) { .media-case-card-preview { animation: none; } }
 

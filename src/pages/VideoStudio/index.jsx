@@ -1796,24 +1796,13 @@ export default function VideoStudioPage({
           onRunAction={key => { if (key === 'script') runDawei(); else if (key === 'analyze') openVideoPlan(); }}
         />}
         {!workbenchMode && <section className="video-materials" aria-label="上传素材">
-          <header>
-            {/* ═══ 2026-09-19 批 I-⑦（用户批注 #1-3 与 #1-7，坐标同一列 27%）══════════════════
-                两条批注说的是同一行字：
-                  #1-3：「这里要么叫智能成品，要么叫全能参考，**不要冲突啊**。」
-                  #1-7：「这里也不该有文字啊，**上面选中切换区就好了呀**。」
-                原来的那一行是「全能参考 + 一句说明」。它有两个毛病：
-                  ① 名字跟上面那排模式页签（智能成片）撞车 —— 一块区域顶着另一个模式的名字；
-                  ② 它本来就**不该存在** —— "我在哪一档""这一档收什么素材"上面那排页签
-                     和每张卡自己的文案已经说完了，再来一行大字只是噪声。
-                所以不是"换个名字"，是**整行删掉**（换名字只能解决 ①，#1-7 要的是 ②）。
-                ⚠️ 右侧那组按钮（N 个 / 清空素材 / 全屏）留着 —— 它们是**动作**，不是说明文字。 */}
-            <div className="video-materials-actions">
-              {assetCount > 0 && <b>{assetCount} 个</b>}
-              {/* 用户批注 3：清空素材 + 全屏。清空只在真有素材时出现（空集合上摆一个按钮是噪音）。 */}
-              {deckMode && assetCount > 0 && <button type="button" className="video-materials-clear" onClick={clearMaterials}><Trash2 size={13} />清空素材</button>}
-              {deckMode && <button type="button" className="video-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>}
-            </div>
-          </header>
+          {/* ═══ 2026-09-24 批 AV：这一行**整块搬到下面 @ 那一层**（用户图二批注 6）═════════════════
+              用户原话：「你这个部分留白也确实太多了。我搞不明白你这**三张卡片上面**为什么要有
+              这么多留白呢。右边的这个全屏按钮，你可以想一下放在其他地方或者怎么样。你也许可以
+              放在 **@ 的那一层**那里吧，然后上面就不要留白这么多呀，稍微往上面调整呀！」
+              诊断（量过）：全屏按钮那一行高 26，把三张素材卡整整压下去 **24px** ——
+              而图片生成那边素材卡上方没有这么一行，两边第一块内容的起点因此差一截。
+              ⇒ 动作按钮（N 个 / 清空素材 / 全屏）搬到 `.video-skill-row`（@ 那一行）的右端。 */}
           {renderAssetPickers()}
         </section>}
         <div className="video-composer-input">
@@ -1865,6 +1854,19 @@ export default function VideoStudioPage({
               <Sparkles size={14} />
               代为撰写
             </button>}
+            {/* ═══ 2026-09-24 批 AV：素材动作（N 个 / 清空素材 / 全屏）从素材格上方**搬到这一行**════════
+                用户原话（图二批注 6）：「我搞不明白你这三张卡片上面为什么要有这么多留白呢。
+                右边的这个**全屏按钮**，你可以想一下放在其他地方或者怎么样。你也许可以放在
+                **@ 的那一层**那里吧，然后上面就不要留白这么多呀」。
+                ⇒ 它们本来就是"动作"而不是说明文字（批 I-⑦ 的结论），放在 @ 这一行的右端
+                   既不占额外高度、也不跟素材格抢注意力。只在 deckMode（首页/独立创作台）出现。 */}
+            {deckMode && (
+              <div className="video-materials-actions">
+                {assetCount > 0 && <b>{assetCount} 个</b>}
+                {assetCount > 0 && <button type="button" className="video-materials-clear" onClick={clearMaterials}><Trash2 size={13} />清空素材</button>}
+                <button type="button" className="video-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>
+              </div>
+            )}
           </div>
           </>}
           {/* ═══ 批 W（2026-09-21）：融合控件（运镜 / 只改一个元素）**整行删除**（用户原话，逐字）════

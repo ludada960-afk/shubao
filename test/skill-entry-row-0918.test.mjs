@@ -77,9 +77,22 @@ test('② 悬停预览窗：按钮正下方、上图下文；没有案例时如�
   assert.doesNotMatch(rowCss, /\.skill-preview \{[^}]*minmax\(0, 1\.15fr\)/, '两栏版式已按用户口径作废');
   assert.equal((row.match(/skill-preview-shot/g) || []).length, 1, '主图只留一张（三格是旧版式）');
   assert.match(rowCss, /\.skill-preview-shot \{[^}]*aspect-ratio: 16 \/ 9/);
-  /* ②-b2 「少量标签」：分类 + （退到本板块时才有的）来源说明，都在标签行里 */
-  assert.match(row, /skill-preview-tags/);
-  assert.match(row, /skill-preview-tag/);
+  /* ═══ 2026-09-24 批 AV：**标签行与入口那两行整块删掉**（判据跟着用户的新口径改）═════════════
+     批 Z-② 当时照的是用户图七那句「上面一张图、下面**一句话**说明 + 少量标签」；
+     本轮用户在图一/图五上**再次改向**，原话逐字：
+       「这个部分完全不需要有啊。已经说了很多遍了就是。**预览窗里面只需要展示它是一个什么 Skill
+        的名字。还有他这张图片的主题就可以了**。」
+     ⇒ 判据由"必须有标签行"改成"**不许再有标签行与入口行**"：
+        留下的是 技能名（eyebrow）+ 这张图的主题（strong）两行。
+     ⚠️ 这是**用户改向**，不是放宽：改前后都是"预览窗必须精简到能一眼看完"，变的是"多少算精简"。 */
+  assert.doesNotMatch(row, /skill-preview-tags/, '预览窗里不再有标签行（用户图一/图五批注）');
+  assert.doesNotMatch(row, /skill-preview-cta/, '预览窗里不再有「进入「XX」工作台」那一行');
+  assert.match(row, /skill-preview-eyebrow/, '要有技能名那一行（用户："展示它是一个什么 Skill 的名字"）');
+  assert.match(row, /skill-preview-body[\s\S]{0,400}?<strong>/, '要有"这张图片的主题"那一行');
+  /* ②-b3 图**不裁**：object-fit 必须是 contain（用户图一："正方形的图片下面会被截断"） */
+  /* 判据先**剥掉注释**再比（这条规则上面挂了一段说明，见 CaseCard 那份的同一条注记） */
+  assert.match(rowCss.replace(/\/\*[\s\S]*?\*\//g, ''), /\.skill-preview-shot img \{[^}]*object-fit: contain/,
+    '预览图用 contain + 居中（方形图不再被上下截断）');
   /* ②-c 位置：贴在按钮**下方**、间隙 10（flova 实测 10.2），下方放不下才翻到上面 */
   assert.match(row, /rect\.bottom \+ 10/);
   assert.match(row, /globalThis\.innerHeight - rect\.top \+ 10/);

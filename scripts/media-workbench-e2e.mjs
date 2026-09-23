@@ -1364,13 +1364,23 @@ try {
     url: location.pathname + location.search,
     boardBar: Boolean(document.querySelector('.app-board-bar')),
     topbarBrand: Boolean(document.querySelector('.topbar-brand')),
+    brandLeft: (() => { const b = document.querySelector('.topbar-brand')?.getBoundingClientRect(); return b ? Math.round(b.x) : -1; })(),
     sidebarBoards: Array.from(document.querySelectorAll('.app-sidebar-cell')).map(n => n.getAttribute('title')).filter(t => t === '图片生成' || t === '视频生成'),
     actionsRight: (() => { const a = document.querySelector('.topbar-actions')?.getBoundingClientRect(); return a ? Math.round(a.x) : 0; })(),
     halfWidth: Math.round(window.innerWidth / 2),
   }));
   check(headerState.url === '/image-creation', '停在图片总页面', headerState.url);
   check(!headerState.boardBar, '总页面没有第二条导航条（用户 #2-1：也没有那两个导航栏的）', String(headerState.boardBar));
-  check(!headerState.topbarBrand, '总页面顶栏没有 LOGO（用户 #2-1：上面是没有左上角这个薯包AI的）', String(headerState.topbarBrand));
+  /* ═══ 2026-09-24 批 AV：这条判据**反转**（用户在图五上明确要求把 LOGO 装回来）═══════════════
+     原来钉的是「总页面顶栏**没有** LOGO」（依据是批 J-① 引的用户原话「上面是没有左上角这个
+     薯包AI的」）。那件事此后被**自己推翻了两次**：
+       ① 批 L-6 又把左导航顶上那颗品牌标也撤掉（理由：一屏两个品牌标）——
+          于是总页面变成**一颗 LOGO 都没有**；
+       ② 本轮用户看图后原话：「然后为什么我进来这个图片生成和视频生成的**总页面**这里
+          左上角的 **LOGO 会不见了呢**。这个也很突兀啊，**你要搞进来啊**。」
+     ⇒ 判据跟着改成"总页面顶栏**必须有** LOGO"，并且它落在左半边（不是跟账户组挤在一起）。 */
+  check(headerState.topbarBrand, '总页面顶栏**有** LOGO（用户图五批注 3：不见了要装回来）', String(headerState.topbarBrand));
+  check(headerState.brandLeft < headerState.halfWidth, 'LOGO 在左上角（不是被推到右边）', headerState.brandLeft + ' vs ' + headerState.halfWidth);
   check(headerState.sidebarBoards.length === 2, '两个板块的入口都在左导航里（导航能力没丢）', JSON.stringify(headerState.sidebarBoards));
   /* 判据用**相对位置**（视口的一半）而不是写死 1200 —— 断言在不同视口下都要成立。 */
   check(headerState.actionsRight > headerState.halfWidth, '积分/账户拉到右边（用户 #3-2）', headerState.actionsRight + ' vs ' + headerState.halfWidth);

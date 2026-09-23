@@ -48,6 +48,30 @@ export default function CaseCard({
   const videoRef = useRef(null);
   const [inView, setInView] = useState(false);
   const [hovering, setHovering] = useState(false);
+  /* ═══ 2026-09-24 批 AV：预览窗的两个新状态（用户图一 / 图五 的两条批注）═══════════════════════
+     ① `shotRatio`：预览窗里那张图的实际宽高比。用户原话：「你是一个正方形的图片，1:1 的这种图片。
+        你放进来之后，你下面的那部分是会被截断的，因为你的预览窗是长方形的……是不是其实比如说
+        用居中来展示会更好呢」⇒ 不再用固定 16:9 去裁它：**框跟着图走**（读 naturalWidth/Height，
+        夹在 3:4 与 16:9 之间），配 object-fit: contain + 居中 —— 方图就得到方框，既不裁也不留空带。
+     ② `align`：预览窗该往哪边对齐。用户原话：「我搞不明白你为什么鼠标放上去之后，整个案例不是
+        居中在你这个窗口的……因为你现在是往右边挤的，导致其实会有一部分案例是没办法展示全的，
+        它会被右边给截断」⇒ 悬停时量一次卡片位置：卡片靠右就把浮窗右对齐，靠左就左对齐，
+        中间那种才居中 —— 三种都不出视口（下面 place() 里给了判据）。 */
+  const [shotRatio, setShotRatio] = useState(0);
+  const [align, setAlign] = useState('left');
+
+  /* 预览窗的对齐判据：浮窗宽 440（与 CSS 的 min(440px, 92vw) 同值），留 16 的安全边 */
+  const placePreview = () => {
+    const node = articleRef.current;
+    if (!node || typeof globalThis.innerWidth !== 'number') return;
+    const rect = node.getBoundingClientRect();
+    const width = Math.min(440, globalThis.innerWidth - 32);
+    const center = rect.left + rect.width / 2;
+    const room = globalThis.innerWidth - 16;
+    if (center + width / 2 > room) setAlign('right');
+    else if (center - width / 2 < 16) setAlign('left');
+    else setAlign('center');
+  };
 
   useEffect(() => {
     const node = articleRef.current;
@@ -62,6 +86,19 @@ export default function CaseCard({
 
   /* 进入视口就播、离开就停；hover 时一定在播。减少动效偏好下只 hover 播。 */
   const shouldPlay = Boolean(video) && inView && (hovering || !REDUCED_MOTION());
+
+  /* 悬停时量一次卡片位置决定浮窗往哪边对齐；滚动/改变窗口时重新量 */
+  useEffect(() => {
+    if (!hovering) return undefined;
+    placePreview();
+    const onViewport = () => placePreview();
+    globalThis.addEventListener('resize', onViewport);
+    globalThis.addEventListener('scroll', onViewport, true);
+    return () => {
+      globalThis.removeEventListener('resize', onViewport);
+      globalThis.removeEventListener('scroll', onViewport, true);
+    };
+  }, [hovering]);
 
   useEffect(() => {
     const node = videoRef.current;
@@ -149,27 +186,49 @@ export default function CaseCard({
           ⚠️ 它挂在 <article> 里（不是 <button> 里）：浮窗里有文字，塞进按钮会让
              "按钮的可读名字"变成一大段；而且点击仍然只走按钮那一层。 */}
       {hovering && (
-        <div className="media-case-card-preview" role="dialog" aria-label={(title || '技能') + ' 预览'}>
+        <div
+          className="media-case-card-preview"
+          data-align={align}
+          role="dialog"
+          aria-label={(title || '技能') + ' 预览'}
+        >
           {/* ═══ 2026-09-23 批 Z-②：与首页那份预览窗**同步改成上图下文**（用户图七）═══════════
               首页一份（SkillEntryRow）、子页面一份（这里），两处必须同一门语言 ——
               长相不一致，用户看到的就是"你又在两个地方做了两套"。
-              图只留**一张** 16:9 主图（三格 3:4 是旧两栏版式用的），没有案例时仍如实写
-              「案例补充中」；下面只留技能名 + 一句话 + 少量标签 + 入口。 */}
+              ⚠️ 2026-09-24 批 AV：框**跟着图的长宽比走**（用户图一：「正方形的图片放进来，
+                 下面那部分会被截断……用居中来展示会不会更好」）—— 读 naturalWidth/Height，
+                 夹在 3:4 与 16:9 之间，配 object-fit: contain 居中：方图得到方框，不裁不留空。 */}
           <div className="media-case-card-preview-art" aria-hidden="true">
             {previewShots && previewShots[0]
-              ? <span className="media-case-card-preview-shot"><img src={previewShots[0]} alt="" loading="lazy" /></span>
+              ? (
+                <span
+                  className="media-case-card-preview-shot"
+                  style={shotRatio ? { aspectRatio: String(shotRatio) } : undefined}
+                >
+                  <img
+                    src={previewShots[0]}
+                    alt=""
+                    loading="lazy"
+                    onLoad={event => {
+                      const { naturalWidth, naturalHeight } = event.currentTarget;
+                      if (!naturalWidth || !naturalHeight) return;
+                      const ratio = naturalWidth / naturalHeight;
+                      /* 夹在 3:4(0.75) 与 16:9(1.78) 之间：极端竖图/长图都不至于把浮窗撑变形 */
+                      setShotRatio(Math.min(16 / 9, Math.max(3 / 4, ratio)));
+                    }}
+                  />
+                </span>
+              )
               : <span className="media-case-card-preview-shot is-blank"><Play size={12} />案例补充中</span>}
           </div>
+          {/* ═══ 2026-09-24 批 AV：预览窗正文只留两行（用户图一 / 图五 的批注）══════════════════
+              用户原话：「这个部分完全不需要有啊。已经说了很多遍了就是。**预览窗里面只需要展示
+              它是一个什么 Skill 的名字。还有他这张图片的主题就可以了**。」
+              ⇒ 删掉「进入「XX」工作台 →」那一行，也删掉标签行（"案例还在补充"与图上的占位重复）。
+                留下的是：技能名（eyebrow）+ 这张图的主题（strong）。 */}
           <div className="media-case-card-preview-body">
             <span className="media-case-card-preview-eyebrow"><Sparkles size={13} />{title}</span>
-            <strong>{subtitle || '点一下进入它自己的工作台，参数已经替你调好。'}</strong>
-            <span className="media-case-card-preview-tags">
-              {badge ? <span className="media-case-card-preview-tag">{badge}</span> : null}
-              {(!previewShots || previewShots.length === 0)
-                ? <span className="media-case-card-preview-tag is-note">案例还在补充</span>
-                : null}
-            </span>
-            <span className="media-case-card-preview-cta">进入「{title}」工作台<ArrowRight size={14} /></span>
+            {subtitle ? <strong>{subtitle}</strong> : null}
           </div>
         </div>
       )}

@@ -48,6 +48,9 @@ export default function SkillEntryRow({
 }) {
   const [activeId, setActiveId] = useState('');
   const [anchor, setAnchor] = useState(null);
+  /* 2026-09-24 批 AV：预览窗里那张图的**实际宽高比**（读 naturalWidth/Height 后夹在 3:4~16:9）。
+     与 CaseCard 那份同一个做法 —— 用户图一要求"方形图别被截断、居中展示"。 */
+  const [shotRatio, setShotRatio] = useState(0);
   const closeTimer = useRef(null);
   const activeRef = useRef(null);
   const list = Array.isArray(skills) ? skills : [];
@@ -224,27 +227,39 @@ export default function SkillEntryRow({
           aria-label={active.name + ' 预览'}
         >
           <div className="skill-preview-art" aria-hidden="true">
-            {/* ⚠️ 只放**一张**主图（16:9 横幅）。原来这里是三格 3:4 竖图，是为了撑住
+            {/* ⚠️ 只放**一张**主图（横幅）。原来这里是三格 3:4 竖图，是为了撑住
                "左介绍 + 右案例"的两栏版式；改成上图下文之后，三格会把浮窗压得很高、
                把"精简"读没。没有案例时仍是**一格**如实写「案例补充中」——
-               不凑三格充版式（用户要的是"上面一张图、下面一句话"）。 */}
-            <span className="skill-preview-shot">
+               不凑三格充版式（用户要的是"上面一张图、下面一句话"）。
+               ⚠️ 2026-09-24 批 AV：框的宽高比**跟着图走**（与 CaseCard 那份逐值一致）——
+               用户图一原话：「正方形的图片放进来，下面那部分会被截断……用居中来展示会不会更好」。 */}
+            <span
+              className="skill-preview-shot"
+              style={shotRatio ? { aspectRatio: String(shotRatio) } : undefined}
+            >
               {active.previewAssets && active.previewAssets[0] && active.previewAssets[0].src
-                ? <img src={active.previewAssets[0].src} alt="" loading="lazy" />
+                ? (
+                  <img
+                    src={active.previewAssets[0].src}
+                    alt=""
+                    loading="lazy"
+                    onLoad={event => {
+                      const { naturalWidth, naturalHeight } = event.currentTarget;
+                      if (!naturalWidth || !naturalHeight) return;
+                      const ratio = naturalWidth / naturalHeight;
+                      setShotRatio(Math.min(16 / 9, Math.max(3 / 4, ratio)));
+                    }}
+                  />
+                )
                 : <span className="skill-preview-blank"><Play size={14} />案例补充中</span>}
             </span>
           </div>
+          {/* ═══ 2026-09-24 批 AV：预览窗正文只留两行（用户图一 / 图五的批注，与 CaseCard 同步）════
+              用户原话：「这个部分完全不需要有啊……预览窗里面**只需要展示它是一个什么 Skill 的名字。
+              还有他这张图片的主题就可以了**」⇒ 删掉「进入「XX」工作台 →」与标签行。 */}
           <div className="skill-preview-body">
             <span className="skill-preview-eyebrow"><Sparkles size={13} />{active.name}</span>
-            {/* 一句话说明：优先 summary（声明源里就是一句话），没有再退到能力描述 */}
-            <strong>{active.summary || active.detail || active.outcome || '点「试一试」进入它自己的工作台，参数已经替你调好。'}</strong>
-            {/* 少量标签：分类 + （配图退到本板块时才有的）来源说明。
-               来源那句原来是单独一段灰字，按"精简"收进标签行 —— 信息不丢、版面不涨。 */}
-            <span className="skill-preview-tags">
-              {active.category ? <span className="skill-preview-tag">{active.category}</span> : null}
-              {active.previewFromBoard ? <span className="skill-preview-tag is-note">配图来自本板块真实案例</span> : null}
-            </span>
-            <span className="skill-preview-cta">进入「{active.name}」工作台<ArrowRight size={14} /></span>
+            {active.summary ? <strong>{active.summary}</strong> : null}
           </div>
         </div>,
         document.body,

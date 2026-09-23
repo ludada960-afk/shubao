@@ -2578,7 +2578,11 @@
   animation: homepageModeCardsIn var(--sb-duration-slow) var(--sb-ease-out) both;
 }
 .homepage-mode-card {
-  position: relative; display: grid; flex: 0 0 auto; grid-template-rows: 28px 124px; width: 232px; height: 168px;
+  position: relative; display: grid; flex: 0 0 auto;
+  /* ═══ 2026-09-24 批 AV：两行 → **三行**（标题 + 一句话 + 预览图）═════════════════════════════
+     卡高不变（168），内高 152 重新分配：标题 22 + 说明 14 + 图 116。
+     用户图二批注 4 要的是"用户能比较看明白这张卡是干什么的"，说明这一行就是为此加的。 */
+  grid-template-rows: 22px 14px 116px; width: 232px; height: 168px;
   overflow: hidden; padding: var(--sb-space-2);
   /* ⚠️ 批 L-1：白卡回来了 —— 但这次是**照 k-fashionshop 实测的数值**：
      卡片本体 8px 圆角 + 白底 + 描边 + 一层浅阴影（他们实测 rounded-lg = 8px、bg 白、有 border）。 */
@@ -2596,7 +2600,67 @@
 .homepage-mode-card-title {
   display: flex; align-items: center; justify-content: center; gap: var(--sb-space-1);
   font-size: var(--sb-text-sm); font-weight: var(--sb-weight-bold); white-space: nowrap;
+  transition: color var(--sb-duration-fast) var(--sb-ease-out);
 }
+/* ═══ 2026-09-24 批 AV：**十二宫格那套悬停动效**搬进这两张入口卡 ═════════════════════════════════
+   用户图二批注 4 原话：「https://liuyingai.cn/ 我之前一直有让你要去参考这个留影AI他们首页
+   下面有一个 12 宫格的按钮区块部分……**你要用鼠标去挪一下**，你去看一下它整体是怎么实现这个
+   12 宫格里面的交互还有 UI 的……就是他们**鼠标挪动放上去这些按钮和离开这些按钮时都是有不同的
+   样式变化**的。你现在似乎是只能去抄到这些充能条的能力。你似乎并没有去抄到它的**字的颜色啊，
+   渐变啊，图标的渐变啊，背景的渐变层**啊这些东西。」
+   抓取方式与逐值实测：`.tmp/ui-recon-liuying3.mjs`（Playwright 悬停前后各取一次 computed style），
+   原始数据在 `.tmp/ui-recon/liuying-cell-delta.json`。留影AI 那格的 hover 增量逐条是：
+     · 单元底色        --card(#fff)            → --surface-hover(rgb(245,247,250))，transition .5s
+     · 图标块 56×56    浅底 + 1px 边            → **linear-gradient(135deg, 品牌蓝, 品牌紫)** + scale(1.05)
+     · 图标本身        rgb(0,118,245)          → **rgb(255,255,255)**（白）
+     · 大号序号        rgb(228,231,236)        → rgba(品牌蓝, .15)
+     · 标题 h3         rgb(10,26,41)           → **rgb(0,118,245)**（品牌色）
+     · 描述 p          rgb(75,88,104)          → rgba(10,26,41,.9)（加深）
+     · 底部能量条      width 0                 → **width 100%**（4px，0.7s cubic-bezier(.4,0,.2,1)）
+     · 右下柔光球      rgba(0,118,245,.06)     → rgba(0,118,245,.10)
+   颜色一律换成我们自己的品牌档（--sb-brand-*）——**抄形状不抄品牌色**（沿用 CaseCard 里那条纪律）。 */
+.homepage-mode-card-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex: 0 0 22px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 7px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-brand);
+  transition: background-image var(--sb-duration-normal) var(--sb-ease-out),
+              color var(--sb-duration-normal) var(--sb-ease-out),
+              transform var(--sb-duration-normal) var(--sb-ease-out),
+              border-color var(--sb-duration-normal) var(--sb-ease-out);
+}
+.homepage-mode-card-hint {
+  display: block; margin-top: 2px; text-align: center;
+  font-size: 10px; line-height: 1.4; color: var(--sb-ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color var(--sb-duration-fast) var(--sb-ease-out);
+}
+/* 右下角柔光球：静止时**完全不可见**（留影AI 那格是 .06 → .10，我们底色更亮，所以取 0 → .09） */
+.homepage-mode-card-glow {
+  position: absolute; right: -46px; bottom: -46px; width: 150px; height: 150px;
+  border-radius: 50%; pointer-events: none; opacity: 0; z-index: 0;
+  background: radial-gradient(circle at 50% 50%, var(--sb-brand-400) 0%, transparent 70%);
+  transition: opacity var(--sb-duration-slow) var(--sb-ease-out);
+}
+.homepage-mode-card:hover .homepage-mode-card-glow { opacity: .16; }
+.homepage-mode-card:hover .homepage-mode-card-glyph {
+  background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
+  border-color: transparent;
+  color: var(--sb-neutral-0);
+  transform: scale(1.06);
+}
+.homepage-mode-card:hover .homepage-mode-card-name { color: var(--sb-ink-brand); }
+.homepage-mode-card:hover .homepage-mode-card-hint { color: var(--sb-ink-1); }
+/* 底部能量条：默认 width 0，悬停充满（照实测：是 width 过渡，不是 scaleX）*/
+.homepage-mode-card::before {
+  content: ''; position: absolute; left: 0; bottom: 0; z-index: 3;
+  width: 0; height: 4px; pointer-events: none;
+  background-image: linear-gradient(to right, var(--sb-brand-500), var(--sb-brand-700));
+  transition: width .7s cubic-bezier(.4, 0, .2, 1);
+}
+.homepage-mode-card:hover::before { width: 100%; }
 .homepage-mode-card-visual {
   position: relative; display: block; overflow: visible; border-radius: var(--sb-radius-chip);
   background: transparent;

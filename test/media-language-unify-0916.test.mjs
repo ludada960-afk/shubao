@@ -105,8 +105,28 @@ test('⑥ 案例卡只有一份实现：统一 4:3 封面、视频预览懒加�
     '两栏版式已作废（用户要的是"上面一张图、下面一句话"）');
   assert.match(card, /media-case-card-preview-art[\s\S]*?media-case-card-preview-body/,
     '上图下文：图必须在文案之前');
-  assert.match(card, /media-case-card-preview-tags/, '下面要有"少量标签"那一行');
+  /* ═══ 2026-09-24 批 AV：这里原来有一条 `assert.match(card, /media-case-card-preview-tags/)`
+     —— 本轮用户在图一/图五上**明确要求删掉标签行与入口行**（原话见下面那段注释），
+     于是它由"必须有"改成"不许再有"（改法在下面 116-117 行）。删掉的是**过时的那一条**，
+     不是放宽：新判据比旧的更严（旧的是"要有标签"，新的是"不许有标签与入口"）。 */
   assert.match(card, /media-case-card-preview-art/, '预览窗上栏是案例图位');
+  /* ═══ 2026-09-24 批 AV：标签行与入口行**整块删掉**（与 SkillEntryRow 那份同步改）═════════════
+     批 Z-② 照的是用户图七「上面一张图、下面一句话说明 + 少量标签」；
+     本轮用户在图一/图五上再次改向，原话：
+       「这个部分完全不需要有啊。已经说了很多遍了就是。**预览窗里面只需要展示它是一个什么 Skill
+        的名字。还有他这张图片的主题就可以了**。」
+     ⇒ 判据改成"不许再有标签行与入口行"，留下 技能名 + 这张图的主题。 */
+  assert.doesNotMatch(card, /media-case-card-preview-tags/, '预览窗不再有标签行（用户图一/图五批注）');
+  assert.doesNotMatch(card, /media-case-card-preview-cta/, '预览窗不再有「进入「XX」工作台」那一行');
+  assert.match(card, /media-case-card-preview-eyebrow/, '要有技能名那一行');
+  /* 图**不裁**：object-fit 必须是 contain（用户图一："正方形的图片下面会被截断"） */
+  /* 判据先**剥掉注释**再比：这条规则上面挂着一段说明（为什么要 contain），
+     用「选择器到 object-fit 之间不超过 N 个字符」那种写法会随着注释长短而误红。 */
+  assert.match(cardCss.replace(/\/\*[\s\S]*?\*\//g, ''), /\.media-case-card-preview-shot img \{[^}]*object-fit: contain/,
+    '预览图用 contain + 居中（方形图不再被上下截断）');
+  /* 浮窗不许越出视口右缘：靠 data-align 三档兜住（用户图五："往右边挤…会被右边给截断"） */
+  assert.match(cardCss, /\.media-case-card-preview\[data-align='right'\]/, '靠右的卡片：浮窗右对齐');
+  assert.match(card, /data-align=\{align\}/, '对齐方式由页面量出来再挂上去');
   assert.match(card, /案例补充中/, '没有案例时如实占位（不许放假图）');
   /* 视频案例：进入视口 + hover 才播、静音、循环、只取元数据 */
   assert.match(card, /new IntersectionObserver/, '视频案例必须懒加载（进入视口才准备）');
