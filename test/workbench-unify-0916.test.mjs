@@ -261,16 +261,28 @@ test('⑪c 结构化提示词必须仍然是合法 JSON schema（新增段不能
   assert.equal(parsed.sections.unknownSection, undefined, '不在白名单里的段不得被静默渲染');
 });
 
-/* ═══ ⑫ 视频清晰度：1080P 未上架是**计费决策**，不许被顺手打开 ═══ */
-test('⑫ 1080P 未上架：计费 SKU 必须保持 public:false（没签字不许开通）', () => {
+/* ═══ ⑫ 视频清晰度：1080P 是**计费决策** —— 用户签字之前不许开；签字之后只许按证据开 ═══ */
+test('⑫ 1080P：留档 SKU 不许被顺手打开；要开只能走「独立产品 + 2× 价 + 上游证据」那条路', () => {
   const catalog = read('server/billing/catalog.mjs');
-  /* 用户问：「1080P呢，是我们的视频 API 上有没有提供吗？还是你压根就没有打算做进去呢？」
-     事实：上游有货源、计费 SKU 已留档，但**没接生产路由、价格没签字**。
-     铁律①：未经用户确认不得开始计费 —— 所以这条要守住「不许偷偷打开」。 */
+  /* 这条的原始事实（2026-09-16）：用户问「1080P呢，是我们的视频 API 上有没有提供吗？还是你压根就没有
+     打算做进去呢？」—— 当时上游有货源、计费 SKU 已留档，但**没接生产路由、价格没签字**，
+     所以铁律①要求守住「不许偷偷打开」。
+     ═══ 2026-09-25 批 AN：**用户签字了**（原判据的前提消失，判据跟着事实改，不是放宽）═══════════
+     原话：「**1080P 我觉得是按他们那样，比 720P 高一倍的积分**」；
+     验收边界：「1080P 你先不用管真实验证的问题，你确保在**不真跑生产**的情况下，他的通道和逻辑
+     都是 OK 的就好，后续我自己回去一个一个生成案例的，那时候会验证问题的」。
+     ⇒ 现在：① 留档 SKU（video_seedance_1080p）**仍必须 public:false** —— 它的价格口径早于
+        2× 规则，是历史留档，不许被顺手打开；
+        ② 允许 1080p 产品存在，但**只能是那两条有出处的**（通义万相 1080P / Seedance 1080P）；
+        ③ 价格 / 毛利 / 报文 / 余额四条自洽由 test/video-1080p-tiers-0925.test.mjs 逐条守着。 */
   const entry = catalog.match(/video_seedance_1080p:\s*\{([^}]*)\}/);
-  assert.ok(entry, '计费 SKU 必须仍然存在（留档）');
-  assert.match(entry[1], /public:\s*false/, '未签字前必须保持 public:false');
-  const catalog970 = read('server/videoCatalog.mjs');
-  assert.ok(!/resolutions:\s*\['1080p'\]/.test(catalog970),
-    '没有任何视频产品可以声明 1080p —— 那会让用户选到一个走不通的档位并被扣费');
+  assert.ok(entry, '留档 SKU 必须仍然存在（老账单要能解析）');
+  assert.match(entry[1], /public:\s*false/, '留档 SKU 的价格口径早于 2× 规则，必须保持 public:false');
+  const videoCatalog = read('server/videoCatalog.mjs');
+  for (const id of ['wan_1080p', 'seedance_1080p']) {
+    assert.ok(videoCatalog.includes(`id: '${id}'`), `${id} 必须在视频目录里（1080P 档）`);
+  }
+  const declared = [...videoCatalog.matchAll(/resolutions:\s*\['1080p'\]/g)].length;
+  assert.equal(declared, 2,
+    '声明 1080p 的产品只应该是那两条（新增第三条必须同时补上游证据与 test/video-1080p-tiers-0925）');
 });

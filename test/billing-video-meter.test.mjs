@@ -221,7 +221,9 @@ test('GET /api/billing/video-meter 路由: 缺参数 400 (缺 model)', () => {
 
 // ─── 6. VIDEO_METER_CONSTANTS 暴露 ───
 test('VIDEO_METER_CONSTANTS 包含 11 个 tier + SAFE 正则', () => {
-  assert.equal(VIDEO_METER_CONSTANTS.VIDEO_TIER_DEFINITIONS.length, 11);
+  /* ═══ 2026-09-25 批 AN：11 → **12**（判据未变，事实变了）═════════════════════════════════════
+     新增「通义万相 3.0 1080P」这一档（按秒成本 ¥0.455，文档价；上限 9 秒见产品注释）。 */
+  assert.equal(VIDEO_METER_CONSTANTS.VIDEO_TIER_DEFINITIONS.length, 12);
   assert.ok(VIDEO_METER_CONSTANTS.SAFE_MODEL instanceof RegExp);
   assert.ok(VIDEO_METER_CONSTANTS.SAFE_RESOLUTION instanceof RegExp);
   assert.equal(VIDEO_METER_CONSTANTS.MAX_SECONDS, 60);

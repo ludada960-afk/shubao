@@ -95,6 +95,21 @@ const VIDEO_TIER_DEFINITIONS = Object.freeze([
     longMaxSeconds: 10,
     costPerClipCny: 0.455,  // 价目 ¥0.455/条
   },
+  /* ═══ 2026-09-25 批 AN：**通义万相 1080P**（用户口径：「比 720P 高一倍的积分」）═════════════════
+     成本口径与上面那条**不一样**：这条用的是文档里的 per_second 1080p 单价 ¥0.455/秒
+     （720p 是 ¥0.325/秒 —— 上面那条按条记的 0.455 实际是 1080p 的秒价，属历史口径，
+     本批不动既有行，只把新档记准）。长档上限 9 秒见 videoCatalog 的 wan_1080p 注释（余额约束）。 */
+  {
+    model: 'wan_1080p',
+    label: '通义万相 3.0 1080P',
+    eyebrow: '通义 · 1080P',
+    skuShort: 'video_wan_1080p_short',
+    skuLong: 'video_wan_1080p_long',
+    resolutions: Object.freeze(['1080p']),
+    shortMaxSeconds: 8,
+    longMaxSeconds: 9,
+    costPerSecondCny: 0.455,  // 文档价：xn-wan3.0 的 1080p per_second
+  },
   {
     model: 'kling_standard',
     label: '可灵 3.0',

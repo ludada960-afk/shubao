@@ -122,7 +122,11 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
      （新增的显式类别，见 catalog 里 contributionMarginOf 的批注：localEngine 必须记 0，
        其他 SKU 仍必须是正数 —— 守的还是"不许拿 0 假装成本"）。
      ⚠️ 两条 **public: false 起步**：本地渲染/擦除的生成链路接通前不放出可点档位。 */
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 32);
+  /* ═══ 2026-09-25 批 AN：32 → **36**（判据未变，事实变了）═════════════════════════════════════
+     新增 1080P 四档：通义万相 1080P（22/44 积分 = 现价 ×2，文档价 ¥0.455/秒）
+     与 Seedance 1080P（92/114 积分 = ×2，预扣 ¥7.67/条）。Seedance 那两个 public:false（卡余额）。
+     价格口径的逐值证据在 test/video-1080p-tiers-0925.test.mjs。 */
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 36);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);

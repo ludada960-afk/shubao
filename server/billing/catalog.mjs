@@ -170,6 +170,27 @@ export const FEATURE_SKUS = freezeCatalog({
         若用户觉得太贵，正解是**下线这条档位**，而不是继续亏着卖。 */
   video_wan_standard_short: { units: 11000, providerCostCny: 1.625, priceFen: 271, marginBand: 'traffic', freeReruns: 0 },
   video_wan_standard_long: { units: 22000, providerCostCny: 3.25, priceFen: 542, marginBand: 'traffic', freeReruns: 0 },
+  /* ═══ 2026-09-25 批 AN：**1080P 档**（用户口径，逐字）══════════════════════════════════════════
+     用户原话：「**1080P 我觉得是按他们那样，比 720P 高一倍的积分**」（价口径，上一批就给了）
+     + 本轮「1080P 你先不用管真实验证的问题，你确保在**不真跑生产**的情况下，他的通道和逻辑
+     都是 OK 的就好，后续我自己回去一个一个生成案例的，那时候会验证问题的」。
+     ⇒ 价格口径**逐值可验**：units 与 priceFen 都 = 各自 720P 档 × 2（门禁 test/video-1080p-tiers-0925
+        逐条比对，任何人日后调价都会把那条门禁顶红）。
+     ⇒ 成本取**上游文档/实测价**，两条来源不同、逐条写清：
+        · 通义万相 1080P —— 同一条路由 xn-wan3.0 自己的文档价：per_second 1080p ¥0.455/秒
+          （720p ¥0.325、480p ¥0.26，同一张表；那段原文记在 videoCatalog 的 wan_standard 注释里）。
+          ⇒ 短档 5 秒成本 ¥2.275、长档 9 秒 ¥4.095（9 秒是站内长档的代表时长，见 longQuoteSeconds）。
+          ⇒ 22/44 积分（22/44 千 units，面值 ¥5.76/¥11.52）→ 账面毛利 57.5% / 61.5%，过引流带地板 40% ✓
+        · Seedance 2.0 1080P —— 路由 seedance-2.0-1080p，**9-16 零成本实测**走完渠道与参数校验，
+          仅因**预扣 ¥7.67 > 中转余额**被拒（insufficient_user_quota）⇒ 按 ¥7.67/条记账（按条计费）。
+          ⇒ 92/114 积分（面值 ¥24.09/¥29.85）→ 毛利 65% / 71%，过主力带地板 60% ✓
+     ⚠️ Seedance 那条**卡在余额**：当前记账余额 ¥4.2478 < ¥7.67 ⇒ 产品与 SKU 都先 public: false
+        （quote 接口会直接拒发报价令牌 ⇒ 用户点不到，不会出现"点了必失败"）。
+        充值后把 product.public 与这两个 SKU 的 public 一起翻 true 即可（台账状态已是 blocked）。 */
+  video_wan_1080p_short: { units: 22000, providerCostCny: 2.275, priceFen: 542, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_wan_1080p_long: { units: 44000, providerCostCny: 4.095, priceFen: 1084, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_seedance_1080p_short: { units: 92000, providerCostCny: 7.67, priceFen: 2380, marginBand: 'core', freeReruns: 0, public: false },
+  video_seedance_1080p_long: { units: 114000, providerCostCny: 7.67, priceFen: 2980, marginBand: 'core', freeReruns: 0, public: false },
   video_kling_standard_short: { units: 16000, providerCostCny: 1.82, priceFen: 409, marginBand: 'traffic', freeReruns: 0 },
   video_kling_standard_long: { units: 16000, providerCostCny: 1.82, priceFen: 409, marginBand: 'traffic', freeReruns: 0 },
   video_kling_pro_short: { units: 32000, providerCostCny: 3.77, priceFen: 813, marginBand: 'traffic', freeReruns: 0 },

@@ -28,6 +28,14 @@ test('video products expose one curated stable contract', () => {
     'minimax_h3_768p',
     'grok_fast',
     'wan_standard',
+    /* ═══ 2026-09-25 批 AN：1080P 两条（判据未变，事实变了）═════════════════════════════════════
+       用户批了价：「1080P 我觉得是按他们那样，比 720P 高一倍的积分」。
+       两条按"家族各一条独立产品"开（与 2K 档 minimax_h3_2k 同一做法）：
+         · wan_1080p     —— public: true（同一条 xn-wan3.0 路由的文档价 ¥0.455/秒）
+         · seedance_1080p —— public: false（预扣 ¥7.67 > 中转余额，充值后翻）
+       id 仍在册 ⇒ 老任务/老订单解析不受影响（这份清单守的就是"id 还在"）。 */
+    'wan_1080p',
+    'seedance_1080p',
     'kling_standard',
     'kling_pro',
     'veo_fast',
@@ -88,8 +96,12 @@ test('public products only ride routes that are verified or callable', () => {
      可灵两条恢复上架：探针回 400 invalid_duration ⇒ 名字可解析、渠道活着
      （09-19 那条 not a public model name 已不复现）。这一条守的东西一个字没变：
      **public:true 只允许走 verified / callable 的路由**（下面那个 for 循环照旧逐条核）。 */
+  /* ═══ 2026-09-25 批 AN：11 → **12**（判据未变，事实变了）══════════════════════════════════════
+     新增公开档：通义万相 1080P（route xn-wan3.0，本身就是 callable，下面的 for 循环照旧逐条核）。
+     Seedance 1080P **不在**这份清单里 —— 它 public:false（预扣 ¥7.67 > 余额），
+     等充值后翻 true，届时这条清单也要跟着改（门禁与事实同步）。 */
   assert.deepEqual(publics.map(product => product.id), [
-    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard',
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard', 'wan_1080p',
     'kling_standard', 'kling_pro',
     'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
@@ -182,8 +194,13 @@ test('public products omit hidden routes and private provider details', () => {
      公开档 10 → 9；判据未变（"点了必失败的东西不许变成选项"）。
      ═══ 2026-09-23 批 AC：公开档 9 → **11** —— 可灵两条本轮实测渠道活着（400 invalid_duration），
      按同一条判据（"能用才显示"）恢复上架；判据字面一个字没改。 */
+  /* ═══ 2026-09-25 批 AN：公开档 11 → **12**（判据未变，事实变了）══════════════════════════════
+     新增「通义万相 3.0 1080P」（用户批价：「比 720P 高一倍的积分」）——
+     它走的是**已经在用的** xn-wan3.0 路由（现网正在出 720p/480p 的片子），文档价目表里
+     1080p ¥0.455/秒 白纸黑字，所以这一档满足"能用才显示"。
+     Seedance 1080P 不在这份清单里：预扣 ¥7.67 > 中转余额 ⇒ 建单必被上游拒 ⇒ 保持隐藏。 */
   assert.deepEqual(products.map(product => product.id), [
-    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard',
+    'seedance_fast', 'seedance_standard', 'minimax_h3_768p', 'wan_standard', 'wan_1080p',
     'kling_standard', 'kling_pro',
     'seedance_25', 'minimax_h3_2k', 'sd_js900', 'sd_js', 'seedance_mini',
   ]);
@@ -206,8 +223,13 @@ test('public products omit hidden routes and private provider details', () => {
      判据的本意是「模型清单 = 所有产品」，从本批起不再是 —— 本地方案不是模型：
      把它们放进模型下拉，用户会在「视频创作」里选到一条**不吃提示词**的档位（点了必失败）。
      所以这里改守两件事：① 模型清单里一条本地产品都没有；
-     ② 本地产品的报价与规格走另一份只读清单 localVideoProducts（两条都在）。 */
-  assert.equal(all.length, 13, '模型清单仍是 13 条（本地方案不算模型）');
+     ② 本地产品的报价与规格走另一份只读清单 localVideoProducts（两条都在）。
+     ═══ 批 AN：13 → **15**（判据未变，事实变了）—— 1080P 两条**是**模型（走上游路由、
+     吃提示词、由用户选），所以进模型清单；其中 seedance_1080p 靠 public:false 挡在公开目录外
+     （includeHidden:true 是管理端视角，两条都该在）。 */
+  assert.equal(all.length, 15, '模型清单 15 条（13 条原有 + 两条 1080P；本地方案不算模型）');
+  assert.ok(all.some(product => product.id === 'wan_1080p'), '通义万相 1080P 是模型，要在模型清单里');
+  assert.ok(all.some(product => product.id === 'seedance_1080p'), 'Seedance 1080P 也是模型（隐藏档仅管理端可见）');
   const localIds = Object.keys(VIDEO_PRODUCTS).filter(id => getVideoProduct(id).localEngine === true);
   assert.deepEqual(localIds.sort(), ['desubtitle_local', 'upscale_local']);
   assert.deepEqual(all.filter(product => localIds.includes(product.id)), [], '本地方案不许出现在模型清单里');
@@ -267,15 +289,24 @@ test('480P 档按上游文档价目开（比 720P 便宜才允许开），1080P 
   const with480 = Object.values(VIDEO_PRODUCTS).filter(p => p.resolutions.includes('480p')).map(p => p.id);
   assert.deepEqual(with480.sort(), ['seedance_mini', 'wan_standard']);
 
-  /* ═══ 2026-09-25 批 AM：**判据收窄**（不是放宽，是它的前提本地方案不成立）══════════════════
-     这条原来写「1080p 在站内一个公开档都不许有」。它的理由是**成本**：上游 1080P 比 720P 贵
-     1.4~2.9 倍（同一条路由的按秒价），而站内是按条固定价 ⇒ 同价开 1080P 等于降价，须用户批准。
-     本地方案没有这个前提 —— 高清是**本机重采样**（billing/catalog 里 localEngine 类别记成本 0），
-     而且知渔那一页就是 720p / 1080p / 2k **同一个价**（0.50 积分/条，我们的 SKU 与它同价）。
-     ⇒ 判据改成：**非本地的**公开档里不许出现 1080p（上游成本那条理由原样有效）。 */
+  /* ═══ 2026-09-25 批 AN：**判据第二次演进** —— 用户批了 1080P 的价，于是它从"零公开档"
+     变成"允许公开，但每一档都必须有**自己的价与上游证据**"（判据没有消失，只是换了形态）═══════
+     过程如实记在这里：
+       · 批 AM（上一条注释）：收窄为"非本地的公开档不许有 1080p"（依据是上游 1080P 更贵、
+         同价开 = 降价，属定价决定）。原话提醒「1080P 同一行也在售（¥0.455/秒），但比 720p 贵
+         ⇒ 同价开 1080p 是定价决定，须用户点头，本轮不动」。
+       · 用户点头了：「**1080P 我觉得是按他们那样，比 720P 高一倍的积分**」+「你确保在不真跑生产
+         的情况下，他的通道和逻辑都是 OK 的就好，后续我自己回去一个一个生成案例的」。
+       ⇒ 现在的判据：公开的 1080P 档只允许**通义万相 1080P**（独立的 2× 价档、成本有文档出处），
+         且 Seedance 1080P 必须**藏着**（预扣 ¥7.67 > 中转余额 ⇒ 建单必被上游拒）。
+         逐条价格/毛利/报文/余额自洽的证据在 test/video-1080p-tiers-0925.test.mjs。 */
   const with1080 = Object.values(VIDEO_PRODUCTS)
-    .filter(p => p.public === true && p.localEngine !== true && p.resolutions.includes('1080p'));
-  assert.deepEqual(with1080, []);
+    .filter(p => p.public === true && p.localEngine !== true && p.resolutions.includes('1080p'))
+    .map(p => p.id);
+  assert.deepEqual(with1080, ['wan_1080p'],
+    '非本地的公开 1080P 档当前只有通义万相那一条（独立 2× 价档）；新增必须补上游证据与门禁');
+  assert.equal(getVideoProduct('seedance_1080p').public, false,
+    'Seedance 1080P 卡在余额（预扣 ¥7.67 > ¥4.2478），不许公开 —— 详见 video-1080p-tiers-0925 ④');
   assert.deepEqual(getVideoProduct('upscale_local').resolutions, ['720p', '1080p', '2k'],
     '本地方案照知渔那一页：输出分辨率三档一个价（成本 0，不存在"同价即降价"）');
 

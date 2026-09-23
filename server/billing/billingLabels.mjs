@@ -84,6 +84,12 @@ const SKU_LABELS = Object.freeze({
   video_grok_fast_long: { label: 'AI 视频 · 极速档', category: 'video', per: '条' },
   video_wan_standard_short: { label: 'AI 视频 · 通义万相 3.0', category: 'video', per: '条' },
   video_wan_standard_long: { label: 'AI 视频 · 通义万相 3.0', category: 'video', per: '条' },
+  /* 2026-09-25 批 AN：1080P 四档（用户口径「比 720P 高一倍的积分」）—— 标签写出分辨率与计价单位，
+     用户从账单上一眼能认出"这是 1080P 那一档"、以及它是按条还是按秒。 */
+  video_wan_1080p_short: { label: 'AI 视频 · 通义万相 3.0 1080P', category: 'video', per: '条' },
+  video_wan_1080p_long: { label: 'AI 视频 · 通义万相 3.0 1080P', category: 'video', per: '条' },
+  video_seedance_1080p_short: { label: 'AI 视频 · Seedance 2.0 1080P', category: 'video', per: '条' },
+  video_seedance_1080p_long: { label: 'AI 视频 · Seedance 2.0 1080P', category: 'video', per: '条' },
   video_kling_standard_short: { label: 'AI 视频 · 可灵 3.0', category: 'video', per: '条' },
   video_kling_standard_long: { label: 'AI 视频 · 可灵 3.0', category: 'video', per: '条' },
   video_kling_pro_short: { label: 'AI 视频 · 可灵 3.0 Pro', category: 'video', per: '条' },

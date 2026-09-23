@@ -237,6 +237,12 @@ export const ROUTE_REACHABILITY = deepFreeze({
         能不能按提示词擦掉字幕）**没有实测过**，要一次真实出片才能定；
         在那之前不许把任何产品挂在它上面（门禁只允许 verified/callable 上架，
         但这里更严：**callable 只代表渠道活，不代表这个用途成立** —— 用途要单独实测）。 */
+  /* ═══ 2026-09-25 批 AN：1080P 那条**独立模型名**的路由（Seedance 2.0 超清）═══════════════════
+     状态 blocked 的判据是 9-16 的零成本实测：请求走完了渠道解析与参数校验，
+     最后**只**卡在预扣（¥7.67/条 > 中转余额）—— 这与 'wan3.0-video' 那条同一类：
+     "活着但余额不足，充值即开"。按本站铁律，blocked 就不许上架（点了必失败），
+     所以产品与 SKU 保持 public: false，等余额充足再翻。 */
+  'seedance-2.0-1080p': { state: 'blocked', evidence: '2026-09-16 批 K-B 零成本实测：渠道与参数校验均通过，仅因预扣 ¥7.67/条 > 中转余额被拒（insufficient_user_quota）⇒ 活着、余额不足，充值即开。2026-09-25 批 AN 复核价目表：该模型在册（¥7.67/条，billing_mode=per_request，声明 openai-video）。⚠️ 未做付费出片实测（用户在等他自己的案例验证）。' },
   'omni-v2v': { state: 'callable', evidence: '2026-09-23 批 AC 零成本探针：提交回 400 invalid_reference（该模型需要参考素材）⇒ 渠道活着、名字可解析；文档价 ¥1.15128/条。用途（视频高清 / 去字幕）**未实测**，上架前必须有一次真实出片' },
   'omni-v2v-no-water': { state: 'callable', evidence: '2026-09-23 批 AC：同 omni-v2v；文档价 ¥1.3455/条' },
   'omni-fast': { state: 'callable', evidence: '2026-09-23 批 AC 探针**真的建了任务**（该路由不校验非法时长，task_GewlyXIKqBqJCRqCupaPa28XlebVeB7H，扣 ¥0.86112 —— 余额 5.108880 → 4.247760 可对账）⇒ 渠道活着；**这条路由没有参数校验兜底，探针必须带真实意图**，不要再拿它试错' },
@@ -486,6 +492,70 @@ export const VIDEO_PRODUCTS = deepFreeze({
     generatedAudio: false,
     frameAudio: false,
     limits: { images: 1, videos: 0, audios: 0, total: 1 },
+    concurrency: 2,
+    pollIntervalMs: 10000,
+  },
+  /* ═══ 2026-09-25 批 AN：**两条 1080P 档**（用户口径：「比 720P 高一倍的积分」）═════════════════
+     为什么按"家族各一条独立产品"开，而不是在原产品上加一个 '1080p'：
+       · 站内 SKU 名由产品 id 派生（`video_${id}_${short|long}`），一条产品只能对一条价档；
+       · 这正是既有做法 —— 2K 档就是独立产品 `minimax_h3_2k`（resolutions: ['2k']）。
+     ⚠️ resolution 走的是**同一条报文通路**：两种协议都把 job.resolution 写进请求体
+        （seedance 协议 baseJobFields.resolution；minimax 协议 minimaxResolutionOf），
+        routeId 相同的家族连网关都不用换 —— 这就是"通道"那半边，门禁直接断言报文。
+     ⚠️ 哪条能开、哪条只能先藏着，判据是**上游证据 + 余额**，逐条写在各自注释里。 */
+  wan_1080p: {
+    id: 'wan_1080p',
+    label: '通义万相 3.0 1080P',
+    providerLabel: '阿里通义',
+    tierLabel: '全高清',
+    description: '同一条通义万相路线的高清档：1080P 全高清输出，商品与场景稳定性好。',
+    /* 面向用户的限制只写"用户能做什么"（模型菜单里直接展示这一行）：
+       不写我们的上游单价与余额 —— 那是内部账，用户要的是"能出多久的片子"。
+       内部的余额约束与算式写在下面那段注释里（给人看代码时用）。 */
+    limitations: '1080P 全高清档，当前支持 5-9 秒；单张参考图，不支持参考视频、参考音频与首尾帧。',
+    /* 证据：xn-wan3.0 的文档价目表逐字给出 per_second 1080p ¥0.455/秒（与 720p ¥0.325 同一张表，
+       原文记在 wan_standard 的注释里）；同一条路由现网已在出 720p/480p 的片子 ⇒ 通道已验证过，
+       这一档只是把请求里的 resolution 换成 1080p。
+       ⚠️ durations.max = 9（不是 10）：1080P 的上游预扣 = ¥0.455 × 秒数，10 秒 = ¥4.55 >
+          当前记账余额 ¥4.2478 ⇒ 会被上游以 insufficient_user_quota 拒。宁可先给 5-9 秒，
+          也不放一个"点了必失败"的 10 秒档；余额充上来后把这里改成 10 即可（一处数字）。 */
+    routeId: 'xn-wan3.0',
+    credential: 'seedance',
+    public: true,
+    default: false,
+    durations: { min: 5, max: 9 },
+    resolutions: ['1080p'],
+    modes: ['script', 'reference'],
+    generatedAudio: false,
+    frameAudio: false,
+    limits: { images: 1, videos: 0, audios: 0, total: 1 },
+    concurrency: 2,
+    pollIntervalMs: 10000,
+  },
+  seedance_1080p: {
+    id: 'seedance_1080p',
+    label: 'Seedance 2.0 1080P',
+    providerLabel: '字节跳动',
+    tierLabel: '全高清',
+    description: 'Seedance 2.0 的 1080p 超清路线（中转独立模型名 seedance-2.0-1080p）。',
+    limitations: '1080P 超清档（当前未开放，通道就绪后上架）。',
+    /* ═══ 为什么这条是 public: false（不是"忘了开"）═════════════════════════════════════════════
+       9-16 零成本实测（原文记在 billing/catalog 的 video_seedance_1080p 注释里）：这条路由
+       **渠道与参数校验都过了**，只因**预扣 ¥7.67 超过中转余额**被上游拒（insufficient_user_quota）。
+       ⇒ 台账状态 blocked（活着、余额不足）；产品与两条 SKU 全部 public: false ——
+          现在公开它 = 用户点了必失败（铁律）。充值到 ≥ ¥7.67×并发 后，
+          把这里与两条 SKU 的 public 一起翻 true 即可（价格与 SKU 都已按 2× 建好）。 */
+    routeId: 'seedance-2.0-1080p',
+    credential: 'seedance',
+    public: false,
+    default: false,
+    durations: { min: 5, max: 15 },
+    durationOptions: [5, 10, 15],
+    resolutions: ['1080p'],
+    modes: ['script', 'reference'],
+    generatedAudio: true,
+    frameAudio: false,
+    limits: { images: 9, videos: 0, audios: 0, total: 9 },
     concurrency: 2,
     pollIntervalMs: 10000,
   },
