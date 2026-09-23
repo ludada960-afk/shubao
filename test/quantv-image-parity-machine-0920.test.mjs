@@ -53,9 +53,13 @@ test('① 对照表覆盖全部图片 skill：有对应页的写 URL，没有的
   const mapped = Object.keys(QUANTV_IMAGE_COUNTERPARTS);
   assert.deepEqual(mapped.filter(id => !ids.includes(id)), [], '对照表里有仓库里不存在的 skill');
   assert.deepEqual(ids.filter(id => !mapped.includes(id)), [], '有 skill 没进对照表（漏填 = 上一轮的问题）');
-  assert.equal(ids.length, 50, '图片 skill 数量变了，对照表要同步');
+  /* ═══ 2026-09-23 批 AB：50 → **48** ═══════════════════════════════════════════════════════
+     用户原话：「**image.free（自由创作）、image.material（材质细节）这两个去掉**」——
+     这两条是交叉核对后**唯一既没有知渔对应页、又没有官方用例/开源库背书**的图片 skill，
+     照指令下架 ⇒ 自有玩法 16 → 14；有对应页的 34 条**一条没动**（知渔那 34 页仍然全覆盖）。 */
+  assert.equal(ids.length, 48, '图片 skill 数量变了，对照表要同步');
   assert.equal(imageSkillsWithCounterpart().length, 34, '有对应页的条数变了');
-  assert.equal(imageSkillsWithoutCounterpart().length, 16, '自有玩法的条数变了');
+  assert.equal(imageSkillsWithoutCounterpart().length, 14, '自有玩法的条数变了');
   for (const id of imageSkillsWithoutCounterpart()) {
     const reason = QUANTV_IMAGE_COUNTERPARTS[id].reason || '';
     assert.ok(reason.length >= 8, id + ' 写了 counterpart: null 但没写清为什么（"没有"也要是明确结论）');

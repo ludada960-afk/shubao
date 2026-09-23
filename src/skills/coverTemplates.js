@@ -83,14 +83,12 @@ export function buildCoverPrompt({ template = 'case-3up', accent = 'neutral', su
    封面素材来自该 skill 的 cases（见 coverTilesFor）——先有计划、后补案例，缺案例时产线会跳过并报"待补"。 */
 export const IMAGE_COVER_PLAN = [
   /* 精品推荐（推荐位：封面只用图、不烤字） */
-  { skillId: 'image.free', template: 'hero-single', accent: 'neutral', subject: '一张风格鲜明的生成插画或摄影作品', title: '自由创作' },
   { skillId: 'image.poster', template: 'poster-style', accent: 'warm', subject: '一张已经排好信息层级的海报成品', title: '海报设计', subtitle: '主视觉先行，信息其次' },
   { skillId: 'image.social_cover', template: 'poster-style', accent: 'accent', subject: '一张移动端缩略图里也读得清的封面成品', title: '社媒封面', subtitle: '小图也能一眼看懂' },
   { skillId: 'image.product_suite', template: 'case-3up', accent: 'warm', subject: '同一款商品的三种电商成品图（白底、场景、卖点）', title: '电商套图', subtitle: '白底+场景+卖点成套' },
   /* 电商专区 */
   { skillId: 'image.white_bg', template: 'hero-single', accent: 'cool', subject: '一件商品的白底主图，细节清楚', title: '白底商品图' },
   { skillId: 'image.scene', template: 'case-3up', accent: 'warm', subject: '同一商品在真实使用场景里的三张成品图', title: '场景种草图', subtitle: '放进真实生活里' },
-  { skillId: 'image.material', template: 'case-3up', accent: 'cool', subject: '同一商品材质与工艺的三张微距特写', title: '材质细节', subtitle: '放大看工艺' },
   { skillId: 'image.multi_angle', template: 'case-3up', accent: 'cool', subject: '同一商品正面、侧面与俯视的多角度成套图', title: '多角度套图', subtitle: '一套看全整件' },
   { skillId: 'image.try_on', template: 'before-after', accent: 'soft', subject: '商品平铺图与模特穿着成品的对照画面', title: '模特试穿', subtitle: '上身效果先看见' },
   { skillId: 'image.batch', template: 'case-3up', accent: 'warm', subject: '商品、人物与场景三份素材合成的一组成品图', title: '批量商品图', subtitle: '三种素材一起出' },

@@ -73,7 +73,7 @@ export const SKILL_SOURCES = Object.freeze({
   'video.storyboard_to_video': { ...SEEDANCE_OFFICIAL, ref: 'use-cases/zh-CN/04-story-completion.md#2-3-4-2 分镜脚本转视频', note: '官方"分镜脚本转视频"用例' },
 
   /* ── 图片：高星配方库（电商 / 广告创意）与竞品清单 ─────────────────────────── */
-  'image.free': { kind: 'ours', note: '我们自己的自由创作链路（visualCreation + image2）', reference: { ...GPT_IMAGE2_AD, name: '参考效果：awesome-gpt-image-2（广告创意）', ref: 'cases/ad-creative.md#Case24 Tropical Product Ad Poster' } },
+  /* ⚠️ 2026-09-23 批 AB：`image.free` / `image.material` 已按用户指令下架，出处记录一并删除。 */
   'image.poster': { ...GPT_IMAGE2_ECOMMERCE, ref: 'cases/poster_zh-CN.md#Case4 Chinese Minimalist S-Shaped Poster', note: '官方仓库中文极简海报（与我们的海报模板同族）' },
   'image.social_cover': { ...GPT_IMAGE2_ECOMMERCE, ref: 'cases/ad-creative.md#Case90 4-Panel Japanese Digital Ad Banner Grid' },
   'image.product_suite': { kind: 'ours', note: '我们自己的套图引擎（resolveEcommercePlan 按平台算张数与报价），服务端流水线自研', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（电商）', ref: 'cases/ecommerce.md#Case3 Burger hero image plus 9-cell ad storyboard' } },
@@ -107,7 +107,6 @@ export const SKILL_SOURCES = Object.freeze({
   'image.arch_grid': { ...QUANTV, ref: '图片制作 / 建筑室内 / 建筑九宫格分镜' },
   'image.white_bg': { kind: 'ours', note: '我们已跑通的内置技能链路（builtinSkill）', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（电商棚拍）', ref: 'cases/ecommerce.md#Case153 Premium Gaming Motherboard Studio Shot' } },
   'image.scene': { kind: 'ours', note: '我们已跑通的内置技能链路', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（生活场景）', ref: 'cases/ecommerce.md#Case117 Luxury Fur-Lined Loafer Lifestyle Photo' } },
-  'image.material': { kind: 'ours', note: '我们已跑通的内置技能链路', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（质地特写）', ref: 'cases/ecommerce.md#Case114 Skincare Product Studio Shot' } },
   'image.multi_angle': { kind: 'ours', note: '我们已跑通的内置技能链路', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（多视角展示板）', ref: 'cases/ecommerce.md#Case116 Industrial Design Presentation Sheet' } },
   'image.try_on': { kind: 'ours', note: '我们已跑通的内置技能链路', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（海报库·服饰大片）', ref: 'cases/poster_zh-CN.md#Case71 Streetwear Fashion Campaign Asian Apparel Poster' } },
   'image.batch': { kind: 'ours', note: '我们已跑通的内置技能链路', reference: { ...GPT_IMAGE2_ECOMMERCE, name: '参考效果：awesome-gpt-image-2（海报库·多格企划）', ref: 'cases/poster_zh-CN.md#Case52 6-Block Fashion Campaign Prompt Formula' } },

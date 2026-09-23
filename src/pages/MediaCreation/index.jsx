@@ -110,7 +110,9 @@ const HANDOFF_BY_PIPELINE = {
 const HANDOFF_LABEL = { ecommerceSuite: '去套图工作台', xhsNote: '去图文工作台' };
 const VIDEO_HANDOFF_LABEL = '去视频工作台';
 const VISUAL_SKILL_IDS = {
-  'image.free': 'free',
+  /* ⚠️ 2026-09-23 批 AB：`image.free`（自由创作）已按用户指令下架，这里那条映射一并删除。
+     自由创作**这条链路本身还在**（首页的 visualCreation 模式是页面级模式，不是这张技能卡），
+     所以删掉的只是"某条 skill 深链到 free 视觉模式"这一个入口。 */
   'image.poster': 'poster',
   'image.social_cover': 'social-cover',
   'image.brand_kv': 'brand-kv',

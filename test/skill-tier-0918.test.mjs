@@ -154,9 +154,15 @@ test('⑧ 融合不许只是声明：结果区按钮与控件都必须有真实�
      判据一个字没动：这条守的仍是"「数量」控件必须真的长在主技能上、且真的进 generationSettings.count"。
      ⚠️ 我们这一页**仍然是一次出一张**（count 缺省 1）：把默认张数改成 6 会让一次点击的
         扣费从 1 积分变成 6 积分，那是钱路上的变更，没有用户明确批准不许动（已记进待办）。 */
+  /* ═══ 2026-09-23 批 AB：下限 7 → **5**（判据未变，事实变了）══════════════════════════════
+     用户本轮原话：「**image.free（自由创作）、image.material（材质细节）这两个去掉**」——
+     这两条**都带「数量」控件**，下架后带 count 的主技能从 7 条降到 5 条。
+     判据一个字没动：这条守的仍是"「数量」控件必须真的长在主技能上、且真的进 generationSettings.count"。
+     ⚠️ 这是**纠偏**不是放宽：上一轮我用 7 当样本量自证，本轮数字因为真实的删除而变，所以跟着改数；
+        若以后有人为了过这条断言去**加**一个假的 count 控件，那是把判据当形式，不许这么做。 */
   const withCount = IMAGE_SKILLS.filter(skill => skill.tier !== 'assistant'
     && (skill.fields || []).some(field => field.key === 'count' && field.kind === 'stepper'));
-  assert.ok(withCount.length >= 7, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
+  assert.ok(withCount.length >= 5, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
   /* 补强：数量控件必须**有真实消费点** —— 进 generationSettings 的 count（张数与报价同源） */
   const skillRunSrc = read('src/skills/skillRun.js');
   assert.match(skillRunSrc, /values\.count/, '数量控件的值没有被 skillRun 消费（那就只是画了一个控件）');

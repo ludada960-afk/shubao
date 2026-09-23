@@ -26,6 +26,7 @@ import { chromium } from 'playwright';
 /* 全量扫描要用**声明源**里的技能清单（不是手抄一份 id）：
    技能上下线时这一条会自己跟着走，不会变成一份过期的名单。 */
 import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
+import { normalizeVisualSkillId } from '../server/visualCreationSkills.mjs';
 import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
 import { nearestLegalRatio, skillVideoMode } from '../src/skills/skillRun.js';
 /* 模型白名单**从目录里来**（批 R）：页面上能选的每一档，都是请求里允许出现的那几档。
@@ -302,7 +303,23 @@ page.on('pageerror', error => pageErrors.push(String(error?.message || error)));
    生成契约 / 作品归档）全部继续成立，不用为了迁就字段改动去改它们要验的行为。
    ⚠️ 第一版我换成了 image.scene，它多一格**必填**的「修图指令」，于是"只传图 → CTA 仍禁用"
       （那是正确行为）把三条断言打红了；换成 image.material 之后不需要为它补特例。 */
-const ANCHOR_SKILL_ID = 'image.material';
+/* ═══ 2026-09-23 批 AB：锚点第三次更换（`image.material` 已下架）══════════════════════════════
+   用户本轮原话：「**image.free（自由创作）、image.material（材质细节）这两个去掉**」。
+   旧锚点 image.material 正是被下架的那条，脚本 20+ 个场景全靠它，所以换锚点 —— 这仍是
+   **换锚点、不是把被删的东西要回来**（与批 O-⑥ 同一条处理原则）。
+   选 **image.live_ui（直播带货主图）** 的理由：它是现存技能里唯一同时具备
+   「上传位 + 必填文本 + 比例 + 清晰度 + **数量**」的一条 ——
+     · 上传位 → 「缺素材禁用 / 传图解禁 / 上传重试」三个场景要它；
+     · 数量 stepper → 场景⑨「数量 3 就真的发 3 次」与回放用例（count: 2）要它；
+     · 比例 + 清晰度 → 「比例默认已选中」与回放用例（ratio/clarity）要它。
+   ⚠️ 与 image.material 的差别只有一处：它的「商品名 / 品牌名」是**必填的单行输入**，
+      而旧锚点那格文字不是必填 —— 处理办法见下面 fillRequiredText（让它也填单行输入），
+      这正是脚本一贯的做法：**像真实用户那样把必填项填上**，而不是把页面改回去迁就脚本。 */
+const ANCHOR_SKILL_ID = 'image.live_ui';
+/* 锚点的两个派生值（批 AB）：视觉模式与技能名都**从声明源取**，不在断言里写死 ——
+   否则换个锚点就要改一堆字面量，那是脆的（与下面 anchorBrief 同一条做法）。 */
+const anchorVisual = IMAGE_SKILLS.find(s => s.id === ANCHOR_SKILL_ID)?.visual || 'free';
+const anchorName = IMAGE_SKILLS.find(s => s.id === ANCHOR_SKILL_ID)?.name || '';
 const WORKBENCH = '/image-creation?id=' + ANCHOR_SKILL_ID;
 const url = () => 'http://127.0.0.1:' + PORT + WORKBENCH;
 const open = async () => { await page.goto(url(), { waitUntil: 'load', timeout: 40000 }); await page.waitForSelector('.media-workbench-submit', { timeout: 20000 }); await page.waitForTimeout(400); };
@@ -317,6 +334,14 @@ const fillRequiredText = async () => {
   for (const box of boxes) {
     const filled = await box.evaluate(node => Boolean((node.value || '').trim()));
     if (!filled) { await box.click(); await box.fill('测试用的修图指令：浅色背景，突出产品'); }
+  }
+  /* 2026-09-23 批 AB：单行必填输入也要填 —— 换锚点后（image.live_ui 的「商品名 / 品牌名」）
+     必填项里有单行 text。真实用户做这一页本来就要写商品名，脚本照做即可；
+     不填的后果是"只传图 → CTA 仍禁用"（那是正确行为），会把断言打红 —— 属于脚本没模拟到位。 */
+  const inputs = await page.$$('.media-field input[type="text"]');
+  for (const input of inputs) {
+    const filled = await input.evaluate(node => Boolean((node.value || '').trim()));
+    if (!filled) { await input.click(); await input.fill('测试商品'); }
   }
   await page.waitForTimeout(150);
 };
@@ -418,6 +443,11 @@ try {
   await page.click('.media-field-upload-retry');
   /* 等"上传中"真正结束（重试按钮在点下去的一瞬就消失了，等它不算数） */
   await page.waitForFunction(() => !document.querySelector('.media-asset-card-progress') && !document.querySelector('.media-field-upload-retry'), null, { timeout: 15000 });
+  /* ⚠️ 2026-09-23 批 AB：换锚点后这条路径也要补一次「把必填文本填上」——
+     这条场景是**自己直接 setInputFiles** 的（没走 upload() 助手），而新锚点
+     image.live_ui 有必填的「商品名 / 品牌名」。不填的话"重试成功后 CTA 解禁"永远不成立
+     （那是**正确**行为：必填没填不许生成），属于脚本没模拟到位。 */
+  await fillRequiredText();
   check(await ctaDisabled() === false, '重试成功后 CTA 解禁');
   check(calls.assetRole === 'product', '上传角色按声明下发（product）', calls.assetRole);
 
@@ -438,7 +468,15 @@ try {
   check(/\/api\/generated-assets\/[a-f0-9]{64}\.png$/.test(String(body.image_url)), '主素材进入 image_url（图生图）', String(body.image_url));
   check(body.ratio === '1:1' && body.resolution === '2K', '比例/清晰度取声明默认值', body.ratio + '/' + body.resolution);
   check(body.image_model === 'image2', '模型是唯一有出图记录的 image2', String(body.image_model));
-  check(body.creation_intent === 'visual' && body.skill_id === 'free', 'creation_intent/skill_id 在服务端白名单内', body.creation_intent + '/' + body.skill_id);
+  /* ⚠️ 2026-09-23 批 AB：原来这里写死 `skill_id === 'free'`（那是已下架的 image.free 的视觉模式）。
+     判据是「**creation_intent / skill_id 必须落在服务端白名单里**」，不是"必须等于某个词" ——
+     所以改成：与声明源里这条技能的 `visual` 一致，且**用服务端自己的 normalizeVisualSkillId
+     归一化后不变**（不变 = 在白名单里；被归一化成 'free' = 传了个白名单外的值，判红）。 */
+  check(body.creation_intent === 'visual'
+    && body.skill_id === anchorVisual
+    && normalizeVisualSkillId(body.skill_id) === body.skill_id,
+    'creation_intent/skill_id 在服务端白名单内',
+    body.creation_intent + '/' + body.skill_id + '（声明 visual=' + anchorVisual + '）');
   check(/^canvas-[0-9a-f]+$/.test(String(body.request_key || '')), 'request_key 是稳定幂等键', String(body.request_key));
   check(Boolean(body.billing_quote_id && body.billing_action_id), '带上了报价（先报价后扣费）');
   check(calls.quote.length === 1 && calls.quote[0].sku, '报价 SKU 由模型+清晰度推出', JSON.stringify(calls.quote[0]));
@@ -532,8 +570,8 @@ try {
   /* ⚠️ 批 O-⑥：种子作品原来写死 image.white_bg（旧锚点）。判据是
      「**这条技能自己的历史里能看到已保存的作品**」—— 所以要跟着锚点走，不能写死 id。 */
   fx.works = [{
-    id: 'e2e-work-1', _saveKey: 'e2e-work-1', _ecResult: true, title: '材质细节图', mediaSkillId: ANCHOR_SKILL_ID,
-    createdAt: Date.now(), images: [{ url: RESULT_IMAGE, label: '材质细节图 1' }],
+    id: 'e2e-work-1', _saveKey: 'e2e-work-1', _ecResult: true, title: '直播带货主图', mediaSkillId: ANCHOR_SKILL_ID,
+    createdAt: Date.now(), images: [{ url: RESULT_IMAGE, label: '直播带货主图 1' }],
     replay: { mediaSkillId: ANCHOR_SKILL_ID, panelValues: { ratio: '4:3', clarity: '4K', count: 2 } },
   }];
   await page.evaluate(() => { localStorage.removeItem('sb-works'); });
@@ -546,7 +584,8 @@ try {
     subtitle: document.querySelector('.media-case-card-subtitle')?.textContent || '',
   }));
   check(historyInfo.count >= 1, '历史里能看到已保存的作品（/api/works 拉回来的）', JSON.stringify(historyInfo));
-  check(historyInfo.title.includes('材质'), '历史条目是可辨认的（技能名 + 张数/时间）', JSON.stringify(historyInfo));
+  /* 判据是「历史条目**可辨认**（技能名 + 张数/时间）」，不是"必须含「材质」两个字"—— 跟着锚点走。 */
+  check(historyInfo.title.includes(anchorName), '历史条目是可辨认的（技能名 + 张数/时间）', JSON.stringify(historyInfo));
   await page.screenshot({ path: '.tmp/e2e/history.png' });
 
   /* ═══ ⑪ 生成中刷新页面：图不能丢（出图是要花钱的） ═══ */

@@ -281,20 +281,14 @@ function styleFields(group) {
 }
 
 export const IMAGE_SKILLS = [
+  /* ═══ 2026-09-23 批 AB：删掉两条**纯我们自造、无任何外部依据**的页 ═══════════════════════
+     用户原话：「**image.free（自由创作）、image.material（材质细节）这两个去掉**」。
+     背景：批 AA 我把"知渔没有对应页"的 42 条与出处台账交叉了一遍，纯 ours（既没有知渔对应页、
+     也没有官方用例/开源库背书）的恰好只有这两条 + 小红书图文 + 首尾帧；
+     用户点名保留后两者（"我们原有的小红书图文…" / 首尾帧是三个入口之一），所以只删这两条。
+     ⚠️ 删的是**技能卡与它的工作台声明**（申明失败选项不许存在）；
+        自由创作这条链路本身（首页的 visualCreation 模式）不受影响，它是页面级模式，不是这张卡。 */
   /* ── 精品推荐：推荐位，封面只用图、不烤字（实测口径）──────────────────────── */
-  {
-    id: 'image.free', board: 'image', name: '自由创作', category: '创意应用', complexity: 'simple',
-    cover: { template: 'hero-single', accent: 'neutral' },
-    summary: '一句话起步，画面方向自己定', pipeline: 'visualCreation', availability: 'ready',
-    visual: 'free',
-    brief: '自由创作：{{prompt}}。画面要有一个明确的视觉焦点，空间关系可信，光线有来处，配色克制统一；不要出现水印、logo、二维码或价格文字。',
-    fields: [
-      { key: 'prompt', label: '描述', kind: 'textarea', rows: 4, required: true, placeholder: '例如：清晨的窗边，一杯冒热气的咖啡' },
-      ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
-    ],
-    cases: [], history: true,
-  },
   {
     /* ═══ 2026-09-19 批 O-⑥：complexity 从 'simple' 改成 'standard' ═══════════════════════
        依据：知渔「中文海报一键生成」实测有 **8 个字段**
@@ -849,21 +843,6 @@ export const IMAGE_SKILLS = [
         placeholder: '请输入商品展示图设计指令，如：设计一张展示图，突出产品的主要功能和特点，背景使用浅色调以突出产品，加入一些动态元素使图像更具吸引力，整体风格简洁大方，符合现代审美等。' },
       ratioField(),
       clarityField(),
-    ],
-    cases: [], history: true,
-  },
-  {
-    id: 'image.material', board: 'image', name: '材质细节', category: '电商专区', complexity: 'standard',
-    cover: { template: 'case-3up', accent: 'cool' },
-    summary: '放大材质与工艺，给出结构证据', pipeline: 'builtinSkill', availability: 'ready',
-    visual: 'free',
-    brief: '拍一张材质与工艺的细节特写，重点：{{focus}}。用微距级的景深与侧光把纹理、接缝与做工交代清楚，画面干净有质感；不要虚构商品上不存在的结构或接口。',
-    fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'product', slotLabel: '上传商品图' },
-      { key: 'focus', label: '重点', kind: 'text', placeholder: '例如：拉丝金属的纹理' },
-      ratioField(),
-      clarityField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 6 },
     ],
     cases: [], history: true,
   },

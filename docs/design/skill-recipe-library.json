@@ -18,18 +18,6 @@
   "https://raw.githubusercontent.com/EvoLinkAI/awesome-seedance-2.5-guide/main/use-cases/zh-CN/10-emotion.md"
  ],
  "bySkill": {
-  "image.free": {
-   "lib": "gpt-image2-ad",
-   "file": "ad-creative.md",
-   "caseId": "24",
-   "title": "Tropical Product Ad Poster",
-   "sourceLink": "https://x.com/AIwithAliya/status/2054553101236080714",
-   "prompt": "GPT Image 2 Prompt Create a creative commercial advertising poster for [PRODUCT NAME], a [PRODUCT TYPE], inspired by vibrant tropical product campaigns. Place the product as a large hero object on the center-right with realistic glossy reflections, sharp label details, and premium lighting. Add a stylish model sitting beside or slightly in front of the product, naturally interacting with it by [MODEL ACTION]. The model should look [MOOD], wearing [OUTFIT STYLE], and should not cover the product label.",
-   "assets": [
-    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/ad-creative_case178/output.jpg"
-   ],
-   "via": "reference"
-  },
   "image.poster": {
    "lib": "gpt-image2-poster",
    "file": "poster.md",
@@ -221,18 +209,6 @@
    "prompt": "A warm, editorial-style lifestyle product photo shot indoors from a low close-up angle, focused on a woman's lower legs and feet as she tries on 1 pair of black leather backless loafers with tan faux-fur lining. One loafer is worn on the right foot and the left foot is bare, hovering just above the textured cream shag rug, while the second matching loafer lies on the rug in the lower left foreground. The shoes have smooth black leather uppers, a rounded almond toe, open mule-style heel, plush brown fur spilling out around the opening, and a small polished gold horsebit hardware detail across the vamp. The model wears cropped medium-blue denim jeans with a raw frayed hem. The setting is a cozy minimalist interior with a cream rug featuring 2 thin irregular black lines, a neutral wall, and a leaning rectangular mirror with a medium wood frame in the upper right background, softly reflecting the rug and part of the scene. Use soft natural window light, shallow depth of field, subtle film grain, realistic skin texture, muted beige and black palette, relaxed candid composition, premium fashion catalog mood, high detail, photorealistic.",
    "assets": [
     "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case117/output.jpg"
-   ],
-   "via": "reference"
-  },
-  "image.material": {
-   "lib": "gpt-image2-ecommerce",
-   "file": "ecommerce.md",
-   "caseId": "114",
-   "title": "E-commerce Main Image - Skincare Product Studio Shot",
-   "sourceLink": "https://x.com/Strength04_X/status/2047636636847231222",
-   "prompt": "A soft {argument name=\"bottle color\" default=\"cream-colored\"} bottle with a {argument name=\"pump color\" default=\"pastel yellow\"} pump stands on a matte podium, surrounded by silky foam and {argument name=\"flowers\" default=\"chamomile blossoms\"}. The background is a pale yellow gradient with subtle bubble details. The label emphasizes organic chamomile and calming care. Fresh chamomile flowers accentuate the gentle appeal.",
-   "assets": [
-    "https://raw.githubusercontent.com/EvoLinkAI/awesome-gpt-image-2-API-and-Prompts/main/images/poster_case114/output.jpg"
    ],
    "via": "reference"
   },

@@ -76,8 +76,14 @@ test('③ 复杂度分布符合简报：简单档真的简单、重档只有电�
 });
 
 test('④ 取用接口稳定：未知 id 返回 null，不抛错也不返回半成品', () => {
-  assert.equal(getImageSkill('image.free').name, '自由创作');
+  /* ⚠️ 2026-09-23 批 AB：探针 id 从 `image.free`（自由创作）换成 `image.poster` ——
+     前者已按用户指令下架（「image.free（自由创作）、image.material（材质细节）这两个去掉」）。
+     判据没变（已知 id 取得到、未知 id 一律 null），变的只是拿哪个 id 当"已知"的例子。 */
+  assert.equal(getImageSkill('image.poster').name, '海报设计');
   assert.equal(getImageSkill('nope'), null);
   assert.equal(getImageSkill(undefined), null);
   assert.equal(getImageSkill('__proto__'), null);
+  /* 顺带钉住下架这件事本身：这两条不能再被取到（下架就要下干净） */
+  assert.equal(getImageSkill('image.free'), null, '自由创作已下架');
+  assert.equal(getImageSkill('image.material'), null, '材质细节已下架');
 });

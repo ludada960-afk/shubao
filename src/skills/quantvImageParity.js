@@ -69,7 +69,10 @@ export const QUANTV_IMAGE_COUNTERPARTS = Object.freeze({
   /* ── 我们自有、知渔没有对应页（"没有"也是明确结论）────────────────────────────
      判据：关键词与字段形态**双路比对都不过**。
      ⚠️ 不要往这里硬塞 —— 塞错页比空着更糟（用户：「不要凭想象」）。 */
-  'image.free': { counterpart: null, reason: '自由创作：知渔没有"空白输入框起步"的通用生图页' },
+  /* ═══ 2026-09-23 批 AB：这里原来还有两条，已随 skill 一起**下架** ═══════════════════════
+     用户原话：「**image.free（自由创作）、image.material（材质细节）这两个去掉**，其他的视频自造页
+     是指的是哪些呢？」—— 这两条是批 AA 交叉核对后**唯一既没有知渔对应页、又没有官方用例/开源库背书**
+     的图片 skill，所以照指令下架。对照表只登记仓库里真实存在的 skill，故这两行一并删除。 */
   'image.social_cover': { counterpart: null, reason: '社媒封面：知渔的"小红书爆款复刻"是复刻玩法，不是封面尺寸排版' },
   'image.live_ui': { counterpart: null, reason: '直播带货主图：知渔没有直播界面感的带货主图页' },
   'image.liquid_logo': { counterpart: null, reason: '液态 Logo 海报：知渔只有「Logo风格转换」（Icon/logo 渲染周边），语义与字段形态都不同' },
@@ -78,7 +81,6 @@ export const QUANTV_IMAGE_COUNTERPARTS = Object.freeze({
   'image.showroom_still': { counterpart: null, reason: '展厅静物主视觉：知渔「电影级商业摄影」是通用商业摄影，字段形态对不上' },
   'image.mono_pastel_ad': { counterpart: null, reason: '单色糖果系广告：知渔无同名同义页' },
   'image.grain_ad_board': { counterpart: null, reason: '中式广告板：按关键词能蒙到 5 个知渔海报页，但字段形态一个都对不上 —— 不硬套' },
-  'image.material': { counterpart: null, reason: '材质细节：知渔无独立的材质微距页' },
   'image.sku_series': { counterpart: null, reason: 'SKU 多色系列图：知渔「商品多角度多视图」是视角不是配色，语义不同' },
   'image.gift_scene': { counterpart: null, reason: '礼盒场景图：知渔无礼盒场景页' },
   'image.teardown': { counterpart: null, reason: '拆解工艺图：知渔无拆解页' },
