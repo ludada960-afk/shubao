@@ -1546,6 +1546,16 @@ try {
         });
       });
       await page.waitForTimeout(220);
+      /* ═══ 2026-09-24 批 AW：「包含模块」默认**一个都不勾**（照知渔 0/16，用户拍板）════════════
+         所以"通用配齐"这一步要像真用户那样**勾一个模块** —— 不勾就不是"配齐"，
+         CTA 会被如实拦住（那句提示就是本轮新加的 moduleGate）。
+         ⚠️ 只勾第一个：够验证"勾选驱动张数"这条链，且不会把请求数放大（下面要数请求）。
+         这条与 test/workbench-quantv-parity-0918 的判据是同一件事的两面，两边一起改。 */
+      await page.evaluate(() => {
+        const box = document.querySelector('.media-workbench-checklist.is-selectable .media-workbench-checklist-toggle');
+        if (box && box.getAttribute('aria-checked') !== 'true') box.click();
+      });
+      await page.waitForTimeout(220);
       const gate = await page.evaluate(() => ({
         disabled: document.querySelector('.media-workbench-submit')?.disabled ?? null,
         hint: document.querySelector('.media-workbench-cta-hint')?.textContent || '',

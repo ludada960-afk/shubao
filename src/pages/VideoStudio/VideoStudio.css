@@ -993,9 +993,41 @@
 }
 /* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
 .video-config-panel-body { max-height: inherit; overflow-y: auto; }
-/* 模型行照 `.sb-opt` 的规格（图片侧那一套）：内边距 8/12、圆角 12、浅底、最小高 44 */
-.video-inline-menu > button { padding: 8px 12px; border-radius: 12px; background: var(--sb-surface-sunken); gap: 8px; min-height: 44px; }
-.video-inline-menu > button:hover, .video-inline-menu > button.is-selected { background: var(--sb-surface-tint-strong); }
+/* ═══ 2026-09-24 批 AW：模型行**逐 token 对齐图片侧的 `.sb-opt`**（用户图四）══════════════════════
+   用户原话：「你这个模型选择是**完全乱掉了**。而且**你为什么会有个背景的暖色**呢？你的这些图标啊，
+   还有这些描述啊，全部都已经乱掉了。你要重新去做。……我要求你**两边都要统一样式**。
+   不管是什么标题或者是按钮，或者是他们的 UI 设计，他们的按钮去跟着配置进行变化的逻辑的样式的
+   动效的交互，这些东西你全部全部你要搞到一致……**你现在是两套东西在做呀**。」
+   实测差异（改前，逐项对照 design-tokens-v3.css 的 `.sb-opt` 第 1021-1065 行）：
+     | 项 | 图片侧 .sb-opt | 视频侧（改前） | 用户看到的现象 |
+     |---|---|---|---|
+     | 默认底 | `--sb-l3-option` (#F4F4F4) | `--sb-surface-sunken` (=neutral-150，更深) | "背景的暖色" |
+     | hover | `--sb-l3-option-hover` | `--sb-surface-tint-strong` | 两边深浅不一样 |
+     | 选中 | **底 + 1.5px 描边 + ring + 品牌字** | 只换底色 | "按钮去跟着配置变化的逻辑/样式/动效"不一致 |
+     | 描边占位 | `1.5px solid transparent` | 无 | 选中时行会抖 |
+     | 圆角 | `--sb-radius-card` | 12px | 细节不一致 |
+   ⇒ 逐项换成**同一批 token**（不是一个"看起来差不多"的值），并补上选中的描边 + 焦点环占位。
+     标题/描述字号也按 `.sb-opt__title / __desc` 的档位走（--sb-text-sm / --sb-text-2xs）。 */
+.video-inline-menu > button {
+  padding: var(--sb-space-2) var(--sb-space-3);
+  border-radius: var(--sb-radius-card);
+  border: 1.5px solid transparent;          /* 与 .sb-opt 同位占位：选中时加描边不位移 */
+  background: var(--sb-l3-option);
+  gap: var(--sb-space-2);
+  min-height: 44px;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out),
+              border-color var(--sb-dur-fast) var(--sb-ease-out);
+}
+.video-inline-menu > button:hover:not(.is-selected) { background: var(--sb-l3-option-hover); }
+.video-inline-menu > button:active { background: var(--sb-active-bg); }
+/* 选中态照 `.sb-opt[aria-pressed=true]`：底 + 描边 + ring + 品牌字（持久，不靠 hover 维持） */
+.video-inline-menu > button.is-selected {
+  background: var(--sb-sel-bg);
+  border-color: var(--sb-sel-line);
+  box-shadow: var(--sb-shadow-ring);
+  color: var(--sb-sel-ink);
+}
+.video-inline-menu > button.is-selected:hover { background: var(--sb-sel-bg); }
 
 /* ═══ 批 W（2026-09-21）：模型行**回到左对齐**（用户图一：「视频生成的模型选择现在是乱码的情况了」）══
    根因是我上一批（批 U）把面板宽度从 360 改成 480、同时把行换成 `.sb-opt` 的内边距，

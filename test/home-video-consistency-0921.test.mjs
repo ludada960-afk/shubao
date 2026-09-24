@@ -55,7 +55,26 @@ test('③ 视频侧两个面板照图片侧的规格（同一档宽度 / 圆角 
   /* 建模行照 .sb-opt 的规格 —— ⚠️ 批 W 改判：底色换成站内那颗"凹槽底" token（设计 token 棘轮门禁
      不许新写 hex），并且**排布改成靠左**（用户图一：「视频生成的模型选择现在是乱码的情况了」——
      更宽的行里 space-between 把图标与文案拉到两端，看起来就是乱码）。 */
-  assert.match(videoCss, /\.video-inline-menu > button \{[^}]*padding: 8px 12px;[^}]*border-radius: 12px;[^}]*background: var\(--sb-surface-sunken\);/, '模型行照图片侧的规格（内边距/圆角/浅底）');
+  /* ═══ 2026-09-24 批 AW：判据从"写死 8px 12px / 圆角 12 / --sb-surface-sunken"
+     **改成与图片侧同一批 token** —— 起因是用户图四那句「你为什么会有个背景的暖色呢？…
+     我要求你两边都要统一样式……你现在是两套东西在做呀」。
+     批 W 当初是"照 .sb-opt 的数值手写一遍"（8/12、12px、凹槽底），写出来的**不是同一批值**：
+     图片侧的默认底是 `--sb-l3-option`(#F4F4F4)，而 `--sb-surface-sunken` 是更深的 neutral-150
+     —— 那就是用户看到的"暖色"。现在改成**逐个属性引用同一批 token**（内边距/圆角/默认底/hover底/
+     选中底+描边+ring/按下底），并且断言就对着这批 token 比，不再对着手写数字比。
+     守的东西变严了：以前只要求"看起来差不多"，现在要求"是同一批 token"。 */
+  assert.match(videoCss, /\.video-inline-menu > button \{[\s\S]*?padding: var\(--sb-space-2\) var\(--sb-space-3\);/,
+    '模型行内边距用图片侧那两颗间距 token（不再是手写的 8px 12px）');
+  assert.match(videoCss, /\.video-inline-menu > button \{[\s\S]*?border-radius: var\(--sb-radius-card\);/,
+    '模型行圆角用 --sb-radius-card（与 .sb-opt 同一颗）');
+  assert.match(videoCss, /\.video-inline-menu > button \{[\s\S]*?background: var\(--sb-l3-option\);/,
+    '模型行默认底用 --sb-l3-option（.sb-opt 的同一颗；改前用的 surface-sunken 更深、就是用户说的"暖色"）');
+  assert.match(videoCss, /\.video-inline-menu > button \{[\s\S]*?border: 1\.5px solid transparent;/,
+    '要有 1.5px 透明描边占位（否则选中加描边时整行会抖）');
+  assert.match(videoCss, /\.video-inline-menu > button\.is-selected \{[\s\S]*?background: var\(--sb-sel-bg\);[\s\S]*?border-color: var\(--sb-sel-line\);[\s\S]*?box-shadow: var\(--sb-shadow-ring\);/,
+    '选中态照 .sb-opt[aria-pressed=true]：底 + 描边 + ring（用户："按钮去跟着配置进行变化的逻辑的样式"）');
+  assert.match(videoCss, /\.video-inline-menu > button:hover:not\(\.is-selected\) \{ background: var\(--sb-l3-option-hover\); \}/,
+    'hover 底用 --sb-l3-option-hover（与图片侧同一颗）');
   assert.match(videoCss, /\.video-inline-menu\.is-model > button \{ justify-content: flex-start;/, '模型行必须靠左排布（否则图标与文案被拉到两端 = 用户说的"乱码"）');
 });
 

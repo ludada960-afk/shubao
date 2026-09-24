@@ -110,12 +110,29 @@ test('④ 模块可勾选（用户 2026-09-19 批 I 亲自批准），勾选数�
     }
   }
   /* ③ 勾选数 → 张数：唯一入口是注入 effectiveValues */
-  assert.match(media, /skillModules\.length\) return \{ \.\.\.base, count: Math\.max\(1, selectedModules\.length\) \}/,
-    '勾选数必须以 count 注入 effectiveValues（张数的唯一真源）');
+  /* ═══ 2026-09-24 批 AW：判据从 `Math.max(1, …)` 改成**如实取勾选数** ═══════════════════════════
+     用户本轮拍板「包含模块跟他们一样做就好」——知渔实采那一块写的是「已选 **0/16**」，
+     默认一个都不勾。于是：
+       · `Math.max(1, …)` 那个兜底必须去掉（它会在"界面 0 张"时按 1 张跑，账实不符）；
+       · ⑤「最后一个不许取消」随之作废 —— 0 张现在是**合法起点**，由 moduleGate 拦住 CTA。
+     守的东西没变：勾选数仍然必须**唯一地**注入 effectiveValues.count，报价仍从同一份取数
+     （下面 ④ 那条断言一个字未动）。改的是"0 个算不算合法"，那是用户的口径。 */
+  assert.match(media, /skillModules\.length\) return \{ \.\.\.base, count: selectedModules\.length \}/,
+    '勾选数必须以 count 注入 effectiveValues（张数的唯一真源，0 个也如实传下去）');
   /* ④ 报价从同一个 effectiveValues 取数 */
   assert.match(media, /skillPointsEstimate\(skill, effectiveValues\)/, '报价必须与张数同源（不许各算一份）');
-  /* ⑤ 最后一个不许取消 */
-  assert.match(media, /if \(next\.size >= skillModules\.length\) return previous;/, '不许把模块全部取消（0 张不能下单）');
+  /* ⑤ 一个都不勾：CTA 必须被拦住，且给出一句人话（不许点了没反应，也不许按 1 张偷跑） */
+  assert.match(media, /请至少勾选一个模块/, '0 个模块时要有一句可读的原因');
+  assert.match(media, /ctaDisabled=\{busy \|\| \(!handoff && \(!validation\.ok \|\| Boolean\(moduleGate\)\)\)\}/,
+    '0 个模块必须禁用主 CTA');
+  /* ⑤ 原来的「最后一个不许取消」在批 AW 作废：默认就是"一个都不勾"，
+       那条禁令会让用户点了没反应。现在勾选开关只剩"点一下切换"这一个语义。 */
+  assert.doesNotMatch(media, /next\.size >= skillModules\.length\) return previous/,
+    '「最后一个不许取消」已随默认值一起删掉（默认 0/16，0 个是合法起点）');
+  assert.match(media, /if \(next\.has\(name\)\) next\.delete\(name\); else next\.add\(name\);/, '勾选开关只做切换');
+  /* 默认值：进页面时**一个都不勾**（知渔实采「已选 0/16」，用户批注「跟他们一样做就好」） */
+  assert.match(media, /setModuleOff\(new Set\(skillModules\.map\(module => module\.name\)\)\)/,
+    '默认一个都不勾（照知渔 0/16）');
   /* 清单必须是真能点的控件（用户批注 #10：死按钮） */
   const shell = read('src/components/media/WorkbenchShell.jsx');
   const start = shell.indexOf('media-workbench-checklist-items');

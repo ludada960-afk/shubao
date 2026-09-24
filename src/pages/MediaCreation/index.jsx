@@ -374,16 +374,31 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
                                               → 出图循环（skillGenerationSettings.count）
      ⚠️ 接在 effectiveValues 上是**故意的**：报价、校验、下发请求三处早就都从它取数，
         注入这一个字段就等于三处同时生效，不需要在页面里各写一遍。 */
+  /* ═══ 2026-09-24 批 AW：默认**一个都不勾**（用户原话：「包含模块跟他们一样做就好」）═══════════
+     知渔实采那一块写的是「已选 **0/16**」（docs/design/data 里的 A+-内容页全文），
+     而我们是 16/16 —— 用户看图后点名这一条：「而且好像他们也不是默认打勾的吧」，
+     本轮拍板「**跟他们一样做就好**」。
+     ⇒ 进页面时 `moduleOff` 就是**全部模块**；用户自己勾，勾几个出几张（报价跟着走）。
+     ⚠️ 原来是"全都勾上、最后一个不许取消"（那时 0 张算不出报价）。现在 0 张是**合法起点**，
+        所以那条"最后一个不许取消"的禁令一并删掉 —— 改由下面的 count 与校验如实拦住
+        （见 effectiveValues 与 moduleGate）。 */
   const [moduleOff, setModuleOff] = useState(() => new Set());
-  useEffect(() => { setModuleOff(new Set()); }, [skill && skill.id]);
   const skillModules = useMemo(() => (skill && Array.isArray(skill.modules) ? skill.modules : []), [skill]);
+  useEffect(() => { setModuleOff(new Set(skillModules.map(module => module.name))); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedModules = useMemo(
     () => skillModules.filter(module => !moduleOff.has(module.name)),
     [skillModules, moduleOff],
   );
+  /* 勾了 0 个不是"没得选"，是一个**明确的未完成状态**：按钮禁用 + 说明缺什么。
+     与其它必填项走同一条路（validation.missing），用户看到的是一句人话而不是灰按钮。 */
+  const moduleGate = skillModules.length > 0 && selectedModules.length === 0
+    ? '请至少勾选一个模块（勾几个出几张）'
+    : '';
   const effectiveValues = useMemo(() => {
     const base = skill ? { ...initialSkillValues(skill), ...values } : values;
-    if (skillModules.length) return { ...base, count: Math.max(1, selectedModules.length) };
+    /* ⚠️ 原来这里是 Math.max(1, …) —— 那是"全选为默认"时代的兜底；现在 0 要如实传下去，
+       否则会出现"界面写着 0 张、后台按 1 张跑"的账实不符。 */
+    if (skillModules.length) return { ...base, count: selectedModules.length };
     return base;
   }, [skill, values, skillModules, selectedModules]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
@@ -579,13 +594,11 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       note: '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
       selectable: true,
       items: skillModules.map(module => ({ ...module, checked: !moduleOff.has(module.name) })),
+      /* 勾选开关：只剩"点一下切换"这一件事 —— "最后一个不许取消"的禁令随默认值一起删掉了
+         （现在的默认是"一个都不勾"，那条禁令只会让用户点了没反应）。 */
       onToggle: name => setModuleOff(previous => {
         const next = new Set(previous);
         if (next.has(name)) next.delete(name); else next.add(name);
-        /* ⚠️ 一个都不勾 = 要生成 0 张 —— 那不是一个可以下单的请求（报价算不出来、
-           出图循环空转）。所以**最后一个不许取消**：点了没反应，比"点了之后按钮变灰
-           但用户不知道为什么"更容易理解。 */
-        if (next.size >= skillModules.length) return previous;
         return next;
       }),
     }];
@@ -1395,8 +1408,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
            ec_plan_preview = 0.5 积分/次（用户已批准，先报价→确认→才扣）。
            方案确认之后按钮回到「生成图片」并显示真实出图报价（那时才是 7）。 */
         ctaPoints={handoff ? null : ((skill.previewStep && !planApplied) ? PLAN_PREVIEW_POINTS : points)}
-        ctaDisabled={busy || (!handoff && !validation.ok)}
-        ctaHint={!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : ''}
+        ctaDisabled={busy || (!handoff && (!validation.ok || Boolean(moduleGate)))}
+        ctaHint={moduleGate || (!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : '')}
         status={embed ? null : status}
         onGenerate={onGenerate}
         onHistoryDelete={deleteHistory}
