@@ -96,29 +96,30 @@
   letter-spacing: 0.03em;
 }
 
-/* ═══ 2026-09-24 批 BD：**品牌标推翻重做**（用户：「还是不对啊，你这个 LOGO 还不如之前的那个，
-   算了，你不如重新推翻重新设计吧」）═══════════════════════════════════════════════════════════════
-   三版走过三条路，教训写在最前面，免得下一个人再走：
-     ① 批 BB —— 用**字体拼商标**（调字号/字距/渐变/徽记）⇒ 用户："还是做得不好"；
-     ② 批 BC —— 换成公共目录里那份现成资产（卡通吉祥物 + **红色手写字**）⇒ 用户："还不如之前的那个"；
-        红色手写字与全站紫色语言打架、卡通味重，且 38px 时吉祥物喧宾夺主。
-     ③ 批 BD（本版）—— **拆成两件各自控制**：
-        · mark：脚本合成（`scripts/brand-mark-build.mjs`）—— 超椭圆圆角 32% + 吉祥物占满磁贴
-          + 1px 品牌内环，**去掉原图自带的灰色描边**（"贴纸感"的来源）；3x/2x 两份，6 倍余量不糊；
-        · 字标：三层结构 —— **薯包（800 重、近黑）+ 1px 竖分隔线 + AI（拉丁小字、品牌紫、宽字距）**。
-          分隔线这一手来自调研（Linear 系做法）：它把 "AI" 从"跟在名字后面的两个字母"变成
-          "一个独立标识" —— 这正是"AI 像随手贴上去"最省事又不廉价的解法。
-   规范仍按实测取值：mark 30 ↔ 字标 19（≈1.55，方块磁贴的合适比例）；汉字不做负字距；
-   拉丁走 Inter；不用灰（近黑 = --sb-ink-1）；交互 180ms / cubic-bezier(.2,0,.38,.9)，
-   只动 transform / color / box-shadow（零重排）。 */
+/* ═══ 2026-09-24 批 BE：**两态品牌标 + 字标回归统一**（用户原话，逐字）═══════════════════════════════
+   「这个部分当**只有左边导航栏出现**的时候，你就要出现 LOGO，LOGO 要先做好跟左边导航栏的
+     **整体适配**；然后当我**向下挪页面**的时候，不是会出现我们上面的导航栏吗，这个时候你再
+     **显示出右边的薯包 AI 几个字**；然后这几个字你要**重新设计**一下，**不要搞这么多花样**。
+     你就**字体或者其他变化和调整做得统一一些**，不要各做各的呀，乱七八糟的。」
+   ⇒ 三条，与批注一一对应：
+     ① **标与左导航对齐**：标水平居中在左侧图标栏那一列（`--sb-app-sidebar-w / 2`）——
+        与下面每一格的图标中线是同一条；用 `max(0px, …)` 兜底：画布页/移动端该变量为 0 时
+        不会把标推到屏幕外（那两处也确实不需要这个偏移）。
+     ② **两态**：默认（页面顶部）**只有标**；`.app-topbar.is-compact`（`scrollY > 120`，
+        判据就用既有的 `compact` 状态，不新增滚动监听）才**显示「薯包 AI」**。
+     ③ **字标不搞花样**：上一版的"竖分隔线 + 汉字 800 + AI 品牌紫"三件套被明确否掉 ——
+        现在**一句话、一套样式**（同字体、同字重、同颜色、同字距）。
+        拉丁字形仍由字体栈里的 Inter 提供 —— 那是**字形回落**，不是第二套样式。
+   交互保留（用户没否）：hover 标抬 1px + 放大 4.5%、阴影加深；按下 90ms；键盘同一套；
+   `prefers-reduced-motion` 归零；只动 transform / filter / color（零重排）。 */
 .topbar-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   width: auto;
   height: auto;
-  /* 与顶栏左内边距对齐（不再为图标栏那 96px 让位：品牌标在顶栏第一格，图标栏从它下面开始） */
-  margin-left: 0;
+  /* ① 标居中于左导航那一列：96/2 = 48（中线）；标宽 30 ⇒ 左沿 33；顶栏内边距 24 ⇒ 再补 9 */
+  margin-left: max(0px, calc(var(--sb-app-sidebar-w, 96px) / 2 - 15px - 24px));
   border-radius: 10px;
   --bb-brand-dur: 180ms;
   --bb-brand-ease: cubic-bezier(.2, 0, .38, .9);
@@ -128,68 +129,46 @@
   width: 30px;
   height: 30px;
   flex: 0 0 30px;
-  /* 磁贴的圆角与内环是脚本里画好的，这里只补一层落地阴影 —— 不再套第二层白底/描边 */
+  /* 磁贴的圆角与内环是脚本里画好的（scripts/brand-mark-build.mjs），这里只补一层落地阴影 */
   filter: drop-shadow(0 1px 2px rgba(17, 24, 39, .10));
   transition: transform var(--bb-brand-dur) var(--bb-brand-ease),
               filter var(--bb-brand-dur) var(--bb-brand-ease);
 }
+/* ③ 字标：一句到底、一套样式（不拆字、不加分隔线、不给 AI 单独配色/字号） */
 .topbar-logo {
-  display: inline-flex;
+  display: none;                       /* ② 顶部态不显示；滚动后由 .is-compact 打开 */
   align-items: center;
-  gap: 7px;
   font-family: "Inter", "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-synthesis: none;
-  font-optical-sizing: auto;
-  line-height: 1;
-}
-.topbar-logo-name {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 800;
+  line-height: 1;
   letter-spacing: .01em;
   color: var(--sb-ink-1);
-  margin-inline-start: -.05em;   /* 补偿汉字左侧字面留白（0.04~0.06em） */
+  font-synthesis: none;
+  font-optical-sizing: auto;
+  white-space: nowrap;
   transform: translateY(-.01em);
   transition: color var(--bb-brand-dur) var(--bb-brand-ease);
 }
-/* 1px 竖分隔线：把「AI」与名字分开成两个标识 */
-.topbar-logo-rule {
-  width: 1px;
-  height: 12px;
-  flex: 0 0 1px;
-  border-radius: 1px;
-  background: rgba(28, 25, 23, .16);
-  transition: background-color var(--bb-brand-dur) var(--bb-brand-ease);
-}
-.topbar-logo-ai {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  color: var(--sb-brand-700);    /* 白底 7.1:1；12px 小字必须过 4.5:1 */
-  transform: translateY(-.03em); /* 拉丁大写无降部：视觉中心偏高，回压一点 */
-  transition: color var(--bb-brand-dur) var(--bb-brand-ease);
-}
+.app-topbar.is-compact .topbar-logo { display: inline-flex; }
 .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark {
   transform: translateY(-1px) scale(1.045);
   filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .16));
 }
-.topbar-brand:is(:hover, :focus-visible) .topbar-logo-name { color: #0B0B0F; }
-.topbar-brand:is(:hover, :focus-visible) .topbar-logo-rule { background: rgba(109, 40, 217, .42); }
-.topbar-brand:is(:hover, :focus-visible) .topbar-logo-ai { color: var(--sb-brand-600); }
+.topbar-brand:is(:hover, :focus-visible) .topbar-logo { color: #0B0B0F; }
 .topbar-brand:active .topbar-brand-mark { transform: scale(.985); transition-duration: 90ms; }
 .topbar-brand:focus-visible { outline: 2px solid var(--sb-brand-600); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) {
-  .topbar-brand-mark, .topbar-logo-name, .topbar-logo-rule, .topbar-logo-ai { transition-duration: 0s; }
+  .topbar-brand-mark, .topbar-logo { transition-duration: 0s; }
   .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark { transform: none; }
 }
-/* 子页面左格：品牌标缩小一号（与「返回 + 名称」同处第一格，栅格仍是三格） */
+/* 子页面左格：品牌标缩小一号（与「返回 + 名称」同处第一格，栅格仍是三格）。
+   ⚠️ 子页面顶栏**常驻**（它不是 .app-topbar 那套两态里的），所以这里的文字按"总是显示"处理 ——
+      用户在批注里说的是首页/总页面那两态，子页面两态不成立（它没有"滚动才出现"这件事）。 */
 .topbar-subpage-lead { display: inline-flex; align-items: center; gap: 14px; min-width: 0; }
-.topbar-brand.is-compact-mark { gap: 7px; }
+.topbar-brand.is-compact-mark { gap: 7px; margin-left: 0; }
 .topbar-brand.is-compact-mark .topbar-brand-mark { width: 24px; height: 24px; flex: 0 0 24px; }
-.topbar-brand.is-compact-mark .topbar-logo-name { font-size: 15px; }
-.topbar-brand.is-compact-mark .topbar-logo-ai { font-size: 10px; }
-.topbar-brand.is-compact-mark .topbar-logo-rule { height: 10px; }
+.topbar-brand.is-compact-mark .topbar-logo { display: inline-flex; font-size: 15px; }
 
 .topbar-actions {
   display: flex;

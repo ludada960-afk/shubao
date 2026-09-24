@@ -109,11 +109,7 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
           <span className="topbar-subpage-lead">
             <span className="topbar-brand is-compact-mark" aria-hidden="true">
               <img className="topbar-brand-mark" src={IMAGES.brandMark} alt="" width="24" height="24" />
-              <span className="topbar-logo">
-                <span className="topbar-logo-name">薯包</span>
-                <i className="topbar-logo-rule" aria-hidden="true" />
-                <em className="topbar-logo-ai">AI</em>
-              </span>
+              <span className="topbar-logo">薯包 AI</span>
             </span>
             <button
               type="button"
@@ -142,14 +138,20 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
             几个没有经过任何修饰的这种简单的字上去而已……你现在的情况就是有了图标，但是你的
             **薯包 AI 这几个字太过于简单了**，而且他们之间也**没有什么交互感**。你应该自己去想办法
             把他们做一个升级和处理呀。」
-            ═══ 2026-09-24 批 BD：**推翻重做**（用户：「还是不对啊，你这个 LOGO 还不如之前的那个，
-            算了，你不如重新推翻重新设计吧」）══════════════════════════════════════════════════════
-            上一版（批 BC）换成现成资产：卡通吉祥物 + **红色手写字** —— 红色和全站紫色打架、卡通味重，
-            用户否掉。这一版拆成两件自己控制：
-              · mark = 自己合成的磁贴（去灰边、吉祥物占满、品牌内环，3x/2x 两份）；
-              · 字标 = 三层结构：**薯包（800 重墨）+ 1px 分隔线 + AI（拉丁小字、品牌紫、宽字距）**。
-                分隔线这一手来自调研（Linear 系的"竖线分隔"做法）：它把"AI"从"跟在名字后面的两个字母"
-                变成"一个独立标识"，而这正是"AI 像随手贴上去"最省事又不廉价的解法。 */}
+            ═══ 2026-09-24 批 BE：**两态品牌标 + 字标回归统一**（用户原话，逐字）═══════════════════
+            「这个部分当**只有左边导航栏出现**的时候，你就要出现 LOGO，LOGO 要先做好跟左边导航栏的
+              **整体适配**；然后当我**向下挪页面**的时候，不是会出现我们上面的导航栏吗，这个时候
+              你再**显示出右边的薯包 AI 几个字**；然后这几个字你要**重新设计**一下，**不要搞这么多
+              花样**。你就**字体或者其他变化和调整做得统一一些**，不要各做各的呀，乱七八糟的。」
+            ⇒ 三件事，与这条批注一一对应：
+              ① **LOGO 与左导航对齐**：标水平居中在左侧图标栏那一列上（CSS 里按
+                 `--sb-app-sidebar-w/2` 算，与下面每一格的图标中线是同一条）；
+              ② **两态**：页面顶部（未滚动）**只显示标**；滚动超过 120px（顶栏变紧凑态、
+                 `.app-topbar.is-compact`）才**显示「薯包 AI」这几个字** —— 判据就用既有的
+                 `compact` 状态，不新加滚动监听；
+              ③ **字标不搞花样**：上一版的「竖分隔线 + 汉字 800 + AI 品牌紫」被否掉，
+                 现在**一句话一套样式**（同一字体、同一字重、同一颜色）——
+                 拉丁字形仍由字体栈里的 Inter 提供（那是字形回落，不是另一套样式）。 */}
         <button type="button" className="topbar-brand" aria-label="薯包 AI · 回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           style={{ cursor: 'pointer' }}>
           <img
@@ -160,11 +162,7 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
             width="30"
             height="30"
           />
-          <span className="topbar-logo">
-            <span className="topbar-logo-name">薯包</span>
-            <i className="topbar-logo-rule" aria-hidden="true" />
-            <em className="topbar-logo-ai">AI</em>
-          </span>
+          <span className="topbar-logo">薯包 AI</span>
         </button>
         </>)}
 
