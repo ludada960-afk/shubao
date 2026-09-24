@@ -197,9 +197,28 @@
    改前是一条**平的** --sb-hover-bg（灰底），用户要的是"有一个背景渐变色在"。
    用品牌色的 alpha 档做一层很轻的斜向渐变（--sb-brand-a18 → --sb-brand-a05）：
    它是"面上有一层光"，不是"整块染紫" —— 与批 H-2 定下的「颜色只落在小面积上」不冲突
-   （大面积仍然是中性面，渐变只在这 78×71 的格子里）。 */
+   （大面积仍然是中性面，渐变只在这 78×71 的格子里）。
+   ═══ 2026-09-25 批 BF·UI：**补上留影AI 那套缺的"光晕层"**（用户图6-①原话，逐字）════════════
+   「我们左边的导航栏。这些按钮……你要去学习留影AI他们首页的那 12 宫格的做法。
+     就是他们还有**很多像渐变之类的，这种细节，你为什么没有学到呢？**」
+   留影AI 那套的实测基线在 docs/design/54（真实鼠标 hover 取的计算样式），逐项对照我们的导航：
+     | 留影AI 12 宫格 | 我们（实测，见 .tmp/bf-cfg/bf-nav-liuying.json） |
+     |---|---|
+     | 默认：图标磁贴浅底 + 图标本身有色 | ✓ 磁贴白底 / 图标品牌紫 rgb(124,58,237) |
+     | 悬停：磁贴变 135deg 品牌渐变 | ✓ linear-gradient(135deg, brand-500, brand-700) |
+     | 悬停：图标转白 | ✓ tileColor → 白 |
+     | 悬停：磁贴 scale(1.05) | ✓ matrix(1.05,…) |
+     | 悬停：标题变品牌色 | ✓ label → rgb(124,58,237) |
+     | 悬停：卡底的**光晕层**变亮 | ✓ **本行新增**（原来只有斜向底色，没有光晕） |
+     | 充能条 4px / width 0→100% / 700ms / 左→右 | ✓ 0px → 78px（满宽）/ 700ms |
+     | 序号 ≥30px 变色 / 256px blur(80px) 独立光晕层 | ✗ 我们导航没有序号，也不额外挂一层 DOM |
+   做法：把光晕叠成**第二层 background-image**（径向、圆心落在图标磁贴那一块），
+   不新增 DOM、不动布局 —— 留影AI 那层是独立的 256px 模糊层（0.06 → 0.10 变亮），
+   在我们 78px 宽的格子上用一层径向渐变表达同一件事：**光晕出现在图标周围**。 */
 .app-sidebar-cell:hover {
-  background-image: linear-gradient(160deg, var(--sb-brand-a18), var(--sb-brand-a05));
+  background-image:
+    radial-gradient(42px 42px at 50% 24%, var(--sb-brand-a18), transparent 72%),
+    linear-gradient(160deg, var(--sb-brand-a18), var(--sb-brand-a05));
   color: var(--sb-ink-1);
 }
 .app-sidebar-cell:hover .app-sidebar-tile {
