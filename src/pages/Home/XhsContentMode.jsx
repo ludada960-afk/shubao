@@ -24,7 +24,7 @@ const EC_STYLE_PACKS = [
   { key:'promo_sale',    label:'促销热卖', subtitle:'促销感',desc:'价格/优惠/抢购角标',        img:'', ar:'1/1' },
   { key:'',              label:'无风格（默认）', subtitle:'自动',desc:'AI 自由发挥',         img:'', ar:'1/1' },
 ];
-import { proxyImg, generateContent, generatePlogContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, uploadEcommerceAssets } from '../../services/api';
+import { proxyImg, generateContent, generatePlogContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, uploadEcommerceAssets, generateMotionStill } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import {
   acceptAuthoritativeContentCompletion,
@@ -75,6 +75,16 @@ function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
   if (globalThis.requestAnimationFrame) globalThis.requestAnimationFrame(restore);
   else globalThis.setTimeout?.(restore, 0);
 }
+
+/* ═══ 动效预设（2026-09-24 批 AX）══════════════════════════════════════════════════════════════
+   与服务端 server/motionStillRender.mjs 的 MOTION_PRESETS **一一对应**（id 必须一致）——
+   这里是"用户能选哪几档"，那边是"每一档的 ffmpeg 表达式"，两处各写一份 id 就是等着漂移。
+   成本：本机 ffmpeg，零上游调用 ⇒ 这个动作**不扣积分**。 */
+const MOTION_PRESETS = [
+  { id: 'zoom_in', label: '缓慢推近' },
+  { id: 'zoom_out', label: '缓慢拉远' },
+  { id: 'pan_right', label: '缓慢横移' },
+];
 
 function XhsModeSelector({ value, onChange }) {
   const modes = [
@@ -305,6 +315,33 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [ecRegeneratingKey, setEcRegeneratingKey] = useState('');
   const [ecRegenEdit, setEcRegenEdit] = useState({ label: null, prompt: '', visible: false }); // 重生成prompt编辑器
   const [ecLightbox, setEcLightbox] = useState(null); // 图片放大查看
+  /* ═══ 让它动（2026-09-24 批 AX）══════════════════════════════════════════════════════════════════
+     用户口径：「人家这个账号是**有些内容会模拟实况图的这种方式去做**呀…**目的只是发到小红书上
+     成为他的笔记内容**」⇒ 出一段 2~3 秒竖版短视频直接发；不做 Live Photo、不传手机。
+     成本：服务端本机 ffmpeg（零上游调用）⇒ 不扣积分；失败时只提示，不弹付费墙。 */
+  const [motionPreset, setMotionPreset] = useState('zoom_in');
+  const [motionBusy, setMotionBusy] = useState('');   // 正在生成的那张图的 label（按张独立）
+  const [motionNote, setMotionNote] = useState('');   // 就近提示：成功给下载，失败给原因
+  const makeMotion = async (label, url) => {
+    if (!url || motionBusy) return;
+    setMotionBusy(label);
+    setMotionNote('');
+    try {
+      const result = await generateMotionStill({ url, preset: motionPreset, seconds: 3 });
+      /* 直接触发下载：这一类产物的归宿就是"发出去"，让用户少点一次 */
+      const link = document.createElement('a');
+      link.href = result.url;
+      link.download = `${label}-${result.preset}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setMotionNote(`已生成 ${result.seconds} 秒动图（${result.width}×${result.height}），开始下载；发布时选「视频」即可。`);
+    } catch (error) {
+      setMotionNote(String(error?.message || error || '生成动图失败').slice(0, 120));
+    } finally {
+      setMotionBusy('');
+    }
+  };
   const [ecPreviewLightbox, setEcPreviewLightbox] = useState(null); // 参考图放大查看
   const [ecDraftId, setEcDraftId] = useState(() => loadOrCreateEcommerceDraft({
     ownerEmail,
@@ -1727,16 +1764,44 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                           fetchpriority="auto"
                           style={{ width:'100%', height:'100%', objectFit:'contain' }} />
                       </div>
-                      <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--sb-neutral-100)' }}>
+                      <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:6, borderTop:'1px solid var(--sb-neutral-100)' }}>
                         <span style={{ fontSize:10, fontWeight:600, color:'var(--sb-ink-3)' }}>{ecLabel(baseKey(label))}</span>
+                        {/* ═══ 2026-09-24 批 AX：**让它动** ══════════════════════════════════════════════════
+                            用户口径：「人家这个账号是**有些内容会模拟实况图的这种方式去做**呀…
+                            **目的只是发到小红书上成为他的笔记内容**」
+                            ⇒ 本机 ffmpeg 微动效（零上游成本），出一条 2~3 秒竖版短视频**直接发**；
+                              不做 Live Photo、不传手机。这个动作**不扣积分**（服务端不调上游）。 */}
+                        <select
+                          value={motionPreset}
+                          onChange={event => setMotionPreset(event.target.value)}
+                          disabled={motionBusy === label}
+                          aria-label={'动效方式 · ' + ecLabel(baseKey(label))}
+                          style={{ fontSize:10, padding:'2px 4px', borderRadius:4, border:'1px solid var(--sb-neutral-200)', background:'var(--sb-neutral-0)', color:'var(--sb-ink-2)' }}
+                        >
+                          {MOTION_PRESETS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                        </select>
+                        <button
+                          onClick={() => makeMotion(label, url)}
+                          disabled={motionBusy === label}
+                          title={'把它做成 ' + (motionBusy === label ? '…' : '2~3 秒竖版短视频，直接发小红书（不扣积分）')}
+                          style={{ fontSize:10, padding:'2px 6px', borderRadius:4, background:'var(--sb-brand-50)', border:'none', color:'var(--sb-brand-700)', cursor: motionBusy === label ? 'wait' : 'pointer' }}
+                        >
+                          {motionBusy === label ? '生成中…' : '让它动'}
+                        </button>
                         <button onClick={() => { const a=document.createElement('a'); a.href=url; a.download=label+'.png'; a.click(); }}
-                          style={{ fontSize:10, padding:'2px 6px', borderRadius:4, background:'var(--sb-brand-50)', border:'none', color:'var(--sb-brand-700)', cursor:'pointer', fontWeight:500, fontFamily:'inherit' }}>
+                          style={{ fontSize:10, padding:'2px 6px', borderRadius:4, background:'var(--sb-brand-50)', border:'none', color:'var(--sb-brand-700)', cursor:'pointer' }}>
                           下载
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
+                {/* 动图提示：成功给"下一步怎么发"，失败给原因。就近显示（不弹窗、不打断）。 */}
+                {motionNote && (
+                  <p role="status" aria-live="polite" style={{ margin:'8px 0 0', fontSize:11, lineHeight:1.5, color:'var(--sb-ink-3)' }}>
+                    动图提示：{motionNote}
+                  </p>
+                )}
                 {ecLightbox && (
                   <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(12,10,9,0.92)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
                     role="button"

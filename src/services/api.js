@@ -1024,6 +1024,20 @@ export async function generateContent(text, images, {
   }, options);
 }
 
+/* ═══ 静图 → 微动效短视频（2026-09-24 批 AX）══════════════════════════════════════════════════
+   用户口径：「人家这个账号是**有些内容会模拟实况图的这种方式去做**呀…**目的只是发到小红书上
+   成为他的笔记内容**」⇒ 出一条竖版短视频直接发，不做 Live Photo、不传手机。
+   成本：服务端**本机 ffmpeg**（零上游调用）⇒ 这个接口**不报价、不扣积分**（它不是"生成"是"导出"）。 */
+export async function generateMotionStill({ url, preset = 'zoom_in', seconds = 3 } = {}) {
+  const res = await fetch(`${API_BASE}/api/motion-still`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({ url, preset, seconds })),
+  });
+  if (!res.ok) throw await createApiError(res, '生成动图失败');
+  return res.json();
+}
+
 export async function generatePlogContent({
   text,
   refImage,

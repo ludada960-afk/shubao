@@ -889,6 +889,8 @@ mountCanvasFeedbackRoutes(app, {
 import { handleFeishuChallenge, dispatchFeishuEvent } from './feishu/webhook.mjs';
 /* 内容安全闸门（提示词侧，纯本地零成本）—— 见 server/contentScreen.mjs 的文件头 */
 import { screenPromptText } from './contentScreen.mjs';
+/* 静图 → 微动效短视频（本机 ffmpeg，零上游成本）—— 见 server/motionStillRender.mjs 的文件头 */
+import { renderMotionStill } from './motionStillRender.mjs';
 app.get('/feishu/events', (req, res) => {
   const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
   const result = handleFeishuChallenge(verificationToken, req.query);
@@ -4349,6 +4351,77 @@ app.get('/api/ec-temp-img/:name', (req, res) => {
   const fp = resolve(TEMP_UPLOAD_DIR, name);
   if (!fs.existsSync(fp)) return res.status(404).end();
   res.sendFile(fp);
+});
+
+/* ═══ 静图 → 微动效短视频（2026-09-24 批 AX）══════════════════════════════════════════════════════
+   用户口径：「小红书…人家这个账号是**有些内容会模拟实况图的这种方式去做**呀…**目的只是发到
+   小红书上成为他的笔记内容**」⇒ 不走 Live Photo、不传手机，直接出一条竖版短视频。
+   成本：**本机 ffmpeg**（server/motionStillRender.mjs），零上游调用、**不扣积分、不建任务单** ——
+   所以这里既没有报价也没有 hold，它不是"生成"，是"导出"。
+   ⚠️ 素材来源是上游返回的图片地址（公网 URL/签名地址/data URL），所以服务端得**先下回来**
+      再交给 ffmpeg —— ffmpeg 不走我们的鉴权，给它一个签名 URL 它拉不到。
+   ⚠️ 大小上限 25MB：这是一张图，不是视频；给太大会变成一个可被滥用的下载代理。 */
+const MOTION_OUT_DIR = resolve(__dirname, 'video-assets', 'motion');
+const MOTION_INPUT_LIMIT = 25 * 1024 * 1024;
+
+app.post('/api/motion-still', async (req, res) => {
+  const { url, preset, seconds } = req.body || {};
+  const source = String(url || '').trim();
+  if (!source) return res.status(400).json({ error: '缺少要处理的图片' });
+  if (!/^(https?:\/\/|data:image\/)/i.test(source)) {
+    return res.status(400).json({ error: '图片地址不受支持' });
+  }
+  let tempPath = '';
+  try {
+    await fs.promises.mkdir(MOTION_OUT_DIR, { recursive: true });
+    /* ① 把源图下回来（data URL 直接解码；公网地址带浏览器 UA 去取，有些 CDN 会挡默认 UA） */
+    let bytes = null;
+    if (source.startsWith('data:image/')) {
+      const base64 = source.split(',').pop() || '';
+      bytes = Buffer.from(base64, 'base64');
+    } else {
+      const upstream = await fetch(source, {
+        headers: { 'user-agent': req.get('user-agent') || 'Mozilla/5.0', referer: 'https://shuimg.cn/' },
+      });
+      if (!upstream.ok) return res.status(502).json({ error: '取不到这张图片（' + upstream.status + '）' });
+      bytes = Buffer.from(await upstream.arrayBuffer());
+    }
+    if (!bytes?.length) return res.status(400).json({ error: '图片内容为空' });
+    if (bytes.length > MOTION_INPUT_LIMIT) return res.status(413).json({ error: '图片过大，无法处理' });
+    tempPath = resolve(MOTION_OUT_DIR, `in-${Date.now()}-${crypto.randomUUID()}.jpg`);
+    await fs.promises.writeFile(tempPath, bytes);
+
+    /* ② 本机渲染（零上游成本） */
+    const rendered = await renderMotionStill({
+      imagePath: tempPath,
+      preset,
+      seconds,
+      outDir: MOTION_OUT_DIR,
+    });
+    const name = basename(rendered.path);
+    return res.json({
+      url: `/api/motion-still/${encodeURIComponent(name)}`,
+      seconds: rendered.seconds,
+      preset: rendered.preset,
+      width: rendered.width,
+      height: rendered.height,
+      bytes: rendered.bytes,
+    });
+  } catch (error) {
+    return res.status(error?.status || 500).json({ error: error?.message || '生成动图失败', code: error?.code || 'MOTION_FAILED' });
+  } finally {
+    /* 源图是临时件：用完就删（成片留在 MOTION_OUT_DIR 供下载） */
+    if (tempPath) await fs.promises.rm(tempPath, { force: true }).catch(() => {});
+  }
+});
+
+/* 成片的下载/播放口：文件名白名单（与 ec-temp-img 同一条纪律，不许拼出目录穿越） */
+app.get('/api/motion-still/:name', (req, res) => {
+  const name = String(req.params.name || '');
+  if (!/^[a-z0-9][a-z0-9_.-]*\.mp4$/i.test(name)) return res.status(404).end();
+  const fp = resolve(MOTION_OUT_DIR, name);
+  if (!fs.existsSync(fp)) return res.status(404).end();
+  res.type('video/mp4').sendFile(fp);
 });
 
 // 清理超过1小时的临时文件

@@ -7,6 +7,7 @@ import test from 'node:test';
 import sharp from 'sharp';
 
 import { MOTION_PRESETS, buildMotionFilter, motionPresetOf, motionSecondsOf, renderMotionStill } from '../server/motionStillRender.mjs';
+import { readFileSync as readSource } from 'node:fs';
 
 /* ═══ 2026-09-24 批 AX：静态图 → 微动效短视频（小红书那条"让图会动"）═══════════════════════════════
    用户口径（两轮，第二轮把我的第一版方案否了）：
@@ -80,4 +81,26 @@ test('④ 真渲一条 3 秒片子并用 ffprobe 复核（本机 ffmpeg，零上
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('⑤ 接线：路由存在、不扣积分、**两端的预设 id 必须一致**', () => {
+  const server = readSource(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const client = readSource(new URL('../src/services/api.js', import.meta.url), 'utf8');
+  const page = readSource(new URL('../src/pages/Home/XhsContentMode.jsx', import.meta.url), 'utf8');
+  assert.match(server, /app\.post\('\/api\/motion-still'/, '要有 POST /api/motion-still');
+  assert.match(server, /app\.get\('\/api\/motion-still\/:name'/, '要有成片下载口');
+  assert.match(server, /\.mp4\$\/i\.test\(name\)/, '下载口要按文件名白名单收口（不许目录穿越）');
+  /* 这一条是"它不扣积分"的证据：这条路径里不许出现报价/冻结 */
+  const start = server.indexOf("app.post('/api/motion-still'");
+  const route = server.slice(start, server.indexOf("app.get('/api/motion-still/:name'"));
+  assert.ok(route.length > 400, '路由体要看得到');
+  assert.doesNotMatch(route, /billing_quote_id|createHold|quoteCanvasAction/, '本机导出**不许**走报价或冻结（它不是"生成"）');
+  assert.match(client, /export async function generateMotionStill/, '客户端要有 generateMotionStill');
+  assert.match(page, /让它动/, '小红书子页面要有入口');
+  /* 两端预设 id 一致：各写一份就是等着漂移 */
+  const clientIds = [...page.matchAll(/\{ id: '([a-z_]+)', label: '[^']+' \}/g)]
+    .map(match => match[1])
+    .filter(id => ['zoom_in', 'zoom_out', 'pan_right'].includes(id));
+  assert.deepEqual(clientIds.sort(), MOTION_PRESETS.map(item => item.id).sort(),
+    '页面上的动效档位必须与服务端 MOTION_PRESETS 一一对应');
 });
