@@ -7531,3 +7531,72 @@ CSS 有 `topbar-logo-ai`、`https://shuimg.cn/images/brand-mark-3x.png` 回 200�
 **还等用户拍板的**（§十）：① 镜头库 10 条里 1/2/3/6/7/9 有实测依据、4/5/8/10 是我们的加法，
 要不要先只上有依据的 6 条；② 5 套预设（实测色簇）对不对味、要不要按第一个选题定制一套；
 ③ 页面名叫什么、放图片生成板块哪个位置；④（附）§六 D「自由单张」要不要做（与站内自由创作重叠）。
+
+---
+
+## 2026-09-25 批 BF·UI 线：图片/视频**一套配置控件语言** + 品牌标两态反转 + 图片侧补全屏
+
+> ⚠️ 字母说明：本文件里「批 BF」已被**文档线**（77 号稿 v2，7 千行处那条）用掉了。
+> 本条目是**同一天、同一轮用户批注**里的 **UI 线**（8 张批注）。代码注释里写的「批 BF」= 本条。
+
+### 线上状态（全部只读复验过）
+- 提交 `8003c326`（13 files，+641/−129）；`npm run test` **4080 项 / 0 fail**；`npm run precommit` **通过**
+  （构建 exit 0 + 38 条 BLOCKING 门禁 + 技能工作台 e2e 232 条断言全绿）。
+- 部署成功判据那一行：`Deployed 8003c326 to https://shuimg.cn/`。
+- release `/var/www/shubao/releases/20260925-021601-8003c326`；`/var/www/shubao/current` 指向它；
+  PM2 `shubao-production` pid **3373662**；`/` 与 `/health` 均 200。
+- index.html 只引用两份资源：`assets/index-Xi5z4QqH.js`（sha256 `2fea6ac0…`，631222 B）、
+  `assets/style-DjLre-9w.css`（sha256 `8c7b509a…`）—— 公网与 release 目录**逐字节一致**。
+- 线上 CSS 里逐条核对：两个面板 `border-radius:20px`、`.video-config-panel-body{padding:24px 20px}`、
+  比例卡 `min-height:68px + 1.5px solid transparent + var(--sb-radius-card) + var(--sb-l3-option)`、
+  模型标 `28px`（触发行）/ `32px`（选项行）、`.app-topbar.is-compact .topbar-brand{--bb-mark-r: 13px}`。
+
+### 做了什么（用户 8 张批注，逐条对得上）
+1. **一份规格、一个门禁**：新增 `test/config-kit-parity-0925.test.mjs`（8 条）—— 把两份 CSS 里同一语义的
+   规则块抽出来**逐属性比较**（忽略空白与书写顺序），谁只改一边就当场红。实测（1600×1000，Playwright，
+   落档 `.tmp/bf-cfg/bf-verify.json` + 3x~5x 截图）：
+
+   | 项 | 改前 | 改后 |
+   |---|---|---|
+   | 触发按钮宽 | 视频 **210 / 161**、图片 180 / 180 | **四颗 180×52** |
+   | 面板圆角 | 两侧都是 8（比内层控件 12 还尖 = 嵌套倒置） | **20**（站内规范 radius.panel=20 / 知渔 19.84） |
+   | 面板内节奏 | 图片 14/16、视频 24/20（两档） | **首区 left 21 / top 25（两侧同值）** |
+   | 比例卡 | 图片 r8 minH96、视频 r15 minH61 | **r12 minH68 + 同一批 token** |
+   | 分辨率控件 | 图片 r12 minH56、视频 r15 minH45 | **r12 minH45** |
+   | 模型标 | 图片 28/32、视频 **24/24** | **28/32 + 静止 .88 → hover 1 同款动效** |
+   | 按钮下留白 / @ 行内距 | — | **12 / 12、5 / 5（两侧逐值一致）** |
+
+   选项控件（模型行 / 比例卡 / 分辨率 / 配方卡）现在读**同一批 token**：`1.5px solid transparent` 占位
+   + `--sb-radius-card` + `--sb-l3-option`；hover `--sb-l3-option-hover`；
+   选中 `--sb-sel-bg` + `--sb-sel-line` + `--sb-shadow-ring` + `--sb-sel-ink`。
+   顺手补了一个**从来没有基础样式**的类：`.visual-choice-card`（配方面板的选项卡一直是浏览器默认按钮）。
+2. **品牌标两态反转**：顶部 = 完整标（mark 34px + 「薯包 AI」），滚动后收成 26px 单标，两态都居中 x=48。
+   子页面标去掉与 `.topbar-subpage-lead` 叠加的 7px 补偿：实测 **x=38/中线 55 → x=31/中线 48**（与首页同一条线）。
+3. **图片侧补「全屏」**：原生 Fullscreen API + `fullscreenchange` 回读状态 + 浮层挂到全屏元素自己
+   （与视频侧逐行同构；挂 body 的浮层在全屏下不渲染）。实测 进入/退出 = true/false。
+4. 左导航放松（内边距 12/10、图标与文字 7、格间距 14）；工作台 **0.67fr : 1fr**（实测 576:860 = 40%:60%）；
+   CTA `width:auto; min-width:220px` 右对齐不通栏。
+5. **「按钮下面那句话」的定论（下一轮别再翻烧饼）**：删的是**解释**，留的是**状态**
+   （`还差：素材` / `请至少勾选一个模块`）。整条删掉会让 `scripts/media-workbench-e2e.mjs` 场景 ① 当场红
+   —— 那是批 O-⑥ 的判据「禁用原因就近写、点名缺哪个字段」，属"不许放点了必失败的东西"。
+   本轮把括号里的解释（勾几个出几张）也去掉，只留最短状态句。
+
+### 门禁改判（3 条，均为「事实变了 / 用户改向」，判据原意一字未变）
+- `test/mobile-layout`：守的对象从"子页面缩小版"换成"滚动缩小版"（用户本轮把两态口径说反了，
+  且要求子页面与其它页面同一个标）。
+- `test/home-video-consistency-0921` ③⑤：面板圆角 8 → 20（**两侧同时改**，守的"视频侧照图片侧规格"没变）。
+- `test/visual-creation-xhs-composer-parity-0913`：容器判据允许全屏修饰类（守的仍是"全文件只有一处容器"）。
+
+### 下一会话的坑（本轮踩到的）
+- **视频模型下拉在本地 dev 里是空的**：dev server 没有后端 `/api/video/capabilities` ⇒ `products=[]`，
+  下拉只有一行灰标题。**不是回归**（改前也这样），它的行样式只能靠门禁 + 生产复验看。
+- **release 目录里有大量历史残留**：`assets` 下 4780 个文件而 `index.html` 只引用 2 个。
+  核对线上取值**必须只看 index.html 引用的那份**；`grep -r` 扫整个 assets 会读到上一批的旧 CSS
+  （`style-3QawmKxi.css` = 残留，全仓无人引用）。
+- 多行 `node -e` 在 cmd 下依旧不可靠（本轮又踩一次）→ 全部改写 `.tmp/*.mjs`；
+  且**模板字符串里不能出现反引号**（写 CSS 注释时踩到，脚本直接语法错）。
+- 复验脚本已落档：`.tmp/bf-prod-verify{,2,3}.sh`（ssh 传上去 `bash` 跑，全部只读）：
+  ```
+  ssh -i ~/.ssh/shubao_deploy_ed25519 ubuntu@114.132.157.250 "cat > /tmp/bfv3.sh" < .tmp/bf-prod-verify3.sh
+  ssh -i ~/.ssh/shubao_deploy_ed25519 ubuntu@114.132.157.250 "bash /tmp/bfv3.sh"
+  ```
