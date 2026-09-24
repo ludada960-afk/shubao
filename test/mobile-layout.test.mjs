@@ -48,7 +48,16 @@ test('mobile top bar keeps the product brand on one line without crowding accoun
   assert.match(appSource, /className={[^}]*'topbar-row'[^}]*}/);
   assert.match(appSource, /className="topbar-brand"/);
   assert.match(appSource, /className="topbar-actions"/);
-  assert.match(shellMobileRules, /\.topbar-logo \{[^}]*white-space:\s*nowrap/);
+  /* ═══ 2026-09-24 批 BC：**判据改向**（用户：「LOGO 和文字还是做得不好，这块还是要重做」）═══════
+     原来这一条守的是 `.topbar-logo { white-space: nowrap }` —— 那是在守"用 HTML 文本拼的字标不许折行"。
+     现在品牌标**换成一份设计好的资产**（`IMAGES.wordmark`：吉祥物 + 定制字形，单张图），
+     HTML 里已经没有 `.topbar-logo` 这个节点，"折行"这件事自然不存在了。
+     守的东西换成同一件事的两条（判据换写法，不是放宽）：
+       ① 品牌标仍是**一个**资产节点（不许各页各做一份）；
+       ② 窄屏给的是**缩小版**而不是压扁 —— 只改 height、宽度自适应 ⇒ 比例不变形。 */
+  assert.match(appSource, /className="topbar-brand-lockup"/, '品牌标是同一个资产节点（不是各页各做一份）');
+  assert.match(shellMobileRules, /\.topbar-subpage-lead \.topbar-brand-lockup \{ height: 24px; \}/,
+    '窄屏品牌标取缩小版（值变小、比例不变）');
   assert.match(shellMobileRules, /\.topbar-row \{[^}]*padding-inline:\s*14px/);
   assert.match(shellMobileRules, /\.topbar-actions button \{[^}]*padding-inline:\s*12px/);
 });

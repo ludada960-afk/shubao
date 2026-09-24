@@ -108,10 +108,7 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
               标题照旧真居中。 */}
           <span className="topbar-subpage-lead">
             <span className="topbar-brand is-compact-mark" aria-hidden="true">
-              <span className="topbar-brand-mark">
-                <img src={IMAGES.appicon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </span>
-              <span className="topbar-logo">薯包<em>AI</em></span>
+              <img className="topbar-brand-lockup" src={IMAGES.wordmark} alt="" />
             </span>
             <button
               type="button"
@@ -140,20 +137,18 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
             几个没有经过任何修饰的这种简单的字上去而已……你现在的情况就是有了图标，但是你的
             **薯包 AI 这几个字太过于简单了**，而且他们之间也**没有什么交互感**。你应该自己去想办法
             把他们做一个升级和处理呀。」
-            ⇒ 三件事（都是纯 CSS + 一层 DOM，不引入新素材）：
-              ① 字标分层：「薯包」走品牌渐变文字（品牌主力色 → 深一档），「AI」作为**徽记**单列，
-                 有自己的浅色底盘与更紧的字距 —— 不再是一句没有修饰的"薯包 AI"；
-              ② 图标与文字**咬合**：图标块带一圈内描边 + 品牌色投影，与字标基线对齐；
-              ③ **交互**：悬停时图标轻微上浮放大、渐变文字的光带右移、整块有 1px 上浮 ——
-                 这是"图标和文字之间有交互感"的可实现形式（同一套动效语言，不新增颜色档）。 */}
-        <button type="button" className="topbar-brand" aria-label="回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
+            ═══ 2026-09-24 批 BC：**换成设计好的字标资产**（用户：「LOGO 和文字还是做得不好，
+            这块还是要重做，你深度学习一下这方面的知识呀」）══════════════════════════════════════
+            批 BB 那版是在**用字体拼商标**（调字号/字距/渐变）—— 用户看完仍然说不行，这是对的：
+            字体拼不出字标。"薯包"这两个字的字形本身就该是品牌资产的一部分（现在这份资产里
+            "包"字里还带一个表情），继续在 CSS 里调参数是方向错了。
+            调研结论（Linear / Vercel / Raycast / Stripe / 可灵 逐个读源码）：**导航里的品牌标
+            没有一个用 HTML 文本**，全都是单个 SVG/资产，把间距、基线、字距焊死在图里。
+            ⇒ 用 public/images/logo-wordmark.webp（吉祥物 + 定制字形，此前从未被引用过）。
+              它本来只在代码库里躺着，这一批第一次上线。文字内容由 alt 提供给读屏。 */}
+        <button type="button" className="topbar-brand" aria-label="薯包 AI · 回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           style={{ cursor: 'pointer' }}>
-          <span className="topbar-brand-mark">
-            <img src={IMAGES.appicon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </span>
-          <span className="topbar-logo">
-            薯包<em>AI</em>
-          </span>
+          <img className="topbar-brand-lockup" src={IMAGES.wordmark} alt="薯包 AI" />
         </button>
         </>)}
 

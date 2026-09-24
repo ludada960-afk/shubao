@@ -96,77 +96,61 @@
   letter-spacing: 0.03em;
 }
 
-/* ═══ 批 T（2026-09-21）：品牌标改成**上 LOGO 下文字**，并且只占左侧图标栏那一列 ═════════
-   用户原话：「我们现在首页左上角的薯包 AI 和 LOGO 是**出界的**，你应该做成**上面 LOGO
-   下面文字**呀，然后**左边导航栏往下挪**呀。」
-   实测（2048 视口，改前）：横排 [42×42 标] + gap16 + [薯包 AI 24px] —— 字标右边缘到 **x=167**，
-   而左侧图标栏只有 **0..96** ⇒ 文字**越界 71px** 压进内容区，和页面内容抢同一条基线。
-   ⇒ 竖向堆叠；整组宽度就是那一列的宽度（96），水平居中在 x=48 ——
-     与下面每一格（9..87）的中线是同一条；顶栏因此变高，图标栏首格下移（见 app-sidebar.css
-     的 .app-sidebar-scroll padding-top），两者不再挤在一起。
-   ⚠️ 这里写死 96 而不是用 --sb-app-sidebar-w：画布页的外壳是 .app-frame 且**不渲染侧栏**，
-     那个变量在那边是 0，用变量会把这一格压成 0 宽。 */
+/* ═══ 2026-09-24 批 BC：**品牌标 = 一份设计好的字标资产**（用户：「LOGO 和文字还是做得不好，
+   这块还是要重做，你深度学习一下这方面的知识呀」）═══════════════════════════════════════════════
+   批 BB 那一版是在**用字体拼商标**：调字号、字距、渐变、徽记 —— 用户看完仍说不行，这是对的，
+   字体拼不出字标（"薯包"的字形本身就该是品牌资产的一部分）。调研逐条读过源码之后确认：
+   Linear / Vercel / Raycast / Stripe / 可灵 导航里的品牌标**没有一个用 HTML 文本**，
+   全是单个 SVG/资产 —— 间距、基线、字距都焊死在图里，永远不会因字体回落而走形。
+   ⇒ 改用 `public/images/logo-wordmark.webp`（吉祥物 + 定制字形，此前从未被任何页面引用）。
+
+   保留的规范（仍然照实测取值）：
+     · 整组高度 **30px**（顶级产品导航里的 lockup 集中在 22~30px：Vercel 18 / Linear 22 / Raycast 24）；
+     · 高度按整数取，宽度自适应（资产比例 ≈2.73），**不做等比拉伸**；
+     · 阴影只给"落地感"（`0 1px 2px`），不给彩色光晕（那是廉价感的来源之一）；
+     · 交互：一个锚点、一套时长（180ms / cubic-bezier(.2,0,.38,.9)），
+       hover 抬 1px + 放大 1.5%，按下 90ms 回弹；**只动 transform**（零重排、CLS=0）；
+     · 键盘 focus-visible 与 hover 同一套；`prefers-reduced-motion` 下全部归零；
+     · 窄屏只保留缩到 24px 的标（Raycast 实测就是这套"完整 lockup / 小标"互换）。 */
 .topbar-brand {
-  width: 96px;
-  height: auto;
-  /* 抵消 .topbar-row 的 24px 内边距：这一格要从 x=0 起，才能与图标栏那 96px 对齐 */
-  margin-left: -24px;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  width: auto;
+  height: auto;
+  /* 与顶栏左内边距对齐（不再为图标栏那 96px 让位：品牌标在顶栏第一格，图标栏从它下面开始） */
+  margin-left: 0;
+  flex-direction: row;
+  border-radius: 10px;
+  --bb-brand-dur: 180ms;
+  --bb-brand-ease: cubic-bezier(.2, 0, .38, .9);
 }
-/* ═══ 批 W（2026-09-21）：品牌标**再大一些**（用户原话：「首页左上角的薯包 AI 和 LOGO 再大一些呀」）══
-   34 → 40（图标），13 → 15（文字）—— 仍收在图标栏那一列里（列宽 96，居中于 x=48）。 */
-/* ═══ 2026-09-24 批 BB：**品牌标设计升级**（用户批注，逐字）══════════════════════════════════════
-   原话：「我们现在这个 LOGO 和文字都特别的 low……太过于随意了，就是简单的一个图标，
-   然后再放上几个没有经过任何修饰的这种简单的字上去而已……**薯包 AI 这几个字太过于简单了**，
-   而且他们之间也**没有什么交互感**。你应该自己去想办法把他们做一个升级和处理呀。」
-   设计规则（三件，都只用既有 token，不引新素材/新色档）：
-     ① **字标分层**：「薯包」用品牌渐变文字（brand-600 → brand-700，background-clip: text），
-        「AI」是独立**徽记**（em）：更小一档字号 + 字距收紧 + 浅品牌底 + 描边，
-        与"薯包"之间留 4px —— 读起来是"薯包" + 一个 AI 徽记，不再是一句平铺的字；
-     ② **咬合**：图标块补一圈内描边 + 品牌色投影（阴影色取 --sb-brand-a32，与主 CTA 同一支），
-        让它从"贴上去的图片"变成"有海拔的磁贴"；
-     ③ **交互**（这是用户点名的"没有交互感"）：悬停时图标上浮 1px + scale(1.04)、
-        渐变光带右移（background-position 0% → 100%）、字标整体上浮 1px；
-        过渡走 --sb-duration-normal，键盘 focus-visible 给同一套（不是只给鼠标）。 */
-.topbar-brand-mark {
-  position: relative;
-  width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), 0 4px 12px var(--sb-brand-a32);
-  transition: transform var(--sb-duration-normal) var(--sb-ease-out),
-              box-shadow var(--sb-duration-normal) var(--sb-ease-out);
+.topbar-brand-lockup {
+  display: block;
+  /* ⚠️ 38px 而不是 30：这份资产里文字只占整组高度的 ~35%（吉祥物占大头），
+     30px 时字标只有 ~10px 高（比批 BB 那版 19px 的字还小，等于越改越小）。
+     38px ⇒ 字标 cap ≈ 13.3px，与 Linear（15.4）同一档，也与顶栏其它控件（36~40）同高。 */
+  height: 38px;
+  width: auto;
+  /* 资产自带白底与圆角：这里**不再套第二层白底/描边**（批 BB 那版就是"方块套方块"，
+     用户看到的"太随意"有很大一部分来自这层多余的框）。只留一条落地阴影。 */
+  filter: drop-shadow(0 1px 2px rgba(17, 24, 39, .08));
+  transition: transform var(--bb-brand-dur) var(--bb-brand-ease),
+              filter var(--bb-brand-dur) var(--bb-brand-ease);
 }
-.topbar-logo {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 15px; font-weight: 800; letter-spacing: 0.02em;
-  background-image: linear-gradient(100deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 42%, var(--sb-brand-600) 100%);
-  background-size: 220% 100%; background-position: 0% 0;
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent;
-  transition: background-position var(--sb-duration-normal) var(--sb-ease-out),
-              transform var(--sb-duration-normal) var(--sb-ease-out);
+.topbar-brand:is(:hover, :focus-visible) .topbar-brand-lockup {
+  transform: translateY(-1px) scale(1.015);
+  filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .14));
 }
-.topbar-logo em {
-  font-style: normal; font-size: 11px; font-weight: 900; letter-spacing: 0.06em;
-  padding: 2px 5px; border-radius: 6px;
-  /* ⚠️ 底色用**已定义的**品牌档（--sb-brand-a18）；写不存在的 token 会被幽灵变量门禁拦下
-     （那个门禁的判据：`var()` 引用了没定义的变量 = 浏览器静默回退 = 样式悄悄失效）。 */
-  background: var(--sb-brand-a18);
-  box-shadow: inset 0 0 0 1px var(--sb-brand-a32);
-  /* 徽记不参与渐变文字（它要读成"一块牌子"） */
-  -webkit-text-fill-color: var(--sb-brand-700); color: var(--sb-brand-700);
+.topbar-brand:active .topbar-brand-lockup { transform: scale(.99); transition-duration: 90ms; }
+.topbar-brand:focus-visible { outline: 2px solid var(--sb-brand-600); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .topbar-brand-lockup { transition-duration: 0s; }
+  .topbar-brand:is(:hover, :focus-visible) .topbar-brand-lockup { transform: none; }
 }
-.topbar-brand:hover .topbar-brand-mark,
-.topbar-brand:focus-visible .topbar-brand-mark { transform: translateY(-1px) scale(1.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 8px 20px var(--sb-brand-a32); }
-.topbar-brand:hover .topbar-logo,
-.topbar-brand:focus-visible .topbar-logo { background-position: 100% 0; transform: translateY(-1px); }
-/* 子页面左格：品牌标缩小一号 + 返回（同一格里，栅格仍是三格） */
+/* 子页面左格：品牌标缩小一号（与「返回 + 名称」同处第一格，栅格仍是三格） */
 .topbar-subpage-lead { display: inline-flex; align-items: center; gap: 14px; min-width: 0; }
-.topbar-brand.is-compact-mark { width: auto; margin-left: 0; flex-direction: row; gap: 7px; }
-.topbar-brand.is-compact-mark .topbar-brand-mark { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; box-shadow: 0 2px 8px var(--sb-brand-a32); }
-.topbar-brand.is-compact-mark .topbar-logo { font-size: 13px; }
+.topbar-brand.is-compact-mark { gap: 0; }
+.topbar-brand.is-compact-mark .topbar-brand-lockup { height: 26px; }
 
 .topbar-actions {
   display: flex;
@@ -788,6 +772,12 @@
   .app-side-nav-tooltip {
     display: none;
   }
+
+  /* 批 BC：窄屏品牌标取缩小版（只改高度、宽度自适应 ⇒ 比例不变形）。
+     ⚠️ 写在这条**既有的** 639px 块里面，不要再新起一条同宽度的 @media ——
+        `test/mobile-layout` 用 `/@media \(max-width: 639px\) \{([\s\S]*?)\n\}/` 切这一段，
+        多一条同宽度的媒体查询会把切片切错，那几条断言会一起红（实测踩过）。 */
+  .topbar-subpage-lead .topbar-brand-lockup { height: 24px; }
 }
 
 @keyframes creative-nav-drawer-in { from { opacity: .7; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }

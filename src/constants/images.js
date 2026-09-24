@@ -4,6 +4,13 @@ const _b = (n) => new URL('/images/' + encodeURIComponent(n), import.meta.url).h
 export const IMAGES = {
   appicon:     _b('logo-icon.webp'),
   logo_lg:     _b('LOGO.png'),
+  /* ═══ 2026-09-24 批 BC：**完整的品牌标**（吉祥物 + 定制字形"薯包AI"）═════════════════════════════
+     这份资产一直在 public/images 里躺着、从来没有被任何页面用过 —— 顶栏一直是"图标 + CSS 拼的文字"。
+     用户连着两轮说「LOGO 和文字都特别的 low……薯包 AI 这几个字太过于简单了」，
+     根因就是**用字体拼商标**：字体再调字距也拼不出字标（"包"字里那个表情就丢了）。
+     调研也印证了这一点：Linear / Vercel / Raycast / Stripe / 可灵 的导航品牌标
+     **没有一个是用 HTML 文本做的**，全都是单个 SVG/资产（把间距、基线、字距焊死在图里）。 */
+  wordmark:    _b('logo-wordmark.webp'),
   scene:       _b('小薯包.png'),
 
   // 角色状态
