@@ -887,6 +887,8 @@ mountCanvasFeedbackRoutes(app, {
 
 // 4c183cd4 续命 P0-D 飞书可视化 webhook 入站路由
 import { handleFeishuChallenge, dispatchFeishuEvent } from './feishu/webhook.mjs';
+/* 内容安全闸门（提示词侧，纯本地零成本）—— 见 server/contentScreen.mjs 的文件头 */
+import { screenPromptText } from './contentScreen.mjs';
 app.get('/feishu/events', (req, res) => {
   const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
   const result = handleFeishuChallenge(verificationToken, req.query);
@@ -1040,6 +1042,27 @@ function sendContentInputError(res) {
   error.code = 'CONTENT_INPUT_INVALID';
   const mapped = contentBillingHttpError(error);
   return res.status(mapped.status).json({ ...mapped.body, error: '请输入内容' });
+}
+
+/* ═══ 内容安全闸门 · 提示词侧（2026-09-24 批 AX）═════════════════════════════════════════════════
+   用户原话：「用户上传的素材和提示词都应该**先过一遍没问题再传输生成**，其实也是防止我们被
+   中转站给 ban 掉」+「为什么还要重新花钱呢…没有低成本的过滤方案吗」+「**直接拒**」。
+   ⇒ 纯本地正则、零成本、毫秒级；命中即 400 拒掉，**不扣费、不发上游**。
+   ⚠️ 返回 400（不是 5xx）：这是**客户端的输入问题**，不是我们的故障 —— 上游/监控看到 5xx 会当成
+      我们的错误，而这一类必须让人一眼看出"是内容不合规"。
+   ⚠️ 只在文本侧生效；图片素材的分级是第二阶段（docs/design/75），这里不假装覆盖了它。 */
+function sendContentScreenedError(res, screen) {
+  return res.status(400).json({
+    error: `${screen.reason}。请修改后重试（本次未扣费）。`,
+    code: 'CONTENT_BLOCKED',
+    categories: screen.hits.map(item => item.label),
+  });
+}
+/* 所有走文本的生成入口共用这一道（避免"有的入口查、有的不查"那种漏） */
+function screenOrReject(res, ...texts) {
+  const screen = screenPromptText(texts.filter(Boolean).join('\n'));
+  if (!screen.ok) { sendContentScreenedError(res, screen); return true; }
+  return false;
 }
 
 // 生产模式：serve 前端构建产物
@@ -2738,6 +2761,8 @@ function contentProjectReferenceGroups({ referenceAssets, referenceAssetIds } = 
 app.post('/api/generate', async (req, res) => {
   const { text, images, referenceAssetIds, referenceAssets } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
+  /* 内容安全闸门（提示词侧）：命中即 400 拒掉，不扣费、不发上游 */
+  if (screenOrReject(res, text)) return undefined;
   if (req._contentPreview === true) return runXhsPreview(req, res);
   let resolvedReferenceGroups;
   try {
@@ -5861,6 +5886,8 @@ async function generatePlogContentSet({
 app.post('/api/plog-generate', async (req, res) => {
   const { text, refImage, referenceAssetIds, referenceAssets, style, layout, coverVariant, skipEnrich } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
+  /* 内容安全闸门（提示词侧）：与 /api/generate 同一道，命中即 400、不扣费、不发上游 */
+  if (screenOrReject(res, text)) return undefined;
   if (req._contentPreview === true) return runPlogPreview(req, res);
   let resolvedReferenceGroups;
   try {

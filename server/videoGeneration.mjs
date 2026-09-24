@@ -19,6 +19,8 @@ import { createLocalVideoAdapter, ffmpegAvailable, probeDurationSeconds } from '
 import { validateLocalPlanInput } from './localVideoPlan.mjs';
 import { createVolcSubtitleAdapter, volcSubtitleReadiness } from './volcSubtitleErase.mjs';
 import { createVolcLipSyncAdapter, volcLipSyncReadiness } from './volcLipSync.mjs';
+/* 内容安全闸门（提示词侧，纯本地零成本）—— 见 server/contentScreen.mjs 的文件头 */
+import { screenPromptText } from './contentScreen.mjs';
 import {
   buildProviderPayload,
   createVideoProviderRegistry,
@@ -1482,6 +1484,22 @@ export function createVideoGeneration({
       : null;
     const seed = Number.isSafeInteger(Number(input?.seed)) ? Number(input.seed) : 0;
     if (!processProduct && !prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
+    /* ═══ 内容安全闸门 · 提示词侧（2026-09-24 批 AX）═════════════════════════════════════════════
+       用户原话：「用户上传的素材和提示词都应该**先过一遍没问题再传输生成**，其实也是
+       防止我们被中转站给 ban 掉」+「为什么还要重新花钱呢…没有低成本的过滤方案吗」+
+       「有这种内容肯定是要**直接拒**的」。
+       ⇒ 这一道**纯本地、零成本**（不调模型、毫秒级），命中即拒：
+          **不建单、不冻结积分、一个字节都不发给上游**。
+       ⚠️ 位置：放在**编译之后**（查的是真正要下发的那段文本，不是用户原始输入）——
+          方案段与硬约束段也一起过一遍，否则有人可以把违规内容塞进"必须保留"那段绕过去。
+       ⚠️ 覆盖边界：这一道只管**文本**；图片素材的分级是第二阶段（见 docs/design/75），
+          这里不假装覆盖了它。 */
+    if (!processProduct) {
+      const screen = screenPromptText(`${prompt}\n${negativePrompt}`);
+      if (!screen.ok) {
+        throw httpError(400, 'VIDEO_PROMPT_BLOCKED', `${screen.reason}。请修改后重试（本次未扣费）。`);
+      }
+    }
     if (!processProduct) {
       try {
         validateVideoProductInput({
