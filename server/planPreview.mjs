@@ -141,6 +141,26 @@ function normalizeSteps(value) {
   }));
 }
 
+/* ═══ 内容判定（批 BA，docs/design/75 §三.1）：**搭在已有调用上的顺带判定** ═══════════════════════
+   用户口径：「**为什么还要重新花钱呢**，用户上传素材和提示词不是本来就要识别一次吗，
+   为什么我们还要再识别一次呢？没有低成本的过滤方案吗」⇒ 这一层不新开调用，只多要一个字段。
+   ⚠️ 三态而不是两态：模型**没答**这个字段时是 `null`（"这次没判"），不是 `false`（"判了没问题"）——
+      两态会让"模型没答"看起来像"审核通过"，那是拿用户的钱去赌一个我们没做过的检查。 */
+export function normalizeSafety(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: null, categories: [] };
+  if (typeof value.ok !== 'boolean') return { ok: null, categories: [] };
+  const categories = list(value.categories, 5).map(item => clean(item, 40)).filter(Boolean);
+  return { ok: value.ok, categories };
+}
+
+/* 判定为不合规时给用户看的那句话（与第一阶段 400 文案同一口径：说清"下一步做什么"） */
+export function safetyBlockedReason(safety) {
+  const categories = (safety?.categories || []).join('、');
+  return categories
+    ? `这段需求或素材未通过内容规范检查（${categories}），请更换后重试`
+    : '这段需求或素材未通过内容规范检查，请更换后重试';
+}
+
 export function normalizePlanPreview(value, fallback = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const planSource = source.plan && typeof source.plan === 'object' ? source.plan : source;
@@ -151,6 +171,7 @@ export function normalizePlanPreview(value, fallback = {}) {
     surface: normalizeSurface(fallback.surface),
     degraded,
     reason: degraded ? clean(source.reason || fallback.reason, 300) : '',
+    safety: normalizeSafety(source.safety ?? fallback.safety),
     materials,
     plan: {
       title: clean(planSource.title, 120) || (fallback.surface === 'video' ? '视频拍摄方案' : '图片生成方案'),
@@ -196,6 +217,12 @@ export function buildPlanPreviewRequest(input = {}) {
     '',
     'JSON 结构（字段名必须逐字一致）：',
     '{',
+    /* ═══ safety：搭在这**已经要发生的那一次调用**上的内容判定（批 BA，docs/design/75 §三.1）══════
+       用户口径：「**为什么还要重新花钱呢**，用户上传素材和提示词不是本来就要识别一次吗…
+       没有低成本的过滤方案吗」——所以不新开一次审核调用，而是在这一份 JSON 里多要一个字段。
+       边界如实写死在这里：**只判显式违规**（与本地词表同一份类别口径），拿不准就 ok:true；
+       这一层是"顺带判定"，不是"全面检测"（真正的召回仍靠本地闸门 + 上游拒绝翻译）。 */
+    '  "safety": { "ok": true, "categories": [] },',
     '  "materials": [{ "id": "素材 id", "name": "素材名", "understanding": "对这张素材的理解（60-160 字，具体、可核对，不要空话）" }],',
     '  "plan": {',
     '    "title": "方案标题（不超过 20 字）",',
@@ -207,6 +234,9 @@ export function buildPlanPreviewRequest(input = {}) {
     '}',
     '',
     '硬性要求：不要编造素材里不存在的信息；看不清就如实说看不清；不要出现价格、水印、无关文字的建议。',
+    'safety 字段的判定口径（**只判显式**，拿不准一律 ok:true）：需求或素材**明确要求**下列内容时为 false，'
+      + '并把类别名放进 categories：色情低俗 / 违禁品与违法交易 / 暴恐与极端 / 政治敏感 / 未成年人性化。'
+      + '正常商业表达（内衣、泳装、美妆、医美、模特身材）**不算**违规 —— 误判会让正常用户被挡在门外。',
   ].join('\n');
   const userPrompt = [
     '【创作表面】' + (isVideo ? '视频生成' : '图片生成'),
@@ -264,7 +294,25 @@ export function createPlanPreviewService({ completeText } = {}) {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.keys(parsed).length) {
         return buildLocalPlanPreview(input, '分析结果无法解析');
       }
-      return normalizePlanPreview(parsed, { surface: request.surface, materials: request.materials });
+      const preview = normalizePlanPreview(parsed, { surface: request.surface, materials: request.materials });
+      /* ═══ 判定为不合规 ⇒ **这次不出方案**（批 BA，doc 75 §三.1「有这种内容肯定是要直接拒的」）═════
+         三条都重要：
+           ① 走**降级**那条路（`degraded: true`）—— 路由对降级结果是**不扣费**的
+              （`billing: { charged: false, reason: 'DEGRADED_LOCAL_PLAN' }`），所以"直接拒"不会让用户
+              白花这 0.5 积分；
+           ② `promptText` 清空 —— 用户手里那份"可以直接拿去生成的提示词"就是违规内容本身，
+              留着它等于把违禁品递过去（界面那一边还会把"跳过方案直接生成"整颗拿掉，见 PlanPreviewDialog）；
+           ③ 原因写清类别，让用户知道改哪里（不说"失败请重试"，那句话会让他原样再点一次）。 */
+      if (preview.safety.ok === false) {
+        return {
+          ...preview,
+          degraded: true,
+          blocked: true,
+          reason: safetyBlockedReason(preview.safety),
+          plan: { ...preview.plan, promptText: '' },
+        };
+      }
+      return preview;
     },
   };
 }

@@ -4,7 +4,10 @@
    适配器又用自己的 env 默认值做白名单校验 —— 两处各写一份，谁也不知道对方写的是什么，
    结果就是「目录说调 A、适配器只认 B」，用户看到「模型当前不可用」。
    → 现在两个名字只在这里写一遍：目录**引用**它，适配器默认值**引用**它。
-   （本文件没有任何 import，所以目录反向引用它不会造成循环依赖。） */
+   （本文件**刻意不引用站内业务模块**，所以目录反向引用它不会造成循环依赖 ——
+     批 BA 加的下面这条 import 也守同一个纪律：contentRejection.mjs 是**零依赖的叶子模块**。） */
+import { CONTENT_REJECTION_MESSAGE, classifyContentRejection } from '../contentRejection.mjs';
+
 export const NANO_UPSTREAM_MODELS = Object.freeze({
   flash: 'gemini-3.1-flash-image',
   pro: 'gemini-3-pro-image',
@@ -144,9 +147,20 @@ export function createNanoBananaProviderAdapter({
       const retryAfter = parseRetryAfter(response, currentTimeMs());
       const payload = await responseJson(response);
       if (!response.ok) {
+        /* ═══ 2026-09-24 批 BA：上游按内容政策拒单 → 中文文案 + **不重试**（doc 75 §三.2）═══════
+           这一条尤其要紧：nano 收到 safety 拒绝时回的是英文原句（"The response was blocked due to
+           safety reasons"），用户既看不懂也不知道该改什么；而 400/403 之外的状态码在我们这里
+          还可能被当成"忙"再排队。内容问题重试一百次也是同一个结果。 */
+        const detail = payload?.error?.message || `Nano Banana ${label}失败（HTTP ${response.status}）`;
+        const rejected = classifyContentRejection({ status: response.status, detail });
+        if (rejected.rejected) {
+          const error = providerError(CONTENT_REJECTION_MESSAGE, 'CONTENT_REJECTED', false);
+          error.status = response.status;
+          throw error;
+        }
         const retryable = response.status === 429 || response.status >= 500;
         const error = providerError(
-          payload?.error?.message || `Nano Banana ${label}失败（HTTP ${response.status}）`,
+          detail,
           retryable ? 'NANO_BANANA_PROVIDER_BUSY' : 'NANO_BANANA_GENERATION_FAILED',
           retryable,
         );

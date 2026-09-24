@@ -1,4 +1,7 @@
 import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
+/* 上游内容策略拒绝的翻译层（批 BA，doc 75 §三.2）：认出来就换中文文案 + 不重试。
+   判据与保守边界（用的是我们已经收到的原始文本，不是猜的字段名）在那个文件的头部。 */
+import { CONTENT_REJECTION_MESSAGE, classifyContentRejection } from '../contentRejection.mjs';
 
 const MAX_INPUT_IMAGES = 10;
 const SAFE_JOB_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,255}$/i;
@@ -409,8 +412,21 @@ export function createProviderAdapter(config = {}) {
     const response = await fetchWithDeadline(url, init, submitTimeoutMs);
     const responseBody = await readBody(response);
     if (!response.ok) {
+      const detail = extractError(responseBody) || `provider image request failed with HTTP ${response.status}`;
+      /* ═══ 2026-09-24 批 BA：上游按内容政策拒单 → 换中文文案 + 不重试（doc 75 §三.2）════════════
+         用户原话：「有这种内容肯定是要**直接拒**的」+「为什么还要重新花钱呢…没有低成本的过滤方案吗」。
+         原来这里把上游那句英文原样透出去（"Your request was rejected as a result of our safety
+         system"），用户既看不懂也不知道该改什么，而池子还会按 retryable 再花一次钱重试。 */
+      const rejection = classifyContentRejection({ status: response.status, detail });
+      if (rejection.rejected) {
+        throw providerError(CONTENT_REJECTION_MESSAGE, {
+          status: response.status,
+          retryable: false,
+          code: 'CONTENT_REJECTED',
+        });
+      }
       throw providerError(
-        extractError(responseBody) || `provider image request failed with HTTP ${response.status}`,
+        detail,
         {
           status: response.status,
           retryable: RETRYABLE_STATUS.has(response.status),
@@ -512,8 +528,19 @@ export function createProviderAdapter(config = {}) {
     const retryAfter = parseRetryAfter(response, currentTimeMs());
     const recoverableGatewayTimeout = response.status === 504 && providerJobId;
     if (!response.ok && !recoverableGatewayTimeout) {
+      const detail = extractError(body) || `provider polling failed with HTTP ${response.status}`;
+      /* 轮询阶段的内容拒绝同样要换文案 + 不重试（有些网关是"提交成功、轮询时判失败"） */
+      const rejection = classifyContentRejection({ status: response.status, detail });
+      if (rejection.rejected) {
+        throw providerError(CONTENT_REJECTION_MESSAGE, {
+          status: response.status,
+          retryable: false,
+          jobId: responseJobId,
+          code: 'CONTENT_REJECTED',
+        });
+      }
       throw providerError(
-        extractError(body) || `provider polling failed with HTTP ${response.status}`,
+        detail,
         {
           status: response.status,
           retryable: RETRYABLE_STATUS.has(response.status),
@@ -557,7 +584,23 @@ export function createProviderAdapter(config = {}) {
         }
         continue;
       }
-      if (result.status === 'completed' || result.status === 'failed') return result;
+      if (result.status === 'completed' || result.status === 'failed') {
+        /* ═══ 2026-09-24 批 BA：轮询到"失败"且理由是内容政策 → 当场换成中文、不重试（doc 75 §三.2）
+           这一条是**最常走到的那个口**（上游接单成功、渲染时判违规）：原来调用方拿到的是一句
+           上游原文，我们只能报"生成失败"。⇒ 判据只用**已经拿到的那段文本**，命中不了行为不变。 */
+        const rejection = result.status === 'failed'
+          ? classifyContentRejection({ status: Number(result.httpStatus) || 0, detail: result.error || '' })
+          : { rejected: false };
+        if (rejection.rejected) {
+          throw providerError(CONTENT_REJECTION_MESSAGE, {
+            status: Number.isInteger(result.httpStatus) && result.httpStatus ? result.httpStatus : 400,
+            retryable: false,
+            jobId: validateJobId(jobId),
+            code: 'CONTENT_REJECTED',
+          });
+        }
+        return result;
+      }
       if (Number.isFinite(result.retryAfter) && result.retryAfter >= 0) {
         lastRetryAfter = result.retryAfter;
       }

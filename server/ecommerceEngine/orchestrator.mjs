@@ -14,6 +14,8 @@ import { ecommerceFeatureForItem } from './ecommerceBilling.mjs';
 import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
 import { normalizeCommerceContext } from './internationalCommerceRegistry.mjs';
 import { normalizeEcommerceAbilityPayload, TRY_ON_ID } from './abilityPayload.mjs';
+/* 上游内容策略拒绝的翻译层（批 BA，doc 75 §三.2）：认出来就换中文文案 + 不重试 */
+import { CONTENT_REJECTION_MESSAGE, classifyContentRejection } from '../contentRejection.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
@@ -552,13 +554,29 @@ function normalizedProviderResult(result, providerJobId) {
   if (status === 'failed') {
     const statusCode = Number(own(result, 'statusCode') ?? own(result, 'httpStatus'));
     const errorCode = cleanString(own(result, 'code') ?? own(result, 'errorCode')).toUpperCase();
+    const detail = cleanString(own(result, 'error')) || 'provider generation failed';
+    /* ═══ 2026-09-24 批 BA：内容政策拒绝 → 中文文案 + **不重试**（doc 75 §三.2）══════════════════
+       这是电商生图那条主路（多资产编排）的失败口。原来它落到 `PROVIDER_GENERATION_FAILED`
+       或（状态码像 429/5xx 时）`PROVIDER_GENERATION_TRANSIENT` ⇒ 前者用户看不懂上游原文、
+       后者还会被上层再排一遍 —— 内容问题重排一百次也是同一个结果。
+       判据只用**上游返回体里那段已经拿到手的文本**；认不出来时下面两个分支一个字不变。 */
+    const rejection = classifyContentRejection({ status: statusCode, detail });
+    if (rejection.rejected) {
+      throw Object.assign(new Error(CONTENT_REJECTION_MESSAGE), {
+        status: 400,
+        code: 'CONTENT_REJECTED',
+        retryable: false,
+        contentRejected: true,
+        providerDetail: detail.slice(0, 300),
+      });
+    }
     const retryable = own(result, 'retryable') === true
       || statusCode === 408
       || statusCode === 425
       || statusCode === 429
       || statusCode >= 500
       || /(?:TIMEOUT|RATE_LIMIT|UNAVAILABLE|OVERLOAD|NETWORK)/.test(errorCode);
-    throw Object.assign(new Error(cleanString(own(result, 'error')) || 'provider generation failed'), {
+    throw Object.assign(new Error(detail), {
       code: retryable ? 'PROVIDER_GENERATION_TRANSIENT' : 'PROVIDER_GENERATION_FAILED',
       retryable,
     });

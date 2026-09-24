@@ -291,7 +291,15 @@ export default function PlanPreviewDialog({
               {step < 2
                 ? <button type="button" className="plan-preview-btn is-primary" onClick={() => setStep(step + 1)}>下一步</button>
                 : (plan?.degraded
-                  ? <button type="button" className="plan-preview-btn is-primary" onClick={() => onSkip?.()}>跳过方案，直接生成</button>
+                  /* ═══ 2026-09-24 批 BA：**内容不合规时不许给「跳过方案，直接生成」** ═══════════════
+                     用户口径：「有这种内容肯定是要**直接拒**的」。
+                     降级有两种成因，界面上必须分开：
+                       · 模型不可用 → 「跳过方案，直接生成」（需求本身没问题，只是方案没出来）；
+                       · **内容不合规 → 不给这条路** —— 此时"直接生成"就是把刚被判违规的那段内容送出去，
+                         而且"不许放点了必失败的东西"那条铁律也不许我们把按钮摆在那里。 */
+                  ? (plan?.safety?.ok === false
+                    ? <button type="button" className="plan-preview-btn is-primary" onClick={() => onClose?.()}>关闭</button>
+                    : <button type="button" className="plan-preview-btn is-primary" onClick={() => onSkip?.()}>跳过方案，直接生成</button>)
                   : (
                     <button
                       type="button"

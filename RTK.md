@@ -7099,12 +7099,61 @@ UI 整改第二批：模型选择面板（图四）／包含模块默认是否�
 
 **主交接文档：`docs/design/76-handoff-next-session.md`** —— 里面是：
 线上状态与最近提交、项目是什么/用户最在意什么、已做完的（按批带提交号）、
-**待做的只剩三条**（② 数字人创作台接线 ← 下一步；③ 内容检测第二阶段；④ 发布包＝用户说先等等）、
+**待做的只剩两条**（③ 内容检测第二阶段 —— 零成本那两条已在批 BA 做完；④ 发布包＝用户说先等等）、
+（② 数字人创作台接线已在批 AZ 做完并上线 —— 见本文件末尾那一批）
 每批固定流程（test → precommit → commit → 部署 → 复验 → RTK）、
 以及环境坑（cmd 下多行 node -e 会静默失效、RTK 要用 readFileSync 读、部署判据只认 Deployed 那一句…）。
 
-**当前线上版本 `e727c7cf`**（其后只有文档提交）。全量测试 4045 pass / 0 fail。
+**当前线上版本 `7858ef87`**（数字人创作台接线那一批）。全量测试 **4060 条 / 4050 pass / 0 fail / 10 skipped**。
 
-**下一会话要做的第一件事**：读这份 76 + 本文件最后两批（AX/AY）+ docs/design/74、75，然后从
-**②数字人创作台接线**开始（四件事：把 localEngine 那串判断推广成 process 产品、
-音频槽位时长探针、报价数量取音频秒数、接线完把产品与 SKU 翻 public 并摘掉「即将上线」角标）。
+**下一会话要做的第一件事**：读这份 76 + 本文件最后三批（AX/AY/AZ）+ docs/design/74、75，
+然后看 §「待做清单」—— ② 数字人接线**已做完并上线**（批 AZ），剩下的是
+③ 内容检测第二阶段（零成本两条已在批 BA 做完，差"图片分级抽检"那一条）与 ④ 发布包（用户说先等等）。
+
+### 批 AZ（2026-09-24 晚）：**数字人创作台接线完成**，产品与 SKU 一并翻公开（待做②销项）
+
+用户在外面等结果、指令是「全部做完」⇒ 本批把交接文档 76 §四② 那一件做完了。它就是
+docs/design/74 §四 里"只剩这一件"的那一件：**VideoStudio 里没有 upstream-process 引擎的分支**。
+接之前产品只能 public:false（一旦翻公开，用户进那一页会落到"上游生成"的默认分支：
+拿默认模型出一段普通视频并照常扣费）。提交 `7858ef87` → `Deployed 7858ef87 to https://shuimg.cn/`。
+
+**四件事，逐件落在哪儿：**
+
+1. **判据推广**（`src/pages/VideoStudio/index.jsx`）：`localEngine` 那一串判断 → **process 产品**
+   （`processPlan = localEngine || upstreamProcessPlan`）。本机执行（视频高清 / 去字幕）与
+   上游执行（数字人）共用同一条分支：报价按秒、没有「分析并生成方案」那一步、没有生成设置。
+   两种执行方式的差别收敛成**两处**：谁执行（本机要不要 ffmpeg 预检）、计费秒数取哪一档。
+2. **音频槽位的时长探针**：这一档按**音频秒数**计费（0.12 积分/秒），产出长度也由音频决定
+   （`enable_video_loop` 固定 true）—— 原来只对源视频探时长 ⇒ 音频恒为 0 秒、报价根本出不来。
+   现在用 HTMLAudioElement 读元数据、向上取整（与服务端 `billableQuantity` 同一口径），
+   上限取**产品声明**的 1800 秒（页面不再写死 300）。
+3. **报价数量取音频秒数**：`quoteBillingAction` 发的仍是"这段配音多少秒"这个**事实**
+   （份数/金额一律由服务端算，pricing-single-source 没放宽）；建单 `duration = billingSeconds`；
+   人物视频 + 驱动配音**两个文件都上传**（缺音频服务端会在冻结积分之前 400）；幂等键把配音也算进去。
+4. **三样一起翻公开**：产品 `lipsync_volc.public`、两条 SKU `public`、技能 `video.digital_human`
+   的 `availability` 由 `'blocked'` 改 `'ready'`（摘掉「即将上线」角标）。**价格一分未动**
+   （120 units/秒 = 0.12 积分/秒）。另补两条积分细则中文标签（billing-labels 门禁要求公开 SKU 有标签）。
+
+**同一批收口的两处"页面里的第二份真相"**（都是接线时顺手拆掉的隐患）：
+- `capabilities.digitalHuman` / `subtitleAuto` 补 `localSpec` / `modes` / `durations` / `label` ——
+  页面不再自己写死「要音频 / 不露规格 / 按秒 / 建单模式」（"自动标记"那一档的 localSpec
+  原来就是页面里硬编码的一份镜像，产品目录改了页面不会跟着改）；
+- 生成按钮上的价目说明从目录派生（原来写死 `0.04 积分/秒` 与 `0.50 积分/条` ——
+  数字人一上线就会显示成别人的价）。
+
+**门禁**：新增 `test/video-digital-human-wiring-0926.test.mjs`（5 条），最要紧的一条是
+**前端报价数量与服务端 `billableQuantity` 逐值相等**（同一样本批：3/7/8/9/12/12.4/900/1800 秒）——
+不一致就是 409「费用确认不一致」，更糟的是两边各写一套规则时"恰好都能过"。
+改判三处，逐条写明是**事实变了 / 判据推广**，不是放宽：
+`video-studio-contract`（localEngine → processPlan）、`video-catalog`（"在册不代表公开"那段随事实更新，
+**仍不进模型清单**）、`video-lipsync-dispatch`（available false → true、reason 由"还在接线"改成空串）。
+
+**验证**：全量 `npm run test` **4060 条 / 4050 pass / 0 fail / 10 skipped**（跳过的是 4 个需要本地
+dev server 的实机用例，与既有基线一致）；`npm run precommit` 全绿（构建 + 真实渲染冒烟 +
+技能工作台 e2e **232 条断言** + 38 个 BLOCKING 门禁 **260/260**）。
+**生产复验（从服务器本机发请求）**：
+- `/api/video/capabilities` → `digitalHuman.available: true`、`reason: ""`、
+  `localSpec.audio: true`、`modes: ["process"]`、`durations: {min:1,max:1800}`、
+  `billingQuantity: "seconds"`；`subtitleAuto` 同样补上了 `localSpec/modes`；
+- **模型清单没被污染**：`products` 仍是那 12 条模型，**没有 lipsync_volc**；`localProducts` 仍是那两条；
+- 两条 SKU 已进公开计费目录（`units: 120, priceFen: 12`）⇒ 页面能拿到报价令牌。

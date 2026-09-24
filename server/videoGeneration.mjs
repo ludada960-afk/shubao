@@ -21,6 +21,8 @@ import { createVolcSubtitleAdapter, volcSubtitleReadiness } from './volcSubtitle
 import { createVolcLipSyncAdapter, volcLipSyncReadiness } from './volcLipSync.mjs';
 /* 内容安全闸门（提示词侧，纯本地零成本）—— 见 server/contentScreen.mjs 的文件头 */
 import { screenPromptText } from './contentScreen.mjs';
+/* 上游内容策略拒绝的翻译层（批 BA，doc 75 §三.2）—— 判据与保守边界写在那个文件的头部 */
+import { CONTENT_REJECTION_MESSAGE, classifyContentRejection, isContentRejectionError } from './contentRejection.mjs';
 import {
   buildProviderPayload,
   createVideoProviderRegistry,
@@ -1121,6 +1123,13 @@ export function createVideoGeneration({
 
   function releaseHeldJob(job, error) {
     const failureClass = job.failure_class || (isVideoProviderFailure(error) ? 'provider' : 'delivery');
+    /* ═══ 2026-09-24 批 BA：内容拒绝要说清"下一步做什么"（doc 75 §三.2）═══════════════════════════
+       原来这里一律写「本次没有交付成片，冻结积分已退回」—— 对**内容拒绝**这一种，用户读完
+       不知道自己该改什么，于是原样再点一次（白烧一次调用）。⇒ 换成能照着做的那句话；
+       退费这件事一个字没变（下面那条 releaseItem 原样调用，该退多少还是多少）。 */
+    const failedText = isContentRejectionError(error)
+      ? '素材或提示词未通过内容审核，请更换后重试（冻结积分已退回）'
+      : '本次没有交付成片，冻结积分已退回';
     try {
       walletService.releaseItem(job.hold_id, 'video', {
         reason: `video_failed:${clean(error?.code || error?.message, 100) || 'unknown'}`,
@@ -1129,7 +1138,7 @@ export function createVideoGeneration({
       });
       return updateJob(job.id, {
         status: 'failed',
-        error: '本次没有交付成片，冻结积分已退回',
+        error: failedText,
         progress: 0,
         failure_class: failureClass,
         billing_state: 'released',
@@ -1294,6 +1303,26 @@ export function createVideoGeneration({
           return;
         }
         if (['failed', 'cancelled', 'canceled', 'error'].includes(status)) {
+          /* ═══ 2026-09-24 批 BA：上游因**内容政策**把这一单判失败时，两条都不做 ═════════════════
+             ① 不切备用网关 —— 备用网关执行的是**同一套内容政策**，同一份内容必被再拒一次；
+             ② 不报"我们的故障" —— 交给下面那条统一的用户文案（"更换素材或提示词"）。
+             用户原话：「有这种内容肯定是要**直接拒**的」（doc 75 §三.2 就是这一条）。 */
+          const rejection = classifyContentRejection({ status: 0, detail: clean(result?.error, 500) });
+          if (rejection.rejected) {
+            if (job.current_attempt_id) {
+              attemptStore.markFailed(job.current_attempt_id, {
+                code: 'VIDEO_CONTENT_REJECTED',
+                message: clean(result?.error, 300),
+              });
+            }
+            throw Object.assign(new Error(CONTENT_REJECTION_MESSAGE), {
+              status: 400,
+              code: 'VIDEO_CONTENT_REJECTED',
+              retryable: false,
+              contentRejected: true,
+              providerDetail: clean(result?.error, 300),
+            });
+          }
           /* 9-12 用户要求：视频同样要有备用供应商 —— routeId 就是模型名，所以「换供应商」= 换网关，模型不变。
              只切一次：provider_source 一旦记为 backup 就不再切，避免无限轮换；技术细节只进日志。 */
           const alternate = job.provider_source === 'backup' ? null : registry.alternate(job.product_id);

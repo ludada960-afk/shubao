@@ -1,4 +1,7 @@
 import { getVideoProduct, publicVideoProducts, unavailableVideoProducts, VIDEO_PRODUCTS } from './videoCatalog.mjs';
+/* 上游内容策略拒绝的翻译层（批 BA）：认出来就换成一句能照着做的中文，且不重试 ——
+   判据与保守边界写在那个文件的头部（用的是我们已经收到的那段原始文本，不是猜的字段名）。 */
+import { CONTENT_REJECTION_MESSAGE, classifyContentRejection } from './contentRejection.mjs';
 
 function clean(value, max = 500) {
   return String(value ?? '').trim().slice(0, max);
@@ -207,6 +210,21 @@ function createAdapter({ product, baseUrl, token, fetchImpl, timeoutMs = 30_000,
       });
       if (!response.ok) {
         const detail = await response.text().catch(() => '');
+        /* ═══ 2026-09-24 批 BA：上游按**内容政策**拒单时，别再把它报成"我们的故障"══════════════
+           用户原话：「有这种内容肯定是要**直接拒**的」+「为什么还要重新花钱呢…没有低成本的
+           过滤方案吗」。第一阶段（本地词表）拦掉的是"写明了要什么"的那类；这里处理的是漏过去
+           之后上游自己拒掉的那类 —— 原来它被当成普通的 400/502 透出去，用户会**原样再点一次**，
+           同一份内容再撞一次墙（白烧一次上游调用）。⇒ 认出来就换成一句能照着做的中文，
+           且 **retryable:false**（内容问题重试一百次也是同一个结果）。 */
+        const rejection = classifyContentRejection({ status: response.status, detail });
+        if (rejection.rejected) {
+          throw errorWithCode(400, 'VIDEO_CONTENT_REJECTED', CONTENT_REJECTION_MESSAGE, {
+            retryable: false,
+            contentRejected: true,
+            providerStatus: response.status,
+            providerDetail: detail.slice(0, 300),
+          });
+        }
         const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
         throw errorWithCode(response.status >= 500 ? 502 : 400, 'VIDEO_PROVIDER_REJECTED', '视频任务未被上游接受', {
           retryable,
