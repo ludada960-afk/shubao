@@ -27,7 +27,13 @@
      本轮用户把口径改明确了：**右 > 左，但只大一点点**。
      现在：`1fr : 1.04fr`（同一可用宽度下约 660 : 686，右栏大约 4%）。
    ⚠️ 仍然用 fr 而不是绝对上限：绝对上限在宽屏上会把差距重新拉开（那是改前那版的毛病）。 */
-.media-workbench { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.04fr); gap: 20px; align-items: start; }
+/* ═══ 2026-09-25 批 BF：**工作台再窄一档、右栏再宽一档**（用户原话 + 箭头位置）═════════════════
+   原话：「我之前的确有叫你把工作台给重新调整。可是你**为什么要做到这么这么宽**呢？
+   我都跟你说了，**右边的示例和历史区必须比工作台要宽**呀。你应该让**工作台往左边弄窄一些**，
+   让右边的示例和历史区**再大一些**。工作台整体往左边挤过来啊。」
+   箭头标在屏幕 **40.3%** 处 ⇒ 工作台右沿应在 ~40%，即 **左 : 右 ≈ 40 : 60**。
+   批 BE 是 1 : 1.04（≈49:51），本批改成 **0.67 : 1**（≈40:60）。 */
+.media-workbench { display: grid; grid-template-columns: minmax(300px, 0.67fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .media-workbench-left {
   display: grid;
   gap: 22px;
@@ -546,10 +552,19 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   margin-bottom: -28px;
   padding-bottom: 28px;
   background: var(--sb-surface-card);
+  /* ═══ 2026-09-25 批 BF：按钮**靠右、不通栏**（用户原话，逐字）══════════════════════════════════
+     原话：「我真的不太知道你为什么**按钮要做到这么宽**？……这种生成按钮，你做到**太宽是没有任何
+     意义的**。我要的是你从**设计上**去想办法，让整体看起来更像一个成熟的视觉方案，我并不是叫你说
+     要把这些按钮做到特别夸张。你这样只会让用户看起来特别的迷茫。」
+     ⇒ 按钮宽度回到内容宽（自适应 + 最小宽度），整行右对齐 —— 与首页那颗 CTA 同一套排法。 */
+  display: flex;
+  justify-content: flex-end;
 }
 /* 批 K-E：整栏宽 + 两行（动作 / 积分）—— 照竞品主按钮的形态（510.1×54.5，价格写在按钮里）。 */
 .media-workbench-submit {
-  width: 100%;
+  width: auto;              /* 批 BF：不许通栏（用户："按钮做到这么宽是没有任何意义的"） */
+  min-width: 220px;
+  justify-self: end;
   display: grid;
   gap: 2px;
   min-height: 55px;
@@ -714,7 +729,13 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 }
 .media-field-upload-retry:hover { background: var(--sb-brand-600); color: var(--sb-surface-card); }
 
-.media-workbench-cta-hint { margin: 0; font-size: 14px; color: var(--sb-ink-3); }
+/* ═══ 2026-09-25 批 BF：这一格是**状态**不是"描述"（上面那句用户原话曾让我整条删掉，删错了）═══════
+   删掉之后 `scripts/media-workbench-e2e.mjs` 的场景 ① 当场红：
+   「禁用原因就写在按钮旁，且点名缺的是哪个字段」—— 那是批 O-⑥ 立下的判据，也是"不许放点了必失败
+   的东西"的一部分：灰按钮不说明原因，用户就卡死在那一格上。
+   ⇒ 保留状态句，但**压到最小**：12px / 弱色 / 贴在按钮右下，读起来是一个状态标签，不是一段说明文。
+     连括号里的解释文案都从源头去掉了（见 MediaCreation 的 moduleGate）。 */
+.media-workbench-cta-hint { margin: 0; justify-self: end; color: var(--sb-ink-3); font-size: 12px; line-height: 1.4; }
 /* ── 通栏形态：整块嵌入的既有工作台（小红书图文 / 视频）─────────────────────────
    用户 9-17：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面。」
    嵌入进来的工作台（XhsContentMode / VideoStudioPage）**本来就是通栏宽度**的
@@ -749,7 +770,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
       这两条是**下一轮的 K-E 主任务**，判据见 RTK 的 K-E 小节（含本轮实测数值）。 */
 /* 批 BB：嵌入形态（视频子页面）同样按"右略大于左"走 —— 原来写死 570px，与另一条不同源。
    现在两条用同一族 fr（左 1 / 右 1.04），宽屏窄屏都不会把差距重新拉开。 */
-.media-workbench.is-embedded-flow { grid-template-columns: minmax(320px, 1fr) minmax(0, 1.04fr); gap: 20px; }
+.media-workbench.is-embedded-flow { grid-template-columns: minmax(300px, 0.67fr) minmax(0, 1fr); gap: 20px; }
 /* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
    VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
    在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */

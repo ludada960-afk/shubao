@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
-import { Check, Info, LayoutTemplate, Layers3, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
+import { Check, Info, LayoutTemplate, Layers3, Maximize2, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 import {
   MdAutoAwesome,
   MdCropFree,
@@ -393,6 +393,12 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const promptRef = useRef(null);
   const abortRef = useRef(null);
   const configButtonRefs = useRef({});
+  /* ═══ 批 BF：全屏（用户原话：「现在首尾帧和图片生成那边，他们都没有这个全屏按钮，
+     这个你也要加上去」）—— 与视频侧同一套做法：
+     · 状态从 fullscreenchange **读回来**，不在按钮里翻布尔（按 ESC 退出后界面会说反话）；
+     · 浮层面板的挂载点跟着全屏元素走（挂 document.body 的浮层在全屏下根本不渲染）。 */
+  const composerRef = useRef(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const restoredCheckpointRef = useRef('');
 
   const selectedSkill = visualSkillById(skillId);
@@ -528,6 +534,26 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     const timer = globalThis.setTimeout(() => setToast(null), 4000);
     return () => globalThis.clearTimeout(timer);
   }, [toast]);
+
+  /* 批 BF：全屏状态从 fullscreenchange **读回来**（与视频侧同一个 effect）——
+     ESC 由浏览器接管，只在按钮里翻布尔的话退出后界面会说反话。 */
+  useEffect(() => {
+    const sync = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', sync);
+    sync();
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const node = composerRef.current;
+    if (!node) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await node.requestFullscreen?.();
+    } catch {
+      /* 浏览器不允许（非用户手势 / 权限）时什么都不做，按钮标题里已写明这是全屏 */
+    }
+  }, []);
 
   const showToast = (message, type = 'error') => setToast({ message, type });
 
@@ -894,7 +920,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} openModelList value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
         </div>
       </div>,
-      document.body,
+      /* ⚠️ 与视频侧同一条理由（VideoStudio/index.jsx 的 renderFloatingPanel）：挂 document.body
+         的浮层在全屏下根本不渲染（浏览器只画全屏元素这棵子树），全屏之后这两颗按钮点了没反应。 */
+      fullscreen && composerRef.current ? composerRef.current : document.body,
     );
   };
 
@@ -921,7 +949,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           ⚠️ `id="visual-creation-title"` 这个锚点被 aria-labelledby 引用过，所以把标题名挪到
              工作区自己的 aria-label 上（读屏仍然知道这一块是什么），不留悬空引用。 */}
 
-      <div className="visual-creation-composer">
+      <div ref={composerRef} className={'visual-creation-composer' + (fullscreen ? ' is-fullscreen' : '')}>
         {/* ═══ 素材上传区 + 输入区 + @引用：照抄小红书图文那套（ec-xhs-composer 暖色渐变面），只改文案 ═══ */}
         <div className="ec-xhs-composer visual-composer-surface">
           <div
@@ -1042,6 +1070,12 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                 本次会用到前 {SERVER_REFERENCE_LIMIT} 张参考图，多出的 {serverCappedReferences} 张这次不带上
               </span>
             )}
+            {/* ═══ 批 BF：全屏（用户原话，逐字）══════════════════════════════════════════════════
+                「现在**首尾帧和图片生成那边，他们都没有这个全屏按钮，这个你也要加上去**。」
+                位置照视频侧：@ 这一行的**右端**（margin-left: auto），不额外占一行高度。 */}
+            <div className="visual-materials-actions">
+              <button type="button" className="visual-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>
+            </div>
           </div>
         </div>
 

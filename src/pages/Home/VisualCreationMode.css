@@ -233,15 +233,45 @@
 .visual-config-trigger > svg:first-child { flex: 0 0 auto; color: #6753d8; }
 .visual-config-trigger > svg:last-child { flex: 0 0 auto; color: #8f8792; }
 .visual-config-trigger-copy { display: grid; min-width: 0; flex: 1; gap: 2px; }
-.visual-config-trigger-copy small { color: #918992; font-size: 10px; font-weight: 700; }
-.visual-config-trigger-copy strong { overflow: hidden; color: #302b33; font-size: 12px; font-weight: 780; text-overflow: ellipsis; white-space: nowrap; }
+/* 批 BF：这两行字与视频侧**同一批取值**（表里的 #918992 / #99918a 是两个灰、700/600 是两种字重，
+   同一颗按钮上的同一句话在两页长得不一样）。小字走 muted、值走 ink-1。 */
+.visual-config-trigger-copy small { color: var(--sb-text-muted); font-size: 10px; font-weight: 600; }
+.visual-config-trigger-copy strong { overflow: hidden; color: var(--sb-ink-1); font-size: 12px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.visual-config-trigger.is-open .visual-config-trigger-copy strong { color: var(--sb-brand-600); }
+
+/* ═══ 2026-09-25 批 BF：@ 那一行右端的动作按钮（全屏）═══════════════════════════════════════════
+   用户原话：「现在**首尾帧和图片生成那边，他们都没有这个全屏按钮，这个你也要加上去**。」
+   ⚠️ 取值**逐值照视频侧** `.video-materials-actions / .video-materials-fullscreen`（那里是同一颗
+      按钮的既有实现）—— 两边各写一套就又是"两套东西"，所以门禁 config-kit-parity 直接比这两组。 */
+.visual-materials-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.visual-materials-fullscreen {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.visual-materials-fullscreen:hover { background: var(--sb-hover-bg); border-color: var(--sb-border-strong); color: var(--sb-ink-1); }
+.visual-materials-fullscreen:focus-visible { box-shadow: var(--sb-focus-ring); outline: none; }
+
+/* 全屏：铺页面底色 + 内部滚动 + 内容居中在 1240 内（与视频侧全屏的落点一致）。
+   ⚠️ 全屏元素自己被 UA 锁成 100%×100% / margin 0，所以"卡片感"要画在**内层**——
+      这里的内层就是那块暖色创作面与底栏。 */
+.visual-creation-composer.is-fullscreen { height: 100vh; overflow-y: auto; padding: 24px 0 32px; background: var(--sb-surface-page); }
+.visual-creation-composer.is-fullscreen > .ec-xhs-composer,
+.visual-creation-composer.is-fullscreen > .ec-workbench-actions { width: min(1240px, calc(100vw - 64px)); margin-inline: auto; }
 
 .visual-config-panel {
   box-sizing: border-box;
   overflow: visible auto;
   z-index: 15;
   border: 1px solid rgba(255,255,255,.86);
-  border-radius: 8px;
+  /* ═══ 2026-09-25 批 BF：8 → 20（与视频侧同一档；两处一起改才算同一套）════════════════════════
+     理由不是"看着好看"：① 站内规范 panelVisualLanguage.js「4. 圆角」写明 radius.panel = 20，
+     实现却一直是 8；② 面板里的选项控件圆角是 --sb-radius-card(12)，**比外层面板还圆** ——
+     嵌套圆角倒置（原则 3.4），近看就是"按钮比面板更圆"。知渔那张面板实测 19.84，取整 20。 */
+  border-radius: 20px;
   /* ═══ 2026-09-19 批 I-①（用户批注 #6「这里全部乱码了」/ #7「这里也是乱码了」）═════════
      根因**不是**编码问题，是**浮层半透明**：原来是 rgba(252,252,253,.93) + blur(24px)。
      首页把「图片生成」和「视频生成」两个创作台都挂在 DOM 里（切模式只切显隐），
@@ -313,7 +343,10 @@
    面板高度取真实可用空间（绝不越界），空间不足时由这一档把内容压进去：
    内边距、行高、卡片高度各收一档，实测可省下约 18%–22% 的高度。
    只在这里改**密度**，不改字号/颜色 —— 密集不等于变小字，可读性优先。 */
-.visual-config-panel[data-density="compact"] .visual-panel-section { padding: 9px 14px 0; }
+.visual-config-panel[data-density="compact"] .visual-panel-section { padding-inline: 16px; }
+.visual-config-panel[data-density="compact"] .visual-panel-section:first-child { padding-top: 16px; }
+.visual-config-panel[data-density="compact"] .visual-panel-section:last-child { padding-bottom: 16px; }
+.visual-config-panel[data-density="compact"] .visual-panel-section + .visual-panel-section { margin-top: 12px; }
 .visual-config-panel[data-density="compact"] .visual-panel-section-heading { margin-bottom: 5px; }
 /* ⚠️ 批 J-⑪：这一条原来把**容器和卡片本身**也压成 26×26 ——
    `.visual-choice-list / .visual-choice-grid / .visual-ratio-grid` 是栅格容器、
@@ -352,18 +385,30 @@
 .visual-subpanel-heading span svg { width: 14px; height: 14px; color: var(--sb-brand-600); }
 .visual-subpanel-heading small { color: #918a95; font-size: 10px; line-height: 1.45; }
 .visual-subpanel-heading em { flex: 0 0 auto; padding: 4px 7px; border-radius: 6px; color: var(--sb-brand-700); background: #f1ecff; font-size: 10px; font-style: normal; font-weight: 800; }
-.visual-panel-section { padding: 14px 16px 0; }
-.visual-panel-section + .visual-panel-section { margin-top: 2px; }
-.visual-panel-section-heading { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 8px; color: var(--sb-brand-700); }
-.visual-panel-section-heading > svg { width: 14px; height: 14px; flex: 0 0 14px; margin-top: 1px; }
+/* ═══ 2026-09-25 批 BF：面板内节奏与视频侧**同一档**（用户：「两套语言体系，这是完全不对的」）══
+   实测改前：图片侧这一档是"面板 body 内边距 0 + 每个区自己 14/16"（首行落在 x=16），
+   视频侧是"body 内边距 24/20 + 区不带内边距"（首行落在 x=20）—— 同一种面板，边距差 4px、
+   首行基线也不同。⇒ 图片侧改成同样的落点：首区上 24 / 左右 20 / 区与区 16 / 末区下 24。
+   ⚠️ 载体不同（视频侧由 body 承担、图片侧由区的 first/last-child 承担），**数值同一档** ——
+      门禁 test/config-kit-parity-0925 直接断言两边的这四个落点值。
+   （同文件的 GenSettingsPanel 用的是内联 24/20 + 16，本来就落在同一档上，不动它。） */
+.visual-panel-section { padding: 0 20px; }
+.visual-panel-section:first-child { padding-top: 24px; }
+.visual-panel-section:last-child { padding-bottom: 24px; }
+.visual-panel-section + .visual-panel-section { margin-top: 16px; }
+/* 批 BF：分组标题**逐值并到 PanelPrimitives 的 GroupTitle**（13/700/ink-1 + 14px 品牌图标 +
+   与内容 12）—— 视频侧那一栏用的就是 GroupTitle 本体，原来这里是自己写的一套 12/800。
+   文字仍是中性墨色（原则 6.1：层级标签不许染品牌色），品牌色只由**图标**承担识别。 */
+.visual-panel-section-heading { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; color: var(--sb-brand-600); }
+.visual-panel-section-heading > svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .visual-panel-section-heading > div { display: grid; min-width: 0; gap: 2px; }
-.visual-panel-section-heading strong { color: #3b3540; font-size: 12px; font-weight: 800; }
-.visual-panel-section-heading small { color: #99919b; font-size: 10px; line-height: 1.35; }
-.visual-choice-list,.visual-choice-grid,.visual-ratio-grid { display: grid; gap: 7px; }
+.visual-panel-section-heading strong { color: var(--sb-ink-1); font-size: 13px; font-weight: 700; line-height: 1.4; }
+.visual-panel-section-heading small { color: var(--sb-ink-3); font-size: 11px; line-height: 1.4; }
+.visual-choice-list,.visual-choice-grid,.visual-ratio-grid { display: grid; gap: var(--sb-space-2); }
 .visual-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* 批 J-⑪：画面尺寸 6 档 ⇒ **三列两行**（视频侧是 6 档一行，因为它的卡只有比例一行字；
    我们的卡多一行**真实像素尺寸**，需要宽度 —— 照抄的是它的**卡片语言**，不是列数）。 */
-.visual-ratio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.visual-ratio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .visual-style-option { grid-template-columns: 92px minmax(0, 1fr) auto; min-height: 76px; padding: 7px; }
 .visual-style-option-image { width: 92px; height: 60px; flex: 0 0 92px; object-fit: cover; border: 1px solid rgba(45,41,38,.08); border-radius: 8px; background: #f4f1f6; }
 .visual-style-option .visual-choice-copy small { white-space: normal; }
@@ -373,6 +418,21 @@
 .visual-choice-copy strong { overflow: hidden; color: #332d3b; font-size: 12px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .visual-choice-copy small { overflow: hidden; color: #958d98; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .visual-choice-check { width: 15px; height: 15px; flex: 0 0 15px; color: var(--sb-brand-600); stroke-width: 3; }
+/* ⚠️ 批 BF 发现：.visual-choice-card 这个类**全仓没有任何基础规则**（只有下面的 compact 修饰），
+   于是「创作配方」面板里的选项卡 = 浏览器默认按钮（灰底 / outset 描边 / 圆角 0）—— 这正是
+   用户反复说的"像个 demo"。它跟模型行、比例卡是同一类控件，直接补成同一批 token。 */
+.visual-choice-card {
+  display: flex; align-items: center; gap: var(--sb-space-2);
+  width: 100%; padding: var(--sb-space-2) var(--sb-space-3);
+  border: 1.5px solid transparent; border-radius: var(--sb-radius-card);
+  background: var(--sb-l3-option); color: var(--sb-text-primary);
+  font: inherit; text-align: left; cursor: pointer;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out);
+}
+.visual-choice-card:hover:not(:disabled):not(.is-selected) { background: var(--sb-l3-option-hover); }
+.visual-choice-card:active:not(:disabled) { background: var(--sb-active-bg); }
+.visual-choice-card.is-selected { background: var(--sb-sel-bg); border-color: var(--sb-sel-line); box-shadow: var(--sb-shadow-ring); color: var(--sb-sel-ink); }
+.visual-choice-card .visual-choice-copy strong { color: inherit; }
 .visual-choice-card-compact { min-height: 44px; padding: 7px 8px; }
 .visual-choice-card-compact .visual-choice-icon { width: 27px; height: 27px; flex-basis: 27px; border-radius: 8px; }
 .visual-choice-card-compact .visual-choice-icon svg { width: 13px; height: 13px; }
@@ -393,43 +453,53 @@
       不引入硬编码色值（token 棘轮按文件计数）。
    ⚠️ 图形跟着 **currentColor** 走（视频侧的 `border: 2px solid currentColor` 同款）——
       整张卡只有一个颜色源，选中时文字转墨色、图形自动跟着转。 */
+/* ═══ 2026-09-25 批 BF：与视频侧 .video-ratio-cards button **同一批 token** ═══════════════════
+   改前的差异（实测）：图片侧 圆角 8 / min-height 96 / 描边 --sb-border-subtle / 底 neutral-50 /
+   悬停 surface-tint-strong / 选中"墨色描边 + tint"；视频侧是知渔那一套（圆角 15、底 #f5f5f5、
+   选中墨色描边）。同一个"选一个画幅"的控件，两边五种属性都不一样 —— 这就是用户说的"两套东西"。
+   ⇒ 两侧统一走**选项控件那一批 token**（= .sb-opt：底 --sb-l3-option / 圆角 --sb-radius-card /
+     1.5px 透明描边占位 / hover --sb-l3-option-hover / 选中 sel-bg + sel-line + ring + sel-ink）。
+     卡内尺寸（padding 10/6、gap 5、min-height 68、文字 12 与 10）与视频侧同值。 */
 .visual-ratio-card {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 5px; min-height: 96px; padding: 9px 6px;
-  border: 1px solid var(--sb-border-subtle); border-radius: 8px;
-  background: var(--sb-neutral-50); color: var(--sb-ink-2);
-  font: 700 11px/1 inherit; text-align: center; cursor: pointer;
-  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+  gap: 5px; min-height: 68px; padding: 10px 6px;
+  border: 1.5px solid transparent; border-radius: var(--sb-radius-card);
+  background: var(--sb-l3-option); color: var(--sb-text-primary);
+  font: inherit; text-align: center; cursor: pointer;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out);
 }
-.visual-ratio-card:hover:not(:disabled):not(.is-selected) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
-.visual-ratio-card.is-selected { border-color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+.visual-ratio-card:hover:not(:disabled):not(.is-selected) { background: var(--sb-l3-option-hover); }
+.visual-ratio-card:active:not(:disabled) { background: var(--sb-active-bg); }
+.visual-ratio-card.is-selected { background: var(--sb-sel-bg); border-color: var(--sb-sel-line); box-shadow: var(--sb-shadow-ring); color: var(--sb-sel-ink); }
 .visual-ratio-card:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .visual-ratio-card:disabled { opacity: .55; cursor: not-allowed; }
 .visual-ratio-shape-wrap { display: grid; place-items: center; }
-.visual-ratio-card strong { font-size: 12px; font-weight: 800; line-height: 1; }
-.visual-ratio-card small { font-size: 10px; line-height: 1; white-space: nowrap; color: var(--sb-ink-3); font-variant-numeric: tabular-nums; }
-.visual-ratio-card.is-selected small { color: var(--sb-ink-2); }
+.visual-ratio-card strong { font-size: var(--sb-text-sm); font-weight: 600; line-height: 1; }
+.visual-ratio-card small { font-size: var(--sb-text-2xs); line-height: 1; white-space: nowrap; color: var(--sb-text-muted); font-variant-numeric: tabular-nums; }
 .visual-ratio-shape { display: block; }
-.visual-spec-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* 批 BF：分辨率芯片与视频侧 .video-resolution-pills button**同一套**（高度 45 / 圆角 card /
+   1.5px 透明描边占位 / 同一批状态 token / 标题 14·600 / 副标题 10·muted）——
+   原来这里是"56 高 + 16/800 + 另一套选中色"，两边并排看就是两种控件。 */
+.visual-spec-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .visual-spec-chip {
-  display: grid; place-items: center; gap: 2px;
-  min-height: 56px; padding: 8px 10px;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-card);
-  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 45px; padding: 10px;
+  border: 1.5px solid transparent; border-radius: var(--sb-radius-card);
+  background: var(--sb-l3-option); color: var(--sb-text-primary);
   font: inherit; cursor: pointer;
-  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out);
 }
-.visual-spec-chip strong { font-size: 16px; font-weight: 800; color: var(--sb-ink-1); }
-.visual-spec-chip small { font-size: 11px; color: var(--sb-ink-3); }
-.visual-spec-chip:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
+.visual-spec-chip strong { font-size: 14px; font-weight: 600; color: inherit; }
+.visual-spec-chip small { font-size: var(--sb-text-2xs); color: var(--sb-text-muted); }
+.visual-spec-chip:hover:not(:disabled) { background: var(--sb-l3-option-hover); }
+.visual-spec-chip:active:not(:disabled) { background: var(--sb-active-bg); }
 .visual-spec-chip:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .visual-spec-chip.is-selected {
-  background: var(--sb-state-selected-bg);
-  border-color: var(--sb-state-selected-line);
-  box-shadow: 0 0 0 1px var(--sb-state-selected-line);
+  background: var(--sb-sel-bg);
+  border-color: var(--sb-sel-line);
+  box-shadow: var(--sb-shadow-ring);
+  color: var(--sb-sel-ink);
 }
-.visual-spec-chip.is-selected strong,
-.visual-spec-chip.is-selected small { color: var(--sb-state-selected-ink); }
 .visual-spec-chip:disabled { opacity: .55; cursor: not-allowed; }
 
 .visual-panel-note { display: flex; align-items: flex-start; gap: 7px; margin: 14px 16px 16px; padding: 9px 10px; color: #847b8d; background: rgba(124,58,237,.06); border-radius: 12px; font-size: 10px; line-height: 1.5; }

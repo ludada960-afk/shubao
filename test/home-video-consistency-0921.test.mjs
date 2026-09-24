@@ -28,7 +28,16 @@ const visualCss = read('src/pages/Home/VisualCreationMode.css');
 
 test('① 顶栏滚动时不再压缩（头部不跳）', () => {
   assert.doesNotMatch(shellCss, /\.app-topbar\.is-compact \{[^}]*padding-top/, '紧凑态不得再改内边距');
-  assert.doesNotMatch(shellCss, /\.app-topbar\.is-compact \.topbar-brand-mark/, '紧凑态不得再缩品牌标');
+  /* ═══ 2026-09-25 批 BF：**判据反转**（用户改向，逐字）═════════════════════════════════════
+     原来守的是"紧凑态不得再缩品牌标"—— 那是批 H/J 那会儿的裁定（顶栏滚动时不跳）。
+     用户本轮把口径说清了，而且是**反过来的**：
+       「我们之前的那个设计方案其实是比较好的，就是**正常的这个 LOGO 它是展示全部的**，
+        然后当我**往下滚动**的时候，LOGO 才会**缩成这个比较小的这个样式**。
+        你现在的情况是它**永远是这个比较小的样式**，这是不对的。」
+     ⇒ 现在**要求**滚动后缩小（34 → 26 且文字收起），所以断言反过来：
+       两态都必须存在，且缩小态围绕**同一条中线**（靠 --bb-mark-r 补偿，不左右跳）。 */
+  assert.match(shellCss, /\.app-topbar\.is-compact \.topbar-brand-mark \{ width: 26px; height: 26px;/, '滚动后标要缩小（用户明确要求的两态）');
+  assert.match(shellCss, /\.app-topbar\.is-compact \.topbar-brand \{ --bb-mark-r: 13px; \}/, '缩小时要补偿中线（否则标会左右跳）');
   assert.doesNotMatch(shellCss, /\.app-topbar\.is-compact \.topbar-row \{[^}]*padding-block/, '紧凑态不得再压行高');
   /* 但毛玻璃底与描边保留（滚动时视觉上仍然是"浮在上面的一条"） */
   assert.match(shellCss, /\.app-topbar\.is-compact \{[^}]*backdrop-filter/, '紧凑态保留毛玻璃底');
@@ -46,7 +55,17 @@ test('③ 视频侧两个面板照图片侧的规格（同一档宽度 / 圆角 
   const block = (videoCss.match(/\.video-config-panel,\s*\.video-inline-menu \{[\s\S]*?\}/) || [''])[0];
   assert.ok(block.length > 40, '必须存在"两个视频面板同一组值"的规则块');
   assert.match(block, /border: 1px solid rgba\(255, 255, 255, \.86\)/, '描边照图片侧');
-  assert.match(block, /border-radius: 8px/, '圆角照图片侧（8）');
+  /* ═══ 2026-09-25 批 BF：**判据里的值改了，判据本身（两侧同一档）没改** ═══════════════════════
+     用户本轮原话：「你深度思考一下能不能把视频生成和图片生成这边他们的这两个按钮，
+     还有他们张开的面板**去重新设计**吧」—— 两个面板的圆角从 8 改成 20，是这次重设计的一部分：
+       ① 站内规范 panelVisualLanguage.js 的「4. 圆角」写的是 radius.panel = 20，
+          而图片侧实现一直是 8（文档与代码打架）；
+       ② **嵌套圆角倒置**：面板里的选项控件圆角是 --sb-radius-card(12) > 面板 8，
+          近看就是"按钮比面板还圆"（原则 3.4：内层圆角 = 外层 − 内边距）；
+       ③ 知渔那张面板实测 19.84，取整 20。
+     ⚠️ 两侧**同时**改（图片侧 .visual-config-panel 也在本轮改成 20），所以这条守的
+        "视频侧照图片侧的规格"一字未变 —— 变的只是那个规格的取值。 */
+  assert.match(block, /border-radius: 20px/, '圆角与图片侧同档（20）');
   assert.match(block, /background: var\(--sb-surface-panel-solid\)/, '底色照图片侧（不透明面板底）');
   assert.match(block, /box-shadow: 0 28px 80px rgba\(37, 30, 24, \.18\), 0 2px 10px rgba\(37, 30, 24, \.06\)/, '阴影照图片侧');
   /* 两处宽度都是 480（生成设置面板 + 模型菜单） */
@@ -108,7 +127,8 @@ test('⑤ 面板不出现"没东西可滚"的滚动条，但**该滚的时候必
      两者合起来 = "限高但不可滚"，模型 12 档一超过 460px 就整排画到白底面板外面（用户看到的乱码）。
      ⇒ 拆开：**配置面板**（它的箭头要溢出面外）继续 `visible`；**模型下拉**自己滚。
        守的东西没变：面板该滚时必须能滚、且不许把内容截断。 */
-  assert.match(cls, /border-radius: 8px;/, '视频侧浮层与图片侧同一条容器语言（圆角 8）');
+  /* 批 BF：同上一条 —— 两侧一起改成 20，守的仍是"同一条容器语言"。 */
+  assert.match(cls, /border-radius: 20px;/, '视频侧浮层与图片侧同一条容器语言（圆角 20）');
   assert.match(videoCss, /\.video-config-panel \{ overflow: visible; \}/, '配置面板保持 visible（它的箭头要溢出面外）');
   assert.match(videoCss, /\.video-inline-menu \{\s*overflow-x: hidden;\s*overflow-y: auto;/,
     '模型下拉必须自己滚（限高不可滚 = 用户报的"乱码"）');
@@ -117,6 +137,18 @@ test('⑤ 面板不出现"没东西可滚"的滚动条，但**该滚的时候必
 test('⑥ 首页暖区留白照图片侧（8px 10px 10px），且首页不再渲染「代为撰写」', () => {
   assert.match(videoCss, /\.video-composer-surface \{\s*padding: 8px 10px 10px;/, '暖色面内边距照图片侧的 8/10/10');
   assert.match(videoPage, /\{!homeComposer && <button type="button" className="video-dawei-entry"/, '「代为撰写」只在非首页那一档渲染');
+});
+
+/* ═══ 2026-09-25 批 BF：子页面顶栏的品牌标要**跟首页同一条中线**（用户原话，逐字）══════════════
+   「我不明白你为什么这里的 LOGO 要放到右边去？你不能够**跟其他的页面一样，放到左边导航栏的
+    左上角这里**吗？为什么他要区别对待呢？」
+   实测改前：子页面标 x=38（中线 55）、首页 x=31（中线 48）—— 差 7px 的根因是
+   `.topbar-brand` 自己那条"居中于图标栏"的 margin 与 `.topbar-subpage-lead` 的整体左移**叠加**了。 */
+test('⑩ 子页面品牌标与首页同一条中线（不再叠加那 7px 补偿）', () => {
+  assert.match(shellCss, /\.topbar-subpage-lead \.topbar-brand \{ margin-left: 0; \}/,
+    '子页面那一格里的品牌标必须把自身的居中补偿清零');
+  assert.match(shellCss, /\.topbar-subpage-lead \{[\s\S]*?margin-left: calc\(-1 \* \(var\(--sb-app-sidebar-w, 96px\) \+ 24px\) \+ 31px\);/,
+    '整格仍要左移回图标栏上方（31 = 48 − mark 半径 17）');
 });
 
 test('⑦ 各子页面里那颗重复的「一键解析商品信息」不再渲染', () => {

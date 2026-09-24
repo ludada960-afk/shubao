@@ -55,10 +55,16 @@ test('mobile top bar keeps the product brand on one line without crowding accoun
      ② 子页面/窄屏取**缩小版**（值变小、比例不变）。守的东西仍然是那件事：
         品牌标只有一个实现，且小屏不许被压扁。 */
   assert.match(appSource, /className="topbar-brand-mark"/, '品牌标是同一个资产节点（不是各页各做一份）');
-  /* ⚠️ 这条查的是**整份 app-shell.css**，不是 639px 那一块：缩小型是常规规则（子页面就用它），
-     不是移动端专有 —— 写进媒体查询里反而会让子页面在桌面宽度下用大号标。 */
-  assert.match(shellCss, /\.topbar-brand\.is-compact-mark \.topbar-brand-mark \{ width: 24px; height: 24px;/,
-    '子页面取缩小版（只改尺寸、比例不变）');
+  /* ⚠️ 2026-09-25 批 BF：**判据换第三次 —— 这次是「事实变了」，不是为了让断言过**。
+     用户原话（逐字）：「正常的这个 LOGO 它是展示全部的，然后当我往下滚动的时候，LOGO 才会缩成
+     这个比较小的这个样式。你现在的情况是它永远是比较小的样式，这是不对的。」
+     于是两态**反过来**了：顶部 = 完整标（34px + 「薯包 AI」），滚动后 = `.app-topbar.is-compact` 缩到 26px。
+     同一轮用户还要求「子页面的 LOGO 要跟其他页面一样放到左边导航栏的左上角」，所以子页面**不再单独缩标**
+     —— `.topbar-brand.is-compact-mark` 这个类已经不存在（两处共用同一个标、同一个位置）。
+     断言的**原意一字不变**：品牌标只有一个实现，且"缩"只改尺寸、不改比例（不允许压扁）。
+     守的对象从"子页面那份缩小版"换成"滚动那份缩小版"。 */
+  assert.match(shellCss, /\.app-topbar\.is-compact \.topbar-brand-mark \{ width: 26px; height: 26px;/,
+    '滚动后取缩小版（只改尺寸、比例不变）');
   assert.match(shellMobileRules, /\.topbar-row \{[^}]*padding-inline:\s*14px/);
   assert.match(shellMobileRules, /\.topbar-actions button \{[^}]*padding-inline:\s*12px/);
 });

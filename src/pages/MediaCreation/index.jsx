@@ -392,7 +392,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   /* 勾了 0 个不是"没得选"，是一个**明确的未完成状态**：按钮禁用 + 说明缺什么。
      与其它必填项走同一条路（validation.missing），用户看到的是一句人话而不是灰按钮。 */
   const moduleGate = skillModules.length > 0 && selectedModules.length === 0
-    ? '请至少勾选一个模块（勾几个出几张）'
+    ? '请至少勾选一个模块'
     : '';
   const effectiveValues = useMemo(() => {
     const base = skill ? { ...initialSkillValues(skill), ...values } : values;

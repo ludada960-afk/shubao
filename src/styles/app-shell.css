@@ -96,47 +96,44 @@
   letter-spacing: 0.03em;
 }
 
-/* ═══ 2026-09-24 批 BE：**两态品牌标 + 字标回归统一**（用户原话，逐字）═══════════════════════════════
-   「这个部分当**只有左边导航栏出现**的时候，你就要出现 LOGO，LOGO 要先做好跟左边导航栏的
-     **整体适配**；然后当我**向下挪页面**的时候，不是会出现我们上面的导航栏吗，这个时候你再
-     **显示出右边的薯包 AI 几个字**；然后这几个字你要**重新设计**一下，**不要搞这么多花样**。
-     你就**字体或者其他变化和调整做得统一一些**，不要各做各的呀，乱七八糟的。」
-   ⇒ 三条，与批注一一对应：
-     ① **标与左导航对齐**：标水平居中在左侧图标栏那一列（`--sb-app-sidebar-w / 2`）——
-        与下面每一格的图标中线是同一条；用 `max(0px, …)` 兜底：画布页/移动端该变量为 0 时
-        不会把标推到屏幕外（那两处也确实不需要这个偏移）。
-     ② **两态**：默认（页面顶部）**只有标**；`.app-topbar.is-compact`（`scrollY > 120`，
-        判据就用既有的 `compact` 状态，不新增滚动监听）才**显示「薯包 AI」**。
-     ③ **字标不搞花样**：上一版的"竖分隔线 + 汉字 800 + AI 品牌紫"三件套被明确否掉 ——
-        现在**一句话、一套样式**（同字体、同字重、同颜色、同字距）。
-        拉丁字形仍由字体栈里的 Inter 提供 —— 那是**字形回落**，不是第二套样式。
-   交互保留（用户没否）：hover 标抬 1px + 放大 4.5%、阴影加深；按下 90ms；键盘同一套；
-   `prefers-reduced-motion` 归零；只动 transform / filter / color（零重排）。 */
+/* ═══ 2026-09-25 批 BF：两态**反过来**，并把它做成真正的一套规则（用户原话，逐字）═══════════════════
+   「首先你这个 LOGO 的比例就不对。你自己没有好好的看一下现在在导航栏这个位置它是什么样的吗？
+     而且**我们之前的那个设计方案其实是比较好的**，就是**正常的这个 LOGO 它是展示全部的**，
+     然后当我**往下滚动**的时候，LOGO 才会**缩成这个比较小的这个样式**。
+     你现在的情况是它**永远是这个比较小的样式**，这是不对的。」
+   ⇒ 批 BE 把两态做反了（顶部只有标、滚动才出字）。本批倒过来，并把尺寸也做成两态：
+        · **页面顶部**：完整标 —— mark **34px** + 「薯包 AI」17px/800；
+        · **滚动后**（`.app-topbar.is-compact`，`scrollY > 120`）：缩小版 —— mark **26px**，文字收起。
+     标在**两态里都居中于左导航那一列**（`--bb-mark-r` 是当前 mark 半径，随态变化）——
+      这样"缩"是围绕同一条中线缩，不会左右跳。 */
 .topbar-brand {
   display: inline-flex;
   align-items: center;
   gap: 9px;
   width: auto;
   height: auto;
-  /* ① 标居中于左导航那一列：96/2 = 48（中线）；标宽 30 ⇒ 左沿 33；顶栏内边距 24 ⇒ 再补 9 */
-  margin-left: max(0px, calc(var(--sb-app-sidebar-w, 96px) / 2 - 15px - 24px));
+  /* 标中心 = 左导航列中线（96/2 = 48）；顶栏内边距 24 ⇒ 左外边距 = 48 − 半径 − 24 */
+  --bb-mark-r: 17px;
+  margin-left: max(0px, calc(var(--sb-app-sidebar-w, 96px) / 2 - var(--bb-mark-r) - 24px));
   border-radius: 10px;
   --bb-brand-dur: 180ms;
   --bb-brand-ease: cubic-bezier(.2, 0, .38, .9);
 }
 .topbar-brand-mark {
   display: block;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   /* 磁贴的圆角与内环是脚本里画好的（scripts/brand-mark-build.mjs），这里只补一层落地阴影 */
   filter: drop-shadow(0 1px 2px rgba(17, 24, 39, .10));
-  transition: transform var(--bb-brand-dur) var(--bb-brand-ease),
+  transition: width var(--bb-brand-dur) var(--bb-brand-ease),
+              height var(--bb-brand-dur) var(--bb-brand-ease),
+              transform var(--bb-brand-dur) var(--bb-brand-ease),
               filter var(--bb-brand-dur) var(--bb-brand-ease);
 }
-/* ③ 字标：一句到底、一套样式（不拆字、不加分隔线、不给 AI 单独配色/字号） */
+/* 字标：一句话、一套样式（同字体/字重/颜色/字距；拉丁走字体栈里的 Inter） */
 .topbar-logo {
-  display: none;                       /* ② 顶部态不显示；滚动后由 .is-compact 打开 */
+  display: inline-flex;
   align-items: center;
   font-family: "Inter", "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 17px;
@@ -148,9 +145,18 @@
   font-optical-sizing: auto;
   white-space: nowrap;
   transform: translateY(-.01em);
-  transition: color var(--bb-brand-dur) var(--bb-brand-ease);
+  transition: color var(--bb-brand-dur) var(--bb-brand-ease),
+              opacity var(--bb-brand-dur) var(--bb-brand-ease);
 }
-.app-topbar.is-compact .topbar-logo { display: inline-flex; }
+/* 滚动后：只剩缩小的标（用宽度/透明度过渡，不用 display 切换 —— 换 display 会跳一下） */
+.app-topbar.is-compact .topbar-brand { --bb-mark-r: 13px; }
+.app-topbar.is-compact .topbar-brand-mark { width: 26px; height: 26px; flex: 0 0 26px; }
+.app-topbar.is-compact .topbar-logo {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark {
   transform: translateY(-1px) scale(1.045);
   filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .16));
@@ -162,13 +168,28 @@
   .topbar-brand-mark, .topbar-logo { transition-duration: 0s; }
   .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark { transform: none; }
 }
-/* 子页面左格：品牌标缩小一号（与「返回 + 名称」同处第一格，栅格仍是三格）。
-   ⚠️ 子页面顶栏**常驻**（它不是 .app-topbar 那套两态里的），所以这里的文字按"总是显示"处理 ——
-      用户在批注里说的是首页/总页面那两态，子页面两态不成立（它没有"滚动才出现"这件事）。 */
-.topbar-subpage-lead { display: inline-flex; align-items: center; gap: 14px; min-width: 0; }
-.topbar-brand.is-compact-mark { gap: 7px; margin-left: 0; }
-.topbar-brand.is-compact-mark .topbar-brand-mark { width: 24px; height: 24px; flex: 0 0 24px; }
-.topbar-brand.is-compact-mark .topbar-logo { display: inline-flex; font-size: 15px; }
+/* ═══ 2026-09-25 批 BF：**子页面的品牌标要跟别的页面放同一个位置**（用户原话，逐字）═══════════════
+   「我不明白你为什么这里的 LOGO 要放到右边去？你不能够**跟其他的页面一样，放到左边导航栏的
+     左上角这里**吗？为什么他要区别对待呢？」
+   诊断：子页面顶栏的内边距是 `sidebar + 24`（为了让「返回」与内容列左对齐），品牌标又排在这一格的开头
+   ⇒ 它落在 **x=120**，而首页/总页面的标在 **x=31**（居中于 96 宽图标栏）。差 89px 就是"放到右边去"的来源。
+   ⇒ 把这一格整体左移回图标栏上方：`margin-left = -(sidebar + 24) + 31` →
+     品牌标回到 x=31（与其他页面同一条中线），紧随其后的「返回」正好落在原来的 **x=120**（内容列左沿）。
+     两个诉求一次满足，"返回"的位置一个字没变。 */
+.topbar-subpage-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  margin-left: calc(-1 * (var(--sb-app-sidebar-w, 96px) + 24px) + 31px);
+}
+/* ═══ 2026-09-25 批 BF：子页面里那一格**不再叠加"居中于图标栏"的补偿** ══════════════════════════
+   上面那条把整格挪回了图标栏上方，而 `.topbar-brand` 自己也有一条
+   `margin-left: max(0, sidebar/2 − mark 半径 − 24)`（它假设父级左边距是 24）。
+   两条叠在一起 ⇒ 实测子页面的标落在 **x=38（中线 55）**，而首页是 **x=31（中线 48）** ——
+   用户要的是"跟其他页面一样放到左边导航栏的左上角"，差 7px 就是这里来的。
+   ⇒ 子页面这一格里的品牌标把那条补偿清零，标与首页**同一条中线**（实测 31 / 48）。 */
+.topbar-subpage-lead .topbar-brand { margin-left: 0; }
 
 .topbar-actions {
   display: flex;
@@ -702,11 +723,15 @@
     gap: var(--sb-space-2);
   }
 
+  /* 批 BF：桌面完整标 34px，窄屏**不许比它还大**（老规则是从 42px 那版留下的 36px）。
+     窄屏没有图标栏，标就是这一行的起点，所以取消"居中于图标栏"的补偿。 */
+  .topbar-brand {
+    margin-left: 0;
+  }
   .topbar-brand-mark {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
-    border-radius: 12px;
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
   }
 
   .topbar-logo {
@@ -790,6 +815,9 @@
   .app-side-nav-tooltip {
     display: none;
   }
+
+  /* 批 BF：窄屏没有侧栏，子页面那一格的左移补偿要撤掉（否则品牌标会被推到屏幕外） */
+  .topbar-subpage-lead { margin-left: 0; }
 }
 
 @keyframes creative-nav-drawer-in { from { opacity: .7; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }

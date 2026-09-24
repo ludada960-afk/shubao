@@ -21,8 +21,13 @@ test('生成按钮统一挂 .shubao-gen-cta 并在按钮内显示动态积分', 
 
 test('上传区与输入区在同一张卡片内（照小红书那套结构标记）', () => {
   /* 四个子页面共享同一段 composer JSX：全文件只有一处 composer 容器 */
+  /* ⚠️ 2026-09-25 批 BF：**判据随实际写法改（事实变了，不是为了让断言过）** ——
+     用户本轮要求给图片侧补「全屏」按钮，容器因此带上全屏修饰类：
+     `className={'visual-creation-composer' + (fullscreen ? ' is-fullscreen' : '')}`
+     （与视频侧 `.video-composer` 的同一条写法：`"video-composer" + (homeComposer ? ' is-home' : '')`）。
+     守的东西一字不变：**全文件只有一处 composer 容器**，四个子页面共用它。 */
   assert.equal(
-    (source.match(/className="visual-creation-composer"/g) || []).length,
+    (source.match(/'visual-creation-composer'/g) || []).length,
     1,
     '四个子页面共用同一条 composer JSX',
   );

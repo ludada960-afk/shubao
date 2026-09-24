@@ -209,7 +209,9 @@
    ⇒ 不再靠"外边距凑数字"，直接照图片侧的盒模型来：输入区自身 margin 归零，
      提示词那一格吃 `padding: 8px 18px`（= 28），`@` 行吃 `padding: 0 8px 2px`（= 18）。 */
 .video-composer-input {
-  min-height: 150px;
+  /* 批 BF：`min-height: 150` 比内容高 → @ 行下面白白多出 ~18px（用户："下面的留白太多了，
+     要往下再挪一点，跟图片生成那边对齐"）。改成由内容定高（提示词块补到 104，与图片侧同档）。 */
+  min-height: 0;
   margin: 0;
   padding: 0;
   display: flex;
@@ -326,8 +328,11 @@
 .video-icon-tool { width: 34px; padding: 0; }
 .video-icon-tool:hover,.video-model-trigger:hover { border-color: var(--sb-border-strong); background: var(--sb-surface-tint); color: var(--sb-ink-1); }
 .video-model-trigger { padding: 0 10px; gap: 7px; font: 700 11px/1 inherit; }
-/* 9-11 三轮: 模型控件与其它配置按钮同款 (两行 + 同高) */
-.video-config-trigger.is-model { min-width: 210px; }
+/* ═══ 2026-09-25 批 BF：模型那颗**不再单独加宽**（用户原话，逐字）══════════════════════════════
+   「你现在这个视频模型**东倒西歪的**，所有的 LOGO 大小都是不一致的。而且跟图片生成那边也完全不一样。」
+   实测：视频侧两颗按钮 210 / 161（各按内容撑），图片侧两颗都是 180 —— 四颗按钮三种宽度。
+   ⇒ 统一 180（改在下面 .video-config-trigger 本体上），这一条专属宽度删除。
+   ⚠️ .is-model 这个类仍然保留（JS/契约按它取模型那颗按钮），只是不再改宽度。 */
 .video-inline-control { position: relative; display: inline-flex; }
 /* ═══ 批 T（2026-09-21）：模型菜单改为**居中于按钮上方**的视口浮层（用户本轮原话，逐字）══════
    原话：「你现在这些张开的面板是会打架的……而且他们是**可以超出这些输入框的界限**的。
@@ -371,18 +376,31 @@
   padding: 12px 2px;
 }
 .video-toolbar-buttons { min-width: 0; display: flex; align-items: center; gap: 10px; }
+/* ═══ 2026-09-25 批 BF：**与图片侧逐值同一套**（用户原话，逐字）═══════════════════════════════════
+   原话：「我们现在的首页这个视频生成和图片生成他们下面的这两个按钮。应该用**同一套的设计方案**去做。
+   我指的是 **UI 方面的设计方案**。就是你现在**两套语言体系**，这是完全不对的……你好好看一下呀，
+   你现在这个视频模型**东倒西歪的，所有的 LOGO 大小都是不一致的**。而且跟图片生成那边也完全不一样。
+   我觉得你现在先冷静下来，你**深度思考一下能不能把视频生成和图片生成这边他们的这两个按钮，
+   还有他们张开的面板去重新设计**吧。」
+   ⇒ 取值直接照图片侧 `.visual-config-trigger`（视觉创作面板那一颗）逐值抄：
+     尺寸 126/180×52、内边距 0 14、圆角 8、白底 84%、描边 rgba(35,31,27,.11)、
+     毛玻璃 + 阴影 0 4px 14px、hover 变品牌描边 + 浅紫底 + 抬 2px。 */
 .video-config-trigger {
   min-width: 126px;
-  min-height: 52px;
+  /* 批 BF：与图片侧同一档 —— 四颗按钮同宽（原来 210/161/180/180 三种宽度） */
+  width: 180px;
+  flex: 0 1 180px;
+  height: 52px;
   padding: 0 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(45, 39, 34, .1);
+  border: 1px solid rgba(35, 31, 27, .11);
   border-radius: 8px;
-  background: var(--sb-neutral-0);
-  color: #706a64;
-  box-shadow: 0 3px 12px rgba(62, 43, 26, .05);
+  background: rgba(255, 255, 255, .84);
+  color: #635d66;
+  box-shadow: 0 4px 14px rgba(45, 38, 31, .06);
+  backdrop-filter: blur(12px) saturate(120%);
   font: inherit;
   cursor: pointer;
   transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
@@ -390,8 +408,9 @@
 .video-config-trigger:hover { transform: translateY(-1px); border-color: var(--sb-border-strong); background: var(--sb-surface-tint); box-shadow: 0 7px 18px rgba(62,43,26,.09); }
 .video-config-trigger.is-open { border-color: var(--sb-border-strong); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); box-shadow: 0 6px 18px var(--sb-brand-a18); }
 .video-config-trigger > span { min-width: 0; flex: 1; display: grid; gap: 2px; text-align: left; }
-.video-config-trigger small { color: #99918a; font-size: 10px; font-weight: 600; }
-.video-config-trigger strong { overflow: hidden; color: #2d2925; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+/* 批 BF：与图片侧 .visual-config-trigger-copy 同一批取值（见那边同一段批注） */
+.video-config-trigger small { color: var(--sb-text-muted); font-size: 10px; font-weight: 600; }
+.video-config-trigger strong { overflow: hidden; color: var(--sb-ink-1); font-size: 12px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .video-config-trigger.is-open strong { color: var(--sb-brand-600); }
 .video-config-trigger > svg:last-child { flex: 0 0 auto; opacity: .45; transition: transform .2s ease; }
 .video-config-trigger.is-open > svg:last-child { transform: rotate(180deg); }
@@ -497,7 +516,6 @@
   overflow: auto;
   box-sizing: border-box;
   border: 1px solid rgba(68, 55, 43, .11);
-  border-radius: 16px;
   background: var(--sb-surface-panel-solid);
   box-shadow: 0 24px 70px rgba(42,32,24,.2);
   transform-origin: bottom center;
@@ -512,7 +530,10 @@
 /* 面板内边距：批 T 从 17/18/20 改成 **25 四周**（照知渔 dashboard 那张面板实测的 24.8）——
    它同时让「3 张 150 宽的比例卡 + 2 条 10 的缝 = 470」正好落在面板内宽里（521 − 2×25 = 471），
    两边的数是互相咬合的，改一个另一个就不成立。 */
-/* 面内边距与图片侧同档（24 上/下、20 左右 —— 见上面那段批注） */
+/* 面内边距与图片侧同档（24 上/下、20 左右 —— 见上面那段批注）。
+   批 BF 复核：图片侧的分区（.visual-panel-section）本身不写内边距，节奏由
+   first/last-child 承担，落点同样是「首区上 24 / 左右 20 / 区与区 16 / 末区下 24」——
+   两侧载体不同（一侧在 body、一侧在 section），**数值同一档**，门禁 config-kit-parity 在守。 */
 .video-config-panel-body { padding: 24px 20px; }
 
 .video-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -620,23 +641,37 @@
      比例卡片：  **150×61**（3 列 × 2 行，间距 10）/ 圆角 15 / 卡内上图形下文案（13.6px·400）
      视频时长：  滑块 + 数字框（40×26）+ 单位 s，**不铺刻度文案**
    颜色走我们自己的 token（抄机制不抄长相 —— 本站一贯纪律），几何照抄。 */
-.video-resolution-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* ═══ 批 BF：分辨率药丸**与选项控件同一批 token**（不再是手写的 #f5f5f5 / 圆角 15）════════════
+   它是"选一个值"的控件，和模型行、比例卡是同一类东西 —— 用户说「两套语言体系，这是完全
+   不对的」的时候，指的就是这种"同一个语义、三套取值"。现在五处（模型行 / 比例卡 / 分辨率 /
+   图片侧的分辨率芯片 / 图片侧的比例卡）全部读同一批 token。 */
+.video-resolution-pills { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .video-resolution-pills button {
-  min-height: 45px; padding: 10px; border: 1px solid rgba(64,55,48,.12); border-radius: 15px;
-  background: #f5f5f5; color: var(--sb-ink-1); font-size: 16px; font-weight: 500; cursor: pointer;
-  transition: background-color .18s ease, border-color .18s ease;
+  min-height: 45px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 4px;
+  border: 1.5px solid transparent; border-radius: var(--sb-radius-card); background: var(--sb-l3-option);
+  color: var(--sb-text-primary); font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out);
 }
-.video-resolution-pills button:hover:not(:disabled):not(.is-selected) { background: var(--sb-surface-tint-strong); }
-.video-resolution-pills button.is-selected { border-color: var(--sb-ink-1); background: #f0f0f0; }
-.video-ratio-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.video-resolution-pills button:hover:not(:disabled):not(.is-selected) { background: var(--sb-l3-option-hover); }
+.video-resolution-pills button:active:not(:disabled) { background: var(--sb-active-bg); }
+.video-resolution-pills button.is-selected { background: var(--sb-sel-bg); border-color: var(--sb-sel-line); box-shadow: var(--sb-shadow-ring); color: var(--sb-sel-ink); }
+.video-resolution-pills button strong { font-size: 14px; font-weight: 600; }
+.video-resolution-pills button small { color: var(--sb-text-muted); font-size: var(--sb-text-2xs); }
+/* 批 BF：比例卡与图片侧 .visual-ratio-card 同一批 token、同一套尺寸（3 列 / gap 10 /
+   卡内 10×6 / 图形 20×22 / 文字 12 与 10）。两边的卡**只有内容不同**（图片侧多一行真实像素）。 */
+.video-ratio-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .video-ratio-cards button {
-  min-height: 61px; padding: 10px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  border: 1px solid rgba(64,55,48,.12); border-radius: 15px; background: #f5f5f5; color: #333; font-size: 13.5px; cursor: pointer;
-  transition: background-color .18s ease, border-color .18s ease;
+  min-height: 68px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  border: 1.5px solid transparent; border-radius: var(--sb-radius-card); background: var(--sb-l3-option);
+  color: var(--sb-text-primary); font-size: var(--sb-text-sm); font-weight: 600; cursor: pointer;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out), border-color var(--sb-dur-fast) var(--sb-ease-out);
 }
-.video-ratio-cards button:hover:not(:disabled):not(.is-selected) { background: var(--sb-surface-tint-strong); }
-.video-ratio-cards button.is-selected { border-color: var(--sb-ink-1); background: #f0f0f0; color: var(--sb-ink-1); }
-.video-ratio-cards i { width: 20px; max-height: 22px; border: 2px solid currentColor; border-radius: 4px; }
+.video-ratio-cards button:hover:not(:disabled):not(.is-selected) { background: var(--sb-l3-option-hover); }
+.video-ratio-cards button:active:not(:disabled) { background: var(--sb-active-bg); }
+.video-ratio-cards button.is-selected { background: var(--sb-sel-bg); border-color: var(--sb-sel-line); box-shadow: var(--sb-shadow-ring); color: var(--sb-sel-ink); }
+/* 批 BF：图形规格与图片侧 .visual-ratio-shape 同档（2px currentColor / 圆角 3 /
+   边长 24×26 —— 图片侧那套是 15~34 的等比矩形，取中间档）。 */
+.video-ratio-cards i { width: 24px; max-height: 26px; border: 2px solid currentColor; border-radius: 3px; }
 .video-duration-inline { display: flex; align-items: center; gap: 10px; }
 .video-duration-inline .video-duration-range { flex: 1 1 auto; min-width: 0; }
 .video-duration-number { width: 48px; min-height: 26px; padding: 2px 6px; border: 1px solid rgba(64,55,48,.12); border-radius: 8px; background: var(--sb-neutral-0); color: var(--sb-ink-1); font-size: 16px; font-weight: 500; text-align: center; }
@@ -983,7 +1018,7 @@
 .video-mode-tabs button.is-selected .video-mode-copy strong { color: var(--sb-ink-brand); }
 .video-composer-input > .mention-prompt-field {
   width: 100%;
-  min-height: 92px;
+  min-height: 104px;   /* 批 BF：92 → 104，与图片侧提示词块同档（@ 行因此与图片侧落到同一条底线） */
   margin: 0;
   /* 批 BB：8px 18px —— 与图片侧 `.ec-xhs-prompt textarea`（8px var(--ec-prompt-inline=18px)）逐值相同 */
   padding: 8px 18px;
@@ -1018,6 +1053,24 @@
 .video-model-mark.is-seedance { background: var(--sb-neutral-0); box-shadow: inset 0 0 0 1px rgba(61,50,41,.10); }
 .video-model-mark.is-minimax { background: var(--sb-neutral-0); }
 .video-inline-menu.is-model { width: 480px; }
+/* ═══ 批 BF：模型标**两侧同一档尺寸 + 同一套动效**（用户原话，逐字）════════════════════════════
+   「所有的 LOGO 大小都是不一致的。而且跟图片生成那边也完全不一样。」
+   实测三处各写各的：图片侧触发 28 / 图片侧行 32（ICON_SIZE.modelTrigger / modelOption），
+   而视频侧**无论触发还是行都是 24** —— 同一个模型，在两个按钮里长得不一样大。
+   ⇒ 视频侧也取 28 / 32；静止 scale(.88)、悬停或选中回 1（**与图片侧 .ec-model-mark 完全同一套**：design-tokens-v3.css 的 .ec-model-mark > * 就是 0.88 → 1）。
+      缩放放在**底座**上（不是里面的 b / img 那层）—— 那里面还有一个 skewX(-11deg) 的字母标，
+      直接给子元素写 scale 会把斜切覆盖掉。只动 transform：零重排，中心点放大。 */
+.video-config-trigger.is-model .video-model-mark { width: 28px; height: 28px; }
+.video-inline-menu.is-model .video-model-mark { width: 32px; height: 32px; }
+.video-model-mark { transform: scale(.88); transition: transform var(--sb-dur-fast) var(--sb-ease-out); }
+.video-model-mark > * { transform-origin: center; }
+.video-config-trigger.is-model:hover .video-model-mark,
+.video-config-trigger.is-model.is-open .video-model-mark,
+.video-inline-menu > button:hover .video-model-mark,
+.video-inline-menu > button.is-selected .video-model-mark { transform: scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .video-model-mark { transition: none; }
+}
 
 /* ═══ 批 U（2026-09-21）：视频侧两个面板**照图片侧的规格**（用户本轮原话，逐字）═══════════════
    原话：「我感觉你做东西一直没有一个大局观……你现在**视频生成和图片生成的这两块地方，
@@ -1036,7 +1089,13 @@
 .video-config-panel,
 .video-inline-menu {
   border: 1px solid rgba(255, 255, 255, .86);
-  border-radius: 8px;
+  /* 批 BF：8 → 20。理由两条，都不是"看着好看"：
+     ① **站内规范**：panelVisualLanguage.js 的「4. 圆角」写明 radius.panel = 20，
+        而实测两个面板一直是 8 —— 标准写 20、实现是 8，本身就是文档与代码打架；
+     ② **层级倒置**：面板里的选项控件圆角是 --sb-radius-card(12)，比外层面板(8)还圆，
+        近处看就是"按钮比它所在的面板更圆"，这是廉价感的来源之一（原则 3.4 嵌套圆角）。
+     知渔那张面板实测 19.84，取整到 20 与我们的规范同值。 */
+  border-radius: 20px;
   background: var(--sb-surface-panel-solid);
   box-shadow: 0 28px 80px rgba(37, 30, 24, .18), 0 2px 10px rgba(37, 30, 24, .06);
 }

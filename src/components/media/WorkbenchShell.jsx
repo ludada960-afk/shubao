@@ -367,8 +367,19 @@ export default function WorkbenchShell({
               <span className="media-workbench-submit-label">{ctaLabel}</span>
               {ctaPoints != null && <small className="media-workbench-points">{ctaPoints} 积分</small>}
             </button>
+            {/* ═══ 批 BF：两句话在这一格上打过架，结论写在这里，免得下一轮再翻烧饼 ═══════════════════
+                用户原话（对着这一格）：「为什么每做一个东西你都要加一句解释呢？你这样会导致画面里
+                多了很多不关紧要的文字。用户他当然看得懂你这个按钮的意思啊，你按钮上已经写好了功能，
+                **为什么下面还要再加一句描述呢？**」
+                ⇒ 这句被删过一次，但**删错了一件事**：`ctaHint` 里装的是**状态**（「还差：素材」
+                   「请至少勾选一个模块」），不是解释这个按钮是干什么的。用户要一直能知道
+                   "按钮为什么是灰的、还缺哪一格" —— 这正是批 O-⑥ 立下的判据
+                   （`scripts/media-workbench-e2e.mjs` 的 ① 场景：禁用原因必须就近写着、并点名缺哪个字段），
+                   也是"不许放点了必失败的东西"那条铁律的一部分：灰按钮不说明原因 = 用户卡死。
+                现在：**状态留、解释删** —— 只留最短的一句状态（见 MediaCreation 侧的 moduleGate 文案，
+                连括号里的解释都去掉了），不给它任何"说明文"的写法。 */}
+            {ctaHint && <p className="media-workbench-cta-hint">{ctaHint}</p>}
           </div>
-          {ctaHint && <p className="media-workbench-cta-hint">{ctaHint}</p>}
         </div>
       )}
       <div className="media-workbench-right">

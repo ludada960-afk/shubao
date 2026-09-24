@@ -1635,7 +1635,8 @@ export default function VideoStudioPage({
     sound: sound ? '生成声音' : '无声音',
     /* 批 BB：「Seed 随机」从这颗按钮的摘要里去掉 —— 面板里那一格已经删了，
        摘要再挂着它就等于"删了 UI、还留一句残留说明"（用户批注：「随机种子又是要干嘛的呢」）。 */
-    settings: `${resolution.toUpperCase()}`,
+    /* 批 BF：照知渔那颗胶囊里的写法（值是「值 · 值 · 值」，一眼看全当前配置） */
+    settings: `${resolution.toUpperCase()} · ${ratio} · ${duration}s`,
     /* 9-12 用户批注：技能选择的结果要显示在「技能库」这一项下面（生成设置里那份去掉） */
     skills: userSkills.length ? userSkills.map(skill => skill.name).join(' · ') : '未选技能',
   };
@@ -2022,13 +2023,14 @@ export default function VideoStudioPage({
                 **@ 的那一层**那里吧，然后上面就不要留白这么多呀」。
                 ⇒ 它们本来就是"动作"而不是说明文字（批 I-⑦ 的结论），放在 @ 这一行的右端
                    既不占额外高度、也不跟素材格抢注意力。只在 deckMode（首页/独立创作台）出现。 */}
-            {deckMode && (
-              <div className="video-materials-actions">
-                {assetCount > 0 && <b>{assetCount} 个</b>}
-                {assetCount > 0 && <button type="button" className="video-materials-clear" onClick={clearMaterials}><Trash2 size={13} />清空素材</button>}
-                <button type="button" className="video-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>
-              </div>
-            )}
+            {/* 批 BF：「全屏」与档位无关 —— 首尾帧那一档也要有（用户原话：
+                「现在首尾帧和图片生成那边，他们都没有这个全屏按钮，**这个你也要加上去**」）。
+                N 个 / 清空素材 仍只长在真有素材集合的档位上（首尾帧是两张固定位，没有"集合"可清）。 */}
+            <div className="video-materials-actions">
+              {deckMode && assetCount > 0 && <b>{assetCount} 个</b>}
+              {deckMode && assetCount > 0 && <button type="button" className="video-materials-clear" onClick={clearMaterials}><Trash2 size={13} />清空素材</button>}
+              <button type="button" className="video-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>
+            </div>
           </div>
           </>}
           {/* ═══ 批 W（2026-09-21）：融合控件（运镜 / 只改一个元素）**整行删除**（用户原话，逐字）════
