@@ -134,17 +134,32 @@ test('① 产品与收费项：多要一段音频、按音频秒计费、未实�
   assert.equal(product.localSpec.audio, true, '这一条**多要一段驱动音频**（产出长度由它决定）');
   assert.equal(product.localSpec.regions, false, '口型对齐不需要框选');
   assert.deepEqual(product.limits, { images: 0, videos: 1, audios: 1, total: 2 });
-  assert.equal(product.public, false, '没跑过一次真调用 ⇒ 不许公开（同字幕擦除那条的尺子）');
-  assert.equal(routeReachability(product.routeId).state, 'unverified', '台账状态必须如实记 unverified');
-  assert.match(String(routeReachability(product.routeId).evidence), /2026-09-26/, '台账要写清日期与为什么未验证');
+  /* ═══ 2026-09-24 批 AX：真机跑通了一次 ⇒ 台账转 **callable**（判据没变，事实变了）═════════════
+     用户原话：「数字人这个，**真人视频你自己可以找呀**，网上一大堆，我们反正只是测试呀」。
+     实测：免版权站的单人正脸片段 8.56s + 站内 TTS 中文配音 7.25s →
+     任务 **amk-tool-lip-sync-1401540081154** → completed（约 92 秒）→ 成片 **7.28 秒**
+     （= 音频时长，`enable_video_loop:true` 生效）→ 成本约 **¥0.1213**；
+     抽帧对比确认**嘴型真的跟着配音变了**（.tmp/dh/out/compare.jpg）。
+     ⇒ 台账从 unverified 转 callable，证据行写在 videoCatalog 里。
+     ⚠️ 但**产品仍是 public:false**，原因变了：不再是"没实测/没定价"，而是**创作台还没接线**
+        （upstream-process 引擎在 VideoStudio 里没有音频槽位/时长探针/按音频秒报价那条分支）——
+        现在翻公开，用户进这一页会落到上游生成那条默认分支（拿默认模型出一段普通视频）。
+        所以这条断言守的仍是"点了必失败的东西不许变成可选的档位"，只是拦的原因换了。 */
+  assert.equal(product.public, false, '创作台尚未接线 ⇒ 仍不公开（不再是"没实测"）');
+  assert.equal(routeReachability(product.routeId).state, 'callable', '真机跑通 ⇒ 台账转 callable');
+  assert.match(String(routeReachability(product.routeId).evidence), /amk-tool-lip-sync/, '台账要带真实任务号与时长');
+  assert.match(String(routeReachability(product.routeId).evidence), /7\.28/, '台账要写清成片时长（计费口径）');
 
   const short = FEATURE_SKUS.video_lipsync_volc_short;
   const long = FEATURE_SKUS.video_lipsync_volc_long;
   assert.equal(short.units, 120, '0.12 积分/秒 = 120 units/秒');
   assert.equal(long.units, 120);
   assert.equal(short.perSecond, true, '按秒计费（数量 = 音频秒数）');
-  assert.equal(short.public, false, '价未签字 + 未实测 ⇒ 收费项不许公开');
-  assert.equal(long.public, false);
+  /* 价已由用户确认（原话：「数字人价格我不清楚，你调研过知渔他们收多少钱吗，**你利润这块觉得
+     还可以就行**」）⇒ 不再断言 public:false。产品翻公开与收费项翻公开是同一批动作，
+     等创作台接线完成一起做，所以这里只要求它是明确的布尔（不许含糊）。 */
+  assert.equal(typeof short.public, 'boolean', 'public 必须是明确布尔值');
+  assert.equal(typeof long.public, 'boolean');
   /* 上游成本口径：1 元/分钟 ⇒ 每秒 ¥1/60（按秒归一，与 units 同口径） */
   assert.ok(Math.abs(short.providerCostCny - 1 / 60) < 1e-9, '成本按"每秒"记');
   assert.ok(Math.abs(billableProviderCost({ sku: 'video_lipsync_volc_short', quantity: 6 }) - 6 / 60) < 1e-9,
@@ -282,8 +297,11 @@ test('⑥ 能力位与派发：capabilities.digitalHuman 如实说"还不可用"
   const capabilities = service.capabilities();
   assert.equal(capabilities.digitalHuman.productId, PRODUCT_ID);
   assert.equal(capabilities.digitalHuman.requiresAudio, true);
-  assert.equal(capabilities.digitalHuman.available, false, '未实测 + 价未签字 ⇒ 前端必须保持不可点');
-  assert.match(String(capabilities.digitalHuman.reason), /实测|定价/, '原因要写清是"没跑过"还是"价没定"，不许写安慰话');
+  assert.equal(capabilities.digitalHuman.available, false, '创作台未接线 ⇒ 前端必须保持不可点');
+  /* ⚠️ 2026-09-24 批 AX：原来这里要求 reason 里出现"实测/定价"两个词 —— 两条现在都清了
+     （真机跑通 + 用户确认价），reason 的措辞随之改成"创作台还在接线"。
+     判据的本意没变（**不许写安慰话，要写清是哪一道没过**），所以现在检查的是"接线"。 */
+  assert.match(String(capabilities.digitalHuman.reason), /接线/, '原因要写清是哪一道没过，不许写安慰话');
   assert.equal(capabilities.digitalHuman.billingQuantity, 'seconds', '报价按秒（与 SKU 的 perSecond 一致）');
   assert.equal(capabilities.digitalHuman.quotes.short.sku, 'video_lipsync_volc_short');
   /* 它**不进**模型清单（不是模型），也不进本地方案清单（不是本机） */

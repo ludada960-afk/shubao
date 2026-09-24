@@ -1935,7 +1935,14 @@ export function createVideoGeneration({
           ? ''
           : (!lipSyncAdapter.enabled
             ? volcLipSyncReadiness('').reason
-            : '数字人尚未完成首次实测与定价确认（等一段真人出镜素材跑通一次、价格由你点头后开放）'),
+            /* ═══ 2026-09-24 批 AX：这道门的措辞跟着事实改了 ═══════════════════════════════════
+               原来写的是"尚未完成首次实测与定价确认"——**两条现在都清了**：
+               真机跑通（任务 amk-tool-lip-sync-1401540081154，成片 7.28 秒，成本约 ¥0.12，
+               抽帧确认嘴型跟随）+ 用户确认价（「你利润这块觉得还可以就行」）。
+               现在唯一没过的是**创作台接线**（upstream-process 引擎在 VideoStudio 里还没有
+               音频槽位/时长探针/按音频秒报价那条分支）⇒ 用户进这一页会落到上游生成那条默认分支，
+               拿默认模型出一段普通视频并照常扣费。所以这一页继续拦着，理由如实写。 */
+            : '数字人的创作台还在接线（音频槽位、按配音时长计费那条分支），接完就放开 —— 现在点不进去'),
       };
       const products = registry.publicProducts({ includeHidden: allowHiddenProducts })
         .map(product => ({

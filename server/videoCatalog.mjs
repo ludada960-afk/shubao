@@ -270,11 +270,17 @@ export const ROUTE_REACHABILITY = deepFreeze({
      source_audio_url，整个 bundle 里 lipsync/heygen/hedra 全库 0 命中）⇒ 我们照同一形态做。
      上游：同一把 MediaKit Key，`POST /api/v1/tools/lip-sync`，官方口径 **1 元/分钟**
      （比阿里云 IMS 数字人的 9.9 元/分钟便宜 10 倍）。
-     ⚠️ 为什么是 unverified 而不是 callable：**一次真调用都没跑过** ——
-        口型对齐要先有一段"单人真人出镜"的视频素材，我手上没有这种素材；
-        而铁律里"不许跑付费生成（哪怕验证一下）"，一次 15 秒的口型调用约 ¥0.25。
-        ⇒ 状态如实记 unverified、产品 public:false，等用户拿真素材跑通一次再把证据写进这里。 */
-  'volc-media-kit-lipsync': { state: 'unverified', evidence: '2026-09-26 批 AU：契约按官方文档写入 server/volcLipSync.mjs（Bearer Key 鉴权、tools/lip-sync 提交、tasks/{id} 轮询、mediakit:// 本地上传），**尚无真机调用证据**（缺"单人真人出镜"素材，且付费调用须用户点头）；计费口径 1 元/分钟待实测校准' },
+     ⚠️ **2026-09-24 批 AX：真机跑通了一次**（用户：「数字人这个，真人视频你自己可以找呀，
+        网上一大堆，我们反正只是测试呀」）——
+        素材：免版权站的单人正脸片段（8.56 秒）+ 站内 TTS 合成的中文配音（7.25 秒）；
+        任务 \`amk-tool-lip-sync-1401540081154\` → completed（约 92 秒）；
+        成片 **7.28 秒**（= 音频时长，\`enable_video_loop: true\` 生效）、成本 ≈ **¥0.1213**；
+        抽帧对比确认**嘴型真的跟着配音变了**（.tmp/dh/out/compare.jpg）。
+        ⇒ 台账转 **callable**；**价也已由用户确认**（「你利润这块觉得还可以就行」）。
+        ⚠️ 产品暂时仍 public:false，但**原因变了**：不再是"没实测/没定价"，而是
+           **创作台那一页还没接线**（upstream-process 引擎在 VideoStudio 里还没有对应的
+           音频槽位/时长探针/报价数量分支）⇒ 现在放开也点不进去。接线是最后一步，见 docs/design/74。 */
+  'volc-media-kit-lipsync': { state: 'callable', evidence: '2026-09-24 真机实测出片：单人正脸素材 8.56s + 站内 TTS 中文配音 7.25s → 任务 amk-tool-lip-sync-1401540081154 completed（92 秒），成片 7.28 秒（按音频时长）、成本约 ¥0.1213；抽帧对比确认嘴型跟随配音。契约（POST /tools/lip-sync，body 只有 video_url/audio_url/enable_video_loop 等 8 个字段）见 server/volcLipSync.mjs' },
   'wan3.0-video': { state: 'blocked', evidence: '2026-09-23 批 AC 探针：403 insufficient_user_quota（预扣 ¥6.37 > 余额 ¥4.2478）⇒ 活着但余额不足，充值即开' },
   'sd8-seedance-2.5': { state: 'unreachable', evidence: '2026-09-16 该 id 未声明 openai-video，视频端点不可达' },
   /* 2026-09-19 批 K-B 复核 + 2026-09-23 复测：四条都维持 unreachable —— 提交回
@@ -883,8 +889,13 @@ export const VIDEO_PRODUCTS = deepFreeze({
         与源视频时长无关；计费按秒（见 SKU video_lipsync_volc_*）。
         官方限制"仅支持单人真人出镜视频"，超出这个前提上游会失败 —— 写在 limitations 里，
         用户在建单前就能看到，而不是失败之后才知道。
-     ⚠️ **public: false**：路由台账是 unverified（一次真调用都没跑过）⇒ 现在点不出来。
-        翻 public 的两个前提都写在台账 evidence 里：真机跑通一次 + 用户对价签字。 */
+     ⚠️ **public: false 的原因在 2026-09-24 批 AX 变了**：原来两条是"① 一次真调用都没跑过
+        ② 价未经签字"。现在**两条都清了** —— 真机跑通（任务 amk-tool-lip-sync-1401540081154，
+        成片 7.28 秒，成本约 ¥0.12，抽帧确认嘴型跟随）+ 用户确认价（「你利润这块觉得还可以就行」）。
+        剩下的**唯一**一条是**创作台还没接线**：`upstream-process` 引擎在 VideoStudio 里还没有
+        音频槽位的时长探针与"按音频秒数报价"那条分支 ⇒ 现在翻 public，用户进这一页会走到
+        上游生成那条默认分支（拿默认模型出一段普通视频）—— 那正是 `processPlanBlocked` 拦着的事。
+        ⇒ 接线完成后再翻（接线清单在 docs/design/74 §四）。 */
   lipsync_volc: {
     id: 'lipsync_volc',
     label: '数字人 · 口型对齐',
