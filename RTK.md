@@ -7104,6 +7104,13 @@ UI 整改第二批：模型选择面板（图四）／包含模块默认是否�
 每批固定流程（test → precommit → commit → 部署 → 复验 → RTK）、
 以及环境坑（cmd 下多行 node -e 会静默失效、RTK 要用 readFileSync 读、部署判据只认 Deployed 那一句…）。
 
+⚠️ 批 BA 又踩到一个**等待类**的坑，写在这里免得下次再浪费时间：
+  `timeout /t 600 /nobreak > nul 2>&1 &` 在**重定向/非交互**下会**立刻返回**（报“输入重定向不受支持”），
+  于是"等 10 分钟再看"其实只过了几秒 —— 我据此误判过"部署卡住了/跑得特别慢"。
+  ⇒ 真要等就用 `powershell -NoProfile -Command "Start-Sleep -Seconds 540"`（实测有效）。
+  另一条：node --test 的**行数会成批出现**（cmd 重定向缓冲），中途看到"行数不动"不代表卡住 ——
+  先看 `(Get-Item 日志).LastWriteTime` 是不是还在动，再下结论。
+
 **当前线上版本 `7858ef87`**（数字人创作台接线那一批）。全量测试 **4060 条 / 4050 pass / 0 fail / 10 skipped**。
 
 **下一会话要做的第一件事**：读这份 76 + 本文件最后三批（AX/AY/AZ）+ docs/design/74、75，
