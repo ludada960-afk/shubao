@@ -889,13 +889,16 @@ export const VIDEO_PRODUCTS = deepFreeze({
         与源视频时长无关；计费按秒（见 SKU video_lipsync_volc_*）。
         官方限制"仅支持单人真人出镜视频"，超出这个前提上游会失败 —— 写在 limitations 里，
         用户在建单前就能看到，而不是失败之后才知道。
-     ⚠️ **public: false 的原因在 2026-09-24 批 AX 变了**：原来两条是"① 一次真调用都没跑过
-        ② 价未经签字"。现在**两条都清了** —— 真机跑通（任务 amk-tool-lip-sync-1401540081154，
-        成片 7.28 秒，成本约 ¥0.12，抽帧确认嘴型跟随）+ 用户确认价（「你利润这块觉得还可以就行」）。
-        剩下的**唯一**一条是**创作台还没接线**：`upstream-process` 引擎在 VideoStudio 里还没有
-        音频槽位的时长探针与"按音频秒数报价"那条分支 ⇒ 现在翻 public，用户进这一页会走到
-        上游生成那条默认分支（拿默认模型出一段普通视频）—— 那正是 `processPlanBlocked` 拦着的事。
-        ⇒ 接线完成后再翻（接线清单在 docs/design/74 §四）。 */
+     ⚠️ **public 的三次变化，每一次都是事实变了**：
+        ① 批 AU 起步 public:false —— 一次真调用都没跑过 + 价未经签字；
+        ② 批 AX 两条都清了（真机跑通：任务 amk-tool-lip-sync-1401540081154，成片 7.28 秒，
+           成本约 ¥0.12，抽帧确认嘴型跟随；价由用户确认：「数字人价格我不清楚，你调研过知渔
+           他们收多少钱吗，**你利润这块觉得还可以就行**」）—— 但**创作台还没接线**，仍 false；
+        ③ 批 AZ（本批）把创作台接完 ⇒ **public: true**。接线内容（全在 VideoStudio 的
+           process 产品分支上）：音频槽位的时长探针、报价数量取**音频秒数**、生成闸门按
+           `capabilities.digitalHuman.available` 放开、按钮上的价目说明从目录派生。
+        ⇒ 这一页现在与「视频高清 / 视频字幕去除」走**同一条**分支（processPlan），
+          不会再落到"上游生成"那条默认分支上（那条会拿默认模型出一段普通视频并照常扣费）。 */
   lipsync_volc: {
     id: 'lipsync_volc',
     label: '数字人 · 口型对齐',
@@ -906,7 +909,7 @@ export const VIDEO_PRODUCTS = deepFreeze({
     routeId: 'volc-media-kit-lipsync',
     credential: 'volc',
     videoProcess: true,
-    public: false,
+    public: true,
     default: false,
     durations: { min: 1, max: 1800 },
     resolutions: [],

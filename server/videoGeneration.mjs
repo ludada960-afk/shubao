@@ -1922,6 +1922,14 @@ export function createVideoGeneration({
         available: subtitleAutoReady,
         mode: 'auto',
         billingQuantity: autoQuantityOf(autoSkuShort),
+        /* ═══ 2026-09-26 批 AZ：**页面要用的那几样一并给出去**（与 localProducts 同一形状）════════
+           原先页面自己写死了一份 `{ resolution:false, fps:false, regions:false, auto:true }` 的
+           镜像 —— 那就是"产品目录之外还有第二份真相"：目录一改（例如这一档以后要框选区域），
+           页面不会跟着改，而且没人会发现。现在从**产品声明**派生，页面只读不算。 */
+        localSpec: { ...subtitleAutoProduct.localSpec },
+        modes: [...subtitleAutoProduct.modes],
+        durations: { ...subtitleAutoProduct.durations },
+        label: subtitleAutoProduct.label,
         quotes: {
           short: { sku: autoSkuShort, units: quoteFeature(autoSkuShort, 1).units, points: Math.ceil(quoteFeature(autoSkuShort, 1).units / 1000) },
           long: { sku: autoSkuLong, units: quoteFeature(autoSkuLong, 1).units, points: Math.ceil(quoteFeature(autoSkuLong, 1).units / 1000) },
@@ -1932,35 +1940,37 @@ export function createVideoGeneration({
             ? volcSubtitleReadiness('').reason
             : '自动标记尚未完成首次实测（等火山账户充值到位、跑通一次真片子后开放）'),
       };
-      /* ═══ 数字人（口型对齐）那一档的可售状态（2026-09-26 批 AU）═══════════════════════════════
+      /* ═══ 数字人（口型对齐）那一档的可售状态（2026-09-26 批 AU；批 AZ 接线完成）══════════════════
          与 subtitleAuto 同一形状（只读）：前端只拿它决定"这一页能不能点"，
-         价格仍走目录里的 SKU。**当前必然是不可用**，两个原因都如实说：
-           ① 路由台账 unverified（一次真调用都没跑过）⇒ 产品 public:false；
-           ② 哪怕产品公开了，凭据没配也点不了。
-         ⚠️ 这一档还多一道：**价没签字**（120 units/秒 是我按文档成本推的）——
-            所以 reason 里明确写出来，免得"产品公开了却还是点不动"被当成 bug。 */
+         价格仍走目录里的 SKU。批 AU 时这里**必然不可用**（台账 unverified + 价没签字）；
+         批 AX 把"实测"与"定价"两道门清了，批 AZ 把最后一道（创作台接线）也接完 ——
+         所以现在两个条件（产品公开 + 凭据齐）一满足就是可售，reason 只剩如实的原因。
+         ⚠️ 页面要用的字段（露哪几格 / 建单模式 / 时长上限）也从**产品声明**派生 ——
+            页面不写死 `audio: true` 这类判据，否则目录一改两边就漂移（见 subtitleAuto 那段）。 */
       const lipSyncProduct = getVideoProduct('lipsync_volc');
       const lipSyncSkuShort = videoFeatureSku({ productId: lipSyncProduct.id, duration: lipSyncProduct.durations.min });
       const lipSyncSkuLong = videoFeatureSku({ productId: lipSyncProduct.id, duration: Math.max(lipSyncProduct.durations.min, Math.min(9, lipSyncProduct.durations.max)) });
       const lipSyncQuote = sku => ({ sku, units: quoteFeature(sku, 1).units, points: Math.ceil(quoteFeature(sku, 1).units / 1000) });
       const digitalHuman = {
         productId: lipSyncProduct.id,
+        label: lipSyncProduct.label,
         available: lipSyncProduct.public === true && lipSyncAdapter.enabled === true,
         requiresAudio: true,
         billingQuantity: FEATURE_SKUS[lipSyncSkuShort]?.perSecond === true ? 'seconds' : 'clip',
+        localSpec: { ...lipSyncProduct.localSpec },
+        modes: [...lipSyncProduct.modes],
+        durations: { ...lipSyncProduct.durations },
         quotes: { short: lipSyncQuote(lipSyncSkuShort), long: lipSyncQuote(lipSyncSkuLong) },
         reason: lipSyncProduct.public === true && lipSyncAdapter.enabled === true
           ? ''
           : (!lipSyncAdapter.enabled
             ? volcLipSyncReadiness('').reason
-            /* ═══ 2026-09-24 批 AX：这道门的措辞跟着事实改了 ═══════════════════════════════════
-               原来写的是"尚未完成首次实测与定价确认"——**两条现在都清了**：
-               真机跑通（任务 amk-tool-lip-sync-1401540081154，成片 7.28 秒，成本约 ¥0.12，
-               抽帧确认嘴型跟随）+ 用户确认价（「你利润这块觉得还可以就行」）。
-               现在唯一没过的是**创作台接线**（upstream-process 引擎在 VideoStudio 里还没有
-               音频槽位/时长探针/按音频秒报价那条分支）⇒ 用户进这一页会落到上游生成那条默认分支，
-               拿默认模型出一段普通视频并照常扣费。所以这一页继续拦着，理由如实写。 */
-            : '数字人的创作台还在接线（音频槽位、按配音时长计费那条分支），接完就放开 —— 现在点不进去'),
+            /* ═══ 2026-09-26 批 AZ：这道门的措辞**第三次**跟着事实改 ═══════════════════════════
+               ① 批 AU 写的是"尚未完成首次实测与定价确认"；② 批 AX 两条都清了，改成"创作台还在接线"；
+               ③ 本批把接线做完（音频槽位探针 + 按音频秒报价 + 生成闸门按 available 放开），
+                  "接线"这个理由**不存在了** —— 只剩下"产品被下架"这一种如实的原因。
+               判据的本意一个字没变：**不许写安慰话，要写清是哪一道没过**。 */
+            : '数字人暂时停售（产品未公开），已上传的素材不会计费'),
       };
       const products = registry.publicProducts({ includeHidden: allowHiddenProducts })
         .map(product => ({

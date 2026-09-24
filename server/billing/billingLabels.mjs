@@ -116,6 +116,10 @@ const SKU_LABELS = Object.freeze({
   /* 批 AR：自动标记那一档（火山擦除，0.05 积分/秒）—— 标签写明"自动"以免与手动档混淆 */
   video_desubtitle_volc_short: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '秒' },
   video_desubtitle_volc_long: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '秒' },
+  /* 批 AZ：数字人（火山口型对齐，0.12 积分/秒）—— 计费按**配音**秒数，
+     所以 per 写「秒」且标签写明"口型对齐"（用户对账时能自己数出这一段配音多少秒）。 */
+  video_lipsync_volc_short: { label: 'AI 视频 · 数字人（口型对齐）', category: 'video', per: '秒' },
+  video_lipsync_volc_long: { label: 'AI 视频 · 数字人（口型对齐）', category: 'video', per: '秒' },
   xhs_image_set_2k: { label: '小红书图文套装（1 封面 + 8 配图）', category: 'content', per: '套' },
   content_full_set: { label: '小红书内容集', category: 'content', per: '套' },
 });

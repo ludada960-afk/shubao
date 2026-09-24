@@ -669,8 +669,10 @@ export const VIDEO_WORKBENCHES = {
      新账号下没有任何内置虚拟形象 —— 我们照这个形态：**形象只让用户自带真人视频**。
      ⚠️ 音频这一格：我们**没有**接 TTS（MediaKit 里压根没有语音合成工具，见 volcLipSync 的文档出处），
         所以只做"上传配音"，不假装有"输入文案自动配音"；文案留一行说明讲清怎么拿到音频。
-     ⚠️ 这一页整体是 `availability: 'blocked'`（即将上线）：产品 public:false + SKU public:false，
-        创作台对这条方案禁用生成并写明原因（铁律：不可用的功能不许变成可点的选项）。 */
+     ⚠️ 这一页原来整体是 `availability: 'blocked'`（即将上线 + 产品 public:false）—— 批 AZ 接线完成后
+        三样一起放开：技能 'ready'、产品 public:true、两条 SKU public:true；
+        创作台的生成闸门由服务端 `capabilities.digitalHuman.available` 决定（见 VideoStudio 的
+        process 产品分支：音频槽位的时长探针 + 报价按**音频**秒数）。 */
   'video.digital_human': {
     source: 'https://laoyu.quantv.com/digital-human',
     headline: '上传真人出镜视频与一段配音，让人物按配音开口说这段话',

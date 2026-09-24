@@ -44,12 +44,19 @@ test('video studio is an authenticated durable billed workspace embedded in home
      本批加了本地方案（视频高清 / 视频字幕去除）—— 它**没有"分析并生成方案"那一步**：
      它的方案就是渲染清单（分辨率 / 帧率 / 框选区域），不存在模型侧的口味要确认，
      收那 1 积分等于凭空多收。⇒ 总价分两条：上游 = 方案分析 + 成片预估（原判据原样保留），
-     本地 = 成片报价本身。守的东西没变：**按钮上的积分就是"这一下要花多少"**，且随配置实时变化。 */
-  assert.match(page, /const totalJobPoints = localEngine\s*?\n?\s*\? estimatedPoints\s*?\n?\s*: \(estimatedPoints > 0 \? estimatedPoints \+ ANALYSIS_POINTS : 0\);/,
-    '总价 = 方案分析 + 成片预估（成片预估来自服务端报价）；本地方案不收方案分析费');
+     本地 = 成片报价本身。守的东西没变：**按钮上的积分就是"这一下要花多少"**，且随配置实时变化。
+     ═══ 2026-09-26 批 AZ：判据从 `localEngine` **推广成 processPlan**（判据推广，不是放宽）════════
+     本批把「上游处理的方案页」（数字人）接进同一条分支 ⇒ 这一串判断的判据从"本机执行"
+     变成"**处理已有视频**这类产品"（本机执行 localEngine / 上游执行 upstreamProcessPlan）。
+     守的东西仍然一字未变：不收方案分析费的那一档，按钮上的积分就是这一单的报价本身。 */
+  assert.match(page, /const totalJobPoints = processPlan\s*?\n?\s*\? estimatedPoints\s*?\n?\s*: \(estimatedPoints > 0 \? estimatedPoints \+ ANALYSIS_POINTS : 0\);/,
+    '总价 = 方案分析 + 成片预估（成片预估来自服务端报价）；process 方案不收方案分析费');
   /* 批 AR：本地方案那一页现在有**两条实现**（手动=本机 / 自动=火山），页面按选中的那一档取产品，
-     所以变量名从 localProduct 变成 activeProcessProduct —— 守的东西没变：预估积分必须来自目录报价。 */
-  assert.match(page, /localJobPoints\(activeProcessProduct, localSourceSeconds\)/, '预估积分必须来自目录报价（不许在页面里写死）');
+     所以变量名从 localProduct 变成 activeProcessProduct —— 守的东西没变：预估积分必须来自目录报价。
+     ⚠️ 批 AZ：第二个参数从"源视频秒数"改成 **billingSeconds** —— 数字人那一档按**配音**秒数计费，
+        取错那一档就是"按视频时长收音频时长档的钱"（这正是本批要修的事，见 VideoStudio 的
+        processAudioSlot / billingSeconds）。守的东西没变：预估积分必须来自目录报价，页面不自己算钱。 */
+  assert.match(page, /localJobPoints\(activeProcessProduct, billingSeconds\)/, '预估积分必须来自目录报价（不许在页面里写死）');
   assert.ok(!page.includes('video-submit-meta'), '左侧独立积分栏不得回归');
   assert.match(page, /const ANALYSIS_POINTS = 1;/);
   assert.match(page, /video-generate-trigger shubao-gen-cta/);

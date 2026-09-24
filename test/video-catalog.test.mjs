@@ -55,8 +55,10 @@ test('video products expose one curated stable contract', () => {
        是"处理已有视频"的**上游**档（videoProcess: true），与本地那两条共用输入契约。 */
     'desubtitle_volc',
     /* ═══ 2026-09-26 批 AU：+1（判据未变，事实变了）—— 数字人（火山口型对齐）：
-       同样是 videoProcess + credential 'volc'，但输入契约多一样（人物视频 + **驱动音频**），
-       且它在册**不代表公开**：public 仍是 false（未实测 + 价未签字，见 videoCatalog 的注释）。 */
+       同样是 videoProcess + credential 'volc'，但输入契约多一样（人物视频 + **驱动音频**）。
+       ⚠️ 批 AZ：它已 **public: true**（创作台接线完成，见 videoCatalog 里的三段式记录）——
+          但**仍然不进模型清单**：它不吃提示词，进了模型下拉用户就会在「视频创作」里
+          选到一条点了必失败的档位（下面 isNonModelProduct 那条断言守的就是这个）。 */
     'lipsync_volc',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);

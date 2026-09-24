@@ -19,13 +19,14 @@ import { createVolcLipSyncAdapter, volcLipSyncReadiness } from '../server/volcLi
       不联网、不花钱，但走的是生产同一份代码（真适配器 + 真作业流水线 + 真计费）。
    判据六条：
      ① 产品契约：videoProcess + credential 'volc' + routeId 指向口型对齐；**多要一段音频**（localSpec.audio）；
-        台账 unverified、产品与 SKU 都 public:false（没实测就不许公开 —— 与字幕擦除那条同一把尺）；
+        台账 callable、产品与 SKU 都 public:true（批 AZ 接线完成 ⇒ 三样同批翻，价格未动）；
      ② 适配器契约：POST /tools/lip-sync、Bearer 鉴权、body 是 video_url + audio_url + enable_video_loop，
         **没有** mode / model_version（口型对齐的参数表与字幕擦除不同，逐字核对过官方文档）；
      ③ `enable_video_loop` 必须是 true：按秒收费的口径是**音频秒数**，用默认的截断策略会"收 20 秒的钱交 10 秒的货"；
      ④ 建单：缺人物视频 / 缺驱动音频一律 400 且**不建单不冻结积分**（用户补个文件就能过，不该扣了钱才说）；
      ⑤ 上传：视频与音频各走一次 mediakit:// 票据（两个文件都要传，只传视频会让上游回 must specify audio_url）；
-     ⑥ 计费：按秒档数量 = 秒数；落库成本 = (1 元/60) × 秒数；0.12 积分/秒 的面值毛利过 40% 地板。 */
+     ⑥ 计费与能力位：按秒档数量 = 秒数；落库成本 = (1 元/60) × 秒数；0.12 积分/秒 的面值毛利过 40% 地板；
+        capabilities.digitalHuman 把页面要用的那几样（要不要音频 / 露哪几格 / 建单模式 / 时长上限）一并给出。 */
 
 const PRODUCT_ID = 'lipsync_volc';
 const MEDIAKIT = 'https://mediakit.example.test/api/v1';
@@ -66,7 +67,8 @@ function harness(t, { volcApiKey = 'AKLT-test-key', handler } = {}) {
     volcFetchImpl: fetchImpl,
     maxConcurrent: 2,
     assetSigningSecret: 'test-lipsync-signing-secret',
-    /* 产品故意 public:false（未实测 + 价未签字）⇒ 内部可建单靠这个口子，生产用不到它 */
+    /* ⚠️ 批 AZ：数字人已 public:true，这个口子现在只为**隐藏档**（Seedance 1080P 那种）留着 ——
+       本文件仍开着它，是为了让"没公开的产品也能被内部流水线跑到"这件事不依赖公开状态。 */
     allowHiddenProducts: true,
   });
   return { service, db, calls, holds };
@@ -145,7 +147,7 @@ test('① 产品与收费项：多要一段音频、按音频秒计费、未实�
         （upstream-process 引擎在 VideoStudio 里没有音频槽位/时长探针/按音频秒报价那条分支）——
         现在翻公开，用户进这一页会落到上游生成那条默认分支（拿默认模型出一段普通视频）。
         所以这条断言守的仍是"点了必失败的东西不许变成可选的档位"，只是拦的原因换了。 */
-  assert.equal(product.public, false, '创作台尚未接线 ⇒ 仍不公开（不再是"没实测"）');
+  assert.equal(product.public, true, '创作台已接线（批 AZ）⇒ 产品公开：用户进这一页走的是 process 分支，不是上游生成分支');
   assert.equal(routeReachability(product.routeId).state, 'callable', '真机跑通 ⇒ 台账转 callable');
   assert.match(String(routeReachability(product.routeId).evidence), /amk-tool-lip-sync/, '台账要带真实任务号与时长');
   assert.match(String(routeReachability(product.routeId).evidence), /7\.28/, '台账要写清成片时长（计费口径）');
@@ -155,11 +157,11 @@ test('① 产品与收费项：多要一段音频、按音频秒计费、未实�
   assert.equal(short.units, 120, '0.12 积分/秒 = 120 units/秒');
   assert.equal(long.units, 120);
   assert.equal(short.perSecond, true, '按秒计费（数量 = 音频秒数）');
-  /* 价已由用户确认（原话：「数字人价格我不清楚，你调研过知渔他们收多少钱吗，**你利润这块觉得
-     还可以就行**」）⇒ 不再断言 public:false。产品翻公开与收费项翻公开是同一批动作，
-     等创作台接线完成一起做，所以这里只要求它是明确的布尔（不许含糊）。 */
-  assert.equal(typeof short.public, 'boolean', 'public 必须是明确布尔值');
-  assert.equal(typeof long.public, 'boolean');
+  /* ═══ 2026-09-26 批 AZ：两道门（实测 / 用户签价）批 AX 已过，批 AZ 把第三道（创作台接线）接完 ══
+     用户原话：「数字人价格我不清楚，你调研过知渔他们收多少钱吗，**你利润这块觉得还可以就行**」
+     ⇒ 产品与两条 SKU 同批翻 public（与 1080P 的 Seedance 同一套做法：三样一起翻，价格一分未动）。 */
+  assert.equal(short.public, true, '接线完成 ⇒ 收费项公开（价格 120 units/秒 一分未动）');
+  assert.equal(long.public, true);
   /* 上游成本口径：1 元/分钟 ⇒ 每秒 ¥1/60（按秒归一，与 units 同口径） */
   assert.ok(Math.abs(short.providerCostCny - 1 / 60) < 1e-9, '成本按"每秒"记');
   assert.ok(Math.abs(billableProviderCost({ sku: 'video_lipsync_volc_short', quantity: 6 }) - 6 / 60) < 1e-9,
@@ -292,21 +294,32 @@ test('⑤ 上传与提交：视频和音频**各上传一次**换 mediakit://，
   assert.ok(calls.some(call => call.url.includes('/tasks/lip-task-1')), '轮询走 /tasks/{id}');
 });
 
-test('⑥ 能力位与派发：capabilities.digitalHuman 如实说"还不可用"，原因写清是实测缺还是价没签', async t => {
+test('⑥ 能力位与派发：capabilities.digitalHuman 给出页面要用的全部事实，且不进模型清单', async t => {
   const { service } = harness(t, { handler: fakeMediakit() });
   const capabilities = service.capabilities();
   assert.equal(capabilities.digitalHuman.productId, PRODUCT_ID);
   assert.equal(capabilities.digitalHuman.requiresAudio, true);
-  assert.equal(capabilities.digitalHuman.available, false, '创作台未接线 ⇒ 前端必须保持不可点');
-  /* ⚠️ 2026-09-24 批 AX：原来这里要求 reason 里出现"实测/定价"两个词 —— 两条现在都清了
-     （真机跑通 + 用户确认价），reason 的措辞随之改成"创作台还在接线"。
-     判据的本意没变（**不许写安慰话，要写清是哪一道没过**），所以现在检查的是"接线"。 */
-  assert.match(String(capabilities.digitalHuman.reason), /接线/, '原因要写清是哪一道没过，不许写安慰话');
+  /* ═══ 2026-09-26 批 AZ：创作台接线完成 ⇒ 能力位转 **可用** ═══════════════════════════════════
+     判据的本意一个字没变（**不可用就绝不让页面点**，原因如实写清），变的是事实：
+     批 AU 时"没实测 + 价没签字"、批 AX 时"创作台没接线"，本批把接线做完 ⇒ available: true、
+     reason 为空串（可售时不该编一句理由出来）。 */
+  assert.equal(capabilities.digitalHuman.available, true, '接线完成 + 产品公开 + 凭据在 ⇒ 可用');
+  assert.equal(capabilities.digitalHuman.reason, '', '可售时不许编理由（reason 只在不可用时写清是哪一道没过）');
   assert.equal(capabilities.digitalHuman.billingQuantity, 'seconds', '报价按秒（与 SKU 的 perSecond 一致）');
   assert.equal(capabilities.digitalHuman.quotes.short.sku, 'video_lipsync_volc_short');
+  /* ═══ 页面要用的那几样必须由**服务端产品声明**给出去（批 AZ）═══════════════════════════════
+     原来页面自己写死了"要音频 / 不露规格 / 按秒"这几条判据 —— 那是产品目录之外的第二份真相，
+     目录一改页面不会跟着改。⇒ 与 localProducts 同一形状从这里取，页面只读不算。 */
+  assert.equal(capabilities.digitalHuman.localSpec.audio, true, '要驱动音频这条判据来自产品声明');
+  assert.deepEqual(capabilities.digitalHuman.modes, ['process'], '建单模式也来自产品声明（本机那两条是 local）');
+  assert.deepEqual(capabilities.digitalHuman.durations, { min: 1, max: 1800 }, '时长上限（30 分钟）给页面算探针上限');
+  assert.match(String(capabilities.digitalHuman.label), /数字人/, '按钮与标题要用产品名，不在页面里另起一个');
   /* 它**不进**模型清单（不是模型），也不进本地方案清单（不是本机） */
   assert.equal(capabilities.products.some(product => product.id === PRODUCT_ID), false, '数字人不许出现在模型下拉里');
   assert.equal(capabilities.localProducts.some(product => product.id === PRODUCT_ID), false, '也不在本机清单里');
+  /* ⚠️ 自动标记那一档同样要给出"露哪几格 / 建单模式 / 时长上限"（同一批做的推广） */
+  assert.equal(capabilities.subtitleAuto.localSpec.auto, true);
+  assert.deepEqual(capabilities.subtitleAuto.modes, ['process']);
 
   /* 没配 Key 时：原因换成"缺哪把钥匙"，且建单 503（不建单不冻结） */
   const noKey = harness(t, { handler: fakeMediakit(), volcApiKey: '' });

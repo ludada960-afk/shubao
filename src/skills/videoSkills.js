@@ -658,16 +658,18 @@ export const VIDEO_SKILLS = [
      ⇒ 我们照**同一形态**做：用户给一段真人出镜视频 + 一段驱动配音 → 出成片。
         上游火山 AI MediaKit 口型对齐 **1 元/分钟**（阿里云 IMS 9.9 元/分钟，贵 10 倍 ⇒ 不选它）。
 
-     ⚠️ **availability: 'blocked'（即将上线）**：这一条不是"做不完"，是**两道门都还没过** ——
-        ① 一次真调用都没跑过（手上没有"单人真人出镜"素材，付费调用要用户点头）；
-        ② 价格是我按文档成本推的（0.12 积分/秒），**用户尚未对数字人报价签字**。
-        铁律：不可用 / 未接通的功能一律不许变成可点的选项。所以：
-        产品 `public: false`、SKU `public: false`、技能 `availability: 'blocked'`（角标「即将上线」）、
-        创作台对这条方案**禁用生成按钮并写明原因**（见 VideoStudio 的 processPlanBlocked）。
-        两道门都过了之后，把这里改成 'ready' 同时翻两个 public —— 与 1080P 的 Seedance 同一套做法。 */
+     ⚠️ **availability 的三次变化，每一次都是事实变了**：
+        ① 批 AU 起步 'blocked'（即将上线）—— 两道门都没过：一次真调用都没跑过 + 价未签字；
+        ② 批 AX 两道门都过了（真机跑通：任务 amk-tool-lip-sync-1401540081154，成片 7.28 秒，
+           成本约 ¥0.12，抽帧确认嘴型跟随；用户原话「数字人价格我不清楚，你调研过知渔他们收多少钱吗，
+           **你利润这块觉得还可以就行**」）—— 但创作台还没接线，仍 'blocked'；
+        ③ 批 AZ（本批）创作台接线完成 ⇒ **'ready'**（摘掉「即将上线」角标），
+           产品 `lipsync_volc.public` 与两条 SKU 的 `public` 同批翻 true（与 1080P 的 Seedance 同一套做法）。
+        接线内容（VideoStudio 的 process 产品分支）：音频槽位时长探针、按音频秒数报价、
+        生成闸门按 `capabilities.digitalHuman.available` 放开、按钮价目从目录派生。 */
   {
     id: 'video.digital_human', board: 'video', name: '数字人', category: '精品推荐', complexity: 'standard',
-    summary: '上传真人出镜视频与一段配音，让人物按配音开口说这段话', capability: ['video', 'audio'], availability: 'blocked',
+    summary: '上传真人出镜视频与一段配音，让人物按配音开口说这段话', capability: ['video', 'audio'], availability: 'ready',
     pipeline: 'videoLocal', cover: { template: 'case-3up', accent: 'cool' },
     plan: {
       engine: UPSTREAM_PROCESS_ENGINE,

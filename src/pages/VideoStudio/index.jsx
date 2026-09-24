@@ -354,6 +354,10 @@ export default function VideoStudioPage({
   const [regions, setRegions] = useState([]);
   const [sourceSeconds, setSourceSeconds] = useState(0);
   const [sourcePreview, setSourcePreview] = useState('');
+  /* 批 AZ（数字人）：驱动音频那一档的秒数与本地可播地址 —— 这一档**按音频秒数**计费，
+     秒数只能从音频文件本身读出来（见下面的音频探针），不能拿视频时长顶替。 */
+  const [audioSeconds, setAudioSeconds] = useState(0);
+  const [audioPreview, setAudioPreview] = useState('');
   /* 批 N：知渔「内容替换」页里的两颗胶囊（换模特 / 换产品）—— 它是**一个控制项**，
      选中后往提示词追加一句明确的替换指令（与运镜 / 只改一个元素同一条机制）。 */
   const [swapTarget, setSwapTarget] = useState('model');
@@ -506,27 +510,90 @@ export default function VideoStudioPage({
         test/no-tdz-before-init 是硬门禁）。 */
   const localPlan = workbenchMode ? videoSkillPlanOf(workbenchSkillId) : null;
   const localEngine = localPlan?.engine === LOCAL_RENDER_ENGINE;
-  /* ═══ 2026-09-26 批 AU：**上游处理的方案页**（数字人）暂时不许生成 ═════════════════════════════
-     数字人的方案引擎是 upstream-process（真人视频 + 驱动配音 → 火山口型对齐），
-     它的产品与 SKU 现在都是 public:false（一次真调用都没跑过 + 价未经用户签字）。
-     ⚠️ 为什么要在页面上拦：这一页若走"上游生成"那条默认分支，用户填了文件、点一下，
-        会拿默认模型出一条**普通视频**并照常扣费 —— 那既不是他要的数字人，
+  /* ═══ 2026-09-26 批 AU：**上游处理的方案页**（数字人）不许落到"上游生成"那条默认分支上 ═══════
+     数字人的方案引擎是 upstream-process（真人视频 + 驱动配音 → 火山口型对齐）：
+     它不吃提示词、不是"选一个模型出片"，所以这一页必须走**处理已有视频**那条分支
+     （报价按秒、没有方案分析费、没有生成设置）。
+     ⚠️ 为什么要有这道拦：产品与 SKU 在接线完成之前是 public:false。这一页若走默认分支，
+        用户填了文件、点一下，会拿**默认模型**出一条普通视频并照常扣费 —— 那既不是他要的数字人，
         也违反"不可用的功能不许变成可点的选项"（铁律）。
-     ⇒ 判据取**服务端的只读状态**（capabilities.digitalHuman.available），不在页面里写死条件；
-        状态一变（翻公开）这里自动放开，不用改页面。 */
+     ⇒ 判据取**服务端的只读状态**（capabilities.digitalHuman.available），不在页面里写死条件。
+     ═══ 2026-09-26 批 AZ：接线完成 ⇒ 判据从 `localEngine` 推广成 **process 产品** ═════════════
+     本地执行（localEngine：视频高清 / 视频字幕去除）与上游执行（upstreamProcessPlan：数字人）
+     **共用同一条分支**：报价按秒（或按条）、没有"分析并生成方案"那一步、没有生成设置。
+     原先这一串判断只认 localEngine，数字人一页翻公开就会掉进上游生成分支（见上）——
+     现在统一成 processPlan，两种执行方式的差别只剩两处：谁执行（本机要不要 ffmpeg）
+     与计费秒数取哪一档（本地取源视频、数字人取**驱动音频**）。 */
   const upstreamProcessPlan = localPlan?.engine === UPSTREAM_PROCESS_ENGINE;
-  const processPlanBlocked = upstreamProcessPlan && capabilities.digitalHuman?.available !== true;
-  const processPlanBlockedReason = capabilities.digitalHuman?.reason || '这个功能还在施工中，暂时不能生成。';
+  const processPlan = Boolean(localEngine || upstreamProcessPlan);
+  const digitalHuman = capabilities.digitalHuman || null;
+  const processPlanBlocked = upstreamProcessPlan && digitalHuman?.available !== true;
+  const processPlanBlockedReason = digitalHuman?.reason || '这个功能还在施工中，暂时不能生成。';
   const localProducts = Array.isArray(capabilities.localProducts) ? capabilities.localProducts : [];
   /* ═══ 2026-09-26 批 AR：**自动标记**那一档的服务端状态（只读）══════════════════════════════════
      它走火山 MediaKit（不是本机、不是"模型"），所以既不在 localProducts 里也不在模型清单里 ——
      单独一份状态：产品公开 + 凭据齐 = 可用；不可用时前端保持"不可选 + 写明原因"。 */
   const subtitleAuto = capabilities.subtitleAuto || null;
   const subtitleAutoReady = subtitleAuto?.available === true;
-  const localProduct = localEngine
-    ? localProducts.find(product => product.id === localPlan.productId) || null
+  /* ═══ 2026-09-26 批 AZ：**process 产品的统一取法**（本机那两条 + 上游那条数字人）═══════════════
+     "这一页用哪个产品、报价多少、露哪几格、按什么数量计费"必须**只从服务端目录取**：
+       · 本机执行的两条在 capabilities.localProducts 里（形状见 localVideoProducts）；
+       · 上游执行的数字人在 capabilities.digitalHuman 里（它不是本机方案，所以不进 localProducts）。
+     这里把它们归成**同一形状**，页面其余部分（报价 / 闸门 / 按钮价目 / 建单）就只剩一条路径 ——
+     两处各写一份判断正是"图片侧一套、视频侧另一套"那类返工的来源。
+     ⚠️ 页面**不写死**规格与价：`localSpec`（露哪几格）、`billingQuantity`（按秒还是按条）、
+        `modes`（建单模式 process/local）全部来自产品声明。 */
+  const processProducts = useMemo(() => {
+    const rows = localProducts.map(product => ({ ...product, engine: 'local' }));
+    if (digitalHuman?.productId) {
+      rows.push({
+        id: digitalHuman.productId,
+        label: digitalHuman.label || '数字人',
+        description: '',
+        limitations: '',
+        durations: { ...(digitalHuman.durations || {}) },
+        resolutions: [],
+        modes: Array.isArray(digitalHuman.modes) ? [...digitalHuman.modes] : [],
+        localSpec: { ...(digitalHuman.localSpec || {}) },
+        billingQuantity: digitalHuman.billingQuantity,
+        quotes: digitalHuman.quotes,
+        engine: 'volc',
+        /* 要**驱动音频**那一档：产出长度与账都跟着音频走（服务端 localSpec.audio 同一判据） */
+        requiresAudio: digitalHuman.requiresAudio === true || digitalHuman.localSpec?.audio === true,
+      });
+    }
+    return rows;
+  }, [digitalHuman, localProducts]);
+  const processProduct = processPlan
+    ? processProducts.find(product => product.id === localPlan.productId) || null
     : null;
-  const localSpec = localProduct?.localSpec || {};
+  /* 本地方案的"子模式"：手动（本机 delogo）与自动（火山）是同一页的两条实现，
+     各自一个产品、各自一档价。选中的是哪条由这一页的「字幕标记方式」决定。
+     ⚠️ 这一段**必须**声明在下面的时长探针之前：探针要读"当前这条产品"的规格与时长上限
+        （自动档与手动档不是同一个产品），而 const 有暂时性死区。 */
+  const autoModeSelected = localEngine && String(markMode) === 'auto' && subtitleAutoReady;
+  const activeProcessProduct = autoModeSelected && subtitleAuto
+    ? {
+      id: subtitleAuto.productId,
+      label: subtitleAuto.label || '视频字幕去除 · 自动',
+      billingQuantity: subtitleAuto.billingQuantity,
+      quotes: subtitleAuto.quotes,
+      /* 规格 / 时长上限 / 建单模式一律取**服务端产品声明**（原来页面自己写死了一份镜像，见服务端注释） */
+      localSpec: subtitleAuto.localSpec || {},
+      durations: subtitleAuto.durations || {},
+      modes: Array.isArray(subtitleAuto.modes) ? subtitleAuto.modes : [],
+      engine: 'volc',
+      requiresAudio: false,
+    }
+    : processProduct;
+  const processSpec = activeProcessProduct?.localSpec || {};
+  /* 探针上限取**产品声明的最长时长**（页面不写死数字）：本机那两条 300 秒、数字人 1800 秒（30 分钟）。
+     它与服务端 durationAllowed 同一口径 —— 界面能读出来的秒数必须是服务端愿意收的秒数。 */
+  const processMaxSeconds = Number(activeProcessProduct?.durations?.max) > 0
+    ? Number(activeProcessProduct.durations.max)
+    : 300;
+  /* 这一档要不要**驱动音频**（数字人：产出长度与账都按音频秒数走，视频时长不参与） */
+  const processAudioSlot = processSpec.audio === true;
   /* 本机渲染组件（ffmpeg）在不在 —— 服务端实测过报（capabilities.localEngineReady）。
      缺了就如实说明 + 禁用，而不是让用户点了等一句"本机渲染组件未就绪"。 */
   const localEngineReady = capabilities.localEngineReady !== false;
@@ -536,39 +603,62 @@ export default function VideoStudioPage({
     key => (workbench?.blocks || []).some(block => block.bind === key),
     [workbench],
   );
-  /* 本地方案的源视频槽位：**从声明源派生**（哪个上传块的 accept 收视频），不在页面里写死 key */
-  const localSourceKey = useMemo(() => {
-    if (!localEngine) return '';
+  /* process 方案的槽位：**从声明源派生**（哪个上传块的 accept 收视频 / 收音频），不在页面里写死 key。
+     视频槽位：本地那两条与数字人都有（源视频 / 人物视频）；
+     音频槽位：只有要驱动音频的那一档有（数字人，见 processAudioSlot）。 */
+  const processSourceKey = useMemo(() => {
+    if (!processPlan) return '';
     const block = (workbench?.blocks || []).find(item => item.kind === 'upload' && String(item.accept || '').includes('video'));
     return block?.key || '';
-  }, [localEngine, workbench]);
+  }, [processPlan, workbench]);
+  const processAudioKey = useMemo(() => {
+    if (!processPlan || !processAudioSlot) return '';
+    const block = (workbench?.blocks || []).find(item => item.kind === 'upload' && String(item.accept || '').includes('audio'));
+    return block?.key || '';
+  }, [processPlan, processAudioSlot, workbench]);
   /* 槽位素材的种类**由声明决定**：原来一律按 image 上传 —— 视频槽位会被当成图片传上去
-     （服务端 415）。本地方案的两个上传位都是视频，所以这一条必须按块声明走。 */
+     （服务端 415）。这类方案的上传位按块声明走（视频传视频、音频传音频）。 */
   /* 去字幕页的「自动标记」：服务端说可用才放开（否则保持声明源里的 disabled + 原因） */
   const workbenchOptionOverrides = useMemo(() => (
     localEngine && subtitleAutoReady
       ? { 'markMode:auto': { disabled: false } }
       : {}
   ), [localEngine, subtitleAutoReady]);
-  const localSourceFile = localSourceKey ? (slotFiles[localSourceKey] || [])[0] || null : null;
-  const localSourceSeconds = Number(sourceSeconds) || 0;
+  const processSourceFile = processSourceKey ? (slotFiles[processSourceKey] || [])[0] || null : null;
+  const processAudioFile = processAudioKey ? (slotFiles[processAudioKey] || [])[0] || null : null;
+  const processSourceSeconds = Number(sourceSeconds) || 0;
+  const processAudioSeconds = Number(audioSeconds) || 0;
+  /* 这一单的**计费数量取哪一档的秒数**：要驱动音频的方案（数字人）按**音频**秒数，其余按**源视频**秒数。
+     服务端 billableQuantity({ sku, seconds }) 与它同一口径 —— 两边不一致就是 409「费用确认不一致」。 */
+  const billingSeconds = processAudioSlot ? processAudioSeconds : processSourceSeconds;
   /* 源视频在本地的可播地址（对象 URL）：① 区域框选要在它上面拖框；② 时长探针读它的元数据。
      用对象 URL 而不是服务端地址：文件刚选进来就能用（不必等上传完），也不受签名地址过期影响。 */
   useEffect(() => {
-    if (!localEngine || !localSourceFile) {
+    if (!processPlan || !processSourceFile) {
       setSourcePreview('');
       return undefined;
     }
-    const url = URL.createObjectURL(localSourceFile);
+    const url = URL.createObjectURL(processSourceFile);
     setSourcePreview(url);
     return () => URL.revokeObjectURL(url);
-  }, [localEngine, localSourceFile]);
-  /* ═══ 源视频时长探针（本地方案的计费数量与渲染长度都要它）═══════════════════════════════════
-     去字幕按秒计费（0.04 积分/秒）⇒ 服务端**必须**拿到真实秒数（缺失直接 400，不猜、不默认）。
-     这里用 HTMLVideoElement 读元数据（与浏览器实际播放到的一致），向上取整到整秒：
-     不足一秒按一秒算 —— 与服务端 billableQuantity 同一口径（两处都取整，才不会 409）。 */
+  }, [processPlan, processSourceFile]);
+  /* 驱动音频在本地的可播地址 —— 它只为**时长探针**服务（这一档按音频秒数计费）。 */
   useEffect(() => {
-    if (!localEngine || !sourcePreview) {
+    if (!processAudioSlot || !processAudioFile) {
+      setAudioPreview('');
+      return undefined;
+    }
+    const url = URL.createObjectURL(processAudioFile);
+    setAudioPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [processAudioSlot, processAudioFile]);
+  /* ═══ 源视频时长探针（按秒计费的档位与渲染长度都要它）════════════════════════════════════════
+     按秒计费 ⇒ 服务端**必须**拿到真实秒数（缺失直接 400，不猜、不默认）。
+     这里用 HTMLVideoElement 读元数据（与浏览器实际播放到的一致），向上取整到整秒：
+     不足一秒按一秒算 —— 与服务端 billableQuantity 同一口径（两处都取整，才不会 409）。
+     上限取产品声明的时长上限（processMaxSeconds），不在页面里写死。 */
+  useEffect(() => {
+    if (!processPlan || !sourcePreview) {
       setSourceSeconds(0);
       return undefined;
     }
@@ -579,7 +669,7 @@ export default function VideoStudioPage({
     const onLoaded = () => {
       if (cancelled) return;
       const value = Number(probe.duration);
-      setSourceSeconds(Number.isFinite(value) && value > 0 ? Math.min(300, Math.ceil(value)) : 0);
+      setSourceSeconds(Number.isFinite(value) && value > 0 ? Math.min(processMaxSeconds, Math.ceil(value)) : 0);
     };
     probe.addEventListener('loadedmetadata', onLoaded);
     probe.src = sourcePreview;
@@ -588,33 +678,47 @@ export default function VideoStudioPage({
       probe.removeEventListener('loadedmetadata', onLoaded);
       probe.removeAttribute('src');
     };
-  }, [localEngine, sourcePreview]);
-  /* 本地方案的"子模式"：手动（本机 delarea）与自动（火山）是同一页的两条实现，
-     各自一个产品、各自一档价。选中的是哪条由这一页的「字幕标记方式」决定。 */
-  const autoModeSelected = localEngine && String(markMode) === 'auto' && subtitleAutoReady;
-  const activeProcessProduct = autoModeSelected
-    ? {
-      id: subtitleAuto.productId,
-      billingQuantity: subtitleAuto.billingQuantity,
-      quotes: subtitleAuto.quotes,
-      localSpec: { resolution: false, fps: false, regions: false, auto: true },
-      engine: 'volc',
+  }, [processPlan, processMaxSeconds, sourcePreview]);
+  /* ═══ 驱动音频的时长探针（2026-09-26 批 AZ · 数字人）══════════════════════════════════════════
+     这一档**按音频秒数**计费（0.12 积分/秒），产出长度也由音频决定（enable_video_loop 固定 true）——
+     分钟数只有从音频读得出来：拿视频时长去报，用户就会"按 8 秒的片子收到 30 秒的账"
+     （或反过来少收）。所以与源视频探针同一套做法（HTMLAudioElement 读元数据 + 向上取整），
+     只是元素与上限换成音频这一档的（上限取产品声明的 1800 秒 = 30 分钟）。 */
+  useEffect(() => {
+    if (!processAudioSlot || !audioPreview) {
+      setAudioSeconds(0);
+      return undefined;
     }
-    : (localProduct ? { ...localProduct, engine: 'local' } : null);
+    let cancelled = false;
+    const probe = document.createElement('audio');
+    probe.preload = 'metadata';
+    const onLoaded = () => {
+      if (cancelled) return;
+      const value = Number(probe.duration);
+      setAudioSeconds(Number.isFinite(value) && value > 0 ? Math.min(processMaxSeconds, Math.ceil(value)) : 0);
+    };
+    probe.addEventListener('loadedmetadata', onLoaded);
+    probe.src = audioPreview;
+    return () => {
+      cancelled = true;
+      probe.removeEventListener('loadedmetadata', onLoaded);
+      probe.removeAttribute('src');
+    };
+  }, [processAudioSlot, processMaxSeconds, audioPreview]);
   const selectedQuote = useMemo(() => {
-    /* 本地方案不走上游那套产品契约（它没有 durationOptions 白名单），报价另算：
-       quantity 可能是秒数（去字幕 0.04 积分/秒），见 videoStudioModel 的 localQuoteFor。 */
-    if (localEngine) return activeProcessProduct ? localQuoteFor(activeProcessProduct, localSourceSeconds) : null;
+    /* process 方案不走上游那套产品契约（它没有 durationOptions 白名单），报价另算：
+       quantity 可能是秒数（去字幕 0.04 积分/秒、数字人 0.12 积分/秒），见 videoStudioModel 的 localQuoteFor。 */
+    if (processPlan) return activeProcessProduct ? localQuoteFor(activeProcessProduct, billingSeconds) : null;
     if (!selectedProduct) return null;
     try {
       return quoteForVideoProduct(selectedProduct, duration);
     } catch {
       return null;
     }
-  }, [activeProcessProduct, duration, localEngine, localSourceSeconds, selectedProduct]);
+  }, [activeProcessProduct, billingSeconds, duration, processPlan, selectedProduct]);
   const sku = selectedQuote?.sku || '';
-  const estimatedPoints = localEngine
-    ? localJobPoints(activeProcessProduct, localSourceSeconds)
+  const estimatedPoints = processPlan
+    ? localJobPoints(activeProcessProduct, billingSeconds)
     : Math.ceil(Number(quote?.totalUnits ?? selectedQuote?.units ?? 0) / 1000);
   /* ═══ 2026-09-16 用户批注（图2-② / 图3-①，已问到第三次）═══
      原话：「现在不是已经有预设了一套方案在这里吗？为什么你的积分还是一积分呢？这个问题你怎么还是
@@ -624,11 +728,23 @@ export default function VideoStudioPage({
        · 未确认方案 → 按钮「分析并生成方案」，积分 = 1 + 成片预估（这一档就会随模型/时长变）；
        · 已确认方案 → 按钮「开始生成」，积分 = 成片预估（服务端报价，唯一事实源）。
      ⚠️ 拆分说明放 title，按钮上只留一个总数 —— 用户要的是「我这一下要花多少」。
-     ⚠️ 批 AM：本地方案**没有**"方案分析"这一步（1 积分）—— 它的"方案"就是渲染清单，
-        不存在模型侧的口味问题，收那 1 积分等于凭空多收钱。所以总价 = 成片报价本身。 */
-  const totalJobPoints = localEngine
+     ⚠️ 批 AM：process 方案**没有**"方案分析"这一步（1 积分）—— 它的"方案"就是产品声明的那件事
+        （擦字幕 / 提分辨率 / 口型对齐），不存在模型侧的口味问题，收那 1 积分等于凭空多收钱。
+        所以总价 = 成片报价本身。 */
+  const totalJobPoints = processPlan
     ? estimatedPoints
     : (estimatedPoints > 0 ? estimatedPoints + ANALYSIS_POINTS : 0);
+  /* process 方案按钮上的**价目说明**（悬停才看到的那句）：价从**产品目录**取，页面不写死数字 ——
+     写死就会在下一档产品上线时显示成别人的价（数字人 0.12 积分/秒、按**配音**秒数算，
+     与"去字幕 0.04 积分/秒、按视频秒数算"不是同一件事）。 */
+  const processPriceHint = (() => {
+    const unit = Number(activeProcessProduct?.quotes?.short?.units);
+    if (!Number.isFinite(unit) || unit <= 0) return '按本单报价计费';
+    const points = (unit / 1000).toFixed(2);
+    return activeProcessProduct?.billingQuantity === 'seconds'
+      ? `按${processAudioSlot ? '配音' : '源视频'}时长计费：${points} 积分/秒`
+      : `按条计费：${points} 积分/条`;
+  })();
   const videoPlan = useMemo(() => buildVideoPlan({
     mode,
     prompt,
@@ -747,27 +863,30 @@ export default function VideoStudioPage({
     setQuote(null);
     setQuoteError('');
     if (!sku) return () => { active = false; };
-    /* ═══ 批 AM：份数一律由**服务端**定 ═══════════════════════════════════════════════════════
-       去字幕按秒计价（0.04 积分/秒），份数 = 视频整秒数 —— 这个数只有服务端能算
-       （它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）。
-       所以这里只报"这条片子多少秒"这个**事实**，不报份数、更不报金额：
+    /* ═══ 批 AM / 批 AZ：份数一律由**服务端**定 ═══════════════════════════════════════════════
+       按秒计价的档（去字幕 0.04 积分/秒、数字人 0.12 积分/秒）份数 = 整秒数，
+       而这个秒数取哪一档由产品声明决定（数字人取**配音**秒数，见 billingSeconds）——
+       只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）。
+       所以这里只报"这条片子/这段配音多少秒"这个**事实**，不报份数、更不报金额：
        按条的 SKU 仍然 quantity=1（客户端传的 seconds 会被忽略）。
        ⚠️ 这是 pricing-single-source 门禁要的方向：前端不得把"算出来的份数/金额"发给服务端。 */
-    quoteBillingAction(localEngine
-      ? { sku, seconds: localSourceSeconds || 1 }
+    quoteBillingAction(processPlan
+      ? { sku, seconds: billingSeconds || 1 }
       : { sku, quantity: 1 })
       .then(result => { if (active) setQuote(result.quote); })
       .catch(() => { if (active) setQuoteError('费用确认暂时不可用'); });
     return () => { active = false; };
-  }, [localEngine, localSourceSeconds, sku]);
+  }, [billingSeconds, processPlan, sku]);
 
-  /* 源视频换了（或时长读出来了）⇒ 之前的报价作废重报：按秒计价时"秒数变了价就变了"。
+  /* 源视频/配音换了（或时长读出来了）⇒ 之前的报价作废重报：按秒计价时"秒数变了价就变了"。
      依赖里带 selectedQuote?.quantity 就够了（它就是秒数），不必再盯 sourceSeconds。 */
 
   useEffect(() => {
-    /* 本地方案不套上游那套产品契约（时长白名单 / 清晰度档位 / 创作模式），
-       它的规格由页面自己的控件与源视频决定 —— 见 localPlan 那一段的说明。 */
-    if (localEngine) return;
+    /* process 方案不套上游那套产品契约（时长白名单 / 清晰度档位 / 创作模式），
+       它的规格由页面自己的控件与源文件决定 —— 见 localPlan 那一段的说明。
+       ⚠️ 这条判据必须按 **processPlan** 而不是 localEngine：数字人那一页若被上游契约接管，
+          时长会被 snap 到默认模型的档位（5/10/15 秒），而它的账本来就不看这个数。 */
+    if (processPlan) return;
     if (!selectedProduct) return;
     setDuration(current => snapVideoDuration(selectedProduct, current));
     if (!selectedProduct.resolutions?.includes(resolution)) {
@@ -780,14 +899,16 @@ export default function VideoStudioPage({
   /* ═══ 本地方案的**默认规格**（照 plan.defaults 落一次）══════════════════════════════════════
      为什么要有这一步：上游那条路是靠"选产品"把默认值带出来的（选哪条模型反推出分辨率/时长）；
      本地方案没有模型可选，默认值只能来自方案声明（docs/design/69 的 `defaults`：
-     「规格由方案定，不由用户逐页调」）。只在进入有本地方案的那一页时落一次。 */
+     「规格由方案定，不由用户逐页调」）。只在进入有本地方案的那一页时落一次。
+     ⚠️ 只对本机那两条有意义（数字人的 defaults 是空的、规格三项全 false），所以这条**保持**
+        按 localEngine 判 —— 它不是"process 产品的通用行为"，而是"本地方案的规格落默认"。 */
   useEffect(() => {
-    if (!localEngine || !localProduct) return;
+    if (!localEngine || !processProduct) return;
     const defaults = localPlan?.defaults || {};
-    if (localSpec.resolution && defaults.resolution) setResolution(String(defaults.resolution));
-    setOutputFps(localSpec.fps ? (Number(defaults.fps) || 30) : null);
+    if (processSpec.resolution && defaults.resolution) setResolution(String(defaults.resolution));
+    setOutputFps(processSpec.fps ? (Number(defaults.fps) || 30) : null);
     setMarkMode(String(defaults.markMode || 'manual'));
-  }, [localEngine, localPlan, localProduct, localSpec.fps, localSpec.resolution]);
+  }, [localEngine, localPlan, processProduct, processSpec.fps, processSpec.resolution]);
 
   useEffect(() => {
     const sync = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -1127,60 +1248,80 @@ export default function VideoStudioPage({
     }
   }
 
-  /* ═══ 本地方案的提交（2026-09-25 批 AM）═══════════════════════════════════════════════════════
-     与上游那条路**不是同一份报文**：本地方案要的是「一条源视频 + 规格（分辨率/帧率）或区域」，
-     没有提示词、没有比例、没有拍摄方案（服务端对 localEngine 走 validateLocalPlanInput）。
-     三条与上游不同的地方，逐条都有理由：
-       ① `mode: 'local'` —— 服务端按产品声明认这一档（`modes: ['local']`）；
-       ② `duration` = **源视频整秒数**（探针读出来的）：它是计费数量（去字幕按秒）与渲染长度，
-          也是服务端建单前的必填校验项 —— 缺失会被拒（不猜、不默认）；
+  /* ═══ process 方案的提交（2026-09-25 批 AM；2026-09-26 批 AZ 推广到上游执行那一档）════════════
+     与上游"生成"那条路**不是同一份报文**：这类方案要的是「一条源视频（数字人还要一段驱动音频）
+     + 规格（分辨率/帧率）或区域」，没有提示词、没有比例、没有拍摄方案
+     （服务端对 process 产品走 validateLocalPlanInput）。几处与上游不同的地方，逐条都有理由：
+       ① `mode` —— 从**产品声明的 modes** 取（本机那两条 = 'local'，数字人 = 'process'）；
+          服务端也是按产品声明认这一档，页面不自己发明第三种写法。
+       ② `duration` = **计费数量的那一档秒数**（billingSeconds）：本机两条取源视频整秒数（渲染长度
+          也是它），数字人取**配音**整秒数（成片长度由音频决定，视频时长与账无关）。
+          它同时是服务端建单前的必填校验项 —— 缺失会被拒（不猜、不默认）。
        ③ `localSpecs` = { fps, regions } —— 分辨率与时长已有列，这两样只属于本地方案。
-     ⚠️ 幂等键把规格与区域也算进去：改了分辨率或重框了区域就是**另一次处理**（与上游同一条纪律）。 */
-  async function submitLocalJob() {
+       ④ 数字人还多**一段驱动音频**：上传与 references.audios 都要带上（服务端缺音频直接 400，
+          而且是在冻结积分之前 —— 用户补个文件就能过）。
+     ⚠️ 幂等键把两种素材的 id、规格与区域都算进去：换了配音、改了分辨率或重框了区域
+        就是**另一次处理**（与上游同一条纪律）。 */
+  async function submitProcessJob() {
     if (!activeProcessProduct) {
       setError('该功能暂时不可用，请稍后再试');
       return;
     }
-    if (!localSourceFile) {
-      setError('请先上传要处理的视频');
+    if (!processSourceFile) {
+      setError(processAudioSlot ? '请先上传人物视频' : '请先上传要处理的视频');
       return;
     }
-    if (!localSourceSeconds) {
-      setError('还没读出这条视频的时长，请稍候或重新选择文件');
+    if (processAudioSlot && !processAudioFile) {
+      setError('请先上传驱动配音');
       return;
     }
-    if (activeProcessProduct.localSpec?.regions && !regions.length) {
+    if (!billingSeconds) {
+      setError(processAudioSlot
+        ? '还没读出这段配音的时长，请稍候或重新选择文件'
+        : '还没读出这条视频的时长，请稍候或重新选择文件');
+      return;
+    }
+    if (processSpec.regions && !regions.length) {
       setError('请先在视频上框选要擦除的字幕区域');
       return;
     }
     setError('');
     setSubmitting(true);
     try {
-      const [source] = await uploadFiles([localSourceFile], 'video');
-      if (!source?.id) throw new Error('源视频上传失败，请重试');
+      const [source] = await uploadFiles([processSourceFile], 'video');
+      if (!source?.id) throw new Error(processAudioSlot ? '人物视频上传失败，请重试' : '源视频上传失败，请重试');
+      const [audio] = processAudioSlot ? await uploadFiles([processAudioFile], 'audio') : [];
+      if (processAudioSlot && !audio?.id) throw new Error('驱动配音上传失败，请重试');
       const idempotencyKey = stableCanvasActionId([
-        'video-local-job',
+        'video-process-job',
         activeProcessProduct.id,
         source.id,
+        audio?.id || '',
         resolution,
-        activeProcessProduct.localSpec?.fps ? String(outputFps || '') : '',
-        activeProcessProduct.localSpec?.regions ? JSON.stringify(regions) : '',
-        String(localSourceSeconds),
+        processSpec.fps ? String(outputFps || '') : '',
+        processSpec.regions ? JSON.stringify(regions) : '',
+        String(billingSeconds),
       ].join('\u0000'));
       const result = await createVideoJob({
         productId: activeProcessProduct.id,
-        mode: 'local',
-        duration: localSourceSeconds,
+        /* 建单模式取产品声明（本机 = 'local'，火山 = 'process'）：服务端两边都认，但请求里
+           写的一定要是这条产品真正的模式，否则报文本身就在说假话。 */
+        mode: activeProcessProduct.modes?.[0] || 'local',
+        duration: billingSeconds,
         resolution,
-        /* 本地方案不裁比例、不用提示词：服务端也是这么收的（空串是"这一栏不适用"的明确写法） */
+        /* process 方案不裁比例、不用提示词：服务端也是这么收的（空串是"这一栏不适用"的明确写法） */
         aspectRatio: '',
         generateAudio: false,
         billingQuoteId: quote.quoteId,
         localSpecs: {
-          fps: activeProcessProduct.localSpec?.fps ? outputFps : null,
-          regions: activeProcessProduct.localSpec?.regions ? regions : [],
+          fps: processSpec.fps ? outputFps : null,
+          regions: processSpec.regions ? regions : [],
         },
-        references: { videos: [source.id], urls: { [source.id]: source.url } },
+        references: {
+          videos: [source.id],
+          audios: audio?.id ? [audio.id] : [],
+          urls: { [source.id]: source.url, ...(audio?.id ? { [audio.id]: audio.url } : {}) },
+        },
       }, idempotencyKey);
       recordCreatedJob(result);
     } catch (generationError) {
@@ -1208,9 +1349,9 @@ export default function VideoStudioPage({
 
   async function handleGenerate() {
     if (submitting || !quote?.quoteId) return;
-    /* 本地方案：报价到手就能跑（没有"先出方案、确认后再生成"那一步）。 */
-    if (localEngine) {
-      await submitLocalJob();
+    /* process 方案：报价到手就能跑（没有"先出方案、确认后再生成"那一步）。 */
+    if (processPlan) {
+      await submitProcessJob();
       return;
     }
     if (!planReviewed || !effectivePlan.ready || !activeAnalysis || analyzedSignature !== planSignature) return;
@@ -1293,21 +1434,24 @@ export default function VideoStudioPage({
     .reduce((sum, key) => sum + (Array.isArray(files?.[key]) ? files[key].length : 0), 0);
   const hasAnyInput = uploadedFileCount > 0 || Boolean(String(prompt || '').trim());
   const canAnalyze = capabilities.generationEnabled && selectedProduct && hasAnyInput;
-  /* 本地方案的可生成判据（与上游不同，见 submitLocalJob 的说明）：
-     报价到手 + 源视频在 + 时长读出来了 + （要区域的那一档）区域框好了 + 本机渲染组件在。
-     上游那条一字未动。 */
-  const localReady = localEngine
+  /* process 方案的可生成判据（与上游不同，见 submitProcessJob 的说明）：
+     报价到手 + 该有的素材都在（数字人还要驱动配音）+ 计费那一档的秒数读出来了
+     + （要区域的那一档）区域框好了 + **本机执行**才要求本机渲染组件在。
+     ⚠️ 上游执行那一档（数字人）不走 ffmpeg：本机渲染组件在不在与它无关，
+        所以这里按"谁执行"判，而不是一律要求 localEngineReady。 */
+  const processReady = processPlan
     ? Boolean(
-      activeProcessProduct && quote?.quoteId && localSourceFile && localSourceSeconds
-      /* 本机执行才需要 ffmpeg；自动档（火山）不需要本机渲染组件 */
-      && (autoModeSelected || localEngineReady)
-      && (!activeProcessProduct.localSpec?.regions || regions.length),
+      activeProcessProduct && quote?.quoteId && processSourceFile
+      && (!processAudioSlot || processAudioFile)
+      && billingSeconds
+      && (!localEngine || autoModeSelected || localEngineReady)
+      && (!processSpec.regions || regions.length),
     )
     : false;
   const canGenerate = processPlanBlocked
     ? false
-    : (localEngine
-      ? localReady && !submitting
+    : (processPlan
+      ? processReady && !submitting
       : (capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning));
 
   const openVideoPlan = async () => {
@@ -1766,8 +1910,8 @@ export default function VideoStudioPage({
           slots={slotFiles}
           onSlotFiles={updateSlotFiles}
           /* 批 AM：槽位里已选素材的可播地址（区域框选要拿它当画布）——
-             key 是块 key，只有本地方案那条视频会用上 */
-          slotPreviews={localSourceKey ? { [localSourceKey]: sourcePreview } : {}}
+             key 是块 key，只有 process 方案那条视频槽位会用上 */
+          slotPreviews={processSourceKey ? { [processSourceKey]: sourcePreview } : {}}
           regions={regions}
           onRegionsChange={next => { setPlanReviewed(false); setRegions(next); }}
           blockValues={blockTexts}
@@ -1897,19 +2041,28 @@ export default function VideoStudioPage({
           />
           {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
           {error && <div className="video-error">{error}</div>}
-          {/* ═══ 批 AM：本地方案的两句"实话"（照"不许放点了必失败的东西"那条铁律）══════════════
+          {/* ═══ 批 AM：process 方案的两句"实话"（照"不许放点了必失败的东西"那条铁律）══════════════
               ① 本机渲染组件不在（服务端实测报的 localEngineReady=false）⇒ 说明 + 按钮禁用；
-              ② 源视频时长还没读出来 ⇒ 说明为什么按钮还不能点（按秒计费要用它）。
+              ② 计费那一档的秒数还没读出来 ⇒ 说明为什么按钮还不能点（按秒计费要用它）。
+                 数字人那档读的是**配音**的秒数，所以文案跟着那一档走（不说"视频时长"）。
               两句都不是安慰话，是**当前真实状态**，所以都带得出"下一步做什么"。 */}
           {localEngine && !localEngineReady && (
             <div className="video-error">本机渲染组件未就绪，该功能暂时不可用；已上传的素材不会计费。</div>
           )}
-          {localEngine && localEngineReady && localSourceFile && !localSourceSeconds && (
-            <div className="video-error">正在读取视频时长…（按秒计费的档位需要先读到时长）</div>
+          {processPlan && !processPlanBlocked
+            && (!localEngine || autoModeSelected || localEngineReady)
+            && (processAudioSlot ? processAudioFile : processSourceFile) && !billingSeconds && (
+            <div className="video-error">
+              {processAudioSlot
+                ? '正在读取配音时长…（这一档按配音秒数计费，需要先读到时长）'
+                : '正在读取视频时长…（按秒计费的档位需要先读到时长）'}
+            </div>
           )}
-          {!capabilities.loading && !capabilities.generationEnabled && !localEngine && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
-          {/* 批 AU：上游处理的方案页（数字人）还没接通 —— 原因取自服务端只读状态，不写死文案 */}
-          {processPlanBlocked && (
+          {!capabilities.loading && !capabilities.generationEnabled && !processPlan && <div className="video-error">视频生成功能尚未开放，当前不会扣除积分。</div>}
+          {/* 批 AU：上游处理的方案页（数字人）—— 服务端说还不可用时如实说明原因（不写死文案）。
+              ⚠️ 批 AZ：加 `!capabilities.loading` —— 能力位还没回来时 available 不是 false 而是"还不知道"，
+                 那一刻写"还在施工/不可用"就是对用户说假话（这一页本来就用不了，按钮也还点不动）。 */}
+          {processPlanBlocked && !capabilities.loading && (
             <div className="video-error">{processPlanBlockedReason}</div>
           )}
         </div>
@@ -1975,7 +2128,7 @@ export default function VideoStudioPage({
                  比例不裁、时长由源片决定、Seed 也没有模型可播种；知渔那两页同样没有这一栏
                  （他们有「视频设置」，即本页那两组字段）。上游页面一字未动。 */
               .filter(item => item.key !== 'skills' && item.key !== 'shot'
-                && !(localEngine && item.key === 'settings'))
+                && !(processPlan && item.key === 'settings'))
               .map(item => {
               const Icon = item.icon;
               const isOpen = activePanel === item.key;
@@ -1998,19 +2151,19 @@ export default function VideoStudioPage({
              ② 积分必须跟随配置实时变化（estimatedPoints 来自服务端报价，方案分析另计 1 积分）；
              ③ 按钮排版与文案一并规范化（未确认方案 = 分析并生成方案；已确认 = 开始生成）。 */}
           {/* 9-12 用户批注：面板里已经选过的配置不用在按钮旁再写一遍 → 去掉这行摘要，信息只留在各面板与按钮积分上 */}
-          {/* ═══ 批 AM：本地方案**没有"分析并生成方案"那一步**（不再收那 1 积分）══════════════
-              它的"方案"就是渲染清单（分辨率/帧率/区域），没有模型侧的口味要确认，
-              所以直接给「开始生成」，价格 = 这一单的报价本身。上游那条路的两次点击一字未动。 */}
-          {localEngine ? (
+          {/* ═══ 批 AM：process 方案（本机执行 + 上游执行）**没有"分析并生成方案"那一步**（不收那 1 积分）
+              它的"方案"就是产品声明的那件事（擦字幕 / 提分辨率 / 口型对齐），没有模型侧的口味要确认，
+              所以直接给「开始生成」，价格 = 这一单的报价本身。上游"生成"那条路的两次点击一字未动。
+              ⚠️ 批 AZ：按钮上的价目说明也从**产品目录**派生（原来写死 0.04/0.50 两个数字）——
+                 数字人那一档是 0.12 积分/秒、按**配音**秒数算，写死就会显示成别人的价。 */}
+          {processPlan ? (
             <div className="video-submit-row"><div className="video-submit-actions">
               <button
                 type="button"
                 className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`}
                 disabled={!canGenerate}
                 onClick={handleGenerate}
-                title={localSpec.regions
-                  ? '按源视频时长计费：0.04 积分/秒'
-                  : '按条计费：0.50 积分/条'}
+                title={processPriceHint}
               >
                 {quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />
                 {submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}
