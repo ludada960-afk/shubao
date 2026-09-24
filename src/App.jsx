@@ -108,7 +108,12 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
               标题照旧真居中。 */}
           <span className="topbar-subpage-lead">
             <span className="topbar-brand is-compact-mark" aria-hidden="true">
-              <img className="topbar-brand-lockup" src={IMAGES.wordmark} alt="" />
+              <img className="topbar-brand-mark" src={IMAGES.brandMark} alt="" width="24" height="24" />
+              <span className="topbar-logo">
+                <span className="topbar-logo-name">薯包</span>
+                <i className="topbar-logo-rule" aria-hidden="true" />
+                <em className="topbar-logo-ai">AI</em>
+              </span>
             </span>
             <button
               type="button"
@@ -137,18 +142,29 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
             几个没有经过任何修饰的这种简单的字上去而已……你现在的情况就是有了图标，但是你的
             **薯包 AI 这几个字太过于简单了**，而且他们之间也**没有什么交互感**。你应该自己去想办法
             把他们做一个升级和处理呀。」
-            ═══ 2026-09-24 批 BC：**换成设计好的字标资产**（用户：「LOGO 和文字还是做得不好，
-            这块还是要重做，你深度学习一下这方面的知识呀」）══════════════════════════════════════
-            批 BB 那版是在**用字体拼商标**（调字号/字距/渐变）—— 用户看完仍然说不行，这是对的：
-            字体拼不出字标。"薯包"这两个字的字形本身就该是品牌资产的一部分（现在这份资产里
-            "包"字里还带一个表情），继续在 CSS 里调参数是方向错了。
-            调研结论（Linear / Vercel / Raycast / Stripe / 可灵 逐个读源码）：**导航里的品牌标
-            没有一个用 HTML 文本**，全都是单个 SVG/资产，把间距、基线、字距焊死在图里。
-            ⇒ 用 public/images/logo-wordmark.webp（吉祥物 + 定制字形，此前从未被引用过）。
-              它本来只在代码库里躺着，这一批第一次上线。文字内容由 alt 提供给读屏。 */}
+            ═══ 2026-09-24 批 BD：**推翻重做**（用户：「还是不对啊，你这个 LOGO 还不如之前的那个，
+            算了，你不如重新推翻重新设计吧」）══════════════════════════════════════════════════════
+            上一版（批 BC）换成现成资产：卡通吉祥物 + **红色手写字** —— 红色和全站紫色打架、卡通味重，
+            用户否掉。这一版拆成两件自己控制：
+              · mark = 自己合成的磁贴（去灰边、吉祥物占满、品牌内环，3x/2x 两份）；
+              · 字标 = 三层结构：**薯包（800 重墨）+ 1px 分隔线 + AI（拉丁小字、品牌紫、宽字距）**。
+                分隔线这一手来自调研（Linear 系的"竖线分隔"做法）：它把"AI"从"跟在名字后面的两个字母"
+                变成"一个独立标识"，而这正是"AI 像随手贴上去"最省事又不廉价的解法。 */}
         <button type="button" className="topbar-brand" aria-label="薯包 AI · 回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           style={{ cursor: 'pointer' }}>
-          <img className="topbar-brand-lockup" src={IMAGES.wordmark} alt="薯包 AI" />
+          <img
+            className="topbar-brand-mark"
+            src={IMAGES.brandMark}
+            srcSet={`${IMAGES.brandMark2x} 2x, ${IMAGES.brandMark} 3x`}
+            alt=""
+            width="30"
+            height="30"
+          />
+          <span className="topbar-logo">
+            <span className="topbar-logo-name">薯包</span>
+            <i className="topbar-logo-rule" aria-hidden="true" />
+            <em className="topbar-logo-ai">AI</em>
+          </span>
         </button>
         </>)}
 

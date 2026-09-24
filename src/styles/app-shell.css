@@ -96,61 +96,100 @@
   letter-spacing: 0.03em;
 }
 
-/* ═══ 2026-09-24 批 BC：**品牌标 = 一份设计好的字标资产**（用户：「LOGO 和文字还是做得不好，
-   这块还是要重做，你深度学习一下这方面的知识呀」）═══════════════════════════════════════════════
-   批 BB 那一版是在**用字体拼商标**：调字号、字距、渐变、徽记 —— 用户看完仍说不行，这是对的，
-   字体拼不出字标（"薯包"的字形本身就该是品牌资产的一部分）。调研逐条读过源码之后确认：
-   Linear / Vercel / Raycast / Stripe / 可灵 导航里的品牌标**没有一个用 HTML 文本**，
-   全是单个 SVG/资产 —— 间距、基线、字距都焊死在图里，永远不会因字体回落而走形。
-   ⇒ 改用 `public/images/logo-wordmark.webp`（吉祥物 + 定制字形，此前从未被任何页面引用）。
-
-   保留的规范（仍然照实测取值）：
-     · 整组高度 **30px**（顶级产品导航里的 lockup 集中在 22~30px：Vercel 18 / Linear 22 / Raycast 24）；
-     · 高度按整数取，宽度自适应（资产比例 ≈2.73），**不做等比拉伸**；
-     · 阴影只给"落地感"（`0 1px 2px`），不给彩色光晕（那是廉价感的来源之一）；
-     · 交互：一个锚点、一套时长（180ms / cubic-bezier(.2,0,.38,.9)），
-       hover 抬 1px + 放大 1.5%，按下 90ms 回弹；**只动 transform**（零重排、CLS=0）；
-     · 键盘 focus-visible 与 hover 同一套；`prefers-reduced-motion` 下全部归零；
-     · 窄屏只保留缩到 24px 的标（Raycast 实测就是这套"完整 lockup / 小标"互换）。 */
+/* ═══ 2026-09-24 批 BD：**品牌标推翻重做**（用户：「还是不对啊，你这个 LOGO 还不如之前的那个，
+   算了，你不如重新推翻重新设计吧」）═══════════════════════════════════════════════════════════════
+   三版走过三条路，教训写在最前面，免得下一个人再走：
+     ① 批 BB —— 用**字体拼商标**（调字号/字距/渐变/徽记）⇒ 用户："还是做得不好"；
+     ② 批 BC —— 换成公共目录里那份现成资产（卡通吉祥物 + **红色手写字**）⇒ 用户："还不如之前的那个"；
+        红色手写字与全站紫色语言打架、卡通味重，且 38px 时吉祥物喧宾夺主。
+     ③ 批 BD（本版）—— **拆成两件各自控制**：
+        · mark：脚本合成（`scripts/brand-mark-build.mjs`）—— 超椭圆圆角 32% + 吉祥物占满磁贴
+          + 1px 品牌内环，**去掉原图自带的灰色描边**（"贴纸感"的来源）；3x/2x 两份，6 倍余量不糊；
+        · 字标：三层结构 —— **薯包（800 重、近黑）+ 1px 竖分隔线 + AI（拉丁小字、品牌紫、宽字距）**。
+          分隔线这一手来自调研（Linear 系做法）：它把 "AI" 从"跟在名字后面的两个字母"变成
+          "一个独立标识" —— 这正是"AI 像随手贴上去"最省事又不廉价的解法。
+   规范仍按实测取值：mark 30 ↔ 字标 19（≈1.55，方块磁贴的合适比例）；汉字不做负字距；
+   拉丁走 Inter；不用灰（近黑 = --sb-ink-1）；交互 180ms / cubic-bezier(.2,0,.38,.9)，
+   只动 transform / color / box-shadow（零重排）。 */
 .topbar-brand {
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   width: auto;
   height: auto;
   /* 与顶栏左内边距对齐（不再为图标栏那 96px 让位：品牌标在顶栏第一格，图标栏从它下面开始） */
   margin-left: 0;
-  flex-direction: row;
   border-radius: 10px;
   --bb-brand-dur: 180ms;
   --bb-brand-ease: cubic-bezier(.2, 0, .38, .9);
 }
-.topbar-brand-lockup {
+.topbar-brand-mark {
   display: block;
-  /* ⚠️ 38px 而不是 30：这份资产里文字只占整组高度的 ~35%（吉祥物占大头），
-     30px 时字标只有 ~10px 高（比批 BB 那版 19px 的字还小，等于越改越小）。
-     38px ⇒ 字标 cap ≈ 13.3px，与 Linear（15.4）同一档，也与顶栏其它控件（36~40）同高。 */
-  height: 38px;
-  width: auto;
-  /* 资产自带白底与圆角：这里**不再套第二层白底/描边**（批 BB 那版就是"方块套方块"，
-     用户看到的"太随意"有很大一部分来自这层多余的框）。只留一条落地阴影。 */
-  filter: drop-shadow(0 1px 2px rgba(17, 24, 39, .08));
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  /* 磁贴的圆角与内环是脚本里画好的，这里只补一层落地阴影 —— 不再套第二层白底/描边 */
+  filter: drop-shadow(0 1px 2px rgba(17, 24, 39, .10));
   transition: transform var(--bb-brand-dur) var(--bb-brand-ease),
               filter var(--bb-brand-dur) var(--bb-brand-ease);
 }
-.topbar-brand:is(:hover, :focus-visible) .topbar-brand-lockup {
-  transform: translateY(-1px) scale(1.015);
-  filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .14));
+.topbar-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: "Inter", "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  font-optical-sizing: auto;
+  line-height: 1;
 }
-.topbar-brand:active .topbar-brand-lockup { transform: scale(.99); transition-duration: 90ms; }
+.topbar-logo-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: .01em;
+  color: var(--sb-ink-1);
+  margin-inline-start: -.05em;   /* 补偿汉字左侧字面留白（0.04~0.06em） */
+  transform: translateY(-.01em);
+  transition: color var(--bb-brand-dur) var(--bb-brand-ease);
+}
+/* 1px 竖分隔线：把「AI」与名字分开成两个标识 */
+.topbar-logo-rule {
+  width: 1px;
+  height: 12px;
+  flex: 0 0 1px;
+  border-radius: 1px;
+  background: rgba(28, 25, 23, .16);
+  transition: background-color var(--bb-brand-dur) var(--bb-brand-ease);
+}
+.topbar-logo-ai {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--sb-brand-700);    /* 白底 7.1:1；12px 小字必须过 4.5:1 */
+  transform: translateY(-.03em); /* 拉丁大写无降部：视觉中心偏高，回压一点 */
+  transition: color var(--bb-brand-dur) var(--bb-brand-ease);
+}
+.topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark {
+  transform: translateY(-1px) scale(1.045);
+  filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .16));
+}
+.topbar-brand:is(:hover, :focus-visible) .topbar-logo-name { color: #0B0B0F; }
+.topbar-brand:is(:hover, :focus-visible) .topbar-logo-rule { background: rgba(109, 40, 217, .42); }
+.topbar-brand:is(:hover, :focus-visible) .topbar-logo-ai { color: var(--sb-brand-600); }
+.topbar-brand:active .topbar-brand-mark { transform: scale(.985); transition-duration: 90ms; }
 .topbar-brand:focus-visible { outline: 2px solid var(--sb-brand-600); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) {
-  .topbar-brand-lockup { transition-duration: 0s; }
-  .topbar-brand:is(:hover, :focus-visible) .topbar-brand-lockup { transform: none; }
+  .topbar-brand-mark, .topbar-logo-name, .topbar-logo-rule, .topbar-logo-ai { transition-duration: 0s; }
+  .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark { transform: none; }
 }
 /* 子页面左格：品牌标缩小一号（与「返回 + 名称」同处第一格，栅格仍是三格） */
 .topbar-subpage-lead { display: inline-flex; align-items: center; gap: 14px; min-width: 0; }
-.topbar-brand.is-compact-mark { gap: 0; }
-.topbar-brand.is-compact-mark .topbar-brand-lockup { height: 26px; }
+.topbar-brand.is-compact-mark { gap: 7px; }
+.topbar-brand.is-compact-mark .topbar-brand-mark { width: 24px; height: 24px; flex: 0 0 24px; }
+.topbar-brand.is-compact-mark .topbar-logo-name { font-size: 15px; }
+.topbar-brand.is-compact-mark .topbar-logo-ai { font-size: 10px; }
+.topbar-brand.is-compact-mark .topbar-logo-rule { height: 10px; }
 
 .topbar-actions {
   display: flex;
@@ -772,12 +811,6 @@
   .app-side-nav-tooltip {
     display: none;
   }
-
-  /* 批 BC：窄屏品牌标取缩小版（只改高度、宽度自适应 ⇒ 比例不变形）。
-     ⚠️ 写在这条**既有的** 639px 块里面，不要再新起一条同宽度的 @media ——
-        `test/mobile-layout` 用 `/@media \(max-width: 639px\) \{([\s\S]*?)\n\}/` 切这一段，
-        多一条同宽度的媒体查询会把切片切错，那几条断言会一起红（实测踩过）。 */
-  .topbar-subpage-lead .topbar-brand-lockup { height: 24px; }
 }
 
 @keyframes creative-nav-drawer-in { from { opacity: .7; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
