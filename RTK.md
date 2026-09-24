@@ -7694,3 +7694,20 @@ CSS 有 `topbar-logo-ai`、`https://shuimg.cn/images/brand-mark-3x.png` 回 200�
 **还等用户拍板**（见 78 号 §九）：① 先手工跑 3 篇再定工作台，同不同意；② 签名规范取哪几条
 （这是"他的审美语言"，定了长期不变，必须他点头）；③ 栏目先开哪 2–3 个；
 ④ 第一个月是不是先做"季节母体"（5 个色簇里 4 个能被季节覆盖，启动成本最低）。
+
+### 补记（同日 02:57）：左导航**光晕层** —— 把用户图6-①那条「渐变细节没学到」也补上
+
+- 提交 `6e4ba798`（1 file，+21/−2）；`npm run test` 4080 项 0 fail；`npm run precommit` 通过。
+- `Deployed 6e4ba798 to https://shuimg.cn/`；release `20260925-025756-6e4ba798`，PM2 pid 3385886，
+  `/` 与 `/health` 200；线上样式换成 `style-B7Dm5jy3.css`（sha256 `946b54df…`，与 release 逐字节一致）。
+- 线上核到的原文：
+  ```
+  .app-sidebar-cell:hover{background-image:radial-gradient(42px 42px at 50% 24%,var(--sb-brand-a18),transparent 72%),linear-gradient(160deg,var(--sb-brand-a18),var(--sb-brand-a05));color:var(--sb-ink-1)}
+  ```
+- **为什么只加这一层**：把留影AI「12 宫格」的 8 个属性对着 `docs/design/54` 逐项实测（`.qa/bf-nav-liuying.mjs`，
+  真实 `mouse.move` 后再读计算样式，落档 `.tmp/bf-cfg/bf-nav-liuying.json`）：
+  磁贴渐变 135deg ✓ / 图标转白 ✓ / `scale(1.05)` ✓ / 标题变品牌色 ✓ / 充能条 `width 0→100%` 700ms ✓ /
+  默认磁贴白底 + 彩色图标 ✓ —— **只有"卡底光晕层"这一项改前没有**（我们原来只有一层斜向底色）。
+  序号变色与 256px 独立模糊层**不做**：导航项没有序号，也不为它多挂一层 DOM。
+- ⚠️ 这两次发版共用同一个入口 chunk（`index-Xi5z4QqH.js` 的 sha256 两次都一样）—— 改动全在 CSS 里，
+  所以**只看入口 js 的 hash 判断"发版有没有上去"会误判**；要一起看 `style-*.css` 的 hash。
