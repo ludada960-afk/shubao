@@ -13,6 +13,7 @@ import {
   Check,
   ChevronDown,
   Clapperboard,
+  Crop,
   FileAudio,
   ImagePlus,
   Loader2,
@@ -22,7 +23,9 @@ import {
   RefreshCw,
   Settings2,
   Maximize2,
+  MonitorPlay,
   Sparkles,
+  Timer,
   Trash2,
   Upload,
   Video,
@@ -30,6 +33,15 @@ import {
   X,
 } from 'lucide-react';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
+/* ═══ 2026-09-24 批 BB：面板里的「分组标题」改用**图片侧同一个实现**（用户批注，逐字）═════════════
+   原话：「你整体的样式和标题都要跟图片生成那边的**生成配置样式是一样的**。这个问题为什么那么难
+   解决呢？我都跟你提过无数次这个需求了。就是你现在视频生成和图片生成他们下面的模型选择和生成设置
+   他们的东西都是类似的。所以你整体的 UI 还有你的按钮的这些规则，还有面板的这些样式，**标题、图标、
+   规则这些东西都得是类似的**。你必须要统一他们的样式，交互 UI。」
+   ⇒ 视频侧原来自己写 `<strong>清晰度</strong>`（裸标题、无图标、13px），图片侧是
+     `PanelPrimitives.GroupTitle`（**带品牌色图标** + 13/700/近黑）。现在两边共用同一个组件，
+     这也是 `test/workbench-panel-ux-0915` 第 ⑮ 条要的方向（分组标题唯一实现、必须带图标）。 */
+import { GroupTitle } from '../Home/ec/PanelPrimitives.jsx';
 import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
 import '../../components/media/MediaAssetCard.css';
 /* 素材卡：**与图片侧同一份实现**（用户 9-18 批注 3：「视频素材改成三张对称卡片，
@@ -1621,7 +1633,9 @@ export default function VideoStudioPage({
   const toolbarSummary = {
     shot: `${ratio} · ${duration}秒`,
     sound: sound ? '生成声音' : '无声音',
-    settings: `${resolution.toUpperCase()} · Seed ${seed || '随机'}`,
+    /* 批 BB：「Seed 随机」从这颗按钮的摘要里去掉 —— 面板里那一格已经删了，
+       摘要再挂着它就等于"删了 UI、还留一句残留说明"（用户批注：「随机种子又是要干嘛的呢」）。 */
+    settings: `${resolution.toUpperCase()}`,
     /* 9-12 用户批注：技能选择的结果要显示在「技能库」这一项下面（生成设置里那份去掉） */
     skills: userSkills.length ? userSkills.map(skill => skill.name).join(' · ') : '未选技能',
   };
@@ -1755,7 +1769,7 @@ export default function VideoStudioPage({
           判据：工作台已经声明了 bind='resolution' 的块 ⇒ 这里不再画第二份（同一格两处渲染，
           改了这处那处还显示旧值）。 */}
       {specExposure.clarity && !pageOwnsField('resolution') && (
-      <div className="video-panel-section"><strong>清晰度</strong>
+      <div className="video-panel-section"><GroupTitle icon={MonitorPlay}>清晰度</GroupTitle>
         <div className="video-resolution-pills">
           {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}>{value.toUpperCase()}</button>)}
         </div>
@@ -1764,13 +1778,13 @@ export default function VideoStudioPage({
       {/* ═══ 批 Y：「镜头规格」那颗按钮已下线 ⇒ 画幅与时长**并进这一面板**（照知渔的「视频设置」）═══
           知渔的「视频设置」就是 分辨率 / 画面比例 / 视频时长 三组，我们原来把后两组拆在另一颗按钮里。 */}
       <>
-        <div className="video-panel-section"><strong>画面比例</strong>
+        <div className="video-panel-section"><GroupTitle icon={Crop}>画面比例</GroupTitle>
           <div className="video-ratio-cards">
             {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} aria-hidden="true" /><span>{value}</span></button>)}
           </div>
         </div>
         {specExposure.duration && (
-        <div className="video-panel-section"><strong>视频时长</strong>
+        <div className="video-panel-section"><GroupTitle icon={Timer}>视频时长</GroupTitle>
           <div className="video-duration-inline">
             <input className="video-duration-range" type="range" min={durationRange.min} max={durationRange.max} step={durationRange.step} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
             <input className="video-duration-number" type="number" min={durationRange.min} max={durationRange.max} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
@@ -1785,7 +1799,11 @@ export default function VideoStudioPage({
              只是页面上不再给这一格 —— 删的是一块用户判断为无意义的输入，不是抽掉一个链路。
           ⚠️ 知渔那两页也没有这一格（他们的负面约束写在各自模板的提示词里）。 */}
       {/* 9-12 用户批注：技能相关从生成设置里去掉 —— 已选技能显示在工具栏「技能库」上（见 toolbarSummary.skills） */}
-      <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
+      {/* ═══ 2026-09-24 批 BB：**「随机种子」整行删除**（用户改向，逐字）═══════════════════════════
+          原话：「然后就是下面这个**随机种子又是要干嘛的呢**？而且你还有一个**括号**在那里，
+          是要干嘛呢？」⇒ 这一格与那句说明（"填 0 表示随机生成"）一起下掉。
+          ⚠️ `seed` 这个**字段本身保留**（请求体里照旧下发，默认 0 = 随机）——删的是那一格 UI，
+             不是链路（与批 W 删「避免出现的内容」同一处理方式）。 */}
     </>;
     return null;
   };

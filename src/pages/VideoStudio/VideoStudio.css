@@ -200,10 +200,18 @@
 .video-media-guidance i { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-style: normal; }
 
 /* 输入区不再是"第二个框"：与图片侧一致 —— 透明、无边框、直接坐在同一个暖色面上 */
+/* ═══ 2026-09-24 批 BB：输入区与「@ 那一行」的**盒模型改成与图片侧同构**（用户批注 3，逐字）══════
+   原话：「你的提示词输入框的**起点**，还有你的 **@ 按钮和全屏按钮**……跟图片生成那边的这几块区域，
+   他们的做法是不太一样的。具体问题就是**它们跟周边的间距是不太一样的**。你必须要统一这个问题呀。」
+   实测对照（1600×1000，两侧暖色面同宽同起点）：
+     · 提示词文字的起点：图片侧 = 面 10 + 提示词自身 18 = **28px**；视频侧 = 面 10 + 外边距 22 + 2 = **34px**
+     · @ 按钮的左起点：  图片侧 = 面 10 + 行内边距 8 = **18px**；视频侧 = 面 10 + 外边距 22 = **32px**
+   ⇒ 不再靠"外边距凑数字"，直接照图片侧的盒模型来：输入区自身 margin 归零，
+     提示词那一格吃 `padding: 8px 18px`（= 28），`@` 行吃 `padding: 0 8px 2px`（= 18）。 */
 .video-composer-input {
   min-height: 150px;
-  margin: 0 22px;
-  padding: 10px 2px 12px;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   border: 0;
@@ -267,7 +275,11 @@
   align-items: flex-start;
   gap: 12px;
   min-height: 0;
-  padding: 4px 2px 10px;
+  /* ═══ 2026-09-24 批 BB：与图片侧 `.ec-xhs-media-strip`（8px 10px、gap 12）同一条 ══════════════
+     用户批注 3 原话：「你的提示词输入框的起点，还有你的 @ 按钮和全屏按钮……跟图片生成那边的
+     这几块区域，他们的做法是不太一样的。具体问题就是它们跟周边的间距是不太一样的。
+     你必须要统一这个问题呀。」⇒ 带子自己的内边距取图片侧那一档（8px 10px）。 */
+  padding: 8px 10px 10px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -280,8 +292,8 @@
 .video-material-strip .ec-xhs-upload-card,
 .video-material-strip .ec-xhs-upload-card:hover,
 .video-material-strip .ec-xhs-upload-card:focus-visible { transform: none; }
-/* 卡尺寸 = 图片侧那一档（86×108），且**不许被 flex 拉伸**：flex:0 0 auto。 */
-.video-material-strip .ec-xhs-upload-card { width: 86px; height: 108px; flex: 0 0 86px; }
+/* 卡尺寸 = 图片侧那一档（**104×132**，批 BB 两边一起放大），且**不许被 flex 拉伸**：flex:0 0 auto。 */
+.video-material-strip .ec-xhs-upload-card { width: 104px; height: 132px; flex: 0 0 104px; }
 .video-material-strip .ec-xhs-upload-card:hover,
 .video-material-strip .ec-xhs-upload-card:focus-visible { transform: translateY(-4px); }
 /* 三个 file input 不参与布局（放在卡片外面，避免 label + onClick 触发两次选择器） */
@@ -339,12 +351,30 @@
 .video-inline-menu.is-model button small { line-height: 1.4; white-space: normal; }
 .video-inline-menu p { margin: 0; padding: 12px 8px; color: #9a928a; font-size: 11px; }
 
-.video-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 22px 18px; }
-.video-toolbar-buttons { min-width: 0; display: flex; align-items: stretch; gap: 8px; }
+/* ═══ 2026-09-24 批 BB：底栏的盒模型**与图片侧逐值对齐**（用户批注 4，逐字）═════════════════════
+   原话：「下面的这两个配置面板的按钮和右边的生成按钮。他们周边的间距是**上面太挤，下面又太宽**了。
+   图片生成那边也有同样的问题，你两边要同步的去解决。」
+   实测（1600×1000，本地 dist）：改前 `.video-toolbar` 生效的是 `padding: 9px 22px 18px` ——
+   按钮上沿离栏顶 **9px**、下沿离栏底 **18px**（"上挤下宽"就是这两个数）；左内边距 22px
+   而图片侧是 2px（同一块区域两边差 20px）。
+   ⇒ 两边统一成：`padding: 12px 2px` + `align-items: center`，内容行高 = 最高那颗按钮（52）
+     ⇒ 上下各 12px（对称）、左右各 2px（与图片侧同一条线）。
+   ⚠️ 原来那条 `.video-composer:not(.is-workbench) > .video-toolbar` 是**死规则**：
+      工具栏在 DOM 里是 `.video-composer-card` 的子节点（外层的 `display: contents` 只影响布局、
+      不影响选择器），所以它从来没匹配上 —— 这里把那一份删掉，只留这一处定义。 */
+.video-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 76px;
+  padding: 12px 2px;
+}
+.video-toolbar-buttons { min-width: 0; display: flex; align-items: center; gap: 10px; }
 .video-config-trigger {
   min-width: 126px;
-  min-height: 50px;
-  padding: 7px 10px;
+  min-height: 52px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -381,8 +411,10 @@
    而这条规则用更高的选择器优先级把它盖掉了。现在只作用于**说明区**，不碰按钮内部任何 span。 */
 .video-submit-row > span,
 .video-submit-row > .video-submit-meta span { color: #928b84; font-size: 10px; white-space: nowrap; }
-.video-submit-actions { min-width: 0 !important; display: flex !important; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
-.video-submit-row button { min-height: 44px; padding: 0 18px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 8px; /* §18.3 M3 / 裁定 2：功能按钮禁止渐变，改品牌紫纯色（渐变只留 logo/hero/空态）。 */
+.video-submit-actions { min-width: 0 !important; display: flex !important; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; }
+/* 批 BB：主 CTA 高度/内边距**与图片侧那颗逐值相同**（38px / 0 22px / 圆角 12）——
+   原来是 44px / 0 18px / 圆角 8，于是同一块底栏上两边的按钮基线与留白都不一样。 */
+.video-submit-row button { min-height: 38px; padding: 0 22px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; /* §18.3 M3 / 裁定 2：功能按钮禁止渐变，改品牌紫纯色（渐变只留 logo/hero/空态）。 */
   background: var(--sb-btn-primary-bg); box-shadow: 0 8px 20px var(--sb-brand-a32); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
 .video-submit-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
 .video-submit-row button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 16px var(--sb-brand-a32); }
@@ -390,7 +422,7 @@
 /* 次按钮（分析并生成方案）：**中性**。原来用"紫→品红渐变描边 + 紫字"来区分主次，
    结果整页两颗按钮都是紫的（用户批注 #5-①：「为什么你这些按钮都是紫色的呢？整个页面一大堆紫色」）。
    现在的主次靠**实心 vs 描边**表达，不靠颜色：主 CTA 实心反色面，次按钮白底细描边 + 墨色字。 */
-.video-submit-row .video-plan-trigger { min-height: 44px; padding: 0 15px; border: 1px solid var(--sb-border-default); border-radius: 8px; background: var(--sb-surface-card); box-shadow: none; color: var(--sb-ink-1); font-size: 12px; }
+.video-submit-row .video-plan-trigger { min-height: 38px; padding: 0 22px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-card); box-shadow: none; color: var(--sb-ink-1); font-size: 12px; }
 .video-submit-row .video-plan-trigger:hover:not(:disabled), .video-submit-row .video-plan-trigger:focus-visible { background: linear-gradient(var(--sb-surface-tint-strong),var(--sb-surface-tint-strong)) padding-box, linear-gradient(135deg, var(--sb-ink-1), var(--sb-ink-1)) border-box; box-shadow: 0 6px 16px var(--sb-brand-a18); }
 .video-submit-row .video-generate-trigger.is-armed { box-shadow: 0 8px 20px var(--sb-brand-a32), 0 0 0 3px var(--sb-brand-a18); }
 .video-submit-row .video-generate-trigger.is-armed > svg:first-child { color: #ffe9c9; }
@@ -480,7 +512,8 @@
 /* 面板内边距：批 T 从 17/18/20 改成 **25 四周**（照知渔 dashboard 那张面板实测的 24.8）——
    它同时让「3 张 150 宽的比例卡 + 2 条 10 的缝 = 470」正好落在面板内宽里（521 − 2×25 = 471），
    两边的数是互相咬合的，改一个另一个就不成立。 */
-.video-config-panel-body { padding: 25px; }
+/* 面内边距与图片侧同档（24 上/下、20 左右 —— 见上面那段批注） */
+.video-config-panel-body { padding: 24px 20px; }
 
 .video-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .video-mode-grid button { min-height: 82px; padding: 13px; display: grid; align-content: center; gap: 6px; border: 1px solid rgba(64,55,48,.1); border-radius: 8px; background: #faf9f7; text-align: left; cursor: pointer; }
@@ -490,7 +523,11 @@
 .video-mode-grid small { color: #8e8780; font-size: 11px; line-height: 1.45; }
 
 .video-panel-section { display: grid; gap: 10px; }
-.video-panel-section + .video-panel-section { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(68,55,43,.08); }
+/* ═══ 2026-09-24 批 BB：分区间距与图片侧同一档（用户批注，逐字）═══════════════════════════════════
+   原话：「你整体的样式和标题都要跟图片生成那边的生成配置样式是一样的……很多像间距啊，大小啊，
+   样式啊，交互的动效啊，这些东西都完全不一样。」图片侧 `.visual-config-panel-body` 是
+   24/20 内边距 + 分区之间 `gap: 16`、**没有分割线**；视频侧原来是 25 四周 + 20/18 的分割线分组。 */
+.video-panel-section + .video-panel-section { margin-top: 16px; padding-top: 0; border-top: 0; }
 .video-panel-section > strong,.video-panel-section-title strong { font-size: 13px; }
 .video-panel-section-title { display: flex; align-items: center; justify-content: space-between; }
 .video-panel-section-title span { color: var(--sb-brand-600); font-size: 12px; font-weight: 800; }
@@ -794,13 +831,18 @@
    实测对照：图片侧的素材条自己还有一层内边距（`.ec-xhs-media-strip` 是 8px 10px），
    所以它的卡片离面边是 10 + 10 = **20px**；我们这边卡片直接吃面的 10px 内边距 —— 于是"贴边"。
    ⇒ 给素材区补同一层内边距（左右各 10），并把它的上边距收掉（向上挪）。 */
-.video-composer-surface .video-materials { padding: 0 10px; }
+/* 批 BB：素材区左右缩进取图片侧那一档（`.ec-xhs-media-column` 是 4px）——
+   实测：改前视频侧首卡左沿 310、图片侧 303，差的 7px 就是这一层多出来的外边距。 */
+.video-composer-surface .video-materials { padding: 0 4px; }
 .video-composer-surface .video-materials > header { margin-bottom: 0; }
 .video-composer-surface .video-composer-input { padding: 0; }
-/* 参数栏回到白底 + 上边框（与图片侧 .visual-parameter-bar 同一条语言：min-height 79 / 12px 2px 14px） */
-.video-composer:not(.is-workbench) > .video-toolbar {
-  min-height: 79px;
-  padding: 12px 22px 14px;
+/* 参数栏：白底 + 上边框（与图片侧 `.visual-parameter-bar` 同一条语言）。
+   ⚠️ 批 BB：这里原来写的是 `.video-composer:not(.is-workbench) > .video-toolbar` —— **从来没匹配上**
+      （工具栏在 DOM 里是 `.video-composer-card` 的子节点，`display: contents` 只影响布局不影响选择器），
+      于是生效的一直是下面第 9-12 行那条 `padding-top: 9px` —— 那就是"上面挤"的来源。
+      ⇒ 盒模型统一在 `.video-toolbar` 那一处定义（12px 2px / align center / min-height 76），
+        这里只保留"白底 + 上边框"这一件事。 */
+.video-composer-card > .video-toolbar {
   background: var(--sb-neutral-0);
   border-top: 1px solid rgba(28, 25, 23, .08);
 }
@@ -815,6 +857,15 @@
    底不再是一条通栏（去背景），只留按钮自己那一层白底 + 边框 + 阴影。
    选中态用品牌紫（全站"当前选中"的唯一语义），未选中是中性纸片。 */
 .video-mode-tabs {
+  /* ═══ 2026-09-24 批 BB：**补上 display: flex**（这是"两个按钮挤在一起"的真根因）═══════════════
+     用户批注 2 原话：「这两个按钮我都跟你说过了，你要把它们**再拉开一些**呀。
+     你现在这两个按钮他们是挤在一起的。我都搞不明白，为什么我给你传递的需求，你老是没有去完成他们呢？」
+     实测（1600×1000，本地 dist）：两颗页签的间隙是 **0px** —— 因为这一层是 `display: block`，
+     里面的 `gap: 20px` **对 block 布局根本不生效**（按钮是 inline-flex，靠内联排布贴在一起）。
+     批 AV 把 gap 从 14 提到 20 时没人量过渲染结果，所以那次改动是**空转**的。
+     ⇒ 补 `display: flex`（gap 这才真的生效），并按用户要求再放开一档到 **24px**。 */
+  display: flex;
+  flex-wrap: wrap;
   min-height: 0;
   align-items: center;
   justify-content: flex-start;
@@ -832,7 +883,7 @@
      同一次测量里图片侧的**第一块内容**（暖色面）离卡顶只有 **32px** —— 这就是"太大"的那 17px。
      ⇒ 页签的上边距按差额收掉（18 → 0，整排落到卡顶 +32 的那条线上），
        同时把两档之间的气口从 14 放到 **20**（批注 3 要的"呼吸感"）。 */
-  gap: 20px;
+  gap: 24px;
   margin-top: 0;
   padding: 0;
   border-radius: 0;
@@ -934,7 +985,8 @@
   width: 100%;
   min-height: 92px;
   margin: 0;
-  padding: 6px 2px;
+  /* 批 BB：8px 18px —— 与图片侧 `.ec-xhs-prompt textarea`（8px var(--ec-prompt-inline=18px)）逐值相同 */
+  padding: 8px 18px;
   overflow: auto;
   border: 0;
   border-radius: 0;
@@ -945,11 +997,9 @@
 .video-composer-input > .mention-prompt-field:focus { box-shadow: none; background: transparent; }
 .video-composer-input > .mention-prompt-field:empty::before { color: #b5aca2; }
 .video-prompt-mentions .mention-prompt-token { padding: 2px 6px; border-radius: 6px; color: #315fc7; background: #e8efff; }
-.video-toolbar {
-  align-items: flex-end;
-  padding-top: 9px;
-}
-.video-toolbar-controls { min-width: 0; display: flex; align-items: flex-end; gap: 8px; }
+/* 批 BB：这两条（`align-items: flex-end` + `padding-top: 9px`）就是"上面太挤"的来源，已删 ——
+   底栏的盒模型只在 `.video-toolbar` 那一处定义（上方，与图片侧逐值对齐）。 */
+.video-toolbar-controls { min-width: 0; display: flex; align-items: center; gap: 10px; }
 .video-toolbar-controls .video-quick-tools { flex: 0 0 auto; margin: 0; }
 .video-toolbar-controls .video-toolbar-buttons { flex-wrap: nowrap; }
 .video-submit-row { margin-left: auto; }
@@ -989,7 +1039,25 @@
   border-radius: 8px;
   background: var(--sb-surface-panel-solid);
   box-shadow: 0 28px 80px rgba(37, 30, 24, .18), 0 2px 10px rgba(37, 30, 24, .06);
-  overflow: visible;
+}
+/* ═══ 2026-09-24 批 BB：**模型下拉"乱码"的真根因**（用户批注，逐字）══════════════════════════════
+   原话：「你这个视频生成的配置面板的这个**模型选择这里完全是乱码的**。我都跟你说过要去解决啦，
+   你为什么没有解决呢？」
+   根因（把两套定义一起读才看得出来）：`max-height: min(58vh, 460px)` 写在上面 342 行那条里，
+   而**后面这一条**（本块）把 `overflow` 覆盖成 `visible` —— 两者都生效的结果是
+   **"限高但不可滚"**：模型有 12 档、行高 72，列表一超过 460px 就整排画到白底面板外面，
+   看上去就是文字互相压在一起的"乱码"。
+   ⇒ 拆开：配置面板要 `visible`（它的箭头要溢出面外），模型下拉要**自己滚**
+     （`overflow-y: auto` + `max-height`），这才是"限高"该有的样子。
+   ⚠️ 同时守住 `test/home-video-consistency-0921` 的既有判据：行内 token 与图片侧 `.sb-opt` 一致、
+     面板该滚时必须能滚。 */
+.video-config-panel { overflow: visible; }
+.video-inline-menu {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: min(58vh, 460px);
+  padding: 8px;
 }
 /* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
 .video-config-panel-body { max-height: inherit; overflow-y: auto; }
@@ -1082,7 +1150,8 @@
 .video-upload-status.is-completed { right: auto; left: 6px; bottom: 22px; min-width: 0; min-height: 0; width: 17px; height: 17px; padding: 0; justify-content: center; border-radius: 50%; background: rgba(25,126,87,.9); }
 
 /* 视频侧技能胶囊（2026-09-10） */
-.video-skill-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+/* 批 BB：@ 行吃 8px（= 面 10 + 8 = 18px，与图片侧 `.ec-workbench-mention-row` 同一行列） */
+.video-skill-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; padding: 0 8px 2px; }
 .video-skill-row .ec-skill-entry { margin-left: 0; }
 
 /* ═══ 融合控件（运镜 / 只改一个元素）2026-09-18 ═══════════════════════════════════

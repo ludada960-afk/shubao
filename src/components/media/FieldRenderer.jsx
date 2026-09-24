@@ -288,7 +288,15 @@ function UploadControl({ field, value, onChange, disabled }) {
 function SegmentedControl({ field, value, onChange, disabled }) {
   const options = Array.isArray(field.options) ? field.options : [];
   const limit = Math.max(1, Number(field.maxVisible ?? 6) || 6);
-  const collapsible = field.collapsible !== false && options.length > limit;
+  /* ═══ 2026-09-24 批 BB：**"更多"只藏着一档时不折**（用户改向，逐字）════════════════════════════
+     用户原话：「然后你这里的比例我实在是搞不明白，你点击**更多，为什么只有一个比例出来**呢？
+     更多，如果只有一个的话，那你为什么一定要有这个更多呢？你**不如就全部给他排版进来直接展示**
+     不就好了吗？」
+     诊断：比例那一格正好是 **7 档**（RATIO / RATIO_BARE），判据是"多于 6 档 → 折"，
+     于是"更多"点开只多出来一格 —— 用户要的是**一眼看全**，不是多一次点击。
+     ⇒ 只有"藏起来的档位 ≥ 2"才值得收折（`options.length > limit + 1`）；差一档就直铺。
+       知渔那批数据里真正该折的是 8/10/15/18/22 档那几格，这条改动**不影响**它们。 */
+  const collapsible = field.collapsible !== false && options.length > limit + 1;
   /* ═══ 多选（2026-09-19 批 P）═══════════════════════════════════════════════════════════
      知渔「商品多角度多视图」那一格叫「**选择视角（多选）**」—— 正面/侧面/背面/俯视/仰视/45度角
      可以同时选中几个，出的是一组多角度的图。我们原来只能单选，等于把他们的玩法砍了一半。

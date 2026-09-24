@@ -94,17 +94,34 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
       <div className={'topbar-row' + (subpageHeader ? ' is-subpage' : '') + (isBoard && !subpageHeader ? ' is-board' : '')}>
         {/* ═══ 三级顶栏的左/中两格（见 TopBar 顶部注释）═══════════════════════════════
             子页面：左「返回」+ 中「名称」；其余两级：左「LOGO」+ 中留空。
-            ⚠️ 子页面上**不渲染 LOGO**：用户批注 #12 把子页面顶栏的三个格子写死了
-               （左返回 / 中名称 / 右积分账户），多一个 LOGO 就变成四格。 */}
+            ═══ 2026-09-24 批 BB：**子页面也要有品牌标**（用户批注，逐字）══════════════════════════
+            原话：「我不明白你为什么**子页面里面的左上角就没有 LOGO** 了呢？」
+            ⚠️ 这条**推翻了批 J-① 那条旧裁定**（"子页面顶栏三格 = 左返回/中名称/右积分，多一个 LOGO
+              就变成四格"）。用户现在明确要子页面也有品牌标 ⇒ 子页面这一格改成
+              **[品牌标（缩小版）｜返回 + 名称]**：品牌标在最左、返回紧贴其后，右侧仍是积分账户那一簇，
+              格子数没变（还是三格），只是左格从"只有返回"变成"品牌 + 返回"。
+              依据：用户在同一个批注里同时要求"子页面要有 LOGO"与"LOGO 整体要升级"，
+              这两件事必须一起做，否则子页面会顶着一个旧样式的标。 */}
         {subpageHeader ? (<>
-          <button
-            type="button"
-            className="topbar-back"
-            onClick={() => subpageHeader.onBack?.()}
-          >
-            <ArrowLeft size={16} aria-hidden="true" />
-            <span>返回</span>
-          </button>
+          {/* 品牌标与「返回」同处**第一格**（栅格仍是三格：左组 / 中名称 / 右账户）——
+              放进同一格里，`.topbar-row.is-subpage` 的 `1fr auto 1fr` 一行三格不用动，
+              标题照旧真居中。 */}
+          <span className="topbar-subpage-lead">
+            <span className="topbar-brand is-compact-mark" aria-hidden="true">
+              <span className="topbar-brand-mark">
+                <img src={IMAGES.appicon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </span>
+              <span className="topbar-logo">薯包<em>AI</em></span>
+            </span>
+            <button
+              type="button"
+              className="topbar-back"
+              onClick={() => subpageHeader.onBack?.()}
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              <span>返回</span>
+            </button>
+          </span>
           <span className="topbar-title" title={subpageHeader.name || ''}>{subpageHeader.name}</span>
         </>) : (<>
         {/* ═══ 2026-09-24 批 AV：总页面**也要渲染 LOGO**（用户图五批注 3）══════════════════════════
@@ -117,13 +134,25 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
               首页与总页面都走这一份；子页面按批 J-① 的定论仍是「返回 + 名称」，不加第四格。 */}
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
         {/* D11 键盘可达：Logo 是「回首页」导航动作 → button + 重置默认样式（外观零变化） */}
+        {/* ═══ 2026-09-24 批 BB：**品牌标做一次设计升级**（用户批注，逐字）══════════════════════════
+            原话：「而且我们现在这个 LOGO 和文字都特别的 low。我不知道你为什么没有去做一个
+            **LOGO 的样式升级**……他们现在的问题就是**太过于随意了**，就是简单的一个图标，然后再放上
+            几个没有经过任何修饰的这种简单的字上去而已……你现在的情况就是有了图标，但是你的
+            **薯包 AI 这几个字太过于简单了**，而且他们之间也**没有什么交互感**。你应该自己去想办法
+            把他们做一个升级和处理呀。」
+            ⇒ 三件事（都是纯 CSS + 一层 DOM，不引入新素材）：
+              ① 字标分层：「薯包」走品牌渐变文字（品牌主力色 → 深一档），「AI」作为**徽记**单列，
+                 有自己的浅色底盘与更紧的字距 —— 不再是一句没有修饰的"薯包 AI"；
+              ② 图标与文字**咬合**：图标块带一圈内描边 + 品牌色投影，与字标基线对齐；
+              ③ **交互**：悬停时图标轻微上浮放大、渐变文字的光带右移、整块有 1px 上浮 ——
+                 这是"图标和文字之间有交互感"的可实现形式（同一套动效语言，不新增颜色档）。 */}
         <button type="button" className="topbar-brand" aria-label="回到首页" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           style={{ cursor: 'pointer' }}>
           <span className="topbar-brand-mark">
             <img src={IMAGES.appicon} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </span>
           <span className="topbar-logo">
-            薯包 AI
+            薯包<em>AI</em>
           </span>
         </button>
         </>)}
@@ -333,7 +362,14 @@ function AppRouter() {
   return (<>
     {shell(<>
       <TaskSidebar />
-      <TopBar subpageHeader={subpageHeader} isBoard={page === 'image-creation' || page === 'video-creation'} />
+      {/* ═══ 2026-09-24 批 BB：**画布页不再渲染全站顶栏**（用户批注，逐字）═══════════════════════════
+          原话：「然后你**画布上面为什么会有这条导航**呢？你要把它**去掉**呀。」
+          诊断：这一页 DOM 里其实有**两条**横栏 —— 全站顶栏（薯包 AI / 管理后台 / 积分 / 会员中心）
+          与画布自己的 `.ec-canvas-topbar`（返回 / 项目名 / 当前画布·资产库·作品集 / 模板广场 / 导出 /
+          新建画布）。两条叠在一起既重复（积分各写一遍），又把画布挤掉一截高度
+          （EcCanvas.css 里那条"100vh 比可用高度多出 80px"的老账就是它引起的）。
+          ⇒ 画布页只留**它自己那条**：这一页的功能（积分、导出、新建）在画布顶栏里都有。 */}
+      {page !== 'ec-canvas' && <TopBar subpageHeader={subpageHeader} isBoard={page === 'image-creation' || page === 'video-creation'} />}
       {/* 板块切换条：只在**总页面**上出现。
           ⚠️ 2026-09-19 批 H-8：子页面（选了某条技能）**不再显示它** ——
              用户批注 #12 把子页面顶栏写定为「左返回 / 中名称 / 右积分账户」，

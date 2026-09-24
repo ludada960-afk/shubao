@@ -100,7 +100,18 @@ test('⑤ 面板不出现"没东西可滚"的滚动条，但**该滚的时候必
   assert.match(visualCss, /\.visual-config-panel-body \{ max-height: none; overflow-y: visible; \}/, '内层不再抢占滚动权');
   const cls = (videoCss.match(/\.video-config-panel,\s*\.video-inline-menu \{[\s\S]*?\}/) || [''])[0];
   assert.match(videoCss, /\.video-config-panel-body \{ max-height: inherit; overflow-y: auto; \}/, '视频侧面板仍按同一个口径处理内容滚动');
-  assert.match(cls, /overflow: visible;/, '视频侧浮层自身不做滚动容器（滚动交给 body）');
+  /* ═══ 2026-09-24 批 BB：这一条**改判**（用户改向 + 事实变了），不是放宽 ══════════════════════════
+     用户本轮原话：「你现在视频生成的配置面板的这个**模型选择这里完全是乱码的**。我都跟你说过
+     要去解决啦，你为什么没有解决呢？」
+     根因就在原来这条判据要的写法上：`.video-config-panel, .video-inline-menu { overflow: visible }`
+     把上面 342 行那条 `max-height: min(58vh,460px)` 的滚动**关掉了** ——
+     两者合起来 = "限高但不可滚"，模型 12 档一超过 460px 就整排画到白底面板外面（用户看到的乱码）。
+     ⇒ 拆开：**配置面板**（它的箭头要溢出面外）继续 `visible`；**模型下拉**自己滚。
+       守的东西没变：面板该滚时必须能滚、且不许把内容截断。 */
+  assert.match(cls, /border-radius: 8px;/, '视频侧浮层与图片侧同一条容器语言（圆角 8）');
+  assert.match(videoCss, /\.video-config-panel \{ overflow: visible; \}/, '配置面板保持 visible（它的箭头要溢出面外）');
+  assert.match(videoCss, /\.video-inline-menu \{\s*overflow-x: hidden;\s*overflow-y: auto;/,
+    '模型下拉必须自己滚（限高不可滚 = 用户报的"乱码"）');
 });
 
 test('⑥ 首页暖区留白照图片侧（8px 10px 10px），且首页不再渲染「代为撰写」', () => {

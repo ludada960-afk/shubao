@@ -67,6 +67,54 @@ export default function TaskSidebar() {
   });
   const inline = Boolean(slot);
 
+  /* ═══ 2026-09-24 批 BB：画布页的浮按钮要**让开小地图**（用户批注，逐字）══════════════════════════
+     原话：「你这个地图明显是跟左边的这个**生成过程**的这个按钮**叠在一起**了。
+     我觉得这个生成过程，这个按钮你要不就**放到地图的上面**去吧？」
+     实测（1600×1000）：小地图占 (16…216, 70…250)，浮按钮 16…62 / 86…132 —— 整个落在小地图里，
+     而且 z-index 更高（panel 4e7 > hud 1e7）盖在它上面。
+     ⇒ 浮层底边 = 小地图顶沿 + 12。小地图**可被用户拖拽改尺寸**，所以这里读它的实时矩形
+       （ResizeObserver + window resize），不用写死的 px 算术 —— 写死的话用户一缩地图就又叠上。
+     非画布页没有小地图 ⇒ 沿用原来的 86（位置逐像素不变）。 */
+  const [floatBottom, setFloatBottom] = useState(86);
+  useLayoutEffect(() => {
+    if (inline) { setFloatBottom(86); return undefined; }
+    let observer = null;
+    let timer = null;
+    let tries = 0;
+    const sync = () => {
+      const minimap = document.querySelector('.ec-canvas-minimap');
+      if (!minimap) return false;
+      const rect = minimap.getBoundingClientRect();
+      const next = Math.max(72, Math.round(window.innerHeight - rect.top + 12));
+      setFloatBottom(current => (Math.abs(current - next) > 1 ? next : current));
+      return true;
+    };
+    /* ⚠️ 画布是**异步**挂上来的：第一次渲染时 `.ec-canvas-minimap` 往往还不存在
+       （实测就是这样 —— 提前 return 的话按钮会一直停在 86 上，依旧压着小地图）。
+       所以先轮询等它出现（最多 5 秒），再挂 ResizeObserver（小地图可被拖拽改尺寸）。 */
+    const attach = () => {
+      const minimap = document.querySelector('.ec-canvas-minimap');
+      if (!minimap) { setFloatBottom(86); return; }
+      sync();
+      observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+      observer?.observe(minimap);
+    };
+    if (!sync()) {
+      timer = setInterval(() => {
+        tries += 1;
+        if (sync() || tries >= 20) { clearInterval(timer); timer = null; attach(); }
+      }, 250);
+    } else {
+      attach();
+    }
+    window.addEventListener('resize', sync);
+    return () => {
+      if (timer) clearInterval(timer);
+      observer?.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [inline]);
+
   /* 底边那条进度条在导航格上是 **hover 充能**（纯装饰），在这一格上放**真实进度** ——
      同一门语言，但这一条说的是真话：有任务在跑、且后端报了张数时才出现。 */
   const activeTasks = tasks.filter(task => ACTIVE_STATES.has(task.status));
@@ -228,7 +276,8 @@ export default function TaskSidebar() {
         /* 让位左侧常驻导航（用户 9-18 批注 #1 新增侧栏）：--sb-app-sidebar-w 由 .app-shell 提供，
            没有侧栏的页面（画布）回落到 0，浮层位置与从前完全一致。 */
         left: 'calc(var(--sb-app-sidebar-w, 0px) + 16px)',
-        bottom: 86,
+        /* 画布页由上面那个 effect 量出小地图的实时顶沿，摆在它**上方 12px**；其余页面 86。 */
+        bottom: floatBottom,
         zIndex: 'var(--sb-z-panel)',
         display: 'flex',
         alignItems: 'flex-end',

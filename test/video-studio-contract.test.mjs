@@ -156,10 +156,14 @@ test('video studio is an authenticated durable billed workspace embedded in home
       上传完素材，它是会在这里面向右挤的。如果素材过于多的话，向右挤，就会有下面有一条滑动条。」
      新契约守三件事：
        ① 一条**横向带子**（flex-nowrap + overflow-x:auto）—— 素材向右挤，挤不下出滑动条；
-       ② 卡尺寸取图片侧那一档（86×108）且**不被拉伸**（flex: 0 0 86px）；
-       ③ 倾斜清零（"不要歪卡"）。 */
+       ② 卡尺寸取图片侧那一档且**不被拉伸**（flex: 0 0 <卡宽>）；
+       ③ 倾斜清零（"不要歪卡"）。
+     ⚠️ 2026-09-24 批 BB：卡宽 **86×108 → 104×132**（用户改向，逐字）——
+        「你下面的**三张扇形卡片**形式要把它**再拉大一些**。」卡本体是**图片侧同一个组件**
+        （`.ec-xhs-upload-card`，Home.css 里也从 86×108 一起改到 104×132），所以两边仍然逐值一致；
+        这里守的东西一个字没变：**带子横排、卡宽固定不被拉伸、不倾斜**，变的只是"那一档"是多少。 */
   assert.match(styles, /\.video-material-strip \{[^}]*display: flex;[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;/);
-  assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card \{[^}]*flex: 0 0 86px;/);
+  assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card \{[^}]*flex: 0 0 104px;/);
   assert.match(styles, /\.video-material-strip \.ec-xhs-upload-card,[\s\S]{0,260}transform: none;/);
   assert.match(styles, /\.video-materials-clear,/);
   assert.match(styles, /\.video-materials-fullscreen \{/);

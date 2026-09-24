@@ -118,8 +118,55 @@
 }
 /* ═══ 批 W（2026-09-21）：品牌标**再大一些**（用户原话：「首页左上角的薯包 AI 和 LOGO 再大一些呀」）══
    34 → 40（图标），13 → 15（文字）—— 仍收在图标栏那一列里（列宽 96，居中于 x=48）。 */
-.topbar-brand-mark { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; }
-.topbar-logo { font-size: 15px; font-weight: 800; letter-spacing: 0.02em; }
+/* ═══ 2026-09-24 批 BB：**品牌标设计升级**（用户批注，逐字）══════════════════════════════════════
+   原话：「我们现在这个 LOGO 和文字都特别的 low……太过于随意了，就是简单的一个图标，
+   然后再放上几个没有经过任何修饰的这种简单的字上去而已……**薯包 AI 这几个字太过于简单了**，
+   而且他们之间也**没有什么交互感**。你应该自己去想办法把他们做一个升级和处理呀。」
+   设计规则（三件，都只用既有 token，不引新素材/新色档）：
+     ① **字标分层**：「薯包」用品牌渐变文字（brand-600 → brand-700，background-clip: text），
+        「AI」是独立**徽记**（em）：更小一档字号 + 字距收紧 + 浅品牌底 + 描边，
+        与"薯包"之间留 4px —— 读起来是"薯包" + 一个 AI 徽记，不再是一句平铺的字；
+     ② **咬合**：图标块补一圈内描边 + 品牌色投影（阴影色取 --sb-brand-a32，与主 CTA 同一支），
+        让它从"贴上去的图片"变成"有海拔的磁贴"；
+     ③ **交互**（这是用户点名的"没有交互感"）：悬停时图标上浮 1px + scale(1.04)、
+        渐变光带右移（background-position 0% → 100%）、字标整体上浮 1px；
+        过渡走 --sb-duration-normal，键盘 focus-visible 给同一套（不是只给鼠标）。 */
+.topbar-brand-mark {
+  position: relative;
+  width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), 0 4px 12px var(--sb-brand-a32);
+  transition: transform var(--sb-duration-normal) var(--sb-ease-out),
+              box-shadow var(--sb-duration-normal) var(--sb-ease-out);
+}
+.topbar-logo {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 15px; font-weight: 800; letter-spacing: 0.02em;
+  background-image: linear-gradient(100deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 42%, var(--sb-brand-600) 100%);
+  background-size: 220% 100%; background-position: 0% 0;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  transition: background-position var(--sb-duration-normal) var(--sb-ease-out),
+              transform var(--sb-duration-normal) var(--sb-ease-out);
+}
+.topbar-logo em {
+  font-style: normal; font-size: 11px; font-weight: 900; letter-spacing: 0.06em;
+  padding: 2px 5px; border-radius: 6px;
+  /* ⚠️ 底色用**已定义的**品牌档（--sb-brand-a18）；写不存在的 token 会被幽灵变量门禁拦下
+     （那个门禁的判据：`var()` 引用了没定义的变量 = 浏览器静默回退 = 样式悄悄失效）。 */
+  background: var(--sb-brand-a18);
+  box-shadow: inset 0 0 0 1px var(--sb-brand-a32);
+  /* 徽记不参与渐变文字（它要读成"一块牌子"） */
+  -webkit-text-fill-color: var(--sb-brand-700); color: var(--sb-brand-700);
+}
+.topbar-brand:hover .topbar-brand-mark,
+.topbar-brand:focus-visible .topbar-brand-mark { transform: translateY(-1px) scale(1.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 8px 20px var(--sb-brand-a32); }
+.topbar-brand:hover .topbar-logo,
+.topbar-brand:focus-visible .topbar-logo { background-position: 100% 0; transform: translateY(-1px); }
+/* 子页面左格：品牌标缩小一号 + 返回（同一格里，栅格仍是三格） */
+.topbar-subpage-lead { display: inline-flex; align-items: center; gap: 14px; min-width: 0; }
+.topbar-brand.is-compact-mark { width: auto; margin-left: 0; flex-direction: row; gap: 7px; }
+.topbar-brand.is-compact-mark .topbar-brand-mark { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; box-shadow: 0 2px 8px var(--sb-brand-a32); }
+.topbar-brand.is-compact-mark .topbar-logo { font-size: 13px; }
 
 .topbar-actions {
   display: flex;

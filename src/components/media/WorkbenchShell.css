@@ -19,17 +19,15 @@
 /* 批 K（60 号文档 §1）：缝 **19.84** + 外圈 padding **19.84** 两层，都露出面板下面那层底。
    我们原来是 gap 28 一层。⚠️ 那层底不是他们那支冷灰，是我们自己的 --sb-surface-page（暖米）——
    用户的要求是「用我们自己的视觉语言照他们的思路做」，不是抄他们的颜色。 */
-/* ═══ 2026-09-24 批 AV：左右两栏的比例**拉近**（用户图六批注 2）════════════════════════════════
-   用户原话：「我感觉你现在整个工作台跟右边的这个事例和历史区的**比例非常的不协调**。
-   我认为你左边工作台这一块，你应该再往右边做，**等比的一个拉大**。然后右边的示例和历史这块
-   区域应该做小一些。也就是说工作台的空间要往右边再拉大一些。这样的话**让两边的比例看起来
-   更接近一些**。因为你把示例区做的太大的话，后面跑出来的案例就得非常多，才能充满整个画面。」
-   改前：`minmax(320px, 570px) minmax(0, 1fr)` —— 1456 的可用宽下是 **570 : 866**（≈ 40:60），
-       右栏比左栏大 52%，案例区一片空荡。
-   改后：`minmax(320px, 1.06fr) minmax(0, 1fr)` —— 同一宽度下约 **749 : 687**（≈ 52:48），
-       两边接近、工作台略大（用户要的"工作台往右拉大"）。
-   ⚠️ 用 fr 而不是第二个绝对上限：绝对上限在宽屏上会把差距重新拉开（正是改前那版的毛病）。 */
-.media-workbench { display: grid; grid-template-columns: minmax(320px, 1.06fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* ═══ 2026-09-24 批 BB：比例**再翻一次**，这次是右栏略大于左栏（用户改向，逐字）══════════════════
+   用户原话：「我的确有跟你说过这些子页面里面工作台和右边的示例和历史区应该有一个比例上面的调整。
+   可是**我没有叫你把工作台做的比右边的示例和历史区还大**呀。你做这么宽是要干什么呢？
+   我给你明确一点的说法吧，就是**事例和历史区他们应该比左边的工作台要稍微再大一点点**。」
+   ⇒ 批 AV 那版是 `1.06fr : 1fr`（左栏略大）—— 那是照上一轮"工作台往右拉大"做的；
+     本轮用户把口径改明确了：**右 > 左，但只大一点点**。
+     现在：`1fr : 1.04fr`（同一可用宽度下约 660 : 686，右栏大约 4%）。
+   ⚠️ 仍然用 fr 而不是绝对上限：绝对上限在宽屏上会把差距重新拉开（那是改前那版的毛病）。 */
+.media-workbench { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.04fr); gap: 20px; align-items: start; }
 .media-workbench-left {
   display: grid;
   gap: 22px;
@@ -338,6 +336,29 @@
 /* 字段标题字号/字重照知渔实测：14.672px / 500（我们上一版是 17px）——
    用户批注 #2-6「排版都要抄」，字号与主次就是排版的一部分。 */
 .media-field-label { display: inline-flex; align-items: center; gap: 3px; font-size: 14.672px; font-weight: 500; color: var(--sb-ink-1); }
+
+/* ═══ 2026-09-24 批 BB：工作台的"**这是标题 / 这里能点**"两件事要一眼看得出来 ═════════════════════
+   用户原话（逐字）：「你现在所有的这些工作台……**太过于简单了**，我感觉你对于字体以及按钮以及
+   间距他们的规划都没有做的特别好。用户他可能一看就觉得这是一个非常初级的一个 Demo 的东西……
+   你要让用户能够直观的感受到你这个操作台，它是一个**可被操作的地方**，就是他们从视觉上要能够
+   直观的看出来**哪里是可被点击的，哪里是标题，哪里是输入区**。」
+   ⇒ 这一轮先补**可判定的两件**（不动被门禁钉住的字阶，只加"信号"）：
+     ① 字段标题左侧一条 3px 品牌竖条：标题与正文在同一栏里立刻分层，且不新增字号档；
+     ② 所有"点了会有反应"的方块（上传框 / 技能卡 / 付费动作卡）统一给 hover 抬升 + 指针，
+        与已有点击面同一门语言（只在缺失处补，已有的不重复写）。 */
+.media-field-label::before {
+  content: ''; width: 3px; height: 13px; border-radius: 2px; flex: 0 0 3px;
+  background-image: linear-gradient(180deg, var(--sb-brand-500), var(--sb-brand-700));
+}
+.media-field-label:has(+ .media-field-hint) { margin-bottom: -2px; }
+/* 上传框：它是这一栏里最大的可点面 —— 悬停必须**看得出来它可点**（指针 + 描边 + 底色） */
+.media-field-upload-box { cursor: pointer; transition: border-color var(--sb-duration-fast) var(--sb-ease-out), background-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out); }
+.media-field-upload-box:hover { border-color: var(--sb-border-strong); background: var(--sb-surface-tint); }
+.media-field-upload-box:focus-within { border-color: var(--sb-brand); box-shadow: var(--sb-focus-ring); }
+/* 技能卡（如果有）与付费动作卡：同一套抬升语言 */
+.media-skill-card { transition: border-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out); }
+.media-skill-card[role="button"], .media-skill-card.is-clickable { cursor: pointer; }
+.media-skill-card[role="button"]:hover, .media-skill-card.is-clickable:hover { border-color: var(--sb-border-strong); box-shadow: var(--sb-shadow-md); }
 /* ═══ 2026-09-19 批 Q：「各类型张数」这一组的排版（用户批注 #3-4）══════════════════════════
    用户原话：「你下面一整块的排版都是乱的，你知道吗？」
    根因：这一组（FieldRenderer 的 counts 档）**根本没有 CSS** —— 行是 flex 默认排布，
@@ -726,7 +747,9 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
       ① 让 [页头 + 工作台] 同处左栏、[示例/历史] 独占右栏（grid-template-areas 或把两者包进一个网格子项）；
       ② 视频工作台本身要能收进 570 栏（现在它是按 1090 横向铺开的：素材区 + 底栏工具条一行排开）。
       这两条是**下一轮的 K-E 主任务**，判据见 RTK 的 K-E 小节（含本轮实测数值）。 */
-.media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 570px) minmax(0, 1fr); gap: 20px; }
+/* 批 BB：嵌入形态（视频子页面）同样按"右略大于左"走 —— 原来写死 570px，与另一条不同源。
+   现在两条用同一族 fr（左 1 / 右 1.04），宽屏窄屏都不会把差距重新拉开。 */
+.media-workbench.is-embedded-flow { grid-template-columns: minmax(320px, 1fr) minmax(0, 1.04fr); gap: 20px; }
 /* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
    VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
    在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */

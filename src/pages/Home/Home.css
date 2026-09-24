@@ -426,7 +426,7 @@
 .ec-xhs-media-strip {
   width: 100%;
   min-width: 0;
-  min-height: 128px;
+  min-height: 156px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -440,11 +440,17 @@
    原则 6.2：语义色（红=危险 / 蓝=信息）不得被挪作身份标识 ——
    绝不能一红一蓝来区分「产品图」和「参考图」。
    实测确认：首页两卡本就同规格；本次把残留的硬编码色值一并换成 token。 */
+/* ═══ 2026-09-24 批 BB：上传卡**整体放大一档**（用户原话，逐字）══════════════════════════════════
+   原话：「你下面的**三张扇形卡片**形式要把它**再拉大一些**。」
+   ⇒ 86×108 → **104×132**（约 +21%），图标圆盘 40 → 46、说明字号 10 → 11。
+   ⚠️ 这是**共用组件**（图片侧 `.ec-xhs-media-strip` 与视频侧 `.video-material-strip` 同一张卡）——
+      改一处两边一起变，这正是"两边必须同一套"要的效果；试穿那两条泳道有自己的显式尺寸覆盖
+      （`.ec-tryon-role-assets` / `.ec-tryon-lane-assets`），不受影响。 */
 .ec-xhs-upload-card {
   position: relative;
-  width: 86px;
-  height: 108px;
-  flex: 0 0 86px;
+  width: 104px;
+  height: 132px;
+  flex: 0 0 104px;
   overflow: hidden;
   border: 2px dashed var(--sb-border-default);
   border-radius: var(--sb-radius-card);
@@ -506,8 +512,8 @@
   border-color: var(--sb-brand);
 }
 .ec-xhs-add-icon {
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -515,7 +521,7 @@
   color: var(--sb-ink-2);
   box-shadow: var(--sb-shadow-3); /* D20-A：暖棕 → 海拔档（α.12 ≈ .10 → 3） */
 }
-.ec-xhs-card-title { max-width: 74px; font-size: 12px; font-weight: 900; line-height: 1.15; text-align: center; }
+.ec-xhs-card-title { max-width: 88px; font-size: 12.5px; font-weight: 900; line-height: 1.15; text-align: center; }
 .ec-xhs-card-meta { font-size: 10px; font-weight: 700; color: var(--sb-ink-3); }
 .ec-xhs-optional { position: absolute; top: 7px; right: 7px; padding: 2px 5px; border-radius: 6px; background: rgba(255,255,255,.92); color: var(--sb-ink-2); font-size: 10px; font-weight: 800; box-shadow: 0 1px 3px rgba(12,10,9,.08); }
 .ec-xhs-image-card { border-style: solid; }
@@ -525,10 +531,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 22px 4px 7px;
+  padding: 26px 5px 8px;
   color: var(--sb-neutral-0);
   background: linear-gradient(transparent, rgba(12, 10, 9, .76));
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-align: center;
   white-space: nowrap;
@@ -1898,7 +1904,7 @@
   .ec-xhs-composer { padding: 7px 4px 8px; }
   .ec-xhs-media-column { padding-inline: 0; }
   .ec-xhs-media-strip { gap: 9px; padding-inline: 7px; }
-  .ec-xhs-upload-card { width: 78px; height: 100px; flex-basis: 78px; }
+  .ec-xhs-upload-card { width: 92px; height: 116px; flex-basis: 92px; }
   #ec-floating-panel { left: 10px !important; right: 10px !important; bottom: 72px !important; width: auto !important; max-height: calc(100dvh - 96px) !important; }
   .task-sidebar { bottom: 72px !important; }
 }
@@ -2579,10 +2585,10 @@
 }
 .homepage-mode-card {
   position: relative; display: grid; flex: 0 0 auto;
-  /* ═══ 2026-09-24 批 AV：两行 → **三行**（标题 + 一句话 + 预览图）═════════════════════════════
-     卡高不变（168），内高 152 重新分配：标题 22 + 说明 14 + 图 116。
-     用户图二批注 4 要的是"用户能比较看明白这张卡是干什么的"，说明这一行就是为此加的。 */
-  grid-template-rows: 22px 14px 116px; width: 232px; height: 168px;
+  /* ═══ 2026-09-24 批 BB：三行 → **两行**（标题 + 预览图）—— 批 AV 那句说明被用户否掉 ═══════════
+     用户原话：「不是让你在这个标题下面**再加一个副标题**呀……一加就显得非常的臃肿，
+     而且把下面三张扇形张开的卡片给挤压下去了。」⇒ 内高 152 全给图（22 + 130），预览图也跟着变大。 */
+  grid-template-rows: 22px minmax(0, 1fr); width: 232px; height: 168px;
   overflow: hidden; padding: var(--sb-space-2);
   /* ⚠️ 批 L-1：白卡回来了 —— 但这次是**照 k-fashionshop 实测的数值**：
      卡片本体 8px 圆角 + 白底 + 描边 + 一层浅阴影（他们实测 rounded-lg = 8px、bg 白、有 border）。 */
@@ -2631,12 +2637,8 @@
               transform var(--sb-duration-normal) var(--sb-ease-out),
               border-color var(--sb-duration-normal) var(--sb-ease-out);
 }
-.homepage-mode-card-hint {
-  display: block; margin-top: 2px; text-align: center;
-  font-size: 10px; line-height: 1.4; color: var(--sb-ink-3);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  transition: color var(--sb-duration-fast) var(--sb-ease-out);
-}
+/* ═══ 2026-09-24 批 BB：那句话的样式**整块删除**（用户改向：「你干嘛要加副标题呢」）═════════════
+   `.homepage-mode-card-hint` 在这里、`:hover` 里的变色规则也一并删 —— 卡面只剩图标+标题+预览图。 */
 /* 右下角柔光球：静止时**完全不可见**（留影AI 那格是 .06 → .10，我们底色更亮，所以取 0 → .09） */
 .homepage-mode-card-glow {
   position: absolute; right: -46px; bottom: -46px; width: 150px; height: 150px;
@@ -2652,7 +2654,6 @@
   transform: scale(1.06);
 }
 .homepage-mode-card:hover .homepage-mode-card-name { color: var(--sb-ink-brand); }
-.homepage-mode-card:hover .homepage-mode-card-hint { color: var(--sb-ink-1); }
 /* 底部能量条：默认 width 0，悬停充满（照实测：是 width 过渡，不是 scaleX）*/
 .homepage-mode-card::before {
   content: ''; position: absolute; left: 0; bottom: 0; z-index: 3;

@@ -15,8 +15,16 @@
    本层内边距 24 ⇒ 标题顶沿 **116px**，也就是说标题上方压着 44px 空白。
    ⇒ 本层上边距 24 → 16（外层那 20px 由 MediaCreation.css 一并收掉），标题落到 88 — 顶栏下 16px。
    ⚠️ 只收上边距：左右 28 与底部 56 是批 E「视觉拉满」定下的，那一组判据说的是别的事。 */
-.media-hub { display: grid; gap: 12px; padding: 16px 28px 56px; }
-.media-hub-head h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.15; color: var(--sb-ink-1); }
+/* ═══ 2026-09-24 批 BB：标题/标签**再整体上移**（用户批注，逐字）══════════════════════════════════
+   原话：「然后我不是跟你说过了吗？图片生成和视频生成的这两个总页面，现在上面都有一**大片空白**，
+   你为什么不往上挪呢？你应该让**标题和标签都整体的往上面挪上去**呀，视觉上会更加的饱满和平衡呀。」
+   「整体挪上去不好吗？我之前不是给你提过这个需求吗？你怎么没有解决呀？」
+   实测：顶栏自身 ~88px（LOGO 竖排撑起来的）+ 本层 16 ⇒ 标题顶沿 ~104px，用户看到的"一大片空白"
+   就压在这儿。⇒ 上边距 16 → **6**，标题底距 6 → 4，页签上边距 14 → 10：
+     标题顶沿落到顶栏下 **6px**，整块内容上提 10px、页签再上提 8px。
+   ⚠️ 左右 28 / 底部 56 是批 E「视觉拉满」定下的，不动。 */
+.media-hub { display: grid; gap: 12px; padding: 6px 28px 56px; }
+.media-hub-head h1 { margin: 0 0 4px; font-size: 30px; line-height: 1.12; color: var(--sb-ink-1); }
 .media-hub-head p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--sb-ink-2); }
 .media-hub-empty { margin: 0; padding: 30px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }
 .media-hub-group-note { margin: 2px 0 10px; font-size: 12px; color: var(--sb-ink-3); }
@@ -24,7 +32,7 @@
 /* ── 顶部快捷筛选页签（照竞品实测结构：图片页 8 档、视频页 4 档）─────────────
    每一档后面那个数字是该档的技能条数 —— 竞品没有，但"这一档里有多少个"是用户
    决定要不要点进去的第一依据，白给的信息没有理由不写。 */
-.media-hub-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 6px; }
+.media-hub-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
 .media-hub-tabs button {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 10px 18px; border-radius: var(--sb-radius-pill);
