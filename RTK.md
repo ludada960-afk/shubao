@@ -7380,3 +7380,80 @@ CSS 有 `topbar-logo-ai`、`https://shuimg.cn/images/brand-mark-3x.png` 回 200�
 **下一批如果还要动品牌标**：先记住这三条边界 —— ① 用字体拼商标走不通（批 BB 证过）；
 ② 卡通手写字的现成资产也不行（批 BC 证过）；③ 现在的形态是 **mark 磁贴 + 排版字标**，
 要改就改这三件里的某一件（磁贴合成脚本 / 汉字字重字号 / AI 与分隔线），别整体推倒。
+
+### 批 BE（2026-09-24 深夜）：**两态品牌标** —— 顶部只有标、滚动才出「薯包 AI」+ 标对齐左导航列
+
+用户口径（逐字）：
+「这个部分当**只有左边导航栏出现**的时候，你就要出现 LOGO，LOGO 要先做好跟左边导航栏的
+  **整体适配**；然后当我**向下挪页面**的时候，不是会出现我们上面的导航栏吗，这个时候你再
+  **显示出右边的薯包 AI 几个字**；然后这几个字你要**重新设计**一下，**不要搞这么多花样**。
+  你就**字体或者其他变化和调整做得统一一些**，不要各做各的呀，乱七八糟的。」
+
+⇒ 三件事，与这条批注一一对应（文件：`src/App.jsx`、`src/styles/app-shell.css`）：
+
+| # | 用户要的 | 落点 | 实测（1440×900 · Playwright · deviceScaleFactor=3） |
+|---|---|---|---|
+| ① | LOGO 与左导航**整体适配** | `.topbar-brand` 的 `margin-left: max(0px, calc(var(--sb-app-sidebar-w,96px)/2 - 15px - 24px))` | `mark 30×30 @x=33`、**`markCenterX 48 = navColumnCenter 48`**（改前 39，偏左 9px） |
+| ② | **两态**：顶部只有标，滚动才出字 | `.topbar-logo { display:none }` + `.app-topbar.is-compact .topbar-logo { display:inline-flex }` | TOP：`compact:false, scrollY:0, logoVisible:false`；SCROLL：`scrollY:700, compact:true, logoVisible:true`，且**标不动**（两次都是 x=33 / 中心 48）—— 只是右边多出字 |
+| ③ | 字标**不搞花样**、要统一 | `薯包 AI` 收敛成**单节点**（删掉 `.topbar-logo-name / -rule / -ai` 三条规则与对应 DOM） | 一套样式：`17px/800`、`letter-spacing .01em`、`--sb-ink-1` ⇒ 实测 `17px/800 ls=0.17px rgb(26,22,20)` |
+
+**为什么判据复用既有的 `compact` 状态、不新加滚动监听**：`compact` 就是 `scrollY > 120` 的结果
+（`.app-topbar.is-compact` 同时负责毛玻璃底 + 阴影），"顶栏出现"与"字标出现"本来就是同一个时刻。
+新加一个监听会让这两件事各有各的时间点，正好是用户骂的「各做各的」。
+
+**兜底**：`max(0px, …)` —— 画布页与窄屏不会把标推出屏幕。
+
+**子页面的例外（写明理由，不是漏做）**：子页面顶栏**常驻**，它不在 `.app-topbar` 那套两态里 ——
+"滚动才出现"这件事在它身上不成立 ⇒ 品牌标按**总是显示**处理（24px 标 + 15px 字，
+与「返回 + 名称」同处第一格，栅格仍是三格）。实测 `mark x=120 / 24×24`、`logoVisible:true`、`15px/800`。
+
+**对齐的边界（量出来的，不是估计）**：那条 `- 24px` 假设的是**桌面内边距 24px**。
+本仓 `padding-inline` 分三档：`>1100px` = 24 ⇒ 标中心 48 = 导航中线 48（**完全重合**）；
+`640~1100px` = 20 ⇒ 中心 44 / 35，差 3~4px；`≤639px` = 14。
+三档都**没有跑偏到别的格子**，中间那档差几像素 —— 已量出来写在案上，没为了数字好看再加第四套变量。
+
+**交互保留**（用户没否）：hover 标抬 1px + 放大 4.5%、阴影加深；按下 90ms 回弹；键盘 `focus-visible` 同一套；
+`prefers-reduced-motion` 归零；只动 transform / filter / color（零重排）。
+
+**验证**：全量 `npm run test` **4071 条 / 4061 pass / 0 fail / 10 skipped**；
+`npm run precommit` 全绿 —— 构建 exit 0 + 真实渲染冒烟 + **e2e 232 条断言** + BLOCKING 门禁 **260 条 / 0 fail**（38 个门禁文件）。
+实测脚本 `.qa/be-brand.mjs`，证据 `.tmp/be-brand.txt`，截图 `.tmp/be-logo/0{1,2,3}-*.png`，干净那次 precommit 的日志 `.tmp/be-precommit-clean.txt`。
+
+⚠️ **precommit 前两次是红的，根因是"并发"，不是产品 —— 这两条必须记下来**：
+1. **e2e 的端口 `4197` 是写死的，两个 precommit/e2e 不能同时在跑。** 实测：前一条
+   `npm run precommit` 链还没退干净（npm → cmd → precommit-check → media-workbench-e2e → chrome，
+   一共 10 个进程还活着）时又起了第二次，第二次的 `[3/5] 技能工作台端到端` **一个字都没输出**、
+   随即被判「失败」—— 看着像 e2e 崩了，其实是端口被前一条链占着。
+   取证方式：`netstat -ano | findstr :4197` 看到 LISTENING 的 PID，再用
+   `Get-CimInstance Win32_Process` 顺着 `ParentProcessId` 拉出整条链；把这些 PID 杀掉、
+   用一个 5 行的 `createServer().listen(4197)` 自证端口可 bind（`BIND_OK`）之后，
+   同一条 precommit **一次全绿**。
+   ⇒ 规矩：**跑 precommit 前先确认没有别的 e2e 链活着**；红了先看 `[3/5]` 是不是**空的** ——
+     空 = 端口问题，不是产品问题，别去改代码。
+2. **第一次那条红是 `video.space_tour：page.waitForSelector Timeout 20000ms`**，
+   而同一个 e2e **单独跑 1 次 + 随整条 precommit 跑 2 次，共 3 次全是 232 条全绿** ⇒
+   判为被并发挤出来的偶发超时。**没有改那条门禁**（既不是事实变了、也不是用户改口径）。
+   两个附带事实：那条断言打印时 `.slice(0, 300)`（**第一处失败之后的失败看不见**，
+   看到一条红不等于只有一条）；该文件第 1457 行的场景名还写着「22 条图片技能 + **7 条**视频技能」，
+   而 `VIDEO_SKILLS` 现在**有 59 条** —— 过期的只是那句**标签**，判据本身是
+   `videoSweep.length === VIDEO_SKILLS.length`，跟着声明源走。
+
+**发版**：提交 `ea0d390b` → `Deployed ea0d390b to https://shuimg.cn/`。
+**生产复验**（从服务器本机看）：release `20260924-234437-ea0d390b`、`current` 指向它、
+站点 200、`/api/video/capabilities` 200。
+线上产物**只认 `index.html` 真正引用的那两个文件**（`assets/index-BhUZA3-v.js` + `assets/style-By8-K0_2.css`）——
+⚠️ **不能用 `assets/*.css` 全目录 grep**：那个目录是**历史累积**的，里面还躺着批 BC/BD 的旧 bundle，
+全目录扫会把**已经下线的类名**（`topbar-logo-rule` / `topbar-logo-ai`）当成"还在线上"报出来。本轮先踩了这个坑。
+只查活文件的结果：
+  · `style-By8-K0_2.css`：`.topbar-logo{display:none;…;font-size:17px;font-weight:800;letter-spacing:.01em;white-space:nowrap}`、
+    `.app-topbar.is-compact .topbar-logo{display:inline-flex}`、
+    `.topbar-brand.is-compact-mark .topbar-logo{display:inline-flex;font-size:15px}`、
+    `margin-left:max(0px,calc(var(--sb-app-sidebar-w, 96px) / 2 - 15px - 24px))` —— 四件都在；
+  · 被删掉的三件套 **`topbar-logo-rule` / `topbar-logo-ai` 在线上 CSS 与 JS 里各 0 次**（真的下线了）；
+  · `index-BhUZA3-v.js` 里 `topbar-logo"` 恰好 **2 次**（子页面 + 顶栏两处，都是单节点）；
+  · `images/brand-mark-{2x,3x}.png` 都在；`薯包 AI` 文本在线上 JS 里 5 处。
+
+**下一批如果还要动品牌标**：三条边界仍然有效（批 BD 记的）—— ① 用字体拼商标走不通；
+② 卡通手写字的现成资产也不行；③ 现在的形态是 **mark 磁贴 + 排版字标**。
+批 BE 又加了第四条：**字标不要再拆层**（竖分隔线 / 给 AI 单独配色字号 都被用户明确否掉，
+他要的是「一句话、一套样式」）；要调就调**字号字重**与**两态的时机**，别加第三件东西。
