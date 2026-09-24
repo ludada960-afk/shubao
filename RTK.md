@@ -7028,3 +7028,34 @@ source_audio_url + duration；形象只能自带真人视频；bundle 里无 lip
 #### 还没做
 ① 数字人创作台接线（最后一道门）；② 微动效接进小红书子页面（内核已好，只差 UI 入口）；
 ③ 内容检测第二阶段；④ 发布包（用户说先等等）。
+
+
+### 批 AX 销项确认（2026-09-24，用户提醒"别丢记忆"）
+
+用户原话：「可以做，但是你**待做的东西怎么就不做了呢**，我怕后面**丢失记忆**了呀：
+UI 整改第二批：模型选择面板（图四）／包含模块默认是否全选（牵到报价口径，等用户拍板）」
+
+⇒ **这两条都已经做完并上线了**，是我在待办清单里没勾掉，让他以为还挂着。证据：
+- **模型选择面板（图四）**：提交 `e0f10b78`。`src/pages/VideoStudio/VideoStudio.css` 里
+  逐属性换成图片侧 `.sb-opt` 的同一批 token —— `padding: var(--sb-space-2) var(--sb-space-3)`、
+  `border-radius: var(--sb-radius-card)`、`border: 1.5px solid transparent`（选中加描边不位移）、
+  `background: var(--sb-l3-option)`、hover `--sb-l3-option-hover`、按下 `--sb-active-bg`、
+  选中 `--sb-sel-bg` + `--sb-sel-line` + `--sb-shadow-ring`。
+  **"背景的暖色"的根因就是这里**：图片侧默认底是 `--sb-l3-option`(#F4F4F4)，视频侧原来用的是
+  `--sb-surface-sunken`（更深的 neutral-150）。
+- **包含模块默认 0/16**：同一提交。`src/pages/MediaCreation/index.jsx`：
+  进页面 `setModuleOff(new Set(skillModules.map(m => m.name)))`（一个都不勾，照知渔实采的「已选 0/16」）；
+  删掉「最后一个不许取消」；`count` 从 `Math.max(1, 勾选数)` 改成**如实取**；
+  0 个时 CTA 禁用 + 一句人话「请至少勾选一个模块（勾几个出几张）」。
+- 上线确认：`e0f10b78` 是当前线上版本 `e5e5a1a7` 的**祖先**（`git merge-base --is-ancestor` 通过），
+  发布目录 `/var/www/shubao/releases` 里 `20260924-122337-e5e5a1a7` 为最新。
+
+#### 当前的待做清单（只有这四条，别再漏）
+1. **微动效接进小红书子页面** —— 内核（`server/motionStillRender.mjs`）已上线并实测，
+   只差一个 UI 入口（选图 → 选动效 → 导出 2~3 秒竖版短视频）。
+2. **数字人创作台接线** —— 音频槽位的时长探针 + 按音频秒报价那条分支（VideoStudio 的
+   upstream-process 分支）；接完才能把产品两条 `public` 翻成 true、摘掉「即将上线」角标。
+   实测与定价**都已通过**（台账 callable，0.12 积分/秒）。
+3. **内容检测第二阶段** —— 顺带判定（搭在已有 LLM 调用上，0 元）/ 翻译上游的内容策略拒绝（0 元）/
+   图片分级只做抽检（要花钱，放最后）。设计见 docs/design/75。
+4. **发布包** —— 用户明确说「先等等，没考虑好」⇒ **不要动**。
