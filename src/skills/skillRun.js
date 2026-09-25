@@ -96,6 +96,15 @@ export function initialSkillValues(skill) {
   const seed = {};
   for (const field of (skill && skill.fields) || []) {
     if (field.kind === 'stepper') { seed[field.key] = Number(field.min || 1); continue; }
+    /* ═══ 2026-09-25 批 BL：**cards 也走"默认选中第一档/声明里的 default"** ═══════════════════════
+       用户原话（图5-⑤）：「你这两个配置的按钮为什么**没有默认打勾**呢？知渔他们是有的呀。」
+       根因：这个函数**没有 cards 分支** ⇒ 落到最后一行 `seed = ''` ⇒ 套图结构那两张卡
+       （智能匹配 / 自定义配置）一个都不选中 —— 用户看到的"没有默认打勾"不是样式问题，是值根本没种进去。
+       （连带影响：`structureCounts` 的 visibleWhen 依赖它 === '自定义配置'，值恒为空。） */
+    if (field.kind === 'cards') {
+      seed[field.key] = field.default ?? (field.options?.[0]?.value ?? '');
+      continue;
+    }
     if (field.kind === 'segmented' || field.kind === 'select') {
       /* 多选（multiple）：值是数组。默认给第一档选中 —— 与单选同一口径（"界面显示什么就跑什么"），
          用户再按需加选；不预选的话必填校验会直接把 CTA 卡住，那不是他们的样子。 */
