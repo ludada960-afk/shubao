@@ -10,7 +10,7 @@ import React, { useMemo, useState } from 'react';
 import { IMAGE_SKILLS } from '../../skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../../skills/videoSkills.js';
 import CaseCard from '../../components/media/CaseCard.jsx';
-import { coverOf, fusionLabel } from '../../skills/skillDirectory.js';
+import { categoryOrderOf, coverOf, fusionLabel } from '../../skills/skillDirectory.js';
 import '../../components/media/CaseCard.css';
 import '../../components/media/GalleryGrid.css';
 import './MediaHub.css';
@@ -23,24 +23,24 @@ const BOARDS = {
 export default function MediaHub({ board = 'image', onOpenSkill = null, emptyHint = '' }) {
   const config = BOARDS[board] || BOARDS.image;
   const groups = useMemo(() => {
-    const order = [];
-    const map = new Map();
+    /* ═══ 2026-09-19 用户批注 #10：「你的精品推荐为什么在下面呢？它不是应该在最上面吗？」═══
+       实测确认：改前按**声明顺序**出组，精品推荐（featuredRank 那几条）夹在中间甚至靠后。
+       推荐位的作用就是**第一眼看见** —— 放下面等于没推荐。
+       ═══ 2026-09-25 批 BQ：顺序判据**收进 skillDirectory.categoryOrderOf** ═══════════════════
+       用户原话：「**精品推荐应该在前面呀**，你现在怎么是创意应用在最前面呀？」
+       —— 他是在**首页**那排分类页签上看到的：这里（总页面）早就把精品推荐提到最前了，
+       而首页那边自己另写了一遍"按声明顺序"，于是两处不一致（首页显示成创意应用在前）。
+       ⇒ 现在两处都调同一个 `categoryOrderOf`，**只有一份规则**，不许再各写一份。 */
+    const order = categoryOrderOf(config.skills);
+    const map = new Map(order.map(category => [category, []]));
     /* 辅助能力单独收在最后一组：它们是被主技能调用的「一步」，
        混在正常分类里会让人以为那是一个能独立干完的活儿。 */
     const assistants = config.skills.filter(skill => skill.tier === 'assistant');
     for (const skill of config.skills) {
       if (skill.tier === 'assistant') continue;
-      if (!map.has(skill.category)) { map.set(skill.category, []); order.push(skill.category); }
-      map.get(skill.category).push(skill);
+      map.get(skill.category)?.push(skill);
     }
-    /* ═══ 2026-09-19 用户批注 #10：「你的精品推荐为什么在下面呢？它不是应该在最上面吗？」═══
-       实测确认：改前按**声明顺序**出组，精品推荐（featuredRank 那几条）夹在中间甚至靠后。
-       推荐位的作用就是**第一眼看见** —— 放下面等于没推荐。
-       实现：分组照旧从声明源算（不手写清单），只是把「精品推荐」这一组提到最前。 */
     const list = order.map(category => ({ category, skills: map.get(category) }));
-    const FEATURED = '精品推荐';
-    const featuredIndex = list.findIndex(group => group.category === FEATURED);
-    if (featuredIndex > 0) list.unshift(list.splice(featuredIndex, 1)[0]);
     if (assistants.length) list.push({ category: '辅助能力', skills: assistants, assistantGroup: true });
     return list;
   }, [config]);

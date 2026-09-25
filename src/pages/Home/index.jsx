@@ -15,7 +15,7 @@ import { productionCaseById } from './productionCaseCatalog.js';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
 import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
-import { featuredSkills, hubPath, skillPath, skillsOfBoard } from '../../skills/skillDirectory.js';
+import { categoryOrderOf, featuredSkills, hubPath, skillPath, skillsOfBoard } from '../../skills/skillDirectory.js';
 
 /* ═══ 首页每个板块摆几条精选推荐按钮 ═══════════════════════════════════════════════
    2026-09-19 用户批注 #4：「这里的 skill 他们本身只是个按钮。它是像这样子排列成
@@ -90,13 +90,18 @@ export default function HomePage() {
         切到某一档才展开那一档的全部技能。 */
   const [skillCategory, setSkillCategory] = useState('');
   const boardSkills = useMemo(() => skillsOfBoard(skillBoard), [skillBoard]);
+  /* ═══ 2026-09-25 批 BQ：分类页签的顺序改成**与总页面同一份实现**（skillDirectory.categoryOrderOf）═══
+     用户原话：「**精品推荐应该在前面呀**，你现在怎么是创意应用在最前面呀？」
+     根因：声明文件第一条技能是「创意应用」，按声明顺序出分类就会把它排到精品推荐前面；
+     而总页面早就把精品推荐提到最前了（它里面那段批注就是用户为这件事写的）——
+     **两处各写一份判据 ⇒ 两处不一致**。现在两处都调 categoryOrderOf，只有一份规则。 */
   const skillCategories = useMemo(() => {
-    const map = new Map();
+    const counts = new Map();
     for (const skill of boardSkills) {
       if (skill.tier === 'assistant') continue;   /* 辅助能力是被调用的"一步"，不进首页分类 */
-      map.set(skill.category, (map.get(skill.category) || 0) + 1);
+      counts.set(skill.category, (counts.get(skill.category) || 0) + 1);
     }
-    return [...map].map(([name, count]) => ({ name, count }));
+    return categoryOrderOf(boardSkills).map(name => ({ name, count: counts.get(name) || 0 }));
   }, [boardSkills]);
   const rowSkills = useMemo(() => {
     if (!skillCategory) return featuredSkills({ board: skillBoard, limit: SKILL_ENTRY_LIMIT });

@@ -82,6 +82,28 @@ export function hasCover(skill) {
    ⚠️ 判据只有这一份：工作台的按钮、文档里的说明都从这里取，不许各自再写一套。 */
 export const FUSE_SLOTS = Object.freeze(['result', 'field', 'none']);
 
+/* ═══ 分类的**顺序**只有这一份实现（2026-09-25 批 BQ）═══════════════════════════════════
+   起因（用户 2026-09-25 指出）：「**精品推荐应该在前面呀**，你现在怎么是创意应用在最前面呀？」
+   根因：声明文件里**第一条技能是「创意应用」**（image.poster），所以按声明顺序出分类时，
+   「创意应用」排在「精品推荐」前面。总页面早就处理过这件事（MediaHub 里那段
+   「你的精品推荐为什么在下面呢？它不是应该在最上面吗？」的批注），
+   但**首页那排分类页签没有** —— 两处各写一份判据，于是两处不一致。
+   ⇒ 现在收成这一个函数，**首页与总页面共用**：分类顺序 = 声明顺序，但「精品推荐」提到最前。
+      辅助能力（tier === 'assistant'）不是分类，一律不参与。 */
+export const FEATURED_CATEGORY = '精品推荐';
+
+export function categoryOrderOf(skills = []) {
+  const order = [];
+  for (const skill of skills) {
+    if (!skill || skill.tier === 'assistant') continue;
+    if (!order.includes(skill.category)) order.push(skill.category);
+  }
+  const at = order.indexOf(FEATURED_CATEGORY);
+  /* 提到最前；本来就在最前（或这条板块没有精品位）时不动，避免无谓的数组改序 */
+  if (at > 0) order.unshift(...order.splice(at, 1));
+  return order;
+}
+
 export function skillFusion(skill) {
   return (skill && skill.fuses) || null;
 }
