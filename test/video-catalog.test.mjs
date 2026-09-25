@@ -292,6 +292,11 @@ test('public products omit hidden routes and private provider details', () => {
         per_second 480p 报价，且都**不高于**各自 720p 的报价 ⇒ 同价提供不会让毛利变差：
           xn-wan3.0   480p ¥0.26/秒 vs 720p ¥0.325/秒 → 站内 wan_standard 开 480P
           （另一条是 seedance_mini，早就双档）
+        ⚠️ 2026-09-25 批 BM 追加第三条证据（同一天、同一个 /api/pricing、只读零成本）：
+          minimax-h3  480p ¥0.108/秒 vs 720p ¥0.162/秒 → 站内 minimax_h3_768p 也开了 480P。
+          原文（该条 description 逐字）：
+            "Drama API MiniMax H3 video generation. Per-second pricing: 480p 0.108, 720p 0.162, 1080p 0.4725."
+          ⚠️ 同一行里的 1080p（¥0.4725 ≈ 720p 的 2.9 倍）**没有开** —— 那是定价决定，须用户点头。
    （二）**1080P 只差定价决定**：同两条路由的 1080p 报价是 720p 的 1.4~2.9 倍
         （xn-wan3.0 0.455 vs 0.325；xn-seedance-2.0-second 1.859 vs 0.65），
         而站内是**按条固定价**、清晰度不进 SKU 也不进扣费口径 ⇒ 同价开 1080P 等于降价，
@@ -302,13 +307,13 @@ test('480P 档按上游文档价目开（比 720P 便宜才允许开），1080P 
 
   /* 与 seedance_mini 同一条规矩：720p 必须在第一位，否则前端按 resolutions[0] 兜底时
      默认档会从 720p 掉到 480p */
-  for (const id of ['wan_standard', 'seedance_mini']) {
+  for (const id of ['wan_standard', 'seedance_mini', 'minimax_h3_768p']) {
     assert.equal(getVideoProduct(id).resolutions[0], '720p', `${id} 的第一档必须是 720p`);
   }
 
   /* 480P 只在有文档价目证据的档位开：除此之外任何产品都不许出现 480p，除非补了新证据 */
   const with480 = Object.values(VIDEO_PRODUCTS).filter(p => p.resolutions.includes('480p')).map(p => p.id);
-  assert.deepEqual(with480.sort(), ['seedance_mini', 'wan_standard']);
+  assert.deepEqual(with480.sort(), ['minimax_h3_768p', 'seedance_mini', 'wan_standard']);
 
   /* ═══ 2026-09-25 批 AN：**判据第二次演进** —— 用户批了 1080P 的价，于是它从"零公开档"
      变成"允许公开，但每一档都必须有**自己的价与上游证据**"（判据没有消失，只是换了形态）═══════

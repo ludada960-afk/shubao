@@ -51,7 +51,10 @@ test('② 只有分辨率不同的档位合并成一行，分辨率交给「生�
 
   const mini = rowOfVariant(rows, 'minimax-h3');
   assert.equal(mini.products.length, 2, 'MiniMax H3 的 720P 与 2K 是同一行');
-  assert.deepEqual(mini.resolutions, ['720p', '2k']);
+  /* 2026-09-25 批 BM 追加：MiniMax H3 的上游文档价目里 **480p 比 720p 更便宜**
+     （480p 0.108 / 720p 0.162 / 1080p 0.4725 每秒，取自 /api/pricing 里 minimax-h3 那条的描述），
+     同价提供不损毛利，所以这一档直接开 —— 与通义万相 480P 同一条判据。 */
+  assert.deepEqual(mini.resolutions, ['480p', '720p', '2k']);
 
   /* 型号名里不许再出现分辨率（用户点名的就是「720P 的特定模型」） */
   for (const row of rows.rows) {
@@ -69,6 +72,7 @@ test('③ 选哪一档就切到哪条产品（价目/时长上限跟着走）—
   assert.equal(productForResolution(wan, '480p').id, 'wan_standard');
   assert.equal(productForResolution(mini, '2k').id, 'minimax_h3_2k');
   assert.equal(productForResolution(mini, '720p').id, 'minimax_h3_768p');
+  assert.equal(productForResolution(mini, '480p').id, 'minimax_h3_768p', '480P 与 720P 同属一条产品（同价档，SKU 不变）');
 
   /* SKU 仍然由**产品 id** 派生 ⇒ 切档位 = 换一条既有价档，不是新价（铁律：不动钱路）。 */
   assert.equal(videoFeatureSku({ productId: 'wan_1080p', duration: 5 }), 'video_wan_1080p_short');

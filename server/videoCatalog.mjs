@@ -475,13 +475,25 @@ export const VIDEO_PRODUCTS = deepFreeze({
        描述缩短一点。然后整体的描述变成一行就可以了。」）
        实测：行内文字区约 380px（10px 字），这一条 38 字会换行，其他档都在 30 字以内。缩短到 26 字。 */
     description: '文生/图生/多模态/首尾帧都能做，节奏与人物稳定性好。',
-    limitations: '按秒计费；参考视频与参考音频不限，首尾帧需两张图。',
+    limitations: '按秒计费；480P 与 720P 双档；参考视频与参考音频不限，首尾帧需两张图。',
     routeId: 'minimax-h3',
     credential: 'minimax',
     public: true,
     default: false,
     durations: { min: 5, max: 15 },
-    resolutions: ['720p'],
+/* 批 BM-6 追加：给 MiniMax H3 加 **480P** 档。
+   证据（今天实测、零成本、只读）：从生产机的 VIDEO_API_KEY 调上游
+   `GET https://api-new.ip233.com/api/pricing`（pricing_version=ip233-route-v2），
+   其中 **minimax-h3 这一条**（路由名与本产品 routeId 逐字相同）的 description 原文：
+     "Drama API MiniMax H3 video generation. Per-second pricing: 480p 0.108, 720p 0.162, 1080p 0.4725."
+   ⇒ 480p **比现有 720p 更便宜**（¥0.108 < ¥0.162），同价提供不会让毛利变差 ——
+      与批 AN 给通义万相加 480P 用的是同一条判据（站内按条固定价，清晰度不进 SKU、不进扣费口径）。
+   ⚠️ 1080p（¥0.4725/秒 ≈ 720p 的 2.9 倍）**不在本轮**：那是定价决定，须用户点头，
+      而且它更适合开成独立档位（一条产品一条价档，见 VIDEO_PRODUCTS 上方的契约注释）。
+   ⚠️ 与 480P 同一条免责：这一档**还没有真实出片记录**。按站内口径，上游拒收不扣费，
+      所以失败不会误扣；首条真实 480P 账单落库后须回来校准这一行。
+   ⚠️ 720p 必须留在第一位：前端切产品时按 resolutions[0] 兜底，480p 放前面会让默认档掉到 480p。 */
+    resolutions: ['720p', '480p'],
     modes: ['script', 'reference', 'frame', 'remake'],
     generatedAudio: true,
     frameAudio: false,
