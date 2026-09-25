@@ -125,7 +125,47 @@ that help identify a brand"，可以是颜色、图形、形状等任何识别�
 
 ---
 
+## 三-b、签名在代码里已经有落点（**不是从零发明**，本条是 2026-09-25 补查出来的）
+
+用户追问"签名这个规则是做在哪里"，于是把仓库翻了一遍。结论：**签名要的东西，服务端已经有一份实现，
+叫 `campaignBible`**；我们缺的不是机制，是"**把它从每次算、改成账号级存一次**"。
+
+### 已有实现（**生产在跑的**）
+
+| 位置 | 内容 |
+|---|---|
+| `server/ecommerceEngine/campaignBible.mjs` | `compileCampaignBible(direction, overrides, styleReferenceProfile)` → 返回 `schemaVersion: 2` 的**艺术指导对象**，字段就是签名要的那些：`palette` / `lighting` / `composition` / `cameraLanguage` / `backgroundLanguage` / `typographyIntent` + `typographySystem` / `consistencyLocks` / `visualKeywords` / `editableBrief` |
+| 同上（色彩优先级） | `customColors`（`custom_colors`）**优先于**设计方向的 palette；且一旦给了自定义色，会把它写成一条 **canonical consistency lock**（`palette: …`）并把旧的调色锁剔除 —— 这就是"锁定品牌色一路带到出图请求"那条门禁守的东西 |
+| `server/ecommerceEngine/typographyPolicy.mjs` | `compileTypographySystem()` —— 排版/字体单独一套策略，已接进 bible |
+| **反面约束（已端到端跑通）** | 面板 `src/pages/Home/ec/GenerationConstraintsPanel.jsx`「避免出现的元素」→ `genSettings.negativePrompt` → 服务端 `negativeConstraints` → `server/ecommerceEngine/promptCompiler.mjs` 里 `compileAssetRequest()` 输出成请求里的 **`forbidden`** 字段 |
+
+⇒ 所以"不露脸 / 无文字 / 无水印"这类**反面纪律**，和"色簇 / 柔光 / 构图 / 字体"这类**正面纪律**，
+**都已有承接字段**。签名不需要新造数据模型。
+
+### 真正缺的两件事（这才是要做的）
+
+1. **账号级持久化**：现在 bible 是**每次生成时**从"设计方向 + 覆盖项 + 风格参考档案"**算出来**的，
+   没有"设一次、以后每篇都继承"的存放位置。签名 = 把这份 bible 变成一个**账号级对象**，
+   每篇生成时自动带上，而不是每篇重新生成/重新填。
+2. **母体库**：母体表（含"已用次数"）—— 它**不进**出图请求，只决定"这一篇往 bible 的
+   `palette`/`lighting`/`visualKeywords` 里填什么"。
+
+### 一条**不在出图链路上**的签名项
+
+**标题的书写签名**（「"……」」引用式短句）与出图无关，它属于**文案与发布环节**，
+落点是发布包里的标题模板 + 人工润色（见 §七 合规那段："AI 产出必须人工二次改写"）。
+不要试图把它塞进提示词。
+
+### 阶段 0（手工阶段）它落在哪
+
+**一份签名块文本 + 一张发布前自检清单**，都是文档，零开发：
+出图时把签名块粘在提示词最前面（正面纪律），反面纪律填进「避免出现的元素」那一格（已有面板），
+出完对着清单核一遍（不露脸？3:4？色簇对？字标原样？）。**这一阶段不需要任何代码改动。**
+
+---
+
 ## 四、市场调研结论：行业怎么做，空白在哪
+
 
 （完整来源见 `docs/research/2026-09-25-art-direction-research-digest.md`）
 

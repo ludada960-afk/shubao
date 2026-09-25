@@ -7711,3 +7711,34 @@ CSS 有 `topbar-logo-ai`、`https://shuimg.cn/images/brand-mark-3x.png` 回 200�
   序号变色与 256px 独立模糊层**不做**：导航项没有序号，也不为它多挂一层 DOM。
 - ⚠️ 这两次发版共用同一个入口 chunk（`index-Xi5z4QqH.js` 的 sha256 两次都一样）—— 改动全在 CSS 里，
   所以**只看入口 js 的 hash 判断"发版有没有上去"会误判**；要一起看 `style-*.css` 的 hash。
+
+### 补记（2026-09-25 · 批 BG 同日）：**"签名"在代码里已经有实现，叫 `campaignBible`** —— 别从零造
+
+用户在批 BG 之后追问了两句：「**签名指的是什么**」「**你这个规则是做在哪里**」。
+为了回答第二句把仓库翻了一遍，翻出一条**跨会话都必须知道的事实**：
+
+**服务端早就有了一份艺术指导对象，生产在跑**：
+- `server/ecommerceEngine/campaignBible.mjs` → `compileCampaignBible(direction, overrides, styleReferenceProfile)`
+  返回 `schemaVersion: 2` 的对象，字段就是签名要的那些：
+  `palette` / `lighting` / `composition` / `cameraLanguage` / `backgroundLanguage` /
+  `typographyIntent` + `typographySystem` / `consistencyLocks` / `visualKeywords` / `editableBrief`。
+- **色彩优先级已实现**：`customColors`（`custom_colors`）**优先于**设计方向的 palette；
+  且一旦给了自定义色，会把它写成一条 **canonical consistency lock**（`palette: …`）并把旧的调色锁剔除
+  —— 这正是门禁「锁定品牌色必须一路带到出图请求」守的那条链路。
+- `server/ecommerceEngine/typographyPolicy.mjs` 的 `compileTypographySystem()` 单独管排版。
+- **反面约束已经端到端跑通**：面板 `src/pages/Home/ec/GenerationConstraintsPanel.jsx`「避免出现的元素」
+  → `genSettings.negativePrompt` → 服务端 `negativeConstraints`
+  → `server/ecommerceEngine/promptCompiler.mjs` 的 `compileAssetRequest()` 输出成请求里的 **`forbidden`**。
+  （注：`promptCompiler.mjs` 第 639 行的注释记着一个旧 bug —— 客户端发 `negativePrompt`
+    而服务端全仓 0 命中，即**发了没人收**；现在是靠 `negativeConstraints` 接的。）
+
+⇒ **推论（下一个人直接用）**：签名**不需要新造数据模型**，它是把这份 `campaignBible`
+  从「**每次生成时算出来**」改成「**账号级存一份、每篇继承**」。真正要新建的只有两件：
+  ① 账号级的持久化位置；② 母体库（含"已用次数"计数器，且它**不进**出图请求，
+  只决定往 bible 的 `palette`/`lighting`/`visualKeywords` 里填什么）。
+
+⚠️ 另有一条**不在出图链路上**的签名项：**标题的书写签名**（「"……」」引用式短句）
+属于文案与发布环节（发布包标题模板 + 人工润色），**不要塞进提示词**。
+
+这轮**只改了文档**（`docs/design/78-content-system-and-art-direction.md` 新增「三-b」一节），
+没碰任何 src/ 与 server/，所以不用跑 precommit、不用发版。
