@@ -8738,3 +8738,90 @@ SKU 由**产品 id** 派生（`video_${id}_${short|long}`，videoFeatureSku）�
 | `xn-wan3.0` | 「支持 5-15 秒、480p/720p/1080p，**最多 9 图、9 视频、3 音频参考**」 | 只给 1 张参考图、0 视频、0 音频；时长 5-10 | 真出片验证（花钱）｜时长上限是**余额**算出来的，不是路由限制 |
 | `xn-minimax-h3` | 「支持 4-15 秒、480p/720p/1440p，最多 30 图/30 视频/30 音频参考，支持人脸」 | 5-15 秒、2K 档、30/30/30 参考 | 480p/720p 加在这里没意义（同一型号行已有更便宜的档） |
 | `minimax-h3` | 480p 0.108 / 720p 0.162 / **1080p 0.4725**（每秒） | 720P + 480P（本轮） | 1080P：定价决定，须用户点头 |
+## 2026-09-25 批 BN：工作台生成按钮**通栏 + 未满足条件"不亮" + 提示在按钮下方**（图片/视频同一套）+ 型号行标签列出支持的清晰度
+
+提交 `1393f84c`（部署：`Deployed 1393f84c to https://shuimg.cn/`）。起因是用户两张批注图 + 一句追问。
+
+### 用户原话（逐字）
+- 「你这个按钮还是没做对呀。我说了好多次了，就是你工作台下面的这个生成按钮，**不管是生成预览还是
+  生成图片，生成视频。你这个按钮不能搞得这么的窄呀**，你应该学习知渔他们的做法呀。」
+- 「你好好看一下他们这个按钮是怎么做的，他们做的是大概多宽，然后怎么样去适配的？然后他们这个按钮是
+  **当用户没有满足条件的时候，这个按钮是不能够亮起来的**。然后当你这个是必须要上传素材的时候，
+  **它下面是会有一个提示**必须要上传的。如果你这个 skill 不需要一定要上传素材，那就不会有这个提示，
+  就是只要用户他输入了提示词，这里就会亮起来。」
+- 「可是这样做的话，不是**没有所谓的 2K 的配置按钮**吗，那不是还得在模型选择里面做这个选项吗？」
+
+### 知渔的规格是**逐像素**量出来的（不是形容词）
+脚本 `.qa/bn-measure-quantv-cta.mjs`（入库，谁要复核直接跑），对他那张 2560×1280 截图：
+| 项 | 实测 |
+|---|---|
+| 按钮矩形 | x 152→789 = **319 CSS px**；左栏内容宽 356 ⇒ **100%（通栏）** |
+| 按钮高 | **34 CSS px** |
+| 未满足条件时 | 灰底 **#8f8f8f** + 白字（不是"品牌色淡出"） |
+| 提示 | 按钮正下方 ~18px、**居中**、灰字 ≈13px |
+
+### 改后（`.qa/bn-verify.mjs` 实机，落档 `.tmp/bn/bn-verify.json`）
+| 项 | 图片侧（商品套图·缺素材） | 视频侧（首页创作台·无输入） |
+|---|---|---|
+| 按钮宽/内容宽 | **440 / 440 = 100%**（改前 min-width:220 + 右对齐） | 100% |
+| 布局 | CTA 容器 `flex-direction: column` | `。video-submit-actions.has-hint` 竖排 |
+| 禁用底/字 | `rgba(12,10,9,.04)` / `rgb(176,170,165)` | **同值** |
+| 提示 | 「还差：上传图片」在按钮下方 10px、**居中** | 「登录后即可生成」，居中 |
+| 积分 chip | 仍品牌底（按钮灰、积分不灰 —— 9-12 用户口径） | 同 |
+| 真出片 | `POST /api/video/jobs` = **0** | 同 |
+
+### ⚠️ 判据变更 = **用户改向**（不是事实变了）
+批 BF 曾说「按钮**做到这么宽是没有任何意义的**」⇒ 当时改成 `width:auto + min-width:220 + 右对齐`；
+本轮用户明确要求照知渔做**通栏**。两次原话都写进 `WorkbenchShell.css` 的注释（同一段里并列），
+改宽度前先确认口径是哪一版。
+
+### 收口（三处同一份来源）
+- **提示**：新增 `.shubao-gen-cta-hint` 到全局 `generate-cta.css`，图片侧与视频侧共用同一个类
+  （图片侧节点保留 `.media-workbench-cta-hint` —— `scripts/media-workbench-e2e.mjs` 与门禁按它取节点）。
+- **禁用档**：三处主 CTA（全局 / 图片侧工作台 / 视频侧）统一到 V3 的 `--sb-state-disabled-bg` /
+  `--sb-state-disabled-ink`（Button.jsx、Home.css、skill-library.css 的既有语言）。
+  实机探针**抓到过两边不一致**（一边一种灰）—— 那就是用户最烦的"两套东西"。
+- **视频侧补上缺料提示**（原来只有图片侧有 ctaHint）：`submitHint` 按"最该先做的那一步"给一句
+  （登录 / 未开放 / 源视频 / 配音 / 框选区域 / 本机渲染未就绪 / 画面描述 / 首尾帧 / 参考素材 /
+  先分析并确认方案 / 正在确认费用）；**只在真缺东西时出现**，没有提示时动作区保持原来那一行。
+
+### 型号行标签：回答"2K 的按钮在哪"
+**在「生成设置 → 清晰度」里**（实测：MiniMax H3 药丸 = 480P/720P/2K，点 2K 后报价 SKU 变成
+`video_minimax_h3_2k_short`，38 → 65 积分）；但合并后**列表里看不出还能出 2K** ⇒
+多档型号行的小标签改成档位清单：MiniMax H3 = `480P · 720P · 2K`、通义万相 3.0 =
+`480P · 720P · 1080P`、Seedance 2.0 Mini = `480P · 720P`；单档行仍写档位文案。
+口径收在 `videoModelChip()` 一个函数里（页面与门禁共用）。
+
+### 顺带修一处**用户可见的假话**
+`minimax_h3_768p.limitations` 原写「按秒计费」，但这条档位两条 SKU 都是**按条固定价**
+（short/long 同为 38000 units = 38 积分，台账 `costPerClipCny: 4.55`）⇒ 改为「按条计费」。
+
+### ⚠️ 本轮自己踩的三个门禁红灯（都记下来，免得下次再犯）
+1. **CSS 注释嵌套**：我在批 BF 那条注释**里面**又开了一个注释开头 ⇒
+   `css-comment-integrity` 的 ②③ 两条同时红（注释提前结束会让后面的规则整条被吞）。
+   → 合并成一条注释（两次用户原话并列在里面）。
+2. **V2 token 家族**：为统一禁用色引用了 `--footer-actions-primary-disabled-*` ⇒
+   `legacy-token-family` 的棘轮红（`BASELINE_TOTAL = 0`，V2 用法必须恰好为 0）⇒ 改用 V3 那一对。
+3. **注释里写 hex**：`WorkbenchShell.css` 的禁用注释里写了几个色值 ⇒
+   `media-language-unify-0916` ⑦ 的"工作台样式不得硬编码色值"是**裸正则**，连注释里的 hex 也算。
+   → 注释里改用文字描述。
+
+### 验证
+`npm run test` **4120 / pass 4110 / fail 0 / skipped 10**；`npm run precommit` 全绿；
+实机 `.qa/bn-verify.mjs`（图片侧 + 视频侧两侧都量）与 `.qa/bm6-verify.mjs`（模型分组 / 清晰度 / SKU）。
+
+### 部署与线上复验
+- `Deployed 1393f84c to https://shuimg.cn/` + `Released remote deployment lock`；产物换成
+  `assets/index-CcVVo71V.js` + `assets/style-DMi9FD9H.css`；`/api/health` = **200**。
+- 服务器端 curl 到的实据（逐条都在这份产物里）：
+  · `media-workbench-submit{width:100%;display:inline-flex;align-items:center;justify-content:center;…}`（通栏）
+  · `media-workbench-cta{…display:flex;flex-direction:column;align-items:stretch;gap:10px}`（按钮 + 提示竖排）
+  · `shubao-gen-cta-hint{margin:0;text-align:center;color:var(--sb-ink-3);font-size:12.576px}`（提示规格唯一一份）
+  · `media-workbench-submit:disabled` 与 `shubao-gen-cta:disabled` **同一对 token**
+    （`--sb-state-disabled-bg` / `--sb-state-disabled-ink`）
+  · `video-submit-actions.has-hint{flex-direction:column;align-items:stretch}`
+  · 视频侧缺料文案进了产物：`请输入画面描述` / `请先上传首帧和尾帧` 命中 `index-yc8Nk-Qt.js`
+
+### ⚠️ 顺带记一条操作纪律（今天第二次踩）
+部署命令**必须单条**、不带任何 `;` 追加 —— 今天先是因为 `; echo EXIT=$?` 被 cmd 当成参数传给 pwsh
+（`Identity file EXIT=$?` / `ssh: Could not resolve hostname ;`），这次就没再写 `;`，一次通过。
