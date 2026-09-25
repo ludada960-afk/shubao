@@ -8622,3 +8622,88 @@ button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-s
   \`grid-template-columns:minmax(300px,.52fr)\`（**0.52fr 前紧邻的是 \`,\`**）。**正则要留宽松。
 - 同名选择器有多条时 \`head -1\` 会读到**旧的那条**（分组标题就是：第一条 13.6/500、第二条才是我改的
   14/800）⇒ 核对"改了没生效"之前，先把该选择器的**全部规则**打出来看顺序。
+
+## 2026-09-25 批 BM：视频模型**按家族分组** + 分辨率搬进「生成设置」/ LOGO 内联零请求 / 按钮下方缝隙 / 展开自动滚动
+
+提交 `81ce18f4`（16 文件 / +804 −21）。用户六张批注图，逐字原文见下。**钱路一个字没动。**
+
+### 用户原话（逐字）
+- 「你这个模型选择……**为什么 seedance 不放到一起呢？mini max 你也没有放到一起**。然后现在视频生成
+  这里的模型……**为什么会有 720P 的特定模型呢？720P 应该在生成设置里面去选的呀**，用户在这里就只负责
+  选相应的模型就可以了，然后参数是在生成设置里面去做的呀。」
+- 「然后有更多的模型在下面的话，你就**右边要搞一条这种拉动条**可以往下面拉不就行了吗？你一次性全部
+  张开会不会太多了呀。」
+- 「**还是说你有其他的策略呢？如果你觉得你的方案更合理，那你也可以告诉我这是为什么呢？**」
+  ⇒ 正面答复写在 `docs/design/84-video-model-family-and-resolution.md`（结论见下"为什么分辨率仍在钱路上"）。
+
+### 实机前后值（`.qa/bm6-verify.mjs` → `.tmp/bm6/bm6-verify.json` + 4 张截图）
+| 项 | 改前 | 改后（读 DOM / 计算样式） |
+|---|---|---|
+| 分组标题 | 无（12 行平铺，Seedance 被切成 4 段） | `['Seedance','MiniMax','通义万相','可灵']` **各 1 次** |
+| 行数 | 12 | **10**（同型号多分辨率合并：万相 2 条 → 1 行；MiniMax 2 条 → 1 行） |
+| 型号名 | 「Seedance 2.0 轻量 720P」「MiniMax H3 768P」 | 「Seedance 2.0 轻量」「MiniMax H3」 |
+| 面板 | 高度取"按钮上方空间"（可达 800） | **480 × 520**（图片侧同档），内容 789 ⇒ **可滚**，`scrollbar-width: thin` |
+| 行样式 | — | 直接子 `button` = 10、底 `#f4f4f4`、圆角 12、min-height 56、选中环 3px **全部仍生效** |
+| 分组标题 | — | 11px / 700 / hint 灰（**10/600 实测压不住模型行**，提到 `--sb-text-xs` + `--sb-text-bold`） |
+
+清晰度档位的**钱路证据**（报价请求里的 SKU，不是"看界面变了个色"）：
+| 操作 | 药丸 | 型号名 | 报价 SKU |
+|---|---|---|---|
+| 通义万相 3.0 | 480P/720P/1080P | 通义万相 3.0 | `video_wan_standard_short` |
+| 点 1080P | 选中 1080P（时长上限 10→**9**） | 通义万相 3.0（**不变**） | **`video_wan_1080p_short`** |
+| MiniMax H3 | 720P/2K | MiniMax H3 | `video_minimax_h3_768p_short` |
+| 点 2K | 选中 2K | MiniMax H3 | **`video_minimax_h3_2k_short`** |
+
+`POST /api/video/jobs` 调用数 = **0**（打桩成 500，被调到就会响）。
+
+### 为什么分辨率仍是"一条产品一条价档"（用户问了，答了）
+SKU 由**产品 id** 派生（`video_${id}_${short|long}`，videoFeatureSku）⇒ 一条产品只能对一条价档；
+720P 与 1080P 的上游成本不同（万相 ¥0.325/秒 vs ¥0.455/秒）⇒ 1080P/2K 必须是独立产品（批 AN 就按这个开的价）。
+所以本轮只做**展示层折叠**：目录加 `family/familyLabel` + `variant/variantLabel`（`label` 原样保留给账单/后台），
+新增纯函数 `src/pages/VideoStudio/videoModelRows.js` 折叠成「家族 → 型号行 → 档位产品」。
+要真做成"分辨率随便传"，需要先补两件事：**逐通道实测**（分辨率是通道属性：`xn-wan3.0` 有 480p/720p/1080p
+文档价目；Seedance 2.0 的 1080P 是另一条模型名，通道建好但**中转余额 < 预扣 ¥7.67** ⇒ 保持 public:false）
++ **一次定价口径确认**（SKU 结构要变，属变更收费项结构，须用户点头）。
+
+### 判据
+- 新增 `test/video-model-families-0925.test.mjs` **5 条**：分组不重复出现 / 型号名不许带分辨率 /
+  产品一条不多一条不少（漏一条 = 用户选不到）/ 页面必须消费分组结果 / 分组标题是纯文本 + 滚动条 8px 可见。
+- `test/video-studio-contract` 的「模型列表必须保留一段描述」判据**落点变了（事实变了）**：
+  `product.description` → `row.description`（"一行一段描述、不得列积分"这条规则一个字没改）。
+
+### 同批其余五件（都有实机前后值）
+1. **LOGO 不再"是一张图"**：品牌标改**内联 data URI**（`src/constants/brandMarkInline{,2x}.js`，
+   生成器 `scripts/brand-mark-inline.mjs`）⇒ 实测 `src=data:image/png;base64,…`、**`brandMarkRequests: []`**
+   （零请求、零闪白）；hover 只有 `drop-shadow(0 1px 3px rgba(17,24,39,.16))`，**没有位移/缩放**
+   （用户嫌"往右边投"就是位移造成的）。子页面那格删掉已失效的 `is-compact-mark`
+   （实测 DOM 是纯 `topbar-brand`；`option-grid-and-back-align-0925` 已明令不许再用那个类 ——
+   **那个类不删，主干的这条门禁就是红的**）。
+2. **CTA 下方缝隙**：`.media-workbench-left` 下内边距 28 → 0、CTA 去负边距 ⇒ 实测缝隙 **0px**。
+3. **点「自定义配置」自动进视野**：`CountsControl` 挂载 `scrollIntoView({block:'nearest'})` +
+   `scroll-margin-bottom: 148px` ⇒ 实测 `clearOfCta = 34`（不再被 CTA 压住）。
+4. **示例/历史页签**：去掉容器底/描边/内边距，`display:inline-flex; gap:10px`（实测 padding 0 / transparent / border 0）。
+5. **下拉高度**：`positionModelMenu` 的 maxHeight 收成 **240–520**（图片侧同档），超出交给**看得见的**细滚动条
+   （批 BG 那版 `::-webkit-scrollbar{width:0}` 是"限高但不可滚"，用户看到的是被切掉的列表）。
+
+### ⚠️ 本轮自己踩的坑（写下来避免再犯）
+- **`cmd` 里 `; echo "EXIT=$?"` 不是命令分隔符**：它被当成**额外参数**传进了 `pwsh`，
+  结果 `deploy-production.ps1` 拿 `EXIT=$?` 当 SSH 私钥、拿 `;` 当主机名 ⇒
+  `Warning: Identity file EXIT=$? not accessible` + `ssh: Could not resolve hostname ;` +
+  `Deployment lock was lost; refusing an unfenced production rollback` + `Could not create remote runtime helper directory`。
+  **部署命令必须单条、不带任何 `;` 追加**（要退出码就另起一次调用）。所幸失败发生在"创建远端 helper 目录"这一步，
+  **线上一个字没动**（复核：`git rev-parse --short HEAD` 仍是旧 sha、`/api/health` 200）。
+- 第一次部署失败后**重跑一次就成功**，无需其它善后 —— 说明这条路径本身没有半成品状态。
+
+### 部署与线上复验（唯一成功判据 = `Deployed <sha>` 那一行）
+- 第一次部署失败原因见上（`; echo` 被当成 pwsh 参数），线上未受影响；**重跑一次成功**：
+  `Deployed 81ce18f4 to https://shuimg.cn/` + `Released remote deployment lock`。
+- 线上产物换了：`assets/index-DG4SbNeP.js` → **`assets/index-BwLqIQQM.js` + `assets/style-CvcySAyq.css`**。
+- 从服务器端核到的实据（全部 ssh 在服务器上 curl，本机不直连线上）：
+  · `/api/health` = **200**；
+  · CSS 里有 `.video-model-group-label{…font-size:var(--sb-text-xs);font-weight:var(--sb-weight-bold)…}`、
+    滚动条 `video-inline-menu::-webkit-scrollbar{width:8px}`、左栏 `padding:24px 20px 0`、
+    页签 `display:inline-flex;gap:10px`；
+  · 客户端产物 `index-CZFOqwr3.js` 里能找到 `video-model-group-label` 与 `variantLabel`（分组代码确实上线）；
+  · `/api/video/capabilities` 12 条产品**全部**带 `family/familyLabel/variant/variantLabel`，
+    合并对正好两组：`wan-3.0`（720p+480p 与 1080p）、`minimax-h3`（720p 与 2k）；
+    万相描述已是「480P/720P/1080P 三档可选」。
