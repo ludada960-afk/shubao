@@ -33,7 +33,9 @@
    让右边的示例和历史区**再大一些**。工作台整体往左边挤过来啊。」
    箭头标在屏幕 **40.3%** 处 ⇒ 工作台右沿应在 ~40%，即 **左 : 右 ≈ 40 : 60**。
    批 BE 是 1 : 1.04（≈49:51），本批改成 **0.67 : 1**（≈40:60）。 */
-.media-workbench { display: grid; grid-template-columns: minmax(300px, 0.67fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* 批 BL：0.67fr → **0.52fr**（实测 40% → 约 34%）。用户原话（图5-①）：
+   「我觉得工作台还是做的有点太宽。**再往左边缩一点**吧。」 */
+.media-workbench { display: grid; grid-template-columns: minmax(300px, 0.52fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .media-workbench-left {
   display: grid;
   gap: 22px;
@@ -137,6 +139,10 @@
 .media-workbench-group { display: grid; gap: 12px; }
 /* ⚠️ 2026-09-19：分组间距按竞品实测对齐 —— 他们是 **39.68px**（docs/design/60 §4），
    我们原来是 22px，只有他们的 55%。用户说「多少间距……你都没有做好」说的就是这类差。 */
+/* 批 BL：左栏**内容末尾要留出 CTA 那一段的高度**（用户原话：「我拉到最下面我都**看不全**这个按钮」
+   /「滑到最下面它都应该**不能被这个按钮给盖住截断**」）。
+   实测滚到底时最后一张卡 bottom 855 vs CTA top 849 ⇒ 卡片被压住 6px；给最后一段补 12px 余量即可。 */
+.media-workbench-group:last-of-type { padding-bottom: 12px; }
 .media-workbench-group + .media-workbench-group { padding-top: 40px; border-top: 1px solid var(--sb-border-subtle); }
 .media-workbench-group-title {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -184,16 +190,31 @@
   margin-left: auto;
   padding-left: 10px;
 }
-.media-workbench-inline-action {
-  display: inline-flex; align-items: center; gap: 4px;
-  min-height: 29px; padding: 4px 10px;
-  border: 0; border-radius: var(--sb-radius-pill);
-  background: transparent; color: var(--sb-ink-2);
-  font: inherit; font-size: 12.576px; font-weight: 500;
-  white-space: nowrap; cursor: pointer;
-  transition: background-color .16s ease, color .16s ease;
+.media-workbench-group-title {
+  /* 批 BL：**标题必须加粗**（用户原话，逐字）：「你像这些地方的 UI 确实是有升级了，可是你为什么
+     没有把它们**加粗**呢？你是不是字体没有去做加粗呀？……**标题就应该是被加粗的呀，不加粗的话，
+     它能叫标题吗？**」—— 改前是 13.624/500/灰（批 O-⑪ 照知渔把层级做反了），现在回到"标题最重"：
+     14 / 800 / 墨色。与面板里的 GroupTitle（同一轮改的 14/800）同一档。 */
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--sb-ink-1);
 }
-.media-workbench-inline-action:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+/* ═══ 2026-09-25 批 BL：**与分组级那颗（.media-workbench-parse）统一成同一套** ═════════════════════
+   用户原话：「你现在所有工作台的**一键解析的这些按钮**啊，做的都**很不清楚**。你好像根本就没有去
+   抄知渔他们的做法。」
+   实测改前：字段级那颗 **145×29 / 透明底 / border 0 / 12.6-500** —— 没有边界，读起来像一句说明文字。
+   ⇒ 实线描边 + 胶囊 + 白底 + 34 高，与分组级那颗逐值同档（只在小一号的内边距上让位给字段行）。 */
+.media-workbench-inline-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 30px; padding: 0 12px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-1);
+  box-shadow: var(--sb-shadow-1);
+  font: inherit; font-size: 12.576px; font-weight: 700;
+  white-space: nowrap; cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.media-workbench-inline-action:hover:not(:disabled) { background: var(--sb-surface-tint); border-color: var(--sb-brand-500); color: var(--sb-ink-1); }
 .media-workbench-inline-action:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-workbench-inline-action:disabled { opacity: .55; cursor: not-allowed; }
 .media-workbench-inline-action em { font-style: normal; color: var(--sb-brand-700); font-weight: 600; }
@@ -298,16 +319,23 @@
    改前是 width:100% + space-between —— 标签贴左、价格贴右，中间拉出一大片空。
    竞品那颗「一键解析 · 0.20 积分」是**按内容宽**的紧凑胶囊。
    所以：宽度交给内容，靠左站（容器是拉伸的，用 justify-self 让它别被拉满）。 */
+/* ═══ 2026-09-25 批 BL：**一键解析改成"明确的按钮"**（用户原话，逐字）════════════════════════════
+   「你现在所有工作台的这个**一键解析的这些按钮啊，做的都很不清楚**。你好像根本就没有去抄知渔
+     他们的做法。」（图6-① 给的就是他们那颗的样子）
+   实测我们改前：**虚线描边** + 浅底 + 13/700 —— 虚线读起来像"占位/拖放区"，不像按钮。
+   知渔实测（已落档）：190×34、**0.8px 实线描边**、**胶囊圆角**、透明底、字 12.6。
+   ⇒ 改成实线 + 胶囊 + 白底 + 悬停品牌描边，积分仍写在按钮上（那是硬要求）。 */
 .media-workbench-parse {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  width: auto; max-width: 100%; justify-self: start; align-self: start;
-  padding: 9px 14px;
-  border: 1px dashed var(--sb-border-strong); border-radius: var(--sb-radius-control);
-  background: var(--sb-surface-tint); color: var(--sb-ink-1);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: auto; max-width: 100%; justify-self: start; align-self: center;
+  min-height: 34px; padding: 0 16px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-1);
+  box-shadow: var(--sb-shadow-1);
   font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
   transition: background-color var(--sb-duration-fast) var(--sb-ease-out), border-color var(--sb-duration-fast) var(--sb-ease-out);
 }
-.media-workbench-parse:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-brand-500); }
+.media-workbench-parse:hover:not(:disabled) { background: var(--sb-surface-tint); border-color: var(--sb-brand-500); box-shadow: var(--sb-shadow-2); }
 .media-workbench-parse:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-workbench-parse:active:not(:disabled) { background: var(--sb-surface-tint-strong); }
 .media-workbench-parse:disabled { opacity: .55; cursor: not-allowed; }
@@ -403,7 +431,30 @@
 .media-field-card-copy { display: grid; gap: 4px; }
 .media-field-card-copy strong { font-size: 14.672px; font-weight: 500; }
 .media-field-card-copy small { font-size: 12.576px; color: var(--sb-ink-3); line-height: 1.45; }
-.media-field-card-check { flex: 0 0 auto; font-size: 15px; color: var(--sb-brand-600); }
+/* ═══ 2026-09-25 批 BL：**勾要"明确、具体、有底色"**（用户原话，逐字）══════════════════════════
+   「你好好看一下他们这两个按钮，明明是有默认打勾的呀。而且他们的**勾打的是比较明确，比较具体的**，
+     我们那个勾它好像就**只是一个勾，甚至连个底色都没有**。你一定要去调整呀！」
+   改前实测：勾选框 width/height = **0px**、无底色、只有一个 15px 的 ✓ 字符（未选中时是空 span）。
+   ⇒ 现在是一个 20×20 的方块：选中 = 品牌底 + 白勾 + 圆角 7；未选中 = 透明占位（保持行宽不跳）。 */
+.media-field-card-check {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 20px; height: 20px;
+  border-radius: 7px;
+  background: transparent;
+  color: transparent;
+  font-size: 13px; line-height: 1; font-weight: 900;
+  transition: background-color var(--sb-dur-fast) var(--sb-ease-out), color var(--sb-dur-fast) var(--sb-ease-out);
+}
+.media-field-card.is-active .media-field-card-check {
+  background: var(--sb-brand-600);
+  color: var(--sb-neutral-0);
+  box-shadow: 0 2px 6px var(--sb-brand-a18);
+}
+
+/* ── ①b 卡片文字加粗（标题待遇）── */
+.media-field-card-copy strong { font-size: 15px; font-weight: 700; color: var(--sb-ink-1); }
+.media-field-card-copy small { font-size: 12.576px; color: var(--sb-ink-3); line-height: 1.45; }
 .media-field-label b { color: var(--sb-brand-600); font-weight: 600; }
 .media-field-control {
   width: 100%;
@@ -473,9 +524,35 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 }
 .media-field-expand-done:hover { background: var(--sb-brand-700); }
 .media-field-expand-done:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.media-field-segmented { display: flex; gap: 8px; flex-wrap: wrap; }
+/* ═══ 2026-09-25 批 BS：选项药丸改成**等宽网格**（用户批注，逐字）═════════════════════════════
+   原话：「你总是把这些按钮给收起来，然后每次我一打开按钮，我发现你的排版做的都特别的差……
+   上面搞这么多个按钮，**下面却只有三个按钮，就导致下面的三个按钮变得很宽**，我觉得你是不是
+   **每个按钮的宽度应该是固定的**才对呀？你现在好像是根据你每个按钮的字去适配它的按钮宽度，
+   这样的话会导致**所有的按钮大小都不一致**啊……然后像这样子排版起来就是上面一大堆的按钮，
+   下面却只有三个按钮。**你应该去学习一下真正的按钮区应该去怎么做排版**……
+   然后**不只是这个工作台存在这些问题，你可能所有子页面的工作台都要把这个问题给解决掉**。」
+
+   ── 改前实测（1440 视口，概念视觉方案子页面 · 容器宽 386）────────────────────────
+     手法组（11 颗）：90 / 90 / 90 / 90 / **155 / 155** / 更多=59 ⇒ 最宽 155、最窄 59，差 96px
+     比例组（7 颗）：101 / 134 / 134 / 121 / 121 / 127 / **386** ⇒ 最后一颗**独占整行、撑满 386**
+     根因：`display: flex; flex-wrap: wrap` + 子项 `flex: 1 1 auto` ——
+     **每一行各自把剩余空间吃光**，于是行与行宽度不同；某行只剩一颗时它就等于整行宽。
+
+   ── 改法：`grid` + `repeat(auto-fill, minmax(140px, 1fr))` ────────────────────────
+     · 用 **auto-fill 而不是 auto-fit**：auto-fit 会把空轨道塌缩、让剩余的项再被拉宽（等于没改）；
+       auto-fill 的**轨道数由容器宽定死后不再变**，所以同一组里**每一颗宽度完全相同**，
+       最后一行不满时**留白**而不是把剩下的撑宽。
+     · 轨道下限 **140px**：这一档不是拍的 —— 实测各档位文案的自然宽最宽是 134px
+       （「2:3 竖版长图」「3:2 横版摄影」，含 padding 10/14），140 保证**一行放得下、不被截断**；
+       也正好对上竞品实测的胶囊规格「**知渔 144×46、一行三颗**」（本文件上方第 95 行引的就是这句）。
+     · 子项不再需要 flex 伸缩 —— grid 子项默认 stretch 填满轨道；`.media-field-more` 那颗
+       也自动变成与选项同宽的轨道，不再是"另一套尺寸"。 */
+.media-field-segmented {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
 .media-field-segmented button {
-  flex: 1 1 auto;
   min-height: 45px;
   padding: 10px 14px;
   border: 1px solid var(--sb-border-default);
@@ -540,7 +617,12 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-workbench-cta {
   display: grid;
   position: sticky; bottom: 0;
-  padding-top: 12px;
+  /* 批 BL：padding-top 12 → **20**。实测滚到底时最后一张卡（自定义配置，bottom 863）与 CTA 顶（857）
+     重叠 **6px** —— 用户原话（图5-④）：「你看你这个**自定义配置已经被你下面的按钮给盖住了**，
+     完全就被截断了，你知道吗？我拉到最下面我都看不全这个按钮。」20px 之后留出 2px 余量；
+     顶边补一条 1px 细线，让 CTA 与滚动内容有明确分界（用户要"底部封死、不透缝"）。 */
+  padding-top: 20px;
+  box-shadow: 0 -1px 0 var(--sb-border-subtle);
   /* ═══ 2026-09-24 批 AV：按钮要**抵着面板下沿**（用户图六批注 3）══════════════════════════════
      用户原话：「下面这些生成预览的按钮啊……他们的 UI 做的也不好。就是**它下面为什么会露出来
      信息点**呢？……整个按钮的下面还会透出后面的信息点。这就导致你现在整个按钮看起来像**悬在
@@ -621,11 +703,19 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
    实测症状：端到端场景 ⑰ 点「历史」页签时偶发超时 30s（locator 找到了元素，
    但 hit-test 命中的是顶栏，Playwright 反复重试却从不真正派发点击）。
    值为顶栏高度（80px）留出余量。 */
-.media-workbench-tabs { display: inline-flex; gap: 4px; scroll-margin-top: 108px; }
+/* 批 BL：做成**可切换按钮**（用户原话，逐字）：「你像这种按钮**明明是可切换的按钮**，你为什么也没有
+   去把它们做 UI 上面的处理呢？这个**示例和历史**，你可能所有页面都有这个问题。」
+   改前：未选中那颗**透明底 + 无边框**，只有 hover 才有点反馈 —— 看不出"这是两个可切的键"。
+   ⇒ 容器给浅底 + 内边距（分段控件的样子），两颗键各自有边界：选中 = 白底 + 投影，未选中 = 描边。 */
+.media-workbench-tabs {
+  display: inline-flex; gap: 4px; scroll-margin-top: 108px;
+  padding: 4px; border-radius: var(--sb-radius-card);
+  background: var(--sb-surface-tint); border: 1px solid var(--sb-border-subtle);
+}
 .media-workbench-tabs button {
   padding: 9px 18px;
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
   background: transparent;
   color: var(--sb-ink-3);
   font: inherit;
@@ -637,7 +727,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 }
 .media-workbench-tabs button:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .media-workbench-tabs button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.media-workbench-tabs button.is-active { background: var(--sb-surface-card); color: var(--sb-ink-1); box-shadow: var(--sb-shadow-sm); }
+.media-workbench-tabs button:not(.is-active) { border-color: var(--sb-border-default); background: var(--sb-surface-card); }
+.media-workbench-tabs button.is-active { background: var(--sb-ink-1); color: var(--sb-neutral-0); box-shadow: var(--sb-shadow-sm); }
 .media-workbench-pane { min-height: 200px; }
 .media-workbench-empty { margin: 0; padding: 36px 0; text-align: center; font-size: 13.624px; color: var(--sb-ink-3); }
 
@@ -770,7 +861,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
       这两条是**下一轮的 K-E 主任务**，判据见 RTK 的 K-E 小节（含本轮实测数值）。 */
 /* 批 BB：嵌入形态（视频子页面）同样按"右略大于左"走 —— 原来写死 570px，与另一条不同源。
    现在两条用同一族 fr（左 1 / 右 1.04），宽屏窄屏都不会把差距重新拉开。 */
-.media-workbench.is-embedded-flow { grid-template-columns: minmax(300px, 0.67fr) minmax(0, 1fr); gap: 20px; }
+.media-workbench.is-embedded-flow { grid-template-columns: minmax(300px, 0.52fr) minmax(0, 1fr); gap: 20px; }
 /* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
    VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
    在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */
