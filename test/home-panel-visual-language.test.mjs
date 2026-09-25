@@ -40,7 +40,9 @@ test('间距阶梯全部落在 4pt 栅格上，且只有 6 档', () => {
 /* ── ② 字号层级：4 档，且不再出现 9/10px 小字 ── */
 test('字号只有 4 档，最小 11px（用户批注「清晰度这些模块做得特别小」）', () => {
   const sizes = Object.values(FONT_SIZE);
-  assert.deepEqual(sizes, [13, 12, 12, 11]);
+  /* 批 BK：分组标题 13 → **14**（用户：「标题你可以加粗，再大一点用黑色」）——
+     档位仍是 4 档、最小仍 11px，主次关系（标题 > 字段标签 > 辅助）没变。 */
+  assert.deepEqual(sizes, [14, 12, 12, 11]);
   assert.ok(Math.min(...sizes) >= 11, '不得再出现 9px/10px 的不可读小字');
   assert.equal(FONT_SIZE.groupTitle > FONT_SIZE.fieldLabel, true, '分组标题必须大于字段标签（主次分明）');
   assert.equal(FONT_SIZE.fieldLabel > FONT_SIZE.helper, true, '字段标签必须大于辅助说明');

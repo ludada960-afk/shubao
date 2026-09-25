@@ -102,7 +102,7 @@ export const SPACING = Object.freeze({
 });
 
 export const FONT_SIZE = Object.freeze({
-  groupTitle: 13,
+  groupTitle: 14,   /* 批 BK：13 → 14（与 TEXT_ROLE.groupTitle 同步；groupTitleStyle 读的是这一处 —— 上一版只改了 TEXT_ROLE，渲染仍是 13，探针当场抓到）*/
   fieldLabel: 12,
   body: 12,
   helper: 11,
