@@ -272,10 +272,16 @@ export function buildSkillBrief(skill, values = {}) {
 
 ## 三、我要给你的那个入口（长什么样）
 
+> ✅ **已经做出来并上线了**（2026-09-25 批 BP，提交 `fa29e224`）。
+> 直链：**`https://shuimg.cn/image-creation?id=image.concept_set`**
+> 位置：图片生成总页面 → **创意应用** 分组 → **「概念视觉方案」**
+> 它就是你点名要的那个工作台：**对外是个正常子页面**（跟"品牌主视觉""小红书图文"并列），
+> **对内是每天生产内容用的那个台子**。下面的界面草图与操作节奏已按最终实现校对过。
+
 新增一条技能 **`image.concept_set`「概念视觉方案」**，落在 `/image-creation` 的 **创意应用** 分组，
 跟「品牌主视觉」「小红书图文」并列。
 
-**直链**：`https://shuimg.cn/image-creation?id=image.concept_set`（做出来之后）
+**直链**：`https://shuimg.cn/image-creation?id=image.concept_set`
 
 **点进去看到的**：
 
