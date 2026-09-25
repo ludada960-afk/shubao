@@ -199,11 +199,21 @@ export default function HomePage() {
     }
   };
 
+  /* ═══ 2026-09-26 批 BP-3：**「做同款」跳进「图片生成」总页面**（用户原话，逐字）══════════════
+     用户原话：「我点击首页下面的案例区我点击做同款，为什么**还是有之前的四个板块**呢，这四个板块
+     本来就不该再出现在任何地方了呀，然后**做同款你应该匹配到我们现在的图片生成的区域里面呀**」
+     改前：只调 restoreCheckpoint 把首页**旧工作台**滚出来（#creation-workbench）——
+     用户看到的就是那套老的四块电商流程，而且人还留在首页。
+     改后：案例装进 creationLaunch（跨路由的唯一载体，画布/技能页都在用它），
+     然后 NAVIGATE 到 image-creation —— 目标页负责落到对应技能子页面并把素材/提示词预填进去。
+     ⚠️ 只预填、不生成：扣费仍要用户再点一次 CTA（charge-requires-confirmation）。 */
   const restoreGalleryCheckpoint = checkpoint => {
-    restoreCheckpoint(checkpoint);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      document.getElementById('creation-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }));
+    dispatch({
+      type: 'SET_CREATION_LAUNCH',
+      launch: { kind: 'gallery-remix', nonce: Date.now() + '-remix', checkpoint },
+    });
+    dispatch({ type: 'NAVIGATE', page: 'image-creation' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (

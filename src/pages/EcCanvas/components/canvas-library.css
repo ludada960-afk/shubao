@@ -40,7 +40,7 @@
    加上上移 8 → 上探 ≈ 14.7px，而顶部只有 18px 且被日期分组标题吃掉 → 首行顶边被切平。
    修法同整页形态：上方补到 --cl-lift-safe-top(16px)、左右各加 --cl-lift-safe-x(8px)，
    并用 ::before 占位行把首行连同裁剪边界一起下移（**padding 单独留不住空间**，见下方注释）。 */
-.canvas-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); grid-auto-rows: min-content; align-content: start; gap: 16px; overflow-y: auto; padding: var(--cl-lift-safe-top, 16px) calc(22px + var(--cl-lift-safe-x, 8px)) var(--cl-lift-safe-top, 16px); }
+.canvas-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(212px, 100%), 1fr)); grid-auto-rows: min-content; align-content: start; gap: 16px; overflow-y: auto; padding: var(--cl-lift-safe-top, 16px) calc(22px + var(--cl-lift-safe-x, 8px)) var(--cl-lift-safe-top, 16px); }
 /* 悬停安全区（首行上方）的**真实占位**：一条跨列空行。
    高度 = 安全区 - 行间距（多出来的部分用负 margin 抵消），于是内容整体只下移安全区那么多，
    而首行上探位移正好落在占位里。两种形态共用。 */
@@ -180,7 +180,7 @@
      不属于内容 → 视觉上第一列左缘与标题左缘仍然对齐）。
      写法保持 `padding: <top> max(...)` 的形状，便于既有契约测试稳定解析。 */
   padding: 0 calc(max(var(--cl-pad), calc((100% - var(--cl-content-max)) / 2)) + var(--cl-lift-safe-x)) var(--cl-lift-safe-top);
-  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(248px, 100%), 1fr));
   grid-auto-rows: min-content; align-content: start;
   column-gap: var(--cl-gap-x); row-gap: var(--cl-gap-y);
 }

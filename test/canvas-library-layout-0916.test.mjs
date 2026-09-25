@@ -55,10 +55,15 @@ test('① 内容容器：最大宽度与安全边距用同一组变量，三段�
 
 test('① 栅格：内边距归零 + 列数随容器宽度自适应，卡片吃满容器宽', () => {
   const grid = ruleBody('.canvas-library.is-page .canvas-library-grid');
-  assert.match(grid, /repeat\(auto-fill,\s*minmax\(\d+px,\s*1fr\)\)/, '列数随宽度自适应');
+  /* ⚠️ 2026-09-26 批 BQ：**事实变了**（写法加固，性质没变）——
+     全站把裸 minmax(NNNpx, 1fr) 改成 minmax(min(NNNpx, 100%), 1fr)：
+     空间够时取值完全一样，只在**容器比下限还窄**时才肯收缩（那条正是"窄屏横向溢出"的根因）。
+     判据守的两件事（列数随宽度自适应 / 下限 248–286）在这里一个字没放宽。 */
+  assert.match(grid, /repeat\(auto-fill,\s*minmax\(min\(\d+px,\s*100%\),\s*1fr\)\)/, '列数随宽度自适应（且窄容器可收缩）');
   /* 列宽下限：容器 (1320 - 2*32) = 1256；4 列 + 3 个 24px 列间距 → 每列 286px。
      下限取 248px（既有的 4 列几何），保证 1320 容器稳定落在 4 列而不是 5 列。 */
-  const min = Number(grid.match(/minmax\((\d+)px/)[1]);
+  /* 批 BQ：下限现在写在 min() 里 —— 取值口径不变（仍然是那个 px 下限）。 */
+  const min = Number(grid.match(/minmax\(min\((\d+)px,\s*100%\)/)[1]);
   assert.ok(min >= 248 && min <= 286, '列宽下限应在 248-286px（实测 ' + min + 'px）');
   assert.match(grid, /column-gap:\s*var\(--cl-gap-x\)|gap:\s*var\(--cl-gap/);
   assert.match(grid, /row-gap:\s*var\(--cl-gap-y\)/);

@@ -257,7 +257,8 @@
 .visual-materials-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .visual-materials-fullscreen {
   display: inline-flex; align-items: center; gap: 5px;
-  height: 28px; padding: 0 10px;
+  /* 批 BQ（hallmark 体检：点击区 <32px）：28 → 32，与站内"控件最小 32"同档 */
+  height: 32px; padding: 0 10px;
   border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
   background: var(--sb-surface-card); color: var(--sb-ink-2);
   font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;

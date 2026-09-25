@@ -94,7 +94,7 @@ import { buildVideoPlan, VIDEO_PROMPT_MAX_LENGTH } from './videoPlanModel.js';
    然后参数是在生成设置里面去做的呀。」
    ⇒ 目录给的是平铺的产品（一条产品一条价档，钱路不许动），折成「家族 → 型号 → 清晰度档位」
       这一层放在 videoModelRows.js 里（纯函数，门禁可直接断言），页面只消费它的结果。 */
-import { buildVideoModelRows, productForResolution, rowOfVariant, videoModelChip } from './videoModelRows.js';
+import { buildVideoModelRows, detectPromptResolution, productForResolution, rowOfVariant, videoModelChip } from './videoModelRows.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import ModelLogo from '../../components/ModelLogo.jsx';
 import { brandLogo, videoProductLogo } from '../../services/modelLogos.js';
@@ -453,12 +453,32 @@ export default function VideoStudioPage({
       return { value, productId: product?.id || '', hint: product?.limitations || product?.description || '' };
     });
   }, [activeRow, selectedProduct]);
+
   const selectClarity = useCallback(value => {
     setPlanReviewed(false);
     const next = activeRow ? productForResolution(activeRow, value) : null;
     if (next && next.id !== selectedProduct?.id) setSelectedProductId(next.id);
     setResolution(value);
   }, [activeRow, selectedProduct?.id]);
+
+  /* ═══ 2026-09-26 批 BP-1：**提示词里明确写了分辨率就顺着用户**（用户口径，逐字）═══════════════
+     用户原话：「1080P 如果适合的模型太少就算了吧，就直接开 480P 的，**1080P 的就是用户有明确在
+     提示词里就可以用给他**。」
+     行为：提示词里出现"1080P / 2K / 720P / 480P"这类**明确档位词**，且**当前型号支持**那一档 ⇒
+     自动把清晰度切过去（价格随档位实时变化，按钮上看得见）；型号不支持 ⇒ 什么都不做
+     （不假装能出、也不拦着用户 —— 上游按它自己的路由输出）。
+     ⚠️ 两个防打架的细节：
+       · 只在该档词**首次出现**时切一次（promptResolutionRef），用户之后手动改清晰度不会被抢回来；
+       · 只认明确档位词，不认"高清/清晰"这类形容词（见 detectPromptResolution）。 */
+  const promptResolutionRef = useRef('');
+  useEffect(() => {
+    const mentioned = detectPromptResolution(prompt);
+    if (!mentioned || promptResolutionRef.current === mentioned) return;
+    promptResolutionRef.current = mentioned;
+    if (!activeRow?.resolutions?.includes(mentioned)) return;   // 型号不支持 ⇒ 不动
+    if (resolution === mentioned) return;                       // 已经是这一档 ⇒ 不动
+    selectClarity(mentioned);
+  }, [prompt, activeRow, resolution, selectClarity]);
   const workbenchMode = Boolean(embedded && workbench && (workbench.blocks || []).length);
   const workbenchSkillId = useMemo(() => {
     if (skillId) return skillId;                       // 显式传进来的（MediaCreation 传 skill.id）

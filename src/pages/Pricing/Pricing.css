@@ -235,7 +235,7 @@
 /* ═══════ 视频按条计价 5 档 (锚定陪衬) ═══════ */
 .pricing-tier-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: var(--sb-space-3);
 }
 .pricing-tier-card {
@@ -829,7 +829,7 @@
 /* ═══════ 支付方式 (微信/支付宝 商用视觉) ═══════ */
 .pricing-pay-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 14px;
 }
 .pricing-pay-card {

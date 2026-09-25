@@ -15,6 +15,7 @@
   /* 留影AI 的形态：**默认纯色、悬停才出渐变**（docs/design/83 §2.1 实测：他们 12 宫格默认全白，
      悬停时图标磁贴才变 135° 渐变、文字转品牌色、底部充能条推进）。
      常驻再加一道"顶部内高光"做材质感 —— 不越线（不是渐变、不引硬编码色值）。 */
+  --sb-cta-grad: linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 100%);
   --sb-cta-grad-hover: linear-gradient(135deg, var(--sb-brand-500) 0%, var(--sb-brand-600) 100%);
   --sb-cta-shadow: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 18%, transparent), 0 10px 24px var(--sb-brand-a32);
   --sb-cta-shadow-hover: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 22%, transparent), 0 12px 26px var(--sb-brand-a32);
@@ -28,7 +29,9 @@
   padding: 0 20px;
   border: 0;
   border-radius: 8px;
-  background: var(--sb-brand-600);
+  /* 2026-09-26 用户批准：「主 CTA 常驻态库可以做成渐变的。」⇒ 常驻即 135° 同色相渐变。
+     （此前按"裁定 2 / 9-18：功能按钮纯色"做的是纯色，本轮为**用户改向**。） */
+  background: var(--sb-cta-grad);
   color: var(--sb-neutral-0);
   font-family: inherit;
   font-size: 14px;

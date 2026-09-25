@@ -29,7 +29,7 @@
 .dw-stage-switch{display:flex;gap:8px;margin-bottom:12px}
 .dw-stage-switch button{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border:1px solid #e0e2e9;border-radius:var(--sb-radius-pill);background:#fafbfd;font-size:13px;cursor:pointer}
 .dw-stage-switch button.active{background:#23262f;color:var(--sb-neutral-0);border-color:#23262f}
-.dw-shot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.dw-shot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(170px, 100%),1fr));gap:10px}
 .dw-shot-card{border:1px solid #e7e9ef;border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:8px;background:var(--sb-brand-50)}
 .dw-shot-card header{display:flex;align-items:center;gap:7px}
 .dw-shot-no{font-size:11px;font-weight:700;color:#5b64d8;background:#eef0ff;border-radius:6px;padding:1px 6px}

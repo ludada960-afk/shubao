@@ -101,7 +101,7 @@ test('④ 视频侧：缺什么说什么（只在真缺东西时出现），且�
    ⚠️ 判据变更 = **用户改向**：`裁定 2`（功能按钮禁止渐变）是既有裁定，本批按用户最新口径收窄为
       "同色相两档、远看仍是品牌实底"；`Home.css` 的 `.ec-workbench-cta` 那条门禁（d-1）**没动**。
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
-test('⑤ 主 CTA 启用态：常驻纯色 + 悬停 135° 渐变（留影AI 形态），三处同一份来源', () => {
+test('⑤ 主 CTA 启用态：常驻 + 悬停都是 135° 同色相渐变（三处同一份来源，用户 9-26 批准常驻渐变）', () => {
   const shared = read('src/styles/generate-cta.css');
   const shellCss = read('src/components/media/WorkbenchShell.css');
   const videoCss = read('src/pages/VideoStudio/VideoStudio.css');
@@ -111,14 +111,16 @@ test('⑤ 主 CTA 启用态：常驻纯色 + 悬停 135° 渐变（留影AI 形�
      ⇒ 两条都要钉住：常驻不许是渐变，悬停必须是"亮一档的 135° 渐变"。 */
   assert.match(shared, /--sb-cta-grad-hover:\s*linear-gradient\(135deg, var\(--sb-brand-500\) 0%, var\(--sb-brand-600\) 100%\)/,
     '悬停渐变：135°、整体亮一档（brand-500 → brand-600）');
-  assert.doesNotMatch(shared, /--sb-cta-grad:/, '不许再有"常驻渐变"那条变量（与纯色裁定冲突）');
+  /* 2026-09-26 批 BP：用户批准「主 CTA **常驻态库可以做成渐变的**」⇒ 常驻渐变回来了，
+     判据随之改成"常驻必须是那条渐变变量、135°、同色相两档"（仍然是品牌紫一个色相，不是双色）。 */
+  assert.match(shared, /--sb-cta-grad:\s*linear-gradient\(135deg, var\(--sb-brand-600\) 0%, var\(--sb-brand-700\) 100%\)/,
+    '常驻渐变：135°、同色相两档（brand-600 → brand-700）');
   const restRule = shared.slice(shared.indexOf('.shubao-gen-cta {'), shared.indexOf('.shubao-gen-cta:hover'));
-  assert.match(restRule, /background: var\(--sb-brand-600\)/, '常驻底色 = 品牌紫纯色');
-  assert.doesNotMatch(restRule, /linear-gradient/, '常驻态不许出现渐变');
+  assert.match(restRule, /background: var\(--sb-cta-grad\)/, '常驻底色 = --sb-cta-grad（同色相两档渐变）');
   /* 三处同源：全局 CTA / 图片侧工作台 / 视频侧主 CTA */
   /* ⚠️ 窗口别收太窄：实测 background 那行距块首约 430 字符（中间有注释），400 会漏判。 */
-  assert.match(shellCss, /\.media-workbench-submit \{[\s\S]{0,700}background: var\(--sb-brand-600\)/, '图片侧常驻纯色');
-  assert.match(videoCss, /\.video-submit-row button \{[\s\S]{0,600}background: var\(--sb-brand-600\)/, '视频侧常驻纯色');
+  assert.match(shellCss, /\.media-workbench-submit \{[\s\S]{0,700}background: var\(--sb-cta-grad\)/, '图片侧常驻渐变');
+  assert.match(videoCss, /\.video-submit-row button \{[\s\S]{0,600}background: var\(--sb-cta-grad\)/, '视频侧常驻渐变');
   /* hover 三处都要亮一档（缺一处就是"两套东西"） */
   for (const [name, src] of [['全局 CTA', shared], ['图片侧', shellCss], ['视频侧', videoCss]]) {
     assert.match(src, /:hover:not\(:disabled\)[\s\S]{0,220}background: var\(--sb-cta-grad-hover\)/, name + ' hover 必须亮一档');

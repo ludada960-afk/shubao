@@ -56,6 +56,22 @@ test('画布 CTA 不得使用品牌渐变（多色渐变），渲染须等价于
   const bg = block.match(/background:\s*([^;]+);/);
   assert.ok(bg, 'CTA 必须有 background 声明');
   const value = bg[1].trim();
+  /* ═══ 2026-09-26 批 BP：**用户改向** ══════════════════════════════════════════════════════
+     原判据：「功能 CTA 应为一枚纯色品牌紫……两端必须同色（= 视觉纯色）」。
+     用户原话：「主 CTA **常驻态库可以做成渐变的**。」⇒ 现在允许**同色相两档**的品牌渐变，
+     仍然禁止的是「品牌时刻」那种**多色**渐变（--sb-brand-gradient / -gradient-3）。
+     ⇒ 判据形态：渐变两端必须都是 --sb-brand-* 且**落在同一色相带**（400–700，都是紫），
+        不允许跨色相（那才是被否过的"双色渐变"）。 */
+  if (value.includes('var(--sb-cta-grad')) {
+    const grad = read('src/styles/generate-cta.css').match(/--sb-cta-grad:\s*([^;]+);/);
+    assert.ok(grad, '常驻渐变必须定义在 --sb-cta-grad 一处');
+    const stops = grad[1].match(/var\(--sb-brand-(\d+)\)/g) || [];
+    assert.ok(stops.length >= 2, '渐变必须有两个品牌色端点，实际 ' + grad[1].trim());
+    const steps = stops.map(token => Number(token.match(/--sb-brand-(\d+)/)[1]));
+    assert.ok(steps.every(step => step >= 400 && step <= 700), '端点必须落在品牌紫的 400–700 带内：' + steps.join('/'));
+    assert.ok(new Set(steps).size > 1, '两端必须不同档（同档=纯色，那是老写法）');
+    return;
+  }
   if (value.includes('linear-gradient')) {
     /* 允许保留渐变语法，但**两端必须同色**（= 视觉纯色），且取自品牌 token */
     const stops = value.match(/var\(--sb-brand-[a-z0-9-]+\)/g) || [];

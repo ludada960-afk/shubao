@@ -79,7 +79,7 @@
 /* 4c183cd4 P-E: 100 套 grid (auto-fill, 视觉增强) */
 .grid {
   list-style: none; padding: 0; margin: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: var(--sb-space-4);
 }
 .grid-item {

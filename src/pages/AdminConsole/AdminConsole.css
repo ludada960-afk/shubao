@@ -35,7 +35,7 @@
 .admin-finance-strip strong { font-size: var(--sb-text-base); }
 .admin-finance-strip span { grid-column: 1/-1; color: #9a9da3; font-size: 10px; }
 .admin-unit-economics { margin-top: var(--sb-space-6); padding: var(--sb-space-5); border: 1px solid var(--sb-neutral-200); border-radius: var(--sb-radius-md); background: var(--sb-neutral-0); }
-.admin-economics-controls { display: grid; grid-template-columns: minmax(260px,1.4fr) 140px auto minmax(260px,1fr); gap: var(--sb-space-3); align-items: end; padding: 14px; border: 1px solid #e4e6e9; background: #f7f8fa; }
+.admin-economics-controls { display: grid; grid-template-columns: minmax(260px,1.4fr) 140px auto minmax(min(260px, 100%),1fr); gap: var(--sb-space-3); align-items: end; padding: 14px; border: 1px solid #e4e6e9; background: #f7f8fa; }
 .admin-economics-controls label { display: grid; gap: var(--sb-space-1-5); color: #777d86; font-size: var(--sb-text-2xs); font-weight: 700; }
 .admin-economics-controls select,.admin-economics-controls input { height: 36px; padding: 0 10px; border: 1px solid #d9dde2; border-radius: var(--sb-radius-sm); background: var(--sb-neutral-0); color: #262a30; font: inherit; font-size: var(--sb-text-xs); outline: 0; }
 .admin-economics-mode { display: grid; grid-template-columns: 1fr 1fr; height: 36px; padding: 3px; border: 1px solid #d9dde2; border-radius: var(--sb-radius-sm); background: var(--sb-neutral-0); }
@@ -57,7 +57,7 @@
 .admin-ledger-policy > div { display: grid; gap: var(--sb-space-1); }
 .admin-ledger-policy strong { color: #25282e; font-size: var(--sb-text-xs); }
 .admin-ledger-policy span { max-width: 74ch; font-size: var(--sb-text-2xs); line-height: 1.55; }
-.admin-ledger-policy dl { margin: 0; display: grid; grid-template-columns: repeat(2,minmax(132px,1fr)); }
+.admin-ledger-policy dl { margin: 0; display: grid; grid-template-columns: repeat(2,minmax(min(132px, 100%),1fr)); }
 .admin-ledger-policy dl > div { padding: 4px 14px; display: grid; gap: 3px; border-left: 1px solid #e4e7eb; }
 .admin-ledger-policy dt,.admin-reconciliation dt { color: #858a93; font-size: 10px; }
 .admin-ledger-policy dd { margin: 0; color: #202329; font-size: 14px; font-weight: 800; }
@@ -93,7 +93,7 @@
 .admin-video-backlog article { min-height: 92px; padding: 16px 18px; display: grid; align-content: center; gap: var(--sb-space-1); border-right: 1px solid #eceef1; }.admin-video-backlog article:last-child { border-right: 0; }
 .admin-video-backlog small { color: #777c84; font-size: var(--sb-text-2xs); }.admin-video-backlog strong { font-size: 20px; }.admin-video-backlog span { color: #92969d; font-size: 10px; }
 .admin-video-ages { min-height: 40px; padding: 0 13px; display: flex; align-items: center; gap: 22px; border: 1px solid var(--sb-neutral-200); border-top: 0; border-radius: 0 0 8px 8px; background: var(--sb-neutral-25); color: #777c84; font-size: 10px; }.admin-video-ages b { margin-left: var(--sb-space-1); color: #272a30; }
-.admin-video-operations-grid { margin-top: var(--sb-space-4); display: grid; grid-template-columns: minmax(0,1.35fr) minmax(420px,1fr); gap: var(--sb-space-4); }
+.admin-video-operations-grid { margin-top: var(--sb-space-4); display: grid; grid-template-columns: minmax(0,1.35fr) minmax(min(420px, 100%),1fr); gap: var(--sb-space-4); }
 .admin-video-attention,.admin-video-segments { min-width: 0; padding: 18px; border: 1px solid var(--sb-neutral-200); border-radius: var(--sb-radius-md); background: var(--sb-neutral-0); }.admin-video-attention h3,.admin-video-segments h3 { margin: 0; font-size: var(--sb-text-base); }
 .admin-video-attention-list article { min-height: 67px; padding: 11px 0; display: grid; grid-template-columns: minmax(0,1fr) 120px auto; align-items: center; gap: var(--sb-space-3); border-top: 1px solid #eceef0; }
 .admin-video-job-copy { min-width: 0; display: grid; gap: 3px; }.admin-video-job-copy strong { font-size: var(--sb-text-xs); }.admin-video-job-copy small,.admin-video-job-copy span { color: #8d9199; font-size: 10px; overflow-wrap: anywhere; }.admin-video-job-copy span { color: #6d7179; }

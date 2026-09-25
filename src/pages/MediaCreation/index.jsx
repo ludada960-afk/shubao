@@ -31,6 +31,8 @@ import { contentResultPages, isContentResult } from '../Home/contentResultModel.
 import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
+/* 批 BP-3：首页案例区「做同款」→ 落到哪条技能 + 预填什么，判断收在那一个纯函数模块里 */
+import { remixSeedValuesOf, remixSkillIdOf } from '../Home/galleryRemixTarget.js';
 /* 批 Q-⑨：app 页要在左栏只显示一个「参数配置」组头 —— 判据来自对照表本身 */
 import { isQuantvAppPage } from '../../skills/quantvImageParity.js';
 import { getVideoSkill, videoSkillPlanOf } from '../../skills/videoSkills.js';
@@ -1158,6 +1160,26 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     carryHintRef.current = '已把刚才那张结果放进「' + target.name + '」的素材位，确认后点「立即生成」——这一次会重新计费';
     openSkill(target.id, { [slot.key]: [{ status: 'ready', url, name: '上一步的结果' }] });
   }
+
+  /* ═══ 2026-09-26 批 BP-3：消费首页案例区的「做同款」══════════════════════════════════════
+     来龙去脉：首页把案例装进 creationLaunch（kind='gallery-remix'）后跳到本页；
+     这里负责把它**落到对应技能子页面**并预填素材/提示词，然后清空 launch
+     （不清就会被下一次导航重复应用 —— 这是本项目"过期 launch"踩过的坑）。
+     ⚠️ 只预填、不触发生成。没有对应技能时退到 Hub，也比留在首页旧工作台正确。 */
+  useEffect(() => {
+    const launch = state.creationLaunch;
+    if (!launch || launch.kind !== 'gallery-remix') return;
+    const skillIdForRemix = remixSkillIdOf(launch.checkpoint);
+    const target = skillIdForRemix ? getImageSkill(skillIdForRemix) : null;
+    if (target) {
+      carryHintRef.current = '已带出案例「' + (launch.checkpoint?.project?.title || '同款')
+        + '」的素材与提示词，确认后点「立即生成」——这一次会重新计费';
+      openSkill(target.id, remixSeedValuesOf(target, launch.checkpoint));
+    } else {
+      backToHub();
+    }
+    dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+  }, [state.creationLaunch, openSkill, backToHub, dispatch]);
 
   /* 历史操作②：删除（软删除，服务端可恢复） */
   async function deleteHistory(item) {

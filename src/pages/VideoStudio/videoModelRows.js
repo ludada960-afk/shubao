@@ -108,6 +108,28 @@ export function rowOfVariant(modelRows, variant) {
   return modelRows.byVariant.get(variant) || null;
 }
 
+/* ═══ 2026-09-26 批 BP-1：**提示词里明确写了分辨率就顺着用户**（用户口径，逐字）═══════════════
+   用户原话：「1080P 如果适合的模型太少就算了吧，就直接开 480P 的，**1080P 的就是用户有明确在
+   提示词里就可以用给他**。」
+   ⇒ 解析提示词里出现的分辨率诉求（"1080p" "2K" "全高清"…）；调用方再判断**当前型号支持不支持** ——
+     支持就切到那一档（价格随档位实时变，按钮上看得见），不支持就什么都不做（不假装、也不拦）。
+   ⚠️ 只认明确写法（带 p/K 的档位词），不把"高清""清晰"这类形容词当指令。 */
+const RESOLUTION_MENTIONS = [
+  ['2k', /2k|1440p|二K/i],
+  ['1080p', /1080p|全高清|FHD/i],
+  ['720p', /720p|高清 ?720/i],
+  ['480p', /480p/i],
+];
+
+export function detectPromptResolution(text) {
+  const value = String(text || '');
+  if (!value) return '';
+  for (const [resolution, pattern] of RESOLUTION_MENTIONS) {
+    if (pattern.test(value)) return resolution;
+  }
+  return '';
+}
+
 /* 某一档清晰度对应哪条产品：正好提供这一档的优先；都没有（理论上不会）回主档。
    ⚠️ 返回的是**产品对象**：调用方要用它的 id 去切 selectedProductId —— 切换后价格、
       时长上限、参考素材上限全部跟着这条产品走（与用户自己点模型那一行完全同一条路）。 */

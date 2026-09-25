@@ -213,7 +213,7 @@
 
 .product-archive-facts dl {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 8px 16px;
   margin: 0;
 }
@@ -286,7 +286,7 @@
 
 .product-archive-media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr));
   gap: var(--sb-space-2-5);
 }
 

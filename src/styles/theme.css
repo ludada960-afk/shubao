@@ -6,6 +6,12 @@
   color-scheme: light;
 }
 
+/* ═══ 2026-09-26 批 BQ：移动端横向滚动的**全局兜底**（hallmark 非协商项）═══════════════════════
+   口径：`overflow-x: clip`（**不是 hidden** —— hidden 会连带干掉 sticky 与滚动容器，
+   本仓的 sticky CTA 就靠它）。首页根节点原来有内联 clip，其它页面没有 ⇒
+   任何一处残余超宽都会让"整页能左右拖"。这里给 html/body 补上。 */
+html, body { overflow-x: clip; }
+
 /* ── Dark 主题: 整体覆盖 design-tokens ──
    设计目标:
    - 暖白米色 → 深灰近黑 (近黑极简, 跟 light 主色 --accent 一致)

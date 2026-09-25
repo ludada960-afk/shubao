@@ -91,6 +91,13 @@
    .video-wb-block + .video-wb-block（40px + 一条分隔线）给 —— 与图片侧 .media-workbench-group 同一口径。 */
 .video-content-composer.is-workbench { padding: 0 22px 14px; }
 .video-content-composer.is-workbench .video-workbench-blocks { min-width: 0; }
+/* ═══ 2026-09-26 批 BQ：**面板本身也要能收缩**（hallmark 体检 gate 34）══════════════════════════
+   实测：`/video-creation?id=video.smart` 在 320/375px 下把页面撑到 416/471px（溢出 96px），
+   超宽链是 MAIN.video-studio-page.is-embedded → .video-composer.is-workbench
+   → .video-content-composer.is-workbench。根因同图片侧：flex/grid 子项默认 min-width:auto。 */
+.video-studio-page.is-embedded,
+.video-composer.is-workbench,
+.video-content-composer.is-workbench { min-width: 0; max-width: 100%; }
 /* 工作台形态下这一块只剩「运镜」那一行与就近错误 —— 不需要输入区的 150px 最小高度 */
 .video-content-composer.is-workbench .video-composer-input { min-height: 0; padding-top: 0; }
 /* 2026-09-19 批 I-⑦：这一行文字已整行删除（用户批注 #1-3 + #1-7，见 JSX 里的说明）。
@@ -239,7 +246,7 @@
 .video-composer-input > textarea::placeholder { color: #b5aca2; }
 .video-text-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; color: #9c948c; font-size: 11px; }
 .video-text-meta span:last-child { display: inline-flex; align-items: center; gap: 5px; }
-.video-job-progress { display: grid; grid-template-columns: auto minmax(100px, 1fr); align-items: center; gap: 12px; margin-top: 10px; color: #6857bd; font-size: 12px; font-weight: 700; }
+.video-job-progress { display: grid; grid-template-columns: auto minmax(min(100px, 100%), 1fr); align-items: center; gap: 12px; margin-top: 10px; color: #6857bd; font-size: 12px; font-weight: 700; }
 .video-job-progress progress { width: 100%; accent-color: var(--sb-brand-600); }
 .video-error { margin-top: 10px; padding: 9px 11px; border: 1px solid var(--sb-danger-border); border-radius: 8px; background: #fff7f7; color: #b42318; font-size: 12px; }
 
@@ -314,7 +321,8 @@
 .video-materials-clear,
 .video-materials-fullscreen {
   display: inline-flex; align-items: center; gap: 5px;
-  height: 28px; padding: 0 10px;
+  /* 批 BQ：28 → 32（与图片侧同步提到"控件最小 32"；两侧必须逐值相同，门禁 test/config-kit-parity 钉着） */
+  height: 32px; padding: 0 10px;
   border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
   background: var(--sb-surface-card); color: var(--sb-ink-2);
   font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
@@ -452,7 +460,7 @@
      修掉实机探针抓到的"视频侧纯色 / 图片侧渐变"这种两边不一致。
      ⚠️ 这一行原来的注释是「裁定 2：功能按钮禁止渐变」—— 本批是**用户改向**（原话见文件顶部批 BO
         那段）：渐变两端**同色相**、只差两档深度，远看仍是品牌紫实底，不是 9-18 否过的"双色渐变"。 */
-  background: var(--sb-brand-600); box-shadow: var(--sb-cta-shadow); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
+  background: var(--sb-cta-grad); box-shadow: var(--sb-cta-shadow); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
 .video-submit-row button:hover:not(:disabled) {
   /* 批 BO：与全局 CTA / 图片侧同一套悬停语言（留影AI：悬停时渐变亮一档 + 轻微上移 + 阴影加强） */
   background: var(--sb-cta-grad-hover);

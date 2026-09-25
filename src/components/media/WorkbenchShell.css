@@ -209,7 +209,8 @@
    ⇒ 实线描边 + 胶囊 + 白底 + 34 高，与分组级那颗逐值同档（只在小一号的内边距上让位给字段行）。 */
 .media-workbench-inline-action {
   display: inline-flex; align-items: center; gap: 5px;
-  min-height: 30px; padding: 0 12px;
+  /* 批 BQ：30 → 32 —— 体检里它是"点击区 <32px"那一档里唯一的高频控件 */
+  min-height: 32px; padding: 0 12px;
   border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
   background: var(--sb-surface-card); color: var(--sb-ink-1);
   box-shadow: var(--sb-shadow-1);
@@ -228,11 +229,11 @@
    用户原话：「你现在这些 skill 的子页面你还是没有去 1:1 的抄知渔他们呀，就比如说你这些模块
    为什么会是**竖着排版**的呢？他们这个地方明明是**排两行**的呀。」
    改前是一列到底（16 条 = 16 行，左栏被拉得很长）。现在一行两条：
-     `auto-fit + minmax(240px, 1fr)` —— 左栏 570 宽给两列、窄到 320 时自动退回一列，
+     `auto-fit + minmax(min(240px, 100%), 1fr)` —— 左栏 570 宽给两列、窄到 320 时自动退回一列，
      不写死列数（写死 2 列在窄栏里会把两行小字挤成四行）。 */
 .media-workbench-checklist-items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 2px 12px; margin: 0; padding: 0; list-style: none;
 }
 .media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
@@ -309,7 +310,11 @@
    知渔实测（.tmp/laoyu2/qy-suite-layout.json）：
      「目标市场」单独一行 = 全宽 437；「目标平台」与「文案语言」**同一排**，各 **212**（437 = 212 + 13 + 212）。
    ⇒ 声明源给字段写 span: 'half' 就占半列，默认仍占整行 —— 顺序照声明，不改任何现有页面的默认行为。 */
+/* 批 BQ：窄屏单列 —— 两列时每列只有 ~90px，而字段标题的最小内容宽 205px ⇒ 页面被撑宽 5px。 */
 .media-workbench-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 13px; }
+@media (max-width: 520px) {
+  .media-workbench-fields { grid-template-columns: minmax(0, 1fr); }
+}
 .media-workbench-fields > .media-field { grid-column: 1 / -1; }
 /* 视频侧的块（参考图 / 比例 / 时长 …）都是整幅的 —— 它们不是"半宽字段"，
    不写这条就会被两列网格压成半宽（实测上传框被挤到 200px 宽、说明文字折行）。 */
@@ -544,7 +549,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
      根因：`display: flex; flex-wrap: wrap` + 子项 `flex: 1 1 auto` ——
      **每一行各自把剩余空间吃光**，于是行与行宽度不同；某行只剩一颗时它就等于整行宽。
 
-   ── 改法：`grid` + `repeat(auto-fill, minmax(140px, 1fr))` ────────────────────────
+   ── 改法：`grid` + `repeat(auto-fill, minmax(min(140px, 100%), 1fr))` ────────────────────────
      · 用 **auto-fill 而不是 auto-fit**：auto-fit 会把空轨道塌缩、让剩余的项再被拉宽（等于没改）；
        auto-fill 的**轨道数由容器宽定死后不再变**，所以同一组里**每一颗宽度完全相同**，
        最后一行不满时**留白**而不是把剩下的撑宽。
@@ -555,7 +560,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
        也自动变成与选项同宽的轨道，不再是"另一套尺寸"。 */
 .media-field-segmented {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
   gap: 8px;
 }
 .media-field-segmented button {
@@ -669,9 +674,9 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   padding: 7px 20px;
   border: 0;
   border-radius: 12px;
-  /* 批 BO：与全局 CTA **同一套**启用态（留影AI 策略，spec 见 generate-cta.css 顶部那段）——
-     常驻品牌纯色 + 顶部内高光，悬停才切 135° 渐变并上移一档。 */
-  background: var(--sb-brand-600);
+  /* 与全局 CTA **同一套**启用态（spec 见 generate-cta.css 顶部那段）：
+     常驻 135° 同色相渐变（用户 9-26 批准）+ 顶部内高光，悬停切更亮一档并上移。 */
+  background: var(--sb-cta-grad);
   color: var(--sb-surface-card);
   font: inherit;
   font-size: 16px;
@@ -819,6 +824,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* 批 BQ（hallmark gate 49）：窄屏下"选择文件 / 从资产库选择"被折成两行 —— 标签一律不折行 */
+  white-space: nowrap;
   min-height: 37px;
   padding: 8.384px 16.768px;
   border: 0;
@@ -836,6 +843,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 /* 第二个入口：从资产库选择（竞品实测同款）。它是**并列**的第二条路，不是次要按钮 ——
    上一轮刚生成的成品要再用一次，走这里比"下载再上传"少两步。 */
 .media-field-upload-library {
+  /* 批 BQ（gate 49）：窄屏下"从资产库选择"会折成两行 */
+  white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 37px; padding: 8.384px 16.768px;
   border: 0; border-radius: 10px;
@@ -908,7 +917,26 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
       这两条是**下一轮的 K-E 主任务**，判据见 RTK 的 K-E 小节（含本轮实测数值）。 */
 /* 批 BB：嵌入形态（视频子页面）同样按"右略大于左"走 —— 原来写死 570px，与另一条不同源。
    现在两条用同一族 fr（左 1 / 右 1.04），宽屏窄屏都不会把差距重新拉开。 */
+/* ═══ 2026-09-26 批 BQ：**移动端必须单列**（hallmark 体检 gate 34 抓到的真 bug）══════════════════
+   实测：`/image-creation?id=image.product_suite` 在 320px 视口下**横向溢出 31px**
+   （超宽节点 .media-workbench-tabs / .media-workbench-pane / .skill-deliverable-list）。
+   根因：基础类 .media-workbench 有 @media(max-width:1023px) 的单列覆盖，而这一条
+   **is-embedded-flow** 自己又写了一遍 minmax(300px, …) 且**没有移动端覆盖** ⇒ 300px 的最小轨
+   在 320px 视口里必然溢出。⇒ 把同一档断点补上，min-width 归零。 */
+/* ═══ 2026-09-26 批 BQ：**列必须能收缩**（hallmark 体检 gate 34 的真根因）══════════════════════
+   一开始以为是栅格（`.is-embedded-flow` 漏了移动端覆盖）—— 补上之后**仍然溢 31px**。
+   逐元素量下来真凶是 grid 子项的默认 `min-width: auto`：
+   `.media-workbench-right` 里的 `.media-workbench-tabs` / `.media-workbench-pane`
+   最小内容宽 220px > 轨道 196px ⇒ 内容把页面撑宽、出现横向滚动。
+   ⇒ 两列都 `min-width: 0`（让轨道说了算），长词允许在任意处断行。 */
+.media-workbench-left,
+.media-workbench-right { min-width: 0; }
+.media-workbench-pane,
+.media-workbench-tabs { min-width: 0; overflow-wrap: anywhere; }
 .media-workbench.is-embedded-flow { grid-template-columns: minmax(300px, 0.52fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 1023px) {
+  .media-workbench.is-embedded-flow { grid-template-columns: minmax(0, 1fr); }
+}
 /* ⚠️ 框本体的那三个数（圆角/描边/阴影）**不在这里改**：它们的定义处是
    VideoStudio.css 的 .video-studio-page.is-embedded .video-composer（同权重、后加载 = 它赢），
    在这儿再写一遍只会变成一条永远不生效的死规则。要改就改那一处。 */
@@ -1020,7 +1048,7 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-tutorial-head span { display: block; margin-top: 4px; font-size: 12px; color: var(--sb-ink-3); }
 .media-tutorial-head button { min-height: 30px; padding: 0 12px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-md); background: var(--sb-surface-card); color: var(--sb-ink-2); font: 700 12px/1 inherit; cursor: pointer; }
 .media-tutorial-body { display: grid; gap: 16px; padding: 18px 20px; }
-.media-tutorial-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.media-tutorial-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 10px; }
 .media-tutorial-media img { display: block; width: 100%; border-radius: 12px; }
 /* 没有真实素材时的**如实空态**：不留空框、不放占位假图（本站铁律）。 */
 .media-tutorial-empty { grid-column: 1 / -1; margin: 0; padding: 22px 16px; border: 1px dashed var(--sb-border-default); border-radius: 12px; color: var(--sb-ink-3); font-size: 13px; text-align: center; }

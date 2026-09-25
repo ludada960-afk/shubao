@@ -26,7 +26,8 @@ export default function Footer() {
         </p>
         {/* 原则 4.1：页脚导航原为 <span onClick>，键盘不可达 → button + .a11y-reset。
             fontSize/color 继承自父容器（.a11y-reset 已 font:inherit/color:inherit）→ 视觉零变化。 */}
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-3)' }}>
+        {/* 批 BQ（hallmark gate 49）：窄屏下这四个文字按钮会折成两行 ⇒ nowrap + 允许换行排布 */}
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-3)', whiteSpace: 'nowrap' }}>
           <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('home', 'content')}>小红书图文</button>
           <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('home', 'ecommerce')}>电商图生成</button>
           <button type="button" className="a11y-reset" style={{ cursor: 'pointer' }} onClick={() => go('pricing')}>定价</button>

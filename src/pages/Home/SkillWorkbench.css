@@ -47,7 +47,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.skill-workbench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 15px; }
+.skill-workbench-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(232px, 100%), 1fr)); gap: 15px; }
 .media-workbench-missing { padding: 40px 0; text-align: center; font-size: 13px; color: var(--sb-ink-2); }
 .skill-workbench-lightbox { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(17, 20, 45, .62); }
 /* 对照类案例的大图：两张并排 + 各自小标注（原图 / 成品） */
@@ -67,7 +67,7 @@
    而我们的清单编号是 15px/800（比正文重一大截）、标题 15px/600 —— 层级靠"加粗"硬撑，与他们的做法不一致。
    ⇒ 按他们的关系改：编号 12.576/500（品牌色区分，不靠 800 的字重）、标题 13.624/500、副标 12.576/400、导语 13.624/400。 */
 .skill-deliverable-lead { margin: 0 0 14px; font-size: 13.624px; line-height: 1.5; color: var(--sb-ink-3); }
-.skill-deliverable-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin: 0; padding: 0; list-style: none; }
+.skill-deliverable-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 15px; margin: 0; padding: 0; list-style: none; }
 .skill-deliverable-list li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: start; padding: 14px; border: 1px solid var(--sb-border-default); border-radius: 12px; background: var(--sb-surface-card); transition: border-color .18s ease, box-shadow .18s ease; }
 .skill-deliverable-list li:hover { border-color: var(--sb-border-strong); box-shadow: var(--sb-shadow-sm); }
 .skill-deliverable-no { font-size: 12.576px; font-weight: 500; color: var(--sb-brand-700); }
