@@ -1,5 +1,24 @@
 /* 2026-09-12 用户批注：各板块的「生成按钮」样式与动态积分显示必须统一（不要一个样式一个样）。
    所有主 CTA 都挂 .shubao-gen-cta，积分统一用 .shubao-gen-cta-points（同一字号/间距/分隔符）。 */
+/* ═══ 2026-09-25 批 BO：主 CTA 的**启用态**按留影AI 按钮策略给"修饰"（用户原话，逐字）════════════
+   用户原话：「你这个按钮满足所有需求之后，它亮起来是**紫色**，对吗？紫色其实也不是特别好呀。
+   就是**没有任何修饰的紫色**，确实是太简单粗暴了，我之前不是有跟你说过按钮要去遵循我们之前抄
+   那个留影AI他们的那个按钮的规则去做吗？你有没有按照那个规则去实现呢？」
+   策略出处 = docs/design/83（留影AI 实测基线）：他们所有"彩色面"一律 **135° 渐变、端点取品牌亮/深两档**。
+   ⚠️ 用在**带文字**的按钮上要收一档（这是工程约束，不是审美）：留影那块是 56×56 图标磁贴、里面没有
+      文字，可以从品牌亮档起；我们按钮上压着 14px 白字，亮端必须够深 —— 白字在 brand-600 上 ≈5.0:1、
+      brand-500 上 ≈4.0:1、**brand-400 上只有 ≈2.6:1（读不清）**。
+      ⇒ 常驻渐变 **brand-600 → brand-700**（同一色相，135° 与留影一致），
+        hover 整体亮一档到 **brand-500 → brand-600**（亮端只落在左上角，不压正文）。
+   规格只此一份：图片侧工作台那颗 CTA 也引用这两个变量。 */
+:root {
+  /* 留影AI 的形态：**默认纯色、悬停才出渐变**（docs/design/83 §2.1 实测：他们 12 宫格默认全白，
+     悬停时图标磁贴才变 135° 渐变、文字转品牌色、底部充能条推进）。
+     常驻再加一道"顶部内高光"做材质感 —— 不越线（不是渐变、不引硬编码色值）。 */
+  --sb-cta-grad-hover: linear-gradient(135deg, var(--sb-brand-500) 0%, var(--sb-brand-600) 100%);
+  --sb-cta-shadow: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 18%, transparent), 0 10px 24px var(--sb-brand-a32);
+  --sb-cta-shadow-hover: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 22%, transparent), 0 12px 26px var(--sb-brand-a32);
+}
 .shubao-gen-cta {
   display: inline-flex;
   align-items: center;
@@ -9,17 +28,23 @@
   padding: 0 20px;
   border: 0;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-600) 100%);
+  background: var(--sb-brand-600);
   color: var(--sb-neutral-0);
   font-family: inherit;
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 10px 24px var(--sb-brand-a32);
+  box-shadow: var(--sb-cta-shadow);
   transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
-.shubao-gen-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
+.shubao-gen-cta:hover:not(:disabled) {
+  /* 留影那套"悬停四件事"里属于按钮本体的两件：**渐变亮一档** + 轻微上移 + 阴影加强。
+     （他们另外两件是图标磁贴变渐变、文字转品牌色 —— 那是卡片按钮的，主按钮没有磁贴可换。） */
+  background: var(--sb-cta-grad-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--sb-cta-shadow-hover);
+}
 .shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
 /* 批 BN：禁用档改用 V3 的既有语言（--sb-state-disabled-bg / -ink，与 Button.jsx / Home.css /
    skill-library.css 同一对）—— 三处主 CTA（全局 / 图片侧工作台 / 视频侧）从此只认一份来源，

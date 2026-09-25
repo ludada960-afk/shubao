@@ -122,7 +122,10 @@ test('④ 模块可勾选（用户 2026-09-19 批 I 亲自批准），勾选数�
   /* ④ 报价从同一个 effectiveValues 取数 */
   assert.match(media, /skillPointsEstimate\(skill, effectiveValues\)/, '报价必须与张数同源（不许各算一份）');
   /* ⑤ 一个都不勾：CTA 必须被拦住，且给出一句人话（不许点了没反应，也不许按 1 张偷跑） */
-  assert.match(media, /请至少勾选一个模块/, '0 个模块时要有一句可读的原因');
+  /* ⚠️ 2026-09-25 批 BO：文案改人话（**用户改向**，见 MediaCreation 的 gateHint 注释）。
+     判据从"钉死那句话"改成"必须在模块闸门里给一句点名勾选的可读原因"—— 语义没放宽。 */
+  assert.match(media, /moduleGate = skillModules\.length > 0 && selectedModules\.length === 0[\s\S]{0,120}勾选/,
+    '0 个模块时要有一句可读的原因（点名"勾选"）');
   assert.match(media, /ctaDisabled=\{busy \|\| \(!handoff && \(!validation\.ok \|\| Boolean\(moduleGate\)\)\)\}/,
     '0 个模块必须禁用主 CTA');
   /* ⑤ 原来的「最后一个不许取消」在批 AW 作废：默认就是"一个都不勾"，

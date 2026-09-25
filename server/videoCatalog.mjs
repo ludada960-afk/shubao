@@ -758,7 +758,14 @@ export const VIDEO_PRODUCTS = deepFreeze({
     providerLabel: 'MiniMax',
     tierLabel: '2K 精制',
     family: 'minimax', familyLabel: 'MiniMax',
-    variant: 'minimax-h3', variantLabel: 'MiniMax H3',
+    /* ═══ 2026-09-25 批 BO：**2K 是独立模型行，不并进 MiniMax H3**（用户指示，逐字）═══════════
+       用户原话：「如果这个 2k 真的只有迷你麦克斯有的话，那你还不如**直接在模型里面加个 Mini max 2k
+       的版本**。」——这条与"通义万相 1080P 并进 3.0"并不矛盾，两者由同一条判据决定：
+         · 通义万相的 1080p 与 720p **同路由**（xn-wan3.0，上游说明明文 480p/720p/1080p）⇒ 是参数；
+         · MiniMax 的 2K 走**另一条路由**（xn-minimax-h3），且参考素材额度不同（30/30/30 vs 9/3/3）
+           ⇒ 是**另一档供给**，用户选它等于选另一个版本 ⇒ 独立成行。
+       判据：**同路由的档位 = 参数（进清晰度）；不同路由的档位 = 另一个模型（进模型行）**。 */
+    variant: 'minimax-h3-2k', variantLabel: 'MiniMax H3 2K',
     description: '支持 1440P 精制输出、多模态参考与首尾帧，适合高质量短片与品牌主推片。',
     limitations: '按条计费；输出 1440P；参考图/视频/音频各最多 30 个；生成时间更长。',
     routeId: 'xn-minimax-h3',

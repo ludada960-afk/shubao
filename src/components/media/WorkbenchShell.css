@@ -669,6 +669,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   padding: 7px 20px;
   border: 0;
   border-radius: 12px;
+  /* 批 BO：与全局 CTA **同一套**启用态（留影AI 策略，spec 见 generate-cta.css 顶部那段）——
+     常驻品牌纯色 + 顶部内高光，悬停才切 135° 渐变并上移一档。 */
   background: var(--sb-brand-600);
   color: var(--sb-surface-card);
   font: inherit;
@@ -677,7 +679,11 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
   cursor: pointer;
   transition: box-shadow .18s ease, background-color .18s ease;
 }
-.media-workbench-submit:hover:not(:disabled) { background: var(--sb-brand-700); box-shadow: 0 8px 22px rgba(17, 20, 45, .2); }
+.media-workbench-submit:hover:not(:disabled) {
+  background: var(--sb-cta-grad-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--sb-cta-shadow-hover);
+}
 .media-workbench-submit:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 /* ═══ 2026-09-25 批 BN：禁用态必须"**不亮**"（用户原话：「他们这个按钮是当用户没有满足条件的
    时候，**这个按钮是不能够亮起来的**」）—— 原来是"品牌紫 + opacity .5"，看着仍然像亮的。

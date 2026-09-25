@@ -21,6 +21,8 @@ import { buildVideoModelRows, productForResolution, rowOfVariant, videoModelChip
 import { publicVideoProducts, videoFeatureSku } from '../server/videoCatalog.mjs';
 
 const rows = buildVideoModelRows(publicVideoProducts());
+/* 批 BO：MiniMax 的 2K 拆成了**独立一行**，三处判断都要用它 ⇒ 在模块作用域定义一次 */
+const mini2k = rowOfVariant(rows, 'minimax-h3-2k');
 
 test('① 同一家族的行挨在一起（Seedance 不再被别的家族切成 4 段）', () => {
   const order = rows.families.map(family => family.key);
@@ -50,15 +52,29 @@ test('② 只有分辨率不同的档位合并成一行，分辨率交给「生�
   assert.equal(wan.label, '通义万相 3.0', '型号名不带分辨率');
 
   const mini = rowOfVariant(rows, 'minimax-h3');
-  assert.equal(mini.products.length, 2, 'MiniMax H3 的 720P 与 2K 是同一行');
+  /* 批 BO：MiniMax 的 2K **不再并进 H3**（用户指示：「还不如直接在模型里面加个 Mini max 2k 的版本」）——
+     它走另一条上游路由（xn-minimax-h3），参考素材额度也不同（30/30/30 vs 9/3/3），属「另一档供给」。
+     判据：**同路由的档位 = 参数（进清晰度）；不同路由的档位 = 另一个模型（进模型行）**。 */
+  assert.ok(mini2k, 'MiniMax H3 2K 必须是独立的一行');
+  assert.equal(mini.products.length, 1, 'MiniMax H3 这行只放同路由的 480P/720P');
   /* 2026-09-25 批 BM 追加：MiniMax H3 的上游文档价目里 **480p 比 720p 更便宜**
      （480p 0.108 / 720p 0.162 / 1080p 0.4725 每秒，取自 /api/pricing 里 minimax-h3 那条的描述），
      同价提供不损毛利，所以这一档直接开 —— 与通义万相 480P 同一条判据。 */
-  assert.deepEqual(mini.resolutions, ['480p', '720p', '2k']);
+  assert.deepEqual(mini.resolutions, ['480p', '720p']);
+  assert.deepEqual(mini2k.resolutions, ['2k']);
 
-  /* 型号名里不许再出现分辨率（用户点名的就是「720P 的特定模型」） */
+  /* ═══ 型号名与分辨率的关系（批 BM 立规，批 BO 收窄）══════════════════════════════════════
+     · 用户点名过的是「**720P 的特定模型**」⇒ **通用档位**（480P / 720P / 768P）一律不许进型号名 ——
+       它们是跨模型的最大公约数，只能出现在「清晰度」里。
+     · 但用户也要「**MiniMax H3 2K** 这种独立版本」（原话：「还不如直接在模型里面加个 Mini max 2k
+       的版本」）⇒ **独有档位**允许出现在型号名里，条件是它必须是
+       「单独一档 + 单一产品 + 独立路由」的行 —— 否则又变成"用参数切模型"。 */
   for (const row of rows.rows) {
-    assert.doesNotMatch(row.label, /(480|720|768|1080)P|2K|1440P/i, `${row.label} 的型号名里还有分辨率`);
+    assert.doesNotMatch(row.label, /(480|720|768)P/i, `${row.label} 的型号名里还写着通用档位`);
+    if (/(1080P|2K)/i.test(row.label)) {
+      assert.equal(row.products.length, 1, `${row.label}：独有档位只能单独一行（不许合并多条产品）`);
+      assert.equal(row.resolutions.length, 1, `${row.label}：既然写进名字了，这一行就只能有那一档`);
+    }
   }
 });
 
@@ -70,7 +86,7 @@ test('③ 选哪一档就切到哪条产品（价目/时长上限跟着走）—
   assert.equal(productForResolution(wan, '1080p').id, 'wan_1080p');
   assert.equal(productForResolution(wan, '720p').id, 'wan_standard');
   assert.equal(productForResolution(wan, '480p').id, 'wan_standard');
-  assert.equal(productForResolution(mini, '2k').id, 'minimax_h3_2k');
+  assert.equal(productForResolution(mini2k, '2k').id, 'minimax_h3_2k');
   assert.equal(productForResolution(mini, '720p').id, 'minimax_h3_768p');
   assert.equal(productForResolution(mini, '480p').id, 'minimax_h3_768p', '480P 与 720P 同属一条产品（同价档，SKU 不变）');
 
@@ -146,7 +162,7 @@ test('⑥ 多清晰度档位的型号行：标签写"支持哪些清晰度"（2K
   const mini = rowOfVariant(rows, 'minimax-h3');
   const single = rowOfVariant(rows, 'sd-2.0');
 
-  assert.equal(videoModelChip(mini, mini.tierLabel), '480P · 720P · 2K', 'MiniMax H3 的标签列出三档清晰度');
+  assert.equal(videoModelChip(mini, mini.tierLabel), '480P · 720P', 'MiniMax H3 列出它那两档');
   assert.equal(videoModelChip(wan, wan.tierLabel), '480P · 720P · 1080P', '通义万相 3.0 列出三档');
   /* 单档行保持档位文案（'正式交付' 这类），不要被改成 "720P" 这种没有信息量的东西 */
   assert.equal(videoModelChip(single, single.tierLabel), single.tierLabel, '单档行仍写档位文案');
@@ -154,6 +170,6 @@ test('⑥ 多清晰度档位的型号行：标签写"支持哪些清晰度"（2K
   const page = fs.readFileSync('src/pages/VideoStudio/index.jsx', 'utf8');
   assert.match(page, /videoModelChip\(row,/, '页面必须走这一个函数（标签口径只有一处）');
   /* 2K / 1080P 的"按钮"仍然只可能来自清晰度药丸：这两种清晰度各自映射到既有价档产品 */
-  assert.equal(productForResolution(mini, '2k').id, 'minimax_h3_2k');
+  assert.equal(productForResolution(mini2k, '2k').id, 'minimax_h3_2k', '2K 现在由它自己那一行承载');
   assert.equal(productForResolution(wan, '1080p').id, 'wan_1080p');
 });

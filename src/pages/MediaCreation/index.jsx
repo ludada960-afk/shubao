@@ -392,8 +392,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   /* 勾了 0 个不是"没得选"，是一个**明确的未完成状态**：按钮禁用 + 说明缺什么。
      与其它必填项走同一条路（validation.missing），用户看到的是一句人话而不是灰按钮。 */
   const moduleGate = skillModules.length > 0 && selectedModules.length === 0
-    ? '请至少勾选一个模块'
+    ? '请先勾选要生成的内容模块'
     : '';
+  /* ═══ 2026-09-25 批 BO：禁用原因说**人话**（用户批注，逐字）══════════════════════════════════
+     用户原话：「你这个按钮这里为什么要写**还差图片**呢？你面向用户，难道可以用这种简单的描述吗？
+     知鱼他们是怎么做的你知道吗？你为什么要用这种特别生硬的语气，特别简单的表达去向用户做这种
+     表达呢？特别的奇怪啊。」
+     知渔实测那句 = 「请先上传至少一张产品图片」⇒ 这里按**缺的那个字段的类型**给一句完整的话：
+       · 上传位   → 请先{字段名}（至少 N 张）
+       · 数字/张数 → 请先设置{字段名}（字段名里已带"至少 N 张"）
+       · 文本位   → 请先填写{字段名}
+     ⚠️ 句子里**必须保留字段名原文**：media-workbench-e2e 第①幕是阻塞判据
+        （禁用原因要"点名缺的是哪个字段"）。改文案时别把字段名改掉。 */
+
   const effectiveValues = useMemo(() => {
     const base = skill ? { ...initialSkillValues(skill), ...values } : values;
     /* ⚠️ 原来这里是 Math.max(1, …) —— 那是"全选为默认"时代的兜底；现在 0 要如实传下去，
@@ -402,6 +413,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     return base;
   }, [skill, values, skillModules, selectedModules]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
+  const gateHint = useMemo(() => {
+    if (moduleGate) return moduleGate;
+    if (handoff || validation.ok) return '';
+    const first = validation.missing[0] || '';
+    const field = (skill?.fields || []).find(item => item.label && first.startsWith(item.label));
+    if (field?.kind === 'upload') {
+      const verb = /^(上传|选择|添加|导入)/.test(field.label) ? '' : '上传';
+      const min = Math.max(1, Number(field.min) || 1);
+      return '请先' + verb + field.label + '（至少 ' + min + ' 张）';
+    }
+    if (field?.kind === 'counts') return '请先设置' + field.label;
+    return '请先填写' + (first || '必填项');
+  }, [handoff, moduleGate, skill, validation]);
   /* 套图按**套**计价：张数与报价必须来自与面板同一份方案计算（skillRun.buildSuiteRun） */
   const suiteRun = useMemo(() => (skill && suite ? buildSuiteRun(skill, effectiveValues) : null), [skill, suite, effectiveValues]);
   const points = useMemo(
@@ -1409,7 +1433,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
            方案确认之后按钮回到「生成图片」并显示真实出图报价（那时才是 7）。 */
         ctaPoints={handoff ? null : ((skill.previewStep && !planApplied) ? PLAN_PREVIEW_POINTS : points)}
         ctaDisabled={busy || (!handoff && (!validation.ok || Boolean(moduleGate)))}
-        ctaHint={moduleGate || (!handoff && !validation.ok ? '还差：' + validation.missing.join('、') : '')}
+        ctaHint={gateHint}
         status={embed ? null : status}
         onGenerate={onGenerate}
         onHistoryDelete={deleteHistory}

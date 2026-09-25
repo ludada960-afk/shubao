@@ -448,8 +448,17 @@
 /* 批 BB：主 CTA 高度/内边距**与图片侧那颗逐值相同**（38px / 0 22px / 圆角 12）——
    原来是 44px / 0 18px / 圆角 8，于是同一块底栏上两边的按钮基线与留白都不一样。 */
 .video-submit-row button { min-height: 38px; padding: 0 22px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; /* §18.3 M3 / 裁定 2：功能按钮禁止渐变，改品牌紫纯色（渐变只留 logo/hero/空态）。 */
-  background: var(--sb-btn-primary-bg); box-shadow: 0 8px 20px var(--sb-brand-a32); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
-.video-submit-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
+  /* 批 BO：主 CTA 底色改用与图片侧同一个渐变变量（--sb-cta-grad，规格见 generate-cta.css），
+     修掉实机探针抓到的"视频侧纯色 / 图片侧渐变"这种两边不一致。
+     ⚠️ 这一行原来的注释是「裁定 2：功能按钮禁止渐变」—— 本批是**用户改向**（原话见文件顶部批 BO
+        那段）：渐变两端**同色相**、只差两档深度，远看仍是品牌紫实底，不是 9-18 否过的"双色渐变"。 */
+  background: var(--sb-brand-600); box-shadow: var(--sb-cta-shadow); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
+.video-submit-row button:hover:not(:disabled) {
+  /* 批 BO：与全局 CTA / 图片侧同一套悬停语言（留影AI：悬停时渐变亮一档 + 轻微上移 + 阴影加强） */
+  background: var(--sb-cta-grad-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--sb-cta-shadow-hover);
+}
 .video-submit-row button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 16px var(--sb-brand-a32); }
 /* 批 BN：改用与全局 CTA 同一对禁用 token（值不变），三处禁用态只认一份来源。 */
 .video-submit-row button:disabled {
