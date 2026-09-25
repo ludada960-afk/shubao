@@ -219,12 +219,20 @@
   margin-left: 0;   /* 批 BS：交出负补偿 —— 位置改由下面那条"绝对定位的品牌标"承担 */
 }
 /* ⚠️ 选择器**不要**写成 `.topbar-brand.is-compact-mark` —— 那个类已经不在子页面这一格上了
-   （实测 DOM 是 `<span class="topbar-brand" aria-hidden="true">`，本批按 CDP 查出来的实际类名写）。
-   这里用三层类名，权重稳高于 `.topbar-brand` 的基础规则，不依赖样式表顺序。 */
+   （实测 DOM 是 `<span class="topbar-brand" aria-hidden="true">`），这里用三层类名，
+   权重稳高于 `.topbar-brand` 的基础规则，不依赖样式表顺序。
+   ═══ 2026-09-25 批 BL：**改成用「当前标半径」算**（实测修正）══════════════════════════════════
+   批 BS 这里写的是 `left: calc(sidebar / 2 - 12px)` + 注释"标宽 24 ⇒ 左沿 = 中线 − 12" ——
+   那个 24 **是错的**：批 BG 之后子页面这颗标是 **38px**（.topbar-brand-mark 38 / 半径 19）。
+   实测（1440 视口）：写死 12 ⇒ 标左沿 36、**中线 55**，而首页标中线是 **48** ⇒ **偏 7px**，
+   与批 BF 的用户原话冲突（「你不能够跟其他的页面一样，放到左边导航栏的左上角这里吗？」）。
+   ⇒ 左沿 = 侧栏中线 − **当前半径**（--bb-mark-r，两态分别是 19 / 13）：
+      · 默认态：48 − 19 = 29 ⇒ 中线 48 ✓
+      · 滚动后（is-compact，标 26）：48 − 13 = 35 ⇒ 中线 48 ✓
+     「返回」仍然留在文档流里（批 BS 那条要求：与工作台左沿对齐，实测 120 = 120 ✓ 不动）。 */
 .topbar-row.is-subpage .topbar-subpage-lead .topbar-brand {
   position: absolute;
-  /* 标宽 24 ⇒ 左沿 = 侧栏中线 − 12，标的中线正好落在左导航那一列的中线上 */
-  left: calc(var(--sb-app-sidebar-w, 96px) / 2 - 12px);
+  left: calc(var(--sb-app-sidebar-w, 96px) / 2 - var(--bb-mark-r, 19px));
   top: 50%;
   transform: translateY(-50%);
   margin-left: 0;

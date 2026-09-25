@@ -162,9 +162,26 @@ test('⑥ 首页暖区留白照图片侧（8px 10px 10px），且首页不再渲
 test('⑩ 子页面品牌标与首页同一条中线（不再叠加那 7px 补偿）', () => {
   assert.match(shellCss, /\.topbar-subpage-lead \.topbar-brand \{ margin-left: 0; \}/,
     '子页面那一格里的品牌标必须把自身的居中补偿清零');
-  /* 批 BG：标的默认半径从 17 变成 19（34 → 38px，与左导航 38px 磁贴同档），所以这条左移量改成
-     用同一颗变量算 —— 两态（38/26）下中线都锁在 x=48，不会因为标变大就偏。 */
-  assert.match(shellCss, /\.topbar-subpage-lead \{[\s\S]*?margin-left: calc\(-1 \* \(var\(--sb-app-sidebar-w, 96px\) \+ 24px\) \+ \(48px - var\(--bb-mark-r\)\)\);/, '整格仍要左移回图标栏上方（48 − 当前标半径）');
+  /* ═══ 2026-09-25 批 BL：**判据跟着实现改**（事实变了 + 用户改向，守的东西没变）══════════════════
+     事实变了：批 BS 按用户新批注（「返回按钮为什么做的这么左呢？你应该跟工作台的最左边做一个对齐」）
+     把这一格的做法换了 —— **品牌标改成绝对定位**（装饰节点、aria-hidden），**「返回」留在流里**
+     自然落在工作台左沿；整格不再靠负 margin 左移。旧判据要的 `margin-left: calc(-1 * (...)) ` 写法
+     已经不存在 ⇒ 它会让测试红（批 BS 自己的发版就是红在这一条）。
+     守的东西一字未变：**标的中线锁在左导航列中线上**（= x 48）。只是改按新实现来验：
+     绝对定位 + 左沿 = 侧栏中线 − **当前标半径**（两态都成立）。 */
+  assert.match(shellCss, /\.topbar-row\.is-subpage \.topbar-subpage-lead \.topbar-brand \{[\s\S]*?left: calc\(var\(--sb-app-sidebar-w, 96px\) \/ 2 - var\(--bb-mark-r, 19px\)\);/,
+    '子页面标钉在左导航列中线上（用当前半径算：默认 48−19、滚动后 48−13，两态中线都是 48）');
+  assert.match(shellCss, /\.topbar-subpage-lead \{[\s\S]*?margin-left: 0;/,
+    '「返回」留在文档流里（批 BS 的要求：与工作台左沿对齐 —— 实测 120 = 120）');
+});
+
+/* 批 BS 那条要求的判据（用户原话：「返回按钮为什么做的这么左呢？你是不是应该跟工作台的最左边
+   做一个对齐呢？」）—— 补上它，免得实现又被改回去。 */
+test('⑩b 子页面「返回」与工作台左沿对齐', () => {
+  assert.match(shellCss, /\.topbar-subpage-lead \{[\s\S]*?margin-left: 0;/,
+    '整格不再靠负 margin 左移（否则「返回」会被拖到工作台左边之外）');
+  assert.match(shellCss, /\.topbar-row\.is-subpage \{ position: relative; \}/,
+    '子页面这一行要定位上下文（品牌标绝对定位挂在它下面）');
 });
 
 test('⑦ 各子页面里那颗重复的「一键解析商品信息」不再渲染', () => {
