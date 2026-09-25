@@ -179,8 +179,10 @@
    去掉之后底栏与上面的输入面靠**留白**分开（12px 上内边距），不再画分界线。 */
 .visual-parameter-bar {
   position: relative;
-  min-height: 76px;
-  padding: 12px 2px;
+  /* 批 BI：76 → 64，理由同视频侧（column 布局下多出来的 12px 会全落在按钮下面） */
+  min-height: 64px;
+  /* 批 BI：与视频侧同一条口径 —— 下留白归零，让"按钮下沿 → 卡下沿"等于"卡上沿 → 首块内容"的 30px */
+  padding: 12px 2px 0;
   background: var(--sb-neutral-0);
 }
 

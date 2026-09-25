@@ -89,7 +89,18 @@ test('home presents the two confirmed entries (视频生成 / 图片生成) in o
   /* 2026-09-15 V3：时长/缓动改走 token（--sb-duration-* + --sb-ease-out），
      契约「位移有过渡、且是产品级缓动」不变，只是取值来源统一。 */
   assert.match(styles, /\.homepage-mode-card \{[\s\S]*?transition:\s*transform var\(--sb-duration-normal\)/);
-  assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-visual img/);
+  /* ═══ 2026-09-25 批 BI：**判据反转**（用户改向，逐字；旧断言没有任何依据注释）══════════════════
+     用户原话：「你这两张卡片的做法我觉得也不太对，就是你现在的情况是鼠标放上去上面的图标就会变色
+     放大这样，但其实我不是要你这么做，我觉得**上面的图标跟标题它应该是固定好的**，就是**不要有那种
+     UI 动效**，真正应该有 UI 动效的是**下面那三张扇形张开的卡片**。鼠标放上去的时候，下面的三张扇形
+     张开的卡片，他们**稍微放大动起来一点**，我觉得才是视觉上比较好的呈现呀。」
+     ⇒ 改判：① 图标与标题悬停时**不许**有动效（原来的"图标铺品牌渐变 + scale(1.06)"与"标题转品牌色"
+           两条 hover 已删除）；② 悬停的动效**必须**落在下面的预览图上（轻微放大）。
+        守的东西从"hover 只动卡片本身"变成"hover 动的是下面的卡片，不是上面的图标与标题"。 */
+  assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-glyph/, '图标悬停不许有动效（用户："图标跟标题应该是固定好的"）');
+  assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-name/, '标题悬停不许变色');
+  assert.match(styles, /\.homepage-mode-card:hover \.homepage-mode-card-visual img \{[^}]*transform:\s*scale\(1\.0[0-9]+\)/,
+    '悬停的动效落在下面的预览图上（轻微放大 —— 用户："他们稍微放大动起来一点"）');
   /* hover 规则不得带 z-index（避免 hover 制造层叠事故） */
   const hoverRule = styles.match(/\.homepage-mode-card:hover \{([^}]*)\}/)?.[1] || '';
   assert.ok(hoverRule, 'hover 规则存在');

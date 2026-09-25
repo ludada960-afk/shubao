@@ -2647,13 +2647,14 @@
   transition: opacity var(--sb-duration-slow) var(--sb-ease-out);
 }
 .homepage-mode-card:hover .homepage-mode-card-glow { opacity: .16; }
-.homepage-mode-card:hover .homepage-mode-card-glyph {
-  background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
-  border-color: transparent;
-  color: var(--sb-neutral-0);
-  transform: scale(1.06);
+/* 批 BI：图标与标题悬停时不动（用户原话：「你这两张卡片的做法我觉得也不太对，就是你现在的情况是
+   鼠标放上去上面的图标就会变色放大这样，但其实我不是要你这么做，我觉得**上面的图标跟标题它应该是
+   固定好的**，就是**不要有那种 UI 动效**，真正应该有 UI 动效的是下面那三张扇形张开的卡片。」）
+   ⇒ 删掉"图标铺品牌渐变 + 放大 1.06"与"标题转品牌色"两条 hover（批 BB 从留影AI 那套搬来的），
+     动效改到下面的预览图上（下一条）。卡片上浮 + 底部能量条 + 右下柔光保留（用户没否）。 */
+.homepage-mode-card:hover .homepage-mode-card-visual img {
+  transform: scale(1.045);
 }
-.homepage-mode-card:hover .homepage-mode-card-name { color: var(--sb-ink-brand); }
 /* 底部能量条：默认 width 0，悬停充满（照实测：是 width 过渡，不是 scaleX）*/
 .homepage-mode-card::before {
   content: ''; position: absolute; left: 0; bottom: 0; z-index: 3;
@@ -2668,6 +2669,9 @@
 }
 .homepage-mode-card-visual img {
   width: 100%; height: 100%; display: block; object-fit: contain;
+  /* 批 BI：悬停时图片轻微放大（用户："他们稍微放大动起来一点"）—— 只动 transform，零重排 */
+  transition: transform var(--sb-duration-slow) var(--sb-ease-out);
+  transform-origin: center 65%;
 }
 /* ⚠️ 这里原来是两条**造倾斜**的规则（card-1 逆时针 6° + 向右压 -22px、card-2 顺时针 6°）。
    它们已被删除（用户同轮明确否掉了歪卡）；保留两条空规则会让"没有倾斜"这件事

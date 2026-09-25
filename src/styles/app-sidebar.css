@@ -114,7 +114,6 @@
       hover 那一条（图标磁贴 135deg 品牌渐变 = 他们的"左上蓝→右下紫"）本来就有，见下面几条。 */
 .app-sidebar-cell {
   position: relative;
-  background-image: linear-gradient(90deg, var(--sb-neutral-0) 0%, var(--sb-brand-a05) 58%, var(--sb-brand-a18) 100%);
   width: 78px;
   /* ═══ 2026-09-25 批 BF：**放松间距、让整列"拉满"**（用户原话，逐字）══════════════════════════════
      原话：「你再好好看一下他们左边的导航栏，他们是**拉的比较满的**……我们现在的情况就是左边的这些
@@ -140,7 +139,14 @@
      文字另起一行落在格子外面 —— 视觉上就是"一个浮片 + 一行字"，两块各自为政。
      改后：**格子自己有底**（图标与文字坐在同一块面上），磁贴去掉阴影不再"浮"，
      两者共享同一个 hover 面、同一条底边进度条 —— 这才叫同一个维度。 */
-  background: var(--sb-surface-tint);
+  /* 批 BI：默认底的横向渐变必须写在这里（用户原话：「他们的背景色的渐变以及他们图标上面的渐变，
+     你都没有抄过来啊……你现在根本就没有去改变呀。」）。
+     上一批（BG）把渐变写在前面那条 .app-sidebar-cell 里，**根本没生效** ——
+     因为这条后写的 background 简写会把 background-image 一起重置成 none
+     （实测计算值 backgroundImage = none，用户看到的"没改变"是准确的）。
+     ⇒ 拆成 background-color + background-image 两条：默认就是"左白 → 右品牌色"的横向渐变。 */
+  background-color: var(--sb-surface-tint);
+  background-image: linear-gradient(90deg, var(--sb-neutral-0) 0%, var(--sb-brand-a05) 58%, var(--sb-brand-a18) 100%);
   color: var(--sb-ink-3);
   font: inherit;
   cursor: pointer;
@@ -223,9 +229,11 @@
    不新增 DOM、不动布局 —— 留影AI 那层是独立的 256px 模糊层（0.06 → 0.10 变亮），
    在我们 78px 宽的格子上用一层径向渐变表达同一件事：**光晕出现在图标周围**。 */
 .app-sidebar-cell:hover {
+  /* 批 BI：方向改成**对角**（用户两次描述留影AI 的悬停态：「左上方是蓝色，往右下方去做紫色，渐变的」）。
+     两层：图标磁贴那一块的径向光晕（批 BF 加的）+ 整格的对角品牌渐变。 */
   background-image:
     radial-gradient(42px 42px at 50% 24%, var(--sb-brand-a18), transparent 72%),
-    linear-gradient(160deg, var(--sb-brand-a18), var(--sb-brand-a05));
+    linear-gradient(135deg, var(--sb-brand-a18), var(--sb-brand-a32));
   color: var(--sb-ink-1);
 }
 .app-sidebar-cell:hover .app-sidebar-tile {
