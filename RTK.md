@@ -8902,3 +8902,83 @@ SKU 由**产品 id** 派生（`video_${id}_${short|long}`，videoFeatureSku）�
   · 客户端产物里能找到 `请先上传` 与 `请先勾选要生成的内容模块`（人话提示确实上线）
   · `/api/video/capabilities`：**`minimax_h3_2k` 的 variantLabel = 「MiniMax H3 2K」**（独立行），
     `minimax_h3_768p` = 「MiniMax H3」且 resolutions = 720p+480p；通义万相两条仍共用 variant「通义万相 3.0」
+
+## 2026-09-26 批 BP+BQ：**@Hallmark 全站体检 + 就地修复** / 「做同款」落到图片生成 / 1080P 策略 / 主 CTA 常驻渐变
+
+提交 `14e63acd`（31 文件，+640/−50）；部署：`Deployed 14e63acd to https://shuimg.cn/`。用户睡前给的最后一批：三条决定 + 一个 bug + **用 @Hallmark 全站重做 UI**。
+
+### 用户原话（逐字）
+- 「你的意思是要在生成设置里面开 480P 对吧，那 1080P 如果适合的模型太少就算了吧，就直接开 480P 的，
+  **1080P 的就是用户有明确在提示词里就可以用给他**，主 CTA 常驻态库可以做成渐变的。」
+- 「就是我点击首页下面的案例区我点击做同款，为什么**还是有之前的四个板块**呢，这四个板块本来就不该
+  再出现在任何地方了呀，然后**做同款你应该匹配到我们现在的图片生成的区域里面呀**」
+- 「然后你用 **@Hallmark** 这个 skill 帮我**整个网站所有页面都重新优化 UI 设计**……我要去睡觉了，
+  你全部帮我做完」
+
+### 一、主 CTA 常驻渐变（**用户改向**，推翻三条旧裁定）
+`--sb-cta-grad`（135°、同色相两档 brand-600→700）成为三处主 CTA 的常驻底色；悬停切
+`--sb-cta-grad-hover`（brand-500→600）+ 上移 1px + 阴影。**推翻**：裁定 2「功能按钮禁止渐变」、
+9-18「主按钮改品牌紫实底纯色」、`canvas-composer-points-and-skill-0913` 的「渲染须等价于纯色」。
+那条判据改成「两端必须都在品牌紫 400–700 带、且不同档」（**仍然禁止跨色相的双色渐变**），
+改判理由写在断言旁。三处共用同一对变量（探针抓到过"视频侧纯色、图片侧渐变"的两边不一致）。
+
+### 二、「做同款」→ 落到**图片生成**（实测 `.qa/bp-remix-landing.mjs`）
+| | 改前 | 改后（实测） |
+|---|---|---|
+| 落点 | 停在首页、把**旧工作台**滚出来（那四块老电商流程） | `/image-creation?id=image.product_suite`（图片生成·商品套图子页） |
+| 旧工作台 | 就在眼前 | **不在页面上**（`#creation-workbench` false） |
+| 预填 | 无 | 素材 1 张 + 提示词「给这个奶瓶生成一套商品图。」+ carryHint 说明"确认后才会重新计费" |
+
+机制：案例装进 `creationLaunch`（跨路由的唯一载体）→ NAVIGATE → 目标页按类型落到对应技能
+（套图/上身/海报/封面/品牌主视觉/小红书），预填只写**该技能声明过的字段**（防"界面不显示、
+参数却下发"）。新模块 `src/pages/Home/galleryRemixTarget.js`（纯函数，门禁可直接断言）。
+**只预填、不生成** —— 扣费仍要用户点 CTA。
+
+### 三、1080P 策略
+`detectPromptResolution()` 只认**明确档位词**（1080P / 2K / 720P / 480P / 全高清），不认"高清/清晰"
+这类形容词；命中且**当前型号支持**该档 ⇒ 自动切档（价格随档位实时变，按钮上看得见）；不支持就
+什么都不做（不假装、也不拦）。只在该词首次出现时切一次，不与用户手动选择打架。
+
+### 四、@Hallmark 全站体检 + 修复（`.qa/bq-hallmark-audit.mjs`：7 页 × 5 宽度）
+| 级别 | 问题 | 根因（实测） | 修法 |
+|---|---|---|---|
+| critical | 套图子页 @320px 溢 **31px** | ①`.is-embedded-flow` 漏移动端单列覆盖；②大头是 **grid 子项默认 `min-width:auto`**（右栏最小内容宽 220 > 轨道 196） | 补断点 + 两列 `min-width:0` + 长词可断 |
+| critical | 视频子页 @320px 溢 **96px** | 同上（面板不肯收缩） | 三层面板 `min-width:0; max-width:100%` |
+| — | 全站 **30 处裸 `minmax(NNNpx,1fr)`** | 轨道下限写死，窄容器必撑破 | 统一 `minmax(min(NNNpx,100%),1fr)`（够宽时零变化） |
+| — | 兜底 | 只有首页根节点有 `overflow-x:clip` | `html,body{overflow-x:clip}`（**不用 hidden**，会干掉 sticky） |
+| major | 可点文字折两行 | 「选择文件 / 从资产库选择」窄屏折行 | 两颗上传入口 + 页脚四个文字按钮 `nowrap` |
+| minor | 点击区 <32 | 全屏 28（**两侧都**改 32）/ 字段级一键按钮 30 | 都提到 32 |
+
+**体检前后：critical 7 → 1，major 25 → 7，横向溢出清零。**
+⚠️ **不改只登记的两条**（hallmark 点名但属"品牌既有选择"，擅自改=替用户做品牌决定）：
+首页 h1 的品牌渐变文字、字体（系统字体栈，天然避开"到处 Inter"）—— 写进
+`test/hallmark-mobile-and-sloplint-0926` 第 ⑤ 条留档。
+
+### 五、判据变更（都是"事实变了"，非放宽）
+- `canvas-library-layout-0916`：栅格写法加 min() 包裹 ⇒ 两条字面量断言跟着改（守的性质没变，
+  还多守了"窄容器可收缩"）。
+- `canvas-composer-points-and-skill-0913`：纯色 → 同色相两档渐变（**用户改向**）。
+- 新增 `hallmark-mobile-and-sloplint-0926.test.mjs` 五条；`workbench-cta-width-0925` 第五节同步。
+
+### 六、⚠️ 本轮踩的坑（同一个坑第四次，必须固化）
+**用 cmd 内联脚本做多行插入，`\n` 被写成字面量**，连坏两个源文件（`videoModelRows.js`、
+`MediaCreation/index.jsx`）与一个探针，各修了两轮。**结论：多行插入一律写 `.tmp/*.mjs`，
+cmd 内联只跑单行命令。**
+另外 **TDZ 又踩两次**（`gateHint` 写在使用点之前、`selectClarity` 同）——两次都是"effect 引用后面
+才定义的 useCallback"，都已挪到定义之后。
+
+### 七、验证
+`npm run test` **4127 / pass 4117 / fail 0 / skipped 10**；`npm run precommit` 全绿；
+实机探针 `.qa/bp-remix-landing.mjs`、`.qa/bq-hallmark-audit.mjs`、`.qa/bq-overflow-diag.mjs`、
+`.qa/bq-grid-diag.mjs`；`POST /api/video/jobs` = 0。
+
+### 部署与线上复验
+- `Deployed 14e63acd to https://shuimg.cn/` + `Released remote deployment lock`；产物换成
+  `assets/index-BUPUtDQU.js` + `assets/style-CLx0WT4o.css`；`/api/health` = **200**。
+- 服务器端 curl 到的实据（逐条都在产物里）：
+  · `html,body{overflow-x:clip}`（全局兜底）
+  · `--sb-cta-grad: linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 100%)`（常驻渐变）
+  · `minmax(min(…, 100%), 1fr)`（全站栅格加固）
+  · `.media-workbench-left,.media-workbench-right{min-width:0}`（列可收缩）
+  · `.media-field-upload-add{…white-space:nowrap}`（标签不折行）
+  · 客户端产物含 `gallery-remix`（做同款跨路由）与 `已带出案例`（carryHint 文案）
