@@ -82,7 +82,15 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
      用户批注图6-⑨：「去掉模型下拉顶部重复的『当前模型』项」—— 当前模型就在正上方的
      触发按钮里，展开后它又出现在列表第一行，用户看到的是同一个名字写了两遍。
      兜底：万一过滤后为空（账号只有一款可用模型），退回完整列表 —— 不能点开一个空面板。 */
-  const otherModels = SELECTABLE_IMAGE_MODELS.filter(model => model.id !== selectedModel);
+  /* ═══ 2026-09-25 批 BG：首页那一档的清单**含当前项**（用户图3 原话，逐字）══════════════════════
+     「我再去点击这个生图模型的这个按钮的话，它张开来的是你选中的那个模型，必须再点一次这个选中的
+       模型，它才会再张开这张列表，你这个是完全不对的。我认为不需要有中间那个步骤，就是**每次点击
+       生图模型，它必须完全张开所有的模型**才是对的，你中间设置的那个选完模型之后变成一个独立模型的
+       面板那个环节完全不需要。」
+     ⇒ 首页（openModelList）时 otherModels = **全部可选模型**（含当前项，它带勾 aria-pressed）；
+       其它面板（六面板那一套）仍旧只列"当前之外的候补"，行为与从前完全一致。
+       ⚠️ 这一行是门禁 test/gen-settings-panel-model-copy-0914 钉住的派生入口，前缀保持原样。 */
+  const otherModels = SELECTABLE_IMAGE_MODELS.filter(model => openModelList || model.id !== selectedModel);
   const listModels = otherModels.length > 0 ? otherModels : SELECTABLE_IMAGE_MODELS;
 
   /* 原则 6.3：默认「未锁定任何颜色」；锁定态只由外部 brandColors 推导。 */
@@ -157,15 +165,22 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
           flexShrink: 0,
         }}>{model.badge}</span>
       </span>
+      {/* ═══ 2026-09-25 批 BG：描述两档（用户图3 原话，逐字）══════════════════════════════════════
+         「你左边有一个图标，然后是一个标题，然后下面是描述，但是你**右边为什么会有大量的空白**呢？
+           你留这么多空白在视觉上看起来就很不平衡呀。」
+         短描述（≤22 字，门禁钉着）只占行宽的三分之一，右侧必然空一片；视频侧的行本来就是两行完整描述。
+         ⇒ 首页那一档传 'full'：显示**完整描述**（自动换行、铺满行宽），与视频侧的行结构一致；
+           其它面板（六面板那套，宽度/环境不同）保持原来的一行短描述。 */}
       {showDesc && (
         <span style={{
           display: 'block',
           marginTop: 'var(--sb-space-1)',
           fontSize: 'var(--sb-text-2xs)',
           color: 'var(--sb-text-muted)',
-          whiteSpace: 'nowrap',
+          whiteSpace: showDesc === 'full' ? 'normal' : 'nowrap',
+          lineHeight: showDesc === 'full' ? 1.45 : undefined,
           overflow: 'hidden',
-        }}>{model.shortDescription || model.description}</span>
+        }}>{showDesc === 'full' ? (model.description || model.shortDescription) : (model.shortDescription || model.description)}</span>
       )}
     </span>
   );
@@ -213,7 +228,9 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
         {/* ── 分组 1：生图模型 ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.sp3 }}>
           <GroupTitle icon={Sparkles}>生图模型</GroupTitle>
-          <button
+          {/* 批 BG：首页那一档**不渲染这一行**（见上面 otherModels 那段批注：用户不要"先一行当前模型、
+              再点一次才展开"的中间步骤）。其它面板保留这行折叠开关。 */}
+          {!openModelList && <button
             type="button"
             className={optionClass}
             onClick={() => setModelListOpen(open => !open)}
@@ -238,7 +255,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
               transform: modelListOpen ? 'rotate(180deg)' : 'none',
               transition: 'transform var(--sb-duration-fast) var(--sb-ease-out)',
             }} />
-          </button>
+          </button>}
           {modelListOpen && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--sb-space-2)' }}>
               {listModels.map(model => {
@@ -254,7 +271,7 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
                     style={{ minHeight: 'var(--sb-control-touch)' }}
                   >
                     {modelIcon(model, ICON_SIZE.modelOption)}
-                    {modelRow(model, active)}
+                    {modelRow(model, active, openModelList ? 'full' : false)}
                     {/* ═══ 2026-09-19 批 I-②（用户批注 #5）══════════════════════════════════════
                         原话：「点了哪个模型就是哪个模型作为按钮完全替代上去显示在按钮上啊，
                         你为什么这里还是有个向下的箭头呀，不是应该打钩吗，

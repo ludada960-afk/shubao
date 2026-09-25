@@ -172,12 +172,16 @@
    图片生成那边也有同样的问题，**你两边要同步的去解决**。」
    实测（1600×1000）：改前 12 / 14（上面少 2px）；视频侧更夸张（9 / 18）。
    ⇒ 两边统一：`padding: 12px 2px` + 内容行高 = 最高那颗按钮（52）⇒ 上下各 12、左右各 2。 */
+/* ═══ 2026-09-25 批 BG：**参数栏上那根线去掉**（用户原话，逐字）════════════════════════════════
+   「你这个输入框下面为什么会有一根线啊？好像视频生成和图片生成他们的输入框下面都有这条线，
+     这什么东西啊？**你要把它去掉呀**。」
+   那根线就是这个 border-top（实测 1px rgba(28,25,23,.08)，两侧同一条）。
+   去掉之后底栏与上面的输入面靠**留白**分开（12px 上内边距），不再画分界线。 */
 .visual-parameter-bar {
   position: relative;
   min-height: 76px;
   padding: 12px 2px;
   background: var(--sb-neutral-0);
-  border-top: 1px solid rgba(28, 25, 23, .08);
 }
 
 .visual-generate-button {
@@ -292,7 +296,11 @@
    ⇒ 回到"面板自己滚"，但换一种办法消掉那条假滚动条：
      箭头 `::after` 是 `bottom: -6px`（探出面板 6px），只要给面板补 6px 下内边距，
      箭头就落在**内边距盒里**、不再算溢出 —— 滚动条自然不出现，而面板该滚的时候还能滚。 */
-.visual-config-panel { overflow-y: auto; padding-bottom: 6px; }
+/* 批 BG：**不显示滚动条**（用户原话：「右边的两条可以拉动的滚动条，我一直叫你把它们删掉呀……
+   更何况你这条滚动条还超框了」）。实测那条滚动条来自"面板底部那 6px 内边距 + 探出的小箭头"造成的
+   9px 溢出（内容本身装得下）。保留 overflow: auto ⇒ 真该滚的时候仍然能滚，只是不再画那根杠。 */
+.visual-config-panel { overflow-y: auto; padding-bottom: 6px; scrollbar-width: none; }
+.visual-config-panel::-webkit-scrollbar { width: 0; height: 0; }
 .visual-config-panel-body { max-height: none; overflow-y: visible; }
 
 .visual-config-panel::after {

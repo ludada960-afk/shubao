@@ -34,10 +34,18 @@ test('① 顶栏滚动时不再压缩（头部不跳）', () => {
        「我们之前的那个设计方案其实是比较好的，就是**正常的这个 LOGO 它是展示全部的**，
         然后当我**往下滚动**的时候，LOGO 才会**缩成这个比较小的这个样式**。
         你现在的情况是它**永远是这个比较小的样式**，这是不对的。」
-     ⇒ 现在**要求**滚动后缩小（34 → 26 且文字收起），所以断言反过来：
-       两态都必须存在，且缩小态围绕**同一条中线**（靠 --bb-mark-r 补偿，不左右跳）。 */
+     ⇒ 现在**要求**滚动后缩小（38 → 26 且文字收起），所以断言反过来：
+       两态都必须存在，且缩小态围绕**同一条中线**（靠 --bb-mark-r 补偿，不左右跳）。
+     ═══ 2026-09-25 批 BG：**口径再反一次**（用户改向，逐字）══════════════════════════════════════
+     「用户进来的第一版 LOGO 是不能有这个薯包 AI 这几个字的。就是只有 LOGO 而已，然后 LOGO 必须要
+       适配好左边的导航栏的规则。你起码应该把它**放大一些**吧。然后「薯包 AI」这四个字是**只有当用户
+       滚动鼠标的时候**，也就是你的这个 LOGO 产生变化缩小的时候才能出现这几个字的。」
+     ⇒ 默认 = **只有标**（38px，与左导航 38px 磁贴同档）；滚动后才缩到 26px **并出字标**。
+       两态的中线仍锁在 x=48，只是"当前半径"这个变量提到了顶栏这一层（--bb-mark-r），
+       标自己的居中补偿与子页面那一格的左移量都从它算。 */
   assert.match(shellCss, /\.app-topbar\.is-compact \.topbar-brand-mark \{ width: 26px; height: 26px;/, '滚动后标要缩小（用户明确要求的两态）');
-  assert.match(shellCss, /\.app-topbar\.is-compact \.topbar-brand \{ --bb-mark-r: 13px; \}/, '缩小时要补偿中线（否则标会左右跳）');
+  assert.match(shellCss, /\.app-topbar\.is-compact \{ --bb-mark-r: 13px; \}/, '缩小时要补偿中线（否则标会左右跳）');
+  assert.match(shellCss, /\.app-topbar \{ --bb-mark-r: 19px; \}/, '默认态的中线变量 = 38px 标的一半（与导航磁贴同档）');
   assert.doesNotMatch(shellCss, /\.app-topbar\.is-compact \.topbar-row \{[^}]*padding-block/, '紧凑态不得再压行高');
   /* 但毛玻璃底与描边保留（滚动时视觉上仍然是"浮在上面的一条"） */
   assert.match(shellCss, /\.app-topbar\.is-compact \{[^}]*backdrop-filter/, '紧凑态保留毛玻璃底');
@@ -113,8 +121,15 @@ test('⑤ 面板不出现"没东西可滚"的滚动条，但**该滚的时候必
            内容一长就顶出视口、**下面被切掉且滚不到**（比一条多余的滚动条严重得多）。
      ⇒ 现在：**面板自己滚**（该滚的时候能滚），用"给面板补 6px 下内边距把那个小箭头收进内边距盒"
       的办法消掉假滚动条 —— 两个诉求同时满足，不需要二选一。 */
-  assert.match(visualCss, /\.visual-config-panel \{ overflow-y: auto; padding-bottom: 6px; \}/,
-    '面板自己滚 + 用内边距把箭头收进去（既不截断内容，也不出现那条"多余"的滚动条）');
+  /* ═══ 2026-09-25 批 BG：**判据随用户口径更新**（不是放宽）═════════════════════════════════════
+     用户原话：「右边的两条**可以拉动的滚动条**，我一直叫你把它们删掉呀。因为你现在张开了这两个面板，
+     已经能够展示出所有的信息点了，你为什么还要有这条滚动条呢？更何况你这条滚动条**还超框了**。」
+     事实也变了：实测那条滚动条来自"面板底部 6px 内边距 + 探出的小箭头"造成的 **9px 溢出**
+     （内容本身装得下），面板并不需要滚。
+     ⇒ 判据改成：**仍然保留 overflow-y: auto**（真该滚的时候必须能滚，这条不许退）+
+        **scrollbar-width: none**（不再画那根杠）。 */
+  assert.match(visualCss, /\.visual-config-panel \{ overflow-y: auto; padding-bottom: 6px; scrollbar-width: none; \}/,
+    '面板自己滚（该滚时必须能滚）+ 不显示滚动条（用户要求删掉那两条杠）');
   assert.doesNotMatch(visualCss, /\.visual-config-panel \{ overflow: visible; \}/, '不许再回到"面板不滚"的写法（内容会被截断）');
   assert.match(visualCss, /\.visual-config-panel-body \{ max-height: none; overflow-y: visible; \}/, '内层不再抢占滚动权');
   const cls = (videoCss.match(/\.video-config-panel,\s*\.video-inline-menu \{[\s\S]*?\}/) || [''])[0];
@@ -147,8 +162,9 @@ test('⑥ 首页暖区留白照图片侧（8px 10px 10px），且首页不再渲
 test('⑩ 子页面品牌标与首页同一条中线（不再叠加那 7px 补偿）', () => {
   assert.match(shellCss, /\.topbar-subpage-lead \.topbar-brand \{ margin-left: 0; \}/,
     '子页面那一格里的品牌标必须把自身的居中补偿清零');
-  assert.match(shellCss, /\.topbar-subpage-lead \{[\s\S]*?margin-left: calc\(-1 \* \(var\(--sb-app-sidebar-w, 96px\) \+ 24px\) \+ 31px\);/,
-    '整格仍要左移回图标栏上方（31 = 48 − mark 半径 17）');
+  /* 批 BG：标的默认半径从 17 变成 19（34 → 38px，与左导航 38px 磁贴同档），所以这条左移量改成
+     用同一颗变量算 —— 两态（38/26）下中线都锁在 x=48，不会因为标变大就偏。 */
+  assert.match(shellCss, /\.topbar-subpage-lead \{[\s\S]*?margin-left: calc\(-1 \* \(var\(--sb-app-sidebar-w, 96px\) \+ 24px\) \+ \(48px - var\(--bb-mark-r\)\)\);/, '整格仍要左移回图标栏上方（48 − 当前标半径）');
 });
 
 test('⑦ 各子页面里那颗重复的「一键解析商品信息」不再渲染', () => {

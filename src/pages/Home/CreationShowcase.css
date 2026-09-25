@@ -185,7 +185,7 @@
 .xhs-prompt-hints span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xhs-legacy-prompt { display: flex; flex-direction: column; min-height: 156px; padding: 12px 20px 8px 8px !important; cursor: text; }
 .xhs-legacy-prompt .xhs-prompt-field { flex: 1 1 auto; box-sizing: border-box; }
-.xhs-template-actions { position: relative; margin: 0; padding: 0; border-top: 1px solid rgba(28,25,23,.08); background: transparent; }
+.xhs-template-actions { position: relative; margin: 0; padding: 0; background: transparent; }
 .xhs-template-tools { display: flex !important; justify-self: auto; width: auto; max-width: none; flex: 1 1 auto !important; gap: 10px !important; align-items: stretch !important; min-width: 0; padding: 0; overflow: visible !important; }
 .xhs-input-template .ec-workbench-tools.xhs-template-tools { flex-wrap: nowrap; }
 .xhs-template-option-slot { position: relative; display: flex; width: fit-content; height: 52px; min-width: 0; align-items: stretch; flex: 0 0 auto; }
@@ -331,10 +331,14 @@
   line-height: 28px;
 }
 
+/* ═══ 2026-09-25 批 BG：**这条才是图片侧那根线真正生效的地方**（用户原话，逐字）══════════════════
+   「你这个输入框下面为什么会有一根线啊？好像视频生成和图片生成他们的输入框下面都有这条线，
+     这什么东西啊？你要把它去掉呀。」
+   上一版只改了视觉创作自己的 `.visual-parameter-bar`（优先级更低），线上实测仍然是这条
+   `.xhs-main-card .xhs-template-actions` 的 border-top → 现在把它去掉。 */
 .xhs-main-card .xhs-template-actions {
   min-height: 79px;
   padding: 12px 2px 14px;
-  border-top: 1px solid rgba(28, 25, 23, .08);
   background: var(--sb-neutral-0);
 }
 

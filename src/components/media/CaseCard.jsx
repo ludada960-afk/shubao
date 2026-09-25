@@ -59,6 +59,14 @@ export default function CaseCard({
         中间那种才居中 —— 三种都不出视口（下面 place() 里给了判据）。 */
   const [shotRatio, setShotRatio] = useState(0);
   const [align, setAlign] = useState('left');
+  /* ═══ 2026-09-25 批 BG：预览窗的**纵向**方向（用户原话，逐字）══════════════════════════════════
+     「他们上面的这些案例，我鼠标放上去，他们的案例向上张开是会被上面截断的，因为太高了，那你为什么
+       不能做一个灵动的适配呢？就是当鼠标放在比较上面的案例的时候，它会自动的把这些预览窗给
+       往下面张开呢。」
+     实测改前：预览窗固定 `bottom: calc(100% + 10px)`（永远在卡片上方），靠上的那排卡片一 hover
+     整个窗顶出视口 —— 实测 top = **-229px**（视口 1000 高）。 */
+  const [vpos, setVpos] = useState('above');
+  const previewRef = useRef(null);
 
   /* 预览窗的对齐判据：浮窗宽 440（与 CSS 的 min(440px, 92vw) 同值），留 16 的安全边 */
   const placePreview = () => {
@@ -71,6 +79,12 @@ export default function CaseCard({
     if (center + width / 2 > room) setAlign('right');
     else if (center - width / 2 < 16) setAlign('left');
     else setAlign('center');
+    /* 纵向：上方装得下就向上开（默认），装不下就往下开（"灵动适配"）。
+       高度取预览窗自己的实测值（还没挂载时用 470 的保守值）。 */
+    const previewHeight = previewRef.current?.getBoundingClientRect().height || 470;
+    const above = rect.top - 10;
+    const below = globalThis.innerHeight - rect.bottom - 10;
+    setVpos(below > above && below >= Math.min(previewHeight, 240) ? 'below' : 'above');
   };
 
   useEffect(() => {
@@ -187,8 +201,10 @@ export default function CaseCard({
              "按钮的可读名字"变成一大段；而且点击仍然只走按钮那一层。 */}
       {hovering && (
         <div
+          ref={previewRef}
           className="media-case-card-preview"
           data-align={align}
+          data-vpos={vpos}
           role="dialog"
           aria-label={(title || '技能') + ' 预览'}
         >

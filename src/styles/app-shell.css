@@ -106,14 +106,19 @@
         · **滚动后**（`.app-topbar.is-compact`，`scrollY > 120`）：缩小版 —— mark **26px**，文字收起。
      标在**两态里都居中于左导航那一列**（`--bb-mark-r` 是当前 mark 半径，随态变化）——
       这样"缩"是围绕同一条中线缩，不会左右跳。 */
+/* ═══ 2026-09-25 批 BG：**两态再反转一次**（用户改向，逐字见文件头那段）══════════════════════════
+   默认（页面顶部）= **只有标**，且标放大到 **38px**（与左导航 .app-sidebar-tile 的 38px 同档）；
+   滚动后（.is-compact）= 标缩到 26px **并出「薯包 AI」字标**。
+   ⚠️ "当前标的半径"提到顶栏这一层（--bb-mark-r）：标自己的居中补偿与子页面那一格的左移量
+      都从它算 —— 两态、两个页面位置，四条规则一个真源。 */
+.app-topbar { --bb-mark-r: 19px; }
 .topbar-brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: auto;
   height: auto;
   /* 标中心 = 左导航列中线（96/2 = 48）；顶栏内边距 24 ⇒ 左外边距 = 48 − 半径 − 24 */
-  --bb-mark-r: 17px;
   margin-left: max(0px, calc(var(--sb-app-sidebar-w, 96px) / 2 - var(--bb-mark-r) - 24px));
   border-radius: 10px;
   --bb-brand-dur: 180ms;
@@ -121,9 +126,9 @@
 }
 .topbar-brand-mark {
   display: block;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   /* 磁贴的圆角与内环是脚本里画好的（scripts/brand-mark-build.mjs），这里只补一层落地阴影 */
   filter: drop-shadow(0 1px 2px rgba(17, 24, 39, .10));
   transition: width var(--bb-brand-dur) var(--bb-brand-ease),
@@ -132,36 +137,56 @@
               filter var(--bb-brand-dur) var(--bb-brand-ease);
 }
 /* 字标：一句话、一套样式（同字体/字重/颜色/字距；拉丁走字体栈里的 Inter） */
+/* ═══ 2026-09-25 批 BG：字标升级（用户：「你好像只是简单的把它进行加粗了，你不能找一些审美上面
+   比较高级的字体……去把它进行变化吗？」）══════════════════════════════════════════════════════
+   三件事，都是排版层能做到的"高级感"，不引入任何新资产：
+     ① **字体栈换成现代几何无衬线**（MiSans / HarmonyOS Sans SC / 思源黑 → 系统兜底），
+        字重收到 700（800 在 17px 上会糊）、字距 -.02em（中文大字重必须收，否则字与字"散"）；
+     ② **品牌渐变字**：紫色从深到浅横跨整个字标（background-clip: text）——
+        这是"字标"与"正文加粗"最容易分辨的一处；
+     ③ 光学修正：汉字左侧字面留白补偿 + 视觉中心回压。
+   默认（页面顶部）**整块收起**（max-width 0 + opacity 0，可过渡，不用 display 切换）；
+   滚动后才展开。 */
 .topbar-logo {
   display: inline-flex;
   align-items: center;
-  font-family: "Inter", "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Inter", sans-serif;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: .01em;
-  color: var(--sb-ink-1);
+  letter-spacing: -.02em;
+  margin-inline-start: -.04em;
+  background-image: linear-gradient(96deg, var(--sb-brand-900) 0%, var(--sb-brand-700) 42%, var(--sb-brand-600) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-synthesis: none;
   font-optical-sizing: auto;
   white-space: nowrap;
   transform: translateY(-.01em);
-  transition: color var(--bb-brand-dur) var(--bb-brand-ease),
+  transition: max-width var(--bb-brand-dur) var(--bb-brand-ease),
               opacity var(--bb-brand-dur) var(--bb-brand-ease);
 }
-/* 滚动后：只剩缩小的标（用宽度/透明度过渡，不用 display 切换 —— 换 display 会跳一下） */
-.app-topbar.is-compact .topbar-brand { --bb-mark-r: 13px; }
+/* 滚动后：标缩到 26px **并出字标**（两态在同一个变量上收放，标的中线不左右跳） */
+.app-topbar.is-compact { --bb-mark-r: 13px; }
 .app-topbar.is-compact .topbar-brand-mark { width: 26px; height: 26px; flex: 0 0 26px; }
 .app-topbar.is-compact .topbar-logo {
-  width: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
+  max-width: 220px;
+  opacity: 1;
+  pointer-events: auto;
 }
 .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark {
   transform: translateY(-1px) scale(1.045);
   filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .16));
 }
-.topbar-brand:is(:hover, :focus-visible) .topbar-logo { color: #0B0B0F; }
+/* 字标是渐变字（color: transparent + background-clip），hover 只把渐变整体压深一档 */
+.topbar-brand:is(:hover, :focus-visible) .topbar-logo {
+  background-image: linear-gradient(96deg, var(--sb-brand-900) 0%, var(--sb-brand-800) 42%, var(--sb-brand-600) 100%);
+}
 .topbar-brand:active .topbar-brand-mark { transform: scale(.985); transition-duration: 90ms; }
 .topbar-brand:focus-visible { outline: 2px solid var(--sb-brand-600); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) {
@@ -181,7 +206,8 @@
   align-items: center;
   gap: 14px;
   min-width: 0;
-  margin-left: calc(-1 * (var(--sb-app-sidebar-w, 96px) + 24px) + 31px);
+  /* 48 − 当前标半径：标变大变小（两态）时，这一格跟着调，标的中线始终锁在 x=48 */
+  margin-left: calc(-1 * (var(--sb-app-sidebar-w, 96px) + 24px) + (48px - var(--bb-mark-r)));
 }
 /* ═══ 2026-09-25 批 BF：子页面里那一格**不再叠加"居中于图标栏"的补偿** ══════════════════════════
    上面那条把整格挪回了图标栏上方，而 `.topbar-brand` 自己也有一条

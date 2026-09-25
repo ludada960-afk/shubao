@@ -79,7 +79,13 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /把创意素材变成吸引人的短片/);
   assert.doesNotMatch(page, /变成可交付的视频/);
   /* 9-11 三轮: 视频模型标改为真实品牌标 (ModelLogo + videoProductLogo) */
-  assert.match(page, /function VideoModelMark\(\{ product = null, provider = '' \}\)/);
+  /* ═══ 2026-09-25 批 BG：签名多了一个 size（用户图2 原话，逐字）══════════════════════════════════
+     「你的视频模型和你的图片模型必须是一致的 UI……这些图标**有大有小，完全就不是一回事**……
+       图标的大小也不一致，然后面板的宽度，面板的高度这些东西都不一致。」
+     实测根因：底座尺寸在两侧各写各的（图片侧 28/32，视频侧写死 18 且被 flex 拉宽）。
+     修法：尺寸由调用方传（触发 28 / 行 32，与图片侧 ICON_SIZE 同值），默认 32。
+     判据守的仍是"这个组件存在且参数有默认值"，只是允许它多接一个尺寸。 */
+  assert.match(page, /function VideoModelMark\(\{ product = null, provider = '', size = 32 \}\)/);
   assert.match(page, /videoProductLogo\(product\)/);
   assert.match(page, /role="tablist"/);
   assert.match(page, /video-content-composer/);

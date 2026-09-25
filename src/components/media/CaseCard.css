@@ -146,6 +146,10 @@
      · right  = 卡片在右半区 ⇒ 浮窗**右对齐**（右边缘与卡片右边缘对齐，绝不越出视口）
    ⚠️ 居中用 left 计算而不是 transform:translateX(-50%) —— 入场动画用的就是 transform，
       两处抢同一个属性会把动画打歪（translateY 会被覆盖）。 */
+/* 批 BG：靠上的卡片，预览窗**往下张开**（用户：「当鼠标放在比较上面的案例的时候，它会自动的把这些
+   预览窗给往下面张开呢」）。实测改前固定 `bottom: calc(100% + 10px)`，靠上那排一 hover
+   窗顶出视口（top = -229px）；data-vpos 由 CaseCard 的 placePreview() 量出来后写。 */
+.media-case-card-preview[data-vpos='below'] { top: calc(100% + 10px); bottom: auto; }
 .media-case-card-preview[data-align='center'] { left: calc(50% - var(--case-preview-w) / 2); }
 .media-case-card-preview[data-align='right'] { left: auto; right: 0; }
 @keyframes media-case-preview-in {

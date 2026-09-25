@@ -246,10 +246,19 @@ function jobRecordStatus(job) {
 
 /* 9-11 用户批注: 视频模型的 LOGO 不对 → 用真实品牌标 (字节 / MiniMax / 可灵 / Google / 通义 / xAI),
    取不到官方标识的品牌走同尺寸品牌色字标兜底。 */
-function VideoModelMark({ product = null, provider = '' }) {
+/* ═══ 2026-09-25 批 BG：底座尺寸与**内层品牌标**必须同尺寸（用户图2 原话，逐字）══════════════════
+   「你的视频模型和你的图片模型必须是一致的 UI……这些图标**有大有小，完全就不是一回事**。」
+   实测两处根因：
+     ① 底座被 `.video-inline-menu.is-model > button > span { flex: 1 1 auto }` 这条过宽的选择器
+        一起拉满了剩余宽度 → 底座宽度 27/49/73/106 各不相同（而图片侧固定 32）；
+     ② 内层 ModelLogo 写死 18 —— 图片侧是"底座 32 / 标 32"（标占满底座），我们这里是 32 的底座里
+        放 18 的标，同一个模型在两侧看起来差一半。
+   ⇒ 尺寸由调用方给（触发 28 / 行 32，与图片侧 ICON_SIZE.modelTrigger/modelOption 同值），
+     内层品牌标 = 底座尺寸（半径按 0.28 缩，与图片侧 modelIcon 同一算法）。 */
+function VideoModelMark({ product = null, provider = '', size = 32 }) {
   const logo = videoProductLogo(product) || (String(provider).toLowerCase().includes('minimax') ? brandLogo('minimax') : brandLogo('bytedance'));
   return <span className="video-model-mark" aria-hidden="true">
-    <ModelLogo logo={logo} size={18} />
+    <ModelLogo logo={logo} size={size} radius={Math.round(size * 0.28)} />
   </span>;
 }
 
@@ -979,10 +988,18 @@ export default function VideoStudioPage({
     const viewportWidth = window.innerWidth;
     /* 批 U：宽度与图片侧的模型面板同一档（480）—— 用户要求两块保持一致的规格 */
     const width = Math.min(480, viewportWidth - 24);
+    /* ═══ 2026-09-25 批 BG：高度也照图片侧那条规则（用户图2「数量比你这个要多一些」）══════════════
+       实测改前：CSS 里写死 `max-height: min(58vh, 460px)` ⇒ 12 个模型只露出 6 个，
+       而图片侧是"高度取触发按钮上方的可用空间（最多 92vh）"，8 个模型一屏看得完。
+       ⇒ 下拉向上张开，能用多少用多少（`rect.top - 20` 就是按钮上方的空间），
+         再用 92vh 封顶（与图片侧 getVisualPanelPosition 的上限同一条）。 */
+    const availableAbove = rect.top - 20;
+    const maxHeight = Math.max(240, Math.min(Math.round(window.innerHeight * 0.92), availableAbove));
     setModelAnchor({
       left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12)),
       bottom: Math.max(12, window.innerHeight - rect.top + 8),
       width,
+      maxHeight,
     });
   }, []);
 
@@ -2100,11 +2117,13 @@ export default function VideoStudioPage({
                {specExposure.model && !localPlan?.hideModel && <span className="video-inline-control">
                 {/* 9-11 用户批注: 模型控件比其它按钮矮一截 → 统一成「小标题 + 参数」两行结构与同高 */}
                 <button ref={modelButtonRef} type="button" className={'video-config-trigger is-model' + (inlineMenu === 'model' ? ' is-open' : '')} aria-expanded={inlineMenu === 'model'} onClick={toggleModelMenu}>
-                  <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} />
-                  <span><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
+                  <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} size={28} />
+                  {/* ⚠️ 文案那一层必须带 `.video-model-copy`：下面 CSS 里那条 flex: 1 1 auto 只该作用于它，
+                      不能再像原来那样用 `> span` 把图标底座一起拉宽（批 BG 的实测根因）。 */}
+                  <span className="video-model-copy"><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width }}><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width, maxHeight: modelAnchor?.maxHeight }}><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} size={32} /><span className="video-model-copy"><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
                 {/* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
                    你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
                    —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），

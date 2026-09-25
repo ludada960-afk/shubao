@@ -606,10 +606,10 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* 批 BG：与首页那一档、与图片侧同一条语言 —— 底栏不再画分界线（用户："你要把它去掉呀"） */
 .video-composer.is-workbench > .video-toolbar {
   flex: 0 0 auto;
   background: var(--sb-neutral-0);
-  border-top: 1px solid rgba(28, 25, 23, .08);
   padding-bottom: 12px;
 }
 /* ═══ 批 V（2026-09-21）：底栏照知渔**等宽卡 + 整条 CTA** ══════════════════════════════════
@@ -851,7 +851,9 @@
    ⇒ 逐值改成同一组；面内的两块不再自己带外边距（见下面的两条 override）。 */
 .video-composer-surface {
   padding: 8px 10px 10px;
-  border: 1px solid rgba(52, 43, 35, .08);
+  /* 批 BG：图片侧那块暖色面**没有边框**（靠底色 + 圆角 + 阴影界定），视频侧多这一圈 1px 就是
+     "两套"的又一处。去掉后两侧同构；面的下沿也不再出现第二条线。 */
+  border: 0;
   border-radius: 16px;
   overflow: hidden;
   background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, var(--sb-neutral-0) 79%, var(--sb-neutral-0) 100%);
@@ -876,10 +878,12 @@
       （工具栏在 DOM 里是 `.video-composer-card` 的子节点，`display: contents` 只影响布局不影响选择器），
       于是生效的一直是下面第 9-12 行那条 `padding-top: 9px` —— 那就是"上面挤"的来源。
       ⇒ 盒模型统一在 `.video-toolbar` 那一处定义（12px 2px / align center / min-height 76），
-        这里只保留"白底 + 上边框"这一件事。 */
+        这里只保留白底。
+   ═══ 2026-09-25 批 BG：**上边框也去掉**（用户原话：「你这个输入框下面为什么会有一根线啊？
+   好像视频生成和图片生成他们的输入框下面都有这条线，这什么东西啊？你要把它去掉呀。」）
+   它就是这里这条 border-top（与图片侧 .visual-parameter-bar 同一条）。 */
 .video-composer-card > .video-toolbar {
   background: var(--sb-neutral-0);
-  border-top: 1px solid rgba(28, 25, 23, .08);
 }
 /* ═══ 2026-09-19 用户批注 #1-①：创作方式必须是**窄按钮**，不是一条宽框 ═══════════════════
    原话：「你的智能成片和你这个首尾帧的设计是不对的。就是你这个背景怎么会是一条这么宽的框呢？
@@ -1042,6 +1046,9 @@
    改为竞品那套「白底细边 + 彩色品牌标」——品牌 SVG 自带官方配色，白底最干净。 */
 .video-model-mark {
   position: relative;
+  /* 批 BG：底座**不许被拉伸**——原来 `.video-inline-menu.is-model > button > span { flex: 1 1 auto }`
+     把这一层也一起拉满了剩余宽度（实测宽度 27/49/73/106 各不相同 = 用户说的"图标有大有小"）。 */
+  flex: 0 0 auto;
   width: 24px;
   height: 24px;
   border-radius: 8px;
@@ -1111,13 +1118,26 @@
    ⚠️ 同时守住 `test/home-video-consistency-0921` 的既有判据：行内 token 与图片侧 `.sb-opt` 一致、
      面板该滚时必须能滚。 */
 .video-config-panel { overflow: visible; }
+/* ═══ 2026-09-25 批 BG：与图片侧模型面板逐项对齐（用户图2/#3 原话，逐字）════════════════════════
+   「你选完任何一个模型之后，这个模型选项周边会有一条紫色的边缘，**你这个紫色的边缘是互相覆盖到的**。
+     你这一块完全就没有去跟图片生成那边的模型选择去进行对齐呀，**那边的做法是每一项中间都会有一个空隙的**。」
+   实测改前：行与行间距 **0px**（12 行首尾相连），选中行 3px 的选中环直接贴住邻行 ⇒ 看起来连成一片；
+   图片侧是 8px 空隙（列表 grid gap = --sb-space-2）。
+   ⇒ 列表改 grid + 同一颗间距 token；滚动条按用户要求**不显示**（内容仍可滚，只是没有那根杠）：
+      「右边的两条可以拉动的滚动条，我一直叫你把它们删掉呀……更何况你这条滚动条还超框了。」 */
 .video-inline-menu {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   max-height: min(58vh, 460px);
   padding: 8px;
+  /* 批 BG：行与行之间要有空隙（与图片侧同档），并且不显示滚动条 */
+  display: grid;
+  gap: var(--sb-space-2);
+  align-content: start;
+  scrollbar-width: none;
 }
+.video-inline-menu::-webkit-scrollbar { width: 0; height: 0; }
 /* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
 .video-config-panel-body { max-height: inherit; overflow-y: auto; }
 /* ═══ 2026-09-24 批 AW：模型行**逐 token 对齐图片侧的 `.sb-opt`**（用户图四）══════════════════════
@@ -1162,7 +1182,9 @@
    把两半拉到了行两端 —— 图标贴最左、文案贴最右、中间一大片空，看起来就是"乱码"。
    ⇒ 照图片侧 `.sb-opt` 的真实排布：**靠左、图标与文案相邻**，文案占满剩余宽度并左对齐。 */
 .video-inline-menu.is-model > button { justify-content: flex-start; align-items: center; }
-.video-inline-menu.is-model > button > span { flex: 1 1 auto; min-width: 0; text-align: left; }
+/* 批 BG：这条原来写的是 `> span` —— 图标底座（也是个 span）被一并拉宽，是要修的根因。
+   现在只作用于文案那一层（.video-model-copy）。 */
+.video-inline-menu.is-model > button > .video-model-copy { flex: 1 1 auto; min-width: 0; text-align: left; }
 .video-inline-menu.is-model > button { align-items: flex-start; min-height: 72px; }
 .video-inline-menu.is-model .video-model-mark { margin-top: 1px; }
 .video-inline-menu.is-model button b { font-size: 13px; }
