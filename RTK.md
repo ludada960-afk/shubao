@@ -8122,3 +8122,22 @@ CSS 有 `topbar-logo-ai`、`https://shuimg.cn/images/brand-mark-3x.png` 回 200�
   先固化一套可能不对的流程，正是会做出"大同小异"的原因。
 
 **验证**：只增文档，未碰 src/ 与 server/（并行会话仍在改 `src/App.jsx`）。不需要 precommit、不需要发版。
+
+---
+
+## 2026-09-25 批 BH：「薯包 AI」字标去紫改近黑（用户一句话：「薯包AI紫色也不好看啊」）
+
+- 提交 \`c0eb74f7\`（1 file，+18/−23）；\`npm run test\` **4087 项 0 fail**；\`npm run precommit\` **通过**。
+- \`Deployed c0eb74f7 to https://shuimg.cn/\`；release \`20260925-111817-c0eb74f7\`，PM2 pid 3505120，
+  \`/\` 与 \`/health\` 200；入口与样式公网/release **sha256 逐字节一致**。
+- 线上核到的原文：\`.topbar-logo{…font-family:MiSans,…;font-size:17px;font-weight:700;letter-spacing:-.02em;
+  color:var(--sb-ink-1);…}\` —— **没有 background-image、没有 clip**（实测计算色 rgb(26,22,20)）。
+- 上一版（批 BG）做的是**品牌紫渐变字**（\`linear-gradient(96deg, brand-900→700→600)\` + \`background-clip:text\`），
+  用户直接否掉。留下的只有"排版层"那几项：字体栈 / 700 字重 / -.02em 字距 / 汉字左字面补偿 / 两态。
+- 顺手清了一处**双份真相**：文件顶部那条更老的 \`.topbar-logo\`（24px/800/.03em）——
+  它的属性除 \`flex-shrink\` 外都被后来的覆盖；已把 flex-shrink 挪进当前这条并删掉老块
+  （线上核过：那条 24px 规则的原文计数 = 0）。
+- ⚠️ **别误伤**：线上还有 3 处渐变字，**都不是字标**，用户没提、本轮没动 ——
+  \`.hero-gradient-text\`（首页大标题「专业视觉」紫→粉→橙）、\`.hero-accent\`、\`.pricing-hero-accent\`。
+  如果用户下一轮说的是"整个紫色都不好看"（= 品牌主色 \`--sb-brand-*\` 本身），那是**另一个量级**的决定：
+  会影响选中态 / CTA / 磁贴 / 几十处 token 与门禁，必须让用户先给方向，不许自己换。
