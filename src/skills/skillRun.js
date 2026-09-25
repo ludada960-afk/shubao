@@ -163,18 +163,48 @@ export function validateSkillInput(skill, values = {}) {
   return { ok: missing.length === 0, missing };
 }
 
+/* ═══ 2026-09-25 批 BL：**用户提示词优先于 skill 内置文案**（用户拍板，不是我的判断）══════════
+   用户原话：「我觉得不行，你还是要**优先用户的提示词先**，内置的 skill 用户**根本看不到**，
+             所以还是要提示词优先。」
+   ── 为什么要加这一句（批 BK 查清的事实）──────────────────────────────────────
+   `buildSkillBrief` 是**纯字符串替换**：模板里那些固定句子与用户填的内容被拼成**同一段文字**，
+   两者之间**没有裁决者**。所以当模板自带的话与用户的要求相反时
+   （实测例子：`image.brand_kv` 的模板写着"品牌标识与产品细节必须原样保留"，
+     而用户要求"画面内不出现任何品牌标识"），模型会同时收到两句矛盾的话、自己权衡 ——
+   而**用户看不见模板**（全仓没有提示词预览），所以他是"盲撞"，被搅了也不知道。
+   ── 修法与边界 ────────────────────────────────────────────────────────────
+   · 修法：拼好之后**显式声明优先级**，把用户填写的内容标成最高。
+     **不改模板、也不删任何句子** —— 模板是这条技能的手艺（商品保真 / 不要水印 / 文字准确
+     这些是它的价值），不能因为调整优先级就把它削掉；而"悄悄改写用户看不见的文本"比不改更坏。
+   · 依据：站内已有同一原则的明文 —— `src/pages/EcCanvas/canvasPromptAuthority.js` 第 3 层
+     「**提示词优先于 skill；skill 只在 prompt 为空时预填**」。
+   · ⚠️ 边界：本函数只处理"画什么"（内容意图）这一层。
+     **用户自己在配置里的意图仍然更硬** —— 避免出现的元素 / 品牌主色 / 尺寸清晰度 / 平台合规
+     属"硬约束层"，画布线的规矩是它"永远最高优先，且冲突时绝不静默"。二者不矛盾：
+     那本来就是用户更早、更明确的意图。 */
+export const USER_PRIORITY_CLAUSE =
+  '【优先级】以上是这条技能的默认做法；用户填写的内容优先级更高 —— 两者冲突时，一律以用户填写的内容为准。';
+
 /* ── ② 文案组装：把用户填的字段填进该 skill 自己的 brief 模板 ──
    brief 写在声明里（{{key}} 占位），所以新增 skill 仍然只需要加声明。 */
 export function buildSkillBrief(skill, values = {}) {
   const template = text(skill && skill.brief);
   const filled = template.replace(/\{\{(\w+)\}\}/g, (_match, key) => text(values[key]));
   /* 未填的可选项会留下空档，压掉多余空白与空标点，避免把「主题：」这种半截话喂给模型 */
-  return filled
+  const cleaned = filled
     .replace(/[ \t]+/g, ' ')
     .replace(/\s*[，。；：]\s*(?=[，。；：])/g, '')
     .replace(/\s+([，。；：])/g, '$1')
     .replace(/^[\s，。；：]+|[\s，。；：]+$/g, '')
     .trim();
+  /* 只有**用户真的往模板里填了内容**才加这句：
+       ① 全空时加它是纯噪声（还白花 token）；
+       ② 判据要按**模板里真实用到的占位符**取，不能看"有没有任意非空值" ——
+          否则用户只选了比例/清晰度（那些不进提示词）也会被加上一句没有对象的优先级声明。 */
+  if (!cleaned) return cleaned;
+  const usedKeys = [...template.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]);
+  if (!usedKeys.some(key => text(values[key]))) return cleaned;
+  return cleaned + ' ' + USER_PRIORITY_CLAUSE;
 }
 
 /* ── ③ 图片：第一个上传位当主图（image_url），其余当参考图（reference_images）──
