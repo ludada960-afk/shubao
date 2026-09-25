@@ -87,15 +87,6 @@
   box-shadow: 3px 6px 18px rgba(160, 130, 220, 0.35), 1px 2px 6px rgba(12, 10, 9, 0.1);
 }
 
-.topbar-logo {
-  flex-shrink: 0;
-  color: var(--sb-ink-1);
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.03em;
-}
-
 /* ═══ 2026-09-25 批 BF：两态**反过来**，并把它做成真正的一套规则（用户原话，逐字）═══════════════════
    「首先你这个 LOGO 的比例就不对。你自己没有好好的看一下现在在导航栏这个位置它是什么样的吗？
      而且**我们之前的那个设计方案其实是比较好的**，就是**正常的这个 LOGO 它是展示全部的**，
@@ -137,13 +128,15 @@
               filter var(--bb-brand-dur) var(--bb-brand-ease);
 }
 /* 字标：一句话、一套样式（同字体/字重/颜色/字距；拉丁走字体栈里的 Inter） */
-/* ═══ 2026-09-25 批 BG：字标升级（用户：「你好像只是简单的把它进行加粗了，你不能找一些审美上面
-   比较高级的字体……去把它进行变化吗？」）══════════════════════════════════════════════════════
-   三件事，都是排版层能做到的"高级感"，不引入任何新资产：
+/* ═══ 2026-09-25 批 BG → BH：字标升级（用户先要"更高级的字体"，又否掉了紫色）═══════════════════
+   BG：用户说「你好像只是简单的把它进行加粗了，你不能找一些审美上面比较高级的字体……去把它进行变化吗？」
+   BH：做出来之后用户又说「**薯包AI 紫色也不好看啊**」⇒ 去掉品牌紫渐变，改**近黑墨色**。
+   留下的三件事（都是排版层，不引入任何新资产）：
      ① **字体栈换成现代几何无衬线**（MiSans / HarmonyOS Sans SC / 思源黑 → 系统兜底），
-        字重收到 700（800 在 17px 上会糊）、字距 -.02em（中文大字重必须收，否则字与字"散"）；
-     ② **品牌渐变字**：紫色从深到浅横跨整个字标（background-clip: text）——
-        这是"字标"与"正文加粗"最容易分辨的一处；
+        字重 700（800 在 17px 上会糊）、字距 -.02em（中文大字重必须收，否则字与字"散"）；
+     ② 颜色走**中性近黑**（--sb-ink-1）—— 与站内那条「品牌色只落在小面积」的原则一致：
+        产品名用近黑最稳，导航字标用品牌色渐变容易显廉价（Linear / Vercel / Raycast 的导航字标
+        全是近黑或纯黑，没有一处用品牌色渐变）；
      ③ 光学修正：汉字左侧字面留白补偿 + 视觉中心回压。
    默认（页面顶部）**整块收起**（max-width 0 + opacity 0，可过渡，不用 display 切换）；
    滚动后才展开。 */
@@ -155,15 +148,19 @@
   overflow: hidden;
   pointer-events: none;
   font-family: "MiSans", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Inter", sans-serif;
+  flex-shrink: 0;
   font-size: 17px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -.02em;
   margin-inline-start: -.04em;
-  background-image: linear-gradient(96deg, var(--sb-brand-900) 0%, var(--sb-brand-700) 42%, var(--sb-brand-600) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* ═══ 2026-09-25 批 BH：**去掉品牌紫渐变，改近黑墨色**（用户原话，逐字）════════════════════════
+     「薯包AI 紫色也不好看啊。」
+     上一版把字标做成了品牌紫渐变（"高级感"那条路），用户直接否掉 —— 这也与站内那条原则一致：
+     品牌紫只落在**小面积**（图标磁贴 / 选中态 / CTA），导航字标这种"产品名"用中性近黑最稳
+     （Linear / Vercel / Raycast 的导航字标全是近黑或纯黑，没有一处用品牌色渐变）。
+     保留这一轮做对的部分：现代几何无衬线字体栈、700 字重、-.02em 字距、汉字左字面补偿。 */
+  color: var(--sb-ink-1);
   font-synthesis: none;
   font-optical-sizing: auto;
   white-space: nowrap;
@@ -183,10 +180,8 @@
   transform: translateY(-1px) scale(1.045);
   filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .16));
 }
-/* 字标是渐变字（color: transparent + background-clip），hover 只把渐变整体压深一档 */
-.topbar-brand:is(:hover, :focus-visible) .topbar-logo {
-  background-image: linear-gradient(96deg, var(--sb-brand-900) 0%, var(--sb-brand-800) 42%, var(--sb-brand-600) 100%);
-}
+/* 批 BH：字标是中性墨色，不再有"渐变压深"这一手 —— hover 的反馈由标的抬升 + 投影承担
+   （原来那条 background-image 覆盖规则一并删掉，不留死规则）。 */
 .topbar-brand:active .topbar-brand-mark { transform: scale(.985); transition-duration: 90ms; }
 .topbar-brand:focus-visible { outline: 2px solid var(--sb-brand-600); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) {
