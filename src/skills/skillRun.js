@@ -204,7 +204,11 @@ export function buildSkillBrief(skill, values = {}) {
   if (!cleaned) return cleaned;
   const usedKeys = [...template.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]);
   if (!usedKeys.some(key => text(values[key]))) return cleaned;
-  return cleaned + ' ' + USER_PRIORITY_CLAUSE;
+  /* ⚠️ 拼接符不能用空格（批 BP 修）：模板末尾若是「细节补充」这类**没带标点的半截话**，
+     空格会把优先级声明粘成「细节补充 【优先级】…」，读起来像同一句话的一部分。
+     句末已有句号时不重复加，没有就补一个 —— 并且要在**清理之后**补，否则会被上面的
+     标点压缩逻辑吃掉。 */
+  return cleaned + (/[。！？…]$/.test(cleaned) ? '' : '。') + USER_PRIORITY_CLAUSE;
 }
 
 /* ── ③ 图片：第一个上传位当主图（image_url），其余当参考图（reference_images）──

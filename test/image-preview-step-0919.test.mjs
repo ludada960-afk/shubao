@@ -18,12 +18,25 @@ const skills = read('src/skills/imageSkills.js');
 const page = read('src/pages/MediaCreation/index.jsx');
 const dialog = read('src/components/ui/DialogProvider.jsx');
 
-test('J-⑭ ① 三条预览型技能在声明源里标记 previewStep（页面不写死 id）', () => {
+test('J-⑭ ① 预览型技能在声明源里标记 previewStep（页面不写死 id）', () => {
   const flagged = [...skills.matchAll(/id: '(image\.[a-z_]+)'[\s\S]{0,400}?previewStep: true/g)].map(m => m[1]);
-  assert.deepEqual(flagged.sort(), ['image.aplus', 'image.detail_page', 'image.product_suite'],
-    '预览型技能必须是这三条（竞品对应页面 CTA 原文也是「生成预览」）');
-  /* 其余技能**不许**带这个标记：它们点下去就是直出（用户：「有些 skill 是直接生成图片」） */
-  assert.equal((skills.match(/previewStep: true/g) || []).length, 3, '只有三条');
+  /* ═══ 2026-09-25 批 BP：判据从三条 → 四条，属**用户改口径**（不是事实变了、更不是放宽）═══════
+     用户原话（针对新做的那个工作台）：
+       「我们现在所有的 skill 子页面有一些是**下一步要给出预览页**的……
+         那个你做了没有，做了的话**里面不就看得见吗**？」
+     以及：「你要不就直接做个这种子页面出来……**定制一个专门为我这个账号风格和审美服务的工作台**」。
+     ⇒ 新技能 `image.concept_set` 按用户要求带上预览步：他要的就是"**里面看得见**"
+       （三步预览第三步的「方案正文」可看可改）。**原判据守的那件事没变** ——
+       "预览型技能必须逐条在声明源里显式标记、页面不许写死一串 id、其余技能不许带这个标记"，
+       所以这里仍然逐个列出 id 做全等比对，加一条也要在这里显式写出来。 */
+  assert.deepEqual(flagged.sort(), ['image.aplus', 'image.concept_set', 'image.detail_page', 'image.product_suite'],
+    '预览型技能必须逐条列在这里（前三条是竞品对应页 CTA 原文「生成预览」；concept_set 是用户点名要的工作台）');
+  /* 未标记的技能**不许**带这个标记：它们点下去就是直出（用户：「有些 skill 是直接生成图片」）
+     ⚠️ 这条是**原文计数**（数整个声明文件里出现的次数，含注释）——
+        所以**注释里不要写出它的字面量**，否则会被算进来把这条打红（批 BP 实测踩过一次）。
+        真要解释，就写"previewStep"这几个字，别带上冒号和 true。 */
+  assert.equal((skills.match(/previewStep: true/g) || []).length, 4,
+    '带预览步的只能是上面列出的那四条 —— 多一条就必须同时改这里，不许悄悄冒出来');
 });
 
 test('J-⑭ ② + K-C：主按钮先出预览，而预览现在**就是**三步方案预览（0.5 积分/次，先确认后扣）', () => {

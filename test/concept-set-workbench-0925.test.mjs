@@ -1,0 +1,131 @@
+/* ═══ 门禁：「概念视觉方案」工作台（2026-09-25 批 BP，用户点名要做）══════════════════════════
+   用户原话：「你要不就直接做个这种子页面出来，后续我们可以长期用这个子页面来生成内容，
+     最好是把我们刚刚说的这些策略你去定制一个**专门为我这个账号风格和审美服务的工作台**，
+     **对外就是展示一个正常的子页面类型，只是对内其实是我日常要去生产内容的一个子页面工作台而已**。」
+
+   ── 这一组断言守什么（每一条都对应一个"会静默坏掉"的点）─────────────────────
+     ① 声明形状合法（id 前缀 / 名称长度 / 分类 / 复杂度 / pipeline / 封面）——
+        与 `skill-declaration-contract-0916` 同口径，但**这一条是它自己的**：
+        新增技能删了/改名了，这组断言必须能自己发现；
+     ② **账号级签名写死在 brief 里**（不露脸 / 无品牌 / 留白 / 统一调色）——
+        这是"对外是个正常子页面"的关键：用户不该每次手粘纪律；
+     ③ **色板与概念同源**：每个「主题意象」选项的 value 里都必须带**实测色簇的 hex** ——
+        因为 `buildSkillBrief` 只做纯替换、没有查表能力，value 带色板才能保证两者永不对不上；
+     ④ **十种画面手法**都来自一手实测（docs/design/82），且**互不重复**；
+     ⑤ 必填项**都必须有默认值**：否则进子页面 CTA 直接被卡住（e2e 的自动配齐只填
+        textarea/text，不会点 segmented/select —— 没默认值就必红）；
+     ⑥ 比例默认 3:4（本账号签名是竖版，而 ratioField() 的兜底默认是 1:1）；
+     ⑦ 出处已登记（skillSources 写 ours）且对照表已登记（counterpart: null + reason）；
+     ⑧ **自证**：把 brief 里的无品牌纪律删掉必须被判红（否则第 ② 条测的是别的东西）。 */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { getImageSkill, IMAGE_SKILL_CATEGORIES, FIELD_KINDS, SKILL_COMPLEXITIES, IMAGE_PIPELINES } from '../src/skills/imageSkills.js';
+import { buildSkillBrief, initialSkillValues, skillGenerationSettings } from '../src/skills/skillRun.js';
+import { SKILL_SOURCES, SOURCE_KINDS } from '../src/skills/skillSources.js';
+import { QUANTV_IMAGE_COUNTERPARTS } from '../src/skills/quantvImageParity.js';
+import { COVER_TEMPLATES, COVER_ACCENTS } from '../src/skills/coverTemplates.js';
+
+const ID = 'image.concept_set';
+const skill = getImageSkill(ID);
+
+test('① 声明形状合法（对外是个正常子页面）', () => {
+  assert.ok(skill, '技能不存在：' + ID);
+  assert.match(skill.id, /^image\.[a-z0-9_]+$/);
+  assert.equal(skill.board, 'image');
+  assert.ok(skill.name.length <= 12, '名称要短（卡片上只放封面+标题）：' + skill.name);
+  assert.ok(IMAGE_SKILL_CATEGORIES.includes(skill.category), '分类不在白名单：' + skill.category);
+  assert.ok(SKILL_COMPLEXITIES.includes(skill.complexity));
+  assert.ok(IMAGE_PIPELINES.includes(skill.pipeline), 'pipeline 必须指向既有引擎');
+  /* 一期只有电商套图是 heavy（`skill-declaration-contract-0916` 第 70 行全等断言），
+     所以新技能不许用 heavy —— 这条在这里再守一次，免得那边先红、这边看不出原因。 */
+  assert.notEqual(skill.complexity, 'heavy', 'heavy 档被声明契约钉给了 image.product_suite 一条');
+  assert.ok(COVER_TEMPLATES.some(t => t.id === skill.cover.template), '封面模板不在白名单：' + skill.cover.template);
+  assert.ok(COVER_ACCENTS[skill.cover.accent], '封面色相不在白名单：' + skill.cover.accent);
+  for (const field of skill.fields) {
+    assert.ok(FIELD_KINDS.includes(field.kind), '未登记的字段档位：' + field.key + '=' + field.kind);
+    assert.ok(String(field.label).length <= 6, '字段名要极简：' + field.key + '=' + field.label);
+  }
+});
+
+test('② 账号级签名写死在 brief 里（用户不必每次手粘）', () => {
+  const brief = skill.brief;
+  assert.match(brief, /不出现面部|不出现任何品牌标识/, '缺少签名纪律');
+  assert.match(brief, /不出现任何品牌标识、包装文字或水印/, '缺少无品牌纪律（80 号已定为默认无品牌线）');
+  assert.match(brief, /柔光/, '缺少光位纪律');
+  assert.match(brief, /留白充足/, '缺少留白纪律（借 paper-signal 的数字约束思路）');
+  assert.match(brief, /颗粒与饱和度/, '缺少统一调色的纪律');
+  /* 拼出来的提示词里也必须真的带上（brief 写了但拼装漏了，等于没写） */
+  const filled = buildSkillBrief(skill, initialSkillValues(skill));
+  assert.match(filled, /不出现任何品牌标识、包装文字或水印/);
+});
+
+test('③ 色板与概念同源：每个主题意象的 value 都带实测色簇 hex', () => {
+  const field = skill.fields.find(f => f.key === 'theme');
+  assert.ok(field && field.kind === 'select', '主题意象必须是 select（value 要能带整句）');
+  assert.ok(field.options.length >= 20, '母体库至少 20 条（81 号种子表），实际 ' + field.options.length);
+  const seen = new Set();
+  for (const option of field.options) {
+    assert.match(option.value, /概念：/, '值里必须带「概念：」前缀（它是进提示词的那句话）：' + option.value);
+    assert.match(option.value, /#[0-9A-Fa-f]{6}/, '值里必须带实测色簇的 hex：' + option.value);
+    assert.equal(seen.has(option.value), false, '选项值重复：' + option.value);
+    seen.add(option.value);
+    assert.ok(String(option.label).trim(), '选项必须有给人看的短名');
+  }
+  /* 五个实测色簇都要被覆盖到（不能只写一两个色簇） */
+  const clusters = ['#94847A', '#8B9EAB', '#BDB6BC', '#BF9A8B', '#765149'];
+  const missing = clusters.filter(hex => !field.options.some(o => o.value.toUpperCase().includes(hex)));
+  assert.deepEqual(missing, [], '这些实测色簇没有对应的母体：' + missing.join(', '));
+});
+
+test('④ 十种画面手法来自一手实测，且互不重复', () => {
+  const field = skill.fields.find(f => f.key === 'shot');
+  assert.ok(field && field.kind === 'segmented' && !field.multiple, '手法是单选（一套 = 逐张换手法，每换一次点一次生成）');
+  assert.ok(field.options.length >= 10, '手法至少 10 种，实际 ' + field.options.length);
+  const values = field.options.map(o => o.value);
+  assert.equal(new Set(values).size, values.length, '手法值有重复');
+  for (const option of field.options) {
+    /* value = 手法名 + 执行定义（定义要真的是一句话，否则模型不知道这一步怎么拍） */
+    assert.match(option.value, /——/, '手法值必须是「名称 —— 执行定义」的形态：' + option.value);
+    assert.ok(option.value.length >= 20, '手法定义太短，模型抓不到：' + option.value);
+    assert.ok(String(option.label).length <= 6, '手法名要短（门禁要求 ≤6 字）：' + option.label);
+  }
+});
+
+test('⑤ 必填项都有默认值（否则进子页面 CTA 直接卡住）', () => {
+  const seed = initialSkillValues(skill);
+  for (const field of skill.fields) {
+    if (!field.required) continue;
+    const value = seed[field.key];
+    const has = Array.isArray(value) ? value.length > 0 : Boolean(String(value || '').trim());
+    assert.ok(has, '必填但没有默认值 → 用户一进页面 CTA 就是灰的：' + field.key);
+  }
+});
+
+test('⑥ 比例默认 3:4（本账号签名是竖版，而 ratioField() 的兜底是 1:1）', () => {
+  const seed = initialSkillValues(skill);
+  assert.equal(seed.ratio, '3:4', '默认比例必须是 3:4');
+  const settings = skillGenerationSettings(skill, seed);
+  assert.equal(settings.ratio, '3:4', '下发的比例也必须真的是 3:4（界面显示与下发不许两套）');
+  assert.equal(settings.visualSkillId, 'brand-kv', '成套口径要走服务端 brand-kv 那条配方');
+});
+
+test('⑦ 出处与对照表都已登记（有硬造的就会被这两条抓住）', () => {
+  const source = SKILL_SOURCES[ID];
+  assert.ok(source, '没有登记出处：' + ID);
+  assert.ok(SOURCE_KINDS.includes(source.kind), '来源类型不在白名单：' + source.kind);
+  assert.ok(String(source.note || '').length >= 8, '声明为自研必须写清为什么不需要外部来源');
+  const parity = QUANTV_IMAGE_COUNTERPARTS[ID];
+  assert.ok(parity, '对照表里没有登记：' + ID);
+  assert.equal(parity.counterpart, null);
+  assert.ok(String(parity.reason || '').length >= 8, '"没有对应页"也要是明确结论并写清原因');
+});
+
+test('⑧ 自证：去掉无品牌纪律必须被判红（否则第 ② 条测的不是它）', () => {
+  const broken = skill.brief.replace('画面内不出现任何品牌标识、包装文字或水印；', '');
+  assert.ok(!/不出现任何品牌标识、包装文字或水印/.test(broken), '替换没生效，这条自证无效');
+  /* 模拟"有人把纪律删了"：此时第 ② 条里那条断言必须抓不到它 —— 证明它守的就是这句话本身 */
+  let caught = false;
+  try { assert.match(broken, /不出现任何品牌标识、包装文字或水印/); } catch { caught = true; }
+  assert.equal(caught, true, '删掉纪律后没被判红 ⇒ 第 ② 条是空转');
+});

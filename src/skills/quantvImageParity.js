@@ -85,6 +85,9 @@ export const QUANTV_IMAGE_COUNTERPARTS = Object.freeze({
   'image.gift_scene': { counterpart: null, reason: '礼盒场景图：知渔无礼盒场景页' },
   'image.teardown': { counterpart: null, reason: '拆解工艺图：知渔无拆解页' },
   'image.diorama': { counterpart: null, reason: '微缩场景广告：知渔的 3D 类页面是模型渲染，不是微缩场景' },
+  /* 批 BP：为长期经营一个审美账号定制的工作台。知渔没有"先定一篇的方向与色板、再逐张换画面手法"
+     这种**成套**玩法（他们的页都是"一次一张成品"），所以关键词与字段形态双路都比对不上。 */
+  'image.concept_set': { counterpart: null, reason: '概念视觉方案：知渔每页都是"一次出一张成品"，没有"先定一篇方向、再逐张换画面手法成一套"的页' },
   'image.brand_kv': { counterpart: null, reason: '品牌主视觉：知渔无品牌 KV 页' },
   'image.xhs_note': { counterpart: null, reason: '小红书图文：走的是我们自己的图文链路（嵌入工作台），知渔的「小红书爆款复刻」是图片复刻' },
 });

@@ -121,5 +121,6 @@
   "src/styles/login-dialog.css": 15,
   "src/styles/pricing-modal.css": 68,
   "src/styles/semanticTokens.css": 10,
+  "src/skills/imageSkills.js": 15,
   "src/styles/theme.css": 28
 }

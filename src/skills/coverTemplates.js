@@ -98,6 +98,9 @@ export const IMAGE_COVER_PLAN = [
   { skillId: 'image.copy', template: 'before-after', accent: 'cool', subject: '参考图与复刻成品的并排对照画面', title: '图文复刻', subtitle: '保住构图换内容' },
   { skillId: 'image.similar', template: 'hero-single', accent: 'neutral', subject: '由一张参考图延展出的同风格成品画面', title: '相似图生成' },
   { skillId: 'image.xhs_note', template: 'case-3up', accent: 'soft', subject: '一组小红书种草图（封面加两张内页）', title: '小红书图文', subtitle: '真实感优先' },
+  /* 批 BP：为长期经营一个审美账号定制的工作台。封面主体写"一整套"——
+     它跟别页最大的区别就是**成套**（一套里多张、共用一份方向、画面手法各不相同）。 */
+  { skillId: 'image.concept_set', template: 'case-3up', accent: 'soft', subject: '同一套方向下的三张成品图，画面手法各不相同', title: '概念视觉方案', subtitle: '一套方向多张出片' },
   /* 人像摄影 */
   { skillId: 'image.portrait', template: 'before-after', accent: 'soft', subject: '人像原片与精修成品的并排对照画面', title: '人像精修', subtitle: '皮肤光线一起收拾' },
   { skillId: 'image.hairstyle', template: 'before-after', accent: 'soft', subject: '同一个人换发型前后的并排对照画面', title: '换发型', subtitle: '保留五官换发型' },

@@ -57,9 +57,16 @@ test('① 对照表覆盖全部图片 skill：有对应页的写 URL，没有的
      用户原话：「**image.free（自由创作）、image.material（材质细节）这两个去掉**」——
      这两条是交叉核对后**唯一既没有知渔对应页、又没有官方用例/开源库背书**的图片 skill，
      照指令下架 ⇒ 自有玩法 16 → 14；有对应页的 34 条**一条没动**（知渔那 34 页仍然全覆盖）。 */
-  assert.equal(ids.length, 48, '图片 skill 数量变了，对照表要同步');
+  /* ═══ 2026-09-25 批 BP：48 → **49**、自有玩法 14 → **15**（**用户改口径**，不是放宽判据）═══════
+     用户原话：「你要不就直接做个这种子页面出来……定制一个**专门为我这个账号风格和审美服务的工作台**」——
+     新增 `image.concept_set`「概念视觉方案」。它属"自有玩法"那一类：知渔每一页都是
+     "一次出一张成品"，没有"先定一篇方向、再逐张换画面手法成一套"的页 ——
+     已在对照表里按 `counterpart: null` + reason 显式登记（有对应页的 34 条**一条没动**）。
+     **这条判据守的那件事一个字没变**：图片 skill 与对照表必须**双向一一对应** ——
+     上面两条 filter 仍是全等比对，漏登记/多登记照样红。 */
+  assert.equal(ids.length, 49, '图片 skill 数量变了，对照表要同步');
   assert.equal(imageSkillsWithCounterpart().length, 34, '有对应页的条数变了');
-  assert.equal(imageSkillsWithoutCounterpart().length, 14, '自有玩法的条数变了');
+  assert.equal(imageSkillsWithoutCounterpart().length, 15, '自有玩法的条数变了');
   for (const id of imageSkillsWithoutCounterpart()) {
     const reason = QUANTV_IMAGE_COUNTERPARTS[id].reason || '';
     assert.ok(reason.length >= 8, id + ' 写了 counterpart: null 但没写清为什么（"没有"也要是明确结论）');
