@@ -8707,3 +8707,34 @@ SKU 由**产品 id** 派生（`video_${id}_${short|long}`，videoFeatureSku）�
   · `/api/video/capabilities` 12 条产品**全部**带 `family/familyLabel/variant/variantLabel`，
     合并对正好两组：`wan-3.0`（720p+480p 与 1080p）、`minimax-h3`（720p 与 2k）；
     万相描述已是「480P/720P/1080P 三档可选」。
+
+## 2026-09-25 批 BM 追加：**MiniMax H3 补 480P**（用户问的"大家都是可以选 480p 720p 1080p"）
+
+提交 `93807962`。**没有动钱**：SKU 仍由产品 id 派生（`video_minimax_h3_768p_short/long`，与清晰度无关），
+无新增收费项、无金额变化，480P 与 720P 同一条价档。
+
+### 证据（今天实测、零成本只读，与批 AN 给万相加 480P 同一条判据）
+从生产机 `VIDEO_API_KEY` 调上游 `GET https://api-new.ip233.com/api/pricing`（`pricing_version=ip233-route-v2`），
+`minimax-h3` 那条（routeId 逐字相同）的 description 原文：
+
+> Drama API MiniMax H3 video generation. Per-second pricing: **480p 0.108, 720p 0.162, 1080p 0.4725.**
+
+480p ¥0.108/秒 **比现有 720p ¥0.162/秒 便宜** ⇒ 同价提供不损毛利 ⇒ 可以直接开。
+（同一行里的 1080p ¥0.4725 ≈ 720p 的 2.9 倍 ⇒ 属定价决定，**保持不开**，门禁"1080P 仍需定价批准"没动。）
+
+### 落地 / 判据 / 实机
+- `minimax_h3_768p.resolutions` = `['720p','480p']`（**720p 必须在第一位**：前端按 `resolutions[0]` 兜底，
+  否则默认档会从 720p 掉到 480p —— 与 `wan_standard`/`seedance_mini` 同一条规矩）；
+  `limitations` 补「480P 与 720P 双档」（它是清晰度药丸的 title，两颗药丸都指到这条产品）。
+- `test/video-catalog` 的 480P 门禁**白名单 + 证据注释**同步（**事实变了**：判据"必须有上游文档价目证据、
+  且不高于 720p"没放宽，变的是"今天又多了一条符合条件的档位"），证据原文逐字抄进注释。
+- 实机（`.qa/bm6-verify.mjs`）：MiniMax H3 药丸 = **480P / 720P / 2K**，720P 默认选中；选 2K 仍切
+  `video_minimax_h3_2k`；`POST /api/video/jobs` = **0**。
+- `npm run test` **4115 / pass 4105 / fail 0 / skipped 10**；`npm run precommit` 全绿。
+
+### ⚠️ 顺带核到的"我们比上游窄"两条（**本轮故意没动**，要花钱或要定价决定）
+| 路由 | 上游文档原文（今天同一份 /api/pricing） | 我们现状 | 要动的前提 |
+|---|---|---|---|
+| `xn-wan3.0` | 「支持 5-15 秒、480p/720p/1080p，**最多 9 图、9 视频、3 音频参考**」 | 只给 1 张参考图、0 视频、0 音频；时长 5-10 | 真出片验证（花钱）｜时长上限是**余额**算出来的，不是路由限制 |
+| `xn-minimax-h3` | 「支持 4-15 秒、480p/720p/1440p，最多 30 图/30 视频/30 音频参考，支持人脸」 | 5-15 秒、2K 档、30/30/30 参考 | 480p/720p 加在这里没意义（同一型号行已有更便宜的档） |
+| `minimax-h3` | 480p 0.108 / 720p 0.162 / **1080p 0.4725**（每秒） | 720P + 480P（本轮） | 1080P：定价决定，须用户点头 |
