@@ -1210,7 +1210,17 @@
 .video-inline-menu.is-model > button { align-items: flex-start; min-height: 72px; }
 .video-inline-menu.is-model .video-model-mark { margin-top: 1px; }
 .video-inline-menu.is-model button b { font-size: 13px; }
-.video-inline-menu.is-model button small { font-size: 11px; }
+.video-inline-menu.is-model button small {
+  font-size: 11px;
+  /* 批 BJ：**描述只占一行**（用户原话：「你现在这些模型的描述全部有第二行存在……你不如就把 mini max 的
+     这个描述缩短一点。然后整体的描述变成一行就可以了。」）
+     ⚠️ 上面 364 行那条写的是 `white-space: normal`（会换行）—— 这一条在它之后，所以以这里为准：
+        现在 描述 = 一行 + 行尾省略号；配合目录里把 MiniMax H3 768P 的文案从 38 字缩到 27 字。 */
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 @media(max-width:1180px) {
   .video-toolbar { align-items: stretch; flex-direction: column; }
