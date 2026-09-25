@@ -345,15 +345,10 @@
       门禁 test/video-model-menu-0912 的对应断言随本轮用户口径一并更新（那里写了依据）。
    旧值留档：position: absolute; z-index: 8; left: 0; bottom: calc(100% + 8px)。 */
 .video-inline-menu { position: fixed; z-index: 90; max-height: min(58vh, 460px); overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 12px; background: var(--sb-surface-panel-solid); box-shadow: 0 15px 40px rgba(45,33,24,.16); }
-/* 批 BJ：标题与图片侧面板的 GroupTitle 同款（13/700 墨色 + 4px 间距 + 品牌图标由 JSX 给）——
-   用户原话：「你张开的那些面板里面的**标题**呀，间距啊，大小啊，宽度啊，高度啊，这些东西你应该做到
-   保持一致呀」。改前这里是 10px 灰字、且没有图标，图片侧却是 GroupTitle。 */
-.video-inline-menu > strong {
-  display: flex; align-items: center; gap: 4px;
-  padding: 5px 7px 8px;
-  color: var(--sb-ink-1);
-  font-size: 13px; font-weight: 700; line-height: 1.4;
-}
+/* 批 BJ/BK：标题直接用图片侧那个 GroupTitle 组件（全站唯一实现），这里只负责它的**外边距** ——
+   用户图2-①：「你视频生成的这个标题怎么歪了呀，变成两层了」：上一版是手写的 <strong> + 一个 SVG 兄弟节点，
+   两者基线各排各的；换成组件之后与图片侧逐值同款（14/800 墨色 + 14px 墨色图标 + 4px 间距）。 */
+.video-model-menu-head { padding: 5px 7px 8px; }
 .video-inline-menu > button { width: 100%; min-height: 42px; padding: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-radius: 8px; background: transparent; color: #3c3732; text-align: left; cursor: pointer; }
 .video-inline-menu > button:hover,.video-inline-menu > button.is-selected { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .video-inline-menu button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1207,7 +1202,10 @@
 /* 批 BG：这条原来写的是 `> span` —— 图标底座（也是个 span）被一并拉宽，是要修的根因。
    现在只作用于文案那一层（.video-model-copy）。 */
 .video-inline-menu.is-model > button > .video-model-copy { flex: 1 1 auto; min-width: 0; text-align: left; }
-.video-inline-menu.is-model > button { align-items: flex-start; min-height: 72px; }
+/* 批 BK：min-height 72 → **56**（用户图2-②：「你的描述下面是有一行是空白的。就导致现在看起来每一个
+   按钮它们下面都有一行空白啊」）。行内实际内容 = 图标 32 + 标题 1 行 + 描述 1 行 ≈ 50px，
+   72 的下限会在每行下面留 20px 空 ⇒ 收紧到刚好包住内容（描述已统一一行，见上面那条）。 */
+.video-inline-menu.is-model > button { align-items: center; min-height: 56px; }
 .video-inline-menu.is-model .video-model-mark { margin-top: 1px; }
 .video-inline-menu.is-model button b { font-size: 13px; }
 .video-inline-menu.is-model button small {

@@ -160,6 +160,14 @@ export default function HomePage() {
     }
   }, [state.genState]);
 
+  /* ═══ 批 BK：**进首页一律回到视频生成**（用户原话，逐字）══════════════════════════════════════
+     「还有就是为什么我现在每次从其他页面返回首页的话，你为什么是默认在这个图片生成这个页面上呢？
+       我们现在**只要进入首页，都应该是在视频生成这个页面上**呀。」
+     根因：mode 是全局 state，从首页点进图片/电商子页面后它一直停在那一档，返回首页（Home 重新挂载）
+     时读到的还是上次那一档。⇒ 首页挂载时把它重置回 video。
+     ⚠️ 深链优先：带 creationLaunch.mode 的入口（下面的 effect）在这一条之后执行，会覆盖成目标模式。 */
+  useEffect(() => { dispatch({ type: 'SET_MODE', mode: 'video' }); }, [dispatch]);
+
   useEffect(() => {
     const launch = state.creationLaunch;
     if (!launch?.nonce || consumedLaunchRef.current === launch.nonce) return;

@@ -183,6 +183,14 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
   }),
 ]);
 
+/* ═══ 2026-09-25 批 BK：**6 档 → 13 档（与能生成的档位同源）**（用户原话，逐字）═════════════════
+   「然后我们的图片生成这边为什么不能像他们一样做这么多的尺寸呢？他们明明可以放这么多尺寸呐，
+     我们为什么不能放呢？是存在什么问题吗？」
+   实测根因**不是引擎不行**：服务端 LEGAL_IMAGE_SIZES / 前端 imageSizeCatalog 早就补到 **13 档**
+   （批 O-⑦ 补 2:3/3:2、批 P 补 4:5/5:4、批 X 补 9:21/2:1/1:2），但**首页这个选项源自批 J-⑪ 之后
+   一次都没扩过** —— 用户主入口看到的仍是 6 档（其余 7 档只长在技能子页面的声明里）。
+   ⇒ 现在直接从 `IMAGE_RATIOS`（= 能生成的唯一真源）派生：**能选的就是能生成的**（一个不多一个不少）。
+      label 只是给人看的名字，按比例方向取中文。 */
 export const VISUAL_RATIO_OPTIONS = Object.freeze([
   Object.freeze({ id: '1:1', label: '方形 1:1' }),
   Object.freeze({ id: '3:4', label: '竖版 3:4' }),
@@ -190,6 +198,13 @@ export const VISUAL_RATIO_OPTIONS = Object.freeze([
   Object.freeze({ id: '9:16', label: '竖屏 9:16' }),
   Object.freeze({ id: '16:9', label: '宽屏 16:9' }),
   Object.freeze({ id: '21:9', label: '横幅 21:9' }),
+  Object.freeze({ id: '2:3', label: '竖长图 2:3' }),
+  Object.freeze({ id: '3:2', label: '横摄影 3:2' }),
+  Object.freeze({ id: '4:5', label: '竖封面 4:5' }),
+  Object.freeze({ id: '5:4', label: '横主图 5:4' }),
+  Object.freeze({ id: '9:21', label: '超竖屏 9:21' }),
+  Object.freeze({ id: '2:1', label: '超宽屏 2:1' }),
+  Object.freeze({ id: '1:2', label: '超竖屏 1:2' }),
 ]);
 
 function cleanString(value) {

@@ -121,8 +121,12 @@ export const FONT_SIZE = Object.freeze({
      · 未选中的控件也必须看得出「可以操作」（有边、有底、带箭头），只是不抢眼。
    判据（可写进契约）：value.size > fieldLabel.size，且 value 的墨色比 fieldLabel 深。 */
 export const TEXT_ROLE = Object.freeze({
-  /** 分组标题：一组内容的名字，最重 */
-  groupTitle: Object.freeze({ size: 13, weight: 700, tone: 'var(--sb-ink-1)' }),
+  /** 分组标题：一组内容的名字，最重
+   *  ═══ 2026-09-25 批 BK：**13/700 → 14/800**（用户改向，逐字）══════════════════════════════════
+   *  「不管视频生成还是图片生成，你这些面板里面的标题……标题你可以**加粗，再大一点用黑色**的，
+   *    我觉得就可以了。」（另一句：「标题就应该是被加粗的呀，不加粗的话，它能叫标题吗？
+   *    你可能所有页面都存在这些问题。」） */
+  groupTitle: Object.freeze({ size: 14, weight: 800, tone: 'var(--sb-ink-1)' }),
   /** 控件值：用户真正要读、要改的东西。必须比字段标签重 */
   value: Object.freeze({ size: 13, weight: 600, tone: 'var(--sb-text-primary)' }),
   /** 字段标签：「这格叫什么」。比控件值轻一档，但不许「素」。
@@ -205,7 +209,7 @@ export const ICON_SIZE = Object.freeze({
 });
 
 export const FONT_WEIGHT = Object.freeze({
-  groupTitle: 700,
+  groupTitle: 800,   /* 批 BK：700 → 800（用户："标题就应该是被加粗的"） */
   fieldLabel: 600,
   body: 400,
   helper: 400,

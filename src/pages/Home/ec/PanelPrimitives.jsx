@@ -43,7 +43,11 @@ export function GroupTitle({ icon: Icon, children }) {
           现在全局统一成：**图标走品牌主色，标题文字走中性深墨**。
           与原则 6.1 不冲突：那条禁止的是「把层级标签的**文字**染成品牌色」，
           这里文字仍是 --sb-ink-1，品牌色只由图标承担识别作用。 */}
-      {Icon ? <Icon size={ICON_SIZE.groupTitle} color="var(--sb-brand-600)" style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
+      {/* ═══ 2026-09-25 批 BK：**图标改墨色**（用户改向，逐字）══════════════════════════════════════
+          「他们的**图标不要用紫色的**，这样看起来会乱七八糟的，就用**黑色的**就好了。不然呢？颜色太复杂了。」
+          这里原来是 color="var(--sb-brand-600)"（品牌紫）—— 那是 2026-09-16 图10-② 定下的
+          「图标品牌色、标题深墨」，本轮被用户推翻：图标与标题**同为墨色**，一组标题只用一种颜色。 */}
+      {Icon ? <Icon size={ICON_SIZE.groupTitle} color="var(--sb-ink-1)" style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
       <span>{children}</span>
     </div>
   );
@@ -57,7 +61,7 @@ export function GroupTitle({ icon: Icon, children }) {
 export function FieldLabel({ icon: Icon, children }) {
   return (
     <div style={fieldLabelStyle}>
-      {Icon ? <Icon size={ICON_SIZE.fieldLabel} color="var(--sb-brand-600)" style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
+      {Icon ? <Icon size={ICON_SIZE.fieldLabel} color="var(--sb-ink-2)" style={{ flexShrink: 0 }} aria-hidden="true" /> : null}
       <span>{children}</span>
     </div>
   );

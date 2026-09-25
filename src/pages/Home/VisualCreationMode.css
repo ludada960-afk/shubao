@@ -414,10 +414,11 @@
 /* 批 BF：分组标题**逐值并到 PanelPrimitives 的 GroupTitle**（13/700/ink-1 + 14px 品牌图标 +
    与内容 12）—— 视频侧那一栏用的就是 GroupTitle 本体，原来这里是自己写的一套 12/800。
    文字仍是中性墨色（原则 6.1：层级标签不许染品牌色），品牌色只由**图标**承担识别。 */
-.visual-panel-section-heading { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; color: var(--sb-brand-600); }
+/* 批 BK：图标也改墨色、标题 13/700 → **14/800**（与 PanelPrimitives.GroupTitle 同一档，见那边批注） */
+.visual-panel-section-heading { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; color: var(--sb-ink-1); }
 .visual-panel-section-heading > svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .visual-panel-section-heading > div { display: grid; min-width: 0; gap: 2px; }
-.visual-panel-section-heading strong { color: var(--sb-ink-1); font-size: 13px; font-weight: 700; line-height: 1.4; }
+.visual-panel-section-heading strong { color: var(--sb-ink-1); font-size: 14px; font-weight: 800; line-height: 1.4; }
 .visual-panel-section-heading small { color: var(--sb-ink-3); font-size: 11px; line-height: 1.4; }
 .visual-choice-list,.visual-choice-grid,.visual-ratio-grid { display: grid; gap: var(--sb-space-2); }
 .visual-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

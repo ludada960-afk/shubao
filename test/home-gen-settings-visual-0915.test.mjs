@@ -187,8 +187,12 @@ test('② 分组标题与内容层级明确（标题 13/700，内容间距走阶
   const titleBlock = panel.match(/<GroupTitle[^>]*>/g) || [];
   assert.ok(titleBlock.length >= 2, '生成设置至少两个分组（生图模型 / 清晰度）');
   const spec = read('src/pages/Home/ec/panelVisualLanguage.js');
-  assert.ok(spec.includes('groupTitle: 13'), '分组标题 13px');
-  assert.ok(spec.includes('groupTitle: 700'), '分组标题 700 字重');
+  /* ═══ 2026-09-25 批 BK：**字号/字重改判**（用户改向，逐字）══════════════════════════════════════
+     用户原话：「你觉得你所有的这些标题都应该被加粗……**标题就应该是被加粗的呀，不加粗的话，
+     它能叫标题吗？**」以及「标题你可以**加粗，再大一点用黑色**的，我觉得就可以了。」
+     ⇒ 分组标题 13/700 → **14/800**（守的东西没变：标题必须比内容重、且走唯一真源 TEXT_ROLE）。 */
+  assert.ok(spec.includes('groupTitle: 14'), '分组标题 14px（批 BK：13 → 14）');
+  assert.ok(spec.includes('groupTitle: 800'), '分组标题 800 字重（批 BK：700 → 800）');
 });
 
 test('② 控件点击区不缩水：分段控件 ≥40px，色块/锁定按钮 ≥36px（断言实际数值）', () => {

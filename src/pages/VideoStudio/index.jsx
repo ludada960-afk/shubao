@@ -1806,11 +1806,14 @@ export default function VideoStudioPage({
           <div className="video-duration-inline">
             <input className="video-duration-range" type="range" min={durationRange.min} max={durationRange.max} step={durationRange.step} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
             <input className="video-duration-number" type="number" min={durationRange.min} max={durationRange.max} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
-            <span>s</span>
+            <span>秒</span>   {/* 批 BK：用户「你这个 s 是不是应该改成秒会比较好呀？」 */}
           </div>
         </div>
         )}
       </>}
+      {/* ⚠️ 批 BK：「视频时长」这组外面原来多了一个裸的 `}`（写成了 `</>}`）——
+          那个花括号会被当成**文本节点**渲染出来，就是用户截图里时长下面单独一行的「}」。
+          实测复现：面板里「视频时长」下面独立一行只有一个「}」。现已删除。 */}
       {/* ═══ 批 W（2026-09-21）：**「避免出现的内容」整块删除**（用户原话，逐字）══════════════════
           原话（图二）：「这个**避免出现的内容去掉**，这块**没有意义**。」
           ⚠️ 状态与请求体字段都**保留**（negativePrompt 仍会随请求下发，默认空字符串），
@@ -2123,7 +2126,7 @@ export default function VideoStudioPage({
                   <span className="video-model-copy"><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width, maxHeight: modelAnchor?.maxHeight }}><Sparkles size={14} aria-hidden="true" color="var(--sb-brand-600)" /><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} size={32} /><span className="video-model-copy"><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width, maxHeight: modelAnchor?.maxHeight }}><div className="video-model-menu-head"><GroupTitle icon={Sparkles}>视频模型</GroupTitle></div>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} size={32} /><span className="video-model-copy"><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
                 {/* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
                    你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
                    —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），

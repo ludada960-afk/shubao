@@ -159,7 +159,8 @@
 .skill-entry-button:hover,
 .skill-entry-button.is-open {
   border-color: var(--sb-state-selected-line);
-  background: var(--sb-surface-tint);
+  /* 批 BK：hover 底取"浅灰一档"（照实测 `rgb(245,247,250)`；--sb-surface-tint 只有 3%，偏轻） */
+  background: var(--sb-surface-tint-strong);
   color: var(--sb-ink-brand);
   box-shadow: 0 10px 26px rgba(15, 23, 42, .12), 0 0 0 1px var(--sb-state-selected-line);
 }
@@ -173,7 +174,9 @@
   width: 0;
   height: 4px;
   border-radius: 0 999px 999px 0;
-  background: linear-gradient(90deg, var(--sb-brand-600), var(--sb-brand-700));
+  /* 批 BK：照实测 `linear-gradient(to right, #0076F5, #7D28CC)` —— 方向 to right、两端**跨色阶**
+     （亮→深）。原来是 90deg brand-600→700（相邻两档），肉眼几乎看不出渐变。 */
+  background: linear-gradient(to right, var(--sb-brand-400), var(--sb-brand-700));
   transition: width .7s cubic-bezier(.4, 0, .2, 1);
   pointer-events: none;
 }
@@ -203,7 +206,9 @@
 .skill-entry-button:hover .skill-entry-glyph,
 .skill-entry-button.is-open .skill-entry-glyph {
   transform: scale(1.05);
-  background: var(--sb-brand-600);
+  /* 批 BK：**留影AI 按钮策略** —— 图标磁贴 hover 铺 135° 品牌渐变（实测他们
+     `linear-gradient(135deg, #0076F5, #7D28CC)`），端点取站内品牌紫的亮/深两档（与左导航同款）。 */
+  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-neutral-0);
 }
 /* 有封面图时不铺品牌底（那会把封面盖掉）—— 只保留放大 */
