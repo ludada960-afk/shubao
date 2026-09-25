@@ -107,7 +107,7 @@ function TopBar({ subpageHeader = null, isBoard = false }) {
               放进同一格里，`.topbar-row.is-subpage` 的 `1fr auto 1fr` 一行三格不用动，
               标题照旧真居中。 */}
           <span className="topbar-subpage-lead">
-            <span className="topbar-brand is-compact-mark" aria-hidden="true">
+            <span className="topbar-brand" aria-hidden="true">
               <img className="topbar-brand-mark" src={IMAGES.brandMark} alt="" width="24" height="24" />
               <span className="topbar-logo">薯包 AI</span>
             </span>

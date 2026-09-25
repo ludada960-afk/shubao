@@ -126,7 +126,15 @@ test('video studio is an authenticated durable billed workspace embedded in home
      然后你的积分其实是不能在这里说的。」—— 模型列表原本一行塞了 4 段文字
      （型号+档位 / 描述 / 限制 / 积分），现在只留**一段描述**。
      判据随之更新：列表只能有一段描述，且不得再列积分（积分只出现在右下角按钮上）。 */
-  assert.match(page, /product\.description/, '模型列表必须保留一段描述');
+  /* ═══ 2026-09-25 批 BM：这条判据的**落点**变了（事实变了，不是放宽）═══════════════════════
+     改前：列表直接 .map(products) ⇒ 描述来自 `product.description`。
+     改后（用户原话：「为什么 seedance 不放到一起呢？mini max 你也没有放到一起」）：
+       列表 .map(families → rows)，描述来自分组结果 `row.description`
+       —— 而 row.description 就是该型号主档的 product.description（见 videoModelRows.js）。
+     "一行一段描述、且不得再列积分"这条**规则一个字没改**，只是它现在跨了两个文件：
+       页面渲染 row.description（本行断言）+ 分组模块从 product.description 取（下一行断言）。 */
+  assert.match(page, /row\.description/, '模型列表必须保留一段描述（改后取自型号行 row.description）');
+  assert.ok(!/<small className="video-model-limit">/.test(page), '不得再单独铺限制文案（列表只留一套描述）');
   assert.ok(!/<small className="video-model-limit">/.test(page), '不得再单独铺限制文案（列表只留一套描述）');
   assert.ok(!/AI 积分 \/ 次/.test(page), '模型列表不得再写积分（积分只出现在右下角按钮上）');
   assert.doesNotMatch(page, /quickUploadRef/);

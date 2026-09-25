@@ -459,6 +459,19 @@ function TextareaControl({ field, value, onChange, disabled }) {
       图片类型是方案真源 IMAGE_TYPES 的事，控件只负责渲染。 */
 function CountsControl({ field, value, onChange, disabled }) {
   const rows = Array.isArray(field.rows) ? field.rows : [];
+  /* ═══ 2026-09-25 批 BM：**刚展开出来的这一块要自己滚进视野**（用户原话，逐字）══════════════════════
+     「而且我点击这个自定义配置的话，它张开的面板**并没有自动适配下去**呀，我点击这个按钮的话，
+       我根本就**看不到下面的东西**，我得**自己往下挪**才能看到，你是不是应该**自动张开下面的东西
+       适配到当前画面**呢？」
+     实测：点完之后 scrollTop 仍是 0，新块在 y=1508（视口 1000）⇒ 用户确实得自己往下拽。
+     ⚠️ 用 block:'nearest' —— 已经在视野里就**不动**（避免"点一下画面就跳"）；
+        滚动容器是左栏，浏览器会自己找最近的滚动祖先。 */
+  const hostRef = useRef(null);
+  useEffect(() => {
+    const node = hostRef.current;
+    if (!node || typeof node.scrollIntoView !== 'function') return;
+    node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, []);
   /* ⚠️ 值的形状由 skillRun.initialSkillValues 落地（counts 分支把每行的 default 播种进去），
      这里的 row.default 是**兜底**：万一某条调用方没走 initialSkillValues，
      也不至于把整组显示成 0（那会让用户以为"它坏了"）。 */
@@ -472,7 +485,7 @@ function CountsControl({ field, value, onChange, disabled }) {
     onChange({ ...current, [key]: clamped });
   };
   return (
-    <span className="media-field-counts">
+    <span className="media-field-counts" ref={hostRef}>
       {rows.map(row => {
         const count = countOf(row);
         const max = Math.max(0, Number(row.max) || 9);

@@ -1148,13 +1148,49 @@
   overscroll-behavior: contain;
   max-height: min(58vh, 460px);
   padding: 8px;
-  /* 批 BG：行与行之间要有空隙（与图片侧同档），并且不显示滚动条 */
+  /* 批 BM：行与行之间要有空隙（与图片侧同档）。
+     ⚠️ 滚动条**要显示**（用户原话：「然后有更多的模型在下面的话，你就**右边要搞一条这种拉动条**
+        可以往下面拉不就行了吗？你一次性全部张开会不会太多了呀。」）—— 批 BG 那版把它藏了，
+        现在按"装得下就不滚、装不下就**看得见地滚**"改回来。 */
   display: grid;
   gap: var(--sb-space-2);
   align-content: start;
-  scrollbar-width: none;
 }
-.video-inline-menu::-webkit-scrollbar { width: 0; height: 0; }
+/* ═══ 2026-09-25 批 BM：滚动条**要看得见**（用户原话，逐字）══════════════════════════════════
+   「然后有更多的模型在下面的话，你就**右边要搞一条这种拉动条**可以往下面拉不就行了吗？
+     你一次性全部张开会不会太多了呀。你一次性张开的这些按钮数目，你可以按照图片生成那边的
+     数量去做同步的适配。」
+   ⚠️ 改前这一条写的是 `width: 0`（批 BG 按上一轮的"多余滚动条"删掉的）——
+      它在 Chromium 里是**彻底不画**滚动条：限高之后用户看到的是"列表被切掉"，没有可拉的杠。
+      站内既有的细滚动条样式来自 .video-material-strip（287-290 行），这里沿用同一套值。 */
+.video-inline-menu { scrollbar-width: thin; }
+.video-inline-menu::-webkit-scrollbar { width: 8px; height: 8px; }
+.video-inline-menu::-webkit-scrollbar-track { background: transparent; }
+.video-inline-menu::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(91, 75, 61, .22);
+}
+.video-inline-menu::-webkit-scrollbar-thumb:hover { background: rgba(91, 75, 61, .34); }
+/* ═══ 2026-09-25 批 BM：模型下拉的**家族分组标题**（用户原话：「为什么 seedance 不放到一起呢？
+   mini max 你也没有放到一起」）══════════════════════════════════════════════════════════════
+   为什么要一个专门的类而不是复用 .video-model-menu-head：那个是**面板标题**（带图标的分组标题，
+   属于"这一层面板"），这里是**列表内的分区标签**（属于"这一组模型"）——
+   两者在层级上不是一件事，混用会让"面板标题"和"分组标题"看起来一样，用户分不出哪层是哪层。
+   ⚠️ 它必须是**纯文本**（不是 button、没有 hover 底、没有指针）：分组标题不能看起来像选项。 */
+.video-model-group-label {
+  padding: 2px var(--sb-space-3) 0;
+  color: var(--sb-text-hint);
+  /* 11/700（--sb-text-xs + --sb-weight-bold）：分组标题属于"说明文字"这一档，
+     不是"角标"（--sb-text-2xs 的用途注释就写着角标）——
+     实测 10/600 在 480px 宽的下拉里压不住下面的模型行，用户看不出这是分组。 */
+  font-size: var(--sb-text-xs);
+  font-weight: var(--sb-weight-bold);
+  letter-spacing: .02em;
+  user-select: none;
+}
+/* 组与组之间留出比"行与行"更大的呼吸（分组要看得出来是分组）：
+   相邻两条 label 之间拉开 4px，加上 grid 的 8px gap，实际组分隔 = 12px。 */
+.video-model-group-label + .video-model-group-label { margin-top: 4px; }
 /* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
 .video-config-panel-body { max-height: inherit; overflow-y: auto; }
 /* ═══ 2026-09-24 批 AW：模型行**逐 token 对齐图片侧的 `.sb-opt`**（用户图四）══════════════════════

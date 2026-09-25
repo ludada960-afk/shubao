@@ -88,6 +88,13 @@ import {
   videoDurationRange,
 } from './videoStudioModel.js';
 import { buildVideoPlan, VIDEO_PROMPT_MAX_LENGTH } from './videoPlanModel.js';
+/* ═══ 2026-09-25 批 BM：模型下拉的「家族分组 + 型号合并 + 清晰度档位」三件事的唯一实现 ═══════════
+   用户原话：「**为什么 seedance 不放到一起呢？mini max 你也没有放到一起**。……**为什么会有 720P 的
+   特定模型呢？720P 应该在生成设置里面去选的呀**，用户在这里就只负责选相应的模型就可以了，
+   然后参数是在生成设置里面去做的呀。」
+   ⇒ 目录给的是平铺的产品（一条产品一条价档，钱路不许动），折成「家族 → 型号 → 清晰度档位」
+      这一层放在 videoModelRows.js 里（纯函数，门禁可直接断言），页面只消费它的结果。 */
+import { buildVideoModelRows, productForResolution, rowOfVariant } from './videoModelRows.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import ModelLogo from '../../components/ModelLogo.jsx';
 import { brandLogo, videoProductLogo } from '../../services/modelLogos.js';
@@ -428,6 +435,30 @@ export default function VideoStudioPage({
     || products.find(product => product.id === capabilities.defaultProductId)
     || products[0]
     || null;
+  /* 批 BM：两条派生（都来自 products，不另存状态 —— 清单变了它们自动跟着变）。
+       · modelRows  = 「家族 → 型号行 → 档位产品」，模型下拉的渲染结构；
+       · activeRow  = 当前选中型号那一行，清晰度药丸与型号名从它取。
+     判据用 variant 而不是 product id：同一型号的多条产品（720P / 2K 那种）在用户眼里**是一个模型**，
+     选了 2K 之后那一行仍然是"当前选中的模型"（否则勾会跑掉）。 */
+  const modelRows = useMemo(() => buildVideoModelRows(products), [products]);
+  const activeRow = useMemo(() => rowOfVariant(modelRows, selectedProduct?.variant), [modelRows, selectedProduct?.variant]);
+  /* 批 BM：清晰度档位 = **当前型号**的全部清晰度（同一型号下"只有分辨率不同"的那些产品合并成一排）。
+     选中哪一档就切到那条产品 —— 价目、时长上限、素材上限随之变化（按钮上的积分实时跟着变）。
+     hint 用该档产品自己的限制文案（例如 1080P 档只支持 5-9 秒），鼠标停上去看得到，
+     避免"选了 1080P 才发现只能出 9 秒"这种事后才发现的意外。 */
+  const clarityOptions = useMemo(() => {
+    const values = activeRow?.resolutions?.length ? activeRow.resolutions : (selectedProduct?.resolutions || ['720p']);
+    return values.map(value => {
+      const product = activeRow ? productForResolution(activeRow, value) : selectedProduct;
+      return { value, productId: product?.id || '', hint: product?.limitations || product?.description || '' };
+    });
+  }, [activeRow, selectedProduct]);
+  const selectClarity = useCallback(value => {
+    setPlanReviewed(false);
+    const next = activeRow ? productForResolution(activeRow, value) : null;
+    if (next && next.id !== selectedProduct?.id) setSelectedProductId(next.id);
+    setResolution(value);
+  }, [activeRow, selectedProduct?.id]);
   const workbenchMode = Boolean(embedded && workbench && (workbench.blocks || []).length);
   const workbenchSkillId = useMemo(() => {
     if (skillId) return skillId;                       // 显式传进来的（MediaCreation 传 skill.id）
@@ -993,8 +1024,15 @@ export default function VideoStudioPage({
        而图片侧是"高度取触发按钮上方的可用空间（最多 92vh）"，8 个模型一屏看得完。
        ⇒ 下拉向上张开，能用多少用多少（`rect.top - 20` 就是按钮上方的空间），
          再用 92vh 封顶（与图片侧 getVisualPanelPosition 的上限同一条）。 */
+    /* ═══ 2026-09-25 批 BM：上限改成**与图片侧模型面板同一档**（用户原话，逐字）════════════════════
+       「你这个视频模型的面板是不是**有点太高了**？你应该**跟图片生成那边的模型的面板高度保持一致**呀。
+         然后有更多的模型在下面的话，你就**右边要搞一条这种拉动条**可以往下面拉不就行了吗？
+         你一次性全部张开会不会太多了呀。你一次性张开的这些按钮数目，你可以**按照图片生成那边的数量
+         去做同步的适配**，然后如果下面还有比较多的话，你就右边搞一条拉动条就可以了。」
+       实测：图片侧面板高 555（8 行 × 56 + 标题 + 内边距）；视频侧原来取"按钮上方可用空间"（可达 800+）
+       ⇒ 一次摊开 12 个模型。现在封顶 **520**（同档），超出部分由右侧滚动条承担（滚动条已在 CSS 里恢复显示）。 */
     const availableAbove = rect.top - 20;
-    const maxHeight = Math.max(240, Math.min(Math.round(window.innerHeight * 0.92), availableAbove));
+    const maxHeight = Math.max(240, Math.min(520, availableAbove));
     setModelAnchor({
       left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12)),
       bottom: Math.max(12, window.innerHeight - rect.top + 8),
@@ -1789,7 +1827,7 @@ export default function VideoStudioPage({
       {specExposure.clarity && !pageOwnsField('resolution') && (
       <div className="video-panel-section"><GroupTitle icon={MonitorPlay}>清晰度</GroupTitle>
         <div className="video-resolution-pills">
-          {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}>{value.toUpperCase()}</button>)}
+          {clarityOptions.map(option => <button key={option.value} type="button" className={resolution === option.value ? 'is-selected' : ''} title={option.hint} onClick={() => selectClarity(option.value)}>{option.value.toUpperCase()}</button>)}
         </div>
       </div>
       )}
@@ -2123,10 +2161,12 @@ export default function VideoStudioPage({
                   <VideoModelMark product={selectedProduct} provider={selectedProduct?.providerLabel} size={28} />
                   {/* ⚠️ 文案那一层必须带 `.video-model-copy`：下面 CSS 里那条 flex: 1 1 auto 只该作用于它，
                       不能再像原来那样用 `> span` 把图标底座一起拉宽（批 BG 的实测根因）。 */}
-                  <span className="video-model-copy"><small>视频模型</small><strong>{selectedProduct?.label || '选择视频模型'}</strong></span>
+                  <span className="video-model-copy"><small>视频模型</small><strong>{activeRow?.label || selectedProduct?.label || '选择视频模型'}</strong></span>
                   <ChevronDown size={14} />
                 </button>
-                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width, maxHeight: modelAnchor?.maxHeight }}><div className="video-model-menu-head"><GroupTitle icon={Sparkles}>视频模型</GroupTitle></div>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark product={product} provider={product.providerLabel} size={32} /><span className="video-model-copy"><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small>
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width, maxHeight: modelAnchor?.maxHeight }}><div className="video-model-menu-head"><GroupTitle icon={Sparkles}>视频模型</GroupTitle></div>{/* 批 BM：家族分组。⚠️ 每组用 Fragment 包（**不套 div**）—— 模型行的样式全是
+    `.video-inline-menu > button` 这种直接子选择器（1177/1187/1190/1203/1210 行那一族），
+    套一层 div 会让整族样式静默失配（这就是"两边两套东西"的成因之一）。 */}{modelRows.families.map(family => <React.Fragment key={family.key}><div className="video-model-group-label">{family.label}</div>{family.rows.map(row => <button key={row.variant} type="button" aria-pressed={activeRow?.variant === row.variant} className={activeRow?.variant === row.variant ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); const next = productForResolution(row, resolution); if (next) setSelectedProductId(next.id); setInlineMenu(null); }}><VideoModelMark product={row.primary} provider={row.primary.providerLabel} size={32} /><span className="video-model-copy"><b>{row.label}<em>{activeRow?.variant === row.variant ? (selectedProduct?.tierLabel || row.tierLabel) : row.tierLabel}</em></b><small>{row.description}</small>
                 {/* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
                    你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
                    —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），
@@ -2139,7 +2179,7 @@ export default function VideoStudioPage({
                    现在：正文里不再出现任何注释符号，容器只有一个花括号收尾。
                    ⚠️ 往后的规矩：JSX 子节点位置的注释用花括号包起来（表达式容器），
                       并且**正文里绝不能再写注释符号**。 */}
-                </span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}
+                </span>{activeRow?.variant === row.variant && <Check size={16} />}</button>)}</React.Fragment>)}
                 {/* ═══ 批 T（2026-09-21）：未上架模型那一行说明**整块删除**（用户本轮原话）═════
                     原话：「你这些视频生成模型下面的这句：另外 4 个模型暂不可选：Grok 极速（上游已下架
                     该模型）、可灵 3.0（上游已下架该模型）、可灵 3.0 Pro（上游已下架该模型）、

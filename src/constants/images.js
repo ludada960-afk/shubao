@@ -1,4 +1,7 @@
 /* 角色形象 & 图标映射 */
+// 批 BM：品牌标走内联数据（零请求、零闪烁）—— 见该文件头部说明
+import { BRAND_MARK_3X } from './brandMarkInline.js';
+import { BRAND_MARK_2X } from './brandMarkInline2x.js';
 const _b = (n) => new URL('/images/' + encodeURIComponent(n), import.meta.url).href;
 
 export const IMAGES = {
@@ -12,8 +15,9 @@ export const IMAGES = {
          吉祥物放大到占满磁贴 + 1px 品牌内环，**去掉原来那张图自带的灰色描边**（那就是"贴纸感"的来源）。
          输出 3x（180px）与 2x（120px）两份，30px 显示时有 6 倍余量，任何 DPI 都不糊。
        · **字标**：不再用现成图，也不再"只调字号字距" —— 按层级排版（薯包 800 + 分隔线 + AI 拉丁规格）。 */
-  brandMark:   _b('brand-mark-3x.png'),
-  brandMark2x: _b('brand-mark-2x.png'),
+  /* 批 BM：**改成内联数据**（见 brandMarkInline.js 的说明）—— 不再是独立请求的 PNG */
+  brandMark:   BRAND_MARK_3X,
+  brandMark2x: BRAND_MARK_2X,
   scene:       _b('小薯包.png'),
 
   // 角色状态

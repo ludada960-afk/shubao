@@ -176,9 +176,13 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* ═══ 2026-09-25 批 BM：**hover 不再位移、也不往右下投阴影**（用户原话，逐字）══════════════════════
+   「我鼠标放上去左上角这个 LOGO 它为什么**右边会有一个阴影**呢？而且我感觉每次这个 LOGO 它要加载出来，
+     都会让人家知道这是一张图片……你是不是应该把这个 LOGO 做一个更深度的设计让他能够**定在这里**呢。」
+   ⇒ 去掉 hover 那层 `drop-shadow(0 4px 10px …)`（它往右下投，就是"右边那个阴影"）与 translateY/scale
+     （用户要"定在这里"）。只把落地阴影加深一档作为反馈 —— 零位移、零方向性。 */
 .topbar-brand:is(:hover, :focus-visible) .topbar-brand-mark {
-  transform: translateY(-1px) scale(1.045);
-  filter: drop-shadow(0 4px 10px rgba(17, 24, 39, .16));
+  filter: drop-shadow(0 1px 3px rgba(17, 24, 39, .16));
 }
 /* 批 BH：字标是中性墨色，不再有"渐变压深"这一手 —— hover 的反馈由标的抬升 + 投影承担
    （原来那条 background-image 覆盖规则一并删掉，不留死规则）。 */

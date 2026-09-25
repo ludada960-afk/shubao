@@ -40,7 +40,10 @@
   display: grid;
   gap: 22px;
   align-content: start;
-  padding: 24px 20px 28px;
+  /* 批 BM：下内边距 28 → **0**（用户原话：「你看你现在这个生成按钮下面都是会有一个**缝隙**，
+     能让人家看到你背后的东西的，这是不对的。」）。实测：CTA 底 952 / 左栏底 980 ⇒
+     那 28px 就是缝，滚动内容正从那里透出来；这一段的覆盖改由 CTA 自己的白底 + padding-bottom 承担。 */
+  padding: 24px 20px 0;
   /* ═══ 2026-09-19 批 I-⑥（用户批注 #8-2 / #8-4）══════════════════════════════════════
      原话：「工作台和案例区……完全抵住了左右两边」「两个区域之间都没有任何间隙，这是对的吗」。
      根因：子页面底色是纯白，而**只有右栏**是白面板 —— 左栏原来只有一条 border-right，
@@ -417,6 +420,9 @@
 .media-field-count { margin-left: auto; font-size: 13.624px; font-weight: 500; color: var(--sb-ink-3); font-style: normal; }
 /* ── cards：整幅选项卡（知渔「套图结构配置」那两张 437×82 的卡）──────────────────── */
 .media-field-cards { display: grid; gap: 13px; }
+/* 批 BM：展开出来的那一块滚进视野时，要**给底部 CTA 让位**（否则它停在按钮下面，仍看不全 ——
+   实测 counts 底 980 vs CTA 顶 877 = 被盖 103px）。scroll-margin-bottom = CTA 高 + 余量。 */
+.media-field-counts { scroll-margin-bottom: 148px; }
 .media-field-card {
   display: flex; align-items: center; justify-content: space-between; gap: 13px;
   min-height: 82px; padding: 16px 17px;
@@ -631,7 +637,8 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
      它把自己贴在**滚动区**的下沿，但滚动区下面还有那 28px 内边距，那一条缝里正好透出后面的字段。
      ⇒ 把这条内边距"吃"进 CTA 自己（负外边距 + 等量下内边距）：按钮下沿与面板下沿对齐，
         缝没了；底色仍是面板色（--sb-surface-card），所以滚动内容也不会从它下面透出来。 */
-  margin-bottom: -28px;
+  /* 批 BM：左栏的下内边距已经归零 ⇒ CTA 不需要再用负 margin"吃掉"它；
+     它自己带 padding-bottom 28 把按钮托离面板下沿，白底一直铺到左栏底（缝没了）。 */
   padding-bottom: 28px;
   background: var(--sb-surface-card);
   /* ═══ 2026-09-25 批 BF：按钮**靠右、不通栏**（用户原话，逐字）══════════════════════════════════
@@ -707,10 +714,12 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
    去把它们做 UI 上面的处理呢？这个**示例和历史**，你可能所有页面都有这个问题。」
    改前：未选中那颗**透明底 + 无边框**，只有 hover 才有点反馈 —— 看不出"这是两个可切的键"。
    ⇒ 容器给浅底 + 内边距（分段控件的样子），两颗键各自有边界：选中 = 白底 + 投影，未选中 = 描边。 */
+/* ═══ 2026-09-25 批 BM：**容器那层底去掉、两颗拉开**（用户原话，逐字）══════════════════════════════
+   「你这个示例和历史的按钮是不是**挨得太近了**呀？而且你为什么**背后会有一层图层**呢？很突兀呀！」
+   改前（批 BL）：容器给了浅底 + 描边 + 4px 内边距（分段控件的样子）——用户嫌那层底"突兀"、两颗太挤。
+   ⇒ 容器**不加底、不加边**（按钮自己带白底 + 描边，选中那颗墨底白字），间距 4 → **10**。 */
 .media-workbench-tabs {
-  display: inline-flex; gap: 4px; scroll-margin-top: 108px;
-  padding: 4px; border-radius: var(--sb-radius-card);
-  background: var(--sb-surface-tint); border: 1px solid var(--sb-border-subtle);
+  display: inline-flex; gap: 10px; scroll-margin-top: 108px;
 }
 .media-workbench-tabs button {
   padding: 9px 18px;

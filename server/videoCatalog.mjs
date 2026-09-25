@@ -370,12 +370,37 @@ function longQuoteSeconds(product) {
   return Math.max(product.durations.min, Math.min(9, product.durations.max));
 }
 
+/* ═══ 2026-09-25 批 BM：模型的**家族 / 型号**两组元数据（用户批注，逐字）════════════════════════
+   用户原话：「你这个模型选择……为什么 seedance 不放到一起呢？mini max 你也没有放到一起。
+   **为什么会有 720P 的特定模型呢？720P 应该在生成设置里面去选的呀**。
+   用户在这里就只负责选相应的模型就可以了，然后参数是在生成设置里面去做的呀。」
+
+   改前的毛病：模型下拉**按目录书写顺序**平铺，四条 Seedance 被 MiniMax / 通义万相 / 可灵隔成
+   4 段，MiniMax 的两行中间隔了 5 行；而且「Seedance 2.0 轻量 720P」「MiniMax H3 768P」
+   把**分辨率写进了型号名**，看起来像"720P 是一个模型"。
+
+   ── 两个新字段各自的职责（都不进钱路）─────────────────────────────────────────
+     · family / familyLabel   —— 品牌家族，**模型下拉的分组标题**（Seedance / MiniMax / 通义万相 / 可灵）。
+     · variant / variantLabel —— 型号，**下拉里的一行**。同一 variant 的多条产品 =
+       "同一个型号的不同分辨率档"，在「生成设置 → 清晰度」里选，不再各占一行。
+       variantLabel 是**给用户看的型号名**（不带分辨率）；
+       label 保持原有的精确档位名（账单标签 / 后台 / 报错文案仍要用它认档）。
+
+   ── 为什么分辨率仍然是"一个档位一条产品"（钱路上的事实，不是没来得及改）────────────
+     站内计费 SKU 由**产品 id** 派生（video_${id}_${short|long}，见 videoFeatureSku），
+     于是一条产品只能对一条价档。720P 与 1080P 的上游成本不同（通义万相 ¥0.325/秒 vs ¥0.455/秒），
+     所以它们必须是两条产品 —— 这是 1080P / 2K 档（批 AN）就定下的做法。
+     ⇒ 界面上"一行型号 + 分辨率档位"，钱路上"一条产品一条价档"：
+        用户看到的是模型和参数，账目里仍然一条不漏。 */
+
 export const VIDEO_PRODUCTS = deepFreeze({
   seedance_fast: {
     id: 'seedance_fast',
     label: 'Seedance 2.0 Fast',
     providerLabel: '字节跳动',
     tierLabel: '快速成片',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0-fast', variantLabel: 'Seedance 2.0 Fast',
     description: '更快完成 720P 营销短片，适合试稿、批量迭代和节奏验证。',
     limitations: '优选通道按条计费，只出 5/10/15 秒；不支持参考视频/参考音频与首尾帧模式，这些需求请改用标准版。',
     /* 9-11 换档: 路由切到 IP233 优选通道 agv-seedance2.0fast(¥0.91/条, 实测报价),
@@ -400,6 +425,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Seedance 2.0 标准',
     providerLabel: '字节跳动',
     tierLabel: '正式交付',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0', variantLabel: 'Seedance 2.0',
     description: '稳定完成 720P 多模态营销短片，适合商品、人物与场景的正式交付。',
     limitations: '只出 5/10/15 秒；生成时间更长，高峰期会进入独立队列等待。',
     /* 9-16 路由纠错: 原 sd5-seedance-2.0 未声明 openai-video, /v1/videos 永远调不通(用户看到的是
@@ -441,6 +468,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'MiniMax H3 768P',
     providerLabel: 'MiniMax',
     tierLabel: '主流可选',
+    family: 'minimax', familyLabel: 'MiniMax',
+    variant: 'minimax-h3', variantLabel: 'MiniMax H3',
     /* 批 BJ：描述缩到**一行**（用户原话：「你现在这些模型的描述全部有第二行存在……我好像只看到你这个
        mini max H3 它是有第二行的。其他的模型都没有第二行导致下面都是空的。你不如就把 mini max 的这个
        描述缩短一点。然后整体的描述变成一行就可以了。」）
@@ -478,6 +507,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Grok 极速',
     providerLabel: 'xAI',
     tierLabel: '极速试稿',
+    family: 'grok', familyLabel: 'Grok',
+    variant: 'grok-imagine', variantLabel: 'Grok 极速',
     description: '几秒出片，适合试方向、批量试稿和节奏验证。',
     limitations: '仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'grok-imagine-video',
@@ -498,7 +529,11 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: '通义万相 3.0',
     providerLabel: '阿里通义',
     tierLabel: '通用性价比',
-    description: '国产主流路线，商品与场景稳定性好，价格低，480P/720P 双档，适合日常出片。',
+    family: 'wan', familyLabel: '通义万相',
+    variant: 'wan-3.0', variantLabel: '通义万相 3.0',
+    /* 批 BM：这一行是**合并行**的描述（型号"通义万相 3.0"下 720P/480P 与 1080P 两条产品共用）——
+       文案必须说全三档，否则下拉里写"双档"、生成设置里却有三个药丸，两边打架。 */
+    description: '国产主流路线，商品与场景稳定，480P/720P/1080P 三档可选。',
     limitations: '单张参考图；480P 与 720P 双档；不支持参考视频、参考音频与首尾帧。',
     /* 2026-09-23：补 480P 档。证据 = 上游**文档站自己的价目**（new.ip233.com/docs/models 的
        数据源就是 /api/pricing，pricing_version=ip233-route-v2），其中 **xn-wan3.0 这一行**
@@ -537,6 +572,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: '通义万相 3.0 1080P',
     providerLabel: '阿里通义',
     tierLabel: '全高清',
+    family: 'wan', familyLabel: '通义万相',
+    variant: 'wan-3.0', variantLabel: '通义万相 3.0',
     description: '同一条通义万相路线的高清档：1080P 全高清输出，商品与场景稳定性好。',
     /* 面向用户的限制只写"用户能做什么"（模型菜单里直接展示这一行）：
        不写我们的上游单价与余额 —— 那是内部账，用户要的是"能出多久的片子"。
@@ -566,6 +603,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Seedance 2.0 1080P',
     providerLabel: '字节跳动',
     tierLabel: '全高清',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0', variantLabel: 'Seedance 2.0',
     description: 'Seedance 2.0 的 1080p 超清路线（中转独立模型名 seedance-2.0-1080p）。',
     limitations: '1080P 超清档（当前未开放，通道就绪后上架）。',
     /* ═══ 为什么这条是 public: false（不是"忘了开"）═════════════════════════════════════════════
@@ -593,6 +632,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: '可灵 3.0',
     providerLabel: '快手可灵',
     tierLabel: '主流第三方',
+    family: 'kling', familyLabel: '可灵',
+    variant: 'kling-3.0', variantLabel: '可灵 3.0',
     description: '人物动作与镜头运动自然，适合剧情与口播。',
     limitations: '仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'kling-3.0',
@@ -619,6 +660,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: '可灵 3.0 Pro',
     providerLabel: '快手可灵',
     tierLabel: '第三方精制',
+    family: 'kling', familyLabel: '可灵',
+    variant: 'kling-3.0-pro', variantLabel: '可灵 3.0 Pro',
     description: '可灵高质量档，细节与一致性更好，适合品牌片与人物口播。',
     limitations: '仅 720P；不支持参考视频与参考音频。',
     routeId: 'kling-3.0-pro',
@@ -641,6 +684,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Veo 3.1 Fast',
     providerLabel: 'Google',
     tierLabel: '国际路线',
+    family: 'veo', familyLabel: 'Veo',
+    variant: 'veo-3.1-fast', variantLabel: 'Veo 3.1 Fast',
     description: 'Google Veo 快速档，物理运动与真实感强，适合写实场景与产品演示。',
     limitations: '单张参考图；仅 720P；不支持参考视频、参考音频与首尾帧。',
     routeId: 'veo-3.1-fast',
@@ -666,6 +711,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Seedance 2.5',
     providerLabel: '字节跳动',
     tierLabel: '画质升级',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.5', variantLabel: 'Seedance 2.5',
     description: '新一代画质与一致性，细节和材质表现更好，适合品牌主推片。',
     limitations: '仅 720P；参考视频与参考音频各最多 10 个；生成时间更长，高峰期排队更久。',
     routeId: 'sd-2.5-js2',
@@ -695,6 +742,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'MiniMax H3 2K',
     providerLabel: 'MiniMax',
     tierLabel: '2K 精制',
+    family: 'minimax', familyLabel: 'MiniMax',
+    variant: 'minimax-h3', variantLabel: 'MiniMax H3',
     description: '支持 1440P 精制输出、多模态参考与首尾帧，适合高质量短片与品牌主推片。',
     limitations: '按条计费；输出 1440P；参考图/视频/音频各最多 30 个；生成时间更长。',
     routeId: 'xn-minimax-h3',
@@ -719,6 +768,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Seedance 2.0 轻量 720P',
     providerLabel: '字节跳动',
     tierLabel: '轻量按条',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0-js900', variantLabel: 'Seedance 2.0 轻量',
     description: '按条计费的轻量通道，固定 720P，出片稳定，适合批量试稿与日常更新。',
     limitations: '按条计费；仅支持 9 张参考图，不支持参考视频与参考音频。',
     routeId: 'sd-2.0-js900',
@@ -740,6 +791,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Seedance 2.0 满参数 720P',
     providerLabel: '字节跳动',
     tierLabel: '多模态按条',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0-js', variantLabel: 'Seedance 2.0 满参数',
     description: '固定 720P 的满参数按条通道，参考图、参考视频、参考音频都能带，适合复杂镜头。',
     limitations: '按条计费；仅 720P；参考图最多 9 张、参考视频与参考音频各最多 3 个。',
     routeId: 'sd-2.0-js',
@@ -761,6 +814,8 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'Seedance 2.0 Mini',
     providerLabel: '字节跳动',
     tierLabel: '轻量多模态',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0-mini', variantLabel: 'Seedance 2.0 Mini',
     description: '轻量版多模态通道，文生/图生/多模态/首尾帧都能做，480P 与 720P 双档可选。',
     limitations: '按条计费；输出最高 720P；首尾帧模式不支持生成声音。',
     routeId: 'seedance-2.0-mini',
@@ -1010,6 +1065,11 @@ export function publicVideoProducts({ includeHidden = false } = {}) {
       label: product.label,
       providerLabel: product.providerLabel,
       tierLabel: product.tierLabel,
+      /* 批 BM：分组与型号合并靠这四个字段（前端 buildVideoModelRows 消费，见该函数注释） */
+      family: product.family,
+      familyLabel: product.familyLabel,
+      variant: product.variant,
+      variantLabel: product.variantLabel,
       description: product.description,
       limitations: product.limitations,
       public: true,
