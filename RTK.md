@@ -8238,3 +8238,38 @@ HF 的 `Goku-OpenLab/*`（CC-BY-4.0，带中文 `i18n.zh`）、`gpt-img-2` 中�
 **产出**：`docs/design/82-production-model-redesign.md`（一手实测 / 裁定 / 错在哪 / 重设计 / 开源清单 /
 对 81 号那段模板的修正：`[签名纪律]` 与 `[本篇方向]` 保留，`[这一张]` 改成"从手法清单挑 + AI 提案构思"）。
 **验证**：只增文档，未碰 src/ 与 server/。不需要 precommit、不需要发版。
+
+---
+
+## 2026-09-25 批 BI：左导航渐变**真的生效了** + 底栏下留白对齐 + 模式卡动效挪到预览图 + 页签间距
+
+- 提交 \`1b919238\`（5 files，+50/−15）；\`npm run test\` **4087 项 0 fail**；\`npm run precommit\` **通过**。
+- \`Deployed 1b919238 to https://shuimg.cn/\`；release \`20260925-121143-1b919238\`，PM2 pid 3518478，
+  \`/\` 与 \`/health\` 200；入口与样式公网/release **sha256 逐字节一致**。
+
+### 逐条实测（用户 4 条）
+| 项 | 改前 | 改后 |
+|---|---|---|
+| 导航格子默认底 | \`backgroundImage: none\`（**渐变被吞**） | \`linear-gradient(90deg, #fff 0%, brand-a05 58%, brand-a18 100%)\` |
+| 导航格子 hover 底 | 斜向 160deg | **对角 135deg** + 磁贴径向光晕 |
+| 底栏「按钮下沿 → 白卡下沿」 | 43px（上面对应 31px） | **30px ≈ 上面 31px** |
+| 页签间距 / 配置按钮间距 | 24 / 10 | **10 / 10** |
+| 模式卡 hover 图标 | 铺品牌渐变 + scale(1.06) | **不动** |
+| 模式卡 hover 标题 | 转品牌色 | **不变**（墨色） |
+| 模式卡 hover 预览图 | 无动效 | **scale(1.045)**（224 → 234px） |
+
+### ⚠️ 这一轮最大的教训：**CSS 简写会吃掉前面的声明**
+批 BG 我把导航默认渐变写在前面那条 \`.app-sidebar-cell\` 里，但文件后部还有
+\`.app-sidebar-cell { background: var(--sb-surface-tint) }\` —— \`background\` 是简写，把
+\`background-image\` **一起重置成 none**。实测计算值就是 \`none\`，所以用户说"根本没有去改变"是准确的。
+⇒ 拆成 \`background-color\` + \`background-image\` 写在同一处才生效。
+**同一类坑这个月踩了三次**（都值得先 grep 一遍同名选择器与简写）：
+1. 本条（\`background\` 吃掉 \`background-image\`）；
+2. 那根"线"（\`.xhs-template-actions\` 裸选择器优先级高于 \`.visual-parameter-bar\`）；
+3. \`.topbar-logo\` 在文件里有两份规则、前一份的属性全被后一份覆盖（已清理）。
+
+### 门禁改判（1 条：用户改向 + 旧断言无依据）
+\`test/home-mode-cards.test.mjs\` 里原有一条**没有任何依据注释**的
+\`assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-visual img/)\`（V3 清理期留下）。
+按用户本轮口径（「图标跟标题应该是固定好的……真正应该有 UI 动效的是下面那三张扇形张开的卡片，
+他们稍微放大动起来一点」）反转成三条，并把用户原话写进断言旁。
