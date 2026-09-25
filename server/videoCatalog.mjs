@@ -441,7 +441,11 @@ export const VIDEO_PRODUCTS = deepFreeze({
     label: 'MiniMax H3 768P',
     providerLabel: 'MiniMax',
     tierLabel: '主流可选',
-    description: '文生/图生/多模态/首尾帧都能做，节奏与人物稳定性好，适合口播与生活场景短片。',
+    /* 批 BJ：描述缩到**一行**（用户原话：「你现在这些模型的描述全部有第二行存在……我好像只看到你这个
+       mini max H3 它是有第二行的。其他的模型都没有第二行导致下面都是空的。你不如就把 mini max 的这个
+       描述缩短一点。然后整体的描述变成一行就可以了。」）
+       实测：行内文字区约 380px（10px 字），这一条 38 字会换行，其他档都在 30 字以内。缩短到 26 字。 */
+    description: '文生/图生/多模态/首尾帧都能做，节奏与人物稳定性好。',
     limitations: '按秒计费；参考视频与参考音频不限，首尾帧需两张图。',
     routeId: 'minimax-h3',
     credential: 'minimax',

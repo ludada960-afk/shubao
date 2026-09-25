@@ -236,8 +236,13 @@
   transform: translateY(-2px);
 }
 
+/* 批 BJ：左侧由通用图标换成**模型品牌标**（与视频侧触发那颗同档：28px 容器 + 内层品牌 logo），
+   右侧由"调节"图标换成**下拉箭头**（展开时旋转 180°，就是用户说的"向上的箭头"）——
+   用户原话：「你按钮右边的这个标也不太一样。那边好像是一个向上的箭头，你这边为什么是一个配置的样式呢？」 */
 .visual-config-trigger > svg:first-child { flex: 0 0 auto; color: #6753d8; }
-.visual-config-trigger > svg:last-child { flex: 0 0 auto; color: #8f8792; }
+.visual-config-trigger-mark { flex: 0 0 auto; display: inline-grid; place-items: center; width: 28px; height: 28px; }
+.visual-config-trigger-chevron { flex: 0 0 auto; color: #8f8792; transition: transform var(--sb-dur-normal) var(--sb-ease-out); }
+.visual-config-trigger.is-open .visual-config-trigger-chevron { transform: rotate(180deg); }
 .visual-config-trigger-copy { display: grid; min-width: 0; flex: 1; gap: 2px; }
 /* 批 BF：这两行字与视频侧**同一批取值**（表里的 #918992 / #99918a 是两个灰、700/600 是两种字重，
    同一颗按钮上的同一句话在两页长得不一样）。小字走 muted、值走 ink-1。 */

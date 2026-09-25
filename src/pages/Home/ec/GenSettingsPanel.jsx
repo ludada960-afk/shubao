@@ -70,7 +70,14 @@ const RESOLUTIONS = [
    2026-09-19 用户批注 #5-①/#6：「首页图片只要两个面板，一个是选模型的，另一个把尺寸、数量、
    清晰度集合在一起，打开就能看到分辨率和尺寸」。所以首页把清晰度挪进「画面规格」面板，
    模型面板只留模型 —— 选项值与回落逻辑仍由本组件的 imageModelResolutions 提供，不另写一份。 */
-export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null, hideResolution = false, openModelList = false }) {
+/* ═══ 2026-09-25 批 BJ：onPickModel（用户原话，逐字）══════════════════════════════════════════
+   「我现在选择任意一个模型，你**为什么会弹出一个空白窗**呢？这个窗不能有呀。我都说了很多次了，
+     就是点击这个模型按钮的时候，就是要那个**全部模型的那个面板弹出来**，用户选择完就**直接默认配置到
+     你的按钮里面**就可以了，就这么简单的一个逻辑而已。」
+   实测复现：选完模型后 panel 仍在、内容只剩标题「生图模型」、列表 0 行、面板 480×74 —— 就是那个空白窗。
+   根因：selectModel 里 setModelListOpen(false) 收起列表，而首页那一档（openModelList）**不渲染触发行**
+   ⇒ 面板里什么都不剩。⇒ 首页那一档选完让**调用方关掉整个面板**（onPickModel）。 */
+export default function GenSettingsPanel({ value, onChange, showHeader = true, brandColors = null, onBrandColorsChange = null, hideResolution = false, openModelList = false, onPickModel = null }) {
   const safeValue = value || {};
   const selectedModel = normalizeImageModel(safeValue.imageModel);
   const currentDef = IMAGE_MODELS.find(model => model.id === selectedModel);
@@ -123,7 +130,9 @@ export default function GenSettingsPanel({ value, onChange, showHeader = true, b
     const currentResolution = safeValue.resolution || '2K';
     const nextResolution = nextResolutions.includes(currentResolution) ? currentResolution : nextResolutions[nextResolutions.length - 1];
     onChange?.({ ...safeValue, imageModel: model.id, resolution: nextResolution });
-    setModelListOpen(false);
+    /* 批 BJ：首页那一档选完**关整个面板**（不要留一个只剩标题的空窗）；其它面板维持"收起列表"的原行为。 */
+    if (openModelList && onPickModel) onPickModel(model);
+    else setModelListOpen(false);
   };
 
   /* ── 选项卡：改用预置类 .sb-opt（20-components.md §0.4 明示优先用它） ──

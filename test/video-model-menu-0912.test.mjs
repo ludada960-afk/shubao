@@ -10,7 +10,14 @@ test('模型图标改为白底细边（彩色品牌标自带配色）', () => {
   const rule = css.match(/\.video-model-mark \{([^}]*)\}/);
   assert.ok(rule, '规则存在');
   /* 2026-09-14 §18 灰阶迁移：白底改用 --sb-neutral-0（值不变）。断言「解析后为白」。 */
-  assert.match(rule[1], /background:\s*(#fff\b|var\(--sb-neutral-0\))/);
+  /* ═══ 2026-09-25 批 BJ：**判据改判**（用户改向，逐字）════════════════════════════════════════
+     用户原话：「你这些视频模型跟图片模型的图标做法也不一样呀，**那边的图标似乎是有抠底的**，
+     你这边好像是没有抠底。而且你的图标适配似乎做的也没有跟那边一样。」
+     实测：图片侧 `.ec-model-mark` 是**透明无底、无边框**（box bg rgba(0,0,0,0) / border 0），
+     而视频侧套了一层白底 + 1px 描边 ⇒ 两侧不同款。
+     ⇒ 小图标改成与图片侧同款：**透明底 + 无边框**。
+     ② 守的东西没变：**不得再用深色底**（那是 2026-09-12 用户点名"看着一团黑"的原始诉求）。 */
+  assert.match(rule[1], /background:\s*transparent/, '与图片侧同款：透明底（"抠底"）');
   assert.doesNotMatch(rule[1], /background: #343840/, '不得再用深色底');
   assert.doesNotMatch(css, /\.video-model-mark\.is-seedance \{ background: linear-gradient/, '渐变深底必须去掉');
 });

@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
-import { Check, Info, LayoutTemplate, Layers3, Maximize2, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
+import { Check, ChevronDown, Info, LayoutTemplate, Layers3, Maximize2, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
+/* 批 BJ：触发按钮里要显示**模型品牌 logo**（与视频侧同款），需要这两个 —— 见下面「生图模型」那颗按钮。 */
+import ModelLogo from '../../components/ModelLogo.jsx';
+import { brandLogo } from '../../services/modelLogos.js';
 import {
   MdAutoAwesome,
   MdCropFree,
@@ -917,7 +920,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
               分辨率和尺寸"，把它留在模型面板里等于逼用户点两次） */}
           {/* ⚠️ openModelList：用户批注 #3-①「点击这个按钮之后就应该是默认往下拉选模型呀」——
               面板一打开就是模型清单本身，不再让用户点第二次。 */}
-          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} openModelList value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
+          {/* ⚠️ 批 BJ：onPickModel = 选完模型直接关掉这个面板（用户："用户选择完就直接默认配置到你的按钮
+              里面就可以了"）—— 不留"只剩标题的空白窗"。 */}
+          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} openModelList onPickModel={() => setActiveConfigPanel(null)} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} hideResolution />}
         </div>
       </div>,
       /* ⚠️ 与视频侧同一条理由（VideoStudio/index.jsx 的 renderFloatingPanel）：挂 document.body
@@ -1097,16 +1102,24 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                 「自由创作」这类高度定制的入口（它们是跟别的 skill 平级的子页面）。
                 配方面板本身仍然保留在组件里（深链指定技能时还会用到），只是首页不再暴露入口。 */}
             <div className="ec-workbench-tools xhs-template-tools visual-config-cluster" aria-label="生成配置">
+              {/* ═══ 2026-09-25 批 BJ：**与视频侧那颗逐项对齐**（用户原话，逐字）══════════════════════════
+                  「你这边图片生成的下面两个按钮，现在整体的样式策略跟视频生成那边也是不一样的……
+                    比如说你选择模型之后，它应该匹配到你下面的这个按钮里面一起显示出来，视频生成那边是有的，
+                    为什么你图片生成这边没有呢？……还有就是你按钮右边的这个标也不太一样。那边好像是一个
+                    **向上的箭头**，你这边为什么是一个**配置的样式**呢？」
+                  ⇒ ① 左侧从通用图标（MdHighQuality）换成**模型品牌 logo**（28px，与视频侧触发那颗同档）；
+                     ② 右侧从"调节"图标（MdTune）换成 **ChevronDown**（展开时旋转 180° = 那个"向上的箭头"）。 */}
               <button type="button" ref={element => { configButtonRefs.current.settings = element; }} className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
-                <MdHighQuality aria-hidden="true" />
+                <span className="visual-config-trigger-mark" aria-hidden="true"><ModelLogo logo={brandLogo(model.brand)} size={28} radius={8} /></span>
                 <span className="visual-config-trigger-copy"><small>生图模型</small><strong>{model.label}</strong></span>
-                <MdTune aria-hidden="true" />
+                <ChevronDown className="visual-config-trigger-chevron" size={14} aria-hidden="true" />
               </button>
               <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
                 <MdCropFree aria-hidden="true" />
                 {/* 触发按钮只体现「分辨率 + 比例」两个维度（数量恒为 1，不再上屏） */}
                 <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{resolution} · {ratio}</strong></span>
-                <MdTune aria-hidden="true" />
+                {/* 批 BJ：右侧与视频侧统一成下拉箭头（原来是"调节"图标） */}
+                <ChevronDown className="visual-config-trigger-chevron" size={14} aria-hidden="true" />
               </button>
             </div>
             <button
