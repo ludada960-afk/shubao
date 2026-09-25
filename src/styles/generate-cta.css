@@ -21,7 +21,15 @@
 }
 .shubao-gen-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
 .shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
-.shubao-gen-cta:disabled { background: #e5e3e0; color: #a8a39e; box-shadow: none; cursor: not-allowed; }
+/* 批 BN：禁用档改用 V3 的既有语言（--sb-state-disabled-bg / -ink，与 Button.jsx / Home.css /
+   skill-library.css 同一对）—— 三处主 CTA（全局 / 图片侧工作台 / 视频侧）从此只认一份来源，
+   也不再硬编码色值。旧写法是 V2 家族的 footer-actions-* 两个 hex（全仓棘轮要求 V2 用法为 0）。 */
+.shubao-gen-cta:disabled {
+  background: var(--sb-state-disabled-bg);
+  color: var(--sb-state-disabled-ink);
+  box-shadow: none;
+  cursor: not-allowed;
+}
 .shubao-gen-cta .shubao-gen-cta-points { display: inline-flex; align-items: center; gap: var(--sb-space-1-5); font-size: 13px; font-weight: 700; opacity: .96; }
 .shubao-gen-cta .shubao-gen-cta-points::before { content: ''; width: 1px; height: 14px; background: rgba(255, 255, 255, .45); }
 /* 9-12 用户批注：按钮可以是灰的，但**积分必须仍然显眼**（主次分明）——
@@ -36,3 +44,20 @@
 }
 .shubao-gen-cta:disabled .shubao-gen-cta-points::before { background: rgba(109, 40, 217, .28); }
 .shubao-gen-cta.is-busy { opacity: .82; cursor: progress; }
+/* ═══ 2026-09-25 批 BN：CTA 下方那行「还差什么」提示（用户批注，逐字）════════════════════════════
+   用户原话：「你好好看一下他们这个按钮是怎么做的……**他们这个按钮是当用户没有满足条件的时候，
+   这个按钮是不能够亮起来的**。然后当你这个是必须要上传素材的时候，**它下面是会有一个提示**
+   必须要上传的。如果你这个 skill 不需要一定要上传素材，那就不会有这个提示，就是只要用户他输入了
+   提示词，这里就会亮起来。」
+   知渔实测（2560×1280 截图逐像素，.qa/bn-measure-quantv-cta.mjs）：按钮通栏 319×34 CSS px，
+   提示在按钮**正下方**约 18px、**居中**、灰字（#6b7280 / #9ca1aa ≈13px）。
+   ⇒ 规格**只在这里定义一次**，图片侧工作台与视频侧工作台共用同一个类 (.shubao-gen-cta-hint) ——
+      两边再也不会各写一套（"两套东西在做"是本项目最贵的返工理由）。
+      「要不要出现这行提示」由各自的必填校验决定，不是写死的。 */
+.shubao-gen-cta-hint {
+  margin: 0;
+  text-align: center;
+  color: var(--sb-ink-3);
+  font-size: 12.576px;
+  line-height: 1.4;
+}

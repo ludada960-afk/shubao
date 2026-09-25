@@ -440,13 +440,24 @@
 .video-submit-row > span,
 .video-submit-row > .video-submit-meta span { color: #928b84; font-size: 10px; white-space: nowrap; }
 .video-submit-actions { min-width: 0 !important; display: flex !important; align-items: center; justify-content: flex-end; gap: 10px; flex: 0 0 auto; }
+/* ═══ 2026-09-25 批 BN：CTA 下方出现「还差什么」提示时，动作区改**竖排** ══════════════════════
+   用户原话：「你工作台下面的这个生成按钮，**不管是生成预览还是生成图片，生成视频**……
+   你应该学习知渔他们的做法呀。」⇒ 视频侧与图片侧同一形态：按钮通栏、提示居中在它下面。
+   只在**有提示**时才竖排（没提示时保持原来那一行：次按钮 + 主按钮并排）。 */
+.video-submit-actions.has-hint { flex-direction: column; align-items: stretch; }
 /* 批 BB：主 CTA 高度/内边距**与图片侧那颗逐值相同**（38px / 0 22px / 圆角 12）——
    原来是 44px / 0 18px / 圆角 8，于是同一块底栏上两边的按钮基线与留白都不一样。 */
 .video-submit-row button { min-height: 38px; padding: 0 22px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; /* §18.3 M3 / 裁定 2：功能按钮禁止渐变，改品牌紫纯色（渐变只留 logo/hero/空态）。 */
   background: var(--sb-btn-primary-bg); box-shadow: 0 8px 20px var(--sb-brand-a32); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
 .video-submit-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 26px var(--sb-brand-a32); }
 .video-submit-row button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 16px var(--sb-brand-a32); }
-.video-submit-row button:disabled { background: #e5e3e0; box-shadow: none; color: #a8a39e; cursor: not-allowed; }
+/* 批 BN：改用与全局 CTA 同一对禁用 token（值不变），三处禁用态只认一份来源。 */
+.video-submit-row button:disabled {
+  background: var(--sb-state-disabled-bg);
+  box-shadow: none;
+  color: var(--sb-state-disabled-ink);
+  cursor: not-allowed;
+}
 /* 次按钮（分析并生成方案）：**中性**。原来用"紫→品红渐变描边 + 紫字"来区分主次，
    结果整页两颗按钮都是紫的（用户批注 #5-①：「为什么你这些按钮都是紫色的呢？整个页面一大堆紫色」）。
    现在的主次靠**实心 vs 描边**表达，不靠颜色：主 CTA 实心反色面，次按钮白底细描边 + 墨色字。 */

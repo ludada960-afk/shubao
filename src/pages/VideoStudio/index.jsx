@@ -94,7 +94,7 @@ import { buildVideoPlan, VIDEO_PROMPT_MAX_LENGTH } from './videoPlanModel.js';
    然后参数是在生成设置里面去做的呀。」
    ⇒ 目录给的是平铺的产品（一条产品一条价档，钱路不许动），折成「家族 → 型号 → 清晰度档位」
       这一层放在 videoModelRows.js 里（纯函数，门禁可直接断言），页面只消费它的结果。 */
-import { buildVideoModelRows, productForResolution, rowOfVariant } from './videoModelRows.js';
+import { buildVideoModelRows, productForResolution, rowOfVariant, videoModelChip } from './videoModelRows.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import ModelLogo from '../../components/ModelLogo.jsx';
 import { brandLogo, videoProductLogo } from '../../services/modelLogos.js';
@@ -1520,6 +1520,34 @@ export default function VideoStudioPage({
     : (processPlan
       ? processReady && !submitting
       : (capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning));
+  /* ═══ 2026-09-25 批 BN：CTA 下面那行「还差什么」（视频侧原来没有，图片侧有 ctaHint）══════════════
+     用户原话：「他们这个按钮是当用户没有满足条件的时候，这个按钮是不能够亮起来的。然后当你这个是
+     必须要上传素材的时候，**它下面是会有一个提示**必须要上传的。如果你这个 skill 不需要一定要上传
+     素材，那就不会有这个提示，就是**只要用户他输入了提示词，这里就会亮起来**。」
+     ⇒ 三条规矩：
+       ① **缺什么说什么，一次只说最该先做的那一步**（把 6 个条件一次倒出来，用户反而不知道先做哪个）；
+       ② **不该出现时不出现**（智能成片这类不强制素材的模式，输入提示词就不该被提示拦着）；
+       ③ 文案是**用户要做的事**，不写内部原因（"requires=false" 这种话不进界面）。 */
+  const submitHint = (() => {
+    if (submitting) return '';
+    if (!state.logged) return '登录后即可生成';
+    if (!capabilities.generationEnabled) return '视频生成暂未开放';
+    if (processPlanBlocked) return processPlanBlockedReason || '';
+    if (processPlan) {
+      /* 上游/本机处理那一档（视频高清 / 去字幕 / 数字人）：要的是"一条源片子 + 它自己的规格" */
+      if (!processSourceFile) return '请先上传要处理的视频';
+      if (processAudioSlot && !processAudioFile) return '请先上传配音文件';
+      if (processSpec.regions && !regions.length) return '请先在画面上框选要处理的区域';
+      if (localEngine && !autoModeSelected && !localEngineReady) return '本机渲染组件未就绪，暂时不能生成';
+      if (!quote?.quoteId) return '正在确认费用…';
+      return '';
+    }
+    if (!String(prompt || '').trim()) return '请输入画面描述';
+    if (!requires) return mode === 'frame' ? '请先上传首帧和尾帧' : '请先上传参考图片和参考视频';
+    if (!activeAnalysis || !planReviewed) return '请先「分析并生成方案」并确认';
+    if (!quote?.quoteId) return '正在确认费用…';
+    return '';
+  })();
 
   const openVideoPlan = async () => {
     setError('');
@@ -2166,7 +2194,7 @@ export default function VideoStudioPage({
                 </button>
                 {inlineMenu === 'model' && <div className="video-inline-menu is-model" style={{ left: modelAnchor?.left, bottom: modelAnchor?.bottom, width: modelAnchor?.width, maxHeight: modelAnchor?.maxHeight }}><div className="video-model-menu-head"><GroupTitle icon={Sparkles}>视频模型</GroupTitle></div>{/* 批 BM：家族分组。⚠️ 每组用 Fragment 包（**不套 div**）—— 模型行的样式全是
     `.video-inline-menu > button` 这种直接子选择器（1177/1187/1190/1203/1210 行那一族），
-    套一层 div 会让整族样式静默失配（这就是"两边两套东西"的成因之一）。 */}{modelRows.families.map(family => <React.Fragment key={family.key}><div className="video-model-group-label">{family.label}</div>{family.rows.map(row => <button key={row.variant} type="button" aria-pressed={activeRow?.variant === row.variant} className={activeRow?.variant === row.variant ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); const next = productForResolution(row, resolution); if (next) setSelectedProductId(next.id); setInlineMenu(null); }}><VideoModelMark product={row.primary} provider={row.primary.providerLabel} size={32} /><span className="video-model-copy"><b>{row.label}<em>{activeRow?.variant === row.variant ? (selectedProduct?.tierLabel || row.tierLabel) : row.tierLabel}</em></b><small>{row.description}</small>
+    套一层 div 会让整族样式静默失配（这就是"两边两套东西"的成因之一）。 */}{modelRows.families.map(family => <React.Fragment key={family.key}><div className="video-model-group-label">{family.label}</div>{family.rows.map(row => <button key={row.variant} type="button" aria-pressed={activeRow?.variant === row.variant} className={activeRow?.variant === row.variant ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); const next = productForResolution(row, resolution); if (next) setSelectedProductId(next.id); setInlineMenu(null); }}><VideoModelMark product={row.primary} provider={row.primary.providerLabel} size={32} /><span className="video-model-copy"><b>{row.label}<em>{videoModelChip(row, activeRow?.variant === row.variant ? (selectedProduct?.tierLabel || row.tierLabel) : row.tierLabel)}</em></b><small>{row.description}</small>
                 {/* ═══ 2026-09-16 用户批注（图2-②）：「你为什么这里会有两套描述呢？
                    你只要保留一套就好了呀。然后你的积分其实是不能在这里说的。」
                    —— 模型列表原本一行里塞了 4 段文字（型号+档位 / 描述 / 限制 / 积分），
@@ -2239,7 +2267,7 @@ export default function VideoStudioPage({
               ⚠️ 批 AZ：按钮上的价目说明也从**产品目录**派生（原来写死 0.04/0.50 两个数字）——
                  数字人那一档是 0.12 积分/秒、按**配音**秒数算，写死就会显示成别人的价。 */}
           {processPlan ? (
-            <div className="video-submit-row"><div className="video-submit-actions">
+<div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{/* 批 BN：提示在按钮**下方**居中（与图片侧同一个类，规格只有一份） */}
               <button
                 type="button"
                 className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`}
@@ -2250,9 +2278,10 @@ export default function VideoStudioPage({
                 {quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />
                 {submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}
               </button>
+              {submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}
             </div></div>
           ) : (
-          <div className="video-submit-row"><div className="video-submit-actions">{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
+          <div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
           )}
         </footer>
       </div>

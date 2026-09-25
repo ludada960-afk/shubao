@@ -475,7 +475,10 @@ export const VIDEO_PRODUCTS = deepFreeze({
        描述缩短一点。然后整体的描述变成一行就可以了。」）
        实测：行内文字区约 380px（10px 字），这一条 38 字会换行，其他档都在 30 字以内。缩短到 26 字。 */
     description: '文生/图生/多模态/首尾帧都能做，节奏与人物稳定性好。',
-    limitations: '按秒计费；480P 与 720P 双档；参考视频与参考音频不限，首尾帧需两张图。',
+    /* ⚠️ 2026-09-25 批 BM-7 修正计费口径：原来写「按秒计费」是**错的** ——
+       本档两条 SKU 都是按条固定价（short/long 同为 38000 units = 38 积分），
+       台账的 costPerClipCny=4.55 也是按条口径。上游那条通道按秒供货 ≠ 用户按秒付费。 */
+    limitations: '按条计费；480P 与 720P 双档；参考视频与参考音频不限，首尾帧需两张图。',
     routeId: 'minimax-h3',
     credential: 'minimax',
     public: true,

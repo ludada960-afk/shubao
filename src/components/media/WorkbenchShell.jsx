@@ -378,7 +378,7 @@ export default function WorkbenchShell({
                    也是"不许放点了必失败的东西"那条铁律的一部分：灰按钮不说明原因 = 用户卡死。
                 现在：**状态留、解释删** —— 只留最短的一句状态（见 MediaCreation 侧的 moduleGate 文案，
                 连括号里的解释都去掉了），不给它任何"说明文"的写法。 */}
-            {ctaHint && <p className="media-workbench-cta-hint">{ctaHint}</p>}
+            {ctaHint && <p className="media-workbench-cta-hint shubao-gen-cta-hint">{ctaHint}</p>}
           </div>
         </div>
       )}

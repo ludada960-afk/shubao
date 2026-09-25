@@ -89,6 +89,20 @@ export function buildVideoModelRows(products = []) {
   return { rows, byVariant, families };
 }
 
+/* ═══ 型号行右侧那颗小标签写什么（唯一出处，页面与门禁共用这一个函数）═══════════════════════
+   · 多清晰度档位（合并行，例如通义万相 3.0 / MiniMax H3）⇒ 写**支持的清晰度清单**
+     （'480P · 720P · 2K'）：这是用户要的信息，也回答"2K 在哪"。
+   · 单档 ⇒ 仍写档位文案（'正式交付' / '轻量按条' …）。
+   ⚠️ 为什么合并行不写 tierLabel：那个词是**主档**的档位（'主流可选'），而 2K 是另一条价档，
+      写在合并行上会误导；何况它随选中档位跳动，用户看不出这行到底卖什么。 */
+export function videoModelChip(row, currentTier) {
+  if (!row) return '';
+  if (Array.isArray(row.resolutions) && row.resolutions.length > 1) {
+    return row.resolutions.map(value => String(value).toUpperCase()).join(' · ');
+  }
+  return currentTier || row.tierLabel || '';
+}
+
 export function rowOfVariant(modelRows, variant) {
   if (!modelRows || !variant) return null;
   return modelRows.byVariant.get(variant) || null;

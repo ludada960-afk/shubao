@@ -17,7 +17,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { buildVideoModelRows, productForResolution, rowOfVariant } from '../src/pages/VideoStudio/videoModelRows.js';
+import { buildVideoModelRows, productForResolution, rowOfVariant, videoModelChip } from '../src/pages/VideoStudio/videoModelRows.js';
 import { publicVideoProducts, videoFeatureSku } from '../server/videoCatalog.mjs';
 
 const rows = buildVideoModelRows(publicVideoProducts());
@@ -129,4 +129,31 @@ test('⑤ 分组标题是纯文本、行样式仍是直接子选择器、滚动�
   assert.doesNotMatch(css, /\.video-inline-menu::-webkit-scrollbar \{ width: 0/, '不许再把滚动条画成 0 宽');
   assert.match(css, /\.video-inline-menu::-webkit-scrollbar \{ width: 8px/, '模型下拉的滚动条 8px');
   assert.match(css, /\.video-inline-menu \{ scrollbar-width: thin; \}/, 'Firefox 一侧同样给细条');
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   第六节：型号行的小标签写"支持的清晰度"（用户提问引出的一处发现性修补）
+
+   用户原话（逐字）：「可是这样做的话，不是没有所谓的 **2K** 的配置按钮吗，
+   那不是还得在模型选择里面做这个选项吗？」
+
+   答案分两半，两半都要在这里守住：
+     · 2K 的**按钮**在「生成设置 → 清晰度」里（见第 ③ 条断言的映射），不需要在模型列表里占一行；
+     · 但合并之后列表里确实**看不出**"这个型号还能出 2K" ⇒ 多档行的标签改成档位清单。
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+test('⑥ 多清晰度档位的型号行：标签写"支持哪些清晰度"（2K 在列表里看得见，选择仍在生成设置）', async () => {
+  const wan = rowOfVariant(rows, 'wan-3.0');
+  const mini = rowOfVariant(rows, 'minimax-h3');
+  const single = rowOfVariant(rows, 'sd-2.0');
+
+  assert.equal(videoModelChip(mini, mini.tierLabel), '480P · 720P · 2K', 'MiniMax H3 的标签列出三档清晰度');
+  assert.equal(videoModelChip(wan, wan.tierLabel), '480P · 720P · 1080P', '通义万相 3.0 列出三档');
+  /* 单档行保持档位文案（'正式交付' 这类），不要被改成 "720P" 这种没有信息量的东西 */
+  assert.equal(videoModelChip(single, single.tierLabel), single.tierLabel, '单档行仍写档位文案');
+
+  const page = fs.readFileSync('src/pages/VideoStudio/index.jsx', 'utf8');
+  assert.match(page, /videoModelChip\(row,/, '页面必须走这一个函数（标签口径只有一处）');
+  /* 2K / 1080P 的"按钮"仍然只可能来自清晰度药丸：这两种清晰度各自映射到既有价档产品 */
+  assert.equal(productForResolution(mini, '2k').id, 'minimax_h3_2k');
+  assert.equal(productForResolution(wan, '1080p').id, 'wan_1080p');
 });

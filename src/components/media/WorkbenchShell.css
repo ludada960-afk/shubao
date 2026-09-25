@@ -641,21 +641,29 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
      它自己带 padding-bottom 28 把按钮托离面板下沿，白底一直铺到左栏底（缝没了）。 */
   padding-bottom: 28px;
   background: var(--sb-surface-card);
-  /* ═══ 2026-09-25 批 BF：按钮**靠右、不通栏**（用户原话，逐字）══════════════════════════════════
-     原话：「我真的不太知道你为什么**按钮要做到这么宽**？……这种生成按钮，你做到**太宽是没有任何
-     意义的**。我要的是你从**设计上**去想办法，让整体看起来更像一个成熟的视觉方案，我并不是叫你说
-     要把这些按钮做到特别夸张。你这样只会让用户看起来特别的迷茫。」
-     ⇒ 按钮宽度回到内容宽（自适应 + 最小宽度），整行右对齐 —— 与首页那颗 CTA 同一套排法。 */
+  /* ═══ 2026-09-25 批 BN：**按钮通栏 + 提示在按钮下方**（用户改向；批 BF 的原话也留在下面）═════
+     ▌批 BF 当时的原话（**已被本批推翻**）：「我真的不太知道你为什么**按钮要做到这么宽**？……
+       这种生成按钮，你做到**太宽是没有任何意义的**。」⇒ 那时改成 width:auto + min-width:220 + 右对齐。
+     ▌本轮（批 BN）用户改向，逐字：「你这个按钮还是没做对呀……就是你工作台下面的这个生成按钮，
+       **不管是生成预览还是生成图片，生成视频。你这个按钮不能搞得这么的窄呀**，你应该学习知渔
+       他们的做法呀。」以及「他们这个按钮……它下面是会有一个提示必须要上传的」。
+     ⇒ 以**最新**一轮为准：通栏（知渔实测 2560×1280 截图逐像素 = 铺满左栏内容宽 319/356 ≈ 100%，
+       脚本 .qa/bn-measure-quantv-cta.mjs），提示居中在按钮正下方。
+     ⚠️ 两次原话都留在这里，免得下一个人来回翻历史；改这个宽度前先确认用户口径是哪一版。 */
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 /* 批 K-E：整栏宽 + 两行（动作 / 积分）—— 照竞品主按钮的形态（510.1×54.5，价格写在按钮里）。 */
 .media-workbench-submit {
-  width: auto;              /* 批 BF：不许通栏（用户："按钮做到这么宽是没有任何意义的"） */
-  min-width: 220px;
-  justify-self: end;
-  display: grid;
-  gap: 2px;
+  /* 批 BN：通栏（见上面 CTA 容器那段：用户改向 + 知渔实测就是通栏）；内容单行居中，
+     与视频侧 .video-generate-trigger.is-workbench 同形 —— 两边只差文案。 */
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sb-space-2);
   min-height: 55px;
   /* 两行（动作 19 + 积分 20 + 行距 2）配 7px 上下内边距 ≈ 55px —— 与规格的 54.5 对齐 */
   padding: 7px 20px;
@@ -671,7 +679,27 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 }
 .media-workbench-submit:hover:not(:disabled) { background: var(--sb-brand-700); box-shadow: 0 8px 22px rgba(17, 20, 45, .2); }
 .media-workbench-submit:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.media-workbench-submit:disabled { opacity: .5; cursor: not-allowed; }
+/* ═══ 2026-09-25 批 BN：禁用态必须"**不亮**"（用户原话：「他们这个按钮是当用户没有满足条件的
+   时候，**这个按钮是不能够亮起来的**」）—— 原来是"品牌紫 + opacity .5"，看着仍然像亮的。
+   改成与全局 CTA（.shubao-gen-cta:disabled）同一套：灰底 + 静音字 + 无阴影；而**积分 chip 留在
+   品牌色上**（9-12 用户口径：「按钮可以是灰的，但积分必须仍然显眼」，否则用户感知不到积分在
+   跟着配置动态变化）。 */
+.media-workbench-submit:disabled {
+  /* ⚠️ 与视频侧、与全局 CTA 用**同一对** token：--sb-state-disabled-bg / -ink
+     （Button.jsx、Home.css、skill-library.css 等处的既有语言）。
+     实机探针抓到过两边不一致（视频侧一种灰、图片侧另一种灰）—— 同一件事两个长相就是"两套东西"。 */
+  background: var(--sb-state-disabled-bg);
+  color: var(--sb-state-disabled-ink);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.media-workbench-submit:disabled .media-workbench-points {
+  padding: 2px 8px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-brand-a10);
+  color: var(--sb-brand-700);
+  opacity: 1;
+}
 /* 批 Q：CTA 文案照知渔 —— 14.672px/500（原来是 16px/700，比他们大一号还更重） */
 .media-workbench-submit-label { font-size: 14.672px; font-weight: 500; line-height: 1.2; }
 /* ⚠️ 积分现在长在**品牌色按钮里面**，所以颜色要按"按钮上的文字"给（白 82%），
@@ -835,7 +863,11 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
    的东西"的一部分：灰按钮不说明原因，用户就卡死在那一格上。
    ⇒ 保留状态句，但**压到最小**：12px / 弱色 / 贴在按钮右下，读起来是一个状态标签，不是一段说明文。
      连括号里的解释文案都从源头去掉了（见 MediaCreation 的 moduleGate）。 */
-.media-workbench-cta-hint { margin: 0; justify-self: end; color: var(--sb-ink-3); font-size: 12px; line-height: 1.4; }
+/* 批 BN：提示的**规格唯一出处搬到了 generate-cta.css 的 .shubao-gen-cta-hint** ——
+   图片侧工作台与视频侧工作台共用同一个类，字号/颜色/居中从此不可能再漂。
+   .media-workbench-cta-hint 这个类名保留，是因为 scripts/media-workbench-e2e.mjs 与门禁按它取节点
+   （判据是"提示非空 + 点名缺了什么"），删掉类名等于让门禁瞎掉。 */
+.media-workbench-cta-hint { margin: 0; }
 /* ── 通栏形态：整块嵌入的既有工作台（小红书图文 / 视频）─────────────────────────
    用户 9-17：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面。」
    嵌入进来的工作台（XhsContentMode / VideoStudioPage）**本来就是通栏宽度**的
