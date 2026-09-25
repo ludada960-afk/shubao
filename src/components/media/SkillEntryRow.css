@@ -56,6 +56,32 @@
 }
 .skill-entry-categories button:hover { color: var(--sb-ink-1); }
 .skill-entry-categories button.is-active { color: var(--sb-ink-brand); }
+/* ═══ 2026-09-25 批 BR：分类页签的悬停**只变色、不许有阴影**（用户批注，逐字）════════════════
+   原话：「我现在鼠标放上去上面的这些标签，为什么这个阴影做的这么差呢？你现在这个阴影好像是
+   每一个标签的**左边没有阴影，右边是有阴影的**，这样会导致有一部分**标签名字内容被阴影覆盖到**。
+   你自己得想办法再调整一下。」
+
+   ── 根因是 CDP 实测出来的（`CSS.getMatchedStylesForNode`），不是本文件的规则 ──────────
+   命中的是 `src/styles/design-tokens.css:539` 那条**元素级兜底**：
+     `button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3) }`
+   它的本意是"给所有按钮一个悬停海拔信号、且**绝不碰 background**"。对实色按钮成立，
+   但对**纯文字页签**不成立，因为：
+     ① 页签没有背景也没有圆角（本文件上面写着 `background: none`）—— 阴影底下没有"形"，
+        读起来是一团**脏雾**，而不是"这块可以点"；
+     ② 它长在 `.skill-entry-categories`（`overflow: auto`）里，溢出的部分被容器**裁掉**
+        ⇒ 左右不对称（用户看到的"左边没有、右边有"）；
+     ③ 阴影画在 77×44 的**按钮盒**上，文字只占中间一小条 ⇒ 那圈雾糊到相邻标签的字上
+        （用户看到的"名字内容被阴影覆盖"）。
+   而这一排的**设计本来就是只变色不变形**（上面第 57 行 hover → --sb-ink-1、
+   第 58 行选中 → 品牌色；与 flova 实测口径一致）⇒ 显式复位，不是新增样式。
+
+   ⚠️ 选择器为什么写得这么长：那条兜底的权重是 (0,3,1)（元素 + `:hover` + 两个 `:not(...)`），
+      `.skill-entry-categories button:hover` 只有 (0,2,1) **压不住**它。这里用**完全相同的那组条件**
+      再加一个类 ⇒ (0,4,1)，与样式表加载顺序无关。**别把它"简化"回短选择器** —— 那会静默失效。 */
+.skill-entry-categories button:hover:not(:disabled):not([aria-disabled='true']),
+.skill-entry-categories button.is-active:hover:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: none;
+}
 .skill-entry-categories button:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); border-radius: var(--sb-radius-md); }
 /* 竖线分隔：除第一档外，每档前面一条 1px 竖线，左右各 20px */
 .skill-entry-categories button + button { margin-left: 20px; }
