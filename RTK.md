@@ -9208,3 +9208,52 @@ hover 不许由 JS 状态实现**。
 ### 验证
 `npm run test` **4137 / pass 4127 / fail 0 / skipped 10**；`npm run precommit` 全绿；
 `hallmark-mobile-and-sloplint-0926` 7 条全绿；产物 `index-Dbiox-uK.js` + `style-CijQj-7y.css`，`/api/health` 200。
+
+## 2026-09-26 批 BU：假悬停的**第二条触发路径** —— 内容在鼠标底下移动（布局位移）
+
+提交 `ca5a8f87`；部署 `Deployed ca5a8f87 to https://shuimg.cn/`（入口 bundle `index-Bt98Gq_G.js` 内含 `ResizeObserver` + `scrolling`）。
+
+### 用户第二次反馈（逐字）
+「还是有啊，我鼠标没放上去，只是放在这个区域而已，第一个按钮还是会亮啊」
+
+### 先把"是哪一种状态"钉死（用户截图像素级，`.tmp/bu-shot-borders.mjs`）
+| 卡片 | 描边 | 底色 | 判定 |
+|---|---|---|---|
+| **1:1 方图**（出问题那颗） | `#ccccca` | `#f1f1f0` | **悬停态**（描边 = `--sb-border-strong`） |
+| 3:4 竖版海报 | `#1a1614` | `#f1f1f0` | **选中态**（描边近黑） |
+| 2:3 竖版长图 | `#e6e6e6` | `#ffffff` | 静止 |
+⇒ 浏览器**确实**把 1:1 判成 hovered —— 不是我改错了样式（悬停底色本来就没写给谁）。
+
+### 为什么本地复现不出、真机却出现
+三种视口（1600 / 1920 / 1280 **+ DPR 2**，`.qa/bt-hover-diag.mjs`、`.qa/bu-hover-exact.mjs`）
+在组内外撒点逐点问浏览器"谁 :hover"，**都只有真正在光标下的那颗命中**（缝隙/空白一律不命中）
+⇒ **"位置"没问题，"时间"有问题**：Chromium 只在鼠标事件（与部分布局事件）上重算 hover，
+一旦**内容在鼠标底下移动过**（滚动、视口变化、图片加载完、面板展开改文档高度），
+上次落在光标下的那颗按钮就**一直保持 :hover**。BT 那批只堵了"滚动"。
+
+### 这一批把另外两条路径也堵上（同一个抑制机制，三件套不变）
+| 触发路径 | 监听 | 备注 |
+|---|---|---|
+| 滚动 | `scroll`（capture） | BT 已有：内层容器滚动不冒泡到 window |
+| **视口变化** | `resize` | 新增 |
+| **布局位移** | `ResizeObserver(documentElement)` | 新增；**只观察文档根** ⇒ 打字这类常规重渲染不会把悬停压死 |
+| 恢复 | `mousemove` / `pointerdown` | 鼠标一动立刻摘掉抑制 |
+
+抑制窗口 150ms → **200ms**。
+
+### 实测（`.qa/bu-guard-verify.mjs`，四条全过）
+| 触发 | 挂上抑制态 | 静置后自动摘掉 |
+|---|---|---|
+| 滚动 240px | ✓ | ✓ |
+| 视口 640→700 | ✓ | ✓ |
+| 文档高度 +40px（模拟图片加载） | ✓ | ✓ |
+| 手动挂上 + 移动鼠标 | — | 立刻摘掉 ✓ |
+
+### 留给下一轮的诊断入口（如果用户还会看到）
+让用户在**看到的那一刻**打开 F12 Console 跑一行：
+`[...document.querySelectorAll(':hover')].map(n => n.tagName + '.' + String(n.className))`
+—— 这能一次性告诉我们浏览器认为"谁被悬停"，以及它是不是某个**祖先容器**（那就完全是另一条根因）。
+
+### 验证
+`npm run test` **4144 / pass 4134 / fail 0 / skipped 10**；`npm run precommit` 全绿；
+门禁 ⑦ 扩成"三条触发路径都要在"。
