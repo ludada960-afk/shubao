@@ -19,18 +19,19 @@ import { dirname, join } from 'node:path';
 
 import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
 import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
-import { parseSpecOf, parsePlanForSkill, resolveParseDirections, parseSpecIsNeutralFirst } from '../src/skills/parseSpecs.js';
+import { parseSpecOf, parsePlanForSkill, resolveParseDirections, parseSpecIsNeutralFirst, skillById } from '../src/skills/parseSpecs.js';
 import {
   buildLocalPlanPreview,
   buildPlanPreviewRequest,
   normalizePlanPreview,
-  planPreviewOptionsFor,
+  planPreviewDirections,
 } from '../server/planPreview.mjs';
 import {
   appliedPlanText,
   correctionsOf,
   customItemRow,
   itemRowsOf,
+  planPreviewSpecFor,
   preselectedDirections,
 } from '../src/components/plan-preview/planPreviewModel.js';
 
@@ -51,10 +52,10 @@ test('① 每条 skill 的步② 解析后，第一档仍是中性档或已声�
         bad.push(skill.id + ' / ' + group.label + '：解析后的第一档是「' + group.options[0].label + '」');
       }
     }
-    /* 走**界面真正走的那条路**：按 id + 板子取（图片侧传 skill.id、视频侧传 workbenchSkillId）——
+    /* 走**界面真正走的那条路**：按 id 在前端算（图片侧传 skill.id、视频侧传 workbenchSkillId）——
        只按对象取的话，调用点传错 id（比如少个下划线）在门禁里看不出来。 */
-    const byId = planPreviewOptionsFor(skill.board === 'video' ? 'video' : 'image', skill.id);
-    assert.notEqual(byId.source, 'surface', skill.id + ' 按 id 取到的还是表面级通用档 ⇒ 界面上拿不到它自己的解析方案');
+    const byId = planPreviewSpecFor(skill.id);
+    assert.ok(byId, skill.id + ' 按 id 在前端取不到解析方案 ⇒ 界面上拿不到它自己的那份');
     assert.ok(byId.items.length >= 3, skill.id + ' 按 id 取到的解析项少于 3 条');
     assert.ok(byId.directions.length >= 1, skill.id + ' 按 id 取到的方向组为空');
   }
@@ -67,7 +68,7 @@ test('① 每条 skill 的步② 解析后，第一档仍是中性档或已声�
 });
 
 test('② 概念视觉方案的步② 是**它自己的工作台档位**，不是全站那三组通用胶囊', () => {
-  const options = planPreviewOptionsFor('image', 'image.concept_set');
+  const options = planPreviewSpecFor('image.concept_set');
   assert.equal(options.source, 'override');
   assert.deepEqual(options.directions.map(group => group.key), ['theme', 'shot', 'ratio']);
   const theme = options.directions[0];
@@ -84,11 +85,18 @@ test('② 概念视觉方案的步② 是**它自己的工作台档位**，不�
   assert.equal(options.items.length, 8);
   assert.doesNotMatch(options.items.map(item => item.label).join(' '), /卖点|产品特点|适用人群|尺寸参数/);
   assert.match(options.items.map(item => item.label).join(' '), /色调归属/);
+  /* 没有 skillId / 不存在的 id ⇒ null（界面据此退回服务端的表面级通用档，而不是编一份出来） */
+  assert.equal(planPreviewSpecFor(''), null);
+  assert.equal(planPreviewSpecFor('image.nope'), null);
+  assert.equal(planPreviewSpecFor('__proto__'), null);
+  assert.ok(skillById('video.smart'), '视频侧按 id 也要找得到（workbenchSkillId 走的就是它）');
 });
 
-test('③ 模型收到的是"只解析这些"：有 skillId 时按这条 skill 的解析项组织请求', () => {
+test('③ 模型收到的是"只解析这些"：请求体按这条 skill 的解析项组织（声明由前端下发）', () => {
+  const spec = planPreviewSpecFor('image.concept_set');
   const request = buildPlanPreviewRequest({
     surface: 'image', skillId: 'image.concept_set', skillName: '概念视觉方案', prompt: '秋天的无花果香',
+    specItems: spec.items, directions: spec.directions, specKey: spec.key, specSource: spec.source,
   });
   assert.equal(request.skillKey, 'image.concept_set');
   for (const key of ['subject', 'material', 'palette', 'scene', 'light', 'avoid']) {
@@ -97,17 +105,34 @@ test('③ 模型收到的是"只解析这些"：有 skillId 时按这条 skill �
   assert.match(request.systemPrompt, /不要\*\*解析这份清单之外的任何东西/, '必须明说"别解析清单外的东西"');
   assert.match(request.systemPrompt, /卖点、适用人群、价格、尺寸参数/, '要点名那几个不该解析的（用户原话：不可能概念 skill 还解析什么卖点）');
   assert.match(request.systemPrompt, /"items"/, '要模型按 items 结构回答');
+  assert.match(request.userPrompt, /image\.concept_set：这条技能自己的解析方案/, 'userPrompt 要写明是哪一套方案');
   /* 方向档位进的是 userPrompt，且用的是这条 skill 继承来的档位 */
   const withDirection = buildPlanPreviewRequest({
     surface: 'image', skillId: 'image.concept_set', prompt: 'x',
+    specItems: spec.items, directions: spec.directions, specKey: spec.key, specSource: spec.source,
     direction: { theme: '概念：秋日限定（主色 灰调大地 #94847A，辅 #8F8E93 / #CAB3AE）', ratio: '3:4' },
   });
   assert.match(withDirection.userPrompt, /概念：秋日限定/);
   assert.match(withDirection.userPrompt, /3:4 竖版/);
-  /* 反过来：没有 skillId 时**不**要求 items（老入口的契约不变） */
+  /* 反过来：前端没下发声明时**不**要求 items（首页入口 / 老客户端的契约不变） */
   const generic = buildPlanPreviewRequest({ surface: 'image', prompt: 'x' });
   assert.equal(generic.skillKey, '');
   assert.doesNotMatch(generic.systemPrompt, /"items"/);
+  assert.equal(generic.directions.length, 3, '没下发方向组时退回**服务端自己的**表面级通用三组');
+  assert.deepEqual(generic.directions.map(group => group.key), ['business', 'content', 'shot']);
+  /* 消毒：前端下发的形状再乱，也只收合法的那些（键去重、长度截断、组数/档位数封顶） */
+  const messy = buildPlanPreviewRequest({
+    surface: 'image', prompt: 'x',
+    specItems: [{ key: 'a', label: '甲', hint: 'x' }, { key: 'a', label: '重复' }, { key: '' }, { key: 'b' }],
+    directions: [
+      { key: 'g', label: '组', options: [{ value: 'v1' }, { value: '' }, { value: 'v2', label: '二' }] },
+      { key: '', options: [{ value: 'x' }] },
+      { key: 'empty', options: [] },
+    ],
+  });
+  assert.deepEqual(messy.items.map(item => item.key), ['a', 'b'], '重复/空键要清掉');
+  assert.deepEqual(messy.directions.map(group => group.key), ['g'], '空组要清掉');
+  assert.deepEqual(messy.directions[0].options.map(option => option.value), ['v1', 'v2'], '空档位要清掉');
 });
 
 test('④ 模型自己冒出来的解析键会被丢掉（不许用自由发挥绕过"这条 skill 不该解析卖点"）', () => {
@@ -131,17 +156,23 @@ test('④ 模型自己冒出来的解析键会被丢掉（不许用自由发挥�
 });
 
 test('⑤ 降级（模型没连上）时解析项的**行**照常给出，只是值为空 —— 不假装、也不藏', () => {
-  const local = buildLocalPlanPreview({ surface: 'image', skillId: 'image.concept_set' }, '模型超时');
+  const spec = planPreviewSpecFor('image.concept_set');
+  const local = buildLocalPlanPreview(
+    { surface: 'image', skillId: 'image.concept_set', specItems: spec.items },
+    '模型超时',
+  );
   assert.equal(local.degraded, true);
   assert.equal(local.items.length, 8, '降级时把"这条技能要解析什么"整块藏掉了');
   assert.deepEqual(local.items.map(item => item.value).filter(Boolean), [], '降级时不该有解析结论（那是假的）');
   assert.equal(local.plan.promptText, '');
-  /* 没有 skillId 的入口：items 为空，退回原来那三组（首页入口不能因为接线而空掉） */
-  const generic = planPreviewOptionsFor('video', '');
-  assert.equal(generic.source, 'surface');
-  assert.deepEqual(generic.directions.map(group => group.key), ['business', 'content', 'shot']);
-  assert.deepEqual(generic.items, []);
-  assert.deepEqual(preselectedDirections(generic.directions), { business: 'ecommerce', content: 'selling', shot: 'tabletop' });
+  /* ⚠️ 服务端**不再自己查**这条 skill 的解析方案（它读不到 src/）：
+     前端没下发声明时，它就**只有**那三组通用档、没有解析条目 —— 不编、也不假装知道。 */
+  const noSpec = buildLocalPlanPreview({ surface: 'image', skillId: 'image.concept_set' }, '模型超时');
+  assert.deepEqual(noSpec.items, [], '没下发声明时不该凭空长出解析条目');
+  /* 没有 skillId 的入口：方向组退回原来那三组（首页入口不能因为接线而空掉） */
+  const generic = planPreviewDirections('video');
+  assert.deepEqual(generic.map(group => group.key), ['business', 'content', 'shot']);
+  assert.deepEqual(preselectedDirections(generic), { business: 'ecommerce', content: 'selling', shot: 'tabletop' });
 });
 
 test('⑥ 客户端：行可增删、改过的条目算另一份方案、应用时并进正文', () => {
@@ -170,10 +201,12 @@ test('⑥ 客户端：行可增删、改过的条目算另一份方案、应用�
   assert.match(read('src/pages/MediaCreation/index.jsx'), /skillId=\{skill\.id\}/, '图片侧没把 skill 带进预览');
   assert.match(read('src/pages/VideoStudio/index.jsx'), /skillId=\{workbenchSkillId\}/, '视频侧没把 skill 带进预览');
   const dialog = read('src/components/plan-preview/PlanPreviewDialog.jsx');
-  assert.match(dialog, /fetchPlanPreviewOptions\(surface, skillId\)/, '选项要按 skill 取');
+  assert.match(dialog, /planPreviewSpecFor\(skillId\)/, '解析方案要按 skill 在前端算（服务端读不到 src/）');
+  assert.match(dialog, /specItems: localSpec\?\.items \|\| \[\]/, '要把这条 skill 的解析项声明下发给服务端');
+  assert.match(dialog, /directions: localSpec\?\.directions \|\| \[\]/, '要把这条 skill 的档位下发给服务端');
   assert.match(dialog, /planPreviewActionId\(\{ surface, skillId, skillName, prompt, direction, materials, items: confirmedItems \}\)/,
     '改过的条目必须进 actionId —— 否则改了条目再点生成会被当成同一份方案（改了个寂寞）');
-  assert.match(dialog, /preselectedDirections\(list\)/, '步② 要默认选中中性档');
+  assert.match(dialog, /preselectedDirections\(localSpec\.directions\)/, '步② 要默认选中中性档');
   assert.match(dialog, /className="plan-preview-item-add"/, '步① 要有"添加一条"');
   assert.match(dialog, /className="plan-preview-item-drop"/, '行尾要有删除');
 });

@@ -3,7 +3,39 @@
      ① 步① 的行从哪来（声明源的 label/hint + 模型给的 value）；
      ② 用户改过什么（决定"改完再点重新生成"要不要算另一份方案）；
      ③ 应用回工作台的那段正文里，要不要把用户的修正并进去。
-   放在这里而不是对话框里，是因为对话框是 JSX，node 里只能读文本、不能真跑。 */
+   放在这里而不是对话框里，是因为对话框是 JSX，node 里只能读文本、不能真跑。
+
+   ⚠️ **方案表在前端算**（`planPreviewSpecFor`），服务端只接收消毒后的结果：
+      部署包只装 `dist server shared scripts`，**不含 `src/`** —— 服务端 import `src/` 会让
+      生产进程起不来（批 BW 实测踩到：健康检查 60 次 connection refused，部署脚本自动回滚）。
+      而 `src/skills/parseSpecs.js` 本来就被打进了前端产物，前端算它是零成本的。 */
+import { parsePlanForSkill } from '../../skills/parseSpecs.js';
+
+/* 一条 skill id ⇒ 它自己的解析方案（步① 的行 + 步② 的档位）。
+   没有 skill（首页入口）/ 这条 skill 取不到方案 ⇒ null，界面退回服务端的表面级通用档。 */
+export function planPreviewSpecFor(skillId) {
+  const id = typeof skillId === 'string' ? skillId.trim() : '';
+  if (!id) return null;
+  const plan = parsePlanForSkill(id);
+  if (!plan) return null;
+  return {
+    source: plan.spec.source,                     // 'override' | 'family'
+    key: plan.spec.key,
+    /* 下发给服务端的"要解析什么"（服务端据此组织模型请求）；label/hint 都在，模型只补 value。 */
+    items: plan.spec.items.map(item => ({ key: item.key, label: item.label, hint: item.hint })),
+    /* 下发给服务端的档位（含继承自工作台的那些），服务端只消毒、不再自己算一遍。 */
+    directions: plan.directions.map(group => ({
+      key: group.key,
+      label: group.label,
+      options: group.options.map(option => ({
+        value: option.value,
+        label: option.label,
+        prompt: option.prompt || '',
+        pinned: option.pinned === true,
+      })),
+    })),
+  };
+}
 
 /* 步① 的行：**声明源出 label/hint，模型出 value**。
    · 第一次进预览（模型还没答）时 value 为空 —— 行照样在，用户看得见"这条技能要解析什么"。

@@ -27,12 +27,11 @@ async function request(path, options = {}) {
   return response.json();
 }
 
-/* ⚠️ 批 BW：带上 skillId —— 服务端据此取**这条 skill 自己的**解析项与方向组
-   （没有 skillId 时退回表面级通用档：首页那个入口本来就没有具体 skill）。 */
-export function fetchPlanPreviewOptions(surface, skillId, { signal } = {}) {
-  const query = new URLSearchParams({ surface: surface || 'image' });
-  if (skillId) query.set('skillId', String(skillId));
-  return request(`/api/plan-preview/options?${query.toString()}`, { signal });
+/* ⚠️ 批 BW：这个端点**只给表面级兜底档**。这条 skill 自己的解析方案由前端按声明算
+   （`planPreviewSpecFor`，见 src/components/plan-preview/planPreviewModel.js）——
+   服务端**不能** import `src/`（部署包不含它，会让生产进程起不来）。 */
+export function fetchPlanPreviewOptions(surface, { signal } = {}) {
+  return request(`/api/plan-preview/options?surface=${encodeURIComponent(surface || 'image')}`, { signal });
 }
 
 export async function fetchPlanPreviewBalance() {

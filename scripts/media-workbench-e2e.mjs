@@ -826,7 +826,14 @@ try {
   const daweiRequest = calls.planPreview[beforeDawei] || null;
   check(calls.planPreview.length === beforeDawei + 1, '视频侧只发起 1 次方案请求', String(calls.planPreview.length - beforeDawei));
   check(daweiRequest?.skillId === 'video.smart', '视频侧把**这条 skill 的 id** 带进了请求（服务端据此取它自己的解析方案）', String(daweiRequest?.skillId));
-  check(Array.isArray(daweiRequest?.items), '请求里带上了步① 的解析条目字段（用户改过的会更着走）');
+  /* ⚠️ 批 BW：解析方案**在前端算好随请求下发**（服务端读不到 src/，见
+     test/server-shipping-boundary-0926）。所以这里验的是"声明真的跟着请求走了"：
+     video.smart 属于 videoSmart 族 ⇒ 4 项解析（素材内容 / 卖点 / 场景 / 节奏）+ 2 组方向档。 */
+  check(Array.isArray(daweiRequest?.specItems) && daweiRequest.specItems.length === 4,
+    '请求里带上了这条 skill 的解析项声明（服务端据此只问该问的）', JSON.stringify((daweiRequest?.specItems || []).map(item => item?.key)));
+  check(Array.isArray(daweiRequest?.directions) && daweiRequest.directions.length === 2,
+    '请求里带上了这条 skill 的方向档位', String((daweiRequest?.directions || []).length));
+  check(daweiRequest?.specKey === 'videoSmart', '请求里写明了用的是哪一套解析方案', String(daweiRequest?.specKey));
   const appliedScript = await page.evaluate(() => document.querySelector('.video-wb-prompt')?.textContent || '');
   check(appliedScript.includes('E2E 打桩方案正文'), '「确认脚本并应用」把方案正文写回脚本输入框', appliedScript.slice(0, 40));
   check(calls.videoJob === videoJobsBeforeDawei, '「确认脚本并应用」只写回输入框，不发起任何生成（不扣费）', String(calls.videoJob - videoJobsBeforeDawei));

@@ -12,6 +12,7 @@ import {
   appliedPlanText,
   customItemRow,
   itemRowsOf,
+  planPreviewSpecFor,
   preselectedDirections,
 } from './planPreviewModel.js';
 import './plan-preview.css';
@@ -100,6 +101,10 @@ export default function PlanPreviewDialog({
     () => (materials || []).map(item => String(item?.id || item?.name || '')).join('|'),
     [materials],
   );
+  /* ⚠️ 批 BW：**这条 skill 自己的解析方案在这里算**（声明源 `src/skills/parseSpecs.js` 在前端产物里）。
+     算得出来就用它（步① 的行 + 步② 的档位，且**下发给服务端**）；
+     算不出来（首页那种没有具体 skill 的入口）才回服务端取表面级通用档。 */
+  const localSpec = useMemo(() => planPreviewSpecFor(skillId), [skillId]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -120,28 +125,35 @@ export default function PlanPreviewDialog({
   useEffect(() => {
     if (!open) return undefined;
     let cancelled = false;
-    fetchPlanPreviewOptions(surface, skillId).then(data => {
-      if (cancelled) return;
-      const list = Array.isArray(data?.directions) ? data.directions : [];
-      const spec = Array.isArray(data?.items) ? data.items : [];
-      setDimensions(list);
-      /* 步② 一打开就**默认选中每组的第一档**（服务端保证那是中性档"交系统判断"，
-         或是这条 skill 已经声明过的默认值）—— 不让用户为了往下走而把每一组都点一遍。 */
-      setDirection(preselectedDirections(list));
-      setDeclared(spec);
-      setItemSource(String(data?.source || ''));
-      /* 步① 的**行**在这里就建好了（模型还没答时值为空）——
+    if (localSpec) {
+      /* 步② 一打开就**默认选中每组的第一档**（门禁保证那是中性档"交系统判断"，
+         或是这条 skill 已经声明过的默认值）—— 不让用户为了往下走而把每一组都点一遍。
+         步① 的**行**也在这一刻建好（模型还没答时值为空）——
          "这条技能要解析什么"因此是**看得见**的，而不是等模型返回才知道。 */
-      setItems(current => itemRowsOf(spec, [], current));
-    }).catch(() => {
-      if (cancelled) return;
-      setDimensions([]);
-      setDeclared([]);
-      setItemSource('');
-    });
+      setDimensions(localSpec.directions);
+      setDirection(preselectedDirections(localSpec.directions));
+      setDeclared(localSpec.items);
+      setItemSource(localSpec.source);
+      setItems(current => itemRowsOf(localSpec.items, [], current));
+    } else {
+      /* 没有具体 skill（首页入口）⇒ 取服务端的表面级通用档，解析条目为空（本来就没有"这条技能"）。 */
+      fetchPlanPreviewOptions(surface).then(data => {
+        if (cancelled) return;
+        const list = Array.isArray(data?.directions) ? data.directions : [];
+        setDimensions(list);
+        setDirection(preselectedDirections(list));
+        setDeclared([]);
+        setItemSource('surface');
+      }).catch(() => {
+        if (cancelled) return;
+        setDimensions([]);
+        setDeclared([]);
+        setItemSource('');
+      });
+    }
     fetchPlanPreviewBalance().then(value => { if (!cancelled) setBalance(value); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [open, surface, skillId]);
+  }, [open, surface, skillId, localSpec]);
 
   useEffect(() => {
     if (stage !== 'running') return undefined;
@@ -167,6 +179,11 @@ export default function PlanPreviewDialog({
         prompt,
         direction,
         items: confirmedItems,
+        /* 这条 skill 的解析项声明、档位与"是哪一套"（服务端据此组织模型请求，只做消毒不做解析） */
+        specItems: localSpec?.items || [],
+        directions: localSpec?.directions || [],
+        specKey: localSpec?.key || '',
+        specSource: localSpec?.source || '',
         materials: (materials || []).slice(0, 6).map((item, index) => ({
           id: String(item?.id || 'material-' + (index + 1)),
           name: String(item?.name || '素材 ' + (index + 1)),
@@ -191,7 +208,7 @@ export default function PlanPreviewDialog({
     } finally {
       runningRef.current = false;
     }
-  }, [surface, skillId, skillName, prompt, direction, materials, items, declared]);
+  }, [surface, skillId, skillName, prompt, direction, materials, items, declared, localSpec]);
 
   if (!open) return null;
 

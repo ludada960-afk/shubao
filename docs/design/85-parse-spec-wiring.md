@@ -19,11 +19,23 @@
 
 ## 二、四条接线的落点
 
-1. **服务端按 skill 组织请求**（`server/planPreview.mjs`）
-   `buildPlanPreviewRequest()` 接 `skillId` → `parsePlanForSkill()` → 方向组取 `plan.directions`、
-   解析项取 `plan.spec.items`。systemPrompt 里逐项列出 key（label + hint），并写死一句
+1. **方案表在前端算，服务端只接收消毒后的结果**（`planPreviewModel.planPreviewSpecFor`）
+   一条 skill id ⇒ 它自己的解析项（`items`）与方向组（`directions`），随请求一起下发；
+   服务端 `sanitizeSpecItems` / `sanitizeDirections` 只保证形状与长度可控，
+   然后据此组织 systemPrompt：逐项列出 key（label + hint），并写死一句
    「不要解析这份清单之外的任何东西（比如卖点、适用人群、价格、尺寸参数）」。
-   无 `skillId`（首页那种没有具体 skill 的入口）时**退回**表面级通用三组 —— 老契约不变。
+   前端没下发（首页那种没有具体 skill 的入口、老客户端）⇒ **退回**表面级通用三组 —— 老契约不变。
+
+   ### ⚠️ 为什么不是"服务端按 skillId 自己查表"（真实事故，已回滚）
+   第一版就是那么写的：`server/planPreview.mjs` 里 `import '../src/skills/parseSpecs.js'`。
+   本地 `npm run test` 全绿、`npm run precommit` 全绿 —— **因为本地有 `src/`**。
+   一上生产：服务端在 **import 期** MODULE_NOT_FOUND，进程起不来，健康检查 60 次全部
+   `connection refused`，部署脚本按设计**自动回滚**（生产未受影响，回滚步骤自己也通过了）。
+   根因在打包清单（`scripts/deploy-production.ps1`，第 540 行附近）：发布的归档只有
+   `dist server shared scripts/...` —— **不含 `src/`**。`src/` 是只在开发机与构建期存在的东西。
+   ⇒ 配套两条：① 服务端与前端共用逻辑一律放 **`shared/`**（那里真的会被发布）；
+     ② 门禁 `test/server-shipping-boundary-0926.test.mjs` 扫 `server/**` 的相对 import，
+        落在 `src/`（或 `dist/`）上直接判红，并核对打包清单本身没写歪。
 
 2. **归一化只认声明里的键**（`normalizePlanItems`）
    模型只负责给 `value`，`label/hint` 一律来自声明源；模型自己冒出来的键（例如它自作主张回的
@@ -36,7 +48,8 @@
 
 4. **两个入口都把 skill 带进去**
    图片侧 `skillId={skill.id}`（MediaCreation）、视频侧 `skillId={workbenchSkillId}`（VideoStudio 子页面）。
-   视频侧首页形态没有 skill ⇒ 空 id ⇒ 通用档。
+   视频侧首页形态没有 skill ⇒ 空 id ⇒ 通用档；技能子页面里「代为撰写」的入口是**工作台的付费动作**
+   （`SCRIPT_ACTION`，label「生成脚本」），不是首页那个 `.video-dawei-entry` —— 两者走同一个 `runDawei()`。
 
 ## 三、方向组可以**继承工作台自己的档位**（`fromField`）
 
@@ -72,12 +85,25 @@
 ## 六、门禁
 
 `test/parse-spec-wiring-0926.test.mjs`（7 条）：
-① 108 条**按 id 路径**都能取到自己的方案 + 解析后第一档仍是中性/pinned（含自证）；
-② 概念视觉方案的步② 是它自己的工作台档位（21/11/1），且通用三组**不出现**在它的预览里；
-③ 服务端请求体逐项列出解析项 + 明说别解析清单外的东西 + 无 skillId 时不要求 items；
+① 108 条**按 id 在前端算**都能取到自己的方案 + 解析后第一档仍是中性/pinned（含自证）；
+② 概念视觉方案的步② 是它自己的工作台档位（21/11/1），且通用三组**不出现**在它的预览里，
+   无 skillId / 不存在的 id / `__proto__` 一律返回 null（界面据此退回通用档，而不是编一份）；
+③ 服务端请求体逐项列出解析项 + 明说别解析清单外的东西 + **没下发声明时不要求 items、退回表面三组** + 消毒（去重/去空/封顶）；
 ④ 模型编出来的键被丢掉、没答的项留空行、也容忍 `{key: value}` 对象形状；
-⑤ 降级时行照常给出、值为空（不假装、也不把"要解析什么"藏掉）+ 无 skill 的入口退回通用三组；
+⑤ 降级时行照常给出、值为空（不假装、也不把"要解析什么"藏掉）+ **没下发声明时不许凭空长出解析条目**；
 ⑥ 客户端纯函数（行/修正/应用正文/预选）与两个调用点、actionId 都带条目；
 ⑦ 自证：第一档换成具体取值必须判红（防"继承"把判据架空）。
 
-**变异自证**：把概念覆盖的 `fromField: 'theme'` 改成不存在的字段 → ② 立刻红两条，改回即绿。
+`test/server-shipping-boundary-0926.test.mjs`（3 条，本批事故的直接产物）：
+① `server/**` 里所有相对 import 必须落在会被发布的目录（`server/ shared/ scripts/`），
+   落在 `src/` 或 `dist/` 上判红并逐条列出行号；② 自证（塞一段 `../src/…` 样本必须红，
+   而 `../shared/…`、`./x.mjs`、`node:fs` 不算）；③ 核对打包清单那一行与这条口径一致
+   （清单里真的没有 `src/`、而 `shared/` 真的存在且被发布）。
+
+**变异自证**：① 把概念覆盖的 `fromField: 'theme'` 改成不存在的字段 → ② 立刻红两条，改回即绿；
+② 往 `server/planPreview.mjs` 顶部塞一行 `import ... from '../src/skills/parseSpecs.js'` →
+   shipping-boundary ① 立刻红并点名 `server/planPreview.mjs -> ../src/skills/parseSpecs.js`，删掉即绿。
+
+**生产分层干跑**（`.tmp/bw-ship-sim.mjs`，非门禁、一次性取证）：只拷 `server/` + `shared/`
+（**不含 `src/`**）到一个临时目录，在那里真的 `import('./server/planPreview.mjs')` 并构一次请求 ——
+证明"发布包里也装得起来"。事故前这个干跑会直接 MODULE_NOT_FOUND。

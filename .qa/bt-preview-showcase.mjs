@@ -15,15 +15,19 @@
    ── 第三版（2026-09-26 批 BW）：接口**按真实声明**打桩 ────────────────────────
    用户的最后一条口径是针对"解析方案"的：「用户输入他的提示词或者图片之后，你会有**解析的方案**吗？
    **为什么我现在看起来就是一些标签而已啊**」「我要的是，**每个工作台 skill 有自己个性化的解析方案**」。
-   ⇒ 这一版不再手写那三组通用胶囊，而是**直接调 `planPreviewOptionsFor()`** ——
-     展示的就是线上真会返回的东西（这条 skill 的 8 项解析 + 21 条母体 / 11 种手法）。
+   ⇒ 这一版不再手写那三组通用胶囊，而是**直接调前端那条同源函数** `planPreviewSpecFor()`
+     （与对话框用的是同一份），展示的就是线上真会渲染的东西
+     （这条 skill 的 8 项解析 + 21 条母体 / 11 种手法）。
+     ⚠️ 这里**不能**从 `server/` 拿：解析方案现在算在前端（服务端不 import `src/`，见
+        `test/server-shipping-boundary-0926.test.mjs` —— 第一版从服务端 import 直接让线上起不来）。
      ⚠️ 仍要重新 `npm run build` 之后再跑：这里服务的是构建产物，改完前端不 build 看不到。 */
 import { createServer } from 'node:http';
 import { readFile, stat, mkdir, appendFile, writeFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
-import { planPreviewOptionsFor } from '../server/planPreview.mjs';
+import { planPreviewSpecFor } from '../src/components/plan-preview/planPreviewModel.js';
+import { planPreviewDirections } from '../server/planPreview.mjs';
 
 const PORT = 4199;
 const ROOT = resolve('dist');
@@ -66,14 +70,15 @@ const server = createServer(async (req, res) => {
     if (path === '/api/billing/balance') return json(res, 200, { ok: true, currency: 'ec_points', balance: 999, unlimited: false, credits: 999 });
     if (path === '/api/billing/quote') return json(res, 200, { quote: { quoteId: 'quote-local-1', totalUnits: 500, currency: 'ec_points' } });
     if (path === '/api/plan-preview/options') {
-      /* ⚠️ 批 BW：**不手写档位**，直接调线上那条同源函数 —— 截出来的就是真机形状。
-         （手写一份的话，界面改了这里不会跟着改，展示就成了假的。） */
+      /* ⚠️ 这条现在**只服务"没有具体 skill"的入口**（首页那种）—— 技能子页面的档位由前端算，
+         本地展示环境里同步调一次只为把日志打出来对照（证明前端用的就是这份声明）。 */
       const surface = url.searchParams.get('surface') === 'video' ? 'video' : 'image';
       const skillId = url.searchParams.get('skillId') || '';
-      const options = planPreviewOptionsFor(surface, skillId);
-      console.log('[options] skillId=' + (skillId || '(空)') + ' source=' + options.source +
-        ' items=' + options.items.length + ' 方向组=' + options.directions.map(g => g.key + '×' + g.options.length).join(','));
-      return json(res, 200, options);
+      const local = planPreviewSpecFor(skillId);
+      const directions = local ? local.directions : planPreviewDirections(surface);
+      console.log('[options] skillId=' + (skillId || '(空)') + ' source=' + (local ? local.source : 'surface') +
+        ' items=' + (local ? local.items.length : 0) + ' 方向组=' + directions.map(group => group.key + '×' + group.options.length).join(','));
+      return json(res, 200, { surface, source: local ? local.source : 'surface', directions: local ? directions : planPreviewDirections(surface) });
     }
     if (path === '/api/plan-preview') {
       /* ⚠️ 这里返回**带素材理解 + 带解析条目**的方案：
@@ -82,7 +87,7 @@ const server = createServer(async (req, res) => {
       const surface = 'image';
       const asked = JSON.parse(raw || '{}');
       const askedSurface = asked.surface === 'video' ? 'video' : 'image';
-      const spec = planPreviewOptionsFor(askedSurface, asked.skillId || 'image.concept_set');
+      const spec = planPreviewSpecFor(asked.skillId || 'image.concept_set') || { items: [] };
       const demo = {
         /* 概念视觉方案（图片侧） */
         subject: '哑光陶土直筒罐，口沿有一圈手作压痕',
