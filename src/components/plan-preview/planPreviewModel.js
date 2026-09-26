@@ -105,3 +105,48 @@ export function preselectedDirections(dimensions) {
   }
   return picked;
 }
+
+/* ═══ 离开子页面时的「方案会丢」判据（批 BX）════════════════════════════════════════════════
+   放在这个**纯计算**模块里（而不是那个 hook 里）是为了能单独验：hook 文件要 import
+   `DialogProvider.jsx`（JSX），node 起不来；判据本身是纯函数，放这里就能真跑。
+   判据用**结构**而不是按钮文案：绑"返回 / 首页 / 我的作品"这种字，改一次文案就失效
+   （与"假悬停""返回对齐"那几批同一个教训）——
+      · 顶栏那颗「返回」= `button.topbar-back`（子页面最主要的出口）；
+      · 左侧导航那一栏 = `.app-sidebar`（里面全是导航按钮）。
+   ⚠️ **没覆盖**浏览器自身的后退键：这个 SPA 的后退走 App 的 popstate，
+      从 `/image-creation?id=x` 退到 `/image-creation` 时 page 没变、页面也没有 popstate 监听，
+      那是一条本来就不同步的路径，要拦它得改共享路由 —— 如实留着这个缺口。 */
+export function isLeavingSubpage(target) {
+  if (!target || typeof target.closest !== 'function') return false;
+  if (target.closest('.topbar-back')) return true;
+  return Boolean(target.closest('.app-sidebar'));
+}
+
+/* 确认框文案（用户口径：「用户退出这个子页面时提示他确定退出吗，这个方案或脚本会丢失」）：
+   两个选项语义明确（留下 / 仍然离开），不显示右上角 X、点遮罩也不关 —— 与画布那次离开询问同一口径。 */
+export const PLAN_LEAVE_CONFIRM = Object.freeze({
+  title: '这份方案还没应用',
+  message: '离开这个页面，它就不会留在工作台里了（生成时扣的积分不退）。要留下就先点「确认并应用」。',
+  confirmLabel: '仍然离开',
+  cancelLabel: '留在这页',
+  hideClose: true,
+  dismissBackdrop: false,
+});
+/* ═══ 2026-09-26 批 BX：**关掉弹窗不丢方案** ═══════════════════════════════════════════════
+   用户口径（逐字）：「怎么还有「重新生成方案」的按钮啊……生成预览方案和生成脚本这种弹窗形式的，
+   应该是用户可以关掉这个弹窗，但是**再点一次这个按钮可以回到这个弹窗里面**啊。」
+   ⇒ 判据是"这份方案是按**什么输入**生成的"：只算**弹窗外**的那几样（表面 / skill / 需求正文 / 素材）。
+     · 一模一样 ⇒ 再把弹窗打开时，把上一份方案（含用户改过的条目与正文）原样摆回来：**不请求、不扣费**；
+     · 变了（用户改了工作台里的文字/换了素材）⇒ 那本来就该是一份新方案（这也是"重新生成"唯一的入口，
+       即入口按钮本身；弹窗里不再放「重新生成方案」）。
+   ⚠️ 用户在里面选的档位、改过的解析条目**不算**输入签名 —— 它们本来就是"这份方案的编辑"，
+      算进去会导致"自己改一下就变成另一份"，与这条口径相反。 */
+export function planInputSignature(input = {}) {
+  return [
+    input.surface || 'image',
+    String(input.skillId || ''),
+    String(input.skillName || ''),
+    String(input.prompt || '').trim(),
+    (input.materials || []).map(item => String(item?.id || item?.name || '')).join(','),
+  ].join('\u0001');
+}

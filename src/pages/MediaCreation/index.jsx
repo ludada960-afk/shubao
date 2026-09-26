@@ -19,6 +19,7 @@ import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.j
 /* 批 Q：「生成预览」按钮上要写**预览这一步**的价格（0.5 积分/次，SKU ec_plan_preview），
    不是整单出图的报价 —— 用户批注 #3-6。价格常量与服务端 catalog 同源（写在 planPreview.js）。 */
 import { PLAN_PREVIEW_POINTS } from '../../services/planPreview.js';
+import { usePlanLeaveGuard } from '../../components/plan-preview/usePlanLeaveGuard.js';
 import MediaHub from '../Home/MediaHub.jsx';
 import SkillWorkbench from '../Home/SkillWorkbench.jsx';
 /* 小红书图文与视频这两条链路各自已有**跑通的完整工作台**（分步确认 / 方案弹窗 / 任务轮询）。
@@ -1236,7 +1237,24 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        点开就是与视频侧**同一份**三步对话框（① 素材理解可改 ② 方向与偏好 ③ 方案预览可改、确认并应用）。
      ⚠️ 它是 state 不是 hook，但**照样必须待在这里**（最早的提前返回之前）——
        上一轮教学示例的 useMemo 写在返回之后，点「返回」直接把整页搞崩过。 */
-  const [planPreview, setPlanPreview] = useState(null);
+  /* ═══ 批 BX：**会话**而不是"打开一次就丢" ═══════════════════════════════════════════════
+     用户口径（逐字）：「生成预览方案和生成脚本这种弹窗形式的，应该是用户可以关掉这个弹窗，
+     但是**再点一次这个按钮可以回到这个弹窗里面**啊。」
+     ⇒ 这一个 state 同时带着三件事：这次用的输入（prompt/materials）、弹窗是否展开（opened）、
+       以及"有没有一份还没应用的方案"（由弹窗报上来，planUnapplied）。
+       关掉只把 opened 置 false —— 组件不卸载，方案与用户在步①/②/③ 改过的东西都还在。 */
+  const [planSession, setPlanSession] = useState(null);
+  const [planUnapplied, setPlanUnapplied] = useState(false);
+  const closePlanPreview = () => setPlanSession(current => (current ? { ...current, opened: false } : null));
+  /* 换技能就把这份会话丢掉：它的 prompt/materials 来自上一条技能的字段，留着会串味。
+     ⚠️ 这同时是"确认离开"之后的收尾 —— 那份方案确实没地方可去了（提示里就是这么说的）。 */
+  useEffect(() => {
+    setPlanSession(null);
+    setPlanUnapplied(false);
+  }, [skill?.id]);
+  /* ⚠️ 这个 hook 必须**放在那个 `if (!skill) return <MediaHub/>` 提前返回之前** ——
+     放后面就会出现"这一轮少调了一个 hook"，整页塌成错误页（本文件踩过同类雷）。 */
+  usePlanLeaveGuard(planUnapplied);
   /* ⚠️ 批 K-C 实测抓到的真 bug：方案应用之后如果不再记一笔，用户点「生成图片」会**又弹一次**
      三步方案预览（previewStep 仍然是 true）—— 用户会以为点了没反应，其实是又回到了方案页。
      e2e 当场卡在这里：对话框走完了、第二次点 CTA 又把对话框打开了。
@@ -1380,11 +1398,18 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     if (previewStep && !planApplied) {
       /* 批 K-C：预览型技能先走**三步方案预览**（0.5 积分/次，点之前弹计费确认，失败不扣）。
          「确认并应用」把方案正文写回配置里的文字字段，用户再点一次才是真出图 ——
-         与知渔第 3 步「确认脚本并应用」同一口径（他们也是应用回输入框，再点生成）。 */
-      setPlanPreview({
+         与知渔第 3 步「确认脚本并应用」同一口径（他们也是应用回输入框，再点生成）。
+         ⚠️ 批 BX：**关掉弹窗不等于丢掉方案** —— 用户口径「生成预览方案……这种弹窗形式的，
+            应该是用户可以关掉这个弹窗，但是再点一次这个按钮可以回到这个弹窗里面啊」。
+            所以这里只把弹窗**收起来**（open=false，组件不卸载、方案与用户改过的东西都留着），
+            而弹窗自己比对输入签名：需求/素材没变就直接摆回上一份，变了才是新的一份。 */
+      setPlanSession(current => ({
         materials: collectPlanMaterials(effectiveValues, skill),
         prompt: collectPlanPrompt(effectiveValues, skill),
-      });
+        opened: true,
+        /* 上一次那轮已经生成过方案 ⇒ 保持同一个会话对象，让弹窗自己决定"摆回旧方案还是重新走" */
+        session: current?.session || 0,
+      }));
       return undefined;
     }
     return runGenerate();
@@ -1393,14 +1418,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const applyPlanPreview = text => {
     const key = planPreviewTargetKey(skill);
     if (key) setValues(previous => ({ ...previous, [key]: text }));
-    setPlanPreview(null);
+    setPlanSession(current => (current ? { ...current, opened: false } : null));
     setPlanApplied(true);
     return undefined;
   };
 
   /* 降级时（模型没连上、方案是空的、一分钱没扣）的出口：关掉对话框，直接走原来的生成路径。 */
   const skipPlanPreview = () => {
-    setPlanPreview(null);
+    setPlanSession(null);
+    setPlanUnapplied(false);
     setPlanApplied(true);
     return undefined;
   };
@@ -1492,20 +1518,23 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
           ? '这条技能还没有生成记录。在这里生成的视频会出现在这一栏里，同时也会进「我的作品」。'
           : (embed === 'xhs' ? '这条技能还没有生成记录，在上面写好内容点「生成图文」就会存在这里，同时也会进「我的作品」。' : '')}
       />
-      {/* 批 K-C：三步方案预览（图片侧入口）。与视频侧「代为撰写」是同一个组件、同一条服务端流水线。 */}
-      {planPreview && (
+      {/* 批 K-C：三步方案预览（图片侧入口）。与视频侧「代为撰写」是同一个组件、同一条服务端流水线。
+          ⚠️ 批 BX：**组件保持挂载**（`open` 在这里由 opened 控制，不再用 `{planSession && …}` 卸载）——
+             关掉弹窗只是收起来，方案与用户改过的东西都留着，再点入口按钮立刻回来（不重新请求、不重复扣费）。 */}
+      {planSession && (
         <PlanPreviewDialog
-          open
+          open={planSession.opened}
           surface="image"
           /* 批 BW：把**这条 skill 是谁**带进去 —— 服务端据此取它自己的解析方案
              （概念视觉方案不会去解析卖点/人群/参数，见 src/skills/parseSpecs.js）。 */
           skillId={skill.id}
           skillName={skill.name}
-          prompt={planPreview.prompt}
-          materials={planPreview.materials}
-          onClose={() => setPlanPreview(null)}
+          prompt={planSession.prompt}
+          materials={planSession.materials}
+          onClose={closePlanPreview}
           onApply={applyPlanPreview}
           onSkip={skipPlanPreview}
+          onPlanStateChange={setPlanUnapplied}
         />
       )}
     </div>

@@ -620,6 +620,100 @@ try {
      「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布里面」。
      现在断言的是：工作台真的嵌进来了、创作方式按技能落位、**结果台在嵌入形态下也渲染**、
      并且打开这一页不产生任何扣费。 */
+  /* ═══ ⑪b 关掉弹窗不丢方案 + 离开子页面要问一声（批 BX）════════════════════════════════════
+     用户口径（逐字）：「怎么还有「重新生成方案」的按钮啊……生成预览方案和生成脚本这种弹窗形式的，
+     应该是用户可以关掉这个弹窗，但是**再点一次这个按钮可以回到这个弹窗里面**啊，用户**退出这个
+     子页面时提示他确定退出吗**，这个方案或脚本会丢失。」
+     ⚠️ 这条只能真在浏览器里验：它要的正是 **React 状态有没有活下来**（组件不卸载、方案与用户改过的
+        东西都还在），静态门禁读源码是读不出来的。 */
+  scenario('⑪b 关掉弹窗不丢方案：再点一次入口回到同一份方案（不重新请求）');
+  /* ⚠️ 这条场景要**预览型**技能（`previewStep`）——锚点 `image.live_ui` 不是。
+     实测踩到过：在锚点上点 CTA 不会出弹窗，断言当场红（`点入口按钮打开的是方案预览弹窗 —— …`）。
+     预览型四条里挑「概念视觉方案」：它也是这条流水线**最重**的一页（解析条目 8 行 + 21/11/1 个档位），
+     ⚠️ 它的必填是「主题意象（select）+ 手法（segmented）」，所以要像真用户那样把那两格配齐
+        （用同一套通用配齐逻辑：下拉选第一项、分段控件没选中就点第一个）。 */
+  const PREVIEW_SKILL_ID = 'image.concept_set';
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + PREVIEW_SKILL_ID, { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(400);
+  const themeSelect = await page.$('.media-workbench-fields select[id^="field-"]');
+  if (themeSelect) {
+    const themeOptions = await themeSelect.$$eval('option', nodes => nodes.map(node => node.value).filter(Boolean));
+    if (themeOptions.length) await themeSelect.selectOption(themeOptions[0]).catch(() => {});
+  }
+  await page.evaluate(() => {
+    document.querySelectorAll('.media-workbench-fields .media-field-segmented').forEach(group => {
+      if (!group.querySelector('button.is-active')) group.querySelector('button')?.click();
+    });
+  });
+  await fillRequiredText();
+  const planCallsBefore = calls.planPreview.length;
+  const ctaReady = await page.evaluate(() => ({ disabled: document.querySelector('.media-workbench-submit')?.disabled ?? null }));
+  check(ctaReady.disabled === false, '配齐素材与必填文字后 CTA 可点', JSON.stringify(ctaReady));
+  await page.click('.media-workbench-submit');
+  await page.waitForSelector('.plan-preview-card', { timeout: 15000 }).catch(() => {});
+  check(Boolean(await page.$('.plan-preview-card')), '点入口按钮打开的是方案预览弹窗', page.url().slice(-26));
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary').catch(() => {});   /* 继续生成 */
+  await page.waitForSelector('.plan-preview-steps', { timeout: 25000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const afterFirstPlan = calls.planPreview.length;
+  check(afterFirstPlan === planCallsBefore + 1, '第一次生成预览只发 1 次方案请求', String(afterFirstPlan - planCallsBefore));
+  /* 弹窗里**不该再有**「重新生成方案」 */
+  const footerText = await page.evaluate(() => document.querySelector('.plan-preview-actions')?.textContent || '');
+  check(!footerText.includes('重新生成方案'), '弹窗里不再有「重新生成方案」按钮（用户点名去掉）', footerText.slice(0, 60));
+  check(footerText.includes('关闭'), '步① 左边那颗是「关闭」', footerText.slice(0, 60));
+  check(footerText.includes('关掉不会丢'), '旁边写清"关掉不会丢"（用户问过"关掉会怎么样"）', footerText.slice(0, 80));
+  /* 再进到第三步（方案正文），记下正文，然后关掉 */
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForSelector('.plan-preview-text', { timeout: 8000 }).catch(() => {});
+  const planBody = await page.evaluate(() => document.querySelector('.plan-preview-text')?.value || '');
+  check(planBody.includes('E2E 打桩方案正文'), '第三步能看到方案正文', planBody.slice(0, 30));
+  const reopenBase = calls.planPreview.length;
+  /* 关掉用的是右上角那颗 ×（用户最常用的那个"关掉这个弹窗"）——
+     ⚠️ 不要用 `:not(.is-primary)` 去点左下角那颗：**第三步那颗是「上一步」**，
+        点了只会往回退一格（第一次就是栽在这里："点关闭后弹窗收起来了" 判红）。 */
+  await page.click('.plan-preview-close');
+  await page.waitForTimeout(400);
+  check(!(await page.$('.plan-preview-card')), '点「关闭」后弹窗收起来了');
+  check(calls.planPreview.length === reopenBase, '关闭本身不发任何请求', String(calls.planPreview.length - reopenBase));
+  /* ═══ 离开子页面要问一声（此时手上正有一份没应用的方案）═══ */
+  await page.click('.topbar-back', { force: true });
+  await page.waitForSelector('[role="dialog"][aria-labelledby="app-dialog-title"]', { timeout: 8000 }).catch(() => {});
+  const leaveAsk = await page.evaluate(() => {
+    const box = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"]');
+    return { text: box?.textContent || '', buttons: [...(box?.querySelectorAll('button') || [])].map(node => node.textContent || '') };
+  });
+  check(leaveAsk.text.includes('还没应用'), '带着没应用的方案点「返回」会先问一声', leaveAsk.text.slice(0, 40));
+  check(leaveAsk.buttons.includes('留在这页') && leaveAsk.buttons.includes('仍然离开'), '两个选项语义明确（留下 / 仍然离开）', JSON.stringify(leaveAsk.buttons));
+  await page.evaluate(() => {
+    const box = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"]');
+    [...(box?.querySelectorAll('button') || [])].find(node => (node.textContent || '') === '留在这页')?.click();
+  });
+  await page.waitForTimeout(400);
+  check(page.url().includes('id=' + PREVIEW_SKILL_ID), '选「留在这页」就真的留下（没被导航走）', page.url().slice(-30));
+  /* ═══ 再点一次入口按钮：**回到同一份方案**，不重新请求 ═══ */
+  await page.click('.media-workbench-submit');
+  await page.waitForTimeout(600);
+  const reopened = await page.evaluate(() => ({
+    card: Boolean(document.querySelector('.plan-preview-card')),
+    steps: Boolean(document.querySelector('.plan-preview-steps')),
+    confirm: Boolean(document.querySelector('.plan-preview-confirm')),
+  }));
+  check(reopened.card && reopened.steps && !reopened.confirm,
+    '再点一次入口按钮直接回到方案（不是又走一遍计费确认）', JSON.stringify(reopened));
+  check(calls.planPreview.length === reopenBase, '回到旧方案**不重新请求、不重复扣费**', String(calls.planPreview.length - reopenBase));
+  /* 收尾：把它应用掉，免得影响后面的场景（此时 CTA 才是真出图） */
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  check(!(await page.$('.plan-preview-card')), '应用之后弹窗关掉（方案已进工作台）');
+
+  /* ═══ ⑫ 视频技能在子页面里就地跑完（既有视频工作台整块嵌入） ═══ */
   scenario('⑫ 视频技能在子页面里就地跑完（既有视频工作台整块嵌入）');
   /* ⚠️ 判据是**扣费点**，不是报价：视频创作台一进页面就会为自己的 SKU 报价（quoteBillingAction），
      那是设计如此、不扣钱。真正会花钱的只有 regenerate（单图扣费点）与创建视频任务。 */

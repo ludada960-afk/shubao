@@ -43,7 +43,13 @@ test('J-⑭ ② + K-C：主按钮先出预览，而预览现在**就是**三步�
   /* ⚠️ suite（套图）**不叠这一层**：它自己就是「先出方案 + 报价、确认后才跑」，再叠一层
      就是让用户连点两次确认（这条是 e2e 当场拦下来的）。 */
   assert.match(page, /const previewStep = Boolean\(skill\?\.previewStep\) && !handoff && !suite;/);
-  assert.match(page, /setPlanPreview\(\{/, "预览型技能点主按钮要打开三步方案预览");
+  /* ⚠️ 2026-09-26 批 BX：锚点从 `setPlanPreview({` 改成 `setPlanSession(` ——
+     属**换锚点、不换判据**：这条守的仍是"预览型技能点主按钮要打开三步方案预览"，
+     而"带上了素材与需求"由紧跟着的两条（collectPlanMaterials / collectPlanPrompt）钉住。
+     改名的原因见 test/plan-preview-session-0926：关掉弹窗不再把会话对象丢掉
+     （用户口径「再点一次这个按钮可以回到这个弹窗里面」），它从"一次性打开"变成"一份会话"，
+     写入时也从 `setPlanSession({…})` 变成 `setPlanSession(current => ({…}))`（要保留上一轮）。 */
+  assert.match(page, /setPlanSession\(/, "预览型技能点主按钮要打开三步方案预览");
   assert.match(page, /collectPlanMaterials\(effectiveValues, skill\)/, "要把用户上传的素材带进方案预览");
   assert.match(page, /collectPlanPrompt\(effectiveValues, skill\)/, "要把用户填的需求带进方案预览");
   assert.match(page, /<PlanPreviewDialog/, "用共用的三步对话框（与视频侧「代为撰写」同一份）");

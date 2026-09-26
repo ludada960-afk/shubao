@@ -12,6 +12,7 @@ import {
   appliedPlanText,
   customItemRow,
   itemRowsOf,
+  planInputSignature,
   planPreviewSpecFor,
   preselectedDirections,
 } from './planPreviewModel.js';
@@ -81,6 +82,9 @@ export default function PlanPreviewDialog({
      这一条实测踩到过：e2e 走到这里卡住，才发现对话框把主流程堵死了。
      跳过 = 不应用任何方案、直接回到原来的生成路径（没扣费，也没什么可应用的）。 */
   onSkip,
+  /* 「手上有一份**没应用**的方案」——由本组件报给页面，页面据此在离开子页面时拦一下
+     （用户口径：「用户退出这个子页面时提示他确定退出吗，这个方案或脚本会丢失」）。 */
+  onPlanStateChange,
 }) {
   const copy = copyOf(surface);
   const [stage, setStage] = useState('confirm');
@@ -96,10 +100,13 @@ export default function PlanPreviewDialog({
   const [error, setError] = useState('');
   const [tick, setTick] = useState(0);
   const runningRef = useRef(false);
+  /* 这份方案是按**什么输入**生成的（只算弹窗外的那几样，见 planInputSignature）。
+     关掉弹窗再打开时比对它：一样 ⇒ 把上一份方案原样摆回来（不请求、不扣费）。 */
+  const signatureRef = useRef('');
 
-  const materialKey = useMemo(
-    () => (materials || []).map(item => String(item?.id || item?.name || '')).join('|'),
-    [materials],
+  const inputSignature = useMemo(
+    () => planInputSignature({ surface, skillId, skillName, prompt, materials }),
+    [surface, skillId, skillName, prompt, materials],
   );
   /* ⚠️ 批 BW：**这条 skill 自己的解析方案在这里算**（声明源 `src/skills/parseSpecs.js` 在前端产物里）。
      算得出来就用它（步① 的行 + 步② 的档位，且**下发给服务端**）；
@@ -108,6 +115,17 @@ export default function PlanPreviewDialog({
 
   useEffect(() => {
     if (!open) return undefined;
+    /* ═══ 批 BX：**关掉再打开 = 回到同一份方案**（用户口径，逐字）═══════════════════════════
+       「生成预览方案和生成脚本这种弹窗形式的，应该是用户可以关掉这个弹窗，但是**再点一次这个按钮
+        可以回到这个弹窗里面**啊。」
+       ⇒ 输入没变（还是那次生成时的需求与素材）就把上一份方案（含用户在步①/②/③ 改过的东西）
+         原样摆回来：**不重新请求、不重复扣费**；输入变了才是新的一份（从计费确认重新走）。 */
+    if (plan && signatureRef.current === inputSignature) {
+      setStage('ready');
+      setStep(0);
+      setError('');
+      return undefined;
+    }
     setStage('confirm');
     setStep(0);
     setPlan(null);
@@ -120,7 +138,7 @@ export default function PlanPreviewDialog({
     })));
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, materialKey]);
+  }, [open, inputSignature]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -195,6 +213,8 @@ export default function PlanPreviewDialog({
       const result = await composePlanPreview(payload);
       const composed = result?.plan || {};
       setPlan(composed);
+      /* 记住"这份是按哪份输入生成的"——关掉再打开时比对它决定是摆回旧方案还是重新走一遍。 */
+      signatureRef.current = inputSignature;
       if (Array.isArray(composed.materials) && composed.materials.length) setUnderstanding(composed.materials);
       /* 服务端回的是**声明源 + 模型结论**合并后的条目；用户自己加的行保留（见 itemRowsOf）。 */
       const specItems = Array.isArray(composed.items) && composed.items.length ? composed.items : declared;
@@ -208,7 +228,15 @@ export default function PlanPreviewDialog({
     } finally {
       runningRef.current = false;
     }
-  }, [surface, skillId, skillName, prompt, direction, materials, items, declared, localSpec]);
+  }, [surface, skillId, skillName, prompt, direction, materials, items, declared, localSpec, inputSignature]);
+
+  /* ═══ 批 BX：把"手上有一份没应用的方案"报给页面 ═══════════════════════════════════════
+     页面据此在**离开子页面**时拦一下（用户口径：「用户退出这个子页面时提示他确定退出吗，
+     这个方案或脚本会丢失」）。判据是"已经生成出来了、还没写回工作台"——
+     还在计费确认页（没生成）不算，已经应用/跳过也不算（那时东西已经在工作台里了）。 */
+  useEffect(() => {
+    onPlanStateChange?.(Boolean(plan) && stage === 'ready');
+  }, [onPlanStateChange, plan, stage]);
 
   if (!open) return null;
 
@@ -400,12 +428,17 @@ export default function PlanPreviewDialog({
             </div>
 
             <footer className="plan-preview-actions">
+              {/* ═══ 批 BX：**弹窗里不再放「重新生成方案」**（用户口径，逐字）═════════════════════
+                  「怎么还有「重新生成方案」的按钮啊，我觉得不是只有哪些一键解析的按钮才能重新生成吗，
+                   生成预览方案和生成脚本这种弹窗形式的，应该是用户可以**关掉这个弹窗**，但是
+                   **再点一次这个按钮可以回到这个弹窗里面**啊。」
+                  ⇒ 关掉 = 只是收起来（方案留着，再点入口按钮就回来，不重新请求也不重复扣费）；
+                    真要从头再生成：**改工作台里的需求/素材，再点一次入口按钮** —— 那才是一份新方案。
+                  ⚠️ 所以步① 左边的按钮文案是「关闭」而不是「取消」：这里没有"取消掉这份方案"这个动作。 */}
               <button type="button" className="plan-preview-btn" onClick={() => (step === 0 ? onClose?.() : setStep(step - 1))}>
-                {step === 0 ? '取消' : '上一步'}
+                {step === 0 ? '关闭' : '上一步'}
               </button>
-              <button type="button" className="plan-preview-btn" onClick={() => { setStage('confirm'); setError(''); }}>
-                重新生成方案
-              </button>
+              {step === 0 && <span className="plan-preview-keep">关掉不会丢，再点一次入口按钮就能回到这里</span>}
               {step < 2
                 ? <button type="button" className="plan-preview-btn is-primary" onClick={() => setStep(step + 1)}>下一步</button>
                 : (plan?.degraded

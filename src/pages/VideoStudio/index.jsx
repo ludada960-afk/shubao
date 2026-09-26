@@ -107,6 +107,7 @@ import { CAMERA_MOVES, SCENE_EDITS, composeVideoPrompt, planToContextText, workb
 import VideoWorkbench from '../../components/media/VideoWorkbench.jsx';
 /* 批 K-D：视频侧「代为撰写」与图片侧「生成预览」共用同一个三步方案预览对话框 */
 import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
+import { usePlanLeaveGuard } from '../../components/plan-preview/usePlanLeaveGuard.js';
 import './VideoStudio.css';
 
 /* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
@@ -401,6 +402,19 @@ export default function VideoStudioPage({
      脚本给完善起来**。」「他们这两套东西**本质上都是一个设计方案**，只是在它里面**有不同的入口**。」
      ⇒ 与图片侧「生成预览」共用**同一份** PlanPreviewDialog（服务端也是同一条 /api/plan-preview）。 */
   const [daweiPreview, setDaweiPreview] = useState(null);
+  /* ═══ 批 BX：弹窗**收起来 ≠ 丢掉脚本**（与图片侧同一条口径，用户逐字）══════════════════════
+     「生成预览方案和生成脚本这种弹窗形式的，应该是用户可以关掉这个弹窗，但是**再点一次这个按钮
+      可以回到这个弹窗里面**啊。」
+     ⇒ `daweiOpen` 只管"展不展开"，`daweiUnapplied` 是"手上有一份没应用的脚本"（离开时据此拦一下）。 */
+  const [daweiOpen, setDaweiOpen] = useState(false);
+  const [daweiUnapplied, setDaweiUnapplied] = useState(false);
+  /* 换技能（`skillId` 变）就把这份会话丢掉：它的 prompt/materials 属于上一条玩法，留着会串味。 */
+  useEffect(() => {
+    setDaweiPreview(null);
+    setDaweiOpen(false);
+    setDaweiUnapplied(false);
+  }, [skillId]);
+  usePlanLeaveGuard(daweiUnapplied);
   const [planReviewed, setPlanReviewed] = useState(false);
   const [analyzedPlan, setAnalyzedPlan] = useState(null);
   const [analyzedSignature, setAnalyzedSignature] = useState('');
@@ -1710,7 +1724,10 @@ export default function VideoStudioPage({
         /* 单张素材传不上去就跳过：少一张参考图不该让整条流水线失败。 */
       }
     }
+    /* ⚠️ 批 BX：这里**不重置弹窗内部状态**（组件没卸载）—— 需求/素材没变的话，
+       弹窗自己会把上一份脚本原样摆回来（不请求、不重复扣费）；变了才是新的一份。 */
     setDaweiPreview({ materials, prompt: String(prompt || '').trim() });
+    setDaweiOpen(true);
     return undefined;
   };
 
@@ -1718,7 +1735,8 @@ export default function VideoStudioPage({
   const applyDaweiPreview = text => {
     setPrompt(String(text || '').slice(0, VIDEO_PROMPT_MAX_LENGTH));
     setPlanReviewed(false);
-    setDaweiPreview(null);
+    setDaweiOpen(false);
+    setDaweiUnapplied(false);
     return undefined;
   };
 
@@ -2338,10 +2356,17 @@ export default function VideoStudioPage({
           </div>
           {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
         </>}
+        {/* ═══ 2026-09-26 批 BY：**子页面不再重复一份「生成记录」**（用户原话，逐字）══════════════════
+             「然后你的**生成记录为什么会在这里呢**？**右边不是有示例和历史区吗**？我觉得你现在视频生成
+              这边做的是乱七八糟的，你整体的规格和设计方案是完全没有按照我们整体图片生成的那些子页面
+              以及知渔他们那边的做法去做设计的。」
+             依据：子页面右栏本来就有「示例 / 历史」两个页签（历史按技能筛过一份视图），
+             左栏/下方再来一份任务列表就是同一件事在同一屏出现两次 —— 图片生成那边的子页面没有这份。
+             ⚠️ 成片台（结果预览）保留：用户要走的是**重复的那份列表**，不是结果本身。 */}
         <div className="video-history">
           {/* 首页只留一个入口（用户批注 2：「你像生成记录这个就没有必要放在这里呀，
               这个最多就是放一个按钮而已，让用户跳到我的作品里面去」）。
-              子页面照旧铺完整的生成记录 —— 它是这个账号全部视频任务的唯一入口。 */}
+              子页面：**整段不渲染**（见上）；独立路由照旧铺完整生成记录。 */}
           {homeComposer ? (
             <button
               type="button"
@@ -2383,10 +2408,12 @@ export default function VideoStudioPage({
           onPlanApprovalChange={setActiveVideoPlanHash}
         />
     )}
-    {/* 批 K-D：视频侧「代为撰写」——与图片侧「生成预览」是**同一个组件、同一条服务端流水线**。 */}
+    {/* 批 K-D：视频侧「代为撰写」——与图片侧「生成预览」是**同一个组件、同一条服务端流水线**。
+        ⚠️ 批 BX：**组件保持挂载**（`open` 由 daweiOpen 控制）—— 关掉只是收起来，
+           脚本与用户在里面改过的东西都留着，再点一次「代为撰写 / 生成脚本」立刻回来。 */}
     {daweiPreview && (
       <PlanPreviewDialog
-        open
+        open={daweiOpen}
         surface="video"
         /* 批 BW：子页面里的「代为撰写」按**这条视频 skill** 取解析方案；
            首页那种没有具体 skill 的入口 skillId 为空，退回通用档（服务端兜底）。 */
@@ -2394,9 +2421,10 @@ export default function VideoStudioPage({
         skillName={skillTag || '视频创作'}
         prompt={daweiPreview.prompt}
         materials={daweiPreview.materials}
-        onClose={() => setDaweiPreview(null)}
+        onClose={() => setDaweiOpen(false)}
         onApply={applyDaweiPreview}
-        onSkip={() => setDaweiPreview(null)}
+        onSkip={() => { setDaweiOpen(false); setDaweiUnapplied(false); }}
+        onPlanStateChange={setDaweiUnapplied}
       />
     )}
   </main>;

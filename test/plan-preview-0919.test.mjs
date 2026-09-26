@@ -115,7 +115,10 @@ test('计费：ec_plan_preview = 0.5 积分/次，先报价后扣的 SKU 口径�
 test('一个组件两个入口：图片侧「生成预览」与视频侧「代为撰写」用同一份对话框', () => {
   const imageSide = read('src/pages/MediaCreation/index.jsx');
   assert.match(imageSide, /components\/plan-preview\/PlanPreviewDialog\.jsx/, '图片侧必须引用共用对话框');
-  assert.match(imageSide, /setPlanPreview\(\{/, '图片侧的「生成预览」要打开三步方案预览');
+  /* ⚠️ 2026-09-26 批 BX：锚点 `setPlanPreview({` → `setPlanSession(`（换锚点、不换判据）——
+     关掉弹窗不再丢掉会话对象（用户口径「再点一次这个按钮可以回到这个弹窗里面」），
+     所以写入变成了 `setPlanSession(current => ({…}))`；"带上了素材"由下一条钉住。 */
+  assert.match(imageSide, /setPlanSession\(/, '图片侧的「生成预览」要打开三步方案预览');
   assert.match(imageSide, /collectPlanMaterials/, '要把用户上传的素材带进方案预览');
   assert.match(imageSide, /onSkip=\{/, '降级时要有出口（模型不可用时方案是空的，不能堵死主流程）');
   /* ── 批 K-D：视频侧「代为撰写」入口（提示词框旁，同一份组件）── */
