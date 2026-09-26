@@ -8982,3 +8982,70 @@ cmd 内联只跑单行命令。**
   · `.media-workbench-left,.media-workbench-right{min-width:0}`（列可收缩）
   · `.media-field-upload-add{…white-space:nowrap}`（标签不折行）
   · 客户端产物含 `gallery-remix`（做同款跨路由）与 `已带出案例`（carryHint 文案）
+
+## 2026-09-26 批 BR：模型下拉**去掉家族标题行** + 族内行序（默认档置顶/价格升序）+ 首页 h1 三色渐变字下线（Hallmark 方向）
+
+提交 `9e464736`（9 文件）；部署：`Deployed 9e464736 to https://shuimg.cn/`。用户在同一轮里既确认了上一版的修复、又提了两条新要求。
+
+### 用户原话（逐字）
+- 「那 seedance 没有那么多规格吗，而且我不是说了吗。你不同的模型要归类到一起呀，**为什么又乱了呢**」
+- 「但是你模型选择这里，**没必要分类完把名字都当标题再各自做一行啊，都应该去掉**」（配图圈的就是那行 "Seedance"）
+- 「首页 h1 的品牌渐变文字……和字体，这个**你可以改吧，按照 Hallmark 的优化方向去改**」
+- 以及确认：「我重新刷新了一下，你模型和工作台这些确实是改了，是我的问题」
+
+### 一、家族标题行整块去掉（分组保留）
+- 页面：`modelRows.families` 外层仍是 `React.Fragment`（**族内型号连续排列**），只是**不再渲染**那行标题。
+- 样式：批 BM 立的两条"分组标题"规则整块删除（不留死样式；连注释里的类名也去掉了 —— 门禁的裸正则连注释都算）。
+- **判据翻转**（都写明依据）：门禁 ① 从"标题顺序"改成**相邻性断言**（同一家族不许被切成多段，
+  分组语义一个没丢）；门禁 ⑤ 从"标题必须存在且是纯文本"改成"页面与样式表里**都不许再出现**那个类"。
+
+### 二、族内行序：默认档置顶 + 价格升序（"为什么又乱了呢"的答案）
+实测改前是**目录书写顺序**：`Fast / 标准 / 2.5 / 轻量 / 满参数 / Mini` —— 同一底座的档位被 2.5 插在中间。
+规则改成**客观可复算**的（免得下一个人又"按感觉"改）：
+**默认档（default:true）第一 → 其余按短档价（quotes.short.points）从低到高 → 同价按 variant 稳定排序**。
+改后实测（`.qa/br-diag.mjs`）：
+```
+Seedance 2.0(默认,46) → 2.0 轻量(18) → 2.0 满参数(22) → 2.0 Fast(27) → 2.0 Mini(32) → 2.5(43)
+MiniMax H3(38) → MiniMax H3 2K(65)   通义万相 3.0(11)   可灵 3.0(16) → 可灵 3.0 Pro(32)
+```
+新增门禁 ⑦ 钉住（默认档必须在首位、其后必须价格非降）。
+
+### 三、Seedance 的"规格"到底有多少（回答用户那句"seedance 没有那么多规格吗"）
+上游逐条核过（`docs/design/84` 附录 + `.qa/bo-resolution-audit.mjs`）：
+Seedance 在我们目录里是 **6 条产品**，因为**上游就是 6 条不同通道**，各自规格与价格不同 ——
+不是我们把它拆成 6 条：
+| 条目 | 上游路由 | 分辨率 | 短档价 |
+|---|---|---|---|
+| Seedance 2.0（标准，默认） | `seedance-2.0` | 720P | 46 |
+| Seedance 2.0 轻量 | `sd-2.0-js900` | 固定 720P | 18 |
+| Seedance 2.0 满参数 | `sd-2.0-js` | 固定 720P | 22 |
+| Seedance 2.0 Fast | `agv-seedance2.0fast` | 720P | 27 |
+| Seedance 2.0 Mini | `seedance-2.0-mini` | 480P/720P | 32 |
+| Seedance 2.5 | `sd-2.5-js2` | 固定 720P | 43 |
+**能不能再合并**：只有"同一条路由下的不同分辨率"才该合并（通义万相 480P/720P/1080P 就是）；
+上面这 6 条是**不同通道**（价格差 2.5 倍、素材上限也不同），合并会把"选哪条供给"这件事藏起来。
+
+### 四、首页 h1：三色渐变字下线（用户批准）
+改前 `.hero-gradient-text` = `linear-gradient(135deg,#7c3aed,#ec4899,#f59e0b)`（紫→粉→琥珀）——
+Hallmark 的 critical 反模式「渐变标题」，同时违反站内"品牌渐变只给品牌时刻"的纪律（裁定 2）。
+⇒ 强调改用**品牌色 + 更重字重**（Hallmark 允许的三种强调之一），类名改成 `.hero-accent-text`
+（旧名已无引用 —— 名字不能再说谎）。
+
+### 五、字体：清掉"从来没生效过的网字体"
+`--sb-font-display` 原来挂着 `'Fredoka'` / `'ZCOOL KuaiLe'`，全仓没有它们的 @font-face ⇒
+一直回退到系统字体；留着只会让人误以为在用、或在别的机器上"突然换脸"。
+⇒ 明确写成系统展示栈（Hallmark 方向：标题与正文两套栈；标题取光学更紧的 display 字面）。
+
+### 六、验证
+- `npm run test` **4128 / pass 4118 / fail 0 / skipped 10**；`npm run precommit` 全绿
+- 实机 `.qa/br-diag.mjs`：模型下拉**没有标题行** + 行序如上；AI换装子页 CTA 实测 **440/480 通栏**、
+  提示「请先上传模特图（至少 1 张）」在按钮下方（这两条上一版已修好，用户刷新后确认）
+- 门禁：`video-model-families-0925`（7 条）、`hallmark-mobile-and-sloplint-0926`（5 条）全绿
+
+### 部署与线上复验
+- `Deployed 9e464736 to https://shuimg.cn/` + `Released remote deployment lock`；产物换成
+  `assets/index-DEmtp_l3.js` + `assets/style-CZ7tFvZW.css`；`/api/health` = **200**。
+- 服务器端逐条核到（下面两条 grep 计数为 0 的是「应消失」的东西，0 即通过）：
+  · `video-model-group-label` 出现 **0** 次 —— 家族标题行彻底消失
+  · `hero-gradient-text` 出现 **0** 次；新规则 `hero-accent-text{color:var(--sb-ink-brand);font-weight:900;background:none}`
+  · `--sb-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", …`（系统展示栈，无网字体）
