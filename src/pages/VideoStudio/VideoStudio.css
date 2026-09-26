@@ -664,6 +664,23 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
    `display: contents` —— 否则第一层网格只看到两个"大块"，模型那张被压窄、标签全被截断（实测踩到）。 */
 .video-composer.is-workbench .video-quick-tools,
 .video-composer.is-workbench .video-toolbar-buttons { display: contents; }
+/* ═══ 2026-09-26 批 CC：**模型控件必须占满它那一格**（用户本轮批注，逐字）═════════════════════════
+   原话：「你这里两个模型的宽度不一致的问题，我不是跟你说过吗？你为什么还是没去改啊？你现在这个
+   **模型选择的按钮特别的小**呀，它跟右边这个生成设置的按钮是不一致的。两者是不平衡的。」
+   根因：`.video-quick-tools` 是 `display: contents`，所以真正的网格子项是它里面的
+   `.video-inline-control`（`display: inline-flex`、**没有宽度**）。右边那两颗是
+   `.video-toolbar-buttons` 的直接子项，直接吃 `width: 100%` ⇒ 占满整格；
+   而模型那颗的 100% 是相对**内容宽**的 inline-flex 父元素算的 ⇒ 只有按钮自身的 180。
+   同一行里两格于是"一格满、一格窄"，用户看到的就是这个。
+   ⇒ 把包装层也撑满，两格这才同宽（值仍是那两颗的 180 上限，不引入新数）。 */
+.video-composer.is-workbench .video-inline-control { width: 100%; min-width: 0; }
+/* ⚠️ 光撑满包装层还不够：按钮自己是**弹性子项**，而 `.video-config-trigger` 写着
+   `flex: 0 1 180px` —— 主轴上吃的是 **flex-basis 180**（`width: 100%` 在 flex 布局里被 basis 顶掉），
+   grow=0 ⇒ 包装层再宽它也不长。实测（.qa/cc-toolbar-width.mjs）：
+     vw=1600/1440 → 轨道 167.875，按钮被 shrink 到 168 ⇒ 与右边同宽（假象：刚好相等）
+     vw=900      → 轨道 362，模型按钮仍是 **180**，右边那颗 362 ⇒ 用户截图里"一窄一宽"就是这一档
+   ⇒ 让它在自己那一格里 grow 起来。 */
+.video-composer.is-workbench .video-inline-control > .video-config-trigger { flex: 1 1 auto; width: 100%; min-width: 0; }
 .video-composer.is-workbench .video-config-trigger { width: 100%; min-width: 0; }
 /* ═══ 2026-09-26 批 BY：**生成按钮固定在栏底**（用户原话：「这个按钮我已经跟你说过很多次了，
    生成按钮它就是要固定在最下面的，图片生成那边是这样做的，那视频生成这边你为什么没有同步这些规则

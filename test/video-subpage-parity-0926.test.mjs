@@ -81,6 +81,26 @@ test('CB-⑥ 视频侧也要有「放大」（与图片侧同一形态、同一�
     '放大框里的 contenteditable 也要有高度，否则比原框还矮');
 });
 
+test('CB-⑧ 底栏两颗控件在任何视口都必须同宽（模型那颗是弹性子项，basis 会顶掉 width）', () => {
+  const css = read('src/pages/VideoStudio/VideoStudio.css');
+  const wrap = ruleBody(css, '.video-composer.is-workbench .video-inline-control {');
+  assert.ok(wrap && /width:\s*100%/.test(wrap),
+    '包装层（.video-quick-tools 是 display:contents，真正的网格子项是它）必须撑满它那一格');
+  const inner = ruleBody(css, '.video-composer.is-workbench .video-inline-control > .video-config-trigger');
+  assert.ok(inner && /flex:\s*1 1 auto/.test(inner),
+    '`.video-config-trigger` 的 `flex: 0 1 180px` 会让 flex-basis 顶掉 width：不 grow 就停在 180（实测 vw=900 时 180 vs 362）');
+});
+
+test('CB-⑨ 三步方案弹窗的视频侧抬头也是站内叫法（图片侧「生成预览」不动）', () => {
+  const src = read('src/components/plan-preview/PlanPreviewDialog.jsx');
+  const video = src.match(/video:\s*\{[\s\S]*?entry:\s*'([^']*)',\s*confirmTitle:\s*'([^']*)'/);
+  assert.ok(video, '找不到 video 那份 COPY');
+  assert.equal(video[1], '生成脚本', '入口抬头必须与那颗按钮同名（原来照抄知渔的「代为撰写」）');
+  assert.match(video[2], /生成脚本/, '计费确认那一屏的标题同理');
+  const image = src.match(/image:\s*\{[\s\S]*?entry:\s*'([^']*)'/);
+  assert.ok(image && image[1] === '生成预览', '图片侧本来就是「生成预览」，不许被顺手改掉');
+});
+
 test('CB-⑦ 站内叫法统一：独立创作台那颗入口也叫「生成脚本」（类名不变）', () => {
   const page = read('src/pages/VideoStudio/index.jsx');
   const entry = page.match(/video-dawei-entry[\s\S]{0,400}?<\/button>/);
