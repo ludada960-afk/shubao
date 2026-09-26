@@ -1534,7 +1534,16 @@ export default function VideoStudioPage({
   const uploadedFileCount = ['images', 'videos', 'audios', 'first', 'last', 'media']
     .reduce((sum, key) => sum + (Array.isArray(files?.[key]) ? files[key].length : 0), 0);
   const hasAnyInput = uploadedFileCount > 0 || Boolean(String(prompt || '').trim());
-  const canAnalyze = capabilities.generationEnabled && selectedProduct && hasAnyInput;
+  /* ═══ 2026-09-26 批 CA：**必须素材的模式，缺素材时按钮要暗着**（用户本轮批注，逐字）══════════
+     原话：「你这个按钮不是必须要上传相关的素材才能实现吗？那你为什么不让他暗下去呢？应该要拥护
+     他达到某种条件之后它才能亮起来吧。图片生成那边，我们不是已经做了相关的配置吗？为什么视频生
+     成这边的子页面你不做这些配置呢？」
+     ⚠️ 判据只有一条：requires（= hasRequiredVideoInputs(mode, files)）。
+       · 智能成片这类**不强制素材**的模式：requires 恒为 true → 写了提示词就亮
+         （用户早前的规矩：「如果你这个 skill 不需要一定要上传素材…只要用户他输入了提示词，这里就会亮起来」）；
+       · 首尾帧 / 参考素材这类模式：requires 由素材决定 → 没传素材时按钮**暗着**，
+         正好与下面 submitHint ②「不该出现时不出现」成对。 */
+  const canAnalyze = capabilities.generationEnabled && selectedProduct && hasAnyInput && requires;
   /* process 方案的可生成判据（与上游不同，见 submitProcessJob 的说明）：
      报价到手 + 该有的素材都在（数字人还要驱动配音）+ 计费那一档的秒数读出来了
      + （要区域的那一档）区域框好了 + **本机执行**才要求本机渲染组件在。

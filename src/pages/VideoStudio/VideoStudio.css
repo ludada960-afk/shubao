@@ -852,7 +852,19 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
    ⚠️ 渐变**保留**：.video-composer 那条暖色渐变本来就是照图片侧的 .ec-xhs-composer 抄来的
       （见本文件第 38-47 行的记录，用户当时的要求就是照抄图片生成那边的布局），
       所以这里只改圆角/描边/阴影，**没有**动 background-image —— 动了才是把另一条已修的东西推翻。 */
-.video-studio-page.is-embedded .video-composer {
+/* ═══ 2026-09-26 批 CA：**技能子页面（.is-workbench）不再有这层框**（用户本轮批注，逐字）══════
+   原话：「你这里还是有一层框呀。为什么要搞这么大的一层框在这里呢？你图片生成那边的所有子页面
+   是没有这层框的呀，视频生成这边为什么会有呢？你两边的规格到底对齐了没有啊？」
+   根因（实测，`.qa/ca-frame-diag.mjs`，1440 视口 /video-creation?id=video.smart）：
+     本条选择器权重 (0,3,0) ＞ 上面第 630 行 `.video-composer.is-workbench` 的 (0,2,0)，
+     **与先后顺序无关** —— 所以第 630 行写的 `border:0; border-radius:0; box-shadow:none`
+     从来没赢过，用户看到的就是这层 1px 描边 + 12 圆角 + 阴影的框：
+       ↑0 section.video-composer.is-workbench bg=rgba(0,0,0,0) bw=1px bc=rgba(12,10,9,.1)
+          r=12px sh=rgba(57,45,26,.05) 0px 1px 2px rect=140,116 386x748
+     它是**被嵌进工作台的那一支**：左栏自己有白底、块与块之间有发丝线，再套一层框 =
+     用户反复说的「嵌了很多层的框」。所以这里加 `:not(.is-workbench)`，把这一支排除掉；
+     首页/独立创作台（非 workbench）的框**原样保留** —— 那条是批 J-⑬ 逐值照图片侧定下来的。 */
+.video-studio-page.is-embedded .video-composer:not(.is-workbench) {
   border: 1px solid var(--sb-border-default);
   border-radius: 12px;
   box-shadow: var(--sb-shadow-sm);
