@@ -17,9 +17,18 @@
   backdrop-filter: blur(6px);
 }
 
+/* ═══ 2026-09-26 批 BU：**弹窗从小窗改成大窗**（用户批注，逐字）══════════════════════════════════
+   原话：「我们现在这个预览窗口是**又小又没有排版**啊，你要**按照他这种排版和设计思路**去做……
+   设计思路和 UI 样式可以抄呀。」（他给的是七张「代为撰写」实拍图）
+
+   改前：`width: min(595px, …)` / `max-height: min(560px, …)` —— 一个居中小组件。
+   实测他的那一版：**宽约占视口 85%、高约占 92vh**，内容在窗内**自己滚动**，底部动作区常驻。
+   ⇒ 按同一比例放到我们的断点上：宽 `min(1180px, 100vw - 48px)`、高 `min(880px, 100vh - 56px)`。
+   ⚠️ 卡片本身仍然 `overflow: hidden`（圆角靠它）；滚动交给内部的 `.plan-preview-body`
+      —— 只放大不放开滚动的话，第三步的长正文会被裁掉（这正是"又小又没排版"的另一半成因）。 */
 .plan-preview-card {
-  width: min(595px, calc(100vw - 32px));
-  max-height: min(560px, calc(100vh - 48px));
+  width: min(1180px, calc(100vw - 48px));
+  max-height: min(880px, calc(100vh - 56px));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -375,9 +384,21 @@
   gap: 16px;
 }
 
+/* ═══ 2026-09-26 批 BU：第二步照他的**分组卡片 + 白底 ✓ 选中态**（用户批注 + 七张实拍图）═══════
+   用户口径：「我们现在这个预览窗口是**又小又没有排版**啊，你要按照他这种排版和设计思路去做……
+   **设计思路和 UI 样式可以抄呀**。」并追问：「**那各种配置按钮和条目去哪了呢**，方向偏好那边是什么样呢？」
+   实测他那一步（截图）：**每一组是一张卡**（有底色、有边界，组名在卡内），
+   组内一排胶囊；**选中的那颗是白底 + 右侧一个 ✓**（不是实心色块）。
+   我们原来：组是裸的 grid（没有卡），选中态是**实心品牌色块** —— 在一屏好几排胶囊时，
+   实心块比"白底 + ✓"吵，也更难一眼看出"这一排现在选的是哪个"。
+   ⇒ 抄他的：组改成卡；选中态改成白底 + 右侧 ✓（✓ 走品牌色，保留我们的色彩语言）。 */
 .plan-preview-direction {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 14px;
+  background: var(--sb-surface-tint);
 }
 
 .plan-preview-options {
@@ -405,10 +426,19 @@
   color: var(--sb-ink-brand);
 }
 
+/* 选中：白底 + 右侧 ✓（照他；不再用实心色块） */
 .plan-preview-options button.is-selected {
-  border-color: transparent;
-  background: var(--sb-brand);
-  color: var(--sb-ink-on-dark);
+  border-color: var(--sb-brand-border);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font-weight: 600;
+}
+
+.plan-preview-options button.is-selected::after {
+  content: '✓';
+  margin-left: 8px;
+  color: var(--sb-brand-600);
+  font-weight: 700;
 }
 
 .plan-preview-plan {
