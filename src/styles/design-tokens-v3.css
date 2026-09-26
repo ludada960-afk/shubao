@@ -215,8 +215,12 @@
      ══════════════════════════════════════════════════════════════════════════ */
   --sb-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
                   'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', Arial, sans-serif;
-  --sb-font-display: 'Fredoka', 'ZCOOL KuaiLe', -apple-system, 'PingFang SC',
-                     'Microsoft YaHei', sans-serif;
+  /* 2026-09-26 批 BR：原来挂着 'Fredoka' / 'ZCOOL KuaiLe' 两个**从未加载**的网字体
+     （全仓没有它们的 @font-face / link），实际一直回退到系统字体 —— 留着只会让人误以为在用它们，
+     也会在别的机器上"突然换脸"。⇒ 明确写成系统展示栈（Hallmark 的方向：标题与正文用**两套**栈，
+     标题取光学更紧的 display 字面，正文取可读性优先的 sans）。 */
+  --sb-font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI',
+                     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --sb-font-mono: 'SF Mono', 'Fira Code', ui-monospace, monospace;
 
   --sb-text-2xs: 10px;   /* 角标 / 极度次要（仅限非正文，对比度须自检） */

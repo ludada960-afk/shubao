@@ -1199,26 +1199,10 @@
   background: rgba(91, 75, 61, .22);
 }
 .video-inline-menu::-webkit-scrollbar-thumb:hover { background: rgba(91, 75, 61, .34); }
-/* ═══ 2026-09-25 批 BM：模型下拉的**家族分组标题**（用户原话：「为什么 seedance 不放到一起呢？
-   mini max 你也没有放到一起」）══════════════════════════════════════════════════════════════
-   为什么要一个专门的类而不是复用 .video-model-menu-head：那个是**面板标题**（带图标的分组标题，
-   属于"这一层面板"），这里是**列表内的分区标签**（属于"这一组模型"）——
-   两者在层级上不是一件事，混用会让"面板标题"和"分组标题"看起来一样，用户分不出哪层是哪层。
-   ⚠️ 它必须是**纯文本**（不是 button、没有 hover 底、没有指针）：分组标题不能看起来像选项。 */
-.video-model-group-label {
-  padding: 2px var(--sb-space-3) 0;
-  color: var(--sb-text-hint);
-  /* 11/700（--sb-text-xs + --sb-weight-bold）：分组标题属于"说明文字"这一档，
-     不是"角标"（--sb-text-2xs 的用途注释就写着角标）——
-     实测 10/600 在 480px 宽的下拉里压不住下面的模型行，用户看不出这是分组。 */
-  font-size: var(--sb-text-xs);
-  font-weight: var(--sb-weight-bold);
-  letter-spacing: .02em;
-  user-select: none;
-}
-/* 组与组之间留出比"行与行"更大的呼吸（分组要看得出来是分组）：
-   相邻两条 label 之间拉开 4px，加上 grid 的 8px gap，实际组分隔 = 12px。 */
-.video-model-group-label + .video-model-group-label { margin-top: 4px; }
+/* 2026-09-26 批 BR-2：家族标题行整块删除（用户原话，逐字）——
+   「但是你模型选择这里，没必要分类完把名字都当标题再各自做一行啊，都应该去掉」（配图圈的就是那行 Seedance）。
+   批 BM 立的那两条"分组标题"规则随之删除（类名一并消失，避免留死样式）；分组本身没丢：同一家族的型号仍连续排列、排序照旧
+   （见 videoModelRows.buildVideoModelRows 的 families）。 */
 /* 同一条防"多余滚动条"：滚动权在内层 body（图片侧同样的做法） */
 .video-config-panel-body { max-height: inherit; overflow-y: auto; }
 /* ═══ 2026-09-24 批 AW：模型行**逐 token 对齐图片侧的 `.sb-opt`**（用户图四）══════════════════════

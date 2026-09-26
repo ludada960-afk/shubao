@@ -41,6 +41,19 @@ test('① 同一家族的行挨在一起（Seedance 不再被别的家族切成 
     ['Seedance', 'MiniMax', '通义万相', '可灵'],
     '四族顺序 = 目录顺序（用户记住的位置不该每版都换）',
   );
+  /* ═══ 2026-09-26 批 BR-2：**分组标题行已经删掉**（用户原话：「没必要分类完把名字都当标题
+     再各自做一行啊，都应该去掉」）⇒ 页面上"分组"表现为**相邻**而不是一行标题：
+     这里断言"同一家族的型号在展示顺序里连续出现"，分组语义一个没丢。 */
+  const flat = rows.families.flatMap(family => family.rows.map(row => row.family));
+  const firstSeen = new Set();
+  let lastFamily = '';
+  for (const key of flat) {
+    if (key !== lastFamily) {
+      assert.ok(!firstSeen.has(key), '家族 ' + key + ' 在列表里被切成了多段（分组失效）');
+      firstSeen.add(key);
+      lastFamily = key;
+    }
+  }
 });
 
 test('② 只有分辨率不同的档位合并成一行，分辨率交给「生成设置」', () => {
@@ -122,6 +135,23 @@ test('④ 下拉渲染消费分组结果，清晰度药丸来自**型号行**而
    实机复验（.qa/bm6-verify.mjs → .tmp/bm6/bm6-verify.json）量到：直接子 button = 10、
    行底 #f4f4f4 / 圆角 12 / min-height 56 / 选中环 3px，都来自这一族。
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
+test('⑦ 族内行序：默认档置顶 → 价格升序 → 稳定（用户：「为什么又乱了呢」）', () => {
+  /* 实测改前 Seedance 组是目录书写顺序（Fast / 标准 / 2.5 / 轻量 / 满参数 / Mini），
+     同一底座的档位被 2.5 插在中间 ⇒ 看着就是乱的。
+     规则必须客观可复算：**默认档置顶，其余按短档价从低到高，价格相同按 variant 稳定排序**。 */
+  for (const family of rows.families) {
+    const prices = family.rows.map(row => Number(row.primary?.quotes?.short?.points ?? 0));
+    const first = family.rows[0];
+    if (family.rows.some(row => row.products.some(product => product.default === true))) {
+      assert.ok(first.products.some(product => product.default === true),
+        family.label + '：默认档必须排第一，实测第一行是 ' + first.label);
+    }
+    const rest = prices.slice(1);
+    assert.deepEqual(rest, [...rest].sort((a, b) => a - b),
+      family.label + '：默认档之后必须按价格升序，实测 ' + prices.join('/'));
+  }
+});
+
 test('⑤ 分组标题是纯文本、行样式仍是直接子选择器、滚动条看得见', () => {
   const page = fs.readFileSync('src/pages/VideoStudio/index.jsx', 'utf8');
   const css = fs.readFileSync('src/pages/VideoStudio/VideoStudio.css', 'utf8');
@@ -130,15 +160,10 @@ test('⑤ 分组标题是纯文本、行样式仍是直接子选择器、滚动�
   assert.match(page, /<React\.Fragment key=\{family\.key\}>/, '分组必须用 Fragment 包（不套 div）');
   assert.match(css, /\.video-inline-menu > button\b/, '行样式的直接子选择器仍在（前提就是上面那条）');
 
-  /* ② 分组标题是标签、不是选项：不是 button / 没有手型指针 / 没有 hover 底 */
-  assert.match(css, /\.video-model-group-label \{/, '分组标题要有自己的类');
-  const labelBlock = css.slice(css.indexOf('.video-model-group-label {'), css.indexOf('.video-model-group-label + .video-model-group-label'));
-  assert.doesNotMatch(labelBlock, /cursor:\s*pointer/, '分组标题不许有手型指针（会让人以为能点）');
-  assert.doesNotMatch(labelBlock, /:hover/, '分组标题不许有 hover 态');
-  assert.match(page, /<div className="video-model-group-label">/, '分组标题渲染成 div（不是 button）');
-  /* 11/700：10/600 实测压不住下面的模型行（角标档 vs 说明档，见 CSS 里的注释） */
-  assert.match(css, /\.video-model-group-label \{[\s\S]{0,400}font-size: var\(--sb-text-xs\)/);
-  assert.match(css, /\.video-model-group-label \{[\s\S]{0,400}font-weight: var\(--sb-weight-bold\)/);
+  /* ② 2026-09-26 批 BR-2：**分组标题行整块删掉**（用户原话见上）——
+     判据翻转：页面里不许再出现那个类，样式表里也不许留死规则。 */
+  assert.doesNotMatch(page, /video-model-group-label/, '族名不许再当标题占一行（用户明确要求拿掉）');
+  assert.doesNotMatch(css, /\.video-model-group-label/, '样式表里不许留分组标题的死规则');
 
   /* ③ 滚动条**看得见**（用户原话：「右边要搞一条这种拉动条可以往下面拉」）——
       批 BG 那版是 `width: 0`（Chromium 里彻底不画），本轮改回站内素材条那套细滚动条。 */

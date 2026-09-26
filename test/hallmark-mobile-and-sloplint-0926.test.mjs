@@ -55,12 +55,22 @@ test('④ 点击区下限 32（全屏 / 字段级一键按钮）', () => {
   assert.match(workbench, /\.media-workbench-inline-action \{[\s\S]{0,200}min-height: 32px;/, '字段级一键按钮 30 → 32');
 });
 
-test('⑤ 【留档】hallmark 点名的两条「品牌既有选择」——**不擅自改**，只登记', () => {
-  /* ① h1 里的渐变文字：hallmark 把"渐变标题"列为 critical，但那是本站品牌视觉的一部分、
-     用户此前明确要求过的；**擅自改等于替用户做品牌决定** ⇒ 登记在案，等用户拍板。 */
+test('⑤ 渐变标题已下线 + 字体栈干净（用户 9-26 批准按 Hallmark 方向改）', () => {
+  /* ═══ 2026-09-26 批 BR：**用户拍板了** ═══════════════════════════════════════════════════════
+     用户原话：「首页 h1 的品牌渐变文字（Hallmark 把"渐变标题"列为 critical）和字体……这个你可以改吧，
+     按照 Hallmark 的优化方向去改。」
+     ⇒ 判据从"已登记、不擅自改"翻成"**必须没有渐变标题**"：
+        h1 的强调用品牌色 + 更重字重（Hallmark 允许的三种强调方式之一），类名也不许再叫 gradient。 */
   const home = read('src/pages/Home/index.jsx');
-  assert.match(home, /hero-gradient-text/, '首页 h1 仍有品牌渐变文字（已登记，未改）');
-  /* ② 站点字体不是 Inter（hallmark 反对"到处 Inter"）—— 我们是系统字体栈，天然规避。 */
-  const tokens = read('src/styles/design-tokens-v3.css');
-  assert.doesNotMatch(tokens, /font-family:\s*'?Inter'?/i, '不得引入 Inter 作为正文字体');
+  assert.doesNotMatch(home, /hero-gradient-text/, 'h1 不许再用渐变文字类');
+  assert.match(home, /hero-accent-text/, '强调改用 hero-accent-text（品牌色 + 重字重）');
+  const tokens = read('src/styles/design-tokens.css');
+  const accent = tokens.slice(tokens.indexOf('.hero-accent-text {'), tokens.indexOf('}', tokens.indexOf('.hero-accent-text {')));
+  assert.doesNotMatch(accent, /linear-gradient/, '强调样式里不许有渐变');
+  assert.match(accent, /color: var\(--sb-ink-brand\)/, '强调色走品牌 token');
+  /* 字体：不得引入 Inter（hallmark 反对"到处 Inter"）；display 栈里不许留**没加载的网字体** */
+  const v3 = read('src/styles/design-tokens-v3.css');
+  assert.doesNotMatch(v3, /font-family:\s*'?Inter'?/i, '不得引入 Inter 作为正文字体');
+  const display = v3.slice(v3.indexOf('--sb-font-display:'), v3.indexOf(';', v3.indexOf('--sb-font-display:')));
+  assert.doesNotMatch(display, /Fredoka|ZCOOL/, 'display 栈里不许留没加载的网字体（它们从来没生效过）');
 });

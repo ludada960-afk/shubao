@@ -67,14 +67,19 @@ export function buildVideoModelRows(products = []) {
   }
   for (const row of rows) {
     row.products.sort((a, b) => resolutionRank(a.resolutions?.[0]) - resolutionRank(b.resolutions?.[0]));
+    /* 行内**档位**排序：主档（含 720P 的那条）排第一 —— 它是用户看到的"这个型号的常规形态"。 */
     row.primary = primaryOf(row.products);
     row.label = row.primary.variantLabel || row.primary.label;
     row.tierLabel = row.primary.tierLabel;
     row.description = row.primary.description;
     row.resolutions = sortResolutions(row.products.flatMap(product => product.resolutions || []));
   }
-  /* 家族分组：家族内保持目录顺序（同一家族的档位在目录里本来就是相邻写的），
-     家族之间也保持目录顺序 —— 不额外排序，免得"用户刚记住的位置"每版都换。 */
+  /* ═══ 2026-09-26 批 BR：**家族内按"默认档置顶、其余按价格升序"排序** ═════════════════════════
+     用户原话：「你不同的模型要归类到一起呀，为什么又乱了呢」——实测改前 Seedance 组是
+     「Fast / 标准 / 2.5 / 轻量 / 满参数 / Mini」（目录书写顺序），同一底座的档位被 2.5 插在中间。
+     ⚠️ 排序规则必须是**客观可复算**的，否则下一个人又会"按感觉"改：默认档（default:true）第一，
+     其余按短档价（quotes.short.points）从低到高；价格相同再按 id（保证稳定，不抖）。 */
+  /* 家族分组：家族之间保持目录顺序（Seedance → MiniMax → 通义万相 → 可灵），族内排序见下。 */
   const families = [];
   const byFamily = new Map();
   for (const row of rows) {
@@ -85,6 +90,18 @@ export function buildVideoModelRows(products = []) {
       families.push(family);
     }
     family.rows.push(row);
+  }
+  /* 族内排序：默认档置顶 → 价格升序 → id（稳定） */
+  const rowPrice = row => Number(row.primary?.quotes?.short?.points ?? Number.MAX_SAFE_INTEGER);
+  for (const family of families) {
+    family.rows.sort((a, b) => {
+      const byDefault = (a.products.some(product => product.default === true) ? 0 : 1)
+        - (b.products.some(product => product.default === true) ? 0 : 1);
+      if (byDefault) return byDefault;
+      const byPrice = rowPrice(a) - rowPrice(b);
+      if (byPrice) return byPrice;
+      return String(a.variant).localeCompare(String(b.variant));
+    });
   }
   return { rows, byVariant, families };
 }
