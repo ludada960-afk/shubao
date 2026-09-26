@@ -435,17 +435,18 @@ input, textarea { font-family: inherit; }
   overflow: hidden;
 }
 
-/* ═══ 2026-09-26 批 BR：**渐变标题下线**（用户批准按 Hallmark 方向改）═══════════════════════════
-   改前：三色渐变字（紫→粉→琥珀）。Hallmark 把"渐变标题"列为 critical 反模式（文字上多色渐变是
-   最典型的 AI 味），而且它同时违反了站内"品牌渐变只给品牌时刻"的纪律（裁定 2）。
-   用户原话：「首页 h1 的品牌渐变文字……这个你可以改吧，按照 Hallmark 的优化方向去改。」
-   ⇒ 强调改用 **品牌色 + 更重字重**（Hallmark 允许的三种强调方式之一）。
-   ⚠️ 类名一起去掉"gradient"字样 —— 名字不能再说谎（旧名 hero-gradient-text 已无引用）。 */
-.hero-accent-text {
-  color: var(--sb-ink-brand);
-  font-weight: 900;
-  background: none;
-  -webkit-text-fill-color: currentColor;
+/* ═══ 2026-09-26 批 BS：**渐变标题恢复**（用户改向，逐字）═══════════════════════════════════════
+   时间线（两次口径都在这里，免得下一个人来回翻）：
+     · 批 BR：用户说「这个你可以改吧，按照 Hallmark 的优化方向去改」⇒ 我把三色渐变字下掉，
+       换成品牌色 + 900 字重（判据也跟着翻成"不许再有渐变标题"）。
+     · 批 BS（本轮）：用户改向——「算了，h1 与字体这个**改回去吧，越改越不好看，不如之前的渐变好**」
+       ⇒ 恢复原样。**这会同时让 Hallmark 那条 critical 复现**，是用户权衡后的选择，不是漏改。
+   灵图风格渐变文字 */
+.hero-gradient-text {
+  background: linear-gradient(135deg, #7c3aed 0%, #ec4899 55%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ── 灵图风格表面卡（两层白色结构）── */

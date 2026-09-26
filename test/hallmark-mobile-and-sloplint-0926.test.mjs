@@ -55,22 +55,32 @@ test('④ 点击区下限 32（全屏 / 字段级一键按钮）', () => {
   assert.match(workbench, /\.media-workbench-inline-action \{[\s\S]{0,200}min-height: 32px;/, '字段级一键按钮 30 → 32');
 });
 
-test('⑤ 渐变标题已下线 + 字体栈干净（用户 9-26 批准按 Hallmark 方向改）', () => {
-  /* ═══ 2026-09-26 批 BR：**用户拍板了** ═══════════════════════════════════════════════════════
-     用户原话：「首页 h1 的品牌渐变文字（Hallmark 把"渐变标题"列为 critical）和字体……这个你可以改吧，
-     按照 Hallmark 的优化方向去改。」
-     ⇒ 判据从"已登记、不擅自改"翻成"**必须没有渐变标题**"：
-        h1 的强调用品牌色 + 更重字重（Hallmark 允许的三种强调方式之一），类名也不许再叫 gradient。 */
+test('⑤ 【留档】h1 渐变与字体：**用户看过实机后要求改回**（时间线写在断言里）', () => {
+  /* ═══ 时间线（两次口径都在这里，别只看一半就"顺手改回去"）═══════════════════════════════════
+     · 批 BR：用户原话「首页 h1 的品牌渐变文字……和字体，这个你可以改吧，按照 Hallmark 的优化方向去改」
+       ⇒ 我把三色渐变字下掉、换成品牌色 + 900 字重，判据翻成"不许再有渐变标题"。
+     · 批 BS（本轮）：用户看完实机改向 ——「算了，h1 与字体这个**改回去吧，越改越不好看，
+       不如之前的渐变好**」 ⇒ **恢复原样**，判据回到"登记在案、不擅自改"。
+     ⚠️ 所以现在 h1 有渐变、字体是 Fredoka/ZCOOL 那套栈，**是用户权衡后的选择**；
+        Hallmark 那条 critical 会复现，属于知情接受，不是漏改。 */
   const home = read('src/pages/Home/index.jsx');
-  assert.doesNotMatch(home, /hero-gradient-text/, 'h1 不许再用渐变文字类');
-  assert.match(home, /hero-accent-text/, '强调改用 hero-accent-text（品牌色 + 重字重）');
-  const tokens = read('src/styles/design-tokens.css');
-  const accent = tokens.slice(tokens.indexOf('.hero-accent-text {'), tokens.indexOf('}', tokens.indexOf('.hero-accent-text {')));
-  assert.doesNotMatch(accent, /linear-gradient/, '强调样式里不许有渐变');
-  assert.match(accent, /color: var\(--sb-ink-brand\)/, '强调色走品牌 token');
-  /* 字体：不得引入 Inter（hallmark 反对"到处 Inter"）；display 栈里不许留**没加载的网字体** */
+  assert.match(home, /hero-gradient-text/, 'h1 用回原渐变（用户 BS 轮的明确要求）');
+  assert.doesNotMatch(home, /hero-accent-text/, 'BR 那版强调类已下线，别又混着用两个');
   const v3 = read('src/styles/design-tokens-v3.css');
   assert.doesNotMatch(v3, /font-family:\s*'?Inter'?/i, '不得引入 Inter 作为正文字体');
-  const display = v3.slice(v3.indexOf('--sb-font-display:'), v3.indexOf(';', v3.indexOf('--sb-font-display:')));
-  assert.doesNotMatch(display, /Fredoka|ZCOOL/, 'display 栈里不许留没加载的网字体（它们从来没生效过）');
+});
+
+
+test('⑥ 分段控件：hover 只作用于被悬停的那一颗（防"组级 hover 点亮第一颗"）', () => {
+  const css = read('src/components/media/WorkbenchShell.css');
+  /* ① 不许有"组级 hover"规则 —— 它会让鼠标停在组内任意位置都点亮某些子项 */
+  const groupHover = (css.match(/\.media-field-segmented:hover[^{]*\{/g) || []);
+  assert.deepEqual(groupHover, [], '不许有组级 hover 规则（实测用户看到"第一颗自己亮"就是这个形态）');
+  /* ② 也不许用 :first-child / :first-of-type 给组内第一颗单独上样式 */
+  assert.doesNotMatch(css, /\.media-field-segmented button:first-(child|of-type)/, '不许给组内第一颗单独上样式');
+  /* ③ hover 只能挂在按钮自己身上 */
+  assert.match(css, /\.media-field-segmented button:hover:not\(:disabled\)/, 'hover 必须挂在按钮自己身上');
+  /* ④ hover 不许由 JS 状态实现（默认索引 0 会让第一颗常亮） */
+  const renderer = read('src/components/media/FieldRenderer.jsx');
+  assert.doesNotMatch(renderer, /hoverIndex|hoveredIndex/, 'hover 不许由 JS 状态实现');
 });

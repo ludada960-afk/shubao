@@ -109,12 +109,13 @@ test('⑤ 主 CTA 启用态：常驻 + 悬停都是 135° 同色相渐变（三�
   /* 常驻 = **纯色品牌紫**（这是既有裁定：功能 CTA 不许渐变，另有门禁守着），
      留影那套的"渐变"出现在**悬停**（他们 12 宫格默认全白、悬停才出 135° 渐变）。
      ⇒ 两条都要钉住：常驻不许是渐变，悬停必须是"亮一档的 135° 渐变"。 */
-  assert.match(shared, /--sb-cta-grad-hover:\s*linear-gradient\(135deg, var\(--sb-brand-500\) 0%, var\(--sb-brand-600\) 100%\)/,
-    '悬停渐变：135°、整体亮一档（brand-500 → brand-600）');
+  assert.match(shared, /--sb-cta-grad-hover:\s*linear-gradient\(135deg, var\(--sb-brand-400\) 0%, var\(--sb-brand-600\) 55%/,
+    '悬停渐变：亮端到 brand-400，但 55% 处就落回 brand-600（文字所在的中间区保持够深）');
   /* 2026-09-26 批 BP：用户批准「主 CTA **常驻态库可以做成渐变的**」⇒ 常驻渐变回来了，
      判据随之改成"常驻必须是那条渐变变量、135°、同色相两档"（仍然是品牌紫一个色相，不是双色）。 */
-  assert.match(shared, /--sb-cta-grad:\s*linear-gradient\(135deg, var\(--sb-brand-600\) 0%, var\(--sb-brand-700\) 100%\)/,
-    '常驻渐变：135°、同色相两档（brand-600 → brand-700）');
+  /* 批 BS：跨度拉开（用户：「你这个样式依然没有渐变变化呀」）——两端差两档，肉眼看得出来。 */
+  assert.match(shared, /--sb-cta-grad:\s*linear-gradient\(135deg, var\(--sb-brand-500\) 0%, var\(--sb-brand-700\) 100%\)/,
+    '常驻渐变：135°、brand-500 → brand-700（跨度两档）');
   const restRule = shared.slice(shared.indexOf('.shubao-gen-cta {'), shared.indexOf('.shubao-gen-cta:hover'));
   assert.match(restRule, /background: var\(--sb-cta-grad\)/, '常驻底色 = --sb-cta-grad（同色相两档渐变）');
   /* 三处同源：全局 CTA / 图片侧工作台 / 视频侧主 CTA */

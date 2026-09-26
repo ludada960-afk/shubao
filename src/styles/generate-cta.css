@@ -15,8 +15,15 @@
   /* 留影AI 的形态：**默认纯色、悬停才出渐变**（docs/design/83 §2.1 实测：他们 12 宫格默认全白，
      悬停时图标磁贴才变 135° 渐变、文字转品牌色、底部充能条推进）。
      常驻再加一道"顶部内高光"做材质感 —— 不越线（不是渐变、不引硬编码色值）。 */
-  --sb-cta-grad: linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 100%);
-  --sb-cta-grad-hover: linear-gradient(135deg, var(--sb-brand-500) 0%, var(--sb-brand-600) 100%);
+  /* ═══ 2026-09-26 批 BS：**把跨度拉开**（用户原话：「你这个样式依然没有渐变变化呀」）═══════════
+     实测改前：静止 #7C3AED→#6D28D9（只差一档，肉眼几乎看不出渐变）—— 渐变确实在，但等于没做。
+     留影那块磁贴用的是**大跨度**（亮蓝 #0076F5 → 深紫 #7D28CC）⇒ 我们同样把两端拉开：
+       静止：brand-500(#8B5CF6) → brand-700(#6D28D9)
+       悬停：brand-400(#A78BFA) → brand-600(#7C3AED) 并且**在 55% 处就落到 brand-600**，
+             让文字所在的中间区域保持深色（白字对比度不掉），亮端只占左上角一小块。
+     ⚠️ 别再把两端调回相邻两档 —— 那就是"看不见的渐变"。 */
+  --sb-cta-grad: linear-gradient(135deg, var(--sb-brand-500) 0%, var(--sb-brand-700) 100%);
+  --sb-cta-grad-hover: linear-gradient(135deg, var(--sb-brand-400) 0%, var(--sb-brand-600) 55%, var(--sb-brand-600) 100%);
   --sb-cta-shadow: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 18%, transparent), 0 10px 24px var(--sb-brand-a32);
   --sb-cta-shadow-hover: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 22%, transparent), 0 12px 26px var(--sb-brand-a32);
 }
