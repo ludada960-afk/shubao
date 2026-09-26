@@ -16,7 +16,22 @@
    ⚠️ 降级（degraded）不收费：模型不可用/超时 → 本地兜底方案，与 /api/video/plans 同一口径
      （「为无效请求扣费」是本项目的铁律①，兜底不算交付，所以不扣）。 */
 
+import { parsePlanForSkill } from '../src/skills/parseSpecs.js';
+
 export const PLAN_PREVIEW_SURFACES = Object.freeze(['image', 'video']);
+
+/* ═══ 2026-09-26 批 BW：**这条 skill 自己的解析方案**（parseSpecs）接进流水线 ═══════════════════
+   用户口径（逐字）：「我要的是，**每个工作台 skill 有自己个性化的解析方案**啊，
+   **不可能概念 skill 还解析什么卖点和产品特点吧**？」「不止是概念视觉，我们现在**所有的图片生成和
+   视频生成的代为撰写**是不是都应该这么做呢，**个性化做匹配方案**啊。」
+   ⇒ 上面那两串通用档位（`IMAGE_DIRECTIONS`/`VIDEO_DIRECTIONS`）**降级为兜底**：
+     只有拿不到 skill（首页那种没有 skillId 的入口）时才用；
+     有 skill 时，方向组来自 `parseSpecs` 的声明（可以继承这条 skill 工作台自己的档位），
+     要模型解析的项也来自同一份声明 —— 概念视觉方案因此**不会**再去解析卖点/人群/参数。
+   ⚠️ 两条流水线的**契约没变**：仍是 0.5 积分/次、仍是那一个 JSON、降级仍不扣费。 */
+function planPreviewSpecOf(skillId) {
+  return parsePlanForSkill(skillId);
+}
 
 /* 方向与偏好：三个维度，结构照知渔，选项按各自表面（视频侧直接用他们线上 config 的真实档位）。 */
 const VIDEO_DIRECTIONS = [
@@ -87,6 +102,22 @@ export const PLAN_PREVIEW_DIRECTIONS = deepFreeze({
 
 export function planPreviewDirections(surface) {
   return PLAN_PREVIEW_DIRECTIONS[normalizeSurface(surface)];
+}
+
+/* 对话框一打开就要拿到的两样东西：**要解析哪些项**（步① 的行）与**方向组**（步② 的档位）。
+   有 skillId 且这条 skill 有解析方案 ⇒ 用它自己的；否则退回表面级通用档（首页那个没有 skill 的入口）。 */
+export function planPreviewOptionsFor(surface, skillId) {
+  const plan = planPreviewSpecOf(skillId);
+  if (!plan) {
+    return { surface: normalizeSurface(surface), source: 'surface', key: '', items: [], directions: planPreviewDirections(surface) };
+  }
+  return {
+    surface: normalizeSurface(surface),
+    source: plan.spec.source,
+    key: plan.spec.key,
+    items: plan.spec.items.map(item => ({ key: item.key, label: item.label, hint: item.hint })),
+    directions: plan.directions,
+  };
 }
 
 function deepFreeze(value) {
@@ -173,6 +204,9 @@ export function normalizePlanPreview(value, fallback = {}) {
     reason: degraded ? clean(source.reason || fallback.reason, 300) : '',
     safety: normalizeSafety(source.safety ?? fallback.safety),
     materials,
+    /* 解析条目：**声明源给 label/hint，模型只给 value** ——
+       模型没有资格发明"要解析什么"，它只回答声明里列出的那几项（见 buildPlanPreviewRequest）。 */
+    items: normalizePlanItems(source.items ?? planSource.items, fallback.items),
     plan: {
       title: clean(planSource.title, 120) || (fallback.surface === 'video' ? '视频拍摄方案' : '图片生成方案'),
       summary: clean(planSource.summary, 800),
@@ -184,14 +218,66 @@ export function normalizePlanPreview(value, fallback = {}) {
   };
 }
 
-function directionPrompt(surface, direction) {
-  const dims = planPreviewDirections(surface);
+/* 解析条目归一化：模型的 `[{key,value}]`（也容忍 `{key: value}` 对象）与声明源的 label/hint 合并。
+   ⚠️ 只留**声明里有的 key**（+ 用户自己加的行）：模型自己冒出来的键一律丢掉 ——
+      否则"这条 skill 不该解析卖点"这件事会被模型的自由发挥绕过。 */
+function normalizePlanItems(value, specItems) {
+  const spec = Array.isArray(specItems) ? specItems : [];
+  const byKey = new Map(spec.map(item => [String(item?.key || ''), item]));
+  const values = new Map();
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const key = clean(entry?.key, 60);
+      if (key && !values.has(key)) values.set(key, clean(entry?.value ?? entry?.text ?? entry?.content, 600));
+    }
+  } else if (value && typeof value === 'object') {
+    for (const [key, text] of Object.entries(value)) {
+      const safeKey = clean(key, 60);
+      if (safeKey && !values.has(safeKey)) values.set(safeKey, clean(text, 600));
+    }
+  }
+  return spec.map(item => ({
+    key: String(item?.key || ''),
+    label: clean(item?.label, 40) || String(item?.key || ''),
+    hint: clean(item?.hint, 200),
+    value: values.get(String(item?.key || '')) || '',
+  })).filter(item => item.key);
+}
+
+/* 用户在上一步改过的解析条目（改完再点「重新生成方案」时会被当成**已确认的结论**下发）。
+   ⚠️ 三种 key 都收：声明里的、以及用户自己加的（`custom-`）——
+      用户打的字也是需求的一部分，不能因为"声明里没有这个 key"就丢掉。
+      （被过滤掉的只有**模型自己编的**键 —— 那一条在 normalizePlanItems 里守。） */
+function confirmedItems(value, specItems) {
+  const spec = new Set((Array.isArray(specItems) ? specItems : []).map(item => String(item?.key || '')));
+  return (Array.isArray(value) ? value : []).slice(0, 24).map(item => ({
+    key: clean(item?.key, 60),
+    label: clean(item?.label, 40),
+    value: clean(item?.value, 600),
+  })).filter(item => item.key && item.value && (spec.has(item.key) || item.key.startsWith('custom-')));
+}
+
+function directionPrompt(dimensions, direction) {
+  const dims = Array.isArray(dimensions) ? dimensions : [];
   const picked = direction && typeof direction === 'object' ? direction : {};
   const lines = [];
   for (const dim of dims) {
-    const chosen = dim.options.find(option => option.value === picked[dim.key]);
-    if (chosen) lines.push('- ' + dim.label + '：' + chosen.label + '。' + chosen.prompt);
+    const chosen = (dim.options || []).find(option => option.value === picked[dim.key]);
+    if (chosen) lines.push('- ' + dim.label + '：' + chosen.label + '。' + (chosen.prompt || ''));
   }
+  return lines.join('\n');
+}
+
+/* 这一步真正要干的活：技能声明里要解析什么，就只问什么（也**只**让它回答这些）。 */
+function itemsInstruction(specItems, isVideo) {
+  const items = Array.isArray(specItems) ? specItems : [];
+  const keys = items.map(item => String(item?.key || '')).filter(Boolean);
+  const lines = [
+    '第三步：按下面这份「本条技能要解析的东西」逐项给出结论。key 必须逐字使用，value 写成一句可直接使用的' + (isVideo ? '拍摄要点' : '画面描述') + '；',
+    '看不懂、素材里没有的项就留空字符串；**不要**解析这份清单之外的任何东西（比如卖点、适用人群、价格、尺寸参数）。',
+  ];
+  for (const item of items) lines.push('  - ' + item.key + '（' + item.label + '）：' + (item.hint || ''));
+  lines.push('最终 JSON 里的字段名固定是 `items`，形如 ' + JSON.stringify(keys.slice(0, 2).map(key => ({ key, value: '…' }))) + '。');
   return lines.join('\n');
 }
 
@@ -203,7 +289,12 @@ export function buildPlanPreviewRequest(input = {}) {
     name: clean(item?.name, 120) || '素材 ' + (index + 1),
     url: clean(item?.url, 2000),
   }));
-  const direction = directionPrompt(surface, input.direction);
+  /* 有 skillId ⇒ 用**这条 skill 自己的**方向组与解析项；没有 ⇒ 退回表面级通用档（首页入口）。 */
+  const plan = planPreviewSpecOf(input.skillId);
+  const dimensions = plan ? plan.directions : planPreviewDirections(surface);
+  const specItems = plan ? plan.spec.items : [];
+  const confirmed = confirmedItems(input.items, specItems);
+  const direction = directionPrompt(dimensions, input.direction);
   const skillName = clean(input.skillName, 120);
   const prompt = clean(input.prompt, 2000);
   const deliverable = isVideo
@@ -214,6 +305,7 @@ export function buildPlanPreviewRequest(input = {}) {
     '请分两步思考，然后用一个 JSON 对象回答，不要输出任何多余文字：',
     '第一步：逐张读懂参考素材，给出每张素材的「理解」（它在这次创作里承担什么作用、有什么可用的信息）。',
     '第二步：综合需求、素材理解与方向偏好，产出' + deliverable + '。',
+    specItems.length ? itemsInstruction(specItems, isVideo) : null,
     '',
     'JSON 结构（字段名必须逐字一致）：',
     '{',
@@ -224,6 +316,7 @@ export function buildPlanPreviewRequest(input = {}) {
        这一层是"顺带判定"，不是"全面检测"（真正的召回仍靠本地闸门 + 上游拒绝翻译）。 */
     '  "safety": { "ok": true, "categories": [] },',
     '  "materials": [{ "id": "素材 id", "name": "素材名", "understanding": "对这张素材的理解（60-160 字，具体、可核对，不要空话）" }],',
+    specItems.length ? '  "items": [{ "key": "上面清单里的 key", "value": "这一项的结论" }],' : null,
     '  "plan": {',
     '    "title": "方案标题（不超过 20 字）",',
     '    "summary": "方案概述（80-200 字，说清这支内容要达成什么）",',
@@ -237,23 +330,30 @@ export function buildPlanPreviewRequest(input = {}) {
     'safety 字段的判定口径（**只判显式**，拿不准一律 ok:true）：需求或素材**明确要求**下列内容时为 false，'
       + '并把类别名放进 categories：色情低俗 / 违禁品与违法交易 / 暴恐与极端 / 政治敏感 / 未成年人性化。'
       + '正常商业表达（内衣、泳装、美妆、医美、模特身材）**不算**违规 —— 误判会让正常用户被挡在门外。',
-  ].join('\n');
+  ].filter(line => line !== null).join('\n');
   const userPrompt = [
     '【创作表面】' + (isVideo ? '视频生成' : '图片生成'),
-    skillName ? '【当前技能】' + skillName : '',
+    plan ? '【当前技能】' + skillName + '（' + plan.spec.key + '：' + (plan.spec.source === 'override' ? '这条技能自己的解析方案' : '同族通用方案') + '）'
+      : (skillName ? '【当前技能】' + skillName : ''),
     '【用户需求】' + (prompt || '（用户没有额外描述，按素材与方向偏好来）'),
     direction ? '【已选方向偏好】\n' + direction : '【已选方向偏好】（用户未选，按需求自行判断）',
+    /* 用户在预览里改过的解析结论 = 已确认的事实，优先级高于模型的重新推断（与提示词的优先级口径一致）。 */
+    confirmed.length
+      ? '【用户已确认的解析】（**以此为准**，与你的推断冲突时按这里来）\n'
+        + confirmed.map(item => '- ' + (item.label || item.key) + '：' + item.value).join('\n')
+      : '',
     materials.length
       ? '【参考素材】共 ' + materials.length + ' 张，id 与名称如下，请逐张给出理解：\n'
         + materials.map((item, index) => (index + 1) + '. id=' + item.id + ' name=' + item.name).join('\n')
       : '【参考素材】无（纯文生）',
   ].filter(Boolean).join('\n');
-  return { surface, systemPrompt, userPrompt, materials };
+  return { surface, systemPrompt, userPrompt, materials, skillKey: plan ? plan.spec.key : '', items: specItems };
 }
 
 /* 本地兜底：模型不可用时**如实**说明「这次没有真正分析素材」，绝不假装分析过。 */
 export function buildLocalPlanPreview(input = {}, reason = '') {
   const surface = normalizeSurface(input.surface);
+  const plan = planPreviewSpecOf(input.skillId);
   const materials = list(input.materials, 6).map((item, index) => ({
     id: clean(item?.id, 80) || 'material-' + (index + 1),
     name: clean(item?.name, 120) || '素材 ' + (index + 1),
@@ -263,6 +363,9 @@ export function buildLocalPlanPreview(input = {}, reason = '') {
     degraded: true,
     reason: clean(reason, 300) || '分析模型暂不可用',
     materials,
+    /* 解析项的**行**照常给出（label/hint 来自声明），只是**值留空** ——
+       界面因此不会在失败时把"这条技能要解析什么"整块藏掉（那会让人以为这条技能根本没有解析方案）。 */
+    items: (plan ? plan.spec.items : []).map(item => ({ key: item.key, value: '' })),
     plan: {
       title: surface === 'video' ? '视频拍摄方案（待生成）' : '图片生成方案（待生成）',
       summary: '分析模型暂时不可用，这次没有生成真正的方案，也没有扣你的积分。稍后重试即可。',
@@ -270,7 +373,13 @@ export function buildLocalPlanPreview(input = {}, reason = '') {
       steps: [],
       notes: ['失败不扣积分；可以直接重试。'],
     },
-  }, { surface, materials, degraded: true, reason: clean(reason, 300) || '分析模型暂不可用' });
+  }, {
+    surface,
+    materials,
+    items: plan ? plan.spec.items : [],
+    degraded: true,
+    reason: clean(reason, 300) || '分析模型暂不可用',
+  });
 }
 
 export function createPlanPreviewService({ completeText } = {}) {
@@ -294,7 +403,7 @@ export function createPlanPreviewService({ completeText } = {}) {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.keys(parsed).length) {
         return buildLocalPlanPreview(input, '分析结果无法解析');
       }
-      const preview = normalizePlanPreview(parsed, { surface: request.surface, materials: request.materials });
+      const preview = normalizePlanPreview(parsed, { surface: request.surface, materials: request.materials, items: request.items });
       /* ═══ 判定为不合规 ⇒ **这次不出方案**（批 BA，doc 75 §三.1「有这种内容肯定是要直接拒的」）═════
          三条都重要：
            ① 走**降级**那条路（`degraded: true`）—— 路由对降级结果是**不扣费**的

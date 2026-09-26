@@ -446,6 +446,144 @@
   gap: 10px;
 }
 
+/* ── 步③ 的分块（知渔那边也是「视频总览 / 场景与光线 / 字幕」这种分节，不是一坨长文本）── */
+.plan-preview-section {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 14px;
+  background: var(--sb-surface-tint);
+}
+
+.plan-preview-section > b {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.plan-preview-facts li {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.plan-preview-facts li span {
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-facts li em {
+  font-style: normal;
+  color: var(--sb-ink-1);
+  word-break: break-word;
+}
+
+/* ── 步① 的「解析条目」卡（一行一条 + 行尾删除 + 卡片底部加号）── */
+.plan-preview-items {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 14px;
+  background: var(--sb-surface-tint);
+}
+
+.plan-preview-items-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-preview-items-head small {
+  font-size: 12px;
+  color: var(--sb-ink-3);
+}
+
+.plan-preview-item {
+  display: grid;
+  grid-template-columns: 84px 1fr 28px;
+  gap: 8px;
+  align-items: start;
+}
+
+.plan-preview-item > b {
+  padding-top: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sb-ink-2);
+}
+
+.plan-preview-item textarea {
+  min-height: 40px;
+  max-height: 120px;
+  padding: 9px 12px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-md);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.plan-preview-item textarea:focus-visible {
+  outline: none;
+  border-color: var(--sb-brand-border);
+  box-shadow: 0 0 0 3px var(--sb-brand-soft);
+}
+
+.plan-preview-item-drop {
+  width: 28px;
+  height: 28px;
+  margin-top: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--sb-radius-sm);
+  background: transparent;
+  color: var(--sb-ink-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.plan-preview-item-drop:hover,
+.plan-preview-item-drop:focus-visible {
+  border-color: var(--sb-danger-border);
+  background: var(--sb-danger-soft);
+  color: var(--sb-ink-danger-strong);
+}
+
+.plan-preview-item-add {
+  justify-self: start;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px dashed var(--sb-border-default);
+  border-radius: var(--sb-radius-pill);
+  background: transparent;
+  color: var(--sb-ink-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.plan-preview-item-add:hover,
+.plan-preview-item-add:focus-visible {
+  border-color: var(--sb-brand-border);
+  background: var(--sb-brand-soft);
+  color: var(--sb-ink-brand);
+}
+
 .plan-preview-summary {
   margin: 0;
   font-size: 14px;

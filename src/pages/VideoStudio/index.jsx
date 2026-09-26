@@ -2388,6 +2388,9 @@ export default function VideoStudioPage({
       <PlanPreviewDialog
         open
         surface="video"
+        /* 批 BW：子页面里的「代为撰写」按**这条视频 skill** 取解析方案；
+           首页那种没有具体 skill 的入口 skillId 为空，退回通用档（服务端兜底）。 */
+        skillId={workbenchSkillId}
         skillName={skillTag || '视频创作'}
         prompt={daweiPreview.prompt}
         materials={daweiPreview.materials}

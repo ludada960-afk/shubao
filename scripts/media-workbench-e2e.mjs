@@ -776,6 +776,61 @@ try {
     '创作方式也跟着还原', videoRestored.active);
   check(calls.regenerate.length + calls.videoJob === beforeReuse, '「用这组参数」不产生任何扣费请求', String(calls.regenerate.length + calls.videoJob - beforeReuse));
 
+  /* ═══ ⑫d 视频侧「代为撰写」（批 BW）══════════════════════════════════════════════════════
+     用户口径：「不止是概念视觉，我们现在**所有的图片生成和视频生成的代为撰写**是不是都应该
+     这么做呢，**个性化做匹配方案**啊。」以及「我不知道你的**视频生成那边是不是也全部没解决**这种问题」。
+     所以这条场景不验版式，验**接线**：视频侧点「代为撰写」要把**这条 skill 的 id** 带进请求
+     （服务端据此取它自己的解析方案），并且三步能走完、结论写回脚本输入框。
+     ⚠️ 两个入口在不同页面上（这是**先量过才写的**，不是我猜的）：
+       · 首页 / 独立创作台：输入框旁的 `.video-dawei-entry`（`!homeComposer` 时渲染）；
+       · **技能子页面 = 工作台形态**：那个输入框整块不渲染，入口在工作台的付费动作里
+         —— `videoWorkbenches.js` 的 `SCRIPT_ACTION`（key='script'、label=「生成脚本」），
+         点它走的是同一个 `runDawei()`。第一次我把这条场景按首页那个类名写，e2e 当场红在
+         `waiting for locator('.video-dawei-entry')`（超时 25s）——就是"选错了入口"。
+     ⚠️ 视频提示词是 contentEditable 的 div（工作台里那份带 `.video-wb-prompt`），
+        不是 textarea（Playwright 的 fill 支持 contenteditable）。 */
+  scenario('⑫d 视频「代为撰写」按这条 skill 的解析方案走完三步');
+  await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=video.smart', { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-paid', { timeout: 25000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await page.locator('.video-wb-prompt').first().fill('给这款陶土杯做一条 15 秒的口播').catch(() => {});
+  await page.waitForTimeout(300);
+  const typedPrompt = await page.evaluate(() => document.querySelector('.video-wb-prompt')?.textContent || '');
+  check(typedPrompt.includes('陶土杯'), '视频脚本输入框能写进需求（contentEditable）', typedPrompt.slice(0, 30));
+  const scriptEntry = page.locator('.media-workbench-paid', { hasText: '生成脚本' }).first();
+  check(await scriptEntry.count() > 0, '工作台里有「生成脚本」这颗动作（视频侧「代为撰写」的入口）');
+  const beforeDawei = calls.planPreview.length;
+  const videoJobsBeforeDawei = calls.videoJob;
+  await scriptEntry.click({ timeout: 8000 }).catch(() => {});
+  await page.waitForSelector('.plan-preview-card', { timeout: 15000 }).catch(() => {});
+  check(Boolean(await page.$('.plan-preview-card')), '视频侧「代为撰写」打开的是同一个三步对话框');
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary').catch(() => {});
+  await page.waitForSelector('.plan-preview-steps', { timeout: 25000 }).catch(() => {});
+  /* ⚠️ 先前进到**步②**再读档位 —— 步① 是素材/解析条目，DOM 里根本没有 `.plan-preview-options`，
+     在步① 读会永远拿到空数组（第一次就是这么红的：`✖ … —— []`）。 */
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForSelector('.plan-preview-options', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  /* 步② 一进来就该有默认选中的档位（服务端保证第一档是中性档 / 已声明的默认值）——
+     判据是"不逼用户把每一组都点一遍"，不是"必须选中某一个具体档"。 */
+  const directions = await page.evaluate(() => ({
+    groups: document.querySelectorAll('.plan-preview-direction').length,
+    selected: Array.from(document.querySelectorAll('.plan-preview-options button.is-selected')).map(node => node.textContent || ''),
+  }));
+  check(directions.groups >= 1, '步② 渲染出方向组（不是空面板）', String(directions.groups));
+  check(directions.selected.length >= 1, '步② 打开就有默认选中的档位（不必逐组点一遍）', JSON.stringify(directions.selected).slice(0, 80));
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  const daweiRequest = calls.planPreview[beforeDawei] || null;
+  check(calls.planPreview.length === beforeDawei + 1, '视频侧只发起 1 次方案请求', String(calls.planPreview.length - beforeDawei));
+  check(daweiRequest?.skillId === 'video.smart', '视频侧把**这条 skill 的 id** 带进了请求（服务端据此取它自己的解析方案）', String(daweiRequest?.skillId));
+  check(Array.isArray(daweiRequest?.items), '请求里带上了步① 的解析条目字段（用户改过的会更着走）');
+  const appliedScript = await page.evaluate(() => document.querySelector('.video-wb-prompt')?.textContent || '');
+  check(appliedScript.includes('E2E 打桩方案正文'), '「确认脚本并应用」把方案正文写回脚本输入框', appliedScript.slice(0, 40));
+  check(calls.videoJob === videoJobsBeforeDawei, '「确认脚本并应用」只写回输入框，不发起任何生成（不扣费）', String(calls.videoJob - videoJobsBeforeDawei));
+
   /* ═══ ⑫c 小红书图文：既有图文工作台整块嵌进子页面 ═══ */
   scenario('⑫c 小红书图文在子页面里就地跑完');
   const xhsCharges = calls.regenerate.length + calls.videoJob + calls.saveWork.length;

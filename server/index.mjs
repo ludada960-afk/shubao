@@ -202,7 +202,7 @@ import { createVideoUploadService } from './videoUploadService.mjs';
 import { createVideoReconciliation } from './videoReconciliation.mjs';
 import { readVideoPlatformFlags } from './config.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
-import { createPlanPreviewService, normalizeSurface as normalizePlanSurface, planPreviewDirections } from './planPreview.mjs';
+import { createPlanPreviewService, normalizeSurface as normalizePlanSurface, planPreviewOptionsFor } from './planPreview.mjs';
 import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -4932,10 +4932,12 @@ function authenticatePlanPreviewRequest(req, res, next) {
   return authenticateEcommerceRequest(req, res, next);
 }
 
-/* 方向与偏好：公开读，不需要登录（对话框要在点之前就把三档渲染出来）。 */
+/* 方向与偏好：公开读，不需要登录（对话框要在点之前就把三档渲染出来）。
+   ⚠️ 批 BW：带 `skillId` 时返回**这条 skill 自己的**解析项与方向组（parseSpecs 的声明；
+      方向组可以继承工作台自己的档位），不带时才退回表面级通用档（首页那个没 skill 的入口）。 */
 app.get('/api/plan-preview/options', (req, res) => {
   const surface = normalizePlanSurface(req.query?.surface);
-  res.json({ surface, directions: planPreviewDirections(surface) });
+  res.json(planPreviewOptionsFor(surface, req.query?.skillId));
 });
 
 const PLAN_PREVIEW_MATERIAL_LIMIT = 6;
@@ -5010,6 +5012,10 @@ app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) =
       materials,
       direction: req.body?.direction,
       skillName: req.body?.skillName,
+      /* 批 BW：带上 skill id 与用户在步① 改过的解析条目 ——
+         服务端据此按**这条 skill 自己的解析方案**组织模型请求（不解析它用不上的东西）。 */
+      skillId: req.body?.skillId,
+      items: req.body?.items,
       images,
     };
     /* ═══ 2026-09-25 批 BT：**模型调用挪进 work 回调** —— 关掉一个真实的成本漏洞（用户拍板）═══

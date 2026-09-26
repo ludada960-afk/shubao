@@ -10,11 +10,20 @@
    ③ 走**两轮**（打开 → 关掉 → 再打开），好对比两次的 actionId 是不是同一个。
 
    ── 成本隔离（与 v1 相同，未变）──────────────────────────────────────────
-   只服务本地 `dist/`；所有 `/api/*` 在本进程打桩；不连生产、不发真实请求、不扣积分；端口 4199。 */
+   只服务本地 `dist/`；所有 `/api/*` 在本进程打桩；不连生产、不发真实请求、不扣积分；端口 4199。
+
+   ── 第三版（2026-09-26 批 BW）：接口**按真实声明**打桩 ────────────────────────
+   用户的最后一条口径是针对"解析方案"的：「用户输入他的提示词或者图片之后，你会有**解析的方案**吗？
+   **为什么我现在看起来就是一些标签而已啊**」「我要的是，**每个工作台 skill 有自己个性化的解析方案**」。
+   ⇒ 这一版不再手写那三组通用胶囊，而是**直接调 `planPreviewOptionsFor()`** ——
+     展示的就是线上真会返回的东西（这条 skill 的 8 项解析 + 21 条母体 / 11 种手法）。
+     ⚠️ 仍要重新 `npm run build` 之后再跑：这里服务的是构建产物，改完前端不 build 看不到。 */
 import { createServer } from 'node:http';
 import { readFile, stat, mkdir, appendFile, writeFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { chromium } from 'playwright';
+
+import { planPreviewOptionsFor } from '../server/planPreview.mjs';
 
 const PORT = 4199;
 const ROOT = resolve('dist');
@@ -57,36 +66,52 @@ const server = createServer(async (req, res) => {
     if (path === '/api/billing/balance') return json(res, 200, { ok: true, currency: 'ec_points', balance: 999, unlimited: false, credits: 999 });
     if (path === '/api/billing/quote') return json(res, 200, { quote: { quoteId: 'quote-local-1', totalUnits: 500, currency: 'ec_points' } });
     if (path === '/api/plan-preview/options') {
+      /* ⚠️ 批 BW：**不手写档位**，直接调线上那条同源函数 —— 截出来的就是真机形状。
+         （手写一份的话，界面改了这里不会跟着改，展示就成了假的。） */
       const surface = url.searchParams.get('surface') === 'video' ? 'video' : 'image';
-      return json(res, 200, {
-        surface,
-        directions: [
-          { key: 'business', label: '业务场景', options: [{ value: 'ecommerce', label: '电商带货', prompt: '侧重商品卖点与下单引导。' }, { value: 'brand', label: '品牌形象', prompt: '侧重气质与调性。' }] },
-          { key: 'content', label: '画面用途', options: [{ value: 'main', label: '主图', prompt: '干净利落的主图。' }, { value: 'scene', label: '场景图', prompt: '带环境氛围。' }] },
-          { key: 'shot', label: '拍摄方式', options: [{ value: 'studio', label: '白底棚拍', prompt: '纯白底棚拍，柔和主光。' }, { value: 'life', label: '生活实拍', prompt: '自然光、随手拍质感。' }] },
-        ],
-      });
+      const skillId = url.searchParams.get('skillId') || '';
+      const options = planPreviewOptionsFor(surface, skillId);
+      console.log('[options] skillId=' + (skillId || '(空)') + ' source=' + options.source +
+        ' items=' + options.items.length + ' 方向组=' + options.directions.map(g => g.key + '×' + g.options.length).join(','));
+      return json(res, 200, options);
     }
     if (path === '/api/plan-preview') {
-      /* ⚠️ 这里返回**带素材理解**的方案：形状与 e2e 的桩一致，只是 materials / understanding 非空，
-         用来展示"用户上传过素材"时那三步长什么样。 */
+      /* ⚠️ 这里返回**带素材理解 + 带解析条目**的方案：
+         形状与 e2e 的桩一致，只是 items / understanding 非空，用来展示"用户上传过素材、模型已解析"的样子。
+         下面这几条解析结论是**本机写的示例文本**（不联网、不调模型），版式是真的。 */
+      const surface = 'image';
+      const asked = JSON.parse(raw || '{}');
+      const askedSurface = asked.surface === 'video' ? 'video' : 'image';
+      const spec = planPreviewOptionsFor(askedSurface, asked.skillId || 'image.concept_set');
+      const demo = {
+        /* 概念视觉方案（图片侧） */
+        subject: '哑光陶土直筒罐，口沿有一圈手作压痕',
+        material: '粗陶哑光，表面有细砂颗粒感，不反光',
+        palette: '灰调大地（主色 #94847A，辅 #8F8E93 / #CAB3AE），整体低饱和',
+        scene: '米白灰泥墙面 + 浅色木台面，画面右下有干枝投影',
+        light: '左侧柔光，投影很淡，右下角略暗',
+        avoid: '画面右上有一枚小字水印；没有出现人脸',
+        shotIdeas: '适合：概念静物 / 材质静物 / 局部极特写；这套里不要再重复平铺',
+        direction: '秋日限定（灰调大地）——留白充足、颗粒统一',
+        /* 视频侧（智能成片族：素材内容 / 卖点 / 场景 / 节奏） */
+        sellingPoints: '陶土手作、耐热、一口刚好 300ml',
+        pace: '前 3 秒钩子 → 中段展示手作痕迹 → 结尾报权益',
+      };
       return json(res, 200, {
         plan: {
-          surface: 'image', degraded: false,
+          surface: askedSurface, degraded: false,
           materials: [
-            { id: 'm1', name: '素色陶土罐.jpg', summary: '哑光陶土罐，正面偏侧 15°，底部有柔和投影，背景米白。' },
-            { id: 'm2', name: '干枝与亚麻.jpg', summary: '枯白干枝与米色亚麻布，冷调自然光。' },
-          ],
-          understanding: [
-            /* ⚠️ 字段名必须是 `understanding` —— 对话框读的就是它（我第一版写成了 `summary`，
-               于是截图里那两个文本框是空的：**打桩的字段名与真机不一致**，不是版式坏了）。 */
             { id: 'm1', name: '素色陶土罐.jpg', understanding: '哑光陶土罐，正面偏侧 15°，底部有柔和投影，背景米白。' },
             { id: 'm2', name: '干枝与亚麻.jpg', understanding: '枯白干枝与米色亚麻布，冷调自然光，纹理清晰。' },
           ],
+          /* ⚠️ label/hint 要**照服务端那样一起给**（真实响应里 label 来自声明源，模型只给 value）——
+             第一版这里只给了 key+value，截图里那一列显示的是 `subject`/`palette` 这种英文 key，
+             看着像 bug，其实是打桩漏字段。 */
+          items: spec.items.map(item => ({ key: item.key, label: item.label, hint: item.hint, value: demo[item.key] || '' })),
           plan: {
             title: '秋日限定 · 一线走完',
             summary: '一套方向走完五张：主图、场景叙事、材质静物、细节微距、空镜。素材已按"陶土 + 干枝"统一材质语言。',
-            promptText: '做一张「概念视觉方案」的成套图，一套里每张只换手法、其余全同。概念：秋日限定（主色 暖灰大地 #94847A，辅 #8F8E93 / #CAB3AE）。本张手法：概念静物 —— 把主题的实体与产品重构进同一张静物。整套纪律，每一张都遵守：高端编辑级质感、柔光为主；背景干净、留白充足，主体不超过画面 40%；不出现面部；画面内不出现任何品牌标识、包装文字或水印。素材参照：1) 哑光陶土罐（正面偏侧 15°）2) 干枝与米色亚麻。（本机打桩文本，只用于展示版式）',
+            promptText: '做一张「概念视觉方案」的成套图，一套里每张只换手法、其余全同。概念：秋日限定（主色 灰调大地 #94847A，辅 #8F8E93 / #CAB3AE）。本张手法：概念静物 —— 把主题的实体与产品重构进同一张静物。整套纪律，每一张都遵守：高端编辑级质感、柔光为主；背景干净、留白充足，主体不超过画面 40%；不出现面部；画面内不出现任何品牌标识、包装文字或水印。素材参照：1) 哑光陶土罐（正面偏侧 15°）2) 干枝与米色亚麻。（本机打桩文本，只用于展示版式）',
             steps: [
               { index: 1, title: '主图', detail: '陶土罐居中、大量留白' },
               { index: 2, title: '场景叙事', detail: '手部入画、不露脸' },
@@ -166,6 +191,38 @@ const runFlow = async (round) => {
 
 await runFlow(1);
 await runFlow(2);
+
+/* ═══ 视频侧「代为撰写」（批 BW 补）═══════════════════════════════════════════════════════
+   用户问过「我不知道你的**视频生成那边是不是也全部没解决**这种问题」——
+   所以这一轮专门把视频子页面的代为撰写也走一遍、截下来（同一份对话框，档位来自这条视频 skill 的声明）。
+   ⚠️ **入口在技能子页面上不是 `.video-dawei-entry`**（那是首页/独立创作台的；子页面走工作台形态，
+      那个输入框整块不渲染）：入口是工作台的付费动作 `SCRIPT_ACTION`（label「生成脚本」），
+      点它走的是同一个 `runDawei()`。e2e 第一次也是红在这一条上（超时 `.video-dawei-entry`）。
+   ⚠️ 视频提示词是 contentEditable（工作台里那份带 `.video-wb-prompt`）。 */
+const runVideoFlow = async () => {
+  await page.goto(`http://127.0.0.1:${PORT}/video-creation?id=video.smart`, { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-paid', { timeout: 25000 });
+  await page.waitForTimeout(800);
+  await page.locator('.video-wb-prompt').first().fill('给这款陶土杯做一条 15 秒的抖音带货口播，前 3 秒要有钩子').catch(() => {});
+  await page.waitForTimeout(400);
+  await shot('20-视频工作台（填了脚本需求）');
+  await page.locator('.media-workbench-paid', { hasText: '生成脚本' }).first().click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1000);
+  await shot('21-视频代为撰写（计费确认）');
+  for (let step = 1; step <= 4; step += 1) {
+    let ok = false;
+    for (const sel of CLICKERS) {
+      const el = await page.$(sel);
+      if (el && await el.isVisible().catch(() => false)) { await el.click().catch(() => {}); ok = true; break; }
+    }
+    await page.waitForTimeout(1300);
+    await shot('2' + (step + 1) + '-视频步' + step);
+    if (!ok) break;
+  }
+  console.log('视频侧：走完（对话框' + (await page.$('.plan-preview-card') ? '还开着' : '已应用') + '）');
+};
+await runVideoFlow();
+
 const log = await readFile(join(OUT, 'requests.jsonl'), 'utf8');
 console.log('\n=== /api/plan-preview 的请求体记账（每次点击一行）===');
 console.log(log.trim() || '(没有记录到请求)');

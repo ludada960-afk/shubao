@@ -1497,6 +1497,9 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         <PlanPreviewDialog
           open
           surface="image"
+          /* 批 BW：把**这条 skill 是谁**带进去 —— 服务端据此取它自己的解析方案
+             （概念视觉方案不会去解析卖点/人群/参数，见 src/skills/parseSpecs.js）。 */
+          skillId={skill.id}
           skillName={skill.name}
           prompt={planPreview.prompt}
           materials={planPreview.materials}

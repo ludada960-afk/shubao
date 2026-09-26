@@ -8,6 +8,12 @@ import {
   planPreviewActionId,
   quotePlanPreview,
 } from '../../services/planPreview.js';
+import {
+  appliedPlanText,
+  customItemRow,
+  itemRowsOf,
+  preselectedDirections,
+} from './planPreviewModel.js';
 import './plan-preview.css';
 
 /* ═══ 三步方案预览（批 K-C 图片侧「预览」/ 批 K-D 视频侧「代为撰写」）══════════════════════
@@ -61,6 +67,10 @@ export default function PlanPreviewDialog({
   open,
   surface = 'image',
   skillName = '',
+  /* ⚠️ 批 BW：**这条 skill 是谁**决定了"解析什么、问什么方向" ——
+     服务端按它取 parseSpecs 里的声明（概念视觉方案因此不会去解析卖点/人群/参数）。
+     首页那种没有具体 skill 的入口不传，退回通用档。 */
+  skillId = '',
   prompt = '',
   materials = [],
   onClose,
@@ -76,6 +86,9 @@ export default function PlanPreviewDialog({
   const [step, setStep] = useState(0);
   const [plan, setPlan] = useState(null);
   const [understanding, setUnderstanding] = useState([]);
+  const [items, setItems] = useState([]);
+  const [declared, setDeclared] = useState([]);
+  const [itemSource, setItemSource] = useState('');
   const [direction, setDirection] = useState({});
   const [dimensions, setDimensions] = useState([]);
   const [balance, setBalance] = useState(null);
@@ -94,6 +107,7 @@ export default function PlanPreviewDialog({
     setStep(0);
     setPlan(null);
     setError('');
+    setItems([]);
     setUnderstanding((materials || []).slice(0, 6).map((item, index) => ({
       id: String(item?.id || 'material-' + (index + 1)),
       name: String(item?.name || '素材 ' + (index + 1)),
@@ -106,12 +120,28 @@ export default function PlanPreviewDialog({
   useEffect(() => {
     if (!open) return undefined;
     let cancelled = false;
-    fetchPlanPreviewOptions(surface).then(data => {
-      if (!cancelled) setDimensions(Array.isArray(data?.directions) ? data.directions : []);
-    }).catch(() => { if (!cancelled) setDimensions([]); });
+    fetchPlanPreviewOptions(surface, skillId).then(data => {
+      if (cancelled) return;
+      const list = Array.isArray(data?.directions) ? data.directions : [];
+      const spec = Array.isArray(data?.items) ? data.items : [];
+      setDimensions(list);
+      /* 步② 一打开就**默认选中每组的第一档**（服务端保证那是中性档"交系统判断"，
+         或是这条 skill 已经声明过的默认值）—— 不让用户为了往下走而把每一组都点一遍。 */
+      setDirection(preselectedDirections(list));
+      setDeclared(spec);
+      setItemSource(String(data?.source || ''));
+      /* 步① 的**行**在这里就建好了（模型还没答时值为空）——
+         "这条技能要解析什么"因此是**看得见**的，而不是等模型返回才知道。 */
+      setItems(current => itemRowsOf(spec, [], current));
+    }).catch(() => {
+      if (cancelled) return;
+      setDimensions([]);
+      setDeclared([]);
+      setItemSource('');
+    });
     fetchPlanPreviewBalance().then(value => { if (!cancelled) setBalance(value); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [open, surface]);
+  }, [open, surface, skillId]);
 
   useEffect(() => {
     if (stage !== 'running') return undefined;
@@ -126,23 +156,33 @@ export default function PlanPreviewDialog({
     setError('');
     try {
       const quote = await quotePlanPreview();
+      /* 用户在步① 改过的解析条目 = 已确认的结论，一并下发（服务端把它当**以此为准**的那一份）。 */
+      const confirmedItems = (items || [])
+        .map(item => ({ key: item.key, label: item.label, value: String(item.value || '').trim() }))
+        .filter(item => item.value);
       const payload = {
         surface,
+        skillId,
         skillName,
         prompt,
         direction,
+        items: confirmedItems,
         materials: (materials || []).slice(0, 6).map((item, index) => ({
           id: String(item?.id || 'material-' + (index + 1)),
           name: String(item?.name || '素材 ' + (index + 1)),
           url: String(item?.url || ''),
         })),
         billingQuoteId: quote?.quoteId,
-        billingActionId: planPreviewActionId({ surface, skillName, prompt, direction, materials }),
+        billingActionId: planPreviewActionId({ surface, skillId, skillName, prompt, direction, materials, items: confirmedItems }),
       };
       const result = await composePlanPreview(payload);
       const composed = result?.plan || {};
       setPlan(composed);
       if (Array.isArray(composed.materials) && composed.materials.length) setUnderstanding(composed.materials);
+      /* 服务端回的是**声明源 + 模型结论**合并后的条目；用户自己加的行保留（见 itemRowsOf）。 */
+      const specItems = Array.isArray(composed.items) && composed.items.length ? composed.items : declared;
+      setItems(current => itemRowsOf(specItems, composed.items, current));
+      if (specItems.length) setDeclared(specItems);
       setStep(0);
       setStage('ready');
     } catch (failure) {
@@ -151,7 +191,7 @@ export default function PlanPreviewDialog({
     } finally {
       runningRef.current = false;
     }
-  }, [surface, skillName, prompt, direction, materials]);
+  }, [surface, skillId, skillName, prompt, direction, materials, items, declared]);
 
   if (!open) return null;
 
@@ -160,9 +200,20 @@ export default function PlanPreviewDialog({
       position === index ? { ...item, understanding: value } : item
     )));
   };
-  const pick = (key, value) => setDirection(current => ({ ...current, [key]: current[key] === value ? '' : value }));
+  const patchItem = (index, value) => {
+    setItems(current => current.map((item, position) => (position === index ? { ...item, value } : item)));
+  };
+  const dropItem = index => {
+    setItems(current => current.filter((_, position) => position !== index));
+  };
+  const addItem = () => {
+    setItems(current => [...current, customItemRow(current)]);
+  };
+  const pick = (key, value) => setDirection(current => ({ ...current, [key]: value }));
   const planText = plan?.plan?.promptText || '';
   const setPlanText = value => setPlan(current => (current ? { ...current, plan: { ...current.plan, promptText: value } } : current));
+  /* 应用时把用户改过的解析结论并进正文（模型不知道这些修正，不并进去等于白改）。 */
+  const applyPlan = () => onApply?.(appliedPlanText(planText, items, plan?.items), plan);
 
   return (
     <div className="plan-preview-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
@@ -230,12 +281,41 @@ export default function PlanPreviewDialog({
                       />
                     </label>
                   ))}
+                  {/* ═══ 2026-09-26 批 BW：**这条技能自己的解析条目** ═══════════════════════════
+                      用户口径（逐字）：「用户输入他的提示词或者图片之后，你会有**解析的方案**吗？
+                      **为什么我现在看起来就是一些标签而已啊**」「我要的是，**每个工作台 skill
+                      有自己个性化的解析方案**啊，**不可能概念 skill 还解析什么卖点和产品特点吧**？」
+                      ⇒ 一行一条（声明源出"解析什么"，模型出结论），可改、可删、可加 ——
+                        加号在卡片底部（知渔那张卡的做法）。 */}
+                  {items.length > 0 && (
+                    <section className="plan-preview-items" aria-label="这条技能的解析条目">
+                      <header className="plan-preview-items-head">
+                        <p className="plan-preview-body-title">这条技能的解析结果（可以改、可以删、可以加）</p>
+                        <small>{itemSource === 'override' || itemSource === 'family' ? '按这条技能自己的解析方案' : '按通用方案'}</small>
+                      </header>
+                      {items.map((item, index) => (
+                        <div className="plan-preview-item" key={item.key}>
+                          <b>{item.label}</b>
+                          <textarea
+                            value={item.value}
+                            placeholder={item.hint || '这一项的结论（留空表示这次不解析它）'}
+                            onChange={event => patchItem(index, event.target.value)}
+                          />
+                          <button type="button" className="plan-preview-item-drop" aria-label={'删除「' + item.label + '」这一条'} onClick={() => dropItem(index)}>×</button>
+                        </div>
+                      ))}
+                      <button type="button" className="plan-preview-item-add" onClick={addItem}>+ 添加一条</button>
+                    </section>
+                  )}
                   {plan?.degraded && <p className="plan-preview-error" role="alert">{plan.reason || '分析模型暂不可用'}（失败不扣积分）</p>}
                 </div>
               )}
 
               {step === 1 && (
                 <div className="plan-preview-directions">
+                  {dimensions.length > 0 && (
+                    <p className="plan-preview-body-title">这些档位就是这条技能工作台里的档位，已经按默认值选好</p>
+                  )}
                   {dimensions.map(dimension => (
                     <div className="plan-preview-direction" key={dimension.key}>
                       <p className="plan-preview-body-title">{dimension.label}</p>
@@ -259,23 +339,44 @@ export default function PlanPreviewDialog({
                 <div className="plan-preview-plan">
                   <p className="plan-preview-body-title">{plan?.plan?.title || copy.steps[2].title}</p>
                   {plan?.plan?.summary && <p className="plan-preview-summary">{plan.plan.summary}</p>}
-                  {Array.isArray(plan?.plan?.steps) && plan.plan.steps.length > 0 && (
-                    <ol className="plan-preview-outline">
-                      {plan.plan.steps.map(item => (
-                        <li key={item.index}><b>{item.title}</b>{item.detail ? <span>{item.detail}</span> : null}</li>
-                      ))}
-                    </ol>
+                  {/* 正文按**章节**摆开（知渔那边也是「视频总览 / 场景与光线 / 字幕」这种分块），
+                      不是一坨长文本 —— 每条技能解析出来的东西先看一眼，再读正文。 */}
+                  {items.length > 0 && (
+                    <section className="plan-preview-section">
+                      <b>本次解析</b>
+                      <ul className="plan-preview-facts">
+                        {items.map(item => (
+                          <li key={item.key}><span>{item.label}</span><em>{String(item.value || '').trim() || '（这次没解析出来）'}</em></li>
+                        ))}
+                      </ul>
+                    </section>
                   )}
-                  <textarea
-                    className="plan-preview-text"
-                    value={planText}
-                    placeholder="方案正文（可以直接改，改完再应用）"
-                    onChange={event => setPlanText(event.target.value)}
-                  />
+                  {Array.isArray(plan?.plan?.steps) && plan.plan.steps.length > 0 && (
+                    <section className="plan-preview-section">
+                      <b>分步</b>
+                      <ol className="plan-preview-outline">
+                        {plan.plan.steps.map(item => (
+                          <li key={item.index}><b>{item.title}</b>{item.detail ? <span>{item.detail}</span> : null}</li>
+                        ))}
+                      </ol>
+                    </section>
+                  )}
+                  <section className="plan-preview-section">
+                    <b>{surface === 'video' ? '脚本正文' : '提示词正文'}</b>
+                    <textarea
+                      className="plan-preview-text"
+                      value={planText}
+                      placeholder="方案正文（可以直接改，改完再应用）"
+                      onChange={event => setPlanText(event.target.value)}
+                    />
+                  </section>
                   {Array.isArray(plan?.plan?.notes) && plan.plan.notes.length > 0 && (
-                    <ul className="plan-preview-notes">
-                      {plan.plan.notes.map(note => <li key={note}>{note}</li>)}
-                    </ul>
+                    <section className="plan-preview-section">
+                      <b>需要注意</b>
+                      <ul className="plan-preview-notes">
+                        {plan.plan.notes.map(note => <li key={note}>{note}</li>)}
+                      </ul>
+                    </section>
                   )}
                 </div>
               )}
@@ -305,7 +406,7 @@ export default function PlanPreviewDialog({
                       type="button"
                       className="plan-preview-btn is-primary"
                       disabled={!String(planText || '').trim()}
-                      onClick={() => onApply?.(String(planText || '').trim(), plan)}
+                      onClick={applyPlan}
                     >{copy.apply}</button>
                   ))}
             </footer>

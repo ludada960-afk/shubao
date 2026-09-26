@@ -25,7 +25,7 @@
    ⚠️ 这条规则是本批**门禁抓出来的**：第一版我写了 8 个具体取值当第一档，其中 4 处属于"与工作台已声明的
       默认档一致"（合法）、另 4 处是**我替用户选了一个他没有选的值**（不合法，已改回中性档）。 */
 
-import { IMAGE_SKILLS } from './imageSkills.js';
+import { IMAGE_SKILLS, CONCEPT_PALETTE_OPTIONS, CONCEPT_SHOT_OPTIONS } from './imageSkills.js';
 import { VIDEO_SKILLS } from './videoSkills.js';
 
 /* 中性默认档（各族共用，避免各写各的文案） */
@@ -33,6 +33,74 @@ const AUTO = { value: 'auto', label: '智能匹配', prompt: '这一项由系统
 const KEEP = { value: 'keep', label: '保持原样', prompt: '这一项保持素材原样，不做改动。' };
 /* 「声明默认」档：必须写明为什么它可以被默认选中（理由会在门禁里被查长度） */
 const pin = (value, label, prompt, reason) => ({ value, label, prompt, pinned: true, reason });
+
+/* ═══ 2026-09-26 批 BW：方向组可以**继承这条 skill 自己的工作台选项** ═════════════════════════
+   `fromField: '<字段 key>'` = "这一组的档位就是这条 skill 工作台里那一格的档位"。
+   为什么需要它：市场/语言/风格/背景这些格子**每条 skill 本来就不一样**（A+ 的语言档与详情图的
+   语言档不是同一张表），预览里再抄一份就是**第二份会漂的表** —— 所以直接从声明源取。
+   ⚠️ 取不到（这条 skill 没那一格）就退回本组自己声明的 `options`，所以非这条 skill 仍然合法。
+   ⚠️ 解析后的**第一档一定还是声明里的第一档**（门禁③ 认可的那一个：中性档或 pinned），
+      继承来的选项只往后接 —— 否则"默认选中"的判据会被继承悄悄改掉。 */
+const NEUTRAL_VALUES = new Set(['auto', 'keep', '']);
+const FIELD_OPTION_CAP = 24;
+
+function fieldOptionsOf(skill, fieldKey) {
+  const field = (skill?.fields || []).find(item => item?.key === fieldKey);
+  const options = Array.isArray(field?.options) ? field.options : [];
+  return options.slice(0, FIELD_OPTION_CAP).map(option => {
+    const value = String(option?.value ?? '').trim();
+    return { value, label: String(option?.label ?? value).trim() || value, prompt: String(option?.prompt ?? value).trim() };
+  }).filter(option => option.value);
+}
+
+/* 把声明里的方向组解析成界面上真正要渲染的组（预览步② 与服务端提示词共用一个结果）。 */
+export function resolveParseDirections(skill, spec) {
+  const groups = Array.isArray(spec?.directions) ? spec.directions : [];
+  return groups.map(group => {
+    const declared = Array.isArray(group.options) ? group.options : [];
+    const head = declared.length ? declared.slice(0, 1) : [AUTO];
+    const inherited = group.fromField ? fieldOptionsOf(skill, group.fromField) : [];
+    const tail = inherited.length ? inherited : declared.slice(1);
+    return {
+      key: group.key,
+      label: group.label,
+      fromField: group.fromField || '',
+      /* 继承到的档位与声明的档位是同一份就标一下，界面据此说明"这些来自工作台" */
+      options: [...head, ...tail],
+    };
+  }).filter(group => group.key && group.options.length);
+}
+
+/* 预览步② 打开时的**预选值**：每组的第一档（门禁③ 保证它是中性档或已声明的默认档）。 */
+export function defaultParseDirectionValues(groups = []) {
+  const picked = {};
+  for (const group of groups) {
+    const first = group?.options?.[0];
+    if (first && first.value) picked[group.key] = first.value;
+  }
+  return picked;
+}
+
+export function parseSpecIsNeutralFirst(group) {
+  const first = group?.options?.[0];
+  return Boolean(first) && (NEUTRAL_VALUES.has(first.value) || (first.pinned === true && String(first.reason || '').trim().length >= 8));
+}
+
+/* 按 skill id 找真实技能（两个板子都找；找不到返回 null —— 不编一个出来）。 */
+export function skillById(skillId) {
+  const id = typeof skillId === 'string' ? skillId.trim() : '';
+  if (!id) return null;
+  return IMAGE_SKILLS.find(skill => skill?.id === id) || VIDEO_SKILLS.find(skill => skill?.id === id) || null;
+}
+
+/* 服务端用：一条 skill id ⇒ { skill, spec, directions }（无则 null，调用方走表面级降级）。 */
+export function parsePlanForSkill(skillId) {
+  const skill = skillById(skillId);
+  if (!skill) return null;
+  const spec = parseSpecOf(skill);
+  if (!spec) return null;
+  return { skill, spec, directions: resolveParseDirections(skill, spec) };
+}
 
 /* ═══ 族级默认 ═══════════════════════════════════════════════════════════════════════════
    `match` 键：图片侧 = skill.category，视频侧 = skill.pipeline。 */
@@ -48,8 +116,11 @@ export const PARSE_SPEC_FAMILIES = Object.freeze({
       { key: 'avoid', label: '要避开的', hint: '画面里已有的文字、标识、人脸' },
     ],
     directions: [
-      { key: 'theme', label: '主题意象', options: [AUTO] },
-      { key: 'shot', label: '画面手法', options: [AUTO] },
+      /* 存量 10 条创意类技能**没有**自己的主题/手法格（表单是 assets/prompt/brand… 各不相同），
+         所以族里给出本账号实测过的两套选项：五个色簇（调子）＋ 十种手法。
+         有 `theme`/`shot` 格的技能（概念视觉方案）会**继承它自己的那一份**，不重复。 */
+      { key: 'theme', label: '主题意象', fromField: 'theme', options: [AUTO, ...CONCEPT_PALETTE_OPTIONS()] },
+      { key: 'shot', label: '画面手法', fromField: 'shot', options: [AUTO, ...CONCEPT_SHOT_OPTIONS()] },
     ],
   },
 
@@ -63,10 +134,13 @@ export const PARSE_SPEC_FAMILIES = Object.freeze({
       { key: 'params', label: '尺寸参数', hint: '规格/尺寸/材质参数' },
     ],
     directions: [
-      /* 这两档与工作台字段自己的默认档一致（`marketField`/`platformField` 都取 options[0]），
-         所以展示它=展示实际会下发的值，不是替用户拍板 */
-      { key: 'market', label: '目标市场', options: [pin('cn', '中国大陆', '', '与工作台「目标市场」字段的默认档一致（该字段取第一档当默认）')] },
-      { key: 'platform', label: '目标平台', options: [pin('taobao', '淘宝天猫', '', '与工作台「目标平台」字段的默认档一致')] },
+      /* 这三格**是这族技能自己的字段**（A+ 的语言档与详情图的不是同一张表），所以直接继承；
+         没这三格的技能（试管换装/去背景）退回下面声明的兜底档。
+         ⚠️ 兜底那两条与工作台字段自己的默认档一致（`marketField`/`platformField` 都取 options[0]），
+            所以展示它=展示实际会下发的值，不是替用户拍板 */
+      { key: 'market', label: '目标市场', fromField: 'market', options: [pin('cn', '中国大陆', '', '与工作台「目标市场」字段的默认档一致（该字段取第一档当默认）')] },
+      { key: 'platform', label: '目标平台', fromField: 'platform', options: [pin('taobao', '淘宝天猫', '', '与工作台「目标平台」字段的默认档一致')] },
+      { key: 'language', label: '文案语言', fromField: 'language', options: [AUTO] },
     ],
   },
 
@@ -93,8 +167,8 @@ export const PARSE_SPEC_FAMILIES = Object.freeze({
       { key: 'light', label: '现有光线', hint: '日照方向与氛围' },
     ],
     directions: [
-      { key: 'style', label: '装修风格', options: [AUTO, { value: 'modern', label: '现代简约', prompt: '' }, { value: 'chinese', label: '新中式', prompt: '' }] },
-      { key: 'mood', label: '光影氛围', options: [AUTO, { value: 'day', label: '晴朗日光', prompt: '' }, { value: 'dusk', label: '黄昏暖光', prompt: '' }, { value: 'night', label: '夜景灯光', prompt: '' }] },
+      { key: 'style', label: '装修风格', fromField: 'style', options: [AUTO, { value: 'modern', label: '现代简约', prompt: '' }, { value: 'chinese', label: '新中式', prompt: '' }] },
+      { key: 'mood', label: '光影氛围', fromField: 'lightMood', options: [AUTO, { value: 'day', label: '晴朗日光', prompt: '' }, { value: 'dusk', label: '黄昏暖光', prompt: '' }, { value: 'night', label: '夜景灯光', prompt: '' }] },
     ],
   },
 
@@ -107,7 +181,7 @@ export const PARSE_SPEC_FAMILIES = Object.freeze({
       { key: 'taboo', label: '禁忌', hint: '这条 skill 明确不许出现的东西' },
     ],
     directions: [
-      { key: 'style', label: '风格', options: [AUTO, { value: 'clean', label: '干净通勤', prompt: '' }, { value: 'street', label: '街头随性', prompt: '' }] },
+      { key: 'style', label: '风格', fromField: 'style', options: [AUTO, { value: 'clean', label: '干净通勤', prompt: '' }, { value: 'street', label: '街头随性', prompt: '' }] },
       /* 「保什么」这件事交给系统按素材判断更稳（不同素材该保的东西不一样） */
       { key: 'fidelity', label: '重点保真', options: [AUTO, { value: 'face', label: '保住五官', prompt: '五官与肤色保持不变。' }, { value: 'body', label: '保住身材比例', prompt: '身材比例保持不变。' }] },
     ],
@@ -121,9 +195,9 @@ export const PARSE_SPEC_FAMILIES = Object.freeze({
       { key: 'refStyle', label: '参考风格特征', hint: '换风格时目标风格的关键特征' },
     ],
     directions: [
+      { key: 'backdrop', label: '目标背景', fromField: 'backdrop', options: [AUTO, { value: 'white', label: '纯白底', prompt: '' }, { value: 'scene', label: '场景实拍', prompt: '' }] },
       /* 强度交系统判断：同一张图该动多少，取决于它的缺陷有多重 —— 不该由我们预设"轻度" */
       { key: 'strength', label: '处理强度', options: [AUTO, { value: 'light', label: '轻度', prompt: '只做轻微调整。' }, { value: 'medium', label: '中度', prompt: '' }, { value: 'heavy', label: '重度', prompt: '' }] },
-      { key: 'fidelity', label: '重点保真', options: [AUTO, { value: 'subject', label: '主体原样', prompt: '主体结构与材质保持不变。' }] },
     ],
   },
 
@@ -210,12 +284,14 @@ export const PARSE_SPEC_OVERRIDES = Object.freeze({
       { key: 'scene', label: '场景与背景', hint: '台面/墙面/自然环境' },
       { key: 'light', label: '现有光线', hint: '柔光/硬光/逆光 —— 新图要接得上原素材' },
       { key: 'avoid', label: '要避开的', hint: '画面里已有的文字/标识/人脸（本账号走无品牌线，要跟着避开）' },
-      { key: 'shots', label: '可用手法建议', hint: '按素材（有没有可拍细节、有没有空间感）建议勾哪几种手法' },
-      { key: 'theme', label: '方向建议', hint: '给一个建议的主题意象，可以改' },
+      { key: 'shotIdeas', label: '可用手法建议', hint: '按素材（有没有可拍细节、有没有空间感）建议勾哪几种手法' },
+      { key: 'direction', label: '方向建议', hint: '给一个建议的主题意象，可以改' },
     ],
     directions: [
-      { key: 'theme', label: '主题意象', options: [AUTO] },
-      { key: 'shot', label: '本张手法', options: [AUTO] },
+      /* 这两组**直接继承工作台自己的两格**（主题意象 20 条母体 / 手法 10 种）:
+         预览里能选的与本篇方案里能选的永远是同一份，不会各漂各的。 */
+      { key: 'theme', label: '主题意象', fromField: 'theme', options: [AUTO] },
+      { key: 'shot', label: '本张手法', fromField: 'shot', options: [AUTO] },
       /* 3:4 是本账号**写死的签名**（工作台里「比例」字段的 default 就是 3:4），
          所以这里展示它=展示实际会下发的值 */
       { key: 'ratio', label: '比例口径', options: [pin('3:4', '3:4 竖版（本账号签名）', '', '与工作台「比例」字段声明的默认档一致，且是本账号签名的固定口径')] },

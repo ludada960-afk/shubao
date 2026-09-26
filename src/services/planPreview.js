@@ -27,8 +27,12 @@ async function request(path, options = {}) {
   return response.json();
 }
 
-export function fetchPlanPreviewOptions(surface, { signal } = {}) {
-  return request(`/api/plan-preview/options?surface=${encodeURIComponent(surface || 'image')}`, { signal });
+/* ⚠️ 批 BW：带上 skillId —— 服务端据此取**这条 skill 自己的**解析项与方向组
+   （没有 skillId 时退回表面级通用档：首页那个入口本来就没有具体 skill）。 */
+export function fetchPlanPreviewOptions(surface, skillId, { signal } = {}) {
+  const query = new URLSearchParams({ surface: surface || 'image' });
+  if (skillId) query.set('skillId', String(skillId));
+  return request(`/api/plan-preview/options?${query.toString()}`, { signal });
 }
 
 export async function fetchPlanPreviewBalance() {
@@ -44,15 +48,24 @@ export async function quotePlanPreview({ signal } = {}) {
   return quote;
 }
 
-/* 同一份「素材 + 需求 + 方向」= 同一次方案，重复点击由服务端 replay，不再扣费。 */
+/* 同一份「素材 + 需求 + 方向」= 同一次方案，重复点击由服务端 replay，不再扣费。
+   ⚠️ 批 BW：**用户在步① 改过的解析条目**也算输入 ——
+      改完再点「重新生成方案」是**另一份方案**（新的 actionId），照 0.5 积分/次 计；
+      一字不改地重复点，仍然由幂等键挡掉，不重复扣费、也不重复调模型。 */
 export function planPreviewActionId(input = {}) {
+  const items = (Array.isArray(input.items) ? input.items : [])
+    .map(item => String(item?.key || '') + '=' + String(item?.value || '').trim())
+    .filter(line => line !== '=')
+    .join('\u0001');
   return stableCanvasActionId([
     'plan-preview',
     input.surface || 'image',
+    String(input.skillId || ''),
     String(input.skillName || ''),
     String(input.prompt || '').trim(),
     JSON.stringify(input.direction || {}),
     (input.materials || []).map(item => String(item?.id || item?.name || '')).join(','),
+    items,
   ].join('\u0000'));
 }
 
