@@ -9580,3 +9580,64 @@ sha256 完全一致（`b649140ea0681eac`）—— 也就是说线上跑的就是
 
 **④ 判据改法**：`media-workbench-e2e` 那两条**不用改**（它们判的是"在不在"和"任务丢没丢"，与位置无关）
 —— 这正是"搬"而不是"删"的收益。
+
+## 2026-09-26 批 CA —— 视频子页面：去掉那层框 + 缺素材时 CTA 必须暗着（提交 50d7d061 / 已上线）
+
+**用户原话（逐字）**
+① 「你这里还是有一层框呀。为什么要搞这么大的一层框在这里呢？你图片生成那边的所有子页面是没有
+   这层框的呀，视频生成这边为什么会有呢？你两边的规格到底对齐了没有啊？」
+② 「你这个按钮不是必须要上传相关的素材才能实现吗？那你为什么不让他暗下去呢？应该要拥护他达到
+   某种条件之后它才能亮起来吧。图片生成那边，我们不是已经做了相关的配置吗？为什么视频生成这边
+   的子页面你不做这些配置呢？」
+
+**① 那层框 = 权重输了（不是"没改过"）**
+- 实测脚本：`.qa/ca-frame-diag.mjs`（1440 视口 / `/video-creation?id=video.smart`）。
+- 改前：`↑0 section.video-composer.is-workbench bg=rgba(0,0,0,0) bw=1px bc=rgba(12,10,9,.1)
+  r=12px sh=rgba(57,45,26,.05) 0px 1px 2px rect=140,116 386x748`。
+- 根因：`VideoStudio.css:855` 的 `.video-studio-page.is-embedded .video-composer` 权重 (0,3,0)
+  ＞ `:630` 的 `.video-composer.is-workbench` (0,2,0) ⇒ 第 630 行那三条 `border:0/radius:0/shadow:none`
+  **从来没赢过**（CSS 里权重优先于顺序，这点容易误判成"顺序问题"）。
+- 改法：给 855 行加 `:not(.is-workbench)`，只排除"嵌进工作台"这一支；首页/独立创作台那支保留
+  （批 J-⑬ 逐值照图片侧定的 1px --sb-border-default / 12 / --sb-shadow-sm）。
+- 改后同一探针：`↑0 ... bw=0px r=0px sh=none`。
+- 门禁 `test/video-subpage-frame-and-cta-0926.test.mjs` CA-①：定义处必须带 `:not(.is-workbench)`、
+  workbench 那支必须零框、**不允许任何规则把框加回子页面**。⚠️ 扫之前必须剥掉 CSS 注释，
+  否则注释里的类名会被当成规则（第一版报出 3 条假命中）。
+
+**② CTA：`canAnalyze` 补上 `requires`**
+- `const canAnalyze = capabilities.generationEnabled && selectedProduct && hasAnyInput && requires;`
+  （唯一消费者是那颗「分析并生成方案」按钮：`disabled={planning || !canAnalyze}`，index.jsx:2333 附近）。
+- `requires = hasRequiredVideoInputs(mode, files)`：智能成片这类**不强制素材**的模式恒 true
+  ⇒ 写了提示词就亮（用户早前那条规矩没被推翻）；首尾帧/参考素材这类由素材决定 ⇒ 缺素材时暗着，
+  与 `submitHint` 的「请先上传参考图片和参考视频 / 请先上传首帧和尾帧」成对。
+
+**证据**
+- `npm run test`：4157 / pass 4147 / **fail 0** / skipped 10。
+- `npm run precommit`：构建 exit 0 + render smoke + `[media-e2e] 通过：262 条断言全绿` + 38 个
+  BLOCKING 门禁 260 项全绿 →「✅ precommit 通过」。
+- 部署：`Deployed 50d7d061 to https://shuimg.cn/`（唯一成功判据那行）。
+- 线上复验（服务器上跑）：release = `/var/www/shubao/releases/20260926-175449-50d7d061`；
+  `/api/health` 200；index.html 引用的 `style-B6gLPmLf.css` 里
+  `video-composer:not(.is-workbench)` 命中 1；部署日志里那次构建产出的 `index-D6eICiyN.js`（509.43 kB）
+  正是生产上那个文件（509429 字节），且含「分析并生成方案」那一段。
+
+**⚠️ 踩坑记录：precommit 首次红是"产物比源码旧"**
+`scripts/media-workbench-e2e.mjs` L258 拿 `dist/index.html` 的 mtime 与 `src/**` 最新 mtime 比。
+本轮首跑红是因为**并行的另一条线**在 09:48:26 写了 `src/components/plan-preview/plan-preview.css`，
+晚于我 09:47:39 的构建。⇒ 处置：**原样重跑一次 precommit**（它会先重建），绿；
+不要代改他人路径（RTK §3.1-4）。这是一次竞态，不是我的改动有问题。
+
+**本批未做（用户同批还提的，别当成已完成）**
+1. 「生成记录为什么还是放在这里啊？」—— 方案已定（portal 搬进右栏，见下一条 2026-09-26 e0ea0c91 的
+   手记：**搬，不许删**，e2e 强制 `.video-history` 必须在）；本批未落地。位置实测：
+   `.video-history rect=175,941 316x58`，而 CTA `.video-submit-row rect=142,792 382x83`
+   ⇒ 生成记录在 CTA **下方**，这正是"生成按钮不在最底部"的直接原因（两件事是一件事）。
+2. 「生成配置面板打开后左边被截断」—— 面板是 `position:fixed` + JS clamp（`left = max(12, …)`，
+   index.jsx:1027），clamp 本身不产生负值 ⇒ 要查**是哪个祖先形成了 fixed 包含块**
+   （transform/filter/will-change）或谁 `overflow:hidden` 裁的。未查。
+3. 输入框左侧一片空白 / 生成设置按钮贴左边 / 两个配置按钮上方一大块空白（间距与比例）——
+   实测基数：左栏 padding `24px 20px 0 20px`、左栏 x=120 宽 437、composer x=140 宽 386、
+   `.video-wb-block` x=162 宽 342、`.video-inline-control` x=161 宽 168 —— 数值已量到，
+   但与图片侧的逐值对账还没做。
+4. 「脚本框太小 / 框里那段像示例的文字是什么」—— 未查（需要确认那段文字是 value 还是 placeholder）。
+5. 用户同批还要的「1:1 对照知渔 /apps 各子页面」全局对账 —— 未做。
