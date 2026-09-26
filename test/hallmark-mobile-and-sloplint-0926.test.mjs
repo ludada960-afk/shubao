@@ -93,6 +93,12 @@ test('⑦ 滚动期间的「假悬停」防护：状态标记 + 已安装 + 悬�
   const guard = fs.readFileSync('src/utils/scrollHoverGuard.js', 'utf8');
   assert.match(guard, /export function installScrollHoverGuard/, '状态标记模块必须导出安装函数');
   assert.match(guard, /\{ passive: true, capture: true \}/, 'scroll 必须用 capture 监听（内层容器滚动不冒泡到 window）');
+  /* 批 BU：假悬停的触发路径不止滚动 —— **内容在鼠标底下移动**（图片加载完、面板展开、
+     视口变化）同样会让浏览器不重算 hover。三条路径都要挂同一条抑制。 */
+  assert.match(guard, /addEventListener\('resize', markMoving/, '视口变化也要进抑制态');
+  assert.match(guard, /new win\.ResizeObserver\(\(\) => markMoving\(\)\)/, '文档尺寸变化（布局位移）也要进抑制态');
+  assert.match(guard, /observer\.observe\(root\)/, 'ResizeObserver 只观察文档根（打字重渲染不该压死悬停）');
+  assert.match(guard, /IDLE_MS = 200/, '抑制窗口 200ms（太短挡不住位移、太长会让悬停变迟钝）');
   assert.match(guard, /data-\$\{SCROLLING_ATTR\}/, '标记写在 <html> 的 data-scrolling 上');
 
   const main = fs.readFileSync('src/main.jsx', 'utf8');
