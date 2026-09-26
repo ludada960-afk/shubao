@@ -4977,6 +4977,16 @@ async function inlinePlanPreviewMaterials(materials, host) {
   return images;
 }
 
+/* 降级（模型不可用）用**抛错**来表达，才能让 one-shot 计费释放 hold（不扣费）；
+   外层 catch 再把它翻回原来的响应形状。下面那个 code 只在本路由内部使用。 */
+const PLAN_PREVIEW_DEGRADED = 'PLAN_PREVIEW_DEGRADED';
+function planPreviewDegraded(plan) {
+  const error = new Error('方案预览暂时不可用（未扣费，可重试）');
+  error.code = PLAN_PREVIEW_DEGRADED;
+  error.plan = plan;
+  return error;
+}
+
 app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) => {
   const surface = normalizePlanSurface(req.body?.surface);
   const { billingQuoteId: quoteId, actionId } = req.body || {};
@@ -5002,10 +5012,19 @@ app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) =
       skillName: req.body?.skillName,
       images,
     };
-    const composed = await planPreviewService.compose(payload);
-    if (composed?.degraded) {
-      return res.json({ plan: composed, billing: { charged: false, reason: 'DEGRADED_LOCAL_PLAN' } });
-    }
+    /* ═══ 2026-09-25 批 BT：**模型调用挪进 work 回调** —— 关掉一个真实的成本漏洞（用户拍板）═══
+       用户口径（逐字）：「而且你这个为什么是弹窗啊，那用户关掉的话会怎么样，
+       **再点一次会一直薅我们的 API 额度吗**。」
+       —— 会。**改前**的顺序是：先 `compose(payload)`（= 调模型，我们花钱）→ 再走计费。
+       而计费那边的幂等重放**在第一行就返回了**：
+         `actionStore.claim(...)` → `status === 'settled' && record.output.result` ⇒ 直接返回、**不跑 work**。
+       两件事叠起来 = **用户反复点「生成预览」时，扣费只收一次（幂等键相同），但模型每点一次都被调一次**
+       —— 我们白掏上游成本（`providerCostCny: 0.03` 是登记在案的那笔）。
+       **改法**：把 `compose` 放进 `work` 里。这样重放路径上**模型一次都不会被调**，
+       而扣费语义一个字没变（同一 actionId 仍只结算一次）；`work` 里成功结果照旧带指纹 url 交付。
+       ⚠️ 降级（模型不可用）必须保持"**不扣费**"：在 work 内抛带 code 的错 ——
+          `execute` 的 catch 会 `walletService.releaseItem(...)` 释放 hold（见该模块第 188~190 行），
+          外层再把它翻回原来那个响应形状（`charged:false / DEGRADED_LOCAL_PLAN`），接口契约不变。 */
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
@@ -5015,6 +5034,8 @@ app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) =
       providerCostCny: 0.03,
       metadata: { action: 'ec_plan_preview', feature: surface === 'video' ? 'video_generation' : 'ecommerce' },
       work: async () => {
+        const composed = await planPreviewService.compose(payload);
+        if (composed?.degraded) throw planPreviewDegraded(composed);
         const fingerprint = crypto.createHash('sha256').update(JSON.stringify(composed)).digest('hex');
         return { ...composed, url: 'plan-preview:' + fingerprint };
       },
@@ -5022,6 +5043,10 @@ app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) =
     const { url: _reference, ...plan } = billed.result;
     return res.json({ plan, billing: billed.billing });
   } catch (error) {
+    /* 降级不是失败：翻回原响应形状（不扣费、可重试），用户看到的还是"模型没连上，这次没扣费" */
+    if (error?.code === PLAN_PREVIEW_DEGRADED && error.plan) {
+      return res.json({ plan: error.plan, billing: { charged: false, reason: 'DEGRADED_LOCAL_PLAN' } });
+    }
     return res.status(error?.status || 500).json({
       error: error?.message || '方案预览失败',
       code: error?.code,
