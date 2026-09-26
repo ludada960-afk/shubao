@@ -120,3 +120,29 @@ test('⑦ 滚动期间的「假悬停」防护：状态标记 + 已安装 + 悬�
   assert.match(workbench, /html:not\(\[data-scrolling\]\) \.media-field-segmented button:hover:not\(:disabled\)/,
     '分段控件的悬停必须受滚动防护约束');
 });
+
+
+test('⑧ 分段控件：选中 = 品牌色，悬停 = 只换底色（用户三次反馈的真因）', () => {
+  /* 用户原话：「我的鼠标没有放到这个按钮上，但是第一个按钮依然是会有这个阴影在……我放在其他地方的话，
+     它第一个也是会亮着的。」实测（.qa/bv-state-dump.mjs）：那一颗是 **is-active（当前值）**，
+     而它当时的长相（灰底 + 近黑描边）与悬停态（灰底 + 灰描边）几乎一样 ⇒ 用户读成"卡住的悬停"。
+     ⇒ 判据：选中走品牌 token（浅紫底 + 品牌描边 + 品牌字 + ring），悬停**不许动描边**。 */
+  const css = fs.readFileSync('src/components/media/WorkbenchShell.css', 'utf8');
+  const active = css.slice(css.indexOf('.media-field-segmented button.is-active'), css.indexOf('}', css.indexOf('.media-field-segmented button.is-active')));
+  assert.match(active, /background: var\(--sb-sel-bg\)/, '选中底 = --sb-sel-bg（浅紫，与悬停的中性灰分开）');
+  assert.match(active, /border-color: var\(--sb-sel-line\)/, '选中描边 = 品牌色');
+  assert.match(active, /color: var\(--sb-sel-ink\)/, '选中文字 = 品牌色');
+  assert.match(active, /box-shadow: var\(--sb-shadow-ring\)/, '选中要有 ring（"这是当前值"的持久信号）');
+
+  const hover = css.slice(css.indexOf('html:not([data-scrolling]) .media-field-segmented button:hover'), css.indexOf('}', css.indexOf('html:not([data-scrolling]) .media-field-segmented button:hover')));
+  assert.doesNotMatch(hover, /border-color/, '悬停**不许**改描边（那会与选中混淆）');
+  assert.doesNotMatch(hover, /box-shadow/, '悬停不许加 ring');
+  assert.match(hover, /background: var\(--sb-surface-tint\)/, '悬停只换底色一档（中性）');
+
+  /* 底部 CTA：内容不满一栏时也要贴栏底（用户：「这个按钮必须一直在底部」）。 */
+  const left = css.slice(css.indexOf('.media-workbench-left {'), css.indexOf('}', css.indexOf('.media-workbench-left {')));
+  assert.match(left, /display: flex;/, '左栏必须是 flex 列（grid 里 margin-top:auto 不生效）');
+  assert.match(left, /flex-direction: column;/, '方向必须是列');
+  const cta = css.slice(css.indexOf('.media-workbench-cta {'), css.indexOf('}', css.indexOf('.media-workbench-cta {')));
+  assert.match(cta, /margin-top: auto;/, 'CTA 必须有 margin-top:auto（短内容时顶到栏底）');
+});
