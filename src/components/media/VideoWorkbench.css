@@ -22,14 +22,23 @@
    ⚠️ 换算口径沿用本文件开头的约定：他们的根字号 19.84px，rem 类数值 ÷1.24 落到我们的档位
      （19.84→16、24.8→20、14.88→12）；px 字面量（虚线 2.4、圆角 14）原样保留。 */
 .video-workbench-blocks { display: grid; gap: 16px; }
+/* ═══ 2026-09-26 批 BZ：**不要卡里套卡**（用户原话：「你这不还是嵌了很多层的框吗？……是不是视频生成的
+   各个工作台都有这个问题啊」）═══════════════════════════════════════════════════════════════════
+   改前：工作台左栏本身是一张白卡，里面的每个 block 又各自是一张白卡（padding 20 + 整圈描边 + 圆角 16）
+   ⇒ 一层套一层。现在 block 回到**分区**语义：无描边/无底色/无圆角，块与块之间用**发丝线 + 留白**分隔
+   —— 与图片侧面板同一套（留白 + 分组标题，不套白卡）。
+   ⚠️ 上传虚线框与下面那层"凹槽底"（.video-wb-notes/.video-wb-tags）**保留**：它们是控件/只读内容本身，
+      不是分组容器。 */
 .video-wb-block {
-  padding: 20px;
-  border: 1px solid var(--sb-border-default);
-  border-radius: 16px;
-  background: var(--sb-surface-card);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
-/* 旧写法（发丝线 + 40px 上边距）作废：现在每块自带整圈描边与圆角，再留那条线就成了双线 */
-.video-wb-block + .video-wb-block { padding-top: 20px; border-top: 1px solid var(--sb-border-default); }
+.video-wb-block + .video-wb-block {
+  padding-top: 20px;
+  border-top: 1px solid var(--sb-border-subtle);
+}
 /* 清单 / 只读胶囊行：照知渔套一层浅灰子卡（用站内"凹槽底"那颗 token，不抄他们的 hex） */
 .video-wb-notes, .video-wb-tags {
   padding: 12px 14px;

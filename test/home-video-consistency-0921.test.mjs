@@ -192,14 +192,20 @@ test('⑦ 各子页面里那颗重复的「一键解析商品信息」不再渲�
   assert.deepEqual(notices, [], '文案里不得再让用户去点「一键解析商品信息」：' + notices.join(' | '));
 });
 
-test('⑨ 视频子页面左栏照知渔的**卡片语言**（白卡 / 描边 / 圆角 / 浅灰子卡 / 虚线框）', () => {
+test('⑨ 视频子页面左栏的**分区语言**（无嵌套白卡 / 浅灰子卡 / 虚线框）', () => {
   const wbCss = read('src/components/media/VideoWorkbench.css');
   /* 用户：「像我们这个爆款复刻的这个子页面……**这工作台是两回事**啊」——
      实测知渔 /video-recreation：每块是一张白卡（#fff / 0.8px #e5e7eb / 圆角 19.84 / 内边距 24.8），
      要求清单与只读胶囊再套一层 #f8fafc 浅灰子卡，上传框是 2.4px 虚线 #b8b8b8 圆角 14。 */
-  assert.match(wbCss, /\.video-wb-block \{[^}]*border: 1px solid var\(--sb-border-default\);[^}]*border-radius: 16px;[^}]*background: var\(--sb-surface-card\);/,
-    '每一块要是独立白卡（描边/圆角 16/白底）—— 色值走站内 token（不抄他们的 hex，见设 token 棘轮门禁）');
-  assert.match(wbCss, /\.video-wb-block \{[^}]*padding: 20px;/, '卡内边距 20（他们 24.8 ÷ 1.24）');
+  /* ═══ 2026-09-26 批 BZ：这两条**改判为"不要白卡"**（用户改向，逐字）═══════════════════════════
+     用户原话：「你这不还是**嵌了很多层的框**吗？为什么我叫叫你改你不改呢，是不是视频生成的各个工作台
+     都有这个问题啊」——工作台左栏本身已经是一张白卡，块再各套一张白卡就是卡里套卡。
+     ⇒ 判据翻成反向：**block 自己不许有描边/白底/圆角**，块间用发丝线 + 留白分隔（图片侧同一套）。
+     ⚠️ 判据没有放宽：虚线框、浅灰子卡（.video-wb-notes/.video-wb-tags）、左栏无暖色底三条一个字没动。 */
+  assert.match(wbCss, /\.video-wb-block \{\s*padding: 0;\s*border: 0;\s*border-radius: 0;\s*background: transparent;\s*\}/,
+    'block 不许再是白卡（用户在批 BZ 明确否掉"嵌了很多层的框"）');
+  assert.match(wbCss, /\.video-wb-block \+ \.video-wb-block \{\s*padding-top: 20px;\s*border-top: 1px solid var\(--sb-border-subtle\);\s*\}/,
+    '块间用发丝线 + 留白分隔（不是整圈描边）');
   assert.match(wbCss, /\.video-workbench-blocks \{ display: grid; gap: 16px; \}/, '卡与卡之间 16 间距');
   assert.match(wbCss, /\.video-wb-notes, \.video-wb-tags \{[\s\S]{0,160}background: var\(--sb-surface-sunken\);/, '清单/胶囊套浅灰子卡（凹槽底 token）');
   assert.match(wbCss, /\.video-wb-upload \{[\s\S]{0,320}border: 2\.4px dashed var\(--sb-border-strong\);/, '上传框虚线照他们实测的形态（2.4px 粗虚线）');
