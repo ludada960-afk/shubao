@@ -665,6 +665,11 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
 .video-composer.is-workbench .video-quick-tools,
 .video-composer.is-workbench .video-toolbar-buttons { display: contents; }
 .video-composer.is-workbench .video-config-trigger { width: 100%; min-width: 0; }
+/* ═══ 2026-09-26 批 BY：**生成按钮固定在栏底**（用户原话：「这个按钮我已经跟你说过很多次了，
+   生成按钮它就是要固定在最下面的，图片生成那边是这样做的，那视频生成这边你为什么没有同步这些规则
+   过来呢？」）⇒ 子页面的 composer 变成"内容 + 贴底动作区"的纵向结构：动作区 margin-top:auto。 */
+.video-composer.is-workbench { display: flex; flex-direction: column; }
+.video-composer.is-workbench .video-submit-row { margin-top: auto; }
 .video-composer.is-workbench .video-submit-row { width: 100%; }
 .video-composer.is-workbench .video-submit-actions { width: 100%; }
 .video-composer.is-workbench .video-generate-trigger { width: 100%; justify-content: center; min-height: 55px; }
