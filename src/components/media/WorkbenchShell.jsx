@@ -118,38 +118,10 @@ export default function WorkbenchShell({
               ⇒ 收成知渔那张卡（标题 + 一句说明 + 分类标签；我们**没有**技能缩略图，就不放假图），
                 教学示例入口并进卡片右上角（门禁 test/skill-tutorial-0919 要求它必须存在）。 */}
           <div className="media-workbench-left is-head-only">
-            <div className="media-skill-card">
-              <div className="media-skill-card-copy">
-                {title && <strong>{title}</strong>}
-                {subtitle && <p>{subtitle}</p>}
-              </div>
-              <div className="media-skill-card-side">
-                {category && <span className="media-skill-card-tag">{category}</span>}
-                {/* ═══ 批 Y（2026-09-21）：这一行文字**不再显示**，入口收成一枚图标（用户原话，逐字）════
-                    原话：「你的视频生成的各个子页面问题还是非常的多，比如你现在很多的配置面板和什么运镜、
-                    **怎么使用这条技能，这些都是不要的东西啊，这些东西没有必要存在呀**……
-                    很多多余的部分该拿掉的就拿掉。」
-                    ⚠️ 我先把整颗按钮删掉了，随即发现两件事，所以改成"去文字、留图标"：
-                      ① **门禁 test/skill-tutorial-0919 要求入口必须在**（它守的是功能：教学示例弹层
-                         是用户在批 J-⑭ 点名要的 ——「他视频制作这边的子页面绝大部分是有教学示例的」）；
-                      ② 代码里那几处"入口在 MediaCreation 顶栏那一行"的注释**其实是过期的**
-                         （grep 全仓：`media-workbench-tutorial` 只有这一处渲染），删了入口
-                         就等于把这个功能整个变成不可达 —— 那是**功能丢失**，不是"去掉多余的"。
-                    ⇒ 保留入口、去掉他看到的这行字：一枚图标按钮（title + aria-label 仍是原文），
-                      卡片右侧从"一颗 143px 的文字按钮"收到 26px。 */}
-                {tutorial && (
-                  <button
-                    type="button"
-                    className="media-workbench-tutorial is-head is-icon"
-                    onClick={() => setTutorialOpen(true)}
-                    title="怎么用这条技能"
-                    aria-label="怎么用这条技能"
-                  >
-                    <HelpCircle size={15} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* 2026-09-26 批 BW：**技能信息卡整块删除**（用户原话：「工作台它就是用来配置、
+                用来输入提示词、用来删删改改的一个平台，不是用来写教程搞说明的」）。
+                原来的三样（技能名 / 一句话说明 / 分类标签）在**顶栏**已经有 —— 技能名就是居中 H1，
+                分类也在顶栏；这里不再重复一遍、也不再占一行高度。教学入口挪到右栏页签那一行。 */}
             <div className="media-workbench-panel">{panel}</div>
           </div>
         </>
@@ -384,17 +356,33 @@ export default function WorkbenchShell({
       )}
       <div className="media-workbench-right">
         {status}
-        <div className="media-workbench-tabs" role="tablist">
-          {tabList.map(tab => (
+        <div className="media-workbench-tabs-row">
+          <div className="media-workbench-tabs" role="tablist">
+            {tabList.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                className={activeTab === tab.key ? 'is-active' : ''}
+                onClick={() => onTabChange(tab.key)}
+              >{tab.label}</button>
+            ))}
+          </div>
+          {/* 2026-09-26 批 BW：「怎么用这条技能」从被删掉的信息卡搬到这里（页签行右端）——
+              功能不能丢（门禁 test/skill-tutorial-0919 守的就是"教学示例必须有入口"），
+              但也不再占左栏一整行。 */}
+          {tutorial && (
             <button
-              key={tab.key}
               type="button"
-              role="tab"
-              aria-selected={activeTab === tab.key}
-              className={activeTab === tab.key ? 'is-active' : ''}
-              onClick={() => onTabChange(tab.key)}
-            >{tab.label}</button>
-          ))}
+              className="media-workbench-tutorial is-head is-icon"
+              onClick={() => setTutorialOpen(true)}
+              title="怎么用这条技能"
+              aria-label="怎么用这条技能"
+            >
+              <HelpCircle size={15} aria-hidden="true" />
+            </button>
+          )}
         </div>
         <div className="media-workbench-pane" role="tabpanel">
           {activeTab === 'history' && !children ? <p className="media-workbench-empty">{historyEmpty}</p> : children}

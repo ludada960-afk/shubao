@@ -767,6 +767,11 @@ html:not([data-scrolling]) .media-workbench-submit:hover:not(:disabled) {
    「你这个示例和历史的按钮是不是**挨得太近了**呀？而且你为什么**背后会有一层图层**呢？很突兀呀！」
    改前（批 BL）：容器给了浅底 + 描边 + 4px 内边距（分段控件的样子）——用户嫌那层底"突兀"、两颗太挤。
    ⇒ 容器**不加底、不加边**（按钮自己带白底 + 描边，选中那颗墨底白字），间距 4 → **10**。 */
+
+
+/* 批 BW：页签行 + 右端的教学入口（原来教学入口在被删掉的信息卡里） */
+.media-workbench-tabs-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.media-workbench-tabs-row .media-workbench-tabs { margin: 0; }
 .media-workbench-tabs {
   display: inline-flex; gap: 10px; scroll-margin-top: 108px;
 }
