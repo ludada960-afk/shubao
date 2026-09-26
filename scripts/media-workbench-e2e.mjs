@@ -870,6 +870,13 @@ try {
   check(tagged.actions.includes('下载'), '出片的历史条目有「下载」', JSON.stringify(tagged.actions));
   const retentionNote = await page.evaluate(() => document.querySelector('.skill-history-retention')?.textContent || '');
   check(/保留 \d+ 天/.test(retentionNote), '历史面板顶部如实写清保留期', retentionNote.slice(0, 40));
+  /* ═══ 批 CB：按天分组（今天 / 昨天 / 更早）——照画布库那一套 ═══════════════════════════════
+     用户口径：「它的**排版**……是不是也得加进去呢？我们现在这个我的资产还有画布里面的新建画布功能
+     他们那里其实已经做过很多相关的一些 UI 或者交互方面的设计了」。
+     ⚠️ 同时说明**不做**类型筛选：这条历史是按技能筛的（图片技能页只有图片），单类型列表里筛选没意义。 */
+  const groupLabels = await page.evaluate(() => Array.from(document.querySelectorAll('.skill-history-date')).map(node => node.textContent));
+  check(groupLabels.length >= 1 && groupLabels.every(label => /今天|昨天|更早|\d+ 月 \d+ 日/.test(label)),
+    '历史按天分组（今天 / 昨天 / 更早）', JSON.stringify(groupLabels));
   /* 还原是**只回填、不扣费**：点完不许出现任何生成请求 */
   const beforeReuse = calls.regenerate.length + calls.videoJob;
   await page.click('.skill-history-item .skill-history-reuse');

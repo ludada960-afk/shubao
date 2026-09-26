@@ -73,8 +73,10 @@ test('④ 历史这一块：图文按 mediaSkillId、视频按本机标记，两
      按 work.images 读只会得到 0 张、然后被 filter 静默丢掉。 */
   assert.match(media, /isContentResult\(work\) \? contentResultPages\(work\)/);
   assert.match(media, /videoJobsOfSkill\(videoJobs, skill\?\.id\)/);
-  /* 历史条目：没有可还原的参数就不放「用这组参数」按钮（点了只弹一句"无法还原"是坑） */
-  assert.match(workbench, /\{?\(item\.values \|\| item\.restore\)/);
+  /* 历史条目：没有可还原的参数就不放「用这组参数」按钮（点了只弹一句"无法还原"是坑）
+     ⚠️ 2026-09-27 批 CB：历史列表改成**按天分组**后，组内每一项叫 `row`（不再是 `item`）——
+        判据守的那件事没变（"没有可还原的参数就别放这颗按钮"），只是跟着换锚点。 */
+  assert.match(workbench, /\{?\(row\.values \|\| row\.restore\)/);
   /* 视频历史能还原提示词与规格 */
   assert.match(media, /setVideoSeed\(\{ \.\.\.item\.restore\.videoJob \}\)/);
   assert.match(video, /if \(typeof preset\.prompt === 'string'\) setPrompt\(preset\.prompt\)/);

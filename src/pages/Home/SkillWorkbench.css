@@ -87,8 +87,26 @@
 /* 历史条目：卡片下面一条操作行（删除 / 用这组参数）——不做 hover 才出现的隐藏操作，
    键盘用户与触屏用户都要能用。 */
 .skill-history-item { display: grid; gap: 6px; align-content: start; }
-/* 一行最多三颗动作（用这组参数 / 下载 / 删除）：窄栏里要能换行，不许被裁掉 */
-.skill-history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+/* ═══ 动作改「悬停才浮出」（批 CB）══════════════════════════════════════════════════════════
+   用户口径：「我们现在这个**我的资产**还有**画布里面的新建画布**功能他们那里其实已经做过很多
+   相关的一些 UI 或者交互方面的设计了……你可以去用一些他们的素材过来，然后把他们的一些设计思路
+   也可以去整体的思考一下。」画布库（CanvasLibraryModal）就是"平时干净、悬停才出操作"。
+   ⚠️ 两条**必须一起给**的回退，少一条就会有人用不了：
+     · `:focus-within` —— 键盘用户 Tab 进来要看得见（不能只认鼠标）；
+     · `@media (hover: none)` —— 触屏没有 hover，必须**常显**，否则手机上永远点不到。
+   另外这里只改透明度，不动布局尺寸（历史上"把按钮收起来导致排版塌掉"就是动了尺寸）。 */
+.skill-history-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.skill-history-item:hover .skill-history-actions,
+.skill-history-item:focus-within .skill-history-actions { opacity: 1; }
+@media (hover: none) {
+  .skill-history-actions { opacity: 1; }
+}
 .skill-history-reuse,
 .skill-history-download,
 .skill-history-delete,
@@ -107,9 +125,54 @@
 .skill-history-more:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .skill-history-delete:hover { background: var(--sb-ink-1); color: var(--sb-surface-card); }
 .skill-history-more { justify-self: start; margin-top: 10px; padding: 7px 14px; font-size: 12px; }
-/* ═══ 保留期提示（批 BZ）═══════════════════════════════════════════════════════════════
-   「记录只留 7 天、要留就下载」——这句是**事实陈述**（服务端 ASSET_RETENTION_DAYS = 7），
-   与「我的作品」工作区里那句同一口径；改了保留期，这里和那句都要跟着改（门禁钉着两边）。 */
+/* ═══ 到期墓碑：灰卡（批 CA）══════════════════════════════════════════════════════════════
+   「东西去哪了」要有答案：留一张灰卡说明"这条记录已过期、图片文件已清理"。
+   ⚠️ 它是**灰**的、也不给任何动作（除了删除）—— 不能长得像一张能打开的卡。 */
+.skill-history-tombstone {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  aspect-ratio: 4 / 3;
+  padding: 14px;
+  border: 1px dashed var(--sb-border-default);
+  border-radius: 16px;
+  background: var(--sb-surface-sunken);
+  text-align: left;
+}
+.skill-history-tombstone-mark {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-3);
+  font-size: 11px;
+}
+.skill-history-tombstone strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sb-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-history-tombstone small {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sb-ink-3);
+}
+
+/* 日期分组标题（批 CB）：跨整行，照画布库那一套（今天 / 昨天 / 更早） */
+.skill-history-date {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sb-ink-3);
+}
+.skill-history-date:first-of-type { margin-top: 0; }
+
+/* 保留期提示（批 BZ）：一句话说清"记录只留 7 天、要留就下载"。
+   ⚠️ 它是**事实陈述**（服务端 ASSET_RETENTION_DAYS = 7），不是口号 —— 与作品区那句同一口径。 */
 .skill-history-retention {
   margin: 0 0 10px;
   font-size: 12px;

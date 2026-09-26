@@ -134,6 +134,11 @@ export function initDB(dbPath = DB_PATH) {
   if (!workColumns.includes('owner_email')) {
     db.exec("ALTER TABLE works ADD COLUMN owner_email TEXT DEFAULT ''");
   }
+  /* 批 CA：到期墓碑（留一块灰卡说明"这条生成记录已过期"，媒体文件另行回收）。
+     ⚠️ 与 `deleted_at`（用户手动删进回收站）是两件事，别合并。 */
+  if (!workColumns.includes('expired_at')) {
+    db.exec("ALTER TABLE works ADD COLUMN expired_at TEXT DEFAULT ''");
+  }
   const unownedWorks = db.prepare("SELECT id, payload FROM works WHERE COALESCE(owner_email, '') = ''").all();
   const backfillWorkOwner = db.prepare('UPDATE works SET owner_email = ? WHERE id = ?');
   for (const row of unownedWorks) {
@@ -466,6 +471,9 @@ function rowToWork(row) {
     created_at: row.created_at,
     updated_at: row.updated_at,
     ...(row.deleted_at ? { deleted_at: row.deleted_at, _deleted: true } : {}),
+    /* 批 CA：到期墓碑。前端据此把它渲染成"灰卡 + 已过期"，并且**不给**还原/下载/看大图 —— 
+       那些文件已经被回收了，给了就是点了没反应的坑。 */
+    ...(row.expired_at ? { expired_at: row.expired_at, _expired: true } : {}),
   };
 }
 

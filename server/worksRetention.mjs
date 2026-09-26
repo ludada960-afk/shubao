@@ -7,7 +7,19 @@
  *  - 支持 dryRun（只统计不删除），后台先看再删；
  *  - 白名单账号免疫；
  *  - 默认保留天数 7，可用 env ASSET_RETENTION_DAYS 覆盖。
+ *
+ * ═══ 2026-09-26 批 CA：到期处理从"整行删掉"改成"**留一块墓碑** + 回收媒体文件" ═══════════════════
+ * 用户口径（逐字）：「保留期要不要清理，其实取决于我们服务器压力大不大……**你留下一张灰卡 + 已过期
+ * 这个会影响服务器内存吗**」「这块你说成本会比较低，那你就做吧」。
+ *  ⇒ 到期不再 `DELETE FROM works`，而是：
+ *    ① 记 `expired_at` + **清空媒体字段**（图片地址、正文、pages…都不再留着，墓碑只留"有过这么一次"）；
+ *    ② **删掉这条作品独占的图片文件**（引用计数在 `workAssetReclaim.mjs`，别的作品/资产还在用就不删）。
+ *  实测到的事实（写在这里免得下次又要查）：线上 `RETENTION_PURGE_ENABLED` **从未设置** ⇒ 一直 dryRun，
+ *  从来没有真的清理过；而 `server/generated-assets` 已经 **7.5 GB**。所以这一批把"回收"这条路真的写通，
+ *  但**生产上要不要开 purge 由用户拍板**（那是删用户数据）。
  */
+import { deleteAssetFiles, planAssetReclaim } from './workAssetReclaim.mjs';
+
 const DEFAULT_RETENTION_DAYS = 7;
 
 function clean(value, max = 200) {
@@ -64,12 +76,12 @@ export function createWorksRetentionService({ db, now = () => Date.now(), logger
    * 清理超期作品：created_at 早于 cutoff 且 owner 不在白名单。
    * dryRun=true 时只统计，不写库。
    */
-  function pruneExpiredWorks({ retentionDays = DEFAULT_RETENTION_DAYS, dryRun = false } = {}) {
+  function pruneExpiredWorks({ retentionDays = DEFAULT_RETENTION_DAYS, dryRun = false, assetDir = '' } = {}) {
     const days = Number.isFinite(Number(retentionDays)) && Number(retentionDays) > 0 ? Math.floor(Number(retentionDays)) : DEFAULT_RETENTION_DAYS;
     const cutoffMs = now() - days * 24 * 60 * 60 * 1000;
     const cutoff = new Date(cutoffMs).toISOString().replace('T', ' ').slice(0, 19);
     const white = whitelistedEmails();
-    const rows = db.prepare('SELECT id, owner_email, created_at FROM works WHERE COALESCE(deleted_at, \'\') = \'\' AND created_at < ?').all(cutoff);
+    const rows = db.prepare('SELECT id, owner_email, created_at FROM works WHERE COALESCE(deleted_at, \'\') = \'\' AND COALESCE(expired_at, \'\') = \'\' AND created_at < ?').all(cutoff);
     const expired = rows.filter(row => !white.has(normalizeOwnerEmail(row.owner_email)));
     const summary = {
       retentionDays: days,
@@ -81,11 +93,57 @@ export function createWorksRetentionService({ db, now = () => Date.now(), logger
       owners: [...new Set(expired.map(row => normalizeOwnerEmail(row.owner_email)))].slice(0, 20),
     };
     if (dryRun === true || !expired.length) return summary;
-    const remove = db.prepare('DELETE FROM works WHERE id = ?');
-    const tx = db.transaction(items => { for (const item of items) remove.run(item.id); });
+
+    /* ═══ 清空媒体字段 + 记墓碑 ═══════════════════════════════════════════════════════════════
+       墓碑只留"有过这么一次"（标题/时间/技能归属），**图片地址、正文、pages 全部清掉** ——
+       那一列本来就是"用户的内容"，留着它才叫没清理干净。 */
+    const ids = expired.map(row => row.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const expiredRows = db.prepare(`SELECT * FROM works WHERE id IN (${placeholders})`).all(...ids);
+    const liveRows = db.prepare('SELECT * FROM works WHERE COALESCE(deleted_at, \'\') = \'\' AND COALESCE(expired_at, \'\') = \'\' AND id NOT IN (' + placeholders + ')').all(...ids);
+    const otherRefs = collectOtherAssetRefs(db);
+    const plan = planAssetReclaim({ expiredWorks: expiredRows, liveWorks: liveRows, otherRefs });
+    const files = deleteAssetFiles(plan.deletable, assetDir);
+
+    const mark = db.prepare(`UPDATE works SET expired_at = ?, cover_url = '', image_urls = '[]', pages = '[]',
+      body_text = '', image_prompts = '[]', cover_prompt = '', visual_system = '', hashtags = '[]',
+      payload = '{}', error = '' WHERE id = ?`);
+    const stamp = new Date(now()).toISOString().replace('T', ' ').slice(0, 19);
+    const tx = db.transaction(items => { for (const item of items) mark.run(stamp, item.id); });
     tx(expired);
-    logger.info?.('[retention] pruned works', JSON.stringify({ deleted: expired.length, cutoff }));
-    return { ...summary, deleted: expired.length };
+
+    const result = {
+      ...summary,
+      expired: expired.length,
+      /* 字段名与旧摘要保持兼容：`deleted` = 这轮"清掉"了多少条（现在是清空 + 记墓碑，不再是删行） */
+      deleted: expired.length,
+      reclaimedFiles: files.deleted.length,
+      reclaimedBytes: files.bytes,
+      keptByLiveWorks: plan.keptByLive.length,
+      keptByOtherAssets: plan.keptByOthers.length,
+    };
+    logger.info?.('[retention] expired works (tombstoned)', JSON.stringify({
+      count: expired.length, files: files.deleted.length, bytes: files.bytes, cutoff,
+    }));
+    return result;
+  }
+
+  /* 其它引用者：项目资产（我的资产）与视频资产。它们引用的文件**一个都不许删**。
+     ⚠️ 用 try 包住：这些表在老库上不一定存在（部署是滚动升级），缺表时按"没有引用者"处理 ——
+        但**只有**在缺表这一种情况下才这样，不能因为查询报错就把引用关系当成空。 */
+  function collectOtherAssetRefs(database) {
+    const refs = [];
+    const collect = (sql) => {
+      try {
+        for (const row of database.prepare(sql).all()) {
+          if (row && row.url) refs.push(row.url);
+        }
+      } catch { /* 表不存在（老库）——跳过这一类引用者 */ }
+    };
+    collect('SELECT stable_url AS url FROM project_assets');
+    collect('SELECT playback_url AS url FROM project_assets');
+    collect('SELECT result_url AS url FROM video_jobs');
+    return refs;
   }
 
   return {

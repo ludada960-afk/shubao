@@ -4247,8 +4247,14 @@ const ecommerceProviderAdapter = createModelProviderRouter({
 });
 const RETENTION_DAYS = Number(process.env.ASSET_RETENTION_DAYS) > 0 ? Math.floor(Number(process.env.ASSET_RETENTION_DAYS)) : 7;
 const RETENTION_PURGE_ENABLED = String(process.env.RETENTION_PURGE_ENABLED || '').toLowerCase() === 'true';
+/* 批 CA：回收媒体文件时要知道资产目录在哪（只删这个目录里、名字逐字匹配 64 位十六进制的文件）。 */
+const GENERATED_ASSET_DIR = resolve(__dirname, 'generated-assets');
 try {
-  const preview = worksRetentionService.pruneExpiredWorks({ retentionDays: RETENTION_DAYS, dryRun: !RETENTION_PURGE_ENABLED });
+  const preview = worksRetentionService.pruneExpiredWorks({
+    retentionDays: RETENTION_DAYS,
+    dryRun: !RETENTION_PURGE_ENABLED,
+    assetDir: GENERATED_ASSET_DIR,
+  });
   console.log('[retention] startup sweep', JSON.stringify(preview));
 } catch (error) {
   console.warn('[retention] startup sweep failed', String(error?.message || error).slice(0, 200));
@@ -5176,10 +5182,15 @@ app.delete('/api/admin/retention/whitelist/:email', adminRouteHandlers.requireAd
 });
 app.post('/api/admin/retention/prune', adminRouteHandlers.requireAdmin, (req, res) => {
   const dryRun = req.body?.dryRun !== false;
-  res.json({ summary: worksRetentionService.pruneExpiredWorks({ retentionDays: req.body?.retentionDays, dryRun }) });
+  /* ⚠️ dryRun 默认 true：这个接口是**删用户数据**的，必须显式传 dryRun:false 才真动手。 */
+  res.json({ summary: worksRetentionService.pruneExpiredWorks({
+    retentionDays: req.body?.retentionDays,
+    dryRun,
+    assetDir: GENERATED_ASSET_DIR,
+  }) });
 });
 app.get('/api/admin/retention/preview', adminRouteHandlers.requireAdmin, (req, res) => {
-  res.json({ summary: worksRetentionService.pruneExpiredWorks({ dryRun: true }) });
+  res.json({ summary: worksRetentionService.pruneExpiredWorks({ dryRun: true, assetDir: GENERATED_ASSET_DIR }) });
 });
 
 function sendCompositionError(error, res) {

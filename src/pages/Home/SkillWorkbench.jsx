@@ -15,6 +15,7 @@ import { fusionLabel } from '../../skills/skillDirectory.js';
 const HISTORY_PAGE_SIZE = 12;
 import WorkbenchShell from '../../components/media/WorkbenchShell.jsx';
 import CaseCard from '../../components/media/CaseCard.jsx';
+import { groupHistoryByDay } from './mediaHistoryModel.js';
 import '../../components/media/WorkbenchShell.css';
 import '../../components/media/CaseCard.css';
 import './SkillWorkbench.css';
@@ -76,6 +77,14 @@ export default function SkillWorkbench({
 
   const cases = Array.isArray(skill.cases) ? skill.cases : [];
   const historyList = Array.isArray(history) ? history : [];
+  /* 批 CB：分页 + 按天分组。**分页先切、再分组**（不然"显示更多"会把某一整天的组切开跑掉）。
+     ⚠️ `__index` 是这条记录在**完整历史里的下标** —— 灯箱（`shown`）与 `setLightbox` 都按它取图，
+        分组之后如果改用组内下标，点第 2 组的第一张会打开第 1 组的图（图文不符那种坑）。 */
+  const visibleHistory = useMemo(
+    () => historyList.slice(0, historyLimit).map((item, index) => ({ ...item, __index: index })),
+    [historyList, historyLimit],
+  );
+  const historyGroups = useMemo(() => groupHistoryByDay(visibleHistory), [visibleHistory]);
   /* ⚠️ 大图必须跟着**当前页签**取图：历史页签里点开"示例"的图，就是图文不符的 bug。 */
   const shown = activeTab === 'history' ? historyList : cases;
 
@@ -169,37 +178,61 @@ export default function SkillWorkbench({
                     用户在这里看到记录消失会不知道发生了什么。服务端保留期就是 7 天（ASSET_RETENTION_DAYS）。
                     ⚠️ 这句是**事实陈述**，不是我编的口号：改了服务端保留期就得改这里（门禁钉着）。 */}
                 <p className="skill-history-retention" role="note">生成记录保留 7 天，要留的请及时下载。</p>
-                <div className="skill-workbench-grid">
-                  {historyList.slice(0, historyLimit).map((item, index) => (
-                    <div className="skill-history-item" key={item.id || index}>
-                      <CaseCard
-                        title={item.title || ''}
-                        subtitle={item.subtitle || ''}
-                        cover={item.cover || ''}
-                        video={item.video || ''}
-                        poster={item.poster || ''}
-                        before={item.before || ''}
-                        /* 还没出片的视频任务：角标写状态，别让人对着一张空卡猜 */
-                        badge={item.badge || ''}
-                        /* ⚠️ 没有可看的画面就不要开大图 —— 点开只有一张空白，
-                           那是给用户挖坑（用户 9-17：「你自己先把坑踩完」）。 */
-                        onOpen={(item.cover || item.video) ? () => setLightbox(index) : null}
-                      />
-                      {/* 历史条目要有操作：不然用户只能看着，删不掉、也回不到那组参数 */}
-                      <div className="skill-history-actions">
-                        {/* ⚠️ 没有可还原的参数就别放这个按钮：点了只会弹一句"无法还原"，
-                            那不是操作，是坑（用户 9-17：「你自己先把坑踩完」）。
-                            values / restore 二者有一个才认为这条记录能还原。 */}
-                        {(item.values || item.restore) && <button type="button" className="skill-history-reuse" onClick={() => onHistoryReuse?.(item)}>用这组参数</button>}
-                        {/* ⚠️ 批 BZ：**没有可下载的东西就不放这颗按钮**（同一条规矩）——
-                            出片失败/还没有结果的那种记录，放一个点了没反应的下载是坑。 */}
-                        {(item.cover || item.video || (Array.isArray(item.downloads) && item.downloads.length))
-                          && <button type="button" className="skill-history-download" onClick={() => onHistoryDownload?.(item)}>下载</button>}
-                        <button type="button" className="skill-history-delete" onClick={() => onHistoryDelete?.(item)}>删除</button>
-                      </div>
+                {/* ═══ 批 CB：按天分组（今天 / 昨天 / 更早）═══════════════════════════════════════════
+                    用户口径：「它的**排版**……是不是也得加进去呢？我们现在这个我的资产还有画布里面的
+                    新建画布功能他们那里其实已经做过很多相关的一些 UI 或者交互方面的设计了」——
+                    分组照**画布库**来（它是站内已经做过的那一套），组标题在网格里跨列。
+                    ⚠️ **不做"全部/图片/视频"的类型筛选**：这条历史是按技能筛的，单类型列表里没意义
+                      （用户上一轮点出来的正是这一点）。 */}
+                {historyGroups.map(group => (
+                  <React.Fragment key={group.key}>
+                    <p className="skill-history-date">{group.label}</p>
+                    <div className="skill-workbench-grid">
+                      {group.items.map(row => (
+                        <div className={'skill-history-item' + (row.expired ? ' is-expired' : '')} key={row.id || row.__index}>
+                          {/* ═══ 批 CA：到期墓碑 = **灰卡** ═══════════════════════════════════════════
+                              用户口径：「你留下一张灰卡 + 已过期这个会影响服务器内存吗」——
+                              成本已经量过（一条 <1KB 的记录，图片文件早被回收），这里就按"灰卡"渲染：
+                              说清"它过期了、文件已清理"，并且**不给**还原/下载/看大图（点了没反应就是坑）。
+                              有成品的老记录走原来的 CaseCard，一个字都没动。 */}
+                          {row.expired ? (
+                            <div className="skill-history-tombstone" role="note">
+                              <span className="skill-history-tombstone-mark" aria-hidden="true">已过期</span>
+                              <strong>{row.title || '生成记录'}</strong>
+                              <small>{row.expiredNote || '这条记录已过期，图片文件已清理。'}</small>
+                            </div>
+                          ) : (
+                            <CaseCard
+                              title={row.title || ''}
+                              subtitle={row.subtitle || ''}
+                              cover={row.cover || ''}
+                              video={row.video || ''}
+                              poster={row.poster || ''}
+                              before={row.before || ''}
+                              /* 还没出片的视频任务：角标写状态，别让人对着一张空卡猜 */
+                              badge={row.badge || ''}
+                              /* ⚠️ 没有可看的画面就不要开大图 —— 点开只有一张空白，
+                                 那是给用户挖坑（用户 9-17：「你自己先把坑踩完」）。 */
+                              onOpen={(row.cover || row.video) ? () => setLightbox(row.__index) : null}
+                            />
+                          )}
+                          {/* 历史条目要有操作：不然用户只能看着，删不掉、也回不到那组参数 */}
+                          <div className="skill-history-actions">
+                            {/* ⚠️ 没有可还原的参数就别放这个按钮：点了只会弹一句"无法还原"，
+                                那不是操作，是坑（用户 9-17：「你自己先把坑踩完」）。
+                                values / restore 二者有一个才认为这条记录能还原。 */}
+                            {(row.values || row.restore) && <button type="button" className="skill-history-reuse" onClick={() => onHistoryReuse?.(row)}>用这组参数</button>}
+                            {/* ⚠️ 批 BZ：**没有可下载的东西就不放这颗按钮**（同一条规矩）——
+                                出片失败/还没有结果的那种记录，放一个点了没反应的下载是坑。 */}
+                            {(row.cover || row.video || (Array.isArray(row.downloads) && row.downloads.length))
+                              && <button type="button" className="skill-history-download" onClick={() => onHistoryDownload?.(row)}>下载</button>}
+                            <button type="button" className="skill-history-delete" onClick={() => onHistoryDelete?.(row)}>删除</button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </React.Fragment>
+                ))}
                 {historyList.length > historyLimit && (
                   <button type="button" className="skill-history-more" onClick={() => setHistoryLimit(limit => limit + HISTORY_PAGE_SIZE)}>
                     显示更多（还有 {historyList.length - historyLimit} 条）

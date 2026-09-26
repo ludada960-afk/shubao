@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
-  Upload, Type, Video, X } from 'lucide-react';
+  Upload, Type, Video, Wand2, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -68,6 +68,7 @@ import { createPlanLaunchGraph, isPlanLaunch } from './canvasPlanLaunch.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
+import { canRemixWork, workRemixLaunchOf } from '../Home/workRemixLaunch.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import { canReuseProjectAsset, filterProjectAssetLibrary, normalizeProjectAssetLibrary, normalizeProjectAssetSelection, projectAssetProductionOptions, projectAssetProductionStatus, projectAssetRetentionStatus, projectAssetSelectionKey, PROJECT_ASSET_PRODUCTION_FILTERS, PROJECT_ASSET_PRODUCTION_STATES, PROJECT_ASSET_RETENTION_FILTERS, toggleProjectAssetSelection } from '../Works/projectAssetLibraryModel.js';
@@ -5617,6 +5618,15 @@ const handlePointerUp = useCallback((e) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     handleTabChange('canvas');
   };
+  /* ═══ 批 CB：回到生成它的工作台（带上素材与配置，不自动生成）══════════════════════════════
+     这条链路**只发一个 launch**，落地全在 MediaCreation 里（与首页「做同款」同一段代码）——
+     免得"从作品回去"和"从案例回去"各写一套还原逻辑，两边迟早走岔。 */
+  const remixWorkInWorkbench = work => {
+    const launch = workRemixLaunchOf(work);
+    if (!launch) return;
+    dispatch({ type: 'SET_CREATION_LAUNCH', launch });
+    dispatch({ type: 'NAVIGATE', page: 'image-creation' });
+  };
   /* 9-15 用户批注：从左侧「+」把资产库素材放进画布时提示「素材已到期或待清理」——
      后端保留清扫会把用户自己的素材标记为 attention，界面却在导入前用本地快照直接拦截。
      修复：登录态下以服务端为准（reuse 校验）；若素材被保留策略标记为待清理，
@@ -7541,6 +7551,17 @@ const handlePointerUp = useCallback((e) => {
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-brand-600)' }}><ExternalLink size={14} /></button>
+                      {/* ═══ 批 CB：**回到生成它的工作台**（用户口径，逐字）═══════════════════════════
+                          「他点击这个作品的话，这个作品会把它带到**原来的生成时的工作台**里面，然后把
+                           之前生成时的那些**提示词和素材和配置都一起展示在工作台里**……重新生成出来的
+                           结果可以是一个**新的结果**，而不是覆盖掉它原来生成的那个作品。」
+                          所以这里不是"再打开一次这张图"，而是**回到那条技能的子页面 + 预填**：
+                          走的是与首页「做同款」同一条 `creationLaunch`（落到对应技能 → 预填 → 不生成）。
+                          ⚠️ 只对"真的存过面板值"的作品给出这颗按钮（判据在 workRemixLaunch.js 的纯函数里，
+                             视频任务暂不给 —— 素材还原还没做，给了就是只回去一半的坑）。 */}
+                      {canRemixWork(work) && (
+                        <button type="button" aria-label={`回到生成${work.name}的工作台`} title="回到工作台（带上素材与配置，不自动生成）" onClick={() => remixWorkInWorkbench(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-brand-600)' }}><Wand2 size={14} /></button>
+                      )}
                       <button type="button" aria-label={`将${work.name}加入资产库`} title="加入资产库" onClick={() => handleAddWorkToLibrary(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--sb-brand-600)' }}><FolderPlus size={14} /></button>
                       {tab === 'trash' ? (
                         <button type="button" aria-label="恢复作品" onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</button>

@@ -49,7 +49,9 @@ test('② 视频记录也要有时间（与图片记录同一口径）', () => {
   assert.match(videoBlock, /subtitle: \[seconds \? seconds \+ ' 秒' : '', job\.resolution \|\| '', job\.aspectRatio \|\| job\.aspect_ratio \|\| '', time\]/,
     '时间排在规格后面（`秒数 · 分辨率 · 比例 · 时间`），与图片那条 `N 张 · 时间` 同一读法');
   const imageBlock = page.slice(page.indexOf('const time = formatWorkTime(work'), page.indexOf('const fromVideos'));
-  assert.match(imageBlock, /subtitle: \[urls\.length \? urls\.length \+ ' 张' : '', time\]/, '图片那条的时间口径没变');
+  /* ⚠️ 批 CA：图片那条的副标题多了一档"过期"（`已过期 · 时间`），所以判据改成"两条分支都在、都带 time"。 */
+  assert.match(imageBlock, /\[urls\.length \? urls\.length \+ ' 张' : '', time\]/, '在保留期内的口径没变');
+  assert.match(imageBlock, /\['已过期', time\]/, '过期的那种也要说清是哪一天过期的（同一条读法）');
 });
 
 test('③ 下载：有可下的东西才给按钮；文件名认得出是哪一次、第几张', () => {
@@ -66,14 +68,16 @@ test('③ 下载：有可下的东西才给按钮；文件名认得出是哪一�
   /* 标题为空退回技能名；都为空才用兜底词 */
   assert.equal(downloadFileName({ title: '', fallback: '概念视觉方案', url: 'a.png', count: 1 }), '概念视觉方案.png');
   assert.equal(downloadFileName({ url: 'a.png', count: 1 }), '作品.png');
-  /* 按钮：只有真的有东西可下才出现 */
+  /* 按钮：只有真的有东西可下才出现
+     ⚠️ 批 CB：历史列表改成按天分组后，组内每一项叫 `row`（不再是 `item`）—— 判据跟着改锚点。 */
   const workbench = read('src/pages/Home/SkillWorkbench.jsx');
-  assert.match(workbench, /\(item\.cover \|\| item\.video \|\| \(Array\.isArray\(item\.downloads\) && item\.downloads\.length\)\)\s*\n?\s*&& <button type="button" className="skill-history-download"/,
+  assert.match(workbench, /\(row\.cover \|\| row\.video \|\| \(Array\.isArray\(row\.downloads\) && row\.downloads\.length\)\)\s*\n?\s*&& <button type="button" className="skill-history-download"/,
     '没出片/没有结果的记录不许给「下载」（点了没反应就是坑）');
-  assert.match(workbench, /onHistoryDownload\?\.\(item\)/, '按钮要接到页面传下来的处理器');
-  /* 页面侧：图片整组都下、视频下成片 */
+  assert.match(workbench, /onHistoryDownload\?\.\(row\)/, '按钮要接到页面传下来的处理器');
+  /* 页面侧：图片整组都下、视频下成片
+     ⚠️ 批 CA：过期的记录不给下载（文件已回收）—— 判据里带上这一档。 */
   const page = read('src/pages/MediaCreation/index.jsx');
-  assert.match(page, /downloads: urls,/, '图片记录要带上整组地址（不是只下封面那张）');
+  assert.match(page, /downloads: expired \? \[\] : urls,/, '图片记录要带上整组地址（过期的那种不给下）');
   assert.match(page, /downloads: done \? \[job\.resultUrl\] : \[\],/, '视频记录只在出片后带地址');
   assert.match(page, /anchor\.download = downloadFileName\(/, '文件名走共用实现');
   assert.match(page, /onHistoryDownload=\{downloadHistory\}/, '页面要把处理器传给工作台');

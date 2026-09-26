@@ -31,7 +31,7 @@ import { contentResultPages, isContentResult } from '../Home/contentResultModel.
    否则会出现"示例里写着 5 样、实际只交付 3 样"这种自相矛盾（计价按张数走，写错就是钱的问题）。 */
 import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
-import { downloadFileName, videoStatusLabel } from '../Home/mediaHistoryModel.js';
+import { EXPIRED_NOTE, downloadFileName, isExpiredWork, videoStatusLabel } from '../Home/mediaHistoryModel.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 /* 批 BP-3：首页案例区「做同款」→ 落到哪条技能 + 预填什么，判断收在那一个纯函数模块里 */
 import { remixSeedValuesOf, remixSkillIdOf } from '../Home/galleryRemixTarget.js';
@@ -521,23 +521,34 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         const content = isContentResult(work) ? contentResultPages(work) : [];
         const images = Array.isArray(work.images) ? work.images : (Array.isArray(work.imageRecords) ? work.imageRecords : []);
         const urls = content.length ? content.map(page => page.url) : images.map(image => image?.url).filter(Boolean);
-        const time = formatWorkTime(work.createdAt || work.savedAt);
+        const time = formatWorkTime(work.createdAt || work.savedAt || work.created_at);
+        const stamp = String(work.createdAt || work.savedAt || work.created_at || '');
+        /* ═══ 批 CA：到期墓碑 ═══════════════════════════════════════════════════════════════
+           服务端到期后不再整行删（留 `expired_at` + 清空媒体字段），这里渲染成**灰卡 + 已过期**：
+           说明"东西去哪了"，并且**不给**还原/下载/看大图（文件已回收，给了就是坑）。 */
+        const expired = isExpiredWork(work);
         return {
           id: String(work._saveKey || work.id || ''),
           saveKey: work._saveKey || work.id || '',
           title: String(work.title || skill?.name || ''),
-          subtitle: [urls.length ? urls.length + ' 张' : '', time].filter(Boolean).join(' · '),
-          cover: urls[0] || '',
+          subtitle: expired
+            ? ['已过期', time].filter(Boolean).join(' · ')
+            : [urls.length ? urls.length + ' 张' : '', time].filter(Boolean).join(' · '),
+          cover: expired ? '' : (urls[0] || ''),
+          expired,
+          expiredNote: expired ? EXPIRED_NOTE : '',
+          /* 批 CB：按天分组要用到原始时间戳（`time` 是给人看的 `MM-DD HH:MM`，不能拿它算日期） */
+          createdAt: stamp,
           /* 批 BZ：「下载」要下的是**这一组全部**（图片/图文都是多张），不是只下封面那张 */
-          downloads: urls,
-          /* 「用这组参数」靠它还原面板：只认**这条技能自己**存下的参数 */
-          values: (work.replay && work.replay.mediaSkillId === skill?.id && work.replay.panelValues) ? work.replay.panelValues : null,
+          downloads: expired ? [] : urls,
+          /* 「用这组参数」靠它还原面板：只认**这条技能自己**存下的参数；过期的记录不再给还原 */
+          values: expired ? null : ((work.replay && work.replay.mediaSkillId === skill?.id && work.replay.panelValues) ? work.replay.panelValues : null),
           /* 图文没有"面板参数"可还原（它的输入就是一句话提示词）→ 还原提示词本身。
              这类记录因此也要能显示「用这组参数」按钮（判据见 SkillWorkbench）。 */
-          restore: (isContentResult(work) && String(work._inputText || '').trim()) ? { prompt: String(work._inputText).trim() } : null,
+          restore: (!expired && isContentResult(work) && String(work._inputText || '').trim()) ? { prompt: String(work._inputText).trim() } : null,
         };
       })
-      .filter(item => item.cover);
+      .filter(item => item.cover || item.expired);
 
     /* 视频：服务端任务列表按技能筛出本页这一份（标记只写在本机，见 videoJobTags）。
        ⚠️ 筛不出来**不代表任务没了** —— 它的结果仍然在「我的作品」里（用户口径：
@@ -556,6 +567,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
             saveKey: String(job.id || ''),
             title: String(job.prompt || skill?.name || '视频任务').slice(0, 60),
             subtitle: [seconds ? seconds + ' 秒' : '', job.resolution || '', job.aspectRatio || job.aspect_ratio || '', time].filter(Boolean).join(' · '),
+            createdAt: String(job.createdAt || job.created_at || job.updatedAt || ''),
             cover: '',
             /* 成片用 video 播放（CaseCard 支持），没出片就只留一行状态，不放一张空白封面 */
             video: done ? job.resultUrl : '',
@@ -1185,10 +1197,34 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      来龙去脉：首页把案例装进 creationLaunch（kind='gallery-remix'）后跳到本页；
      这里负责把它**落到对应技能子页面**并预填素材/提示词，然后清空 launch
      （不清就会被下一次导航重复应用 —— 这是本项目"过期 launch"踩过的坑）。
-     ⚠️ 只预填、不触发生成。没有对应技能时退到 Hub，也比留在首页旧工作台正确。 */
+     ⚠️ 只预填、不触发生成。没有对应技能时退到 Hub，也比留在首页旧工作台正确。
+
+     ═══ 2026-09-27 批 CB：同一条路多了一个入口 ——「回到生成它的工作台」══════════════════════
+     用户口径（逐字）：「他点击这个作品的话，这个作品会把它**带到原来的生成时的工作台**里面，
+     然后把之前生成时的那些**提示词和素材和配置都一起展示在工作台里**……重新生成出来的结果
+     **可以是一个新的结果，而不是覆盖掉它原来生成的那个作品**。」
+     ⇒ 画布工作区（我的作品）里点「回到工作台」发的是 `kind: 'work-remix'`，载着
+       `{skillId, panelValues, prompt}`；这里和"做同款"走**同一段落地逻辑**：
+         · 落到那条技能的子页面；
+         · 预填整份面板值（panelValues 里含**上传位素材**，所以素材也一起回来）；
+         · **不触发生成**，并且明说"再点生成会重新计费"；
+         · 新结果照旧存成**新的一条作品**（每次生成都有自己的 saveKey，不覆盖旧的那条）——
+           两条都在历史里、都带时间，用户据此对比。 */
   useEffect(() => {
     const launch = state.creationLaunch;
-    if (!launch || launch.kind !== 'gallery-remix') return;
+    if (!launch) return;
+    if (launch.kind === 'work-remix') {
+      const target = launch.skillId ? getImageSkill(launch.skillId) : null;
+      if (!target) { backToHub(); dispatch({ type: 'SET_CREATION_LAUNCH', launch: null }); return; }
+      const seed = { ...(launch.panelValues || {}) };
+      if (launch.prompt) seed[planPreviewTargetKey(target)] = launch.prompt;
+      carryHintRef.current = '已带出「' + (launch.title || '这条记录') + '」的素材与配置，'
+        + '确认后点「立即生成」——这一次会重新计费；生成结果是新的一条记录，不会覆盖原来那条';
+      openSkill(target.id, seed);
+      dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+      return;
+    }
+    if (launch.kind !== 'gallery-remix') return;
     const skillIdForRemix = remixSkillIdOf(launch.checkpoint);
     const target = skillIdForRemix ? getImageSkill(skillIdForRemix) : null;
     if (target) {
