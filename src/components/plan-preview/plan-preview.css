@@ -446,15 +446,6 @@
   gap: 10px;
 }
 
-/* 「关掉不会丢」：夹在「关闭」与「下一步」之间的说明（批 BX）——
-   用户问过"关掉会怎么样"，这句话就放在他按关闭的那一下旁边。 */
-.plan-preview-keep {
-  margin-right: auto;
-  padding-left: 4px;
-  font-size: 12px;
-  color: var(--sb-ink-3);
-}
-
 /* ── 步③ 的分块（知渔那边也是「视频总览 / 场景与光线 / 字幕」这种分节，不是一坨长文本）── */
 .plan-preview-section {
   display: grid;

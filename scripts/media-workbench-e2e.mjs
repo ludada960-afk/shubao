@@ -658,11 +658,14 @@ try {
   await page.waitForTimeout(300);
   const afterFirstPlan = calls.planPreview.length;
   check(afterFirstPlan === planCallsBefore + 1, '第一次生成预览只发 1 次方案请求', String(afterFirstPlan - planCallsBefore));
-  /* 弹窗里**不该再有**「重新生成方案」 */
+  /* 弹窗里**不该再有**「重新生成方案」，也不该有那几句内部口吻的说明（批 BX/BY 用户口径） */
   const footerText = await page.evaluate(() => document.querySelector('.plan-preview-actions')?.textContent || '');
   check(!footerText.includes('重新生成方案'), '弹窗里不再有「重新生成方案」按钮（用户点名去掉）', footerText.slice(0, 60));
   check(footerText.includes('关闭'), '步① 左边那颗是「关闭」', footerText.slice(0, 60));
-  check(footerText.includes('关掉不会丢'), '旁边写清"关掉不会丢"（用户问过"关掉会怎么样"）', footerText.slice(0, 80));
+  const dialogCopy = await page.evaluate(() => document.querySelector('.plan-preview-card')?.textContent || '');
+  for (const banned of ['关掉不会丢', '这些档位就是', '按这条技能自己的解析方案', '可以改、可以删、可以加']) {
+    check(!dialogCopy.includes(banned), '内部口吻的说明不许出现在弹窗里：' + banned, banned);
+  }
   /* 再进到第三步（方案正文），记下正文，然后关掉 */
   await page.click('.plan-preview-card .plan-preview-btn.is-primary', { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(200);

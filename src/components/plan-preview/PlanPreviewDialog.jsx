@@ -93,7 +93,6 @@ export default function PlanPreviewDialog({
   const [understanding, setUnderstanding] = useState([]);
   const [items, setItems] = useState([]);
   const [declared, setDeclared] = useState([]);
-  const [itemSource, setItemSource] = useState('');
   const [direction, setDirection] = useState({});
   const [dimensions, setDimensions] = useState([]);
   const [balance, setBalance] = useState(null);
@@ -147,11 +146,12 @@ export default function PlanPreviewDialog({
       /* 步② 一打开就**默认选中每组的第一档**（门禁保证那是中性档"交系统判断"，
          或是这条 skill 已经声明过的默认值）—— 不让用户为了往下走而把每一组都点一遍。
          步① 的**行**也在这一刻建好（模型还没答时值为空）——
-         "这条技能要解析什么"因此是**看得见**的，而不是等模型返回才知道。 */
+         "这条技能要解析什么"因此是**看得见**的，而不是等模型返回才知道。
+         ⚠️ 批 BY：这里原来还会把 source（'override'/'family'）记进 state 给界面显示
+            「按这条技能自己的解析方案」—— 那是内部说法，已按用户口径去掉，state 随之删掉。 */
       setDimensions(localSpec.directions);
       setDirection(preselectedDirections(localSpec.directions));
       setDeclared(localSpec.items);
-      setItemSource(localSpec.source);
       setItems(current => itemRowsOf(localSpec.items, [], current));
     } else {
       /* 没有具体 skill（首页入口）⇒ 取服务端的表面级通用档，解析条目为空（本来就没有"这条技能"）。 */
@@ -161,12 +161,10 @@ export default function PlanPreviewDialog({
         setDimensions(list);
         setDirection(preselectedDirections(list));
         setDeclared([]);
-        setItemSource('surface');
       }).catch(() => {
         if (cancelled) return;
         setDimensions([]);
         setDeclared([]);
-        setItemSource('');
       });
     }
     fetchPlanPreviewBalance().then(value => { if (!cancelled) setBalance(value); }).catch(() => {});
@@ -312,7 +310,7 @@ export default function PlanPreviewDialog({
             <div className="plan-preview-body">
               {step === 0 && (
                 <div className="plan-preview-materials">
-                  <p className="plan-preview-body-title">{plan?.degraded ? '素材还没分析成功' : '素材理解完成，可直接修改'}</p>
+                  <p className="plan-preview-body-title">{plan?.degraded ? '素材还没分析成功' : '素材理解'}</p>
                   {understanding.length === 0 && <p className="plan-preview-empty">这次没有上传素材，可以直接看方案。</p>}
                   {understanding.map((item, index) => (
                     <label className="plan-preview-material" key={item.id + '-' + index}>
@@ -333,10 +331,14 @@ export default function PlanPreviewDialog({
                       ⇒ 一行一条（声明源出"解析什么"，模型出结论），可改、可删、可加 ——
                         加号在卡片底部（知渔那张卡的做法）。 */}
                   {items.length > 0 && (
-                    <section className="plan-preview-items" aria-label="这条技能的解析条目">
+                    <section className="plan-preview-items" aria-label="解析结果">
+                      {/* ⚠️ 批 BY：卡片标题只说"这是什么"（用户口径：「不要让用户看到这种话」）——
+                         原来这里写着「这条技能的解析结果（可以改、可以删、可以加）」，右上角还有一句
+                         「按这条技能自己的解析方案」：前者是啰嗦的自我说明，后者是**我们内部的说法**
+                         （"解析方案"是声明源里的概念，用户根本不知道它是什么），都去掉了。
+                         行尾的 × 与卡片底部的「+ 添加一条」本身就是说明。 */}
                       <header className="plan-preview-items-head">
-                        <p className="plan-preview-body-title">这条技能的解析结果（可以改、可以删、可以加）</p>
-                        <small>{itemSource === 'override' || itemSource === 'family' ? '按这条技能自己的解析方案' : '按通用方案'}</small>
+                        <p className="plan-preview-body-title">解析结果</p>
                       </header>
                       {items.map((item, index) => (
                         <div className="plan-preview-item" key={item.key}>
@@ -358,9 +360,6 @@ export default function PlanPreviewDialog({
 
               {step === 1 && (
                 <div className="plan-preview-directions">
-                  {dimensions.length > 0 && (
-                    <p className="plan-preview-body-title">这些档位就是这条技能工作台里的档位，已经按默认值选好</p>
-                  )}
                   {dimensions.map(dimension => (
                     <div className="plan-preview-direction" key={dimension.key}>
                       <p className="plan-preview-body-title">{dimension.label}</p>
@@ -438,7 +437,6 @@ export default function PlanPreviewDialog({
               <button type="button" className="plan-preview-btn" onClick={() => (step === 0 ? onClose?.() : setStep(step - 1))}>
                 {step === 0 ? '关闭' : '上一步'}
               </button>
-              {step === 0 && <span className="plan-preview-keep">关掉不会丢，再点一次入口按钮就能回到这里</span>}
               {step < 2
                 ? <button type="button" className="plan-preview-btn is-primary" onClick={() => setStep(step + 1)}>下一步</button>
                 : (plan?.degraded
