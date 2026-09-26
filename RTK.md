@@ -9677,3 +9677,64 @@ e2e 259 → **262** 条。
 影响：release 目录膨胀、部署变慢、**上线复验时极容易被旧块误导**（我这次就差点因为"第一个 index-*.js 里搜不到新文案"
 误判成没上线）。修法一行：解包前 `rm -rf $RemoteDir/dist`（或改用 `rsync --delete`）。
 **没动**：那是共享的发布脚本，按这个仓的规矩（部署脚本不许随手加逻辑）先报给用户。
+
+## 2026-09-26 批 CB —— 视频子页面工作台"适配"与图片侧对齐（提交 64d367e1 / 已上线）
+
+**用户原话（逐字）**
+① 「你这个框为什么会适配的这么差呀？就是你这个框左右两边都有一些留白呀，然后也没有做的很正。」
+② 「你看你下面一大片的留白，我不是跟你说过你要调整吗？你也没去调整呀。」「然后你这个框也实在是
+   太小了吧。」
+③ 「你这两个按钮的适配也做的不好呀，还有你这个模型的选项的这个按钮为什么这么短呢？」
+④ 「什么叫代为撰写呀？我们这里把代为撰写已经改了一个称呼了呀。你这里不是有一个叫生成脚本的按钮
+   吗？…他们不是还有一个放大的按钮吗？你这个按钮也没有做上去呀？图片生成那边我记得是有的呀。」
+⑤ 「你这个生成脚本按钮为什么要做的那么大呢？」
+
+**实测（`.qa/cb-diag.mjs`，1440 视口 /video-creation?id=video.smart，同脚本改前/改后）**
+| 项 | 改前 | 改后 |
+|---|---|---|
+| 左栏内缩 | 左 42 / 右 **53** | 左 **52** / 右 53 |
+| 脚本框 | 342x153、左缩 16 且右沿比区块多 16 | 332x**240**、与区块同边 |
+| 付费动作 | `.media-workbench-paid` **342x45** | **171x45** |
+| 模型名格 | mark 47（图标 25）/ copy 54 →「Seedanc…」 | mark 25 / copy **80** |
+
+**四条根因（都不是"样式没调"，各有出处）**
+1. 左右内缩不等 = `scrollbar-gutter: stable` 只保右槽 ⇒ `stable both-edges`（WorkbenchShell.css 两处）。
+2. 框太小 + 下方一大片留白 = 同一件事：基类 `.mention-prompt-field`（MentionPromptField.css:4-5）
+   自带 `margin: 0 16px 14px; width: calc(100% - 32px)`（那是给整宽页面写的），工作台里区块已有内边距
+   ⇒ 左边空一块、右边冒出去。归零 + ≥1024 视口 min-height 提到 240。
+3. 模型按钮"短" = 按钮等宽（grid 167.875×2），短的是名字：`.video-config-trigger > span { flex: 1 }`
+   本是给文案层写的，图标底座 `.video-model-mark` 也是 `> span` ⇒ 抢走自由空间。
+   ⚠️ 修它的两条规则**必须排在 `.video-model-mark {` 基础规则之后**：test/video-model-menu-0912 用
+   `css.match(/.video-model-mark \{([^}]*)\}/)` 取第一处匹配，放前面会被误判。
+4. 生成脚本按钮通栏 = `.media-workbench-paid-item` 原来是 `flex: 1 1 220px`（任何 >220 的栏都拉满）
+   ⇒ `flex: 0 0 auto` + 按钮 `width: auto`。
+
+**术语与放大（用户③④）**
+- 占位里的「代为撰写」是**知渔的叫法**；站内叫「生成脚本」（SCRIPT_ACTION.label），按钮在脚本框**上面**
+  ⇒ 占位改成「…或点击上面的「生成脚本」由 AI 帮你写」；**前 22 字**（知渔锚点，quantv-video-parity-machine
+  逐字照抄那段）没动。独立创作台 `.video-dawei-entry` 入口文案同步改（类名不变，e2e/门禁按类名找）。
+- 放大：图片侧本来就有（FieldRenderer 的 TextareaControl），视频侧补上同名类名 + portal 的 `ScriptField`。
+  放大框里的编辑器仍走 MentionPromptField —— 换裸 textarea 会把 `@[名字](id)` 标记露给用户。
+
+**门禁**：`test/video-subpage-parity-0926.test.mjs`（7 条）。
+**证据**：`npm run test` 4168 / pass 4158 / **fail 0**；`npm run precommit` 构建 exit 0 +
+`[media-e2e] 通过：265 条断言全绿` + 38 门禁全绿；`Deployed 64d367e1 to https://shuimg.cn/`；
+线上（服务器上跑）：release=`/var/www/shubao/releases/20260926-222450-64d367e1`、health 200、
+`style-CSbpYKqp.css` 里 both-edges=1 / `video-config-trigger>.video-model-mark`=1 /
+paid-item 那条=1，本次 release 的 `index-Dc1x7hXa.js`（510.28 kB）里 media-field-expand=1 /
+「点击上面的「生成脚本」」=1。
+
+**⚠️ 本轮踩坑**：precommit 中途一次 `EADDRINUSE 127.0.0.1:4197` —— 另一次 media-workbench-e2e
+进程还占着端口（它随后自行退出）。处置：**原样重跑**，绿；**没有去杀别人的进程**。
+（e2e 的端口是硬编码 4197，见 scripts/media-workbench-e2e.mjs:36。）
+
+**本批未做完（下批第一件事，别再漏）**
+1. `src/components/plan-preview/PlanPreviewDialog.jsx:35-36` 仍写着 `entry: '代为撰写'` /
+   `confirmTitle: '立即「代为撰写」'`，视频侧那条链路的弹窗抬头还是知渔的叫法（本次 release 的
+   index-Dc1x7hXa.js 里 grep 得到 2 处）。要么改成站内叫法，要么由视频侧调用点传入。
+2. 「生成记录」搬进右栏（portal 方案见本文件 CA 一节）—— **搬，不许删**。
+3. 生成配置面板打开时左边被截断（面板是 position:fixed + JS clamp，要查是谁形成了 fixed 包含块/谁裁的）。
+4. 用户要的「跟知渔 /apps 与图片侧子页面逐项对账（尺寸/规格/UI/设计思路/策划）」的全量核对，仍未做。
+5. 上一批（CA）遗留：脚本框那段"示例/预填"文字的来源仍未定性 —— 用空 API 打桩打开子页面时
+   textarea 是空的（`.qa/ca-frame-diag.mjs` 第二相），说明**不是代码预填**，而是用户自己账号下的
+   状态（生成脚本/AI 分析写回的）。下次先确认再动手删。
