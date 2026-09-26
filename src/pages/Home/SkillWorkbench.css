@@ -87,8 +87,10 @@
 /* 历史条目：卡片下面一条操作行（删除 / 用这组参数）——不做 hover 才出现的隐藏操作，
    键盘用户与触屏用户都要能用。 */
 .skill-history-item { display: grid; gap: 6px; align-content: start; }
-.skill-history-actions { display: flex; gap: 6px; }
+/* 一行最多三颗动作（用这组参数 / 下载 / 删除）：窄栏里要能换行，不许被裁掉 */
+.skill-history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .skill-history-reuse,
+.skill-history-download,
 .skill-history-delete,
 .skill-history-more {
   padding: 4px 10px;
@@ -101,6 +103,16 @@
   transition: background .18s ease, color .18s ease;
 }
 .skill-history-reuse:hover,
+.skill-history-download:hover,
 .skill-history-more:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .skill-history-delete:hover { background: var(--sb-ink-1); color: var(--sb-surface-card); }
 .skill-history-more { justify-self: start; margin-top: 10px; padding: 7px 14px; font-size: 12px; }
+/* ═══ 保留期提示（批 BZ）═══════════════════════════════════════════════════════════════
+   「记录只留 7 天、要留就下载」——这句是**事实陈述**（服务端 ASSET_RETENTION_DAYS = 7），
+   与「我的作品」工作区里那句同一口径；改了保留期，这里和那句都要跟着改（门禁钉着两边）。 */
+.skill-history-retention {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sb-ink-3);
+}

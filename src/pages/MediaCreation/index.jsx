@@ -31,6 +31,7 @@ import { contentResultPages, isContentResult } from '../Home/contentResultModel.
    否则会出现"示例里写着 5 样、实际只交付 3 样"这种自相矛盾（计价按张数走，写错就是钱的问题）。 */
 import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
+import { downloadFileName, videoStatusLabel } from '../Home/mediaHistoryModel.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 /* 批 BP-3：首页案例区「做同款」→ 落到哪条技能 + 预填什么，判断收在那一个纯函数模块里 */
 import { remixSeedValuesOf, remixSkillIdOf } from '../Home/galleryRemixTarget.js';
@@ -135,6 +136,11 @@ function formatWorkTime(value) {
   const pad = number => String(number).padStart(2, '0');
   return pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }
+
+/* ═══ 批 BZ：视频任务的**状态标签**（卡片左上角那枚遮罩标签）与下载文件名 ═════════════════════
+   用户问：「他们是不是也得有一个遮罩的标签这样？那这个标签应该备注是什么呢？」
+   实现与口径都在 `../Home/mediaHistoryModel.js`（纯函数，门禁能直接跑）。 */
+/* 历史操作③：下载（批 BZ）——见下方 downloadHistory */
 
 /* 错误就近显示：把人话放在 CTA 上方，而不是弹一个转瞬即逝的 Toast */
 function friendlyError(error) {
@@ -522,6 +528,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
           title: String(work.title || skill?.name || ''),
           subtitle: [urls.length ? urls.length + ' 张' : '', time].filter(Boolean).join(' · '),
           cover: urls[0] || '',
+          /* 批 BZ：「下载」要下的是**这一组全部**（图片/图文都是多张），不是只下封面那张 */
+          downloads: urls,
           /* 「用这组参数」靠它还原面板：只认**这条技能自己**存下的参数 */
           values: (work.replay && work.replay.mediaSkillId === skill?.id && work.replay.panelValues) ? work.replay.panelValues : null,
           /* 图文没有"面板参数"可还原（它的输入就是一句话提示词）→ 还原提示词本身。
@@ -538,16 +546,27 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       ? videoJobsOfSkill(videoJobs, skill?.id).map(job => {
           const done = job.status === 'completed' && job.resultUrl;
           const seconds = Number(job.duration) || 0;
+          /* ═══ 批 BZ：视频历史**也要有时间** ═══════════════════════════════════════════════
+             用户口径：「它的**排版**，它的**时间**这些东西是不是也得加进去呢？」
+             实测：图片那条副标题是 `N 张 · 时间`，视频那条只有 `秒数 · 分辨率 · 比例` —— 漏了时间。
+             与其他记录同一口径（`formatWorkTime`），排在最后一位。 */
+          const time = formatWorkTime(job.createdAt || job.created_at || job.updatedAt || '');
           return {
             id: String(job.id || ''),
             saveKey: String(job.id || ''),
             title: String(job.prompt || skill?.name || '视频任务').slice(0, 60),
-            subtitle: [seconds ? seconds + ' 秒' : '', job.resolution || '', job.aspectRatio || job.aspect_ratio || ''].filter(Boolean).join(' · '),
+            subtitle: [seconds ? seconds + ' 秒' : '', job.resolution || '', job.aspectRatio || job.aspect_ratio || '', time].filter(Boolean).join(' · '),
             cover: '',
             /* 成片用 video 播放（CaseCard 支持），没出片就只留一行状态，不放一张空白封面 */
             video: done ? job.resultUrl : '',
             poster: '',
-            badge: done ? '' : String(job.status || '生成中'),
+            /* 批 BZ：成片可下载（没出片就没有可下的东西，按钮也不会出现） */
+            downloads: done ? [job.resultUrl] : [],
+            /* ═══ 批 BZ：状态标签统一成**用户看得懂的中文**（与设计稿 86 的五个词一致）═══════════
+               改前直接把服务端状态拼上去（`String(job.status)`）—— 界面会冒英文状态词。
+               规矩：**正常不显示标签**（有成品就是干净的一张卡），只有"不正常"才说明情况。
+               ⚠️ 映射表只有这几档；出现没见过的状态时按"生成中"兜底，但**不许原样透传英文**。 */
+            badge: done ? '' : videoStatusLabel(job.status),
             /* 「用这组参数」还原创作台：任务记录里存着提示词与规格，全部可以还原 */
             restore: {
               videoJob: {
@@ -1182,6 +1201,35 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
   }, [state.creationLaunch, openSkill, backToHub, dispatch]);
 
+  /* ═══ 历史操作③：下载（批 BZ）═══════════════════════════════════════════════════════════
+     用户问：「是不是会有……**下载**的功能？」「它的**时间**这些东西是不是也得加进去呢？」
+     —— 记录只留 7 天（服务端保留期），所以"能拿走"是这个列表最基本的出口。
+     做法：同源地址直接 `<a download>` 逐个触发（资产就在本站 `/api/generated-assets/…`，
+     不走后端新接口、也没有跨域问题）。图片/图文是**一组多张**，全下；视频下成片。
+     ⚠️ 文件名用作品标题（去掉路径不安全字符）+ 序号 + 扩展名 —— 用户下到本地要认得出是哪一次。 */
+  function downloadHistory(item) {
+    const urls = (Array.isArray(item?.downloads) ? item.downloads : []).filter(Boolean);
+    if (!urls.length) { setError('这条记录没有可下载的文件'); return; }
+    for (const [index, url] of urls.entries()) {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = downloadFileName({
+        title: item?.title,
+        fallback: skill?.name,
+        url,
+        index,
+        count: urls.length,
+        video: item?.video,
+      });
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    }
+    setError('');
+    setNotice(urls.length > 1 ? '已开始下载 ' + urls.length + ' 个文件' : '已开始下载');
+  }
+
   /* 历史操作②：删除（软删除，服务端可恢复） */
   async function deleteHistory(item) {
     const saveKey = item?.saveKey;
@@ -1486,6 +1534,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onGenerate={onGenerate}
         onHistoryDelete={deleteHistory}
         onHistoryReuse={reuseHistory}
+        onHistoryDownload={downloadHistory}
         history={history}
         panel={panel}
         tutorial={tutorial}

@@ -816,6 +816,10 @@ try {
     id: 'job-e2e-video', status: 'completed', mode: 'script', sku: 'video_seedance_standard_720p_5s',
     prompt: '白底化妆水瓶缓慢旋转，柔光扫过瓶身', duration: 5, aspectRatio: '9:16', resolution: '720p',
     resultUrl: '/images/home/workspace-video.png', progress: 100,
+    /* ⚠️ 批 BZ：**真机返回里有 createdAt**（server/videoGeneration.mjs 的 `createdAt: row.created_at`），
+       桩里原来漏了它 —— 于是"历史卡要带时间"这条断言拿到空值判红。
+       按本仓规矩：把桩补齐成与真机一致的形状，而不是把断言放宽。 */
+    createdAt: '2026-09-26 14:05:00', updatedAt: '2026-09-26 14:06:00',
   }];
   await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=video.smart', { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
@@ -844,6 +848,9 @@ try {
   }));
   check(tagged.title.includes('白底化妆水瓶'), '打了标记的任务进入这条技能的历史', tagged.title);
   check(tagged.subtitle.includes('5 秒'), '历史卡片带上规格（时长 / 清晰度 / 比例）', tagged.subtitle);
+  /* ═══ 批 BZ：视频记录**也要有时间**（用户口径：「它的排版，它的时间这些东西是不是也得加进去呢？」）
+     用户看得懂的形式 = `MM-DD HH:MM`（与图片那条同一个 formatWorkTime）。 */
+  check(/\d{2}-\d{2} \d{2}:\d{2}/.test(tagged.subtitle), '视频记录的副标题里带时间（与图片记录同一口径）', tagged.subtitle);
   check(tagged.hasVideo, '成片在历史卡里就是视频（不是一张死图）');
   /* 工作台自己的「生成记录」里点一条 → 结果台出现，成片就在这一页看（不必跳画布）。
      ⚠️ 子页面历史卡是**弹窗看大图**（我们自己的交互），点它不会切结果台 ——
@@ -857,6 +864,12 @@ try {
   check(stageAfterPick.stage, '点生成记录后，结果台就在这一页出现（不必跳画布）');
   check(stageAfterPick.player, '结果台里是可播放的成片（不是一句"去画布看"）');
   check(tagged.actions.includes('用这组参数'), '历史条目能还原参数', JSON.stringify(tagged.actions));
+  /* ═══ 批 BZ：出片的那条要有「下载」；保留期那句要写在**看得见这条流的地方** ═══════════════
+     用户口径：「是不是会有……**下载**的功能？」「作品保留 7 天」这条以前只写在「我的作品」工作区里，
+     而结果真正被翻看的地方是这条技能的历史 —— 这里也要说，且说的是**同一个数**（服务端保留期）。 */
+  check(tagged.actions.includes('下载'), '出片的历史条目有「下载」', JSON.stringify(tagged.actions));
+  const retentionNote = await page.evaluate(() => document.querySelector('.skill-history-retention')?.textContent || '');
+  check(/保留 \d+ 天/.test(retentionNote), '历史面板顶部如实写清保留期', retentionNote.slice(0, 40));
   /* 还原是**只回填、不扣费**：点完不许出现任何生成请求 */
   const beforeReuse = calls.regenerate.length + calls.videoJob;
   await page.click('.skill-history-item .skill-history-reuse');

@@ -34,6 +34,8 @@ export default function SkillWorkbench({
   history = [],
   onHistoryDelete = null,
   onHistoryReuse = null,
+  /* 批 BZ：下载（图片整组 / 视频成片）。没传就不渲染那颗按钮。 */
+  onHistoryDownload = null,
   /* 整块嵌入的既有工作台（小红书图文 / 视频）。见 WorkbenchShell.panel 的说明：
      非空时页面变成「通栏」形态 —— 不再渲染通用字段与通用 CTA。 */
   panel = null,
@@ -161,6 +163,12 @@ export default function SkillWorkbench({
             </>
           : (historyList.length
             ? <>
+                {/* ═══ 2026-09-26 批 BZ：保留期说在**看得见这条流的地方** ═══════════════════════
+                    用户问过："作品保留 7 天"这条现在只写在「我的作品」工作区里，
+                    而生成结果真正被翻看的地方是**这条技能的历史** —— 两边不一致，
+                    用户在这里看到记录消失会不知道发生了什么。服务端保留期就是 7 天（ASSET_RETENTION_DAYS）。
+                    ⚠️ 这句是**事实陈述**，不是我编的口号：改了服务端保留期就得改这里（门禁钉着）。 */}
+                <p className="skill-history-retention" role="note">生成记录保留 7 天，要留的请及时下载。</p>
                 <div className="skill-workbench-grid">
                   {historyList.slice(0, historyLimit).map((item, index) => (
                     <div className="skill-history-item" key={item.id || index}>
@@ -183,6 +191,10 @@ export default function SkillWorkbench({
                             那不是操作，是坑（用户 9-17：「你自己先把坑踩完」）。
                             values / restore 二者有一个才认为这条记录能还原。 */}
                         {(item.values || item.restore) && <button type="button" className="skill-history-reuse" onClick={() => onHistoryReuse?.(item)}>用这组参数</button>}
+                        {/* ⚠️ 批 BZ：**没有可下载的东西就不放这颗按钮**（同一条规矩）——
+                            出片失败/还没有结果的那种记录，放一个点了没反应的下载是坑。 */}
+                        {(item.cover || item.video || (Array.isArray(item.downloads) && item.downloads.length))
+                          && <button type="button" className="skill-history-download" onClick={() => onHistoryDownload?.(item)}>下载</button>}
                         <button type="button" className="skill-history-delete" onClick={() => onHistoryDelete?.(item)}>删除</button>
                       </div>
                     </div>
