@@ -9257,3 +9257,83 @@ hover 不许由 JS 状态实现**。
 ### 验证
 `npm run test` **4144 / pass 4134 / fail 0 / skipped 10**；`npm run precommit` 全绿；
 门禁 ⑦ 扩成"三条触发路径都要在"。
+
+### 批 BW（2026-09-26）：「代为撰写」的解析方案**接线**（parseSpec → 界面 + 流水线），视频侧同批接上；**含一次真实部署事故与它的门禁**
+
+**用户口径（逐字）**：
+①「用户输入他的提示词或者图片之后，你会有**解析的方案**吗？**为什么我现在看起来就是一些标签而已啊**」
+②「我要的是，**每个工作台 skill 有自己个性化的解析方案**啊，**不可能概念 skill 还解析什么卖点和产品特点吧**？」
+③「不止是概念视觉，我们现在**所有的图片生成和视频生成的代为撰写**是不是都应该这么做呢，**个性化做匹配方案**啊。」
+
+**改前**：批 BV 只把 `parseSpecs` **入库**（数据 + 门禁），界面仍是"三组全站共用的胶囊 + 一个都没选中"，
+模型也仍按**电商那套**（卖点/人群/参数）问 —— 所以用户看到的确实"就是一些标签"。
+
+**改后**（详见 `docs/design/85-parse-spec-wiring.md`）：
+- **步①** 多一张"这条技能的解析结果"卡：一行一条（声明源出 label/hint，模型只给 value）+ 行尾删除 +
+  卡片底部「+ 添加一条」；**行在打开对话框时就建好**（模型没答时值为空）⇒ "要解析什么"看得见。
+- **步②** 由这条 skill 的声明派生**并默认选中每组第一档**（门禁保证那是中性档或该 skill 已声明的默认值），
+  概念视觉方案拿到的是**它自己的工作台档位**：20 条母体 + 10 种手法 + 比例口径（21/11/1 个按钮）。
+- **步③** 分节：本次解析 / 分步 / 正文 / 需要注意。
+- **模型只被要求解析清单里的东西**：systemPrompt 逐项列出 key 并写死「**不要**解析清单之外的任何东西
+  （卖点/适用人群/价格/尺寸参数）」；模型自己冒出来的键在归一化时**丢掉**。
+- **方向组可以继承工作台自己的档位**（`fromField`）：概念方案继承 20 条母体 + 10 种手法（与工作台**同一份**，
+  批 BW 把这两套选项从 `imageSkills.js` 导出复用）、商品套图继承 market/platform/language、
+  建筑家装继承 style/lightMood、人像继承 style、图片编辑继承 backdrop。
+  ⚠️ **继承只能往后接**：第一档永远是声明里的第一档，否则"默认选中"的判据会被继承悄悄改掉（门禁① 守）。
+- **用户改过的条目算另一份方案**：进 `actionId`（改完点「重新生成方案」= 新的 0.5 积分；一字不改地重复点仍被幂等挡住）、
+  应用时并进正文（`【按你的修正】`）、重生成时作为**已确认结论**下发（"以此为准"）。
+- **两个入口都带 skill**：图片侧 `skillId={skill.id}`、视频侧 `skillId={workbenchSkillId}`。
+
+**⚠️⚠️ 这次真正值钱的一条：服务端 import `src/` = 线上起不来（实操踩到，已回滚）**
+第一版我把方案表放在服务端查：`server/planPreview.mjs` 里 `import '../src/skills/parseSpecs.js'`。
+`npm run test` 全绿、`npm run precommit` 全绿 —— **因为本地有 `src/`**。一上生产：
+服务端 **import 期** MODULE_NOT_FOUND → 进程起不来 → 健康检查 60 次全部 `connection refused`
+→ 部署脚本**自动回滚**（回滚步骤自己也通过，生产未受影响）。
+根因在**打包清单**：`scripts/deploy-production.ps1` 的归档只有 `dist server shared scripts/…` ——
+**不含 `src/`**；`src/` 只在开发机与构建期存在。
+⇒ **改法**：方案表**在前端算**（`planPreviewSpecFor`，`src/skills/parseSpecs.js` 本来就被打进 dist），
+把"要解析什么 + 有哪些档位"随请求下发；服务端只 `sanitizeSpecItems`/`sanitizeDirections`
+（去重、去空、长度截断、组数/档位数封顶）后组织提示词 —— 语义与"服务端自己查表"完全一致。
+前端没下发（首页入口/老客户端）时服务端退回表面级通用三组，老契约不变。
+⇒ **两条配套口径**：① 前后端共用逻辑一律放 **`shared/`**（那里真的会被发布，归档里还有一条
+"runtime module verification" 就在验它）；② 服务端不得 import `src/`。
+⇒ **新门禁** `test/server-shipping-boundary-0926.test.mjs`（3 条）：扫 `server/**` 的相对 import，
+落在 `src/`/`dist/` 上判红并点名；自证（塞 `../src/…` 必须红、`../shared/…` 不算）；
+核对打包清单那一行与这条口径一致。**变异自证**：把那行 import 塞回去 → 立刻红并点名
+`server/planPreview.mjs -> ../src/skills/parseSpecs.js`，删掉即绿。
+另做**生产分层干跑**：只拷 `server/` + `shared/`（不含 `src/`）到临时目录，真的 `import` 一次并构一次请求
+（事故前会 MODULE_NOT_FOUND，现在 SHIP_SIM_OK）。
+
+**视频侧 59 条的核查结论**（用户问过"视频那边是不是也全都没解决"）：
+解析方案按 id 全部取得到；**版式上视频侧没有**图片侧那个"按钮被收起来/宽度不固定"的缺陷 ——
+它自己在批 BB（09-24）就修过同源问题（根因写在该文件里："按钮的宽度由文字决定（inline-flex），
+不由容器决定（grid 1fr）"）；返回按钮对齐同理：视频 skill 子页面就是 MediaCreation 的子页面
+（同一套 `topbar-row.is-subpage`），批 BS 的全局修复已覆盖。
+⚠️ 视频子页面里「代为撰写」的入口是**工作台的付费动作**（`SCRIPT_ACTION`，label「生成脚本」），
+**不是**首页那个 `.video-dawei-entry`（`workbenchMode` 下输入框那一整块不渲染）——
+e2e 第一次就是红在这个类名上（超时 25s），"选错入口"。
+
+**门禁**：`test/parse-spec-wiring-0926.test.mjs`（7 条）①108 条**按 id 在前端算**都能取到自己的方案 +
+解析后第一档仍中性/pinned（含自证）；②概念方案的步② 是它自己的工作台档位（21/11/1），通用三组**不出现**在它里面，
+且空/不存在/`__proto__` 的 id 一律 null；③请求体逐项列解析项 + 明说别解析清单外的 + **没下发声明时不要求 items、
+退回表面三组** + 消毒；④模型编的键被丢掉、没答的项留空行、容忍 `{key:value}` 对象；⑤降级时行照常给出值为空
+（不假装也不藏）+ 没声明时不许凭空长条目；⑥客户端纯函数 + 两个调用点 + actionId 都带条目；⑦自证。
+变异自证：把 `fromField:'theme'` 改坏 → ② 立刻红两条，改回即绿。
+**e2e 补 ⑫d**（此前视频侧代为撰写**零覆盖**）：验 `skillId=video.smart`、`specItems` 4 项、`directions` 2 组、
+`specKey=videoSmart` 进请求、步② 默认档位、三步走完、正文写回脚本输入框、全程不产生生成请求 —— e2e 232→**244** 条。
+
+**验证与上线**：
+`npm run test` **4148 / 0 fail**（10 skipped）；`npm run precommit` 全绿（构建 exit 0 + 真实渲染冒烟 +
+e2e **244** 条断言 + BLOCKING 门禁 38 个）。
+提交 `e928f1ff`（接线）与 `acd56182`（分层修复 + 新门禁）。
+**部署这轮的实况**（如实记）：① 第一次因上面那个 src 依赖被生产健康检查拦住并自动回滚（生产未受影响）；
+② 修好后重启/健康/nginx 全部通过，但**从本机发起的公网校验**（gallery）失败 —— 本机到 `https://shuimg.cn`
+`curl` 直接 connection reset（沙箱网络限制，与本批代码无关，脚本自己也打了"源站探测等价"的提示）；
+③ 再跑一次撞上**并发会话的部署锁**（同一工作树，两边都在部署）。
+**最终由并发会话那次部署（`dfebd445`）把我这份代码带上线**，我在服务器侧逐项复验：
+`current` = `releases/20260926-133023-dfebd445`；静态 `assets/style-Bewq0_RY.css` 里有 `plan-preview-item-add`；
+`assets/index-BGFpqkw4.js` 里有 `specItems`/`specKey`/「这条技能的解析结果」/「这些档位就是这条技能工作台里的档位」/
+「添加一条」；`server/planPreview.mjs` 有 `sanitizeSpecItems`×3 且**没有任何 `from '../src/`**；
+`/api/plan-preview/options?surface=image` 返回表面级三组（修复后的契约）；`/` 与
+`/image-creation?id=image.concept_set` 均 200。
+⚠️ **没能从本机验**：公网可达性（本机连不上 shuimg.cn）——改用服务器侧 `--resolve` 打同一域名验的。
