@@ -76,8 +76,14 @@
     max-height: calc(100dvh - 32px);
     overflow-y: auto;
     overscroll-behavior: contain;
+    /* ═══ 2026-09-26 批 CB：**两边都预留槽位**（用户本轮批注，逐字）═════════════════════════════
+       原话：「你这个框为什么会适配的这么差呀？就是你这个框**左右两边都有一些留白**呀，
+       然后也没有做的很正。」
+       实测（.qa/cb-diag.mjs）：左栏 120,92 437 宽，里面第一个 block 162,116 342 宽
+       ⇒ **左内缩 42 / 右内缩 53**，差的那 11px 就是右侧那条 thin 滚动条的宽度。
+       只写 `stable` 只保右槽 ⇒ 视觉上左右不等。`both-edges` 两侧同宽，两边内缩这才相等。 */
     scrollbar-width: thin;
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
   }
 }
 
@@ -123,8 +129,14 @@
     height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
+    /* ═══ 2026-09-26 批 CB：**两边都预留槽位**（用户本轮批注，逐字）═════════════════════════════
+       原话：「你这个框为什么会适配的这么差呀？就是你这个框**左右两边都有一些留白**呀，
+       然后也没有做的很正。」
+       实测（.qa/cb-diag.mjs）：左栏 120,92 437 宽，里面第一个 block 162,116 342 宽
+       ⇒ **左内缩 42 / 右内缩 53**，差的那 11px 就是右侧那条 thin 滚动条的宽度。
+       只写 `stable` 只保右槽 ⇒ 视觉上左右不等。`both-edges` 两侧同宽，两边内缩这才相等。 */
     scrollbar-width: thin;
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
   }
   .media-creation[data-surface="subpage"] .media-workbench-right {
     height: 100%;
@@ -356,11 +368,20 @@
 .media-workbench-paid-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: start; }
 /* 2026-09-19 批 G：一颗动作 = 按钮 + 它下面那行说明。说明写两件事：
    点之前告诉你这颗会做什么，点之后把买到手的结论留在这儿。 */
-.media-workbench-paid-item { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.media-workbench-paid-item { display: grid; gap: 4px; justify-items: start; flex: 0 0 auto; max-width: 100%; min-width: 0; }
+/* ═══ 2026-09-26 批 CB：**动作按钮跟着文字走，不再拉满一行**（用户本轮批注，逐字）══════════════
+   原话：「你这个**生成脚本按钮为什么要做的那么大呢**？而且我跟你说过很多遍了，你应该去抄他们的
+   做法呀。他们不是还有一个放大的按钮吗？你这个按钮也没有做上去呀？」
+   实测（.qa/cb-diag.mjs，1440 视口 /video-creation?id=video.smart）：
+     paid 162,415 **342x45** justify=center | item flex=**1 1 220px**
+   根因就是这一行：`.media-workbench-paid-item` 当年写的是 `flex: 1 1 220px`，在任何比 220 宽的
+   栏里都会**被拉满**，所以 342 宽的一整条横在脚本框上面 —— 知渔那颗只是一颗正常大小的按钮。
+   ⇒ 改成 `flex: 0 0 auto`（按钮按内容宽），`.media-workbench-paid` 的 `width: 100%` 一起去掉，
+     换成 `width: auto`；`justify-items: start` 让下面那行说明也跟着按钮左对齐，不居中漂。 */
 .media-workbench-paid-note { font-size: 12px; line-height: 1.5; color: var(--sb-ink-3); }
 .media-workbench-paid {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; min-height: 45px; padding: 10px 18px;
+  width: auto; min-height: 45px; padding: 10px 18px;
   border: 1px solid var(--sb-border-default); border-radius: 10px;
   background: var(--sb-surface-card); color: var(--sb-ink-1);
   font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
@@ -526,6 +547,10 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 }
 .media-field-expand-close:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 .media-field-expand-body textarea { min-height: min(52vh, 420px); }
+/* 批 CB：脚本/@ 提示词那一档的内联编辑器不是 textarea 而是 contenteditable（MentionPromptField），
+   放大框里用的也是它（换裸 textarea 会露出 @[名字](id) 标记）⇒ 高度与内缩照 textarea 那一档给，
+   否则放大框里会出现一个 96px 高的矮框，比原框还小。 */
+.media-field-expand-body .mention-prompt-field { min-height: min(52vh, 420px); margin: 0; width: 100%; }
 .media-field-expand-body footer { display: flex; justify-content: flex-end; }
 .media-field-expand-done {
   min-height: 45px; padding: 10px 26px;

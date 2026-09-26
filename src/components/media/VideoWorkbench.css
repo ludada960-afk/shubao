@@ -106,7 +106,22 @@
 
 /* ── 脚本块：@ 提示 / 输入区 / 计数 / 空态（知渔原文逐字）──────────────────────── */
 .video-wb-mention-hint { font-size: 12px; color: var(--sb-ink-3); }
-.video-wb-prompt { width: 100%; }
+/* ═══ 2026-09-26 批 CB：**脚本框要跟区块左右齐平、并且吃掉下面那段空白**════════════════════════
+   用户本轮批注（逐字）：「你这个框为什么会适配的这么差呀？就是你这个框左右两边都有一些留白呀，
+   然后也没有做的很正。」「你看你下面一大片的留白，我不是跟你说过你要调整吗？你也没去调整呀。」
+   「然后你这个框也实在是太小了吧。」
+   实测（.qa/cb-diag.mjs）：block 162,360 **342** 宽，而里面的 .video-wb-prompt 是
+     `178,524 **342x153** pad=14/15` —— 左边多缩 16（右沿因此比区块还多出 16）。
+   根因：基类 `.mention-prompt-field`（MentionPromptField.css:4-5）自带
+     `margin: 0 16px 14px; width: calc(100% - 32px)`，那是给**整宽页面**那一档写的；
+   工作台里区块自己已经有内边距，于是 16 的外边距 + 100%-32 的宽度叠成了"左边空一块、右边冒出去"。
+   ⇒ 工作台这一档把它归零，框与区块同宽同边。
+   ⚠️ min-height 从基类的 96 提到 240（≥1024 视口才提，窄屏保持小框可滚）：
+      用户要的"框太小"与"下面一大片留白"是同一件事的两面 —— 框长高了，那段空白就被吃掉。 */
+.video-wb-block .video-wb-prompt { margin: 0; width: 100%; }
+@media (min-width: 1024px) {
+  .video-wb-block .video-wb-prompt { min-height: 240px; }
+}
 .video-wb-counter { text-align: right; font-size: 12px; color: var(--sb-ink-3); }
 .video-wb-empty {
   display: grid; gap: 2px; place-items: center;

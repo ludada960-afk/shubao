@@ -1130,6 +1130,18 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
       缩放放在**底座**上（不是里面的 b / img 那层）—— 那里面还有一个 skewX(-11deg) 的字母标，
       直接给子元素写 scale 会把斜切覆盖掉。只动 transform：零重排，中心点放大。 */
 .video-config-trigger.is-model .video-model-mark { width: 28px; height: 28px; }
+/* ═══ 2026-09-26 批 CB：**模型名不再被挤成「Seedanc…」**（用户本轮批注，逐字）══════════════════
+   原话：「你这两个按钮的适配也做的不好呀，还有你这个**模型的选项的这个按钮为什么这么短呢**？」
+   实测（.qa/cb-diag.mjs）：两颗按钮其实是等宽的（grid 167.875 + 167.875），短的不是按钮而是**名字**：
+     按钮 168 宽里 `span.video-model-mark` 拿了 **47**（图标本身只有 25），
+     `span.video-model-copy` 只剩 **54**，于是 `strong` 里的「Seedance」被 ellipsis 成「Seedanc…」。
+   根因：`.video-config-trigger > span { flex: 1 }` 是给**文案层**写的，可图标底座
+   `.video-model-mark` 也是 `> span` ⇒ 它跟着一起抢走了自由空间（批 BG 那次只改了选择器写法，
+   没堵住这条继承）。⇒ 把图标底座钉死、把自由空间明确交给文案层。
+   ⚠️ 这两条**必须排在 `.video-model-mark {` 基础规则之后**：test/video-model-menu-0912 用
+      `css.match(/\.video-model-mark \{([^}]*)\}/)` 取**第一处**，写在前面会被它当成基础规则而误判。 */
+.video-config-trigger > .video-model-mark { flex: 0 0 auto; min-width: 0; }
+.video-config-trigger > .video-model-copy { flex: 1 1 auto; min-width: 0; }
 .video-inline-menu.is-model .video-model-mark { width: 32px; height: 32px; }
 .video-model-mark { transform: scale(.88); transition: transform var(--sb-dur-fast) var(--sb-ease-out); }
 .video-model-mark > * { transform-origin: center; }

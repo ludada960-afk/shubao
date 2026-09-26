@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ImagePlus, Library, RotateCcw, Sparkles, Video as VideoIcon } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ImagePlus, Library, Maximize2, RotateCcw, Sparkles, Video as VideoIcon, X } from 'lucide-react';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
@@ -130,6 +131,75 @@ function SlotUpload({
         onPick={pickLibrary}
       />
     </div>
+  );
+}
+
+/* ═══ 2026-09-26 批 CB：脚本输入 + 「放大」（用户本轮批注，逐字）══════════════════════════════════
+   原话：「我跟你说过很多遍了，你应该去抄他们的做法呀。他们不是还有一个**放大的按钮**吗？
+   你这个按钮也没有做上去呀？**图片生成那边我记得是有的呀，视频生成这边为什么没有呢**？」
+   ⇒ 图片侧的实现是 FieldRenderer 的 TextareaControl（.media-field-expand + 居中模态，
+     样式与几何全部复用，不新造一套）。这里照同一形态抄一份，只有一处不同：
+     内联编辑器仍是 MentionPromptField（脚本里带 @ 素材胶囊），放大框里也用同一个组件 ——
+     换成裸 textarea 会把 `@[名字](id)` 的标记直接露给用户（那是"两套东西"的开端）。
+   ⚠️ 它必须是个**独立组件**：useState 不能写在 blocks.map 里（hooks 规则，写错整页崩）。 */
+function ScriptField({
+  id, value, mentions, maxLength, placeholder, className, disabled, onChange, onFilesPasted, fieldRef, label,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const text = String(value || '');
+  const field = (
+    <MentionPromptField
+      id={id}
+      ref={fieldRef}
+      value={value}
+      mentions={mentions}
+      maxLength={maxLength}
+      onChange={onChange}
+      onFilesPasted={onFilesPasted || undefined}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+  return (
+    <span className="media-field-textarea">
+      {field}
+      <button
+        type="button"
+        className="media-field-expand"
+        disabled={disabled}
+        aria-label={(label || '脚本') + '放大编辑'}
+        title="放大编辑"
+        onClick={() => setExpanded(true)}
+      ><Maximize2 size={13} />放大</button>
+      {expanded && createPortal(
+        <div
+          className="media-field-expand-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={(label || '脚本') + '放大编辑'}
+          onMouseDown={event => { if (event.target === event.currentTarget) setExpanded(false); }}
+        >
+          <div className="media-field-expand-body">
+            <header>
+              <strong>{label || '脚本'}</strong>
+              <span>{text.length}/{maxLength}</span>
+              <button type="button" className="media-field-expand-close" aria-label="关闭放大编辑" onClick={() => setExpanded(false)}><X size={16} /></button>
+            </header>
+            <MentionPromptField
+              value={value}
+              mentions={mentions}
+              maxLength={maxLength}
+              onChange={onChange}
+              onFilesPasted={onFilesPasted || undefined}
+              placeholder={placeholder}
+              className={(className || '') + ' is-expanded-field'}
+            />
+            <footer><button type="button" className="media-field-expand-done" onClick={() => setExpanded(false)}>完成</button></footer>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </span>
   );
 }
 
@@ -295,15 +365,17 @@ export default function VideoWorkbench({
                 </div>
               )}
               <div className="video-wb-mention-hint">{block.mentionHint}</div>
-              <MentionPromptField
-                ref={isPrimary ? promptFieldRef : undefined}
+              <ScriptField
                 id={`video-workbench-prompt-${index}`}
+                label={block.title}
                 value={value}
                 mentions={mentions}
                 maxLength={promptMaxLength}
+                disabled={disabled}
                 onChange={change}
-                onFilesPasted={onFilesPasted || undefined}
+                onFilesPasted={onFilesPasted}
                 placeholder={block.placeholder || ''}
+                fieldRef={isPrimary ? promptFieldRef : undefined}
                 /* 与创作台里的提示词框**同一个类名**：@ 提及的蓝色胶囊样式由 .video-prompt-mentions 给，
                    两处必须长得一样（这一条也是端到端脚本读提示词的锚点） */
                 className="video-prompt-mentions video-wb-prompt"
