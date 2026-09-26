@@ -54,8 +54,11 @@ const imageRules = rules(imageCss);
  *     里还会再出现一次同名规则 —— 直接取第一条会拿到 `{ transition: none }` 这种空壳（本轮踩到）。
  *  所以：默认取第一条，`prop:` 指定"必须声明该属性"的那一条，`last: true` 取最后一条。 */
 function blockOf(list, selector, where, opts = {}) {
-  /* 选择器可以是**逗号列表**里的一项（本仓大量使用 `.a, .b { … }` 合写），所以按项匹配。 */
-  const hits = list.filter(r => r.selector.split(',').map(s => s.trim()).includes(selector));
+  /* 选择器可以是**逗号列表**里的一项（本仓大量使用 `.a, .b { … }` 合写），所以按项匹配。
+     ⚠️ 2026-09-26 批 BT：滚动悬停守卫的前缀 `html:not([data-scrolling]) ` 对这条判据**透明** ——
+        它只是"滚动那 150ms 不呈现悬停"，不代表这条规则不存在。比对前先剥掉。 */
+  const strip = s => s.replace(/^html:not\(\[data-scrolling\]\)\s+/, '');
+  const hits = list.filter(r => r.selector.split(',').map(s => strip(s.trim())).includes(selector));
   assert.ok(hits.length > 0, where + ' 里必须有 ' + selector + ' 这条规则');
   const usable = opts.prop ? hits.filter(r => r.decls[opts.prop] !== undefined) : hits;
   assert.ok(usable.length > 0, where + ' 的 ' + selector + ' 没有声明 ' + opts.prop);

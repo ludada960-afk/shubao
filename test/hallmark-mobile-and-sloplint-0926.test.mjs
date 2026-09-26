@@ -84,3 +84,33 @@ test('⑥ 分段控件：hover 只作用于被悬停的那一颗（防"组级 ho
   const renderer = read('src/components/media/FieldRenderer.jsx');
   assert.doesNotMatch(renderer, /hoverIndex|hoveredIndex/, 'hover 不许由 JS 状态实现');
 });
+
+
+test('⑦ 滚动期间的「假悬停」防护：状态标记 + 已安装 + 悬停规则带前缀', () => {
+  /* 背景：滚轮滚动不产生鼠标事件，浏览器不会重算光标下是谁 ⇒ 滚动前停在光标下的那颗按钮
+     会**保持 :hover 高亮**，用户看到的就是"我没指它，它却亮着"（本批用户报的就是这个）。
+     三件套缺一不可：① 状态标记模块存在；② 它真的被安装；③ 关键控件的悬停规则带前缀。 */
+  const guard = fs.readFileSync('src/utils/scrollHoverGuard.js', 'utf8');
+  assert.match(guard, /export function installScrollHoverGuard/, '状态标记模块必须导出安装函数');
+  assert.match(guard, /\{ passive: true, capture: true \}/, 'scroll 必须用 capture 监听（内层容器滚动不冒泡到 window）');
+  assert.match(guard, /data-\$\{SCROLLING_ATTR\}/, '标记写在 <html> 的 data-scrolling 上');
+
+  const main = fs.readFileSync('src/main.jsx', 'utf8');
+  assert.match(main, /installScrollHoverGuard\(\);/, '必须在入口安装（否则等于没写）');
+
+  const files = [
+    'src/components/media/WorkbenchShell.css',
+    'src/styles/generate-cta.css',
+    'src/pages/VideoStudio/VideoStudio.css',
+  ];
+  const PREFIX = 'html:not([data-scrolling]) ';
+  let prefixed = 0;
+  for (const file of files) {
+    prefixed += (fs.readFileSync(file, 'utf8').match(new RegExp(PREFIX.replace(/[[\]()]/g, '\\$&'), 'g')) || []).length;
+  }
+  assert.ok(prefixed >= 8, '关键控件的悬停规则必须都带 html:not([data-scrolling]) 前缀（当前 ' + prefixed + ' 处）');
+  /* 分段控件（用户报的那个）必须在名单里 */
+  const workbench = fs.readFileSync('src/components/media/WorkbenchShell.css', 'utf8');
+  assert.match(workbench, /html:not\(\[data-scrolling\]\) \.media-field-segmented button:hover:not\(:disabled\)/,
+    '分段控件的悬停必须受滚动防护约束');
+});

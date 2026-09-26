@@ -422,7 +422,7 @@
   cursor: pointer;
   transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
 }
-.video-config-trigger:hover { transform: translateY(-1px); border-color: var(--sb-border-strong); background: var(--sb-surface-tint); box-shadow: 0 7px 18px rgba(62,43,26,.09); }
+html:not([data-scrolling]) .video-config-trigger:hover { transform: translateY(-1px); border-color: var(--sb-border-strong); background: var(--sb-surface-tint); box-shadow: 0 7px 18px rgba(62,43,26,.09); }
 .video-config-trigger.is-open { border-color: var(--sb-border-strong); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); box-shadow: 0 6px 18px var(--sb-brand-a18); }
 .video-config-trigger > span { min-width: 0; flex: 1; display: grid; gap: 2px; text-align: left; }
 /* 批 BF：与图片侧 .visual-config-trigger-copy 同一批取值（见那边同一段批注） */
@@ -461,7 +461,7 @@
      ⚠️ 这一行原来的注释是「裁定 2：功能按钮禁止渐变」—— 本批是**用户改向**（原话见文件顶部批 BO
         那段）：渐变两端**同色相**、只差两档深度，远看仍是品牌紫实底，不是 9-18 否过的"双色渐变"。 */
   background: var(--sb-cta-grad); box-shadow: var(--sb-cta-shadow); color: var(--sb-neutral-0); font: 800 13px/1 inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
-.video-submit-row button:hover:not(:disabled) {
+html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
   /* 批 BO：与全局 CTA / 图片侧同一套悬停语言（留影AI：悬停时渐变亮一档 + 轻微上移 + 阴影加强） */
   background: var(--sb-cta-grad-hover);
   transform: translateY(-1px);
@@ -1230,7 +1230,7 @@
   transition: background-color var(--sb-dur-fast) var(--sb-ease-out),
               border-color var(--sb-dur-fast) var(--sb-ease-out);
 }
-.video-inline-menu > button:hover:not(.is-selected) { background: var(--sb-l3-option-hover); }
+html:not([data-scrolling]) .video-inline-menu > button:hover:not(.is-selected) { background: var(--sb-l3-option-hover); }
 .video-inline-menu > button:active { background: var(--sb-active-bg); }
 /* 选中态照 `.sb-opt[aria-pressed=true]`：底 + 描边 + ring + 品牌字（持久，不靠 hover 维持） */
 .video-inline-menu > button.is-selected {

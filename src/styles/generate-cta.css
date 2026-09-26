@@ -48,7 +48,7 @@
   box-shadow: var(--sb-cta-shadow);
   transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
-.shubao-gen-cta:hover:not(:disabled) {
+html:not([data-scrolling]) .shubao-gen-cta:hover:not(:disabled) {
   /* 留影那套"悬停四件事"里属于按钮本体的两件：**渐变亮一档** + 轻微上移 + 阴影加强。
      （他们另外两件是图标磁贴变渐变、文字转品牌色 —— 那是卡片按钮的，主按钮没有磁贴可换。） */
   background: var(--sb-cta-grad-hover);

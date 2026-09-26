@@ -55,8 +55,17 @@ function lacks(set, base) {
  * @returns {{ clickables, noHover, noFocus, exempt, unregistered, staleExemptions,
  *             explicitFocus, coverage }}
  */
+/* ═══ 2026-09-26 批 BT：滚动悬停守卫前缀对"状态覆盖率"是**透明**的 ═══════════════════════════════
+   规则形如 `html:not([data-scrolling]) .x:hover { … }`，含义是"滚动那 150ms 不呈现悬停"；
+   若按原文解析，`s.split(':')[0]` 会把 base 认成 `html` ⇒ 该控件被误判成"没有 hover"。
+   ⇒ 解析前统一剥掉这个前缀。⚠️ 不是放宽判据：剥掉之后仍然要求"该控件必须有 :hover 规则"。 */
+const SCROLL_GUARD_PREFIX = /^html:not\(\[data-scrolling\]\)\s+/;
+export function stripScrollGuardPrefix(selector) {
+  return String(selector).split(',').map(part => part.trim().replace(SCROLL_GUARD_PREFIX, '')).join(', ');
+}
+
 export function scanInteractiveState(cssFiles, root) {
-  const rules = collectStateRules(cssFiles, root);
+  const rules = collectStateRules(cssFiles, root).map(rule => ({ ...rule, sel: stripScrollGuardPrefix(rule.sel) }));
   const hasState = { hover: new Set(), focus: new Set(), disabled: new Set() };
   for (const r of rules) {
     for (const s of r.sel.split(',').map(x => x.trim())) {

@@ -12,11 +12,14 @@ import './styles/theme.css';
 // 处置与证据见 docs/design/40-decisions.md D35。
 import './styles/generate-cta.css';
 import { initThemeMode } from './utils/themeMode.js';
+/* 批 BT：滚动期间的"假悬停"防护（滚轮滚动不触发鼠标事件，浏览器会把 hover 留在旧元素上） */
+import { installScrollHoverGuard } from './utils/scrollHoverGuard.js';
 
 // P3 双主题 (4c183cd4 续命): 在 React 挂载前同步 <html data-theme>,
 // 避免 hydration 期间出现 light → dark 闪屏.
 if (typeof window !== 'undefined') {
   initThemeMode();
+installScrollHoverGuard();
 }
 
 /* ═══ 9-13 用户两次反馈「网站打不开」的加固 ═══
